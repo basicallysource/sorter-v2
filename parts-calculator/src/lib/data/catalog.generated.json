@@ -325,102 +325,6 @@
 			}
 		},
 		{
-			"id": "delete-unused-m3-tbd-placeholder",
-			"name": "Delete the unused M3 screw placeholder",
-			"priority": "P4",
-			"condition": "retired",
-			"description": "This placeholder screw is not used anywhere in the machine any more \u2014 every joint that carried it (the cable-mount cage bracket, the camera extension, the Orange Pi mount) turned out to already have a specific screw recorded, and those catalog lines have been updated to point at the real ones. It should be deleted outright, but a minted part id has to stay resolvable once it exists, and the catalog's own consistency check refuses a change that removes one, so deleting it needs that check overridden by someone who can make that call, not an edit from here. Tracked as sorter-v2 issue #453.",
-			"targets": {
-				"hardware": [
-					"scr-m3-tbd"
-				]
-			}
-		},
-		{
-			"id": "delete-unused-m3-shcs-tbd-placeholder",
-			"name": "Delete the unused M3 socket/button head length-TBD placeholder",
-			"priority": "P4",
-			"condition": "retired",
-			"description": "This placeholder screw is not used anywhere in the machine \u2014 it stood in for the basically Embedded Control Board's screws before they were measured as M3 x 6 mm button head (scr-m3-6-bhcs), and nothing has called for it since. It should be deleted outright, but a minted part id has to stay resolvable once it exists, and the catalog's own consistency check refuses a change that removes one, so deleting it needs that check overridden by someone who can make that call, not an edit from here. Tracked as sorter-v2 issue #454.",
-			"targets": {
-				"hardware": [
-					"scr-m3-shcs-tbd"
-				]
-			}
-		},
-		{
-			"id": "delete-unused-m3-8-shcs-screw",
-			"name": "Delete the unused M3 x 8 mm socket/button head screw",
-			"priority": "P4",
-			"condition": "retired",
-			"description": "This screw is not used anywhere in the machine any more. It was added as the clamp screw holding the C-channel input gear (12T) onto the NEMA 17 shaft flat; the C-channel overhaul established that the screws on that assembly are countersunk, so the joint carries the M3 x 8 mm countersunk (scr-m3-8-cs) instead, and this row has no quantity anywhere. It should be deleted outright, but a minted part id has to stay resolvable once it exists, and the catalog's own consistency check refuses a change that removes one, so deleting it needs that check overridden by someone who can make that call, not an edit from here. Tracked as sorter-v2 issue #536.",
-			"targets": {
-				"hardware": [
-					"scr-m3-8-shcs"
-				]
-			}
-		},
-		{
-			"id": "delete-unused-m3-35-flat-head-screw",
-			"name": "Delete the unused M3 x 35 mm flat head screw",
-			"priority": "P4",
-			"condition": "retired",
-			"description": "This screw reaches no bill of materials. Its only live use was the long screw clamping the two cable-clamp halves together at the top interface, and 35 mm was too short for that joint: the stack under the screw head is 32.00 mm to the floor of the nut pocket in the Cable clamp (outer) and 34.40 mm to come through the nut, so it carried 0.60 mm of margin and the nut could not be picked up. Cable clamp v2 carries the M3 x 40 mm flat head (scr-m3-40-fhcs) instead. Chute stepper gearing v1 also listed it, but v2 replaced it with the M3 x 20 mm countersunk (scr-m3-20-cs), so every remaining reference is a historical snapshot of a superseded assembly. It should be deleted outright, but a minted part id has to stay resolvable once it exists, and the catalog's own consistency check refuses a change that removes one, so deleting it needs that check overridden by someone who can make that call, not an edit from here. Tracked as sorter-v2 issue #618.",
-			"targets": {
-				"hardware": [
-					"scr-m3-35-bhcs"
-				]
-			}
-		},
-		{
-			"id": "delete-unused-m3-10-shcs-screw",
-			"name": "Delete the unused M3 x 10 mm socket/button head screw",
-			"priority": "P4",
-			"condition": "retired",
-			"description": "This screw reaches no bill of materials. Its only live use was the single screw holding the Ribbon cable clamp to the Cable cage bracket (cable mount) at the top interface, and 10 mm was too short for that joint: the clamp stands 1.30 mm off the bracket face so the ribbon is not crushed, so there is 7.94 mm from under the head to the bracket face and a 10 left only 2.06 mm of thread in the insert, under 1 x D. Cage bracket + cable clamp v2 carries the M3 x 12 mm socket/button head (scr-m3-12-bhcs) instead, and every remaining reference is a historical snapshot of a superseded assembly. It should be deleted outright, but a minted part id has to stay resolvable once it exists, and the catalog's own consistency check refuses a change that removes one, so deleting it needs that check overridden by someone who can make that call, not an edit from here. Tracked as sorter-v2 issue #662.",
-			"targets": {
-				"hardware": [
-					"scr-m3-10-shcs"
-				]
-			}
-		},
-		{
-			"id": "delete-unused-m3-15-washer",
-			"name": "Delete the unused M3 x 15 mm washer",
-			"priority": "P4",
-			"condition": "retired",
-			"description": "This washer is not used anywhere in the machine. It was added to match the documentation's description of the interface idler gear joint, under the M3 x 35 screw holding the gear onto the NEMA 23 bracket, and that description was wrong: the joint uses the printed chute stepper idler bearing retainers instead, so the washer was never correct there and its last assembly line was dropped on 2026-08-25. It should be deleted outright, but a minted part id has to stay resolvable once it exists, and the catalog's own consistency check refuses a change that removes one, so deleting it needs that check overridden by someone who can make that call, not an edit from here. Tracked as sorter-v2 issue #478.",
-			"targets": {
-				"hardware": [
-					"washer-m3-15"
-				]
-			}
-		},
-		{
-			"id": "delete-unused-m5-shcs-tbd-placeholder",
-			"name": "Delete the unused M5 socket/button head length-TBD placeholder",
-			"priority": "P4",
-			"condition": "retired",
-			"description": "This placeholder is not used anywhere in the machine. It stood in for an unmeasured M5 joint: first the three electronics mounts that bolt to the frame, which resolved to real parts (scr-m5-12-shcs and scr-m5-16-shcs) in PR #428, and after that the two screws fastening the Chute stepper support block. That block was removed from the machine on 2026-08-31 (sorter-v2#489, closing sorter-v2#483) once the NEMA 23 chute stepper mount was confirmed to work without it, so its two screws went with it, and the length was never measured so there is nothing to resolve it to. It should be deleted outright, but a minted part id has to stay resolvable once it exists, and the catalog's own consistency check refuses a change that removes one, so deleting it needs that check overridden by someone who can make that call, not an edit from here. Tracked as sorter-v2 issue #563, alongside #453, #454, #478 and #536 for the other four -- #565 duplicates #563 (both filed independently for this same screw); a human should close one.",
-			"targets": {
-				"hardware": [
-					"scr-m5-shcs-tbd"
-				]
-			}
-		},
-		{
-			"id": "delete-unused-m3s-heat-insert",
-			"name": "Delete the unused Ruthex M3S short heat insert",
-			"priority": "P4",
-			"condition": "retired",
-			"description": "This insert reaches no bill of materials. It was carried over on 2026-08-21 from the BOM sheet's Screws tab, which asks for 4 short M3 inserts per layer for the servo adapter, but it was never placed in the assembly tree because neither adapter half has an insert pocket: servo-adapter-flap-side has four 4.0 mm bores straight through a 5.0 mm wall with a countersink on the back face, and servo-adapter-servo-side has four blind 2.8 mm holes 4.0 mm deep on the same bolt circle, a self-tap pilot diameter rather than ruthex's recommended 4.0 mm insert hole. The Door module page has described that joint as 4 x M3 x 8 mm countersunk screws threading straight into the printed plastic since 2026-08-24, and the short M3 is used nowhere else in the machine, so the BOM row should go with it. It should be deleted outright, but a minted part id has to stay resolvable once it exists, and the catalog's own consistency check refuses a change that removes one, so deleting it needs that check overridden by someone who can make that call, not an edit from here. Tracked as sorter-v2 issue #636.",
-			"targets": {
-				"hardware": [
-					"hsi-m3s"
-				]
-			}
-		},
-		{
 			"id": "merge-bearing-holders",
 			"name": "Merge the two chute bearing holders into one part",
 			"priority": "P1",
@@ -452,98 +356,6 @@
 					"layer",
 					"bottom-layer",
 					"chute"
-				]
-			}
-		},
-		{
-			"id": "delete-unused-m2-8-shcs-screw",
-			"name": "Delete the unused M2 x 8 mm socket/button head screw",
-			"priority": "P4",
-			"condition": "retired",
-			"description": "This screw reaches no bill of materials. Its only reference is the Camera extension assembly, which has been unused since 2026-09-02, when the Camera lamp replaced the light post, the overhead camera mount, the classification dome and the camera & LED insert. It self-tapped the IMX415 classification camera board onto the camera extension's printed post, 4 per module. Note the assembly goes with the screw: deleting the screw on its own would leave a listed assembly asking for a part that no longer exists. It should be deleted outright, but a minted part id has to stay resolvable once it exists, and the catalog's own consistency check refuses a change that removes one, so deleting it needs that check overridden by someone who can make that call, not an edit from here. Tracked as sorter-v2 issue #566.",
-			"targets": {
-				"hardware": [
-					"scr-m2-8-shcs"
-				],
-				"assemblies": [
-					"camera-extension-assembly"
-				]
-			}
-		},
-		{
-			"id": "delete-unused-led-cob-50mm",
-			"name": "Delete the unused 50 mm LED COB",
-			"priority": "P4",
-			"condition": "retired",
-			"description": "This COB reaches no bill of materials. Its only reference is the Light post assembly, which has been unused since 2026-09-02, when the Camera lamp replaced it: the lamp carries its own shaded lamp over each C-channel, so there is no post and no COB plate on the current machine. Note the assembly goes with the part. It should be deleted outright, but a minted part id has to stay resolvable once it exists, and the catalog's own consistency check refuses a change that removes one, so deleting it needs that check overridden by someone who can make that call, not an edit from here. Tracked as sorter-v2 issue #567.",
-			"targets": {
-				"hardware": [
-					"led-cob-50mm-24v"
-				],
-				"assemblies": [
-					"light-post-assembly"
-				]
-			}
-		},
-		{
-			"id": "delete-unused-steel-rod",
-			"name": "Delete the unused 3/8 in steel rod stock",
-			"priority": "P4",
-			"condition": "retired",
-			"description": "This rod reaches no bill of materials. Its only reference is the Overhead camera mount, which has been unused since 2026-09-02, when the Camera lamp replaced it. Two per mount, bought as a 4 ft length and cut into the four roughly 1 ft pieces the two camera arms hung from. It is the only stock-material row in the catalog, so it is also the only reason that section appears on the Hardware tab. Note the assembly goes with the part. It should be deleted outright, but a minted part id has to stay resolvable once it exists, and the catalog's own consistency check refuses a change that removes one, so deleting it needs that check overridden by someone who can make that call, not an edit from here. Tracked as sorter-v2 issue #568.",
-			"targets": {
-				"hardware": [
-					"rod-steel-3-8"
-				],
-				"assemblies": [
-					"camera-mount"
-				]
-			}
-		},
-		{
-			"id": "delete-retired-c-channel-supports",
-			"name": "Delete the retired C-channel foot/leg/leg-extension supports",
-			"priority": "P4",
-			"condition": "retired",
-			"description": "The prototype C-channel stand: a foot, a leg and a leg extension stacked into a standoff, nine of each, plus the three assemblies that stacked them (Channel 2 support, Channel 3 support, Bulk bucket support). All of it was replaced on 2026-09-02 by the layout guide, the support legs and the dovetail adapters, and none of it reaches a bill of materials: the three parts carry no quantities and the three assemblies are unreachable from the machine. zed0 confirmed on 2026-09-07 that they were never used in the construction of a machine on the website and can be discarded, which is also what retires the framing cut list's piece I, the 267 mm bulk bucket support extrusion that stood in the same stack and never had a catalog entry. They should be deleted outright, but a minted part id has to stay resolvable once it exists, and the catalog's own consistency check refuses a change that removes one, so deleting them needs that check overridden by someone who can make that call, not an edit from here. Note the assemblies go with the parts.",
-			"targets": {
-				"parts": [
-					"foot",
-					"leg",
-					"leg-extension"
-				],
-				"assemblies": [
-					"channel-two-support",
-					"channel-three-support",
-					"bulk-bucket-support"
-				]
-			}
-		},
-		{
-			"id": "delete-unused-m4-12-cs-screw",
-			"name": "Delete the unused M4 x 12 mm countersunk screw",
-			"priority": "P4",
-			"condition": "retired",
-			"description": "This screw reaches no bill of materials. It bolted both lazy Susans, 4 a side, and it was too short at all four of those joints: the bearing is 10 mm thick rather than the 9 mm the catalog claimed, so an M4 x 12 reached 2.0 to 3.0 mm of an 8.1 mm insert at the top interface inner ring, 1.0 mm at the outer ring, and 1.0 mm on the bottom lazy Susan's rotating side. Interface v6 and Bottom lazy Susan v3 carry the M4 x 16 mm countersunk (scr-m4-16-cs) instead, and every remaining reference is a historical snapshot of a superseded assembly. It has no sheet_qty either. It should be deleted outright, but a minted part id has to stay resolvable once it exists, and the catalog's own consistency check refuses a change that removes one, so deleting it needs that check overridden by someone who can make that call, not an edit from here. Tracked as sorter-v2 issue #716.",
-			"targets": {
-				"hardware": [
-					"scr-m4-12-cs"
-				]
-			}
-		},
-		{
-			"id": "delete-bare-pico-and-header-pins",
-			"name": "Delete the bare Raspberry Pi Pico, its 2.54 mm header pins and the Pico with headers assembly",
-			"priority": "P4",
-			"condition": "retired",
-			"description": "Neither part reaches a bill of materials. The catalog specifies the Raspberry Pi Pico with pre-soldered headers (mcu-rpi-pico-presoldered) as of 2026-09-21, the same board bought with its two rows of 20 pins already fitted, so the bare Pico and the 40 header pins that went with it have no quantity anywhere. The Pico with headers sub-assembly is the hand-soldering of one onto the other, which is now an optional route rather than a step every build takes, and it goes with them. They should be deleted outright, but a minted part id has to stay resolvable once it exists, and the catalog's own consistency check refuses a change that removes one, so deleting them needs that check overridden by someone who can make that call, not an edit from here. The helper page describing the route stays either way: it is linked from the pre-soldered Pico as its alternative. Tracked as sorter-v2 issue #734.",
-			"targets": {
-				"hardware": [
-					"mcu-rpi-pico",
-					"header-pins-254"
-				],
-				"assemblies": [
-					"pico-headers"
 				]
 			}
 		}
@@ -662,6 +474,7 @@
 		{
 			"id": "light-post-assembly",
 			"uid": "lxof",
+			"retired_at": "2026-09-02",
 			"version": "2",
 			"name": "Light post",
 			"description": "The feeder light post: the post, the 50 mm COB plate on its end lighting down the channel, and the cap adapter and cap over it. 2 per machine, one each on C-channels 2 and 3, bolted to the C-channel drive's NEMA bracket. Unused since 2026-09-02: the Camera lamp replaced the light post, the overhead camera mount, the classification dome and the camera & LED insert. Do not re-add from old docs or photos.",
@@ -1175,6 +988,7 @@
 		{
 			"id": "camera-mount",
 			"uid": "b3zx",
+			"retired_at": "2026-09-02",
 			"version": "1",
 			"name": "Overhead camera mount",
 			"description": "Camera mount for the C-channels. 2 per machine, each hanging off two ~1 ft steel rods. Unused since 2026-09-02: the Camera lamp replaced the light post, the overhead camera mount, the classification dome and the camera & LED insert. Do not re-add from old docs or photos.",
@@ -1921,6 +1735,7 @@
 		{
 			"id": "camera-extension-assembly",
 			"uid": "q2re",
+			"retired_at": "2026-09-02",
 			"version": "2",
 			"name": "Camera extension",
 			"description": "Classification-channel camera extension for the 4K camera module: the 50 mm extension tube, its mount, and the camera. 1 per machine. Unused since 2026-09-02: the Camera lamp replaced the light post, the overhead camera mount, the classification dome and the camera & LED insert. Do not re-add from old docs or photos.",
@@ -1989,9 +1804,10 @@
 		{
 			"id": "pico-headers",
 			"uid": "s7bo",
+			"retired_at": "2026-09-21",
 			"version": "1",
 			"name": "Pico with headers",
-			"description": "The Raspberry Pi Pico with 2.54 mm header pins fitted, so it can seat in the PCB. The board ships bare \u2014 the pins are a separate purchase.",
+			"description": "The Raspberry Pi Pico with 2.54 mm header pins soldered on by hand, so it can seat in the PCB. Out of the machine since 2026-09-21: the catalog buys the Pico with its headers already fitted (mcu-rpi-pico-presoldered). This is the route for a bare board you already own: /hardware/helpers/pico-headers/.",
 			"docs": "/hardware/helpers/pico-headers/",
 			"joining": [
 				{
@@ -2380,6 +2196,7 @@
 		{
 			"id": "channel-three-support",
 			"uid": "r6ar",
+			"retired_at": "2026-09-02",
 			"version": "1",
 			"name": "Channel 3 support",
 			"description": "One of C-channel 3's three standoffs: a foot and the leg the channel dovetails onto. Unused since 2026-09-02: the layout guide, support legs and dovetail adapters replaced the prototype foot/leg/leg-extension supports. Do not re-add from old docs or photos.",
@@ -2407,6 +2224,7 @@
 		{
 			"id": "channel-two-support",
 			"uid": "dp63",
+			"retired_at": "2026-09-02",
 			"version": "1",
 			"name": "Channel 2 support",
 			"description": "One of C-channel 2's three standoffs: a foot, one leg extension, and the leg the channel dovetails onto. Unused since 2026-09-02: the layout guide, support legs and dovetail adapters replaced the prototype foot/leg/leg-extension supports. Do not re-add from old docs or photos.",
@@ -2445,6 +2263,7 @@
 		{
 			"id": "bulk-bucket-support",
 			"uid": "xo6j",
+			"retired_at": "2026-09-02",
 			"version": "1",
 			"name": "Bulk bucket support",
 			"description": "One of the bulk bucket's three standoffs \u2014 the tallest stack: a foot, two leg extensions, and the leg. Unused since 2026-09-02: the layout guide, support legs and dovetail adapters replaced the prototype foot/leg/leg-extension supports. Do not re-add from old docs or photos.",
@@ -3023,6 +2842,7 @@
 		{
 			"id": "camera-led-insert-assembly",
 			"uid": "434r",
+			"retired_at": "2026-09-02",
 			"version": "1",
 			"name": "Camera & LED insert assembly",
 			"description": "The Camera & LED insert print with the camera extension assembled into it; the loaded insert drops into the classification dome. Unused since 2026-09-02: the Camera lamp replaced the light post, the overhead camera mount, the classification dome and the camera & LED insert. Do not re-add from old docs or photos.",
@@ -8993,6 +8813,7 @@
 		{
 			"id": "light-post",
 			"uid": "oac5",
+			"retired_at": "2026-09-02",
 			"name": "Light post",
 			"quantities": {},
 			"assembly": "light-post-assembly",
@@ -9077,6 +8898,7 @@
 		{
 			"id": "light-post-cap",
 			"uid": "7a8e",
+			"retired_at": "2026-09-02",
 			"name": "Light post cap",
 			"quantities": {},
 			"assembly": "light-post-assembly",
@@ -9201,6 +9023,7 @@
 		{
 			"id": "light-post-cap-adapter",
 			"uid": "jcnt",
+			"retired_at": "2026-09-02",
 			"name": "Light post cap adapter",
 			"quantities": {},
 			"assembly": "light-post-assembly",
@@ -9428,6 +9251,7 @@
 		{
 			"id": "classification-dome",
 			"uid": "fheh",
+			"retired_at": "2026-09-02",
 			"name": "Classification dome",
 			"quantities": {},
 			"assembly": "classification-chamber",
@@ -16490,6 +16314,7 @@
 		{
 			"id": "leg",
 			"uid": "xse1",
+			"retired_at": "2026-09-02",
 			"name": "Leg",
 			"quantities": {},
 			"assembly": null,
@@ -16619,6 +16444,7 @@
 		{
 			"id": "foot",
 			"uid": "jqdx",
+			"retired_at": "2026-09-02",
 			"name": "Foot",
 			"quantities": {},
 			"assembly": null,
@@ -16881,6 +16707,7 @@
 		{
 			"id": "leg-extension",
 			"uid": "jewq",
+			"retired_at": "2026-09-02",
 			"name": "Leg extension",
 			"quantities": {},
 			"assembly": null,
@@ -17010,6 +16837,7 @@
 		{
 			"id": "camera-mount-part-6",
 			"uid": "v9dv",
+			"retired_at": "2026-09-02",
 			"name": "Overhead camera mount \u2014 A/B connector",
 			"quantities": {},
 			"assembly": "camera-mount",
@@ -17058,6 +16886,7 @@
 		{
 			"id": "camera-mount-part-37",
 			"uid": "8bqo",
+			"retired_at": "2026-09-02",
 			"name": "Overhead camera mount A",
 			"quantities": {},
 			"assembly": "camera-mount",
@@ -17187,6 +17016,7 @@
 		{
 			"id": "camera-mount-part-37b",
 			"uid": "gut5",
+			"retired_at": "2026-09-02",
 			"name": "Overhead camera mount B",
 			"quantities": {},
 			"assembly": "camera-mount",
@@ -17316,6 +17146,7 @@
 		{
 			"id": "camera-mount-rod-mount",
 			"uid": "twuu",
+			"retired_at": "2026-09-02",
 			"name": "Camera mount \u2014 rod-to-C-channel mount",
 			"quantities": {},
 			"assembly": "camera-mount",
@@ -17447,6 +17278,7 @@
 		{
 			"id": "camera-led-insert",
 			"uid": "b2v9",
+			"retired_at": "2026-09-02",
 			"name": "Camera & LED insert",
 			"quantities": {},
 			"assembly": "classification-chamber",
@@ -17556,6 +17388,7 @@
 		{
 			"id": "camera-extension",
 			"uid": "v684",
+			"retired_at": "2026-09-02",
 			"name": "Camera extension",
 			"quantities": {},
 			"assembly": "camera-extension-assembly",
@@ -17710,6 +17543,7 @@
 		{
 			"id": "camera-extension-mount",
 			"uid": "wt9t",
+			"retired_at": "2026-09-02",
 			"name": "Camera extension mount",
 			"quantities": {},
 			"assembly": "camera-extension-assembly",
@@ -18118,13 +17952,14 @@
 		{
 			"id": "chute-stepper-support-block",
 			"uid": "loc0",
+			"retired_at": "2026-08-31",
 			"name": "Chute stepper support block",
 			"quantities": {},
 			"assembly": null,
 			"folder": null,
 			"variant_group": null,
 			"variant_name": null,
-			"description": "Support block for the chute stepper. Removed from the machine 2026-08-31: Spencer confirmed the NEMA 23 chute stepper mount works without it (sorter-v2#483). Retired in place per VERSIONING.md.",
+			"description": "Support block for the chute stepper. Removed from the machine 2026-08-31: Spencer confirmed the NEMA 23 chute stepper mount works without it (sorter-v2#483).",
 			"version": "1",
 			"created_at": "2026-07-03",
 			"updated_at": "2026-08-31",
@@ -19369,6 +19204,7 @@
 		{
 			"id": "meanwell-psu-back-mount",
 			"uid": "15uh",
+			"retired_at": "2026-09-21",
 			"name": "PSU back mount",
 			"quantities": {},
 			"assembly": null,
@@ -19498,6 +19334,7 @@
 		{
 			"id": "meanwell-psu-connections",
 			"uid": "08id",
+			"retired_at": "2026-09-21",
 			"name": "PSU connections plate",
 			"quantities": {},
 			"assembly": null,
@@ -19627,6 +19464,7 @@
 		{
 			"id": "meanwell-psu-cap",
 			"uid": "5nt1",
+			"retired_at": "2026-09-21",
 			"name": "PSU box cap",
 			"quantities": {},
 			"assembly": null,
@@ -20486,13 +20324,14 @@
 		{
 			"id": "orange-pi-extrusion-mount",
 			"uid": "nxh7",
+			"retired_at": "2026-09-26",
 			"name": "Orange Pi Extrusion Mount",
 			"quantities": {},
 			"assembly": null,
 			"folder": null,
 			"variant_group": null,
 			"variant_name": null,
-			"description": "Plate the Orange Pi 5 stood off on four standoffs, bolted to the 2020 extrusion. Unused as of 2026-09-26: the printed Orange Pi housing replaced it. Retired in place per VERSIONING.md.",
+			"description": "Plate the Orange Pi 5 stood off on four standoffs, bolted to the 2020 extrusion. Unused as of 2026-09-26: the printed Orange Pi housing replaced it.",
 			"version": "1",
 			"created_at": "2026-08-22",
 			"updated_at": "2026-09-26",
@@ -22058,13 +21897,14 @@
 		{
 			"id": "fan-bracket-40mm",
 			"uid": "3ufy",
+			"retired_at": "2026-09-26",
 			"name": "40 mm Fan Bracket",
 			"quantities": {},
 			"assembly": null,
 			"folder": null,
 			"variant_group": null,
 			"variant_name": null,
-			"description": "L-shaped bracket that cantilevered a 40 mm fan over a board on its extrusion mount. Unused as of 2026-09-26: the Orange Pi's own heatsink fan on the SoC replaced it, and the control board's printed housing had already taken over the control board's one in 2026-08-23. Retired in place per VERSIONING.md.",
+			"description": "L-shaped bracket that cantilevered a 40 mm fan over a board on its extrusion mount. Unused as of 2026-09-26: the Orange Pi's own heatsink fan on the SoC replaced it, and the control board's printed housing had already taken over the control board's one in 2026-08-23.",
 			"version": "1",
 			"created_at": "2026-08-22",
 			"updated_at": "2026-09-26",
@@ -24779,6 +24619,7 @@
 		{
 			"id": "scr-m3-tbd",
 			"uid": "1kgy",
+			"retired_at": "2026-08-29",
 			"kind": "cots",
 			"cots": {
 				"type": "screw",
@@ -24786,7 +24627,7 @@
 			},
 			"name": "M3 screw \u2014 type and length TBD",
 			"category": "Screws",
-			"description": "Retired placeholder, no longer used anywhere. Every joint that carried this (the cable-mount cage bracket, the camera extension, and the Orange Pi mount) turned out to already have a specific screw recorded in the docs; the catalog just hadn't been updated to match. Kept as an unused entry rather than deleted, since a minted uid has to stay resolvable (see parts-calculator's own CLAUDE.md).",
+			"description": "Retired placeholder, no longer used anywhere. Every joint that carried this (the cable-mount cage bracket, the camera extension, and the Orange Pi mount) turned out to already have a specific screw recorded in the docs; the catalog just hadn't been updated to match.",
 			"note": "Unused as of 2026-08-29. Do not add a new joint to this placeholder \u2014 measure the real screw and use a real catalog part instead.",
 			"created_at": "2026-07-18",
 			"updated_at": "2026-08-29",
@@ -24817,6 +24658,7 @@
 		{
 			"id": "scr-m3-shcs-tbd",
 			"uid": "xe72",
+			"retired_at": "2026-08-22",
 			"kind": "cots",
 			"cots": {
 				"type": "screw",
@@ -24825,7 +24667,7 @@
 			},
 			"name": "M3 socket/button head, length TBD",
 			"category": "Screws",
-			"description": "Was the placeholder for the screws holding the basically Embedded Control Board to the housing base, before they were measured as M3 \u00d7 6 mm button head. Nothing calls for it now; the uid is kept because it was minted.",
+			"description": "Was the placeholder for the screws holding the basically Embedded Control Board to the housing base, before they were measured as M3 \u00d7 6 mm button head. Nothing calls for it now.",
 			"note": "Superseded before it was ever ordered \u2014 nothing in the catalog calls for it.",
 			"created_at": "2026-08-22",
 			"updated_at": "2026-08-22",
@@ -24898,6 +24740,7 @@
 		{
 			"id": "scr-m3-10-shcs",
 			"uid": "ufvb",
+			"retired_at": "2026-09-16",
 			"kind": "cots",
 			"cots": {
 				"type": "screw",
@@ -24907,8 +24750,8 @@
 			},
 			"name": "M3 \u00d7 10 mm socket/button head",
 			"category": "Screws",
-			"description": "Not used on the machine. Superseded by the M3 x 12 (scr-m3-12-bhcs) on its last remaining joint, 2026-09-16. Kept as an unused entry rather than deleted, because cage-bracket-cable-clamp v1 pins this uid in its line snapshot and a minted uid has to stay resolvable (VERSIONING.md).",
-			"note": "Do not add a new joint to this entry. Deletion tracked as sorter-v2 issue #662.",
+			"description": "Not used on the machine. Superseded by the M3 x 12 (scr-m3-12-bhcs) on its last remaining joint, 2026-09-16.",
+			"note": "Do not add a new joint to this entry.",
 			"created_at": "2026-08-18",
 			"updated_at": "2026-09-16",
 			"attributes": [
@@ -24996,6 +24839,7 @@
 		{
 			"id": "scr-m2-8-shcs",
 			"uid": "iwk6",
+			"retired_at": "2026-09-02",
 			"kind": "cots",
 			"cots": {
 				"type": "screw",
@@ -25005,7 +24849,7 @@
 			},
 			"name": "M2 \u00d7 8 mm socket/button head",
 			"category": "Screws",
-			"description": "Self-taps the IMX415 classification camera board to the camera extension's printed post. 4 per module, no insert. May also fit the OV9732 overhead camera mount once that gets a real bracket (sorter-v2#426), not confirmed. Unused as of 2026-09-02: its only assembly, the Camera extension, was retired when the Camera lamp replaced that whole path. Do not add a new joint to this entry; deletion is tracked as sorter-v2 issue #566.",
+			"description": "Self-taps the IMX415 classification camera board to the camera extension's printed post. 4 per module, no insert. May also fit the OV9732 overhead camera mount once that gets a real bracket (sorter-v2#426), not confirmed. Unused as of 2026-09-02: its only assembly, the Camera extension, was retired when the Camera lamp replaced that whole path. Do not add a new joint to this entry.",
 			"note": null,
 			"created_at": "2026-08-25",
 			"updated_at": "2026-09-06",
@@ -25036,6 +24880,7 @@
 		{
 			"id": "scr-m3-8-shcs",
 			"uid": "ql35",
+			"retired_at": "2026-09-01",
 			"kind": "cots",
 			"cots": {
 				"type": "screw",
@@ -25045,7 +24890,7 @@
 			},
 			"name": "M3 \u00d7 8 mm socket/button head",
 			"category": "Screws",
-			"description": "Retired, no longer used anywhere. Was recorded as the screw clamping the C-channel input gear (12T) to the NEMA 17 shaft flat, but that screw is countersunk (scr-m3-8-cs). Kept as an unused entry rather than deleted, since a minted uid has to stay resolvable (see parts-calculator's own CLAUDE.md); deletion is tracked as sorter-v2 issue #536.",
+			"description": "Retired, no longer used anywhere. Was recorded as the screw clamping the C-channel input gear (12T) to the NEMA 17 shaft flat, but that screw is countersunk (scr-m3-8-cs).",
 			"note": "Head type and length measured off the input-gear STL: the boss carries a \u00d82.80 mm hole parallel to the shaft, 3.61 mm off the axis, opening into the \u00d84.87 mm bore; the head sits in a round \u00d86.40 mm \u00d7 2.7 mm counterbore with a 90\u00b0 cone at the bottom, which is a flat-bottomed head seat rather than a countersink. A socket cap head (\u00d85.5 \u00d7 3.0) bottoms on that floor and stands about 0.3 mm proud; a button head (\u00d85.7 \u00d7 1.65) bottoms on the same floor about 1 mm below flush, so either clamps. At 8 mm the head seats and about 6 mm of thread is left in the plastic. Unused as of 2026-09-01: the screw is the countersunk M3 \u00d7 8 (scr-m3-8-cs). Do not add a new joint to this entry. Measure the real screw and use a live catalog part instead.",
 			"created_at": "2026-08-21",
 			"updated_at": "2026-09-03",
@@ -25349,6 +25194,7 @@
 		{
 			"id": "scr-m3-35-bhcs",
 			"uid": "38vn",
+			"retired_at": "2026-09-09",
 			"kind": "cots",
 			"cots": {
 				"type": "screw",
@@ -25358,8 +25204,8 @@
 			},
 			"name": "M3 \u00d7 35 mm flat head",
 			"category": "Screws",
-			"description": "Retired 2026-09-09, no longer used by any assembly: at 35 mm this screw cleared the far face of the nut by only 0.60 mm and did not reach in practice. The cable clamp takes the M3 \u00d7 40 mm flat head (scr-m3-40-fhcs) now. Kept as an unused entry rather than deleted, because chute-stepper-gearing v1 pins this uid in its line snapshot and a minted uid has to stay resolvable (VERSIONING.md).",
-			"note": "Do not add a new joint to this entry. Reported 2026-09-09: with the ribbon cable in the clamp the 35 mm screw would not pick up the nut. The stack under the head is 32.00 mm to the nut pocket floor and 34.40 mm through the nut, so 35 mm carried 0.60 mm of margin. See scr-m3-40-fhcs for the measurements. Deletion tracked as sorter-v2 issue #618.",
+			"description": "Retired 2026-09-09, no longer used by any assembly: at 35 mm this screw cleared the far face of the nut by only 0.60 mm and did not reach in practice. The cable clamp takes the M3 \u00d7 40 mm flat head (scr-m3-40-fhcs) now.",
+			"note": "Do not add a new joint to this entry. Reported 2026-09-09: with the ribbon cable in the clamp the 35 mm screw would not pick up the nut. The stack under the head is 32.00 mm to the nut pocket floor and 34.40 mm through the nut, so 35 mm carried 0.60 mm of margin. See scr-m3-40-fhcs for the measurements.",
 			"created_at": "2026-07-18",
 			"updated_at": "2026-09-09",
 			"attributes": [
@@ -25478,10 +25324,10 @@
 			},
 			"name": "M4 \u00d7 12 mm countersunk",
 			"category": "Screws",
-			"description": "Retired, no longer used anywhere. Was recorded as the screw bolting both lazy Susans, 4 a side, but the bearing is 10 mm thick rather than the 9 mm the catalog claimed and a 12 leaves 1.0 to 3.0 mm of thread in an 8.1 mm insert. Replaced by scr-m4-16-cs. Kept as an unused entry rather than deleted, since a minted uid has to stay resolvable.",
-			"note": "Measured 2026-09-19 off the assembly-frame STLs. Top interface, inner ring: the Top interface lazy Susan washer is 1.000 mm and the chute mount's pockets are \u00d85.80 \u00d7 8.200 mm blind, so an M4 \u00d7 12 reaches 2.0 to 3.0 mm and an M4 \u00d7 16 reaches 6.0 to 7.0 mm. Top interface, outer ring: the Interface big spacer is 1.000 mm and the Interface upper fixed section's pockets are \u00d85.80 \u00d7 8.200 mm, so a 12 reaches 1.0 mm and a 16 reaches 5.0 mm. Bottom lazy Susan: 9.500 mm pockets both sides, so a 12 reaches 1.0 mm on the rotating side and 3.0 mm on the static side against 5.0 and 7.0 for a 16. Do not add a new joint to this entry.",
+			"description": "Bolts the power supply into the PSU box's shell rear tray, 4 per box, on the case's own 150 \u00d7 50 mm M4 pattern through a 9.00 mm pad. 12 is the only stock length that fits: Mean Well's drawing caps that pattern at 3 mm of screw inside the case. Not for the lazy Susans, which take the M4 \u00d7 16 (scr-m4-16-cs): the bearing is 10 mm thick, and a 12 leaves 1.0 to 3.0 mm of thread in an 8.1 mm insert.",
+			"note": "Measured 2026-09-19 off the assembly-frame STLs. Top interface, inner ring: the Top interface lazy Susan washer is 1.000 mm and the chute mount's pockets are \u00d85.80 \u00d7 8.200 mm blind, so an M4 \u00d7 12 reaches 2.0 to 3.0 mm and an M4 \u00d7 16 reaches 6.0 to 7.0 mm. Top interface, outer ring: the Interface big spacer is 1.000 mm and the Interface upper fixed section's pockets are \u00d85.80 \u00d7 8.200 mm, so a 12 reaches 1.0 mm and a 16 reaches 5.0 mm. Bottom lazy Susan: 9.500 mm pockets both sides, so a 12 reaches 1.0 mm on the rotating side and 3.0 mm on the static side against 5.0 and 7.0 for a 16.",
 			"created_at": "2026-07-18",
-			"updated_at": "2026-09-19",
+			"updated_at": "2026-09-26",
 			"attributes": [
 				{
 					"label": "Thread",
@@ -25857,6 +25703,7 @@
 		{
 			"id": "scr-m5-shcs-tbd",
 			"uid": "wy04",
+			"retired_at": "2026-08-31",
 			"kind": "cots",
 			"cots": {
 				"type": "screw",
@@ -25866,7 +25713,7 @@
 			"name": "M5 socket/button head, length TBD",
 			"category": "Screws",
 			"description": "Placeholder for an unmeasured M5 joint. Originally the three electronics mounts that bolt to the frame (resolved to scr-m5-12-shcs / scr-m5-16-shcs in PR #428) and, since then, the two screws fastening the Chute stepper support block. Unused as of 2026-08-31: that block was removed from the machine (sorter-v2#489, sorter-v2#483) after Spencer confirmed the NEMA 23 chute stepper mount works without it, so its two screws are gone from the interface assembly too. The length was never measured.",
-			"note": "Unused as of 2026-08-31. Kept as an unused entry rather than deleted, since a minted uid has to stay resolvable (see parts-calculator's own VERSIONING.md). Do not re-add without a new joint to point it at, the chute stepper support block it was last used for is gone. Deletion is tracked as sorter-v2 issue #565.",
+			"note": "Unused as of 2026-08-31. Do not re-add without a new joint to point it at, the chute stepper support block it was last used for is gone.",
 			"created_at": "2026-07-18",
 			"updated_at": "2026-09-06",
 			"attributes": [
@@ -25896,6 +25743,7 @@
 		{
 			"id": "washer-m3-15",
 			"uid": "phwe",
+			"retired_at": "2026-08-25",
 			"kind": "cots",
 			"cots": {
 				"type": "washer",
@@ -25903,7 +25751,7 @@
 			},
 			"name": "M3 \u00d7 15 mm washer",
 			"category": "Washers",
-			"description": "Flat/fender washer, 15 mm outer diameter. Added to the catalog to match the documentation's description of the interface idler gear joint, under the M3 \u00d7 35 screw that holds the gear onto the NEMA 23 bracket. That documentation was wrong: the joint's actual design uses the printed chute stepper idler bearing retainers instead (wired up 2026-08-25), so this part was never correct here. Not used anywhere in the machine. Kept as an unused entry rather than deleted, since a minted uid has to stay resolvable (see parts-calculator's own CLAUDE.md). Deletion is tracked as sorter-v2 issue #478.",
+			"description": "Flat/fender washer, 15 mm outer diameter. Added to the catalog to match the documentation's description of the interface idler gear joint, under the M3 \u00d7 35 screw that holds the gear onto the NEMA 23 bracket. That documentation was wrong: the joint's actual design uses the printed chute stepper idler bearing retainers instead (wired up 2026-08-25), so this part was never correct here. Not used anywhere in the machine.",
 			"note": "Unused as of 2026-08-30. Do not add a new joint to this washer \u2014 the idler gear joint it was meant for uses the printed chute stepper idler bearing retainers instead.",
 			"created_at": "2026-08-18",
 			"updated_at": "2026-09-03",
@@ -26068,6 +25916,7 @@
 		{
 			"id": "rod-steel-3-8",
 			"uid": "1o92",
+			"retired_at": "2026-09-02",
 			"kind": "cots",
 			"cots": {
 				"type": "stock-material",
@@ -26075,7 +25924,7 @@
 			},
 			"name": "Steel rod, 3/8 in \u2014 4 ft stock",
 			"category": "Stock material",
-			"description": "Bought as a length and cut down. One 4 ft rod yields all four ~1 ft pieces the two overhead camera arms hang from. Unused as of 2026-09-02: its only assembly, the Overhead camera mount, was retired when the Camera lamp replaced it. Do not add a new joint to this entry; deletion is tracked as sorter-v2 issue #568.",
+			"description": "Bought as a length and cut down. One 4 ft rod yields all four ~1 ft pieces the two overhead camera arms hang from. Unused as of 2026-09-02: its only assembly, the Overhead camera mount, was retired when the Camera lamp replaced it. Do not add a new joint to this entry.",
 			"note": null,
 			"created_at": "2026-07-18",
 			"updated_at": "2026-09-06",
@@ -26195,6 +26044,7 @@
 		{
 			"id": "hsi-m3s",
 			"uid": "5nkl",
+			"retired_at": "2026-09-11",
 			"kind": "cots",
 			"cots": {
 				"type": "heat-insert",
@@ -26203,7 +26053,7 @@
 			},
 			"name": "Ruthex M3S heat insert (short)",
 			"category": "Heat inserts",
-			"description": "Retired, no longer used anywhere. ruthex RX-M3Sx4.0 brass heat-set threaded insert, the short M3. It was carried over from the BOM sheet for the servo adapter, but that joint's screws thread straight into the printed plastic: neither adapter half has an insert pocket. Kept as an unused entry rather than deleted, since a minted uid has to stay resolvable (see parts-calculator's own CLAUDE.md); deletion is tracked as sorter-v2 issue #636.",
+			"description": "Retired, no longer used anywhere. ruthex RX-M3Sx4.0 brass heat-set threaded insert, the short M3. It was carried over from the BOM sheet for the servo adapter, but that joint's screws thread straight into the printed plastic: neither adapter half has an insert pocket.",
 			"note": "Unused as of 2026-09-11. Do not add a new joint to this insert; every insert joint in the machine takes the standard 5.7 mm M3 (hsi-m3).",
 			"created_at": "2026-08-21",
 			"updated_at": "2026-09-11",
@@ -27690,13 +27540,14 @@
 		{
 			"id": "mcu-rpi-pico",
 			"uid": "hx8l",
+			"retired_at": "2026-09-21",
 			"kind": "cots",
 			"cots": {
 				"type": "mcu"
 			},
 			"name": "Raspberry Pi Pico",
 			"category": "Electronics",
-			"description": "Retired, no longer counted into a machine. The catalog specifies the Pico bought with its headers already fitted (mcu-rpi-pico-presoldered) as of 2026-09-21. Kept as an unused entry rather than deleted, since a minted uid has to stay resolvable (see parts-calculator's own CLAUDE.md); deletion is tracked as sorter-v2 issue #734.",
+			"description": "Retired, no longer counted into a machine. The catalog specifies the Pico bought with its headers already fitted (mcu-rpi-pico-presoldered) as of 2026-09-21.",
 			"note": "Unused as of 2026-09-21. Buy mcu-rpi-pico-presoldered instead. If you already own a bare board, solder the headers on yourself: /hardware/helpers/pico-headers/.",
 			"created_at": "2026-07-18",
 			"updated_at": "2026-09-21",
@@ -27776,13 +27627,14 @@
 		{
 			"id": "header-pins-254",
 			"uid": "10o3",
+			"retired_at": "2026-09-21",
 			"kind": "cots",
 			"cots": {
 				"type": "headers"
 			},
 			"name": "2.54mm header pins",
 			"category": "Electronics",
-			"description": "Retired, no longer counted into a machine. Their only use was fitting headers to a bare Raspberry Pi Pico, and the catalog specifies the Pico bought with its headers already fitted (mcu-rpi-pico-presoldered) as of 2026-09-21. Kept as an unused entry rather than deleted, since a minted uid has to stay resolvable (see parts-calculator's own CLAUDE.md); deletion is tracked as sorter-v2 issue #734.",
+			"description": "Retired, no longer counted into a machine. Their only use was fitting headers to a bare Raspberry Pi Pico, and the catalog specifies the Pico bought with its headers already fitted (mcu-rpi-pico-presoldered) as of 2026-09-21.",
 			"note": "Unused as of 2026-09-21. Needed only if you are soldering headers onto a bare Pico: /hardware/helpers/pico-headers/.",
 			"created_at": "2026-07-18",
 			"updated_at": "2026-09-21",
@@ -27985,13 +27837,14 @@
 		{
 			"id": "led-cob-50mm-24v",
 			"uid": "s34o",
+			"retired_at": "2026-09-02",
 			"kind": "cots",
 			"cots": {
 				"type": "led"
 			},
 			"name": "50mm LED COB - 24v",
 			"category": "Wire harness",
-			"description": "Lights the feeder C-channels. One per light post. Unused as of 2026-09-02: its only assembly, the Light post, was retired when the Camera lamp replaced it. Do not add a new joint to this entry; deletion is tracked as sorter-v2 issue #567.",
+			"description": "Lights the feeder C-channels. One per light post. Unused as of 2026-09-02: its only assembly, the Light post, was retired when the Camera lamp replaced it. Do not add a new joint to this entry.",
 			"note": null,
 			"created_at": "2026-07-18",
 			"updated_at": "2026-09-06",

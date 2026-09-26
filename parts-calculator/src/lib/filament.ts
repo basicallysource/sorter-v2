@@ -36,11 +36,8 @@ export type PlannedChange = {
 	name: string;
 	priority: ChangePriority;
 	description: string;
-	// 'broken' = does not work as built. 'retired' = the item itself is on its way
-	// out of the catalog (unused everywhere, waiting on a deletion nobody can do
-	// from a branch), which is a different thing from a fix or an improvement and
-	// is badged as its own state rather than hiding behind a low priority number.
-	condition?: 'working' | 'broken' | 'retired';
+	// 'broken' = does not work as built.
+	condition?: 'working' | 'broken';
 	status?: 'planned' | 'complete';
 	completed_at?: string;
 	images?: CatalogImage[];
@@ -121,6 +118,7 @@ export type AssemblyCandidate = {
 export type Assembly = {
 	id: string;
 	uid: string; // the current structure's id, minted like a part's
+	retired_at?: string; // out of the current machine since this date: see ALL_PARTS below
 	version?: string; // bumps on an authored structural change, not a member rev
 	versions?: AssemblyVersion[]; // newest last; superseded ones carry a line snapshot
 	candidates?: AssemblyCandidate[]; // alternative BOMs under test, oldest first
@@ -270,6 +268,7 @@ export type CatalogMerge = { id: string; date: string; sources: string[]; note?:
 export type Hardware = {
 	id: string;
 	uid: string; // minted like a printed part's, so one id scheme covers the machine
+	retired_at?: string; // out of the current machine since this date: see ALL_PARTS below
 	kind: 'cots';
 	// `letters` and `cad_length_mm` are the aluminium framing cut list's: the
 	// marker letter(s) written on the bar, and the CAD length when the piece is
@@ -396,6 +395,7 @@ export type PartStamp = {
 export type Part = {
 	id: string;
 	uid: string; // the current version's id -- what a print is engraved with
+	retired_at?: string; // out of the current machine since this date: see ALL_PARTS below
 	name: string;
 	aliases?: string[]; // alternate shop/CAD names; canonical id and display name stay stable
 	quantities: Record<string, number>; // category id -> count per ONE instance of that category
@@ -487,8 +487,18 @@ export type CatalogTag = {
 };
 export const TAGS = (((raw as Record<string, unknown>).tags ?? []) as CatalogTag[]);
 
-export const ASSEMBLIES = (raw.assemblies ?? []) as Assembly[];
-export const PARTS = raw.parts as unknown as Part[];
+// Everything the catalog has ever held, retired or not. Nothing is ever
+// deleted from it (VERSIONING.md), so an id or uid from any era finds its
+// entry here: the lookups, the per-id pages and history read these.
+export const ALL_ASSEMBLIES = (raw.assemblies ?? []) as Assembly[];
+export const ALL_PARTS = raw.parts as unknown as Part[];
+export const ALL_HARDWARE = ((raw as Record<string, unknown>).hardware ?? []) as Hardware[];
+// Out of the current machine (VERSIONING.md § Retiring a part).
+const isRetired = (x: { retired_at?: string }) => !!x.retired_at;
+// The current machine: every list, count, total, search and download reads
+// these, so a retired entry is invisible to the current version.
+export const ASSEMBLIES = ALL_ASSEMBLIES.filter((a) => !isRetired(a));
+export const PARTS = ALL_PARTS.filter((p) => !isRetired(p));
 export const MERGES = ((raw as Record<string, unknown>).merges ?? []) as CatalogMerge[];
 /** Is this bought item marked optional? Reads through `cots` -- see the note on
  *  the field for why it lives there rather than at the top level. */
@@ -502,15 +512,15 @@ export function plannedChangesFor(kind: ChangeTargetKind, id: string): PlannedCh
 		return !!part && (change.targets.sections ?? []).some((section) => section in part.quantities);
 	});
 }
-export const HARDWARE = ((raw as Record<string, unknown>).hardware ?? []) as Hardware[];
+export const HARDWARE = ALL_HARDWARE.filter((h) => !isRetired(h));
 export const FAMILIES = ((raw as Record<string, unknown>).families ?? []) as Family[];
 export const SPOOL_G = 1000;
 
 const sectionById = new Map(SECTIONS.map((s) => [s.id, s]));
-const assemblyById = new Map(ASSEMBLIES.map((a) => [a.id, a]));
+const assemblyById = new Map(ALL_ASSEMBLIES.map((a) => [a.id, a]));
 const folderById = new Map(FOLDERS.map((folder) => [folder.id, folder]));
-const partById = new Map(PARTS.map((p) => [p.id, p]));
-const hardwareById = new Map(HARDWARE.map((h) => [h.id, h]));
+const partById = new Map(ALL_PARTS.map((p) => [p.id, p]));
+const hardwareById = new Map(ALL_HARDWARE.map((h) => [h.id, h]));
 const lasercutById = new Map(LASER_CUT_PARTS.map((p) => [p.id, p]));
 
 // Reverse index: which assemblies list a given part/hardware id as a member.
@@ -653,19 +663,19 @@ export type UidMatch =
 	| { kind: 'lasercut'; lasercut: LaserCutPart };
 
 const uidIndex = new Map<string, UidMatch>();
-for (const part of PARTS) {
+for (const part of ALL_PARTS) {
 	uidIndex.set(part.uid, { kind: 'part', part });
 	for (const version of part.versions ?? [])
 		if (version.uid && version.uid !== part.uid) uidIndex.set(version.uid, { kind: 'part-version', part, version });
 	for (const candidate of part.candidates ?? []) uidIndex.set(candidate.uid, { kind: 'part-candidate', part, candidate });
 }
-for (const assembly of ASSEMBLIES) {
+for (const assembly of ALL_ASSEMBLIES) {
 	uidIndex.set(assembly.uid, { kind: 'assembly', assembly });
 	for (const version of assembly.versions ?? [])
 		if (version.uid && version.uid !== assembly.uid) uidIndex.set(version.uid, { kind: 'assembly-version', assembly, version });
 	for (const candidate of assembly.candidates ?? []) uidIndex.set(candidate.uid, { kind: 'assembly-candidate', assembly, candidate });
 }
-for (const hardware of HARDWARE) if (hardware.uid) uidIndex.set(hardware.uid, { kind: 'hardware', hardware });
+for (const hardware of ALL_HARDWARE) if (hardware.uid) uidIndex.set(hardware.uid, { kind: 'hardware', hardware });
 for (const lasercut of LASER_CUT_PARTS) if (lasercut.uid) uidIndex.set(lasercut.uid, { kind: 'lasercut', lasercut });
 
 export function resolveUid(uid: string): UidMatch | undefined {

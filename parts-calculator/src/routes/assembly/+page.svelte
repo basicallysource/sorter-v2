@@ -35,7 +35,8 @@
 	import { scoreEntry } from '$lib/search';
 	import { colorStore } from '$lib/colors.svelte';
 	import {
-		ASSEMBLIES,
+		ALL_ASSEMBLIES,
+		ALL_PARTS,
 		commitUrl,
 		docsUrl,
 		fmtDate,
@@ -48,7 +49,6 @@
 		JOIN_LABELS,
 		concreteLines,
 		lineQty,
-		PARTS,
 		plainDescription,
 		primaryColorId,
 		screwTravel,
@@ -553,7 +553,7 @@
 	const DAY_END = VSEQ * 2;
 	const ALL_EVENTS: HistoryEvent[] = [
 		...(changelog.events as HistoryEvent[]),
-		...[...PARTS, ...ASSEMBLIES].flatMap((item) => {
+		...[...ALL_PARTS, ...ALL_ASSEMBLIES].flatMap((item) => {
 			// A single entry means nothing ever changed (the generator writes a
 			// synthetic "Initial version." for every part) — no history to show.
 			const all = item.versions ?? [];

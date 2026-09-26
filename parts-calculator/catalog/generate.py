@@ -874,6 +874,7 @@ def build_hardware(manifest):
         hardware.append({
             "id": p["id"],
             "uid": p["uid"],
+            **({"retired_at": p["retired_at"]} if p.get("retired_at") else {}),
             "kind": "cots",
             "cots": p.get("cots"),
             "name": p["name"],
@@ -1124,7 +1125,9 @@ def main():
                 c["stamped"] = oc.get("stamped") or []
                 cands.append(c)
             refreshed.append({
-                "id": source["id"], "uid": source["uid"], "name": source["name"],
+                "id": source["id"], "uid": source["uid"],
+                **({"retired_at": source["retired_at"]} if source.get("retired_at") else {}),
+                "name": source["name"],
                 **({"aliases": source["aliases"]} if source.get("aliases") else {}),
                 **({"images": source["images"]} if source.get("images") else {}),
                 "quantities": source.get("quantities", {}),
@@ -1284,6 +1287,9 @@ def main():
         out_parts.append({
             "id": p["id"],
             "uid": p["uid"],
+            # Out of the current machine since this date (VERSIONING.md § Retiring
+            # a part). Kept whole: older versions and the uid still resolve to it.
+            **({"retired_at": p["retired_at"]} if p.get("retired_at") else {}),
             "name": p["name"],
             **({"aliases": p["aliases"]} if p.get("aliases") else {}),
             **({"images": p["images"]} if p.get("images") else {}),

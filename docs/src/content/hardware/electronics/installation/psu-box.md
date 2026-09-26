@@ -15,7 +15,7 @@ warning: >-
   from a build, so nobody has put this box together from this page yet. Step 2's screws and nuts and
   step 4's terminal block wiring did come from builds. One step involves mains voltage: read the page
   fully before you start.
-tools_needed: ["Hex keys, 2 mm and 2.5 mm", "Screwdriver for the supply's M3.5 terminal screws", "5.5 mm spanner or pliers, for the M3 nuts"]
+tools_needed: ["Hex keys, 2 mm and 2.5 mm", "Screwdriver for the supply's M3.5 terminal screws", "5.5 mm spanner or pliers, for the M3 nuts", "Multimeter, with a continuity buzzer"]
 parts_needed:
   - part: psu-24v-350w
     qty: 1
@@ -149,7 +149,7 @@ Hold the front panel up to the open end of the tray, close enough that its leads
   <p><b>Find out which of the other two is live. Do not go by colour.</b> These modules are sold with red and blue leads and <b>both orders have been found in the post</b>, so the colour tells you nothing about which one the fuse and the switch are in. Land them the wrong way round and the machine is fused and switched in its neutral: the supply stays live with the rocker off.</p>
 </div>
 
-**The test**, with nothing plugged in: take the fuse out of its drawer, set the meter to continuity, and probe from each coloured lead to each of the two flat pins inside the C14. The pair that still beeps with the fuse out is **neutral**. The one that beeps only with the fuse back in and the rocker on is **live**, because the fuse and the switch sit in the live side. That lead goes on screw 1.
+**The test**, with nothing plugged in: take the fuse out of its drawer, [set the meter to continuity]({{ '/hardware/helpers/multimeter/' | relative_url }}#continuity-for-tracing-a-cable), and probe from each coloured lead to each of the two flat pins inside the C14. The pair that still beeps with the fuse out is **neutral**. The one that beeps only with the fuse back in and the rocker on is **live**, because the fuse and the switch sit in the live side. That lead goes on screw 1.
 
 <figure class="single-figure">
   <img class="doc-figure" src="https://assets.basically.website/sorter-docs/psu-box-inlet-leads-tested-w1600-152d058c81fe.jpg" alt="The Mean Well LRS-350-24 on a bench with the fused IEC inlet module beside it, its three factory leads running to the bottom three screws of the terminal block: the blue lead on the screw marked L, the red lead on N and the yellow lead on the earth symbol">

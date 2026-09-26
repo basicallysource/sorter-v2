@@ -11,7 +11,7 @@ author: barthel
 contributors: [spencer, brickcyclealice]
 og_image: https://assets.basically.website/sorter-parts/meanwell-psu-housing-v2-render-full-f4b161896ea6.png
 last_verified: 2026-09-26
-tools_needed: ["Hex keys, 2 mm and 2.5 mm", "Screwdriver for the supply's M3.5 terminal screws", "5.5 mm spanner or pliers, for the M3 nuts", "Multimeter, with a continuity buzzer"]
+tools_needed: ["Hex keys, 2 mm and 2.5 mm", "Screwdriver for the supply's M3.5 terminal screws", "Multimeter, with a continuity buzzer"]
 parts_needed:
   - part: psu-24v-350w
     qty: 1
@@ -32,8 +32,8 @@ parts_needed:
   - part: scr-m4-12-cs
     qty: 4
   - part: scr-m3-12-cs
-    qty: 10
-  - part: nut-m3
+    qty: 8
+  - part: scr-m3-8-cs
     qty: 2
 ---
 
@@ -59,7 +59,7 @@ The fasteners and quantities are in the parts list above and are called out inli
 ## The five printed parts
 
 <figure class="harness-figure">
-  <img src="https://assets.basically.website/sorter-docs/psu-box-exploded-full-466158fc0f97.png" alt="Exploded render of the five printed parts of the PSU housing in build order: the blue front panel at the front left, the light grey shell front module behind it, the grey shell rear tray with its honeycomb floor and vented walls, and above them the plain front lid and the vented rear lid">
+  <img src="https://assets.basically.website/sorter-docs/psu-box-exploded-full-097445070d4d.png" alt="Exploded render of the five printed parts of the PSU housing in build order: the blue front panel at the front left, the light grey shell front module behind it, the grey shell rear tray with its honeycomb floor and vented walls, and above them the plain front lid and the vented rear lid">
   <figcaption>The five parts, in the order they go together. The blue front panel carries the mains inlet and the three jacks. The two lids screw down onto the two shells. <cite>Rendered from the parts' own STLs.</cite></figcaption>
 </figure>
 
@@ -67,18 +67,11 @@ The fasteners and quantities are in the parts list above and are called out inli
 
 {% include step.html n="1" title="Fit and wire the three jacks" %}
 
-**Get the panel the right way up first.** Its two small screw holes sit at different distances from the long edges. **The hole nearer its edge goes at the top.** If you are unsure, hold the panel against the front module and look at the lower hole from inside: the right way up it is clear, upside down the module's rail covers it.
+Push each jack through a round hole from behind and do its nut up on the outside, finger tight. Any of the three round holes will do, and the panel itself goes in either way up.
 
 <figure class="harness-figure">
-  <img src="https://assets.basically.website/sorter-docs/psu-box-panel-orientation-full-f1d46d6b31b9.png" alt="Two renders of the front panel from inside the box, one above the other on the same camera, with the inlet's two screw holes ringed. The upper one is headed The right way up: the panel is the right way up and the lower ringed hole sits clear above the front module's bottom rail. The lower one is headed The wrong way up (upside down): the panel is flipped and the lower ringed hole sits on the edge of the rail, half buried in it">
-  <figcaption>The inlet's two holes from inside, the right way up and then the wrong way up. <cite>Rendered from the parts' own STLs. Orientation found by ReveryX.</cite></figcaption>
-</figure>
-
-Push each jack through a round hole from behind and do its nut up on the outside, finger tight. Any of the three round holes will do.
-
-<figure class="harness-figure">
-  <img src="https://assets.basically.website/sorter-docs/psu-box-front-panel-v2-full-ab4155b24380.png" alt="Dimensioned drawing of the PSU housing front panel seen from outside and the right way up: a wide landscape panel with three 12 mm round jack holes in a row on the left at 20 mm pitch, and on the right a 47.5 by 28 mm rectangular mains inlet cutout with a 3.2 mm hole above it and another below it, 40 mm apart on its centreline. The upper hole is dimensioned 4 mm from the top edge and the lower one 6 mm from the bottom edge">
-  <figcaption>The front panel from outside, the right way up: inlet on the right, jacks on the left. The 4 mm hole is the top one, which is what tells you which way up it goes. <cite>Drawn from the part's STL, not from a build.</cite></figcaption>
+  <img src="https://assets.basically.website/sorter-docs/psu-box-front-panel-v3-full-2fea8da2bd43.png" alt="Dimensioned drawing of the PSU housing front panel seen from outside: a landscape panel 131 by 50 mm, with three 12 mm round jack holes in a row on the left at 20 mm pitch, and on the right a 47.5 by 28 mm rectangular mains inlet cutout with a 2.8 mm screw pilot hole above it and another below it, 40 mm apart on its centreline">
+  <figcaption>The front panel from outside: inlet on the right, jacks on the left. The two small holes are 2.8 mm pilots, so the inlet's screws cut their own thread in them. <cite>Drawn from the part's STL, not from a build.</cite></figcaption>
 </figure>
 
 Set the panel down beside the supply for now. The leads land on the terminal block in step 4, once the supply is in the tray.
@@ -96,11 +89,11 @@ The **IEC C14 inlet, switch + 10 A fuse** is the machine's mains entry and its o
 
 Push it into the rectangular cutout from the outside, so its flange sits flat on the outer face of the panel and its two holes line up with the panel's two small holes.
 
-Run an {% include fastener.html size="M3" variant="countersunk" length="12" %} through each of the two holes and put an {% include fastener.html size="M3" variant="nut" %} on the back of each. Hold the nut while you tighten the screw. Do this while the panel is still loose, because the nuts go behind it.
+Run an {% include fastener.html size="M3" variant="countersunk" length="8" %} into each of the two holes. They are 2.8 mm pilots through the full thickness of the panel, so each screw cuts its own thread as it goes in and there is nothing to hold behind it.
 
 Stop as soon as the flange is tight. The panel bows outward before the screw gives, so the screw will not tell you when to stop.
 
-A front panel printed from its v2 on has 2.8 mm pilots in those two holes, so expect the screw to bite in the panel on its own. If it pulls the flange down without a nut, use an {% include fastener.html size="M3" variant="countersunk" length="8" %} instead and leave the nut off. The 12 mm only earns its length when there is a nut on the back of it.
+**If your front panel was printed before its v2**, those two holes are 3.2 mm clearance instead and a screw will turn in them without pulling the flange down. That panel takes an {% include fastener.html size="M3" variant="countersunk" length="12" %} with an {% include fastener.html size="M3" variant="nut" %} behind each, fitted while the panel is still loose, because the nuts go on the back.
 
 {% include step.html n="3" title="Bolt the supply into the rear tray" %}
 
@@ -124,7 +117,7 @@ The supply's case has four threaded holes in its back face, and the tray's floor
     <figcaption>The four threaded holes on the back of the supply, and which end the terminal block is on. The hex-stamped holes beside them are the case's own screws, not these. <cite>Manufacturer photo, marked up.</cite></figcaption>
   </figure>
   <figure>
-    <img src="https://assets.basically.website/sorter-docs/psu-box-tray-m4-full-3ee0b9ebbe4e.png" alt="Render of the shell rear tray seen from above and to one side, its honeycomb floor and vented walls visible, with the four round clearance holes the M4 screws pass through ringed">
+    <img src="https://assets.basically.website/sorter-docs/psu-box-tray-m4-full-057784120f30.png" alt="Render of the shell rear tray seen from above and to one side, its honeycomb floor and vented walls visible, with the four round clearance holes the M4 screws pass through ringed">
     <figcaption>The same four, in the tray's floor. The screws go in from underneath. <cite>Rendered from the part's own STL.</cite></figcaption>
   </figure>
 </div>
@@ -171,7 +164,7 @@ Then the two lids, 8 {% include fastener.html size="M3" variant="countersunk" le
 </ol>
 
 <figure class="harness-figure">
-  <img src="https://assets.basically.website/sorter-docs/psu-box-lids-full-4b1c5bd906a1.png" alt="Render of the PSU housing with both lids lifted clear above it, the vented rear lid and the plain front lid side by side, and all eight self-tapping bosses in the two shell parts ringed below them">
+  <img src="https://assets.basically.website/sorter-docs/psu-box-lids-full-0b71799e77ad.png" alt="Render of the PSU housing with both lids lifted off and set down beside it, the plain front lid and the vented rear lid side by side, and all eight self-tapping bosses in the two shell parts ringed on the open box">
   <figcaption>Both lids lifted off, with all eight screw holes ringed. <cite>Rendered from the parts' own STLs.</cite></figcaption>
 </figure>
 

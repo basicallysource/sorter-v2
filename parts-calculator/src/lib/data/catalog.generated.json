@@ -25431,7 +25431,7 @@
 			"description": "WiFi and Bluetooth for the Orange Pi. Optional.",
 			"note": null,
 			"created_at": "2026-07-18",
-			"updated_at": "2026-09-18",
+			"updated_at": "2026-09-26",
 			"attributes": [
 				{
 					"label": "Chip",
@@ -25486,7 +25486,7 @@
 				]
 			},
 			"alternative": null,
-			"caption": null,
+			"caption": "Optional. Only for a machine going on WiFi; skip it and run Ethernet.",
 			"docs_page": "/hardware/electronics/installation/orange-pi-prep/",
 			"conflicts": null,
 			"image": "https://assets.basically.website/sorter-parts/wifi-module-opi5-full-8ab3a6417605.jpg"

@@ -11,17 +11,23 @@ permalink: /sorter/
 
 ## Install
 
-- **[Installation]({{ '/sorter/installation/' | relative_url }})** — SorterOS image for Orange Pi 5, one-command installer for generic Linux, or manual setup.
-- **[Install by hand]({{ '/sorter/installation/by-hand/' | relative_url }})** — the manual sequence, for when the installer does not yet support your platform.
+- **[Installation]({{ '/sorter/installation/' | relative_url }})** — the three routes: the SorterOS image for the Orange Pi 5, the one-command installer for generic Linux, or the sequence by hand.
+
+## Set up a new machine, in this order
+
+<ol class="numbered-steps">
+  <li><strong><a href="{{ '/sorter/first-setup/' | relative_url }}">First setup in the UI</a></strong>. The setup wizard: name the machine, find the boards, check motion and endstops, assign the servos and the cameras, link Hive.</li>
+  <li><strong><a href="{{ '/sorter/camera-calibration/' | relative_url }}">Camera calibration</a></strong>. Focus each camera against a printed Siemens Star.</li>
+  <li><strong><a href="{{ '/sorter/chute-calibration/' | relative_url }}">Chute calibration</a></strong>. Home the chute, capture two bins to set the bin locations, and test every bin it can reach.</li>
+  <li><strong><a href="{{ '/sorter/before-first-sort-run/' | relative_url }}">Before your first sort run</a></strong>. The last five settings to check in the UI.</li>
+  <li><strong><a href="{{ '/sorter/preparing-lego/' | relative_url }}">Preparing LEGO for a sort run</a></strong>. What to take out of a tub of bulk LEGO before it goes in the bulk bucket, and what each thing does to the machine if it stays in.</li>
+  <li><strong><a href="{{ '/sorter/tutorials/first-sort-run/' | relative_url }}">Your first sort run</a></strong>. The end-to-end happy path: pick a profile, feed the machine, check a bin, stop cleanly.</li>
+</ol>
 
 ## Operate
 
-- **[First setup in the UI]({{ '/sorter/first-setup/' | relative_url }})** — the setup wizard step by step: name the machine, find the boards, check motion and endstops, assign servos and cameras, link Hive.
 - **[Build your first sorting profile]({{ '/hive/first-profile/' | relative_url }})** — decide your boxes, have Hive's assistant write the rules, and assign the result to the machine.
-- **[Preparing LEGO for a sort run]({{ '/sorter/preparing-lego/' | relative_url }})** — what to take out of a tub of bulk LEGO before it goes in the bulk bucket, and what each thing does to the machine if it stays in.
-- **[Your first sort run]({{ '/sorter/tutorials/first-sort-run/' | relative_url }})** — the end-to-end happy path: pick a profile, feed the machine, check a bin, stop cleanly.
-- **[Chute calibration]({{ '/sorter/chute-calibration/' | relative_url }})** — home the chute, capture two bins to set the bin locations, and test every bin it can reach.
-- **[Camera calibration]({{ '/sorter/camera-calibration/' | relative_url }})** — focus with a Siemens Star, then auto-calibrate color with a 6-color LEGO reference plate.
+- **[Shutting down the machine]({{ '/sorter/safe-shutdown/' | relative_url }})** — the two proper ways to power it down, and why pulling the plug is a last resort.
 - **[Sorter troubleshooting]({{ '/sorter/troubleshooting/' | relative_url }})** — symptom-led entries for install, first-run, and runtime problems.
 
 ## Under the hood

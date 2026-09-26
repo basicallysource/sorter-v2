@@ -30,7 +30,7 @@ You do not need to be an engineer, and none of the build is specialist work. It 
 
 **Taken as read.** You can run a 3D printer and print a part from an STL file. You are at ease with hex keys, side cutters, wire strippers and pliers, and you can work from a parts list.
 
-**Taught here, at the point you need it.** [Heat-set inserts]({{ '/hardware/helpers/heat-inserts/' | relative_url }}), [crimping contacts onto wire]({{ '/hardware/helpers/channel-stepper-lead/' | relative_url }}) and [finding a stepper's coils with a multimeter]({{ '/hardware/helpers/chute-stepper-lead/' | relative_url }}). Those pages start from the tool in your hand, so you can arrive at them having never done it.
+**Taught here, at the point you need it.** [Heat-set inserts]({{ '/hardware/helpers/heat-inserts/' | relative_url }}), [crimping contacts onto wire]({{ '/hardware/helpers/channel-stepper-lead/' | relative_url }}) and [using a multimeter]({{ '/hardware/helpers/multimeter/' | relative_url }}). Those pages start from the tool in your hand, so you can arrive at them having never done it.
 
 **Soldering** is needed on two of the leads you make yourself, [the board's 24 V lead]({{ '/hardware/helpers/board-24v-lead/' | relative_url }}) and [the chute stepper lead]({{ '/hardware/helpers/chute-stepper-lead/' | relative_url }}), where a spliced wire is covered with adhesive-lined heat shrink. Nothing else on the machine has to be soldered: the Pico comes with its pins already fitted, and the LED strips take a clamp-on connector.
 

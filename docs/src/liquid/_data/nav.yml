@@ -121,6 +121,8 @@ sections:
             url: /hardware/helpers/pico-headers/
           - title: Preparing the LED strip
             url: /hardware/helpers/led-strip/
+          - title: Using a multimeter
+            url: /hardware/helpers/multimeter/
           - title: Make your own PSU output pigtail
             url: /hardware/helpers/psu-pigtail/
           - title: Make the control board's 24 V lead
@@ -165,16 +167,16 @@ sections:
         pages:
           - title: First setup in the UI
             url: /sorter/first-setup/
+          - title: Camera calibration
+            url: /sorter/camera-calibration/
+          - title: Chute calibration
+            url: /sorter/chute-calibration/
           - title: Before your first sort run
             url: /sorter/before-first-sort-run/
           - title: Preparing LEGO for a sort run
             url: /sorter/preparing-lego/
           - title: Your first sort run
             url: /sorter/tutorials/first-sort-run/
-          - title: Chute calibration
-            url: /sorter/chute-calibration/
-          - title: Camera calibration
-            url: /sorter/camera-calibration/
           - title: Shutting down the machine
             url: /sorter/safe-shutdown/
           - title: Troubleshooting

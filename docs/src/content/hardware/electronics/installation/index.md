@@ -9,7 +9,7 @@ lede: The power supply, the control board and the Orange Pi, each built on the b
 permalink: /hardware/electronics/installation/
 author: barthel
 contributors: [spencer]
-og_image: https://assets.basically.website/sorter-docs/assembly-control-board-housing-on-the-extrusion-w1600-813fbb56a0d6.jpg
+og_image: https://assets.basically.website/sorter-docs/electronics-component-layout-topdown-full-2d38b86c4b2e.jpg
 tools_needed: ["Hex key, 3 mm for a button head or 4 mm for a socket head"]
 warning: >-
   One of these pages (PSU box) involves wiring mains voltage. Read it fully before starting, and do
@@ -27,7 +27,7 @@ The Pico is bought with its header pins already fitted, so there is nothing to p
   <li><strong><a href="{{ '/hardware/electronics/installation/control-board-prep/' | relative_url }}">Preparing the control board</a></strong>. The five stepper drivers, the Pico, and the ten jumpers that address the drivers. Done with the board loose.</li>
   <li><strong><a href="{{ '/hardware/electronics/installation/control-board-housing/' | relative_url }}">Control board housing</a></strong>. The prepared board closed into its printed housing, with the 40 mm fan and the reset plunger in the cover.</li>
   <li><strong><a href="{{ '/hardware/electronics/installation/orange-pi-prep/' | relative_url }}">Preparing the Orange Pi</a></strong>. The heatsink fan, the WiFi module and the first boot that sets the network, all while the board is still loose on the bench.</li>
-  <li><strong><a href="{{ '/hardware/electronics/installation/orange-pi-mount/' | relative_url }}">Orange Pi mount</a></strong>. The Orange Pi 5 standing off its printed plate, with the 40 mm fan on the arm above it.</li>
+  <li><strong><a href="{{ '/hardware/electronics/installation/orange-pi-mount/' | relative_url }}">Orange Pi mount</a></strong>. The Orange Pi 5 standing off its printed plate on four standoffs.</li>
 </ol>
 
 **Every one of those pages finishes on the bench.** Bolting the enclosure to the frame is one step, the same on all three, and it is on this page.
@@ -36,9 +36,11 @@ The Pico is bought with its header pins already fitted, so there is nothing to p
 
 Each of the three printed enclosures bolts to the 2020 frame with 2 M5 screws into 2 {% include fastener.html size="M5" variant="t-nut" text="T-nuts" %}, 6 of each in total. The holes in all three are clearance, so the screw passes through the plastic and pulls down onto the nut.
 
-- **PSU box**: 2x {% include fastener.html size="M5" variant="socket-button" length="12" %}
 - **Orange Pi mount**: 2x {% include fastener.html size="M5" variant="socket-button" length="12" %}
-- **Control board housing**: 2x {% include fastener.html size="M5" variant="socket-button" length="16" %}, longer because its clamp boss is 10 mm deep against the other two at 8 mm
+- **PSU box**: 2x {% include fastener.html size="M5" variant="socket-button" length="16" %}
+- **Control board housing**: 2x {% include fastener.html size="M5" variant="socket-button" length="16" %}
+
+The PSU box and the control board housing take the longer screw because both of those clamp bosses are 10 mm deep, against the Orange Pi mount's 8 mm.
 
 The six T-nuts go into the hex frame while the top interface is built, at [step 13]({{ '/hardware/assembly/distribution/top-interface/' | relative_url }}#step-13) of that page.
 
@@ -59,9 +61,8 @@ All three go on the same plane: the [hex frame]({{ '/hardware/assembly/distribut
 
 Collected here rather than left on the individual pages, because these are the things that block finishing them.
 
-- **Cooling the Orange Pi.** The control board's fan is answered: it sits in the housing cover and runs off a GPIO-switched 24 V port on the board itself. The Pi's own heatsink fan runs off the Pi. The 40 mm fan on the mount's arm is a 24 V one, and whether it is needed at all is not settled; the board's four LED ports are all spoken for, so there is nowhere for it to land as things stand (open item 1 on the [wire harness]({{ '/hardware/electronics/wire-harness/' | relative_url }}) page).
 - **Nothing says how the USB hub attaches.** The render above is the only record of where it goes, and it records placement, not a method. The hub has a slotted mounting flange at each end of its case, so it is meant to screw down, but no page says what it screws to or with what, and there is no printed mount or bracket for it in the build. Its 24 V lead is `W2` on the [wire harness]({{ '/hardware/electronics/wire-harness/' | relative_url }}) page.
-- **Two of the three enclosures have never been photographed bolted on.** The control board housing is the only one anybody has a picture of on the frame; the row below carries a described placeholder for the other two. The finished PSU box has no photo on the bench either, so its own page carries one as well.
+- **The PSU box has never been photographed bolted on.** The control board housing and the Orange Pi mount both have a picture of them on the frame in the row below; the PSU box has a render there rather than a build. It has no photo on the bench either, so its own page carries a placeholder as well.
 
 ## The finished result
 
@@ -73,12 +74,12 @@ All three enclosures bolted onto the hex frame, each one once its own page has f
     <figcaption><a href="{{ '/hardware/electronics/installation/control-board-housing/' | relative_url }}">Control board housing</a>, its two clamp bosses pulled down onto the extrusion. <cite>Photo: Spencer.</cite></figcaption>
   </figure>
   <figure>
-    <div class="img-placeholder">Image coming: the PSU box bolted onto the hex frame, both clamp bosses down on the extrusion, the inlet and the output jacks reachable</div>
-    <figcaption><a href="{{ '/hardware/electronics/installation/psu-box/' | relative_url }}">PSU box</a>, bolted on. <cite>Not photographed on a build yet.</cite></figcaption>
+    <img src="https://assets.basically.website/sorter-parts/meanwell-psu-housing-v2-render-full-f4b161896ea6.png" alt="Render of the closed PSU box bolted onto a 2020 extrusion by the clamp bosses at each end, its vented rear lid on top and its front panel carrying the mains inlet and the three output jacks">
+    <figcaption><a href="{{ '/hardware/electronics/installation/psu-box/' | relative_url }}">PSU box</a>, bolted on. <cite>Render, not photographed on a build yet.</cite></figcaption>
   </figure>
   <figure>
-    <div class="img-placeholder">Image coming: the Orange Pi mount bolted onto the hex frame, the Pi standing off the plate and the fan arm over it</div>
-    <figcaption><a href="{{ '/hardware/electronics/installation/orange-pi-mount/' | relative_url }}">Orange Pi mount</a>, bolted on. <cite>Not photographed on a build yet.</cite></figcaption>
+    <img src="https://assets.basically.website/sorter-docs/opi-mount-on-frame-w1600-fcd05ae94e7b.jpg" alt="The Orange Pi mount bolted down onto a 2020 extrusion inside the machine, an M5 screw through each end of the plate, the Orange Pi standing off it on its four standoffs with its antenna leads run back, and a hand holding the USB hub above it">
+    <figcaption><a href="{{ '/hardware/electronics/installation/orange-pi-mount/' | relative_url }}">Orange Pi mount</a>, an M5 through each end of the plate. The hub above it is not fastened to anything. <cite>Photo: BrickCycleAlice.</cite></figcaption>
   </figure>
 </div>
 

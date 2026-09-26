@@ -15,6 +15,10 @@ Nothing here is a stage of the build. Each page is one job you do once, on a par
 that several later steps need, and the step that needs it links straight to it.
 So read these when a page sends you, not in order.
 
+## Using a tool
+
+- **[Using a multimeter]({{ '/hardware/helpers/multimeter/' | relative_url }})**. Continuity, resistance and DC volts, the three checks the pages below ask for. Each one links straight to the check it needs.
+
 ## Preparing a bought part
 
 - **[Installing heat inserts]({{ '/hardware/helpers/heat-inserts/' | relative_url }})**. Pressing brass threads into printed parts, with a soldering iron or an insert press. The most-used page here: eight assembly steps call for it.

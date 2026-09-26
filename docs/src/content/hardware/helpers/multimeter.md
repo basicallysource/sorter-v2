@@ -153,7 +153,14 @@ Work through the combinations until you have both pairs, and write down which co
 
 ## Volts, when the machine is on
 
-This is the only setting you use with the power on, and no build step asks for it, so treat it as optional. Set the dial to **DC volts** (the straight line over a dashed line, `V` with a dash, or `DCV`), pick a range above 24 V if your meter is not autoranging, then hold the red probe on the tip inside a spare [PSU output]({{ '/hardware/helpers/psu-pigtail/' | relative_url }}) jack and the black probe against its sleeve. A healthy supply reads about 24 V. If the probes are the wrong way round the meter just shows a negative number, which harms nothing.
+This is the only setting you use with the power on, and no build step asks for it, so treat it as optional. If you do want to check the supply, check it **before any 24 V consumer is connected to it**, with its output jacks empty: a supply that comes up at the wrong voltage then never reaches the board, the Orange Pi or the motors.
+
+Set the dial to **DC volts** (the straight line over a dashed line, `V` with a dash, or `DCV`), pick a range above 24 V if your meter is not autoranging, then hold the red probe on the tip inside a spare [PSU output]({{ '/hardware/helpers/psu-pigtail/' | relative_url }}) jack and the black probe against its sleeve. A healthy supply reads about 24 V. If the probes are the wrong way round the meter just shows a negative number, which harms nothing.
+
+<div class="callout callout-warning">
+  <span class="callout-icon" aria-hidden="true">⚠</span>
+  <p><b>Not every supply holds its rated voltage with nothing drawing current.</b> Some want a minimum load before they regulate, and read high, low or unsteady until they get one, so a reading off 24 V on a supply you sourced yourself is a reason to look up its datasheet rather than to condemn it. The <a href="{{ '/hardware/electronics/installation/psu-box/' | relative_url }}">LRS-350-24</a> in the parts list is specified from zero load upwards, so on this machine an empty output really should read about 24 V.</p>
+</div>
 
 The two things worth knowing: put the probes back in the `COM` and `V`/&Omega; ports if you ever move them for a current measurement, and never measure voltage anywhere on the mains side of the PSU box.
 

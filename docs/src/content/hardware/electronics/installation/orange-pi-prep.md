@@ -35,7 +35,7 @@ The official heatsink fan sits on the SoC, the large chip in the middle of the b
 
 Peel the film off the thermal pad that comes in the box and lay it on the SoC. Sit the heatsink squarely on top with its two tabs over the holes either side, press both spring pins down until they click, and plug the 2-pin lead into the socket marked FAN, which on a v1.3.2 board is between the CAM1 connector and the USB 2.0 port. The pins hold it on, so there are no screws here and nothing to tighten.
 
-This is the Pi's only cooling. Nothing sits above the board once it is on its mount, so the heatsink and its fan have the space to themselves.
+This is the Pi's only cooling. Its housing's roof and floor are vented, and nothing else sits over the board inside it.
 
 {% include step.html n="2" title="Check the WiFi module (optional) matches the board" %}
 
@@ -94,4 +94,4 @@ A board that has been prepared: fan on, module in, network set, powered down and
   <figcaption>The prepared board from above: the heatsink over the SoC, a spring pin through the board at each of two opposite corners, and the fan lead in the socket marked FAN. The module and its antenna leads are on the face you cannot see. <cite>Manufacturer photo (Orange Pi), not a Basically photo; the pale highlights are theirs.</cite></figcaption>
 </figure>
 
-Carry on with [Orange Pi mount]({{ '/hardware/electronics/installation/orange-pi-mount/' | relative_url }}), which stands it off its printed plate.
+Carry on with [Orange Pi housing]({{ '/hardware/electronics/installation/orange-pi-mount/' | relative_url }}), which closes it into its printed box.

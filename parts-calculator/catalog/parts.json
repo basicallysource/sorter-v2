@@ -3004,22 +3004,279 @@
       "id": "orange-pi-extrusion-mount",
       "uid": "nxh7",
       "name": "Orange Pi Extrusion Mount",
-      "description": "Plate the Orange Pi 5 stands off, which bolts to the 2020 extrusion. Same design as the control board's mount with the opening and bolt pattern changed for the Pi. Four M3 inserts on the top face, one per standoff. The two pockets in the front edge face take no inserts: they held the 40 mm fan arm, which the machine no longer uses.",
+      "description": "Plate the Orange Pi 5 stood off on four standoffs, bolted to the 2020 extrusion. Unused as of 2026-09-26: the printed Orange Pi housing replaced it. Retired in place per VERSIONING.md.",
       "internal_notes": "From 'PCB Extrusion Mount (1).zip' (Sorter V2 STLs, 2026-08-22), a zip of two zips, one per board. Named 'basically board v1-3 open air fan - Orange Pi 5 to extrusion mount.stl' (the zip's own prefix says 'basically board'; the part inside is the Pi's).",
       "version": "1",
       "created_at": "2026-08-22",
       "updated_at": "2026-09-26",
-      "quantities": {
-        "electronics": 1
-      },
-      "assembly": "orange-pi-mount",
+      "quantities": {},
+      "assembly": null,
       "stl_hash": "4832b4065aef40589ccbe353e0e2214201f9ef5af1dd6c5df0af51fa079c4394",
       "color": {
         "role": "frame"
       },
       "optional": false,
       "support": false,
-      "onshape_version": "https://cad.onshape.com/documents/10ae43b609bb2df0f86cce4b/v/226293ea2e329f1f548b78a1/e/745c16803d318039967603f7"
+      "onshape_version": "https://cad.onshape.com/documents/10ae43b609bb2df0f86cce4b/v/226293ea2e329f1f548b78a1/e/745c16803d318039967603f7",
+      "note": "Removed 2026-09-26: the Orange Pi sits in its printed housing (orange-pi-mount v5). Do not re-add. Older photos still show the Pi on this plate."
+    },
+    {
+      "id": "orange-pi-housing-base",
+      "uid": "ort0",
+      "name": "Orange Pi Housing — Base",
+      "description": "Base of the Orange Pi 5 housing. The Pi screws down to four posts on heat inserts, four corner posts carry heat inserts for the roof screws, the four walls drop into grooves along its edges, and two ears bolt it to the 2020 extrusion. An opening in the floor under the microSD slot leaves room for a finger, and the power button plunger's retainer screws to a landing in one corner.",
+      "internal_notes": "New 2026-09-26 with orange-pi-mount v5, when the housing replaced the open plate. Exported in the CAD's assembly orientation, like the PSU box and control board housing parts.",
+      "version": "1",
+      "created_at": "2026-09-26",
+      "updated_at": "2026-09-26",
+      "quantities": {
+        "electronics": 1
+      },
+      "assembly": "orange-pi-mount",
+      "stl_hash": "686c71f100f0158f6fa2a3a1faef1b3ef775a97b0cb573d3f468e2f3531ad7c2",
+      "color": {
+        "role": "frame"
+      },
+      "optional": false,
+      "support": false,
+      "requires": [
+        {
+          "part": "hsi-m3",
+          "qty": 8
+        }
+      ],
+      "onshape_version": "https://cad.onshape.com/documents/d8339d00eaef603e65e5e050/v/32e64a3fe696f998a73a0f9f/e/b1ceeb1a7465fd41994edd80"
+    },
+    {
+      "id": "orange-pi-housing-roof",
+      "uid": "2lrz",
+      "name": "Orange Pi Housing — Roof",
+      "description": "Roof of the Orange Pi 5 housing. Four M3 × 12 mm countersunk screws hold it down into the base's corner inserts, and it carries the USB hub and the buck converter on top, each under its own clamp on four self-tapping M3 × 12 mm countersunk screws into the roof's pilots. Its recessed side faces down in the box, so it prints upside down, top face on the bed.",
+      "internal_notes": "New 2026-09-26 with orange-pi-mount v5, when the housing replaced the open plate. Exported in the CAD's assembly orientation, like the PSU box and control board housing parts.",
+      "version": "1",
+      "created_at": "2026-09-26",
+      "updated_at": "2026-09-26",
+      "quantities": {
+        "electronics": 1
+      },
+      "assembly": "orange-pi-mount",
+      "stl_hash": "509b20f01be28a5f2c7f7da774d2dec472b0dc61d0460a833bae17eb41f44a5f",
+      "color": {
+        "role": "frame"
+      },
+      "optional": false,
+      "support": false,
+      "onshape_version": "https://cad.onshape.com/documents/d8339d00eaef603e65e5e050/v/32e64a3fe696f998a73a0f9f/e/b1ceeb1a7465fd41994edd80"
+    },
+    {
+      "id": "orange-pi-housing-wall-west",
+      "uid": "ehlv",
+      "name": "Orange Pi Housing — West Wall",
+      "description": "Short wall on the Pi's power button side. A small window lets the power button plunger through, and a larger one opens onto the microSD card. Drops into its groove in the base; the roof holds it down. Prints lying flat.",
+      "internal_notes": "New 2026-09-26 with orange-pi-mount v5, when the housing replaced the open plate. Exported in the CAD's assembly orientation, like the PSU box and control board housing parts.",
+      "version": "1",
+      "created_at": "2026-09-26",
+      "updated_at": "2026-09-26",
+      "quantities": {
+        "electronics": 1
+      },
+      "assembly": "orange-pi-mount",
+      "stl_hash": "efdc2942399f3c68a00871cb491435fb1b58a51a3e759eb5b7ff7c7a40f3d57c",
+      "color": {
+        "role": "frame"
+      },
+      "optional": false,
+      "support": false,
+      "onshape_version": "https://cad.onshape.com/documents/d8339d00eaef603e65e5e050/v/32e64a3fe696f998a73a0f9f/e/b1ceeb1a7465fd41994edd80"
+    },
+    {
+      "id": "orange-pi-housing-wall-east",
+      "uid": "yxiy",
+      "name": "Orange Pi Housing — East Wall",
+      "description": "Short wall on the Pi's USB-A and Ethernet side, with an opening for each port stack. Drops into its groove in the base; the roof holds it down. Prints lying flat.",
+      "internal_notes": "New 2026-09-26 with orange-pi-mount v5, when the housing replaced the open plate. Exported in the CAD's assembly orientation, like the PSU box and control board housing parts.",
+      "version": "1",
+      "created_at": "2026-09-26",
+      "updated_at": "2026-09-26",
+      "quantities": {
+        "electronics": 1
+      },
+      "assembly": "orange-pi-mount",
+      "stl_hash": "47d41be8c011fae2adf84e9ad476a469209d21c2c0bc21c205049e8b50608b94",
+      "color": {
+        "role": "frame"
+      },
+      "optional": false,
+      "support": false,
+      "onshape_version": "https://cad.onshape.com/documents/d8339d00eaef603e65e5e050/v/32e64a3fe696f998a73a0f9f/e/b1ceeb1a7465fd41994edd80"
+    },
+    {
+      "id": "orange-pi-housing-wall-north",
+      "uid": "qz8d",
+      "name": "Orange Pi Housing — North Wall",
+      "description": "Long wall on the Pi's USB-C and HDMI side, with an opening for those ports. A block on its outside carries the two WiFi antennas in saddles under the antenna clamp, with an opening below for their leads. Drops into its groove in the base; the roof holds it down.",
+      "internal_notes": "New 2026-09-26 with orange-pi-mount v5, when the housing replaced the open plate. Exported in the CAD's assembly orientation, like the PSU box and control board housing parts.",
+      "version": "1",
+      "created_at": "2026-09-26",
+      "updated_at": "2026-09-26",
+      "quantities": {
+        "electronics": 1
+      },
+      "assembly": "orange-pi-mount",
+      "stl_hash": "e9c94c3577b7e9852a601884074bca2a8ab84ee6ed7fa4638a6e4ca112893fb5",
+      "color": {
+        "role": "frame"
+      },
+      "optional": false,
+      "support": false,
+      "onshape_version": "https://cad.onshape.com/documents/d8339d00eaef603e65e5e050/v/32e64a3fe696f998a73a0f9f/e/b1ceeb1a7465fd41994edd80"
+    },
+    {
+      "id": "orange-pi-housing-wall-south",
+      "uid": "yg6s",
+      "name": "Orange Pi Housing — South Wall",
+      "description": "Long wall on the Pi's GPIO side: a hex vent, and an opening at the bottom for a cable off the GPIO header. Drops into its groove in the base; the roof holds it down. Prints lying flat.",
+      "internal_notes": "New 2026-09-26 with orange-pi-mount v5, when the housing replaced the open plate. Exported in the CAD's assembly orientation, like the PSU box and control board housing parts.",
+      "version": "1",
+      "created_at": "2026-09-26",
+      "updated_at": "2026-09-26",
+      "quantities": {
+        "electronics": 1
+      },
+      "assembly": "orange-pi-mount",
+      "stl_hash": "b508db54337c9544dd3e40911107ff2c8df5cb303202075466c9f127548eccd8",
+      "color": {
+        "role": "frame"
+      },
+      "optional": false,
+      "support": false,
+      "onshape_version": "https://cad.onshape.com/documents/d8339d00eaef603e65e5e050/v/32e64a3fe696f998a73a0f9f/e/b1ceeb1a7465fd41994edd80"
+    },
+    {
+      "id": "orange-pi-housing-hub-clamp",
+      "uid": "6lhm",
+      "name": "Orange Pi Housing — Hub Clamp",
+      "description": "Frame that holds the powered USB hub down on the housing's roof, on four self-tapping M3 × 12 mm countersunk screws into the roof's pilots. Drawn around the Waveshare USB3.2-Gen1-HUB-4U.",
+      "internal_notes": "New 2026-09-26 with orange-pi-mount v5, when the housing replaced the open plate. Exported in the CAD's assembly orientation, like the PSU box and control board housing parts.",
+      "version": "1",
+      "created_at": "2026-09-26",
+      "updated_at": "2026-09-26",
+      "quantities": {
+        "electronics": 1
+      },
+      "assembly": "orange-pi-mount",
+      "stl_hash": "2c0dd5e077e17dc240938d098dedd665d1f8bafec5116fe3d0ce26c0aba4a028",
+      "color": {
+        "role": "frame"
+      },
+      "optional": false,
+      "support": false,
+      "onshape_version": "https://cad.onshape.com/documents/d8339d00eaef603e65e5e050/v/32e64a3fe696f998a73a0f9f/e/b1ceeb1a7465fd41994edd80"
+    },
+    {
+      "id": "orange-pi-housing-buck-clamp",
+      "uid": "9ggj",
+      "name": "Orange Pi Housing — Buck Clamp",
+      "description": "Frame that holds the 24 V to 5 V buck converter down on the housing's roof, on four self-tapping M3 × 12 mm countersunk screws into the roof's pilots.",
+      "internal_notes": "New 2026-09-26 with orange-pi-mount v5, when the housing replaced the open plate. Exported in the CAD's assembly orientation, like the PSU box and control board housing parts.",
+      "version": "1",
+      "created_at": "2026-09-26",
+      "updated_at": "2026-09-26",
+      "quantities": {
+        "electronics": 1
+      },
+      "assembly": "orange-pi-mount",
+      "stl_hash": "c6e3d73bd71c9f25a1410742203487b2a6f56767863360a3587b189d700c1a10",
+      "color": {
+        "role": "frame"
+      },
+      "optional": false,
+      "support": false,
+      "onshape_version": "https://cad.onshape.com/documents/d8339d00eaef603e65e5e050/v/32e64a3fe696f998a73a0f9f/e/b1ceeb1a7465fd41994edd80"
+    },
+    {
+      "id": "orange-pi-housing-antenna-clamp",
+      "uid": "kvkg",
+      "name": "Orange Pi Housing — Antenna Clamp",
+      "description": "Cap that holds the two WiFi antennas in their saddles on the north wall, on two self-tapping M3 × 12 mm countersunk screws into the wall's pilots.",
+      "internal_notes": "New 2026-09-26 with orange-pi-mount v5, when the housing replaced the open plate. Exported in the CAD's assembly orientation, like the PSU box and control board housing parts.",
+      "version": "1",
+      "created_at": "2026-09-26",
+      "updated_at": "2026-09-26",
+      "quantities": {
+        "electronics": 1
+      },
+      "assembly": "orange-pi-mount",
+      "stl_hash": "475991b7527690d76dd02154aec927aaa7f2a1d7f3b754fd6f2def3f25eb1a07",
+      "color": {
+        "role": "frame"
+      },
+      "optional": false,
+      "support": false,
+      "onshape_version": "https://cad.onshape.com/documents/d8339d00eaef603e65e5e050/v/32e64a3fe696f998a73a0f9f/e/b1ceeb1a7465fd41994edd80"
+    },
+    {
+      "id": "orange-pi-housing-plunger",
+      "uid": "hbg5",
+      "name": "Orange Pi Housing — Plunger",
+      "description": "Reaches the Orange Pi's power key through the west wall, so the Pi can be switched on with the housing closed. Held by the plunger retainer and cap.",
+      "internal_notes": "New 2026-09-26 with orange-pi-mount v5, when the housing replaced the open plate. Exported in the CAD's assembly orientation, like the PSU box and control board housing parts.",
+      "version": "1",
+      "created_at": "2026-09-26",
+      "updated_at": "2026-09-26",
+      "quantities": {
+        "electronics": 1
+      },
+      "assembly": "orange-pi-mount",
+      "stl_hash": "0d8ec89646a64200d6b61747ae8d19ec0d1a2a08ebafb96cab039bcfa151c330",
+      "color": {
+        "role": "frame"
+      },
+      "optional": false,
+      "support": false,
+      "onshape_version": "https://cad.onshape.com/documents/d8339d00eaef603e65e5e050/v/32e64a3fe696f998a73a0f9f/e/b1ceeb1a7465fd41994edd80"
+    },
+    {
+      "id": "orange-pi-housing-plunger-retainer",
+      "uid": "dlgz",
+      "name": "Orange Pi Housing — Plunger Retainer",
+      "description": "Guides the power button plunger. Screws to its landing on the base with one M3 × 12 mm countersunk screw from underneath.",
+      "internal_notes": "New 2026-09-26 with orange-pi-mount v5, when the housing replaced the open plate. Exported in the CAD's assembly orientation, like the PSU box and control board housing parts.",
+      "version": "1",
+      "created_at": "2026-09-26",
+      "updated_at": "2026-09-26",
+      "quantities": {
+        "electronics": 1
+      },
+      "assembly": "orange-pi-mount",
+      "stl_hash": "2a004a7203d7e609cb5f7f2a39e49d920a96b94b020c2c9af84d1a5d669bb7ea",
+      "color": {
+        "role": "frame"
+      },
+      "optional": false,
+      "support": false,
+      "onshape_version": "https://cad.onshape.com/documents/d8339d00eaef603e65e5e050/v/32e64a3fe696f998a73a0f9f/e/b1ceeb1a7465fd41994edd80"
+    },
+    {
+      "id": "orange-pi-housing-plunger-cap",
+      "uid": "bwbc",
+      "name": "Orange Pi Housing — Plunger Cap",
+      "description": "Closes over the plunger retainer on one M3 × 8 mm countersunk screw, keeping the plunger in.",
+      "internal_notes": "New 2026-09-26 with orange-pi-mount v5, when the housing replaced the open plate. Exported in the CAD's assembly orientation, like the PSU box and control board housing parts.",
+      "version": "1",
+      "created_at": "2026-09-26",
+      "updated_at": "2026-09-26",
+      "quantities": {
+        "electronics": 1
+      },
+      "assembly": "orange-pi-mount",
+      "stl_hash": "126231ac1c4941ee9c4ecaf3c85b1f2025b809537cc7bc5ac2a0c7fbd3ad3a98",
+      "color": {
+        "role": "frame"
+      },
+      "optional": false,
+      "support": false,
+      "onshape_version": "https://cad.onshape.com/documents/d8339d00eaef603e65e5e050/v/32e64a3fe696f998a73a0f9f/e/b1ceeb1a7465fd41994edd80"
     },
     {
       "id": "fan-bracket-40mm",
@@ -4508,9 +4765,9 @@
       },
       "name": "Standoff - M3 - 10mm",
       "category": "Standoffs",
-      "description": "Stands the Orange Pi off its extrusion mount: one screws into each of the four inserts on the plate's top face, and the Pi sits on them.",
+      "description": "Stood the Orange Pi off its extrusion mount plate. Unused as of 2026-09-26: the Orange Pi housing's base has printed posts with heat inserts instead. Retired in place per VERSIONING.md.",
       "created_at": "2026-07-18",
-      "updated_at": "2026-07-18",
+      "updated_at": "2026-09-26",
       "sheet_qty": {
         "per_machine": 4
       },
@@ -4528,7 +4785,7 @@
           }
         ]
       },
-      "note": "The control board housing uses none, its board sits on four printed bosses. The standoff's own thread is soft and strips easily, so start each one by hand, keep it square, and stop turning the moment it seats."
+      "note": "Removed 2026-09-26 with the plate it screwed into. Do not re-add."
     },
     {
       "id": "tnut-m5-2020",
@@ -5367,7 +5624,7 @@
           "value": "SorterOS, which is built on Orange Pi's own Ubuntu image for this board"
         }
       ],
-      "note": "Buy the plain Orange Pi 5, 8 GB. The 5 Plus, 5 Pro, 5 Max and 5 Ultra are separate boards rather than options on this one: none of them share its mounting-hole pattern, so the printed extrusion mount does not line up, and the WiFi module listed in this catalog fits the plain 5 only. The 5B is not supported either: it does fit the mount, but SorterOS is built from the plain 5's image and there is no 5B build.",
+      "note": "Buy the plain Orange Pi 5, 8 GB. The 5 Plus, 5 Pro, 5 Max and 5 Ultra are separate boards rather than options on this one: none of them share its mounting-hole pattern, so the printed housing's posts do not line up, and the WiFi module listed in this catalog fits the plain 5 only. The 5B is not supported either: it does fit the housing's posts, but SorterOS is built from the plain 5's image and there is no 5B build.",
       "image_url": "https://assets.basically.website/sorter-parts/sbc-orange-pi-5-full-0ed5b951ffe2.jpg",
       "sourcing": {
         "vendors": [
@@ -5502,7 +5759,7 @@
       "description": "Powered USB Hub(s) for webcams and Picos (see note)",
       "alternative": "Waveshare USB3.2-Gen1-HUB-2IN-4OUT, or any powered 4-port hub whose DC input range covers 24 V.",
       "created_at": "2026-07-18",
-      "updated_at": "2026-09-23",
+      "updated_at": "2026-09-26",
       "attributes": [
         {
           "label": "Part number",
@@ -5521,7 +5778,7 @@
           "value": "Metal, with a slotted mounting flange at each end"
         }
       ],
-      "note": "The hub is fed 24 V, so it has to take 24 V DC in. Waveshare sell four hubs of this shape: USB3.2-Gen1-HUB-4U and USB3.2-Gen1-HUB-2IN-4OUT take 7 to 36 V and both work. USB-HUB-4U and USB-HUB-2IN-4OUT are 5 V only and will not run. Check the DC input range on the listing before you buy; the model is printed on the case.",
+      "note": "The hub is fed 24 V, so it has to take 24 V DC in. Waveshare sell four hubs of this shape: USB3.2-Gen1-HUB-4U and USB3.2-Gen1-HUB-2IN-4OUT take 7 to 36 V and both work. USB-HUB-4U and USB-HUB-2IN-4OUT are 5 V only and will not run. Check the DC input range on the listing before you buy; the model is printed on the case. The hub clamp on the Orange Pi housing's roof is drawn around the USB3.2-Gen1-HUB-4U.",
       "sheet_qty": {
         "per_machine": 1
       },
@@ -13882,14 +14139,26 @@
     },
     {
       "id": "orange-pi-mount",
-      "uid": "hus8",
-      "version": "4",
-      "name": "Orange Pi mount",
-      "description": "The Orange Pi 5 standing off its plate, which bolts to the 2020 extrusion. Its cooling is the official heatsink fan on the SoC, fitted before the board goes on.",
+      "uid": "hxqn",
+      "version": "5",
+      "name": "Orange Pi housing",
+      "description": "The Orange Pi 5 closed into a printed housing that bolts to the 2020 extrusion: a base with posts for the board, four walls that drop into it, and a roof that carries the powered USB hub and the buck converter that powers the Pi, each under its own clamp. The WiFi antennas stand in a clamp on one wall, and a plunger reaches the Pi's power button from outside.",
       "docs": "/hardware/electronics/installation/orange-pi-mount/",
+      "images": [
+        {
+          "url": "https://assets.basically.website/sorter-parts/orange-pi-housing-with-hub-render-full-7d14589d8944.png",
+          "alt": "Render of the Orange Pi housing with the USB hub and the buck converter clamped to its roof and the two WiFi antennas standing in their clamp on its long wall",
+          "caption": "The housing with the hub and the buck converter on its roof. Rendered from the CAD, not from a build."
+        },
+        {
+          "url": "https://assets.basically.website/sorter-parts/orange-pi-housing-render-full-1f26a3ba6570.png",
+          "alt": "Render of the closed Orange Pi housing with its roof clamps empty, the WiFi antennas in their clamp and the port openings in the end wall",
+          "caption": "The housing alone. Rendered from the CAD, not from a build."
+        }
+      ],
       "lines": [
         {
-          "part": "orange-pi-extrusion-mount",
+          "part": "orange-pi-housing-base",
           "qty": 1
         },
         {
@@ -13913,24 +14182,80 @@
           "qty": 4
         },
         {
-          "part": "hsi-m3",
-          "qty": 4
+          "part": "orange-pi-housing-plunger-retainer",
+          "qty": 1
         },
         {
-          "part": "standoff-m3-10mm",
-          "qty": 4
+          "part": "orange-pi-housing-plunger",
+          "qty": 1
         },
         {
-          "part": "scr-m5-12-shcs",
+          "part": "orange-pi-housing-plunger-cap",
+          "qty": 1
+        },
+        {
+          "part": "scr-m3-8-cs",
+          "qty": 1
+        },
+        {
+          "part": "orange-pi-housing-wall-west",
+          "qty": 1
+        },
+        {
+          "part": "orange-pi-housing-wall-east",
+          "qty": 1
+        },
+        {
+          "part": "orange-pi-housing-wall-north",
+          "qty": 1
+        },
+        {
+          "part": "orange-pi-housing-wall-south",
+          "qty": 1
+        },
+        {
+          "part": "orange-pi-housing-roof",
+          "qty": 1
+        },
+        {
+          "part": "scr-m3-12-cs",
+          "qty": 15
+        },
+        {
+          "part": "orange-pi-housing-antenna-clamp",
+          "qty": 1
+        },
+        {
+          "part": "usb-hub-powered-24v",
+          "qty": 1
+        },
+        {
+          "part": "orange-pi-housing-hub-clamp",
+          "qty": 1
+        },
+        {
+          "part": "buck-24v-5v-usbc",
+          "qty": 1
+        },
+        {
+          "part": "orange-pi-housing-buck-clamp",
+          "qty": 1
+        },
+        {
+          "assembly": "harness-buck-24v",
+          "qty": 1
+        },
+        {
+          "part": "scr-m5-16-shcs",
+          "qty": 2
+        },
+        {
+          "part": "washer-m5",
           "qty": 2
         },
         {
           "part": "tnut-m5-2020",
           "qty": 2
-        },
-        {
-          "assembly": "harness-buck-24v",
-          "qty": 1
         }
       ],
       "versions": [
@@ -14128,8 +14453,73 @@
         },
         {
           "version": "4",
+          "uid": "hus8",
           "date": "2026-09-26",
           "message": "The 40 mm fan arm comes off. The Orange Pi's own heatsink fan on the SoC is the cooling now, so the printed bracket, the 40 mm 24 V fan it cantilevered over the board and all six M3 x 16 screws (2 into the mount, 4 into the fan) leave the assembly, and the insert count goes 6 -> 4: the two in the plate's front edge face were there only for the arm's foot. fan-bracket-40mm is retired in place; the 24 V fan stays one per machine, in the control board housing cover.",
+          "breaking": false,
+          "commit": null,
+          "lines": [
+            {
+              "part": "orange-pi-extrusion-mount",
+              "qty": 1,
+              "uid": "nxh7"
+            },
+            {
+              "part": "sbc-orange-pi-5",
+              "qty": 1,
+              "uid": "ilqj"
+            },
+            {
+              "part": "fan-orange-pi-5-heatsink",
+              "qty": 1,
+              "uid": "z0ye"
+            },
+            {
+              "part": "wifi-module-opi5",
+              "qty": 1,
+              "uid": "b25j"
+            },
+            {
+              "part": "microsd-32gb",
+              "qty": 1,
+              "uid": "7fvo"
+            },
+            {
+              "part": "scr-m3-6-bhcs",
+              "qty": 4,
+              "uid": "e04c"
+            },
+            {
+              "part": "hsi-m3",
+              "qty": 4,
+              "uid": "ksut"
+            },
+            {
+              "part": "standoff-m3-10mm",
+              "qty": 4,
+              "uid": "hkor"
+            },
+            {
+              "part": "scr-m5-12-shcs",
+              "qty": 2,
+              "uid": "kmah"
+            },
+            {
+              "part": "tnut-m5-2020",
+              "qty": 2,
+              "uid": "bpwm"
+            },
+            {
+              "assembly": "harness-buck-24v",
+              "qty": 1,
+              "uid": "6odt"
+            }
+          ]
+        },
+        {
+          "version": "5",
+          "date": "2026-09-26",
+          "message": "The printed housing replaces the open plate, as the control board's did at its v2. The Pi screws down to four posts in the base on heat inserts, where it stood on four 10 mm standoffs on the plate; four walls drop into grooves in the base and the roof screws down over them into four more inserts, so the base takes eight. The powered USB hub and the buck converter move onto the roof, each under a printed clamp, and so move into this assembly from Electronics. The WiFi antennas are clamped to the north wall, and a plunger through the west wall reaches the power button. Fasteners, from the CAD assembly: 4 M3 x 6 button heads for the board, 15 M3 x 12 countersunk (4 roof, 4 hub clamp, 4 buck clamp, 2 antenna clamp, 1 plunger retainer), 1 M3 x 8 countersunk for the plunger cap, and 2 M5 x 16 with a washer each into 2 T-nuts for the frame, where the plate took M5 x 12. Over the housing's earlier draft, the walls go in with less effort, the microSD card is easier to reach, and the roof's screws go into heat-set inserts. An old plate-mounted Pi still works in the machine, so this is not breaking. orange-pi-extrusion-mount and standoff-m3-10mm are retired in place.",
           "breaking": false,
           "commit": null
         }
@@ -14137,18 +14527,14 @@
     },
     {
       "id": "electronics",
-      "uid": "46xn",
-      "version": "4",
+      "uid": "40ok",
+      "version": "5",
       "name": "Electronics",
-      "description": "The PSU, the control board and the Orange Pi, each in its own box bolted to the frame, plus the powered USB hub they share, its 24 V lead, and the converter that powers the Pi off the 24 V supply.",
+      "description": "The PSU, the control board and the Orange Pi, each in its own printed box bolted to the frame, plus the 24 V lead to the powered USB hub, which rides on the Orange Pi housing's roof with the converter that powers the Pi.",
       "docs": "/hardware/electronics/installation/",
       "lines": [
         {
           "assembly": "meanwell-psu-box",
-          "qty": 1
-        },
-        {
-          "part": "usb-hub-powered-24v",
           "qty": 1
         },
         {
@@ -14157,10 +14543,6 @@
         },
         {
           "assembly": "orange-pi-mount",
-          "qty": 1
-        },
-        {
-          "part": "buck-24v-5v-usbc",
           "qty": 1
         },
         {
@@ -14258,8 +14640,48 @@
         },
         {
           "version": "4",
+          "uid": "46xn",
           "date": "2026-09-23",
           "message": "The 24 V to 5 V USB-C buck converter is a member of this group now, beside the Orange Pi mount rather than inside it. It was in the catalog with a hand-written per-machine count and in no assembly, so browsing the machine never reached it. Beside and not inside because nothing holds it: the converter is potted, has no mounting feature, and no page places or retains it, so a line inside the mount would assert a joint that does not exist. v3 placed the powered USB hub for the same reason and that line is untouched.",
+          "breaking": false,
+          "commit": null,
+          "lines": [
+            {
+              "assembly": "meanwell-psu-box",
+              "qty": 1,
+              "uid": "8bk1"
+            },
+            {
+              "part": "usb-hub-powered-24v",
+              "qty": 1,
+              "uid": "krx5"
+            },
+            {
+              "assembly": "ctrl-board-mount",
+              "qty": 1,
+              "uid": "y2yu"
+            },
+            {
+              "assembly": "orange-pi-mount",
+              "qty": 1,
+              "uid": "hus8"
+            },
+            {
+              "part": "buck-24v-5v-usbc",
+              "qty": 1,
+              "uid": "x1vg"
+            },
+            {
+              "assembly": "harness-hub-24v",
+              "qty": 1,
+              "uid": "8b59"
+            }
+          ]
+        },
+        {
+          "version": "5",
+          "date": "2026-09-26",
+          "message": "The powered USB hub and the 24 V to 5 V buck converter move into the Orange Pi housing (orange-pi-mount v5), whose roof clamps both. Same parts, same counts across the machine; only where they sit in the tree changed. The hub's 24 V lead stays here.",
           "breaking": false,
           "commit": null
         }

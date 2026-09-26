@@ -98,7 +98,7 @@ sections:
                 url: /hardware/electronics/installation/control-board-housing/
               - title: Preparing the Orange Pi
                 url: /hardware/electronics/installation/orange-pi-prep/
-              - title: Orange Pi mount
+              - title: Orange Pi housing
                 url: /hardware/electronics/installation/orange-pi-mount/
           - title: Connecting the components
             url: /hardware/electronics/connecting/

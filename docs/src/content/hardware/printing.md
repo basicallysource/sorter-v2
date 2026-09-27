@@ -61,33 +61,36 @@ settings that move a printed dimension, and both Bambu Studio and Orca can test 
 and pressure advance for one filament in a few minutes. Dialling those in once is
 worth more than any profile you copy from somebody else.
 
-## Print each part the way the file comes
+## Print orientation
 
-**Every STL is already sitting the way it should print.** Drop it on the plate as it
-is and slice it.
+**Most STLs are already sitting the way they should print.** Drop the part on the
+plate as it is and slice it.
 
-- **Do not use auto orient.** "Optimize orientation", "auto rotate" and the orient
-  tools in Bambu Studio, Orca and PrusaSlicer will lay parts down on a different
-  face. The face a part prints on is a design decision that is already made, and
-  changing it is how a gear tooth or a bracket arm ends up printing across the layer
-  lines and snapping in use.
-- **Moving a part is fine. Turning it over is not.** Sliding it around the plate,
-  dropping it onto the plate and spinning it flat (around Z) all leave the printing
-  face alone. Anything that tips it onto another face does not.
+- **Do not use auto orient across the board.** "Optimize orientation", "auto rotate"
+  and the orient tools in Bambu Studio, Orca and PrusaSlicer will lay parts down on a
+  different face. For structural parts, the face a part prints on is a design
+  decision that is already made, and changing it is how a gear tooth or a bracket arm
+  ends up printing across the layer lines and snapping in use.
+- **Moving a part is fine.** Sliding it around the plate, dropping it onto the plate
+  and spinning it flat (around Z) all leave the printing face alone.
 - **Parts import off centre, and some import below or above the plate.** They are
   exported in the coordinates they occupy in the machine, so the slicer puts them
   where the assembly puts them. Move it onto the plate and carry on. That is normal
   and it is not a broken file.
+- **Some parts (like the bins) need to be placed on a face.** Certain STLs are
+  exported in their assembled orientation and have no flat face on the bed initially,
+  or balance on an edge or corner. Use your slicer's "lay flat" / "place on face" tool
+  to lay them on their largest flat bottom face.
 - **The NEMA bracket needs a spin.** It is 255.9 mm across as it comes and an A1 bed
   is 256 mm, so it slices with no room for a brim. Rotate it about 25 degrees flat on
   the plate and it clears with about 28 mm to spare.
 - **Auto arrange is fine** for packing several parts onto one plate, as long as it
   only slides and spins them. Check the plate afterwards and make sure nothing has
-  been turned over.
+  been turned onto an unintended face.
 
-If a part looks like it wants turning, do not turn it. Ask on
-[Discord](https://discord.gg/6PZtqkwtaS) first, because a part sitting wrong in the
-file is a fault worth fixing for everybody.
+If a part has a clear flat base already on the bed, leave it sitting that way. If a
+part sits on an edge or point without a face on the bed, place it on its flat face, or
+check the ready-made build plates or ask on [Discord](https://discord.gg/6PZtqkwtaS).
 
 ## Supports
 

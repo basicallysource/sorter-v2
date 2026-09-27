@@ -8,7 +8,7 @@ kicker: Electronics — Control board housing
 lede: Closing the control board into its printed housing, with the 40 mm fan on a GPIO-controlled port and the reset plunger in its lid.
 permalink: /hardware/electronics/installation/control-board-housing/
 author: spencer
-og_image: https://assets.basically.website/sorter-docs/assembly-control-board-housing-closed-render-full-a4e91f346045.png
+og_image: https://assets.basically.website/sorter-docs/assembly-control-board-housing-housing-angled-w1600-d8c3ed33682d.jpg
 warning: >-
   **AI-generated first draft.** Steps 1, 2 and 5 are photographed from a build. Nobody has printed
   the cover, the plunger or the fan retainers yet, so steps 3, 4, 6 and 7 are written from the
@@ -157,8 +157,8 @@ Press the plunger on the lid. Its head sits just below the surface, so it takes 
 The housing closed, with the fan and the reset plunger in the cover and the stepper connectors still reachable through the bays in the wall.
 
 <figure class="single-figure">
-  <img class="doc-figure" src="https://assets.basically.website/sorter-docs/assembly-control-board-housing-closed-render-full-a4e91f346045.png" alt="Render of the finished housing at an angle, showing the honeycomb vent and basically logo on the lid, the recessed square plunger head, and the bays along the right edge that expose the stepper connectors">
-  <figcaption>The closed housing, from above and to one side. <cite>Rendered from the parts' own geometry in assembly position, not from a build. Render: Balloon.</cite></figcaption>
+  <img class="doc-figure" src="https://assets.basically.website/sorter-docs/assembly-control-board-housing-housing-angled-w1600-d8c3ed33682d.jpg" alt="The finished housing at an angle, showing the honeycomb vent and basically logo on the lid, the square plunger head in the lid surface, and the bays along the right edge that expose the stepper connectors">
+  <figcaption>The closed housing, from above and to one side. <cite>Photo: Spencer.</cite></figcaption>
 </figure>
 
 **Bolting it to the frame is on the [installation overview]({{ '/hardware/electronics/installation/' | relative_url }})**, once all three enclosures are built.

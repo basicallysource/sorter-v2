@@ -103,7 +103,7 @@ Sit the retainer on its landing, at the end of the base with the large opening i
   <p>Static caution: the Orange Pi is ESD-sensitive like any other bare board. Touch a grounded metal surface before handling it, and avoid doing this on carpet in dry weather.</p>
 </div>
 
-Sit the Pi on the four posts with its Ethernet and USB-A ports at the end furthest from that floor opening, and fasten it with 4 {% include fastener.html size="M3" variant="socket-button" length="6" %} screws into their inserts. It fits the posts either way round, and only this way puts its ports behind the openings in the walls.
+Sit the Pi on the four posts with its Ethernet and USB-A ports at the end furthest from the large opening in the base's floor, and fasten it with 4 {% include fastener.html size="M3" variant="socket-button" length="6" %} screws into their inserts. It fits the posts either way round, and only this way puts its ports behind the openings in the walls.
 
 <div class="img-row">
   <figure>

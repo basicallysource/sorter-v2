@@ -11,7 +11,7 @@ author: barthel
 contributors: [spencer, brickcyclealice, reveryx]
 og_image: https://assets.basically.website/sorter-parts/meanwell-psu-housing-v2-render-full-f4b161896ea6.png
 last_verified: 2026-09-26
-tools_needed: ["Hex keys, 2 mm and 2.5 mm", "Screwdriver for the supply's M3.5 terminal screws", "Pliers, for the jacks' nuts and, on a pre-v2 panel, the inlet's M3 nuts", "Multimeter, with a continuity buzzer"]
+tools_needed: ["Hex keys, 2 mm and 2.5 mm", "Screwdriver for the supply's M3.5 terminal screws", "Pliers, for the jacks' nuts", "Multimeter, with a continuity buzzer"]
 parts_needed:
   - part: psu-24v-350w
     qty: 1
@@ -67,23 +67,21 @@ The fasteners and quantities are in the parts list above and are called out inli
 
 {% include step.html n="1" title="Fit and wire the three jacks" %}
 
-Push each jack through a round hole **from the outside**, so its knurled bezel sits on the outer face of the panel and the threaded barrel and the two leads come through into the box. Any of the three round holes will do. The nut goes on inside, over a spring washer (see below).
+Push each jack through a round hole **from the outside**, so its knurled bezel sits on the outer face of the panel and the threaded barrel and the two leads come through into the box. Any of the three round holes will do.
 
 <figure class="harness-figure">
   <img src="https://assets.basically.website/sorter-docs/psu-box-front-panel-v3-full-2fea8da2bd43.png" alt="Dimensioned drawing of the PSU housing front panel seen from outside: a landscape panel 131 by 50 mm, with three 12 mm round jack holes in a row on the left at 20 mm pitch, and on the right a 47.5 by 28 mm rectangular mains inlet cutout with a 2.8 mm screw pilot hole above it and another below it, 40 mm apart on its centreline">
-  <figcaption>The front panel from outside: inlet on the right, jacks on the left. The two small holes are 2.8 mm pilots, so the inlet's screws cut their own thread in them. <cite>Drawn from the part's STL, not from a build.</cite></figcaption>
+  <figcaption>The front panel from outside: inlet on the right, jacks on the left. <cite>Drawn from the part's STL, not from a build.</cite></figcaption>
 </figure>
 
-### Mounting the pigtails: spring washer, then nut
-
-Each jack comes with a hex nut and a **spring washer**, and both go on the thread inside the box, in that order:
+Each jack comes with a hex nut and a **spring washer**. Both go on the thread inside the box, in that order:
 
 <ol class="numbered-steps">
   <li><b>Spring washer first</b>, down the thread until it sits flat against the inside face of the panel.</li>
   <li><b>Then the nut</b>, run down onto the washer and tightened until the washer has flattened out.</li>
 </ol>
 
-The washer is what keeps the joint tight. A nut clamped straight onto printed plastic slackens as the plastic creeps under it, and a jack that has gone loose turns in its hole every time a plug goes in, working its leads until one lets go at the terminal block.
+Without the washer the nut works loose in the printed plastic, and a loose jack turns in its hole every time a plug goes in.
 
 <figure class="single-figure">
   <img class="doc-figure" src="https://assets.basically.website/sorter-docs/psu-box-jack-spring-washer-w1600-2bb508c8cf75.jpg" alt="The inside of the front panel with three barrel jacks through it: the left jack bare, the middle one with its spring washer down on the thread and its nut still loose on the leads below, and the right one with the washer flattened under a tightened nut">
@@ -103,17 +101,13 @@ The **IEC C14 inlet, switch + 10 A fuse** is the machine's mains entry and its o
 
 **The cable from the wall is an ordinary IEC C13 mains lead**, the cord a desktop PC or a monitor comes with, with the plug your country uses. It is in the parts above. Three core, because the machine earths through it and out to the supply's earth screw, and 10 A or better, which matches the module's own fuse and is far more than the machine draws. It is the one part of this build most people already own, so check a drawer before buying one.
 
-Push it into the rectangular cutout from the outside, so its flange sits flat on the outer face of the panel and its two holes line up with the panel's two small holes.
+Push the inlet module into the rectangular cutout from the outside, so its flange sits flat on the outer face of the panel and its two holes line up with the panel's two small holes. **The rocker can face either way**, left or right, and nothing later depends on which.
 
-<div class="callout">
-  <p><b>The rocker can face either way.</b> The inlet fits its cutout the same in both orientations, so the switch ending up on the left or on the right of the panel is not a mistake and nothing downstream depends on it. Which way round is nicer to use has not been settled yet.</p>
-</div>
-
-Run an {% include fastener.html size="M3" variant="countersunk" length="8" %} into each of the two holes. They are 2.8 mm pilots through the full thickness of the panel, so each screw cuts its own thread as it goes in and there is nothing to hold behind it.
+Run an {% include fastener.html size="M3" variant="countersunk" length="8" %} into each of the two holes. Each screw cuts its own thread in the panel, and nothing goes behind it.
 
 Stop as soon as the flange is tight. The panel bows outward before the screw gives, so the screw will not tell you when to stop.
 
-**If your front panel was printed before its v2**, those two holes are 3.2 mm clearance instead and a screw will turn in them without pulling the flange down. That panel takes an {% include fastener.html size="M3" variant="countersunk" length="12" %} with an {% include fastener.html size="M3" variant="nut" %} behind each, fitted while the panel is still loose, because the nuts go on the back.
+**If a screw turns and never pulls the flange down**, your front panel is an older print whose holes are too wide to bite. Print the front panel again from the file in the parts list above: it is the smallest part in the set, under an hour on the plate.
 
 {% include step.html n="3" title="Bolt the supply into the rear tray" %}
 
@@ -124,10 +118,7 @@ Stop as soon as the flange is tight. The panel bows outward before the screw giv
 
 The supply's case has four threaded holes in its back face, and the tray's floor has four plain round holes that line up with them. Sit the supply in the tray and run 4 {% include fastener.html size="M4" variant="countersunk" length="12" %} screws up through the floor into the case.
 
-<div class="callout callout-warning">
-  <span class="callout-icon" aria-hidden="true">⚠</span>
-  <p><b>Nothing longer than {% include fastener.html size="M4" variant="countersunk" length="12" %} here.</b> The supply's circuit board is right behind that face. If a screw stops before it pulls the supply down, back it out rather than force it.</p>
-</div>
+**Nothing longer goes in these four holes.** The supply's circuit board is right behind that face. If a screw stops before it pulls the supply down, back it out rather than force it.
 
 **Put the terminal-block end at the open end of the tray**, the end the front module butts up to. The other end is where the supply's own fan is, and that is the end the vented rear lid covers.
 
@@ -146,6 +137,8 @@ The supply's case has four threaded holes in its back face, and the tray's floor
 
 The block is nine screws and the numbers are Mean Well's own, printed on the supply beside it.
 
+If you have been testing the inlet module on the bench, screw it into the panel first: once these leads are under the terminal screws there is no slack left to work with.
+
 Hold the front panel up to the open end of the tray, close enough that its leads reach, and land them all:
 
 <ol class="numbered-steps">
@@ -160,15 +153,7 @@ Hold the front panel up to the open end of the tray, close enough that its leads
 
 **The test**, with nothing plugged in: take the fuse out of its drawer, [set the meter to continuity]({{ '/hardware/helpers/multimeter/' | relative_url }}#continuity-for-tracing-a-cable), and probe from each coloured lead to each of the two flat pins inside the C14. The pair that still beeps with the fuse out is **neutral**. The one that beeps only with the fuse back in and the rocker on is **live**, because the fuse and the switch sit in the live side. That lead goes on screw 1.
 
-<div class="callout callout-warning">
-  <span class="callout-icon" aria-hidden="true">⚠</span>
-  <p><b>The inlet is already screwed into the front panel by now.</b> Its two M3 screws go on in step 2, while the panel is still loose; once these three leads are under the terminal block screws there is no slack left to hold the panel steady while you drive them, and on a pre-v2 panel no room to hold a nut behind it either. If you have been testing the module on the bench, fit it before you wire it.</p>
-</div>
-
-<div class="callout callout-warning">
-  <span class="callout-icon" aria-hidden="true">⚠</span>
-  <p><b>Nothing tinned goes under a screw terminal.</b> Solder cold-flows under a clamped screw, so a tinned end that is tight today is slack in a few months, and a slack joint carrying this much current heats up. Use the fork terminals this page calls for. If you would rather put a bare lead straight under the screw, cut the tinned end off first and clamp clean stranded copper.</p>
-</div>
+**Nothing tinned goes under a screw terminal.** Solder cold-flows under a clamped screw, so a tinned end that is tight today is slack in a few months, and a slack joint carrying this much current heats up. Use the fork terminals this page calls for. If you would rather put a bare lead straight under the screw, cut the tinned end off first and clamp clean stranded copper.
 
 For each one: back the screw off a few turns, slide the fork terminal in under it, and tighten it down. Mean Well's figure for these M3.5 screws is 8 to 10 kgf&middot;cm, about 0.8 to 1.0 N&middot;m, which is firm rather than hard. Tug-test each terminal once it is down.
 

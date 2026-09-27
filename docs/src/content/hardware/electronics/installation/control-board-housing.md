@@ -35,7 +35,15 @@ parts_needed:
     qty: 6
 ---
 
-The board needs its drivers, Pico and jumpers in first: see [preparing the control board]({{ '/hardware/electronics/installation/control-board-prep/' | relative_url }}).
+<div class="prep-item">
+  <div class="prep-item-body">
+    <p><strong>Prepare the control board before you start.</strong> The five stepper drivers, the Pico and the ten jumpers all go in while the board is loose. <a href="{{ '/hardware/electronics/installation/control-board-prep/' | relative_url }}">Preparing the control board</a> does that; step 2 here screws the finished board down.</p>
+  </div>
+  <figure class="prep-item-figure">
+    <img class="doc-figure" src="https://assets.basically.website/sorter-docs/assembly-control-board-prep-all-jumpers-fitted-w1600-f470f24a8913.jpg" alt="Top-down view of the fully populated control board, with five TMC2209 drivers, the Raspberry Pi Pico, and ten yellow jumpers fitted across the MS1 and MS2 headers">
+    <figcaption>The board as step 2 needs it. <cite>Photo: Spencer.</cite></figcaption>
+  </figure>
+</div>
 
 The fasteners and quantities are in the parts list above and are called out inline at each step.
 
@@ -70,14 +78,19 @@ Sit the board on the four inner bosses and fix it with 4 {% include fastener.htm
 
 {% include step.html n="3" title="Fit the fan inside the cover" %}
 
-With the cover upside down, lay the fan in over the vent, label facing into the enclosure so it blows inwards. The two fan retainers hold it: lay one across each of the fan's two edges, its two pegs down in the fan's corner holes, and screw each to the cover with 2 {% include fastener.html size="M3" variant="countersunk" length="8" %} screws, self-tapping into the posts beside the fan. Route the lead to the corner cutout.
+Turn the cover upside down. The fan sits over the honeycomb vent and two printed retainers hold it there, one at each end of the fan.
 
-Take these four by hand and stop as soon as the retainer is down on its post. They cut their own thread in the plastic.
+<ol class="numbered-steps">
+  <li>Lay the fan over the vent, label facing into the enclosure so it blows inwards.</li>
+  <li>Lay a retainer across each end of the fan, pegs down, so its two pegs drop into the fan's corner holes. Each retainer lands on two of the cover's four posts.</li>
+  <li>Screw each retainer down into its two posts with 2 {% include fastener.html size="M3" variant="countersunk" length="8" %} screws. Drive all four by hand and stop as soon as the retainer is flat on its posts: they cut their own thread in the plastic.</li>
+  <li>Route the fan's lead to the cutout in the corner of the cover.</li>
+</ol>
 
 <div class="img-row">
   <figure>
     <img src="https://assets.basically.website/sorter-docs/assembly-control-board-housing-fan-retainers-render-full-0d2aaecf74c2.png" alt="Render of the inside of the cover with both fan retainers in colour, each lying across the honeycomb vent on two posts with a countersunk screw hole at either end">
-    <figcaption>Both retainers on their posts, either side of the vent. The fan goes between them and the lid and is not drawn. <cite>Rendered from the parts' own geometry in assembly position, not from a build. Render: Balloon.</cite></figcaption>
+    <figcaption>Both retainers on their posts, one at each end of the fan. The fan goes between them and the lid and is not drawn. <cite>Rendered from the parts' own geometry in assembly position, not from a build. Render: Balloon.</cite></figcaption>
   </figure>
 </div>
 
@@ -89,15 +102,6 @@ The plunger lands on the board's reset button, so the button can be pressed with
   <figure>
     <img src="https://assets.basically.website/sorter-docs/assembly-control-board-housing-plunger-retainer-render-full-8bfb22be786a.png" alt="Render of the inside of the cover with the plunger in colour standing up through its slot and the retainer in a second colour screwed down over it on two countersunk screws">
     <figcaption>The plunger (orange) through the slot, the retainer (blue) holding it in. <cite>Rendered from the parts' own geometry in assembly position, not from a build. Render: Balloon.</cite></figcaption>
-  </figure>
-</div>
-
-What that buys you is easier to see in section, once the cover is on: the plunger's head sits just below the lid's surface, the retainer holds it in the slot, and its foot sits over the button on the board.
-
-<div class="img-row">
-  <figure>
-    <img class="doc-figure" src="https://assets.basically.website/sorter-docs/assembly-control-board-housing-plunger-section-render-full-f69f823f6898.png" alt="Section through the closed housing at the plunger: the plunger passes down through the lid with its head ending below the lid's outer surface, the retainer holds it in the slot, and its foot stands over the base">
-    <figcaption>The joint cut through the plunger: the head (orange) ends below the lid's surface, and the retainer (blue) holds it in the slot. The board is not drawn. <cite>Rendered from the parts' own geometry in assembly position, not from a build. Render: Balloon.</cite></figcaption>
   </figure>
 </div>
 
@@ -126,9 +130,23 @@ The fan runs off one of the board's four LED ports. The red wire goes to `+V`.
 
 Lower the cover on, keeping the fan lead clear of the board, and fix it with 4 {% include fastener.html size="M3" variant="countersunk" length="12" %} screws into the corner inserts. The stepper connectors stay reachable through the bays in the wall.
 
+<div class="img-row">
+  <figure>
+    <img class="doc-figure" src="https://assets.basically.website/sorter-docs/assembly-control-board-housing-cover-exploded-render-full-5d0521ea9e1e.png" alt="Render of the cover lifted off the base, showing which way round it goes on: the honeycomb vent and logo on the lid, the four corner screw holes over the base's four corner inserts, and the stepper bays over the connector edge">
+    <figcaption>Which way round the cover goes on. Its four corner holes land on the base's four corner inserts. <cite>Rendered from the parts' own geometry in assembly position, not from a build. Render: Balloon.</cite></figcaption>
+  </figure>
+</div>
+
 {% include step.html n="7" title="Check the reset plunger" %}
 
 Press the plunger on the lid. Its head sits just below the surface, so it takes a fingertip pressed into the recess. You should hear the button click.
+
+<div class="img-row">
+  <figure>
+    <img class="doc-figure" src="https://assets.basically.website/sorter-docs/assembly-control-board-housing-plunger-section-render-full-f69f823f6898.png" alt="Section through the closed housing at the plunger: the plunger passes down through the lid with its head ending below the lid's outer surface, and the retainer holds it in its slot">
+    <figcaption>The closed housing cut through the plunger: the head (orange) ends just below the lid's surface, the retainer (blue) holds it in its slot, and its foot reaches down to where the board's reset button sits. The board is not drawn. <cite>Rendered from the parts' own geometry in assembly position, not from a build. Render: Balloon.</cite></figcaption>
+  </figure>
+</div>
 
 ## The finished result
 

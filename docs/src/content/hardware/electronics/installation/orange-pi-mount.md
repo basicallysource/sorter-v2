@@ -73,9 +73,7 @@ The fasteners and quantities are in the parts list above and are called out inli
 
 {% include step.html n="1" title="Preparation" %}
 
-Press 8 M3 inserts into the base while it is loose: four in the low posts the Pi sits on, and four in the tall corner posts the roof screws into. See [installing heat inserts]({{ '/hardware/helpers/heat-inserts/' | relative_url }}).
-
-**Every insert in this housing is in the base.** The roof takes none: its four screws pass through it into the base's corner posts, and the clamps and the plunger parts all cut their own thread in the plastic.
+Press 8 M3 inserts into the base while it is loose: four in the low posts the Pi sits on, and four in the tall corner posts the roof screws into. See [installing heat inserts]({{ '/hardware/helpers/heat-inserts/' | relative_url }}). Nothing else takes one.
 
 <div class="prep-item">
   <div class="prep-item-body">
@@ -89,7 +87,7 @@ Press 8 M3 inserts into the base while it is loose: four in the low posts the Pi
 
 **Fit the plunger retainer now, while the base is loose.** Its screw goes in from underneath, and once the walls are in you cannot turn the base over without dropping them out.
 
-Sit the retainer on its landing beside the west wall's groove and fix it with 1 {% include fastener.html size="M3" variant="countersunk" length="12" %} up through the base from below. It cuts its own thread in the plastic, so take it by hand.
+Sit the retainer on its landing, at the end of the base with the large opening in its floor, and fix it with 1 {% include fastener.html size="M3" variant="countersunk" length="12" %} up through the base from below. It cuts its own thread in the plastic, so take it by hand.
 
 <div class="img-row">
   <figure>
@@ -105,12 +103,12 @@ Sit the retainer on its landing beside the west wall's groove and fix it with 1 
   <p>Static caution: the Orange Pi is ESD-sensitive like any other bare board. Touch a grounded metal surface before handling it, and avoid doing this on carpet in dry weather.</p>
 </div>
 
-Sit the Pi on the four posts and fasten it with 4 {% include fastener.html size="M3" variant="socket-button" length="6" %} screws into their inserts.
+Sit the Pi on the four posts with its Ethernet and USB-A ports at the end furthest from that floor opening, and fasten it with 4 {% include fastener.html size="M3" variant="socket-button" length="6" %} screws into their inserts. It fits the posts either way round, and only this way puts its ports behind the openings in the walls.
 
 <div class="img-row">
   <figure>
     <img src="https://assets.basically.website/sorter-docs/orange-pi-housing-step2-board-full-4a5746c0fea3.png" alt="Exploded render of the Orange Pi held above the four posts in the base, with four button-head screws above the board again and dashed lines running from each screw down through the board into its post">
-    <figcaption>The board goes down onto the four posts, then the four screws into their inserts.</figcaption>
+    <figcaption>The board goes down onto the four posts, then the four screws into their inserts. The large floor opening is at the far end from the ports.</figcaption>
   </figure>
 </div>
 
@@ -141,7 +139,7 @@ Lay the plunger in its retainer with its square face out through the small windo
 <div class="img-row">
   <figure>
     <img src="https://assets.basically.website/sorter-docs/orange-pi-housing-step4-plunger-full-dc18700f2ce1.png" alt="Close-up exploded render of the west end of the base with the retainer already fitted in grey, the plunger held above it with its square face pointing out towards the west wall, and the plunger cap above both">
-    <figcaption>The west bay, with the other three walls left out of the view. The plunger lays into the retainer, then the cap closes over it.</figcaption>
+    <figcaption>The west bay, with the other three walls left out of the view. The plunger goes into the retainer, then the cap closes over it.</figcaption>
   </figure>
 </div>
 
@@ -158,7 +156,7 @@ Sit the two WiFi antennas in the two channels in the north wall's block, and scr
 
 {% include step.html n="6" title="Put the roof on" %}
 
-Lower the roof onto the walls grooved side down. The groove runs all the way round the underside and the tops of the four walls sit in it; the other face is the flat one with the hex vent. Fix it with 4 {% include fastener.html size="M3" variant="countersunk" length="12" %} into the inserts in the corner posts.
+Lower the roof onto the walls grooved side down. The groove runs all the way round the underside and the tops of the four walls sit in it; on the face that ends up outside, the four corner screw holes are countersunk. Fix it with 4 {% include fastener.html size="M3" variant="countersunk" length="12" %} into the inserts in the corner posts.
 
 **The microSD card stays reachable with the roof on**, through the window in the west wall and the opening in the floor under it.
 
@@ -169,13 +167,13 @@ Lower the roof onto the walls grooved side down. The groove runs all the way rou
   </figure>
   <figure>
     <img src="https://assets.basically.website/sorter-docs/orange-pi-housing-roof-underside-full-0770afc1f53f.png" alt="Render of the roof seen from underneath: a groove runs all the way round the inside of its rim, with four round bosses standing inside it and the hex vent showing through the middle">
-    <figcaption>The underside, and the groove round it that the wall tops sit in. The other face is flat.</figcaption>
+    <figcaption>The underside, and the groove round it that the wall tops sit in. The hex vent goes right through, so it shows on both faces and does not tell them apart.</figcaption>
   </figure>
 </div>
 
 {% include step.html n="7" title="Clamp the hub and the buck converter to the roof" %}
 
-The powered USB hub sits on the roof under the hub clamp, and the 24 V to 5 V buck converter under the buck clamp. Each clamp takes 4 {% include fastener.html size="M3" variant="countersunk" length="12" %}, self-tapping into the pilots in the roof: take them by hand and stop as soon as the clamp is down.
+The powered USB hub sits on the roof under the hub clamp, the closed rectangular frame, and the 24 V to 5 V buck converter under the buck clamp, the open U. Each clamp takes 4 {% include fastener.html size="M3" variant="countersunk" length="12" %}, self-tapping into the pilots in the roof: take them by hand and stop as soon as the clamp is down.
 
 The hub clamp is drawn around the Waveshare USB3.2-Gen1-HUB-4U. The cables into the hub and the converter are on [connecting the components]({{ '/hardware/electronics/connecting/' | relative_url }}).
 

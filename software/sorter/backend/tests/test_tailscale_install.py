@@ -92,3 +92,23 @@ def test_a_join_that_never_finishes_says_why(machine, monkeypatch, unreachable, 
 
     assert result["ok"] is False
     assert expected in result["error"]
+
+
+def test_a_key_switches_a_machine_already_on_a_tailnet(machine, monkeypatch):
+    """Without --force-reauth, `up` on a logged-in machine ignores the key and succeeds."""
+    machine["installed"] = True
+    runs = []
+
+    def run(cmd, **kwargs):
+        runs.append(cmd)
+        return subprocess.CompletedProcess(cmd, 0, "", "")
+
+    monkeypatch.setattr(tailscale.subprocess, "run", run)
+    monkeypatch.setattr(
+        tailscale, "_get_status", lambda: {"installed": True, "connected": True, "hostname": "sorter-old-name-000000"}
+    )
+    monkeypatch.setattr(tailscale, "refresh_device_identity", lambda: None)
+
+    assert tailscale._join("tskey-auth-test")["ok"] is True
+    assert "--force-reauth" in runs[0]
+    assert "--hostname=sorter-old-name-000000" in runs[0]

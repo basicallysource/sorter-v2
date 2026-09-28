@@ -146,7 +146,9 @@ def _join(auth_key: str) -> Dict[str, Any]:
 
     try:
         result = subprocess.run(
-            _cli("up", f"--authkey={auth_key}", f"--hostname={hostname}", "--ssh"),
+            # --force-reauth: a machine already logged in keeps that login and
+            # ignores the key, and `up` still succeeds.
+            _cli("up", f"--authkey={auth_key}", "--force-reauth", f"--hostname={hostname}", "--ssh"),
             capture_output=True,
             text=True,
             timeout=JOIN_TIMEOUT_S,

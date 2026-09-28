@@ -1,10 +1,10 @@
 ---
 layout: default
-title: Install SorterOS
+title: Install the SorterOS image
 type: installation
 section: sorter
 slug: installation-sorter-os
-kicker: Installation — SorterOS
+kicker: Installation — SorterOS image
 lede: Flash an SD card, power on the Orange Pi, and put it on your WiFi from your phone. The Pi sets up the rest.
 permalink: /sorter/installation/sorter-os/
 og_image: https://assets.basically.website/sorter-docs/sorteros-first-load-sorter-ui-full-c7e8aae4ac07.png
@@ -22,7 +22,7 @@ parts_needed:
 
 <div class="notice notice-warn">
   <strong>Orange Pi 5 only</strong>
-  <p>SorterOS runs on the <a href="{{ '/hardware/orange-pi-5/' | relative_url }}">Orange Pi 5</a> with 8 GB of memory or more.</p>
+  <p>The SorterOS image runs on the <a href="{{ '/hardware/orange-pi-5/' | relative_url }}">Orange Pi 5</a> with 8 GB of memory or more.</p>
 </div>
 
 ## What you need
@@ -81,7 +81,7 @@ No setup page? Stay on the `SorterOS-Setup` network and open [http://10.42.0.1](
 
 ## 5. Open the installation progress
 
-On a phone or computer on the same WiFi, open **[http://sorter.local](http://sorter.local)**. It shows SorterOS installing the Sorter software, which takes a few minutes.
+On a phone or computer on the same WiFi, open **[http://sorter.local](http://sorter.local)**. It shows the Pi installing SorterOS, which takes a few minutes.
 
 <div class="img-row">
   <figure>
@@ -90,16 +90,16 @@ On a phone or computer on the same WiFi, open **[http://sorter.local](http://sor
   </figure>
 </div>
 
-When it's ready, the page opens the Sorter UI by itself.
+When it's ready, the page opens the SorterOS UI by itself.
 
 ## The finished result
 
-The Sorter UI open in a browser, with nothing set up on the machine yet.
+The SorterOS UI open in a browser, with nothing set up on the machine yet.
 
 <div class="img-row">
   <figure>
-    <img src="https://assets.basically.website/sorter-docs/sorteros-first-load-sorter-ui-full-c7e8aae4ac07.png" alt="The Sorter UI's dashboard the first time it loads: no camera assigned yet, no pieces, and the machine in standby with a Home button">
-    <figcaption>The Sorter UI, the first time it loads. <cite>Screenshot recorded in a browser.</cite></figcaption>
+    <img src="https://assets.basically.website/sorter-docs/sorteros-first-load-sorter-ui-full-c7e8aae4ac07.png" alt="The SorterOS UI's dashboard the first time it loads: no camera assigned yet, no pieces, and the machine in standby with a Home button">
+    <figcaption>The SorterOS UI, the first time it loads. <cite>Screenshot recorded in a browser.</cite></figcaption>
   </figure>
 </div>
 
@@ -107,14 +107,14 @@ The Sorter UI open in a browser, with nothing set up on the machine yet.
 
 **Flash the control board before you open the setup wizard.** The wizard only lists boards that already answer on USB serial, so a board with no firmware on it does not appear and the wizard says `No MCU buses found`. [Software setup]({{ '/hardware/software-setup/' | relative_url }}) step 2 has the route.
 
-Then set the machine up with the setup wizard: in the Sorter UI, **Settings**, then **Open Setup Wizard**. [First setup in the UI]({{ '/sorter/first-setup/' | relative_url }}) goes through it.
+Then set the machine up with the setup wizard: in the SorterOS UI, **Settings**, then **Open Setup Wizard**. [First setup in the UI]({{ '/sorter/first-setup/' | relative_url }}) goes through it.
 
 ## Debugging
 
 - **No `SorterOS-Setup` network.** It only appears while the Pi is offline. On a cable with internet, the Pi is already online: go to step 5.
 - **The setup page didn't open.** Open [http://10.42.0.1](http://10.42.0.1) in Safari or Chrome while on the setup network.
 - **Your phone left the setup network during the join** (it can on a WiFi that's only 5 GHz). Join it again to see the result.
-- **`sorter.local` doesn't open.** Use the address the setup page showed. Older Windows needs [Bonjour](https://support.apple.com/en-us/106380), and Android usually can't open `.local` names. A second SorterOS machine is `sorter-2.local`.
+- **`sorter.local` doesn't open.** Use the address the setup page showed. Older Windows needs [Bonjour](https://support.apple.com/en-us/106380), and Android usually can't open `.local` names. A second machine running the SorterOS image is `sorter-2.local`.
 - **Office or school WiFi** that asks for a username as well as a password can't be set up this way. Use Ethernet.
 
 More in [troubleshooting]({{ '/sorter/troubleshooting/' | relative_url }}#first-boot).
@@ -126,5 +126,5 @@ More in [troubleshooting]({{ '/sorter/troubleshooting/' | relative_url }}#first-
 ## Later
 
 - **New router or WiFi password.** When the Pi can't reach the internet for about a minute, its setup network comes back. Do step 4 again.
-- **Updates.** Settings, then Versions, in the Sorter UI. You only need a new SorterOS image when the image itself changes.
+- **Updates.** Settings, then Versions, in the SorterOS UI. You only need a new SorterOS image when the image itself changes.
 - **SSH.** User `root`, password `orangepi`.

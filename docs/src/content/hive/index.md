@@ -20,10 +20,10 @@ Hive itself is at **[hive.basically.website](https://hive.basically.website)**. 
 
 This section will cover:
 
-- **Platform overview** — what Hive is for and how it relates to the local Sorter UI.
+- **Platform overview** — what Hive is for and how it relates to the local SorterOS UI.
 - **Shared profiles** — how sorting profiles are published, versioned, and pulled down by machines.
 - **Upload pipeline** — how samples leave the machine, how they are stored, and how the community verifies them.
 - **Accounts and machines** — how a local Sorter links to a Hive account and which data crosses the boundary.
-- **API reference** — the endpoints the Sorter UI uses and the contract they are held to.
+- **API reference** — the endpoints the SorterOS UI uses and the contract they are held to.
 
-Until those pages land, the authoritative source for the upload lifecycle is the Sorter's upload coordinator code and the connected memory notes in the handoff file at the repo root.
+Until those pages land, the authoritative source for the upload lifecycle is SorterOS's upload coordinator code and the connected memory notes in the handoff file at the repo root.

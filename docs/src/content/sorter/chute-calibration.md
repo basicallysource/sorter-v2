@@ -4,7 +4,7 @@ title: Chute calibration
 type: how-to
 section: sorter
 slug: sorter-chute-calibration
-kicker: Sorter — Operate
+kicker: SorterOS — Operate
 lede: Home the chute, teach it where the bins are, and test every bin it can reach. Do this once on a new machine, after the cameras are focused.
 permalink: /sorter/chute-calibration/
 last_verified: 2026-09-18

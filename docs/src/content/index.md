@@ -46,7 +46,7 @@ Machines are built and running, and they sort every day. It is not a product yet
     <p>The detail behind the build: machine sizes, parts counts and printing time, everything to buy and print, and the step-by-step assembly.</p>
   </div>
   <div class="callout">
-    <strong><a href="{{ '/sorter/' | relative_url }}">Sorter</a></strong>
+    <strong><a href="{{ '/sorter/' | relative_url }}">SorterOS</a></strong>
     <p>The software on the machine. Install it, set it up, calibrate the cameras and the chute, and run a sort.</p>
   </div>
   <div class="callout">

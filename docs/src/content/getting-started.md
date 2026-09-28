@@ -76,16 +76,16 @@ Read these three in order.
 
 - **[Hardware]({{ '/hardware/' | relative_url }})**: the size of the job. How tall a machine to build, what it costs in parts and printing time, and the two things you may not be able to make yourself. Read it before you buy filament.
 - **[Bill of materials](https://parts-calculator.basically.website/hardware)**: everything to buy, with vendor links and part numbers, at your own layer count. The site root lists the parts to print, and [/framing](https://parts-calculator.basically.website/framing) is the aluminium cut list.
-- **[Assembly]({{ '/hardware/assembly/' | relative_url }})**: the build order, section by section, ending in [Software setup]({{ '/hardware/software-setup/' | relative_url }}) and then the [Sorter]({{ '/sorter/' | relative_url }}) section.
+- **[Assembly]({{ '/hardware/assembly/' | relative_url }})**: the build order, section by section, ending in [Software setup]({{ '/hardware/software-setup/' | relative_url }}) and then the [SorterOS]({{ '/sorter/' | relative_url }}) section.
 
 ## I want to contribute to the project
 
 - **Mechanical / CAD**: The project uses [Onshape](https://www.onshape.com/) (free, web-based, collaborative). Every V2 document is public and listed in the repo's `mechanical/README.md`; the folder holding them is private, so ask in the [Discord](https://discord.gg/6PZtqkwtaS) to be added to it. Start by browsing the V2 CAD and checking open bounties for mechanical tasks.
 - **Electronics**: PCB schematics are in KiCad, in the repo under `electronics/KiCad/`. Background in EE or PCB layout is valuable.
-- **Software**: Python backend + SvelteKit frontend. See the [Sorter install guide]({{ '/sorter/installation/' | relative_url }}).
+- **Software**: Python backend + SvelteKit frontend. See the [SorterOS install guide]({{ '/sorter/installation/' | relative_url }}).
 - **ML / Vision**: Classification research, training data collection, model optimization. See [Classification research]({{ '/lab/classification-research/' | relative_url }}) and [Object detection research]({{ '/lab/object-detection/' | relative_url }}).
 
-To run the software from source you need Python 3.12+, Node.js 20+ and pnpm. The install script handles dependencies on Debian 12 / Ubuntu 24.04 / Pi OS Bookworm. Building a machine does not need any of this: the [Sorter install guide]({{ '/sorter/installation/' | relative_url }}) has a pre-built image.
+To run the software from source you need Python 3.12+, Node.js 20+ and pnpm. The install script handles dependencies on Debian 12 / Ubuntu 24.04 / Pi OS Bookworm. Building a machine does not need any of this: the [SorterOS install guide]({{ '/sorter/installation/' | relative_url }}) has a pre-built image.
 
 ## Key resources
 

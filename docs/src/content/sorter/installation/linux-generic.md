@@ -5,7 +5,7 @@ type: installation
 section: sorter
 slug: sorter-installation-linux-generic
 kicker: Installation — Linux
-lede: How to take a fresh Linux box from clean install to a running Sorter UI in your browser. One script, two flags, then the in-app Setup Wizard takes over.
+lede: How to take a fresh Linux box from clean install to a running SorterOS UI in your browser. One script, two flags, then the in-app Setup Wizard takes over.
 permalink: /sorter/installation/linux-generic/
 audience: self-hosting operator
 applies_to: sorter 2.x
@@ -57,15 +57,15 @@ When the installer finishes you can start the dev runner:
 
 `./dev.sh` starts the Python backend on `:8000` and the Vite dev server on `:5173`, prefixes both log streams, and restarts either one if it crashes. Stop with Ctrl-C.
 
-Then open `http://localhost:5173/` (or `http://<machine-ip>:5173/` from another device on the same network). You should see the Sorter UI.
+Then open `http://localhost:5173/` (or `http://<machine-ip>:5173/` from another device on the same network). You should see the SorterOS UI.
 
-If the UI does not come up, see [Sorter troubleshooting]({{ '/sorter/troubleshooting/' | relative_url }}).
+If the UI does not come up, see [SorterOS troubleshooting]({{ '/sorter/troubleshooting/' | relative_url }}).
 
 ## The finished result
 
-The Sorter UI open in a browser, with nothing set up on the machine yet.
+The SorterOS UI open in a browser, with nothing set up on the machine yet.
 
-<div class="img-placeholder">Screenshot of the Sorter UI as it first loads on a generic Linux install, before the setup wizard has been run.</div>
+<div class="img-placeholder">Screenshot of the SorterOS UI as it first loads on a generic Linux install, before the setup wizard has been run.</div>
 
 ## Next
 
@@ -84,7 +84,7 @@ Then [First setup in the UI]({{ '/sorter/first-setup/' | relative_url }}) takes 
 
 ### Running as a systemd service
 
-For an "appliance" install on the Pi 5 that should boot straight into a running Sorter without anyone touching `./dev.sh`:
+For an "appliance" install on the Pi 5 that should boot straight into a running SorterOS without anyone touching `./dev.sh`:
 
 ```bash
 ./install.sh --as-service

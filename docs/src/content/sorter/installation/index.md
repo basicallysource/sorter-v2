@@ -4,8 +4,8 @@ title: Installation
 type: landing
 section: sorter
 slug: sorter-installation
-kicker: Sorter — Installation
-lede: Choose how you want to install Sorter — a pre-built OS image for Orange Pi 5, a one-command installer for generic Linux, or a manual step-by-step setup.
+kicker: SorterOS — Installation
+lede: Choose how you want to install SorterOS: a pre-built image for Orange Pi 5, a one-command installer for generic Linux, or a manual step-by-step setup.
 permalink: /sorter/installation/
 audience: self-hosting operator
 applies_to: sorter 2.x
@@ -14,7 +14,7 @@ last_verified: 2026-09-23
 
 <div class="callout-grid">
   <div class="callout">
-    <strong><a href="{{ '/sorter/installation/sorter-os/' | relative_url }}">SorterOS</a></strong>
+    <strong><a href="{{ '/sorter/installation/sorter-os/' | relative_url }}">SorterOS image</a></strong>
     <p>A pre-built OS image for the Orange Pi 5. Flash it, plug in Ethernet or pick your WiFi on its setup network, and it installs the current stable release itself.</p>
   </div>
   <div class="callout">

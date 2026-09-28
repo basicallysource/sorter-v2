@@ -17,7 +17,7 @@ lede: An open-source LEGO sorting machine: what it sorts, what it will not, and 
 
 You feed bulk LEGO into a hopper. The machine separates the pieces one at a time, works out what each one is by part number (and by color, if you want), and drops it into the right bin.
 
-Machines are built and running, and they sort every day. It is not a product: there is no kit, no price, and nothing for sale. What exists is the design, the parts list, and these instructions.
+Machines are built and running, and they sort every day. It is not a product yet: there is no kit and no price yet. What exists is the design, the parts list, and these instructions. For the latest, see the [Basically website](https://basically.website/).
 
 **What it sorts:** loose, rigid LEGO pieces up to ten studs in any direction. That is most of a mixed tub, not all of it, and the rest you pick out by hand before a run:
 

@@ -29,20 +29,21 @@ Machines are built and running, and they sort every day. It is not a product: th
 
 [Preparing LEGO]({{ '/sorter/preparing-lego/' | relative_url }}) is the full list, with what each thing does to the machine if it stays in.
 
-**How much it sorts at once is your choice.** The machine is a stack of layers, each holding 18 bins or 12 larger ones, so more layers means more categories in one pass and more to build. [Hardware]({{ '/hardware/' | relative_url }}) has what each size costs in parts, filament and printing time.
+**How much it sorts at once is your choice.** The machine is a stack of layers, each holding 18 bins or 12 larger ones, so more layers means more categories in one pass and more to build. [Getting started]({{ '/getting-started/' | relative_url }}) has what a machine costs and what you need to build one.
 
 <div class="clear-float"></div>
 
 ## Start here
 
 <div class="callout-grid callout-grid-paired">
-  <div class="callout">
-    <strong><a href="{{ '/getting-started/' | relative_url }}">Getting started</a></strong>
-    <p>Want to build a machine? This is the first page. It also covers working on the project.</p>
-  </div>
+  <a class="callout callout-lead" href="{{ '/getting-started/' | relative_url }}">
+    <strong>Getting started</strong>
+    <p>Want to build a machine? Read this first: what it costs, the skills and tools you need, and the order to read the rest in. It also covers working on the project.</p>
+    <span class="callout-lead-cta">Start here</span>
+  </a>
   <div class="callout">
     <strong><a href="{{ '/hardware/' | relative_url }}">Hardware</a></strong>
-    <p>What the machine costs in parts and printing time, everything to buy and print, and the step-by-step assembly.</p>
+    <p>The detail behind the build: machine sizes, parts counts and printing time, everything to buy and print, and the step-by-step assembly.</p>
   </div>
   <div class="callout">
     <strong><a href="{{ '/sorter/' | relative_url }}">Sorter</a></strong>

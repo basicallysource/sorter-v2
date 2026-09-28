@@ -50,10 +50,16 @@ Cheaper T-nuts are usually **slide-in**: a plain rectangular block with no sprin
 only go in at an open end of the extrusion and then slide along to where it is needed, so
 a slot with a bracket at both ends can no longer take one.
 
-If that is what you have, fit these before the frames close around them:
+If that is what you have, there is one place to fit them before the frames close around
+them: **4 per A extrusion** on each
+[hex frame]({{ '/hardware/assembly/distribution/bin-frame/hex-frame/' | relative_url }}),
+toward the outer end of the extrusion, for the
+[bin retainers]({{ '/hardware/assembly/distribution/bin-frame/bin-retainers/' | relative_url }}).
+Both ends of an A extrusion are closed once the outer hexagon is together.
 
-- **4 per A extrusion** on each [hex frame]({{ '/hardware/assembly/distribution/bin-frame/hex-frame/' | relative_url }}), toward the outer end of the extrusion, for the [bin retainers]({{ '/hardware/assembly/distribution/bin-frame/bin-retainers/' | relative_url }}).
-- **2 each into 3 of the 6 B spokes** of the bottom layer's frame, alternating around the ring, for the [bottom interface]({{ '/hardware/assembly/distribution/bin-frame/bottom-interface/' | relative_url }})'s Lazy Susan mounts.
+The [bottom interface]({{ '/hardware/assembly/distribution/bin-frame/bottom-interface/' | relative_url }})'s
+Lazy Susan mounts need nothing early, whichever style you have: that mount goes onto the
+spoke from its open inner end with its nuts already started on its screws.
 
 A slide-in nut does not hold its position, so one you fitted early can drift along the
 slot before you reach the part that uses it. Fit the part in the same session.

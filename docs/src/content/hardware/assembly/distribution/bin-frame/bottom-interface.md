@@ -269,7 +269,7 @@ Bolt a hold in place onto each mount with one {% include fastener.html size="M5"
 
 {% include step.html n="6" title="Prestart the T-nuts" %}
 
-Drop an {% include fastener.html size="M5" variant="socket-button" length="16" %} through each of the mount's two counterbored holes and start a {% include fastener.html size="M5" variant="t-nut" %} on the end, two or three turns. Leave them loose enough to swing.
+Drop an {% include fastener.html size="M5" variant="socket-button" length="16" %} through each of the mount's two counterbored holes and start a {% include fastener.html size="M5" variant="t-nut" %} on the end, two or three turns. Leave them loose enough to swing. See [Fitting T-nuts]({{ '/hardware/helpers/t-nuts/' | relative_url }}) for how they go in.
 
 <div class="img-row">
   <figure>
@@ -281,8 +281,6 @@ Drop an {% include fastener.html size="M5" variant="socket-button" length="16" %
     <figcaption>The same two screws from the other side. <cite>Photo: Danny.</cite></figcaption>
   </figure>
 </div>
-
-Roll-in nuts enter the slot anywhere along it. Slide-in nuts don't, and have to go into the spoke before the frame is built: see [Fitting T-nuts]({{ '/hardware/helpers/t-nuts/' | relative_url }}).
 
 {% include step.html n="7" title="Slide the mount onto the spoke" %}
 

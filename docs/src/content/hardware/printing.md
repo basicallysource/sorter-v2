@@ -61,36 +61,43 @@ settings that move a printed dimension, and both Bambu Studio and Orca can test 
 and pressure advance for one filament in a few minutes. Dialling those in once is
 worth more than any profile you copy from somebody else.
 
-## Print orientation
+## Print each part the way the file comes
 
-**Most STLs are already sitting the way they should print.** Drop the part on the
-plate as it is and slice it.
+**Almost every STL is already sitting the way it should print.** Drop it on the plate
+as it is and slice it. The few parts that have to be turned say so on their card in
+the parts calculator, under **Print orientation**. That line, or a part that touches
+the plate on nothing but an edge or a corner, is the only reason to turn one.
 
-- **Do not use auto orient across the board.** "Optimize orientation", "auto rotate"
-  and the orient tools in Bambu Studio, Orca and PrusaSlicer will lay parts down on a
-  different face. For structural parts, the face a part prints on is a design
-  decision that is already made, and changing it is how a gear tooth or a bracket arm
-  ends up printing across the layer lines and snapping in use.
-- **Moving a part is fine.** Sliding it around the plate, dropping it onto the plate
-  and spinning it flat (around Z) all leave the printing face alone.
+- **Do not use auto orient.** "Optimize orientation", "auto rotate" and the orient
+  tools in Bambu Studio, Orca and PrusaSlicer will lay parts down on a different
+  face. The face a part prints on is a design decision that is already made, and
+  changing it is how a gear tooth or a bracket arm ends up printing across the layer
+  lines and snapping in use.
+- **Moving a part is fine. Turning it over is not, unless its card says so.** Sliding
+  it around the plate, dropping it onto the plate and spinning it flat (around Z) all
+  leave the printing face alone. Anything that tips it onto another face does not, so
+  only do it where the part's **Print orientation** line tells you which face goes
+  down. The Orange Pi housing's four walls and its roof are the parts that carry one
+  today.
 - **Parts import off centre, and some import below or above the plate.** They are
   exported in the coordinates they occupy in the machine, so the slicer puts them
   where the assembly puts them. Move it onto the plate and carry on. That is normal
   and it is not a broken file.
-- **Some parts (like the bins) need to be placed on a face.** Certain STLs are
-  exported in their assembled orientation and have no flat face on the bed initially,
-  or balance on an edge or corner. Use your slicer's "lay flat" / "place on face" tool
-  to lay them on their largest flat bottom face.
+- **A part that balances on an edge or a corner goes down on its largest flat face.**
+  Some parts, the bins among them, come out the way they sit in the machine and have
+  no face on the plate at all. Use your slicer's "lay on face" or "place on face" tool
+  and pick the biggest flat face. Do not use auto orient for it.
 - **The NEMA bracket needs a spin.** It is 255.9 mm across as it comes and an A1 bed
   is 256 mm, so it slices with no room for a brim. Rotate it about 25 degrees flat on
   the plate and it clears with about 28 mm to spare.
 - **Auto arrange is fine** for packing several parts onto one plate, as long as it
   only slides and spins them. Check the plate afterwards and make sure nothing has
-  been turned onto an unintended face.
+  been turned over.
 
-If a part has a clear flat base already on the bed, leave it sitting that way. If a
-part sits on an edge or point without a face on the bed, place it on its flat face, or
-check the ready-made build plates or ask on [Discord](https://discord.gg/6PZtqkwtaS).
+If a part already sits flat on the plate, looks like it wants turning and its card
+says nothing, do not turn it. Ask on [Discord](https://discord.gg/6PZtqkwtaS) first,
+because a part sitting wrong in the file with nothing on its card is a fault worth
+fixing for everybody.
 
 ## Supports
 

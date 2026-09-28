@@ -124,7 +124,9 @@
 			"name": "Secure the Mean Well 24V PSU box cap",
 			"priority": "P0",
 			"condition": "broken",
-			"description": "Improve the Mean Well 24V enclosure because the current cap can pop off too easily. Redesign the cap retention so it locks securely in place.",
+			"status": "complete",
+			"completed_at": "2026-09-26",
+			"description": "Replaced the three-plate box and its cap with the five-piece PSU housing, whose two lids screw down.",
 			"targets": {
 				"parts": [
 					"meanwell-psu-back-mount",

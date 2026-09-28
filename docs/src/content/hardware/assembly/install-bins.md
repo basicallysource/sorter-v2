@@ -82,7 +82,7 @@ What the bins were designed for: cut flat, folded and glued. Cut them with the [
 
 No laser and no cutting service: print a paper template, tape it together, and cut the cardboard with a knife. Four templates cover all five bins, because the two half bins are mirror images of each other and come off the same one.
 
-[Download the hand cutting templates](https://assets.basically.website/sorter-parts/bin-hand-cutting-templates-122d08ce4b87.zip), a zip of four PDFs. Each one opens with a cover sheet: a picture of the finished bin, what you need, and the eight steps. After that it tiles the pattern across A4, four sheets for a half bin, four for third left, three for third centre, two for third right-back.
+[Download the hand cutting templates](https://assets.basically.website/sorter-parts/bin-hand-cutting-templates-1e894705ea20.zip), a zip of four PDFs. Each one opens with a cover sheet: a view down into the finished bin, what you need, and the eight steps. After that it tiles the pattern across A4, four sheets for a half bin, four for third left, three for third centre, two for third right-back.
 
 You need a printer, A4 paper or thin card stock for the template itself, a sharp knife, a metal ruler, something to measure thickness with, tape, a hot glue gun and a pin.
 

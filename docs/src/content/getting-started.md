@@ -14,66 +14,45 @@ permalink: /getting-started/
 
 ## What I should know
 
-Sorter V2 is not a kit yet. There is nothing to order in one box: you buy the parts, print the plastic and put it together yourself, from these instructions. What the finished machine sorts, and what it will not, is on the [home page]({{ '/' | relative_url }}).
+Sorter V2 is not a kit yet. You buy the parts, print the plastic and build it yourself from these instructions. What the machine sorts is on the [home page]({{ '/' | relative_url }}).
 
-**It is a big job, not a hard one.** No single step is difficult, but there are thousands of parts, and turning them into a working machine takes months. Treat it as a project, not an experiment you can abandon cheaply halfway.
+**It is a big job, not a hard one.** Thousands of parts and months of work. [Hardware]({{ '/hardware/' | relative_url }}) has the size of the job for 3 and 5 layers.
 
-**The instructions are in use but not finished.** Of the {{ site.data.docs_status.how_to }} hardware pages with steps on them, {{ site.data.docs_status.verified }} have been followed on a real machine and {{ site.data.docs_status.drafts }} are unverified first drafts. Every page says which it is at the top.
+**Printing takes the longest**, months on one printer. See [what the print figures mean]({{ '/hardware/#what-the-print-figures-mean' | relative_url }}).
 
-**Time.** Printing is the longest part. A 3 layer machine is about {{ site.data.build_scale.small.printed_hours }} hours of printing on one printer, and a real build runs about twice that, because the printer stands finished waiting for a plate change. A 5 layer set of parts has taken about three months on one printer. Parts arrive over several weeks, and assembly runs alongside the printing.
+**Height is your choice.** Each layer adds 160 mm. See [how tall the machine is]({{ '/hardware/#you-choose-how-tall-the-machine-is' | relative_url }}).
 
-**Space.** A 3 layer machine stands about 1.45 m (4 ft 9 in) to the top of the bulk bucket you pour the LEGO into, and each extra layer adds 160 mm (6.3 in). You also need a bench to build on and somewhere to keep a few thousand parts sorted while you work.
+**The instructions are not finished.** Of the {{ site.data.docs_status.how_to }} hardware pages with steps, {{ site.data.docs_status.verified }} have been followed on a real machine and {{ site.data.docs_status.drafts }} are first drafts. Every page says which it is.
 
-**Cost.** These are rough estimates from US prices in September 2026, not quotes, and they leave out the 3D printer.
-
-- **A 1 layer machine: roughly US$1,400 to 1,700** in parts and filament. That is most of the money, because it carries everything that is built only once: the Orange Pi, the cameras, the control board, the power supply, the feeder and most of the motors.
-- **Each extra layer: roughly US$100 to 150**, plus about US$40 of filament if you print that layer's bins rather than use boxes you already have.
-- So **3 layers is roughly US$1,600 to 1,900** and **5 layers roughly US$1,800 to 2,200**.
-
-Buying in Europe, the UK or Australia usually costs more once shipping and import tax are added. The [bill of materials](https://parts-calculator.basically.website/hardware) prices every part that has a US listing at your own layer count ("select all" gives the total). The Orange Pi, the screws, the 2020 extrusion, the circuit boards, the harness connectors and the plywood have no price there yet, and they are a large part of the gap between that total and the figures above.
-
-[Hardware]({{ '/hardware/' | relative_url }}) has the full breakdown: how tall a machine to build, the parts count and filament for 3 and 5 layers, and the two things you may not be able to make yourself.
+**Cost, as a rough guide:** about US$1,400 to 1,700 for 1 layer, and about US$100 to 150 for each extra layer. That is parts and filament at US prices in September 2026, without the 3D printer. Expect more outside the US, for shipping and import tax. The [bill of materials](https://parts-calculator.basically.website/hardware) prices the parts at your layer count; its total is lower, because some parts have no price there yet.
 
 ## What skills I should have
 
-You do not need to be an engineer, and none of the build is specialist work.
+You do not need to be an engineer.
 
-**Taken as read.** You can run a 3D printer and print a part from an STL file. You are at ease with hex keys, side cutters, wire strippers and pliers, and you can work from a parts list.
+**Taken as read.** You can run a 3D printer, and you are at ease with hex keys, side cutters, wire strippers and pliers.
 
-**Taught here, at the point you need it.** [Heat-set inserts]({{ '/hardware/helpers/heat-inserts/' | relative_url }}), [crimping contacts onto wire]({{ '/hardware/helpers/channel-stepper-lead/' | relative_url }}) and [using a multimeter]({{ '/hardware/helpers/multimeter/' | relative_url }}). Those pages start from the tool in your hand, so you can arrive at them having never done it.
+**Taught here, when you need it.** [Heat-set inserts]({{ '/hardware/helpers/heat-inserts/' | relative_url }}), [crimping]({{ '/hardware/helpers/channel-stepper-lead/' | relative_url }}) and [using a multimeter]({{ '/hardware/helpers/multimeter/' | relative_url }}).
 
-**Some soldering.** Nothing on the machine needs fine electronics work, but a few joints do need an iron: [four solder jumpers on the control board]({{ '/hardware/electronics/installation/control-board-prep/' | relative_url }}), and a spliced wire under adhesive-lined heat shrink on [the chute stepper lead]({{ '/hardware/helpers/chute-stepper-lead/' | relative_url }}) and [the board's 24 V lead]({{ '/hardware/helpers/board-24v-lead/' | relative_url }}). If you have never soldered, practise on scrap wire first. The Pico comes with its pins already fitted, and the LED strips take a clamp-on connector.
+**Some soldering.** [Four solder jumpers on the control board]({{ '/hardware/electronics/installation/control-board-prep/' | relative_url }}), and a splice on [the chute stepper lead]({{ '/hardware/helpers/chute-stepper-lead/' | relative_url }}) and [the board's 24 V lead]({{ '/hardware/helpers/board-24v-lead/' | relative_url }}).
 
-**Not needed at all.** No CAD, no PCB design and no programming, to build the machine or to run it.
+**Not needed.** No CAD, no PCB design and no programming.
 
 ## What tools I need
 
-Each page also lists the tools its own steps need, so you can check before you start a step.
+Each page lists the tools for its own steps. For the whole build:
 
-**For the build**
-
-- A 3D printer with a bed of at least 256 x 256 mm, and a slicer. See [Printing the parts]({{ '/hardware/printing/' | relative_url }}).
-- Hex keys: 2, 2.5, 3 and 4 mm. They are the tool you will use most.
-- A soldering iron and solder, plus adhesive-lined heat shrink. The iron also melts in the heat-set inserts if you have no insert press.
+- A 3D printer with a bed of at least 256 x 256 mm. See [Printing the parts]({{ '/hardware/printing/' | relative_url }}).
+- Hex keys: 2, 2.5, 3 and 4 mm.
+- A soldering iron, solder and adhesive-lined heat shrink.
 - A multimeter with a continuity buzzer.
 - Side cutters, wire strippers and needle-nose pliers.
-- A crimp tool for open-barrel contacts, and one for insulated terminals. You can skip both by [ordering the harness ready made]({{ '/hardware/parts/harness-order/' | relative_url }}).
-- Screwdrivers: a small flat one for screw-terminal plugs, a small Phillips, and one that fits the power supply's M3.5 terminal screws.
-- An 8 mm spanner, for the M5 nuts.
-- A mallet or hammer, with a cloth to protect the printed brackets.
-- A tape measure.
+- A crimp tool, from the [crimp and connector kit](https://parts-calculator.basically.website/hardware?hw=connector-kit-crimp), unless you [order the harness ready made]({{ '/hardware/parts/harness-order/' | relative_url }}).
+- Small flat and Phillips screwdrivers, an 8 mm spanner, a mallet and a tape measure.
 
-**Worth having**
+**Worth having:** a heat-set insert press, and a drill or electric screwdriver with hex bits, including a long one.
 
-- A heat-set insert press. A 3 layer machine has {{ site.data.build_scale.small.heat_inserts }} inserts to set, and a press keeps them straight.
-- A drill or electric screwdriver with hex bits, including a long one that reaches between the layers. There are hundreds of screws.
-
-**For the software**
-
-- A computer with a microSD card reader, and a phone or an Ethernet cable to your router. See [Sorter OS]({{ '/sorter/installation/sorter-os/' | relative_url }}).
-- A paper printer, for the camera focus chart.
-
-**Not needed.** No saw and no laser cutter. The aluminium extrusion can be ordered cut to length, and the flat parts are cut for you by a service or a maker space. Cardboard bins are the one exception, and [Install the bins]({{ '/hardware/assembly/install-bins/' | relative_url }}) has a route by hand with a knife and a ruler.
+**Not needed:** a saw or a laser cutter. See [two things you may not be able to make yourself]({{ '/hardware/#two-things-you-may-not-be-able-to-make-yourself' | relative_url }}).
 
 ## I want to build one
 

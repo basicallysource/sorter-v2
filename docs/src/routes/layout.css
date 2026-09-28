@@ -1331,6 +1331,14 @@ figcaption cite {
 	margin-bottom: 0.5rem;
 }
 
+/* A checklist the reader ticks off: the site's lists carry no markers, so a
+   list meant to read as bullets draws them. */
+.bulleted-list {
+	list-style: disc;
+	padding-left: 1.4rem;
+	margin: 0 0 1.4rem;
+}
+
 /* Numbered key for a keyed drawing: the site's lists render without markers, so
    a list whose items are referred to by number draws its own. The badges match
    the numbered markers on the drawing, including their colour. */

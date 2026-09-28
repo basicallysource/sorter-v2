@@ -44,23 +44,29 @@ Each page lists the tools for its own steps.
 
 **For the whole build:**
 
-- A 3D printer with a bed of at least 256 x 256 mm. See [Printing the parts]({{ '/hardware/printing/' | relative_url }}).
-- Hex keys: 2, 2.5, 3 and 4 mm.
-- A soldering iron, solder and adhesive-lined heat shrink.
-- A multimeter with a continuity buzzer.
-- Side cutters, wire strippers and needle-nose pliers.
-- A crimp tool, from the [crimp and connector kit](https://parts-calculator.basically.website/hardware?hw=connector-kit-crimp), unless you [order the harness ready made]({{ '/hardware/parts/harness-order/' | relative_url }}).
-- Small flat and Phillips screwdrivers, an 8 mm spanner, a mallet and a tape measure.
+<ul class="bulleted-list">
+  <li>A 3D printer with a bed of at least 256 x 256 mm. See <a href="{{ '/hardware/printing/' | relative_url }}">Printing the parts</a>.</li>
+  <li>Hex keys: 2, 2.5, 3 and 4 mm.</li>
+  <li>A soldering iron, solder and adhesive-lined heat shrink.</li>
+  <li>A multimeter with a continuity buzzer.</li>
+  <li>Side cutters, wire strippers and needle-nose pliers.</li>
+  <li>A crimp tool, from the <a href="https://parts-calculator.basically.website/hardware?hw=connector-kit-crimp">crimp and connector kit</a>, unless you <a href="{{ '/hardware/parts/harness-order/' | relative_url }}">order the harness ready made</a>.</li>
+  <li>Small flat and Phillips screwdrivers, an 8 mm spanner, a mallet and a tape measure.</li>
+</ul>
 
 **Worth having:**
 
-- A heat-set insert press.
-- A drill or electric screwdriver with hex bits, including a long one.
+<ul class="bulleted-list">
+  <li>A heat-set insert press.</li>
+  <li>A drill or electric screwdriver with hex bits, including a long one.</li>
+</ul>
 
 **Not needed:**
 
-- A saw.
-- A laser cutter.
+<ul class="bulleted-list">
+  <li>A saw.</li>
+  <li>A laser cutter.</li>
+</ul>
 
 See [two things you may not be able to make yourself]({{ '/hardware/#two-things-you-may-not-be-able-to-make-yourself' | relative_url }}).
 

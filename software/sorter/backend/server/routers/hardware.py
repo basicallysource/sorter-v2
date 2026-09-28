@@ -96,7 +96,7 @@ def _control_board_observability(board: Any) -> Dict[str, Any]:
     observability: Dict[str, Any] = {}
     if interface is not None and hasattr(interface, "get_observability_info"):
         try:
-            observability = dict(interface.get_observability_info())
+            observability = dict(interface.get_observability_info(force_refresh=True))
         except Exception as exc:
             observability = {"error": str(exc)}
     return {

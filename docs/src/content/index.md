@@ -51,7 +51,7 @@ Machines are built and running, and they sort every day. It is not a product yet
   </div>
   <div class="callout">
     <strong><a href="{{ '/hive/' | relative_url }}">Hive</a></strong>
-    <p>Sorting profiles shared by other builders, and the samples behind them.</p>
+    <p>The community space in the cloud: sorting profiles shared by other builders, the samples behind them, and the community review that checks those samples.</p>
   </div>
   <div class="callout">
     <strong><a href="{{ '/lab/' | relative_url }}">Lab</a></strong>

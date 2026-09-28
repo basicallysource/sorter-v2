@@ -433,6 +433,16 @@ class ClassificationChannelConfig:
                 acceleration_microsteps_per_second_sq=6000,
                 settle_ms=450,
             ),
+            # The operator test wiggle that freed every lip-stuck piece on the
+            # B1 platter (2026-09-04/05) once the rungs above had failed.
+            ClassificationChannelExitReleaseStage(
+                "operator-proven-kick",
+                amplitude_output_deg=3.0,
+                cycles=3,
+                microsteps_per_second=16000,
+                acceleration_microsteps_per_second_sq=150000,
+                settle_ms=500,
+            ),
         )
         self.exit_release_review_pause_enabled = True
         self.stale_zone_timeout_s = 3.0

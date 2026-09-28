@@ -40,7 +40,9 @@ You do not need to be an engineer.
 
 ## What tools I need
 
-Each page lists the tools for its own steps. For the whole build:
+Each page lists the tools for its own steps.
+
+**For the whole build:**
 
 - A 3D printer with a bed of at least 256 x 256 mm. See [Printing the parts]({{ '/hardware/printing/' | relative_url }}).
 - Hex keys: 2, 2.5, 3 and 4 mm.
@@ -50,11 +52,19 @@ Each page lists the tools for its own steps. For the whole build:
 - A crimp tool, from the [crimp and connector kit](https://parts-calculator.basically.website/hardware?hw=connector-kit-crimp), unless you [order the harness ready made]({{ '/hardware/parts/harness-order/' | relative_url }}).
 - Small flat and Phillips screwdrivers, an 8 mm spanner, a mallet and a tape measure.
 
-**Worth having:** a heat-set insert press, and a drill or electric screwdriver with hex bits, including a long one.
+**Worth having:**
 
-**Not needed:** a saw or a laser cutter. See [two things you may not be able to make yourself]({{ '/hardware/#two-things-you-may-not-be-able-to-make-yourself' | relative_url }}).
+- A heat-set insert press.
+- A drill or electric screwdriver with hex bits, including a long one.
 
-## I want to build one
+**Not needed:**
+
+- A saw.
+- A laser cutter.
+
+See [two things you may not be able to make yourself]({{ '/hardware/#two-things-you-may-not-be-able-to-make-yourself' | relative_url }}).
+
+## I want to build one for myself
 
 Read these three in order.
 
@@ -62,7 +72,7 @@ Read these three in order.
 - **[Bill of materials](https://parts-calculator.basically.website/hardware)**: everything to buy, with vendor links and part numbers, at your own layer count. The site root lists the parts to print, and [/framing](https://parts-calculator.basically.website/framing) is the aluminium cut list.
 - **[Assembly]({{ '/hardware/assembly/' | relative_url }})**: the build order, section by section, ending in [Software setup]({{ '/hardware/software-setup/' | relative_url }}) and then the [Sorter]({{ '/sorter/' | relative_url }}) section.
 
-## I want to help build the project
+## I want to contribute to the project
 
 - **Mechanical / CAD**: The project uses [Onshape](https://www.onshape.com/) (free, web-based, collaborative). Every V2 document is public and listed in the repo's `mechanical/README.md`; the folder holding them is private, so ask in the [Discord](https://discord.gg/6PZtqkwtaS) to be added to it. Start by browsing the V2 CAD and checking open bounties for mechanical tasks.
 - **Electronics**: PCB schematics are in KiCad, in the repo under `electronics/KiCad/`. Background in EE or PCB layout is valuable.

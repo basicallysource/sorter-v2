@@ -10,7 +10,7 @@ permalink: /hardware/assembly/install-bins/
 og_image: https://assets.basically.website/sorter-docs/install-bins-printed-bins-from-above-w1600-3edc30bd133f.jpg
 author: spencer
 contributors: [brickcyclealice, daddyosbricksbill]
-tools_needed: ["Hot glue gun, for cardboard bins", "Laser cutter, or a cutting service, for cardboard bins", "Sharp knife, metal ruler and an A4 printer, if you are cutting cardboard bins by hand"]
+tools_needed: ["Hot glue gun, for cardboard bins", "Laser cutter, or a cutting service, for cardboard bins", "Sharp knife, metal ruler, A4 printer and paper or thin card stock, if you are cutting cardboard bins by hand"]
 last_verified: 2026-09-25
 parts_needed:
   - part: bin-half-left
@@ -82,13 +82,16 @@ What the bins were designed for: cut flat, folded and glued. Cut them with the [
 
 No laser and no cutting service: print a paper template, tape it together, and cut the cardboard with a knife. Four templates cover all five bins, because the two half bins are mirror images of each other and come off the same one.
 
-[Download the hand cutting templates](https://assets.basically.website/sorter-parts/bin-hand-cutting-templates-abebcb483052.zip), a zip of four PDFs. Each one opens with a cover sheet carrying the full instructions, then tiles the pattern across A4: four sheets for a half bin, four for third left, three for third centre, two for third right-back.
+[Download the hand cutting templates](https://assets.basically.website/sorter-parts/bin-hand-cutting-templates-122d08ce4b87.zip), a zip of four PDFs. Each one opens with a cover sheet: a picture of the finished bin, what you need, and the eight steps. After that it tiles the pattern across A4, four sheets for a half bin, four for third left, three for third centre, two for third right-back.
+
+You need a printer, A4 paper or thin card stock for the template itself, a sharp knife, a metal ruler, something to measure thickness with, tape, a hot glue gun and a pin.
 
 <ol class="numbered-steps">
-  <li>Print every sheet at <strong>100% or Actual size</strong>, never Fit to Page. Each sheet carries a 100 mm bar. Measure it before you cut anything.</li>
+  <li>Print every sheet at <strong>100% or Actual size</strong>, never Fit to Page. Thin card stock outlasts paper.</li>
+  <li><strong>Once printed, measure the bar at the foot of each page.</strong> It must be 100 mm. If it is not, the print is scaled: fix the setting and print again.</li>
   <li>Tape the sheets together on the registration crosses. The same cross is printed on both sheets of every overlap.</li>
-  <li>Measure your cardboard and follow the one outline that matches it. Every template carries three, for 4, 5 and 6 mm stock, tagged along their length.</li>
-  <li>Lay the template so the longest fold lines run along the flutes. Tape it down, draw round it, then lift it off and cut. Do not cut against the paper: you need the template a dozen times or more.</li>
+  <li><strong>Measure the thickness of the cardboard</strong> and follow the one outline that matches. Every template carries three, for 4, 5 and 6 mm stock, tagged along their length.</li>
+  <li>Turn the template until the long double-headed <strong>FLUTES</strong> arrow runs the same way as the corrugations. Tape it down, draw round it, then lift it off and cut. Do not cut against the paper: you need the template a dozen times or more.</li>
   <li>Score the folds on the face that will be inside the bin, cutting the inner liner only, then fold towards the score.</li>
   <li>Fold the bin up and glue the corners.</li>
 </ol>

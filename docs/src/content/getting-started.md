@@ -14,7 +14,7 @@ permalink: /getting-started/
 
 ## What I should know
 
-Sorter V2 is not a kit. There is nothing to order in one box: you buy the parts, print the plastic and put it together yourself, from these instructions. What the finished machine sorts, and what it will not, is on the [home page]({{ '/' | relative_url }}).
+Sorter V2 is not a kit yet. There is nothing to order in one box: you buy the parts, print the plastic and put it together yourself, from these instructions. What the finished machine sorts, and what it will not, is on the [home page]({{ '/' | relative_url }}).
 
 **It is a big job, not a hard one.** No single step is difficult, but there are thousands of parts, and turning them into a working machine takes months. Treat it as a project, not an experiment you can abandon cheaply halfway.
 

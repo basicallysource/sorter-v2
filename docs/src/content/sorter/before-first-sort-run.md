@@ -6,12 +6,12 @@ audience: operator
 applies_to: Sorter V2 local software
 owner: sorter
 slug: sorter-before-first-sort-run
-kicker: Sorter — Operate
+kicker: SorterOS — Operate
 author: reveryx
 lede: The last five things to check in the UI, once the setup wizard, the cameras and the chute are done.
 permalink: /sorter/before-first-sort-run/
 warning: >-
-  **AI-generated first draft.** Written from the Sorter software's own source, not
+  **AI-generated first draft.** Written from SorterOS's own source, not
   from setting up a machine that has sorted. It has no screenshots, and the model
   names in step 3 have not been checked against the list a real machine shows.
 ---

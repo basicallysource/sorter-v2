@@ -146,7 +146,7 @@ sections:
             url: /hardware/parts/harness-order/
 
   - id: sorter
-    title: Sorter
+    title: SorterOS
     url: /sorter/
     description: The local software running on the machine — Python backend and SvelteKit UI.
     pages:
@@ -157,7 +157,7 @@ sections:
         pages:
           - title: Installation
             url: /sorter/installation/
-          - title: SorterOS
+          - title: SorterOS image
             url: /sorter/installation/sorter-os/
           - title: Linux (generic)
             url: /sorter/installation/linux-generic/

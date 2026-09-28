@@ -2,19 +2,19 @@
 layout: default
 title: Styleguide
 type: reference
-audience: contributor working on the Sorter UI, Hive, or these docs
+audience: contributor working on the SorterOS UI, Hive, or these docs
 applies_to: visual language v1
 owner: ui
 section: lab
 slug: styleguide
 kicker: Lab — Contributor Reference
-lede: The shared visual language used by the Sorter UI, the Hive community platform, and this documentation site. This page is the source of truth — both apps render an in-app `/styleguide` route that mirrors these patterns as a live smoke test.
+lede: The shared visual language used by the SorterOS UI, the Hive community platform, and this documentation site. This page is the source of truth — both apps render an in-app `/styleguide` route that mirrors these patterns as a live smoke test.
 permalink: /lab/styleguide/
 ---
 
 ## Design Principles {#design-principles}
 
-Five rules that apply across Sorter, Hive, and these docs. Every new screen or component must honor them unless you have a documented reason not to.
+Five rules that apply across SorterOS, Hive, and these docs. Every new screen or component must honor them unless you have a documented reason not to.
 
 ### 1. No rounded corners
 
@@ -53,7 +53,7 @@ Each operator can choose their preferred LEGO primary in the app settings. The f
     <div class="sg-swatch-chip" style="background:#0055BF"></div>
     <div class="sg-swatch-label">LEGO Blue</div>
     <div class="sg-swatch-value">#0055BF</div>
-    <div class="sg-swatch-usage">Default primary for the Sorter UI. Info, focus rings, selection.</div>
+    <div class="sg-swatch-usage">Default primary for the SorterOS UI. Info, focus rings, selection.</div>
   </div>
   <div class="sg-swatch">
     <div class="sg-swatch-chip" style="background:#00852B"></div>
@@ -157,7 +157,7 @@ Both apps and these docs use IBM Plex Sans for copy and IBM Plex Mono for identi
 ### Rules of thumb
 
 - **Never grow a micro-heading back to `text-sm`.** The 11px uppercase label is a deliberate rhythm — inflating it to the body scale dissolves the hierarchy we rely on inside notification blocks and stat cells.
-- **Body copy is 12px (`text-xs`), not 14px.** Sorter and Hive both default to the tighter scale; `text-sm` is reserved for hero descriptions and form labels that carry a specific hint.
+- **Body copy is 12px (`text-xs`), not 14px.** SorterOS and Hive both default to the tighter scale; `text-sm` is reserved for hero descriptions and form labels that carry a specific hint.
 - **Mono is for things you copy.** Hashes, URLs, hex codes, machine identifiers. Prose and UI chrome stay in IBM Plex Sans.
 
 ## Notifications {#notifications}
@@ -252,7 +252,7 @@ Panels, buttons, form controls, and loading states — the building blocks that 
 
 ### Panels and cards
 
-The base surface is a flat 1px bordered rectangle with the `bg-surface` background — called `.setup-panel` in the Sorter UI. Use it for grouped content, stat cells, and inline forms.
+The base surface is a flat 1px bordered rectangle with the `bg-surface` background — called `.setup-panel` in the SorterOS UI. Use it for grouped content, stat cells, and inline forms.
 
 ```html
 <div class="setup-panel px-4 py-3">
@@ -321,10 +321,10 @@ How the user-selectable primary is wired through CSS custom properties, and whic
 
 - Each app reads `--color-primary` from CSS custom properties at the `:root` level.
 - Defaults are:
-  - **Sorter UI** → `#0055BF` (LEGO Blue)
+  - **SorterOS UI** → `#0055BF` (LEGO Blue)
   - **Hive** → `#D01012` (LEGO Red)
   - **Docs site** → `#D01012` (LEGO Red)
-- In both apps the user can override the default via **Settings → Appearance → Primary color**. The choice is persisted per-machine (Sorter) or per-user (Hive).
+- In both apps the user can override the default via **Settings → Appearance → Primary color**. The choice is persisted per-machine (SorterOS) or per-user (Hive).
 - Components must consume `--color-primary` via the utility classes `.text-primary`, `.bg-primary`, `.border-primary`, or raw `var(--color-primary)` — **never via hard-coded hex values** of the four LEGO options.
 
 ### Semantic slots are fixed
@@ -352,7 +352,7 @@ If a user picks a primary that collides with a semantic slot (for example, Green
 ## Where this guide lives {#where-this-guide-lives}
 
 - **Canonical prose and rules:** this page.
-- **Live smoke test:** `/styleguide` in the Sorter UI and `/styleguide` in the Hive frontend. Both routes render the same patterns with real components so designers can spot drift at a glance.
+- **Live smoke test:** `/styleguide` in the SorterOS UI and `/styleguide` in the Hive frontend. Both routes render the same patterns with real components so designers can spot drift at a glance.
 - **Design tokens:** `--color-bg`, `--color-surface`, `--color-border`, `--color-text`, `--color-text-muted`, `--color-primary` (CSS custom properties, same names across all three surfaces).
 
 When you add a new pattern, update the matching section above first, then mirror it into both in-app styleguides.

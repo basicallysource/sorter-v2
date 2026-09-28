@@ -6,7 +6,7 @@ section: sorter
 slug: sorter-what-leaves-the-machine
 audience: self-hosting operator
 last_verified: 2026-07-13
-kicker: Sorter — Under the hood
+kicker: SorterOS — Under the hood
 lede: Every network connection the backend can make, what each one carries, and which ones you can turn off.
 permalink: /sorter/what-leaves-the-machine/
 ---

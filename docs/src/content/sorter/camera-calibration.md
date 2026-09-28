@@ -6,7 +6,7 @@ audience: operator
 applies_to: Sorter V2 local software
 owner: sorter
 slug: sorter-camera-calibration
-kicker: Sorter — Operate
+kicker: SorterOS — Operate
 lede: Focus every camera on the machine against a printed chart. Do this once per camera, and again after swapping a camera or a lens.
 permalink: /sorter/camera-calibration/
 last_verified: 2026-09-18
@@ -41,7 +41,7 @@ Do this for every camera on the machine, one at a time.
 
 <ol class="numbered-steps">
   <li>Lay the Siemens Star flat where that camera looks at parts. On a channel camera that is the <strong>rotor</strong>, the part the pieces ride on, at the point where the camera sees them. On a machine with a classification chamber it is the chamber tray, centred where parts sit.</li>
-  <li>Open the Sorter UI, then <strong>Settings</strong>, then pick that camera. The live feed shows the star pattern.</li>
+  <li>Open the SorterOS UI, then <strong>Settings</strong>, then pick that camera. The live feed shows the star pattern.</li>
   <li>Loosen the lens lock ring and turn the lens until the <strong>centre spokes resolve sharply</strong>, the point where the individual black and white wedges stay separate all the way in to the middle.</li>
   <li>Tighten the lock ring. Take the chart out.</li>
 </ol>

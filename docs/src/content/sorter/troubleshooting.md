@@ -1,9 +1,9 @@
 ---
 layout: default
-title: Sorter troubleshooting
+title: SorterOS troubleshooting
 type: troubleshooting
 slug: sorter-troubleshooting
-kicker: Sorter — Operations
+kicker: SorterOS — Operations
 lede: Symptom-led entries for install, first-run, and runtime problems. Search this page (Cmd-F) for the error message you are seeing.
 permalink: /sorter/troubleshooting/
 ---
@@ -12,15 +12,15 @@ Each entry: what you see → cause → fix → how to verify. For the install pr
 
 ## First boot {#first-boot}
 
-These are for [SorterOS]({{ '/sorter/installation/sorter-os/' | relative_url }}). While it sets up, the Pi serves a progress page at `http://sorter.local` that lists every stage, and next to a stage that is stuck, the reason.
+These are for [the SorterOS image]({{ '/sorter/installation/sorter-os/' | relative_url }}). While it sets up, the Pi serves a progress page at `http://sorter.local` that lists every stage, and next to a stage that is stuck, the reason.
 
 ### `sorter.local` doesn't open
 
-**Cause:** mDNS only works on the Pi's own network, older Windows needs Bonjour for it, and a second SorterOS machine on the same network answers at `sorter-2.local`.
+**Cause:** mDNS only works on the Pi's own network, older Windows needs Bonjour for it, and a second machine on the same network running the SorterOS image answers at `sorter-2.local`.
 
 **Fix:** Browse from a device on the same network, or find the Pi in your router's list of connected devices and use its IP address.
 
-**Verify:** The progress page or the Sorter UI loads.
+**Verify:** The progress page or the SorterOS UI loads.
 
 ### A stage says `waiting for internet`
 
@@ -52,7 +52,7 @@ These are for [SorterOS]({{ '/sorter/installation/sorter-os/' | relative_url }})
 
 **Fix:** Use the address the setup page showed when the Pi joined. If you didn't note it, browse to `http://<name>.local` (the name you gave it, `sorter` if you didn't), find the Pi in your router's list of connected devices, or join `SorterOS-Setup-` again if it's in your phone's WiFi list: the page shows where the Pi is.
 
-**Verify:** The Sorter UI or the first-boot progress page loads.
+**Verify:** The SorterOS UI or the first-boot progress page loads.
 
 ### The WiFi entered in SorterOS Setup was wrong
 
@@ -64,7 +64,7 @@ These are for [SorterOS]({{ '/sorter/installation/sorter-os/' | relative_url }})
 
 ### `tailscale-up` shows ✕
 
-**Cause:** The Tailscale key was rejected (expired, already used, or not allowed the `tag:sorter` tag). After ten tries the Pi stops trying. The Sorter UI is not affected.
+**Cause:** The Tailscale key was rejected (expired, already used, or not allowed the `tag:sorter` tag). After ten tries the Pi stops trying. The SorterOS UI is not affected.
 
 **Fix:** Connect Tailscale from the UI's **Settings** later.
 

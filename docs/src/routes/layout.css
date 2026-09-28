@@ -2,7 +2,7 @@
 
 /* Design tokens — same naming scheme as software/sorter/frontend
    (src/routes/layout.css). Docs keep LEGO red as the primary; flip
-   --color-primary to #0055bf to match the sorter UI's blue. */
+   --color-primary to #0055bf to match the SorterOS UI's blue. */
 @theme {
 	--color-bg: #f7f6f3;
 	--color-surface: #ffffff;
@@ -1827,7 +1827,7 @@ blockquote {
 	line-height: 1.45;
 }
 
-/* Sorter-UI facsimile panels used on the styleguide page. */
+/* SorterOS UI facsimile panels used on the styleguide page. */
 .setup-panel {
 	border: 1px solid var(--color-border);
 	background: var(--color-surface);

@@ -6,7 +6,7 @@ section: sorter
 slug: sorter-dev-flow
 audience: self-hosting operator
 last_verified: 2026-06-02
-kicker: Sorter — Under the hood
+kicker: SorterOS — Under the hood
 lede: The two systemd services that run the machine in dev mode, how to enable them, and the difference between a soft restart and a full restart.
 permalink: /sorter/dev-flow/
 ---

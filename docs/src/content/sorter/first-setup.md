@@ -6,11 +6,11 @@ audience: operator
 applies_to: Sorter V2 local software
 owner: sorter
 slug: sorter-first-setup
-kicker: Sorter — Operate
+kicker: SorterOS — Operate
 lede: The setup wizard step by step, from opening the machine's UI in a browser to a machine ready for its first sort run.
 permalink: /sorter/first-setup/
 warning: >-
-  **AI-generated first draft.** Written from the Sorter UI's own source and from
+  **AI-generated first draft.** Written from the SorterOS UI's own source and from
   the UI running here, not from setting up a real machine. The screenshots are of
   steps 1 to 3, step 7 and Settings; steps 4 to 6, 8 and 9 need hardware
   attached, so their screenshots are still missing and their wording has not
@@ -23,7 +23,7 @@ The software is installed and the machine has booted. This page takes you from o
 ## Before you start
 
 - The machine is assembled, wired and powered on.
-- The Sorter software is installed and running. See [Installation]({{ '/sorter/installation/' | relative_url }}).
+- SorterOS is installed and running. See [Installation]({{ '/sorter/installation/' | relative_url }}).
 - **The control board is flashed.** Step 3 below only lists boards that already answer on USB serial, so a board with no firmware on it does not appear there at all. [Software setup]({{ '/hardware/software-setup/' | relative_url }}) step 2 has the route, including the one for a board that has never been flashed.
 - Your phone, tablet or computer is on the same network as the machine.
 - The machine is empty: no parts in the C-channels, the carousel, the classification chamber or the chute. The wizard turns the motors.
@@ -37,7 +37,7 @@ Type the machine's address into your browser. Which address depends on how you i
 
 | Install | Address |
 |---|---|
-| SorterOS | `http://sorter.local/` |
+| SorterOS image | `http://sorter.local/` |
 | Generic Linux, or by hand | `http://<machine name>:5173/` |
 
 If you gave the machine a different hostname during the install, use that name instead of `sorter`. If no `.local` address answers, use the machine's IP address from your router.
@@ -50,7 +50,7 @@ The first time you open the UI it opens the setup wizard.
   <figure><img src="https://assets.basically.website/sorter-docs/sorter-first-setup-step1-machine-identity-w1600-08182bfeebd0.jpg" alt="The setup wizard on step 1, with the nine steps along the top and a machine name field below"><figcaption>The wizard on its first step. <cite>UI screenshot. Render: Balloon.</cite></figcaption></figure>
 </div>
 
-If the page does not appear at all, or it appears and every button fails, see [Sorter troubleshooting]({{ '/sorter/troubleshooting/' | relative_url }}).
+If the page does not appear at all, or it appears and every button fails, see [SorterOS troubleshooting]({{ '/sorter/troubleshooting/' | relative_url }}).
 
 ## Tell the machine which build it is
 
@@ -246,7 +246,7 @@ Press **Open Dashboard**. The wizard is done.
 
 The dashboard, with every camera live and the machine in standby.
 
-<div class="img-placeholder">Screenshot of the Sorter dashboard straight after the wizard finishes: the camera tiles showing live views, the machine named, and no profile loaded yet.</div>
+<div class="img-placeholder">Screenshot of the SorterOS dashboard straight after the wizard finishes: the camera tiles showing live views, the machine named, and no profile loaded yet.</div>
 
 ## Settings worth a look
 

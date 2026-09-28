@@ -6,7 +6,7 @@ audience: operator
 applies_to: Sorter V2 local software
 owner: sorter
 slug: sorter-first-sort-run
-kicker: Sorter — Tutorial
+kicker: SorterOS — Tutorial
 lede: Run your first sort end-to-end. Pick a profile, feed a small handful of parts, watch them land in the right bins, stop cleanly. About fifteen minutes.
 permalink: /sorter/tutorials/first-sort-run/
 ---
@@ -15,7 +15,7 @@ Everything here happens in the browser. If anything stalls, jump to [troubleshoo
 
 ## Before you start
 
-- The machine is powered on and its UI opens in your browser. On SorterOS that is `http://sorter.local/`.
+- The machine is powered on and its UI opens in your browser. On the SorterOS image that is `http://sorter.local/`.
 - [Before your first sort run]({{ '/sorter/before-first-sort-run/' | relative_url }}) is done: a profile is deployed and the chute is homed.
 - 10 to 20 mixed bricks, plates and tiles, picked over as [Preparing LEGO]({{ '/sorter/preparing-lego/' | relative_url }}) describes. Leave stickered and printed parts out of your first run.
 - Empty bins in their slots. Nothing left in the chute, the channels, the carousel or the chamber.

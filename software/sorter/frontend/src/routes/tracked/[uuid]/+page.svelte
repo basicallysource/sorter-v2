@@ -386,7 +386,7 @@
 	}
 
 	// Motion-blur / focus measure (Laplacian variance) of a burst crop; higher =
-	// sharper. Shown rounded-control — the absolute value is camera/lighting dependent, so
+	// sharper. Shown rounded — the absolute value is camera/lighting dependent, so
 	// it's mainly useful for comparing crops of the same piece.
 	function formatSharpness(sharpness: number | null | undefined): string {
 		if (sharpness == null || !Number.isFinite(sharpness)) return '';

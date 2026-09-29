@@ -70,7 +70,7 @@
 	--color-info-ink: var(--info-ink);
 	--color-on-info: var(--on-info);
 
-	/* Corners (rounded-panel, rounded-control, ...), from the corner choice. */
+	/* Corners: rounded-panel, rounded-control and the rest, one radius each (docs/decisions.md). */
 	--radius-panel: var(--r-panel);
 	--radius-control: var(--r-control);
 	--radius-item: var(--r-item);

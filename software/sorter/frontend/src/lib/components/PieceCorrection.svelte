@@ -3,13 +3,17 @@
 	import X from '@lucide/svelte/icons/x';
 	import Search from '@lucide/svelte/icons/search';
 	import Sparkles from '@lucide/svelte/icons/sparkles';
-	import Button from '$lib/components/ui/Button.svelte';
+	import { untrack } from 'svelte';
 	import Alert from '$lib/components/ui/Alert.svelte';
+	import Badge from '$lib/components/ui/Badge.svelte';
+	import Button from '$lib/components/ui/Button.svelte';
+	import Input from '$lib/components/ui/Input.svelte';
+	import Popover from '$lib/components/ui/Popover.svelte';
+	import SegmentedControl from '$lib/components/ui/SegmentedControl.svelte';
 	import Spinner from '$lib/components/ui/Spinner.svelte';
 	import {
 		fetchLegoColors,
 		swatchHex,
-		swatchTextColor,
 		type BrickLinkColor,
 		type PieceSummary
 	} from '$lib/pieces';
@@ -56,7 +60,7 @@
 	// machine-side rejection_reasons column has no fixed enum, so it just rides
 	// along; nothing in Hive validates against it. Multiple can apply at once.
 	const REJECTION_REASONS: { code: string; label: string }[] = [
-		{ code: 'not_lego', label: 'Not Lego' },
+		{ code: 'not_lego', label: 'Not LEGO' },
 		{ code: 'multiple_pieces', label: 'Multiple pieces in frame' },
 		{ code: 'no_piece', label: 'No piece in frame' },
 		{ code: 'assembly', label: 'Assembly' },
@@ -98,16 +102,16 @@
 		}
 	}
 
-	function openPicker() {
-		selectedId = committedColorId ?? predictedColorId ?? null;
-		query = '';
-		pickerOpen = true;
-		void loadColors();
-	}
-
-	function closePicker() {
-		pickerOpen = false;
-	}
+	// The popover opens from its own button; each time it does, the staged
+	// choice starts from the committed correction, else the prediction.
+	$effect(() => {
+		if (!pickerOpen) return;
+		untrack(() => {
+			selectedId = committedColorId ?? predictedColorId ?? null;
+			query = '';
+			void loadColors();
+		});
+	});
 
 	const filteredColors = $derived.by(() => {
 		const q = query.trim().toLowerCase();
@@ -261,229 +265,138 @@
 
 {#if piece.correctable}
 	<div class="flex flex-col {gap}">
-		<!-- PART verdict -->
-		<div class="flex flex-wrap items-center gap-2">
-			<span class="text-xs font-semibold text-ink-muted">
-				Part correct?
-			</span>
-			<div class="flex border border-line">
-				<button
-					type="button"
-					onclick={() => setPartVerdict(true)}
-					disabled={partBusy}
-					title="The predicted PART TYPE is correct (this does NOT judge the color)"
-					aria-label="Mark part prediction correct"
-					class="inline-flex items-center gap-1 border-r border-line px-2 py-1 text-sm transition-colors disabled:opacity-50 {partVerdict ===
-					true
-						? 'bg-success-soft text-success-ink'
-						: 'text-ink-muted hover:text-success-ink'}"
-				>
-					<Check size={14} />
-					Yes
-				</button>
-				<button
-					type="button"
-					onclick={() => setPartVerdict(false)}
-					disabled={partBusy}
-					title="The predicted PART TYPE is wrong (this does NOT judge the color)"
-					aria-label="Mark part prediction wrong"
-					class="inline-flex items-center gap-1 px-2 py-1 text-sm transition-colors disabled:opacity-50 {partVerdict ===
-					false
-						? 'bg-danger-soft text-danger-ink'
-						: 'text-ink-muted hover:text-danger-ink'}"
-				>
-					<X size={14} />
-					No
-				</button>
-			</div>
+		<!-- The part verdict: only about the part type, never the color -->
+		<div class="flex flex-wrap items-center gap-x-3 gap-y-2">
+			<span class="label">Part correct?</span>
+			<SegmentedControl
+				label="Is the predicted part type right?"
+				size="sm"
+				value={partVerdict === true ? 'yes' : partVerdict === false ? 'no' : ''}
+				options={[
+					{ value: 'yes', label: 'Yes', icon: Check },
+					{ value: 'no', label: 'No', icon: X }
+				]}
+				onchange={(verdict) => void setPartVerdict(verdict === 'yes')}
+			/>
 			{#if partBusy}
-				<Spinner size={12} />
+				<Spinner size={14} />
 			{:else if partSent}
-				<span
-					class="inline-flex items-center border border-success/50 bg-success-soft px-1.5 py-0.5 text-xs font-semibold text-success-ink"
-					title="This part verdict has been sent to Brickognize"
-				>
-					Sent
-				</span>
+				<span title="This part verdict has been sent to Brickognize"><Badge tone="success">Sent</Badge></span>
 			{/if}
-			<span class="text-xs text-ink-muted">Part type only — not the color.</span>
+			<span class="text-sm text-ink-muted">Part type only, not the color.</span>
 		</div>
 
-		<!-- COLOR verdict -->
-		<div class="flex flex-col gap-1.5">
-			<div class="flex flex-wrap items-center gap-2">
-				<span class="text-xs font-semibold text-ink-muted">
-					Color correct?
-				</span>
-				<!-- The predicted color, with a one-click "yes it's right". -->
-				<span
-					class="inline-flex items-center gap-1.5 text-sm text-ink"
-					title="Brickognize predicted this color"
-				>
-					{#if predictedColorHex}
-						<span
-							class="inline-block h-3.5 w-3.5 border border-line"
-							style:background-color={predictedColorHex}
-						></span>
-					{/if}
-					<span>{predictedColorName ?? '—'}</span>
-				</span>
-				<button
-					type="button"
-					onclick={acceptPredictedColor}
-					disabled={colorBusy || predictedColorId == null}
-					title="The predicted color is correct"
-					aria-label="Mark predicted color correct"
-					class="inline-flex items-center gap-1 border border-line px-2 py-1 text-sm transition-colors disabled:opacity-50 {acceptedPrediction
-						? 'bg-success-soft text-success-ink'
-						: 'text-ink-muted hover:text-success-ink'}"
-				>
-					<Check size={14} />
-					Yes
-				</button>
-				<!-- Or open the dropdown to submit a different, correct color. -->
-				<button
-					type="button"
-					onclick={() => (pickerOpen ? closePicker() : openPicker())}
-					title="Pick the correct color instead"
-					class="inline-flex items-center gap-1.5 border px-2 py-1 text-sm transition-colors {correctedToDifferent
-						? 'border-danger/50 bg-danger-soft text-danger-ink'
-						: 'border-line bg-surface text-ink-muted hover:bg-hover'}"
-				>
-					{#if correctedToDifferent && committedColorHex}
-						<span
-							class="inline-block h-3.5 w-3.5 border border-line"
-							style:background-color={committedColorHex}
-						></span>
-					{:else}
-						<Search size={14} />
-					{/if}
-					<span>{correctedToDifferent ? committedColorName : 'No — pick color'}</span>
-				</button>
-				{#if colorBusy}
-					<Spinner size={12} />
-				{:else if colorSent}
-					<span
-						class="inline-flex items-center border border-success/50 bg-success-soft px-1.5 py-0.5 text-xs font-semibold text-success-ink"
-						title="This color correction has been sent to Brickognize"
-					>
-						Sent
-					</span>
+		<!-- The color verdict -->
+		<div class="flex flex-wrap items-center gap-x-3 gap-y-2">
+			<span class="label">Color correct?</span>
+			<!-- The predicted color, with a one-click "yes, it is right". A color is data, so its swatch is that color. -->
+			<span class="inline-flex items-center gap-2 text-sm text-ink" title="Brickognize predicted this color">
+				{#if predictedColorHex}
+					<span class="size-4 rounded-badge ring-1 ring-line ring-inset" style:background-color={predictedColorHex}></span>
 				{/if}
-			</div>
-
-			{#if pickerOpen}
-				<div class="flex flex-col gap-2 border border-line bg-surface p-2">
-					<div class="flex items-center gap-2 border border-line bg-well px-2">
-						<Search size={14} class="text-ink-muted" />
-						<input
-							type="search"
-							bind:value={query}
-							placeholder="Search colors…"
-							aria-label="Search colors"
-							class="w-full bg-transparent py-1.5 text-sm text-ink outline-none"
-						/>
-					</div>
-
-					{#if colorsLoading && colors.length === 0}
-						<div class="flex items-center gap-2 px-1 py-2 text-sm text-ink-muted">
-							<Spinner size={12} /> Loading colors…
-						</div>
-					{:else if colorsError}
-						<Alert tone="danger">{colorsError}</Alert>
-					{:else}
-						<div class="max-h-56 overflow-y-auto">
-							{#each filteredColors as c (c.id)}
-								{@const idStr = String(c.id)}
-								{@const hex = swatchHex(c.rgb)}
-								{@const isPrediction = idStr === predictedColorId}
-								{@const isSelected = idStr === selectedId}
-								<button
-									type="button"
-									onclick={() => chooseColor(idStr)}
-									class="flex w-full items-center gap-2 px-2 py-1.5 text-left text-sm transition-colors {isSelected
-										? 'bg-primary-soft text-ink'
-										: 'text-ink hover:bg-hover'}"
-								>
-									<span
-										class="inline-block h-4 w-4 flex-shrink-0 border border-line"
-										style:background-color={hex ?? 'transparent'}
-									></span>
-									<span class="flex-1 truncate">{c.name}</span>
-									{#if c.is_trans}
-										<span class="text-xs text-ink-muted">trans</span>
-									{/if}
-									{#if isPrediction}
-										<span
-											class="inline-flex items-center gap-1 border border-info/60 bg-info-soft px-1.5 py-0.5 text-xs font-semibold text-info-ink"
-											title="Brickognize predicted this color"
-										>
-											<Sparkles size={11} />
-											Prediction
-										</span>
-									{/if}
-									{#if isSelected}
-										<Check size={14} class="flex-shrink-0 text-primary-ink" />
-									{/if}
-								</button>
-							{:else}
-								<div class="px-2 py-2 text-sm text-ink-muted">No colors match.</div>
-							{/each}
-						</div>
-					{/if}
-
-					<div class="flex items-center justify-end gap-2">
-						<Button variant="ghost" size="sm" onclick={closePicker}>Cancel</Button>
-						<Button
-							variant="primary"
-							size="sm"
-							loading={colorBusy}
-							disabled={!selectedId}
-							onclick={confirmColor}
-						>
-							Confirm color
-						</Button>
-					</div>
-				</div>
-			{/if}
-		</div>
-
-		<!-- Capture-issue flags -->
-		<div class="flex flex-wrap items-center gap-2">
-			<span class="text-xs font-semibold text-ink-muted">
-				Report issue
+				{predictedColorName ?? '—'}
 			</span>
-			<div class="flex border border-line">
-				{#each REJECTION_REASONS as reason, i (reason.code)}
-					{@const active = rejectionReasons.has(reason.code)}
-					<button
-						type="button"
-						onclick={() => toggleRejectionReason(reason.code)}
-						disabled={rejectionBusy}
-						aria-pressed={active}
-						title={`Flag this capture: ${reason.label}`}
-						class="inline-flex items-center gap-1 px-2 py-1 text-sm transition-colors disabled:opacity-50 {i <
-						REJECTION_REASONS.length - 1
-							? 'border-r border-line'
-							: ''} {active
-							? 'bg-danger-soft text-danger-ink'
-							: 'text-ink-muted hover:text-danger-ink'}"
-					>
-						{reason.label}
-					</button>
-				{/each}
-			</div>
-			{#if rejectionBusy}
-				<Spinner size={12} />
+			<Button
+				size="sm"
+				variant={acceptedPrediction ? 'primary' : 'secondary'}
+				icon={Check}
+				disabled={colorBusy || predictedColorId == null}
+				onclick={acceptPredictedColor}
+			>
+				Yes
+			</Button>
+			<!-- Or pick a different, correct color. -->
+			<Popover label="Pick the correct color" bind:open={pickerOpen} width="22rem" padded={false}>
+				{#snippet trigger(props)}
+					<Button {...props} size="sm" variant={correctedToDifferent ? 'primary' : 'secondary'}>
+						{#if correctedToDifferent && committedColorHex}
+							<span class="size-4 rounded-badge ring-1 ring-line ring-inset" style:background-color={committedColorHex}></span>
+						{:else}
+							<Search size={14} />
+						{/if}
+						{correctedToDifferent ? committedColorName : 'No, pick the color'}
+					</Button>
+				{/snippet}
+				<div class="p-2">
+					<Input aria-label="Search colors" placeholder="Search colors…" bind:value={query} />
+				</div>
+				<div class="max-h-56 overflow-y-auto border-t border-line py-1">
+					{#if colorsLoading && colors.length === 0}
+						<p class="flex items-center gap-2 px-3 py-2 text-sm text-ink-muted">
+							<Spinner size={14} />
+							Loading the colors
+						</p>
+					{:else if colorsError}
+						<div class="p-2"><Alert tone="danger">{colorsError}</Alert></div>
+					{:else}
+						{#each filteredColors as c (c.id)}
+							{@const idStr = String(c.id)}
+							{@const hex = swatchHex(c.rgb)}
+							{@const isSelected = idStr === selectedId}
+							<button
+								type="button"
+								onclick={() => chooseColor(idStr)}
+								class="flex min-h-(--size-menu-item) w-full items-center gap-2 px-3 text-left text-sm text-ink hover:bg-hover {isSelected
+									? 'bg-primary-soft'
+									: ''}"
+							>
+								<span
+									class="size-4 shrink-0 rounded-badge ring-1 ring-line ring-inset"
+									style:background-color={hex ?? 'transparent'}
+								></span>
+								<span class="min-w-0 flex-1 truncate">{c.name}</span>
+								{#if c.is_trans}<span class="text-xs text-ink-muted">trans</span>{/if}
+								{#if idStr === predictedColorId}
+									<span title="Brickognize predicted this color">
+										<Badge tone="info">
+											<Sparkles size={12} />
+											Prediction
+										</Badge>
+									</span>
+								{/if}
+								{#if isSelected}<Check size={16} class="shrink-0 text-primary-ink" />{/if}
+							</button>
+						{:else}
+							<p class="px-3 py-2 text-sm text-ink-muted">No colors match.</p>
+						{/each}
+					{/if}
+				</div>
+				<div class="flex items-center justify-end gap-2 border-t border-line p-2">
+					<Button variant="ghost" size="sm" onclick={() => (pickerOpen = false)}>Cancel</Button>
+					<Button variant="primary" size="sm" loading={colorBusy} disabled={!selectedId} onclick={confirmColor}>
+						Confirm color
+					</Button>
+				</div>
+			</Popover>
+			{#if colorBusy}
+				<Spinner size={14} />
+			{:else if colorSent}
+				<span title="This color correction has been sent to Brickognize"><Badge tone="success">Sent</Badge></span>
 			{/if}
 		</div>
 
-		<!-- Reserve the banner's height whether or not it's showing — a success
-		     message appearing after a click must not reflow the surrounding modal. -->
+		<!-- Capture-issue flags: any number can apply -->
+		<div class="flex flex-wrap items-center gap-2">
+			<span class="label mr-1">Report an issue</span>
+			{#each REJECTION_REASONS as reason (reason.code)}
+				{@const active = rejectionReasons.has(reason.code)}
+				<Button
+					size="sm"
+					variant={active ? 'primary' : 'secondary'}
+					aria-pressed={active}
+					disabled={rejectionBusy}
+					onclick={() => toggleRejectionReason(reason.code)}
+				>
+					{reason.label}
+				</Button>
+			{/each}
+			{#if rejectionBusy}<Spinner size={14} />{/if}
+		</div>
+
+		<!-- Reserve the banner's height whether or not it is showing: a message
+		     appearing after a click must not reflow what surrounds it. -->
 		<div class="mt-1 min-h-[2.75rem]">
-			{#if feedback}
-				<Alert tone={feedback.variant}>{feedback.text}</Alert>
-			{/if}
+			{#if feedback}<Alert tone={feedback.variant}>{feedback.text}</Alert>{/if}
 		</div>
 	</div>
 {/if}

@@ -4,11 +4,20 @@
 	import ArrowLeft from '@lucide/svelte/icons/arrow-left';
 	import ChevronDown from '@lucide/svelte/icons/chevron-down';
 	import ChevronRight from '@lucide/svelte/icons/chevron-right';
-	import AppHeader from '$lib/components/AppHeader.svelte';
+	import AppShell from '$lib/components/AppShell.svelte';
 	import ImageInfoBadge from '$lib/components/ImageInfoBadge.svelte';
 	import PieceStatusBadge from '$lib/components/PieceStatusBadge.svelte';
 	import ReclassifyPanel from '$lib/components/ReclassifyPanel.svelte';
 	import PieceInfoCard from '$lib/components/pieces/PieceInfoCard.svelte';
+	import Alert from '$lib/components/ui/Alert.svelte';
+	import Badge from '$lib/components/ui/Badge.svelte';
+	import Button from '$lib/components/ui/Button.svelte';
+	import Disclosure from '$lib/components/ui/Disclosure.svelte';
+	import EmptyState from '$lib/components/ui/EmptyState.svelte';
+	import Modal from '$lib/components/ui/Modal.svelte';
+	import PageHeader from '$lib/components/ui/PageHeader.svelte';
+	import Panel from '$lib/components/ui/Panel.svelte';
+	import Spinner from '$lib/components/ui/Spinner.svelte';
 	import PieceThumbGrid from '$lib/components/pieces/PieceThumbGrid.svelte';
 	import type { InfoRow, Thumb } from '$lib/components/pieces/types';
 	import {
@@ -689,37 +698,32 @@
 </script>
 
 <svelte:head>
-	<title>Piece {uuid.slice(0, 8)} · Sorter</title>
+	<title>Piece {uuid.slice(0, 8)} - Sorter</title>
 </svelte:head>
 
-<div class="min-h-screen bg-well">
-	<AppHeader />
-	<div class="mx-auto flex w-full max-w-[1600px] flex-col gap-4 p-4 sm:p-6">
-		<header class="flex flex-wrap items-center justify-between gap-3 border-b border-line pb-3">
-			<div class="flex flex-wrap items-center gap-3">
-				<a
-					href="/records"
-					class="inline-flex items-center gap-1.5 border border-line bg-surface px-2.5 py-1.5 text-sm text-ink-muted hover:text-ink"
-				>
-					<ArrowLeft size={14} />
-					Back
-				</a>
-				<span class="font-mono text-lg font-semibold text-ink">
-					{uuid.slice(0, 8)}
-				</span>
+{#snippet thumbCrop(src: string, alt: string, label: string, onclick: () => void)}
+	<button
+		type="button"
+		class="flex flex-col gap-1 rounded-control bg-well p-1 text-left transition-colors hover:bg-hover"
+		{onclick}
+	>
+		<img {src} {alt} class="size-32 rounded-item bg-surface object-contain" loading="lazy" />
+		{#if label}<span class="px-1 text-xs text-ink-muted">{label}</span>{/if}
+	</button>
+{/snippet}
+
+<AppShell>
+	<div class="mx-auto flex w-full max-w-[1600px] flex-col gap-(--gap-panels) px-4 py-6 sm:px-6">
+		<PageHeader title="Piece {uuid.slice(0, 8)}">
+			{#snippet actions()}
+				<Button icon={ArrowLeft} href="/records">Back to the records</Button>
+			{/snippet}
+			<div class="flex flex-wrap items-center gap-2">
 				{#if piece}
 					{#if piece.stage === 'distributed'}
-						<span
-							class="inline-flex items-center border border-line bg-surface px-2 py-0.5 text-xs font-semibold text-ink-muted"
-						>
-							Distributed
-						</span>
+						<Badge>Distributed</Badge>
 					{:else if piece.stage === 'distributing'}
-						<span
-							class="inline-flex items-center border border-primary bg-primary-soft px-2 py-0.5 text-xs font-semibold text-primary-ink"
-						>
-							Distributing
-						</span>
+						<Badge tone="primary">Distributing</Badge>
 					{/if}
 					<PieceStatusBadge
 						status={piece.classification_status}
@@ -727,23 +731,20 @@
 						dead={Boolean(piece.dead)}
 					/>
 				{:else if _diskSummary}
-					<PieceStatusBadge
-						status={_diskSummary.classification_status}
-						dead={Boolean(_diskSummary.dead)}
-					/>
+					<PieceStatusBadge status={_diskSummary.classification_status} dead={Boolean(_diskSummary.dead)} />
 				{/if}
 			</div>
-		</header>
+		</PageHeader>
 
 		{#if !piece}
 			{#if _fetchStatus === 'summary_only' && _diskSummary}
 				{@const ds = _diskSummary}
-				<section class="grid grid-cols-1 gap-3 lg:grid-cols-2">
+				<section class="grid grid-cols-1 gap-(--gap-panels) lg:grid-cols-2">
 					<PieceInfoCard
 						title="Classification"
 						rows={classificationRows(ds)}
 						image={ds.preview_url}
-						imageAlt="brickognize reference"
+						imageAlt="Brickognize reference"
 						onImageClick={() =>
 							(zoomImage = {
 								src: ds.preview_url as string,
@@ -762,41 +763,35 @@
 					/>
 				</section>
 
-				<div class="grid grid-cols-1 gap-3 lg:grid-cols-2">
-					{#if diskThumbs.length > 0}
-						<section class="flex flex-col border border-line bg-surface">
-							<div class="border-b border-line bg-well px-3 py-2 text-sm font-medium text-ink">
-								Stored images
-								<span class="ml-2 text-ink-muted">{diskThumbs.length}</span>
-							</div>
-							<div class="p-3">
-								<PieceThumbGrid
-									items={diskThumbs}
-									minPx={120}
-									onZoom={(t) => (zoomImage = { src: t.src, label: t.ref.source })}
-								/>
-							</div>
-						</section>
-					{/if}
-				</div>
+				{#if diskThumbs.length > 0}
+					<Panel title="Stored images" description="{diskThumbs.length} on disk.">
+						<PieceThumbGrid
+							items={diskThumbs}
+							minPx={120}
+							onZoom={(t) => (zoomImage = { src: t.src, label: t.ref.source })}
+						/>
+					</Panel>
+				{/if}
 			{:else if _fetchStatus === 'loading' || _fetchStatus === 'idle'}
-				<div class="border border-line bg-surface p-4 text-sm text-ink-muted">
-					Loading piece…
-				</div>
+				<Panel>
+					<p class="flex items-center gap-2 text-sm text-ink-muted">
+						<Spinner size={16} />
+						Loading the piece
+					</p>
+				</Panel>
 			{:else if _fetchStatus === 'not_found'}
-				<div class="border border-line bg-surface p-4 text-sm text-ink-muted">
-					No trace of this piece — it isn't in backend memory, the durable piece records, or the
-					on-disk image store. Go back to the
-					<a href="/records" class="text-primary-ink underline">piece records</a>.
-				</div>
+				<EmptyState title="No trace of this piece">
+					It isn't in backend memory, the durable piece records or the on-disk image store. Go back to the
+					<a href="/records" class="text-primary-ink hover:underline">piece records</a>.
+				</EmptyState>
 			{:else}
-				<div class="border border-line bg-surface p-4 text-sm text-ink-muted">
-					Could not load this piece. Check the backend connection and try again.
-				</div>
+				<Alert tone="danger" title="This piece did not load">
+					Check the backend connection and try again.
+				</Alert>
 			{/if}
 		{:else}
-			<!-- Identity & classification summary -->
-			<section class="grid grid-cols-1 gap-3 lg:grid-cols-2">
+			<!-- Identity and classification summary -->
+			<section class="grid grid-cols-1 gap-(--gap-panels) lg:grid-cols-2">
 				<PieceInfoCard
 					title="Classification"
 					rows={classificationRows({
@@ -811,7 +806,7 @@
 						source_view: piece.brickognize_source_view
 					})}
 					image={refImageSrc}
-					imageAlt="brickognize reference"
+					imageAlt="Brickognize reference"
 					onImageClick={() =>
 						(zoomImage = {
 							src: refImageSrc as string,
@@ -829,475 +824,335 @@
 				/>
 			</section>
 
-			<!-- Pricing — every BrickLink bucket from the Hive catalog.
-			     The headline `moving_avg_price` (what routing uses) is the first
-			     non-empty of these, sold·new preferred; the table shows all four
-			     so you can see whatever source actually exists for this part. -->
+			<!-- Pricing: every BrickLink bucket from the Hive catalog. The headline
+			     `moving_avg_price` (what routing uses) is the first non-empty of these,
+			     sold-new preferred; the table shows all four so you can see whatever
+			     source actually exists for this part. -->
 			{#if piece.piece_metadata}
 				{@const md = piece.piece_metadata as Record<string, any>}
 				{@const price = (md.price ?? null) as Record<string, any> | null}
 				{@const bl = (md.bricklink ?? null) as Record<string, any> | null}
-				<section class="border border-line bg-surface">
-					<div class="border-b border-line bg-well px-3 py-2 text-sm font-medium text-ink">
-						Pricing — Hive catalog{md.price_currency ? ` · BrickLink ${md.price_currency}` : ''}
-					</div>
-					<div class="flex flex-col gap-3 p-3 text-sm">
+				<Panel
+					title="Pricing"
+					description="From the Hive catalog{md.price_currency ? `, BrickLink ${md.price_currency}` : ''}."
+					flush
+				>
+					<div class="flex flex-col gap-3 px-(--pad-panel) pb-4 text-sm">
 						<div class="flex flex-wrap items-baseline gap-x-3 gap-y-1">
-							<span class="text-ink-muted">Moving avg (routing)</span>
-							<span class="text-base font-semibold text-success-ink num">
+							<span class="text-ink-muted">Moving average, used for routing</span>
+							<span class="num text-base font-semibold text-ink">
 								{typeof md.moving_avg_price === 'number' ? fmtPrice(md.moving_avg_price) : '—'}
 							</span>
-							<span class="text-xs text-ink-muted">first available · sold·new preferred</span>
-							<span class="border border-line bg-well px-1.5 py-0.5 text-xs text-ink-muted">
-								{md.price_color_specific ? 'this color' : 'all colors (most liquid)'}
-							</span>
+							<Badge>{md.price_color_specific ? 'This color' : 'All colors (most liquid)'}</Badge>
+							<span class="text-xs text-ink-muted">First available, sold new preferred.</span>
 							{#if md.price_updated_at}
-								<span class="text-xs text-ink-muted"
-									>synced {String(md.price_updated_at).slice(0, 10)}</span
-								>
+								<span class="text-xs text-ink-muted">Synced {String(md.price_updated_at).slice(0, 10)}</span>
 							{/if}
 						</div>
 
 						{#if md.price_from_base_mold}
-							<div
-								class="border border-warning/40 bg-warning-soft px-2.5 py-1.5 text-sm text-ink"
-							>
-								≈ Approximate — no market data for this exact print. Showing the base mold <span
-									class="font-mono">{md.price_from_base_mold}</span
-								>{md.price_from_base_name ? ` (${md.price_from_base_name})` : ''} price instead.
-							</div>
-						{/if}
-
-						{#if price}
-							<div class="overflow-x-auto">
-								<table class="w-full border-collapse text-sm">
-									<thead>
-										<tr class="text-ink-muted">
-											<th class="border border-line px-2 py-1 text-left font-medium">Source</th>
-											<th class="border border-line px-2 py-1 text-right font-medium">Avg</th>
-											<th class="border border-line px-2 py-1 text-right font-medium">Wt avg</th>
-											<th class="border border-line px-2 py-1 text-right font-medium">Min</th>
-											<th class="border border-line px-2 py-1 text-right font-medium">Max</th>
-											<th class="border border-line px-2 py-1 text-right font-medium">Qty</th>
-											<th class="border border-line px-2 py-1 text-right font-medium">Lots</th>
-										</tr>
-									</thead>
-									<tbody>
-										{#each PRICE_BUCKETS as [key, label]}
-											{@const b = (price[key] ?? {}) as Record<string, any>}
-											<tr>
-												<td class="border border-line px-2 py-1 text-ink">{label}</td>
-												<td class="border border-line px-2 py-1 text-right text-ink num"
-													>{fmtPrice(b.avg)}</td
-												>
-												<td class="border border-line px-2 py-1 text-right text-ink num"
-													>{fmtPrice(b.wavg)}</td
-												>
-												<td
-													class="border border-line px-2 py-1 text-right text-ink-muted num"
-													>{fmtPrice(b.min)}</td
-												>
-												<td
-													class="border border-line px-2 py-1 text-right text-ink-muted num"
-													>{fmtPrice(b.max)}</td
-												>
-												<td
-													class="border border-line px-2 py-1 text-right text-ink-muted num"
-													>{b.qty ?? '—'}</td
-												>
-												<td
-													class="border border-line px-2 py-1 text-right text-ink-muted num"
-													>{b.lots ?? '—'}</td
-												>
-											</tr>
-										{/each}
-									</tbody>
-								</table>
-							</div>
-						{:else}
-							<div class="text-ink-muted">
-								No price-guide rows for this part in the Hive catalog.
-							</div>
-						{/if}
-
-						{#if bl}
-							<div class="flex flex-wrap gap-x-4 gap-y-1 text-xs text-ink-muted">
-								{#if bl.item_no}<span>BL item {bl.item_no}</span>{/if}
-								{#if bl.weight_g}<span>{bl.weight_g} g</span>{/if}
-								{#if bl.dim_x_studs && bl.dim_y_studs}<span
-										>{bl.dim_x_studs}×{bl.dim_y_studs} studs</span
-									>{/if}
-								{#if bl.year_released}<span>since {bl.year_released}</span>{/if}
-								{#if bl.is_obsolete}<span>obsolete</span>{/if}
-							</div>
+							<Alert tone="warning" title="Approximate">
+								There is no market data for this exact print. This shows the base mold
+								<span class="font-mono">{md.price_from_base_mold}</span>{md.price_from_base_name
+									? ` (${md.price_from_base_name})`
+									: ''} price instead.
+							</Alert>
 						{/if}
 					</div>
-				</section>
+
+					{#if price}
+						<div class="overflow-x-auto">
+							<table class="data-table">
+								<thead>
+									<tr>
+										<th>Source</th>
+										<th class="num">Avg</th>
+										<th class="num">Weighted avg</th>
+										<th class="num">Min</th>
+										<th class="num">Max</th>
+										<th class="num">Qty</th>
+										<th class="num">Lots</th>
+									</tr>
+								</thead>
+								<tbody>
+									{#each PRICE_BUCKETS as [key, label]}
+										{@const b = (price[key] ?? {}) as Record<string, any>}
+										<tr>
+											<td>{label}</td>
+											<td class="num">{fmtPrice(b.avg)}</td>
+											<td class="num">{fmtPrice(b.wavg)}</td>
+											<td class="num text-ink-muted">{fmtPrice(b.min)}</td>
+											<td class="num text-ink-muted">{fmtPrice(b.max)}</td>
+											<td class="num text-ink-muted">{b.qty ?? '—'}</td>
+											<td class="num text-ink-muted">{b.lots ?? '—'}</td>
+										</tr>
+									{/each}
+								</tbody>
+							</table>
+						</div>
+					{:else}
+						<p class="px-(--pad-panel) pb-4 text-sm text-ink-muted">
+							No price-guide rows for this part in the Hive catalog.
+						</p>
+					{/if}
+
+					{#if bl}
+						<div class="flex flex-wrap gap-x-4 gap-y-1 px-(--pad-panel) py-3 text-xs text-ink-muted">
+							{#if bl.item_no}<span>BL item {bl.item_no}</span>{/if}
+							{#if bl.weight_g}<span>{bl.weight_g} g</span>{/if}
+							{#if bl.dim_x_studs && bl.dim_y_studs}<span>{bl.dim_x_studs}×{bl.dim_y_studs} studs</span>{/if}
+							{#if bl.year_released}<span>since {bl.year_released}</span>{/if}
+							{#if bl.is_obsolete}<span>obsolete</span>{/if}
+						</div>
+					{/if}
+				</Panel>
 			{/if}
 
-			<!-- Arrival snapshot: full carousel frame at the instant the piece first
-			     appeared on C4 (dropping in from C3). The catalog reference shot
-			     lives in the Classification card, so this is just the one photo. -->
+			<!-- Arrival snapshot: the full carousel frame at the instant the piece first
+			     appeared on C4 (dropping in from C3). The catalog reference shot lives in
+			     the Classification panel, so this is just the one photo. -->
 			{#if piece.drop_snapshot}
 				{@const drop_src = dataImageUrl(piece.drop_snapshot) as string}
-				<section class="border border-line bg-surface">
-					<div class="border-b border-line bg-well px-3 py-2 text-sm font-medium text-ink">
-						Arrival snapshot
-					</div>
-					<div class="p-3">
-						<button
-							type="button"
-							class="flex flex-col border border-line bg-well text-left hover:border-primary/70"
-							onclick={() => (zoomImage = { src: drop_src, label: 'At arrival' })}
-						>
-							<div class="flex h-40 w-40 items-center justify-center bg-white">
-								<img
-									src={drop_src}
-									alt="arrival snapshot"
-									class="h-full w-full cursor-zoom-in object-contain"
-									loading="lazy"
-								/>
-							</div>
-							<div class="px-2 py-1.5 text-xs text-ink-muted">At arrival</div>
-						</button>
-					</div>
-				</section>
+				<Panel title="Arrival snapshot">
+					<button
+						type="button"
+						class="flex flex-col gap-1 rounded-control bg-well p-1 text-left transition-colors hover:bg-hover"
+						onclick={() => (zoomImage = { src: drop_src, label: 'At arrival' })}
+					>
+						<img
+							src={drop_src}
+							alt="arrival snapshot"
+							class="size-40 cursor-zoom-in rounded-item bg-surface object-contain"
+							loading="lazy"
+						/>
+						<span class="px-1 text-xs text-ink-muted">At arrival</span>
+					</button>
+				</Panel>
 			{/if}
 
-			<!-- Classification requests: the parallel Brickognize calls (combined +
+			<!-- Classification requests: the parallel Brickognize calls (combined and
 			     single-image variants). Each ran concurrently; the highest-confidence
-			     "found" call wins and is marked applied. Shows what every request
-			     returned, not just the winner, so a confused fused set vs. a clean
+			     "found" call wins and is marked applied. It shows what every request
+			     returned, not just the winner, so a confused fused set against a clean
 			     lone frame is visible at a glance. -->
 			{#if attempts.length > 0}
-				<section class="border border-line bg-surface">
-					<div class="border-b border-line bg-well px-3 py-2 text-sm font-medium text-ink">
-						Classification requests
-						<span class="ml-2 text-ink-muted">{attempts.length}</span>
-					</div>
-					<div class="flex flex-col gap-2 p-3">
+				<Panel
+					title="Classification requests"
+					description="{attempts.length} sent in parallel; the best match was applied."
+					flush
+				>
+					<ul class="divide-y divide-line">
 						{#each attempts as a, ai (ai)}
 							{@const open = expandedAttempts.has(ai)}
 							{@const sent = attemptImages(a)}
-							<div class={`border ${a.applied ? 'border-primary' : 'border-line'}`}>
+							<li class={a.applied ? 'bg-primary-soft' : ''}>
 								<button
 									type="button"
-									class={`flex w-full flex-wrap items-center gap-x-3 gap-y-1 px-3 py-2 text-left text-sm ${
-										a.applied ? 'bg-primary-soft' : 'bg-well hover:bg-surface'
-									}`}
+									aria-expanded={open}
+									class="flex w-full flex-wrap items-center gap-x-3 gap-y-1 px-(--pad-panel) py-3 text-left text-sm transition-colors hover:bg-hover"
 									onclick={() => toggleAttempt(ai)}
 								>
 									{#if open}
-										<ChevronDown class="h-4 w-4 shrink-0 text-ink-muted" />
+										<ChevronDown size={16} class="shrink-0 text-ink-muted" />
 									{:else}
-										<ChevronRight class="h-4 w-4 shrink-0 text-ink-muted" />
+										<ChevronRight size={16} class="shrink-0 text-ink-muted" />
 									{/if}
 									<span class="font-medium text-ink">{attemptName(a)}</span>
 									<span class="text-ink-muted">{attemptInputs(a)}</span>
 									<span
-										class={`num ${
-											a.error
-												? 'text-danger-ink'
-												: a.found
-													? 'font-medium text-ink'
-													: 'text-ink-muted'
-										}`}
+										class="num {a.error ? 'text-danger-ink' : a.found ? 'font-medium text-ink' : 'text-ink-muted'}"
 									>
 										{attemptOutcome(a)}
 									</span>
-									{#if a.found && a.part_name}
-										<span class="text-ink-muted">{a.part_name}</span>
-									{/if}
-									{#if a.found && a.color_name}
-										<span class="text-ink-muted">· {a.color_name}</span>
-									{/if}
-									{#if a.error}
-										<span class="text-ink-muted">{a.error}</span>
-									{/if}
+									{#if a.found && a.part_name}<span class="text-ink-muted">{a.part_name}</span>{/if}
+									{#if a.found && a.color_name}<span class="text-ink-muted">· {a.color_name}</span>{/if}
+									{#if a.error}<span class="text-ink-muted">{a.error}</span>{/if}
 									{#if a.duration_s != null}
-										<span class="text-ink-muted num">{a.duration_s.toFixed(2)}s</span>
+										<span class="num text-ink-muted">{a.duration_s.toFixed(2)}s</span>
 									{/if}
 									{#if a.applied}
-										<span
-											class="ml-auto bg-primary px-1.5 py-0.5 text-xs font-semibold text-white"
-											title="This request's result was applied to the piece"
-										>
-											Applied
+										<span class="ml-auto" title="This request's result was applied to the piece">
+											<Badge tone="primary">Applied</Badge>
 										</span>
 									{/if}
 								</button>
 								{#if open}
-									<div class="flex flex-wrap gap-4 border-t border-line p-3">
+									<div class="flex flex-wrap gap-6 px-(--pad-panel) pb-4">
 										<!-- What was sent to Brickognize for this request -->
-										<div class="flex flex-col gap-1.5">
-											<div class="text-xs font-semibold text-ink-muted">
-												Sent ({sent.length})
-											</div>
+										<div class="flex flex-col gap-2">
+											<div class="label">Sent ({sent.length})</div>
 											{#if sent.length === 0}
-												<div
-													class="flex h-32 w-32 items-center justify-center border border-line bg-well text-sm text-ink-muted"
-												>
-													crops aged out
+												<div class="flex size-32 items-center justify-center rounded-control bg-well text-sm text-ink-muted">
+													Crops aged out
 												</div>
 											{:else}
 												<div class="flex flex-wrap gap-2">
 													{#each sent as crop (cropKey(crop))}
-														<button
-															type="button"
-															class="flex flex-col border border-line bg-well text-left hover:border-primary/70"
-															onclick={() =>
-																(zoomImage = { src: crop.src, label: formatCropLabel(crop) })}
-														>
-															<div class="h-32 w-32 bg-white">
-																<img
-																	src={crop.src}
-																	alt={crop.role}
-																	class="h-full w-full object-contain"
-																	loading="lazy"
-																/>
-															</div>
-															<div class="px-1.5 py-1 text-xs text-ink-muted">
-																{formatCropLabel(crop)}
-															</div>
-														</button>
+														{@render thumbCrop(crop.src, crop.role, formatCropLabel(crop), () =>
+															(zoomImage = { src: crop.src, label: formatCropLabel(crop) })
+														)}
 													{/each}
 												</div>
 											{/if}
 										</div>
 										<!-- What Brickognize returned for this request -->
-										<div class="flex flex-col gap-1.5">
-											<div class="text-xs font-semibold text-ink-muted">
-												Result
-											</div>
+										<div class="flex flex-col gap-2">
+											<div class="label">Result</div>
 											{#if a.error}
-												<div
-													class="flex h-32 w-32 items-center justify-center border border-danger/40 bg-well p-2 text-center text-sm text-danger-ink"
-												>
+												<div class="flex size-32 items-center justify-center rounded-control bg-danger-soft p-2 text-center text-sm text-danger-ink">
 													{a.error}
 												</div>
 											{:else if a.found}
-												<div class="flex gap-2">
+												<div class="flex gap-3">
 													{#if a.preview_url}
-														<button
-															type="button"
-															class="flex flex-col border border-line bg-well text-left hover:border-primary/70"
-															onclick={() =>
-																(zoomImage = {
-																	src: a.preview_url as string,
-																	label: a.part_name ?? a.part_id ?? 'result'
-																})}
-														>
-															<div class="h-32 w-32 bg-white">
-																<img
-																	src={a.preview_url}
-																	alt="brickognize reference"
-																	class="h-full w-full object-contain"
-																	loading="lazy"
-																/>
-															</div>
-														</button>
+														{@render thumbCrop(a.preview_url, 'Brickognize reference', '', () =>
+															(zoomImage = {
+																src: a.preview_url as string,
+																label: a.part_name ?? a.part_id ?? 'result'
+															})
+														)}
 													{/if}
 													<div class="flex flex-col gap-0.5 text-sm">
-														<span class="font-medium text-ink num">{a.part_id}</span>
+														<span class="num font-medium text-ink">{a.part_id}</span>
 														{#if a.part_name}<span class="text-ink-muted">{a.part_name}</span>{/if}
 														{#if a.confidence != null}
-															<span class="text-ink-muted num"
-																>{(a.confidence * 100).toFixed(0)}% match</span
-															>
+															<span class="num text-ink-muted">{(a.confidence * 100).toFixed(0)}% match</span>
 														{/if}
-														{#if a.color_name}<span class="text-ink-muted"
-																>Color: {a.color_name}</span
-															>{/if}
+														{#if a.color_name}<span class="text-ink-muted">Color: {a.color_name}</span>{/if}
 													</div>
 												</div>
 											{:else}
-												<div
-													class="flex h-32 w-32 items-center justify-center border border-line bg-well text-sm text-ink-muted"
-												>
-													no match
+												<div class="flex size-32 items-center justify-center rounded-control bg-well text-sm text-ink-muted">
+													No match
 												</div>
 											{/if}
 										</div>
 									</div>
 								{/if}
-							</div>
+							</li>
 						{/each}
-					</div>
-				</section>
+					</ul>
+				</Panel>
 			{/if}
 
-					{#snippet cropOverlay(item: Thumb<CropEntry>)}
-						{#if item.ref.used}
-							<span
-								class="absolute top-1 left-1 bg-primary px-1.5 py-0.5 text-xs font-semibold text-white"
-								title="Shipped to Brickognize for classification"
-							>
-								Used
-							</span>
-						{/if}
-						{#if item.ref.sharpness != null}
-							<span
-								class="absolute top-1 right-1 bg-text/80 px-1 py-0.5 text-xs font-semibold text-bg num"
-								title="Sharpness (Laplacian variance) — higher is sharper / less motion blur"
-							>
-								⌖ {formatSharpness(item.ref.sharpness)}
-							</span>
-						{/if}
-						<span
-							class="absolute bottom-1 left-1 bg-text/80 px-1 py-0.5 text-xs font-semibold text-bg"
-							title="Channel this image came from"
-						>
-							{channelLabel(item.ref.channel)}
-						</span>
-						<ImageInfoBadge
-							class="absolute right-1 bottom-1 z-10"
-							src={item.src}
-							rows={cropInfoRows(item.ref)}
-						/>
-					{/snippet}
-			<!-- Image gallery + Brickognize reference -->
-			<section class="border border-line bg-surface">
-				<div
-					class="flex items-center justify-between border-b border-line bg-well px-3 py-2 text-sm"
+			{#snippet cropOverlay(item: Thumb<CropEntry>)}
+				<!-- Chips over a picture sit in a dark subtree. -->
+				{#if item.ref.used}
+					<span
+						class="dark absolute top-1 left-1 rounded-badge bg-scrim px-1 text-xs font-medium text-ink"
+						title="Shipped to Brickognize for classification"
+					>
+						Used
+					</span>
+				{/if}
+				{#if item.ref.sharpness != null}
+					<span
+						class="dark num absolute top-1 right-1 rounded-badge bg-scrim px-1 text-xs font-medium text-ink"
+						title="Sharpness (Laplacian variance): higher is sharper, with less motion blur"
+					>
+						⌖ {formatSharpness(item.ref.sharpness)}
+					</span>
+				{/if}
+				<span
+					class="dark absolute bottom-1 left-1 rounded-badge bg-scrim px-1 text-xs font-medium text-ink"
+					title="Channel this image came from"
 				>
-					<div class="font-medium text-ink">
-						Classification burst
-						<span class="ml-2 text-ink-muted">{burstThumbs.length}</span>
-					</div>
-					<span class="text-sm text-ink-muted">C4 · outlined = used for classification</span>
-				</div>
-				<div class="p-3">
-					{#if burstThumbs.length === 0}
-						<div class="text-sm text-ink-muted">No burst frames for this piece.</div>
-					{:else}
-						<PieceThumbGrid
-							items={burstThumbs}
-							minPx={120}
-							overlay={cropOverlay}
-							onZoom={(t) => (zoomImage = { src: t.src, label: formatCropLabel(t.ref) })}
-						/>
-					{/if}
-				</div>
-			</section>
+					{channelLabel(item.ref.channel)}
+				</span>
+				<ImageInfoBadge class="absolute right-1 bottom-1 z-10" src={item.src} rows={cropInfoRows(item.ref)} />
+			{/snippet}
+
+			<!-- The classification burst -->
+			<Panel title="Classification burst" description="{burstThumbs.length} frames from C4. Tinted frames were used for classification.">
+				{#if burstThumbs.length === 0}
+					<p class="text-sm text-ink-muted">No burst frames for this piece.</p>
+				{:else}
+					<PieceThumbGrid
+						items={burstThumbs}
+						minPx={120}
+						overlay={cropOverlay}
+						onZoom={(t) => (zoomImage = { src: t.src, label: formatCropLabel(t.ref) })}
+					/>
+				{/if}
+			</Panel>
 
 			<!-- The same physical piece as seen upstream, ranked by the piece-link
-			     model. Outlined tiles were fused into the Brickognize request
-			     alongside the burst; the rest are shown for review. -->
-			<section class="border border-line bg-surface">
-				<div
-					class="flex items-center justify-between border-b border-line bg-well px-3 py-2 text-sm"
-				>
-					<div class="font-medium text-ink">
-						Other channels
-						<span class="ml-2 text-ink-muted">{otherChannelThumbs.length}</span>
-					</div>
-					<span class="text-sm text-ink-muted">
-						{#if linkMatchCount > 0}
-							C2/C3 · ranked by match probability · outlined = used for classification
-						{:else}
-							C2/C3
-						{/if}
-					</span>
-				</div>
-				<div class="p-3">
-					{#if otherChannelThumbs.length === 0}
-						<div class="text-sm text-ink-muted">
-							No upstream views of this piece.
-						</div>
-					{:else}
-						<PieceThumbGrid
-							items={otherChannelThumbs}
-							minPx={120}
-							overlay={cropOverlay}
-							onZoom={(t) => (zoomImage = { src: t.src, label: formatCropLabel(t.ref) })}
-						/>
-					{/if}
-				</div>
-			</section>
+			     model. Tinted tiles were fused into the Brickognize request alongside
+			     the burst; the rest are shown for review. -->
+			<Panel
+				title="Other channels"
+				description="{otherChannelThumbs.length} views from C2 and C3{linkMatchCount > 0
+					? ', ranked by match probability. Tinted views were used for classification'
+					: ''}."
+			>
+				{#if otherChannelThumbs.length === 0}
+					<p class="text-sm text-ink-muted">No upstream views of this piece.</p>
+				{:else}
+					<PieceThumbGrid
+						items={otherChannelThumbs}
+						minPx={120}
+						overlay={cropOverlay}
+						onZoom={(t) => (zoomImage = { src: t.src, label: formatCropLabel(t.ref) })}
+					/>
+				{/if}
+			</Panel>
 
 			<!-- Scratch reclassify: pick crops, re-run Brickognize (not recorded) -->
 			{#if crops.length > 0}
-				<ReclassifyPanel
-					endpointBase={effectiveBase()}
-					images={crops.map((c) => ({
-						image: c.src,
-						label: formatCropLabel(c),
-						used: c.used
-					}))}
-				/>
+				<Panel>
+					<ReclassifyPanel
+						endpointBase={effectiveBase()}
+						images={crops.map((c) => ({
+							image: c.src,
+							label: formatCropLabel(c),
+							used: c.used
+						}))}
+					/>
+				</Panel>
 			{/if}
 
 			<!-- Lifecycle timeline -->
-			<section class="border border-line bg-surface">
-				<div class="border-b border-line bg-well px-3 py-2 text-sm font-medium text-ink">
-					Lifecycle timeline
-				</div>
-				<div class="p-3">
-					{#if timeline.length === 0}
-						<div class="text-sm text-ink-muted">No lifecycle events recorded yet.</div>
-					{:else}
-						{@const anchor = timeline[0].ts}
-						<ol class="flex flex-col">
-							{#each timeline as ev, idx (idx)}
-								<li class="relative flex items-baseline gap-3 border-l border-line pl-4">
-									<span class="absolute top-1.5 -left-[5px] h-2 w-2 bg-primary"></span>
-									<span class="min-w-[12rem] text-sm text-ink">{ev.label}</span>
-									<span class="font-mono text-sm text-ink-muted num">
-										{formatAbsTs(ev.ts)}
-									</span>
-									{#if idx > 0}
-										<span class="font-mono text-xs text-ink-muted num">
-											{formatRelSec(ev.ts, anchor)}
-										</span>
-									{/if}
-									<span class="flex-1"></span>
-								</li>
-							{/each}
-						</ol>
-					{/if}
-				</div>
-			</section>
+			<Panel title="Lifecycle timeline">
+				{#if timeline.length === 0}
+					<p class="text-sm text-ink-muted">No lifecycle events recorded yet.</p>
+				{:else}
+					{@const anchor = timeline[0].ts}
+					<ol class="flex flex-col">
+						{#each timeline as ev, idx (idx)}
+							<li class="relative flex items-baseline gap-3 border-l border-line pb-1.5 pl-4">
+								<span class="absolute top-1.5 -left-[3.5px] size-1.5 bg-primary"></span>
+								<span class="min-w-[12rem] text-sm text-ink">{ev.label}</span>
+								<span class="num font-mono text-sm text-ink-muted">{formatAbsTs(ev.ts)}</span>
+								{#if idx > 0}
+									<span class="num font-mono text-xs text-ink-muted">{formatRelSec(ev.ts, anchor)}</span>
+								{/if}
+							</li>
+						{/each}
+					</ol>
+				{/if}
+			</Panel>
 
-			<!-- Raw JSON toggle -->
-			<section class="border border-line bg-surface">
-				<button
-					type="button"
-					class="flex w-full items-center gap-2 border-b border-line bg-well px-3 py-2 text-sm text-ink-muted hover:text-ink"
-					onclick={() => (showRawJson = !showRawJson)}
-				>
-					{#if showRawJson}
-						<ChevronDown size={14} />
-					{:else}
-						<ChevronRight size={14} />
-					{/if}
-					<span>View raw JSON</span>
-				</button>
-				{#if showRawJson}
-					<pre class="max-h-96 overflow-auto bg-well p-3 text-xs text-ink-muted">{JSON.stringify(
+			<!-- Raw JSON -->
+			<Panel flush>
+				<Disclosure title="Raw JSON" bind:open={showRawJson}>
+					<pre class="mx-(--pad-panel) max-h-96 overflow-auto rounded-control bg-well p-3 text-xs text-ink-muted">{JSON.stringify(
 							piece,
 							null,
 							2
 						)}</pre>
-				{/if}
-			</section>
+				</Disclosure>
+			</Panel>
 		{/if}
 	</div>
-</div>
+</AppShell>
 
-{#if zoomImage}
-	<button
-		type="button"
-		class="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4"
-		onclick={() => (zoomImage = null)}
-		aria-label="Close enlarged image"
-	>
-		<div class="flex max-h-full max-w-full flex-col gap-2 border border-line bg-well p-3">
-			<img
-				src={zoomImage.src}
-				alt={zoomImage.label}
-				class="max-h-[80vh] max-w-[80vw] object-contain"
-			/>
-			<div class="text-sm text-ink-muted">{zoomImage.label}</div>
-		</div>
-	</button>
-{/if}
+<Modal
+	open={zoomImage !== null}
+	title={zoomImage?.label ?? 'Image'}
+	size="lg"
+	onclose={() => (zoomImage = null)}
+>
+	{#if zoomImage}
+		<img src={zoomImage.src} alt={zoomImage.label} class="mx-auto max-h-[70vh] max-w-full object-contain" />
+	{/if}
+</Modal>

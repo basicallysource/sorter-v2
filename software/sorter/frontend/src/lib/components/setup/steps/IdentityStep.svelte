@@ -32,7 +32,6 @@
 			{backendBaseUrl}
 			id={MACHINE_NAME_INPUT_ID}
 			placeholder="e.g. Sorting Bench A"
-			variant="setup"
 		/>
 	</div>
 	{#if nameError}

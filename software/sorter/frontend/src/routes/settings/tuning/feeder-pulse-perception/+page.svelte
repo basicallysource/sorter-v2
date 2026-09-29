@@ -7,7 +7,7 @@
 	import Field from '$lib/components/ui/Field.svelte';
 	import Checkbox from '$lib/components/ui/Checkbox.svelte';
 	import Spinner from '$lib/components/ui/Spinner.svelte';
-	import PageTitle from '$lib/components/settings/PageTitle.svelte';
+	import PageHeader from '$lib/components/ui/PageHeader.svelte';
 	import TuningParamRow from '$lib/components/settings/TuningParamRow.svelte';
 	import TuningPresets from '$lib/components/settings/TuningPresets.svelte';
 	import SettingsSaveBar from '$lib/components/settings/SettingsSaveBar.svelte';
@@ -414,7 +414,7 @@
 
 <svelte:head><title>Sorter - Feeder simple pulse tuning</title></svelte:head>
 
-<PageTitle
+<PageHeader
 	title="Feeder simple pulse"
 	description="How the simple pulsing feeder moves pieces. Changes apply within about a second, with no restart."
 />

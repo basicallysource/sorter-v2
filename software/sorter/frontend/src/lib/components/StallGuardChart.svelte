@@ -112,7 +112,9 @@
 		const colSuccess = token('--success', canvas);
 		const colBg = token('--raised', canvas);
 
-		ctx.font = chartFont(canvas);
+		const labelFont = chartFont(canvas);
+		const titleFont = chartFont(canvas, 600);
+		ctx.font = labelFont;
 
 		const plotW = width - PAD.left - PAD.right;
 		const x0 = PAD.left;
@@ -224,9 +226,9 @@
 			ctx.fillStyle = color;
 			ctx.textAlign = 'left';
 			ctx.textBaseline = 'top';
-			ctx.font = chartFont(canvas, 600);
+			ctx.font = titleFont;
 			ctx.fillText(title, x0 + 4, y0 + 3);
-			ctx.font = chartFont(canvas);
+			ctx.font = labelFont;
 		};
 
 		const yLabel = (text: string, y: number, color: string) => {

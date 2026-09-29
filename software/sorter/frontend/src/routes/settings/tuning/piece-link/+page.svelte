@@ -3,7 +3,7 @@
 	import Alert from '$lib/components/ui/Alert.svelte';
 	import Input from '$lib/components/ui/Input.svelte';
 	import Panel from '$lib/components/ui/Panel.svelte';
-	import PageTitle from '$lib/components/settings/PageTitle.svelte';
+	import PageHeader from '$lib/components/ui/PageHeader.svelte';
 	import SettingsSaveBar from '$lib/components/settings/SettingsSaveBar.svelte';
 	import Spinner from '$lib/components/ui/Spinner.svelte';
 	import RadioGroup from '$lib/components/ui/RadioGroup.svelte';
@@ -94,12 +94,12 @@
 
 <svelte:head><title>Sorter - Piece link matching</title></svelte:head>
 
-<PageTitle
+<PageHeader
 	title="Piece link matching"
 	description="Given a piece just classified on C4, score which of the upstream C2 and C3 crops show the same piece, from the crop pictures and the timing and position data. It replaces the hand-tuned time and angle scoring in the piece page's &quot;Possibly the same piece&quot; gallery. Off by default: it costs one small CPU model pass per lookup."
 >
 	<Badge tone="warning">Experimental</Badge>
-</PageTitle>
+</PageHeader>
 
 {#if error}
 	<Alert tone="danger">{error}</Alert>

@@ -4,7 +4,7 @@
 	import Panel from '$lib/components/ui/Panel.svelte';
 	import Select from '$lib/components/ui/Select.svelte';
 	import Field from '$lib/components/ui/Field.svelte';
-	import PageTitle from '$lib/components/settings/PageTitle.svelte';
+	import PageHeader from '$lib/components/ui/PageHeader.svelte';
 	import Alert from '$lib/components/ui/Alert.svelte';
 	import Button from '$lib/components/ui/Button.svelte';
 	import Input from '$lib/components/ui/Input.svelte';
@@ -169,7 +169,7 @@
 
 <svelte:head><title>Sorter - Jitter test</title></svelte:head>
 
-<PageTitle
+<PageHeader
 	title="Jitter test"
 	description="A short, sharp back-and-forth on a stepper that breaks static friction: enough to nudge a stuck piece off a C channel without a violent shake. It runs on the firmware's real-time core and ends where it started."
 />

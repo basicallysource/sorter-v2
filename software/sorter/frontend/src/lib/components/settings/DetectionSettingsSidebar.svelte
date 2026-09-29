@@ -2,6 +2,10 @@
 	import { getBackendHttpBase, machineHttpBaseUrlFromWsUrl } from '$lib/backend';
 	import { getMachinesContext } from '$lib/machines/context';
 	import X from '@lucide/svelte/icons/x';
+	import Button from '$lib/components/ui/Button.svelte';
+	import Field from '$lib/components/ui/Field.svelte';
+	import Panel from '$lib/components/ui/Panel.svelte';
+	import Select from '$lib/components/ui/Select.svelte';
 
 	type ModelOption = { id: string; label: string; description?: string };
 
@@ -80,37 +84,36 @@
 		loaded_url = config_url;
 		void loadConfig(config_url);
 	});
+	const modelOptions = $derived([
+		...(models.some((model) => model.id === algorithm)
+			? []
+			: [{ value: algorithm, label: algorithm || 'No model assigned' }]),
+		...models.map((model) => ({ value: model.id, label: model.label }))
+	]);
 </script>
 
-<aside class="flex h-full min-w-0 flex-col border border-line bg-well">
-	<div class="flex items-center justify-between gap-3 border-b border-line bg-surface px-4 py-3">
-		<h3 class="text-sm font-semibold text-ink">{label} Detection</h3>
-		<button onclick={onClose} aria-label="Close detection settings" class="p-2 text-ink-muted hover:text-ink">
-			<X size={16} />
-		</button>
-	</div>
-	<div class="flex flex-col gap-4 p-4">
-		<label class="text-sm text-ink">
-			Detection model
-			<select
+<Panel title="Detection" description="The model that finds pieces on {label}.">
+	{#snippet actions()}
+		<Button variant="ghost" size="sm" icon={X} label="Close the detection settings" onclick={onClose} />
+	{/snippet}
+	<div class="flex flex-col gap-4 text-sm">
+		<Field
+			label="Detection model"
+			for="detection-model"
+			help={!loading && models.length === 0 ? 'Install a detection model from Settings > Hive.' : undefined}
+		>
+			<Select
+				id="detection-model"
 				value={algorithm}
-				onchange={(event) => void saveModel(event.currentTarget.value)}
+				options={modelOptions}
 				disabled={loading || saving || models.length === 0}
-				class="mt-2 w-full border border-line bg-surface px-2 py-2 text-sm text-ink"
-			>
-				{#if !models.some((model) => model.id === algorithm)}
-					<option value={algorithm}>{algorithm || 'No model assigned'}</option>
-				{/if}
-				{#each models as model}
-					<option value={model.id}>{model.label}</option>
-				{/each}
-			</select>
-		</label>
-		{#if !loading && models.length === 0}
-			<p class="text-xs text-ink-muted">Install a detection model from Settings → Hive.</p>
-		{/if}
-		{#if error_message}<p class="text-sm text-danger-ink">{error_message}</p>{/if}
-		{#if status_message}<p class="text-sm text-success-ink">{status_message}</p>{/if}
-		<a href="/perception-debug" class="text-sm text-primary-ink underline">View live detection results</a>
+				onchange={(id) => void saveModel(id)}
+			/>
+		</Field>
+		{#if error_message}<p class="text-danger-ink">{error_message}</p>{/if}
+		{#if status_message}<p class="text-success-ink">{status_message}</p>{/if}
+		<a href="/perception-debug" class="font-medium text-primary-ink hover:underline">
+			See the live detection results
+		</a>
 	</div>
-</aside>
+</Panel>

@@ -9,7 +9,7 @@
 	import Panel from '$lib/components/ui/Panel.svelte';
 	import SegmentedControl from '$lib/components/ui/SegmentedControl.svelte';
 	import Stat from '$lib/components/ui/Stat.svelte';
-	import PageTitle from '$lib/components/settings/PageTitle.svelte';
+	import PageHeader from '$lib/components/ui/PageHeader.svelte';
 	import ArrowDown from '@lucide/svelte/icons/arrow-down';
 	import ArrowLeft from '@lucide/svelte/icons/arrow-left';
 	import ArrowRight from '@lucide/svelte/icons/arrow-right';
@@ -454,7 +454,7 @@
 {/snippet}
 
 <div class="flex max-w-4xl flex-col gap-(--gap-panels)">
-	<PageTitle
+	<PageHeader
 		title="Chute aiming"
 		description="If the chute points at the wrong bin, run the calibration below. Otherwise the defaults are already right and you can leave this page."
 	/>

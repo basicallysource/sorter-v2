@@ -5,7 +5,7 @@
 	import Switch from '$lib/components/ui/Switch.svelte';
 	import Button from '$lib/components/ui/Button.svelte';
 	import Input from '$lib/components/ui/Input.svelte';
-	import SettingRow from '$lib/components/settings/SettingRow.svelte';
+	import SettingRow from '$lib/components/ui/SettingRow.svelte';
 
 	const machine = getMachineContext();
 
@@ -203,10 +203,10 @@
 <div class="divide-y divide-line">
 	<SettingRow
 		label="Capture training frames"
-		description="Snapshots the latest frame from every live camera at the rate below and feeds each into the classification pipeline — saved to a session, queued, and uploaded to Hive. Runs in any machine mode without changing sorting behavior; it only reads camera frames. The setting persists across restarts."
+		help="Snapshots the latest frame from every live camera at the rate below and feeds each into the classification pipeline — saved to a session, queued, and uploaded to Hive. Runs in any machine mode without changing sorting behavior; it only reads camera frames. The setting persists across restarts."
 		changed={enabled !== DEFAULT_ENABLED}
-		defaultLabel={DEFAULT_ENABLED ? 'on' : 'off'}
-		onRevert={() => saveEnabled(DEFAULT_ENABLED)}
+		defaultText={DEFAULT_ENABLED ? 'on' : 'off'}
+		onreset={() => saveEnabled(DEFAULT_ENABLED)}
 	>
 		<Switch
 			checked={enabled}
@@ -218,10 +218,10 @@
 
 	<SettingRow
 		label="Annotate with OpenRouter"
-		description="Run the Gemini (gemini_sam) detector on each frame before upload so samples arrive in Hive as teacher captures. Adds an OpenRouter call per frame per camera. If off (or no API key), frames upload as raw samples."
+		help="Run the Gemini (gemini_sam) detector on each frame before upload so samples arrive in Hive as teacher captures. Adds an OpenRouter call per frame per camera. If off (or no API key), frames upload as raw samples."
 		changed={annotate !== DEFAULT_ANNOTATE}
-		defaultLabel={DEFAULT_ANNOTATE ? 'on' : 'off'}
-		onRevert={() => saveAnnotate(DEFAULT_ANNOTATE)}
+		defaultText={DEFAULT_ANNOTATE ? 'on' : 'off'}
+		onreset={() => saveAnnotate(DEFAULT_ANNOTATE)}
 	>
 		<Switch
 			checked={annotate}
@@ -233,10 +233,11 @@
 
 	<SettingRow
 		label="Decay capture rate"
-		description="Capture a burst of frames when a run starts, then slow down geometrically to a floor over the ramp, with random jitter — so the same rig stops re-uploading near-identical frames forever. Reset re-arms the burst."
+		help="Capture a burst of frames when a run starts, then slow down geometrically to a floor over the ramp, with random jitter — so the same rig stops re-uploading near-identical frames forever. Reset re-arms the burst."
 		changed={decayEnabled !== DEFAULT_DECAY_ENABLED}
-		defaultLabel={DEFAULT_DECAY_ENABLED ? 'on' : 'off'}
-		onRevert={() => saveDecayEnabled(DEFAULT_DECAY_ENABLED)}
+		defaultText={DEFAULT_DECAY_ENABLED ? 'on' : 'off'}
+		onreset={() => saveDecayEnabled(DEFAULT_DECAY_ENABLED)}
+		below={decayEnabled ? decayDetails : undefined}
 	>
 		<Switch
 			checked={decayEnabled}
@@ -246,172 +247,14 @@
 		/>
 	</SettingRow>
 
-	{#if decayEnabled}
-		<div class="px-(--pad-panel) py-(--pad-row)">
-		<div class="overflow-hidden rounded-control bg-well">
-			<div class="flex items-center justify-between gap-3 px-4 pt-3">
-				<p class="num text-sm text-ink-muted">
-					<span class="font-medium text-ink">{burstPerMinute}/min</span>, falling to
-					<span class="font-medium text-ink">{floorPerHour}/hr</span> over
-					<span class="font-medium text-ink">{rampDays} days</span>{#if currentRatePerMin !== null}.
-						Now <span class="font-medium text-ink">{currentRatePerMin.toFixed(2)}/min</span>{/if}.
-				</p>
-				<Button
-					variant="ghost"
-					size="sm"
-					disabled={loading || saving || !initialized}
-					onclick={resetDecay}
-				>
-					Reset decay
-				</Button>
-			</div>
-
-			<svg
-				viewBox="0 0 {GRAPH_W} {GRAPH_H}"
-				class="block h-24 w-full px-4 py-2"
-				role="img"
-				aria-label="The capture rate falling from the burst rate to the floor over the ramp"
-			>
-				<line
-					x1={PAD_X}
-					y1={GRAPH_H - PAD_Y}
-					x2={GRAPH_W - PAD_X}
-					y2={GRAPH_H - PAD_Y}
-					class="text-line-strong"
-					stroke="currentColor"
-					stroke-width="1"
-					vector-effect="non-scaling-stroke"
-				/>
-				<polyline
-					points={curve.polyline}
-					class="text-primary-ink"
-					fill="none"
-					stroke="currentColor"
-					stroke-width="1.5"
-					vector-effect="non-scaling-stroke"
-				/>
-				{#if curve.nowX !== null}
-					<line
-						x1={curve.nowX}
-						y1={PAD_Y}
-						x2={curve.nowX}
-						y2={GRAPH_H - PAD_Y}
-						class="text-primary-ink"
-						stroke="currentColor"
-						stroke-width="0.75"
-						stroke-dasharray="2 2"
-						opacity="0.7"
-					/>
-					<rect
-						x={curve.nowX - 2.5}
-						y={(curve.nowY ?? 0) - 2.5}
-						width="5"
-						height="5"
-						class="text-primary-ink"
-						fill="currentColor"
-					/>
-				{/if}
-			</svg>
-			<div class="divide-y divide-line">
-
-			<SettingRow
-				label="Burst rate"
-				description="Frames per minute per camera right after a reset."
-				forId="decay-burst"
-				changed={burstPerMinute !== DEFAULT_BURST_PER_MINUTE}
-				defaultLabel="{DEFAULT_BURST_PER_MINUTE}/min"
-				onRevert={() => saveBurst(DEFAULT_BURST_PER_MINUTE)}
-			>
-				<Input
-					id="decay-burst"
-					type="number"
-					min={0.1}
-					max={600}
-					step={1}
-					value={burstPerMinute}
-					disabled={loading || saving || !initialized}
-					onchange={(event) => saveBurst(Number((event.currentTarget as HTMLInputElement).value))}
-					unit="/min"
-					class="w-32"
-				/>
-			</SettingRow>
-
-			<SettingRow
-				label="Floor rate"
-				description="The slow steady-state rate the decay settles to."
-				forId="decay-floor"
-				changed={floorPerHour !== DEFAULT_FLOOR_PER_HOUR}
-				defaultLabel="{DEFAULT_FLOOR_PER_HOUR}/hr"
-				onRevert={() => saveFloor(DEFAULT_FLOOR_PER_HOUR)}
-			>
-				<Input
-					id="decay-floor"
-					type="number"
-					min={0.01}
-					max={60}
-					step={0.5}
-					value={floorPerHour}
-					disabled={loading || saving || !initialized}
-					onchange={(event) => saveFloor(Number((event.currentTarget as HTMLInputElement).value))}
-					unit="/hr"
-					class="w-32"
-				/>
-			</SettingRow>
-
-			<SettingRow
-				label="Ramp"
-				description="Days to go from the burst rate down to the floor."
-				forId="decay-ramp"
-				changed={rampDays !== DEFAULT_RAMP_DAYS}
-				defaultLabel="{DEFAULT_RAMP_DAYS}d"
-				onRevert={() => saveRamp(DEFAULT_RAMP_DAYS)}
-			>
-				<Input
-					id="decay-ramp"
-					type="number"
-					min={0.1}
-					max={30}
-					step={0.5}
-					value={rampDays}
-					disabled={loading || saving || !initialized}
-					onchange={(event) => saveRamp(Number((event.currentTarget as HTMLInputElement).value))}
-					unit="days"
-					class="w-32"
-				/>
-			</SettingRow>
-
-			<SettingRow
-				label="Jitter"
-				description="Random wobble on each interval so captures aren't perfectly periodic."
-				forId="decay-jitter"
-				changed={jitterPct !== DEFAULT_JITTER_PCT}
-				defaultLabel="{DEFAULT_JITTER_PCT}%"
-				onRevert={() => saveJitter(DEFAULT_JITTER_PCT)}
-			>
-				<Input
-					id="decay-jitter"
-					type="number"
-					min={0}
-					max={100}
-					step={5}
-					value={jitterPct}
-					disabled={loading || saving || !initialized}
-					onchange={(event) => saveJitter(Number((event.currentTarget as HTMLInputElement).value))}
-					unit="%"
-					class="w-32"
-				/>
-			</SettingRow>
-			</div>
-		</div>
-		</div>
-	{:else}
+	{#if !decayEnabled}
 		<SettingRow
 			label="Capture rate"
-			description="Frames per minute per camera. Default 6 (one every 10s)."
-			forId="sample-capture-rate"
+			help="Frames per minute per camera. Default 6 (one every 10s)."
+			for="sample-capture-rate"
 			changed={perMinute !== DEFAULT_PER_MINUTE}
-			defaultLabel={String(DEFAULT_PER_MINUTE)}
-			onRevert={() => saveRate(DEFAULT_PER_MINUTE)}
+			defaultText={String(DEFAULT_PER_MINUTE)}
+			onreset={() => saveRate(DEFAULT_PER_MINUTE)}
 		>
 			<Input
 				id="sample-capture-rate"
@@ -430,11 +273,11 @@
 
 	<SettingRow
 		label="Local storage cap"
-		description="Keep at most this much captured imagery on disk. Once exceeded, the oldest samples are deleted first."
-		forId="sample-capture-storage-cap"
+		help="Keep at most this much captured imagery on disk. Once exceeded, the oldest samples are deleted first."
+		for="sample-capture-storage-cap"
 		changed={storageCapGb !== DEFAULT_STORAGE_CAP_GB}
-		defaultLabel="{DEFAULT_STORAGE_CAP_GB} GB"
-		onRevert={() => saveStorageCap(DEFAULT_STORAGE_CAP_GB)}
+		defaultText="{DEFAULT_STORAGE_CAP_GB} GB"
+		onreset={() => saveStorageCap(DEFAULT_STORAGE_CAP_GB)}
 	>
 		{#if storageUsedMb !== null}
 			<span class="num text-sm text-ink-muted">Using {(storageUsedMb / 1024).toFixed(2)} GB</span>
@@ -471,3 +314,158 @@
 		{/if}
 	</div>
 </div>
+
+{#snippet decayDetails()}
+		<div class="flex items-center justify-between gap-3 px-(--pad-panel) pt-3">
+			<p class="num text-sm text-ink-muted">
+				<span class="font-medium text-ink">{burstPerMinute}/min</span>, falling to
+				<span class="font-medium text-ink">{floorPerHour}/hr</span> over
+				<span class="font-medium text-ink">{rampDays} days</span>{#if currentRatePerMin !== null}.
+					Now <span class="font-medium text-ink">{currentRatePerMin.toFixed(2)}/min</span>{/if}.
+			</p>
+			<Button
+				variant="ghost"
+				size="sm"
+				disabled={loading || saving || !initialized}
+				onclick={resetDecay}
+			>
+				Reset decay
+			</Button>
+		</div>
+
+		<svg
+			viewBox="0 0 {GRAPH_W} {GRAPH_H}"
+			class="block h-24 w-full px-(--pad-panel) py-2"
+			role="img"
+			aria-label="The capture rate falling from the burst rate to the floor over the ramp"
+		>
+			<line
+				x1={PAD_X}
+				y1={GRAPH_H - PAD_Y}
+				x2={GRAPH_W - PAD_X}
+				y2={GRAPH_H - PAD_Y}
+				class="text-line-strong"
+				stroke="currentColor"
+				stroke-width="1"
+				vector-effect="non-scaling-stroke"
+			/>
+			<polyline
+				points={curve.polyline}
+				class="text-primary-ink"
+				fill="none"
+				stroke="currentColor"
+				stroke-width="1.5"
+				vector-effect="non-scaling-stroke"
+			/>
+			{#if curve.nowX !== null}
+				<line
+					x1={curve.nowX}
+					y1={PAD_Y}
+					x2={curve.nowX}
+					y2={GRAPH_H - PAD_Y}
+					class="text-primary-ink"
+					stroke="currentColor"
+					stroke-width="0.75"
+					stroke-dasharray="2 2"
+					opacity="0.7"
+				/>
+				<rect
+					x={curve.nowX - 2.5}
+					y={(curve.nowY ?? 0) - 2.5}
+					width="5"
+					height="5"
+					class="text-primary-ink"
+					fill="currentColor"
+				/>
+			{/if}
+		</svg>
+		<div class="divide-y divide-line">
+		<SettingRow
+			label="Burst rate"
+			help="Frames per minute per camera right after a reset."
+			for="decay-burst"
+			changed={burstPerMinute !== DEFAULT_BURST_PER_MINUTE}
+			defaultText="{DEFAULT_BURST_PER_MINUTE}/min"
+			onreset={() => saveBurst(DEFAULT_BURST_PER_MINUTE)}
+		>
+			<Input
+				id="decay-burst"
+				type="number"
+				min={0.1}
+				max={600}
+				step={1}
+				value={burstPerMinute}
+				disabled={loading || saving || !initialized}
+				onchange={(event) => saveBurst(Number((event.currentTarget as HTMLInputElement).value))}
+				unit="/min"
+				class="w-32"
+			/>
+		</SettingRow>
+
+		<SettingRow
+			label="Floor rate"
+			help="The slow steady-state rate the decay settles to."
+			for="decay-floor"
+			changed={floorPerHour !== DEFAULT_FLOOR_PER_HOUR}
+			defaultText="{DEFAULT_FLOOR_PER_HOUR}/hr"
+			onreset={() => saveFloor(DEFAULT_FLOOR_PER_HOUR)}
+		>
+			<Input
+				id="decay-floor"
+				type="number"
+				min={0.01}
+				max={60}
+				step={0.5}
+				value={floorPerHour}
+				disabled={loading || saving || !initialized}
+				onchange={(event) => saveFloor(Number((event.currentTarget as HTMLInputElement).value))}
+				unit="/hr"
+				class="w-32"
+			/>
+		</SettingRow>
+
+		<SettingRow
+			label="Ramp"
+			help="Days to go from the burst rate down to the floor."
+			for="decay-ramp"
+			changed={rampDays !== DEFAULT_RAMP_DAYS}
+			defaultText="{DEFAULT_RAMP_DAYS}d"
+			onreset={() => saveRamp(DEFAULT_RAMP_DAYS)}
+		>
+			<Input
+				id="decay-ramp"
+				type="number"
+				min={0.1}
+				max={30}
+				step={0.5}
+				value={rampDays}
+				disabled={loading || saving || !initialized}
+				onchange={(event) => saveRamp(Number((event.currentTarget as HTMLInputElement).value))}
+				unit="days"
+				class="w-32"
+			/>
+		</SettingRow>
+
+		<SettingRow
+			label="Jitter"
+			help="Random wobble on each interval so captures aren't perfectly periodic."
+			for="decay-jitter"
+			changed={jitterPct !== DEFAULT_JITTER_PCT}
+			defaultText="{DEFAULT_JITTER_PCT}%"
+			onreset={() => saveJitter(DEFAULT_JITTER_PCT)}
+		>
+			<Input
+				id="decay-jitter"
+				type="number"
+				min={0}
+				max={100}
+				step={5}
+				value={jitterPct}
+				disabled={loading || saving || !initialized}
+				onchange={(event) => saveJitter(Number((event.currentTarget as HTMLInputElement).value))}
+				unit="%"
+				class="w-32"
+			/>
+		</SettingRow>
+		</div>
+{/snippet}

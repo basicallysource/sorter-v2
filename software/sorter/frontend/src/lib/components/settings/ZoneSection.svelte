@@ -2,7 +2,15 @@
 	import { getBackendHttpBase } from '$lib/backend';
 	import CameraSourcePreview from '$lib/components/CameraSourcePreview.svelte';
 	import LiveImage from '$lib/components/LiveImage.svelte';
-	import Modal from '$lib/components/Modal.svelte';
+	import Badge from '$lib/components/ui/Badge.svelte';
+	import Alert from '$lib/components/ui/Alert.svelte';
+	import Button from '$lib/components/ui/Button.svelte';
+	import EmptyState from '$lib/components/ui/EmptyState.svelte';
+	import Modal from '$lib/components/ui/Modal.svelte';
+	import Panel from '$lib/components/ui/Panel.svelte';
+	import SegmentedControl from '$lib/components/ui/SegmentedControl.svelte';
+	import Select from '$lib/components/ui/Select.svelte';
+	import Spinner from '$lib/components/ui/Spinner.svelte';
 	import ChannelLedSection from '$lib/components/settings/ChannelLedSection.svelte';
 	import DetectionSettingsSidebar from '$lib/components/settings/DetectionSettingsSidebar.svelte';
 	import PictureSettingsSidebar from '$lib/components/settings/PictureSettingsSidebar.svelte';
@@ -3737,270 +3745,171 @@
 	});
 </script>
 
-<div class="flex flex-col">
-	<!-- Card header -->
-	<div
-		class="-mx-4 -mt-4 flex flex-wrap items-center gap-3 border-b border-line bg-surface px-4 py-3"
-	>
-		<div class="flex min-w-0 flex-1 flex-wrap items-center gap-2">
+<div class="flex flex-col gap-(--gap-panels)">
+	<!-- The channel, its camera and status; what can be done here. -->
+	<div class="flex flex-wrap items-center gap-x-4 gap-y-3">
+		<div class="flex min-w-0 flex-1 flex-wrap items-center gap-x-4 gap-y-2">
 			{#if channels.length > 1}
-				{#each channels as channel}
-					{@const active = currentChannel === channel}
-					<button
-						onclick={() => selectChannel(channel)}
-						class="border px-3 py-1.5 text-xs font-medium transition-colors"
-						style:border-color={active ? CHANNEL_COLORS[channel] : undefined}
-						class:bg-surface={active}
-						class:bg-well={!active}
-						class:text-ink={true}
-					>
-						{CHANNEL_LABELS[channel]}
-					</button>
-				{/each}
-			{:else}
-				<h2 class="text-base font-semibold text-ink">
-					{CHANNEL_LABELS[currentChannel]}
-				</h2>
+				<SegmentedControl
+					label="Channel"
+					value={currentChannel}
+					options={channels.map((channel) => ({ value: channel, label: CHANNEL_LABELS[channel] }))}
+					onchange={(channel) => selectChannel(channel)}
+				/>
 			{/if}
-
-			<div
-				class="flex min-w-0 items-center gap-1 rounded-full bg-well px-3 py-1 text-xs text-ink-muted"
-			>
-				<span class="font-medium text-ink">Source:</span>
-				<span class="ml-1 truncate">{formatSource(currentAssignment())}</span>
+			<span class="flex min-w-0 items-center gap-1.5 text-sm text-ink-muted">
+				Camera <span class="truncate text-ink">{formatSource(currentAssignment())}</span>
 				{#if currentAssignment() === null && cameraConfigLoaded}
-					<button
-						onclick={openCameraPicker}
-						class="ml-1 inline-flex h-4 w-4 cursor-pointer items-center justify-center rounded-full bg-text-muted/20 text-ink transition-colors hover:bg-text-muted/40"
-						title="Select camera"
-					>
-						<svg
-							class="h-2.5 w-2.5"
-							viewBox="0 0 12 12"
-							fill="none"
-							stroke="currentColor"
-							stroke-width="2"
-							stroke-linecap="round"
-						>
-							<line x1="6" y1="2" x2="6" y2="10" />
-							<line x1="2" y1="6" x2="10" y2="6" />
-						</svg>
-					</button>
+					<Button variant="ghost" size="sm" icon={Plus} label="Choose a camera" onclick={openCameraPicker} />
 				{/if}
-			</div>
-
+			</span>
 			{#if statusMsg}
-				<div
-					class={`min-w-0 rounded-full border px-3 py-1 text-xs ${
-						statusMsg.startsWith('Error:')
-							? 'border-danger bg-danger-soft text-danger-ink'
-							: 'border-line bg-well text-ink-muted'
-					}`}
-				>
-					<span class="truncate">{statusMsg}</span>
-				</div>
+				<span class="min-w-0 truncate text-sm {statusMsg.startsWith('Error:') ? 'text-danger-ink' : 'text-ink-muted'}">
+					{statusMsg}
+				</span>
 			{/if}
 		</div>
-
-		<div class="ml-auto flex flex-wrap items-center gap-2">
+		<div class="flex flex-wrap items-center gap-2">
 			{#if wizardMode}
-				<button
+				<Button
+					variant="primary"
+					icon={Check}
+					loading={saving}
+					disabled={currentAssignment() === null}
 					onclick={saveAll}
-					disabled={saving || currentAssignment() === null}
-					class="inline-flex cursor-pointer items-center gap-2 border border-success bg-success px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-success/90 disabled:cursor-not-allowed disabled:opacity-60"
 				>
-					<Check size={15} />
-					<span>{saving ? 'Saving...' : 'Save Zone'}</span>
-				</button>
+					Save the zone
+				</Button>
 			{:else}
-				<button
-					onclick={openCameraPicker}
+				<Button icon={Camera} disabled={editingZone} onclick={openCameraPicker}>Change camera</Button>
+				<Button
+					icon={SlidersHorizontal}
 					disabled={editingZone}
-					class="inline-flex cursor-pointer items-center gap-2 border border-line bg-well px-3 py-1.5 text-sm text-ink transition-colors hover:bg-hover disabled:cursor-not-allowed disabled:opacity-50"
-				>
-					<Camera size={15} />
-					<span>Change Camera</span>
-				</button>
-
-				<button
+					aria-pressed={activeSidebar === 'picture'}
 					onclick={togglePictureSidebar}
-					disabled={editingZone}
-					class={`inline-flex cursor-pointer items-center gap-2 border px-3 py-1.5 text-sm transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${
-						activeSidebar === 'picture'
-							? 'border-amber-500 bg-amber-500/15 text-amber-700 hover:bg-amber-500/25'
-							: 'border-line bg-well text-ink hover:bg-hover'
-					}`}
 				>
-					<SlidersHorizontal size={15} />
-					<span>{activeSidebar === 'picture' ? 'Hide Picture' : 'Picture Settings'}</span>
-				</button>
-
+					{activeSidebar === 'picture' ? 'Hide picture' : 'Picture'}
+				</Button>
 				{#if supportsDetectionSidebar(currentChannel)}
-					<button
+					<Button
+						icon={Bug}
+						disabled={editingZone}
+						aria-pressed={activeSidebar === 'classification'}
 						onclick={toggleClassificationSidebar}
-						disabled={editingZone}
-						class={`inline-flex cursor-pointer items-center gap-2 border px-3 py-1.5 text-sm transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${
-							activeSidebar === 'classification'
-								? 'border-violet-500 bg-violet-500/15 text-violet-700 hover:bg-violet-500/25'
-								: 'border-line bg-well text-ink hover:bg-hover'
-						}`}
 					>
-						<Bug size={15} />
-						<span>{activeSidebar === 'classification' ? 'Hide Detection' : 'Detection'}</span>
-					</button>
+						{activeSidebar === 'classification' ? 'Hide detection' : 'Detection'}
+					</Button>
 				{/if}
-
 				{#if supportsLedSidebar(currentChannel)}
-					<button
-						onclick={toggleLedSidebar}
+					<Button
+						icon={Lightbulb}
 						disabled={editingZone}
-						class={`inline-flex cursor-pointer items-center gap-2 border px-3 py-1.5 text-sm transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${
-							activeSidebar === 'led'
-								? 'border-sky-500 bg-sky-500/15 text-sky-700 hover:bg-sky-500/25'
-								: 'border-line bg-well text-ink hover:bg-hover'
-						}`}
+						aria-pressed={activeSidebar === 'led'}
+						onclick={toggleLedSidebar}
 					>
-						<Lightbulb size={15} />
-						<span>{activeSidebar === 'led' ? 'Hide LED' : 'LED'}</span>
-					</button>
+						{activeSidebar === 'led' ? 'Hide LED' : 'LED'}
+					</Button>
 				{/if}
-
 				{#if editingZone}
 					{#if isArcChannel(currentChannel)}
-						<button
-							onclick={() => flipPreciseSide(currentChannel as ArcChannel)}
-							class="inline-flex cursor-pointer items-center gap-2 border border-violet-500 bg-violet-500/15 px-3 py-1.5 text-sm text-violet-700 transition-colors hover:bg-violet-500/25"
-						>
-							<FlipHorizontal size={15} />
-							<span>Flip Precise Side</span>
-						</button>
+						<Button icon={FlipHorizontal} onclick={() => flipPreciseSide(currentChannel as ArcChannel)}>
+							Flip the precise side
+						</Button>
 					{/if}
-					<button
-						onclick={resetCurrentChannel}
-						class="inline-flex cursor-pointer items-center gap-2 border border-line bg-well px-3 py-1.5 text-sm text-ink transition-colors hover:bg-hover"
-					>
-						<RotateCcw size={15} />
-						<span>Reset</span>
-					</button>
-					<button
-						onclick={cancelEditing}
-						class="inline-flex cursor-pointer items-center gap-2 border border-line bg-well px-3 py-1.5 text-sm text-ink transition-colors hover:bg-hover"
-					>
-						<X size={15} />
-						<span>Cancel</span>
-					</button>
-					<button
-						onclick={saveAll}
-						disabled={saving}
-						class="inline-flex cursor-pointer items-center gap-2 border border-success bg-success-soft px-3 py-1.5 text-sm text-success-ink transition-colors hover:bg-success-soft disabled:cursor-not-allowed disabled:opacity-50"
-					>
-						<Check size={15} />
-						<span>{saving ? 'Saving...' : 'Save Zone'}</span>
-					</button>
+					<Button variant="ghost" icon={RotateCcw} onclick={resetCurrentChannel}>Reset</Button>
+					<Button variant="ghost" icon={X} onclick={cancelEditing}>Cancel</Button>
+					<Button variant="primary" icon={Check} loading={saving} onclick={saveAll}>Save the zone</Button>
 				{:else}
-					<button
-						onclick={beginEditing}
-						disabled={currentAssignment() === null}
-						class="inline-flex cursor-pointer items-center gap-2 border border-primary bg-primary-soft px-3 py-1.5 text-sm text-primary-ink transition-colors hover:bg-primary-soft disabled:cursor-not-allowed disabled:opacity-50"
-					>
-						<Pencil size={15} />
-						<span>Edit Zone</span>
-					</button>
+					<Button icon={Pencil} disabled={currentAssignment() === null} onclick={beginEditing}>
+						Edit the zone
+					</Button>
 				{/if}
 			{/if}
 		</div>
 	</div>
 
-	<!-- Help text -->
-	<div class="-mx-4 px-4 py-2 text-sm text-ink-muted">
+	<p class="-mt-1 text-sm text-ink-muted">
 		{#if wizardMode}
-			Adjust the zone overlay directly on the preview, then save to keep the updated mask.
+			Adjust the zone on the picture, then save to keep the new mask.
 		{:else}
-			Use the assigned camera as the main view, tune picture settings from the sidebar, and only
-			unlock zone editing when you want to change the mask.
+			The camera is the main view. Tune its picture from the side, and unlock zone editing only when
+			the mask needs to change.
 		{/if}
-	</div>
+	</p>
 
-	<!-- Content -->
-	<div class="-mx-4 -mb-4 px-4 pb-4">
-		<div
-			class={`grid gap-4 ${showSidebarColumn ? 'xl:grid-cols-[minmax(0,1fr)_20rem] xl:items-start' : ''}`}
-		>
-			<div class="flex min-w-0 flex-col gap-3">
-				<div class="relative overflow-hidden bg-black">
-					<div
-						class={`relative ${wizardMode ? 'min-h-[26rem] sm:min-h-[32rem] lg:min-h-[38rem] xl:min-h-[44rem]' : 'aspect-video'}`}
-						style={previewViewportStyle(currentChannel)}
-						bind:this={previewViewportEl}
-					>
-						{#if !cameraConfigLoaded}
-							<div
-								class="absolute inset-0 flex items-center justify-center px-6 text-center text-sm text-white/80"
-							>
-								<div class="max-w-sm rounded-control bg-black/55 px-4 py-3">
-									Loading camera source for {CHANNEL_LABELS[currentChannel]}...
-								</div>
-							</div>
-						{:else if currentAssignment() !== null}
-							<LiveImage
-								view={roleView(currentRole(currentChannel), previewAnnotated, previewCropped)}
-								baseUrl={getBackendHttpBase()}
-								alt={CHANNEL_LABELS[currentChannel]}
-								class="absolute inset-0 h-full w-full object-contain"
-								style={feedImageStyle(currentChannel)}
-								onframe={(img) => rememberPreviewImageSize(currentRole(currentChannel), img)}
-							/>
-							<div
-								class="pointer-events-none absolute"
-								style={previewOverlayStyle(currentChannel)}
-							>
-								{#each getDetectionHighlights(currentRole()) as highlight, index}
-									<div
-										class={`absolute border-2 ${
-											index === 0
-												? 'border-violet-400'
-												: 'border-violet-300/80'
-										}`}
-										style={`left:${highlight[0] * 100}%;top:${highlight[1] * 100}%;width:${(highlight[2] - highlight[0]) * 100}%;height:${(highlight[3] - highlight[1]) * 100}%;`}
+	<div
+		class="grid gap-(--gap-panels) {showSidebarColumn
+			? 'xl:grid-cols-[minmax(0,1fr)_23rem] xl:items-start'
+			: ''}"
+	>
+		<div class="flex min-w-0 flex-col gap-(--gap-panels)">
+			<!-- The picture, on the media plane: dark in both modes. -->
+			<section
+				class="dark relative overflow-hidden rounded-panel bg-media text-ink"
+				aria-label={CHANNEL_LABELS[currentChannel]}
+			>
+				<div
+					class="relative {wizardMode
+						? 'min-h-[26rem] sm:min-h-[32rem] lg:min-h-[38rem] xl:min-h-[44rem]'
+						: 'aspect-video'}"
+					style={previewViewportStyle(currentChannel)}
+					bind:this={previewViewportEl}
+				>
+					{#if !cameraConfigLoaded}
+						<div class="absolute inset-0 flex items-center justify-center gap-2 text-sm text-ink-muted">
+							<Spinner size={16} />
+							Loading the camera for {CHANNEL_LABELS[currentChannel]}
+						</div>
+					{:else if currentAssignment() !== null}
+						<LiveImage
+							view={roleView(currentRole(currentChannel), previewAnnotated, previewCropped)}
+							baseUrl={getBackendHttpBase()}
+							alt={CHANNEL_LABELS[currentChannel]}
+							class="absolute inset-0 h-full w-full object-contain"
+							style={feedImageStyle(currentChannel)}
+							onframe={(img) => rememberPreviewImageSize(currentRole(currentChannel), img)}
+						/>
+						<div class="pointer-events-none absolute" style={previewOverlayStyle(currentChannel)}>
+							{#each getDetectionHighlights(currentRole()) as highlight, index}
+								<div
+									class="absolute border-2 {index === 0 ? 'border-info' : 'border-info/70'}"
+									style={`left:${highlight[0] * 100}%;top:${highlight[1] * 100}%;width:${(highlight[2] - highlight[0]) * 100}%;height:${(highlight[3] - highlight[1]) * 100}%;`}
+								>
+									<span
+										class="num absolute top-1 right-1 rounded-badge bg-info px-1.5 py-0.5 text-xs leading-none font-medium text-on-info"
 									>
-										<div
-											class="absolute top-1 right-1 rounded-control border border-white/20 bg-violet-500/60 px-1.5 py-0.5 text-xs leading-none font-semibold text-white backdrop-blur-sm"
-										>
-											{index + 1}
-										</div>
-									</div>
-								{/each}
-							</div>
-						{:else}
-							<div
-								class="absolute inset-0 flex items-center justify-center px-6 text-center text-sm text-white/80"
-							>
-								<div class="max-w-sm rounded-control bg-black/55 px-4 py-3">
-									No camera source configured for {CHANNEL_LABELS[currentChannel]} yet.
+										{index + 1}
+									</span>
 								</div>
-							</div>
-						{/if}
+							{/each}
+						</div>
+					{:else}
+						<div class="absolute inset-0 flex items-center justify-center px-6 text-center text-sm text-ink-muted">
+							No camera is set for {CHANNEL_LABELS[currentChannel]} yet.
+						</div>
+					{/if}
 
-						<canvas
-							bind:this={canvasEl}
-							width={CANVAS_W}
-							height={CANVAS_H}
-							class="absolute inset-0 h-full w-full"
-							class:pointer-events-none={!editingZone}
-							style={`object-fit: contain; cursor: ${canvasCursor}; ${picturePreviewTransform(currentChannel)}`}
-							onmousedown={onMouseDown}
-							onmousemove={onMouseMove}
-							onmouseup={onMouseUp}
-							onmouseleave={() => {
-								dragState = null;
-								canvasCursor = editingZone ? 'crosshair' : 'default';
-							}}
-							onclick={onClick}
-							oncontextmenu={onContextMenu}
-							onwheel={onWheel}
-						></canvas>
+				<canvas
+					bind:this={canvasEl}
+					width={CANVAS_W}
+					height={CANVAS_H}
+					class="absolute inset-0 h-full w-full"
+					class:pointer-events-none={!editingZone}
+					style={`object-fit: contain; cursor: ${canvasCursor}; ${picturePreviewTransform(currentChannel)}`}
+					onmousedown={onMouseDown}
+					onmousemove={onMouseMove}
+					onmouseup={onMouseUp}
+					onmouseleave={() => {
+						dragState = null;
+						canvasCursor = editingZone ? 'crosshair' : 'default';
+					}}
+					onclick={onClick}
+					oncontextmenu={onContextMenu}
+					onwheel={onWheel}
+				></canvas>
 
-						{#if !editingZone && currentAssignment() !== null}
+					{#if !editingZone && currentAssignment() !== null}
+						<div class="absolute top-2 right-2 z-10">
 							<StreamControlsOverlay
 								bind:annotated={previewAnnotated}
 								bind:cropped={previewCropped}
@@ -4009,392 +3918,299 @@
 								showCrop
 								showZones
 							/>
-						{/if}
-					</div>
+						</div>
+					{/if}
 				</div>
+			</section>
 
-				{#if editingZone && previousSourceChannel !== null}
-					<div class="border border-line bg-surface px-4 py-3 text-sm text-ink-muted">
-						<div class="flex flex-wrap items-center justify-between gap-2">
-							<div class="font-semibold text-ink">
-								Add Channel {previousSourceChannel} Zone
-							</div>
-							<button
-								onclick={() => addSecondaryZone(previousSourceChannel!, 'exit')}
-								class="inline-flex cursor-pointer items-center gap-2 border border-info bg-info-soft px-3 py-1.5 text-sm text-info-ink transition-colors hover:bg-info-soft"
-							>
-								<Plus size={15} />
-								<span>Add Zone</span>
-							</button>
-						</div>
-						<div class="mt-2 leading-6">
-							If this camera's view can see the previous channel (C{previousSourceChannel}), denote
-							its zone here for more reliable feeding and more angles for classification. These are
-							shown on the live feed but not acted on yet.
-						</div>
-
-						{#if currentSecondaryList().length > 0}
-							<div class="mt-3 flex flex-col gap-2">
-								{#each currentSecondaryList() as zone (zone.id)}
-									{@const isEditing = secondaryEditMode && zone.id === activeSecondaryId}
-									<div
-										class="flex flex-wrap items-center gap-2 border border-line bg-well px-3 py-2"
-										class:border-info={isEditing}
-									>
-										<span class="font-medium text-ink">C{zone.sourceChannel}</span>
-										<select
-											value={zone.zoneType}
-											onchange={(e) =>
-												setSecondaryZoneType(
-													zone.id,
-													(e.currentTarget as HTMLSelectElement).value as SecondaryZoneType
-												)}
-											class="border border-line bg-surface px-2 py-1 text-sm text-ink"
-										>
-											<option value="drop">drop</option>
-											<option value="exit">exit</option>
-											<option value="precise">precise</option>
-										</select>
-										<span class="text-sm text-ink-muted">{zone.points.length} pts</span>
-										<div class="ml-auto flex items-center gap-2">
-											{#if isEditing}
-												<button
-													onclick={exitSecondaryEditMode}
-													class="inline-flex cursor-pointer items-center gap-1 border border-success bg-success-soft px-2 py-1 text-sm text-success-ink transition-colors hover:bg-success-soft"
-												>
-													<Check size={14} />
-													<span>Done</span>
-												</button>
-											{:else}
-												<button
-													onclick={() => selectSecondaryZone(zone.id)}
-													class="inline-flex cursor-pointer items-center gap-1 border border-line bg-well px-2 py-1 text-sm text-ink transition-colors hover:bg-hover"
-												>
-													<Pencil size={14} />
-													<span>Edit</span>
-												</button>
-											{/if}
-											<button
-												onclick={() => deleteSecondaryZone(zone.id)}
-												class="inline-flex cursor-pointer items-center gap-1 border border-line bg-well px-2 py-1 text-sm text-ink transition-colors hover:bg-hover"
-											>
-												<X size={14} />
-											</button>
-										</div>
-									</div>
-								{/each}
-							</div>
-						{/if}
-
-						{#if secondaryEditMode}
-							<div class="mt-2 text-sm text-info-ink">
-								Drawing C{activeSecondaryZone()?.sourceChannel} zone: click to add points, drag a point
-								to move it, right-click a point to remove it.
-							</div>
-						{/if}
-					</div>
-				{/if}
-
-				{#if wizardMode && editingZone}
-					<div class="border border-line bg-surface px-4 py-3 text-sm text-ink-muted">
-						{#if isArcChannel(currentChannel)}
-							<div class="grid gap-4 lg:grid-cols-[12rem_minmax(0,1fr)] lg:items-start">
-								<div class="overflow-hidden rounded-control border border-line bg-well">
-									<img
-										src="/setup/zone-placement-reference.png"
-										alt="Drop and exit zone placement reference"
-										class="h-auto w-full object-contain"
+			{#if editingZone && previousSourceChannel !== null}
+				<Panel
+					title="Channel {previousSourceChannel}'s zone"
+					description="If this camera can see the previous channel (C{previousSourceChannel}), mark its zone here for steadier feeding and more angles for classification. They show on the live feed but are not acted on yet."
+					flush
+				>
+					{#snippet actions()}
+						<Button size="sm" icon={Plus} onclick={() => addSecondaryZone(previousSourceChannel!, 'exit')}>
+							Add a zone
+						</Button>
+					{/snippet}
+					{#if currentSecondaryList().length > 0}
+						<ul class="divide-y divide-line">
+							{#each currentSecondaryList() as zone (zone.id)}
+								{@const isEditing = secondaryEditMode && zone.id === activeSecondaryId}
+								<li
+									class="flex flex-wrap items-center gap-2 px-(--pad-panel) py-(--pad-row) text-sm {isEditing
+										? 'bg-primary-soft'
+										: ''}"
+								>
+									<span class="font-medium text-ink">C{zone.sourceChannel}</span>
+									<Select
+										size="sm"
+										label="Zone type"
+										class="w-32"
+										value={zone.zoneType}
+										options={[
+											{ value: 'drop', label: 'Drop' },
+											{ value: 'exit', label: 'Exit' },
+											{ value: 'precise', label: 'Precise' }
+										]}
+										onchange={(type) => setSecondaryZoneType(zone.id, type as SecondaryZoneType)}
 									/>
-								</div>
-
-								<div>
-									<div class="font-medium text-ink">Placement reference</div>
-									<div
-										class="mt-2 rounded-control border border-success/20 bg-success-soft px-3 py-2 leading-6 text-ink-muted"
-									>
-										<span class="font-medium text-success-ink">Green Drop Zone:</span>
-										position this where parts arrive from the previous stage and land on the ring.
+									<span class="num text-ink-muted">{zone.points.length} points</span>
+									<div class="ml-auto flex items-center gap-1">
+										{#if isEditing}
+											<Button size="sm" icon={Check} onclick={exitSecondaryEditMode}>Done</Button>
+										{:else}
+											<Button size="sm" variant="ghost" icon={Pencil} onclick={() => selectSecondaryZone(zone.id)}>
+												Edit
+											</Button>
+										{/if}
+										<Button
+											size="sm"
+											variant="ghost"
+											icon={X}
+											label="Remove the zone"
+											onclick={() => deleteSecondaryZone(zone.id)}
+										/>
 									</div>
-									<div
-										class="mt-2 rounded-control border border-danger/20 bg-danger-soft px-3 py-2 leading-6 text-ink-muted"
-									>
-										<span class="font-medium text-danger-ink">Red Exit Zone:</span>
-										position this where parts should leave the ring into the next path or mechanism.
-									</div>
-									<div class="mt-2 text-xs leading-5 text-ink-muted">
-										Use this as an orientation guide. The exact angles depend on your camera
-										position and the real machine geometry.
-									</div>
-								</div>
-							</div>
-
-							<div class="mt-4 border-t border-line pt-3">
-								<div class="font-medium text-ink">How to edit</div>
-								<div class="mt-2 leading-6">
-									Drag the handles for
-									<span class="font-medium text-ink">Drop</span>,
-									<span class="font-medium text-ink">Exit</span>,
-									<span class="font-medium text-ink">Center</span>,
-									<span class="font-medium text-ink">Inner</span> and
-									<span class="font-medium text-ink">Outer</span> directly on the image. Use
-									<span class="font-medium text-ink">Exit Outer</span> to pull the exit crop inward when
-									the opening shows the next plate.
-								</div>
-								<div class="mt-1 leading-6">
-									Drag inside the ring to move the whole zone. Use the mouse wheel for fine radius
-									scaling and
-									<span class="font-medium text-ink"> Shift+Click</span> to set section 0.
-								</div>
-							</div>
-						{:else}
-							<div class="font-medium text-ink">How to edit</div>
-							<div class="mt-2 leading-6">
-								Drag the corner handles directly on the image to reshape the zone.
-							</div>
-							<div class="mt-1 leading-6">
-								Drag inside the zone to move it as one shape. Use the mouse wheel to scale it.
-							</div>
-						{/if}
-					</div>
-				{/if}
-			</div>
-
-			{#if !wizardMode && editingZone && activeSidebar === 'zone'}
-				<ZoneEditingSidebar
-					label={CHANNEL_LABELS[currentChannel]}
-					isArc={isArcChannel(currentChannel)}
-					statusMessage={statusMsg}
-				/>
+								</li>
+							{/each}
+						</ul>
+					{/if}
+					{#if secondaryEditMode}
+						<p class="border-t border-line px-(--pad-panel) py-(--pad-row) text-sm text-info-ink">
+							Drawing the C{activeSecondaryZone()?.sourceChannel} zone: click to add a point, drag a point
+							to move it, right-click a point to remove it.
+						</p>
+					{/if}
+				</Panel>
 			{/if}
 
-			{#if activeSidebar === 'picture'}
-				{#key `${currentRole()}::${currentAssignment() === null ? 'none' : String(currentAssignment())}`}
-					<PictureSettingsSidebar
-						role={currentRole()}
-						label={CHANNEL_LABELS[currentChannel]}
-						source={currentAssignment()}
-						hasCamera={currentAssignment() !== null}
-						onPreviewChange={(role, savedSettings, draftSettings) => {
-							setPicturePreview(role, savedSettings, draftSettings);
-						}}
-						onClose={() => {
-							clearPicturePreview(currentRole());
-							activeSidebar = null;
-						}}
-						onSaved={() => {
-							clearPicturePreview(currentRole());
-							activeSidebar = null;
-							statusMsg = 'Picture settings updated.';
-						}}
-					/>
-				{/key}
-			{/if}
-
-			{#if activeSidebar === 'classification' && supportsDetectionSidebar(currentChannel)}
-				{#key `${currentChannel}::${currentAssignment() === null ? 'none' : String(currentAssignment())}`}
-					<DetectionSettingsSidebar
-						scope={detectionScopeForChannel(currentChannel)}
-						camera={detectionCameraForChannel(currentChannel)}
-						label={CHANNEL_LABELS[currentChannel]}
-						onClose={() => {
-							setDetectionHighlights(currentRole(), null);
-							activeSidebar = null;
-						}}
-					/>
-				{/key}
-			{/if}
-
-			{#if activeSidebar === 'led' && supportsLedSidebar(currentChannel)}
-				<aside class="flex h-full min-w-0 flex-col border border-line bg-well xl:min-h-[32rem]">
-					<div class="border-b border-line bg-surface px-4 py-3">
-						<div class="flex items-start justify-between gap-3">
-							<div class="min-w-0">
-								<div class="flex items-center gap-2 text-sm font-semibold text-ink">
-									<Lightbulb size={16} />
-									<span>LED</span>
-								</div>
-								<p class="mt-1 text-sm leading-5 text-ink-muted">
-									The light in {CHANNEL_LABELS[currentChannel]}'s hood.
+			{#if wizardMode && editingZone}
+				<div class="rounded-control bg-well p-4 text-sm text-ink-muted">
+					{#if isArcChannel(currentChannel)}
+						<div class="grid gap-4 lg:grid-cols-[12rem_minmax(0,1fr)] lg:items-start">
+							<img
+								src="/setup/zone-placement-reference.png"
+								alt="Where the drop and exit zones go"
+								class="h-auto w-full rounded-control object-contain"
+							/>
+							<div class="flex flex-col gap-2">
+								<h4 class="font-medium text-ink">Where the zones go</h4>
+								<p class="flex gap-2">
+									<span class="mt-1.5 size-2.5 shrink-0 rounded-badge bg-success"></span>
+									<span><span class="font-medium text-ink">The green drop zone</span> goes where parts
+										arrive from the stage before and land on the ring.</span>
+								</p>
+								<p class="flex gap-2">
+									<span class="mt-1.5 size-2.5 shrink-0 rounded-badge bg-danger"></span>
+									<span><span class="font-medium text-ink">The red exit zone</span> goes where parts
+										should leave the ring for the next path or mechanism.</span>
+								</p>
+								<p>
+									This is a guide to orientation; the exact angles depend on where the camera sits and
+									the machine's real geometry.
 								</p>
 							</div>
-							<button
-								onclick={() => (activeSidebar = null)}
-								class="inline-flex h-8 w-8 shrink-0 cursor-pointer items-center justify-center text-ink-muted transition-colors hover:text-ink"
-								aria-label="Close LED settings"
-							>
-								<X size={15} />
-							</button>
 						</div>
-					</div>
-
-					<div class="flex flex-1 flex-col px-4 py-4">
-						<ChannelLedSection channelKey={currentRole()} />
-					</div>
-				</aside>
-			{/if}
-
-			{#if !wizardMode && !activeSidebar && hasStepper && stepperKey}
-				<StepperSidebar
-					{stepperKey}
-					endstop={stepperEndstop}
-					label={stepperLabel}
-					gearRatioOverride={stepperGearRatio}
-					keyboardShortcuts={true}
-				/>
+						<div class="mt-4 flex flex-col gap-1 border-t border-line pt-3">
+							<h4 class="font-medium text-ink">How to edit</h4>
+							<p>
+								Drag the Drop, Exit, Center, Inner and Outer handles on the picture. Exit outer pulls
+								the exit crop inward when the opening shows the next plate.
+							</p>
+							<p>
+								Drag inside the ring to move the whole zone. The mouse wheel scales the radius
+								finely, and Shift-click sets section 0.
+							</p>
+						</div>
+					{:else}
+						<div class="flex flex-col gap-1">
+							<h4 class="font-medium text-ink">How to edit</h4>
+							<p>Drag the corner handles on the picture to reshape the zone.</p>
+							<p>Drag inside the zone to move it as one shape; the mouse wheel scales it.</p>
+						</div>
+					{/if}
+				</div>
 			{/if}
 		</div>
 
-		<Modal
-			bind:open={cameraModalOpen}
-			title={`Choose Camera for ${CHANNEL_LABELS[currentChannel]}`}
-			wide={true}
-		>
-			<div class="flex flex-col gap-4">
-				{#if cameraError}
-					<div
-						class="border border-danger bg-danger-soft px-3 py-2 text-sm text-danger-ink"
-					>
-						{cameraError}
-					</div>
-				{/if}
+		{#if !wizardMode && editingZone && activeSidebar === 'zone'}
+			<ZoneEditingSidebar
+				label={CHANNEL_LABELS[currentChannel]}
+				isArc={isArcChannel(currentChannel)}
+				statusMessage={statusMsg}
+			/>
+		{/if}
 
-				{#if cameraLoading}
-					<div class="animate-pulse py-8 text-center text-sm text-ink-muted">
-						Scanning cameras...
-					</div>
-				{:else}
-					{#if usbCameras.length > 0}
-						<div class="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-4">
-							{#each usbCameras as cam}
-								{@const role = currentRole()}
-								{@const isSelected = assignments[role] === cam.index}
-								{@const usedByOther =
-									!isSelected &&
-									ALL_CAMERA_ROLES.some(
-										(otherRole) => otherRole !== role && assignments[otherRole] === cam.index
-									)}
-								<button
-									onclick={() => selectCamera(role, cam.index)}
-									disabled={cameraSaving}
-									class="group relative overflow-hidden text-left transition-all {isSelected
-										? 'ring-2 ring-primary'
-										: usedByOther
-											? 'opacity-60 hover:opacity-100 hover:ring-2 hover:ring-[#FFD500]'
-											: 'hover:ring-2 hover:ring-primary/50'}"
-								>
-									{#if cam.preview_available === false}
-										<div
-											class="flex aspect-video items-center justify-center bg-well text-center text-xs text-ink-muted"
-										>
-											No preview
-										</div>
-									{:else}
-										<CameraSourcePreview
-											source={cam.index}
-											baseUrl={getBackendHttpBase()}
-											label={cam.name ?? `Camera ${cam.index}`}
-											fit="cover"
-											block
-										/>
-									{/if}
-									<div
-										class="absolute right-0 bottom-0 left-0 bg-gradient-to-t from-black/80 to-transparent px-2 pt-4 pb-1.5 text-xs text-white"
-									>
-										<div class="font-medium">{cam.name ?? `Camera ${cam.index}`}</div>
-										{#if cam.name && cam.width > 0 && cam.height > 0}
-											<div class="text-white/70">{cam.width}x{cam.height}</div>
-										{:else if !cam.name}
-											<div class="text-white/70">
-												Index {cam.index}{#if cam.width > 0 && cam.height > 0}
-													· {cam.width}x{cam.height}{/if}
-											</div>
-										{/if}
-									</div>
-									{#if isSelected}
-										<div
-											class="absolute top-1.5 right-1.5 rounded-control bg-primary px-1.5 py-0.5 text-xs font-medium text-on-primary"
-										>
-											Active
-										</div>
-									{:else if usedByOther}
-										{@const otherRole = findRoleUsing(cam.index, role)}
-										<div
-											class="absolute top-1.5 right-1.5 rounded-control bg-[#FFD500] px-1.5 py-0.5 text-xs font-medium text-[#1A1A1A]"
-										>
-											{otherRole ? ROLE_LABELS[otherRole] : 'In use'}
-										</div>
-									{/if}
-								</button>
-							{/each}
-						</div>
-					{:else}
-						<div
-							class="border border-dashed border-line px-4 py-8 text-center text-sm text-ink-muted"
-						>
-							No cameras detected. Click Refresh to scan again.
-						</div>
-					{/if}
-				{/if}
+		{#if activeSidebar === 'picture'}
+			{#key `${currentRole()}::${currentAssignment() === null ? 'none' : String(currentAssignment())}`}
+				<PictureSettingsSidebar
+					role={currentRole()}
+					label={CHANNEL_LABELS[currentChannel]}
+					source={currentAssignment()}
+					hasCamera={currentAssignment() !== null}
+					onPreviewChange={(role, savedSettings, draftSettings) => {
+						setPicturePreview(role, savedSettings, draftSettings);
+					}}
+					onClose={() => {
+						clearPicturePreview(currentRole());
+						activeSidebar = null;
+					}}
+					onSaved={() => {
+						clearPicturePreview(currentRole());
+						activeSidebar = null;
+						statusMsg = 'Picture settings updated.';
+					}}
+				/>
+			{/key}
+		{/if}
 
-				<div class="flex items-center justify-between border-t border-line pt-3">
-					{#if cameraLoading}
-						<button
-							onclick={cancelCameraScan}
-							class="inline-flex cursor-pointer items-center gap-1.5 text-xs text-ink-muted transition-colors hover:text-ink"
-						>
-							<span>Cancel</span>
-						</button>
-					{:else}
-						<button
-							onclick={refreshCameras}
-							class="inline-flex cursor-pointer items-center gap-1.5 text-xs text-ink-muted transition-colors hover:text-ink"
-						>
-							<RefreshCw size={13} />
-							<span>Refresh</span>
-						</button>
-					{/if}
-					{#if currentAssignment() !== null}
-						<button
-							onclick={() => saveCameraRole(currentRole(), null)}
-							disabled={cameraSaving}
-							class="cursor-pointer text-xs text-danger-ink transition-colors hover:text-danger-ink/80 disabled:cursor-not-allowed disabled:opacity-50"
-						>
-							Remove current camera
-						</button>
-					{/if}
-				</div>
-			</div>
-		</Modal>
+		{#if activeSidebar === 'classification' && supportsDetectionSidebar(currentChannel)}
+			{#key `${currentChannel}::${currentAssignment() === null ? 'none' : String(currentAssignment())}`}
+				<DetectionSettingsSidebar
+					scope={detectionScopeForChannel(currentChannel)}
+					camera={detectionCameraForChannel(currentChannel)}
+					label={CHANNEL_LABELS[currentChannel]}
+					onClose={() => {
+						setDetectionHighlights(currentRole(), null);
+						activeSidebar = null;
+					}}
+				/>
+			{/key}
+		{/if}
 
-		{#if reassignConfirm}
-			<Modal bind:open={reassignModalOpen} title="Reassign Camera">
-				<div class="flex flex-col gap-4">
-					<p class="text-sm text-ink">
-						<span class="font-medium">{reassignConfirm.cameraLabel}</span> is currently assigned to
-						<span class="font-medium">{ROLE_LABELS[reassignConfirm.currentRole]}</span>. It will be
-						unassigned from that role.
-					</p>
-					<div class="flex items-center justify-end gap-2">
-						<button
-							onclick={() => {
-								reassignConfirm = null;
-								reassignModalOpen = false;
-							}}
-							class="cursor-pointer border border-line bg-well px-3 py-1.5 text-sm text-ink hover:bg-surface"
-						>
-							Cancel
-						</button>
-						<button
-							onclick={confirmReassign}
-							disabled={cameraSaving}
-							class="cursor-pointer border border-danger bg-danger px-3 py-1.5 text-sm text-white hover:bg-danger/90 disabled:cursor-not-allowed disabled:opacity-50"
-						>
-							{cameraSaving ? 'Reassigning...' : 'Reassign Camera'}
-						</button>
-					</div>
-				</div>
-			</Modal>
+		{#if activeSidebar === 'led' && supportsLedSidebar(currentChannel)}
+			<Panel title="LED" description="The light in {CHANNEL_LABELS[currentChannel]}'s hood.">
+				{#snippet actions()}
+					<Button
+						variant="ghost"
+						size="sm"
+						icon={X}
+						label="Close the LED settings"
+						onclick={() => (activeSidebar = null)}
+					/>
+				{/snippet}
+				<ChannelLedSection channelKey={currentRole()} />
+			</Panel>
+		{/if}
+
+		{#if !wizardMode && !activeSidebar && hasStepper && stepperKey}
+			<StepperSidebar
+				{stepperKey}
+				endstop={stepperEndstop}
+				label={stepperLabel}
+				gearRatioOverride={stepperGearRatio}
+				keyboardShortcuts={true}
+			/>
 		{/if}
 	</div>
-	<!-- /content -->
 </div>
+
+<Modal bind:open={cameraModalOpen} title="Choose the camera for {CHANNEL_LABELS[currentChannel]}" size="lg">
+	<div class="flex flex-col gap-4">
+		{#if cameraError}
+			<Alert tone="danger">{cameraError}</Alert>
+		{/if}
+		{#if cameraLoading}
+			<div class="flex items-center justify-center gap-2 py-8 text-ink-muted">
+				<Spinner size={16} />
+				Looking for cameras
+			</div>
+		{:else if usbCameras.length > 0}
+			<div class="grid grid-cols-2 gap-3 sm:grid-cols-3">
+				{#each usbCameras as cam}
+					{@const role = currentRole()}
+					{@const isSelected = assignments[role] === cam.index}
+					{@const usedByOther =
+						!isSelected &&
+						ALL_CAMERA_ROLES.some(
+							(otherRole) => otherRole !== role && assignments[otherRole] === cam.index
+						)}
+					{@const otherRole = usedByOther ? findRoleUsing(cam.index, role) : null}
+					<button
+						type="button"
+						onclick={() => selectCamera(role, cam.index)}
+						disabled={cameraSaving}
+						aria-pressed={isSelected}
+						class="flex flex-col overflow-hidden rounded-control text-left transition-colors {isSelected
+							? 'bg-primary-soft outline-2 outline-primary'
+							: 'bg-well hover:bg-hover'}"
+					>
+						<span class="dark block bg-media">
+							{#if cam.preview_available === false}
+								<span class="flex aspect-video items-center justify-center text-xs text-ink-muted">
+									No preview
+								</span>
+							{:else}
+								<CameraSourcePreview
+									source={cam.index}
+									baseUrl={getBackendHttpBase()}
+									label={cam.name ?? `Camera ${cam.index}`}
+									fit="cover"
+									block
+								/>
+							{/if}
+						</span>
+						<span class="flex items-start justify-between gap-2 px-2.5 py-2 text-sm">
+							<span class="min-w-0">
+								<span class="block truncate font-medium text-ink">{cam.name ?? `Camera ${cam.index}`}</span>
+								<span class="num block text-ink-muted">
+									{#if !cam.name}Index {cam.index}{/if}{#if !cam.name && cam.width > 0 && cam.height > 0}
+										·
+									{/if}{#if cam.width > 0 && cam.height > 0}{cam.width}×{cam.height}{/if}
+								</span>
+							</span>
+							{#if isSelected}
+								<Badge tone="success">Active</Badge>
+							{:else if usedByOther}
+								<Badge tone="warning">{otherRole ? ROLE_LABELS[otherRole] : 'In use'}</Badge>
+							{/if}
+						</span>
+					</button>
+				{/each}
+			</div>
+		{:else}
+			<EmptyState icon={Camera} title="No cameras found">Refresh to look again.</EmptyState>
+		{/if}
+	</div>
+	{#snippet footer()}
+		{#if currentAssignment() !== null}
+			<Button
+				variant="danger"
+				class="mr-auto"
+				disabled={cameraSaving}
+				onclick={() => saveCameraRole(currentRole(), null)}
+			>
+				Remove the camera
+			</Button>
+		{/if}
+		{#if cameraLoading}
+			<Button variant="ghost" onclick={cancelCameraScan}>Cancel</Button>
+		{:else}
+			<Button variant="ghost" icon={RefreshCw} onclick={refreshCameras}>Refresh</Button>
+		{/if}
+	{/snippet}
+</Modal>
+
+{#if reassignConfirm}
+	<Modal bind:open={reassignModalOpen} title="Move the camera?" size="sm">
+		<p>
+			<span class="font-medium">{reassignConfirm.cameraLabel}</span> is set for
+			<span class="font-medium">{ROLE_LABELS[reassignConfirm.currentRole]}</span>. Moving it here
+			takes it off that role.
+		</p>
+		{#snippet footer()}
+			<Button
+				variant="ghost"
+				onclick={() => {
+					reassignConfirm = null;
+					reassignModalOpen = false;
+				}}
+			>
+				Cancel
+			</Button>
+			<Button variant="danger" loading={cameraSaving} onclick={confirmReassign}>Move the camera</Button>
+		{/snippet}
+	</Modal>
+{/if}

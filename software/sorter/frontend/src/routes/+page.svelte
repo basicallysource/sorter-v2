@@ -550,42 +550,40 @@
 	{#if machine.machine}
 		<div class="flex min-h-0 flex-1 flex-col gap-(--gap-panels) p-4 sm:p-6 lg:flex-row lg:gap-2">
 			<div class="grid min-h-0 min-w-0 flex-1 gap-(--gap-panels) md:grid-cols-2 lg:grid-rows-2">
-				<div class="aspect-video min-h-0 lg:aspect-auto">
-					<CameraFeed
-						camera="c_channel_2"
-						label={cameraLabel('c_channel_2')}
-						crop={cropFor('c_channel_2')}
-						controls={['annotations', 'crop', 'fullscreen']}
-					>
-						{#snippet headerActions()}
-							<CameraChannelControls stepperKey="c_channel_2" />
-						{/snippet}
-					</CameraFeed>
-				</div>
-				<div class="aspect-video min-h-0 lg:aspect-auto">
-					<CameraFeed
-						camera="c_channel_3"
-						label={cameraLabel('c_channel_3')}
-						crop={cropFor('c_channel_3')}
-						controls={['annotations', 'crop', 'fullscreen']}
-					>
-						{#snippet headerActions()}
-							<CameraChannelControls stepperKey="c_channel_3" />
-						{/snippet}
-					</CameraFeed>
-				</div>
-				<div class="aspect-video min-h-0 md:col-span-2 lg:aspect-auto">
-					<CameraFeed
-						camera="classification_channel"
-						label={cameraLabel('classification_channel')}
-						crop={cropFor('classification_channel')}
-						controls={['annotations', 'crop', 'fullscreen']}
-					>
-						{#snippet headerActions()}
-							<CameraChannelControls stepperKey="c_channel_4" />
-						{/snippet}
-					</CameraFeed>
-				</div>
+				<CameraFeed
+					camera="c_channel_2"
+					label={cameraLabel('c_channel_2')}
+					crop={cropFor('c_channel_2')}
+					controls={['annotations', 'crop', 'fullscreen']}
+					fill
+				>
+					{#snippet actions()}
+						<CameraChannelControls stepperKey="c_channel_2" />
+					{/snippet}
+				</CameraFeed>
+				<CameraFeed
+					camera="c_channel_3"
+					label={cameraLabel('c_channel_3')}
+					crop={cropFor('c_channel_3')}
+					controls={['annotations', 'crop', 'fullscreen']}
+					fill
+				>
+					{#snippet actions()}
+						<CameraChannelControls stepperKey="c_channel_3" />
+					{/snippet}
+				</CameraFeed>
+				<CameraFeed
+					camera="classification_channel"
+					label={cameraLabel('classification_channel')}
+					crop={cropFor('classification_channel')}
+					controls={['annotations', 'crop', 'fullscreen']}
+					fill
+					class="md:col-span-2"
+				>
+					{#snippet actions()}
+						<CameraChannelControls stepperKey="c_channel_4" />
+					{/snippet}
+				</CameraFeed>
 			</div>
 
 			<div class="hidden lg:flex">

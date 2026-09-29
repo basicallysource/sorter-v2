@@ -8,7 +8,7 @@
 	import Field from '$lib/components/ui/Field.svelte';
 	import SegmentedControl from '$lib/components/ui/SegmentedControl.svelte';
 	import Select from '$lib/components/ui/Select.svelte';
-	import PageTitle from '$lib/components/settings/PageTitle.svelte';
+	import PageHeader from '$lib/components/ui/PageHeader.svelte';
 	import Trash2 from '@lucide/svelte/icons/trash-2';
 	import StallGuardChart from '$lib/components/StallGuardChart.svelte';
 
@@ -303,7 +303,7 @@
 <svelte:window onkeydown={onKeydown} />
 
 <div class="flex flex-col gap-(--gap-panels)">
-	<PageTitle
+	<PageHeader
 		title="StallGuard"
 		description="Record the TMC2209 load (SG_RESULT) of each motor. Run a sweep, read the load curve, and write a stall threshold to the machine config."
 	/>
@@ -360,7 +360,8 @@
 				<Field label="Motion" for="sw-profile">
 					<Select id="sw-profile" bind:value={swProfile} options={profileOptions} />
 				</Field>
-				<Field label="Direction">
+				<div class="flex flex-col gap-1.5">
+					<span class="text-sm font-medium text-ink">Direction</span>
 					<SegmentedControl
 						label="Direction"
 						bind:value={swDirection}
@@ -369,7 +370,7 @@
 							{ value: 'ccw', label: 'Counterclockwise' }
 						]}
 					/>
-				</Field>
+				</div>
 				<Field label="Speed" for="sw-speed">
 					<Input id="sw-speed" type="number" unit="µsteps/s" bind:value={swSpeed} />
 				</Field>

@@ -4,7 +4,7 @@
 	import Panel from '$lib/components/ui/Panel.svelte';
 	import TuningParamRow from '$lib/components/settings/TuningParamRow.svelte';
 	import type { TuningFieldMeta, TuningValues } from '$lib/settings/tuning';
-	import PageTitle from '$lib/components/settings/PageTitle.svelte';
+	import PageHeader from '$lib/components/ui/PageHeader.svelte';
 	import SettingsSaveBar from '$lib/components/settings/SettingsSaveBar.svelte';
 	import Spinner from '$lib/components/ui/Spinner.svelte';
 
@@ -63,7 +63,7 @@
 
 <svelte:head><title>Sorter - Classification channel tuning</title></svelte:head>
 
-<PageTitle
+<PageHeader
 	title="Classification channel tuning"
 	description="The parameters of the rev01 state machine. Changes apply to the next piece, with no restart."
 />

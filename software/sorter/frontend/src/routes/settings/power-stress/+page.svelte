@@ -7,7 +7,7 @@
 	import ProgressBar from '$lib/components/ui/ProgressBar.svelte';
 	import Badge from '$lib/components/ui/Badge.svelte';
 	import Field from '$lib/components/ui/Field.svelte';
-	import PageTitle from '$lib/components/settings/PageTitle.svelte';
+	import PageHeader from '$lib/components/ui/PageHeader.svelte';
 	import Alert from '$lib/components/ui/Alert.svelte';
 	import Button from '$lib/components/ui/Button.svelte';
 	import Input from '$lib/components/ui/Input.svelte';
@@ -189,7 +189,7 @@
 
 <svelte:head><title>Sorter - Power stress test</title></svelte:head>
 
-<PageTitle
+<PageHeader
 	title="Power stress test"
 	description="The heaviest load the machine can make, for measuring its draw at the wall. It needs a safe home and a pause first."
 />

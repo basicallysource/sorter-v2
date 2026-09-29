@@ -4,7 +4,7 @@
 	import Panel from '$lib/components/ui/Panel.svelte';
 	import TuningParamRow from '$lib/components/settings/TuningParamRow.svelte';
 	import TuningPresets from '$lib/components/settings/TuningPresets.svelte';
-	import PageTitle from '$lib/components/settings/PageTitle.svelte';
+	import PageHeader from '$lib/components/ui/PageHeader.svelte';
 	import SettingsSaveBar from '$lib/components/settings/SettingsSaveBar.svelte';
 	import Spinner from '$lib/components/ui/Spinner.svelte';
 	import RadioGroup from '$lib/components/ui/RadioGroup.svelte';
@@ -172,7 +172,7 @@
 
 <svelte:head><title>Sorter - Object tracker tuning</title></svelte:head>
 
-<PageTitle
+<PageHeader
 	title="Object tracker"
 	description="Identity across frames for the classification channel's detections: each piece keeps one id through brief detector dropouts. Choose which tracker runs; its parameters are below. Changes apply within about a second, with no restart."
 />

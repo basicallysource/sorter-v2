@@ -184,18 +184,18 @@
 		restartConfirmOpen = true;
 	}
 
+	// Each of these keeps its confirm dialog open and turns it into the
+	// dialog that waits (docs/overlays.md), closed when the wait is over.
 	async function confirmRestartBackend() {
-		restartConfirmOpen = false;
 		restartingBackend = true;
 		const baseUrl = currentBackendBaseUrl();
-		if (!(await requestBackendRestart(baseUrl))) {
-			restartingBackend = false;
-			return;
+		if (await requestBackendRestart(baseUrl)) {
+			await waitForBackend(baseUrl, { maxAttempts: 60 });
+			// The new process's identity reopens the camera feeds (see MachineManager).
+			manager.connect(currentBackendWsUrl(), { force: true });
 		}
-		await waitForBackend(baseUrl, { maxAttempts: 60 });
-		// The new process's identity reopens the camera feeds (see MachineManager).
-		manager.connect(currentBackendWsUrl(), { force: true });
 		restartingBackend = false;
+		restartConfirmOpen = false;
 	}
 
 	function requestPowerDown() {
@@ -203,7 +203,6 @@
 	}
 
 	async function confirmPowerDown() {
-		powerdownConfirmOpen = false;
 		powerdownFailed = false;
 		poweringDown = true;
 		machineDowntime.begin();
@@ -212,10 +211,11 @@
 			const response = await fetch(`${baseUrl}/api/system/shutdown`, { method: 'POST' });
 			if (!response.ok) {
 				poweringDown = false;
+				powerdownConfirmOpen = false;
 				machineDowntime.end();
 				powerdownFailed = true;
 			}
-			// On success, leave the progress modal up — the machine is going down and
+			// On success, leave the dialog waiting: the machine is going down and
 			// the UI will stop responding shortly. There's nothing left to wait for.
 		} catch {
 			// The request may not return if the OS starts tearing things down before
@@ -245,7 +245,6 @@
 	}
 
 	async function confirmReboot() {
-		rebootConfirmOpen = false;
 		rebootFailed = false;
 		rebootTimedOut = false;
 		rebooting = true;
@@ -255,6 +254,7 @@
 			const response = await fetch(`${baseUrl}/api/system/reboot`, { method: 'POST' });
 			if (!response.ok) {
 				rebooting = false;
+				rebootConfirmOpen = false;
 				machineDowntime.end();
 				rebootFailed = true;
 				return;
@@ -272,6 +272,7 @@
 			intervalMs: 2000
 		});
 		rebooting = false;
+		rebootConfirmOpen = false;
 		machineDowntime.end();
 		if (!back) {
 			rebootTimedOut = true;
@@ -337,6 +338,7 @@
 
 <TopBar
 	{sticky}
+	collapse="lg"
 	items={[
 		{ href: '/', label: 'Dashboard' },
 		{ href: '/bins', label: 'Bins' },
@@ -423,55 +425,62 @@
 	{/snippet}
 </Modal>
 
-<Modal bind:open={restartConfirmOpen} title="Restart the backend?" size="sm">
-	<p>This restarts the sorter's backend service after releasing the cameras.</p>
-	<p class="mt-2 text-ink-muted">
-		A running sort or homing stops, the cameras and the hardware start again, and this page is
-		unavailable for a few seconds.
-	</p>
+<Modal
+	bind:open={restartConfirmOpen}
+	title={restartingBackend ? 'Restarting the backend' : 'Restart the backend?'}
+	size="sm"
+	dismissible={!restartingBackend}
+	status={restartingBackend ? 'Waiting for the service to come back' : undefined}
+>
+	{#if restartingBackend}
+		<p class="text-ink-muted">This closes by itself when the backend answers again.</p>
+	{:else}
+		<p>This restarts the sorter's backend service after releasing the cameras.</p>
+		<p class="mt-2 text-ink-muted">
+			A running sort or homing stops, the cameras and the hardware start again, and this page is
+			unavailable for a few seconds.
+		</p>
+	{/if}
 	{#snippet footer()}
-		<Button variant="ghost" onclick={() => (restartConfirmOpen = false)}>Cancel</Button>
-		<Button variant="danger" icon={RotateCcw} onclick={() => void confirmRestartBackend()}>
-			Restart the backend
-		</Button>
+		{#if !restartingBackend}
+			<Button variant="ghost" onclick={() => (restartConfirmOpen = false)}>Cancel</Button>
+			<Button variant="danger" icon={RotateCcw} onclick={() => void confirmRestartBackend()}>
+				Restart the backend
+			</Button>
+		{/if}
 	{/snippet}
 </Modal>
 
-<Modal open={restartingBackend} title="Restarting the backend" size="sm">
-	<div class="flex items-center gap-3">
-		<Spinner size={20} class="text-primary-ink" />
-		<p class="text-ink-muted">Waiting for the service to come back.</p>
-	</div>
-</Modal>
-
-<Modal bind:open={rebootConfirmOpen} title="Restart the machine?" size="sm">
-	<p>
-		This reboots the whole machine, as running <span class="font-mono">reboot</span> on its computer
-		would. Everything powers back on by itself.
-	</p>
-	<p class="mt-2 text-ink-muted">
-		A running sort stops, and this page is unavailable for a couple of minutes while the machine
-		starts up.
-	</p>
+<Modal
+	bind:open={rebootConfirmOpen}
+	title={rebooting ? 'Restarting the machine' : 'Restart the machine?'}
+	size="sm"
+	dismissible={!rebooting}
+	status={rebooting ? 'Waiting for the machine to come back' : undefined}
+>
+	{#if rebooting}
+		<p class="text-ink-muted">
+			This page stops answering for a while and reconnects by itself once the machine is back,
+			usually in a couple of minutes.
+		</p>
+	{:else}
+		<p>
+			This reboots the whole machine, as running <span class="font-mono">reboot</span> on its computer
+			would. Everything powers back on by itself.
+		</p>
+		<p class="mt-2 text-ink-muted">
+			A running sort stops, and this page is unavailable for a couple of minutes while the machine
+			starts up.
+		</p>
+	{/if}
 	{#snippet footer()}
-		<Button variant="ghost" onclick={() => (rebootConfirmOpen = false)}>Cancel</Button>
-		<Button variant="danger" icon={RotateCw} onclick={() => void confirmReboot()}>
-			Restart the machine
-		</Button>
+		{#if !rebooting}
+			<Button variant="ghost" onclick={() => (rebootConfirmOpen = false)}>Cancel</Button>
+			<Button variant="danger" icon={RotateCw} onclick={() => void confirmReboot()}>
+				Restart the machine
+			</Button>
+		{/if}
 	{/snippet}
-</Modal>
-
-<Modal open={rebooting} title="Restarting the machine" size="sm">
-	<div class="flex items-start gap-3">
-		<Spinner size={20} class="mt-0.5 text-primary-ink" />
-		<div>
-			<p>The machine is rebooting.</p>
-			<p class="mt-2 text-ink-muted">
-				This page stops answering for a while and reconnects by itself once the machine is back,
-				usually in a couple of minutes.
-			</p>
-		</div>
-	</div>
 </Modal>
 
 <Modal bind:open={rebootFailed} title="The restart did not start" size="sm">
@@ -494,33 +503,35 @@
 	{/snippet}
 </Modal>
 
-<Modal bind:open={powerdownConfirmOpen} title="Power down the machine?" size="sm">
-	<p>
-		This shuts the whole machine down, as running <span class="font-mono">shutdown</span> on its
-		computer would. The sorter powers off completely.
-	</p>
-	<p class="mt-2 text-ink-muted">
-		A running sort stops, and turning the machine back on takes someone at the machine.
-	</p>
+<Modal
+	bind:open={powerdownConfirmOpen}
+	title={poweringDown ? 'Powering down' : 'Power down the machine?'}
+	size="sm"
+	dismissible={!poweringDown}
+	status={poweringDown ? 'Shutting down' : undefined}
+>
+	{#if poweringDown}
+		<p class="text-ink-muted">
+			This page stops answering shortly. Linux can take up to about 2 minutes to power off after
+			that; wait until the machine is completely off before cutting its power.
+		</p>
+	{:else}
+		<p>
+			This shuts the whole machine down, as running <span class="font-mono">shutdown</span> on its
+			computer would. The sorter powers off completely.
+		</p>
+		<p class="mt-2 text-ink-muted">
+			A running sort stops, and turning the machine back on takes someone at the machine.
+		</p>
+	{/if}
 	{#snippet footer()}
-		<Button variant="ghost" onclick={() => (powerdownConfirmOpen = false)}>Cancel</Button>
-		<Button variant="danger" icon={PowerOff} onclick={() => void confirmPowerDown()}>
-			Power down the machine
-		</Button>
+		{#if !poweringDown}
+			<Button variant="ghost" onclick={() => (powerdownConfirmOpen = false)}>Cancel</Button>
+			<Button variant="danger" icon={PowerOff} onclick={() => void confirmPowerDown()}>
+				Power down the machine
+			</Button>
+		{/if}
 	{/snippet}
-</Modal>
-
-<Modal open={poweringDown} title="Powering down" size="sm">
-	<div class="flex items-start gap-3">
-		<Spinner size={20} class="mt-0.5 text-primary-ink" />
-		<div>
-			<p>The machine is shutting down.</p>
-			<p class="mt-2 text-ink-muted">
-				This page stops answering shortly. Linux can take up to about 2 minutes to power off after
-				that; wait until the machine is completely off before cutting its power.
-			</p>
-		</div>
-	</div>
 </Modal>
 
 <Modal bind:open={powerdownFailed} title="The power down did not start" size="sm">

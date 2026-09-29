@@ -2,7 +2,7 @@
 	import { getBackendHttpBase } from '$lib/backend';
 	import Alert from '$lib/components/ui/Alert.svelte';
 	import Panel from '$lib/components/ui/Panel.svelte';
-	import PageTitle from '$lib/components/settings/PageTitle.svelte';
+	import PageHeader from '$lib/components/ui/PageHeader.svelte';
 	import SettingsSaveBar from '$lib/components/settings/SettingsSaveBar.svelte';
 	import Spinner from '$lib/components/ui/Spinner.svelte';
 	import ProviderSelect from '$lib/components/settings/ProviderSelect.svelte';
@@ -79,7 +79,7 @@
 
 <svelte:head><title>Sorter - Providers</title></svelte:head>
 
-<PageTitle
+<PageHeader
 	title="Providers"
 	description="Which service identifies each piece's mold, and which predicts its color. The two run side by side during classification; if a remote color provider is slow or unreachable, the piece falls back to Brickognize's color. Changes apply to the next piece, with no restart."
 />

@@ -7,7 +7,7 @@
 	import SegmentedControl from '$lib/components/ui/SegmentedControl.svelte';
 	import Select from '$lib/components/ui/Select.svelte';
 	import Stat from '$lib/components/ui/Stat.svelte';
-	import PageTitle from '$lib/components/settings/PageTitle.svelte';
+	import PageHeader from '$lib/components/ui/PageHeader.svelte';
 
 	const ctx = getMachineContext();
 
@@ -269,7 +269,7 @@
 <svelte:head><title>Sorter - Performance</title></svelte:head>
 
 <div class="flex flex-col gap-(--gap-panels)">
-	<PageTitle
+	<PageHeader
 		title="Performance"
 		description="How fast this machine is thinking and how fresh the data behind each decision is."
 	/>

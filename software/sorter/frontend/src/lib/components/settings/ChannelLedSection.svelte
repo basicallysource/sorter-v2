@@ -3,14 +3,15 @@
 	import { getBackendHttpBase, machineHttpBaseUrlFromWsUrl } from '$lib/backend';
 	import { getMachineContext } from '$lib/machines/context';
 	import Alert from '$lib/components/ui/Alert.svelte';
-	import { InfoTip } from '$lib/components/primitives';
+	import Field from '$lib/components/ui/Field.svelte';
+	import Select from '$lib/components/ui/Select.svelte';
 
 	let { channelKey }: { channelKey: string } = $props();
 
-	// SettingRow puts label and control on one line with the control shrink-0,
-	// which squeezes the label out of a 20rem sidebar. This panel stacks instead.
-	const outputId = `led-output-${channelKey}`;
-	const brightnessId = `led-brightness-${channelKey}`;
+	// A SettingRow's label and control share a line, which squeezes the label
+	// out of a 20rem sidebar; these fields stack instead.
+	const outputId = $derived(`led-output-${channelKey}`);
+	const brightnessId = $derived(`led-brightness-${channelKey}`);
 
 	const CHANNEL_LABELS: Record<string, string> = {
 		c_channel_2: 'C-Channel 2',
@@ -92,39 +93,36 @@
 	});
 </script>
 
-<div class="flex flex-col gap-2" class:opacity-50={!loading && outputs.length === 0}>
+<div class="flex flex-col gap-4" class:opacity-50={!loading && outputs.length === 0}>
 	{#if errorMsg}
 		<Alert tone="danger">{errorMsg}</Alert>
 	{:else if !loading && outputs.length === 0}
-		<Alert tone="info">No LED outputs are available to assign right now.</Alert>
+		<Alert tone="info">No LED outputs are free to assign right now.</Alert>
 	{/if}
-
-	<div class="flex flex-col gap-1.5 border border-line bg-well px-3 py-2.5">
-		<label class="flex items-center gap-1.5 text-sm font-medium text-ink" for={outputId}>
-			<span>Output</span>
-			<InfoTip
-				text="Which board GPIO drives this channel's light. Several channels may share one GPIO — it is one physical pin."
-			/>
-		</label>
-		<select
+	<Field
+		label="Output"
+		for={outputId}
+		help="The board GPIO that drives this channel's light. Channels can share one GPIO; it is one physical pin."
+	>
+		<Select
 			id={outputId}
 			value={assigned ?? ''}
 			disabled={loading || outputs.length === 0}
-			onchange={(e) => saveOutput(e.currentTarget.value || null)}
-			class="w-full border border-line bg-well px-2 py-1.5 text-sm text-ink"
-		>
-			<option value="">Not assigned</option>
-			{#each outputs as output (output.output_id)}
-				<option value={output.output_id}>{output.board_role} board — GPIO {output.gpio}</option>
-			{/each}
-		</select>
-	</div>
-
-	<div class="flex flex-col gap-1.5 border border-line bg-well px-3 py-2.5">
-		<label class="flex items-center gap-1.5 text-sm font-medium text-ink" for={brightnessId}>
-			<span>Brightness</span>
-			<InfoTip text="PWM duty driven onto the assigned GPIO. 0% is off — there is no separate on/off." />
-		</label>
+			options={[
+				{ value: '', label: 'Not assigned' },
+				...outputs.map((output) => ({
+					value: output.output_id,
+					label: `${output.board_role} board, GPIO ${output.gpio}`
+				}))
+			]}
+			onchange={(id) => saveOutput(id || null)}
+		/>
+	</Field>
+	<Field
+		label="Brightness"
+		for={brightnessId}
+		help="The PWM duty on the assigned GPIO. 0% is off; there is no separate switch."
+	>
 		<div class="flex items-center gap-3">
 			<input
 				id={brightnessId}
@@ -135,16 +133,15 @@
 				value={percent}
 				disabled={loading || !assigned}
 				oninput={(e) => saveBrightness(Number(e.currentTarget.value))}
-				class="min-w-0 flex-1"
+				class="min-w-0 flex-1 accent-primary"
 			/>
-			<span class="w-10 shrink-0 text-right text-sm text-ink num">{percent}%</span>
+			<span class="num w-10 shrink-0 text-right text-sm text-ink">{percent}%</span>
 		</div>
-	</div>
-
+	</Field>
 	{#if sharedWith.length > 0}
-		<div class="border border-line bg-well px-3 py-2.5 text-sm text-ink-muted">
-			Shares this GPIO with <span class="text-ink">{sharedWith.join(', ')}</span> — one pin, one
+		<p class="text-sm text-ink-muted">
+			Shares its GPIO with <span class="text-ink">{sharedWith.join(', ')}</span>: one pin, one
 			brightness.
-		</div>
+		</p>
 	{/if}
 </div>

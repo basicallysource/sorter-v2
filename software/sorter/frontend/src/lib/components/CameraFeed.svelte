@@ -5,6 +5,7 @@
 	import StreamControlsOverlay from '$lib/components/StreamControlsOverlay.svelte';
 	import WifiOff from '@lucide/svelte/icons/wifi-off';
 	import VideoOff from '@lucide/svelte/icons/video-off';
+	import MediaTile from '$lib/components/ui/MediaTile.svelte';
 	import Spinner from '$lib/components/ui/Spinner.svelte';
 	import type { Snippet } from 'svelte';
 	import { roleView } from '$lib/video';
@@ -14,19 +15,24 @@
 	let {
 		camera,
 		label = '',
-		showHeader = true,
-		framed = true,
+		header = true,
 		crop = null,
 		controls = ['annotations'],
-		headerActions = null
+		actions,
+		fill = false,
+		aspect,
+		class: className = ''
 	}: {
 		camera: string;
 		label?: string;
-		showHeader?: boolean;
-		framed?: boolean;
+		// False for a picture that is the whole tile (MediaTile's `header`).
+		header?: boolean;
 		crop?: DashboardFeedCrop | null;
 		controls?: ControlKey[];
-		headerActions?: Snippet | null;
+		actions?: Snippet;
+		fill?: boolean;
+		aspect?: string;
+		class?: string;
 	} = $props();
 
 	const ctx = getMachineContext();
@@ -69,18 +75,7 @@
 		writePersisted('cropped', cropped);
 	});
 
-	const showAnnotations = $derived(controls.includes('annotations'));
-	const showCrop = $derived(controls.includes('crop'));
-	const showFullscreen = $derived(controls.includes('fullscreen'));
-
-	let fullscreenOpen = $state(false);
 	let stale = $state(false);
-
-	function handleFullscreenKey(event: KeyboardEvent) {
-		if (event.key === 'Escape' && fullscreenOpen) {
-			fullscreenOpen = false;
-		}
-	}
 
 	const configuredSource = $derived(ctx.machine?.camerasConfig?.cameras?.[camera]);
 	const hasCameraConfig = $derived(Boolean(ctx.machine?.camerasConfig?.cameras));
@@ -101,69 +96,44 @@
 	const display_label = $derived(label || camera);
 </script>
 
-<!-- A camera, drawn like the design system's MediaTile: a strip on the
-     surface with its name and controls, then the picture on the media
-     backdrop, a dark subtree in both modes. Full screen, the whole feed is
-     that dark subtree. -->
-<section
-	class={fullscreenOpen
-		? 'dark fixed inset-0 z-50 flex flex-col bg-media text-ink'
-		: `flex h-full min-h-0 flex-col overflow-hidden ${framed ? 'rounded-panel bg-surface' : ''}`}
+<!-- A camera as the design system's MediaTile, whose full screen it uses. -->
+<MediaTile
+	title={display_label}
+	{header}
+	{actions}
+	{fill}
+	{aspect}
+	class={className}
+	expandable={controls.includes('fullscreen')}
 >
-	{#if showHeader}
-		<header
-			class="flex h-(--size-control-lg) shrink-0 items-center justify-between gap-3 pr-2 pl-(--pad-panel)"
-		>
-			<h3 class="truncate text-sm font-medium text-ink">{display_label}</h3>
-			{#if headerActions}
-				<div class="flex shrink-0 items-center gap-1">
-					{@render headerActions()}
-				</div>
-			{/if}
-		</header>
+	{#if is_configured}
+		<LiveImage
+			view={roleView(camera, annotated, cropped)}
+			alt={display_label}
+			class="absolute inset-0 h-full w-full object-contain {is_healthy ? '' : 'opacity-30'}"
+			bind:stale
+		/>
 	{/if}
-	<div class="dark relative min-h-0 flex-1 overflow-hidden bg-media">
-		{#if is_configured}
-			<LiveImage
-				view={roleView(camera, annotated, cropped)}
-				alt={display_label}
-				class="absolute inset-0 h-full w-full object-contain {is_healthy ? '' : 'opacity-30'}"
-				bind:stale
-			/>
-		{/if}
-
-		{#if !is_healthy}
-			<div class="absolute inset-0 flex flex-col items-center justify-center gap-2 text-ink-muted">
-				{#if health === 'reconnecting'}
-					<Spinner size={24} />
-					<span class="text-sm">Reconnecting</span>
-				{:else if health === 'offline'}
-					<WifiOff size={24} />
-					<span class="text-sm">Camera offline</span>
-				{:else if health === 'unassigned'}
-					<VideoOff size={24} />
-					<span class="text-sm">No camera assigned</span>
-				{/if}
-			</div>
-		{/if}
-
+	{#if !is_healthy}
+		<div class="absolute inset-0 flex flex-col items-center justify-center gap-2 text-ink-muted">
+			{#if health === 'reconnecting'}
+				<Spinner size={24} />
+				<span class="text-sm">Reconnecting</span>
+			{:else if health === 'offline'}
+				<WifiOff size={24} />
+				<span class="text-sm">Camera offline</span>
+			{:else if health === 'unassigned'}
+				<VideoOff size={24} />
+				<span class="text-sm">No camera assigned</span>
+			{/if}
+		</div>
+	{/if}
+	{#snippet overlay()}
 		<StreamControlsOverlay
 			bind:annotated
 			bind:cropped
-			bind:fullscreen={fullscreenOpen}
-			{showAnnotations}
-			{showCrop}
-			{showFullscreen}
+			showAnnotations={controls.includes('annotations')}
+			showCrop={controls.includes('crop')}
 		/>
-
-		{#if fullscreenOpen}
-			<div
-				class="pointer-events-none absolute top-2 left-2 z-20 rounded-badge bg-scrim px-2 py-1 text-sm text-ink-muted"
-			>
-				Escape or the toggle leaves full screen
-			</div>
-		{/if}
-	</div>
-</section>
-
-<svelte:window onkeydown={handleFullscreenKey} />
+	{/snippet}
+</MediaTile>

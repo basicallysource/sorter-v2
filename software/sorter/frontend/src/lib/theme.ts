@@ -85,3 +85,16 @@ function readableOn(color: string, ground: string, mode: Mode): string {
 	}
 	return toward;
 }
+
+// --- canvas charts ---
+
+/** A token's value where `el` sits, for what a canvas draws: charts use the
+ *  page's own colors (docs/components.md, Charts). */
+export function token(name: string, el: Element = document.documentElement): string {
+	return getComputedStyle(el).getPropertyValue(name).trim();
+}
+
+/** Chart labels: 12px in the page's typeface. */
+export function chartFont(el: Element, weight = 400): string {
+	return `${weight} 12px ${getComputedStyle(el).fontFamily}`;
+}

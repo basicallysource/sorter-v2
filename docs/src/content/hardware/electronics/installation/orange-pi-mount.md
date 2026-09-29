@@ -41,8 +41,6 @@ parts_needed:
     qty: 1
   - part: orange-pi-housing-buck-clamp
     qty: 1
-  - part: sbc-orange-pi-5
-    qty: 1
   - part: usb-hub-powered-24v
     qty: 1
   - part: buck-24v-5v-usbc

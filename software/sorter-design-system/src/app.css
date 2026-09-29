@@ -156,7 +156,7 @@
 :root,
 .light,
 .dark {
-	--media: #0c0c0b;
+	--media: #000000;
 	--scrim: rgb(14 14 13 / 0.55);
 	--knob: #ffffff;
 	--hover: color-mix(in oklab, var(--ink) 5%, transparent);

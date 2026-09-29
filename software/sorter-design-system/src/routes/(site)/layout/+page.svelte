@@ -40,47 +40,54 @@
 >
 	<div class="grid gap-6 md:grid-cols-2">
 		<figure class="flex flex-col gap-3">
-			<div class="aspect-[16/10] overflow-hidden border border-line bg-canvas">
+			<div
+				class="flex aspect-[16/10] flex-col overflow-hidden rounded-panel border border-line bg-canvas"
+			>
 				{@render bar()}
-				<div class="flex gap-2 p-2">
-					<div class="-my-2 -ml-2 flex w-1/5 flex-col gap-1 bg-surface p-2 pt-3">
-						<span class="h-1.5 w-full bg-primary-soft"></span>
+				<div class="flex min-h-0 flex-1">
+					<div class="flex w-1/5 flex-col gap-1 bg-surface p-2">
+						<span class="h-1.5 w-full rounded-item bg-primary-soft"></span>
 						<span class="h-1.5 w-4/5 bg-pressed"></span>
 						<span class="h-1.5 w-3/5 bg-pressed"></span>
 						<span class="mt-2 h-1.5 w-4/5 bg-pressed"></span>
 						<span class="h-1.5 w-3/5 bg-pressed"></span>
 					</div>
-					<div class="flex flex-1 flex-col gap-2">
+					<div class="flex flex-1 flex-col gap-2 p-3">
 						<span class="h-2 w-1/4 bg-ink-faint"></span>
-						<div class="h-14 bg-surface"></div>
-						<div class="h-20 bg-surface"></div>
+						<div class="h-1/4 rounded-panel bg-surface"></div>
+						<div class="h-2/5 rounded-panel bg-surface"></div>
 					</div>
 				</div>
 			</div>
 			<figcaption class="text-sm">
 				<span class="font-medium text-ink">Settings.</span>
 				<span class="text-ink-muted"
-					>The side nav a column on the surface plane, the page's panels on the canvas beside it,
-					each scrolling on its own. Below 1024px the side nav becomes a select above the page.</span
+					>The side nav is a column on the surface plane, and the page's panels sit on the canvas
+					beside it, each scrolling on its own. Below 1024px the side nav becomes a select above the
+					page.</span
 				>
 			</figcaption>
 		</figure>
 		<figure class="flex flex-col gap-3">
-			<div class="aspect-[16/10] overflow-hidden border border-line bg-canvas">
+			<div
+				class="flex aspect-[16/10] flex-col overflow-hidden rounded-panel border border-line bg-canvas"
+			>
 				{@render bar()}
-				<div class="grid grid-cols-[1fr_1fr_0.9fr] gap-2 p-2">
-					<div class="flex flex-col bg-surface">
-						<span class="h-2"></span><span class="h-10 bg-media"></span>
+				<div
+					class="grid min-h-0 flex-1 grid-cols-[1fr_1fr_0.9fr] grid-rows-[auto_1fr_1fr] gap-2 p-2"
+				>
+					<div class="col-span-2 row-span-2 grid grid-cols-2 gap-2">
+						<div class="flex flex-col overflow-hidden rounded-panel bg-surface">
+							<span class="h-2 shrink-0"></span><span class="flex-1 bg-media"></span>
+						</div>
+						<div class="flex flex-col overflow-hidden rounded-panel bg-surface">
+							<span class="h-2 shrink-0"></span><span class="flex-1 bg-media"></span>
+						</div>
 					</div>
-					<div class="flex flex-col bg-surface">
-						<span class="h-2"></span><span class="h-10 bg-media"></span>
-					</div>
-					<div class="row-span-2 flex flex-col gap-2">
-						<div class="h-6 bg-surface"></div>
-						<div class="flex-1 bg-surface"></div>
-					</div>
-					<div class="col-span-2 flex flex-col bg-surface">
-						<span class="h-2"></span><span class="h-16 bg-media"></span>
+					<div class="h-8 rounded-panel bg-surface"></div>
+					<div class="row-span-2 rounded-panel bg-surface"></div>
+					<div class="col-span-2 flex flex-col overflow-hidden rounded-panel bg-surface">
+						<span class="h-2 shrink-0"></span><span class="flex-1 bg-media"></span>
 					</div>
 				</div>
 			</div>
@@ -138,12 +145,25 @@
 </SiteSection>
 
 <SiteSection
-	title="Density"
-	lead="Controls are 36px tall, or 28px in a dense row. Rows are 52px with a sentence, 36px in a menu. The machine's own screens are dense because they show a lot at once; nothing is smaller to fit."
+	title="Sizes"
+	lead="One scale, so everything steps together: controls, badges, switches, rows, the top bar and the current page's mark all come from the same tokens. Controls are 36px, 30px in a dense row."
 >
-	<div class="flex flex-wrap items-center gap-3 bg-surface p-6">
-		<div class="flex h-9 items-center bg-well px-3 text-sm text-ink">36px</div>
-		<div class="flex h-7 items-center bg-well px-2.5 text-sm text-ink">28px</div>
+	<div class="flex flex-wrap items-center gap-3 rounded-panel bg-surface p-6">
+		<div
+			class="flex h-(--size-control) items-center rounded-control bg-well px-(--pad-control) text-sm text-ink"
+		>
+			Control, 36px
+		</div>
+		<div
+			class="flex h-(--size-control-sm) items-center rounded-control bg-well px-(--pad-control-sm) text-sm text-ink"
+		>
+			Dense, 30px
+		</div>
+		<div
+			class="flex h-(--size-badge) items-center rounded-badge bg-well px-(--pad-badge) text-xs text-ink"
+		>
+			Badge, 22px
+		</div>
 	</div>
 </SiteSection>
 

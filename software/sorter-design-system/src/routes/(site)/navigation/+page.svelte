@@ -32,21 +32,23 @@
 	title="Top bar"
 	lead="The mark, the app's pages, and on the right what applies everywhere. The current page's mark sits on the bar's own line, in its place."
 >
-	<div class="bg-canvas">
-		<TopBar
-			sticky={false}
-			items={[
-				{ href: '/navigation', label: 'Dashboard' },
-				{ href: '/navigation#bins', label: 'Bins' },
-				{ href: '/navigation#profiles', label: 'Profiles' },
-				{ href: '/navigation#records', label: 'Records' },
-				{ href: '/navigation#settings', label: 'Settings' }
-			]}
-		>
-			{#snippet brand()}<Wordmark href="/navigation" />{/snippet}
-			{#snippet end()}<Badge tone="success" dot>Running</Badge>{/snippet}
-		</TopBar>
-		<div class="h-16"></div>
+	<div class="rounded-panel bg-surface p-2">
+		<div class="overflow-hidden rounded-control bg-canvas">
+			<TopBar
+				sticky={false}
+				items={[
+					{ href: '/navigation', label: 'Dashboard' },
+					{ href: '/navigation#bins', label: 'Bins' },
+					{ href: '/navigation#profiles', label: 'Profiles' },
+					{ href: '/navigation#records', label: 'Records' },
+					{ href: '/navigation#settings', label: 'Settings' }
+				]}
+			>
+				{#snippet brand()}<Wordmark href="/navigation" />{/snippet}
+				{#snippet end()}<Badge tone="success" dot>Running</Badge>{/snippet}
+			</TopBar>
+			<div class="h-16"></div>
+		</div>
 	</div>
 </SiteSection>
 

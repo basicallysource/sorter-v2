@@ -3,6 +3,7 @@
 	import SiteSection from '$lib/site/SiteSection.svelte';
 	import Specimen from '$lib/site/Specimen.svelte';
 	import DoDont from '$lib/site/DoDont.svelte';
+	import Button from '$lib/components/Button.svelte';
 
 	const scale = [
 		{
@@ -59,7 +60,7 @@
 			spec: '24px · medium · tabular figures',
 			classes: 'num text-2xl font-medium',
 			sample: '14.7',
-			use: 'A stat. The `num` class lines numbers up and stops them jittering as they change.'
+			use: "A stat. The num class uses Geist's tabular figures, so numbers line up and do not jitter as they change."
 		}
 	];
 </script>
@@ -89,7 +90,7 @@
 
 <SiteSection
 	title="Mono"
-	lead="For what someone might copy or compare character by character: addresses, hashes, ids, part numbers, hex values; and for numbers that change in place."
+	lead="Geist Mono, for what someone might copy or compare character by character: addresses, hashes, ids, part numbers, hex values. Numbers that change use Geist's tabular figures instead."
 >
 	<Specimen>
 		<div class="flex flex-col gap-2 text-sm">
@@ -116,7 +117,9 @@
 		{#snippet wrong()}
 			<div>
 				<div class="text-base font-semibold text-ink">Sample Capture Settings</div>
-				<div class="label mt-2">Enable this to save images of parts for model training</div>
+				<div class="mt-2 text-xs font-semibold tracking-wider text-ink-muted uppercase">
+					Enable this to save images of parts for model training
+				</div>
 				<div
 					class="mt-3 inline-flex h-9 items-center border border-line-strong px-3.5 text-sm font-medium text-ink"
 				>
@@ -130,11 +133,7 @@
 				<div class="mt-2 text-sm text-ink-muted">
 					Save a photo of each part as it is classified.
 				</div>
-				<div
-					class="mt-3 inline-flex h-9 items-center border border-line-strong px-3.5 text-sm font-medium text-ink"
-				>
-					Save
-				</div>
+				<div class="mt-3"><Button variant="primary">Save</Button></div>
 			</div>
 		{/snippet}
 	</DoDont>

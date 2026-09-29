@@ -34,8 +34,9 @@ and color.
 
 - `line` (`border-line`, `divide-line`) divides items on one plane: the rows
   of a list, the sections of a panel, a panel's footer from its body.
-- `line-strong` (`border-line-strong`) outlines a control: a field, a select,
-  an outlined button. The outline says "you can type or press here".
+- `line-strong` (`border-line-strong`) outlines a control you type in or
+  tick: a field, a select, a checkbox. The outline says "you can type here".
+  Buttons are tints and have no outline.
 
 A divider runs the full width of its panel by default: a row's padding is
 inside the row, so `divide-y` on the rows draws edge to edge. Inset a divider

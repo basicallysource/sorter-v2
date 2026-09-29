@@ -139,9 +139,9 @@
 						<div class="flex flex-wrap gap-1">
 							{#each sortedByHue as c (c.id)}
 								<span
-									class="num flex size-9 flex-col items-center justify-center rounded-item border text-xs leading-none {c.pieces === 0
-										? 'border-dashed border-line-strong text-ink-muted'
-										: 'border-line text-ink'}"
+									class="num flex size-9 flex-col items-center justify-center rounded-item text-xs leading-none {c.pieces === 0
+										? 'bg-well text-ink-muted'
+										: 'text-ink'}"
 									style={c.pieces > 0 ? `background:#${c.rgb ?? '000'}22` : ''}
 									title={`${c.name} (${c.id}): ${c.pieces} piece${c.pieces === 1 ? '' : 's'}, ${c.labels} label${c.labels === 1 ? '' : 's'}`}
 								>

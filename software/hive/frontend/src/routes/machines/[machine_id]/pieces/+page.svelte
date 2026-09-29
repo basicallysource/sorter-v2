@@ -114,7 +114,7 @@
 
 	function binLabel(bin: { x: number | null; y: number | null; z: number | null }): string | null {
 		if (bin.x == null && bin.y == null && bin.z == null) return null;
-		return `${bin.x ?? '·'}, ${bin.y ?? '·'}, ${bin.z ?? '·'}`;
+		return `${bin.x ?? '-'}, ${bin.y ?? '-'}, ${bin.z ?? '-'}`;
 	}
 </script>
 

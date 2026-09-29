@@ -103,7 +103,7 @@
 		const dupes = new Set(rows.map((m) => m.label).filter((l, i, all) => all.indexOf(l) !== i));
 		return rows.map((m, i) => ({
 			key: m.machine_id,
-			label: dupes.has(m.label) ? `${m.label} · ${m.machine_id.slice(0, 6)}` : m.label,
+			label: dupes.has(m.label) ? `${m.label}, ${m.machine_id.slice(0, 6)}` : m.label,
 			value: m.value,
 			color: PALETTE[i % PALETTE.length]
 		}));

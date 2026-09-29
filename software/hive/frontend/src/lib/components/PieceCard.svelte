@@ -39,8 +39,8 @@
 				>
 			{/if}
 		</div>
-		<div class="flex flex-col gap-1 px-2.5 py-2">
-			<div class="truncate text-sm text-ink" title={card.part.part_name ?? card.part.part_id ?? ''}>
+		<div class="flex flex-col gap-1 px-2.5 py-2 {selected ? 'bg-primary-soft' : ''}">
+			<div class="truncate text-sm {selected ? 'font-medium text-primary-ink' : 'text-ink'}" title={card.part.part_name ?? card.part.part_id ?? ''}>
 				{card.part.part_name || card.part.part_id || 'Unidentified'}
 			</div>
 			<div class="num flex items-center gap-2 text-sm text-ink-muted">
@@ -49,6 +49,5 @@
 				<span class="ml-auto truncate">{card.machine_name ?? 'Machine'}</span>
 			</div>
 		</div>
-		{#if selected}<span class="absolute inset-x-0 bottom-0 h-(--indicator) bg-primary"></span>{/if}
 	</Card>
 </div>

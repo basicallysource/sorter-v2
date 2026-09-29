@@ -191,7 +191,7 @@
 <div class="mx-auto flex min-h-dvh w-full max-w-xl flex-col justify-center gap-(--gap-panels) px-4 py-10">
 	<div class="text-center">
 		<p class="label">SorterOS setup</p>
-		<h1 class="mt-1 text-2xl font-semibold text-ink">Find your sorter</h1>
+		<h1 class="mt-1 text-2xl font-semibold tracking-tight text-ink">Find your sorter</h1>
 	</div>
 
 	{#if phase === 'invalid'}
@@ -218,7 +218,7 @@
 	{:else if phase === 'found' && info}
 		<Panel>
 			<div class="flex flex-col items-center gap-4 py-6 text-center">
-				<span class="flex size-10 items-center justify-center rounded-full bg-success-soft text-success-ink"
+				<span class="flex size-10 items-center justify-center rounded-control bg-success-soft text-success-ink"
 					><Check size={20} /></span
 				>
 				<p class="text-lg font-semibold text-ink">Your sorter is online</p>

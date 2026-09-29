@@ -14,10 +14,13 @@
 	import Panel from '$lib/components/Panel.svelte';
 	import Select from '$lib/components/Select.svelte';
 	import SettingRow from '$lib/components/SettingRow.svelte';
-	import ThemeToggle from '$lib/components/ThemeToggle.svelte';
+	import SegmentedControl from '$lib/components/SegmentedControl.svelte';
+	import { theme, type Theme } from '$lib/stores/theme';
 	import ArrowRight from '@lucide/svelte/icons/arrow-right';
+	import Moon from '@lucide/svelte/icons/moon';
 	import Pencil from '@lucide/svelte/icons/pencil';
 	import Plus from '@lucide/svelte/icons/plus';
+	import Sun from '@lucide/svelte/icons/sun';
 	import Trash2 from '@lucide/svelte/icons/trash-2';
 	import Badge from '$lib/components/Badge.svelte';
 	import ModelSelect from '$lib/components/ModelSelect.svelte';
@@ -85,20 +88,41 @@
 		return identities.find((i) => i.provider === provider);
 	}
 
+	const discordIdentity = $derived(identityFor('discord'));
+
 	function providerEnabled(provider: string): boolean {
 		if (!authOptions) return false;
 		return provider === 'github' ? authOptions.github_enabled : authOptions.discord_enabled;
 	}
 
-	async function handleUnlink(provider: 'github' | 'discord') {
+	// What the confirmation dialog asks, and what its button then does.
+	let pendingConfirm = $state<{ title: string; text: string; action: string; run: () => Promise<void> } | null>(null);
+	let confirming = $state(false);
+
+	async function runConfirmed() {
+		if (!pendingConfirm) return;
+		confirming = true;
+		await pendingConfirm.run();
+		confirming = false;
+		pendingConfirm = null;
+	}
+
+	function handleUnlink(provider: 'github' | 'discord') {
 		identitiesError = null;
-		if (!confirm(`Disconnect ${OAUTH_PROVIDER_LABELS[provider]} from your account?`)) return;
-		try {
-			await api.unlinkIdentity(provider);
-			await loadIdentities();
-		} catch (e: any) {
-			identitiesError = e.error || 'Failed to disconnect';
-		}
+		const name = OAUTH_PROVIDER_LABELS[provider];
+		pendingConfirm = {
+			title: `Disconnect ${name}?`,
+			text: `You can no longer sign in with ${name} until you connect it again.`,
+			action: 'Disconnect',
+			run: async () => {
+				try {
+					await api.unlinkIdentity(provider);
+					await loadIdentities();
+				} catch (e: any) {
+					identitiesError = e.error || 'Failed to disconnect';
+				}
+			}
+		};
 	}
 
 	// API keys (personal access tokens)
@@ -149,7 +173,7 @@
 	}
 
 	function machineName(id: string): string {
-		return apiKeyMachines.find((m) => m.id === id)?.name ?? `${id.slice(0, 8)}…`;
+		return apiKeyMachines.find((m) => m.id === id)?.name ?? `${id.slice(0, 8)}...`;
 	}
 
 	async function loadApiKeys() {
@@ -177,7 +201,7 @@
 		if (expiresRaw) {
 			expiresInDays = Number(expiresRaw);
 			if (!Number.isInteger(expiresInDays) || expiresInDays < 1 || expiresInDays > 3650) {
-				apiKeysError = 'Expiry must be a whole number of days (1–3650)';
+				apiKeysError = 'Expiry must be a whole number of days (1 to 3650)';
 				return;
 			}
 		}
@@ -203,19 +227,25 @@
 		}
 	}
 
-	async function handleRevokeApiKey(id: string) {
+	function handleRevokeApiKey(id: string) {
 		apiKeysError = null;
-		if (!confirm('Revoke this API key? This cannot be undone.')) return;
-		try {
-			await api.revokeApiKey(id);
-			await loadApiKeys();
-		} catch (e: any) {
-			apiKeysError = e.error || 'Failed to revoke';
-		}
+		pendingConfirm = {
+			title: 'Revoke this key?',
+			text: 'Anything that uses it stops working at once. It cannot be undone.',
+			action: 'Revoke',
+			run: async () => {
+				try {
+					await api.revokeApiKey(id);
+					await loadApiKeys();
+				} catch (e: any) {
+					apiKeysError = e.error || 'Failed to revoke';
+				}
+			}
+		};
 	}
 
 	function formatDate(iso: string | null) {
-		if (!iso) return '—';
+		if (!iso) return '-';
 		return new Date(iso).toLocaleString(undefined, {
 			year: 'numeric',
 			month: 'short',
@@ -520,7 +550,16 @@
 		<Panel title="Appearance" flush>
 			<div class="divide-y divide-line">
 				<SettingRow label="Theme" help="Applies at once, on this browser.">
-					<ThemeToggle />
+					<SegmentedControl
+						label="Theme"
+						size="sm"
+						value={$theme}
+						onchange={(mode: Theme) => theme.setTheme(mode)}
+						options={[
+							{ value: 'light', label: 'Light', icon: Sun },
+							{ value: 'dark', label: 'Dark', icon: Moon }
+						]}
+					/>
 				</SettingRow>
 			</div>
 		</Panel>
@@ -881,6 +920,14 @@
 	</div>
 {/if}
 
+<Modal open={pendingConfirm !== null} title={pendingConfirm?.title ?? ''} size="sm" onclose={() => (pendingConfirm = null)}>
+	<p class="text-sm text-ink">{pendingConfirm?.text}</p>
+	{#snippet footer()}
+		<Button variant="ghost" onclick={() => (pendingConfirm = null)}>Cancel</Button>
+		<Button variant="danger" loading={confirming} onclick={runConfirmed}>{pendingConfirm?.action}</Button>
+	{/snippet}
+</Modal>
+
 <Modal bind:open={showDeleteModal} title="Delete your account" size="sm">
 	{#if deleteError}<Alert tone="danger" class="mb-3">{deleteError}</Alert>{/if}
 	<p class="text-sm text-ink-muted">This deletes all your machines, samples and data. It cannot be undone.</p>
@@ -892,14 +939,13 @@
 
 <Modal
 	open={linkModalOpen}
-	title={identityFor('discord') ? 'Discord connected' : 'Connect Discord'}
+	title={discordIdentity ? 'Discord connected' : 'Connect Discord'}
 	size="sm"
 	onclose={closeLinkModal}
 >
-	{@const linked = identityFor('discord')}
-	{#if linked}
+	{#if discordIdentity}
 		<p class="text-sm text-ink">
-			Your Discord account{linked.provider_login ? ` @${linked.provider_login}` : ''} is already connected.
+			Your Discord account{discordIdentity.provider_login ? ` @${discordIdentity.provider_login}` : ''} is already connected.
 		</p>
 	{:else if providerEnabled('discord')}
 		<p class="text-sm text-ink-muted">
@@ -909,7 +955,7 @@
 		<p class="text-sm text-ink-muted">Discord sign-in isn't set up on this Hive.</p>
 	{/if}
 	{#snippet footer()}
-		{#if !linked && providerEnabled('discord')}
+		{#if !discordIdentity && providerEnabled('discord')}
 			<Button variant="ghost" onclick={closeLinkModal}>Not now</Button>
 			<Button variant="primary" href={api.oauthLinkUrl('discord', '/settings?link=discord')}>
 				<BrandMark brand="discord" size={16} />Connect Discord

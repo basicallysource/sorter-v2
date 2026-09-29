@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { beforeNavigate } from '$app/navigation';
+	import { afterNavigate, beforeNavigate, goto } from '$app/navigation';
 	import { page } from '$app/state';
 	import { tick, untrack } from 'svelte';
 	import {
@@ -42,6 +42,7 @@
 	import Badge from '$lib/components/Badge.svelte';
 	import Field from '$lib/components/Field.svelte';
 	import Input from '$lib/components/Input.svelte';
+	import Modal from '$lib/components/Modal.svelte';
 	import Popover from '$lib/components/Popover.svelte';
 	import ArrowLeft from '@lucide/svelte/icons/arrow-left';
 	import Plus from '@lucide/svelte/icons/plus';
@@ -206,11 +207,32 @@
 	};
 
 	// --- Navigation guard ---
-	beforeNavigate(({ cancel }) => {
-		if (hasUnsavedChanges && !confirm('You have unsaved changes. Leave anyway?')) {
-			cancel();
+	// Leaving with unsaved changes asks first: the move is stopped, and the dialog
+	// either carries it on to where it was headed or stays here.
+	let leaveTarget = $state<{ url: URL; delta: number | undefined } | null>(null);
+	let leaveConfirmed = false;
+
+	beforeNavigate((nav) => {
+		if (leaveConfirmed || !hasUnsavedChanges) return;
+		// Closing the tab or leaving the site gets the browser's own prompt from cancel().
+		nav.cancel();
+		if (!nav.willUnload && nav.to) {
+			leaveTarget = { url: nav.to.url, delta: nav.type === 'popstate' ? nav.delta : undefined };
 		}
 	});
+
+	afterNavigate(() => {
+		leaveConfirmed = false;
+	});
+
+	function leaveAnyway() {
+		const target = leaveTarget;
+		leaveTarget = null;
+		if (!target) return;
+		leaveConfirmed = true;
+		if (target.delta) history.go(target.delta);
+		else void goto(target.url);
+	}
 
 	// --- Load profile ---
 	let lastLoadedProfileId = '';
@@ -406,7 +428,7 @@
 		const lineCount = customSetLineCount(rule);
 		const lineLabel = lineCount === 1 ? 'line item' : 'line items';
 		const partLabel = total === 1 ? 'part' : 'parts';
-		return `${lineCount} ${lineLabel} · ${total} ${partLabel}`;
+		return `${lineCount} ${lineLabel}, ${total} ${partLabel}`;
 	}
 
 	function colorLabel(colorId: number | string | null | undefined, fallback?: string | null): string {
@@ -1077,10 +1099,10 @@
 	function conditionSummary(rule: SortingProfileRule): string {
 		if (rule.rule_type === 'set') {
 			if (isCustomSetRule(rule)) {
-				return `Custom set · ${customSetPartsLabel(rule)}`;
+				return `Custom set, ${customSetPartsLabel(rule)}`;
 			}
 			const meta = rule.set_meta;
-			if (meta) return `${rule.set_num} · ${meta.year} · ${meta.num_parts} parts`;
+			if (meta) return `${rule.set_num}, ${meta.year}, ${meta.num_parts} parts`;
 			return rule.set_num || 'LEGO Set';
 		}
 		if (rule.conditions.length === 0) return 'No conditions';
@@ -1088,10 +1110,10 @@
 			.map((c) => {
 				const op = opLabels[c.op] ?? c.op;
 				const val = typeof c.value === 'string' ? c.value : JSON.stringify(c.value);
-				const short = val.length > 20 ? val.slice(0, 20) + '…' : val;
+				const short = val.length > 20 ? val.slice(0, 20) + '...' : val;
 				return `${c.field} ${op} ${short}`;
 			})
-			.join(' · ');
+			.join(', ');
 	}
 
 	function dismissSuccess() { success = null; }
@@ -1145,7 +1167,7 @@
 					onkeydown={(e) => {
 						if (e.key === 'Enter') (e.currentTarget as HTMLInputElement).blur();
 					}}
-					class="col-start-1 row-start-1 w-full min-w-0 rounded-control bg-transparent px-1.5 text-xl font-semibold text-ink outline-none hover:bg-hover focus:bg-hover"
+					class="col-start-1 row-start-1 w-full min-w-0 rounded-control bg-transparent px-1.5 text-xl font-semibold text-ink hover:bg-hover focus:bg-hover focus-visible:-outline-offset-2"
 				/>
 			</div>
 			<Badge><span class="num">v{profile.current_version.version_number}</span></Badge>
@@ -1203,7 +1225,7 @@
 			<header class="flex flex-wrap items-center justify-between gap-2 border-b border-line px-(--pad-panel) py-2">
 				<h2 class="text-base font-semibold text-ink">Rules</h2>
 				{#if !isPreview}
-					<div class="flex flex-wrap items-center gap-1">
+					<div class="flex flex-wrap items-center gap-2">
 						<Button variant="ghost" size="sm" icon={Plus} onclick={() => addRule()}>Rule</Button>
 						<Button variant="ghost" size="sm" icon={Plus} onclick={() => (showSetSearch = true)}>Set</Button>
 						<Button variant="ghost" size="sm" icon={Plus} onclick={addCustomSetRule}>Custom set</Button>
@@ -1371,3 +1393,11 @@
 	class="hidden"
 	onchange={handleBrickLinkCsvSelected}
 />
+
+<Modal open={leaveTarget !== null} title="Leave without saving?" size="sm" onclose={() => (leaveTarget = null)}>
+	<p class="text-sm text-ink">This profile has changes that are not saved. If you leave now, they are lost.</p>
+	{#snippet footer()}
+		<Button variant="ghost" onclick={() => (leaveTarget = null)}>Stay</Button>
+		<Button variant="danger" onclick={leaveAnyway}>Leave without saving</Button>
+	{/snippet}
+</Modal>

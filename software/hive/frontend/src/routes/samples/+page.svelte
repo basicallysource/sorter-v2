@@ -29,7 +29,6 @@
 	import Archive from '@lucide/svelte/icons/archive';
 	import ArrowRight from '@lucide/svelte/icons/arrow-right';
 	import ChartColumn from '@lucide/svelte/icons/chart-column';
-	import ChevronLeft from '@lucide/svelte/icons/chevron-left';
 	import CircleCheck from '@lucide/svelte/icons/circle-check';
 	import Ellipsis from '@lucide/svelte/icons/ellipsis';
 	import Images from '@lucide/svelte/icons/images';
@@ -606,7 +605,7 @@
 	});
 
 	function formatRemaining(seconds: number): string {
-		if (!Number.isFinite(seconds) || seconds < 0) return '—';
+		if (!Number.isFinite(seconds) || seconds < 0) return '-';
 		if (seconds < 60) return `${Math.round(seconds)}s`;
 		const totalMins = Math.round(seconds / 60);
 		if (totalMins < 60) return `${totalMins}m`;
@@ -766,7 +765,7 @@
 					>{eta.remainingLabel} left</span
 				>
 			{/if}
-			<div class="ml-auto flex flex-wrap items-center gap-1">
+			<div class="ml-auto flex flex-wrap items-center gap-2">
 				<Button size="sm" variant="ghost" href={`/admin/teacher-jobs/${job.id}`} icon={ArrowRight}>Details</Button>
 				{#if job.status === 'pending' || job.status === 'running'}
 					<Button size="sm" onclick={cancelTeacherJob}>Cancel</Button>
@@ -1042,10 +1041,8 @@
 							options={[10, 20, 30, 50, 100].map((n) => ({ value: String(n), label: `${n} a page` }))}
 						/>
 					</div>
-					<div class="flex flex-wrap items-center gap-1">
-						<Button size="sm" icon={ChevronLeft} disabled={currentPage <= 1} onclick={() => goToPage(currentPage - 1)}
-							>Previous</Button
-						>
+					<div class="flex flex-wrap items-center gap-2">
+						<Button size="sm" disabled={currentPage <= 1} onclick={() => goToPage(currentPage - 1)}>Previous</Button>
 						{#each Array.from({ length: data.pages }, (_, i) => i + 1) as p (p)}
 							{#if data.pages <= 7 || p === 1 || p === data.pages || (p >= currentPage - 1 && p <= currentPage + 1)}
 								<Button

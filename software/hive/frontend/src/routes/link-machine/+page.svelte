@@ -13,13 +13,13 @@
 	import Spinner from '$lib/components/Spinner.svelte';
 	import { randomMachineName } from '$lib/machineName';
 	import Shuffle from '@lucide/svelte/icons/shuffle';
-	import ShieldCheck from '@lucide/svelte/icons/shield-check';
 	import ExternalLink from '@lucide/svelte/icons/external-link';
 	import Alert from '$lib/components/Alert.svelte';
 	import Button from '$lib/components/Button.svelte';
 	import Field from '$lib/components/Field.svelte';
 	import Input from '$lib/components/Input.svelte';
 	import KeyValue from '$lib/components/KeyValue.svelte';
+	import PageHeader from '$lib/components/PageHeader.svelte';
 	import Panel from '$lib/components/Panel.svelte';
 	import RadioGroup from '$lib/components/RadioGroup.svelte';
 	import Select from '$lib/components/Select.svelte';
@@ -200,32 +200,18 @@
 	<title>Link a sorter - Hive</title>
 </svelte:head>
 
-<div class="mx-auto flex min-h-[70vh] max-w-2xl flex-col justify-center">
+<div class="mx-auto flex max-w-2xl flex-col gap-(--gap-panels)">
+	<PageHeader
+		title={restoreIntent ? 'Restore this sorter from Hive' : 'Connect this sorter to Hive'}
+		description={restoreIntent
+			? 'Choose one of your machines or make a new one. Hive sends a machine token straight back to the Sorter.'
+			: 'Choose one of your machines if this Sorter was registered before, or make a new one. Hive sends the machine token straight back to the Sorter.'}
+	/>
 	<Panel>
-		<div class="flex items-start gap-3">
-			<span class="flex size-10 shrink-0 items-center justify-center rounded-control bg-primary-soft text-primary-ink">
-				<ShieldCheck size={20} />
-			</span>
-			<div class="min-w-0">
-				<p class="label">Machine link</p>
-				<h1 class="mt-1 text-xl font-semibold text-ink">
-					{restoreIntent ? 'Restore this sorter from Hive' : 'Connect this sorter to Hive'}
-				</h1>
-				<p class="mt-1 text-sm text-ink-muted">
-					{#if restoreIntent}
-						Choose one of your machines or make a new one. Hive sends a machine token straight back to the Sorter.
-					{:else}
-						Choose one of your machines if this Sorter was registered before, or make a new one. Hive sends the machine
-						token straight back to the Sorter.
-					{/if}
-				</p>
-			</div>
-		</div>
-
 		{#if !returnToUrl() || !stateToken()}
-			<Alert tone="danger" class="mt-5">This link is incomplete. Go back to the Sorter and start linking again.</Alert>
+			<Alert tone="danger">This link is incomplete. Go back to the Sorter and start linking again.</Alert>
 		{:else}
-			<div class="mt-5 rounded-control bg-well px-4 py-1">
+			<div class="rounded-control bg-well px-4 py-1">
 				<KeyValue
 					items={[
 						{ label: 'Signed in as', value: auth.user?.display_name || auth.user?.email || '' },
@@ -235,7 +221,7 @@
 				/>
 			</div>
 
-			<form id="link-form" onsubmit={handleSubmit} class="mt-5 flex flex-col gap-4">
+			<form id="link-form" onsubmit={handleSubmit} class="mt-4 flex flex-col gap-4">
 				<RadioGroup
 					name="link-mode"
 					label="Machine"

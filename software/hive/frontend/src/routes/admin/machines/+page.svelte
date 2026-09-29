@@ -52,17 +52,17 @@
 		return Math.round(n).toLocaleString();
 	}
 	function ppm(n: number): string {
-		return n > 0 ? n.toFixed(1) : '—';
+		return n > 0 ? n.toFixed(1) : '-';
 	}
 	function pct(n: number): string {
-		return n > 0 ? `${n.toFixed(1)}%` : '—';
+		return n > 0 ? `${n.toFixed(1)}%` : '-';
 	}
 	function hours(seconds: number): string {
-		if (!seconds || seconds <= 0) return '—';
+		if (!seconds || seconds <= 0) return '-';
 		return `${(seconds / 3600).toFixed(1)}h`;
 	}
 	function when(iso: string | null): string {
-		if (!iso) return '—';
+		if (!iso) return '-';
 		return new Date(iso).toLocaleDateString();
 	}
 

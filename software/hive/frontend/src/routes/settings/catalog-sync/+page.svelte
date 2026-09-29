@@ -32,7 +32,7 @@
 		geometry: 'LDraw Geometry'
 	};
 	const TYPE_BLURBS: Record<CatalogSyncType, string> = {
-		parts: 'Full part catalog from Rebrickable (largest sync — paginated, resumable).',
+		parts: 'Full part catalog from Rebrickable (the largest sync; it pages, and resumes).',
 		categories: 'Rebrickable part categories.',
 		colors: 'Rebrickable color list.',
 		prices: 'BrickLink price guide (requires BLA_API_KEY).',

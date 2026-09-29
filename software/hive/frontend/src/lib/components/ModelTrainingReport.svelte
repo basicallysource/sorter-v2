@@ -24,24 +24,24 @@
 	}
 
 	function textValue(value: unknown): string {
-		return value === null || value === undefined ? '—' : String(value);
+		return value === null || value === undefined ? '-' : String(value);
 	}
 
 	function pct(value: unknown, digits = 1): string {
 		const num = numberValue(value);
-		if (num === null) return '—';
+		if (num === null) return '-';
 		return `${(num * 100).toFixed(digits)}%`;
 	}
 
 	function num(value: unknown, digits = 3): string {
 		const parsed = numberValue(value);
-		if (parsed === null) return '—';
+		if (parsed === null) return '-';
 		return parsed.toFixed(digits);
 	}
 
 	function int(value: unknown): string {
 		const parsed = numberValue(value);
-		if (parsed === null) return '—';
+		if (parsed === null) return '-';
 		return Math.round(parsed).toLocaleString();
 	}
 
@@ -53,7 +53,7 @@
 
 	function formatSize(bytes: unknown): string {
 		const b = numberValue(bytes);
-		if (b === null) return '—';
+		if (b === null) return '-';
 		if (b < 1024) return `${b} B`;
 		if (b < 1024 * 1024) return `${(b / 1024).toFixed(1)} KB`;
 		if (b < 1024 * 1024 * 1024) return `${(b / (1024 * 1024)).toFixed(1)} MB`;
@@ -193,7 +193,7 @@
 			cards.push({
 				label: 'Training samples',
 				value: int(target),
-				caption: `${int(dataset.train_samples)} train · ${int(dataset.val_samples)} val`,
+				caption: `${int(dataset.train_samples)} train, ${int(dataset.val_samples)} val`,
 				percent: 100,
 				accent: softWarning
 			});
@@ -203,7 +203,7 @@
 			cards.push({
 				label: 'Inference',
 				value: `${num(fp.data.mean_ms, 1)} ms`,
-				caption: `${fp.name} · ${int(fp.data.fps_mean)} fps`,
+				caption: `${fp.name}, ${int(fp.data.fps_mean)} fps`,
 				percent: Math.min(100, ((numberValue(fp.data.fps_mean) ?? 0) / 500) * 100),
 				accent: softInfo
 			});
@@ -212,7 +212,7 @@
 			cards.push({
 				label: 'Model size',
 				value: formatSize(onnxBytes),
-				caption: `${variantCount} runtime${variantCount === 1 ? '' : 's'} · ONNX`,
+				caption: `${variantCount} runtime${variantCount === 1 ? '' : 's'}, ONNX`,
 				percent: Math.min(100, ((onnxBytes ?? 0) / (60 * 1024 * 1024)) * 100),
 				accent: softSuccess
 			});
@@ -221,7 +221,7 @@
 			cards.push({
 				label: 'Holdout F1',
 				value: num(auditPrimary.f1_iou50),
-				caption: `P ${pct(auditPrimary.precision_iou50, 0)} · R ${pct(auditPrimary.recall_iou50, 0)}`,
+				caption: `P ${pct(auditPrimary.precision_iou50, 0)}, R ${pct(auditPrimary.recall_iou50, 0)}`,
 				percent: clampPct(auditPrimary.f1_iou50),
 				accent: softInfo
 			});
@@ -355,7 +355,7 @@
 				{#each auditRows as row (row.threshold)}
 					<div>
 						<div class="mb-2 flex flex-wrap items-baseline justify-between gap-x-3 text-sm">
-							<span class="font-mono text-ink">Confidence {num(row.threshold, 2)} and up</span>
+							<span class="num text-ink">Confidence {num(row.threshold, 2)} and up</span>
 							<span class="text-ink-muted"
 								>Empty false positives {int(row.empty_false_positive_samples)} of {int(row.empty_samples)}, IoU {num(
 									row.matched_mean_iou,

@@ -12,7 +12,6 @@
 	import Panel from '$lib/components/Panel.svelte';
 	import Select from '$lib/components/Select.svelte';
 	import Boxes from '@lucide/svelte/icons/boxes';
-	import ChevronLeft from '@lucide/svelte/icons/chevron-left';
 
 	let data = $state<PaginatedDetectionModels | null>(null);
 	let loading = $state(true);
@@ -124,12 +123,7 @@
 
 	{#if data.pages > 1}
 		<div class="flex items-center justify-center gap-2">
-			<Button
-				size="sm"
-				icon={ChevronLeft}
-				disabled={currentPage <= 1}
-				onclick={() => (currentPage = Math.max(1, currentPage - 1))}>Previous</Button
-			>
+			<Button size="sm" disabled={currentPage <= 1} onclick={() => (currentPage = Math.max(1, currentPage - 1))}>Previous</Button>
 			<span class="num text-sm text-ink-muted">Page {data.page} of {data.pages}, {data.total} models</span>
 			<Button
 				size="sm"

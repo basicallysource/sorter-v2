@@ -85,7 +85,7 @@
 	}
 
 	function formatDate(iso: string | null): string {
-		if (!iso) return '—';
+		if (!iso) return '-';
 		return new Date(iso).toLocaleString('en-US', {
 			day: '2-digit',
 			month: '2-digit',
@@ -103,7 +103,7 @@
 	}
 
 	function formatUsd(value: number | null | undefined): string {
-		if (value == null) return '—';
+		if (value == null) return '-';
 		if (value === 0) return '$0.00';
 		// Sub-cent costs are common for single Gemini calls; show 4 decimals so $0.0008
 		// isn't displayed as "$0.00".

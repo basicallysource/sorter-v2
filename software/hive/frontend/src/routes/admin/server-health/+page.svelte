@@ -41,7 +41,7 @@
 	}
 
 	function bytes(n: number | null | undefined): string {
-		if (n == null) return '—';
+		if (n == null) return '-';
 		if (n === 0) return '0 B';
 		const units = ['B', 'KB', 'MB', 'GB', 'TB'];
 		const i = Math.min(units.length - 1, Math.floor(Math.log(n) / Math.log(1024)));
@@ -49,7 +49,7 @@
 	}
 
 	function num(n: number | null | undefined): string {
-		return n != null ? Math.round(n).toLocaleString() : '—';
+		return n != null ? Math.round(n).toLocaleString() : '-';
 	}
 
 	const storageParts = $derived(

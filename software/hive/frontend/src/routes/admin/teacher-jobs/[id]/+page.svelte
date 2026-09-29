@@ -14,7 +14,6 @@
 	import ProgressBar from '$lib/components/ProgressBar.svelte';
 	import SegmentedControl from '$lib/components/SegmentedControl.svelte';
 	import ArrowLeft from '@lucide/svelte/icons/arrow-left';
-	import ChevronLeft from '@lucide/svelte/icons/chevron-left';
 	import Button from '$lib/components/Button.svelte';
 
 	const REFRESH_MS = 3000;
@@ -115,7 +114,7 @@
 	}
 
 	function formatDate(iso: string | null): string {
-		if (!iso) return '—';
+		if (!iso) return '-';
 		return new Date(iso).toLocaleString('en-US', {
 			day: '2-digit',
 			month: '2-digit',
@@ -153,7 +152,7 @@
 	}
 
 	function formatUsd(value: number | null | undefined): string {
-		if (value == null) return '—';
+		if (value == null) return '-';
 		if (value === 0) return '$0.00';
 		if (Math.abs(value) < 0.01) return `$${value.toFixed(4)}`;
 		return `$${value.toFixed(2)}`;
@@ -186,6 +185,25 @@
 {:else if error && !job}
 	<Alert tone="danger">{error}</Alert>
 {:else if job}
+	<!-- The pages of the samples, a footer only when there is more than one. -->
+	{#snippet pager()}
+		{@const j = job!}
+		<span class="num mr-auto text-sm text-ink-muted"
+			>Page {j.items_page} of {j.items_pages}: {(j.items_page - 1) * j.items_page_size + 1} to {Math.min(
+				j.items_page * j.items_page_size,
+				j.items_total
+			)} of {j.items_total.toLocaleString()}</span
+		>
+		<Button size="sm" disabled={j.items_page <= 1} onclick={() => goToPage(j.items_page - 1)}>Previous</Button>
+		{#each Array.from({ length: j.items_pages }, (_, i) => i + 1) as p (p)}
+			{#if j.items_pages <= 7 || p === 1 || p === j.items_pages || (p >= j.items_page - 1 && p <= j.items_page + 1)}
+				<Button size="sm" variant={p === j.items_page ? 'primary' : 'ghost'} onclick={() => goToPage(p)}>{p}</Button>
+			{:else if p === 2 || p === j.items_pages - 1}
+				<span class="text-sm text-ink-muted">...</span>
+			{/if}
+		{/each}
+		<Button size="sm" disabled={j.items_page >= j.items_pages} onclick={() => goToPage(j.items_page + 1)}>Next</Button>
+	{/snippet}
 	<div class="flex flex-col gap-(--gap-panels)">
 		<Panel flush>
 			<div class="flex flex-wrap items-center gap-3 px-(--pad-panel) py-3 text-sm">
@@ -223,6 +241,7 @@
 		<Panel
 			title="Samples"
 			description={`${job.items_total.toLocaleString()} match${job.items_total === 1 ? '' : 'es'}${itemsFilter !== 'all' ? `, ${itemsFilter} only` : ''}.`}
+			footer={job.items_pages > 1 ? pager : undefined}
 		>
 			{#snippet actions()}
 				<SegmentedControl
@@ -264,23 +283,6 @@
 						</a>
 					{/each}
 				</div>
-			{/if}
-			{#if job.items_pages > 1}
-				{@const j = job}
-				{#snippet footer()}
-					<span class="num mr-auto text-sm text-ink-muted"
-						>Page {j.items_page} of {j.items_pages}: {(j.items_page - 1) * j.items_page_size + 1} to {Math.min(
-							j.items_page * j.items_page_size,
-							j.items_total
-						)} of {j.items_total.toLocaleString()}</span
-					>
-					<Button size="sm" icon={ChevronLeft} disabled={j.items_page <= 1} onclick={() => goToPage(j.items_page - 1)}
-						>Previous</Button
-					>
-					<Button size="sm" disabled={j.items_page >= j.items_pages} onclick={() => goToPage(j.items_page + 1)}
-						>Next</Button
-					>
-				{/snippet}
 			{/if}
 		</Panel>
 	</div>

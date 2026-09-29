@@ -16,6 +16,7 @@
 	import Button from '$lib/components/Button.svelte';
 	import EmptyState from '$lib/components/EmptyState.svelte';
 	import KeyValue from '$lib/components/KeyValue.svelte';
+	import PageHeader from '$lib/components/PageHeader.svelte';
 	import Panel from '$lib/components/Panel.svelte';
 	import ProgressBar from '$lib/components/ProgressBar.svelte';
 	import Stat from '$lib/components/Stat.svelte';
@@ -217,33 +218,26 @@
 	{:else if error}
 		<Alert tone="danger">{error}</Alert>
 	{:else if overview && machine}
-		<header class="flex flex-wrap items-start justify-between gap-x-6 gap-y-3">
-			<div class="min-w-0">
-				<div class="flex flex-wrap items-center gap-2">
-					<h1 class="truncate text-xl font-semibold text-ink">{machine.name}</h1>
-					<Badge tone={isOnline ? 'success' : 'neutral'} dot>{isOnline ? 'Online' : 'Offline'}</Badge>
-					{#if machine.archived_at}
-						<Badge>Archived</Badge>
-					{:else if !machine.is_active}
-						<Badge>Inactive</Badge>
-					{/if}
-				</div>
-				{#if machine.description}
-					<p class="mt-1 text-sm text-ink-muted">{machine.description}</p>
+		<PageHeader title={machine.name} description={machine.description || undefined}>
+			{#snippet actions()}
+				{#if localUi}
+					<Button href={localUi} target="_blank" rel="noopener noreferrer" icon={ExternalLink}>Open its page</Button>
+				{/if}
+			{/snippet}
+			<div class="flex flex-wrap items-center gap-2 text-sm text-ink-muted">
+				<Badge tone={isOnline ? 'success' : 'neutral'} dot>{isOnline ? 'Online' : 'Offline'}</Badge>
+				{#if machine.archived_at}
+					<Badge>Archived</Badge>
+				{:else if !machine.is_active}
+					<Badge>Inactive</Badge>
 				{/if}
 				{#if !isOwner && machine.owner.display_name}
-					<p class="mt-1 text-sm text-ink-muted">
-						Owner: <span class="text-ink">{machine.owner.display_name}</span>{#if machine.owner.email}, {machine
-								.owner.email}{/if}
-					</p>
+					<span>
+						Owner: <span class="text-ink">{machine.owner.display_name}</span>{#if machine.owner.email}, {machine.owner.email}{/if}
+					</span>
 				{/if}
 			</div>
-			{#if localUi}
-				<Button href={localUi} target="_blank" rel="noopener noreferrer" icon={ExternalLink}
-					>Open its page</Button
-				>
-			{/if}
-		</header>
+		</PageHeader>
 
 		<Panel title="Machine" flush>
 			<div class="px-(--pad-panel) pb-1">

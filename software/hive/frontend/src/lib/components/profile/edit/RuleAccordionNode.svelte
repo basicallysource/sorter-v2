@@ -132,32 +132,28 @@
 <!-- Nesting indent is halved on phones: at 16px per level a depth-4 rule would
      eat a quarter of the screen before its controls start. -->
 <div class="min-w-0 {depth > 0 ? 'ml-2 border-l border-line sm:ml-4' : ''}">
-	<!-- svelte-ignore a11y_no_static_element_interactions -->
+	<!-- The row is one button laid under its content, like a Card; the row's own
+	     controls sit above it and work on their own. -->
 	<div
-		onclick={() => {
-			onToggleNode(rule.id);
-			onSelectRule(rule.id);
-		}}
-		onkeydown={(e) => {
-			if (e.target !== e.currentTarget) return;
-			if (e.key === 'Enter' || e.key === ' ') {
-				e.preventDefault();
-				onToggleNode(rule.id);
-				onSelectRule(rule.id);
-			}
-		}}
-		role="button"
-		tabindex="0"
-		aria-expanded={isOpen}
-		class="group flex w-full cursor-pointer items-center gap-2 border-b border-line px-3 py-2 text-left transition-colors
+		class="group relative flex w-full items-center gap-2 border-b border-line px-3 py-2 transition-colors
 			{isOpen ? 'bg-primary-soft' : 'hover:bg-hover'}"
 	>
+		<button
+			type="button"
+			aria-expanded={isOpen}
+			aria-label={rule.name}
+			onclick={() => {
+				onToggleNode(rule.id);
+				onSelectRule(rule.id);
+			}}
+			class="absolute inset-0"
+		></button>
 		{#if rule.rule_type === 'set' && rule.set_meta?.img_url}
-			<img src={rule.set_meta.img_url} alt={rule.name} class="size-16 shrink-0 object-contain" />
+			<img src={rule.set_meta.img_url} alt={rule.name} class="pointer-events-none relative size-16 shrink-0 object-contain" />
 		{:else}
-			<ChevronRight size={16} class="shrink-0 text-ink-muted transition-transform {isOpen ? 'rotate-90' : ''}" />
+			<ChevronRight size={16} class="pointer-events-none relative shrink-0 text-ink-muted transition-transform {isOpen ? 'rotate-90' : ''}" />
 		{/if}
-		<div class="min-w-0 flex-1">
+		<div class="pointer-events-none relative min-w-0 flex-1">
 			<div class="flex items-center gap-2">
 				<span class="truncate text-sm font-medium {rule.disabled ? 'text-ink-muted line-through' : 'text-ink'}"
 					>{rule.name}</span
@@ -168,8 +164,7 @@
 				<div class="mt-0.5 truncate text-sm text-ink-muted">{conditionSummary(rule)}</div>
 			{/if}
 		</div>
-		<!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
-		<div class="flex shrink-0 items-center gap-1" onclick={(e) => e.stopPropagation()}>
+		<div class="relative flex shrink-0 items-center gap-1">
 			{#if !isPreview}
 				<span class="flex opacity-0 transition-opacity group-hover:opacity-100 focus-within:opacity-100">
 					<Button variant="ghost" size="sm" icon={ChevronUp} label="Move up" onclick={() => onMoveRule(rule.id, -1)} />

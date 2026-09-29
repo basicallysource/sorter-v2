@@ -70,7 +70,7 @@
 					<span class="size-3 shrink-0 rounded-badge" style:background-color={a.color}></span>
 					<span class="truncate text-ink">{a.label}</span>
 					<span class="num ml-auto text-ink-muted">
-						{a.value.toLocaleString()} · {pct(a.frac)}
+						{a.value.toLocaleString()}, {pct(a.frac)}
 					</span>
 				</div>
 			{/each}

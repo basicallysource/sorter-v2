@@ -8,6 +8,7 @@
 	import Badge from '$lib/components/Badge.svelte';
 	import Button from '$lib/components/Button.svelte';
 	import EmptyState from '$lib/components/EmptyState.svelte';
+	import PageHeader from '$lib/components/PageHeader.svelte';
 	import Panel from '$lib/components/Panel.svelte';
 	import Stat from '$lib/components/Stat.svelte';
 	import ArrowLeft from '@lucide/svelte/icons/arrow-left';
@@ -80,28 +81,28 @@
 {:else if profile}
 	{@const isMe = auth.user?.id === profile.user_id}
 	<div class="flex flex-col gap-(--gap-panels)">
-		<header class="flex flex-wrap items-center gap-4">
+		<div class="flex items-start gap-4">
 			{#if profile.avatar_url}
-				<img src={profile.avatar_url} alt="" class="size-16 shrink-0 rounded-full bg-well object-cover" />
+				<img src={profile.avatar_url} alt="" class="size-14 shrink-0 rounded-full bg-well object-cover" />
 			{:else}
-				<span
-					class="flex size-16 shrink-0 items-center justify-center rounded-full bg-surface text-xl font-medium text-ink-muted"
+				<span class="flex size-14 shrink-0 items-center justify-center rounded-full bg-surface text-xl font-medium text-ink-muted"
 					>{initials(profile.display_name)}</span
 				>
 			{/if}
 			<div class="min-w-0 flex-1">
-				<div class="flex flex-wrap items-center gap-2">
-					<h1 class="text-xl font-semibold text-ink">{profile.display_name ?? 'Anonymous'}</h1>
-					<Badge>{sentence(profile.role)}</Badge>
-					{#if isMe}<Badge tone="primary">You</Badge>{/if}
-				</div>
-				{#if profile.first_review_at}
-					<p class="mt-1 text-sm text-ink-muted">
-						Reviewing since {new Date(profile.first_review_at).toLocaleDateString()}.
-					</p>
-				{/if}
+				<PageHeader
+					title={profile.display_name ?? 'Anonymous'}
+					description={profile.first_review_at
+						? `Reviewing since ${new Date(profile.first_review_at).toLocaleDateString()}.`
+						: undefined}
+				>
+					<div class="flex flex-wrap items-center gap-2">
+						<Badge>{sentence(profile.role)}</Badge>
+						{#if isMe}<Badge tone="primary">You</Badge>{/if}
+					</div>
+				</PageHeader>
 			</div>
-		</header>
+		</div>
 
 		<Panel flush>
 			<div class="grid grid-cols-2 gap-px bg-line sm:grid-cols-3">

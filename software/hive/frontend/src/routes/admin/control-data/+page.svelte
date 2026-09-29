@@ -39,24 +39,24 @@
 		return Math.round(n).toLocaleString();
 	}
 	function gb(bytes: number): string {
-		if (!bytes) return '—';
+		if (!bytes) return '-';
 		if (bytes >= 1024 ** 3) return `${(bytes / 1024 ** 3).toFixed(2)} GB`;
 		if (bytes >= 1024 ** 2) return `${(bytes / 1024 ** 2).toFixed(1)} MB`;
 		return `${(bytes / 1024).toFixed(0)} KB`;
 	}
 	function hrs(h: number): string {
-		return h > 0 ? `${h.toFixed(1)}h` : '—';
+		return h > 0 ? `${h.toFixed(1)}h` : '-';
 	}
 	function when(iso: string | null): string {
-		if (!iso) return '—';
+		if (!iso) return '-';
 		return new Date(iso).toLocaleString();
 	}
 	function day(iso: string | null): string {
-		if (!iso) return '—';
+		if (!iso) return '-';
 		return new Date(iso).toLocaleDateString();
 	}
 	function mins(seconds: number): string {
-		if (!seconds || seconds <= 0) return '—';
+		if (!seconds || seconds <= 0) return '-';
 		return `${(seconds / 60).toFixed(1)}m`;
 	}
 

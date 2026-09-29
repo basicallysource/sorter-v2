@@ -18,6 +18,7 @@
 	import { sentence } from '$lib/text';
 	import Button from '$lib/components/Button.svelte';
 	import Checkbox from '$lib/components/Checkbox.svelte';
+	import PageHeader from '$lib/components/PageHeader.svelte';
 	import Panel from '$lib/components/Panel.svelte';
 	import ProgressBar from '$lib/components/ProgressBar.svelte';
 	import Stat from '$lib/components/Stat.svelte';
@@ -227,23 +228,23 @@
 	<Alert tone="danger">{error}</Alert>
 {:else if model}
 	<div class="flex flex-col gap-(--gap-panels)">
-		<header class="flex flex-wrap items-center gap-4">
+		<div class="flex items-start gap-4">
 			{#if model.codename_color}
-				<span class="size-16 shrink-0 rounded-full" style="background-color: {model.codename_color}" aria-hidden="true"
-				></span>
+				<span class="size-14 shrink-0 rounded-control" style="background-color: {model.codename_color}" aria-hidden="true"></span>
 			{/if}
 			<div class="min-w-0 flex-1">
-				<div class="flex flex-wrap items-center gap-2">
-					<h1 class="text-2xl font-semibold text-ink">{model.codename ?? model.name}</h1>
-					<Badge tone={model.experimental ? 'warning' : 'success'}>{model.experimental ? 'Experimental' : 'Stable'}</Badge>
-					{#if !model.is_public}<Badge>Private</Badge>{/if}
-				</div>
-				<p class="mt-1 text-sm text-ink-muted">
-					<span class="font-mono">{model.slug}</span>, v{model.version}, {relativeTime(model.published_at)}
-				</p>
-				{#if model.codename && model.name}<p class="mt-0.5 text-sm text-ink-muted">{model.name}</p>{/if}
+				<PageHeader
+					title={model.codename ?? model.name}
+					description={model.codename && model.name ? model.name : undefined}
+				>
+					<div class="flex flex-wrap items-center gap-2 text-sm text-ink-muted">
+						<Badge tone={model.experimental ? 'warning' : 'success'}>{model.experimental ? 'Experimental' : 'Stable'}</Badge>
+						{#if !model.is_public}<Badge>Private</Badge>{/if}
+						<span><span class="font-mono">{model.slug}</span>, v{model.version}, {relativeTime(model.published_at)}</span>
+					</div>
+				</PageHeader>
 			</div>
-		</header>
+		</div>
 
 		{#if map50 !== null || map50_95 !== null || precision !== null || recall !== null || arch || imgsz || samples !== null || diversityScore !== null}
 			<section aria-label="Numbers" class="grid grid-cols-2 gap-px overflow-hidden rounded-panel bg-line sm:grid-cols-4">

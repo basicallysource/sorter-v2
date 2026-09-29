@@ -22,7 +22,8 @@
 		{ value: 'all', label: 'All time' }
 	];
 
-	const initialPeriod = $derived(((page.url.searchParams.get('period') as Period | null) ?? '7d') as Period);
+	// Read once, when the page opens: the period in the link, else a week.
+	const initialPeriod = (page.url.searchParams.get('period') as Period | null) ?? '7d';
 
 	let period = $state<Period>(initialPeriod);
 	let loading = $state(true);

@@ -116,7 +116,7 @@
 								</span>
 								<span class="num text-base font-medium text-ink">{entry.total_reviews.toLocaleString()}</span>
 								<span class="num w-16 text-right text-sm text-ink-muted">
-									<span class="text-success-ink">{entry.accepts}</span> · <span class="text-danger-ink"
+									<span class="text-success-ink">{entry.accepts}</span>, <span class="text-danger-ink"
 										>{entry.rejects}</span
 									>
 								</span>

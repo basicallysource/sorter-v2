@@ -1,7 +1,9 @@
 <script lang="ts">
-	import Check from '@lucide/svelte/icons/check';
 	import RotateCcw from '@lucide/svelte/icons/rotate-ccw';
-	import Spinner from '$lib/components/ui/Spinner.svelte';
+	import Alert from '$lib/components/ui/Alert.svelte';
+	import Badge from '$lib/components/ui/Badge.svelte';
+	import Button from '$lib/components/ui/Button.svelte';
+	import Panel from '$lib/components/ui/Panel.svelte';
 
 	type StepperDirectionEntry = {
 		name: string;
@@ -116,188 +118,117 @@
 	);
 </script>
 
-<div class="flex flex-col gap-4">
+<div class="flex flex-col gap-(--gap-panels)">
 	{#if hardwareError}
-		<div
-			class="flex flex-wrap items-center justify-between gap-3 border border-danger bg-danger-soft px-4 py-3 text-sm text-danger-ink"
-		>
-			<span>{hardwareError}</span>
-			<button
-				onclick={onInitialize}
-				disabled={steppersInitializing}
-				class="setup-button-secondary inline-flex items-center gap-2 px-3 py-1.5 text-sm text-ink transition-colors disabled:cursor-not-allowed disabled:opacity-60"
-			>
-				<RotateCcw size={14} />
-				Retry
-			</button>
-		</div>
+		<Alert tone="danger">
+			{hardwareError}
+			{#snippet actions()}
+				<Button size="sm" icon={RotateCcw} disabled={steppersInitializing} onclick={onInitialize}>Retry</Button>
+			{/snippet}
+		</Alert>
 	{/if}
-
 	{#if hardwareState === 'standby' && !hardwareError && !steppersInitializing}
-		<div class="setup-panel flex flex-wrap items-center justify-between gap-3 px-4 py-3 text-sm">
-			<span class="text-ink-muted">The steppers are off.</span>
-			<button
-				onclick={onInitialize}
-				class="setup-button-secondary inline-flex items-center gap-2 px-3 py-1.5 text-sm text-ink transition-colors"
-			>
-				Power on steppers
-			</button>
-		</div>
+		<Alert tone="info" title="The steppers are off.">
+			{#snippet actions()}
+				<Button size="sm" onclick={onInitialize}>Power on the steppers</Button>
+			{/snippet}
+		</Alert>
 	{/if}
-
 	{#if steppersInitializing}
-		<div
-			class="flex items-center gap-3 border border-warning bg-warning-soft px-4 py-3 text-sm text-warning-ink"
-		>
-			<Spinner size={18} />
-			<div class="flex flex-col">
-				<span class="font-medium">Powering on steppers…</span>
-				<span class="text-xs text-warning-ink/80">
-					{homingStep ?? 'Discovering hardware'} — jog controls unlock once the boards are ready.
-				</span>
-			</div>
-		</div>
+		<Alert tone="warning" title="Powering on the steppers…">
+			{homingStep ?? 'Finding the hardware'}. The jog buttons unlock once the boards are ready.
+		</Alert>
 	{/if}
 
-	<div class="setup-panel px-4 py-3 text-sm text-ink-muted">
-		<div class="flex flex-wrap items-start justify-between gap-3">
-			<div class="min-w-0 flex-1">
-				Use very short jogs on an empty machine to verify that each axis turns in the expected
-				direction. Reverse any axis that runs the wrong way, then mark this step as done — the
-				next step covers endstops and the real homing routine.
-			</div>
-			<button
-				onclick={() => (showStepperWiringHelp = !showStepperWiringHelp)}
-				class="setup-button-secondary inline-flex items-center gap-2 px-3 py-1.5 text-xs font-medium text-ink transition-colors"
-			>
-				{showStepperWiringHelp ? 'Hide wiring help' : 'Show wiring help'}
-			</button>
-		</div>
-	</div>
-
-	{#if showStepperWiringHelp}
-		<div class="setup-panel px-4 py-4 text-sm text-ink">
-			<div class="text-sm font-semibold text-ink">SKR Pico stepper wiring</div>
-			<div class="mt-1 text-sm text-ink-muted">
-				Reference for the SKR Pico V1.0 stepper headers used by the feeder and distributor
-				boards.
-			</div>
-			<div class="mt-3 grid gap-4 lg:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)]">
-				<a
-					href={SKR_PICO_WIRING_DIAGRAM_URL}
-					target="_blank"
-					rel="noopener noreferrer"
-					class="block border border-line bg-white p-1"
-				>
+	<Panel
+		title="Each axis"
+		description="Use very short jogs on an empty machine to check that each axis turns the expected way. Reverse any that runs the wrong way, then mark this step done; the next step covers endstops and homing."
+	>
+		{#snippet actions()}
+			<Button size="sm" variant="ghost" onclick={() => (showStepperWiringHelp = !showStepperWiringHelp)}>
+				{showStepperWiringHelp ? 'Hide the wiring' : 'Show the wiring'}
+			</Button>
+		{/snippet}
+		{#if showStepperWiringHelp}
+			<div class="mb-4 grid gap-4 rounded-control bg-well p-4 lg:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)]">
+				<a href={SKR_PICO_WIRING_DIAGRAM_URL} target="_blank" rel="noopener noreferrer" class="block">
 					<img
 						src={SKR_PICO_WIRING_DIAGRAM_URL}
 						alt="SKR Pico V1.0 wiring diagram"
 						loading="lazy"
-						class="block h-auto w-full"
+						class="block h-auto w-full rounded-control"
 					/>
 				</a>
-				<div class="flex flex-col gap-3 text-xs">
-					<div>
-						<div class="font-semibold text-ink">Sorter mapping</div>
-						<table class="mt-2 w-full border-collapse">
-							<tbody>
-								<tr class="border-b border-line">
-									<td class="py-1 text-ink">C-Channel 1</td>
-									<td class="py-1 font-mono text-ink-muted">SKR Feeder · E0</td>
-								</tr>
-								<tr class="border-b border-line">
-									<td class="py-1 text-ink">C-Channel 2</td>
-									<td class="py-1 font-mono text-ink-muted">SKR Feeder · X</td>
-								</tr>
-								<tr class="border-b border-line">
-									<td class="py-1 text-ink">C-Channel 3</td>
-									<td class="py-1 font-mono text-ink-muted">SKR Feeder · Y</td>
-								</tr>
-								<tr class="border-b border-line">
-									<td class="py-1 text-ink">Carousel</td>
-									<td class="py-1 font-mono text-ink-muted">SKR Feeder · Z1</td>
-								</tr>
-								<tr>
-									<td class="py-1 text-ink">Chute</td>
-									<td class="py-1 font-mono text-ink-muted">SKR Distributor · E0</td>
-								</tr>
-							</tbody>
-						</table>
-					</div>
+				<div class="flex flex-col gap-2 text-sm">
+					<h3 class="font-medium text-ink">SKR Pico stepper wiring</h3>
+					<p class="text-ink-muted">
+						The SKR Pico V1.0 stepper headers the feeder and distributor boards use.
+					</p>
+					<table class="data-table">
+						<tbody>
+							{#each [['C-channel 1', 'SKR feeder · E0'], ['C-channel 2', 'SKR feeder · X'], ['C-channel 3', 'SKR feeder · Y'], ['Carousel', 'SKR feeder · Z1'], ['Chute', 'SKR distributor · E0']] as [axis, port] (axis)}
+								<tr><td>{axis}</td><td class="font-mono text-ink-muted">{port}</td></tr>
+							{/each}
+						</tbody>
+					</table>
 				</div>
 			</div>
-		</div>
-	{/if}
-
-	<div class="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-		{#each stepperEntries as entry}
-			{@const isVerified = !!verifiedSteppers[entry.name]}
-			{@const picture = DIRECTION_PICTURES[STEPPER_LOGICAL_TO_PHYSICAL[entry.name] ?? entry.name]}
-			<div
-				class={`setup-panel relative p-4 transition-colors ${
-					isVerified ? '!border-success !bg-success-soft' : ''
-				}`}
-			>
-				{#if isVerified}
-					<div
-						class="absolute top-2 right-2 inline-flex items-center gap-1 bg-success px-2 py-0.5 text-xs font-semibold text-white"
-					>
-						<Check size={12} />
-						Verified
-					</div>
-				{/if}
-				<div class="flex items-center justify-between gap-3 pr-20">
-					<div class="min-w-0">
-						<div class="text-sm font-medium text-ink">{entry.label}</div>
-						<div class="text-xs text-ink-muted">
-							{stepperLocationLabel(entry)}
+		{/if}
+		<div class="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+			{#each stepperEntries as entry}
+				{@const isVerified = !!verifiedSteppers[entry.name]}
+				{@const picture = DIRECTION_PICTURES[STEPPER_LOGICAL_TO_PHYSICAL[entry.name] ?? entry.name]}
+				<section
+					class="flex flex-col gap-3 rounded-control p-3 transition-colors {isVerified
+						? 'bg-success-soft'
+						: 'bg-well'}"
+				>
+					<div class="flex items-start justify-between gap-3">
+						<div class="min-w-0 text-sm">
+							<h3 class="font-medium text-ink">{entry.label}</h3>
+							<p class="text-ink-muted">{stepperLocationLabel(entry)}</p>
+						</div>
+						<div class="flex shrink-0 flex-wrap justify-end gap-1.5">
+							{#if isVerified}<Badge tone="success">Checked</Badge>{/if}
+							<Badge tone={entry.inverted ? 'warning' : undefined}>
+								{entry.inverted ? 'Inverted' : 'Normal'}
+							</Badge>
 						</div>
 					</div>
-					<div class={`text-xs ${entry.inverted ? 'text-danger-ink' : 'text-success-ink'}`}>
-						{entry.inverted ? 'Inverted' : 'Normal'}
-					</div>
-				</div>
-
-				{#if picture}
-					<img
-						src={picture}
-						alt={`${entry.label} seen from above, with an arrow showing clockwise`}
-						loading="lazy"
-						class="mt-3 aspect-[4/3] w-full border border-line bg-white object-cover"
-					/>
-				{/if}
-
-				<div class="mt-4 flex justify-center">
-					<button
-						onclick={() => onPulse(entry.name, 'cw')}
+					{#if picture}
+						<img
+							src={picture}
+							alt={`${entry.label} seen from above, with an arrow showing clockwise`}
+							loading="lazy"
+							class="aspect-4/3 w-full rounded-control object-cover"
+						/>
+					{/if}
+					<Button
+						variant="primary"
+						class="self-center"
 						disabled={!steppersLive || !!stepperBusy[`${entry.name}:cw`]}
-						class="inline-flex items-center justify-center border border-primary bg-primary px-6 py-1.5 text-xs font-medium text-on-primary transition-colors hover:bg-primary-hover disabled:cursor-not-allowed disabled:opacity-50"
+						onclick={() => onPulse(entry.name, 'cw')}
 					>
 						Jog
-					</button>
-				</div>
-				<div class="mt-3 text-center text-xs text-ink-muted">Which way did it turn, seen from above?</div>
-				<div class="mt-1 grid grid-cols-2 gap-2">
-					<button
-						onclick={() => onRecordObservedDirection(entry, 'cw')}
-						disabled={!steppersLive || togglingStepper === entry.name}
-						class="setup-button-secondary px-3 py-2 text-sm text-ink transition-colors disabled:cursor-not-allowed disabled:opacity-50"
-					>
-						Clockwise
-					</button>
-					<button
-						onclick={() => onRecordObservedDirection(entry, 'ccw')}
-						disabled={!steppersLive || togglingStepper === entry.name}
-						class="setup-button-secondary px-3 py-2 text-sm text-ink transition-colors disabled:cursor-not-allowed disabled:opacity-50"
-					>
-						Counter-Clockwise
-					</button>
-				</div>
-			</div>
-		{/each}
-	</div>
-
-	{#if stepperActionError}
-		<div class="text-sm text-danger-ink">{stepperActionError}</div>
-	{/if}
+					</Button>
+					<p class="text-center text-sm text-ink-muted">Which way did it turn, seen from above?</p>
+					<div class="grid grid-cols-2 gap-2">
+						<Button
+							disabled={!steppersLive || togglingStepper === entry.name}
+							onclick={() => onRecordObservedDirection(entry, 'cw')}
+						>
+							Clockwise
+						</Button>
+						<Button
+							disabled={!steppersLive || togglingStepper === entry.name}
+							onclick={() => onRecordObservedDirection(entry, 'ccw')}
+						>
+							Counterclockwise
+						</Button>
+					</div>
+				</section>
+			{/each}
+		</div>
+		{#if stepperActionError}<p class="mt-3 text-sm text-danger-ink">{stepperActionError}</p>{/if}
+	</Panel>
 </div>

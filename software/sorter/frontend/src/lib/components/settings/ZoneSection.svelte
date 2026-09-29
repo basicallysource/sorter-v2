@@ -34,7 +34,7 @@
 	import SlidersHorizontal from '@lucide/svelte/icons/sliders-horizontal';
 	import X from '@lucide/svelte/icons/x';
 	import StreamControlsOverlay from '$lib/components/StreamControlsOverlay.svelte';
-	import { createEventDispatcher, onMount } from 'svelte';
+	import { onMount } from 'svelte';
 	import { roleView } from '$lib/video';
 
 	type Channel =
@@ -372,7 +372,8 @@
 		stepperEndstop = undefined,
 		stepperLabel = undefined,
 		stepperGearRatio = undefined,
-		wizardMode = false
+		wizardMode = false,
+		onsaved
 	}: {
 		channels?: Channel[];
 		stepperKey?: StepperKey;
@@ -380,9 +381,8 @@
 		stepperLabel?: string;
 		stepperGearRatio?: number;
 		wizardMode?: boolean;
+		onsaved?: () => void;
 	} = $props();
-
-	const dispatch = createEventDispatcher<{ saved: void }>();
 
 	const hasStepper = $derived(!!stepperKey);
 
@@ -2686,18 +2686,12 @@
 			const labelY = clamp(point[1] + offset[1] * s, minLabelY, Math.max(minLabelY, maxLabelY));
 			const boxX = labelX - boxWidth / 2;
 			const boxY = labelY - boxHeight / 2;
-			ctx.save();
-			ctx.shadowColor = 'rgba(0, 0, 0, 0.28)';
-			ctx.shadowBlur = 12 * s;
-			ctx.shadowOffsetX = 0;
-			ctx.shadowOffsetY = 4 * s;
 			ctx.beginPath();
-			ctx.roundRect(boxX, boxY, boxWidth, boxHeight, 4 * s);
+			ctx.roundRect(boxX, boxY, boxWidth, boxHeight, 1 * s);
 			ctx.fillStyle = 'rgba(255, 255, 255, 0.96)';
 			ctx.fill();
-			ctx.restore();
 			ctx.beginPath();
-			ctx.roundRect(boxX, boxY, boxWidth, boxHeight, 4 * s);
+			ctx.roundRect(boxX, boxY, boxWidth, boxHeight, 1 * s);
 			ctx.strokeStyle = 'rgba(17, 17, 17, 0.12)';
 			ctx.lineWidth = 1 * s;
 			ctx.stroke();
@@ -3657,7 +3651,7 @@
 			exitSecondaryEditMode();
 			canvasCursor = 'default';
 			statusMsg = 'Zone saved.';
-			dispatch('saved');
+			onsaved?.();
 			return true;
 		} catch (e: any) {
 			statusMsg = `Error: ${e.message}`;
@@ -3758,7 +3752,7 @@
 				/>
 			{/if}
 			<span class="flex min-w-0 items-center gap-1.5 text-sm text-ink-muted">
-				Camera <span class="truncate text-ink">{formatSource(currentAssignment())}</span>
+				Source <span class="truncate text-ink">{formatSource(currentAssignment())}</span>
 				{#if currentAssignment() === null && cameraConfigLoaded}
 					<Button variant="ghost" size="sm" icon={Plus} label="Choose a camera" onclick={openCameraPicker} />
 				{/if}

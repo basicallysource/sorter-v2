@@ -1,5 +1,7 @@
 <script lang="ts">
 	import MachineNameField from '$lib/components/MachineNameField.svelte';
+	import Field from '$lib/components/ui/Field.svelte';
+	import Panel from '$lib/components/ui/Panel.svelte';
 
 	let {
 		machineId,
@@ -14,29 +16,25 @@
 		nameStatus: string;
 		backendBaseUrl: string;
 	} = $props();
-
-	const MACHINE_NAME_INPUT_ID = 'setup-machine-name';
 </script>
 
-<div class="flex flex-col gap-4">
-	<div class="text-xs text-ink-muted">
-		Machine ID:
-		<span class="font-mono text-ink">{machineId || '—'}</span>
+<Panel>
+	<div class="flex max-w-md flex-col gap-4">
+		<p class="text-sm text-ink-muted">
+			Machine ID <span class="font-mono text-ink">{machineId || '–'}</span>
+		</p>
+		<Field
+			label="Machine name"
+			for="setup-machine-name"
+			error={nameError ?? undefined}
+			help={nameStatus || undefined}
+		>
+			<MachineNameField
+				bind:value={nicknameDraft}
+				{backendBaseUrl}
+				id="setup-machine-name"
+				placeholder="Sorting bench A"
+			/>
+		</Field>
 	</div>
-	<div>
-		<label for={MACHINE_NAME_INPUT_ID} class="mb-2 block text-sm font-medium text-ink">
-			Machine name
-		</label>
-		<MachineNameField
-			bind:value={nicknameDraft}
-			{backendBaseUrl}
-			id={MACHINE_NAME_INPUT_ID}
-			placeholder="e.g. Sorting Bench A"
-		/>
-	</div>
-	{#if nameError}
-		<div class="text-sm text-danger-ink">{nameError}</div>
-	{:else if nameStatus}
-		<div class="text-sm text-success-ink">{nameStatus}</div>
-	{/if}
-</div>
+</Panel>

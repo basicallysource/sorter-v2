@@ -66,23 +66,25 @@
 	<div class="flex justify-center p-8"><Spinner size={32} /></div>
 {:else if stats}
 	<div class="flex flex-col gap-(--gap-panels)">
-		<section
-			aria-label="Samples"
-			class="grid grid-cols-2 gap-px overflow-hidden rounded-panel bg-line sm:grid-cols-4 lg:grid-cols-7"
-		>
-			{#each [
-				{ label: 'Total samples', value: stats.total_samples },
-				{ label: 'Unreviewed', value: stats.unreviewed_samples },
-				{ label: 'In review', value: stats.in_review_samples },
-				{ label: 'Accepted', value: stats.accepted_samples, tone: 'success' as const },
-				{ label: 'Rejected', value: stats.rejected_samples, tone: 'danger' as const },
-				{ label: 'Conflict', value: stats.conflict_samples, tone: 'warning' as const },
-				{ label: 'Machines', value: stats.total_machines }
-			] as stat (stat.label)}
-				<div class="bg-surface">
-					<Stat label={stat.label} value={stat.value.toLocaleString()} tone={stat.tone} />
-				</div>
-			{/each}
+		<!-- Each cell draws its own top and left line; the grid is pulled 1px up and left
+		     so the lines on the outer edges are clipped. The lines fall between cells only,
+		     and a last row that is not full leaves the panel's fill, not a dark gap. -->
+		<section aria-label="Samples" class="overflow-hidden rounded-panel bg-surface">
+			<div class="-mt-px -ml-px grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7">
+				{#each [
+					{ label: 'Total samples', value: stats.total_samples },
+					{ label: 'Unreviewed', value: stats.unreviewed_samples },
+					{ label: 'In review', value: stats.in_review_samples },
+					{ label: 'Accepted', value: stats.accepted_samples, tone: 'success' as const },
+					{ label: 'Rejected', value: stats.rejected_samples, tone: 'danger' as const },
+					{ label: 'Conflict', value: stats.conflict_samples, tone: 'warning' as const },
+					{ label: 'Machines', value: stats.total_machines }
+				] as stat (stat.label)}
+					<div class="border-t border-l border-line">
+						<Stat label={stat.label} value={stat.value.toLocaleString()} tone={stat.tone} />
+					</div>
+				{/each}
+			</div>
 		</section>
 
 		<!-- Top reviewers: keeps the gamification right on the landing page, so it

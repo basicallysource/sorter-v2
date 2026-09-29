@@ -200,7 +200,7 @@
 	<title>Link a sorter - Hive</title>
 </svelte:head>
 
-<div class="mx-auto flex max-w-2xl flex-col gap-(--gap-panels)">
+<div class="mx-auto flex w-full max-w-2xl flex-col gap-(--gap-panels)">
 	<PageHeader
 		title={restoreIntent ? 'Restore this sorter from Hive' : 'Connect this sorter to Hive'}
 		description={restoreIntent

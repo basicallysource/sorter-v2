@@ -15,10 +15,13 @@
 		formatValue?: (v: number) => string;
 	} = $props();
 
-	const W = 560;
+	// One drawing unit is one pixel, so a label is 12px at any width (a viewBox scaled to
+	// a phone would shrink it below that). Until the width is measured, a typical one.
+	let measured = $state(560);
+	const W = $derived(Math.max(240, measured));
 	const H = 170;
 	const M = { top: 10, right: 10, bottom: 24, left: 48 };
-	const innerW = W - M.left - M.right;
+	const innerW = $derived(W - M.left - M.right);
 	const innerH = H - M.top - M.bottom;
 
 	function parseDay(day: string): number {
@@ -87,51 +90,53 @@
 {#if sorted.length === 0}
 	<div class="flex h-32 items-center justify-center text-sm text-ink-muted">No data yet.</div>
 {:else}
-	<svg viewBox="0 0 {W} {H}" class="h-auto w-full" role="img">
-		{#each [0, 0.5, 1] as f (f)}
-			{@const y = M.top + innerH - f * innerH}
-			<line
-				x1={M.left}
-				y1={y}
-				x2={M.left + innerW}
-				y2={y}
-				stroke="var(--line-strong)"
-				stroke-width="1"
-				vector-effect="non-scaling-stroke"
-			/>
-			<text x={M.left - 6} y={y + 3.5} text-anchor="end" font-size="12" fill="var(--ink-muted)">
-				{formatValue(yMax * f)}
-			</text>
-		{/each}
-
-		{#if kind === 'bar'}
-			{#each sorted as p (p.date)}
-				<rect
-					x={xOf(p.date) - barW / 2}
-					y={yOf(p.value)}
-					width={barW}
-					height={Math.max(0, M.top + innerH - yOf(p.value))}
-					fill={color}
-				>
-					<title>{formatDayLabel(p.date)}: {formatValue(p.value)}</title>
-				</rect>
+	<div bind:clientWidth={measured}>
+		<svg viewBox="0 0 {W} {H}" width={W} height={H} class="block max-w-full" role="img">
+			{#each [0, 0.5, 1] as f (f)}
+				{@const y = M.top + innerH - f * innerH}
+				<line
+					x1={M.left}
+					y1={y}
+					x2={M.left + innerW}
+					y2={y}
+					stroke="var(--line-strong)"
+					stroke-width="1"
+					vector-effect="non-scaling-stroke"
+				/>
+				<text x={M.left - 6} y={y + 3.5} text-anchor="end" font-size="12" fill="var(--ink-muted)">
+					{formatValue(yMax * f)}
+				</text>
 			{/each}
-		{:else}
-			{#if areaPath}
-				<path d={areaPath} fill={color} fill-opacity="0.08" />
+
+			{#if kind === 'bar'}
+				{#each sorted as p (p.date)}
+					<rect
+						x={xOf(p.date) - barW / 2}
+						y={yOf(p.value)}
+						width={barW}
+						height={Math.max(0, M.top + innerH - yOf(p.value))}
+						fill={color}
+					>
+						<title>{formatDayLabel(p.date)}: {formatValue(p.value)}</title>
+					</rect>
+				{/each}
+			{:else}
+				{#if areaPath}
+					<path d={areaPath} fill={color} fill-opacity="0.08" />
+				{/if}
+				<path d={linePath} fill="none" stroke={color} stroke-width="1.5" vector-effect="non-scaling-stroke" />
+				{#each sorted as p (p.date)}
+					<circle cx={xOf(p.date)} cy={yOf(p.value)} r="2" fill={color}>
+						<title>{formatDayLabel(p.date)}: {formatValue(p.value)}</title>
+					</circle>
+				{/each}
 			{/if}
-			<path d={linePath} fill="none" stroke={color} stroke-width="1.5" vector-effect="non-scaling-stroke" />
-			{#each sorted as p (p.date)}
-				<circle cx={xOf(p.date)} cy={yOf(p.value)} r="2" fill={color}>
-					<title>{formatDayLabel(p.date)}: {formatValue(p.value)}</title>
-				</circle>
-			{/each}
-		{/if}
 
-		{#each xTicks as t (t.x + t.label)}
-			<text x={t.x} y={H - 6} text-anchor={t.anchor} font-size="12" fill="var(--ink-muted)">
-				{t.label}
-			</text>
-		{/each}
-	</svg>
+			{#each xTicks as t (t.x + t.label)}
+				<text x={t.x} y={H - 6} text-anchor={t.anchor} font-size="12" fill="var(--ink-muted)">
+					{t.label}
+				</text>
+			{/each}
+		</svg>
+	</div>
 {/if}

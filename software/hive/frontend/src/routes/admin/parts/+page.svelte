@@ -157,12 +157,12 @@
 						tone: overview.coverage.parts_with_price_guide > 0 ? ('ok' as const) : ('bad' as const)
 					},
 					{
-						label: 'BrickLink IDs with no item',
+						label: 'IDs with no item',
 						value: overview.coverage.bricklink_ids_without_item,
 						tone: overview.coverage.bricklink_ids_without_item > 0 ? ('bad' as const) : ('ok' as const)
 					},
 					{
-						label: 'Items with dimensions',
+						label: 'With dimensions',
 						value: overview.coverage.bricklink_items_with_dims,
 						tone: overview.coverage.bricklink_items_with_dims > 0 ? ('ok' as const) : ('neutral' as const)
 					},
@@ -172,7 +172,7 @@
 						tone: overview.coverage.price_color_rows_mapped_to_rb > 0 ? ('ok' as const) : ('neutral' as const)
 					},
 					{
-						label: 'Parts with LDraw geometry',
+						label: 'With LDraw geometry',
 						value: overview.coverage.parts_with_ldraw_geometry,
 						tone: overview.coverage.parts_with_ldraw_geometry > 0 ? ('ok' as const) : ('neutral' as const)
 					}
@@ -191,9 +191,9 @@
 
 {#if overview}
 	<Panel flush>
-		<div class="grid grid-cols-2 gap-px bg-line sm:grid-cols-4">
+		<div class="-mt-px -ml-px grid grid-cols-2 sm:grid-cols-4">
 			{#each coverageCards as card (card.label)}
-				<div class="bg-surface">
+				<div class="border-t border-l border-line">
 					<Stat label={card.label} value={fmt(card.value)} tone={card.tone === 'bad' ? 'danger' : card.tone === 'ok' ? 'success' : undefined} />
 				</div>
 			{/each}
@@ -260,7 +260,7 @@
 							</td>
 							<td>{part.name}</td>
 							<td class="text-ink-muted">{part._category_name}</td>
-							<td class="num text-ink-muted">{yearRange(part.year_from, part.year_to)}</td>
+							<td class="num whitespace-nowrap text-ink-muted">{yearRange(part.year_from, part.year_to)}</td>
 							<td class="num text-ink-muted">{part._bl_id_count}</td>
 							<td class="num {part._bl_item_count > 0 ? 'text-success-ink' : 'text-danger-ink'}">{part._bl_item_count}</td>
 							<td class="num text-ink-muted">{part._price_count}</td>
@@ -393,7 +393,7 @@
 									<tr>
 										<td>
 											{p.color_name ?? `BrickLink ${p.bl_color_id}`}
-											{#if p.rb_color_id == null}<span class="text-ink-muted"> (BrickLink only)</span>{/if}
+											{#if p.rb_color_id == null}{' '}<span class="text-ink-muted">(BrickLink only)</span>{/if}
 										</td>
 										<td class="num">{money(p.new_avg)}</td>
 										<td class="num">{money(p.used_avg)}</td>

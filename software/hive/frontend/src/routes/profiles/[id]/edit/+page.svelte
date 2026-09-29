@@ -1160,6 +1160,7 @@
 				>
 				<input
 					type="text"
+					size="1"
 					aria-label="Profile name"
 					bind:this={nameInput}
 					bind:value={nameDraft}

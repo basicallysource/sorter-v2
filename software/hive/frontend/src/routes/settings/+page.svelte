@@ -493,7 +493,7 @@
 </svelte:head>
 
 {#if auth.user}
-	<div class="mx-auto flex max-w-4xl flex-col gap-(--gap-panels)">
+	<div class="mx-auto flex w-full max-w-4xl flex-col gap-(--gap-panels)">
 		<PageHeader title="Account settings" />
 
 		<Panel title="Profile" flush>
@@ -865,7 +865,7 @@
 								<tr>
 									<th>Name</th><th>Token</th><th>Scopes</th><th>Machines</th><th>Created</th><th>Last used</th><th
 										>Expires</th
-									><th>Status</th><th><span class="sr-only">Actions</span></th>
+									><th>Status</th><th aria-label="Actions"></th>
 								</tr>
 							</thead>
 							<tbody>

@@ -113,9 +113,9 @@
 					</div>
 				</div>
 			{/if}
-			<div class="grid grid-cols-1 gap-px border-t border-line bg-line sm:grid-cols-3">
+			<div class="-ml-px grid grid-cols-1 sm:grid-cols-3">
 				{#each storageParts as part (part.key)}
-					<div class="bg-surface p-4">
+					<div class="border-t border-l border-line p-4">
 						<div class="flex items-center gap-2 text-sm">
 							<span class="size-2.5 rounded-full" style="background: {part.color}"></span>
 							<span class="text-ink">{part.label}</span>
@@ -134,8 +134,7 @@
 				<div class="mb-2 flex items-baseline justify-between text-sm">
 					<span class="text-ink-muted">Used</span>
 					<span class="num text-ink"
-						>{bytes(health.memory.used_bytes)} of {bytes(health.memory.total_bytes)}{#if memUsedPct != null}
-							<span class="text-ink-muted"> ({memUsedPct}%)</span>{/if}</span
+						>{bytes(health.memory.used_bytes)} of {bytes(health.memory.total_bytes)}{#if memUsedPct != null}{' '}<span class="text-ink-muted">({memUsedPct}%)</span>{/if}</span
 					>
 				</div>
 				<ProgressBar
@@ -167,7 +166,7 @@
 							{#each health.database.tables as t (t.name)}
 								<tr>
 									<td class="font-mono">{t.name}</td>
-									<td class="num">{bytes(t.bytes)}</td>
+									<td class="num whitespace-nowrap">{bytes(t.bytes)}</td>
 									<td class="num text-ink-muted">{num(t.rows)}</td>
 								</tr>
 							{/each}

@@ -105,28 +105,28 @@
 		</div>
 
 		<Panel flush>
-			<div class="grid grid-cols-2 gap-px bg-line sm:grid-cols-3">
-				<div class="bg-surface">
+			<div class="-mt-px -ml-px grid grid-cols-1 sm:grid-cols-3">
+				<div class="border-t border-l border-line">
 					<Stat label="Contributions" value={profile.total_contributions.toLocaleString()} hint="Reviews and piece labels" />
 				</div>
-				<div class="bg-surface">
+				<div class="border-t border-l border-line">
 					<Stat
 						label="Sample reviews"
 						value={profile.total_reviews.toLocaleString()}
 						hint={`${profile.accepts} accepted, ${profile.rejects} rejected`}
 					/>
 				</div>
-				<div class="bg-surface">
+				<div class="border-t border-l border-line">
 					<Stat
 						label="Piece labels"
 						value={(profile.piece_color_labels + profile.piece_crop_links).toLocaleString()}
 						hint={`${profile.piece_color_labels} color, ${profile.piece_crop_links} same piece`}
 					/>
 				</div>
-				<div class="bg-surface">
+				<div class="border-t border-l border-line">
 					<Stat label="Agreement" value={pct(profile.agreement_rate)} hint="With the final consensus" />
 				</div>
-				<div class="bg-surface">
+				<div class="border-t border-l border-line">
 					<Stat
 						label="Current streak"
 						value={`${profile.current_streak_days}`}
@@ -134,7 +134,7 @@
 						hint={`Longest: ${profile.longest_streak_days} days`}
 					/>
 				</div>
-				<div class="bg-surface">
+				<div class="border-t border-l border-line">
 					<Stat
 						label="Best day"
 						value={profile.speed_record_24h}
@@ -174,9 +174,9 @@
 					>{profile!.achievements.filter((a) => a.earned).length} of {profile!.achievements.length} earned</span
 				>
 			{/snippet}
-			<div class="grid grid-cols-1 gap-px border-t border-line bg-line sm:grid-cols-2 lg:grid-cols-3">
+			<div class="-ml-px grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
 				{#each profile.achievements as a (a.slug)}
-					<div class="flex items-start gap-3 bg-surface p-4 {a.earned ? '' : 'opacity-50'}">
+					<div class="flex items-start gap-3 border-t border-l border-line p-4 {a.earned ? '' : 'opacity-50'}">
 						<span class="text-2xl leading-none">{a.icon}</span>
 						<div class="min-w-0 flex-1">
 							<div class="flex items-center gap-2">

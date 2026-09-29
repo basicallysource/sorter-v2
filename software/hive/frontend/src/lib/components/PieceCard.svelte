@@ -17,7 +17,7 @@
 
 <div {id}>
 	<Card label={card.part.part_name || card.part.part_id || 'Unidentified piece'} onclick={() => onOpen(card)} padded={false} class="overflow-hidden">
-		<div class="relative flex h-24 items-center justify-center bg-well">
+		<div class="relative flex h-24 items-center justify-center {card.thumb_seq != null ? 'bg-media' : 'bg-well'}">
 			{#if card.thumb_seq != null}
 				<img
 					src={api.colorLabelImageUrl(card.machine_id, card.piece_uuid, card.thumb_seq)}

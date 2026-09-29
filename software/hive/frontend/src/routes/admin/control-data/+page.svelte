@@ -95,19 +95,21 @@
 	{:else if summary && summary.totals.segments === 0}
 		<Panel><EmptyState icon={Database} title="No control data yet">No segments have synced.</EmptyState></Panel>
 	{:else if summary}
-		<section aria-label="Totals" class="grid grid-cols-2 gap-px overflow-hidden rounded-panel bg-line sm:grid-cols-4">
-			{#each [
-				['Segments', num(summary.totals.segments)],
-				['Records', num(summary.totals.records)],
-				['Size', gb(summary.totals.bytes)],
-				['Capture time', hrs(summary.totals.hours)],
-				['Machines', String(summary.totals.machines)],
-				['With a file', num(summary.totals.with_file)],
-				['Auto-tune', num(summary.totals.autotune_session + summary.totals.autotune_background)],
-				['Plain sorting', num(summary.totals.plain)]
-			] as [label, value] (label)}
-				<div class="bg-surface"><Stat {label} {value} /></div>
-			{/each}
+		<section aria-label="Totals" class="overflow-hidden rounded-panel bg-surface">
+			<div class="-mt-px -ml-px grid grid-cols-2 sm:grid-cols-4">
+				{#each [
+					['Segments', num(summary.totals.segments)],
+					['Records', num(summary.totals.records)],
+					['Size', gb(summary.totals.bytes)],
+					['Capture time', hrs(summary.totals.hours)],
+					['Machines', String(summary.totals.machines)],
+					['With a file', num(summary.totals.with_file)],
+					['Auto-tune', num(summary.totals.autotune_session + summary.totals.autotune_background)],
+					['Plain sorting', num(summary.totals.plain)]
+				] as [label, value] (label)}
+					<div class="border-t border-l border-line"><Stat {label} {value} /></div>
+				{/each}
+			</div>
 		</section>
 		<p class="-mt-2 text-sm text-ink-muted">
 			First capture {day(summary.totals.first_started_at)}, latest {when(summary.totals.last_ended_at)}. With a file counts
@@ -138,7 +140,7 @@
 								</td>
 								<td class="num">{num(m.segments)}</td>
 								<td class="num">{num(m.records)}</td>
-								<td class="num text-ink-muted">{gb(m.bytes)}</td>
+								<td class="num whitespace-nowrap text-ink-muted">{gb(m.bytes)}</td>
 								<td class="num">{hrs(m.hours)}</td>
 								<td class="num text-ink-muted">{num(m.autotune_session)}</td>
 								<td class="num text-ink-muted">{num(m.autotune_background)}</td>
@@ -203,7 +205,7 @@
 								<td class="whitespace-nowrap text-ink-muted">{when(seg.started_at)}</td>
 								<td class="num text-ink-muted">{mins(seg.duration_s)}</td>
 								<td class="num">{num(seg.records)}</td>
-								<td class="num text-ink-muted">{gb(seg.bytes)}</td>
+								<td class="num whitespace-nowrap text-ink-muted">{gb(seg.bytes)}</td>
 								<td class="whitespace-nowrap text-ink-muted">{seg.feeder_mode ?? '-'}</td>
 								<td class="whitespace-nowrap text-ink-muted">{seg.autotune_mode ?? '-'}</td>
 								<td>

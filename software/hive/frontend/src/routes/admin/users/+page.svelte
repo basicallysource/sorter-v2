@@ -108,7 +108,7 @@
 		<div class="overflow-x-auto">
 			<table class="data-table">
 				<thead>
-					<tr><th>Person</th><th>Role</th><th>Status</th><th>Joined</th><th><span class="sr-only">Actions</span></th></tr>
+					<tr><th>Person</th><th>Role</th><th>Status</th><th>Joined</th><th aria-label="Actions"></th></tr>
 				</thead>
 				<tbody>
 					{#each users as user (user.id)}

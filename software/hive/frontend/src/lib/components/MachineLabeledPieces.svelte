@@ -77,7 +77,7 @@
 						class="flex items-center gap-2 px-(--pad-panel) py-1.5 hover:bg-hover"
 						title={`${it.color_name} (${it.color_id}), ${it.label_count} labeler${it.label_count === 1 ? '' : 's'}`}
 					>
-						<div class="flex size-12 shrink-0 items-center justify-center rounded-item bg-well">
+						<div class="flex size-12 shrink-0 items-center justify-center rounded-item {it.thumb_seq != null ? 'bg-media' : 'bg-well'}">
 							{#if it.thumb_seq != null}
 								<ZoomImage
 									src={api.machineLabeledPieceImageUrl(machineId, it.piece_uuid, it.thumb_seq)}

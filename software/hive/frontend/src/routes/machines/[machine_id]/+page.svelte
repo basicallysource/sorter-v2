@@ -208,7 +208,7 @@
 	<title>{machine ? machine.name : 'Machine'} - Hive</title>
 </svelte:head>
 
-<div class="mx-auto flex max-w-5xl flex-col gap-(--gap-panels)">
+<div class="mx-auto flex w-full max-w-5xl flex-col gap-(--gap-panels)">
 	<div>
 		<Button href={backLink.href} size="sm" variant="ghost" icon={ArrowLeft}>{backLink.label}</Button>
 	</div>
@@ -220,6 +220,8 @@
 	{:else if overview && machine}
 		<PageHeader title={machine.name} description={machine.description || undefined}>
 			{#snippet actions()}
+				<Button href={`/machines/${machine.id}/pieces`} icon={ArrowRight}>Pieces</Button>
+				<Button href={`/machines/${machine.id}/channel-crops`} icon={ArrowRight}>Channel crops</Button>
 				{#if localUi}
 					<Button href={localUi} target="_blank" rel="noopener noreferrer" icon={ExternalLink}>Open its page</Button>
 				{/if}
@@ -262,27 +264,21 @@
 			description="Pieces a minute and on time come from the synced pieces' times, not the machine's own clock."
 			flush
 		>
-			{#snippet actions()}
-				<Button href={`/machines/${machine.id}/channel-crops`} size="sm" variant="ghost" icon={ArrowRight}
-					>Channel crops</Button
-				>
-				<Button href={`/machines/${machine.id}/pieces`} size="sm" variant="ghost" icon={ArrowRight}
-					>Pieces</Button
-				>
-			{/snippet}
-			<div class="grid grid-cols-2 gap-px bg-line sm:grid-cols-4">
-				{#each [
-					{ label: 'Pieces counted', value: num(stats?.pieces_seen) },
-					{ label: 'Distributed', value: num(stats?.distributed) },
-					{ label: 'Pieces a minute', value: ppm(stats?.overall_ppm) },
-					{ label: 'On time', value: pct(stats?.ontime_pct) },
-					{ label: 'Active time', value: duration(stats?.active_seconds) },
-					{ label: 'Classified', value: num(stats?.classified) },
-					{ label: 'Unique parts', value: num(stats?.unique_parts) },
-					{ label: 'Unique colors', value: num(stats?.unique_colors) }
-				] as cell (cell.label)}
-					<div class="bg-surface"><Stat label={cell.label} value={cell.value} /></div>
-				{/each}
+			<div class="overflow-hidden">
+				<div class="-mt-px -ml-px grid grid-cols-2 sm:grid-cols-4">
+					{#each [
+						{ label: 'Pieces counted', value: num(stats?.pieces_seen) },
+						{ label: 'Distributed', value: num(stats?.distributed) },
+						{ label: 'Pieces a minute', value: ppm(stats?.overall_ppm) },
+						{ label: 'On time', value: pct(stats?.ontime_pct) },
+						{ label: 'Active time', value: duration(stats?.active_seconds) },
+						{ label: 'Classified', value: num(stats?.classified) },
+						{ label: 'Unique parts', value: num(stats?.unique_parts) },
+						{ label: 'Unique colors', value: num(stats?.unique_colors) }
+					] as cell (cell.label)}
+						<div class="border-t border-l border-line"><Stat label={cell.label} value={cell.value} /></div>
+					{/each}
+				</div>
 			</div>
 			<p class="border-t border-line px-(--pad-panel) py-3 text-sm text-ink-muted">
 				First piece {formatDate(stats?.first_seen ?? null)}, last piece {formatDate(stats?.last_seen ?? null)}.
@@ -290,21 +286,23 @@
 		</Panel>
 
 		<Panel title="Sample capture" flush>
-			<div class="grid grid-cols-2 gap-px bg-line sm:grid-cols-4">
-				{#each [
-					{ label: 'Samples', value: num(stats?.total_samples) },
-					{ label: 'Accepted', value: num(stats?.accepted_samples) },
-					{ label: 'Sessions', value: num(stats?.total_sessions) },
-					{
-						label: 'Accept rate',
-						value:
-							stats && stats.total_samples > 0
-								? `${Math.round((stats.accepted_samples / stats.total_samples) * 100)}%`
-								: '-'
-					}
-				] as cell (cell.label)}
-					<div class="bg-surface"><Stat label={cell.label} value={cell.value} /></div>
-				{/each}
+			<div class="overflow-hidden">
+				<div class="-mt-px -ml-px grid grid-cols-2 sm:grid-cols-4">
+					{#each [
+						{ label: 'Samples', value: num(stats?.total_samples) },
+						{ label: 'Accepted', value: num(stats?.accepted_samples) },
+						{ label: 'Sessions', value: num(stats?.total_sessions) },
+						{
+							label: 'Accept rate',
+							value:
+								stats && stats.total_samples > 0
+									? `${Math.round((stats.accepted_samples / stats.total_samples) * 100)}%`
+									: '-'
+						}
+					] as cell (cell.label)}
+						<div class="border-t border-l border-line"><Stat label={cell.label} value={cell.value} /></div>
+					{/each}
+				</div>
 			</div>
 			{#if stats && stats.parts_needed > 0}
 				<div class="border-t border-line px-(--pad-panel) py-3">

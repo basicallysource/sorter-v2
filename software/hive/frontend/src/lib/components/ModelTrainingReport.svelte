@@ -239,27 +239,28 @@
 	});
 
 	// Compact key-value chips for the training setup band
-	type Chip = { label: string; value: string; mono?: boolean };
+	// A name is set in the mono (someone may copy it); a number in tabular figures.
+	type Chip = { label: string; value: string; kind?: 'mono' | 'num' };
 	const setupChips = $derived.by<Chip[]>(() => {
 		const chips: Chip[] = [];
 		const baseModel = model.source_model ?? modelTraining.base_model;
-		if (baseModel) chips.push({ label: 'base', value: String(baseModel), mono: true });
-		if (model.imgsz) chips.push({ label: 'imgsz', value: int(model.imgsz), mono: true });
+		if (baseModel) chips.push({ label: 'base', value: String(baseModel), kind: 'mono' });
+		if (model.imgsz) chips.push({ label: 'imgsz', value: int(model.imgsz), kind: 'num' });
 		const bestEpoch = modelTraining.best_epoch ?? bestMetrics.epoch;
 		const totalEpochs = modelTraining.total_epochs;
 		if (bestEpoch && totalEpochs) {
-			chips.push({ label: 'epochs', value: `${int(bestEpoch)} / ${int(totalEpochs)}`, mono: true });
+			chips.push({ label: 'epochs', value: `${int(bestEpoch)} of ${int(totalEpochs)}`, kind: 'num' });
 		} else if (totalEpochs) {
-			chips.push({ label: 'epochs', value: int(totalEpochs), mono: true });
+			chips.push({ label: 'epochs', value: int(totalEpochs), kind: 'num' });
 		}
-		if (modelTraining.elapsed_min) chips.push({ label: 'duration', value: `${num(modelTraining.elapsed_min, 0)} min` });
-		if (dataset.name) chips.push({ label: 'dataset', value: String(dataset.name), mono: true });
+		if (modelTraining.elapsed_min) chips.push({ label: 'duration', value: `${num(modelTraining.elapsed_min, 0)} min`, kind: 'num' });
+		if (dataset.name) chips.push({ label: 'dataset', value: String(dataset.name), kind: 'mono' });
 		if (dataset.min_detection_score !== undefined && dataset.min_detection_score !== null) {
-			chips.push({ label: 'min score', value: num(dataset.min_detection_score, 2), mono: true });
+			chips.push({ label: 'min score', value: num(dataset.min_detection_score, 2), kind: 'num' });
 		}
 		const maxEmpty = dataset.max_empty_fraction;
 		if (numberValue(maxEmpty) !== null) {
-			chips.push({ label: 'empties', value: pct(maxEmpty, 0), mono: true });
+			chips.push({ label: 'empties', value: pct(maxEmpty, 0), kind: 'num' });
 		}
 		const family = model.family;
 		if (family) chips.push({ label: 'family', value: String(family) });
@@ -316,15 +317,17 @@
 
 <div class="flex flex-col gap-(--gap-panels)">
 	{#if heroMetrics.length > 0}
-		<section aria-label="Headline numbers" class="{heroGridClass} gap-px overflow-hidden rounded-panel bg-line">
-			{#each heroMetrics as metric (metric.label)}
-				<div class="flex flex-col gap-1 bg-surface p-4">
-					<div class="text-sm text-ink-muted">{metric.label}</div>
-					<div class="num text-2xl font-medium text-ink">{metric.value}</div>
-					<div class="text-sm text-ink-muted">{metric.caption}</div>
-					<div class="mt-2">{@render bar(metric.percent, metric.accent, 'h-1.5')}</div>
-				</div>
-			{/each}
+		<section aria-label="Headline numbers" class="overflow-hidden rounded-panel bg-surface">
+			<div class="{heroGridClass} -mt-px -ml-px">
+				{#each heroMetrics as metric (metric.label)}
+					<div class="flex flex-col gap-1 border-t border-l border-line p-4">
+						<div class="text-sm text-ink-muted">{metric.label}</div>
+						<div class="num text-2xl font-medium text-ink">{metric.value}</div>
+						<div class="text-sm text-ink-muted">{metric.caption}</div>
+						<div class="mt-2">{@render bar(metric.percent, metric.accent, 'h-1.5')}</div>
+					</div>
+				{/each}
+			</div>
 		</section>
 	{/if}
 
@@ -334,7 +337,7 @@
 				{#each setupChips as chip (chip.label)}
 					<div class="flex items-baseline gap-1.5">
 						<dt class="text-sm text-ink-muted">{sentence(chip.label)}</dt>
-						<dd class="text-sm text-ink {chip.mono ? 'font-mono' : ''}">{chip.value}</dd>
+						<dd class="text-sm text-ink {chip.kind === 'mono' ? 'font-mono' : chip.kind === 'num' ? 'num' : ''}">{chip.value}</dd>
 					</div>
 				{/each}
 			</dl>
@@ -414,8 +417,8 @@
 							<tr>
 								<td class="font-mono">{row.name}</td>
 								<td class="hidden sm:table-cell">{@render bar(((row.fps ?? 0) / perfFpsMax) * 100, softInfo)}</td>
-								<td class="num">{num(row.mean, 1)} ms</td>
-								<td class="num text-ink-muted">{num(row.p95, 1)} ms</td>
+								<td class="num whitespace-nowrap">{num(row.mean, 1)} ms</td>
+								<td class="num whitespace-nowrap text-ink-muted">{num(row.p95, 1)} ms</td>
 								<td class="num font-medium">{int(row.fps)}</td>
 							</tr>
 						{/each}
@@ -482,10 +485,10 @@
 			description={`Accepted ${int(precheckTotals.accepted_evaluated_roles)}: ${int(precheckTotals.accepted_positive_evaluated_roles)} with pieces, ${int(precheckTotals.accepted_empty_evaluated_roles)} empty.`}
 			flush
 		>
-			<div class="grid gap-px border-t border-line bg-line md:grid-cols-3">
+			<div class="-ml-px grid md:grid-cols-3">
 				{#each coverageRows as row, i (i)}
 					{@const score = clampPct(row.score_percent)}
-					<div class="flex flex-col gap-2 bg-surface p-4">
+					<div class="flex flex-col gap-2 border-t border-l border-line p-4">
 						<div class="flex items-center justify-between gap-2 text-sm">
 							<span class="text-ink">{sentence(textValue(row.role))}</span>
 							<span class="num font-medium" style={`color: ${gaugeText(score)};`}>{num(row.score_percent, 1)}%</span>
@@ -520,7 +523,7 @@
 											<td class="num">{num(row.f1_iou50)}</td>
 											<td class="num">{num(row.matched_mean_iou)}</td>
 											<td class="num">{pct(row.decision_match_rate)}</td>
-											<td class="num">{int(row.empty_false_positive_samples)} of {int(row.empty_samples)}</td>
+											<td class="num whitespace-nowrap">{int(row.empty_false_positive_samples)} of {int(row.empty_samples)}</td>
 										</tr>
 									{/each}
 								</tbody>

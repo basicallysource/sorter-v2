@@ -222,13 +222,12 @@
 	</PageHeader>
 
 	<div class="flex flex-col gap-(--gap-panels)">
-		<section
-			aria-label="Numbers"
-			class="grid grid-cols-2 gap-px overflow-hidden rounded-panel bg-line sm:grid-cols-3 lg:grid-cols-6"
-		>
-			{#each stats as s (s.label)}
-				<div class="bg-surface"><Stat label={s.label} value={s.value} /></div>
-			{/each}
+		<section aria-label="Numbers" class="overflow-hidden rounded-panel bg-surface">
+			<div class="-mt-px -ml-px grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6">
+				{#each stats as s (s.label)}
+					<div class="border-t border-l border-line"><Stat label={s.label} value={s.value} /></div>
+				{/each}
+			</div>
 		</section>
 
 		{#if error}<Alert tone="danger">{error}</Alert>{/if}
@@ -244,7 +243,7 @@
 								{#if cat.isFallback}<Badge>Fallback</Badge>{/if}
 							</span>
 							<span class="h-3 flex-1 overflow-hidden rounded-badge bg-track">
-								<span class="block h-full bg-info" style="width: {cat.pct}%"></span>
+								<span class="block h-full bg-primary" style="width: {cat.pct}%"></span>
 							</span>
 							<span class="num w-20 shrink-0 text-right text-ink-muted">{cat.parts} parts</span>
 						</li>
@@ -301,8 +300,7 @@
 											<li class="flex flex-col gap-1.5">
 												<div class="flex items-baseline justify-between gap-3 text-sm">
 													<span class="min-w-0 truncate text-ink"
-														>{set.name}{#if set.name !== set.set_num}
-															<span class="font-mono text-ink-muted"> {set.set_num}</span>{/if}</span
+														>{set.name}{#if set.name !== set.set_num}{' '}<span class="font-mono text-ink-muted">{set.set_num}</span>{/if}</span
 													>
 													<span class="num shrink-0 text-ink-muted"
 														>{set.total_found} of {set.total_needed} ({set.pct}%)</span

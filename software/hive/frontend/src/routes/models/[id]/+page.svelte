@@ -247,28 +247,29 @@
 		</div>
 
 		{#if map50 !== null || map50_95 !== null || precision !== null || recall !== null || arch || imgsz || samples !== null || diversityScore !== null}
-			<section aria-label="Numbers" class="grid grid-cols-2 gap-px overflow-hidden rounded-panel bg-line sm:grid-cols-4">
-				<div class="bg-surface"><Stat label="mAP50" value={formatPct(map50)} /></div>
-				<div class="bg-surface"><Stat label="mAP50-95" value={formatPct(map50_95)} /></div>
-				<div class="bg-surface"><Stat label="Precision" value={formatPct(precision)} /></div>
-				<div class="bg-surface"><Stat label="Recall" value={formatPct(recall)} /></div>
-				<div class="bg-surface">
-					<Stat
-						label="Model"
-						value={arch && imgsz ? `${arch} @ ${imgsz}` : (arch ?? (imgsz ? `${imgsz} x ${imgsz}` : '-'))}
-					/>
-				</div>
-				<div class="bg-surface">
-					<Stat label="Samples" value={samples !== null ? samples.toLocaleString() : '-'} />
-				</div>
-				<div class="bg-surface sm:col-span-2">
-					<Stat
-						label="Diversity"
-						value={diversityScore !== null ? diversityScore.toFixed(3) : '-'}
-						hint={machineCount !== null
-							? `How evenly the samples come from ${machineCount} machines: 0 is one machine, 1 an even split.`
-							: 'How evenly the samples come from different machines: 0 is one machine, 1 an even split.'}
-					/>
+			<section aria-label="Numbers" class="overflow-hidden rounded-panel bg-surface">
+				<div class="-mt-px -ml-px grid grid-cols-2 sm:grid-cols-4">
+					<div class="border-t border-l border-line"><Stat label="mAP50" value={formatPct(map50)} /></div>
+					<div class="border-t border-l border-line"><Stat label="mAP50-95" value={formatPct(map50_95)} /></div>
+					<div class="border-t border-l border-line"><Stat label="Precision" value={formatPct(precision)} /></div>
+					<div class="border-t border-l border-line"><Stat label="Recall" value={formatPct(recall)} /></div>
+					<div class="border-t border-l border-line">
+						<Stat
+							label="Model"
+							value={arch && imgsz ? `${arch} @ ${imgsz}` : (arch ?? (imgsz ? `${imgsz} x ${imgsz}` : '-'))}
+						/>
+					</div>
+					<div class="border-t border-l border-line">
+						<Stat label="Samples" value={samples !== null ? samples.toLocaleString() : '-'} />
+					</div>
+					<div class="col-span-2 border-t border-l border-line">
+						<Stat label="Diversity" value={diversityScore !== null ? diversityScore.toFixed(3) : '-'} />
+						<p class="-mt-2 px-5 pb-4 text-sm text-ink-muted">
+							{machineCount !== null
+								? `How evenly the samples come from ${machineCount} machines: 0 is one machine, 1 an even split.`
+								: 'How evenly the samples come from different machines: 0 is one machine, 1 an even split.'}
+						</p>
+					</div>
 				</div>
 			</section>
 		{/if}
@@ -283,10 +284,10 @@
 				{#if defaultError}
 					<div class="px-(--pad-panel) pb-3"><Alert tone="danger">{defaultError}</Alert></div>
 				{/if}
-				<div class="grid grid-cols-1 gap-px border-t border-line bg-line sm:grid-cols-2 lg:grid-cols-4">
+				<div class="-ml-px grid grid-cols-[repeat(auto-fit,minmax(15rem,1fr))]">
 					{#each model.variants as variant (variant.id)}
 						{@const isDefault = model.default_for.includes(variant.runtime)}
-						<div class="flex flex-col bg-surface">
+						<div class="flex flex-col border-t border-l border-line">
 							<a
 								href={downloadUrl(variant.id)}
 								class="flex flex-1 flex-col gap-1 p-4 transition-colors hover:bg-hover"

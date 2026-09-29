@@ -160,12 +160,12 @@
 								<Button size="sm" onclick={() => cancel(job.id)}>Cancel</Button>
 							</div>
 						</div>
-						<div class="grid grid-cols-2 gap-px border-t border-line bg-line sm:grid-cols-3 xl:grid-cols-5">
-							<div class="bg-surface"><Stat label="Processed" value={job.processed} unit={`of ${job.total}`} hint={`${pct(job)}%`} /></div>
-							<div class="bg-surface"><Stat label="Succeeded" value={job.succeeded} tone="success" /></div>
-							<div class="bg-surface"><Stat label="Failed" value={job.failed} tone={job.failed > 0 ? 'warning' : undefined} /></div>
-							<div class="bg-surface"><Stat label="Left" value={Math.max(0, job.total - job.processed)} /></div>
-							<div class="bg-surface" title="What OpenRouter has billed so far, and the total at the average cost a sample.">
+						<div class="-ml-px grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-5">
+							<div class="border-t border-l border-line"><Stat label="Processed" value={job.processed} unit={`of ${job.total}`} hint={`${pct(job)}%`} /></div>
+							<div class="border-t border-l border-line"><Stat label="Succeeded" value={job.succeeded} tone="success" /></div>
+							<div class="border-t border-l border-line"><Stat label="Failed" value={job.failed} tone={job.failed > 0 ? 'warning' : undefined} /></div>
+							<div class="border-t border-l border-line"><Stat label="Left" value={Math.max(0, job.total - job.processed)} /></div>
+							<div class="border-t border-l border-line" title="What OpenRouter has billed so far, and the total at the average cost a sample.">
 								<Stat
 									label="Cost"
 									value={formatUsd(job.cost_usd)}

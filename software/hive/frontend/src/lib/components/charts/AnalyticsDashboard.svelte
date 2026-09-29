@@ -58,15 +58,17 @@
 	const capacity = $derived<SeriesPoint[]>((data?.timeseries ?? []).map((p) => ({ date: p.day, value: p.capacity_per_day })));
 	const machinesOverTime = $derived<SeriesPoint[]>((data?.timeseries ?? []).map((p) => ({ date: p.day, value: p.cumulative_machines })));
 
+	// One slice a machine: the primary and the neutrals, steps apart. The status colors keep
+	// their meaning, so no machine is drawn in green or red.
 	const PALETTE = [
 		'var(--primary)',
-		'var(--info)',
-		'var(--success)',
-		'var(--warning-ink)',
-		'var(--danger)',
-		'color-mix(in srgb, var(--primary) 55%, var(--canvas))',
-		'color-mix(in srgb, var(--info) 55%, var(--canvas))',
-		'color-mix(in srgb, var(--success) 55%, var(--canvas))'
+		'var(--ink)',
+		'var(--ink-muted)',
+		'color-mix(in srgb, var(--primary) 55%, var(--surface))',
+		'color-mix(in srgb, var(--ink) 55%, var(--surface))',
+		'var(--ink-faint)',
+		'color-mix(in srgb, var(--primary) 30%, var(--surface))',
+		'var(--line-strong)'
 	];
 
 	function statusColor(label: string): string {
@@ -159,10 +161,12 @@
 {:else if data}
 	<div class="flex flex-col gap-(--gap-panels)">
 		{#if showTotals}
-			<div class="grid grid-cols-2 gap-px overflow-hidden rounded-panel bg-line sm:grid-cols-4">
-				{#each totalsCards as cell (cell.label)}
-					<div class="bg-surface"><Stat label={cell.label} value={cell.value} /></div>
-				{/each}
+			<div class="overflow-hidden rounded-panel bg-surface">
+				<div class="-mt-px -ml-px grid grid-cols-2 sm:grid-cols-4">
+					{#each totalsCards as cell (cell.label)}
+						<div class="border-t border-l border-line"><Stat label={cell.label} value={cell.value} /></div>
+					{/each}
+				</div>
 			</div>
 		{/if}
 
@@ -178,13 +182,13 @@
 					<SeriesChart points={piecesPerDay} kind="bar" />
 				</ChartCard>
 				<ChartCard title="Total pieces" subtitle="Pieces seen, added up.">
-					<SeriesChart points={cumulativePieces} color="var(--info)" />
+					<SeriesChart points={cumulativePieces} />
 				</ChartCard>
 				<ChartCard title="Average pieces a minute" subtitle="Each day's mean across machines.">
-					<SeriesChart points={avgPpm} color="var(--success)" formatValue={(v) => v.toFixed(1)} />
+					<SeriesChart points={avgPpm} formatValue={(v) => v.toFixed(1)} />
 				</ChartCard>
 				<ChartCard title="Sorting capacity" subtitle="Pieces a day at that day's rate, sorting all day.">
-					<SeriesChart points={capacity} color="var(--warning-ink)" />
+					<SeriesChart points={capacity} />
 				</ChartCard>
 				{#if isMulti}
 					<ChartCard title="Machines over time" subtitle="Machines seen, added up.">
@@ -206,7 +210,7 @@
 					<BarList items={topParts} />
 				</ChartCard>
 				<ChartCard title="Top colors">
-					<BarList items={topColors} color="var(--info)" />
+					<BarList items={topColors} />
 				</ChartCard>
 			</div>
 		{/if}

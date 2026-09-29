@@ -141,7 +141,7 @@
 
 <svelte:head><title>Catalog sync - Hive</title></svelte:head>
 
-<div class="mx-auto flex max-w-3xl flex-col gap-(--gap-panels)">
+<div class="mx-auto flex w-full max-w-3xl flex-col gap-(--gap-panels)">
 	<div>
 		<Button href="/settings" size="sm" variant="ghost" icon={ArrowLeft}>Settings</Button>
 	</div>

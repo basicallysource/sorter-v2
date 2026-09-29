@@ -94,7 +94,7 @@
 			<div class="overflow-x-auto">
 				<table class="data-table">
 					<thead>
-						<tr><th>Role</th><th>Data</th><th>Start at</th><th>Size</th><th>Offset</th><th>Source</th><th><span class="sr-only">Actions</span></th></tr>
+						<tr><th>Role</th><th>Data</th><th>Start at</th><th>Size</th><th>Offset</th><th>Source</th><th aria-label="Actions"></th></tr>
 					</thead>
 					<tbody>
 						{#each windows as w (keyOf(w))}
@@ -117,7 +117,7 @@
 								<td><Input size="sm" type="number" class="w-24" min={0} bind:value={w.offset} /></td>
 								<td><Badge tone={w.source === 'override' ? 'info' : 'neutral'}>{sentence(w.source)}</Badge></td>
 								<td class="text-right">
-									<Button variant="primary" size="sm" loading={savingKey === keyOf(w)} onclick={() => save(w)}>Save</Button>
+									<Button size="sm" loading={savingKey === keyOf(w)} onclick={() => save(w)}>Save</Button>
 								</td>
 							</tr>
 						{/each}

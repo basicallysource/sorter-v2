@@ -7,7 +7,7 @@
 </script>
 
 <section {id} class="mt-12 scroll-mt-16 first:mt-0">
-	<h2 class="text-lg font-semibold text-ink">{title}</h2>
+	<h2 class="text-xl font-semibold tracking-tight text-ink">{title}</h2>
 	{#if lead}<p class="mt-1 max-w-2xl text-sm text-ink-muted">{lead}</p>{/if}
 	<div class="mt-4 flex flex-col gap-4">{@render children()}</div>
 </section>

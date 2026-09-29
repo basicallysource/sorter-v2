@@ -26,7 +26,7 @@
 <div class="grid gap-x-6 gap-y-8 md:grid-cols-2">
 	{#each [{ good: false, body: wrong, note: wrongNote }, { good: true, body: right, note: rightNote }] as side (side.good)}
 		<figure class="flex flex-col gap-3">
-			<div class="flex-1 {on === 'surface' ? 'bg-surface p-5' : ''}">
+			<div class="flex-1 {on === 'surface' ? 'rounded-panel bg-surface p-5' : ''}">
 				{@render side.body()}
 			</div>
 			<figcaption class="flex items-start gap-2 text-sm">

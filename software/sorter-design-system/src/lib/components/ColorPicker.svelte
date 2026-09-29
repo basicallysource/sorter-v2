@@ -62,7 +62,7 @@
 				tabindex={on ? 0 : -1}
 				data-id={color.id}
 				onclick={() => choose(color.id)}
-				class="size-5 shadow-[inset_0_0_0_1px_rgb(0_0_0/0.12)] {on
+				class="size-5 rounded-check border border-line {on
 					? 'outline-2 outline-offset-1 outline-ink'
 					: 'hover:outline-1 hover:outline-offset-1 hover:outline-ink-faint'}"
 				style:background-color={color.hex}

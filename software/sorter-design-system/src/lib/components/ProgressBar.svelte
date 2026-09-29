@@ -1,7 +1,7 @@
 <!--
 	docs/components.md#progress. How far along something is, when that is
-	known. A well for the track and a fill; no border, no stripes, no
-	animation but the width. When how far is not known, it is the Spinner.
+	known. A track and a fill; no border, no stripes, no animation but the
+	width. When how far is not known, it is the Spinner.
 -->
 <script lang="ts">
 	let {
@@ -31,7 +31,7 @@
 	aria-valuemin={0}
 	aria-valuemax={max}
 	aria-valuenow={value}
-	class="h-1.5 w-full bg-well"
+	class="h-1.5 w-full overflow-hidden rounded-badge bg-track"
 >
 	<div class="h-full transition-[width] duration-300 {fill}" style="width: {share * 100}%"></div>
 </div>

@@ -65,6 +65,23 @@
 			</div>
 		{/snippet}
 	</DoDont>
+	<DoDont
+		wrongNote="A shadow under the card. It adds a second edge, soft and grey, that means nothing the fill does not already say."
+		rightNote="The card stands off the page by its fill alone. Even what floats (a menu, a dialog) has a line and no shadow."
+	>
+		{#snippet wrong()}
+			<div class="rounded-panel bg-surface p-4 shadow-lg">
+				<div class="text-sm font-semibold text-ink">Standby</div>
+				<p class="mt-1 text-sm text-ink-muted">Home starts the hardware.</p>
+			</div>
+		{/snippet}
+		{#snippet right()}
+			<div class="rounded-panel bg-surface p-4">
+				<div class="text-sm font-semibold text-ink">Standby</div>
+				<p class="mt-1 text-sm text-ink-muted">Home starts the hardware.</p>
+			</div>
+		{/snippet}
+	</DoDont>
 </SiteSection>
 
 <SiteSection title={titles['double-lines']} lead={leads['double-lines']}>
@@ -83,7 +100,7 @@
 			</div>
 		{/snippet}
 		{#snippet right()}
-			<div class="divide-y divide-line bg-surface">
+			<div class="divide-y divide-line overflow-hidden rounded-panel bg-surface">
 				{#each ['Burst rate', 'Floor rate', 'Ramp'] as row (row)}
 					<div class="flex items-center justify-between px-4 py-2.5">
 						<span class="text-sm text-ink">{row}</span>
@@ -203,7 +220,7 @@
 				<div class="bg-warning-soft px-3 py-2 text-sm text-ink">Profile: September</div>
 				<div>
 					<span
-						class="inline-flex h-9 items-center bg-success px-3.5 text-sm font-medium text-white"
+						class="inline-flex h-9 items-center bg-success px-3.5 text-sm font-medium text-on-success"
 						>Save</span
 					>
 				</div>
@@ -222,30 +239,42 @@
 	</DoDont>
 </SiteSection>
 
-<SiteSection title={titles['square']} lead={leads['square']}>
+<SiteSection title={titles['corners']} lead={leads['corners']}>
 	<DoDont
 		on="surface"
-		wrongNote="Rounded buttons, a pill of a field, a rounded card. Soft corners on a machine's controls read as a consumer app."
-		rightNote="Square everything. The one circle is a status dot, because a dot is the shape of a light."
+		wrongNote="A rounded button, a square field, a pill of a badge and a softer card: four corners picked one at a time, and the screen looks assembled from different kits."
+		rightNote="Panels, controls, buttons and badges each take their radius token, so they agree at any setting. How round is still open (Choices)."
 	>
 		{#snippet wrong()}
-			<div class="flex flex-wrap items-center gap-3">
-				<span
-					class="inline-flex h-9 items-center rounded-lg bg-primary px-4 text-sm font-medium text-on-primary"
-					>Home</span
-				>
-				<span
-					class="inline-flex h-9 w-40 items-center rounded-full border border-line-strong px-4 text-sm text-ink-faint"
-					>Search parts</span
-				>
-				<span class="rounded-xl bg-well px-3 py-2 text-sm text-ink">Idle</span>
+			<div class="flex flex-col gap-3">
+				<div class="flex flex-wrap items-center gap-3">
+					<span
+						class="inline-flex h-9 items-center rounded-lg bg-primary px-4 text-sm font-medium text-on-primary"
+						>Home</span
+					>
+					<span
+						class="inline-flex h-9 w-40 items-center border border-line-strong px-3 text-sm text-ink-faint"
+						>Search parts</span
+					>
+					<span class="rounded-full bg-success-soft px-2.5 py-0.5 text-xs text-success-ink"
+						>Idle</span
+					>
+				</div>
+				<div class="rounded-2xl bg-well px-4 py-3 text-sm text-ink-muted">
+					A card with its own idea.
+				</div>
 			</div>
 		{/snippet}
 		{#snippet right()}
-			<div class="flex flex-wrap items-center gap-3">
-				<Button variant="primary">Home</Button>
-				<Input placeholder="Search parts" class="w-40" />
-				<Badge dot tone="success">Idle</Badge>
+			<div class="flex flex-col gap-3">
+				<div class="flex flex-wrap items-center gap-3">
+					<Button variant="primary">Home</Button>
+					<Input placeholder="Search parts" class="w-40" />
+					<Badge dot tone="success">Idle</Badge>
+				</div>
+				<div class="rounded-control bg-well px-4 py-3 text-sm text-ink-muted">
+					A well, from the tokens.
+				</div>
 			</div>
 		{/snippet}
 	</DoDont>

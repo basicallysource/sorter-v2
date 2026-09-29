@@ -1,7 +1,8 @@
 <!--
 	docs/components.md#tabs. Views of one thing, inside a page or a panel.
-	The bar owns the line under it, and the chosen tab's 2px primary mark
-	sits on that line, replacing it, so the two never stack. Pages of the
+	The bar owns the line under it, and the chosen tab's primary mark (as
+	wide as the tab, --indicator thick) sits on that line, replacing it, so
+	the two never stack. Pages of the
 	app are the TopBar's or the SideNav's, not tabs.
 -->
 <script lang="ts" generics="T extends string">
@@ -46,7 +47,9 @@
 	aria-label={label}
 	tabindex="-1"
 	{onkeydown}
-	class="flex gap-5 overflow-x-auto border-b border-line {inset ? 'px-5' : ''}"
+	class="flex gap-1 overflow-x-auto border-b border-line {inset
+		? 'px-[calc(var(--pad-panel)-0.75rem)]'
+		: ''}"
 >
 	{#each items as item (item.value)}
 		{@const on = item.value === value}
@@ -57,9 +60,9 @@
 			tabindex={on ? 0 : -1}
 			data-value={item.value}
 			onclick={() => choose(item.value)}
-			class="relative -mb-px inline-flex h-10 items-center gap-2 text-sm whitespace-nowrap transition-colors
+			class="relative -mb-px inline-flex h-(--size-tab) items-center gap-2 px-3 text-sm whitespace-nowrap transition-colors
 				{on
-				? 'font-medium text-ink after:absolute after:inset-x-0 after:bottom-0 after:h-0.5 after:bg-primary'
+				? 'font-medium text-ink after:absolute after:inset-x-0 after:bottom-0 after:h-(--indicator) after:bg-primary'
 				: 'text-ink-muted hover:text-ink'}"
 		>
 			{item.label}

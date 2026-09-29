@@ -1,6 +1,7 @@
 <!--
-	docs/components.md#forms. On or off, applied the moment it changes. A
-	square track and a square thumb; the thumb is the one part that moves.
+	docs/components.md#forms. On or off, applied the moment it changes. The
+	track and the knob take the button corners, and the knob is the one part
+	that moves. It sizes with the density.
 	It needs a name: pass `label`, or put it in a SettingRow and pass the
 	row's `id` as `labelledby`.
 -->
@@ -33,12 +34,12 @@
 	aria-labelledby={labelledby}
 	{disabled}
 	onclick={toggle}
-	class="relative inline-flex h-5 w-9 shrink-0 items-center p-0.5 transition-colors disabled:pointer-events-none disabled:opacity-45
+	class="relative inline-flex h-(--switch-h) w-(--switch-w) shrink-0 items-center rounded-button p-0.5 transition-colors disabled:pointer-events-none disabled:opacity-45
 		{checked ? 'bg-primary hover:bg-primary-hover' : 'bg-line-strong hover:bg-ink-faint'}"
 >
 	<span
-		class="size-4 bg-white shadow-(--shadow-thumb) transition-transform duration-150 {checked
-			? 'translate-x-4'
+		class="size-[calc(var(--switch-h)-4px)] rounded-button-inner bg-knob transition-transform duration-150 {checked
+			? 'translate-x-[calc(var(--switch-w)-var(--switch-h))]'
 			: 'translate-x-0'}"
 	></span>
 </button>

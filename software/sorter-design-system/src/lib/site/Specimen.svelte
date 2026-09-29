@@ -20,8 +20,8 @@
 	const plane = $derived({ surface: 'bg-surface', canvas: 'bg-canvas', well: 'bg-well' }[on]);
 </script>
 
-<div class="bg-surface">
-	<div class="{plane} {pad ? 'p-6' : ''} {on === 'canvas' ? 'm-2' : ''}">
+<div class="overflow-hidden rounded-panel bg-surface">
+	<div class="{plane} {pad ? 'p-6' : ''} {on === 'canvas' ? 'm-2 rounded-control' : ''}">
 		{@render children()}
 	</div>
 	{#if code}

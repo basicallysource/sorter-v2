@@ -1,8 +1,8 @@
 <!--
 	docs/components.md#segmented-control. Two to five choices that apply at
-	once (Light / Dark, Duration / Degrees). A well for a track and a raised
-	thumb on the chosen one: no borders, so it never adds a line to the
-	panel it sits in. More than five choices, or long labels, is a Select.
+	once (Light / Dark, Duration / Degrees). A track, and a thumb on the
+	chosen one told apart by its fill: no borders, so it never adds a line to
+	the panel it sits in. More than five choices, or long labels, is a Select.
 -->
 <script lang="ts" generics="T extends string">
 	import type { Component } from 'svelte';
@@ -52,7 +52,7 @@
 	aria-label={label}
 	tabindex="-1"
 	{onkeydown}
-	class="{full ? 'flex w-full' : 'inline-flex'} gap-0.5 bg-well p-0.5"
+	class="{full ? 'flex w-full' : 'inline-flex'} gap-0.5 rounded-button bg-track p-0.5"
 >
 	{#each options as option (option.value)}
 		{@const on = option.value === value}
@@ -63,11 +63,11 @@
 			tabindex={on ? 0 : -1}
 			data-value={option.value}
 			onclick={() => choose(option.value)}
-			class="inline-flex items-center justify-center gap-1.5 text-sm whitespace-nowrap transition-colors
-				{full ? 'flex-1' : ''} {size === 'sm' ? 'h-6 px-2.5' : 'h-8 px-3.5'}
-				{on
-				? 'bg-raised font-medium text-ink shadow-(--shadow-thumb)'
-				: 'text-ink-muted hover:bg-hover hover:text-ink'}"
+			class="inline-flex items-center justify-center gap-1.5 rounded-button-inner text-sm whitespace-nowrap transition-colors
+				{full ? 'flex-1' : ''} {size === 'sm'
+				? 'h-[calc(var(--size-control-sm)-4px)] px-(--pad-control-sm)'
+				: 'h-[calc(var(--size-control)-4px)] px-(--pad-control)'}
+				{on ? 'bg-thumb font-medium text-ink' : 'text-ink-muted hover:bg-hover hover:text-ink'}"
 		>
 			{#if option.icon}<option.icon size={14} />{/if}
 			<span class={labelClass}>{option.label}</span>

@@ -1,7 +1,7 @@
 <!--
 	docs/components.md#badge. A short status or count next to what it
 	describes. A tint and the tone's ink, never a border. `dot` puts a
-	status dot before the text: the one round shape in the system.
+	status dot before the text: always round, whatever the corners.
 -->
 <script lang="ts">
 	import type { Snippet } from 'svelte';
@@ -25,7 +25,7 @@
 </script>
 
 <span
-	class="inline-flex h-5 shrink-0 items-center gap-1.5 px-1.5 text-xs font-medium whitespace-nowrap {tones[
+	class="inline-flex h-(--size-badge) shrink-0 items-center gap-1.5 rounded-badge px-(--pad-badge) text-xs font-medium whitespace-nowrap {tones[
 		tone
 	].box}"
 >

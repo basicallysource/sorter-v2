@@ -34,7 +34,7 @@
 			{disabled}
 			bind:checked
 			{onchange}
-			class="peer size-4 cursor-pointer appearance-none border border-line-strong bg-field transition-colors checked:border-primary checked:bg-primary hover:border-ink-faint checked:hover:border-primary-hover checked:hover:bg-primary-hover"
+			class="peer size-4 cursor-pointer appearance-none rounded-check border border-line-strong bg-field transition-colors checked:border-primary checked:bg-primary hover:border-ink-faint checked:hover:border-primary-hover checked:hover:bg-primary-hover"
 		/>
 		<Check
 			size={12}

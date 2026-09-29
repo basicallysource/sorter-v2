@@ -1,8 +1,8 @@
 <!--
 	docs/components.md#forms. A text or number field. `unit` puts the unit
 	inside the field's edge, after the value ("6 /min"), so the pair reads as
-	one control. Focus turns the edge primary and thickens it to 2px, inside,
-	so a focused field never shows two lines.
+	one control. Focus draws the edge in the primary at 2px, over the field's
+	own line rather than outside it, so a focused field never shows two lines.
 -->
 <script lang="ts">
 	let {
@@ -41,12 +41,12 @@
 </script>
 
 <div
-	class="flex items-center border bg-field transition-colors focus-within:border-primary focus-within:shadow-[inset_0_0_0_1px_var(--color-primary)]
+	class="flex items-center rounded-control border bg-field transition-colors focus-within:border-primary focus-within:outline-2 focus-within:-outline-offset-1 focus-within:outline-primary
 		{invalid
-		? 'border-danger shadow-[inset_0_0_0_1px_var(--color-danger)]'
+		? 'border-danger outline-2 -outline-offset-1 outline-danger'
 		: 'border-line-strong hover:border-ink-faint'}
 		{disabled ? 'pointer-events-none opacity-45' : ''}
-		{size === 'sm' ? 'h-7' : 'h-9'} {className}"
+		{size === 'sm' ? 'h-(--size-control-sm)' : 'h-(--size-control)'} {className}"
 >
 	<input
 		{id}
@@ -62,9 +62,11 @@
 		{onchange}
 		aria-invalid={invalid || undefined}
 		class="h-full min-w-0 flex-1 bg-transparent text-sm text-ink outline-none placeholder:text-ink-faint
-			{size === 'sm' ? 'px-2' : 'px-3'} {type === 'number' ? 'num text-right' : ''}"
+			{size === 'sm' ? 'px-(--pad-control-sm)' : 'px-(--pad-control)'} {type === 'number'
+			? 'num text-right'
+			: ''}"
 	/>
 	{#if unit}
-		<span class="shrink-0 pr-3 text-sm text-ink-muted select-none">{unit}</span>
+		<span class="shrink-0 pr-(--pad-control) text-sm text-ink-muted select-none">{unit}</span>
 	{/if}
 </div>

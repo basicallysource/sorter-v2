@@ -1,8 +1,10 @@
 <!--
-	docs/components.md#button. Four variants, two sizes. With `href` it is a
-	link that looks like a button. With an `icon` and no children it is an
-	icon button, and `label` becomes its accessible name (and its tooltip).
-	`loading` swaps the icon for the Spinner and keeps the width.
+	docs/components.md#button. Four variants, two sizes. What each variant is
+	drawn with comes from the button style tokens in app.css, and its corners
+	from rounded-button. With `href` it is a link that looks like a button.
+	With an `icon` and no children it is an icon button, and `label` becomes
+	its accessible name and its tooltip. `loading` swaps the icon for the
+	Spinner and keeps the label.
 -->
 <script lang="ts">
 	import type { Component, Snippet } from 'svelte';
@@ -42,21 +44,27 @@
 	} = $props();
 
 	const variants: Record<Variant, string> = {
-		primary: 'bg-primary text-on-primary hover:bg-primary-hover',
-		secondary: 'border border-line-strong text-ink hover:bg-hover active:bg-pressed',
-		ghost: 'text-ink hover:bg-hover active:bg-pressed',
-		danger: 'bg-danger text-white hover:bg-danger-hover'
+		primary:
+			'border-(--btn-primary-line) bg-(--btn-primary-bg) text-(--btn-primary-fg) hover:bg-(--btn-primary-hover)',
+		secondary:
+			'border-(--btn-secondary-line) bg-(--btn-secondary-bg) text-(--btn-secondary-fg) hover:bg-(--btn-secondary-hover)',
+		ghost: 'border-transparent text-ink hover:bg-hover active:bg-pressed',
+		danger:
+			'border-(--btn-danger-line) bg-(--btn-danger-bg) text-(--btn-danger-fg) hover:bg-(--btn-danger-hover)'
 	};
 
 	const iconOnly = $derived(!children);
 	const sizes = $derived(
 		iconOnly
-			? { sm: 'size-7', md: 'size-9' }[size]
-			: { sm: 'h-7 gap-1.5 px-2.5', md: 'h-9 gap-2 px-3.5' }[size]
+			? { sm: 'size-(--size-control-sm)', md: 'size-(--size-control)' }[size]
+			: {
+					sm: 'h-(--size-control-sm) gap-1.5 px-(--pad-control-sm)',
+					md: 'h-(--size-control) gap-2 px-(--pad-control)'
+				}[size]
 	);
 	const iconSize = $derived(size === 'sm' ? 14 : 16);
 	const classes = $derived(
-		`inline-flex shrink-0 select-none items-center justify-center whitespace-nowrap text-sm font-medium transition-colors ${variants[variant]} ${sizes} ${className}`
+		`inline-flex shrink-0 select-none items-center justify-center whitespace-nowrap rounded-button border text-sm font-medium transition-colors ${variants[variant]} ${sizes} ${className}`
 	);
 	const inert = $derived(disabled || loading);
 </script>
@@ -76,6 +84,7 @@
 	<a
 		{href}
 		{...rest}
+		{onclick}
 		class={classes}
 		aria-label={iconOnly ? label : undefined}
 		title={iconOnly ? label : undefined}

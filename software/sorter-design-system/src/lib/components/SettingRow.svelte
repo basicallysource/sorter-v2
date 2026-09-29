@@ -25,7 +25,7 @@
 	} = $props();
 </script>
 
-<div class="px-5 py-3.5">
+<div class="px-(--pad-panel) py-(--pad-row)">
 	<div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between sm:gap-8">
 		<div class="min-w-0">
 			{#if forId}
@@ -37,5 +37,5 @@
 		</div>
 		{#if children}<div class="flex shrink-0 items-center gap-2">{@render children()}</div>{/if}
 	</div>
-	{#if below}<div class="mt-3 bg-well">{@render below()}</div>{/if}
+	{#if below}<div class="mt-3 overflow-hidden rounded-control bg-well">{@render below()}</div>{/if}
 </div>

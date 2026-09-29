@@ -3,15 +3,15 @@
 Which sites follow this system, what is different in each, and where each
 keeps its copies of the tokens and components.
 
-| Site | Folder | Primary | Favicon |
-| --- | --- | --- | --- |
-| The Sorter UI, a machine's own UI | `software/sorter/frontend` | LEGO blue `#0055BF` by default; the operator picks any LEGO color | blue |
-| Hive | `software/hive/frontend` | LEGO red `#D01012` | red |
-| The docs site | `docs` | LEGO red `#D01012` | yellow |
-| The parts calculator | `parts-calculator` | LEGO blue `#0055BF` | the plain brick, no color yet |
-| The SorterOS setup site | `software/sorteros/sorteros-setup` | LEGO blue `#0055BF` | the plain brick, no color yet |
-| The Wi-Fi setup page | `software/sorteros/portal/frontend` | LEGO blue `#0055BF` | none |
-| The first-boot progress page | inline in `software/sorteros/build/overlay/usr/local/sbin/sorteros-firstboot.py` | LEGO blue `#0055BF` | none |
+| Site                              | Folder                                                                           | Primary                                                           | Favicon                       |
+| --------------------------------- | -------------------------------------------------------------------------------- | ----------------------------------------------------------------- | ----------------------------- |
+| The Sorter UI, a machine's own UI | `software/sorter/frontend`                                                       | LEGO blue `#0055BF` by default; the operator picks any LEGO color | blue                          |
+| Hive                              | `software/hive/frontend`                                                         | LEGO red `#D01012`                                                | red                           |
+| The docs site                     | `docs`                                                                           | LEGO red `#D01012`                                                | yellow                        |
+| The parts calculator              | `parts-calculator`                                                               | LEGO blue `#0055BF`                                               | the plain brick, no color yet |
+| The SorterOS setup site           | `software/sorteros/sorteros-setup`                                               | LEGO blue `#0055BF`                                               | the plain brick, no color yet |
+| The Wi-Fi setup page              | `software/sorteros/portal/frontend`                                              | LEGO blue `#0055BF`                                               | none                          |
+| The first-boot progress page      | inline in `software/sorteros/build/overlay/usr/local/sbin/sorteros-firstboot.py` | LEGO blue `#0055BF`                                               | none                          |
 
 ## Where they stand
 
@@ -104,11 +104,11 @@ identical bricks tells them nothing. So the mark is the same everywhere and the
 color says which site it is: the basically brick (black outline, white fill)
 on a full-bleed colored square.
 
-| Site | Color |
-| --- | --- |
-| Hive | `#D01012`, LEGO red |
-| The docs site | `#FFD500`, LEGO yellow |
-| A machine (the Sorter UI) | `#0055BF`, LEGO blue |
+| Site                      | Color                  |
+| ------------------------- | ---------------------- |
+| Hive                      | `#D01012`, LEGO red    |
+| The docs site             | `#FFD500`, LEGO yellow |
+| A machine (the Sorter UI) | `#0055BF`, LEGO blue   |
 
 These are palette values that already existed, not new ones. The color is for
 the favicon only: it does not tint headers, chrome or accents, and nothing else

@@ -13,7 +13,12 @@
 				const dark = saved ? saved === 'dark' : matchMedia('(prefers-color-scheme: dark)').matches;
 				document.documentElement.classList.toggle('dark', dark);
 				const primary = localStorage.getItem('primary');
-				if (primary) document.documentElement.style.setProperty('--color-primary', primary);
+				if (primary) document.documentElement.style.setProperty('--primary', primary);
+				// The choices still open (src/lib/site/choices.svelte.ts).
+				for (const key of ['font', 'labels', 'corners', 'buttons', 'density']) {
+					const value = localStorage.getItem('choice-' + key);
+					if (value) document.documentElement.dataset[key] = value;
+				}
 			} catch {}
 		</script>
 		%sveltekit.head%

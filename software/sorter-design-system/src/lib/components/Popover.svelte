@@ -1,7 +1,7 @@
 <!--
 	docs/overlays.md#popover. A panel that opens from a button and holds a
 	little content: a color picker, a short form, an explanation. It floats,
-	so it is the raised plane: one line and the overlay shadow. The browser's
+	so it is the raised plane: a fill and one line, no shadow. The browser's
 	popover attribute gives it the top layer, closing on a click outside or
 	Escape, and focus returning to the button.
 
@@ -92,7 +92,7 @@
 	aria-label={label}
 	{ontoggle}
 	style:width
-	class="fixed inset-auto m-0 max-w-[calc(100vw-1rem)] border border-line bg-raised text-sm text-ink shadow-(--shadow-overlay) {padded
+	class="fixed inset-auto m-0 max-w-[calc(100vw-1rem)] rounded-panel border border-line bg-raised text-sm text-ink {padded
 		? 'p-4'
 		: 'p-0'}"
 >

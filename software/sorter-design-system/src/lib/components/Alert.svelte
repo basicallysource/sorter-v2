@@ -39,7 +39,7 @@
 
 <div
 	role={tone === 'danger' || tone === 'warning' ? 'alert' : 'status'}
-	class="flex items-start gap-3 px-4 py-3 {t.box} {className}"
+	class="flex items-start gap-3 rounded-control px-4 py-3 {t.box} {className}"
 >
 	<t.icon size={18} class="mt-px shrink-0 {t.ink}" />
 	<div class="min-w-0 flex-1 text-sm">

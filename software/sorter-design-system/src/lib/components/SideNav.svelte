@@ -1,8 +1,8 @@
 <!--
 	docs/layout.md#side-nav. The second level of an app's navigation (the
-	settings pages), on the canvas beside the content. No border: the
-	canvas and the panels next to it already differ. The current page takes
-	the primary tint; a group's name is a label.
+	settings pages): a column on the surface plane, the full height beside
+	the content, which sits on the canvas. No line between them: their fills
+	differ. The current page takes the primary tint; a group's name is a label.
 -->
 <script lang="ts">
 	import type { Component } from 'svelte';
@@ -37,7 +37,7 @@
 				<a
 					href={item.href}
 					aria-current={on ? 'page' : undefined}
-					class="flex h-8 items-center gap-2.5 px-2.5 text-sm transition-colors
+					class="flex h-(--size-nav-item) items-center gap-2.5 rounded-item px-2.5 text-sm transition-colors
 						{on
 						? 'bg-primary-soft font-medium text-primary-ink'
 						: 'text-ink-muted hover:bg-hover hover:text-ink'}"

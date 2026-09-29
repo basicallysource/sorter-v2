@@ -36,7 +36,8 @@
 			name: 'Raised',
 			token: 'bg-raised',
 			fill: 'bg-raised',
-			holds: 'Floats over everything: popovers, menus, tooltips, dialogs. One line and the shadow.'
+			holds:
+				'Floats over everything: popovers, menus, tooltips, dialogs. A fill and one line; no shadow.'
 		},
 		{
 			name: 'Media',
@@ -63,11 +64,11 @@
 	title="The planes"
 	lead="Each plane is one fill. A plane is told apart from the one under it by that fill alone."
 >
-	<ul class="divide-y divide-line bg-surface">
+	<ul class="divide-y divide-line overflow-hidden rounded-panel bg-surface">
 		{#each planes as plane (plane.name)}
 			<li class="flex items-center gap-4 px-5 py-3.5">
 				<span
-					class="size-10 shrink-0 shadow-[inset_0_0_0_1px_var(--color-line)] {plane.fill}"
+					class="size-10 shrink-0 rounded-control border border-line {plane.fill}"
 					aria-hidden="true"
 				></span>
 				<div class="min-w-0 flex-1">
@@ -91,7 +92,7 @@
 		rightNote="One panel, two sections, split by a single line. The chart is a well."
 	>
 		{#snippet wrong()}
-			<div class="bg-surface p-4">
+			<div class="rounded-panel bg-surface p-4">
 				<div class="text-sm font-semibold text-ink">Stepper</div>
 				<div class="mt-3 border border-line-strong bg-surface p-3">
 					<div class="text-sm font-medium text-ink">Controls</div>
@@ -103,10 +104,10 @@
 			</div>
 		{/snippet}
 		{#snippet right()}
-			<div class="divide-y divide-line bg-surface">
+			<div class="divide-y divide-line overflow-hidden rounded-panel bg-surface">
 				<div class="p-4">
 					<div class="text-sm font-semibold text-ink">Controls</div>
-					<div class="mt-2 h-8 bg-well"></div>
+					<div class="mt-2 h-8 rounded-control bg-well"></div>
 				</div>
 				<div class="p-4">
 					<div class="text-sm font-semibold text-ink">Driver settings</div>
@@ -244,7 +245,7 @@
 
 <SiteSection
 	title="The raised plane"
-	lead="What floats has the one line and the one shadow in the system. It closes on a click outside or Escape, and it never covers the thing that opened it."
+	lead="What floats is the one thing with a line around it, and it has no shadow: the line and the fill are enough. It closes on a click outside or Escape, and it never covers the thing that opened it."
 >
 	<Specimen>
 		<Popover label="What is the raised plane">

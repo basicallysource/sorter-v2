@@ -7,7 +7,6 @@
 	import Switch from '$lib/components/Switch.svelte';
 	import Input from '$lib/components/Input.svelte';
 	import Button from '$lib/components/Button.svelte';
-	import Badge from '$lib/components/Badge.svelte';
 	import { rules } from '$lib/site/rules';
 
 	let capture = $state(true);
@@ -27,20 +26,20 @@
 >
 	<div class="relative">
 		<div class="label mb-3">1 · Canvas: the page, which this text sits on</div>
-		<div class="bg-surface p-5 sm:max-w-xl">
+		<div class="rounded-panel bg-surface p-5 sm:max-w-xl">
 			<div class="label mb-3">2 · Surface: a panel</div>
 			<p class="text-sm text-ink-muted">One job's worth of content. No border, no shadow.</p>
-			<div class="mt-4 bg-well p-4">
+			<div class="mt-4 rounded-control bg-well p-4">
 				<div class="label">3 · Well: sunk into the panel</div>
 				<p class="mt-1 text-sm text-ink-muted">A chart, a preview, an empty list.</p>
 			</div>
 		</div>
 		<div
-			class="mt-4 border border-line bg-raised p-4 shadow-(--shadow-overlay) sm:absolute sm:top-16 sm:right-0 sm:mt-0 sm:w-64 lg:right-8"
+			class="mt-4 rounded-panel border border-line bg-raised p-4 sm:absolute sm:top-16 sm:right-0 sm:mt-0 sm:w-64 lg:right-8"
 		>
 			<div class="label">4 · Raised: it floats</div>
 			<p class="mt-1 text-sm text-ink-muted">
-				Popovers, menus, dialogs. The only plane with a line and a shadow.
+				Popovers, menus, dialogs. The only plane with a line around it. Nothing has a shadow.
 			</p>
 		</div>
 	</div>
@@ -58,7 +57,6 @@
 		>
 			<div class="divide-y divide-line">
 				<SettingRow label="Capture samples" help="Save a photo of each part as it is classified.">
-					<Badge tone={capture ? 'success' : 'neutral'} dot>{capture ? 'On' : 'Off'}</Badge>
 					<Switch bind:checked={capture} label="Capture samples" />
 				</SettingRow>
 				<SettingRow
@@ -81,7 +79,7 @@
 	title="The rules"
 	lead="The few things that make it hold together. Each has a page of examples."
 >
-	<ol class="divide-y divide-line bg-surface">
+	<ol class="divide-y divide-line overflow-hidden rounded-panel bg-surface">
 		{#each rules as rule, i (rule.id)}
 			<li>
 				<a

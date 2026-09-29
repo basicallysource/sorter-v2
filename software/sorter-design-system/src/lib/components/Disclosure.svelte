@@ -18,14 +18,14 @@
 
 <details bind:open class="group">
 	<summary
-		class="flex list-none items-center gap-2 px-5 py-3.5 hover:bg-hover [&::-webkit-details-marker]:hidden"
+		class="flex list-none items-center gap-2 px-(--pad-panel) py-(--pad-row) hover:bg-hover [&::-webkit-details-marker]:hidden"
 	>
 		<ChevronRight
 			size={16}
 			class="shrink-0 text-ink-muted transition-transform group-open:rotate-90"
 		/>
-		<span class="text-sm font-medium text-ink">{title}</span>
-		{#if help}<span class="truncate text-sm text-ink-muted">{help}</span>{/if}
+		<span class="shrink-0 text-sm font-medium text-ink">{title}</span>
+		{#if help}<span class="min-w-0 truncate text-sm text-ink-muted">{help}</span>{/if}
 	</summary>
 	<div class="pb-2">
 		{@render children()}

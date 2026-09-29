@@ -2,10 +2,10 @@
 //
 // The mode is a `dark` class on <html>; app.html sets it before first paint
 // from the same storage key, so a dark page never flashes light. The primary
-// is a CSS variable on <html>, with the two colors that depend on its
-// contrast computed here: the text on a primary fill (white or ink), and
-// the primary as text on a surface, darkened (or, in dark mode, lightened)
-// until it reads.
+// is --primary on <html>, with the colors that depend on its contrast worked
+// out here rather than listed per color: the text on a primary fill (white or
+// ink), and the primary as text, darkened for light mode and lightened for
+// dark mode until it reads on the backgrounds it is used on.
 
 import { DEFAULT_COLOR_ID, legoColor } from './lego-colors';
 
@@ -16,8 +16,11 @@ const MODE_KEY = 'theme';
 const COLOR_KEY = 'primary-id';
 const PRIMARY_KEY = 'primary';
 
-// The surfaces the primary is read against, per mode (app.css --color-surface).
-const SURFACE: Record<Mode, string> = { light: '#ffffff', dark: '#1b1b19' };
+// The primary as text sits on a surface, on the canvas, or on its own tint
+// over either (the side nav's current page). The hardest of those, per mode,
+// from app.css: the canvas in light mode, the raised plane in dark mode.
+const HARDEST_GROUND: Record<Mode, string> = { light: '#eceae5', dark: '#242422' };
+const SOFT_SHARE: Record<Mode, number> = { light: 0.12, dark: 0.22 };
 const INK = '#1b1a18';
 
 function read(key: string): string | null {
@@ -49,7 +52,8 @@ class Theme {
 
 	constructor() {
 		$effect.root(() => {
-			$effect(() => apply(this.mode, this.primary));
+			$effect(() => applyMode(this.mode));
+			$effect(() => applyPrimary(this.primary));
 		});
 	}
 
@@ -65,37 +69,52 @@ class Theme {
 	}
 }
 
-function apply(mode: Mode, primary: string) {
-	const root = document.documentElement;
-	root.classList.toggle('dark', mode === 'dark');
-	root.style.setProperty('--color-primary', primary);
-	root.style.setProperty('--color-on-primary', onColor(primary));
-	root.style.setProperty('--color-primary-ink', readableOn(primary, SURFACE[mode], mode));
+function applyMode(mode: Mode) {
+	document.documentElement.classList.toggle('dark', mode === 'dark');
+}
+
+/** Sets the primary on <html>, with the text colors worked out for both
+ *  modes, so a light or dark subtree reads right whatever the page's mode. */
+export function applyPrimary(primary: string, root: HTMLElement = document.documentElement) {
+	root.style.setProperty('--primary', primary);
+	root.style.setProperty('--on-primary', onColor(primary));
+	for (const mode of ['light', 'dark'] as const) {
+		const ground = mix(HARDEST_GROUND[mode], primary, SOFT_SHARE[mode]);
+		root.style.setProperty(`--primary-ink-${mode}`, readableOn(primary, ground, mode));
+	}
 }
 
 export const theme = new Theme();
 
 // --- contrast (WCAG 2) ---
 
-function rgb(hex: string): [number, number, number] {
+type Rgb = [number, number, number];
+
+function rgb(hex: string): Rgb {
 	const h = hex.replace('#', '');
-	const n = parseInt(
+	const full =
 		h.length === 3
 			? h
 					.split('')
 					.map((c) => c + c)
 					.join('')
-			: h,
-		16
-	);
+			: h;
+	const n = parseInt(full, 16);
 	return [(n >> 16) & 255, (n >> 8) & 255, n & 255];
 }
 
-function hex([r, g, b]: [number, number, number]): string {
+function hex([r, g, b]: Rgb): string {
 	return '#' + [r, g, b].map((c) => Math.round(c).toString(16).padStart(2, '0')).join('');
 }
 
-function luminance(color: string): number {
+/** `share` of `over` laid on `under`, as a translucent fill would be. */
+function mix(under: string, over: string, share: number): string {
+	const a = rgb(under);
+	const b = rgb(over);
+	return hex([0, 1, 2].map((i) => a[i] + (b[i] - a[i]) * share) as Rgb);
+}
+
+export function luminance(color: string): number {
 	const [r, g, b] = rgb(color).map((c) => {
 		const s = c / 255;
 		return s <= 0.04045 ? s / 12.92 : ((s + 0.055) / 1.055) ** 2.4;
@@ -114,17 +133,12 @@ export function onColor(fill: string): string {
 }
 
 /** The color, moved toward black (light mode) or white (dark mode) until it
- *  reaches 4.5:1 against the surface, so it can be used as text there. */
-export function readableOn(color: string, surface: string, mode: Mode): string {
-	const target: [number, number, number] = mode === 'light' ? [0, 0, 0] : [255, 255, 255];
-	const from = rgb(color);
-	for (let t = 0; t <= 1; t += 0.04) {
-		const mixed = hex([
-			from[0] + (target[0] - from[0]) * t,
-			from[1] + (target[1] - from[1]) * t,
-			from[2] + (target[2] - from[2]) * t
-		]);
-		if (contrast(mixed, surface) >= 4.5) return mixed;
+ *  reaches 4.5:1 against the ground, so it can be used as text there. */
+export function readableOn(color: string, ground: string, mode: Mode): string {
+	const toward = mode === 'light' ? '#000000' : '#ffffff';
+	for (let t = 0; t <= 1; t += 0.02) {
+		const moved = mix(color, toward, t);
+		if (contrast(moved, ground) >= 4.5) return moved;
 	}
-	return hex(target);
+	return toward;
 }

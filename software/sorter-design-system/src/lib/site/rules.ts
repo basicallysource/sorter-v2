@@ -6,7 +6,7 @@ export const rules = [
 		id: 'planes',
 		title: 'Planes, not outlines',
 		summary:
-			'A panel is told apart from the page by its fill. Planes nest one way only: canvas, surface, well.'
+			'A panel is told apart from the page by its fill, and nothing casts a shadow. Planes nest one way only: canvas, surface, well.'
 	},
 	{
 		id: 'double-lines',
@@ -31,9 +31,10 @@ export const rules = [
 			'Neutrals for structure, the primary for what you act on, status colors for status only.'
 	},
 	{
-		id: 'square',
-		title: 'Square corners',
-		summary: 'Nothing is rounded but a status dot.'
+		id: 'corners',
+		title: 'Corners from the tokens',
+		summary:
+			'Every corner is a radius token, so every panel, field and button agrees. A status dot is round.'
 	},
 	{
 		id: 'text',

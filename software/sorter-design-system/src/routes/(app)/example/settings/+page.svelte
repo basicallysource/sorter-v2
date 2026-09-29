@@ -93,7 +93,7 @@
 		<polyline
 			points={curve}
 			fill="none"
-			stroke="var(--color-primary)"
+			stroke="var(--primary)"
 			stroke-width="1.5"
 			vector-effect="non-scaling-stroke"
 		/>

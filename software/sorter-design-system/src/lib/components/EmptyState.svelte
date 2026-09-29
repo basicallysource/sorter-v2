@@ -19,7 +19,7 @@
 	} = $props();
 </script>
 
-<div class="flex flex-col items-center gap-2 bg-well px-6 py-10 text-center">
+<div class="flex flex-col items-center gap-2 rounded-control bg-well px-6 py-10 text-center">
 	{#if Icon}<Icon size={24} class="text-ink-faint" />{/if}
 	<div class="text-sm font-medium text-ink">{title}</div>
 	{#if children}<p class="max-w-sm text-sm text-ink-muted">{@render children()}</p>{/if}

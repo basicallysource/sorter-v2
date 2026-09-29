@@ -1,33 +1,30 @@
 <!--
-	The other settings pages. The steppers show how a hardware page is laid
-	out; the rest are outside this example.
+	The other settings pages. A channel with a camera shows the camera as the
+	main thing, with its stepper's controls beside it; a stepper without one
+	shows the controls alone. The rest are outside this example.
 -->
 <script lang="ts">
-	import ChevronLeft from '@lucide/svelte/icons/chevron-left';
-	import ChevronRight from '@lucide/svelte/icons/chevron-right';
-	import Square from '@lucide/svelte/icons/square';
+	import Camera from '@lucide/svelte/icons/camera';
+	import RotateCw from '@lucide/svelte/icons/rotate-cw';
 	import Settings from '@lucide/svelte/icons/settings';
 	import { page } from '$app/state';
 	import Panel from '$lib/components/Panel.svelte';
+	import MediaTile from '$lib/components/MediaTile.svelte';
 	import Button from '$lib/components/Button.svelte';
-	import Field from '$lib/components/Field.svelte';
 	import Input from '$lib/components/Input.svelte';
 	import Select from '$lib/components/Select.svelte';
-	import SegmentedControl from '$lib/components/SegmentedControl.svelte';
 	import Disclosure from '$lib/components/Disclosure.svelte';
 	import SettingRow from '$lib/components/SettingRow.svelte';
 	import EmptyState from '$lib/components/EmptyState.svelte';
 	import Badge from '$lib/components/Badge.svelte';
+	import JogControl from '../JogControl.svelte';
 	import { labelFor } from '../nav';
 
-	const steppers = ['c-channel-1', 'c-channel-2', 'c-channel-3', 'chute'];
+	const withCamera = ['c-channel-2', 'c-channel-3', 'c-channel-4'];
+	const steppers = ['c-channel-1', 'chute', ...withCamera];
 	const section = $derived(page.params.section ?? '');
 	const title = $derived(labelFor(section) ?? 'Settings');
 
-	let moveBy = $state<'duration' | 'degrees'>('degrees');
-	let degrees = $state(5);
-	let seconds = $state(1);
-	let speed = $state(800);
 	let current = $state(900);
 	let microsteps = $state('16');
 	let threshold = $state(40);
@@ -35,75 +32,29 @@
 
 <svelte:head><title>{title} · Settings · Example app</title></svelte:head>
 
-<div class="mb-2">
-	<h1 class="text-xl font-semibold tracking-tight text-ink">{title}</h1>
-	{#if steppers.includes(section)}
-		<p class="mt-1 text-sm text-ink-muted">A stepper: move it by hand, and set its driver.</p>
-	{/if}
-</div>
-
-{#if steppers.includes(section)}
+{#snippet stepper()}
 	<Panel flush>
-		<div class="flex flex-wrap items-center justify-between gap-3 px-5 py-4">
-			<div class="flex items-center gap-2">
-				<span class="text-base font-semibold text-ink">Position</span>
-				<Badge tone="neutral">Idle</Badge>
-			</div>
-			<div class="num text-sm text-ink-muted">0.0° · 0 µs</div>
+		<div class="flex items-center justify-between gap-3 px-(--pad-panel) pt-4 pb-3">
+			<span class="text-base font-semibold text-ink">Stepper</span>
+			<Badge dot>Idle</Badge>
 		</div>
-		<div class="divide-y divide-line border-t border-line">
-			<div class="flex flex-col gap-4 px-5 py-4">
-				<div>
-					<div class="text-sm font-medium text-ink">Jog</div>
-					<p class="mt-0.5 text-sm text-ink-muted">The arrow keys also move this stepper.</p>
-				</div>
-				<div class="flex flex-wrap gap-2">
-					<Button icon={ChevronLeft}>Counterclockwise</Button>
-					<Button icon={Square}>Stop</Button>
-					<Button>Clockwise<ChevronRight size={16} /></Button>
-				</div>
-				<div class="flex flex-wrap items-end gap-4">
-					<div class="flex flex-col gap-1.5">
-						<span class="text-sm font-medium text-ink">Move by</span>
-						<SegmentedControl
-							label="Move by"
-							bind:value={moveBy}
-							options={[
-								{ value: 'duration', label: 'Duration' },
-								{ value: 'degrees', label: 'Degrees' }
-							]}
-						/>
-					</div>
-					{#if moveBy === 'degrees'}
-						<Field label="Degrees at the output" for="degrees">
-							<Input id="degrees" type="number" bind:value={degrees} unit="°" class="w-28" />
-						</Field>
-					{:else}
-						<Field label="Duration" for="seconds">
-							<Input id="seconds" type="number" bind:value={seconds} unit="s" class="w-28" />
-						</Field>
-					{/if}
-					<Field label="Speed" for="speed">
-						<Input id="speed" type="number" bind:value={speed} unit="steps/s" class="w-36" />
-					</Field>
-				</div>
-				<p class="text-sm text-ink-muted tabular-nums">
-					Ratio 10.83:1, so {degrees}° at the output is {(degrees * 10.83).toFixed(1)}° at the
-					motor.
-				</p>
-			</div>
-			<Disclosure title="Driver settings" help="Current, microsteps, stall detection">
+		<div class="px-(--pad-panel) pb-(--pad-panel)">
+			<JogControl />
+		</div>
+		<div class="border-t border-line">
+			<Disclosure title="Driver settings">
 				<div class="divide-y divide-line pl-6">
 					<SettingRow label="Run current" help="Higher holds better and runs hotter." for="current">
 						<Input id="current" type="number" bind:value={current} unit="mA" class="w-28" />
 					</SettingRow>
 					<SettingRow label="Microsteps" for="microsteps">
-						<Select
-							id="microsteps"
-							bind:value={microsteps}
-							options={['8', '16', '32', '64'].map((m) => ({ value: m, label: m }))}
-							class="w-28"
-						/>
+						<div class="w-28">
+							<Select
+								id="microsteps"
+								bind:value={microsteps}
+								options={['8', '16', '32', '64'].map((m) => ({ value: m, label: m }))}
+							/>
+						</div>
 					</SettingRow>
 					<SettingRow
 						label="StallGuard threshold"
@@ -116,10 +67,38 @@
 			</Disclosure>
 		</div>
 	</Panel>
+{/snippet}
+
+<div>
+	<h1 class="text-xl font-semibold tracking-tight text-ink">{title}</h1>
+	{#if withCamera.includes(section)}
+		<p class="mt-1 text-sm text-ink-muted">What this channel's camera sees, and its stepper.</p>
+	{:else if steppers.includes(section)}
+		<p class="mt-1 text-sm text-ink-muted">Move the stepper by hand, and set its driver.</p>
+	{/if}
+</div>
+
+{#if withCamera.includes(section)}
+	<div class="grid items-start gap-(--gap-panels) xl:grid-cols-[minmax(0,1fr)_23rem]">
+		<MediaTile title="{title} camera" aspect="4 / 3">
+			{#snippet actions()}
+				<Button size="sm" variant="ghost">-1°</Button>
+				<Button size="sm" variant="ghost">+1°</Button>
+				<Button size="sm" variant="ghost" icon={RotateCw}>180°</Button>
+			{/snippet}
+			{#snippet overlay()}
+				<Badge tone="success" dot>Live</Badge>
+			{/snippet}
+			<Camera size={24} class="text-ink-faint" />
+		</MediaTile>
+		{@render stepper()}
+	</div>
+{:else if steppers.includes(section)}
+	<div class="max-w-xl">{@render stepper()}</div>
 {:else}
 	<Panel>
 		<EmptyState icon={Settings} title="Not part of this example">
-			General and the stepper pages show how a settings page is built. The others follow the same
+			General and the channel pages show how a settings page is built. The others follow the same
 			layout.
 		</EmptyState>
 	</Panel>

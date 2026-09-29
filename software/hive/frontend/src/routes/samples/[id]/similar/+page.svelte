@@ -83,7 +83,7 @@
 			options={DISTANCE_OPTIONS.map((o) => ({ value: String(o.value), label: o.label }))}
 			onchange={(v: string) => void setDistance(Number(v))}
 		/>
-		<span class="min-w-0 flex-1 text-sm text-ink-muted"
+		<span class="min-w-0 flex-[1_1_16rem] text-sm text-ink-muted"
 			>The Hamming distance over the 64-bit hash. Lower is closer; 12 or less usually looks like a duplicate.</span
 		>
 	</div>

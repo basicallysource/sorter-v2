@@ -173,19 +173,6 @@
 			<Panel title={TYPE_LABELS[type]} description={TYPE_BLURBS[type]}>
 				{#snippet actions()}
 					<Badge tone={badgeVariant(state.status)}>{sentence(state.status)}</Badge>
-					{#if state.status === 'running'}
-						<Button variant="danger" size="sm" loading={busy === 'stop'} disabled={busy !== null} onclick={stopSync}
-							>Stop</Button
-						>
-					{:else}
-						<Button
-							variant="primary"
-							size="sm"
-							loading={busy === type}
-							disabled={anyRunning || busy !== null}
-							onclick={() => startSync(type)}>{actionLabel(state.status)}</Button
-						>
-					{/if}
 				{/snippet}
 				<div class="flex flex-col gap-3">
 					{#if percent !== null}
@@ -207,6 +194,18 @@
 						{#if state.pages_fetched > 0}<span>Pages this run <span class="num text-ink">{state.pages_fetched}</span></span>{/if}
 					</div>
 				</div>
+				{#snippet footer()}
+					{#if state.status === 'running'}
+						<Button variant="danger" loading={busy === 'stop'} disabled={busy !== null} onclick={stopSync}>Stop</Button>
+					{:else}
+						<Button
+							variant="primary"
+							loading={busy === type}
+							disabled={anyRunning || busy !== null}
+							onclick={() => startSync(type)}>{actionLabel(state.status)}</Button
+						>
+					{/if}
+				{/snippet}
 			</Panel>
 		{/each}
 	{/if}

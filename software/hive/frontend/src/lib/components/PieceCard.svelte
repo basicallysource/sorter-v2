@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { api, type ColorLabelPieceCard } from '$lib/api';
+	import Card from './Card.svelte';
 	import Check from '@lucide/svelte/icons/check';
 	import Link2 from '@lucide/svelte/icons/link-2';
 	import Palette from '@lucide/svelte/icons/palette';
@@ -14,51 +15,40 @@
 	let { card, selected = false, id, onOpen }: Props = $props();
 </script>
 
-<button
-	{id}
-	type="button"
-	onclick={() => onOpen(card)}
-	class="group flex flex-col border bg-surface p-2 text-left hover:border-primary {selected
-		? 'border-primary ring-1 ring-primary'
-		: 'border-line'}"
->
-	<div class="relative flex h-24 w-full items-center justify-center bg-well">
-		{#if card.thumb_seq != null}
-			<img
-				src={api.colorLabelImageUrl(card.machine_id, card.piece_uuid, card.thumb_seq)}
-				alt={card.part.part_name ?? 'piece'}
-				loading="lazy"
-				class="h-24 w-full bg-transparent object-contain"
-			/>
-		{:else}
-			<span class="text-xs text-ink-muted">no image</span>
-		{/if}
-		{#if card.has_candidates}
-			<span
-				class="absolute left-1 top-1 flex items-center bg-info/80 p-0.5 text-white"
-				title="has same-piece candidate crops"><Sparkles size={11} /></span
-			>
-		{/if}
-		{#if card.my_color}
-			<span
-				class="absolute right-1 top-1 flex items-center bg-success p-0.5 text-white"
-				title="you labeled this"><Check size={12} /></span
-			>
-		{/if}
-	</div>
-	<div
-		class="mt-1.5 truncate text-sm text-ink"
-		title={card.part.part_name ?? card.part.part_id ?? ''}
-	>
-		{card.part.part_name || card.part.part_id || 'Unidentified'}
-	</div>
-	<div class="mt-1 flex items-center gap-2 text-xs text-ink-muted">
-		<span class="flex items-center gap-1" title="color labels by users">
-			<Palette size={13} />{card.color_label_count}
-		</span>
-		<span class="flex items-center gap-1" title="same-piece labels by users">
-			<Link2 size={13} />{card.crop_link_count}
-		</span>
-		<span class="ml-auto truncate">· {card.machine_name ?? 'machine'}</span>
-	</div>
-</button>
+<div {id}>
+	<Card label={card.part.part_name || card.part.part_id || 'Unidentified piece'} onclick={() => onOpen(card)} padded={false} class="overflow-hidden">
+		<div class="relative flex h-24 items-center justify-center bg-well">
+			{#if card.thumb_seq != null}
+				<img
+					src={api.colorLabelImageUrl(card.machine_id, card.piece_uuid, card.thumb_seq)}
+					alt={card.part.part_name ?? 'piece'}
+					loading="lazy"
+					class="h-24 w-full object-contain"
+				/>
+			{:else}
+				<span class="text-sm text-ink-muted">No picture</span>
+			{/if}
+			{#if card.has_candidates}
+				<span class="absolute top-1 left-1 flex rounded-badge bg-info p-0.5 text-on-info" title="Has same-piece candidate crops"
+					><Sparkles size={14} /></span
+				>
+			{/if}
+			{#if card.my_color}
+				<span class="absolute top-1 right-1 flex rounded-badge bg-success p-0.5 text-on-success" title="You labeled this"
+					><Check size={14} /></span
+				>
+			{/if}
+		</div>
+		<div class="flex flex-col gap-1 px-2.5 py-2">
+			<div class="truncate text-sm text-ink" title={card.part.part_name ?? card.part.part_id ?? ''}>
+				{card.part.part_name || card.part.part_id || 'Unidentified'}
+			</div>
+			<div class="num flex items-center gap-2 text-sm text-ink-muted">
+				<span class="flex items-center gap-1" title="Color labels"><Palette size={14} />{card.color_label_count}</span>
+				<span class="flex items-center gap-1" title="Same-piece labels"><Link2 size={14} />{card.crop_link_count}</span>
+				<span class="ml-auto truncate">{card.machine_name ?? 'Machine'}</span>
+			</div>
+		</div>
+		{#if selected}<span class="absolute inset-x-0 bottom-0 h-(--indicator) bg-primary"></span>{/if}
+	</Card>
+</div>

@@ -1,7 +1,6 @@
 <script lang="ts">
 	import type { Snippet } from 'svelte';
 	import ChevronRight from '@lucide/svelte/icons/chevron-right';
-	import Badge from '$lib/components/Badge.svelte';
 
 	type Props = {
 		title: string;
@@ -18,8 +17,8 @@
 		active?: boolean;
 		/**
 		 * Short label of the active selection (e.g. "Conflict", "Underexposed").
-		 * Rendered as a chip on the collapsed header so you can still read off
-		 * what's filtered without expanding the body.
+		 * Shown on the collapsed header so you can still read off what's
+		 * filtered without expanding the body.
 		 */
 		activeLabel?: string | null;
 		children: Snippet;
@@ -75,7 +74,7 @@
 	>
 		<ChevronRight size={16} class="shrink-0 text-ink-muted transition-transform {expanded ? 'rotate-90' : ''}" />
 		<span class="min-w-0 flex-1 truncate">{title}</span>
-		{#if activeLabel && !expanded}<Badge tone="primary">{activeLabel}</Badge>{/if}
+		{#if active && activeLabel && !expanded}<span class="max-w-[60%] truncate text-sm font-normal text-primary-ink">{activeLabel}</span>{/if}
 	</button>
 	{#if expanded}
 		<div class="px-1.5 pb-2">{@render children()}</div>

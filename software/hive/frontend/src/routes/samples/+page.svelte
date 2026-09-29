@@ -14,6 +14,7 @@
 	import Modal from '$lib/components/Modal.svelte';
 	import Button from '$lib/components/Button.svelte';
 	import FilterGroup from '$lib/components/FilterGroup.svelte';
+	import FilterOption from '$lib/components/FilterOption.svelte';
 	import SampleCard from '$lib/components/SampleCard.svelte';
 	import Spinner from '$lib/components/Spinner.svelte';
 	import { sentence } from '$lib/text';
@@ -651,23 +652,6 @@
 	<title>Samples - Hive</title>
 </svelte:head>
 
-{#snippet option(label: string, on: boolean, onclick: () => void, count?: number | null, title?: string)}
-	<li>
-		<button
-			type="button"
-			{onclick}
-			{title}
-			aria-pressed={on}
-			class="flex h-(--size-nav-item) w-full items-center gap-2 rounded-item px-2.5 text-left text-sm {on
-				? 'bg-primary-soft font-medium text-primary-ink'
-				: 'text-ink hover:bg-hover'}"
-		>
-			<span class="min-w-0 flex-1 truncate">{label}</span>
-			{#if count != null}<span class="num text-xs text-ink-faint">{count.toLocaleString()}</span>{/if}
-		</button>
-	</li>
-{/snippet}
-
 {#snippet activeFilter(withScope: boolean)}
 	{#if hasActiveFilters}
 		<div class="rounded-control bg-well p-3">
@@ -855,8 +839,8 @@
 			<div class="flex flex-col divide-y divide-line py-1">
 				<FilterGroup title="Scope" storageKey="scope" active={filterScope === 'mine'} activeLabel={filterScope === 'mine' ? 'Mine' : null}>
 					<ul class="flex flex-col gap-px">
-						{@render option('All samples', filterScope === 'all', () => setScope('all'))}
-						{@render option('My samples', filterScope === 'mine', () => setScope('mine'))}
+						<FilterOption label="All samples" on={filterScope === 'all'} onclick={() => setScope('all')} />
+						<FilterOption label="My samples" on={filterScope === 'mine'} onclick={() => setScope('mine')} />
 					</ul>
 				</FilterGroup>
 
@@ -872,7 +856,7 @@
 							{ key: 'regular', label: 'Detection' },
 							{ key: 'condition', label: 'Condition' }
 						] as item (item.key)}
-							{@render option(item.label, filterKind === item.key, () => setFilterValue('kind', item.key))}
+							<FilterOption label={item.label} on={filterKind === item.key} onclick={() => setFilterValue('kind', item.key)} />
 						{/each}
 					</ul>
 				</FilterGroup>
@@ -885,9 +869,9 @@
 				>
 					<!-- An empty value means the server's default, the teacher pass. -->
 					<ul class="flex flex-col gap-px">
-						{@render option('Teacher pass', filterAnnotated === '' || filterAnnotated === 'teacher', () => setFilterValue('annotated', ''))}
-						{@render option('All, with raw', filterAnnotated === 'all', () => setFilterValue('annotated', 'all'))}
-						{@render option('Raw only, waiting', filterAnnotated === 'raw', () => setFilterValue('annotated', 'raw'))}
+						<FilterOption label="Teacher pass" on={filterAnnotated === '' || filterAnnotated === 'teacher'} onclick={() => setFilterValue('annotated', '')} />
+						<FilterOption label="All, with raw" on={filterAnnotated === 'all'} onclick={() => setFilterValue('annotated', 'all')} />
+						<FilterOption label="Raw only, waiting" on={filterAnnotated === 'raw'} onclick={() => setFilterValue('annotated', 'raw')} />
 					</ul>
 				</FilterGroup>
 
@@ -899,9 +883,9 @@
 				>
 					<!-- An empty value means the server's default, good light. -->
 					<ul class="flex flex-col gap-px">
-						{@render option('Good light', filterExposure === '' || filterExposure === 'normal', () => setFilterValue('exposure', ''))}
-						{@render option('Underexposed', filterExposure === 'under', () => setFilterValue('exposure', 'under'))}
-						{@render option('Overexposed', filterExposure === 'over', () => setFilterValue('exposure', 'over'))}
+						<FilterOption label="Good light" on={filterExposure === '' || filterExposure === 'normal'} onclick={() => setFilterValue('exposure', '')} />
+						<FilterOption label="Underexposed" on={filterExposure === 'under'} onclick={() => setFilterValue('exposure', 'under')} />
+						<FilterOption label="Overexposed" on={filterExposure === 'over'} onclick={() => setFilterValue('exposure', 'over')} />
 					</ul>
 				</FilterGroup>
 
@@ -920,7 +904,7 @@
 								{ key: 'accepted', label: 'I accepted' },
 								{ key: 'rejected', label: 'I rejected' }
 							] as item (item.key)}
-								{@render option(item.label, filterMyReview === item.key, () => setFilterValue('my_review', item.key))}
+								<FilterOption label={item.label} on={filterMyReview === item.key} onclick={() => setFilterValue('my_review', item.key)} />
 							{/each}
 						</ul>
 					</FilterGroup>
@@ -941,7 +925,7 @@
 							{ key: 'rejected', label: 'Rejected' },
 							{ key: 'conflict', label: 'Conflict' }
 						] as item (item.key)}
-							{@render option(item.label, filterStatus === item.key, () => setFilterValue('review_status', item.key))}
+							<FilterOption label={item.label} on={filterStatus === item.key} onclick={() => setFilterValue('review_status', item.key)} />
 						{/each}
 					</ul>
 				</FilterGroup>
@@ -955,17 +939,16 @@
 						activeLabel={activeMachine?.name ?? (filterMachine ? 'Chosen' : null)}
 					>
 						<ul class="flex flex-col gap-px">
-							{@render option('All', filterMachine === '', () => updateMachineFilter(''))}
+							<FilterOption label="All" on={filterMachine === ''} onclick={() => updateMachineFilter('')} />
 							{#each machineGroups as group (group.ownerKey)}
 								{#if filterScope === 'all'}<li class="label px-2.5 pt-2 pb-1">{group.ownerLabel}</li>{/if}
 								{#each group.machines as machine (machine.id)}
-									{@render option(
-										machine.name,
-										filterMachine === String(machine.id),
-										() => updateMachineFilter(String(machine.id)),
-										null,
-										machine.owner?.display_name ? `${machine.owner.display_name}, ${machine.name}` : machine.name
-									)}
+									<FilterOption
+										label={machine.name}
+										on={filterMachine === String(machine.id)}
+										onclick={() => updateMachineFilter(String(machine.id))}
+										title={machine.owner?.display_name ? `${machine.owner.display_name}, ${machine.name}` : machine.name}
+									/>
 								{/each}
 							{/each}
 						</ul>
@@ -980,14 +963,9 @@
 						activeLabel={filterSourceRole ? sourceRoleLabel(filterSourceRole) : null}
 					>
 						<ul class="flex flex-col gap-px">
-							{@render option('All', filterSourceRole === '', () => updateSourceRoleFilter(''), totalSourceRoleCount())}
+							<FilterOption label="All" on={filterSourceRole === ''} onclick={() => updateSourceRoleFilter('')} count={totalSourceRoleCount()} />
 							{#each filterOptions.source_roles as sourceRole (sourceRole)}
-								{@render option(
-									sourceRoleLabel(sourceRole),
-									filterSourceRole === sourceRole,
-									() => updateSourceRoleFilter(sourceRole),
-									sourceRoleCount(sourceRole)
-								)}
+								<FilterOption label={sourceRoleLabel(sourceRole)} on={filterSourceRole === sourceRole} onclick={() => updateSourceRoleFilter(sourceRole)} count={sourceRoleCount(sourceRole)} />
 							{/each}
 						</ul>
 					</FilterGroup>
@@ -1001,7 +979,7 @@
 				>
 					<ul class="flex flex-col gap-px">
 						{#each AGE_OPTIONS as opt (opt.value)}
-							{@render option(opt.label, filterMaxAgeHours === opt.value, () => updateAgeFilter(opt.value))}
+							<FilterOption label={opt.label} on={filterMaxAgeHours === opt.value} onclick={() => updateAgeFilter(opt.value)} />
 						{/each}
 					</ul>
 				</FilterGroup>
@@ -1019,7 +997,7 @@
 								{ key: 'archived', label: 'Archived only' },
 								{ key: 'all', label: 'Both' }
 							] as item (item.key)}
-								{@render option(item.label, filterArchived === item.key, () => setFilterValue('archived', item.key))}
+								<FilterOption label={item.label} on={filterArchived === item.key} onclick={() => setFilterValue('archived', item.key)} />
 							{/each}
 						</ul>
 					</FilterGroup>

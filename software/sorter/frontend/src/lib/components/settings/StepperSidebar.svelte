@@ -5,6 +5,7 @@
 	import { stepperLabels } from '$lib/settings/stations';
 	import type { EndstopConfig } from '$lib/settings/stations';
 	import {
+		DIRECTION_WORDS,
 		STEPPER_GEAR_RATIOS,
 		loadStoredStepperPulseSetting,
 		persistStoredStepperPulseSetting
@@ -328,9 +329,9 @@
 				errorMsg = humanizeStepperError(await readErrorMessage(res));
 				return;
 			}
-			statusMsg = `Pulsing ${direction.toUpperCase()}.`;
+			statusMsg = `Pulsing ${DIRECTION_WORDS[direction]}.`;
 		} catch {
-			errorMsg = `${direction.toUpperCase()} request failed.`;
+			errorMsg = `The ${DIRECTION_WORDS[direction]} request failed.`;
 		} finally {
 			pulsing = { ...pulsing, [key]: false };
 		}
@@ -358,9 +359,9 @@
 				errorMsg = humanizeStepperError(await readErrorMessage(res));
 				return;
 			}
-			statusMsg = `Moving ${pulseDegrees}° ${direction.toUpperCase()}.`;
+			statusMsg = `Moving ${pulseDegrees}° ${DIRECTION_WORDS[direction]}.`;
 		} catch {
-			errorMsg = `${direction.toUpperCase()} request failed.`;
+			errorMsg = `The ${DIRECTION_WORDS[direction]} request failed.`;
 		} finally {
 			pulsing = { ...pulsing, [key]: false };
 		}

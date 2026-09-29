@@ -1,8 +1,9 @@
 @import 'tailwindcss';
 
 /*
- * Brand tokens — mirror software/sorter/frontend/src/routes/layout.css.
- * KEEP IN SYNC manually until/unless we extract these into a shared package.
+ * The Sorter UI's tokens, copied from software/sorter/frontend/src/routes/layout.css.
+ * How this site looks comes from software/sorter-design-system; these give way
+ * to its src/app.css when the site moves onto it.
  */
 @theme {
     --color-bg: #f7f6f3;

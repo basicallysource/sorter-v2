@@ -155,6 +155,7 @@
 
 	async function handleSubmit(e: Event) {
 		e.preventDefault();
+		if (submitting) return;
 		error = null;
 		if (!canSubmit()) {
 			error = 'The Sorter link request is incomplete. Please start the Hive link again from Sorter.';

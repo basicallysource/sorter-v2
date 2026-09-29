@@ -90,7 +90,7 @@
 
 	async function handleAdd(event: Event) {
 		event.preventDefault();
-		if (!newName.trim()) return;
+		if (addSubmitting || !newName.trim()) return;
 		addSubmitting = true;
 		try {
 			const result: MachineWithToken = await api.createMachine(newName, newDescription || undefined);

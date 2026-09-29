@@ -26,7 +26,7 @@
 		creating = true;
 		error = null;
 		try {
-			const profile = await api.createSortingProfile({ name: 'Untitled profile', visibility: 'private' });
+			const profile = await api.createSortingProfile({ name: 'Untitled Profile', visibility: 'private' });
 			goto(`/profiles/${profile.id}/edit?new=1`);
 		} catch (e: any) {
 			error = e.error || 'Failed to create profile';

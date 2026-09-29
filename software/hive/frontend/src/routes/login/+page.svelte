@@ -46,6 +46,7 @@
 
 	async function handleSubmit(e: Event) {
 		e.preventDefault();
+		if (submitting) return;
 		error = null;
 		submitting = true;
 		const result = await auth.login(email, password);

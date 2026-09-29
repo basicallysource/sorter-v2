@@ -64,7 +64,7 @@
 
 	async function handleCreate(e: Event) {
 		e.preventDefault();
-		if (!name.trim()) return;
+		if (creating || !name.trim()) return;
 		if (profileType === 'set' && selectedSets.length === 0) {
 			error = 'Add at least one set.';
 			return;

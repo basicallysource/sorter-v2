@@ -144,7 +144,7 @@
 		if (!profile) return;
 		forking = true; error = null;
 		try {
-			const fork = await api.forkSortingProfile(profile.id, { add_to_library: true, name: `${profile.name} (fork)` });
+			const fork = await api.forkSortingProfile(profile.id, { add_to_library: true, name: `${profile.name} (Fork)` });
 			goto(`/profiles/${fork.id}/edit`);
 		} catch (e: any) { error = e.error || 'Failed to fork profile'; }
 		finally { forking = false; }

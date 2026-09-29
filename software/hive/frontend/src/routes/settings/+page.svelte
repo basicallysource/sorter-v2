@@ -186,6 +186,7 @@
 
 	async function handleCreateApiKey(event: Event) {
 		event.preventDefault();
+		if (apiKeysLoading) return;
 		apiKeysError = null;
 		const name = apiKeyName.trim();
 		if (!name) {
@@ -317,6 +318,7 @@
 	});
 
 	async function handleSaveTeacherModel() {
+		if (teacherSettingSaving) return;
 		teacherSettingError = null;
 		teacherSettingSaved = false;
 		teacherSettingSaving = true;
@@ -386,6 +388,7 @@
 	}
 
 	async function handleSaveAiSettings() {
+		if (aiSaving) return;
 		aiError = null;
 		aiSaved = false;
 		aiSaving = true;
@@ -431,6 +434,7 @@
 	}
 
 	async function handleSavePerceptronKey() {
+		if (perceptronSaving) return;
 		perceptronError = null;
 		perceptronSaved = false;
 		perceptronSaving = true;

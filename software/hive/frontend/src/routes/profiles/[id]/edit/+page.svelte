@@ -914,7 +914,7 @@
 
 
 	async function saveVersion() {
-		if (!profile) return;
+		if (!profile || savingVersion) return;
 		savingVersion = true;
 		error = null;
 		try {
@@ -1156,7 +1156,7 @@
 			<!-- The hidden span sizes the grid cell, so the field hugs the name. -->
 			<div class="inline-grid min-w-0 max-w-full items-center overflow-hidden">
 				<span aria-hidden="true" class="invisible col-start-1 row-start-1 px-1.5 text-xl font-semibold whitespace-pre"
-					>{nameDraft || 'Untitled profile'}</span
+					>{nameDraft || 'Untitled Profile'}</span
 				>
 				<input
 					type="text"

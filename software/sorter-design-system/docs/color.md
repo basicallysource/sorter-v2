@@ -39,12 +39,12 @@ used.
 | `track`       | `#e6e4de` | `#0f0f0e` | The groove of a segmented control or a progress bar          |
 | `thumb`       | `#ffffff` | `#34332f` | The chosen part of a segmented control; the jog buttons      |
 | `line`        | `#e2dfd8` | `#2e2d2a` | A line between items                                         |
-| `line-strong` | `#b9b4aa` | `#4a4843` | The outline of a control                                     |
+| `line-strong` | `#b9b4aa` | `#4a4843` | The outline of a field, a select, a checkbox                 |
 | `ink`         | `#1b1a18` | `#eeece7` | All text that matters                                        |
 | `ink-muted`   | `#686460` | `#a39f96` | Help, descriptions, labels                                   |
 | `ink-faint`   | `#9d988f` | `#6f6c65` | Placeholders, what is off. Never something someone must read |
 
-`media` (`#0c0c0b`), `knob` (the switch's knob, white) and `scrim` (behind a
+`media` (black, so a feed still stands off the dark canvas), `knob` (the switch's knob, white) and `scrim` (behind a
 dialog) are the same in both modes. `hover`, `pressed` and `soft` are ink at
 5%, 9% and 7%, so they darken a light plane and lighten a dark one.
 

@@ -13,11 +13,11 @@
 	import Button from '$lib/components/Button.svelte';
 
 	const runs = [
-		{ day: 'Mon 21', pieces: 3120, rate: 14.1, unknown: 2.4, status: 'done' },
-		{ day: 'Tue 22', pieces: 2984, rate: 13.6, unknown: 3.1, status: 'done' },
-		{ day: 'Wed 23', pieces: 812, rate: 9.8, unknown: 7.9, status: 'stopped' },
-		{ day: 'Thu 24', pieces: 3405, rate: 14.9, unknown: 1.8, status: 'done' },
-		{ day: 'Fri 25', pieces: 1290, rate: 14.4, unknown: 2.2, status: 'running' }
+		{ day: 'Mon 21', pieces: 3120, rate: 14.1, unknown: 2.4, status: 'Done' },
+		{ day: 'Tue 22', pieces: 2984, rate: 13.6, unknown: 3.1, status: 'Done' },
+		{ day: 'Wed 23', pieces: 812, rate: 9.8, unknown: 7.9, status: 'Stopped' },
+		{ day: 'Thu 24', pieces: 3405, rate: 14.9, unknown: 1.8, status: 'Done' },
+		{ day: 'Fri 25', pieces: 1290, rate: 14.4, unknown: 2.2, status: 'Running' }
 	];
 
 	const bins = [
@@ -40,7 +40,7 @@
 		.join(' ');
 
 	function tone(status: string) {
-		return status === 'running' ? 'success' : status === 'stopped' ? 'warning' : 'neutral';
+		return status === 'Running' ? 'success' : status === 'Stopped' ? 'warning' : 'neutral';
 	}
 </script>
 
@@ -54,7 +54,7 @@
 
 <SiteSection
 	title="Badges"
-	lead="A short state or count beside what it describes: a tint and the tone's ink. The dot is the one round shape in the system."
+	lead="A short state or count beside what it describes: a tint and the tone's ink. The dot is round whatever the corners."
 >
 	<Specimen code={`<Badge tone="success" dot>Running</Badge>`}>
 		<div class="flex flex-wrap items-center gap-2">
@@ -93,7 +93,7 @@
 
 <SiteSection
 	title="Tables"
-	lead="A well for the head, one line between rows, no outer border and no vertical lines. Numbers are mono and right-aligned. A row that opens something highlights under the pointer."
+	lead="A well for the head, one line between rows, no outer border and no vertical lines. Numbers are right-aligned in tabular figures. A row that opens something highlights under the pointer."
 >
 	<Panel title="Runs this week" flush>
 		<div class="overflow-x-auto">
@@ -143,7 +143,7 @@
 
 <SiteSection
 	title="Progress"
-	lead="How full, how far. A well for the track, the fill in the primary, or in a status tone when the level means something."
+	lead="How full, how far. A track, the fill in the primary, or in a status tone when the level means something."
 >
 	<div class="max-w-md">
 		<Panel title="Bins" flush>

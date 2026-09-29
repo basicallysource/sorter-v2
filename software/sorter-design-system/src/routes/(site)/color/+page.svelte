@@ -58,7 +58,7 @@
 				{ token: 'line', use: 'Between items on one plane.', on: ['surface'], min: 1 },
 				{
 					token: 'line-strong',
-					use: 'Around a field or a secondary button.',
+					use: 'Around a field, a select, a checkbox.',
 					on: ['surface'],
 					min: 1.5
 				}

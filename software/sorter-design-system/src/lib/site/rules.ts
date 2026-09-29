@@ -39,7 +39,8 @@ export const rules = [
 	{
 		id: 'text',
 		title: 'Readable is 14px',
-		summary: 'Anything someone has to read is 14px or larger; 12px is for labels and badges.'
+		summary:
+			'Anything someone has to read is 14px or larger; 12px is for badges and counts. Nothing is in capitals.'
 	},
 	{
 		id: 'tokens',

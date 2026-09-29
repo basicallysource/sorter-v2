@@ -80,20 +80,22 @@
 	title="A hardware fault"
 	lead="When the machine stops for a hardware reason, a banner sits under the top bar on every page, and its Details open the whole message and the way back. The top bar owns the line between them, so the banner is only a fill."
 >
-	<div class="bg-canvas">
-		<TopBar items={[{ href: '/notices', label: 'Dashboard' }]} sticky={false}>
-			{#snippet brand()}<Wordmark href="/notices" />{/snippet}
-		</TopBar>
-		<div class="flex flex-wrap items-center gap-x-4 gap-y-2 bg-danger-soft px-4 py-2.5 sm:px-6">
-			<OctagonAlert size={18} class="shrink-0 text-danger-ink" />
-			<p class="min-w-0 flex-1 text-sm text-ink">
-				<span class="font-semibold">Stepper setup failed.</span>
-				The control board could not configure the C-Channel 2 stepper.
-			</p>
-			<Button size="sm" onclick={() => (faultOpen = true)}>Details</Button>
-		</div>
-		<div class="p-4 sm:p-6">
-			<div class="h-24 bg-surface"></div>
+	<div class="rounded-panel bg-surface p-2">
+		<div class="overflow-hidden rounded-control bg-canvas">
+			<TopBar items={[{ href: '/notices', label: 'Dashboard' }]} sticky={false}>
+				{#snippet brand()}<Wordmark href="/notices" />{/snippet}
+			</TopBar>
+			<div class="flex flex-wrap items-center gap-x-4 gap-y-2 bg-danger-soft px-4 py-2.5 sm:px-6">
+				<OctagonAlert size={18} class="shrink-0 text-danger-ink" />
+				<p class="min-w-0 flex-1 text-sm text-ink">
+					<span class="font-semibold">Stepper setup failed.</span>
+					The control board could not configure the C-Channel 2 stepper.
+				</p>
+				<Button size="sm" onclick={() => (faultOpen = true)}>Details</Button>
+			</div>
+			<div class="p-4 sm:p-6">
+				<div class="h-24 bg-surface"></div>
+			</div>
 		</div>
 	</div>
 </SiteSection>

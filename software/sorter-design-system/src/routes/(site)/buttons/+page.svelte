@@ -93,7 +93,7 @@
 
 <SiteSection
 	title="Icon buttons"
-	lead="An icon alone needs a name: `label` becomes its accessible name and its tooltip. Point at one."
+	lead="An icon alone needs a name, which becomes its accessible name and its tooltip. Point at one."
 >
 	<Specimen code={`<Button variant="ghost" icon={Pencil} label="Rename profile" />`}>
 		<div class="flex flex-wrap items-center gap-2">
@@ -121,7 +121,7 @@
 
 <SiteSection
 	title="As a link"
-	lead="With `href` it is a link that looks like a button, for going somewhere rather than doing something."
+	lead="Given an address it is a link that looks like a button, for going somewhere rather than doing something."
 >
 	<Specimen code={`<Button href="/example/settings" icon={ArrowRight}>Open settings</Button>`}>
 		<Button href="/example/settings" icon={ArrowRight}>Open settings</Button>
@@ -130,7 +130,7 @@
 
 <SiteSection
 	title="In a row"
-	lead="Buttons keep a gap of at least 8px, so two outlines never touch. The way out comes first and the primary last, at the right of a panel's footer or a dialog's."
+	lead="Buttons keep a gap of at least 8px, so two never touch. The way out comes first and the primary last, at the right of a panel's footer or a dialog's."
 >
 	<Panel title="Profile" flush>
 		<p class="px-5 pb-4 text-sm text-ink-muted">Sorting profile September, 214 categories.</p>

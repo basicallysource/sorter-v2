@@ -18,13 +18,14 @@
 			name: 'Canvas',
 			token: 'bg-canvas',
 			fill: 'bg-canvas',
-			holds: 'The page itself: page titles, the side nav, the gaps between panels.'
+			holds: 'The page itself: page titles and the gaps between panels.'
 		},
 		{
 			name: 'Surface',
 			token: 'bg-surface',
 			fill: 'bg-surface',
-			holds: "A panel: one job's worth of content. No border, no shadow."
+			holds:
+				"A panel, the top bar, the side nav: one job's worth of content each. No border, no shadow."
 		},
 		{
 			name: 'Well',
@@ -138,8 +139,8 @@
 				<Button>Connect</Button>
 			</div>
 			<p class="mt-3 text-sm text-ink-muted">
-				A field or a secondary button is the one thing outlined, because the outline says "you can
-				type or press here".
+				A field is the one thing outlined, because the outline says "you can type here". Buttons are
+				tints and need none.
 			</p>
 		</Specimen>
 	</div>
@@ -173,7 +174,7 @@
 			<li class="px-5 py-3.5 text-sm">
 				<span class="font-medium text-ink">A tab bar:</span>
 				<span class="text-ink-muted"
-					>owns the line under it, and the current tab's 2px mark sits on that line, in place of it.</span
+					>owns the line under it, and the current tab's mark sits on that line, in place of it.</span
 				>
 			</li>
 			<li class="px-5 py-3.5 text-sm">

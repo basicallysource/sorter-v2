@@ -34,6 +34,7 @@
 				</a>
 			</li>
 		{/each}
+		{#if docs.length % 2}<li class="hidden bg-surface sm:block" aria-hidden="true"></li>{/if}
 	</ul>
 </nav>
 

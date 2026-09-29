@@ -1,6 +1,16 @@
 <script lang="ts">
 	import { renderMarkdown } from '$lib/markdown';
 	import Spinner from '$lib/components/Spinner.svelte';
+	import Alert from '$lib/components/Alert.svelte';
+	import Badge from '$lib/components/Badge.svelte';
+	import Button from '$lib/components/Button.svelte';
+	import Input from '$lib/components/Input.svelte';
+	import Tabs from '$lib/components/Tabs.svelte';
+	import ArrowRight from '@lucide/svelte/icons/arrow-right';
+	import Check from '@lucide/svelte/icons/check';
+	import GitFork from '@lucide/svelte/icons/git-fork';
+	import Send from '@lucide/svelte/icons/send';
+	import Sparkles from '@lucide/svelte/icons/sparkles';
 	import type { SortingProfileAiMessage, SortingProfileDetail, SortingProfileVersion, AiToolTraceItem } from '$lib/api';
 
 	type ToolResultListItem = {
@@ -110,330 +120,235 @@
 	});
 </script>
 
-<div class="flex min-h-0 min-w-0 flex-col overflow-hidden border border-line bg-surface">
-	<div class="flex border-b border-line">
-		<button onclick={() => onRightTabChange('chat')}
-			class="flex-1 px-4 py-2 text-center text-sm font-medium transition-colors
-				{rightTab === 'chat' ? 'border-b-2 border-b-primary text-primary-ink' : 'text-ink-muted hover:text-ink'}">
-			Chat
-		</button>
-		<button onclick={() => onRightTabChange('versions')}
-			class="flex-1 px-4 py-2 text-center text-sm font-medium transition-colors
-				{rightTab === 'versions' ? 'border-b-2 border-b-primary text-primary-ink' : 'text-ink-muted hover:text-ink'}">
-			Versions
-			<span class="ml-1 text-xs font-normal text-ink-muted">· {profile.versions.length}</span>
-		</button>
+<!-- What a tool found, the same whether the step is done (a trace on a reply) or still running. -->
+{#snippet toolResult(resultView: ExpandableToolResult, key: string)}
+	<div class="mt-1 text-sm text-ink-muted">
+		<div>{getToolResultSummaryLine(resultView)}</div>
+		{#if resultView.items.length > 0}
+			{#if resultView.layout === 'media-grid'}
+				<div class="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-2 xl:grid-cols-3">
+					{#each visibleToolResultItems(resultView, key) as item (item.id)}
+						<figure class="overflow-hidden rounded-control bg-well">
+							<div class="aspect-[4/3]">
+								{#if item.imageUrl}
+									<img src={item.imageUrl} alt={item.primary} class="size-full object-contain p-2" loading="lazy" />
+								{:else}
+									<div class="flex h-full items-center justify-center text-sm text-ink-faint">No picture</div>
+								{/if}
+							</div>
+							<figcaption class="px-2.5 py-2">
+								<div class="line-clamp-2 text-ink">{item.primary}</div>
+								{#if item.secondary}<div class="mt-0.5 line-clamp-2">{item.secondary}</div>{/if}
+							</figcaption>
+						</figure>
+					{/each}
+				</div>
+			{:else}
+				<ul class="mt-1.5 flex flex-col gap-1">
+					{#each visibleToolResultItems(resultView, key) as item (item.id)}
+						<li class="flex min-w-0 items-baseline gap-2">
+							<span class="size-1.5 shrink-0 translate-y-[-1px] rounded-full bg-ink-faint"></span>
+							<span class="truncate text-ink">{item.primary}</span>
+							{#if item.secondary}<span class="truncate">{item.secondary}</span>{/if}
+						</li>
+					{/each}
+				</ul>
+			{/if}
+			{#if canExpandToolResult(resultView)}
+				<Button variant="ghost" size="sm" class="mt-1 -ml-2.5" onclick={() => onToggleToolResult(key)}>
+					{isToolResultExpanded(key)
+						? 'Show less'
+						: `Show all ${resultView.availableCount} ${resultView.availableCount === 1 ? resultView.singularLabel : resultView.pluralLabel}`}
+				</Button>
+			{/if}
+		{/if}
 	</div>
+{/snippet}
+
+{#snippet step(done: boolean, title: string, durationMs: number | null, resultView: ExpandableToolResult | null, key: string, detail: string | null)}
+	<div class="flex items-start gap-2 text-sm">
+		<span class="mt-0.5 flex size-4 shrink-0 items-center justify-center">
+			{#if done}<Check size={14} class="text-success-ink" />{:else}<Spinner size={12} class="text-ink-muted" />{/if}
+		</span>
+		<div class="min-w-0 flex-1">
+			<div class="flex items-center justify-between gap-2">
+				<span class="text-ink">{title}</span>
+				{#if formatDuration(durationMs)}<span class="num shrink-0 text-ink-faint">{formatDuration(durationMs)}</span>{/if}
+			</div>
+			{#if resultView}
+				{@render toolResult(resultView, key)}
+			{:else if detail}
+				<div class="markdown-body markdown-compact mt-0.5 text-ink-muted">{@html renderMarkdown(detail)}</div>
+			{/if}
+		</div>
+	</div>
+{/snippet}
+
+<div class="flex min-h-0 min-w-0 flex-col overflow-hidden rounded-panel bg-surface">
+	<Tabs
+		label="Assistant and versions"
+		inset
+		value={rightTab}
+		onchange={onRightTabChange}
+		items={[
+			{ value: 'chat', label: 'Chat' },
+			{ value: 'versions', label: 'Versions', count: profile.versions.length }
+		]}
+	/>
 
 	{#if rightTab === 'versions'}
 		<div class="flex-1 overflow-y-auto">
 			{#if profile.versions.length === 0}
-				<div class="p-6 text-center text-sm text-ink-muted">No versions yet.</div>
+				<p class="p-6 text-center text-sm text-ink-muted">No versions yet.</p>
 			{:else}
-				<div class="divide-y divide-line">
+				<ul class="divide-y divide-line">
 					{#each [...profile.versions].reverse() as version (version.id)}
 						{@const isCurrent = version.id === profile.current_version?.id}
-						<div class="px-4 py-3 {isCurrent ? 'bg-primary/8' : ''}">
-							<div class="flex items-center justify-between">
+						<li class="flex flex-col gap-1 px-(--pad-panel) py-3 {isCurrent ? 'bg-primary-soft' : ''}">
+							<div class="flex items-center justify-between gap-2">
 								<div class="flex items-center gap-2">
-									{#if isCurrent}
-										<span class="inline-block h-2.5 w-2.5 shrink-0 bg-primary"></span>
-									{/if}
-									<span class="text-sm font-semibold {isCurrent ? 'text-primary-ink' : 'text-ink'}">v{version.version_number}</span>
-									{#if isCurrent}
-										<span class="bg-primary/8 px-1.5 py-0.5 text-xs font-medium uppercase tracking-wide text-primary-ink">current</span>
-									{/if}
-									{#if version.is_published}
-										<span class="bg-success/10 px-1.5 py-0.5 text-xs font-medium uppercase tracking-wide text-success-ink">published</span>
-									{/if}
+									<span class="num font-medium {isCurrent ? 'text-primary-ink' : 'text-ink'}">v{version.version_number}</span>
+									{#if isCurrent}<Badge tone="primary">Current</Badge>{/if}
+									{#if version.is_published}<Badge tone="success">Published</Badge>{/if}
+									{#if version.label}<Badge>{version.label}</Badge>{/if}
 								</div>
-								<span class="text-xs text-ink-muted">{formatDate(version.created_at)}</span>
+								<span class="text-sm text-ink-muted">{formatDate(version.created_at)}</span>
 							</div>
-							{#if version.change_note}
-								<p class="mt-1 text-xs text-ink-muted">{version.change_note}</p>
-							{/if}
-							<div class="mt-1 flex items-center gap-3 text-xs text-ink-muted">
-								<span>{version.compiled_part_count} parts</span>
-								{#if version.label}
-									<span>{version.label}</span>
-								{/if}
-							</div>
-							<div class="mt-2 flex gap-2">
-								<button onclick={() => { if (isCurrent) onExitPreview(); else onViewVersion(version.id); }}
+							{#if version.change_note}<p class="text-sm text-ink-muted">{version.change_note}</p>{/if}
+							<p class="num text-sm text-ink-muted">{version.compiled_part_count} parts</p>
+							<div class="mt-1 flex gap-2">
+								<Button
+									size="sm"
 									disabled={previewLoading}
-									class="border border-line px-2 py-1 text-xs font-medium text-ink-muted hover:bg-hover disabled:opacity-50">
-									View
-								</button>
+									onclick={() => {
+										if (isCurrent) onExitPreview();
+										else onViewVersion(version.id);
+									}}>View</Button
+								>
 								{#if !isCurrent}
-									<button onclick={() => onRestoreVersion(version.id)}
+									<Button
+										size="sm"
+										loading={restoringVersionId === version.id}
 										disabled={restoringVersionId !== null}
-										class="border border-line px-2 py-1 text-xs font-medium text-ink-muted hover:bg-hover disabled:opacity-50">
-										{restoringVersionId === version.id ? 'Restoring...' : 'Restore'}
-									</button>
+										onclick={() => onRestoreVersion(version.id)}>Restore</Button
+									>
 								{/if}
-								<button onclick={() => onForkFromVersion(version.id)}
-									class="border border-line px-2 py-1 text-xs font-medium text-ink-muted hover:bg-hover">
-									Fork
-								</button>
+								<Button size="sm" variant="ghost" icon={GitFork} onclick={() => onForkFromVersion(version.id)}
+									>Fork</Button
+								>
 							</div>
-						</div>
+						</li>
 					{/each}
-				</div>
+				</ul>
 			{/if}
 		</div>
 	{:else if !hasOpenRouter}
-		<div class="flex flex-1 flex-col items-center justify-center p-6 text-center">
-			<svg class="mb-3 h-8 w-8 text-ink-muted" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
-				<path stroke-linecap="round" stroke-linejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09z" />
-			</svg>
-			<p class="mb-2 text-sm text-ink-muted">OpenRouter API key required for chat</p>
-			<a href="/settings" class="text-sm font-medium text-primary-ink hover:text-primary-hover">Configure in Settings</a>
+		<div class="flex flex-1 flex-col items-center justify-center gap-3 p-6 text-center">
+			<Sparkles size={24} class="text-ink-faint" />
+			<p class="text-sm text-ink-muted">The assistant needs an OpenRouter key.</p>
+			<Button href="/settings" size="sm" icon={ArrowRight}>Add one in settings</Button>
 		</div>
 	{:else}
 		<div bind:this={chatContainer} class="flex-1 overflow-y-auto p-4">
 			{#if aiMessages.length === 0}
-				<div class="flex h-full flex-col items-center justify-center text-center">
-					<svg class="mb-3 h-8 w-8 text-ink-muted" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
-						<path stroke-linecap="round" stroke-linejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09z" />
-					</svg>
-					<p class="mb-1 text-sm font-medium text-ink">Describe what you want to sort</p>
-					<p class="text-xs text-ink-muted">Use chat to create categories, add rules, and refine your sorting logic.</p>
+				<div class="flex h-full flex-col items-center justify-center gap-1 text-center">
+					<Sparkles size={24} class="mb-2 text-ink-faint" />
+					<p class="text-sm font-medium text-ink">Describe what you want to sort</p>
+					<p class="text-sm text-ink-muted">The assistant creates categories, adds rules and refines them with you.</p>
 				</div>
 			{:else}
-				<div class="space-y-4 min-w-0">
+				<div class="flex min-w-0 flex-col gap-4">
 					{#each aiMessages as msg (msg.id)}
-						<div class="{msg.role === 'user' ? 'ml-8' : 'mr-8'} min-w-0">
+						<div class="min-w-0 {msg.role === 'user' ? 'ml-8' : 'mr-8'}">
 							{#if msg.role === 'assistant'}
 								{#if msg.tool_trace?.length}
-									<div class="mb-3 space-y-2">
-										{#each msg.tool_trace as trace, traceIndex}
-											{@const resultView = getExpandableToolResult(trace.tool, trace.output)}
-											{@const resultKey = `${msg.id}-trace-${traceIndex}`}
-											<div class="min-w-0 overflow-hidden border border-success/15 bg-success/5 px-3 py-2.5 text-xs">
-												<div class="flex items-start gap-2">
-													<div class="mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center text-success-ink">
-														<svg class="h-3.5 w-3.5" viewBox="0 0 20 20" fill="currentColor">
-															<path fill-rule="evenodd" d="M16.704 4.153a.75.75 0 01.143 1.052l-8 10.5a.75.75 0 01-1.127.075l-4.5-4.5a.75.75 0 011.06-1.06l3.894 3.893 7.48-9.817a.75.75 0 011.05-.143z" clip-rule="evenodd" />
-														</svg>
-													</div>
-													<div class="min-w-0">
-														<div class="flex items-center justify-between gap-2">
-															<div class="font-medium text-success-ink">{toolTraceTitle(trace)}</div>
-															{#if formatDuration(trace.duration_ms ?? null)}
-																<div class="shrink-0 text-xs font-medium text-success/60">{formatDuration(trace.duration_ms ?? null)}</div>
-															{/if}
-														</div>
-														{#if resultView}
-															<div class="mt-1 text-success/70">
-																<div class="text-xs font-medium uppercase tracking-[0.08em] text-success/60">
-																	{getToolResultSummaryLine(resultView)}
-																</div>
-																{#if resultView.items.length > 0}
-																	{#if resultView.layout === 'media-grid'}
-																		<div class="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-2 xl:grid-cols-3">
-																			{#each visibleToolResultItems(resultView, resultKey) as item (item.id)}
-																				<div class="overflow-hidden border border-success/15 bg-surface/80">
-																					<div class="relative aspect-[4/3] border-b border-success/10 bg-success/5">
-																						{#if item.imageUrl}
-																							<img src={item.imageUrl} alt={item.primary} class="h-full w-full object-contain p-2" loading="lazy" />
-																						{:else}
-																							<div class="flex h-full items-center justify-center text-xs font-medium uppercase tracking-[0.12em] text-success/40">No image</div>
-																						{/if}
-																					</div>
-																					<div class="px-2.5 py-2">
-																						<div class="line-clamp-2 font-medium text-success-ink">{item.primary}</div>
-																						{#if item.secondary}
-																							<div class="mt-1 line-clamp-2 text-success/60">{item.secondary}</div>
-																						{/if}
-																					</div>
-																				</div>
-																			{/each}
-																		</div>
-																	{:else}
-																		<div class="mt-2 space-y-1.5">
-																			{#each visibleToolResultItems(resultView, resultKey) as item (item.id)}
-																				<div class="flex items-start gap-2 border border-success/15 bg-surface/70 px-2 py-1.5">
-																					<div class="mt-1 h-1.5 w-1.5 shrink-0 rounded-full bg-success"></div>
-																					<div class="min-w-0">
-																						<div class="truncate font-medium text-success-ink">{item.primary}</div>
-																						{#if item.secondary}
-																							<div class="truncate text-success/60">{item.secondary}</div>
-																						{/if}
-																					</div>
-																				</div>
-																			{/each}
-																		</div>
-																	{/if}
-																	{#if canExpandToolResult(resultView)}
-																		<button onclick={() => onToggleToolResult(resultKey)}
-																			class="mt-2 text-xs font-medium text-success-ink hover:underline">
-																			{#if isToolResultExpanded(resultKey)}
-																				Show less
-																			{:else}
-																				Show all {resultView.availableCount} {resultView.availableCount === 1 ? resultView.singularLabel : resultView.pluralLabel}
-																			{/if}
-																		</button>
-																	{/if}
-																{/if}
-															</div>
-														{:else}
-															<div class="markdown-body markdown-compact mt-0.5 text-success/70">
-																{@html renderMarkdown(trace.output_summary)}
-															</div>
-														{/if}
-													</div>
-												</div>
-											</div>
+									<div class="mb-3 flex flex-col gap-2">
+										{#each msg.tool_trace as trace, traceIndex (traceIndex)}
+											{@render step(
+												true,
+												toolTraceTitle(trace),
+												trace.duration_ms ?? null,
+												getExpandableToolResult(trace.tool, trace.output),
+												`${msg.id}-trace-${traceIndex}`,
+												trace.output_summary
+											)}
 										{/each}
 									</div>
 								{/if}
-								<div class="chat-message-assistant min-w-0 overflow-hidden p-3 text-sm">
+								<div class="min-w-0 overflow-hidden rounded-control bg-well p-3 text-sm text-ink">
 									<div class="markdown-body overflow-x-auto">
 										{@html renderMarkdown(displayAiMessageContent(msg.content))}
 									</div>
 									{#if aiMessagePerformanceLabel(msg)}
-										<div class="mt-2 text-xs text-ink-muted">
-											{aiMessagePerformanceLabel(msg)}
-										</div>
+										<div class="mt-2 text-sm text-ink-muted">{aiMessagePerformanceLabel(msg)}</div>
 									{/if}
 									{#if msg.applied_at && msg.proposal}
 										{@const actions = proposalActionSummaries(msg.proposal)}
 										{#if actions.length}
-											<div class="mt-2 space-y-0.5 border-t border-line pt-2">
-												{#each actions as action}
-													<div class="flex items-center gap-1.5 text-xs text-success-ink">
-														<svg class="h-3 w-3 shrink-0" viewBox="0 0 20 20" fill="currentColor">
-															<path fill-rule="evenodd" d="M16.704 4.153a.75.75 0 01.143 1.052l-8 10.5a.75.75 0 01-1.127.075l-4.5-4.5a.75.75 0 011.06-1.06l3.894 3.893 7.48-9.817a.75.75 0 011.05-.143z" clip-rule="evenodd" />
-														</svg>
-														{action}
-													</div>
+											<ul class="mt-2 flex flex-col gap-0.5 border-t border-line pt-2">
+												{#each actions as action, i (i)}
+													<li class="flex items-center gap-1.5 text-sm text-success-ink">
+														<Check size={14} class="shrink-0" />{action}
+													</li>
 												{/each}
-											</div>
+											</ul>
 										{/if}
 									{/if}
 								</div>
 							{:else}
-								<div class="chat-message-user min-w-0 overflow-hidden p-3 text-sm">
-									<div class="whitespace-pre-wrap">{msg.content}</div>
+								<div class="min-w-0 overflow-hidden rounded-control bg-primary-soft p-3 text-sm whitespace-pre-wrap text-ink">
+									{msg.content}
 								</div>
 							{/if}
 						</div>
 					{/each}
 					{#if aiError}
-						<div class="mr-8 border border-danger/40 bg-danger/[0.06] px-3 py-2.5 text-xs" role="alert">
-							<div class="font-medium text-danger-ink">{aiError}</div>
-							{#if aiErrorCode?.startsWith('OPENROUTER_')}
-								<a href="/settings" class="mt-1 inline-block font-medium text-primary-ink hover:text-primary-hover">Fix your OpenRouter key in Settings</a>
-							{/if}
+						<div class="mr-8">
+							<Alert tone="danger" title={aiError}>
+								{#if aiErrorCode?.startsWith('OPENROUTER_')}The OpenRouter key in your settings needs fixing.{/if}
+								{#snippet actions()}
+									{#if aiErrorCode?.startsWith('OPENROUTER_')}
+										<Button href="/settings" size="sm">Settings</Button>
+									{/if}
+								{/snippet}
+							</Alert>
 						</div>
 					{/if}
 					{#if aiBusy}
-						<div class="mr-8">
-							<div class="mb-2 space-y-2" aria-live="polite">
-								{#each visibleAiProgressCards as card (card.id)}
-									{@const resultView = getExpandableToolResult(card.tool, card.output)}
-									<div class="px-3 py-2.5 text-xs {card.status === 'active' ? 'border border-warning/40 bg-warning/[0.08]' : 'border border-success/25 bg-success/[0.06]'}">
-										<div class="flex items-start gap-2">
-											<div class="mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center {card.status === 'active' ? 'text-warning-ink' : 'text-success-ink'}">
-												{#if card.status === 'active'}
-													<Spinner size={14} />
-												{:else}
-													<svg class="h-3.5 w-3.5" viewBox="0 0 20 20" fill="currentColor">
-														<path fill-rule="evenodd" d="M16.704 4.153a.75.75 0 01.143 1.052l-8 10.5a.75.75 0 01-1.127.075l-4.5-4.5a.75.75 0 011.06-1.06l3.894 3.893 7.48-9.817a.75.75 0 011.05-.143z" clip-rule="evenodd" />
-													</svg>
-												{/if}
-											</div>
-											<div class="min-w-0 flex-1">
-												<div class="flex items-center justify-between gap-2">
-													<div class="font-medium {card.status === 'active' ? 'text-warning-ink' : 'text-success-ink'}">{card.title}</div>
-													{#if formatDuration(card.durationMs ?? null)}
-														<div class="shrink-0 text-xs font-medium {card.status === 'active' ? 'text-warning-ink/70' : 'text-success/60'}">{formatDuration(card.durationMs ?? null)}</div>
-													{/if}
-												</div>
-												{#if resultView}
-													<div class="mt-1 {card.status === 'active' ? 'text-warning-ink/70' : 'text-success/70'}">
-														<div class="text-xs font-medium uppercase tracking-[0.08em] {card.status === 'active' ? 'text-warning-ink' : 'text-success/60'}">
-															{getToolResultSummaryLine(resultView)}
-														</div>
-														{#if resultView.items.length > 0}
-															{#if resultView.layout === 'media-grid'}
-																<div class="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-2 xl:grid-cols-3">
-																	{#each visibleToolResultItems(resultView, card.id) as item (item.id)}
-																		<div class="overflow-hidden border {card.status === 'active' ? 'border-warning/40 bg-surface/70' : 'border-success/15 bg-surface/80'}">
-																			<div class="relative aspect-[4/3] border-b {card.status === 'active' ? 'border-warning/25 bg-warning/[0.04]' : 'border-success/10 bg-success/5'}">
-																				{#if item.imageUrl}
-																					<img src={item.imageUrl} alt={item.primary} class="h-full w-full object-contain p-2" loading="lazy" />
-																				{:else}
-																					<div class="flex h-full items-center justify-center text-xs font-medium uppercase tracking-[0.12em] {card.status === 'active' ? 'text-warning-ink/40' : 'text-success/40'}">No image</div>
-																				{/if}
-																			</div>
-																			<div class="px-2.5 py-2">
-																				<div class="line-clamp-2 font-medium {card.status === 'active' ? 'text-warning-ink' : 'text-success-ink'}">{item.primary}</div>
-																				{#if item.secondary}
-																					<div class="mt-1 line-clamp-2 {card.status === 'active' ? 'text-warning-ink/70' : 'text-success/60'}">{item.secondary}</div>
-																				{/if}
-																			</div>
-																		</div>
-																	{/each}
-																</div>
-															{:else}
-																<div class="mt-2 space-y-1.5">
-																	{#each visibleToolResultItems(resultView, card.id) as item (item.id)}
-																		<div class="flex items-start gap-2 border px-2 py-1.5 {card.status === 'active' ? 'border-warning/40 bg-surface/60' : 'border-success/15 bg-surface/70'}">
-																			<div class="mt-1 h-1.5 w-1.5 shrink-0 rounded-full {card.status === 'active' ? 'bg-warning-strong' : 'bg-success'}"></div>
-																			<div class="min-w-0">
-																				<div class="truncate font-medium {card.status === 'active' ? 'text-warning-ink' : 'text-success-ink'}">{item.primary}</div>
-																				{#if item.secondary}
-																					<div class="truncate {card.status === 'active' ? 'text-warning-ink/70' : 'text-success/60'}">{item.secondary}</div>
-																				{/if}
-																			</div>
-																		</div>
-																	{/each}
-																</div>
-															{/if}
-															{#if canExpandToolResult(resultView)}
-																<button onclick={() => onToggleToolResult(card.id)}
-																	class="mt-2 text-xs font-medium {card.status === 'active' ? 'text-warning-ink' : 'text-success-ink'} hover:underline">
-																	{#if isToolResultExpanded(card.id)}
-																		Show less
-																	{:else}
-																		Show all {resultView.availableCount} {resultView.availableCount === 1 ? resultView.singularLabel : resultView.pluralLabel}
-																	{/if}
-																</button>
-															{/if}
-														{/if}
-													</div>
-												{:else if card.detail}
-													<div class="markdown-body markdown-compact mt-0.5 {card.status === 'active' ? 'text-warning-ink/70' : 'text-success/70'}">
-														{@html renderMarkdown(card.detail)}
-													</div>
-												{/if}
-											</div>
-										</div>
-									</div>
-								{/each}
-							</div>
+						<div class="mr-8 flex flex-col gap-2" aria-live="polite">
+							{#each visibleAiProgressCards as card (card.id)}
+								{@render step(
+									card.status !== 'active',
+									card.title,
+									card.durationMs ?? null,
+									getExpandableToolResult(card.tool, card.output),
+									card.id,
+									card.detail
+								)}
+							{/each}
 						</div>
 					{/if}
 				</div>
 			{/if}
 		</div>
 
-		<div class="border-t border-line p-3">
-			<div class="flex gap-2">
-				<input type="text" value={aiMessage}
-					oninput={(e) => onAiMessageChange((e.currentTarget as HTMLInputElement).value)}
-					placeholder={isNewProfile && workingRulesLength === 0
-						? 'e.g. Sort Technic parts by function: gears, beams, connectors...'
-						: 'Describe a change...'}
-					class="min-w-0 flex-1 border border-line px-3 py-2 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
-					onkeydown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); onSendAiMessage(); } }}
-					disabled={aiBusy} />
-				<button onclick={onSendAiMessage} disabled={aiBusy || !aiMessage.trim()}
-					class="bg-primary px-4 py-2 text-sm font-medium text-white hover:bg-primary-hover disabled:opacity-50">
-					{aiBusy ? '...' : 'Send'}
-				</button>
-			</div>
-		</div>
+		<form
+			class="flex gap-2 border-t border-line p-3"
+			onsubmit={(e) => {
+				e.preventDefault();
+				if (!aiBusy && aiMessage.trim()) onSendAiMessage();
+			}}
+		>
+			<Input
+				class="min-w-0 flex-1"
+				value={aiMessage}
+				disabled={aiBusy}
+				placeholder={isNewProfile && workingRulesLength === 0
+					? 'For example: sort Technic parts by what they do, gears, beams, connectors'
+					: 'Describe a change'}
+				oninput={(e) => onAiMessageChange((e.currentTarget as HTMLInputElement).value)}
+			/>
+			<Button type="submit" variant="primary" icon={Send} loading={aiBusy} disabled={!aiMessage.trim()}>Send</Button>
+		</form>
 	{/if}
 </div>

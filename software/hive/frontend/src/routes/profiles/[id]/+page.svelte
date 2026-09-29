@@ -2,8 +2,29 @@
 	import { goto } from '$app/navigation';
 	import { page } from '$app/state';
 	import { api, type SortingProfileDetail, type SortingProfileSetProgressResponse } from '$lib/api';
+	import { sentence } from '$lib/text';
+	import Alert from '$lib/components/Alert.svelte';
+	import Badge from '$lib/components/Badge.svelte';
+	import Button from '$lib/components/Button.svelte';
+	import EmptyState from '$lib/components/EmptyState.svelte';
+	import Field from '$lib/components/Field.svelte';
+	import Input from '$lib/components/Input.svelte';
 	import Modal from '$lib/components/Modal.svelte';
+	import PageHeader from '$lib/components/PageHeader.svelte';
+	import Panel from '$lib/components/Panel.svelte';
+	import ProgressBar from '$lib/components/ProgressBar.svelte';
+	import Select from '$lib/components/Select.svelte';
 	import Spinner from '$lib/components/Spinner.svelte';
+	import Stat from '$lib/components/Stat.svelte';
+	import Textarea from '$lib/components/Textarea.svelte';
+	import ArrowLeft from '@lucide/svelte/icons/arrow-left';
+	import ArrowRight from '@lucide/svelte/icons/arrow-right';
+	import BookmarkPlus from '@lucide/svelte/icons/bookmark-plus';
+	import Check from '@lucide/svelte/icons/check';
+	import GitFork from '@lucide/svelte/icons/git-fork';
+	import Pencil from '@lucide/svelte/icons/pencil';
+	import Trash2 from '@lucide/svelte/icons/trash-2';
+	import X from '@lucide/svelte/icons/x';
 
 	let loading = $state(true);
 	let profile = $state<SortingProfileDetail | null>(null);
@@ -33,9 +54,9 @@
 			{ label: 'Parts', value: cv.compiled_part_count },
 			{ label: 'Categories', value: catCount },
 			{ label: 'Coverage', value: coveragePct(cv.coverage_ratio) },
-			{ label: 'Library Saves', value: profile.library_count },
+			{ label: 'Library saves', value: profile.library_count },
 			{ label: 'Forks', value: profile.fork_count },
-			{ label: 'Latest Version', value: `v${profile.latest_version_number}` }
+			{ label: 'Latest version', value: `v${profile.latest_version_number}` }
 		];
 	});
 
@@ -123,7 +144,7 @@
 		if (!profile) return;
 		forking = true; error = null;
 		try {
-			const fork = await api.forkSortingProfile(profile.id, { add_to_library: true, name: `${profile.name} (Fork)` });
+			const fork = await api.forkSortingProfile(profile.id, { add_to_library: true, name: `${profile.name} (fork)` });
 			goto(`/profiles/${fork.id}/edit`);
 		} catch (e: any) { error = e.error || 'Failed to fork profile'; }
 		finally { forking = false; }
@@ -158,248 +179,232 @@
 	function removeTag(tag: string) { settingsTags = parsedTags.filter((t) => t !== tag).join(', '); }
 </script>
 
-<svelte:head><title>{profile ? `${profile.name} - Hive` : 'Sorting Profile - Hive'}</title></svelte:head>
+<svelte:head><title>{profile ? `${profile.name} - Hive` : 'Sorting profile - Hive'}</title></svelte:head>
+
+<div class="mb-(--gap-panels)">
+	<Button href="/profiles" size="sm" variant="ghost" icon={ArrowLeft}>Profiles</Button>
+</div>
 
 {#if loading}
 	<div class="flex justify-center p-8"><Spinner size={32} /></div>
 {:else if !profile}
-	<div class="border border-primary/20 bg-primary-soft p-4 text-sm text-primary-ink">{error ?? 'Profile not found.'}</div>
+	<Alert tone="danger">{error ?? 'Profile not found.'}</Alert>
 {:else}
-	<div class="space-y-6">
-		<!-- Header -->
-		<div>
-			<a href="/profiles" class="text-sm text-primary-ink hover:text-primary-hover">&larr; Profiles</a>
-			<h1 class="mt-2 text-2xl font-bold text-ink">{profile.name}</h1>
-			{#if profile.description}<p class="mt-1 text-sm text-ink-muted">{profile.description}</p>{/if}
-			<div class="mt-3 flex flex-wrap items-center gap-2">
-				{#each profile.tags as tag}
-					<span class="border border-primary/20 bg-primary-soft px-2 py-0.5 text-xs font-medium text-primary-ink">{tag}</span>
-				{/each}
-				{#if profile.is_owner}
-					<span class="border border-line bg-well px-2 py-0.5 text-xs font-medium text-ink-muted">{profile.visibility}</span>
-				{/if}
-			</div>
+	<PageHeader title={profile.name} description={profile.description ?? undefined}>
+		<div class="mt-2 flex flex-wrap items-center gap-2 text-sm text-ink-muted">
+			<span>By {profile.owner.display_name ?? profile.owner.github_login ?? 'unknown'}</span>
 			{#if profile.source}
-				<p class="mt-2 text-sm text-ink-muted">Forked from <span class="font-medium text-ink">{profile.source.profile_name}</span>{#if profile.source.version_number} v{profile.source.version_number}{/if}</p>
+				<span
+					>Forked from <span class="text-ink">{profile.source.profile_name}</span>{#if profile.source.version_number}
+						v{profile.source.version_number}{/if}</span
+				>
 			{/if}
-			<p class="mt-1 text-xs text-ink-muted">by {profile.owner.display_name ?? profile.owner.github_login ?? 'Unknown'}</p>
+			{#if profile.is_owner}<Badge>{sentence(profile.visibility)}</Badge>{/if}
+			{#each profile.tags as tag (tag)}<Badge>{tag}</Badge>{/each}
 		</div>
-
-		<!-- Stats Bar -->
-		<div class="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
-			{#each stats as s}
-				<div class="border border-line bg-surface p-4">
-					<div class="text-lg font-semibold text-ink">{s.value}</div>
-					<div class="flex items-center gap-2 text-xs font-medium text-info-ink"><span class="inline-block h-2.5 w-2.5 bg-info"></span>{s.label}</div>
-				</div>
-			{/each}
-		</div>
-
-		{#if error}<div class="border border-primary/20 bg-primary-soft p-3 text-sm text-primary-ink">{error}</div>{/if}
-		{#if success}<div class="border border-success/20 bg-success/[0.08] p-3 text-sm text-success-ink">{success}</div>{/if}
-
-		<!-- Action Buttons -->
-		<div class="flex flex-wrap gap-2">
-			{#if profile.is_owner}
-				<a href={`/profiles/${profile.id}/edit`} class="inline-block bg-primary px-4 py-2 text-sm font-medium text-white hover:bg-primary-hover">Edit Profile</a>
+		{#snippet actions()}
+			{#if profile!.is_owner}
+				{#if profile!.saved_in_library}
+					<Button icon={Check} loading={libraryBusy} onclick={() => void toggleLibrary()}>In library</Button>
+				{/if}
+				<Button href={`/profiles/${profile!.id}/edit`} variant="primary" icon={Pencil}>Edit profile</Button>
 			{:else}
-				<button onclick={() => void toggleLibrary()} disabled={libraryBusy} class="border border-line px-4 py-2 text-sm font-medium text-ink hover:bg-hover disabled:opacity-50">
-					{libraryBusy ? 'Updating...' : profile.saved_in_library ? 'In Library \u2713' : 'Save to Library'}
-				</button>
-				<button onclick={() => void forkProfile()} disabled={forking} class="border border-line px-4 py-2 text-sm font-medium text-ink hover:bg-hover disabled:opacity-50">
-					{forking ? 'Forking...' : 'Fork this Profile'}
-				</button>
+				<Button
+					icon={profile!.saved_in_library ? Check : BookmarkPlus}
+					loading={libraryBusy}
+					onclick={() => void toggleLibrary()}>{profile!.saved_in_library ? 'In library' : 'Save to library'}</Button
+				>
+				<Button variant="primary" icon={GitFork} loading={forking} onclick={() => void forkProfile()}
+					>Fork this profile</Button
+				>
 			{/if}
-			{#if profile.is_owner && profile.saved_in_library}
-				<button onclick={() => void toggleLibrary()} disabled={libraryBusy} class="border border-line px-4 py-2 text-sm font-medium text-ink hover:bg-hover disabled:opacity-50">
-					{libraryBusy ? 'Updating...' : 'In Library \u2713'}
-				</button>
-			{/if}
-		</div>
+		{/snippet}
+	</PageHeader>
 
-		<!-- Categories Overview -->
+	<div class="flex flex-col gap-(--gap-panels)">
+		<section
+			aria-label="Numbers"
+			class="grid grid-cols-2 gap-px overflow-hidden rounded-panel bg-line sm:grid-cols-3 lg:grid-cols-6"
+		>
+			{#each stats as s (s.label)}
+				<div class="bg-surface"><Stat label={s.label} value={s.value} /></div>
+			{/each}
+		</section>
+
+		{#if error}<Alert tone="danger">{error}</Alert>{/if}
+		{#if success}<Alert tone="success">{success}</Alert>{/if}
+
 		{#if sortedCategories.length > 0}
-			<div class="border border-line bg-surface p-6">
-				<h2 class="mb-4 text-lg font-semibold text-ink">Categories</h2>
-				<div class="space-y-2">
-					{#each sortedCategories as cat}
-						<div class="flex items-center gap-3">
-							<div class="w-24 truncate text-sm text-ink sm:w-40">{cat.name}{#if cat.isFallback} <span class="text-xs text-ink-muted">(fallback)</span>{/if}</div>
-							<div class="flex-1"><div class="h-5 bg-primary-soft" style="width: {cat.pct}%"><div class="h-full bg-info" style="width: 100%"></div></div></div>
-							<div class="w-16 shrink-0 text-right text-sm text-ink-muted sm:w-20">{cat.parts} parts</div>
-						</div>
+			<Panel title="Categories" description="How many parts each category holds.">
+				<ul class="flex flex-col gap-2">
+					{#each sortedCategories as cat (cat.id)}
+						<li class="flex items-center gap-3 text-sm">
+							<span class="flex w-28 min-w-0 items-center gap-2 sm:w-48">
+								<span class="truncate text-ink">{cat.name}</span>
+								{#if cat.isFallback}<Badge>Fallback</Badge>{/if}
+							</span>
+							<span class="h-3 flex-1 overflow-hidden rounded-badge bg-track">
+								<span class="block h-full bg-info" style="width: {cat.pct}%"></span>
+							</span>
+							<span class="num w-20 shrink-0 text-right text-ink-muted">{cat.parts} parts</span>
+						</li>
 					{/each}
-				</div>
-			</div>
+				</ul>
+			</Panel>
 		{/if}
 
 		{#if profile.profile_type === 'set'}
-			<div class="border border-line bg-surface p-6">
-				<div class="flex flex-wrap items-center justify-between gap-3">
-					<div>
-						<h2 class="text-lg font-semibold text-ink">Machine Progress</h2>
-						<p class="mt-1 text-sm text-ink-muted">
-							Progress synced back from your assigned machines for this set-based profile.
-						</p>
-					</div>
-					<a href="/machines" class="text-sm font-medium text-primary-ink hover:text-primary-hover">Manage Machines</a>
-				</div>
-
+			<Panel
+				title="Machine progress"
+				description="Progress your machines sync back for this set profile."
+				flush
+			>
+				{#snippet actions()}
+					<Button href="/machines" size="sm" variant="ghost" icon={ArrowRight}>Machines</Button>
+				{/snippet}
 				{#if setProgressError}
-					<div class="mt-4 border border-primary/20 bg-primary-soft p-3 text-sm text-primary-ink">{setProgressError}</div>
+					<div class="px-(--pad-panel) pb-(--pad-panel)"><Alert tone="danger">{setProgressError}</Alert></div>
 				{:else if setProgressLoading && !setProgress}
-					<div class="mt-4 text-sm text-ink-muted">Loading progress...</div>
+					<div class="flex justify-center pb-(--pad-panel)"><Spinner size={24} /></div>
 				{:else if machineProgress.length === 0}
-					<div class="mt-4 border border-dashed border-line p-4 text-sm text-ink-muted">
-						No machines you own are currently reporting progress for this profile.
+					<div class="px-(--pad-panel) pb-(--pad-panel)">
+						<EmptyState title="No progress yet">None of your machines is reporting progress for this profile.</EmptyState>
 					</div>
 				{:else}
-					<div class="mt-5 space-y-4">
-						{#each machineProgress as machine}
-							<div class="border border-line p-4">
+					<ul class="divide-y divide-line">
+						{#each machineProgress as machine (machine.machine_id)}
+							<li class="flex flex-col gap-3 px-(--pad-panel) py-4">
 								<div class="flex flex-wrap items-start justify-between gap-3">
 									<div>
-										<div class="text-sm font-semibold text-ink">{machine.machine_name}</div>
-										<div class="mt-1 text-xs text-ink-muted">
-											Desired v{machine.desired_version_number ?? 'n/a'}
-											{#if machine.active_version_number}
-												· Active v{machine.active_version_number}
-											{:else}
-												· Waiting for activation
-											{/if}
+										<div class="font-medium text-ink">{machine.machine_name}</div>
+										<div class="mt-0.5 text-sm text-ink-muted">
+											Wants v{machine.desired_version_number ?? '-'}, {machine.active_version_number
+												? `running v${machine.active_version_number}`
+												: 'waiting to switch'}{#if machine.updated_at}. Updated {timeAgo(machine.updated_at)}.{/if}
 										</div>
-										{#if machine.updated_at}
-											<div class="mt-1 text-xs text-ink-muted">
-												Last progress update {timeAgo(machine.updated_at)}
-											</div>
-										{/if}
 									</div>
-									<div class="min-w-[9rem] text-right">
-										<div class="text-lg font-semibold text-ink">
-											{machine.overall_found}/{machine.overall_needed}
+									<div class="text-right">
+										<div class="num text-lg font-medium text-ink">
+											{machine.overall_found} of {machine.overall_needed}
 										</div>
-										<div class="text-xs text-ink-muted">{machine.overall_pct}% complete</div>
+										<div class="num text-sm text-ink-muted">{machine.overall_pct}% done</div>
 									</div>
 								</div>
-
-								<div class="mt-3 h-2 w-full bg-well">
-									<div
-										class="h-full bg-success transition-all"
-										style="width: {Math.min(machine.overall_pct, 100)}%"
-									></div>
-								</div>
-
+								<ProgressBar
+									label={`${machine.machine_name} progress`}
+									value={Math.min(machine.overall_pct, 100)}
+									tone="success"
+								/>
 								{#if machine.sets.length > 0}
-									<div class="mt-4 space-y-2">
-										{#each machine.sets as set}
-											<div class="border border-line bg-well p-3">
-												<div class="flex items-center justify-between gap-3">
-													<div class="min-w-0">
-														<div class="truncate text-sm font-medium text-ink">{set.name}</div>
-														{#if set.name !== set.set_num}
-															<div class="truncate text-xs text-ink-muted">{set.set_num}</div>
-														{/if}
-													</div>
-													<div class="text-right text-xs text-ink-muted">
-														{set.total_found}/{set.total_needed} ({set.pct}%)
-													</div>
+									<ul class="flex flex-col gap-3 pl-4">
+										{#each machine.sets as set (set.set_num)}
+											<li class="flex flex-col gap-1.5">
+												<div class="flex items-baseline justify-between gap-3 text-sm">
+													<span class="min-w-0 truncate text-ink"
+														>{set.name}{#if set.name !== set.set_num}
+															<span class="font-mono text-ink-muted"> {set.set_num}</span>{/if}</span
+													>
+													<span class="num shrink-0 text-ink-muted"
+														>{set.total_found} of {set.total_needed} ({set.pct}%)</span
+													>
 												</div>
-												<div class="mt-2 h-1.5 w-full bg-surface">
-													<div
-														class="h-full bg-info transition-all"
-														style="width: {Math.min(percent(set.total_found, set.total_needed), 100)}%"
-													></div>
-												</div>
-											</div>
+												<ProgressBar
+													label={`${set.name} progress`}
+													value={Math.min(percent(set.total_found, set.total_needed), 100)}
+												/>
+											</li>
 										{/each}
-									</div>
+									</ul>
 								{/if}
-							</div>
+							</li>
 						{/each}
-					</div>
+					</ul>
 				{/if}
-			</div>
+			</Panel>
 		{/if}
 
-		<!-- Version History -->
 		{#if profile.versions.length > 0}
-			<div class="border border-line bg-surface p-6">
-				<h2 class="mb-4 text-lg font-semibold text-ink">Version History</h2>
-				<div class="space-y-3">
-					{#each [...profile.versions].reverse() as v}
-						<div class="border border-line p-4">
-							<div class="flex items-start justify-between gap-3">
-								<div>
-									<div class="flex flex-wrap items-center gap-2">
-										<span class="text-sm font-semibold text-ink">v{v.version_number}</span>
-										{#if v.is_published}<span class="border border-success/20 bg-success/[0.08] px-2 py-0.5 text-xs font-medium text-success-ink">Published</span>{/if}
-										{#if v.label}<span class="border border-line bg-well px-2 py-0.5 text-xs font-medium text-ink-muted">{v.label}</span>{/if}
-									</div>
-									{#if v.change_note}<p class="mt-1 text-sm text-ink-muted">{v.change_note}</p>{/if}
-									<p class="mt-1 text-xs text-ink-muted">{timeAgo(v.created_at)}</p>
+			<Panel title="Version history" flush>
+				<ul class="divide-y divide-line">
+					{#each [...profile.versions].reverse() as v (v.id)}
+						<li class="flex items-start justify-between gap-3 px-(--pad-panel) py-3">
+							<div class="min-w-0">
+								<div class="flex flex-wrap items-center gap-2">
+									<span class="num font-medium text-ink">v{v.version_number}</span>
+									{#if v.is_published}<Badge tone="success">Published</Badge>{/if}
+									{#if v.label}<Badge>{v.label}</Badge>{/if}
+									<span class="text-sm text-ink-muted">{timeAgo(v.created_at)}</span>
 								</div>
-								<div class="text-right text-xs text-ink-muted">
-									<div>{v.compiled_part_count} parts</div>
-									<div>{coveragePct(v.coverage_ratio)} coverage</div>
-								</div>
+								{#if v.change_note}<p class="mt-1 text-sm text-ink-muted">{v.change_note}</p>{/if}
 							</div>
-						</div>
+							<div class="num shrink-0 text-right text-sm text-ink-muted">
+								<div>{v.compiled_part_count} parts</div>
+								<div>{coveragePct(v.coverage_ratio)} coverage</div>
+							</div>
+						</li>
 					{/each}
-				</div>
-			</div>
+				</ul>
+			</Panel>
 		{/if}
 
-		<!-- Settings (Owner only) -->
 		{#if profile.is_owner}
-			<div class="border border-line bg-surface p-6">
-				<h2 class="mb-4 text-lg font-semibold text-ink">Settings</h2>
-				<div class="space-y-4">
-					<div>
-						<label for="s-name" class="mb-1 block text-sm font-medium text-ink">Name</label>
-						<input id="s-name" type="text" bind:value={settingsName} class="w-full border border-line px-3 py-2 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary" />
-					</div>
-					<div>
-						<label for="s-desc" class="mb-1 block text-sm font-medium text-ink">Description</label>
-						<textarea id="s-desc" rows="3" bind:value={settingsDescription} class="w-full border border-line px-3 py-2 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"></textarea>
-					</div>
-					<div>
-						<label for="s-vis" class="mb-1 block text-sm font-medium text-ink">Visibility</label>
-						<select id="s-vis" bind:value={settingsVisibility} class="w-full border border-line px-3 py-2 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary">
-							<option value="private">Private</option><option value="unlisted">Unlisted</option><option value="public">Public</option>
-						</select>
-					</div>
-					<div>
-						<label for="s-tags" class="mb-1 block text-sm font-medium text-ink">Tags</label>
-						<input id="s-tags" type="text" bind:value={settingsTags} placeholder="starter, workshop, plates" class="w-full border border-line px-3 py-2 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary" />
-						{#if parsedTags.length > 0}
-							<div class="mt-2 flex flex-wrap gap-1">
-								{#each parsedTags as tag}
-									<span class="inline-flex items-center gap-1 border border-primary/20 bg-primary-soft px-2 py-0.5 text-xs font-medium text-primary-ink">
-										{tag}<button onclick={() => removeTag(tag)} class="text-primary/60 hover:text-primary-ink" aria-label="Remove tag {tag}">&times;</button>
-									</span>
-								{/each}
-							</div>
-						{/if}
-					</div>
-					<button onclick={() => void saveSettings()} disabled={savingSettings} class="bg-primary px-4 py-2 text-sm font-medium text-white hover:bg-primary-hover disabled:opacity-50">
-						{savingSettings ? 'Saving...' : 'Save Changes'}
-					</button>
+			<Panel title="Settings">
+				<div class="flex flex-col gap-4">
+					<Field label="Name" for="s-name">
+						<Input id="s-name" bind:value={settingsName} />
+					</Field>
+					<Field label="Description" for="s-desc">
+						<Textarea id="s-desc" rows={3} bind:value={settingsDescription} />
+					</Field>
+					<Field label="Visibility" for="s-vis">
+						<Select
+							id="s-vis"
+							bind:value={settingsVisibility}
+							options={[
+								{ value: 'private', label: 'Private' },
+								{ value: 'unlisted', label: 'Unlisted' },
+								{ value: 'public', label: 'Public' }
+							]}
+						/>
+					</Field>
+					<Field label="Tags" for="s-tags" help="Separate tags with commas.">
+						<Input id="s-tags" bind:value={settingsTags} placeholder="starter, workshop, plates" />
+					</Field>
+					{#if parsedTags.length > 0}
+						<div class="-mt-2 flex flex-wrap items-center gap-1">
+							{#each parsedTags as tag (tag)}
+								<span class="inline-flex items-center">
+									<Badge>{tag}</Badge>
+									<Button variant="ghost" size="sm" icon={X} label={`Remove the tag ${tag}`} onclick={() => removeTag(tag)} />
+								</span>
+							{/each}
+						</div>
+					{/if}
 				</div>
-				<div class="mt-6 border-t border-line pt-6">
-					<h3 class="mb-3 text-sm font-semibold text-primary-ink">Danger Zone</h3>
-					<button onclick={() => { showDeleteModal = true; }} class="border border-primary/30 px-4 py-2 text-sm font-medium text-primary-ink hover:bg-primary-soft">Delete this Profile</button>
-				</div>
-			</div>
+				{#snippet footer()}
+					<Button variant="primary" loading={savingSettings} onclick={() => void saveSettings()}>Save changes</Button>
+				{/snippet}
+			</Panel>
+
+			<Panel title="Delete this profile">
+				{#snippet actions()}
+					<Button icon={Trash2} onclick={() => (showDeleteModal = true)}>Delete profile</Button>
+				{/snippet}
+				<p class="text-sm text-ink-muted">
+					Removes every version, the assistant's messages and the machine assignments that point at it.
+				</p>
+			</Panel>
 		{/if}
 	</div>
 {/if}
 
-<Modal open={showDeleteModal} title="Delete Sorting Profile" onclose={() => { showDeleteModal = false; }}>
-	<div class="space-y-4">
-		<p class="text-sm text-ink-muted">This removes the profile, all versions, AI messages, and machine assignments that point at it. This cannot be undone.</p>
-		<div class="flex justify-end gap-2">
-			<button onclick={() => { showDeleteModal = false; }} class="border border-line bg-surface px-4 py-2 text-sm font-medium text-ink hover:bg-hover">Cancel</button>
-			<button onclick={() => void deleteProfile()} disabled={deletingProfile} class="bg-primary px-4 py-2 text-sm font-medium text-white hover:bg-primary-hover disabled:opacity-50">{deletingProfile ? 'Deleting...' : 'Delete Profile'}</button>
-		</div>
-	</div>
+<Modal bind:open={showDeleteModal} title="Delete sorting profile" size="sm">
+	<p class="text-sm text-ink-muted">
+		This removes the profile, every version, the assistant's messages and the machine assignments that point
+		at it. It cannot be undone.
+	</p>
+	{#snippet footer()}
+		<Button variant="ghost" onclick={() => (showDeleteModal = false)}>Cancel</Button>
+		<Button variant="danger" loading={deletingProfile} onclick={() => void deleteProfile()}>Delete profile</Button>
+	{/snippet}
 </Modal>

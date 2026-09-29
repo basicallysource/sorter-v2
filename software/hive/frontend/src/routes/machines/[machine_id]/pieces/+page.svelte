@@ -5,6 +5,12 @@
 	import Badge from '$lib/components/Badge.svelte';
 	import Spinner from '$lib/components/Spinner.svelte';
 	import Button from '$lib/components/Button.svelte';
+	import Alert from '$lib/components/Alert.svelte';
+	import EmptyState from '$lib/components/EmptyState.svelte';
+	import PageHeader from '$lib/components/PageHeader.svelte';
+	import Panel from '$lib/components/Panel.svelte';
+	import ArrowLeft from '@lucide/svelte/icons/arrow-left';
+	import Shapes from '@lucide/svelte/icons/shapes';
 
 	const PAGE_SIZE = 60;
 
@@ -98,11 +104,11 @@
 	}
 
 	function conf(c: number | null): string {
-		return c != null ? `${Math.round(c * 100)}%` : '—';
+		return c != null ? `${Math.round(c * 100)}%` : '-';
 	}
 
 	function when(iso: string | null): string {
-		if (!iso) return '—';
+		if (!iso) return '-';
 		return new Date(iso).toLocaleString();
 	}
 
@@ -113,125 +119,112 @@
 </script>
 
 <svelte:head>
-	<title>{machineName ? `${machineName} — Pieces` : 'Machine Pieces'} · Hive</title>
+	<title>{machineName ? `${machineName} pieces` : 'Machine pieces'} - Hive</title>
 </svelte:head>
 
-<div class="mb-4">
-	<a href={`/machines/${machineId}`} class="text-sm text-ink-muted hover:text-ink">← Machine overview</a>
+<div class="mb-(--gap-panels)">
+	<Button href={`/machines/${machineId}`} size="sm" variant="ghost" icon={ArrowLeft}>Machine overview</Button>
 </div>
 
-<div class="mb-6 flex flex-wrap items-end justify-between gap-x-4 gap-y-1">
-	<div class="min-w-0">
-		<h1 class="text-2xl font-bold text-ink">{machineName || 'Machine'}</h1>
-		<p class="text-sm text-ink-muted">Pieces synced from this machine</p>
-	</div>
-	{#if !loading}
-		<span class="shrink-0 text-sm text-ink-muted">
-			{pieces.length.toLocaleString()} of {total.toLocaleString()} loaded
-		</span>
-	{/if}
-</div>
+<PageHeader title={machineName || 'Machine'} description="Pieces synced from this machine.">
+	{#snippet actions()}
+		{#if !loading}
+			<span class="num text-sm text-ink-muted"
+				>{pieces.length.toLocaleString()} of {total.toLocaleString()} loaded</span
+			>
+		{/if}
+	{/snippet}
+</PageHeader>
 
 {#if error}
-	<div class="mb-4 bg-primary/8 p-3 text-sm text-primary-ink">{error}</div>
+	<Alert tone="danger" class="mb-(--gap-panels)">{error}</Alert>
 {/if}
 
 {#if loading}
-	<div class="flex justify-center py-12">
-		<Spinner size={32} />
-	</div>
+	<div class="flex justify-center py-12"><Spinner size={32} /></div>
 {:else if pieces.length === 0}
-	<div class="border border-line bg-surface p-8 text-center text-sm text-ink-muted">
-		No pieces synced from this machine yet.
-	</div>
+	<Panel>
+		<EmptyState icon={Shapes} title="No pieces yet">No pieces have synced from this machine yet.</EmptyState>
+	</Panel>
 {:else}
-	<div class="flex flex-col gap-2">
-		{#each pieces as piece (piece.piece_uuid)}
-			{@const bin = binLabel(piece.bin)}
-			<div class="flex flex-col gap-4 border border-line bg-surface p-3 sm:flex-row">
-				<!-- Left: crops from the machine. The 15rem cap only applies once
-				     there is a second column beside it. -->
-				<div class="flex flex-wrap items-start gap-1.5 sm:max-w-60 sm:shrink-0">
-					{#if piece.images.length === 0}
-						<div class="flex h-16 w-16 items-center justify-center border border-line bg-well text-xs text-ink-muted">
-							no images
-						</div>
-					{:else}
-						{#each piece.images as img (img.seq)}
-							{#if img.available}
-								<img
-									src={api.machinePieceImageUrl(machineId, piece.piece_uuid, img.seq)}
-									alt={`crop ${img.seq}`}
-									loading="lazy"
-									title={`seq ${img.seq}${img.source ? ` · ${img.source}` : ''}${img.score != null ? ` · score ${(img.score * 100).toFixed(0)}%` : ''}`}
-									class="h-16 w-16 border-2 object-cover {img.used
-										? 'border-success'
-										: img.excluded_from_result
-											? 'border-primary'
-											: 'border-line'}"
-								/>
-							{:else}
-								<div
-									class="flex h-16 w-16 items-center justify-center border border-dashed border-line bg-well text-center text-xs text-ink-muted"
-									title={`seq ${img.seq} · evicted before sync`}
-								>
-									evicted
-								</div>
+	<Panel flush>
+		<ul class="divide-y divide-line">
+			{#each pieces as piece (piece.piece_uuid)}
+				{@const bin = binLabel(piece.bin)}
+				<li class="flex flex-col gap-4 px-(--pad-panel) py-3 sm:flex-row">
+					<!-- The machine's crops. The cap only applies once there is a column beside it. -->
+					<div class="flex flex-wrap items-start gap-2 sm:max-w-60 sm:shrink-0">
+						{#if piece.images.length === 0}
+							<div
+								class="flex size-16 items-center justify-center rounded-control bg-well text-xs text-ink-muted"
+							>
+								No images
+							</div>
+						{:else}
+							{#each piece.images as img (img.seq)}
+								{#if img.available}
+									<img
+										src={api.machinePieceImageUrl(machineId, piece.piece_uuid, img.seq)}
+										alt={`Crop ${img.seq}`}
+										loading="lazy"
+										title={`Crop ${img.seq}${img.source ? `, ${img.source}` : ''}${img.score != null ? `, score ${(img.score * 100).toFixed(0)}%` : ''}${img.used ? ', used' : img.excluded_from_result ? ', left out' : ''}`}
+										class="size-16 rounded-control bg-media object-cover {img.used
+											? 'outline-2 outline-offset-1 outline-success'
+											: img.excluded_from_result
+												? 'outline-2 outline-offset-1 outline-danger'
+												: ''}"
+									/>
+								{:else}
+									<div
+										class="flex size-16 items-center justify-center rounded-control bg-well text-center text-xs text-ink-muted"
+										title={`Crop ${img.seq} was removed before it synced`}
+									>
+										Removed
+									</div>
+								{/if}
+							{/each}
+						{/if}
+					</div>
+
+					<div class="min-w-0 flex-1">
+						<div class="flex flex-wrap items-center gap-2">
+							<Badge tone={statusVariant(piece.classification_status)}
+								>{sentence(piece.classification_status ?? 'unknown')}</Badge
+							>
+							<span class="font-medium text-ink">{piece.part_name || piece.part_id || 'Unidentified'}</span>
+							{#if piece.part_id}
+								<span class="font-mono text-sm text-ink-muted">{piece.part_id}</span>
 							{/if}
-						{/each}
-					{/if}
-				</div>
-
-				<!-- Middle: classification -->
-				<div class="min-w-0 flex-1">
-					<div class="flex flex-wrap items-center gap-2">
-						<Badge tone={statusVariant(piece.classification_status)}>{sentence(piece.classification_status ?? 'unknown')}</Badge>
-						<span class="text-sm font-medium text-ink">
-							{piece.part_name || piece.part_id || 'Unidentified'}
-						</span>
-						{#if piece.part_id}
-							<span class="text-xs text-ink-muted">#{piece.part_id}</span>
-						{/if}
-						{#if piece.dead}
-							<Badge tone="danger">Dead</Badge>
-						{/if}
+							{#if piece.dead}<Badge tone="danger">Dead</Badge>{/if}
+						</div>
+						<!-- Mold and color are scored by separate providers, so each has its own confidence. -->
+						<div class="mt-1 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-ink-muted">
+							<span>Color <span class="text-ink">{piece.color_name || piece.color_id || '-'}</span></span>
+							<span>Mold confidence <span class="num text-ink">{conf(piece.confidence)}</span></span>
+							<span>Color confidence <span class="num text-ink">{conf(piece.color_confidence)}</span></span>
+							{#if bin}<span>Bin <span class="num text-ink">{bin}</span></span>{/if}
+							{#if piece.run_id}
+								<span class="min-w-0 truncate">Run <span class="font-mono text-ink">{piece.run_id}</span></span>
+							{/if}
+						</div>
+						<div class="mt-1 text-sm text-ink-muted">
+							Seen {when(piece.seen_at)}{#if piece.recorded_at}, recorded {when(piece.recorded_at)}{/if}
+						</div>
 					</div>
 
-					<div class="mt-1 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-ink-muted">
-						<span>Color: <span class="text-ink">{piece.color_name || piece.color_id || '—'}</span></span>
-						<!-- Mold and color are scored by separate providers; a single "Conf"
-						     read as covering both, which it never did. -->
-						<span>Mold conf: <span class="text-ink tabular-nums">{conf(piece.confidence)}</span></span>
-						<span>Color conf: <span class="text-ink tabular-nums">{conf(piece.color_confidence)}</span></span>
-						{#if bin}
-							<span>Bin: <span class="text-ink tabular-nums">{bin}</span></span>
-						{/if}
-						{#if piece.run_id}
-							<span class="min-w-0 truncate">Run: <span class="text-ink">{piece.run_id}</span></span>
-						{/if}
-					</div>
-
-					<div class="mt-1 text-xs text-ink-muted">
-						Seen {when(piece.seen_at)}
-						{#if piece.recorded_at} · Recorded {when(piece.recorded_at)}{/if}
-					</div>
-				</div>
-
-				<!-- Right: Brickognize reference -->
-				{#if piece.brickognize_preview_url}
-					<div class="shrink-0">
+					{#if piece.brickognize_preview_url}
 						<img
 							src={piece.brickognize_preview_url}
-							alt="reference"
+							alt="Brickognize reference"
 							loading="lazy"
 							title="Brickognize reference"
-							class="h-16 w-16 border border-line object-contain"
+							class="size-16 shrink-0 rounded-control bg-surface object-contain"
 						/>
-					</div>
-				{/if}
-			</div>
-		{/each}
-	</div>
+					{/if}
+				</li>
+			{/each}
+		</ul>
+	</Panel>
 
 	<div bind:this={sentinel} class="h-px"></div>
 
@@ -239,9 +232,9 @@
 		{#if loadingMore}
 			<Spinner size={24} />
 		{:else if nextCursor != null}
-			<Button variant="secondary" size="sm" onclick={loadMore}>Load more</Button>
+			<Button size="sm" onclick={loadMore}>Load more</Button>
 		{:else}
-			<span class="text-xs text-ink-muted">End of list · {total.toLocaleString()} pieces total</span>
+			<span class="text-sm text-ink-muted">End of the list, {total.toLocaleString()} pieces.</span>
 		{/if}
 	</div>
 {/if}

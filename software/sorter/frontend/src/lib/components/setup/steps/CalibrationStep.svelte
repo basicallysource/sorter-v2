@@ -267,7 +267,7 @@
 		{/snippet}
 		<div class="flex flex-col gap-4">
 			{#if showEndstopWiringHelp}
-				<div class="grid gap-4 rounded-control bg-well p-4 lg:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)]">
+				<div class="grid grid-cols-1 gap-4 rounded-control bg-well p-4 lg:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)]">
 					<a href={SKR_PICO_WIRING_DIAGRAM_URL} target="_blank" rel="noopener noreferrer" class="block">
 						<img
 							src={SKR_PICO_WIRING_DIAGRAM_URL}
@@ -312,7 +312,7 @@
 				<Alert tone="danger">The live endstop read failed: {chuteLive.endstop_error}</Alert>
 			{/if}
 
-			<div class="grid gap-4 sm:grid-cols-2">
+			<div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
 				<Field label="First bin center" for="setup-first-bin" help="Saved when you continue.">
 					<Input id="setup-first-bin" type="number" step={0.1} bind:value={chuteFirstBinCenter} />
 				</Field>

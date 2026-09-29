@@ -210,7 +210,7 @@
 			<!-- A part's color is data, so its chip is that color. -->
 			{#if lego_color}
 				<span
-					class="inline-flex h-(--size-badge) items-center rounded-badge px-(--pad-badge) text-xs font-medium ring-1 ring-line ring-inset"
+					class="inline-flex h-(--size-badge) items-center rounded-badge border border-line px-(--pad-badge) text-xs font-medium"
 					style:background-color={lego_color.hex}
 					style:color={onColor(lego_color.hex)}
 				>

@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { confirmDialog } from '$lib/confirm.svelte';
 	import { getBackendHttpBase } from '$lib/backend';
 	import Button from '$lib/components/ui/Button.svelte';
 	import Input from '$lib/components/ui/Input.svelte';
@@ -6,7 +7,6 @@
 	import Panel from '$lib/components/ui/Panel.svelte';
 	import Checkbox from '$lib/components/ui/Checkbox.svelte';
 	import Field from '$lib/components/ui/Field.svelte';
-	import SegmentedControl from '$lib/components/ui/SegmentedControl.svelte';
 	import Select from '$lib/components/ui/Select.svelte';
 	import PageHeader from '$lib/components/ui/PageHeader.svelte';
 	import Trash2 from '@lucide/svelte/icons/trash-2';
@@ -258,7 +258,15 @@
 
 	async function deleteRun(run: Run, ev: Event) {
 		ev.stopPropagation();
-		if (!confirm(`Delete run ${run.id.slice(0, 8)} and its samples?`)) return;
+		if (
+			!(await confirmDialog({
+				title: 'Delete the run?',
+				message: `Delete run ${run.id.slice(0, 8)} and its samples?`,
+				action: 'Delete the run',
+				danger: true
+			}))
+		)
+			return;
 		try {
 			const res = await fetch(`${base()}/api/stepper-telemetry/runs/${run.id}`, {
 				method: 'DELETE',
@@ -291,6 +299,10 @@
 		loadSummary();
 	});
 	const stepperOptions = STEPPERS.map((s) => ({ value: s, label: s }));
+	const directionOptions: { value: 'cw' | 'ccw'; label: string }[] = [
+		{ value: 'cw', label: 'Clockwise' },
+		{ value: 'ccw', label: 'Counterclockwise' }
+	];
 	const profileOptions: { value: Profile; label: string }[] = [
 		{ value: 'constant', label: 'Constant spin' },
 		{ value: 'chute_random', label: 'Chute: random go-to-angle' },
@@ -348,7 +360,7 @@
 			<Alert tone="warning">
 				This moves a real motor. Keep the area clear and your hand near the stop control.
 			</Alert>
-			<div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+			<div class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
 				<Field label="Motor" for="sw-stepper">
 					<Select
 						id="sw-stepper"
@@ -360,17 +372,9 @@
 				<Field label="Motion" for="sw-profile">
 					<Select id="sw-profile" bind:value={swProfile} options={profileOptions} />
 				</Field>
-				<div class="flex flex-col gap-1.5">
-					<span class="text-sm font-medium text-ink">Direction</span>
-					<SegmentedControl
-						label="Direction"
-						bind:value={swDirection}
-						options={[
-							{ value: 'cw', label: 'Clockwise' },
-							{ value: 'ccw', label: 'Counterclockwise' }
-						]}
-					/>
-				</div>
+				<Field label="Direction" for="sw-direction">
+					<Select id="sw-direction" bind:value={swDirection} options={directionOptions} />
+				</Field>
 				<Field label="Speed" for="sw-speed">
 					<Input id="sw-speed" type="number" unit="µsteps/s" bind:value={swSpeed} />
 				</Field>
@@ -428,7 +432,7 @@
 		{/snippet}
 	</Panel>
 
-	<div class="grid gap-(--gap-panels) lg:grid-cols-3">
+	<div class="grid grid-cols-1 gap-(--gap-panels) lg:grid-cols-3">
 		<Panel title="Runs" description="Recent recordings." flush>
 			{#if runs.length === 0}
 				<p class="px-(--pad-panel) pb-4 text-sm text-ink-muted">No runs yet.</p>

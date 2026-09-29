@@ -434,7 +434,8 @@
 		description="Select a layer to jog it with the arrow keys. A layer moves during sorting only once its open and closed angles are both locked."
 		flush
 	>
-		{#snippet actions()}
+		<!-- The panel's own controls, in a row that wraps on a phone. -->
+		<div class="flex flex-wrap items-center justify-end gap-2 px-(--pad-panel) pb-3">
 			<Input
 				type="number"
 				min={1}
@@ -447,7 +448,7 @@
 				aria-label="Jog step"
 			/>
 			<Button size="sm" icon={Plus} disabled={loading || saving} onclick={addLayer}>Add a layer</Button>
-		{/snippet}
+		</div>
 
 		{#if layers.length === 0 && !loading}
 			<div class="px-(--pad-panel) pb-(--pad-panel)">
@@ -571,7 +572,7 @@
 							</Checkbox>
 						</div>
 
-						<div class="flex items-center gap-2">
+						<div class="flex flex-wrap items-center gap-2">
 							<div role="group" aria-label="Jog {layer.label}" class="flex items-center gap-0.5 rounded-button bg-track p-0.5">
 								<button
 									type="button"
@@ -615,11 +616,10 @@
 								variant="ghost"
 								size="sm"
 								icon={Eraser}
-								title="Clear this layer's angles"
 								disabled={idle || !layerIsCalibrated(layer)}
 								onclick={() => clearAngles(layer.layerIndex)}
 							>
-								Clear
+								Clear the angles
 							</Button>
 						</div>
 
@@ -662,16 +662,18 @@
 		</div>
 
 		{#snippet footer()}
-			{#if dirty}
-				<Badge tone="warning">Unsaved changes</Badge>
-			{/if}
-			<span class="mr-auto"></span>
-			<Button variant="ghost" icon={RotateCcw} disabled={loading || saving} onclick={loadSettings}>
-				Reload
-			</Button>
-			<Button variant="primary" loading={saving} disabled={loading} onclick={saveSettings}>
-				Save the layers
-			</Button>
+			<div class="flex w-full flex-wrap items-center justify-end gap-2">
+				{#if dirty}
+					<Badge tone="warning">Unsaved changes</Badge>
+				{/if}
+				<span class="mr-auto"></span>
+				<Button variant="ghost" icon={RotateCcw} disabled={loading || saving} onclick={loadSettings}>
+					Reload
+				</Button>
+				<Button variant="primary" loading={saving} disabled={loading} onclick={saveSettings}>
+					Save the layers
+				</Button>
+			</div>
 		{/snippet}
 	</Panel>
 {/if}

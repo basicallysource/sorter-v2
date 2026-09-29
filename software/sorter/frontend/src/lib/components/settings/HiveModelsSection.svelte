@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { confirmDialog } from '$lib/confirm.svelte';
 	import { onMount } from 'svelte';
 	import { getBackendHttpBase } from '$lib/backend';
 	import Alert from '$lib/components/ui/Alert.svelte';
@@ -535,9 +536,15 @@
 			return;
 		}
 		const summary = candidates.map((entry) => entry.name).join('\n  • ');
-		if (!confirm(`Remove ${candidates.length} unused downloaded model${candidates.length === 1 ? '' : 's'}?\n\n  • ${summary}`)) {
+		if (
+			!(await confirmDialog({
+				title: `Remove ${candidates.length} unused downloaded model${candidates.length === 1 ? '' : 's'}?`,
+				message: `  • ${summary}`,
+				action: 'Remove them',
+				danger: true
+			}))
+		)
 			return;
-		}
 		actionError = null;
 		cleaningUp = true;
 		try {
@@ -573,7 +580,15 @@
 	}
 
 	async function handleDelete(entry: Installed) {
-		if (!confirm(`Remove the installed model "${entry.name}" from this sorter?`)) return;
+		if (
+			!(await confirmDialog({
+				title: 'Remove the model?',
+				message: `Remove the installed model "${entry.name}" from this sorter?`,
+				action: 'Remove the model',
+				danger: true
+			}))
+		)
+			return;
 		actionError = null;
 		deletingLocalId = entry.local_id;
 		try {
@@ -837,7 +852,7 @@
 								? `${model.target_url.replace(/\/+$/, '')}/models/${model.id}`
 								: null}
 							<li class="flex flex-wrap items-center justify-between gap-3 px-(--pad-panel) py-3">
-								<div class="min-w-0 flex-1">
+								<div class="min-w-0 grow basis-64">
 									<div class="flex flex-wrap items-center gap-2">
 										{#if model.codename_color}
 											<span
@@ -986,7 +1001,7 @@
 									: null}
 							<li class={isActive ? 'bg-success-soft' : !isCompatible ? 'opacity-70' : ''}>
 								<div class="flex flex-wrap items-center justify-between gap-3 px-(--pad-panel) py-3">
-									<div class="min-w-0 flex-1">
+									<div class="min-w-0 grow basis-64">
 										<div class="flex flex-wrap items-center gap-2">
 											{#if entry.codename_color}
 												<span
@@ -1027,6 +1042,8 @@
 											<p class="mt-1 text-sm text-ink-muted">
 												Installed, but no part of the sorting reads this model yet.
 											</p>
+										{:else if isActive}
+											<p class="mt-1 text-sm text-success-ink">Active for {activeLabels.join(', ')}</p>
 										{/if}
 										<p class="mt-1 flex flex-wrap items-center gap-x-1.5 text-sm text-ink-muted">
 											{#if subtitleOf(entry)}
@@ -1067,7 +1084,7 @@
 														variant={isActive ? 'secondary' : 'primary'}
 														icon={isActive ? CheckCircle2 : ChevronDown}
 													>
-														{isActive ? `Active: ${activeLabels.join(', ')}` : 'Activate'}
+														{isActive ? 'Active' : 'Activate'}
 													</Button>
 												{/snippet}
 											</Menu>

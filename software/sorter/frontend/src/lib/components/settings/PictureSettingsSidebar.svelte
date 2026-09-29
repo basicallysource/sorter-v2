@@ -24,6 +24,7 @@
 	import Undo2 from '@lucide/svelte/icons/undo-2';
 	import X from '@lucide/svelte/icons/x';
 	import Alert from '$lib/components/ui/Alert.svelte';
+	import Spinner from '$lib/components/ui/Spinner.svelte';
 	import Button from '$lib/components/ui/Button.svelte';
 	import Panel from '$lib/components/ui/Panel.svelte';
 	import CaptureModePanel from './picture/CaptureModePanel.svelte';
@@ -424,7 +425,10 @@
 			<div class="px-(--pad-panel) py-(--pad-row)"><Alert tone="danger">{error}</Alert></div>
 		{/if}
 		{#if loading}
-			<p class="px-(--pad-panel) py-8 text-center text-sm text-ink-muted">Loading the picture settings…</p>
+			<p class="flex items-center justify-center gap-2 px-(--pad-panel) py-8 text-sm text-ink-muted">
+				<Spinner size={16} />
+				Loading the picture settings
+			</p>
 		{:else}
 			<CaptureModePanel {role} />
 			<DeviceControlsPanel

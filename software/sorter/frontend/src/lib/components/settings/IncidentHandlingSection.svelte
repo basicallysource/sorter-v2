@@ -23,7 +23,7 @@
 	const INCIDENT_FALLBACK_DEFINITIONS: IncidentDefinition[] = [
 		{
 			kind: EXIT_STUCK_INCIDENT_KIND,
-			label: 'Exit Stuck',
+			label: 'Exit stuck',
 			scope: 'C4',
 			description: 'The classification channel stopped making progress with a piece on it.',
 			off_label: 'Do not raise exit-stuck incidents',
@@ -33,10 +33,10 @@
 		},
 		{
 			kind: 'feeder_jam',
-			label: 'Feeder Jam',
+			label: 'Feeder jam',
 			scope: 'Feeder',
 			description:
-				"A feeder channel keeps trying to advance a piece that will not move — it is hung at the previous channel's hand-off.",
+				"A feeder channel keeps trying to advance a piece that will not move, because it is hung at the previous channel's hand-off.",
 			off_label: 'Do not detect feeder hand-off jams',
 			manual_label: 'Call the operator as soon as a channel is stuck',
 			automatic_label: 'Nudge the upstream channel to free it, then call the operator',
@@ -44,7 +44,7 @@
 		},
 		{
 			kind: 'distribution_chute_jam',
-			label: 'Chute Jam',
+			label: 'Chute jam',
 			scope: 'Distribution',
 			description: 'The distribution chute did not finish moving.',
 			off_label: 'Use hardware alert only',
@@ -54,7 +54,7 @@
 		},
 		{
 			kind: 'distribution_servo_bus_offline',
-			label: 'Servo Bus Offline',
+			label: 'Servo bus offline',
 			scope: 'Distribution',
 			description: 'The distribution servo bus is not responding.',
 			off_label: 'Use hardware alert only',
@@ -64,7 +64,7 @@
 		},
 		{
 			kind: 'distribution_no_bin_available',
-			label: 'No Bin Available',
+			label: 'No bin available',
 			scope: 'Distribution',
 			description: 'No matching bin is available for the piece.',
 			off_label: 'Allow bottom-tray passthrough',

@@ -171,7 +171,7 @@
 			>
 				<BarList
 					tone="danger"
-					labelWidth="w-40"
+					labelWidth="sm:w-40"
 					empty="No incidents recorded."
 					rows={summary.by_kind.map((k) => ({
 						key: k.kind,

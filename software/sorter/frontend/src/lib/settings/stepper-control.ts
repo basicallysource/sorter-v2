@@ -28,7 +28,7 @@ export const STEPPER_GEAR_RATIOS: Record<StepperKey, number> = {
 	chute: 120 / 25
 };
 
-export const CLASSIFICATION_CHANNEL_STEPPER_LABEL = 'Classification C-Channel (C4)';
+export const CLASSIFICATION_CHANNEL_STEPPER_LABEL = 'Classification C-channel (C4)';
 export const CLASSIFICATION_CHANNEL_STEPPER_GEAR_RATIO = STEPPER_GEAR_RATIOS.c_channel_4;
 
 export function stepperPulseStorageKey(stepperKey: StepperKey, field: string): string {

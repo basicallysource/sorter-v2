@@ -163,7 +163,7 @@
 <Modal bind:open title={detailsBin ? `Bin ${detailsBin.bin.global_index + 1}` : 'Bin details'} size="lg">
 	{#if detailsBin}
 		<div class="flex flex-col gap-4">
-			<dl class="grid gap-4 sm:grid-cols-3">
+			<dl class="grid grid-cols-1 gap-4 sm:grid-cols-3">
 				<div>
 					<dt class="label">Layer</dt>
 					<dd class="num mt-1 text-base font-medium text-ink">{detailsBin.layerIndex + 1}</dd>
@@ -266,7 +266,7 @@
 			</section>
 
 			{#if setMeta}
-				<section class="grid gap-4 rounded-control bg-well p-4 md:grid-cols-[10rem_1fr] md:items-center">
+				<section class="grid grid-cols-1 gap-4 rounded-control bg-well p-4 md:grid-cols-[10rem_1fr] md:items-center">
 					<div class="flex items-center justify-center rounded-item bg-surface p-3">
 						{#if setMeta.img_url}
 							<img src={setMeta.img_url} alt={setMeta.name} class="h-32 w-full object-contain" />

@@ -42,9 +42,9 @@
 	function friendlyName(machineName: string): string {
 		const mapping: Record<string, string> = {
 			distribution: 'Distribution',
-			'distribution.occupancy': 'Distribution Lane',
+			'distribution.occupancy': 'Distribution lane',
 			classification: 'Classification',
-			'classification.occupancy': 'Classification Lane',
+			'classification.occupancy': 'Classification lane',
 			feeder: 'Feeder',
 			'feeder.ch1': 'C1 Bulk',
 			'feeder.ch2': 'C2 Separation',

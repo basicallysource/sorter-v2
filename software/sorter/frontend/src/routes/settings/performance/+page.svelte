@@ -296,7 +296,7 @@
 			{ label: 'Control loop rate', value: fmtHz(liveProfile.loop_hz), unit: 'Hz', hint: 'Target 100', tone: hzTone(liveProfile.loop_hz, 80, 50) },
 			{ label: 'GIL stall', value: fmtMs(liveProfile.gil_stall_ms), unit: 'ms', hint: 'Loop contention', tone: msTone(liveProfile.gil_stall_ms, 5, 15) }
 		])}
-		<div class="grid gap-3 border-t border-line p-(--pad-panel) md:grid-cols-3">
+		<div class="grid grid-cols-1 gap-3 border-t border-line p-(--pad-panel) md:grid-cols-3">
 			{@render spark('Decision data age (ms)', decisionAgeSeries, 'Over ' + RANGES[rangeIdx].label)}
 			{@render spark('Control loop interval (ms)', loopIntervalSeries, 'Lower is faster')}
 			{@render spark('Decisions a second', decisionHzSeries, 'Over ' + RANGES[rangeIdx].label)}

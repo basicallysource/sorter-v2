@@ -201,7 +201,7 @@
 </Alert>
 
 <Panel title="Sequence" flush>
-	<ol class="grid gap-px bg-line sm:grid-cols-3">
+	<ol class="grid grid-cols-1 gap-px bg-line sm:grid-cols-3">
 		<li class="bg-surface px-(--pad-panel) py-(--pad-row)">
 			<div class="text-sm font-medium text-ink">1. Steady</div>
 			<p class="mt-0.5 text-sm text-ink-muted">
@@ -225,7 +225,7 @@
 </Panel>
 
 <Panel title="Settings">
-	<div class="grid gap-4 sm:grid-cols-2">
+	<div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
 		<Field label="Moving time" for="stress-minutes">
 			<Input id="stress-minutes" type="number" bind:value={durationMinutes} disabled={active} unit="min" />
 		</Field>

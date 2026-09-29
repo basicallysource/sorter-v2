@@ -646,12 +646,6 @@
 </script>
 
 <div class="flex flex-col gap-(--gap-panels)">
-	<p class="text-sm text-ink-muted">
-		Find the servos on the bus, calibrate each one's open and closed range, then give each a storage
-		layer. Connect one new servo at a time, so its factory ID 1 does not clash with the others:
-		promote it to a fresh ID before connecting the next.
-	</p>
-
 	{#if !settingsLoaded}
 		{#if errorMsg}
 			<Alert tone="danger" title="The servo configuration did not load">

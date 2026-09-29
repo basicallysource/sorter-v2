@@ -73,7 +73,7 @@
 				<Button size="sm" icon={ArrowLeft} onclick={() => (detail = null)}>All snapshots</Button>
 				<Button size="sm" icon={Download} href={csvUrl(detail.id)} download>Export CSV</Button>
 			</div>
-			<dl class="grid gap-4 sm:grid-cols-4">
+			<dl class="grid grid-cols-1 gap-4 sm:grid-cols-4">
 				<div>
 					<dt class="label">Status</dt>
 					<dd class="mt-1 text-base font-medium text-ink capitalize">{detail.status}</dd>

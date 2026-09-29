@@ -56,19 +56,21 @@
 </script>
 
 {#snippet pager()}
-	<span class="num mr-auto text-sm text-ink-muted">{block + 1} of {blockCount}</span>
-	<Button
-		size="sm"
-		icon={ChevronLeft}
-		disabled={block >= blockCount - 1}
-		onclick={() => (block = Math.min(blockCount - 1, block + 1))}
-	>
-		Older two weeks
-	</Button>
-	<Button size="sm" disabled={block <= 0} onclick={() => (block = Math.max(0, block - 1))}>
-		Newer two weeks
-		<ChevronRight size={14} />
-	</Button>
+	<div class="flex w-full flex-wrap items-center justify-end gap-2">
+		<span class="num mr-auto text-sm text-ink-muted">{block + 1} of {blockCount}</span>
+		<Button
+			size="sm"
+			icon={ChevronLeft}
+			disabled={block >= blockCount - 1}
+			onclick={() => (block = Math.min(blockCount - 1, block + 1))}
+		>
+			Older two weeks
+		</Button>
+		<Button size="sm" disabled={block <= 0} onclick={() => (block = Math.max(0, block - 1))}>
+			Newer two weeks
+			<ChevronRight size={14} />
+		</Button>
+	</div>
 {/snippet}
 
 {#if daily.length > 0}

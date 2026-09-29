@@ -289,7 +289,7 @@
 
 		{#if error}<Alert tone="danger">{error}</Alert>{/if}
 
-		<div class="grid min-h-0 flex-1 gap-(--gap-panels) xl:grid-cols-[20rem_minmax(0,1fr)]">
+		<div class="grid grid-cols-1 min-h-0 gap-(--gap-panels) lg:flex-1 xl:grid-cols-[20rem_minmax(0,1fr)]">
 			<Panel title="Sources" flush fill>
 				{#if initialLoading && sources.length === 0}
 					<p class="flex items-center gap-2 px-(--pad-panel) pb-4 text-sm text-ink-muted">
@@ -347,7 +347,7 @@
 				{#if selectedLog}
 					<div class="sticky top-0 z-10 flex flex-col gap-3 bg-surface px-(--pad-panel) pb-3">
 						<p class="truncate font-mono text-xs text-ink-muted">{selectedLog.path}</p>
-						<div class="grid gap-2 md:grid-cols-[minmax(0,1fr)_12rem]">
+						<div class="grid grid-cols-1 gap-2 md:grid-cols-[minmax(0,1fr)_12rem]">
 							<Input
 								aria-label="Search the log"
 								placeholder="Search message text, error names, part IDs, camera names"

@@ -292,7 +292,7 @@
 			<!-- The predicted color, with a one-click "yes, it is right". A color is data, so its swatch is that color. -->
 			<span class="inline-flex items-center gap-2 text-sm text-ink" title="Brickognize predicted this color">
 				{#if predictedColorHex}
-					<span class="size-4 rounded-badge ring-1 ring-line ring-inset" style:background-color={predictedColorHex}></span>
+					<span class="size-4 rounded-check border border-line" style:background-color={predictedColorHex}></span>
 				{/if}
 				{predictedColorName ?? '—'}
 			</span>
@@ -310,7 +310,7 @@
 				{#snippet trigger(props)}
 					<Button {...props} size="sm" variant={correctedToDifferent ? 'primary' : 'secondary'}>
 						{#if correctedToDifferent && committedColorHex}
-							<span class="size-4 rounded-badge ring-1 ring-line ring-inset" style:background-color={committedColorHex}></span>
+							<span class="size-4 rounded-check border border-line" style:background-color={committedColorHex}></span>
 						{:else}
 							<Search size={14} />
 						{/if}
@@ -341,7 +341,7 @@
 									: ''}"
 							>
 								<span
-									class="size-4 shrink-0 rounded-badge ring-1 ring-line ring-inset"
+									class="size-4 shrink-0 rounded-check border border-line"
 									style:background-color={hex ?? 'transparent'}
 								></span>
 								<span class="min-w-0 flex-1 truncate">{c.name}</span>

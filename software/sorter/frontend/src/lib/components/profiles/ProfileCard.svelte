@@ -128,7 +128,7 @@
 		</div>
 
 		{#if rules.length > 0}
-			<div class="grid gap-x-4 gap-y-1.5 md:grid-cols-2">
+			<div class="grid grid-cols-1 gap-x-4 gap-y-1.5 md:grid-cols-2">
 				{#each rules.slice(0, 8) as rule}
 					<div class="flex items-center gap-2 text-sm" title={rule.set_num ?? rule.name}>
 						{#if rule.rule_type === 'set' && rule.set_meta?.img_url}
@@ -152,7 +152,7 @@
 		{/if}
 
 		<div class="mt-auto flex flex-col gap-1.5">
-			<div class="grid items-center gap-x-3 gap-y-1 text-xs text-ink-muted md:grid-cols-[1fr_auto_1fr]">
+			<div class="grid grid-cols-1 items-center gap-x-3 gap-y-1 text-xs text-ink-muted md:grid-cols-[1fr_auto_1fr]">
 				<div>
 					{#if lastUsed}
 						<span title={formatAbsoluteTime(lastUsed) ?? undefined}>

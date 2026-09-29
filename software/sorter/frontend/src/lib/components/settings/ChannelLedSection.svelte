@@ -14,9 +14,9 @@
 	const brightnessId = $derived(`led-brightness-${channelKey}`);
 
 	const CHANNEL_LABELS: Record<string, string> = {
-		c_channel_2: 'C-Channel 2',
-		c_channel_3: 'C-Channel 3',
-		classification_channel: 'Classification C-Channel'
+		c_channel_2: 'C-channel 2',
+		c_channel_3: 'C-channel 3',
+		classification_channel: 'Classification C-channel'
 	};
 	// Applied while dragging the brightness slider so we don't POST per pixel.
 	const BRIGHTNESS_DEBOUNCE_MS = 200;

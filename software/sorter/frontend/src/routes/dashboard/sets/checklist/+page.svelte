@@ -232,6 +232,7 @@
 							{missingOnly ? 'All parts of this set have been sorted.' : 'This set has no parts.'}
 						</p>
 					{:else}
+						<div class="overflow-x-auto">
 						<table class="data-table">
 							<thead>
 								<tr>
@@ -273,6 +274,7 @@
 								{/each}
 							</tbody>
 						</table>
+						</div>
 					{/if}
 				</Panel>
 			{/each}

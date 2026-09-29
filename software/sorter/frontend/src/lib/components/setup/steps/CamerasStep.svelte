@@ -46,7 +46,7 @@
 	const choicesWithoutNone = $derived(cameraChoices.filter((choice) => choice.key !== '__none__'));
 </script>
 
-<div class="grid gap-(--gap-panels) md:grid-cols-2 xl:grid-cols-3">
+<div class="grid grid-cols-1 gap-(--gap-panels) md:grid-cols-2 xl:grid-cols-3">
 	{#each cameraRoles as role}
 		<SetupCameraAreaCard
 			role={role as any}

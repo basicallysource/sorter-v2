@@ -252,10 +252,10 @@
 
 
 	const CHANNEL_LABELS: Record<Channel, string> = {
-		second: 'C-Channel 2',
-		third: 'C-Channel 3',
+		second: 'C-channel 2',
+		third: 'C-channel 3',
 		carousel: 'Carousel',
-		classification_channel: 'Classification C-Channel (C4)',
+		classification_channel: 'Classification C-channel (C4)',
 	};
 
 	const CHANNEL_COLORS: Record<Channel, string> = {
@@ -273,10 +273,10 @@
 	};
 
 	const ROLE_LABELS: Record<CameraRole, string> = {
-		c_channel_2: 'C Channel 2',
-		c_channel_3: 'C Channel 3',
+		c_channel_2: 'C-channel 2',
+		c_channel_3: 'C-channel 3',
 		carousel: 'Carousel',
-		classification_channel: 'Classification C-Channel (C4)',
+		classification_channel: 'Classification C-channel (C4)',
 	};
 
 	const LEGACY_ZONE_SECTION_RANGES: Record<
@@ -2952,7 +2952,7 @@
 				handles.exitOuter,
 				EXIT_ZONE_COLOR,
 				'#111',
-				'Exit Outer',
+				'Exit outer',
 				exitOuterLabelOffset(handles.exitOuter)
 			);
 			// All channels (including the classification channel, now CLOCKWISE like
@@ -2960,24 +2960,24 @@
 			// FORWARD, so the entry edge is the geometric "start" edge and no label
 			// swap is needed. Kept as a named flag so a future CCW build can flip it.
 			const ccwZones = false;
-			drawHandle(ctx, handles.dropStartOuter, DROP_ZONE_COLOR, '#111', ccwZones ? 'Drop End' : 'Drop Start', [-42, -18]);
+			drawHandle(ctx, handles.dropStartOuter, DROP_ZONE_COLOR, '#111', ccwZones ? 'Drop end' : 'Drop start', [-42, -18]);
 			// Drop Start has no inner handle — the boundary is locked radial.
-			drawHandle(ctx, handles.dropEndOuter, DROP_ZONE_COLOR, '#111', ccwZones ? 'Drop Start' : 'Drop End', [42, -18]);
+			drawHandle(ctx, handles.dropEndOuter, DROP_ZONE_COLOR, '#111', ccwZones ? 'Drop start' : 'Drop end', [42, -18]);
 			drawHandle(ctx, handles.dropEndInner, DROP_ZONE_COLOR, '#111');
-			drawHandle(ctx, handles.exitStartOuter, EXIT_ZONE_COLOR, '#111', ccwZones ? 'Exit End' : 'Exit Start', [-42, 22]);
+			drawHandle(ctx, handles.exitStartOuter, EXIT_ZONE_COLOR, '#111', ccwZones ? 'Exit end' : 'Exit start', [-42, 22]);
 			drawHandle(ctx, handles.exitStartInner, EXIT_ZONE_COLOR, '#111');
-			drawHandle(ctx, handles.exitEndOuter, EXIT_ZONE_COLOR, '#111', ccwZones ? 'Exit Start' : 'Exit End', [42, 22]);
+			drawHandle(ctx, handles.exitEndOuter, EXIT_ZONE_COLOR, '#111', ccwZones ? 'Exit start' : 'Exit end', [42, 22]);
 			drawHandle(ctx, handles.exitEndInner, EXIT_ZONE_COLOR, '#111');
 			drawHandle(
 				ctx,
 				handles.preciseStartOuter,
 				PRECISE_ZONE_COLOR,
 				'#111',
-				ccwZones ? 'Precise End' : 'Precise Start',
+				ccwZones ? 'Precise end' : 'Precise start',
 				[-42, 22]
 			);
 			drawHandle(ctx, handles.preciseStartInner, PRECISE_ZONE_COLOR, '#111');
-			drawHandle(ctx, handles.preciseEndOuter, PRECISE_ZONE_COLOR, '#111', ccwZones ? 'Precise Start' : 'Precise End', [42, 22]);
+			drawHandle(ctx, handles.preciseEndOuter, PRECISE_ZONE_COLOR, '#111', ccwZones ? 'Precise start' : 'Precise end', [42, 22]);
 			drawHandle(ctx, handles.preciseEndInner, PRECISE_ZONE_COLOR, '#111');
 
 			drawEdgeHandle(
@@ -3983,7 +3983,7 @@
 			{#if wizardMode && editingZone}
 				<div class="rounded-control bg-well p-4 text-sm text-ink-muted">
 					{#if isArcChannel(currentChannel)}
-						<div class="grid gap-4 lg:grid-cols-[12rem_minmax(0,1fr)] lg:items-start">
+						<div class="grid grid-cols-1 gap-4 lg:grid-cols-[12rem_minmax(0,1fr)] lg:items-start">
 							<img
 								src="/setup/zone-placement-reference.png"
 								alt="Where the drop and exit zones go"
@@ -4128,7 +4128,7 @@
 						disabled={cameraSaving}
 						aria-pressed={isSelected}
 						class="flex flex-col overflow-hidden rounded-control text-left transition-colors {isSelected
-							? 'bg-primary-soft outline-2 outline-primary'
+							? 'bg-primary-soft'
 							: 'bg-well hover:bg-hover'}"
 					>
 						<span class="dark block bg-media">

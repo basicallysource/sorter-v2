@@ -302,7 +302,7 @@
 				<Tabs label="Parts to show" bind:value={filter} items={tabs} />
 			</div>
 
-			<div class="grid gap-(--gap-panels) sm:grid-cols-2 xl:grid-cols-4 print:grid-cols-3">
+			<div class="grid grid-cols-1 gap-(--gap-panels) sm:grid-cols-2 xl:grid-cols-4 print:grid-cols-3">
 				{#each filteredParts as part (partKey(part))}
 					{@const status = effectiveStatus(part)}
 					{@const found = effectiveFound(part)}

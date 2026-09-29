@@ -361,8 +361,8 @@
 		if (role === 'classification_top') return 'Classification Top';
 		if (role === 'classification_bottom') return 'Classification Bottom';
 		if (role === 'carousel') return 'Classification Channel';
-		if (role === 'c_channel_2') return 'C-Channel 2';
-		if (role === 'c_channel_3') return 'C-Channel 3';
+		if (role === 'c_channel_2') return 'C-channel 2';
+		if (role === 'c_channel_3') return 'C-channel 3';
 		return role;
 	}
 

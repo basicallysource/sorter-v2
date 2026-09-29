@@ -150,7 +150,7 @@
 			</Button>
 		{/snippet}
 		{#if showStepperWiringHelp}
-			<div class="mb-4 grid gap-4 rounded-control bg-well p-4 lg:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)]">
+			<div class="mb-4 grid grid-cols-1 gap-4 rounded-control bg-well p-4 lg:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)]">
 				<a href={SKR_PICO_WIRING_DIAGRAM_URL} target="_blank" rel="noopener noreferrer" class="block">
 					<img
 						src={SKR_PICO_WIRING_DIAGRAM_URL}
@@ -174,7 +174,7 @@
 				</div>
 			</div>
 		{/if}
-		<div class="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+		<div class="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
 			{#each stepperEntries as entry}
 				{@const isVerified = !!verifiedSteppers[entry.name]}
 				{@const picture = DIRECTION_PICTURES[STEPPER_LOGICAL_TO_PHYSICAL[entry.name] ?? entry.name]}

@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { getBackendHttpBase } from '$lib/backend';
 	import Alert from '$lib/components/ui/Alert.svelte';
+	import Spinner from '$lib/components/ui/Spinner.svelte';
 	import Field from '$lib/components/ui/Field.svelte';
 	import Select from '$lib/components/ui/Select.svelte';
 	import type { CameraRole } from '$lib/settings/stations';
@@ -173,7 +174,10 @@
 	</div>
 	{#if error}<Alert tone="danger">{error}</Alert>{/if}
 	{#if loading}
-		<p class="text-sm text-ink-muted">Loading the capture modes…</p>
+		<p class="flex items-center gap-2 text-sm text-ink-muted">
+			<Spinner size={14} />
+			Loading the capture modes
+		</p>
 	{:else if !data?.supported}
 		<p class="text-sm text-ink-muted">
 			{data?.message ?? 'This camera does not offer a choice of resolution.'}

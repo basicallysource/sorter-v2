@@ -153,8 +153,7 @@
 			<div class="flex items-baseline justify-between gap-6 py-2.5">
 				<dt class="shrink-0 text-ink-muted">Commit</dt>
 				<dd class="min-w-0 truncate text-right text-ink">
-					<span class="font-mono">{payload.current.sha}</span>
-					{#if payload.current.subject}<span class="text-ink-muted">: {payload.current.subject}</span>{/if}
+					<span class="font-mono">{payload.current.sha}</span>{#if payload.current.subject}<span class="text-ink-muted">: {payload.current.subject}</span>{/if}
 				</dd>
 			</div>
 			{#if payload.current.commit_unix}

@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { confirmDialog } from '$lib/confirm.svelte';
 	import { onMount } from 'svelte';
 	import { getBackendHttpBase, machineHttpBaseUrlFromWsUrl } from '$lib/backend';
 	import { getMachineContext } from '$lib/machines/context';
@@ -429,7 +430,15 @@
 	}
 
 	async function handleRemoveTarget(target: HiveTarget) {
-		if (!confirm(`Remove the Hive target "${target.name}" from this sorter?`)) return;
+		if (
+			!(await confirmDialog({
+				title: 'Remove the Hive target?',
+				message: `Remove "${target.name}" from this sorter?`,
+				action: 'Remove the target',
+				danger: true
+			}))
+		)
+			return;
 		removingTargetId = target.id;
 		clearMessages();
 		try {
@@ -554,9 +563,15 @@
 			target.uploader.queue_size > 0
 				? `This will remove ${target.uploader.queue_size} queued sync job${target.uploader.queue_size === 1 ? '' : 's'} for "${target.name}".`
 				: `This will clear any queued or retrying sync jobs for "${target.name}".`;
-		if (!confirm(`${queueHint} An upload that is already in flight may still finish.`)) {
+		if (
+			!(await confirmDialog({
+				title: 'Clear the sync jobs?',
+				message: `${queueHint} An upload that is already in flight may still finish.`,
+				action: 'Clear the jobs',
+				danger: true
+			}))
+		)
 			return;
-		}
 
 		purgingTargetId = target.id;
 		clearMessages();
@@ -662,7 +677,6 @@
 				<Button icon={Cloud} onclick={() => openTargetEditor(null)}>Add an existing token</Button>
 				<Button
 					icon={Plus}
-					title="Email and password registration; pair instead where you can"
 					onclick={openRegisterForm}
 				>
 					Register (legacy)
@@ -716,7 +730,6 @@
 							<Button
 								size="sm"
 								icon={Shield}
-								title="Choose what this Sorter uploads to this Hive"
 								onclick={() => {
 									clearMessages();
 									uploadsTargetId = target.id;

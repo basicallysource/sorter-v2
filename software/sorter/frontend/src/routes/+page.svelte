@@ -520,8 +520,8 @@
 
 	const CAMERA_LABELS: Record<string, string> = {
 		feeder: 'Feeder',
-		c_channel_2: 'C-Channel 2',
-		c_channel_3: 'C-Channel 3',
+		c_channel_2: 'C-channel 2',
+		c_channel_3: 'C-channel 3',
 		carousel: 'Classification channel',
 		classification_channel: 'Classification channel'
 	};
@@ -549,7 +549,7 @@
 <AppShell fit>
 	{#if machine.machine}
 		<div class="flex min-h-0 flex-1 flex-col gap-(--gap-panels) p-4 sm:p-6 lg:flex-row lg:gap-2">
-			<div class="grid min-h-0 min-w-0 flex-1 gap-(--gap-panels) md:grid-cols-2 lg:grid-rows-2">
+			<div class="grid grid-cols-1 min-h-0 min-w-0 flex-1 gap-(--gap-panels) md:grid-cols-2 lg:grid-rows-2">
 				<CameraFeed
 					camera="c_channel_2"
 					label={cameraLabel('c_channel_2')}
@@ -590,12 +590,15 @@
 				<ResizeHandle orientation="vertical" onresize={onSidebarResize} />
 			</div>
 
+			<!-- Beside the cameras from lg up. On a phone this wrapper disappears, so its
+			     parts take their place in the page's own order: the status and any
+			     incident first, then the cameras, then the pieces and the runtime. -->
 			<div
-				class="flex min-h-0 w-full shrink-0 flex-col gap-(--gap-panels) max-lg:order-first lg:w-(--sidebar) lg:overflow-y-auto"
+				class="contents min-h-0 w-full shrink-0 flex-col gap-(--gap-panels) lg:flex lg:w-(--sidebar) lg:overflow-y-auto"
 				style:--sidebar="{sidebar_width}px"
 			>
 				{#if hardwareState === 'standby' || hardwareState === 'homing' || hardwareState === 'error'}
-					<section class="shrink-0 rounded-panel bg-surface p-(--pad-panel)">
+					<section class="shrink-0 rounded-panel bg-surface p-(--pad-panel) max-lg:order-first">
 						{#if hardwareState === 'standby'}
 							<div class="flex items-start justify-between gap-4">
 								<div class="min-w-0">
@@ -657,7 +660,7 @@
 				{/if}
 
 				{#if exitIncident}
-					<Alert tone="warning" title={exitIncidentTitle(exitIncident)} class="shrink-0">
+					<Alert tone="warning" title={exitIncidentTitle(exitIncident)} class="shrink-0 max-lg:order-first">
 						<div class="flex flex-wrap items-center gap-1.5">
 							{#if exitIncidentScopeLabel(exitIncident)}
 								<Badge>{exitIncidentScopeLabel(exitIncident)}</Badge>
@@ -705,7 +708,7 @@
 				{/if}
 
 				{#if stallIncident}
-					<Alert tone="danger" title="Motor stall" class="shrink-0">
+					<Alert tone="danger" title="Motor stall" class="shrink-0 max-lg:order-first">
 						<div class="flex flex-wrap items-center gap-1.5">
 							<Badge>{stallIncidentSteppersLabel(stallIncident)}</Badge>
 							<Badge tone="danger">Halted</Badge>
@@ -758,7 +761,7 @@
 				{/if}
 
 				{#if needsHomingIncident}
-					<Alert tone="danger" title="Needs homing" class="shrink-0">
+					<Alert tone="danger" title="Needs homing" class="shrink-0 max-lg:order-first">
 						<div class="flex flex-wrap items-center gap-1.5">
 							<Badge tone="danger">Halted</Badge>
 						</div>
@@ -783,12 +786,16 @@
 					</Alert>
 				{/if}
 
-				<CollapsibleSection title="Recent pieces" storageKey="recent" grow>
-					<RecentObjects />
-				</CollapsibleSection>
-				<CollapsibleSection title="Runtime" storageKey="runtimeTabs">
-					<SidebarBottomTabs />
-				</CollapsibleSection>
+				<div class="max-lg:order-last lg:contents">
+					<CollapsibleSection title="Recent pieces" storageKey="recent" grow>
+						<RecentObjects />
+					</CollapsibleSection>
+				</div>
+				<div class="max-lg:order-last lg:contents">
+					<CollapsibleSection title="Runtime" storageKey="runtimeTabs">
+						<SidebarBottomTabs />
+					</CollapsibleSection>
+				</div>
 			</div>
 		</div>
 	{:else}

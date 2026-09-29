@@ -106,10 +106,8 @@
 	description="A store's on-hand inventory. One can be active; a profile with inventory routing sends pieces not in the active inventory to the not-in-inventory bin."
 	flush
 >
-	{#snippet actions()}
-		<Button size="sm" icon={Upload} loading={uploading} onclick={() => fileInput?.click()}>
-			Upload .bsx
-		</Button>
+	{#snippet footer()}
+		<Button icon={Upload} loading={uploading} onclick={() => fileInput?.click()}>Upload .bsx</Button>
 	{/snippet}
 	<input bind:this={fileInput} type="file" accept=".bsx" class="hidden" onchange={handleUpload} />
 

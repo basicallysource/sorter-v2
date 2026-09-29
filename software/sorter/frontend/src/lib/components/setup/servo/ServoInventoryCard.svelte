@@ -154,7 +154,7 @@
 	{#if layer > 0}
 		<div class="rounded-control bg-well p-3">
 			<h4 class="label">Angles for layer {layer}</h4>
-			<div class="mt-2 grid max-w-sm gap-3 sm:grid-cols-2">
+			<div class="mt-2 grid grid-cols-1 max-w-sm gap-3 sm:grid-cols-2">
 				<Field label="Open" for="servo-open-{servo.id}">
 					<Input
 						id="servo-open-{servo.id}"
@@ -205,17 +205,13 @@
 		<Button size="sm" loading={busy === 'moving'} disabled={!!busy || !calibrated} onclick={onToggleOpenClose}>
 			{lastMove === 'open' ? 'Test close' : 'Test open'}
 		</Button>
-		<Button
-			size="sm"
-			disabled={!calibrated || layer === 0}
-			title={layer === 0
-				? 'Give it a layer first, to remember the direction'
-				: 'For a gate that opens when it should close'}
-			onclick={onToggleInvert}
-		>
+		<Button size="sm" disabled={!calibrated || layer === 0} onclick={onToggleInvert}>
 			{inverted ? 'Direction reversed' : 'Reverse the direction'}
 		</Button>
 	</div>
+	{#if calibrated && layer === 0}
+		<p class="text-sm text-ink-muted">Give it a layer first: the direction is kept for the layer.</p>
+	{/if}
 
 	{#if calibrated}
 		<div class="flex flex-wrap items-center gap-2 text-sm">

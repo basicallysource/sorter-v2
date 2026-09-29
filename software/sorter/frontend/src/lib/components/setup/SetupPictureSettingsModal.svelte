@@ -100,7 +100,7 @@
 </script>
 
 <!-- The picture beside its settings; below xl, the settings under it. -->
-<div class="grid gap-4 xl:grid-cols-[minmax(0,1fr)_22rem] xl:items-start">
+<div class="grid grid-cols-1 gap-4 xl:grid-cols-[minmax(0,1fr)_22rem] xl:items-start">
 	<div class="dark relative min-h-[20rem] overflow-hidden rounded-control bg-media sm:min-h-[28rem]">
 		{#if hasCamera}
 			<LiveImage

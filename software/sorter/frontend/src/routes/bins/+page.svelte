@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { confirmDialog } from '$lib/confirm.svelte';
 	import { getBackendHttpBase, machineHttpBaseUrlFromWsUrl } from '$lib/backend';
 	import AppShell from '$lib/components/AppShell.svelte';
 	import BinDetailsModal from '$lib/components/bins/BinDetailsModal.svelte';
@@ -460,7 +461,17 @@
 	) {
 		if (movingTo || homing || togglingLayerKey !== null || hasClearingKey(busyKey)) return;
 		if (scope === 'all' ? hasAnyClearing() : isGlobalClearing()) return;
-		if (!window.confirm(confirmMessage)) return;
+		const verb = endpoint === 'contents/clear' ? 'Empty' : 'Reset';
+		const what = scope === 'all' ? 'all bins' : scope === 'layer' ? 'this layer' : 'this bin';
+		if (
+			!(await confirmDialog({
+				title: `${verb} ${what}?`,
+				message: confirmMessage,
+				action: `${verb} ${what}`,
+				danger: endpoint === 'categories/clear'
+			}))
+		)
+			return;
 
 		const nextState: ClearingState = {
 			endpoint,
@@ -505,7 +516,16 @@
 	) {
 		if (movingTo || homing || togglingLayerKey !== null || hasClearingKey(busyKey)) return;
 		if (scope === 'all' ? hasAnyClearing() : isGlobalClearing()) return;
-		if (!window.confirm(confirmMessage)) return;
+		const what = scope === 'all' ? 'all bins' : 'this layer';
+		if (
+			!(await confirmDialog({
+				title: `Reset ${what}?`,
+				message: confirmMessage,
+				action: `Reset ${what}`,
+				danger: true
+			}))
+		)
+			return;
 
 		clearingStates = [
 			...clearingStates,

@@ -7,6 +7,7 @@
 	import MachineProvider from '$lib/components/MachineProvider.svelte';
 	import MachineTitle from '$lib/components/MachineTitle.svelte';
 	import BackendConnectionGuard from '$lib/components/BackendConnectionGuard.svelte';
+	import ConfirmHost from '$lib/components/ConfirmHost.svelte';
 	import { settings } from '$lib/stores/settings';
 	import { loadThemeColor } from '$lib/stores/themeColor.svelte';
 	import { applyMode } from '$lib/theme';
@@ -80,5 +81,6 @@
 	<MachineProvider>
 		<BackendConnectionGuard />
 		{@render children()}
+		<ConfirmHost />
 	</MachineProvider>
 </MachinesProvider>

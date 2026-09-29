@@ -126,7 +126,7 @@
 	onclose={() => (changingCamera = false)}
 >
 	<p class="mb-4 text-ink-muted">Pick a different live source for {label}.</p>
-	<div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+	<div class="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
 		{#each others as option (option.key)}
 			<div class="aspect-4/3 flex">
 				{@render choice(

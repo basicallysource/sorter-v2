@@ -522,7 +522,7 @@
 	bind:open
 >
 	<div class="flex flex-col gap-4 px-(--pad-panel) pb-(--pad-row)">
-		<div class="grid gap-3 sm:grid-cols-2">
+		<div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
 			<Field label="Pattern" for="stress-mode">
 				<Select
 					id="stress-mode"

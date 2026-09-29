@@ -740,7 +740,7 @@
 			</div>
 
 			{#if library == null}
-				<div class="grid gap-(--gap-panels) sm:grid-cols-2 xl:grid-cols-3">
+				<div class="grid grid-cols-1 gap-(--gap-panels) sm:grid-cols-2 xl:grid-cols-3">
 					{#each Array(2) as _}
 						<ProfileCardSkeleton />
 					{/each}
@@ -750,7 +750,7 @@
 					Upload a profile JSON to keep it on this machine.
 				</EmptyState>
 			{:else}
-				<div class="grid gap-(--gap-panels) sm:grid-cols-2 xl:grid-cols-3">
+				<div class="grid grid-cols-1 gap-(--gap-panels) sm:grid-cols-2 xl:grid-cols-3">
 					{#each localProfiles() as profile}
 						<LocalProfileCard
 							{profile}
@@ -772,7 +772,7 @@
 
 			{#if library == null}
 				{#if !error}
-					<div class="grid gap-(--gap-panels) sm:grid-cols-2 xl:grid-cols-3">
+					<div class="grid grid-cols-1 gap-(--gap-panels) sm:grid-cols-2 xl:grid-cols-3">
 						{#each Array(6) as _}
 							<ProfileCardSkeleton />
 						{/each}
@@ -793,7 +793,7 @@
 				{/each}
 
 				{#if filteredProfileEntries().length > 0 || showTargetSkeletons()}
-					<div class="grid gap-(--gap-panels) sm:grid-cols-2 xl:grid-cols-3">
+					<div class="grid grid-cols-1 gap-(--gap-panels) sm:grid-cols-2 xl:grid-cols-3">
 						{#each paginatedProfileEntries() as entry}
 							{@const key = detailKey(entry.target.id, entry.profile.id)}
 							<ProfileCard

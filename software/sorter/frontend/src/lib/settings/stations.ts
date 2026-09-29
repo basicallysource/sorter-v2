@@ -179,7 +179,7 @@ export const stationPageConfigs: StationPageConfig[] = [
 	{
 		slug: 'c-channel-1',
 		href: '/settings/c-channel-1',
-		label: 'C-Channel 1',
+		label: 'C-channel 1',
 		icon: Wrench,
 		description: 'Bulk feed channel. This station only exposes manual stepper control.',
 		cameraRoles: [],
@@ -189,7 +189,7 @@ export const stationPageConfigs: StationPageConfig[] = [
 	{
 		slug: 'c-channel-2',
 		href: '/settings/c-channel-2',
-		label: 'C-Channel 2',
+		label: 'C-channel 2',
 		icon: Camera,
 		description: 'Configure the second feeder camera, zone geometry, and rotor stepper controls.',
 		cameraRoles: ['c_channel_2'],
@@ -199,7 +199,7 @@ export const stationPageConfigs: StationPageConfig[] = [
 	{
 		slug: 'c-channel-3',
 		href: '/settings/c-channel-3',
-		label: 'C-Channel 3',
+		label: 'C-channel 3',
 		icon: Camera,
 		description: 'Configure the third feeder camera, zone geometry, and rotor stepper controls.',
 		cameraRoles: ['c_channel_3'],
@@ -271,10 +271,10 @@ export function getStationPageConfig(slug: string): StationPageConfig | undefine
 }
 
 export const stepperLabels: Record<StepperKey, string> = {
-	c_channel_1: 'C Channel 1',
-	c_channel_2: 'C Channel 2',
-	c_channel_3: 'C Channel 3',
-	c_channel_4: 'C Channel 4',
+	c_channel_1: 'C-channel 1',
+	c_channel_2: 'C-channel 2',
+	c_channel_3: 'C-channel 3',
+	c_channel_4: 'C-channel 4',
 	carousel: CLASSIFICATION_CHANNEL_STEPPER_LABEL,
 	chute: 'Chute'
 };

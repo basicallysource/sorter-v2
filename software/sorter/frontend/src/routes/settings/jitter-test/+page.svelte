@@ -47,20 +47,20 @@
 	// travel, medium strength, medium length. The others are variants around it:
 	// travel = amplitude, length = cycles, strength = speed + accel.
 	const PRESETS: JitterPreset[] = [
-		{ name: 'Heavy Stuck', blurb: 'Reference — medium everything (the one that worked)', amplitudeDeg: 6, cycles: 12, speed: 5000, acceleration: 100000 },
-		{ name: 'Quick Stuck', blurb: 'Same force & travel, shorter', amplitudeDeg: 6, cycles: 6, speed: 5000, acceleration: 100000 },
-		{ name: 'Brief Stuck', blurb: 'Same force & travel, very short burst', amplitudeDeg: 6, cycles: 3, speed: 5000, acceleration: 100000 },
-		{ name: 'Sharp & Short', blurb: 'Stronger jerk, shorter', amplitudeDeg: 6, cycles: 6, speed: 6500, acceleration: 180000 },
-		{ name: 'Hard Snap', blurb: 'Max jerk, tiny burst', amplitudeDeg: 6, cycles: 3, speed: 7000, acceleration: 220000 },
-		{ name: 'Soft & Long', blurb: 'Softer but longer', amplitudeDeg: 5, cycles: 30, speed: 3500, acceleration: 55000 },
-		{ name: 'Gentle Marathon', blurb: 'Very soft, very long', amplitudeDeg: 4, cycles: 50, speed: 3000, acceleration: 45000 },
-		{ name: 'Big Travel', blurb: 'More throw, medium length', amplitudeDeg: 9, cycles: 12, speed: 5000, acceleration: 110000 },
-		{ name: 'Big & Brief', blurb: 'Big throw, short', amplitudeDeg: 9, cycles: 5, speed: 6000, acceleration: 150000 },
-		{ name: 'Big & Hard', blurb: 'Big throw, strong jerk', amplitudeDeg: 9, cycles: 8, speed: 6500, acceleration: 200000 },
-		{ name: 'Max Shake', blurb: 'Largest throw, strong', amplitudeDeg: 13, cycles: 12, speed: 6500, acceleration: 190000 },
-		{ name: 'Wide & Soft', blurb: 'Big throw but gentle, long', amplitudeDeg: 9, cycles: 16, speed: 3500, acceleration: 55000 },
-		{ name: 'Fast Buzz', blurb: 'Medium throw, fast & long', amplitudeDeg: 6, cycles: 24, speed: 6000, acceleration: 150000 },
-		{ name: 'Strong & Long', blurb: 'Strong and persistent', amplitudeDeg: 8, cycles: 30, speed: 6000, acceleration: 140000 }
+		{ name: 'Heavy stuck', blurb: 'Reference: medium everything, the one that worked', amplitudeDeg: 6, cycles: 12, speed: 5000, acceleration: 100000 },
+		{ name: 'Quick stuck', blurb: 'Same force & travel, shorter', amplitudeDeg: 6, cycles: 6, speed: 5000, acceleration: 100000 },
+		{ name: 'Brief stuck', blurb: 'Same force & travel, very short burst', amplitudeDeg: 6, cycles: 3, speed: 5000, acceleration: 100000 },
+		{ name: 'Sharp & short', blurb: 'Stronger jerk, shorter', amplitudeDeg: 6, cycles: 6, speed: 6500, acceleration: 180000 },
+		{ name: 'Hard snap', blurb: 'Max jerk, tiny burst', amplitudeDeg: 6, cycles: 3, speed: 7000, acceleration: 220000 },
+		{ name: 'Soft & long', blurb: 'Softer but longer', amplitudeDeg: 5, cycles: 30, speed: 3500, acceleration: 55000 },
+		{ name: 'Gentle marathon', blurb: 'Very soft, very long', amplitudeDeg: 4, cycles: 50, speed: 3000, acceleration: 45000 },
+		{ name: 'Big travel', blurb: 'More throw, medium length', amplitudeDeg: 9, cycles: 12, speed: 5000, acceleration: 110000 },
+		{ name: 'Big & brief', blurb: 'Big throw, short', amplitudeDeg: 9, cycles: 5, speed: 6000, acceleration: 150000 },
+		{ name: 'Big & hard', blurb: 'Big throw, strong jerk', amplitudeDeg: 9, cycles: 8, speed: 6500, acceleration: 200000 },
+		{ name: 'Max shake', blurb: 'Largest throw, strong', amplitudeDeg: 13, cycles: 12, speed: 6500, acceleration: 190000 },
+		{ name: 'Wide & soft', blurb: 'Big throw but gentle, long', amplitudeDeg: 9, cycles: 16, speed: 3500, acceleration: 55000 },
+		{ name: 'Fast buzz', blurb: 'Medium throw, fast & long', amplitudeDeg: 6, cycles: 24, speed: 6000, acceleration: 150000 },
+		{ name: 'Strong & long', blurb: 'Strong and persistent', amplitudeDeg: 8, cycles: 30, speed: 6000, acceleration: 140000 }
 	];
 
 	const STORAGE_KEY = 'jitter-test:settings';
@@ -189,24 +189,27 @@
 	description="A preset fills in the settings below; then press Jitter. Amplitudes are at the motor: the rotor moves about {gearRatio.toFixed(1)} times less."
 	flush
 >
-	<div class="grid gap-px border-t border-line bg-line sm:grid-cols-3">
+	<div
+		class="grid grid-cols-1 gap-px border-t border-line bg-line sm:grid-cols-3 sm:[&>:last-child:nth-child(3n+1)]:col-span-3 sm:[&>:last-child:nth-child(3n+2)]:col-span-2"
+	>
 		{#each PRESETS as p (p.name)}
 			{@const selected =
 				settings.amplitudeDeg === p.amplitudeDeg &&
 				settings.cycles === p.cycles &&
 				settings.speed === p.speed &&
 				settings.acceleration === p.acceleration}
-			<button
-				type="button"
-				aria-pressed={selected}
-				onclick={() => applyPreset(p)}
-				class="flex flex-col gap-0.5 px-(--pad-panel) py-(--pad-row) text-left transition-colors
-					{selected ? 'bg-primary-soft' : 'bg-surface hover:bg-well'}"
-			>
-				<span class="text-sm font-medium {selected ? 'text-primary-ink' : 'text-ink'}">{p.name}</span>
-				<span class="text-sm text-ink-muted">{p.blurb}</span>
-				<span class="num text-sm text-ink-muted">
-					±{p.amplitudeDeg}°, {p.cycles} cycles, {p.speed} µsteps/s, {(p.acceleration / 1000).toFixed(0)}k
+			<!-- The cell is opaque, so the chosen tint sits on the surface and not on the lines between cells. -->
+			<button type="button" aria-pressed={selected} onclick={() => applyPreset(p)} class="bg-surface text-left">
+				<span
+					class="flex h-full flex-col gap-0.5 px-(--pad-panel) py-(--pad-row) transition-colors {selected
+						? 'bg-primary-soft'
+						: 'hover:bg-well'}"
+				>
+					<span class="text-sm font-medium {selected ? 'text-primary-ink' : 'text-ink'}">{p.name}</span>
+					<span class="text-sm text-ink-muted">{p.blurb}</span>
+					<span class="num text-sm text-ink-muted">
+						±{p.amplitudeDeg}°, {p.cycles} cycles, {p.speed} µsteps/s, {(p.acceleration / 1000).toFixed(0)}k
+					</span>
 				</span>
 			</button>
 		{/each}

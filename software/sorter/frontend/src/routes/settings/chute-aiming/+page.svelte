@@ -429,9 +429,9 @@
 	<div class="flex items-center gap-2">
 		<span
 			class="flex size-6 shrink-0 items-center justify-center rounded-badge text-sm font-medium {done
-				? 'bg-success text-on-success'
+				? 'bg-success-soft text-success-ink'
 				: activeStep === n
-					? 'bg-primary text-on-primary'
+					? 'bg-primary-soft text-primary-ink'
 					: 'bg-well text-ink-muted'}"
 		>
 			{#if done}<Check size={14} />{:else}{n}{/if}
@@ -495,7 +495,7 @@
 				<Alert tone="warning">
 					The calibration sets these. Only change them by hand if you know exactly what they mean.
 				</Alert>
-				<div class="grid gap-4 sm:grid-cols-3">
+				<div class="grid grid-cols-1 gap-4 sm:grid-cols-3">
 					<Field label="Sections (N)" for="aim-sections">
 						<Input id="aim-sections" type="number" bind:value={numSections} />
 					</Field>
@@ -674,7 +674,7 @@
 				what loses bins whenever home does not land on a pillar. Click a reachable bin to test-aim at
 				it.
 			</p>
-			<div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+			<div class="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
 				{#each VIZ_SIZES as size (size)}
 					<BinLayoutViz
 						{numSections}

@@ -16,11 +16,12 @@
 	let {
 		rows,
 		tone = 'primary',
-		labelWidth = 'w-36',
+		labelWidth = 'sm:w-36',
 		empty = 'No data yet.'
 	}: {
 		rows: BarRow[];
 		tone?: 'primary' | 'danger';
+		// The label's width from sm up (a phone lets it take what is left).
 		labelWidth?: string;
 		empty?: string;
 	} = $props();
@@ -35,14 +36,14 @@
 {:else}
 	<ul class="flex flex-col gap-1.5 rounded-control bg-well p-3">
 		{#each rows as row (row.key)}
-			<li class="flex items-center gap-2 text-sm">
+			<li class="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm sm:flex-nowrap">
 				{#if row.code}
 					<span class="w-16 shrink-0 truncate font-mono text-xs text-ink-muted">{row.code}</span>
 				{/if}
-				<span class="{labelWidth} shrink-0 truncate text-ink" title={row.label}>{row.label}</span>
-				<div class="h-3.5 flex-1 bg-track">
+				<span class="min-w-0 flex-1 truncate text-ink sm:flex-none {labelWidth}" title={row.label}>{row.label}</span>
+				<div class="order-last h-3.5 w-full bg-track sm:order-none sm:w-auto sm:flex-1">
 					<div
-						class="h-full {row.fill ? 'ring-1 ring-line ring-inset' : tone === 'danger' ? 'bg-danger' : 'bg-primary'}"
+						class="h-full {row.fill ? 'border border-line' : tone === 'danger' ? 'bg-danger' : 'bg-primary'}"
 						style:width="{Math.max(1, (row.count / max) * 100)}%"
 						style:background-color={row.fill}
 					></div>

@@ -15,15 +15,17 @@ keeps its copies of the tokens and components.
 
 ## Where they stand
 
-Every one of them still carries the tokens the Sorter UI had before this
-system existed (`bg`, `surface`, `border`, `text`, `text-muted` and the status
-colors, in its own CSS file), and the two apps have primitives of their own.
-New work in any of them follows the rules here, with the tokens that site has.
-Moving a site onto the system replaces its token block with `src/app.css` from
-here and its primitives with the components here.
+The three SorterOS pages are on the system: they carry `src/app.css` from here
+(the Wi-Fi page and the setup site as the file itself, the first-boot page as
+its values, inline) and the components here, copied unchanged. The Sorter UI
+and Hive still carry the tokens the Sorter UI had before this system existed
+(`bg`, `surface`, `border`, `text`, `text-muted`) and primitives of their own,
+and move in their own changes. The docs site and the parts calculator keep
+their own for now. New work in any site follows the rules here, with the
+tokens that site has.
 
-The system uses the `@lucide/svelte` package, as the Wi-Fi setup page does;
-the Sorter UI, Hive and the parts calculator use the older `lucide-svelte`. The
+The system uses the `@lucide/svelte` package, as the SorterOS pages do; the
+Sorter UI, Hive and the parts calculator use the older `lucide-svelte`. The
 icons and their names are the same, and a site moves to `@lucide/svelte` when
 it takes the components.
 
@@ -86,16 +88,26 @@ it takes the components.
 
 ## The SorterOS pages
 
-- The setup site (`software/sorteros/sorteros-setup`, where an SD card image is
-  customized before flashing): tokens in `src/app.css`. It is light only and
-  loads no web font, so it shows the system's font. Its favicon is the plain
-  brick and needs a color of its own.
-- The Wi-Fi setup page (`software/sorteros/portal/frontend`) and the first-boot
-  progress page (inline in `sorteros-firstboot.py`) are served by a machine
-  that has nothing else running yet, the Wi-Fi page inside a phone's
-  captive-portal window with no internet. So both use the system's own fonts
-  instead of IBM Plex, and follow the phone's or browser's light or dark
-  preference instead of a stored choice. Everything else is as here.
+- **The setup site** (`software/sorteros/sorteros-setup`, where an SD card
+  image is customized before flashing, served as a static site): the system's
+  `src/app.css`, Geist self-hosted, and the components. Light or dark follows
+  the reader's system, with no toggle, since the page is used once. Its
+  favicon is the plain brick and needs a color of its own.
+- **The Wi-Fi setup page** (`software/sorteros/portal/frontend`) runs in a
+  phone's captive-portal window, over plain HTTP, with no internet. It copies
+  `src/app.css` unchanged and adds one block after it, for what that window
+  needs:
+  - no web font: it loads none, so the stack's fallbacks (the phone's
+    `system-ui` and `ui-monospace`) are what it shows;
+  - light or dark from the phone (`prefers-color-scheme`), not a stored
+    choice;
+  - the touch sizes: 44px controls, because it is used with a thumb.
+- **The first-boot progress page** (inline in
+  `software/sorteros/build/overlay/usr/local/sbin/sorteros-firstboot.py`) is
+  served while nothing else on the machine answers, so everything in it is
+  inline: the tokens as values, the Spinner as CSS, Lucide's check, x and
+  clock paths as inline SVG. Like the Wi-Fi page it uses the reader's own
+  fonts and follows the browser's light or dark.
 
 ## Favicons
 

@@ -68,54 +68,54 @@
 
 <div class="space-y-6">
 	<div>
-		<h1 class="text-2xl font-bold text-text">Detection Models</h1>
-		<p class="text-sm text-text-muted">Published model catalog — browse and download model variants.</p>
+		<h1 class="text-2xl font-bold text-ink">Detection Models</h1>
+		<p class="text-sm text-ink-muted">Published model catalog — browse and download model variants.</p>
 	</div>
 
-	<div class="flex flex-wrap items-end gap-3 border border-border bg-surface p-4">
-		<label class="flex flex-col gap-1 text-xs text-text-muted">
+	<div class="flex flex-wrap items-end gap-3 border border-line bg-surface p-4">
+		<label class="flex flex-col gap-1 text-xs text-ink-muted">
 			<span>Search</span>
 			<input
 				type="text"
 				bind:value={query}
 				placeholder="slug or name"
-				class="border border-border bg-bg px-2 py-1 text-sm text-text"
+				class="border border-line bg-well px-2 py-1 text-sm text-ink"
 			/>
 		</label>
-		<label class="flex flex-col gap-1 text-xs text-text-muted">
+		<label class="flex flex-col gap-1 text-xs text-ink-muted">
 			<span>Scope</span>
 			<select
 				bind:value={filterScope}
-				class="border border-border bg-bg px-2 py-1 text-sm text-text"
+				class="border border-line bg-well px-2 py-1 text-sm text-ink"
 			>
 				{#each scopeOptions as opt (opt)}
 					<option value={opt}>{opt || 'Any scope'}</option>
 				{/each}
 			</select>
 		</label>
-		<label class="flex flex-col gap-1 text-xs text-text-muted">
+		<label class="flex flex-col gap-1 text-xs text-ink-muted">
 			<span>Runtime</span>
 			<select
 				bind:value={filterRuntime}
-				class="border border-border bg-bg px-2 py-1 text-sm text-text"
+				class="border border-line bg-well px-2 py-1 text-sm text-ink"
 			>
 				{#each runtimeOptions as opt (opt)}
 					<option value={opt}>{opt || 'Any runtime'}</option>
 				{/each}
 			</select>
 		</label>
-		<label class="flex flex-col gap-1 text-xs text-text-muted">
+		<label class="flex flex-col gap-1 text-xs text-ink-muted">
 			<span>Family</span>
 			<input
 				type="text"
 				bind:value={filterFamily}
 				placeholder="yolo, nanodet, …"
-				class="border border-border bg-bg px-2 py-1 text-sm text-text"
+				class="border border-line bg-well px-2 py-1 text-sm text-ink"
 			/>
 		</label>
 		<button
 			onclick={clearFilters}
-			class="border border-border px-3 py-1 text-sm text-text-muted hover:text-text"
+			class="border border-line px-3 py-1 text-sm text-ink-muted hover:text-ink"
 			type="button"
 		>
 			Reset
@@ -123,13 +123,13 @@
 	</div>
 
 	{#if error}
-		<div class="border border-primary bg-primary-light p-3 text-sm text-primary">{error}</div>
+		<div class="border border-primary bg-primary-soft p-3 text-sm text-primary-ink">{error}</div>
 	{/if}
 
 	{#if loading && !data}
 		<div class="flex justify-center py-12"><Spinner size={32} /></div>
 	{:else if data && data.items.length === 0}
-		<div class="border border-dashed border-border p-8 text-center text-sm text-text-muted">
+		<div class="border border-dashed border-line p-8 text-center text-sm text-ink-muted">
 			No models match the current filters.
 		</div>
 	{:else if data}
@@ -144,18 +144,18 @@
 				<button
 					disabled={currentPage <= 1}
 					onclick={() => { currentPage = Math.max(1, currentPage - 1); }}
-					class="border border-border px-3 py-1 text-sm disabled:opacity-40"
+					class="border border-line px-3 py-1 text-sm disabled:opacity-40"
 					type="button"
 				>
 					Prev
 				</button>
-				<span class="text-sm text-text-muted">
+				<span class="text-sm text-ink-muted">
 					Page {data.page} / {data.pages} · {data.total} total
 				</span>
 				<button
 					disabled={currentPage >= data.pages}
 					onclick={() => { const total = data?.pages ?? 1; currentPage = Math.min(total, currentPage + 1); }}
-					class="border border-border px-3 py-1 text-sm disabled:opacity-40"
+					class="border border-line px-3 py-1 text-sm disabled:opacity-40"
 					type="button"
 				>
 					Next

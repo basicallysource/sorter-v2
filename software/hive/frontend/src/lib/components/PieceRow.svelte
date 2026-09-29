@@ -1,9 +1,9 @@
 <script lang="ts">
 	import { api, type ColorLabelPieceCard } from '$lib/api';
-	import Check from 'lucide-svelte/icons/check';
-	import Link2 from 'lucide-svelte/icons/link-2';
-	import Palette from 'lucide-svelte/icons/palette';
-	import Sparkles from 'lucide-svelte/icons/sparkles';
+	import Check from '@lucide/svelte/icons/check';
+	import Link2 from '@lucide/svelte/icons/link-2';
+	import Palette from '@lucide/svelte/icons/palette';
+	import Sparkles from '@lucide/svelte/icons/sparkles';
 
 	type Props = {
 		card: ColorLabelPieceCard;
@@ -18,11 +18,11 @@
 	{id}
 	type="button"
 	onclick={() => onOpen(card)}
-	class="flex w-full items-center gap-3 border-b border-border px-2 py-1.5 text-left hover:bg-bg {selected
-		? 'bg-primary-light'
+	class="flex w-full items-center gap-3 border-b border-line px-2 py-1.5 text-left hover:bg-hover {selected
+		? 'bg-primary-soft'
 		: ''}"
 >
-	<div class="relative flex h-10 w-10 shrink-0 items-center justify-center bg-bg">
+	<div class="relative flex h-10 w-10 shrink-0 items-center justify-center bg-well">
 		{#if card.thumb_seq != null}
 			<img
 				src={api.colorLabelImageUrl(card.machine_id, card.piece_uuid, card.thumb_seq)}
@@ -31,25 +31,25 @@
 				class="h-10 w-10 bg-transparent object-contain"
 			/>
 		{:else}
-			<span class="text-[10px] text-text-muted">n/a</span>
+			<span class="text-xs text-ink-muted">n/a</span>
 		{/if}
 	</div>
 
 	<div class="min-w-0 flex-1">
 		<div class="flex items-center gap-1.5">
-			<span class="truncate text-sm text-text" title={card.part.part_name ?? card.part.part_id ?? ''}>
+			<span class="truncate text-sm text-ink" title={card.part.part_name ?? card.part.part_id ?? ''}>
 				{card.part.part_name || card.part.part_id || 'Unidentified'}
 			</span>
 			{#if card.part.part_id}
-				<span class="shrink-0 text-xs text-text-muted">#{card.part.part_id}</span>
+				<span class="shrink-0 text-xs text-ink-muted">#{card.part.part_id}</span>
 			{/if}
 		</div>
-		<div class="truncate text-xs text-text-muted">{card.machine_name ?? 'machine'}</div>
+		<div class="truncate text-xs text-ink-muted">{card.machine_name ?? 'machine'}</div>
 	</div>
 
-	<div class="flex shrink-0 items-center gap-3 text-xs text-text-muted">
+	<div class="flex shrink-0 items-center gap-3 text-xs text-ink-muted">
 		{#if card.has_candidates}
-			<span class="flex items-center text-info" title="has same-piece candidate crops">
+			<span class="flex items-center text-info-ink" title="has same-piece candidate crops">
 				<Sparkles size={13} />
 			</span>
 		{/if}

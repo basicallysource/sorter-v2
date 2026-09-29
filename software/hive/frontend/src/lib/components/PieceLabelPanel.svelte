@@ -25,19 +25,20 @@
 	import PiecePartPicker from '$lib/components/PiecePartPicker.svelte';
 	import Spinner from '$lib/components/Spinner.svelte';
 	import ZoomImage from '$lib/components/ZoomImage.svelte';
-	import { Alert, Button } from '$lib/components/primitives';
-	import ArrowLeft from 'lucide-svelte/icons/arrow-left';
-	import ArrowRight from 'lucide-svelte/icons/arrow-right';
-	import Ban from 'lucide-svelte/icons/ban';
-	import Check from 'lucide-svelte/icons/check';
-	import ChevronDown from 'lucide-svelte/icons/chevron-down';
-	import Circle from 'lucide-svelte/icons/circle';
-	import CircleCheck from 'lucide-svelte/icons/circle-check';
-	import CircleDot from 'lucide-svelte/icons/circle-dot';
-	import Flag from 'lucide-svelte/icons/flag';
-	import Sparkles from 'lucide-svelte/icons/sparkles';
-	import Star from 'lucide-svelte/icons/star';
-	import X from 'lucide-svelte/icons/x';
+	import Alert from '$lib/components/Alert.svelte';
+	import Button from '$lib/components/Button.svelte';
+	import ArrowLeft from '@lucide/svelte/icons/arrow-left';
+	import ArrowRight from '@lucide/svelte/icons/arrow-right';
+	import Ban from '@lucide/svelte/icons/ban';
+	import Check from '@lucide/svelte/icons/check';
+	import ChevronDown from '@lucide/svelte/icons/chevron-down';
+	import Circle from '@lucide/svelte/icons/circle';
+	import CircleCheck from '@lucide/svelte/icons/circle-check';
+	import CircleDot from '@lucide/svelte/icons/circle-dot';
+	import Flag from '@lucide/svelte/icons/flag';
+	import Sparkles from '@lucide/svelte/icons/sparkles';
+	import Star from '@lucide/svelte/icons/star';
+	import X from '@lucide/svelte/icons/x';
 
 	type CharState = 'empty' | 'progress' | 'ready';
 
@@ -197,7 +198,7 @@
 			? 'border-success/40'
 			: state === 'progress'
 				? 'border-warning/50'
-				: 'border-border';
+				: 'border-line';
 	}
 
 	const filteredColors = $derived.by(() => {
@@ -763,11 +764,11 @@
 
 {#snippet statusBadge(state: CharState)}
 	{#if state === 'ready'}
-		<span class="flex items-center gap-1 text-xs text-success"><CircleCheck size={13} /> Ready</span>
+		<span class="flex items-center gap-1 text-xs text-success-ink"><CircleCheck size={13} /> Ready</span>
 	{:else if state === 'progress'}
-		<span class="flex items-center gap-1 text-xs text-warning"><CircleDot size={13} /> In progress</span>
+		<span class="flex items-center gap-1 text-xs text-warning-ink"><CircleDot size={13} /> In progress</span>
 	{:else}
-		<span class="flex items-center gap-1 text-xs text-text-muted"><Circle size={13} /> Not started</span>
+		<span class="flex items-center gap-1 text-xs text-ink-muted"><Circle size={13} /> Not started</span>
 	{/if}
 {/snippet}
 
@@ -785,9 +786,9 @@
 			aria-pressed={obj.high_quality}
 			onclick={() => toggleStar(obj, kind, id)}
 			disabled={qualitySavingFor === key}
-			class="flex items-center bg-surface/90 p-0.5 hover:text-warning disabled:opacity-50 {obj.high_quality
-				? 'text-warning'
-				: 'text-text-muted'}"
+			class="flex items-center bg-surface/90 p-0.5 hover:text-warning-ink disabled:opacity-50 {obj.high_quality
+				? 'text-warning-ink'
+				: 'text-ink-muted'}"
 		>
 			<Star size={13} fill={obj.high_quality ? 'currentColor' : 'none'} />
 		</button>
@@ -797,10 +798,10 @@
 			aria-label="Not good enough for classification"
 			onclick={(e) => openQualityMenu(key, e)}
 			disabled={qualitySavingFor === key}
-			class="flex items-center gap-0.5 bg-surface/90 p-0.5 hover:text-danger disabled:opacity-50 {badCount >
+			class="flex items-center gap-0.5 bg-surface/90 p-0.5 hover:text-danger-ink disabled:opacity-50 {badCount >
 			0
-				? 'text-danger'
-				: 'text-text-muted'}"
+				? 'text-danger-ink'
+				: 'text-ink-muted'}"
 		>
 			<Flag size={13} fill={badCount > 0 ? 'currentColor' : 'none'} />
 			{#if badCount > 0}<span class="text-xs leading-none">{badCount}</span>{/if}
@@ -808,16 +809,16 @@
 	</div>
 	{#if qualityMenuOpenFor === key}
 		<div
-			class="fixed z-50 w-56 border border-border bg-surface p-2 shadow-lg"
+			class="fixed z-50 w-56 border border-line bg-surface p-2 shadow-lg"
 			style={`top:${qualityMenuPos.top}px;left:${qualityMenuPos.left}px`}
 		>
 			<div class="mb-1 flex items-center justify-between px-1">
-				<span class="text-xs font-semibold uppercase tracking-wider text-text-muted"
+				<span class="text-xs font-semibold uppercase tracking-wider text-ink-muted"
 					>Not good enough — why?</span
 				>
 				<button
 					type="button"
-					class="text-text-muted hover:text-text"
+					class="text-ink-muted hover:text-ink"
 					aria-label="Close"
 					onclick={() => (qualityMenuOpenFor = null)}
 				>
@@ -826,7 +827,7 @@
 			</div>
 			{#each IMAGE_QUALITY_REASONS as r (r.code)}
 				<label
-					class="flex cursor-pointer items-center gap-2 px-1 py-1 text-sm text-text hover:bg-bg"
+					class="flex cursor-pointer items-center gap-2 px-1 py-1 text-sm text-ink hover:bg-hover"
 				>
 					<input
 						type="checkbox"
@@ -847,20 +848,20 @@
 			<button
 				type="button"
 				onclick={onClose}
-				class="flex items-center gap-1 text-sm text-text-muted hover:text-text"
+				class="flex items-center gap-1 text-sm text-ink-muted hover:text-ink"
 			>
 				<X size={14} /> Close
 			</button>
 		{:else}
 			<a
 				href={nav.dashboardUrl()}
-				class="flex items-center gap-1 text-sm text-text-muted hover:text-text"
+				class="flex items-center gap-1 text-sm text-ink-muted hover:text-ink"
 			>
 				<ArrowLeft size={14} /> All pieces
 			</a>
 		{/if}
 		{#if position.total > 0 && position.index >= 0}
-			<span class="text-xs text-text-muted tabular-nums"
+			<span class="text-xs text-ink-muted tabular-nums"
 				>{position.index + 1} of {position.total}{position.hasMore ? '+' : ''}</span
 			>
 		{/if}
@@ -869,17 +870,17 @@
 
 <!-- Summary + advance bar: reflects what's done across every characteristic -->
 {#snippet summaryBar()}
-	<div class="mb-4 flex flex-wrap items-center gap-x-4 gap-y-2 border border-border bg-surface p-3">
+	<div class="mb-4 flex flex-wrap items-center gap-x-4 gap-y-2 border border-line bg-surface p-3">
 		<Button variant="ghost" size="sm" onclick={goPrev}><ArrowLeft size={14} /> Back</Button>
 		<div class="flex flex-wrap items-center gap-x-4 gap-y-1">
 			{#each characteristics as ch (ch.key)}
-				<span class="flex items-center gap-1.5 text-sm text-text-muted">
+				<span class="flex items-center gap-1.5 text-sm text-ink-muted">
 					{ch.label}: {@render statusBadge(ch.state)}
 				</span>
 			{/each}
 		</div>
 		<div class="flex flex-wrap items-center gap-2 sm:ml-auto">
-			<span class="hidden text-xs text-text-muted xl:inline">Enter accept · →/Space skip · ← back</span>
+			<span class="hidden text-xs text-ink-muted xl:inline">Enter accept · →/Space skip · ← back</span>
 			<!-- Reject this bbox sample (with reason(s)) — left of the skip/continue CTA -->
 			<div class="relative">
 				<Button
@@ -890,12 +891,12 @@
 					<Ban size={14} /> {rejected ? 'Rejected' : 'Reject'} <ChevronDown size={13} />
 				</Button>
 				{#if rejectOpen}
-					<div class="absolute right-0 z-30 mt-1 w-64 border border-border bg-surface p-2 shadow-lg">
-						<div class="mb-1 px-1 text-xs font-semibold uppercase tracking-wider text-text-muted">
+					<div class="absolute right-0 z-30 mt-1 w-64 border border-line bg-surface p-2 shadow-lg">
+						<div class="mb-1 px-1 text-xs font-semibold uppercase tracking-wider text-ink-muted">
 							Reject sample — why?
 						</div>
 						{#each REJECT_REASONS as r (r.value)}
-							<label class="flex cursor-pointer items-center gap-2 px-1 py-1 text-sm text-text hover:bg-bg">
+							<label class="flex cursor-pointer items-center gap-2 px-1 py-1 text-sm text-ink hover:bg-hover">
 								<input
 									type="checkbox"
 									checked={rejectReasons.has(r.value)}
@@ -934,15 +935,15 @@
 <!-- Piece under review: crops + model/pixel color suggestion -->
 {#snippet pieceCard()}
 	{#if detail}
-		<div class="border border-border bg-surface p-4">
+		<div class="border border-line bg-surface p-4">
 			<div class="mb-3 flex flex-wrap items-center gap-2">
-				<span class="text-sm font-medium text-text">
+				<span class="text-sm font-medium text-ink">
 					{detail.part.part_name || detail.part.part_id || 'Unidentified'}
 				</span>
 				{#if detail.part.part_id}
-					<span class="text-xs text-text-muted">#{detail.part.part_id}</span>
+					<span class="text-xs text-ink-muted">#{detail.part.part_id}</span>
 				{/if}
-				<span class="text-xs text-text-muted">· {detail.machine_name ?? 'machine'}</span>
+				<span class="text-xs text-ink-muted">· {detail.machine_name ?? 'machine'}</span>
 			</div>
 
 			<div class="flex flex-wrap gap-2">
@@ -954,30 +955,30 @@
 							title={`seq ${img.seq}${img.source ? ` · ${img.source}` : ''}`}
 							class="h-28 w-28 border-2 bg-transparent object-contain {img.used
 								? 'border-success'
-								: 'border-border'}"
+								: 'border-line'}"
 						/>
 						{@render qualityOverlay(img, 'piece_image', img.seq)}
 					</div>
 				{/each}
 			</div>
 
-			<div class="mt-4 flex flex-col gap-3 border-t border-border pt-3">
+			<div class="mt-4 flex flex-col gap-3 border-t border-line pt-3">
 				<!-- Model prediction (primary, when a color model is active) -->
 				{#if detail.model_prediction}
 					{@const mp = detail.model_prediction}
 					<div class="flex items-center gap-3">
 						<span
-							class="h-10 w-10 shrink-0 border border-border"
+							class="h-10 w-10 shrink-0 border border-line"
 							style={`background:#${mp.rgb ?? '888888'}`}
 							title={`model color #${mp.rgb ?? '?'}`}
 						></span>
-						<div class="min-w-0 text-xs text-text-muted">
+						<div class="min-w-0 text-xs text-ink-muted">
 							<div class="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider">
-								<Sparkles size={12} class="text-info" /> Model prediction
-								<span class="font-normal normal-case text-text-muted">· {mp.model_name}</span>
+								<Sparkles size={12} class="text-info-ink" /> Model prediction
+								<span class="font-normal normal-case text-ink-muted">· {mp.model_name}</span>
 							</div>
 							<div class="mt-0.5 flex items-center gap-1.5">
-								<span class="text-text">{mp.color_name ?? mp.color_id}</span>
+								<span class="text-ink">{mp.color_name ?? mp.color_id}</span>
 								<span>({mp.color_id})</span>
 								<span class="ml-2"
 									>{Math.round(mp.confidence * 100)}% · {mp.sample_count} crop{mp.sample_count === 1
@@ -993,21 +994,21 @@
 				{#if detail.pixel_guess}
 					<div class="flex items-center gap-3 {detail.model_prediction ? 'opacity-70' : ''}">
 						<span
-							class="h-10 w-10 shrink-0 border border-border"
+							class="h-10 w-10 shrink-0 border border-line"
 							style={`background:#${detail.pixel_guess.rgb}`}
 							title={`average pixel color #${detail.pixel_guess.rgb}`}
 						></span>
-						<div class="min-w-0 text-xs text-text-muted">
+						<div class="min-w-0 text-xs text-ink-muted">
 							<div class="text-xs font-semibold uppercase tracking-wider">Pixel-average guess</div>
 							<div class="mt-0.5 flex items-center gap-1.5">
 								{#if detail.pixel_guess.color_id != null && colorsById.has(detail.pixel_guess.color_id)}
 									{@const pc = colorsById.get(detail.pixel_guess.color_id)}
 									<span
-										class="inline-block h-3.5 w-3.5 border border-border"
+										class="inline-block h-3.5 w-3.5 border border-line"
 										style={`background:#${pc?.rgb ?? '000'}`}
 									></span>
 								{/if}
-								<span class="text-text">{detail.pixel_guess.color_name}</span>
+								<span class="text-ink">{detail.pixel_guess.color_name}</span>
 								<span>({detail.pixel_guess.color_id})</span>
 								<span class="ml-2"
 									>nearest of {detail.pixel_guess.sample_count} crop{detail.pixel_guess
@@ -1021,7 +1022,7 @@
 				{/if}
 
 				{#if !detail.model_prediction && !detail.pixel_guess}
-					<span class="text-xs text-text-muted">No suggestion — crops unavailable.</span>
+					<span class="text-xs text-ink-muted">No suggestion — crops unavailable.</span>
 				{/if}
 			</div>
 		</div>
@@ -1033,11 +1034,11 @@
 	<div class="border bg-surface p-4 {stateBorder(piecesState)}">
 		<div class="mb-1 flex flex-wrap items-center justify-between gap-2">
 			<div class="flex items-center gap-2">
-				<span class="text-sm font-medium text-text">Same piece across channels</span>
+				<span class="text-sm font-medium text-ink">Same piece across channels</span>
 				{@render statusBadge(piecesState)}
 			</div>
 			<div class="flex flex-wrap items-center gap-2">
-				<span class="text-xs text-text-muted tabular-nums">
+				<span class="text-xs text-ink-muted tabular-nums">
 					{cropSelected.size} of {cropCandidates.length} selected
 				</span>
 				<Button
@@ -1079,25 +1080,25 @@
 				</Button>
 			</div>
 		</div>
-		<p class="mb-2 text-sm text-text-muted">
+		<p class="mb-2 text-sm text-ink-muted">
 			Our guess of which upstream C2/C3 crops are this same physical piece. Keep or drop the picks
 			and add any we missed, then <span class="font-medium">Accept</span>.
 		</p>
 		<p class="mb-3 flex items-center gap-1.5 text-xs">
 			{#if predictionSource === 'ai'}
-				<Sparkles size={12} class="shrink-0 text-info" />
-				<span class="text-text-muted">
+				<Sparkles size={12} class="shrink-0 text-info-ink" />
+				<span class="text-ink-muted">
 					Picks from a vision model{aiReasoning ? `: ${aiReasoning}` : '.'}
 				</span>
 			{:else if predictionSource === 'model'}
-				<Sparkles size={12} class="shrink-0 text-info" />
-				<span class="text-text-muted">
+				<Sparkles size={12} class="shrink-0 text-info-ink" />
+				<span class="text-ink-muted">
 					Picks from the link matcher model{linkModel ? ` (${linkModel})` : ''}.{canRunAi
 						? ' Run AI for a vision-model guess.'
 						: ''}
 				</span>
 			{:else}
-				<span class="text-text-muted">
+				<span class="text-ink-muted">
 					Picks from the time-and-angle heuristic.{canRunAi
 						? ' Run AI for a vision-model guess.'
 						: ''}
@@ -1108,9 +1109,9 @@
 		{#if cropLoading}
 			<div class="flex justify-center py-8"><Spinner size={32} /></div>
 		{:else if cropError}
-			<div class="bg-primary/8 p-3 text-sm text-primary">{cropError}</div>
+			<div class="bg-primary/8 p-3 text-sm text-primary-ink">{cropError}</div>
 		{:else if cropCandidates.length === 0}
-			<p class="py-4 text-sm text-text-muted">No candidate crops in range for this piece.</p>
+			<p class="py-4 text-sm text-ink-muted">No candidate crops in range for this piece.</p>
 		{:else}
 			<div class="flex max-h-[42vh] flex-wrap gap-2 overflow-y-auto pr-1">
 				{#each cropCandidates as c (c.local_id)}
@@ -1123,7 +1124,7 @@
 						title={`C${c.channel} · ${ZONE_LABEL[c.zone_code ?? 0] ?? '?'} · ${c.dt != null ? c.dt + 's before arrival' : 'unknown dt'} · ${c.com_forward_to_exit_deg != null ? Math.round(c.com_forward_to_exit_deg) + '° to exit' : ''} · score ${c.score}${predictionSource === 'model' && c.model_score != null ? ` · model ${c.model_score}` : ''}${isPick ? ` · ${SOURCE_PICK_LABEL[predictionSource]} pick` : ''}`}
 						class="relative flex flex-col items-center gap-1 border-2 p-1 hover:border-primary {selected
 							? 'border-success bg-success/10'
-							: 'border-border opacity-70 hover:opacity-100'}"
+							: 'border-line opacity-70 hover:opacity-100'}"
 					>
 						{#if c.available}
 							<img
@@ -1134,13 +1135,13 @@
 							/>
 						{:else}
 							<div
-								class="flex h-16 w-16 items-center justify-center border border-dashed border-border text-xs text-text-muted"
+								class="flex h-16 w-16 items-center justify-center border border-dashed border-line text-xs text-ink-muted"
 							>
 								evicted
 							</div>
 						{/if}
-						<span class="flex items-center gap-1 text-xs {selected ? 'text-text' : 'text-text-muted'}">
-							{#if selected}<Check size={12} class="text-success" />{/if}
+						<span class="flex items-center gap-1 text-xs {selected ? 'text-ink' : 'text-ink-muted'}">
+							{#if selected}<Check size={12} class="text-success-ink" />{/if}
 							C{c.channel}·{c.dt}s
 						</span>
 						{#if isPick}
@@ -1165,7 +1166,7 @@
 	{#if detail}
 		<div class="flex shrink-0 flex-col border bg-surface p-4 {stateBorder(partState)}">
 			<div class="mb-3 flex items-center justify-between gap-2">
-				<span class="text-sm font-medium text-text">True part</span>
+				<span class="text-sm font-medium text-ink">True part</span>
 				{@render statusBadge(partState)}
 			</div>
 			<div class="max-h-[55vh] overflow-y-auto">
@@ -1190,19 +1191,19 @@
 			? 'border-success bg-success/10'
 			: isGuess
 				? 'border-info/60 bg-info/[0.06]'
-				: 'border-border'}"
+				: 'border-line'}"
 		title={`${color.name} (${color.id})`}
 		onclick={() => pickColor(color.id)}
 		disabled={submitting}
 	>
 		<span
-			class="h-5 w-5 shrink-0 border border-border {color.is_trans ? 'opacity-70' : ''}"
+			class="h-5 w-5 shrink-0 border border-line {color.is_trans ? 'opacity-70' : ''}"
 			style={`background:#${color.rgb ?? '000'}`}
 		></span>
-		<span class="min-w-0 flex-1 truncate text-sm {selected ? 'text-text' : 'text-text-muted'}">
-			{color.name}{#if isGuess}<span class="ml-1 text-xs text-info">· guess</span>{/if}
+		<span class="min-w-0 flex-1 truncate text-sm {selected ? 'text-ink' : 'text-ink-muted'}">
+			{color.name}{#if isGuess}<span class="ml-1 text-xs text-info-ink">· guess</span>{/if}
 		</span>
-		{#if selected}<Check size={14} class="shrink-0 text-success" />{/if}
+		{#if selected}<Check size={14} class="shrink-0 text-success-ink" />{/if}
 	</button>
 {/snippet}
 
@@ -1215,21 +1216,21 @@
 			: ''} {stateBorder(colorState)}"
 	>
 		<div class="mb-3 flex items-center justify-between gap-2">
-			<span class="text-sm font-medium text-text">True color</span>
+			<span class="text-sm font-medium text-ink">True color</span>
 			{@render statusBadge(colorState)}
 		</div>
 
 		<!-- "I can't tell" — an explicit indeterminate-color answer -->
 		<button
 			class="mb-3 flex items-center gap-2 border px-2 py-1 text-left text-sm hover:border-primary disabled:opacity-50 {cantTell
-				? 'border-success bg-success/10 text-text'
-				: 'border-border text-text-muted'}"
+				? 'border-success bg-success/10 text-ink'
+				: 'border-line text-ink-muted'}"
 			onclick={pickCantTell}
 			disabled={submitting}
 		>
-			<Ban size={14} class="shrink-0 {cantTell ? 'text-success' : 'text-text-muted'}" />
+			<Ban size={14} class="shrink-0 {cantTell ? 'text-success-ink' : 'text-ink-muted'}" />
 			<span class="flex-1">I can't tell the color</span>
-			{#if cantTell}<Check size={14} class="shrink-0 text-success" />{/if}
+			{#if cantTell}<Check size={14} class="shrink-0 text-success-ink" />{/if}
 		</button>
 
 		{#if guessColorId != null}
@@ -1242,7 +1243,7 @@
 		{/if}
 
 		{#if !search.trim() && similarColors.length > 0}
-			<div class="mb-1.5 text-xs font-semibold uppercase tracking-wider text-text-muted">
+			<div class="mb-1.5 text-xs font-semibold uppercase tracking-wider text-ink-muted">
 				Closest to guess
 			</div>
 			<div class="mb-3 flex flex-col gap-0.5">
@@ -1250,7 +1251,7 @@
 					{@render colorRow(color, false)}
 				{/each}
 			</div>
-			<div class="mb-1.5 text-xs font-semibold uppercase tracking-wider text-text-muted">
+			<div class="mb-1.5 text-xs font-semibold uppercase tracking-wider text-ink-muted">
 				All colors
 			</div>
 		{/if}
@@ -1259,7 +1260,7 @@
 			type="text"
 			bind:value={search}
 			placeholder="Search colors…"
-			class="mb-3 w-full border border-border bg-bg px-3 py-1.5 text-sm text-text placeholder:text-text-muted focus:border-primary focus:outline-none"
+			class="mb-3 w-full border border-line bg-well px-3 py-1.5 text-sm text-ink placeholder:text-ink-muted focus:border-primary focus:outline-none"
 		/>
 
 		<div
@@ -1272,7 +1273,7 @@
 			{/each}
 		</div>
 		{#if filteredColors.length === 0}
-			<p class="py-4 text-center text-sm text-text-muted">No colors match “{search}”.</p>
+			<p class="py-4 text-center text-sm text-ink-muted">No colors match “{search}”.</p>
 		{/if}
 	</div>
 {/snippet}
@@ -1284,19 +1285,19 @@
 	{#if detail && correction?.correctable}
 		{@const partSent = correction.part_feedback_submitted}
 		{@const canSendPart = !partSent && partVerdict != null}
-		<div class="flex shrink-0 flex-col border border-border bg-surface p-4">
+		<div class="flex shrink-0 flex-col border border-line bg-surface p-4">
 			<div class="mb-3 flex items-center justify-between gap-2">
-				<span class="text-sm font-medium text-text">Is this the right part?</span>
+				<span class="text-sm font-medium text-ink">Is this the right part?</span>
 				{#if partSent}
-					<span class="flex items-center gap-1 text-xs text-success"><CircleCheck size={13} /> Sent</span>
+					<span class="flex items-center gap-1 text-xs text-success-ink"><CircleCheck size={13} /> Sent</span>
 				{/if}
 			</div>
 
 			<!-- Predicted part + verdict -->
-			<div class="mb-2 flex items-center gap-2 text-sm text-text">
+			<div class="mb-2 flex items-center gap-2 text-sm text-ink">
 				<span class="truncate">{detail.part.part_name || detail.part.part_id || 'Unidentified'}</span>
 				{#if detail.part.part_id}
-					<span class="text-xs text-text-muted">#{detail.part.part_id}</span>
+					<span class="text-xs text-ink-muted">#{detail.part.part_id}</span>
 				{/if}
 			</div>
 
@@ -1319,7 +1320,7 @@
 				</Button>
 				{#if partSent}
 					<span
-						class="ml-auto flex items-center gap-1 text-xs text-success"
+						class="ml-auto flex items-center gap-1 text-xs text-success-ink"
 						title="already sent to Brickognize"
 					>
 						<CircleCheck size={13} /> sent
@@ -1329,7 +1330,7 @@
 
 			{#if feedback}
 				<div class="mb-2">
-					<Alert variant={feedback.variant}>{feedback.text}</Alert>
+					<Alert tone={feedback.variant}>{feedback.text}</Alert>
 				</div>
 			{/if}
 
@@ -1376,25 +1377,25 @@
 {/snippet}
 
 {#snippet directions()}
-	<div class="mt-8 border border-border bg-surface p-5">
-		<h2 class="mb-3 text-2xl font-bold text-text">Directions</h2>
-		<ul class="flex flex-col gap-2 text-sm text-text">
+	<div class="mt-8 border border-line bg-surface p-5">
+		<h2 class="mb-3 text-2xl font-bold text-ink">Directions</h2>
+		<ul class="flex flex-col gap-2 text-sm text-ink">
 			<li class="flex gap-2">
-				<span class="shrink-0 text-primary">→</span>
+				<span class="shrink-0 text-primary-ink">→</span>
 				<span
 					>Use the crop images from <span class="font-medium">both channels</span> to judge the piece's
 					true color.</span
 				>
 			</li>
 			<li class="flex gap-2">
-				<span class="shrink-0 text-primary">→</span>
+				<span class="shrink-0 text-primary-ink">→</span>
 				<span
 					>Pick the correct color from the sidebar. If you can tell it, that's enough — you can skip
 					the same-piece step.</span
 				>
 			</li>
 			<li class="flex gap-2">
-				<span class="shrink-0 text-primary">→</span>
+				<span class="shrink-0 text-primary-ink">→</span>
 				<span
 					>Under <span class="font-medium">True part</span>, confirm the mold the machine guessed, or
 					search the catalog for the right one. If the piece came back unidentified, search for what
@@ -1402,7 +1403,7 @@
 				>
 			</li>
 			<li class="flex gap-2">
-				<span class="shrink-0 text-primary">→</span>
+				<span class="shrink-0 text-primary-ink">→</span>
 				<span
 					>Under <span class="font-medium">Same piece across channels</span>, keep or add the upstream
 					crops that show this same physical piece. Don't bother if you can already see the whole
@@ -1410,7 +1411,7 @@
 				>
 			</li>
 			<li class="flex gap-2">
-				<span class="shrink-0 text-primary">→</span>
+				<span class="shrink-0 text-primary-ink">→</span>
 				<span
 					>Try to do <span class="font-medium">both</span> for each piece. If one has incomplete
 					info — you can't tell the color, or can't find the piece in the earlier pictures — just do
@@ -1424,14 +1425,14 @@
 {@render header()}
 
 {#if error}
-	<div class="mb-4 bg-primary/8 p-3 text-sm text-primary">{error}</div>
+	<div class="mb-4 bg-primary/8 p-3 text-sm text-primary-ink">{error}</div>
 {/if}
 
 {#if loading}
 	<div class="flex justify-center py-16"><Spinner size={32} /></div>
 {:else if !detail}
-	<div class="border border-border bg-surface p-10 text-center">
-		<p class="text-sm text-text-muted">Piece not found.</p>
+	<div class="border border-line bg-surface p-10 text-center">
+		<p class="text-sm text-ink-muted">Piece not found.</p>
 	</div>
 {:else}
 	{@render summaryBar()}

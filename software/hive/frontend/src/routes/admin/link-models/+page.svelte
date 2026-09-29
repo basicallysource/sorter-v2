@@ -3,7 +3,8 @@
 	import { api, type LinkModel } from '$lib/api';
 	import { goto } from '$app/navigation';
 	import Spinner from '$lib/components/Spinner.svelte';
-	import { Alert, Button } from '$lib/components/primitives';
+	import Alert from '$lib/components/Alert.svelte';
+	import Button from '$lib/components/Button.svelte';
 
 	let models = $state<LinkModel[]>([]);
 	let modelDir = $state('');
@@ -80,8 +81,8 @@
 <div class="space-y-5">
 	<div class="flex flex-wrap items-start justify-between gap-3">
 		<div>
-			<h1 class="text-2xl font-bold text-text">Link models</h1>
-			<p class="mt-1 max-w-2xl text-sm text-text-muted">
+			<h1 class="text-2xl font-bold text-ink">Link models</h1>
+			<p class="mt-1 max-w-2xl text-sm text-ink-muted">
 				The active model scores which upstream C2/C3 crops are the same physical piece as a
 				classified piece, and its picks pre-select the same-piece panel in the labeling view — in
 				place of the time/angle heuristic. Each model is a pair of ONNX graphs
@@ -93,31 +94,31 @@
 	</div>
 
 	{#if modelDir}
-		<p class="text-xs text-text-muted">
-			Scan directory: <code class="break-all bg-bg px-1.5 py-0.5 text-text">{modelDir}</code>
+		<p class="text-xs text-ink-muted">
+			Scan directory: <code class="break-all bg-well px-1.5 py-0.5 text-ink">{modelDir}</code>
 		</p>
 	{/if}
 
 	{#if error}
-		<Alert variant="danger">{error}</Alert>
+		<Alert tone="danger">{error}</Alert>
 	{/if}
 
 	{#if loading}
 		<div class="flex justify-center py-16"><Spinner size={32} /></div>
 	{:else if models.length === 0}
-		<div class="border border-border bg-surface px-4 py-10 text-center text-sm text-text-muted">
+		<div class="border border-line bg-surface px-4 py-10 text-center text-sm text-ink-muted">
 			No link models found in the scan directory. Upload an encoder+head <code>.onnx</code> pair there
 			and hit Rescan.
 		</div>
 	{:else}
-		<div class="border border-border bg-surface">
-			<div class="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 border-b border-border bg-bg px-4 py-2">
-				<span class="text-[10px] font-semibold uppercase tracking-wider text-text-muted">
+		<div class="border border-line bg-surface">
+			<div class="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 border-b border-line bg-well px-4 py-2">
+				<span class="text-xs font-semibold uppercase tracking-wider text-ink-muted">
 					{models.length} model{models.length === 1 ? '' : 's'} on disk
 				</span>
-				<span class="text-xs text-text-muted">
+				<span class="text-xs text-ink-muted">
 					{#if activeModel}
-						Active: <span class="font-medium text-text">{activeModel.name}</span>
+						Active: <span class="font-medium text-ink">{activeModel.name}</span>
 					{:else}
 						None active — using time/angle heuristic
 					{/if}
@@ -125,19 +126,19 @@
 			</div>
 
 			{#each models as m (m.id)}
-				<div class="flex flex-wrap items-center gap-4 border-b border-border px-4 py-3 last:border-b-0 {m.is_active ? 'bg-primary-light/30' : ''}">
+				<div class="flex flex-wrap items-center gap-4 border-b border-line px-4 py-3 last:border-b-0 {m.is_active ? 'bg-primary-soft' : ''}">
 					<div class="min-w-0 flex-1">
 						<div class="flex flex-wrap items-center gap-2">
-							<span class="font-medium text-text">{m.name}</span>
+							<span class="font-medium text-ink">{m.name}</span>
 							{#if m.is_active}
-								<span class="border border-primary/30 bg-primary-light px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-primary">Active</span>
+								<span class="border border-primary/30 bg-primary-soft px-1.5 py-0.5 text-xs font-semibold uppercase tracking-wider text-primary-ink">Active</span>
 							{/if}
 						</div>
 						{#if m.description}
-							<p class="mt-0.5 truncate text-xs text-text-muted">{m.description}</p>
+							<p class="mt-0.5 truncate text-xs text-ink-muted">{m.description}</p>
 						{/if}
-						<p class="mt-1 flex flex-wrap gap-x-3 gap-y-0.5 break-all text-[11px] text-text-muted">
-							<span><code class="text-text-muted">{m.encoder_filename}</code> + <code class="text-text-muted">{m.head_filename}</code></span>
+						<p class="mt-1 flex flex-wrap gap-x-3 gap-y-0.5 break-all text-xs text-ink-muted">
+							<span><code class="text-ink-muted">{m.encoder_filename}</code> + <code class="text-ink-muted">{m.head_filename}</code></span>
 							<span>{m.input_size}×{m.input_size}</span>
 							<span>{m.embed_dim}-d embed</span>
 							<span>{m.meta_dim} meta</span>
@@ -160,7 +161,7 @@
 			{/each}
 		</div>
 
-		<p class="text-xs text-text-muted">
+		<p class="text-xs text-ink-muted">
 			Only one model is active at a time. Deactivating leaves the labeling view on the time/angle
 			heuristic.
 		</p>

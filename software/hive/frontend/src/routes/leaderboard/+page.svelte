@@ -95,16 +95,16 @@
 <div class="space-y-5">
 	<div class="flex flex-wrap items-center justify-between gap-3">
 		<div>
-			<h1 class="text-2xl font-bold text-text">Contributor leaderboard</h1>
-			<p class="mt-1 text-sm text-text-muted">
+			<h1 class="text-2xl font-bold text-ink">Contributor leaderboard</h1>
+			<p class="mt-1 text-sm text-ink-muted">
 				Ranked by total contributions — sample reviews plus piece labels (color + same-piece). Period switches the ranking; clicks open full stats + achievements.
 			</p>
 		</div>
-		<div class="flex flex-wrap border border-border bg-surface text-xs">
+		<div class="flex flex-wrap border border-line bg-surface text-xs">
 			{#each PERIOD_OPTIONS as opt}
 				<button
 					type="button"
-					class="border-l border-border px-3 py-1.5 first:border-l-0 {period === opt.value ? 'bg-primary text-white' : 'text-text hover:bg-bg'}"
+					class="border-l border-line px-3 py-1.5 first:border-l-0 {period === opt.value ? 'bg-primary text-white' : 'text-ink hover:bg-hover'}"
 					onclick={() => setPeriod(opt.value)}
 				>
 					{opt.label}
@@ -116,16 +116,16 @@
 	{#if loading}
 		<div class="flex justify-center p-8"><Spinner size={32} /></div>
 	{:else if error}
-		<div class="border border-danger bg-danger/10 px-3 py-2 text-sm text-danger">{error}</div>
+		<div class="border border-danger bg-danger/10 px-3 py-2 text-sm text-danger-ink">{error}</div>
 	{:else if !data || data.entries.length === 0}
-		<div class="border border-border bg-surface px-3 py-10 text-center text-sm text-text-muted">
+		<div class="border border-line bg-surface px-3 py-10 text-center text-sm text-ink-muted">
 			No contributions in this period yet. Be the first.
 		</div>
 	{:else}
-		<div class="border border-border bg-surface">
+		<div class="border border-line bg-surface">
 			<!-- Mobile keeps rank/name/total on one line and drops the two detail
 			     columns onto a second grid row; the 5-track layout needs ~480px. -->
-			<div class="grid grid-cols-[32px_minmax(0,1fr)_auto] items-center gap-3 border-b border-border bg-bg px-4 py-2 text-[10px] font-semibold uppercase tracking-wider text-text-muted sm:grid-cols-[40px_1fr_90px_150px_120px]">
+			<div class="grid grid-cols-[32px_minmax(0,1fr)_auto] items-center gap-3 border-b border-line bg-well px-4 py-2 text-xs font-semibold uppercase tracking-wider text-ink-muted sm:grid-cols-[40px_1fr_90px_150px_120px]">
 				<span>Rank</span>
 				<span>Contributor</span>
 				<span class="text-right">Total</span>
@@ -137,37 +137,37 @@
 				{@const medal = medalFor(idx)}
 				<a
 					href={profileHref(entry)}
-					class="grid grid-cols-[32px_minmax(0,1fr)_auto] items-center gap-x-3 gap-y-1 border-b border-border px-4 py-2.5 text-sm transition-colors hover:bg-bg sm:grid-cols-[40px_1fr_90px_150px_120px] {isMe ? 'bg-primary-light/30' : ''} last:border-b-0"
+					class="grid grid-cols-[32px_minmax(0,1fr)_auto] items-center gap-x-3 gap-y-1 border-b border-line px-4 py-2.5 text-sm transition-colors hover:bg-hover sm:grid-cols-[40px_1fr_90px_150px_120px] {isMe ? 'bg-primary-soft' : ''} last:border-b-0"
 				>
-					<span class="text-center text-base font-semibold tabular-nums text-text">
+					<span class="text-center text-base font-semibold tabular-nums text-ink">
 						{medal ?? idx + 1}
 					</span>
 					<span class="flex min-w-0 items-center gap-2">
 						{#if entry.avatar_url}
-							<img src={entry.avatar_url} alt="" class="h-7 w-7 rounded-full border border-border bg-bg object-cover" />
+							<img src={entry.avatar_url} alt="" class="h-7 w-7 rounded-full border border-line bg-well object-cover" />
 						{:else}
-							<span class="flex h-7 w-7 items-center justify-center rounded-full border border-border bg-bg text-[10px] font-semibold text-text-muted">
+							<span class="flex h-7 w-7 items-center justify-center rounded-full border border-line bg-well text-xs font-semibold text-ink-muted">
 								{initials(entry.display_name)}
 							</span>
 						{/if}
 						<span class="min-w-0">
-							<span class="block truncate font-medium text-text">
+							<span class="block truncate font-medium text-ink">
 								{entry.display_name ?? 'Anonymous'}
-								{#if isMe}<span class="ml-1 text-[10px] uppercase tracking-wider text-primary">you</span>{/if}
+								{#if isMe}<span class="ml-1 text-xs uppercase tracking-wider text-primary-ink">you</span>{/if}
 							</span>
-							<span class="block truncate text-[11px] text-text-muted">{entry.role}</span>
+							<span class="block truncate text-xs text-ink-muted">{entry.role}</span>
 						</span>
 					</span>
-					<span class="text-right text-base font-bold tabular-nums text-text">
+					<span class="text-right text-base font-bold tabular-nums text-ink">
 						{entry.total_contributions.toLocaleString()}
 					</span>
-					<span class="col-start-2 row-start-2 text-xs tabular-nums text-text-muted sm:col-start-auto sm:row-start-auto sm:text-right">
+					<span class="col-start-2 row-start-2 text-xs tabular-nums text-ink-muted sm:col-start-auto sm:row-start-auto sm:text-right">
 						<span title="sample reviews">{entry.total_reviews.toLocaleString()}</span>
-						· <span class="text-primary" title="piece color labels + same-piece links">
+						· <span class="text-primary-ink" title="piece color labels + same-piece links">
 							{(entry.piece_color_labels + entry.piece_crop_links).toLocaleString()}
 						</span>
 					</span>
-					<span class="col-start-3 row-start-2 text-right text-xs text-text-muted sm:col-start-auto sm:row-start-auto">{relativeTime(entry.last_review_at)}</span>
+					<span class="col-start-3 row-start-2 text-right text-xs text-ink-muted sm:col-start-auto sm:row-start-auto">{relativeTime(entry.last_review_at)}</span>
 				</a>
 			{/each}
 		</div>

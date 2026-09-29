@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { sentence } from '$lib/text';
 	import { auth } from '$lib/auth.svelte';
 	import {
 		api,
@@ -11,7 +12,7 @@
 	import Badge from '$lib/components/Badge.svelte';
 	import Modal from '$lib/components/Modal.svelte';
 	import Spinner from '$lib/components/Spinner.svelte';
-	import { Button } from '$lib/components/primitives';
+	import Button from '$lib/components/Button.svelte';
 
 	let overview = $state<PartsDbOverview | null>(null);
 	let categories = $state<PartsDbCategory[]>([]);
@@ -177,15 +178,15 @@
 
 <div class="mb-6 flex items-end justify-between">
 	<div>
-		<h1 class="text-2xl font-bold text-text">Parts Database</h1>
-		<p class="mt-1 text-sm text-text-muted">
+		<h1 class="text-2xl font-bold text-ink">Parts Database</h1>
+		<p class="mt-1 text-sm text-ink-muted">
 			Browse and verify the catalog extracted from Rebrickable, BrickStore/BrickLink, and price guides.
 		</p>
 	</div>
 </div>
 
 {#if error}
-	<div class="mb-4 border border-primary/30 bg-primary/8 p-3 text-sm text-primary">{error}</div>
+	<div class="mb-4 border border-primary/30 bg-primary/8 p-3 text-sm text-primary-ink">{error}</div>
 {/if}
 
 <!-- Overview / coverage -->
@@ -197,15 +198,15 @@
 					? 'border-primary/40'
 					: card.tone === 'ok'
 						? 'border-success/40'
-						: 'border-border'}"
+						: 'border-line'}"
 			>
-				<div class="text-xs uppercase tracking-wider text-text-muted">{card.label}</div>
+				<div class="text-xs uppercase tracking-wider text-ink-muted">{card.label}</div>
 				<div
 					class="mt-1 text-xl font-bold {card.tone === 'bad'
-						? 'text-primary'
+						? 'text-primary-ink'
 						: card.tone === 'ok'
-							? 'text-success'
-							: 'text-text'}"
+							? 'text-success-ink'
+							: 'text-ink'}"
 				>
 					{fmt(card.value)}
 				</div>
@@ -213,9 +214,9 @@
 		{/each}
 	</div>
 
-	<div class="mb-6 flex flex-wrap gap-x-4 gap-y-1 border border-border bg-bg p-3 text-xs text-text-muted">
+	<div class="mb-6 flex flex-wrap gap-x-4 gap-y-1 border border-line bg-well p-3 text-xs text-ink-muted">
 		{#each Object.entries(overview.tables) as [name, count]}
-			<span><span class="font-mono text-text">{fmt(count)}</span> {name}</span>
+			<span><span class="font-mono text-ink">{fmt(count)}</span> {name}</span>
 		{/each}
 	</div>
 {/if}
@@ -227,13 +228,13 @@
 		bind:value={query}
 		onkeydown={(e) => e.key === 'Enter' && applyFilters()}
 		placeholder="Search part #, name, or BrickLink ID…"
-		class="w-full flex-1 border border-border bg-surface px-3 py-2 text-sm text-text sm:min-w-64"
+		class="w-full flex-1 border border-line bg-surface px-3 py-2 text-sm text-ink sm:min-w-64"
 	/>
 	<!-- A <select> sizes to its widest option; the category names are long enough
 	     to push the row past a phone screen without an explicit cap. -->
 	<select
 		bind:value={catId}
-		class="max-w-full min-w-0 border border-border bg-surface px-3 py-2 text-sm text-text"
+		class="max-w-full min-w-0 border border-line bg-surface px-3 py-2 text-sm text-ink"
 	>
 		<option value={null}>All categories</option>
 		{#each categories as cat}
@@ -242,7 +243,7 @@
 	</select>
 	<select
 		bind:value={missing}
-		class="max-w-full min-w-0 border border-border bg-surface px-3 py-2 text-sm text-text"
+		class="max-w-full min-w-0 border border-line bg-surface px-3 py-2 text-sm text-ink"
 	>
 		<option value="">Any connection</option>
 		<option value="bricklink_id">Missing BrickLink ID</option>
@@ -255,28 +256,28 @@
 {#if loading}
 	<div class="flex justify-center py-12"><Spinner size={32} /></div>
 {:else}
-	<div class="mb-2 flex items-center justify-between text-sm text-text-muted">
+	<div class="mb-2 flex items-center justify-between text-sm text-ink-muted">
 		<span>{fmt(total)} parts</span>
 		<span>Showing {fmt(pageStart)}–{fmt(pageEnd)}</span>
 	</div>
 
-	<div class="overflow-x-auto border border-border bg-surface">
-		<table class="min-w-full divide-y divide-border">
-			<thead class="bg-bg">
+	<div class="overflow-x-auto border border-line bg-surface">
+		<table class="min-w-full divide-y divide-line">
+			<thead class="bg-well">
 				<tr>
-					<th class="px-4 py-2 text-left text-xs font-medium uppercase tracking-wider text-text-muted">Part</th>
-					<th class="px-4 py-2 text-left text-xs font-medium uppercase tracking-wider text-text-muted">Name</th>
-					<th class="px-4 py-2 text-left text-xs font-medium uppercase tracking-wider text-text-muted">Category</th>
-					<th class="px-4 py-2 text-left text-xs font-medium uppercase tracking-wider text-text-muted">Years</th>
-					<th class="px-4 py-2 text-right text-xs font-medium uppercase tracking-wider text-text-muted">BL IDs</th>
-					<th class="px-4 py-2 text-right text-xs font-medium uppercase tracking-wider text-text-muted">BL items</th>
-					<th class="px-4 py-2 text-right text-xs font-medium uppercase tracking-wider text-text-muted">Prices</th>
+					<th class="px-4 py-2 text-left text-xs font-medium uppercase tracking-wider text-ink-muted">Part</th>
+					<th class="px-4 py-2 text-left text-xs font-medium uppercase tracking-wider text-ink-muted">Name</th>
+					<th class="px-4 py-2 text-left text-xs font-medium uppercase tracking-wider text-ink-muted">Category</th>
+					<th class="px-4 py-2 text-left text-xs font-medium uppercase tracking-wider text-ink-muted">Years</th>
+					<th class="px-4 py-2 text-right text-xs font-medium uppercase tracking-wider text-ink-muted">BL IDs</th>
+					<th class="px-4 py-2 text-right text-xs font-medium uppercase tracking-wider text-ink-muted">BL items</th>
+					<th class="px-4 py-2 text-right text-xs font-medium uppercase tracking-wider text-ink-muted">Prices</th>
 				</tr>
 			</thead>
-			<tbody class="divide-y divide-border">
+			<tbody class="divide-y divide-line">
 				{#each parts as part (part.part_num)}
 					<tr
-						class="cursor-pointer hover:bg-bg"
+						class="cursor-pointer hover:bg-hover"
 						onclick={() => openDetail(part.part_num)}
 					>
 						<td class="px-4 py-2">
@@ -284,27 +285,27 @@
 								{#if part.part_img_url}
 									<img src={part.part_img_url} alt="" class="h-8 w-8 object-contain" loading="lazy" />
 								{:else}
-									<div class="h-8 w-8 bg-bg"></div>
+									<div class="h-8 w-8 bg-well"></div>
 								{/if}
-								<span class="font-mono text-sm text-text">{part.part_num}</span>
+								<span class="font-mono text-sm text-ink">{part.part_num}</span>
 							</div>
 						</td>
-						<td class="px-4 py-2 text-sm text-text">{part.name}</td>
-						<td class="px-4 py-2 text-sm text-text-muted">{part._category_name}</td>
-						<td class="px-4 py-2 text-sm text-text-muted">{yearRange(part.year_from, part.year_to)}</td>
-						<td class="px-4 py-2 text-right text-sm text-text-muted">{part._bl_id_count}</td>
+						<td class="px-4 py-2 text-sm text-ink">{part.name}</td>
+						<td class="px-4 py-2 text-sm text-ink-muted">{part._category_name}</td>
+						<td class="px-4 py-2 text-sm text-ink-muted">{yearRange(part.year_from, part.year_to)}</td>
+						<td class="px-4 py-2 text-right text-sm text-ink-muted">{part._bl_id_count}</td>
 						<td
 							class="px-4 py-2 text-right text-sm {part._bl_item_count > 0
-								? 'text-success'
-								: 'text-primary'}"
+								? 'text-success-ink'
+								: 'text-primary-ink'}"
 						>
 							{part._bl_item_count}
 						</td>
-						<td class="px-4 py-2 text-right text-sm text-text-muted">{part._price_count}</td>
+						<td class="px-4 py-2 text-right text-sm text-ink-muted">{part._price_count}</td>
 					</tr>
 				{:else}
 					<tr>
-						<td colspan="7" class="px-4 py-8 text-center text-sm text-text-muted">No parts match.</td>
+						<td colspan="7" class="px-4 py-8 text-center text-sm text-ink-muted">No parts match.</td>
 					</tr>
 				{/each}
 			</tbody>
@@ -313,7 +314,7 @@
 
 	<div class="mt-4 flex items-center justify-between">
 		<Button variant="secondary" size="sm" disabled={offset === 0} onclick={prevPage}>Previous</Button>
-		<span class="text-sm text-text-muted">{fmt(pageStart)}–{fmt(pageEnd)} of {fmt(total)}</span>
+		<span class="text-sm text-ink-muted">{fmt(pageStart)}–{fmt(pageEnd)} of {fmt(total)}</span>
 		<Button variant="secondary" size="sm" disabled={offset + PAGE_SIZE >= total} onclick={nextPage}>Next</Button>
 	</div>
 {/if}
@@ -326,24 +327,24 @@
 		<div class="space-y-4">
 			<div class="flex gap-3">
 				{#if detail.part.part_img_url}
-					<img src={detail.part.part_img_url} alt="" class="h-20 w-20 object-contain border border-border" />
+					<img src={detail.part.part_img_url} alt="" class="h-20 w-20 object-contain border border-line" />
 				{/if}
 				<dl class="grid min-w-0 flex-1 grid-cols-2 gap-x-3 gap-y-1 text-sm">
-					<dt class="text-text-muted">Category</dt>
-					<dd class="text-text">{detail.part._category_name}</dd>
-					<dt class="text-text-muted">Years</dt>
-					<dd class="text-text">{yearRange(detail.part.year_from, detail.part.year_to)}</dd>
-					<dt class="text-text-muted">Size (LEGO units)</dt>
-					<dd class="text-text">
+					<dt class="text-ink-muted">Category</dt>
+					<dd class="text-ink">{detail.part._category_name}</dd>
+					<dt class="text-ink-muted">Years</dt>
+					<dd class="text-ink">{yearRange(detail.part.year_from, detail.part.year_to)}</dd>
+					<dt class="text-ink-muted">Size (LEGO units)</dt>
+					<dd class="text-ink">
 						{#if detail.part.dim_x_studs != null}
 							{detail.part.dim_x_studs} × {detail.part.dim_y_studs} studs
-							<span class="text-text-muted">({(detail.part.dim_x_studs * 8).toFixed(0)} × {((detail.part.dim_y_studs ?? 0) * 8).toFixed(0)} mm)</span>
+							<span class="text-ink-muted">({(detail.part.dim_x_studs * 8).toFixed(0)} × {((detail.part.dim_y_studs ?? 0) * 8).toFixed(0)} mm)</span>
 						{:else}—{/if}
 					</dd>
-					<dt class="text-text-muted">Rebrickable</dt>
+					<dt class="text-ink-muted">Rebrickable</dt>
 					<dd>
 						{#if detail.part.part_url}
-							<a href={detail.part.part_url} target="_blank" rel="noopener" class="text-info hover:underline">open ↗</a>
+							<a href={detail.part.part_url} target="_blank" rel="noopener" class="text-info-ink hover:underline">open ↗</a>
 						{:else}—{/if}
 					</dd>
 				</dl>
@@ -351,45 +352,42 @@
 
 			<!-- Physical dimensions (mm), best-available with confidence -->
 			<div>
-				<h3 class="mb-1 flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-text-muted">
+				<h3 class="mb-1 flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-ink-muted">
 					Physical dimensions (mm)
 					{#if detail.dimensions && detail.dimensions.source !== 'none'}
-						<Badge
-							text={detail.dimensions.confidence}
-							variant={detail.dimensions.confidence === 'exact' ? 'success' : detail.dimensions.confidence === 'family' ? 'info' : 'warning'}
-						/>
+						<Badge tone={detail.dimensions.confidence === 'exact' ? 'success' : detail.dimensions.confidence === 'family' ? 'info' : 'warning'}>{sentence(detail.dimensions.confidence)}</Badge>
 					{/if}
 				</h3>
 				{#if detail.dimensions && detail.dimensions.source !== 'none'}
-					<div class="flex flex-wrap gap-x-4 gap-y-1 text-sm text-text">
+					<div class="flex flex-wrap gap-x-4 gap-y-1 text-sm text-ink">
 						<span>Bounding box: <span class="font-mono">{detail.dimensions.bbox_x_mm} × {detail.dimensions.bbox_y_mm} × {detail.dimensions.bbox_z_mm ?? '?'}</span> mm</span>
 						<span>Max extent: <span class="font-mono">{detail.dimensions.max_extent_mm}</span> mm</span>
 						{#if detail.dimensions.volume_mm3 != null}
-							<span>Volume: <span class="font-mono">{detail.dimensions.volume_mm3}</span> mm³ <span class="text-text-muted">(approx)</span></span>
+							<span>Volume: <span class="font-mono">{detail.dimensions.volume_mm3}</span> mm³ <span class="text-ink-muted">(approx)</span></span>
 						{/if}
 					</div>
-					<div class="mt-1 text-xs text-text-muted">
+					<div class="mt-1 text-xs text-ink-muted">
 						source: {detail.dimensions.source}
 						{#if detail.dimensions.physical_parent_part_num}
 							· from mold {detail.dimensions.physical_parent_part_num}
 						{/if}
 					</div>
 				{:else}
-					<p class="text-sm text-text-muted">No dimension data available for this part.</p>
+					<p class="text-sm text-ink-muted">No dimension data available for this part.</p>
 				{/if}
 			</div>
 
 			<!-- External IDs from Rebrickable -->
 			<div>
-				<h3 class="mb-1 text-xs font-semibold uppercase tracking-wider text-text-muted">External IDs (Rebrickable)</h3>
+				<h3 class="mb-1 text-xs font-semibold uppercase tracking-wider text-ink-muted">External IDs (Rebrickable)</h3>
 				{#if Object.keys(detail.part.external_ids).length === 0}
-					<p class="text-sm text-text-muted">None.</p>
+					<p class="text-sm text-ink-muted">None.</p>
 				{:else}
 					<div class="space-y-1 text-sm">
 						{#each Object.entries(detail.part.external_ids) as [source, ids]}
 							<div class="flex min-w-0 gap-2">
-								<span class="w-24 shrink-0 text-text-muted">{source}</span>
-								<span class="min-w-0 break-all font-mono text-text">{ids.join(', ')}</span>
+								<span class="w-24 shrink-0 text-ink-muted">{source}</span>
+								<span class="min-w-0 break-all font-mono text-ink">{ids.join(', ')}</span>
 							</div>
 						{/each}
 					</div>
@@ -398,28 +396,28 @@
 
 			<!-- BrickLink links -->
 			<div>
-				<h3 class="mb-1 text-xs font-semibold uppercase tracking-wider text-text-muted">
+				<h3 class="mb-1 text-xs font-semibold uppercase tracking-wider text-ink-muted">
 					BrickLink items ({detail.bricklink.length})
 				</h3>
 				{#if detail.bricklink.length === 0}
-					<p class="text-sm text-text-muted">No BrickLink mapping.</p>
+					<p class="text-sm text-ink-muted">No BrickLink mapping.</p>
 				{:else}
 					<div class="space-y-2">
 						{#each detail.bricklink as link}
-							<div class="border border-border p-2">
+							<div class="border border-line p-2">
 								<div class="flex flex-wrap items-center gap-2">
-									<span class="font-mono text-sm text-text">{link.item_no}</span>
-									{#if link.is_primary}<Badge text="primary" variant="info" />{/if}
+									<span class="font-mono text-sm text-ink">{link.item_no}</span>
+									{#if link.is_primary}<Badge tone="info">Primary</Badge>{/if}
 									{#if link.has_item_record}
-										<Badge text="item record" variant="success" />
+										<Badge tone="success">Item record</Badge>
 									{:else}
-										<Badge text="no item record" variant="danger" />
+										<Badge tone="danger">No item record</Badge>
 									{/if}
-									{#if link.has_price_guide}<Badge text="price guide" variant="success" />{/if}
-									{#if link.is_obsolete}<Badge text="obsolete" variant="warning" />{/if}
+									{#if link.has_price_guide}<Badge tone="success">Price guide</Badge>{/if}
+									{#if link.is_obsolete}<Badge tone="warning">Obsolete</Badge>{/if}
 								</div>
 								{#if link.has_item_record}
-									<div class="mt-1 text-xs text-text-muted">
+									<div class="mt-1 text-xs text-ink-muted">
 										{link.bl_name ?? '—'}
 										{#if link.bl_category_name} · {link.bl_category_name}{/if}
 										{#if link.weight != null} · {link.weight} g{/if}
@@ -434,32 +432,32 @@
 
 			<!-- Per-color prices -->
 			<div>
-				<h3 class="mb-1 text-xs font-semibold uppercase tracking-wider text-text-muted">
+				<h3 class="mb-1 text-xs font-semibold uppercase tracking-wider text-ink-muted">
 					Prices by color ({detail.prices.length})
 				</h3>
 				{#if detail.prices.length === 0}
-					<p class="text-sm text-text-muted">No price data yet — run the price sync.</p>
+					<p class="text-sm text-ink-muted">No price data yet — run the price sync.</p>
 				{:else}
-					<div class="max-h-64 overflow-auto border border-border">
-						<table class="min-w-full divide-y divide-border text-sm">
-							<thead class="sticky top-0 bg-bg">
+					<div class="max-h-64 overflow-auto border border-line">
+						<table class="min-w-full divide-y divide-line text-sm">
+							<thead class="sticky top-0 bg-well">
 								<tr>
-									<th class="px-3 py-1.5 text-left text-xs font-medium uppercase tracking-wider text-text-muted">Color</th>
-									<th class="px-3 py-1.5 text-right text-xs font-medium uppercase tracking-wider text-text-muted">New avg</th>
-									<th class="px-3 py-1.5 text-right text-xs font-medium uppercase tracking-wider text-text-muted">Used avg</th>
-									<th class="px-3 py-1.5 text-right text-xs font-medium uppercase tracking-wider text-text-muted">Used qty</th>
+									<th class="px-3 py-1.5 text-left text-xs font-medium uppercase tracking-wider text-ink-muted">Color</th>
+									<th class="px-3 py-1.5 text-right text-xs font-medium uppercase tracking-wider text-ink-muted">New avg</th>
+									<th class="px-3 py-1.5 text-right text-xs font-medium uppercase tracking-wider text-ink-muted">Used avg</th>
+									<th class="px-3 py-1.5 text-right text-xs font-medium uppercase tracking-wider text-ink-muted">Used qty</th>
 								</tr>
 							</thead>
-							<tbody class="divide-y divide-border">
+							<tbody class="divide-y divide-line">
 								{#each detail.prices as p}
 									<tr>
-										<td class="px-3 py-1.5 text-text">
+										<td class="px-3 py-1.5 text-ink">
 											{p.color_name ?? `BL ${p.bl_color_id}`}
-											{#if p.rb_color_id == null}<span class="text-xs text-text-muted"> (BL-only)</span>{/if}
+											{#if p.rb_color_id == null}<span class="text-xs text-ink-muted"> (BL-only)</span>{/if}
 										</td>
-										<td class="px-3 py-1.5 text-right text-text">{money(p.new_avg)}</td>
-										<td class="px-3 py-1.5 text-right text-text">{money(p.used_avg)}</td>
-										<td class="px-3 py-1.5 text-right text-text-muted">{p.used_qty ?? '—'}</td>
+										<td class="px-3 py-1.5 text-right text-ink">{money(p.new_avg)}</td>
+										<td class="px-3 py-1.5 text-right text-ink">{money(p.used_avg)}</td>
+										<td class="px-3 py-1.5 text-right text-ink-muted">{p.used_qty ?? '—'}</td>
 									</tr>
 								{/each}
 							</tbody>

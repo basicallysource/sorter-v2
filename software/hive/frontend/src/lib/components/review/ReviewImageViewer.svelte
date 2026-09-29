@@ -25,7 +25,7 @@
 	}: Props = $props();
 </script>
 
-<div class="overflow-hidden border border-border bg-canvas">
+<div class="overflow-hidden border border-line bg-media">
 	<div class="relative">
 		<img src={imageUrl} alt={imageAlt} class="w-full" {onload} />
 

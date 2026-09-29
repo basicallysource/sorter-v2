@@ -592,7 +592,7 @@
 	<!-- Canvas-only mode: external controls are rendered by the parent -->
 	<!-- svelte-ignore a11y_no_static_element_interactions -->
 	<div
-		class="overflow-hidden border border-border bg-canvas/95"
+		class="overflow-hidden border border-line bg-media/95"
 		onpointerup={() => { requestAnimationFrame(() => syncAnnotations()); }}
 	>
 		<div class="flex min-h-[50vh] items-center justify-center p-2">
@@ -609,62 +609,62 @@
 	<!-- Annotation editing is gated off (currently buggy). Render the image
 	     without any edit affordances so a stale URL with ?view=annotate still
 	     shows something useful instead of an empty surface. -->
-	<div class="border border-border bg-surface p-4 text-sm text-text-muted">
+	<div class="border border-line bg-surface p-4 text-sm text-ink-muted">
 		Annotation editing is temporarily disabled while we sort out a save-flow bug.
 		Boxes remain visible on the regular image view.
 	</div>
 {:else}
 	<!-- Self-contained mode: toolbar + canvas -->
-	<div class="space-y-4 border border-border bg-surface p-4">
+	<div class="space-y-4 border border-line bg-surface p-4">
 		<div class="flex flex-wrap items-center gap-2">
-			<div class="inline-flex border border-border bg-bg p-1">
+			<div class="inline-flex border border-line bg-well p-1">
 				<button type="button" onclick={() => { activeTool = 'rectangle'; }}
-					class="px-3 py-1.5 text-xs font-medium transition-colors {activeTool === 'rectangle' ? 'bg-text text-surface' : 'text-text-muted hover:bg-surface'}"
+					class="px-3 py-1.5 text-xs font-medium transition-colors {activeTool === 'rectangle' ? 'bg-text text-surface' : 'text-ink-muted hover:bg-surface'}"
 				>Rectangle</button>
 				<button type="button" onclick={() => { activeTool = 'polygon'; }}
-					class="px-3 py-1.5 text-xs font-medium transition-colors {activeTool === 'polygon' ? 'bg-text text-surface' : 'text-text-muted hover:bg-surface'}"
+					class="px-3 py-1.5 text-xs font-medium transition-colors {activeTool === 'polygon' ? 'bg-text text-surface' : 'text-ink-muted hover:bg-surface'}"
 				>Polygon</button>
 			</div>
 			<button type="button" onclick={() => { void saveAnnotations(); }} disabled={saving || !isDirty}
 				class="px-3 py-1.5 text-xs font-medium text-white transition-colors disabled:cursor-not-allowed disabled:bg-primary/40 {saving || !isDirty ? 'bg-primary/40' : 'bg-primary hover:bg-primary-hover'}"
 			>{saving ? 'Saving...' : 'Save'}</button>
 			<button type="button" onclick={deleteSelected} disabled={selectedAnnotationIds.length === 0}
-				class="border border-primary/20 px-3 py-1.5 text-xs font-medium text-primary transition-colors disabled:cursor-not-allowed disabled:border-border disabled:text-text-muted {selectedAnnotationIds.length === 0 ? '' : 'hover:bg-primary-light'}"
+				class="border border-primary/20 px-3 py-1.5 text-xs font-medium text-primary-ink transition-colors disabled:cursor-not-allowed disabled:border-line disabled:text-ink-muted {selectedAnnotationIds.length === 0 ? '' : 'hover:bg-primary-soft'}"
 			>Delete Selected</button>
-			<button type="button" onclick={() => annotator?.undo()} class="border border-border px-3 py-1.5 text-xs font-medium text-text hover:bg-bg">Undo</button>
-			<button type="button" onclick={() => annotator?.redo()} class="border border-border px-3 py-1.5 text-xs font-medium text-text hover:bg-bg">Redo</button>
-			<button type="button" onclick={restoreBaseline} class="border border-border px-3 py-1.5 text-xs font-medium text-text hover:bg-bg">Revert</button>
+			<button type="button" onclick={() => annotator?.undo()} class="border border-line px-3 py-1.5 text-xs font-medium text-ink hover:bg-hover">Undo</button>
+			<button type="button" onclick={() => annotator?.redo()} class="border border-line px-3 py-1.5 text-xs font-medium text-ink hover:bg-hover">Redo</button>
+			<button type="button" onclick={restoreBaseline} class="border border-line px-3 py-1.5 text-xs font-medium text-ink hover:bg-hover">Revert</button>
 			{#if seedBoxes.length > 0}
-				<button type="button" onclick={loadSorterBoxes} class="border border-border px-3 py-1.5 text-xs font-medium text-text hover:bg-bg">Load Sorter Boxes</button>
+				<button type="button" onclick={loadSorterBoxes} class="border border-line px-3 py-1.5 text-xs font-medium text-ink hover:bg-hover">Load Sorter Boxes</button>
 			{/if}
-			<button type="button" onclick={clearAll} class="border border-warning/30 px-3 py-1.5 text-xs font-medium text-warning-strong hover:bg-warning/[0.1]">Clear</button>
+			<button type="button" onclick={clearAll} class="border border-warning/30 px-3 py-1.5 text-xs font-medium text-warning-ink hover:bg-warning/[0.1]">Clear</button>
 		</div>
 
-		<div class="flex flex-wrap items-center gap-x-4 gap-y-2 border border-border bg-bg px-3 py-2 text-xs text-text-muted">
+		<div class="flex flex-wrap items-center gap-x-4 gap-y-2 border border-line bg-well px-3 py-2 text-xs text-ink-muted">
 			<span>{annotationStats.total} annotations</span>
 			<span>{annotationStats.seeded} seeded</span>
 			<span>{annotationStats.manual} manual</span>
 			<span>{annotationStats.rectangles} rectangles</span>
 			<span>{annotationStats.polygons} polygons</span>
 			<span>{selectedAnnotationIds.length} selected</span>
-			<span class="ml-auto font-medium {isDirty ? 'text-warning-strong' : 'text-success'}">
+			<span class="ml-auto font-medium {isDirty ? 'text-warning-ink' : 'text-success-ink'}">
 				{#if isDirty}Unsaved changes{:else if hasSavedBaseline}Saved{:else}Not saved yet{/if}
 			</span>
 		</div>
 
-		<div class="border border-info/10 bg-info/[0.06] px-3 py-2 text-xs text-info">
+		<div class="border border-info/10 bg-info/[0.06] px-3 py-2 text-xs text-info-ink">
 			Click a box to edit it. Press `Delete` or `Backspace` to remove the selected box, or use `Ctrl/Cmd + S` to save.
 		</div>
 
 		{#if feedback}
-			<p class="px-3 py-2 text-xs {feedbackTone === 'danger' ? 'bg-primary/8 text-primary' : feedbackTone === 'success' ? 'bg-success/10 text-success' : 'bg-bg text-text-muted'}">
+			<p class="px-3 py-2 text-xs {feedbackTone === 'danger' ? 'bg-primary/8 text-primary-ink' : feedbackTone === 'success' ? 'bg-success/10 text-success-ink' : 'bg-well text-ink-muted'}">
 				{feedback}
 			</p>
 		{/if}
 
 		<!-- svelte-ignore a11y_no_static_element_interactions -->
 		<div
-			class="overflow-auto border border-border bg-canvas/95 p-4"
+			class="overflow-auto border border-line bg-media/95 p-4"
 			onpointerup={() => { requestAnimationFrame(() => syncAnnotations()); }}
 		>
 			<div class="flex min-h-[28rem] items-center justify-center">

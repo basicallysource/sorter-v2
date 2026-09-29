@@ -32,7 +32,7 @@
 {#if providers.length > 0}
 	<div class="my-5 flex items-center gap-3">
 		<div class="h-px flex-1 bg-border"></div>
-		<span class="text-xs font-medium uppercase tracking-wide text-text-muted">or</span>
+		<span class="text-xs font-medium uppercase tracking-wide text-ink-muted">or</span>
 		<div class="h-px flex-1 bg-border"></div>
 	</div>
 
@@ -41,12 +41,12 @@
 			<a
 				href={api.oauthLoginUrl(provider.name, next)}
 				onclick={() => rememberMethod(provider.name)}
-				class="relative flex w-full items-center justify-center gap-3 border border-border px-4 py-2 text-sm font-medium text-text hover:bg-bg"
+				class="relative flex w-full items-center justify-center gap-3 border border-line px-4 py-2 text-sm font-medium text-ink hover:bg-hover"
 			>
 				<BrandMark brand={provider.name} />
 				{provider.label}
 				{#if lastUsed === provider.name}
-					<span class="absolute right-2 rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-primary">Last used</span>
+					<span class="absolute right-2 rounded-full bg-primary/10 px-2 py-0.5 text-xs font-medium uppercase tracking-wide text-primary-ink">Last used</span>
 				{/if}
 			</a>
 		{/each}

@@ -12,7 +12,7 @@
 	} from '$lib/api';
 	import { auth } from '$lib/auth.svelte';
 	import Modal from '$lib/components/Modal.svelte';
-	import { Button } from '$lib/components/primitives';
+	import Button from '$lib/components/Button.svelte';
 	import FilterGroup from '$lib/components/FilterGroup.svelte';
 	import SampleCard from '$lib/components/SampleCard.svelte';
 	import Spinner from '$lib/components/Spinner.svelte';
@@ -636,15 +636,15 @@
 
 <div class="mb-6 flex flex-wrap items-center justify-between gap-3">
 	<div class="min-w-0">
-		<h1 class="text-2xl font-bold text-text">Samples</h1>
-		<p class="mt-1 text-sm text-text-muted">
+		<h1 class="text-2xl font-bold text-ink">Samples</h1>
+		<p class="mt-1 text-sm text-ink-muted">
 			Browse and review training samples captured by your machines.
 		</p>
 	</div>
 	<div class="flex flex-wrap items-center gap-2">
 		<a
 			href="/samples/diversity"
-			class="inline-flex items-center gap-2 border border-border bg-surface px-4 py-2 text-sm font-medium text-text hover:bg-bg"
+			class="inline-flex items-center gap-2 border border-line bg-surface px-4 py-2 text-sm font-medium text-ink hover:bg-hover"
 		>
 			<svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
 				<path stroke-linecap="round" stroke-linejoin="round" d="M3 13.125C3 12.504 3.504 12 4.125 12h2.25c.621 0 1.125.504 1.125 1.125v6.75C7.5 20.496 6.996 21 6.375 21h-2.25A1.125 1.125 0 013 19.875v-6.75zM9.75 8.625c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125v11.25c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V8.625zM16.5 4.125c0-.621.504-1.125 1.125-1.125h2.25C20.496 3 21 3.504 21 4.125v15.75c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V4.125z" />
@@ -654,7 +654,7 @@
 		{#if auth.user?.role === 'admin'}
 			<a
 				href="/admin/teacher-jobs"
-				class="inline-flex items-center gap-2 border border-border bg-surface px-4 py-2 text-sm font-medium text-text hover:bg-bg"
+				class="inline-flex items-center gap-2 border border-line bg-surface px-4 py-2 text-sm font-medium text-ink hover:bg-hover"
 				title="See all running and past Gemini teacher jobs."
 			>
 				<svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
@@ -665,7 +665,7 @@
 			<button
 				type="button"
 				onclick={openTeacherModal}
-				class="inline-flex items-center gap-2 border border-border bg-surface px-4 py-2 text-sm font-medium text-text hover:bg-bg"
+				class="inline-flex items-center gap-2 border border-line bg-surface px-4 py-2 text-sm font-medium text-ink hover:bg-hover"
 				title="Re-run the Gemini teacher across samples matching the current filter. Overwrites detection_bboxes and resets review status."
 			>
 				<svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
@@ -680,7 +680,7 @@
 			<button
 				type="button"
 				onclick={() => openArchiveModal(filterArchived === 'archived' ? 'unarchive' : 'archive')}
-				class="inline-flex items-center gap-2 border border-border px-4 py-2 text-sm font-medium text-text hover:border-text hover:bg-text hover:text-surface"
+				class="inline-flex items-center gap-2 border border-line px-4 py-2 text-sm font-medium text-ink hover:border-text hover:bg-text hover:text-surface"
 				title={hasActiveFilters
 					? (filterArchived === 'archived'
 						? 'Unarchive every sample matching the current filter'
@@ -701,7 +701,7 @@
 			<button
 				type="button"
 				onclick={openDeleteModal}
-				class="inline-flex items-center gap-2 border border-danger px-4 py-2 text-sm font-medium text-danger hover:bg-danger hover:text-white"
+				class="inline-flex items-center gap-2 border border-danger px-4 py-2 text-sm font-medium text-danger-ink hover:bg-danger hover:text-white"
 				title={hasActiveFilters
 					? 'Delete every sample that matches the current sidebar filter'
 					: 'Delete every one of your samples (no filter active)'}
@@ -753,17 +753,17 @@
 	{@const job = teacherJob}
 	{@const pct = job.total > 0 ? Math.round((job.processed / job.total) * 100) : 0}
 	{@const eta = computeEta(job)}
-	<div class="mb-4 border border-border bg-surface">
-		<div class="flex flex-wrap items-center justify-between gap-x-3 gap-y-2 border-b border-border px-4 py-2.5">
+	<div class="mb-4 border border-line bg-surface">
+		<div class="flex flex-wrap items-center justify-between gap-x-3 gap-y-2 border-b border-line px-4 py-2.5">
 			<div class="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs">
-				<span class="font-semibold text-text">Teacher job</span>
-				<span class="text-text-muted">{job.openrouter_model}</span>
-				<span class="tabular-nums text-text">{job.processed}/{job.total}</span>
-				<span class="text-text-muted">
+				<span class="font-semibold text-ink">Teacher job</span>
+				<span class="text-ink-muted">{job.openrouter_model}</span>
+				<span class="tabular-nums text-ink">{job.processed}/{job.total}</span>
+				<span class="text-ink-muted">
 					({job.succeeded} ok{job.failed > 0 ? ` · ${job.failed} failed` : ''})
 				</span>
 				<span
-					class="tabular-nums text-text-muted"
+					class="tabular-nums text-ink-muted"
 					title="Real billed cost so far / projected total based on running average."
 				>
 					· {job.cost_usd === 0 ? '$0.00' : (Math.abs(job.cost_usd) < 0.01 ? `$${job.cost_usd.toFixed(4)}` : `$${job.cost_usd.toFixed(2)}`)}
@@ -772,10 +772,10 @@
 						/ est. {est === 0 ? '$0.00' : (Math.abs(est) < 0.01 ? `$${est.toFixed(4)}` : `$${est.toFixed(2)}`)}
 					{/if}
 				</span>
-				<span class="text-text-muted">· {job.status}</span>
+				<span class="text-ink-muted">· {job.status}</span>
 				{#if eta}
 					<span
-						class="tabular-nums text-text-muted"
+						class="tabular-nums text-ink-muted"
 						title={`Based on ${eta.rate.toFixed(2)} items/sec since ${eta.startedAtLabel}. Updates every refresh.`}
 					>
 						· ETA {eta.remainingLabel}
@@ -783,31 +783,31 @@
 				{/if}
 			</div>
 			<div class="flex flex-wrap items-center gap-3">
-				<a href={`/admin/teacher-jobs/${job.id}`} class="text-xs text-primary hover:underline">
+				<a href={`/admin/teacher-jobs/${job.id}`} class="text-xs text-primary-ink hover:underline">
 					Open details →
 				</a>
-				<a href="/admin/teacher-jobs" class="text-xs text-text-muted hover:text-primary">
+				<a href="/admin/teacher-jobs" class="text-xs text-ink-muted hover:text-primary-ink">
 					All jobs
 				</a>
 				{#if job.status === 'pending' || job.status === 'running'}
-					<button type="button" onclick={cancelTeacherJob} class="text-xs text-text-muted hover:text-primary">
+					<button type="button" onclick={cancelTeacherJob} class="text-xs text-ink-muted hover:text-primary-ink">
 						Cancel
 					</button>
 				{:else}
-					<button type="button" onclick={dismissTeacherJob} class="text-xs text-text-muted hover:text-text">
+					<button type="button" onclick={dismissTeacherJob} class="text-xs text-ink-muted hover:text-ink">
 						Dismiss
 					</button>
 				{/if}
 			</div>
 		</div>
-		<div class="h-1.5 bg-bg">
+		<div class="h-1.5 bg-well">
 			<div
 				class="h-full transition-[width] duration-300 {job.status === 'cancelled' ? 'bg-border' : 'bg-primary'}"
 				style="width: {pct}%"
 			></div>
 		</div>
 		{#if job.last_error}
-			<div class="px-4 py-2 text-[11px] text-warning">Last error: {job.last_error}</div>
+			<div class="px-4 py-2 text-xs text-warning-ink">Last error: {job.last_error}</div>
 		{/if}
 	</div>
 {/if}
@@ -819,25 +819,25 @@
 >
 	<div class="space-y-4 text-sm">
 		{#if archiveError}
-			<div class="border border-danger bg-danger/10 px-3 py-2 text-xs text-danger">
+			<div class="border border-danger bg-danger/10 px-3 py-2 text-xs text-danger-ink">
 				{archiveError}
 			</div>
 		{/if}
 
 		{#if archiveResult}
-			<p class="text-text">
+			<p class="text-ink">
 				{archiveResult.mode === 'archive' ? 'Archived' : 'Unarchived'}
 				<span class="font-semibold">{archiveResult.archived}</span>
 				sample{archiveResult.archived === 1 ? '' : 's'}.
 			</p>
 		{:else if archiveCount === null}
-			<p class="text-text-muted">Counting…</p>
+			<p class="text-ink-muted">Counting…</p>
 		{:else if archiveCount === 0}
-			<p class="text-text">
+			<p class="text-ink">
 				No {archiveMode === 'archive' ? 'active' : 'archived'} samples match the current filter.
 			</p>
 		{:else}
-			<p class="text-text">
+			<p class="text-ink">
 				{#if archiveMode === 'archive'}
 					Archive <span class="font-semibold">{archiveCount.toLocaleString()}</span>
 					sample{archiveCount === 1 ? '' : 's'} matching the current filter?
@@ -846,7 +846,7 @@
 					archived sample{archiveCount === 1 ? '' : 's'} back into circulation?
 				{/if}
 			</p>
-			<ul class="space-y-1 text-xs text-text-muted">
+			<ul class="space-y-1 text-xs text-ink-muted">
 				{#if archiveMode === 'archive'}
 					<li>• Hidden from the sample list, review queue and training pulls.</li>
 					<li>• Files + sample_payload stay intact — reversible via Unarchive.</li>
@@ -857,34 +857,34 @@
 				{/if}
 			</ul>
 			{#if hasActiveFilters}
-				<div class="border border-border bg-bg px-3 py-2 text-xs">
-					<div class="mb-1 font-semibold text-text-muted">Active filter</div>
+				<div class="border border-line bg-well px-3 py-2 text-xs">
+					<div class="mb-1 font-semibold text-ink-muted">Active filter</div>
 					<div class="flex flex-wrap gap-1.5 break-all">
-						{#if filterScope === 'mine'}<span class="border border-border px-1.5 py-0.5 text-text">scope=mine</span>{/if}
-						{#if filterMachine}<span class="border border-border px-1.5 py-0.5 text-text">machine={filterMachine}</span>{/if}
-						{#if filterSourceRole}<span class="border border-border px-1.5 py-0.5 text-text">source_role={filterSourceRole}</span>{/if}
-						{#if filterCaptureReason}<span class="border border-border px-1.5 py-0.5 text-text">capture_reason={filterCaptureReason}</span>{/if}
-						{#if filterStatus}<span class="border border-border px-1.5 py-0.5 text-text">status={filterStatus}</span>{/if}
-						{#if filterKind}<span class="border border-border px-1.5 py-0.5 text-text">kind={filterKind}</span>{/if}
-						{#if filterMyReview}<span class="border border-border px-1.5 py-0.5 text-text">my_review={filterMyReview}</span>{/if}
-						{#if filterAnnotated}<span class="border border-border px-1.5 py-0.5 text-text">annotated={filterAnnotated}</span>{/if}
-						{#if filterExposure}<span class="border border-border px-1.5 py-0.5 text-text">exposure={filterExposure}</span>{/if}
-						{#if filterMaxAgeHours}<span class="border border-border px-1.5 py-0.5 text-text">max_age_hours={filterMaxAgeHours}</span>{/if}
+						{#if filterScope === 'mine'}<span class="border border-line px-1.5 py-0.5 text-ink">scope=mine</span>{/if}
+						{#if filterMachine}<span class="border border-line px-1.5 py-0.5 text-ink">machine={filterMachine}</span>{/if}
+						{#if filterSourceRole}<span class="border border-line px-1.5 py-0.5 text-ink">source_role={filterSourceRole}</span>{/if}
+						{#if filterCaptureReason}<span class="border border-line px-1.5 py-0.5 text-ink">capture_reason={filterCaptureReason}</span>{/if}
+						{#if filterStatus}<span class="border border-line px-1.5 py-0.5 text-ink">status={filterStatus}</span>{/if}
+						{#if filterKind}<span class="border border-line px-1.5 py-0.5 text-ink">kind={filterKind}</span>{/if}
+						{#if filterMyReview}<span class="border border-line px-1.5 py-0.5 text-ink">my_review={filterMyReview}</span>{/if}
+						{#if filterAnnotated}<span class="border border-line px-1.5 py-0.5 text-ink">annotated={filterAnnotated}</span>{/if}
+						{#if filterExposure}<span class="border border-line px-1.5 py-0.5 text-ink">exposure={filterExposure}</span>{/if}
+						{#if filterMaxAgeHours}<span class="border border-line px-1.5 py-0.5 text-ink">max_age_hours={filterMaxAgeHours}</span>{/if}
 					</div>
 				</div>
 			{:else}
-				<div class="border border-warning bg-warning/10 px-3 py-2 text-xs text-text">
+				<div class="border border-warning bg-warning/10 px-3 py-2 text-xs text-ink">
 					No filter active — this will {archiveMode === 'archive' ? 'archive every active sample in the library' : 'unarchive every currently-archived sample'}. Narrow with the sidebar first if you only want a slice.
 				</div>
 			{/if}
 			{#if archiveCapped}
-				<div class="border border-warning bg-warning/10 px-3 py-2 text-xs text-text">
+				<div class="border border-warning bg-warning/10 px-3 py-2 text-xs text-ink">
 					Match count exceeds the 20,000-per-call cap. Narrow the filter and try again.
 				</div>
 			{/if}
 		{/if}
 
-		<div class="flex justify-end gap-2 border-t border-border pt-3">
+		<div class="flex justify-end gap-2 border-t border-line pt-3">
 			<Button variant="secondary" onclick={closeArchiveModal} disabled={archiveRunning}>
 				{archiveResult ? 'Close' : 'Cancel'}
 			</Button>
@@ -909,58 +909,58 @@
 <Modal open={deleteModalOpen} title="Delete filtered samples" onclose={closeDeleteModal}>
 	<div class="space-y-4 text-sm">
 		{#if deleteError}
-			<div class="border border-danger bg-danger/10 px-3 py-2 text-xs text-danger">
+			<div class="border border-danger bg-danger/10 px-3 py-2 text-xs text-danger-ink">
 				{deleteError}
 			</div>
 		{/if}
 
 		{#if deleteResult}
-			<p class="text-text">
+			<p class="text-ink">
 				Deleted <span class="font-semibold">{deleteResult.deleted}</span>
 				sample{deleteResult.deleted === 1 ? '' : 's'}.
 			</p>
 		{:else if deleteCount === null}
-			<p class="text-text-muted">Counting…</p>
+			<p class="text-ink-muted">Counting…</p>
 		{:else if deleteCount === 0}
-			<p class="text-text">No samples match the current filter.</p>
+			<p class="text-ink">No samples match the current filter.</p>
 		{:else}
-			<p class="text-text">
+			<p class="text-ink">
 				Permanently delete <span class="font-semibold">{deleteCount.toLocaleString()}</span>
 				sample{deleteCount === 1 ? '' : 's'} that you own and match the current filter?
 			</p>
-			<ul class="space-y-1 text-xs text-text-muted">
+			<ul class="space-y-1 text-xs text-ink-muted">
 				<li>• Images, full frames, overlays and annotations are dropped from storage.</li>
 				<li>• Cannot be undone.</li>
 				<li>• Only your own samples are touched — others' rigs are unaffected even if the filter would match them.</li>
 			</ul>
 			{#if hasActiveFilters}
-				<div class="border border-border bg-bg px-3 py-2 text-xs">
-					<div class="mb-1 font-semibold text-text-muted">Active filter</div>
+				<div class="border border-line bg-well px-3 py-2 text-xs">
+					<div class="mb-1 font-semibold text-ink-muted">Active filter</div>
 					<div class="flex flex-wrap gap-1.5 break-all">
-						{#if filterMachine}<span class="border border-border px-1.5 py-0.5 text-text">machine={filterMachine}</span>{/if}
-						{#if filterSourceRole}<span class="border border-border px-1.5 py-0.5 text-text">source_role={filterSourceRole}</span>{/if}
-						{#if filterCaptureReason}<span class="border border-border px-1.5 py-0.5 text-text">capture_reason={filterCaptureReason}</span>{/if}
-						{#if filterStatus}<span class="border border-border px-1.5 py-0.5 text-text">status={filterStatus}</span>{/if}
-						{#if filterKind}<span class="border border-border px-1.5 py-0.5 text-text">kind={filterKind}</span>{/if}
-						{#if filterMyReview}<span class="border border-border px-1.5 py-0.5 text-text">my_review={filterMyReview}</span>{/if}
-						{#if filterAnnotated}<span class="border border-border px-1.5 py-0.5 text-text">annotated={filterAnnotated}</span>{/if}
-						{#if filterExposure}<span class="border border-border px-1.5 py-0.5 text-text">exposure={filterExposure}</span>{/if}
-						{#if filterMaxAgeHours}<span class="border border-border px-1.5 py-0.5 text-text">max_age_hours={filterMaxAgeHours}</span>{/if}
+						{#if filterMachine}<span class="border border-line px-1.5 py-0.5 text-ink">machine={filterMachine}</span>{/if}
+						{#if filterSourceRole}<span class="border border-line px-1.5 py-0.5 text-ink">source_role={filterSourceRole}</span>{/if}
+						{#if filterCaptureReason}<span class="border border-line px-1.5 py-0.5 text-ink">capture_reason={filterCaptureReason}</span>{/if}
+						{#if filterStatus}<span class="border border-line px-1.5 py-0.5 text-ink">status={filterStatus}</span>{/if}
+						{#if filterKind}<span class="border border-line px-1.5 py-0.5 text-ink">kind={filterKind}</span>{/if}
+						{#if filterMyReview}<span class="border border-line px-1.5 py-0.5 text-ink">my_review={filterMyReview}</span>{/if}
+						{#if filterAnnotated}<span class="border border-line px-1.5 py-0.5 text-ink">annotated={filterAnnotated}</span>{/if}
+						{#if filterExposure}<span class="border border-line px-1.5 py-0.5 text-ink">exposure={filterExposure}</span>{/if}
+						{#if filterMaxAgeHours}<span class="border border-line px-1.5 py-0.5 text-ink">max_age_hours={filterMaxAgeHours}</span>{/if}
 					</div>
 				</div>
 			{:else}
-				<div class="border border-warning bg-warning/10 px-3 py-2 text-xs text-text">
+				<div class="border border-warning bg-warning/10 px-3 py-2 text-xs text-ink">
 					No filter active — this will delete <em>every</em> sample you own. Narrow with the sidebar first if you only want a slice.
 				</div>
 			{/if}
 			{#if deleteCapped}
-				<div class="border border-warning bg-warning/10 px-3 py-2 text-xs text-text">
+				<div class="border border-warning bg-warning/10 px-3 py-2 text-xs text-ink">
 					Match count exceeds the 5,000-per-call cap. Narrow the filter before pressing Delete.
 				</div>
 			{/if}
 		{/if}
 
-		<div class="flex justify-end gap-2 border-t border-border pt-3">
+		<div class="flex justify-end gap-2 border-t border-line pt-3">
 			<Button variant="secondary" onclick={closeDeleteModal} disabled={deleteRunning}>
 				{deleteResult ? 'Close' : 'Cancel'}
 			</Button>
@@ -982,19 +982,19 @@
 
 <Modal open={teacherModalOpen} title="Re-run Gemini teacher" onclose={() => { teacherModalOpen = false; }}>
 	<div class="space-y-4 text-sm">
-		<p class="text-text">
+		<p class="text-ink">
 			Run the Gemini detector across <span class="font-semibold">{teacherEligibleCount ?? '…'}</span>
 			sample{teacherEligibleCount === 1 ? '' : 's'} matching the current filter.
 			Unsupported source roles (no prompt zone) are skipped.
 		</p>
-		<ul class="space-y-1 text-xs text-text-muted">
+		<ul class="space-y-1 text-xs text-ink-muted">
 			<li>• Overwrites <code>detection_bboxes</code>, <code>detection_count</code> and <code>detection_score</code>.</li>
 			<li>• Resets <code>review_status</code> to <em>unreviewed</em> so the new boxes go through review again.</li>
 			<li>• Uses the OpenRouter API key from your profile.</li>
 			<li>• Rate-limited to ~1 sample / second to respect Gemini's per-key quota.</li>
 		</ul>
 		{#if teacherError}
-			<div class="border border-warning-strong bg-warning-bg px-3 py-2 text-xs text-warning-strong">{teacherError}</div>
+			<div class="border border-warning-strong bg-warning-soft px-3 py-2 text-xs text-warning-ink">{teacherError}</div>
 		{/if}
 		<div class="flex justify-end gap-2">
 			<Button variant="secondary" onclick={() => { teacherModalOpen = false; }}>Cancel</Button>
@@ -1008,13 +1008,13 @@
 <!-- Stats bar -->
 {#if stats && stats.total_samples > 0}
 	{@const segments = [
-		{ key: 'accepted', label: 'Accepted', count: stats.accepted_samples, color: 'var(--color-success)' },
-		{ key: 'rejected', label: 'Rejected', count: stats.rejected_samples, color: 'var(--color-primary)' },
-		{ key: 'in_review', label: 'Needs more reviews', count: stats.in_review_samples, color: 'var(--color-info)' },
-		{ key: 'conflict', label: 'Conflict', count: stats.conflict_samples, color: 'var(--color-warning)' },
-		{ key: 'unreviewed', label: 'Unreviewed', count: stats.unreviewed_samples, color: 'var(--color-border)' },
+		{ key: 'accepted', label: 'Accepted', count: stats.accepted_samples, color: 'var(--success)' },
+		{ key: 'rejected', label: 'Rejected', count: stats.rejected_samples, color: 'var(--primary)' },
+		{ key: 'in_review', label: 'Needs more reviews', count: stats.in_review_samples, color: 'var(--info)' },
+		{ key: 'conflict', label: 'Conflict', count: stats.conflict_samples, color: 'var(--warning)' },
+		{ key: 'unreviewed', label: 'Unreviewed', count: stats.unreviewed_samples, color: 'var(--line)' },
 	]}
-	<div class="mb-5 border border-border bg-surface">
+	<div class="mb-5 border border-line bg-surface">
 		<!-- Stacked bar -->
 		<div class="flex h-2">
 			{#each segments as seg}
@@ -1038,12 +1038,12 @@
 						class="flex items-center gap-1.5 text-xs transition-opacity {filterStatus && filterStatus !== seg.key ? 'opacity-40' : ''} hover:opacity-100"
 					>
 						<span class="inline-block h-2.5 w-2.5 shrink-0" style="background-color: {seg.color};"></span>
-						<span class="font-medium text-text">{seg.count.toLocaleString()}</span>
-						<span class="text-text-muted">{seg.label}</span>
+						<span class="font-medium text-ink">{seg.count.toLocaleString()}</span>
+						<span class="text-ink-muted">{seg.label}</span>
 					</button>
 				{/if}
 			{/each}
-			<span class="ml-auto text-xs text-text-muted">{stats.total_samples.toLocaleString()} total</span>
+			<span class="ml-auto text-xs text-ink-muted">{stats.total_samples.toLocaleString()} total</span>
 		</div>
 	</div>
 {/if}
@@ -1054,7 +1054,7 @@
 	<aside class="w-full shrink-0 lg:w-48">
 		<div class="space-y-1 lg:sticky lg:top-20">
 			{#if hasActiveFilters}
-				<button onclick={clearFilters} class="flex items-center gap-1 text-xs text-primary hover:underline">
+				<button onclick={clearFilters} class="flex items-center gap-1 text-xs text-primary-ink hover:underline">
 					<svg class="h-3 w-3" viewBox="0 0 20 20" fill="currentColor">
 						<path d="M6.28 5.22a.75.75 0 00-1.06 1.06L8.94 10l-3.72 3.72a.75.75 0 101.06 1.06L10 11.06l3.72 3.72a.75.75 0 101.06-1.06L11.06 10l3.72-3.72a.75.75 0 00-1.06-1.06L10 8.94 6.28 5.22z" />
 					</svg>
@@ -1072,7 +1072,7 @@
 					<li>
 						<button
 							onclick={() => setScope('all')}
-							class="w-full px-2 py-1 text-left text-xs {filterScope === 'all' ? 'bg-primary-light font-medium text-primary' : 'text-text hover:bg-bg'}"
+							class="w-full px-2 py-1 text-left text-xs {filterScope === 'all' ? 'bg-primary-soft font-medium text-primary-ink' : 'text-ink hover:bg-hover'}"
 						>
 							All samples
 						</button>
@@ -1080,7 +1080,7 @@
 					<li>
 						<button
 							onclick={() => setScope('mine')}
-							class="w-full px-2 py-1 text-left text-xs {filterScope === 'mine' ? 'bg-primary-light font-medium text-primary' : 'text-text hover:bg-bg'}"
+							class="w-full px-2 py-1 text-left text-xs {filterScope === 'mine' ? 'bg-primary-soft font-medium text-primary-ink' : 'text-ink hover:bg-hover'}"
 						>
 							My samples
 						</button>
@@ -1103,7 +1103,7 @@
 						<li>
 							<button
 								onclick={() => setFilterValue('kind', item.key)}
-								class="w-full px-2 py-1 text-left text-xs {filterKind === item.key ? 'bg-primary-light font-medium text-primary' : 'text-text hover:bg-bg'}"
+								class="w-full px-2 py-1 text-left text-xs {filterKind === item.key ? 'bg-primary-soft font-medium text-primary-ink' : 'text-ink hover:bg-hover'}"
 							>
 								{item.label}
 							</button>
@@ -1129,7 +1129,7 @@
 						<li>
 							<button
 								onclick={() => setFilterValue('annotated', item.key === 'teacher' ? '' : item.key)}
-								class="w-full px-2 py-1 text-left text-xs {item.active ? 'bg-primary-light font-medium text-primary' : 'text-text hover:bg-bg'}"
+								class="w-full px-2 py-1 text-left text-xs {item.active ? 'bg-primary-soft font-medium text-primary-ink' : 'text-ink hover:bg-hover'}"
 							>
 								{item.label}
 							</button>
@@ -1155,7 +1155,7 @@
 						<li>
 							<button
 								onclick={() => setFilterValue('exposure', item.key)}
-								class="w-full px-2 py-1 text-left text-xs {item.active ? 'bg-primary-light font-medium text-primary' : 'text-text hover:bg-bg'}"
+								class="w-full px-2 py-1 text-left text-xs {item.active ? 'bg-primary-soft font-medium text-primary-ink' : 'text-ink hover:bg-hover'}"
 							>
 								{item.label}
 							</button>
@@ -1182,7 +1182,7 @@
 							<li>
 								<button
 									onclick={() => setFilterValue('my_review', item.key)}
-									class="w-full px-2 py-1 text-left text-xs {filterMyReview === item.key ? 'bg-primary-light font-medium text-primary' : 'text-text hover:bg-bg'}"
+									class="w-full px-2 py-1 text-left text-xs {filterMyReview === item.key ? 'bg-primary-soft font-medium text-primary-ink' : 'text-ink hover:bg-hover'}"
 								>
 									{item.label}
 								</button>
@@ -1210,7 +1210,7 @@
 						<li>
 							<button
 								onclick={() => setFilterValue('review_status', item.key)}
-								class="w-full px-2 py-1 text-left text-xs {filterStatus === item.key ? 'bg-primary-light font-medium text-primary' : 'text-text hover:bg-bg'}"
+								class="w-full px-2 py-1 text-left text-xs {filterStatus === item.key ? 'bg-primary-soft font-medium text-primary-ink' : 'text-ink hover:bg-hover'}"
 							>
 								{item.label}
 							</button>
@@ -1231,14 +1231,14 @@
 						<li>
 							<button
 								onclick={() => updateMachineFilter('')}
-								class="w-full px-2 py-1 text-left text-xs {filterMachine === '' ? 'bg-primary-light font-medium text-primary' : 'text-text hover:bg-bg'}"
+								class="w-full px-2 py-1 text-left text-xs {filterMachine === '' ? 'bg-primary-soft font-medium text-primary-ink' : 'text-ink hover:bg-hover'}"
 							>
 								All
 							</button>
 						</li>
 						{#each machineGroups as group (group.ownerKey)}
 							{#if filterScope === 'all'}
-								<li class="px-2 pt-2 text-[10px] uppercase tracking-wider text-text-muted">
+								<li class="px-2 pt-2 text-xs uppercase tracking-wider text-ink-muted">
 									{group.ownerLabel}
 								</li>
 							{/if}
@@ -1246,7 +1246,7 @@
 								<li>
 									<button
 										onclick={() => updateMachineFilter(String(machine.id))}
-										class="w-full truncate px-2 py-1 text-left text-xs {filterMachine === String(machine.id) ? 'bg-primary-light font-medium text-primary' : 'text-text hover:bg-bg'}"
+										class="w-full truncate px-2 py-1 text-left text-xs {filterMachine === String(machine.id) ? 'bg-primary-soft font-medium text-primary-ink' : 'text-ink hover:bg-hover'}"
 										title={machine.owner?.display_name ? `${machine.owner.display_name} / ${machine.name}` : machine.name}
 									>
 										{machine.name}
@@ -1269,20 +1269,20 @@
 						<li>
 							<button
 								onclick={() => updateSourceRoleFilter('')}
-								class="flex w-full items-center gap-2 px-2 py-1 text-left text-xs {filterSourceRole === '' ? 'bg-primary-light font-medium text-primary' : 'text-text hover:bg-bg'}"
+								class="flex w-full items-center gap-2 px-2 py-1 text-left text-xs {filterSourceRole === '' ? 'bg-primary-soft font-medium text-primary-ink' : 'text-ink hover:bg-hover'}"
 							>
 								<span class="min-w-0 flex-1 truncate">All</span>
-								<span class="tabular-nums text-[10px] text-text-muted">{totalSourceRoleCount().toLocaleString()}</span>
+								<span class="tabular-nums text-xs text-ink-muted">{totalSourceRoleCount().toLocaleString()}</span>
 							</button>
 						</li>
 						{#each filterOptions.source_roles as sourceRole (sourceRole)}
 							<li>
 								<button
 									onclick={() => updateSourceRoleFilter(sourceRole)}
-									class="flex w-full items-center gap-2 px-2 py-1 text-left text-xs {filterSourceRole === sourceRole ? 'bg-primary-light font-medium text-primary' : 'text-text hover:bg-bg'}"
+									class="flex w-full items-center gap-2 px-2 py-1 text-left text-xs {filterSourceRole === sourceRole ? 'bg-primary-soft font-medium text-primary-ink' : 'text-ink hover:bg-hover'}"
 								>
 									<span class="min-w-0 flex-1 truncate">{sourceRoleLabel(sourceRole)}</span>
-									<span class="tabular-nums text-[10px] text-text-muted">{sourceRoleCount(sourceRole).toLocaleString()}</span>
+									<span class="tabular-nums text-xs text-ink-muted">{sourceRoleCount(sourceRole).toLocaleString()}</span>
 								</button>
 							</li>
 						{/each}
@@ -1301,7 +1301,7 @@
 						<li>
 							<button
 								onclick={() => updateAgeFilter(opt.value)}
-								class="w-full px-2 py-1 text-left text-xs {filterMaxAgeHours === opt.value ? 'bg-primary-light font-medium text-primary' : 'text-text hover:bg-bg'}"
+								class="w-full px-2 py-1 text-left text-xs {filterMaxAgeHours === opt.value ? 'bg-primary-soft font-medium text-primary-ink' : 'text-ink hover:bg-hover'}"
 							>
 								{opt.label}
 							</button>
@@ -1326,7 +1326,7 @@
 							<li>
 								<button
 									onclick={() => setFilterValue('archived', item.key)}
-									class="w-full px-2 py-1 text-left text-xs {filterArchived === item.key ? 'bg-primary-light font-medium text-primary' : 'text-text hover:bg-bg'}"
+									class="w-full px-2 py-1 text-left text-xs {filterArchived === item.key ? 'bg-primary-soft font-medium text-primary-ink' : 'text-ink hover:bg-hover'}"
 								>
 									{item.label}
 								</button>
@@ -1343,11 +1343,11 @@
 		{#if loading}
 			<div class="flex justify-center p-8"><Spinner size={32} /></div>
 		{:else if !data || data.items.length === 0}
-			<div class="border border-border bg-surface px-6 py-12 text-center">
+			<div class="border border-line bg-surface px-6 py-12 text-center">
 				<svg class="mx-auto mb-3 h-10 w-10 text-border" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
 					<path stroke-linecap="square" stroke-linejoin="miter" d="m2.25 15.75 5.159-5.159a2.25 2.25 0 0 1 3.182 0l5.159 5.159m-1.5-1.5 1.409-1.409a2.25 2.25 0 0 1 3.182 0l2.909 2.909M3.75 21h16.5a1.5 1.5 0 0 0 1.5-1.5V4.5a1.5 1.5 0 0 0-1.5-1.5H3.75a1.5 1.5 0 0 0-1.5 1.5v15a1.5 1.5 0 0 0 1.5 1.5z" />
 				</svg>
-				<p class="text-sm text-text-muted">
+				<p class="text-sm text-ink-muted">
 					{#if hasActiveFilters}
 						No samples match your current filters.
 					{:else}
@@ -1355,7 +1355,7 @@
 					{/if}
 				</p>
 				{#if hasActiveFilters}
-					<button onclick={clearFilters} class="mt-2 text-xs text-primary hover:underline">Clear filters</button>
+					<button onclick={clearFilters} class="mt-2 text-xs text-primary-ink hover:underline">Clear filters</button>
 				{/if}
 			</div>
 		{:else}
@@ -1367,13 +1367,13 @@
 
 			<!-- Pagination -->
 			{#if data.pages > 1}
-				<div class="mt-6 flex flex-wrap items-center justify-between gap-x-3 gap-y-2 border border-border bg-surface px-4 py-2.5">
+				<div class="mt-6 flex flex-wrap items-center justify-between gap-x-3 gap-y-2 border border-line bg-surface px-4 py-2.5">
 					<div class="flex flex-wrap items-center gap-3">
-						<span class="text-xs text-text-muted">{(data.page - 1) * pageSize + 1}–{Math.min(data.page * pageSize, data.total)} of {data.total.toLocaleString()}</span>
+						<span class="text-xs text-ink-muted">{(data.page - 1) * pageSize + 1}–{Math.min(data.page * pageSize, data.total)} of {data.total.toLocaleString()}</span>
 						<select
 							value={pageSize}
 							onchange={(e) => changePageSize(Number((e.currentTarget as HTMLSelectElement).value))}
-							class="border border-border bg-surface px-2 py-1 text-xs text-text focus:border-primary focus:outline-none"
+							class="border border-line bg-surface px-2 py-1 text-xs text-ink focus:border-primary focus:outline-none"
 						>
 							<option value={10}>10 / page</option>
 							<option value={20}>20 / page</option>
@@ -1386,7 +1386,7 @@
 						<button
 							onclick={() => goToPage(currentPage - 1)}
 							disabled={currentPage <= 1}
-							class="border border-border px-3 py-1.5 text-xs font-medium text-text hover:bg-bg disabled:opacity-30"
+							class="border border-line px-3 py-1.5 text-xs font-medium text-ink hover:bg-hover disabled:opacity-30"
 						>
 							Previous
 						</button>
@@ -1394,18 +1394,18 @@
 							{#if data.pages <= 7 || p === 1 || p === data.pages || (p >= currentPage - 1 && p <= currentPage + 1)}
 								<button
 									onclick={() => goToPage(p)}
-									class="min-w-[32px] px-2.5 py-1.5 text-xs font-medium {p === currentPage ? 'bg-primary text-white' : 'text-text hover:bg-bg'}"
+									class="min-w-[32px] px-2.5 py-1.5 text-xs font-medium {p === currentPage ? 'bg-primary text-white' : 'text-ink hover:bg-hover'}"
 								>
 									{p}
 								</button>
 							{:else if p === 2 || p === data.pages - 1}
-								<span class="px-1 text-text-muted">...</span>
+								<span class="px-1 text-ink-muted">...</span>
 							{/if}
 						{/each}
 						<button
 							onclick={() => goToPage(currentPage + 1)}
 							disabled={currentPage >= data.pages}
-							class="border border-border px-3 py-1.5 text-xs font-medium text-text hover:bg-bg disabled:opacity-30"
+							class="border border-line px-3 py-1.5 text-xs font-medium text-ink hover:bg-hover disabled:opacity-30"
 						>
 							Next
 						</button>

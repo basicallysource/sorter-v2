@@ -12,7 +12,7 @@
 	import { auth } from '$lib/auth.svelte';
 	import Spinner from '$lib/components/Spinner.svelte';
 	import { randomMachineName } from '$lib/machineName';
-	import Shuffle from 'lucide-svelte/icons/shuffle';
+	import Shuffle from '@lucide/svelte/icons/shuffle';
 
 	type LinkMode = 'existing' | 'new';
 
@@ -190,20 +190,20 @@
 </svelte:head>
 
 <div class="mx-auto grid min-h-[70vh] max-w-2xl place-items-center">
-	<div class="w-full border border-border bg-surface p-6 shadow-sm">
+	<div class="w-full border border-line bg-surface p-6 shadow-sm">
 		<div class="flex items-start gap-3">
-			<div class="flex h-10 w-10 shrink-0 items-center justify-center bg-primary-light text-primary">
+			<div class="flex h-10 w-10 shrink-0 items-center justify-center bg-primary-soft text-primary-ink">
 				<svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true">
 					<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3 5 6v5c0 4.1 2.9 7.9 7 9 4.1-1.1 7-4.9 7-9V6l-7-3Z" />
 					<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m9 12 2 2 4-5" />
 				</svg>
 			</div>
 			<div class="min-w-0">
-				<p class="text-xs font-semibold tracking-wider text-text-muted uppercase">Machine link</p>
-				<h1 class="mt-1 text-2xl font-semibold tracking-tight text-text">
+				<p class="text-xs font-semibold tracking-wider text-ink-muted uppercase">Machine link</p>
+				<h1 class="mt-1 text-2xl font-semibold tracking-tight text-ink">
 					{restoreIntent ? 'Restore this sorter from Hive' : 'Connect this sorter to Hive'}
 				</h1>
-				<p class="mt-2 text-sm leading-relaxed text-text-muted">
+				<p class="mt-2 text-sm leading-relaxed text-ink-muted">
 					{#if restoreIntent}
 						Choose an existing machine profile or create a new one. Hive sends a machine
 						token directly back to the Sorter.
@@ -216,23 +216,23 @@
 		</div>
 
 		{#if !returnToUrl() || !stateToken()}
-			<div class="mt-5 border border-danger/40 bg-danger/[0.06] px-4 py-3 text-sm text-danger">
+			<div class="mt-5 border border-danger/40 bg-danger/[0.06] px-4 py-3 text-sm text-danger-ink">
 				This link request is incomplete. Please go back to Sorter and start the Hive link again.
 			</div>
 		{:else}
-			<div class="mt-5 grid gap-3 border border-border bg-bg px-4 py-3 text-sm">
+			<div class="mt-5 grid gap-3 border border-line bg-well px-4 py-3 text-sm">
 				<div class="grid gap-1">
-					<span class="text-xs font-semibold tracking-wider text-text-muted uppercase">Signed in as</span>
-					<span class="text-text">{auth.user?.display_name || auth.user?.email}</span>
+					<span class="text-xs font-semibold tracking-wider text-ink-muted uppercase">Signed in as</span>
+					<span class="text-ink">{auth.user?.display_name || auth.user?.email}</span>
 				</div>
 				<div class="grid gap-1">
-					<span class="text-xs font-semibold tracking-wider text-text-muted uppercase">Return target</span>
-					<span class="break-all font-mono text-text">{destinationLabel()}</span>
+					<span class="text-xs font-semibold tracking-wider text-ink-muted uppercase">Return target</span>
+					<span class="break-all font-mono text-ink">{destinationLabel()}</span>
 				</div>
 				{#if sorterOrigin()}
 					<div class="grid gap-1">
-						<span class="text-xs font-semibold tracking-wider text-text-muted uppercase">Started from</span>
-						<span class="break-all font-mono text-text">{sorterOrigin()}</span>
+						<span class="text-xs font-semibold tracking-wider text-ink-muted uppercase">Started from</span>
+						<span class="break-all font-mono text-ink">{sorterOrigin()}</span>
 					</div>
 				{/if}
 			</div>
@@ -246,12 +246,12 @@
 							disabled={submitting || loadingMachines || machines.length === 0}
 							class={`border px-4 py-3 text-left transition-colors disabled:cursor-not-allowed disabled:opacity-60 ${
 								linkMode === 'existing'
-									? 'border-primary bg-primary-light text-text'
-									: 'border-border bg-surface text-text hover:border-primary'
+									? 'border-primary bg-primary-soft text-ink'
+									: 'border-line bg-surface text-ink hover:border-primary'
 							}`}
 						>
 							<div class="text-sm font-semibold">Use existing profile</div>
-							<div class="mt-1 text-xs leading-relaxed text-text-muted">
+							<div class="mt-1 text-xs leading-relaxed text-ink-muted">
 								Reconnect this Sorter to a machine already in Hive.
 							</div>
 						</button>
@@ -261,39 +261,39 @@
 							disabled={submitting}
 							class={`border px-4 py-3 text-left transition-colors disabled:cursor-not-allowed disabled:opacity-60 ${
 								linkMode === 'new'
-									? 'border-primary bg-primary-light text-text'
-									: 'border-border bg-surface text-text hover:border-primary'
+									? 'border-primary bg-primary-soft text-ink'
+									: 'border-line bg-surface text-ink hover:border-primary'
 							}`}
 						>
 							<div class="text-sm font-semibold">Create new profile</div>
-							<div class="mt-1 text-xs leading-relaxed text-text-muted">
+							<div class="mt-1 text-xs leading-relaxed text-ink-muted">
 								Start fresh and let the Sorter create its first backup later.
 							</div>
 						</button>
 					</div>
 
 					{#if machineLoadError}
-						<div class="border border-danger/40 bg-danger/[0.06] px-3 py-2 text-sm text-danger">
+						<div class="border border-danger/40 bg-danger/[0.06] px-3 py-2 text-sm text-danger-ink">
 							{machineLoadError}
 						</div>
 					{/if}
 
 					{#if linkMode === 'existing'}
 						{#if loadingMachines}
-							<div class="border border-border bg-bg px-4 py-3 text-sm text-text-muted">
+							<div class="border border-line bg-well px-4 py-3 text-sm text-ink-muted">
 								Loading your machines…
 							</div>
 						{:else if machines.length === 0}
-							<div class="border border-border bg-bg px-4 py-3 text-sm text-text-muted">
+							<div class="border border-line bg-well px-4 py-3 text-sm text-ink-muted">
 								No existing machines found for this account.
 							</div>
 						{:else}
 							<label class="grid gap-1">
-								<span class="text-sm font-medium text-text">Machine profile</span>
+								<span class="text-sm font-medium text-ink">Machine profile</span>
 								<select
 									bind:value={selectedMachineId}
 									disabled={submitting}
-									class="border border-border bg-surface px-3 py-2 text-sm text-text focus:border-primary focus:ring-1 focus:ring-primary focus:outline-none disabled:opacity-60 dark:bg-bg"
+									class="border border-line bg-surface px-3 py-2 text-sm text-ink focus:border-primary focus:ring-1 focus:ring-primary focus:outline-none disabled:opacity-60 dark:bg-well"
 								>
 									{#each machines as machine}
 										<option value={machine.id}>
@@ -302,7 +302,7 @@
 									{/each}
 								</select>
 							</label>
-							<p class="text-xs leading-relaxed text-text-muted">
+							<p class="text-xs leading-relaxed text-ink-muted">
 								Hive will issue a fresh token for this machine. The previous token stops working.
 							</p>
 						{/if}
@@ -311,7 +311,7 @@
 
 				{#if linkMode === 'new'}
 					<div class="grid gap-1">
-						<label for="machine-name" class="text-sm font-medium text-text">Machine name in Hive</label>
+						<label for="machine-name" class="text-sm font-medium text-ink">Machine name in Hive</label>
 						<div class="flex items-stretch gap-2">
 							<input
 								id="machine-name"
@@ -319,13 +319,13 @@
 								type="text"
 								required
 								disabled={submitting}
-								class="min-w-0 flex-1 border border-border bg-surface px-3 py-2 text-sm text-text focus:border-primary focus:ring-1 focus:ring-primary focus:outline-none disabled:opacity-60 dark:bg-bg"
+								class="min-w-0 flex-1 border border-line bg-surface px-3 py-2 text-sm text-ink focus:border-primary focus:ring-1 focus:ring-primary focus:outline-none disabled:opacity-60 dark:bg-well"
 							/>
 							<button
 								type="button"
 								onclick={() => { machineName = randomMachineName(); }}
 								disabled={submitting}
-								class="flex shrink-0 items-center gap-2 border border-border bg-surface px-3 text-sm whitespace-nowrap text-text-muted transition-colors hover:bg-bg hover:text-text disabled:opacity-60 dark:bg-bg dark:hover:bg-surface"
+								class="flex shrink-0 items-center gap-2 border border-line bg-surface px-3 text-sm whitespace-nowrap text-ink-muted transition-colors hover:bg-hover hover:text-ink disabled:opacity-60 dark:bg-well dark:hover:bg-surface"
 							>
 								<Shuffle class="h-4 w-4" />
 								Generate New Name
@@ -334,26 +334,26 @@
 					</div>
 
 					<label class="grid gap-1">
-						<span class="text-sm font-medium text-text">Description <span class="text-text-muted">(optional)</span></span>
+						<span class="text-sm font-medium text-ink">Description <span class="text-ink-muted">(optional)</span></span>
 						<textarea
 							bind:value={description}
 							rows="3"
 							disabled={submitting}
 							placeholder="Where this sorter lives, who maintains it, or what it is used for."
-							class="resize-y border border-border bg-surface px-3 py-2 text-sm text-text focus:border-primary focus:ring-1 focus:ring-primary focus:outline-none disabled:opacity-60 dark:bg-bg"
+							class="resize-y border border-line bg-surface px-3 py-2 text-sm text-ink focus:border-primary focus:ring-1 focus:ring-primary focus:outline-none disabled:opacity-60 dark:bg-well"
 						></textarea>
 					</label>
 				{/if}
 
 				{#if error}
-					<div class="border border-danger/40 bg-danger/[0.06] px-3 py-2 text-sm text-danger">
+					<div class="border border-danger/40 bg-danger/[0.06] px-3 py-2 text-sm text-danger-ink">
 						{error}
 					</div>
 				{/if}
 
 				<div class="flex flex-wrap items-center justify-between gap-3">
-					<p class="text-xs leading-relaxed text-text-muted">
-						Only confirm this if you trust <span class="break-all font-mono text-text">{destinationLabel()}</span>.
+					<p class="text-xs leading-relaxed text-ink-muted">
+						Only confirm this if you trust <span class="break-all font-mono text-ink">{destinationLabel()}</span>.
 					</p>
 					<button
 						type="submit"

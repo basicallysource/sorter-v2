@@ -5,9 +5,9 @@
 	// accept or replace, and every choice commits immediately.
 	import { api, type PartSummary, type ProfileCatalogCategory, type ProfileCatalogSearchResult } from '$lib/api';
 	import Spinner from '$lib/components/Spinner.svelte';
-	import Ban from 'lucide-svelte/icons/ban';
-	import Check from 'lucide-svelte/icons/check';
-	import Search from 'lucide-svelte/icons/search';
+	import Ban from '@lucide/svelte/icons/ban';
+	import Check from '@lucide/svelte/icons/check';
+	import Search from '@lucide/svelte/icons/search';
 
 	let {
 		predictedPart,
@@ -98,18 +98,18 @@
 		{#if part.part_img_url}
 			<img src={part.part_img_url} alt="" class="h-10 w-10 shrink-0 object-contain" />
 		{:else}
-			<div class="flex h-10 w-10 shrink-0 items-center justify-center bg-bg text-[10px] text-text-muted">
+			<div class="flex h-10 w-10 shrink-0 items-center justify-center bg-well text-xs text-ink-muted">
 				N/A
 			</div>
 		{/if}
 		<div class="min-w-0 flex-1">
-			<div class="truncate text-sm text-text">{part.name ?? part.part_num}</div>
-			<div class="truncate text-xs text-text-muted">
+			<div class="truncate text-sm text-ink">{part.name ?? part.part_num}</div>
+			<div class="truncate text-xs text-ink-muted">
 				{part.part_num}{part.category ? ` · ${part.category}` : ''}
 			</div>
 		</div>
 		{#if kind === 'selected'}
-			<Check class="h-4 w-4 shrink-0 text-success" />
+			<Check class="h-4 w-4 shrink-0 text-success-ink" />
 		{/if}
 	</div>
 {/snippet}
@@ -119,16 +119,16 @@
 		onclick={onCantTell}
 		disabled={saving}
 		class="flex w-full items-center gap-2 border px-3 py-2 text-left text-sm disabled:opacity-50
-			{cantTell ? 'border-success bg-success/10 text-text' : 'border-border text-text-muted hover:bg-bg'}"
+			{cantTell ? 'border-success bg-success/10 text-ink' : 'border-line text-ink-muted hover:bg-hover'}"
 	>
 		<Ban class="h-4 w-4 shrink-0" />
 		<span class="flex-1">I can't tell the part</span>
-		{#if cantTell}<Check class="h-4 w-4 shrink-0 text-success" />{/if}
+		{#if cantTell}<Check class="h-4 w-4 shrink-0 text-success-ink" />{/if}
 	</button>
 
 	{#if selectedPart}
 		<div>
-			<div class="mb-1 text-xs font-semibold tracking-wide text-text-muted uppercase">Your answer</div>
+			<div class="mb-1 text-xs font-semibold tracking-wide text-ink-muted uppercase">Your answer</div>
 			<div class="flex items-center gap-2 border border-success bg-success/10 px-3 py-2">
 				{@render partRow(
 					{
@@ -142,7 +142,7 @@
 				<button
 					onclick={onClear}
 					disabled={saving}
-					class="shrink-0 text-xs text-text-muted underline hover:text-text disabled:opacity-50"
+					class="shrink-0 text-xs text-ink-muted underline hover:text-ink disabled:opacity-50"
 				>
 					Clear
 				</button>
@@ -152,7 +152,7 @@
 
 	{#if showPredicted}
 		<div>
-			<div class="mb-1 text-xs font-semibold tracking-wide text-text-muted uppercase">
+			<div class="mb-1 text-xs font-semibold tracking-wide text-ink-muted uppercase">
 				Machine's guess
 			</div>
 			<button
@@ -169,35 +169,35 @@
 					},
 					'predicted'
 				)}
-				<span class="shrink-0 text-xs text-info">Confirm</span>
+				<span class="shrink-0 text-xs text-info-ink">Confirm</span>
 			</button>
 		</div>
 	{:else if !predictedPart && !selectedPart && !cantTell}
-		<p class="border border-warning/50 bg-warning-bg px-3 py-2 text-xs text-text-muted">
+		<p class="border border-warning/50 bg-warning-soft px-3 py-2 text-xs text-ink-muted">
 			The machine couldn't identify this piece. Search below to fill in what it is.
 		</p>
 	{/if}
 
 	<div>
-		<div class="mb-1 text-xs font-semibold tracking-wide text-text-muted uppercase">
+		<div class="mb-1 text-xs font-semibold tracking-wide text-ink-muted uppercase">
 			Search all parts
 		</div>
 		<div class="relative">
 			<Search
-				class="pointer-events-none absolute top-1/2 left-2 h-4 w-4 -translate-y-1/2 text-text-muted"
+				class="pointer-events-none absolute top-1/2 left-2 h-4 w-4 -translate-y-1/2 text-ink-muted"
 			/>
 			<input
 				type="text"
 				bind:value={query}
 				oninput={scheduleSearch}
 				placeholder="Name or number — plate 1x3, 3623"
-				class="w-full border border-border bg-surface py-2 pr-2 pl-8 text-sm text-text focus:border-primary focus:outline-none"
+				class="w-full border border-line bg-surface py-2 pr-2 pl-8 text-sm text-ink focus:border-primary focus:outline-none"
 			/>
 		</div>
 		<select
 			bind:value={catId}
 			onchange={() => void runSearch()}
-			class="mt-1.5 w-full border border-border bg-surface px-2 py-1.5 text-xs text-text focus:border-primary focus:outline-none"
+			class="mt-1.5 w-full border border-line bg-surface px-2 py-1.5 text-xs text-ink focus:border-primary focus:outline-none"
 		>
 			<option value="">All categories</option>
 			{#each categories as cat (cat.id)}
@@ -209,7 +209,7 @@
 	{#if searching}
 		<div class="flex justify-center py-3"><Spinner size={24} /></div>
 	{:else if searched && results.length === 0}
-		<p class="py-3 text-center text-xs text-text-muted">No parts match.</p>
+		<p class="py-3 text-center text-xs text-ink-muted">No parts match.</p>
 	{:else if results.length > 0}
 		<div class="max-h-80 space-y-1 overflow-y-auto">
 			{#each results as part (part.part_num)}
@@ -219,7 +219,7 @@
 					class="flex w-full items-center gap-2 border px-3 py-2 disabled:opacity-50
 						{part.part_num === selectedNum
 						? 'border-success bg-success/10'
-						: 'border-border hover:bg-bg'}"
+						: 'border-line hover:bg-hover'}"
 				>
 					{@render partRow(
 						{

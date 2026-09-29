@@ -1,9 +1,10 @@
 <script lang="ts">
+	import { sentence } from '$lib/text';
 	import { page } from '$app/state';
 	import { api, type MachinePieceRecord } from '$lib/api';
 	import Badge from '$lib/components/Badge.svelte';
 	import Spinner from '$lib/components/Spinner.svelte';
-	import { Button } from '$lib/components/primitives';
+	import Button from '$lib/components/Button.svelte';
 
 	const PAGE_SIZE = 60;
 
@@ -116,23 +117,23 @@
 </svelte:head>
 
 <div class="mb-4">
-	<a href={`/machines/${machineId}`} class="text-sm text-text-muted hover:text-text">← Machine overview</a>
+	<a href={`/machines/${machineId}`} class="text-sm text-ink-muted hover:text-ink">← Machine overview</a>
 </div>
 
 <div class="mb-6 flex flex-wrap items-end justify-between gap-x-4 gap-y-1">
 	<div class="min-w-0">
-		<h1 class="text-2xl font-bold text-text">{machineName || 'Machine'}</h1>
-		<p class="text-sm text-text-muted">Pieces synced from this machine</p>
+		<h1 class="text-2xl font-bold text-ink">{machineName || 'Machine'}</h1>
+		<p class="text-sm text-ink-muted">Pieces synced from this machine</p>
 	</div>
 	{#if !loading}
-		<span class="shrink-0 text-sm text-text-muted">
+		<span class="shrink-0 text-sm text-ink-muted">
 			{pieces.length.toLocaleString()} of {total.toLocaleString()} loaded
 		</span>
 	{/if}
 </div>
 
 {#if error}
-	<div class="mb-4 bg-primary/8 p-3 text-sm text-primary">{error}</div>
+	<div class="mb-4 bg-primary/8 p-3 text-sm text-primary-ink">{error}</div>
 {/if}
 
 {#if loading}
@@ -140,19 +141,19 @@
 		<Spinner size={32} />
 	</div>
 {:else if pieces.length === 0}
-	<div class="border border-border bg-surface p-8 text-center text-sm text-text-muted">
+	<div class="border border-line bg-surface p-8 text-center text-sm text-ink-muted">
 		No pieces synced from this machine yet.
 	</div>
 {:else}
 	<div class="flex flex-col gap-2">
 		{#each pieces as piece (piece.piece_uuid)}
 			{@const bin = binLabel(piece.bin)}
-			<div class="flex flex-col gap-4 border border-border bg-surface p-3 sm:flex-row">
+			<div class="flex flex-col gap-4 border border-line bg-surface p-3 sm:flex-row">
 				<!-- Left: crops from the machine. The 15rem cap only applies once
 				     there is a second column beside it. -->
 				<div class="flex flex-wrap items-start gap-1.5 sm:max-w-60 sm:shrink-0">
 					{#if piece.images.length === 0}
-						<div class="flex h-16 w-16 items-center justify-center border border-border bg-bg text-[10px] text-text-muted">
+						<div class="flex h-16 w-16 items-center justify-center border border-line bg-well text-xs text-ink-muted">
 							no images
 						</div>
 					{:else}
@@ -167,11 +168,11 @@
 										? 'border-success'
 										: img.excluded_from_result
 											? 'border-primary'
-											: 'border-border'}"
+											: 'border-line'}"
 								/>
 							{:else}
 								<div
-									class="flex h-16 w-16 items-center justify-center border border-dashed border-border bg-bg text-center text-[9px] text-text-muted"
+									class="flex h-16 w-16 items-center justify-center border border-dashed border-line bg-well text-center text-xs text-ink-muted"
 									title={`seq ${img.seq} · evicted before sync`}
 								>
 									evicted
@@ -184,33 +185,33 @@
 				<!-- Middle: classification -->
 				<div class="min-w-0 flex-1">
 					<div class="flex flex-wrap items-center gap-2">
-						<Badge text={piece.classification_status ?? 'unknown'} variant={statusVariant(piece.classification_status)} />
-						<span class="text-sm font-medium text-text">
+						<Badge tone={statusVariant(piece.classification_status)}>{sentence(piece.classification_status ?? 'unknown')}</Badge>
+						<span class="text-sm font-medium text-ink">
 							{piece.part_name || piece.part_id || 'Unidentified'}
 						</span>
 						{#if piece.part_id}
-							<span class="text-xs text-text-muted">#{piece.part_id}</span>
+							<span class="text-xs text-ink-muted">#{piece.part_id}</span>
 						{/if}
 						{#if piece.dead}
-							<Badge text="dead" variant="danger" />
+							<Badge tone="danger">Dead</Badge>
 						{/if}
 					</div>
 
-					<div class="mt-1 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-text-muted">
-						<span>Color: <span class="text-text">{piece.color_name || piece.color_id || '—'}</span></span>
+					<div class="mt-1 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-ink-muted">
+						<span>Color: <span class="text-ink">{piece.color_name || piece.color_id || '—'}</span></span>
 						<!-- Mold and color are scored by separate providers; a single "Conf"
 						     read as covering both, which it never did. -->
-						<span>Mold conf: <span class="text-text tabular-nums">{conf(piece.confidence)}</span></span>
-						<span>Color conf: <span class="text-text tabular-nums">{conf(piece.color_confidence)}</span></span>
+						<span>Mold conf: <span class="text-ink tabular-nums">{conf(piece.confidence)}</span></span>
+						<span>Color conf: <span class="text-ink tabular-nums">{conf(piece.color_confidence)}</span></span>
 						{#if bin}
-							<span>Bin: <span class="text-text tabular-nums">{bin}</span></span>
+							<span>Bin: <span class="text-ink tabular-nums">{bin}</span></span>
 						{/if}
 						{#if piece.run_id}
-							<span class="min-w-0 truncate">Run: <span class="text-text">{piece.run_id}</span></span>
+							<span class="min-w-0 truncate">Run: <span class="text-ink">{piece.run_id}</span></span>
 						{/if}
 					</div>
 
-					<div class="mt-1 text-xs text-text-muted">
+					<div class="mt-1 text-xs text-ink-muted">
 						Seen {when(piece.seen_at)}
 						{#if piece.recorded_at} · Recorded {when(piece.recorded_at)}{/if}
 					</div>
@@ -224,7 +225,7 @@
 							alt="reference"
 							loading="lazy"
 							title="Brickognize reference"
-							class="h-16 w-16 border border-border object-contain"
+							class="h-16 w-16 border border-line object-contain"
 						/>
 					</div>
 				{/if}
@@ -240,7 +241,7 @@
 		{:else if nextCursor != null}
 			<Button variant="secondary" size="sm" onclick={loadMore}>Load more</Button>
 		{:else}
-			<span class="text-xs text-text-muted">End of list · {total.toLocaleString()} pieces total</span>
+			<span class="text-xs text-ink-muted">End of list · {total.toLocaleString()} pieces total</span>
 		{/if}
 	</div>
 {/if}

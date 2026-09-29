@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { sentence } from '$lib/text';
 	import { auth } from '$lib/auth.svelte';
 	import { api, type User } from '$lib/api';
 	import { goto } from '$app/navigation';
@@ -89,12 +90,12 @@
 </svelte:head>
 
 <div class="mb-6 flex flex-wrap items-center justify-between gap-x-4 gap-y-1">
-	<h1 class="text-2xl font-bold text-text">Manage Users</h1>
-	<span class="text-sm text-text-muted">{users.length} users total</span>
+	<h1 class="text-2xl font-bold text-ink">Manage Users</h1>
+	<span class="text-sm text-ink-muted">{users.length} users total</span>
 </div>
 
 {#if error}
-	<div class="mb-4 bg-primary/8 p-3 text-sm text-primary">{error}</div>
+	<div class="mb-4 bg-primary/8 p-3 text-sm text-primary-ink">{error}</div>
 {/if}
 
 {#if loading}
@@ -102,45 +103,42 @@
 		<Spinner size={32} />
 	</div>
 {:else}
-	<div class="overflow-x-auto border border-border bg-surface">
-		<table class="min-w-full divide-y divide-border">
-			<thead class="bg-bg">
+	<div class="overflow-x-auto border border-line bg-surface">
+		<table class="min-w-full divide-y divide-line">
+			<thead class="bg-well">
 				<tr>
-					<th class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-text-muted">User</th>
-					<th class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-text-muted">Role</th>
-					<th class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-text-muted">Status</th>
-					<th class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-text-muted">Joined</th>
-					<th class="px-6 py-3 text-right text-xs font-medium uppercase tracking-wider text-text-muted">Actions</th>
+					<th class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-ink-muted">User</th>
+					<th class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-ink-muted">Role</th>
+					<th class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-ink-muted">Status</th>
+					<th class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-ink-muted">Joined</th>
+					<th class="px-6 py-3 text-right text-xs font-medium uppercase tracking-wider text-ink-muted">Actions</th>
 				</tr>
 			</thead>
-			<tbody class="divide-y divide-border">
+			<tbody class="divide-y divide-line">
 				{#each users as user (user.id)}
-					<tr class="hover:bg-bg {!user.is_active ? 'opacity-50' : ''}">
+					<tr class="hover:bg-hover {!user.is_active ? 'opacity-50' : ''}">
 						<td class="whitespace-nowrap px-6 py-4">
 							<div>
-								<p class="text-sm font-medium text-text">{user.display_name || '—'}</p>
-								<p class="text-xs text-text-muted">{user.email}</p>
+								<p class="text-sm font-medium text-ink">{user.display_name || '—'}</p>
+								<p class="text-xs text-ink-muted">{user.email}</p>
 							</div>
 						</td>
 						<td class="whitespace-nowrap px-6 py-4">
 							<button onclick={() => openRoleModal(user)} class="cursor-pointer">
-								<Badge text={user.role} variant={roleVariant[user.role] ?? 'neutral'} />
+								<Badge tone={roleVariant[user.role] ?? 'neutral'}>{sentence(user.role)}</Badge>
 							</button>
 						</td>
 						<td class="whitespace-nowrap px-6 py-4">
-							<Badge
-								text={user.is_active ? 'Active' : 'Inactive'}
-								variant={user.is_active ? 'success' : 'danger'}
-							/>
+							<Badge tone={user.is_active ? 'success' : 'danger'}>{sentence(user.is_active ? 'Active' : 'Inactive')}</Badge>
 						</td>
-						<td class="whitespace-nowrap px-6 py-4 text-sm text-text-muted">
+						<td class="whitespace-nowrap px-6 py-4 text-sm text-ink-muted">
 							{new Date(user.created_at).toLocaleDateString()}
 						</td>
 						<td class="whitespace-nowrap px-6 py-4 text-right">
 							<div class="flex items-center justify-end gap-2">
 								<button
 									onclick={() => toggleActive(user)}
-									class="text-xs font-medium {user.is_active ? 'text-warning-strong hover:text-warning-strong' : 'text-success hover:text-success'}"
+									class="text-xs font-medium {user.is_active ? 'text-warning-ink hover:text-warning-ink' : 'text-success-ink hover:text-success-ink'}"
 									title={user.is_active ? 'Deactivate' : 'Activate'}
 								>
 									{user.is_active ? 'Deactivate' : 'Activate'}
@@ -148,7 +146,7 @@
 								{#if String(user.id) !== String(auth.user?.id)}
 									<button
 										onclick={() => { deletingUser = user; }}
-										class="text-xs font-medium text-primary hover:text-primary"
+										class="text-xs font-medium text-primary-ink hover:text-primary-ink"
 									>
 										Delete
 									</button>
@@ -166,16 +164,16 @@
 <Modal open={editingUser !== null} title="Change Role" onclose={() => { editingUser = null; }}>
 	{#if editingUser}
 		<div class="space-y-4">
-			<p class="text-sm text-text-muted">
+			<p class="text-sm text-ink-muted">
 				Change role for <strong>{editingUser.display_name || editingUser.email}</strong>
 			</p>
 			<div class="space-y-2">
 				{#each ['member', 'reviewer', 'admin'] as role}
-					<label class="flex items-center gap-3 border border-border p-3 cursor-pointer hover:bg-bg {selectedRole === role ? 'border-primary bg-primary-light' : ''}">
-						<input type="radio" bind:group={selectedRole} value={role} class="text-primary" />
+					<label class="flex items-center gap-3 border border-line p-3 cursor-pointer hover:bg-hover {selectedRole === role ? 'border-primary bg-primary-soft' : ''}">
+						<input type="radio" bind:group={selectedRole} value={role} class="text-primary-ink" />
 						<div>
-							<p class="text-sm font-medium text-text capitalize">{role}</p>
-							<p class="text-xs text-text-muted">
+							<p class="text-sm font-medium text-ink capitalize">{role}</p>
+							<p class="text-xs text-ink-muted">
 								{#if role === 'member'}
 									Can manage own machines and view samples
 								{:else if role === 'reviewer'}
@@ -191,7 +189,7 @@
 			<div class="flex justify-end gap-2">
 				<button
 					onclick={() => { editingUser = null; }}
-					class="border border-border px-4 py-2 text-sm font-medium text-text hover:bg-bg"
+					class="border border-line px-4 py-2 text-sm font-medium text-ink hover:bg-hover"
 				>
 					Cancel
 				</button>
@@ -211,15 +209,15 @@
 	{#if deletingUser}
 		<div class="space-y-4">
 			{#if deleteError}
-				<div class="bg-primary/8 p-3 text-sm text-primary">{deleteError}</div>
+				<div class="bg-primary/8 p-3 text-sm text-primary-ink">{deleteError}</div>
 			{/if}
-			<p class="text-sm text-text-muted">
+			<p class="text-sm text-ink-muted">
 				This will permanently delete <strong>{deletingUser.display_name || deletingUser.email}</strong> and all their machines, samples, and reviews.
 			</p>
 			<div class="flex justify-end gap-2">
 				<button
 					onclick={() => { deletingUser = null; deleteError = null; }}
-					class="border border-border px-4 py-2 text-sm font-medium text-text hover:bg-bg"
+					class="border border-line px-4 py-2 text-sm font-medium text-ink hover:bg-hover"
 				>
 					Cancel
 				</button>

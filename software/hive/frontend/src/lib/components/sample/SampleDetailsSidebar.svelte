@@ -34,94 +34,94 @@
 	}: Props = $props();
 </script>
 
-<div class="border border-border bg-surface">
-	<div class="border-b border-border px-4 py-2.5">
-		<h2 class="text-xs font-semibold uppercase tracking-wider text-text-muted">Details</h2>
+<div class="border border-line bg-surface">
+	<div class="border-b border-line px-4 py-2.5">
+		<h2 class="text-xs font-semibold uppercase tracking-wider text-ink-muted">Details</h2>
 	</div>
-	<div class="divide-y divide-border">
+	<div class="divide-y divide-line">
 		{#if sample.machine}
 			{@const machine = sample.machine}
 			{@const owner = machine.owner}
 			{@const machineHref = `/samples?scope=all&machine_id=${machine.id}`}
 			<div class="flex items-center justify-between gap-3 px-4 py-2">
-				<span class="text-xs text-text-muted">Machine</span>
+				<span class="text-xs text-ink-muted">Machine</span>
 				<a
 					href={machineHref}
-					class="flex min-w-0 items-center gap-1.5 text-xs font-medium text-primary hover:underline"
+					class="flex min-w-0 items-center gap-1.5 text-xs font-medium text-primary-ink hover:underline"
 					title={owner?.display_name ? `${owner.display_name} / ${machine.name}` : machine.name}
 				>
 					{#if owner?.avatar_url}
 						<img src={owner.avatar_url} alt="" class="h-4 w-4 shrink-0 rounded-full" />
 					{/if}
 					<span class="min-w-0 truncate">
-						{#if owner?.display_name}<span class="text-text-muted">{owner.display_name} /</span> {/if}{machine.name}
+						{#if owner?.display_name}<span class="text-ink-muted">{owner.display_name} /</span> {/if}{machine.name}
 					</span>
 				</a>
 			</div>
 		{/if}
 		{#if sample.source_role}
 			<div class="flex items-center justify-between px-4 py-2">
-				<span class="text-xs text-text-muted">Source</span>
-				<span class="text-xs font-medium text-text">{sample.source_role}</span>
+				<span class="text-xs text-ink-muted">Source</span>
+				<span class="text-xs font-medium text-ink">{sample.source_role}</span>
 			</div>
 		{/if}
 		{#if sample.capture_reason}
 			<div class="flex items-center justify-between px-4 py-2">
-				<span class="text-xs text-text-muted">Reason</span>
-				<span class="text-xs font-medium text-text">{sample.capture_reason}</span>
+				<span class="text-xs text-ink-muted">Reason</span>
+				<span class="text-xs font-medium text-ink">{sample.capture_reason}</span>
 			</div>
 		{/if}
 		{#if camera}
 			<div class="flex items-center justify-between px-4 py-2">
-				<span class="text-xs text-text-muted">Camera</span>
-				<span class="text-xs font-medium text-text">{camera}</span>
+				<span class="text-xs text-ink-muted">Camera</span>
+				<span class="text-xs font-medium text-ink">{camera}</span>
 			</div>
 		{/if}
 		{#if detectionScope}
 			<div class="flex items-center justify-between px-4 py-2">
-				<span class="text-xs text-text-muted">Scope</span>
-				<span class="text-xs font-medium text-text">{detectionScope}</span>
+				<span class="text-xs text-ink-muted">Scope</span>
+				<span class="text-xs font-medium text-ink">{detectionScope}</span>
 			</div>
 		{/if}
 		{#if sample.captured_at}
 			<div class="flex items-center justify-between px-4 py-2">
-				<span class="text-xs text-text-muted">Captured</span>
-				<span class="text-xs text-text">{formatDate(sample.captured_at)}</span>
+				<span class="text-xs text-ink-muted">Captured</span>
+				<span class="text-xs text-ink">{formatDate(sample.captured_at)}</span>
 			</div>
 		{/if}
 		<div class="flex items-center justify-between px-4 py-2">
-			<span class="text-xs text-text-muted">Uploaded</span>
-			<span class="text-xs text-text">{formatDate(sample.uploaded_at)}</span>
+			<span class="text-xs text-ink-muted">Uploaded</span>
+			<span class="text-xs text-ink">{formatDate(sample.uploaded_at)}</span>
 		</div>
 		{#if sample.image_width && sample.image_height}
 			<div class="flex items-center justify-between px-4 py-2">
-				<span class="text-xs text-text-muted">Size</span>
-				<span class="text-xs text-text">{sample.image_width}&times;{sample.image_height}</span>
+				<span class="text-xs text-ink-muted">Size</span>
+				<span class="text-xs text-ink">{sample.image_width}&times;{sample.image_height}</span>
 			</div>
 		{/if}
 	</div>
 </div>
 
 {#if pieceUuid || runId}
-	<div class="border border-border bg-surface">
-		<div class="border-b border-border px-4 py-2.5">
-			<h2 class="text-xs font-semibold uppercase tracking-wider text-text-muted">IDs</h2>
+	<div class="border border-line bg-surface">
+		<div class="border-b border-line px-4 py-2.5">
+			<h2 class="text-xs font-semibold uppercase tracking-wider text-ink-muted">IDs</h2>
 		</div>
-		<div class="divide-y divide-border">
+		<div class="divide-y divide-line">
 			<div class="flex items-center justify-between px-4 py-2">
-				<span class="text-xs text-text-muted">Sample</span>
-				<span class="text-[11px] font-mono text-text-muted truncate ml-3 max-w-[200px]" title={sample.local_sample_id}>{sample.local_sample_id}</span>
+				<span class="text-xs text-ink-muted">Sample</span>
+				<span class="text-xs font-mono text-ink-muted truncate ml-3 max-w-[200px]" title={sample.local_sample_id}>{sample.local_sample_id}</span>
 			</div>
 			{#if pieceUuid}
 				<div class="flex items-center justify-between px-4 py-2">
-					<span class="text-xs text-text-muted">Piece</span>
-					<span class="text-[11px] font-mono text-text-muted truncate ml-3 max-w-[200px]" title={pieceUuid}>{shortId(pieceUuid)}</span>
+					<span class="text-xs text-ink-muted">Piece</span>
+					<span class="text-xs font-mono text-ink-muted truncate ml-3 max-w-[200px]" title={pieceUuid}>{shortId(pieceUuid)}</span>
 				</div>
 			{/if}
 			{#if runId}
 				<div class="flex items-center justify-between px-4 py-2">
-					<span class="text-xs text-text-muted">Run</span>
-					<span class="text-[11px] font-mono text-text-muted truncate ml-3 max-w-[200px]" title={runId}>{shortId(runId)}</span>
+					<span class="text-xs text-ink-muted">Run</span>
+					<span class="text-xs font-mono text-ink-muted truncate ml-3 max-w-[200px]" title={runId}>{shortId(runId)}</span>
 				</div>
 			{/if}
 		</div>
@@ -129,22 +129,22 @@
 {/if}
 
 {#if extraKeys.length > 0}
-	<div class="border border-border bg-surface">
+	<div class="border border-line bg-surface">
 		<button
 			onclick={onToggleExpandedMeta}
 			class="flex w-full items-center justify-between px-4 py-2.5"
 		>
-			<h2 class="text-xs font-semibold uppercase tracking-wider text-text-muted">Metadata ({extraKeys.length})</h2>
-			<svg class="h-3.5 w-3.5 text-text-muted transition-transform {showExpandedMeta ? 'rotate-180' : ''}" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+			<h2 class="text-xs font-semibold uppercase tracking-wider text-ink-muted">Metadata ({extraKeys.length})</h2>
+			<svg class="h-3.5 w-3.5 text-ink-muted transition-transform {showExpandedMeta ? 'rotate-180' : ''}" fill="none" viewBox="0 0 24 24" stroke="currentColor">
 				<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
 			</svg>
 		</button>
 		{#if showExpandedMeta}
-			<div class="border-t border-border divide-y divide-border">
+			<div class="border-t border-line divide-y divide-line">
 				{#each extraKeys as key}
 					<div class="flex items-start justify-between gap-3 px-4 py-2">
-						<span class="text-[11px] font-mono text-text-muted shrink-0">{key}</span>
-						<span class="text-[11px] text-text text-right break-all">{formatValue(extra[key])}</span>
+						<span class="text-xs font-mono text-ink-muted shrink-0">{key}</span>
+						<span class="text-xs text-ink text-right break-all">{formatValue(extra[key])}</span>
 					</div>
 				{/each}
 			</div>
@@ -152,29 +152,29 @@
 	</div>
 {/if}
 
-<div class="border border-border bg-surface">
-	<div class="border-b border-border px-4 py-2.5">
-		<h2 class="text-xs font-semibold uppercase tracking-wider text-text-muted">Reviews</h2>
+<div class="border border-line bg-surface">
+	<div class="border-b border-line px-4 py-2.5">
+		<h2 class="text-xs font-semibold uppercase tracking-wider text-ink-muted">Reviews</h2>
 	</div>
 	{#if reviews.length === 0}
 		<div class="px-4 py-4 text-center">
-			<p class="text-xs text-text-muted">No reviews yet</p>
+			<p class="text-xs text-ink-muted">No reviews yet</p>
 		</div>
 	{:else}
-		<div class="divide-y divide-border">
+		<div class="divide-y divide-line">
 			{#each reviews as review (review.id)}
 				<div class="px-4 py-2.5">
 					<div class="flex items-center justify-between">
 						<div class="flex items-center gap-2">
-							<div class="flex h-5 w-5 items-center justify-center text-[10px] font-bold {review.decision === 'accept' ? 'bg-success/[0.08] text-success' : 'bg-primary-light text-primary'}">
+							<div class="flex h-5 w-5 items-center justify-center text-xs font-bold {review.decision === 'accept' ? 'bg-success/[0.08] text-success-ink' : 'bg-primary-soft text-primary-ink'}">
 								{review.decision === 'accept' ? '✓' : '✗'}
 							</div>
-							<span class="text-xs font-medium text-text">{review.reviewer_display_name ?? 'Unknown'}</span>
+							<span class="text-xs font-medium text-ink">{review.reviewer_display_name ?? 'Unknown'}</span>
 						</div>
-						<span class="text-[11px] text-text-muted">{formatDate(review.created_at)}</span>
+						<span class="text-xs text-ink-muted">{formatDate(review.created_at)}</span>
 					</div>
 					{#if review.notes}
-						<p class="mt-1 ml-7 text-xs text-text-muted">{review.notes}</p>
+						<p class="mt-1 ml-7 text-xs text-ink-muted">{review.notes}</p>
 					{/if}
 				</div>
 			{/each}

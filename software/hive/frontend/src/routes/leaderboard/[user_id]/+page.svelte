@@ -62,33 +62,33 @@
 
 <div class="space-y-5">
 	<div>
-		<a href="/leaderboard" class="text-xs text-primary hover:underline">← Back to leaderboard</a>
+		<a href="/leaderboard" class="text-xs text-primary-ink hover:underline">← Back to leaderboard</a>
 	</div>
 
 	{#if loading}
 		<div class="flex justify-center p-8"><Spinner size={32} /></div>
 	{:else if error}
-		<div class="border border-danger bg-danger/10 px-3 py-2 text-sm text-danger">{error}</div>
+		<div class="border border-danger bg-danger/10 px-3 py-2 text-sm text-danger-ink">{error}</div>
 	{:else if profile}
 		{@const isMe = auth.user?.id === profile.user_id}
 		<!-- Header card -->
-		<div class="border border-border bg-surface">
+		<div class="border border-line bg-surface">
 			<div class="flex flex-wrap items-center gap-4 p-5">
 				{#if profile.avatar_url}
-					<img src={profile.avatar_url} alt="" class="h-20 w-20 shrink-0 rounded-full border border-border bg-bg object-cover" />
+					<img src={profile.avatar_url} alt="" class="h-20 w-20 shrink-0 rounded-full border border-line bg-well object-cover" />
 				{:else}
-					<span class="flex h-20 w-20 shrink-0 items-center justify-center rounded-full border border-border bg-bg text-2xl font-semibold text-text-muted">
+					<span class="flex h-20 w-20 shrink-0 items-center justify-center rounded-full border border-line bg-well text-2xl font-semibold text-ink-muted">
 						{initials(profile.display_name)}
 					</span>
 				{/if}
 				<div class="min-w-0 flex-1">
 					<div class="flex flex-wrap items-baseline gap-2">
-						<h1 class="text-2xl font-bold text-text">{profile.display_name ?? 'Anonymous'}</h1>
-						<span class="text-[11px] uppercase tracking-wider text-text-muted">{profile.role}</span>
-						{#if isMe}<span class="border border-primary/30 bg-primary-light px-1.5 py-0.5 text-[10px] uppercase tracking-wider text-primary">You</span>{/if}
+						<h1 class="text-2xl font-bold text-ink">{profile.display_name ?? 'Anonymous'}</h1>
+						<span class="text-xs uppercase tracking-wider text-ink-muted">{profile.role}</span>
+						{#if isMe}<span class="border border-primary/30 bg-primary-soft px-1.5 py-0.5 text-xs uppercase tracking-wider text-primary-ink">You</span>{/if}
 					</div>
 					{#if profile.first_review_at}
-						<p class="mt-1 text-xs text-text-muted">
+						<p class="mt-1 text-xs text-ink-muted">
 							Reviewing since {new Date(profile.first_review_at).toLocaleDateString()}
 						</p>
 					{/if}
@@ -96,52 +96,52 @@
 			</div>
 
 			<!-- Contributions breakdown: samples vs pieces (kept separate) -->
-			<div class="grid grid-cols-2 gap-px border-t border-border bg-border sm:grid-cols-3">
+			<div class="grid grid-cols-2 gap-px border-t border-line bg-border sm:grid-cols-3">
 				<div class="bg-surface px-4 py-3">
-					<div class="text-[10px] font-semibold uppercase tracking-wider text-text-muted">Total contributions</div>
-					<div class="text-2xl font-bold text-text">{profile.total_contributions.toLocaleString()}</div>
-					<div class="text-[11px] text-text-muted">reviews + piece labels</div>
+					<div class="text-xs font-semibold uppercase tracking-wider text-ink-muted">Total contributions</div>
+					<div class="text-2xl font-bold text-ink">{profile.total_contributions.toLocaleString()}</div>
+					<div class="text-xs text-ink-muted">reviews + piece labels</div>
 				</div>
 				<div class="bg-surface px-4 py-3">
-					<div class="text-[10px] font-semibold uppercase tracking-wider text-text-muted">Sample reviews</div>
-					<div class="text-2xl font-bold text-text">{profile.total_reviews.toLocaleString()}</div>
-					<div class="text-[11px] text-text-muted">
-						<span class="text-success">{profile.accepts}</span> ✓ ·
-						<span class="text-primary">{profile.rejects}</span> ✗
+					<div class="text-xs font-semibold uppercase tracking-wider text-ink-muted">Sample reviews</div>
+					<div class="text-2xl font-bold text-ink">{profile.total_reviews.toLocaleString()}</div>
+					<div class="text-xs text-ink-muted">
+						<span class="text-success-ink">{profile.accepts}</span> ✓ ·
+						<span class="text-primary-ink">{profile.rejects}</span> ✗
 					</div>
 				</div>
 				<div class="bg-surface px-4 py-3">
-					<div class="text-[10px] font-semibold uppercase tracking-wider text-text-muted">Piece labels</div>
-					<div class="text-2xl font-bold text-text">{(profile.piece_color_labels + profile.piece_crop_links).toLocaleString()}</div>
-					<div class="text-[11px] text-text-muted">{profile.piece_color_labels} color · {profile.piece_crop_links} same-piece</div>
+					<div class="text-xs font-semibold uppercase tracking-wider text-ink-muted">Piece labels</div>
+					<div class="text-2xl font-bold text-ink">{(profile.piece_color_labels + profile.piece_crop_links).toLocaleString()}</div>
+					<div class="text-xs text-ink-muted">{profile.piece_color_labels} color · {profile.piece_crop_links} same-piece</div>
 				</div>
 			</div>
 
 			<!-- Review quality metrics -->
-			<div class="grid grid-cols-2 gap-px border-t border-border bg-border sm:grid-cols-3">
+			<div class="grid grid-cols-2 gap-px border-t border-line bg-border sm:grid-cols-3">
 				<div class="bg-surface px-4 py-3">
-					<div class="text-[10px] font-semibold uppercase tracking-wider text-text-muted">Agreement</div>
-					<div class="text-2xl font-bold text-text">{pct(profile.agreement_rate)}</div>
-					<div class="text-[11px] text-text-muted">vs final consensus</div>
+					<div class="text-xs font-semibold uppercase tracking-wider text-ink-muted">Agreement</div>
+					<div class="text-2xl font-bold text-ink">{pct(profile.agreement_rate)}</div>
+					<div class="text-xs text-ink-muted">vs final consensus</div>
 				</div>
 				<div class="bg-surface px-4 py-3">
-					<div class="text-[10px] font-semibold uppercase tracking-wider text-text-muted">Current streak</div>
-					<div class="text-2xl font-bold text-text">{profile.current_streak_days}d</div>
-					<div class="text-[11px] text-text-muted">longest: {profile.longest_streak_days}d</div>
+					<div class="text-xs font-semibold uppercase tracking-wider text-ink-muted">Current streak</div>
+					<div class="text-2xl font-bold text-ink">{profile.current_streak_days}d</div>
+					<div class="text-xs text-ink-muted">longest: {profile.longest_streak_days}d</div>
 				</div>
 				<div class="bg-surface px-4 py-3">
-					<div class="text-[10px] font-semibold uppercase tracking-wider text-text-muted">Best day</div>
-					<div class="text-2xl font-bold text-text">{profile.speed_record_24h}</div>
-					<div class="text-[11px] text-text-muted">{profile.machines_covered} machine{profile.machines_covered === 1 ? '' : 's'} covered</div>
+					<div class="text-xs font-semibold uppercase tracking-wider text-ink-muted">Best day</div>
+					<div class="text-2xl font-bold text-ink">{profile.speed_record_24h}</div>
+					<div class="text-xs text-ink-muted">{profile.machines_covered} machine{profile.machines_covered === 1 ? '' : 's'} covered</div>
 				</div>
 			</div>
 
 			<!-- Sparkline -->
 			{#if profile.daily_counts.length > 0}
-				<div class="border-t border-border px-4 py-3">
+				<div class="border-t border-line px-4 py-3">
 					<div class="mb-2 flex items-baseline justify-between">
-						<span class="text-[10px] font-semibold uppercase tracking-wider text-text-muted">Last 14 days</span>
-						<span class="text-[11px] text-text-muted">
+						<span class="text-xs font-semibold uppercase tracking-wider text-ink-muted">Last 14 days</span>
+						<span class="text-xs text-ink-muted">
 							{profile.daily_counts.reduce((s, v) => s + v, 0)} reviews
 						</span>
 					</div>
@@ -154,10 +154,10 @@
 		</div>
 
 		<!-- Achievements -->
-		<div class="border border-border bg-surface">
-			<div class="flex items-center justify-between border-b border-border bg-bg px-4 py-2">
-				<h2 class="text-[10px] font-semibold uppercase tracking-wider text-text-muted">Achievements</h2>
-				<span class="text-[11px] text-text-muted">
+		<div class="border border-line bg-surface">
+			<div class="flex items-center justify-between border-b border-line bg-well px-4 py-2">
+				<h2 class="text-xs font-semibold uppercase tracking-wider text-ink-muted">Achievements</h2>
+				<span class="text-xs text-ink-muted">
 					{profile.achievements.filter((a) => a.earned).length} / {profile.achievements.length} earned
 				</span>
 			</div>
@@ -167,15 +167,15 @@
 						<div class="text-2xl leading-none">{a.icon}</div>
 						<div class="min-w-0 flex-1">
 							<div class="flex items-center gap-2">
-								<span class="text-sm font-semibold text-text">{a.name}</span>
-								<span class="border px-1 py-0.5 text-[9px] uppercase tracking-wider {
-									a.tier === 'gold' ? 'border-warning/30 bg-warning/10 text-warning-strong'
-									: a.tier === 'silver' ? 'border-border bg-bg text-text-muted'
-									: 'border-border bg-bg text-text-muted'
+								<span class="text-sm font-semibold text-ink">{a.name}</span>
+								<span class="border px-1 py-0.5 text-xs uppercase tracking-wider {
+									a.tier === 'gold' ? 'border-warning/30 bg-warning/10 text-warning-ink'
+									: a.tier === 'silver' ? 'border-line bg-well text-ink-muted'
+									: 'border-line bg-well text-ink-muted'
 								}">{a.tier}</span>
 							</div>
-							<p class="mt-0.5 text-xs leading-snug text-text-muted">{a.description}</p>
-							<p class="mt-1 text-[11px] {a.earned ? 'text-success' : 'text-text-muted'}">
+							<p class="mt-0.5 text-xs leading-snug text-ink-muted">{a.description}</p>
+							<p class="mt-1 text-xs {a.earned ? 'text-success-ink' : 'text-ink-muted'}">
 								{a.earned ? '✓ ' : ''}{a.progress}
 							</p>
 						</div>
@@ -184,7 +184,7 @@
 			</div>
 		</div>
 	{:else}
-		<div class="border border-border bg-surface px-3 py-6 text-center text-sm text-text-muted">
+		<div class="border border-line bg-surface px-3 py-6 text-center text-sm text-ink-muted">
 			Reviewer not found.
 		</div>
 	{/if}

@@ -96,41 +96,41 @@
 	}
 
 	function compositionTone(summary: ConditionSummary): string {
-		if (summary.composition === 'multi_part') return 'border-warning/40 bg-warning/15 text-warning-strong';
+		if (summary.composition === 'multi_part') return 'border-warning/40 bg-warning/15 text-warning-ink';
 		if (summary.composition === 'empty_or_not_lego' || summary.composition === 'uncertain') {
-			return 'border-border bg-bg text-text-muted';
+			return 'border-line bg-well text-ink-muted';
 		}
-		return 'border-info/30 bg-info/8 text-info';
+		return 'border-info/30 bg-info/8 text-info-ink';
 	}
 
 	function conditionTone(summary: ConditionSummary): string {
 		if (summary.condition === 'trash_candidate' || summary.flags.trash_candidate) {
-			return 'border-primary/30 bg-primary/8 text-primary';
+			return 'border-primary/30 bg-primary/8 text-primary-ink';
 		}
 		if (summary.condition === 'damaged' || summary.flags.damaged || summary.condition === 'dirty' || summary.flags.dirty) {
-			return 'border-warning/40 bg-warning/15 text-warning-strong';
+			return 'border-warning/40 bg-warning/15 text-warning-ink';
 		}
 		if (summary.condition === 'clean_ok' || summary.condition === 'minor_wear' || summary.flags.clean) {
-			return 'border-success/30 bg-success/10 text-success';
+			return 'border-success/30 bg-success/10 text-success-ink';
 		}
-		return 'border-border bg-bg text-text-muted';
+		return 'border-line bg-well text-ink-muted';
 	}
 
 	function flagTone(active: boolean, risk = false): string {
-		if (!active) return 'border-border bg-bg text-text-muted opacity-60';
-		if (risk) return 'border-warning/40 bg-warning/15 text-warning-strong';
-		return 'border-border bg-surface text-text';
+		if (!active) return 'border-line bg-well text-ink-muted opacity-60';
+		if (risk) return 'border-warning/40 bg-warning/15 text-warning-ink';
+		return 'border-line bg-surface text-ink';
 	}
 
 	const conditionSummary = $derived(parseConditionSummary(samplePayload));
 </script>
 
 {#if conditionSummary}
-	<div class="border border-border bg-surface">
-		<div class="flex items-center justify-between border-b border-border px-4 py-2.5">
-			<h2 class="text-xs font-semibold uppercase tracking-wider text-text-muted">Condition</h2>
+	<div class="border border-line bg-surface">
+		<div class="flex items-center justify-between border-b border-line px-4 py-2.5">
+			<h2 class="text-xs font-semibold uppercase tracking-wider text-ink-muted">Condition</h2>
 			{#if conditionSummary.provider}
-				<span class="bg-bg px-2 py-0.5 text-[11px] font-medium text-text-muted">
+				<span class="bg-well px-2 py-0.5 text-xs font-medium text-ink-muted">
 					{conditionSummary.provider}
 				</span>
 			{/if}
@@ -139,37 +139,37 @@
 		<div class="space-y-3 p-3">
 			<div class="grid grid-cols-2 gap-2">
 				<div class="border px-3 py-2.5 {compositionTone(conditionSummary)}">
-					<div class="text-[10px] font-semibold uppercase tracking-wide opacity-75">Composition</div>
+					<div class="text-xs font-semibold uppercase tracking-wide opacity-75">Composition</div>
 					<div class="mt-1 text-sm font-semibold">{prettify(conditionSummary.composition)}</div>
 				</div>
 				<div class="border px-3 py-2.5 {conditionTone(conditionSummary)}">
-					<div class="text-[10px] font-semibold uppercase tracking-wide opacity-75">Quality</div>
+					<div class="text-xs font-semibold uppercase tracking-wide opacity-75">Quality</div>
 					<div class="mt-1 text-sm font-semibold">{prettify(conditionSummary.condition)}</div>
 				</div>
 			</div>
 
 			<div class="flex flex-wrap gap-1.5">
-				<span class="border px-2 py-1 text-[11px] font-medium {flagTone(conditionSummary.flags.single_part)}">Single</span>
-				<span class="border px-2 py-1 text-[11px] font-medium {flagTone(conditionSummary.flags.compound_part)}">Compound</span>
-				<span class="border px-2 py-1 text-[11px] font-medium {flagTone(conditionSummary.flags.multiple_parts, true)}">Multiple</span>
-				<span class="border px-2 py-1 text-[11px] font-medium {flagTone(conditionSummary.flags.dirty, true)}">Dirty</span>
-				<span class="border px-2 py-1 text-[11px] font-medium {flagTone(conditionSummary.flags.damaged, true)}">Damaged</span>
-				<span class="border px-2 py-1 text-[11px] font-medium {flagTone(conditionSummary.flags.trash_candidate, true)}">Trash</span>
+				<span class="border px-2 py-1 text-xs font-medium {flagTone(conditionSummary.flags.single_part)}">Single</span>
+				<span class="border px-2 py-1 text-xs font-medium {flagTone(conditionSummary.flags.compound_part)}">Compound</span>
+				<span class="border px-2 py-1 text-xs font-medium {flagTone(conditionSummary.flags.multiple_parts, true)}">Multiple</span>
+				<span class="border px-2 py-1 text-xs font-medium {flagTone(conditionSummary.flags.dirty, true)}">Dirty</span>
+				<span class="border px-2 py-1 text-xs font-medium {flagTone(conditionSummary.flags.damaged, true)}">Damaged</span>
+				<span class="border px-2 py-1 text-xs font-medium {flagTone(conditionSummary.flags.trash_candidate, true)}">Trash</span>
 			</div>
 
 			{#if conditionSummary.visibleEvidence}
-				<div class="border border-border bg-bg px-3 py-2.5">
-					<div class="text-[10px] font-semibold uppercase tracking-wide text-text-muted">Evidence</div>
-					<p class="mt-1 text-xs leading-relaxed text-text">{conditionSummary.visibleEvidence}</p>
+				<div class="border border-line bg-well px-3 py-2.5">
+					<div class="text-xs font-semibold uppercase tracking-wide text-ink-muted">Evidence</div>
+					<p class="mt-1 text-xs leading-relaxed text-ink">{conditionSummary.visibleEvidence}</p>
 				</div>
 			{/if}
 
 			{#if conditionSummary.issues.length > 0}
 				<div class="space-y-1">
-					<div class="text-[10px] font-semibold uppercase tracking-wide text-text-muted">Issues</div>
+					<div class="text-xs font-semibold uppercase tracking-wide text-ink-muted">Issues</div>
 					<div class="flex flex-wrap gap-1.5">
 						{#each conditionSummary.issues as issue}
-							<span class="border border-warning/40 bg-warning/15 px-2 py-0.5 text-[11px] font-medium text-warning-strong">
+							<span class="border border-warning/40 bg-warning/15 px-2 py-0.5 text-xs font-medium text-warning-ink">
 								{issue}
 							</span>
 						{/each}
@@ -177,29 +177,29 @@
 				</div>
 			{/if}
 
-			<div class="grid grid-cols-2 gap-2 text-[11px] text-text-muted">
+			<div class="grid grid-cols-2 gap-2 text-xs text-ink-muted">
 				{#if conditionSummary.partCountEstimate != null}
 					<div>
 						<div class="font-medium">Part count</div>
-						<div class="mt-0.5 font-medium text-text">{conditionSummary.partCountEstimate}</div>
+						<div class="mt-0.5 font-medium text-ink">{conditionSummary.partCountEstimate}</div>
 					</div>
 				{/if}
 				{#if conditionSummary.confidence != null}
 					<div>
 						<div class="font-medium">Confidence</div>
-						<div class="mt-0.5 font-medium text-text">{Math.round(conditionSummary.confidence * 100)}%</div>
+						<div class="mt-0.5 font-medium text-ink">{Math.round(conditionSummary.confidence * 100)}%</div>
 					</div>
 				{/if}
 				{#if conditionSummary.status}
 					<div>
 						<div class="font-medium">Status</div>
-						<div class="mt-0.5 font-medium text-text capitalize">{prettify(conditionSummary.status)}</div>
+						<div class="mt-0.5 font-medium text-ink capitalize">{prettify(conditionSummary.status)}</div>
 					</div>
 				{/if}
 				{#if conditionSummary.sourceCropPath}
 					<div>
 						<div class="font-medium">Source crop</div>
-						<div class="mt-0.5 truncate font-mono text-[10px] text-text" title={conditionSummary.sourceCropPath}>
+						<div class="mt-0.5 truncate font-mono text-xs text-ink" title={conditionSummary.sourceCropPath}>
 							{compactPath(conditionSummary.sourceCropPath)}
 						</div>
 					</div>
@@ -207,7 +207,7 @@
 			</div>
 
 			{#if conditionSummary.model}
-				<div class="truncate border-t border-border pt-2 text-[10px] font-mono text-text-muted" title={conditionSummary.model}>
+				<div class="truncate border-t border-line pt-2 text-xs font-mono text-ink-muted" title={conditionSummary.model}>
 					{conditionSummary.model}
 				</div>
 			{/if}

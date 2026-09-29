@@ -53,11 +53,11 @@
 	// Coverage ramp. The endpoints are theme tokens; the two midpoints are data-viz
 	// ramp stops with no token equivalent and read the same in either theme.
 	function fillColor(fill: number): string {
-		if (fill >= 1) return 'var(--color-success)';
+		if (fill >= 1) return 'var(--success)';
 		if (fill >= 0.6) return '#7AAE3D';
 		if (fill >= 0.3) return '#FFA500';
-		if (fill > 0) return 'var(--color-primary)';
-		return 'var(--color-border)';
+		if (fill > 0) return 'var(--primary)';
+		return 'var(--line)';
 	}
 
 	const coveragePct = $derived(Math.round(coverage * 100));
@@ -70,8 +70,8 @@
 			<path
 				d={arc(seg.start, seg.end, outerR, innerR)}
 				fill={seg.ignored
-					? 'color-mix(in srgb, var(--color-border) 55%, var(--color-surface))'
-					: 'color-mix(in srgb, var(--color-border) 40%, var(--color-surface))'}
+					? 'color-mix(in srgb, var(--line) 55%, var(--surface))'
+					: 'color-mix(in srgb, var(--line) 40%, var(--surface))'}
 				opacity={seg.ignored ? 0.6 : 1}
 			/>
 			{#if !seg.ignored && seg.fill > 0}
@@ -86,7 +86,7 @@
 					y={ly}
 					text-anchor="middle"
 					dominant-baseline="middle"
-					class="text-[10px] fill-text-muted tabular-nums"
+					class="text-xs fill-text-muted tabular-nums"
 					opacity={seg.ignored ? 0.4 : 1}
 					text-decoration={seg.ignored ? 'line-through' : 'none'}
 				>
@@ -108,7 +108,7 @@
 			y={cy + 12}
 			text-anchor="middle"
 			dominant-baseline="middle"
-			class="text-[10px] fill-text-muted uppercase tracking-wider"
+			class="text-xs fill-text-muted uppercase tracking-wider"
 		>
 			diversity
 		</text>

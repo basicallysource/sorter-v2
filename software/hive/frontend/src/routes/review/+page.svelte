@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { sentence } from '$lib/text';
 	import { onMount } from 'svelte';
 	import { page } from '$app/state';
 	import { goto } from '$app/navigation';
@@ -24,7 +25,7 @@
 	import SampleConditionCard from '$lib/components/sample/SampleConditionCard.svelte';
 	import SampleConditionTagger from '$lib/components/sample/SampleConditionTagger.svelte';
 	import { FEATURES } from '$lib/features';
-	import { Alert } from '$lib/components/primitives';
+	import Alert from '$lib/components/Alert.svelte';
 	import { extractLegacyReviewBboxes, extractPrimaryBboxes, mergeUniqueBboxes, parseBboxCollection, proposalColor } from '$lib/components/sample/bbox-helpers';
 
 	type ReviewDecision = 'accept' | 'reject';
@@ -482,25 +483,25 @@
 
 <div class="mb-6 flex flex-wrap items-center justify-between gap-3">
 	<div>
-		<h1 class="text-2xl font-bold text-text">Review Queue</h1>
-		<p class="mt-1 text-sm text-text-muted">
-			Arrow up accepts, arrow down rejects, arrow right skips, arrow left goes back{#if FEATURES.ANNOTATION_EDITING}, and <kbd class="border border-border bg-bg px-1.5 py-0.5 text-[11px] font-semibold text-text">D</kbd> toggles annotation{/if}.
+		<h1 class="text-2xl font-bold text-ink">Review Queue</h1>
+		<p class="mt-1 text-sm text-ink-muted">
+			Arrow up accepts, arrow down rejects, arrow right skips, arrow left goes back{#if FEATURES.ANNOTATION_EDITING}, and <kbd class="border border-line bg-well px-1.5 py-0.5 text-xs font-semibold text-ink">D</kbd> toggles annotation{/if}.
 		</p>
 		{#if activeFilterChips.length > 0}
-			<div class="mt-2 flex flex-wrap items-center gap-2 break-all text-[11px]">
-				<span class="text-text-muted">Scoped to:</span>
+			<div class="mt-2 flex flex-wrap items-center gap-2 break-all text-xs">
+				<span class="text-ink-muted">Scoped to:</span>
 				{#each activeFilterChips as [key, value] (key)}
-					<span class="border border-border bg-bg px-1.5 py-0.5 text-text-muted">
-						{key}=<span class="text-text">{value}</span>
+					<span class="border border-line bg-well px-1.5 py-0.5 text-ink-muted">
+						{key}=<span class="text-ink">{value}</span>
 					</span>
 				{/each}
-				<a href="/review" class="text-primary hover:underline">Clear</a>
+				<a href="/review" class="text-primary-ink hover:underline">Clear</a>
 			</div>
 		{/if}
 	</div>
 	<!-- Kind switcher — flips the queue between regular detection samples and
 	     piece-condition crops without leaving the review page. -->
-	<div class="flex flex-wrap border border-border bg-surface text-xs">
+	<div class="flex flex-wrap border border-line bg-surface text-xs">
 		{#each [
 			{ value: '', label: 'All' },
 			{ value: 'regular', label: 'Regular' },
@@ -508,7 +509,7 @@
 		] as opt}
 			<button
 				type="button"
-				class="border-l border-border px-3 py-1.5 first:border-l-0 {currentKind === opt.value ? 'bg-primary text-white' : 'text-text hover:bg-bg'}"
+				class="border-l border-line px-3 py-1.5 first:border-l-0 {currentKind === opt.value ? 'bg-primary text-white' : 'text-ink hover:bg-hover'}"
 				onclick={() => setKind(opt.value as '' | 'regular' | 'condition')}
 			>
 				{opt.label}
@@ -520,43 +521,43 @@
 {#if loading}
 	<div class="flex justify-center p-8"><Spinner size={32} /></div>
 {:else if empty}
-	<div class="border border-border bg-surface p-10 text-center">
-		<p class="text-lg font-medium text-text">No more samples to review.</p>
-		<p class="mt-2 text-sm text-text-muted">Come back later when the queue has fresh uploads again.</p>
+	<div class="border border-line bg-surface p-10 text-center">
+		<p class="text-lg font-medium text-ink">No more samples to review.</p>
+		<p class="mt-2 text-sm text-ink-muted">Come back later when the queue has fresh uploads again.</p>
 	</div>
 {:else if sample}
 	{#if error}
-		<div class="mb-4"><Alert variant="danger">{error}</Alert></div>
+		<div class="mb-4"><Alert tone="danger">{error}</Alert></div>
 	{/if}
 
 	{#if feedback}
-		<div class="mb-4"><Alert variant="success">{feedback}</Alert></div>
+		<div class="mb-4"><Alert tone="success">{feedback}</Alert></div>
 	{/if}
 
 	<div class="grid gap-5 lg:grid-cols-[1fr_360px]">
 		<div class="min-w-0 space-y-3">
-			<div class="flex flex-wrap items-center gap-2 bg-bg p-1">
+			<div class="flex flex-wrap items-center gap-2 bg-well p-1">
 				<button
 					type="button"
 					onclick={() => {
 						annotateMode = false;
 					}}
-					class="px-3 py-1.5 text-xs font-medium transition-colors {annotateMode ? 'text-text-muted hover:text-text' : 'bg-surface text-text'}"
+					class="px-3 py-1.5 text-xs font-medium transition-colors {annotateMode ? 'text-ink-muted hover:text-ink' : 'bg-surface text-ink'}"
 				>
 					Review
 				</button>
 				<button
 					type="button"
 					onclick={toggleAnnotateMode}
-					class="px-3 py-1.5 text-xs font-medium transition-colors {annotateMode ? 'bg-surface text-text' : 'text-text-muted hover:text-text'}"
+					class="px-3 py-1.5 text-xs font-medium transition-colors {annotateMode ? 'bg-surface text-ink' : 'text-ink-muted hover:text-ink'}"
 				>
 					Annotate
 				</button>
 
 				{#if !annotateMode && proposalBoxes.length > 0}
 					<div class="ml-auto flex items-center gap-1.5 pr-1">
-						<label class="flex cursor-pointer items-center gap-1.5 text-xs text-text-muted select-none">
-							<input type="checkbox" bind:checked={showBboxOverlay} class="h-3 w-3 border-border text-info" />
+						<label class="flex cursor-pointer items-center gap-1.5 text-xs text-ink-muted select-none">
+							<input type="checkbox" bind:checked={showBboxOverlay} class="h-3 w-3 border-line text-info-ink" />
 							Boxes
 						</label>
 					</div>
@@ -590,77 +591,77 @@
 			{/if}
 
 			{#if usingFullFrameFallback}
-				<div class="border border-border bg-bg px-3 py-2 text-xs text-text-muted">
+				<div class="border border-line bg-well px-3 py-2 text-xs text-ink-muted">
 					Showing the full-frame capture because this classification-chamber sample still carries detection boxes in full-frame coordinates.
 				</div>
 			{/if}
 		</div>
 
 		<div class="space-y-4">
-			<div class="border border-border bg-surface p-4">
+			<div class="border border-line bg-surface p-4">
 				<div class="flex flex-wrap items-center gap-2">
-					<Badge text={sample.review_status} variant="info" />
+					<Badge tone="info">{sentence(sample.review_status)}</Badge>
 					{#if currentDecision}
-						<Badge text={`You: ${currentDecision}`} variant={currentDecision === 'accept' ? 'success' : 'danger'} />
+						<Badge tone={currentDecision === 'accept' ? 'success' : 'danger'}>{sentence(`You: ${currentDecision}`)}</Badge>
 					{/if}
 					{#if sample.source_role}
-						<Badge text={sample.source_role} variant="neutral" />
+						<Badge tone="neutral">{sentence(sample.source_role)}</Badge>
 					{/if}
 				</div>
 
 				<div class="mt-3 space-y-2 text-sm">
 					<div class="flex items-center justify-between gap-3">
-						<span class="text-text-muted">Sample</span>
-						<span class="font-medium text-text" title={sample.local_sample_id}>{shortId(sample.local_sample_id)}</span>
+						<span class="text-ink-muted">Sample</span>
+						<span class="font-medium text-ink" title={sample.local_sample_id}>{shortId(sample.local_sample_id)}</span>
 					</div>
 					<div class="flex items-center justify-between gap-3">
-						<span class="text-text-muted">Captured</span>
-						<span class="text-right text-text">{formatDate(sample.captured_at)}</span>
+						<span class="text-ink-muted">Captured</span>
+						<span class="text-right text-ink">{formatDate(sample.captured_at)}</span>
 					</div>
 					<div class="flex items-center justify-between gap-3">
-						<span class="text-text-muted">Uploaded</span>
-						<span class="text-right text-text">{formatDate(sample.uploaded_at)}</span>
+						<span class="text-ink-muted">Uploaded</span>
+						<span class="text-right text-ink">{formatDate(sample.uploaded_at)}</span>
 					</div>
 					{#if sample.capture_reason}
 						<div class="flex items-center justify-between gap-3">
-							<span class="text-text-muted">Reason</span>
-							<span class="text-right text-text">{sample.capture_reason}</span>
+							<span class="text-ink-muted">Reason</span>
+							<span class="text-right text-ink">{sample.capture_reason}</span>
 						</div>
 					{/if}
 					{#if camera}
 						<div class="flex items-center justify-between gap-3">
-							<span class="text-text-muted">Camera</span>
-							<span class="text-right text-text">{camera}</span>
+							<span class="text-ink-muted">Camera</span>
+							<span class="text-right text-ink">{camera}</span>
 						</div>
 					{/if}
 					{#if detectionScope}
 						<div class="flex items-center justify-between gap-3">
-							<span class="text-text-muted">Scope</span>
-							<span class="text-right text-text">{detectionScope}</span>
+							<span class="text-ink-muted">Scope</span>
+							<span class="text-right text-ink">{detectionScope}</span>
 						</div>
 					{/if}
 					{#if sample.detection_algorithm}
 						<div class="flex items-center justify-between gap-3">
-							<span class="text-text-muted">Detection</span>
-							<span class="text-right text-text">{sample.detection_algorithm}</span>
+							<span class="text-ink-muted">Detection</span>
+							<span class="text-right text-ink">{sample.detection_algorithm}</span>
 						</div>
 					{/if}
 					{#if sample.detection_score != null}
 						<div class="flex items-center justify-between gap-3">
-							<span class="text-text-muted">Score</span>
-							<span class="text-right text-text">{sample.detection_score.toFixed(2)}</span>
+							<span class="text-ink-muted">Score</span>
+							<span class="text-right text-ink">{sample.detection_score.toFixed(2)}</span>
 						</div>
 					{/if}
 					{#if proposalBoxes.length > 0}
 						<div class="flex items-center justify-between gap-3">
-							<span class="text-text-muted">Proposals</span>
-							<span class="text-right font-medium text-text">{proposalBoxes.length}</span>
+							<span class="text-ink-muted">Proposals</span>
+							<span class="text-right font-medium text-ink">{proposalBoxes.length}</span>
 						</div>
 					{/if}
 					{#if detectionFound !== null}
 						<div class="flex items-center justify-between gap-3">
-							<span class="text-text-muted">Found</span>
-							<span class={detectionFound ? 'font-medium text-success' : 'font-medium text-primary'}>
+							<span class="text-ink-muted">Found</span>
+							<span class={detectionFound ? 'font-medium text-success-ink' : 'font-medium text-primary-ink'}>
 								{detectionFound ? 'Yes' : 'No'}
 							</span>
 						</div>

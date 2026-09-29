@@ -42,32 +42,32 @@
 	}
 </script>
 
-<div class="border border-border bg-bg p-4">
+<div class="border border-line bg-well p-4">
 	<div class="mb-3 flex items-baseline justify-between gap-2">
-		<h3 class="text-sm font-medium text-text">AI Spend</h3>
-		<span class="text-xs text-text-muted">billed to your OpenRouter key</span>
+		<h3 class="text-sm font-medium text-ink">AI Spend</h3>
+		<span class="text-xs text-ink-muted">billed to your OpenRouter key</span>
 	</div>
 
 	{#if loading}
-		<p class="flex items-center gap-1.5 text-xs text-text-muted"><Spinner size={12} /> Loading…</p>
+		<p class="flex items-center gap-1.5 text-xs text-ink-muted"><Spinner size={12} /> Loading…</p>
 	{:else if error}
-		<p class="text-xs text-text-muted">{error}</p>
+		<p class="text-xs text-ink-muted">{error}</p>
 	{:else if summary}
 		<div class="grid grid-cols-2 gap-px bg-border sm:grid-cols-4">
 			{#each periods as period (period.key)}
 				{@const totals = totalsFor(period.key)}
-				<div class="bg-bg p-3">
-					<div class="text-xs text-text-muted">{period.label}</div>
-					<div class="mt-1 text-lg font-semibold text-text">
+				<div class="bg-well p-3">
+					<div class="text-xs text-ink-muted">{period.label}</div>
+					<div class="mt-1 text-lg font-semibold text-ink">
 						{formatCost(totals?.cost_usd ?? 0)}
 					</div>
-					<div class="mt-1 text-xs text-text-muted">
+					<div class="mt-1 text-xs text-ink-muted">
 						{formatCount(totals?.message_count ?? 0)} requests · {formatCount(totals?.total_tokens ?? 0)} tokens
 					</div>
 				</div>
 			{/each}
 		</div>
-		<p class="mt-2 text-xs text-text-muted">
+		<p class="mt-2 text-xs text-ink-muted">
 			{#if summary.since}
 				Tracked since {new Date(summary.since).toLocaleDateString()}.
 			{:else}

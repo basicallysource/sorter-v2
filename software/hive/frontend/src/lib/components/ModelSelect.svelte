@@ -48,10 +48,10 @@
 
 	function costTone(model: AiModelOption): string {
 		const f = model.cost_factor;
-		if (f == null) return 'text-text-muted';
-		if (f <= 0.5) return 'text-success';
-		if (f <= 1.5) return 'text-text-muted';
-		return 'text-primary';
+		if (f == null) return 'text-ink-muted';
+		if (f <= 0.5) return 'text-success-ink';
+		if (f <= 1.5) return 'text-ink-muted';
+		return 'text-primary-ink';
 	}
 
 	function choose(model: AiModelOption) {
@@ -111,13 +111,13 @@
 		onkeydown={handleKeydown}
 		aria-haspopup="listbox"
 		aria-expanded={open}
-		class="flex w-full items-center justify-between gap-3 border border-border bg-surface px-3 py-2 text-left text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary disabled:opacity-50"
+		class="flex w-full items-center justify-between gap-3 border border-line bg-surface px-3 py-2 text-left text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary disabled:opacity-50"
 	>
-		<span class="min-w-0 flex-1 truncate font-mono text-text">{value}</span>
+		<span class="min-w-0 flex-1 truncate font-mono text-ink">{value}</span>
 		{#if selected?.cost_factor_label}
 			<span class="shrink-0 text-xs {costTone(selected)}">{selected.cost_factor_label}</span>
 		{/if}
-		<svg class="h-4 w-4 shrink-0 text-text-muted" viewBox="0 0 20 20" fill="currentColor">
+		<svg class="h-4 w-4 shrink-0 text-ink-muted" viewBox="0 0 20 20" fill="currentColor">
 			<path
 				fill-rule="evenodd"
 				d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z"
@@ -128,10 +128,10 @@
 
 	{#if open}
 		<div
-			class="absolute z-30 mt-1 max-h-96 w-full overflow-y-auto border border-border bg-surface shadow-lg"
+			class="absolute z-30 mt-1 max-h-96 w-full overflow-y-auto border border-line bg-surface shadow-lg"
 			role="listbox"
 		>
-			<div class="sticky top-0 border-b border-border bg-surface p-2">
+			<div class="sticky top-0 border-b border-line bg-surface p-2">
 				<input
 					bind:this={searchInput}
 					bind:value={query}
@@ -139,18 +139,18 @@
 					onkeydown={handleKeydown}
 					type="text"
 					placeholder="Search models..."
-					class="w-full border border-border bg-bg px-2 py-1.5 text-sm focus:border-primary focus:outline-none"
+					class="w-full border border-line bg-well px-2 py-1.5 text-sm focus:border-primary focus:outline-none"
 				/>
 			</div>
 
 			{#if flatFiltered.length === 0}
-				<div class="p-3 text-sm text-text-muted">No models match "{query}".</div>
+				<div class="p-3 text-sm text-ink-muted">No models match "{query}".</div>
 			{/if}
 
 			{#each filteredGroups as group}
-				<div class="border-b border-border/50 last:border-b-0">
+				<div class="border-b border-line/50 last:border-b-0">
 					<div
-						class="bg-bg px-3 py-1 text-xs font-semibold uppercase tracking-wide text-text-muted"
+						class="bg-well px-3 py-1 text-xs font-semibold uppercase tracking-wide text-ink-muted"
 					>
 						{group.label}
 					</div>
@@ -162,15 +162,15 @@
 							aria-selected={model.id === value}
 							onclick={() => choose(model)}
 							onmouseenter={() => (highlighted = index)}
-							class="flex w-full items-center justify-between gap-3 px-3 py-2 text-left hover:bg-bg
-								{index === highlighted ? 'bg-bg' : ''}"
+							class="flex w-full items-center justify-between gap-3 px-3 py-2 text-left hover:bg-hover
+								{index === highlighted ? 'bg-well' : ''}"
 						>
 							<span class="min-w-0 flex-1">
-								<span class="block truncate font-mono text-sm text-text">
-									{#if model.id === value}<span class="text-primary">✓ </span>{/if}{model.id}
+								<span class="block truncate font-mono text-sm text-ink">
+									{#if model.id === value}<span class="text-primary-ink">✓ </span>{/if}{model.id}
 								</span>
 								{#if formatPrice(model)}
-									<span class="block truncate text-xs text-text-muted">{formatPrice(model)}</span>
+									<span class="block truncate text-xs text-ink-muted">{formatPrice(model)}</span>
 								{/if}
 							</span>
 							{#if model.cost_factor_label}
@@ -184,7 +184,7 @@
 			{/each}
 
 			{#if baselineModel}
-				<div class="border-t border-border bg-bg px-3 py-2 text-xs text-text-muted">
+				<div class="border-t border-line bg-well px-3 py-2 text-xs text-ink-muted">
 					Cost shown relative to <span class="font-mono">{baselineModel}</span> (blended
 					input/output price). Live from OpenRouter.
 				</div>

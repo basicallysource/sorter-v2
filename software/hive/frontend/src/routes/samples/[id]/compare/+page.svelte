@@ -10,7 +10,7 @@
 	} from '$lib/api';
 	import ModelCompareTile from '$lib/components/teacher/ModelCompareTile.svelte';
 	import Spinner from '$lib/components/Spinner.svelte';
-	import { Button } from '$lib/components/primitives';
+	import Button from '$lib/components/Button.svelte';
 
 	const sampleId = $derived(page.params.id ?? '');
 
@@ -138,7 +138,7 @@
 
 <div class="mb-5 flex flex-wrap items-end justify-between gap-3">
 	<div class="min-w-0">
-		<div class="mb-1 text-xs text-text-muted">
+		<div class="mb-1 text-xs text-ink-muted">
 			<a href="/samples" class="hover:underline">Samples</a>
 			<span class="mx-1">/</span>
 			{#if sample}
@@ -147,8 +147,8 @@
 			{/if}
 			<span>Compare models</span>
 		</div>
-		<h1 class="text-2xl font-bold text-text">Compare teacher models</h1>
-		<p class="mt-1 text-sm text-text-muted">
+		<h1 class="text-2xl font-bold text-ink">Compare teacher models</h1>
+		<p class="mt-1 text-sm text-ink-muted">
 			One image tile per model. Non-destructive — the sample's stored detection is not touched.
 		</p>
 	</div>
@@ -160,33 +160,33 @@
 {#if loading}
 	<div class="flex justify-center p-8"><Spinner size={32} /></div>
 {:else if loadError}
-	<div class="border border-border bg-surface px-6 py-10 text-center text-sm text-text-muted">
+	<div class="border border-line bg-surface px-6 py-10 text-center text-sm text-ink-muted">
 		{loadError}
 	</div>
 {:else if !sample}
-	<div class="border border-border bg-surface px-6 py-10 text-center text-sm text-text-muted">
+	<div class="border border-line bg-surface px-6 py-10 text-center text-sm text-ink-muted">
 		Sample not found.
 	</div>
 {:else}
-	<details class="mb-5 border border-border bg-surface" open>
-		<summary class="flex cursor-pointer items-center justify-between gap-2 border-b border-border px-4 py-2.5">
+	<details class="mb-5 border border-line bg-surface" open>
+		<summary class="flex cursor-pointer items-center justify-between gap-2 border-b border-line px-4 py-2.5">
 			<div class="flex items-center gap-2">
-				<span class="text-sm font-semibold text-text">Prompt</span>
+				<span class="text-sm font-semibold text-ink">Prompt</span>
 				{#if promptDirty}
-					<span class="bg-warning-bg px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-warning-strong">
+					<span class="bg-warning-soft px-1.5 py-0.5 text-xs font-semibold uppercase tracking-wider text-warning-ink">
 						modified
 					</span>
 				{:else}
-					<span class="text-[11px] text-text-muted">(default)</span>
+					<span class="text-xs text-ink-muted">(default)</span>
 				{/if}
 			</div>
-			<div class="flex items-center gap-2 text-[11px] text-text-muted">
+			<div class="flex items-center gap-2 text-xs text-ink-muted">
 				<span>{promptText.length} chars</span>
 				{#if promptDirty}
 					<button
 						type="button"
 						onclick={(e) => { e.preventDefault(); e.stopPropagation(); resetPrompt(); }}
-						class="text-primary hover:underline"
+						class="text-primary-ink hover:underline"
 					>
 						Reset to default
 					</button>
@@ -195,7 +195,7 @@
 		</summary>
 		<div class="px-4 py-3">
 			{#if promptLoadError}
-				<div class="mb-2 border border-warning-strong bg-warning-bg px-3 py-2 text-[11px] text-warning-strong">
+				<div class="mb-2 border border-warning-strong bg-warning-soft px-3 py-2 text-xs text-warning-ink">
 					{promptLoadError}
 				</div>
 			{/if}
@@ -203,9 +203,9 @@
 				bind:value={promptText}
 				oninput={onPromptInput}
 				rows="12"
-				class="w-full resize-y border border-border bg-surface px-3 py-2 font-mono text-[12px] leading-relaxed text-text focus:border-primary focus:outline-none"
+				class="w-full resize-y border border-line bg-surface px-3 py-2 font-mono text-[12px] leading-relaxed text-ink focus:border-primary focus:outline-none"
 			></textarea>
-			<p class="mt-2 text-[11px] text-text-muted">
+			<p class="mt-2 text-xs text-ink-muted">
 				Modified prompt is sent verbatim to every <em>chat-style</em> adapter on the next Run.
 				<strong>Perceptron Mk1 ignores this textarea</strong> — its native grounding mode
 				needs a short declarative instruction and breaks into conversational prose when fed

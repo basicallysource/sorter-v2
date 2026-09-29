@@ -51,43 +51,43 @@
 </svelte:head>
 
 <div class="flex min-h-[80vh] items-center justify-center">
-	<div class="w-full max-w-sm border border-border bg-surface p-8">
-		<h1 class="mb-6 text-center text-2xl font-bold text-text">Create an account</h1>
+	<div class="w-full max-w-sm border border-line bg-surface p-8">
+		<h1 class="mb-6 text-center text-2xl font-bold text-ink">Create an account</h1>
 
 		{#if error}
-			<div class="mb-4 bg-primary-light p-3 text-sm text-danger">{error}</div>
+			<div class="mb-4 bg-primary-soft p-3 text-sm text-danger-ink">{error}</div>
 		{/if}
 
 		<form onsubmit={handleSubmit} class="space-y-4">
 			<div>
-				<label for="displayName" class="mb-1 block text-sm font-medium text-text">Display Name</label>
+				<label for="displayName" class="mb-1 block text-sm font-medium text-ink">Display Name</label>
 				<input
 					id="displayName"
 					type="text"
 					bind:value={displayName}
 					required
-					class="w-full border border-border px-3 py-2 text-sm focus:border-primary focus:ring-1 focus:ring-primary focus:outline-none"
+					class="w-full border border-line px-3 py-2 text-sm focus:border-primary focus:ring-1 focus:ring-primary focus:outline-none"
 				/>
 			</div>
 			<div>
-				<label for="email" class="mb-1 block text-sm font-medium text-text">Email</label>
+				<label for="email" class="mb-1 block text-sm font-medium text-ink">Email</label>
 				<input
 					id="email"
 					type="email"
 					bind:value={email}
 					required
-					class="w-full border border-border px-3 py-2 text-sm focus:border-primary focus:ring-1 focus:ring-primary focus:outline-none"
+					class="w-full border border-line px-3 py-2 text-sm focus:border-primary focus:ring-1 focus:ring-primary focus:outline-none"
 				/>
 			</div>
 			<div>
-				<label for="password" class="mb-1 block text-sm font-medium text-text">Password</label>
+				<label for="password" class="mb-1 block text-sm font-medium text-ink">Password</label>
 				<input
 					id="password"
 					type="password"
 					bind:value={password}
 					required
 					minlength="8"
-					class="w-full border border-border px-3 py-2 text-sm focus:border-primary focus:ring-1 focus:ring-primary focus:outline-none"
+					class="w-full border border-line px-3 py-2 text-sm focus:border-primary focus:ring-1 focus:ring-primary focus:outline-none"
 				/>
 			</div>
 			<button
@@ -101,9 +101,9 @@
 
 		<OAuthButtons options={authOptions} next={safeNextPath()} />
 
-		<p class="mt-4 text-center text-sm text-text-muted">
+		<p class="mt-4 text-center text-sm text-ink-muted">
 			Already have an account?
-			<a href={`/login${nextQueryString()}`} class="text-primary hover:underline">Sign in</a>
+			<a href={`/login${nextQueryString()}`} class="text-primary-ink hover:underline">Sign in</a>
 		</p>
 	</div>
 </div>

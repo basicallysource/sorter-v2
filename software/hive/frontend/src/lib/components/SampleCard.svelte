@@ -16,10 +16,10 @@
 	// status hues stay put in both themes — but they come from the tokens rather
 	// than repeating the hex values.
 	const statusConfig: Record<string, { label: string; color: string; bg: string }> = {
-		accepted: { label: 'Accepted', color: 'var(--color-success)', bg: 'color-mix(in srgb, var(--color-success) 12%, transparent)' },
-		rejected: { label: 'Rejected', color: 'var(--color-primary)', bg: 'color-mix(in srgb, var(--color-primary) 10%, transparent)' },
-		in_review: { label: 'Needs more reviews', color: 'var(--color-info)', bg: 'color-mix(in srgb, var(--color-info) 10%, transparent)' },
-		conflict: { label: 'Conflict', color: 'var(--color-warning)', bg: 'color-mix(in srgb, var(--color-warning) 15%, transparent)' },
+		accepted: { label: 'Accepted', color: 'var(--success)', bg: 'color-mix(in srgb, var(--success) 12%, transparent)' },
+		rejected: { label: 'Rejected', color: 'var(--primary)', bg: 'color-mix(in srgb, var(--primary) 10%, transparent)' },
+		in_review: { label: 'Needs more reviews', color: 'var(--info)', bg: 'color-mix(in srgb, var(--info) 10%, transparent)' },
+		conflict: { label: 'Conflict', color: 'var(--warning)', bg: 'color-mix(in srgb, var(--warning) 15%, transparent)' },
 		unreviewed: { label: 'Unreviewed', color: '#FFFFFF', bg: 'rgba(0,0,0,0.45)' }
 	};
 
@@ -81,11 +81,11 @@
 </script>
 
 <a
-	class="group block overflow-hidden border border-border bg-surface transition hover:border-text-muted"
+	class="group block overflow-hidden border border-line bg-surface transition hover:border-text-muted"
 	{href}
 >
 	<!-- Image with overlays -->
-	<div class="relative aspect-square overflow-hidden bg-bg">
+	<div class="relative aspect-square overflow-hidden bg-well">
 		<img
 			src={api.sampleImageUrl(sample.id)}
 			alt="Sample {sample.local_sample_id}"
@@ -116,7 +116,7 @@
 		{/if}
 		<!-- Status pill — top left. Global consensus state. -->
 		<span
-			class="absolute top-1.5 left-1.5 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider"
+			class="absolute top-1.5 left-1.5 px-1.5 py-0.5 text-xs font-semibold uppercase tracking-wider"
 			style="color: {cfg.color}; background: {cfg.bg}; backdrop-filter: blur(4px);"
 		>
 			{cfg.label}
@@ -125,7 +125,7 @@
 		     see at a glance whether you've already voted on this sample. -->
 		{#if sample.my_review_decision}
 			<span
-				class="absolute top-1.5 left-1.5 mt-5 flex items-center gap-0.5 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-white backdrop-blur-sm {sample.my_review_decision === 'accept' ? 'bg-success/85' : 'bg-primary/85'}"
+				class="absolute top-1.5 left-1.5 mt-5 flex items-center gap-0.5 px-1.5 py-0.5 text-xs font-semibold uppercase tracking-wider text-white backdrop-blur-sm {sample.my_review_decision === 'accept' ? 'bg-success/85' : 'bg-primary/85'}"
 				title={sample.my_review_decision === 'accept' ? 'You accepted this' : 'You rejected this'}
 			>
 				You: {sample.my_review_decision === 'accept' ? '✓' : '✗'}
@@ -133,14 +133,14 @@
 		{/if}
 		<!-- Detection count — top right -->
 		{#if sample.detection_count != null && sample.detection_count > 0}
-			<span class="absolute top-1.5 right-1.5 flex h-5 min-w-5 items-center justify-center bg-black/50 px-1 text-[10px] font-bold text-white backdrop-blur-sm">
+			<span class="absolute top-1.5 right-1.5 flex h-5 min-w-5 items-center justify-center bg-black/50 px-1 text-xs font-bold text-white backdrop-blur-sm">
 				{sample.detection_count}
 			</span>
 		{/if}
 		<!-- "Raw" marker — no teacher pass yet, boxes are likely incomplete. -->
 		{#if isRaw}
 			<span
-				class="absolute bottom-1.5 left-1.5 bg-warning/85 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-warning-ink backdrop-blur-sm"
+				class="absolute bottom-1.5 left-1.5 bg-warning/85 px-1.5 py-0.5 text-xs font-semibold uppercase tracking-wider text-on-warning backdrop-blur-sm"
 				title="No teacher pass yet — boxes may be incomplete. Consider waiting before reviewing."
 			>
 				Raw
@@ -149,7 +149,7 @@
 		<!-- Exposure badge — bottom right so it doesn't collide with Raw. -->
 		{#if exposureLabel}
 			<span
-				class="absolute bottom-1.5 right-1.5 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-white backdrop-blur-sm {exposureLabel === 'underexposed' ? 'bg-canvas/85' : 'bg-primary/85'}"
+				class="absolute bottom-1.5 right-1.5 px-1.5 py-0.5 text-xs font-semibold uppercase tracking-wider text-white backdrop-blur-sm {exposureLabel === 'underexposed' ? 'bg-media/85' : 'bg-primary/85'}"
 				title={exposureLabel === 'underexposed'
 					? `Underexposed (mean ${sample.luminance_mean?.toFixed(0)}). Likely a lights-off frame.`
 					: `Overexposed (mean ${sample.luminance_mean?.toFixed(0)}). Likely sensor saturation.`}
@@ -161,19 +161,19 @@
 
 	<!-- Info row -->
 	<div class="flex items-center justify-between px-2.5 py-2">
-		<div class="flex items-center gap-1.5 text-[10px] text-text-muted">
+		<div class="flex items-center gap-1.5 text-xs text-ink-muted">
 			{#if roleLabel}
-				<span class="font-medium text-text">{roleLabel}</span>
+				<span class="font-medium text-ink">{roleLabel}</span>
 				<span class="text-border">&middot;</span>
 			{/if}
 			<span>{timeAgo}</span>
 			{#if score !== null}
 				<span class="text-border">&middot;</span>
-				<span class="{score >= 80 ? 'text-success' : score >= 50 ? 'text-text' : 'text-primary'}">{score}%</span>
+				<span class="{score >= 80 ? 'text-success-ink' : score >= 50 ? 'text-ink' : 'text-primary-ink'}">{score}%</span>
 			{/if}
 		</div>
 		{#if sample.review_count > 0}
-			<span class="text-[10px] text-text-muted">{sample.review_count}x</span>
+			<span class="text-xs text-ink-muted">{sample.review_count}x</span>
 		{/if}
 	</div>
 </a>

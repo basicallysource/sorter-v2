@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { getApiBaseUrl } from '$lib/api';
-	import { Button, Alert } from '$lib/components/primitives';
+	import Button from '$lib/components/Button.svelte';
+	import Alert from '$lib/components/Alert.svelte';
 
 	let installId = $state('');
 	let submitting = $state(false);
@@ -36,8 +37,8 @@
 
 <div class="mx-auto flex min-h-screen w-full max-w-xl flex-col justify-center gap-6 px-5 py-10">
 	<div>
-		<h1 class="text-2xl font-bold text-text">Delete anonymous data</h1>
-		<p class="mt-2 text-sm text-text-muted">
+		<h1 class="text-2xl font-bold text-ink">Delete anonymous data</h1>
+		<p class="mt-2 text-sm text-ink-muted">
 			Sorter machines send an anonymous status ping (existence, software version, and coarse usage
 			counts) tied to a random install ID — never an account. Paste that install ID below to
 			permanently erase everything we hold for it. You can find the ID on your machine at
@@ -45,9 +46,9 @@
 		</p>
 	</div>
 
-	<form onsubmit={handleSubmit} class="space-y-4 border border-border bg-surface p-6">
+	<form onsubmit={handleSubmit} class="space-y-4 border border-line bg-surface p-6">
 		<div>
-			<label for="installId" class="mb-1 block text-sm font-medium text-text">Install ID</label>
+			<label for="installId" class="mb-1 block text-sm font-medium text-ink">Install ID</label>
 			<input
 				id="installId"
 				type="text"
@@ -55,16 +56,16 @@
 				placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
 				required
 				disabled={submitting}
-				class="w-full border border-border px-3 py-2 font-mono text-sm text-text focus:border-primary focus:ring-1 focus:ring-primary focus:outline-none disabled:opacity-60"
+				class="w-full border border-line px-3 py-2 font-mono text-sm text-ink focus:border-primary focus:ring-1 focus:ring-primary focus:outline-none disabled:opacity-60"
 			/>
 		</div>
 
 		{#if error}
-			<Alert variant="danger" title="Error">{error}</Alert>
+			<Alert tone="danger" title="Error">{error}</Alert>
 		{/if}
 
 		{#if result}
-			<Alert variant="success" title="Done">
+			<Alert tone="success" title="Done">
 				{#if result.deleted > 0}
 					Deleted. Everything for that install ID has been erased. New pings from that machine will
 					start a fresh record — set <code>SORTER_BASE_REPORTING_OFF=1</code> on the machine to stop them.

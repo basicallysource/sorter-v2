@@ -2,7 +2,7 @@
 	import { page } from '$app/state';
 	import { api, type MachineChannelCropInfo } from '$lib/api';
 	import Spinner from '$lib/components/Spinner.svelte';
-	import { Button } from '$lib/components/primitives';
+	import Button from '$lib/components/Button.svelte';
 
 	const PAGE_SIZE = 120;
 
@@ -104,7 +104,7 @@
 			case 1:
 				return 'border-info';
 			default:
-				return 'border-border';
+				return 'border-line';
 		}
 	}
 
@@ -136,19 +136,19 @@
 </svelte:head>
 
 <div class="mb-4">
-	<a href={`/machines/${machineId}`} class="text-sm text-text-muted hover:text-text">← Machine overview</a>
+	<a href={`/machines/${machineId}`} class="text-sm text-ink-muted hover:text-ink">← Machine overview</a>
 </div>
 
 <div class="mb-4 flex flex-wrap items-end justify-between gap-x-4 gap-y-1">
 	<div class="min-w-0">
-		<h1 class="text-2xl font-bold text-text">{machineName || 'Machine'}</h1>
-		<p class="text-sm text-text-muted">
+		<h1 class="text-2xl font-bold text-ink">{machineName || 'Machine'}</h1>
+		<p class="text-sm text-ink-muted">
 			Unlabeled C2/C3 bbox crops synced from this machine — tagged with the piece's
 			distance to the exit zone, for same-piece lookup.
 		</p>
 	</div>
 	{#if !loading}
-		<span class="shrink-0 text-sm text-text-muted">
+		<span class="shrink-0 text-sm text-ink-muted">
 			{crops.length.toLocaleString()} of {total.toLocaleString()} loaded
 		</span>
 	{/if}
@@ -176,7 +176,7 @@
 </div>
 
 {#if error}
-	<div class="mb-4 bg-primary/8 p-3 text-sm text-primary">{error}</div>
+	<div class="mb-4 bg-primary/8 p-3 text-sm text-primary-ink">{error}</div>
 {/if}
 
 {#if loading}
@@ -184,13 +184,13 @@
 		<Spinner size={32} />
 	</div>
 {:else if crops.length === 0}
-	<div class="border border-border bg-surface p-8 text-center text-sm text-text-muted">
+	<div class="border border-line bg-surface p-8 text-center text-sm text-ink-muted">
 		No channel crops synced from this machine yet.
 	</div>
 {:else}
 	<div class="flex flex-wrap gap-2">
 		{#each crops as crop (crop.local_id)}
-			<div class="flex w-24 flex-col border border-border bg-surface p-1">
+			<div class="flex w-24 flex-col border border-line bg-surface p-1">
 				{#if crop.available}
 					<img
 						src={api.machineChannelCropImageUrl(machineId, crop.local_id)}
@@ -203,14 +203,14 @@
 					/>
 				{:else}
 					<div
-						class="flex h-20 w-full items-center justify-center border border-dashed border-border bg-bg text-center text-[9px] text-text-muted"
+						class="flex h-20 w-full items-center justify-center border border-dashed border-line bg-well text-center text-xs text-ink-muted"
 						title="evicted before sync"
 					>
 						evicted
 					</div>
 				{/if}
-				<div class="mt-1 text-center text-[10px] leading-tight text-text-muted">
-					<div class="text-text">C{crop.channel} · {zoneLabel(crop.zone_code)}</div>
+				<div class="mt-1 text-center text-xs leading-tight text-ink-muted">
+					<div class="text-ink">C{crop.channel} · {zoneLabel(crop.zone_code)}</div>
 					<div class="tabular-nums">{deg(crop.com_forward_to_exit_deg)}</div>
 				</div>
 			</div>
@@ -225,7 +225,7 @@
 		{:else if nextCursor != null}
 			<Button variant="secondary" size="sm" onclick={loadMore}>Load more</Button>
 		{:else}
-			<span class="text-xs text-text-muted">End of list · {total.toLocaleString()} crops total</span>
+			<span class="text-xs text-ink-muted">End of list · {total.toLocaleString()} crops total</span>
 		{/if}
 	</div>
 {/if}

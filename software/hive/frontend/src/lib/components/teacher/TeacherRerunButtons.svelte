@@ -96,12 +96,12 @@
 	}
 </script>
 
-<div class="border border-border bg-surface">
-	<div class="flex items-center justify-between border-b border-border px-3 py-2">
-		<h3 class="text-xs font-semibold uppercase tracking-wider text-text-muted">Re-run teacher</h3>
+<div class="border border-line bg-surface">
+	<div class="flex items-center justify-between border-b border-line px-3 py-2">
+		<h3 class="text-xs font-semibold uppercase tracking-wider text-ink-muted">Re-run teacher</h3>
 		<a
 			href={`/samples/${sampleId}/compare`}
-			class="text-[11px] text-text-muted hover:text-primary"
+			class="text-xs text-ink-muted hover:text-primary-ink"
 			title="Compare all models side-by-side"
 		>
 			Compare →
@@ -109,7 +109,7 @@
 	</div>
 
 	{#if modelsError}
-		<div class="border-b border-border bg-warning-bg px-3 py-2 text-[11px] text-warning-strong">
+		<div class="border-b border-line bg-warning-soft px-3 py-2 text-xs text-warning-ink">
 			{modelsError}
 		</div>
 	{/if}
@@ -123,19 +123,19 @@
 				disabled={running}
 				onclick={() => run(m.model_id)}
 				title={m.notes || m.model_id}
-				class="flex items-center gap-2 border px-2 py-1.5 text-left text-xs transition-colors disabled:cursor-not-allowed disabled:opacity-60 {isPreferred ? 'border-primary bg-primary-light text-primary' : 'border-border bg-surface text-text hover:bg-bg'}"
+				class="flex items-center gap-2 border px-2 py-1.5 text-left text-xs transition-colors disabled:cursor-not-allowed disabled:opacity-60 {isPreferred ? 'border-primary bg-primary-soft text-primary-ink' : 'border-line bg-surface text-ink hover:bg-hover'}"
 			>
 				{#if running}
 					<Spinner size={12} />
 				{:else}
-					<svg class="h-3 w-3 shrink-0 text-text-muted" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+					<svg class="h-3 w-3 shrink-0 text-ink-muted" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
 						<path stroke-linecap="round" stroke-linejoin="round" d="M14 5l7 7m0 0l-7 7m7-7H3" />
 					</svg>
 				{/if}
 				<span class="min-w-0 flex-1 truncate font-medium">{m.display_name}</span>
 				{#if formatPrice(m.model_id)}
 					<span
-						class="shrink-0 font-mono text-[10px] text-text-muted tabular-nums"
+						class="shrink-0 font-mono text-xs text-ink-muted tabular-nums"
 						title="≈ cost per call (2k input + 150 output tokens)"
 					>
 						{formatPrice(m.model_id)}
@@ -146,12 +146,12 @@
 	</div>
 
 	{#if lastSuccess}
-		<div class="border-t border-border bg-success/10 px-3 py-1.5 text-[11px] text-success">
+		<div class="border-t border-line bg-success/10 px-3 py-1.5 text-xs text-success-ink">
 			{lastSuccess.count} box{lastSuccess.count === 1 ? '' : 'es'} via {models.find((m) => m.model_id === lastSuccess?.modelId)?.display_name ?? lastSuccess.modelId}
 		</div>
 	{/if}
 	{#if lastError}
-		<div class="border-t border-border bg-warning-bg px-3 py-1.5 text-[11px] text-warning-strong">
+		<div class="border-t border-line bg-warning-soft px-3 py-1.5 text-xs text-warning-ink">
 			{models.find((m) => m.model_id === lastError?.modelId)?.display_name ?? lastError.modelId}: {lastError.message}
 		</div>
 	{/if}

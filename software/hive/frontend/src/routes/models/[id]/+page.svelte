@@ -10,9 +10,9 @@
 	import ModelTrainingReport from '$lib/components/ModelTrainingReport.svelte';
 	import Badge from '$lib/components/Badge.svelte';
 	import Spinner from '$lib/components/Spinner.svelte';
-	import { Alert } from '$lib/components/primitives';
+	import Alert from '$lib/components/Alert.svelte';
 	import { auth } from '$lib/auth.svelte';
-	import Star from 'lucide-svelte/icons/star';
+	import Star from '@lucide/svelte/icons/star';
 
 	let model = $state<DetectionModelDetail | null>(null);
 	let loading = $state(true);
@@ -177,16 +177,16 @@
 
 	// Color accent per runtime so the download tiles read at a glance.
 	const runtimeAccent: Record<string, string> = {
-		onnx: 'var(--color-info)',
-		ncnn: 'var(--color-success)',
-		pytorch: 'var(--color-primary)',
+		onnx: 'var(--info)',
+		ncnn: 'var(--success)',
+		pytorch: 'var(--primary)',
 		rknn: '#9333EA',  // purple — Rockchip / Orange Pi
-		hailo: 'var(--color-warning)',
-		tflite: 'var(--color-warning)'
+		hailo: 'var(--warning)',
+		tflite: 'var(--warning)'
 	};
 
 	function variantAccent(variant: DetectionModelVariant): string {
-		return runtimeAccent[variant.runtime.toLowerCase()] ?? 'var(--color-text-muted)';
+		return runtimeAccent[variant.runtime.toLowerCase()] ?? 'var(--ink-muted)';
 	}
 
 	// Short hint of where each runtime usually deploys, shown under the runtime label.
@@ -219,23 +219,23 @@
 </script>
 
 <div class="space-y-4">
-	<a href="/models" class="inline-flex items-center gap-1 text-sm text-text-muted hover:text-text">← Back to models</a>
+	<a href="/models" class="inline-flex items-center gap-1 text-sm text-ink-muted hover:text-ink">← Back to models</a>
 
 	{#if loading}
 		<div class="flex justify-center py-12"><Spinner size={32} /></div>
 	{:else if error}
-		<div class="border border-primary bg-primary-light p-3 text-sm text-primary">{error}</div>
+		<div class="border border-primary bg-primary-soft p-3 text-sm text-primary-ink">{error}</div>
 	{:else if model}
 		<!-- Hero — same DNA as ModelCard but bigger -->
-		<div class="border border-border bg-surface">
+		<div class="border border-line bg-surface">
 			<!-- items-stretch + aspect-square on the swatch makes its height auto-match the
 				 text block's natural height (codename H1 + slug + name = ~3 lines) so the
 				 dot reads as a hero element proportional to its label. -->
-			<div class="flex flex-wrap items-stretch gap-4 border-b border-border px-4 py-4 sm:flex-nowrap sm:px-5">
+			<div class="flex flex-wrap items-stretch gap-4 border-b border-line px-4 py-4 sm:flex-nowrap sm:px-5">
 				{#if model.codename_color}
 					<div class="flex shrink-0 items-center">
 						<span
-							class="block aspect-square w-20 rounded-full border border-border"
+							class="block aspect-square w-20 rounded-full border border-line"
 							style="background-color: {model.codename_color}"
 							aria-hidden="true"
 						></span>
@@ -243,47 +243,47 @@
 				{/if}
 				<div class="min-w-0 flex-1 self-center">
 					{#if model.codename}
-						<h1 class="text-3xl font-bold leading-tight tracking-tight text-text">{model.codename}</h1>
+						<h1 class="text-3xl font-bold leading-tight tracking-tight text-ink">{model.codename}</h1>
 					{:else}
-						<h1 class="text-2xl font-semibold tracking-tight text-text">{model.name}</h1>
+						<h1 class="text-2xl font-semibold tracking-tight text-ink">{model.name}</h1>
 					{/if}
-					<p class="mt-1 font-mono text-xs text-text-muted">
+					<p class="mt-1 font-mono text-xs text-ink-muted">
 						{model.slug} · v{model.version} · {relativeTime(model.published_at)}
 					</p>
 					{#if model.codename && model.name}
-						<p class="mt-0.5 text-sm text-text-muted">{model.name}</p>
+						<p class="mt-0.5 text-sm text-ink-muted">{model.name}</p>
 					{/if}
 				</div>
 				<div class="flex shrink-0 flex-col items-end gap-1 self-start">
 					{#if model.experimental}
-						<Badge text="Experimental" variant="warning" />
+						<Badge tone="warning">Experimental</Badge>
 					{:else}
-						<Badge text="Stable" variant="success" />
+						<Badge tone="success">Stable</Badge>
 					{/if}
 					{#if !model.is_public}
-						<span class="border border-border bg-bg px-2 py-0.5 text-[11px] uppercase tracking-wider text-text-muted">Private</span>
+						<span class="border border-line bg-well px-2 py-0.5 text-xs uppercase tracking-wider text-ink-muted">Private</span>
 					{/if}
 				</div>
 			</div>
 
 			<!-- Metric pills — 4 columns including Precision, since the detail page has room -->
 			{#if map50 !== null || map50_95 !== null || precision !== null || recall !== null}
-				<div class="grid grid-cols-2 gap-px border-b border-border bg-border sm:grid-cols-4">
+				<div class="grid grid-cols-2 gap-px border-b border-line bg-border sm:grid-cols-4">
 					<div class="bg-surface px-4 py-3">
-						<div class="text-[10px] uppercase tracking-wider text-text-muted">mAP50</div>
-						<div class="font-mono text-lg font-semibold text-text">{formatPct(map50)}</div>
+						<div class="text-xs uppercase tracking-wider text-ink-muted">mAP50</div>
+						<div class="font-mono text-lg font-semibold text-ink">{formatPct(map50)}</div>
 					</div>
 					<div class="bg-surface px-4 py-3">
-						<div class="text-[10px] uppercase tracking-wider text-text-muted">mAP50_95</div>
-						<div class="font-mono text-lg font-semibold text-text">{formatPct(map50_95)}</div>
+						<div class="text-xs uppercase tracking-wider text-ink-muted">mAP50_95</div>
+						<div class="font-mono text-lg font-semibold text-ink">{formatPct(map50_95)}</div>
 					</div>
 					<div class="bg-surface px-4 py-3">
-						<div class="text-[10px] uppercase tracking-wider text-text-muted">Precision</div>
-						<div class="font-mono text-lg font-semibold text-text">{formatPct(precision)}</div>
+						<div class="text-xs uppercase tracking-wider text-ink-muted">Precision</div>
+						<div class="font-mono text-lg font-semibold text-ink">{formatPct(precision)}</div>
 					</div>
 					<div class="bg-surface px-4 py-3">
-						<div class="text-[10px] uppercase tracking-wider text-text-muted">Recall</div>
-						<div class="font-mono text-lg font-semibold text-text">{formatPct(recall)}</div>
+						<div class="text-xs uppercase tracking-wider text-ink-muted">Recall</div>
+						<div class="font-mono text-lg font-semibold text-ink">{formatPct(recall)}</div>
 					</div>
 				</div>
 			{/if}
@@ -292,8 +292,8 @@
 			{#if arch || imgsz || samples !== null || diversityScore !== null}
 				<div class="grid grid-cols-2 gap-px bg-border sm:grid-cols-3">
 					<div class="bg-surface px-4 py-3">
-						<div class="text-[10px] uppercase tracking-wider text-text-muted">Model</div>
-						<div class="font-mono text-base font-semibold text-text">
+						<div class="text-xs uppercase tracking-wider text-ink-muted">Model</div>
+						<div class="font-mono text-base font-semibold text-ink">
 							{#if arch && imgsz}{arch} @ {imgsz}
 							{:else if arch}{arch}
 							{:else if imgsz}{imgsz}×{imgsz}
@@ -301,8 +301,8 @@
 						</div>
 					</div>
 					<div class="bg-surface px-4 py-3">
-						<div class="text-[10px] uppercase tracking-wider text-text-muted">Samples</div>
-						<div class="font-mono text-base font-semibold text-text">
+						<div class="text-xs uppercase tracking-wider text-ink-muted">Samples</div>
+						<div class="font-mono text-base font-semibold text-ink">
 							{samples !== null ? samples.toLocaleString() : '—'}
 						</div>
 					</div>
@@ -312,8 +312,8 @@
 							? `Normalized Shannon entropy of per-machine sample shares across ${machineCount} rigs. 0 = single rig, 1.0 = perfect even split.`
 							: 'Normalized Shannon entropy of per-machine sample shares. 0 = single rig, 1.0 = perfect even split.'}
 					>
-						<div class="text-[10px] uppercase tracking-wider text-text-muted">Diversity</div>
-						<div class="font-mono text-base font-semibold text-text">
+						<div class="text-xs uppercase tracking-wider text-ink-muted">Diversity</div>
+						<div class="font-mono text-base font-semibold text-ink">
 							{diversityScore !== null ? diversityScore.toFixed(3) : '—'}
 						</div>
 					</div>
@@ -323,13 +323,13 @@
 
 		<!-- Downloads — one visible tile per variant. No dropdown -->
 		{#if model.variants.length > 0}
-			<section class="border border-border bg-surface">
-				<div class="flex items-baseline justify-between border-b border-border px-5 py-3">
-					<h2 class="text-sm font-semibold uppercase tracking-wider text-text-muted">Downloads</h2>
-					<span class="text-xs text-text-muted">{model.variants.length} variant{model.variants.length === 1 ? '' : 's'}</span>
+			<section class="border border-line bg-surface">
+				<div class="flex items-baseline justify-between border-b border-line px-5 py-3">
+					<h2 class="text-sm font-semibold uppercase tracking-wider text-ink-muted">Downloads</h2>
+					<span class="text-xs text-ink-muted">{model.variants.length} variant{model.variants.length === 1 ? '' : 's'}</span>
 				</div>
 				{#if defaultError}
-					<div class="border-b border-border p-3"><Alert variant="danger">{defaultError}</Alert></div>
+					<div class="border-b border-line p-3"><Alert tone="danger">{defaultError}</Alert></div>
 				{/if}
 				<div class="grid grid-cols-1 gap-px bg-border sm:grid-cols-2 lg:grid-cols-4">
 					{#each model.variants as variant (variant.id)}
@@ -338,7 +338,7 @@
 							<span class="absolute inset-y-0 left-0 w-1" style="background-color: {variantAccent(variant)};"></span>
 							<a
 								href={downloadUrl(variant.id)}
-								class="group block flex-1 p-4 transition-colors hover:bg-bg"
+								class="group block flex-1 p-4 transition-colors hover:bg-hover"
 								download={downloadFilename(variant)}
 							>
 								<div class="pl-3">
@@ -346,24 +346,24 @@
 										<span class="font-mono text-sm font-bold uppercase tracking-wider" style="color: {variantAccent(variant)};">
 											{variant.runtime}
 										</span>
-										<span class="text-xs tabular-nums text-text-muted">{formatSize(variant.file_size)}</span>
+										<span class="text-xs tabular-nums text-ink-muted">{formatSize(variant.file_size)}</span>
 									</div>
 									{#if runtimeTarget[variant.runtime.toLowerCase()]}
-										<p class="mt-0.5 text-[11px] text-text-muted">{runtimeTarget[variant.runtime.toLowerCase()]}</p>
+										<p class="mt-0.5 text-xs text-ink-muted">{runtimeTarget[variant.runtime.toLowerCase()]}</p>
 									{/if}
-									<div class="mt-2 truncate font-mono text-[10px] text-text" title={downloadFilename(variant)}>
+									<div class="mt-2 truncate font-mono text-xs text-ink" title={downloadFilename(variant)}>
 										{downloadFilename(variant)}
 									</div>
-									<div class="mt-0.5 font-mono text-[9px] text-text-muted" title={variant.sha256}>
+									<div class="mt-0.5 font-mono text-xs text-ink-muted" title={variant.sha256}>
 										sha256 {variant.sha256.slice(0, 12)}…
 									</div>
 								</div>
 							</a>
 							{#if auth.isAdmin}
 								<label
-									class="flex items-center gap-2 border-t border-border py-2 pr-4 pl-7 text-[11px] {isDefault
-										? 'font-medium text-success'
-										: 'text-text-muted'} {model.is_public ? 'cursor-pointer' : 'cursor-not-allowed'}"
+									class="flex items-center gap-2 border-t border-line py-2 pr-4 pl-7 text-xs {isDefault
+										? 'font-medium text-success-ink'
+										: 'text-ink-muted'} {model.is_public ? 'cursor-pointer' : 'cursor-not-allowed'}"
 									title={model.is_public
 										? undefined
 										: 'Only a public model can be a default: installs fetch it without signing in'}
@@ -383,7 +383,7 @@
 									{/if}
 								</label>
 							{:else if isDefault}
-								<div class="flex items-center gap-2 border-t border-border py-2 pr-4 pl-7 text-[11px] font-medium text-success">
+								<div class="flex items-center gap-2 border-t border-line py-2 pr-4 pl-7 text-xs font-medium text-success-ink">
 									<Star size={12} />Default for new {variant.runtime} installs
 								</div>
 							{/if}
@@ -395,15 +395,15 @@
 
 		<!-- Description + scopes — secondary detail, collapse to single line -->
 		{#if model.description || (model.scopes && model.scopes.length > 0)}
-			<section class="border border-border bg-surface p-4">
+			<section class="border border-line bg-surface p-4">
 				{#if model.description}
-					<p class="text-sm text-text">{model.description}</p>
+					<p class="text-sm text-ink">{model.description}</p>
 				{/if}
 				{#if model.scopes && model.scopes.length > 0}
 					<div class="mt-3 flex flex-wrap items-center gap-1">
-						<span class="text-[10px] uppercase tracking-wider text-text-muted">Scopes:</span>
+						<span class="text-xs uppercase tracking-wider text-ink-muted">Scopes:</span>
 						{#each model.scopes as scope (scope)}
-							<span class="border border-border bg-bg px-1.5 py-0.5 font-mono text-[11px] text-text">{scope}</span>
+							<span class="border border-line bg-well px-1.5 py-0.5 font-mono text-xs text-ink">{scope}</span>
 						{/each}
 					</div>
 				{/if}
@@ -413,17 +413,17 @@
 		<!-- Machines in the dataset — structured per-sample recording when present,
 			 else derived from the training_metadata blob -->
 		{#if machineRows.length > 0}
-			<section class="border border-border bg-surface">
-				<div class="flex items-baseline justify-between border-b border-border px-5 py-3">
-					<h2 class="text-sm font-semibold uppercase tracking-wider text-text-muted">Dataset machines</h2>
-					<span class="text-xs text-text-muted">
+			<section class="border border-line bg-surface">
+				<div class="flex items-baseline justify-between border-b border-line px-5 py-3">
+					<h2 class="text-sm font-semibold uppercase tracking-wider text-ink-muted">Dataset machines</h2>
+					<span class="text-xs text-ink-muted">
 						{machineRows.length} machine{machineRows.length === 1 ? '' : 's'}{#if datasetRecorded > 0}&nbsp;· {datasetRecorded.toLocaleString()} samples recorded{/if}
 					</span>
 				</div>
 				<div class="overflow-x-auto">
 					<table class="w-full text-sm">
 						<thead>
-							<tr class="border-b border-border text-left text-[10px] uppercase tracking-wider text-text-muted">
+							<tr class="border-b border-line text-left text-xs uppercase tracking-wider text-ink-muted">
 								<th class="px-5 py-2 font-medium">Machine</th>
 								<th class="px-3 py-2 text-right font-medium">Train</th>
 								<th class="px-3 py-2 text-right font-medium">Val</th>
@@ -433,23 +433,23 @@
 						</thead>
 						<tbody>
 							{#each machineRows as row (row.name)}
-								<tr class="border-b border-border last:border-b-0">
-									<td class="px-5 py-2 text-text">{row.name}</td>
-									<td class="px-3 py-2 text-right font-mono tabular-nums text-text-muted">
+								<tr class="border-b border-line last:border-b-0">
+									<td class="px-5 py-2 text-ink">{row.name}</td>
+									<td class="px-3 py-2 text-right font-mono tabular-nums text-ink-muted">
 										{row.train !== null ? row.train.toLocaleString() : '—'}
 									</td>
-									<td class="px-3 py-2 text-right font-mono tabular-nums text-text-muted">
+									<td class="px-3 py-2 text-right font-mono tabular-nums text-ink-muted">
 										{row.val !== null ? row.val.toLocaleString() : '—'}
 									</td>
-									<td class="px-3 py-2 text-right font-mono font-semibold tabular-nums text-text">
+									<td class="px-3 py-2 text-right font-mono font-semibold tabular-nums text-ink">
 										{row.total.toLocaleString()}
 									</td>
 									<td class="px-5 py-2">
 										<div class="flex items-center gap-2">
-											<div class="h-1.5 flex-1 bg-bg">
+											<div class="h-1.5 flex-1 bg-well">
 												<div class="h-full bg-primary" style="width: {(row.share * 100).toFixed(1)}%"></div>
 											</div>
-											<span class="w-12 text-right font-mono text-[11px] tabular-nums text-text-muted">
+											<span class="w-12 text-right font-mono text-xs tabular-nums text-ink-muted">
 												{(row.share * 100).toFixed(1)}%
 											</span>
 										</div>
@@ -460,7 +460,7 @@
 					</table>
 				</div>
 				{#if datasetRecorded === 0}
-					<p class="border-t border-border px-5 py-2 text-[11px] text-text-muted">
+					<p class="border-t border-line px-5 py-2 text-xs text-ink-muted">
 						From training metadata — this model predates per-sample dataset recording.
 					</p>
 				{/if}

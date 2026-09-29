@@ -1,6 +1,6 @@
 <script lang="ts">
 	import type { TeacherModelInfo, TeacherPreviewResponse } from '$lib/api';
-	import { Button } from '$lib/components/primitives';
+	import Button from '$lib/components/Button.svelte';
 
 	type RunStatus = 'idle' | 'running' | 'done' | 'error';
 
@@ -73,12 +73,12 @@
 
 <svelte:window onresize={onWindowResize} />
 
-<div class="border border-border bg-surface">
-	<div class="flex items-center gap-2 border-b border-border px-3 py-2">
-		<span class="h-4 w-4 shrink-0 border border-border" style="background: {color};"></span>
+<div class="border border-line bg-surface">
+	<div class="flex items-center gap-2 border-b border-line px-3 py-2">
+		<span class="h-4 w-4 shrink-0 border border-line" style="background: {color};"></span>
 		<div class="min-w-0 flex-1">
-			<div class="truncate text-sm font-semibold text-text">{model.display_name}</div>
-			<div class="truncate font-mono text-[10px] text-text-muted">
+			<div class="truncate text-sm font-semibold text-ink">{model.display_name}</div>
+			<div class="truncate font-mono text-xs text-ink-muted">
 				{model.model_id}
 				<span class="ml-1">[{model.adapter_kind}]</span>
 			</div>
@@ -88,7 +88,7 @@
 		</Button>
 	</div>
 
-	<div class="relative bg-bg">
+	<div class="relative bg-well">
 		<img
 			bind:this={imgEl}
 			src={imageUrl}
@@ -111,51 +111,51 @@
 		{/if}
 		{#if status === 'running'}
 			<div class="absolute inset-0 flex items-center justify-center bg-surface/60">
-				<div class="text-xs text-text-muted">Running…</div>
+				<div class="text-xs text-ink-muted">Running…</div>
 			</div>
 		{/if}
 	</div>
 
 	{#if status === 'done' && result}
-		<div class="grid grid-cols-4 gap-2 border-t border-border px-3 py-2 text-[11px]">
+		<div class="grid grid-cols-4 gap-2 border-t border-line px-3 py-2 text-xs">
 			<div>
-				<div class="text-text-muted">Boxes</div>
-				<div class="tabular-nums font-semibold text-text">{result.count}</div>
+				<div class="text-ink-muted">Boxes</div>
+				<div class="tabular-nums font-semibold text-ink">{result.count}</div>
 			</div>
 			<div>
-				<div class="text-text-muted">Top score</div>
-				<div class="tabular-nums font-semibold text-text">
+				<div class="text-ink-muted">Top score</div>
+				<div class="tabular-nums font-semibold text-ink">
 					{result.score > 0 ? result.score.toFixed(2) : '—'}
 				</div>
 			</div>
 			<div>
-				<div class="text-text-muted">Cost</div>
-				<div class="tabular-nums font-semibold text-text">{formatUsd(result.cost_usd)}</div>
+				<div class="text-ink-muted">Cost</div>
+				<div class="tabular-nums font-semibold text-ink">{formatUsd(result.cost_usd)}</div>
 			</div>
 			<div>
-				<div class="text-text-muted">Latency</div>
-				<div class="tabular-nums font-semibold text-text">{formatMs(result.elapsed_ms)}</div>
+				<div class="text-ink-muted">Latency</div>
+				<div class="tabular-nums font-semibold text-ink">{formatMs(result.elapsed_ms)}</div>
 			</div>
 		</div>
 		{#if result.raw_text || result.raw_annotations}
-			<details class="border-t border-border">
-				<summary class="cursor-pointer px-3 py-1.5 text-[11px] text-text-muted hover:text-text">
+			<details class="border-t border-line">
+				<summary class="cursor-pointer px-3 py-1.5 text-xs text-ink-muted hover:text-ink">
 					Show raw response
 				</summary>
 				{#if result.raw_text}
-					<pre class="max-h-64 overflow-auto border-t border-border bg-bg px-3 py-2 font-mono text-[10px] leading-relaxed text-text whitespace-pre-wrap break-all">{result.raw_text}</pre>
+					<pre class="max-h-64 overflow-auto border-t border-line bg-well px-3 py-2 font-mono text-xs leading-relaxed text-ink whitespace-pre-wrap break-all">{result.raw_text}</pre>
 				{/if}
 				{#if result.raw_annotations}
-					<pre class="max-h-64 overflow-auto border-t border-border bg-bg px-3 py-2 font-mono text-[10px] leading-relaxed text-text whitespace-pre-wrap break-all">{JSON.stringify(result.raw_annotations, null, 2)}</pre>
+					<pre class="max-h-64 overflow-auto border-t border-line bg-well px-3 py-2 font-mono text-xs leading-relaxed text-ink whitespace-pre-wrap break-all">{JSON.stringify(result.raw_annotations, null, 2)}</pre>
 				{/if}
 			</details>
 		{/if}
 	{:else if status === 'error'}
-		<div class="border-t border-border bg-warning-bg px-3 py-2 text-[11px] text-warning-strong">
+		<div class="border-t border-line bg-warning-soft px-3 py-2 text-xs text-warning-ink">
 			{error}
 		</div>
 	{:else if model.notes}
-		<div class="border-t border-border px-3 py-2 text-[11px] text-text-muted">
+		<div class="border-t border-line px-3 py-2 text-xs text-ink-muted">
 			{model.notes}
 		</div>
 	{/if}

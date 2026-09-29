@@ -1,12 +1,12 @@
 <script lang="ts">
-	// Hand-rolled SVG time-series chart (line/area or bar). No charting dep —
-	// matches the flat, token-driven design system.
+	// A time series as SVG, drawn here (line with its area, or bars): no chart
+	// library. The design system's docs/components.md, Charts.
 	export type SeriesPoint = { date: string; value: number };
 
 	let {
 		points,
 		kind = 'line',
-		color = 'var(--color-primary)',
+		color = 'var(--primary)',
 		formatValue = (v: number) => v.toLocaleString()
 	}: {
 		points: SeriesPoint[];
@@ -17,7 +17,7 @@
 
 	const W = 560;
 	const H = 170;
-	const M = { top: 10, right: 10, bottom: 22, left: 44 };
+	const M = { top: 10, right: 10, bottom: 24, left: 48 };
 	const innerW = W - M.left - M.right;
 	const innerH = H - M.top - M.bottom;
 
@@ -85,13 +85,21 @@
 </script>
 
 {#if sorted.length === 0}
-	<div class="flex h-32 items-center justify-center text-sm text-text-muted">No data yet.</div>
+	<div class="flex h-32 items-center justify-center text-sm text-ink-muted">No data yet.</div>
 {:else}
 	<svg viewBox="0 0 {W} {H}" class="h-auto w-full" role="img">
 		{#each [0, 0.5, 1] as f (f)}
 			{@const y = M.top + innerH - f * innerH}
-			<line x1={M.left} y1={y} x2={M.left + innerW} y2={y} stroke="var(--color-border)" stroke-width="1" />
-			<text x={M.left - 6} y={y + 3.5} text-anchor="end" font-size="10" fill="var(--color-text-muted)">
+			<line
+				x1={M.left}
+				y1={y}
+				x2={M.left + innerW}
+				y2={y}
+				stroke="var(--line-strong)"
+				stroke-width="1"
+				vector-effect="non-scaling-stroke"
+			/>
+			<text x={M.left - 6} y={y + 3.5} text-anchor="end" font-size="12" fill="var(--ink-muted)">
 				{formatValue(yMax * f)}
 			</text>
 		{/each}
@@ -112,7 +120,7 @@
 			{#if areaPath}
 				<path d={areaPath} fill={color} fill-opacity="0.08" />
 			{/if}
-			<path d={linePath} fill="none" stroke={color} stroke-width="1.5" />
+			<path d={linePath} fill="none" stroke={color} stroke-width="1.5" vector-effect="non-scaling-stroke" />
 			{#each sorted as p (p.date)}
 				<circle cx={xOf(p.date)} cy={yOf(p.value)} r="2" fill={color}>
 					<title>{formatDayLabel(p.date)}: {formatValue(p.value)}</title>
@@ -121,7 +129,7 @@
 		{/if}
 
 		{#each xTicks as t (t.x + t.label)}
-			<text x={t.x} y={H - 6} text-anchor={t.anchor} font-size="10" fill="var(--color-text-muted)">
+			<text x={t.x} y={H - 6} text-anchor={t.anchor} font-size="12" fill="var(--ink-muted)">
 				{t.label}
 			</text>
 		{/each}

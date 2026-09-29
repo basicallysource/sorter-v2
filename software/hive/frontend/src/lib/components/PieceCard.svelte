@@ -1,9 +1,9 @@
 <script lang="ts">
 	import { api, type ColorLabelPieceCard } from '$lib/api';
-	import Check from 'lucide-svelte/icons/check';
-	import Link2 from 'lucide-svelte/icons/link-2';
-	import Palette from 'lucide-svelte/icons/palette';
-	import Sparkles from 'lucide-svelte/icons/sparkles';
+	import Check from '@lucide/svelte/icons/check';
+	import Link2 from '@lucide/svelte/icons/link-2';
+	import Palette from '@lucide/svelte/icons/palette';
+	import Sparkles from '@lucide/svelte/icons/sparkles';
 
 	type Props = {
 		card: ColorLabelPieceCard;
@@ -20,9 +20,9 @@
 	onclick={() => onOpen(card)}
 	class="group flex flex-col border bg-surface p-2 text-left hover:border-primary {selected
 		? 'border-primary ring-1 ring-primary'
-		: 'border-border'}"
+		: 'border-line'}"
 >
-	<div class="relative flex h-24 w-full items-center justify-center bg-bg">
+	<div class="relative flex h-24 w-full items-center justify-center bg-well">
 		{#if card.thumb_seq != null}
 			<img
 				src={api.colorLabelImageUrl(card.machine_id, card.piece_uuid, card.thumb_seq)}
@@ -31,7 +31,7 @@
 				class="h-24 w-full bg-transparent object-contain"
 			/>
 		{:else}
-			<span class="text-xs text-text-muted">no image</span>
+			<span class="text-xs text-ink-muted">no image</span>
 		{/if}
 		{#if card.has_candidates}
 			<span
@@ -47,12 +47,12 @@
 		{/if}
 	</div>
 	<div
-		class="mt-1.5 truncate text-sm text-text"
+		class="mt-1.5 truncate text-sm text-ink"
 		title={card.part.part_name ?? card.part.part_id ?? ''}
 	>
 		{card.part.part_name || card.part.part_id || 'Unidentified'}
 	</div>
-	<div class="mt-1 flex items-center gap-2 text-xs text-text-muted">
+	<div class="mt-1 flex items-center gap-2 text-xs text-ink-muted">
 		<span class="flex items-center gap-1" title="color labels by users">
 			<Palette size={13} />{card.color_label_count}
 		</span>

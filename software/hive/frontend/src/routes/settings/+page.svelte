@@ -1,16 +1,17 @@
 <script lang="ts">
+	import { sentence } from '$lib/text';
 	import { auth } from '$lib/auth.svelte';
 	import { api, type AiModelCatalog, type AuthOptions, type Machine, type UserIdentitySummary } from '$lib/api';
 	import { goto } from '$app/navigation';
 	import { page } from '$app/state';
 	import Modal from '$lib/components/Modal.svelte';
 	import Badge from '$lib/components/Badge.svelte';
-	import ModelSelect from '$lib/components/primitives/ModelSelect.svelte';
+	import ModelSelect from '$lib/components/ModelSelect.svelte';
 	import AiUsagePanel from '$lib/components/AiUsagePanel.svelte';
 	import BrandMark from '$lib/components/BrandMark.svelte';
-	import Copy from 'lucide-svelte/icons/copy';
-	import Check from 'lucide-svelte/icons/check';
-	import X from 'lucide-svelte/icons/x';
+	import Copy from '@lucide/svelte/icons/copy';
+	import Check from '@lucide/svelte/icons/check';
+	import X from '@lucide/svelte/icons/x';
 
 	let showDeleteModal = $state(false);
 	let deleteError = $state<string | null>(null);
@@ -447,7 +448,7 @@
 	<title>Settings - Hive</title>
 </svelte:head>
 
-<h1 class="mb-6 text-2xl font-bold text-text">Account Settings</h1>
+<h1 class="mb-6 text-2xl font-bold text-ink">Account Settings</h1>
 
 {#if auth.user}
 	<div class="space-y-6">
@@ -455,18 +456,18 @@
 		     the danger zone sit full-bleed underneath it. -->
 		<div class="grid items-start gap-6 md:grid-cols-2">
 			<!-- Profile Section -->
-			<div class="border border-border bg-surface p-6">
-				<h2 class="mb-4 font-semibold text-text">Profile</h2>
+			<div class="border border-line bg-surface p-6">
+				<h2 class="mb-4 font-semibold text-ink">Profile</h2>
 				<dl class="space-y-3 text-sm">
 					<div>
-						<dt class="text-text-muted">Display Name</dt>
+						<dt class="text-ink-muted">Display Name</dt>
 						<dd>
 							{#if editingName}
 								<div class="mt-1 flex gap-2">
 									<input
 										type="text"
 										bind:value={displayName}
-										class="flex-1 border border-border px-3 py-1.5 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+										class="flex-1 border border-line px-3 py-1.5 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
 									/>
 									<button
 										onclick={handleSaveName}
@@ -476,62 +477,62 @@
 									</button>
 									<button
 										onclick={() => { editingName = false; displayName = auth.user?.display_name ?? ''; }}
-										class="border border-border px-3 py-1.5 text-sm font-medium text-text hover:bg-bg"
+										class="border border-line px-3 py-1.5 text-sm font-medium text-ink hover:bg-hover"
 									>
 										Cancel
 									</button>
 								</div>
 								{#if nameError}
-									<p class="mt-1 text-xs text-primary">{nameError}</p>
+									<p class="mt-1 text-xs text-primary-ink">{nameError}</p>
 								{/if}
 							{:else}
 								<div class="flex items-center gap-2">
-									<span class="font-medium text-text">{auth.user.display_name}</span>
+									<span class="font-medium text-ink">{auth.user.display_name}</span>
 									<button
 										onclick={() => { editingName = true; displayName = auth.user?.display_name ?? ''; }}
-										class="text-xs text-primary hover:text-primary-hover"
+										class="text-xs text-primary-ink hover:text-primary-hover"
 									>
 										Edit
 									</button>
 									{#if nameSaved}
-										<span class="text-xs text-success">Saved!</span>
+										<span class="text-xs text-success-ink">Saved!</span>
 									{/if}
 								</div>
 							{/if}
 						</dd>
 					</div>
 					<div>
-						<dt class="text-text-muted">Email</dt>
-						<dd class="break-all font-medium text-text">{auth.user.email}</dd>
+						<dt class="text-ink-muted">Email</dt>
+						<dd class="break-all font-medium text-ink">{auth.user.email}</dd>
 					</div>
 					<div>
-						<dt class="text-text-muted">GitHub</dt>
-						<dd class="font-medium text-text">
+						<dt class="text-ink-muted">GitHub</dt>
+						<dd class="font-medium text-ink">
 							{#if auth.user.github_login}
 								@{auth.user.github_login}
 							{:else}
-								<span class="text-text-muted">Not connected</span>
+								<span class="text-ink-muted">Not connected</span>
 							{/if}
 						</dd>
 					</div>
 					<div>
-						<dt class="text-text-muted">Role</dt>
+						<dt class="text-ink-muted">Role</dt>
 						<dd>
-							<Badge text={auth.user.role} variant={roleVariant[auth.user.role] ?? 'neutral'} />
+							<Badge tone={roleVariant[auth.user.role] ?? 'neutral'}>{sentence(auth.user.role)}</Badge>
 						</dd>
 					</div>
 					<div>
-						<dt class="text-text-muted">Member since</dt>
-						<dd class="font-medium text-text">{new Date(auth.user.created_at).toLocaleDateString()}</dd>
+						<dt class="text-ink-muted">Member since</dt>
+						<dd class="font-medium text-ink">{new Date(auth.user.created_at).toLocaleDateString()}</dd>
 					</div>
 				</dl>
 			</div>
 
 			<!-- Password Section -->
-			<div id="password" class="border border-border bg-surface p-6">
-				<h2 class="mb-4 font-semibold text-text">{auth.user.has_password ? 'Change Password' : 'Set Password'}</h2>
+			<div id="password" class="border border-line bg-surface p-6">
+				<h2 class="mb-4 font-semibold text-ink">{auth.user.has_password ? 'Change Password' : 'Set Password'}</h2>
 				{#if !auth.user.has_password}
-					<p class="mb-4 text-sm text-text-muted">
+					<p class="mb-4 text-sm text-ink-muted">
 						This account currently uses GitHub sign-in only. Set a password if you also want to sign in with email and password.
 					</p>
 				{/if}
@@ -541,44 +542,44 @@
 				>
 					{#if auth.user.has_password}
 						<div>
-							<label for="current-password" class="block text-sm text-text-muted">Current Password</label>
+							<label for="current-password" class="block text-sm text-ink-muted">Current Password</label>
 							<input
 								id="current-password"
 								type="password"
 								bind:value={currentPassword}
 								required
-								class="mt-1 w-full border border-border px-3 py-2 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+								class="mt-1 w-full border border-line px-3 py-2 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
 							/>
 						</div>
 					{/if}
 					<div>
-						<label for="new-password" class="block text-sm text-text-muted">{auth.user.has_password ? 'New Password' : 'Password'}</label>
+						<label for="new-password" class="block text-sm text-ink-muted">{auth.user.has_password ? 'New Password' : 'Password'}</label>
 						<input
 							id="new-password"
 							type="password"
 							bind:value={newPassword}
 							required
 							minlength="8"
-							class="mt-1 w-full border border-border px-3 py-2 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+							class="mt-1 w-full border border-line px-3 py-2 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
 						/>
 					</div>
 					<div>
-						<label for="confirm-password" class="block text-sm text-text-muted">Confirm Password</label>
+						<label for="confirm-password" class="block text-sm text-ink-muted">Confirm Password</label>
 						<input
 							id="confirm-password"
 							type="password"
 							bind:value={confirmPassword}
 							required
 							minlength="8"
-							class="mt-1 w-full border border-border px-3 py-2 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+							class="mt-1 w-full border border-line px-3 py-2 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
 						/>
 					</div>
 
 					{#if passwordError}
-						<div class="bg-primary/8 p-3 text-sm text-primary">{passwordError}</div>
+						<div class="bg-primary/8 p-3 text-sm text-primary-ink">{passwordError}</div>
 					{/if}
 					{#if passwordSaved}
-						<div class="bg-success/10 p-3 text-sm text-success">Password changed successfully!</div>
+						<div class="bg-success/10 p-3 text-sm text-success-ink">Password changed successfully!</div>
 					{/if}
 
 					<button
@@ -598,43 +599,43 @@
 			     Discord modal below rather than dropping the person here.
 			     Renaming this id would break any other lingering #connected-accounts
 			     links. -->
-			<div id="connected-accounts" class="scroll-mt-6 border border-border bg-surface p-6">
-				<h2 class="mb-1 font-semibold text-text">Connected Accounts</h2>
-				<p class="mb-4 text-sm text-text-muted">
+			<div id="connected-accounts" class="scroll-mt-6 border border-line bg-surface p-6">
+				<h2 class="mb-1 font-semibold text-ink">Connected Accounts</h2>
+				<p class="mb-4 text-sm text-ink-muted">
 					Link other sign-in methods to this account. A connected Discord account also verifies you on the community server.
 				</p>
 
 				{#if identitiesError}
-					<div class="mb-4 bg-primary/8 p-3 text-sm text-primary">{identitiesError}</div>
+					<div class="mb-4 bg-primary/8 p-3 text-sm text-primary-ink">{identitiesError}</div>
 				{/if}
 
 				<div class="flex flex-col gap-2">
 					{#each ['github', 'discord'] as const as provider (provider)}
 						{@const linked = identityFor(provider)}
 						{#if linked}
-							<div class="flex items-center justify-between border border-border px-3 py-2">
+							<div class="flex items-center justify-between border border-line px-3 py-2">
 								<div class="flex items-center gap-3">
 									<BrandMark brand={provider} size={20} />
 									{#if linked.avatar_url}
 										<img src={linked.avatar_url} alt="" class="h-6 w-6 rounded-full" />
 									{/if}
 									<div>
-										<div class="text-sm font-medium text-text">{OAUTH_PROVIDER_LABELS[provider]}</div>
-										<div class="text-xs text-text-muted">
+										<div class="text-sm font-medium text-ink">{OAUTH_PROVIDER_LABELS[provider]}</div>
+										<div class="text-xs text-ink-muted">
 											Connected{linked.provider_login ? ` as ${linked.provider_login}` : ''}
 										</div>
 									</div>
 								</div>
 								<button
 									onclick={() => handleUnlink(provider)}
-									class="border border-primary/30 px-2 py-1 text-xs text-primary hover:bg-primary-light"
+									class="border border-primary/30 px-2 py-1 text-xs text-primary-ink hover:bg-primary-soft"
 									type="button"
 								>Disconnect</button>
 							</div>
 						{:else if providerEnabled(provider)}
 							<a
 								href={api.oauthLinkUrl(provider)}
-								class="flex items-center gap-3 border border-border px-3 py-2 text-sm font-medium text-text hover:bg-bg"
+								class="flex items-center gap-3 border border-line px-3 py-2 text-sm font-medium text-ink hover:bg-hover"
 							>
 								<BrandMark brand={provider} size={20} />
 								Add your {OAUTH_PROVIDER_LABELS[provider]}
@@ -646,14 +647,14 @@
 			{/if}
 
 			<!-- AI Section -->
-			<div class="border border-border bg-surface p-6">
-				<h2 class="mb-4 font-semibold text-text">AI Assistant</h2>
-				<p class="mb-4 text-sm text-text-muted">
+			<div class="border border-line bg-surface p-6">
+				<h2 class="mb-4 font-semibold text-ink">AI Assistant</h2>
+				<p class="mb-4 text-sm text-ink-muted">
 					Hive uses your personal OpenRouter key on the server side for profile-generation prompts, rule suggestions, and assisted edits.
 				</p>
-				<div class="mb-4 bg-bg p-3 text-sm text-text-muted">
+				<div class="mb-4 bg-well p-3 text-sm text-ink-muted">
 					OpenRouter key:
-					<span class="font-medium text-text">
+					<span class="font-medium text-ink">
 						{auth.user.openrouter_configured ? 'configured' : 'not configured'}
 					</span>
 				</div>
@@ -662,21 +663,21 @@
 					onsubmit={(e) => { e.preventDefault(); handleSaveAiSettings(); }}
 				>
 					<div>
-						<label for="openrouter-key" class="block text-sm text-text-muted">OpenRouter API Key</label>
+						<label for="openrouter-key" class="block text-sm text-ink-muted">OpenRouter API Key</label>
 						<input
 							id="openrouter-key"
 							type="password"
 							bind:value={openrouterApiKey}
 							placeholder={auth.user.openrouter_configured ? 'Leave blank to keep current key' : 'sk-or-v1-...'}
-							class="mt-1 w-full border border-border px-3 py-2 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+							class="mt-1 w-full border border-line px-3 py-2 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
 						/>
-						<p class="mt-1 text-xs text-text-muted">
+						<p class="mt-1 text-xs text-ink-muted">
 							The key is stored encrypted and only used by Hive when you ask for AI help.
 						</p>
 					</div>
 
 					<div>
-						<label for="preferred-model" class="mb-1 block text-sm text-text-muted">
+						<label for="preferred-model" class="mb-1 block text-sm text-ink-muted">
 							Preferred Model
 						</label>
 						{#if aiCatalog}
@@ -692,9 +693,9 @@
 								type="text"
 								bind:value={preferredAiModel}
 								placeholder="OpenRouter model id"
-								class="w-full border border-border px-3 py-2 font-mono text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+								class="w-full border border-line px-3 py-2 font-mono text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
 							/>
-							<p class="mt-1 text-xs text-text-muted">
+							<p class="mt-1 text-xs text-ink-muted">
 								Model list unavailable — enter an OpenRouter model id manually.
 							</p>
 						{/if}
@@ -703,10 +704,10 @@
 					<AiUsagePanel />
 
 					{#if aiError}
-						<div class="bg-primary/8 p-3 text-sm text-primary">{aiError}</div>
+						<div class="bg-primary/8 p-3 text-sm text-primary-ink">{aiError}</div>
 					{/if}
 					{#if aiSaved}
-						<div class="bg-success/10 p-3 text-sm text-success">AI settings saved.</div>
+						<div class="bg-success/10 p-3 text-sm text-success-ink">AI settings saved.</div>
 					{/if}
 
 					<div class="flex flex-wrap gap-2">
@@ -722,7 +723,7 @@
 								type="button"
 								onclick={handleClearAiKey}
 								disabled={aiSaving}
-								class="border border-border px-4 py-2 text-sm font-medium text-text hover:bg-bg disabled:opacity-50"
+								class="border border-line px-4 py-2 text-sm font-medium text-ink hover:bg-hover disabled:opacity-50"
 							>
 								Remove Key
 							</button>
@@ -733,31 +734,31 @@
 
 			{#if auth.user.role === 'admin'}
 				<!-- Catalog sync dashboard (admin-only dedicated page) -->
-				<div class="border border-border bg-surface p-6">
-					<h2 class="mb-2 font-semibold text-text">Catalog Sync</h2>
-					<p class="mb-4 text-sm text-text-muted">
+				<div class="border border-line bg-surface p-6">
+					<h2 class="mb-2 font-semibold text-ink">Catalog Sync</h2>
+					<p class="mb-4 text-sm text-ink-muted">
 						Sync the Rebrickable parts / categories / colors catalog and BrickLink prices, with
 						live progress and resume-after-restart.
 					</p>
 					<a
 						href="/settings/catalog-sync"
-						class="inline-flex items-center gap-2 border border-border bg-bg px-4 py-2 text-sm font-medium text-text hover:bg-surface"
+						class="inline-flex items-center gap-2 border border-line bg-well px-4 py-2 text-sm font-medium text-ink hover:bg-surface"
 					>
 						Open Catalog Sync →
 					</a>
 				</div>
 
 				<!-- Perceptron native API key (teacher-only, admin scope) -->
-				<div class="border border-border bg-surface p-6">
-					<h2 class="mb-4 font-semibold text-text">Perceptron Teacher</h2>
-					<p class="mb-4 text-sm text-text-muted">
+				<div class="border border-line bg-surface p-6">
+					<h2 class="mb-4 font-semibold text-ink">Perceptron Teacher</h2>
+					<p class="mb-4 text-sm text-ink-muted">
 						Used for the Perceptron Mk1 teacher path, which calls Perceptron's native API
 						directly instead of going through OpenRouter. Get a key at
-						<a href="https://docs.perceptron.inc" target="_blank" class="text-primary hover:underline">docs.perceptron.inc</a>.
+						<a href="https://docs.perceptron.inc" target="_blank" class="text-primary-ink hover:underline">docs.perceptron.inc</a>.
 					</p>
-					<div class="mb-4 bg-bg p-3 text-sm text-text-muted">
+					<div class="mb-4 bg-well p-3 text-sm text-ink-muted">
 						Perceptron key:
-						<span class="font-medium text-text">
+						<span class="font-medium text-ink">
 							{auth.user.perceptron_configured ? 'configured' : 'not configured'}
 						</span>
 					</div>
@@ -766,24 +767,24 @@
 						onsubmit={(e) => { e.preventDefault(); handleSavePerceptronKey(); }}
 					>
 						<div>
-							<label for="perceptron-key" class="block text-sm text-text-muted">Perceptron API Key</label>
+							<label for="perceptron-key" class="block text-sm text-ink-muted">Perceptron API Key</label>
 							<input
 								id="perceptron-key"
 								type="password"
 								bind:value={perceptronApiKey}
 								placeholder={auth.user.perceptron_configured ? 'Leave blank to keep current key' : 'pk_...'}
-								class="mt-1 w-full border border-border px-3 py-2 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+								class="mt-1 w-full border border-line px-3 py-2 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
 							/>
-							<p class="mt-1 text-xs text-text-muted">
+							<p class="mt-1 text-xs text-ink-muted">
 								Stored encrypted. Only used when running Perceptron Mk1 from the teacher compare/re-run flows.
 							</p>
 						</div>
 
 						{#if perceptronError}
-							<div class="bg-primary/8 p-3 text-sm text-primary">{perceptronError}</div>
+							<div class="bg-primary/8 p-3 text-sm text-primary-ink">{perceptronError}</div>
 						{/if}
 						{#if perceptronSaved}
-							<div class="bg-success/10 p-3 text-sm text-success">Perceptron key saved.</div>
+							<div class="bg-success/10 p-3 text-sm text-success-ink">Perceptron key saved.</div>
 						{/if}
 
 						<div class="flex flex-wrap gap-2">
@@ -799,7 +800,7 @@
 									type="button"
 									onclick={handleClearPerceptronKey}
 									disabled={perceptronSaving}
-									class="border border-border px-4 py-2 text-sm font-medium text-text hover:bg-bg disabled:opacity-50"
+									class="border border-line px-4 py-2 text-sm font-medium text-ink hover:bg-hover disabled:opacity-50"
 								>
 									Remove Key
 								</button>
@@ -809,9 +810,9 @@
 				</div>
 
 				<!-- Default Teacher Model — separate from the AI Assistant chat model -->
-				<div class="border border-border bg-surface p-6">
-					<h2 class="mb-4 font-semibold text-text">Default Teacher Model</h2>
-					<p class="mb-4 text-sm text-text-muted">
+				<div class="border border-line bg-surface p-6">
+					<h2 class="mb-4 font-semibold text-ink">Default Teacher Model</h2>
+					<p class="mb-4 text-sm text-ink-muted">
 						Used for re-running the Gemini/Perceptron/etc. teacher across samples. Separate
 						from the AI Assistant model above because vision detection and chat assistance use
 						different model families.
@@ -821,28 +822,28 @@
 						onsubmit={(e) => { e.preventDefault(); handleSaveTeacherModel(); }}
 					>
 						<div>
-							<label for="teacher-model" class="block text-sm text-text-muted">Default Teacher Model</label>
+							<label for="teacher-model" class="block text-sm text-ink-muted">Default Teacher Model</label>
 							<select
 								id="teacher-model"
 								bind:value={preferredTeacherModel}
-								class="mt-1 w-full border border-border px-3 py-2 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+								class="mt-1 w-full border border-line px-3 py-2 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
 							>
 								<option value="">— Use system default (Gemini 3 Flash) —</option>
 								{#each teacherModels as m (m.model_id)}
 									<option value={m.model_id}>{m.display_name} · [{m.adapter_kind}]</option>
 								{/each}
 							</select>
-							<p class="mt-1 text-xs text-text-muted">
+							<p class="mt-1 text-xs text-ink-muted">
 								Applies when you click "Re-run teacher" on a sample, start a backfill job, or
 								hit Run on the compare page without picking a model.
 							</p>
 						</div>
 
 						{#if teacherSettingError}
-							<div class="bg-primary/8 p-3 text-sm text-primary">{teacherSettingError}</div>
+							<div class="bg-primary/8 p-3 text-sm text-primary-ink">{teacherSettingError}</div>
 						{/if}
 						{#if teacherSettingSaved}
-							<div class="bg-success/10 p-3 text-sm text-success">Default teacher model saved.</div>
+							<div class="bg-success/10 p-3 text-sm text-success-ink">Default teacher model saved.</div>
 						{/if}
 
 						<button
@@ -860,32 +861,32 @@
 
 		{#if auth.user.role === 'admin'}
 			<!-- API keys — full width: the create form and the token table are both wide -->
-			<div class="border border-border bg-surface p-6">
-				<h2 class="mb-1 font-semibold text-text">Personal Access Tokens</h2>
-				<p class="mb-4 max-w-3xl text-sm text-text-muted">
+			<div class="border border-line bg-surface p-6">
+				<h2 class="mb-1 font-semibold text-ink">Personal Access Tokens</h2>
+				<p class="mb-4 max-w-3xl text-sm text-ink-muted">
 					Use a token to authenticate from CLI tools, bots, and agents. A token can only do what its scopes allow — grant the minimum it needs, and treat it like a password.
 				</p>
 
 				{#if apiKeyJustCreated}
-					<div class="relative mb-4 max-w-3xl border border-warning/40 bg-warning/[0.06] p-3 pr-10 text-sm text-text">
+					<div class="relative mb-4 max-w-3xl border border-warning/40 bg-warning/[0.06] p-3 pr-10 text-sm text-ink">
 						<button
 							onclick={() => { apiKeyJustCreated = null; }}
-							class="absolute right-2 top-2 p-1 text-text-muted hover:text-text"
+							class="absolute right-2 top-2 p-1 text-ink-muted hover:text-ink"
 							type="button"
 							aria-label="Dismiss"
 						><X size={16} /></button>
 						<div class="mb-2 font-semibold">Copy this token now — it won't be shown again.</div>
-						<div class="mb-2 text-text-muted">Name: <span class="font-mono">{apiKeyJustCreated.name}</span></div>
+						<div class="mb-2 text-ink-muted">Name: <span class="font-mono">{apiKeyJustCreated.name}</span></div>
 						<div class="relative">
-							<code class="block select-all break-all bg-bg p-2 pr-10 font-mono text-xs">{apiKeyJustCreated.token}</code>
+							<code class="block select-all break-all bg-well p-2 pr-10 font-mono text-xs">{apiKeyJustCreated.token}</code>
 							<button
 								onclick={copyApiKey}
-								class="absolute right-1 top-1 p-1 text-text-muted hover:text-text"
+								class="absolute right-1 top-1 p-1 text-ink-muted hover:text-ink"
 								type="button"
 								aria-label={apiKeyCopied ? 'Copied' : 'Copy token'}
 							>
 								{#if apiKeyCopied}
-									<Check size={16} class="text-success" />
+									<Check size={16} class="text-success-ink" />
 								{:else}
 									<Copy size={16} />
 								{/if}
@@ -895,29 +896,29 @@
 				{/if}
 
 				{#if apiKeysError}
-					<div class="mb-4 max-w-3xl bg-primary/8 p-3 text-sm text-primary">{apiKeysError}</div>
+					<div class="mb-4 max-w-3xl bg-primary/8 p-3 text-sm text-primary-ink">{apiKeysError}</div>
 				{/if}
 
-				<form onsubmit={handleCreateApiKey} class="mb-6 border border-border bg-bg p-4">
+				<form onsubmit={handleCreateApiKey} class="mb-6 border border-line bg-well p-4">
 					<div class="grid items-end gap-3 sm:grid-cols-[minmax(0,22rem)_9rem_auto] sm:justify-start">
-						<label class="flex flex-col gap-1 text-xs text-text-muted">
+						<label class="flex flex-col gap-1 text-xs text-ink-muted">
 							<span>Token name</span>
 							<input
 								type="text"
 								bind:value={apiKeyName}
 								placeholder="e.g. marc-laptop-training"
-								class="w-full border border-border bg-surface px-3 py-2 text-sm text-text focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+								class="w-full border border-line bg-surface px-3 py-2 text-sm text-ink focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
 								required
 							/>
 						</label>
-						<label class="flex flex-col gap-1 text-xs text-text-muted">
+						<label class="flex flex-col gap-1 text-xs text-ink-muted">
 							<span>Expires in (days)</span>
 							<input
 								type="text"
 								inputmode="numeric"
 								bind:value={apiKeyExpiresInDays}
 								placeholder="never"
-								class="w-full border border-border bg-surface px-3 py-2 text-sm text-text focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+								class="w-full border border-line bg-surface px-3 py-2 text-sm text-ink focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
 							/>
 						</label>
 						<button
@@ -931,27 +932,27 @@
 
 					<div class="mt-4 grid gap-4 lg:grid-cols-2">
 						<div class="flex flex-col gap-2">
-							<span class="text-xs text-text-muted">Scopes (at least one)</span>
+							<span class="text-xs text-ink-muted">Scopes (at least one)</span>
 							<div class="grid gap-x-6 gap-y-1.5 sm:grid-cols-2">
 								{#each API_KEY_SCOPES as { scope, label } (scope)}
-									<label class="flex items-baseline gap-2 text-sm text-text">
+									<label class="flex items-baseline gap-2 text-sm text-ink">
 										<input
 											type="checkbox"
 											checked={apiKeySelectedScopes.includes(scope)}
 											onchange={() => toggleApiKeyScope(scope)}
 										/>
 										<span class="font-mono text-xs">{scope}</span>
-										<span class="text-xs text-text-muted">{label}</span>
+										<span class="text-xs text-ink-muted">{label}</span>
 									</label>
 								{/each}
 							</div>
 						</div>
 						{#if apiKeyMachines.length > 0}
 							<div class="flex flex-col gap-2">
-								<span class="text-xs text-text-muted">Limit to machines (optional — none selected = all your access)</span>
+								<span class="text-xs text-ink-muted">Limit to machines (optional — none selected = all your access)</span>
 								<div class="grid gap-x-6 gap-y-1.5 sm:grid-cols-2">
 									{#each apiKeyMachines as machine (machine.id)}
-										<label class="flex items-baseline gap-2 text-sm text-text">
+										<label class="flex items-baseline gap-2 text-sm text-ink">
 											<input
 												type="checkbox"
 												checked={apiKeySelectedMachines.includes(machine.id)}
@@ -967,11 +968,11 @@
 				</form>
 
 				{#if apiKeys.length === 0}
-					<p class="text-sm text-text-muted">No tokens yet.</p>
+					<p class="text-sm text-ink-muted">No tokens yet.</p>
 				{:else}
-					<div class="overflow-x-auto border border-border">
+					<div class="overflow-x-auto border border-line">
 						<table class="w-full min-w-[64rem] text-sm">
-							<thead class="border-b border-border bg-bg text-left text-xs uppercase tracking-wide text-text-muted">
+							<thead class="border-b border-line bg-well text-left text-xs uppercase tracking-wide text-ink-muted">
 								<tr>
 									<th class="whitespace-nowrap px-3 py-2 font-medium">Name</th>
 									<th class="whitespace-nowrap px-3 py-2 font-medium">Token</th>
@@ -986,40 +987,40 @@
 							</thead>
 							<tbody>
 								{#each apiKeys as key (key.id)}
-									<tr class="border-b border-border last:border-b-0 hover:bg-bg">
+									<tr class="border-b border-line last:border-b-0 hover:bg-hover">
 										<td class="px-3 py-2 font-mono">{key.name}</td>
-										<td class="whitespace-nowrap px-3 py-2 font-mono text-xs text-text-muted">{key.token_prefix}…</td>
+										<td class="whitespace-nowrap px-3 py-2 font-mono text-xs text-ink-muted">{key.token_prefix}…</td>
 										<td class="px-3 py-2">
 											{#if key.scopes?.length}
 												<div class="flex flex-wrap gap-1">
 													{#each key.scopes as scope (scope)}
-														<span class="whitespace-nowrap border border-border bg-bg px-1.5 py-0.5 font-mono text-xs text-text-muted">{scope}</span>
+														<span class="whitespace-nowrap border border-line bg-well px-1.5 py-0.5 font-mono text-xs text-ink-muted">{scope}</span>
 													{/each}
 												</div>
 											{:else}
-												<span class="text-text-muted">—</span>
+												<span class="text-ink-muted">—</span>
 											{/if}
 										</td>
-										<td class="px-3 py-2 text-xs text-text-muted">
+										<td class="px-3 py-2 text-xs text-ink-muted">
 											{key.machine_ids?.length ? key.machine_ids.map(machineName).join(', ') : 'All'}
 										</td>
-										<td class="whitespace-nowrap px-3 py-2 text-text-muted">{formatDate(key.created_at)}</td>
-										<td class="whitespace-nowrap px-3 py-2 text-text-muted">{formatDate(key.last_used_at)}</td>
-										<td class="whitespace-nowrap px-3 py-2 text-text-muted">{key.expires_at ? formatDate(key.expires_at) : 'Never'}</td>
+										<td class="whitespace-nowrap px-3 py-2 text-ink-muted">{formatDate(key.created_at)}</td>
+										<td class="whitespace-nowrap px-3 py-2 text-ink-muted">{formatDate(key.last_used_at)}</td>
+										<td class="whitespace-nowrap px-3 py-2 text-ink-muted">{key.expires_at ? formatDate(key.expires_at) : 'Never'}</td>
 										<td class="px-3 py-2">
 											{#if key.revoked_at}
-												<Badge text="Revoked" variant="neutral" />
+												<Badge tone="neutral">Revoked</Badge>
 											{:else if key.expires_at && new Date(key.expires_at) <= new Date()}
-												<Badge text="Expired" variant="warning" />
+												<Badge tone="warning">Expired</Badge>
 											{:else}
-												<Badge text="Active" variant="success" />
+												<Badge tone="success">Active</Badge>
 											{/if}
 										</td>
 										<td class="px-3 py-2 text-right">
 											{#if !key.revoked_at}
 												<button
 													onclick={() => handleRevokeApiKey(key.id)}
-													class="border border-primary/30 px-2 py-1 text-xs text-primary hover:bg-primary-light"
+													class="border border-primary/30 px-2 py-1 text-xs text-primary-ink hover:bg-primary-soft"
 													type="button"
 												>Revoke</button>
 											{/if}
@@ -1035,13 +1036,13 @@
 
 		<!-- Danger Zone -->
 		<div class="border border-primary/20 bg-surface p-6">
-			<h2 class="mb-4 font-semibold text-primary">Danger Zone</h2>
-			<p class="mb-4 max-w-3xl text-sm text-text-muted">
+			<h2 class="mb-4 font-semibold text-primary-ink">Danger Zone</h2>
+			<p class="mb-4 max-w-3xl text-sm text-ink-muted">
 				Deleting your account will permanently remove all your machines, samples, and reviews.
 			</p>
 			<button
 				onclick={() => { showDeleteModal = true; }}
-				class="border border-primary/30 px-4 py-2 text-sm font-medium text-primary hover:bg-primary-light"
+				class="border border-primary/30 px-4 py-2 text-sm font-medium text-primary-ink hover:bg-primary-soft"
 			>
 				Delete Account
 			</button>
@@ -1052,15 +1053,15 @@
 <Modal open={showDeleteModal} title="Delete Account" onclose={() => { showDeleteModal = false; }}>
 	<div class="space-y-4">
 		{#if deleteError}
-			<div class="bg-primary/8 p-3 text-sm text-primary">{deleteError}</div>
+			<div class="bg-primary/8 p-3 text-sm text-primary-ink">{deleteError}</div>
 		{/if}
-		<p class="text-sm text-text-muted">
+		<p class="text-sm text-ink-muted">
 			This will delete all your machines, samples, and data permanently. This action cannot be undone.
 		</p>
 		<div class="flex gap-2 justify-end">
 			<button
 				onclick={() => { showDeleteModal = false; }}
-				class="border border-border px-4 py-2 text-sm font-medium text-text hover:bg-bg"
+				class="border border-line px-4 py-2 text-sm font-medium text-ink hover:bg-hover"
 			>
 				Cancel
 			</button>
@@ -1082,20 +1083,20 @@
 	{@const linked = identityFor('discord')}
 	<div class="space-y-4">
 		{#if linked}
-			<p class="text-sm text-text">
+			<p class="text-sm text-ink">
 				Your Discord account{linked.provider_login ? ` @${linked.provider_login}` : ''} is already linked.
 			</p>
 			<div class="flex justify-end">
 				<button
 					onclick={closeLinkModal}
-					class="border border-border px-4 py-2 text-sm font-medium text-text hover:bg-bg"
+					class="border border-line px-4 py-2 text-sm font-medium text-ink hover:bg-hover"
 					type="button"
 				>
 					Done
 				</button>
 			</div>
 		{:else if providerEnabled('discord')}
-			<p class="text-sm text-text-muted">
+			<p class="text-sm text-ink-muted">
 				Linking Discord verifies you on the community server and lets any machines you register
 				be credited to you there.
 			</p>
@@ -1107,11 +1108,11 @@
 				Connect Discord
 			</a>
 		{:else}
-			<p class="text-sm text-text-muted">Discord sign-in isn't set up on this Hive instance.</p>
+			<p class="text-sm text-ink-muted">Discord sign-in isn't set up on this Hive instance.</p>
 			<div class="flex justify-end">
 				<button
 					onclick={closeLinkModal}
-					class="border border-border px-4 py-2 text-sm font-medium text-text hover:bg-bg"
+					class="border border-line px-4 py-2 text-sm font-medium text-ink hover:bg-hover"
 					type="button"
 				>
 					Close

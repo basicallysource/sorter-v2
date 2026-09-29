@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { sentence } from '$lib/text';
 	import { page } from '$app/state';
 	import { goto } from '$app/navigation';
 	import { SvelteMap } from 'svelte/reactivity';
@@ -22,7 +23,7 @@
 	import SampleAnnotatorPanel from '$lib/components/sample/SampleAnnotatorPanel.svelte';
 	import SampleConditionCard from '$lib/components/sample/SampleConditionCard.svelte';
 	import SampleDetailsSidebar from '$lib/components/sample/SampleDetailsSidebar.svelte';
-	import { Button } from '$lib/components/primitives';
+	import Button from '$lib/components/Button.svelte';
 	import { extractLegacyReviewBboxes, extractPrimaryBboxes, mergeUniqueBboxes, parseBboxCollection, proposalColor } from '$lib/components/sample/bbox-helpers';
 	import {
 		readSampleListContext,
@@ -484,17 +485,17 @@
 {#if loading}
 	<div class="flex justify-center p-8"><Spinner size={32} /></div>
 {:else if !sample}
-	<p class="text-text-muted">Sample not found.</p>
+	<p class="text-ink-muted">Sample not found.</p>
 {:else}
 	<!-- Header bar -->
 	<div class="mb-5 flex flex-wrap items-center justify-between gap-3">
 		<div class="flex items-center gap-3">
-			<a href={listBackHref} class="flex items-center gap-1 text-sm text-text-muted hover:text-text transition-colors">
+			<a href={listBackHref} class="flex items-center gap-1 text-sm text-ink-muted hover:text-ink transition-colors">
 				<svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" /></svg>
 				Samples
 			</a>
 			<span class="text-border">/</span>
-			<span class="text-sm font-medium text-text" title={sample.local_sample_id}>{shortId(sample.local_sample_id)}</span>
+			<span class="text-sm font-medium text-ink" title={sample.local_sample_id}>{shortId(sample.local_sample_id)}</span>
 		</div>
 		<div class="flex flex-wrap items-center gap-2">
 			<div class="flex items-center gap-1" title="Use ← / → to navigate samples">
@@ -503,31 +504,31 @@
 					onclick={() => navigateToNeighbor(prevSampleId)}
 					disabled={!prevSampleId}
 					aria-label="Previous sample (←)"
-					class="border border-border bg-surface p-1.5 text-text-muted transition-colors hover:bg-bg hover:text-text disabled:cursor-not-allowed disabled:opacity-30"
+					class="border border-line bg-surface p-1.5 text-ink-muted transition-colors hover:bg-hover hover:text-ink disabled:cursor-not-allowed disabled:opacity-30"
 				>
 					<svg class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" /></svg>
 				</button>
 				{#if positionLabel}
-					<span class="px-1 text-[11px] text-text-muted tabular-nums">{positionLabel}</span>
+					<span class="px-1 text-xs text-ink-muted tabular-nums">{positionLabel}</span>
 				{/if}
 				<button
 					type="button"
 					onclick={() => navigateToNeighbor(nextSampleId)}
 					disabled={!nextSampleId}
 					aria-label="Next sample (→)"
-					class="border border-border bg-surface p-1.5 text-text-muted transition-colors hover:bg-bg hover:text-text disabled:cursor-not-allowed disabled:opacity-30"
+					class="border border-line bg-surface p-1.5 text-ink-muted transition-colors hover:bg-hover hover:text-ink disabled:cursor-not-allowed disabled:opacity-30"
 				>
 					<svg class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" /></svg>
 				</button>
 			</div>
-			<Badge text={statusLabel[sample.review_status] ?? sample.review_status} variant={statusVariant[sample.review_status] ?? 'neutral'} />
+			<Badge tone={statusVariant[sample.review_status] ?? 'neutral'}>{sentence(statusLabel[sample.review_status] ?? sample.review_status)}</Badge>
 			{#if sample.review_count > 0}
-				<span class="text-xs text-text-muted">{sample.review_count} review{sample.review_count !== 1 ? 's' : ''}</span>
+				<span class="text-xs text-ink-muted">{sample.review_count} review{sample.review_count !== 1 ? 's' : ''}</span>
 			{/if}
 			<div class="flex flex-wrap items-center gap-1.5 sm:ml-1">
 				<a
 					href={`/samples/${sample.id}/similar`}
-					class="inline-flex items-center gap-1 border border-border bg-surface px-3 py-1 text-xs font-medium text-text hover:bg-bg"
+					class="inline-flex items-center gap-1 border border-line bg-surface px-3 py-1 text-xs font-medium text-ink hover:bg-hover"
 					title="Find samples that look visually similar to this one (uses perceptual hashing — good for spotting bursts of near-identical frames or a batch shot under the same bad lighting)."
 				>
 					Find similar
@@ -535,7 +536,7 @@
 				{#if auth.isAdmin}
 					<a
 						href={`/samples/${sample.id}/compare`}
-						class="inline-flex items-center gap-1 border border-border bg-surface px-3 py-1 text-xs font-medium text-text hover:bg-bg"
+						class="inline-flex items-center gap-1 border border-line bg-surface px-3 py-1 text-xs font-medium text-ink hover:bg-hover"
 						title="Run every supported teacher model on this sample and compare bounding boxes side-by-side."
 					>
 						Compare models
@@ -552,17 +553,17 @@
 		<!-- Left: Image area -->
 		<div class="min-w-0 space-y-3">
 			<!-- View toggle toolbar (above image) -->
-			<div class="flex flex-wrap items-center gap-1 bg-bg p-1">
+			<div class="flex flex-wrap items-center gap-1 bg-well p-1">
 				<button
 					onclick={() => setView('image')}
-					class="px-3 py-1.5 text-xs font-medium transition-colors {activeView === 'image' ? 'bg-surface text-text' : 'text-text-muted hover:text-text'}"
+					class="px-3 py-1.5 text-xs font-medium transition-colors {activeView === 'image' ? 'bg-surface text-ink' : 'text-ink-muted hover:text-ink'}"
 				>
 					Image
 				</button>
 				{#if sample.has_full_frame}
 					<button
 						onclick={() => setView('full_frame')}
-						class="px-3 py-1.5 text-xs font-medium transition-colors {activeView === 'full_frame' ? 'bg-surface text-text' : 'text-text-muted hover:text-text'}"
+						class="px-3 py-1.5 text-xs font-medium transition-colors {activeView === 'full_frame' ? 'bg-surface text-ink' : 'text-ink-muted hover:text-ink'}"
 					>
 						Full Frame
 					</button>
@@ -570,7 +571,7 @@
 				{#if sample.has_channel_geometry}
 					<button
 						onclick={() => setView('channel_crop')}
-						class="px-3 py-1.5 text-xs font-medium transition-colors {activeView === 'channel_crop' ? 'bg-surface text-text' : 'text-text-muted hover:text-text'}"
+						class="px-3 py-1.5 text-xs font-medium transition-colors {activeView === 'channel_crop' ? 'bg-surface text-ink' : 'text-ink-muted hover:text-ink'}"
 					>
 						Channel Crop
 					</button>
@@ -578,7 +579,7 @@
 				{#if sample.has_overlay}
 					<button
 						onclick={() => setView('overlay')}
-						class="px-3 py-1.5 text-xs font-medium transition-colors {activeView === 'overlay' ? 'bg-surface text-text' : 'text-text-muted hover:text-text'}"
+						class="px-3 py-1.5 text-xs font-medium transition-colors {activeView === 'overlay' ? 'bg-surface text-ink' : 'text-ink-muted hover:text-ink'}"
 					>
 						Overlay
 					</button>
@@ -586,7 +587,7 @@
 				{#if FEATURES.ANNOTATION_EDITING}
 					<button
 						onclick={() => setView('annotate')}
-						class="px-3 py-1.5 text-xs font-medium transition-colors {activeView === 'annotate' ? 'bg-surface text-text' : 'text-text-muted hover:text-text'}"
+						class="px-3 py-1.5 text-xs font-medium transition-colors {activeView === 'annotate' ? 'bg-surface text-ink' : 'text-ink-muted hover:text-ink'}"
 					>
 						Annotate
 					</button>
@@ -594,8 +595,8 @@
 
 				{#if activeView === 'image' && proposalBoxes.length > 0}
 					<div class="ml-auto flex items-center gap-1.5 pr-1">
-						<label class="flex items-center gap-1.5 text-xs text-text-muted cursor-pointer select-none">
-							<input type="checkbox" bind:checked={showBboxOverlay} class="h-3 w-3 border-border text-primary" />
+						<label class="flex items-center gap-1.5 text-xs text-ink-muted cursor-pointer select-none">
+							<input type="checkbox" bind:checked={showBboxOverlay} class="h-3 w-3 border-line text-primary-ink" />
 							Boxes
 						</label>
 					</div>
@@ -618,7 +619,7 @@
 			{/if}
 
 			{#if usingFullFrameFallback}
-				<div class="border border-border bg-bg px-3 py-2 text-xs text-text-muted">
+				<div class="border border-line bg-well px-3 py-2 text-xs text-ink-muted">
 					Showing the full-frame capture because this classification-chamber sample still carries detection boxes in full-frame coordinates.
 				</div>
 			{/if}
@@ -642,7 +643,7 @@
 
 			<!-- Inline detection message (below image, only when relevant) -->
 			{#if detectionMessage && activeView !== 'annotate'}
-				<div class="bg-bg border border-border px-3 py-2 text-xs text-text-muted">
+				<div class="bg-well border border-line px-3 py-2 text-xs text-ink-muted">
 					{detectionMessage}
 				</div>
 			{/if}
@@ -660,16 +661,16 @@
 			     surface they're working from. -->
 			{#if auth.isReviewer}
 				{@const myVote = sample.my_review_decision}
-				<div class="border border-border bg-surface">
-					<div class="flex items-center justify-between border-b border-border px-4 py-2.5">
-						<h2 class="text-xs font-semibold uppercase tracking-wider text-text-muted">Your review</h2>
+				<div class="border border-line bg-surface">
+					<div class="flex items-center justify-between border-b border-line px-4 py-2.5">
+						<h2 class="text-xs font-semibold uppercase tracking-wider text-ink-muted">Your review</h2>
 						{#if myVote}
 							<span
-								class="border px-1.5 py-0.5 text-[11px] font-medium {myVote === 'accept' ? 'border-success/30 bg-success/10 text-success' : 'border-primary/30 bg-primary/10 text-primary'}"
+								class="border px-1.5 py-0.5 text-xs font-medium {myVote === 'accept' ? 'border-success/30 bg-success/10 text-success-ink' : 'border-primary/30 bg-primary/10 text-primary-ink'}"
 								title={myVote === 'accept' ? 'You accepted this sample' : 'You rejected this sample'}
 							>You: {myVote === 'accept' ? '✓' : '✗'}</span>
 						{:else}
-							<span class="text-[11px] text-text-muted">Not voted</span>
+							<span class="text-xs text-ink-muted">Not voted</span>
 						{/if}
 					</div>
 					<div class="space-y-2 p-3">
@@ -681,8 +682,8 @@
 								class="border border-success/20 bg-success/10 px-3 py-2.5 text-center transition-colors hover:bg-success/15 disabled:cursor-not-allowed disabled:opacity-50"
 								title={myVote ? 'Change your vote to Accept' : 'Accept this sample'}
 							>
-								<div class="text-xl font-bold text-success">↑</div>
-								<div class="text-xs font-medium text-success">
+								<div class="text-xl font-bold text-success-ink">↑</div>
+								<div class="text-xs font-medium text-success-ink">
 									{myVote === 'accept' ? 'Accepted' : myVote === 'reject' ? 'Change to ✓' : 'Accept'}
 								</div>
 							</button>
@@ -690,19 +691,19 @@
 								type="button"
 								onclick={() => void submitVote('reject')}
 								disabled={voteSubmitting || myVote === 'reject'}
-								class="border border-primary/20 bg-primary-light px-3 py-2.5 text-center transition-colors hover:bg-primary/10 disabled:cursor-not-allowed disabled:opacity-50"
+								class="border border-primary/20 bg-primary-soft px-3 py-2.5 text-center transition-colors hover:bg-primary/10 disabled:cursor-not-allowed disabled:opacity-50"
 								title={myVote ? 'Change your vote to Reject' : 'Reject this sample'}
 							>
-								<div class="text-xl font-bold text-primary">↓</div>
-								<div class="text-xs font-medium text-primary">
+								<div class="text-xl font-bold text-primary-ink">↓</div>
+								<div class="text-xs font-medium text-primary-ink">
 									{myVote === 'reject' ? 'Rejected' : myVote === 'accept' ? 'Change to ✗' : 'Reject'}
 								</div>
 							</button>
 						</div>
 						{#if voteError}
-							<div class="border border-danger bg-danger/10 px-2 py-1 text-[11px] text-danger">{voteError}</div>
+							<div class="border border-danger bg-danger/10 px-2 py-1 text-xs text-danger-ink">{voteError}</div>
 						{/if}
-						<p class="text-center text-[11px] text-text-muted">
+						<p class="text-center text-xs text-ink-muted">
 							{sample.review_count} of 3 reviews · {sample.accepted_count} ✓ / {sample.rejected_count} ✗
 						</p>
 					</div>
@@ -711,17 +712,17 @@
 
 			<!-- Detection summary card -->
 			{#if sample.detection_algorithm || detectionFound !== undefined}
-				<div class="border border-border bg-surface">
-					<div class="flex items-center justify-between border-b border-border px-4 py-2.5">
-						<h2 class="text-xs font-semibold uppercase tracking-wider text-text-muted">Detection</h2>
+				<div class="border border-line bg-surface">
+					<div class="flex items-center justify-between border-b border-line px-4 py-2.5">
+						<h2 class="text-xs font-semibold uppercase tracking-wider text-ink-muted">Detection</h2>
 						{#if detectionFound !== undefined}
 							{#if detectionFound}
-								<span class="inline-flex items-center gap-1.5 text-xs font-medium text-success">
+								<span class="inline-flex items-center gap-1.5 text-xs font-medium text-success-ink">
 									<span class="h-1.5 w-1.5 rounded-full bg-success"></span>
 									Found
 								</span>
 							{:else}
-								<span class="inline-flex items-center gap-1.5 text-xs font-medium text-primary">
+								<span class="inline-flex items-center gap-1.5 text-xs font-medium text-primary-ink">
 									<span class="h-1.5 w-1.5 rounded-full bg-primary"></span>
 									Not found
 								</span>
@@ -732,31 +733,31 @@
 						<div class="flex flex-wrap gap-x-4 gap-y-2 text-xs">
 							{#if sample.detection_algorithm}
 								<div>
-									<div class="text-text-muted mb-0.5">Algorithm</div>
-									<div class="font-medium text-text">{sample.detection_algorithm}</div>
+									<div class="text-ink-muted mb-0.5">Algorithm</div>
+									<div class="font-medium text-ink">{sample.detection_algorithm}</div>
 								</div>
 							{/if}
 							{#if sample.detection_count != null}
 								<div>
-									<div class="text-text-muted mb-0.5">Count</div>
-									<div class="font-medium text-text">{sample.detection_count}</div>
+									<div class="text-ink-muted mb-0.5">Count</div>
+									<div class="font-medium text-ink">{sample.detection_count}</div>
 								</div>
 							{/if}
 							{#if sample.detection_score != null}
 								<div>
-									<div class="text-text-muted mb-0.5">Score</div>
-									<div class="font-medium text-text">{sample.detection_score.toFixed(2)}</div>
+									<div class="text-ink-muted mb-0.5">Score</div>
+									<div class="font-medium text-ink">{sample.detection_score.toFixed(2)}</div>
 								</div>
 							{/if}
 							{#if proposalBoxes.length > 0}
 								<div>
-									<div class="text-text-muted mb-0.5">Proposals</div>
-									<div class="font-medium text-text">{proposalBoxes.length}</div>
+									<div class="text-ink-muted mb-0.5">Proposals</div>
+									<div class="font-medium text-ink">{proposalBoxes.length}</div>
 								</div>
 							{/if}
 						</div>
 						{#if detectionOpenrouterModel}
-							<div class="mt-2 text-[11px] text-text-muted font-mono truncate" title={detectionOpenrouterModel}>{detectionOpenrouterModel}</div>
+							<div class="mt-2 text-xs text-ink-muted font-mono truncate" title={detectionOpenrouterModel}>{detectionOpenrouterModel}</div>
 						{/if}
 					</div>
 				</div>
@@ -801,7 +802,7 @@
 
 	<Modal open={showDeleteModal} title="Delete Sample" onclose={() => { showDeleteModal = false; }}>
 		<div class="space-y-4">
-			<p class="text-sm text-text-muted">Are you sure you want to delete this sample? This action cannot be undone.</p>
+			<p class="text-sm text-ink-muted">Are you sure you want to delete this sample? This action cannot be undone.</p>
 			<div class="flex gap-2 justify-end">
 				<Button variant="secondary" onclick={() => { showDeleteModal = false; }}>Cancel</Button>
 				<Button variant="danger" onclick={handleDelete}>Delete</Button>

@@ -108,23 +108,23 @@
 
 <div class="mb-6 flex flex-wrap items-center justify-between gap-4">
 	<div class="min-w-0">
-		<div class="mb-1 text-xs text-text-muted">
+		<div class="mb-1 text-xs text-ink-muted">
 			<a href="/samples" class="hover:underline">Samples</a>
 			<span class="mx-1">/</span>
 			<a href="/samples/diversity" class="hover:underline">Diversity</a>
 			<span class="mx-1">/</span>
 			<span>{prettifyToken(captureReason)}</span>
 		</div>
-		<h1 class="text-2xl font-bold text-text">{prettifyToken(captureReason)}</h1>
-		<p class="mt-1 text-sm text-text-muted">
+		<h1 class="text-2xl font-bold text-ink">{prettifyToken(captureReason)}</h1>
+		<p class="mt-1 text-sm text-ink-muted">
 			One donut per channel — each wedge is a piece-count bucket and fills toward its role-specific target.
 			Struck-through wedges are excluded from the score. The "Balanced" donut at the top is the mean of all
 			sources, so a bucket only counts as full when every relevant channel has it. Refreshes every {REFRESH_MS / 1000}s.
 		</p>
 	</div>
 	{#if data && group}
-		<div class="text-right text-xs text-text-muted">
-			<div class="tabular-nums text-text">{group.total.toLocaleString()} samples</div>
+		<div class="text-right text-xs text-ink-muted">
+			<div class="tabular-nums text-ink">{group.total.toLocaleString()} samples</div>
 			<div>updated {formatRelative(data.generated_at)}</div>
 		</div>
 	{/if}
@@ -133,15 +133,15 @@
 {#if loading && !data}
 	<div class="flex justify-center p-8"><Spinner size={32} /></div>
 {:else if error && !data}
-	<div class="border border-border bg-surface px-6 py-12 text-center text-sm text-text-muted">
+	<div class="border border-line bg-surface px-6 py-12 text-center text-sm text-ink-muted">
 		{error}
 	</div>
 {:else if !group || !data}
-	<div class="border border-border bg-surface px-6 py-12 text-center text-sm text-text-muted">
+	<div class="border border-line bg-surface px-6 py-12 text-center text-sm text-ink-muted">
 		No samples found for this capture reason.
 	</div>
 {:else}
-	<section class="mb-4 border border-border bg-surface p-4">
+	<section class="mb-4 border border-line bg-surface p-4">
 		<div class="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
 			<div class="flex flex-wrap items-center gap-4">
 				<DiversityDonut
@@ -151,27 +151,27 @@
 					size={180}
 				/>
 				<div class="space-y-1">
-					<div class="text-xs uppercase tracking-wider text-text-muted">Balanced (mean of sources)</div>
-					<div class="tabular-nums text-2xl font-bold text-text">{group.total.toLocaleString()}</div>
-					<div class="text-xs text-text-muted">
+					<div class="text-xs uppercase tracking-wider text-ink-muted">Balanced (mean of sources)</div>
+					<div class="tabular-nums text-2xl font-bold text-ink">{group.total.toLocaleString()}</div>
+					<div class="text-xs text-ink-muted">
 						{group.avg_score !== null ? `⌀ score ${group.avg_score.toFixed(3)}` : 'no scores'}
 					</div>
-					<div class="text-xs {group.machine_factor < 1 ? 'text-warning-strong' : 'text-text-muted'}" title={`coverage × ${group.machine_factor.toFixed(2)}`}>
+					<div class="text-xs {group.machine_factor < 1 ? 'text-warning-ink' : 'text-ink-muted'}" title={`coverage × ${group.machine_factor.toFixed(2)}`}>
 						{group.machine_count} / {group.machine_target} machines
 					</div>
-					<div class="text-xs text-text-muted">last {formatRelative(group.last_uploaded_at)}</div>
+					<div class="text-xs text-ink-muted">last {formatRelative(group.last_uploaded_at)}</div>
 				</div>
 			</div>
-			<div class="text-right text-xs text-text-muted">
+			<div class="text-right text-xs text-ink-muted">
 				<div>Default target / bucket</div>
-				<div class="tabular-nums text-2xl font-bold text-text">{data.default_target_per_bucket}</div>
+				<div class="tabular-nums text-2xl font-bold text-ink">{data.default_target_per_bucket}</div>
 				<div>across {data.bucket_keys.length} piece-count buckets</div>
 			</div>
 		</div>
 		<div class="mt-4">
-			<div class="mb-1 flex items-center justify-between text-[10px] uppercase tracking-wider text-text-muted">
+			<div class="mb-1 flex items-center justify-between text-xs uppercase tracking-wider text-ink-muted">
 				<span>Trend</span>
-				<span>ETA to 100% <span class="font-semibold text-text">{formatEta(group.eta_seconds, group.last_uploaded_at, group.coverage)}</span></span>
+				<span>ETA to 100% <span class="font-semibold text-ink">{formatEta(group.eta_seconds, group.last_uploaded_at, group.coverage)}</span></span>
 			</div>
 			<Sparkline values={group.coverage_trend} height={100} />
 		</div>
@@ -181,11 +181,11 @@
 		{#each group.by_source_role as role (role.source_role)}
 			<a
 				href={samplesHref(role.source_role)}
-				class="block border border-border bg-surface p-4 transition-colors hover:border-primary"
+				class="block border border-line bg-surface p-4 transition-colors hover:border-primary"
 			>
 				<div class="mb-3 flex items-baseline justify-between gap-2">
-					<h2 class="truncate text-sm font-semibold text-text">{sourceLabel(role.source_role)}</h2>
-					<span class="shrink-0 tabular-nums text-xs text-text-muted">{role.total.toLocaleString()}</span>
+					<h2 class="truncate text-sm font-semibold text-ink">{sourceLabel(role.source_role)}</h2>
+					<span class="shrink-0 tabular-nums text-xs text-ink-muted">{role.total.toLocaleString()}</span>
 				</div>
 				<div class="flex justify-center py-2">
 					<DiversityDonut
@@ -196,14 +196,14 @@
 					/>
 				</div>
 				<div class="mt-3">
-					<div class="mb-1 flex items-center justify-between text-[10px] uppercase tracking-wider text-text-muted">
+					<div class="mb-1 flex items-center justify-between text-xs uppercase tracking-wider text-ink-muted">
 						<span>Trend</span>
-						<span>ETA <span class="font-semibold text-text">{formatEta(role.eta_seconds, role.last_uploaded_at, role.coverage)}</span></span>
+						<span>ETA <span class="font-semibold text-ink">{formatEta(role.eta_seconds, role.last_uploaded_at, role.coverage)}</span></span>
 					</div>
 					<Sparkline values={role.coverage_trend} height={72} />
 				</div>
-				<div class="mt-2 flex flex-wrap items-center justify-between gap-x-2 gap-y-0.5 text-[11px] text-text-muted">
-					<span class={role.machine_factor < 1 ? 'text-warning-strong' : ''} title={`coverage × ${role.machine_factor.toFixed(2)}`}>
+				<div class="mt-2 flex flex-wrap items-center justify-between gap-x-2 gap-y-0.5 text-xs text-ink-muted">
+					<span class={role.machine_factor < 1 ? 'text-warning-ink' : ''} title={`coverage × ${role.machine_factor.toFixed(2)}`}>
 						{role.machine_count}/{role.machine_target} machines
 					</span>
 					<span>{role.avg_score !== null ? `⌀ ${role.avg_score.toFixed(3)}` : '—'}</span>

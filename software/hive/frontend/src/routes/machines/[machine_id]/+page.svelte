@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { sentence } from '$lib/text';
 	import { page } from '$app/state';
 	import {
 		api,
@@ -10,7 +11,7 @@
 	import Badge from '$lib/components/Badge.svelte';
 	import MachineWhereToFind from '$lib/components/MachineWhereToFind.svelte';
 	import Spinner from '$lib/components/Spinner.svelte';
-	import { Alert } from '$lib/components/primitives';
+	import Alert from '$lib/components/Alert.svelte';
 	import AnalyticsDashboard from '$lib/components/charts/AnalyticsDashboard.svelte';
 	import { localUiUrl } from '$lib/machineNetwork';
 
@@ -203,65 +204,65 @@
 <!-- No horizontal padding at mobile: the app shell already pads by 4, and a
      second px-4 here costs 64px of a 390px screen. -->
 <div class="mx-auto max-w-5xl py-8 sm:px-4">
-	<a href={backLink.href} class="text-sm text-text-muted hover:text-primary hover:underline">{backLink.label}</a>
+	<a href={backLink.href} class="text-sm text-ink-muted hover:text-primary-ink hover:underline">{backLink.label}</a>
 
 	{#if loading}
 		<div class="mt-8 flex justify-center"><Spinner size={32} /></div>
 	{:else if error}
-		<div class="mt-6"><Alert variant="danger">{error}</Alert></div>
+		<div class="mt-6"><Alert tone="danger">{error}</Alert></div>
 	{:else if overview && machine}
 		<!-- Header -->
-		<header class="mt-3 border border-border bg-surface p-5">
+		<header class="mt-3 border border-line bg-surface p-5">
 			<div class="flex items-start justify-between gap-4">
 				<div class="min-w-0">
 					<div class="flex items-center gap-2">
 						<span class="inline-block h-2.5 w-2.5 rounded-full {isOnline ? 'bg-success' : 'bg-border'}"></span>
-						<h1 class="truncate text-xl font-semibold text-text">{machine.name}</h1>
-						<span class="text-[10px] font-medium uppercase tracking-wider {isOnline ? 'text-success' : 'text-text-muted'}">
+						<h1 class="truncate text-xl font-semibold text-ink">{machine.name}</h1>
+						<span class="text-xs font-medium uppercase tracking-wider {isOnline ? 'text-success-ink' : 'text-ink-muted'}">
 							{isOnline ? 'Online' : 'Offline'}
 						</span>
 					</div>
 					{#if machine.description}
-						<p class="mt-1 text-sm text-text-muted">{machine.description}</p>
+						<p class="mt-1 text-sm text-ink-muted">{machine.description}</p>
 					{/if}
 					{#if !isOwner && machine.owner.display_name}
-						<p class="mt-1 text-xs text-text-muted">
-							Owner: <span class="text-text">{machine.owner.display_name}</span>
-							{#if machine.owner.email}<span class="text-text-muted"> · {machine.owner.email}</span>{/if}
+						<p class="mt-1 text-xs text-ink-muted">
+							Owner: <span class="text-ink">{machine.owner.display_name}</span>
+							{#if machine.owner.email}<span class="text-ink-muted"> · {machine.owner.email}</span>{/if}
 						</p>
 					{/if}
 				</div>
 				<div class="flex shrink-0 items-center gap-2">
 					{#if machine.archived_at}
-						<Badge text="Archived" variant="neutral" />
+						<Badge tone="neutral">Archived</Badge>
 					{:else}
-						<Badge text={machine.is_active ? 'Active' : 'Inactive'} variant={machine.is_active ? 'success' : 'neutral'} />
+						<Badge tone={machine.is_active ? 'success' : 'neutral'}>{sentence(machine.is_active ? 'Active' : 'Inactive')}</Badge>
 					{/if}
 				</div>
 			</div>
 
 			<dl class="mt-4 grid grid-cols-2 gap-x-6 gap-y-2 text-sm sm:grid-cols-4">
 				<div>
-					<dt class="text-text-muted">Last seen</dt>
-					<dd class="text-text">{formatDate(machine.last_seen_at)}</dd>
+					<dt class="text-ink-muted">Last seen</dt>
+					<dd class="text-ink">{formatDate(machine.last_seen_at)}</dd>
 				</div>
 				<div>
-					<dt class="text-text-muted">Registered</dt>
-					<dd class="text-text">{formatDate(machine.created_at)}</dd>
+					<dt class="text-ink-muted">Registered</dt>
+					<dd class="text-ink">{formatDate(machine.created_at)}</dd>
 				</div>
 				<div>
-					<dt class="text-text-muted">Token</dt>
-					<dd class="text-text">{machine.token_prefix}…</dd>
+					<dt class="text-ink-muted">Token</dt>
+					<dd class="text-ink">{machine.token_prefix}…</dd>
 				</div>
 				<div>
-					<dt class="text-text-muted">Local UI</dt>
-					<dd class="text-text">
+					<dt class="text-ink-muted">Local UI</dt>
+					<dd class="text-ink">
 						{#if localUi}
 							<a
 								href={localUi}
 								target="_blank"
 								rel="noopener noreferrer"
-								class="text-primary hover:underline">Open ↗</a
+								class="text-primary-ink hover:underline">Open ↗</a
 							>
 						{:else}
 							—
@@ -280,19 +281,19 @@
 		<!-- Piece stats -->
 		<section class="mt-6">
 			<div class="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
-				<h2 class="text-lg font-semibold text-text">Sorting</h2>
+				<h2 class="text-lg font-semibold text-ink">Sorting</h2>
 				<div class="flex flex-wrap items-baseline gap-4">
 					<a
 						href={`/machines/${machine.id}/channel-crops`}
-						class="text-sm text-primary hover:underline">Channel crops →</a
+						class="text-sm text-primary-ink hover:underline">Channel crops →</a
 					>
 					<a
 						href={`/machines/${machine.id}/pieces`}
-						class="text-sm text-primary hover:underline">View pieces →</a
+						class="text-sm text-primary-ink hover:underline">View pieces →</a
 					>
 				</div>
 			</div>
-			<div class="mt-3 grid grid-cols-2 gap-px border border-border bg-border sm:grid-cols-4">
+			<div class="mt-3 grid grid-cols-2 gap-px border border-line bg-border sm:grid-cols-4">
 				{#each [
 					{ label: 'Pieces counted', value: num(stats?.pieces_seen) },
 					{ label: 'Distributed', value: num(stats?.distributed) },
@@ -304,12 +305,12 @@
 					{ label: 'Unique colors', value: num(stats?.unique_colors) }
 				] as cell (cell.label)}
 					<div class="flex flex-col items-center bg-surface py-4">
-						<span class="text-xl font-bold text-text tabular-nums">{cell.value}</span>
-						<span class="mt-0.5 text-[10px] uppercase tracking-wider text-text-muted">{cell.label}</span>
+						<span class="text-xl font-bold text-ink tabular-nums">{cell.value}</span>
+						<span class="mt-0.5 text-xs uppercase tracking-wider text-ink-muted">{cell.label}</span>
 					</div>
 				{/each}
 			</div>
-			<p class="mt-2 text-xs text-text-muted">
+			<p class="mt-2 text-xs text-ink-muted">
 				First piece {formatDate(stats?.first_seen ?? null)} · Last piece {formatDate(stats?.last_seen ?? null)}.
 				PPM and on-time are inferred from synced piece timestamps (active sorting from piece density),
 				not the machine's exact powered clock.
@@ -318,8 +319,8 @@
 
 		<!-- Sample capture -->
 		<section class="mt-6">
-			<h2 class="text-lg font-semibold text-text">Sample capture</h2>
-			<div class="mt-3 grid grid-cols-2 gap-px border border-border bg-border sm:grid-cols-4">
+			<h2 class="text-lg font-semibold text-ink">Sample capture</h2>
+			<div class="mt-3 grid grid-cols-2 gap-px border border-line bg-border sm:grid-cols-4">
 				{#each [
 					{ label: 'Samples', value: num(stats?.total_samples) },
 					{ label: 'Accepted', value: num(stats?.accepted_samples) },
@@ -333,8 +334,8 @@
 					}
 				] as cell (cell.label)}
 					<div class="flex flex-col items-center bg-surface py-4">
-						<span class="text-xl font-bold text-text tabular-nums">{cell.value}</span>
-						<span class="mt-0.5 text-[10px] uppercase tracking-wider text-text-muted">{cell.label}</span>
+						<span class="text-xl font-bold text-ink tabular-nums">{cell.value}</span>
+						<span class="mt-0.5 text-xs uppercase tracking-wider text-ink-muted">{cell.label}</span>
 					</div>
 				{/each}
 			</div>
@@ -342,28 +343,28 @@
 				{@const found = stats.parts_found}
 				{@const needed = stats.parts_needed}
 				{@const p = Math.round((found / needed) * 100)}
-				<div class="mt-3 border border-border bg-surface px-4 py-3">
+				<div class="mt-3 border border-line bg-surface px-4 py-3">
 					<div class="mb-1.5 flex items-center justify-between text-xs">
-						<span class="font-medium text-text">Set parts found</span>
-						<span class="font-mono text-text-muted">{found}/{needed} ({p}%)</span>
+						<span class="font-medium text-ink">Set parts found</span>
+						<span class="font-mono text-ink-muted">{found}/{needed} ({p}%)</span>
 					</div>
 					<div class="h-2 w-full bg-border">
 						<div class="h-full bg-success transition-all" style="width: {p}%"></div>
 					</div>
 				</div>
 			{/if}
-			<p class="mt-2 text-xs text-text-muted">
+			<p class="mt-2 text-xs text-ink-muted">
 				First capture {formatDate(stats?.first_capture ?? null)} · Last capture {formatDate(stats?.last_capture ?? null)}.
 			</p>
 		</section>
 
 		{#if stats?.computed_at}
-			<p class="mt-4 text-xs text-text-muted">Stats as of {formatDate(stats.computed_at)} (refreshed hourly).</p>
+			<p class="mt-4 text-xs text-ink-muted">Stats as of {formatDate(stats.computed_at)} (refreshed hourly).</p>
 		{/if}
 
 		<!-- Analytics (charts) -->
 		<section class="mt-8">
-			<h2 class="mb-3 text-lg font-semibold text-text">Analytics</h2>
+			<h2 class="mb-3 text-lg font-semibold text-ink">Analytics</h2>
 			<AnalyticsDashboard machineId={machine.id} showTotals={false} />
 		</section>
 
@@ -371,67 +372,67 @@
 		{#if isOwner}
 			<section class="mt-8">
 				<div class="flex items-baseline justify-between">
-					<h2 class="text-lg font-semibold text-text">Config backups</h2>
-					<span class="text-sm text-text-muted">{backups.length} version{backups.length === 1 ? '' : 's'}</span>
+					<h2 class="text-lg font-semibold text-ink">Config backups</h2>
+					<span class="text-sm text-ink-muted">{backups.length} version{backups.length === 1 ? '' : 's'}</span>
 				</div>
-				<p class="mt-1 text-sm text-text-muted">
+				<p class="mt-1 text-sm text-ink-muted">
 					Versioned snapshots of this machine's settings. A new version is stored only when the config
 					actually changes.
 				</p>
 
 				{#if backups.length === 0}
-					<div class="mt-4 border border-border bg-surface p-6 text-center text-sm text-text-muted">
+					<div class="mt-4 border border-line bg-surface p-6 text-center text-sm text-ink-muted">
 						No backups yet. The machine pushes one automatically once its settings are saved.
 					</div>
 				{:else}
-					<div class="mt-4 border border-border bg-surface">
+					<div class="mt-4 border border-line bg-surface">
 						{#each backups as backup (backup.id)}
-							<div class="border-b border-border last:border-b-0">
+							<div class="border-b border-line last:border-b-0">
 								<button
 									type="button"
 									onclick={() => toggle(backup.version)}
-									class="flex w-full flex-wrap items-center gap-x-3 gap-y-1 px-4 py-3 text-left hover:bg-bg"
+									class="flex w-full flex-wrap items-center gap-x-3 gap-y-1 px-4 py-3 text-left hover:bg-hover"
 								>
-									<span class="font-mono text-sm font-semibold text-text">v{backup.version}</span>
-									<Badge text={backup.trigger} variant={triggerVariant(backup.trigger)} />
-									<span class="min-w-0 truncate text-sm text-text-muted">{formatDate(backup.created_at)}</span>
-									<span class="ml-auto font-mono text-xs text-text-muted">{backup.content_hash.slice(0, 12)}</span>
-									<span class="text-text-muted">{expanded === backup.version ? '▾' : '▸'}</span>
+									<span class="font-mono text-sm font-semibold text-ink">v{backup.version}</span>
+									<Badge tone={triggerVariant(backup.trigger)}>{sentence(backup.trigger)}</Badge>
+									<span class="min-w-0 truncate text-sm text-ink-muted">{formatDate(backup.created_at)}</span>
+									<span class="ml-auto font-mono text-xs text-ink-muted">{backup.content_hash.slice(0, 12)}</span>
+									<span class="text-ink-muted">{expanded === backup.version ? '▾' : '▸'}</span>
 								</button>
 								{#if expanded === backup.version}
-									<div class="border-t border-border bg-bg px-4 py-3">
+									<div class="border-t border-line bg-well px-4 py-3">
 										{#if detailLoading}
 											<div class="flex justify-center py-4"><Spinner size={24} /></div>
 										{:else if detail}
-											<div class="mb-2 text-xs font-semibold tracking-wider text-text-muted uppercase">
+											<div class="mb-2 text-xs font-semibold tracking-wider text-ink-muted uppercase">
 												local_state
 											</div>
 											{#if localStateKeys(detail).length > 0}
-												<div class="mb-4 border border-border">
+												<div class="mb-4 border border-line">
 													{#each localStateKeys(detail) as key (key)}
 														{@const d = detail}
-														<div class="border-b border-border last:border-b-0">
+														<div class="border-b border-line last:border-b-0">
 															<button
 																type="button"
 																onclick={() => (openStateKey = openStateKey === key ? null : key)}
 																class="flex w-full items-center gap-2 px-3 py-2 text-left hover:bg-surface"
 															>
-																<span class="font-mono text-xs text-text">{key}</span>
-																<span class="ml-auto text-text-muted">{openStateKey === key ? '▾' : '▸'}</span>
+																<span class="font-mono text-xs text-ink">{key}</span>
+																<span class="ml-auto text-ink-muted">{openStateKey === key ? '▾' : '▸'}</span>
 															</button>
 															{#if openStateKey === key}
-																<pre class="max-h-80 overflow-auto border-t border-border bg-surface p-3 text-xs text-text">{localStateJson(d, key)}</pre>
+																<pre class="max-h-80 overflow-auto border-t border-line bg-surface p-3 text-xs text-ink">{localStateJson(d, key)}</pre>
 															{/if}
 														</div>
 													{/each}
 												</div>
 											{:else}
-												<p class="mb-4 text-sm text-text-muted">No local_state captured.</p>
+												<p class="mb-4 text-sm text-ink-muted">No local_state captured.</p>
 											{/if}
-											<div class="mb-2 text-xs font-semibold tracking-wider text-text-muted uppercase">
+											<div class="mb-2 text-xs font-semibold tracking-wider text-ink-muted uppercase">
 												machine_params.toml
 											</div>
-											<pre class="max-h-96 overflow-auto border border-border bg-surface p-3 text-xs text-text">{tomlText(detail) || '(empty)'}</pre>
+											<pre class="max-h-96 overflow-auto border border-line bg-surface p-3 text-xs text-ink">{tomlText(detail) || '(empty)'}</pre>
 										{/if}
 									</div>
 								{/if}
@@ -445,59 +446,59 @@
 		<!-- Machine specs (owner + admins only; the page itself is already owner/admin-gated) -->
 		{#if specs && (isOwner || overview.viewer_is_admin)}
 			<section class="mt-8">
-				<h2 class="text-lg font-semibold text-text">Machine specs</h2>
-				<div class="mt-3 border border-border bg-surface p-5">
+				<h2 class="text-lg font-semibold text-ink">Machine specs</h2>
+				<div class="mt-3 border border-line bg-surface p-5">
 					<dl class="grid grid-cols-2 gap-x-6 gap-y-3 text-sm sm:grid-cols-3">
 						<div>
-							<dt class="text-text-muted">Platform</dt>
-							<dd class="text-text">{specs.platform?.model || '—'}</dd>
+							<dt class="text-ink-muted">Platform</dt>
+							<dd class="text-ink">{specs.platform?.model || '—'}</dd>
 						</div>
 						<div>
-							<dt class="text-text-muted">Operating system</dt>
-							<dd class="text-text">
+							<dt class="text-ink-muted">Operating system</dt>
+							<dd class="text-ink">
 								{specs.platform?.os?.name || '—'}
 								{#if specs.platform?.os?.sorter_os_version}
-									<span class="text-text-muted"> · {specs.platform.os.sorter_os_version}</span>
+									<span class="text-ink-muted"> · {specs.platform.os.sorter_os_version}</span>
 								{/if}
 							</dd>
 						</div>
 						<div>
-							<dt class="text-text-muted">Software</dt>
-							<dd class="text-text">
+							<dt class="text-ink-muted">Software</dt>
+							<dd class="text-ink">
 								{specs.software?.version || '—'}
 								{#if specs.software?.channel}
-									<span class="text-text-muted"> · {specs.software.channel}</span>
+									<span class="text-ink-muted"> · {specs.software.channel}</span>
 								{/if}
 							</dd>
 						</div>
 						{#if specs.system?.ram_bytes}
 							<div>
-								<dt class="text-text-muted">Memory</dt>
-								<dd class="text-text">{bytesToGb(specs.system.ram_bytes)}</dd>
+								<dt class="text-ink-muted">Memory</dt>
+								<dd class="text-ink">{bytesToGb(specs.system.ram_bytes)}</dd>
 							</div>
 						{/if}
 						{#if specs.system?.disk_total_bytes}
 							<div>
-								<dt class="text-text-muted">Storage</dt>
-								<dd class="text-text">{bytesToGb(specs.system.disk_total_bytes)}</dd>
+								<dt class="text-ink-muted">Storage</dt>
+								<dd class="text-ink">{bytesToGb(specs.system.disk_total_bytes)}</dd>
 							</div>
 						{/if}
 						{#if specs.config?.machine_setup}
 							<div>
-								<dt class="text-text-muted">Setup</dt>
-								<dd class="text-text">{specs.config.machine_setup}</dd>
+								<dt class="text-ink-muted">Setup</dt>
+								<dd class="text-ink">{specs.config.machine_setup}</dd>
 							</div>
 						{/if}
 					</dl>
 
 					{#if cameraSpecs.length > 0}
-						<div class="mt-5 border-t border-border pt-4">
-							<h3 class="text-xs font-medium uppercase tracking-wider text-text-muted">Cameras</h3>
+						<div class="mt-5 border-t border-line pt-4">
+							<h3 class="text-xs font-medium uppercase tracking-wider text-ink-muted">Cameras</h3>
 							<dl class="mt-2 grid grid-cols-2 gap-x-6 gap-y-2 text-sm sm:grid-cols-3">
 								{#each cameraSpecs as [role, cam] (role)}
 									<div>
-										<dt class="text-text">{prettyRole(role)}</dt>
-										<dd class="text-text-muted">
+										<dt class="text-ink">{prettyRole(role)}</dt>
+										<dd class="text-ink-muted">
 											{cam.model || 'Camera'}
 											<span class="block tabular-nums">{resolution(cam)}</span>
 											<span class="block">{colorCorrectionLabel(cam)}</span>
@@ -512,13 +513,13 @@
 					{/if}
 
 					{#if boardSpecs.length > 0}
-						<div class="mt-5 border-t border-border pt-4">
-							<h3 class="text-xs font-medium uppercase tracking-wider text-text-muted">Controller boards</h3>
+						<div class="mt-5 border-t border-line pt-4">
+							<h3 class="text-xs font-medium uppercase tracking-wider text-ink-muted">Controller boards</h3>
 							<dl class="mt-2 grid grid-cols-2 gap-x-6 gap-y-2 text-sm sm:grid-cols-3">
 								{#each boardSpecs as [key, board] (key)}
 									<div>
-										<dt class="text-text">{prettyRole(board.role || key)}</dt>
-										<dd class="text-text-muted">{boardLabel(board)}</dd>
+										<dt class="text-ink">{prettyRole(board.role || key)}</dt>
+										<dd class="text-ink-muted">{boardLabel(board)}</dd>
 									</div>
 								{/each}
 							</dl>
@@ -526,7 +527,7 @@
 					{/if}
 
 					{#if specs.captured_at}
-						<p class="mt-4 text-xs text-text-muted">As of {formatDate(specs.captured_at)}.</p>
+						<p class="mt-4 text-xs text-ink-muted">As of {formatDate(specs.captured_at)}.</p>
 					{/if}
 				</div>
 			</section>

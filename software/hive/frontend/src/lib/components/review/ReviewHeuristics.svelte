@@ -3,34 +3,34 @@
 </script>
 
 <div class="border border-warning/30 bg-warning/10 p-4">
-	<h2 class="text-sm font-semibold text-warning-strong">What Counts As Good Training Data</h2>
-	<div class="mt-3 space-y-3 text-sm text-text">
+	<h2 class="text-sm font-semibold text-warning-ink">What Counts As Good Training Data</h2>
+	<div class="mt-3 space-y-3 text-sm text-ink">
 		<p>
 			Accept only images where every visible LEGO part is covered by a box or corrected annotation.
 		</p>
 		<div class="border border-success/20 bg-surface px-3 py-3">
-			<div class="text-xs font-semibold tracking-wide text-success uppercase">Accept</div>
-			<p class="mt-1 text-sm text-text">
+			<div class="text-xs font-semibold tracking-wide text-success-ink uppercase">Accept</div>
+			<p class="mt-1 text-sm text-ink">
 				All visible parts are fully accounted for, and the boxes match the actual objects well enough for training.
 			</p>
 		</div>
 		<div class="border border-success/20 bg-surface px-3 py-3">
-			<div class="text-xs font-semibold tracking-wide text-success uppercase">Accept (empty too)</div>
-			<p class="mt-1 text-sm text-text">
+			<div class="text-xs font-semibold tracking-wide text-success-ink uppercase">Accept (empty too)</div>
+			<p class="mt-1 text-sm text-ink">
 				Empty frames — a clean C-channel, an empty carousel, no parts in view — are valid training signal too. Accept them when there really is nothing to box, so the detector learns what "nothing here" looks like.
 			</p>
 		</div>
 		{#if FEATURES.ANNOTATION_EDITING}
 			<div class="border border-info/20 bg-surface px-3 py-3">
-				<div class="text-xs font-semibold tracking-wide text-info uppercase">Annotate First</div>
-				<p class="mt-1 text-sm text-text">
+				<div class="text-xs font-semibold tracking-wide text-info-ink uppercase">Annotate First</div>
+				<p class="mt-1 text-sm text-ink">
 					If parts are missing, split incorrectly, or boxed poorly, fix the annotations before accepting.
 				</p>
 			</div>
 		{/if}
 		<div class="border border-primary/20 bg-surface px-3 py-3">
-			<div class="text-xs font-semibold tracking-wide text-primary uppercase">Reject</div>
-			<p class="mt-1 text-sm text-text">
+			<div class="text-xs font-semibold tracking-wide text-primary-ink uppercase">Reject</div>
+			<p class="mt-1 text-sm text-ink">
 				Reject images that stay incomplete or unreliable, for example when visible parts cannot be marked cleanly enough for training.
 			</p>
 		</div>

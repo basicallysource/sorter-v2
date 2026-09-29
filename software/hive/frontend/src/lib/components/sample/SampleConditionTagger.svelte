@@ -130,11 +130,11 @@
 	});
 </script>
 
-<div class="border border-border bg-surface">
-	<div class="flex items-center justify-between border-b border-border px-4 py-2.5">
-		<h2 class="text-xs font-semibold uppercase tracking-wider text-text-muted">Tag condition</h2>
+<div class="border border-line bg-surface">
+	<div class="flex items-center justify-between border-b border-line px-4 py-2.5">
+		<h2 class="text-xs font-semibold uppercase tracking-wider text-ink-muted">Tag condition</h2>
 		{#if providerLabel}
-			<span class="bg-bg px-2 py-0.5 text-[11px] font-medium text-text-muted">
+			<span class="bg-well px-2 py-0.5 text-xs font-medium text-ink-muted">
 				Was: {providerLabel}
 			</span>
 		{/if}
@@ -142,16 +142,16 @@
 
 	<div class="space-y-4 p-3">
 		<div>
-			<div class="mb-1.5 text-[10px] font-semibold uppercase tracking-wide text-text-muted">
+			<div class="mb-1.5 text-xs font-semibold uppercase tracking-wide text-ink-muted">
 				Composition
 			</div>
 			<div class="flex flex-wrap gap-1.5">
 				{#each COMPOSITION_OPTIONS as opt}
 					<button
 						type="button"
-						class="border px-2.5 py-1 text-[11px] font-medium {composition === opt.value
+						class="border px-2.5 py-1 text-xs font-medium {composition === opt.value
 							? 'border-primary bg-primary text-white'
-							: 'border-border bg-surface text-text hover:border-primary'}"
+							: 'border-line bg-surface text-ink hover:border-primary'}"
 						onclick={() => (composition = opt.value)}
 					>
 						{opt.label}
@@ -161,16 +161,16 @@
 		</div>
 
 		<div>
-			<div class="mb-1.5 text-[10px] font-semibold uppercase tracking-wide text-text-muted">
+			<div class="mb-1.5 text-xs font-semibold uppercase tracking-wide text-ink-muted">
 				Condition
 			</div>
 			<div class="flex flex-wrap gap-1.5">
 				{#each CONDITION_OPTIONS as opt}
 					<button
 						type="button"
-						class="border px-2.5 py-1 text-[11px] font-medium {condition === opt.value
+						class="border px-2.5 py-1 text-xs font-medium {condition === opt.value
 							? 'border-primary bg-primary text-white'
-							: 'border-border bg-surface text-text hover:border-primary'}"
+							: 'border-line bg-surface text-ink hover:border-primary'}"
 						onclick={() => (condition = opt.value)}
 					>
 						{opt.label}
@@ -180,16 +180,16 @@
 		</div>
 
 		<div>
-			<div class="mb-1.5 text-[10px] font-semibold uppercase tracking-wide text-text-muted">
+			<div class="mb-1.5 text-xs font-semibold uppercase tracking-wide text-ink-muted">
 				Flags (independent modifiers)
 			</div>
 			<div class="flex flex-wrap gap-1.5">
 				{#each FLAG_CHIPS as chip}
 					<button
 						type="button"
-						class="border px-2.5 py-1 text-[11px] font-medium {flags[chip.value]
+						class="border px-2.5 py-1 text-xs font-medium {flags[chip.value]
 							? 'border-text bg-text text-surface'
-							: 'border-border bg-surface text-text-muted hover:border-text'}"
+							: 'border-line bg-surface text-ink-muted hover:border-text'}"
 						onclick={() => toggleFlag(chip.value)}
 					>
 						{chip.label}
@@ -199,7 +199,7 @@
 		</div>
 
 		<div>
-			<label class="mb-1.5 block text-[10px] font-semibold uppercase tracking-wide text-text-muted" for="condition-evidence">
+			<label class="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-ink-muted" for="condition-evidence">
 				Evidence (optional, one short line)
 			</label>
 			<input
@@ -207,16 +207,16 @@
 				type="text"
 				bind:value={evidence}
 				placeholder="Visible scratch on top stud, slight discoloration..."
-				class="w-full border border-border bg-surface px-2 py-1.5 text-xs text-text focus:border-primary focus:outline-none"
+				class="w-full border border-line bg-surface px-2 py-1.5 text-xs text-ink focus:border-primary focus:outline-none"
 			/>
 		</div>
 
-		<div class="flex items-center justify-between gap-3 border-t border-border pt-3">
-			<div class="text-[11px] text-text-muted">
+		<div class="flex items-center justify-between gap-3 border-t border-line pt-3">
+			<div class="text-xs text-ink-muted">
 				{#if justSaved}
-					<span class="text-success">Saved — overrides any prior auto-label.</span>
+					<span class="text-success-ink">Saved — overrides any prior auto-label.</span>
 				{:else if saveError}
-					<span class="text-danger">{saveError}</span>
+					<span class="text-danger-ink">{saveError}</span>
 				{:else}
 					Human override always wins over Perceptron auto-label.
 				{/if}

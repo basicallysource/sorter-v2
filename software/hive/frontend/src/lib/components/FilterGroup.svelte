@@ -61,18 +61,18 @@
 	}
 </script>
 
-<div class="border border-border bg-surface">
+<div class="border border-line bg-surface">
 	<!-- svelte-ignore a11y_click_events_have_key_events -->
 	<button
 		type="button"
 		onclick={toggle}
-		class="group flex w-full items-center justify-between gap-2 px-2 py-1.5 text-[10px] font-semibold uppercase tracking-wider text-text {expanded ? 'border-b border-border bg-bg' : 'hover:bg-bg'}"
+		class="group flex w-full items-center justify-between gap-2 px-2 py-1.5 text-xs font-semibold uppercase tracking-wider text-ink {expanded ? 'border-b border-line bg-well' : 'hover:bg-hover'}"
 		aria-expanded={expanded}
 	>
 		<span class="flex min-w-0 items-center gap-2">
 			<span class="truncate">{title}</span>
 			{#if activeLabel && !expanded}
-				<span class="border border-primary/30 bg-primary-light px-1 py-0.5 text-[9px] font-medium normal-case tracking-normal text-primary">
+				<span class="border border-primary/30 bg-primary-soft px-1 py-0.5 text-xs font-medium normal-case tracking-normal text-primary-ink">
 					{activeLabel}
 				</span>
 			{/if}

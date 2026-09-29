@@ -53,10 +53,10 @@
 	});
 </script>
 
-<div class="border border-border bg-surface">
-	<div class="border-b border-border px-3 py-2">
-		<div class="text-sm font-medium text-text">Labeled on this machine</div>
-		<div class="text-xs text-text-muted">
+<div class="border border-line bg-surface">
+	<div class="border-b border-line px-3 py-2">
+		<div class="text-sm font-medium text-ink">Labeled on this machine</div>
+		<div class="text-xs text-ink-muted">
 			{#if !loading && total > 0}
 				{total} labeled piece{total === 1 ? '' : 's'} · color range for reference
 			{:else}
@@ -68,18 +68,18 @@
 	{#if loading}
 		<div class="flex justify-center py-8"><Spinner size={32} /></div>
 	{:else if error}
-		<div class="p-3 text-sm text-primary">{error}</div>
+		<div class="p-3 text-sm text-primary-ink">{error}</div>
 	{:else if items.length === 0}
-		<p class="p-4 text-sm text-text-muted">This machine has no pieces labeled yet.</p>
+		<p class="p-4 text-sm text-ink-muted">This machine has no pieces labeled yet.</p>
 	{:else}
 		<div class="flex flex-col">
 			{#each shown as it (it.piece_uuid)}
 				<a
 					href={`/piece-bboxes/${machineId}/${encodeURIComponent(it.piece_uuid)}`}
-					class="flex items-center gap-2 border-b border-border px-2 py-1.5 last:border-b-0 hover:bg-bg"
+					class="flex items-center gap-2 border-b border-line px-2 py-1.5 last:border-b-0 hover:bg-hover"
 					title={`${it.color_name} (${it.color_id}) · ${it.label_count} labeler${it.label_count === 1 ? '' : 's'}`}
 				>
-					<div class="flex h-12 w-12 shrink-0 items-center justify-center bg-bg">
+					<div class="flex h-12 w-12 shrink-0 items-center justify-center bg-well">
 						{#if it.thumb_seq != null}
 							<ZoomImage
 								src={api.machineLabeledPieceImageUrl(machineId, it.piece_uuid, it.thumb_seq)}
@@ -89,10 +89,10 @@
 						{/if}
 					</div>
 					<span
-						class="h-4 w-4 shrink-0 border border-border {it.is_trans ? 'opacity-70' : ''}"
+						class="h-4 w-4 shrink-0 border border-line {it.is_trans ? 'opacity-70' : ''}"
 						style={`background:#${it.rgb ?? '000'}`}
 					></span>
-					<span class="min-w-0 flex-1 truncate text-xs text-text-muted">{it.color_name}</span>
+					<span class="min-w-0 flex-1 truncate text-xs text-ink-muted">{it.color_name}</span>
 				</a>
 			{/each}
 		</div>

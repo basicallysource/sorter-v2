@@ -17,10 +17,10 @@
 	import PieceLabelPanel, { type PieceLabelPatch } from '$lib/components/PieceLabelPanel.svelte';
 	import PieceRow from '$lib/components/PieceRow.svelte';
 	import Spinner from '$lib/components/Spinner.svelte';
-	import { Button } from '$lib/components/primitives';
-	import ArrowRight from 'lucide-svelte/icons/arrow-right';
-	import LayoutGrid from 'lucide-svelte/icons/layout-grid';
-	import Rows3 from 'lucide-svelte/icons/rows-3';
+	import Button from '$lib/components/Button.svelte';
+	import ArrowRight from '@lucide/svelte/icons/arrow-right';
+	import LayoutGrid from '@lucide/svelte/icons/layout-grid';
+	import Rows3 from '@lucide/svelte/icons/rows-3';
 
 	const BATCH = 60;
 
@@ -291,8 +291,8 @@
 
 <div class="mb-5 flex flex-wrap items-end justify-between gap-3">
 	<div>
-		<h1 class="text-2xl font-bold text-text">Piece Labeling</h1>
-		<p class="text-sm text-text-muted">
+		<h1 class="text-2xl font-bold text-ink">Piece Labeling</h1>
+		<p class="text-sm text-ink-muted">
 			Label each synced piece — its true BrickLink color and which upstream crops are the same
 			piece.
 		</p>
@@ -303,45 +303,45 @@
 </div>
 
 {#if error}
-	<div class="mb-4 bg-primary/8 p-3 text-sm text-primary">{error}</div>
+	<div class="mb-4 bg-primary/8 p-3 text-sm text-primary-ink">{error}</div>
 {/if}
 
 <!-- Compact dashboard -->
 {#if stats}
-	<div class="mb-6 grid gap-3 border border-border bg-surface p-4 sm:grid-cols-[minmax(0,1fr)_auto]">
+	<div class="mb-6 grid gap-3 border border-line bg-surface p-4 sm:grid-cols-[minmax(0,1fr)_auto]">
 		<div>
 			<div class="flex flex-wrap items-baseline gap-x-6 gap-y-1">
 				<div>
-					<span class="text-2xl font-bold text-text tabular-nums">{coverage}%</span>
-					<span class="text-sm text-text-muted">color-labeled</span>
+					<span class="text-2xl font-bold text-ink tabular-nums">{coverage}%</span>
+					<span class="text-sm text-ink-muted">color-labeled</span>
 				</div>
-				<div class="text-sm text-text-muted">
-					<span class="text-text tabular-nums">{stats.color_labeled_pieces.toLocaleString()}</span>
+				<div class="text-sm text-ink-muted">
+					<span class="text-ink tabular-nums">{stats.color_labeled_pieces.toLocaleString()}</span>
 					of {stats.total_labelable.toLocaleString()} pieces ·
-					<span class="text-text tabular-nums">{stats.crop_linked_pieces.toLocaleString()}</span> same-piece
+					<span class="text-ink tabular-nums">{stats.crop_linked_pieces.toLocaleString()}</span> same-piece
 				</div>
 			</div>
-			<div class="mt-3 flex h-3 w-full overflow-hidden border border-border">
+			<div class="mt-3 flex h-3 w-full overflow-hidden border border-line">
 				<div class="bg-success" style={`width:${(hist['3+'] / histTotal) * 100}%`} title={`3+ labelers: ${hist['3+']}`}></div>
 				<div class="bg-success/70" style={`width:${(hist['2'] / histTotal) * 100}%`} title={`2 labelers: ${hist['2']}`}></div>
 				<div class="bg-success/40" style={`width:${(hist['1'] / histTotal) * 100}%`} title={`1 labeler: ${hist['1']}`}></div>
 				<div class="bg-border" style={`width:${(hist['0'] / histTotal) * 100}%`} title={`unlabeled: ${hist['0']}`}></div>
 			</div>
-			<div class="mt-1.5 flex flex-wrap gap-x-4 gap-y-0.5 text-xs text-text-muted">
+			<div class="mt-1.5 flex flex-wrap gap-x-4 gap-y-0.5 text-xs text-ink-muted">
 				<span><span class="mr-1 inline-block h-2 w-2 bg-success align-middle"></span>3+ ({hist['3+']})</span>
 				<span><span class="mr-1 inline-block h-2 w-2 bg-success/70 align-middle"></span>2 ({hist['2']})</span>
 				<span><span class="mr-1 inline-block h-2 w-2 bg-success/40 align-middle"></span>1 ({hist['1']})</span>
 				<span><span class="mr-1 inline-block h-2 w-2 bg-border align-middle"></span>0 ({hist['0'].toLocaleString()})</span>
 			</div>
 		</div>
-		<div class="flex gap-6 border-t border-border pt-3 sm:border-l sm:border-t-0 sm:pl-6 sm:pt-0">
+		<div class="flex gap-6 border-t border-line pt-3 sm:border-l sm:border-t-0 sm:pl-6 sm:pt-0">
 			<div>
-				<div class="text-xl font-bold text-text tabular-nums">{stats.labeled_by_me.toLocaleString()}</div>
-				<div class="text-xs text-text-muted">your colors</div>
+				<div class="text-xl font-bold text-ink tabular-nums">{stats.labeled_by_me.toLocaleString()}</div>
+				<div class="text-xs text-ink-muted">your colors</div>
 			</div>
 			<div>
-				<div class="text-xl font-bold text-text tabular-nums">{stats.crop_links_by_me.toLocaleString()}</div>
-				<div class="text-xs text-text-muted">your same-piece</div>
+				<div class="text-xl font-bold text-ink tabular-nums">{stats.crop_links_by_me.toLocaleString()}</div>
+				<div class="text-xs text-ink-muted">your same-piece</div>
 			</div>
 		</div>
 	</div>
@@ -356,8 +356,8 @@
 {#snippet filterBtn(label: string, selected: boolean, onClick: () => void)}
 	<button
 		class="w-full px-2 py-1 text-left text-sm {selected
-			? 'bg-primary-light font-medium text-primary'
-			: 'text-text-muted hover:bg-bg hover:text-text'}"
+			? 'bg-primary-soft font-medium text-primary-ink'
+			: 'text-ink-muted hover:bg-hover hover:text-ink'}"
 		onclick={onClick}
 	>
 		{label}
@@ -380,7 +380,7 @@
 				{@render filterBtn('All machines', machineId === null, () => setMachine(null))}
 				{#each machineGroups as [owner, group] (owner)}
 					<div>
-						<div class="px-2 pb-0.5 text-xs font-semibold uppercase tracking-wider text-text-muted">{owner}</div>
+						<div class="px-2 pb-0.5 text-xs font-semibold uppercase tracking-wider text-ink-muted">{owner}</div>
 						{#each group as m (m.id)}
 							{@render filterBtn(m.name, machineId === m.id, () => setMachine(m.id))}
 						{/each}
@@ -403,17 +403,17 @@
 		<div class="min-w-0 flex-1">
 			<!-- View toggle -->
 			<div class="mb-3 flex items-center justify-between gap-2">
-				<span class="text-xs text-text-muted">
+				<span class="text-xs text-ink-muted">
 					{#if !loading}{items.length} shown{/if}
 				</span>
-				<div class="flex border border-border">
+				<div class="flex border border-line">
 					<button
 						type="button"
 						title="Grid"
 						onclick={() => setView('grid')}
 						class="flex items-center gap-1 px-2 py-1 text-xs {view === 'grid'
-							? 'bg-primary-light text-primary'
-							: 'text-text-muted hover:bg-bg hover:text-text'}"
+							? 'bg-primary-soft text-primary-ink'
+							: 'text-ink-muted hover:bg-hover hover:text-ink'}"
 					>
 						<LayoutGrid size={14} /> Grid
 					</button>
@@ -421,9 +421,9 @@
 						type="button"
 						title="Rows"
 						onclick={() => setView('rows')}
-						class="flex items-center gap-1 border-l border-border px-2 py-1 text-xs {view === 'rows'
-							? 'bg-primary-light text-primary'
-							: 'text-text-muted hover:bg-bg hover:text-text'}"
+						class="flex items-center gap-1 border-l border-line px-2 py-1 text-xs {view === 'rows'
+							? 'bg-primary-soft text-primary-ink'
+							: 'text-ink-muted hover:bg-hover hover:text-ink'}"
 					>
 						<Rows3 size={14} /> Rows
 					</button>
@@ -433,8 +433,8 @@
 			{#if loading}
 				<div class="flex justify-center py-16"><Spinner size={32} /></div>
 			{:else if items.length === 0}
-				<div class="border border-border bg-surface p-10 text-center">
-					<p class="text-sm text-text-muted">No labelable pieces match these filters.</p>
+				<div class="border border-line bg-surface p-10 text-center">
+					<p class="text-sm text-ink-muted">No labelable pieces match these filters.</p>
 				</div>
 			{:else if view === 'grid'}
 				<div
@@ -452,7 +452,7 @@
 					{/each}
 				</div>
 			{:else}
-				<div class="border border-border bg-surface">
+				<div class="border border-line bg-surface">
 					{#each items as card (cardKey(card))}
 						<PieceRow
 							{card}
@@ -474,7 +474,7 @@
 							</Button>
 						</div>
 					{:else}
-						<span class="text-xs text-text-muted">End of list · {items.length} shown</span>
+						<span class="text-xs text-ink-muted">End of list · {items.length} shown</span>
 					{/if}
 				</div>
 			{/if}

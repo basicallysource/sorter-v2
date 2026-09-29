@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { sentence } from '$lib/text';
 	import { onDestroy } from 'svelte';
 	import { goto } from '$app/navigation';
 	import { auth } from '$lib/auth.svelte';
@@ -11,7 +12,8 @@
 	} from '$lib/api';
 	import Spinner from '$lib/components/Spinner.svelte';
 	import Badge from '$lib/components/Badge.svelte';
-	import { Button, Alert } from '$lib/components/primitives';
+	import Button from '$lib/components/Button.svelte';
+	import Alert from '$lib/components/Alert.svelte';
 
 	const REFRESH_MS = 2000;
 
@@ -137,9 +139,9 @@
 <div class="mx-auto max-w-3xl px-4 py-8">
 	<div class="mb-6 flex items-center justify-between">
 		<div>
-			<a href="/settings" class="text-sm text-text-muted hover:text-text">← Settings</a>
-			<h1 class="mt-1 text-2xl font-bold text-text">Catalog Sync</h1>
-			<p class="text-sm text-text-muted">
+			<a href="/settings" class="text-sm text-ink-muted hover:text-ink">← Settings</a>
+			<h1 class="mt-1 text-2xl font-bold text-ink">Catalog Sync</h1>
+			<p class="text-sm text-ink-muted">
 				Manage the Rebrickable / BrickLink catalog. Syncs resume where they left off — if the
 				server restarts mid-sync, just start the same one again.
 			</p>
@@ -147,24 +149,24 @@
 	</div>
 
 	{#if error}
-		<div class="mb-4"><Alert variant="danger">{error}</Alert></div>
+		<div class="mb-4"><Alert tone="danger">{error}</Alert></div>
 	{/if}
 	{#if actionError}
-		<div class="mb-4"><Alert variant="danger">{actionError}</Alert></div>
+		<div class="mb-4"><Alert tone="danger">{actionError}</Alert></div>
 	{/if}
 
 	{#if loading && !status}
 		<div class="flex justify-center p-8"><Spinner size={32} /></div>
 	{:else if status}
-		<div class="mb-6 border border-border bg-bg p-4 text-sm text-text-muted">
+		<div class="mb-6 border border-line bg-well p-4 text-sm text-ink-muted">
 			<div class="flex flex-wrap gap-x-6 gap-y-1">
 				<span>
 					Auto-sync:
-					<span class="font-medium text-text">{status.auto_sync_enabled ? 'on' : 'off'}</span>
+					<span class="font-medium text-ink">{status.auto_sync_enabled ? 'on' : 'off'}</span>
 				</span>
 				<span>
 					Currently running:
-					<span class="font-medium text-text">{status.sync_type ?? 'nothing'}</span>
+					<span class="font-medium text-ink">{status.sync_type ?? 'nothing'}</span>
 				</span>
 				<span>Last checked: {fmtTime(status.auto_sync_last_checked_at)}</span>
 			</div>
@@ -173,14 +175,14 @@
 		<div class="space-y-4">
 			{#each orderedTypes as [type, state] (type)}
 				{@const percent = pct(state)}
-				<div class="border border-border bg-surface p-5">
+				<div class="border border-line bg-surface p-5">
 					<div class="flex items-start justify-between gap-3">
 						<div>
 							<div class="flex items-center gap-2">
-								<h2 class="font-semibold text-text">{TYPE_LABELS[type]}</h2>
-								<Badge text={state.status} variant={badgeVariant(state.status)} />
+								<h2 class="font-semibold text-ink">{TYPE_LABELS[type]}</h2>
+								<Badge tone={badgeVariant(state.status)}>{sentence(state.status)}</Badge>
 							</div>
-							<p class="mt-1 text-xs text-text-muted">{TYPE_BLURBS[type]}</p>
+							<p class="mt-1 text-xs text-ink-muted">{TYPE_BLURBS[type]}</p>
 						</div>
 						<div class="flex shrink-0 gap-2">
 							{#if state.status === 'running'}
@@ -209,11 +211,11 @@
 
 					{#if percent !== null}
 						<div class="mt-4">
-							<div class="mb-1 flex justify-between text-xs text-text-muted">
+							<div class="mb-1 flex justify-between text-xs text-ink-muted">
 								<span>{state.progress_current ?? 0} / {state.progress_total}</span>
 								<span>{percent}%</span>
 							</div>
-							<div class="h-2 bg-bg">
+							<div class="h-2 bg-well">
 								<div
 									class="h-full bg-primary transition-[width] duration-300"
 									style="width: {percent}%"
@@ -223,16 +225,16 @@
 					{/if}
 
 					{#if state.last_message}
-						<p class="mt-3 break-words text-sm text-text">{state.last_message}</p>
+						<p class="mt-3 break-words text-sm text-ink">{state.last_message}</p>
 					{/if}
 
 					{#if state.error && state.status !== 'running'}
-						<div class="mt-3"><Alert variant="danger">{state.error}</Alert></div>
+						<div class="mt-3"><Alert tone="danger">{state.error}</Alert></div>
 					{/if}
 
-					<div class="mt-3 flex flex-wrap gap-x-6 gap-y-1 text-xs text-text-muted">
+					<div class="mt-3 flex flex-wrap gap-x-6 gap-y-1 text-xs text-ink-muted">
 						{#if state.cached_count !== null}
-							<span>Cached: <span class="font-medium text-text">{state.cached_count}</span></span>
+							<span>Cached: <span class="font-medium text-ink">{state.cached_count}</span></span>
 						{/if}
 						<span>Last completed: {fmtTime(state.last_synced_at)}</span>
 						{#if state.pages_fetched > 0}

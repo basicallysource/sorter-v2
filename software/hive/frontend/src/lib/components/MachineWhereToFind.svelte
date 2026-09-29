@@ -30,22 +30,22 @@
 {#snippet networkRow(network: MachineNetwork)}
 	{@const url = sorterUrl(network.address, info?.ports.ui ?? null)}
 	<div
-		class="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 border-b border-border px-4 py-3 last:border-b-0"
+		class="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 border-b border-line px-4 py-3 last:border-b-0"
 	>
 		{#if url}
 			<a
 				href={url}
 				target="_blank"
 				rel="noopener noreferrer"
-				class="font-mono text-sm wrap-anywhere text-primary hover:underline">{url}</a
+				class="font-mono text-sm wrap-anywhere text-primary-ink hover:underline">{url}</a
 			>
 		{:else}
-			<span class="font-mono text-sm wrap-anywhere text-text">{network.address}</span>
+			<span class="font-mono text-sm wrap-anywhere text-ink">{network.address}</span>
 		{/if}
-		<span class="flex items-baseline gap-2 text-sm text-text-muted">
+		<span class="flex items-baseline gap-2 text-sm text-ink-muted">
 			{networkLabel(network)}
 			{#if network.internet === false}
-				<span class="text-[10px] font-medium tracking-wider text-warning-strong uppercase"
+				<span class="text-xs font-medium tracking-wider text-warning-ink uppercase"
 					>No internet</span
 				>
 			{/if}
@@ -55,9 +55,9 @@
 
 <section class="mt-6">
 	<div class="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
-		<h2 class="text-lg font-semibold text-text">Where to find it</h2>
+		<h2 class="text-lg font-semibold text-ink">Where to find it</h2>
 		{#if info && reportedAt}
-			<span class="text-xs {current ? 'text-text-muted' : 'text-warning-strong'}">
+			<span class="text-xs {current ? 'text-ink-muted' : 'text-warning-ink'}">
 				{current
 					? `Reported ${relativeTime(reportedAt)}`
 					: `Last known ${relativeTime(reportedAt)}, may have changed`}
@@ -66,7 +66,7 @@
 	</div>
 
 	{#if !info}
-		<div class="mt-3 border border-border bg-surface p-5 text-sm text-text-muted">
+		<div class="mt-3 border border-line bg-surface p-5 text-sm text-ink-muted">
 			{#if everSeen}
 				This Sorter hasn't reported where to find it. Updating the Sorter software adds that. If
 				it's up to date, check that Network addresses is on in its Hive settings.
@@ -76,22 +76,22 @@
 		</div>
 	{:else}
 		{#if lan.length > 0 || nameUrl}
-			<div class="mt-3 border border-border bg-surface">
+			<div class="mt-3 border border-line bg-surface">
 				{#each lan as network}
 					{@render networkRow(network)}
 				{/each}
 				{#if nameUrl}
-					<div class="border-b border-border px-4 py-3 last:border-b-0">
+					<div class="border-b border-line px-4 py-3 last:border-b-0">
 						<div class="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
 							<a
 								href={nameUrl}
 								target="_blank"
 								rel="noopener noreferrer"
-								class="font-mono text-sm wrap-anywhere text-primary hover:underline">{nameUrl}</a
+								class="font-mono text-sm wrap-anywhere text-primary-ink hover:underline">{nameUrl}</a
 							>
-							<span class="text-sm text-text-muted">by name, on the same network</span>
+							<span class="text-sm text-ink-muted">by name, on the same network</span>
 						</div>
-						<p class="mt-1 text-xs text-text-muted">
+						<p class="mt-1 text-xs text-ink-muted">
 							The name works on Mac, iPhone and Windows, usually not on Android.
 						</p>
 					</div>
@@ -100,7 +100,7 @@
 		{/if}
 
 		{#if tailnet.length > 0}
-			<div class="mt-3 border border-border bg-surface">
+			<div class="mt-3 border border-line bg-surface">
 				{#each tailnet as network}
 					{@render networkRow(network)}
 				{/each}
@@ -108,23 +108,23 @@
 		{/if}
 
 		{#if lan.length === 0 && !nameUrl && tailnet.length === 0}
-			<div class="mt-3 border border-border bg-surface p-5 text-sm text-text-muted">
+			<div class="mt-3 border border-line bg-surface p-5 text-sm text-ink-muted">
 				The Sorter reported no network addresses.
 			</div>
 		{/if}
 
 		{#if apiPort || info.setup_network}
-			<div class="mt-2 space-y-1 text-xs text-text-muted">
+			<div class="mt-2 space-y-1 text-xs text-ink-muted">
 				{#if apiPort}
 					<p>
 						For the API, the backend is on port {apiPort}{#if apiUrl}:
-							<span class="font-mono wrap-anywhere text-text">{apiUrl}</span>{/if}
+							<span class="font-mono wrap-anywhere text-ink">{apiUrl}</span>{/if}
 					</p>
 				{/if}
 				{#if info.setup_network}
 					<p>
 						It {current ? 'is' : 'was'} also broadcasting its setup network,
-						<span class="font-mono text-text">{info.setup_network.ssid}</span>.
+						<span class="font-mono text-ink">{info.setup_network.ssid}</span>.
 					</p>
 				{/if}
 			</div>

@@ -34,12 +34,12 @@
 	const color = $derived(
 		// Same coverage ramp as DiversityDonut: token endpoints, untokenised midpoints.
 		last >= 1
-			? 'var(--color-success)'
+			? 'var(--success)'
 			: last >= 0.6
 				? '#7AAE3D'
 				: last >= 0.3
 					? '#FFA500'
-					: 'var(--color-primary)'
+					: 'var(--primary)'
 	);
 </script>
 
@@ -74,7 +74,7 @@
 	{#if showAxis}
 		{#each gridlines as g (g)}
 			<span
-				class="pointer-events-none absolute right-0 -translate-y-1/2 pl-1 text-[9px] tabular-nums text-text-muted"
+				class="pointer-events-none absolute right-0 -translate-y-1/2 pl-1 text-xs tabular-nums text-ink-muted"
 				style="top: {100 - g}%;"
 			>
 				{g}%

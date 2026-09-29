@@ -122,7 +122,7 @@
 	<title>{machineName ? `${machineName} pieces` : 'Machine pieces'} - Hive</title>
 </svelte:head>
 
-<div class="mb-(--gap-panels)">
+<div>
 	<Button href={`/machines/${machineId}`} size="sm" variant="ghost" icon={ArrowLeft}>Machine overview</Button>
 </div>
 
@@ -137,7 +137,7 @@
 </PageHeader>
 
 {#if error}
-	<Alert tone="danger" class="mb-(--gap-panels)">{error}</Alert>
+	<Alert tone="danger">{error}</Alert>
 {/if}
 
 {#if loading}

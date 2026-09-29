@@ -1,6 +1,14 @@
 <script lang="ts">
 	import { api, type SampleClassificationPayload } from '$lib/api';
 	import type { ClassificationApi } from '$lib/components/classification-api.svelte';
+	import { sentence } from '$lib/text';
+	import Alert from './Alert.svelte';
+	import Badge from './Badge.svelte';
+	import Button from './Button.svelte';
+	import Field from './Field.svelte';
+	import Input from './Input.svelte';
+	import KeyValue from './KeyValue.svelte';
+	import Panel from './Panel.svelte';
 
 	type Props = {
 		sampleId: string;
@@ -83,8 +91,7 @@
 	}
 
 	function formatStatus(value: string | null): string {
-		if (!value) return 'No result';
-		return value.replaceAll('_', ' ');
+		return value ? sentence(value) : 'No result';
 	}
 
 	const isClassificationSample = $derived.by(() => {
@@ -212,148 +219,65 @@
 </script>
 
 {#if isClassificationSample}
-	<div class="border border-line bg-surface">
-		<div class="flex items-center justify-between border-b border-line px-4 py-2.5">
-			<h2 class="text-xs font-semibold uppercase tracking-wider text-ink-muted">Classification</h2>
+	<Panel title="Classification" flush>
+		{#snippet actions()}
 			{#if activeManualClassification?.part_id || activeManualClassification?.item_name}
-				<span class="bg-primary-soft px-2 py-0.5 text-xs font-medium text-primary-ink">
-					Manual override
-				</span>
+				<Badge tone="primary">Manual override</Badge>
 			{:else if autoClassification}
-				<span class="bg-well px-2 py-0.5 text-xs font-medium text-ink-muted">
-					{autoClassification.provider ?? 'Auto'}
-				</span>
+				<Badge>{autoClassification.provider ?? 'Automatic'}</Badge>
 			{/if}
-		</div>
-
-		<div class="space-y-3 p-3">
-			<div class="border border-line bg-well px-3 py-3">
-				<div class="text-xs font-semibold tracking-wide text-ink-muted uppercase">
-					Current Label
-				</div>
-				<div class="mt-1 text-sm font-semibold text-ink">
-					{effectivePartId ?? 'Unknown part'}
-				</div>
-				{#if effectiveItemName}
-					<div class="mt-0.5 text-xs text-ink-muted">{effectiveItemName}</div>
-				{/if}
-				{#if effectiveColorName}
-					<div class="mt-1 text-xs text-ink-muted">Color: {effectiveColorName}</div>
-				{/if}
+		{/snippet}
+		<div class="flex flex-col gap-3 px-(--pad-panel) pb-(--pad-panel)">
+			<div class="rounded-control bg-well px-3 py-2.5">
+				<div class="label">The label now</div>
+				<div class="mt-0.5 text-sm font-semibold text-ink">{effectivePartId ?? 'Unknown part'}</div>
+				{#if effectiveItemName}<div class="text-sm text-ink-muted">{effectiveItemName}</div>{/if}
+				{#if effectiveColorName}<div class="text-sm text-ink-muted">Color: {effectiveColorName}</div>{/if}
 			</div>
 
 			{#if autoClassification}
-				<div class="border border-line px-3 py-3">
-					<div class="text-xs font-semibold tracking-wide text-ink-muted uppercase">
-						Auto Result
-					</div>
-					<div class="mt-1 text-sm font-medium text-ink">
-						{autoClassification.part_id ?? 'Unknown part'}
-					</div>
-					{#if autoClassification.item_name}
-						<div class="mt-0.5 text-xs text-ink-muted">{autoClassification.item_name}</div>
-					{/if}
-					<div class="mt-2 grid grid-cols-2 gap-2 text-xs text-ink-muted">
-						<div>
-							<div class="font-medium text-ink-muted">Status</div>
-							<div class="mt-0.5 text-ink capitalize">{formatStatus(autoClassification.status)}</div>
-						</div>
-						{#if autoClassification.confidence != null}
-							<div>
-								<div class="font-medium text-ink-muted">Confidence</div>
-								<div class="mt-0.5 text-ink">{Math.round(autoClassification.confidence * 100)}%</div>
-							</div>
-						{/if}
-						{#if autoClassification.color_name}
-							<div>
-								<div class="font-medium text-ink-muted">Color</div>
-								<div class="mt-0.5 text-ink">{autoClassification.color_name}</div>
-							</div>
-						{/if}
-						{#if autoClassification.source_view}
-							<div>
-								<div class="font-medium text-ink-muted">View</div>
-								<div class="mt-0.5 text-ink capitalize">{autoClassification.source_view}</div>
-							</div>
-						{/if}
-					</div>
-					{#if autoClassification.error}
-						<p class="mt-2 bg-primary-soft px-2 py-1.5 text-xs text-primary-ink">
-							{autoClassification.error}
-						</p>
-					{/if}
+				{@const auto = autoClassification}
+				<div>
+					<div class="label">Automatic result</div>
+					<div class="mt-0.5 text-sm font-medium text-ink">{auto.part_id ?? 'Unknown part'}</div>
+					{#if auto.item_name}<div class="text-sm text-ink-muted">{auto.item_name}</div>{/if}
+					<KeyValue
+						items={[
+							{ label: 'Status', value: formatStatus(auto.status) },
+							...(auto.confidence != null ? [{ label: 'Confidence', value: `${Math.round(auto.confidence * 100)}%` }] : []),
+							...(auto.color_name ? [{ label: 'Color', value: auto.color_name }] : []),
+							...(auto.source_view ? [{ label: 'View', value: sentence(auto.source_view) }] : [])
+						]}
+					/>
+					{#if auto.error}<Alert tone="danger">{auto.error}</Alert>{/if}
 				</div>
 			{:else}
-				<p class="text-xs text-ink-muted">
-					No classification result has been uploaded for this sample yet.
-				</p>
+				<p class="text-sm text-ink-muted">No classification result has come in for this sample yet.</p>
 			{/if}
 
-			<div class="space-y-2">
-				<div>
-					<label for={`classification-part-${sampleId}`} class="mb-1 block text-xs font-medium text-ink-muted">
-						Part ID
-					</label>
-					<input
-						id={`classification-part-${sampleId}`}
-						bind:value={formPartId}
-						type="text"
-						placeholder={autoClassification?.part_id ?? 'e.g. 3001'}
-						class="w-full border border-line px-3 py-2 text-sm text-ink placeholder:text-ink-muted focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
-					/>
-				</div>
-				<div>
-					<label for={`classification-name-${sampleId}`} class="mb-1 block text-xs font-medium text-ink-muted">
-						Name
-					</label>
-					<input
-						id={`classification-name-${sampleId}`}
-						bind:value={formItemName}
-						type="text"
-						placeholder={autoClassification?.item_name ?? 'Optional human-readable name'}
-						class="w-full border border-line px-3 py-2 text-sm text-ink placeholder:text-ink-muted focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
-					/>
-				</div>
-			</div>
+			<Field label="Part ID" for={`classification-part-${sampleId}`}>
+				<Input
+					id={`classification-part-${sampleId}`}
+					bind:value={formPartId}
+					placeholder={autoClassification?.part_id ?? 'For example 3001'}
+				/>
+			</Field>
+			<Field label="Name" for={`classification-name-${sampleId}`}>
+				<Input
+					id={`classification-name-${sampleId}`}
+					bind:value={formItemName}
+					placeholder={autoClassification?.item_name ?? 'A readable name, if you like'}
+				/>
+			</Field>
 
 			{#if feedback}
-				<p
-					class="px-3 py-2 text-xs {feedbackTone === 'danger'
-						? 'bg-primary/8 text-primary-ink'
-						: feedbackTone === 'success'
-							? 'bg-success/10 text-success-ink'
-							: 'bg-well text-ink-muted'}"
-				>
-					{feedback}
-				</p>
+				<Alert tone={feedbackTone === 'danger' ? 'danger' : feedbackTone === 'success' ? 'success' : 'info'}>{feedback}</Alert>
 			{/if}
-
-			<div class="flex gap-2">
-				<button
-					type="button"
-					onclick={resetForm}
-					disabled={saving || !isDirty}
-					class="flex-1 border border-line px-3 py-2 text-xs font-medium text-ink-muted transition-colors hover:bg-hover disabled:cursor-not-allowed disabled:text-border"
-				>
-					Reset
-				</button>
-				<button
-					type="button"
-					onclick={clearForm}
-					disabled={saving || (!formPartId && !formItemName)}
-					class="flex-1 border border-warning/30 px-3 py-2 text-xs font-medium text-warning-ink transition-colors hover:bg-warning/[0.1] disabled:cursor-not-allowed disabled:border-line disabled:text-border"
-				>
-					Clear
-				</button>
-				<button
-					type="button"
-					onclick={saveClassification}
-					disabled={saving || !isDirty}
-					class="flex-1 px-3 py-2 text-xs font-medium text-white transition-colors disabled:cursor-not-allowed disabled:bg-primary/40 {saving || !isDirty ? 'bg-primary/40' : 'bg-primary hover:bg-primary-hover'}"
-				>
-					{saving ? 'Saving...' : 'Save'}
-				</button>
-			</div>
 		</div>
-	</div>
+		{#snippet footer()}
+			<Button size="sm" variant="ghost" onclick={resetForm} disabled={saving || !isDirty}>Reset</Button>
+			<Button size="sm" onclick={clearForm} disabled={saving || (!formPartId && !formItemName)}>Clear</Button>
+			<Button size="sm" variant="primary" loading={saving} disabled={!isDirty} onclick={saveClassification}>Save</Button>
+		{/snippet}
+	</Panel>
 {/if}

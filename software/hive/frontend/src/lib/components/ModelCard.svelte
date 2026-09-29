@@ -2,6 +2,7 @@
 	import type { DetectionModelSummary } from '$lib/api';
 	import { relativeTime } from '$lib/time';
 	import Badge from './Badge.svelte';
+	import Card from './Card.svelte';
 
 	interface Props {
 		model: DetectionModelSummary;
@@ -63,13 +64,20 @@
 	}
 </script>
 
-<a href="/models/{model.id}" class="group flex flex-col overflow-hidden rounded-panel bg-surface">
+{#snippet cell(label: string, value: string, title?: string)}
+	<div class="min-w-0 px-3 py-2" {title}>
+		<div class="truncate text-sm text-ink-muted">{label}</div>
+		<div class="num truncate text-sm font-medium text-ink">{value}</div>
+	</div>
+{/snippet}
+
+<Card href="/models/{model.id}" label={model.codename ?? model.name} padded={false} class="overflow-hidden">
 	<div class="flex items-center gap-3 px-(--pad-panel) py-3">
 		{#if model.codename_color}
 			<span class="size-11 shrink-0 rounded-full" style="background-color: {model.codename_color}" aria-hidden="true"></span>
 		{/if}
 		<div class="min-w-0 flex-1">
-			<h3 class="truncate text-base font-semibold text-ink group-hover:underline">{model.codename ?? model.name}</h3>
+			<h3 class="truncate text-base font-semibold text-ink">{model.codename ?? model.name}</h3>
 			<p class="truncate text-sm text-ink-muted">
 				<span class="font-mono">{model.slug}</span>, v{model.version}, {relativeTime(model.published_at)}
 			</p>
@@ -80,22 +88,15 @@
 		</div>
 	</div>
 
-	{#snippet cell(label: string, value: string, title?: string)}
-		<div class="min-w-0 bg-surface px-3 py-2" {title}>
-			<div class="truncate text-sm text-ink-muted">{label}</div>
-			<div class="num truncate text-sm font-medium text-ink">{value}</div>
-		</div>
-	{/snippet}
-
 	{#if map50 !== null || map50_95 !== null}
-		<div class="grid grid-cols-3 gap-px border-t border-line bg-line">
+		<div class="grid grid-cols-3 divide-x divide-line border-t border-line">
 			{@render cell('mAP50', formatPct(map50))}
 			{@render cell('mAP50-95', formatPct(map50_95))}
 			{@render cell('Recall', formatPct(recall))}
 		</div>
 	{/if}
 	{#if arch || imgsz || samples !== null || machineCount !== null}
-		<div class="grid grid-cols-3 gap-px border-t border-line bg-line">
+		<div class="grid grid-cols-3 divide-x divide-line border-t border-line">
 			{@render cell('Model', arch && imgsz ? `${arch} @ ${imgsz}` : (arch ?? (imgsz ? `${imgsz} x ${imgsz}` : '-')))}
 			{@render cell('Samples', samples !== null ? samples.toLocaleString() : '-')}
 			{@render cell(
@@ -107,4 +108,4 @@
 	{:else if model.description}
 		<p class="line-clamp-2 border-t border-line px-(--pad-panel) py-3 text-sm text-ink-muted">{model.description}</p>
 	{/if}
-</a>
+</Card>

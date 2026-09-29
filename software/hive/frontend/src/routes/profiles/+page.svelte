@@ -6,6 +6,7 @@
 	import Alert from '$lib/components/Alert.svelte';
 	import Badge from '$lib/components/Badge.svelte';
 	import Button from '$lib/components/Button.svelte';
+	import Card from '$lib/components/Card.svelte';
 	import EmptyState from '$lib/components/EmptyState.svelte';
 	import Modal from '$lib/components/Modal.svelte';
 	import Panel from '$lib/components/Panel.svelte';
@@ -78,7 +79,7 @@
 </PageHeader>
 
 {#if error && !deleteTarget}
-	<Alert tone="danger" class="mb-(--gap-panels)">{error}</Alert>
+	<Alert tone="danger">{error}</Alert>
 {/if}
 
 {#if loading}
@@ -97,13 +98,15 @@
 		{#each profiles as profile (profile.id)}
 			{@const rules = profile.latest_version?.rules_summary ?? []}
 			{@const activeRules = rules.filter((r) => !r.disabled)}
-			<a
+			<Card
 				href={profile.is_owner ? `/profiles/${profile.id}/edit` : `/profiles/${profile.id}`}
-				class="group flex flex-col overflow-hidden rounded-panel bg-surface"
+				label={profile.name}
+				padded={false}
+				class="overflow-hidden"
 			>
 				<div class="flex items-start justify-between gap-2 px-(--pad-panel) pt-4 pb-3">
 					<div class="min-w-0">
-						<h2 class="flex items-center gap-2 font-semibold text-ink group-hover:underline">
+						<h2 class="flex items-center gap-2 font-semibold text-ink">
 							<span
 								class="size-2 shrink-0 rounded-full {profile.visibility === 'public' ? 'bg-info' : 'bg-ink-faint'}"
 								title={profile.visibility === 'public' ? 'Public' : 'Private'}
@@ -165,26 +168,11 @@
 							<Badge>{tag}</Badge>
 						{/each}
 						{#if profile.is_owner}
-							<!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
-							<span
-								class="opacity-0 transition-opacity group-hover:opacity-100 focus-within:opacity-100"
-								onclick={(e) => {
-									e.preventDefault();
-									e.stopPropagation();
-								}}
-							>
-								<Button
-									variant="ghost"
-									size="sm"
-									icon={Trash2}
-									label="Delete profile"
-									onclick={() => (deleteTarget = profile)}
-								/>
-							</span>
+							<Button variant="ghost" size="sm" icon={Trash2} label="Delete profile" onclick={() => (deleteTarget = profile)} />
 						{/if}
 					</span>
 				</div>
-			</a>
+			</Card>
 		{/each}
 	</div>
 {/if}

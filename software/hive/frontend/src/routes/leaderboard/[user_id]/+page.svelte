@@ -69,7 +69,7 @@
 	<title>{profile?.display_name ?? 'Reviewer'} - Leaderboard - Hive</title>
 </svelte:head>
 
-<div class="mb-(--gap-panels)">
+<div>
 	<Button href="/leaderboard" size="sm" variant="ghost" icon={ArrowLeft}>Leaderboard</Button>
 </div>
 

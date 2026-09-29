@@ -217,7 +217,7 @@
 	<title>{model ? (model.codename ?? model.name) : 'Model'} - Hive</title>
 </svelte:head>
 
-<div class="mb-(--gap-panels)">
+<div>
 	<Button href="/models" size="sm" variant="ghost" icon={ArrowLeft}>Models</Button>
 </div>
 

@@ -5,6 +5,8 @@
 	items, Enter chooses, Escape or a click outside closes it, and focus goes
 	back to the button. An item that destroys something goes last, after a
 	separator, in danger ink, and its action asks for confirmation (Modal).
+	A group (`{ group: 'Admin', items: [...] }`) puts its name over its items,
+	as a label; a link that is `checked` is the current page.
 
 	<Menu label="Machine" items={[...]}>
 		{#snippet trigger(props)}<Button {...props} icon={Power} label="Machine" />{/snippet}
@@ -28,7 +30,8 @@
 		danger?: boolean;
 		disabled?: boolean;
 	};
-	type Item = Action | 'separator';
+	type Group = { group: string; items: (Action | 'separator')[] };
+	type Item = Action | Group | 'separator';
 
 	type TriggerProps = {
 		popovertarget: string;
@@ -51,12 +54,18 @@
 		width?: string;
 	} = $props();
 
-	const id = `menu-${Math.random().toString(36).slice(2, 9)}`;
+	const uid = $props.id();
+	const id = `${uid}-menu`;
 	let anchor: HTMLElement;
 	let panel: HTMLElement;
 	let open = $state(false);
 
-	const hasChecks = $derived(items.some((i) => i !== 'separator' && i.checked !== undefined));
+	const actions = $derived(
+		items
+			.flatMap((i) => (i !== 'separator' && 'group' in i ? i.items : [i]))
+			.filter((i): i is Action => i !== 'separator')
+	);
+	const hasChecks = $derived(actions.some((i) => i.checked !== undefined));
 
 	function entries(): HTMLElement[] {
 		return [
@@ -97,6 +106,40 @@
 	}
 </script>
 
+{#snippet action(item: Action)}
+	{@const classes = `flex h-(--size-menu-item) w-full items-center gap-2.5 rounded-item px-2.5 text-left outline-none focus-visible:bg-hover hover:bg-hover ${
+		item.disabled ? 'pointer-events-none opacity-45' : ''
+	} ${item.danger ? 'text-danger-ink' : 'text-ink'}`}
+	{#snippet body()}
+		{#if hasChecks}
+			<Check size={16} class="shrink-0 {item.checked ? '' : 'invisible'}" />
+		{/if}
+		{#if item.icon}<item.icon size={16} class="shrink-0" />{/if}
+		<span class="min-w-0 flex-1 truncate">{item.label}</span>
+		{#if item.hint}<span class="num shrink-0 text-xs text-ink-faint">{item.hint}</span>{/if}
+	{/snippet}
+	{#if item.href && !item.disabled}
+		<a
+			href={item.href}
+			role="menuitem"
+			tabindex="-1"
+			aria-current={item.checked ? 'page' : undefined}
+			class={classes}
+			onclick={() => panel.hidePopover()}>{@render body()}</a
+		>
+	{:else}
+		<button
+			type="button"
+			role={item.checked === undefined ? 'menuitem' : 'menuitemradio'}
+			aria-checked={item.checked}
+			aria-disabled={item.disabled || undefined}
+			tabindex="-1"
+			class={classes}
+			onclick={() => choose(item)}>{@render body()}</button
+		>
+	{/if}
+{/snippet}
+
 <span bind:this={anchor} class="inline-flex">
 	{@render trigger({ popovertarget: id, 'aria-expanded': open, 'aria-haspopup': 'menu' })}
 </span>
@@ -116,37 +159,19 @@
 	{#each items as item, i (i)}
 		{#if item === 'separator'}
 			<div role="separator" class="-mx-1 my-1 h-px bg-line"></div>
+		{:else if 'group' in item}
+			<div role="group" aria-labelledby="{uid}-group-{i}">
+				<div id="{uid}-group-{i}" class="label px-2.5 pt-1.5 pb-1">{item.group}</div>
+				{#each item.items as entry, j (j)}
+					{#if entry === 'separator'}
+						<div role="separator" class="-mx-1 my-1 h-px bg-line"></div>
+					{:else}
+						{@render action(entry)}
+					{/if}
+				{/each}
+			</div>
 		{:else}
-			{@const classes = `flex h-(--size-menu-item) w-full items-center gap-2.5 rounded-item px-2.5 text-left outline-none focus-visible:bg-hover hover:bg-hover ${
-				item.disabled ? 'pointer-events-none opacity-45' : ''
-			} ${item.danger ? 'text-danger-ink' : 'text-ink'}`}
-			{#snippet body()}
-				{#if hasChecks}
-					<Check size={16} class="shrink-0 {item.checked ? '' : 'invisible'}" />
-				{/if}
-				{#if item.icon}<item.icon size={16} class="shrink-0" />{/if}
-				<span class="min-w-0 flex-1 truncate">{item.label}</span>
-				{#if item.hint}<span class="num shrink-0 text-xs text-ink-faint">{item.hint}</span>{/if}
-			{/snippet}
-			{#if item.href && !item.disabled}
-				<a
-					href={item.href}
-					role="menuitem"
-					tabindex="-1"
-					class={classes}
-					onclick={() => panel.hidePopover()}>{@render body()}</a
-				>
-			{:else}
-				<button
-					type="button"
-					role={item.checked === undefined ? 'menuitem' : 'menuitemradio'}
-					aria-checked={item.checked}
-					aria-disabled={item.disabled || undefined}
-					tabindex="-1"
-					class={classes}
-					onclick={() => choose(item)}>{@render body()}</button
-				>
-			{/if}
+			{@render action(item)}
 		{/if}
 	{/each}
 </div>

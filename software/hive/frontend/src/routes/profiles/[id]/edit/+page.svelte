@@ -1128,7 +1128,7 @@
 {:else if !profile.current_version}
 	<Alert tone="danger">This profile has no version to edit.</Alert>
 {:else}
-	<header class="mb-(--gap-panels) flex flex-wrap items-center justify-between gap-3">
+	<header class="flex flex-wrap items-center justify-between gap-3">
 		<div class="flex min-w-0 items-center gap-2">
 			<Button href={`/profiles/${profile.id}`} variant="ghost" size="sm" icon={ArrowLeft} label="Back to the profile" />
 			<!-- The hidden span sizes the grid cell, so the field hugs the name. -->
@@ -1182,10 +1182,10 @@
 	</header>
 
 	{#if error}
-		<Alert tone="danger" class="mb-(--gap-panels)">{error}</Alert>
+		<Alert tone="danger">{error}</Alert>
 	{/if}
 	{#if success}
-		<Alert tone="success" class="mb-(--gap-panels)">
+		<Alert tone="success">
 			{success}
 			{#snippet actions()}
 				<Button variant="ghost" size="sm" icon={X} label="Dismiss" onclick={dismissSuccess} />

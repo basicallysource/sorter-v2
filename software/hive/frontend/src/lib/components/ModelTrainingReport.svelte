@@ -191,7 +191,7 @@
 		if (numberValue(dataset.train_samples) !== null) {
 			const target = numberValue(datasetSelection.target_size) ?? (numberValue(dataset.train_samples) ?? 0) + (numberValue(dataset.val_samples) ?? 0);
 			cards.push({
-				label: 'Training Samples',
+				label: 'Training samples',
 				value: int(target),
 				caption: `${int(dataset.train_samples)} train · ${int(dataset.val_samples)} val`,
 				percent: 100,
@@ -210,7 +210,7 @@
 		}
 		if (onnxBytes !== null) {
 			cards.push({
-				label: 'Model Size',
+				label: 'Model size',
 				value: formatSize(onnxBytes),
 				caption: `${variantCount} runtime${variantCount === 1 ? '' : 's'} · ONNX`,
 				percent: Math.min(100, ((onnxBytes ?? 0) / (60 * 1024 * 1024)) * 100),
@@ -228,7 +228,7 @@
 		}
 		if (auditRows.length > 0 && numberValue(auditPrimary.decision_match_rate) !== null) {
 			cards.push({
-				label: 'Decision Match',
+				label: 'Decision match',
 				value: pct(auditPrimary.decision_match_rate),
 				caption: `${int(auditManifest.sample_count)} holdout images`,
 				percent: clampPct(auditPrimary.decision_match_rate),

@@ -1,4 +1,5 @@
 <script lang="ts">
+	import Card from './Card.svelte';
 	import type { Sample } from '$lib/api';
 	import { api } from '$lib/api';
 
@@ -81,18 +82,18 @@
 	}
 </script>
 
-<a class="group block overflow-hidden rounded-panel bg-surface" {href}>
+<Card {href} label="Sample {sample.local_sample_id}" padded={false} class="overflow-hidden">
 	<div class="relative aspect-square overflow-hidden bg-media">
 		<img
 			src={api.sampleImageUrl(sample.id)}
 			alt="Sample {sample.local_sample_id}"
-			class="size-full object-cover transition group-hover:scale-105"
+			class="size-full object-cover"
 			loading="lazy"
 			onload={onImageLoad}
 		/>
 		{#if showBboxes}
 			<svg
-				class="pointer-events-none absolute inset-0 size-full transition group-hover:scale-105"
+				class="absolute inset-0 size-full"
 				viewBox="0 0 {imgNaturalWidth} {imgNaturalHeight}"
 				preserveAspectRatio="xMidYMid slice"
 			>
@@ -154,4 +155,4 @@
 		</span>
 		{#if sample.review_count > 0}<span class="num shrink-0" title="Reviews">{sample.review_count}x</span>{/if}
 	</div>
-</a>
+</Card>

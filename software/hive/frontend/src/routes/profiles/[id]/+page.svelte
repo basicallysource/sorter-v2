@@ -181,7 +181,7 @@
 
 <svelte:head><title>{profile ? `${profile.name} - Hive` : 'Sorting profile - Hive'}</title></svelte:head>
 
-<div class="mb-(--gap-panels)">
+<div>
 	<Button href="/profiles" size="sm" variant="ghost" icon={ArrowLeft}>Profiles</Button>
 </div>
 

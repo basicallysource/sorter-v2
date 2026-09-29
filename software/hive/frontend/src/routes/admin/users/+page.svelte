@@ -99,7 +99,7 @@
 	{#snippet actions()}<span class="num text-sm text-ink-muted">{users.length} users</span>{/snippet}
 </PageHeader>
 
-{#if error}<Alert tone="danger" class="mb-(--gap-panels)">{error}</Alert>{/if}
+{#if error}<Alert tone="danger">{error}</Alert>{/if}
 
 {#if loading}
 	<div class="flex justify-center py-12"><Spinner size={32} /></div>

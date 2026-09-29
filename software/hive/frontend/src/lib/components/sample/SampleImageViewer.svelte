@@ -31,7 +31,7 @@
 	}: Props = $props();
 </script>
 
-<div class="overflow-hidden border border-line bg-media">
+<div class="overflow-hidden rounded-panel bg-media">
 	<div class="relative">
 		{#if activeView === 'image'}
 			<img
@@ -74,16 +74,8 @@
 						stroke={color.stroke}
 						stroke-width="2"
 					/>
-					<rect
-						x={bbox.x} y={bbox.y - 18} width={52} height={18}
-						fill="rgba(0,0,0,0.6)" rx="2"
-					/>
-					<text
-						x={bbox.x + 5} y={bbox.y - 5}
-						fill={color.stroke}
-						font-size="11"
-						font-family="monospace"
-					>box {i + 1}</text>
+					<rect x={bbox.x} y={bbox.y - 18} width={52} height={18} class="fill-(--scrim)" />
+					<text x={bbox.x + 5} y={bbox.y - 5} fill={color.stroke} font-size="11" class="font-mono">box {i + 1}</text>
 				{/each}
 			</svg>
 		{/if}

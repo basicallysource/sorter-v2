@@ -130,7 +130,7 @@
 	<title>{machineName ? `${machineName} channel crops` : 'Channel crops'} - Hive</title>
 </svelte:head>
 
-<div class="mb-(--gap-panels)">
+<div>
 	<Button href={`/machines/${machineId}`} size="sm" variant="ghost" icon={ArrowLeft}>Machine overview</Button>
 </div>
 
@@ -147,7 +147,7 @@
 	{/snippet}
 </PageHeader>
 
-<div class="mb-(--gap-panels) flex flex-wrap items-center gap-2">
+<div class="flex flex-wrap items-center gap-2">
 	<SegmentedControl
 		label="Channel"
 		size="sm"
@@ -175,7 +175,7 @@
 </div>
 
 {#if error}
-	<Alert tone="danger" class="mb-(--gap-panels)">{error}</Alert>
+	<Alert tone="danger">{error}</Alert>
 {/if}
 
 {#if loading}

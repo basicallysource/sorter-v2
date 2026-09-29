@@ -352,48 +352,45 @@
 						value={rule.name}
 						oninput={(e) => onUpdateRule(rule.id, { name: (e.currentTarget as HTMLInputElement).value })}
 					/>
-					<div class="w-36 shrink-0">
-						<Select
-							size="sm"
-							label="How the conditions combine"
-							value={rule.match_mode}
-							options={[
-								{ value: 'all', label: 'Match all' },
-								{ value: 'any', label: 'Match any' }
-							]}
-							onchange={(v) => onUpdateRule(rule.id, { match_mode: v as SortingProfileRule['match_mode'] })}
-						/>
-					</div>
+					<Select
+						class="w-36 shrink-0"
+						size="sm"
+						label="How the conditions combine"
+						value={rule.match_mode}
+						options={[
+							{ value: 'all', label: 'Match all' },
+							{ value: 'any', label: 'Match any' }
+						]}
+						onchange={(v) => onUpdateRule(rule.id, { match_mode: v as SortingProfileRule['match_mode'] })}
+					/>
 				</div>
 
 				{#if rule.conditions.length > 0}
 					<ul class="flex flex-col gap-2">
 						{#each rule.conditions as cond (cond.id)}
 							<li class="flex flex-wrap items-center gap-2">
-								<div class="w-40 shrink-0">
-									<Select
-										size="sm"
-										label="Field"
-										value={cond.field}
-										options={fieldOptions.map((f) => ({ value: f, label: f }))}
-										onchange={(field: string) => {
-											const ops = opOptionsByField[field] ?? ['eq'];
-											onUpdateCondition(rule.id, cond.id, { field, op: ops[0] });
-										}}
-									/>
-								</div>
-								<div class="w-28 shrink-0">
-									<Select
-										size="sm"
-										label="Comparison"
-										value={cond.op}
-										options={(opOptionsByField[cond.field] ?? ['eq']).map((op) => ({
-											value: op,
-											label: opLabels[op] ?? op
-										}))}
-										onchange={(op: string) => onUpdateCondition(rule.id, cond.id, { op })}
-									/>
-								</div>
+								<Select
+									class="w-40 shrink-0"
+									size="sm"
+									label="Field"
+									value={cond.field}
+									options={fieldOptions.map((f) => ({ value: f, label: f }))}
+									onchange={(field: string) => {
+										const ops = opOptionsByField[field] ?? ['eq'];
+										onUpdateCondition(rule.id, cond.id, { field, op: ops[0] });
+									}}
+								/>
+								<Select
+									class="w-28 shrink-0"
+									size="sm"
+									label="Comparison"
+									value={cond.op}
+									options={(opOptionsByField[cond.field] ?? ['eq']).map((op) => ({
+										value: op,
+										label: opLabels[op] ?? op
+									}))}
+									onchange={(op: string) => onUpdateCondition(rule.id, cond.id, { op })}
+								/>
 								<Input
 									size="sm"
 									class="min-w-0 flex-1"

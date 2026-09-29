@@ -60,7 +60,7 @@
 	const userMenu = $derived([
 		{ label: 'Profile and settings', icon: User, href: '/settings' },
 		{ label: 'Change password', icon: KeyRound, href: '/settings#password' },
-		...(auth.isAdmin ? (['separator', ...adminLinks] as const) : []),
+		...(auth.isAdmin ? (['separator', { group: 'Admin', items: adminLinks }] as const) : []),
 		'separator' as const,
 		{ label: 'Log out', icon: LogOut, onselect: handleLogout }
 	]);
@@ -98,7 +98,7 @@
 	</div>
 {:else}
 	{#if auth.isAuthenticated}
-		<TopBar items={navLinks}>
+		<TopBar items={navLinks} collapse="lg">
 			{#snippet brand()}<Wordmark name="Hive" />{/snippet}
 			{#snippet end()}
 				<Menu label="Account" items={userMenu}>
@@ -115,7 +115,7 @@
 		</TopBar>
 	{/if}
 
-	<main class="mx-auto w-full px-4 py-6 sm:px-6 {fullWidth ? '' : 'max-w-7xl'}">
+	<main class="mx-auto flex w-full flex-col gap-(--gap-panels) px-4 py-6 sm:px-6 {fullWidth ? '' : 'max-w-7xl'}">
 		{@render children()}
 	</main>
 {/if}

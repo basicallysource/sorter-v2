@@ -102,17 +102,16 @@
 								<td class="font-medium whitespace-nowrap">{sentence(w.role)}</td>
 								<td class="whitespace-nowrap">{entityLabel(w.entity)}</td>
 								<td>
-									<div class="w-44">
-										<Select
-											size="sm"
-											label="Start at"
-											bind:value={w.anchor}
-											options={[
-												{ value: 'oldest', label: 'Oldest, stays put' },
-												{ value: 'newest', label: 'Newest, moves on' }
-											]}
-										/>
-									</div>
+									<Select
+										class="w-44"
+										size="sm"
+										label="Start at"
+										bind:value={w.anchor}
+										options={[
+											{ value: 'oldest', label: 'Oldest, stays put' },
+											{ value: 'newest', label: 'Newest, moves on' }
+										]}
+									/>
 								</td>
 								<td><Input size="sm" type="number" class="w-28" min={0} bind:value={w.size} /></td>
 								<td><Input size="sm" type="number" class="w-24" min={0} bind:value={w.offset} /></td>

@@ -108,20 +108,12 @@
 		c_channel_1: 'C1',
 		c_channel_2: 'C2',
 		c_channel_3: 'C3',
-		classification_channel: 'C-Channel 4 (Classification)',
-		classification_chamber: 'Classification Chamber',
+		classification_channel: 'C-channel 4, classification',
+		classification_chamber: 'Classification chamber',
 		carousel: 'Carousel',
-		piece_crop: 'Piece Crop',
-		top: 'Top Camera',
-		bottom: 'Bottom Camera'
-	};
-
-	const statusColors: Record<string, string> = {
-		accepted: 'bg-success',
-		rejected: 'bg-primary',
-		in_review: 'bg-info',
-		conflict: 'bg-warning',
-		unreviewed: 'bg-border'
+		piece_crop: 'Piece crop',
+		top: 'Top camera',
+		bottom: 'Bottom camera'
 	};
 
 	const hasActiveFilters = $derived(
@@ -774,7 +766,7 @@
 	{@const job = teacherJob}
 	{@const pct = job.total > 0 ? Math.round((job.processed / job.total) * 100) : 0}
 	{@const eta = computeEta(job)}
-	<Panel flush class="mb-(--gap-panels)">
+	<Panel flush>
 		<div class="flex flex-wrap items-center gap-x-3 gap-y-2 px-(--pad-panel) py-3 text-sm">
 			<span class="font-medium text-ink">Teacher job</span>
 			<Badge>{sentence(job.status)}</Badge>
@@ -814,7 +806,7 @@
 		{ key: 'conflict', label: 'Conflict', count: stats.conflict_samples, color: 'var(--warning)' },
 		{ key: 'unreviewed', label: 'Unreviewed', count: stats.unreviewed_samples, color: 'var(--line-strong)' }
 	]}
-	<Panel flush class="mb-(--gap-panels)">
+	<Panel flush>
 		<div class="flex h-2">
 			{#each segments as seg (seg.key)}
 				{@const share = (seg.count / stats.total_samples) * 100}
@@ -1041,10 +1033,10 @@
 			<div class="flex justify-center p-8"><Spinner size={32} /></div>
 		{:else if !data || data.items.length === 0}
 			<Panel>
-				<EmptyState icon={Images} title={hasActiveFilters ? 'No samples match' : 'No samples yet'}>
+				<EmptyState icon={Images} title={hasActiveFilters ? 'No samples match' : 'No samples to show'}>
 					{hasActiveFilters
 						? 'Nothing matches the filters.'
-						: 'Samples appear here once a machine starts capturing.'}
+						: 'Samples show here once the teacher has looked at them; the ones still waiting are under Annotation.'}
 					{#snippet action()}
 						{#if hasActiveFilters}<Button size="sm" onclick={clearFilters}>Clear the filters</Button>{/if}
 					{/snippet}
@@ -1063,15 +1055,14 @@
 						<span class="num text-sm text-ink-muted"
 							>{(data.page - 1) * pageSize + 1} to {Math.min(data.page * pageSize, data.total)} of {data.total.toLocaleString()}</span
 						>
-						<div class="w-32">
-							<Select
-								size="sm"
-								label="Samples a page"
-								value={String(pageSize)}
-								onchange={(v: string) => changePageSize(Number(v))}
-								options={[10, 20, 30, 50, 100].map((n) => ({ value: String(n), label: `${n} a page` }))}
-							/>
-						</div>
+						<Select
+							class="w-32"
+							size="sm"
+							label="Samples a page"
+							value={String(pageSize)}
+							onchange={(v: string) => changePageSize(Number(v))}
+							options={[10, 20, 30, 50, 100].map((n) => ({ value: String(n), label: `${n} a page` }))}
+						/>
 					</div>
 					<div class="flex flex-wrap items-center gap-1">
 						<Button size="sm" icon={ChevronLeft} disabled={currentPage <= 1} onclick={() => goToPage(currentPage - 1)}

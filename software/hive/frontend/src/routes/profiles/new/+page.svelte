@@ -104,15 +104,15 @@
 	<title>New profile - Hive</title>
 </svelte:head>
 
-<div class="mx-auto max-w-xl">
-	<div class="mb-(--gap-panels)">
+<div class="mx-auto flex w-full max-w-xl flex-col gap-(--gap-panels)">
+	<div>
 		<Button href="/profiles" size="sm" variant="ghost" icon={ArrowLeft}>Profiles</Button>
 	</div>
 
 	<PageHeader title="New sorting profile" description="Choose what kind of profile it is, then name it." />
 
 	{#if error}
-		<Alert tone="danger" class="mb-(--gap-panels)">{error}</Alert>
+		<Alert tone="danger">{error}</Alert>
 	{/if}
 
 	<Panel>

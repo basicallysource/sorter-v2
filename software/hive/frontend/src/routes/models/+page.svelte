@@ -83,7 +83,7 @@
 
 <PageHeader title="Detection models" description="The published models, with a download for each runtime." />
 
-<div class="mb-(--gap-panels) flex flex-wrap items-end gap-3">
+<div class="flex flex-wrap items-end gap-3">
 	<Field label="Search" for="model-search" class="w-full sm:w-56">
 		<Input id="model-search" type="search" bind:value={query} placeholder="Slug or name" />
 	</Field>
@@ -108,7 +108,7 @@
 </div>
 
 {#if error}
-	<Alert tone="danger" class="mb-(--gap-panels)">{error}</Alert>
+	<Alert tone="danger">{error}</Alert>
 {/if}
 
 {#if loading && !data}
@@ -123,7 +123,7 @@
 	</div>
 
 	{#if data.pages > 1}
-		<div class="mt-(--gap-panels) flex items-center justify-center gap-2">
+		<div class="flex items-center justify-center gap-2">
 			<Button
 				size="sm"
 				icon={ChevronLeft}

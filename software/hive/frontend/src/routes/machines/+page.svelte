@@ -1,5 +1,4 @@
 <script lang="ts">
-	import { goto } from '$app/navigation';
 	import {
 		api,
 		type Machine,
@@ -20,6 +19,8 @@
 	import Alert from '$lib/components/Alert.svelte';
 	import Badge from '$lib/components/Badge.svelte';
 	import Button from '$lib/components/Button.svelte';
+	import Card from '$lib/components/Card.svelte';
+	import Panel from '$lib/components/Panel.svelte';
 	import EmptyState from '$lib/components/EmptyState.svelte';
 	import Field from '$lib/components/Field.svelte';
 	import Input from '$lib/components/Input.svelte';
@@ -233,18 +234,20 @@
 </PageHeader>
 
 {#if error}
-	<Alert tone="danger" class="mb-(--gap-panels)">{error}</Alert>
+	<Alert tone="danger">{error}</Alert>
 {/if}
 
 {#if loading}
 	<div class="flex justify-center p-8"><Spinner size={32} /></div>
 {:else if machines.length === 0}
-	<EmptyState icon={Cpu} title="No machines yet">
-		Add a machine to get a token for it; the Sorter uses it to send its pieces and samples here.
-		{#snippet action()}
-			<Button variant="primary" icon={Plus} onclick={() => (showAddModal = true)}>Add machine</Button>
-		{/snippet}
-	</EmptyState>
+	<Panel>
+		<EmptyState icon={Cpu} title="No machines yet">
+			Add a machine to get a token for it; the Sorter uses it to send its pieces and samples here.
+			{#snippet action()}
+				<Button variant="primary" icon={Plus} onclick={() => (showAddModal = true)}>Add machine</Button>
+			{/snippet}
+		</EmptyState>
+	</Panel>
 {:else}
 	<div class="grid gap-(--gap-panels) sm:grid-cols-2 lg:grid-cols-3">
 		{#each machines as machine (machine.id)}
@@ -257,16 +260,7 @@
 					? Math.round((stats.accepted_samples / stats.total_samples) * 100)
 					: null}
 			{@const localUi = localUiUrl(machine.network_info)}
-			<!-- The whole card opens the machine; its buttons stop the click. -->
-			<div
-				class="flex cursor-pointer flex-col overflow-hidden rounded-panel bg-surface"
-				role="link"
-				tabindex="0"
-				onclick={() => goto(`/machines/${machine.id}`)}
-				onkeydown={(e) => {
-					if (e.key === 'Enter') goto(`/machines/${machine.id}`);
-				}}
-			>
+			<Card href={`/machines/${machine.id}`} label={machine.name} padded={false} class="overflow-hidden">
 				<div class="flex items-start gap-3 px-(--pad-panel) pt-4 pb-3">
 					<span
 						class="mt-0.5 flex size-9 shrink-0 items-center justify-center rounded-control {isOnline
@@ -277,11 +271,7 @@
 					</span>
 					<div class="min-w-0 flex-1">
 						<div class="flex items-center gap-2">
-							<a
-								href={`/machines/${machine.id}`}
-								class="truncate font-semibold text-ink hover:underline"
-								onclick={(event) => event.stopPropagation()}>{machine.name}</a
-							>
+							<span class="truncate font-semibold text-ink">{machine.name}</span>
 							<Badge tone={isOnline ? 'success' : 'neutral'} dot>{isOnline ? 'Online' : 'Offline'}</Badge>
 						</div>
 						{#if machine.description}
@@ -291,8 +281,7 @@
 							<p class="mt-0.5 text-sm text-ink-muted">Update the Sorter software to get a link to it here.</p>
 						{/if}
 					</div>
-					<!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
-					<div class="-mt-1 -mr-2 flex shrink-0 items-center" onclick={(event) => event.stopPropagation()}>
+					<div class="-mt-1 -mr-2 flex shrink-0 items-center">
 						{#if localUi}
 							<Button
 								href={localUi}
@@ -312,20 +301,14 @@
 					</div>
 				</div>
 
-				<div class="grid grid-cols-3 gap-px border-t border-line bg-line">
-					<div class="bg-surface">
-						<Stat label="Samples" value={stats ? formatNumber(stats.total_samples) : '-'} />
-					</div>
-					<div class="bg-surface">
-						<Stat
-							label="Accepted"
-							value={acceptRate !== null ? `${acceptRate}%` : '-'}
-							tone={acceptRate !== null && acceptRate >= 80 ? 'success' : undefined}
-						/>
-					</div>
-					<div class="bg-surface">
-						<Stat label="Sessions" value={stats ? formatNumber(stats.total_sessions) : '-'} />
-					</div>
+				<div class="grid grid-cols-3 divide-x divide-line border-t border-line">
+					<Stat label="Samples" value={stats ? formatNumber(stats.total_samples) : '-'} />
+					<Stat
+						label="Accepted"
+						value={acceptRate !== null ? `${acceptRate}%` : '-'}
+						tone={acceptRate !== null && acceptRate >= 80 ? 'success' : undefined}
+					/>
+					<Stat label="Sessions" value={stats ? formatNumber(stats.total_sessions) : '-'} />
 				</div>
 
 				{#if stats && stats.parts_needed > 0}
@@ -346,10 +329,8 @@
 				{#if assignment?.profile && assignment.desired_version}
 					<div class="flex items-center gap-2 border-t border-line px-(--pad-panel) py-3 text-sm">
 						<FileText size={16} class="shrink-0 text-ink-muted" />
-						<a
-							href={`/profiles/${assignment.profile.id}`}
-							onclick={(event) => event.stopPropagation()}
-							class="truncate font-medium text-ink hover:underline">{assignment.profile.name}</a
+						<a href={`/profiles/${assignment.profile.id}`} class="truncate font-medium text-ink hover:underline"
+							>{assignment.profile.name}</a
 						>
 						<span class="num shrink-0 text-ink-muted">v{assignment.desired_version.version_number}</span>
 						{#if assignment.active_version}
@@ -374,11 +355,11 @@
 						<span>Never connected</span>
 					{/if}
 				</div>
-			</div>
+			</Card>
 		{/each}
 	</div>
 
-	<section class="mt-8">
+	<section>
 		<h2 class="mb-(--gap-panels) text-base font-semibold text-ink">Fleet analytics</h2>
 		<AnalyticsDashboard scope="mine" />
 	</section>

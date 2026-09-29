@@ -77,7 +77,7 @@
 
 	function destinationLabel(): string {
 		const callback = returnToUrl();
-		return callback ? callback.host : 'Unknown Sorter';
+		return callback ? callback.host : 'Unknown sorter';
 	}
 
 	function canSubmit(): boolean {

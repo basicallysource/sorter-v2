@@ -164,7 +164,7 @@
 	<title>Teacher job - Hive</title>
 </svelte:head>
 
-<div class="mb-(--gap-panels)">
+<div>
 	<Button href="/admin/teacher-jobs" size="sm" variant="ghost" icon={ArrowLeft}>Teacher jobs</Button>
 </div>
 

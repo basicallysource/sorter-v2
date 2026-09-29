@@ -3,6 +3,7 @@
 	import ChartLine from '@lucide/svelte/icons/chart-line';
 	import Spinner from '$lib/components/Spinner.svelte';
 	import Alert from '$lib/components/Alert.svelte';
+	import Panel from '$lib/components/Panel.svelte';
 	import EmptyState from '$lib/components/EmptyState.svelte';
 	import Stat from '$lib/components/Stat.svelte';
 	import { sentence } from '$lib/text';
@@ -166,9 +167,11 @@
 		{/if}
 
 		{#if data.timeseries.length === 0}
-			<EmptyState icon={ChartLine} title="No sorting activity yet">
-				The charts appear once a machine has synced its pieces.
-			</EmptyState>
+			<Panel>
+				<EmptyState icon={ChartLine} title="No sorting activity yet">
+					The charts appear once a machine has synced its pieces.
+				</EmptyState>
+			</Panel>
 		{:else}
 			<div class="grid grid-cols-1 gap-(--gap-panels) lg:grid-cols-2">
 				<ChartCard title="Pieces per day" subtitle="Pieces seen each day.">

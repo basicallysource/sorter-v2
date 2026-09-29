@@ -717,7 +717,6 @@
 					sampleId={sample.id}
 					onResult={handleTeacherRerunResult}
 					preferredModelId={auth.user?.preferred_teacher_model ?? null}
-					dense
 				/>
 			{/if}
 

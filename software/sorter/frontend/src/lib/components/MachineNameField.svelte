@@ -22,13 +22,13 @@
 
 	const inputClass = $derived(
 		variant === 'setup'
-			? 'setup-control min-w-0 flex-1 px-3 py-2 text-sm text-text'
-			: 'min-w-0 flex-1 border border-border bg-bg px-2 py-1.5 text-sm text-text'
+			? 'setup-control min-w-0 flex-1 px-3 py-2 text-sm text-ink'
+			: 'min-w-0 flex-1 border border-line bg-well px-2 py-1.5 text-sm text-ink'
 	);
 	const buttonClass = $derived(
 		variant === 'setup'
-			? 'setup-control flex shrink-0 items-center gap-2 px-3 text-sm whitespace-nowrap text-text-muted transition-colors hover:text-text'
-			: 'flex shrink-0 items-center gap-2 border border-border bg-bg px-2 py-1.5 text-sm whitespace-nowrap text-text-muted transition-colors hover:bg-surface hover:text-text'
+			? 'setup-control flex shrink-0 items-center gap-2 px-3 text-sm whitespace-nowrap text-ink-muted transition-colors hover:text-ink'
+			: 'flex shrink-0 items-center gap-2 border border-line bg-well px-2 py-1.5 text-sm whitespace-nowrap text-ink-muted transition-colors hover:bg-surface hover:text-ink'
 	);
 
 	// `roll` is the button: it wants a name nobody has seen yet, so it

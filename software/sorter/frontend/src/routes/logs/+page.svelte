@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { getBackendHttpBase, machineHttpBaseUrlFromWsUrl } from '$lib/backend';
 	import AppHeader from '$lib/components/AppHeader.svelte';
-	import StatusBanner from '$lib/components/StatusBanner.svelte';
+	import Alert from '$lib/components/ui/Alert.svelte';
 	import { getMachinesContext } from '$lib/machines/context';
 	import { onMount } from 'svelte';
 
@@ -206,11 +206,11 @@
 	}
 
 	function levelBadgeClass(level: LogLevel): string {
-		if (level === 'ERROR') return 'border-danger/40 bg-danger/10 text-danger';
-		if (level === 'WARN') return 'border-warning/40 bg-warning/10 text-[#A56D00]';
-		if (level === 'INFO') return 'border-primary/40 bg-primary/10 text-primary';
-		if (level === 'DEBUG') return 'border-border bg-bg text-text-muted';
-		return 'border-border bg-bg text-text-muted';
+		if (level === 'ERROR') return 'border-danger/40 bg-danger-soft text-danger-ink';
+		if (level === 'WARN') return 'border-warning/40 bg-warning-soft text-[#A56D00]';
+		if (level === 'INFO') return 'border-primary/40 bg-primary-soft text-primary-ink';
+		if (level === 'DEBUG') return 'border-line bg-well text-ink-muted';
+		return 'border-line bg-well text-ink-muted';
 	}
 
 	async function refreshNow() {
@@ -241,38 +241,38 @@
 
 <svelte:head><title>Sorter - Logs</title></svelte:head>
 
-<div class="min-h-screen bg-bg">
+<div class="min-h-screen bg-well">
 	<AppHeader />
 	<div class="p-4 sm:p-6">
 		<div class="mb-4 flex flex-wrap items-start justify-between gap-3">
 			<div>
-				<h2 class="text-xl font-bold text-text">Logs</h2>
-				<p class="mt-1 text-sm text-text-muted">
+				<h2 class="text-xl font-bold text-ink">Logs</h2>
+				<p class="mt-1 text-sm text-ink-muted">
 					Curated log sources with search, level filtering, and stable refresh.
 				</p>
 			</div>
 			<div class="flex flex-wrap items-center gap-2 text-sm">
-				<label class="flex items-center gap-2 text-text-muted">
+				<label class="flex items-center gap-2 text-ink-muted">
 					<span>Lines</span>
-					<select bind:value={lineLimit} class="border border-border bg-surface px-2 py-1 text-sm text-text">
+					<select bind:value={lineLimit} class="border border-line bg-surface px-2 py-1 text-sm text-ink">
 						<option value="200">200</option>
 						<option value="400">400</option>
 						<option value="800">800</option>
 						<option value="1500">1500</option>
 					</select>
 				</label>
-				<label class="flex items-center gap-2 text-text-muted">
+				<label class="flex items-center gap-2 text-ink-muted">
 					<input type="checkbox" bind:checked={autoRefresh} />
 					Auto refresh
 				</label>
-				<label class="flex items-center gap-2 text-text-muted">
+				<label class="flex items-center gap-2 text-ink-muted">
 					<input type="checkbox" bind:checked={wrapLines} />
 					Wrap lines
 				</label>
 				<button
 					type="button"
 					onclick={() => void refreshNow()}
-					class="border border-border px-3 py-1.5 text-text transition-colors hover:bg-surface disabled:opacity-50"
+					class="border border-line px-3 py-1.5 text-ink transition-colors hover:bg-surface disabled:opacity-50"
 					disabled={refreshingSources || refreshingContent}
 				>
 					Refresh
@@ -281,14 +281,14 @@
 		</div>
 
 		{#if error}
-			<StatusBanner message={error} variant="error" />
+			{#if error}<Alert tone="danger">{error}</Alert>{/if}
 		{/if}
 
 		<div class="mt-4 grid gap-4 xl:grid-cols-[320px_minmax(0,1fr)]">
-			<div class="border border-border bg-surface">
-				<div class="border-b border-border px-4 py-3 text-sm font-medium text-text">Sources</div>
+			<div class="border border-line bg-surface">
+				<div class="border-b border-line px-4 py-3 text-sm font-medium text-ink">Sources</div>
 				{#if initialLoading && sources.length === 0}
-					<div class="px-4 py-4 text-sm text-text-muted">Loading log sources…</div>
+					<div class="px-4 py-4 text-sm text-ink-muted">Loading log sources…</div>
 				{:else}
 					<div class="flex flex-col">
 						{#each sources as source}
@@ -298,20 +298,20 @@
 									if (source.available) selectedSourceId = source.id;
 								}}
 								disabled={!source.available}
-								class="border-b border-border px-4 py-3 text-left transition-colors disabled:cursor-not-allowed disabled:opacity-50 {selectedSourceId === source.id ? 'bg-bg' : 'hover:bg-bg'}"
+								class="border-b border-line px-4 py-3 text-left transition-colors disabled:cursor-not-allowed disabled:opacity-50 {selectedSourceId === source.id ? 'bg-well' : 'hover:bg-hover'}"
 							>
 								<div class="flex items-center justify-between gap-2">
-									<div class="text-sm font-medium text-text">{source.label}</div>
+									<div class="text-sm font-medium text-ink">{source.label}</div>
 									{#if source.available}
-										<span class="text-xs text-text-muted">{formatBytes(source.size_bytes)}</span>
+										<span class="text-xs text-ink-muted">{formatBytes(source.size_bytes)}</span>
 									{:else}
-										<span class="text-xs text-text-muted">Unavailable</span>
+										<span class="text-xs text-ink-muted">Unavailable</span>
 									{/if}
 								</div>
-								<div class="mt-1 text-sm text-text-muted">{source.description}</div>
+								<div class="mt-1 text-sm text-ink-muted">{source.description}</div>
 								{#if source.available}
-									<div class="mt-2 truncate text-xs text-text-muted">{source.path}</div>
-									<div class="mt-1 text-sm text-text-muted">Updated {formatTimestamp(source.updated_at)}</div>
+									<div class="mt-2 truncate text-xs text-ink-muted">{source.path}</div>
+									<div class="mt-1 text-sm text-ink-muted">Updated {formatTimestamp(source.updated_at)}</div>
 								{/if}
 							</button>
 						{/each}
@@ -319,39 +319,39 @@
 				{/if}
 			</div>
 
-			<div class="border border-border bg-surface">
-				<div class="border-b border-border px-4 py-3">
+			<div class="border border-line bg-surface">
+				<div class="border-b border-line px-4 py-3">
 					{#if selectedLog}
 						<div class="flex flex-wrap items-start justify-between gap-3">
 							<div>
-								<div class="text-sm font-medium text-text">{selectedLog.label}</div>
-								<div class="mt-1 text-sm text-text-muted">{selectedLog.description}</div>
-								<div class="mt-2 text-sm text-text-muted">{selectedLog.path}</div>
+								<div class="text-sm font-medium text-ink">{selectedLog.label}</div>
+								<div class="mt-1 text-sm text-ink-muted">{selectedLog.description}</div>
+								<div class="mt-2 text-sm text-ink-muted">{selectedLog.path}</div>
 							</div>
-							<div class="text-right text-xs text-text-muted">
+							<div class="text-right text-xs text-ink-muted">
 								<div>{formatBytes(selectedLog.size_bytes)}</div>
 								<div>Updated {formatTimestamp(selectedLog.updated_at)}</div>
 								{#if refreshingContent || refreshingSources}
-									<div class="mt-1 text-primary">Refreshing…</div>
+									<div class="mt-1 text-primary-ink">Refreshing…</div>
 								{/if}
 							</div>
 						</div>
 					{:else}
-						<div class="text-sm font-medium text-text">Log Output</div>
-						<div class="mt-1 text-sm text-text-muted">Select an available source to inspect its logs.</div>
+						<div class="text-sm font-medium text-ink">Log Output</div>
+						<div class="mt-1 text-sm text-ink-muted">Select an available source to inspect its logs.</div>
 					{/if}
 				</div>
 
 				{#if selectedLog}
-					<div class="border-b border-border px-4 py-3">
+					<div class="border-b border-line px-4 py-3">
 						<div class="grid gap-3 md:grid-cols-[minmax(0,1fr)_180px]">
 							<input
 								type="text"
 								bind:value={searchQuery}
 								placeholder="Search message text, error names, part IDs, camera names…"
-								class="border border-border bg-bg px-3 py-2 text-sm text-text"
+								class="border border-line bg-well px-3 py-2 text-sm text-ink"
 							/>
-							<select bind:value={levelFilter} class="border border-border bg-bg px-3 py-2 text-sm text-text">
+							<select bind:value={levelFilter} class="border border-line bg-well px-3 py-2 text-sm text-ink">
 								<option value="all">All levels</option>
 								<option value="ERROR">Errors only</option>
 								<option value="WARN">Warnings only</option>
@@ -361,28 +361,28 @@
 							</select>
 						</div>
 
-						<div class="mt-3 flex flex-wrap items-center gap-2 text-xs text-text-muted">
-							<span class="rounded border border-border bg-bg px-2 py-1">{filteredEntries().length} matching lines</span>
-							<span class="rounded border border-danger/30 bg-danger/10 px-2 py-1 text-danger">Errors: {countByLevel('ERROR')}</span>
-							<span class="rounded border border-warning/30 bg-warning/10 px-2 py-1 text-[#A56D00]">Warnings: {countByLevel('WARN')}</span>
-							<span class="rounded border border-primary/30 bg-primary/10 px-2 py-1 text-primary">Info: {countByLevel('INFO')}</span>
+						<div class="mt-3 flex flex-wrap items-center gap-2 text-xs text-ink-muted">
+							<span class="rounded-control border border-line bg-well px-2 py-1">{filteredEntries().length} matching lines</span>
+							<span class="rounded-control border border-danger/30 bg-danger-soft px-2 py-1 text-danger-ink">Errors: {countByLevel('ERROR')}</span>
+							<span class="rounded-control border border-warning/30 bg-warning-soft px-2 py-1 text-[#A56D00]">Warnings: {countByLevel('WARN')}</span>
+							<span class="rounded-control border border-primary/30 bg-primary-soft px-2 py-1 text-primary-ink">Info: {countByLevel('INFO')}</span>
 						</div>
 					</div>
 
-					<div class="max-h-[70vh] overflow-auto bg-bg">
+					<div class="max-h-[70vh] overflow-auto bg-well">
 						{#if filteredEntries().length === 0}
-							<div class="px-4 py-4 text-sm text-text-muted">No log lines match the current filters.</div>
+							<div class="px-4 py-4 text-sm text-ink-muted">No log lines match the current filters.</div>
 						{:else}
 							<div class="min-w-full">
 								{#each filteredEntries() as entry (entry.index + ':' + entry.raw)}
-									<div class="grid gap-2 border-b border-border px-4 py-2 text-xs leading-5 {wrapLines ? '' : 'grid-cols-[110px_70px_minmax(0,1fr)]'}">
-										<div class="font-mono text-text-muted">{entry.timestamp ?? ''}</div>
+									<div class="grid gap-2 border-b border-line px-4 py-2 text-xs leading-5 {wrapLines ? '' : 'grid-cols-[110px_70px_minmax(0,1fr)]'}">
+										<div class="font-mono text-ink-muted">{entry.timestamp ?? ''}</div>
 										<div>
-											<span class={`inline-flex rounded border px-1.5 py-0.5 text-xs font-medium uppercase tracking-wide ${levelBadgeClass(entry.level)}`}>
+											<span class={`inline-flex rounded-control border px-1.5 py-0.5 text-xs font-medium ${levelBadgeClass(entry.level)}`}>
 												{entry.level}
 											</span>
 										</div>
-										<div class={`font-mono text-text ${wrapLines ? 'whitespace-pre-wrap break-words' : 'overflow-x-auto whitespace-pre'}`}>
+										<div class={`font-mono text-ink ${wrapLines ? 'whitespace-pre-wrap break-words' : 'overflow-x-auto whitespace-pre'}`}>
 											{entry.message}
 										</div>
 									</div>
@@ -391,7 +391,7 @@
 						{/if}
 					</div>
 				{:else}
-					<div class="px-4 py-4 text-sm text-text-muted">No log source selected.</div>
+					<div class="px-4 py-4 text-sm text-ink-muted">No log source selected.</div>
 				{/if}
 			</div>
 		</div>

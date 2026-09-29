@@ -108,14 +108,14 @@
 		ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
 		ctx.clearRect(0, 0, width, height);
 
-		const colText = cssVar('--color-text', '#1a1a1a');
-		const colMuted = cssVar('--color-text-muted', '#7a7770');
-		const colBorder = cssVar('--color-border', '#e2e0db');
-		const colPrimary = cssVar('--color-primary', '#0055bf');
-		const colDanger = cssVar('--color-danger', '#d01012');
-		const colWarning = cssVar('--color-warning', '#f2a900');
-		const colSuccess = cssVar('--color-success', '#00852b');
-		const colBg = cssVar('--color-bg', '#ffffff');
+		const colText = cssVar('--ink', '#1a1a1a');
+		const colMuted = cssVar('--ink-muted', '#7a7770');
+		const colBorder = cssVar('--line', '#e2e0db');
+		const colPrimary = cssVar('--primary', '#0055bf');
+		const colDanger = cssVar('--danger', '#d01012');
+		const colWarning = cssVar('--warning', '#ffd500');
+		const colSuccess = cssVar('--success', '#00852b');
+		const colBg = cssVar('--canvas', '#ffffff');
 
 		ctx.font = '11px ui-sans-serif, system-ui, sans-serif';
 

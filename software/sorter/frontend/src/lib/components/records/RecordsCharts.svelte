@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { Skeleton } from '$lib/components/primitives';
+	import Skeleton from '$lib/components/ui/Skeleton.svelte';
 	import { findLegoColor } from '$lib/pieces/colors';
 	import SeriesChart from './SeriesChart.svelte';
 	import DonutChart, { type DonutSegment } from './DonutChart.svelte';
@@ -58,14 +58,14 @@
 	};
 
 	const STATUS_COLORS: Record<string, string> = {
-		classified: 'var(--color-success)',
-		failed: 'var(--color-danger)',
-		unknown: 'var(--color-warning)',
-		not_found: 'var(--color-warning-dark)',
-		multi_drop_fail: 'var(--color-danger-dark)',
-		dead: 'var(--color-text-muted)',
-		pending: 'var(--color-primary)',
-		classifying: 'var(--color-primary)'
+		classified: 'var(--success)',
+		failed: 'var(--danger)',
+		unknown: 'var(--warning)',
+		not_found: 'var(--warning-ink)',
+		multi_drop_fail: 'var(--danger-ink)',
+		dead: 'var(--ink-muted)',
+		pending: 'var(--primary)',
+		classifying: 'var(--primary)'
 	};
 
 	const statusSegments = $derived.by<DonutSegment[]>(() => {
@@ -73,7 +73,7 @@
 		return aggregates.status_breakdown.map((s) => ({
 			label: STATUS_LABELS[s.status] ?? s.status.replace(/_/g, ' '),
 			value: s.count,
-			color: STATUS_COLORS[s.status] ?? 'var(--color-border)'
+			color: STATUS_COLORS[s.status] ?? 'var(--line)'
 		}));
 	});
 
@@ -90,11 +90,11 @@
 </script>
 
 {#snippet chartCard(title: string, sub: string | null, body: import('svelte').Snippet)}
-	<div class="flex flex-col border border-border bg-surface">
-		<div class="border-b border-border bg-bg px-3 py-2">
-			<span class="text-xs font-semibold tracking-wider text-text-muted uppercase">{title}</span>
+	<div class="flex flex-col border border-line bg-surface">
+		<div class="border-b border-line bg-well px-3 py-2">
+			<span class="text-xs font-semibold text-ink-muted">{title}</span>
 			{#if sub}
-				<span class="ml-2 text-xs text-text-muted">{sub}</span>
+				<span class="ml-2 text-xs text-ink-muted">{sub}</span>
 			{/if}
 		</div>
 		<div class="flex-1 p-3">
@@ -103,10 +103,10 @@
 	</div>
 {/snippet}
 
-<h3 class="text-sm font-semibold tracking-wider text-text-muted uppercase">Trends</h3>
+<h3 class="text-sm font-semibold text-ink-muted">Trends</h3>
 {#if aggregates === null}
 	{#if error}
-		<div class="border border-border bg-surface p-4 text-sm text-text-muted">
+		<div class="border border-line bg-surface p-4 text-sm text-ink-muted">
 			Could not load chart data.
 		</div>
 	{:else}
@@ -130,7 +130,7 @@
 			<SeriesChart
 				points={(aggregates?.ppm_per_day ?? []).map((p) => ({ date: p.date, value: p.ppm }))}
 				kind="line"
-				color="var(--color-success)"
+				color="var(--success)"
 			/>
 		{/snippet}
 		{@render chartCard('Throughput per day', 'pieces/min while sorting', ppmSeries)}
@@ -142,7 +142,7 @@
 					value: p.count
 				}))}
 				kind="line"
-				color="var(--color-info)"
+				color="var(--info)"
 			/>
 		{/snippet}
 		{@render chartCard('Unique parts seen', 'cumulative, all time', uniqueParts)}
@@ -155,24 +155,24 @@
 		{#snippet colorBars()}
 			{@const colors = aggregates?.per_color ?? []}
 			{#if colors.length === 0}
-				<div class="flex h-32 items-center justify-center text-sm text-text-muted">
+				<div class="flex h-32 items-center justify-center text-sm text-ink-muted">
 					No data yet.
 				</div>
 			{:else}
 				<div class="flex flex-col gap-1.5">
 					{#each colors as c (c.color_id ?? c.color_name ?? '?')}
 						<div class="flex items-center gap-2 text-sm">
-							<span class="w-36 truncate text-text" title={c.color_name ?? c.color_id ?? ''}>
+							<span class="w-36 truncate text-ink" title={c.color_name ?? c.color_id ?? ''}>
 								{c.color_name ?? c.color_id ?? '—'}
 							</span>
-							<div class="h-3.5 flex-1 bg-bg">
+							<div class="h-3.5 flex-1 bg-well">
 								<div
-									class="h-full border border-border"
+									class="h-full border border-line"
 									style:width={`${Math.max(1, (c.count / maxColorCount) * 100)}%`}
 									style:background-color={legoHex(c.color_id, c.color_name)}
 								></div>
 							</div>
-							<span class="w-14 text-right tabular-nums text-text-muted">
+							<span class="w-14 text-right num text-ink-muted">
 								{c.count.toLocaleString()}
 							</span>
 						</div>
@@ -185,26 +185,26 @@
 		{#snippet partBars()}
 			{@const parts = aggregates?.top_parts ?? []}
 			{#if parts.length === 0}
-				<div class="flex h-32 items-center justify-center text-sm text-text-muted">
+				<div class="flex h-32 items-center justify-center text-sm text-ink-muted">
 					No data yet.
 				</div>
 			{:else}
 				<div class="flex flex-col gap-1.5">
 					{#each parts as p (p.part_id ?? p.part_name ?? '?')}
 						<div class="flex items-center gap-2 text-sm">
-							<span class="w-16 flex-shrink-0 truncate font-mono text-xs text-text-muted">
+							<span class="w-16 flex-shrink-0 truncate font-mono text-xs text-ink-muted">
 								{p.part_id ?? '—'}
 							</span>
-							<span class="w-36 truncate text-text" title={p.part_name ?? ''}>
+							<span class="w-36 truncate text-ink" title={p.part_name ?? ''}>
 								{p.part_name ?? '—'}
 							</span>
-							<div class="h-3.5 flex-1 bg-bg">
+							<div class="h-3.5 flex-1 bg-well">
 								<div
 									class="h-full bg-primary/70"
 									style:width={`${Math.max(1, (p.count / maxPartCount) * 100)}%`}
 								></div>
 							</div>
-							<span class="w-14 text-right tabular-nums text-text-muted">
+							<span class="w-14 text-right num text-ink-muted">
 								{p.count.toLocaleString()}
 							</span>
 						</div>

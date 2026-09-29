@@ -38,7 +38,7 @@
 {#if deviceProvider === 'usb-opencv' && deviceSupported && usbControls.length > 0}
 	<button
 		onclick={() => (manualSettingsOpen = !manualSettingsOpen)}
-		class="flex w-full cursor-pointer items-center justify-between border border-border bg-surface px-3 py-2 text-sm font-medium text-text transition-colors hover:bg-gray-50 dark:hover:bg-gray-800"
+		class="flex w-full cursor-pointer items-center justify-between border border-line bg-surface px-3 py-2 text-sm font-medium text-ink transition-colors hover:bg-gray-50"
 	>
 		<span>Manual Settings</span>
 		<ChevronDown
@@ -51,7 +51,7 @@
 		{#each usbControls as control (control.key)}
 			{#if control.kind === 'boolean'}
 				<label
-					class="flex items-center gap-2 border border-border bg-surface px-3 py-2 text-sm text-text"
+					class="flex items-center gap-2 border border-line bg-surface px-3 py-2 text-sm text-ink"
 				>
 					<input
 						type="checkbox"
@@ -70,15 +70,15 @@
 				{@const usbStep = Number(control.step ?? 1)}
 				<label class="flex flex-col gap-2">
 					<div class="flex items-center justify-between gap-3 text-sm">
-						<span class="font-medium text-text">{control.label}</span>
-						<span class="font-mono text-sm text-text-muted">
+						<span class="font-medium text-ink">{control.label}</span>
+						<span class="font-mono text-sm text-ink-muted">
 							{formatUsbValue(control)}
 						</span>
 					</div>
 					<div class="flex items-center gap-2">
 						<button
 							type="button"
-							class="flex h-6 w-6 shrink-0 cursor-pointer items-center justify-center border border-border bg-surface text-xs text-text hover:bg-bg"
+							class="flex h-6 w-6 shrink-0 cursor-pointer items-center justify-center border border-line bg-surface text-xs text-ink hover:bg-hover"
 							onclick={() => onUpdateUsbNumeric(control, Math.max(usbMin, usbVal - usbStep))}
 							>&minus;</button
 						>
@@ -94,13 +94,13 @@
 						/>
 						<button
 							type="button"
-							class="flex h-6 w-6 shrink-0 cursor-pointer items-center justify-center border border-border bg-surface text-xs text-text hover:bg-bg"
+							class="flex h-6 w-6 shrink-0 cursor-pointer items-center justify-center border border-line bg-surface text-xs text-ink hover:bg-hover"
 							onclick={() => onUpdateUsbNumeric(control, Math.min(usbMax, usbVal + usbStep))}
 							>&plus;</button
 						>
 					</div>
 					{#if control.help}
-						<div class="text-sm text-text-muted">
+						<div class="text-sm text-ink-muted">
 							{control.help}
 						</div>
 					{/if}
@@ -109,7 +109,7 @@
 		{/each}
 	{/if}
 {:else}
-	<div class="border border-dashed border-border bg-surface px-3 py-2 text-sm text-text-muted">
+	<div class="border border-dashed border-line bg-surface px-3 py-2 text-sm text-ink-muted">
 		{deviceMessage || 'This source does not currently expose adjustable real camera controls.'}
 	</div>
 {/if}

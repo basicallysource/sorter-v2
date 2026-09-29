@@ -5,14 +5,14 @@
 	import Skeleton from '$lib/components/primitives/Skeleton.svelte';
 </script>
 
-<div class="setup-card-shell flex h-full flex-col overflow-hidden border border-border">
+<div class="setup-card-shell flex h-full flex-col overflow-hidden border border-line">
 	<div class="setup-card-header px-3 py-2 text-sm">
 		<div class="flex items-center justify-between gap-3">
 			<Skeleton class="h-5 w-40" />
 			<Skeleton class="h-9 w-[10.5rem]" />
 		</div>
 	</div>
-	<div class="setup-card-body border-t border-border px-4 py-3">
+	<div class="setup-card-body border-t border-line px-4 py-3">
 		<div class="grid gap-x-4 gap-y-1.5 md:grid-cols-2">
 			{#each Array(4) as _}
 				<div class="flex items-center gap-2">
@@ -22,7 +22,7 @@
 			{/each}
 		</div>
 	</div>
-	<div class="setup-card-body border-t border-border px-4 py-3">
+	<div class="setup-card-body border-t border-line px-4 py-3">
 		<Skeleton class="h-3.5 w-3/4" />
 	</div>
 </div>

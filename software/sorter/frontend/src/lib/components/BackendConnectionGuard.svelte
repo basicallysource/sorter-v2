@@ -1,5 +1,5 @@
 <script lang="ts">
-	import Spinner from '$lib/components/Spinner.svelte';
+	import Spinner from '$lib/components/ui/Spinner.svelte';
 	import {
 		backendHealthy,
 		getBackendHttpBase,
@@ -74,25 +74,25 @@
 	<div class="flex flex-col gap-4">
 		<div class="flex items-start gap-3">
 			<div
-				class="flex h-9 w-9 shrink-0 items-center justify-center border border-danger/25 bg-danger/[0.08] text-[#B11618]"
+				class="flex h-9 w-9 shrink-0 items-center justify-center border border-danger/25 bg-danger-soft text-[#B11618]"
 			>
 				<WifiOff size={18} />
 			</div>
 			<div class="min-w-0 flex-1">
 				{#if restarting}
-					<div class="text-sm text-text">
+					<div class="text-sm text-ink">
 						The backend is restarting. Waiting for it to come back online...
 					</div>
-					<div class="mt-3 flex items-center gap-2 text-xs text-text-muted">
+					<div class="mt-3 flex items-center gap-2 text-xs text-ink-muted">
 						<Spinner size={14} />
 						Reconnecting...
 					</div>
 				{:else}
-					<div class="text-sm text-text">
+					<div class="text-sm text-ink">
 						The sorter backend is not responding. This could mean the service has crashed, is still
 						starting up, or the network connection was lost.
 					</div>
-					<div class="mt-2 text-sm text-text-muted">
+					<div class="mt-2 text-sm text-ink-muted">
 						Check that the machine is powered on and the backend service is running.
 					</div>
 				{/if}
@@ -100,11 +100,11 @@
 		</div>
 
 		{#if !restarting}
-			<div class="flex items-center justify-end gap-2 border-t border-border pt-3">
+			<div class="flex items-center justify-end gap-2 border-t border-line pt-3">
 				<button
 					type="button"
 					onclick={() => void restartBackend()}
-					class="inline-flex items-center gap-1.5 border border-border bg-bg px-3 py-1.5 text-sm font-medium text-text transition-colors hover:bg-surface"
+					class="inline-flex items-center gap-1.5 border border-line bg-well px-3 py-1.5 text-sm font-medium text-ink transition-colors hover:bg-surface"
 				>
 					<Power size={14} />
 					Restart Backend
@@ -113,7 +113,7 @@
 					type="button"
 					disabled={checking}
 					onclick={() => void retryNow()}
-					class="inline-flex items-center gap-1.5 border border-primary/30 bg-primary/[0.06] px-3 py-1.5 text-sm font-medium text-text transition-colors hover:bg-primary/[0.12] disabled:opacity-50"
+					class="inline-flex items-center gap-1.5 border border-primary/30 bg-primary-soft px-3 py-1.5 text-sm font-medium text-ink transition-colors hover:bg-primary-soft disabled:opacity-50"
 				>
 					<RefreshCw size={14} class={checking ? 'animate-spin' : ''} />
 					Check Connection

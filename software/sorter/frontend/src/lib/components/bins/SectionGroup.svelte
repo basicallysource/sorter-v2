@@ -1,7 +1,7 @@
 <script lang="ts">
-	import { ToggleSwitch } from '$lib/components/primitives';
+	import Switch from '$lib/components/ui/Switch.svelte';
 	import Crosshair from '@lucide/svelte/icons/crosshair';
-	import Spinner from '$lib/components/Spinner.svelte';
+	import Spinner from '$lib/components/ui/Spinner.svelte';
 	import type { Snippet } from 'svelte';
 	import type { BinInfo } from './types';
 
@@ -37,34 +37,33 @@
 	});
 </script>
 
-<div class="flex flex-col border border-border bg-surface {enabled ? '' : 'opacity-60'}">
-	<div class="flex items-center justify-between gap-2 border-b border-border bg-bg px-3 py-2">
+<div class="flex flex-col border border-line bg-surface {enabled ? '' : 'opacity-60'}">
+	<div class="flex items-center justify-between gap-2 border-b border-line bg-well px-3 py-2">
 		<div class="flex min-w-0 items-baseline gap-2">
-			<span class="shrink-0 text-xs font-semibold uppercase tracking-wider text-text">
+			<span class="shrink-0 text-xs font-semibold text-ink">
 				Section {sectionIndex + 1}
 			</span>
-			<span class="truncate text-xs text-text-muted">{binRangeLabel}</span>
+			<span class="truncate text-xs text-ink-muted">{binRangeLabel}</span>
 			{#if !enabled}
-				<span class="shrink-0 bg-text-muted px-1.5 py-0.5 text-xs font-semibold uppercase tracking-wide text-surface">
+				<span class="shrink-0 bg-text-muted px-1.5 py-0.5 text-xs font-semibold text-surface">
 					Off
 				</span>
 			{/if}
 		</div>
 		<div class="flex shrink-0 items-center gap-1.5">
-			<ToggleSwitch
+			<Switch
 				checked={enabled}
-				size="sm"
 				label={enabled
 					? `Disable layer ${layerIndex + 1} section ${sectionIndex + 1}`
 					: `Enable layer ${layerIndex + 1} section ${sectionIndex + 1}`}
 				disabled={toggleDisabled}
-				onToggle={() => onToggle(!enabled)}
+				onchange={() => onToggle(!enabled)}
 			/>
 			<button
 				type="button"
 				onclick={onPoint}
 				disabled={pointDisabled}
-				class="flex items-center justify-center border border-border bg-surface p-1 text-text transition-colors hover:bg-bg disabled:cursor-not-allowed disabled:opacity-50"
+				class="flex items-center justify-center border border-line bg-surface p-1 text-ink transition-colors hover:bg-hover disabled:cursor-not-allowed disabled:opacity-50"
 				title="Point chute at section {sectionIndex + 1}"
 			>
 				{#if pointing}

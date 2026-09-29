@@ -50,12 +50,12 @@
 	<div class="flex flex-wrap items-start justify-between gap-3">
 		<div class="min-w-0 flex-1">
 			<div class="flex flex-wrap items-center gap-2">
-				<div class="text-sm font-semibold text-text">{label}</div>
-				<div class:text-danger={required} class:text-text-muted={!required} class="text-xs">
+				<div class="text-sm font-semibold text-ink">{label}</div>
+				<div class:text-danger-ink={required} class:text-ink-muted={!required} class="text-xs">
 					{required ? 'Required' : 'Optional'}
 				</div>
 			</div>
-			<div class="mt-1 text-sm text-text-muted">{description}</div>
+			<div class="mt-1 text-sm text-ink-muted">{description}</div>
 		</div>
 	</div>
 
@@ -64,43 +64,43 @@
 			<button
 				onclick={() => selectedSource !== null && (changingCamera = !changingCamera)}
 				disabled={selectedSource === null}
-				class={`inline-flex min-w-0 flex-1 items-center justify-center border px-2 py-1.5 text-center text-xs font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-60 sm:text-xs ${selectedSource === null ? 'border-border bg-bg text-text-muted' : 'border-success/30 bg-success/10 text-success hover:bg-success/15'}`}
+				class={`inline-flex min-w-0 flex-1 items-center justify-center border px-2 py-1.5 text-center text-xs font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-60 sm:text-xs ${selectedSource === null ? 'border-line bg-well text-ink-muted' : 'border-success/30 bg-success-soft text-success-ink hover:bg-success-soft'}`}
 			>
 				<span class="whitespace-nowrap"
 					>{selectedSource === null ? 'Choose camera' : 'Camera selected'}</span
 				>
 			</button>
 			<div
-				class={`h-px w-8 shrink-0 ${selectedSource === null ? 'bg-border' : 'bg-success/25'}`}
+				class={`h-px w-8 shrink-0 ${selectedSource === null ? 'bg-line' : 'bg-success-soft'}`}
 			></div>
 		</div>
 		<div class="flex min-w-0 flex-[1.05] basis-0 items-center gap-2">
 			<button
 				onclick={() => onOpenZoneEditor?.(role)}
 				disabled={selectedSource === null}
-				class={`inline-flex min-w-0 flex-1 items-center justify-center border px-2 py-1.5 text-center text-xs font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-60 sm:text-xs ${zoneReviewed ? 'border-success/30 bg-success/10 text-success hover:bg-success/15' : 'border-border bg-bg text-text-muted hover:border-border/80 hover:bg-surface'}`}
+				class={`inline-flex min-w-0 flex-1 items-center justify-center border px-2 py-1.5 text-center text-xs font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-60 sm:text-xs ${zoneReviewed ? 'border-success/30 bg-success-soft text-success-ink hover:bg-success-soft' : 'border-line bg-well text-ink-muted hover:border-line hover:bg-surface'}`}
 			>
 				<span class="whitespace-nowrap">{zoneReviewed ? 'Zone reviewed' : 'Review zone'}</span>
 			</button>
-			<div class={`h-px w-8 shrink-0 ${zoneReviewed ? 'bg-success/25' : 'bg-border'}`}></div>
+			<div class={`h-px w-8 shrink-0 ${zoneReviewed ? 'bg-success-soft' : 'bg-line'}`}></div>
 		</div>
 		<div class="min-w-0 flex-1 basis-0">
 			<button
 				onclick={() => onOpenPictureSettings?.(role)}
 				disabled={selectedSource === null}
-				class={`inline-flex w-full min-w-0 items-center justify-center border px-2 py-1.5 text-center text-xs font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-60 sm:text-xs ${pictureTuned ? 'border-success/30 bg-success/10 text-success hover:bg-success/15' : 'border-border bg-bg text-text-muted hover:border-border/80 hover:bg-surface'}`}
+				class={`inline-flex w-full min-w-0 items-center justify-center border px-2 py-1.5 text-center text-xs font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-60 sm:text-xs ${pictureTuned ? 'border-success/30 bg-success-soft text-success-ink hover:bg-success-soft' : 'border-line bg-well text-ink-muted hover:border-line hover:bg-surface'}`}
 			>
 				<span class="whitespace-nowrap">{pictureTuned ? 'Picture tuned' : 'Picture tuning'}</span>
 			</button>
 		</div>
 	</div>
 
-	<div class="mt-3 overflow-hidden border border-border bg-bg">
+	<div class="mt-3 overflow-hidden border border-line bg-well">
 		{#if selectedSource !== null}
 			<div class="relative aspect-video overflow-hidden bg-surface">
 				<CameraFeed camera={role} label={selectedLabel} showHeader={false} framed={false} />
 				<div
-					class="pointer-events-none absolute right-1.5 bottom-1.5 rounded-full border border-white/20 bg-black/65 px-3 py-1 text-xs font-medium text-white shadow-sm backdrop-blur-sm"
+					class="pointer-events-none absolute right-1.5 bottom-1.5 rounded-full border border-white/20 bg-black/65 px-3 py-1 text-xs font-medium text-white backdrop-blur-sm"
 				>
 					{selectedLabel}
 				</div>
@@ -111,14 +111,14 @@
 					{#each choices.filter((choice) => choice.key !== '__none__') as choice}
 						<button
 							onclick={() => onSelect?.(role, choice.key)}
-							class="flex min-h-0 flex-col overflow-hidden border border-border bg-surface text-left transition-colors hover:border-primary hover:bg-primary/5"
+							class="flex min-h-0 flex-col overflow-hidden border border-line bg-surface text-left transition-colors hover:border-primary hover:bg-primary-soft"
 						>
 							<div class="min-h-0 flex-1">
-								<div class="relative h-full border border-border bg-bg">
+								<div class="relative h-full border border-line bg-well">
 									<CameraSourcePreview source={choice.source} label={choice.label} />
 								</div>
 							</div>
-							<div class="border-t border-border px-2 py-1 text-xs text-text">{choice.label}</div>
+							<div class="border-t border-line px-2 py-1 text-xs text-ink">{choice.label}</div>
 						</button>
 					{/each}
 				</div>
@@ -126,9 +126,9 @@
 		{:else}
 			<div class="aspect-[4/3] bg-surface">
 				<div
-					class="flex h-full flex-col items-center justify-center px-6 text-center text-sm text-text-muted"
+					class="flex h-full flex-col items-center justify-center px-6 text-center text-sm text-ink-muted"
 				>
-					<div class="font-medium text-text">No camera selected yet</div>
+					<div class="font-medium text-ink">No camera selected yet</div>
 					<div class="mt-2">Refresh sources to discover cameras, then choose one here.</div>
 				</div>
 			</div>
@@ -143,19 +143,19 @@
 			role="dialog"
 			tabindex="0"
 		>
-			<div class="max-h-[85vh] w-full max-w-5xl overflow-auto border border-border bg-bg shadow-lg">
+			<div class="max-h-[85vh] w-full max-w-5xl overflow-auto border border-line bg-well">
 				<div
-					class="sticky top-0 flex items-center justify-between border-b border-border bg-surface px-4 py-3"
+					class="sticky top-0 flex items-center justify-between border-b border-line bg-surface px-4 py-3"
 				>
 					<div>
-						<div class="text-sm font-semibold text-text">Change camera</div>
-						<div class="mt-1 text-sm text-text-muted">
+						<div class="text-sm font-semibold text-ink">Change camera</div>
+						<div class="mt-1 text-sm text-ink-muted">
 							Pick a different live source for {label}.
 						</div>
 					</div>
 					<button
 						onclick={() => (changingCamera = false)}
-						class="setup-button-secondary px-3 py-1.5 text-sm text-text"
+						class="setup-button-secondary px-3 py-1.5 text-sm text-ink"
 					>
 						Close
 					</button>
@@ -167,26 +167,26 @@
 								onSelect?.(role, choice.key);
 								changingCamera = false;
 							}}
-							class={`overflow-hidden border bg-surface text-left transition-colors ${choice.key === selectedKey ? 'border-primary ring-1 ring-primary/30' : 'border-border hover:border-primary hover:bg-primary/5'}`}
+							class={`overflow-hidden border bg-surface text-left transition-colors ${choice.key === selectedKey ? 'border-primary ring-1 ring-primary/30' : 'border-line hover:border-primary hover:bg-primary-soft'}`}
 						>
 							<div class="aspect-[4/3] min-h-0 bg-surface">
-								<div class="relative h-full border border-border bg-bg">
+								<div class="relative h-full border border-line bg-well">
 									<CameraSourcePreview source={choice.source} label={choice.label} />
 								</div>
 							</div>
-							<div class="border-t border-border px-3 py-2 text-sm font-medium text-text">
+							<div class="border-t border-line px-3 py-2 text-sm font-medium text-ink">
 								{choice.label}
 							</div>
 						</button>
 					{/each}
 				</div>
-				<div class="flex items-center justify-end border-t border-border px-4 py-3">
+				<div class="flex items-center justify-end border-t border-line px-4 py-3">
 					<button
 						onclick={() => {
 							onSelect?.(role, '__none__');
 							changingCamera = false;
 						}}
-						class="rounded border border-border bg-surface px-3 py-2 text-sm text-text transition-colors hover:border-danger hover:bg-danger/5 hover:text-danger"
+						class="rounded-control border border-line bg-surface px-3 py-2 text-sm text-ink transition-colors hover:border-danger hover:bg-danger-soft hover:text-danger-ink"
 					>
 						Clear camera
 					</button>

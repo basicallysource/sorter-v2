@@ -70,8 +70,8 @@
 
 <div class="setup-panel p-4">
 	<div>
-		<div class="text-sm font-semibold text-text">Detected servos</div>
-		<div class="mt-1 text-sm text-text-muted">
+		<div class="text-sm font-semibold text-ink">Detected servos</div>
+		<div class="mt-1 text-sm text-ink-muted">
 			{busServos.length} on the bus · highest ID ever seen: {highestSeenId || '–'}
 			{#if suggestedNextId !== null}
 				· next free ID: {suggestedNextId}
@@ -80,7 +80,7 @@
 	</div>
 
 	{#if busServos.length === 0}
-		<div class="mt-4 border border-dashed border-border px-4 py-6 text-center text-sm text-text-muted">
+		<div class="mt-4 border border-dashed border-line px-4 py-6 text-center text-sm text-ink-muted">
 			No servos found yet. Connect your first servo — the bus auto-scans every few seconds.
 		</div>
 	{:else}

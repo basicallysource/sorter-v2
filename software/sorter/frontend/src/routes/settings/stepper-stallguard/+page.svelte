@@ -1,6 +1,8 @@
 <script lang="ts">
 	import { getBackendHttpBase } from '$lib/backend';
-	import { Button, Input, Alert } from '$lib/components/primitives';
+	import Button from '$lib/components/ui/Button.svelte';
+	import Input from '$lib/components/ui/Input.svelte';
+	import Alert from '$lib/components/ui/Alert.svelte';
 	import SectionCard from '$lib/components/settings/SectionCard.svelte';
 	import StallGuardChart from '$lib/components/StallGuardChart.svelte';
 
@@ -290,18 +292,18 @@
 
 <div class="flex flex-col gap-6 p-6">
 	<div>
-		<div class="text-lg font-semibold text-text">Stepper StallGuard Telemetry</div>
-		<div class="mt-1 text-sm text-text-muted">
+		<div class="text-lg font-semibold text-ink">Stepper StallGuard Telemetry</div>
+		<div class="mt-1 text-sm text-ink-muted">
 			Record and visualize TMC2209 load (<span class="font-mono">SG_RESULT</span>) per motor. Run
 			targeted sweeps, inspect the load curve, and write a stall threshold to the machine config.
 		</div>
 	</div>
 
 	{#if error}
-		<Alert variant="danger">{error}</Alert>
+		<Alert tone="danger">{error}</Alert>
 	{/if}
 	{#if notice}
-		<Alert variant="success">{notice}</Alert>
+		<Alert tone="success">{notice}</Alert>
 	{/if}
 
 	<SectionCard
@@ -309,11 +311,11 @@
 		description="Rollup of all recorded SG_RESULT samples for each motor."
 	>
 		{#if summary.length === 0}
-			<div class="text-sm text-text-muted">No telemetry recorded yet. Run a sweep below.</div>
+			<div class="text-sm text-ink-muted">No telemetry recorded yet. Run a sweep below.</div>
 		{:else}
 			<table class="w-full text-sm">
 				<thead>
-					<tr class="border-b border-border text-left text-text-muted">
+					<tr class="border-b border-line text-left text-ink-muted">
 						<th class="py-2 pr-4 font-medium">Motor</th>
 						<th class="py-2 pr-4 font-medium">Samples</th>
 						<th class="py-2 pr-4 font-medium">SG min</th>
@@ -324,13 +326,13 @@
 				</thead>
 				<tbody>
 					{#each summary as row}
-						<tr class="border-b border-border/50 text-text">
+						<tr class="border-b border-line text-ink">
 							<td class="py-2 pr-4 font-mono">{row.stepper_name}</td>
 							<td class="py-2 pr-4">{row.samples}</td>
 							<td class="py-2 pr-4">{row.sg_min}</td>
 							<td class="py-2 pr-4">{Math.round(row.sg_mean)}</td>
 							<td class="py-2 pr-4">{row.sg_max}</td>
-							<td class="py-2 pr-4 text-text-muted">{fmtTime(row.last_seen)}</td>
+							<td class="py-2 pr-4 text-ink-muted">{fmtTime(row.last_seen)}</td>
 						</tr>
 					{/each}
 				</tbody>
@@ -342,13 +344,13 @@
 		title="Run a targeted sweep"
 		description="Drives one motor with a representative motion profile and records its load curve. Use the loaded option for a deliberate stall test — hold/resist the motor by hand while it runs."
 	>
-		<Alert variant="warning">
+		<Alert tone="warning">
 			This moves a real motor. Keep the area clear and your hand near the stop control.
 		</Alert>
 
 		<div class="mt-4 flex flex-wrap items-end gap-4">
 			<div class="flex flex-col gap-1">
-				<label class="text-sm text-text" for="sw-stepper">Motor</label>
+				<label class="text-sm text-ink" for="sw-stepper">Motor</label>
 				<select
 					id="sw-stepper"
 					bind:value={swStepper}
@@ -362,38 +364,38 @@
 				</select>
 			</div>
 			<div class="flex flex-col gap-1">
-				<label class="text-sm text-text" for="sw-profile">Motion profile</label>
+				<label class="text-sm text-ink" for="sw-profile">Motion profile</label>
 				<select id="sw-profile" bind:value={swProfile} class="setup-control" style="min-width: 11rem;">
 					<option value="constant">constant spin</option>
 					<option value="chute_random">chute: random go-to-angle</option>
 					<option value="pulsed">pulsed + jitter</option>
 				</select>
 			</div>
-			<label class="flex w-40 flex-col gap-1 text-sm text-text">
+			<label class="flex w-40 flex-col gap-1 text-sm text-ink">
 				Speed (µsteps/s)
 				<Input type="number" bind:value={swSpeed} />
 			</label>
 			<div class="flex flex-col gap-1">
-				<label class="text-sm text-text" for="sw-dir">Direction</label>
+				<label class="text-sm text-ink" for="sw-dir">Direction</label>
 				<select id="sw-dir" bind:value={swDirection} class="setup-control">
 					<option value="cw">cw</option>
 					<option value="ccw">ccw</option>
 				</select>
 			</div>
-			<label class="flex w-32 flex-col gap-1 text-sm text-text">
+			<label class="flex w-32 flex-col gap-1 text-sm text-ink">
 				Duration (s)
 				<Input type="number" bind:value={swDuration} />
 			</label>
-			<label class="flex w-56 flex-col gap-1 text-sm text-text">
+			<label class="flex w-56 flex-col gap-1 text-sm text-ink">
 				Label (optional)
 				<Input type="text" bind:value={swLabel} />
 			</label>
-			<label class="flex items-center gap-2 text-sm text-text">
+			<label class="flex items-center gap-2 text-sm text-ink">
 				<input type="checkbox" bind:checked={swLoaded} class="accent-primary" />
 				Loaded (stall test)
 			</label>
 			<Button variant="primary" onclick={runSweep} loading={running}>Run sweep</Button>
-			<label class="flex items-center gap-2 text-sm text-text">
+			<label class="flex items-center gap-2 text-sm text-ink">
 				<input type="checkbox" bind:checked={swEnterToRun} class="accent-primary" />
 				Enter to run
 			</label>
@@ -401,19 +403,19 @@
 
 		{#if swProfile === 'chute_random'}
 			<div class="mt-4 flex flex-wrap items-end gap-4">
-				<label class="flex w-40 flex-col gap-1 text-sm text-text">
+				<label class="flex w-40 flex-col gap-1 text-sm text-ink">
 					Min angle (output °)
 					<Input type="number" bind:value={swChuteMinDeg} />
 				</label>
-				<label class="flex w-40 flex-col gap-1 text-sm text-text">
+				<label class="flex w-40 flex-col gap-1 text-sm text-ink">
 					Max angle (output °)
 					<Input type="number" bind:value={swChuteMaxDeg} />
 				</label>
-				<label class="flex w-40 flex-col gap-1 text-sm text-text">
+				<label class="flex w-40 flex-col gap-1 text-sm text-ink">
 					Min angle delta (°)
 					<Input type="number" bind:value={swMinDeltaDeg} />
 				</label>
-				<div class="max-w-md text-sm text-text-muted">
+				<div class="max-w-md text-sm text-ink-muted">
 					Random go-to-angle within [min, max] output degrees (auto-clamped to the chute's safe
 					travel, max 345°), with an immediate turnaround on each arrival. Homes the chute first if
 					needed, so it operates on absolute angles and can never reach an endstop.
@@ -421,19 +423,19 @@
 			</div>
 		{:else if swProfile === 'pulsed'}
 			<div class="mt-4 flex flex-wrap items-end gap-4">
-				<label class="flex w-40 flex-col gap-1 text-sm text-text">
+				<label class="flex w-40 flex-col gap-1 text-sm text-ink">
 					Pulse size (motor °)
 					<Input type="number" bind:value={swPulseDeg} />
 				</label>
-				<label class="flex w-32 flex-col gap-1 text-sm text-text">
+				<label class="flex w-32 flex-col gap-1 text-sm text-ink">
 					Dwell (ms)
 					<Input type="number" bind:value={swDwellMs} />
 				</label>
-				<label class="flex w-40 flex-col gap-1 text-sm text-text">
+				<label class="flex w-40 flex-col gap-1 text-sm text-ink">
 					Jitter every N pulses
 					<Input type="number" bind:value={swJitterEvery} />
 				</label>
-				<div class="max-w-md text-sm text-text-muted">
+				<div class="max-w-md text-sm text-ink-muted">
 					Discrete pulses with a dwell between (how the rotors and carousel actually run), with an
 					unstick jitter every N pulses. Only the moving phases are sampled. Set jitter to 0 to
 					disable it.
@@ -441,12 +443,12 @@
 			</div>
 		{/if}
 
-		<div class="mt-4 flex flex-wrap items-end gap-4 border-t border-border/40 pt-4">
-			<label class="flex w-44 flex-col gap-1 text-sm text-text">
+		<div class="mt-4 flex flex-wrap items-end gap-4 border-t border-line pt-4">
+			<label class="flex w-44 flex-col gap-1 text-sm text-ink">
 				Cruise TSTEP (threshold)
 				<Input type="number" bind:value={swCruiseTstep} />
 			</label>
-			<div class="max-w-lg text-sm text-text-muted">
+			<div class="max-w-lg text-sm text-ink-muted">
 				Only motion at cruise (TSTEP ≤ this; lower = faster) sets the threshold — the accel/decel and
 				reversal transients dip SG even unloaded and would drag the floor down. Stays in StealthChop
 				(the TMC2209's StallGuard works there, not SpreadCycle). The chute cruises at TSTEP ~75–150;
@@ -459,35 +461,35 @@
 		<div class="lg:col-span-1">
 			<SectionCard title="Runs" description="Recent recordings. Click to view.">
 				{#if runs.length === 0}
-					<div class="text-sm text-text-muted">No runs yet.</div>
+					<div class="text-sm text-ink-muted">No runs yet.</div>
 				{:else}
 					<div class="flex max-h-[28rem] flex-col overflow-y-auto">
 						{#each runs as run}
 							<div
-								class="border-b border-border/50 {selectedRun?.id === run.id
-									? 'bg-primary-light/60'
+								class="border-b border-line {selectedRun?.id === run.id
+									? 'bg-primary-soft/60'
 									: ''}"
 							>
 								<button
 									type="button"
 									onclick={() => selectRun(run)}
-									class="flex w-full flex-col gap-1 px-2 pt-2 text-left hover:bg-primary-light/40"
+									class="flex w-full flex-col gap-1 px-2 pt-2 text-left hover:bg-primary-soft/40"
 								>
 									<div class="flex items-center justify-between gap-2">
-										<span class="font-mono text-sm text-text">{run.stepper_name ?? '—'}</span>
-										<span class="text-xs uppercase tracking-wider text-text-muted">{run.source}</span>
+										<span class="font-mono text-sm text-ink">{run.stepper_name ?? '—'}</span>
+										<span class="text-xs text-ink-muted">{run.source}</span>
 									</div>
-									<div class="text-sm text-text-muted">{fmtTime(run.started_at)}</div>
-									<div class="text-sm text-text-muted">
+									<div class="text-sm text-ink-muted">{fmtTime(run.started_at)}</div>
+									<div class="text-sm text-ink-muted">
 										{run.sample_count} samples{#if run.sg_min != null}, SG {run.sg_min}–{run.sg_max}{/if}{#if run.suggested_sgthrs != null}, SGTHRS {run.suggested_sgthrs}{/if}
-										{#if run.label}<span class="text-text"> · {run.label}</span>{/if}
+										{#if run.label}<span class="text-ink"> · {run.label}</span>{/if}
 									</div>
 								</button>
 								<div class="flex justify-end px-2 pb-2">
 									<button
 										type="button"
 										onclick={(e) => deleteRun(run, e)}
-										class="text-sm text-danger hover:underline"
+										class="text-sm text-danger-ink hover:underline"
 										aria-label="Delete run">delete</button
 									>
 								</div>
@@ -502,55 +504,55 @@
 			<SectionCard title="Load curve" description="SG_RESULT over time. Lower = more load; a stall drops it toward 0.">
 				{#if selectedRun}
 					<div class="mb-3 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm">
-						<span class="text-text-muted">Motor:</span>
-						<span class="font-mono text-text">{selectedRun.stepper_name}</span>
-						<span class="text-text-muted">Speed:</span>
-						<span class="text-text">{selectedRun.params?.speed ?? '—'} µsteps/s</span>
-						<span class="text-text-muted">Dir:</span>
-						<span class="text-text">{selectedRun.params?.direction ?? '—'}</span>
-						<span class="text-text-muted">Duration:</span>
-						<span class="text-text">{selectedRun.params?.duration_s ?? '—'} s</span>
+						<span class="text-ink-muted">Motor:</span>
+						<span class="font-mono text-ink">{selectedRun.stepper_name}</span>
+						<span class="text-ink-muted">Speed:</span>
+						<span class="text-ink">{selectedRun.params?.speed ?? '—'} µsteps/s</span>
+						<span class="text-ink-muted">Dir:</span>
+						<span class="text-ink">{selectedRun.params?.direction ?? '—'}</span>
+						<span class="text-ink-muted">Duration:</span>
+						<span class="text-ink">{selectedRun.params?.duration_s ?? '—'} s</span>
 						{#if selectedRun.sg_mean != null}
-							<span class="text-text-muted">Mean SG:</span>
-							<span class="text-text">{Math.round(selectedRun.sg_mean)}</span>
+							<span class="text-ink-muted">Mean SG:</span>
+							<span class="text-ink">{Math.round(selectedRun.sg_mean)}</span>
 						{/if}
 						{#if selectedRun.suggested_sgthrs != null}
-							<span class="text-text-muted">Suggested SGTHRS:</span>
-							<span class="text-text">{selectedRun.suggested_sgthrs}</span>
-							<span class="text-text-muted">(trigger ≤ {triggerLevel})</span>
+							<span class="text-ink-muted">Suggested SGTHRS:</span>
+							<span class="text-ink">{selectedRun.suggested_sgthrs}</span>
+							<span class="text-ink-muted">(trigger ≤ {triggerLevel})</span>
 						{/if}
 					</div>
 					<div class="mb-3 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm">
-						<span class="text-text-muted">IRUN:</span>
-						<span class="text-text">{selectedRun.params?.irun ?? '—'}</span>
-						<span class="text-text-muted">Accel:</span>
-						<span class="text-text">{selectedRun.params?.acceleration ?? '—'} µsteps/s²</span>
-						<span class="text-text-muted">Microsteps:</span>
-						<span class="text-text">{selectedRun.params?.microsteps ?? '—'}</span>
-						<span class="text-text-muted">Chopper:</span>
-						<span class="text-text">
+						<span class="text-ink-muted">IRUN:</span>
+						<span class="text-ink">{selectedRun.params?.irun ?? '—'}</span>
+						<span class="text-ink-muted">Accel:</span>
+						<span class="text-ink">{selectedRun.params?.acceleration ?? '—'} µsteps/s²</span>
+						<span class="text-ink-muted">Microsteps:</span>
+						<span class="text-ink">{selectedRun.params?.microsteps ?? '—'}</span>
+						<span class="text-ink-muted">Chopper:</span>
+						<span class="text-ink">
 							{selectedRun.params?.stealthchop == null
 								? '—'
 								: selectedRun.params.stealthchop
 									? 'StealthChop'
 									: 'SpreadCycle'}
 						</span>
-						<span class="text-text-muted">Loaded:</span>
-						<span class="text-text">{selectedRun.params?.loaded ? 'yes' : 'no'}</span>
-						<span class="text-text-muted">Cruise TSTEP:</span>
-						<span class="text-text">{selectedRun.params?.cruise_tstep ?? '—'}</span>
+						<span class="text-ink-muted">Loaded:</span>
+						<span class="text-ink">{selectedRun.params?.loaded ? 'yes' : 'no'}</span>
+						<span class="text-ink-muted">Cruise TSTEP:</span>
+						<span class="text-ink">{selectedRun.params?.cruise_tstep ?? '—'}</span>
 					</div>
 					<div class="mb-3 flex items-center gap-4 text-sm">
-						<label class="flex items-center gap-2 text-text">
+						<label class="flex items-center gap-2 text-ink">
 							<input type="checkbox" bind:checked={showCs} class="accent-warning" /> CS_ACTUAL panel
 						</label>
-						<label class="flex items-center gap-2 text-text">
+						<label class="flex items-center gap-2 text-ink">
 							<input type="checkbox" bind:checked={showTstep} class="accent-success" /> TSTEP panel
 						</label>
 					</div>
 
 					{#if loadingSamples}
-						<div class="text-sm text-text-muted">Loading samples…</div>
+						<div class="text-sm text-ink-muted">Loading samples…</div>
 					{:else}
 						<StallGuardChart
 							{points}
@@ -563,29 +565,29 @@
 					{/if}
 
 					{#if suggestion}
-						<div class="mt-4 border border-border bg-bg px-4 py-4">
-							<div class="text-base font-semibold text-text">
+						<div class="mt-4 border border-line bg-well px-4 py-4">
+							<div class="text-base font-semibold text-ink">
 								Threshold suggestion for {suggestion.stepper}
 							</div>
 							<div class="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm">
-								<span class="text-text-muted">Unloaded floor:</span>
-								<span class="text-text">{suggestion.unloaded_floor ?? '—'}</span>
-								<span class="text-text-muted">Loaded dip:</span>
-								<span class="text-text">{suggestion.loaded_dip ?? '—'}</span>
-								<span class="text-text-muted">→ Trigger ≤:</span>
-								<span class="text-text">{suggestion.trigger_level ?? '—'}</span>
-								<span class="text-text-muted">→ SGTHRS:</span>
-								<span class="text-text">{suggestion.suggested_sgthrs ?? '—'}</span>
+								<span class="text-ink-muted">Unloaded floor:</span>
+								<span class="text-ink">{suggestion.unloaded_floor ?? '—'}</span>
+								<span class="text-ink-muted">Loaded dip:</span>
+								<span class="text-ink">{suggestion.loaded_dip ?? '—'}</span>
+								<span class="text-ink-muted">→ Trigger ≤:</span>
+								<span class="text-ink">{suggestion.trigger_level ?? '—'}</span>
+								<span class="text-ink-muted">→ SGTHRS:</span>
+								<span class="text-ink">{suggestion.suggested_sgthrs ?? '—'}</span>
 							</div>
 							<div class="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm">
-								<span class="text-text-muted">Measured cruise TSTEP:</span>
-								<span class="text-text">{suggestion.measured_cruise_tstep ?? '—'}</span>
-								<span class="text-text-muted">→ Gate TCOOLTHRS:</span>
-								<span class="text-text">{suggestion.cruise_tstep}</span>
-								<span class="text-text-muted">Real-motion floor:</span>
-								<span class="text-text">{suggestion.realistic_floor ?? '—'}</span>
+								<span class="text-ink-muted">Measured cruise TSTEP:</span>
+								<span class="text-ink">{suggestion.measured_cruise_tstep ?? '—'}</span>
+								<span class="text-ink-muted">→ Gate TCOOLTHRS:</span>
+								<span class="text-ink">{suggestion.cruise_tstep}</span>
+								<span class="text-ink-muted">Real-motion floor:</span>
+								<span class="text-ink">{suggestion.realistic_floor ?? '—'}</span>
 							</div>
-							<div class="mt-1 text-sm text-text-muted">
+							<div class="mt-1 text-sm text-ink-muted">
 								SGTHRS = geometric midpoint of the measured floor/dip gap. TCOOLTHRS = measured
 								cruise TSTEP (fastest sustained) ×1.75, so the gate stays open through cruise but off
 								during accel/decel. Both written to machine.toml on Save — nothing assumed.
@@ -593,7 +595,7 @@
 							{#if suggestion.enough_data && !suggestion.reliable}
 								<!-- Computable but the data says it won't work here — hard stop, not a nudge. -->
 								<div class="mt-3">
-									<Alert variant="danger">
+									<Alert tone="danger">
 										<div class="font-semibold">
 											⚠ Not reliably tunable{suggestion.speed
 												? ` at ${suggestion.speed} µs/s`
@@ -603,7 +605,7 @@
 									</Alert>
 								</div>
 							{:else if !suggestion.enough_data}
-								<Alert variant="warning">{suggestion.detail}</Alert>
+								<Alert tone="warning">{suggestion.detail}</Alert>
 							{/if}
 							{#if suggestion.suggested_sgthrs != null}
 								{@const safe = suggestion.enough_data && suggestion.reliable}
@@ -621,7 +623,7 @@
 						</div>
 					{/if}
 				{:else}
-					<div class="text-sm text-text-muted">Select a run to view its load curve.</div>
+					<div class="text-sm text-ink-muted">Select a run to view its load curve.</div>
 				{/if}
 			</SectionCard>
 		</div>

@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { getBackendHttpBase } from '$lib/backend';
-	import { Button, Alert } from '$lib/components/primitives';
+	import Button from '$lib/components/ui/Button.svelte';
+	import Alert from '$lib/components/ui/Alert.svelte';
 	import SectionCard from '$lib/components/settings/SectionCard.svelte';
 	import TuningParamRow from '$lib/components/settings/TuningParamRow.svelte';
 	import type { TuningFieldMeta, TuningValues } from '$lib/settings/tuning';
@@ -62,23 +63,23 @@
 
 <div class="flex flex-col gap-6 p-6">
 	<div>
-		<div class="text-lg font-semibold text-text">Classification Channel — Rev01 Tuning</div>
-		<div class="mt-1 text-sm text-text-muted">
+		<div class="text-lg font-semibold text-ink">Classification Channel — Rev01 Tuning</div>
+		<div class="mt-1 text-sm text-ink-muted">
 			Changes take effect on the next piece (no restart needed).
 		</div>
 	</div>
 
 	{#if error}
-		<Alert variant="danger">{error}</Alert>
+		<Alert tone="danger">{error}</Alert>
 	{/if}
 
 	{#if saved}
-		<Alert variant="success">Saved. Changes will apply on the next piece.</Alert>
+		<Alert tone="success">Saved. Changes will apply on the next piece.</Alert>
 	{/if}
 
 	<SectionCard title="Parameters" description="All tunable parameters for the rev01 state machine.">
 		{#if loading}
-			<div class="text-sm text-text-muted">Loading…</div>
+			<div class="text-sm text-ink-muted">Loading…</div>
 		{:else}
 			<div class="flex flex-col gap-2">
 				{#each fields as field}

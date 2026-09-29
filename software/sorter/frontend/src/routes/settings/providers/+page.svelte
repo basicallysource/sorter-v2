@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { getBackendHttpBase } from '$lib/backend';
-	import { Button, Alert } from '$lib/components/primitives';
+	import Button from '$lib/components/ui/Button.svelte';
+	import Alert from '$lib/components/ui/Alert.svelte';
 	import SectionCard from '$lib/components/settings/SectionCard.svelte';
 	import ProviderSelect from '$lib/components/settings/ProviderSelect.svelte';
 	import type { ProviderInfo } from '$lib/components/settings/ProviderSelect.svelte';
@@ -78,8 +79,8 @@
 
 <div class="flex flex-col gap-6 p-6">
 	<div>
-		<div class="text-lg font-semibold text-text">Providers</div>
-		<div class="mt-1 text-sm text-text-muted">
+		<div class="text-lg font-semibold text-ink">Providers</div>
+		<div class="mt-1 text-sm text-ink-muted">
 			Which service identifies each piece's mold, and which predicts its color. The two run in
 			parallel during classification; if a remote color provider is slow or unreachable the piece
 			falls back to Brickognize's color. Changes apply to the next piece — no restart needed.
@@ -87,15 +88,15 @@
 	</div>
 
 	{#if error}
-		<Alert variant="danger">{error}</Alert>
+		<Alert tone="danger">{error}</Alert>
 	{/if}
 
 	{#if saved}
-		<Alert variant="success">Saved. Applies to the next classified piece.</Alert>
+		<Alert tone="success">Saved. Applies to the next classified piece.</Alert>
 	{/if}
 
 	{#if loading}
-		<div class="text-sm text-text-muted">Loading…</div>
+		<div class="text-sm text-ink-muted">Loading…</div>
 	{:else}
 		<SectionCard
 			title="Color prediction"
@@ -103,7 +104,7 @@
 		>
 			<ProviderSelect options={colorProviders} bind:selected={selectedColor} active={activeColor} />
 			{#if currentColor}
-				<div class="mt-3 text-sm text-text-muted">{currentColor.description}</div>
+				<div class="mt-3 text-sm text-ink-muted">{currentColor.description}</div>
 			{/if}
 		</SectionCard>
 
@@ -113,7 +114,7 @@
 		>
 			<ProviderSelect options={moldProviders} bind:selected={selectedMold} active={activeMold} />
 			{#if currentMold}
-				<div class="mt-3 text-sm text-text-muted">{currentMold.description}</div>
+				<div class="mt-3 text-sm text-ink-muted">{currentMold.description}</div>
 			{/if}
 		</SectionCard>
 

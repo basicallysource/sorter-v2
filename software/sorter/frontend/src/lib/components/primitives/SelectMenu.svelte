@@ -128,7 +128,7 @@
 	<div
 		use:portal
 		bind:this={panelEl}
-		class="fixed z-[100] flex flex-col border border-border bg-white shadow-lg {ready
+		class="fixed z-[100] flex flex-col border border-line bg-white {ready
 			? ''
 			: 'pointer-events-none opacity-0'}"
 		style="left: {left}px; width: {panelWidth}px; max-height: {maxHeight}px; {placeBelow
@@ -138,7 +138,7 @@
 		tabindex="-1"
 	>
 		{#if searchable}
-			<div bind:this={searchEl} class="shrink-0 border-b border-border p-2">
+			<div bind:this={searchEl} class="shrink-0 border-b border-line p-2">
 				<Input type="search" placeholder={searchPlaceholder} bind:value={search} />
 			</div>
 		{/if}

@@ -42,22 +42,22 @@
 			case 'controller':
 				return {
 					label: 'Controller',
-					className: 'bg-success/10 text-success'
+					className: 'bg-success-soft text-success-ink'
 				};
 			case 'servo_bus':
 				return {
 					label: 'Servo Bus',
-					className: 'bg-success/10 text-success'
+					className: 'bg-success-soft text-success-ink'
 				};
 			case 'unrecognised_controller':
 				return {
 					label: 'Unrecognised',
-					className: 'bg-danger/10 text-danger'
+					className: 'bg-danger-soft text-danger-ink'
 				};
 			default:
 				return {
 					label: 'Unknown',
-					className: 'bg-border/60 text-text-muted'
+					className: 'bg-line/60 text-ink-muted'
 				};
 		}
 	}
@@ -91,14 +91,14 @@
 
 <div class="flex flex-col gap-4">
 	<div class="flex flex-wrap items-center gap-3 text-sm">
-		<div class="setup-panel inline-flex items-center gap-2 px-3 py-2 text-text">
+		<div class="setup-panel inline-flex items-center gap-2 px-3 py-2 text-ink">
 			<Cpu size={14} />
 			<span>{inUseCount} controller{inUseCount === 1 ? '' : 's'} in use</span>
 		</div>
 		<button
 			onclick={onRescan}
 			disabled={loadingWizard}
-			class="setup-button-secondary inline-flex items-center gap-2 px-3 py-2 text-sm text-text transition-colors disabled:cursor-not-allowed disabled:opacity-60"
+			class="setup-button-secondary inline-flex items-center gap-2 px-3 py-2 text-sm text-ink transition-colors disabled:cursor-not-allowed disabled:opacity-60"
 		>
 			<RefreshCcw size={14} class={loadingWizard ? 'animate-spin' : ''} />
 			Rescan
@@ -106,7 +106,7 @@
 	</div>
 
 	{#if issues.length}
-		<div class="border border-danger bg-danger/10 px-4 py-3 text-sm text-danger">
+		<div class="border border-danger bg-danger-soft px-4 py-3 text-sm text-danger-ink">
 			{#each issues as issue}
 				<div>{issue}</div>
 			{/each}
@@ -114,10 +114,10 @@
 	{/if}
 
 	{#if !boardsFound && !loadingWizard}
-		<div class="setup-panel flex flex-col gap-2 px-4 py-3 text-sm text-text">
+		<div class="setup-panel flex flex-col gap-2 px-4 py-3 text-sm text-ink">
 			{#if bootloaderBoard}
 				<div class="font-medium">The control board is waiting for its firmware.</div>
-				<div class="text-text-muted">
+				<div class="text-ink-muted">
 					It shows up as a drive called RPI-RP2, which is what a Pico does before it has ever been
 					flashed. Open <a href="/settings/control-board" class="underline">Settings → Control board</a>,
 					tick <strong>Recovery flash</strong>, pick the newest firmware release (the file for the
@@ -126,7 +126,7 @@
 				</div>
 			{:else}
 				<div class="font-medium">No control board answered.</div>
-				<div class="text-text-muted">
+				<div class="text-ink-muted">
 					On a new machine this usually means the Pico has no firmware yet. Unplug the Pico's USB
 					cable, hold down the BOOTSEL button (the white button on top of the Pico), plug the cable back in and let go.
 					Then open <a href="/settings/control-board" class="underline">Settings → Control board</a>,
@@ -146,7 +146,7 @@
 				{@const familyLabel = boardFamilyLabel(device.family)}
 				<label
 					class={`setup-panel flex items-start gap-3 px-4 py-3 transition-colors ${
-						device.use_by_default ? 'border-success/40 bg-success/[0.08]' : ''
+						device.use_by_default ? 'border-success/40 bg-success-soft' : ''
 					}`}
 				>
 					<input
@@ -157,27 +157,27 @@
 					/>
 					<div class="min-w-0 flex-1">
 						<div class="flex flex-wrap items-center gap-2">
-							<span class="text-sm font-medium text-text">
+							<span class="text-sm font-medium text-ink">
 								{usbDeviceDisplayName(device)}
 							</span>
 							<span
-								class={`px-2 py-0.5 text-xs font-semibold tracking-wide uppercase ${badge.className}`}
+								class={`px-2 py-0.5 text-xs font-semibold ${badge.className}`}
 							>
 								{badge.label}
 							</span>
 							{#if familyLabel}
 								<span
-									class="bg-border/40 px-2 py-0.5 text-xs font-semibold tracking-wide text-text-muted uppercase"
+									class="bg-line/40 px-2 py-0.5 text-xs font-semibold text-ink-muted"
 								>
 									{familyLabel}
 								</span>
 							{/if}
 						</div>
-						<div class="mt-1 font-mono text-xs text-text-muted">
+						<div class="mt-1 font-mono text-xs text-ink-muted">
 							{device.device}{device.vid_pid ? ` · ${device.vid_pid}` : ''}
 						</div>
 						{#if device.detail}
-							<div class="mt-1 text-sm text-text-muted">{device.detail}</div>
+							<div class="mt-1 text-sm text-ink-muted">{device.detail}</div>
 						{/if}
 					</div>
 				</label>

@@ -578,9 +578,9 @@
 	}
 
 	function statusToneClass(target: HiveTarget): string {
-		if (!target.enabled) return 'text-amber-600 dark:text-amber-400';
-		if (target.uploader.server_reachable) return 'text-success dark:text-emerald-400';
-		return 'text-amber-600 dark:text-amber-400';
+		if (!target.enabled) return 'text-amber-600';
+		if (target.uploader.server_reachable) return 'text-success-ink';
+		return 'text-amber-600';
 	}
 
 	async function handleReturnedLink() {
@@ -603,10 +603,10 @@
 
 <div class="grid gap-4">
 	{#if loading}
-		<div class="text-sm text-text-muted">Loading Hive configuration...</div>
+		<div class="text-sm text-ink-muted">Loading Hive configuration...</div>
 	{:else if config}
 		<div class="flex flex-wrap items-center justify-between gap-3">
-			<div class="text-sm text-text-muted">
+			<div class="text-sm text-ink-muted">
 				{#if targets.length > 0}
 					{config.enabled_count} of {config.configured_count} Hive target{config.configured_count ===
 					1
@@ -620,7 +620,7 @@
 				<button
 					type="button"
 					onclick={openPairForm}
-					class="inline-flex items-center gap-1.5 border border-primary bg-primary/10 px-3 py-1.5 text-xs text-text transition-colors hover:bg-primary/20"
+					class="inline-flex items-center gap-1.5 border border-primary bg-primary-soft px-3 py-1.5 text-xs text-ink transition-colors hover:bg-primary-soft"
 				>
 					<Link2 size={12} />
 					Pair with Hive
@@ -628,7 +628,7 @@
 				<button
 					type="button"
 					onclick={openRegisterForm}
-					class="inline-flex items-center gap-1.5 border border-border bg-bg px-3 py-1.5 text-xs text-text-muted transition-colors hover:bg-surface"
+					class="inline-flex items-center gap-1.5 border border-line bg-well px-3 py-1.5 text-xs text-ink-muted transition-colors hover:bg-surface"
 					title="Email + password registration (use Pair with Hive instead when possible)"
 				>
 					<Plus size={12} />
@@ -637,7 +637,7 @@
 				<button
 					type="button"
 					onclick={() => openTargetEditor(null)}
-					class="inline-flex items-center gap-1.5 border border-border bg-bg px-3 py-1.5 text-xs text-text-muted transition-colors hover:bg-surface"
+					class="inline-flex items-center gap-1.5 border border-line bg-well px-3 py-1.5 text-xs text-ink-muted transition-colors hover:bg-surface"
 				>
 					<Cloud size={12} />
 					Add Existing Token
@@ -645,7 +645,7 @@
 				<button
 					type="button"
 					onclick={() => void loadConfig()}
-					class="inline-flex items-center gap-1.5 border border-border bg-bg px-3 py-1.5 text-xs text-text transition-colors hover:bg-surface"
+					class="inline-flex items-center gap-1.5 border border-line bg-well px-3 py-1.5 text-xs text-ink transition-colors hover:bg-surface"
 					title="Refresh targets"
 				>
 					<RefreshCw size={12} />
@@ -655,8 +655,8 @@
 		</div>
 
 		{#if targets.length === 0}
-			<div class="border border-border bg-surface px-3 py-3">
-				<div class="text-sm text-text-muted">
+			<div class="border border-line bg-surface px-3 py-3">
+				<div class="text-sm text-ink-muted">
 					Add one Hive target for local testing, production, or both. Enable the targets that should
 					receive live samples from C2, C3, and C4.
 				</div>
@@ -664,15 +664,15 @@
 		{:else}
 			<div class="grid gap-4">
 				{#each targets as target (target.id)}
-					<div class="border border-border bg-surface px-3 py-3">
+					<div class="border border-line bg-surface px-3 py-3">
 						<div class="flex flex-wrap items-start justify-between gap-3">
 							<div class="min-w-0">
 								<div class="flex items-center gap-2">
-									<Cloud size={14} class="text-text-muted" />
-									<span class="text-sm font-medium text-text">{target.name}</span>
+									<Cloud size={14} class="text-ink-muted" />
+									<span class="text-sm font-medium text-ink">{target.name}</span>
 									{#if target.is_primary}
 										<span
-											class="inline-flex items-center gap-1 border border-primary bg-primary/10 px-1.5 py-0.5 text-xs font-semibold uppercase tracking-wider text-primary"
+											class="inline-flex items-center gap-1 border border-primary bg-primary-soft px-1.5 py-0.5 text-xs font-semibold text-primary-ink"
 										>
 											<Star size={11} />
 											Primary
@@ -680,7 +680,7 @@
 									{/if}
 								</div>
 								<div class={`mt-1 text-xs ${statusToneClass(target)}`}>{statusLabel(target)}</div>
-								<div class="mt-0.5 text-sm text-text-muted">
+								<div class="mt-0.5 text-sm text-ink-muted">
 									{target.is_primary
 										? 'Used for piece metadata lookups (dimensions, etc).'
 										: ''}
@@ -693,7 +693,7 @@
 										type="button"
 										onclick={() => void handleSetPrimary(target)}
 										disabled={settingPrimaryTargetId === target.id}
-										class="inline-flex items-center gap-1.5 border border-border bg-bg px-3 py-1.5 text-xs text-text transition-colors hover:bg-surface disabled:cursor-not-allowed disabled:opacity-50"
+										class="inline-flex items-center gap-1.5 border border-line bg-well px-3 py-1.5 text-xs text-ink transition-colors hover:bg-surface disabled:cursor-not-allowed disabled:opacity-50"
 									>
 										<Star size={12} />
 										{settingPrimaryTargetId === target.id ? 'Setting...' : 'Set Primary'}
@@ -702,7 +702,7 @@
 								<button
 									type="button"
 									onclick={() => openTargetEditor(target)}
-									class="inline-flex items-center gap-1.5 border border-border bg-bg px-3 py-1.5 text-xs text-text transition-colors hover:bg-surface"
+									class="inline-flex items-center gap-1.5 border border-line bg-well px-3 py-1.5 text-xs text-ink transition-colors hover:bg-surface"
 								>
 									<Pencil size={12} />
 									Edit
@@ -713,7 +713,7 @@
 										clearMessages();
 										uploadsTargetId = target.id;
 									}}
-									class="inline-flex items-center gap-1.5 border border-border bg-bg px-3 py-1.5 text-xs text-text transition-colors hover:bg-surface"
+									class="inline-flex items-center gap-1.5 border border-line bg-well px-3 py-1.5 text-xs text-ink transition-colors hover:bg-surface"
 									title="Choose what this Sorter uploads to this Hive"
 								>
 									<Shield size={12} />
@@ -723,7 +723,7 @@
 									type="button"
 									onclick={() => void handleBackfill(target)}
 									disabled={backfillingTargetId === target.id || !target.enabled}
-									class="inline-flex items-center gap-1.5 border border-border bg-bg px-3 py-1.5 text-xs text-text transition-colors hover:bg-surface disabled:cursor-not-allowed disabled:opacity-50"
+									class="inline-flex items-center gap-1.5 border border-line bg-well px-3 py-1.5 text-xs text-ink transition-colors hover:bg-surface disabled:cursor-not-allowed disabled:opacity-50"
 								>
 									<Upload size={12} />
 									{backfillingTargetId === target.id ? 'Queueing...' : 'Queue Backfill'}
@@ -732,7 +732,7 @@
 									type="button"
 									onclick={() => void handlePurge(target)}
 									disabled={purgingTargetId === target.id}
-									class="inline-flex items-center gap-1.5 border border-border bg-bg px-3 py-1.5 text-xs text-text transition-colors hover:bg-surface disabled:cursor-not-allowed disabled:opacity-50"
+									class="inline-flex items-center gap-1.5 border border-line bg-well px-3 py-1.5 text-xs text-ink transition-colors hover:bg-surface disabled:cursor-not-allowed disabled:opacity-50"
 								>
 									<Trash2 size={12} />
 									{purgingTargetId === target.id ? 'Purging...' : 'Purge Queue'}
@@ -740,7 +740,7 @@
 								<button
 									type="button"
 									onclick={() => void handleToggleEnabled(target)}
-									class="border border-border bg-bg px-3 py-1.5 text-xs text-text transition-colors hover:bg-surface"
+									class="border border-line bg-well px-3 py-1.5 text-xs text-ink transition-colors hover:bg-surface"
 								>
 									{target.enabled ? 'Stop Samples' : 'Send Samples'}
 								</button>
@@ -748,7 +748,7 @@
 									type="button"
 									onclick={() => void handleRemoveTarget(target)}
 									disabled={removingTargetId === target.id}
-									class="inline-flex items-center gap-1.5 border border-danger bg-danger px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-danger/80 disabled:cursor-not-allowed disabled:opacity-50 dark:border-danger dark:bg-danger dark:hover:bg-danger/80"
+									class="inline-flex items-center gap-1.5 border border-danger bg-danger px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-danger/80 disabled:cursor-not-allowed disabled:opacity-50"
 								>
 									<Trash2 size={12} />
 									{removingTargetId === target.id ? 'Removing...' : 'Remove'}
@@ -757,17 +757,17 @@
 						</div>
 
 						<div class="mt-3 grid grid-cols-[auto,1fr] gap-x-3 gap-y-1 text-xs">
-							<span class="text-text-muted">Server</span>
-							<span class="font-mono text-text">{target.url}</span>
-							<span class="text-text-muted">Machine ID</span>
-							<span class="font-mono text-text">{target.machine_id ?? '—'}</span>
-							<span class="text-text-muted">Token</span>
-							<span class="font-mono text-text">{target.api_token_masked ?? '—'}</span>
+							<span class="text-ink-muted">Server</span>
+							<span class="font-mono text-ink">{target.url}</span>
+							<span class="text-ink-muted">Machine ID</span>
+							<span class="font-mono text-ink">{target.machine_id ?? '—'}</span>
+							<span class="text-ink-muted">Token</span>
+							<span class="font-mono text-ink">{target.api_token_masked ?? '—'}</span>
 						</div>
 
 						{#if backfillTargetId === target.id && backfillResult}
 							<div
-								class="mt-3 border border-success bg-success/10 px-3 py-2 text-sm font-medium text-success dark:border-success dark:bg-success/10 dark:text-emerald-200"
+								class="mt-3 border border-success bg-success-soft px-3 py-2 text-sm font-medium text-success-ink"
 							>
 								{backfillResult}
 							</div>
@@ -775,49 +775,49 @@
 
 						{#if purgeTargetId === target.id && purgeResult}
 							<div
-								class="mt-3 border border-amber-500 bg-amber-500/10 px-3 py-2 text-sm font-medium text-amber-700 dark:border-amber-400 dark:bg-amber-400/10 dark:text-amber-200"
+								class="mt-3 border border-amber-500 bg-amber-500/10 px-3 py-2 text-sm font-medium text-amber-700"
 							>
 								{purgeResult}
 							</div>
 						{/if}
 
-						<div class="mt-4 border-t border-border pt-4">
+						<div class="mt-4 border-t border-line pt-4">
 							<div class="flex items-center gap-2">
-								<Upload size={14} class="text-text-muted" />
-								<span class="text-sm font-medium text-text">Status</span>
+								<Upload size={14} class="text-ink-muted" />
+								<span class="text-sm font-medium text-ink">Status</span>
 							</div>
 							<div class="mt-3 grid grid-cols-4 gap-2 text-center text-xs">
 								<div>
-									<div class="text-lg font-semibold text-text">{target.uploader.uploaded}</div>
-									<div class="text-text-muted">Uploaded</div>
+									<div class="text-lg font-semibold text-ink">{target.uploader.uploaded}</div>
+									<div class="text-ink-muted">Uploaded</div>
 								</div>
 								<div>
-									<div class="text-lg font-semibold text-text">{target.uploader.queue_size}</div>
-									<div class="text-text-muted">Queued</div>
+									<div class="text-lg font-semibold text-ink">{target.uploader.queue_size}</div>
+									<div class="text-ink-muted">Queued</div>
 								</div>
 								<div>
 									<div
 										class="text-lg font-semibold {target.uploader.requeued > 0
 											? 'text-amber-500'
-											: 'text-text'}"
+											: 'text-ink'}"
 									>
 										{target.uploader.requeued}
 									</div>
-									<div class="text-text-muted">Requeued</div>
+									<div class="text-ink-muted">Requeued</div>
 								</div>
 								<div>
 									<div
 										class="text-lg font-semibold {target.uploader.failed > 0
-											? 'text-danger'
-											: 'text-text'}"
+											? 'text-danger-ink'
+											: 'text-ink'}"
 									>
 										{target.uploader.failed}
 									</div>
-									<div class="text-text-muted">Failed</div>
+									<div class="text-ink-muted">Failed</div>
 								</div>
 							</div>
 							{#if target.uploader.last_error}
-								<div class="mt-3 text-xs text-amber-600 dark:text-amber-400">
+								<div class="mt-3 text-xs text-amber-600">
 									{target.uploader.last_error}
 								</div>
 							{/if}
@@ -840,13 +840,13 @@
 					bind:value={targetName}
 					type="text"
 					placeholder="Target name (for example Local or Live)"
-					class="border border-border bg-bg px-2 py-1.5 text-sm text-text"
+					class="border border-line bg-well px-2 py-1.5 text-sm text-ink"
 				/>
 				<input
 					bind:value={targetUrl}
 					type="url"
 					placeholder="https://hive.example.com"
-					class="border border-border bg-bg px-2 py-1.5 text-sm text-text"
+					class="border border-line bg-well px-2 py-1.5 text-sm text-ink"
 				/>
 				<input
 					bind:value={targetToken}
@@ -854,17 +854,17 @@
 					placeholder={editingTargetId === 'new'
 						? 'Machine API token'
 						: 'Leave empty to keep current token'}
-					class="border border-border bg-bg px-2 py-1.5 font-mono text-sm text-text"
+					class="border border-line bg-well px-2 py-1.5 font-mono text-sm text-ink"
 				/>
-				<label class="flex items-center gap-2 text-xs text-text-muted">
-					<input bind:checked={targetEnabled} type="checkbox" class="h-4 w-4 border-border" />
+				<label class="flex items-center gap-2 text-xs text-ink-muted">
+					<input bind:checked={targetEnabled} type="checkbox" class="h-4 w-4 border-line" />
 					Send live samples to this target immediately
 				</label>
 				<div class="flex justify-end gap-2">
 					<button
 						type="button"
 						onclick={closeForms}
-						class="border border-border bg-bg px-3 py-1.5 text-xs text-text transition-colors hover:bg-surface"
+						class="border border-line bg-well px-3 py-1.5 text-xs text-ink transition-colors hover:bg-surface"
 					>
 						Cancel
 					</button>
@@ -874,7 +874,7 @@
 						disabled={savingTarget ||
 							!targetUrl.trim() ||
 							(editingTargetId === 'new' && !targetToken.trim())}
-						class="border border-border bg-bg px-3 py-1.5 text-xs text-text transition-colors hover:bg-surface disabled:cursor-not-allowed disabled:opacity-50"
+						class="border border-line bg-well px-3 py-1.5 text-xs text-ink transition-colors hover:bg-surface disabled:cursor-not-allowed disabled:opacity-50"
 					>
 						{savingTarget ? 'Saving...' : 'Save'}
 					</button>
@@ -891,7 +891,7 @@
 				on:close={() => (uploadsTargetId = null)}
 			>
 				<div class="grid gap-3">
-					<div class="text-sm text-text-muted">
+					<div class="text-sm text-ink-muted">
 						Choose what this Sorter is allowed to upload to this Hive. Anything unchecked never
 						leaves the machine. Changes apply immediately, including to uploads already queued.
 					</div>
@@ -903,28 +903,28 @@
 									checked={targetAllows(uploadsTarget, field.key)}
 									disabled={telemetrySaving}
 									onchange={() => handleToggleTelemetry(uploadsTarget, field)}
-									class="mt-0.5 h-4 w-4 border-border"
+									class="mt-0.5 h-4 w-4 border-line"
 								/>
 								<span class="min-w-0">
-									<span class="text-sm font-medium text-text">{field.label}</span>
-									<span class="block text-sm text-text-muted">{field.description}</span>
+									<span class="text-sm font-medium text-ink">{field.label}</span>
+									<span class="block text-sm text-ink-muted">{field.description}</span>
 								</span>
 							</label>
 						{/each}
 					</div>
-					<div class="flex items-center justify-between gap-2 border-t border-border pt-3">
+					<div class="flex items-center justify-between gap-2 border-t border-line pt-3">
 						<button
 							type="button"
 							onclick={() => handleResetTelemetry(uploadsTarget)}
 							disabled={telemetrySaving}
-							class="border border-border bg-bg px-3 py-1.5 text-xs text-text transition-colors hover:bg-surface disabled:cursor-not-allowed disabled:opacity-50"
+							class="border border-line bg-well px-3 py-1.5 text-xs text-ink transition-colors hover:bg-surface disabled:cursor-not-allowed disabled:opacity-50"
 						>
 							Reset to defaults
 						</button>
 						<button
 							type="button"
 							onclick={() => (uploadsTargetId = null)}
-							class="border border-border bg-bg px-3 py-1.5 text-xs text-text transition-colors hover:bg-surface"
+							class="border border-line bg-well px-3 py-1.5 text-xs text-ink transition-colors hover:bg-surface"
 						>
 							Done
 						</button>
@@ -934,31 +934,31 @@
 		{/if}
 
 		{#if showPairForm}
-			<div class="grid gap-3 border border-primary bg-primary/[0.05] px-3 py-3">
-				<div class="text-sm font-medium text-text">Pair with a Hive</div>
-				<div class="text-sm text-text-muted">
+			<div class="grid gap-3 border border-primary bg-primary-soft px-3 py-3">
+				<div class="text-sm font-medium text-ink">Pair with a Hive</div>
+				<div class="text-sm text-ink-muted">
 					Enter the Hive URL, then continue on Hive to pick a machine name. Hive sends you back here
 					once the link is saved — no email or password leaves this Sorter.
 				</div>
-				<label class="flex flex-col gap-1 text-sm text-text">
+				<label class="flex flex-col gap-1 text-sm text-ink">
 					Hive URL
 					<input
 						bind:value={pairUrl}
 						type="url"
 						placeholder={DEFAULT_HIVE_URL}
-						class="border border-border bg-bg px-2 py-1.5 text-sm text-text"
+						class="border border-line bg-well px-2 py-1.5 text-sm text-ink"
 					/>
 				</label>
-				<label class="flex flex-col gap-1 text-sm text-text">
+				<label class="flex flex-col gap-1 text-sm text-ink">
 					Target name (optional)
 					<input
 						bind:value={pairTargetName}
 						type="text"
 						placeholder={pairUrl.trim() ? defaultHiveTargetName(pairUrl) : 'e.g. Hive Community'}
-						class="border border-border bg-bg px-2 py-1.5 text-sm text-text"
+						class="border border-line bg-well px-2 py-1.5 text-sm text-ink"
 					/>
 				</label>
-				<label class="flex flex-col gap-1 text-sm text-text">
+				<label class="flex flex-col gap-1 text-sm text-ink">
 					Suggested machine name (optional)
 					<MachineNameField
 						bind:value={pairMachineName}
@@ -970,7 +970,7 @@
 					<button
 						type="button"
 						onclick={closeForms}
-						class="border border-border bg-bg px-3 py-1.5 text-xs text-text transition-colors hover:bg-surface"
+						class="border border-line bg-well px-3 py-1.5 text-xs text-ink transition-colors hover:bg-surface"
 					>
 						Cancel
 					</button>
@@ -978,7 +978,7 @@
 						type="button"
 						onclick={handlePair}
 						disabled={pairing || !pairUrl.trim()}
-						class="border border-primary bg-primary px-3 py-1.5 text-xs text-primary-contrast transition-colors hover:bg-primary-hover disabled:cursor-not-allowed disabled:opacity-50"
+						class="border border-primary bg-primary px-3 py-1.5 text-xs text-on-primary transition-colors hover:bg-primary-hover disabled:cursor-not-allowed disabled:opacity-50"
 					>
 						{pairing ? 'Opening Hive…' : 'Continue on Hive →'}
 					</button>
@@ -987,31 +987,31 @@
 		{/if}
 
 		{#if showRegisterForm}
-			<div class="grid gap-3 border border-border bg-surface px-3 py-3">
-				<div class="text-sm font-medium text-text">Register a New Hive Machine</div>
+			<div class="grid gap-3 border border-line bg-surface px-3 py-3">
+				<div class="text-sm font-medium text-ink">Register a New Hive Machine</div>
 				<input
 					bind:value={regTargetName}
 					type="text"
 					placeholder="Target name (for example Local or Live)"
-					class="border border-border bg-bg px-2 py-1.5 text-sm text-text"
+					class="border border-line bg-well px-2 py-1.5 text-sm text-ink"
 				/>
 				<input
 					bind:value={regUrl}
 					type="url"
 					placeholder="https://hive.example.com"
-					class="border border-border bg-bg px-2 py-1.5 text-sm text-text"
+					class="border border-line bg-well px-2 py-1.5 text-sm text-ink"
 				/>
 				<input
 					bind:value={regEmail}
 					type="email"
 					placeholder="Account email"
-					class="border border-border bg-bg px-2 py-1.5 text-sm text-text"
+					class="border border-line bg-well px-2 py-1.5 text-sm text-ink"
 				/>
 				<input
 					bind:value={regPassword}
 					type="password"
 					placeholder="Account password"
-					class="border border-border bg-bg px-2 py-1.5 text-sm text-text"
+					class="border border-line bg-well px-2 py-1.5 text-sm text-ink"
 				/>
 				<MachineNameField
 					bind:value={regMachineName}
@@ -1022,13 +1022,13 @@
 					bind:value={regMachineDescription}
 					type="text"
 					placeholder="Machine description (optional)"
-					class="border border-border bg-bg px-2 py-1.5 text-sm text-text"
+					class="border border-line bg-well px-2 py-1.5 text-sm text-ink"
 				/>
 				<div class="flex justify-end gap-2">
 					<button
 						type="button"
 						onclick={closeForms}
-						class="border border-border bg-bg px-3 py-1.5 text-xs text-text transition-colors hover:bg-surface"
+						class="border border-line bg-well px-3 py-1.5 text-xs text-ink transition-colors hover:bg-surface"
 					>
 						Cancel
 					</button>
@@ -1040,7 +1040,7 @@
 							!regEmail.trim() ||
 							!regPassword.trim() ||
 							!regMachineName.trim()}
-						class="border border-border bg-bg px-3 py-1.5 text-xs text-text transition-colors hover:bg-surface disabled:cursor-not-allowed disabled:opacity-50"
+						class="border border-line bg-well px-3 py-1.5 text-xs text-ink transition-colors hover:bg-surface disabled:cursor-not-allowed disabled:opacity-50"
 					>
 						{registering ? 'Registering...' : 'Register'}
 					</button>
@@ -1051,12 +1051,12 @@
 
 	{#if errorMsg}
 		<div
-			class="border border-danger bg-danger/10 px-3 py-2 text-sm text-danger dark:border-danger dark:bg-danger/10 dark:text-red-400"
+			class="border border-danger bg-danger-soft px-3 py-2 text-sm text-danger-ink"
 		>
 			{errorMsg}
 		</div>
 	{/if}
 	{#if statusMsg}
-		<div class="text-sm text-text-muted">{statusMsg}</div>
+		<div class="text-sm text-ink-muted">{statusMsg}</div>
 	{/if}
 </div>

@@ -275,34 +275,34 @@
 </svelte:head>
 
 {#snippet pager()}
-	<div class="flex items-center gap-3 text-sm text-text-muted">
+	<div class="flex items-center gap-3 text-sm text-ink-muted">
 		<span>
 			{#if total > 0}
 				{rangeStart.toLocaleString()}–{rangeEnd.toLocaleString()} of {total.toLocaleString()}
 				{#if liveCount > 0}
-					<span class="text-primary">+{liveCount} live</span>
+					<span class="text-primary-ink">+{liveCount} live</span>
 				{/if}
 			{:else}
 				0 records
 			{/if}
 		</span>
-		<div class="flex border border-border">
+		<div class="flex border border-line">
 			<button
 				type="button"
 				onclick={prevPage}
 				disabled={pageIndex <= 0 || loading}
 				aria-label="Previous page"
-				class="border-r border-border px-2 py-1 text-text-muted hover:text-text disabled:opacity-40"
+				class="border-r border-line px-2 py-1 text-ink-muted hover:text-ink disabled:opacity-40"
 			>
 				<ChevronLeft size={14} />
 			</button>
-			<span class="px-3 py-1 text-text">{pageNum} / {pageCount}</span>
+			<span class="px-3 py-1 text-ink">{pageNum} / {pageCount}</span>
 			<button
 				type="button"
 				onclick={nextPage}
 				disabled={nextCursor === null || loading}
 				aria-label="Next page"
-				class="border-l border-border px-2 py-1 text-text-muted hover:text-text disabled:opacity-40"
+				class="border-l border-line px-2 py-1 text-ink-muted hover:text-ink disabled:opacity-40"
 			>
 				<ChevronRight size={14} />
 			</button>
@@ -310,13 +310,13 @@
 	</div>
 {/snippet}
 
-<div class="min-h-screen bg-bg">
+<div class="min-h-screen bg-well">
 	<AppHeader />
 	<div class="flex flex-col gap-4 p-4 sm:p-6">
-		<header class="flex flex-wrap items-end justify-between gap-3 border-b border-border pb-3">
+		<header class="flex flex-wrap items-end justify-between gap-3 border-b border-line pb-3">
 			<div>
-				<h2 class="text-xl font-bold text-text">Records</h2>
-				<p class="mt-1 text-sm text-text-muted">
+				<h2 class="text-xl font-bold text-ink">Records</h2>
+				<p class="mt-1 text-sm text-ink-muted">
 					Sorting history for this machine — every piece seen across all saved runs.
 				</p>
 			</div>
@@ -326,7 +326,7 @@
 				disabled={loading}
 				aria-label="Reload"
 				title="Reload records"
-				class="border border-border bg-surface p-1.5 text-text-muted hover:text-text disabled:opacity-50"
+				class="border border-line bg-surface p-1.5 text-ink-muted hover:text-ink disabled:opacity-50"
 			>
 				<RefreshCw size={14} class={loading ? 'animate-spin' : ''} />
 			</button>
@@ -344,12 +344,12 @@
 		/>
 
 		<div class="flex items-center justify-between gap-3">
-			<h3 class="text-sm font-semibold tracking-wider text-text-muted uppercase">Pieces</h3>
+			<h3 class="text-sm font-semibold text-ink-muted">Pieces</h3>
 			<div class="flex items-center gap-3">
 				<a
 					href={`${effectiveBase()}/api/pieces/export.csv`}
 					download
-					class="inline-flex items-center justify-center gap-2 border border-border bg-surface px-2.5 py-1 text-xs font-medium text-text transition-colors hover:bg-bg"
+					class="inline-flex items-center justify-center gap-2 border border-line bg-surface px-2.5 py-1 text-xs font-medium text-ink transition-colors hover:bg-hover"
 					title="Download every recorded piece as CSV (streamed from the backend)"
 				>
 					<Download size={13} />
@@ -360,7 +360,7 @@
 		</div>
 
 		{#if displayRows.length === 0}
-			<div class="border border-border bg-surface p-8 text-center text-sm text-text-muted">
+			<div class="border border-line bg-surface p-8 text-center text-sm text-ink-muted">
 				{loading ? 'Loading…' : 'No records yet.'}
 			</div>
 		{:else}

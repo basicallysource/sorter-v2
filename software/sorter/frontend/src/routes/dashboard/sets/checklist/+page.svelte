@@ -162,7 +162,7 @@
 	</style>
 </svelte:head>
 
-<div class="min-h-screen bg-bg text-text">
+<div class="min-h-screen bg-well text-ink">
 	<div class="no-print">
 		<AppHeader />
 	</div>
@@ -172,19 +172,19 @@
 			<div class="flex items-start gap-3">
 				<a
 					href="/dashboard/sets"
-					class="setup-button-secondary inline-flex h-9 w-9 items-center justify-center text-text transition-colors"
+					class="setup-button-secondary inline-flex h-9 w-9 items-center justify-center text-ink transition-colors"
 					title="Back to set progress"
 				>
 					<ArrowLeft size={16} />
 				</a>
 				<div>
 					<div
-						class="text-xs font-semibold uppercase tracking-wider text-text-muted"
+						class="text-xs font-semibold text-ink-muted"
 					>
 						Set tracking
 					</div>
-					<h1 class="text-2xl font-bold text-text">Parts checklist</h1>
-					<p class="mt-1 max-w-xl text-sm text-text-muted">
+					<h1 class="text-2xl font-bold text-ink">Parts checklist</h1>
+					<p class="mt-1 max-w-xl text-sm text-ink-muted">
 						Print this page and walk to your storage to hunt down the parts the sorter
 						hasn&rsquo;t seen yet. Tick off boxes by hand or in the browser.
 					</p>
@@ -195,7 +195,7 @@
 				<button
 					type="button"
 					onclick={() => (missingOnly = !missingOnly)}
-					class="setup-button-secondary inline-flex items-center gap-2 px-3 py-2 text-sm text-text transition-colors"
+					class="setup-button-secondary inline-flex items-center gap-2 px-3 py-2 text-sm text-ink transition-colors"
 					title="Toggle between missing parts only and all parts"
 				>
 					<Filter size={14} />
@@ -214,70 +214,70 @@
 		</header>
 
 		{#if loading}
-			<div class="border border-border bg-surface px-4 py-12 text-center text-sm text-text-muted">
+			<div class="border border-line bg-surface px-4 py-12 text-center text-sm text-ink-muted">
 				Loading checklist&hellip;
 			</div>
 		{:else if error}
 			<div
-				class="border border-danger/40 bg-danger/[0.06] px-3 py-2"
+				class="border border-danger/40 bg-danger-soft px-3 py-2"
 			>
 				<div
-					class="text-xs font-semibold uppercase tracking-wider text-danger-dark"
+					class="text-xs font-semibold text-danger-ink"
 				>
 					Could not load checklist
 				</div>
-				<div class="mt-1 text-sm leading-relaxed text-text">{error}</div>
+				<div class="mt-1 text-sm leading-relaxed text-ink">{error}</div>
 			</div>
 		{:else if sets.length === 0}
-			<div class="border border-border bg-surface px-4 py-12 text-center text-sm text-text-muted">
+			<div class="border border-line bg-surface px-4 py-12 text-center text-sm text-ink-muted">
 				No set-based sorting profile is active. Assign one to start tracking parts.
 			</div>
 		{:else}
 			<!-- Summary card (also visible in print) -->
-			<section class="print-block print-card border border-border bg-surface">
-				<div class="print-card-header border-b border-border bg-surface px-4 py-3">
+			<section class="print-block print-card border border-line bg-surface">
+				<div class="print-card-header border-b border-line bg-surface px-4 py-3">
 					<div
-						class="text-xs font-semibold uppercase tracking-wider text-text-muted"
+						class="text-xs font-semibold text-ink-muted"
 					>
 						Hunt summary
 					</div>
 					<div class="mt-1 flex flex-wrap items-baseline gap-x-6 gap-y-1">
-						<div class="text-base font-semibold text-text">
-							{totals.missing} <span class="text-text-muted">parts still missing</span>
+						<div class="text-base font-semibold text-ink">
+							{totals.missing} <span class="text-ink-muted">parts still missing</span>
 						</div>
-						<div class="text-xs text-text-muted">
+						<div class="text-xs text-ink-muted">
 							across {totals.missingTypes} unique part / color combos in {visibleSets.length} of {sets.length} sets
 						</div>
 					</div>
 				</div>
-				<div class="grid grid-cols-3 divide-x divide-border">
+				<div class="grid grid-cols-3 divide-x divide-line">
 					<div class="px-4 py-3">
 						<div
-							class="text-xs font-semibold uppercase tracking-wider text-text-muted"
+							class="text-xs font-semibold text-ink-muted"
 						>
 							Found
 						</div>
-						<div class="mt-1 text-lg font-semibold tabular-nums text-success">
+						<div class="mt-1 text-lg font-semibold num text-success-ink">
 							{totals.found}
 						</div>
 					</div>
 					<div class="px-4 py-3">
 						<div
-							class="text-xs font-semibold uppercase tracking-wider text-text-muted"
+							class="text-xs font-semibold text-ink-muted"
 						>
 							Missing
 						</div>
-						<div class="mt-1 text-lg font-semibold tabular-nums text-danger">
+						<div class="mt-1 text-lg font-semibold num text-danger-ink">
 							{totals.missing}
 						</div>
 					</div>
 					<div class="px-4 py-3">
 						<div
-							class="text-xs font-semibold uppercase tracking-wider text-text-muted"
+							class="text-xs font-semibold text-ink-muted"
 						>
 							Needed
 						</div>
-						<div class="mt-1 text-lg font-semibold tabular-nums text-text">
+						<div class="mt-1 text-lg font-semibold num text-ink">
 							{totals.needed}
 						</div>
 					</div>
@@ -292,17 +292,17 @@
 				{@const setPct = Math.min(100, set_progress.pct)}
 
 				<section
-					class="print-block print-card border border-border bg-surface"
+					class="print-block print-card border border-line bg-surface"
 					class:print-break={idx > 0}
 				>
 					<header
-						class="print-card-header flex items-start gap-4 border-b border-border bg-surface px-4 py-3"
+						class="print-card-header flex items-start gap-4 border-b border-line bg-surface px-4 py-3"
 					>
 						{#if set_progress.img_url}
 							<img
 								src={set_progress.img_url}
 								alt={set_progress.name || set_progress.set_num}
-								class="h-14 w-14 flex-shrink-0 border border-border bg-white object-contain"
+								class="h-14 w-14 flex-shrink-0 border border-line bg-white object-contain"
 								loading="lazy"
 							/>
 						{/if}
@@ -310,24 +310,24 @@
 							<div class="flex items-baseline justify-between gap-3">
 								<div class="min-w-0">
 									<div
-										class="text-xs font-semibold uppercase tracking-wider text-text-muted print-muted"
+										class="text-xs font-semibold text-ink-muted print-muted"
 									>
 										Set {set_progress.set_num}{#if set_progress.year} &middot; {set_progress.year}{/if}
 									</div>
-									<h2 class="truncate text-base font-bold text-text print-strong">
+									<h2 class="truncate text-base font-bold text-ink print-strong">
 										{set_progress.name || set_progress.set_num}
 									</h2>
 								</div>
 								{#if isComplete}
 									<span
-										class="inline-flex flex-shrink-0 items-center gap-1 border border-success/40 bg-success/[0.08] px-2 py-0.5 text-xs font-semibold uppercase tracking-wider text-success-dark"
+										class="inline-flex flex-shrink-0 items-center gap-1 border border-success/40 bg-success-soft px-2 py-0.5 text-xs font-semibold text-success-ink"
 									>
 										<CheckCircle2 size={12} />
 										Complete
 									</span>
 								{:else}
 									<span
-										class="inline-flex flex-shrink-0 items-center gap-1 border border-danger/40 bg-danger/[0.06] px-2 py-0.5 text-xs font-semibold uppercase tracking-wider text-danger-dark"
+										class="inline-flex flex-shrink-0 items-center gap-1 border border-danger/40 bg-danger-soft px-2 py-0.5 text-xs font-semibold text-danger-ink"
 									>
 										{setMissing}
 										{setMissing === 1 ? 'part' : 'parts'} missing
@@ -335,14 +335,14 @@
 								{/if}
 							</div>
 							<div class="mt-2 flex items-center gap-3">
-								<div class="h-1.5 flex-1 bg-bg">
+								<div class="h-1.5 flex-1 bg-well">
 									<div
 										class="h-full transition-all {isComplete ? 'bg-success' : 'bg-primary'}"
 										style="width: {setPct}%"
 									></div>
 								</div>
 								<div
-									class="flex-shrink-0 text-xs font-semibold tabular-nums text-text-muted print-muted"
+									class="flex-shrink-0 text-xs font-semibold num text-ink-muted print-muted"
 								>
 									{set_progress.total_found}/{set_progress.total_needed} &middot; {setPct}%
 								</div>
@@ -351,7 +351,7 @@
 					</header>
 
 					{#if parts.length === 0}
-						<div class="px-4 py-6 text-center text-xs text-text-muted">
+						<div class="px-4 py-6 text-center text-xs text-ink-muted">
 							{#if missingOnly}
 								All parts of this set have been sorted.
 							{:else}
@@ -363,7 +363,7 @@
 							<table class="w-full text-sm">
 								<thead>
 									<tr
-										class="text-xs font-semibold uppercase tracking-wider text-text-muted print-muted"
+										class="text-xs font-semibold text-ink-muted print-muted"
 									>
 										<th class="px-3 pb-2 pt-2 text-left" style="width: 30px;">
 											<span class="sr-only">Done</span>
@@ -380,7 +380,7 @@
 										{@const missing = Math.max(0, part.quantity_needed - part.quantity_found)}
 										{@const partComplete = missing === 0}
 										<tr
-											class="print-row border-t border-border/60 align-top text-text"
+											class="print-row border-t border-line align-top text-ink"
 											class:opacity-60={partComplete && !missingOnly}
 										>
 											<td class="px-3 py-2">
@@ -388,44 +388,44 @@
 													type="checkbox"
 													checked={partComplete}
 													disabled={partComplete}
-													class="setup-toggle print-checkbox h-4 w-4 cursor-pointer border border-border bg-white"
+													class="setup-toggle print-checkbox h-4 w-4 cursor-pointer border border-line bg-white"
 													aria-label="Mark {part.part_num} as found"
 												/>
 											</td>
 											<td class="px-2 py-2">
-												<div class="font-mono text-xs font-semibold text-text print-strong">
+												<div class="font-mono text-xs font-semibold text-ink print-strong">
 													{part.part_num}
 												</div>
 												{#if part.part_name}
-													<div class="mt-0.5 text-xs text-text-muted print-muted">
+													<div class="mt-0.5 text-xs text-ink-muted print-muted">
 														{part.part_name}
 													</div>
 												{/if}
 											</td>
-											<td class="px-2 py-2 text-xs text-text print-strong">
+											<td class="px-2 py-2 text-xs text-ink print-strong">
 												{colorLabel(part)}
 											</td>
 											<td
-												class="px-2 py-2 text-right text-xs tabular-nums text-text-muted print-muted"
+												class="px-2 py-2 text-right text-xs num text-ink-muted print-muted"
 											>
 												{part.quantity_found}
 											</td>
 											<td
-												class="px-2 py-2 text-right text-xs tabular-nums text-text-muted print-muted"
+												class="px-2 py-2 text-right text-xs num text-ink-muted print-muted"
 											>
 												{part.quantity_needed}
 											</td>
 											<td class="px-3 py-2 text-right">
 												{#if partComplete}
 													<span
-														class="inline-flex items-center gap-1 text-xs font-semibold uppercase tracking-wider text-success-dark"
+														class="inline-flex items-center gap-1 text-xs font-semibold text-success-ink"
 													>
 														<CheckCircle2 size={12} />
 														OK
 													</span>
 												{:else}
 													<span
-														class="font-mono text-sm font-bold tabular-nums text-danger print-strong"
+														class="font-mono text-sm font-bold num text-danger-ink print-strong"
 													>
 														{missing}
 													</span>
@@ -442,14 +442,14 @@
 
 			{#if visibleSets.length === 0 && missingOnly}
 				<div
-					class="border border-success/40 bg-success/[0.06] px-4 py-8 text-center"
+					class="border border-success/40 bg-success-soft px-4 py-8 text-center"
 				>
 					<div
-						class="text-xs font-semibold uppercase tracking-wider text-success-dark"
+						class="text-xs font-semibold text-success-ink"
 					>
 						All clear
 					</div>
-					<div class="mt-1 text-sm text-text">
+					<div class="mt-1 text-sm text-ink">
 						Every tracked set is fully sorted. Toggle &ldquo;All parts&rdquo; to review the
 						completed inventory.
 					</div>

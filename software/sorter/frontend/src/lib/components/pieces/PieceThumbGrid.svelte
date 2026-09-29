@@ -31,8 +31,8 @@
 	{#each items as item (item.key)}
 		<button
 			type="button"
-			class={`flex flex-col bg-bg text-left hover:border-primary/70 ${
-				item.used ? 'border-2 border-primary' : 'border border-border'
+			class={`flex flex-col bg-well text-left hover:border-primary/70 ${
+				item.used ? 'border-2 border-primary' : 'border border-line'
 			}`}
 			title={item.title}
 			onclick={() => onZoom(item)}
@@ -49,10 +49,10 @@
 				{/if}
 			</div>
 			{#if item.caption || item.captionRight}
-				<div class="flex items-center justify-between gap-2 px-2 py-1.5 text-xs text-text-muted">
+				<div class="flex items-center justify-between gap-2 px-2 py-1.5 text-xs text-ink-muted">
 					<span class="truncate">{item.caption ?? ''}</span>
 					{#if item.captionRight}
-						<span class="shrink-0 tabular-nums">{item.captionRight}</span>
+						<span class="shrink-0 num">{item.captionRight}</span>
 					{/if}
 				</div>
 			{/if}

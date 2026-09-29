@@ -1,5 +1,6 @@
 <script lang="ts">
-	import { Input, ToggleSwitch } from '$lib/components/primitives';
+	import Input from '$lib/components/ui/Input.svelte';
+	import Switch from '$lib/components/ui/Switch.svelte';
 	import SettingRow from '$lib/components/settings/SettingRow.svelte';
 	import type { TuningFieldMeta, TuningValues } from '$lib/settings/tuning';
 
@@ -40,10 +41,10 @@
 	onRevert={revert}
 >
 	{#if field.type === 'bool'}
-		<ToggleSwitch
+		<Switch
 			checked={Boolean(values[field.key])}
 			label={field.label}
-			onToggle={() => (values[field.key] = !values[field.key])}
+			onchange={() => (values[field.key] = !values[field.key])}
 		/>
 	{:else}
 		<div class="w-36">

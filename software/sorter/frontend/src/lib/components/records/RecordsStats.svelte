@@ -92,18 +92,18 @@
 </script>
 
 {#snippet statCard(label: string, value_text: string, sub: string | null = null)}
-	<div class="border border-border bg-surface px-4 py-3">
-		<div class="text-xs font-semibold tracking-wider text-text-muted uppercase">{label}</div>
-		<div class="mt-1 text-2xl font-bold text-text">{value_text}</div>
+	<div class="border border-line bg-surface px-4 py-3">
+		<div class="text-xs font-semibold text-ink-muted">{label}</div>
+		<div class="mt-1 text-2xl font-bold text-ink">{value_text}</div>
 		{#if sub}
-			<div class="mt-0.5 text-sm text-text-muted">{sub}</div>
+			<div class="mt-0.5 text-sm text-ink-muted">{sub}</div>
 		{/if}
 	</div>
 {/snippet}
 
-<h3 class="text-sm font-semibold tracking-wider text-text-muted uppercase">
+<h3 class="text-sm font-semibold text-ink-muted">
 	Lifetime
-	<span class="ml-1 font-normal normal-case text-text-muted"
+	<span class="ml-1 font-normal normal-case text-ink-muted"
 		>— every piece seen across all saved runs; value from BrickLink moving avg</span
 	>
 </h3>

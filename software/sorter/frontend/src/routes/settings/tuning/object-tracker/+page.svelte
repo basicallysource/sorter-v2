@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { getBackendHttpBase } from '$lib/backend';
-	import { Button, Alert } from '$lib/components/primitives';
+	import Button from '$lib/components/ui/Button.svelte';
+	import Alert from '$lib/components/ui/Alert.svelte';
 	import SectionCard from '$lib/components/settings/SectionCard.svelte';
 	import TuningParamRow from '$lib/components/settings/TuningParamRow.svelte';
 	import TuningPresets from '$lib/components/settings/TuningPresets.svelte';
@@ -170,8 +171,8 @@
 
 <div class="flex flex-col gap-6 p-6">
 	<div>
-		<div class="text-lg font-semibold text-text">Object Tracker</div>
-		<div class="mt-1 text-sm text-text-muted">
+		<div class="text-lg font-semibold text-ink">Object Tracker</div>
+		<div class="mt-1 text-sm text-ink-muted">
 			Cross-frame identity for classification-channel detections — assigns each piece a stable id
 			that survives brief detector dropouts. Pick which tracker to run; its parameters are shown
 			below. Changes take effect within ~1 second (no restart needed).
@@ -179,15 +180,15 @@
 	</div>
 
 	{#if error}
-		<Alert variant="danger">{error}</Alert>
+		<Alert tone="danger">{error}</Alert>
 	{/if}
 
 	{#if saved}
-		<Alert variant="success">Saved. Changes apply within ~1 second.</Alert>
+		<Alert tone="success">Saved. Changes apply within ~1 second.</Alert>
 	{/if}
 
 	{#if loading}
-		<div class="text-sm text-text-muted">Loading…</div>
+		<div class="text-sm text-ink-muted">Loading…</div>
 	{:else}
 		<SectionCard
 			title="Tracker"
@@ -205,7 +206,7 @@
 				{/each}
 			</div>
 			{#if current}
-				<div class="mt-3 text-sm text-text-muted">{current.description}</div>
+				<div class="mt-3 text-sm text-ink-muted">{current.description}</div>
 			{/if}
 		</SectionCard>
 
@@ -222,7 +223,7 @@
 			<div class="flex flex-col gap-8">
 				{#each sections as section}
 					<div class="flex flex-col gap-2">
-						<div class="text-xs font-semibold tracking-wider text-text-muted uppercase">
+						<div class="text-xs font-semibold text-ink-muted">
 							{section.name}
 						</div>
 						{#each section.fields as field}

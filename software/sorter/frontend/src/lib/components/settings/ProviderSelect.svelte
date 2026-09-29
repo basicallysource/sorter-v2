@@ -48,13 +48,13 @@
 <SelectMenu bind:open searchable={false} width={380}>
 	{#snippet trigger()}
 		<span
-			class="inline-flex min-w-[18rem] items-center justify-between gap-3 border border-border bg-white px-3 py-2 text-sm text-text transition-colors hover:bg-surface"
+			class="inline-flex min-w-[18rem] items-center justify-between gap-3 border border-line bg-white px-3 py-2 text-sm text-ink transition-colors hover:bg-surface"
 		>
 			<span class="inline-flex items-center gap-2">
-				<TriggerIcon size={16} class="text-text-muted" />
+				<TriggerIcon size={16} class="text-ink-muted" />
 				{current?.label ?? 'Select…'}
 			</span>
-			<ChevronDown size={16} class="text-text-muted" />
+			<ChevronDown size={16} class="text-ink-muted" />
 		</span>
 	{/snippet}
 	{#each options as p (p.id)}
@@ -62,22 +62,22 @@
 		<button
 			type="button"
 			onclick={() => choose(p.id)}
-			class="flex w-full items-start gap-3 border-b border-border bg-white px-3 py-3 text-left transition-colors last:border-b-0 hover:bg-surface"
+			class="flex w-full items-start gap-3 border-b border-line bg-white px-3 py-3 text-left transition-colors last:border-b-0 hover:bg-surface"
 		>
-			<Icon size={16} class="mt-0.5 shrink-0 text-text-muted" />
+			<Icon size={16} class="mt-0.5 shrink-0 text-ink-muted" />
 			<span class="min-w-0 flex-1">
-				<span class="flex items-center gap-2 text-sm text-text">
+				<span class="flex items-center gap-2 text-sm text-ink">
 					{p.label}
 					{#if p.id === active}
-						<span class="border border-border bg-surface px-1.5 py-0.5 text-xs text-text-muted">
+						<span class="border border-line bg-surface px-1.5 py-0.5 text-xs text-ink-muted">
 							current
 						</span>
 					{/if}
 				</span>
-				<span class="mt-1 block text-sm text-text-muted">{p.description}</span>
+				<span class="mt-1 block text-sm text-ink-muted">{p.description}</span>
 			</span>
 			{#if p.id === selected}
-				<Check size={16} class="mt-0.5 shrink-0 text-primary" />
+				<Check size={16} class="mt-0.5 shrink-0 text-primary-ink" />
 			{/if}
 		</button>
 	{/each}

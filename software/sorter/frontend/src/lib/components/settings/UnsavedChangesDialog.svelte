@@ -1,5 +1,6 @@
 <script lang="ts">
-	import { Alert, Button } from '$lib/components/primitives';
+	import Alert from '$lib/components/ui/Alert.svelte';
+	import Button from '$lib/components/ui/Button.svelte';
 	import type { UnsavedGuard } from '$lib/settings/unsavedChanges.svelte';
 
 	// Renders only while the guard has a navigation held. Three outcomes, because
@@ -15,17 +16,17 @@
 		aria-modal="true"
 		aria-labelledby="unsaved-changes-title"
 	>
-		<div class="w-full max-w-md border border-border bg-surface p-5 shadow-lg">
-			<div id="unsaved-changes-title" class="text-lg font-semibold text-text">
+		<div class="w-full max-w-md border border-line bg-surface p-5">
+			<div id="unsaved-changes-title" class="text-lg font-semibold text-ink">
 				You have unsaved changes
 			</div>
-			<div class="mt-2 text-sm text-text-muted">
+			<div class="mt-2 text-sm text-ink-muted">
 				Leaving this page will discard the edits you have not saved yet.
 			</div>
 
 			{#if guard.error}
 				<div class="mt-4">
-					<Alert variant="danger">{guard.error}</Alert>
+					<Alert tone="danger">{guard.error}</Alert>
 				</div>
 			{/if}
 

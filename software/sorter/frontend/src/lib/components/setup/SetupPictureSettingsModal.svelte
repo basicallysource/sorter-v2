@@ -117,7 +117,7 @@
 					<div
 						class="absolute inset-0 flex items-center justify-center px-6 text-center text-sm text-white/80"
 					>
-						<div class="max-w-sm rounded-md bg-black/55 px-4 py-3">
+						<div class="max-w-sm rounded-control bg-black/55 px-4 py-3">
 							Assign a camera first so you can preview picture settings.
 						</div>
 					</div>

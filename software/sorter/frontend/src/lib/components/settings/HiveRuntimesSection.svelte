@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
-	import Spinner from '$lib/components/Spinner.svelte';
+	import Spinner from '$lib/components/ui/Spinner.svelte';
 	import { getBackendHttpBase, machineHttpBaseUrlFromWsUrl } from '$lib/backend';
 	import { getMachineContext } from '$lib/machines/context';
 	import RefreshCw from '@lucide/svelte/icons/refresh-cw';
@@ -294,9 +294,9 @@
 	function fpsClass(fps: number): string {
 		// Thresholds reflect how many 30-fps video streams the host can keep
 		// up with: 90 fps → 3 streams, 60 fps → 2 streams, below → deficit.
-		if (fps >= 90) return 'border-success bg-success/10 text-success-dark';
-		if (fps >= 60) return 'border-warning bg-warning/10 text-warning-dark';
-		return 'border-danger bg-danger/10 text-danger-dark';
+		if (fps >= 90) return 'border-success bg-success-soft text-success-ink';
+		if (fps >= 60) return 'border-warning bg-warning-soft text-warning-ink';
+		return 'border-danger bg-danger-soft text-danger-ink';
 	}
 
 	function threadCountsFor(optionId: string): number[] {
@@ -363,8 +363,8 @@
 </script>
 
 <div class="flex flex-col gap-4">
-	<div class="flex flex-wrap items-center justify-between gap-3 border-b border-border pb-2">
-		<div class="text-sm text-text-muted">
+	<div class="flex flex-wrap items-center justify-between gap-3 border-b border-line pb-2">
+		<div class="text-sm text-ink-muted">
 			{#if !loading && !error}
 				{#if showAll}
 					Showing everything, including backends not usable on this machine.
@@ -376,7 +376,7 @@
 			{/if}
 		</div>
 		<div class="flex items-center gap-3">
-			<label class="flex cursor-pointer items-center gap-2 text-sm text-text-muted">
+			<label class="flex cursor-pointer items-center gap-2 text-sm text-ink-muted">
 				<input
 					type="checkbox"
 					bind:checked={showAll}
@@ -389,7 +389,7 @@
 				onclick={load}
 				aria-label="Re-scan runtimes"
 				title="Re-scan runtimes"
-				class="border border-border bg-surface p-1.5 text-text-muted hover:text-text"
+				class="border border-line bg-surface p-1.5 text-ink-muted hover:text-ink"
 			>
 				<RefreshCw size={14} />
 			</button>
@@ -397,31 +397,31 @@
 	</div>
 
 	{#if loading}
-		<div class="text-sm text-text-muted">Detecting runtimes…</div>
+		<div class="text-sm text-ink-muted">Detecting runtimes…</div>
 	{:else if error}
-		<div class="border border-danger bg-danger/10 px-3 py-2 text-sm text-danger">{error}</div>
+		<div class="border border-danger bg-danger-soft px-3 py-2 text-sm text-danger-ink">{error}</div>
 	{:else if visibleFormats.length === 0}
-		<div class="text-sm text-text-muted">
+		<div class="text-sm text-ink-muted">
 			{showAll ? 'No runtimes reported.' : 'No runtimes supported on this machine. Toggle "Show unsupported" to see what could work elsewhere.'}
 		</div>
 	{:else}
 		<div class="grid gap-3" style="grid-template-columns: repeat(auto-fit, minmax(280px, 480px));">
 			{#each visibleFormats as fmt (fmt.id)}
 				<div
-					class="flex flex-col border border-border bg-bg"
+					class="flex flex-col border border-line bg-well"
 					class:opacity-60={formatUnsupported(fmt)}
 				>
-					<div class="flex flex-col gap-1 border-b border-border bg-surface px-3 py-2.5">
+					<div class="flex flex-col gap-1 border-b border-line bg-surface px-3 py-2.5">
 						<div class="flex items-center justify-between gap-2">
-							<span class="text-base font-semibold text-text">{fmt.label}</span>
-							<span class="font-mono text-xs text-text-muted">
+							<span class="text-base font-semibold text-ink">{fmt.label}</span>
+							<span class="font-mono text-xs text-ink-muted">
 								{fmt.extensions.join(' / ')}
 							</span>
 						</div>
-						<span class="text-sm text-text-muted">{fmt.description}</span>
-						<span class="mt-0.5 text-xs text-text-muted">{formatSupportLine(fmt)}</span>
+						<span class="text-sm text-ink-muted">{fmt.description}</span>
+						<span class="mt-0.5 text-xs text-ink-muted">{formatSupportLine(fmt)}</span>
 					</div>
-					<div class="flex flex-col divide-y divide-border">
+					<div class="flex flex-col divide-y divide-line">
 						{#each fmt.options as opt (opt.id)}
 							<div
 								class="flex items-start gap-3 px-3 py-2"
@@ -445,16 +445,16 @@
 								{/if}
 								<div class="flex min-w-0 flex-1 flex-col gap-1">
 									<div class="flex items-center justify-between gap-2">
-										<span class="text-sm font-medium text-text">{opt.label}</span>
+										<span class="text-sm font-medium text-ink">{opt.label}</span>
 										{#if opt.available}
 											<span
-												class="border border-border px-1.5 py-0.5 text-xs uppercase tracking-wide text-text-muted"
+												class="border border-line px-1.5 py-0.5 text-xs text-ink-muted"
 											>
 												{rankLabel(opt.rank)}
 											</span>
 										{/if}
 									</div>
-									<span class="text-sm text-text-muted">
+									<span class="text-sm text-ink-muted">
 										{opt.available ? (opt.detail || 'ready') : (opt.reason || 'unavailable')}
 									</span>
 									{#if opt.available && (isRunnable(opt, fmt.id) || resultsFor(opt).length > 0)}
@@ -462,7 +462,7 @@
 										{#each rs as r (`${r.local_id}@${r.threads}`)}
 											<div
 												class={`flex items-center justify-between gap-2 border px-2 py-1 text-sm ${
-													r.error ? 'border-danger bg-danger/10 text-danger' : fpsClass(r.fps)
+													r.error ? 'border-danger bg-danger-soft text-danger-ink' : fpsClass(r.fps)
 												}`}
 											>
 												<div class="flex min-w-0 flex-col">
@@ -486,7 +486,7 @@
 										{#if benchmarking && selectedModel}
 											{#each threadCountsFor(opt.id) as threadN (threadN)}
 												{#if benchmarkCurrent === resultKey(opt.id, threadN, selectedModel)}
-													<div class="flex items-center gap-1.5 text-sm text-primary">
+													<div class="flex items-center gap-1.5 text-sm text-primary-ink">
 														<Spinner size={12} />
 														<span>running {threadN} thread{threadN === 1 ? '' : 's'}…</span>
 													</div>
@@ -504,12 +504,12 @@
 	{/if}
 
 	{#if !loading && !error && formats.length > 0}
-		<div class="flex flex-wrap items-center justify-end gap-3 border-t border-border pt-3">
-			<span class="text-sm text-text-muted">Benchmark model:</span>
+		<div class="flex flex-wrap items-center justify-end gap-3 border-t border-line pt-3">
+			<span class="text-sm text-ink-muted">Benchmark model:</span>
 			<select
 				bind:value={selectedModel}
 				disabled={benchmarking || installedModels.length === 0}
-				class="border border-border bg-surface px-2 py-1 text-sm text-text disabled:opacity-50"
+				class="border border-line bg-surface px-2 py-1 text-sm text-ink disabled:opacity-50"
 			>
 				{#if installedModels.length === 0}
 					<option value={null}>No installed models</option>
@@ -523,7 +523,7 @@
 				type="button"
 				onclick={runAll}
 				disabled={!selectedModel || benchmarking}
-				class="border border-primary/50 bg-primary/10 px-3 py-1.5 text-sm font-medium text-primary hover:bg-primary/20 disabled:cursor-not-allowed disabled:opacity-50"
+				class="border border-primary/50 bg-primary-soft px-3 py-1.5 text-sm font-medium text-primary-ink hover:bg-primary-soft disabled:cursor-not-allowed disabled:opacity-50"
 			>
 				{benchmarking ? 'Benchmarking…' : 'Benchmark all'}
 			</button>

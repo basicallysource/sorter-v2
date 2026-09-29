@@ -223,11 +223,11 @@
 	}
 
 	function statusColor(status: RunStatus): string {
-		if (status === 'running') return 'text-primary';
-		if (status === 'paused' || status === 'stopping') return 'text-warning';
-		if (status === 'completed') return 'text-success dark:text-green-400';
-		if (status === 'failed' || status === 'stalled') return 'text-danger dark:text-red-400';
-		return 'text-text-muted';
+		if (status === 'running') return 'text-primary-ink';
+		if (status === 'paused' || status === 'stopping') return 'text-warning-ink';
+		if (status === 'completed') return 'text-success-ink';
+		if (status === 'failed' || status === 'stalled') return 'text-danger-ink';
+		return 'text-ink-muted';
 	}
 
 	function toggleOpen() {
@@ -477,7 +477,7 @@
 	});
 </script>
 
-<div class="border-t border-border pt-4"></div>
+<div class="border-t border-line pt-4"></div>
 
 <div class="flex flex-col gap-2">
 	<button
@@ -485,44 +485,44 @@
 		class="flex w-full items-center justify-between text-left"
 	>
 		<div class="flex flex-col gap-0.5">
-			<div class="text-sm font-medium text-text">Stress Test</div>
-			<div class="text-xs text-text-muted">
+			<div class="text-sm font-medium text-ink">Stress Test</div>
+			<div class="text-xs text-ink-muted">
 				Bounce the chute back and forth at speed to exercise mechanics and stepper.
 			</div>
 		</div>
 		<ChevronDown
 			size={16}
-			class="text-text-muted transition-transform {open ? 'rotate-180' : ''}"
+			class="text-ink-muted transition-transform {open ? 'rotate-180' : ''}"
 		/>
 	</button>
 
 	{#if active && activeRun}
-		<div class="border border-border bg-surface px-3 py-2 text-sm">
+		<div class="border border-line bg-surface px-3 py-2 text-sm">
 			<div class="flex items-center justify-between">
 				<span class="font-medium {statusColor(activeRun.status)}">
 					{statusLabel(activeRun.status)}
 				</span>
-				<span class="text-text-muted">{activeRun.mode}</span>
+				<span class="text-ink-muted">{activeRun.mode}</span>
 			</div>
-			<div class="mt-1 grid grid-cols-2 gap-x-3 gap-y-0.5 text-xs text-text-muted">
+			<div class="mt-1 grid grid-cols-2 gap-x-3 gap-y-0.5 text-xs text-ink-muted">
 				<span>Elapsed</span>
-				<span class="text-right text-text">
+				<span class="text-right text-ink">
 					{formatDuration(activeRun.total_time_s)} / {formatDuration(
 						activeRun.duration_target_s
 					)}
 				</span>
 				<span>Distance</span>
-				<span class="text-right text-text">
+				<span class="text-right text-ink">
 					{activeRun.total_distance_deg.toFixed(1)}°
 				</span>
 				<span>Last target</span>
-				<span class="text-right text-text">
+				<span class="text-right text-ink">
 					{activeRun.last_target_deg !== null && activeRun.last_target_deg !== undefined
 						? `${activeRun.last_target_deg.toFixed(1)}°`
 						: '--'}
 				</span>
 				<span>Speed</span>
-				<span class="text-right text-text">
+				<span class="text-right text-ink">
 					{activeRun.speed_microsteps_per_sec} µsteps/s
 				</span>
 			</div>
@@ -532,19 +532,19 @@
 
 {#if open}
 	<div class="flex flex-col gap-3">
-		<label class="text-xs text-text">
+		<label class="text-xs text-ink">
 			Mode
 			<select
 				bind:value={mode}
 				disabled={active || busy}
-				class="mt-1 block w-full border border-border bg-bg px-2 py-1.5 text-sm text-text disabled:cursor-not-allowed disabled:opacity-50"
+				class="mt-1 block w-full border border-line bg-well px-2 py-1.5 text-sm text-ink disabled:cursor-not-allowed disabled:opacity-50"
 			>
 				<option value="sweep">Sweep (home ↔ target)</option>
 				<option value="random">Random within [0°, target]</option>
 			</select>
 		</label>
 
-		<label class="text-xs text-text">
+		<label class="text-xs text-ink">
 			Target Max Angle (°) — max {CHUTE_STRESS_MAX_ANGLE}
 			<input
 				type="number"
@@ -553,11 +553,11 @@
 				step="1"
 				bind:value={targetMaxDeg}
 				disabled={active || busy}
-				class="mt-1 block w-full border border-border bg-bg px-2 py-1.5 text-sm text-text disabled:cursor-not-allowed disabled:opacity-50"
+				class="mt-1 block w-full border border-line bg-well px-2 py-1.5 text-sm text-ink disabled:cursor-not-allowed disabled:opacity-50"
 			/>
 		</label>
 
-		<label class="text-xs text-text">
+		<label class="text-xs text-ink">
 			Duration (seconds)
 			<input
 				type="number"
@@ -565,11 +565,11 @@
 				step="1"
 				bind:value={durationSec}
 				disabled={active || busy}
-				class="mt-1 block w-full border border-border bg-bg px-2 py-1.5 text-sm text-text disabled:cursor-not-allowed disabled:opacity-50"
+				class="mt-1 block w-full border border-line bg-well px-2 py-1.5 text-sm text-ink disabled:cursor-not-allowed disabled:opacity-50"
 			/>
 		</label>
 
-		<label class="flex items-center gap-2 text-xs text-text">
+		<label class="flex items-center gap-2 text-xs text-ink">
 			<input
 				type="checkbox"
 				bind:checked={useMaxSpeed}
@@ -579,7 +579,7 @@
 			Use operating speed ({operatingSpeed} µsteps/s)
 		</label>
 
-		<label class="flex items-center gap-2 text-xs text-text">
+		<label class="flex items-center gap-2 text-xs text-ink">
 			<input
 				type="checkbox"
 				bind:checked={invertDirection}
@@ -590,7 +590,7 @@
 		</label>
 
 		{#if !useMaxSpeed}
-			<label class="text-xs text-text">
+			<label class="text-xs text-ink">
 				Speed Override (µsteps/s)
 				<input
 					type="number"
@@ -598,7 +598,7 @@
 					step="100"
 					bind:value={speedOverride}
 					disabled={active || busy}
-					class="mt-1 block w-full border border-border bg-bg px-2 py-1.5 text-sm text-text disabled:cursor-not-allowed disabled:opacity-50"
+					class="mt-1 block w-full border border-line bg-well px-2 py-1.5 text-sm text-ink disabled:cursor-not-allowed disabled:opacity-50"
 				/>
 			</label>
 		{/if}
@@ -608,7 +608,7 @@
 				<button
 					onclick={startRun}
 					disabled={busy}
-					class="inline-flex cursor-pointer items-center justify-center gap-1.5 border border-border bg-bg px-3 py-2 text-sm text-text transition-colors hover:bg-surface disabled:cursor-not-allowed disabled:opacity-50"
+					class="inline-flex cursor-pointer items-center justify-center gap-1.5 border border-line bg-well px-3 py-2 text-sm text-ink transition-colors hover:bg-surface disabled:cursor-not-allowed disabled:opacity-50"
 				>
 					<Play size={14} />
 					{busy ? 'Starting...' : 'Start Stress Test'}
@@ -618,7 +618,7 @@
 					<button
 						onclick={resumeRun}
 						disabled={busy}
-						class="inline-flex cursor-pointer items-center justify-center gap-1.5 border border-border bg-bg px-3 py-2 text-sm text-text transition-colors hover:bg-surface disabled:cursor-not-allowed disabled:opacity-50"
+						class="inline-flex cursor-pointer items-center justify-center gap-1.5 border border-line bg-well px-3 py-2 text-sm text-ink transition-colors hover:bg-surface disabled:cursor-not-allowed disabled:opacity-50"
 					>
 						<Play size={14} />
 						{busy ? 'Resuming...' : 'Resume'}
@@ -627,7 +627,7 @@
 					<button
 						onclick={pauseRun}
 						disabled={busy || activeRun?.status === 'stopping'}
-						class="inline-flex cursor-pointer items-center justify-center gap-1.5 border border-border bg-bg px-3 py-2 text-sm text-text transition-colors hover:bg-surface disabled:cursor-not-allowed disabled:opacity-50"
+						class="inline-flex cursor-pointer items-center justify-center gap-1.5 border border-line bg-well px-3 py-2 text-sm text-ink transition-colors hover:bg-surface disabled:cursor-not-allowed disabled:opacity-50"
 					>
 						<Pause size={14} />
 						{busy ? 'Pausing...' : 'Pause'}
@@ -636,7 +636,7 @@
 				<button
 					onclick={stopRun}
 					disabled={busy}
-					class="inline-flex cursor-pointer items-center justify-center gap-1.5 border border-danger bg-danger/20 px-3 py-2 text-sm text-danger transition-colors hover:bg-danger/30 disabled:cursor-not-allowed disabled:opacity-50"
+					class="inline-flex cursor-pointer items-center justify-center gap-1.5 border border-danger bg-danger-soft px-3 py-2 text-sm text-danger-ink transition-colors hover:bg-danger/30 disabled:cursor-not-allowed disabled:opacity-50"
 				>
 					<Square size={14} />
 					{busy ? 'Stopping...' : 'Stop'}
@@ -645,35 +645,35 @@
 		</div>
 
 		{#if errorMsg}
-			<div class="text-sm text-danger dark:text-red-400">{errorMsg}</div>
+			<div class="text-sm text-danger-ink">{errorMsg}</div>
 		{:else if statusMsg}
-			<div class="text-sm text-text-muted">{statusMsg}</div>
+			<div class="text-sm text-ink-muted">{statusMsg}</div>
 		{/if}
 
-		<div class="flex flex-col gap-2 border-t border-border pt-3">
+		<div class="flex flex-col gap-2 border-t border-line pt-3">
 			<div class="flex items-center justify-between">
-				<div class="text-xs font-semibold tracking-wider text-text-muted uppercase">
+				<div class="text-xs font-semibold text-ink-muted">
 					Past Runs
 				</div>
 				<button
 					onclick={() => void loadRuns()}
-					class="cursor-pointer text-xs text-text-muted underline hover:text-text"
+					class="cursor-pointer text-xs text-ink-muted underline hover:text-ink"
 				>
 					Refresh
 				</button>
 			</div>
 
 			{#if runs.length === 0}
-				<div class="text-sm text-text-muted">No stress runs recorded yet.</div>
+				<div class="text-sm text-ink-muted">No stress runs recorded yet.</div>
 			{:else}
-				<div class="flex max-h-48 flex-col overflow-y-auto border border-border">
+				<div class="flex max-h-48 flex-col overflow-y-auto border border-line">
 					{#each runs as run (run.id)}
 						<button
 							onclick={() => (selectedRunId = selectedRunId === run.id ? null : run.id)}
-							class="flex items-center justify-between gap-2 border-b border-border px-2 py-1.5 text-left text-sm last:border-b-0 hover:bg-surface
+							class="flex items-center justify-between gap-2 border-b border-line px-2 py-1.5 text-left text-sm last:border-b-0 hover:bg-surface
 							{selectedRunId === run.id ? 'bg-surface' : ''}"
 						>
-							<span class="min-w-0 truncate text-text">
+							<span class="min-w-0 truncate text-ink">
 								{formatTimestamp(run.started_at)}
 							</span>
 							<span class="shrink-0 text-xs {statusColor(run.status)}">
@@ -685,28 +685,28 @@
 			{/if}
 
 			{#if selectedRun}
-				<div class="border border-border bg-surface px-3 py-2 text-sm">
-					<div class="grid grid-cols-2 gap-x-3 gap-y-0.5 text-xs text-text-muted">
+				<div class="border border-line bg-surface px-3 py-2 text-sm">
+					<div class="grid grid-cols-2 gap-x-3 gap-y-0.5 text-xs text-ink-muted">
 						<span>Started</span>
-						<span class="text-right text-text">{formatTimestamp(selectedRun.started_at)}</span>
+						<span class="text-right text-ink">{formatTimestamp(selectedRun.started_at)}</span>
 						<span>Ended</span>
-						<span class="text-right text-text">{formatTimestamp(selectedRun.ended_at)}</span>
+						<span class="text-right text-ink">{formatTimestamp(selectedRun.ended_at)}</span>
 						<span>Mode</span>
-						<span class="text-right text-text">{selectedRun.mode}</span>
+						<span class="text-right text-ink">{selectedRun.mode}</span>
 						<span>Target max</span>
-						<span class="text-right text-text">{selectedRun.target_max_deg.toFixed(1)}°</span>
+						<span class="text-right text-ink">{selectedRun.target_max_deg.toFixed(1)}°</span>
 						<span>Duration target</span>
-						<span class="text-right text-text">
+						<span class="text-right text-ink">
 							{formatDuration(selectedRun.duration_target_s)}
 						</span>
 						<span>Time elapsed</span>
-						<span class="text-right text-text">{formatDuration(selectedRun.total_time_s)}</span>
+						<span class="text-right text-ink">{formatDuration(selectedRun.total_time_s)}</span>
 						<span>Distance</span>
-						<span class="text-right text-text">
+						<span class="text-right text-ink">
 							{selectedRun.total_distance_deg.toFixed(1)}°
 						</span>
 						<span>Speed</span>
-						<span class="text-right text-text">
+						<span class="text-right text-ink">
 							{selectedRun.speed_microsteps_per_sec} µsteps/s
 						</span>
 						<span>Status</span>
@@ -715,7 +715,7 @@
 						</span>
 					</div>
 					{#if selectedRun.error}
-						<div class="mt-2 text-xs text-danger dark:text-red-400">
+						<div class="mt-2 text-xs text-danger-ink">
 							{selectedRun.error}
 						</div>
 					{/if}
@@ -723,42 +723,42 @@
 			{/if}
 
 			{#if selectedRunId}
-				<div class="flex flex-col gap-2 border-t border-border pt-3">
+				<div class="flex flex-col gap-2 border-t border-line pt-3">
 					<div class="flex items-center justify-between">
 						<div class="flex items-center gap-2">
-							<div class="text-xs font-semibold tracking-wider text-text-muted uppercase">
+							<div class="text-xs font-semibold text-ink-muted">
 								Driver Telemetry
 							</div>
 							{#if telemetryLive}
-								<span class="text-xs text-success dark:text-green-400">● live</span>
+								<span class="text-xs text-success-ink">● live</span>
 							{/if}
 						</div>
 						<button
 							onclick={() => selectedRunId && void loadTelemetry(selectedRunId)}
-							class="cursor-pointer text-xs text-text-muted underline hover:text-text"
+							class="cursor-pointer text-xs text-ink-muted underline hover:text-ink"
 						>
 							Refresh
 						</button>
 					</div>
 
 					{#if telemetryLoading}
-						<div class="text-sm text-text-muted">Loading telemetry…</div>
+						<div class="text-sm text-ink-muted">Loading telemetry…</div>
 					{:else if telemetryError}
-						<div class="text-sm text-text-muted">{telemetryError}</div>
+						<div class="text-sm text-ink-muted">{telemetryError}</div>
 					{:else if telemetryPoints.length === 0}
-						<div class="text-sm text-text-muted">No telemetry samples for this run.</div>
+						<div class="text-sm text-ink-muted">No telemetry samples for this run.</div>
 					{:else}
 						{#if telemetrySettings}
-							<div class="border border-border bg-bg px-3 py-2">
-								<div class="mb-1 text-xs font-semibold tracking-wider text-text-muted uppercase">
+							<div class="border border-line bg-well px-3 py-2">
+								<div class="mb-1 text-xs font-semibold text-ink-muted">
 									Driver settings (read from hardware at run start)
 								</div>
-								<div class="grid grid-cols-2 gap-x-3 gap-y-0.5 text-xs text-text-muted">
+								<div class="grid grid-cols-2 gap-x-3 gap-y-0.5 text-xs text-ink-muted">
 									<span>Chopper mode</span>
 									<span
 										class="text-right {decodedField('gconf', 'stealthchop')
-											? 'text-warning'
-											: 'text-text'}"
+											? 'text-warning-ink'
+											: 'text-ink'}"
 									>
 										{decodedField('gconf', 'stealthchop') === undefined
 											? '--'
@@ -767,11 +767,11 @@
 												: 'SpreadCycle'}
 									</span>
 									<span>Microsteps</span>
-									<span class="text-right text-text">
+									<span class="text-right text-ink">
 										{decodedField('chopconf', 'microsteps') ?? '--'}
 									</span>
 									<span>Interpolate (256)</span>
-									<span class="text-right text-text">
+									<span class="text-right text-ink">
 										{decodedField('chopconf', 'intpol') === undefined
 											? '--'
 											: decodedField('chopconf', 'intpol')
@@ -779,22 +779,22 @@
 												: 'off'}
 									</span>
 									<span>Run current (IRUN)</span>
-									<span class="text-right text-text">
+									<span class="text-right text-ink">
 										{configuredCurrent()?.['irun'] ?? '--'} / 31
 									</span>
 									<span>Hold current (IHOLD)</span>
-									<span class="text-right text-text">
+									<span class="text-right text-ink">
 										{configuredCurrent()?.['ihold'] ?? '--'} / 31
 									</span>
 									<span>CS_ACTUAL @ start</span>
-									<span class="text-right text-text">
+									<span class="text-right text-ink">
 										{decodedField('drv_status', 'cs_actual') ?? '--'} / 31
 									</span>
 									<span>OT prewarn @ start</span>
 									<span
 										class="text-right {decodedField('drv_status', 'otpw')
-											? 'text-danger'
-											: 'text-text'}"
+											? 'text-danger-ink'
+											: 'text-ink'}"
 									>
 										{decodedField('drv_status', 'otpw') === undefined
 											? '--'
@@ -803,32 +803,32 @@
 												: 'no'}
 									</span>
 									<span>Driver temp @ start</span>
-									<span class="text-right text-text">{snapshotTempBand()}</span>
+									<span class="text-right text-ink">{snapshotTempBand()}</span>
 								</div>
 								<div
-									class="mt-2 grid grid-cols-2 gap-x-3 gap-y-0.5 border-t border-border pt-1 text-xs text-text-muted"
+									class="mt-2 grid grid-cols-2 gap-x-3 gap-y-0.5 border-t border-line pt-1 text-xs text-ink-muted"
 								>
 									<span>GCONF</span>
-									<span class="text-right font-mono text-text">
+									<span class="text-right font-mono text-ink">
 										{hex32(telemetrySettings.registers?.['gconf'])}
 									</span>
 									<span>CHOPCONF</span>
-									<span class="text-right font-mono text-text">
+									<span class="text-right font-mono text-ink">
 										{hex32(telemetrySettings.registers?.['chopconf'])}
 									</span>
 									<span>DRV_STATUS</span>
-									<span class="text-right font-mono text-text">
+									<span class="text-right font-mono text-ink">
 										{hex32(telemetrySettings.registers?.['drv_status'])}
 									</span>
 									<span>PWM_SCALE</span>
-									<span class="text-right font-mono text-text">
+									<span class="text-right font-mono text-ink">
 										{hex32(telemetrySettings.registers?.['pwm_scale'])}
 									</span>
 								</div>
 							</div>
 						{/if}
 
-						<div class="flex flex-wrap gap-x-3 gap-y-1 text-xs text-text">
+						<div class="flex flex-wrap gap-x-3 gap-y-1 text-xs text-ink">
 							<label class="flex items-center gap-1.5">
 								<input type="checkbox" bind:checked={showSg} class="h-3.5 w-3.5" />
 								<span class="inline-block h-2 w-2 bg-primary"></span> SG_RESULT
@@ -856,37 +856,37 @@
 							height={260}
 						/>
 
-						<div class="text-xs text-text-muted">
+						<div class="text-xs text-ink-muted">
 							Series are min–max normalized; ranges below are absolute. {telemetryPoints.length}
 							samples.
 						</div>
-						<div class="grid grid-cols-2 gap-x-3 gap-y-0.5 text-xs text-text-muted">
+						<div class="grid grid-cols-2 gap-x-3 gap-y-0.5 text-xs text-ink-muted">
 							{#if sgStat}
 								<span><span class="mr-1 inline-block h-2 w-2 bg-primary"></span>SG_RESULT</span>
-								<span class="text-right text-text">
+								<span class="text-right text-ink">
 									{sgStat.min}–{sgStat.max} (now {sgStat.last})
 								</span>
 							{/if}
 							{#if pwmStat}
 								<span><span class="mr-1 inline-block h-2 w-2 bg-danger"></span>PWM_SCALE</span>
-								<span class="text-right text-text">
+								<span class="text-right text-ink">
 									{pwmStat.min}–{pwmStat.max} (now {pwmStat.last})
 								</span>
 							{/if}
 							{#if csStat}
 								<span><span class="mr-1 inline-block h-2 w-2 bg-warning"></span>CS_ACTUAL</span>
-								<span class="text-right text-text">
+								<span class="text-right text-ink">
 									{csStat.min}–{csStat.max} (now {csStat.last})
 								</span>
 							{/if}
 							{#if tstepStat}
 								<span><span class="mr-1 inline-block h-2 w-2 bg-success"></span>TSTEP</span>
-								<span class="text-right text-text">
+								<span class="text-right text-ink">
 									{tstepStat.min}–{tstepStat.max}
 								</span>
 							{/if}
 							<span>Over-temp / OT-prewarn samples</span>
-							<span class="text-right {warnCount > 0 ? 'text-danger' : 'text-text'}">
+							<span class="text-right {warnCount > 0 ? 'text-danger-ink' : 'text-ink'}">
 								{warnCount}
 							</span>
 						</div>

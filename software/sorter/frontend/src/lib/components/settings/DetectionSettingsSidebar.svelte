@@ -82,21 +82,21 @@
 	});
 </script>
 
-<aside class="flex h-full min-w-0 flex-col border border-border bg-bg">
-	<div class="flex items-center justify-between gap-3 border-b border-border bg-surface px-4 py-3">
-		<h3 class="text-sm font-semibold text-text">{label} Detection</h3>
-		<button onclick={onClose} aria-label="Close detection settings" class="p-2 text-text-muted hover:text-text">
+<aside class="flex h-full min-w-0 flex-col border border-line bg-well">
+	<div class="flex items-center justify-between gap-3 border-b border-line bg-surface px-4 py-3">
+		<h3 class="text-sm font-semibold text-ink">{label} Detection</h3>
+		<button onclick={onClose} aria-label="Close detection settings" class="p-2 text-ink-muted hover:text-ink">
 			<X size={16} />
 		</button>
 	</div>
 	<div class="flex flex-col gap-4 p-4">
-		<label class="text-sm text-text">
+		<label class="text-sm text-ink">
 			Detection model
 			<select
 				value={algorithm}
 				onchange={(event) => void saveModel(event.currentTarget.value)}
 				disabled={loading || saving || models.length === 0}
-				class="mt-2 w-full border border-border bg-surface px-2 py-2 text-sm text-text"
+				class="mt-2 w-full border border-line bg-surface px-2 py-2 text-sm text-ink"
 			>
 				{#if !models.some((model) => model.id === algorithm)}
 					<option value={algorithm}>{algorithm || 'No model assigned'}</option>
@@ -107,10 +107,10 @@
 			</select>
 		</label>
 		{#if !loading && models.length === 0}
-			<p class="text-xs text-text-muted">Install a detection model from Settings → Hive.</p>
+			<p class="text-xs text-ink-muted">Install a detection model from Settings → Hive.</p>
 		{/if}
-		{#if error_message}<p class="text-sm text-danger">{error_message}</p>{/if}
-		{#if status_message}<p class="text-sm text-success">{status_message}</p>{/if}
-		<a href="/perception-debug" class="text-sm text-primary underline">View live detection results</a>
+		{#if error_message}<p class="text-sm text-danger-ink">{error_message}</p>{/if}
+		{#if status_message}<p class="text-sm text-success-ink">{status_message}</p>{/if}
+		<a href="/perception-debug" class="text-sm text-primary-ink underline">View live detection results</a>
 	</div>
 </aside>

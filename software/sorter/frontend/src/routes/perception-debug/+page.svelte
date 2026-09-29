@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { getBackendHttpBase, machineHttpBaseUrlFromWsUrl } from '$lib/backend';
 	import AppHeader from '$lib/components/AppHeader.svelte';
-	import { Button } from '$lib/components/primitives';
+	import Button from '$lib/components/ui/Button.svelte';
 	import { getMachinesContext } from '$lib/machines/context';
 
 	const manager = getMachinesContext();
@@ -70,7 +70,7 @@
 			{#if mode === 'cropped'}
 				<p class="text-sm text-neutral-500">
 					<span class="font-semibold">Cropped (production)</span> — exactly what perception infers
-					and decides on. <span class="text-success-dark">Green</span> = detections the mask filter
+					and decides on. <span class="text-success-ink">Green</span> = detections the mask filter
 					kept (these drive the machine); <span style="color:#cc7a00">orange</span> = raw model
 					detections the filter rejected; cyan = channel polygon mask; white rect = the crop region
 					the model actually saw; magenta dot = rotation center. Runtime zones are overlaid from the
@@ -82,7 +82,7 @@
 					<span class="font-semibold">Full-frame (debug)</span> — the same model run on the WHOLE
 					frame, no polygon crop, as a second inference per cycle. Use it to tell "the crop is
 					excluding pieces" from "the model isn't detecting them."
-					<span class="text-success-dark">Green</span> = full-frame detections whose center lands in
+					<span class="text-success-ink">Green</span> = full-frame detections whose center lands in
 					the channel mask; <span style="color:#cc7a00">orange</span> = outside it. The same runtime
 					drop / exit / precise zones are rendered here too so the full-frame comparison still lines
 					up with the real machine logic.
@@ -111,7 +111,7 @@
 	<div class="grid grid-cols-1 gap-6 xl:grid-cols-2">
 		{#each channels as channel (channel.id)}
 			<div class="flex flex-col gap-2">
-				<div class="text-xs font-semibold uppercase tracking-wider text-neutral-500">
+				<div class="text-xs font-semibold text-neutral-500">
 					{channel.label}
 				</div>
 				{#if failed[channel.id]}

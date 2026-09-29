@@ -2,7 +2,9 @@
 	import { onDestroy, onMount } from 'svelte';
 	import { getBackendHttpBase, machineHttpBaseUrlFromWsUrl } from '$lib/backend';
 	import SectionCard from '$lib/components/settings/SectionCard.svelte';
-	import { Alert, Button, Input } from '$lib/components/primitives';
+	import Alert from '$lib/components/ui/Alert.svelte';
+	import Button from '$lib/components/ui/Button.svelte';
+	import Input from '$lib/components/ui/Input.svelte';
 	import { getMachinesContext } from '$lib/machines/context';
 
 	const manager = getMachinesContext();
@@ -183,13 +185,13 @@
 
 <div class="mx-auto flex max-w-4xl flex-col gap-6 p-6">
 	<header class="flex flex-col gap-1">
-		<h1 class="text-xl font-semibold tracking-wide">Power Stress Test</h1>
+		<h1 class="text-xl font-semibold">Power Stress Test</h1>
 		<p class="text-sm text-neutral-400">
 			Maximum-load sequence for wall-power measurement. Safe Home and Pause are required.
 		</p>
 	</header>
 
-	<Alert variant="info">
+	<Alert tone="info">
 		The chute homes before motion and stays at or below {chuteMax}°. LEDs remain at 100%, all
 		configured vision workers must be live, C1–C4 use ramped motion, and servo channels exercise
 		their full 0–180° range. Every phase boundary is stored as an epoch timestamp for correlation
@@ -251,7 +253,7 @@
 	</SectionCard>
 
 	{#if errorMsg}
-		<Alert variant="danger">{errorMsg}</Alert>
+		<Alert tone="danger">{errorMsg}</Alert>
 	{/if}
 
 	{#if run}

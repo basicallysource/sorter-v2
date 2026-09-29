@@ -3,8 +3,9 @@
 	import X from '@lucide/svelte/icons/x';
 	import Search from '@lucide/svelte/icons/search';
 	import Sparkles from '@lucide/svelte/icons/sparkles';
-	import { Button, Alert } from '$lib/components/primitives';
-	import Spinner from '$lib/components/Spinner.svelte';
+	import Button from '$lib/components/ui/Button.svelte';
+	import Alert from '$lib/components/ui/Alert.svelte';
+	import Spinner from '$lib/components/ui/Spinner.svelte';
 	import {
 		fetchLegoColors,
 		swatchHex,
@@ -262,20 +263,20 @@
 	<div class="flex flex-col {gap}">
 		<!-- PART verdict -->
 		<div class="flex flex-wrap items-center gap-2">
-			<span class="text-xs font-semibold tracking-wider text-text-muted uppercase">
+			<span class="text-xs font-semibold text-ink-muted">
 				Part correct?
 			</span>
-			<div class="flex border border-border">
+			<div class="flex border border-line">
 				<button
 					type="button"
 					onclick={() => setPartVerdict(true)}
 					disabled={partBusy}
 					title="The predicted PART TYPE is correct (this does NOT judge the color)"
 					aria-label="Mark part prediction correct"
-					class="inline-flex items-center gap-1 border-r border-border px-2 py-1 text-sm transition-colors disabled:opacity-50 {partVerdict ===
+					class="inline-flex items-center gap-1 border-r border-line px-2 py-1 text-sm transition-colors disabled:opacity-50 {partVerdict ===
 					true
-						? 'bg-success/15 text-success'
-						: 'text-text-muted hover:text-success'}"
+						? 'bg-success-soft text-success-ink'
+						: 'text-ink-muted hover:text-success-ink'}"
 				>
 					<Check size={14} />
 					Yes
@@ -288,8 +289,8 @@
 					aria-label="Mark part prediction wrong"
 					class="inline-flex items-center gap-1 px-2 py-1 text-sm transition-colors disabled:opacity-50 {partVerdict ===
 					false
-						? 'bg-danger/15 text-danger'
-						: 'text-text-muted hover:text-danger'}"
+						? 'bg-danger-soft text-danger-ink'
+						: 'text-ink-muted hover:text-danger-ink'}"
 				>
 					<X size={14} />
 					No
@@ -299,29 +300,29 @@
 				<Spinner size={12} />
 			{:else if partSent}
 				<span
-					class="inline-flex items-center border border-success/50 bg-success/[0.12] px-1.5 py-0.5 text-xs font-semibold tracking-wider text-success uppercase"
+					class="inline-flex items-center border border-success/50 bg-success-soft px-1.5 py-0.5 text-xs font-semibold text-success-ink"
 					title="This part verdict has been sent to Brickognize"
 				>
 					Sent
 				</span>
 			{/if}
-			<span class="text-xs text-text-muted">Part type only — not the color.</span>
+			<span class="text-xs text-ink-muted">Part type only — not the color.</span>
 		</div>
 
 		<!-- COLOR verdict -->
 		<div class="flex flex-col gap-1.5">
 			<div class="flex flex-wrap items-center gap-2">
-				<span class="text-xs font-semibold tracking-wider text-text-muted uppercase">
+				<span class="text-xs font-semibold text-ink-muted">
 					Color correct?
 				</span>
 				<!-- The predicted color, with a one-click "yes it's right". -->
 				<span
-					class="inline-flex items-center gap-1.5 text-sm text-text"
+					class="inline-flex items-center gap-1.5 text-sm text-ink"
 					title="Brickognize predicted this color"
 				>
 					{#if predictedColorHex}
 						<span
-							class="inline-block h-3.5 w-3.5 border border-border"
+							class="inline-block h-3.5 w-3.5 border border-line"
 							style:background-color={predictedColorHex}
 						></span>
 					{/if}
@@ -333,9 +334,9 @@
 					disabled={colorBusy || predictedColorId == null}
 					title="The predicted color is correct"
 					aria-label="Mark predicted color correct"
-					class="inline-flex items-center gap-1 border border-border px-2 py-1 text-sm transition-colors disabled:opacity-50 {acceptedPrediction
-						? 'bg-success/15 text-success'
-						: 'text-text-muted hover:text-success'}"
+					class="inline-flex items-center gap-1 border border-line px-2 py-1 text-sm transition-colors disabled:opacity-50 {acceptedPrediction
+						? 'bg-success-soft text-success-ink'
+						: 'text-ink-muted hover:text-success-ink'}"
 				>
 					<Check size={14} />
 					Yes
@@ -346,12 +347,12 @@
 					onclick={() => (pickerOpen ? closePicker() : openPicker())}
 					title="Pick the correct color instead"
 					class="inline-flex items-center gap-1.5 border px-2 py-1 text-sm transition-colors {correctedToDifferent
-						? 'border-danger/50 bg-danger/[0.12] text-danger'
-						: 'border-border bg-surface text-text-muted hover:bg-bg'}"
+						? 'border-danger/50 bg-danger-soft text-danger-ink'
+						: 'border-line bg-surface text-ink-muted hover:bg-hover'}"
 				>
 					{#if correctedToDifferent && committedColorHex}
 						<span
-							class="inline-block h-3.5 w-3.5 border border-border"
+							class="inline-block h-3.5 w-3.5 border border-line"
 							style:background-color={committedColorHex}
 						></span>
 					{:else}
@@ -363,7 +364,7 @@
 					<Spinner size={12} />
 				{:else if colorSent}
 					<span
-						class="inline-flex items-center border border-success/50 bg-success/[0.12] px-1.5 py-0.5 text-xs font-semibold tracking-wider text-success uppercase"
+						class="inline-flex items-center border border-success/50 bg-success-soft px-1.5 py-0.5 text-xs font-semibold text-success-ink"
 						title="This color correction has been sent to Brickognize"
 					>
 						Sent
@@ -372,24 +373,24 @@
 			</div>
 
 			{#if pickerOpen}
-				<div class="flex flex-col gap-2 border border-border bg-surface p-2">
-					<div class="flex items-center gap-2 border border-border bg-bg px-2">
-						<Search size={14} class="text-text-muted" />
+				<div class="flex flex-col gap-2 border border-line bg-surface p-2">
+					<div class="flex items-center gap-2 border border-line bg-well px-2">
+						<Search size={14} class="text-ink-muted" />
 						<input
 							type="search"
 							bind:value={query}
 							placeholder="Search colors…"
 							aria-label="Search colors"
-							class="w-full bg-transparent py-1.5 text-sm text-text outline-none"
+							class="w-full bg-transparent py-1.5 text-sm text-ink outline-none"
 						/>
 					</div>
 
 					{#if colorsLoading && colors.length === 0}
-						<div class="flex items-center gap-2 px-1 py-2 text-sm text-text-muted">
+						<div class="flex items-center gap-2 px-1 py-2 text-sm text-ink-muted">
 							<Spinner size={12} /> Loading colors…
 						</div>
 					{:else if colorsError}
-						<Alert variant="danger">{colorsError}</Alert>
+						<Alert tone="danger">{colorsError}</Alert>
 					{:else}
 						<div class="max-h-56 overflow-y-auto">
 							{#each filteredColors as c (c.id)}
@@ -401,20 +402,20 @@
 									type="button"
 									onclick={() => chooseColor(idStr)}
 									class="flex w-full items-center gap-2 px-2 py-1.5 text-left text-sm transition-colors {isSelected
-										? 'bg-primary/15 text-text'
-										: 'text-text hover:bg-bg'}"
+										? 'bg-primary-soft text-ink'
+										: 'text-ink hover:bg-hover'}"
 								>
 									<span
-										class="inline-block h-4 w-4 flex-shrink-0 border border-border"
+										class="inline-block h-4 w-4 flex-shrink-0 border border-line"
 										style:background-color={hex ?? 'transparent'}
 									></span>
 									<span class="flex-1 truncate">{c.name}</span>
 									{#if c.is_trans}
-										<span class="text-xs text-text-muted">trans</span>
+										<span class="text-xs text-ink-muted">trans</span>
 									{/if}
 									{#if isPrediction}
 										<span
-											class="inline-flex items-center gap-1 border border-info/60 bg-info/[0.12] px-1.5 py-0.5 text-xs font-semibold tracking-wider text-info uppercase"
+											class="inline-flex items-center gap-1 border border-info/60 bg-info-soft px-1.5 py-0.5 text-xs font-semibold text-info-ink"
 											title="Brickognize predicted this color"
 										>
 											<Sparkles size={11} />
@@ -422,11 +423,11 @@
 										</span>
 									{/if}
 									{#if isSelected}
-										<Check size={14} class="flex-shrink-0 text-primary" />
+										<Check size={14} class="flex-shrink-0 text-primary-ink" />
 									{/if}
 								</button>
 							{:else}
-								<div class="px-2 py-2 text-sm text-text-muted">No colors match.</div>
+								<div class="px-2 py-2 text-sm text-ink-muted">No colors match.</div>
 							{/each}
 						</div>
 					{/if}
@@ -449,10 +450,10 @@
 
 		<!-- Capture-issue flags -->
 		<div class="flex flex-wrap items-center gap-2">
-			<span class="text-xs font-semibold tracking-wider text-text-muted uppercase">
+			<span class="text-xs font-semibold text-ink-muted">
 				Report issue
 			</span>
-			<div class="flex border border-border">
+			<div class="flex border border-line">
 				{#each REJECTION_REASONS as reason, i (reason.code)}
 					{@const active = rejectionReasons.has(reason.code)}
 					<button
@@ -463,10 +464,10 @@
 						title={`Flag this capture: ${reason.label}`}
 						class="inline-flex items-center gap-1 px-2 py-1 text-sm transition-colors disabled:opacity-50 {i <
 						REJECTION_REASONS.length - 1
-							? 'border-r border-border'
+							? 'border-r border-line'
 							: ''} {active
-							? 'bg-danger/15 text-danger'
-							: 'text-text-muted hover:text-danger'}"
+							? 'bg-danger-soft text-danger-ink'
+							: 'text-ink-muted hover:text-danger-ink'}"
 					>
 						{reason.label}
 					</button>
@@ -481,7 +482,7 @@
 		     message appearing after a click must not reflow the surrounding modal. -->
 		<div class="mt-1 min-h-[2.75rem]">
 			{#if feedback}
-				<Alert variant={feedback.variant}>{feedback.text}</Alert>
+				<Alert tone={feedback.variant}>{feedback.text}</Alert>
 			{/if}
 		</div>
 	</div>

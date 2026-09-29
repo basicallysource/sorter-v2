@@ -55,27 +55,27 @@
 
 {#if daily.length > 0}
 	<div class="flex items-center justify-between gap-3">
-		<h3 class="text-sm font-semibold tracking-wider text-text-muted uppercase">Daily activity</h3>
-		<div class="flex items-center gap-3 text-sm text-text-muted">
+		<h3 class="text-sm font-semibold text-ink-muted">Daily activity</h3>
+		<div class="flex items-center gap-3 text-sm text-ink-muted">
 			<span>{rangeLabel}</span>
 			{#if blockCount > 1}
-				<div class="flex border border-border">
+				<div class="flex border border-line">
 					<button
 						type="button"
 						onclick={() => (block = Math.min(blockCount - 1, block + 1))}
 						disabled={block >= blockCount - 1}
 						aria-label="Older two weeks"
-						class="border-r border-border px-2 py-1 text-text-muted hover:text-text disabled:opacity-40"
+						class="border-r border-line px-2 py-1 text-ink-muted hover:text-ink disabled:opacity-40"
 					>
 						<ChevronLeft size={14} />
 					</button>
-					<span class="px-3 py-1 text-text">{block + 1} / {blockCount}</span>
+					<span class="px-3 py-1 text-ink">{block + 1} / {blockCount}</span>
 					<button
 						type="button"
 						onclick={() => (block = Math.max(0, block - 1))}
 						disabled={block <= 0}
 						aria-label="Newer two weeks"
-						class="border-l border-border px-2 py-1 text-text-muted hover:text-text disabled:opacity-40"
+						class="border-l border-line px-2 py-1 text-ink-muted hover:text-ink disabled:opacity-40"
 					>
 						<ChevronRight size={14} />
 					</button>
@@ -84,7 +84,7 @@
 			<a
 				href={exportUrl}
 				download
-				class="inline-flex items-center justify-center gap-2 border border-border bg-surface px-2.5 py-1 text-xs font-medium text-text transition-colors hover:bg-bg"
+				class="inline-flex items-center justify-center gap-2 border border-line bg-surface px-2.5 py-1 text-xs font-medium text-ink transition-colors hover:bg-hover"
 				title="Download every recorded day as CSV"
 			>
 				<Download size={13} />
@@ -92,10 +92,10 @@
 			</a>
 		</div>
 	</div>
-	<div class="overflow-x-auto border border-border">
+	<div class="overflow-x-auto border border-line">
 		<table class="w-full border-collapse text-sm">
 			<thead>
-				<tr class="border-b border-border bg-surface text-left text-text-muted">
+				<tr class="border-b border-line bg-surface text-left text-ink-muted">
 					<th class="px-3 py-2 font-semibold">Day</th>
 					<th class="px-3 py-2 font-semibold">Powered</th>
 					<th class="px-3 py-2 font-semibold">Sorted</th>
@@ -106,13 +106,13 @@
 			</thead>
 			<tbody>
 				{#each rows as d (d.day)}
-					<tr class="border-b border-border last:border-b-0 hover:bg-surface">
-						<td class="px-3 py-2 text-text">{formatDayLabel(d.day)}</td>
-						<td class="px-3 py-2 text-text-muted">{formatDuration(d.seconds_powered)}</td>
-						<td class="px-3 py-2 text-text">{formatDuration(d.seconds_sorted)}</td>
-						<td class="px-3 py-2 text-text">{d.pieces_distributed.toLocaleString()}</td>
-						<td class="px-3 py-2 text-text-muted">{d.pieces_classified.toLocaleString()}</td>
-						<td class="px-3 py-2 text-text">
+					<tr class="border-b border-line last:border-b-0 hover:bg-surface">
+						<td class="px-3 py-2 text-ink">{formatDayLabel(d.day)}</td>
+						<td class="px-3 py-2 text-ink-muted">{formatDuration(d.seconds_powered)}</td>
+						<td class="px-3 py-2 text-ink">{formatDuration(d.seconds_sorted)}</td>
+						<td class="px-3 py-2 text-ink">{d.pieces_distributed.toLocaleString()}</td>
+						<td class="px-3 py-2 text-ink-muted">{d.pieces_classified.toLocaleString()}</td>
+						<td class="px-3 py-2 text-ink">
 							{formatPpm(d.seconds_sorted > 0 ? (d.pieces_distributed * 60) / d.seconds_sorted : 0)}
 						</td>
 					</tr>

@@ -15,20 +15,20 @@
 <Modal bind:open title="Activate Profile on Machine">
 	{#if pending}
 		<div class="space-y-4">
-			<div class="border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm text-text">
-				<div class="font-medium text-text">Please empty all physical bins first.</div>
-				<div class="mt-2 text-text-muted">
+			<div class="border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm text-ink">
+				<div class="font-medium text-ink">Please empty all physical bins first.</div>
+				<div class="mt-2 text-ink-muted">
 					Activating a different sorting profile will reset all learned bin assignments on this
 					machine. After that, bins will be assigned again as parts are sorted.
 				</div>
 			</div>
 
-			<div class="grid gap-2 border border-border bg-surface px-4 py-3 text-sm text-text-muted">
-				<div>Target: <span class="font-medium text-text">{pending.target_name}</span></div>
-				<div>Profile: <span class="font-medium text-text">{pending.profile_name}</span></div>
+			<div class="grid gap-2 border border-line bg-surface px-4 py-3 text-sm text-ink-muted">
+				<div>Target: <span class="font-medium text-ink">{pending.target_name}</span></div>
+				<div>Profile: <span class="font-medium text-ink">{pending.profile_name}</span></div>
 				<div>
 					Version:
-					<span class="font-medium text-text">
+					<span class="font-medium text-ink">
 						v{pending.version_number ?? '?'}
 						{pending.version_label ? ` - ${pending.version_label}` : ''}
 					</span>
@@ -39,14 +39,14 @@
 				<button
 					type="button"
 					onclick={onCancel}
-					class="border border-border px-3 py-2 text-sm text-text transition-colors hover:bg-bg"
+					class="border border-line px-3 py-2 text-sm text-ink transition-colors hover:bg-hover"
 				>
 					Cancel
 				</button>
 				<button
 					type="button"
 					onclick={onConfirm}
-					class="border border-primary bg-primary px-3 py-2 text-sm font-medium text-primary-contrast transition-colors hover:bg-primary-hover"
+					class="border border-primary bg-primary px-3 py-2 text-sm font-medium text-on-primary transition-colors hover:bg-primary-hover"
 				>
 					Empty Bins and Activate
 				</button>

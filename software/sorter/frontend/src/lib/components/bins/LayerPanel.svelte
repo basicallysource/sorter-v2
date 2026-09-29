@@ -1,8 +1,8 @@
 <script lang="ts">
-	import { ToggleSwitch } from '$lib/components/primitives';
+	import Switch from '$lib/components/ui/Switch.svelte';
 	import ArchiveX from '@lucide/svelte/icons/archive-x';
 	import FolderOutput from '@lucide/svelte/icons/folder-output';
-	import Spinner from '$lib/components/Spinner.svelte';
+	import Spinner from '$lib/components/ui/Spinner.svelte';
 	import BinCard from './BinCard.svelte';
 	import SectionGroup from './SectionGroup.svelte';
 	import type { BinContents, BinInfo, LayerInfo, SetMeta, SetProgressSummary } from './types';
@@ -99,42 +99,42 @@
 	});
 </script>
 
-<div class="relative border border-border {!layer.enabled ? 'opacity-60' : ''}">
+<div class="relative border border-line {!layer.enabled ? 'opacity-60' : ''}">
 	{#if layerBusy}
-		<div class="absolute inset-0 z-20 flex items-center justify-center bg-surface/78 backdrop-blur-[1px]">
-			<div class="flex items-center gap-3 border border-border bg-surface px-4 py-3 shadow-sm">
-				<Spinner size={16} class="text-primary" />
-				<div class="text-sm font-medium text-text">{layerClearingLabel}</div>
+		<div class="absolute inset-0 z-20 flex items-center justify-center bg-surface backdrop-blur-[1px]">
+			<div class="flex items-center gap-3 border border-line bg-surface px-4 py-3">
+				<Spinner size={16} class="text-primary-ink" />
+				<div class="text-sm font-medium text-ink">{layerClearingLabel}</div>
 			</div>
 		</div>
 	{/if}
-	<div class="flex items-center justify-between border-b border-border bg-bg px-4 py-3">
+	<div class="flex items-center justify-between border-b border-line bg-well px-4 py-3">
 		<div class="flex items-center gap-3">
-			<h3 class="text-base font-semibold text-text">
+			<h3 class="text-base font-semibold text-ink">
 				Layer {layer.layer_index + 1}
-				<span class="ml-2 text-sm font-normal text-text-muted">
+				<span class="ml-2 text-sm font-normal text-ink-muted">
 					{layer.section_count} sections · {layer.bin_count} bins
 				</span>
 			</h3>
 		</div>
 		<div class="flex items-center gap-3">
 			{#if isActive}
-				<span class="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-success">
+				<span class="flex items-center gap-1.5 text-xs font-semibold text-success-ink">
 					<span class="inline-block h-2 w-2 bg-success"></span>
 					Active
 				</span>
 			{/if}
-			<ToggleSwitch
+			<Switch
 				checked={layer.enabled}
 				label={layer.enabled ? `Disable layer ${layer.layer_index + 1}` : `Enable layer ${layer.layer_index + 1}`}
 				disabled={controlsDisabled}
-				onToggle={() => onToggleEnabled(!layer.enabled)}
+				onchange={() => onToggleEnabled(!layer.enabled)}
 			/>
 			<button
 				type="button"
 				onclick={onEmptyLayer}
 				disabled={clearDisabled}
-				class="flex items-center gap-2 border border-border bg-surface px-3.5 py-2 text-sm font-medium text-text transition-colors hover:bg-bg disabled:cursor-not-allowed disabled:opacity-50"
+				class="flex items-center gap-2 border border-line bg-surface px-3.5 py-2 text-sm font-medium text-ink transition-colors hover:bg-hover disabled:cursor-not-allowed disabled:opacity-50"
 			>
 				<FolderOutput size={14} />
 				{emptyBusy ? 'Emptying…' : 'Empty Layer'}
@@ -143,7 +143,7 @@
 				type="button"
 				onclick={onResetLayer}
 				disabled={clearDisabled}
-				class="flex items-center gap-2 border border-border bg-surface px-3.5 py-2 text-sm font-medium text-text transition-colors hover:bg-bg disabled:cursor-not-allowed disabled:opacity-50"
+				class="flex items-center gap-2 border border-line bg-surface px-3.5 py-2 text-sm font-medium text-ink transition-colors hover:bg-hover disabled:cursor-not-allowed disabled:opacity-50"
 			>
 				<ArchiveX size={14} />
 				{resetBusy ? 'Resetting…' : 'Reset Layer'}
@@ -154,8 +154,8 @@
 				disabled={niiDisabled}
 				title="Route pieces not in the active BrickLink inventory (.bsx) into this layer's bins"
 				class="flex items-center gap-2 border px-3.5 py-2 text-sm font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-50 {layerNii
-					? 'border-warning bg-warning/[0.12] text-warning'
-					: 'border-border bg-surface text-text hover:bg-bg'}"
+					? 'border-warning bg-warning-soft text-warning-ink'
+					: 'border-line bg-surface text-ink hover:bg-hover'}"
 			>
 				{niiBusy ? 'Saving…' : layerNii ? 'Not-in-inventory: ON' : 'Not-in-inventory mode'}
 			</button>

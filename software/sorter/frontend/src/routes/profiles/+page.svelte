@@ -8,7 +8,7 @@
 	import ProfileDetailsModal from '$lib/components/profiles/ProfileDetailsModal.svelte';
 	import ProfilePagination from '$lib/components/profiles/ProfilePagination.svelte';
 	import Skeleton from '$lib/components/primitives/Skeleton.svelte';
-	import StatusBanner from '$lib/components/StatusBanner.svelte';
+	import Alert from '$lib/components/ui/Alert.svelte';
 	import { getMachinesContext } from '$lib/machines/context';
 	import {
 		applyLocalProfile,
@@ -705,11 +705,11 @@
 
 <svelte:head><title>Sorting Profiles - Sorter</title></svelte:head>
 
-<div class="min-h-screen bg-bg">
+<div class="min-h-screen bg-well">
 	<AppHeader />
 	<div class="p-4 sm:p-6">
 		<div class="mb-4 flex flex-wrap items-center justify-between gap-3">
-			<h2 class="text-xl font-bold text-text">Sorting Profiles</h2>
+			<h2 class="text-xl font-bold text-ink">Sorting Profiles</h2>
 			<div class="flex max-w-[36rem] min-w-[24rem] flex-1 items-center justify-end gap-2">
 				<input
 					id="profile-search"
@@ -720,12 +720,12 @@
 						currentPage = 1;
 					}}
 					placeholder="Search profiles, sets, tags, owners..."
-					class="w-full max-w-md border border-border bg-bg px-3 py-2 text-sm text-text placeholder:text-text-muted focus:border-text-muted focus:outline-none"
+					class="w-full max-w-md border border-line bg-well px-3 py-2 text-sm text-ink placeholder:text-ink-muted focus:border-text-muted focus:outline-none"
 				/>
 				<button
 					onclick={reloadRuntime}
 					disabled={reloadingRuntime}
-					class="flex items-center justify-center border border-border bg-surface p-2 text-text transition-colors hover:bg-bg disabled:opacity-50"
+					class="flex items-center justify-center border border-line bg-surface p-2 text-ink transition-colors hover:bg-hover disabled:opacity-50"
 					title="Reload runtime profile from disk"
 				>
 					<RotateCw size={16} class={reloadingRuntime ? 'animate-spin' : ''} />
@@ -733,9 +733,9 @@
 			</div>
 		</div>
 
-		<StatusBanner message={success ?? ''} variant="success" />
-		<StatusBanner message={warning ?? ''} variant="warning" />
-		<StatusBanner message={error ?? ''} variant="error" />
+		{#if success}<Alert tone="success">{success}</Alert>{/if}
+		{#if warning}<Alert tone="warning">{warning}</Alert>{/if}
+		{#if error}<Alert tone="danger">{error}</Alert>{/if}
 
 		<input
 			bind:this={fileInput}
@@ -750,14 +750,14 @@
 		</div>
 		<div class="mb-6">
 			<div class="mb-3 flex items-center justify-between gap-3">
-				<h3 class="text-sm font-semibold tracking-wider text-text-muted uppercase">
+				<h3 class="text-sm font-semibold text-ink-muted">
 					Local profiles
 				</h3>
 				<button
 					type="button"
 					onclick={() => fileInput?.click()}
 					disabled={uploading}
-					class="flex items-center gap-2 border border-border bg-surface px-3 py-1.5 text-sm text-text transition-colors hover:bg-bg disabled:opacity-50"
+					class="flex items-center gap-2 border border-line bg-surface px-3 py-1.5 text-sm text-ink transition-colors hover:bg-hover disabled:opacity-50"
 				>
 					<Upload size={14} />
 					{uploading ? 'Uploading…' : 'Upload JSON'}
@@ -771,7 +771,7 @@
 					{/each}
 				</div>
 			{:else if localProfiles().length === 0}
-				<div class="border border-border bg-surface px-4 py-6 text-center text-sm text-text-muted">
+				<div class="border border-line bg-surface px-4 py-6 text-center text-sm text-ink-muted">
 					No local profiles saved yet. Upload a profile JSON to keep it on this machine.
 				</div>
 			{:else}
@@ -780,19 +780,19 @@
 						<div
 							class="setup-card-shell flex h-full flex-col overflow-hidden border transition-colors {profile.is_active
 								? 'border-success ring-1 ring-success/20'
-								: 'border-border hover:border-text-muted'}"
+								: 'border-line hover:border-text-muted'}"
 						>
 							<div class="setup-card-header px-3 py-2 text-sm">
 								<div class="flex items-start justify-between gap-3">
 									<div class="min-w-0 flex-1">
-										<div class="truncate text-sm font-semibold text-text">
+										<div class="truncate text-sm font-semibold text-ink">
 											{profile.name || profile.filename}
 										</div>
-										<div class="mt-1 flex flex-wrap items-center gap-2 text-xs text-text-muted">
+										<div class="mt-1 flex flex-wrap items-center gap-2 text-xs text-ink-muted">
 											<span class="font-mono">local:{profile.filename}</span>
 											{#if profile.is_active}
 												<span
-													class="border border-success/30 bg-success/10 px-1.5 py-0.5 font-medium tracking-wide text-success uppercase"
+													class="border border-success/30 bg-success-soft px-1.5 py-0.5 font-medium text-success-ink"
 													>Active</span
 												>
 											{/if}
@@ -804,7 +804,7 @@
 											onclick={() => requestApplyLocal(profile)}
 											disabled={localApplyingFilename === profile.filename ||
 												Boolean(profile.error)}
-											class="border border-border bg-white px-3 py-2 text-sm text-text transition-colors hover:bg-bg disabled:opacity-50"
+											class="border border-line bg-white px-3 py-2 text-sm text-ink transition-colors hover:bg-hover disabled:opacity-50"
 										>
 											{localApplyingFilename === profile.filename ? 'Activating…' : 'activate'}
 										</button>
@@ -816,16 +816,16 @@
 											}}
 											disabled={deletingFilename === profile.filename}
 											title="Delete local profile"
-											class="border border-border bg-white p-2 text-text-muted transition-colors hover:bg-bg hover:text-danger disabled:opacity-50"
+											class="border border-line bg-white p-2 text-ink-muted transition-colors hover:bg-hover hover:text-danger-ink disabled:opacity-50"
 										>
 											<Trash2 size={16} />
 										</button>
 									</div>
 								</div>
 							</div>
-							<div class="setup-card-body border-t border-border px-4 py-3 text-xs text-text-muted">
+							<div class="setup-card-body border-t border-line px-4 py-3 text-xs text-ink-muted">
 								{#if profile.error}
-									<span class="text-amber-700 dark:text-amber-300">Unreadable: {profile.error}</span
+									<span class="text-amber-700">Unreadable: {profile.error}</span
 									>
 								{:else if profile.rule_count == null}
 									<Skeleton class="h-3.5 w-32" />
@@ -858,16 +858,16 @@
 				</div>
 			{/if}
 		{:else if library.targets.length === 0}
-			<p class="text-sm text-text-muted">
+			<p class="text-sm text-ink-muted">
 				No Hive targets are configured on this machine right now.
 				{#if library.local_profile.name}
 					The active local profile above still works.
 				{/if}
-				Add one in <a href="/settings" class="underline hover:text-text">Settings</a>.
+				Add one in <a href="/settings" class="underline hover:text-ink">Settings</a>.
 			</p>
 		{:else}
 			{#if normalizedSearchQuery() && filteredProfileEntries().length === 0}
-				<div class="border border-border bg-surface px-4 py-6 text-center text-sm text-text-muted">
+				<div class="border border-line bg-surface px-4 py-6 text-center text-sm text-ink-muted">
 					No profiles match “{searchQuery.trim()}”.
 				</div>
 			{/if}
@@ -876,7 +876,7 @@
 				<div class="mb-4 space-y-2">
 					{#each targetErrors() as target}
 						<div
-							class="border border-danger bg-danger/10 px-3 py-2 text-sm text-danger dark:text-red-400"
+							class="border border-danger bg-danger-soft px-3 py-2 text-sm text-danger-ink"
 						>
 							{target.name}: {target.error}
 						</div>
@@ -959,39 +959,39 @@
 		{#if pendingLocal !== null}
 			{@const profile = pendingLocal}
 			<div class="flex flex-col gap-4">
-				<p class="text-sm text-text">
+				<p class="text-sm text-ink">
 					Activate <span class="font-semibold">{profile.name || profile.filename}</span>?
 				</p>
-				<p class="text-sm text-text-muted">Choose how bins should be initialized.</p>
-				<div class="flex flex-col gap-2 border border-border bg-bg p-3 text-sm text-text-muted">
+				<p class="text-sm text-ink-muted">Choose how bins should be initialized.</p>
+				<div class="flex flex-col gap-2 border border-line bg-well p-3 text-sm text-ink-muted">
 					<div>
-						<span class="font-medium text-text">Reset (dynamic)</span> — clear every bin; categories are
+						<span class="font-medium text-ink">Reset (dynamic)</span> — clear every bin; categories are
 						assigned as pieces arrive.
 					</div>
 					<div>
-						<span class="font-medium text-text">Pre-assign (rule order)</span> — seed bins in the order
+						<span class="font-medium text-ink">Pre-assign (rule order)</span> — seed bins in the order
 						of the profile's rules.
 					</div>
 				</div>
-				<div class="flex flex-wrap items-center justify-end gap-2 border-t border-border pt-3">
+				<div class="flex flex-wrap items-center justify-end gap-2 border-t border-line pt-3">
 					<button
 						type="button"
 						onclick={() => (localApplyOpen = false)}
-						class="border border-border bg-surface px-3 py-1.5 text-sm text-text hover:bg-bg"
+						class="border border-line bg-surface px-3 py-1.5 text-sm text-ink hover:bg-hover"
 					>
 						Cancel
 					</button>
 					<button
 						type="button"
 						onclick={() => void confirmApplyLocal('empty')}
-						class="border border-border bg-surface px-3 py-1.5 text-sm font-medium text-text hover:bg-bg"
+						class="border border-line bg-surface px-3 py-1.5 text-sm font-medium text-ink hover:bg-hover"
 					>
 						Reset bins
 					</button>
 					<button
 						type="button"
 						onclick={() => void confirmApplyLocal('rules')}
-						class="border border-primary bg-primary/10 px-3 py-1.5 text-sm font-medium text-primary hover:bg-primary/20"
+						class="border border-primary bg-primary-soft px-3 py-1.5 text-sm font-medium text-primary-ink hover:bg-primary-soft"
 					>
 						Pre-assign from rules
 					</button>
@@ -1004,22 +1004,22 @@
 		{#if pendingDelete !== null}
 			{@const profile = pendingDelete}
 			<div class="flex flex-col gap-4">
-				<p class="text-sm text-text">
+				<p class="text-sm text-ink">
 					Delete <span class="font-semibold">{profile.name || profile.filename}</span> from this machine?
 					This removes the saved JSON file.
 				</p>
-				<div class="flex items-center justify-end gap-2 border-t border-border pt-3">
+				<div class="flex items-center justify-end gap-2 border-t border-line pt-3">
 					<button
 						type="button"
 						onclick={() => (localDeleteOpen = false)}
-						class="border border-border bg-surface px-3 py-1.5 text-sm text-text hover:bg-bg"
+						class="border border-line bg-surface px-3 py-1.5 text-sm text-ink hover:bg-hover"
 					>
 						Cancel
 					</button>
 					<button
 						type="button"
 						onclick={() => void confirmDeleteLocal()}
-						class="border border-danger bg-danger/10 px-3 py-1.5 text-sm font-medium text-danger hover:bg-danger/20"
+						class="border border-danger bg-danger-soft px-3 py-1.5 text-sm font-medium text-danger-ink hover:bg-danger-soft"
 					>
 						Delete
 					</button>

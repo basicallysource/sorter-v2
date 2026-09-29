@@ -6,8 +6,8 @@
 
 <div class="flex flex-col gap-4 lg:max-w-4xl">
 	<header>
-		<h1 class="text-xl font-semibold text-text">Versions</h1>
-		<p class="mt-1 text-sm text-text-muted">
+		<h1 class="text-xl font-semibold text-ink">Versions</h1>
+		<p class="mt-1 text-sm text-ink-muted">
 			See which software version this machine is running and update it with one click.
 		</p>
 	</header>

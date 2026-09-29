@@ -34,7 +34,7 @@
 </script>
 
 {#if total === 0}
-	<div class="flex h-32 items-center justify-center text-sm text-text-muted">No data yet.</div>
+	<div class="flex h-32 items-center justify-center text-sm text-ink-muted">No data yet.</div>
 {:else}
 	<div class="flex flex-wrap items-center gap-4">
 		<svg viewBox="0 0 120 120" class="h-36 w-36 flex-shrink-0" role="img">
@@ -43,7 +43,7 @@
 				cy="60"
 				r={R}
 				fill="none"
-				stroke="var(--color-border)"
+				stroke="var(--line)"
 				stroke-width={STROKE}
 			/>
 			{#each arcs as a (a.label)}
@@ -67,12 +67,12 @@
 				text-anchor="middle"
 				font-size="14"
 				font-weight="700"
-				fill="var(--color-text)"
+				fill="var(--ink)"
 			>
 				{total.toLocaleString()}
 			</text>
 			{#if centerLabel}
-				<text x="60" y="72" text-anchor="middle" font-size="9" fill="var(--color-text-muted)">
+				<text x="60" y="72" text-anchor="middle" font-size="9" fill="var(--ink-muted)">
 					{centerLabel}
 				</text>
 			{/if}
@@ -80,10 +80,10 @@
 		<div class="flex min-w-0 flex-1 flex-col gap-1">
 			{#each arcs as a (a.label)}
 				<div class="flex items-center gap-2 text-sm">
-					<span class="h-3 w-3 flex-shrink-0 border border-border" style:background-color={a.color}
+					<span class="h-3 w-3 flex-shrink-0 border border-line" style:background-color={a.color}
 					></span>
-					<span class="truncate text-text">{a.label}</span>
-					<span class="ml-auto tabular-nums text-text-muted">
+					<span class="truncate text-ink">{a.label}</span>
+					<span class="ml-auto num text-ink-muted">
 						{a.value.toLocaleString()} · {pct(a.frac)}
 					</span>
 				</div>

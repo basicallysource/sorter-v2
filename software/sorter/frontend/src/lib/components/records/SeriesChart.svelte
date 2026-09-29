@@ -6,7 +6,7 @@
 	let {
 		points,
 		kind = 'line',
-		color = 'var(--color-primary)',
+		color = 'var(--primary)',
 		formatValue = (v: number) => v.toLocaleString()
 	}: {
 		points: SeriesPoint[];
@@ -85,7 +85,7 @@
 </script>
 
 {#if sorted.length === 0}
-	<div class="flex h-32 items-center justify-center text-sm text-text-muted">No data yet.</div>
+	<div class="flex h-32 items-center justify-center text-sm text-ink-muted">No data yet.</div>
 {:else}
 	<svg viewBox="0 0 {W} {H}" class="h-auto w-full" role="img">
 		<!-- Gridlines + y labels -->
@@ -96,7 +96,7 @@
 				y1={y}
 				x2={M.left + innerW}
 				y2={y}
-				stroke="var(--color-border)"
+				stroke="var(--line)"
 				stroke-width="1"
 			/>
 			<text
@@ -104,7 +104,7 @@
 				y={y + 3.5}
 				text-anchor="end"
 				font-size="10"
-				fill="var(--color-text-muted)"
+				fill="var(--ink-muted)"
 			>
 				{formatValue(yMax * f)}
 			</text>
@@ -141,7 +141,7 @@
 				y={H - 6}
 				text-anchor={t.anchor}
 				font-size="10"
-				fill="var(--color-text-muted)"
+				fill="var(--ink-muted)"
 			>
 				{t.label}
 			</text>

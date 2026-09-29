@@ -18,5 +18,5 @@
 	bind:value
 	{min}
 	{max}
-	class="w-14 border border-transparent bg-transparent px-1 text-text tabular-nums transition-colors hover:border-border hover:bg-bg focus:border-primary focus:bg-bg focus:outline-none"
+	class="w-14 border border-transparent bg-transparent px-1 text-ink num transition-colors hover:border-line hover:bg-hover focus:border-primary focus:bg-well focus:outline-none"
 />

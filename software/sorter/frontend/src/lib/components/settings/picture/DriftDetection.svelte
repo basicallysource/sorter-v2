@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { getBackendHttpBase } from '$lib/backend';
 	import Modal from '$lib/components/Modal.svelte';
-	import { Alert } from '$lib/components/primitives';
+	import Alert from '$lib/components/ui/Alert.svelte';
 	import type { CameraRole } from '$lib/settings/stations';
 
 	type Diff = {
@@ -154,19 +154,19 @@
 
 <Modal bind:open title="Camera settings drifted">
 	<div class="flex flex-col gap-3">
-		<p class="text-sm text-text">
+		<p class="text-sm text-ink">
 			The camera is reporting different values than what's saved. What should happen?
 		</p>
 
 		{#if error}
-			<Alert variant="danger">
-				<div class="text-sm text-text">{error}</div>
+			<Alert tone="danger">
+				<div class="text-sm text-ink">{error}</div>
 			</Alert>
 		{/if}
 
-		<div class="border border-border">
+		<div class="border border-line">
 			<table class="w-full text-sm">
-				<thead class="bg-surface text-xs font-semibold tracking-wider text-text-muted uppercase">
+				<thead class="bg-surface text-xs font-semibold text-ink-muted">
 					<tr>
 						<th class="px-3 py-2 text-left">Setting</th>
 						<th class="px-3 py-2 text-right">Saved</th>
@@ -175,10 +175,10 @@
 				</thead>
 				<tbody>
 					{#each diffs as diff}
-						<tr class="border-t border-border">
-							<td class="px-3 py-2 font-medium text-text">{diff.key}</td>
-							<td class="px-3 py-2 text-right font-mono text-text">{formatValue(diff.saved)}</td>
-							<td class="px-3 py-2 text-right font-mono text-warning-dark">{formatValue(diff.live)}</td>
+						<tr class="border-t border-line">
+							<td class="px-3 py-2 font-medium text-ink">{diff.key}</td>
+							<td class="px-3 py-2 text-right font-mono text-ink">{formatValue(diff.saved)}</td>
+							<td class="px-3 py-2 text-right font-mono text-warning-ink">{formatValue(diff.live)}</td>
 						</tr>
 					{/each}
 				</tbody>
@@ -189,14 +189,14 @@
 			<button
 				onclick={ignore}
 				disabled={applying}
-				class="inline-flex items-center justify-center border border-border bg-bg px-4 py-2 text-sm text-text transition-colors hover:bg-surface disabled:cursor-not-allowed disabled:opacity-50"
+				class="inline-flex items-center justify-center border border-line bg-well px-4 py-2 text-sm text-ink transition-colors hover:bg-surface disabled:cursor-not-allowed disabled:opacity-50"
 			>
 				Ignore
 			</button>
 			<button
 				onclick={adopt}
 				disabled={applying}
-				class="inline-flex items-center justify-center border border-primary bg-primary px-4 py-2 text-sm font-medium text-primary-contrast transition-colors hover:bg-primary-hover disabled:cursor-not-allowed disabled:opacity-50"
+				class="inline-flex items-center justify-center border border-primary bg-primary px-4 py-2 text-sm font-medium text-on-primary transition-colors hover:bg-primary-hover disabled:cursor-not-allowed disabled:opacity-50"
 			>
 				Adopt live
 			</button>
@@ -210,7 +210,7 @@
 		</div>
 
 		{#if status}
-			<div class="text-sm text-text-muted">{status}</div>
+			<div class="text-sm text-ink-muted">{status}</div>
 		{/if}
 	</div>
 </Modal>

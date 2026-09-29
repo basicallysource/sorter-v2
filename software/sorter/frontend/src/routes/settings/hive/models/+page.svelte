@@ -10,8 +10,8 @@
 	<!-- Page intro: kept slim so the hero inside HiveModelsSection takes
 	     visual ownership instead of competing with a redundant SectionCard. -->
 	<header>
-		<h1 class="text-lg font-semibold text-text">Detection Models</h1>
-		<p class="mt-1 max-w-3xl text-sm text-text-muted">
+		<h1 class="text-lg font-semibold text-ink">Detection Models</h1>
+		<p class="mt-1 max-w-3xl text-sm text-ink-muted">
 			Manage which neural-network model the sorter uses for live detection. A new
 			machine downloads Hive's default model for its hardware and uses it on every
 			channel until you pick another one here.

@@ -12,7 +12,7 @@
 	{#snippet trigger()}
 		<button
 			type="button"
-			class="inline-flex shrink-0 cursor-help border-0 bg-transparent p-0 text-text-muted hover:text-text"
+			class="inline-flex shrink-0 cursor-help border-0 bg-transparent p-0 text-ink-muted hover:text-ink"
 			aria-label={text}
 		>
 			<svg

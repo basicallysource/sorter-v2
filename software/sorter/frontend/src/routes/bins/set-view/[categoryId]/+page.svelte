@@ -242,43 +242,43 @@
 	</style>
 </svelte:head>
 
-<div class="min-h-screen bg-bg px-6 py-6 text-text print:px-0 print:py-0">
+<div class="min-h-screen bg-well px-6 py-6 text-ink print:px-0 print:py-0">
 	{#if loading}
-		<div class="text-sm text-text-muted">Loading set checklist…</div>
+		<div class="text-sm text-ink-muted">Loading set checklist…</div>
 	{:else if error && !data}
-		<div class="border border-danger/40 bg-danger/[0.06] px-3 py-2">
-			<div class="text-xs font-semibold uppercase tracking-wider text-danger-dark">
+		<div class="border border-danger/40 bg-danger-soft px-3 py-2">
+			<div class="text-xs font-semibold text-danger-ink">
 				Could not load checklist
 			</div>
-			<div class="mt-1 text-sm leading-relaxed text-text">{error}</div>
+			<div class="mt-1 text-sm leading-relaxed text-ink">{error}</div>
 		</div>
 	{:else if data}
 		<div class="mx-auto max-w-[1400px] space-y-6 print:max-w-none">
 			<!-- Header card -->
 			<div
-				class="flex flex-wrap items-start justify-between gap-4 border border-border bg-surface px-5 py-5 print:border-none print:px-0"
+				class="flex flex-wrap items-start justify-between gap-4 border border-line bg-surface px-5 py-5 print:border-none print:px-0"
 			>
 				<div class="flex items-start gap-4">
 					{#if data.img_url}
 						<img
 							src={data.img_url}
 							alt={data.name}
-							class="h-28 w-28 border border-border bg-bg object-contain"
+							class="h-28 w-28 border border-line bg-well object-contain"
 						/>
 					{/if}
 					<div>
-						<div class="text-xs font-semibold uppercase tracking-wider text-text-muted">
+						<div class="text-xs font-semibold text-ink-muted">
 							Set {data.set_num}{#if data.year}
 								&middot; {data.year}{/if}
 						</div>
-						<h1 class="mt-0.5 text-2xl font-bold text-text">{data.name}</h1>
-						<div class="mt-3 flex flex-wrap gap-2 text-sm text-text-muted">
-							<span class="border border-border bg-bg px-3 py-1 tabular-nums"
+						<h1 class="mt-0.5 text-2xl font-bold text-ink">{data.name}</h1>
+						<div class="mt-3 flex flex-wrap gap-2 text-sm text-ink-muted">
+							<span class="border border-line bg-well px-3 py-1 num"
 								>{totals.found} / {totals.needed} found</span
 							>
-							<span class="border border-border bg-bg px-3 py-1 tabular-nums">{totals.pct}%</span>
+							<span class="border border-line bg-well px-3 py-1 num">{totals.pct}%</span>
 							{#if data.num_parts}
-								<span class="border border-border bg-bg px-3 py-1 tabular-nums"
+								<span class="border border-line bg-well px-3 py-1 num"
 									>{data.num_parts} parts total</span
 								>
 							{/if}
@@ -291,10 +291,10 @@
 							<img
 								src={qrDataUrl}
 								alt="QR code linking to this checklist"
-								class="h-28 w-28 border border-border bg-white"
+								class="h-28 w-28 border border-line bg-white"
 							/>
 							<div
-								class="text-xs font-semibold uppercase tracking-wider text-text-muted"
+								class="text-xs font-semibold text-ink-muted"
 							>
 								Scan to continue
 							</div>
@@ -313,26 +313,26 @@
 			</div>
 
 			{#if error}
-				<div class="border border-danger/40 bg-danger/[0.06] px-3 py-2">
-					<div class="text-xs font-semibold uppercase tracking-wider text-danger-dark">
+				<div class="border border-danger/40 bg-danger-soft px-3 py-2">
+					<div class="text-xs font-semibold text-danger-ink">
 						Update failed
 					</div>
-					<div class="mt-1 text-sm leading-relaxed text-text">{error}</div>
+					<div class="mt-1 text-sm leading-relaxed text-ink">{error}</div>
 				</div>
 			{/if}
 
 			<!-- Tabs -->
 			<div
-				class="flex items-center justify-end gap-4 border-b border-border pb-2 text-sm text-text-muted print:hidden"
+				class="flex items-center justify-end gap-4 border-b border-line pb-2 text-sm text-ink-muted print:hidden"
 			>
 				{#each tabs as tab}
 					<button
 						type="button"
 						onclick={() => (filter = tab.key)}
-						class={`pb-2 transition-colors ${filter === tab.key ? 'border-b-2 border-primary font-medium text-primary' : 'hover:text-text'}`}
+						class={`pb-2 transition-colors ${filter === tab.key ? 'border-b-2 border-primary font-medium text-primary-ink' : 'hover:text-ink'}`}
 					>
 						{tab.label}
-						<span class="ml-1 text-xs tabular-nums text-text-muted">({counts[tab.key]})</span>
+						<span class="ml-1 text-xs num text-ink-muted">({counts[tab.key]})</span>
 					</button>
 				{/each}
 			</div>
@@ -345,10 +345,10 @@
 					{@const isPending = pendingKeys.has(partKey(part))}
 					{@const cardBorder =
 						status === 'complete'
-							? 'border-success/40 bg-success/[0.04]'
+							? 'border-success/40 bg-success-soft'
 							: status === 'deferred'
-								? 'border-warning/50 bg-warning/[0.04]'
-								: 'border-border bg-surface'}
+								? 'border-warning/50 bg-warning-soft'
+								: 'border-line bg-surface'}
 					<div
 						class={`flex flex-col overflow-hidden border ${cardBorder} print:break-inside-avoid`}
 						class:opacity-60={isPending}
@@ -362,14 +362,14 @@
 								/>
 							{/if}
 							<div
-								class="absolute right-3 bottom-3 flex h-12 min-w-12 items-center justify-center border border-primary bg-primary px-3 text-2xl font-semibold text-primary-contrast tabular-nums"
+								class="absolute right-3 bottom-3 flex h-12 min-w-12 items-center justify-center border border-primary bg-primary px-3 text-2xl font-semibold text-on-primary num"
 							>
 								{part.quantity_needed}
 							</div>
 						</div>
 						<div class="flex flex-1 flex-col px-4 py-3">
-							<div class="text-lg font-medium text-text">{part.part_name || part.part_num}</div>
-							<div class="mt-1 text-sm text-text-muted">
+							<div class="text-lg font-medium text-ink">{part.part_name || part.part_num}</div>
+							<div class="mt-1 text-sm text-ink-muted">
 								{part.part_num}{#if part.color_name}
 									&middot; {part.color_name}{/if}
 							</div>
@@ -380,13 +380,13 @@
 									type="button"
 									onclick={() => onDecrement(part)}
 									disabled={isPending || found <= 0}
-									class="setup-button-secondary flex h-12 w-14 flex-shrink-0 items-center justify-center text-2xl font-semibold text-text transition-colors disabled:cursor-not-allowed disabled:opacity-40"
+									class="setup-button-secondary flex h-12 w-14 flex-shrink-0 items-center justify-center text-2xl font-semibold text-ink transition-colors disabled:cursor-not-allowed disabled:opacity-40"
 									aria-label="Decrement found count"
 								>
 									−
 								</button>
 								<div
-									class="flex flex-1 items-center justify-center border-y border-border bg-bg text-base font-semibold tabular-nums text-text"
+									class="flex flex-1 items-center justify-center border-y border-line bg-well text-base font-semibold num text-ink"
 								>
 									{found} / {part.quantity_needed}
 								</div>
@@ -394,7 +394,7 @@
 									type="button"
 									onclick={() => onIncrement(part)}
 									disabled={isPending}
-									class="setup-button-secondary flex h-12 w-14 flex-shrink-0 items-center justify-center text-2xl font-semibold text-text transition-colors disabled:cursor-not-allowed disabled:opacity-40"
+									class="setup-button-secondary flex h-12 w-14 flex-shrink-0 items-center justify-center text-2xl font-semibold text-ink transition-colors disabled:cursor-not-allowed disabled:opacity-40"
 									aria-label="Increment found count"
 								>
 									+
@@ -403,8 +403,8 @@
 
 							<!-- Print-only count row -->
 							<div class="mt-3 hidden items-center justify-between text-sm print:flex">
-								<span class="text-text-muted">Found</span>
-								<span class="font-medium tabular-nums text-text"
+								<span class="text-ink-muted">Found</span>
+								<span class="font-medium num text-ink"
 									>{found} / {part.quantity_needed}</span
 								>
 							</div>
@@ -416,7 +416,7 @@
 										type="button"
 										onclick={() => onReset(part)}
 										disabled={isPending}
-										class="setup-button-secondary flex-1 px-2 py-1.5 text-xs font-semibold uppercase tracking-wider text-text transition-colors disabled:cursor-not-allowed disabled:opacity-40"
+										class="setup-button-secondary flex-1 px-2 py-1.5 text-xs font-semibold text-ink transition-colors disabled:cursor-not-allowed disabled:opacity-40"
 									>
 										Reset
 									</button>
@@ -425,7 +425,7 @@
 										type="button"
 										onclick={() => onReset(part)}
 										disabled={isPending}
-										class="setup-button-secondary flex-1 px-2 py-1.5 text-xs font-semibold uppercase tracking-wider text-text transition-colors disabled:cursor-not-allowed disabled:opacity-40"
+										class="setup-button-secondary flex-1 px-2 py-1.5 text-xs font-semibold text-ink transition-colors disabled:cursor-not-allowed disabled:opacity-40"
 									>
 										Resume
 									</button>
@@ -433,7 +433,7 @@
 										type="button"
 										onclick={() => onComplete(part)}
 										disabled={isPending}
-										class="setup-button-primary flex-1 px-2 py-1.5 text-xs font-semibold uppercase tracking-wider transition-colors disabled:cursor-not-allowed disabled:opacity-40"
+										class="setup-button-primary flex-1 px-2 py-1.5 text-xs font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-40"
 									>
 										Complete
 									</button>
@@ -442,7 +442,7 @@
 										type="button"
 										onclick={() => onDefer(part)}
 										disabled={isPending}
-										class="setup-button-secondary flex-1 px-2 py-1.5 text-xs font-semibold uppercase tracking-wider text-text transition-colors disabled:cursor-not-allowed disabled:opacity-40"
+										class="setup-button-secondary flex-1 px-2 py-1.5 text-xs font-semibold text-ink transition-colors disabled:cursor-not-allowed disabled:opacity-40"
 									>
 										Defer
 									</button>
@@ -450,7 +450,7 @@
 										type="button"
 										onclick={() => onComplete(part)}
 										disabled={isPending}
-										class="setup-button-primary flex-1 px-2 py-1.5 text-xs font-semibold uppercase tracking-wider transition-colors disabled:cursor-not-allowed disabled:opacity-40"
+										class="setup-button-primary flex-1 px-2 py-1.5 text-xs font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-40"
 									>
 										Complete
 									</button>
@@ -463,7 +463,7 @@
 			</div>
 
 			{#if filteredParts.length === 0}
-				<div class="border border-border bg-surface px-4 py-12 text-center text-sm text-text-muted">
+				<div class="border border-line bg-surface px-4 py-12 text-center text-sm text-ink-muted">
 					No parts in this view.
 				</div>
 			{/if}

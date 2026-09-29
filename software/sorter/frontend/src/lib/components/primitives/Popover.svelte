@@ -101,7 +101,7 @@
 {#if visible}
 	<div
 		bind:this={panelEl}
-		class="pointer-events-none fixed z-50 border border-border bg-surface px-3 py-2 text-sm leading-snug whitespace-normal text-text shadow-md {panelClass} {ready
+		class="pointer-events-none fixed z-50 border border-line bg-surface px-3 py-2 text-sm leading-snug whitespace-normal text-ink {panelClass} {ready
 			? ''
 			: 'opacity-0'}"
 		style="top: {top}px; left: {left}px;"

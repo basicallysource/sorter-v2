@@ -14,15 +14,15 @@
 </script>
 
 <div
-	class="mt-4 grid items-center gap-3 border border-border bg-surface px-4 py-3 text-sm text-text-muted md:grid-cols-[auto_1fr_auto]"
+	class="mt-4 grid items-center gap-3 border border-line bg-surface px-4 py-3 text-sm text-ink-muted md:grid-cols-[auto_1fr_auto]"
 >
-	<label class="flex items-center gap-2 text-sm text-text-muted">
+	<label class="flex items-center gap-2 text-sm text-ink-muted">
 		<span>Per page</span>
 		<select
 			value={String(props.pageSize)}
 			onchange={(event) =>
 				props.onPageSizeChange(Number((event.currentTarget as HTMLSelectElement).value))}
-			class="border border-border bg-bg px-2 py-1.5 text-sm text-text"
+			class="border border-line bg-well px-2 py-1.5 text-sm text-ink"
 		>
 			{#each props.pageSizeOptions as option}
 				<option value={option}>{option}</option>
@@ -35,7 +35,7 @@
 			type="button"
 			onclick={() => props.onPageChange(props.currentPage - 1)}
 			disabled={props.currentPage <= 1}
-			class="border border-border px-3 py-1.5 text-text transition-colors hover:bg-bg disabled:opacity-50"
+			class="border border-line px-3 py-1.5 text-ink transition-colors hover:bg-hover disabled:opacity-50"
 			>Previous</button
 		>
 		{#each props.visiblePageNumbers as pageNumber}
@@ -43,8 +43,8 @@
 				type="button"
 				onclick={() => props.onPageChange(pageNumber)}
 				class="border px-3 py-1.5 transition-colors {pageNumber === props.currentPage
-					? 'border-primary bg-primary text-primary-contrast'
-					: 'border-border text-text hover:bg-bg'}"
+					? 'border-primary bg-primary text-on-primary'
+					: 'border-line text-ink hover:bg-hover'}"
 			>
 				{pageNumber}
 			</button>
@@ -53,7 +53,7 @@
 			type="button"
 			onclick={() => props.onPageChange(props.currentPage + 1)}
 			disabled={props.currentPage >= props.totalPages}
-			class="border border-border px-3 py-1.5 text-text transition-colors hover:bg-bg disabled:opacity-50"
+			class="border border-line px-3 py-1.5 text-ink transition-colors hover:bg-hover disabled:opacity-50"
 			>Next</button
 		>
 	</div>

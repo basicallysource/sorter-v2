@@ -1,6 +1,8 @@
 <script lang="ts">
 	import { getBackendHttpBase } from '$lib/backend';
-	import { Button, Alert, Input } from '$lib/components/primitives';
+	import Button from '$lib/components/ui/Button.svelte';
+	import Alert from '$lib/components/ui/Alert.svelte';
+	import Input from '$lib/components/ui/Input.svelte';
 	import SectionCard from '$lib/components/settings/SectionCard.svelte';
 
 	type InstalledLinkModel = {
@@ -89,14 +91,14 @@
 <div class="flex flex-col gap-6 p-6">
 	<div>
 		<div class="flex flex-wrap items-center gap-2">
-			<div class="text-lg font-semibold text-text">Piece Link Matching</div>
+			<div class="text-lg font-semibold text-ink">Piece Link Matching</div>
 			<span
-				class="bg-warning/20 px-2 py-0.5 text-xs font-semibold tracking-wider text-warning-dark uppercase dark:text-warning"
+				class="bg-warning-soft px-2 py-0.5 text-xs font-semibold text-warning-ink"
 			>
 				Experimental
 			</span>
 		</div>
-		<div class="mt-1 text-sm text-text-muted">
+		<div class="mt-1 text-sm text-ink-muted">
 			Given a piece that has just been classified at C4, score which of the upstream C2/C3 bbox
 			crops are the same physical piece — from the crop images plus the timing and position data.
 			Replaces the hand-tuned time/angle scoring on the piece detail page's "Possibly the same
@@ -105,18 +107,18 @@
 	</div>
 
 	{#if error}
-		<Alert variant="danger">{error}</Alert>
+		<Alert tone="danger">{error}</Alert>
 	{/if}
 
 	{#if saved}
-		<Alert variant="success">Saved.</Alert>
+		<Alert tone="success">Saved.</Alert>
 	{/if}
 
 	{#if loading}
-		<div class="text-sm text-text-muted">Loading…</div>
+		<div class="text-sm text-ink-muted">Loading…</div>
 	{:else}
 		{#if loaded && !hasModel}
-			<Alert variant="info">
+			<Alert tone="info">
 				No piece-link model is installed. Download one from
 				<a class="underline" href="/settings/hive/models">Hive Models</a> — set the purpose filter
 				to "Piece link" — then come back here to enable it.
@@ -133,11 +135,11 @@
 					type="checkbox"
 					bind:checked={enabled}
 					disabled={!hasModel}
-					class="mt-1 border border-border"
+					class="mt-1 border border-line"
 				/>
 				<span class="flex flex-col">
-					<span class="text-sm font-medium text-text">Use the model to rank possible crops</span>
-					<span class="text-sm text-text-muted">
+					<span class="text-sm font-medium text-ink">Use the model to rank possible crops</span>
+					<span class="text-sm text-ink-muted">
 						{#if hasModel}
 							The piece detail page will show a "Model" badge and each crop's match probability
 							instead of the heuristic score.
@@ -149,10 +151,10 @@
 			</label>
 
 			<div class="mt-4 flex flex-col gap-1">
-				<label for="link-min-confidence" class="text-sm font-medium text-text">
+				<label for="link-min-confidence" class="text-sm font-medium text-ink">
 					Minimum confidence
 				</label>
-				<span class="text-sm text-text-muted">
+				<span class="text-sm text-ink-muted">
 					Crops must score at or above this (0–1) to count as the same piece — below it they
 					are still shown on the piece detail page, just unchecked and never fused into
 					classification. Overrides the cutoff baked into the model (0.5 for link-v3).
@@ -175,14 +177,14 @@
 				<div class="flex flex-col gap-2">
 					<label class="flex items-center gap-3 text-sm">
 						<input type="radio" bind:group={algorithm} value="" />
-						<span class="text-text">Automatic — use whichever is installed</span>
+						<span class="text-ink">Automatic — use whichever is installed</span>
 					</label>
 					{#each installed as m (m.local_id)}
 						<label class="flex items-start gap-3 text-sm">
 							<input type="radio" bind:group={algorithm} value={m.local_id} class="mt-1" />
 							<span class="flex flex-col">
-								<span class="font-mono text-text">{m.name ?? m.local_id}</span>
-								<span class="text-xs text-text-muted">
+								<span class="font-mono text-ink">{m.name ?? m.local_id}</span>
+								<span class="text-xs text-ink-muted">
 									downloaded {formatDate(m.downloaded_at)}
 								</span>
 							</span>
@@ -205,7 +207,7 @@
 				description="The time/position features this build feeds the model, in order. A model trained on anything different refuses to load rather than scoring nonsense — if you see a mismatch error in the logs, the model and this software are out of sync."
 			>
 				<pre
-					class="overflow-x-auto bg-bg p-3 text-xs text-text-muted">{metaFeatures}</pre>
+					class="overflow-x-auto bg-well p-3 text-xs text-ink-muted">{metaFeatures}</pre>
 			</SectionCard>
 		{/if}
 		{/if}

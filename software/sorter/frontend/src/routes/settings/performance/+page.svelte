@@ -3,7 +3,7 @@
 	import { getBackendHttpBase, machineHttpBaseUrlFromWsUrl } from '$lib/backend';
 	import { getMachineContext } from '$lib/machines/context';
 	import SectionCard from '$lib/components/settings/SectionCard.svelte';
-	import { Button } from '$lib/components/primitives';
+	import Button from '$lib/components/ui/Button.svelte';
 
 	const ctx = getMachineContext();
 
@@ -241,17 +241,17 @@
 	}
 	// Lower-is-better (latency/age). good < warn < bad.
 	function msHealth(v: number | null, good: number, warn: number): string {
-		if (v == null) return 'text-text';
-		if (v <= good) return 'text-success';
-		if (v <= warn) return 'text-warning';
-		return 'text-danger';
+		if (v == null) return 'text-ink';
+		if (v <= good) return 'text-success-ink';
+		if (v <= warn) return 'text-warning-ink';
+		return 'text-danger-ink';
 	}
 	// Higher-is-better (rates). good > warn.
 	function hzHealth(v: number | null, good: number, warn: number): string {
-		if (v == null) return 'text-text';
-		if (v >= good) return 'text-success';
-		if (v >= warn) return 'text-warning';
-		return 'text-danger';
+		if (v == null) return 'text-ink';
+		if (v >= good) return 'text-success-ink';
+		if (v >= warn) return 'text-warning-ink';
+		return 'text-danger-ink';
 	}
 </script>
 
@@ -264,10 +264,10 @@
 	>
 		<!-- Range + machine -->
 		<div class="flex flex-wrap items-center justify-between gap-3">
-			<div class="text-sm text-text-muted">
-				Showing <span class="font-medium text-text">{machineName}</span>
+			<div class="text-sm text-ink-muted">
+				Showing <span class="font-medium text-ink">{machineName}</span>
 				{#if liveProfile.lifecycle}
-					· <span class="text-text">{liveProfile.lifecycle}</span>
+					· <span class="text-ink">{liveProfile.lifecycle}</span>
 				{/if}
 				· running {fmtDuration(liveProfile.running_time_s)}
 			</div>
@@ -284,41 +284,41 @@
 			</div>
 		</div>
 		{#if historyError}
-			<div class="mt-2 text-sm text-danger">{historyError}</div>
+			<div class="mt-2 text-sm text-danger-ink">{historyError}</div>
 		{/if}
 
 		<!-- ── Decision loop ──────────────────────────────────────────────── -->
-		<div class="mt-5 text-xs font-semibold uppercase tracking-wider text-text-muted">
+		<div class="mt-5 text-xs font-semibold text-ink-muted">
 			Decision loop
 		</div>
 		<div class="mt-2 grid grid-cols-2 gap-2 md:grid-cols-4">
-			<div class="border border-border bg-bg p-3">
-				<div class="text-sm text-text-muted">Decisions / sec</div>
-				<div class="mt-1 text-3xl font-semibold tabular-nums {hzHealth(liveProfile.decision_hz, 60, 30)}">
+			<div class="border border-line bg-well p-3">
+				<div class="text-sm text-ink-muted">Decisions / sec</div>
+				<div class="mt-1 text-3xl font-semibold num {hzHealth(liveProfile.decision_hz, 60, 30)}">
 					{fmtHz(liveProfile.decision_hz)}
 				</div>
-				<div class="mt-0.5 text-sm text-text-muted">Hz · classification ticks</div>
+				<div class="mt-0.5 text-sm text-ink-muted">Hz · classification ticks</div>
 			</div>
-			<div class="border border-border bg-bg p-3">
-				<div class="text-sm text-text-muted">Decision data age</div>
-				<div class="mt-1 text-3xl font-semibold tabular-nums {msHealth(liveProfile.decision_frame_age_ms, 150, 300)}">
+			<div class="border border-line bg-well p-3">
+				<div class="text-sm text-ink-muted">Decision data age</div>
+				<div class="mt-1 text-3xl font-semibold num {msHealth(liveProfile.decision_frame_age_ms, 150, 300)}">
 					{fmtMs(liveProfile.decision_frame_age_ms)}
 				</div>
-				<div class="mt-0.5 text-sm text-text-muted">ms old camera data</div>
+				<div class="mt-0.5 text-sm text-ink-muted">ms old camera data</div>
 			</div>
-			<div class="border border-border bg-bg p-3">
-				<div class="text-sm text-text-muted">Control loop rate</div>
-				<div class="mt-1 text-3xl font-semibold tabular-nums {hzHealth(liveProfile.loop_hz, 80, 50)}">
+			<div class="border border-line bg-well p-3">
+				<div class="text-sm text-ink-muted">Control loop rate</div>
+				<div class="mt-1 text-3xl font-semibold num {hzHealth(liveProfile.loop_hz, 80, 50)}">
 					{fmtHz(liveProfile.loop_hz)}
 				</div>
-				<div class="mt-0.5 text-sm text-text-muted">Hz · target 100</div>
+				<div class="mt-0.5 text-sm text-ink-muted">Hz · target 100</div>
 			</div>
-			<div class="border border-border bg-bg p-3">
-				<div class="text-sm text-text-muted">GIL stall</div>
-				<div class="mt-1 text-3xl font-semibold tabular-nums {msHealth(liveProfile.gil_stall_ms, 5, 15)}">
+			<div class="border border-line bg-well p-3">
+				<div class="text-sm text-ink-muted">GIL stall</div>
+				<div class="mt-1 text-3xl font-semibold num {msHealth(liveProfile.gil_stall_ms, 5, 15)}">
 					{fmtMs(liveProfile.gil_stall_ms)}
 				</div>
-				<div class="mt-0.5 text-sm text-text-muted">ms · loop contention</div>
+				<div class="mt-0.5 text-sm text-ink-muted">ms · loop contention</div>
 			</div>
 		</div>
 
@@ -330,32 +330,32 @@
 		</div>
 
 		<!-- ── Perception (per camera) ────────────────────────────────────── -->
-		<div class="mt-6 text-xs font-semibold uppercase tracking-wider text-text-muted">
+		<div class="mt-6 text-xs font-semibold text-ink-muted">
 			Perception — inference per camera
 		</div>
 		{#if liveProfile.cameras.length === 0}
-			<div class="mt-2 text-sm text-text-muted">No active inference cameras reporting yet.</div>
+			<div class="mt-2 text-sm text-ink-muted">No active inference cameras reporting yet.</div>
 		{:else}
 			<div class="mt-2 flex flex-col gap-2">
 				{#each liveProfile.cameras as cam (cam.source_id)}
-					<div class="border border-border bg-bg p-3">
+					<div class="border border-line bg-well p-3">
 						<div class="flex flex-wrap items-baseline justify-between gap-2">
-							<div class="text-base font-medium text-text">{cam.source_id}</div>
-							<div class="flex items-baseline gap-4 text-sm tabular-nums">
-								<span class="text-text-muted">
+							<div class="text-base font-medium text-ink">{cam.source_id}</div>
+							<div class="flex items-baseline gap-4 text-sm num">
+								<span class="text-ink-muted">
 									rate
 									<span class="text-lg font-semibold {hzHealth(cam.infer_hz, 15, 8)}">
 										{fmtHz(cam.infer_hz)}
 									</span> Hz
 								</span>
-								<span class="text-text-muted">
+								<span class="text-ink-muted">
 									infer
 									<span class="font-semibold {msHealth(cam.infer_ms, 40, 80)}">{fmtMs(cam.infer_ms)}</span> ms
 								</span>
-								<span class="text-text-muted">
-									cycle <span class="font-semibold text-text">{fmtMs(cam.cycle_ms)}</span> ms
+								<span class="text-ink-muted">
+									cycle <span class="font-semibold text-ink">{fmtMs(cam.cycle_ms)}</span> ms
 								</span>
-								<span class="text-text-muted">
+								<span class="text-ink-muted">
 									frame age
 									<span class="font-semibold {msHealth(cam.frame_age_ms, 80, 160)}">{fmtMs(cam.frame_age_ms)}</span> ms
 								</span>
@@ -368,7 +368,7 @@
 		{/if}
 
 		<!-- ── Subsystem step cost ────────────────────────────────────────── -->
-		<div class="mt-6 text-xs font-semibold uppercase tracking-wider text-text-muted">
+		<div class="mt-6 text-xs font-semibold text-ink-muted">
 			Subsystem step cost (per control tick)
 		</div>
 		<div class="mt-2 grid grid-cols-2 gap-2 md:grid-cols-4">
@@ -379,12 +379,12 @@
 		</div>
 
 		<!-- ── Throughput ─────────────────────────────────────────────────── -->
-		<div class="mt-6 text-xs font-semibold uppercase tracking-wider text-text-muted">Throughput</div>
+		<div class="mt-6 text-xs font-semibold text-ink-muted">Throughput</div>
 		<div class="mt-2 grid grid-cols-2 gap-2 md:grid-cols-4">
-			{@render stat('Pieces / min (5m)', fmtPpm(liveProfile.rolling_5min_ppm), 'ppm', 'text-text')}
-			{@render stat('Pieces / min (avg)', fmtPpm(liveProfile.overall_ppm), 'ppm', 'text-text')}
-			{@render stat('Pieces seen', liveProfile.pieces_seen?.toString() ?? '–', '', 'text-text')}
-			{@render stat('Distributed', liveProfile.distributed?.toString() ?? '–', '', 'text-text')}
+			{@render stat('Pieces / min (5m)', fmtPpm(liveProfile.rolling_5min_ppm), 'ppm', 'text-ink')}
+			{@render stat('Pieces / min (avg)', fmtPpm(liveProfile.overall_ppm), 'ppm', 'text-ink')}
+			{@render stat('Pieces seen', liveProfile.pieces_seen?.toString() ?? '–', '', 'text-ink')}
+			{@render stat('Distributed', liveProfile.distributed?.toString() ?? '–', '', 'text-ink')}
 		</div>
 	</SectionCard>
 
@@ -397,7 +397,7 @@
 			<select
 				bind:value={selectedRecordId}
 				onchange={() => void loadCompare(selectedRecordId)}
-				class="border border-border bg-bg px-3 py-2 text-sm text-text"
+				class="border border-line bg-well px-3 py-2 text-sm text-ink"
 			>
 				<option value="">Select a finished run…</option>
 				{#each records as rec (rec.record_id)}
@@ -407,7 +407,7 @@
 				{/each}
 			</select>
 			{#if records.length === 0}
-				<span class="text-sm text-text-muted">No saved runs yet.</span>
+				<span class="text-sm text-ink-muted">No saved runs yet.</span>
 			{/if}
 		</div>
 
@@ -415,13 +415,13 @@
 			<div class="mt-3 overflow-x-auto">
 				<table class="w-full border-collapse text-sm">
 					<thead>
-						<tr class="text-left text-text-muted">
-							<th class="border border-border px-3 py-2 font-semibold">Metric</th>
-							<th class="border border-border px-3 py-2 font-semibold">{machineName} (now)</th>
-							<th class="border border-border px-3 py-2 font-semibold">{compareLabel}</th>
+						<tr class="text-left text-ink-muted">
+							<th class="border border-line px-3 py-2 font-semibold">Metric</th>
+							<th class="border border-line px-3 py-2 font-semibold">{machineName} (now)</th>
+							<th class="border border-line px-3 py-2 font-semibold">{compareLabel}</th>
 						</tr>
 					</thead>
-					<tbody class="tabular-nums text-text">
+					<tbody class="num text-ink">
 						{@render cmp('Decisions / sec', fmtHz(liveProfile.decision_hz), fmtHz(compareProfile.decision_hz))}
 						{@render cmp('Decision data age (ms)', fmtMs(liveProfile.decision_frame_age_ms), fmtMs(compareProfile.decision_frame_age_ms))}
 						{@render cmp('Control loop rate (Hz)', fmtHz(liveProfile.loop_hz), fmtHz(compareProfile.loop_hz))}
@@ -448,20 +448,20 @@
 
 <!-- ── Snippets ───────────────────────────────────────────────────────────── -->
 {#snippet stat(label: string, value: string, unit: string, color: string)}
-	<div class="border border-border bg-bg p-3">
-		<div class="text-sm text-text-muted">{label}</div>
+	<div class="border border-line bg-well p-3">
+		<div class="text-sm text-ink-muted">{label}</div>
 		<div class="mt-1 flex items-baseline gap-1">
-			<span class="text-2xl font-semibold tabular-nums {color}">{value}</span>
-			{#if unit}<span class="text-sm text-text-muted">{unit}</span>{/if}
+			<span class="text-2xl font-semibold num {color}">{value}</span>
+			{#if unit}<span class="text-sm text-ink-muted">{unit}</span>{/if}
 		</div>
 	</div>
 {/snippet}
 
 {#snippet cmp(label: string, a: string, b: string)}
 	<tr>
-		<td class="border border-border px-3 py-1.5 text-text-muted">{label}</td>
-		<td class="border border-border px-3 py-1.5">{a}</td>
-		<td class="border border-border px-3 py-1.5">{b}</td>
+		<td class="border border-line px-3 py-1.5 text-ink-muted">{label}</td>
+		<td class="border border-line px-3 py-1.5">{a}</td>
+		<td class="border border-line px-3 py-1.5">{b}</td>
 	</tr>
 {/snippet}
 
@@ -480,16 +480,16 @@
 {#snippet spark(title: string, series: number[], sub: string)}
 	{@const peak = Math.max(1e-6, ...series)}
 	{@const last = series.length ? series[series.length - 1] : 0}
-	<div class="border border-border bg-bg p-3">
+	<div class="border border-line bg-well p-3">
 		<div class="flex items-baseline justify-between">
-			<div class="text-sm text-text-muted">{title}</div>
-			<div class="text-sm tabular-nums text-text">{last < 10 ? last.toFixed(1) : Math.round(last)}</div>
+			<div class="text-sm text-ink-muted">{title}</div>
+			<div class="text-sm num text-ink">{last < 10 ? last.toFixed(1) : Math.round(last)}</div>
 		</div>
 		<div class="mt-2 flex h-10 items-end gap-px">
 			{#each series as v, i (i)}
 				<div class="flex-1 bg-primary/60" style="height: {Math.max(2, (v / peak) * 100)}%;"></div>
 			{/each}
 		</div>
-		<div class="mt-1 text-sm text-text-muted">{sub}</div>
+		<div class="mt-1 text-sm text-ink-muted">{sub}</div>
 	</div>
 {/snippet}

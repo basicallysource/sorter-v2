@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { Input } from '$lib/components/primitives';
+	import Input from '$lib/components/ui/Input.svelte';
 	import Search from '@lucide/svelte/icons/search';
 	import X from '@lucide/svelte/icons/x';
 
@@ -14,9 +14,9 @@
 	} = $props();
 </script>
 
-<div class="mb-4 border border-border bg-surface px-4 py-3">
+<div class="mb-4 border border-line bg-surface px-4 py-3">
 	<div class="flex items-center gap-3">
-		<Search size={16} class="shrink-0 text-text-muted" />
+		<Search size={16} class="shrink-0 text-ink-muted" />
 		<Input
 			type="search"
 			bind:value={query}
@@ -26,7 +26,7 @@
 			<button
 				type="button"
 				onclick={() => (query = '')}
-				class="flex shrink-0 items-center gap-1.5 border border-border bg-surface px-2.5 py-2 text-sm text-text-muted transition-colors hover:bg-bg hover:text-text"
+				class="flex shrink-0 items-center gap-1.5 border border-line bg-surface px-2.5 py-2 text-sm text-ink-muted transition-colors hover:bg-hover hover:text-ink"
 				title="Clear search"
 			>
 				<X size={14} />
@@ -35,7 +35,7 @@
 		{/if}
 	</div>
 	{#if matchCount !== null}
-		<div class="mt-2 text-sm {matchCount === 0 ? 'text-warning-dark' : 'text-text-muted'}">
+		<div class="mt-2 text-sm {matchCount === 0 ? 'text-warning-ink' : 'text-ink-muted'}">
 			{matchCount === 0
 				? 'No bins match — the part may have gone to the discard passthrough.'
 				: `${matchCount} of ${totalBins} bin${totalBins === 1 ? '' : 's'} match — highlighted below.`}

@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { Skeleton } from '$lib/components/primitives';
+	import Skeleton from '$lib/components/ui/Skeleton.svelte';
 
 	// A piece image that loads independently of the rest of the page: skeleton
 	// pulse while the image fetches, and a part-id chip instead of the browser's

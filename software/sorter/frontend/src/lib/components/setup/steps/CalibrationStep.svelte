@@ -75,9 +75,9 @@
 	}
 
 	function endstopStatusClass(triggered: boolean | null, error: string | undefined): string {
-		if (error) return 'border-danger bg-primary-light text-[#7A0A0B]';
-		if (triggered) return 'border-success bg-[#D4EDDA] text-success';
-		return 'border-border bg-bg text-text-muted';
+		if (error) return 'border-danger bg-primary-soft text-[#7A0A0B]';
+		if (triggered) return 'border-success bg-[#D4EDDA] text-success-ink';
+		return 'border-line bg-well text-ink-muted';
 	}
 
 	async function loadChuteSettings() {
@@ -249,17 +249,17 @@
 		</div>
 	{:else if systemState === 'standby'}
 		<div class="setup-panel flex flex-wrap items-center justify-between gap-3 px-4 py-3 text-sm">
-			<span class="text-text-muted">The steppers are off.</span>
+			<span class="text-ink-muted">The steppers are off.</span>
 			<button
 				onclick={onInitialize}
-				class="setup-button-secondary inline-flex items-center gap-2 px-3 py-1.5 text-sm text-text transition-colors"
+				class="setup-button-secondary inline-flex items-center gap-2 px-3 py-1.5 text-sm text-ink transition-colors"
 			>
 				Power on steppers
 			</button>
 		</div>
 	{:else if systemState === 'error'}
 		<div
-			class="flex items-center gap-3 border border-danger bg-primary-light px-4 py-3 text-sm text-[#7A0A0B]"
+			class="flex items-center gap-3 border border-danger bg-primary-soft px-4 py-3 text-sm text-[#7A0A0B]"
 		>
 			<div class="flex flex-col">
 				<span class="font-medium">Hardware connection failed</span>
@@ -270,14 +270,14 @@
 		</div>
 	{/if}
 
-	<div class="setup-panel px-4 py-3 text-sm text-text-muted">
+	<div class="setup-panel px-4 py-3 text-sm text-ink-muted">
 		<div class="flex flex-wrap items-start justify-between gap-3">
 			<div class="min-w-0 flex-1">
 				Verify the chute endstop before homing.
 			</div>
 			<button
 				onclick={() => (showEndstopWiringHelp = !showEndstopWiringHelp)}
-				class="setup-button-secondary inline-flex items-center gap-2 px-3 py-1.5 text-xs font-medium text-text transition-colors"
+				class="setup-button-secondary inline-flex items-center gap-2 px-3 py-1.5 text-xs font-medium text-ink transition-colors"
 			>
 				{showEndstopWiringHelp ? 'Hide wiring help' : 'Show wiring help'}
 			</button>
@@ -285,9 +285,9 @@
 	</div>
 
 	{#if showEndstopWiringHelp}
-		<div class="setup-panel px-4 py-4 text-sm text-text">
-			<div class="text-sm font-semibold text-text">SKR Pico endstop wiring</div>
-			<div class="mt-1 text-sm text-text-muted">
+		<div class="setup-panel px-4 py-4 text-sm text-ink">
+			<div class="text-sm font-semibold text-ink">SKR Pico endstop wiring</div>
+			<div class="mt-1 text-sm text-ink-muted">
 				Reference for the SKR Pico V1.0 endstop header used by the distributor board.
 			</div>
 			<div class="mt-3 grid gap-4 lg:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)]">
@@ -295,7 +295,7 @@
 					href={SKR_PICO_WIRING_DIAGRAM_URL}
 					target="_blank"
 					rel="noopener noreferrer"
-					class="block border border-border bg-white p-1"
+					class="block border border-line bg-white p-1"
 				>
 					<img
 						src={SKR_PICO_WIRING_DIAGRAM_URL}
@@ -305,12 +305,12 @@
 					/>
 				</a>
 				<div class="flex flex-col gap-2 text-xs">
-					<div class="font-semibold tracking-wide text-text uppercase">Sorter mapping</div>
+					<div class="font-semibold text-ink">Sorter mapping</div>
 					<table class="w-full border-collapse">
 						<tbody>
 							<tr>
-								<td class="py-1 pr-3 text-text-muted">Chute endstop</td>
-								<td class="py-1 font-medium text-text">Distributor · E0-STOP</td>
+								<td class="py-1 pr-3 text-ink-muted">Chute endstop</td>
+								<td class="py-1 font-medium text-ink">Distributor · E0-STOP</td>
 							</tr>
 						</tbody>
 					</table>
@@ -323,16 +323,16 @@
 		<div class="setup-panel p-4">
 			<div class="flex items-start justify-between gap-3">
 				<div>
-					<div class="text-sm font-semibold text-text">Chute endstop and home</div>
-					<div class="mt-1 text-sm text-text-muted">
+					<div class="text-sm font-semibold text-ink">Chute endstop and home</div>
+					<div class="mt-1 text-sm text-ink-muted">
 						Set the chute homing polarity and verify the chute can find its mechanical reference.
 					</div>
 				</div>
 			</div>
 
-			<div class="mt-4 text-sm text-text-muted">
-				<span class="font-medium text-text">Step 1:</span> Manually trigger the chute endstop and
-				confirm the indicator below flips to <span class="font-medium text-text">Triggered</span>.
+			<div class="mt-4 text-sm text-ink-muted">
+				<span class="font-medium text-ink">Step 1:</span> Manually trigger the chute endstop and
+				confirm the indicator below flips to <span class="font-medium text-ink">Triggered</span>.
 				Adjust the polarity below if it stays Not triggered.
 			</div>
 
@@ -342,7 +342,7 @@
 					chuteLive.endstop_error
 				)}`}
 			>
-				<span class="text-xs tracking-[0.16em] uppercase">Chute endstop</span>
+				<span class="text-xs">Chute endstop</span>
 				<span class="text-base font-semibold">
 					{endstopStatusLabel(
 						chuteLive.endstop_triggered,
@@ -351,39 +351,39 @@
 					)}
 				</span>
 			</div>
-			<div class="mt-2 text-sm text-text-muted">
+			<div class="mt-2 text-sm text-ink-muted">
 				Input channel
-				<span class="font-medium text-text"> {chuteLive.home_pin_channel ?? '--'}</span>
+				<span class="font-medium text-ink"> {chuteLive.home_pin_channel ?? '--'}</span>
 				{#if chuteLive.raw_endstop_high !== null}
 					· raw signal
-					<span class="font-medium text-text">
+					<span class="font-medium text-ink">
 						{chuteLive.raw_endstop_high ? 'HIGH' : 'LOW'}
 					</span>
 				{/if}
 			</div>
 			{#if chuteLive.endstop_error}
-				<div class="mt-2 border border-danger bg-primary-light px-3 py-2 text-sm text-[#7A0A0B]">
+				<div class="mt-2 border border-danger bg-primary-soft px-3 py-2 text-sm text-[#7A0A0B]">
 					Live endstop read failed: {chuteLive.endstop_error}
 				</div>
 			{/if}
 
 			<div class="mt-4 grid gap-3 sm:grid-cols-2">
 				<label class="flex flex-col gap-1 text-sm">
-					<span class="text-text-muted">First bin center</span>
+					<span class="text-ink-muted">First bin center</span>
 					<input
 						type="number"
 						step="0.1"
 						bind:value={chuteFirstBinCenter}
-						class="setup-control px-3 py-2 text-text"
+						class="setup-control px-3 py-2 text-ink"
 					/>
 				</label>
 				<label class="flex flex-col gap-1 text-sm">
-					<span class="text-text-muted">Pillar width (deg)</span>
+					<span class="text-ink-muted">Pillar width (deg)</span>
 					<input
 						type="number"
 						step="0.1"
 						bind:value={chutePillarWidthDeg}
-						class="setup-control px-3 py-2 text-text"
+						class="setup-control px-3 py-2 text-ink"
 					/>
 				</label>
 			</div>
@@ -393,13 +393,13 @@
 					<button
 						onclick={flipChutePolarity}
 						disabled={chuteSaving}
-						class="setup-button-secondary inline-flex items-center gap-2 px-3 py-1.5 text-xs font-medium text-text transition-colors disabled:cursor-not-allowed disabled:opacity-60"
+						class="setup-button-secondary inline-flex items-center gap-2 px-3 py-1.5 text-xs font-medium text-ink transition-colors disabled:cursor-not-allowed disabled:opacity-60"
 					>
 						{chuteSaving ? 'Saving…' : 'Trigger state looks inverted? Flip polarity'}
 					</button>
-					<div class="mt-1 text-sm text-text-muted">
+					<div class="mt-1 text-sm text-ink-muted">
 						Currently treating the input as
-						<span class="font-medium text-text"
+						<span class="font-medium text-ink"
 							>{chuteEndstopActiveHigh ? 'active-high' : 'active-low'}</span
 						>.
 					</div>
@@ -408,13 +408,13 @@
 					<button
 						onclick={flipChuteDirection}
 						disabled={chuteSaving}
-						class="setup-button-secondary inline-flex items-center gap-2 px-3 py-1.5 text-xs font-medium text-text transition-colors disabled:cursor-not-allowed disabled:opacity-60"
+						class="setup-button-secondary inline-flex items-center gap-2 px-3 py-1.5 text-xs font-medium text-ink transition-colors disabled:cursor-not-allowed disabled:opacity-60"
 					>
 						{chuteSaving ? 'Saving…' : 'Chute moves the wrong way? Flip direction'}
 					</button>
-					<div class="mt-1 text-sm text-text-muted">
+					<div class="mt-1 text-sm text-ink-muted">
 						Stepper direction is currently
-						<span class="font-medium text-text">
+						<span class="font-medium text-ink">
 							{chuteLive.stepper_direction_inverted === null
 								? '--'
 								: chuteLive.stepper_direction_inverted
@@ -425,7 +425,7 @@
 				</div>
 			</div>
 
-			<div class="mt-1 text-sm text-text-muted">
+			<div class="mt-1 text-sm text-ink-muted">
 				First-bin and pillar values are saved automatically when you continue to the next step.
 			</div>
 
@@ -440,7 +440,7 @@
 				<button
 					onclick={cancelChute}
 					disabled={chuteCanceling}
-					class="setup-button-secondary px-3 py-2 text-sm text-text transition-colors disabled:cursor-not-allowed disabled:opacity-60"
+					class="setup-button-secondary px-3 py-2 text-sm text-ink transition-colors disabled:cursor-not-allowed disabled:opacity-60"
 				>
 					{chuteCanceling ? 'Stopping...' : 'Stop motion'}
 				</button>
@@ -448,13 +448,13 @@
 
 			{#if chuteError}
 				<div
-					class="mt-3 border border-danger bg-primary-light px-3 py-2 text-sm text-[#7A0A0B]"
+					class="mt-3 border border-danger bg-primary-soft px-3 py-2 text-sm text-[#7A0A0B]"
 				>
 					{chuteError}
 				</div>
 			{:else if chuteStatus}
 				<div
-					class="mt-3 border border-success bg-[#D4EDDA] px-3 py-2 text-sm font-medium text-success"
+					class="mt-3 border border-success bg-[#D4EDDA] px-3 py-2 text-sm font-medium text-success-ink"
 				>
 					{chuteStatus}
 				</div>

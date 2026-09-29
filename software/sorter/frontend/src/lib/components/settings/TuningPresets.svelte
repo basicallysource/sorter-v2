@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { Button } from '$lib/components/primitives';
+	import Button from '$lib/components/ui/Button.svelte';
 	import type { TuningPreset, TuningValues } from '$lib/settings/tuning';
 
 	// Renders a list of one-click presets for a tuning page. Clicking one merges
@@ -26,7 +26,7 @@
 					{preset.label}
 				</Button>
 			</div>
-			<span class="text-sm text-text-muted">{preset.description}</span>
+			<span class="text-sm text-ink-muted">{preset.description}</span>
 		</div>
 	{/each}
 </div>

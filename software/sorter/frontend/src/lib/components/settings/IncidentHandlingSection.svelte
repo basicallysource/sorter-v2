@@ -140,10 +140,10 @@
 		const base =
 			'min-h-8 px-2.5 text-xs font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-40';
 		if (active)
-			return `${base} bg-primary text-white shadow-[inset_0_0_0_1px_var(--color-primary)]`;
+			return `${base} bg-primary text-white`;
 		if (disabled)
-			return `${base} bg-bg text-text-muted shadow-[inset_0_0_0_1px_var(--color-border)]`;
-		return `${base} bg-bg text-text-muted shadow-[inset_0_0_0_1px_var(--color-border)] hover:bg-surface hover:text-text`;
+			return `${base} bg-well text-ink-muted`;
+		return `${base} bg-well text-ink-muted hover:bg-surface hover:text-ink`;
 	}
 
 	async function saveIncidentMode(kind: string, mode: IncidentHandlingMode) {
@@ -226,25 +226,25 @@
 	{#each incidentDefinitions as definition (definition.kind)}
 		{@const mode = incidentMode(definition.kind)}
 		{@const active = incidentDefinitionActive(definition)}
-		<div class="border border-border bg-bg px-3 py-2">
+		<div class="border border-line bg-well px-3 py-2">
 			<div class="flex items-start justify-between gap-3">
 				<div class="min-w-0">
 					<div class="flex flex-wrap items-center gap-2">
-						<div class="text-sm font-semibold text-text">{definition.label}</div>
+						<div class="text-sm font-semibold text-ink">{definition.label}</div>
 						{#if definition.scope}
-							<div class="bg-surface px-1.5 py-0.5 text-xs text-text-muted">
+							<div class="bg-surface px-1.5 py-0.5 text-xs text-ink-muted">
 								{definition.scope}
 							</div>
 						{/if}
 						{#if active}
 							<div
-								class="bg-warning px-1.5 py-0.5 text-xs font-semibold text-warning-dark uppercase"
+								class="bg-warning px-1.5 py-0.5 text-xs font-semibold text-warning-ink"
 							>
 								Active
 							</div>
 						{/if}
 					</div>
-					<div class="mt-1 text-sm text-text-muted">{definition.description}</div>
+					<div class="mt-1 text-sm text-ink-muted">{definition.description}</div>
 				</div>
 				<div class="flex shrink-0 overflow-hidden">
 					<button
@@ -281,6 +281,6 @@
 		</div>
 	{/each}
 	{#if incidentPolicyError}
-		<div class="text-sm text-danger">{incidentPolicyError}</div>
+		<div class="text-sm text-danger-ink">{incidentPolicyError}</div>
 	{/if}
 </div>

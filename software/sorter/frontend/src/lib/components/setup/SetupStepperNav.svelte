@@ -33,14 +33,14 @@
 			{#if !isFirst}
 				<div
 					class={`absolute left-0 top-5 -ml-px h-0.5 w-1/2 ${
-						prevStatus === 'done' ? 'bg-success' : 'bg-border'
+						prevStatus === 'done' ? 'bg-success' : 'bg-line'
 					}`}
 				></div>
 			{/if}
 			{#if !isLast}
 				<div
 					class={`absolute right-0 top-5 -mr-px h-0.5 w-1/2 ${
-						status === 'done' ? 'bg-success' : 'bg-border'
+						status === 'done' ? 'bg-success' : 'bg-line'
 					}`}
 				></div>
 			{/if}
@@ -52,8 +52,8 @@
 					status === 'done'
 						? 'border-success bg-success text-white hover:bg-success/90'
 						: status === 'current'
-							? 'border-success bg-white text-success'
-							: 'border-border bg-white text-text-muted'
+							? 'border-success bg-white text-success-ink'
+							: 'border-line bg-white text-ink-muted'
 				}`}
 			>
 				{#if status === 'done'}
@@ -66,7 +66,7 @@
 			</button>
 			<div
 				class={`mt-2 px-1 text-center text-xs font-medium leading-4 ${
-					status === 'done' || status === 'current' ? 'text-success' : 'text-text-muted'
+					status === 'done' || status === 'current' ? 'text-success-ink' : 'text-ink-muted'
 				}`}
 			>
 				{step.title}

@@ -11,12 +11,13 @@
 	import { categoryLabel } from '$lib/components/bins/pieces';
 	import SnapshotsModal from '$lib/components/bins/SnapshotsModal.svelte';
 	import type { BinContents, BinInfo, LayerInfo, SetMeta, SetProgressSummary } from '$lib/components/bins/types';
-	import { Skeleton, ToggleSwitch } from '$lib/components/primitives';
-	import StatusBanner from '$lib/components/StatusBanner.svelte';
+	import Skeleton from '$lib/components/ui/Skeleton.svelte';
+	import Switch from '$lib/components/ui/Switch.svelte';
+	import Alert from '$lib/components/ui/Alert.svelte';
 	import { getMachinesContext } from '$lib/machines/context';
 	import { sortingProfileStore } from '$lib/stores/sortingProfile.svelte';
 	import { onMount } from 'svelte';
-	import Spinner from '$lib/components/Spinner.svelte';
+	import Spinner from '$lib/components/ui/Spinner.svelte';
 
 	const manager = getMachinesContext();
 	// Active profile (id/name) — bin layouts are scoped to it. Local profiles carry a
@@ -716,19 +717,19 @@
 
 <svelte:head><title>Sorter - Bins</title></svelte:head>
 
-<div class="min-h-screen bg-bg">
+<div class="min-h-screen bg-well">
 	<AppHeader />
 	{#if isGlobalClearing()}
 		<div class="fixed inset-0 z-[60] flex items-center justify-center bg-black/40 px-4">
-			<div class="w-full max-w-md border border-border bg-surface p-6 shadow-xl">
+			<div class="w-full max-w-md border border-line bg-surface p-6">
 				<div class="flex items-start gap-4">
-					<div class="flex h-10 w-10 items-center justify-center border border-border bg-bg">
-						<Spinner size={18} class="text-primary" />
+					<div class="flex h-10 w-10 items-center justify-center border border-line bg-well">
+						<Spinner size={18} class="text-primary-ink" />
 					</div>
 					<div class="space-y-2">
-						<h3 class="text-lg font-semibold text-text">{globalClearingTitle()}</h3>
-						<p class="text-sm leading-6 text-text-muted">{globalClearingDescription()}</p>
-						<p class="text-xs uppercase tracking-wide text-text-muted">Please wait while the sorter refreshes the bin state.</p>
+						<h3 class="text-lg font-semibold text-ink">{globalClearingTitle()}</h3>
+						<p class="text-sm leading-6 text-ink-muted">{globalClearingDescription()}</p>
+						<p class="text-xs text-ink-muted">Please wait while the sorter refreshes the bin state.</p>
 					</div>
 				</div>
 			</div>
@@ -737,7 +738,7 @@
 	<div class="p-4 sm:p-6">
 		<div class="mb-4 flex items-center justify-between gap-4">
 			<div>
-				<h2 class="text-xl font-bold text-text">Bin Grid</h2>
+				<h2 class="text-xl font-bold text-ink">Bin Grid</h2>
 			</div>
 			<BinsHeaderActions
 				csvUrl={currentContentsCsvUrl()}
@@ -767,28 +768,28 @@
 
 		<BinLayoutSection baseUrl={baseUrl()} profileId={activeProfileId} profileName={activeProfileName} />
 
-		<div class="mb-4 flex items-center justify-between gap-4 border border-border bg-surface px-4 py-3">
+		<div class="mb-4 flex items-center justify-between gap-4 border border-line bg-surface px-4 py-3">
 			<div class="pr-4">
-				<div class="text-sm font-medium text-text">Allow multiple categories per bin</div>
-				<div class="mt-0.5 text-sm text-text-muted">
+				<div class="text-sm font-medium text-ink">Allow multiple categories per bin</div>
+				<div class="mt-0.5 text-sm text-ink-muted">
 					When every bin already has an assignment, keep sorting new categories by
 					combining them into existing bins (least-loaded first) instead of sending
 					them to the discard passthrough.
 				</div>
 			</div>
-			<ToggleSwitch
+			<Switch
 				checked={allowMultiCategory}
 				label="Allow multiple categories per bin"
 				disabled={savingMultiCategory}
-				onToggle={() => void toggleMultiCategory()}
+				onchange={() => void toggleMultiCategory()}
 			/>
 		</div>
 
-		<div class="mb-4 border border-border bg-surface px-4 py-3">
+		<div class="mb-4 border border-line bg-surface px-4 py-3">
 			<div class="flex flex-wrap items-center justify-between gap-4">
 				<div class="pr-4">
-					<div class="text-sm font-medium text-text">Auto-assign bins</div>
-					<div class="mt-0.5 text-sm text-text-muted">
+					<div class="text-sm font-medium text-ink">Auto-assign bins</div>
+					<div class="mt-0.5 text-sm text-ink-muted">
 						Ranks the active profile's categories by how many recently-sorted pieces
 						hit them, then fills bins biggest-first — the larger bottom bins get the
 						highest-volume categories. Overwrites current normal-bin assignments;
@@ -800,7 +801,7 @@
 						type="button"
 						onclick={() => void runAutoAssign(false)}
 						disabled={autoAssignBusy}
-						class="flex items-center gap-2 border border-border bg-surface px-3.5 py-2 text-sm font-medium text-text transition-colors hover:bg-bg disabled:cursor-not-allowed disabled:opacity-50"
+						class="flex items-center gap-2 border border-line bg-surface px-3.5 py-2 text-sm font-medium text-ink transition-colors hover:bg-hover disabled:cursor-not-allowed disabled:opacity-50"
 					>
 						{autoAssignBusy ? 'Assigning…' : 'Auto-assign'}
 					</button>
@@ -809,14 +810,14 @@
 						onclick={() => void runAutoAssign(true)}
 						disabled={autoAssignBusy}
 						title="Pack every ranked category in, sharing bins once they run out"
-						class="flex items-center gap-2 border border-border bg-surface px-3.5 py-2 text-sm font-medium text-text transition-colors hover:bg-bg disabled:cursor-not-allowed disabled:opacity-50"
+						class="flex items-center gap-2 border border-line bg-surface px-3.5 py-2 text-sm font-medium text-ink transition-colors hover:bg-hover disabled:cursor-not-allowed disabled:opacity-50"
 					>
 						{autoAssignBusy ? 'Assigning…' : 'Auto-assign + overlap'}
 					</button>
 				</div>
 			</div>
 			{#if autoAssignResult}
-				<div class="mt-2 text-sm text-text-muted">{autoAssignResult}</div>
+				<div class="mt-2 text-sm text-ink-muted">{autoAssignResult}</div>
 			{/if}
 		</div>
 
@@ -834,8 +835,8 @@
 			/>
 		{/if}
 
-		<StatusBanner message={statusMsg} variant="success" />
-		<StatusBanner message={error ?? ''} variant="error" />
+		{#if statusMsg}<Alert tone="success">{statusMsg}</Alert>{/if}
+		{#if error}<Alert tone="danger">{error}</Alert>{/if}
 
 		{#if !loading && layers.length > 0}
 			<BinSearchBar bind:query={searchQuery} matchCount={searchMatchCount} totalBins={totalBinCount} />
@@ -844,15 +845,15 @@
 		{#if loading}
 			<div class="flex flex-col gap-6">
 				{#each Array(2) as _layerUnused}
-					<div class="border border-border">
-						<div class="flex items-center justify-between border-b border-border bg-surface px-4 py-3">
+					<div class="border border-line">
+						<div class="flex items-center justify-between border-b border-line bg-surface px-4 py-3">
 							<Skeleton class="h-6 w-40" />
 							<Skeleton class="h-9 w-72" />
 						</div>
 						<div class="grid grid-cols-6 gap-3 p-3">
 							{#each Array(6) as _binUnused}
-								<div class="flex flex-col border border-border">
-									<div class="border-b border-border bg-surface px-3 py-2">
+								<div class="flex flex-col border border-line">
+									<div class="border-b border-line bg-surface px-3 py-2">
 										<Skeleton class="h-5 w-3/4" />
 									</div>
 									<div class="grid grid-cols-4 gap-2 p-3">
@@ -860,7 +861,7 @@
 											<Skeleton class="aspect-square w-full" />
 										{/each}
 									</div>
-									<div class="flex items-center justify-between border-t border-border px-3 py-2">
+									<div class="flex items-center justify-between border-t border-line px-3 py-2">
 										<Skeleton class="h-4 w-16" />
 										<Skeleton class="h-4 w-12" />
 									</div>
@@ -871,7 +872,7 @@
 				{/each}
 			</div>
 		{:else if layers.length === 0}
-			<p class="text-text-muted">No storage layers configured.</p>
+			<p class="text-ink-muted">No storage layers configured.</p>
 		{:else}
 			<div class="flex flex-col gap-6">
 				{#each layers as layer (layer.layer_index)}

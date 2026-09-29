@@ -1,8 +1,8 @@
 <script lang="ts">
 	import Check from '@lucide/svelte/icons/check';
 	import FlaskConical from '@lucide/svelte/icons/flask-conical';
-	import { Button } from '$lib/components/primitives';
-	import Spinner from '$lib/components/Spinner.svelte';
+	import Button from '$lib/components/ui/Button.svelte';
+	import Spinner from '$lib/components/ui/Spinner.svelte';
 
 	// Scratch / ephemeral Brickognize re-classification. Pick a subset of a
 	// piece's crops and run them back through Brickognize purely for testing —
@@ -84,15 +84,15 @@
 	}
 </script>
 
-<div class="border border-warning/40 bg-warning/[0.06]">
+<div class="border border-warning/40 bg-warning-soft">
 	<div class="flex flex-wrap items-center gap-2 border-b border-warning/40 px-3 py-2">
-		<FlaskConical size={14} class="text-warning" />
-		<span class="text-sm font-semibold text-text">Scratch reclassify</span>
-		<span class="text-xs text-text-muted">
+		<FlaskConical size={14} class="text-warning-ink" />
+		<span class="text-sm font-semibold text-ink">Scratch reclassify</span>
+		<span class="text-xs text-ink-muted">
 			testing only — not recorded, no effect on sorting
 		</span>
 		<span class="ml-auto flex items-center gap-2">
-			<span class="text-xs tabular-nums {overLimit ? 'text-danger' : 'text-text-muted'}">
+			<span class="text-xs num {overLimit ? 'text-danger-ink' : 'text-ink-muted'}">
 				{selectedCount}/{MAX_IMAGES} selected
 			</span>
 			<Button
@@ -109,7 +109,7 @@
 
 	<div class="p-3">
 		{#if images.length === 0}
-			<div class="text-sm text-text-muted">No images available to test.</div>
+			<div class="text-sm text-ink-muted">No images available to test.</div>
 		{:else}
 			<div class="flex flex-wrap gap-2">
 				{#each images as img, i (i)}
@@ -119,7 +119,7 @@
 						onclick={() => toggle(i)}
 						class="relative flex flex-col bg-white text-left {isSel
 							? 'border-2 border-primary'
-							: 'border border-border opacity-70 hover:opacity-100'}"
+							: 'border border-line opacity-70 hover:opacity-100'}"
 						title={img.label}
 					>
 						<div class="h-24 w-24 bg-white">
@@ -130,28 +130,28 @@
 								<Check size={12} />
 							</span>
 						{/if}
-						<div class="border-t border-border px-1.5 py-1 text-xs text-text-muted">
+						<div class="border-t border-line px-1.5 py-1 text-xs text-ink-muted">
 							<span class="block truncate">{img.label}</span>
 						</div>
 					</button>
 				{/each}
 			</div>
 			{#if overLimit}
-				<div class="mt-2 text-xs text-danger">
+				<div class="mt-2 text-xs text-danger-ink">
 					Brickognize accepts at most {MAX_IMAGES} images — deselect {selectedCount - MAX_IMAGES}.
 				</div>
 			{/if}
 		{/if}
 
 		{#if error}
-			<div class="mt-3 border border-danger/40 bg-danger/[0.06] px-3 py-2 text-sm text-danger">
+			<div class="mt-3 border border-danger/40 bg-danger-soft px-3 py-2 text-sm text-danger-ink">
 				{error}
 			</div>
 		{/if}
 
 		{#if result}
-			<div class="mt-3 border border-border bg-surface p-3">
-				<div class="mb-2 text-xs font-semibold uppercase tracking-wider text-text-muted">
+			<div class="mt-3 border border-line bg-surface p-3">
+				<div class="mb-2 text-xs font-semibold text-ink-muted">
 					Result · {result.n_images} image{result.n_images === 1 ? '' : 's'} sent
 				</div>
 				{#if result.best_item}
@@ -162,23 +162,23 @@
 									? result.best_item.img_url
 									: `https:${result.best_item.img_url}`}
 								alt={result.best_item.name}
-								class="h-16 w-16 flex-shrink-0 border border-border bg-white object-contain"
+								class="h-16 w-16 flex-shrink-0 border border-line bg-white object-contain"
 								loading="lazy"
 							/>
 						{/if}
 						<div class="flex min-w-0 flex-col gap-0.5 text-sm">
-							<span class="font-mono font-semibold text-text">{result.best_item.id}</span>
-							<span class="text-text">{result.best_item.name}</span>
-							<span class="tabular-nums text-text-muted">
+							<span class="font-mono font-semibold text-ink">{result.best_item.id}</span>
+							<span class="text-ink">{result.best_item.name}</span>
+							<span class="num text-ink-muted">
 								{(result.best_item.score * 100).toFixed(0)}% match{#if result.best_color}
 									· {result.best_color.name}{/if}
 							</span>
 						</div>
 					</div>
 					{#if result.items.length > 1}
-						<div class="mt-2 flex flex-col gap-0.5 text-xs text-text-muted">
+						<div class="mt-2 flex flex-col gap-0.5 text-xs text-ink-muted">
 							{#each result.items.slice(1, 5) as it (it.id)}
-								<span class="tabular-nums">
+								<span class="num">
 									{(it.score * 100).toFixed(0)}% · <span class="font-mono">{it.id}</span>
 									{it.name}
 								</span>
@@ -186,7 +186,7 @@
 						</div>
 					{/if}
 				{:else}
-					<div class="text-sm text-text-muted">No items returned (not recognized).</div>
+					<div class="text-sm text-ink-muted">No items returned (not recognized).</div>
 				{/if}
 			</div>
 		{/if}

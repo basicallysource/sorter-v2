@@ -3740,7 +3740,7 @@
 <div class="flex flex-col">
 	<!-- Card header -->
 	<div
-		class="-mx-4 -mt-4 flex flex-wrap items-center gap-3 border-b border-border bg-surface px-4 py-3"
+		class="-mx-4 -mt-4 flex flex-wrap items-center gap-3 border-b border-line bg-surface px-4 py-3"
 	>
 		<div class="flex min-w-0 flex-1 flex-wrap items-center gap-2">
 			{#if channels.length > 1}
@@ -3751,27 +3751,27 @@
 						class="border px-3 py-1.5 text-xs font-medium transition-colors"
 						style:border-color={active ? CHANNEL_COLORS[channel] : undefined}
 						class:bg-surface={active}
-						class:bg-bg={!active}
-						class:text-text={true}
+						class:bg-well={!active}
+						class:text-ink={true}
 					>
 						{CHANNEL_LABELS[channel]}
 					</button>
 				{/each}
 			{:else}
-				<h2 class="text-base font-semibold text-text">
+				<h2 class="text-base font-semibold text-ink">
 					{CHANNEL_LABELS[currentChannel]}
 				</h2>
 			{/if}
 
 			<div
-				class="flex min-w-0 items-center gap-1 rounded-full bg-bg px-3 py-1 text-xs text-text-muted"
+				class="flex min-w-0 items-center gap-1 rounded-full bg-well px-3 py-1 text-xs text-ink-muted"
 			>
-				<span class="font-medium text-text">Source:</span>
+				<span class="font-medium text-ink">Source:</span>
 				<span class="ml-1 truncate">{formatSource(currentAssignment())}</span>
 				{#if currentAssignment() === null && cameraConfigLoaded}
 					<button
 						onclick={openCameraPicker}
-						class="ml-1 inline-flex h-4 w-4 cursor-pointer items-center justify-center rounded-full bg-text-muted/20 text-text transition-colors hover:bg-text-muted/40"
+						class="ml-1 inline-flex h-4 w-4 cursor-pointer items-center justify-center rounded-full bg-text-muted/20 text-ink transition-colors hover:bg-text-muted/40"
 						title="Select camera"
 					>
 						<svg
@@ -3793,8 +3793,8 @@
 				<div
 					class={`min-w-0 rounded-full border px-3 py-1 text-xs ${
 						statusMsg.startsWith('Error:')
-							? 'border-danger bg-danger/10 text-danger dark:border-danger dark:bg-danger/10 dark:text-red-400'
-							: 'border-border bg-bg text-text-muted'
+							? 'border-danger bg-danger-soft text-danger-ink'
+							: 'border-line bg-well text-ink-muted'
 					}`}
 				>
 					<span class="truncate">{statusMsg}</span>
@@ -3816,7 +3816,7 @@
 				<button
 					onclick={openCameraPicker}
 					disabled={editingZone}
-					class="inline-flex cursor-pointer items-center gap-2 border border-border bg-bg px-3 py-1.5 text-sm text-text transition-colors hover:bg-bg/80 disabled:cursor-not-allowed disabled:opacity-50"
+					class="inline-flex cursor-pointer items-center gap-2 border border-line bg-well px-3 py-1.5 text-sm text-ink transition-colors hover:bg-hover disabled:cursor-not-allowed disabled:opacity-50"
 				>
 					<Camera size={15} />
 					<span>Change Camera</span>
@@ -3827,8 +3827,8 @@
 					disabled={editingZone}
 					class={`inline-flex cursor-pointer items-center gap-2 border px-3 py-1.5 text-sm transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${
 						activeSidebar === 'picture'
-							? 'border-amber-500 bg-amber-500/15 text-amber-700 hover:bg-amber-500/25 dark:text-amber-300'
-							: 'border-border bg-bg text-text hover:bg-bg/80'
+							? 'border-amber-500 bg-amber-500/15 text-amber-700 hover:bg-amber-500/25'
+							: 'border-line bg-well text-ink hover:bg-hover'
 					}`}
 				>
 					<SlidersHorizontal size={15} />
@@ -3841,8 +3841,8 @@
 						disabled={editingZone}
 						class={`inline-flex cursor-pointer items-center gap-2 border px-3 py-1.5 text-sm transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${
 							activeSidebar === 'classification'
-								? 'border-violet-500 bg-violet-500/15 text-violet-700 hover:bg-violet-500/25 dark:text-violet-300'
-								: 'border-border bg-bg text-text hover:bg-bg/80'
+								? 'border-violet-500 bg-violet-500/15 text-violet-700 hover:bg-violet-500/25'
+								: 'border-line bg-well text-ink hover:bg-hover'
 						}`}
 					>
 						<Bug size={15} />
@@ -3856,8 +3856,8 @@
 						disabled={editingZone}
 						class={`inline-flex cursor-pointer items-center gap-2 border px-3 py-1.5 text-sm transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${
 							activeSidebar === 'led'
-								? 'border-sky-500 bg-sky-500/15 text-sky-700 hover:bg-sky-500/25 dark:text-sky-300'
-								: 'border-border bg-bg text-text hover:bg-bg/80'
+								? 'border-sky-500 bg-sky-500/15 text-sky-700 hover:bg-sky-500/25'
+								: 'border-line bg-well text-ink hover:bg-hover'
 						}`}
 					>
 						<Lightbulb size={15} />
@@ -3869,7 +3869,7 @@
 					{#if isArcChannel(currentChannel)}
 						<button
 							onclick={() => flipPreciseSide(currentChannel as ArcChannel)}
-							class="inline-flex cursor-pointer items-center gap-2 border border-violet-500 bg-violet-500/15 px-3 py-1.5 text-sm text-violet-700 transition-colors hover:bg-violet-500/25 dark:text-violet-300"
+							class="inline-flex cursor-pointer items-center gap-2 border border-violet-500 bg-violet-500/15 px-3 py-1.5 text-sm text-violet-700 transition-colors hover:bg-violet-500/25"
 						>
 							<FlipHorizontal size={15} />
 							<span>Flip Precise Side</span>
@@ -3877,14 +3877,14 @@
 					{/if}
 					<button
 						onclick={resetCurrentChannel}
-						class="inline-flex cursor-pointer items-center gap-2 border border-border bg-bg px-3 py-1.5 text-sm text-text transition-colors hover:bg-bg/80"
+						class="inline-flex cursor-pointer items-center gap-2 border border-line bg-well px-3 py-1.5 text-sm text-ink transition-colors hover:bg-hover"
 					>
 						<RotateCcw size={15} />
 						<span>Reset</span>
 					</button>
 					<button
 						onclick={cancelEditing}
-						class="inline-flex cursor-pointer items-center gap-2 border border-border bg-bg px-3 py-1.5 text-sm text-text transition-colors hover:bg-bg/80"
+						class="inline-flex cursor-pointer items-center gap-2 border border-line bg-well px-3 py-1.5 text-sm text-ink transition-colors hover:bg-hover"
 					>
 						<X size={15} />
 						<span>Cancel</span>
@@ -3892,7 +3892,7 @@
 					<button
 						onclick={saveAll}
 						disabled={saving}
-						class="inline-flex cursor-pointer items-center gap-2 border border-success bg-success/15 px-3 py-1.5 text-sm text-success transition-colors hover:bg-success/25 disabled:cursor-not-allowed disabled:opacity-50 dark:text-emerald-300"
+						class="inline-flex cursor-pointer items-center gap-2 border border-success bg-success-soft px-3 py-1.5 text-sm text-success-ink transition-colors hover:bg-success-soft disabled:cursor-not-allowed disabled:opacity-50"
 					>
 						<Check size={15} />
 						<span>{saving ? 'Saving...' : 'Save Zone'}</span>
@@ -3901,7 +3901,7 @@
 					<button
 						onclick={beginEditing}
 						disabled={currentAssignment() === null}
-						class="inline-flex cursor-pointer items-center gap-2 border border-primary bg-primary/15 px-3 py-1.5 text-sm text-primary transition-colors hover:bg-primary/25 disabled:cursor-not-allowed disabled:opacity-50"
+						class="inline-flex cursor-pointer items-center gap-2 border border-primary bg-primary-soft px-3 py-1.5 text-sm text-primary-ink transition-colors hover:bg-primary-soft disabled:cursor-not-allowed disabled:opacity-50"
 					>
 						<Pencil size={15} />
 						<span>Edit Zone</span>
@@ -3912,7 +3912,7 @@
 	</div>
 
 	<!-- Help text -->
-	<div class="-mx-4 px-4 py-2 text-sm text-text-muted">
+	<div class="-mx-4 px-4 py-2 text-sm text-ink-muted">
 		{#if wizardMode}
 			Adjust the zone overlay directly on the preview, then save to keep the updated mask.
 		{:else}
@@ -3937,7 +3937,7 @@
 							<div
 								class="absolute inset-0 flex items-center justify-center px-6 text-center text-sm text-white/80"
 							>
-								<div class="max-w-sm rounded-md bg-black/55 px-4 py-3">
+								<div class="max-w-sm rounded-control bg-black/55 px-4 py-3">
 									Loading camera source for {CHANNEL_LABELS[currentChannel]}...
 								</div>
 							</div>
@@ -3956,15 +3956,15 @@
 							>
 								{#each getDetectionHighlights(currentRole()) as highlight, index}
 									<div
-										class={`absolute border-2 shadow-[0_0_0_1px_rgba(255,255,255,0.35)] ${
+										class={`absolute border-2 ${
 											index === 0
-												? 'border-violet-400 shadow-[0_0_0_1px_rgba(255,255,255,0.35),0_0_24px_rgba(167,139,250,0.35)]'
+												? 'border-violet-400'
 												: 'border-violet-300/80'
 										}`}
 										style={`left:${highlight[0] * 100}%;top:${highlight[1] * 100}%;width:${(highlight[2] - highlight[0]) * 100}%;height:${(highlight[3] - highlight[1]) * 100}%;`}
 									>
 										<div
-											class="absolute top-1 right-1 rounded border border-white/20 bg-violet-500/60 px-1.5 py-0.5 text-xs leading-none font-semibold text-white shadow-md backdrop-blur-sm"
+											class="absolute top-1 right-1 rounded-control border border-white/20 bg-violet-500/60 px-1.5 py-0.5 text-xs leading-none font-semibold text-white backdrop-blur-sm"
 										>
 											{index + 1}
 										</div>
@@ -3975,7 +3975,7 @@
 							<div
 								class="absolute inset-0 flex items-center justify-center px-6 text-center text-sm text-white/80"
 							>
-								<div class="max-w-sm rounded-md bg-black/55 px-4 py-3">
+								<div class="max-w-sm rounded-control bg-black/55 px-4 py-3">
 									No camera source configured for {CHANNEL_LABELS[currentChannel]} yet.
 								</div>
 							</div>
@@ -4014,14 +4014,14 @@
 				</div>
 
 				{#if editingZone && previousSourceChannel !== null}
-					<div class="border border-border bg-surface px-4 py-3 text-sm text-text-muted">
+					<div class="border border-line bg-surface px-4 py-3 text-sm text-ink-muted">
 						<div class="flex flex-wrap items-center justify-between gap-2">
-							<div class="font-semibold text-text">
+							<div class="font-semibold text-ink">
 								Add Channel {previousSourceChannel} Zone
 							</div>
 							<button
 								onclick={() => addSecondaryZone(previousSourceChannel!, 'exit')}
-								class="inline-flex cursor-pointer items-center gap-2 border border-info bg-info/15 px-3 py-1.5 text-sm text-info transition-colors hover:bg-info/25"
+								class="inline-flex cursor-pointer items-center gap-2 border border-info bg-info-soft px-3 py-1.5 text-sm text-info-ink transition-colors hover:bg-info-soft"
 							>
 								<Plus size={15} />
 								<span>Add Zone</span>
@@ -4038,10 +4038,10 @@
 								{#each currentSecondaryList() as zone (zone.id)}
 									{@const isEditing = secondaryEditMode && zone.id === activeSecondaryId}
 									<div
-										class="flex flex-wrap items-center gap-2 border border-border bg-bg px-3 py-2"
+										class="flex flex-wrap items-center gap-2 border border-line bg-well px-3 py-2"
 										class:border-info={isEditing}
 									>
-										<span class="font-medium text-text">C{zone.sourceChannel}</span>
+										<span class="font-medium text-ink">C{zone.sourceChannel}</span>
 										<select
 											value={zone.zoneType}
 											onchange={(e) =>
@@ -4049,18 +4049,18 @@
 													zone.id,
 													(e.currentTarget as HTMLSelectElement).value as SecondaryZoneType
 												)}
-											class="border border-border bg-surface px-2 py-1 text-sm text-text"
+											class="border border-line bg-surface px-2 py-1 text-sm text-ink"
 										>
 											<option value="drop">drop</option>
 											<option value="exit">exit</option>
 											<option value="precise">precise</option>
 										</select>
-										<span class="text-sm text-text-muted">{zone.points.length} pts</span>
+										<span class="text-sm text-ink-muted">{zone.points.length} pts</span>
 										<div class="ml-auto flex items-center gap-2">
 											{#if isEditing}
 												<button
 													onclick={exitSecondaryEditMode}
-													class="inline-flex cursor-pointer items-center gap-1 border border-success bg-success/15 px-2 py-1 text-sm text-success transition-colors hover:bg-success/25"
+													class="inline-flex cursor-pointer items-center gap-1 border border-success bg-success-soft px-2 py-1 text-sm text-success-ink transition-colors hover:bg-success-soft"
 												>
 													<Check size={14} />
 													<span>Done</span>
@@ -4068,7 +4068,7 @@
 											{:else}
 												<button
 													onclick={() => selectSecondaryZone(zone.id)}
-													class="inline-flex cursor-pointer items-center gap-1 border border-border bg-bg px-2 py-1 text-sm text-text transition-colors hover:bg-bg/80"
+													class="inline-flex cursor-pointer items-center gap-1 border border-line bg-well px-2 py-1 text-sm text-ink transition-colors hover:bg-hover"
 												>
 													<Pencil size={14} />
 													<span>Edit</span>
@@ -4076,7 +4076,7 @@
 											{/if}
 											<button
 												onclick={() => deleteSecondaryZone(zone.id)}
-												class="inline-flex cursor-pointer items-center gap-1 border border-border bg-bg px-2 py-1 text-sm text-text transition-colors hover:bg-bg/80"
+												class="inline-flex cursor-pointer items-center gap-1 border border-line bg-well px-2 py-1 text-sm text-ink transition-colors hover:bg-hover"
 											>
 												<X size={14} />
 											</button>
@@ -4087,7 +4087,7 @@
 						{/if}
 
 						{#if secondaryEditMode}
-							<div class="mt-2 text-sm text-info">
+							<div class="mt-2 text-sm text-info-ink">
 								Drawing C{activeSecondaryZone()?.sourceChannel} zone: click to add points, drag a point
 								to move it, right-click a point to remove it.
 							</div>
@@ -4096,10 +4096,10 @@
 				{/if}
 
 				{#if wizardMode && editingZone}
-					<div class="border border-border bg-surface px-4 py-3 text-sm text-text-muted">
+					<div class="border border-line bg-surface px-4 py-3 text-sm text-ink-muted">
 						{#if isArcChannel(currentChannel)}
 							<div class="grid gap-4 lg:grid-cols-[12rem_minmax(0,1fr)] lg:items-start">
-								<div class="overflow-hidden rounded border border-border bg-bg/70">
+								<div class="overflow-hidden rounded-control border border-line bg-well">
 									<img
 										src="/setup/zone-placement-reference.png"
 										alt="Drop and exit zone placement reference"
@@ -4108,46 +4108,46 @@
 								</div>
 
 								<div>
-									<div class="font-medium text-text">Placement reference</div>
+									<div class="font-medium text-ink">Placement reference</div>
 									<div
-										class="mt-2 rounded border border-success/20 bg-success/8 px-3 py-2 leading-6 text-text-muted"
+										class="mt-2 rounded-control border border-success/20 bg-success-soft px-3 py-2 leading-6 text-ink-muted"
 									>
-										<span class="font-medium text-success">Green Drop Zone:</span>
+										<span class="font-medium text-success-ink">Green Drop Zone:</span>
 										position this where parts arrive from the previous stage and land on the ring.
 									</div>
 									<div
-										class="mt-2 rounded border border-danger/20 bg-danger/8 px-3 py-2 leading-6 text-text-muted"
+										class="mt-2 rounded-control border border-danger/20 bg-danger-soft px-3 py-2 leading-6 text-ink-muted"
 									>
-										<span class="font-medium text-danger">Red Exit Zone:</span>
+										<span class="font-medium text-danger-ink">Red Exit Zone:</span>
 										position this where parts should leave the ring into the next path or mechanism.
 									</div>
-									<div class="mt-2 text-xs leading-5 text-text-muted">
+									<div class="mt-2 text-xs leading-5 text-ink-muted">
 										Use this as an orientation guide. The exact angles depend on your camera
 										position and the real machine geometry.
 									</div>
 								</div>
 							</div>
 
-							<div class="mt-4 border-t border-border pt-3">
-								<div class="font-medium text-text">How to edit</div>
+							<div class="mt-4 border-t border-line pt-3">
+								<div class="font-medium text-ink">How to edit</div>
 								<div class="mt-2 leading-6">
 									Drag the handles for
-									<span class="font-medium text-text">Drop</span>,
-									<span class="font-medium text-text">Exit</span>,
-									<span class="font-medium text-text">Center</span>,
-									<span class="font-medium text-text">Inner</span> and
-									<span class="font-medium text-text">Outer</span> directly on the image. Use
-									<span class="font-medium text-text">Exit Outer</span> to pull the exit crop inward when
+									<span class="font-medium text-ink">Drop</span>,
+									<span class="font-medium text-ink">Exit</span>,
+									<span class="font-medium text-ink">Center</span>,
+									<span class="font-medium text-ink">Inner</span> and
+									<span class="font-medium text-ink">Outer</span> directly on the image. Use
+									<span class="font-medium text-ink">Exit Outer</span> to pull the exit crop inward when
 									the opening shows the next plate.
 								</div>
 								<div class="mt-1 leading-6">
 									Drag inside the ring to move the whole zone. Use the mouse wheel for fine radius
 									scaling and
-									<span class="font-medium text-text"> Shift+Click</span> to set section 0.
+									<span class="font-medium text-ink"> Shift+Click</span> to set section 0.
 								</div>
 							</div>
 						{:else}
-							<div class="font-medium text-text">How to edit</div>
+							<div class="font-medium text-ink">How to edit</div>
 							<div class="mt-2 leading-6">
 								Drag the corner handles directly on the image to reshape the zone.
 							</div>
@@ -4205,21 +4205,21 @@
 			{/if}
 
 			{#if activeSidebar === 'led' && supportsLedSidebar(currentChannel)}
-				<aside class="flex h-full min-w-0 flex-col border border-border bg-bg xl:min-h-[32rem]">
-					<div class="border-b border-border bg-surface px-4 py-3">
+				<aside class="flex h-full min-w-0 flex-col border border-line bg-well xl:min-h-[32rem]">
+					<div class="border-b border-line bg-surface px-4 py-3">
 						<div class="flex items-start justify-between gap-3">
 							<div class="min-w-0">
-								<div class="flex items-center gap-2 text-sm font-semibold text-text">
+								<div class="flex items-center gap-2 text-sm font-semibold text-ink">
 									<Lightbulb size={16} />
 									<span>LED</span>
 								</div>
-								<p class="mt-1 text-sm leading-5 text-text-muted">
+								<p class="mt-1 text-sm leading-5 text-ink-muted">
 									The light in {CHANNEL_LABELS[currentChannel]}'s hood.
 								</p>
 							</div>
 							<button
 								onclick={() => (activeSidebar = null)}
-								class="inline-flex h-8 w-8 shrink-0 cursor-pointer items-center justify-center text-text-muted transition-colors hover:text-text"
+								class="inline-flex h-8 w-8 shrink-0 cursor-pointer items-center justify-center text-ink-muted transition-colors hover:text-ink"
 								aria-label="Close LED settings"
 							>
 								<X size={15} />
@@ -4252,14 +4252,14 @@
 			<div class="flex flex-col gap-4">
 				{#if cameraError}
 					<div
-						class="border border-danger bg-danger/10 px-3 py-2 text-sm text-danger dark:border-danger dark:bg-danger/10 dark:text-red-400"
+						class="border border-danger bg-danger-soft px-3 py-2 text-sm text-danger-ink"
 					>
 						{cameraError}
 					</div>
 				{/if}
 
 				{#if cameraLoading}
-					<div class="animate-pulse py-8 text-center text-sm text-text-muted">
+					<div class="animate-pulse py-8 text-center text-sm text-ink-muted">
 						Scanning cameras...
 					</div>
 				{:else}
@@ -4279,12 +4279,12 @@
 									class="group relative overflow-hidden text-left transition-all {isSelected
 										? 'ring-2 ring-primary'
 										: usedByOther
-											? 'opacity-60 hover:opacity-100 hover:ring-2 hover:ring-[#FFD500] dark:hover:ring-[#FFD500]'
+											? 'opacity-60 hover:opacity-100 hover:ring-2 hover:ring-[#FFD500]'
 											: 'hover:ring-2 hover:ring-primary/50'}"
 								>
 									{#if cam.preview_available === false}
 										<div
-											class="flex aspect-video items-center justify-center bg-bg text-center text-xs text-text-muted"
+											class="flex aspect-video items-center justify-center bg-well text-center text-xs text-ink-muted"
 										>
 											No preview
 										</div>
@@ -4312,14 +4312,14 @@
 									</div>
 									{#if isSelected}
 										<div
-											class="absolute top-1.5 right-1.5 rounded-sm bg-primary px-1.5 py-0.5 text-xs font-medium text-primary-contrast"
+											class="absolute top-1.5 right-1.5 rounded-control bg-primary px-1.5 py-0.5 text-xs font-medium text-on-primary"
 										>
 											Active
 										</div>
 									{:else if usedByOther}
 										{@const otherRole = findRoleUsing(cam.index, role)}
 										<div
-											class="absolute top-1.5 right-1.5 rounded-sm bg-[#FFD500] px-1.5 py-0.5 text-xs font-medium text-[#1A1A1A]"
+											class="absolute top-1.5 right-1.5 rounded-control bg-[#FFD500] px-1.5 py-0.5 text-xs font-medium text-[#1A1A1A]"
 										>
 											{otherRole ? ROLE_LABELS[otherRole] : 'In use'}
 										</div>
@@ -4329,25 +4329,25 @@
 						</div>
 					{:else}
 						<div
-							class="border border-dashed border-border px-4 py-8 text-center text-sm text-text-muted"
+							class="border border-dashed border-line px-4 py-8 text-center text-sm text-ink-muted"
 						>
 							No cameras detected. Click Refresh to scan again.
 						</div>
 					{/if}
 				{/if}
 
-				<div class="flex items-center justify-between border-t border-border pt-3">
+				<div class="flex items-center justify-between border-t border-line pt-3">
 					{#if cameraLoading}
 						<button
 							onclick={cancelCameraScan}
-							class="inline-flex cursor-pointer items-center gap-1.5 text-xs text-text-muted transition-colors hover:text-text"
+							class="inline-flex cursor-pointer items-center gap-1.5 text-xs text-ink-muted transition-colors hover:text-ink"
 						>
 							<span>Cancel</span>
 						</button>
 					{:else}
 						<button
 							onclick={refreshCameras}
-							class="inline-flex cursor-pointer items-center gap-1.5 text-xs text-text-muted transition-colors hover:text-text"
+							class="inline-flex cursor-pointer items-center gap-1.5 text-xs text-ink-muted transition-colors hover:text-ink"
 						>
 							<RefreshCw size={13} />
 							<span>Refresh</span>
@@ -4357,7 +4357,7 @@
 						<button
 							onclick={() => saveCameraRole(currentRole(), null)}
 							disabled={cameraSaving}
-							class="cursor-pointer text-xs text-danger transition-colors hover:text-danger/80 disabled:cursor-not-allowed disabled:opacity-50 dark:text-red-400 dark:hover:text-red-300"
+							class="cursor-pointer text-xs text-danger-ink transition-colors hover:text-danger-ink/80 disabled:cursor-not-allowed disabled:opacity-50"
 						>
 							Remove current camera
 						</button>
@@ -4369,7 +4369,7 @@
 		{#if reassignConfirm}
 			<Modal bind:open={reassignModalOpen} title="Reassign Camera">
 				<div class="flex flex-col gap-4">
-					<p class="text-sm text-text">
+					<p class="text-sm text-ink">
 						<span class="font-medium">{reassignConfirm.cameraLabel}</span> is currently assigned to
 						<span class="font-medium">{ROLE_LABELS[reassignConfirm.currentRole]}</span>. It will be
 						unassigned from that role.
@@ -4380,7 +4380,7 @@
 								reassignConfirm = null;
 								reassignModalOpen = false;
 							}}
-							class="cursor-pointer border border-border bg-bg px-3 py-1.5 text-sm text-text hover:bg-surface"
+							class="cursor-pointer border border-line bg-well px-3 py-1.5 text-sm text-ink hover:bg-surface"
 						>
 							Cancel
 						</button>

@@ -2,7 +2,9 @@
 	import { getBackendHttpBase, machineHttpBaseUrlFromWsUrl } from '$lib/backend';
 	import { getMachinesContext } from '$lib/machines/context';
 	import SectionCard from '$lib/components/settings/SectionCard.svelte';
-	import { Alert, Button, Input } from '$lib/components/primitives';
+	import Alert from '$lib/components/ui/Alert.svelte';
+	import Button from '$lib/components/ui/Button.svelte';
+	import Input from '$lib/components/ui/Input.svelte';
 	import { STEPPER_GEAR_RATIOS } from '$lib/settings/stepper-control';
 	import { stepperLabels, type StepperKey } from '$lib/settings/stations';
 
@@ -166,7 +168,7 @@
 
 <div class="mx-auto flex max-w-3xl flex-col gap-6 p-6">
 	<header class="flex flex-col gap-1">
-		<h1 class="text-xl font-semibold tracking-wide">Jitter Test</h1>
+		<h1 class="text-xl font-semibold">Jitter Test</h1>
 		<p class="text-sm text-neutral-400">
 			Fire a short, sharp back-and-forth oscillation on a stepper to break static friction —
 			tuned to nudge a stuck piece off a C channel without a violent shake. The motion runs on the
@@ -204,7 +206,7 @@
 					type="button"
 					onclick={() => applyPreset(p)}
 					class="flex flex-col gap-0.5 border p-2 text-left transition-colors {selected
-						? 'border-primary bg-primary/10'
+						? 'border-primary bg-primary-soft'
 						: 'border-neutral-700/40 hover:border-neutral-500'}"
 				>
 					<span class="text-sm font-semibold">{p.name}</span>
@@ -221,7 +223,7 @@
 		<div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
 			<label class="flex flex-col gap-1">
 				<span class="text-sm font-medium">Amplitude (motor °/stroke)</span>
-				<Input type="number" step="0.1" bind:value={settings.amplitudeDeg} />
+				<Input type="number" step={0.1} bind:value={settings.amplitudeDeg} />
 				<span class="text-sm text-neutral-400">
 					≈ {outputAmplitudeDeg.toFixed(2)}° at the rotor (gear {gearRatio.toFixed(2)}:1)
 				</span>
@@ -229,17 +231,17 @@
 
 			<label class="flex flex-col gap-1">
 				<span class="text-sm font-medium">Cycles (back-and-forths)</span>
-				<Input type="number" step="1" bind:value={settings.cycles} />
+				<Input type="number" step={1} bind:value={settings.cycles} />
 			</label>
 
 			<label class="flex flex-col gap-1">
 				<span class="text-sm font-medium">Speed (µsteps/s)</span>
-				<Input type="number" step="100" bind:value={settings.speed} />
+				<Input type="number" step={100} bind:value={settings.speed} />
 			</label>
 
 			<label class="flex flex-col gap-1">
 				<span class="text-sm font-medium">Acceleration (µsteps/s²)</span>
-				<Input type="number" step="5000" bind:value={settings.acceleration} />
+				<Input type="number" step={5000} bind:value={settings.acceleration} />
 				<span class="text-sm text-neutral-400">Higher accel = sharper jerk per stroke.</span>
 			</label>
 		</div>
@@ -252,9 +254,9 @@
 	</div>
 
 	{#if statusMsg}
-		<Alert variant="info">{statusMsg}</Alert>
+		<Alert tone="info">{statusMsg}</Alert>
 	{/if}
 	{#if errorMsg}
-		<Alert variant="danger">{errorMsg}</Alert>
+		<Alert tone="danger">{errorMsg}</Alert>
 	{/if}
 </div>

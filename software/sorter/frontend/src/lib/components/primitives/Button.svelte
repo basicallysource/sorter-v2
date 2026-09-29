@@ -1,6 +1,6 @@
 <script lang="ts">
 	import type { Snippet } from 'svelte';
-	import Spinner from '$lib/components/Spinner.svelte';
+	import Spinner from '$lib/components/ui/Spinner.svelte';
 
 	type Variant = 'primary' | 'secondary' | 'success' | 'danger' | 'ghost';
 	type Size = 'sm' | 'md';
@@ -29,15 +29,15 @@
 
 	const variantClasses: Record<Variant, string> = {
 		primary:
-			'border border-primary bg-primary text-primary-contrast hover:border-primary-hover hover:bg-primary-hover',
+			'border border-primary bg-primary text-on-primary hover:border-primary-hover hover:bg-primary-hover',
 		secondary:
-			'border border-border bg-surface text-text hover:bg-bg',
+			'border border-line bg-surface text-ink hover:bg-hover',
 		success:
-			'border border-success/50 bg-success/15 text-success hover:bg-success/25',
+			'border border-success/50 bg-success-soft text-success-ink hover:bg-success-soft',
 		danger:
-			'border border-danger bg-danger text-primary-contrast hover:border-danger-hover hover:bg-danger-hover',
+			'border border-danger bg-danger text-on-primary hover:border-danger-hover hover:bg-danger-hover',
 		ghost:
-			'border border-transparent bg-transparent text-text hover:bg-border'
+			'border border-transparent bg-transparent text-ink hover:bg-line'
 	};
 
 	const sizeClasses: Record<Size, string> = {

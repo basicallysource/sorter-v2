@@ -88,57 +88,57 @@
 	}
 </script>
 
-<div class="space-y-3 border border-border bg-surface p-3" style={`margin-left: ${Math.min(depth, 5) * 16}px`}>
+<div class="space-y-3 border border-line bg-surface p-3" style={`margin-left: ${Math.min(depth, 5) * 16}px`}>
 	<div class="flex flex-wrap items-start justify-between gap-3">
 		<div class="min-w-0 flex-1">
 			<div class="flex flex-wrap items-center gap-2">
-				<h4 class="text-sm font-semibold text-text">{rule.name}</h4>
-				<span class="border border-border bg-bg px-1.5 py-0.5 text-xs font-medium uppercase tracking-wide text-text-muted">
+				<h4 class="text-sm font-semibold text-ink">{rule.name}</h4>
+				<span class="border border-line bg-well px-1.5 py-0.5 text-xs font-medium text-ink-muted">
 					{ruleTypeLabel(rule)}
 				</span>
-				<span class="border border-border bg-bg px-1.5 py-0.5 text-xs font-medium text-text-muted">
+				<span class="border border-line bg-well px-1.5 py-0.5 text-xs font-medium text-ink-muted">
 					{rule.match_mode === 'any' ? 'Any condition' : 'All conditions'}
 				</span>
 				{#if rule.disabled}
-					<span class="border border-amber-500/30 bg-amber-500/10 px-1.5 py-0.5 text-xs font-medium text-amber-700 dark:text-amber-300">
+					<span class="border border-amber-500/30 bg-amber-500/10 px-1.5 py-0.5 text-xs font-medium text-amber-700">
 						Disabled
 					</span>
 				{/if}
 			</div>
-			<div class="mt-1 text-sm text-text-muted">
+			<div class="mt-1 text-sm text-ink-muted">
 				<span class="font-mono">{rule.id}</span>
 			</div>
 		</div>
 	</div>
 
 	{#if rule.rule_type === 'set'}
-		<div class="flex flex-col gap-3 border border-border bg-bg/40 p-3 sm:flex-row sm:items-start">
+		<div class="flex flex-col gap-3 border border-line bg-well p-3 sm:flex-row sm:items-start">
 			{#if rule.set_meta?.img_url}
 				<img
 					src={rule.set_meta.img_url}
 					alt={rule.set_meta?.name ?? rule.name}
-					class="h-20 w-20 shrink-0 border border-border bg-bg object-contain"
+					class="h-20 w-20 shrink-0 border border-line bg-well object-contain"
 				/>
 			{/if}
 			<div class="min-w-0 flex-1 space-y-1.5">
-				<div class="text-xs font-semibold uppercase tracking-wide text-text-muted">
+				<div class="text-xs font-semibold text-ink-muted">
 					{sourceLabel(rule)}
 				</div>
 				{#if setMetaBits(rule).length > 0}
 					<div class="flex flex-wrap gap-1.5">
 						{#each setMetaBits(rule) as bit}
-							<span class="border border-border bg-surface px-2 py-1 text-xs text-text-muted">{bit}</span>
+							<span class="border border-line bg-surface px-2 py-1 text-xs text-ink-muted">{bit}</span>
 						{/each}
 					</div>
 				{/if}
 				{#if rule.custom_parts && rule.custom_parts.length > 0}
 					<div>
-						<div class="mb-1 text-xs font-semibold uppercase tracking-wide text-text-muted">
+						<div class="mb-1 text-xs font-semibold text-ink-muted">
 							Custom parts
 						</div>
 						<div class="space-y-1">
 							{#each rule.custom_parts as part}
-								<div class="text-xs text-text">{customPartSummary(part)}</div>
+								<div class="text-xs text-ink">{customPartSummary(part)}</div>
 							{/each}
 						</div>
 					</div>
@@ -148,9 +148,9 @@
 	{/if}
 
 	<div class="space-y-2">
-		<div class="text-xs font-semibold uppercase tracking-wide text-text-muted">Conditions</div>
+		<div class="text-xs font-semibold text-ink-muted">Conditions</div>
 		{#if rule.conditions.length === 0}
-			<div class="text-xs text-text-muted">
+			<div class="text-xs text-ink-muted">
 				{#if rule.rule_type === 'set'}
 					Set rules match the compiled set inventory directly.
 				{:else}
@@ -160,10 +160,10 @@
 		{:else}
 			<div class="space-y-2">
 				{#each rule.conditions as condition}
-					<div class="grid gap-2 border border-border bg-bg/40 px-3 py-2 text-xs md:grid-cols-[1fr,auto,1fr]">
-						<div class="font-mono text-text">{condition.field}</div>
-						<div class="text-text-muted">{condition.op}</div>
-						<div class="break-all text-text">{formatConditionValue(condition.value)}</div>
+					<div class="grid gap-2 border border-line bg-well px-3 py-2 text-xs md:grid-cols-[1fr,auto,1fr]">
+						<div class="font-mono text-ink">{condition.field}</div>
+						<div class="text-ink-muted">{condition.op}</div>
+						<div class="break-all text-ink">{formatConditionValue(condition.value)}</div>
 					</div>
 				{/each}
 			</div>
@@ -172,7 +172,7 @@
 
 	{#if rule.children.length > 0}
 		<div class="space-y-3">
-			<div class="text-xs font-semibold uppercase tracking-wide text-text-muted">
+			<div class="text-xs font-semibold text-ink-muted">
 				Children ({rule.children.length})
 			</div>
 			{#each rule.children as child (child.id)}

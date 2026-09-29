@@ -284,7 +284,7 @@
 				/>
 				<polyline
 					points={curve.polyline}
-					class="text-primary"
+					class="text-primary-ink"
 					fill="none"
 					stroke="currentColor"
 					stroke-width="1.5"
@@ -296,7 +296,7 @@
 						y1={PAD_Y}
 						x2={curve.nowX}
 						y2={GRAPH_H - PAD_Y}
-						class="text-primary"
+						class="text-primary-ink"
 						stroke="currentColor"
 						stroke-width="0.75"
 						stroke-dasharray="2 2"
@@ -307,7 +307,7 @@
 						y={(curve.nowY ?? 0) - 2.5}
 						width="5"
 						height="5"
-						class="text-primary"
+						class="text-primary-ink"
 						fill="currentColor"
 					/>
 				{/if}

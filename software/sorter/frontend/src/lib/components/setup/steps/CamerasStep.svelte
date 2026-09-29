@@ -77,8 +77,8 @@
 	</div>
 
 	{#if cameraError}
-		<div class="text-sm text-danger">{cameraError}</div>
+		<div class="text-sm text-danger-ink">{cameraError}</div>
 	{:else if cameraStatus}
-		<div class="text-sm text-success">{cameraStatus}</div>
+		<div class="text-sm text-success-ink">{cameraStatus}</div>
 	{/if}
 </div>

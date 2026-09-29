@@ -40,22 +40,22 @@
 
 <span class="group relative inline-flex {className}" role="presentation">
 	<span
-		class="flex items-center justify-center border border-border bg-surface/90 p-0.5 text-text-muted hover:text-text"
+		class="flex items-center justify-center border border-line bg-surface p-0.5 text-ink-muted hover:text-ink"
 		aria-label="Image info"
 		title="Image info"
 	>
 		<Info size={13} />
 	</span>
 	<span
-		class="pointer-events-none absolute right-0 top-full z-50 mt-1 hidden min-w-[9.5rem] flex-col gap-1 border border-border bg-surface p-2 shadow-md group-hover:flex"
+		class="pointer-events-none absolute right-0 top-full z-50 mt-1 hidden min-w-[9.5rem] flex-col gap-1 border border-line bg-surface p-2 group-hover:flex"
 		role="tooltip"
 	>
 		{#each allRows as row (row.label)}
 			<span class="flex items-center justify-between gap-3">
-				<span class="text-xs font-semibold uppercase tracking-wider text-text-muted">
+				<span class="text-xs font-semibold text-ink-muted">
 					{row.label}
 				</span>
-				<span class="text-sm tabular-nums text-text">{row.value}</span>
+				<span class="text-sm num text-ink">{row.value}</span>
 			</span>
 		{/each}
 	</span>

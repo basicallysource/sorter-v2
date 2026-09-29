@@ -1,7 +1,8 @@
 <script lang="ts">
-	import { Button, Input } from '$lib/components/primitives';
+	import Button from '$lib/components/ui/Button.svelte';
+	import Input from '$lib/components/ui/Input.svelte';
 	import Modal from '$lib/components/Modal.svelte';
-	import StatusBanner from '$lib/components/StatusBanner.svelte';
+	import Alert from '$lib/components/ui/Alert.svelte';
 	import { requestBackendRestart, waitForBackend } from '$lib/backend';
 	import {
 		fetchBinLayouts,
@@ -18,7 +19,7 @@
 	import ChevronDown from '@lucide/svelte/icons/chevron-down';
 	import Pencil from '@lucide/svelte/icons/pencil';
 	import Trash2 from '@lucide/svelte/icons/trash';
-	import Spinner from '$lib/components/Spinner.svelte';
+	import Spinner from '$lib/components/ui/Spinner.svelte';
 
 	let {
 		baseUrl,
@@ -169,11 +170,11 @@
 
 <svelte:window onclick={handleClickOutside} />
 
-<div class="mb-4 border border-border bg-surface px-4 py-3">
+<div class="mb-4 border border-line bg-surface px-4 py-3">
 	<div class="flex flex-wrap items-center justify-between gap-3">
 		<div class="min-w-0">
-			<div class="text-sm font-medium text-text">Bin layout</div>
-			<div class="mt-0.5 text-sm text-text-muted">
+			<div class="text-sm font-medium text-ink">Bin layout</div>
+			<div class="mt-0.5 text-sm text-ink-muted">
 				Saved bin configurations. Switch between them; bin contents are kept unless you empty the bins.
 			</div>
 		</div>
@@ -182,25 +183,25 @@
 				<button
 					type="button"
 					onclick={() => (dropdownOpen = !dropdownOpen)}
-					class="flex max-w-[260px] items-center gap-2 border border-border bg-surface px-3 py-1.5 text-sm text-text transition-colors hover:bg-bg"
+					class="flex max-w-[260px] items-center gap-2 border border-line bg-surface px-3 py-1.5 text-sm text-ink transition-colors hover:bg-hover"
 				>
 					{#if restarting}<Spinner size={14} class="shrink-0" />{/if}
 					<span class="truncate font-medium">{active?.name ?? 'No layout'}</span>
-					{#if isDirty}<span class="shrink-0 text-xs text-warning">unsaved</span>{/if}
+					{#if isDirty}<span class="shrink-0 text-xs text-warning-ink">unsaved</span>{/if}
 					<ChevronDown size={14} class="shrink-0 opacity-60" />
 				</button>
 
 				{#if dropdownOpen}
 					<div
-						class="absolute top-full right-0 z-50 mt-1 w-80 overflow-hidden border border-border bg-surface shadow-[0_12px_28px_rgba(15,23,42,0.14)]"
+						class="absolute top-full right-0 z-50 mt-1 w-80 overflow-hidden border border-line bg-surface"
 					>
-						<div class="border-b border-border bg-bg px-3 py-2 text-xs text-text-muted">
+						<div class="border-b border-line bg-well px-3 py-2 text-xs text-ink-muted">
 							Each layout belongs to a profile and only works with that profile.
 						</div>
 						{#if layouts.length === 0}
-							<div class="px-3 py-2 text-sm text-text-muted">No saved layouts yet.</div>
+							<div class="px-3 py-2 text-sm text-ink-muted">No saved layouts yet.</div>
 						{/if}
-						<div class="divide-y divide-border">
+						<div class="divide-y divide-line">
 							{#each layouts as layout (layout.id)}
 								{@const matches = layout.profile_id === profileId}
 								<div class="flex items-center justify-between gap-2 px-3 py-2 {matches ? '' : 'opacity-50'}">
@@ -212,19 +213,19 @@
 										onclick={() => openSwitch(layout)}
 									>
 										{#if layout.is_active}
-											<Check size={14} class="shrink-0 text-success" />
+											<Check size={14} class="shrink-0 text-success-ink" />
 										{:else}
 											<span class="w-[14px] shrink-0"></span>
 										{/if}
 										<div class="min-w-0">
-											<div class="truncate text-sm font-medium text-text">{layout.name}</div>
-											<div class="truncate font-mono text-xs text-text-muted">{profileLabel(layout.profile_id)}</div>
+											<div class="truncate text-sm font-medium text-ink">{layout.name}</div>
+											<div class="truncate font-mono text-xs text-ink-muted">{profileLabel(layout.profile_id)}</div>
 										</div>
 									</button>
 									<div class="flex shrink-0 items-center gap-1">
 										<button
 											type="button"
-											class="p-1 text-text-muted transition-colors hover:text-text"
+											class="p-1 text-ink-muted transition-colors hover:text-ink"
 											title="Rename"
 											onclick={() => openRename(layout)}
 										>
@@ -232,7 +233,7 @@
 										</button>
 										<button
 											type="button"
-											class="p-1 text-text-muted transition-colors hover:text-danger disabled:opacity-40"
+											class="p-1 text-ink-muted transition-colors hover:text-danger-ink disabled:opacity-40"
 											title={layout.is_active ? 'Cannot delete the active layout' : 'Delete'}
 											disabled={layout.is_active}
 											onclick={() => openDelete(layout)}
@@ -253,13 +254,13 @@
 		</div>
 	</div>
 
-	{#if status}<div class="mt-2"><StatusBanner message={status} variant="success" /></div>{/if}
-	{#if error}<div class="mt-2"><StatusBanner message={error} variant="error" /></div>{/if}
+	{#if status}<div class="mt-2"><Alert tone="success">{status}</Alert></div>{/if}
+	{#if error}<div class="mt-2"><Alert tone="danger">{error}</Alert></div>{/if}
 </div>
 
 <Modal bind:open={switchOpen} title="Switch bin layout">
 	<div class="space-y-4">
-		<p class="text-sm text-text">
+		<p class="text-sm text-ink">
 			Switch to <span class="font-medium">{target?.name}</span>? This restarts the backend
 			(a few seconds). Bin contents are kept.
 		</p>
@@ -296,7 +297,7 @@
 
 <Modal bind:open={deleteOpen} title="Delete bin layout">
 	<div class="space-y-4">
-		<p class="text-sm text-text">
+		<p class="text-sm text-ink">
 			Delete <span class="font-medium">{target?.name}</span>? This can't be undone.
 		</p>
 		<div class="flex justify-end gap-2">

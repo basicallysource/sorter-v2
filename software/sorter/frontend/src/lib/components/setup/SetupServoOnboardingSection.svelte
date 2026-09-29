@@ -144,7 +144,7 @@
 				inverted,
 				isFactory,
 				state: 'factory' as const,
-				accent: 'border-l-[var(--color-warning)]',
+				accent: 'border-l-[var(--warning)]',
 				headerTone: 'bg-[#FFF7E0]',
 				title: 'Promote ID before continuing',
 				description: `Factory ID 1 detected. Promote it to ID ${suggestedNextId} before connecting the next servo.`
@@ -159,7 +159,7 @@
 				isFactory,
 				state: 'needs-calibration' as const,
 				accent: 'border-l-[#C9C7C0]',
-				headerTone: 'bg-bg/40',
+				headerTone: 'bg-well',
 				title: 'Needs calibration',
 				description: 'Run auto-calibration before testing movement or assigning direction.'
 			};
@@ -173,7 +173,7 @@
 				isFactory,
 				state: 'needs-assignment' as const,
 				accent: 'border-l-primary',
-				headerTone: 'bg-primary/[0.06]',
+				headerTone: 'bg-primary-soft',
 				title: 'Ready for assignment',
 				description: 'Calibration is done. Assign this servo to a storage layer next.'
 			};
@@ -185,8 +185,8 @@
 			inverted,
 			isFactory,
 			state: 'ready' as const,
-			accent: 'border-l-[var(--color-success)]',
-			headerTone: 'bg-success/[0.06]',
+			accent: 'border-l-[var(--success)]',
+			headerTone: 'bg-success-soft',
 			title: 'Setup complete',
 			description: `Calibrated and assigned to Layer ${layer}. Test the motion if you want a final check.`
 		};
@@ -684,7 +684,7 @@
 </script>
 
 <div class="flex flex-col gap-4">
-	<div class="setup-panel px-4 py-3 text-sm text-text-muted">
+	<div class="setup-panel px-4 py-3 text-sm text-ink-muted">
 		Discover the servos on the bus, calibrate each one's open/close range, then assign each to a
 		storage layer. Tip: connect one new servo at a time so its factory ID 1 doesn't clash with the
 		others — promote it to a fresh ID before connecting the next.
@@ -692,18 +692,18 @@
 
 	{#if !settingsLoaded}
 		{#if errorMsg}
-			<div class="setup-panel border border-danger bg-primary-light px-4 py-4 text-sm text-[#7A0A0B]">
+			<div class="setup-panel border border-danger bg-primary-soft px-4 py-4 text-sm text-[#7A0A0B]">
 				<div class="font-medium">Failed to load servo configuration</div>
 				<div class="mt-1">{errorMsg}</div>
 				<button
 					onclick={() => void loadSettings()}
-					class="mt-3 border border-danger px-3 py-1.5 text-sm font-medium text-[#7A0A0B] transition-colors hover:bg-danger/10"
+					class="mt-3 border border-danger px-3 py-1.5 text-sm font-medium text-[#7A0A0B] transition-colors hover:bg-danger-soft"
 				>
 					Retry
 				</button>
 			</div>
 		{:else}
-			<div class="setup-panel px-4 py-6 text-center text-sm text-text-muted">
+			<div class="setup-panel px-4 py-6 text-center text-sm text-ink-muted">
 				Loading servo configuration…
 			</div>
 		{/if}
@@ -711,13 +711,13 @@
 	<div class="setup-panel p-4">
 		<div class="flex items-start justify-between gap-3">
 			<div class="min-w-0">
-				<div class="text-sm font-semibold text-text">Servo backend</div>
+				<div class="text-sm font-semibold text-ink">Servo backend</div>
 				{#if servoSource === 'waveshare'}
-					<div class="mt-1 text-sm text-text-muted">
+					<div class="mt-1 text-sm text-ink-muted">
 						{#if discoveredServoSource === 'waveshare'}
 							Waveshare SC serial bus auto-detected from discovery
 							{#if discoveredWaveshareServos > 0}
-								— <span class="text-text">{discoveredWaveshareServos} servo{discoveredWaveshareServos === 1 ? '' : 's'}</span> on the bus.
+								— <span class="text-ink">{discoveredWaveshareServos} servo{discoveredWaveshareServos === 1 ? '' : 's'}</span> on the bus.
 							{:else}
 								.
 							{/if}
@@ -726,7 +726,7 @@
 						{/if}
 					</div>
 				{:else}
-					<div class="mt-1 text-sm text-text-muted">
+					<div class="mt-1 text-sm text-ink-muted">
 						No Waveshare servo bus detected — assuming PCA9685 on a control board.
 					</div>
 				{/if}
@@ -735,7 +735,7 @@
 				<button
 					type="button"
 					onclick={() => onSourceChange(discoveredServoSource)}
-					class="setup-button-secondary px-3 py-1.5 text-sm text-text whitespace-nowrap"
+					class="setup-button-secondary px-3 py-1.5 text-sm text-ink whitespace-nowrap"
 				>
 					Use detected ({discoveredServoSource === 'waveshare' ? 'Waveshare' : 'PCA9685'})
 				</button>
@@ -786,13 +786,13 @@
 			{saving ? 'Saving…' : 'Save servo setup'}
 		</button>
 		{#if loading}
-			<div class="text-sm text-text-muted">Loading current servo configuration…</div>
+			<div class="text-sm text-ink-muted">Loading current servo configuration…</div>
 		{/if}
 	</div>
 
 	{#if servoIssues.length}
 		<div
-			class="border border-danger bg-primary-light px-4 py-3 text-sm text-[#7A0A0B]"
+			class="border border-danger bg-primary-soft px-4 py-3 text-sm text-[#7A0A0B]"
 		>
 			{#each servoIssues as issue}
 				<div>{issue.message}</div>
@@ -802,13 +802,13 @@
 
 	{#if errorMsg}
 		<div
-			class="border border-danger bg-primary-light px-4 py-3 text-sm text-[#7A0A0B]"
+			class="border border-danger bg-primary-soft px-4 py-3 text-sm text-[#7A0A0B]"
 		>
 			{errorMsg}
 		</div>
 	{:else if statusMsg}
 		<div
-			class="border border-success bg-[#D4EDDA] px-4 py-3 text-sm font-medium text-success"
+			class="border border-success bg-[#D4EDDA] px-4 py-3 text-sm font-medium text-success-ink"
 		>
 			{statusMsg}
 		</div>

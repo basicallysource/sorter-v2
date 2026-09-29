@@ -3,9 +3,10 @@
 	import Upload from '@lucide/svelte/icons/upload';
 	import RefreshCcw from '@lucide/svelte/icons/refresh-ccw';
 	import Zap from '@lucide/svelte/icons/zap';
-	import { Alert, Button } from '$lib/components/primitives';
+	import Alert from '$lib/components/ui/Alert.svelte';
+	import Button from '$lib/components/ui/Button.svelte';
 	import SectionCard from '$lib/components/settings/SectionCard.svelte';
-	import Spinner from '$lib/components/Spinner.svelte';
+	import Spinner from '$lib/components/ui/Spinner.svelte';
 	import { getBackendHttpBase, machineHttpBaseUrlFromWsUrl } from '$lib/backend';
 	import { getMachinesContext } from '$lib/machines/context';
 
@@ -431,13 +432,13 @@
 		{/snippet}
 
 		{#if boardsError}
-			<Alert variant="danger">{boardsError}</Alert>
+			<Alert tone="danger">{boardsError}</Alert>
 		{:else if boardsLoading && !boards.length}
-			<div class="flex items-center gap-2 py-4 text-sm text-text-muted">
+			<div class="flex items-center gap-2 py-4 text-sm text-ink-muted">
 				<Spinner /> Scanning for boards…
 			</div>
 		{:else if !boards.length}
-			<Alert variant="warning">
+			<Alert tone="warning">
 				No control boards responded over USB.
 				{#if boardsMeta?.flash_blocked_reason}
 					{boardsMeta.flash_blocked_reason}
@@ -449,48 +450,48 @@
 		{:else}
 			<div class="flex flex-col gap-3">
 				{#each boards as board (boardKey(board))}
-					<div class="border border-border bg-surface p-3">
+					<div class="border border-line bg-surface p-3">
 						<div class="flex flex-wrap items-baseline justify-between gap-2">
 							<div class="flex items-baseline gap-2">
-								<span class="text-sm font-semibold text-text">{board.device_name}</span>
+								<span class="text-sm font-semibold text-ink">{board.device_name}</span>
 								{#if board.role}
 									<span
-										class="border border-border px-1.5 py-0.5 text-xs uppercase tracking-wider text-text-muted"
+										class="border border-line px-1.5 py-0.5 text-xs text-ink-muted"
 									>
 										{board.role}
 									</span>
 								{/if}
 								{#if board.source === 'live'}
-									<span class="text-xs text-text-muted">(active hardware)</span>
+									<span class="text-xs text-ink-muted">(active hardware)</span>
 								{/if}
 							</div>
-							<span class="text-xs text-text-muted">{board.port} · address {board.address}</span>
+							<span class="text-xs text-ink-muted">{board.port} · address {board.address}</span>
 						</div>
 						<dl class="mt-2 grid grid-cols-2 gap-x-6 gap-y-1 text-sm sm:grid-cols-3">
 							<div>
-								<dt class="text-xs uppercase tracking-wider text-text-muted">Firmware</dt>
-								<dd class="text-text">
+								<dt class="text-xs text-ink-muted">Firmware</dt>
+								<dd class="text-ink">
 									{board.version?.firmware_version ?? 'unknown (no GET_VERSION)'}
 								</dd>
 							</div>
 							<div>
-								<dt class="text-xs uppercase tracking-wider text-text-muted">Variant</dt>
-								<dd class="text-text">{board.version?.variant ?? '—'}</dd>
+								<dt class="text-xs text-ink-muted">Variant</dt>
+								<dd class="text-ink">{board.version?.variant ?? '—'}</dd>
 							</div>
 							<div>
-								<dt class="text-xs uppercase tracking-wider text-text-muted">Built</dt>
-								<dd class="text-text">{board.version?.build_time_utc ?? '—'}</dd>
+								<dt class="text-xs text-ink-muted">Built</dt>
+								<dd class="text-ink">{board.version?.build_time_utc ?? '—'}</dd>
 							</div>
 							{#if board.version?.commit}
 								<div>
-									<dt class="text-xs uppercase tracking-wider text-text-muted">Commit</dt>
-									<dd class="font-mono text-text">{board.version.commit}</dd>
+									<dt class="text-xs text-ink-muted">Commit</dt>
+									<dd class="font-mono text-ink">{board.version.commit}</dd>
 								</div>
 							{/if}
 							{#if board.stepper_names.length}
 								<div class="col-span-2">
-									<dt class="text-xs uppercase tracking-wider text-text-muted">Steppers</dt>
-									<dd class="text-text">{board.stepper_names.join(', ')}</dd>
+									<dt class="text-xs text-ink-muted">Steppers</dt>
+									<dd class="text-ink">{board.stepper_names.join(', ')}</dd>
 								</div>
 							{/if}
 						</dl>
@@ -506,7 +507,7 @@
 		description="Flash a firmware release from GitHub or an uploaded .uf2. The machine must be in standby."
 	>
 		{#if boardsMeta && !flashAllowed && !jobActive}
-			<Alert variant="warning" class="mb-3">
+			<Alert tone="warning" class="mb-3">
 				<div class="flex flex-wrap items-center justify-between gap-2">
 					<span>{boardsMeta.flash_blocked_reason ?? 'Flashing is currently unavailable.'}</span>
 					{#if (boardsMeta.hardware_state === 'ready' || boardsMeta.hardware_state === 'initialized') && !jobActive}
@@ -521,7 +522,7 @@
 		<div class="flex flex-col gap-4">
 			<div class="grid gap-4 sm:grid-cols-2">
 				<div class="flex flex-col gap-1.5">
-					<span class="text-xs font-semibold uppercase tracking-wider text-text-muted">
+					<span class="text-xs font-semibold text-ink-muted">
 						Target board
 					</span>
 					<select
@@ -539,17 +540,17 @@
 							<option value={null}>No boards found</option>
 						{/if}
 					</select>
-					<label class="mt-1 flex items-center gap-2 text-sm text-text">
+					<label class="mt-1 flex items-center gap-2 text-sm text-ink">
 						<input type="checkbox" bind:checked={recoveryMode} disabled={jobActive} />
 						Recovery flash — board is already in bootloader (RPI-RP2), or blank
 					</label>
 				</div>
 
 				<div class="flex flex-col gap-1.5">
-					<span class="text-xs font-semibold uppercase tracking-wider text-text-muted">
+					<span class="text-xs font-semibold text-ink-muted">
 						Firmware source
 					</span>
-					<div class="flex gap-3 text-sm text-text">
+					<div class="flex gap-3 text-sm text-ink">
 						<label class="flex items-center gap-1.5">
 							<input type="radio" bind:group={flashSource} value="release" disabled={jobActive} />
 							GitHub release
@@ -561,9 +562,9 @@
 					</div>
 					{#if flashSource === 'release'}
 						{#if releasesError}
-							<Alert variant="danger">{releasesError}</Alert>
+							<Alert tone="danger">{releasesError}</Alert>
 						{:else if !releasesLoading && !releases.length}
-							<Alert variant="warning">No firmware releases found on GitHub. Use Upload .uf2 instead.</Alert>
+							<Alert tone="warning">No firmware releases found on GitHub. Use Upload .uf2 instead.</Alert>
 						{:else}
 							<select
 								class="setup-control"
@@ -606,7 +607,7 @@
 								Choose .uf2
 							</Button>
 							{#if uploadedFile}
-								<span class="text-sm text-text-muted">
+								<span class="text-sm text-ink-muted">
 									{uploadedFile.filename} ({formatBytes(uploadedFile.size)})
 								</span>
 							{/if}
@@ -623,11 +624,11 @@
 			</div>
 
 			{#if flashSource === 'release' && selectedRelease?.changelog}
-				<div class="border border-border bg-surface p-3">
-					<p class="text-xs font-semibold uppercase tracking-wider text-text-muted">
+				<div class="border border-line bg-surface p-3">
+					<p class="text-xs font-semibold text-ink-muted">
 						{selectedRelease.changelog.heading}
 					</p>
-					<ul class="mt-1.5 list-disc pl-5 text-sm text-text">
+					<ul class="mt-1.5 list-disc pl-5 text-sm text-ink">
 						{#each selectedRelease.changelog.entries as entry}
 							<li>{entry}</li>
 						{/each}
@@ -636,7 +637,7 @@
 			{/if}
 
 			{#if flashError}
-				<Alert variant="danger">{flashError}</Alert>
+				<Alert tone="danger">{flashError}</Alert>
 			{/if}
 
 			<div>
@@ -661,10 +662,10 @@
 						{#if job.status === 'running'}
 							<Spinner />
 						{/if}
-						<span class="text-sm font-semibold text-text">
+						<span class="text-sm font-semibold text-ink">
 							{PHASE_LABELS[job.phase] ?? job.phase}
 						</span>
-						<span class="text-xs uppercase tracking-wider text-text-muted">{job.status}</span>
+						<span class="text-xs text-ink-muted">{job.status}</span>
 					</div>
 					<div class="flex gap-2">
 						{#if job.status === 'running'}
@@ -676,7 +677,7 @@
 				</div>
 
 				{#if job.status === 'running'}
-					<div class="h-2 w-full bg-border">
+					<div class="h-2 w-full bg-line">
 						{#if job.progress !== null}
 							<div class="h-full bg-primary" style="width: {Math.round(job.progress * 100)}%"></div>
 						{:else}
@@ -686,7 +687,7 @@
 				{/if}
 
 				{#if job.status === 'done'}
-					<Alert variant="success">
+					<Alert tone="success">
 						Flash complete.
 						{#if job.result?.board?.version?.firmware_version}
 							Board reports firmware {job.result.board.version.firmware_version}.
@@ -694,15 +695,15 @@
 						The machine is in standby — home it from the main page when you're ready.
 					</Alert>
 				{:else if job.status === 'failed'}
-					<Alert variant="danger">{job.error ?? 'Flash failed.'}</Alert>
+					<Alert tone="danger">{job.error ?? 'Flash failed.'}</Alert>
 				{:else if job.status === 'cancelled'}
-					<Alert variant="warning">{job.error ?? 'Flash cancelled.'}</Alert>
+					<Alert tone="warning">{job.error ?? 'Flash cancelled.'}</Alert>
 				{/if}
 
 				{#if job.log.length}
-					<div class="max-h-48 overflow-y-auto border border-border bg-surface p-2">
+					<div class="max-h-48 overflow-y-auto border border-line bg-surface p-2">
 						{#each job.log as line}
-							<p class="font-mono text-xs leading-relaxed text-text-muted">{line}</p>
+							<p class="font-mono text-xs leading-relaxed text-ink-muted">{line}</p>
 						{/each}
 					</div>
 				{/if}

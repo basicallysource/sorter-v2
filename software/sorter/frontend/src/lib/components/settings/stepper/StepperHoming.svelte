@@ -28,11 +28,11 @@
 	} = $props();
 </script>
 
-<div class="border-t border-border pt-4"></div>
+<div class="border-t border-line pt-4"></div>
 
 <div class="flex flex-col gap-1">
-	<div class="text-sm font-medium text-text">Homing</div>
-	<div class="text-xs text-text-muted">
+	<div class="text-sm font-medium text-ink">Homing</div>
+	<div class="text-xs text-ink-muted">
 		Find the endstop slowly, or cancel and stop all steppers if the wrong motor moves.
 	</div>
 </div>
@@ -41,7 +41,7 @@
 	<button
 		onclick={onHome}
 		disabled={loading || saving || homing || canceling}
-		class="inline-flex cursor-pointer items-center justify-center gap-1.5 border border-border bg-bg px-3 py-2 text-sm text-text transition-colors hover:bg-surface disabled:cursor-not-allowed disabled:opacity-50"
+		class="inline-flex cursor-pointer items-center justify-center gap-1.5 border border-line bg-well px-3 py-2 text-sm text-ink transition-colors hover:bg-surface disabled:cursor-not-allowed disabled:opacity-50"
 	>
 		<Home size={14} />
 		{homing ? 'Homing...' : 'Home to Endstop'}
@@ -49,7 +49,7 @@
 	<button
 		onclick={onCancel}
 		disabled={!homing || canceling}
-		class="cursor-pointer border border-danger bg-danger/20 px-3 py-2 text-sm text-danger hover:bg-danger/30 disabled:cursor-not-allowed disabled:opacity-50"
+		class="cursor-pointer border border-danger bg-danger-soft px-3 py-2 text-sm text-danger-ink hover:bg-danger/30 disabled:cursor-not-allowed disabled:opacity-50"
 	>
 		{canceling ? 'Canceling...' : 'Cancel Homing'}
 	</button>
@@ -57,12 +57,12 @@
 		<button
 			onclick={onCalibrate}
 			disabled={endstopTriggered !== true || homing || calibrating || canceling}
-			class="inline-flex cursor-pointer items-center justify-center gap-1.5 border border-border bg-bg px-3 py-2 text-sm text-text transition-colors hover:bg-surface disabled:cursor-not-allowed disabled:opacity-50"
+			class="inline-flex cursor-pointer items-center justify-center gap-1.5 border border-line bg-well px-3 py-2 text-sm text-ink transition-colors hover:bg-surface disabled:cursor-not-allowed disabled:opacity-50"
 		>
 			{calibrating ? 'Calibrating...' : 'Calibrate Full Rotation'}
 		</button>
 		{#if calibrateResult}
-			<div class="text-xs text-text-muted">
+			<div class="text-xs text-ink-muted">
 				Result: {calibrateResult.steps_per_revolution} steps/rev
 			</div>
 		{/if}

@@ -5,7 +5,7 @@
 	import PieceStatusBadge from '$lib/components/PieceStatusBadge.svelte';
 	import ReclassifyPanel from '$lib/components/ReclassifyPanel.svelte';
 	import PieceCorrection from '$lib/components/PieceCorrection.svelte';
-	import { Skeleton } from '$lib/components/primitives';
+	import Skeleton from '$lib/components/ui/Skeleton.svelte';
 	import { findLegoColor } from '$lib/pieces/colors';
 	import { onColor } from '$lib/theme';
 	import type { ClassificationAttempt, ClassificationAttemptStrategy } from '$lib/api/events';
@@ -57,12 +57,12 @@
 	}
 
 	function confidenceClass(conf: number | null | undefined): string {
-		if (conf == null) return 'text-text-muted';
+		if (conf == null) return 'text-ink-muted';
 		const pct = conf * 100;
-		if (pct >= 90) return 'text-success';
-		if (pct >= 80) return 'text-warning';
-		if (pct >= 60) return 'text-warning/70';
-		return 'text-danger';
+		if (pct >= 90) return 'text-success-ink';
+		if (pct >= 80) return 'text-warning-ink';
+		if (pct >= 60) return 'text-warning-ink/70';
+		return 'text-danger-ink';
 	}
 
 	// Sub-dollar pieces get an extra decimal so they don't collapse to "$0.00".
@@ -78,10 +78,10 @@
 	function sourceBadge(img: DisplayImage): { label: string; cls: string } {
 		const ch = img.channel;
 		if (img.source === 'c4_burst') {
-			return { label: 'C4', cls: 'border-border bg-surface text-text-muted' };
+			return { label: 'C4', cls: 'border-line bg-surface text-ink-muted' };
 		}
 		const label = ch === 2 || ch === 3 ? `C${ch}` : '—';
-		return { label, cls: 'border-warning/60 bg-warning/[0.12] text-warning-dark' };
+		return { label, cls: 'border-warning/60 bg-warning-soft text-warning-ink' };
 	}
 
 	function sourceLabel(source: string | null | undefined, channel?: number | null): string {
@@ -116,8 +116,8 @@
 				? `${((a.confidence ?? 0) * 100).toFixed(0)}%`
 				: 'miss';
 		const cls = a.applied
-			? 'border-primary/60 bg-primary/[0.12] text-primary'
-			: 'border-border bg-surface text-text-muted';
+			? 'border-primary/60 bg-primary-soft text-primary-ink'
+			: 'border-line bg-surface text-ink-muted';
 		return { text: `${name}: ${outcome}${a.applied ? ' ✓' : ''}`, cls };
 	}
 
@@ -176,27 +176,27 @@
 	const est_value_text = $derived(formatEstValue(piece.est_value));
 </script>
 
-<div class="border border-border bg-surface">
+<div class="border border-line bg-surface">
 	<!-- Result header -->
-	<div class="flex flex-wrap items-center gap-2 border-b border-border bg-bg px-3 py-2">
+	<div class="flex flex-wrap items-center gap-2 border-b border-line bg-well px-3 py-2">
 		<PieceStatusBadge status={piece.classification_status} dead={Boolean(piece.dead)} />
 
-		<span class="truncate text-sm font-semibold text-text">
+		<span class="truncate text-sm font-semibold text-ink">
 			{piece.part_name ?? piece.part_id ?? piece.uuid.slice(0, 8)}
 		</span>
 		{#if piece.part_id && piece.part_name}
-			<span class="font-mono text-xs text-text-muted">{piece.part_id}</span>
+			<span class="font-mono text-xs text-ink-muted">{piece.part_id}</span>
 		{/if}
 
 		{#if typeof piece.confidence === 'number'}
-			<span class="text-sm font-semibold tabular-nums {confidenceClass(piece.confidence)}">
+			<span class="text-sm font-semibold num {confidenceClass(piece.confidence)}">
 				{formatConfidence(piece.confidence)}
 			</span>
 		{/if}
 
 		{#if est_value_text}
 			<span
-				class="text-sm font-semibold tabular-nums text-success"
+				class="text-sm font-semibold num text-success-ink"
 				title="BrickLink moving-average price (Hive catalog)"
 			>
 				{est_value_text}
@@ -207,7 +207,7 @@
 			{@const sb = strategyBadge(imgState.strategy)}
 			{#if sb}
 				<span
-					class="inline-flex items-center border border-info/60 bg-info/[0.12] px-1.5 py-0.5 text-xs font-semibold uppercase tracking-wider text-info"
+					class="inline-flex items-center border border-info/60 bg-info-soft px-1.5 py-0.5 text-xs font-semibold text-info-ink"
 					title="A single-image Brickognize request outscored the fused combined call"
 				>
 					{sb.label}
@@ -217,7 +217,7 @@
 
 		{#if lego_color}
 			<span
-				class="inline-flex items-center border border-border px-1.5 py-0.5 text-xs font-semibold"
+				class="inline-flex items-center border border-line px-1.5 py-0.5 text-xs font-semibold"
 				style:background-color={lego_color.hex}
 				style:color={onColor(lego_color.hex)}
 			>
@@ -225,27 +225,27 @@
 			</span>
 		{:else if piece.color_name && piece.color_name !== 'Any Color'}
 			<span
-				class="inline-flex items-center border border-border bg-surface px-1.5 py-0.5 text-xs text-text-muted"
+				class="inline-flex items-center border border-line bg-surface px-1.5 py-0.5 text-xs text-ink-muted"
 			>
 				{piece.color_name}
 			</span>
 		{/if}
 
-		<span class="ml-auto flex items-center gap-3 text-xs text-text-muted">
+		<span class="ml-auto flex items-center gap-3 text-xs text-ink-muted">
 			{#if imgState?.status === 'ok' && sorted.length > 0}
-				<span class="tabular-nums" title="Images that produced the result, of all stored for this piece">
+				<span class="num" title="Images that produced the result, of all stored for this piece">
 					{shown.length} of {sorted.length} used
 				</span>
 			{/if}
 			<span class="font-mono">{formatBin(piece.bin)}</span>
-			<span class="tabular-nums">{formatTimestamp(piece.seen_at)}</span>
+			<span class="num">{formatTimestamp(piece.seen_at)}</span>
 			{#if imgState?.status === 'ok' && imgState.origin === 'memory' && sorted.length > 0 && onToggleReclassify}
 				<button
 					type="button"
 					onclick={onToggleReclassify}
 					class="inline-flex items-center gap-1 {reclassifyOpen
-						? 'text-warning'
-						: 'text-text-muted hover:text-warning'}"
+						? 'text-warning-ink'
+						: 'text-ink-muted hover:text-warning-ink'}"
 					title="Scratch reclassify — pick crops and re-run Brickognize (not recorded)"
 				>
 					<FlaskConical size={13} />
@@ -253,7 +253,7 @@
 			{/if}
 			<a
 				href={`/tracked/${piece.uuid}`}
-				class="inline-flex items-center gap-1 text-text-muted hover:text-primary"
+				class="inline-flex items-center gap-1 text-ink-muted hover:text-primary-ink"
 				title="Open piece detail"
 			>
 				<ExternalLink size={13} />
@@ -263,8 +263,8 @@
 
 	<!-- Attempts strip — the parallel requests (combined + singles) -->
 	{#if imgState?.status === 'ok' && (imgState.attempts?.length ?? 0) > 1}
-		<div class="flex flex-wrap items-center gap-1.5 border-b border-border bg-bg px-3 py-1.5">
-			<span class="text-xs font-semibold uppercase tracking-wider text-text-muted"> Attempts </span>
+		<div class="flex flex-wrap items-center gap-1.5 border-b border-line bg-well px-3 py-1.5">
+			<span class="text-xs font-semibold text-ink-muted"> Attempts </span>
 			{#each imgState.attempts ?? [] as a, ai (ai)}
 				{@const chip = attemptChip(a)}
 				<span class="inline-flex items-center border px-1.5 py-0.5 text-xs {chip.cls}">
@@ -278,13 +278,13 @@
 	<div class="p-3">
 		{#if liveCrop && imgState === undefined}
 			<div class="flex flex-wrap gap-2">
-				<div class="flex flex-col border border-border bg-white">
+				<div class="flex flex-col border border-line bg-white">
 					<div class="h-28 w-28 bg-white">
 						<img src={liveCrop} alt="live crop" class="h-full w-full object-contain" />
 					</div>
-					<div class="flex items-center justify-center border-t border-border px-1.5 py-1">
+					<div class="flex items-center justify-center border-t border-line px-1.5 py-1">
 						<span
-							class="inline-flex items-center text-xs font-semibold uppercase tracking-wider text-primary"
+							class="inline-flex items-center text-xs font-semibold text-primary-ink"
 						>
 							Live
 						</span>
@@ -298,7 +298,7 @@
 				{/each}
 			</div>
 		{:else if imgState.status === 'missing' || (shown.length === 0 && !imgState.stockUrl)}
-			<div class="text-sm text-text-muted">
+			<div class="text-sm text-ink-muted">
 				No stored images for this piece (recorded before image capture existed, or none taken).
 			</div>
 		{:else}
@@ -313,7 +313,7 @@
 								? 'border-2 border-primary'
 								: state === 'dropped'
 									? 'border-2 border-danger/60'
-									: 'border-border'}"
+									: 'border-line'}"
 							title={state === 'used'
 								? 'Used — produced the applied result'
 								: state === 'dropped'
@@ -325,20 +325,20 @@
 									<img {src} alt={img.source} class="h-full w-full object-contain" loading="lazy" />
 								{/if}
 							</div>
-							<div class="flex items-center justify-between gap-1 border-t border-border px-1.5 py-1">
+							<div class="flex items-center justify-between gap-1 border-t border-line px-1.5 py-1">
 								<div class="flex items-center gap-1">
 									{#if src}
 										<ImageInfoBadge {src} rows={imageInfoRows(img, objCreatedAt)} />
 									{/if}
 									<span
-										class="inline-flex items-center border px-1 py-0.5 text-xs font-semibold uppercase tracking-wider {badge.cls}"
+										class="inline-flex items-center border px-1 py-0.5 text-xs font-semibold {badge.cls}"
 									>
 										{badge.label}
 									</span>
 								</div>
 								{#if state === 'dropped'}
 									<span
-										class="inline-flex items-center border border-danger/60 bg-danger/[0.12] px-1 py-0.5 text-xs font-semibold uppercase tracking-wider text-danger"
+										class="inline-flex items-center border border-danger/60 bg-danger-soft px-1 py-0.5 text-xs font-semibold text-danger-ink"
 									>
 										Dropped
 									</span>
@@ -348,7 +348,7 @@
 					{/each}
 				</div>
 				{#if imgState.stockUrl}
-					<div class="ml-auto flex flex-col border border-border bg-white">
+					<div class="ml-auto flex flex-col border border-line bg-white">
 						<div class="h-28 w-28 bg-white">
 							<img
 								src={imgState.stockUrl}
@@ -357,9 +357,9 @@
 								loading="lazy"
 							/>
 						</div>
-						<div class="flex items-center justify-center border-t border-border px-1.5 py-1">
+						<div class="flex items-center justify-center border-t border-line px-1.5 py-1">
 							<span
-								class="inline-flex items-center text-xs font-semibold uppercase tracking-wider text-text-muted"
+								class="inline-flex items-center text-xs font-semibold text-ink-muted"
 							>
 								Brickognize
 							</span>
@@ -371,13 +371,13 @@
 	</div>
 
 	{#if piece.correctable}
-		<div class="border-t border-border bg-bg p-3">
+		<div class="border-t border-line bg-well p-3">
 			<PieceCorrection {piece} {endpointBase} onUpdated={onPieceCorrected} />
 		</div>
 	{/if}
 
 	{#if reclassifyOpen && imgState?.status === 'ok' && imgState.origin === 'memory'}
-		<div class="border-t border-border p-3">
+		<div class="border-t border-line p-3">
 			<ReclassifyPanel
 				endpointBase={endpointBase}
 				images={sorted

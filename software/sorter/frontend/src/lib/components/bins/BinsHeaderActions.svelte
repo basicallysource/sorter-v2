@@ -28,7 +28,7 @@
 	} = $props();
 
 	const buttonClass =
-		'flex items-center gap-2 border border-border bg-surface px-4 py-2 text-sm font-medium text-text transition-colors hover:bg-bg disabled:cursor-not-allowed disabled:opacity-50';
+		'flex items-center gap-2 border border-line bg-surface px-4 py-2 text-sm font-medium text-ink transition-colors hover:bg-hover disabled:cursor-not-allowed disabled:opacity-50';
 </script>
 
 <div class="flex items-center gap-3">

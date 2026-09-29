@@ -377,7 +377,7 @@
 	}
 
 	// Motion-blur / focus measure (Laplacian variance) of a burst crop; higher =
-	// sharper. Shown rounded — the absolute value is camera/lighting dependent, so
+	// sharper. Shown rounded-control — the absolute value is camera/lighting dependent, so
 	// it's mainly useful for comparing crops of the same piece.
 	function formatSharpness(sharpness: number | null | undefined): string {
 		if (sharpness == null || !Number.isFinite(sharpness)) return '';
@@ -463,12 +463,12 @@
 	}
 
 	function confidenceClass(conf: number | null | undefined): string {
-		if (conf == null) return 'text-text-muted';
+		if (conf == null) return 'text-ink-muted';
 		const pct = conf * 100;
-		if (pct >= 90) return 'text-success';
-		if (pct >= 80) return 'text-warning';
-		if (pct >= 60) return 'text-warning/70';
-		return 'text-danger';
+		if (pct >= 90) return 'text-success-ink';
+		if (pct >= 80) return 'text-warning-ink';
+		if (pct >= 60) return 'text-warning-ink/70';
+		return 'text-danger-ink';
 	}
 
 	// Local-catalog (BrickLink) price formatter. Sub-cent values keep an extra
@@ -554,7 +554,7 @@
 			{
 				label: 'Mold confidence',
 				value: typeof o.confidence === 'number' ? `${(o.confidence * 100).toFixed(0)}%` : '—',
-				valueClass: `font-semibold tabular-nums ${confidenceClass(o.confidence)}`
+				valueClass: `font-semibold num ${confidenceClass(o.confidence)}`
 			},
 			{
 				label: 'Color',
@@ -567,7 +567,7 @@
 					typeof o.color_confidence === 'number'
 						? `${(o.color_confidence * 100).toFixed(0)}%`
 						: '—',
-				valueClass: `font-semibold tabular-nums ${confidenceClass(o.color_confidence)}`
+				valueClass: `font-semibold num ${confidenceClass(o.color_confidence)}`
 			},
 			{
 				label: 'Category',
@@ -595,13 +595,13 @@
 		rows.push({
 			label: 'Destination bin',
 			value: o.bin_label,
-			valueClass: 'font-mono tabular-nums text-text'
+			valueClass: 'font-mono num text-ink'
 		});
 		if (o.est_value != null) {
 			rows.push({
 				label: 'Est. value',
 				value: fmtPrice(o.est_value),
-				valueClass: 'tabular-nums text-text'
+				valueClass: 'num text-ink'
 			});
 		}
 		if (o.run_id) rows.push({ label: 'Run', value: o.run_id, mono: true });
@@ -609,7 +609,7 @@
 			rows.push({
 				label: 'Tracker',
 				value: String(o.tracked_global_id),
-				valueClass: 'font-mono tabular-nums text-text'
+				valueClass: 'font-mono num text-ink'
 			});
 		}
 		if (o.seen_at != null) {
@@ -692,31 +692,31 @@
 	<title>Piece {uuid.slice(0, 8)} · Sorter</title>
 </svelte:head>
 
-<div class="min-h-screen bg-bg">
+<div class="min-h-screen bg-well">
 	<AppHeader />
 	<div class="mx-auto flex w-full max-w-[1600px] flex-col gap-4 p-4 sm:p-6">
-		<header class="flex flex-wrap items-center justify-between gap-3 border-b border-border pb-3">
+		<header class="flex flex-wrap items-center justify-between gap-3 border-b border-line pb-3">
 			<div class="flex flex-wrap items-center gap-3">
 				<a
 					href="/records"
-					class="inline-flex items-center gap-1.5 border border-border bg-surface px-2.5 py-1.5 text-sm text-text-muted hover:text-text"
+					class="inline-flex items-center gap-1.5 border border-line bg-surface px-2.5 py-1.5 text-sm text-ink-muted hover:text-ink"
 				>
 					<ArrowLeft size={14} />
 					Back
 				</a>
-				<span class="font-mono text-lg font-semibold text-text">
+				<span class="font-mono text-lg font-semibold text-ink">
 					{uuid.slice(0, 8)}
 				</span>
 				{#if piece}
 					{#if piece.stage === 'distributed'}
 						<span
-							class="inline-flex items-center border border-border bg-surface px-2 py-0.5 text-xs font-semibold tracking-wider text-text-muted uppercase"
+							class="inline-flex items-center border border-line bg-surface px-2 py-0.5 text-xs font-semibold text-ink-muted"
 						>
 							Distributed
 						</span>
 					{:else if piece.stage === 'distributing'}
 						<span
-							class="inline-flex items-center border border-primary bg-primary/10 px-2 py-0.5 text-xs font-semibold tracking-wider text-primary uppercase"
+							class="inline-flex items-center border border-primary bg-primary-soft px-2 py-0.5 text-xs font-semibold text-primary-ink"
 						>
 							Distributing
 						</span>
@@ -764,10 +764,10 @@
 
 				<div class="grid grid-cols-1 gap-3 lg:grid-cols-2">
 					{#if diskThumbs.length > 0}
-						<section class="flex flex-col border border-border bg-surface">
-							<div class="border-b border-border bg-bg px-3 py-2 text-sm font-medium text-text">
+						<section class="flex flex-col border border-line bg-surface">
+							<div class="border-b border-line bg-well px-3 py-2 text-sm font-medium text-ink">
 								Stored images
-								<span class="ml-2 text-text-muted">{diskThumbs.length}</span>
+								<span class="ml-2 text-ink-muted">{diskThumbs.length}</span>
 							</div>
 							<div class="p-3">
 								<PieceThumbGrid
@@ -780,17 +780,17 @@
 					{/if}
 				</div>
 			{:else if _fetchStatus === 'loading' || _fetchStatus === 'idle'}
-				<div class="border border-border bg-surface p-4 text-sm text-text-muted">
+				<div class="border border-line bg-surface p-4 text-sm text-ink-muted">
 					Loading piece…
 				</div>
 			{:else if _fetchStatus === 'not_found'}
-				<div class="border border-border bg-surface p-4 text-sm text-text-muted">
+				<div class="border border-line bg-surface p-4 text-sm text-ink-muted">
 					No trace of this piece — it isn't in backend memory, the durable piece records, or the
 					on-disk image store. Go back to the
-					<a href="/records" class="text-primary underline">piece records</a>.
+					<a href="/records" class="text-primary-ink underline">piece records</a>.
 				</div>
 			{:else}
-				<div class="border border-border bg-surface p-4 text-sm text-text-muted">
+				<div class="border border-line bg-surface p-4 text-sm text-ink-muted">
 					Could not load this piece. Check the backend connection and try again.
 				</div>
 			{/if}
@@ -837,22 +837,22 @@
 				{@const md = piece.piece_metadata as Record<string, any>}
 				{@const price = (md.price ?? null) as Record<string, any> | null}
 				{@const bl = (md.bricklink ?? null) as Record<string, any> | null}
-				<section class="border border-border bg-surface">
-					<div class="border-b border-border bg-bg px-3 py-2 text-sm font-medium text-text">
+				<section class="border border-line bg-surface">
+					<div class="border-b border-line bg-well px-3 py-2 text-sm font-medium text-ink">
 						Pricing — Hive catalog{md.price_currency ? ` · BrickLink ${md.price_currency}` : ''}
 					</div>
 					<div class="flex flex-col gap-3 p-3 text-sm">
 						<div class="flex flex-wrap items-baseline gap-x-3 gap-y-1">
-							<span class="text-text-muted">Moving avg (routing)</span>
-							<span class="text-base font-semibold text-success tabular-nums">
+							<span class="text-ink-muted">Moving avg (routing)</span>
+							<span class="text-base font-semibold text-success-ink num">
 								{typeof md.moving_avg_price === 'number' ? fmtPrice(md.moving_avg_price) : '—'}
 							</span>
-							<span class="text-xs text-text-muted">first available · sold·new preferred</span>
-							<span class="border border-border bg-bg px-1.5 py-0.5 text-xs text-text-muted">
+							<span class="text-xs text-ink-muted">first available · sold·new preferred</span>
+							<span class="border border-line bg-well px-1.5 py-0.5 text-xs text-ink-muted">
 								{md.price_color_specific ? 'this color' : 'all colors (most liquid)'}
 							</span>
 							{#if md.price_updated_at}
-								<span class="text-xs text-text-muted"
+								<span class="text-xs text-ink-muted"
 									>synced {String(md.price_updated_at).slice(0, 10)}</span
 								>
 							{/if}
@@ -860,7 +860,7 @@
 
 						{#if md.price_from_base_mold}
 							<div
-								class="border border-warning/40 bg-warning/[0.08] px-2.5 py-1.5 text-sm text-text"
+								class="border border-warning/40 bg-warning-soft px-2.5 py-1.5 text-sm text-ink"
 							>
 								≈ Approximate — no market data for this exact print. Showing the base mold <span
 									class="font-mono">{md.price_from_base_mold}</span
@@ -872,41 +872,41 @@
 							<div class="overflow-x-auto">
 								<table class="w-full border-collapse text-sm">
 									<thead>
-										<tr class="text-text-muted">
-											<th class="border border-border px-2 py-1 text-left font-medium">Source</th>
-											<th class="border border-border px-2 py-1 text-right font-medium">Avg</th>
-											<th class="border border-border px-2 py-1 text-right font-medium">Wt avg</th>
-											<th class="border border-border px-2 py-1 text-right font-medium">Min</th>
-											<th class="border border-border px-2 py-1 text-right font-medium">Max</th>
-											<th class="border border-border px-2 py-1 text-right font-medium">Qty</th>
-											<th class="border border-border px-2 py-1 text-right font-medium">Lots</th>
+										<tr class="text-ink-muted">
+											<th class="border border-line px-2 py-1 text-left font-medium">Source</th>
+											<th class="border border-line px-2 py-1 text-right font-medium">Avg</th>
+											<th class="border border-line px-2 py-1 text-right font-medium">Wt avg</th>
+											<th class="border border-line px-2 py-1 text-right font-medium">Min</th>
+											<th class="border border-line px-2 py-1 text-right font-medium">Max</th>
+											<th class="border border-line px-2 py-1 text-right font-medium">Qty</th>
+											<th class="border border-line px-2 py-1 text-right font-medium">Lots</th>
 										</tr>
 									</thead>
 									<tbody>
 										{#each PRICE_BUCKETS as [key, label]}
 											{@const b = (price[key] ?? {}) as Record<string, any>}
 											<tr>
-												<td class="border border-border px-2 py-1 text-text">{label}</td>
-												<td class="border border-border px-2 py-1 text-right text-text tabular-nums"
+												<td class="border border-line px-2 py-1 text-ink">{label}</td>
+												<td class="border border-line px-2 py-1 text-right text-ink num"
 													>{fmtPrice(b.avg)}</td
 												>
-												<td class="border border-border px-2 py-1 text-right text-text tabular-nums"
+												<td class="border border-line px-2 py-1 text-right text-ink num"
 													>{fmtPrice(b.wavg)}</td
 												>
 												<td
-													class="border border-border px-2 py-1 text-right text-text-muted tabular-nums"
+													class="border border-line px-2 py-1 text-right text-ink-muted num"
 													>{fmtPrice(b.min)}</td
 												>
 												<td
-													class="border border-border px-2 py-1 text-right text-text-muted tabular-nums"
+													class="border border-line px-2 py-1 text-right text-ink-muted num"
 													>{fmtPrice(b.max)}</td
 												>
 												<td
-													class="border border-border px-2 py-1 text-right text-text-muted tabular-nums"
+													class="border border-line px-2 py-1 text-right text-ink-muted num"
 													>{b.qty ?? '—'}</td
 												>
 												<td
-													class="border border-border px-2 py-1 text-right text-text-muted tabular-nums"
+													class="border border-line px-2 py-1 text-right text-ink-muted num"
 													>{b.lots ?? '—'}</td
 												>
 											</tr>
@@ -915,13 +915,13 @@
 								</table>
 							</div>
 						{:else}
-							<div class="text-text-muted">
+							<div class="text-ink-muted">
 								No price-guide rows for this part in the Hive catalog.
 							</div>
 						{/if}
 
 						{#if bl}
-							<div class="flex flex-wrap gap-x-4 gap-y-1 text-xs text-text-muted">
+							<div class="flex flex-wrap gap-x-4 gap-y-1 text-xs text-ink-muted">
 								{#if bl.item_no}<span>BL item {bl.item_no}</span>{/if}
 								{#if bl.weight_g}<span>{bl.weight_g} g</span>{/if}
 								{#if bl.dim_x_studs && bl.dim_y_studs}<span
@@ -940,14 +940,14 @@
 			     lives in the Classification card, so this is just the one photo. -->
 			{#if piece.drop_snapshot}
 				{@const drop_src = dataImageUrl(piece.drop_snapshot) as string}
-				<section class="border border-border bg-surface">
-					<div class="border-b border-border bg-bg px-3 py-2 text-sm font-medium text-text">
+				<section class="border border-line bg-surface">
+					<div class="border-b border-line bg-well px-3 py-2 text-sm font-medium text-ink">
 						Arrival snapshot
 					</div>
 					<div class="p-3">
 						<button
 							type="button"
-							class="flex flex-col border border-border bg-bg text-left hover:border-primary/70"
+							class="flex flex-col border border-line bg-well text-left hover:border-primary/70"
 							onclick={() => (zoomImage = { src: drop_src, label: 'At arrival' })}
 						>
 							<div class="flex h-40 w-40 items-center justify-center bg-white">
@@ -958,7 +958,7 @@
 									loading="lazy"
 								/>
 							</div>
-							<div class="px-2 py-1.5 text-xs text-text-muted">At arrival</div>
+							<div class="px-2 py-1.5 text-xs text-ink-muted">At arrival</div>
 						</button>
 					</div>
 				</section>
@@ -970,56 +970,56 @@
 			     returned, not just the winner, so a confused fused set vs. a clean
 			     lone frame is visible at a glance. -->
 			{#if attempts.length > 0}
-				<section class="border border-border bg-surface">
-					<div class="border-b border-border bg-bg px-3 py-2 text-sm font-medium text-text">
+				<section class="border border-line bg-surface">
+					<div class="border-b border-line bg-well px-3 py-2 text-sm font-medium text-ink">
 						Classification requests
-						<span class="ml-2 text-text-muted">{attempts.length}</span>
+						<span class="ml-2 text-ink-muted">{attempts.length}</span>
 					</div>
 					<div class="flex flex-col gap-2 p-3">
 						{#each attempts as a, ai (ai)}
 							{@const open = expandedAttempts.has(ai)}
 							{@const sent = attemptImages(a)}
-							<div class={`border ${a.applied ? 'border-primary' : 'border-border'}`}>
+							<div class={`border ${a.applied ? 'border-primary' : 'border-line'}`}>
 								<button
 									type="button"
 									class={`flex w-full flex-wrap items-center gap-x-3 gap-y-1 px-3 py-2 text-left text-sm ${
-										a.applied ? 'bg-primary/[0.08]' : 'bg-bg hover:bg-surface'
+										a.applied ? 'bg-primary-soft' : 'bg-well hover:bg-surface'
 									}`}
 									onclick={() => toggleAttempt(ai)}
 								>
 									{#if open}
-										<ChevronDown class="h-4 w-4 shrink-0 text-text-muted" />
+										<ChevronDown class="h-4 w-4 shrink-0 text-ink-muted" />
 									{:else}
-										<ChevronRight class="h-4 w-4 shrink-0 text-text-muted" />
+										<ChevronRight class="h-4 w-4 shrink-0 text-ink-muted" />
 									{/if}
-									<span class="font-medium text-text">{attemptName(a)}</span>
-									<span class="text-text-muted">{attemptInputs(a)}</span>
+									<span class="font-medium text-ink">{attemptName(a)}</span>
+									<span class="text-ink-muted">{attemptInputs(a)}</span>
 									<span
-										class={`tabular-nums ${
+										class={`num ${
 											a.error
-												? 'text-danger'
+												? 'text-danger-ink'
 												: a.found
-													? 'font-medium text-text'
-													: 'text-text-muted'
+													? 'font-medium text-ink'
+													: 'text-ink-muted'
 										}`}
 									>
 										{attemptOutcome(a)}
 									</span>
 									{#if a.found && a.part_name}
-										<span class="text-text-muted">{a.part_name}</span>
+										<span class="text-ink-muted">{a.part_name}</span>
 									{/if}
 									{#if a.found && a.color_name}
-										<span class="text-text-muted">· {a.color_name}</span>
+										<span class="text-ink-muted">· {a.color_name}</span>
 									{/if}
 									{#if a.error}
-										<span class="text-text-muted">{a.error}</span>
+										<span class="text-ink-muted">{a.error}</span>
 									{/if}
 									{#if a.duration_s != null}
-										<span class="text-text-muted tabular-nums">{a.duration_s.toFixed(2)}s</span>
+										<span class="text-ink-muted num">{a.duration_s.toFixed(2)}s</span>
 									{/if}
 									{#if a.applied}
 										<span
-											class="ml-auto bg-primary px-1.5 py-0.5 text-xs font-semibold tracking-wider text-white uppercase"
+											class="ml-auto bg-primary px-1.5 py-0.5 text-xs font-semibold text-white"
 											title="This request's result was applied to the piece"
 										>
 											Applied
@@ -1027,15 +1027,15 @@
 									{/if}
 								</button>
 								{#if open}
-									<div class="flex flex-wrap gap-4 border-t border-border p-3">
+									<div class="flex flex-wrap gap-4 border-t border-line p-3">
 										<!-- What was sent to Brickognize for this request -->
 										<div class="flex flex-col gap-1.5">
-											<div class="text-xs font-semibold tracking-wider text-text-muted uppercase">
+											<div class="text-xs font-semibold text-ink-muted">
 												Sent ({sent.length})
 											</div>
 											{#if sent.length === 0}
 												<div
-													class="flex h-32 w-32 items-center justify-center border border-border bg-bg text-sm text-text-muted"
+													class="flex h-32 w-32 items-center justify-center border border-line bg-well text-sm text-ink-muted"
 												>
 													crops aged out
 												</div>
@@ -1044,7 +1044,7 @@
 													{#each sent as crop (cropKey(crop))}
 														<button
 															type="button"
-															class="flex flex-col border border-border bg-bg text-left hover:border-primary/70"
+															class="flex flex-col border border-line bg-well text-left hover:border-primary/70"
 															onclick={() =>
 																(zoomImage = { src: crop.src, label: formatCropLabel(crop) })}
 														>
@@ -1056,7 +1056,7 @@
 																	loading="lazy"
 																/>
 															</div>
-															<div class="px-1.5 py-1 text-xs text-text-muted">
+															<div class="px-1.5 py-1 text-xs text-ink-muted">
 																{formatCropLabel(crop)}
 															</div>
 														</button>
@@ -1066,12 +1066,12 @@
 										</div>
 										<!-- What Brickognize returned for this request -->
 										<div class="flex flex-col gap-1.5">
-											<div class="text-xs font-semibold tracking-wider text-text-muted uppercase">
+											<div class="text-xs font-semibold text-ink-muted">
 												Result
 											</div>
 											{#if a.error}
 												<div
-													class="flex h-32 w-32 items-center justify-center border border-danger/40 bg-bg p-2 text-center text-sm text-danger"
+													class="flex h-32 w-32 items-center justify-center border border-danger/40 bg-well p-2 text-center text-sm text-danger-ink"
 												>
 													{a.error}
 												</div>
@@ -1080,7 +1080,7 @@
 													{#if a.preview_url}
 														<button
 															type="button"
-															class="flex flex-col border border-border bg-bg text-left hover:border-primary/70"
+															class="flex flex-col border border-line bg-well text-left hover:border-primary/70"
 															onclick={() =>
 																(zoomImage = {
 																	src: a.preview_url as string,
@@ -1098,21 +1098,21 @@
 														</button>
 													{/if}
 													<div class="flex flex-col gap-0.5 text-sm">
-														<span class="font-medium text-text tabular-nums">{a.part_id}</span>
-														{#if a.part_name}<span class="text-text-muted">{a.part_name}</span>{/if}
+														<span class="font-medium text-ink num">{a.part_id}</span>
+														{#if a.part_name}<span class="text-ink-muted">{a.part_name}</span>{/if}
 														{#if a.confidence != null}
-															<span class="text-text-muted tabular-nums"
+															<span class="text-ink-muted num"
 																>{(a.confidence * 100).toFixed(0)}% match</span
 															>
 														{/if}
-														{#if a.color_name}<span class="text-text-muted"
+														{#if a.color_name}<span class="text-ink-muted"
 																>Color: {a.color_name}</span
 															>{/if}
 													</div>
 												</div>
 											{:else}
 												<div
-													class="flex h-32 w-32 items-center justify-center border border-border bg-bg text-sm text-text-muted"
+													class="flex h-32 w-32 items-center justify-center border border-line bg-well text-sm text-ink-muted"
 												>
 													no match
 												</div>
@@ -1137,7 +1137,7 @@
 						{/if}
 						{#if item.ref.sharpness != null}
 							<span
-								class="absolute top-1 right-1 bg-text/80 px-1 py-0.5 text-xs font-semibold text-bg tabular-nums"
+								class="absolute top-1 right-1 bg-text/80 px-1 py-0.5 text-xs font-semibold text-bg num"
 								title="Sharpness (Laplacian variance) — higher is sharper / less motion blur"
 							>
 								⌖ {formatSharpness(item.ref.sharpness)}
@@ -1156,19 +1156,19 @@
 						/>
 					{/snippet}
 			<!-- Image gallery + Brickognize reference -->
-			<section class="border border-border bg-surface">
+			<section class="border border-line bg-surface">
 				<div
-					class="flex items-center justify-between border-b border-border bg-bg px-3 py-2 text-sm"
+					class="flex items-center justify-between border-b border-line bg-well px-3 py-2 text-sm"
 				>
-					<div class="font-medium text-text">
+					<div class="font-medium text-ink">
 						Classification burst
-						<span class="ml-2 text-text-muted">{burstThumbs.length}</span>
+						<span class="ml-2 text-ink-muted">{burstThumbs.length}</span>
 					</div>
-					<span class="text-sm text-text-muted">C4 · outlined = used for classification</span>
+					<span class="text-sm text-ink-muted">C4 · outlined = used for classification</span>
 				</div>
 				<div class="p-3">
 					{#if burstThumbs.length === 0}
-						<div class="text-sm text-text-muted">No burst frames for this piece.</div>
+						<div class="text-sm text-ink-muted">No burst frames for this piece.</div>
 					{:else}
 						<PieceThumbGrid
 							items={burstThumbs}
@@ -1183,15 +1183,15 @@
 			<!-- The same physical piece as seen upstream, ranked by the piece-link
 			     model. Outlined tiles were fused into the Brickognize request
 			     alongside the burst; the rest are shown for review. -->
-			<section class="border border-border bg-surface">
+			<section class="border border-line bg-surface">
 				<div
-					class="flex items-center justify-between border-b border-border bg-bg px-3 py-2 text-sm"
+					class="flex items-center justify-between border-b border-line bg-well px-3 py-2 text-sm"
 				>
-					<div class="font-medium text-text">
+					<div class="font-medium text-ink">
 						Other channels
-						<span class="ml-2 text-text-muted">{otherChannelThumbs.length}</span>
+						<span class="ml-2 text-ink-muted">{otherChannelThumbs.length}</span>
 					</div>
-					<span class="text-sm text-text-muted">
+					<span class="text-sm text-ink-muted">
 						{#if linkMatchCount > 0}
 							C2/C3 · ranked by match probability · outlined = used for classification
 						{:else}
@@ -1201,7 +1201,7 @@
 				</div>
 				<div class="p-3">
 					{#if otherChannelThumbs.length === 0}
-						<div class="text-sm text-text-muted">
+						<div class="text-sm text-ink-muted">
 							No upstream views of this piece.
 						</div>
 					{:else}
@@ -1228,25 +1228,25 @@
 			{/if}
 
 			<!-- Lifecycle timeline -->
-			<section class="border border-border bg-surface">
-				<div class="border-b border-border bg-bg px-3 py-2 text-sm font-medium text-text">
+			<section class="border border-line bg-surface">
+				<div class="border-b border-line bg-well px-3 py-2 text-sm font-medium text-ink">
 					Lifecycle timeline
 				</div>
 				<div class="p-3">
 					{#if timeline.length === 0}
-						<div class="text-sm text-text-muted">No lifecycle events recorded yet.</div>
+						<div class="text-sm text-ink-muted">No lifecycle events recorded yet.</div>
 					{:else}
 						{@const anchor = timeline[0].ts}
 						<ol class="flex flex-col">
 							{#each timeline as ev, idx (idx)}
-								<li class="relative flex items-baseline gap-3 border-l border-border pl-4">
+								<li class="relative flex items-baseline gap-3 border-l border-line pl-4">
 									<span class="absolute top-1.5 -left-[5px] h-2 w-2 bg-primary"></span>
-									<span class="min-w-[12rem] text-sm text-text">{ev.label}</span>
-									<span class="font-mono text-sm text-text-muted tabular-nums">
+									<span class="min-w-[12rem] text-sm text-ink">{ev.label}</span>
+									<span class="font-mono text-sm text-ink-muted num">
 										{formatAbsTs(ev.ts)}
 									</span>
 									{#if idx > 0}
-										<span class="font-mono text-xs text-text-muted tabular-nums">
+										<span class="font-mono text-xs text-ink-muted num">
 											{formatRelSec(ev.ts, anchor)}
 										</span>
 									{/if}
@@ -1259,10 +1259,10 @@
 			</section>
 
 			<!-- Raw JSON toggle -->
-			<section class="border border-border bg-surface">
+			<section class="border border-line bg-surface">
 				<button
 					type="button"
-					class="flex w-full items-center gap-2 border-b border-border bg-bg px-3 py-2 text-sm text-text-muted hover:text-text"
+					class="flex w-full items-center gap-2 border-b border-line bg-well px-3 py-2 text-sm text-ink-muted hover:text-ink"
 					onclick={() => (showRawJson = !showRawJson)}
 				>
 					{#if showRawJson}
@@ -1273,7 +1273,7 @@
 					<span>View raw JSON</span>
 				</button>
 				{#if showRawJson}
-					<pre class="max-h-96 overflow-auto bg-bg p-3 text-xs text-text-muted">{JSON.stringify(
+					<pre class="max-h-96 overflow-auto bg-well p-3 text-xs text-ink-muted">{JSON.stringify(
 							piece,
 							null,
 							2
@@ -1291,13 +1291,13 @@
 		onclick={() => (zoomImage = null)}
 		aria-label="Close enlarged image"
 	>
-		<div class="flex max-h-full max-w-full flex-col gap-2 border border-border bg-bg p-3">
+		<div class="flex max-h-full max-w-full flex-col gap-2 border border-line bg-well p-3">
 			<img
 				src={zoomImage.src}
 				alt={zoomImage.label}
 				class="max-h-[80vh] max-w-[80vw] object-contain"
 			/>
-			<div class="text-sm text-text-muted">{zoomImage.label}</div>
+			<div class="text-sm text-ink-muted">{zoomImage.label}</div>
 		</div>
 	</button>
 {/if}

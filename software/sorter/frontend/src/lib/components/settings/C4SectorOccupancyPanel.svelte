@@ -57,15 +57,15 @@
 
 	function sectorClass(sector: Sector): string {
 		if (sector.occupied) {
-			return 'border-primary bg-primary/10 text-text';
+			return 'border-primary bg-primary-soft text-ink';
 		}
 		if (sector.state === 'handoff') {
-			return 'border-warning bg-warning/10 text-text';
+			return 'border-warning bg-warning-soft text-ink';
 		}
 		if (sector.state === 'exit') {
-			return 'border-info bg-info/10 text-text';
+			return 'border-info bg-info-soft text-ink';
 		}
-		return 'border-border bg-bg text-text-muted';
+		return 'border-line bg-well text-ink-muted';
 	}
 
 	function sectorLabel(sector: Sector): string {
@@ -107,12 +107,12 @@
 
 <div class="flex flex-col gap-4">
 	<div class="flex flex-wrap items-center justify-between gap-3">
-		<div class="flex flex-wrap items-center gap-2 text-xs text-text-muted">
+		<div class="flex flex-wrap items-center gap-2 text-xs text-ink-muted">
 			<span class="inline-flex items-center gap-1.5">
 				{#if payload?.phase_ok}
-					<CheckCircle2 size={13} class="text-success" />
+					<CheckCircle2 size={13} class="text-success-ink" />
 				{:else}
-					<AlertTriangle size={13} class="text-warning" />
+					<AlertTriangle size={13} class="text-warning-ink" />
 				{/if}
 				Phase {phaseText}
 			</span>
@@ -126,7 +126,7 @@
 			type="button"
 			onclick={() => scan()}
 			disabled={loading}
-			class="inline-flex items-center gap-1.5 border border-border bg-bg px-3 py-1.5 text-xs font-medium text-text transition-colors hover:bg-surface disabled:cursor-not-allowed disabled:opacity-60"
+			class="inline-flex items-center gap-1.5 border border-line bg-well px-3 py-1.5 text-xs font-medium text-ink transition-colors hover:bg-surface disabled:cursor-not-allowed disabled:opacity-60"
 			title="Scan C4 sectors"
 		>
 			<RefreshCw size={13} class={loading ? 'animate-spin' : ''} />
@@ -135,9 +135,9 @@
 	</div>
 
 	{#if error}
-		<div class="border border-warning bg-warning/10 px-3 py-2 text-sm text-text">
+		<div class="border border-warning bg-warning-soft px-3 py-2 text-sm text-ink">
 			<div class="flex items-start gap-2">
-				<AlertTriangle size={15} class="mt-0.5 shrink-0 text-warning" />
+				<AlertTriangle size={15} class="mt-0.5 shrink-0 text-warning-ink" />
 				<span>{error}</span>
 			</div>
 		</div>
@@ -158,7 +158,7 @@
 		{/each}
 		{#if sectors.length === 0}
 			{#each Array.from({ length: 5 }) as _, index (index)}
-				<div class="min-h-24 border border-dashed border-border bg-bg px-3 py-2 text-text-muted">
+				<div class="min-h-24 border border-dashed border-line bg-well px-3 py-2 text-ink-muted">
 					<div class="text-sm font-semibold">S{index + 1}</div>
 				</div>
 			{/each}
@@ -166,21 +166,21 @@
 	</div>
 
 	{#if payload}
-		<div class="grid gap-2 text-xs text-text-muted sm:grid-cols-4">
-			<div class="border border-border bg-bg px-3 py-2">
-				<div class="font-medium text-text">Candidates</div>
+		<div class="grid gap-2 text-xs text-ink-muted sm:grid-cols-4">
+			<div class="border border-line bg-well px-3 py-2">
+				<div class="font-medium text-ink">Candidates</div>
 				<div>{candidateCount}</div>
 			</div>
-			<div class="border border-border bg-bg px-3 py-2">
-				<div class="font-medium text-text">Detections</div>
+			<div class="border border-line bg-well px-3 py-2">
+				<div class="font-medium text-ink">Detections</div>
 				<div>{detectionCount}</div>
 			</div>
-			<div class="border border-border bg-bg px-3 py-2">
-				<div class="font-medium text-text">Handoff</div>
+			<div class="border border-line bg-well px-3 py-2">
+				<div class="font-medium text-ink">Handoff</div>
 				<div>{payload.handoff_sector === null || payload.handoff_sector === undefined ? 'n/a' : `S${payload.handoff_sector + 1}`}</div>
 			</div>
-			<div class="border border-border bg-bg px-3 py-2">
-				<div class="font-medium text-text">Exit</div>
+			<div class="border border-line bg-well px-3 py-2">
+				<div class="font-medium text-ink">Exit</div>
 				<div>{payload.exit_sector === null || payload.exit_sector === undefined ? 'n/a' : `S${payload.exit_sector + 1}`}</div>
 			</div>
 		</div>

@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
-	import { Skeleton } from '$lib/components/primitives';
+	import Skeleton from '$lib/components/ui/Skeleton.svelte';
 	import SeriesChart from './SeriesChart.svelte';
 	import DonutChart, { type DonutSegment } from './DonutChart.svelte';
 
@@ -106,14 +106,14 @@
 	}
 
 	const KIND_COLORS = [
-		'var(--color-danger)',
-		'var(--color-warning)',
-		'var(--color-info)',
-		'var(--color-primary)',
-		'var(--color-success)',
-		'var(--color-danger-dark)',
-		'var(--color-warning-dark)',
-		'var(--color-text-muted)'
+		'var(--danger)',
+		'var(--warning)',
+		'var(--info)',
+		'var(--primary)',
+		'var(--success)',
+		'var(--danger-ink)',
+		'var(--warning-ink)',
+		'var(--ink-muted)'
 	];
 
 	const kindSegments = $derived.by<DonutSegment[]>(() => {
@@ -131,21 +131,21 @@
 </script>
 
 {#snippet statCard(label: string, value_text: string, sub: string | null = null)}
-	<div class="border border-border bg-surface px-4 py-3">
-		<div class="text-xs font-semibold tracking-wider text-text-muted uppercase">{label}</div>
-		<div class="mt-1 text-2xl font-bold text-text">{value_text}</div>
+	<div class="border border-line bg-surface px-4 py-3">
+		<div class="text-xs font-semibold text-ink-muted">{label}</div>
+		<div class="mt-1 text-2xl font-bold text-ink">{value_text}</div>
 		{#if sub}
-			<div class="mt-0.5 text-sm text-text-muted">{sub}</div>
+			<div class="mt-0.5 text-sm text-ink-muted">{sub}</div>
 		{/if}
 	</div>
 {/snippet}
 
 {#snippet chartCard(title: string, sub: string | null, body: import('svelte').Snippet)}
-	<div class="flex flex-col border border-border bg-surface">
-		<div class="border-b border-border bg-bg px-3 py-2">
-			<span class="text-xs font-semibold tracking-wider text-text-muted uppercase">{title}</span>
+	<div class="flex flex-col border border-line bg-surface">
+		<div class="border-b border-line bg-well px-3 py-2">
+			<span class="text-xs font-semibold text-ink-muted">{title}</span>
 			{#if sub}
-				<span class="ml-2 text-xs text-text-muted">{sub}</span>
+				<span class="ml-2 text-xs text-ink-muted">{sub}</span>
 			{/if}
 		</div>
 		<div class="flex-1 p-3">
@@ -154,9 +154,9 @@
 	</div>
 {/snippet}
 
-<h3 class="text-sm font-semibold tracking-wider text-text-muted uppercase">
+<h3 class="text-sm font-semibold text-ink-muted">
 	Incidents
-	<span class="ml-1 font-normal normal-case text-text-muted"
+	<span class="ml-1 font-normal normal-case text-ink-muted"
 		>— classification-channel clears, chute jams, stepper stalls, and every other
 		operator-facing hold this machine has recorded</span
 	>
@@ -164,7 +164,7 @@
 
 {#if summary === null}
 	{#if error}
-		<div class="border border-border bg-surface p-4 text-sm text-text-muted">
+		<div class="border border-line bg-surface p-4 text-sm text-ink-muted">
 			Could not load incident data.
 		</div>
 	{:else}
@@ -195,7 +195,7 @@
 			<SeriesChart
 				points={summary?.by_day.map((p) => ({ date: p.date, value: p.count })) ?? []}
 				kind="bar"
-				color="var(--color-danger)"
+				color="var(--danger)"
 			/>
 		{/snippet}
 		{@render chartCard('Incidents per day', 'last year', incidentsPerDay)}
@@ -210,26 +210,26 @@
 				<div class="flex flex-col gap-1.5">
 					{#each summary.by_kind as k (k.kind)}
 						<div class="flex items-center gap-2 text-sm">
-							<span class="w-40 truncate text-text capitalize" title={formatKind(k.kind)}>
+							<span class="w-40 truncate text-ink capitalize" title={formatKind(k.kind)}>
 								{formatKind(k.kind)}
 							</span>
-							<div class="h-3.5 flex-1 bg-bg">
+							<div class="h-3.5 flex-1 bg-well">
 								<div
 									class="h-full bg-danger/70"
 									style:width={`${Math.max(1, (k.count / maxKindCount) * 100)}%`}
 								></div>
 							</div>
-							<span class="w-12 text-right tabular-nums text-text-muted">
+							<span class="w-12 text-right num text-ink-muted">
 								{k.count.toLocaleString()}
 							</span>
-							<span class="w-24 text-right text-xs text-text-muted">
+							<span class="w-24 text-right text-xs text-ink-muted">
 								{formatDuration(k.avg_duration_s)} avg
 							</span>
 						</div>
 					{/each}
 				</div>
 			{:else}
-				<div class="flex h-32 items-center justify-center text-sm text-text-muted">
+				<div class="flex h-32 items-center justify-center text-sm text-ink-muted">
 					No incidents recorded.
 				</div>
 			{/if}
@@ -242,21 +242,21 @@
 				<div class="flex flex-col gap-1.5">
 					{#each summary.by_channel as c (c.channel)}
 						<div class="flex items-center gap-2 text-sm">
-							<span class="w-40 truncate text-text" title={c.channel}>{c.channel}</span>
-							<div class="h-3.5 flex-1 bg-bg">
+							<span class="w-40 truncate text-ink" title={c.channel}>{c.channel}</span>
+							<div class="h-3.5 flex-1 bg-well">
 								<div
 									class="h-full bg-primary/70"
 									style:width={`${Math.max(1, (c.count / maxChannelCount) * 100)}%`}
 								></div>
 							</div>
-							<span class="w-12 text-right tabular-nums text-text-muted">
+							<span class="w-12 text-right num text-ink-muted">
 								{c.count.toLocaleString()}
 							</span>
 						</div>
 					{/each}
 				</div>
 			{:else}
-				<div class="flex h-32 items-center justify-center text-sm text-text-muted">
+				<div class="flex h-32 items-center justify-center text-sm text-ink-muted">
 					No incidents recorded.
 				</div>
 			{/if}
@@ -264,10 +264,10 @@
 		{@render chartCard('By channel', 'all time', channelBars)}
 	</div>
 
-	<div class="overflow-x-auto border border-border">
+	<div class="overflow-x-auto border border-line">
 		<table class="w-full border-collapse text-sm">
 			<thead>
-				<tr class="border-b border-border bg-surface text-left text-text-muted">
+				<tr class="border-b border-line bg-surface text-left text-ink-muted">
 					<th class="px-3 py-2 font-semibold">When</th>
 					<th class="px-3 py-2 font-semibold">Kind</th>
 					<th class="px-3 py-2 font-semibold">Channel</th>
@@ -280,24 +280,24 @@
 			<tbody>
 				{#if rows.length === 0}
 					<tr>
-						<td class="px-3 py-4 text-center text-text-muted" colspan="7">
+						<td class="px-3 py-4 text-center text-ink-muted" colspan="7">
 							{rowsLoading ? 'Loading…' : 'No incidents recorded yet.'}
 						</td>
 					</tr>
 				{:else}
 					{#each rows as row (row.id)}
-						<tr class="border-b border-border last:border-b-0 hover:bg-surface">
-							<td class="px-3 py-2 whitespace-nowrap text-text-muted">
+						<tr class="border-b border-line last:border-b-0 hover:bg-surface">
+							<td class="px-3 py-2 whitespace-nowrap text-ink-muted">
 								{formatTimestamp(row.triggered_at)}
 							</td>
-							<td class="px-3 py-2 text-text capitalize">{formatKind(row.kind)}</td>
-							<td class="px-3 py-2 text-text-muted">{row.channel_label ?? row.channel ?? '—'}</td>
-							<td class="px-3 py-2 text-text-muted">
+							<td class="px-3 py-2 text-ink capitalize">{formatKind(row.kind)}</td>
+							<td class="px-3 py-2 text-ink-muted">{row.channel_label ?? row.channel ?? '—'}</td>
+							<td class="px-3 py-2 text-ink-muted">
 								{row.status === 'active' ? 'Active' : 'Resolved'}
 							</td>
-							<td class="px-3 py-2 text-text-muted">{resolvedByLabel(row.resolved_by)}</td>
-							<td class="px-3 py-2 text-text-muted">{formatDuration(row.duration_s)}</td>
-							<td class="max-w-xs truncate px-3 py-2 text-text-muted" title={row.operator_message ?? row.reason ?? ''}>
+							<td class="px-3 py-2 text-ink-muted">{resolvedByLabel(row.resolved_by)}</td>
+							<td class="px-3 py-2 text-ink-muted">{formatDuration(row.duration_s)}</td>
+							<td class="max-w-xs truncate px-3 py-2 text-ink-muted" title={row.operator_message ?? row.reason ?? ''}>
 								{row.operator_message ?? row.reason ?? '—'}
 							</td>
 						</tr>

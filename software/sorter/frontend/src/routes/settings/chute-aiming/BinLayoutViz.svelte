@@ -67,10 +67,10 @@
 	}
 </script>
 
-<div class="flex flex-col gap-1 border border-border bg-bg p-3">
+<div class="flex flex-col gap-1 border border-line bg-well p-3">
 	<div class="flex items-baseline justify-between">
-		<div class="text-sm font-semibold text-text">{binCount} {binCount === 1 ? 'bin' : 'bins'}/section</div>
-		<div class={`text-sm ${unreachableCount === 0 ? 'text-success' : 'text-danger'}`}>
+		<div class="text-sm font-semibold text-ink">{binCount} {binCount === 1 ? 'bin' : 'bins'}/section</div>
+		<div class={`text-sm ${unreachableCount === 0 ? 'text-success-ink' : 'text-danger-ink'}`}>
 			{#if unreachableCount === 0}
 				all {total} reachable
 			{:else}
@@ -147,7 +147,7 @@
 	</svg>
 
 	{#if unreachableCount > 0}
-		<p class="text-sm text-danger">
+		<p class="text-sm text-danger-ink">
 			{unreachableCount}
 			{unreachableCount === 1 ? 'bin falls' : 'bins fall'} in the {maxAngleDeg.toFixed(0)}° no-go wedge by home.
 		</p>

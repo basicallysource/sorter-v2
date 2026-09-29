@@ -67,15 +67,15 @@
 	}
 </script>
 
-<div class="border border-border">
-	<div class="flex items-center justify-between border-b border-border bg-surface px-3 py-2">
-		<span class="text-xs font-semibold uppercase tracking-wider text-text-muted">Servo Speeds</span>
+<div class="border border-line">
+	<div class="flex items-center justify-between border-b border-line bg-surface px-3 py-2">
+		<span class="text-xs font-semibold text-ink-muted">Servo Speeds</span>
 		{#if saveStatus === 'saving'}
-			<span class="text-xs text-text-muted">Saving…</span>
+			<span class="text-xs text-ink-muted">Saving…</span>
 		{:else if saveStatus === 'saved'}
-			<span class="text-xs text-success">Saved</span>
+			<span class="text-xs text-success-ink">Saved</span>
 		{:else if saveStatus === 'error'}
-			<span class="text-xs text-danger" title={saveError}>Failed to save</span>
+			<span class="text-xs text-danger-ink" title={saveError}>Failed to save</span>
 		{/if}
 	</div>
 	<div class="flex flex-wrap items-center gap-x-6 gap-y-3 p-3">
@@ -85,28 +85,28 @@
 			{ label: 'Standard speed', get: () => homingSpeed,  set: (v: number | null) => { homingSpeed = v;  scheduleAutoSave(); } },
 		] as entry}
 			<div class="flex flex-col gap-1">
-				<span class="text-xs font-semibold uppercase tracking-wider text-text-muted">{entry.label}</span>
+				<span class="text-xs font-semibold text-ink-muted">{entry.label}</span>
 				<div class="flex items-center gap-1.5">
 					<input
 						type="number" min="1" max="2000" step="1"
 						value={entry.get() ?? FW_DEFAULT}
 						oninput={(e) => entry.set(parseSpeed(e.currentTarget.value))}
 						{disabled}
-						class="setup-control w-24 px-2 py-1.5 text-text"
+						class="setup-control w-24 px-2 py-1.5 text-ink"
 					/>
-					<span class="text-sm text-text-muted">°/s</span>
+					<span class="text-sm text-ink-muted">°/s</span>
 					{#if entry.get() !== null}
 						<button
 							onclick={() => entry.set(null)}
 							{disabled}
 							title="Reset to firmware default ({FW_DEFAULT} °/s)"
-							class="inline-flex items-center gap-1 border border-border bg-surface px-2 py-1.5 text-sm text-text-muted hover:bg-bg disabled:cursor-not-allowed disabled:opacity-50"
+							class="inline-flex items-center gap-1 border border-line bg-surface px-2 py-1.5 text-sm text-ink-muted hover:bg-hover disabled:cursor-not-allowed disabled:opacity-50"
 						><Undo2 size={13} /> {FW_DEFAULT}</button>
 					{/if}
 				</div>
 			</div>
 		{/each}
-		<p class="w-full text-sm text-text-muted">
+		<p class="w-full text-sm text-ink-muted">
 			Applied to all layers. Standard speed is used at startup and for jog.
 		</p>
 	</div>

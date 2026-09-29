@@ -33,7 +33,7 @@
 	{@render children()}
 	{#if visible && text}
 		<span
-			class="pointer-events-none absolute bottom-full left-1/2 z-50 mb-1 -translate-x-1/2 whitespace-nowrap border border-border bg-surface px-2 py-1 text-xs text-text shadow-md"
+			class="pointer-events-none absolute bottom-full left-1/2 z-50 mb-1 -translate-x-1/2 whitespace-nowrap border border-line bg-surface px-2 py-1 text-xs text-ink"
 			role="tooltip"
 		>
 			{text}

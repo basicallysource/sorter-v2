@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { getBackendHttpBase } from '$lib/backend';
-	import { Alert } from '$lib/components/primitives';
+	import Alert from '$lib/components/ui/Alert.svelte';
 	import type { CameraRole } from '$lib/settings/stations';
 
 	type CaptureMode = {
@@ -156,11 +156,11 @@
 	});
 </script>
 
-<div class="grid gap-2 border-t border-border pt-3">
+<div class="grid gap-2 border-t border-line pt-3">
 	<div class="flex items-baseline justify-between">
-		<div class="text-xs font-semibold tracking-wider text-text-muted uppercase">Capture Mode</div>
+		<div class="text-xs font-semibold text-ink-muted">Capture Mode</div>
 		{#if data?.live?.width && data?.live?.height}
-			<div class="text-xs text-text-muted">
+			<div class="text-xs text-ink-muted">
 				Live {data.live.width}×{data.live.height}{#if data.live.fps}
 					 @ {data.live.fps} fps{/if}
 			</div>
@@ -168,22 +168,22 @@
 	</div>
 
 	{#if error}
-		<Alert variant="danger">
-			<div class="text-sm text-text">{error}</div>
+		<Alert tone="danger">
+			<div class="text-sm text-ink">{error}</div>
 		</Alert>
 	{/if}
 
 	{#if loading}
-		<div class="text-sm text-text-muted">Loading capture modes…</div>
+		<div class="text-sm text-ink-muted">Loading capture modes…</div>
 	{:else if !data?.supported}
-		<div class="text-sm text-text-muted">
+		<div class="text-sm text-ink-muted">
 			{data?.message ?? 'Resolution selection not available for this camera.'}
 		</div>
 	{:else}
 		<div>
-			<div class="mb-1 text-sm font-medium text-text">Mode</div>
+			<div class="mb-1 text-sm font-medium text-ink">Mode</div>
 			<select
-				class="w-full border border-border bg-surface px-2 py-2 text-sm text-text focus:border-primary focus:outline-none disabled:cursor-not-allowed disabled:opacity-50"
+				class="w-full border border-line bg-surface px-2 py-2 text-sm text-ink focus:border-primary focus:outline-none disabled:cursor-not-allowed disabled:opacity-50"
 				value={selectedModeKey}
 				disabled={saving}
 				onchange={onModeChange}
@@ -200,9 +200,9 @@
 			</select>
 		</div>
 		<div>
-			<div class="mb-1 text-sm font-medium text-text">Pixel Format</div>
+			<div class="mb-1 text-sm font-medium text-ink">Pixel Format</div>
 			<select
-				class="w-full border border-border bg-surface px-2 py-2 text-sm text-text focus:border-primary focus:outline-none disabled:cursor-not-allowed disabled:opacity-50"
+				class="w-full border border-line bg-surface px-2 py-2 text-sm text-ink focus:border-primary focus:outline-none disabled:cursor-not-allowed disabled:opacity-50"
 				value={selectedFourcc}
 				disabled={saving || fourccOptions.length === 0}
 				onchange={onFourccChange}
@@ -214,12 +214,12 @@
 					<option value={fc}>{fc}{fc === 'MJPG' ? ' (default)' : ''}</option>
 				{/each}
 			</select>
-			<div class="mt-1 text-sm text-text-muted">
+			<div class="mt-1 text-sm text-ink-muted">
 				MJPG is the default — compressed, ~10× lower USB bandwidth than YUYV. Pick another only if this camera needs it.
 			</div>
 		</div>
 		{#if status}
-			<div class="text-sm text-text-muted">{status}</div>
+			<div class="text-sm text-ink-muted">{status}</div>
 		{/if}
 	{/if}
 </div>

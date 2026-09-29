@@ -1,11 +1,11 @@
 <script lang="ts">
 	import PieceThumb from '$lib/components/PieceThumb.svelte';
-	import { Skeleton } from '$lib/components/primitives';
+	import Skeleton from '$lib/components/ui/Skeleton.svelte';
 	import ArchiveX from '@lucide/svelte/icons/archive-x';
 	import Crosshair from '@lucide/svelte/icons/crosshair';
 	import FolderOutput from '@lucide/svelte/icons/folder-output';
 	import Tag from '@lucide/svelte/icons/tag';
-	import Spinner from '$lib/components/Spinner.svelte';
+	import Spinner from '$lib/components/ui/Spinner.svelte';
 	import { categoryLabel, formatLastSeen, formatRelativeTime, pieceTooltip, previewUrl } from './pieces';
 	import QuantityBadge from './QuantityBadge.svelte';
 	import type { BinContentItem, BinContents, BinInfo, SetMeta, SetProgressSummary } from './types';
@@ -71,31 +71,31 @@
 <div
 	class="group relative flex h-full flex-col border bg-surface {searchState === 'match'
 		? 'border-primary ring-2 ring-primary'
-		: 'border-border'} {searchState === 'miss' ? 'opacity-40' : ''} {sectionOn ? '' : 'opacity-50'}"
+		: 'border-line'} {searchState === 'miss' ? 'opacity-40' : ''} {sectionOn ? '' : 'opacity-50'}"
 >
 	{#if !sectionOn}
-		<div class="absolute right-1 top-1 z-10 bg-text-muted px-1.5 py-0.5 text-xs font-semibold uppercase tracking-wide text-surface">
+		<div class="absolute right-1 top-1 z-10 bg-text-muted px-1.5 py-0.5 text-xs font-semibold text-surface">
 			Section off
 		</div>
 	{/if}
 	{#if isClearing}
-		<div class="absolute inset-0 z-20 flex items-center justify-center bg-surface/82 backdrop-blur-[1px]">
-			<div class="flex items-center gap-2 border border-border bg-surface px-3 py-2 shadow-sm">
-				<Spinner size={14} class="text-primary" />
-				<span class="text-xs font-semibold uppercase tracking-wide text-text">{clearingLabel}</span>
+		<div class="absolute inset-0 z-20 flex items-center justify-center bg-surface backdrop-blur-[1px]">
+			<div class="flex items-center gap-2 border border-line bg-surface px-3 py-2">
+				<Spinner size={14} class="text-primary-ink" />
+				<span class="text-xs font-semibold text-ink">{clearingLabel}</span>
 			</div>
 		</div>
 	{/if}
-	<div class="flex items-start justify-between gap-2 border-b border-border bg-bg px-3 py-2">
+	<div class="flex items-start justify-between gap-2 border-b border-line bg-well px-3 py-2">
 		<div class="flex min-h-[2.5rem] min-w-0 items-start gap-2 pt-0.5">
 			<span
-				class="shrink-0 border border-border bg-surface px-1.5 py-0.5 text-xs font-semibold tabular-nums {isCurrent ? 'text-success' : 'text-text-muted'}"
+				class="shrink-0 border border-line bg-surface px-1.5 py-0.5 text-xs font-semibold num {isCurrent ? 'text-success-ink' : 'text-ink-muted'}"
 				title={`Bin ${bin.global_index + 1} — section ${bin.section_index + 1}, slot ${bin.bin_index + 1}`}
 			>
 				{bin.global_index + 1}
 			</span>
 			<span
-				class="line-clamp-2 min-w-0 text-sm font-semibold leading-5 {catLabel ? (isCurrent ? 'text-success' : 'text-text') : 'font-normal italic text-text-muted'}"
+				class="line-clamp-2 min-w-0 text-sm font-semibold leading-5 {catLabel ? (isCurrent ? 'text-success-ink' : 'text-ink') : 'font-normal italic text-ink-muted'}"
 				title={catLabel || 'No category assigned'}
 			>
 				{catLabel || 'Unassigned'}
@@ -105,7 +105,7 @@
 			<button
 				type="button"
 				onclick={onOpenDetails}
-				class="border border-border bg-surface/95 p-1.5 text-text-muted transition-colors hover:bg-bg hover:text-text"
+				class="border border-line bg-surface p-1.5 text-ink-muted transition-colors hover:bg-hover hover:text-ink"
 				title="Assign categories to this bin"
 			>
 				<Tag size={13} />
@@ -114,7 +114,7 @@
 				type="button"
 				onclick={onMoveTo}
 				disabled={moveDisabled}
-				class="border border-border bg-surface/95 p-1.5 text-text-muted transition-colors hover:bg-bg hover:text-text disabled:cursor-not-allowed disabled:opacity-50"
+				class="border border-line bg-surface p-1.5 text-ink-muted transition-colors hover:bg-hover hover:text-ink disabled:cursor-not-allowed disabled:opacity-50"
 				title="Move chute to this bin"
 			>
 				<Crosshair size={13} />
@@ -124,7 +124,7 @@
 					type="button"
 					onclick={onEmpty}
 					disabled={clearDisabled}
-					class="border border-border bg-surface/95 p-1.5 text-text-muted transition-colors hover:bg-bg hover:text-text disabled:cursor-not-allowed disabled:opacity-50"
+					class="border border-line bg-surface p-1.5 text-ink-muted transition-colors hover:bg-hover hover:text-ink disabled:cursor-not-allowed disabled:opacity-50"
 					title="Empty this bin but keep assignment"
 				>
 					<FolderOutput size={13} />
@@ -135,7 +135,7 @@
 					type="button"
 					onclick={onReset}
 					disabled={clearDisabled}
-					class="border border-border bg-surface/95 p-1.5 text-text-muted transition-colors hover:bg-bg hover:text-text disabled:cursor-not-allowed disabled:opacity-50"
+					class="border border-line bg-surface p-1.5 text-ink-muted transition-colors hover:bg-hover hover:text-ink disabled:cursor-not-allowed disabled:opacity-50"
 					title="Reset this bin and clear assignment"
 				>
 					<ArchiveX size={13} />
@@ -149,21 +149,21 @@
 		{@const isFull = fillCount >= maxPiecesPerBin}
 		{@const isNearFull = fillCount / maxPiecesPerBin >= 0.85 && !isFull}
 		<div
-			class="relative h-4 w-full overflow-hidden border-b border-border bg-bg"
+			class="relative h-4 w-full overflow-hidden border-b border-line bg-well"
 			title="{fillCount} / {maxPiecesPerBin} pieces"
 		>
 			<div
 				class="absolute inset-y-0 left-0 transition-all {isFull ? 'bg-danger' : isNearFull ? 'bg-warning' : 'bg-success'}"
 				style="width: {fillPct}%"
 			></div>
-			<div class="relative flex h-full items-center justify-center text-xs font-semibold tabular-nums text-text mix-blend-luminosity">
+			<div class="relative flex h-full items-center justify-center text-xs font-semibold num text-ink mix-blend-luminosity">
 				{fillCount} / {maxPiecesPerBin}
 			</div>
 		</div>
 	{/if}
 	<button
 		onclick={onOpenDetails}
-		class="relative flex min-h-[6.25rem] w-full flex-1 flex-col items-start justify-start px-3 py-3 text-left transition-colors {isCurrent ? 'bg-success/8 ring-2 ring-inset ring-success' : layerEnabled ? 'hover:bg-bg' : 'cursor-not-allowed'} {isMoving || isClearing ? 'animate-pulse' : ''}"
+		class="relative flex min-h-[6.25rem] w-full flex-1 flex-col items-start justify-start px-3 py-3 text-left transition-colors {isCurrent ? 'bg-success-soft ring-2 ring-inset ring-success' : layerEnabled ? 'hover:bg-hover' : 'cursor-not-allowed'} {isMoving || isClearing ? 'animate-pulse' : ''}"
 		title={`Bin ${bin.global_index + 1}${catLabel ? ` — ${catLabel}` : ''}`}
 	>
 		{#if !contentsLoaded}
@@ -175,18 +175,18 @@
 		{:else if contents && previewItems.length > 0}
 			<div class="mt-1 flex w-full flex-col gap-3">
 				{#if setMeta}
-					<div class="relative w-full border border-border bg-bg">
+					<div class="relative w-full border border-line bg-well">
 						{#if setMeta.img_url}
 							<img src={setMeta.img_url} alt={setMeta.name} class="block max-h-[400px] w-full bg-surface object-contain" />
 						{/if}
 						{#if setMeta.set_num}
-							<div class="absolute top-2 right-2 border border-border bg-surface/95 px-2 py-1 text-xs font-medium text-text shadow-sm">{setMeta.set_num}</div>
+							<div class="absolute top-2 right-2 border border-line bg-surface px-2 py-1 text-xs font-medium text-ink">{setMeta.set_num}</div>
 						{/if}
 					</div>
 				{/if}
 				<div class="grid w-full grid-cols-4 gap-2">
 					{#each previewItems as item}
-						<div class="relative aspect-square w-full border border-border bg-bg" title={itemTooltip(item)}>
+						<div class="relative aspect-square w-full border border-line bg-well" title={itemTooltip(item)}>
 							<PieceThumb src={previewUrl(item)} alt={pieceTooltip(item)} fallbackText={item.part_id ?? '?'} />
 							{#if item.count > 1}
 								<QuantityBadge count={item.count} size="sm" />
@@ -196,26 +196,26 @@
 				</div>
 			</div>
 		{:else}
-			<div class="flex w-full flex-1 items-center justify-center py-4 text-sm text-text-muted">Empty</div>
+			<div class="flex w-full flex-1 items-center justify-center py-4 text-sm text-ink-muted">Empty</div>
 		{/if}
 	</button>
 	{#if setProgress && setProgress.total_needed > 0}
 		{@const clampedPct = Math.min(100, Math.max(0, setProgress.pct))}
 		{@const isDone = setProgress.total_found >= setProgress.total_needed}
 		<div
-			class="relative h-5 w-full overflow-hidden border-t border-border bg-bg"
+			class="relative h-5 w-full overflow-hidden border-t border-line bg-well"
 			title="{setProgress.total_found} of {setProgress.total_needed} parts found"
 		>
 			<div
 				class="absolute inset-y-0 left-0 transition-all {isDone ? 'bg-success' : 'bg-primary'}"
 				style="width: {clampedPct}%"
 			></div>
-			<div class="relative flex h-full items-center justify-center text-xs font-semibold tabular-nums text-text mix-blend-luminosity">
+			<div class="relative flex h-full items-center justify-center text-xs font-semibold num text-ink mix-blend-luminosity">
 				{setProgress.total_found} / {setProgress.total_needed} parts
 			</div>
 		</div>
 	{/if}
-	<div class="flex items-center justify-between gap-2 border-t border-border px-3 py-2 text-xs text-text-muted">
+	<div class="flex items-center justify-between gap-2 border-t border-line px-3 py-2 text-xs text-ink-muted">
 		{#if !contentsLoaded}
 			<Skeleton class="h-4 w-16" />
 			<Skeleton class="h-4 w-12" />

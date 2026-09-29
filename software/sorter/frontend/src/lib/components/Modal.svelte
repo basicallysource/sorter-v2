@@ -51,19 +51,19 @@
 		role="presentation"
 	>
 		<div
-			class="relative max-h-[90vh] w-full overflow-auto border border-border bg-bg shadow-lg {wide ? 'max-w-6xl' : 'max-w-2xl'}"
+			class="relative max-h-[90vh] w-full overflow-auto border border-line bg-well {wide ? 'max-w-6xl' : 'max-w-2xl'}"
 		>
 			<div
-				class="sticky top-0 flex items-center justify-between border-b border-border bg-surface px-4 py-3"
+				class="sticky top-0 flex items-center justify-between border-b border-line bg-surface px-4 py-3"
 			>
 				{#if title}
-					<h2 class="text-lg font-semibold text-text">{title}</h2>
+					<h2 class="text-lg font-semibold text-ink">{title}</h2>
 				{:else}
 					<div></div>
 				{/if}
 				<button
 					onclick={close}
-					class="p-1 text-text transition-colors hover:bg-border"
+					class="p-1 text-ink transition-colors hover:bg-line"
 				>
 					<X size={16} />
 				</button>

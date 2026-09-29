@@ -917,26 +917,26 @@
 
 <svelte:head><title>Sorter - Setup</title></svelte:head>
 
-<div class="min-h-screen overflow-x-hidden bg-bg">
+<div class="min-h-screen overflow-x-hidden bg-well">
 	<AppHeader />
 	<div class="mx-auto flex max-w-[1500px] flex-col gap-6 px-4 py-6 sm:px-6">
 		{#if !machine.machine}
-			<section class="setup-card-shell border border-border bg-surface p-6">
-				<h1 class="text-2xl font-semibold text-text">Setup Wizard</h1>
-				<p class="mt-2 max-w-2xl text-sm text-text-muted">
+			<section class="setup-card-shell border border-line bg-surface p-6">
+				<h1 class="text-2xl font-semibold text-ink">Setup Wizard</h1>
+				<p class="mt-2 max-w-2xl text-sm text-ink-muted">
 					Select or connect a machine first. After that, this wizard will walk through the setup one
 					step at a time instead of dropping the whole config surface on one page.
 				</p>
 			</section>
 		{:else}
 			{#if wizardError}
-				<div class="border border-danger bg-danger/10 px-4 py-3 text-sm text-danger">
+				<div class="border border-danger bg-danger-soft px-4 py-3 text-sm text-danger-ink">
 					{wizardError}
 				</div>
 			{/if}
 
 			<div class="flex flex-col gap-6">
-				<section class="setup-card-shell overflow-hidden border border-border">
+				<section class="setup-card-shell overflow-hidden border border-line">
 					<div class="setup-card-body px-6 py-6">
 						<SetupStepperNav
 							steps={WIZARD_STEPS}
@@ -952,11 +952,11 @@
 					onrefreshcameras={loadCameraInventory}
 				>
 					{#if !wizard && loadingWizard}
-						<div class="setup-panel px-4 py-4 text-sm text-text-muted">
+						<div class="setup-panel px-4 py-4 text-sm text-ink-muted">
 							Checking the current machine configuration and connected hardware…
 						</div>
 					{:else if !wizard}
-						<div class="border border-danger bg-danger/10 px-4 py-3 text-sm text-danger">
+						<div class="border border-danger bg-danger-soft px-4 py-3 text-sm text-danger-ink">
 							{wizardError ?? 'The backend did not return setup data.'}
 						</div>
 						<div class="mt-4 flex flex-wrap gap-3">

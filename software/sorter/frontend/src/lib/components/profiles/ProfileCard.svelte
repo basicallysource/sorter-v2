@@ -70,17 +70,17 @@
 
 	const titleClass = $derived(
 		isActive
-			? 'text-primary'
+			? 'text-primary-ink'
 			: props.profile.visibility === 'public'
-				? 'text-primary dark:text-blue-400'
-				: 'text-text'
+				? 'text-primary-ink'
+				: 'text-ink'
 	);
 </script>
 
 <div
 	class="setup-card-shell group flex h-full flex-col overflow-hidden border transition-colors {isActive
 		? 'border-success ring-1 ring-success/20'
-		: 'border-border hover:border-text-muted'}"
+		: 'border-line hover:border-text-muted'}"
 >
 	<div class="setup-card-header px-3 py-2 text-sm">
 		<div class="flex items-center justify-between gap-3">
@@ -93,9 +93,9 @@
 					{props.profile.name}
 				</button>
 				{#if isActive}
-					<div class="mt-1 flex flex-wrap items-center gap-2 text-xs text-text-muted">
+					<div class="mt-1 flex flex-wrap items-center gap-2 text-xs text-ink-muted">
 						<span
-							class="border border-success/30 bg-success/10 px-1.5 py-0.5 text-xs font-medium uppercase tracking-wide text-success"
+							class="border border-success/30 bg-success-soft px-1.5 py-0.5 text-xs font-medium text-success-ink"
 							>Active</span
 						>
 					</div>
@@ -109,7 +109,7 @@
 			<div class="flex shrink-0 items-center gap-2 self-center">
 				{#if props.detailError}
 					<div
-						class="min-w-[10.5rem] border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-sm text-amber-700 dark:text-amber-300"
+						class="min-w-[10.5rem] border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-sm text-amber-700"
 					>
 						Unavailable
 					</div>
@@ -121,7 +121,7 @@
 								props.onApply();
 							}}
 							disabled={props.applyingKey === props.cardKey}
-							class="border border-border bg-white px-3 py-2 text-sm text-text transition-colors hover:bg-bg disabled:opacity-50"
+							class="border border-line bg-white px-3 py-2 text-sm text-ink transition-colors hover:bg-hover disabled:opacity-50"
 						>
 							{props.applyingKey === props.cardKey ? 'Activating...' : 'activate'}
 						</button>
@@ -132,14 +132,14 @@
 								props.onToggleVersionMenu();
 							}}
 							disabled={props.applyingKey === props.cardKey}
-							class="border border-l-0 border-border bg-white px-2 py-2 text-text transition-colors hover:bg-bg disabled:opacity-50"
+							class="border border-l-0 border-line bg-white px-2 py-2 text-ink transition-colors hover:bg-hover disabled:opacity-50"
 							title="Choose version"
 						>
 							<Ellipsis size={16} />
 						</button>
 						{#if props.openVersionMenuKey === props.cardKey}
 							<div
-								class="absolute top-full right-0 z-10 mt-1 min-w-[14rem] border border-border bg-surface shadow-lg"
+								class="absolute top-full right-0 z-10 mt-1 min-w-[14rem] border border-line bg-surface"
 							>
 								{#each visibleVersions(props.detail) as version}
 									<button
@@ -148,7 +148,7 @@
 											event.stopPropagation();
 											props.onApplyVersion(version.id);
 										}}
-										class="flex w-full items-center justify-between gap-3 border-b border-border px-3 py-2 text-left text-sm text-text transition-colors hover:bg-bg last:border-b-0"
+										class="flex w-full items-center justify-between gap-3 border-b border-line px-3 py-2 text-left text-sm text-ink transition-colors hover:bg-hover last:border-b-0"
 									>
 										<span
 											>v{version.version_number}{version.label
@@ -156,7 +156,7 @@
 												: ''}</span
 										>
 										{#if !version.is_published}
-											<span class="text-xs text-text-muted">draft</span>
+											<span class="text-xs text-ink-muted">draft</span>
 										{/if}
 									</button>
 								{/each}
@@ -164,7 +164,7 @@
 						{/if}
 					</div>
 				{:else}
-					<div class="min-w-[10.5rem] border border-border bg-bg px-3 py-2 text-sm text-text opacity-60">
+					<div class="min-w-[10.5rem] border border-line bg-well px-3 py-2 text-sm text-ink opacity-60">
 						Loading...
 					</div>
 				{/if}
@@ -173,14 +173,14 @@
 	</div>
 
 	{#if rules.length > 0}
-		<div class="setup-card-body border-t border-border px-4 py-3">
+		<div class="setup-card-body border-t border-line px-4 py-3">
 			<div class="grid gap-x-4 gap-y-1.5 md:grid-cols-2">
 				{#each rules.slice(0, 8) as rule}
 					<div class="flex items-center gap-2 text-xs" title={rule.set_num ?? rule.name}>
 						{#if rule.rule_type === 'set' && rule.set_meta?.img_url}
 							<img src={rule.set_meta.img_url} alt="" class="h-5 w-5 shrink-0 object-contain" />
 						{:else}
-							<svg class="h-3.5 w-3.5 shrink-0 text-text-muted" viewBox="0 0 20 20" fill="currentColor"
+							<svg class="h-3.5 w-3.5 shrink-0 text-ink-muted" viewBox="0 0 20 20" fill="currentColor"
 								><path
 									fill-rule="evenodd"
 									d="M3.28 2.22a.75.75 0 00-1.06 1.06l14.5 14.5a.75.75 0 101.06-1.06l-1.745-1.745a10.029 10.029 0 003.3-4.38 1.651 1.651 0 000-1.185A10.004 10.004 0 009.999 3a9.956 9.956 0 00-4.744 1.194L3.28 2.22zM7.752 6.69l1.092 1.092a2.5 2.5 0 013.374 3.373l1.092 1.092a4 4 0 00-5.558-5.558z"
@@ -190,27 +190,27 @@
 								/></svg
 							>
 						{/if}
-						<span class="truncate text-text">{rule.name}</span>
+						<span class="truncate text-ink">{rule.name}</span>
 					</div>
 				{/each}
 				{#if rules.length > 8}
 					<button
 						type="button"
 						onclick={props.onOpenDetails}
-						class="text-xs text-text-muted hover:text-text hover:underline md:col-span-2"
+						class="text-xs text-ink-muted hover:text-ink hover:underline md:col-span-2"
 						>+{rules.length - 8} more rules</button
 					>
 				{/if}
 			</div>
 		</div>
 	{:else}
-		<div class="setup-card-body border-t border-border px-4 py-3">
-			<span class="text-xs text-text-muted">No rules defined</span>
+		<div class="setup-card-body border-t border-line px-4 py-3">
+			<span class="text-xs text-ink-muted">No rules defined</span>
 		</div>
 	{/if}
 
-	<div class="setup-card-body border-t border-border px-4 py-3">
-		<div class="grid items-center gap-3 text-xs text-text-muted md:grid-cols-[1fr_auto_1fr]">
+	<div class="setup-card-body border-t border-line px-4 py-3">
+		<div class="grid items-center gap-3 text-xs text-ink-muted md:grid-cols-[1fr_auto_1fr]">
 			<div>
 				{#if lastUsed}
 					<span title={formatAbsoluteTime(lastUsed) ?? undefined} class="cursor-help">
@@ -219,11 +219,11 @@
 				{/if}
 			</div>
 			<div class="text-center">
-				<span class="font-mono text-text-muted">hive:</span>{#if targetWebUrl(props.target)}<a
+				<span class="font-mono text-ink-muted">hive:</span>{#if targetWebUrl(props.target)}<a
 						href={targetWebUrl(props.target) ?? undefined}
 						target="_blank"
 						rel="noreferrer"
-						class="transition-colors hover:text-text hover:underline"
+						class="transition-colors hover:text-ink hover:underline"
 					>{sourceLabel(props.target)}</a>{:else}{sourceLabel(props.target)}{/if}
 			</div>
 			<div class="text-right">
@@ -238,14 +238,14 @@
 			</div>
 		</div>
 		{#if props.detailError}
-			<div class="mt-2 text-xs text-amber-700 dark:text-amber-300">
+			<div class="mt-2 text-xs text-amber-700">
 				Could not load versions: {props.detailError}
 			</div>
 		{/if}
 		{#if isSelectedActive}
-			<div class="mt-2 text-xs text-primary">Currently active on this machine.</div>
+			<div class="mt-2 text-xs text-primary-ink">Currently active on this machine.</div>
 		{:else if isActive && props.syncState?.version_number}
-			<div class="mt-2 text-sm text-text-muted">
+			<div class="mt-2 text-sm text-ink-muted">
 				This profile is active on v{props.syncState.version_number}.
 			</div>
 		{/if}

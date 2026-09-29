@@ -10,7 +10,8 @@
 		persistStoredStepperPulseSetting
 	} from '$lib/settings/stepper-control';
 	import Cog from '@lucide/svelte/icons/cog';
-	import { Alert, Button } from '$lib/components/primitives';
+	import Alert from '$lib/components/ui/Alert.svelte';
+	import Button from '$lib/components/ui/Button.svelte';
 	import { onMount } from 'svelte';
 	import StepperPulseControls from './stepper/StepperPulseControls.svelte';
 	import StepperHoming from './stepper/StepperHoming.svelte';
@@ -697,20 +698,20 @@
 <svelte:window onkeydown={handleWindowKeydown} />
 
 <aside
-	class="flex h-full min-w-0 flex-col border border-border bg-bg"
+	class="flex h-full min-w-0 flex-col border border-line bg-well"
 >
 	<!-- Header -->
-	<div class="border-b border-border bg-surface px-4 py-3">
+	<div class="border-b border-line bg-surface px-4 py-3">
 		<div class="flex items-start gap-3">
 			<div
-				class="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-bg text-text"
+				class="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-well text-ink"
 			>
 				<Cog size={16} />
 			</div>
 			<div class="min-w-0">
-				<div class="text-sm font-semibold text-text">{displayLabel}</div>
+				<div class="text-sm font-semibold text-ink">{displayLabel}</div>
 				<div
-					class="mt-1 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-text-muted"
+					class="mt-1 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-ink-muted"
 				>
 					<span
 						>{stepperStopped === null ? '--' : stepperStopped ? 'Stopped' : 'Moving'}</span
@@ -730,18 +731,18 @@
 					{/if}
 				</div>
 				{#if isChute}
-					<div class="mt-1 text-xs text-text-muted">
+					<div class="mt-1 text-xs text-ink-muted">
 						Gear ratio {gearRatio.toFixed(2)}× ({chuteStepperDegrees !== null && chuteOutputAngle !== null ? `${formatNumber(chuteStepperDegrees, 1)}° ÷ ${gearRatio.toFixed(2)} = ${formatNumber(chuteOutputAngle, 1)}°` : 'motor ÷ ratio = chute'})
 					</div>
-					<div class="mt-0.5 text-xs {chuteHomed === true ? 'text-success dark:text-green-400' : chuteHomed === false ? 'text-warning' : 'text-text-muted'}">
+					<div class="mt-0.5 text-xs {chuteHomed === true ? 'text-success-ink' : chuteHomed === false ? 'text-warning-ink' : 'text-ink-muted'}">
 						{chuteHomed === true ? 'Homed' : chuteHomed === false ? 'Not homed' : 'Homed: --'}
 					</div>
 				{/if}
 				{#if hasEndstop && endstopTriggered !== null}
 					<div
 						class="mt-0.5 text-xs {endstopTriggered
-							? 'text-success dark:text-green-400'
-							: 'text-text-muted'}"
+							? 'text-success-ink'
+							: 'text-ink-muted'}"
 					>
 						Endstop: {endstopTriggered ? 'Triggered' : 'Not Triggered'}
 					</div>
@@ -753,7 +754,7 @@
 	<!-- Scrollable content -->
 	<div class="flex flex-1 flex-col gap-4 overflow-y-auto px-4 py-4">
 		{#if tmcStalled}
-			<Alert variant="danger">
+			<Alert tone="danger">
 				<div class="flex items-center justify-between gap-3">
 					<div>
 						<div class="font-semibold">⚠ {displayLabel} is stalled</div>
@@ -858,13 +859,13 @@
 		<!-- Status / Error footer -->
 		<div class="mt-auto">
 			{#if errorMsg}
-				<div class="text-sm text-danger dark:text-red-400">{errorMsg}</div>
+				<div class="text-sm text-danger-ink">{errorMsg}</div>
 			{:else if statusMsg}
-				<div class="text-sm text-text-muted">{statusMsg}</div>
+				<div class="text-sm text-ink-muted">{statusMsg}</div>
 			{:else if homing}
-				<div class="text-sm text-primary">Homing to endstop...</div>
+				<div class="text-sm text-primary-ink">Homing to endstop...</div>
 			{:else if calibrating}
-				<div class="text-sm text-primary">Calibrating full rotation...</div>
+				<div class="text-sm text-primary-ink">Calibrating full rotation...</div>
 			{/if}
 		</div>
 	</div>

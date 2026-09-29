@@ -31,16 +31,16 @@
 </script>
 
 <div
-	class="mt-6 flex flex-col gap-3 border-t border-border pt-4 sm:flex-row sm:items-center sm:justify-end"
+	class="mt-6 flex flex-col gap-3 border-t border-line pt-4 sm:flex-row sm:items-center sm:justify-end"
 >
 	{#if blockerReason}
-		<p class="text-xs text-text-muted">{blockerReason}</p>
+		<p class="text-xs text-ink-muted">{blockerReason}</p>
 	{/if}
 	<div class="flex flex-wrap items-center gap-2">
 		{#if showBack}
 			<button
 				onclick={onBack}
-				class="setup-button-secondary inline-flex items-center gap-2 px-3 py-2 text-sm text-text transition-colors"
+				class="setup-button-secondary inline-flex items-center gap-2 px-3 py-2 text-sm text-ink transition-colors"
 			>
 				<ChevronLeft size={14} />
 				Back

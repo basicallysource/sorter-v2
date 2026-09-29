@@ -1,7 +1,9 @@
 <script lang="ts">
 	import { getBackendHttpBase, machineHttpBaseUrlFromWsUrl } from '$lib/backend';
 	import { getMachinesContext } from '$lib/machines/context';
-	import { Alert, Button, Input } from '$lib/components/primitives';
+	import Alert from '$lib/components/ui/Alert.svelte';
+	import Button from '$lib/components/ui/Button.svelte';
+	import Input from '$lib/components/ui/Input.svelte';
 	import BinLayoutViz from './BinLayoutViz.svelte';
 	import ErrorBanner from './ErrorBanner.svelte';
 	import { binCenterAngle, reachInfo } from './geometry';
@@ -365,29 +367,29 @@
 
 {#snippet jogKey(glyph: string, label: string, delta: number, active: boolean)}
 	<button
-		class="flex flex-col items-center border border-border bg-surface px-3 py-1.5 text-text hover:bg-bg active:bg-primary/10 disabled:cursor-not-allowed disabled:opacity-50"
+		class="flex flex-col items-center border border-line bg-surface px-3 py-1.5 text-ink hover:bg-hover active:bg-primary-soft disabled:cursor-not-allowed disabled:opacity-50"
 		disabled={!active || busy}
 		onclick={() => nudge(delta)}
 	>
 		<span class="text-base leading-none">{glyph}</span>
-		<span class="text-xs text-text-muted">{label}</span>
+		<span class="text-xs text-ink-muted">{label}</span>
 	</button>
 {/snippet}
 
 {#snippet jogPad(active: boolean, showBins: boolean)}
-	<div class="flex w-fit border border-border bg-bg">
+	<div class="flex w-fit border border-line bg-well">
 		<!-- Left: jog the chute -->
 		<div class="flex flex-col gap-2 p-3" class:opacity-40={!active}>
-			<div class="text-sm font-medium text-text">Jog the chute</div>
+			<div class="text-sm font-medium text-ink">Jog the chute</div>
 			<div class="grid grid-cols-3 gap-1 select-none">
 				<div></div>
 				{@render jogKey('↑', `+${FINE}°`, FINE, active)}
 				<div></div>
 
 				{@render jogKey('←', `−${COARSE}°`, -COARSE, active)}
-				<div class="flex flex-col items-center justify-center border border-border bg-surface px-2 py-1.5">
-					<span class="text-sm font-semibold text-text">{fmt(currentAngle, 2)}°</span>
-					<span class="text-xs text-text-muted">current</span>
+				<div class="flex flex-col items-center justify-center border border-line bg-surface px-2 py-1.5">
+					<span class="text-sm font-semibold text-ink">{fmt(currentAngle, 2)}°</span>
+					<span class="text-xs text-ink-muted">current</span>
 				</div>
 				{@render jogKey('→', `+${COARSE}°`, COARSE, active)}
 
@@ -396,7 +398,7 @@
 				<div></div>
 			</div>
 			{#if active}
-				<p class="max-w-[15rem] text-sm text-text-muted">
+				<p class="max-w-[15rem] text-sm text-ink-muted">
 					Arrow keys work too: ↑ ↓ fine {FINE}°, ← → coarse {COARSE}°. Hold to repeat.
 				</p>
 			{/if}
@@ -404,8 +406,8 @@
 
 		{#if showBins}
 			<!-- Divider down the middle, then: how many bins -->
-			<div class="flex flex-col gap-2 border-l border-border p-3">
-				<div class="text-sm font-medium text-text">Bins in this section</div>
+			<div class="flex flex-col gap-2 border-l border-line p-3">
+				<div class="text-sm font-medium text-ink">Bins in this section</div>
 				<div class="grid grid-cols-3 gap-1">
 					{#each [3, 4, 5, 6] as n}
 						<Button
@@ -417,7 +419,7 @@
 						</Button>
 					{/each}
 				</div>
-				<p class="max-w-[13rem] text-sm text-text-muted">
+				<p class="max-w-[13rem] text-sm text-ink-muted">
 					How many bins are in the section you're measuring. More bins = more accurate; 3 or 5 is ideal.
 				</p>
 			</div>
@@ -429,10 +431,10 @@
 	<span
 		class={`flex h-6 w-6 shrink-0 items-center justify-center text-sm font-semibold ${
 			done
-				? 'bg-success text-primary-contrast'
+				? 'bg-success text-on-primary'
 				: activeStep === n
-					? 'bg-primary text-primary-contrast'
-					: 'border border-border bg-surface text-text-muted'
+					? 'bg-primary text-on-primary'
+					: 'border border-line bg-surface text-ink-muted'
 		}`}
 	>
 		{done ? '✓' : n}
@@ -441,8 +443,8 @@
 
 <div class="flex max-w-4xl flex-col gap-5">
 	<div class="flex flex-col gap-1">
-		<h1 class="text-lg font-semibold text-text">Chute Aiming</h1>
-		<p class="text-sm text-text-muted">
+		<h1 class="text-lg font-semibold text-ink">Chute Aiming</h1>
+		<p class="text-sm text-ink-muted">
 			If the chute points at the wrong bin, run the calibration below. If you didn't come here for
 			that, the defaults are already correct — you can leave this page.
 		</p>
@@ -451,16 +453,16 @@
 	{#if errorMsg}
 		<ErrorBanner message={errorMsg} />
 	{:else if statusMsg}
-		<Alert variant="info">{statusMsg}</Alert>
+		<Alert tone="info">{statusMsg}</Alert>
 	{/if}
 
 	<!-- Active parameters — forefront, edit hidden behind hover -->
-	<section class="group flex flex-col gap-3 border border-border bg-bg px-4 py-3">
+	<section class="group flex flex-col gap-3 border border-line bg-well px-4 py-3">
 		<div class="flex items-center justify-between">
-			<div class="text-sm font-semibold text-text">Active aiming parameters</div>
+			<div class="text-sm font-semibold text-ink">Active aiming parameters</div>
 			{#if !editingParams}
 				<button
-					class="text-sm text-text-muted underline opacity-0 transition-opacity group-hover:opacity-100 focus:opacity-100 hover:text-text"
+					class="text-sm text-ink-muted underline opacity-0 transition-opacity group-hover:opacity-100 focus:opacity-100 hover:text-ink"
 					onclick={() => (editingParams = true)}
 				>
 					Edit manually
@@ -471,41 +473,41 @@
 		{#if !editingParams}
 			<div class="grid grid-cols-2 gap-3 sm:grid-cols-5">
 				<div>
-					<div class="text-xs font-semibold uppercase tracking-wider text-text-muted">Sections</div>
-					<div class="text-sm font-medium text-text">{numSections}</div>
+					<div class="text-xs font-semibold text-ink-muted">Sections</div>
+					<div class="text-sm font-medium text-ink">{numSections}</div>
 				</div>
 				<div>
-					<div class="text-xs font-semibold uppercase tracking-wider text-text-muted">Section width</div>
-					<div class="text-sm font-medium text-text">{fmt(sectionWidthDeg, 2)}°</div>
+					<div class="text-xs font-semibold text-ink-muted">Section width</div>
+					<div class="text-sm font-medium text-ink">{fmt(sectionWidthDeg, 2)}°</div>
 				</div>
 				<div>
-					<div class="text-xs font-semibold uppercase tracking-wider text-text-muted">Offset from home</div>
-					<div class="text-sm font-medium text-text">{fmt(firstSectionOffsetDeg, 2)}°</div>
+					<div class="text-xs font-semibold text-ink-muted">Offset from home</div>
+					<div class="text-sm font-medium text-ink">{fmt(firstSectionOffsetDeg, 2)}°</div>
 				</div>
 				<div>
-					<div class="text-xs font-semibold uppercase tracking-wider text-text-muted">Pitch</div>
-					<div class="text-sm font-medium text-text">{fmt(sectionPitchDeg, 2)}°</div>
+					<div class="text-xs font-semibold text-ink-muted">Pitch</div>
+					<div class="text-sm font-medium text-ink">{fmt(sectionPitchDeg, 2)}°</div>
 				</div>
 				<div>
-					<div class="text-xs font-semibold uppercase tracking-wider text-text-muted">Pillar</div>
-					<div class="text-sm font-medium text-text">{fmt(pillarWidthDeg, 2)}°</div>
+					<div class="text-xs font-semibold text-ink-muted">Pillar</div>
+					<div class="text-sm font-medium text-ink">{fmt(pillarWidthDeg, 2)}°</div>
 				</div>
 			</div>
 		{:else}
-			<Alert variant="warning">
+			<Alert tone="warning">
 				These are produced by the calibration routine. Only edit by hand if you know exactly what
 				these numbers mean.
 			</Alert>
 			<div class="grid grid-cols-1 gap-3 sm:grid-cols-3">
-				<label class="flex flex-col gap-1 text-sm text-text">
+				<label class="flex flex-col gap-1 text-sm text-ink">
 					Sections (N)
 					<Input type="number" bind:value={numSections} />
 				</label>
-				<label class="flex flex-col gap-1 text-sm text-text">
+				<label class="flex flex-col gap-1 text-sm text-ink">
 					Section width W (°)
 					<Input type="number" bind:value={sectionWidthDeg} />
 				</label>
-				<label class="flex flex-col gap-1 text-sm text-text">
+				<label class="flex flex-col gap-1 text-sm text-ink">
 					Offset θ₀ (°)
 					<Input type="number" bind:value={firstSectionOffsetDeg} />
 				</label>
@@ -522,45 +524,45 @@
 	<!-- Calibration wizard -->
 	<section class="flex flex-col gap-3">
 		<div class="flex items-center justify-between">
-			<h2 class="text-base font-semibold text-text">Run calibration</h2>
+			<h2 class="text-base font-semibold text-ink">Run calibration</h2>
 			{#if homed || capturedFirst !== null || capturedLast !== null}
-				<button class="text-sm text-text-muted underline hover:text-text" onclick={resetCalibration}>
+				<button class="text-sm text-ink-muted underline hover:text-ink" onclick={resetCalibration}>
 					Start over
 				</button>
 			{/if}
 		</div>
 
-		<p class="text-sm text-text-muted">
-			Calibration finds just two numbers: the <span class="font-medium text-text">width of a section</span>
-			(in degrees) and the <span class="font-medium text-text">offset of the first section from the zero
+		<p class="text-sm text-ink-muted">
+			Calibration finds just two numbers: the <span class="font-medium text-ink">width of a section</span>
+			(in degrees) and the <span class="font-medium text-ink">offset of the first section from the zero
 			point</span> (home). From those, the machine works out where every bin sits and which ones each
 			layout can reach.
 		</p>
 
-		<Alert variant="warning">
+		<Alert tone="warning">
 			Every step here moves the chute. It hits a hard stop at home and can never cross it, so it only has
 			~{fmt(maxAngleDeg, 0)}° of travel — always home first.
 		</Alert>
 
 		<!-- Step 1: Home -->
-		<div class="flex flex-col gap-3 border border-border bg-bg px-4 py-3">
+		<div class="flex flex-col gap-3 border border-line bg-well px-4 py-3">
 			<div class="flex items-center gap-2">
 				{@render stepBadge(1, homed)}
-				<div class="text-sm font-medium text-text">Home the chute</div>
+				<div class="text-sm font-medium text-ink">Home the chute</div>
 			</div>
-			<p class="text-sm text-text-muted">Establishes the 0° reference at the home switch.</p>
-			<div class="flex flex-wrap items-center gap-x-6 gap-y-1 border border-border bg-surface px-3 py-2">
+			<p class="text-sm text-ink-muted">Establishes the 0° reference at the home switch.</p>
+			<div class="flex flex-wrap items-center gap-x-6 gap-y-1 border border-line bg-surface px-3 py-2">
 				<div class="flex items-baseline gap-2">
-					<span class="text-xs font-semibold uppercase tracking-wider text-text-muted">Chute angle</span>
-					<span class="text-sm font-medium tabular-nums text-text">{fmt(currentAngle, 1)}°</span>
+					<span class="text-xs font-semibold text-ink-muted">Chute angle</span>
+					<span class="text-sm font-medium num text-ink">{fmt(currentAngle, 1)}°</span>
 				</div>
 				<div class="flex items-baseline gap-2">
-					<span class="text-xs font-semibold uppercase tracking-wider text-text-muted">Motor angle</span>
-					<span class="text-sm font-medium tabular-nums text-text">{fmt(stepperPositionDeg, 1)}°</span>
+					<span class="text-xs font-semibold text-ink-muted">Motor angle</span>
+					<span class="text-sm font-medium num text-ink">{fmt(stepperPositionDeg, 1)}°</span>
 				</div>
 				<div class="flex items-baseline gap-2">
-					<span class="text-xs font-semibold uppercase tracking-wider text-text-muted">Endstop</span>
-					<span class={`text-sm font-medium ${liveEndstopTriggered ? 'text-success' : 'text-text'}`}>
+					<span class="text-xs font-semibold text-ink-muted">Endstop</span>
+					<span class={`text-sm font-medium ${liveEndstopTriggered ? 'text-success-ink' : 'text-ink'}`}>
 						{liveEndstopTriggered === null ? '--' : liveEndstopTriggered ? 'triggered' : 'open'}
 					</span>
 				</div>
@@ -572,25 +574,25 @@
 				{#if homingState}
 					<Button variant="danger" onclick={cancelHome}>Cancel</Button>
 				{/if}
-				{#if homed}<span class="text-sm text-success">Homed.</span>{/if}
+				{#if homed}<span class="text-sm text-success-ink">Homed.</span>{/if}
 			</div>
 		</div>
 
 		<!-- Step 2: First bin -->
 		<div
-			class="flex flex-col gap-3 border border-border bg-bg px-4 py-3"
+			class="flex flex-col gap-3 border border-line bg-well px-4 py-3"
 			class:opacity-50={step2Locked}
 			class:pointer-events-none={step2Locked}
 		>
 			<div class="flex items-center gap-2">
 				{@render stepBadge(2, capturedFirst !== null)}
-				<div class="text-sm font-medium text-text">Aim at the FIRST bin of a section</div>
+				<div class="text-sm font-medium text-ink">Aim at the FIRST bin of a section</div>
 			</div>
-			<p class="text-sm text-text-muted">
+			<p class="text-sm text-ink-muted">
 				{#if step2Locked}
 					Home the chute first.
 				{:else}
-					Pick any layer and a section you can see in full with <span class="font-medium text-text"
+					Pick any layer and a section you can see in full with <span class="font-medium text-ink"
 						>more than 2 bins</span
 					> — 3 or 5 is best, more bins means more accuracy. Set its bin count below, then jog until the
 					chute is perfectly centered going into the first bin and capture.
@@ -601,21 +603,21 @@
 				<Button variant="primary" disabled={step2Locked || currentAngle === null} onclick={captureFirst}>
 					Capture first bin
 				</Button>
-				<span class="text-sm text-text-muted">Captured: {fmt(capturedFirst, 2)}°</span>
+				<span class="text-sm text-ink-muted">Captured: {fmt(capturedFirst, 2)}°</span>
 			</div>
 		</div>
 
 		<!-- Step 3: Last bin -->
 		<div
-			class="flex flex-col gap-3 border border-border bg-bg px-4 py-3"
+			class="flex flex-col gap-3 border border-line bg-well px-4 py-3"
 			class:opacity-50={step3Locked}
 			class:pointer-events-none={step3Locked}
 		>
 			<div class="flex items-center gap-2">
 				{@render stepBadge(3, capturedLast !== null)}
-				<div class="text-sm font-medium text-text">Aim at the LAST bin of that same section</div>
+				<div class="text-sm font-medium text-ink">Aim at the LAST bin of that same section</div>
 			</div>
-			<p class="text-sm text-text-muted">
+			<p class="text-sm text-ink-muted">
 				{#if step3Locked}Capture the first bin first.{:else}Jog until the chute is perfectly centered going into the LAST bin of that same section, then capture.{/if}
 			</p>
 			{@render jogPad(activeStep === 3, false)}
@@ -623,34 +625,34 @@
 				<Button variant="primary" disabled={step3Locked || currentAngle === null} onclick={captureLast}>
 					Capture last bin
 				</Button>
-				<span class="text-sm text-text-muted">Captured: {fmt(capturedLast, 2)}°</span>
+				<span class="text-sm text-ink-muted">Captured: {fmt(capturedLast, 2)}°</span>
 			</div>
 		</div>
 
 		<!-- Step 4: Review + lock in -->
 		<div
-			class="flex flex-col gap-3 border border-border bg-bg px-4 py-3"
+			class="flex flex-col gap-3 border border-line bg-well px-4 py-3"
 			class:opacity-50={step4Locked}
 			class:pointer-events-none={step4Locked}
 		>
 			<div class="flex items-center gap-2">
 				{@render stepBadge(4, false)}
-				<div class="text-sm font-medium text-text">Lock in</div>
+				<div class="text-sm font-medium text-ink">Lock in</div>
 			</div>
 			{#if !step4Locked}
 				{@const slot = (capturedLast! - capturedFirst!) / Math.max(1, binsInTestSection - 1)}
 				{@const w = slot * binsInTestSection}
 				<div class="grid grid-cols-2 gap-3 text-sm sm:grid-cols-3">
-					<div><span class="text-text-muted">Section width:</span> {fmt(w, 2)}°</div>
-					<div><span class="text-text-muted">Offset from home:</span> {fmt(capturedFirst! - 0.5 * slot, 2)}°</div>
-					<div><span class="text-text-muted">Pillar:</span> {fmt(sectionPitchDeg - w, 2)}°</div>
+					<div><span class="text-ink-muted">Section width:</span> {fmt(w, 2)}°</div>
+					<div><span class="text-ink-muted">Offset from home:</span> {fmt(capturedFirst! - 0.5 * slot, 2)}°</div>
+					<div><span class="text-ink-muted">Pillar:</span> {fmt(sectionPitchDeg - w, 2)}°</div>
 				</div>
-				<label class="flex max-w-sm flex-col gap-1 text-sm text-text">
+				<label class="flex max-w-sm flex-col gap-1 text-sm text-ink">
 					Label (optional)
 					<Input type="text" bind:value={calibrationLabel} placeholder="e.g. after home-switch move" />
 				</label>
 			{:else}
-				<p class="text-sm text-text-muted">Capture both bins to compute and lock in the geometry.</p>
+				<p class="text-sm text-ink-muted">Capture both bins to compute and lock in the geometry.</p>
 			{/if}
 			<div>
 				<Button variant="primary" loading={busy} disabled={step4Locked} onclick={deriveAndLockIn}>
@@ -661,22 +663,22 @@
 	</section>
 
 	<!-- History -->
-	<section class="flex flex-col gap-3 border border-border bg-bg px-4 py-3">
-		<div class="text-sm font-semibold text-text">Saved calibrations</div>
+	<section class="flex flex-col gap-3 border border-line bg-well px-4 py-3">
+		<div class="text-sm font-semibold text-ink">Saved calibrations</div>
 		{#if calibrations.length === 0}
-			<p class="text-sm text-text-muted">No saved calibrations yet. Run the routine above to create one.</p>
+			<p class="text-sm text-ink-muted">No saved calibrations yet. Run the routine above to create one.</p>
 		{:else}
 			<div class="flex flex-col">
 				{#each calibrations as cal (cal.id)}
-					<div class="flex items-center justify-between gap-3 border-b border-border py-2 last:border-b-0">
+					<div class="flex items-center justify-between gap-3 border-b border-line py-2 last:border-b-0">
 						<div class="min-w-0">
-							<div class="flex items-center gap-2 text-sm text-text">
+							<div class="flex items-center gap-2 text-sm text-ink">
 								<span class="truncate font-medium">{cal.label ?? 'Calibration'}</span>
 								{#if cal.is_active}
-									<span class="bg-success px-1.5 py-0.5 text-xs font-semibold text-primary-contrast">ACTIVE</span>
+									<span class="bg-success px-1.5 py-0.5 text-xs font-semibold text-on-primary">ACTIVE</span>
 								{/if}
 							</div>
-							<div class="text-sm text-text-muted">
+							<div class="text-sm text-ink-muted">
 								{fmtDate(cal.created_at)} · N{cal.num_sections} · W{fmt(cal.section_width_deg, 1)}° · θ₀{fmt(cal.first_section_offset_deg, 1)}°
 							</div>
 						</div>
@@ -695,14 +697,14 @@
 	</section>
 
 	<!-- Verify — reachable bins per layer size -->
-	<section class="flex flex-col gap-3 border border-border bg-bg px-4 py-3">
+	<section class="flex flex-col gap-3 border border-line bg-well px-4 py-3">
 		<div class="flex flex-wrap items-baseline justify-between gap-2">
-			<div class="text-sm font-semibold text-text">Reachable bins by layer size</div>
-			<div class="text-sm text-text-muted">
+			<div class="text-sm font-semibold text-ink">Reachable bins by layer size</div>
+			<div class="text-sm text-ink-muted">
 				Chute travel 0–{fmt(maxAngleDeg, 0)}° · {fmt(360 - maxAngleDeg, 0)}° no-go wedge at home
 			</div>
 		</div>
-		<p class="text-sm text-text-muted">
+		<p class="text-sm text-ink-muted">
 			Each layout shows where the chute points for that many bins per section. Bins crossed out in red
 			can't be reached: they fall in the deadzone wedge between max travel ({fmt(maxAngleDeg, 0)}°) and
 			home (0°) — which is what eats bins whenever home doesn't land on a pillar. Click any reachable
@@ -724,9 +726,9 @@
 		</div>
 		<div class="flex min-w-0 flex-col gap-2">
 			{#if selected}
-				<div class="text-sm text-text">
+				<div class="text-sm text-ink">
 					Selected: {selected.binCount}-bin layout, section {selected.section + 1}, bin {selected.bin + 1}
-					<span class="text-text-muted">→ {fmt(angleFor(selected.section, selected.bin, selected.binCount), 2)}°</span>
+					<span class="text-ink-muted">→ {fmt(angleFor(selected.section, selected.bin, selected.binCount), 2)}°</span>
 				</div>
 				<div>
 					<Button
@@ -739,7 +741,7 @@
 					</Button>
 				</div>
 			{:else}
-				<div class="text-sm text-text-muted">Click a bin in any layout to select it, then test-aim.</div>
+				<div class="text-sm text-ink-muted">Click a bin in any layout to select it, then test-aim.</div>
 			{/if}
 		</div>
 	</section>

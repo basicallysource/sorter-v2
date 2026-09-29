@@ -23,9 +23,9 @@
 </script>
 
 <div class="setup-panel p-4">
-	<div class="text-sm font-semibold text-text">Serial port</div>
+	<div class="text-sm font-semibold text-ink">Serial port</div>
 	<div class="mt-3 grid gap-3 sm:grid-cols-[2fr_auto_auto]">
-		<select bind:value={port} class="setup-control px-3 py-2 text-text">
+		<select bind:value={port} class="setup-control px-3 py-2 text-ink">
 			<option value="">Auto detect / current selection</option>
 			{#each availablePorts as candidate}
 				<option value={candidate.device}>
@@ -36,13 +36,13 @@
 		<button
 			onclick={onLoadPorts}
 			disabled={loadingPorts}
-			class="setup-button-secondary px-3 py-2 text-sm text-text transition-colors disabled:cursor-not-allowed disabled:opacity-60"
+			class="setup-button-secondary px-3 py-2 text-sm text-ink transition-colors disabled:cursor-not-allowed disabled:opacity-60"
 		>
 			{loadingPorts ? 'Refreshing…' : 'Refresh ports'}
 		</button>
 		<button
 			onclick={onScan}
-			class="border border-primary bg-primary px-3 py-2 text-sm font-medium text-primary-contrast transition-colors hover:bg-primary-hover"
+			class="border border-primary bg-primary px-3 py-2 text-sm font-medium text-on-primary transition-colors hover:bg-primary-hover"
 		>
 			Scan bus
 		</button>

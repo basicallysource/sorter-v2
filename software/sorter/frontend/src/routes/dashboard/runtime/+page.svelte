@@ -63,11 +63,11 @@
 
 	function chartPalette() {
 		return {
-			text: cssVar('--color-text', '#1A1A1A'),
-			textMuted: cssVar('--color-text-muted', '#7A7770'),
-			border: cssVar('--color-border', '#E2E0DB'),
-			surface: cssVar('--color-surface', '#FFFFFF'),
-			background: cssVar('--color-bg', '#F7F6F3')
+			text: cssVar('--ink', '#1A1A1A'),
+			textMuted: cssVar('--ink-muted', '#7A7770'),
+			border: cssVar('--line', '#E2E0DB'),
+			surface: cssVar('--surface', '#FFFFFF'),
+			background: cssVar('--canvas', '#F7F6F3')
 		};
 	}
 
@@ -561,21 +561,21 @@
 
 <svelte:head><title>Sorter - Runtime</title></svelte:head>
 
-<div class="min-h-screen bg-bg p-6">
+<div class="min-h-screen bg-well p-6">
 	<div class="mb-4 flex items-center justify-between">
 		<div class="flex items-center gap-3">
 			<a
 				href="/"
-				class="p-2 text-text transition-colors hover:bg-surface"
+				class="p-2 text-ink transition-colors hover:bg-surface"
 				title="Back"
 			>
 				<ArrowLeft size={20} />
 			</a>
-			<h1 class="text-xl font-bold text-text">Runtime Dashboard</h1>
+			<h1 class="text-xl font-bold text-ink">Runtime Dashboard</h1>
 		</div>
 		<div class="flex items-center gap-2">
 			<select
-				class="border border-border bg-surface px-2 py-1 text-xs text-text"
+				class="border border-line bg-surface px-2 py-1 text-xs text-ink"
 				value={selected_group}
 				onchange={(event) => (selected_group = (event.currentTarget as HTMLSelectElement).value)}
 			>
@@ -585,7 +585,7 @@
 				<option value="distribution">Distribution</option>
 			</select>
 			<select
-				class="border border-border bg-surface px-2 py-1 text-xs text-text"
+				class="border border-line bg-surface px-2 py-1 text-xs text-ink"
 				value={selected_record_id}
 				onchange={(event) => selectRecord((event.currentTarget as HTMLSelectElement).value)}
 			>
@@ -595,7 +595,7 @@
 				{/each}
 			</select>
 			<button
-				class="border border-border px-2 py-1 text-xs text-text"
+				class="border border-line px-2 py-1 text-xs text-ink"
 				onclick={loadRecords}
 			>
 				Refresh
@@ -605,17 +605,17 @@
 	</div>
 
 	{#if records_error}
-		<div class="dark:text-red-400 mb-3 text-xs text-danger">Record load error: {records_error}</div>
+		<div class="mb-3 text-xs text-danger-ink">Record load error: {records_error}</div>
 	{/if}
 
 	{#if !machine_ctx.machine && !loaded_runtime_stats}
-		<div class="py-12 text-center text-text-muted">
+		<div class="py-12 text-center text-ink-muted">
 			No machine selected.
 		</div>
 	{:else}
 		<div class="grid grid-cols-1 gap-4 lg:grid-cols-2">
-			<div class="border border-border bg-surface p-3">
-				<div class="mb-2 text-sm font-medium text-text">
+			<div class="border border-line bg-surface p-3">
+				<div class="mb-2 text-sm font-medium text-ink">
 					Occupancy Share By Subsystem
 				</div>
 				<div class="h-[460px]">
@@ -623,8 +623,8 @@
 				</div>
 			</div>
 
-			<div class="border border-border bg-surface p-3">
-				<div class="mb-2 text-sm font-medium text-text">
+			<div class="border border-line bg-surface p-3">
+				<div class="mb-2 text-sm font-medium text-ink">
 					Occupancy Gantt (Last {WINDOW_S}s)
 				</div>
 				<div class="h-[380px]">
@@ -633,18 +633,18 @@
 			</div>
 		</div>
 
-		<div class="mt-4 border border-border bg-surface p-3">
-			<div class="mb-2 text-sm font-medium text-text">
+		<div class="mt-4 border border-line bg-surface p-3">
+			<div class="mb-2 text-sm font-medium text-ink">
 				Top Occupancy Blocks (Run Total)
 			</div>
 			{#if top_occupancy_states.length === 0}
-				<div class="text-xs text-text-muted">No occupancy data yet.</div>
+				<div class="text-xs text-ink-muted">No occupancy data yet.</div>
 			{:else}
 				<div class="grid grid-cols-1 gap-1 text-xs md:grid-cols-2">
 					{#each top_occupancy_states as [name, seconds]}
-						<div class="flex items-center justify-between text-text-muted">
+						<div class="flex items-center justify-between text-ink-muted">
 							<span class="truncate pr-2">{name}</span>
-							<span class="tabular-nums">{seconds.toFixed(2)}s</span>
+							<span class="num">{seconds.toFixed(2)}s</span>
 						</div>
 					{/each}
 				</div>

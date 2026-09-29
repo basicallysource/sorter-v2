@@ -2,7 +2,7 @@
 	import Modal from '$lib/components/Modal.svelte';
 	import ArrowLeft from '@lucide/svelte/icons/arrow-left';
 	import Download from '@lucide/svelte/icons/download';
-	import Spinner from '$lib/components/Spinner.svelte';
+	import Spinner from '$lib/components/ui/Spinner.svelte';
 	import { formatCategoryName, formatLastSeen } from './pieces';
 	import type { SnapshotDetail, SnapshotLayer, SnapshotSummary } from './types';
 
@@ -63,7 +63,7 @@
 
 <Modal bind:open title={detail ? 'Snapshot Details' : 'Bin Snapshots'} wide={true}>
 	{#if snapshotsError}
-		<div class="mb-3 border border-danger bg-danger/[0.06] px-3 py-2 text-sm text-danger">{snapshotsError}</div>
+		<div class="mb-3 border border-danger bg-danger-soft px-3 py-2 text-sm text-danger-ink">{snapshotsError}</div>
 	{/if}
 	{#if detail}
 		<div class="space-y-4">
@@ -85,35 +85,35 @@
 					Export CSV
 				</a>
 			</div>
-			<div class="grid gap-4 border border-border bg-surface px-4 py-4 text-sm text-text-muted md:grid-cols-4">
+			<div class="grid gap-4 border border-line bg-surface px-4 py-4 text-sm text-ink-muted md:grid-cols-4">
 				<div>
-					<div class="text-xs uppercase tracking-wide">Status</div>
-					<div class="mt-1 text-base font-medium text-text capitalize">{detail.status}</div>
+					<div class="text-xs">Status</div>
+					<div class="mt-1 text-base font-medium text-ink capitalize">{detail.status}</div>
 				</div>
 				<div>
-					<div class="text-xs uppercase tracking-wide">Started</div>
-					<div class="mt-1 text-base font-medium text-text">{formatLastSeen(detail.created_at)}</div>
+					<div class="text-xs">Started</div>
+					<div class="mt-1 text-base font-medium text-ink">{formatLastSeen(detail.created_at)}</div>
 				</div>
 				<div>
-					<div class="text-xs uppercase tracking-wide">Closed</div>
-					<div class="mt-1 text-base font-medium text-text">{formatLastSeen(detail.closed_at)}</div>
+					<div class="text-xs">Closed</div>
+					<div class="mt-1 text-base font-medium text-ink">{formatLastSeen(detail.closed_at)}</div>
 				</div>
 				<div>
-					<div class="text-xs uppercase tracking-wide">Pieces</div>
-					<div class="mt-1 text-base font-medium text-text">{detail.piece_count}</div>
+					<div class="text-xs">Pieces</div>
+					<div class="mt-1 text-base font-medium text-ink">{detail.piece_count}</div>
 				</div>
 			</div>
 			{#each detail.layers as layer (layer.id)}
-				<div class="border border-border bg-bg p-4">
+				<div class="border border-line bg-well p-4">
 					<div class="mb-2 flex flex-wrap items-center justify-between gap-2">
-						<div class="text-sm font-semibold text-text">{binLabel(layer)}</div>
-						<div class="flex items-center gap-2 text-xs text-text-muted">
-							<span class="border border-border bg-surface px-2 py-1">{layer.piece_count} {layer.piece_count === 1 ? 'piece' : 'pieces'}</span>
-							<span class="border border-border bg-surface px-2 py-1">emptied {formatLastSeen(layer.flushed_at)}</span>
+						<div class="text-sm font-semibold text-ink">{binLabel(layer)}</div>
+						<div class="flex items-center gap-2 text-xs text-ink-muted">
+							<span class="border border-line bg-surface px-2 py-1">{layer.piece_count} {layer.piece_count === 1 ? 'piece' : 'pieces'}</span>
+							<span class="border border-line bg-surface px-2 py-1">emptied {formatLastSeen(layer.flushed_at)}</span>
 						</div>
 					</div>
 					{#if layer.category_ids.length > 0}
-						<div class="mb-3 text-sm text-text-muted">
+						<div class="mb-3 text-sm text-ink-muted">
 							Assigned: {layer.category_ids.map((id) => formatCategoryName(id) || id).join(', ')}
 						</div>
 					{/if}
@@ -121,7 +121,7 @@
 						<div class="overflow-x-auto">
 							<table class="w-full text-left text-sm">
 								<thead>
-									<tr class="border-b border-border text-xs uppercase tracking-wide text-text-muted">
+									<tr class="border-b border-line text-xs text-ink-muted">
 										<th class="py-1.5 pr-4">Part</th>
 										<th class="py-1.5 pr-4">Color</th>
 										<th class="py-1.5 pr-4">Category</th>
@@ -131,8 +131,8 @@
 								</thead>
 								<tbody>
 									{#each layer.items as item (item.item_key)}
-										<tr class="border-b border-border/60">
-											<td class="py-1.5 pr-4 font-medium text-text">{item.part_id ?? 'unknown'}</td>
+										<tr class="border-b border-line">
+											<td class="py-1.5 pr-4 font-medium text-ink">{item.part_id ?? 'unknown'}</td>
 											<td class="py-1.5 pr-4">{item.color_name ?? item.color_id ?? 'n/a'}</td>
 											<td class="py-1.5 pr-4">{formatCategoryName(item.category_id) || item.category_id || 'n/a'}</td>
 											<td class="py-1.5 pr-4">{item.count}</td>
@@ -147,26 +147,26 @@
 			{/each}
 		</div>
 	{:else if detailLoading || snapshotsLoading}
-		<div class="flex items-center justify-center gap-2 py-10 text-sm text-text-muted">
+		<div class="flex items-center justify-center gap-2 py-10 text-sm text-ink-muted">
 			<Spinner size={16} />
 			Loading…
 		</div>
 	{:else if snapshots.length === 0}
-		<p class="py-8 text-center text-sm text-text-muted">
+		<p class="py-8 text-center text-sm text-ink-muted">
 			No snapshots yet. Emptying a bin (or all bins) automatically saves a snapshot of what was in it.
 		</p>
 	{:else}
 		<div class="space-y-2">
 			{#each snapshots as snapshot (snapshot.id)}
-				<div class="flex flex-wrap items-center justify-between gap-3 border border-border bg-bg px-4 py-3">
+				<div class="flex flex-wrap items-center justify-between gap-3 border border-line bg-well px-4 py-3">
 					<div>
-						<div class="text-sm font-medium text-text">
+						<div class="text-sm font-medium text-ink">
 							{formatLastSeen(snapshot.closed_at ?? snapshot.created_at)}
 							{#if snapshot.status === 'open'}
-								<span class="ml-2 border border-primary bg-primary/[0.08] px-1.5 py-0.5 text-xs text-text">accumulating</span>
+								<span class="ml-2 border border-primary bg-primary-soft px-1.5 py-0.5 text-xs text-ink">accumulating</span>
 							{/if}
 						</div>
-						<div class="mt-0.5 text-xs text-text-muted">
+						<div class="mt-0.5 text-xs text-ink-muted">
 							{snapshot.piece_count} {snapshot.piece_count === 1 ? 'piece' : 'pieces'} · {snapshot.bin_count} {snapshot.bin_count === 1 ? 'bin' : 'bins'} · {snapshot.layer_count} {snapshot.layer_count === 1 ? 'wipe' : 'wipes'}
 						</div>
 					</div>

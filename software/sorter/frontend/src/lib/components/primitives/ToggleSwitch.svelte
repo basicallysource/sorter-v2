@@ -1,6 +1,6 @@
 <script lang="ts">
 	// Consolidates the switch markup that was copy-pasted across the bins page.
-	// Keeps the established pill/rounded look those switches already shipped with
+	// Keeps the established pill/rounded-control look those switches already shipped with
 	// (predates the sharp-edges rule); changing the shape is now a one-file edit.
 	let {
 		checked,

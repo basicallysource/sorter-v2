@@ -1,7 +1,9 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import { getBackendHttpBase } from '$lib/backend';
-	import { Alert, Button, Tooltip } from '$lib/components/primitives';
+	import Alert from '$lib/components/ui/Alert.svelte';
+	import Button from '$lib/components/ui/Button.svelte';
+	import { Tooltip } from '$lib/components/primitives';
 	import Download from '@lucide/svelte/icons/download';
 	import RefreshCw from '@lucide/svelte/icons/refresh-cw';
 	import Trash2 from '@lucide/svelte/icons/trash';
@@ -682,36 +684,36 @@
 	     Errors only — success states are conveyed by the Installed list
 	     itself (Active pill, model appearing/disappearing). -->
 	{#if actionError}
-		<Alert variant="danger">
+		<Alert tone="danger">
 			<div class="whitespace-pre-line">{actionError}</div>
 		</Alert>
 	{/if}
 
 	<!-- ───────────────────── Catalog manager ───────────────────── -->
 	{#if targetsLoading}
-		<Alert variant="info">Loading Hive targets…</Alert>
+		<Alert tone="info">Loading Hive targets…</Alert>
 	{:else if targetsMissing && installed.length === 0}
-		<Alert variant="info">
+		<Alert tone="info">
 			No Hive target configured and no models installed. Configure a target in the Hive
 			card to browse the catalog.
 		</Alert>
 	{:else if targetsError}
-		<Alert variant="danger">{targetsError}</Alert>
+		<Alert tone="danger">{targetsError}</Alert>
 	{/if}
 
 	{#if !targetsLoading && !targetsError}
-		<div class="border border-border bg-surface">
+		<div class="border border-line bg-surface">
 			<!-- Section header: tabs + target picker + refresh -->
-			<header class="flex flex-wrap items-center justify-between gap-3 border-b border-border bg-bg px-2">
+			<header class="flex flex-wrap items-center justify-between gap-3 border-b border-line bg-well px-2">
 				<nav class="-mb-px flex items-stretch" aria-label="Models view">
 					<button
 						type="button"
 						onclick={() => setTab('installed')}
-						class={`border-b-2 px-3 py-2.5 text-sm font-medium transition-colors ${tab === 'installed' ? 'border-primary text-text' : 'border-transparent text-text-muted hover:text-text'}`}
+						class={`border-b-2 px-3 py-2.5 text-sm font-medium transition-colors ${tab === 'installed' ? 'border-primary text-ink' : 'border-transparent text-ink-muted hover:text-ink'}`}
 					>
 						Installed
 						{#if installed.length > 0}
-							<span class="ml-1 text-xs font-normal text-text-muted">
+							<span class="ml-1 text-xs font-normal text-ink-muted">
 								{installed.length}
 							</span>
 						{/if}
@@ -720,7 +722,7 @@
 						<button
 							type="button"
 							onclick={() => setTab('available')}
-							class={`border-b-2 px-3 py-2.5 text-sm font-medium transition-colors ${tab === 'available' ? 'border-primary text-text' : 'border-transparent text-text-muted hover:text-text'}`}
+							class={`border-b-2 px-3 py-2.5 text-sm font-medium transition-colors ${tab === 'available' ? 'border-primary text-ink' : 'border-transparent text-ink-muted hover:text-ink'}`}
 						>
 							Browse Hive
 						</button>
@@ -754,20 +756,20 @@
 					<div class="relative flex-1 min-w-[16rem]">
 						<Search
 							size={14}
-							class="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-text-muted"
+							class="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-ink-muted"
 						/>
 						<input
 							bind:value={query}
 							oninput={onFilterChange}
 							type="text"
 							placeholder="Search name or slug"
-							class="w-full border border-border bg-surface py-2 pl-9 pr-3 text-sm text-text focus:border-primary focus:outline-none"
+							class="w-full border border-line bg-surface py-2 pl-9 pr-3 text-sm text-ink focus:border-primary focus:outline-none"
 						/>
 					</div>
 					<select
 						bind:value={purposeFilter}
 						onchange={onFilterChange}
-						class="border border-border bg-surface px-3 py-2 text-sm text-text"
+						class="border border-line bg-surface px-3 py-2 text-sm text-ink"
 						aria-label="Model purpose"
 					>
 						{#each PURPOSE_OPTIONS as opt}
@@ -775,7 +777,7 @@
 						{/each}
 					</select>
 					<details class="group">
-						<summary class="cursor-pointer list-none border border-border bg-surface px-3 py-2 text-sm text-text-muted transition-colors hover:bg-bg">
+						<summary class="cursor-pointer list-none border border-line bg-surface px-3 py-2 text-sm text-ink-muted transition-colors hover:bg-hover">
 							<span class="inline-flex items-center gap-1.5">
 								<ChevronRight
 									size={14}
@@ -790,12 +792,12 @@
 								oninput={onFilterChange}
 								type="text"
 								placeholder="Scope (e.g. brick, minifig)"
-								class="border border-border bg-surface px-3 py-2 text-sm text-text"
+								class="border border-line bg-surface px-3 py-2 text-sm text-ink"
 							/>
 							<select
 								bind:value={runtimeFilter}
 								onchange={onFilterChange}
-								class="border border-border bg-surface px-3 py-2 text-sm text-text"
+								class="border border-line bg-surface px-3 py-2 text-sm text-ink"
 							>
 								{#each RUNTIME_OPTIONS as opt}
 									<option value={opt}>{opt === '' ? 'Any runtime' : opt}</option>
@@ -806,22 +808,22 @@
 								oninput={onFilterChange}
 								type="text"
 								placeholder="Model family"
-								class="border border-border bg-surface px-3 py-2 text-sm text-text"
+								class="border border-line bg-surface px-3 py-2 text-sm text-ink"
 							/>
 						</div>
-						<label class="mt-2 flex items-center gap-2 text-sm text-text-muted">
+						<label class="mt-2 flex items-center gap-2 text-sm text-ink-muted">
 							<input
 								type="checkbox"
 								bind:checked={includeExperimental}
 								onchange={onFilterChange}
-								class="border border-border"
+								class="border border-line"
 							/>
 							Include experimental models
 						</label>
 					</details>
 				</div>
 
-				<div class="flex items-center justify-between text-xs text-text-muted">
+				<div class="flex items-center justify-between text-xs text-ink-muted">
 					<span>
 						{#if loadingModels}
 							Loading models…
@@ -835,7 +837,7 @@
 						<button
 							type="button"
 							onclick={resetFilters}
-							class="text-text-muted underline-offset-2 hover:text-text hover:underline"
+							class="text-ink-muted underline-offset-2 hover:text-ink hover:underline"
 						>
 							Clear filters
 						</button>
@@ -843,11 +845,11 @@
 				</div>
 
 				{#if modelsError}
-					<Alert variant="danger">{modelsError}</Alert>
+					<Alert tone="danger">{modelsError}</Alert>
 				{/if}
 
 				{#if !loadingModels && models.length === 0 && !modelsError}
-					<div class="border border-border bg-bg px-4 py-6 text-center text-sm text-text-muted">
+					<div class="border border-line bg-well px-4 py-6 text-center text-sm text-ink-muted">
 						No models found.
 					</div>
 				{:else}
@@ -856,13 +858,13 @@
 							{@const jobActive = activeJobModelIds.has(model.id)}
 							{@const browseHref = model.target_url ? `${model.target_url.replace(/\/+$/, '')}/models/${model.id}` : null}
 							<li
-								class={`flex flex-wrap items-center justify-between gap-3 border border-border bg-surface px-4 py-3 ${idx > 0 ? '-mt-px' : ''}`}
+								class={`flex flex-wrap items-center justify-between gap-3 border border-line bg-surface px-4 py-3 ${idx > 0 ? '-mt-px' : ''}`}
 							>
 								<div class="min-w-0 flex-1">
 									<div class="flex flex-wrap items-center gap-2">
 										{#if model.codename_color}
 											<span
-												class="h-3 w-3 shrink-0 border border-border"
+												class="h-3 w-3 shrink-0 border border-line"
 												style={`background-color: ${model.codename_color}`}
 												aria-hidden="true"
 											></span>
@@ -872,39 +874,39 @@
 												href={browseHref}
 												target="_blank"
 												rel="noopener noreferrer"
-												class="font-mono text-sm font-medium text-text hover:text-primary hover:underline"
+												class="font-mono text-sm font-medium text-ink hover:text-primary-ink hover:underline"
 												title={`Open in source Hive: ${browseHref}`}
 											>
 												{titleOf(model)}
 											</a>
 										{:else}
-											<span class="font-mono text-sm font-medium text-text">{titleOf(model)}</span>
+											<span class="font-mono text-sm font-medium text-ink">{titleOf(model)}</span>
 										{/if}
 										{#if model.installed}
-											<span class="inline-flex items-center gap-1 bg-text-muted/20 px-2 py-0.5 text-xs font-semibold uppercase tracking-wider text-text">
+											<span class="inline-flex items-center gap-1 bg-text-muted/20 px-2 py-0.5 text-xs font-semibold text-ink">
 												<CheckCircle2 size={10} />
 												Installed
 											</span>
 										{/if}
 										{#if model.experimental}
-											<span class="inline-flex items-center gap-1 bg-warning/20 px-2 py-0.5 text-xs font-semibold uppercase tracking-wider text-warning-dark dark:text-warning">
+											<span class="inline-flex items-center gap-1 bg-warning-soft px-2 py-0.5 text-xs font-semibold text-warning-ink">
 												Experimental
 											</span>
 										{/if}
 										{#if isInert(model)}
-											<span class="inline-flex items-center gap-1 border border-border px-2 py-0.5 text-xs font-semibold uppercase tracking-wider text-text-muted">
+											<span class="inline-flex items-center gap-1 border border-line px-2 py-0.5 text-xs font-semibold text-ink-muted">
 												{PURPOSE_LABELS[purposeOf(model)] ?? purposeOf(model)}
 											</span>
 										{/if}
 									</div>
 									{#if isInert(model)}
-										<p class="mt-1 text-sm text-text-muted">
+										<p class="mt-1 text-sm text-ink-muted">
 											Downloads and installs, but nothing on this machine uses it yet.
 										</p>
 									{/if}
-									<div class="mt-1 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-text-muted">
+									<div class="mt-1 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-ink-muted">
 										{#if subtitleOf(model)}
-											<span class="font-mono text-text">{subtitleOf(model)}</span>
+											<span class="font-mono text-ink">{subtitleOf(model)}</span>
 											<span aria-hidden="true">·</span>
 										{/if}
 										<span>{model.model_family}</span>
@@ -914,20 +916,20 @@
 											<span aria-hidden="true">·</span>
 											<span>
 												{model.variant_runtimes.length} format{model.variant_runtimes.length === 1 ? '' : 's'}
-												<span class="text-text-muted/70">
+												<span class="text-ink-muted/70">
 													({model.variant_runtimes.join(', ')})
 												</span>
 											</span>
 										{/if}
 										<span aria-hidden="true">·</span>
 										<Tooltip text={`Published ${formatDate(model.published_at)}`}>
-											<span class="text-text">
+											<span class="text-ink">
 												published {formatRelativeAge(model.published_at) ?? formatDate(model.published_at)}
 											</span>
 										</Tooltip>
 										{#if model.target_url}
 											<span aria-hidden="true">·</span>
-											<span class="font-mono text-text-muted/80" title={`Source Hive: ${model.target_url}`}>
+											<span class="font-mono text-ink-muted/80" title={`Source Hive: ${model.target_url}`}>
 												{model.target_url.replace(/^https?:\/\//, '')}
 											</span>
 										{/if}
@@ -963,7 +965,7 @@
 						<Button variant="secondary" size="sm" onclick={prevPage} disabled={page <= 1}>
 							Previous
 						</Button>
-						<span class="text-text-muted">Page {page} of {modelsPages}</span>
+						<span class="text-ink-muted">Page {page} of {modelsPages}</span>
 						<Button
 							variant="secondary"
 							size="sm"
@@ -983,15 +985,15 @@
 			).length}
 			<div class="flex flex-col gap-4">
 				{#if installedError}
-					<Alert variant="danger">{installedError}</Alert>
+					<Alert tone="danger">{installedError}</Alert>
 				{/if}
 
 				{#if installed.length > 0}
-					<div class="flex flex-wrap items-center justify-between gap-3 text-xs text-text-muted">
+					<div class="flex flex-wrap items-center justify-between gap-3 text-xs text-ink-muted">
 						<span>
 							{installed.length} installed
 							{#if unusedCount > 0}
-								· <span class="text-warning-dark dark:text-warning">{unusedCount} unused</span>
+								· <span class="text-warning-ink">{unusedCount} unused</span>
 							{/if}
 						</span>
 						{#if unusedCount > 0}
@@ -1012,10 +1014,10 @@
 				{/if}
 
 				{#if loadingInstalled}
-					<div class="text-sm text-text-muted">Loading installed models…</div>
+					<div class="text-sm text-ink-muted">Loading installed models…</div>
 				{:else if installed.length === 0}
-					<div class="border border-border bg-bg px-4 py-6 text-center text-sm text-text-muted">
-						No models installed yet. Open <span class="font-medium text-text">Browse Hive</span> to download one.
+					<div class="border border-line bg-well px-4 py-6 text-center text-sm text-ink-muted">
+						No models installed yet. Open <span class="font-medium text-ink">Browse Hive</span> to download one.
 					</div>
 				{:else}
 					<ul class="flex flex-col">
@@ -1030,14 +1032,14 @@
 							{@const hiveBase = targetUrl(entry.target_id) ?? entry.source_url ?? null}
 							{@const detailHref = entry.source === 'hive' && hiveBase ? `${hiveBase.replace(/\/+$/, '')}/models/${entry.model_id}` : null}
 							<li
-								class={`border ${idx > 0 ? '-mt-px' : ''} ${isActive ? 'border-success bg-success/[0.06]' : !isCompatible ? 'border-border bg-bg opacity-70' : 'border-border bg-surface'}`}
+								class={`border ${idx > 0 ? '-mt-px' : ''} ${isActive ? 'border-success bg-success-soft' : !isCompatible ? 'border-line bg-well opacity-70' : 'border-line bg-surface'}`}
 							>
 								<div class="flex flex-wrap items-center justify-between gap-3 px-4 py-3">
 									<div class="min-w-0 flex-1">
 										<div class="flex flex-wrap items-center gap-2">
 											{#if entry.codename_color}
 												<span
-													class="h-3 w-3 shrink-0 border border-border"
+													class="h-3 w-3 shrink-0 border border-line"
 													style={`background-color: ${entry.codename_color}`}
 													aria-hidden="true"
 												></span>
@@ -1047,43 +1049,43 @@
 													href={detailHref}
 													target="_blank"
 													rel="noopener noreferrer"
-													class="font-mono text-sm font-medium text-text hover:text-primary hover:underline"
+													class="font-mono text-sm font-medium text-ink hover:text-primary-ink hover:underline"
 													title={`Open in source Hive: ${detailHref}`}
 												>
 													{titleOf(entry)}
 												</a>
 											{:else}
-												<span class="font-mono text-sm font-medium text-text">
+												<span class="font-mono text-sm font-medium text-ink">
 													{titleOf(entry)}
 												</span>
 											{/if}
 											{#if entry.source === 'local'}
 												<Tooltip text="Put in this machine's models directory by hand, not downloaded from Hive">
-													<span class="inline-flex items-center bg-text-muted/20 px-2 py-0.5 text-xs font-semibold uppercase tracking-wider text-text">
+													<span class="inline-flex items-center bg-text-muted/20 px-2 py-0.5 text-xs font-semibold text-ink">
 														Local
 													</span>
 												</Tooltip>
 											{/if}
 											{#if isInert(entry)}
-												<span class="inline-flex items-center bg-warning/20 px-2 py-0.5 text-xs font-semibold uppercase tracking-wider text-warning-dark dark:text-warning">
+												<span class="inline-flex items-center bg-warning-soft px-2 py-0.5 text-xs font-semibold text-warning-ink">
 													{PURPOSE_LABELS[purposeOf(entry)] ?? purposeOf(entry)}
 												</span>
 											{:else if !isCompatible}
 												<Tooltip text={`Variant runtime "${entry.variant_runtime}" cannot be loaded by the sorter — only ONNX, NCNN, Hailo and RKNN are deployable.`}>
-													<span class="inline-flex items-center bg-warning/20 px-2 py-0.5 text-xs font-semibold uppercase tracking-wider text-warning-dark dark:text-warning">
+													<span class="inline-flex items-center bg-warning-soft px-2 py-0.5 text-xs font-semibold text-warning-ink">
 														Not supported
 													</span>
 												</Tooltip>
 											{/if}
 										</div>
 										{#if isInert(entry)}
-											<p class="mt-1 text-sm text-text-muted">
+											<p class="mt-1 text-sm text-ink-muted">
 												Installed and inert — no part of the sorting pipeline reads this model yet.
 											</p>
 										{/if}
-										<div class="mt-1 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-text-muted">
+										<div class="mt-1 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-ink-muted">
 											{#if subtitleOf(entry)}
-												<span class="font-mono text-text">{subtitleOf(entry)}</span>
+												<span class="font-mono text-ink">{subtitleOf(entry)}</span>
 												<span aria-hidden="true">·</span>
 											{/if}
 											<span>{entry.model_family}</span>
@@ -1094,7 +1096,7 @@
 											{#if ageIso}
 												<span aria-hidden="true">·</span>
 												<Tooltip text={`${entry.trained_at ? 'Trained' : 'Downloaded'} ${formatDate(ageIso)}`}>
-													<span class="text-text">
+													<span class="text-ink">
 														{entry.trained_at ? 'trained' : 'downloaded'}
 														{ageRelative}
 													</span>
@@ -1102,7 +1104,7 @@
 											{/if}
 											{#if entry.source === 'hive' && hostFromUrl(hiveBase)}
 												<span aria-hidden="true">·</span>
-												<span class="font-mono text-text-muted/80" title={`From Hive: ${hiveBase}`}>
+												<span class="font-mono text-ink-muted/80" title={`From Hive: ${hiveBase}`}>
 													{hostFromUrl(hiveBase)}
 												</span>
 											{/if}
@@ -1111,11 +1113,11 @@
 
 									<div class="flex flex-wrap items-center gap-2">
 										{#if isInert(entry)}
-											<span class="px-3 py-1.5 text-xs text-text-muted">
+											<span class="px-3 py-1.5 text-xs text-ink-muted">
 												Not wired up yet
 											</span>
 										{:else if !isCompatible}
-											<span class="px-3 py-1.5 text-xs text-text-muted">
+											<span class="px-3 py-1.5 text-xs text-ink-muted">
 												Cannot activate
 											</span>
 										{:else}
@@ -1126,12 +1128,12 @@
 													type="button"
 													class={`inline-flex items-center gap-1.5 border px-3 py-1.5 text-sm transition-colors ${
 														isActive
-															? 'border-success/40 bg-success/[0.08] text-text'
-															: 'border-border bg-surface text-text hover:bg-bg'
+															? 'border-success/40 bg-success-soft text-ink'
+															: 'border-line bg-surface text-ink hover:bg-hover'
 													}`}
 												>
 													{#if isActive}
-														<CheckCircle2 size={14} class="shrink-0 text-success" />
+														<CheckCircle2 size={14} class="shrink-0 text-success-ink" />
 														<span>Active: {activeLabels.join(', ')}</span>
 													{:else}
 														<span>Activate</span>
@@ -1139,15 +1141,15 @@
 													<ChevronDown size={13} class="opacity-70" />
 												</button>
 												<div
-													class="invisible absolute right-0 top-full z-30 mt-px min-w-[16rem] border border-border bg-surface opacity-0 shadow-lg transition-opacity duration-100 group-hover:visible group-hover:opacity-100 group-focus-within:visible group-focus-within:opacity-100"
+													class="invisible absolute right-0 top-full z-30 mt-px min-w-[16rem] border border-line bg-surface opacity-0 transition-opacity duration-100 group-hover:visible group-hover:opacity-100 group-focus-within:visible group-focus-within:opacity-100"
 												>
 													<div
-														class="border-b border-border px-3 py-2 text-xs font-semibold uppercase tracking-wider text-text-muted"
+														class="border-b border-line px-3 py-2 text-xs font-semibold text-ink-muted"
 													>
 														Activate for subsystem
 													</div>
 													{#if activeAssignments.length === 0}
-														<div class="px-3 py-2 text-sm text-text-muted">
+														<div class="px-3 py-2 text-sm text-ink-muted">
 															No detection subsystems on this machine setup.
 														</div>
 													{/if}
@@ -1160,21 +1162,21 @@
 															type="button"
 															disabled={activatingAlgorithmId === algorithmId}
 															onclick={() => void handleActivateForSlot(entry, slot)}
-															class={`flex w-full items-center justify-between gap-3 px-3 py-2 text-left text-sm transition-colors hover:bg-bg disabled:opacity-60 ${
-																slotActive ? 'bg-success/[0.08]' : ''
+															class={`flex w-full items-center justify-between gap-3 px-3 py-2 text-left text-sm transition-colors hover:bg-hover disabled:opacity-60 ${
+																slotActive ? 'bg-success-soft' : ''
 															}`}
 														>
 															<span class="flex min-w-0 items-center gap-2">
 																{#if slotActive}
-																	<CheckCircle2 size={14} class="shrink-0 text-success" />
+																	<CheckCircle2 size={14} class="shrink-0 text-success-ink" />
 																{:else}
 																	<span class="inline-block w-[14px] shrink-0"></span>
 																{/if}
-																<span class="truncate text-text">{slot.label}</span>
+																<span class="truncate text-ink">{slot.label}</span>
 															</span>
 															{#if !designedFor}
 																<span
-																	class="inline-flex shrink-0 items-center bg-warning/20 px-1.5 py-0.5 text-xs font-medium uppercase tracking-wider text-warning-dark dark:text-warning"
+																	class="inline-flex shrink-0 items-center bg-warning-soft px-1.5 py-0.5 text-xs font-medium text-warning-ink"
 																>
 																	not designed for this
 																</span>
@@ -1191,7 +1193,7 @@
 												disabled={deletingLocalId === entry.local_id}
 												onclick={() => void handleDelete(entry)}
 											>
-												<Trash2 size={14} class="text-danger" />
+												<Trash2 size={14} class="text-danger-ink" />
 											</Button>
 										</Tooltip>
 										<button
@@ -1199,7 +1201,7 @@
 											aria-expanded={isExpanded}
 											aria-controls={`installed-details-${entry.local_id}`}
 											onclick={() => toggleDetails(entry.local_id)}
-											class="inline-flex items-center gap-1 px-1.5 py-1 text-xs text-text-muted transition-colors hover:text-text"
+											class="inline-flex items-center gap-1 px-1.5 py-1 text-xs text-ink-muted transition-colors hover:text-ink"
 										>
 											{#if isExpanded}
 												<ChevronDown size={14} />
@@ -1214,42 +1216,42 @@
 								{#if isExpanded}
 									<div
 										id={`installed-details-${entry.local_id}`}
-										class="border-t border-border bg-bg px-4 py-3"
+										class="border-t border-line bg-well px-4 py-3"
 									>
 										<dl class="grid grid-cols-[auto,1fr] gap-x-4 gap-y-1.5 text-xs">
 											{#if entry.trained_at}
-												<dt class="text-text-muted">Trained</dt>
-												<dd class="text-text">
+												<dt class="text-ink-muted">Trained</dt>
+												<dd class="text-ink">
 													{formatDate(entry.trained_at)}
-													<span class="ml-1 text-text-muted">
+													<span class="ml-1 text-ink-muted">
 														({formatRelativeAge(entry.trained_at)})
 													</span>
 												</dd>
 											{/if}
-											<dt class="text-text-muted">SHA-256</dt>
-											<dd class="font-mono text-text" title={entry.sha256 ?? ''}>
+											<dt class="text-ink-muted">SHA-256</dt>
+											<dd class="font-mono text-ink" title={entry.sha256 ?? ''}>
 												{shortSha(entry.sha256)}
 											</dd>
-											<dt class="text-text-muted">Size</dt>
-											<dd class="text-text">{formatSize(entry.size_bytes)}</dd>
+											<dt class="text-ink-muted">Size</dt>
+											<dd class="text-ink">{formatSize(entry.size_bytes)}</dd>
 											{#if entry.source === 'local'}
-												<dt class="text-text-muted">Source</dt>
-												<dd class="text-text">Put on this machine by hand</dd>
+												<dt class="text-ink-muted">Source</dt>
+												<dd class="text-ink">Put on this machine by hand</dd>
 											{:else}
-												<dt class="text-text-muted">Downloaded</dt>
-												<dd class="text-text">
+												<dt class="text-ink-muted">Downloaded</dt>
+												<dd class="text-ink">
 													{`${formatDate(entry.downloaded_at)} (${formatRelativeAge(entry.downloaded_at) ?? '—'})`}
 												</dd>
-												<dt class="text-text-muted">Hive</dt>
-												<dd class="break-all font-mono text-text">
+												<dt class="text-ink-muted">Hive</dt>
+												<dd class="break-all font-mono text-ink">
 													{hiveBase ?? targetName(entry.target_id ?? '')}
 												</dd>
 											{/if}
-											<dt class="text-text-muted">Algorithm ID</dt>
-											<dd class="break-all font-mono text-text">{algorithmId}</dd>
-											<dt class="text-text-muted">Path</dt>
+											<dt class="text-ink-muted">Algorithm ID</dt>
+											<dd class="break-all font-mono text-ink">{algorithmId}</dd>
+											<dt class="text-ink-muted">Path</dt>
 											<dd
-												class="break-all font-mono text-text"
+												class="break-all font-mono text-ink"
 												title={entry.path}
 											>
 												{entry.path}
@@ -1266,7 +1268,7 @@
 
 		{#if jobs.some((job) => job.status === 'failed')}
 			{@const failure = jobs.find((job) => job.status === 'failed')}
-			<Alert variant="danger" class="mt-3">
+			<Alert tone="danger" class="mt-3">
 				Download failed: {failure?.error ?? failure?.file_name ?? 'unknown error'}
 			</Alert>
 		{/if}

@@ -37,34 +37,34 @@
 
 <Modal bind:open title="Profile Details" wide={true}>
 	{#if !summary}
-		<div class="py-6 text-sm text-text-muted">No profile details loaded.</div>
+		<div class="py-6 text-sm text-ink-muted">No profile details loaded.</div>
 	{:else}
 		<div class="space-y-5">
 			<div
-				class="flex flex-col gap-4 border border-border bg-surface p-4 lg:flex-row lg:items-start lg:justify-between"
+				class="flex flex-col gap-4 border border-line bg-surface p-4 lg:flex-row lg:items-start lg:justify-between"
 			>
 				<div class="min-w-0 flex-1">
 					<div class="flex flex-wrap items-center gap-2">
-						<h3 class="text-lg font-semibold text-text">{summary.name}</h3>
+						<h3 class="text-lg font-semibold text-ink">{summary.name}</h3>
 						{#if summary.profile_type === 'set'}
 							<span
-								class="border border-border bg-bg px-2 py-1 text-xs font-medium text-text-muted"
+								class="border border-line bg-well px-2 py-1 text-xs font-medium text-ink-muted"
 							>
 								Set profile
 							</span>
 						{/if}
 						{#if summary.visibility}
 							<span
-								class="border border-border bg-bg px-2 py-1 text-xs font-medium text-text-muted"
+								class="border border-line bg-well px-2 py-1 text-xs font-medium text-ink-muted"
 							>
 								{summary.visibility}
 							</span>
 						{/if}
 					</div>
 					{#if summary.description}
-						<p class="mt-2 text-sm text-text-muted">{summary.description}</p>
+						<p class="mt-2 text-sm text-ink-muted">{summary.description}</p>
 					{/if}
-					<div class="mt-3 flex flex-wrap gap-x-4 gap-y-2 text-xs text-text-muted">
+					<div class="mt-3 flex flex-wrap gap-x-4 gap-y-2 text-xs text-ink-muted">
 						<span>
 							Owner:
 							{summary.owner?.display_name ?? summary.owner?.github_login ?? 'Unknown'}
@@ -80,7 +80,7 @@
 				<div class="w-full max-w-sm space-y-2">
 					<label
 						for={versionSelectId}
-						class="block text-xs font-semibold uppercase tracking-wide text-text-muted"
+						class="block text-xs font-semibold text-ink-muted"
 					>
 						Version
 					</label>
@@ -89,7 +89,7 @@
 						value={selectedVersionId ?? ''}
 						onchange={(event) =>
 							onVersionChange((event.currentTarget as HTMLSelectElement).value)}
-						class="w-full border border-border bg-bg px-3 py-2 text-sm text-text focus:border-text-muted focus:outline-none"
+						class="w-full border border-line bg-well px-3 py-2 text-sm text-ink focus:border-text-muted focus:outline-none"
 					>
 						{#each visibleVersions(summary) as version}
 							<option value={version.id}>
@@ -100,7 +100,7 @@
 						{/each}
 					</select>
 					{#if detail?.current_version}
-						<div class="text-xs text-text-muted">
+						<div class="text-xs text-ink-muted">
 							{#if detail.current_version.change_note}
 								<div>Change note: {detail.current_version.change_note}</div>
 							{/if}
@@ -114,21 +114,21 @@
 
 			{#if error}
 				<div
-					class="border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-sm text-amber-700 dark:text-amber-300"
+					class="border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-sm text-amber-700"
 				>
 					{error}
 				</div>
 			{/if}
 
 			{#if loading && !detail}
-				<div class="py-8 text-center text-sm text-text-muted">
+				<div class="py-8 text-center text-sm text-ink-muted">
 					Loading full profile details...
 				</div>
 			{:else if detail?.current_version}
 				<div class="grid gap-4 lg:grid-cols-[minmax(0,2fr),minmax(18rem,1fr)]">
 					<div class="space-y-4">
-						<div class="border border-border bg-surface p-4">
-							<div class="mb-3 text-xs font-semibold uppercase tracking-wide text-text-muted">
+						<div class="border border-line bg-surface p-4">
+							<div class="mb-3 text-xs font-semibold text-ink-muted">
 								Rule Tree
 							</div>
 							{#if detail.current_version.rules.length > 0}
@@ -138,77 +138,77 @@
 									{/each}
 								</div>
 							{:else}
-								<div class="text-sm text-text-muted">This version has no rules.</div>
+								<div class="text-sm text-ink-muted">This version has no rules.</div>
 							{/if}
 						</div>
 					</div>
 
 					<div class="space-y-4">
-						<div class="border border-border bg-surface p-4">
-							<div class="mb-3 text-xs font-semibold uppercase tracking-wide text-text-muted">
+						<div class="border border-line bg-surface p-4">
+							<div class="mb-3 text-xs font-semibold text-ink-muted">
 								Compiled Stats
 							</div>
 							<div class="grid gap-2 sm:grid-cols-2 lg:grid-cols-1">
-								<div class="border border-border bg-bg px-3 py-2">
-									<div class="text-xs uppercase tracking-wide text-text-muted">Matched</div>
-									<div class="text-lg font-semibold text-text">
+								<div class="border border-line bg-well px-3 py-2">
+									<div class="text-xs text-ink-muted">Matched</div>
+									<div class="text-lg font-semibold text-ink">
 										{(detail.current_version.compiled_stats?.matched ?? 0).toLocaleString()}
 									</div>
 								</div>
-								<div class="border border-border bg-bg px-3 py-2">
-									<div class="text-xs uppercase tracking-wide text-text-muted">Total parts</div>
-									<div class="text-lg font-semibold text-text">
+								<div class="border border-line bg-well px-3 py-2">
+									<div class="text-xs text-ink-muted">Total parts</div>
+									<div class="text-lg font-semibold text-ink">
 										{(detail.current_version.compiled_stats?.total_parts ?? 0).toLocaleString()}
 									</div>
 								</div>
-								<div class="border border-border bg-bg px-3 py-2">
-									<div class="text-xs uppercase tracking-wide text-text-muted">Unmatched</div>
-									<div class="text-lg font-semibold text-text">
+								<div class="border border-line bg-well px-3 py-2">
+									<div class="text-xs text-ink-muted">Unmatched</div>
+									<div class="text-lg font-semibold text-ink">
 										{(detail.current_version.compiled_stats?.unmatched ?? 0).toLocaleString()}
 									</div>
 								</div>
-								<div class="border border-border bg-bg px-3 py-2">
-									<div class="text-xs uppercase tracking-wide text-text-muted">Categories</div>
-									<div class="text-lg font-semibold text-text">
+								<div class="border border-line bg-well px-3 py-2">
+									<div class="text-xs text-ink-muted">Categories</div>
+									<div class="text-lg font-semibold text-ink">
 										{categoryEntries(detail).length.toLocaleString()}
 									</div>
 								</div>
 							</div>
 						</div>
 
-						<div class="border border-border bg-surface p-4">
-							<div class="mb-3 text-xs font-semibold uppercase tracking-wide text-text-muted">
+						<div class="border border-line bg-surface p-4">
+							<div class="mb-3 text-xs font-semibold text-ink-muted">
 								Fallback
 							</div>
 							<div class="flex flex-wrap gap-2">
-								<span class="border border-border bg-bg px-2 py-1 text-xs text-text-muted">
+								<span class="border border-line bg-well px-2 py-1 text-xs text-ink-muted">
 									Rebrickable: {detail.current_version.fallback_mode?.rebrickable_categories
 										? 'On'
 										: 'Off'}
 								</span>
-								<span class="border border-border bg-bg px-2 py-1 text-xs text-text-muted">
+								<span class="border border-line bg-well px-2 py-1 text-xs text-ink-muted">
 									BrickLink: {detail.current_version.fallback_mode?.bricklink_categories
 										? 'On'
 										: 'Off'}
 								</span>
-								<span class="border border-border bg-bg px-2 py-1 text-xs text-text-muted">
+								<span class="border border-line bg-well px-2 py-1 text-xs text-ink-muted">
 									By color: {detail.current_version.fallback_mode?.by_color ? 'On' : 'Off'}
 								</span>
 							</div>
 						</div>
 
-						<div class="border border-border bg-surface p-4">
-							<div class="mb-3 text-xs font-semibold uppercase tracking-wide text-text-muted">
+						<div class="border border-line bg-surface p-4">
+							<div class="mb-3 text-xs font-semibold text-ink-muted">
 								Categories
 							</div>
 							{#if categoryEntries(detail).length > 0}
 								<div class="max-h-[24rem] space-y-2 overflow-y-auto">
 									{#each categoryEntries(detail) as [categoryId, category]}
-										<div class="border border-border bg-bg px-3 py-2">
-											<div class="text-sm font-medium text-text">
+										<div class="border border-line bg-well px-3 py-2">
+											<div class="text-sm font-medium text-ink">
 												{String(category.name ?? categoryId)}
 											</div>
-											<div class="mt-1 text-sm text-text-muted">
+											<div class="mt-1 text-sm text-ink-muted">
 												<span class="font-mono">{categoryId}</span>
 												{#if category.set_num}
 													<span class="mx-1">&middot;</span>
@@ -223,13 +223,13 @@
 									{/each}
 								</div>
 							{:else}
-								<div class="text-sm text-text-muted">No category metadata available.</div>
+								<div class="text-sm text-ink-muted">No category metadata available.</div>
 							{/if}
 						</div>
 					</div>
 				</div>
 			{:else}
-				<div class="text-sm text-text-muted">No version details available for this profile.</div>
+				<div class="text-sm text-ink-muted">No version details available for this profile.</div>
 			{/if}
 		</div>
 	{/if}

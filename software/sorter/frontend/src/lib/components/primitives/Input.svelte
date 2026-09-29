@@ -36,5 +36,5 @@
 	{readonly}
 	{onchange}
 	{oninput}
-	class="setup-control w-full px-3 py-2 text-sm text-text disabled:cursor-not-allowed disabled:opacity-60 {className}"
+	class="setup-control w-full px-3 py-2 text-sm text-ink disabled:cursor-not-allowed disabled:opacity-60 {className}"
 />

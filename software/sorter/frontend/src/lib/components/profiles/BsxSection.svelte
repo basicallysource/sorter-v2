@@ -1,5 +1,6 @@
 <script lang="ts">
-	import { Alert, Button } from '$lib/components/primitives';
+	import Alert from '$lib/components/ui/Alert.svelte';
+	import Button from '$lib/components/ui/Button.svelte';
 	import {
 		activateBsx,
 		deactivateBsx,
@@ -100,10 +101,10 @@
 <section class="flex flex-col gap-3">
 	<div class="flex items-center justify-between gap-3">
 		<div>
-			<h2 class="text-xs font-semibold uppercase tracking-wider text-text-muted">
+			<h2 class="text-xs font-semibold text-ink-muted">
 				BrickLink inventories (.bsx)
 			</h2>
-			<p class="mt-1 text-sm text-text-muted">
+			<p class="mt-1 text-sm text-ink-muted">
 				A store's on-hand inventory. One can be active; a profile with inventory routing sends
 				pieces <em>not</em> in the active inventory to the not-in-inventory bin.
 			</p>
@@ -122,39 +123,39 @@
 	</div>
 
 	{#if error}
-		<Alert variant="danger">{error}</Alert>
+		<Alert tone="danger">{error}</Alert>
 	{/if}
 	{#if success}
-		<Alert variant="success">{success}</Alert>
+		<Alert tone="success">{success}</Alert>
 	{/if}
 
 	{#if loading}
-		<p class="text-sm text-text-muted">Loading…</p>
+		<p class="text-sm text-ink-muted">Loading…</p>
 	{:else if files.length === 0}
-		<p class="text-sm text-text-muted">No inventories uploaded yet.</p>
+		<p class="text-sm text-ink-muted">No inventories uploaded yet.</p>
 	{:else}
-		<div class="flex flex-col divide-y divide-border border border-border">
+		<div class="flex flex-col divide-y divide-line border border-line">
 			{#each files as file (file.filename)}
 				<div class="flex items-center justify-between gap-3 bg-surface px-3 py-2">
 					<div class="min-w-0">
 						<div class="flex items-center gap-2">
-							<span class="truncate text-sm font-semibold text-text">{file.name}</span>
+							<span class="truncate text-sm font-semibold text-ink">{file.name}</span>
 							{#if file.is_active}
 								<span
-									class="inline-flex items-center border border-success/60 bg-success/[0.12] px-1.5 py-0.5 text-xs font-semibold uppercase tracking-wider text-success"
+									class="inline-flex items-center border border-success/60 bg-success-soft px-1.5 py-0.5 text-xs font-semibold text-success-ink"
 								>
 									Active
 								</span>
 							{/if}
 							{#if file.error}
 								<span
-									class="inline-flex items-center border border-danger/60 bg-danger/[0.12] px-1.5 py-0.5 text-xs font-semibold uppercase tracking-wider text-danger"
+									class="inline-flex items-center border border-danger/60 bg-danger-soft px-1.5 py-0.5 text-xs font-semibold text-danger-ink"
 								>
 									Error
 								</span>
 							{/if}
 						</div>
-						<div class="mt-0.5 text-sm text-text-muted">
+						<div class="mt-0.5 text-sm text-ink-muted">
 							{file.num_parts ?? 0} parts · {file.num_unique_items ?? 0} items · uploaded {fmtDate(
 								file.uploaded_at
 							)}

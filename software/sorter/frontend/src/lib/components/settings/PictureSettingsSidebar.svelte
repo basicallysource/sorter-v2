@@ -25,7 +25,7 @@
 	import SlidersHorizontal from '@lucide/svelte/icons/sliders-horizontal';
 	import Undo2 from '@lucide/svelte/icons/undo-2';
 	import X from '@lucide/svelte/icons/x';
-	import { Alert } from '$lib/components/primitives';
+	import Alert from '$lib/components/ui/Alert.svelte';
 	import CaptureModePanel from './picture/CaptureModePanel.svelte';
 	import DriftDetection from './picture/DriftDetection.svelte';
 	import DeviceControlsPanel from './picture/DeviceControlsPanel.svelte';
@@ -410,25 +410,25 @@
 </script>
 
 <aside
-	class="flex h-full min-w-0 flex-col overflow-hidden border border-border bg-white shadow-sm xl:min-h-[32rem] dark:bg-bg"
+	class="flex h-full min-w-0 flex-col overflow-hidden border border-line bg-white xl:min-h-[32rem]"
 >
 	{#if showHeader}
-		<div class="border-b border-border bg-surface px-4 py-3">
+		<div class="border-b border-line bg-surface px-4 py-3">
 			<div class="flex items-start justify-between gap-3">
 				<div class="flex items-start gap-3">
 					<div
-						class="flex h-9 w-9 items-center justify-center rounded-full border border-border bg-white text-text dark:bg-bg"
+						class="flex h-9 w-9 items-center justify-center rounded-full border border-line bg-white text-ink"
 					>
 						<SlidersHorizontal size={16} />
 					</div>
 					<div class="min-w-0">
-						<div class="text-sm font-semibold text-text">Picture Settings</div>
+						<div class="text-sm font-semibold text-ink">Picture Settings</div>
 					</div>
 				</div>
 				{#if onClose}
 					<button
 						onclick={closeSidebar}
-						class="inline-flex h-8 w-8 items-center justify-center rounded-full text-text-muted transition-colors hover:bg-white hover:text-text dark:hover:bg-bg"
+						class="inline-flex h-8 w-8 items-center justify-center rounded-full text-ink-muted transition-colors hover:bg-white hover:text-ink"
 						aria-label="Close picture settings"
 					>
 						<X size={15} />
@@ -438,24 +438,24 @@
 		</div>
 	{/if}
 
-	<div class="flex flex-1 flex-col gap-3 bg-white px-4 py-4 dark:bg-bg">
+	<div class="flex flex-1 flex-col gap-3 bg-white px-4 py-4">
 		{#if !hasCamera}
-			<div class="border border-dashed border-border bg-surface px-3 py-2 text-sm text-text-muted">
+			<div class="border border-dashed border-line bg-surface px-3 py-2 text-sm text-ink-muted">
 				Assign a camera to preview these changes live.
 			</div>
 		{/if}
 
 		{#if error}
-			<Alert variant="danger">
-				<div class="text-xs font-semibold tracking-wider text-danger-dark uppercase dark:text-rose-300">
+			<Alert tone="danger">
+				<div class="text-xs font-semibold text-danger-ink">
 					Error
 				</div>
-				<div class="mt-1 text-sm leading-relaxed text-text">{error}</div>
+				<div class="mt-1 text-sm leading-relaxed text-ink">{error}</div>
 			</Alert>
 		{/if}
 
 		{#if loading}
-			<div class="py-10 text-center text-sm text-text-muted">Loading picture settings...</div>
+			<div class="py-10 text-center text-sm text-ink-muted">Loading picture settings...</div>
 		{:else}
 			<div class="flex flex-col gap-3">
 				<div class="flex flex-col gap-3">
@@ -485,16 +485,16 @@
 				/>
 			</div>
 
-				<div class="mt-auto flex flex-col gap-2 border-t border-border pt-3">
+				<div class="mt-auto flex flex-col gap-2 border-t border-line pt-3">
 					{#if status}
-						<div class="text-sm text-text-muted">{status}</div>
+						<div class="text-sm text-ink-muted">{status}</div>
 					{/if}
 
 					{#if deviceSupported}
 						<button
 							onclick={resetCameraToAutoDefaults}
 							disabled={saving}
-							class="inline-flex w-full cursor-pointer items-center justify-center gap-2 border border-border bg-bg px-3 py-2 text-sm font-medium text-text transition-colors hover:bg-surface disabled:cursor-not-allowed disabled:opacity-50"
+							class="inline-flex w-full cursor-pointer items-center justify-center gap-2 border border-line bg-well px-3 py-2 text-sm font-medium text-ink transition-colors hover:bg-surface disabled:cursor-not-allowed disabled:opacity-50"
 						>
 							<RotateCcw size={15} />
 							<span>Reset Camera To Auto</span>
@@ -507,7 +507,7 @@
 						disabled={saving || !hasUnsavedChanges()}
 						title="Revert changes"
 						aria-label="Revert changes"
-						class="inline-flex h-9 w-9 cursor-pointer items-center justify-center border border-border bg-bg text-text transition-colors hover:bg-surface disabled:cursor-not-allowed disabled:opacity-50"
+						class="inline-flex h-9 w-9 cursor-pointer items-center justify-center border border-line bg-well text-ink transition-colors hover:bg-surface disabled:cursor-not-allowed disabled:opacity-50"
 					>
 						<Undo2 size={15} />
 					</button>
@@ -516,7 +516,7 @@
 						disabled={saving}
 						title="Reset to defaults"
 						aria-label="Reset to defaults"
-						class="inline-flex h-9 w-9 cursor-pointer items-center justify-center border border-border bg-bg text-text transition-colors hover:bg-surface disabled:cursor-not-allowed disabled:opacity-50"
+						class="inline-flex h-9 w-9 cursor-pointer items-center justify-center border border-line bg-well text-ink transition-colors hover:bg-surface disabled:cursor-not-allowed disabled:opacity-50"
 					>
 						<RotateCcw size={15} />
 					</button>
@@ -526,7 +526,7 @@
 						class={`inline-flex flex-1 cursor-pointer items-center justify-center gap-2 border px-4 py-2 text-sm font-medium transition-colors disabled:cursor-not-allowed ${
 							canSave()
 								? 'border-success bg-success text-white hover:bg-success/90'
-								: 'border-border bg-surface text-text-muted'
+								: 'border-line bg-surface text-ink-muted'
 						}`}
 					>
 						<Save size={15} />

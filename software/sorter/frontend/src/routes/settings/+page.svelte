@@ -1,4 +1,5 @@
 <script lang="ts">
+	import PageHeader from '$lib/components/ui/PageHeader.svelte';
 	import Panel from '$lib/components/ui/Panel.svelte';
 	import GeneralSection from '$lib/components/settings/GeneralSection.svelte';
 	import ApiKeysSection from '$lib/components/settings/ApiKeysSection.svelte';
@@ -10,10 +11,7 @@
 
 <svelte:head><title>Sorter - Settings</title></svelte:head>
 
-<div class="mb-2">
-	<h1 class="text-xl font-semibold tracking-tight text-ink">General</h1>
-	<p class="mt-1 text-sm text-ink-muted">This machine, how this page reaches it, and how it looks.</p>
-</div>
+<PageHeader title="General" description="This machine, how this page reaches it, and how it looks." />
 
 <GeneralSection />
 

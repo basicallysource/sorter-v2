@@ -85,6 +85,12 @@ class MachineConfig:
     # canonical stepper name -> (sgthrs, tcoolthrs, enabled). From
     # [stepper_stallguard.*]; consumed by applyStepperStallguard + the stall monitor.
     stepper_stallguard: dict[str, tuple[int, int, bool]] = field(default_factory=dict)
+    # canonical stepper name -> True to start the driver in SpreadCycle instead of
+    # StealthChop. From [stepper_spreadcycle.*]; consumed by the TMC GCONF UART
+    # init in irl/config.py. That init rewrites GCONF on every backend start, so
+    # a SpreadCycle toggle set through the steppers API does not survive a
+    # restart — a machine.toml entry does.
+    stepper_spreadcycle: dict[str, bool] = field(default_factory=dict)
 
 
 def loadMachineSpecificParams(gc: GlobalConfig) -> dict[str, object]:
@@ -265,6 +271,42 @@ def _parseStepperStallguard(
     return configs
 
 
+# The TMC2209 powers up in StealthChop (silent, lower torque at speed) and the
+# GCONF UART init in irl/config.py re-asserts that default on every backend
+# start. Machines that prefer SpreadCycle (more torque, more audible) opt in
+# per stepper here so the init writes the chosen chopper mode instead of
+# resetting the driver to StealthChop.
+def _parseStepperSpreadcycle(
+    gc: GlobalConfig,
+    raw: dict[str, object],
+) -> dict[str, bool]:
+    table: object = raw.get("stepper_spreadcycle")
+    if table is None:
+        return {}
+
+    if not isinstance(table, dict):
+        gc.logger.warning("stepper_spreadcycle must be an object. Ignoring SpreadCycle config.")
+        return {}
+
+    configs: dict[str, bool] = {}
+    for stepper_name, value in table.items():
+        if not isinstance(stepper_name, str):
+            gc.logger.warning(
+                f"Ignoring invalid stepper key in spreadcycle config: {stepper_name!r} (must be string)"
+            )
+            continue
+
+        if type(value) is not bool:
+            gc.logger.warning(
+                f"Ignoring spreadcycle config for '{stepper_name}': expected true/false, got {value!r}."
+            )
+            continue
+
+        configs[normalizePhysicalStepperBindingName(stepper_name)] = value
+
+    return configs
+
+
 def loadStepperBindingOverrides(
     gc: GlobalConfig,
     machine_specific_params: dict[str, object] | None = None,
@@ -410,6 +452,7 @@ def loadMachineConfig(
 
     config.stepper_current_overrides = _parseStepperCurrentOverrides(gc, raw)
     config.stepper_stallguard = _parseStepperStallguard(gc, raw)
+    config.stepper_spreadcycle = _parseStepperSpreadcycle(gc, raw)
 
     return config
 

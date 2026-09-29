@@ -1012,8 +1012,14 @@ def mkIRLInterface(config: IRLConfig, gc: GlobalConfig) -> IRLInterface:
         # powered on (or reset) after the firmware's own initialize() ran, leaving it
         # at hardware reset defaults (I_SCALE_ANALOG=1, MSTEP_REG_SELECT=0). Setting
         # these bits here means the backend init is idempotent regardless of motor
-        # power sequencing.
+        # power sequencing. StealthChop is the chip's power-on chopper default;
+        # machines that prefer SpreadCycle opt in per stepper via
+        # [stepper_spreadcycle] in machine.toml, and the init re-asserts that mode
+        # here so it survives backend restarts (a toggle made through the steppers
+        # API does not).
         _TMC_GCONF_UART_INIT = 0x1C0  # PD_DISABLE | MSTEP_REG_SELECT | MULTISTEP_FILT
+        if machine_config.stepper_spreadcycle.get(canonical_name, False):
+            _TMC_GCONF_UART_INIT |= (1 << 2)  # EN_SPREADCYCLE
         _run_stepper_init_command_with_retry(
             gc,
             attr_base,

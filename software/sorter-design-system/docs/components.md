@@ -21,7 +21,8 @@ the example app shows them together.
   Nothing is a solid block of color. The `--btn-*` tokens in `app.css` hold
   the colors.
 - `size`: `md` for a page or a dialog, `sm` in a dense row or a panel's
-  header.
+  header, `lg` (44px) for a touch screen's main action, such as the Wi-Fi
+  setup page's Join.
 - `icon` leads the label. With an icon and no label it is an icon button, and
   `label` is its name and its tooltip.
 - `loading` swaps the icon for the Spinner and keeps the label, at full
@@ -34,8 +35,11 @@ the example app shows them together.
 ## Fields
 
 - **`Input`**: a text or number field. `unit` sits inside the field's edge
-  after the value ("6 /min"). `invalid` draws the edge in danger. Numbers are
-  right-aligned in the number style.
+  after the value ("6 /min"); `end` puts a small control there instead (a
+  Show button on a password). `invalid` draws the edge in danger. Numbers are
+  right-aligned in tabular figures. `size="lg"` is 44px, for a touch screen.
+  `bind:element` gives the `<input>` itself, to focus it from code, and any
+  other attribute (`autocomplete`, `enterkeyhint`) goes on it.
 - **`Select`**: one choice from a list, in our own list rather than the
   browser's ([overlays.md](overlays.md)). `label` names it when no `<label>`
   points at it.

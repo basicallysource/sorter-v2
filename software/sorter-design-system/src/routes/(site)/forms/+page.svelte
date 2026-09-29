@@ -32,6 +32,8 @@
 	let saved = $state(40);
 	let saving = $state(false);
 	let justSaved = $state(false);
+	const defaults = { burst: 6, floor: 1, jitter: 30 };
+	let rates = $state({ burst: 9, floor: 1, jitter: 45 });
 
 	const portError = $derived(
 		port === null || port < 1 || port > 65535 ? 'A port is a number from 1 to 65535.' : undefined
@@ -181,6 +183,54 @@
 			</SettingRow>
 		</div>
 	</Panel>
+</SiteSection>
+
+<SiteSection
+	title="A setting changed from its default"
+	lead="A row whose value is not the default takes the primary's tint, and one button beside its name puts the default back. The button sits on the name's line, so the row does not jump as the value changes."
+>
+	<Specimen
+		on="canvas"
+		code={`<SettingRow label="Burst rate" for="burst" changed={burst !== 6}
+	defaultText="6 /min" onreset={() => (burst = 6)}>
+	<Input id="burst" type="number" bind:value={burst} unit="/min" class="w-28" />
+</SettingRow>`}
+	>
+		<Panel title="Sample capture" flush>
+			<div class="divide-y divide-line">
+				<SettingRow
+					label="Burst rate"
+					help="Samples a minute at the start."
+					for="f-burst"
+					changed={rates.burst !== defaults.burst}
+					defaultText="{defaults.burst} /min"
+					onreset={() => (rates.burst = defaults.burst)}
+				>
+					<Input id="f-burst" type="number" bind:value={rates.burst} unit="/min" class="w-28" />
+				</SettingRow>
+				<SettingRow
+					label="Floor rate"
+					help="The fewest samples once the ramp has run out."
+					for="f-floor"
+					changed={rates.floor !== defaults.floor}
+					defaultText="{defaults.floor} /hr"
+					onreset={() => (rates.floor = defaults.floor)}
+				>
+					<Input id="f-floor" type="number" bind:value={rates.floor} unit="/hr" class="w-28" />
+				</SettingRow>
+				<SettingRow
+					label="Jitter"
+					help="Randomness in when a sample is taken."
+					for="f-jitter"
+					changed={rates.jitter !== defaults.jitter}
+					defaultText="{defaults.jitter}%"
+					onreset={() => (rates.jitter = defaults.jitter)}
+				>
+					<Input id="f-jitter" type="number" bind:value={rates.jitter} unit="%" class="w-28" />
+				</SettingRow>
+			</div>
+		</Panel>
+	</Specimen>
 </SiteSection>
 
 <SiteSection

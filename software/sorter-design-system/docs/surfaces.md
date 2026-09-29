@@ -71,6 +71,8 @@ Hover lays `bg-hover` over whatever plane is under it, and press `bg-pressed`
 (both translucent, so one token works on every plane). The chosen item in a
 list or nav takes `bg-primary-soft` with `text-primary-ink`. Keyboard focus is
 a 2px primary outline, 2px out; a field draws its own edge 2px primary instead.
+A card you open (`Card`) and a setting changed from its default are fills
+too: nothing lifts, casts a shadow or thickens its line to show a state.
 
 ## The raised plane
 

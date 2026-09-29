@@ -9,7 +9,8 @@
 	import SetupServoOnboardingSection from '$lib/components/setup/SetupServoOnboardingSection.svelte';
 	import SetupZoneEditorModal from '$lib/components/setup/SetupZoneEditorModal.svelte';
 	import Modal from '$lib/components/Modal.svelte';
-	import SectionCard from '$lib/components/settings/SectionCard.svelte';
+	import Panel from '$lib/components/ui/Panel.svelte';
+	import Button from '$lib/components/ui/Button.svelte';
 	import SetupStepperNav from '$lib/components/setup/SetupStepperNav.svelte';
 	import SetupNavFooter from '$lib/components/setup/SetupNavFooter.svelte';
 	import IdentityStep from '$lib/components/setup/steps/IdentityStep.svelte';
@@ -946,11 +947,21 @@
 					</div>
 				</section>
 
-				<SectionCard
+				<Panel
 					title={currentStep().title}
 					description={currentStep().description}
-					onrefreshcameras={loadCameraInventory}
 				>
+					{#snippet actions()}
+						{#if currentStep().title === 'Cameras'}
+							<Button
+								variant="ghost"
+								size="sm"
+								icon={RefreshCcw}
+								label="Refresh the camera sources"
+								onclick={loadCameraInventory}
+							/>
+						{/if}
+					{/snippet}
 					{#if !wizard && loadingWizard}
 						<div class="setup-panel px-4 py-4 text-sm text-ink-muted">
 							Checking the current machine configuration and connected hardware…
@@ -1073,7 +1084,7 @@
 						onFinish={finishSetup}
 						onContinue={handleContinue}
 					/>
-				</SectionCard>
+				</Panel>
 			</div>
 		{/if}
 

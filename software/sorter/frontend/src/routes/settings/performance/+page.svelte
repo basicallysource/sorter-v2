@@ -2,7 +2,7 @@
 	import { onMount } from 'svelte';
 	import { getBackendHttpBase, machineHttpBaseUrlFromWsUrl } from '$lib/backend';
 	import { getMachineContext } from '$lib/machines/context';
-	import SectionCard from '$lib/components/settings/SectionCard.svelte';
+	import Panel from '$lib/components/ui/Panel.svelte';
 	import Button from '$lib/components/ui/Button.svelte';
 
 	const ctx = getMachineContext();
@@ -258,7 +258,7 @@
 <svelte:head><title>Sorter - Performance</title></svelte:head>
 
 <div class="flex flex-col gap-6">
-	<SectionCard
+	<Panel
 		title="Performance"
 		description="How fast this machine is thinking and how fresh the data behind each decision is."
 	>
@@ -386,10 +386,10 @@
 			{@render stat('Pieces seen', liveProfile.pieces_seen?.toString() ?? '–', '', 'text-ink')}
 			{@render stat('Distributed', liveProfile.distributed?.toString() ?? '–', '', 'text-ink')}
 		</div>
-	</SectionCard>
+	</Panel>
 
 	<!-- ── Compare to a past run ──────────────────────────────────────────── -->
-	<SectionCard
+	<Panel
 		title="Compare to a past run"
 		description="Put this machine's current session next to a finished run — same numbers, side by side. Useful for comparing machines or spotting a regression."
 	>
@@ -442,7 +442,7 @@
 				</table>
 			</div>
 		{/if}
-	</SectionCard>
+	</Panel>
 
 </div>
 

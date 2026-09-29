@@ -5,31 +5,22 @@
 	// one behaviour rather than three that drift.
 	import { onMount } from 'svelte';
 	import Shuffle from '@lucide/svelte/icons/shuffle';
+	import Input from '$lib/components/ui/Input.svelte';
+	import Button from '$lib/components/ui/Button.svelte';
 
 	let {
 		value = $bindable(),
 		backendBaseUrl,
 		id,
 		placeholder = '',
-		variant = 'settings'
+		size = 'md'
 	}: {
 		value: string;
 		backendBaseUrl: string;
 		id?: string;
 		placeholder?: string;
-		variant?: 'setup' | 'settings';
+		size?: 'md' | 'lg';
 	} = $props();
-
-	const inputClass = $derived(
-		variant === 'setup'
-			? 'setup-control min-w-0 flex-1 px-3 py-2 text-sm text-ink'
-			: 'min-w-0 flex-1 border border-line bg-well px-2 py-1.5 text-sm text-ink'
-	);
-	const buttonClass = $derived(
-		variant === 'setup'
-			? 'setup-control flex shrink-0 items-center gap-2 px-3 text-sm whitespace-nowrap text-ink-muted transition-colors hover:text-ink'
-			: 'flex shrink-0 items-center gap-2 border border-line bg-well px-2 py-1.5 text-sm whitespace-nowrap text-ink-muted transition-colors hover:bg-surface hover:text-ink'
-	);
 
 	// `roll` is the button: it wants a name nobody has seen yet, so it
 	// overwrites the field rather than only filling an empty one.
@@ -53,10 +44,14 @@
 	});
 </script>
 
-<div class="flex items-stretch gap-2">
-	<input {id} type="text" bind:value {placeholder} class={inputClass} />
-	<button type="button" onclick={() => void fill(true)} class={buttonClass}>
-		<Shuffle class="h-4 w-4" />
-		Generate New Name
-	</button>
-</div>
+<Input {id} {size} bind:value {placeholder}>
+	{#snippet end()}
+		<Button
+			variant="ghost"
+			size="sm"
+			icon={Shuffle}
+			label="Suggest another name"
+			onclick={() => void fill(true)}
+		/>
+	{/snippet}
+</Input>

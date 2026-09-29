@@ -2,6 +2,9 @@
 	import { onMount } from 'svelte';
 	import { getMachineContext } from '$lib/machines/context';
 	import { getBackendHttpBase, machineHttpBaseUrlFromWsUrl } from '$lib/backend';
+	import SegmentedControl from '$lib/components/ui/SegmentedControl.svelte';
+	import Badge from '$lib/components/ui/Badge.svelte';
+	import Alert from '$lib/components/ui/Alert.svelte';
 
 	const EXIT_STUCK_INCIDENT_KIND = 'exit_stuck';
 
@@ -136,15 +139,6 @@
 		return activeIncidentKind === definition.kind;
 	}
 
-	function incidentModeButtonClass(active: boolean, disabled = false): string {
-		const base =
-			'min-h-8 px-2.5 text-xs font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-40';
-		if (active)
-			return `${base} bg-primary text-white`;
-		if (disabled)
-			return `${base} bg-well text-ink-muted`;
-		return `${base} bg-well text-ink-muted hover:bg-surface hover:text-ink`;
-	}
 
 	async function saveIncidentMode(kind: string, mode: IncidentHandlingMode) {
 		if (incidentPolicySaving) return;
@@ -222,65 +216,33 @@
 	});
 </script>
 
-<div class="flex flex-col gap-2">
+<ul class="divide-y divide-line">
 	{#each incidentDefinitions as definition (definition.kind)}
-		{@const mode = incidentMode(definition.kind)}
-		{@const active = incidentDefinitionActive(definition)}
-		<div class="border border-line bg-well px-3 py-2">
-			<div class="flex items-start justify-between gap-3">
-				<div class="min-w-0">
-					<div class="flex flex-wrap items-center gap-2">
-						<div class="text-sm font-semibold text-ink">{definition.label}</div>
-						{#if definition.scope}
-							<div class="bg-surface px-1.5 py-0.5 text-xs text-ink-muted">
-								{definition.scope}
-							</div>
-						{/if}
-						{#if active}
-							<div
-								class="bg-warning px-1.5 py-0.5 text-xs font-semibold text-warning-ink"
-							>
-								Active
-							</div>
-						{/if}
-					</div>
-					<div class="mt-1 text-sm text-ink-muted">{definition.description}</div>
+		<li class="flex flex-col gap-3 px-(--pad-panel) py-(--pad-row) sm:flex-row sm:items-center sm:justify-between">
+			<div class="min-w-0">
+				<div class="flex flex-wrap items-center gap-2">
+					<span class="text-sm font-medium text-ink">{definition.label}</span>
+					{#if definition.scope}<Badge>{definition.scope}</Badge>{/if}
+					{#if incidentDefinitionActive(definition)}<Badge tone="warning" dot>Active</Badge>{/if}
 				</div>
-				<div class="flex shrink-0 overflow-hidden">
-					<button
-						type="button"
-						onclick={() => void saveIncidentMode(definition.kind, 'off')}
-						disabled={incidentPolicySaving === definition.kind}
-						class={incidentModeButtonClass(mode === 'off')}
-					>
-						Off
-					</button>
-					<button
-						type="button"
-						onclick={() => void saveIncidentMode(definition.kind, 'manual')}
-						disabled={incidentPolicySaving === definition.kind}
-						class={incidentModeButtonClass(mode === 'manual')}
-					>
-						Manual
-					</button>
-					<button
-						type="button"
-						onclick={() => void saveIncidentMode(definition.kind, 'automatic')}
-						disabled={!definition.automatic_supported ||
-							incidentPolicySaving === definition.kind}
-						class={incidentModeButtonClass(
-							mode === 'automatic',
-							!definition.automatic_supported
-						)}
-						title={definition.automatic_supported ? definition.automatic_label : 'Manual only'}
-					>
-						Auto
-					</button>
-				</div>
+				<p class="mt-0.5 max-w-prose text-sm text-ink-muted">{definition.description}</p>
 			</div>
-		</div>
+			<div class="shrink-0" title={definition.automatic_supported ? definition.automatic_label : 'Manual only'}>
+				<SegmentedControl
+					label="When {definition.label} happens"
+					size="sm"
+					value={incidentMode(definition.kind)}
+					onchange={(mode) => void saveIncidentMode(definition.kind, mode)}
+					options={[
+						{ value: 'off' as const, label: 'Off' },
+						{ value: 'manual' as const, label: 'Manual' },
+						...(definition.automatic_supported ? [{ value: 'automatic' as const, label: 'Automatic' }] : [])
+					]}
+				/>
+			</div>
+		</li>
 	{/each}
-	{#if incidentPolicyError}
-		<div class="text-sm text-danger-ink">{incidentPolicyError}</div>
-	{/if}
-</div>
+</ul>
+{#if incidentPolicyError}
+	<div class="px-(--pad-panel) pb-(--pad-panel)"><Alert tone="danger">{incidentPolicyError}</Alert></div>
+{/if}

@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { onDestroy, onMount } from 'svelte';
 	import { getBackendHttpBase, machineHttpBaseUrlFromWsUrl } from '$lib/backend';
-	import SectionCard from '$lib/components/settings/SectionCard.svelte';
+	import Panel from '$lib/components/ui/Panel.svelte';
 	import Alert from '$lib/components/ui/Alert.svelte';
 	import Button from '$lib/components/ui/Button.svelte';
 	import Input from '$lib/components/ui/Input.svelte';
@@ -198,7 +198,7 @@
 		with the Shelly readings.
 	</Alert>
 
-	<SectionCard title="Sequence">
+	<Panel title="Sequence">
 		<div class="grid gap-3 sm:grid-cols-3">
 			<div class="border border-neutral-700/50 p-3">
 				<div class="font-medium">1. Stable</div>
@@ -221,9 +221,9 @@
 				</div>
 			</div>
 		</div>
-	</SectionCard>
+	</Panel>
 
-	<SectionCard title="Parameters">
+	<Panel title="Parameters">
 		<div class="grid gap-4 sm:grid-cols-2">
 			<label class="flex flex-col gap-1">
 				<span class="text-sm font-medium">Total motion time (minutes)</span>
@@ -250,14 +250,14 @@
 				>
 			{/if}
 		</div>
-	</SectionCard>
+	</Panel>
 
 	{#if errorMsg}
 		<Alert tone="danger">{errorMsg}</Alert>
 	{/if}
 
 	{#if run}
-		<SectionCard title="Current run">
+		<Panel title="Current run">
 			<div class="flex flex-wrap items-center justify-between gap-3">
 				<div>
 					<div class="text-lg font-semibold capitalize">{run.status}</div>
@@ -306,10 +306,10 @@
 					{/each}
 				</div>
 			{/if}
-		</SectionCard>
+		</Panel>
 	{/if}
 
-	<SectionCard title="Recorded runs">
+	<Panel title="Recorded runs">
 		{#if runs.length === 0}
 			<div class="text-sm text-neutral-400">No power stress runs recorded yet.</div>
 		{:else}
@@ -340,5 +340,5 @@
 				</table>
 			</div>
 		{/if}
-	</SectionCard>
+	</Panel>
 </div>

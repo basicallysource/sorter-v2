@@ -3,7 +3,7 @@
 	import Button from '$lib/components/ui/Button.svelte';
 	import Input from '$lib/components/ui/Input.svelte';
 	import Alert from '$lib/components/ui/Alert.svelte';
-	import SectionCard from '$lib/components/settings/SectionCard.svelte';
+	import Panel from '$lib/components/ui/Panel.svelte';
 	import StallGuardChart from '$lib/components/StallGuardChart.svelte';
 
 	const STEPPERS = ['carousel', 'chute', 'c_channel_1', 'c_channel_2', 'c_channel_3'];
@@ -306,7 +306,7 @@
 		<Alert tone="success">{notice}</Alert>
 	{/if}
 
-	<SectionCard
+	<Panel
 		title="Per-motor summary"
 		description="Rollup of all recorded SG_RESULT samples for each motor."
 	>
@@ -338,9 +338,9 @@
 				</tbody>
 			</table>
 		{/if}
-	</SectionCard>
+	</Panel>
 
-	<SectionCard
+	<Panel
 		title="Run a targeted sweep"
 		description="Drives one motor with a representative motion profile and records its load curve. Use the loaded option for a deliberate stall test — hold/resist the motor by hand while it runs."
 	>
@@ -455,11 +455,11 @@
 				saved as the enforcement velocity floor so DIAG only acts at cruise.
 			</div>
 		</div>
-	</SectionCard>
+	</Panel>
 
 	<div class="grid grid-cols-1 gap-6 lg:grid-cols-3">
 		<div class="lg:col-span-1">
-			<SectionCard title="Runs" description="Recent recordings. Click to view.">
+			<Panel title="Runs" description="Recent recordings. Click to view.">
 				{#if runs.length === 0}
 					<div class="text-sm text-ink-muted">No runs yet.</div>
 				{:else}
@@ -497,11 +497,11 @@
 						{/each}
 					</div>
 				{/if}
-			</SectionCard>
+			</Panel>
 		</div>
 
 		<div class="lg:col-span-2">
-			<SectionCard title="Load curve" description="SG_RESULT over time. Lower = more load; a stall drops it toward 0.">
+			<Panel title="Load curve" description="SG_RESULT over time. Lower = more load; a stall drops it toward 0.">
 				{#if selectedRun}
 					<div class="mb-3 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm">
 						<span class="text-ink-muted">Motor:</span>
@@ -625,7 +625,7 @@
 				{:else}
 					<div class="text-sm text-ink-muted">Select a run to view its load curve.</div>
 				{/if}
-			</SectionCard>
+			</Panel>
 		</div>
 	</div>
 </div>

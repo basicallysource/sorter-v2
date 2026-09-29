@@ -1,5 +1,5 @@
 <script lang="ts">
-	import SectionCard from '$lib/components/settings/SectionCard.svelte';
+	import Panel from '$lib/components/ui/Panel.svelte';
 	import C4SectorOccupancyPanel from '$lib/components/settings/C4SectorOccupancyPanel.svelte';
 	import StepperSidebar from '$lib/components/settings/StepperSidebar.svelte';
 	import ZoneSection from '$lib/components/settings/ZoneSection.svelte';
@@ -13,7 +13,7 @@
 <div class="flex flex-col gap-6">
 	{#if data.station.zoneChannels.length > 0}
 		{@const primaryStepperKey = data.station.stepperKeys[0]}
-		<SectionCard>
+		<Panel>
 			{#key data.station.slug}
 				<ZoneSection
 					channels={data.station.zoneChannels}
@@ -29,11 +29,11 @@
 						: undefined}
 				/>
 			{/key}
-		</SectionCard>
+		</Panel>
 		{#if data.station.slug === 'classification-channel'}
-			<SectionCard title="C4 Sectors">
+			<Panel title="C4 Sectors">
 				<C4SectorOccupancyPanel />
-			</SectionCard>
+			</Panel>
 		{/if}
 	{:else if data.station.stepperKeys.length > 0}
 		<!-- Stations without cameras (e.g. c-channel-1): show stepper standalone -->

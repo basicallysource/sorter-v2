@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { getBackendHttpBase, machineHttpBaseUrlFromWsUrl } from '$lib/backend';
 	import { getMachinesContext } from '$lib/machines/context';
-	import SectionCard from '$lib/components/settings/SectionCard.svelte';
+	import Panel from '$lib/components/ui/Panel.svelte';
 	import Alert from '$lib/components/ui/Alert.svelte';
 	import Button from '$lib/components/ui/Button.svelte';
 	import Input from '$lib/components/ui/Input.svelte';
@@ -176,7 +176,7 @@
 		</p>
 	</header>
 
-	<SectionCard title="Motor">
+	<Panel title="Motor">
 		<div class="flex flex-wrap gap-2">
 			{#each STEPPERS as key (key)}
 				<Button
@@ -188,9 +188,9 @@
 				</Button>
 			{/each}
 		</div>
-	</SectionCard>
+	</Panel>
 
-	<SectionCard title="Presets">
+	<Panel title="Presets">
 		<p class="mb-3 text-sm text-neutral-400">
 			Click a scenario to load its parameters below, then press Jitter. Amplitudes are motor
 			degrees; the rotor moves ~{gearRatio.toFixed(1)}× less.
@@ -217,9 +217,9 @@
 				</button>
 			{/each}
 		</div>
-	</SectionCard>
+	</Panel>
 
-	<SectionCard title="Parameters">
+	<Panel title="Parameters">
 		<div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
 			<label class="flex flex-col gap-1">
 				<span class="text-sm font-medium">Amplitude (motor °/stroke)</span>
@@ -245,7 +245,7 @@
 				<span class="text-sm text-neutral-400">Higher accel = sharper jerk per stroke.</span>
 			</label>
 		</div>
-	</SectionCard>
+	</Panel>
 
 	<div class="flex flex-wrap items-center gap-3">
 		<Button variant="primary" size="md" loading={busy} onclick={runJitter}>Jitter</Button>

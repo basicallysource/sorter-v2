@@ -1,16 +1,12 @@
 <script lang="ts">
 	import VersionsSection from '$lib/components/settings/VersionsSection.svelte';
+	import PageTitle from '$lib/components/settings/PageTitle.svelte';
 </script>
 
 <svelte:head><title>Sorter - Versions</title></svelte:head>
 
-<div class="flex flex-col gap-4 lg:max-w-4xl">
-	<header>
-		<h1 class="text-xl font-semibold text-ink">Versions</h1>
-		<p class="mt-1 text-sm text-ink-muted">
-			See which software version this machine is running and update it with one click.
-		</p>
-	</header>
-
-	<VersionsSection />
-</div>
+<PageTitle
+	title="Versions"
+	description="Which version of the software this machine runs, and updating it with one click."
+/>
+<VersionsSection />

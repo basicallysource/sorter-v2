@@ -1,10 +1,13 @@
 <script lang="ts">
 	import { getBackendHttpBase } from '$lib/backend';
-	import Button from '$lib/components/ui/Button.svelte';
 	import Alert from '$lib/components/ui/Alert.svelte';
-	import SectionCard from '$lib/components/settings/SectionCard.svelte';
+	import Panel from '$lib/components/ui/Panel.svelte';
 	import TuningParamRow from '$lib/components/settings/TuningParamRow.svelte';
 	import TuningPresets from '$lib/components/settings/TuningPresets.svelte';
+	import PageTitle from '$lib/components/settings/PageTitle.svelte';
+	import SettingsSaveBar from '$lib/components/settings/SettingsSaveBar.svelte';
+	import Spinner from '$lib/components/ui/Spinner.svelte';
+	import RadioGroup from '$lib/components/ui/RadioGroup.svelte';
 	import {
 		groupTuningSections,
 		type TuningFieldMeta,
@@ -167,76 +170,60 @@
 	});
 </script>
 
-<svelte:head><title>Sorter - Object Tracker Tuning</title></svelte:head>
+<svelte:head><title>Sorter - Object tracker tuning</title></svelte:head>
 
-<div class="flex flex-col gap-6 p-6">
-	<div>
-		<div class="text-lg font-semibold text-ink">Object Tracker</div>
-		<div class="mt-1 text-sm text-ink-muted">
-			Cross-frame identity for classification-channel detections — assigns each piece a stable id
-			that survives brief detector dropouts. Pick which tracker to run; its parameters are shown
-			below. Changes take effect within ~1 second (no restart needed).
-		</div>
-	</div>
+<PageTitle
+	title="Object tracker"
+	description="Identity across frames for the classification channel's detections: each piece keeps one id through brief detector dropouts. Choose which tracker runs; its parameters are below. Changes apply within about a second, with no restart."
+/>
 
-	{#if error}
-		<Alert tone="danger">{error}</Alert>
-	{/if}
+{#if error}
+	<Alert tone="danger">{error}</Alert>
+{/if}
+{#if saved}
+	<Alert tone="success">Saved. The changes apply within about a second.</Alert>
+{/if}
 
-	{#if saved}
-		<Alert tone="success">Saved. Changes apply within ~1 second.</Alert>
-	{/if}
+{#if loading}
+	<div class="flex items-center gap-2 text-sm text-ink-muted"><Spinner size={14} /> Loading</div>
+{:else}
+	<Panel
+		title="Tracker"
+		description="Which tracker runs on the channel. Saving switches to the chosen one and stores its parameters."
+	>
+		<RadioGroup
+			name="tracker"
+			label="Tracker"
+			bind:value={selectedType}
+			options={trackers.map((t) => ({
+				value: t.type,
+				label: t.type === activeType ? `${t.label} (running)` : t.label,
+				help: t.description
+			}))}
+		/>
+	</Panel>
 
-	{#if loading}
-		<div class="text-sm text-ink-muted">Loading…</div>
-	{:else}
-		<SectionCard
-			title="Tracker"
-			description="Which tracker runs on the channel. Saving switches to the selected tracker and stores its parameters."
+	{#if presets.length}
+		<Panel
+			title="Presets"
+			description="Starting points for the chosen tracker. One fills in the parameters below; then Save."
+			flush
 		>
-			<div class="flex flex-wrap gap-2">
-				{#each trackers as t}
-					<Button
-						variant={selectedType === t.type ? 'primary' : 'secondary'}
-						size="sm"
-						onclick={() => (selectedType = t.type)}
-					>
-						{t.label}{t.type === activeType ? ' (current)' : ''}
-					</Button>
-				{/each}
-			</div>
-			{#if current}
-				<div class="mt-3 text-sm text-ink-muted">{current.description}</div>
-			{/if}
-		</SectionCard>
-
-		{#if presets.length}
-			<SectionCard
-				title="Presets"
-				description="One-click starting points for the selected tracker. Click one to fill the form below, then Save."
-			>
-				<TuningPresets {presets} bind:values={valuesByType[selectedType]} />
-			</SectionCard>
-		{/if}
-
-		<SectionCard title="Parameters" description="Parameters for the selected tracker.">
-			<div class="flex flex-col gap-8">
-				{#each sections as section}
-					<div class="flex flex-col gap-2">
-						<div class="text-xs font-semibold text-ink-muted">
-							{section.name}
-						</div>
-						{#each section.fields as field}
-							<TuningParamRow {field} bind:values={valuesByType[selectedType]} />
-						{/each}
-					</div>
-				{/each}
-			</div>
-
-			<div class="mt-6 flex gap-3">
-				<Button variant="primary" onclick={save} loading={saving}>Save</Button>
-				<Button variant="secondary" onclick={load} disabled={saving}>Reset to saved</Button>
-			</div>
-		</SectionCard>
+			<TuningPresets {presets} bind:values={valuesByType[selectedType]} />
+		</Panel>
 	{/if}
-</div>
+
+	<Panel title="Parameters" description="The chosen tracker's parameters." flush>
+		{#each sections as section}
+			<div class="label bg-well px-(--pad-panel) py-1.5">{section.name}</div>
+			<div class="divide-y divide-line">
+				{#each section.fields as field}
+					<TuningParamRow {field} bind:values={valuesByType[selectedType]} />
+				{/each}
+			</div>
+		{/each}
+		{#snippet footer()}
+			<SettingsSaveBar {save} reset={load} {saving} />
+		{/snippet}
+	</Panel>
+{/if}

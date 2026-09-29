@@ -1,4 +1,7 @@
 <script lang="ts">
+	import SettingRow from '$lib/components/ui/SettingRow.svelte';
+	import Input from '$lib/components/ui/Input.svelte';
+	import Button from '$lib/components/ui/Button.svelte';
 	let {
 		loading,
 		saving,
@@ -16,31 +19,20 @@
 	} = $props();
 </script>
 
-<div class="border-t border-line pt-4"></div>
-
-<div class="flex flex-col gap-1">
-	<div class="text-sm font-medium text-ink">Operation</div>
-	<div class="text-xs text-ink-muted">
-		Normal distributor movement speed during bin-to-bin operation.
-	</div>
-</div>
-
-<label class="text-xs text-ink">
-	Operating Speed (uSteps/s)
-	<input
+<SettingRow
+	label="Operating speed"
+	help="How fast the distributor moves from bin to bin."
+	for="chute-operating-speed"
+>
+	<Input
+		id="chute-operating-speed"
 		type="number"
-		min="1"
-		step="100"
+		min={1}
+		step={100}
 		bind:value={chuteOperatingSpeed}
 		disabled={loading || saving || homing || canceling}
-		class="mt-1 block w-full border border-line bg-well px-2 py-1.5 text-sm text-ink"
+		unit="µsteps/s"
+		class="w-40"
 	/>
-</label>
-
-<button
-	onclick={onSave}
-	disabled={loading || saving || homing || canceling}
-	class="cursor-pointer border border-line bg-well px-3 py-2 text-sm text-ink transition-colors hover:bg-surface disabled:cursor-not-allowed disabled:opacity-50"
->
-	{saving ? 'Saving...' : 'Save Operation Settings'}
-</button>
+	<Button loading={saving} disabled={loading || homing || canceling} onclick={onSave}>Save</Button>
+</SettingRow>

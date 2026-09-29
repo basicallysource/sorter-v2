@@ -26,7 +26,8 @@
 		children: Snippet<[{ 'aria-describedby': string }]>;
 	} = $props();
 
-	const id = `tip-${Math.random().toString(36).slice(2, 9)}`;
+	const uid = $props.id();
+	const id = `${uid}-tip`;
 	let anchor: HTMLElement;
 	let tip: HTMLElement;
 	let timer: ReturnType<typeof setTimeout> | undefined;

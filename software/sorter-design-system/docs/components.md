@@ -38,12 +38,16 @@ the example app shows them together.
   after the value ("6 /min"); `end` puts a small control there instead (a
   Show button on a password). `invalid` draws the edge in danger. Numbers are
   right-aligned in tabular figures. `size="lg"` is 44px, for a touch screen.
-  `bind:element` gives the `<input>` itself, to focus it from code, and any
-  other attribute (`autocomplete`, `enterkeyhint`) goes on it.
+  `bind:element` gives the `<input>` itself, to focus it from code, and every
+  other attribute (`id`, `name`, `autocomplete`, `required`, `onkeydown`)
+  goes on it; `class` goes on the field's edge.
 - **`Select`**: one choice from a list, in our own list rather than the
   browser's ([overlays.md](overlays.md)). `label` names it when no `<label>`
-  points at it.
-- **`Textarea`**: several lines.
+  points at it. `class` goes on a wrapper, so `class="w-44"` sizes it. In a
+  form, `name`, `required` and `autocomplete` go on a hidden native select
+  that submits the value.
+- **`Textarea`**: several lines. Every other attribute goes on the
+  `<textarea>`.
 - **`Field`**: a label over a control, and one sentence under it: help, or
   the error in its place, in danger ink. Give the control the same `id` as
   `for`.
@@ -52,7 +56,8 @@ the example app shows them together.
 
 ## Choices
 
-- **`Checkbox`**: a choice saved with a form.
+- **`Checkbox`**: a choice saved with a form. Every other attribute (`name`,
+  `value`, `required`) goes on the `<input>`.
 - **`RadioGroup`**: one of a few choices when each needs a sentence.
 - **`Switch`**: on or off, applied the moment it changes. It needs a name
   (`label`), and the switch alone shows its state: no "On" badge beside it.
@@ -67,6 +72,13 @@ the example app shows them together.
   `divide-y divide-line` list inside a flush `Panel`. `below` holds what
   belongs to the setting but is wider than a control (a chart, sub-settings),
   in a well under the row.
+- **A setting changed from its default** says so on its row: `changed`
+  gives the row the primary's tint (a fill, like every state), and one
+  button beside its name, "Reset to 6 /min" (`defaultText`), puts the
+  default back through `onreset`. The button sits on the name's line at the
+  name's height, so the row never jumps while a value is typed. No outline,
+  no icon without words, and no amber: a changed value is a choice, not a
+  warning.
 - **A setting that applies at once** (a switch, a segmented control) needs no
   Save.
 - **Settings saved together** save with one primary in the panel's footer,
@@ -87,6 +99,16 @@ the example app shows them together.
   controls, then the picture on the media backdrop; `overlay` puts chips over
   the picture, in a dark subtree. The picture keeps its aspect ratio, or with
   `fill` takes the height the layout gives it from `lg` up.
+  `header={false}` is a tile that is only the picture: the name stays for a
+  screen reader, and `actions` go over the picture with `overlay`, on the
+  scrim. `expandable` adds a full screen button: the tile itself fills the
+  window on the media plane (so a live feed is not loaded twice), and "Exit
+  full screen" or Escape brings it back; `bind:expanded` drives it from code.
+- **`Card`**: a panel that is one thing to open, a machine or a profile. The
+  whole card is a link (`href`) or a button (`onclick`), named by `label`;
+  the pointer anywhere on it fills it a step (`hover`, then `pressed`), with
+  no shadow, no lift and no heavier line. Links and buttons inside it still
+  work on their own, so a card never needs a click handler on a `<div>`.
 
 ## Notices
 
@@ -132,7 +154,12 @@ layout; a fifth kind of message is a panel, not a new notice.
 
 - **`TopBar`** and **`Wordmark`**: the first level ([layout.md](layout.md)).
   The wordmark is the primary square and the app's name in sentence case,
-  "Sorter" or "Hive".
+  "Sorter" or "Hive". Below the width where the pages and the right side fit
+  side by side (`collapse`, 768px by default), the pages fold into one menu
+  named for the current page. Nothing on the right switches light or dark:
+  that is a setting.
+- **`PageHeader`**: a page's title, its one sentence and its own actions,
+  first in the page's column ([layout.md](layout.md#a-page)).
 - **`SideNav`**: the second level, a column on the surface plane.
 - **`Tabs`**: views of one thing, in a page or at the top of a flush panel.
   The current tab's mark replaces the bar's line under it. Arrow keys move

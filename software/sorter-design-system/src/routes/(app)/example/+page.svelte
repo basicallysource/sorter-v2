@@ -135,13 +135,19 @@
 	<div
 		class="grid gap-(--gap-panels) md:grid-cols-2 lg:col-start-1 lg:row-span-2 lg:row-start-1 lg:min-h-0 lg:grid-rows-2"
 	>
-		<MediaTile title="C-Channel 2" actions={rotate} fill>
+		<MediaTile title="C-Channel 2" actions={rotate} fill expandable>
 			{@render noFeed()}
 		</MediaTile>
-		<MediaTile title="C-Channel 3" actions={rotate} fill>
+		<MediaTile title="C-Channel 3" actions={rotate} fill expandable>
 			{@render noFeed()}
 		</MediaTile>
-		<MediaTile title="Classification channel" actions={rotate} fill class="md:col-span-2">
+		<MediaTile
+			title="Classification channel"
+			actions={rotate}
+			fill
+			expandable
+			class="md:col-span-2"
+		>
 			{@render noFeed()}
 		</MediaTile>
 	</div>

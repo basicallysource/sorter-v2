@@ -3,7 +3,8 @@
 	the screen is exactly the window: the top bar, and under it an area that
 	fills the rest, so the page never scrolls; what can grow scrolls inside
 	its own panel or column (docs/layout.md). On a phone it is one column
-	that scrolls.
+	that scrolls, and the top bar folds its pages into one menu. Light or
+	dark is under Settings > General, not in the top bar.
 -->
 <script lang="ts">
 	import ArrowLeft from '@lucide/svelte/icons/arrow-left';
@@ -31,18 +32,17 @@
 					<span class="size-2 rounded-full bg-success" aria-hidden="true"></span>
 					Bench sorter
 				</span>
-				<div class="w-44">
-					<Select
-						label="Sorting profile"
-						size="sm"
-						bind:value={profile}
-						options={[
-							{ value: 'september', label: 'September' },
-							{ value: 'bulk', label: 'Bulk by color' },
-							{ value: 'technic', label: 'Technic parts' }
-						]}
-					/>
-				</div>
+				<Select
+					label="Sorting profile"
+					size="sm"
+					class="w-44"
+					bind:value={profile}
+					options={[
+						{ value: 'september', label: 'September' },
+						{ value: 'bulk', label: 'Bulk by color' },
+						{ value: 'technic', label: 'Technic parts' }
+					]}
+				/>
 			</div>
 			<Button href="/" size="sm" variant="ghost" icon={ArrowLeft}>
 				<span class="max-sm:sr-only">Design system</span>

@@ -6,6 +6,10 @@
 // out here rather than listed per color: the text on a primary fill (white or
 // ink), and the primary as text, darkened for light mode and lightened for
 // dark mode until it reads on the backgrounds it is used on.
+//
+// It is safe to import where pages render on the server (Hive): there it
+// reads nothing and keeps the defaults, and in the browser the pre-paint
+// script and this module put the stored choices in place.
 
 import { DEFAULT_COLOR_ID, legoColor } from './lego-colors';
 
@@ -22,6 +26,8 @@ const PRIMARY_KEY = 'primary';
 const HARDEST_GROUND: Record<Mode, string> = { light: '#eceae5', dark: '#242422' };
 const SOFT_SHARE: Record<Mode, number> = { light: 0.12, dark: 0.22 };
 const INK = '#1b1a18';
+
+const browser = typeof window !== 'undefined';
 
 function read(key: string): string | null {
 	try {
@@ -40,6 +46,7 @@ function write(key: string, value: string) {
 }
 
 function initialMode(): Mode {
+	if (!browser) return 'light';
 	const saved = read(MODE_KEY);
 	if (saved === 'light' || saved === 'dark') return saved;
 	return matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
@@ -51,6 +58,7 @@ class Theme {
 	primary = $derived(legoColor(this.colorId).hex);
 
 	constructor() {
+		if (!browser) return;
 		$effect.root(() => {
 			$effect(() => applyMode(this.mode));
 			$effect(() => applyPrimary(this.primary));

@@ -1,36 +1,29 @@
 <!--
 	docs/components.md#forms. Several lines of text: a note, a description.
-	The same edge and focus as Input.
+	The same edge and focus as Input. Every other attribute (id, name,
+	required, maxlength, onkeydown) goes on the <textarea>.
 -->
 <script lang="ts">
+	import type { HTMLTextareaAttributes } from 'svelte/elements';
+
 	let {
 		value = $bindable(''),
-		id,
 		rows = 4,
-		placeholder,
 		invalid = false,
-		disabled = false,
 		class: className = '',
-		oninput
+		...rest
 	}: {
 		value?: string;
-		id?: string;
 		rows?: number;
-		placeholder?: string;
 		invalid?: boolean;
-		disabled?: boolean;
 		class?: string;
-		oninput?: (event: Event) => void;
-	} = $props();
+	} & Omit<HTMLTextareaAttributes, 'value' | 'rows' | 'class'> = $props();
 </script>
 
 <textarea
-	{id}
+	{...rest}
 	{rows}
-	{placeholder}
-	{disabled}
 	bind:value
-	{oninput}
 	aria-invalid={invalid || undefined}
 	class="block w-full resize-y rounded-control border bg-field px-(--pad-control) py-2 text-sm text-ink transition-colors outline-none placeholder:text-ink-faint focus:border-primary focus:outline-2 focus:-outline-offset-1 focus:outline-primary disabled:pointer-events-none disabled:opacity-45
 		{invalid

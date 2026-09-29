@@ -39,6 +39,24 @@ and a dated entry goes here; the history is git.
 - **The wordmark is "Sorter"** in sentence case, not capitals.
 - **Round shapes**: a status dot, a radio, and a person's avatar on Hive.
   Everything else follows the corner tokens, including Hive's badges.
+- **Light or dark is a setting, never a control in the top bar**: Settings >
+  General on a machine, the account's settings on Hive, as on the real
+  Sorter. The site's own mode and color controls moved to the foot of its
+  side nav, so nothing here shows a theme switch in a top bar.
+- **The top bar folds on a narrow screen.** Its pages become one menu named
+  for the current page, at a width each app sets; before, the links scrolled
+  sideways and cut "Dashboard" off at 390px.
+- **A setting changed from its default** takes the primary's tint and one
+  "Reset to ..." button beside its name. It replaces the Sorter UI's amber
+  row and icon: a changed value is a choice, not a warning.
+- **A dialog that cannot be closed** while a restart, a reboot or a power
+  down runs: no close button, Escape does nothing, and a status line with
+  the Spinner says what is happening.
+- **A card you open fills under the pointer**, like any state; it never
+  lifts or casts a shadow. The whole card is a link, and the buttons in it
+  still work.
+- **The components render on the server too**, for Hive: ids from
+  `$props.id()`, and no `window` or storage outside the browser.
 
 ### The look, chosen from options side by side
 

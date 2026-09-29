@@ -42,10 +42,10 @@
 		},
 		{
 			role: 'Label',
-			spec: 'Choices: 12px capitals or 14px sentence case',
+			spec: '14px · medium · muted · sentence case',
 			classes: 'label',
 			sample: 'Hardware',
-			use: "A group's name in a nav, a stat's name, a table's head. The only capitals."
+			use: "A group's name in a nav, a stat's name, a table's head. Never in capitals."
 		},
 		{
 			role: 'Meta',
@@ -56,7 +56,7 @@
 		},
 		{
 			role: 'Number',
-			spec: '24px · tabular · mono or not (Choices)',
+			spec: '24px · medium · tabular figures',
 			classes: 'num text-2xl font-medium',
 			sample: '14.7',
 			use: 'A stat. The `num` class lines numbers up and stops them jittering as they change.'
@@ -68,7 +68,7 @@
 
 <PageHeader
 	title="Type"
-	lead="One typeface for words and its mono partner for things you copy; which pair is still open (Choices). Five sizes, and 14px is the smallest anyone has to read."
+	lead="Geist for words and Geist Mono for what someone copies. Five sizes, and 14px is the smallest anyone has to read."
 	doc="type"
 />
 

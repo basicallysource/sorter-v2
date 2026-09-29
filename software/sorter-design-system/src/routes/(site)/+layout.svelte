@@ -10,7 +10,6 @@
 	import Popover from '$lib/components/Popover.svelte';
 	import Button from '$lib/components/Button.svelte';
 	import ThemeControls from '$lib/site/ThemeControls.svelte';
-	import TryControls from '$lib/site/TryControls.svelte';
 	import { groups } from '$lib/site/pages';
 	import { afterNavigate } from '$app/navigation';
 
@@ -27,7 +26,6 @@
 		</div>
 	{/snippet}
 	{#snippet end()}
-		<TryControls />
 		<ThemeControls />
 		<div class="lg:hidden">
 			<Popover label="Pages" placement="bottom-end" width="16rem" bind:open={menuOpen}>

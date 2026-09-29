@@ -23,7 +23,7 @@
 
 <PageHeader
 	title="Buttons"
-	lead="Four variants and two sizes. How each variant is drawn, and how round, are still open (Choices); where each one goes is not. The label says what happens; an icon may lead it."
+	lead="Four variants and two sizes, all drawn in tints: nothing is a solid block of color. The label says what happens; an icon may lead it."
 	doc="components"
 />
 

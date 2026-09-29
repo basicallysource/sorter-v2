@@ -1,7 +1,6 @@
 // The site's pages, in the side nav's order.
 import Compass from '@lucide/svelte/icons/compass';
 import ListChecks from '@lucide/svelte/icons/list-checks';
-import SlidersHorizontal from '@lucide/svelte/icons/sliders-horizontal';
 import Layers from '@lucide/svelte/icons/layers';
 import Palette from '@lucide/svelte/icons/palette';
 import Type from '@lucide/svelte/icons/type';
@@ -16,13 +15,13 @@ import Signpost from '@lucide/svelte/icons/signpost';
 import Table from '@lucide/svelte/icons/table';
 import Gauge from '@lucide/svelte/icons/gauge';
 import Settings from '@lucide/svelte/icons/settings';
+import BookOpen from '@lucide/svelte/icons/book-open';
 
 export const groups = [
 	{
 		items: [
 			{ href: '/', label: 'Overview', icon: Compass },
-			{ href: '/rules', label: 'Rules', icon: ListChecks },
-			{ href: '/choices', label: 'Choices', icon: SlidersHorizontal }
+			{ href: '/rules', label: 'Rules', icon: ListChecks }
 		]
 	},
 	{
@@ -53,5 +52,9 @@ export const groups = [
 			{ href: '/example', label: 'Dashboard', icon: Gauge },
 			{ href: '/example/settings', label: 'Settings', icon: Settings }
 		]
+	},
+	{
+		label: 'Written',
+		items: [{ href: '/docs', label: 'Docs', icon: BookOpen }]
 	}
 ];

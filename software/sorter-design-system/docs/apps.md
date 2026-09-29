@@ -49,10 +49,10 @@ it takes the components.
 
 ## Hive
 
-- A public community site, so it may be a little friendlier than a machine's
-  UI: a small badge may be a pill and an avatar is a circle (`rounded-full`).
-  Cards, panels, buttons, fields, notices and dialogs stay square, and so does
-  the Spinner.
+- A public community site, with the same corners as everything else: its
+  badges are the system's `Badge`, and its cards, panels, buttons, fields,
+  notices and dialogs take the corner tokens. A person's avatar is the one
+  round shape besides a status dot (`rounded-full`).
 - The primary is LEGO red and cannot be changed. Light or dark comes from
   `src/lib/stores/theme.ts`: the reader's stored choice, else the system's
   preference.
@@ -104,11 +104,12 @@ identical bricks tells them nothing. So the mark is the same everywhere and the
 color says which site it is: the basically brick (black outline, white fill)
 on a full-bleed colored square.
 
-| Site                      | Color                  |
-| ------------------------- | ---------------------- |
-| Hive                      | `#D01012`, LEGO red    |
-| The docs site             | `#FFD500`, LEGO yellow |
-| A machine (the Sorter UI) | `#0055BF`, LEGO blue   |
+| Site                      | Color                            |
+| ------------------------- | -------------------------------- |
+| Hive                      | `#D01012`, LEGO red              |
+| The docs site             | `#FFD500`, LEGO yellow           |
+| A machine (the Sorter UI) | `#0055BF`, LEGO blue             |
+| This design system's site | `#6C6E68`, LEGO Dark Bluish Gray |
 
 These are palette values that already existed, not new ones. The color is for
 the favicon only: it does not tint headers, chrome or accents, and nothing else
@@ -130,6 +131,11 @@ in a site reads it.
   `apple-touch-icon.png` (180 by 180, for a phone's home screen). Link them in
   `src/app.html`, not in a `<svelte:head>`: the icon never changes, so it
   belongs in the shell.
+- **This design system's site** runs only while someone works on it, so it
+  ships one `favicon.svg`: the gray field and the brick composited from the
+  logo's own paths (the outline's outer edge filled white, then the outline
+  over it). Gray leaves the clearer hues for the public sites that still need
+  one (the parts calculator, the SorterOS setup site).
 - **A new site** needs a color that cannot be mistaken for the others at 16px,
   where the brick is a smudge and the hue is the whole signal. Check it at that
   size before choosing it. Never restyle the brick itself: a different mark per

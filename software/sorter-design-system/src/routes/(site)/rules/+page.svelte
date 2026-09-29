@@ -37,6 +37,7 @@
 <PageHeader
 	title="Rules"
 	lead="The ten things that make the system hold together, each with the wrong way next to the right one. When a screen looks off, it is almost always one of these."
+	doc="rules"
 />
 
 <SiteSection title={titles['planes']} lead={leads['planes']}>
@@ -243,7 +244,7 @@
 	<DoDont
 		on="surface"
 		wrongNote="A rounded button, a square field, a pill of a badge and a softer card: four corners picked one at a time, and the screen looks assembled from different kits."
-		rightNote="Panels, controls, buttons and badges each take their radius token, so they agree at any setting. How round is still open (Choices)."
+		rightNote="Panels, controls, buttons and badges each take their radius token: 1px, so they read as square and agree everywhere."
 	>
 		{#snippet wrong()}
 			<div class="flex flex-col gap-3">
@@ -284,7 +285,7 @@
 	<DoDont
 		on="surface"
 		wrongNote="Help text at 11px and 10px. Someone standing at the machine cannot read it, and it is the text that tells them what a setting does."
-		rightNote="The setting's name and its sentence at 14px. Only the section label, in capitals, is 12px."
+		rightNote="The setting's name and its sentence at 14px, and the section's name in sentence case beside them. Nothing is in capitals."
 	>
 		{#snippet wrong()}
 			<div>

@@ -10,10 +10,8 @@
    So markup never needs a dark: modifier, and in an arbitrary value it names
    the property itself: border-(--primary).
 
-   Sizes, corners, type and the button style are custom properties too, with
-   the choices still open set by data attributes (data-font, data-labels,
-   data-corners, data-buttons, data-density) on <html> or on any element,
-   so the site can show them side by side (docs/decisions.md, Open). */
+   Corners, sizes, type and the button style are custom properties too, set
+   once below (docs/decisions.md). */
 
 @custom-variant dark (&:where(.dark, .dark *):not(:where(.light, .light *)));
 
@@ -183,16 +181,12 @@
 }
 
 /* ------------------------------------------------------------ the buttons
-   Five styles to choose from (Open). Each sets what the four variants of
-   Button.svelte are drawn with. Declared with the modes, so a light or dark
-   subtree works them out from its own colors. The default is E, tinted. */
-
-/* E: tints only; the primary is its own soft tint, nothing is solid. */
+   What the four variants of Button.svelte are drawn with: tints, nothing
+   solid (docs/decisions.md). Declared with the modes, so a light or dark
+   subtree works them out from its own colors. */
 :root,
 .light,
-.dark,
-[data-buttons='e'],
-[data-buttons='e'] :is(.light, .dark) {
+.dark {
 	--btn-primary-bg: var(--primary-soft);
 	--btn-primary-fg: var(--primary-ink);
 	--btn-primary-line: transparent;
@@ -207,92 +201,10 @@
 	--btn-danger-hover: var(--danger-tint-hover);
 }
 
-/* A: a solid primary, an outlined secondary. */
-[data-buttons='a'],
-[data-buttons='a'] :is(.light, .dark) {
-	--btn-primary-bg: var(--primary);
-	--btn-primary-fg: var(--on-primary);
-	--btn-primary-line: var(--primary);
-	--btn-primary-hover: var(--primary-hover);
-	--btn-secondary-bg: transparent;
-	--btn-secondary-fg: var(--ink);
-	--btn-secondary-line: var(--line-strong);
-	--btn-secondary-hover: var(--hover);
-	--btn-danger-bg: var(--danger);
-	--btn-danger-fg: var(--on-danger);
-	--btn-danger-line: var(--danger);
-	--btn-danger-hover: var(--danger-hover);
-}
-
-/* B: a solid primary, a soft neutral secondary with no outline. */
-[data-buttons='b'],
-[data-buttons='b'] :is(.light, .dark) {
-	--btn-primary-bg: var(--primary);
-	--btn-primary-fg: var(--on-primary);
-	--btn-primary-line: transparent;
-	--btn-primary-hover: var(--primary-hover);
-	--btn-secondary-bg: var(--soft);
-	--btn-secondary-fg: var(--ink);
-	--btn-secondary-line: transparent;
-	--btn-secondary-hover: var(--soft-hover);
-	--btn-danger-bg: var(--danger);
-	--btn-danger-fg: var(--on-danger);
-	--btn-danger-line: transparent;
-	--btn-danger-hover: var(--danger-hover);
-}
-
-/* C: an ink primary (the primary color stays for selection, links and
-   focus), a soft neutral secondary, a tinted danger. */
-[data-buttons='c'],
-[data-buttons='c'] :is(.light, .dark) {
-	--btn-primary-bg: var(--ink);
-	--btn-primary-fg: var(--surface);
-	--btn-primary-line: transparent;
-	--btn-primary-hover: color-mix(in oklab, var(--ink) 82%, var(--surface));
-	--btn-secondary-bg: var(--soft);
-	--btn-secondary-fg: var(--ink);
-	--btn-secondary-line: transparent;
-	--btn-secondary-hover: var(--soft-hover);
-	--btn-danger-bg: var(--danger-soft);
-	--btn-danger-fg: var(--danger-ink);
-	--btn-danger-line: transparent;
-	--btn-danger-hover: var(--danger-tint-hover);
-}
-
-/* D: everything outlined; the primary in its color, with no fill. */
-[data-buttons='d'],
-[data-buttons='d'] :is(.light, .dark) {
-	--btn-primary-bg: transparent;
-	--btn-primary-fg: var(--primary-ink);
-	--btn-primary-line: var(--primary);
-	--btn-primary-hover: var(--primary-soft);
-	--btn-secondary-bg: transparent;
-	--btn-secondary-fg: var(--ink);
-	--btn-secondary-line: var(--line-strong);
-	--btn-secondary-hover: var(--hover);
-	--btn-danger-bg: transparent;
-	--btn-danger-fg: var(--danger-ink);
-	--btn-danger-line: var(--danger);
-	--btn-danger-hover: var(--danger-soft);
-}
-
 /* ---------------------------------------------------------------- corners
-   0 (square, the default), 1, 2, 4, 6, 8, or pill (8 with round buttons
-   and badges). */
-
-:root,
-[data-corners='0'] {
-	--r-panel: 0px;
-	--r-control: 0px;
-	--r-item: 0px;
-	--r-button: 0px;
-	--r-button-inner: 0px;
-	--r-badge: 0px;
-	--r-check: 0px;
-	--r-radio: 0px;
-}
-
-[data-corners='1'] {
+   1px, nearly square (docs/decisions.md). A radio is round and a status dot
+   is round (rounded-full); nothing else is. */
+:root {
 	--r-panel: 1px;
 	--r-control: 1px;
 	--r-item: 1px;
@@ -303,67 +215,10 @@
 	--r-radio: 999px;
 }
 
-[data-corners='2'] {
-	--r-panel: 2px;
-	--r-control: 2px;
-	--r-item: 2px;
-	--r-button: 2px;
-	--r-button-inner: 1px;
-	--r-badge: 2px;
-	--r-check: 2px;
-	--r-radio: 999px;
-}
-
-[data-corners='4'] {
-	--r-panel: 6px;
-	--r-control: 4px;
-	--r-item: 3px;
-	--r-button: 4px;
-	--r-button-inner: 3px;
-	--r-badge: 3px;
-	--r-check: 3px;
-	--r-radio: 999px;
-}
-
-[data-corners='6'] {
-	--r-panel: 8px;
-	--r-control: 6px;
-	--r-item: 4px;
-	--r-button: 6px;
-	--r-button-inner: 4px;
-	--r-badge: 4px;
-	--r-check: 4px;
-	--r-radio: 999px;
-}
-
-[data-corners='8'] {
-	--r-panel: 12px;
-	--r-control: 8px;
-	--r-item: 6px;
-	--r-button: 8px;
-	--r-button-inner: 6px;
-	--r-badge: 6px;
-	--r-check: 5px;
-	--r-radio: 999px;
-}
-
-[data-corners='pill'] {
-	--r-panel: 12px;
-	--r-control: 8px;
-	--r-item: 6px;
-	--r-button: 999px;
-	--r-button-inner: 999px;
-	--r-badge: 999px;
-	--r-check: 5px;
-	--r-radio: 999px;
-}
-
 /* ------------------------------------------------------------------ sizes
-   One scale, so every control steps together: compact (the machine's own
-   screens today) or roomy. Heights are the whole control, border included. */
-
-:root,
-[data-density='compact'] {
+   One scale, so every control steps together (docs/layout.md). Heights are
+   the whole control, border included. */
+:root {
 	--size-control: 2.25rem;
 	--size-control-sm: 1.875rem;
 	--size-control-lg: 2.75rem;
@@ -383,92 +238,12 @@
 	--gap-panels: 1rem;
 }
 
-[data-density='roomy'] {
-	--size-control: 2.5rem;
-	--size-control-sm: 2rem;
-	--size-control-lg: 3rem;
-	--pad-control: 1rem;
-	--pad-control-sm: 0.75rem;
-	--size-badge: 1.5rem;
-	--pad-badge: 0.625rem;
-	--switch-w: 2.75rem;
-	--switch-h: 1.5rem;
-	--size-topbar: 3.5rem;
-	--size-nav-item: 2.25rem;
-	--size-tab: 2.75rem;
-	--size-menu-item: 2.375rem;
-	--indicator: 3px;
-	--pad-panel: 1.5rem;
-	--pad-row: 1rem;
-	--gap-panels: 1.25rem;
-}
-
 /* ------------------------------------------------------------------- type
-   Each typeface with its mono partner (src/routes/+layout.svelte loads the
-   files; a browser only downloads the one in use). The default is C,
-   Geist with Geist Mono. In each group the default (with :root) comes
-   first, so an attribute on <html> overrides it. */
-
-:root,
-[data-font='c'] {
+   Geist, with Geist Mono for what someone copies (docs/type.md). Both are
+   self-hosted (src/routes/+layout.svelte), because a machine may be offline. */
+:root {
 	--sans: 'Geist Variable', system-ui, sans-serif;
 	--mono: 'Geist Mono Variable', ui-monospace, monospace;
-}
-[data-font='a'] {
-	--sans: 'IBM Plex Sans Variable', system-ui, sans-serif;
-	--mono: 'IBM Plex Mono', ui-monospace, monospace;
-}
-[data-font='b'] {
-	--sans: 'Inter Variable', system-ui, sans-serif;
-	--mono: 'JetBrains Mono Variable', ui-monospace, monospace;
-}
-[data-font='d'] {
-	--sans: 'Instrument Sans Variable', system-ui, sans-serif;
-	--mono: 'DM Mono', ui-monospace, monospace;
-}
-[data-font='e'] {
-	--sans: 'Figtree Variable', system-ui, sans-serif;
-	--mono: 'JetBrains Mono Variable', ui-monospace, monospace;
-}
-[data-font='f'] {
-	--sans: 'Public Sans Variable', system-ui, sans-serif;
-	--mono: 'Roboto Mono Variable', ui-monospace, monospace;
-}
-[data-font='g'] {
-	--sans: 'Schibsted Grotesk Variable', system-ui, sans-serif;
-	--mono: 'Geist Mono Variable', ui-monospace, monospace;
-}
-[data-font] {
-	font-family: var(--sans);
-}
-
-/* Labels and numbers: A capitals and mono numbers; B capitals and the
-   typeface's own tabular numbers; C (the default) sentence-case labels and
-   tabular numbers. */
-:root,
-[data-labels='c'] {
-	--label-size: 0.875rem;
-	--label-line: 1.25rem;
-	--label-weight: 500;
-	--label-tracking: 0;
-	--label-case: none;
-	--num-font: var(--sans);
-}
-[data-labels='a'] {
-	--label-size: 0.75rem;
-	--label-line: 1rem;
-	--label-weight: 600;
-	--label-tracking: 0.06em;
-	--label-case: uppercase;
-	--num-font: var(--mono);
-}
-[data-labels='b'] {
-	--label-size: 0.75rem;
-	--label-line: 1rem;
-	--label-weight: 600;
-	--label-tracking: 0.06em;
-	--label-case: uppercase;
-	--num-font: var(--sans);
 }
 
 /* ------------------------------------------------------------------- base */
@@ -512,31 +287,24 @@
 	}
 }
 
-/* Icons: square caps and mitred joins while the corners are square or
-   nearly (0 to 2px), round once they are rounded (4px and up), so an
-   icon's ends match the rest of the edges. */
+/* Icons: square caps and mitred joins, like the nearly square corners (docs/icons.md). */
 .lucide {
 	stroke-linecap: square;
 	stroke-linejoin: miter;
 }
-:is([data-corners='4'], [data-corners='6'], [data-corners='8'], [data-corners='pill']) .lucide {
-	stroke-linecap: round;
-	stroke-linejoin: round;
-}
 
-/* A label: a group's name in a nav, a stat's name, a table head. */
+/* A label: a group's name in a nav, a stat's name. Sentence case, like
+   every other word; nothing is in capitals. */
 .label {
-	font-size: var(--label-size);
-	line-height: var(--label-line);
-	font-weight: var(--label-weight);
-	letter-spacing: var(--label-tracking);
-	text-transform: var(--label-case);
+	font-size: 0.875rem;
+	line-height: 1.25rem;
+	font-weight: 500;
 	color: var(--ink-muted);
 }
 
-/* Numbers that change in place line up and do not jitter. */
+/* Numbers that change in place line up and do not jitter: Geist's own
+   tabular figures, not the mono. */
 .num {
-	font-family: var(--num-font);
 	font-variant-numeric: tabular-nums;
 }
 
@@ -555,11 +323,9 @@
 	background: var(--well);
 	padding: 0.5rem var(--pad-row);
 	text-align: left;
-	font-size: var(--label-size);
-	line-height: var(--label-line);
-	font-weight: var(--label-weight);
-	letter-spacing: var(--label-tracking);
-	text-transform: var(--label-case);
+	font-size: 0.875rem;
+	line-height: 1.25rem;
+	font-weight: 500;
 	color: var(--ink-muted);
 	white-space: nowrap;
 }

@@ -58,6 +58,7 @@
 <PageHeader
 	title="Surfaces"
 	lead="The planes a screen is built from, the two kinds of line, and which part owns each line. Together they let a screen separate its parts without outlining them."
+	doc="surfaces"
 />
 
 <SiteSection

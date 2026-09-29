@@ -869,7 +869,7 @@
 					<ul class="flex flex-col gap-px">
 						{#each [
 							{ key: '', label: 'All' },
-							{ key: 'regular', label: 'Finding pieces' },
+							{ key: 'regular', label: 'Detection' },
 							{ key: 'condition', label: 'Condition' }
 						] as item (item.key)}
 							{@render option(item.label, filterKind === item.key, () => setFilterValue('kind', item.key))}

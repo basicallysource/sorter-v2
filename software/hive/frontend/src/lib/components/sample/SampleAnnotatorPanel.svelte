@@ -4,6 +4,7 @@
 	import Badge from '$lib/components/Badge.svelte';
 	import Button from '$lib/components/Button.svelte';
 	import Panel from '$lib/components/Panel.svelte';
+	import SegmentedControl from '$lib/components/SegmentedControl.svelte';
 	import Check from '@lucide/svelte/icons/check';
 	import Redo2 from '@lucide/svelte/icons/redo-2';
 	import RotateCcw from '@lucide/svelte/icons/rotate-ccw';
@@ -33,6 +34,16 @@
 			>
 			<Button size="sm" icon={X} onclick={() => annotatorApi.clearAll()}>Clear all</Button>
 		</div>
+		<SegmentedControl
+			label="Tool"
+			size="sm"
+			value={annotatorApi.activeTool}
+			options={[
+				{ value: 'rectangle', label: 'Rectangle' },
+				{ value: 'polygon', label: 'Polygon' }
+			]}
+			onchange={(tool) => (annotatorApi.activeTool = tool)}
+		/>
 		<div class="flex flex-wrap gap-1">
 			<Button size="sm" variant="ghost" title="Back to the last saved state" onclick={() => annotatorApi.revert()}>Cancel</Button>
 			{#if annotatorApi.hasSeedBoxes}

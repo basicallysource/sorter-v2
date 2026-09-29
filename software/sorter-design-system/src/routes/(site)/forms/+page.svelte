@@ -21,6 +21,8 @@
 	let port = $state<number | null>(80000);
 	let camera = $state('usb-2');
 	let note = $state('');
+	let wifiPassword = $state('');
+	let showPassword = $state(false);
 	let upload = $state(true);
 	let keepRaw = $state(false);
 	let mode = $state<'color' | 'part' | 'set'>('part');
@@ -83,6 +85,24 @@
 			</Field>
 			<Field label="Speed" for="f-speed" help="Steps a second at the motor.">
 				<Input id="f-speed" type="number" value={800} unit="steps/s" />
+			</Field>
+			<Field
+				label="Wi-Fi password"
+				for="f-password"
+				help="A small control can sit inside the edge."
+			>
+				<Input
+					id="f-password"
+					type={showPassword ? 'text' : 'password'}
+					bind:value={wifiPassword}
+					autocomplete="off"
+				>
+					{#snippet end()}
+						<Button size="sm" variant="ghost" onclick={() => (showPassword = !showPassword)}>
+							{showPassword ? 'Hide' : 'Show'}
+						</Button>
+					{/snippet}
+				</Input>
 			</Field>
 			<Field label="Note" for="f-note" class="sm:col-span-2">
 				<Textarea

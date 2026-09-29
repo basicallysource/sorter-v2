@@ -1,5 +1,5 @@
 <!--
-	docs/components.md#button. Four variants, two sizes. What each variant is
+	docs/components.md#button. Four variants, three sizes. What each variant is
 	drawn with comes from the button style tokens in app.css, and its corners
 	from rounded-button. With `href` it is a link that looks like a button.
 	With an `icon` and no children it is an icon button, and `label` becomes
@@ -11,7 +11,8 @@
 	import Spinner from './Spinner.svelte';
 
 	type Variant = 'primary' | 'secondary' | 'ghost' | 'danger';
-	type Size = 'sm' | 'md';
+	// lg is a touch screen's main action: a thumb's width tall.
+	type Size = 'sm' | 'md' | 'lg';
 
 	let {
 		variant = 'secondary',
@@ -56,15 +57,20 @@
 	const iconOnly = $derived(!children);
 	const sizes = $derived(
 		iconOnly
-			? { sm: 'size-(--size-control-sm)', md: 'size-(--size-control)' }[size]
+			? {
+					sm: 'size-(--size-control-sm)',
+					md: 'size-(--size-control)',
+					lg: 'size-(--size-control-lg)'
+				}[size]
 			: {
-					sm: 'h-(--size-control-sm) gap-1.5 px-(--pad-control-sm)',
-					md: 'h-(--size-control) gap-2 px-(--pad-control)'
+					sm: 'h-(--size-control-sm) gap-1.5 px-(--pad-control-sm) text-sm',
+					md: 'h-(--size-control) gap-2 px-(--pad-control) text-sm',
+					lg: 'h-(--size-control-lg) gap-2 px-5 text-base'
 				}[size]
 	);
-	const iconSize = $derived(size === 'sm' ? 14 : 16);
+	const iconSize = $derived({ sm: 14, md: 16, lg: 18 }[size]);
 	const classes = $derived(
-		`inline-flex shrink-0 select-none items-center justify-center whitespace-nowrap rounded-button border text-sm font-medium transition-colors ${variants[variant]} ${sizes} ${className}`
+		`inline-flex shrink-0 select-none items-center justify-center whitespace-nowrap rounded-button border font-medium transition-colors ${variants[variant]} ${sizes} ${className}`
 	);
 	const inert = $derived(disabled || loading);
 </script>

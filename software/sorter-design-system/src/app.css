@@ -1,0 +1,156 @@
+@import 'tailwindcss';
+
+/* Dark mode is a `dark` class on <html>, and it re-points the tokens below, so
+   markup never needs a `dark:` modifier: a component that uses tokens is right
+   in both modes. See docs/color.md. */
+@custom-variant dark (&:where(.dark, .dark *));
+
+/* `static`: every token is emitted, used or not, so `.dark` below and the
+   runtime primary (src/lib/theme.svelte.ts) always have a variable to set. */
+@theme static {
+	/* Planes (docs/surfaces.md). Each is told apart from its parent by fill. */
+	--color-canvas: #eceae5;
+	--color-surface: #ffffff;
+	--color-well: #f4f3ef;
+	--color-raised: #ffffff;
+	/* The inside of a text field, select or checkbox: where you type or tick. */
+	--color-field: #ffffff;
+
+	/* Lines. `line` divides items on one plane; `line-strong` outlines a control. */
+	--color-line: #e2dfd8;
+	--color-line-strong: #b9b4aa;
+
+	/* Text. */
+	--color-ink: #1b1a18;
+	--color-ink-muted: #686460;
+	--color-ink-faint: #9d988f;
+
+	/* State fills: translucent, so they work on every plane. */
+	--color-hover: color-mix(in oklab, var(--color-ink) 5%, transparent);
+	--color-pressed: color-mix(in oklab, var(--color-ink) 9%, transparent);
+
+	/* The primary is the operator's pick (docs/color.md). The machine's default
+	   is LEGO blue; src/lib/theme.svelte.ts sets it and the two colors that
+	   depend on its contrast. */
+	--color-primary: #0055bf;
+	--color-on-primary: #ffffff;
+	--color-primary-ink: #0055bf;
+	--color-primary-hover: color-mix(in oklab, var(--color-primary) 86%, black);
+	--color-primary-soft: color-mix(in oklab, var(--color-primary) 12%, transparent);
+
+	/* Status. `-ink` is the text color on a surface or on the `-soft` tint. */
+	--color-success: #00852b;
+	--color-success-ink: #006b23;
+	--color-success-soft: color-mix(in oklab, var(--color-success) 11%, transparent);
+	--color-warning: #ffd500;
+	--color-warning-ink: #6e5200;
+	--color-warning-soft: color-mix(in oklab, var(--color-warning) 22%, transparent);
+	--color-danger: #d01012;
+	--color-danger-ink: #a80d0f;
+	--color-danger-soft: color-mix(in oklab, var(--color-danger) 10%, transparent);
+	--color-danger-hover: color-mix(in oklab, var(--color-danger) 86%, black);
+	--color-info: #0055bf;
+	--color-info-ink: #0055bf;
+	--color-info-soft: color-mix(in oklab, var(--color-info) 10%, transparent);
+
+	/* Media (camera feeds, sample photos) sit on a dark backdrop in both modes. */
+	--color-media: #151514;
+
+	--font-sans: 'IBM Plex Sans Variable', system-ui, sans-serif;
+	--font-mono: 'IBM Plex Mono', ui-monospace, monospace;
+
+	/* The two shadows (docs/surfaces.md): what floats over the page, and the
+	   thumb that slides in a switch or a segmented control. Nothing else. */
+	--shadow-overlay: 0 1px 2px rgb(24 22 18 / 0.08), 0 10px 28px -6px rgb(24 22 18 / 0.18);
+	--shadow-thumb: 0 1px 2px rgb(24 22 18 / 0.14), 0 0 0 1px rgb(24 22 18 / 0.04);
+}
+
+.dark {
+	--color-canvas: #0e0e0d;
+	--color-surface: #1b1b19;
+	--color-well: #141413;
+	--color-raised: #242422;
+	--color-field: #141413;
+
+	--color-line: #2e2d2a;
+	--color-line-strong: #4a4843;
+
+	--color-ink: #eeece7;
+	--color-ink-muted: #a39f96;
+	--color-ink-faint: #6f6c65;
+
+	--color-primary-soft: color-mix(in oklab, var(--color-primary) 22%, transparent);
+
+	--color-success-ink: #5cc97f;
+	--color-success-soft: color-mix(in oklab, var(--color-success) 20%, transparent);
+	--color-warning-ink: #ffd500;
+	--color-warning-soft: color-mix(in oklab, var(--color-warning) 14%, transparent);
+	--color-danger-ink: #ff6b66;
+	--color-danger-soft: color-mix(in oklab, var(--color-danger) 22%, transparent);
+	--color-info-ink: #7fb0ff;
+	--color-info-soft: color-mix(in oklab, var(--color-info) 26%, transparent);
+
+	--shadow-overlay: 0 1px 2px rgb(0 0 0 / 0.4), 0 12px 32px -6px rgb(0 0 0 / 0.6);
+	--shadow-thumb: 0 1px 2px rgb(0 0 0 / 0.5);
+}
+
+@layer base {
+	html {
+		background: var(--color-canvas);
+		color: var(--color-ink);
+		color-scheme: light;
+		font-family: var(--font-sans);
+		-webkit-font-smoothing: antialiased;
+		-moz-osx-font-smoothing: grayscale;
+	}
+
+	html.dark {
+		color-scheme: dark;
+	}
+
+	/* Tailwind's default border color is currentColor; ours is the divider. */
+	*,
+	::before,
+	::after {
+		border-color: var(--color-line);
+	}
+
+	:focus-visible {
+		outline: 2px solid var(--color-primary);
+		outline-offset: 2px;
+	}
+
+	button:not(:disabled),
+	[role='button']:not([aria-disabled='true']),
+	summary,
+	label[for],
+	select:not(:disabled) {
+		cursor: pointer;
+	}
+
+	::selection {
+		background: color-mix(in oklab, var(--color-primary) 28%, transparent);
+	}
+}
+
+/* Icons: square caps and mitred joins, like every other edge here (docs/icons.md). */
+.lucide {
+	stroke-linecap: square;
+	stroke-linejoin: miter;
+}
+
+/* The one uppercase style: section labels in a nav, a stat's name, a table head. */
+.label {
+	font-size: 0.75rem;
+	line-height: 1rem;
+	font-weight: 600;
+	letter-spacing: 0.06em;
+	text-transform: uppercase;
+	color: var(--color-ink-muted);
+}
+
+/* Numbers that change in place line up and do not jitter. */
+.num {
+	font-family: var(--font-mono);
+	font-variant-numeric: tabular-nums;
+}

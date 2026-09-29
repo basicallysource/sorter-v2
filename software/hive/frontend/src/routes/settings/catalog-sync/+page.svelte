@@ -150,7 +150,7 @@
 		description="The Rebrickable and BrickLink catalog. A sync picks up where it stopped: if the server restarts during one, start the same one again."
 	/>
 
-	{#if error}<Alert tone="danger">{error}</Alert>{/if}
+	{#if error}<Alert tone="danger" class="wrap-anywhere">{error}</Alert>{/if}
 	{#if actionError}<Alert tone="danger">{actionError}</Alert>{/if}
 
 	{#if loading && !status}
@@ -198,7 +198,7 @@
 						</div>
 					{/if}
 					{#if state.last_message}<p class="text-sm break-words text-ink">{state.last_message}</p>{/if}
-					{#if state.error && state.status !== 'running'}<Alert tone="danger">{state.error}</Alert>{/if}
+					{#if state.error && state.status !== 'running'}<Alert tone="danger" class="wrap-anywhere">{state.error}</Alert>{/if}
 					<div class="flex flex-wrap gap-x-6 gap-y-1 text-sm text-ink-muted">
 						{#if state.cached_count !== null}
 							<span>Cached <span class="num text-ink">{state.cached_count}</span></span>

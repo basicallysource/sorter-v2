@@ -76,8 +76,12 @@
 		if (sorted.length === 0) return [] as { x: number; label: string; anchor: string }[];
 		const ticks = [{ x: xOf(sorted[0].date), label: formatDayLabel(sorted[0].date), anchor: 'start' }];
 		if (sorted.length > 2) {
+			// The middle day only where it clears both ends: the days are not spread evenly.
 			const mid = sorted[Math.floor(sorted.length / 2)];
-			ticks.push({ x: xOf(mid.date), label: formatDayLabel(mid.date), anchor: 'middle' });
+			const midX = xOf(mid.date);
+			if (midX - xOf(sorted[0].date) > 72 && xOf(sorted[sorted.length - 1].date) - midX > 72) {
+				ticks.push({ x: midX, label: formatDayLabel(mid.date), anchor: 'middle' });
+			}
 		}
 		if (sorted.length > 1) {
 			const last = sorted[sorted.length - 1];

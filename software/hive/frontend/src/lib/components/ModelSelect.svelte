@@ -123,7 +123,7 @@
 	id={listId}
 	popover="auto"
 	{ontoggle}
-	class="fixed inset-auto m-0 flex max-h-96 max-w-[calc(100vw-1rem)] flex-col overflow-hidden rounded-control border border-line bg-raised text-sm text-ink"
+	class="fixed inset-auto m-0 max-h-96 max-w-[calc(100vw-1rem)] flex-col overflow-hidden rounded-control border border-line bg-raised text-sm text-ink [&:popover-open]:flex"
 >
 	<div class="border-b border-line p-2">
 		<input

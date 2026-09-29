@@ -172,7 +172,7 @@
 						tone: overview.coverage.price_color_rows_mapped_to_rb > 0 ? ('ok' as const) : ('neutral' as const)
 					},
 					{
-						label: 'With LDraw geometry',
+						label: 'LDraw geometry',
 						value: overview.coverage.parts_with_ldraw_geometry,
 						tone: overview.coverage.parts_with_ldraw_geometry > 0 ? ('ok' as const) : ('neutral' as const)
 					}

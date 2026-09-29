@@ -97,6 +97,14 @@ Per-stepper TMC driver current settings. Omit to use firmware defaults. Keys are
 | `ihold` | int (0–31) | `4` | Hold current register value when the stepper is stopped. |
 | `ihold_delay` | int (0–15) | `8` | Delay (in clock cycles) before current ramps from irun to ihold after a move ends. |
 
+## `[stepper_spreadcycle]`
+
+Per-stepper TMC chopper mode. Keys are physical or canonical stepper names. StealthChop is the TMC2209 power-on default; machines that need more torque at speed can opt into SpreadCycle per stepper. The backend re-asserts the configured mode on every start — a chopper toggle made through the steppers API alone does not survive a restart.
+
+| Key | Type | Default | Description |
+|-----|------|---------|-------------|
+| `<stepper_name>` | bool | `false` | Set to true to start that driver in SpreadCycle (more torque at speed, more audible) instead of StealthChop. Example: `chute_stepper = true` |
+
 ## `[cameras]`
 
 Camera layout and device index assignments.

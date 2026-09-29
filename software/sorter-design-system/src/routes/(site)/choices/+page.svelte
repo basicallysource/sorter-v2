@@ -232,7 +232,7 @@
 							<div class="min-w-0">
 								<div class="flex items-center gap-2">
 									<span class="truncate text-sm font-medium text-ink">{option.name}</span>
-									{#if option.today}<Badge>Today</Badge>{/if}
+									{#if option.default}<Badge>Default</Badge>{/if}
 								</div>
 								{#if option.detail}<div class="truncate text-xs text-ink-muted">
 										{option.detail}

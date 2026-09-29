@@ -1,5 +1,7 @@
 <script lang="ts">
 	import ArrowRight from '@lucide/svelte/icons/arrow-right';
+	import Check from '@lucide/svelte/icons/check';
+	import ChevronUp from '@lucide/svelte/icons/chevron-up';
 	import PageHeader from '$lib/site/PageHeader.svelte';
 	import SiteSection from '$lib/site/SiteSection.svelte';
 	import Panel from '$lib/components/Panel.svelte';
@@ -22,26 +24,63 @@
 
 <SiteSection
 	title="Four planes"
-	lead="Everything on a screen sits on one of four planes, and a plane is told apart by its fill, never by an outline. That one idea replaces most of the borders an app would otherwise draw."
+	lead="Everything on a screen sits on one of four planes, and a plane is told apart by its fill, never by an outline or a shadow. That one idea replaces most of the borders an app would otherwise draw."
 >
-	<div class="relative">
-		<div class="label mb-3">1 · Canvas: the page, which this text sits on</div>
-		<div class="rounded-panel bg-surface p-5 sm:max-w-xl">
-			<div class="label mb-3">2 · Surface: a panel</div>
-			<p class="text-sm text-ink-muted">One job's worth of content. No border, no shadow.</p>
-			<div class="mt-4 rounded-control bg-well p-4">
-				<div class="label">3 · Well: sunk into the panel</div>
-				<p class="mt-1 text-sm text-ink-muted">A chart, a preview, an empty list.</p>
+	<div class="flex flex-col gap-3">
+		<div class="label">Canvas · the page, which this text sits on</div>
+		<div class="rounded-panel bg-surface p-5 sm:max-w-2xl">
+			<div class="flex items-start justify-between gap-4">
+				<div class="min-w-0">
+					<div class="label">Surface · a panel</div>
+					<p class="mt-1 text-sm text-ink-muted">
+						One job's worth of content. No border, no shadow.
+					</p>
+				</div>
+				<div class="relative w-44 shrink-0">
+					<div
+						class="flex h-(--size-control) items-center justify-between rounded-control border border-primary bg-field px-3 text-sm text-ink outline-2 -outline-offset-1 outline-primary"
+					>
+						September<ChevronUp size={16} class="text-ink-muted" />
+					</div>
+					<div
+						class="absolute inset-x-0 top-[calc(100%+4px)] z-10 rounded-control border border-line bg-raised p-1 text-sm"
+					>
+						<div class="label px-2 pt-1 pb-1.5">Raised · it floats</div>
+						{#each ['September', 'Bulk by color', 'Technic parts'] as option, i (option)}
+							<div
+								class="flex h-(--size-menu-item) items-center gap-2 rounded-item px-2 {i === 1
+									? 'bg-hover'
+									: ''}"
+							>
+								<Check size={16} class="shrink-0 text-primary-ink {i === 0 ? '' : 'invisible'}" />
+								<span class="truncate text-ink">{option}</span>
+							</div>
+						{/each}
+					</div>
+				</div>
+			</div>
+			<div class="mt-5 rounded-control bg-well p-4">
+				<div class="label">Well · sunk into the panel</div>
+				<svg
+					viewBox="0 0 100 24"
+					preserveAspectRatio="none"
+					class="mt-3 block h-16 w-full"
+					aria-hidden="true"
+				>
+					<polyline
+						points="0,18 12,16 24,17 36,11 48,12 60,7 72,9 84,5 100,6"
+						fill="none"
+						stroke="var(--primary)"
+						stroke-width="1.5"
+						vector-effect="non-scaling-stroke"
+					/>
+				</svg>
 			</div>
 		</div>
-		<div
-			class="mt-4 rounded-panel border border-line bg-raised p-4 sm:absolute sm:top-16 sm:right-0 sm:mt-0 sm:w-64 lg:right-8"
-		>
-			<div class="label">4 · Raised: it floats</div>
-			<p class="mt-1 text-sm text-ink-muted">
-				Popovers, menus, dialogs. The only plane with a line around it. Nothing has a shadow.
-			</p>
-		</div>
+		<p class="text-sm text-ink-muted sm:max-w-2xl">
+			The open list is the raised plane: it floats over the panel and the well with one line around
+			it, the only line here, and no shadow.
+		</p>
 	</div>
 </SiteSection>
 

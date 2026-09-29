@@ -36,7 +36,7 @@
 						value={choices.current[dimension.key]}
 						options={dimension.options.map((o) => ({
 							value: o.value,
-							label: `${o.letter} · ${o.name}${o.today ? ' (today)' : ''}`
+							label: `${o.letter} · ${o.name}${o.default ? ' (default)' : ''}`
 						}))}
 						onchange={(v) => choices.set(dimension.key, v)}
 					/>
@@ -59,7 +59,7 @@
 			</div>
 		{/each}
 		<div class="flex items-center justify-between gap-2">
-			<Button size="sm" variant="ghost" onclick={() => choices.reset()}>Back to today</Button>
+			<Button size="sm" variant="ghost" onclick={() => choices.reset()}>Back to defaults</Button>
 			<Button size="sm" href="/choices" icon={ArrowRight}>Compare them</Button>
 		</div>
 	</div>

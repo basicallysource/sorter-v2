@@ -11,7 +11,8 @@ export type Option = {
 	letter: string;
 	name: string;
 	detail?: string;
-	today?: boolean;
+	// The one the system uses when nothing is chosen.
+	default?: boolean;
 };
 
 export const dimensions: { key: Dimension; name: string; options: Option[] }[] = [
@@ -19,9 +20,9 @@ export const dimensions: { key: Dimension; name: string; options: Option[] }[] =
 		key: 'font',
 		name: 'Typeface',
 		options: [
-			{ value: 'a', letter: 'A', name: 'IBM Plex Sans', detail: 'with IBM Plex Mono', today: true },
+			{ value: 'a', letter: 'A', name: 'IBM Plex Sans', detail: 'with IBM Plex Mono' },
 			{ value: 'b', letter: 'B', name: 'Inter', detail: 'with JetBrains Mono' },
-			{ value: 'c', letter: 'C', name: 'Geist', detail: 'with Geist Mono' },
+			{ value: 'c', letter: 'C', name: 'Geist', detail: 'with Geist Mono', default: true },
 			{ value: 'd', letter: 'D', name: 'Instrument Sans', detail: 'with DM Mono' },
 			{ value: 'e', letter: 'E', name: 'Figtree', detail: 'with JetBrains Mono' },
 			{ value: 'f', letter: 'F', name: 'Public Sans', detail: 'with Roboto Mono' },
@@ -32,48 +33,50 @@ export const dimensions: { key: Dimension; name: string; options: Option[] }[] =
 		key: 'labels',
 		name: 'Labels and numbers',
 		options: [
-			{ value: 'a', letter: 'A', name: 'Capitals, mono numbers', today: true },
+			{ value: 'a', letter: 'A', name: 'Capitals, mono numbers' },
 			{ value: 'b', letter: 'B', name: "Capitals, the typeface's numbers" },
-			{ value: 'c', letter: 'C', name: "Sentence case, the typeface's numbers" }
+			{ value: 'c', letter: 'C', name: "Sentence case, the typeface's numbers", default: true }
 		]
 	},
 	{
 		key: 'corners',
 		name: 'Corners',
 		options: [
-			{ value: '0', letter: 'A', name: 'Square', today: true },
-			{ value: '4', letter: 'B', name: '4px' },
-			{ value: '6', letter: 'C', name: '6px' },
-			{ value: '8', letter: 'D', name: '8px' },
-			{ value: 'pill', letter: 'E', name: 'Pill buttons', detail: '8px elsewhere' }
+			{ value: '0', letter: 'A', name: 'Square', default: true },
+			{ value: '1', letter: 'B', name: '1px' },
+			{ value: '2', letter: 'C', name: '2px' },
+			{ value: '4', letter: 'D', name: '4px' },
+			{ value: '6', letter: 'E', name: '6px' },
+			{ value: '8', letter: 'F', name: '8px' },
+			{ value: 'pill', letter: 'G', name: 'Pill buttons', detail: '8px elsewhere' }
 		]
 	},
 	{
 		key: 'buttons',
 		name: 'Buttons',
 		options: [
-			{ value: 'a', letter: 'A', name: 'Solid primary, outlined secondary', today: true },
+			{ value: 'a', letter: 'A', name: 'Solid primary, outlined secondary' },
 			{ value: 'b', letter: 'B', name: 'Solid primary, soft secondary' },
 			{ value: 'c', letter: 'C', name: 'Ink primary, soft secondary' },
 			{ value: 'd', letter: 'D', name: 'Outlined' },
-			{ value: 'e', letter: 'E', name: 'Tinted' }
+			{ value: 'e', letter: 'E', name: 'Tinted', default: true }
 		]
 	},
 	{
 		key: 'density',
 		name: 'Density',
 		options: [
-			{ value: 'compact', letter: 'A', name: 'Compact', detail: '36px controls', today: true },
+			{ value: 'compact', letter: 'A', name: 'Compact', detail: '36px controls', default: true },
 			{ value: 'roomy', letter: 'B', name: 'Roomy', detail: '40px controls' }
 		]
 	}
 ];
 
 const DEFAULTS: Record<Dimension, string> = {
-	font: 'a',
-	labels: 'a',
+	font: 'c',
+	labels: 'c',
 	corners: '0',
-	buttons: 'a',
+	buttons: 'e',
 	density: 'compact'
 };
 

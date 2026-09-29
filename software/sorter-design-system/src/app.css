@@ -185,12 +185,29 @@
 /* ------------------------------------------------------------ the buttons
    Five styles to choose from (Open). Each sets what the four variants of
    Button.svelte are drawn with. Declared with the modes, so a light or dark
-   subtree works them out from its own colors. */
+   subtree works them out from its own colors. The default is E, tinted. */
 
-/* A: a solid primary, an outlined secondary. */
+/* E: tints only; the primary is its own soft tint, nothing is solid. */
 :root,
 .light,
 .dark,
+[data-buttons='e'],
+[data-buttons='e'] :is(.light, .dark) {
+	--btn-primary-bg: var(--primary-soft);
+	--btn-primary-fg: var(--primary-ink);
+	--btn-primary-line: transparent;
+	--btn-primary-hover: var(--primary-tint-hover);
+	--btn-secondary-bg: var(--soft);
+	--btn-secondary-fg: var(--ink);
+	--btn-secondary-line: transparent;
+	--btn-secondary-hover: var(--soft-hover);
+	--btn-danger-bg: var(--danger-soft);
+	--btn-danger-fg: var(--danger-ink);
+	--btn-danger-line: transparent;
+	--btn-danger-hover: var(--danger-tint-hover);
+}
+
+/* A: a solid primary, an outlined secondary. */
 [data-buttons='a'],
 [data-buttons='a'] :is(.light, .dark) {
 	--btn-primary-bg: var(--primary);
@@ -259,25 +276,9 @@
 	--btn-danger-hover: var(--danger-soft);
 }
 
-/* E: tints only; the primary is its own soft tint, nothing is solid. */
-[data-buttons='e'],
-[data-buttons='e'] :is(.light, .dark) {
-	--btn-primary-bg: var(--primary-soft);
-	--btn-primary-fg: var(--primary-ink);
-	--btn-primary-line: transparent;
-	--btn-primary-hover: var(--primary-tint-hover);
-	--btn-secondary-bg: var(--soft);
-	--btn-secondary-fg: var(--ink);
-	--btn-secondary-line: transparent;
-	--btn-secondary-hover: var(--soft-hover);
-	--btn-danger-bg: var(--danger-soft);
-	--btn-danger-fg: var(--danger-ink);
-	--btn-danger-line: transparent;
-	--btn-danger-hover: var(--danger-tint-hover);
-}
-
 /* ---------------------------------------------------------------- corners
-   0 (square), 4, 6, 8, or pill (8 with round buttons and badges). */
+   0 (square, the default), 1, 2, 4, 6, 8, or pill (8 with round buttons
+   and badges). */
 
 :root,
 [data-corners='0'] {
@@ -289,6 +290,28 @@
 	--r-badge: 0px;
 	--r-check: 0px;
 	--r-radio: 0px;
+}
+
+[data-corners='1'] {
+	--r-panel: 1px;
+	--r-control: 1px;
+	--r-item: 1px;
+	--r-button: 1px;
+	--r-button-inner: 1px;
+	--r-badge: 1px;
+	--r-check: 1px;
+	--r-radio: 999px;
+}
+
+[data-corners='2'] {
+	--r-panel: 2px;
+	--r-control: 2px;
+	--r-item: 2px;
+	--r-button: 2px;
+	--r-button-inner: 1px;
+	--r-badge: 2px;
+	--r-check: 2px;
+	--r-radio: 999px;
 }
 
 [data-corners='4'] {
@@ -382,9 +405,15 @@
 
 /* ------------------------------------------------------------------- type
    Each typeface with its mono partner (src/routes/+layout.svelte loads the
-   files; a browser only downloads the one in use). */
+   files; a browser only downloads the one in use). The default is C,
+   Geist with Geist Mono. In each group the default (with :root) comes
+   first, so an attribute on <html> overrides it. */
 
 :root,
+[data-font='c'] {
+	--sans: 'Geist Variable', system-ui, sans-serif;
+	--mono: 'Geist Mono Variable', ui-monospace, monospace;
+}
 [data-font='a'] {
 	--sans: 'IBM Plex Sans Variable', system-ui, sans-serif;
 	--mono: 'IBM Plex Mono', ui-monospace, monospace;
@@ -392,10 +421,6 @@
 [data-font='b'] {
 	--sans: 'Inter Variable', system-ui, sans-serif;
 	--mono: 'JetBrains Mono Variable', ui-monospace, monospace;
-}
-[data-font='c'] {
-	--sans: 'Geist Variable', system-ui, sans-serif;
-	--mono: 'Geist Mono Variable', ui-monospace, monospace;
 }
 [data-font='d'] {
 	--sans: 'Instrument Sans Variable', system-ui, sans-serif;
@@ -418,8 +443,17 @@
 }
 
 /* Labels and numbers: A capitals and mono numbers; B capitals and the
-   typeface's own tabular numbers; C sentence-case labels and tabular numbers. */
+   typeface's own tabular numbers; C (the default) sentence-case labels and
+   tabular numbers. */
 :root,
+[data-labels='c'] {
+	--label-size: 0.875rem;
+	--label-line: 1.25rem;
+	--label-weight: 500;
+	--label-tracking: 0;
+	--label-case: none;
+	--num-font: var(--sans);
+}
 [data-labels='a'] {
 	--label-size: 0.75rem;
 	--label-line: 1rem;
@@ -434,14 +468,6 @@
 	--label-weight: 600;
 	--label-tracking: 0.06em;
 	--label-case: uppercase;
-	--num-font: var(--sans);
-}
-[data-labels='c'] {
-	--label-size: 0.875rem;
-	--label-line: 1.25rem;
-	--label-weight: 500;
-	--label-tracking: 0;
-	--label-case: none;
 	--num-font: var(--sans);
 }
 
@@ -486,13 +512,14 @@
 	}
 }
 
-/* Icons: square caps and mitred joins at 0 corners, round with any other
-   corner choice, so an icon's ends match the rest of the edges. */
+/* Icons: square caps and mitred joins while the corners are square or
+   nearly (0 to 2px), round once they are rounded (4px and up), so an
+   icon's ends match the rest of the edges. */
 .lucide {
 	stroke-linecap: square;
 	stroke-linejoin: miter;
 }
-[data-corners]:not([data-corners='0']) .lucide {
+:is([data-corners='4'], [data-corners='6'], [data-corners='8'], [data-corners='pill']) .lucide {
 	stroke-linecap: round;
 	stroke-linejoin: round;
 }

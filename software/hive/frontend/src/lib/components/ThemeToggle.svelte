@@ -1,4 +1,6 @@
-<!-- Light or dark, remembered in this browser (src/lib/stores/theme.ts). -->
+<!-- Light or dark, remembered in this browser (src/lib/stores/theme.ts); the
+     Theme row of the account settings. Before a choice is stored, the page
+     follows the system's (src/app.html). -->
 <script lang="ts">
 	import Sun from '@lucide/svelte/icons/sun';
 	import Moon from '@lucide/svelte/icons/moon';
@@ -9,7 +11,6 @@
 <SegmentedControl
 	label="Mode"
 	size="sm"
-	labelClass="max-sm:sr-only"
 	value={$theme}
 	onchange={(mode: Theme) => theme.setTheme(mode)}
 	options={[

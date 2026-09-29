@@ -6,7 +6,6 @@
 	import { goto } from '$app/navigation';
 	import { page } from '$app/state';
 	import Spinner from '$lib/components/Spinner.svelte';
-	import ThemeToggle from '$lib/components/ThemeToggle.svelte';
 	import TopBar from '$lib/components/TopBar.svelte';
 	import Wordmark from '$lib/components/Wordmark.svelte';
 	import Menu from '$lib/components/Menu.svelte';
@@ -102,7 +101,6 @@
 		<TopBar items={navLinks}>
 			{#snippet brand()}<Wordmark name="Hive" />{/snippet}
 			{#snippet end()}
-				<ThemeToggle />
 				<Menu label="Account" items={userMenu}>
 					{#snippet trigger(props)}
 						<Button {...props} variant="ghost" size="sm" icon={User}>

@@ -13,6 +13,14 @@
 	import Alert from '$lib/components/Alert.svelte';
 	import { auth } from '$lib/auth.svelte';
 	import Star from '@lucide/svelte/icons/star';
+	import ArrowLeft from '@lucide/svelte/icons/arrow-left';
+	import Download from '@lucide/svelte/icons/download';
+	import { sentence } from '$lib/text';
+	import Button from '$lib/components/Button.svelte';
+	import Checkbox from '$lib/components/Checkbox.svelte';
+	import Panel from '$lib/components/Panel.svelte';
+	import ProgressBar from '$lib/components/ProgressBar.svelte';
+	import Stat from '$lib/components/Stat.svelte';
 
 	let model = $state<DetectionModelDetail | null>(null);
 	let loading = $state(true);
@@ -135,7 +143,7 @@
 	});
 
 	function formatPct(v: number | null): string {
-		return v === null ? '—' : v.toFixed(3);
+		return v === null ? '-' : v.toFixed(3);
 	}
 
 	function formatSize(bytes: number): string {
@@ -175,26 +183,13 @@
 		return model ? api.modelVariantDownloadUrl(model.id, variantId) : '#';
 	}
 
-	// Color accent per runtime so the download tiles read at a glance.
-	const runtimeAccent: Record<string, string> = {
-		onnx: 'var(--info)',
-		ncnn: 'var(--success)',
-		pytorch: 'var(--primary)',
-		rknn: '#9333EA',  // purple — Rockchip / Orange Pi
-		hailo: 'var(--warning)',
-		tflite: 'var(--warning)'
-	};
-
-	function variantAccent(variant: DetectionModelVariant): string {
-		return runtimeAccent[variant.runtime.toLowerCase()] ?? 'var(--ink-muted)';
-	}
 
 	// Short hint of where each runtime usually deploys, shown under the runtime label.
 	const runtimeTarget: Record<string, string> = {
-		onnx: 'Universal · CPU/GPU/Edge',
-		ncnn: 'Mobile · ARM CPU',
-		pytorch: 'Reference · GPU',
-		rknn: 'Orange Pi 5 · RK3588 NPU',
+		onnx: 'Anywhere: CPU, GPU or edge',
+		ncnn: 'ARM processors',
+		pytorch: 'The reference, on a GPU',
+		rknn: 'Orange Pi 5, the RK3588 NPU',
 		hailo: 'Hailo-8 NPU',
 		tflite: 'TensorFlow Lite'
 	};
@@ -218,240 +213,174 @@
 	}
 </script>
 
-<div class="space-y-4">
-	<a href="/models" class="inline-flex items-center gap-1 text-sm text-ink-muted hover:text-ink">← Back to models</a>
+<svelte:head>
+	<title>{model ? (model.codename ?? model.name) : 'Model'} - Hive</title>
+</svelte:head>
 
-	{#if loading}
-		<div class="flex justify-center py-12"><Spinner size={32} /></div>
-	{:else if error}
-		<div class="border border-primary bg-primary-soft p-3 text-sm text-primary-ink">{error}</div>
-	{:else if model}
-		<!-- Hero — same DNA as ModelCard but bigger -->
-		<div class="border border-line bg-surface">
-			<!-- items-stretch + aspect-square on the swatch makes its height auto-match the
-				 text block's natural height (codename H1 + slug + name = ~3 lines) so the
-				 dot reads as a hero element proportional to its label. -->
-			<div class="flex flex-wrap items-stretch gap-4 border-b border-line px-4 py-4 sm:flex-nowrap sm:px-5">
-				{#if model.codename_color}
-					<div class="flex shrink-0 items-center">
-						<span
-							class="block aspect-square w-20 rounded-full border border-line"
-							style="background-color: {model.codename_color}"
-							aria-hidden="true"
-						></span>
-					</div>
-				{/if}
-				<div class="min-w-0 flex-1 self-center">
-					{#if model.codename}
-						<h1 class="text-3xl font-bold leading-tight tracking-tight text-ink">{model.codename}</h1>
-					{:else}
-						<h1 class="text-2xl font-semibold tracking-tight text-ink">{model.name}</h1>
-					{/if}
-					<p class="mt-1 font-mono text-xs text-ink-muted">
-						{model.slug} · v{model.version} · {relativeTime(model.published_at)}
-					</p>
-					{#if model.codename && model.name}
-						<p class="mt-0.5 text-sm text-ink-muted">{model.name}</p>
-					{/if}
+<div class="mb-(--gap-panels)">
+	<Button href="/models" size="sm" variant="ghost" icon={ArrowLeft}>Models</Button>
+</div>
+
+{#if loading}
+	<div class="flex justify-center py-12"><Spinner size={32} /></div>
+{:else if error}
+	<Alert tone="danger">{error}</Alert>
+{:else if model}
+	<div class="flex flex-col gap-(--gap-panels)">
+		<header class="flex flex-wrap items-center gap-4">
+			{#if model.codename_color}
+				<span class="size-16 shrink-0 rounded-full" style="background-color: {model.codename_color}" aria-hidden="true"
+				></span>
+			{/if}
+			<div class="min-w-0 flex-1">
+				<div class="flex flex-wrap items-center gap-2">
+					<h1 class="text-2xl font-semibold text-ink">{model.codename ?? model.name}</h1>
+					<Badge tone={model.experimental ? 'warning' : 'success'}>{model.experimental ? 'Experimental' : 'Stable'}</Badge>
+					{#if !model.is_public}<Badge>Private</Badge>{/if}
 				</div>
-				<div class="flex shrink-0 flex-col items-end gap-1 self-start">
-					{#if model.experimental}
-						<Badge tone="warning">Experimental</Badge>
-					{:else}
-						<Badge tone="success">Stable</Badge>
-					{/if}
-					{#if !model.is_public}
-						<span class="border border-line bg-well px-2 py-0.5 text-xs uppercase tracking-wider text-ink-muted">Private</span>
-					{/if}
-				</div>
+				<p class="mt-1 text-sm text-ink-muted">
+					<span class="font-mono">{model.slug}</span>, v{model.version}, {relativeTime(model.published_at)}
+				</p>
+				{#if model.codename && model.name}<p class="mt-0.5 text-sm text-ink-muted">{model.name}</p>{/if}
 			</div>
+		</header>
 
-			<!-- Metric pills — 4 columns including Precision, since the detail page has room -->
-			{#if map50 !== null || map50_95 !== null || precision !== null || recall !== null}
-				<div class="grid grid-cols-2 gap-px border-b border-line bg-border sm:grid-cols-4">
-					<div class="bg-surface px-4 py-3">
-						<div class="text-xs uppercase tracking-wider text-ink-muted">mAP50</div>
-						<div class="font-mono text-lg font-semibold text-ink">{formatPct(map50)}</div>
-					</div>
-					<div class="bg-surface px-4 py-3">
-						<div class="text-xs uppercase tracking-wider text-ink-muted">mAP50_95</div>
-						<div class="font-mono text-lg font-semibold text-ink">{formatPct(map50_95)}</div>
-					</div>
-					<div class="bg-surface px-4 py-3">
-						<div class="text-xs uppercase tracking-wider text-ink-muted">Precision</div>
-						<div class="font-mono text-lg font-semibold text-ink">{formatPct(precision)}</div>
-					</div>
-					<div class="bg-surface px-4 py-3">
-						<div class="text-xs uppercase tracking-wider text-ink-muted">Recall</div>
-						<div class="font-mono text-lg font-semibold text-ink">{formatPct(recall)}</div>
-					</div>
+		{#if map50 !== null || map50_95 !== null || precision !== null || recall !== null || arch || imgsz || samples !== null || diversityScore !== null}
+			<section aria-label="Numbers" class="grid grid-cols-2 gap-px overflow-hidden rounded-panel bg-line sm:grid-cols-4">
+				<div class="bg-surface"><Stat label="mAP50" value={formatPct(map50)} /></div>
+				<div class="bg-surface"><Stat label="mAP50-95" value={formatPct(map50_95)} /></div>
+				<div class="bg-surface"><Stat label="Precision" value={formatPct(precision)} /></div>
+				<div class="bg-surface"><Stat label="Recall" value={formatPct(recall)} /></div>
+				<div class="bg-surface">
+					<Stat
+						label="Model"
+						value={arch && imgsz ? `${arch} @ ${imgsz}` : (arch ?? (imgsz ? `${imgsz} x ${imgsz}` : '-'))}
+					/>
 				</div>
-			{/if}
-
-			<!-- Spec pills: Model / Samples / Diversity -->
-			{#if arch || imgsz || samples !== null || diversityScore !== null}
-				<div class="grid grid-cols-2 gap-px bg-border sm:grid-cols-3">
-					<div class="bg-surface px-4 py-3">
-						<div class="text-xs uppercase tracking-wider text-ink-muted">Model</div>
-						<div class="font-mono text-base font-semibold text-ink">
-							{#if arch && imgsz}{arch} @ {imgsz}
-							{:else if arch}{arch}
-							{:else if imgsz}{imgsz}×{imgsz}
-							{:else}—{/if}
-						</div>
-					</div>
-					<div class="bg-surface px-4 py-3">
-						<div class="text-xs uppercase tracking-wider text-ink-muted">Samples</div>
-						<div class="font-mono text-base font-semibold text-ink">
-							{samples !== null ? samples.toLocaleString() : '—'}
-						</div>
-					</div>
-					<div
-						class="bg-surface px-4 py-3"
-						title={machineCount !== null
-							? `Normalized Shannon entropy of per-machine sample shares across ${machineCount} rigs. 0 = single rig, 1.0 = perfect even split.`
-							: 'Normalized Shannon entropy of per-machine sample shares. 0 = single rig, 1.0 = perfect even split.'}
-					>
-						<div class="text-xs uppercase tracking-wider text-ink-muted">Diversity</div>
-						<div class="font-mono text-base font-semibold text-ink">
-							{diversityScore !== null ? diversityScore.toFixed(3) : '—'}
-						</div>
-					</div>
+				<div class="bg-surface">
+					<Stat label="Samples" value={samples !== null ? samples.toLocaleString() : '-'} />
 				</div>
-			{/if}
-		</div>
+				<div class="bg-surface sm:col-span-2">
+					<Stat
+						label="Diversity"
+						value={diversityScore !== null ? diversityScore.toFixed(3) : '-'}
+						hint={machineCount !== null
+							? `How evenly the samples come from ${machineCount} machines: 0 is one machine, 1 an even split.`
+							: 'How evenly the samples come from different machines: 0 is one machine, 1 an even split.'}
+					/>
+				</div>
+			</section>
+		{/if}
 
-		<!-- Downloads — one visible tile per variant. No dropdown -->
 		{#if model.variants.length > 0}
-			<section class="border border-line bg-surface">
-				<div class="flex items-baseline justify-between border-b border-line px-5 py-3">
-					<h2 class="text-sm font-semibold uppercase tracking-wider text-ink-muted">Downloads</h2>
-					<span class="text-xs text-ink-muted">{model.variants.length} variant{model.variants.length === 1 ? '' : 's'}</span>
-				</div>
+			<Panel title="Downloads" flush>
+				{#snippet actions()}
+					<span class="num text-sm text-ink-muted"
+						>{model!.variants.length} variant{model!.variants.length === 1 ? '' : 's'}</span
+					>
+				{/snippet}
 				{#if defaultError}
-					<div class="border-b border-line p-3"><Alert tone="danger">{defaultError}</Alert></div>
+					<div class="px-(--pad-panel) pb-3"><Alert tone="danger">{defaultError}</Alert></div>
 				{/if}
-				<div class="grid grid-cols-1 gap-px bg-border sm:grid-cols-2 lg:grid-cols-4">
+				<div class="grid grid-cols-1 gap-px border-t border-line bg-line sm:grid-cols-2 lg:grid-cols-4">
 					{#each model.variants as variant (variant.id)}
 						{@const isDefault = model.default_for.includes(variant.runtime)}
-						<div class="relative flex flex-col bg-surface">
-							<span class="absolute inset-y-0 left-0 w-1" style="background-color: {variantAccent(variant)};"></span>
+						<div class="flex flex-col bg-surface">
 							<a
 								href={downloadUrl(variant.id)}
-								class="group block flex-1 p-4 transition-colors hover:bg-hover"
+								class="flex flex-1 flex-col gap-1 p-4 transition-colors hover:bg-hover"
 								download={downloadFilename(variant)}
 							>
-								<div class="pl-3">
-									<div class="flex items-baseline justify-between gap-2">
-										<span class="font-mono text-sm font-bold uppercase tracking-wider" style="color: {variantAccent(variant)};">
-											{variant.runtime}
-										</span>
-										<span class="text-xs tabular-nums text-ink-muted">{formatSize(variant.file_size)}</span>
-									</div>
-									{#if runtimeTarget[variant.runtime.toLowerCase()]}
-										<p class="mt-0.5 text-xs text-ink-muted">{runtimeTarget[variant.runtime.toLowerCase()]}</p>
-									{/if}
-									<div class="mt-2 truncate font-mono text-xs text-ink" title={downloadFilename(variant)}>
-										{downloadFilename(variant)}
-									</div>
-									<div class="mt-0.5 font-mono text-xs text-ink-muted" title={variant.sha256}>
-										sha256 {variant.sha256.slice(0, 12)}…
-									</div>
-								</div>
+								<span class="flex items-baseline justify-between gap-2">
+									<span class="flex items-center gap-2 font-medium text-ink">
+										<Download size={16} class="shrink-0 text-ink-muted" />{variant.runtime}
+									</span>
+									<span class="num text-sm text-ink-muted">{formatSize(variant.file_size)}</span>
+								</span>
+								{#if runtimeTarget[variant.runtime.toLowerCase()]}
+									<span class="text-sm text-ink-muted">{runtimeTarget[variant.runtime.toLowerCase()]}</span>
+								{/if}
+								<span class="mt-1 truncate font-mono text-sm text-ink" title={downloadFilename(variant)}
+									>{downloadFilename(variant)}</span
+								>
+								<span class="font-mono text-sm text-ink-faint" title={variant.sha256}
+									>sha256 {variant.sha256.slice(0, 12)}...</span
+								>
 							</a>
 							{#if auth.isAdmin}
-								<label
-									class="flex items-center gap-2 border-t border-line py-2 pr-4 pl-7 text-xs {isDefault
-										? 'font-medium text-success-ink'
-										: 'text-ink-muted'} {model.is_public ? 'cursor-pointer' : 'cursor-not-allowed'}"
-									title={model.is_public
-										? undefined
-										: 'Only a public model can be a default: installs fetch it without signing in'}
+								<div
+									class="flex items-center gap-2 border-t border-line px-4 py-2 text-sm"
+									title={model.is_public ? undefined : 'Only a public model can be a default: installs fetch it without signing in.'}
 								>
-									<input
-										type="checkbox"
-										class="accent-success"
+									<Checkbox
 										checked={isDefault}
 										disabled={!model.is_public || savingDefault !== null}
-										onchange={(e) => toggleDefault(variant, e.currentTarget)}
-									/>
-									Default for new {variant.runtime} installs
-									{#if savingDefault === variant.runtime}
-										<Spinner size={12} />
-									{:else if isDefault}
-										<Star size={12} />
-									{/if}
-								</label>
+										onchange={(e) => toggleDefault(variant, e.currentTarget as HTMLInputElement)}
+										>Default for new {variant.runtime} installs</Checkbox
+									>
+									{#if savingDefault === variant.runtime}<Spinner size={12} />{/if}
+								</div>
 							{:else if isDefault}
-								<div class="flex items-center gap-2 border-t border-line py-2 pr-4 pl-7 text-xs font-medium text-success-ink">
-									<Star size={12} />Default for new {variant.runtime} installs
+								<div class="flex items-center gap-2 border-t border-line px-4 py-2 text-sm text-success-ink">
+									<Star size={14} />Default for new {variant.runtime} installs
 								</div>
 							{/if}
 						</div>
 					{/each}
 				</div>
-			</section>
+			</Panel>
 		{/if}
 
-		<!-- Description + scopes — secondary detail, collapse to single line -->
 		{#if model.description || (model.scopes && model.scopes.length > 0)}
-			<section class="border border-line bg-surface p-4">
-				{#if model.description}
-					<p class="text-sm text-ink">{model.description}</p>
-				{/if}
+			<Panel>
+				{#if model.description}<p class="text-sm text-ink">{model.description}</p>{/if}
 				{#if model.scopes && model.scopes.length > 0}
-					<div class="mt-3 flex flex-wrap items-center gap-1">
-						<span class="text-xs uppercase tracking-wider text-ink-muted">Scopes:</span>
-						{#each model.scopes as scope (scope)}
-							<span class="border border-line bg-well px-1.5 py-0.5 font-mono text-xs text-ink">{scope}</span>
-						{/each}
+					<div class="mt-3 flex flex-wrap items-center gap-1.5">
+						<span class="text-sm text-ink-muted">Scopes</span>
+						{#each model.scopes as scope (scope)}<Badge>{sentence(scope)}</Badge>{/each}
 					</div>
 				{/if}
-			</section>
+			</Panel>
 		{/if}
 
-		<!-- Machines in the dataset — structured per-sample recording when present,
-			 else derived from the training_metadata blob -->
 		{#if machineRows.length > 0}
-			<section class="border border-line bg-surface">
-				<div class="flex items-baseline justify-between border-b border-line px-5 py-3">
-					<h2 class="text-sm font-semibold uppercase tracking-wider text-ink-muted">Dataset machines</h2>
-					<span class="text-xs text-ink-muted">
-						{machineRows.length} machine{machineRows.length === 1 ? '' : 's'}{#if datasetRecorded > 0}&nbsp;· {datasetRecorded.toLocaleString()} samples recorded{/if}
-					</span>
-				</div>
+			<Panel
+				title="Dataset machines"
+				description={datasetRecorded === 0
+					? 'From the training metadata: this model is older than per-sample dataset records.'
+					: undefined}
+				flush
+			>
+				{#snippet actions()}
+					<span class="num text-sm text-ink-muted"
+						>{machineRows.length} machine{machineRows.length === 1 ? '' : 's'}{#if datasetRecorded > 0}, {datasetRecorded.toLocaleString()}
+							samples recorded{/if}</span
+					>
+				{/snippet}
 				<div class="overflow-x-auto">
-					<table class="w-full text-sm">
+					<table class="data-table">
 						<thead>
-							<tr class="border-b border-line text-left text-xs uppercase tracking-wider text-ink-muted">
-								<th class="px-5 py-2 font-medium">Machine</th>
-								<th class="px-3 py-2 text-right font-medium">Train</th>
-								<th class="px-3 py-2 text-right font-medium">Val</th>
-								<th class="px-3 py-2 text-right font-medium">Total</th>
-								<th class="w-1/3 px-5 py-2 font-medium">Share</th>
+							<tr>
+								<th>Machine</th>
+								<th class="num">Train</th>
+								<th class="num">Validation</th>
+								<th class="num">Total</th>
+								<th class="w-1/3">Share</th>
 							</tr>
 						</thead>
 						<tbody>
 							{#each machineRows as row (row.name)}
-								<tr class="border-b border-line last:border-b-0">
-									<td class="px-5 py-2 text-ink">{row.name}</td>
-									<td class="px-3 py-2 text-right font-mono tabular-nums text-ink-muted">
-										{row.train !== null ? row.train.toLocaleString() : '—'}
-									</td>
-									<td class="px-3 py-2 text-right font-mono tabular-nums text-ink-muted">
-										{row.val !== null ? row.val.toLocaleString() : '—'}
-									</td>
-									<td class="px-3 py-2 text-right font-mono font-semibold tabular-nums text-ink">
-										{row.total.toLocaleString()}
-									</td>
-									<td class="px-5 py-2">
+								<tr>
+									<td>{row.name}</td>
+									<td class="num text-ink-muted">{row.train !== null ? row.train.toLocaleString() : '-'}</td>
+									<td class="num text-ink-muted">{row.val !== null ? row.val.toLocaleString() : '-'}</td>
+									<td class="num font-medium">{row.total.toLocaleString()}</td>
+									<td>
 										<div class="flex items-center gap-2">
-											<div class="h-1.5 flex-1 bg-well">
-												<div class="h-full bg-primary" style="width: {(row.share * 100).toFixed(1)}%"></div>
+											<div class="flex-1">
+												<ProgressBar label={`${row.name} share`} value={row.share * 100} />
 											</div>
-											<span class="w-12 text-right font-mono text-xs tabular-nums text-ink-muted">
-												{(row.share * 100).toFixed(1)}%
-											</span>
+											<span class="num w-14 text-right text-ink-muted">{(row.share * 100).toFixed(1)}%</span>
 										</div>
 									</td>
 								</tr>
@@ -459,17 +388,11 @@
 						</tbody>
 					</table>
 				</div>
-				{#if datasetRecorded === 0}
-					<p class="border-t border-line px-5 py-2 text-xs text-ink-muted">
-						From training metadata — this model predates per-sample dataset recording.
-					</p>
-				{/if}
-			</section>
+			</Panel>
 		{/if}
 
-		<!-- Deep-dive training report (existing component, untouched) -->
 		{#if model.training_metadata}
 			<ModelTrainingReport metadata={model.training_metadata} />
 		{/if}
-	{/if}
-</div>
+	</div>
+{/if}

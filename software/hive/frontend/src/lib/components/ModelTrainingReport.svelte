@@ -1,4 +1,7 @@
 <script lang="ts">
+	import { sentence } from '$lib/text';
+	import Disclosure from '$lib/components/Disclosure.svelte';
+	import Panel from '$lib/components/Panel.svelte';
 	interface Props {
 		metadata: Record<string, unknown>;
 	}
@@ -125,26 +128,25 @@
 
 	const totalSelected = $derived(sourceData.reduce((acc, row) => acc + (numberValue(row.selected) ?? 0), 0));
 
+	// A score's bar and its number: the status tones, solid, on a track.
 	function gaugeColor(value: number): string {
-		const base =
-			value >= 85 ? 'var(--success)'
-			: value >= 70 ? 'var(--info)'
-			: value >= 50 ? 'var(--warning)'
-			: 'var(--primary)';
-		return `color-mix(in srgb, ${base} 55%, transparent)`;
+		return value >= 85 ? 'var(--success)' : value >= 70 ? 'var(--info)' : value >= 50 ? 'var(--warning)' : 'var(--danger)';
 	}
 
 	function gaugeText(value: number): string {
-		if (value >= 85) return 'var(--success)';
-		if (value >= 70) return 'var(--info)';
-		if (value >= 50) return 'var(--warning)';
-		return 'var(--primary)';
+		return value >= 85
+			? 'var(--success-ink)'
+			: value >= 70
+				? 'var(--info-ink)'
+				: value >= 50
+					? 'var(--warning-ink)'
+					: 'var(--danger-ink)';
 	}
 
-	const softInfo = 'color-mix(in srgb, var(--info) 55%, transparent)';
-	const softSuccess = 'color-mix(in srgb, var(--success) 55%, transparent)';
-	const softPrimary = 'color-mix(in srgb, var(--primary) 55%, transparent)';
-	const softWarning = 'color-mix(in srgb, var(--warning) 70%, transparent)';
+	const softInfo = 'var(--info)';
+	const softSuccess = 'var(--success)';
+	const softPrimary = 'var(--primary)';
+	const softWarning = 'var(--warning)';
 
 	type Metric = {
 		label: string;
@@ -299,347 +301,297 @@
 	const showSpectrum = $derived(spectrumPrimary.length > 0);
 	const showCoverage = $derived(coverageRows.length > 0);
 	const heroGridClass = $derived(
-		heroMetrics.length >= 4 ? 'grid grid-cols-2 gap-3 lg:grid-cols-4'
-		: heroMetrics.length === 3 ? 'grid grid-cols-1 gap-3 sm:grid-cols-3'
-		: heroMetrics.length === 2 ? 'grid grid-cols-1 gap-3 sm:grid-cols-2'
-		: 'grid grid-cols-1 gap-3'
+		heroMetrics.length >= 4 ? 'grid grid-cols-2 lg:grid-cols-4'
+		: heroMetrics.length === 3 ? 'grid grid-cols-1 sm:grid-cols-3'
+		: heroMetrics.length === 2 ? 'grid grid-cols-1 sm:grid-cols-2'
+		: 'grid grid-cols-1'
 	);
 </script>
 
-<div class="space-y-8">
+{#snippet bar(percent: number, color: string, height = 'h-2')}
+	<div class="{height} w-full overflow-hidden rounded-badge bg-track">
+		<div class="h-full" style={`width: ${percent}%; background: ${color};`}></div>
+	</div>
+{/snippet}
+
+<div class="flex flex-col gap-(--gap-panels)">
 	{#if heroMetrics.length > 0}
-		<section>
-			<div class={heroGridClass}>
-				{#each heroMetrics as metric (metric.label)}
-					<div class="relative overflow-hidden border border-line bg-surface p-4">
-						<div class="text-xs font-medium uppercase tracking-wider text-ink-muted">{metric.label}</div>
-						<div class="mt-2 text-3xl font-semibold tabular-nums text-ink">{metric.value}</div>
-						<div class="mt-1 text-xs text-ink-muted">{metric.caption}</div>
-						<div class="mt-3 h-1.5 w-full bg-well">
-							<div class="h-1.5" style={`width: ${metric.percent}%; background: ${metric.accent};`}></div>
-						</div>
-					</div>
-				{/each}
-			</div>
+		<section aria-label="Headline numbers" class="{heroGridClass} gap-px overflow-hidden rounded-panel bg-line">
+			{#each heroMetrics as metric (metric.label)}
+				<div class="flex flex-col gap-1 bg-surface p-4">
+					<div class="text-sm text-ink-muted">{metric.label}</div>
+					<div class="num text-2xl font-medium text-ink">{metric.value}</div>
+					<div class="text-sm text-ink-muted">{metric.caption}</div>
+					<div class="mt-2">{@render bar(metric.percent, metric.accent, 'h-1.5')}</div>
+				</div>
+			{/each}
 		</section>
 	{/if}
 
 	{#if setupChips.length > 0}
-		<section>
-			<div class="border border-line bg-surface px-4 py-3">
-				<div class="flex flex-wrap gap-x-5 gap-y-2">
-					{#each setupChips as chip (chip.label)}
-						<div class="flex items-baseline gap-1.5">
-							<span class="text-xs uppercase tracking-wider text-ink-muted">{chip.label}</span>
-							<span class={`text-sm text-ink ${chip.mono ? 'font-mono' : ''}`}>{chip.value}</span>
-						</div>
-					{/each}
-				</div>
-			</div>
-		</section>
+		<Panel>
+			<dl class="flex flex-wrap gap-x-6 gap-y-2">
+				{#each setupChips as chip (chip.label)}
+					<div class="flex items-baseline gap-1.5">
+						<dt class="text-sm text-ink-muted">{sentence(chip.label)}</dt>
+						<dd class="text-sm text-ink {chip.mono ? 'font-mono' : ''}">{chip.value}</dd>
+					</div>
+				{/each}
+			</dl>
+		</Panel>
 	{/if}
 
 	{#if showAudit}
-		<section>
-			<div class="mb-3 flex items-baseline justify-between gap-3">
-				<h2 class="text-sm font-semibold uppercase tracking-wide text-ink">Detection Quality</h2>
-				<span class="text-xs text-ink-muted">
-					{int(auditManifest.sample_count)} images · {int(auditManifest.positive_holdout_count)} pos · {int(auditManifest.empty_holdout_count)} empty
-				</span>
+		<Panel
+			title="Detection quality"
+			description={`${int(auditManifest.sample_count)} images: ${int(auditManifest.positive_holdout_count)} with pieces, ${int(auditManifest.empty_holdout_count)} empty.`}
+		>
+			<div class="mb-4 flex flex-wrap items-center gap-4 text-sm text-ink-muted">
+				<span class="flex items-center gap-1.5"><span class="size-2.5 rounded-full" style={`background: ${softInfo}`}></span>Precision</span>
+				<span class="flex items-center gap-1.5"><span class="size-2.5 rounded-full" style={`background: ${softSuccess}`}></span>Recall</span>
+				<span class="flex items-center gap-1.5"><span class="size-2.5 rounded-full" style={`background: ${softPrimary}`}></span>F1</span>
 			</div>
-			<div class="border border-line bg-surface p-4">
-				<div class="mb-3 flex flex-wrap items-center gap-4 text-xs text-ink-muted">
-					<span class="flex items-center gap-1.5"><span class="inline-block h-2 w-4" style={`background: ${softInfo}`}></span>Precision</span>
-					<span class="flex items-center gap-1.5"><span class="inline-block h-2 w-4" style={`background: ${softSuccess}`}></span>Recall</span>
-					<span class="flex items-center gap-1.5"><span class="inline-block h-2 w-4" style={`background: ${softPrimary}`}></span>F1</span>
-				</div>
-				<div class="space-y-4">
-					{#each auditRows as row (row.threshold)}
-						<div>
-							<div class="mb-1.5 flex items-baseline justify-between gap-3">
-								<div class="text-xs font-mono text-ink-muted">conf ≥ {num(row.threshold, 2)}</div>
-								<div class="text-xs text-ink-muted">
-									Empty FP {int(row.empty_false_positive_samples)}/{int(row.empty_samples)} · IoU {num(row.matched_mean_iou, 3)}
-								</div>
-							</div>
-							<div class="grid grid-cols-[7rem_1fr_4rem] items-center gap-3">
-								<div class="text-xs text-ink-muted">Precision</div>
-								<div class="h-2.5 bg-well">
-									<div class="h-2.5" style={`width: ${((numberValue(row.precision_iou50) ?? 0) / auditMax) * 100}%; background: ${softInfo};`}></div>
-								</div>
-								<div class="text-right text-xs tabular-nums">{pct(row.precision_iou50)}</div>
-							</div>
-							<div class="mt-1 grid grid-cols-[7rem_1fr_4rem] items-center gap-3">
-								<div class="text-xs text-ink-muted">Recall</div>
-								<div class="h-2.5 bg-well">
-									<div class="h-2.5" style={`width: ${((numberValue(row.recall_iou50) ?? 0) / auditMax) * 100}%; background: ${softSuccess};`}></div>
-								</div>
-								<div class="text-right text-xs tabular-nums">{pct(row.recall_iou50)}</div>
-							</div>
-							<div class="mt-1 grid grid-cols-[7rem_1fr_4rem] items-center gap-3">
-								<div class="text-xs text-ink-muted">F1</div>
-								<div class="h-2.5 bg-well">
-									<div class="h-2.5" style={`width: ${((numberValue(row.f1_iou50) ?? 0) / auditMax) * 100}%; background: ${softPrimary};`}></div>
-								</div>
-								<div class="text-right text-xs tabular-nums">{num(row.f1_iou50)}</div>
-							</div>
+			<div class="flex flex-col gap-5">
+				{#each auditRows as row (row.threshold)}
+					<div>
+						<div class="mb-2 flex flex-wrap items-baseline justify-between gap-x-3 text-sm">
+							<span class="font-mono text-ink">Confidence {num(row.threshold, 2)} and up</span>
+							<span class="text-ink-muted"
+								>Empty false positives {int(row.empty_false_positive_samples)} of {int(row.empty_samples)}, IoU {num(
+									row.matched_mean_iou,
+									3
+								)}</span
+							>
 						</div>
-					{/each}
-				</div>
-			</div>
-		</section>
-	{/if}
-
-	{#if showSpectrum}
-		<section>
-			<div class="mb-3 flex items-baseline justify-between gap-3">
-				<h2 class="text-sm font-semibold uppercase tracking-wide text-ink">Count Accuracy by Piece Count</h2>
-				<span class="text-xs text-ink-muted">Within ±1 count · conf 0.25</span>
-			</div>
-			<div class="border border-line bg-surface p-4">
-				<div class="space-y-2">
-					{#each spectrumPrimary as row}
-						{@const accuracy = clampPct(row.within_1_count_rate)}
-						<div class="grid grid-cols-[3.5rem_1fr_3.5rem_4rem] items-center gap-2 text-sm sm:grid-cols-[5rem_1fr_4.5rem_5rem] sm:gap-3">
-							<div class="font-mono text-xs text-ink-muted">{textValue(row.gt_count_bin)} pc</div>
-							<div class="h-3 bg-well">
-								<div class="h-3" style={`width: ${accuracy}%; background: ${gaugeColor(accuracy)};`}></div>
+						{#each [
+							{ label: 'Precision', value: row.precision_iou50, color: softInfo, text: pct(row.precision_iou50) },
+							{ label: 'Recall', value: row.recall_iou50, color: softSuccess, text: pct(row.recall_iou50) },
+							{ label: 'F1', value: row.f1_iou50, color: softPrimary, text: num(row.f1_iou50) }
+						] as line (line.label)}
+							<div class="mt-1 grid grid-cols-[6rem_1fr_4rem] items-center gap-3 text-sm">
+								<span class="text-ink-muted">{line.label}</span>
+								{@render bar(((numberValue(line.value) ?? 0) / auditMax) * 100, line.color, 'h-2.5')}
+								<span class="num text-right text-ink">{line.text}</span>
 							</div>
-							<div class="text-right tabular-nums font-medium">{pct(row.within_1_count_rate)}</div>
-							<div class="text-right text-xs text-ink-muted">MAE {num(row.count_mae, 2)}</div>
-						</div>
-					{/each}
-				</div>
-			</div>
-		</section>
-	{/if}
-
-	{#if showInference}
-		<section>
-			<div class="mb-3 flex items-baseline justify-between gap-3">
-				<h2 class="text-sm font-semibold uppercase tracking-wide text-ink">Inference Performance</h2>
-				<span class="text-xs text-ink-muted">ONNX Runtime · imgsz {textValue(model.imgsz)}</span>
-			</div>
-			<div class="border border-line bg-surface">
-				<!-- The throughput bar is the first thing to go at mobile: five tracks
-				     need ~416px and the bar is decoration next to the numbers. -->
-				<div class="grid grid-cols-[1fr_3.5rem_3.5rem_3rem] items-center gap-2 border-b border-line bg-well px-4 py-2 text-xs uppercase tracking-wider text-ink-muted sm:grid-cols-[6rem_1fr_5rem_5rem_5rem] sm:gap-3">
-					<div>Provider</div>
-					<div class="hidden sm:block">Throughput</div>
-					<div class="text-right">Mean</div>
-					<div class="text-right">P95</div>
-					<div class="text-right">FPS</div>
-				</div>
-				{#each perfRows as row, i (row.name)}
-					{@const widthPct = ((row.fps ?? 0) / perfFpsMax) * 100}
-					<div class={`grid grid-cols-[1fr_3.5rem_3.5rem_3rem] items-center gap-2 px-4 py-2.5 sm:grid-cols-[6rem_1fr_5rem_5rem_5rem] sm:gap-3 ${i > 0 ? 'border-t border-line' : ''}`}>
-						<div class="font-mono text-xs uppercase tracking-wide text-ink">{row.name}</div>
-						<div class="hidden h-2 bg-well sm:block">
-							<div class="h-2" style={`width: ${widthPct}%; background: ${softInfo};`}></div>
-						</div>
-						<div class="text-right text-sm tabular-nums">{num(row.mean, 1)} ms</div>
-						<div class="text-right text-xs tabular-nums text-ink-muted">{num(row.p95, 1)} ms</div>
-						<div class="text-right text-sm font-medium tabular-nums">{int(row.fps)}</div>
+						{/each}
 					</div>
 				{/each}
 			</div>
-		</section>
+		</Panel>
+	{/if}
+
+	{#if showSpectrum}
+		<Panel title="Count accuracy by piece count" description="Within one piece of the true count, at confidence 0.25.">
+			<div class="flex flex-col gap-2">
+				{#each spectrumPrimary as row, i (i)}
+					{@const accuracy = clampPct(row.within_1_count_rate)}
+					<div class="grid grid-cols-[3.5rem_1fr_3.5rem_4.5rem] items-center gap-2 text-sm sm:grid-cols-[5rem_1fr_4.5rem_5rem] sm:gap-3">
+						<span class="num text-ink-muted">{textValue(row.gt_count_bin)} pieces</span>
+						{@render bar(accuracy, gaugeColor(accuracy), 'h-3')}
+						<span class="num text-right font-medium text-ink">{pct(row.within_1_count_rate)}</span>
+						<span class="num text-right text-ink-muted">MAE {num(row.count_mae, 2)}</span>
+					</div>
+				{/each}
+			</div>
+		</Panel>
+	{/if}
+
+	{#if showInference}
+		<Panel title="Inference speed" description={`ONNX Runtime at ${textValue(model.imgsz)} pixels.`} flush>
+			<div class="overflow-x-auto">
+				<table class="data-table">
+					<thead>
+						<tr>
+							<th>Provider</th>
+							<th class="hidden w-1/3 sm:table-cell">Throughput</th>
+							<th class="num">Mean</th>
+							<th class="num">p95</th>
+							<th class="num">Frames a second</th>
+						</tr>
+					</thead>
+					<tbody>
+						{#each perfRows as row (row.name)}
+							<tr>
+								<td class="font-mono">{row.name}</td>
+								<td class="hidden sm:table-cell">{@render bar(((row.fps ?? 0) / perfFpsMax) * 100, softInfo)}</td>
+								<td class="num">{num(row.mean, 1)} ms</td>
+								<td class="num text-ink-muted">{num(row.p95, 1)} ms</td>
+								<td class="num font-medium">{int(row.fps)}</td>
+							</tr>
+						{/each}
+					</tbody>
+				</table>
+			</div>
+		</Panel>
 	{/if}
 
 	{#if sourceData.length > 0 || pieceData.length > 0}
-		<section>
-			<div class="mb-3 flex items-baseline justify-between gap-3">
-				<h2 class="text-sm font-semibold uppercase tracking-wide text-ink">Dataset Composition</h2>
-				{#if totalSelected > 0}
-					<span class="text-xs text-ink-muted">{int(totalSelected)} selected samples</span>
-				{/if}
-			</div>
-			<div class="grid gap-4 lg:grid-cols-2">
-				{#if sourceData.length > 0}
-					<div class="border border-line bg-surface p-4">
-						<div class="mb-3 flex items-baseline justify-between gap-3">
-							<h3 class="text-sm font-semibold text-ink">Source Roles</h3>
-							<span class="text-xs text-ink-muted">{sourceData.length} {sourceData.length === 1 ? 'source' : 'sources'}</span>
-						</div>
-						<div class="space-y-2.5">
-							{#each sourceData as row}
-								{@const selected = numberValue(row.selected) ?? 0}
-								{@const width = (selected / sourceMax) * 100}
-								{@const share = totalSelected > 0 ? (selected / totalSelected) * 100 : 0}
-								<div>
-									<div class="mb-0.5 flex items-baseline justify-between gap-2">
-										<span class="font-mono text-xs text-ink">{textValue(row.role)}</span>
-										<span class="text-xs tabular-nums text-ink-muted">{int(row.selected)} · {share.toFixed(0)}%</span>
-									</div>
-									<div class="h-3 bg-well">
-										<div class="h-3" style={`width: ${width}%; background: ${softInfo};`}></div>
-									</div>
+		<div class="grid gap-(--gap-panels) lg:grid-cols-2">
+			{#if sourceData.length > 0}
+				<Panel
+					title="Source roles"
+					description={totalSelected > 0 ? `${int(totalSelected)} samples chosen for the dataset.` : undefined}
+				>
+					<div class="flex flex-col gap-3">
+						{#each sourceData as row, i (i)}
+							{@const selected = numberValue(row.selected) ?? 0}
+							<div>
+								<div class="mb-1 flex items-baseline justify-between gap-2 text-sm">
+									<span class="text-ink">{sentence(textValue(row.role))}</span>
+									<span class="num text-ink-muted"
+										>{int(row.selected)}, {(totalSelected > 0 ? (selected / totalSelected) * 100 : 0).toFixed(0)}%</span
+									>
 								</div>
-							{/each}
-						</div>
+								{@render bar((selected / sourceMax) * 100, softInfo, 'h-3')}
+							</div>
+						{/each}
 					</div>
-				{/if}
+				</Panel>
+			{/if}
 
-				{#if pieceData.length > 0}
-					<div class="border border-line bg-surface p-4">
-						<div class="mb-3 flex items-baseline justify-between gap-3">
-							<h3 class="text-sm font-semibold text-ink">Piece Count Buckets</h3>
-							<span class="text-xs text-ink-muted">per image</span>
-						</div>
+			{#if pieceData.length > 0}
+				<Panel title="Pieces in each picture">
+					<div class="rounded-control bg-well p-3">
 						<div class="flex h-40 items-end gap-1">
-							{#each pieceData as row}
+							{#each pieceData as row, i (i)}
 								{@const selected = numberValue(row.selected) ?? 0}
-								{@const h = Math.max(2, (selected / pieceMax) * 100)}
-								<div class="flex flex-1 flex-col items-center gap-1">
-									<div class="text-xs tabular-nums text-ink-muted">{int(row.selected)}</div>
-									<div class="w-full" style={`height: ${h}%; background: ${softInfo};`} title={`${row.bucket}: ${selected} samples`}></div>
+								<div class="flex h-full flex-1 flex-col items-center justify-end gap-1">
+									<span class="num text-xs text-ink-muted">{int(row.selected)}</span>
+									<div
+										class="w-full"
+										style={`height: ${Math.max(2, (selected / pieceMax) * 100)}%; background: ${softInfo};`}
+										title={`${row.bucket}: ${selected} samples`}
+									></div>
 								</div>
 							{/each}
 						</div>
 						<div class="mt-1 flex gap-1">
-							{#each pieceData as row}
-								<div class="flex-1 text-center font-mono text-xs text-ink-muted">{textValue(row.bucket)}</div>
+							{#each pieceData as row, i (i)}
+								<span class="num flex-1 text-center text-xs text-ink-muted">{textValue(row.bucket)}</span>
 							{/each}
 						</div>
 					</div>
-				{/if}
-			</div>
-		</section>
+				</Panel>
+			{/if}
+		</div>
 	{/if}
 
 	{#if showCoverage}
-		<section>
-			<div class="mb-3 flex items-baseline justify-between gap-3">
-				<h2 class="text-sm font-semibold uppercase tracking-wide text-ink">Precheck Coverage</h2>
-				<span class="text-xs text-ink-muted">
-					Accepted {int(precheckTotals.accepted_evaluated_roles)} · pos {int(precheckTotals.accepted_positive_evaluated_roles)} · empty {int(precheckTotals.accepted_empty_evaluated_roles)}
-				</span>
-			</div>
-			<div class="grid gap-3 md:grid-cols-3">
-				{#each coverageRows as row}
+		<Panel
+			title="Precheck coverage"
+			description={`Accepted ${int(precheckTotals.accepted_evaluated_roles)}: ${int(precheckTotals.accepted_positive_evaluated_roles)} with pieces, ${int(precheckTotals.accepted_empty_evaluated_roles)} empty.`}
+			flush
+		>
+			<div class="grid gap-px border-t border-line bg-line md:grid-cols-3">
+				{#each coverageRows as row, i (i)}
 					{@const score = clampPct(row.score_percent)}
-					<div class="border border-line bg-surface p-3">
-						<div class="mb-2 flex items-center justify-between gap-2">
-							<span class="font-mono text-xs text-ink">{textValue(row.role)}</span>
-							<span class="text-sm font-semibold tabular-nums" style={`color: ${gaugeText(score)};`}>{num(row.score_percent, 1)}%</span>
+					<div class="flex flex-col gap-2 bg-surface p-4">
+						<div class="flex items-center justify-between gap-2 text-sm">
+							<span class="text-ink">{sentence(textValue(row.role))}</span>
+							<span class="num font-medium" style={`color: ${gaugeText(score)};`}>{num(row.score_percent, 1)}%</span>
 						</div>
-						<div class="h-2 bg-well">
-							<div class="h-2" style={`width: ${score}%; background: ${gaugeColor(score)};`}></div>
-						</div>
-						<div class="mt-2 text-xs text-ink-muted">Target {int(row.bucket_target_samples)} per bucket</div>
+						{@render bar(score, gaugeColor(score))}
+						<span class="text-sm text-ink-muted">Target {int(row.bucket_target_samples)} a bucket</span>
 					</div>
 				{/each}
 			</div>
-		</section>
+		</Panel>
 	{/if}
 
 	{#if showAudit || sourceData.length > 0 || pieceData.length > 0 || showSpectrum}
-		<section>
-			<h2 class="mb-3 text-sm font-semibold uppercase tracking-wide text-ink">Detail Tables</h2>
-			<div class="space-y-2">
+		<Panel title="Detail tables" flush>
+			<div class="divide-y divide-line border-t border-line">
 				{#if showAudit}
-					<details class="border border-line bg-surface">
-						<summary class="cursor-pointer px-4 py-2.5 text-sm font-medium text-ink hover:bg-hover">Audit summary — precision / recall by threshold</summary>
-						<div class="overflow-x-auto border-t border-line">
-							<table class="w-full text-sm">
-								<thead class="bg-well text-left text-xs uppercase tracking-wide text-ink-muted">
+					<Disclosure title="Precision and recall by threshold">
+						<div class="overflow-x-auto">
+							<table class="data-table">
+								<thead>
 									<tr>
-										<th class="px-3 py-2">Conf</th>
-										<th class="px-3 py-2">Precision</th>
-										<th class="px-3 py-2">Recall</th>
-										<th class="px-3 py-2">F1</th>
-										<th class="px-3 py-2">Mean IoU</th>
-										<th class="px-3 py-2">Decision</th>
-										<th class="px-3 py-2">Empty FP</th>
+										<th class="num">Confidence</th><th class="num">Precision</th><th class="num">Recall</th><th class="num">F1</th>
+										<th class="num">Mean IoU</th><th class="num">Decision</th><th class="num">Empty false positives</th>
 									</tr>
 								</thead>
 								<tbody>
-									{#each auditRows as row}
-										<tr class="border-t border-line">
-											<td class="px-3 py-2 font-mono text-xs">{num(row.threshold, 2)}</td>
-											<td class="px-3 py-2 tabular-nums">{pct(row.precision_iou50)}</td>
-											<td class="px-3 py-2 tabular-nums">{pct(row.recall_iou50)}</td>
-											<td class="px-3 py-2 tabular-nums">{num(row.f1_iou50)}</td>
-											<td class="px-3 py-2 tabular-nums">{num(row.matched_mean_iou)}</td>
-											<td class="px-3 py-2 tabular-nums">{pct(row.decision_match_rate)}</td>
-											<td class="px-3 py-2 tabular-nums">{int(row.empty_false_positive_samples)} / {int(row.empty_samples)}</td>
+									{#each auditRows as row, i (i)}
+										<tr>
+											<td class="num">{num(row.threshold, 2)}</td>
+											<td class="num">{pct(row.precision_iou50)}</td>
+											<td class="num">{pct(row.recall_iou50)}</td>
+											<td class="num">{num(row.f1_iou50)}</td>
+											<td class="num">{num(row.matched_mean_iou)}</td>
+											<td class="num">{pct(row.decision_match_rate)}</td>
+											<td class="num">{int(row.empty_false_positive_samples)} of {int(row.empty_samples)}</td>
 										</tr>
 									{/each}
 								</tbody>
 							</table>
 						</div>
-					</details>
+					</Disclosure>
 				{/if}
-
 				{#if sourceData.length > 0}
-					<details class="border border-line bg-surface">
-						<summary class="cursor-pointer px-4 py-2.5 text-sm font-medium text-ink hover:bg-hover">Dataset balance — source roles & splits</summary>
-						<div class="overflow-x-auto border-t border-line">
-							<table class="w-full text-sm">
-								<thead class="bg-well text-left text-xs uppercase tracking-wide text-ink-muted">
-									<tr><th class="px-3 py-2">Source</th><th class="px-3 py-2">Selected</th><th class="px-3 py-2">Train</th><th class="px-3 py-2">Val</th></tr>
+					<Disclosure title="Dataset balance by source and split">
+						<div class="overflow-x-auto">
+							<table class="data-table">
+								<thead>
+									<tr><th>Source</th><th class="num">Chosen</th><th class="num">Train</th><th class="num">Validation</th></tr>
 								</thead>
 								<tbody>
-									{#each sourceData as row}
-										<tr class="border-t border-line">
-											<td class="px-3 py-2 font-mono text-xs">{textValue(row.role)}</td>
-											<td class="px-3 py-2 tabular-nums">{int(row.selected)}</td>
-											<td class="px-3 py-2 tabular-nums">{int(row.train)}</td>
-											<td class="px-3 py-2 tabular-nums">{int(row.val)}</td>
+									{#each sourceData as row, i (i)}
+										<tr>
+											<td>{sentence(textValue(row.role))}</td>
+											<td class="num">{int(row.selected)}</td>
+											<td class="num">{int(row.train)}</td>
+											<td class="num">{int(row.val)}</td>
 										</tr>
 									{/each}
 								</tbody>
 							</table>
 						</div>
-					</details>
+					</Disclosure>
 				{/if}
-
 				{#if pieceData.length > 0}
-					<details class="border border-line bg-surface">
-						<summary class="cursor-pointer px-4 py-2.5 text-sm font-medium text-ink hover:bg-hover">Piece count buckets — splits</summary>
-						<div class="overflow-x-auto border-t border-line">
-							<table class="w-full text-sm">
-								<thead class="bg-well text-left text-xs uppercase tracking-wide text-ink-muted">
-									<tr><th class="px-3 py-2">Bucket</th><th class="px-3 py-2">Selected</th><th class="px-3 py-2">Train</th><th class="px-3 py-2">Val</th></tr>
+					<Disclosure title="Pieces in each picture by split">
+						<div class="overflow-x-auto">
+							<table class="data-table">
+								<thead>
+									<tr><th>Pieces</th><th class="num">Chosen</th><th class="num">Train</th><th class="num">Validation</th></tr>
 								</thead>
 								<tbody>
-									{#each pieceData as row}
-										<tr class="border-t border-line">
-											<td class="px-3 py-2 font-mono text-xs">{textValue(row.bucket)}</td>
-											<td class="px-3 py-2 tabular-nums">{int(row.selected)}</td>
-											<td class="px-3 py-2 tabular-nums">{int(row.train)}</td>
-											<td class="px-3 py-2 tabular-nums">{int(row.val)}</td>
+									{#each pieceData as row, i (i)}
+										<tr>
+											<td class="num text-left!">{textValue(row.bucket)}</td>
+											<td class="num">{int(row.selected)}</td>
+											<td class="num">{int(row.train)}</td>
+											<td class="num">{int(row.val)}</td>
 										</tr>
 									{/each}
 								</tbody>
 							</table>
 						</div>
-					</details>
+					</Disclosure>
 				{/if}
-
 				{#if showSpectrum}
-					<details class="border border-line bg-surface">
-						<summary class="cursor-pointer px-4 py-2.5 text-sm font-medium text-ink hover:bg-hover">Count spectrum — within ±1 & MAE</summary>
-						<div class="overflow-x-auto border-t border-line">
-							<table class="w-full text-sm">
-								<thead class="bg-well text-left text-xs uppercase tracking-wide text-ink-muted">
-									<tr><th class="px-3 py-2">GT count</th><th class="px-3 py-2">Within ±1</th><th class="px-3 py-2">MAE</th><th class="px-3 py-2">Samples</th></tr>
+					<Disclosure title="Count accuracy and error by piece count">
+						<div class="overflow-x-auto">
+							<table class="data-table">
+								<thead>
+									<tr><th>True count</th><th class="num">Within one</th><th class="num">MAE</th><th class="num">Samples</th></tr>
 								</thead>
 								<tbody>
-									{#each spectrumPrimary as row}
-										<tr class="border-t border-line">
-											<td class="px-3 py-2 font-mono text-xs">{textValue(row.gt_count_bin)}</td>
-											<td class="px-3 py-2 tabular-nums">{pct(row.within_1_count_rate)}</td>
-											<td class="px-3 py-2 tabular-nums">{num(row.count_mae, 2)}</td>
-											<td class="px-3 py-2 tabular-nums">{int(row.samples ?? row.sample_count)}</td>
+									{#each spectrumPrimary as row, i (i)}
+										<tr>
+											<td class="num text-left!">{textValue(row.gt_count_bin)}</td>
+											<td class="num">{pct(row.within_1_count_rate)}</td>
+											<td class="num">{num(row.count_mae, 2)}</td>
+											<td class="num">{int(row.samples ?? row.sample_count)}</td>
 										</tr>
 									{/each}
 								</tbody>
 							</table>
 						</div>
-					</details>
+					</Disclosure>
 				{/if}
 			</div>
-		</section>
+		</Panel>
 	{/if}
 </div>

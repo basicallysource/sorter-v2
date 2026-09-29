@@ -30,11 +30,11 @@
 	title="Sections across all layers"
 	description="Turn a section off here to stop sorting into it on every layer at once, or point the chute at it to find it. Each layer also has its own section controls below."
 >
-	<div class="flex flex-wrap gap-2">
+	<div class="grid grid-cols-1 gap-2 sm:flex sm:flex-wrap">
 		{#each Array(sectionCount) as _unused, sectionIndex}
 			{@const colOn = columnEnabled(sectionIndex)}
 			<div class="flex items-center gap-3 rounded-control bg-well py-1 pr-1.5 pl-3">
-				<span class="text-sm font-medium {colOn ? 'text-ink' : 'text-ink-muted'}">
+				<span class="mr-auto text-sm font-medium {colOn ? 'text-ink' : 'text-ink-muted'}">
 					Section {sectionIndex + 1}
 				</span>
 				<Switch

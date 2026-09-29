@@ -92,6 +92,10 @@
 		return 'manual';
 	}
 
+	// The backend names its incidents in Title Case; the UI writes sentence case.
+	const sentenceCase = (text: string) =>
+		text.replace(/(\s)([A-Z])(?=[a-z])/g, (_, space: string, letter: string) => space + letter.toLowerCase());
+
 	function normalizeIncidentDefinitions(value: unknown): IncidentDefinition[] {
 		if (!Array.isArray(value)) return INCIDENT_FALLBACK_DEFINITIONS;
 		const normalized = value
@@ -101,7 +105,7 @@
 				if (typeof raw.kind !== 'string' || typeof raw.label !== 'string') return null;
 				return {
 					kind: raw.kind,
-					label: raw.label,
+					label: sentenceCase(raw.label),
 					scope: typeof raw.scope === 'string' ? raw.scope : '',
 					description:
 						typeof raw.description === 'string' ? raw.description : 'Operator review required.',

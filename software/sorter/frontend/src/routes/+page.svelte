@@ -291,30 +291,30 @@
 
 	function exitIncidentTitle(incident: Record<string, unknown> | null): string {
 		if (incident?.kind === 'distribution_chute_jam') {
-			return 'Chute Jam';
+			return 'Chute jam';
 		}
 		if (incident?.kind === 'distribution_servo_bus_offline') {
-			return 'Servo Bus Offline';
+			return 'Servo bus offline';
 		}
 		if (incident?.kind === 'distribution_no_bin_available') {
-			return 'No Bin Available';
+			return 'No bin available';
 		}
 		if (incident?.kind === 'classification_unresolved') {
-			return 'Classification Unresolved';
+			return 'Classification unresolved';
 		}
 		if (incident?.kind === 'classification_multi_drop_collision') {
-			return 'Multi-Drop Collision';
+			return 'Multi-drop collision';
 		}
 		if (incident?.kind === 'classification_intake_request_timeout') {
-			return 'Intake Request Timeout';
+			return 'Intake request timeout';
 		}
 		if (incident?.kind === 'classification_track_lost') {
-			return 'Track Lost';
+			return 'Track lost';
 		}
 		if (incident?.kind === 'feeder_jam') {
-			return 'Feeder Jam';
+			return 'Feeder jam';
 		}
-		return 'Exit Stuck';
+		return 'Exit stuck';
 	}
 
 	function exitIncidentScopeLabel(incident: Record<string, unknown> | null): string {

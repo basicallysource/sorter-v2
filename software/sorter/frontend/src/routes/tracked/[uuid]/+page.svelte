@@ -356,11 +356,11 @@
 	}
 
 	function formatRole(role: string): string {
-		if (role === 'recognition_capture') return 'Recognition Capture';
-		if (role === 'link_match') return 'Link Match (C2/C3)';
-		if (role === 'classification_top') return 'Classification Top';
-		if (role === 'classification_bottom') return 'Classification Bottom';
-		if (role === 'carousel') return 'Classification Channel';
+		if (role === 'recognition_capture') return 'Recognition capture';
+		if (role === 'link_match') return 'Link match (C2/C3)';
+		if (role === 'classification_top') return 'Classification top';
+		if (role === 'classification_bottom') return 'Classification bottom';
+		if (role === 'carousel') return 'Classification channel';
 		if (role === 'c_channel_2') return 'C-channel 2';
 		if (role === 'c_channel_3') return 'C-channel 3';
 		return role;

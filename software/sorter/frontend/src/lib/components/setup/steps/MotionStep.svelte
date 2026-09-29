@@ -1,4 +1,5 @@
 <script lang="ts">
+	import Cable from '@lucide/svelte/icons/cable';
 	import RotateCcw from '@lucide/svelte/icons/rotate-ccw';
 	import Alert from '$lib/components/ui/Alert.svelte';
 	import Badge from '$lib/components/ui/Badge.svelte';
@@ -145,8 +146,8 @@
 		description="Use very short jogs on an empty machine to check that each axis turns the expected way. Reverse any that runs the wrong way, then mark this step done; the next step covers endstops and homing."
 	>
 		{#snippet actions()}
-			<Button size="sm" variant="ghost" onclick={() => (showStepperWiringHelp = !showStepperWiringHelp)}>
-				{showStepperWiringHelp ? 'Hide the wiring' : 'Show the wiring'}
+			<Button size="sm" variant="ghost" icon={Cable} onclick={() => (showStepperWiringHelp = !showStepperWiringHelp)}>
+				<span class="max-sm:sr-only">{showStepperWiringHelp ? 'Hide the wiring' : 'Show the wiring'}</span>
 			</Button>
 		{/snippet}
 		{#if showStepperWiringHelp}

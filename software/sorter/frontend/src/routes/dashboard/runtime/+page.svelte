@@ -288,7 +288,7 @@
 			{#snippet actions()}
 				<Select
 					label="Subsystem"
-					class="w-44"
+					class="w-full sm:w-44"
 					bind:value={selected_group}
 					options={[
 						{ value: 'all', label: 'All subsystems' },
@@ -299,7 +299,7 @@
 				/>
 				<Select
 					label="Run"
-					class="w-72 max-w-full"
+					class="w-full sm:w-72"
 					value={selected_record_id}
 					onchange={selectRecord}
 					options={[

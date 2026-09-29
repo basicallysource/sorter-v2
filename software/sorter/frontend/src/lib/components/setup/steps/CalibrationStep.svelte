@@ -2,6 +2,7 @@
 	import { getBackendHttpBase, machineHttpBaseUrlFromWsUrl } from '$lib/backend';
 	import { getMachinesContext } from '$lib/machines/context';
 	import { onMount } from 'svelte';
+	import Cable from '@lucide/svelte/icons/cable';
 	import Alert from '$lib/components/ui/Alert.svelte';
 	import Button from '$lib/components/ui/Button.svelte';
 	import Field from '$lib/components/ui/Field.svelte';
@@ -261,8 +262,8 @@
 		description="Check the chute's endstop before homing: set its polarity, and make sure the chute can find its mechanical reference."
 	>
 		{#snippet actions()}
-			<Button size="sm" variant="ghost" onclick={() => (showEndstopWiringHelp = !showEndstopWiringHelp)}>
-				{showEndstopWiringHelp ? 'Hide the wiring' : 'Show the wiring'}
+			<Button size="sm" variant="ghost" icon={Cable} onclick={() => (showEndstopWiringHelp = !showEndstopWiringHelp)}>
+				<span class="max-sm:sr-only">{showEndstopWiringHelp ? 'Hide the wiring' : 'Show the wiring'}</span>
 			</Button>
 		{/snippet}
 		<div class="flex flex-col gap-4">

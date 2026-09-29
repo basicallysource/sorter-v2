@@ -6,9 +6,6 @@
 	let colorId = $state(getCurrentThemeColorId());
 </script>
 
-<Panel
-	title="Color"
-	description="The LEGO color used across the UI. Buttons, focus and the current page change at once."
->
+<Panel>
 	<ColorPicker bind:value={colorId} onchange={(id) => void setThemeColor(id)} />
 </Panel>

@@ -3,7 +3,8 @@
 	import Download from '@lucide/svelte/icons/download';
 	import FolderOutput from '@lucide/svelte/icons/folder-output';
 	import History from '@lucide/svelte/icons/rotate-ccw-clock';
-	import Home from '@lucide/svelte/icons/house';
+	import House from '@lucide/svelte/icons/house';
+	import Button from '$lib/components/ui/Button.svelte';
 
 	let {
 		csvUrl,
@@ -26,53 +27,17 @@
 		onEmptyAll: () => void;
 		onResetAll: () => void;
 	} = $props();
-
-	const buttonClass =
-		'flex items-center gap-2 border border-line bg-surface px-4 py-2 text-sm font-medium text-ink transition-colors hover:bg-hover disabled:cursor-not-allowed disabled:opacity-50';
 </script>
 
-<div class="flex items-center gap-3">
-	<a href={csvUrl} download class={buttonClass} title="Download current bin contents as CSV">
-		<Download size={16} />
-		Export CSV
-	</a>
-	<button
-		type="button"
-		onclick={onSnapshots}
-		class={buttonClass}
-		title="View snapshots of previously emptied bin contents"
-	>
-		<History size={16} />
-		Snapshots
-	</button>
-	<button
-		type="button"
-		onclick={onHome}
-		{disabled}
-		class="{buttonClass} {homing ? 'animate-pulse' : ''}"
-		title="Home chute (find endstop)"
-	>
-		<Home size={16} />
-		{homing ? 'Homing...' : 'Home Chute'}
-	</button>
-	<button
-		type="button"
-		onclick={onEmptyAll}
-		{disabled}
-		class={buttonClass}
-		title="Empty all bins but keep assignments"
-	>
-		<FolderOutput size={16} />
-		{emptyBusy ? 'Emptying…' : 'Empty All Bins'}
-	</button>
-	<button
-		type="button"
-		onclick={onResetAll}
-		{disabled}
-		class={buttonClass}
-		title="Reset all bins and remove assignments"
-	>
-		<ArchiveX size={16} />
-		{resetBusy ? 'Resetting…' : 'Reset All Bins'}
-	</button>
-</div>
+<!-- The page's actions, for PageHeader's `actions`. -->
+<Button href={csvUrl} download icon={Download}>Export CSV</Button>
+<Button icon={History} onclick={onSnapshots}>Snapshots</Button>
+<Button icon={House} loading={homing} {disabled} onclick={onHome}>
+	{homing ? 'Homing…' : 'Home the chute'}
+</Button>
+<Button icon={FolderOutput} loading={emptyBusy} {disabled} onclick={onEmptyAll}>
+	{emptyBusy ? 'Emptying…' : 'Empty all bins'}
+</Button>
+<Button icon={ArchiveX} loading={resetBusy} {disabled} onclick={onResetAll}>
+	{resetBusy ? 'Resetting…' : 'Reset all bins'}
+</Button>

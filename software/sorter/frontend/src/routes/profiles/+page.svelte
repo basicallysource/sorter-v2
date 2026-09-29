@@ -1,14 +1,19 @@
 <script lang="ts">
 	import { getBackendHttpBase, machineHttpBaseUrlFromWsUrl } from '$lib/backend';
-	import AppHeader from '$lib/components/AppHeader.svelte';
+	import AppShell from '$lib/components/AppShell.svelte';
 	import ProfileApplyModal from '$lib/components/profiles/ProfileApplyModal.svelte';
 	import BsxSection from '$lib/components/profiles/BsxSection.svelte';
+	import LocalProfileCard from '$lib/components/profiles/LocalProfileCard.svelte';
 	import ProfileCard from '$lib/components/profiles/ProfileCard.svelte';
 	import ProfileCardSkeleton from '$lib/components/profiles/ProfileCardSkeleton.svelte';
 	import ProfileDetailsModal from '$lib/components/profiles/ProfileDetailsModal.svelte';
 	import ProfilePagination from '$lib/components/profiles/ProfilePagination.svelte';
-	import Skeleton from '$lib/components/primitives/Skeleton.svelte';
 	import Alert from '$lib/components/ui/Alert.svelte';
+	import Button from '$lib/components/ui/Button.svelte';
+	import EmptyState from '$lib/components/ui/EmptyState.svelte';
+	import Input from '$lib/components/ui/Input.svelte';
+	import Modal from '$lib/components/ui/Modal.svelte';
+	import PageHeader from '$lib/components/ui/PageHeader.svelte';
 	import { getMachinesContext } from '$lib/machines/context';
 	import {
 		applyLocalProfile,
@@ -32,9 +37,7 @@
 		SortingProfileLibraryResponse,
 		SortingProfileSummary
 	} from '$lib/sorting-profiles/types';
-	import Modal from '$lib/components/Modal.svelte';
 	import RotateCw from '@lucide/svelte/icons/rotate-cw';
-	import Trash2 from '@lucide/svelte/icons/trash';
 	import Upload from '@lucide/svelte/icons/upload';
 	import { onMount } from 'svelte';
 
@@ -64,7 +67,6 @@
 	let detailsModalProfileId = $state<string | null>(null);
 	let applyConfirmOpen = $state(false);
 	let pendingApply = $state<PendingProfileApply | null>(null);
-	let openVersionMenuKey = $state<string | null>(null);
 	let fileInput = $state<HTMLInputElement | null>(null);
 	let uploading = $state(false);
 	let pendingLocal = $state<LocalSortingProfile | null>(null);
@@ -291,7 +293,6 @@
 			return;
 		}
 
-		openVersionMenuKey = null;
 		pendingApply = {
 			key,
 			target_id: target.id,
@@ -303,14 +304,6 @@
 			version_label: version.label ?? null
 		};
 		applyConfirmOpen = true;
-	}
-
-	function toggleVersionMenu(key: string) {
-		openVersionMenuKey = openVersionMenuKey === key ? null : key;
-	}
-
-	function closeVersionMenu() {
-		openVersionMenuKey = null;
 	}
 
 	async function confirmApplyProfile() {
@@ -701,37 +694,28 @@
 	});
 </script>
 
-<svelte:window onclick={closeVersionMenu} />
+<svelte:head><title>Sorting profiles - Sorter</title></svelte:head>
 
-<svelte:head><title>Sorting Profiles - Sorter</title></svelte:head>
-
-<div class="min-h-screen bg-well">
-	<AppHeader />
-	<div class="p-4 sm:p-6">
-		<div class="mb-4 flex flex-wrap items-center justify-between gap-3">
-			<h2 class="text-xl font-bold text-ink">Sorting Profiles</h2>
-			<div class="flex max-w-[36rem] min-w-[24rem] flex-1 items-center justify-end gap-2">
-				<input
-					id="profile-search"
+<AppShell>
+	<div class="mx-auto flex w-full max-w-[1500px] flex-col gap-(--gap-panels) px-4 py-6 sm:px-6">
+		<PageHeader title="Sorting profiles" description="The rules that decide which bin each piece goes to.">
+			{#snippet actions()}
+				<Input
 					type="search"
-					value={searchQuery}
-					oninput={(event) => {
-						searchQuery = (event.currentTarget as HTMLInputElement).value;
-						currentPage = 1;
-					}}
-					placeholder="Search profiles, sets, tags, owners..."
-					class="w-full max-w-md border border-line bg-well px-3 py-2 text-sm text-ink placeholder:text-ink-muted focus:border-text-muted focus:outline-none"
+					aria-label="Search profiles"
+					placeholder="Search profiles, sets, tags, owners"
+					class="w-72 max-w-full"
+					bind:value={searchQuery}
+					oninput={() => (currentPage = 1)}
 				/>
-				<button
+				<Button
+					icon={RotateCw}
+					label="Reload the runtime profile from disk"
+					loading={reloadingRuntime}
 					onclick={reloadRuntime}
-					disabled={reloadingRuntime}
-					class="flex items-center justify-center border border-line bg-surface p-2 text-ink transition-colors hover:bg-hover disabled:opacity-50"
-					title="Reload runtime profile from disk"
-				>
-					<RotateCw size={16} class={reloadingRuntime ? 'animate-spin' : ''} />
-				</button>
-			</div>
-		</div>
+				/>
+			{/snippet}
+		</PageHeader>
 
 		{#if success}<Alert tone="success">{success}</Alert>{/if}
 		{#if warning}<Alert tone="warning">{warning}</Alert>{/if}
@@ -745,286 +729,179 @@
 			onchange={handleUploadFile}
 		/>
 
-		<div class="mb-6">
-			<BsxSection baseUrl={baseUrl()} />
-		</div>
-		<div class="mb-6">
-			<div class="mb-3 flex items-center justify-between gap-3">
-				<h3 class="text-sm font-semibold text-ink-muted">
-					Local profiles
-				</h3>
-				<button
-					type="button"
-					onclick={() => fileInput?.click()}
-					disabled={uploading}
-					class="flex items-center gap-2 border border-line bg-surface px-3 py-1.5 text-sm text-ink transition-colors hover:bg-hover disabled:opacity-50"
-				>
-					<Upload size={14} />
-					{uploading ? 'Uploading…' : 'Upload JSON'}
-				</button>
+		<BsxSection baseUrl={baseUrl()} />
+
+		<section class="flex flex-col gap-3">
+			<div class="flex items-center justify-between gap-3">
+				<h2 class="text-base font-semibold text-ink">Local profiles</h2>
+				<Button size="sm" icon={Upload} loading={uploading} onclick={() => fileInput?.click()}>
+					Upload JSON
+				</Button>
 			</div>
 
 			{#if library == null}
-				<div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+				<div class="grid gap-(--gap-panels) sm:grid-cols-2 xl:grid-cols-3">
 					{#each Array(2) as _}
 						<ProfileCardSkeleton />
 					{/each}
 				</div>
 			{:else if localProfiles().length === 0}
-				<div class="border border-line bg-surface px-4 py-6 text-center text-sm text-ink-muted">
-					No local profiles saved yet. Upload a profile JSON to keep it on this machine.
-				</div>
+				<EmptyState title="No local profiles are saved yet">
+					Upload a profile JSON to keep it on this machine.
+				</EmptyState>
 			{:else}
-				<div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+				<div class="grid gap-(--gap-panels) sm:grid-cols-2 xl:grid-cols-3">
 					{#each localProfiles() as profile}
-						<div
-							class="setup-card-shell flex h-full flex-col overflow-hidden border transition-colors {profile.is_active
-								? 'border-success ring-1 ring-success/20'
-								: 'border-line hover:border-text-muted'}"
-						>
-							<div class="setup-card-header px-3 py-2 text-sm">
-								<div class="flex items-start justify-between gap-3">
-									<div class="min-w-0 flex-1">
-										<div class="truncate text-sm font-semibold text-ink">
-											{profile.name || profile.filename}
-										</div>
-										<div class="mt-1 flex flex-wrap items-center gap-2 text-xs text-ink-muted">
-											<span class="font-mono">local:{profile.filename}</span>
-											{#if profile.is_active}
-												<span
-													class="border border-success/30 bg-success-soft px-1.5 py-0.5 font-medium text-success-ink"
-													>Active</span
-												>
-											{/if}
-										</div>
-									</div>
-									<div class="flex shrink-0 items-center gap-2">
-										<button
-											type="button"
-											onclick={() => requestApplyLocal(profile)}
-											disabled={localApplyingFilename === profile.filename ||
-												Boolean(profile.error)}
-											class="border border-line bg-white px-3 py-2 text-sm text-ink transition-colors hover:bg-hover disabled:opacity-50"
-										>
-											{localApplyingFilename === profile.filename ? 'Activating…' : 'activate'}
-										</button>
-										<button
-											type="button"
-											onclick={() => {
-												pendingDelete = profile;
-												localDeleteOpen = true;
-											}}
-											disabled={deletingFilename === profile.filename}
-											title="Delete local profile"
-											class="border border-line bg-white p-2 text-ink-muted transition-colors hover:bg-hover hover:text-danger-ink disabled:opacity-50"
-										>
-											<Trash2 size={16} />
-										</button>
-									</div>
-								</div>
-							</div>
-							<div class="setup-card-body border-t border-line px-4 py-3 text-xs text-ink-muted">
-								{#if profile.error}
-									<span class="text-amber-700">Unreadable: {profile.error}</span
-									>
-								{:else if profile.rule_count == null}
-									<Skeleton class="h-3.5 w-32" />
-								{:else}
-									<div class="flex flex-wrap items-center gap-x-2 gap-y-1">
-										{#if profile.rule_count != null}<span>{profile.rule_count} rules</span>{/if}
-										{#if profile.category_count != null}
-											<span aria-hidden="true">·</span>
-											<span>{profile.category_count} categories</span>
-										{/if}
-										{#if profile.profile_type}
-											<span aria-hidden="true">·</span>
-											<span>{profile.profile_type}</span>
-										{/if}
-									</div>
-								{/if}
-							</div>
-						</div>
-					{/each}
-				</div>
-			{/if}
-		</div>
-
-		{#if library == null}
-			{#if !error}
-				<div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-					{#each Array(6) as _}
-						<ProfileCardSkeleton />
-					{/each}
-				</div>
-			{/if}
-		{:else if library.targets.length === 0}
-			<p class="text-sm text-ink-muted">
-				No Hive targets are configured on this machine right now.
-				{#if library.local_profile.name}
-					The active local profile above still works.
-				{/if}
-				Add one in <a href="/settings" class="underline hover:text-ink">Settings</a>.
-			</p>
-		{:else}
-			{#if normalizedSearchQuery() && filteredProfileEntries().length === 0}
-				<div class="border border-line bg-surface px-4 py-6 text-center text-sm text-ink-muted">
-					No profiles match “{searchQuery.trim()}”.
-				</div>
-			{/if}
-
-			{#if targetErrors().length > 0}
-				<div class="mb-4 space-y-2">
-					{#each targetErrors() as target}
-						<div
-							class="border border-danger bg-danger-soft px-3 py-2 text-sm text-danger-ink"
-						>
-							{target.name}: {target.error}
-						</div>
-					{/each}
-				</div>
-			{/if}
-
-			{#if filteredProfileEntries().length > 0 || showTargetSkeletons()}
-				<div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-					{#each paginatedProfileEntries() as entry}
-						{@const key = detailKey(entry.target.id, entry.profile.id)}
-						<ProfileCard
-							target={entry.target}
-							profile={entry.profile}
-							detail={detailCache[key]}
-							detailError={detailErrors[key]}
-							syncState={library.sync_state}
-							selectedVersionId={selectedVersionIds[key] ?? null}
-							{applyingKey}
-							cardKey={key}
-							{openVersionMenuKey}
-							onOpenDetails={() => void openProfileDetails(entry.target, entry.profile)}
-							onApply={() => void requestApplyProfile(entry.target, entry.profile)}
-							onApplyVersion={(versionId) =>
-								void requestApplyProfileVersion(entry.target, entry.profile, versionId)}
-							onToggleVersionMenu={() => toggleVersionMenu(key)}
+						<LocalProfileCard
+							{profile}
+							activating={localApplyingFilename === profile.filename}
+							deleting={deletingFilename === profile.filename}
+							onActivate={() => requestApplyLocal(profile)}
+							onDelete={() => {
+								pendingDelete = profile;
+								localDeleteOpen = true;
+							}}
 						/>
 					{/each}
-					{#if showTargetSkeletons()}
-						{#each Array(skeletonCardCount()) as _}
+				</div>
+			{/if}
+		</section>
+
+		<section class="flex flex-col gap-3">
+			<h2 class="text-base font-semibold text-ink">Profiles from Hive</h2>
+
+			{#if library == null}
+				{#if !error}
+					<div class="grid gap-(--gap-panels) sm:grid-cols-2 xl:grid-cols-3">
+						{#each Array(6) as _}
 							<ProfileCardSkeleton />
 						{/each}
-					{/if}
-				</div>
+					</div>
+				{/if}
+			{:else if library.targets.length === 0}
+				<EmptyState title="No Hive targets are configured on this machine">
+					{#if library.local_profile.name}The active local profile above still works. {/if}Add one in
+					<a href="/settings" class="text-primary-ink hover:underline">Settings</a>.
+				</EmptyState>
+			{:else}
+				{#if normalizedSearchQuery() && filteredProfileEntries().length === 0}
+					<EmptyState title="No profiles match “{searchQuery.trim()}”" />
+				{/if}
 
-				{#if filteredProfileEntries().length > 0}
-					<ProfilePagination
-						{pageSize}
-						pageSizeOptions={PROFILE_PAGE_SIZE_OPTIONS}
-						currentPage={currentListPage()}
-						totalPages={totalPages()}
-						summary={paginationSummary()}
-						visiblePageNumbers={visiblePageNumbers()}
-						onPageSizeChange={(size) => {
-							pageSize = size;
-							currentPage = 1;
-						}}
-						onPageChange={(page) => {
-							currentPage = Math.min(Math.max(page, 1), totalPages());
-						}}
-					/>
+				{#each targetErrors() as target}
+					<Alert tone="danger">{target.name}: {target.error}</Alert>
+				{/each}
+
+				{#if filteredProfileEntries().length > 0 || showTargetSkeletons()}
+					<div class="grid gap-(--gap-panels) sm:grid-cols-2 xl:grid-cols-3">
+						{#each paginatedProfileEntries() as entry}
+							{@const key = detailKey(entry.target.id, entry.profile.id)}
+							<ProfileCard
+								target={entry.target}
+								profile={entry.profile}
+								detail={detailCache[key]}
+								detailError={detailErrors[key]}
+								syncState={library.sync_state}
+								selectedVersionId={selectedVersionIds[key] ?? null}
+								{applyingKey}
+								cardKey={key}
+								onOpenDetails={() => void openProfileDetails(entry.target, entry.profile)}
+								onApply={() => void requestApplyProfile(entry.target, entry.profile)}
+								onApplyVersion={(versionId) =>
+									void requestApplyProfileVersion(entry.target, entry.profile, versionId)}
+							/>
+						{/each}
+						{#if showTargetSkeletons()}
+							{#each Array(skeletonCardCount()) as _}
+								<ProfileCardSkeleton />
+							{/each}
+						{/if}
+					</div>
+
+					{#if filteredProfileEntries().length > 0}
+						<ProfilePagination
+							{pageSize}
+							pageSizeOptions={PROFILE_PAGE_SIZE_OPTIONS}
+							currentPage={currentListPage()}
+							totalPages={totalPages()}
+							summary={paginationSummary()}
+							visiblePageNumbers={visiblePageNumbers()}
+							onPageSizeChange={(size) => {
+								pageSize = size;
+								currentPage = 1;
+							}}
+							onPageChange={(page) => {
+								currentPage = Math.min(Math.max(page, 1), totalPages());
+							}}
+						/>
+					{/if}
 				{/if}
 			{/if}
-		{/if}
+		</section>
 	</div>
+</AppShell>
 
-	<ProfileApplyModal
-		bind:open={applyConfirmOpen}
-		pending={pendingApply}
-		onConfirm={() => void confirmApplyProfile()}
-		onCancel={() => {
-			applyConfirmOpen = false;
-			pendingApply = null;
-		}}
-	/>
+<ProfileApplyModal
+	bind:open={applyConfirmOpen}
+	pending={pendingApply}
+	onConfirm={() => void confirmApplyProfile()}
+	onCancel={() => {
+		applyConfirmOpen = false;
+		pendingApply = null;
+	}}
+/>
 
-	<ProfileDetailsModal
-		bind:open={detailsModalOpen}
-		summary={activeDetailsModalSummary()}
-		detail={activeDetailsModalDetail()}
-		loading={activeDetailsModalLoading()}
-		error={activeDetailsModalError()}
-		selectedVersionId={detailsModalTargetId && detailsModalProfileId
-			? selectedVersionIdFor(detailsModalTargetId, detailsModalProfileId)
-			: null}
-		onVersionChange={(versionId) => void handleDetailsModalVersionChange(versionId)}
-	/>
+<ProfileDetailsModal
+	bind:open={detailsModalOpen}
+	summary={activeDetailsModalSummary()}
+	detail={activeDetailsModalDetail()}
+	loading={activeDetailsModalLoading()}
+	error={activeDetailsModalError()}
+	selectedVersionId={detailsModalTargetId && detailsModalProfileId
+		? selectedVersionIdFor(detailsModalTargetId, detailsModalProfileId)
+		: null}
+	onVersionChange={(versionId) => void handleDetailsModalVersionChange(versionId)}
+/>
 
-	<Modal bind:open={localApplyOpen} title="Activate local profile">
-		{#if pendingLocal !== null}
-			{@const profile = pendingLocal}
-			<div class="flex flex-col gap-4">
-				<p class="text-sm text-ink">
-					Activate <span class="font-semibold">{profile.name || profile.filename}</span>?
-				</p>
-				<p class="text-sm text-ink-muted">Choose how bins should be initialized.</p>
-				<div class="flex flex-col gap-2 border border-line bg-well p-3 text-sm text-ink-muted">
-					<div>
-						<span class="font-medium text-ink">Reset (dynamic)</span> — clear every bin; categories are
-						assigned as pieces arrive.
-					</div>
-					<div>
-						<span class="font-medium text-ink">Pre-assign (rule order)</span> — seed bins in the order
-						of the profile's rules.
-					</div>
+<Modal bind:open={localApplyOpen} title="Activate the local profile">
+	{#if pendingLocal !== null}
+		{@const profile = pendingLocal}
+		<div class="flex flex-col gap-4">
+			<p>
+				Activate <span class="font-semibold">{profile.name || profile.filename}</span>? Choose how the bins
+				start.
+			</p>
+			<dl class="flex flex-col gap-2 rounded-control bg-well p-3 text-ink-muted">
+				<div>
+					<dt class="inline font-medium text-ink">Reset (dynamic):</dt>
+					<dd class="inline">clear every bin; categories are assigned as pieces arrive.</dd>
 				</div>
-				<div class="flex flex-wrap items-center justify-end gap-2 border-t border-line pt-3">
-					<button
-						type="button"
-						onclick={() => (localApplyOpen = false)}
-						class="border border-line bg-surface px-3 py-1.5 text-sm text-ink hover:bg-hover"
-					>
-						Cancel
-					</button>
-					<button
-						type="button"
-						onclick={() => void confirmApplyLocal('empty')}
-						class="border border-line bg-surface px-3 py-1.5 text-sm font-medium text-ink hover:bg-hover"
-					>
-						Reset bins
-					</button>
-					<button
-						type="button"
-						onclick={() => void confirmApplyLocal('rules')}
-						class="border border-primary bg-primary-soft px-3 py-1.5 text-sm font-medium text-primary-ink hover:bg-primary-soft"
-					>
-						Pre-assign from rules
-					</button>
+				<div>
+					<dt class="inline font-medium text-ink">Pre-assign (rule order):</dt>
+					<dd class="inline">seed the bins in the order of the profile's rules.</dd>
 				</div>
-			</div>
-		{/if}
-	</Modal>
+			</dl>
+		</div>
+	{/if}
+	{#snippet footer()}
+		<Button variant="ghost" onclick={() => (localApplyOpen = false)}>Cancel</Button>
+		<Button onclick={() => void confirmApplyLocal('empty')}>Reset the bins</Button>
+		<Button variant="primary" onclick={() => void confirmApplyLocal('rules')}>
+			Pre-assign from the rules
+		</Button>
+	{/snippet}
+</Modal>
 
-	<Modal bind:open={localDeleteOpen} title="Delete local profile">
-		{#if pendingDelete !== null}
-			{@const profile = pendingDelete}
-			<div class="flex flex-col gap-4">
-				<p class="text-sm text-ink">
-					Delete <span class="font-semibold">{profile.name || profile.filename}</span> from this machine?
-					This removes the saved JSON file.
-				</p>
-				<div class="flex items-center justify-end gap-2 border-t border-line pt-3">
-					<button
-						type="button"
-						onclick={() => (localDeleteOpen = false)}
-						class="border border-line bg-surface px-3 py-1.5 text-sm text-ink hover:bg-hover"
-					>
-						Cancel
-					</button>
-					<button
-						type="button"
-						onclick={() => void confirmDeleteLocal()}
-						class="border border-danger bg-danger-soft px-3 py-1.5 text-sm font-medium text-danger-ink hover:bg-danger-soft"
-					>
-						Delete
-					</button>
-				</div>
-			</div>
-		{/if}
-	</Modal>
-</div>
+<Modal bind:open={localDeleteOpen} title="Delete the local profile" size="sm">
+	{#if pendingDelete !== null}
+		{@const profile = pendingDelete}
+		<p>
+			Delete <span class="font-semibold">{profile.name || profile.filename}</span> from this machine? This
+			removes the saved JSON file.
+		</p>
+	{/if}
+	{#snippet footer()}
+		<Button variant="ghost" onclick={() => (localDeleteOpen = false)}>Cancel</Button>
+		<Button variant="danger" onclick={() => void confirmDeleteLocal()}>Delete profile</Button>
+	{/snippet}
+</Modal>

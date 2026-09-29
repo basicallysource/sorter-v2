@@ -1,5 +1,11 @@
 <script lang="ts">
 	import Ellipsis from '@lucide/svelte/icons/ellipsis';
+	import ImageOff from '@lucide/svelte/icons/image-off';
+	import Badge from '$lib/components/ui/Badge.svelte';
+	import Button from '$lib/components/ui/Button.svelte';
+	import Card from '$lib/components/ui/Card.svelte';
+	import Menu from '$lib/components/ui/Menu.svelte';
+	import Spinner from '$lib/components/ui/Spinner.svelte';
 	import {
 		displayVersion,
 		sourceLabel,
@@ -24,11 +30,9 @@
 		selectedVersionId: string | null;
 		applyingKey: string | null;
 		cardKey: string;
-		openVersionMenuKey: string | null;
 		onOpenDetails: () => void;
 		onApply: () => void;
 		onApplyVersion: (versionId: string) => void;
-		onToggleVersionMenu: () => void;
 	};
 
 	const props: Props = $props();
@@ -68,186 +72,120 @@
 		return null;
 	});
 
-	const titleClass = $derived(
-		isActive
-			? 'text-primary-ink'
-			: props.profile.visibility === 'public'
-				? 'text-primary-ink'
-				: 'text-ink'
+	const applying = $derived(props.applyingKey === props.cardKey);
+
+	// Choosing a version activates that version (after the confirmation dialog).
+	const versionItems = $derived(
+		props.detail
+			? visibleVersions(props.detail).map((version) => ({
+					label: `v${version.version_number}${version.label ? ` - ${version.label}` : ''}`,
+					hint: version.is_published ? undefined : 'draft',
+					onselect: () => props.onApplyVersion(version.id)
+				}))
+			: []
 	);
 </script>
 
-<div
-	class="setup-card-shell group flex h-full flex-col overflow-hidden border transition-colors {isActive
-		? 'border-success ring-1 ring-success/20'
-		: 'border-line hover:border-text-muted'}"
->
-	<div class="setup-card-header px-3 py-2 text-sm">
-		<div class="flex items-center justify-between gap-3">
+<Card label={props.profile.name} onclick={props.onOpenDetails} class="h-full">
+	<div class="flex h-full flex-col gap-3">
+		<div class="flex items-start justify-between gap-3">
 			<div class="min-w-0 flex-1">
-				<button
-					type="button"
-					onclick={props.onOpenDetails}
-					class="flex max-w-full items-center gap-2 truncate text-left text-sm font-semibold {titleClass} hover:underline"
-				>
-					{props.profile.name}
-				</button>
-				{#if isActive}
-					<div class="mt-1 flex flex-wrap items-center gap-2 text-xs text-ink-muted">
-						<span
-							class="border border-success/30 bg-success-soft px-1.5 py-0.5 text-xs font-medium text-success-ink"
-							>Active</span
-						>
-					</div>
-				{/if}
+				<div class="flex flex-wrap items-center gap-x-2 gap-y-1">
+					<h3 class="truncate text-base font-semibold text-ink">{props.profile.name}</h3>
+					{#if isActive}<Badge tone="success" dot>Active</Badge>{/if}
+					{#if props.profile.visibility === 'public'}<Badge>Public</Badge>{/if}
+				</div>
 				{#if update}
-					<div class="mt-1 text-xs text-amber-600">
-						v{update.latest} available (you're on v{update.current})
-					</div>
+					<p class="mt-1 text-sm text-warning-ink">
+						v{update.latest} is available; this machine is on v{update.current}.
+					</p>
 				{/if}
 			</div>
-			<div class="flex shrink-0 items-center gap-2 self-center">
+			<div class="flex shrink-0 items-center gap-1">
 				{#if props.detailError}
-					<div
-						class="min-w-[10.5rem] border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-sm text-amber-700"
-					>
-						Unavailable
-					</div>
+					<Badge tone="warning">Unavailable</Badge>
 				{:else if props.detail}
-					<div class="relative flex items-stretch">
-						<button
-							onclick={(event) => {
-								event.stopPropagation();
-								props.onApply();
-							}}
-							disabled={props.applyingKey === props.cardKey}
-							class="border border-line bg-white px-3 py-2 text-sm text-ink transition-colors hover:bg-hover disabled:opacity-50"
-						>
-							{props.applyingKey === props.cardKey ? 'Activating...' : 'activate'}
-						</button>
-						<button
-							type="button"
-							onclick={(event) => {
-								event.stopPropagation();
-								props.onToggleVersionMenu();
-							}}
-							disabled={props.applyingKey === props.cardKey}
-							class="border border-l-0 border-line bg-white px-2 py-2 text-ink transition-colors hover:bg-hover disabled:opacity-50"
-							title="Choose version"
-						>
-							<Ellipsis size={16} />
-						</button>
-						{#if props.openVersionMenuKey === props.cardKey}
-							<div
-								class="absolute top-full right-0 z-10 mt-1 min-w-[14rem] border border-line bg-surface"
-							>
-								{#each visibleVersions(props.detail) as version}
-									<button
-										type="button"
-										onclick={(event) => {
-											event.stopPropagation();
-											props.onApplyVersion(version.id);
-										}}
-										class="flex w-full items-center justify-between gap-3 border-b border-line px-3 py-2 text-left text-sm text-ink transition-colors hover:bg-hover last:border-b-0"
-									>
-										<span
-											>v{version.version_number}{version.label
-												? ` - ${version.label}`
-												: ''}</span
-										>
-										{#if !version.is_published}
-											<span class="text-xs text-ink-muted">draft</span>
-										{/if}
-									</button>
-								{/each}
-							</div>
-						{/if}
-					</div>
+					<Button size="sm" loading={applying} onclick={props.onApply}>Activate</Button>
+					<Menu label="Versions of {props.profile.name}" items={versionItems}>
+						{#snippet trigger(trigger)}
+							<Button
+								{...trigger}
+								size="sm"
+								variant="ghost"
+								icon={Ellipsis}
+								label="Choose a version to activate"
+								disabled={applying}
+							/>
+						{/snippet}
+					</Menu>
 				{:else}
-					<div class="min-w-[10.5rem] border border-line bg-well px-3 py-2 text-sm text-ink opacity-60">
-						Loading...
-					</div>
+					<span class="flex items-center gap-2 text-sm text-ink-muted">
+						<Spinner size={14} />
+						Loading
+					</span>
 				{/if}
 			</div>
 		</div>
-	</div>
 
-	{#if rules.length > 0}
-		<div class="setup-card-body border-t border-line px-4 py-3">
+		{#if rules.length > 0}
 			<div class="grid gap-x-4 gap-y-1.5 md:grid-cols-2">
 				{#each rules.slice(0, 8) as rule}
-					<div class="flex items-center gap-2 text-xs" title={rule.set_num ?? rule.name}>
+					<div class="flex items-center gap-2 text-sm" title={rule.set_num ?? rule.name}>
 						{#if rule.rule_type === 'set' && rule.set_meta?.img_url}
-							<img src={rule.set_meta.img_url} alt="" class="h-5 w-5 shrink-0 object-contain" />
+							<img src={rule.set_meta.img_url} alt="" class="size-5 shrink-0 object-contain" />
 						{:else}
-							<svg class="h-3.5 w-3.5 shrink-0 text-ink-muted" viewBox="0 0 20 20" fill="currentColor"
-								><path
-									fill-rule="evenodd"
-									d="M3.28 2.22a.75.75 0 00-1.06 1.06l14.5 14.5a.75.75 0 101.06-1.06l-1.745-1.745a10.029 10.029 0 003.3-4.38 1.651 1.651 0 000-1.185A10.004 10.004 0 009.999 3a9.956 9.956 0 00-4.744 1.194L3.28 2.22zM7.752 6.69l1.092 1.092a2.5 2.5 0 013.374 3.373l1.092 1.092a4 4 0 00-5.558-5.558z"
-									clip-rule="evenodd"
-								/><path
-									d="M10.748 13.93l2.523 2.523a9.987 9.987 0 01-3.27.547c-4.258 0-7.894-2.66-9.337-6.41a1.651 1.651 0 010-1.186A10.007 10.007 0 012.839 6.02L6.07 9.252a4 4 0 004.678 4.678z"
-								/></svg
-							>
+							<ImageOff size={16} class="shrink-0 text-ink-faint" />
 						{/if}
 						<span class="truncate text-ink">{rule.name}</span>
 					</div>
 				{/each}
 				{#if rules.length > 8}
-					<button
-						type="button"
-						onclick={props.onOpenDetails}
-						class="text-xs text-ink-muted hover:text-ink hover:underline md:col-span-2"
-						>+{rules.length - 8} more rules</button
-					>
+					<div class="md:col-span-2">
+						<Button size="sm" variant="ghost" onclick={props.onOpenDetails}>
+							+{rules.length - 8} more rules
+						</Button>
+					</div>
 				{/if}
 			</div>
-		</div>
-	{:else}
-		<div class="setup-card-body border-t border-line px-4 py-3">
-			<span class="text-xs text-ink-muted">No rules defined</span>
-		</div>
-	{/if}
+		{:else}
+			<p class="text-sm text-ink-muted">No rules defined</p>
+		{/if}
 
-	<div class="setup-card-body border-t border-line px-4 py-3">
-		<div class="grid items-center gap-3 text-xs text-ink-muted md:grid-cols-[1fr_auto_1fr]">
-			<div>
-				{#if lastUsed}
-					<span title={formatAbsoluteTime(lastUsed) ?? undefined} class="cursor-help">
-						Last used {formatRelativeTime(lastUsed) ?? 'recently'}
-					</span>
-				{/if}
+		<div class="mt-auto flex flex-col gap-1.5">
+			<div class="grid items-center gap-x-3 gap-y-1 text-xs text-ink-muted md:grid-cols-[1fr_auto_1fr]">
+				<div>
+					{#if lastUsed}
+						<span title={formatAbsoluteTime(lastUsed) ?? undefined}>
+							Last used {formatRelativeTime(lastUsed) ?? 'recently'}
+						</span>
+					{/if}
+				</div>
+				<div class="md:text-center">
+					<span class="font-mono">hive:</span>{#if targetWebUrl(props.target)}<a
+							href={targetWebUrl(props.target) ?? undefined}
+							target="_blank"
+							rel="noreferrer"
+							class="text-primary-ink hover:underline">{sourceLabel(props.target)}</a
+						>{:else}{sourceLabel(props.target)}{/if}
+				</div>
+				<div class="md:text-right">
+					{#if displayVersion(props.profile)?.created_at}
+						<span title={formatAbsoluteTime(displayVersion(props.profile)?.created_at) ?? undefined}>
+							Updated {formatRelativeTime(displayVersion(props.profile)?.created_at) ?? 'recently'}
+						</span>
+					{/if}
+				</div>
 			</div>
-			<div class="text-center">
-				<span class="font-mono text-ink-muted">hive:</span>{#if targetWebUrl(props.target)}<a
-						href={targetWebUrl(props.target) ?? undefined}
-						target="_blank"
-						rel="noreferrer"
-						class="transition-colors hover:text-ink hover:underline"
-					>{sourceLabel(props.target)}</a>{:else}{sourceLabel(props.target)}{/if}
-			</div>
-			<div class="text-right">
-				{#if displayVersion(props.profile)?.created_at}
-					<span
-						title={formatAbsoluteTime(displayVersion(props.profile)?.created_at) ?? undefined}
-						class="cursor-help"
-					>
-						Updated {formatRelativeTime(displayVersion(props.profile)?.created_at) ?? 'recently'}
-					</span>
-				{/if}
-			</div>
+			{#if props.detailError}
+				<p class="text-sm text-warning-ink">Could not load versions: {props.detailError}</p>
+			{/if}
+			{#if isSelectedActive}
+				<p class="text-sm text-ink-muted">Currently active on this machine.</p>
+			{:else if isActive && props.syncState?.version_number}
+				<p class="text-sm text-ink-muted">
+					This profile is active on v{props.syncState.version_number}.
+				</p>
+			{/if}
 		</div>
-		{#if props.detailError}
-			<div class="mt-2 text-xs text-amber-700">
-				Could not load versions: {props.detailError}
-			</div>
-		{/if}
-		{#if isSelectedActive}
-			<div class="mt-2 text-xs text-primary-ink">Currently active on this machine.</div>
-		{:else if isActive && props.syncState?.version_number}
-			<div class="mt-2 text-sm text-ink-muted">
-				This profile is active on v{props.syncState.version_number}.
-			</div>
-		{/if}
 	</div>
-</div>
+</Card>

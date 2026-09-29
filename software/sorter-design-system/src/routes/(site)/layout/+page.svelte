@@ -1,8 +1,11 @@
 <script lang="ts">
 	import ArrowRight from '@lucide/svelte/icons/arrow-right';
+	import Plus from '@lucide/svelte/icons/plus';
 	import PageHeader from '$lib/site/PageHeader.svelte';
 	import SiteSection from '$lib/site/SiteSection.svelte';
+	import Specimen from '$lib/site/Specimen.svelte';
 	import Button from '$lib/components/Button.svelte';
+	import AppPageHeader from '$lib/components/PageHeader.svelte';
 
 	const spacing = [
 		{
@@ -108,25 +111,33 @@
 
 <SiteSection
 	title="A page"
-	lead="A title and one sentence on the canvas, then panels, one per job, 16px apart. A panel's title says what it is for; the page never needs a second heading level above its panels."
+	lead="A title and one sentence on the canvas, with the page's own actions at the right, then panels, one per job, 16px apart. On a phone the actions wrap under the sentence. A panel's title says what it is for; the page never needs a second heading level above its panels."
 >
-	<div class="bg-surface p-2">
-		<div class="flex flex-col gap-4 bg-canvas p-6">
-			<div>
-				<div class="text-xl font-semibold tracking-tight text-ink">General</div>
-				<div class="mt-1 text-sm text-ink-muted">
-					This machine, how this page reaches it, and how it looks.
-				</div>
+	<Specimen
+		on="canvas"
+		code={`<div class="flex flex-col gap-(--gap-panels)">
+	<PageHeader title="Sorting profiles" description="...">
+		{#snippet actions()}<Button icon={Plus}>New profile</Button>{/snippet}
+	</PageHeader>
+	<Panel ...>...</Panel>
+</div>`}
+	>
+		<div class="flex flex-col gap-(--gap-panels)">
+			<AppPageHeader
+				title="Sorting profiles"
+				description="Which bin each part goes to. The machine sorts by one profile at a time."
+			>
+				{#snippet actions()}<Button icon={Plus}>New profile</Button>{/snippet}
+			</AppPageHeader>
+			<div class="rounded-panel bg-surface px-5 py-4">
+				<div class="text-base font-semibold text-ink">September</div>
+				<div class="mt-0.5 text-sm text-ink-muted">In use. 36 bins, by part.</div>
 			</div>
-			<div class="bg-surface px-5 py-4">
-				<div class="text-base font-semibold text-ink">Connection</div>
-				<div class="mt-0.5 text-sm text-ink-muted">The machine this page is talking to.</div>
-			</div>
-			<div class="bg-surface px-5 py-4">
-				<div class="text-base font-semibold text-ink">Appearance</div>
+			<div class="rounded-panel bg-surface px-5 py-4">
+				<div class="text-base font-semibold text-ink">Bulk by color</div>
 			</div>
 		</div>
-	</div>
+	</Specimen>
 </SiteSection>
 
 <SiteSection
@@ -169,7 +180,7 @@
 
 <SiteSection
 	title="Narrow screens"
-	lead="Everything works at 390px wide: the top bar keeps the pages and icons, the side nav turns into a select, rows stack their control under their name, and no page scrolls sideways."
+	lead="Everything works at 390px wide: the top bar folds its pages into one menu named for the current page, the side nav turns into a select, rows stack their control under their name, a page's actions wrap under its title, and no page scrolls sideways."
 >
 	<div class="bg-surface p-5 text-sm text-ink-muted">
 		The page's own order is the phone's order, so what someone needs first comes first in the

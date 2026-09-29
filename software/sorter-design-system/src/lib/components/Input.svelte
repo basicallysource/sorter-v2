@@ -4,37 +4,28 @@
 	one control; `end` puts a small control there instead (a Show button on
 	a password). Focus draws the edge in the primary at 2px, over the field's
 	own line rather than outside it, so a focused field never shows two lines.
-	`element` binds the <input> itself, to focus it from code; any other
-	attribute (autocomplete, enterkeyhint, spellcheck) goes on it too.
+	`element` binds the <input> itself, to focus it from code; every other
+	attribute (id, name, autocomplete, required, onkeydown) goes on it too.
 -->
 <script lang="ts">
 	import type { Snippet } from 'svelte';
+	import type { HTMLInputAttributes } from 'svelte/elements';
 
 	let {
 		value = $bindable(),
 		element = $bindable(),
-		id,
 		type = 'text',
-		placeholder,
 		unit,
 		end,
 		size = 'md',
 		invalid = false,
 		disabled = false,
-		readonly = false,
-		min,
-		max,
-		step,
 		class: className = '',
-		oninput,
-		onchange,
 		...rest
 	}: {
 		value?: string | number | null;
 		element?: HTMLInputElement;
-		id?: string;
-		type?: 'text' | 'number' | 'password' | 'email' | 'search' | 'url';
-		placeholder?: string;
+		type?: 'text' | 'number' | 'password' | 'email' | 'search' | 'url' | 'tel';
 		unit?: string;
 		// A small control inside the field's edge, after the value.
 		end?: Snippet;
@@ -42,15 +33,9 @@
 		size?: 'sm' | 'md' | 'lg';
 		invalid?: boolean;
 		disabled?: boolean;
-		readonly?: boolean;
-		min?: number;
-		max?: number;
-		step?: number | 'any';
+		// On the field's edge, around the input and its unit.
 		class?: string;
-		oninput?: (event: Event) => void;
-		onchange?: (event: Event) => void;
-		[attribute: string]: unknown;
-	} = $props();
+	} & Omit<HTMLInputAttributes, 'value' | 'type' | 'size' | 'disabled' | 'class'> = $props();
 
 	const height = $derived(
 		{ sm: 'h-(--size-control-sm)', md: 'h-(--size-control)', lg: 'h-(--size-control-lg)' }[size]
@@ -69,17 +54,9 @@
 	<input
 		{...rest}
 		bind:this={element}
-		{id}
 		{type}
-		{placeholder}
 		{disabled}
-		{readonly}
-		{min}
-		{max}
-		{step}
 		bind:value
-		{oninput}
-		{onchange}
 		aria-invalid={invalid || undefined}
 		class="h-full min-w-0 flex-1 bg-transparent text-ink outline-none placeholder:text-ink-faint
 			{size === 'lg' ? 'text-base' : 'text-sm'} {pad} {type === 'number' ? 'num text-right' : ''}"

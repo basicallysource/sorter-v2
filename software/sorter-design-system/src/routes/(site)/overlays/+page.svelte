@@ -8,6 +8,11 @@
 	import Trash from '@lucide/svelte/icons/trash-2';
 	import Ellipsis from '@lucide/svelte/icons/ellipsis';
 	import ChevronDown from '@lucide/svelte/icons/chevron-down';
+	import CircleUser from '@lucide/svelte/icons/circle-user';
+	import Settings from '@lucide/svelte/icons/settings';
+	import Users from '@lucide/svelte/icons/users';
+	import Cpu from '@lucide/svelte/icons/cpu';
+	import LogOut from '@lucide/svelte/icons/log-out';
 	import PageHeader from '$lib/site/PageHeader.svelte';
 	import SiteSection from '$lib/site/SiteSection.svelte';
 	import Specimen from '$lib/site/Specimen.svelte';
@@ -23,8 +28,18 @@
 	let profile = $state('september');
 	let last = $state('');
 	let confirmOpen = $state(false);
+	let restarting = $state(false);
 	let renameOpen = $state(false);
 	let profileName = $state('September');
+
+	function restart() {
+		restarting = true;
+		setTimeout(() => {
+			restarting = false;
+			confirmOpen = false;
+			last = 'Restart backend';
+		}, 4000);
+	}
 
 	const profiles = [
 		{ id: 'september', name: 'September' },
@@ -68,7 +83,7 @@
 
 <SiteSection
 	title="Menu"
-	lead="Actions or links from one button. The arrow keys move, Enter chooses, Escape closes. The destructive item comes last, after a line, and asks first."
+	lead="Actions or links from one button. The arrow keys move, Enter chooses, Escape closes. The destructive item comes last, after a line, and asks first. A group's name sits over its items, as a label."
 >
 	<Specimen
 		code={`<Menu label="Machine" items={[
@@ -113,6 +128,27 @@
 					<Button {...props}>
 						{profiles.find((p) => p.id === profile)?.name}<ChevronDown size={16} />
 					</Button>
+				{/snippet}
+			</Menu>
+			<Menu
+				label="Account"
+				placement="bottom-start"
+				items={[
+					{ label: 'Your settings', icon: Settings, onselect: () => (last = 'Your settings') },
+					'separator',
+					{
+						group: 'Admin',
+						items: [
+							{ label: 'Users', icon: Users, onselect: () => (last = 'Users') },
+							{ label: 'Machines', icon: Cpu, onselect: () => (last = 'Machines') }
+						]
+					},
+					'separator',
+					{ label: 'Sign out', icon: LogOut, onselect: () => (last = 'Sign out') }
+				]}
+			>
+				{#snippet trigger(props)}
+					<Button {...props} variant="ghost" icon={CircleUser} label="Account" />
 				{/snippet}
 			</Menu>
 			<Menu
@@ -167,7 +203,7 @@
 
 <SiteSection
 	title="Modal"
-	lead="For a decision that stops everything else, or a short form that belongs to nothing on the page. Escape and the close button always close it; a click on the scrim does not."
+	lead="For a decision that stops everything else, or a short form that belongs to nothing on the page. Escape and the close button close it; a click on the scrim does not. While something runs that must not be interrupted, it cannot be closed at all: no close button, Escape does nothing, and the foot says what is happening until the app closes it."
 >
 	<Specimen
 		code={`<Modal bind:open title="Restart the backend?" size="sm">
@@ -176,6 +212,11 @@
 		<Button variant="ghost" onclick={() => (open = false)}>Cancel</Button>
 		<Button variant="danger">Restart</Button>
 	{/snippet}
+</Modal>
+
+<Modal open={restarting} title="Restarting the backend" size="sm"
+	dismissible={false} status="Waiting for the backend to come back">
+	<p>...</p>
 </Modal>`}
 	>
 		<div class="flex flex-wrap gap-3">
@@ -207,21 +248,26 @@
 	</ul>
 </SiteSection>
 
-<Modal bind:open={confirmOpen} title="Restart the backend?" size="sm">
+<Modal
+	bind:open={confirmOpen}
+	title={restarting ? 'Restarting the backend' : 'Restart the backend?'}
+	size="sm"
+	dismissible={!restarting}
+	status={restarting ? 'Waiting for the backend to come back' : undefined}
+>
 	<p class="text-ink-muted">
-		The machine stops sorting and comes back in standby in about half a minute. Parts on the
-		channels stay where they are.
+		{#if restarting}
+			This closes by itself when the backend answers again, in about half a minute.
+		{:else}
+			The machine stops sorting and comes back in standby in about half a minute. Parts on the
+			channels stay where they are.
+		{/if}
 	</p>
 	{#snippet footer()}
-		<Button variant="ghost" onclick={() => (confirmOpen = false)}>Cancel</Button>
-		<Button
-			variant="danger"
-			icon={RotateCcw}
-			onclick={() => {
-				confirmOpen = false;
-				last = 'Restart backend';
-			}}>Restart</Button
-		>
+		{#if !restarting}
+			<Button variant="ghost" onclick={() => (confirmOpen = false)}>Cancel</Button>
+			<Button variant="danger" icon={RotateCcw} onclick={restart}>Restart</Button>
+		{/if}
 	{/snippet}
 </Modal>
 

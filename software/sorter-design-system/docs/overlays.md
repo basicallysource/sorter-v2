@@ -29,7 +29,23 @@ card's "more" menu (`ellipsis`), a switcher. The arrow keys, Home and End
 move, Enter chooses, Escape and Tab close. An item that destroys something
 comes last, after a separator, in danger ink, and its action asks first (a
 `Modal`). A switcher's items take `checked`, and the current one gets a
-check.
+check; a link that is `checked` is the current page (`aria-current`), which
+is how the top bar's folded pages mark where you are. A group,
+`{ group: 'Admin', items: [...] }`, puts its name over its items as a label,
+like a group in the side nav:
+
+```svelte
+<Menu
+	label="Account"
+	items={[
+		{ label: 'Your settings', href: '/account' },
+		'separator',
+		{ group: 'Admin', items: [{ label: 'Users', href: '/admin/users' }] },
+		'separator',
+		{ label: 'Sign out', onselect: signOut }
+	]}>...</Menu
+>
+```
 
 ## Select
 
@@ -38,6 +54,12 @@ it looks like the rest of the page on every system. From the keyboard, Enter,
 Space or the arrows open it; the arrows, Home and End move; typing jumps to
 the first match; Enter chooses; Escape and Tab close. The list is at least as
 wide as the field and scrolls past 18rem.
+
+`class` goes on a wrapper around the field, so a width set there wins
+(`class="w-44"`): no sized `<div>` around it. Any other attribute goes on its
+button. In a form, `name` submits the value from a hidden native `<select>`,
+which also takes `required` and `autocomplete`, so the browser checks it on
+submit and can fill it.
 
 ## Tooltip
 
@@ -61,6 +83,27 @@ belongs to nothing on the page.
 A confirmation says what will happen in a sentence ("The machine stops
 sorting and comes back in standby in about half a minute"), and its button
 says the action ("Restart"), in `danger` when it destroys or stops something.
+
+While something runs that must not be interrupted (restarting the backend,
+rebooting, powering down), the dialog cannot be closed: `dismissible={false}`
+takes away the close button and makes Escape do nothing, and the app closes it
+when the thing is done. It still holds focus, and the page stays under the
+scrim. `status` says what is happening now, beside the Spinner at the start of
+the foot ("Waiting for the machine to come back"), where the actions were.
+The confirmation and the wait can be one dialog: the title changes, the
+actions go, the status comes.
+
+```svelte
+<Modal
+	open={restarting}
+	title="Restarting the machine"
+	size="sm"
+	dismissible={false}
+	status="Waiting for the machine to come back"
+>
+	<p>This page reconnects by itself when the machine is back.</p>
+</Modal>
+```
 
 ## What there is not
 

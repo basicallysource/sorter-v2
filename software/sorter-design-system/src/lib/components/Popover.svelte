@@ -44,7 +44,8 @@
 		open?: boolean;
 	} = $props();
 
-	const id = `popover-${Math.random().toString(36).slice(2, 9)}`;
+	const uid = $props.id();
+	const id = `${uid}-popover`;
 	let anchor: HTMLElement;
 	let panel: HTMLElement;
 

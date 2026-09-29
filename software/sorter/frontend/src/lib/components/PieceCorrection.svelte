@@ -1,5 +1,8 @@
 <script lang="ts">
-	import { Check, X, Search, Sparkles } from 'lucide-svelte';
+	import Check from '@lucide/svelte/icons/check';
+	import X from '@lucide/svelte/icons/x';
+	import Search from '@lucide/svelte/icons/search';
+	import Sparkles from '@lucide/svelte/icons/sparkles';
 	import { Button, Alert } from '$lib/components/primitives';
 	import Spinner from '$lib/components/Spinner.svelte';
 	import {

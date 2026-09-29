@@ -1,5 +1,6 @@
 <script lang="ts">
-	import { Check, RotateCcw } from 'lucide-svelte';
+	import Check from '@lucide/svelte/icons/check';
+	import RotateCcw from '@lucide/svelte/icons/rotate-ccw';
 	import Spinner from '$lib/components/Spinner.svelte';
 
 	type StepperDirectionEntry = {

@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { getBackendHttpBase, machineHttpBaseUrlFromWsUrl } from '$lib/backend';
 	import { getMachinesContext } from '$lib/machines/context';
-	import { X } from 'lucide-svelte';
+	import X from '@lucide/svelte/icons/x';
 
 	type ModelOption = { id: string; label: string; description?: string };
 

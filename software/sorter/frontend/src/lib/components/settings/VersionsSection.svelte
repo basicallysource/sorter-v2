@@ -7,7 +7,9 @@
 	} from '$lib/backend';
 	import { getMachineContext } from '$lib/machines/context';
 	import { Button, Alert } from '$lib/components/primitives';
-	import { GitBranch, Tag, RefreshCcw } from 'lucide-svelte';
+	import GitBranch from '@lucide/svelte/icons/git-branch';
+	import Tag from '@lucide/svelte/icons/tag';
+	import RefreshCcw from '@lucide/svelte/icons/refresh-ccw';
 
 	const machine = getMachineContext();
 

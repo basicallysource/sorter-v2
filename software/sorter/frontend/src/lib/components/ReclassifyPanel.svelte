@@ -1,5 +1,6 @@
 <script lang="ts">
-	import { Check, FlaskConical } from 'lucide-svelte';
+	import Check from '@lucide/svelte/icons/check';
+	import FlaskConical from '@lucide/svelte/icons/flask-conical';
 	import { Button } from '$lib/components/primitives';
 	import Spinner from '$lib/components/Spinner.svelte';
 

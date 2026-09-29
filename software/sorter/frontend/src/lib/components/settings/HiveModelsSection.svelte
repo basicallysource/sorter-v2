@@ -2,15 +2,13 @@
 	import { onMount } from 'svelte';
 	import { getBackendHttpBase } from '$lib/backend';
 	import { Alert, Button, Tooltip } from '$lib/components/primitives';
-	import {
-		Download,
-		RefreshCw,
-		Trash2,
-		Search,
-		CheckCircle2,
-		ChevronDown,
-		ChevronRight
-	} from 'lucide-svelte';
+	import Download from '@lucide/svelte/icons/download';
+	import RefreshCw from '@lucide/svelte/icons/refresh-cw';
+	import Trash2 from '@lucide/svelte/icons/trash';
+	import Search from '@lucide/svelte/icons/search';
+	import CheckCircle2 from '@lucide/svelte/icons/circle-check';
+	import ChevronDown from '@lucide/svelte/icons/chevron-down';
+	import ChevronRight from '@lucide/svelte/icons/chevron-right';
 
 	type HiveTarget = { id: string; name: string; url: string };
 	type ModelSummary = {

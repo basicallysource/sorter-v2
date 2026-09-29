@@ -9,7 +9,7 @@
 		loadStoredStepperPulseSetting,
 		persistStoredStepperPulseSetting
 	} from '$lib/settings/stepper-control';
-	import { Cog } from 'lucide-svelte';
+	import Cog from '@lucide/svelte/icons/cog';
 	import { Alert, Button } from '$lib/components/primitives';
 	import { onMount } from 'svelte';
 	import StepperPulseControls from './stepper/StepperPulseControls.svelte';

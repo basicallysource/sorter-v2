@@ -3,7 +3,7 @@
 	import Spinner from '$lib/components/Spinner.svelte';
 	import { getBackendHttpBase, machineHttpBaseUrlFromWsUrl } from '$lib/backend';
 	import { getMachineContext } from '$lib/machines/context';
-	import { RefreshCw } from 'lucide-svelte';
+	import RefreshCw from '@lucide/svelte/icons/refresh-cw';
 
 	type Option = {
 		id: string;

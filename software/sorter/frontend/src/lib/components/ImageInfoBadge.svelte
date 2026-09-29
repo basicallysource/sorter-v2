@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { Info } from 'lucide-svelte';
+	import Info from '@lucide/svelte/icons/info';
 
 	// A small info icon that reveals a metadata popover on hover/focus. The
 	// caller supplies arbitrary label/value rows; this component additionally

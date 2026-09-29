@@ -1,13 +1,14 @@
 <script lang="ts">
+	// One setting, drawn as the design system's SettingRow (its name and a
+	// sentence on the left, the control on the right, in a divide-y list in a
+	// flush panel), plus what the system's row lacks yet: when `changed`, a
+	// "Changed" badge and a button that puts the default back. Used by the
+	// tuning pages (through TuningParamRow) and Sample capture.
 	import type { Snippet } from 'svelte';
-	import { RotateCcw } from 'lucide-svelte';
-	import { InfoTip, Tooltip } from '$lib/components/primitives';
+	import RotateCcw from '@lucide/svelte/icons/rotate-ccw';
+	import Badge from '$lib/components/ui/Badge.svelte';
+	import Button from '$lib/components/ui/Button.svelte';
 
-	// One setting: label, an info icon explaining it, and the control (passed as
-	// children). The general "changed from default" concept for every settings
-	// surface: when `changed` is true the row is tinted and a revert button
-	// appears that resets the value back to its default. Used by every tuning
-	// page (via TuningParamRow) and the root settings page.
 	let {
 		label,
 		description,
@@ -25,32 +26,26 @@
 		onRevert?: () => void;
 		children: Snippet;
 	} = $props();
+
+	const revertLabel = $derived(
+		`Put the default back${defaultLabel !== undefined ? `: ${defaultLabel}` : ''}`
+	);
 </script>
 
-<div
-	class="flex items-center justify-between gap-3 border px-3 py-2.5 transition-colors {changed
-		? 'border-warning/50 bg-warning/[0.06]'
-		: 'border-border bg-bg'}"
->
-	<label class="flex min-w-0 items-center gap-1.5 text-sm font-medium text-text" for={forId}>
-		<span class="min-w-0">{label}</span>
-		{#if description}
-			<InfoTip text={description} />
-		{/if}
-	</label>
-	<div class="flex shrink-0 items-center gap-2">
-		{#if changed && onRevert}
-			<Tooltip text="Reset to default{defaultLabel !== undefined ? `: ${defaultLabel}` : ''}">
-				<button
-					type="button"
-					onclick={onRevert}
-					aria-label="Reset to default{defaultLabel !== undefined ? `: ${defaultLabel}` : ''}"
-					class="inline-flex items-center border border-transparent p-1 text-warning transition-colors hover:border-border hover:text-text"
-				>
-					<RotateCcw size={15} />
-				</button>
-			</Tooltip>
-		{/if}
-		{@render children()}
+<div class="px-(--pad-panel) py-(--pad-row)">
+	<div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between sm:gap-8">
+		<div class="min-w-0">
+			<div class="flex items-center gap-2">
+				<label for={forId} class="text-sm font-medium text-ink">{label}</label>
+				{#if changed}<Badge tone="warning">Changed</Badge>{/if}
+			</div>
+			{#if description}<p class="mt-0.5 max-w-prose text-sm text-ink-muted">{description}</p>{/if}
+		</div>
+		<div class="flex shrink-0 items-center gap-2">
+			{#if changed && onRevert}
+				<Button variant="ghost" size="sm" icon={RotateCcw} label={revertLabel} onclick={onRevert} />
+			{/if}
+			{@render children()}
+		</div>
 	</div>
 </div>

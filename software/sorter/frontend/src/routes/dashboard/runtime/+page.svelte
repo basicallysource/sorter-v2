@@ -4,7 +4,7 @@
 	import MachineDropdown from '$lib/components/MachineDropdown.svelte';
 	import { getBackendHttpBase } from '$lib/backend';
 	import { settings } from '$lib/stores/settings';
-	import { ArrowLeft } from 'lucide-svelte';
+	import ArrowLeft from '@lucide/svelte/icons/arrow-left';
 
 	type MachineStateStats = {
 		current_state?: string;

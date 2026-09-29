@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { PencilRuler } from 'lucide-svelte';
+	import PencilRuler from '@lucide/svelte/icons/pencil-ruler';
 
 	let {
 		label,

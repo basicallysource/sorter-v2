@@ -33,7 +33,9 @@
 		SortingProfileSummary
 	} from '$lib/sorting-profiles/types';
 	import Modal from '$lib/components/Modal.svelte';
-	import { RotateCw, Trash2, Upload } from 'lucide-svelte';
+	import RotateCw from '@lucide/svelte/icons/rotate-cw';
+	import Trash2 from '@lucide/svelte/icons/trash';
+	import Upload from '@lucide/svelte/icons/upload';
 	import { onMount } from 'svelte';
 
 	const manager = getMachinesContext();

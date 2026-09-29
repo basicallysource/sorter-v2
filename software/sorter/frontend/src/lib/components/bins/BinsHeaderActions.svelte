@@ -1,5 +1,9 @@
 <script lang="ts">
-	import { ArchiveX, Download, FolderOutput, History, Home } from 'lucide-svelte';
+	import ArchiveX from '@lucide/svelte/icons/archive-x';
+	import Download from '@lucide/svelte/icons/download';
+	import FolderOutput from '@lucide/svelte/icons/folder-output';
+	import History from '@lucide/svelte/icons/rotate-ccw-clock';
+	import Home from '@lucide/svelte/icons/house';
 
 	let {
 		csvUrl,

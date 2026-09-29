@@ -2,7 +2,10 @@
 	import AppHeader from '$lib/components/AppHeader.svelte';
 	import { getBackendHttpBase, machineHttpBaseUrlFromWsUrl } from '$lib/backend';
 	import { getMachinesContext } from '$lib/machines/context';
-	import { ArrowLeft, CheckCircle2, Filter, Printer } from 'lucide-svelte';
+	import ArrowLeft from '@lucide/svelte/icons/arrow-left';
+	import CheckCircle2 from '@lucide/svelte/icons/circle-check';
+	import Filter from '@lucide/svelte/icons/funnel';
+	import Printer from '@lucide/svelte/icons/printer';
 	import { onMount } from 'svelte';
 
 	type SetPart = {

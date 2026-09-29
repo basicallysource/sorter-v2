@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { ToggleSwitch } from '$lib/components/primitives';
-	import { Crosshair } from 'lucide-svelte';
+	import Crosshair from '@lucide/svelte/icons/crosshair';
 	import Spinner from '$lib/components/Spinner.svelte';
 	import type { Snippet } from 'svelte';
 	import type { BinInfo } from './types';

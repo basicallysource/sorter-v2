@@ -1,7 +1,10 @@
 <script lang="ts">
 	import { getBackendHttpBase, machineHttpBaseUrlFromWsUrl } from '$lib/backend';
 	import { getMachinesContext } from '$lib/machines/context';
-	import { ChevronDown, Play, Pause, Square } from 'lucide-svelte';
+	import ChevronDown from '@lucide/svelte/icons/chevron-down';
+	import Play from '@lucide/svelte/icons/play';
+	import Pause from '@lucide/svelte/icons/pause';
+	import Square from '@lucide/svelte/icons/square';
 	import { onDestroy, onMount, untrack } from 'svelte';
 	import ChuteStressTelemetryChart from './ChuteStressTelemetryChart.svelte';
 

@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { Home } from 'lucide-svelte';
+	import Home from '@lucide/svelte/icons/house';
 
 	let {
 		loading,

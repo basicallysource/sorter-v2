@@ -4,7 +4,7 @@
 	// machine already has for itself and offers another roll, so the three stay
 	// one behaviour rather than three that drift.
 	import { onMount } from 'svelte';
-	import { Shuffle } from 'lucide-svelte';
+	import Shuffle from '@lucide/svelte/icons/shuffle';
 
 	let {
 		value = $bindable(),

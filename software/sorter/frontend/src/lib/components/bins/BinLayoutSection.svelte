@@ -14,7 +14,10 @@
 		type BinLayoutRecord
 	} from '$lib/api/bin-layouts';
 	import { onMount } from 'svelte';
-	import { Check, ChevronDown, Pencil, Trash2 } from 'lucide-svelte';
+	import Check from '@lucide/svelte/icons/check';
+	import ChevronDown from '@lucide/svelte/icons/chevron-down';
+	import Pencil from '@lucide/svelte/icons/pencil';
+	import Trash2 from '@lucide/svelte/icons/trash';
 	import Spinner from '$lib/components/Spinner.svelte';
 
 	let {

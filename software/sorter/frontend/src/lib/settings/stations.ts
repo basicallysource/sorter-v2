@@ -1,20 +1,18 @@
-import {
-	Activity,
-	Camera,
-	CircuitBoard,
-	Cloud,
-	Cpu,
-	Gauge,
-	GitBranch,
-	Layers3,
-	Network,
-	Settings,
-	Shapes,
-	ShieldAlert,
-	SlidersHorizontal,
-	Wrench,
-	Zap
-} from 'lucide-svelte';
+import Activity from '@lucide/svelte/icons/activity';
+import Camera from '@lucide/svelte/icons/camera';
+import CircuitBoard from '@lucide/svelte/icons/circuit-board';
+import Cloud from '@lucide/svelte/icons/cloud';
+import Cpu from '@lucide/svelte/icons/cpu';
+import Gauge from '@lucide/svelte/icons/gauge';
+import GitBranch from '@lucide/svelte/icons/git-branch';
+import Layers3 from '@lucide/svelte/icons/layers';
+import Network from '@lucide/svelte/icons/network';
+import Settings from '@lucide/svelte/icons/settings';
+import Shapes from '@lucide/svelte/icons/shapes';
+import ShieldAlert from '@lucide/svelte/icons/shield-alert';
+import SlidersHorizontal from '@lucide/svelte/icons/sliders-horizontal';
+import Wrench from '@lucide/svelte/icons/wrench';
+import Zap from '@lucide/svelte/icons/zap';
 import {
 	CLASSIFICATION_CHANNEL_STEPPER_GEAR_RATIO,
 	CLASSIFICATION_CHANNEL_STEPPER_LABEL
@@ -78,7 +76,7 @@ export const generalNavItem: SettingsNavItem = {
 
 export const storageLayersNavItem: SettingsNavItem = {
 	href: '/settings/storage-layers',
-	label: 'Storage Layers',
+	label: 'Storage layers',
 	icon: Layers3
 };
 
@@ -90,7 +88,7 @@ export const hiveNavItem: SettingsNavItem = {
 
 export const hiveModelsNavItem: SettingsNavItem = {
 	href: '/settings/hive/models',
-	label: 'Local Models',
+	label: 'Local models',
 	icon: Cpu
 };
 
@@ -114,13 +112,13 @@ export const chuteNavItem: SettingsNavItem = {
 
 export const controlBoardNavItem: SettingsNavItem = {
 	href: '/settings/control-board',
-	label: 'Control Board',
+	label: 'Control board',
 	icon: CircuitBoard
 };
 
 export const chuteAimingNavItem: SettingsNavItem = {
 	href: '/settings/chute-aiming',
-	label: 'Chute Aiming',
+	label: 'Chute aiming',
 	icon: Shapes
 };
 
@@ -132,7 +130,7 @@ export const stallguardNavItem: SettingsNavItem = {
 
 export const jitterTestNavItem: SettingsNavItem = {
 	href: '/settings/jitter-test',
-	label: 'Jitter Test',
+	label: 'Jitter test',
 	icon: Zap
 };
 
@@ -150,29 +148,29 @@ export const incidentsNavItem: SettingsNavItem = {
 
 export const powerStressNavItem: SettingsNavItem = {
 	href: '/settings/power-stress',
-	label: 'Power Stress Test',
+	label: 'Power stress test',
 	icon: Zap
 };
 
 export const tuningNavItems: SettingsNavItem[] = [
 	{
 		href: '/settings/tuning/feeder-pulse-perception',
-		label: 'Feeder Simple Pulse',
+		label: 'Feeder simple pulse',
 		icon: SlidersHorizontal
 	},
 	{
 		href: '/settings/tuning/classification-channel',
-		label: 'Classification Channel',
+		label: 'Classification channel',
 		icon: SlidersHorizontal
 	},
 	{
 		href: '/settings/tuning/object-tracker',
-		label: 'Object Tracker',
+		label: 'Object tracker',
 		icon: SlidersHorizontal
 	},
 	{
 		href: '/settings/tuning/piece-link',
-		label: 'Piece Link (experimental)',
+		label: 'Piece link (experimental)',
 		icon: SlidersHorizontal
 	}
 ];
@@ -211,7 +209,7 @@ export const stationPageConfigs: StationPageConfig[] = [
 	{
 		slug: 'classification-channel',
 		href: '/settings/classification-channel',
-		label: 'Classification C-Channel (C4)',
+		label: 'Classification channel',
 		icon: Camera,
 		description:
 			'Configure the fourth C-channel camera, arc zones, and classification-channel stepper.',
@@ -255,6 +253,18 @@ export const settingsNavItems: SettingsNavEntry[] = [
 	{ type: 'heading', label: 'Tuning' },
 	...tuningNavItems
 ];
+
+// The same entries as the side nav's groups: each heading starts a group.
+export const settingsNavGroups: { label?: string; items: SettingsNavItem[] }[] =
+	settingsNavItems.reduce<{ label?: string; items: SettingsNavItem[] }[]>(
+		(groups, entry) => {
+			if ('href' in entry) groups[groups.length - 1].items.push(entry);
+			else groups.push({ label: entry.label, items: [] });
+			return groups;
+		},
+		[{ items: [] }]
+	);
+
 
 export function getStationPageConfig(slug: string): StationPageConfig | undefined {
 	return stationPageConfigs.find((station) => station.slug === slug);

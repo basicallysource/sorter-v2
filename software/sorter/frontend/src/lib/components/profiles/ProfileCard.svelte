@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { Ellipsis } from 'lucide-svelte';
+	import Ellipsis from '@lucide/svelte/icons/ellipsis';
 	import {
 		displayVersion,
 		sourceLabel,

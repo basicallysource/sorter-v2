@@ -1,7 +1,10 @@
 <script lang="ts">
 	import PieceThumb from '$lib/components/PieceThumb.svelte';
 	import { Skeleton } from '$lib/components/primitives';
-	import { ArchiveX, Crosshair, FolderOutput, Tag } from 'lucide-svelte';
+	import ArchiveX from '@lucide/svelte/icons/archive-x';
+	import Crosshair from '@lucide/svelte/icons/crosshair';
+	import FolderOutput from '@lucide/svelte/icons/folder-output';
+	import Tag from '@lucide/svelte/icons/tag';
 	import Spinner from '$lib/components/Spinner.svelte';
 	import { categoryLabel, formatLastSeen, formatRelativeTime, pieceTooltip, previewUrl } from './pieces';
 	import QuantityBadge from './QuantityBadge.svelte';

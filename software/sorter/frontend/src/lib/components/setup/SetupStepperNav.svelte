@@ -1,5 +1,6 @@
 <script lang="ts">
-	import { Check, Pencil } from 'lucide-svelte';
+	import Check from '@lucide/svelte/icons/check';
+	import Pencil from '@lucide/svelte/icons/pencil';
 
 	type WizardStepDefinition<Id extends string = string> = {
 		id: Id;

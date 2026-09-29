@@ -1,20 +1,18 @@
 <script lang="ts">
-	import {
-		ChevronLeft,
-		ChevronRight,
-		Lock,
-		LockOpen,
-		DoorOpen,
-		DoorClosed,
-		Crosshair,
-		Save,
-		RotateCcw,
-		Plus,
-		Trash2,
-		Keyboard,
-		Cog,
-		Eraser
-	} from 'lucide-svelte';
+	import ChevronLeft from '@lucide/svelte/icons/chevron-left';
+	import ChevronRight from '@lucide/svelte/icons/chevron-right';
+	import Lock from '@lucide/svelte/icons/lock';
+	import LockOpen from '@lucide/svelte/icons/lock-open';
+	import DoorOpen from '@lucide/svelte/icons/door-open';
+	import DoorClosed from '@lucide/svelte/icons/door-closed';
+	import Crosshair from '@lucide/svelte/icons/crosshair';
+	import Save from '@lucide/svelte/icons/save';
+	import RotateCcw from '@lucide/svelte/icons/rotate-ccw';
+	import Plus from '@lucide/svelte/icons/plus';
+	import Trash2 from '@lucide/svelte/icons/trash';
+	import Keyboard from '@lucide/svelte/icons/keyboard';
+	import Cog from '@lucide/svelte/icons/cog';
+	import Eraser from '@lucide/svelte/icons/eraser';
 	import ServoSpeedSettings from './ServoSpeedSettings.svelte';
 	import { onMount } from 'svelte';
 	import { getBackendHttpBase, machineHttpBaseUrlFromWsUrl } from '$lib/backend';

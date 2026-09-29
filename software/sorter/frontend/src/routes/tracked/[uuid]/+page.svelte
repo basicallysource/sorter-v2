@@ -1,7 +1,9 @@
 <script lang="ts">
 	import { onDestroy, onMount } from 'svelte';
 	import { page } from '$app/state';
-	import { ArrowLeft, ChevronDown, ChevronRight } from 'lucide-svelte';
+	import ArrowLeft from '@lucide/svelte/icons/arrow-left';
+	import ChevronDown from '@lucide/svelte/icons/chevron-down';
+	import ChevronRight from '@lucide/svelte/icons/chevron-right';
 	import AppHeader from '$lib/components/AppHeader.svelte';
 	import ImageInfoBadge from '$lib/components/ImageInfoBadge.svelte';
 	import PieceStatusBadge from '$lib/components/PieceStatusBadge.svelte';

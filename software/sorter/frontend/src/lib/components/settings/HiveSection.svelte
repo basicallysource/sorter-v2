@@ -8,7 +8,15 @@
 		DEFAULT_HIVE_URL,
 		defaultHiveTargetName
 	} from '$lib/hive/link-flow';
-	import { Cloud, Link2, Pencil, Plus, RefreshCw, Shield, Star, Trash2, Upload } from 'lucide-svelte';
+	import Cloud from '@lucide/svelte/icons/cloud';
+	import Link2 from '@lucide/svelte/icons/link-2';
+	import Pencil from '@lucide/svelte/icons/pencil';
+	import Plus from '@lucide/svelte/icons/plus';
+	import RefreshCw from '@lucide/svelte/icons/refresh-cw';
+	import Shield from '@lucide/svelte/icons/shield';
+	import Star from '@lucide/svelte/icons/star';
+	import Trash2 from '@lucide/svelte/icons/trash';
+	import Upload from '@lucide/svelte/icons/upload';
 	import MachineNameField from '$lib/components/MachineNameField.svelte';
 	import Modal from '$lib/components/Modal.svelte';
 

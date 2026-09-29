@@ -1,4 +1,5 @@
 <script lang="ts">
+	import Badge from '$lib/components/ui/Badge.svelte';
 	import { getMachineContext } from '$lib/machines/context';
 
 	type BusMessage = {
@@ -43,51 +44,36 @@
 		}
 	}
 
-	function tagTone(type: string | undefined): string {
+	function tagTone(type: string | undefined): 'primary' | 'success' | 'warning' | 'neutral' {
 		switch (type) {
 			case 'StationGate':
-				return 'border-primary/30 bg-primary/10 text-primary';
+				return 'primary';
 			case 'PieceRequest':
-				return 'border-success/30 bg-success/10 text-success-dark';
 			case 'PieceDelivered':
-				return 'border-success/30 bg-success/10 text-success-dark';
+				return 'success';
 			case 'ChuteMotion':
-				return 'border-warning/30 bg-warning/10 text-warning-dark';
+				return 'warning';
 			default:
-				return 'border-border bg-bg text-text-muted';
+				return 'neutral';
 		}
 	}
 </script>
 
-<div class="setup-card-shell flex h-full min-h-0 flex-col border">
-	<div class="setup-card-header flex items-center justify-between px-3 py-2 text-sm font-medium text-text">
-		<span>Bus Ticker</span>
-		<span class="text-[11px] font-normal uppercase tracking-[0.14em] text-text-muted">
-			{bus_recent.length} recent
-		</span>
-	</div>
-
-	<div class="min-h-0 flex-1 overflow-y-auto p-2">
-		{#if newest_first.length === 0}
-			<div class="px-1 py-3 text-sm text-text-muted">No bus traffic yet</div>
-		{:else}
-			<div class="space-y-1.5">
-				{#each newest_first as message}
-					<div class="rounded border border-border/60 bg-surface px-3 py-2">
-						<div class="mb-1 flex items-center justify-between gap-2">
-							<span class={`rounded border px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-[0.14em] ${tagTone(message.type)}`}>
-								{message.type ?? 'message'}
-							</span>
-							<span class="text-[11px] text-text-muted">
-								{formatClock(message.recorded_at_wall)}
-							</span>
-						</div>
-						<div class="text-sm text-text">
-							{describe(message)}
-						</div>
+<div class="h-full overflow-y-auto">
+	{#if newest_first.length === 0}
+		<p class="px-4 py-8 text-center text-sm text-ink-muted">No bus traffic yet</p>
+	{:else}
+		<p class="px-4 pt-3 text-sm text-ink-muted"><span class="num">{bus_recent.length}</span> recent</p>
+		<ul class="divide-y divide-line">
+			{#each newest_first as message}
+				<li class="px-4 py-2.5">
+					<div class="mb-1 flex items-center justify-between gap-2">
+						<Badge tone={tagTone(message.type)}>{message.type ?? 'Message'}</Badge>
+						<span class="num text-sm text-ink-muted">{formatClock(message.recorded_at_wall)}</span>
 					</div>
-				{/each}
-			</div>
-		{/if}
-	</div>
+					<div class="text-sm text-ink">{describe(message)}</div>
+				</li>
+			{/each}
+		</ul>
+	{/if}
 </div>

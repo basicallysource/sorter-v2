@@ -10,7 +10,9 @@
 	import { getMachinesContext } from '$lib/machines/context';
 	import { machineDowntime } from '$lib/stores/machineDowntime.svelte';
 	import Modal from '$lib/components/Modal.svelte';
-	import { RefreshCw, Power, WifiOff } from 'lucide-svelte';
+	import RefreshCw from '@lucide/svelte/icons/refresh-cw';
+	import Power from '@lucide/svelte/icons/power';
+	import WifiOff from '@lucide/svelte/icons/wifi-off';
 	import { onMount } from 'svelte';
 
 	// Says so when the backend has been unreachable for a while. Reconnecting

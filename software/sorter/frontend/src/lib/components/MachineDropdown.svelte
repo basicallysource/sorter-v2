@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { getMachinesContext } from '$lib/machines/context';
-	import { ChevronDown } from 'lucide-svelte';
+	import ChevronDown from '@lucide/svelte/icons/chevron-down';
 
 	const manager = getMachinesContext();
 

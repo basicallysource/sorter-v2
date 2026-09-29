@@ -20,7 +20,11 @@
 		type PictureSettings
 	} from '$lib/settings/picture-settings';
 	import type { CameraRole } from '$lib/settings/stations';
-	import { RotateCcw, Save, SlidersHorizontal, Undo2, X } from 'lucide-svelte';
+	import RotateCcw from '@lucide/svelte/icons/rotate-ccw';
+	import Save from '@lucide/svelte/icons/save';
+	import SlidersHorizontal from '@lucide/svelte/icons/sliders-horizontal';
+	import Undo2 from '@lucide/svelte/icons/undo-2';
+	import X from '@lucide/svelte/icons/x';
 	import { Alert } from '$lib/components/primitives';
 	import CaptureModePanel from './picture/CaptureModePanel.svelte';
 	import DriftDetection from './picture/DriftDetection.svelte';

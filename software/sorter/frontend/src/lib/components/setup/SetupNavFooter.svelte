@@ -1,5 +1,7 @@
 <script lang="ts">
-	import { CheckCircle2, ChevronLeft, ChevronRight } from 'lucide-svelte';
+	import CheckCircle2 from '@lucide/svelte/icons/circle-check';
+	import ChevronLeft from '@lucide/svelte/icons/chevron-left';
+	import ChevronRight from '@lucide/svelte/icons/chevron-right';
 
 	let {
 		blockerReason,

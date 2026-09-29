@@ -30,9 +30,9 @@
 		"vite": "^7.2.6"
 	},
 	"dependencies": {
-		"@fontsource-variable/ibm-plex-sans": "^5.3.0",
-		"@fontsource/ibm-plex-mono": "^5.3.0",
-		"lucide-svelte": "^0.562.0",
+		"@fontsource-variable/geist": "^5.3.0",
+		"@fontsource-variable/geist-mono": "^5.3.0",
+		"@lucide/svelte": "^1.45.0",
 		"qrcode": "^1.5.4"
 	}
 }

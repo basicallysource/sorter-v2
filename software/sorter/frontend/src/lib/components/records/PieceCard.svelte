@@ -1,11 +1,13 @@
 <script lang="ts">
-	import { ExternalLink, FlaskConical } from 'lucide-svelte';
+	import ExternalLink from '@lucide/svelte/icons/external-link';
+	import FlaskConical from '@lucide/svelte/icons/flask-conical';
 	import ImageInfoBadge from '$lib/components/ImageInfoBadge.svelte';
 	import PieceStatusBadge from '$lib/components/PieceStatusBadge.svelte';
 	import ReclassifyPanel from '$lib/components/ReclassifyPanel.svelte';
 	import PieceCorrection from '$lib/components/PieceCorrection.svelte';
 	import { Skeleton } from '$lib/components/primitives';
-	import { LEGO_COLORS, type LegoColor } from '$lib/lego-colors';
+	import { findLegoColor } from '$lib/pieces/colors';
+	import { onColor } from '$lib/theme';
 	import type { ClassificationAttempt, ClassificationAttemptStrategy } from '$lib/api/events';
 	import type { PieceSummary } from '$lib/pieces';
 	import type { DisplayImage, ImageState } from './piece-images';
@@ -69,21 +71,6 @@
 		return v >= 0.01 ? `$${v.toFixed(2)}` : `$${v.toFixed(3)}`;
 	}
 
-	function lookupLegoColor(
-		color_id: string | null | undefined,
-		color_name: string | null | undefined
-	): LegoColor | null {
-		if (color_id) {
-			const by_id = LEGO_COLORS.find((c) => c.id === color_id);
-			if (by_id) return by_id;
-		}
-		if (color_name) {
-			const lower = color_name.toLowerCase();
-			const by_name = LEGO_COLORS.find((c) => c.name.toLowerCase() === lower);
-			if (by_name) return by_name;
-		}
-		return null;
-	}
 
 	// Corner badge for an image's channel. An unrecorded channel reads as
 	// unknown rather than defaulting to C4 — a link-match crop from C2/C3
@@ -185,7 +172,7 @@
 	// into 40+ thumbnails of unrelated pieces.
 	const shown = $derived(sorted.filter((img) => img.used));
 	const objCreatedAt = $derived(imgState?.createdAt ?? null);
-	const lego_color = $derived(lookupLegoColor(piece.color_id, piece.color_name));
+	const lego_color = $derived(findLegoColor(piece.color_id, piece.color_name));
 	const est_value_text = $derived(formatEstValue(piece.est_value));
 </script>
 
@@ -232,7 +219,7 @@
 			<span
 				class="inline-flex items-center border border-border px-1.5 py-0.5 text-xs font-semibold"
 				style:background-color={lego_color.hex}
-				style:color={lego_color.contrast === 'white' ? '#ffffff' : '#000000'}
+				style:color={onColor(lego_color.hex)}
 			>
 				{lego_color.name}
 			</span>

@@ -1,6 +1,9 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
-	import { RefreshCw, ChevronLeft, ChevronRight, Download } from 'lucide-svelte';
+	import RefreshCw from '@lucide/svelte/icons/refresh-cw';
+	import ChevronLeft from '@lucide/svelte/icons/chevron-left';
+	import ChevronRight from '@lucide/svelte/icons/chevron-right';
+	import Download from '@lucide/svelte/icons/download';
 	import { getBackendHttpBase, machineHttpBaseUrlFromWsUrl } from '$lib/backend';
 	import AppHeader from '$lib/components/AppHeader.svelte';
 	import RecordsStats, {

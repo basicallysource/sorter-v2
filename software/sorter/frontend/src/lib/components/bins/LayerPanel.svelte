@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { ToggleSwitch } from '$lib/components/primitives';
-	import { ArchiveX, FolderOutput } from 'lucide-svelte';
+	import ArchiveX from '@lucide/svelte/icons/archive-x';
+	import FolderOutput from '@lucide/svelte/icons/folder-output';
 	import Spinner from '$lib/components/Spinner.svelte';
 	import BinCard from './BinCard.svelte';
 	import SectionGroup from './SectionGroup.svelte';

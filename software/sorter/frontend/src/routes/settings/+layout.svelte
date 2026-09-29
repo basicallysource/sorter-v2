@@ -1,10 +1,14 @@
 <script lang="ts">
+	import { goto } from '$app/navigation';
 	import { page } from '$app/state';
 	import { getBackendHttpBase, machineHttpBaseUrlFromWsUrl } from '$lib/backend';
-	import AppHeader from '$lib/components/AppHeader.svelte';
+	import AppShell from '$lib/components/AppShell.svelte';
+	import SideNav from '$lib/components/ui/SideNav.svelte';
+	import Select from '$lib/components/ui/Select.svelte';
+	import Alert from '$lib/components/ui/Alert.svelte';
 	import { getMachinesContext } from '$lib/machines/context';
 	import {
-		settingsNavItems,
+		settingsNavGroups,
 		stepperLabels,
 		type StepperKey
 	} from '$lib/settings/stations';
@@ -82,56 +86,43 @@
 		event.preventDefault();
 		void triggerGlobalStepperHotkey(stepperKey);
 	}
+
+	const navItems = settingsNavGroups.flatMap((g) => g.items);
+	// The phone's select lists every page, so a page is named with its group.
+	const navOptions = settingsNavGroups.flatMap((g) =>
+		g.items.map((i) => ({ value: i.href, label: g.label ? `${g.label}: ${i.label}` : i.label }))
+	);
+	const here = $derived(
+		navItems
+			.filter((i) => page.url.pathname === i.href || page.url.pathname.startsWith(i.href + '/'))
+			.sort((a, b) => b.href.length - a.href.length)[0]?.href ?? navItems[0].href
+	);
 </script>
 
 <svelte:window onkeydown={handleSettingsHotkey} />
 
-<div class="min-h-screen bg-bg">
-	<AppHeader />
-	<div class="p-4 sm:p-6">
-
-	{#if hotkeyStatusMsg || hotkeyErrorMsg}
-		<div
-			class={`mb-4 border px-3 py-2 text-sm ${
-				hotkeyErrorMsg
-					? 'border-danger bg-danger/10 text-danger dark:border-danger dark:bg-danger/10 dark:text-red-400'
-					: 'border-success bg-success/10 text-success dark:border-success dark:bg-success/10 dark:text-emerald-300'
-			}`}
-		>
-			{hotkeyErrorMsg ?? hotkeyStatusMsg}
-		</div>
-	{/if}
-
-	<div class="flex flex-col gap-4 lg:flex-row lg:gap-6">
-		<nav class="w-full lg:w-48 lg:flex-shrink-0">
-			<div class="grid grid-cols-2 gap-1 sm:grid-cols-3 lg:grid-cols-1">
-				{#each settingsNavItems as entry, i (i)}
-					{#if 'href' in entry}
-						{@const active = page.url.pathname === entry.href}
-						<a
-							href={entry.href}
-							aria-current={active ? 'page' : undefined}
-							class="flex items-center gap-2 px-3 py-2 text-left text-sm transition-colors {active
-								? 'bg-primary/10 font-medium text-primary'
-								: 'text-text-muted hover:bg-surface'}"
-						>
-							<entry.icon size={16} />
-							{entry.label}
-						</a>
-					{:else}
-						<div
-							class="col-span-full mt-3 px-3 pb-1 pt-2 text-xs font-semibold uppercase tracking-wider text-text-muted lg:mt-4"
-						>
-							{entry.label}
-						</div>
-					{/if}
-				{/each}
+<AppShell fit>
+	<div class="flex min-h-0 flex-1">
+		<aside class="hidden w-60 shrink-0 overflow-y-auto bg-surface px-3 py-5 lg:block">
+			<SideNav groups={settingsNavGroups} label="Settings" />
+		</aside>
+		<div class="min-w-0 flex-1 lg:overflow-y-auto">
+			<div class="flex max-w-6xl flex-col gap-(--gap-panels) px-4 py-6 sm:px-8">
+				<div class="lg:hidden">
+					<Select
+						label="Settings page"
+						value={here}
+						options={navOptions}
+						onchange={(href) => goto(href)}
+					/>
+				</div>
+				{#if hotkeyErrorMsg}
+					<Alert tone="danger">{hotkeyErrorMsg}</Alert>
+				{:else if hotkeyStatusMsg}
+					<Alert tone="success">{hotkeyStatusMsg}</Alert>
+				{/if}
+				{@render children()}
 			</div>
-		</nav>
-
-		<div class="min-w-0 flex-1">
-			{@render children()}
 		</div>
 	</div>
-	</div>
-</div>
+</AppShell>

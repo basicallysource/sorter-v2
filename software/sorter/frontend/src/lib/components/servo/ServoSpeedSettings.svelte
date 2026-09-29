@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { Undo2 } from 'lucide-svelte';
+	import Undo2 from '@lucide/svelte/icons/undo-2';
 	import { getBackendHttpBase, machineHttpBaseUrlFromWsUrl } from '$lib/backend';
 	import { getMachinesContext } from '$lib/machines/context';
 

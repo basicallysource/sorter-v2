@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { Input } from '$lib/components/primitives';
-	import { Search, X } from 'lucide-svelte';
+	import Search from '@lucide/svelte/icons/search';
+	import X from '@lucide/svelte/icons/x';
 
 	let {
 		query = $bindable(''),

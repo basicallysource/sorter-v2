@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { Skeleton } from '$lib/components/primitives';
-	import { LEGO_COLORS } from '$lib/lego-colors';
+	import { findLegoColor } from '$lib/pieces/colors';
 	import SeriesChart from './SeriesChart.svelte';
 	import DonutChart, { type DonutSegment } from './DonutChart.svelte';
 
@@ -78,16 +78,7 @@
 	});
 
 	function legoHex(color_id: string | null, color_name: string | null): string {
-		if (color_id) {
-			const by_id = LEGO_COLORS.find((c) => c.id === color_id);
-			if (by_id) return by_id.hex;
-		}
-		if (color_name) {
-			const lower = color_name.toLowerCase();
-			const by_name = LEGO_COLORS.find((c) => c.name.toLowerCase() === lower);
-			if (by_name) return by_name.hex;
-		}
-		return 'var(--color-text-muted)';
+		return findLegoColor(color_id, color_name)?.hex ?? 'var(--ink-muted)';
 	}
 
 	const maxColorCount = $derived(

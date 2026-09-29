@@ -1,6 +1,8 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
-	import { Upload, RefreshCcw, Zap } from 'lucide-svelte';
+	import Upload from '@lucide/svelte/icons/upload';
+	import RefreshCcw from '@lucide/svelte/icons/refresh-ccw';
+	import Zap from '@lucide/svelte/icons/zap';
 	import { Alert, Button } from '$lib/components/primitives';
 	import SectionCard from '$lib/components/settings/SectionCard.svelte';
 	import Spinner from '$lib/components/Spinner.svelte';

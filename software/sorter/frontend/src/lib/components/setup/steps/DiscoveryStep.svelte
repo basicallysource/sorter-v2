@@ -1,5 +1,6 @@
 <script lang="ts">
-	import { Cpu, RefreshCcw } from 'lucide-svelte';
+	import Cpu from '@lucide/svelte/icons/cpu';
+	import RefreshCcw from '@lucide/svelte/icons/refresh-ccw';
 
 	type UsbDeviceCategory = 'controller' | 'servo_bus' | 'unrecognised_controller' | 'unknown';
 

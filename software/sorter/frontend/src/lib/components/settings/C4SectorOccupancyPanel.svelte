@@ -1,6 +1,8 @@
 <script lang="ts">
 	import { getBackendHttpBase } from '$lib/backend';
-	import { AlertTriangle, CheckCircle2, RefreshCw } from 'lucide-svelte';
+	import AlertTriangle from '@lucide/svelte/icons/triangle-alert';
+	import CheckCircle2 from '@lucide/svelte/icons/circle-check';
+	import RefreshCw from '@lucide/svelte/icons/refresh-cw';
 	import { onMount } from 'svelte';
 
 	type SectorState = 'free' | 'occupied' | 'handoff' | 'exit';

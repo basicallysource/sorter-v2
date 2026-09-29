@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { CheckCircle2 } from 'lucide-svelte';
+	import CheckCircle2 from '@lucide/svelte/icons/circle-check';
 	import SetupCameraAreaCard from '$lib/components/setup/SetupCameraAreaCard.svelte';
 
 	type CameraChoice = {

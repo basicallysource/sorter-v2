@@ -3,8 +3,9 @@
 	import type { DashboardFeedCrop } from '$lib/dashboard/crops';
 	import LiveImage from '$lib/components/LiveImage.svelte';
 	import StreamControlsOverlay from '$lib/components/StreamControlsOverlay.svelte';
-	import { WifiOff, VideoOff } from 'lucide-svelte';
-	import Spinner from '$lib/components/Spinner.svelte';
+	import WifiOff from '@lucide/svelte/icons/wifi-off';
+	import VideoOff from '@lucide/svelte/icons/video-off';
+	import Spinner from '$lib/components/ui/Spinner.svelte';
 	import type { Snippet } from 'svelte';
 	import { roleView } from '$lib/video';
 
@@ -100,28 +101,28 @@
 	const display_label = $derived(label || camera);
 </script>
 
-<div
-	class={`flex h-full min-h-0 flex-col overflow-hidden ${
-		fullscreenOpen
-			? 'fixed inset-0 z-50 !h-screen !w-screen bg-black p-4'
-			: framed
-				? 'setup-card-shell border'
-				: 'setup-card-body'
-	}`}
+<!-- A camera, drawn like the design system's MediaTile: a strip on the
+     surface with its name and controls, then the picture on the media
+     backdrop, a dark subtree in both modes. Full screen, the whole feed is
+     that dark subtree. -->
+<section
+	class={fullscreenOpen
+		? 'dark fixed inset-0 z-50 flex flex-col bg-media text-ink'
+		: `flex h-full min-h-0 flex-col overflow-hidden ${framed ? 'rounded-panel bg-surface' : ''}`}
 >
 	{#if showHeader}
-		<div
-			class="setup-card-header flex flex-shrink-0 items-center justify-between px-3 py-2 text-sm"
+		<header
+			class="flex h-(--size-control-lg) shrink-0 items-center justify-between gap-3 pr-2 pl-(--pad-panel)"
 		>
-			<span class="font-medium text-text">{display_label}</span>
+			<h3 class="truncate text-sm font-medium text-ink">{display_label}</h3>
 			{#if headerActions}
 				<div class="flex shrink-0 items-center gap-1">
 					{@render headerActions()}
 				</div>
 			{/if}
-		</div>
+		</header>
 	{/if}
-	<div class="setup-card-body relative flex-1 overflow-hidden">
+	<div class="dark relative min-h-0 flex-1 overflow-hidden bg-media">
 		{#if is_configured}
 			<LiveImage
 				view={roleView(camera, annotated, cropped)}
@@ -132,19 +133,17 @@
 		{/if}
 
 		{#if !is_healthy}
-			<div class="absolute inset-0 flex items-center justify-center">
-				<div class="flex flex-col items-center gap-2 text-center">
-					{#if health === 'reconnecting'}
-						<Spinner size={28} class="text-text-muted" />
-						<span class="text-sm font-medium text-text-muted">Reconnecting...</span>
-					{:else if health === 'offline'}
-						<WifiOff size={28} class="text-text-muted" />
-						<span class="text-sm font-medium text-text-muted">Camera Offline</span>
-					{:else if health === 'unassigned'}
-						<VideoOff size={28} class="text-text-muted" />
-						<span class="text-sm font-medium text-text-muted">No Camera Assigned</span>
-					{/if}
-				</div>
+			<div class="absolute inset-0 flex flex-col items-center justify-center gap-2 text-ink-muted">
+				{#if health === 'reconnecting'}
+					<Spinner size={24} />
+					<span class="text-sm">Reconnecting</span>
+				{:else if health === 'offline'}
+					<WifiOff size={24} />
+					<span class="text-sm">Camera offline</span>
+				{:else if health === 'unassigned'}
+					<VideoOff size={24} />
+					<span class="text-sm">No camera assigned</span>
+				{/if}
 			</div>
 		{/if}
 
@@ -159,12 +158,12 @@
 
 		{#if fullscreenOpen}
 			<div
-				class="pointer-events-none absolute top-3 left-3 z-20 border border-white/20 bg-black/55 px-2 py-0.5 text-xs text-white/80 shadow-md backdrop-blur-sm"
+				class="pointer-events-none absolute top-2 left-2 z-20 rounded-badge bg-scrim px-2 py-1 text-sm text-ink-muted"
 			>
-				Esc or toggle to exit
+				Escape or the toggle leaves full screen
 			</div>
 		{/if}
 	</div>
-</div>
+</section>
 
 <svelte:window onkeydown={handleFullscreenKey} />

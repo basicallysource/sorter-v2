@@ -1,11 +1,16 @@
 <script lang="ts">
-	import LegoColorPicker from '$lib/components/LegoColorPicker.svelte';
+	import ColorPicker from '$lib/components/ui/ColorPicker.svelte';
+	import { getCurrentThemeColorId, setThemeColor } from '$lib/stores/themeColor.svelte';
+
+	let colorId = $state(getCurrentThemeColorId());
 </script>
 
 <div class="flex flex-col gap-4">
-	<div class="text-sm text-text-muted">
-		Pick the LEGO color you want to see across the UI. Buttons, focus rings, and active
-		highlights will switch immediately — no reload needed.
+	<p class="text-sm text-ink-muted">
+		Pick the LEGO color you want across the UI. Buttons, focus rings and the current page change at
+		once.
+	</p>
+	<div class="rounded-control bg-well p-4">
+		<ColorPicker bind:value={colorId} onchange={(id) => void setThemeColor(id)} />
 	</div>
-	<LegoColorPicker />
 </div>

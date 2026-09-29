@@ -1,5 +1,7 @@
 <script lang="ts">
-	import { ChevronLeft, ChevronRight, Square } from 'lucide-svelte';
+	import ChevronLeft from '@lucide/svelte/icons/chevron-left';
+	import ChevronRight from '@lucide/svelte/icons/chevron-right';
+	import Square from '@lucide/svelte/icons/square';
 
 	const MAX_PULSE_DURATION_S = 120;
 

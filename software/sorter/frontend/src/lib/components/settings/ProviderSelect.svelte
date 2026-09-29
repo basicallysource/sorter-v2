@@ -8,7 +8,11 @@
 
 <script lang="ts">
 	import { SelectMenu } from '$lib/components/primitives';
-	import { Check, ChevronDown, Cloud, Globe, Sparkles } from 'lucide-svelte';
+	import Check from '@lucide/svelte/icons/check';
+	import ChevronDown from '@lucide/svelte/icons/chevron-down';
+	import Cloud from '@lucide/svelte/icons/cloud';
+	import Globe from '@lucide/svelte/icons/globe';
+	import Sparkles from '@lucide/svelte/icons/sparkles';
 
 	let {
 		options,

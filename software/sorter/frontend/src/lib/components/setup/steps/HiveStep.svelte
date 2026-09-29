@@ -1,5 +1,6 @@
 <script lang="ts">
-	import { Check, ExternalLink } from 'lucide-svelte';
+	import Check from '@lucide/svelte/icons/check';
+	import ExternalLink from '@lucide/svelte/icons/external-link';
 	import Spinner from '$lib/components/Spinner.svelte';
 
 	type HiveSetupTarget = {

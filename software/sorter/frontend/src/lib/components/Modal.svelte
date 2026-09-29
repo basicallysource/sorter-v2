@@ -1,7 +1,7 @@
 <script lang="ts">
 	import type { Snippet } from 'svelte';
 	import { createEventDispatcher } from 'svelte';
-	import { X } from 'lucide-svelte';
+	import X from '@lucide/svelte/icons/x';
 
 	let {
 		open = $bindable(false),

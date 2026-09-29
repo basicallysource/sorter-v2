@@ -1,6 +1,7 @@
 <script lang="ts">
 	import Modal from '$lib/components/Modal.svelte';
-	import { ArrowLeft, Download } from 'lucide-svelte';
+	import ArrowLeft from '@lucide/svelte/icons/arrow-left';
+	import Download from '@lucide/svelte/icons/download';
 	import Spinner from '$lib/components/Spinner.svelte';
 	import { formatCategoryName, formatLastSeen } from './pieces';
 	import type { SnapshotDetail, SnapshotLayer, SnapshotSummary } from './types';

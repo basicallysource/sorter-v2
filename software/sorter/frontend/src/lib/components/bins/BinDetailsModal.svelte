@@ -4,7 +4,9 @@
 	import PieceThumb from '$lib/components/PieceThumb.svelte';
 	import { Button, SelectMenu } from '$lib/components/primitives';
 	import { sortingProfileStore } from '$lib/stores/sortingProfile.svelte';
-	import { Plus, Tag, X } from 'lucide-svelte';
+	import Plus from '@lucide/svelte/icons/plus';
+	import Tag from '@lucide/svelte/icons/tag';
+	import X from '@lucide/svelte/icons/x';
 	import { categoryLabel, formatCategoryName, itemDisplayName, itemSecondaryText, pieceTooltip, previewUrl } from './pieces';
 	import QuantityBadge from './QuantityBadge.svelte';
 	import type { BinContents, BinInfo, LayerInfo, SetMeta } from './types';

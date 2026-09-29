@@ -3,7 +3,10 @@
 	import { getMachinesContext, getMachineContext } from '$lib/machines/context';
 	import { getBackendHttpBase, machineHttpBaseUrlFromWsUrl } from '$lib/backend';
 	import MachineDropdown from '$lib/components/MachineDropdown.svelte';
-	import { ArrowLeft, Printer, ChevronDown, ChevronRight } from 'lucide-svelte';
+	import ArrowLeft from '@lucide/svelte/icons/arrow-left';
+	import Printer from '@lucide/svelte/icons/printer';
+	import ChevronDown from '@lucide/svelte/icons/chevron-down';
+	import ChevronRight from '@lucide/svelte/icons/chevron-right';
 
 	type SetPart = {
 		part_num: string;

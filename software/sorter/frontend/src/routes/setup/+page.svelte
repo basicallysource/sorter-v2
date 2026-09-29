@@ -21,7 +21,7 @@
 	import HiveStep from '$lib/components/setup/steps/HiveStep.svelte';
 	import AdvancedStep from '$lib/components/setup/steps/AdvancedStep.svelte';
 	import { beginHiveLink, completeReturnedHiveLink, DEFAULT_HIVE_URL } from '$lib/hive/link-flow';
-	import { RefreshCcw } from 'lucide-svelte';
+	import RefreshCcw from '@lucide/svelte/icons/refresh-ccw';
 	import {
 		loadStoredConfirmations as loadStoredConfirmationsFromStorage,
 		persistConfirmations as persistConfirmationsToStorage,
@@ -949,10 +949,7 @@
 				<SectionCard
 					title={currentStep().title}
 					description={currentStep().description}
-					rootClass="setup-card-shell"
-					headerClass="setup-card-header"
-					bodyClass="setup-card-body"
-					on:refresh-cameras={loadCameraInventory}
+					onrefreshcameras={loadCameraInventory}
 				>
 					{#if !wizard && loadingWizard}
 						<div class="setup-panel px-4 py-4 text-sm text-text-muted">

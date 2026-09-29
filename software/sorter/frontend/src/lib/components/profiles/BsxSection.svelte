@@ -8,7 +8,8 @@
 		uploadBsx,
 		type BsxFile
 	} from '$lib/bsx/api';
-	import { Trash2, Upload } from 'lucide-svelte';
+	import Trash2 from '@lucide/svelte/icons/trash';
+	import Upload from '@lucide/svelte/icons/upload';
 	import { onMount } from 'svelte';
 
 	let { baseUrl }: { baseUrl: string } = $props();

@@ -14,19 +14,17 @@
 		type PictureSettings
 	} from '$lib/settings/picture-settings';
 	import type { CameraRole, StepperKey, EndstopConfig } from '$lib/settings/stations';
-	import {
-		Bug,
-		Camera,
-		Check,
-		FlipHorizontal,
-		Lightbulb,
-		Pencil,
-		Plus,
-		RefreshCw,
-		RotateCcw,
-		SlidersHorizontal,
-		X
-	} from 'lucide-svelte';
+	import Bug from '@lucide/svelte/icons/bug';
+	import Camera from '@lucide/svelte/icons/camera';
+	import Check from '@lucide/svelte/icons/check';
+	import FlipHorizontal from '@lucide/svelte/icons/square-centerline-dashed-horizontal';
+	import Lightbulb from '@lucide/svelte/icons/lightbulb';
+	import Pencil from '@lucide/svelte/icons/pencil';
+	import Plus from '@lucide/svelte/icons/plus';
+	import RefreshCw from '@lucide/svelte/icons/refresh-cw';
+	import RotateCcw from '@lucide/svelte/icons/rotate-ccw';
+	import SlidersHorizontal from '@lucide/svelte/icons/sliders-horizontal';
+	import X from '@lucide/svelte/icons/x';
 	import StreamControlsOverlay from '$lib/components/StreamControlsOverlay.svelte';
 	import { createEventDispatcher, onMount } from 'svelte';
 	import { roleView } from '$lib/video';

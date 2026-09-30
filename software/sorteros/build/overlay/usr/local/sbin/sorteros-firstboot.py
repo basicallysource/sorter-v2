@@ -283,50 +283,52 @@ def _spinner(size: int) -> str:
             '<i></i><i></i><i></i><i></i></span>')
 
 
-# The Sorter UI's tokens (software/sorter/frontend/src/routes/layout.css).
+# The design system's tokens (software/sorter-design-system/src/app.css), as
+# values: the page is inline. No web font (nothing else answers yet, and there
+# may be no internet), so the reader's own faces; light or dark follows the
+# browser.
 PAGE_CSS = """
-:root{--bg:#f7f6f3;--surface:#fff;--border:#e2e0db;--text:#1a1a1a;--muted:#7a7770;--primary:#0055bf;
---success:#00852b;--danger:#d01012;--edge:inset 0 1px 0 rgba(255,255,255,.9);color-scheme:light;
---sans:'IBM Plex Sans',ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif;
---mono:'IBM Plex Mono',ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,'Liberation Mono',monospace}
-@media (prefers-color-scheme:dark){:root{--bg:#0d0d0c;--surface:#1a1918;--border:#2a2926;--text:#f5f4f1;
---muted:#9a9890;--edge:inset 0 1px 0 rgba(255,255,255,.04);color-scheme:dark}}
+:root{--canvas:#eceae5;--surface:#fff;--line:#e2dfd8;--ink:#1b1a18;--muted:#686460;--faint:#9d988f;
+--primary:#0055bf;--primary-ink:#0055bf;--success-ink:#006b23;--danger-ink:#a80d0f;color-scheme:light;
+--sans:system-ui,-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif;
+--mono:ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,'Liberation Mono',monospace}
+@media (prefers-color-scheme:dark){:root{--canvas:#0e0e0d;--surface:#1b1b19;--line:#2e2d2a;--ink:#eeece7;
+--muted:#a39f96;--faint:#6f6c65;--primary-ink:#6699d9;--success-ink:#5cc97f;--danger-ink:#ff6b66;color-scheme:dark}}
 *,*::before,*::after{box-sizing:border-box}
-body{margin:0;background:var(--bg);color:var(--text);font-family:var(--sans);line-height:1.5;-webkit-text-size-adjust:100%}
+body{margin:0;background:var(--canvas);color:var(--ink);font-family:var(--sans);line-height:1.5;
+-webkit-font-smoothing:antialiased;-webkit-text-size-adjust:100%}
 h1,h2,p,ol{margin:0}
 .wrap{max-width:28rem;margin:0 auto;padding-left:1rem;padding-right:1rem}
-header{background:var(--surface);border-bottom:1px solid var(--border)}
-header .wrap{display:flex;align-items:center;justify-content:space-between;gap:.75rem;padding-top:.75rem;padding-bottom:.75rem}
-.brand{display:flex;align-items:center;gap:.625rem;font-family:var(--mono);font-size:1.125rem;line-height:1.75rem;
-font-weight:700;letter-spacing:-.025em;text-transform:uppercase}
+header{background:var(--surface);border-bottom:1px solid var(--line)}
+header .wrap{display:flex;align-items:center;justify-content:space-between;gap:.75rem;height:3rem}
+.brand{display:flex;align-items:center;gap:.625rem;font-size:1rem;line-height:1.5rem;font-weight:600;letter-spacing:-.025em}
 .brand i{width:1rem;height:1rem;flex:none;background:var(--primary)}
-.chip{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;border:1px solid var(--border);
-padding:.25rem .625rem;font-size:.875rem;line-height:1.25rem;font-weight:500;color:var(--muted)}
-main{display:flex;flex-direction:column;gap:1.5rem;padding-top:1.5rem;padding-bottom:4rem}
-.panel{border:1px solid var(--border);background:var(--surface);box-shadow:var(--edge),0 1px 2px rgba(32,28,20,.04)}
-.hero{display:flex;flex-direction:column;align-items:center;gap:1.25rem;padding:2.5rem 1.5rem;text-align:center;color:var(--primary)}
-.hero h1{color:var(--text);font-size:1.5rem;line-height:2rem;font-weight:700}
+.host{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:.875rem;line-height:1.25rem;color:var(--muted)}
+main{display:flex;flex-direction:column;gap:1rem;padding-top:1.5rem;padding-bottom:4rem}
+.panel{background:var(--surface);border-radius:1px}
+.hero{display:flex;flex-direction:column;align-items:center;gap:1.25rem;padding:2.5rem 1.5rem;text-align:center;color:var(--primary-ink)}
+.hero h1{color:var(--ink);font-size:1.5rem;line-height:2rem;font-weight:600;letter-spacing:-.025em}
 .hero p{margin-top:.5rem;color:var(--muted);font-size:.875rem;line-height:1.25rem;text-wrap:balance}
-.label-row{display:flex;align-items:baseline;justify-content:space-between;gap:.75rem;margin-bottom:.75rem}
-.label{font-size:.75rem;line-height:1rem;font-weight:600;letter-spacing:.05em;text-transform:uppercase;color:var(--muted)}
+.label-row{display:flex;align-items:baseline;justify-content:space-between;gap:.75rem;margin:.5rem 0 .5rem}
+.label{font-size:.875rem;line-height:1.25rem;font-weight:500;color:var(--muted)}
 .count{font-size:.875rem;line-height:1.25rem;color:var(--muted);font-variant-numeric:tabular-nums}
 .steps{list-style:none;padding:0}
-.steps li{display:flex;align-items:flex-start;gap:.75rem;padding:.75rem 1rem;border-top:1px solid var(--border);
+.steps li{display:flex;align-items:flex-start;gap:.75rem;padding:.875rem 1rem;border-top:1px solid var(--line);
 font-size:.875rem;line-height:1.25rem}
 .steps li:first-child{border-top:0}
 .icon{flex:none;display:flex;align-items:center;justify-content:center;width:1rem;height:1.25rem}
 .words{flex:1;min-width:0}
 .detail{flex:none;color:var(--muted);font-weight:400;font-variant-numeric:tabular-nums}
-.error{display:block;margin-top:.25rem;color:var(--danger);font-weight:400;overflow-wrap:anywhere}
-.done .icon{color:var(--success)}
-.active{font-weight:600}
-.active .icon{color:var(--primary)}
+.error{display:block;margin-top:.25rem;color:var(--danger-ink);font-weight:400;overflow-wrap:anywhere}
+.done .icon{color:var(--success-ink)}
+.active{font-weight:500}
+.active .icon{color:var(--primary-ink)}
 .pending,.waiting{color:var(--muted)}
-.pending .icon i{width:.625rem;height:.625rem;border:1px solid currentColor}
-.retrying .icon{color:var(--danger)}
-svg{width:1rem;height:1rem;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.pending .icon i{width:.625rem;height:.625rem;border:1px solid currentColor;border-radius:1px}
+.retrying .icon{color:var(--danger-ink)}
+svg{width:1rem;height:1rem;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:square;stroke-linejoin:miter}
 .foot{display:flex;flex-direction:column;gap:.25rem;font-size:.875rem;line-height:1.25rem;color:var(--muted)}
-.foot a{color:var(--primary)}
+.foot a{color:var(--primary-ink)}
 code{font-family:var(--mono);font-size:.875rem;overflow-wrap:anywhere}
 .opening{display:none}
 [data-opening] .opening{display:flex}
@@ -392,7 +394,7 @@ def _render_status_page() -> bytes:
         '<noscript><meta http-equiv="refresh" content="5"></noscript>'
         f'<style>{PAGE_CSS}</style></head><body>'
         '<header><div class="wrap"><span class="brand"><i aria-hidden="true"></i>Sorter</span>'
-        f'<span class="chip">{esc(p["hostname"])}</span></div></header>'
+        f'<span class="host">{esc(p["hostname"])}</span></div></header>'
         f'<main class="wrap" data-firstboot="{p["phase"]}">'
         f'<section class="panel hero phase">{_spinner(32)}'
         f'<div><h1>{esc(headline)}</h1><p>{esc(lede)}</p></div></section>'

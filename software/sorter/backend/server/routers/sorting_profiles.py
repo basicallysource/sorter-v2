@@ -26,6 +26,12 @@ from server.routers.bins import (
 
 router = APIRouter()
 
+# What this sorter can run, named to Hive when it asks for profiles: the
+# compiled program (not only the flat part map), sorting leftovers by color,
+# and kits that pass pieces on once full. Hive leaves out profiles that need
+# more than a sorter names.
+HIVE_PROFILE_FEATURES = "program,color_fallback,kit_cascade"
+
 
 class ApplySortingProfilePayload(BaseModel):
     target_id: str
@@ -109,7 +115,11 @@ def _fetch_target_library(target: dict[str, Any]) -> dict[str, Any]:
         return payload
     try:
         session = _target_session(target)
-        response = session.get(f"{_target_base_url(target)}/api/machine/profiles/library", timeout=20)
+        response = session.get(
+            f"{_target_base_url(target)}/api/machine/profiles/library",
+            params={"features": HIVE_PROFILE_FEATURES},
+            timeout=20,
+        )
         if not response.ok:
             body = _safe_json(response)
             message = body.get("error") or body.get("detail") or f"HTTP {response.status_code}"
@@ -514,6 +524,7 @@ def apply_sorting_profile(payload: ApplySortingProfilePayload) -> dict[str, Any]
 
     artifact_response = session.get(
         f"{base_url}/api/machine/profiles/versions/{payload.version_id}/artifact",
+        params={"format": "program", "features": HIVE_PROFILE_FEATURES},
         timeout=30,
     )
     if not artifact_response.ok:
@@ -607,16 +618,22 @@ class UploadLocalSortingProfilePayload(BaseModel):
     name: str | None = None
 
 
+def _is_profile_artifact(artifact: Any) -> bool:
+    return isinstance(artifact, dict) and (
+        isinstance(artifact.get("program"), dict) or "part_to_category" in artifact
+    )
+
+
 def _load_local_artifact(path: Path) -> dict[str, Any]:
     try:
         with open(path, "r") as handle:
             artifact = json.load(handle)
     except json.JSONDecodeError as exc:
         raise HTTPException(status_code=400, detail=f"Profile file is corrupt: {exc}")
-    if not isinstance(artifact, dict) or "part_to_category" not in artifact:
+    if not _is_profile_artifact(artifact):
         raise HTTPException(
             status_code=400,
-            detail="Profile is not a valid sorting profile (missing part_to_category).",
+            detail="Profile is not a valid sorting profile (it has neither a program nor a part map).",
         )
     return artifact
 
@@ -688,10 +705,10 @@ def apply_local_sorting_profile(payload: ApplyLocalSortingProfilePayload) -> dic
 @router.post("/api/sorting-profiles/local/upload")
 def upload_local_sorting_profile(payload: UploadLocalSortingProfilePayload) -> dict[str, Any]:
     artifact = payload.artifact
-    if not isinstance(artifact, dict) or "part_to_category" not in artifact:
+    if not _is_profile_artifact(artifact):
         raise HTTPException(
             status_code=400,
-            detail="Uploaded JSON is not a valid sorting profile (missing part_to_category).",
+            detail="Uploaded JSON is not a valid sorting profile (it has neither a program nor a part map).",
         )
     name = (payload.name or "").strip()
     if name:

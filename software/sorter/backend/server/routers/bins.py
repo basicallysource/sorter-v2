@@ -49,7 +49,7 @@ from irl.parse_user_toml import DEFAULT_CHUTE_FIRST_BIN_CENTER, DEFAULT_CHUTE_PI
 from server import shared_state
 from server.routers.chute import _chute_move, _chute_settings_from_config
 from server.routers.steppers import _ensure_not_homing
-from sorting_profile import MISC_CATEGORY
+from sorting_profile import MISC_CATEGORY, categoryResolver
 from subsystems.distribution.chute import BinAddress
 from toml_config import getBinAssignmentConfig, setBinAssignmentConfig
 
@@ -250,15 +250,6 @@ def set_not_in_inventory_mode(
     return {"ok": True, "scope": scope, "enabled": enabled, "not_in_inventory_bin_count": total}
 
 
-def _resolve_profile_category(ptc: dict, default_cat: str, part_id: str, color_id: str | None) -> str:
-    color = color_id if color_id else "any_color"
-    key = f"{color}-{part_id}"
-    if key in ptc:
-        return str(ptc[key])
-    any_key = f"any_color-{part_id}"
-    return str(ptc.get(any_key, default_cat))
-
-
 def auto_assign_bins(*, overlap: bool, window_days: float = 7.0) -> dict[str, Any]:
     # Rank the active profile's categories by how many recently-distributed
     # pieces hit them (re-mapped through the CURRENT profile, since the profile
@@ -271,7 +262,7 @@ def auto_assign_bins(*, overlap: bool, window_days: float = 7.0) -> dict[str, An
         raise HTTPException(status_code=400, detail="No active sorting profile to assign from.")
     with open(path) as handle:
         artifact = json.load(handle)
-    ptc = artifact.get("part_to_category", {}) or {}
+    resolve = categoryResolver(artifact)
     default_cat = str(artifact.get("default_category_id", MISC_CATEGORY))
     cat_meta = artifact.get("categories", {}) or {}
 
@@ -280,7 +271,7 @@ def auto_assign_bins(*, overlap: bool, window_days: float = 7.0) -> dict[str, An
     for part_id, color_id in keys:
         if not part_id:
             continue
-        cat = _resolve_profile_category(ptc, default_cat, part_id, color_id)
+        cat = resolve(part_id, color_id if color_id else "any_color")
         if cat and cat != MISC_CATEGORY and cat != default_cat:
             tally[cat] += 1
     ranked = [cat for cat, _ in tally.most_common()]

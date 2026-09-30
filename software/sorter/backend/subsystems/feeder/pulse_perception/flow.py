@@ -14,6 +14,7 @@ from .config import (
     channelMaxMoveOutputDeg,
     channelMoveSpeed,
 )
+from .dispense_gate import DispenseGate
 from .stuck_watchdog import FeederStuckWatchdog
 from subsystems.feeder.incidents import feeder_jam_incident_active
 
@@ -54,10 +55,6 @@ MIN_MOVE_SPEED_USTEPS_PER_S = 16
 # takes effect live without a restart, without hammering the filesystem.
 _CONFIG_TTL_S = 1.0
 
-# After a C3 exit dispense, keep C3 blocked this long so the in-flight piece
-# can register downstream before we consider another move.
-CLASSIFICATION_PENDING_ADMISSION_MS = 1500
-
 
 def _leading_com(state) -> Optional[float]:
     # Leading (most-forward) on-channel piece's travel position toward the exit.
@@ -94,8 +91,8 @@ class PulsePerceptionFeeding(BaseState):
         self._stuck_watchdog = FeederStuckWatchdog(gc)
         self._config: PulsePerceptionConfig = PulsePerceptionConfig()
         self._config_loaded_at: float = 0.0
-        self._classification_pending_until: float = 0.0
-        self._ch3_was_at_exit: bool = False
+        # One piece per hand-off: C2 into C3, C3 into the classification channel.
+        self._gates: dict[int, DispenseGate] = {2: DispenseGate(), 3: DispenseGate()}
         # Per-channel monotonic timestamp of the last frame that reported a piece
         # in the drop zone. Drives the C2/C3 drop-zone occupancy latch.
         self._drop_seen_at: dict[int, float] = {}
@@ -170,16 +167,17 @@ class PulsePerceptionFeeding(BaseState):
                 )
             except Exception:
                 pass
-        self._classification_pending_until = (
-            time.monotonic() + CLASSIFICATION_PENDING_ADMISSION_MS / 1000.0
-        )
 
     def _classification_ready(self, cfg: PulsePerceptionConfig) -> bool:
         if not cfg.gate_ch3_on_classification_ready:
             return True
-        if time.monotonic() < self._classification_pending_until:
-            return False
         return bool(self.shared.classification_ready)
+
+    def _gate(self, channel: int, cfg: PulsePerceptionConfig) -> DispenseGate:
+        gate = self._gates[channel]
+        gate.vanish_confirm_s = max(0, cfg.dispense_vanish_confirm_ms) / 1000.0
+        gate.arrival_timeout_s = max(0, cfg.dispense_arrival_timeout_ms) / 1000.0
+        return gate
 
     def _latch_drop(self, ch: int, state, now: float, cfg: PulsePerceptionConfig):
         """Persist drop-zone occupancy for one feeder channel.
@@ -233,13 +231,17 @@ class PulsePerceptionFeeding(BaseState):
             # by the classification channel (shared.classification_ready, set per
             # its active mode: single-piece = whole channel empty, two-piece = drop
             # zone clear). The feeder just asks. The only feeder-side gate is the
-            # post-dispense admission window (let an in-flight piece register first).
-            c3_downstream_ready = (
-                now_mono >= self._classification_pending_until
-                and self._classification_ready(cfg)
-            )
+            # hand-off: once a piece falls, C3 pushes nothing more off until C4
+            # has seen it (C4 stops reading ready).
+            gate3 = self._gate(3, cfg)
+            if gate3.observe(
+                c3, now_mono, downstream_arrived=not self.shared.classification_ready
+            ):
+                self._on_ch3_dispense()
             action = feederChannelAction(
-                c3, downstream_clear=c3_downstream_ready, greedy=cfg.ch3_greedy_enabled
+                c3,
+                downstream_clear=self._classification_ready(cfg) and gate3.exitAllowed(),
+                greedy=cfg.ch3_greedy_enabled,
             )
             # C3 hung at the C2->C3 hand-off: keep C3 from hammering a piece it
             # can't move; nudge C2 (its upstream) to free it, escalate on failure.
@@ -259,20 +261,17 @@ class PulsePerceptionFeeding(BaseState):
                 self._apply_action(
                     "ch3", 3, action, self.irl.c_channel_3_rotor_stepper, c3, cfg
                 )
-            # A piece counts as delivered the moment it clears C3's exit zone
-            # (the precise pulses stop on their own once perception no longer
-            # sees it there). Fire the downstream notification + admission window
-            # once on that falling edge, not on every micro-pulse.
-            ch3_at_exit_now = c3.in_exit
-            if self._ch3_was_at_exit and not ch3_at_exit_now:
-                self._on_ch3_dispense()
-            self._ch3_was_at_exit = ch3_at_exit_now
 
         if cfg.enable_ch2:
             # C2's downstream is C3. "Clear" = C3's drop zone is not occupied,
-            # so we never pulse a C2 piece off the edge into a busy C3.
+            # so we never pulse a C2 piece off the edge into a busy C3; and once
+            # a piece falls, nothing more goes until C3 has seen it land.
+            gate2 = self._gate(2, cfg)
+            gate2.observe(c2, now_mono, downstream_arrived=c3.in_drop)
             action = feederChannelAction(
-                c2, downstream_clear=not c3.in_drop, greedy=cfg.ch2_greedy_enabled
+                c2,
+                downstream_clear=(not c3.in_drop) and gate2.exitAllowed(),
+                greedy=cfg.ch2_greedy_enabled,
             )
             # C2 hung at the C1->C2 hand-off: nudge C1 (its upstream) to free the
             # piece, escalate to the operator jam incident if that keeps failing.
@@ -352,7 +351,7 @@ class PulsePerceptionFeeding(BaseState):
                 enforce_min=enforce_min,
             )
         elif action == Action.PRECISE:
-            self._move(
+            moved = self._move(
                 f"{label}_exit",
                 channel,
                 stepper,
@@ -361,6 +360,9 @@ class PulsePerceptionFeeding(BaseState):
                 cfg,
                 enforce_min=False,
             )
+            if moved and channel in self._gates:
+                pieces = getattr(state, "pieces", ())
+                self._gates[channel].notePush(pieces[0] if pieces else None)
         # IDLE / FREEZE: no move.
 
     def cleanup(self) -> None:

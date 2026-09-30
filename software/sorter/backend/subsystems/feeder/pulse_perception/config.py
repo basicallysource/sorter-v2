@@ -46,6 +46,13 @@ class PulsePerceptionConfig:
     # Gate C3 forward motion on the downstream classification channel being
     # ready to accept a piece (avoids double-drops into the same sector).
     gate_ch3_on_classification_ready: bool = True
+    # Hand-off: once the piece a channel is pushing off has fallen (its track id
+    # stays gone this long), the exit holds until the next channel shows the
+    # piece arrived, at most the arrival timeout. Stops a second exit pulse from
+    # pushing the piece behind it off while the next camera has not seen the
+    # first one yet.
+    dispense_vanish_confirm_ms: int = 150
+    dispense_arrival_timeout_ms: int = 1500
     enable_ch1: bool = True
     enable_ch2: bool = True
     enable_ch3: bool = True
@@ -115,6 +122,8 @@ FIELD_META: list[dict] = [
     {"section": "C1 (bulk)", "key": "ch1_pulse_output_deg", "label": "C1 bulk pulse distance (output deg)", "type": "float", "default": _DEFAULTS.ch1_pulse_output_deg, "description": "C1 (bulk) has no camera — it just pulses forward this far whenever C2's drop zone is clear."},
     {"section": "C1 (bulk)", "key": "ch1_pulse_pause_ms", "label": "C1 pause between pulses (ms)", "type": "int", "default": _DEFAULTS.ch1_pulse_pause_ms, "description": "Pause between C1 bulk pulses."},
     {"section": "Channels", "key": "gate_ch3_on_classification_ready", "label": "Gate C3 on classification ready", "type": "bool", "default": _DEFAULTS.gate_ch3_on_classification_ready, "description": "Hold C3 from pushing a piece into the classification channel (C4) until C4 reports it is ready to accept one. Prevents two pieces landing in the same spot."},
+    {"section": "Hand-off", "key": "dispense_vanish_confirm_ms", "label": "Fallen after gone for (ms)", "type": "int", "default": _DEFAULTS.dispense_vanish_confirm_ms, "description": "The piece being pushed off the exit counts as fallen once the camera has not seen it for this long. Longer ignores detector blinks; shorter reacts sooner."},
+    {"section": "Hand-off", "key": "dispense_arrival_timeout_ms", "label": "Wait for the next channel (ms)", "type": "int", "default": _DEFAULTS.dispense_arrival_timeout_ms, "description": "After a piece falls, the exit pushes nothing more until the next channel shows the piece arrived, or this long at most. Keeps a second piece from following the first before the next camera has seen it."},
     {"section": "Channels", "key": "enable_ch1", "label": "Enable C1 (bulk)", "type": "bool", "default": _DEFAULTS.enable_ch1, "description": "Run the C1 (bulk) channel. Off = this channel never moves."},
     {"section": "Channels", "key": "enable_ch2", "label": "Enable C2", "type": "bool", "default": _DEFAULTS.enable_ch2, "description": "Run the C2 channel. Off = this channel never moves."},
     {"section": "Channels", "key": "enable_ch3", "label": "Enable C3", "type": "bool", "default": _DEFAULTS.enable_ch3, "description": "Run the C3 channel. Off = this channel never moves."},

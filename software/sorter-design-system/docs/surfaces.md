@@ -27,6 +27,12 @@ it needs a section instead: a heading, or a line between two groups of rows.
 The old UI's worst screens were five bordered boxes deep; the most this
 allows is canvas, surface, well.
 
+A group's name inside a list (the pieces that have left the machine, under
+the ones still in it) is a `label` on the list's own plane, with the rows'
+line above and below it. It is never a band of well: across a panel's full
+width a well is a shade off the canvas, and reads as a gap in the panel with
+a word in it.
+
 ## Two kinds of line
 
 Both are 1px. There is no thicker structural line; emphasis comes from fill

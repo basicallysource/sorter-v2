@@ -131,6 +131,27 @@
 			</div>
 		{/snippet}
 	</DoDont>
+	<DoDont
+		wrongNote="A group's name on a band of well. Across the panel a well is a shade off the canvas, so it reads as a gap in the panel with a word in it."
+		rightNote="The name is a label on the list's own plane, with the rows' line above and below it."
+	>
+		{#snippet wrong()}
+			<div class="divide-y divide-line overflow-hidden rounded-panel bg-surface text-sm">
+				<div class="px-3 py-2.5 text-ink">Brick 2 x 4</div>
+				<div class="bg-well px-3 py-1 text-ink-muted">Distributed</div>
+				<div class="px-3 py-2.5 text-ink">Plate 2 x 2 corner</div>
+				<div class="px-3 py-2.5 text-ink">Tile 1 x 1</div>
+			</div>
+		{/snippet}
+		{#snippet right()}
+			<div class="divide-y divide-line overflow-hidden rounded-panel bg-surface text-sm">
+				<div class="px-3 py-2.5 text-ink">Brick 2 x 4</div>
+				<div class="label px-3 py-1.5">Distributed</div>
+				<div class="px-3 py-2.5 text-ink">Plate 2 x 2 corner</div>
+				<div class="px-3 py-2.5 text-ink">Tile 1 x 1</div>
+			</div>
+		{/snippet}
+	</DoDont>
 </SiteSection>
 
 <SiteSection

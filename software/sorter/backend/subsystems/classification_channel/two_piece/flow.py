@@ -682,10 +682,29 @@ class TwoPieceClassificationChannel(Rev01BaseState):
         if stopped:
             gap = state.exit_com_forward_to_center_deg
             if gap is not None and gap > self.ctx.config.discharge_center_tolerance_deg:
-                move = min(self.ctx.config.discharge_max_move_output_deg, gap)
+                # One move for the whole cycle: far enough to drop the head, and
+                # to bring the piece being staged to the holding band, so the
+                # staging that follows has nothing left to do.
+                move = max(gap, self._stageGap())
+                move = min(self.ctx.config.discharge_max_move_output_deg, move)
                 self.startOutputMove(
                     C4_TRAVEL_SIGN * move, self.ctx.config.discharge_speed_usteps_per_s
                 )
+
+    def _stageGap(self) -> float:
+        """How far the piece being staged is from the start of the holding band
+        (the precise zone); 0 when unknown."""
+        target = self._stage_target
+        if target is None or target.gap_to_exit is None:
+            return 0.0
+        perception_service = getattr(self.gc, "perception_service", None)
+        channels = perception_service.channels() if perception_service is not None else {}
+        channel = channels.get(4)
+        if channel is None or not channel.precise_sections:
+            return 0.0
+        from perception.channel import SECTION_DEG
+
+        return max(0.0, float(target.gap_to_exit) - len(channel.precise_sections) * SECTION_DEG)
 
     def _staging(self, state, stopped: bool, now: float) -> None:
         # Advance the platter until the DROP ZONE IS CLEAR — i.e. the new piece and

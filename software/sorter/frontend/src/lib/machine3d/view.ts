@@ -115,6 +115,18 @@ export type Theme = {
 const CARD_FILL = 0.9;
 const CARD_LIFT = 0.36;
 const CARD_OFFSET = 0.0005;
+// The zooms a card is drawn at: half, its layout size, and twice.
+const CARD_ZOOMS = [0.5, 1, 2];
+
+/** The zoom step for a card that looks `onScreen` times its layout size:
+ *  the step just above it, with a margin, so a view resting on a step does
+ *  not flip between two. */
+function cardZoomFor(onScreen: number, now: number) {
+	const want = CARD_ZOOMS.find((z) => z >= onScreen) ?? CARD_ZOOMS[CARD_ZOOMS.length - 1];
+	if (want > now) return onScreen > now * 1.1 ? want : now;
+	if (want < now) return onScreen < want * 0.9 ? want : now;
+	return now;
+}
 
 export type DoorState = { open: number; calibrated: boolean };
 
@@ -165,8 +177,11 @@ export class MachineView {
 	// and where it goes, the holes, and what the layer was last given.
 	private cardLayer: { root: HTMLElement; camera: HTMLElement } | null = null;
 	private cardEls = new Map<string, HTMLElement>();
-	private cardAt = new Map<string, { css: string; at: Vector3; out: Vector3 }>();
+	private cardAt = new Map<string, { pose: Matrix4; at: Vector3; out: Vector3 }>();
 	private cardFacing = new Map<string, boolean>();
+	// Every card's width on its bin (m), and the zoom the cards are drawn at.
+	private cardWidth = 0;
+	private cardZoom = 1;
 	private holes: InstancedMesh | null = null;
 	private cardStyleShown = { perspective: '', camera: '' };
 	private size = { w: 0, h: 0 };
@@ -636,23 +651,42 @@ export class MachineView {
 	setCardLayer(root: HTMLElement, camera: HTMLElement) {
 		this.cardLayer = { root, camera };
 		this.cardStyleShown = { perspective: '', camera: '' };
+		camera.style.setProperty('--card-zoom', String(this.cardZoom));
 		root.style.visibility = this.seeInside ? 'hidden' : '';
 		this.resize();
 		this.invalidate();
 	}
 
 	/** Puts a bin's card element on that bin's front; call the result to take
-	 *  it off. The element is a direct child of the camera; the view sizes it. */
+	 *  it off. The element is a direct child of the camera; the view sizes it,
+	 *  and the card inside it takes `zoom: var(--card-zoom)`. */
 	card(el: HTMLElement, key: string): () => void {
 		this.cardEls.set(key, el);
-		el.style.width = `${CARD_SIZE.width}px`;
-		el.style.height = `${CARD_SIZE.height}px`;
-		el.style.transform = this.cardAt.get(key)?.css ?? 'scale(0)';
+		// Drawn once and kept as the view moves: without this, Chrome draws
+		// each card again at every change of its size on screen (every frame
+		// of a turn), and the cards and their pictures flash while it does.
+		el.style.willChange = 'transform';
+		this.fitCard(el, key);
 		this.cardFacing.delete(key);
 		this.invalidate();
 		return () => {
 			if (this.cardEls.get(key) === el) this.cardEls.delete(key);
 		};
+	}
+
+	/** A card element's size and place, at the zoom it is drawn at. */
+	private fitCard(el: HTMLElement, key: string) {
+		const zoom = this.cardZoom;
+		el.style.width = `${CARD_SIZE.width * zoom}px`;
+		el.style.height = `${CARD_SIZE.height * zoom}px`;
+		const card = this.cardAt.get(key);
+		if (!card) {
+			el.style.transform = 'scale(0)';
+			return;
+		}
+		// Metres per CSS pixel of the card as drawn.
+		const s = this.cardWidth / (CARD_SIZE.width * zoom);
+		el.style.transform = objectCss(new Matrix4().copy(card.pose).scale(new Vector3(s, s, s)));
 	}
 
 	/** Where each bin's card goes: one size for every bin, the narrowest
@@ -672,15 +706,16 @@ export class MachineView {
 				front = Math.min(front, (k.max[2] - k.min[2]) * p.widthScale);
 				height = Math.min(height, k.max[1] - k.min[1]);
 			}
-			// Metres per CSS pixel of the card.
-			const scale = Math.min(
+			const perPixel = Math.min(
 				(front * CARD_FILL) / CARD_SIZE.width,
 				(height * 0.6) / CARD_SIZE.height
 			);
-			const size = new Vector3(CARD_SIZE.width * scale, CARD_SIZE.height * scale, 1);
+			this.cardWidth = CARD_SIZE.width * perPixel;
+			const size = new Vector3(this.cardWidth, CARD_SIZE.height * perPixel, 1);
 			const holes = new InstancedMesh(new PlaneGeometry(1, 1), this.holeMaterial, places.length);
 			// A plane faces +z; a bin's front faces +x in its face's frame.
 			const outward = new Quaternion().setFromEuler(new Euler(0, Math.PI / 2, 0));
+			const one = new Vector3(1, 1, 1);
 			const m = new Matrix4();
 			this.root.updateMatrixWorld(true);
 			places.forEach((p, i) => {
@@ -695,9 +730,8 @@ export class MachineView {
 					.add(new Vector3(0, this.levelBase(p.level), 0));
 				const turn = new Quaternion().setFromRotationMatrix(face).multiply(outward);
 				holes.setMatrixAt(i, m.compose(at, turn, size));
-				m.compose(at, turn, new Vector3(scale, scale, scale)).premultiply(this.root.matrixWorld);
 				this.cardAt.set(p.key, {
-					css: objectCss(m),
+					pose: new Matrix4().compose(at, turn, one).premultiply(this.root.matrixWorld),
 					at: at.clone().applyMatrix4(this.root.matrixWorld),
 					out: new Vector3(0, 0, 1).applyQuaternion(turn).transformDirection(this.root.matrixWorld)
 				});
@@ -709,8 +743,7 @@ export class MachineView {
 			this.holes = holes;
 			this.root.add(holes);
 		}
-		for (const [key, el] of this.cardEls)
-			el.style.transform = this.cardAt.get(key)?.css ?? 'scale(0)';
+		for (const [key, el] of this.cardEls) this.fitCard(el, key);
 		this.cardFacing.clear();
 	}
 
@@ -730,6 +763,18 @@ export class MachineView {
 		if (camera !== this.cardStyleShown.camera) {
 			layer.camera.style.transform = camera;
 			this.cardStyleShown.camera = camera;
+		}
+		// The browser keeps its picture of each card however large the card
+		// looks, so the cards are drawn at the zoom step just above their size
+		// on screen: never shrunk more than twice (which would break up the
+		// text), and drawn again only when the view crosses a step.
+		const distance = this.camera.position.distanceTo(this.controls.target);
+		const onScreen = (this.cardWidth * fov) / Math.max(distance, 1e-6) / CARD_SIZE.width;
+		const zoom = cardZoomFor(onScreen, this.cardZoom);
+		if (zoom !== this.cardZoom) {
+			this.cardZoom = zoom;
+			layer.camera.style.setProperty('--card-zoom', String(zoom));
+			for (const [key, el] of this.cardEls) this.fitCard(el, key);
 		}
 		// A card turned away is hidden here, not with backface-visibility, which
 		// some browsers do not honour in a layer like this one; its hole has

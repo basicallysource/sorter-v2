@@ -4,7 +4,9 @@
 // page does.
 import type { BinContentItem, BinContents } from '$lib/components/bins/types';
 
-/** Each bin's most recent pieces, newest first, by bin key. */
+/** What each bin's card shows, by bin key: its most recent pieces, newest
+ *  first, or, when the backend has none recent for it (pieces from before
+ *  it last started), its most common kinds of piece, as the Bins page shows. */
 export type Recent = Record<string, BinContentItem[]>;
 
 export function watchContents(base: string, pieces: number, onChange: (recent: Recent) => void) {
@@ -25,7 +27,10 @@ export function watchContents(base: string, pieces: number, onChange: (recent: R
 			if (!contents.ok) return;
 			const data = (await contents.json()) as { bins?: BinContents[] };
 			const recent: Recent = {};
-			for (const b of data.bins ?? []) recent[b.bin_key] = (b.recent_pieces ?? []).slice(0, pieces);
+			for (const b of data.bins ?? []) {
+				const shown = b.recent_pieces?.length ? b.recent_pieces : (b.items ?? []);
+				recent[b.bin_key] = shown.slice(0, pieces);
+			}
 			version = token;
 			loaded = true;
 			onChange(recent);

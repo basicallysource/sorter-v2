@@ -140,8 +140,8 @@
 				note="The message holds the key, so it has the one button."
 			>
 				Use the Hive sorting-profiles skill at
-				<span class="font-mono break-all">https://hive.example.com/api/agent/skill.md</span>. My
-				API key is <span class="font-mono break-all">hv_example4TmK2x9Qp0Lr7Zs1Nw8Vb3</span>.
+				<span class="font-mono">https://hive.example.com/api/agent/skill.md</span>. My API key is
+				<span class="font-mono">hv_example4TmK2x9Qp0Lr7Zs1Nw8Vb3</span>.
 			</CopyField>
 		</div>
 	</Specimen>

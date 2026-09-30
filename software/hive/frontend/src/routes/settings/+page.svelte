@@ -778,7 +778,7 @@
 
 		<Panel
 			title="Connect an assistant"
-			description="Let an AI assistant you already use make and change your sorting profiles and kits. Hive makes it a key and one message to paste into it."
+			description="Let an AI assistant you already use make and change your sorting profiles and kits."
 			footer={connectFooter}
 		>
 			<div class="flex flex-col gap-3">
@@ -1010,7 +1010,8 @@
 	{/snippet}
 </Modal>
 
-<Modal bind:open={assistantShown} title="Connect an assistant" onclose={() => (assistantKey = null)}>
+<!-- Wide, so the address and the key each fit on a line of their own. -->
+<Modal bind:open={assistantShown} title="Connect an assistant" size="lg" onclose={() => (assistantKey = null)}>
 	{#if assistantKey}
 		<CopyField
 			label="Paste this into your assistant"
@@ -1018,8 +1019,8 @@
 			value={assistantMessage}
 			note={`Hive shows this key only now. It is listed under API keys as “${assistantKey.name}”, where you can revoke it.`}
 		>
-			Use the Hive sorting-profiles skill at <span class="font-mono break-all">{skillUrl}</span>. My API key is
-			<span class="font-mono break-all">{assistantKey.token}</span>.
+			Use the Hive sorting-profiles skill at <span class="font-mono">{skillUrl}</span>. My API key is
+			<span class="font-mono">{assistantKey.token}</span>.
 		</CopyField>
 	{/if}
 	{#snippet footer()}

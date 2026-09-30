@@ -58,7 +58,9 @@ the example app shows them together.
   a moment; where the page cannot write to the clipboard, it selects the text
   instead and says Selected. `mono` sets a bare token in monospace, broken
   anywhere; a sentence breaks at its spaces, and `children` shows it with
-  parts marked (`value` is still what is copied). `name` is what the button
+  parts marked (`value` is still what is copied). A marked part (an address,
+  a key) wraps like the words around it, breaking only when it is longer than
+  the line, so give the field the width for it. `name` is what the button
   says it copies, to a screen reader, when the label does not say it. One
   thing to copy has one button: a message that holds a key is copied as a
   whole, not beside a second button for the key. A secret shown only once

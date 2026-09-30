@@ -51,6 +51,18 @@ the example app shows them together.
 - **`Field`**: a label over a control, and one sentence under it: help, or
   the error in its place, in danger ink. Give the control the same `id` as
   `for`.
+- **`CopyField`**: something to copy, shown whole: a key, a token, a message
+  with one in it. It is laid out like a `Field`, with no control for a
+  `Field` to point at: `label` above, the text in a well with one Copy button
+  at its edge, and `note`, one sentence, under it. The button says Copied for
+  a moment; where the page cannot write to the clipboard, it selects the text
+  instead and says Selected. `mono` sets a bare token in monospace, broken
+  anywhere; a sentence breaks at its spaces, and `children` shows it with
+  parts marked (`value` is still what is copied). `name` is what the button
+  says it copies, to a screen reader, when the label does not say it. One
+  thing to copy has one button: a message that holds a key is copied as a
+  whole, not beside a second button for the key. A secret shown only once
+  says so in the note, quietly, never in a warning.
 - An error that belongs to one field is that sentence and the field's edge,
   never a notice.
 

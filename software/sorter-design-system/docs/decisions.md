@@ -5,6 +5,13 @@ and a dated entry goes here; the history is git.
 
 ## 2026-09-30
 
+- **Something to copy is a `CopyField`.** Hive showed a new API key, a new
+  machine's token and the message to paste into an assistant three ways, the
+  last in a warning box with the text in monospace and three buttons of three
+  weights beside it. It was read as unfinished, and it was: a key shown once
+  is not a warning, and one thing to copy needs one button. Now each is the
+  text in a well with a Copy button at its edge, and one quiet sentence under
+  it when the text will not be shown again.
 - **A profile is shown as parts, phrases and bins, not as fields.** The
   Sorter UI's profile view was a table of field names, operators, ID lists
   and rule UUIDs, and Hive's a wall of words: nobody could tell what a

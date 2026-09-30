@@ -2,13 +2,13 @@
 	import { sentence } from '$lib/text';
 	import { auth } from '$lib/auth.svelte';
 	import { api, getApiBaseUrl, type AiModelCatalog, type AuthOptions, type Machine, type UserIdentitySummary } from '$lib/api';
-	import { copyText } from '$lib/clipboard';
 	import { goto } from '$app/navigation';
 	import { page } from '$app/state';
 	import Modal from '$lib/components/Modal.svelte';
 	import Alert from '$lib/components/Alert.svelte';
 	import Button from '$lib/components/Button.svelte';
 	import Checkbox from '$lib/components/Checkbox.svelte';
+	import CopyField from '$lib/components/CopyField.svelte';
 	import Field from '$lib/components/Field.svelte';
 	import Input from '$lib/components/Input.svelte';
 	import PageHeader from '$lib/components/PageHeader.svelte';
@@ -27,11 +27,9 @@
 	import ModelSelect from '$lib/components/ModelSelect.svelte';
 	import AiUsagePanel from '$lib/components/AiUsagePanel.svelte';
 	import BrandMark from '$lib/components/BrandMark.svelte';
-	import Copy from '@lucide/svelte/icons/copy';
 	import Check from '@lucide/svelte/icons/check';
-	import Plug from '@lucide/svelte/icons/plug';
+	import KeyRound from '@lucide/svelte/icons/key-round';
 	import ArrowUpRight from '@lucide/svelte/icons/arrow-up-right';
-	import X from '@lucide/svelte/icons/x';
 
 	let showDeleteModal = $state(false);
 	let deleteError = $state<string | null>(null);
@@ -135,13 +133,9 @@
 	let apiKeyName = $state('');
 	let apiKeysError = $state<string | null>(null);
 	let apiKeysLoading = $state(false);
+	// A new key is shown once, in a dialog, and forgotten when it closes.
 	let apiKeyJustCreated = $state<{ name: string; token: string } | null>(null);
-	let apiKeyCopied = $state(false);
-
-	async function copyApiKey() {
-		if (!apiKeyJustCreated) return;
-		apiKeyCopied = await copyText(apiKeyJustCreated.token);
-	}
+	let apiKeyShown = $state(false);
 
 	// The scopes a key can have. Anyone can make a key with the first three
 	// (an assistant working on their own profiles, kits and records); the rest
@@ -226,7 +220,7 @@
 				apiKeySelectedMachines.length > 0 ? apiKeySelectedMachines : undefined
 			);
 			apiKeyJustCreated = { name: resp.summary.name, token: resp.raw_token };
-			apiKeyCopied = false;
+			apiKeyShown = true;
 			apiKeyName = '';
 			apiKeySelectedScopes = [];
 			apiKeyExpiresInDays = '';
@@ -259,9 +253,9 @@
 	// Connect an assistant: one key with the three scopes an assistant needs.
 	const ASSISTANT_SCOPES = ['profiles:read', 'profiles:write', 'records:read'];
 	let assistantKey = $state<{ name: string; token: string } | null>(null);
+	let assistantShown = $state(false);
 	let assistantBusy = $state(false);
 	let assistantError = $state<string | null>(null);
-	let assistantCopied = $state<'message' | 'key' | null>(null);
 
 	// Where an assistant reads its instructions: this Hive's own address.
 	const skillUrl = $derived(`${getApiBaseUrl() || page.url.origin}/api/agent/skill.md`);
@@ -286,21 +280,13 @@
 		try {
 			const resp = await api.createApiKey(assistantName(), ASSISTANT_SCOPES);
 			assistantKey = { name: resp.summary.name, token: resp.raw_token };
-			assistantCopied = null;
+			assistantShown = true;
 			await loadApiKeys();
 		} catch (e: any) {
 			assistantError = e.error || 'Could not make the key';
 		} finally {
 			assistantBusy = false;
 		}
-	}
-
-	async function copyAssistant(what: 'message' | 'key') {
-		if (!assistantKey) return;
-		assistantError = null;
-		const ok = await copyText(what === 'message' ? assistantMessage : assistantKey.token);
-		assistantCopied = ok ? what : null;
-		if (!ok) assistantError = 'Copying did not work here. Select the text and copy it.';
 	}
 
 	// The keys list only has a machines column when some key is limited to machines.
@@ -778,53 +764,34 @@
 		</Panel>
 
 		{#snippet connectFooter()}
-			<Button variant="primary" icon={Plug} loading={assistantBusy} onclick={() => void connectAssistant()}
-				>Make an assistant key</Button
+			<a
+				href={skillUrl}
+				target="_blank"
+				rel="noopener noreferrer"
+				class="mr-auto inline-flex items-center gap-1 text-sm text-primary-ink hover:underline"
+				>What the assistant reads<ArrowUpRight size={14} /></a
+			>
+			<Button variant="primary" icon={KeyRound} loading={assistantBusy} onclick={() => void connectAssistant()}
+				>Make a key</Button
 			>
 		{/snippet}
 
 		<Panel
 			title="Connect an assistant"
-			description="Let an AI assistant you already use work on your sorting profiles and kits through Hive's API."
-			footer={assistantKey ? undefined : connectFooter}
+			description="Let an AI assistant you already use make and change your sorting profiles and kits. Hive makes it a key and one message to paste into it."
+			footer={connectFooter}
 		>
 			<div class="flex flex-col gap-3">
-				{#if assistantKey}
-					<Alert tone="warning" title="Copy this now. Hive will not show the key again.">
-						<code class="mt-2 block rounded-control bg-surface p-2 font-mono text-sm break-words select-all"
-							>{assistantMessage}</code
-						>
-						<div class="mt-3 flex flex-wrap items-center gap-2">
-							<Button
-								size="sm"
-								variant="primary"
-								icon={assistantCopied === 'message' ? Check : Copy}
-								onclick={() => void copyAssistant('message')}
-								>{assistantCopied === 'message' ? 'Copied' : 'Copy the message'}</Button
-							>
-							<Button size="sm" icon={assistantCopied === 'key' ? Check : Copy} onclick={() => void copyAssistant('key')}
-								>{assistantCopied === 'key' ? 'Copied' : 'Copy the key'}</Button
-							>
-							<Button size="sm" variant="ghost" onclick={() => (assistantKey = null)}>Done</Button>
-						</div>
-					</Alert>
-					<p class="text-sm text-ink-muted">
-						Paste the message to your assistant. It reads
-						<a
-							href={skillUrl}
-							target="_blank"
-							rel="noopener noreferrer"
-							class="inline-flex items-center gap-1 text-primary-ink hover:underline"
-							>the skill<ArrowUpRight size={14} /></a
-						>
-						to learn what it can do.
-					</p>
-				{/if}
+				<ul class="flex flex-col gap-2 text-sm text-ink" aria-label="What the key can do">
+					<li class="flex items-center gap-2">
+						<Check size={16} class="shrink-0" />Read and change your sorting profiles and kits
+					</li>
+					<li class="flex items-center gap-2">
+						<Check size={16} class="shrink-0" />Read what your machines sorted
+					</li>
+				</ul>
+				<p class="text-sm text-ink-muted">It cannot run your machines, and you can revoke it at any time.</p>
 				{#if assistantError}<Alert tone="danger">{assistantError}</Alert>{/if}
-				<p class="text-sm text-ink-muted">
-					The key can read and change your profiles and kits, and read what your machines sorted. It cannot run a
-					machine. You can revoke it in the list below.
-				</p>
 			</div>
 		</Panel>
 
@@ -834,20 +801,6 @@
 			flush
 		>
 			<div class="flex flex-col gap-4 px-(--pad-panel) pb-(--pad-panel)">
-				{#if apiKeyJustCreated}
-					<Alert tone="warning" title="Copy this key now. It won't be shown again.">
-						<div class="mt-1">Name: <span class="font-mono">{apiKeyJustCreated.name}</span></div>
-						<code class="mt-2 block rounded-control bg-surface p-2 font-mono text-sm break-all select-all"
-							>{apiKeyJustCreated.token}</code
-						>
-						{#snippet actions()}
-							<Button size="sm" icon={apiKeyCopied ? Check : Copy} onclick={copyApiKey}
-								>{apiKeyCopied ? 'Copied' : 'Copy'}</Button
-							>
-							<Button size="sm" variant="ghost" icon={X} label="Dismiss" onclick={() => (apiKeyJustCreated = null)} />
-						{/snippet}
-					</Alert>
-				{/if}
 				{#if apiKeysError}<Alert tone="danger">{apiKeysError}</Alert>{/if}
 
 				<form onsubmit={handleCreateApiKey} class="flex flex-col gap-4 rounded-control bg-well p-4">
@@ -1054,6 +1007,38 @@
 	{#snippet footer()}
 		<Button variant="ghost" onclick={() => (pendingConfirm = null)}>Cancel</Button>
 		<Button variant="danger" loading={confirming} onclick={runConfirmed}>{pendingConfirm?.action}</Button>
+	{/snippet}
+</Modal>
+
+<Modal bind:open={assistantShown} title="Connect an assistant" onclose={() => (assistantKey = null)}>
+	{#if assistantKey}
+		<CopyField
+			label="Paste this into your assistant"
+			name="message"
+			value={assistantMessage}
+			note={`Hive shows this key only now. It is listed under API keys as “${assistantKey.name}”, where you can revoke it.`}
+		>
+			Use the Hive sorting-profiles skill at <span class="font-mono break-all">{skillUrl}</span>. My API key is
+			<span class="font-mono break-all">{assistantKey.token}</span>.
+		</CopyField>
+	{/if}
+	{#snippet footer()}
+		<Button onclick={() => (assistantShown = false)}>Done</Button>
+	{/snippet}
+</Modal>
+
+<Modal bind:open={apiKeyShown} title="New API key" onclose={() => (apiKeyJustCreated = null)}>
+	{#if apiKeyJustCreated}
+		<CopyField
+			label={apiKeyJustCreated.name}
+			name="API key"
+			value={apiKeyJustCreated.token}
+			mono
+			note="Hive shows a key only when it is made. Keep it like a password."
+		/>
+	{/if}
+	{#snippet footer()}
+		<Button onclick={() => (apiKeyShown = false)}>Done</Button>
 	{/snippet}
 </Modal>
 

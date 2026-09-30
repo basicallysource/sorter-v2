@@ -16,6 +16,7 @@
 	import SettingRow from '$lib/components/SettingRow.svelte';
 	import Button from '$lib/components/Button.svelte';
 	import Alert from '$lib/components/Alert.svelte';
+	import CopyField from '$lib/components/CopyField.svelte';
 
 	let name = $state('Bench sorter');
 	let port = $state<number | null>(80000);
@@ -114,6 +115,34 @@
 					placeholder="What changed on the machine"
 				/>
 			</Field>
+		</div>
+	</Specimen>
+</SiteSection>
+
+<SiteSection
+	title="Something to copy"
+	lead="The text whole, in a well, with one Copy button at its edge. A secret shown once says so in a quiet sentence under it, not in a warning."
+>
+	<Specimen
+		code={`<CopyField label="API key" value={token} mono note="Shown only now. Copy it before you leave the page." />`}
+	>
+		<div class="flex max-w-2xl flex-col gap-6">
+			<CopyField
+				label="API key"
+				value="hv_example4TmK2x9Qp0Lr7Zs1Nw8Vb3"
+				mono
+				note="Shown only now. Copy it before you leave the page."
+			/>
+			<CopyField
+				label="Paste this into your assistant"
+				name="message"
+				value="Use the Hive sorting-profiles skill at https://hive.example.com/api/agent/skill.md. My API key is hv_example4TmK2x9Qp0Lr7Zs1Nw8Vb3."
+				note="The message holds the key, so it has the one button."
+			>
+				Use the Hive sorting-profiles skill at
+				<span class="font-mono break-all">https://hive.example.com/api/agent/skill.md</span>. My
+				API key is <span class="font-mono break-all">hv_example4TmK2x9Qp0Lr7Zs1Nw8Vb3</span>.
+			</CopyField>
 		</div>
 	</Specimen>
 </SiteSection>

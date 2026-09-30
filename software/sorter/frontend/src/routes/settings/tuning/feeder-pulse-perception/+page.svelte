@@ -446,14 +446,14 @@
 			<div class="flex items-center gap-2 text-sm text-ink-muted"><Spinner size={14} /> Loading</div>
 		</div>
 	{:else}
-		{#each sections as section}
-			<div class="label bg-well px-(--pad-panel) py-1.5">{section.name}</div>
-			<div class="divide-y divide-line">
+		<div class="divide-y divide-line">
+			{#each sections as section}
+				<div class="label px-(--pad-panel) py-1.5">{section.name}</div>
 				{#each section.fields as field}
 					<TuningParamRow {field} bind:values />
 				{/each}
-			</div>
-		{/each}
+			{/each}
+		</div>
 	{/if}
 	{#snippet footer()}
 		<SettingsSaveBar {save} reset={load} {saving} dirty={guard.isDirty} disabled={loading} />

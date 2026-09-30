@@ -13,7 +13,10 @@ and a dated entry goes here; the history is git.
   scrolling; tabs scroll inside their line's element, without a scroll bar.
 - **A group's name in a list is a label, not a band of well.** The Sorter
   UI's list of recent pieces had "Distributed" on a well across the panel,
-  which is nearly the canvas's color and read as a gap in the panel.
+  which is nearly the canvas's color and read as a gap in the panel. The same
+  goes for a section's name in a panel of settings and for a table's head,
+  which was a well and is now a row of labels with a line under it. A well is
+  only ever a box inside a panel.
 
 ## 2026-09-29
 

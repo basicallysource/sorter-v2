@@ -508,7 +508,7 @@
 	{/if}
 
 	<div class="max-h-[60dvh] overflow-y-auto">
-		<div class="bg-well px-4 py-1.5 label">Recent</div>
+		<div class="label border-y border-line px-4 py-1.5">Recent</div>
 		{#if loading_quick_profiles && quick_profiles.length === 0}
 			<div class="flex justify-center px-4 py-3"><Spinner /></div>
 		{:else if quick_profiles.length === 0}
@@ -543,7 +543,7 @@
 			</div>
 		{/if}
 
-		<div class="bg-well px-4 py-1.5 label">On this machine</div>
+		<div class="label border-y border-line px-4 py-1.5">On this machine</div>
 		{#if loading_quick_profiles && local_profiles.length === 0}
 			<div class="flex justify-center px-4 py-3"><Spinner /></div>
 		{:else if local_profiles.length === 0}

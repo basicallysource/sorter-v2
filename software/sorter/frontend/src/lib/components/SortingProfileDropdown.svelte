@@ -57,6 +57,9 @@
 	type SortingProfileSummary = {
 		id: string;
 		name: string;
+		// Hive's own profiles, which every machine gets.
+		is_default?: boolean;
+		default_rank?: number | null;
 		latest_version?: SortingProfileVersionSummary | null;
 		latest_published_version?: SortingProfileVersionSummary | null;
 	};
@@ -92,6 +95,8 @@
 		version_number: number | null;
 		version_label: string | null;
 		rule_count: number | null;
+		is_default: boolean;
+		default_rank: number | null;
 		last_used_at: string | null;
 		updated_at: string | null;
 		sort_timestamp: number;
@@ -200,6 +205,8 @@
 			byProfile.set(key, {
 				...recent,
 				rule_count: null,
+				is_default: false,
+				default_rank: null,
 				last_used_at: recent.last_used_at,
 				updated_at: null,
 				sort_timestamp: parseTimestamp(recent.last_used_at)
@@ -226,6 +233,8 @@
 						version_number: version.version_number ?? null,
 						version_label: version.label ?? null,
 						rule_count: Array.isArray(version.rules_summary) ? version.rules_summary.length : null,
+						is_default: Boolean(profile.is_default),
+						default_rank: profile.default_rank ?? null,
 						last_used_at: null,
 						updated_at: updatedAt,
 						sort_timestamp: updatedTimestamp
@@ -243,6 +252,8 @@
 						version_number: version.version_number ?? null,
 						version_label: version.label ?? null,
 						rule_count: Array.isArray(version.rules_summary) ? version.rules_summary.length : existing.rule_count,
+						is_default: Boolean(profile.is_default),
+						default_rank: profile.default_rank ?? null,
 						updated_at: updatedAt,
 						sort_timestamp: Math.max(updatedTimestamp, lastUsedTimestamp)
 					});
@@ -252,6 +263,8 @@
 						target_name: target.name || target.url || existing.target_name,
 						profile_name: existing.profile_name || profile.name,
 						rule_count: Array.isArray(version.rules_summary) ? version.rules_summary.length : existing.rule_count,
+						is_default: Boolean(profile.is_default),
+						default_rank: profile.default_rank ?? null,
 						updated_at: updatedAt,
 						sort_timestamp: Math.max(existing.sort_timestamp, updatedTimestamp)
 					});
@@ -260,9 +273,17 @@
 		}
 
 		const currentKey = current_entry ? recentEntryKey(current_entry) : null;
+		// The person's own profiles, newest first, then Hive's defaults in their order.
 		quick_profiles = [...byProfile.values()]
 			.filter((entry) => recentEntryKey(entry) !== currentKey)
-			.sort((a, b) => b.sort_timestamp - a.sort_timestamp || a.profile_name.localeCompare(b.profile_name))
+			.sort(
+				(a, b) =>
+					Number(a.is_default) - Number(b.is_default) ||
+					(a.is_default
+						? (a.default_rank ?? Number.MAX_SAFE_INTEGER) - (b.default_rank ?? Number.MAX_SAFE_INTEGER)
+						: b.sort_timestamp - a.sort_timestamp) ||
+					a.profile_name.localeCompare(b.profile_name)
+			)
 			.slice(0, MAX_QUICK_SWITCH_PROFILES);
 	}
 
@@ -533,7 +554,7 @@
 							</span>
 						</span>
 						{@render meta([
-							`Hive: ${entry.target_name}`,
+							entry.is_default ? 'Hive default' : `Hive: ${entry.target_name}`,
 							entry.rule_count != null && `${entry.rule_count} rules`,
 							usedSummary(entry),
 							updatedSummary(entry)

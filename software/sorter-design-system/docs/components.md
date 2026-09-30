@@ -190,6 +190,77 @@ layout; a fifth kind of message is a panel, not a new notice.
 squares, the chosen one ringed in ink and named under the grid. Each square is
 a radio, so the arrow keys move through them.
 
+## Profiles
+
+How a sorting profile is shown, in Hive and on a machine: parts, rules and
+bins, each laid out the same wherever it appears. A person reads a profile
+by looking at it, so nothing is decoded from a field name, a list of IDs or
+a UUID. The site's Profiles page shows each one on real catalog data.
+
+- **`PartTile`**: one part, always in the same order and the same place: the
+  picture, the name, the BrickLink ID in tabular figures, the Rebrickable
+  number only when it is a different one (`3010 · RB 3010a`), then the color
+  and the count. The BrickLink ID comes first because it is what a sorter
+  reports a piece by; the Rebrickable number is shown only when it tells
+  someone something the first does not. Laid out the same, a list of a
+  hundred parts is read by running down one column, and the ID is never
+  somewhere else. `layout="row"` is a line of a list: a 48px picture, the
+  text, then the count and any `children` (a color select, a quantity field)
+  at the end; a row owns its side padding like any row in a flush panel
+  (`padded={false}` inside one that pads), and when the row itself is narrower
+  than 40rem its `children` drop under the text, in line with it.
+  `layout="tile"` is a square picture over its name, for a grid: the
+  picture's box is the same size in every tile, and the name takes two lines
+  whatever its length so the ID under it stays in line. A count alone is
+  "×4"; with `found` it is a kit's progress, "3 / 6" over a bar, and it
+  turns green with a check when complete. With `href` or `onclick` the whole
+  part is the target, like a `Card`.
+- **A part's picture is shown whole, on whatever it sits on** (`PartImage`):
+  contained, never cropped, with no well, no dark backdrop and no bars
+  ([surfaces.md](surfaces.md#media)). A part with no picture, or one that
+  fails to load, shows a quiet blank square in its place, never the
+  browser's broken-image icon and never an "image off" icon.
+- **`ColorChip`**: a color as a small swatch of its RGB with a 1px
+  `line-strong` hairline around it, so white and clear still read, then its
+  name. The catalog gives RGB as six hex digits with no `#`; a missing or
+  malformed one draws no swatch. The swatch is data, one of the few colors
+  that is not a token ([color.md](color.md#what-never-appears-in-markup)).
+- **`ConditionList`**: a rule's conditions as phrases, every one built the
+  same way: the field, the operator in words ("is one of", "is at most",
+  "matches"), then each value as a chip. A color is its swatch and name, a
+  part its small picture, name and ID, a category its name, a number its unit
+  ("4 studs", "$0.25"), a pattern in the mono. Conditions joined by "all of"
+  or "any of" say so once above them, and a group inside a rule is indented
+  under its own. `limit` is how many chips a condition shows before "+N
+  more", which opens the rest in place. A condition that cannot be
+  evaluated yet is in the warning tone. A rule for one part (BrickLink ID
+  3001) is one phrase with one chip.
+- **`ProfileBin`**: one bin of a profile, as a card or a row. The card shows
+  what a person needs to know about where pieces go: the picture (a color
+  bin shows its color, a kit its picture, "Everything else" a quiet glyph),
+  its place in the order, the name, what kind of bin it is (Rule, Kit,
+  Category, Color, Everything else, left off when it is the name), how much it
+  takes in words, its conditions, up to six example parts (rows, two to a
+  line; a kit's get a line each, with their color and count), and what is
+  wrong with it in the warning tone at its foot. The count is what the bin
+  does: "72 parts in 8 colors", "14 parts · 96 pieces" for a kit, "Any part
+  in this color" for a color bin. A rule that only tests colors takes any
+  part in them, so it says "Any part in 6 colors": the parts the catalog
+  knows in those colors are how it is pictured, not what it takes. A kit
+  with `progress` adds "Found 41 of 96" over a bar. `layout="row"` is one
+  line for a long list (a profile sorted by color has hundreds of bins): the
+  place, the picture or color, the name, the count, any warnings, the kind,
+  and a kit's progress; down a list of colors it leaves out "Any part in
+  this color", which every row would say. `selected` takes the primary's
+  tint, `plane="well"` is for a card on a dialog (itself a surface), and a
+  bin from a version saved before bins were described has only a name and
+  shows as a plain, name-only bin, with no picture to hold a place for.
+- **Why every part looks the same.** A profile is hundreds of parts and
+  dozens of rules, read by someone deciding what a machine will do with a
+  piece; what they need is to find the ID, the name and the color in the
+  same place every time. The old views gave each part its own arrangement of
+  words, or a table of field names, and could only be read by decoding them.
+
 ## Overlays and loading
 
 `Popover`, `Menu`, `Tooltip` and `Modal` are in [overlays.md](overlays.md);

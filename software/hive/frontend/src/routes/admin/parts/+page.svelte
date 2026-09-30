@@ -385,7 +385,7 @@
 				{:else}
 					<div class="max-h-64 overflow-auto rounded-control bg-well">
 						<table class="data-table">
-							<thead class="sticky top-0">
+							<thead class="sticky top-0 bg-well">
 								<tr><th>Color</th><th class="num">New, average</th><th class="num">Used, average</th><th class="num">Used, quantity</th></tr>
 							</thead>
 							<tbody>

@@ -921,7 +921,7 @@
 			{/each}
 
 			<!-- The exit: what is below it has left the channel, newest first. -->
-			<div class="bg-well px-3 py-1 text-sm text-ink-muted select-none">Distributed</div>
+			<div class="label px-3 py-1.5 select-none">Distributed</div>
 
 			{#each deliveredRows as row (rowKey(row))}
 				{#if row.kind === 'multi_drop'}

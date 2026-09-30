@@ -181,7 +181,7 @@ layout; a fifth kind of message is a panel, not a new notice.
 - **`SideNav`**: the second level, a column on the surface plane.
 - **`Tabs`**: views of one thing, in a page or at the top of a flush panel.
   The current tab's mark replaces the bar's line under it. Arrow keys move
-  between tabs. The pages of the app are the top bar's and the side nav's,
+  between tabs. Tabs that do not fit scroll sideways without a scroll bar. The pages of the app are the top bar's and the side nav's,
   not tabs.
 
 ## Color

@@ -105,7 +105,10 @@ Look; do not assume. Before calling a change done:
    on the primary and the primary as text both read.
 4. **Seams.** Wherever two parts meet, one line or none, never two.
 5. **Overflow.** Nothing scrolls sideways but a table or a list that is meant
-   to; an app screen at 1440 does not scroll at all.
+   to; an app screen at 1440 does not scroll at all. Look with scroll bars
+   that are always drawn (a Mac with a mouse plugged in, Windows): a box that
+   scrolls by one pixel shows nothing where they hide, and a scroll bar in
+   the middle of the top bar where they do not.
 6. **The console** has no errors or warnings.
 7. **Keyboard.** Every control is reachable with Tab, shows the focus
    outline, and anything that opens closes on Escape.

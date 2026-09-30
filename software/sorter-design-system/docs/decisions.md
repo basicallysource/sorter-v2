@@ -3,6 +3,18 @@
 What was decided, and when. When a rule changes, the rule's own file changes
 and a dated entry goes here; the history is git.
 
+## 2026-09-30
+
+- **The top bar's links are not a scrolling box, and a tab bar's line is
+  outside the box that scrolls.** Both pushed the current mark one pixel out
+  of a box with `overflow-x-auto`, so the mark was clipped and the box
+  scrolled by that pixel: with scroll bars that are always drawn, a scroll
+  bar stood in the top bar beside the last page. The top bar folds instead of
+  scrolling; tabs scroll inside their line's element, without a scroll bar.
+- **A group's name in a list is a label, not a band of well.** The Sorter
+  UI's list of recent pieces had "Distributed" on a well across the panel,
+  which is nearly the canvas's color and read as a gap in the panel.
+
 ## 2026-09-29
 
 - **One place.** The design system is `software/sorter-design-system`: a

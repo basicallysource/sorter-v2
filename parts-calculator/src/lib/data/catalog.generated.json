@@ -8223,9 +8223,9 @@
 		{
 			"id": "harness-led-drop",
 			"uid": "nmlx",
-			"version": "1",
+			"version": "2",
 			"name": "LED drop (L, Lp)",
-			"description": "One camera lamp's power: a metre-long Dupont lead from an LED header on the board to an inline barrel jack, then a 6 in pigtail from the matching plug to the clamp-on connector on the lamp's strip. The barrel pair is the unplug point, so a lamp comes off without unpicking the board end. 1 per camera lamp.",
+			"description": "One camera lamp's power: a metre-long Dupont lead from an LED header on the board to the lamp's strip. Optional but recommended: an inline barrel jack on the lead and a 6 in pigtail from the matching plug to the lamp, which is the unplug point, so a lamp comes off next to the lamp without unpicking the board end. Without the pair the lead goes straight to the strip. 1 per camera lamp.",
 			"joining": [
 				{
 					"method": "crimp",
@@ -8246,12 +8246,22 @@
 					"qty": 1
 				},
 				{
-					"part": "dc-plug-5521-male",
+					"part": "dc-plug-5521-male-led",
 					"qty": 1
 				},
 				{
 					"part": "led-strip-connector-8mm",
 					"qty": 1
+				}
+			],
+			"versions": [
+				{
+					"version": "2",
+					"uid": "nmlx",
+					"date": "2026-09-30",
+					"message": "The barrel plug on the lamp pigtail is now its own catalog part, so it and the inline barrel jack can both be marked optional (recommended, for lamps that come off at the lamp). No physical change.",
+					"breaking": false,
+					"commit": null
 				}
 			]
 		},
@@ -28299,10 +28309,10 @@
 			},
 			"name": "DC barrel plug, 5.5 x 2.1 mm male",
 			"category": "Wire harness",
-			"description": "The plug on the end of every 24 V lead that goes into a PSU box jack or an LED unplug point. Tip is +24 V and the sleeve is ground. Buy it as a moulded plug already on a short lead and splice to that; a screw-terminal plug you assemble yourself works but is bulkier and comes loose.",
+			"description": "The plug on the end of a 24 V lead that goes into a PSU box jack. Tip is +24 V and the sleeve is ground. Buy it as a moulded plug already on a short lead and splice to that; a screw-terminal plug you assemble yourself works but is bulkier and comes loose.",
 			"note": "5.5 x 2.5 mm looks identical and does not mate: the 0.4 mm is on the centre pin. Check the pin size on the listing, not the outside diameter.",
 			"created_at": "2026-09-14",
-			"updated_at": "2026-09-14",
+			"updated_at": "2026-09-30",
 			"attributes": [
 				{
 					"label": "Size",
@@ -28318,11 +28328,11 @@
 				},
 				{
 					"label": "Used on",
-					"value": "W1, both ends of W2, W3, and the three LED pigtails L1p to L3p"
+					"value": "W1, both ends of W2 and W3"
 				}
 			],
 			"sheet_qty": {
-				"per_machine": 7
+				"per_machine": 4
 			},
 			"sheet_qty_text": null,
 			"stock": null,
@@ -28338,8 +28348,62 @@
 				]
 			},
 			"alternative": null,
-			"caption": "Seven per machine. W2 takes one at each end.",
+			"caption": "Four per machine. W2 takes one at each end.",
 			"docs_page": "/hardware/electronics/wire-harness/",
+			"conflicts": null,
+			"image": "https://assets.basically.website/sorter-parts/dc-plug-5521-male-full-9cabce9431e7.jpg"
+		},
+		{
+			"id": "dc-plug-5521-male-led",
+			"uid": "yfy2",
+			"kind": "cots",
+			"cots": {
+				"type": "connector",
+				"optional": true
+			},
+			"name": "DC barrel plug, 5.5 x 2.1 mm male, for the LED pigtail",
+			"category": "Wire harness",
+			"description": "Optional but recommended. The plug on a camera lamp's pigtail, which pushes into the inline barrel jack on the board cable so the lamp can come off next to the lamp. Tip is +24 V and the sleeve is ground. Leave the pair out and the lamp's strip is connected straight to the Dupont lead instead. Buy it as a moulded plug already on a short lead; its leads are what go onto the strip. One per lamp.",
+			"note": "5.5 x 2.5 mm looks identical and does not mate: the 0.4 mm is on the centre pin. Check the pin size on the listing, not the outside diameter.",
+			"created_at": "2026-09-30",
+			"updated_at": "2026-09-30",
+			"attributes": [
+				{
+					"label": "Size",
+					"value": "5.5 mm outside, 2.1 mm centre pin"
+				},
+				{
+					"label": "Polarity",
+					"value": "Centre positive"
+				},
+				{
+					"label": "Rating",
+					"value": "5 A or better on the three PSU leads"
+				},
+				{
+					"label": "Used on",
+					"value": "The three LED pigtails, L1p to L3p"
+				}
+			],
+			"sheet_qty": {
+				"per_machine": 3
+			},
+			"sheet_qty_text": null,
+			"stock": null,
+			"sourcing": {
+				"vendors": [
+					{
+						"region": "US",
+						"vendor": "JacobsParts",
+						"url": "https://www.jacobsparts.com/items/DCCONN-D",
+						"as_of": "2026-09-14",
+						"note": "DCCONN-D, 6 in lead. Any 5.5 x 2.1 mm centre-positive pigtail does."
+					}
+				]
+			},
+			"alternative": null,
+			"caption": "Recommended. One per lamp, on the pigtail.",
+			"docs_page": "/hardware/helpers/led-strip/",
 			"conflicts": null,
 			"image": "https://assets.basically.website/sorter-parts/dc-plug-5521-male-full-9cabce9431e7.jpg"
 		},
@@ -28395,14 +28459,15 @@
 			"uid": "ls0v",
 			"kind": "cots",
 			"cots": {
-				"type": "connector"
+				"type": "connector",
+				"optional": true
 			},
 			"name": "DC barrel jack, 5.5 x 2.1 mm female, inline",
 			"category": "Wire harness",
-			"description": "The unplug point of an LED drop, so a camera lamp can come off without unpicking the board end. Joined to the cut end of the Dupont lead; the lamp pigtail's barrel plug pushes into it. One per lamp.",
+			"description": "Optional but recommended. The unplug point of an LED drop, so a camera lamp can come off without unpicking the board end. Joined to the cut end of the Dupont lead; the lamp pigtail's barrel plug pushes into it. Leave the pair out and the strip is connected straight to the Dupont lead instead. One per lamp.",
 			"note": "Buy it as a moulded jack already on its own short leads and join those to the Dupont lead. The socket goes on the board half and the plug on the lamp half, because the board half is live at 24 V.",
 			"created_at": "2026-09-14",
-			"updated_at": "2026-09-14",
+			"updated_at": "2026-09-30",
 			"attributes": [
 				{
 					"label": "Size",
@@ -28424,7 +28489,7 @@
 			"stock": null,
 			"sourcing": null,
 			"alternative": null,
-			"caption": "The unplug point in an LED drop, on the board cable.",
+			"caption": "Recommended. The unplug point in an LED drop, on the board cable.",
 			"docs_page": "/hardware/helpers/led-strip/",
 			"conflicts": null,
 			"image": "https://assets.basically.website/sorter-parts/dc-jack-5521-inline-full-7804080cd0ea.jpg"

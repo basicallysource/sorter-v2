@@ -350,10 +350,9 @@ class PulsePerceptionFeeding(BaseState):
                 output_deg = clearance
                 enforce_min = False
             # Nor may a piece the camera cannot see be carried past the
-            # staging point unseen.
-            if hidden_cap is not None and hidden_cap < output_deg:
-                if hidden_cap <= 0:
-                    return
+            # staging point unseen. A cap of nothing is no cap: the expectation
+            # is then wrong, and a channel that never moves never finds out.
+            if hidden_cap is not None and 0 < hidden_cap < output_deg:
                 output_deg = hidden_cap
                 enforce_min = False
             self._move(

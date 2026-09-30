@@ -34,10 +34,11 @@ def test_a_piece_that_never_comes_back_is_given_up() -> None:
     arc = _arc()
     arc.update(_state((7, 44)), 10.0, odometer=0.0)
     arc.update(_state(), 11.0, odometer=0.0)
-    arc.update(_state(), 12.0, odometer=100.0)
-    assert arc.expected(100.0) == [144.0]
-    arc.update(_state(), 13.0, odometer=130.0)
-    assert arc.expected(130.0) == []
+    arc.update(_state(), 12.0, odometer=80.0)
+    assert arc.expected(80.0) == [124.0]
+    # 15 deg past the arc's end it would be in view: not seeing it, give it up.
+    arc.update(_state(), 13.0, odometer=110.0)
+    assert arc.expected(110.0) == []
 
 
 def test_a_piece_leaving_elsewhere_is_not_expected() -> None:

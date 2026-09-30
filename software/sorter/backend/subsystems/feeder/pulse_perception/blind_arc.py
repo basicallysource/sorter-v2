@@ -24,8 +24,9 @@ ENTER_BEFORE_DEG = 20.0
 ENTER_AFTER_DEG = 15.0
 APPEAR_BEFORE_DEG = 15.0
 APPEAR_AFTER_DEG = 30.0
-# Give a hidden piece up once its expected position is this far past the end.
-GIVE_UP_PAST_END_DEG = 30.0
+# Give a hidden piece up once its expected position is this far past the end:
+# by then it would be in view, so not seeing it means it is not there.
+GIVE_UP_PAST_END_DEG = 15.0
 
 
 def forward(a: float, b: float) -> float:
@@ -76,8 +77,15 @@ class BlindArc:
         ]
 
     def expected(self, odometer: float) -> list[float]:
-        """Where each hidden piece should be now (sections)."""
-        return [(s + (odometer - o)) % 360.0 for s, o in self._hidden]
+        """Where each hidden piece should be now (sections), for those still
+        inside the unseen arc."""
+        arc = forward(self.start_deg, self.end_deg)
+        out = []
+        for s, o in self._hidden:
+            pos = (s + (odometer - o)) % 360.0
+            if forward(self.start_deg, pos) <= arc or forward(pos, self.start_deg) <= ENTER_BEFORE_DEG:
+                out.append(pos)
+        return out
 
     def clear(self) -> None:
         self._tracks.clear()

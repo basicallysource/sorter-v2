@@ -353,7 +353,7 @@ class PulsePerceptionFeeding(BaseState):
                 f"{label}_exit",
                 channel,
                 stepper,
-                cfg.exit_pulse_output_deg,
+                self._exitMoveDeg(channel, state, cfg),
                 cfg.exit_pulse_pause_ms,
                 cfg,
                 enforce_min=False,
@@ -362,6 +362,25 @@ class PulsePerceptionFeeding(BaseState):
                 pieces = getattr(state, "pieces", ())
                 self._gates[channel].notePush(pieces[0] if pieces else None)
         # IDLE / FREEZE: no move.
+
+    def _exitMoveDeg(self, channel: int, state, cfg: PulsePerceptionConfig) -> float:
+        """One exit move: as far as it takes to drop the lead piece, up to
+        exit_move_max_deg, but never so far that a piece behind it reaches the
+        exit. With a piece close behind, that is the small exit pulse."""
+        small = cfg.exit_pulse_output_deg
+        if cfg.exit_move_max_deg <= small:
+            return small
+        pieces = getattr(state, "pieces", ())
+        if len(pieces) < 2:
+            return cfg.exit_move_max_deg
+        perception_service = getattr(self.gc, "perception_service", None)
+        channel_def = perception_service.channels().get(channel) if perception_service else None
+        if channel_def is None:
+            return small
+        from perception.arcs import forwardGapToExitDeg
+
+        room = min(forwardGapToExitDeg(p.bbox, channel_def) for p in pieces[1:])
+        return max(small, min(cfg.exit_move_max_deg, room - cfg.exit_move_margin_deg))
 
     def cleanup(self) -> None:
         super().cleanup()

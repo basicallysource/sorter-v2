@@ -30,6 +30,7 @@
 	let selected = $state('c2');
 	let decay = $state(true);
 	let moveBy = $state<'duration' | 'degrees'>('degrees');
+	let moveByOne = $state<'duration' | 'degrees'>('degrees');
 </script>
 
 <svelte:head><title>Rules · Sorter design system</title></svelte:head>
@@ -136,6 +137,32 @@
 				<Button size="sm">Cancel</Button>
 				<Button size="sm" variant="primary">Save</Button>
 			</div>
+		{/snippet}
+	</DoDont>
+	<DoDont
+		on="surface"
+		wrongNote="A grey track with loose segments in it. With 1px corners and no shadows, the padding reads as a thick border around white boxes."
+		rightNote="One control: a single outline, one 1px line between the segments, and the chosen one filled with the primary's tint. No track, no padding."
+	>
+		{#snippet wrong()}
+			<div class="inline-flex gap-1 rounded-button bg-track p-1">
+				<span class="rounded-button-inner bg-surface px-3 py-1.5 text-sm text-ink-muted"
+					>Duration</span
+				>
+				<span class="rounded-button-inner bg-surface px-3 py-1.5 text-sm font-medium text-ink"
+					>Degrees</span
+				>
+			</div>
+		{/snippet}
+		{#snippet right()}
+			<SegmentedControl
+				label="Move by, one control"
+				bind:value={moveByOne}
+				options={[
+					{ value: 'duration', label: 'Duration' },
+					{ value: 'degrees', label: 'Degrees' }
+				]}
+			/>
 		{/snippet}
 	</DoDont>
 </SiteSection>

@@ -439,3 +439,26 @@ def test_a_condition_with_nothing_chosen_shows_no_values(index):
     items = compiled.artifact["categories"]["r1"]["conditions"]["items"]
     assert items[0]["invalid"] is True
     assert items[0]["values"] == []
+
+
+def test_the_catalog_service_is_built_once_when_asked_for_together(monkeypatch):
+    import threading
+    import time
+
+    import app.services.profile_catalog as profile_catalog
+
+    built = []
+
+    class Slow:
+        def __init__(self):
+            built.append(1)
+            time.sleep(0.05)
+
+    monkeypatch.setattr(profile_catalog, "_catalog_service", None)
+    monkeypatch.setattr(profile_catalog, "ProfileCatalogService", Slow)
+    threads = [threading.Thread(target=profile_catalog.get_profile_catalog_service) for _ in range(8)]
+    for thread in threads:
+        thread.start()
+    for thread in threads:
+        thread.join()
+    assert len(built) == 1

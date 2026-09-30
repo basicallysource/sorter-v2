@@ -1028,12 +1028,18 @@ class ProfileCatalogService:
 
 
 _catalog_service: ProfileCatalogService | None = None
+# Building the service loads the catalog and rebuilds its search index, a
+# write: requests that arrive together after a start must wait for one build,
+# not each start their own and find the database locked.
+_catalog_service_lock = Lock()
 
 
 def get_profile_catalog_service() -> ProfileCatalogService:
     global _catalog_service
     if _catalog_service is None:
-        _catalog_service = ProfileCatalogService()
+        with _catalog_service_lock:
+            if _catalog_service is None:
+                _catalog_service = ProfileCatalogService()
     return _catalog_service
 
 

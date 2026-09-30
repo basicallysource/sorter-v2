@@ -51,7 +51,14 @@ TRIAL_PRESETS = ("Sharp & short", "Quick stuck", "Hard snap", "Brief stuck", "He
 MOVED_DEG = 3.0
 # After an attempt, the channel turns this much more before it is judged.
 SETTLE_DEG = 8.0
+# A piece past the fall edge (in the exit proper) should drop at once; one
+# still there after this long hangs on the lip, whether or not the channel is
+# turning (it may be waiting on the channel below, which may itself be waiting
+# on this very piece), and is stuck too. Attempts on it are this far apart.
+EXIT_DWELL_S = 2.0
+EXIT_SETTLE_S = 1.5
 _DROP_ZONE = 1
+_EXIT_ZONE = 2
 
 
 @dataclass(frozen=True)
@@ -67,7 +74,9 @@ class _Watch:
     ref_odometer: float
     attempts: list[str] = field(default_factory=list)
     attempt_odometer: Optional[float] = None
+    attempt_at: Optional[float] = None
     since: float = 0.0
+    in_exit_since: Optional[float] = None
     raised: bool = False
 
 
@@ -75,10 +84,12 @@ class StuckPieces:
     def __init__(self, gc: Any) -> None:
         self.gc = gc
         self._watch: dict[int, _Watch] = {}
+        self._margin: dict[int, _Watch] = {}
         self._next_preset = 0
 
     def reset(self) -> None:
         self._watch.clear()
+        self._margin.clear()
 
     def observe(
         self,
@@ -92,7 +103,11 @@ class StuckPieces:
         cfg,
         can_nudge: bool = True,
     ) -> Optional[Remedy]:
-        """Watch this channel's leading piece; return a remedy to run now, if any."""
+        """Watch this channel's leading piece, and anything hanging just past its
+        exit; return a remedy to run now, if any."""
+        hang = self._hanging(channel, label, upstream_label, state, now, cfg)
+        if hang is not None:
+            return hang
         pieces = getattr(state, "pieces", ())
         lead = pieces[0] if pieces else None
         watch = self._watch.get(channel)
@@ -117,9 +132,17 @@ class StuckPieces:
             self._watch[channel] = _Watch(track_id, pos, odometer, since=now)
             return None
         turned = odometer - watch.ref_odometer
-        if turned < cfg.stuck_after_deg:
+        if int(lead.zone_code) == _EXIT_ZONE:
+            watch.in_exit_since = watch.in_exit_since if watch.in_exit_since is not None else now
+        else:
+            watch.in_exit_since = None
+        hanging = watch.in_exit_since is not None and now - watch.in_exit_since >= EXIT_DWELL_S
+        if turned < cfg.stuck_after_deg and not hanging:
             return None
-        if watch.attempt_odometer is not None and odometer - watch.attempt_odometer < SETTLE_DEG:
+        if hanging:
+            if watch.attempt_at is not None and now - watch.attempt_at < EXIT_SETTLE_S:
+                return None
+        elif watch.attempt_odometer is not None and odometer - watch.attempt_odometer < SETTLE_DEG:
             return None
         mode = incidents.handling(KIND)
         if mode == incidents.OFF:
@@ -128,6 +151,7 @@ class StuckPieces:
             remedy = self._nextRemedy(watch, lead, can_nudge)
             watch.attempts.append(remedy.preset or remedy.kind)
             watch.attempt_odometer = odometer
+            watch.attempt_at = now
             self._record(
                 {"kind": "stuck_attempt", "channel": label, "remedy": remedy.kind,
                  "preset": remedy.preset, "params": JITTER_PRESETS.get(remedy.preset),
@@ -143,6 +167,43 @@ class StuckPieces:
             turned_deg=round(turned, 1),
         )
         self._record({"kind": "stuck_raised", "channel": label, "attempts": list(watch.attempts)})
+        return None
+
+    def _hanging(self, channel: int, label: str, upstream_label: str, state, now: float, cfg) -> Optional[Remedy]:
+        """A piece wholly past the exit's edge that stays there hangs off the
+        lip (the channel below may even be waiting on it): shake this channel."""
+        watch = self._margin.get(channel)
+        if not getattr(state, "in_margin", False):
+            if watch is not None:
+                self._margin.pop(channel)
+                if watch.attempts and not watch.raised:
+                    self._record({"kind": "stuck_outcome", "channel": label, "where": "margin",
+                                  "freed": True, "attempts": list(watch.attempts),
+                                  "seconds": round(now - watch.since, 1)})
+            return None
+        if watch is None:
+            watch = self._margin[channel] = _Watch(None, 0.0, 0.0, since=now)
+        if watch.raised:
+            if incidents.openIncident(self.gc, KIND, subject=label) is None:
+                self._margin[channel] = _Watch(None, 0.0, 0.0, since=now)
+            return None
+        if now - watch.since < EXIT_DWELL_S:
+            return None
+        if watch.attempt_at is not None and now - watch.attempt_at < EXIT_SETTLE_S:
+            return None
+        mode = incidents.handling(KIND)
+        if mode == incidents.OFF:
+            return None
+        if mode == incidents.AUTOMATIC and len(watch.attempts) < cfg.stuck_max_attempts:
+            preset = TRIAL_PRESETS[self._next_preset % len(TRIAL_PRESETS)]
+            self._next_preset += 1
+            watch.attempts.append(preset)
+            watch.attempt_at = now
+            self._record({"kind": "stuck_attempt", "channel": label, "where": "margin", "remedy": "jitter",
+                          "preset": preset, "params": JITTER_PRESETS.get(preset), "attempt": len(watch.attempts)})
+            return Remedy("jitter", preset)
+        watch.raised = incidents.report(self.gc, KIND, subject=label, upstream_label=upstream_label,
+                                        attempts=list(watch.attempts), where="margin")
         return None
 
     def _nextRemedy(self, watch: _Watch, lead, can_nudge: bool) -> Remedy:

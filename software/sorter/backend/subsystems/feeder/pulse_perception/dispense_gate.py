@@ -3,14 +3,12 @@
 A channel meters its leading piece off the exit a small pulse at a time while
 the next channel is ready for it. The next channel only reads "not ready" once
 its camera has seen the piece land, some hundreds of milliseconds after the
-fall, and in that window another pulse can push the piece behind it off too: a
-double drop.
+fall, and its ready signal can flicker while the new piece settles; a pulse in
+that window can push the piece behind it off too: a double drop.
 
 So a channel remembers which piece it is pushing off (its track id). When that
-id is gone the piece has fallen, and the exit holds until the next channel shows
-it arrived, or until a timeout if it never does (the piece bounced away, or the
-camera missed it). Advancing the rest of the channel toward the exit stays
-allowed; only exit pulses wait.
+id is gone the piece has fallen, and the exit holds for a fixed time. Advancing
+the rest of the channel toward the exit stays allowed; only exit pulses wait.
 
 A lead piece without a track id cannot be followed; for it the fall is the
 moment no piece is left in the exit zone.
@@ -26,9 +24,8 @@ class DispenseGate:
     # The pushed piece's id must stay gone this long to count as fallen, so a
     # one-frame detector blink does not read as a drop.
     vanish_confirm_s: float = 0.15
-    # Hold the exit at most this long after a fall while the next channel has
-    # not shown the piece.
-    arrival_timeout_s: float = 1.5
+    # After a fall, the exit pushes nothing for this long.
+    hold_s: float = 1.5
 
     # Id of the piece being pushed off; None when nothing is being pushed or the
     # lead is untracked (then ``pushing_untracked`` is set instead).
@@ -37,15 +34,15 @@ class DispenseGate:
     missing_since: float | None = None
     fell_at: float | None = None
 
-    def exitAllowed(self) -> bool:
-        """An exit pulse may go out: no fall is awaiting its arrival, and the
-        piece being pushed has not just vanished."""
-        return self.fell_at is None and self.missing_since is None
+    def exitAllowed(self, now: float) -> bool:
+        """An exit pulse may go out: the piece being pushed has not just
+        vanished, and no fall is still inside its hold."""
+        if self.missing_since is not None:
+            return False
+        return self.fell_at is None or (now - self.fell_at) >= self.hold_s
 
     def notePush(self, lead) -> None:
         """An exit pulse went out for ``lead`` (a ``PieceObservation`` or None)."""
-        if self.fell_at is not None:
-            return
         track_id = getattr(lead, "sv_bt_track_id", None) if lead is not None else None
         if track_id is None:
             if self.track_id is None:
@@ -56,17 +53,9 @@ class DispenseGate:
             self.pushing_untracked = False
             self.missing_since = None
 
-    def observe(self, state, now: float, downstream_arrived: bool) -> bool:
-        """Update from this frame. Returns True once, when the pushed piece is
-        confirmed to have fallen.
-
-        ``downstream_arrived`` says the next channel shows a new piece (its
-        drop zone occupied, or for the classification channel: no longer ready).
-        """
-        if self.fell_at is not None:
-            if downstream_arrived or (now - self.fell_at) >= self.arrival_timeout_s:
-                self._reset()
-            return False
+    def observe(self, state, now: float) -> bool:
+        """Update from this frame. Returns True once per piece, when the pushed
+        piece is confirmed to have fallen."""
         if self.track_id is not None:
             ids = {getattr(p, "sv_bt_track_id", None) for p in getattr(state, "pieces", ())}
             if self.track_id in ids:
@@ -87,9 +76,3 @@ class DispenseGate:
         self.pushing_untracked = False
         self.missing_since = None
         return True
-
-    def _reset(self) -> None:
-        self.track_id = None
-        self.pushing_untracked = False
-        self.missing_since = None
-        self.fell_at = None

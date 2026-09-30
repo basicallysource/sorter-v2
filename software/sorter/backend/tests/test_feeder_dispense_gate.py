@@ -22,46 +22,44 @@ def _state(*pieces: PieceObservation, in_exit: bool | None = None) -> ChannelSta
 
 class DispenseGateTests(unittest.TestCase):
     def setUp(self) -> None:
-        self.gate = DispenseGate(vanish_confirm_s=0.15, arrival_timeout_s=1.5)
+        self.gate = DispenseGate(vanish_confirm_s=0.15, hold_s=1.5)
 
     def test_a_blink_is_not_a_fall(self) -> None:
         self.gate.notePush(_piece(7))
-        self.assertFalse(self.gate.observe(_state(), 10.0, downstream_arrived=False))
+        self.assertFalse(self.gate.observe(_state(), 10.0))
         # While the pushed piece is unseen, nothing more is pushed off.
-        self.assertFalse(self.gate.exitAllowed())
-        self.assertFalse(self.gate.observe(_state(_piece(7)), 10.1, downstream_arrived=False))
-        self.assertTrue(self.gate.exitAllowed())
+        self.assertFalse(self.gate.exitAllowed(10.0))
+        self.assertFalse(self.gate.observe(_state(_piece(7)), 10.1))
+        self.assertTrue(self.gate.exitAllowed(10.1))
 
-    def test_the_exit_holds_after_a_fall_until_the_next_channel_sees_it(self) -> None:
+    def test_the_exit_holds_after_a_fall(self) -> None:
         self.gate.notePush(_piece(7))
-        self.gate.observe(_state(_piece(8, gap=12.0)), 10.0, downstream_arrived=False)
-        fell = self.gate.observe(_state(_piece(8, gap=12.0)), 10.2, downstream_arrived=False)
-        self.assertTrue(fell)
-        self.assertFalse(self.gate.exitAllowed())
+        self.gate.observe(_state(_piece(8, gap=12.0)), 10.0)
+        self.assertTrue(self.gate.observe(_state(_piece(8, gap=12.0)), 10.2))
         # Reported once.
-        self.assertFalse(self.gate.observe(_state(_piece(8)), 10.3, downstream_arrived=False))
-        self.assertFalse(self.gate.exitAllowed())
-        self.gate.observe(_state(_piece(8)), 10.5, downstream_arrived=True)
-        self.assertTrue(self.gate.exitAllowed())
+        self.assertFalse(self.gate.observe(_state(_piece(8)), 10.3))
+        self.assertFalse(self.gate.exitAllowed(10.3))
+        self.assertFalse(self.gate.exitAllowed(11.6))
+        self.assertTrue(self.gate.exitAllowed(11.7))
 
-    def test_the_exit_reopens_after_the_timeout_if_the_piece_is_never_seen(self) -> None:
+    def test_the_next_piece_is_followed_after_the_hold(self) -> None:
         self.gate.notePush(_piece(7))
-        self.gate.observe(_state(), 10.0, downstream_arrived=False)
-        self.assertTrue(self.gate.observe(_state(), 10.2, downstream_arrived=False))
-        self.gate.observe(_state(), 11.0, downstream_arrived=False)
-        self.assertFalse(self.gate.exitAllowed())
-        self.gate.observe(_state(), 11.7, downstream_arrived=False)
-        self.assertTrue(self.gate.exitAllowed())
+        self.gate.observe(_state(), 10.0)
+        self.gate.observe(_state(), 10.2)
+        self.gate.notePush(_piece(8))
+        self.assertFalse(self.gate.observe(_state(_piece(8)), 12.0))
+        self.gate.observe(_state(), 12.1)
+        self.assertTrue(self.gate.observe(_state(), 12.3))
 
     def test_an_untracked_lead_falls_when_the_exit_empties(self) -> None:
         self.gate.notePush(_piece(None))
-        self.assertFalse(self.gate.observe(_state(_piece(None)), 10.0, downstream_arrived=False))
-        self.assertTrue(self.gate.observe(_state(in_exit=False), 10.1, downstream_arrived=False))
-        self.assertFalse(self.gate.exitAllowed())
+        self.assertFalse(self.gate.observe(_state(_piece(None)), 10.0))
+        self.assertTrue(self.gate.observe(_state(in_exit=False), 10.1))
+        self.assertFalse(self.gate.exitAllowed(10.1))
 
     def test_nothing_pushed_means_nothing_held(self) -> None:
-        self.assertFalse(self.gate.observe(_state(), 10.0, downstream_arrived=False))
-        self.assertTrue(self.gate.exitAllowed())
+        self.assertFalse(self.gate.observe(_state(), 10.0))
+        self.assertTrue(self.gate.exitAllowed(10.0))
 
 
 if __name__ == "__main__":

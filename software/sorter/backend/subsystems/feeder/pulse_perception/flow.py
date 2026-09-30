@@ -176,7 +176,7 @@ class PulsePerceptionFeeding(BaseState):
     def _gate(self, channel: int, cfg: PulsePerceptionConfig) -> DispenseGate:
         gate = self._gates[channel]
         gate.vanish_confirm_s = max(0, cfg.dispense_vanish_confirm_ms) / 1000.0
-        gate.arrival_timeout_s = max(0, cfg.dispense_arrival_timeout_ms) / 1000.0
+        gate.hold_s = max(0, cfg.dispense_hold_ms) / 1000.0
         return gate
 
     def _latch_drop(self, ch: int, state, now: float, cfg: PulsePerceptionConfig):
@@ -231,16 +231,14 @@ class PulsePerceptionFeeding(BaseState):
             # by the classification channel (shared.classification_ready, set per
             # its active mode: single-piece = whole channel empty, two-piece = drop
             # zone clear). The feeder just asks. The only feeder-side gate is the
-            # hand-off: once a piece falls, C3 pushes nothing more off until C4
-            # has seen it (C4 stops reading ready).
+            # hand-off: once a piece falls, C3 pushes nothing more off for a
+            # while, so C4 sees it before the next one can follow.
             gate3 = self._gate(3, cfg)
-            if gate3.observe(
-                c3, now_mono, downstream_arrived=not self.shared.classification_ready
-            ):
+            if gate3.observe(c3, now_mono):
                 self._on_ch3_dispense()
             action = feederChannelAction(
                 c3,
-                downstream_clear=self._classification_ready(cfg) and gate3.exitAllowed(),
+                downstream_clear=self._classification_ready(cfg) and gate3.exitAllowed(now_mono),
                 greedy=cfg.ch3_greedy_enabled,
             )
             # C3 hung at the C2->C3 hand-off: keep C3 from hammering a piece it
@@ -265,12 +263,12 @@ class PulsePerceptionFeeding(BaseState):
         if cfg.enable_ch2:
             # C2's downstream is C3. "Clear" = C3's drop zone is not occupied,
             # so we never pulse a C2 piece off the edge into a busy C3; and once
-            # a piece falls, nothing more goes until C3 has seen it land.
+            # a piece falls, nothing more goes for a while, so C3 sees it land.
             gate2 = self._gate(2, cfg)
-            gate2.observe(c2, now_mono, downstream_arrived=c3.in_drop)
+            gate2.observe(c2, now_mono)
             action = feederChannelAction(
                 c2,
-                downstream_clear=(not c3.in_drop) and gate2.exitAllowed(),
+                downstream_clear=(not c3.in_drop) and gate2.exitAllowed(now_mono),
                 greedy=cfg.ch2_greedy_enabled,
             )
             # C2 hung at the C1->C2 hand-off: nudge C1 (its upstream) to free the

@@ -216,3 +216,17 @@ class TestApplyingFromHive:
             self._apply(monkeypatch, tmp_path, self._Client(fail_on="artifact"))
         assert refused.value.status_code == 409
         assert "newer sorter software" in refused.value.detail
+
+
+def test_asking_the_machine_where_a_piece_goes(monkeypatch, tmp_path):
+    from server import shared_state
+    from server.routers import sorting_profiles as router
+
+    path = tmp_path / "active_sorting_profile.json"
+    path.write_text(json.dumps({"program": PROGRAM, "categories": {"bricks": {"name": "Bricks", "kind": "rule"}}}))
+    logger = SimpleNamespace(warn=lambda *_: None, warning=lambda *_: None, info=lambda *_: None)
+    monkeypatch.setattr(shared_state, "gc_ref", SimpleNamespace(sorting_profile_path=str(path), logger=logger))
+    monkeypatch.setattr(shared_state, "controller_ref", None)
+    answer = router.route_piece("3003", "7")
+    assert (answer["category_id"], answer["category_name"]) == ("bricks", "Bricks")
+    assert router.route_piece("3068b", None)["category_id"] == "bl_37"

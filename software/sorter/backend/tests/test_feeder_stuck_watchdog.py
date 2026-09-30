@@ -103,6 +103,35 @@ class FeederStuckWatchdogTests(unittest.TestCase):
         self.assertEqual(active["kind"], FEEDER_JAM_INCIDENT_KIND)
         self.assertEqual(active["channel_label"], "C2")
 
+    def test_resolving_the_jam_starts_over_instead_of_raising_it_again(self) -> None:
+        gc = _FakeGC()
+        up = _FakeStepper()
+        wd = FeederStuckWatchdog(gc)
+        cfg = _cfg()
+        for i in range(5):
+            self._observe(wd, gc, up, cfg, pos=40.0, wants=True, now=i * 2.0)
+        self.assertIsNotNone(gc.runtime_stats.activeIncident())
+
+        # The operator clears it ten minutes later; the piece has not moved yet.
+        gc.runtime_stats.clearActiveIncident(kind=FEEDER_JAM_INCIDENT_KIND)
+        self._observe(wd, gc, up, cfg, pos=40.0, wants=True, now=608.0)
+        self.assertIsNone(gc.runtime_stats.activeIncident())
+        # A fresh stall: nudges again after the no-progress time, not a jam.
+        self._observe(wd, gc, up, cfg, pos=40.0, wants=True, now=609.5)
+        self.assertEqual(len(up.moves), 4)
+        self.assertIsNone(gc.runtime_stats.activeIncident())
+
+    def test_pausing_forgets_the_stall(self) -> None:
+        gc = _FakeGC()
+        up = _FakeStepper()
+        wd = FeederStuckWatchdog(gc)
+        cfg = _cfg()
+        self._observe(wd, gc, up, cfg, pos=40.0, wants=True, now=0.0)
+        wd.reset()
+        self._observe(wd, gc, up, cfg, pos=40.0, wants=True, now=300.0)
+        self._observe(wd, gc, up, cfg, pos=40.0, wants=True, now=300.5)
+        self.assertEqual(up.moves, [])
+
     def test_a_moving_upstream_is_not_nudged_and_costs_no_attempt(self) -> None:
         gc = _FakeGC()
         up = _FakeStepper()

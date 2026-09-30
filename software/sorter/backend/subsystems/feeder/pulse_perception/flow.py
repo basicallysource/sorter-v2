@@ -428,4 +428,5 @@ class PulsePerceptionFeeding(BaseState):
     def cleanup(self) -> None:
         for blind in self._blind.values():
             blind.clear()
+        self._stuck_watchdog.reset()
         super().cleanup()

@@ -38,6 +38,9 @@ class _ChannelStuckState:
     # the first nudge). Drives the recorded duration of an auto-freed jam. None
     # until the first nudge; cleared on every _reset.
     stall_started_at: Optional[float] = None
+    # This watchdog raised the operator jam for this channel. When the jam is
+    # gone and the piece did not move, the operator resolved it: start over.
+    raised: bool = False
 
 
 class FeederStuckWatchdog:
@@ -60,6 +63,11 @@ class FeederStuckWatchdog:
     def __init__(self, gc: Any) -> None:
         self.gc = gc
         self._trackers: dict[int, _ChannelStuckState] = {}
+
+    def reset(self) -> None:
+        """Forget every stall, e.g. when the machine pauses: time spent paused
+        is not time a piece failed to move."""
+        self._trackers.clear()
 
     def _reset(self, channel_id: int, now: float, pos: Optional[float]) -> None:
         self._trackers[channel_id] = _ChannelStuckState(
@@ -96,6 +104,15 @@ class FeederStuckWatchdog:
             tracker = self._trackers[channel_id]
 
         piece_present = leading_pos_deg is not None
+
+        # The operator resolved the jam we raised (or it was cleared elsewhere):
+        # a fresh clock and fresh nudges, not the stall time that ran while the
+        # machine waited for them.
+        if tracker.raised and not feeder_jam_incident_active(
+            self.gc, channel_label=channel_label
+        ):
+            self._reset(channel_id, now, leading_pos_deg)
+            tracker = self._trackers[channel_id]
 
         # A jam we already raised for this channel is held until the piece moves
         # (operator freed it) or leaves entirely (operator removed it).
@@ -197,6 +214,7 @@ class FeederStuckWatchdog:
                 f"{tracker.nudge_attempts} {upstream_label} nudge(s) — raised "
                 f"operator incident (published={published})"
             )
+        tracker.raised = tracker.raised or bool(published)
         # Keep ref so the active-incident branch can detect the piece moving once
         # the operator frees it; don't reset the clock (incident now owns it).
 

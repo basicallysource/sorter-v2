@@ -93,7 +93,18 @@ class CatalogIndex:
         self.bl_colors: dict[str, dict] = {}
         for rb_id, color in self.colors.items():
             bl_id = self.bl_color(rb_id)
-            self.bl_colors.setdefault(bl_id, {"id": bl_id, "rb_id": rb_id, "name": color.get("name"), "rgb": color.get("rgb")})
+            self.bl_colors.setdefault(
+                bl_id,
+                {
+                    # id is BrickLink's (what a sorter reports); conditions take rebrickable_id.
+                    "id": bl_id,
+                    "bricklink_id": bl_id,
+                    "rb_id": rb_id,
+                    "rebrickable_id": rb_id,
+                    "name": color.get("name"),
+                    "rgb": color.get("rgb"),
+                },
+            )
         self._columns: dict[str, Any] = {}
         self._masks: OrderedDict[str, np.ndarray] = OrderedDict()
         self._lock = threading.Lock()
@@ -873,17 +884,19 @@ def compile_document(
             fallback_counts[category] = len(rows)
             mask = np.zeros(size, dtype=bool)
             mask[rows] = True
+            # A fallback can make hundreds of bins: each keeps its best known
+            # part's picture, not a row of examples.
+            best = _sample_rows(mask, index, limit=1)
+            picture = index.part(best[0]).get("part_img_url") if best else None
             categories[category] = {
                 "name": _fallback_category_name(category, index),
                 "kind": "fallback",
                 "part_count": len(rows),
-                "samples": [_sample(row, index) for row in _sample_rows(mask, index)],
+                "samples": [],
+                "image_url": picture,
+                "image_source": "part" if picture else None,
             }
-            first = categories[category]["samples"]
-            categories[category]["image_url"] = first[0]["img_url"] if first else None
-            categories[category]["image_source"] = "part" if first else None
             per_category[category] = {"parts": len(rows), "colors": 0}
-            samples[category] = categories[category]["samples"]
     elif fallback_by == "color":
         program_fallback = {"by": "color"}
         requires.append(FEATURE_COLOR_FALLBACK)

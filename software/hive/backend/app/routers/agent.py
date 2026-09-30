@@ -6,10 +6,14 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends, Request
 from fastapi.responses import Response
+from sqlalchemy.orm import Session
 
 from app.config import settings
+from app.deps import get_current_user_or_api_key, get_db
+from app.models.user import User
+from app.models.user_api_key import UserApiKey
 
 router = APIRouter(prefix="/api/agent", tags=["agent"])
 
@@ -27,3 +31,24 @@ def get_sorting_profiles_skill() -> Response:
         media_type="text/markdown; charset=utf-8",
         headers={"Content-Disposition": 'inline; filename="SKILL.md"', "Cache-Control": "public, max-age=300"},
     )
+
+
+@router.get("/whoami")
+def whoami(
+    request: Request,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user_or_api_key),
+):
+    """Who the credential is: the account, and for a key its name, scopes and
+    the machines it is limited to (null: all the account's)."""
+    key = None
+    key_id = getattr(request.state, "api_key_id", None)
+    if key_id is not None:
+        row = db.query(UserApiKey).filter(UserApiKey.id == key_id).first()
+        if row is not None:
+            key = {"name": row.name, "scopes": row.scopes or [], "machine_ids": row.machine_ids}
+    return {
+        "account": {"id": str(current_user.id), "display_name": current_user.display_name, "email": current_user.email},
+        "key": key,
+        "hive": settings.public_app_url,
+    }

@@ -363,3 +363,33 @@ def test_a_version_from_before_bins_is_described_for_pages(
     assert profile_display.backfill_card_bins(db) == 1
     listed = client.get("/api/profiles?scope=mine", headers=auth_headers).json()
     assert listed[0]["latest_version"]["bins"][0]["name"] == "Bricks"
+
+
+def test_a_key_can_ask_who_it_is(client: TestClient, auth_headers: dict[str, str]) -> None:
+    key = _key(client, auth_headers, ["profiles:read"], name="Mine")
+    me = client.get("/api/agent/whoami", headers=key).json()
+    assert me["key"] == {"name": "Mine", "scopes": ["profiles:read"], "machine_ids": None}
+    assert me["account"]["email"] == "member@test.com"
+
+
+def test_part_search_takes_a_key(client: TestClient, auth_headers: dict[str, str], catalog, monkeypatch) -> None:
+    monkeypatch.setattr(catalog, "search_parts", lambda q, cat_id, limit, offset: {"results": [], "total": 0}, raising=False)
+    key = _key(client, auth_headers, ["profiles:read"])
+    assert client.get("/api/profile-catalog/search-parts?q=brick", headers=key).status_code == 200
+
+
+def test_routing_fills_a_kit_then_passes_pieces_on(client: TestClient, auth_headers: dict[str, str], catalog) -> None:
+    kit = client.post("/api/kits", json={"name": "Two red", "parts": [{"part": "3001", "color_id": 5, "quantity": 2}]}, headers=auth_headers).json()
+    document = {
+        "rules": [
+            {"id": "kit", "rule_type": "kit", "kit_id": kit["id"], "name": "Two red"},
+            {"id": "bricks", "name": "Bricks", "conditions": [{"field": "category_id", "op": "eq", "value": 11}]},
+        ]
+    }
+    pieces = [{"part": "3001", "color_id": 5}] * 3
+    results = client.post("/api/profiles/route", json={"document": document, "pieces": pieces}, headers=auth_headers).json()["results"]
+    assert [(r["category_id"], r["kit_left"]) for r in results] == [("kit", 1), ("kit", 0), ("bricks", None)]
+    unfilled = client.post(
+        "/api/profiles/route", json={"document": document, "pieces": pieces, "fill_kits": False}, headers=auth_headers
+    ).json()["results"]
+    assert [r["category_id"] for r in unfilled] == ["kit", "kit", "kit"]

@@ -56,20 +56,39 @@ class FieldSpec:
     # "rb_category", "bl_category", "color", "part", "bl_part"; None for plain values.
     ref: str | None = None
     unit: str | None = None
+    # What the field reads, when its label does not say it all.
+    description: str | None = None
+    # An older name for another field: evaluated, not offered.
+    alias_of: str | None = None
 
+
+_USED_PRICE = (
+    "From BrickLink's price guide for the part's most traded color: used sales of the last six months, "
+    "or used pieces for sale now when none sold. The fields named for a section read that section only."
+)
 
 FIELDS: dict[str, FieldSpec] = {
     spec.key: spec
     for spec in (
-        FieldSpec("name", STR, "Name", "Part", TEXT_OPS),
+        FieldSpec(
+            "name",
+            STR,
+            "Name",
+            "Part",
+            TEXT_OPS,
+            description=(
+                "The part's Rebrickable name, like 'Plate Round 1 x 1 with Solid Stud'. contains ignores case; "
+                "matches is a Python regular expression, ignoring case."
+            ),
+        ),
         FieldSpec("part_num", STR, "Rebrickable part", "Part", ID_OPS, ref="part"),
         FieldSpec("bricklink_id", STR_LIST, "BrickLink ID", "Part", ID_OPS, ref="bl_part"),
-        FieldSpec("bl_catalog_name", STR, "BrickLink name", "Part", TEXT_OPS),
+        FieldSpec("bl_catalog_name", STR, "BrickLink name", "Part", TEXT_OPS, description="The part's name in BrickLink's catalog."),
         FieldSpec("bricklink_primary_item_no", STR, "BrickLink primary item", "Part", TEXT_OPS),
         FieldSpec("bricklink_item_count", INT, "BrickLink items for the part", "Part", NUMBER_OPS),
         FieldSpec("color_id", INT, "Color", "Color", ID_OPS, ref="color"),
         FieldSpec("bl_category_id", INT, "BrickLink category", "Category", ID_OPS, ref="bl_category"),
-        FieldSpec("bl_catalog_category_id", INT, "BrickLink category", "Category", ID_OPS, ref="bl_category"),
+        FieldSpec("bl_catalog_category_id", INT, "BrickLink category", "Category", ID_OPS, ref="bl_category", alias_of="bl_category_id"),
         FieldSpec("bl_category_name", STR, "BrickLink category name", "Category", TEXT_OPS),
         FieldSpec("category_id", INT, "Rebrickable category", "Category", ID_OPS, ref="rb_category"),
         FieldSpec("category_name", STR, "Rebrickable category name", "Category", TEXT_OPS),
@@ -81,12 +100,12 @@ FIELDS: dict[str, FieldSpec] = {
         FieldSpec("bl_catalog_dim_x", FLOAT, "Length", "Size", NUMBER_OPS, unit="studs"),
         FieldSpec("bl_catalog_dim_y", FLOAT, "Width", "Size", NUMBER_OPS, unit="studs"),
         FieldSpec("bl_catalog_dim_z", FLOAT, "Height", "Size", NUMBER_OPS, unit="studs"),
-        FieldSpec("bl_price_avg", FLOAT, "Average price (used, last 6 months)", "Price", NUMBER_OPS, unit="$"),
-        FieldSpec("bl_price_min", FLOAT, "Lowest price (used, last 6 months)", "Price", NUMBER_OPS, unit="$"),
-        FieldSpec("bl_price_max", FLOAT, "Highest price (used, last 6 months)", "Price", NUMBER_OPS, unit="$"),
-        FieldSpec("bl_price_qty_avg", FLOAT, "Average price per lot (used, last 6 months)", "Price", NUMBER_OPS, unit="$"),
-        FieldSpec("bl_price_lots", FLOAT, "Lots sold (used, last 6 months)", "Price", NUMBER_OPS),
-        FieldSpec("bl_price_qty", FLOAT, "Pieces sold (used, last 6 months)", "Price", NUMBER_OPS),
+        FieldSpec("bl_price_avg", FLOAT, "Average price, used", "Price", NUMBER_OPS, unit="$", description=_USED_PRICE),
+        FieldSpec("bl_price_min", FLOAT, "Lowest price, used", "Price", NUMBER_OPS, unit="$", description=_USED_PRICE),
+        FieldSpec("bl_price_max", FLOAT, "Highest price, used", "Price", NUMBER_OPS, unit="$", description=_USED_PRICE),
+        FieldSpec("bl_price_qty_avg", FLOAT, "Average price per lot, used", "Price", NUMBER_OPS, unit="$", description=_USED_PRICE),
+        FieldSpec("bl_price_lots", FLOAT, "Lots, used", "Price", NUMBER_OPS, description=_USED_PRICE),
+        FieldSpec("bl_price_qty", FLOAT, "Pieces, used", "Price", NUMBER_OPS, description=_USED_PRICE),
     )
 }
 

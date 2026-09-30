@@ -23,24 +23,40 @@ applies the profile on that machine.
 - They make the key on Hive under Settings, API keys, with the scopes
   `profiles:read` and `profiles:write` (and `records:read` to see what
   their machines sorted). Never print the key back to them or anyone.
+- `GET /api/agent/whoami` says whose key it is, its name and its scopes:
+  check it first when something is refused or comes back empty.
 - Errors come back as `{"ok": false, "error": "...", "code": "...", "details": [...]}`.
   `details` lists every problem at once; fix them all before trying again.
+- Responses can be large (a profile with a fallback has hundreds of bins).
+  Save them to a file and read the parts you need rather than printing them.
 
 ## The loop
 
 1. **Look things up** in the catalog: parts, colors, categories, sets.
-2. **Draft** a document (below) and `POST /api/profiles/preview` it. Nothing
-   is saved. You get each bin with its conditions in words, how many parts
-   it takes, a few examples, `warnings` (a rule that gets nothing, a kit
-   whose parts earlier rules take, a line without a color) and `problems`
-   (conditions that cannot be evaluated).
-3. **Test pieces**: `POST /api/profiles/route` says which bin each piece
-   would land in and why. Check every piece the person named.
-4. **Look inside one rule**: `POST /api/profiles/preview-rule?rule_id=...`
-   lists the parts it matches, most sold first.
-5. **Save**: `POST /api/profiles` for a new profile (its first version from
-   the rules you give), or `POST /api/profiles/{id}/versions` with the whole
-   document for the next version. Add a short `change_note`.
+2. **Draft** a document (below) and `POST /api/profiles/preview` it (the body
+   is the document itself). Nothing is saved. You get `categories`: each bin
+   by id, with its conditions in words, how many parts it takes and a few
+   examples; `category_order`; `warnings` (a rule that gets nothing, a kit
+   whose parts earlier rules take, a line without a color); `problems`
+   (conditions that cannot be evaluated); and `stats`: `sorted` of
+   `total_parts` catalog parts go to a bin of their own, the rest to the
+   default bin.
+3. **Test pieces**: `POST /api/profiles/route` with `{"document": …}` (a
+   draft) or `{"profile_id": …}` (saved; `version_id` for an older version),
+   and `"pieces": [{"part": "3001", "color_id": 4}]`, says which bin each
+   piece lands in and why (`rule`, `kit`, `fallback`, `default`). Kits start
+   empty and fill in the order the pieces are listed, so listing five red
+   2 x 4s shows where the fifth goes once a kit has its four (`kit_left` is
+   what the kit still takes). Check every piece the person named.
+4. **Look inside one rule**: `POST /api/profiles/preview-rule?rule_id=…`
+   (the body is the document; `q`, `offset` and `limit`, 50 by default, page
+   through) lists the parts it matches, most sold first. A throwaway rule
+   with `name` `matches` a pattern is also a quick way to find parts.
+5. **Save**: `POST /api/profiles` for a new profile (`name`, `description`,
+   `rules`, `fallback_mode`, `change_note`: its first version), or
+   `POST /api/profiles/{id}/versions` with the whole document and a short
+   `change_note` for the next version. A profile's `web_url` is its page:
+   give the person that link.
 6. Tell the person what changed, and that the profile reaches their machine
    when they apply it there (Profiles on the sorter's own page).
 
@@ -103,13 +119,15 @@ applies the profile on that machine.
 ## Conditions
 
 `GET /api/profile-catalog/fields` lists every field, its type, the operators
-it takes and what its values refer to. The ones used most:
+it takes, what its values refer to (`ref`, with `refs` saying where each
+kind of value is listed) and, where the label does not say it all, a
+`description`. The ones used most:
 
 | field | what | example value |
 |---|---|---|
 | `bricklink_id` | the part's BrickLink ID (any of its IDs) | `"3001"` |
 | `part_num` | the part's Rebrickable number | `"3001"` |
-| `name` | the part's name (`contains`, `regex`) | `"brick 2 x 4"` |
+| `name` | the part's Rebrickable name (`contains`, `regex`) | `"brick 2 x 4"` |
 | `bl_category_id` | BrickLink category | `5` (Brick) |
 | `category_id` | Rebrickable category | `11` (Bricks) |
 | `color_id` | color, as a **Rebrickable** color ID | `4` (Red) |
@@ -118,11 +136,19 @@ it takes and what its values refer to. The ones used most:
 | `year_from` | first year the part was made | `2020` |
 
 Operators: `eq`, `neq`, `in`, `not_in` (a list), `contains`, `regex`
-(text, ignoring case), `gte`, `lte` (numbers). Values are read as the
-field's type, so `3001` and `"3001"` both work for a BrickLink ID.
+(text, ignoring case; `regex` is Python's, so `^Plate Round 1 x 1\b`
+works), `gte`, `lte` (numbers). Values are read as the field's type, so
+`3001` and `"3001"` both work for a BrickLink ID. Names are Rebrickable's:
+"Plate Round 1 x 1 with Solid Stud", so `contains "1 x 1"` also takes a
+"2 x 2 with 1 x 1 cutout"; anchor a pattern when that matters.
 
-Colors in conditions are Rebrickable color IDs. `GET /api/profile-catalog/colors`
-lists each with its name, RGB and BrickLink ID (the ID a machine reports).
+**Colors in conditions are Rebrickable color IDs.** `GET /api/profile-catalog/colors`
+(`q` filters by name) lists each with its name, RGB and `bricklink_id`, the
+ID a machine reports. In what comes back (a bin's colors, a routed piece's
+color) `id` is the BrickLink ID and `rebrickable_id` the one conditions take.
+
+`GET /api/profile-catalog/bricklink-categories` lists the categories that
+have parts (`all=true` for every one, `q` to filter by name).
 
 ## Kits
 
@@ -169,6 +195,7 @@ them. Put kit rules **above** broader rules, or those take the parts first
 | `GET /api/profile-catalog/bricklink-categories` | BrickLink categories and their part counts |
 | `GET /api/profile-catalog/categories` | Rebrickable categories |
 | `GET /api/profile-catalog/search-sets?q=` | LEGO sets; `GET /api/profile-catalog/sets/{set_num}` for one set's parts |
+| `GET /api/agent/whoami` | whose key this is, its name and scopes |
 | `GET /api/records/machines` | the person's machines and how many pieces each sorted |
 | `GET /api/records/machines/{id}/parts?since_days=30` | every part and color a machine sorted, most first |
 | `GET /api/records/machines/{id}/pieces` | each piece, newest first (`cursor` for more) |
@@ -177,7 +204,10 @@ them. Put kit rules **above** broader rules, or those take the parts first
 
 To fit a profile to what actually comes through a machine, read
 `/api/records/machines/{id}/parts`: the parts and colors it has seen, with
-counts. Those IDs are BrickLink's. Give the most common ones their own bins,
+counts. Those IDs are BrickLink's. An empty machine list means this account
+has no sorter linked to it (a sorter links to an account from its own
+Settings, Hive); if the person's sorter reports to another account, the key
+has to come from that one. Give the most common ones their own bins,
 group the long tail by category, and route the piece types the person cares
 about; then check them with `/api/profiles/route`.
 
@@ -188,3 +218,4 @@ about; then check them with `/api/profiles/route`.
 - Preview before every save, and route every piece the person named.
 - Profiles from before a change stay as versions; `GET /api/profiles/{id}`
   lists them, so nothing saved is lost.
+- A profile with a kit rule has `profile_type: "set"`; nothing else changes.

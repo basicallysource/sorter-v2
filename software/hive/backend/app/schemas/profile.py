@@ -132,6 +132,8 @@ class SortingProfileSummaryResponse(BaseModel):
     # A profile Hive keeps and gives every machine.
     is_default: bool = False
     default_rank: int | None = None
+    # The profile's page on this Hive.
+    web_url: str | None = None
     latest_version: SortingProfileVersionSummaryResponse | None = None
     latest_published_version: SortingProfileVersionSummaryResponse | None = None
 
@@ -150,6 +152,7 @@ class SortingProfileCreateRequest(BaseModel):
     rules: list["SortingProfileRuleResponse"] = Field(default_factory=list)
     fallback_mode: "SortingProfileFallbackModeResponse | None" = None
     default_category_id: str = "misc"
+    change_note: str | None = None
 
 
 class SortingProfileUpdateRequest(BaseModel):
@@ -223,6 +226,9 @@ class SortingProfileRouteRequest(BaseModel):
     profile_id: UUID | None = None
     version_id: UUID | None = None
     pieces: list[SortingProfileRoutePiece] = Field(..., min_length=1, max_length=200)
+    # Kits start empty and fill in the order the pieces are given, as on a
+    # machine; false asks where each piece goes with every kit still collecting.
+    fill_kits: bool = True
 
 
 class SortingProfileAiRequest(BaseModel):

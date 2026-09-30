@@ -27,6 +27,7 @@ from sqlalchemy import or_
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session, object_session
 
+from app.config import settings
 from app.deps import (
     API_KEY_SCOPE_PROFILES_READ,
     API_KEY_SCOPE_PROFILES_WRITE,
@@ -91,8 +92,12 @@ from app.services.rate_limit import rate_limit
 router = APIRouter(prefix="/api", tags=["profiles"])
 logger = logging.getLogger("uvicorn.error").getChild("profiles")
 
-READ = Depends(require_api_key_scopes(API_KEY_SCOPE_PROFILES_READ))
-WRITE = Depends(require_api_key_scopes(API_KEY_SCOPE_PROFILES_WRITE))
+# One dependency object each, so a route that names it twice (itself and its
+# rate limit) resolves the caller once.
+_reader = require_api_key_scopes(API_KEY_SCOPE_PROFILES_READ)
+_writer = require_api_key_scopes(API_KEY_SCOPE_PROFILES_WRITE)
+READ = Depends(_reader)
+WRITE = Depends(_writer)
 
 CATALOG_SYNC_TYPES = set(PROFILE_CATALOG_SYNC_TYPES)
 AI_CONVERSATION_HISTORY_LIMIT = 12
@@ -191,10 +196,20 @@ def list_profile_fields(_current_user: User = READ):
                 "ops": list(spec.ops),
                 "ref": spec.ref,
                 "unit": spec.unit,
+                "description": spec.description,
             }
             for spec in FIELDS.values()
+            if spec.alias_of is None
         ],
         "ops": OP_LABELS,
+        # Where the values a ref names are listed.
+        "refs": {
+            "bl_category": "/api/profile-catalog/bricklink-categories",
+            "rb_category": "/api/profile-catalog/categories",
+            "color": "/api/profile-catalog/colors (the Rebrickable id)",
+            "part": "/api/profile-catalog/search-parts (the Rebrickable part_num)",
+            "bl_part": "/api/profile-catalog/search-parts or /api/profile-catalog/parts/{id} (a BrickLink ID)",
+        },
     }
 
 
@@ -205,7 +220,7 @@ def search_profile_catalog_parts(
     limit: int = 100,
     offset: int = 0,
     _current_user: User = READ,
-    _rl: None = Depends(rate_limit("catalog_search")),
+    _rl: None = Depends(rate_limit("catalog_search", user=_reader)),
 ):
     return get_profile_catalog_service().search_parts(q, cat_id, limit, offset)
 
@@ -228,27 +243,31 @@ def list_profile_catalog_categories(_current_user: User = READ):
 
 
 @router.get("/profile-catalog/bricklink-categories")
-def list_profile_catalog_bricklink_categories(_current_user: User = READ):
-    """The BrickLink part categories, with how many catalog parts are in each."""
+def list_profile_catalog_bricklink_categories(
+    q: str = "",
+    all: bool = False,
+    _current_user: User = READ,
+):
+    """The BrickLink part categories with how many catalog parts are in each:
+    only those with parts (most of BrickLink's are sets and themes) unless
+    all=true, and only those whose name contains q."""
     index = get_profile_catalog_service().index()
     counts: dict[int, int] = {}
     for value in index.column("bl_category_id"):
         if value == value:  # not NaN
             counts[int(value)] = counts.get(int(value), 0) + 1
-    return {
-        "results": sorted(
-            (
-                {
-                    "id": category_id,
-                    "name": category.get("category_name") or str(category_id),
-                    "parent_id": category.get("parent_id"),
-                    "part_count": counts.get(category_id, 0),
-                }
-                for category_id, category in index.bricklink_categories.items()
-            ),
-            key=lambda item: item["name"].lower(),
-        )
-    }
+    needle = q.strip().lower()
+    results = [
+        {
+            "id": category_id,
+            "name": category.get("category_name") or str(category_id),
+            "parent_id": category.get("parent_id"),
+            "part_count": counts.get(category_id, 0),
+        }
+        for category_id, category in index.bricklink_categories.items()
+        if (all or counts.get(category_id)) and needle in (category.get("category_name") or "").lower()
+    ]
+    return {"results": sorted(results, key=lambda item: item["name"].lower())}
 
 
 @router.get("/profile-catalog/search-sets")
@@ -258,6 +277,8 @@ def search_profile_catalog_sets(
     max_year: int | None = None,
     _current_user: User = READ,
 ):
+    if not settings.REBRICKABLE_API_KEY:
+        raise APIError(503, "Set search is not set up on this Hive (it has no Rebrickable key)", "SET_SEARCH_UNAVAILABLE")
     if not q.strip():
         return {"results": []}
     return {"results": get_profile_catalog_service().search_sets(q.strip(), min_year=min_year, max_year=max_year)}
@@ -270,12 +291,20 @@ def get_profile_catalog_set(set_num: str, _current_user: User = READ):
 
 
 @router.get("/profile-catalog/colors")
-def list_profile_catalog_colors(_current_user: User = READ):
-    """The colors rules test, by Rebrickable ID, with each one's BrickLink ID
-    (what a sorter reports)."""
+def list_profile_catalog_colors(q: str = "", _current_user: User = READ):
+    """The colors rules test: `id` is the Rebrickable color ID (what conditions
+    take), `bricklink_id` the BrickLink one (what a sorter reports). q filters
+    by name."""
     catalog = get_profile_catalog_service()
     index = catalog.index()
-    return {"results": [{**color, "bricklink_id": index.bl_color(color["id"])} for color in catalog.list_colors()]}
+    needle = q.strip().lower()
+    return {
+        "results": [
+            {**color, "bricklink_id": index.bl_color(color["id"])}
+            for color in catalog.list_colors()
+            if needle in (color.get("name") or "").lower()
+        ]
+    }
 
 
 @router.post("/profile-catalog/import-bricklink-csv")
@@ -307,8 +336,11 @@ def preview_sorting_profile(
     started = perf_counter()
     compiled, missing = _compile_draft(db, current_user.id, payload.model_dump())
     artifact = compiled.artifact
+    stats = artifact["stats"]
     return {
-        "stats": {key: value for key, value in artifact["stats"].items() if key != "samples"},
+        # Parts that go to a bin of their own (a rule, a kit or a fallback
+        # category) out of every part in the catalog; the rest go to the default.
+        "stats": {"total_parts": stats["total_parts"], "sorted": stats["sorted"]},
         "categories": artifact["categories"],
         "category_order": artifact["category_order"],
         "rules": artifact["rules"],
@@ -369,6 +401,24 @@ def route_pieces(
             artifact = recompiled.artifact
     routing = ProfileRouter(artifact["program"])
     categories = artifact.get("categories") or {}
+    # Kits start empty and fill in the order the pieces are given, as on a
+    # machine: a kit that has all it needs of a part passes the next one on.
+    left: dict[tuple[str, str, str], int] = {}
+    for kit_category, inventory in (artifact.get("set_inventories") or {}).items():
+        for line in inventory.get("parts") or []:
+            color = "any" if line.get("color_id") in (None, -1, "-1") else str(line.get("color_id"))
+            key = (str(kit_category), str(line.get("part_num")), color)
+            left[key] = left.get(key, 0) + int(line.get("quantity") or 0)
+
+    def kit_lines(category: str, part: str, color: str | None) -> list[tuple[str, str, str]]:
+        return [key for key in ((category, part, color or ""), (category, part, "any")) if key in left]
+
+    def kit_is_full(category: str, part: str, color: str | None) -> bool:
+        if not payload.fill_kits:
+            return False
+        lines = kit_lines(category, part, color)
+        return bool(lines) and all(left[key] <= 0 for key in lines)
+
     results = []
     for piece in payload.pieces:
         rows = index.rows_for(piece.part)
@@ -383,7 +433,13 @@ def route_pieces(
             color = str(piece.bricklink_color_id)
         if color is not None:
             color_info = index.bl_colors.get(color, {"id": color, "name": f"BrickLink color {color}"})
-        category, why = routing.route(part_key, color)
+        category, why = routing.route(part_key, color, kit_is_full)
+        kit_left = None
+        if why == "kit":
+            lines = [key for key in kit_lines(category, part_key, color) if left[key] > 0]
+            if lines and payload.fill_kits:
+                left[lines[0]] -= 1
+            kit_left = sum(max(left[key], 0) for key in kit_lines(category, part_key, color))
         category_info = categories.get(category) or {}
         part = index.part(rows[0]) if rows else {}
         results.append(
@@ -397,6 +453,8 @@ def route_pieces(
                 "category_id": category,
                 "category_name": category_info.get("name", category),
                 "why": why,
+                # For a kit: how many more of this part and color it still takes.
+                "kit_left": kit_left,
             }
         )
     return {"results": results}
@@ -449,7 +507,7 @@ def create_profile(
             default_category_id=payload.default_category_id or "misc",
             rules=payload.rules,
             fallback_mode=payload.fallback_mode.model_dump() if payload.fallback_mode is not None else {},
-            change_note="Initial version",
+            change_note=(payload.change_note or "").strip() or "Initial version",
             publish=False,
         ),
     )
@@ -1739,6 +1797,7 @@ def _serialize_profile_summary(
         is_owner=profile.owner_id == current_user.id,
         is_default=profile.default_rank is not None,
         default_rank=profile.default_rank,
+        web_url=f"{settings.public_app_url}/profiles/{profile.id}",
         latest_version=_serialize_version_summary(latest_version) if latest_version else None,
         latest_published_version=_serialize_version_summary(latest_published) if latest_published else None,
     )
@@ -1838,8 +1897,11 @@ def _serialize_version_detail(version: SortingProfileVersion | None) -> SortingP
             "default_category_id": version.default_category_id,
             "rules": version.rules_json or [],
             "fallback_mode": version.fallback_mode_json or {},
+            # The totals; each bin's own count and examples are in categories.
             "compiled_stats": {
-                key: value for key, value in stats.items() if key not in ("warnings", "requires", "bins", "bins_backfilled")
+                key: value
+                for key, value in stats.items()
+                if key not in ("warnings", "requires", "bins", "bins_backfilled", "per_category", "samples")
             },
             "categories": categories,
             "category_order": [category for category in category_order if category in categories],

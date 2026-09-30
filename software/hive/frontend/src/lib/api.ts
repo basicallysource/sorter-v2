@@ -769,6 +769,8 @@ export interface BinSample {
 	rb_part_num?: string | null;
 	name: string;
 	img_url: string | null;
+	// Tried when img_url fails: img_url may be a render in the bin's color.
+	fallback_img_url?: string | null;
 	color_name?: string | null;
 	quantity?: number | null;
 }
@@ -787,6 +789,7 @@ export interface ProfileBin {
 	name: string;
 	kind: 'rule' | 'kit' | 'fallback' | 'default';
 	image_url?: string | null;
+	image_fallback_url?: string | null;
 	image_source?: 'rule' | 'kit' | 'part' | null;
 	conditions?: BinConditions;
 	// Parts the bin takes (null for a color bin: that depends on the pile).
@@ -910,7 +913,9 @@ export interface KitPart {
 	part_source: 'rebrickable' | 'bricklink';
 	bricklink_id: string | null;
 	part_name: string | null;
+	// The part in the line's color when it has a render; fallback_img_url is its photo.
 	img_url: string | null;
+	fallback_img_url?: string | null;
 	// Rebrickable color, null for any color.
 	color_id: number | null;
 	bricklink_color_id: number | null;

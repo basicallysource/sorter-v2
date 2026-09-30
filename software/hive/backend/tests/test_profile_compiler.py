@@ -462,3 +462,15 @@ def test_the_catalog_service_is_built_once_when_asked_for_together(monkeypatch):
     for thread in threads:
         thread.join()
     assert len(built) == 1
+
+
+def test_a_bin_limited_to_colors_shows_its_parts_in_them(index):
+    compiled = compile_document(
+        _doc(_rule("red", "Red bricks", ("bl_category_id", "eq", 5), ("color_id", "in", [4, 1]))), index
+    )
+    sample = compiled.artifact["categories"]["red"]["samples"][0]
+    # the first color the rule names, rendered; the catalog's photo if there is no render
+    assert sample["img_url"] == "https://cdn.rebrickable.com/media/parts/ldraw/4/3001.png"
+    assert sample["fallback_img_url"] == "https://img.example/3001.png"
+    assert sample["color_name"] == "Red"
+    assert compiled.artifact["categories"]["red"]["image_fallback_url"] == "https://img.example/3001.png"

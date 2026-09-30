@@ -20,6 +20,7 @@ from app.models.sorting_profile import SortingProfile
 from app.models.sorting_profile_version import SortingProfileVersion
 from app.models.user import User
 from app.services.profile_catalog import CUSTOM_SET_ANY_COLOR_ID, ProfileCatalogService
+from app.services.profile_engine.compiler import colored_picture
 from app.services.profile_engine.fields import bricklink_ids
 
 VISIBILITIES = ("private", "unlisted", "public")
@@ -244,7 +245,17 @@ def describe_lines(catalog: ProfileCatalogService, parts: list[dict[str, Any]]) 
                 "part_source": part.get("part_source") or "rebrickable",
                 "bricklink_id": (bricklink_ids(catalog_part) or [None])[0] if catalog_part else (str(part.get("part_num")) if bricklink_source else None),
                 "part_name": part.get("part_name") or (catalog_part or {}).get("name"),
-                "img_url": part.get("img_url") or (catalog_part or {}).get("part_img_url"),
+                # The part in the line's color when Rebrickable renders it, else its photo.
+                "img_url": (
+                    None if any_color or bricklink_source else colored_picture(str(part.get("part_num")), int(color_id))
+                )
+                or part.get("img_url")
+                or (catalog_part or {}).get("part_img_url"),
+                "fallback_img_url": (
+                    part.get("img_url") or (catalog_part or {}).get("part_img_url")
+                    if not (any_color or bricklink_source)
+                    else None
+                ),
                 "color_id": None if any_color or bricklink_source else int(color_id),
                 "bricklink_color_id": (
                     None

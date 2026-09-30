@@ -30,6 +30,7 @@
 	let {
 		name,
 		imgUrl = null,
+		fallbackImgUrl = null,
 		bricklinkId = null,
 		partNum = null,
 		color = null,
@@ -44,6 +45,8 @@
 	}: {
 		name: string;
 		imgUrl?: string | null;
+		// Tried when imgUrl fails (a render in a color that may not exist).
+		fallbackImgUrl?: string | null;
 		// The BrickLink ID: what a sorter reports a piece by.
 		bricklinkId?: string | null;
 		// The Rebrickable number; shown only when it is not the BrickLink ID.
@@ -118,7 +121,7 @@
 	<div class="relative isolate w-full min-w-0 {className}">
 		{@render hit()}
 		<div class="{content} flex flex-col gap-2">
-			<PartImage src={imgUrl} class="aspect-square w-full" />
+			<PartImage src={imgUrl} fallback={fallbackImgUrl} class="aspect-square w-full" />
 			<div class="min-w-0">
 				<div class="line-clamp-2 h-10 text-sm font-medium break-words text-ink" title={name}>
 					{name}
@@ -155,7 +158,7 @@
 				: ''}"
 		>
 			<div class="flex min-w-0 flex-1 items-center gap-3">
-				<PartImage src={imgUrl} class="size-12 shrink-0" />
+				<PartImage src={imgUrl} fallback={fallbackImgUrl} class="size-12 shrink-0" />
 				<div class="min-w-0 flex-1">
 					<div class="truncate text-sm font-medium text-ink" title={name}>{name}</div>
 					{#if bricklinkId || rebrickable || color}

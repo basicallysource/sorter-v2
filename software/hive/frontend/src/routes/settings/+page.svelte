@@ -1,7 +1,8 @@
 <script lang="ts">
 	import { sentence } from '$lib/text';
 	import { auth } from '$lib/auth.svelte';
-	import { api, type AiModelCatalog, type AuthOptions, type Machine, type UserIdentitySummary } from '$lib/api';
+	import { api, getApiBaseUrl, type AiModelCatalog, type AuthOptions, type Machine, type UserIdentitySummary } from '$lib/api';
+	import { copyText } from '$lib/clipboard';
 	import { goto } from '$app/navigation';
 	import { page } from '$app/state';
 	import Modal from '$lib/components/Modal.svelte';
@@ -28,6 +29,8 @@
 	import BrandMark from '$lib/components/BrandMark.svelte';
 	import Copy from '@lucide/svelte/icons/copy';
 	import Check from '@lucide/svelte/icons/check';
+	import Plug from '@lucide/svelte/icons/plug';
+	import ArrowUpRight from '@lucide/svelte/icons/arrow-up-right';
 	import X from '@lucide/svelte/icons/x';
 
 	let showDeleteModal = $state(false);
@@ -137,11 +140,16 @@
 
 	async function copyApiKey() {
 		if (!apiKeyJustCreated) return;
-		await navigator.clipboard.writeText(apiKeyJustCreated.token);
-		apiKeyCopied = true;
+		apiKeyCopied = await copyText(apiKeyJustCreated.token);
 	}
 
-	const API_KEY_SCOPES: { scope: string; label: string }[] = [
+	// The scopes a key can have. Anyone can make a key with the first three
+	// (an assistant working on their own profiles, kits and records); the rest
+	// reach fleet-wide or server data and stay with admins.
+	const API_KEY_SCOPES: { scope: string; label: string; everyone?: boolean }[] = [
+		{ scope: 'profiles:read', label: 'Read your sorting profiles and kits', everyone: true },
+		{ scope: 'profiles:write', label: 'Change your sorting profiles and kits', everyone: true },
+		{ scope: 'records:read', label: 'Read what your machines sorted', everyone: true },
 		{ scope: 'models:read', label: 'Read models' },
 		{ scope: 'models:write', label: 'Write models' },
 		{ scope: 'samples:read', label: 'Read samples' },
@@ -155,6 +163,9 @@
 		{ scope: 'parts:prices', label: 'Read parts market prices' },
 		{ scope: 'server_health:read', label: 'Read server health (storage, DB size, memory)' }
 	];
+	const visibleScopes = $derived(
+		auth.user?.role === 'admin' ? API_KEY_SCOPES : API_KEY_SCOPES.filter((s) => s.everyone)
+	);
 	let apiKeySelectedScopes = $state<string[]>([]);
 	let apiKeyExpiresInDays = $state('');
 	let apiKeyMachines = $state<Machine[]>([]);
@@ -245,6 +256,60 @@
 		};
 	}
 
+	// Connect an assistant: one key with the three scopes an assistant needs.
+	const ASSISTANT_SCOPES = ['profiles:read', 'profiles:write', 'records:read'];
+	let assistantKey = $state<{ name: string; token: string } | null>(null);
+	let assistantBusy = $state(false);
+	let assistantError = $state<string | null>(null);
+	let assistantCopied = $state<'message' | 'key' | null>(null);
+
+	// Where an assistant reads its instructions: this Hive's own address.
+	const skillUrl = $derived(`${getApiBaseUrl() || page.url.origin}/api/agent/skill.md`);
+	const assistantMessage = $derived(
+		assistantKey ? `Use the Hive sorting-profiles skill at ${skillUrl}. My API key is ${assistantKey.token}.` : ''
+	);
+
+	// "Assistant", or the next free "Assistant 2" when one is in use, so a
+	// version's origin ("saved by Assistant 2") says which one made it.
+	function assistantName(): string {
+		const taken = new Set(apiKeys.filter((k) => !k.revoked_at).map((k) => k.name));
+		if (!taken.has('Assistant')) return 'Assistant';
+		let n = 2;
+		while (taken.has(`Assistant ${n}`)) n++;
+		return `Assistant ${n}`;
+	}
+
+	async function connectAssistant() {
+		if (assistantBusy) return;
+		assistantBusy = true;
+		assistantError = null;
+		try {
+			const resp = await api.createApiKey(assistantName(), ASSISTANT_SCOPES);
+			assistantKey = { name: resp.summary.name, token: resp.raw_token };
+			assistantCopied = null;
+			await loadApiKeys();
+		} catch (e: any) {
+			assistantError = e.error || 'Could not make the key';
+		} finally {
+			assistantBusy = false;
+		}
+	}
+
+	async function copyAssistant(what: 'message' | 'key') {
+		if (!assistantKey) return;
+		assistantError = null;
+		const ok = await copyText(what === 'message' ? assistantMessage : assistantKey.token);
+		assistantCopied = ok ? what : null;
+		if (!ok) assistantError = 'Copying did not work here. Select the text and copy it.';
+	}
+
+	// The keys list only has a machines column when some key is limited to machines.
+	const keysHaveMachines = $derived(apiKeys.some((key) => key.machine_ids?.length));
+
+	function formatDay(iso: string) {
+		return new Date(iso).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' });
+	}
+
 	function formatDate(iso: string | null) {
 		if (!iso) return '-';
 		return new Date(iso).toLocaleString(undefined, {
@@ -257,7 +322,7 @@
 	}
 
 	$effect(() => {
-		if (auth.user?.role === 'admin') {
+		if (auth.user) {
 			void loadApiKeys();
 			void api
 				.getMachines({ scope: 'mine' })
@@ -712,6 +777,180 @@
 			{/snippet}
 		</Panel>
 
+		{#snippet connectFooter()}
+			<Button variant="primary" icon={Plug} loading={assistantBusy} onclick={() => void connectAssistant()}
+				>Make an assistant key</Button
+			>
+		{/snippet}
+
+		<Panel
+			title="Connect an assistant"
+			description="Let an AI assistant you already use work on your sorting profiles and kits through Hive's API."
+			footer={assistantKey ? undefined : connectFooter}
+		>
+			<div class="flex flex-col gap-3">
+				{#if assistantKey}
+					<Alert tone="warning" title="Copy this now. Hive will not show the key again.">
+						<code class="mt-2 block rounded-control bg-surface p-2 font-mono text-sm break-words select-all"
+							>{assistantMessage}</code
+						>
+						<div class="mt-3 flex flex-wrap items-center gap-2">
+							<Button
+								size="sm"
+								variant="primary"
+								icon={assistantCopied === 'message' ? Check : Copy}
+								onclick={() => void copyAssistant('message')}
+								>{assistantCopied === 'message' ? 'Copied' : 'Copy the message'}</Button
+							>
+							<Button size="sm" icon={assistantCopied === 'key' ? Check : Copy} onclick={() => void copyAssistant('key')}
+								>{assistantCopied === 'key' ? 'Copied' : 'Copy the key'}</Button
+							>
+							<Button size="sm" variant="ghost" onclick={() => (assistantKey = null)}>Done</Button>
+						</div>
+					</Alert>
+					<p class="text-sm text-ink-muted">
+						Paste the message to your assistant. It reads
+						<a
+							href={skillUrl}
+							target="_blank"
+							rel="noopener noreferrer"
+							class="inline-flex items-center gap-1 text-primary-ink hover:underline"
+							>the skill<ArrowUpRight size={14} /></a
+						>
+						to learn what it can do.
+					</p>
+				{/if}
+				{#if assistantError}<Alert tone="danger">{assistantError}</Alert>{/if}
+				<p class="text-sm text-ink-muted">
+					The key can read and change your profiles and kits, and read what your machines sorted. It cannot run a
+					machine. You can revoke it in the list below.
+				</p>
+			</div>
+		</Panel>
+
+		<Panel
+			title="API keys"
+			description="A key signs in command line tools, bots and agents. It can do only what its scopes allow: grant the least it needs, and keep it like a password."
+			flush
+		>
+			<div class="flex flex-col gap-4 px-(--pad-panel) pb-(--pad-panel)">
+				{#if apiKeyJustCreated}
+					<Alert tone="warning" title="Copy this key now. It won't be shown again.">
+						<div class="mt-1">Name: <span class="font-mono">{apiKeyJustCreated.name}</span></div>
+						<code class="mt-2 block rounded-control bg-surface p-2 font-mono text-sm break-all select-all"
+							>{apiKeyJustCreated.token}</code
+						>
+						{#snippet actions()}
+							<Button size="sm" icon={apiKeyCopied ? Check : Copy} onclick={copyApiKey}
+								>{apiKeyCopied ? 'Copied' : 'Copy'}</Button
+							>
+							<Button size="sm" variant="ghost" icon={X} label="Dismiss" onclick={() => (apiKeyJustCreated = null)} />
+						{/snippet}
+					</Alert>
+				{/if}
+				{#if apiKeysError}<Alert tone="danger">{apiKeysError}</Alert>{/if}
+
+				<form onsubmit={handleCreateApiKey} class="flex flex-col gap-4 rounded-control bg-well p-4">
+					<div class="flex flex-wrap items-end gap-3">
+						<Field label="Name" for="token-name" class="w-full sm:w-72">
+							<Input id="token-name" bind:value={apiKeyName} placeholder="For example: training laptop" />
+						</Field>
+						<Field label="Expires in days" for="token-expiry" class="w-36">
+							<Input id="token-expiry" bind:value={apiKeyExpiresInDays} placeholder="Never" />
+						</Field>
+						<Button type="submit" variant="primary" icon={Plus} loading={apiKeysLoading}>Create key</Button>
+					</div>
+					<div class="grid gap-4 lg:grid-cols-2">
+						<fieldset class="flex flex-col gap-2">
+							<legend class="mb-2 text-sm font-medium text-ink">Scopes, at least one</legend>
+							{#each visibleScopes as { scope, label } (scope)}
+								<Checkbox
+									checked={apiKeySelectedScopes.includes(scope)}
+									onchange={() => toggleApiKeyScope(scope)}
+									><span class="font-mono">{scope}</span> <span class="text-ink-muted">{label}</span></Checkbox
+								>
+							{/each}
+						</fieldset>
+						{#if apiKeyMachines.length > 0}
+							<fieldset class="flex flex-col gap-2">
+								<legend class="mb-2 text-sm font-medium text-ink"
+									>Only these machines <span class="font-normal text-ink-muted">(none chosen means all you can reach)</span></legend
+								>
+								{#each apiKeyMachines as machine (machine.id)}
+									<Checkbox
+										checked={apiKeySelectedMachines.includes(machine.id)}
+										onchange={() => toggleApiKeyMachine(machine.id)}>{machine.name}</Checkbox
+									>
+								{/each}
+							</fieldset>
+						{/if}
+					</div>
+				</form>
+			</div>
+
+			{#if apiKeys.length === 0}
+				<p class="border-t border-line px-(--pad-panel) py-3 text-sm text-ink-muted">No keys yet.</p>
+			{:else}
+				<div class="overflow-x-auto border-t border-line">
+					<table class="data-table min-w-[44rem]">
+						<thead>
+							<tr>
+								<th>Key</th><th>Scopes</th>{#if keysHaveMachines}<th>Machines</th>{/if}<th>Last used</th><th>Status</th
+								><th aria-label="Actions"></th>
+							</tr>
+						</thead>
+						<tbody>
+							{#each apiKeys as key (key.id)}
+								<tr>
+									<td>
+										<div class="font-mono">{key.name}</div>
+										<div class="font-mono whitespace-nowrap text-ink-muted">{key.token_prefix}...</div>
+									</td>
+									<td>
+										{#if key.scopes?.length}
+											<div class="flex flex-wrap gap-1">
+												{#each key.scopes as scope (scope)}<Badge><span class="font-mono">{scope}</span></Badge>{/each}
+											</div>
+										{:else}
+											<span class="text-ink-muted">-</span>
+										{/if}
+									</td>
+									{#if keysHaveMachines}
+										<td class="text-ink-muted"
+											>{key.machine_ids?.length ? key.machine_ids.map(machineName).join(', ') : 'All'}</td
+										>
+									{/if}
+									<td class="whitespace-nowrap">
+										<div class={key.last_used_at ? '' : 'text-ink-muted'}>
+											{key.last_used_at ? formatDate(key.last_used_at) : 'Never used'}
+										</div>
+										<div class="text-ink-muted">Made {formatDay(key.created_at)}</div>
+									</td>
+									<td class="whitespace-nowrap">
+										{#if key.revoked_at}
+											<Badge>Revoked</Badge>
+										{:else if key.expires_at && new Date(key.expires_at) <= new Date()}
+											<Badge tone="warning">Expired</Badge>
+										{:else}
+											<Badge tone="success">Active</Badge>
+										{/if}
+										{#if key.expires_at && !key.revoked_at}
+											<div class="text-ink-muted">Expires {formatDay(key.expires_at)}</div>
+										{/if}
+									</td>
+									<td class="text-right">
+										{#if !key.revoked_at}
+											<Button size="sm" variant="ghost" onclick={() => handleRevokeApiKey(key.id)}>Revoke</Button>
+										{/if}
+									</td>
+								</tr>
+							{/each}
+						</tbody>
+					</table>
+				</div>
+			{/if}
+		</Panel>
+
 		{#if auth.user.role === 'admin'}
 			<Panel title="Catalog sync">
 				{#snippet actions()}
@@ -798,120 +1037,6 @@
 				{#snippet footer()}
 					<Button type="submit" form="teacher-form" variant="primary" loading={teacherSettingSaving}>Save</Button>
 				{/snippet}
-			</Panel>
-
-			<Panel
-				title="Personal access tokens"
-				description="A token signs in command line tools, bots and agents. It can do only what its scopes allow: grant the least it needs, and keep it like a password."
-				flush
-			>
-				<div class="flex flex-col gap-4 px-(--pad-panel) pb-(--pad-panel)">
-					{#if apiKeyJustCreated}
-						<Alert tone="warning" title="Copy this token now. It won't be shown again.">
-							<div class="mt-1">Name: <span class="font-mono">{apiKeyJustCreated.name}</span></div>
-							<code class="mt-2 block rounded-control bg-surface p-2 font-mono text-sm break-all select-all"
-								>{apiKeyJustCreated.token}</code
-							>
-							{#snippet actions()}
-								<Button size="sm" icon={apiKeyCopied ? Check : Copy} onclick={copyApiKey}
-									>{apiKeyCopied ? 'Copied' : 'Copy'}</Button
-								>
-								<Button size="sm" variant="ghost" icon={X} label="Dismiss" onclick={() => (apiKeyJustCreated = null)} />
-							{/snippet}
-						</Alert>
-					{/if}
-					{#if apiKeysError}<Alert tone="danger">{apiKeysError}</Alert>{/if}
-
-					<form onsubmit={handleCreateApiKey} class="flex flex-col gap-4 rounded-control bg-well p-4">
-						<div class="flex flex-wrap items-end gap-3">
-							<Field label="Name" for="token-name" class="w-full sm:w-72">
-								<Input id="token-name" bind:value={apiKeyName} placeholder="For example: training laptop" />
-							</Field>
-							<Field label="Expires in days" for="token-expiry" class="w-36">
-								<Input id="token-expiry" bind:value={apiKeyExpiresInDays} placeholder="Never" />
-							</Field>
-							<Button type="submit" variant="primary" icon={Plus} loading={apiKeysLoading}>Create token</Button>
-						</div>
-						<div class="grid gap-4 lg:grid-cols-2">
-							<fieldset class="flex flex-col gap-2">
-								<legend class="mb-2 text-sm font-medium text-ink">Scopes, at least one</legend>
-								{#each API_KEY_SCOPES as { scope, label } (scope)}
-									<Checkbox
-										checked={apiKeySelectedScopes.includes(scope)}
-										onchange={() => toggleApiKeyScope(scope)}
-										><span class="font-mono">{scope}</span> <span class="text-ink-muted">{label}</span></Checkbox
-									>
-								{/each}
-							</fieldset>
-							{#if apiKeyMachines.length > 0}
-								<fieldset class="flex flex-col gap-2">
-									<legend class="mb-2 text-sm font-medium text-ink"
-										>Only these machines <span class="font-normal text-ink-muted">(none chosen means all you can reach)</span></legend
-									>
-									{#each apiKeyMachines as machine (machine.id)}
-										<Checkbox
-											checked={apiKeySelectedMachines.includes(machine.id)}
-											onchange={() => toggleApiKeyMachine(machine.id)}>{machine.name}</Checkbox
-										>
-									{/each}
-								</fieldset>
-							{/if}
-						</div>
-					</form>
-				</div>
-
-				{#if apiKeys.length === 0}
-					<p class="border-t border-line px-(--pad-panel) py-3 text-sm text-ink-muted">No tokens yet.</p>
-				{:else}
-					<div class="overflow-x-auto border-t border-line">
-						<table class="data-table min-w-[60rem]">
-							<thead>
-								<tr>
-									<th>Name</th><th>Token</th><th>Scopes</th><th>Machines</th><th>Created</th><th>Last used</th><th
-										>Expires</th
-									><th>Status</th><th aria-label="Actions"></th>
-								</tr>
-							</thead>
-							<tbody>
-								{#each apiKeys as key (key.id)}
-									<tr>
-										<td class="font-mono">{key.name}</td>
-										<td class="font-mono whitespace-nowrap text-ink-muted">{key.token_prefix}...</td>
-										<td>
-											{#if key.scopes?.length}
-												<div class="flex flex-wrap gap-1">
-													{#each key.scopes as scope (scope)}<Badge><span class="font-mono">{scope}</span></Badge>{/each}
-												</div>
-											{:else}
-												<span class="text-ink-muted">-</span>
-											{/if}
-										</td>
-										<td class="text-ink-muted"
-											>{key.machine_ids?.length ? key.machine_ids.map(machineName).join(', ') : 'All'}</td
-										>
-										<td class="whitespace-nowrap text-ink-muted">{formatDate(key.created_at)}</td>
-										<td class="whitespace-nowrap text-ink-muted">{formatDate(key.last_used_at)}</td>
-										<td class="whitespace-nowrap text-ink-muted">{key.expires_at ? formatDate(key.expires_at) : 'Never'}</td>
-										<td>
-											{#if key.revoked_at}
-												<Badge>Revoked</Badge>
-											{:else if key.expires_at && new Date(key.expires_at) <= new Date()}
-												<Badge tone="warning">Expired</Badge>
-											{:else}
-												<Badge tone="success">Active</Badge>
-											{/if}
-										</td>
-										<td class="text-right">
-											{#if !key.revoked_at}
-												<Button size="sm" variant="ghost" onclick={() => handleRevokeApiKey(key.id)}>Revoke</Button>
-											{/if}
-										</td>
-									</tr>
-								{/each}
-							</tbody>
-						</table>
-					</div>
-				{/if}
 			</Panel>
 		{/if}
 

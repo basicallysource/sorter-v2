@@ -28,6 +28,8 @@
 		rb_part_num?: string | null;
 		name: string;
 		img_url: string | null;
+		// Tried when img_url fails: img_url may be a render in the bin's color.
+		fallback_img_url?: string | null;
 		color_name?: string | null;
 		quantity?: number | null;
 	}
@@ -36,6 +38,7 @@
 		name: string;
 		kind?: 'rule' | 'kit' | 'fallback' | 'default' | null;
 		image_url?: string | null;
+		image_fallback_url?: string | null;
 		conditions?: BinConditions;
 		// Parts the bin takes (null for a color bin: that depends on the pile).
 		part_count?: number | null;
@@ -175,7 +178,7 @@
 			<Boxes size={layout === 'row' ? 18 : 24} />
 		</span>
 	{:else}
-		<PartImage src={bin.image_url} class="shrink-0 {size}" />
+		<PartImage src={bin.image_url} fallback={bin.image_fallback_url} class="shrink-0 {size}" />
 	{/if}
 {/snippet}
 
@@ -289,6 +292,7 @@
 								padded={false}
 								name={sample.name}
 								imgUrl={sample.img_url}
+								fallbackImgUrl={sample.fallback_img_url}
 								bricklinkId={sample.part_num}
 								partNum={sample.rb_part_num}
 								color={sample.color_name ? { name: sample.color_name } : null}

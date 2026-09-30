@@ -55,6 +55,8 @@ class KitPartResponse(BaseModel):
     bricklink_id: str | None = None
     part_name: str | None = None
     img_url: str | None = None
+    # The part's photo, when img_url is a render in the line's color that may not exist.
+    fallback_img_url: str | None = None
     # null for any color
     color_id: int | None = None
     bricklink_color_id: int | None = None

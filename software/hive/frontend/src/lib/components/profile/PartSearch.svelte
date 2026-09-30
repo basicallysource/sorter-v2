@@ -3,15 +3,26 @@
 	import Spinner from '$lib/components/Spinner.svelte';
 	import Button from '$lib/components/Button.svelte';
 	import Input from '$lib/components/Input.svelte';
+	import PartTile from '$lib/components/PartTile.svelte';
 	import X from '@lucide/svelte/icons/x';
 
 	let {
 		onSelect,
-		onCancel
+		onCancel,
+		title = 'Add a LEGO part',
+		autofocus = false
 	}: {
 		onSelect: (part: ProfileCatalogSearchResult) => void;
 		onCancel?: () => void;
+		title?: string;
+		// Put the cursor in the search box when it appears.
+		autofocus?: boolean;
 	} = $props();
+
+	let field = $state<HTMLInputElement>();
+	$effect(() => {
+		if (autofocus) field?.focus();
+	});
 
 	let query = $state('');
 	let results = $state<ProfileCatalogSearchResult[]>([]);
@@ -30,6 +41,12 @@
 		debounceTimer = setTimeout(() => void doSearch(q), 300);
 	}
 
+	// The part's BrickLink ID: what a sorter reports a piece by.
+	function bricklinkId(part: ProfileCatalogSearchResult): string | null {
+		const ids = part.external_ids?.BrickLink;
+		return Array.isArray(ids) && ids.length > 0 ? String(ids[0]) : null;
+	}
+
 	async function doSearch(q: string) {
 		loading = true;
 		searched = true;
@@ -46,12 +63,13 @@
 
 <div class="flex flex-col gap-2 rounded-control bg-well p-3">
 	<div class="flex items-center justify-between">
-		<h3 class="text-sm font-medium text-ink">Add a LEGO part</h3>
+		<h3 class="text-sm font-medium text-ink">{title}</h3>
 		{#if onCancel}<Button variant="ghost" size="sm" icon={X} label="Close" onclick={onCancel} />{/if}
 	</div>
 	<Input
 		type="search"
 		bind:value={query}
+		bind:element={field}
 		oninput={handleInput}
 		placeholder="Search parts, like technic pin, 2780 or axle"
 	/>
@@ -64,25 +82,15 @@
 		<ul class="max-h-72 divide-y divide-line overflow-y-auto">
 			{#each results as part (part.part_num)}
 				<li>
-					<button
-						type="button"
+					<PartTile
+						name={part.name}
+						imgUrl={part.part_img_url}
+						bricklinkId={bricklinkId(part)}
+						partNum={part.part_num}
+						padded={false}
+						class="py-2"
 						onclick={() => onSelect(part)}
-						class="flex w-full items-center gap-3 px-2 py-2 text-left hover:bg-hover"
-					>
-						{#if part.part_img_url}
-							<img src={part.part_img_url} alt={part.name} class="size-12 shrink-0 object-contain" />
-						{:else}
-							<span class="flex size-12 shrink-0 items-center justify-center rounded-control bg-surface text-xs text-ink-muted"
-								>No picture</span
-							>
-						{/if}
-						<span class="min-w-0 flex-1">
-							<span class="block truncate text-sm font-medium text-ink">{part.name}</span>
-							<span class="block truncate text-sm text-ink-muted">
-								<span class="font-mono">{part.part_num}</span>{#if part._category_name}, {part._category_name}{/if}
-							</span>
-						</span>
-					</button>
+					/>
 				</li>
 			{/each}
 		</ul>

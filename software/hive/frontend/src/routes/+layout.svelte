@@ -38,6 +38,7 @@
 		{ href: '/', label: 'Dashboard' },
 		{ href: '/machines', label: 'My machines' },
 		{ href: '/profiles', label: 'Profiles' },
+		{ href: '/kits', label: 'Kits' },
 		{ href: '/samples', label: 'Channel samples' },
 		{ href: '/piece-bboxes', label: 'Piece samples' },
 		{ href: '/models', label: 'Models' },
@@ -66,8 +67,11 @@
 	]);
 
 	// Labeling a piece shows a reference column, the piece and the color
-	// picker side by side, so it takes the whole width of the window.
-	const fullWidth = $derived(page.url.pathname.startsWith('/piece-bboxes'));
+	// picker side by side, and the profile editor its rules, the rule being
+	// edited and the result, so both take the whole width of the window.
+	const fullWidth = $derived(
+		page.url.pathname.startsWith('/piece-bboxes') || /^\/profiles\/[^/]+\/edit$/.test(page.url.pathname)
+	);
 
 	async function handleLogout() {
 		await auth.logout();

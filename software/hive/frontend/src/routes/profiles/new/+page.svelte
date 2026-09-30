@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { api, type SortingProfileRule } from '$lib/api';
+	import { api, type Kit, type SortingProfileRule } from '$lib/api';
 	import { auth } from '$lib/auth.svelte';
 	import { goto } from '$app/navigation';
 	import SetSearch from '$lib/components/profile/SetSearch.svelte';
@@ -42,23 +42,17 @@
 		selectedSets = selectedSets.filter((s) => s.set_num !== set_num);
 	}
 
-	function makeSetRule(set: SetResult): SortingProfileRule {
+	// A kit bin for a kit: it collects the kit's parts until each line is full.
+	function makeKitRule(kit: Kit): SortingProfileRule {
 		return {
 			id: uuid(),
-			rule_type: 'set',
-			name: set.name,
+			rule_type: 'kit',
+			kit_id: kit.id,
+			name: kit.name,
 			match_mode: 'all',
 			conditions: [],
 			children: [],
-			disabled: false,
-			set_num: set.set_num,
-			include_spares: includeSpares,
-			set_meta: {
-				name: set.name,
-				year: set.year,
-				num_parts: set.num_parts,
-				img_url: set.img_url
-			}
+			disabled: false
 		};
 	}
 
@@ -73,23 +67,22 @@
 		creating = true;
 		error = null;
 		try {
-			const profile = await api.createSortingProfile({
-				name: name.trim(),
-				visibility: 'private'
-			});
-
 			if (profileType === 'set') {
-				await api.saveSortingProfileVersion(profile.id, {
-					name: profile.name,
-					description: profile.description,
-					default_category_id: 'misc',
-					rules: selectedSets.map((set) => makeSetRule(set)),
-					fallback_mode: { rebrickable_categories: false, bricklink_categories: false, by_color: false },
-					change_note: 'Initial set rules',
-					publish: true
+				// Each set becomes a kit of its own, and a kit bin for each.
+				const kits: Kit[] = [];
+				for (const set of selectedSets) {
+					kits.push(
+						await api.createKitFromSet({ set_num: set.set_num, include_spares: includeSpares, name: set.name })
+					);
+				}
+				const profile = await api.createSortingProfile({
+					name: name.trim(),
+					visibility: 'private',
+					rules: kits.map(makeKitRule)
 				});
 				goto(`/profiles/${profile.id}/edit`);
 			} else {
+				const profile = await api.createSortingProfile({ name: name.trim(), visibility: 'private' });
 				goto(`/profiles/${profile.id}/edit?new=1`);
 			}
 		} catch (e: any) {
@@ -123,7 +116,7 @@
 				bind:value={profileType}
 				options={[
 					{ value: 'rule', label: 'Rule based', help: 'Sort by what parts are: category, color, price.' },
-					{ value: 'set', label: 'Set based', help: 'Rebuild particular LEGO sets from mixed parts.' }
+					{ value: 'set', label: 'Kit based', help: 'Collect the parts of particular LEGO sets from mixed parts.' }
 				]}
 			/>
 
@@ -187,7 +180,7 @@
 				variant="primary"
 				loading={creating}
 				disabled={!name.trim() || (profileType === 'set' && selectedSets.length === 0)}
-				>{profileType === 'set' ? 'Create and open the set editor' : 'Create and open the editor'}</Button
+				>Create and open the editor</Button
 			>
 		{/snippet}
 	</Panel>

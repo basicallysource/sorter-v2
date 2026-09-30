@@ -611,16 +611,63 @@ def part_preview(row: int, index: CatalogIndex) -> dict[str, Any]:
     }
 
 
-def _sample(row: int, index: CatalogIndex) -> dict[str, Any]:
+# Rebrickable renders a part in any color at this address (from its LDraw
+# model); the catalog's own picture of a part is one photo in one color. A
+# printed part may have no render: pages fall back to the photo.
+COLOR_RENDER = "https://cdn.rebrickable.com/media/parts/ldraw/{color}/{part}.png"
+
+
+def colored_picture(rb_part_num: str | None, rb_color_id: Any) -> str | None:
+    if not rb_part_num or rb_color_id in (None, "", -1, "-1"):
+        return None
+    return COLOR_RENDER.format(color=rb_color_id, part=rb_part_num)
+
+
+def _sample(row: int, index: CatalogIndex, bl_color: str | None = None) -> dict[str, Any]:
+    """One example part; in a bin's color, when the bin takes only some."""
     part = index.part(row)
-    return {
+    photo = part.get("part_img_url")
+    color = index.bl_colors.get(bl_color) if bl_color is not None else None
+    picture = colored_picture(part.get("part_num"), color.get("rb_id")) if color else None
+    sample = {
         "part_num": index.keys[row][0],
         "rb_part_num": part.get("part_num"),
         "name": part.get("name") or "",
-        "img_url": part.get("part_img_url"),
+        "img_url": picture or photo,
+        "fallback_img_url": photo if picture else None,
         # the shape old Hive and sorter pages read samples in
-        "part_img_url": part.get("part_img_url"),
+        "part_img_url": photo,
     }
+    if color:
+        sample["color_name"] = color.get("name")
+    return sample
+
+
+def _sample_color(row: int, preferred: list[str], index: CatalogIndex) -> str | None:
+    """The first of a rule's colors the part is known to come in, or its first."""
+    if not preferred:
+        return None
+    if index.known_color_rows:
+        for color in preferred:
+            rows = index.known_color_rows.get(color)
+            if rows is not None and np.searchsorted(rows, row) < rows.size and rows[np.searchsorted(rows, row)] == row:
+                return color
+    return preferred[0]
+
+
+def _rule_colors_in_order(rule: dict[str, Any], index: CatalogIndex) -> list[str]:
+    """The BrickLink colors a rule names in its eq and in conditions, in the
+    order the person gave them (a bin shows its parts in the first)."""
+    out: list[str] = []
+    for condition in _enabled_conditions(rule):
+        if condition.get("invalid") or condition.get("field") != "color_id" or condition.get("op") not in ("eq", "in"):
+            continue
+        values = condition["value"] if isinstance(condition["value"], list) else [condition["value"]]
+        for value in values:
+            color = index.bl_color(value)
+            if color not in out:
+                out.append(color)
+    return out
 
 
 # --- Compiling ------------------------------------------------------------------
@@ -676,6 +723,21 @@ def _kit_items(inventory: dict[str, Any], index: CatalogIndex) -> tuple[dict[str
             if color_key not in colors:
                 colors.append(color_key)
     return items, any_color_lines
+
+
+def _kit_sample(part: dict[str, Any]) -> dict[str, Any]:
+    photo = part.get("img_url")
+    picture = colored_picture(part.get("rb_part_num"), part.get("rb_color_id"))
+    return {
+        "part_num": part.get("part_num"),
+        "rb_part_num": part.get("rb_part_num"),
+        "name": part.get("part_name") or part.get("part_num"),
+        "img_url": picture or photo,
+        "fallback_img_url": photo if picture else None,
+        "part_img_url": photo,
+        "color_name": part.get("color_name"),
+        "quantity": part.get("quantity"),
+    }
 
 
 def _kit_image(rule: dict[str, Any], inventory: dict[str, Any]) -> tuple[str | None, str | None]:
@@ -744,18 +806,7 @@ def compile_document(
                     "image_url": image_url,
                     "image_source": image_source,
                     "part_count": len(inventory["parts"]),
-                    "samples": [
-                        {
-                            "part_num": part.get("part_num"),
-                            "rb_part_num": part.get("rb_part_num"),
-                            "name": part.get("part_name") or part.get("part_num"),
-                            "img_url": part.get("img_url"),
-                            "part_img_url": part.get("img_url"),
-                            "color_name": part.get("color_name"),
-                            "quantity": part.get("quantity"),
-                        }
-                        for part in inventory["parts"][:SAMPLE_LIMIT]
-                    ],
+                    "samples": [_kit_sample(part) for part in inventory["parts"][:SAMPLE_LIMIT]],
                     "kit": {
                         "kit_id": rule.get("kit_id"),
                         "set_num": inventory.get("set_num"),
@@ -847,9 +898,12 @@ def compile_document(
         if not any_color:
             display["color_count"] = len(color_set)
             display["colors"] = [index.bl_colors.get(color, {"id": color, "name": color}) for color in sorted(color_set, key=_color_sort_key)[:24]]
-        display["samples"] = [_sample(row, index) for row in _sample_rows(shown, index)]
+        # Shown in the rule's own colors when it takes only some.
+        preferred = [] if any_color else [color for color in _rule_colors_in_order(rule, index) if color in color_set] or sorted(color_set, key=_color_sort_key)
+        display["samples"] = [_sample(row, index, _sample_color(row, preferred, index)) for row in _sample_rows(shown, index)]
         if not display["image_url"] and display["samples"]:
             display["image_url"] = display["samples"][0]["img_url"]
+            display["image_fallback_url"] = display["samples"][0].get("fallback_img_url")
             display["image_source"] = "part" if display["image_url"] else None
         per_category[rule_id] = {"parts": part_count, "colors": 0 if any_color else len(color_set)}
         samples[rule_id] = display["samples"]

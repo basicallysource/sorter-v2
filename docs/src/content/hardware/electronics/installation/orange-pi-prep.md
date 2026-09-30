@@ -18,6 +18,8 @@ parts_needed:
     qty: 1
   - part: wifi-module-opi5
     qty: 1
+  - part: microsd-32gb
+    qty: 1
 tools_needed: [Small Phillips screwdriver]
 ---
 
@@ -69,7 +71,7 @@ The antenna leads end in small round push-fit connectors. Line one up squarely o
 
 {% include step.html n="5" title="First boot, and the network" %}
 
-The network is set on a running machine, so the board does its first boot here, on the bench, before it is on anything: the USB-C supply in the socket marked `PWR IN`, Ethernet to a router for that boot alone, and the antennas on. [Install SorterOS]({{ '/sorter/installation/sorter-os/' | relative_url }}) covers flashing the card, how long first boot takes and where the UI is.
+The network is set on a running machine, so the board does its first boot here, on the bench, before it is on anything: the microSD card flashed with SorterOS in its slot, the USB-C supply in the socket marked `PWR IN`, Ethernet to a router for that boot alone, and the antennas on. [Install SorterOS]({{ '/sorter/installation/sorter-os/' | relative_url }}) covers flashing the card (do that first), how long first boot takes and where the UI is.
 
 Nothing needs installing for the module itself: the driver is in the official Orange Pi Ubuntu image that SorterOS is built on, so a SorterOS machine picks it up on its own. Third-party OS images may not have the driver at all.
 

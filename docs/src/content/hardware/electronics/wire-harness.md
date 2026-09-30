@@ -204,7 +204,7 @@ Three outputs, three loads, no spare. The cooling fans are deliberately not on t
 
 ### 3.3 &nbsp; LEDs (from basically board v1.3)
 
-Each LED drop is drawn as two segments: a 2x1 dupont feed from the board to a female DC jack (the unplug point), then a 6 in male-DC pigtail into the module. The pigtail ends in a solderless clamp-on connector at the strip. Building both is [Preparing the LED strip]({{ '/hardware/helpers/led-strip/' | relative_url }}).
+Each LED drop is drawn as two segments: a 2x1 dupont feed from the board to a female DC jack (the unplug point), then a 6 in male-DC pigtail into the module. The jack and the male plug are optional but recommended, because they make maintenance easier: the lamp's power can be disconnected close to the lamp. Without them the Dupont feed runs straight to the strip. The pigtail ends in a solderless clamp-on connector at the strip. Building the drop is [Preparing the LED strip]({{ '/hardware/helpers/led-strip/' | relative_url }}).
 
 All three drops now feed an LED strip in a [camera lamp]({{ '/hardware/assembly/feeder/camera-lamp/' | relative_url }}), on C-channels 2 and 3 and the classification channel. The 50 mm COB plates that L1 and L2 used to feed went with the light post they were mounted on. The [WireViz drawing]({{ '/hardware/parts/harness-order/#leds' | relative_url }}) still shows them as COB boards and has not been redrawn yet.
 
@@ -284,8 +284,8 @@ All three drops now feed an LED strip in a [camera lamp]({{ '/hardware/assembly/
 
 - Fused IEC inlet switch, 3-pin (L / N / earth): PSU mains inlet
 - Fork / screw terminal: PSU 24V output to the DC jacks
-- DC barrel jack, female: PSU outputs, LED unplug junctions
-- DC barrel jack, male: load pigtails, LED pigtails
+- DC barrel jack, female: PSU outputs, LED unplug junctions (optional)
+- DC barrel jack, male: load pigtails, and the LED pigtails (optional)
 - JST-VH female (VHR-2): basically board v1.3 24V input (W1)
 - 2x1 dupont (2.54 mm): LED drops (L1-L3)
 - 1x3 dupont (2.54 mm), 2 positions populated: limit switch board end, keyed so it cannot go on backwards

@@ -18,7 +18,7 @@ Item,Qty,Reference,Value,Package/Footprint,MPN,Manufacturer,LCSC #,Notes
 16,1,R7,5.1kΩ,R_0805,0805W8F5101T5E,UNI-ROYAL,C27834,
 17,4,"Q2, Q3, Q4, Q5",AO3400A,SOT-23,AO3400A,Alpha & Omega Semicon,C20917,N-Channel MOSFET
 18,1,J4,JST XA 4-pin connector,JST_XA_B04B-XASK-1-A_1x04_P2.50mm_Vertical,,,C264994,DNP - do not populate
-19,1,J12,Pin Header 1x06 2.54mm,PinHeader_1x06_P2.54mm_Vertical,,,C37208,DNP - do not populate
+19,1,J12,Pin Header 1x06 2.54mm,PinHeader_1x06_P2.54mm_Vertical,,,C37208,
 20,1,J13,JST XA 10-pin connector,JST_XA_B10B-XASK-1-A_1x10_P2.50mm_Vertical,,,C378928,DNP - do not populate
 21,1,J17,IDC Header 2x08,IDC-Header_2x08_P2.54mm_Vertical,,,C429960,
 22,1,Q1,DMG2305UX,SOT-23,,,C144153,P-Channel MOSFET

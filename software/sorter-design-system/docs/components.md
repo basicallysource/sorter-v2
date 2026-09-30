@@ -249,13 +249,15 @@ a UUID. The site's Profiles page shows each one on real catalog data.
   more", which opens the rest in place. A condition that cannot be
   evaluated yet is in the warning tone. A rule for one part (BrickLink ID
   3001) is one phrase with one chip.
-- **`ProfileBin`**: one bin of a profile, as a card or a row. The card shows
+- **`ProfileBin`**: one of a profile's rules or categories (never called a
+  "bin" on a page: bins are the machine's), as a card or a row. The card shows
   what a person needs to know about where pieces go: the picture (a color
   bin shows its color, a kit its picture, "Everything else" a quiet glyph),
   its place in the order, the name, what kind of bin it is (Rule, Kit,
   Category, Color, Everything else, left off when it is the name), how much it
-  takes in words, its conditions, up to six example parts (rows, two to a
-  line; a kit's get a line each, with their color and count), and what is
+  takes in words, its conditions, example parts only when a page asks for
+  them (`examples`: rows, two to a line; a kit's get a line each, with their
+  color and count), and what is
   wrong with it in the warning tone at its foot. The count is what the bin
   does: "72 parts in 8 colors", "14 parts · 96 pieces" for a kit, "Any part
   in this color" for a color bin. A rule that only tests colors takes any

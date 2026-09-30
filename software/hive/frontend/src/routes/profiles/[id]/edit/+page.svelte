@@ -560,10 +560,10 @@
 	// --- What the columns say -------------------------------------------------------------------------------
 	const restMeta = $derived(
 		{
-			none: 'One bin',
-			bl_category: 'A bin for each BrickLink category',
-			rb_category: 'A bin for each Rebrickable category',
-			color: 'A bin for each color'
+			none: 'All together',
+			bl_category: 'By BrickLink category',
+			rb_category: 'By Rebrickable category',
+			color: 'By color'
 		}[fallback]
 	);
 	// The bin for everything else, for how many parts it gets.
@@ -575,7 +575,7 @@
 
 	const tabs = $derived([
 		{ value: 'matches' as const, label: 'Matches' },
-		{ value: 'bins' as const, label: 'Bins' },
+		{ value: 'bins' as const, label: 'Categories' },
 		{ value: 'chat' as const, label: 'Assistant' },
 		{ value: 'versions' as const, label: 'Versions', count: profile?.versions.length }
 	]);
@@ -702,7 +702,12 @@
 			<Tabs label="Parts of the editor" inset value={narrowTab} items={narrowTabs} onchange={chooseNarrow} />
 		</div>
 
-		<div class="grid min-h-0 flex-1 gap-(--gap-panels) xl:grid-cols-[19rem_minmax(0,1fr)_25rem]">
+		<!-- A chat needs room to read: with the assistant open, its column grows with the window. -->
+		<div
+			class="grid min-h-0 flex-1 gap-(--gap-panels) {rightTab === 'chat'
+				? 'xl:grid-cols-[19rem_minmax(0,1fr)_minmax(25rem,0.9fr)]'
+				: 'xl:grid-cols-[19rem_minmax(0,1fr)_25rem]'}"
+		>
 			<!-- The bins, in the order a piece meets them. -->
 			<Panel
 				title="Rules"

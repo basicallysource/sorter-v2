@@ -5,6 +5,18 @@ and a dated entry goes here; the history is git.
 
 ## 2026-09-30
 
+- **A profile's rules are a stack of cards, each with its own picture, and no
+  examples.** The profile page showed them two to a line, each card with six
+  example parts under it; on a wide screen it was a wall of part pictures.
+  Now they are one card to a line, each its picture, name, count and
+  conditions; examples show only where a page asks for them.
+- **A profile has rules and categories, never bins.** Bins are the machine's:
+  a profile says where a piece goes, and the machine gives each of those
+  places a bin. The pages called a profile's rules and fallback categories
+  "bins", beside the Sorter's own Bins page. In words a person reads, a
+  rule is a rule, what the fallback makes is a category (a color, a
+  BrickLink category), the last is Everything else, and "bin" means a real
+  one. `ProfileBin` keeps its name in code.
 - **Something to copy is a `CopyField`.** Hive showed a new API key, a new
   machine's token and the message to paste into an assistant three ways, the
   last in a warning box with the text in monospace and three buttons of three

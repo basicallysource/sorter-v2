@@ -28,7 +28,7 @@
 		[
 			`${profile.rule_count} ${profile.rule_count === 1 ? 'rule' : 'rules'}`,
 			profile.category_count != null
-				? `${profile.category_count} ${profile.category_count === 1 ? 'bin' : 'bins'}`
+				? `${profile.category_count} ${profile.category_count === 1 ? 'category' : 'categories'}`
 				: null
 		]
 			.filter(Boolean)
@@ -76,7 +76,7 @@
 			<div class="flex flex-wrap items-center justify-between gap-2">
 				<p class="text-sm text-ink-muted">{summary}</p>
 				{#if profile.is_active && onOpenBins}
-					<Button size="sm" variant="ghost" icon={Boxes} onclick={onOpenBins}>See its bins</Button>
+					<Button size="sm" variant="ghost" icon={Boxes} onclick={onOpenBins}>See its categories</Button>
 				{/if}
 			</div>
 		{/if}

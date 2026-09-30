@@ -68,7 +68,7 @@
 <div class={depth > 0 ? 'border-l border-line pl-4' : ''}>
 	<div class="flex flex-wrap items-center gap-x-2 gap-y-1 pb-1">
 		{#if depth === 0}
-			<span class="text-sm text-ink">A piece goes in this bin when it matches</span>
+			<span class="text-sm text-ink">This rule takes a piece when it matches</span>
 		{/if}
 		<Select
 			class="w-28"

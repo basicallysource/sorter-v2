@@ -116,7 +116,9 @@
 			disabled={pendingAction !== null}
 			onclick={() => void moveOutputDegrees('rotate_180', 180)}
 		>
-			180°
+			<!-- In a narrow tile (its own container) the icon stands for it, so the
+			     camera's name keeps its room in the strip. -->
+			<span class="@max-sm:sr-only">180°</span>
 		</Button>
 	{/snippet}
 </Tooltip>

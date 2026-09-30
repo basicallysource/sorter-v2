@@ -558,6 +558,7 @@
 					label={cameraLabel('c_channel_2')}
 					crop={cropFor('c_channel_2')}
 					controls={['annotations', 'crop', 'fullscreen']}
+					class="@container"
 				>
 					{#snippet actions()}
 						<CameraChannelControls stepperKey="c_channel_2" />
@@ -568,6 +569,7 @@
 					label={cameraLabel('c_channel_3')}
 					crop={cropFor('c_channel_3')}
 					controls={['annotations', 'crop', 'fullscreen']}
+					class="@container"
 				>
 					{#snippet actions()}
 						<CameraChannelControls stepperKey="c_channel_3" />
@@ -578,7 +580,7 @@
 					label={cameraLabel('classification_channel')}
 					crop={cropFor('classification_channel')}
 					controls={['annotations', 'crop', 'fullscreen']}
-					class="md:col-span-2"
+					class="@container md:col-span-2"
 				>
 					{#snippet actions()}
 						<CameraChannelControls stepperKey="c_channel_4" />

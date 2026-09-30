@@ -18,7 +18,7 @@
 	import CameraFeed from '$lib/components/CameraFeed.svelte';
 	import CollapsibleSection from '$lib/components/CollapsibleSection.svelte';
 	import RecentObjects from '$lib/components/RecentObjects.svelte';
-	import SidebarBottomTabs from '$lib/components/SidebarBottomTabs.svelte';
+	import RuntimeStats from '$lib/components/RuntimeStats.svelte';
 	import { buildDashboardFeedCrops, type DashboardFeedCrop } from '$lib/dashboard/crops';
 	import House from '@lucide/svelte/icons/house';
 	import Plug from '@lucide/svelte/icons/plug';
@@ -279,7 +279,7 @@
 				</div>
 				<div class="max-lg:order-last lg:contents">
 					<CollapsibleSection title="Runtime" storageKey="runtimeTabs">
-						<SidebarBottomTabs />
+						<RuntimeStats />
 					</CollapsibleSection>
 				</div>
 			</div>

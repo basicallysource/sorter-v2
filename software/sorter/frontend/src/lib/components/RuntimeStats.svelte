@@ -1,182 +1,147 @@
 <script lang="ts">
+	/*
+		How sorting is going: the rates that matter (pieces classified and fed a
+		minute, the share that were multi-drops) and a graph of them over time.
+		Everything comes from the machine's piece records (/runtime-stats/rates),
+		so it survives restarts and a tab left in the background.
+	*/
+	import SegmentedControl from '$lib/components/ui/SegmentedControl.svelte';
 	import Stat from '$lib/components/ui/Stat.svelte';
+	import { getBackendHttpBase, machineHttpBaseUrlFromWsUrl } from '$lib/backend';
 	import { getMachineContext } from '$lib/machines/context';
 
+	type Bucket = { t: number; seen: number; classified: number; multi_drop: number };
+	type Span = '10m' | '1h' | 'today';
+
 	const ctx = getMachineContext();
+	const SPANS: { value: Span; label: string }[] = [
+		{ value: '10m', label: '10 min' },
+		{ value: '1h', label: '1 hour' },
+		{ value: 'today', label: 'Today' }
+	];
+	// Rates on the numbers are over the last five minutes.
+	const RECENT_S = 300;
 
-	type ChannelThroughputEntry = {
-		active_ppm?: number;
-	};
+	let span = $state<Span>('1h');
+	let buckets = $state<Bucket[]>([]);
+	let window_ = $state({ since: 0, bucket: 60, now: 0 });
 
-	const runtime_stats = $derived((ctx.machine?.runtimeStats ?? {}) as Record<string, unknown>);
-	const counts = $derived((runtime_stats.counts ?? {}) as Record<string, number>);
-	const throughput = $derived((runtime_stats.throughput ?? {}) as Record<string, unknown>);
-	const channel_throughput = $derived(
-		(runtime_stats.channel_throughput ?? {}) as Record<string, ChannelThroughputEntry>
-	);
-	const c4 = $derived(channel_throughput.classification_channel ?? {});
+	function windowFor(s: Span): { since: number; bucket: number } {
+		const now = Date.now() / 1000;
+		if (s === '10m') return { since: now - 600, bucket: 20 };
+		if (s === '1h') return { since: now - 3600, bucket: 60 };
+		const midnight = new Date();
+		midnight.setHours(0, 0, 0, 0);
+		return { since: midnight.getTime() / 1000, bucket: 300 };
+	}
 
-	// Derived metrics
-	const pieces_seen = $derived(counts.pieces_seen ?? 0);
-	const classified_n = $derived(counts.classified ?? 0);
-	const distributed_n = $derived(counts.distributed ?? 0);
-	const multi_drop_n = $derived(counts.multi_drop_fail ?? 0);
-	const unknown_n = $derived((counts.unknown ?? 0) + (counts.not_found ?? 0));
+	async function load() {
+		const w = windowFor(span);
+		const base = machineHttpBaseUrlFromWsUrl(ctx.machine?.url) ?? getBackendHttpBase();
+		try {
+			const res = await fetch(`${base}/runtime-stats/rates?since=${w.since}&bucket_s=${w.bucket}`);
+			if (!res.ok) return;
+			const body = await res.json();
+			buckets = body.buckets ?? [];
+			window_ = { ...w, now: Date.now() / 1000 };
+		} catch {
+			// The next poll tries again.
+		}
+	}
 
-	// Classification success rate (classified vs. total finished classifications).
-	const classification_success_pct = $derived.by(() => {
-		const finished = classified_n + unknown_n + multi_drop_n;
-		if (finished === 0) return null;
-		return (classified_n / finished) * 100;
-	});
-
-	// Multi-drop rate: multi_drop_fail / pieces_seen.
-	const multi_drop_pct = $derived.by(() => {
-		if (pieces_seen === 0) return null;
-		return (multi_drop_n / pieces_seen) * 100;
-	});
-
-	const c4_active_ppm = $derived(typeof c4.active_ppm === 'number' ? c4.active_ppm : 0);
-
-	// Rolling 5-minute distributed ppm — all pieces physically distributed in
-	// the last 300 s, regardless of classification outcome.
-	const rolling_5min_ppm = $derived.by(() => {
-		const v = (throughput as Record<string, unknown>).rolling_5min_ppm;
-		return typeof v === 'number' && Number.isFinite(v) ? v : null;
-	});
-
-	// Feed rate: pieces_seen / running_time_s.
-	const feed_rate_ppm = $derived.by(() => {
-		const running_s = throughput.running_time_s;
-		if (typeof running_s !== 'number' || running_s <= 0) return 0;
-		return (pieces_seen * 60) / running_s;
-	});
-
-	// Active pieces in C4 (pieces past feeding, pre-distributed).
-	const active_in_c4 = $derived.by(() => {
-		const recent = ctx.machine?.recentObjects ?? [];
-		return recent.filter(
-			(o) =>
-				o.first_carousel_seen_ts != null &&
-				o.stage !== 'distributed' &&
-				!o.distributed_at
-		).length;
-	});
-
-	// ── Local rolling 60 s sparkline ────────────────────────────────────────
-	// We track classified_n over time locally so we can show the last 60 s of
-	// classification throughput in 10 s buckets (6 bars).
-	const BUCKET_S = 10;
-	const N_BUCKETS = 6;
-	let samples = $state<{ t: number; classified: number }[]>([]);
-	let now_tick = $state(0);
 	$effect(() => {
-		const id = setInterval(() => {
-			now_tick += 1;
-			const now = Date.now() / 1000;
-			samples = [
-				...samples.filter((s) => now - s.t <= BUCKET_S * N_BUCKETS + BUCKET_S),
-				{ t: now, classified: classified_n }
-			];
-		}, 1000);
+		void span;
+		void ctx.machine?.url;
+		load();
+		const id = setInterval(load, 15000);
 		return () => clearInterval(id);
 	});
 
-	const buckets = $derived.by(() => {
-		void now_tick;
-		const now = Date.now() / 1000;
-		const out: number[] = new Array(N_BUCKETS).fill(0);
-		for (let i = 0; i < N_BUCKETS; i += 1) {
-			const lo = now - BUCKET_S * (N_BUCKETS - i);
-			const hi = now - BUCKET_S * (N_BUCKETS - i - 1);
-			const earliest = samples.find((s) => s.t >= lo);
-			const latest = [...samples].reverse().find((s) => s.t <= hi);
-			if (earliest && latest && latest.classified >= earliest.classified) {
-				out[i] = latest.classified - earliest.classified;
-			}
-		}
-		return out;
+	function sum(list: Bucket[], key: keyof Omit<Bucket, 't'>): number {
+		return list.reduce((a, b) => a + b[key], 0);
+	}
+
+	const recent = $derived(buckets.filter((b) => b.t >= window_.now - RECENT_S));
+	const classified_rate = $derived((sum(recent, 'classified') * 60) / RECENT_S);
+	const feed_rate = $derived((sum(recent, 'seen') * 60) / RECENT_S);
+	const seen_n = $derived(sum(buckets, 'seen'));
+	const multi_pct = $derived(seen_n ? (sum(buckets, 'multi_drop') / seen_n) * 100 : null);
+	const classified_pct = $derived(seen_n ? (sum(buckets, 'classified') / seen_n) * 100 : null);
+
+	// The graph: one point per bucket, empty buckets as zero.
+	const W = 300;
+	const H = 90;
+	const series = $derived.by(() => {
+		const { since, bucket, now } = window_;
+		const n = Math.max(1, Math.ceil((now - since) / bucket));
+		const byIndex = new Map(buckets.map((b) => [Math.round((b.t - since) / bucket), b]));
+		const pts = Array.from({ length: n }, (_, i) => {
+			const b = byIndex.get(i);
+			const seen = b?.seen ?? 0;
+			return {
+				feed: (seen * 60) / bucket,
+				classified: ((b?.classified ?? 0) * 60) / bucket,
+				multi: seen ? ((b?.multi_drop ?? 0) / seen) * 100 : null
+			};
+		});
+		const ppmMax = Math.max(1, ...pts.map((p) => p.feed));
+		const pctMax = Math.max(25, ...pts.map((p) => p.multi ?? 0));
+		const x = (i: number) => (n === 1 ? W : (i / (n - 1)) * W);
+		const line = (vals: (number | null)[], max: number) =>
+			vals
+				.map((v, i) => (v == null ? null : `${x(i).toFixed(1)},${(H - (v / max) * H).toFixed(1)}`))
+				.filter((p) => p !== null)
+				.join(' ');
+		return {
+			ppmMax,
+			pctMax,
+			feed: line(pts.map((p) => p.feed), ppmMax),
+			classified: line(pts.map((p) => p.classified), ppmMax),
+			multi: line(pts.map((p) => p.multi), pctMax)
+		};
 	});
 
-	const peak_bucket = $derived(Math.max(1, ...buckets));
-
-	function fmtInt(n: number): string {
-		return Number.isFinite(n) ? Math.round(n).toString() : '–';
+	function fmtRate(n: number): string {
+		return Number.isFinite(n) ? n.toFixed(1) : '–';
 	}
 
-	function fmtPct(n: number | null, digits = 0): string {
-		if (n == null || !Number.isFinite(n)) return '–';
-		return `${n.toFixed(digits)}%`;
-	}
-
-	function fmtPpm(n: number | null | undefined): string {
-		if (typeof n !== 'number' || !Number.isFinite(n)) return '–';
-		return n.toFixed(1);
+	function fmtPct(n: number | null): string {
+		return n == null || !Number.isFinite(n) ? '–' : `${n.toFixed(0)}%`;
 	}
 </script>
 
 <div class="h-full overflow-y-auto">
-	{#if !ctx.machine || !ctx.machine.runtimeStats}
-		<p class="px-4 py-8 text-center text-sm text-ink-muted">No runtime stats yet</p>
-	{:else}
-		<div class="grid grid-cols-2 gap-px bg-line">
-			<div class="bg-surface">
-				<Stat
-					label="Distributed a minute"
-					value={fmtPpm(rolling_5min_ppm)}
-					unit="ppm"
-					hint="5 min average, goal 8"
-				/>
-			</div>
-			<div class="bg-surface">
-				<Stat
-					label="Classified"
-					value={fmtPct(classification_success_pct)}
-					hint="{classified_n} of {classified_n + unknown_n + multi_drop_n}"
-				/>
-			</div>
-			<div class="bg-surface">
-				<Stat
-					label="Multi-drop rate"
-					value={fmtPct(multi_drop_pct, 1)}
-					hint="{multi_drop_n} of {pieces_seen}"
-				/>
-			</div>
-			<div class="bg-surface">
-				<Stat label="Feed rate" value={fmtPpm(feed_rate_ppm)} unit="ppm" hint="Pieces seen" />
-			</div>
-			<div class="bg-surface">
-				<Stat label="C4 active" value={fmtPpm(c4_active_ppm)} unit="ppm" />
-			</div>
-			<div class="bg-surface">
-				<Stat label="On C4" value={fmtInt(active_in_c4)} unit="pieces" />
-			</div>
+	<div class="grid grid-cols-2 gap-px bg-line">
+		<div class="bg-surface">
+			<Stat label="Classified a minute" value={fmtRate(classified_rate)} unit="ppm" hint="Last 5 min" />
 		</div>
+		<div class="bg-surface">
+			<Stat label="Fed a minute" value={fmtRate(feed_rate)} unit="ppm" hint="Pieces seen, last 5 min" />
+		</div>
+		<div class="bg-surface">
+			<Stat label="Multi-drop rate" value={fmtPct(multi_pct)} hint="Of pieces seen" />
+		</div>
+		<div class="bg-surface">
+			<Stat label="Classified" value={fmtPct(classified_pct)} hint="Of pieces seen" />
+		</div>
+	</div>
 
-		<!-- 60 s of classifications in 10 s buckets -->
-		<div class="border-t border-line px-4 py-3">
-			<div class="flex items-baseline justify-between gap-3">
-				<span class="label">Classified in the last 60 s</span>
-				<span class="num text-sm text-ink-muted">Peak {peak_bucket}</span>
-			</div>
-			<div class="mt-2 flex h-10 items-end gap-0.5">
-				{#each buckets as v, i (i)}
-					<div
-						class="min-h-px flex-1 bg-primary"
-						style:height="{peak_bucket > 0 ? (v / peak_bucket) * 100 : 0}%"
-						title="{v} classified ({(N_BUCKETS - i) * BUCKET_S} s ago)"
-					></div>
-				{/each}
-			</div>
+	<div class="border-t border-line px-4 py-3">
+		<div class="flex items-center justify-between gap-3">
+			<SegmentedControl bind:value={span} options={SPANS} label="Time span" size="sm" />
+			<span class="num text-sm text-ink-muted">{seen_n} pieces</span>
 		</div>
-
-		<div class="flex items-baseline justify-between gap-3 border-t border-line px-4 py-2.5 text-sm">
-			<span class="text-ink-muted">Totals</span>
-			<span class="num flex items-baseline gap-3 text-ink-muted">
-				<span>Seen <span class="text-ink">{fmtInt(pieces_seen)}</span></span>
-				<span>Classified <span class="text-ink">{fmtInt(classified_n)}</span></span>
-				<span>Distributed <span class="text-ink">{fmtInt(distributed_n)}</span></span>
-			</span>
+		<svg viewBox="0 0 {W} {H}" preserveAspectRatio="none" class="mt-3 block h-24 w-full overflow-visible">
+			<line x1="0" y1={H} x2={W} y2={H} stroke="var(--color-line)" vector-effect="non-scaling-stroke" />
+			<polyline points={series.feed} fill="none" stroke="var(--color-ink-muted)" stroke-width="1.5" vector-effect="non-scaling-stroke" />
+			<polyline points={series.classified} fill="none" stroke="var(--color-primary)" stroke-width="2" vector-effect="non-scaling-stroke" />
+			<polyline points={series.multi} fill="none" stroke="var(--color-danger)" stroke-width="1.5" stroke-dasharray="3 3" vector-effect="non-scaling-stroke" />
+		</svg>
+		<div class="num mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-ink-muted">
+			<span class="flex items-center gap-1"><span class="h-0.5 w-3 bg-primary"></span>Classified/min</span>
+			<span class="flex items-center gap-1"><span class="h-0.5 w-3 bg-ink-muted"></span>Fed/min</span>
+			<span class="flex items-center gap-1"><span class="h-0.5 w-3 bg-danger"></span>Multi-drop %</span>
+			<span class="ml-auto">top {fmtRate(series.ppmMax)} ppm · {series.pctMax.toFixed(0)}%</span>
 		</div>
-	{/if}
+	</div>
 </div>

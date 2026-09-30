@@ -796,6 +796,14 @@ def getPerfHistory(window_s: float = 300.0) -> Response:
     )
 
 
+@app.get("/runtime-stats/rates")
+def getRuntimeRates(since: float, bucket_s: float = 60.0) -> Response:
+    """Pieces seen, classified and multi-dropped per bucket since ``since``."""
+    import piece_records
+
+    return _jsonResponse({"bucket_s": bucket_s, "buckets": piece_records.rateBuckets(since, bucket_s)})
+
+
 @app.get("/runtime-stats/records", response_model=RuntimeStatsRecordsResponse)
 def listRuntimeStatsRecords() -> RuntimeStatsRecordsResponse:
     import runtime_stat_records

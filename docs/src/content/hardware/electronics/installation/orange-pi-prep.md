@@ -18,19 +18,12 @@ parts_needed:
     qty: 1
   - part: wifi-module-opi5
     qty: 1
-  - part: microsd-32gb
-    qty: 1
 tools_needed: [Small Phillips screwdriver]
 ---
 
 Everything here is done to the board itself, before it goes anywhere near the machine, and that is the point of the page: the heatsink fan clips through the board and the WiFi module lives on its underside, so both want a board you can pick up and turn over. Once the Pi is in the [Orange Pi housing]({{ '/hardware/electronics/installation/orange-pi-mount/' | relative_url }}) there is a printed floor directly underneath it.
 
 Which board to buy, how much memory and storage it needs, and which WiFi module fits which variant are all on the [Orange Pi 5]({{ '/hardware/orange-pi-5/' | relative_url }}) page. This page assumes you have the parts.
-
-<div class="notice notice-warn">
-  <strong>Flash the microSD card first</strong>
-  <p>The first boot in step 5 needs a card already flashed with SorterOS, so do that before you start. <a href="{{ '/sorter/installation/sorter-os/' | relative_url }}">Install SorterOS</a> covers it.</p>
-</div>
 
 **The WiFi module is optional.** A machine staying on Ethernet does not need it, and steps 1 to 3 are skipped. The original Orange Pi 5 has no WiFi on the board, so a machine going wireless needs either this M.2 module or a Linux-compatible USB adapter.
 
@@ -76,7 +69,7 @@ This is the Pi's only cooling. Its housing's roof and floor are vented, and noth
 
 {% include step.html n="5" title="First boot, and the network" %}
 
-The network is set on a running machine, so the board does its first boot here, on the bench, before it is on anything: the microSD card flashed with SorterOS in its slot, the USB-C supply in the socket marked `PWR IN`, Ethernet to a router for that boot alone, and the antennas on. [Install SorterOS]({{ '/sorter/installation/sorter-os/' | relative_url }}) covers flashing the card, how long first boot takes and where the UI is.
+The network is set on a running machine, so the board does its first boot here, on the bench, before it is on anything: the USB-C supply in the socket marked `PWR IN`, Ethernet to a router for that boot alone, and the antennas on. [Install SorterOS]({{ '/sorter/installation/sorter-os/' | relative_url }}) covers flashing the card, how long first boot takes and where the UI is.
 
 Nothing needs installing for the module itself: the driver is in the official Orange Pi Ubuntu image that SorterOS is built on, so a SorterOS machine picks it up on its own. Third-party OS images may not have the driver at all.
 

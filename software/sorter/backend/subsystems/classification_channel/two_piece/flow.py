@@ -525,6 +525,10 @@ class TwoPieceClassificationChannel(Rev01BaseState):
         for tp in list(self._pieces.values()):
             if tp.zone != _ZONE_DROP or tp.capture_done or tp.double_feed:
                 continue
+            if tp.last_seen != now:
+                # Not in this frame: its box is where it was, and a crop of it now
+                # may be empty platter.
+                continue
             if raw is None:
                 raw = perception_service.read_bboxes_and_frame(4)
                 if raw is None:

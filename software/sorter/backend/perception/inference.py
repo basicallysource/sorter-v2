@@ -302,6 +302,11 @@ class InferenceWorker:
                 Detection(
                     bbox=bbox,
                     in_primary=in_primary,
+                    in_margin=(
+                        not in_primary
+                        and ch.exit_margin_mask is not None
+                        and bboxInsideMask(bbox, ch.exit_margin_mask)
+                    ),
                     secondary_zone_ids=sids,
                     sv_bt_track_id=tids.get(bbox),
                 )

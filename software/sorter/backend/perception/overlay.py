@@ -37,6 +37,8 @@ SECONDARY_ZONE_COLORS = {
 }
 SECONDARY_ZONE_DEFAULT_COLOR = (180, 180, 180)
 SECONDARY_DETECTION_COLOR = (255, 255, 0)
+# A piece just past a feeder channel's exit: seen, no longer on the channel.
+EXIT_MARGIN_COLOR = (160, 160, 160)
 
 _ZONE_OVERLAY_CACHE: dict[tuple, tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]] = {}
 # The zone overlay is static per channel config, so we cache the full-res build
@@ -315,6 +317,12 @@ def renderFeedOverlay(
             if not d.in_primary and d.secondary_zone_ids
         ]
         drawDetectionBoxes(img, secondary_hits, SECONDARY_DETECTION_COLOR, thick)
+        margin_hits = [
+            _scaleBbox(d.bbox, scale)
+            for d in detections
+            if not d.in_primary and getattr(d, "in_margin", False)
+        ]
+        drawDetectionBoxes(img, margin_hits, EXIT_MARGIN_COLOR, thick)
     drawDetectionBoxes(
         img, [_scaleBbox(b, scale) for b in on_bboxes], ON_CHANNEL_COLOR, thick
     )

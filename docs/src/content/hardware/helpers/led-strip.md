@@ -25,7 +25,7 @@ parts_needed:
 tools_needed: [Side cutters, Wire strippers, "Soldering iron, solder and heatshrink", Multimeter, "Only if you make your own lead: crimp tool"]
 ---
 
-A camera lamp's power is **two cables that meet at a barrel plug and socket**, so a lamp can come off without unwiring the board end. **A machine takes three of each.** The quantities above are a whole machine's worth: one 5 m roll cuts into five lengths, and the Dupont leads come five to a pack.
+A camera lamp's power is **two cables that meet at a barrel plug and socket**, so a lamp can come off without unwiring the board end. **This layout makes maintenance easier:** the power supply to a lamp can be disconnected right next to the lamp, so you can take a lamp down, swap it or work on it without touching the board end of its cable or the cables of the other lamps. **A machine takes three of each.** The quantities above are a whole machine's worth: one 5 m roll cuts into five lengths, and the Dupont leads come five to a pack.
 
 <dl class="spec-list">
   <dt>Lamp pigtail</dt><dd>The strip, a clamp-on connector (or solder) and a male barrel plug on the plug's own short leads, about 150 mm (6 in). It stays with the lamp.</dd>

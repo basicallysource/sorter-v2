@@ -1,8 +1,9 @@
 <!--
-	The dashboard. From lg up it fits the window: the cameras fill the left,
-	the status and the numbers sit top right, and the recent pieces take the
-	rest of the right column and scroll inside their panel. On a phone the
-	status and its Home come first, then the cameras, then the pieces.
+	The dashboard. From lg up it fits the window: the cameras on the left, laid
+	out to their pictures so none has a bar (docs/layout.md, the dashboard
+	layout), and one column on the right with the status, the numbers and the
+	recent pieces, which scroll inside their panel. On a phone the status and
+	its Home come first, then the cameras, then the pieces.
 -->
 <script lang="ts">
 	import Camera from '@lucide/svelte/icons/camera';
@@ -87,6 +88,13 @@
 		}
 	];
 
+	// A part's picture: a shape with no background of its own, so it sits on the row.
+	function partImage(hex: string) {
+		const edge = 'stroke="#000000" stroke-opacity="0.28" stroke-width="2"';
+		const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="112" height="112" viewBox="0 0 112 112"><circle cx="38" cy="34" r="11" fill="${hex}" ${edge}/><circle cx="74" cy="34" r="11" fill="${hex}" ${edge}/><rect x="14" y="38" width="84" height="46" rx="3" fill="${hex}" ${edge}/></svg>`;
+		return `data:image/svg+xml,${encodeURIComponent(svg)}`;
+	}
+
 	function tone(confidence: number) {
 		return confidence >= 70
 			? 'text-success-ink'
@@ -108,79 +116,79 @@
 	<Camera size={24} class="text-ink-faint" />
 {/snippet}
 
+<!-- --feed is a picture's height over its width (9 / 16 for 16:9). The row is a
+     size container, so the cameras' width can come from its height. -->
 <div
-	class="grid gap-(--gap-panels) p-4 sm:p-6 lg:min-h-0 lg:flex-1 lg:grid-cols-[minmax(0,1fr)_24rem] lg:grid-rows-[auto_minmax(0,1fr)]"
+	class="flex flex-col gap-(--gap-panels) p-4 sm:p-6 lg:[container-type:size] lg:min-h-0 lg:flex-1 lg:flex-row lg:justify-center"
+	style="--feed: 0.5625"
 >
-	<div class="flex flex-col gap-(--gap-panels) lg:col-start-2 lg:row-start-1">
-		<Panel>
-			<div class="flex items-start justify-between gap-4">
-				<div class="min-w-0">
-					<div class="flex items-center gap-2">
-						<span class="text-base font-semibold text-ink">Standby</span>
-						<Badge tone="warning" dot>Not homed</Badge>
-					</div>
-					<p class="mt-1 text-sm text-ink-muted">
-						Home starts the hardware and moves every axis to its zero.
-					</p>
-				</div>
-				<Button variant="primary" icon={House}>Home</Button>
-			</div>
-		</Panel>
-		<div class="grid grid-cols-2 gap-px overflow-hidden rounded-panel bg-line">
-			<div class="bg-surface"><Stat label="Pieces a minute" value="14.7" /></div>
-			<div class="bg-surface"><Stat label="Sorted today" value="1,284" /></div>
-		</div>
-	</div>
-
 	<div
-		class="grid gap-(--gap-panels) md:grid-cols-2 lg:col-start-1 lg:row-span-2 lg:row-start-1 lg:min-h-0 lg:grid-rows-2"
+		class="grid grid-cols-1 gap-(--gap-panels) md:grid-cols-2 lg:w-(--cameras) lg:shrink-0 lg:self-start"
+		style="--cameras: min(100cqw - 19rem - var(--gap-panels), (100cqh - 2 * var(--size-control-lg) - (1 - var(--feed) / 2) * var(--gap-panels)) / (1.5 * var(--feed)))"
 	>
-		<MediaTile title="C-Channel 2" actions={rotate} fill expandable>
+		<MediaTile title="C-Channel 2" actions={rotate} expandable>
 			{@render noFeed()}
 		</MediaTile>
-		<MediaTile title="C-Channel 3" actions={rotate} fill expandable>
+		<MediaTile title="C-Channel 3" actions={rotate} expandable>
 			{@render noFeed()}
 		</MediaTile>
-		<MediaTile
-			title="Classification channel"
-			actions={rotate}
-			fill
-			expandable
-			class="md:col-span-2"
-		>
+		<MediaTile title="Classification channel" actions={rotate} expandable class="md:col-span-2">
 			{@render noFeed()}
 		</MediaTile>
 	</div>
 
-	<Panel title="Recent pieces" flush fill class="lg:col-start-2 lg:row-start-2">
-		<ul class="divide-y divide-line">
-			{#each pieces as piece (piece.name)}
-				<li class="flex gap-3 px-4 py-3">
-					<div class="flex size-14 shrink-0 items-center justify-center rounded-item bg-well">
-						<span
-							class="size-6 rounded-check border border-line"
-							style:background-color={piece.hex}
-							aria-hidden="true"
-						></span>
+	<!-- Beside the cameras from lg up; on a phone the wrapper disappears, so the
+	     status and the numbers come first and the pieces last. -->
+	<div
+		class="contents lg:flex lg:min-h-0 lg:max-w-160 lg:min-w-76 lg:flex-1 lg:flex-col lg:gap-(--gap-panels)"
+	>
+		<div class="flex flex-col gap-(--gap-panels) max-lg:order-first lg:shrink-0">
+			<Panel>
+				<div class="flex items-start justify-between gap-4">
+					<div class="min-w-0">
+						<div class="flex items-center gap-2">
+							<span class="text-base font-semibold text-ink">Standby</span>
+							<Badge tone="warning" dot>Not homed</Badge>
+						</div>
+						<p class="mt-1 text-sm text-ink-muted">
+							Home starts the hardware and moves every axis to its zero.
+						</p>
 					</div>
-					<div class="min-w-0 flex-1">
-						<div class="flex items-baseline justify-between gap-2">
-							<span class="truncate text-sm font-medium text-ink" title={piece.name}
-								>{piece.name}</span
-							>
-							<span class="num shrink-0 text-sm {tone(piece.confidence)}">{piece.confidence}%</span>
+					<Button variant="primary" icon={House}>Home</Button>
+				</div>
+			</Panel>
+			<div class="grid grid-cols-2 gap-px overflow-hidden rounded-panel bg-line">
+				<div class="bg-surface"><Stat label="Pieces a minute" value="14.7" /></div>
+				<div class="bg-surface"><Stat label="Sorted today" value="1,284" /></div>
+			</div>
+		</div>
+
+		<Panel title="Recent pieces" flush fill class="max-lg:order-last lg:flex-1">
+			<ul class="divide-y divide-line">
+				{#each pieces as piece (piece.name)}
+					<li class="flex gap-3 px-4 py-3">
+						<img src={partImage(piece.hex)} alt="" class="size-14 shrink-0 object-contain" />
+						<div class="min-w-0 flex-1">
+							<div class="flex items-baseline justify-between gap-2">
+								<span class="truncate text-sm font-medium text-ink" title={piece.name}
+									>{piece.name}</span
+								>
+								<span class="num shrink-0 text-sm {tone(piece.confidence)}"
+									>{piece.confidence}%</span
+								>
+							</div>
+							<div class="flex items-baseline justify-between gap-2 text-sm text-ink-muted">
+								<span class="num">{piece.part}</span>
+								<span class="num text-ink">${piece.price.toFixed(2)}</span>
+							</div>
+							<div class="mt-1.5 flex items-center justify-between gap-2">
+								<span class="truncate text-sm text-ink-muted">{piece.color} · {piece.group}</span>
+								<span class="num shrink-0 text-xs text-ink-muted">{piece.bin}</span>
+							</div>
 						</div>
-						<div class="flex items-baseline justify-between gap-2 text-sm text-ink-muted">
-							<span class="num">{piece.part}</span>
-							<span class="num text-ink">${piece.price.toFixed(2)}</span>
-						</div>
-						<div class="mt-1.5 flex items-center justify-between gap-2">
-							<span class="truncate text-sm text-ink-muted">{piece.color} · {piece.group}</span>
-							<span class="num shrink-0 text-xs text-ink-muted">{piece.bin}</span>
-						</div>
-					</div>
-				</li>
-			{/each}
-		</ul>
-	</Panel>
+					</li>
+				{/each}
+			</ul>
+		</Panel>
+	</div>
 </div>

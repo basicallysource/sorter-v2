@@ -62,8 +62,15 @@ the example app shows them together.
 - **`Switch`**: on or off, applied the moment it changes. It needs a name
   (`label`), and the switch alone shows its state: no "On" badge beside it.
 - **`SegmentedControl`**: two to five short choices that apply at once
-  (Light / Dark, Degrees / Seconds). A track and a thumb, no lines. More, or
-  longer, is a `Select`.
+  (Light / Dark, Degrees / Seconds), as one control: a single 1px
+  `line-strong` outline, the segments divided by 1px lines with no gap and no
+  padding, and the chosen segment shown by a fill, the primary's tint with its
+  ink (`bg-primary-soft text-primary-ink`, like the chosen item in a nav). No
+  track, no raised thumb: a padded well around segments reads as a thick
+  border. Keyboard focus is the 2px outline drawn inside the segment. More
+  choices, or longer ones, is a `Select`. A group of action buttons that
+  belong together (the jog control's counterclockwise, Stop and clockwise) is
+  built the same way, one outline and a line between them.
 
 ## Settings
 
@@ -97,13 +104,24 @@ the example app shows them together.
   `fill` takes the height the layout gives it and scrolls the body inside.
 - **`MediaTile`**: a camera feed or a photo. A strip with the name and its
   controls, then the picture on the media backdrop; `overlay` puts chips over
-  the picture, in a dark subtree. The picture keeps its aspect ratio, or with
-  `fill` takes the height the layout gives it from `lg` up.
-  `header={false}` is a tile that is only the picture: the name stays for a
-  screen reader, and `actions` go over the picture with `overlay`, on the
-  scrim. `expandable` adds a full screen button: the tile itself fills the
-  window on the media plane (so a live feed is not loaded twice), and "Exit
-  full screen" or Escape brings it back; `bind:expanded` drives it from code.
+  the picture, in a dark subtree. **The tile hugs its picture:** the picture's
+  box takes the picture's own shape, read from the natural size of the `<img>`
+  or `<video>` inside once it loads, with `aspect` (a CSS ratio, `"16 / 9"`
+  by default) as the shape until then. So a feed never shows a bar above and
+  below it or down its sides. A layout gives a tile a width and lets the
+  height follow, never a height the picture would not fill; a dashboard that
+  fits the window sizes the whole group of tiles so the pictures fill it
+  ([layout.md](layout.md#the-dashboard-layout)). `header={false}` is a tile
+  that is only the picture: the name stays for a screen reader, and `actions`
+  go over the picture with `overlay`, on the scrim. `expandable` adds a full
+  screen button: the tile itself fills the window on the media plane (so a
+  live feed is not loaded twice), and "Exit full screen" or Escape brings it
+  back; `bind:expanded` drives it from code. Full screen is the one place a
+  picture has bars, because the window has its own shape.
+- **A part's picture is not a media tile.** A part's image (a piece on the
+  dashboard, in a list, on a bin) sits straight on the plane under it, a
+  panel or a row, with no grey box and no well behind it. A camera feed is
+  the media plane's; a part is a picture on the page.
 - **`Card`**: a panel that is one thing to open, a machine or a profile. The
   whole card is a link (`href`) or a button (`onclick`), named by `label`;
   the pointer anywhere on it fills it a step (`hover`, then `pressed`), with

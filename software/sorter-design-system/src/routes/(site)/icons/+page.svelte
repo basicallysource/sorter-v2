@@ -10,6 +10,7 @@
 	import Settings from '@lucide/svelte/icons/settings';
 	import House from '@lucide/svelte/icons/house';
 	import Power from '@lucide/svelte/icons/power';
+	import PowerOff from '@lucide/svelte/icons/power-off';
 	import Pause from '@lucide/svelte/icons/pause';
 	import Play from '@lucide/svelte/icons/play';
 	import Square from '@lucide/svelte/icons/square';
@@ -50,7 +51,8 @@
 		{ icon: RefreshCw, name: 'refresh-cw', means: 'Rescan, reload (never spun)' },
 		{ icon: Settings, name: 'settings', means: 'Settings' },
 		{ icon: House, name: 'house', means: 'Home the machine' },
-		{ icon: Power, name: 'power', means: "The machine's power menu" },
+		{ icon: Power, name: 'power', means: 'Start the hardware' },
+		{ icon: PowerOff, name: 'power-off', means: 'Power the machine down' },
 		{ icon: Play, name: 'play', means: 'Start sorting' },
 		{ icon: Pause, name: 'pause', means: 'Pause' },
 		{ icon: Square, name: 'square', means: 'Stop a motor' },
@@ -67,7 +69,7 @@
 		{ icon: ArrowLeft, name: 'arrow-left', means: 'Back to where you were' },
 		{ icon: ArrowRight, name: 'arrow-right', means: 'Goes somewhere else' },
 		{ icon: ArrowUpRight, name: 'arrow-up-right', means: 'Leaves the app' },
-		{ icon: Ellipsis, name: 'ellipsis', means: 'More actions (a menu)' },
+		{ icon: Ellipsis, name: 'ellipsis', means: 'A button that opens a menu (three dots)' },
 		{ icon: Check, name: 'check', means: 'Chosen, done' },
 		{ icon: Sun, name: 'sun', means: 'Light mode' },
 		{ icon: Moon, name: 'moon', means: 'Dark mode' },
@@ -156,6 +158,13 @@
 			<span class="text-ink-muted"
 				>It takes the color of the words beside it, and never a color of its own, except a notice's
 				icon in its tone.</span
+			>
+		</li>
+		<li class="px-5 py-3">
+			<span class="font-medium text-ink">A button that opens a menu is three dots,</span>
+			<span class="text-ink-muted"
+				>never the icon of one of the actions inside it. The machine's menu opens from three dots; a
+				power icon would say the button powers something off.</span
 			>
 		</li>
 		<li class="px-5 py-3">

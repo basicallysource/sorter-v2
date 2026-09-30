@@ -1,5 +1,4 @@
 <script lang="ts">
-	import Power from '@lucide/svelte/icons/power';
 	import RotateCcw from '@lucide/svelte/icons/rotate-ccw';
 	import Pause from '@lucide/svelte/icons/pause';
 	import House from '@lucide/svelte/icons/house';
@@ -92,7 +91,7 @@
 	'separator',
 	{ label: 'Restart backend', icon: RotateCcw, danger: true, onselect: confirm }
 ]}>
-	{#snippet trigger(props)}<Button {...props} icon={Power} label="Machine" />{/snippet}
+	{#snippet trigger(props)}<Button {...props} icon={Ellipsis} label="Machine" />{/snippet}
 </Menu>`}
 	>
 		<div class="flex flex-wrap items-center gap-4">
@@ -112,7 +111,7 @@
 				]}
 			>
 				{#snippet trigger(props)}
-					<Button {...props} icon={Power} label="Machine" />
+					<Button {...props} icon={Ellipsis} label="Machine" />
 				{/snippet}
 			</Menu>
 			<Menu

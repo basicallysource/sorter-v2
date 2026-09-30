@@ -18,69 +18,18 @@ from app.services.openrouter import OpenRouterResponse, run_openrouter_chat
 from app.services.profile_engine import sorting_profile as profile_sorting_profile
 from app.services.profile_catalog import ProfileCatalogService
 from app.services.secrets import decrypt_secret
+from app.services.profile_engine.fields import FIELDS as PROFILE_FIELDS
 
 logger = logging.getLogger("uvicorn.error").getChild("profile_ai")
 
 
-VALID_FIELDS = {
-    "name",
-    "part_num",
-    "category_id",
-    "category_name",
-    "color_id",
-    "year_from",
-    "year_to",
-    "bricklink_id",
-    "bricklink_item_count",
-    "bricklink_primary_item_no",
-    "bl_price_min",
-    "bl_price_max",
-    "bl_price_avg",
-    "bl_price_qty_avg",
-    "bl_price_lots",
-    "bl_price_qty",
-    "bl_catalog_name",
-    "bl_catalog_category_id",
-    "bl_category_id",
-    "bl_category_name",
-    "bl_catalog_year_released",
-    "bl_catalog_weight",
-    "bl_catalog_dim_x",
-    "bl_catalog_dim_y",
-    "bl_catalog_dim_z",
-    "bl_catalog_is_obsolete",
-}
-
-VALID_OPS = {"eq", "neq", "in", "contains", "regex", "gte", "lte"}
-
-FIELD_OPS = {
-    "name": {"contains", "regex"},
-    "part_num": {"eq", "neq", "in"},
-    "category_id": {"eq", "neq", "in"},
-    "category_name": {"contains", "regex"},
-    "color_id": {"eq", "neq", "in"},
-    "year_from": {"eq", "neq", "gte", "lte"},
-    "year_to": {"eq", "neq", "gte", "lte"},
-    "bricklink_id": {"eq", "neq", "in"},
-    "bricklink_item_count": {"eq", "neq", "gte", "lte"},
-    "bricklink_primary_item_no": {"eq", "neq", "contains", "regex"},
-    "bl_price_min": {"eq", "neq", "gte", "lte"},
-    "bl_price_max": {"eq", "neq", "gte", "lte"},
-    "bl_price_avg": {"eq", "neq", "gte", "lte"},
-    "bl_price_qty_avg": {"eq", "neq", "gte", "lte"},
-    "bl_price_lots": {"eq", "neq", "gte", "lte"},
-    "bl_price_qty": {"eq", "neq", "gte", "lte"},
-    "bl_catalog_name": {"contains", "regex"},
-    "bl_catalog_category_id": {"eq", "neq", "in"},
-    "bl_category_id": {"eq", "neq", "in"},
-    "bl_category_name": {"contains", "regex"},
-    "bl_catalog_year_released": {"eq", "neq", "gte", "lte"},
-    "bl_catalog_weight": {"eq", "neq", "gte", "lte"},
-    "bl_catalog_dim_x": {"eq", "neq", "gte", "lte"},
-    "bl_catalog_dim_y": {"eq", "neq", "gte", "lte"},
-    "bl_catalog_dim_z": {"eq", "neq", "gte", "lte"},
-    "bl_catalog_is_obsolete": {"eq", "neq"},
-}
+# The fields and operators the chat may propose: the one list rules are
+# evaluated by (profile_engine.fields), with the operators each field offers,
+# less the price fields for each market section (the six plain price fields
+# cover what people ask for, and the prompt stays short).
+VALID_FIELDS = {key for key in PROFILE_FIELDS if not re.match(r"bl_price_(inv|ord)_", key)}
+FIELD_OPS = {key: set(PROFILE_FIELDS[key].ops) for key in VALID_FIELDS}
+VALID_OPS = {op for ops in FIELD_OPS.values() for op in ops}
 
 MAX_TOOL_ROUNDS = 5
 CUSTOM_SET_INTENT_RE = re.compile(

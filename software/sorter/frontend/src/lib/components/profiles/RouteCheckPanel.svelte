@@ -8,8 +8,23 @@
 	import Input from '$lib/components/ui/Input.svelte';
 	import Panel from '$lib/components/ui/Panel.svelte';
 	import ProfileBin, { type Bin } from '$lib/components/ui/ProfileBin.svelte';
+	import Select from '$lib/components/ui/Select.svelte';
+	import { fetchLegoColors, type BrickLinkColor } from '$lib/pieces/colors';
 
 	let { baseUrl }: { baseUrl: string } = $props();
+
+	// The machine's BrickLink palette, by name; the value is the color's ID.
+	let colors = $state<BrickLinkColor[]>([]);
+	$effect(() => {
+		fetchLegoColors(baseUrl)
+			.then((list) => (colors = list))
+			.catch(() => (colors = []));
+	});
+	const colorOptions = $derived([
+		{ value: '', label: 'Any color' },
+		...colors.map((c) => ({ value: String(c.id), label: c.name, hint: String(c.id) }))
+	]);
+	const colorName = (id: string) => colors.find((c) => String(c.id) === id)?.name ?? `color ${id}`;
 
 	type Answer = { category_id: string; category_name: string; bin: Partial<Bin> | null };
 
@@ -65,18 +80,8 @@
 			<Field label="BrickLink part" for="route-part">
 				<Input id="route-part" placeholder="Like 3001" autocomplete="off" bind:value={part} />
 			</Field>
-			<Field
-				label="BrickLink color"
-				for="route-color"
-				help="The number. Leave it out for any color."
-			>
-				<Input
-					id="route-color"
-					type="number"
-					placeholder="Like 5"
-					autocomplete="off"
-					bind:value={color}
-				/>
+			<Field label="Color" for="route-color" help="Type a name to jump to it.">
+				<Select id="route-color" options={colorOptions} bind:value={color} />
 			</Field>
 		</div>
 		<div>
@@ -98,7 +103,7 @@
 		<div class="mt-3 flex flex-col gap-1.5">
 			<p class="text-sm text-ink-muted">
 				<span class="num font-medium text-ink">{answer.part}</span>{answer.color
-					? ` in color ${answer.color}`
+					? ` in ${colorName(answer.color)}`
 					: ''} goes to
 			</p>
 			<div class="overflow-hidden rounded-control bg-well">

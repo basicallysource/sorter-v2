@@ -28,7 +28,7 @@
 	import PartSearch from '$lib/components/profile/PartSearch.svelte';
 	import ArrowLeft from '@lucide/svelte/icons/arrow-left';
 	import Boxes from '@lucide/svelte/icons/boxes';
-	import ImageUp from '@lucide/svelte/icons/image-up';
+	import Upload from '@lucide/svelte/icons/upload';
 	import Plus from '@lucide/svelte/icons/plus';
 	import Trash2 from '@lucide/svelte/icons/trash-2';
 	import X from '@lucide/svelte/icons/x';
@@ -563,7 +563,7 @@
 					<div class="flex items-center gap-3">
 						<KitPicture src={kit.image_url} class="size-14 shrink-0" />
 						<div class="flex flex-col items-start gap-1">
-							<Button size="sm" icon={ImageUp} loading={uploading} onclick={() => pictureInput?.click()}>Change picture</Button>
+							<Button size="sm" icon={Upload} loading={uploading} onclick={() => pictureInput?.click()}>Change picture</Button>
 							<span class="text-sm text-ink-muted">A JPEG or PNG. Without one, the kit shows its set or its first part.</span>
 						</div>
 						<input bind:this={pictureInput} type="file" accept="image/png,image/jpeg" class="hidden" onchange={changePicture} />

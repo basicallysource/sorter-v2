@@ -33,6 +33,7 @@ from typing import Any, Callable, Iterable
 import numpy as np
 
 from app.services.profile_engine.fields import (
+    BOOL,
     FIELDS,
     FLOAT,
     INT,
@@ -165,7 +166,7 @@ class CatalogIndex:
             return cached
         spec = FIELDS[field]
         raw = [read_field(field, self._parts[num], self.categories, self.bricklink_categories) for num in self.part_nums]
-        if spec.type in (INT, FLOAT):
+        if spec.type in (INT, FLOAT, BOOL):
             column: Any = np.array([_number_or_nan(value) for value in raw], dtype=np.float64)
         elif spec.type == STR:
             column = ["" if value is None else str(value) for value in raw]
@@ -217,7 +218,7 @@ class CatalogIndex:
                         mask[row] = True
             return ~mask if negate else mask
         column = self.column(field)
-        if spec.type in (INT, FLOAT):
+        if spec.type in (INT, FLOAT, BOOL):
             if op == "gte":
                 with np.errstate(invalid="ignore"):
                     return column >= value
@@ -559,7 +560,9 @@ def describe_condition(condition: dict[str, Any], index: CatalogIndex) -> dict[s
     labelled = []
     for value in values:
         entry = _value_label(spec.ref, value, index)
-        if spec.ref is None and spec.type in (INT, FLOAT):
+        if spec.type == BOOL:
+            entry["label"] = "Yes" if value else "No"
+        elif spec.ref is None and spec.type in (INT, FLOAT):
             entry["label"] = _format_number(value, spec.unit)
         labelled.append(entry)
     out["values"] = labelled
@@ -778,7 +781,7 @@ def compile_document(
         if rule["disabled"]:
             continue
         if catch_all_rule is not None:
-            warnings.append({"rule_id": rule_id, "message": f"Nothing reaches this rule: {categories[catch_all_rule]['name']} takes every piece first."})
+            warnings.append({"rule_id": rule_id, "code": "unreachable", "message": f"Nothing reaches this rule: {categories[catch_all_rule]['name']} takes every piece first."})
         if rule["rule_type"] in ("kit", "set"):
             inventory = inventories.get(rule_id)
             display: dict[str, Any] = {
@@ -791,7 +794,7 @@ def compile_document(
             }
             if not inventory or not inventory.get("parts"):
                 categories[rule_id] = display
-                warnings.append({"rule_id": rule_id, "message": "This kit has no parts yet."})
+                warnings.append({"rule_id": rule_id, "code": "kit_empty", "message": "This kit has no parts yet."})
                 continue
             items, any_color_lines = _kit_items(inventory, index)
             program_rules.append({"category": rule_id, "kit": items})
@@ -828,6 +831,7 @@ def compile_document(
                 warnings.append(
                     {
                         "rule_id": rule_id,
+                        "code": "kit_any_color",
                         "message": f"{any_color_lines} of this kit's lines have no color, so a piece of any color counts toward them.",
                     }
                 )
@@ -836,6 +840,7 @@ def compile_document(
                 warnings.append(
                     {
                         "rule_id": rule_id,
+                        "code": "kit_parts_taken_above",
                         "message": f"{shadowed} of this kit's parts go to rules above it; move the kit up to collect them.",
                     }
                 )
@@ -852,10 +857,10 @@ def compile_document(
         }
         categories[rule_id] = display
         if any(condition.get("invalid") for condition in _enabled_conditions(rule)):
-            warnings.append({"rule_id": rule_id, "message": "A condition here is incomplete, so this rule takes nothing until it is fixed."})
+            warnings.append({"rule_id": rule_id, "code": "condition_incomplete", "message": "A condition here is incomplete, so this rule takes nothing until it is fixed."})
             continue
         if not has_conditions(rule):
-            warnings.append({"rule_id": rule_id, "message": "This rule has no conditions yet, so it takes nothing."})
+            warnings.append({"rule_id": rule_id, "code": "no_conditions", "message": "This rule has no conditions yet, so it takes nothing."})
             continue
         received = np.zeros(size, dtype=bool)
         # What the bin is shown by: for a color-limited part of the rule, the
@@ -864,8 +869,11 @@ def compile_document(
         color_set: set[str] = set()
         any_color = False
         any_part = False
+        # Whether the rule matches any part at all, before the rules above take theirs.
+        matches_any = False
         for parts, colors in evaluator.groups([rule]):
             mask = np.ones(size, dtype=bool) if parts is True else parts
+            matches_any = matches_any or parts is True or bool(mask.any())
             receives = mask & ~fully_claimed
             if parts is not True and not receives.any():
                 continue
@@ -908,7 +916,10 @@ def compile_document(
         per_category[rule_id] = {"parts": part_count, "colors": 0 if any_color else len(color_set)}
         samples[rule_id] = display["samples"]
         if not received.any():
-            warnings.append({"rule_id": rule_id, "message": "Rules above this one already take every part it matches."})
+            if matches_any:
+                warnings.append({"rule_id": rule_id, "code": "taken_above", "message": "Rules above this one already take every part it matches."})
+            else:
+                warnings.append({"rule_id": rule_id, "code": "matches_nothing", "message": "No part in the catalog matches this rule."})
 
     fallback_by = normalize_fallback(doc["fallback_mode"])
     default_category = doc["default_category_id"]
@@ -1216,11 +1227,17 @@ def rule_matches(
     mask = np.zeros(index.size, dtype=bool)
     colors: set[str] | None = set()
     for parts, group_colors in evaluator.groups(chain):
-        mask |= np.ones(index.size, dtype=bool) if parts is True else parts
+        group = np.ones(index.size, dtype=bool) if parts is True else parts
         if group_colors is None:
             colors = None
-        elif colors is not None:
-            colors.update(group_colors)
+        else:
+            # Counted like a bin: the parts known to come in those colors, when the catalog knows.
+            known = index.known_in(group_colors)
+            if known is not None:
+                group = group & known
+            if colors is not None:
+                colors.update(group_colors)
+        mask |= group
     needle = q.strip().lower()
     rows = np.flatnonzero(mask)
     if needle:

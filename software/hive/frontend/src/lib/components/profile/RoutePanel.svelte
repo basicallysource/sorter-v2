@@ -24,7 +24,7 @@
 	import Alert from '$lib/components/Alert.svelte';
 	import ColorSelect from './ColorSelect.svelte';
 	import PartSearch from './PartSearch.svelte';
-	import ArrowDown from '@lucide/svelte/icons/arrow-down';
+	import CornerDownRight from '@lucide/svelte/icons/corner-down-right';
 	import Search from '@lucide/svelte/icons/search';
 	import X from '@lucide/svelte/icons/x';
 
@@ -221,7 +221,7 @@
 						onclick={() => (checks = checks.filter((c) => c.key !== item.key))}
 					/>
 					<div class="flex items-center gap-2 px-(--pad-panel) text-sm text-ink-muted">
-						<ArrowDown size={14} class="shrink-0" />
+						<CornerDownRight size={14} class="shrink-0" />
 						<span>{reason(result)}</span>
 					</div>
 					<ProfileBin

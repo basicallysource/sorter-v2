@@ -12,7 +12,7 @@
 	import KitPicture from '$lib/components/profile/KitPicture.svelte';
 	import SetSearch from '$lib/components/profile/SetSearch.svelte';
 	import ArrowLeft from '@lucide/svelte/icons/arrow-left';
-	import FileUp from '@lucide/svelte/icons/file-up';
+	import Upload from '@lucide/svelte/icons/upload';
 
 	type How = 'hand' | 'set' | 'list';
 	type SetResult = { set_num: string; name: string; year: number; num_parts: number; img_url: string | null };
@@ -140,7 +140,7 @@
 				{/if}
 			{:else if how === 'list'}
 				<div class="flex flex-wrap items-center gap-3">
-					<Button icon={FileUp} onclick={() => fileInput?.click()}>{fileName ? 'Choose another file' : 'Choose a file'}</Button>
+					<Button icon={Upload} onclick={() => fileInput?.click()}>{fileName ? 'Choose another file' : 'Choose a file'}</Button>
 					{#if fileName}
 						<span class="min-w-0 truncate text-sm text-ink">{fileName}</span>
 					{:else}

@@ -138,7 +138,8 @@ kind of value is listed) and, where the label does not say it all, a
 Operators: `eq`, `neq`, `in`, `not_in` (a list), `contains`, `regex`
 (text, ignoring case; `regex` is Python's, so `^Plate Round 1 x 1\b`
 works), `gte`, `lte` (numbers). Values are read as the field's type, so
-`3001` and `"3001"` both work for a BrickLink ID. Names are Rebrickable's:
+`3001` and `"3001"` both work for a BrickLink ID, and a `bool` field
+(`bl_catalog_is_obsolete`) takes `true` or `false`. Names are Rebrickable's:
 "Plate Round 1 x 1 with Solid Stud", so `contains "1 x 1"` also takes a
 "2 x 2 with 1 x 1 cutout"; anchor a pattern when that matters.
 

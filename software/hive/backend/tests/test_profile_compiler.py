@@ -390,6 +390,62 @@ class TestRuleMatches:
         # on its own, "2 x 2" also takes the 2 x 2 plate and tiles
         assert rule_matches(rules, "c", index, standalone=True)["total"] == 4
 
+    def test_a_color_limit_counts_the_parts_known_in_those_colors_like_the_bin(self):
+        index = CatalogIndex(_parts_data())
+        # BrickLink's red is 5; only two of the three bricks are known in it
+        index.set_known_colors([("3001", 5), ("3003", 5), ("3020", 5)])
+        rules = [_rule("red", "Red bricks", ("bl_category_id", "eq", 5), ("color_id", "eq", 4))]
+        result = rule_matches(rules, "red", index)
+        assert [item["part_num"] for item in result["items"]] == ["3001", "3003"]
+        assert compile_document(_doc(*rules), index).artifact["categories"]["red"]["part_count"] == result["total"]
+
+
+class TestWarningCodes:
+    def test_a_rule_that_matches_no_part_says_so(self, index):
+        compiled = compile_document(_doc(_rule("none", "Nothing", ("name", "contains", "no such part"))), index)
+        assert [(w["code"], w["message"]) for w in compiled.warnings if w["rule_id"] == "none"] == [
+            ("matches_nothing", "No part in the catalog matches this rule.")
+        ]
+
+    def test_a_rule_whose_parts_all_go_above_it_says_that_instead(self, index):
+        compiled = compile_document(
+            _doc(
+                _rule("bricks", "Bricks", ("bl_category_id", "eq", 5)),
+                _rule("small", "Small bricks", ("bl_category_id", "eq", 5), ("name", "contains", "2 x 2")),
+            ),
+            index,
+        )
+        assert [w["code"] for w in compiled.warnings if w["rule_id"] == "small"] == ["taken_above"]
+
+    def test_an_unfinished_rule_is_told_apart_by_its_code(self, index):
+        compiled = compile_document(_doc(_rule("empty", "Empty"), _rule("half", "Half", ("bl_category_id", "in", []))), index)
+        codes = {w["rule_id"]: w["code"] for w in compiled.warnings}
+        assert codes == {"empty": "no_conditions", "half": "condition_incomplete"}
+
+
+class TestYesNoFields:
+    @staticmethod
+    def _index():
+        data = _parts_data()
+        data.parts["3004"]["bricklink_data"]["items"]["3004"]["catalog"]["data"]["is_obsolete"] = True
+        data.parts["3003"]["bricklink_data"]["items"]["3003"]["catalog"]["data"]["is_obsolete"] = False
+        return CatalogIndex(data)
+
+    @pytest.mark.parametrize("value", [True, 1, "1", "yes", "true"])
+    def test_yes_is_read_however_it_is_written(self, value):
+        compiled = compile_document(_doc(_rule("old", "Obsolete", ("bl_catalog_is_obsolete", "eq", value))), self._index())
+        category = compiled.artifact["categories"]["old"]
+        assert category["part_count"] == 1
+        assert category["conditions"]["items"][0]["values"] == [{"value": 1, "label": "Yes"}]
+
+    def test_no_takes_the_parts_known_not_to_be(self):
+        compiled = compile_document(_doc(_rule("current", "Current", ("bl_catalog_is_obsolete", "eq", False))), self._index())
+        assert [s["part_num"] for s in compiled.artifact["categories"]["current"]["samples"]] == ["3003"]
+
+    def test_anything_else_is_a_problem(self, index):
+        compiled = compile_document(_doc(_rule("old", "Obsolete", ("bl_catalog_is_obsolete", "eq", "maybe"))), index)
+        assert any("is not true or false" in problem.message for problem in compiled.problems)
+
 
 class TestDisplay:
     def test_conditions_are_named(self, index):

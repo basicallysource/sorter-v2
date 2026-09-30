@@ -19,10 +19,14 @@ FLOAT = "float"
 # A part can carry several BrickLink IDs (a mold and its aliases); a condition
 # on one matches when any of them does.
 STR_LIST = "str_list"
+# A yes or no. A condition's value is true or false (1 or 0, "yes" or "no"
+# are read the same) and is stored as 1 or 0.
+BOOL = "bool"
 
 TEXT_OPS = ("contains", "regex", "eq", "neq", "in", "not_in")
 ID_OPS = ("eq", "neq", "in", "not_in")
 NUMBER_OPS = ("eq", "neq", "gte", "lte")
+YES_NO_OPS = ("eq", "neq")
 
 # What each type of field can be compared by. A field's own `ops` are the ones
 # worth offering; a saved condition may use any its type allows.
@@ -31,6 +35,7 @@ TYPE_OPS = {
     "str_list": ("eq", "neq", "in", "not_in", "contains", "regex"),
     "int": ("eq", "neq", "in", "not_in", "gte", "lte"),
     "float": ("eq", "neq", "in", "not_in", "gte", "lte"),
+    "bool": ("eq", "neq"),
 }
 
 OP_LABELS = {
@@ -95,7 +100,7 @@ FIELDS: dict[str, FieldSpec] = {
         FieldSpec("year_from", INT, "First made", "Year", NUMBER_OPS),
         FieldSpec("year_to", INT, "Last made", "Year", NUMBER_OPS),
         FieldSpec("bl_catalog_year_released", INT, "Released (BrickLink)", "Year", NUMBER_OPS),
-        FieldSpec("bl_catalog_is_obsolete", INT, "Obsolete (1 yes, 0 no)", "Part", ("eq", "neq")),
+        FieldSpec("bl_catalog_is_obsolete", BOOL, "Obsolete", "Part", YES_NO_OPS, description="Whether BrickLink lists the part as obsolete."),
         FieldSpec("bl_catalog_weight", FLOAT, "Weight", "Size", NUMBER_OPS, unit="g"),
         FieldSpec("bl_catalog_dim_x", FLOAT, "Length", "Size", NUMBER_OPS, unit="studs"),
         FieldSpec("bl_catalog_dim_y", FLOAT, "Width", "Size", NUMBER_OPS, unit="studs"),
@@ -169,6 +174,13 @@ def _coerce_one(field: FieldSpec, value: Any) -> Any:
         if not text:
             raise ConditionError(f"{field.label}: a value is required")
         return text
+    if field.type == BOOL:
+        word = str(value).strip().lower()
+        if word in ("1", "1.0", "true", "yes"):
+            return 1
+        if word in ("0", "0.0", "false", "no"):
+            return 0
+        raise ConditionError(f"{field.label}: {value!r} is not true or false")
     if field.type == INT:
         try:
             if isinstance(value, str):

@@ -56,6 +56,16 @@ class TestKeys:
         assert client.post("/api/profiles", json={"name": "Nope"}, headers=key).status_code == 403
 
 
+def test_fields_name_the_older_names_saved_rules_still_use(client: TestClient, auth_headers: dict[str, str]) -> None:
+    body = client.get("/api/profile-catalog/fields", headers=_key(client, auth_headers, ["profiles:read"])).json()
+    offered = {field["field"]: field for field in body["fields"]}
+    assert "bl_catalog_category_id" not in offered
+    assert body["aliases"]["bl_catalog_category_id"] == "bl_category_id"
+    assert body["aliases"]["bl_price_unit_quantity"] == "bl_price_lots"
+    assert offered["bl_catalog_is_obsolete"]["type"] == "bool"
+    assert offered["bl_catalog_is_obsolete"]["label"] == "Obsolete"
+
+
 class TestProfilesThroughAKey:
     def test_create_save_and_see_who_changed_it(self, client: TestClient, auth_headers: dict[str, str], catalog) -> None:
         key = _key(client, auth_headers, ["profiles:read", "profiles:write"], name="Claude")

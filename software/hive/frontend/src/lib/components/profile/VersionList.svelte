@@ -12,7 +12,7 @@
 	import Badge from '$lib/components/Badge.svelte';
 	import Button from '$lib/components/Button.svelte';
 	import Panel from '$lib/components/Panel.svelte';
-	import Upload from '@lucide/svelte/icons/upload';
+	import Globe from '@lucide/svelte/icons/globe';
 
 	let {
 		versions,
@@ -69,7 +69,7 @@
 						<div class="mt-1">
 							<Button
 								size="sm"
-								icon={Upload}
+								icon={Globe}
 								loading={publishingId === version.id}
 								onclick={() => onpublish(version)}>Publish v{version.version_number}</Button
 							>

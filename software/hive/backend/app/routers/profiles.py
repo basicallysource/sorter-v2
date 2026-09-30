@@ -86,7 +86,7 @@ from app.services.secrets import decrypt_secret
 from app.services.machine_set_progress import summarize_machine_set_progress
 from app.services.profile_catalog import PROFILE_CATALOG_SYNC_TYPES, get_profile_catalog_service
 from app.services.profile_engine.compiler import Router as ProfileRouter, expand_legacy, part_preview
-from app.services.profile_engine.fields import FIELDS, OP_LABELS
+from app.services.profile_engine.fields import FIELD_ALIASES, FIELDS, OP_LABELS
 from app.services.rate_limit import rate_limit
 
 router = APIRouter(prefix="/api", tags=["profiles"])
@@ -201,6 +201,11 @@ def list_profile_fields(_current_user: User = READ):
             for spec in FIELDS.values()
             if spec.alias_of is None
         ],
+        # Older names still found in saved rules, and the field each now is.
+        "aliases": {
+            **FIELD_ALIASES,
+            **{spec.key: spec.alias_of for spec in FIELDS.values() if spec.alias_of},
+        },
         "ops": OP_LABELS,
         # Where the values a ref names are listed.
         "refs": {

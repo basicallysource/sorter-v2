@@ -797,6 +797,8 @@ export interface ProfileBin {
 	// When a rule takes only some colors.
 	color_count?: number;
 	colors?: BinColor[];
+	// Takes any part in its colors, including parts the catalog lacks.
+	any_part?: boolean;
 	samples: BinSample[];
 	kit?: { kit_id?: string | null; set_num?: string | null; line_count: number; total_quantity: number; any_color_lines: number };
 	// A color bin's color.
@@ -805,6 +807,16 @@ export interface ProfileBin {
 
 export interface ProfileWarning {
 	rule_id: string | null;
+	// What kind of warning, for code to tell them apart; `message` is for people.
+	code?:
+		| 'unreachable'
+		| 'kit_empty'
+		| 'kit_any_color'
+		| 'kit_parts_taken_above'
+		| 'condition_incomplete'
+		| 'no_conditions'
+		| 'taken_above'
+		| 'matches_nothing';
 	message: string;
 }
 
@@ -893,12 +905,15 @@ export interface ProfileField {
 	field: string;
 	label: string;
 	group: string;
-	type: 'str' | 'str_list' | 'int' | 'float';
+	// `bool` is a yes or no, stored as 1 or 0.
+	type: 'str' | 'str_list' | 'int' | 'float' | 'bool';
 	// The operators worth offering for this field.
 	ops: string[];
 	// What a value names: "bl_category", "rb_category", "color", "part", "bl_part".
 	ref: string | null;
 	unit: string | null;
+	// What it reads, when the label does not say it all.
+	description?: string | null;
 }
 
 export interface BrickLinkCategory {
@@ -2387,7 +2402,11 @@ export const api = {
 		return request<{ results: RouteResult[] }>('POST', '/api/profiles/route', data);
 	},
 	getProfileFields() {
-		return request<{ fields: ProfileField[]; ops: Record<string, string> }>('GET', '/api/profile-catalog/fields');
+		// `aliases`: older field names still found in saved rules, and the field each now is.
+		return request<{ fields: ProfileField[]; aliases?: Record<string, string>; ops: Record<string, string> }>(
+			'GET',
+			'/api/profile-catalog/fields'
+		);
 	},
 	getBrickLinkCategories() {
 		return request<{ results: BrickLinkCategory[] }>('GET', '/api/profile-catalog/bricklink-categories');

@@ -1,139 +1,205 @@
+<!--
+	The assistant: describe a change in words and it searches the catalog, makes
+	the rules and saves them as a new version, showing each step it takes. It
+	works on the saved version, not on the draft, so a draft with unsaved changes
+	says so above the box. It keeps its conversation while another tab of the
+	editor is showing, so the page renders it always and hides it (`active`).
+-->
 <script lang="ts">
-	import { renderMarkdown } from '$lib/markdown';
-	import Spinner from '$lib/components/Spinner.svelte';
-	import Alert from '$lib/components/Alert.svelte';
-	import Badge from '$lib/components/Badge.svelte';
-	import Button from '$lib/components/Button.svelte';
-	import Input from '$lib/components/Input.svelte';
-	import Tabs from '$lib/components/Tabs.svelte';
+	import { tick } from 'svelte';
 	import ArrowRight from '@lucide/svelte/icons/arrow-right';
 	import Check from '@lucide/svelte/icons/check';
-	import GitFork from '@lucide/svelte/icons/git-fork';
 	import Send from '@lucide/svelte/icons/send';
 	import Sparkles from '@lucide/svelte/icons/sparkles';
-	import type { SortingProfileAiMessage, SortingProfileDetail, SortingProfileVersion, AiToolTraceItem } from '$lib/api';
-
-	type ToolResultListItem = {
-		id: string;
-		primary: string;
-		secondary: string | null;
-		imageUrl?: string | null;
-	};
-
-	type ExpandableToolResult = {
-		layout: 'list' | 'media-grid';
-		total: number;
-		availableCount: number;
-		singularLabel: string;
-		pluralLabel: string;
-		emptyMessage: string;
-		items: ToolResultListItem[];
-	};
-
-	type AiProgressCard = {
-		id: string;
-		kind: 'analysis' | 'tool' | 'writing' | 'applying';
-		status: 'active' | 'complete';
-		title: string;
-		detail: string | null;
-		tool?: string;
-		output?: Record<string, unknown> | null;
-		durationMs?: number | null;
-	};
-
-	interface Props {
-		profile: SortingProfileDetail;
-		rightTab: 'chat' | 'versions';
-		onRightTabChange: (tab: 'chat' | 'versions') => void;
-		hasOpenRouter: boolean;
-		aiMessages: SortingProfileAiMessage[];
-		aiMessage: string;
-		onAiMessageChange: (value: string) => void;
-		aiBusy: boolean;
-		aiError: string | null;
-		aiErrorCode: string | null;
-		isNewProfile: boolean;
-		workingRulesLength: number;
-		visibleAiProgressCards: AiProgressCard[];
-		chatContainerRef?: (el: HTMLDivElement | undefined) => void;
-		onSendAiMessage: () => void;
-		onViewVersion: (id: string) => void;
-		onRestoreVersion: (id: string) => void;
-		onForkFromVersion: (id: string) => void;
-		onExitPreview: () => void;
-		restoringVersionId: string | null;
-		previewLoading: boolean;
-		formatDate: (iso: string) => string;
-		formatDuration: (ms: number | null | undefined) => string | null;
-		displayAiMessageContent: (content: string) => string;
-		aiMessagePerformanceLabel: (message: SortingProfileAiMessage) => string | null;
-		proposalActionSummaries: (proposal: Record<string, unknown> | null) => string[];
-		toolTraceTitle: (item: AiToolTraceItem) => string;
-		getExpandableToolResult: (tool: string | undefined, output: Record<string, unknown> | null | undefined) => ExpandableToolResult | null;
-		getToolResultSummaryLine: (result: ExpandableToolResult) => string;
-		visibleToolResultItems: (result: ExpandableToolResult, key: string) => ToolResultListItem[];
-		canExpandToolResult: (result: ExpandableToolResult) => boolean;
-		isToolResultExpanded: (key: string) => boolean;
-		onToggleToolResult: (key: string) => void;
-	}
+	import {
+		api,
+		type SortingProfileAiMessage,
+		type SortingProfileDetail,
+		type SortingProfileVersion
+	} from '$lib/api';
+	import Alert from '$lib/components/Alert.svelte';
+	import Button from '$lib/components/Button.svelte';
+	import Input from '$lib/components/Input.svelte';
+	import Spinner from '$lib/components/Spinner.svelte';
+	import { renderMarkdown } from '$lib/markdown';
+	import { uuid } from '$lib/uuid';
+	import {
+		aiMessagePerformanceLabel,
+		buildAiProgressCards,
+		displayAiMessageContent,
+		formatDuration,
+		getExpandableToolResult,
+		getToolResultSummaryLine,
+		proposalActionSummaries,
+		toolTraceTitle,
+		TOOL_RESULT_COLLAPSED_COUNT,
+		type AiProgressEvent,
+		type ExpandableToolResult,
+		type ToolResultListItem
+	} from './chat-helpers';
 
 	let {
 		profile,
-		rightTab,
-		onRightTabChange,
+		selectedRuleId,
 		hasOpenRouter,
-		aiMessages,
-		aiMessage,
-		onAiMessageChange,
-		aiBusy,
-		aiError,
-		aiErrorCode,
 		isNewProfile,
-		workingRulesLength,
-		visibleAiProgressCards,
-		chatContainerRef,
-		onSendAiMessage,
-		onViewVersion,
-		onRestoreVersion,
-		onForkFromVersion,
-		onExitPreview,
-		restoringVersionId,
-		previewLoading,
-		formatDate,
-		formatDuration,
-		displayAiMessageContent,
-		aiMessagePerformanceLabel,
-		proposalActionSummaries,
-		toolTraceTitle,
-		getExpandableToolResult,
-		getToolResultSummaryLine,
-		visibleToolResultItems,
-		canExpandToolResult,
-		isToolResultExpanded,
-		onToggleToolResult
-	}: Props = $props();
+		rulesCount,
+		dirty,
+		active,
+		onbusy,
+		onapplied
+	}: {
+		profile: SortingProfileDetail;
+		// The rule being edited, which the assistant is told about.
+		selectedRuleId: string | null;
+		hasOpenRouter: boolean;
+		isNewProfile: boolean;
+		rulesCount: number;
+		// The draft has changes the assistant cannot see.
+		dirty: boolean;
+		// Whether this tab is the one showing.
+		active: boolean;
+		// It is working on a request (and may save a version any moment).
+		onbusy: (busy: boolean) => void;
+		// The assistant saved a new version.
+		onapplied: (version: SortingProfileVersion) => void;
+	} = $props();
 
-	let chatContainer: HTMLDivElement | undefined = $state(undefined);
+	let messages = $state<SortingProfileAiMessage[]>([]);
+	let draft = $state('');
+	let busy = $state(false);
+	let progress = $state<AiProgressEvent[]>([]);
+	let error = $state<string | null>(null);
+	let errorCode = $state<string | null>(null);
+	let expandedResults = $state<Set<string>>(new Set());
+	let scroller = $state<HTMLDivElement | undefined>();
 
+	// The conversation belongs to the profile's owner.
 	$effect(() => {
-		chatContainerRef?.(chatContainer);
+		if (!profile.is_owner) return;
+		const id = profile.id;
+		api
+			.getSortingProfileAiMessages(id)
+			.then((list) => {
+				if (id === profile.id) messages = list;
+			})
+			.catch(() => {});
 	});
+
+	const cards = $derived(buildAiProgressCards(progress));
+	const visibleCards = $derived.by(() => {
+		const done = cards.filter((card) => card.kind === 'tool' && card.status === 'complete');
+		const current = [...cards].reverse().find((card) => card.status === 'active');
+		const steady =
+			done.length <= 5
+				? done
+				: [...done.slice(0, 2), ...done.slice(-3)].filter(
+						(card, index, all) => all.findIndex((entry) => entry.id === card.id) === index
+					);
+		return current ? [...steady, current] : steady;
+	});
+
+	// Follow the conversation down as it grows, and when this tab comes back.
+	$effect(() => {
+		void messages.length;
+		void busy;
+		void progress.length;
+		void active;
+		if (!active) return;
+		void tick().then(() => scroller?.scrollTo({ top: scroller.scrollHeight }));
+	});
+
+	async function send() {
+		const text = draft.trim();
+		if (!text || busy) return;
+		draft = '';
+		const asked: SortingProfileAiMessage = {
+			id: uuid(),
+			role: 'user',
+			content: text,
+			model: null,
+			version_id: profile.current_version?.id ?? null,
+			applied_version_id: null,
+			selected_rule_id: selectedRuleId,
+			usage: null,
+			proposal: null,
+			tool_trace: [],
+			applied_at: null,
+			created_at: new Date().toISOString()
+		};
+		messages = [...messages, asked];
+		busy = true;
+		onbusy(true);
+		progress = [{ type: 'thinking' }];
+		error = null;
+		errorCode = null;
+		const request = {
+			message: text,
+			version_id: profile.current_version?.id ?? null,
+			selected_rule_id: selectedRuleId
+		};
+		try {
+			let response: SortingProfileAiMessage;
+			try {
+				response = await api.streamSortingProfileAiMessage(profile.id, request, (event) => {
+					progress = [...progress, event as AiProgressEvent];
+				});
+			} catch (e) {
+				// The fallback is for a backend without the streaming route. Any other
+				// failure already cost a model call; making it again would only double
+				// the bill and the wait.
+				if ((e as { status?: number })?.status !== 404) throw e;
+				progress = [{ type: 'thinking' }];
+				response = await api.createSortingProfileAiMessage(profile.id, request);
+			}
+			messages = [...messages, response];
+
+			// A reply with changes in it is saved at once.
+			const proposals =
+				response.proposal && Array.isArray((response.proposal as { proposals?: unknown }).proposals)
+					? ((response.proposal as { proposals: unknown[] }).proposals as unknown[])
+					: [];
+			if (proposals.length > 0) {
+				progress = [...progress, { type: 'applying' }];
+				const version = await api.applySortingProfileAiMessage(profile.id, response.id, {});
+				messages = messages.map((m) => (m.id === response.id ? { ...m, applied_at: new Date().toISOString() } : m));
+				onapplied(version);
+			}
+		} catch (e) {
+			const failure = e as { error?: string; message?: string; code?: string };
+			error = failure.error || failure.message || 'The request did not work.';
+			errorCode = typeof failure.code === 'string' ? failure.code : null;
+		} finally {
+			busy = false;
+			onbusy(false);
+			progress = [];
+		}
+	}
+
+	function toggleResult(key: string) {
+		const next = new Set(expandedResults);
+		if (next.has(key)) next.delete(key);
+		else next.add(key);
+		expandedResults = next;
+	}
+
+	function visibleItems(result: ExpandableToolResult, key: string): ToolResultListItem[] {
+		return expandedResults.has(key) ? result.items : result.items.slice(0, TOOL_RESULT_COLLAPSED_COUNT);
+	}
 </script>
 
 <!-- What a tool found, the same whether the step is done (a trace on a reply) or still running. -->
-{#snippet toolResult(resultView: ExpandableToolResult, key: string)}
+{#snippet toolResult(result: ExpandableToolResult, key: string)}
 	<div class="mt-1 text-sm text-ink-muted">
-		<div>{getToolResultSummaryLine(resultView)}</div>
-		{#if resultView.items.length > 0}
-			{#if resultView.layout === 'media-grid'}
-				<div class="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-2 xl:grid-cols-3">
-					{#each visibleToolResultItems(resultView, key) as item (item.id)}
+		<div>{getToolResultSummaryLine(result)}</div>
+		{#if result.items.length > 0}
+			{#if result.layout === 'media-grid'}
+				<div class="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-2">
+					{#each visibleItems(result, key) as item (item.id)}
 						<figure class="overflow-hidden rounded-control bg-well">
 							<div class="aspect-[4/3]">
 								{#if item.imageUrl}
 									<img src={item.imageUrl} alt={item.primary} class="size-full object-contain p-2" loading="lazy" />
-								{:else}
-									<div class="flex h-full items-center justify-center text-sm text-ink-faint">No picture</div>
 								{/if}
 							</div>
 							<figcaption class="px-2.5 py-2">
@@ -145,7 +211,7 @@
 				</div>
 			{:else}
 				<ul class="mt-1.5 flex flex-col gap-1">
-					{#each visibleToolResultItems(resultView, key) as item (item.id)}
+					{#each visibleItems(result, key) as item (item.id)}
 						<li class="flex min-w-0 items-baseline gap-2">
 							<span class="size-1.5 shrink-0 translate-y-[-1px] rounded-full bg-ink-faint"></span>
 							<span class="truncate text-ink">{item.primary}</span>
@@ -154,18 +220,18 @@
 					{/each}
 				</ul>
 			{/if}
-			{#if canExpandToolResult(resultView)}
-				<Button variant="ghost" size="sm" class="mt-1 -ml-2.5" onclick={() => onToggleToolResult(key)}>
-					{isToolResultExpanded(key)
+			{#if result.items.length > TOOL_RESULT_COLLAPSED_COUNT}
+				<Button variant="ghost" size="sm" class="mt-1 -ml-2.5" onclick={() => toggleResult(key)}>
+					{expandedResults.has(key)
 						? 'Show less'
-						: `Show all ${resultView.availableCount} ${resultView.availableCount === 1 ? resultView.singularLabel : resultView.pluralLabel}`}
+						: `Show all ${result.availableCount} ${result.availableCount === 1 ? result.singularLabel : result.pluralLabel}`}
 				</Button>
 			{/if}
 		{/if}
 	</div>
 {/snippet}
 
-{#snippet step(done: boolean, title: string, durationMs: number | null, resultView: ExpandableToolResult | null, key: string, detail: string | null)}
+{#snippet step(done: boolean, title: string, durationMs: number | null, result: ExpandableToolResult | null, key: string, detail: string | null)}
 	<div class="flex items-start gap-2 text-sm">
 		<span class="mt-0.5 flex size-4 shrink-0 items-center justify-center">
 			{#if done}<Check size={14} class="text-success-ink" />{:else}<Spinner size={12} class="text-ink-muted" />{/if}
@@ -175,8 +241,8 @@
 				<span class="text-ink">{title}</span>
 				{#if formatDuration(durationMs)}<span class="num shrink-0 text-ink-faint">{formatDuration(durationMs)}</span>{/if}
 			</div>
-			{#if resultView}
-				{@render toolResult(resultView, key)}
+			{#if result}
+				{@render toolResult(result, key)}
 			{:else if detail}
 				<div class="markdown-body markdown-compact mt-0.5 text-ink-muted">{@html renderMarkdown(detail)}</div>
 			{/if}
@@ -184,81 +250,24 @@
 	</div>
 {/snippet}
 
-<div class="flex min-h-0 min-w-0 flex-col overflow-hidden rounded-panel bg-surface">
-	<Tabs
-		label="Assistant and versions"
-		inset
-		value={rightTab}
-		onchange={onRightTabChange}
-		items={[
-			{ value: 'chat', label: 'Chat' },
-			{ value: 'versions', label: 'Versions', count: profile.versions.length }
-		]}
-	/>
-
-	{#if rightTab === 'versions'}
-		<div class="flex-1 overflow-y-auto">
-			{#if profile.versions.length === 0}
-				<p class="p-6 text-center text-sm text-ink-muted">No versions yet.</p>
-			{:else}
-				<ul class="divide-y divide-line">
-					{#each [...profile.versions].reverse() as version (version.id)}
-						{@const isCurrent = version.id === profile.current_version?.id}
-						<li class="flex flex-col gap-1 px-(--pad-panel) py-3 {isCurrent ? 'bg-primary-soft' : ''}">
-							<div class="flex items-center justify-between gap-2">
-								<div class="flex items-center gap-2">
-									<span class="num font-medium {isCurrent ? 'text-primary-ink' : 'text-ink'}">v{version.version_number}</span>
-									{#if isCurrent}<Badge tone="primary">Current</Badge>{/if}
-									{#if version.is_published}<Badge tone="success">Published</Badge>{/if}
-									{#if version.label}<Badge>{version.label}</Badge>{/if}
-								</div>
-								<span class="text-sm text-ink-muted">{formatDate(version.created_at)}</span>
-							</div>
-							{#if version.change_note}<p class="text-sm text-ink-muted">{version.change_note}</p>{/if}
-							<p class="num text-sm text-ink-muted">{version.compiled_part_count} parts</p>
-							<div class="mt-1 flex gap-2">
-								<Button
-									size="sm"
-									disabled={previewLoading}
-									onclick={() => {
-										if (isCurrent) onExitPreview();
-										else onViewVersion(version.id);
-									}}>View</Button
-								>
-								{#if !isCurrent}
-									<Button
-										size="sm"
-										loading={restoringVersionId === version.id}
-										disabled={restoringVersionId !== null}
-										onclick={() => onRestoreVersion(version.id)}>Restore</Button
-									>
-								{/if}
-								<Button size="sm" variant="ghost" icon={GitFork} onclick={() => onForkFromVersion(version.id)}
-									>Fork</Button
-								>
-							</div>
-						</li>
-					{/each}
-				</ul>
-			{/if}
-		</div>
-	{:else if !hasOpenRouter}
+<div class="flex min-h-0 flex-1 flex-col {active ? '' : 'hidden'}">
+	{#if !hasOpenRouter}
 		<div class="flex flex-1 flex-col items-center justify-center gap-3 p-6 text-center">
 			<Sparkles size={24} class="text-ink-faint" />
 			<p class="text-sm text-ink-muted">The assistant needs an OpenRouter key.</p>
 			<Button href="/settings" size="sm" icon={ArrowRight}>Add one in settings</Button>
 		</div>
 	{:else}
-		<div bind:this={chatContainer} class="flex-1 overflow-y-auto p-4">
-			{#if aiMessages.length === 0}
+		<div bind:this={scroller} class="min-h-0 flex-1 overflow-y-auto p-4">
+			{#if messages.length === 0}
 				<div class="flex h-full flex-col items-center justify-center gap-1 text-center">
 					<Sparkles size={24} class="mb-2 text-ink-faint" />
 					<p class="text-sm font-medium text-ink">Describe what you want to sort</p>
-					<p class="text-sm text-ink-muted">The assistant creates categories, adds rules and refines them with you.</p>
+					<p class="text-sm text-ink-muted">The assistant makes the rules, changes them, and saves a version.</p>
 				</div>
 			{:else}
 				<div class="flex min-w-0 flex-col gap-4">
-					{#each aiMessages as msg (msg.id)}
+					{#each messages as msg (msg.id)}
 						<div class="min-w-0 {msg.role === 'user' ? 'ml-8' : 'mr-8'}">
 							{#if msg.role === 'assistant'}
 								{#if msg.tool_trace?.length}
@@ -302,21 +311,21 @@
 							{/if}
 						</div>
 					{/each}
-					{#if aiError}
+					{#if error}
 						<div class="mr-8">
-							<Alert tone="danger" title={aiError}>
-								{#if aiErrorCode?.startsWith('OPENROUTER_')}The OpenRouter key in your settings needs fixing.{/if}
+							<Alert tone="danger" title={error}>
+								{#if errorCode?.startsWith('OPENROUTER_')}The OpenRouter key in your settings needs fixing.{/if}
 								{#snippet actions()}
-									{#if aiErrorCode?.startsWith('OPENROUTER_')}
+									{#if errorCode?.startsWith('OPENROUTER_')}
 										<Button href="/settings" size="sm">Settings</Button>
 									{/if}
 								{/snippet}
 							</Alert>
 						</div>
 					{/if}
-					{#if aiBusy}
+					{#if busy}
 						<div class="mr-8 flex flex-col gap-2" aria-live="polite">
-							{#each visibleAiProgressCards as card (card.id)}
+							{#each visibleCards as card (card.id)}
 								{@render step(
 									card.status !== 'active',
 									card.title,
@@ -332,23 +341,31 @@
 			{/if}
 		</div>
 
+		{#if dirty}
+			<div class="border-t border-line px-3 pt-3">
+				<Alert tone="warning">
+					The assistant works on the saved version. Save your changes first, or they are replaced when it saves.
+				</Alert>
+			</div>
+		{/if}
 		<form
-			class="flex gap-2 border-t border-line p-3"
+			class="flex gap-2 border-t border-line p-3 {dirty ? 'border-t-0' : ''}"
 			onsubmit={(e) => {
 				e.preventDefault();
-				if (!aiBusy && aiMessage.trim()) onSendAiMessage();
+				void send();
 			}}
 		>
 			<Input
 				class="min-w-0 flex-1"
-				value={aiMessage}
-				disabled={aiBusy}
-				placeholder={isNewProfile && workingRulesLength === 0
+				aria-label="Tell the assistant what to change"
+				bind:value={draft}
+				disabled={busy}
+				autocomplete="off"
+				placeholder={isNewProfile && rulesCount === 0
 					? 'For example: sort Technic parts by what they do, gears, beams, connectors'
 					: 'Describe a change'}
-				oninput={(e) => onAiMessageChange((e.currentTarget as HTMLInputElement).value)}
 			/>
-			<Button type="submit" variant="primary" icon={Send} loading={aiBusy} disabled={!aiMessage.trim()}>Send</Button>
+			<Button type="submit" variant="primary" icon={Send} loading={busy} disabled={!draft.trim()}>Send</Button>
 		</form>
 	{/if}
 </div>

@@ -430,7 +430,16 @@ class TwoPieceClassificationChannel(Rev01BaseState):
             self.logger.info(f"{LOG_TAG} retired piece track={tid}")
 
     def _flagDoubleFeeds(self, state) -> None:
-        drop = [tp for tp in self._pieces.values() if tp.zone == _ZONE_DROP]
+        # Only pieces seen in this frame count. A piece that bounces as it lands
+        # often settles under a new track id, and its old id stays here (last
+        # seen in the drop zone) until it retires; counting that read one piece
+        # as two and sent it to misc.
+        seen = {po.sv_bt_track_id for po in getattr(state, "pieces", ())}
+        drop = [
+            tp
+            for tp in self._pieces.values()
+            if tp.zone == _ZONE_DROP and tp.track_id in seen
+        ]
         frame_ts = float(getattr(state, "ts", 0.0))
         if frame_ts != self._multi_drop_last_ts:
             self._multi_drop_last_ts = frame_ts

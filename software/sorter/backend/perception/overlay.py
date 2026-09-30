@@ -181,6 +181,12 @@ def drawChannelZones(img: np.ndarray, channel: Any, thick: int) -> None:
             outline, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE
         )
         cv2.drawContours(img, contours, -1, CHANNEL_OUTLINE_COLOR, thick, cv2.LINE_AA)
+        # The exit margin: where a piece that has left the channel is still seen.
+        margin_mask = getattr(channel, "exit_margin_mask", None)
+        if margin_mask is not None:
+            margin = _scaledMask(margin_mask, th, tw, (_zoneKey(channel), "margin"))
+            contours, _ = cv2.findContours(margin, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+            cv2.drawContours(img, contours, -1, EXIT_MARGIN_COLOR, thick, cv2.LINE_AA)
 
 
 def drawDetectionBoxes(

@@ -230,6 +230,9 @@ async def onStartup() -> None:
 
     getStatusPinger().start()
     db.watch_realtime_thread()
+    from server.routers.sorting_profiles import start_first_default_profile_if_none
+
+    start_first_default_profile_if_none()
 
 
 @app.on_event("shutdown")

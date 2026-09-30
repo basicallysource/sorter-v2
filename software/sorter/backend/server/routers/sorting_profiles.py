@@ -607,6 +607,59 @@ def apply_sorting_profile(payload: ApplySortingProfilePayload) -> dict[str, Any]
     }
 
 
+def apply_first_default_profile_if_none() -> dict[str, Any] | None:
+    """A sorter with no profile yet starts on its Hive's first default
+    profile (BrickLink categories), so it sorts sensibly as soon as it is set
+    up. Does nothing when a profile is active, or no Hive has defaults."""
+    gc = shared_state.gc_ref
+    if gc is None or os.path.exists(gc.sorting_profile_path):
+        return None
+    for target in _load_targets():
+        if not target.get("enabled"):
+            continue
+        library = _fetch_target_library(target)
+        defaults = sorted(
+            (
+                profile
+                for profile in library.get("profiles") or []
+                if isinstance(profile, dict)
+                and profile.get("is_default")
+                and isinstance(profile.get("latest_published_version"), dict)
+            ),
+            key=lambda profile: profile.get("default_rank") or 1_000_000,
+        )
+        if not defaults:
+            continue
+        profile = defaults[0]
+        version = profile["latest_published_version"]
+        gc.logger.info(f"Sorting profile: none active; starting on {profile.get('name')!r} from {target.get('name')}")
+        return apply_sorting_profile(
+            ApplySortingProfilePayload(
+                target_id=str(target["id"]),
+                profile_id=str(profile["id"]),
+                profile_name=str(profile.get("name") or "Default"),
+                version_id=str(version["id"]),
+                version_number=version.get("version_number"),
+                version_label=version.get("label"),
+            )
+        )
+    return None
+
+
+def start_first_default_profile_if_none() -> None:
+    """The same, off the request path (it downloads from Hive)."""
+    import threading
+
+    def run() -> None:
+        try:
+            apply_first_default_profile_if_none()
+        except Exception as exc:
+            if shared_state.gc_ref is not None:
+                shared_state.gc_ref.logger.warning(f"Sorting profile: could not start on a default: {exc}")
+
+    threading.Thread(target=run, name="default-profile", daemon=True).start()
+
+
 class ApplyLocalSortingProfilePayload(BaseModel):
     filename: str
     reset_bin_categories: bool = False

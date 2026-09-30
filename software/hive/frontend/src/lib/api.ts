@@ -2446,6 +2446,10 @@ export const api = {
 	}) {
 		return request<SortingProfileVersion>('POST', `/api/profiles/${id}/versions`, data);
 	},
+	// Lets other people's machines use a version (the owner's own can use any).
+	publishSortingProfileVersion(profileId: string, versionId: string) {
+		return request<SortingProfileVersion>('POST', `/api/profiles/${profileId}/versions/${versionId}/publish`);
+	},
 	saveSortingProfileToLibrary(id: string) {
 		return request<{ ok: boolean }>('POST', `/api/profiles/${id}/library`);
 	},

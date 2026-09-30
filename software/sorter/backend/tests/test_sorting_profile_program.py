@@ -122,3 +122,38 @@ def test_the_summary_leaves_the_program_out(tmp_path):
     summary = profileSummary(path)
     assert "program" not in summary
     assert summary["part_count"] == 42
+
+
+class TestStartingOnADefault:
+    def _setup(self, monkeypatch, tmp_path, *, active: bool, profiles: list[dict]):
+        from server import shared_state
+        from server.routers import sorting_profiles as router
+
+        path = tmp_path / "active_sorting_profile.json"
+        if active:
+            path.write_text("{}")
+        logger = SimpleNamespace(info=lambda *_: None, warning=lambda *_: None)
+        monkeypatch.setattr(shared_state, "gc_ref", SimpleNamespace(sorting_profile_path=str(path), logger=logger))
+        monkeypatch.setattr(router, "_load_targets", lambda: [{"id": "t1", "name": "Hive", "enabled": True}])
+        monkeypatch.setattr(router, "_fetch_target_library", lambda target: {"profiles": profiles})
+        applied: list = []
+        monkeypatch.setattr(router, "apply_sorting_profile", lambda payload: applied.append(payload) or {"ok": True})
+        return router, applied
+
+    def test_a_new_sorter_starts_on_the_first_default(self, monkeypatch, tmp_path):
+        profiles = [
+            {"id": "mine", "name": "Mine", "is_default": False, "latest_published_version": {"id": "v0"}},
+            {"id": "colors", "name": "Colors", "is_default": True, "default_rank": 2, "latest_published_version": {"id": "v2"}},
+            {"id": "bl", "name": "BrickLink categories", "is_default": True, "default_rank": 1, "latest_published_version": {"id": "v1", "version_number": 3}},
+        ]
+        router, applied = self._setup(monkeypatch, tmp_path, active=False, profiles=profiles)
+        router.apply_first_default_profile_if_none()
+        assert [(p.profile_id, p.version_id, p.version_number) for p in applied] == [("bl", "v1", 3)]
+
+    def test_a_sorter_with_a_profile_keeps_it(self, monkeypatch, tmp_path):
+        router, applied = self._setup(
+            monkeypatch, tmp_path, active=True,
+            profiles=[{"id": "bl", "is_default": True, "default_rank": 1, "latest_published_version": {"id": "v1"}}],
+        )
+        assert router.apply_first_default_profile_if_none() is None
+        assert applied == []

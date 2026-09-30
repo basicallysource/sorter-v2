@@ -287,3 +287,16 @@ class TestRecords:
         _login_user(client, "nosy@test.com", "Password123!")
         nosy = _key(client, _auth_headers(client), ["records:read"])
         assert client.get(f"/api/records/machines/{test_machine['id']}/parts", headers=nosy).status_code == 404
+
+
+def test_conditions_may_leave_out_their_ids(client: TestClient, auth_headers: dict[str, str], catalog) -> None:
+    # The skill's example document gives rules IDs (bins are assigned by them)
+    # but not conditions; Hive makes those.
+    response = client.post(
+        "/api/profiles",
+        json={"name": "Plain", "rules": [{"id": "b", "name": "2 x 4", "conditions": [{"field": "bricklink_id", "op": "eq", "value": "3001"}]}]},
+        headers=auth_headers,
+    )
+    assert response.status_code == 200, response.text
+    condition = response.json()["current_version"]["rules"][0]["conditions"][0]
+    assert condition["id"]

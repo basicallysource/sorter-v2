@@ -137,6 +137,11 @@ class SortingProfile(ABC):
     def getCategoryIdForPart(self, part_id: str, color_id: str = "any_color") -> str:
         pass
 
+    def setKitProgress(self, tracker: Any) -> None:
+        """The kit tracker whose counts decide when a kit passes pieces on;
+        a profile without kits ignores it."""
+        return None
+
     # Optional price-based override: a profile may declare a high_value_routing
     # block that reroutes any piece whose Hive moving-average price clears a
     # threshold into a chosen category (and thus that category's bin). Returns

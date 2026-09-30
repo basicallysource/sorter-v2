@@ -15,7 +15,8 @@ class ProfileOwnerResponse(BaseModel):
 
 
 class SortingProfileConditionResponse(BaseModel):
-    id: str
+    # Made on save when left out.
+    id: str | None = None
     field: str
     op: str
     value: Any

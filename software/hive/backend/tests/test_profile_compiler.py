@@ -432,3 +432,10 @@ class TestKnownColors:
         index.set_known_colors([])
         compiled = compile_document(_doc(_rule("clear", "Transparent", ("color_id", "in", [47]))), index)
         assert compiled.artifact["categories"]["clear"]["part_count"] == index.size
+
+
+def test_a_condition_with_nothing_chosen_shows_no_values(index):
+    compiled = compile_document(_doc(_rule("r1", "Unfinished", ("bl_category_id", "in", []))), index)
+    items = compiled.artifact["categories"]["r1"]["conditions"]["items"]
+    assert items[0]["invalid"] is True
+    assert items[0]["values"] == []

@@ -185,6 +185,15 @@ def start_default_profiles_thread() -> threading.Thread:
         except Exception:
             logger.exception("default profiles: could not be ensured")
             db.rollback()
+        try:
+            from app.services.profile_display import backfill_card_bins
+
+            count = backfill_card_bins(db)
+            if count:
+                logger.info("profile display: described the bins of %d older versions for their cards", count)
+        except Exception:
+            logger.exception("profile display: could not describe older versions")
+            db.rollback()
         finally:
             db.close()
 

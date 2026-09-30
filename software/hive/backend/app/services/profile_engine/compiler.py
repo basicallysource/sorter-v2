@@ -538,7 +538,10 @@ def describe_condition(condition: dict[str, Any], index: CatalogIndex) -> dict[s
         "invalid": bool(condition.get("invalid")),
     }
     if spec is None or condition.get("invalid"):
-        out["values"] = [{"value": condition.get("value"), "label": str(condition.get("value"))}]
+        # Shown as typed, and nothing when nothing was typed yet.
+        raw = condition.get("value")
+        values = raw if isinstance(raw, list) else [] if raw in (None, "") else [raw]
+        out["values"] = [{"value": value, "label": str(value)} for value in values if value not in (None, "")]
         return out
     raw = condition.get("value")
     values = raw if isinstance(raw, list) else [raw]

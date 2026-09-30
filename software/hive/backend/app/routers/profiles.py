@@ -25,7 +25,7 @@ from fastapi import APIRouter, Depends, Query, Request
 from fastapi.responses import Response, StreamingResponse
 from sqlalchemy import or_
 from sqlalchemy.exc import SQLAlchemyError
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, object_session
 
 from app.deps import (
     API_KEY_SCOPE_PROFILES_READ,
@@ -80,6 +80,7 @@ from app.services.profile_ai import (
 )
 from app.services.ai_usage import record_ai_usage
 from app.services.kits import kits_for_rules, kits_from_set_rules, missing_kits
+from app.services.profile_display import described, display_for
 from app.services.secrets import decrypt_secret
 from app.services.machine_set_progress import summarize_machine_set_progress
 from app.services.profile_catalog import PROFILE_CATALOG_SYNC_TYPES, get_profile_catalog_service
@@ -1805,19 +1806,30 @@ def _serialize_version_detail(version: SortingProfileVersion | None) -> SortingP
     summary = _serialize_version_summary(version)
     if summary is None:
         return None
-    artifact = version.compiled_artifact_json or {}
-    raw_categories = artifact.get("categories", {})
+    stats = version.compiled_stats_json if isinstance(version.compiled_stats_json, dict) else {}
+    if described(version):
+        artifact = version.compiled_artifact_json or {}
+        raw_categories = artifact.get("categories", {})
+        category_order = artifact.get("category_order") or []
+        warnings = list(stats.get("warnings") or [])
+    else:
+        # Compiled before bins were described: its rules compiled again, for
+        # display only (and never its stored map, which runs to tens of MB).
+        try:
+            display = display_for(object_session(version), version)
+            raw_categories, category_order, warnings = display["categories"], display["category_order"], display["warnings"]
+        except Exception:
+            logger.exception("profiles: version %s could not be described", version.id)
+            raw_categories = {
+                str(rule.get("id")): {"name": rule.get("name") or "Untitled"}
+                for rule in version.rules_json or []
+                if isinstance(rule, dict)
+            }
+            category_order, warnings = list(raw_categories), []
     categories: dict[str, dict[str, Any]] = {}
     if isinstance(raw_categories, dict):
         for category_id, category_meta in raw_categories.items():
             categories[str(category_id)] = dict(category_meta) if isinstance(category_meta, dict) else {}
-    category_order = artifact.get("category_order")
-    if not isinstance(category_order, list):
-        # Compiled before categories had an order: rules first, then the rest.
-        rule_ids = [str(rule.get("id")) for rule in version.rules_json or [] if isinstance(rule, dict)]
-        category_order = [rule_id for rule_id in rule_ids if rule_id in categories]
-        category_order += [category_id for category_id in categories if category_id not in category_order]
-    stats = version.compiled_stats_json if isinstance(version.compiled_stats_json, dict) else {}
     payload = summary.model_dump()
     payload.update(
         {
@@ -1826,10 +1838,12 @@ def _serialize_version_detail(version: SortingProfileVersion | None) -> SortingP
             "default_category_id": version.default_category_id,
             "rules": version.rules_json or [],
             "fallback_mode": version.fallback_mode_json or {},
-            "compiled_stats": {key: value for key, value in stats.items() if key not in ("warnings", "requires", "bins")},
+            "compiled_stats": {
+                key: value for key, value in stats.items() if key not in ("warnings", "requires", "bins", "bins_backfilled")
+            },
             "categories": categories,
-            "category_order": category_order,
-            "warnings": list(stats.get("warnings") or []),
+            "category_order": [category for category in category_order if category in categories],
+            "warnings": warnings,
         }
     )
     return SortingProfileVersionResponse(**payload)

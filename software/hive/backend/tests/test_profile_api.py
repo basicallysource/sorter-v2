@@ -13,6 +13,7 @@ from sqlalchemy.orm import Session
 import app.routers.kits as kits_router
 import app.routers.profiles as profiles_router
 import app.services.default_profiles as default_profiles
+import app.services.profile_display as profile_display
 from app.models.machine_piece import MachinePiece
 from tests.conftest import _auth_headers, _login_user, _register_user
 from tests.test_profiles import _catalog
@@ -21,7 +22,7 @@ from tests.test_profiles import _catalog
 @pytest.fixture()
 def catalog(monkeypatch):
     service = _catalog({"10283-1": [("3001", 5, 4), ("3002", 7, 2)]})
-    for module in (profiles_router, kits_router, default_profiles):
+    for module in (profiles_router, kits_router, default_profiles, profile_display):
         monkeypatch.setattr(module, "get_profile_catalog_service", lambda: service)
     return service
 
@@ -323,3 +324,42 @@ def test_the_editors_chat_can_set_a_rules_picture() -> None:
         },
     )
     assert [rule.get("image_url") for rule in rules] == ["https://img.example/3001.png", "https://img.example/3020.png"]
+
+
+def test_a_version_from_before_bins_is_described_for_pages(
+    client: TestClient, auth_headers: dict[str, str], db: Session, catalog
+) -> None:
+    from app.models.sorting_profile_version import SortingProfileVersion
+
+    profile = client.post("/api/profiles", json={"name": "Old"}, headers=auth_headers).json()
+    rules = [{"id": "r1", "name": "Bricks", "match_mode": "all", "conditions": [{"id": "c", "field": "category_id", "op": "eq", "value": 11}], "children": []}]
+    # stored the way versions were before: a flat map, and bins with names only
+    db.add(
+        SortingProfileVersion(
+            profile_id=UUID(profile["id"]),
+            version_number=2,
+            name="Old",
+            default_category_id="misc",
+            rules_json=rules,
+            fallback_mode_json={},
+            compiled_artifact_json={"part_to_category": {"any_color-3001": "r1"}, "categories": {"r1": {"name": "Bricks"}}},
+            compiled_stats_json={"total_parts": 5, "matched": 1},
+            compiled_hash="old",
+            compiled_part_count=1,
+        )
+    )
+    from app.models.sorting_profile import SortingProfile
+
+    db.query(SortingProfile).filter(SortingProfile.id == UUID(profile["id"])).update({"latest_version_number": 2})
+    db.commit()
+
+    version = client.get(f"/api/profiles/{profile['id']}", headers=auth_headers).json()["current_version"]
+    assert version["version_number"] == 2
+    bricks = version["categories"]["r1"]
+    assert bricks["kind"] == "rule"
+    assert bricks["conditions"]["items"][0]["values"][0]["label"] == "Bricks"
+    assert version["category_order"][0] == "r1"
+
+    assert profile_display.backfill_card_bins(db) == 1
+    listed = client.get("/api/profiles?scope=mine", headers=auth_headers).json()
+    assert listed[0]["latest_version"]["bins"][0]["name"] == "Bricks"

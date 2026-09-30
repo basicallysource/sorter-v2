@@ -35,11 +35,11 @@
 		{#if image}
 			<button
 				type="button"
-				class="shrink-0 rounded-control bg-well p-2 transition-colors hover:bg-hover"
+				class="shrink-0 rounded-control p-2 transition-colors hover:bg-hover"
 				aria-label="Enlarge the {imageAlt}"
 				onclick={onImageClick}
 			>
-				<img src={image} alt={imageAlt} class="size-24 rounded-item bg-surface object-contain" loading="lazy" />
+				<img src={image} alt={imageAlt} class="size-24 rounded-item object-contain" loading="lazy" />
 			</button>
 		{/if}
 	</div>

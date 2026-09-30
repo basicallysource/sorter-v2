@@ -106,7 +106,7 @@
 				<img
 					src={rule.set_meta.img_url}
 					alt={rule.set_meta?.name ?? rule.name}
-					class="size-20 shrink-0 rounded-item bg-surface object-contain"
+					class="size-20 shrink-0 rounded-item object-contain"
 				/>
 			{/if}
 			<div class="min-w-0 flex-1 space-y-2">

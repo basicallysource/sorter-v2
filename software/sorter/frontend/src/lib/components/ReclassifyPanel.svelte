@@ -123,7 +123,7 @@
 						: 'opacity-70 hover:bg-hover hover:opacity-100'}"
 					title={img.label}
 				>
-					<img src={srcOf(img)} alt={img.label} class="size-24 rounded-item bg-surface object-contain" loading="lazy" />
+					<img src={srcOf(img)} alt={img.label} class="size-24 rounded-item object-contain" loading="lazy" />
 					{#if isSel}
 						<span class="absolute top-2 right-2 rounded-badge bg-primary p-0.5 text-on-primary">
 							<Check size={12} />
@@ -155,7 +155,7 @@
 								? result.best_item.img_url
 								: `https:${result.best_item.img_url}`}
 							alt={result.best_item.name}
-							class="size-16 shrink-0 rounded-item bg-surface object-contain"
+							class="size-16 shrink-0 rounded-item object-contain"
 							loading="lazy"
 						/>
 					{/if}

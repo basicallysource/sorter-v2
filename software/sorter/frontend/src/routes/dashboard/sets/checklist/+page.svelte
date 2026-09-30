@@ -190,7 +190,7 @@
 							<img
 								src={set_progress.img_url}
 								alt={set_progress.name || set_progress.set_num}
-								class="size-14 shrink-0 rounded-item bg-well object-contain"
+								class="size-14 shrink-0 rounded-item object-contain"
 								loading="lazy"
 							/>
 						{/if}

@@ -266,7 +266,7 @@
 							<img
 								src={data.img_url}
 								alt={data.name}
-								class="size-28 shrink-0 rounded-control bg-well object-contain"
+								class="size-28 shrink-0 rounded-control object-contain"
 							/>
 						{/if}
 						<div>

@@ -33,11 +33,11 @@
 			type="button"
 			class="flex flex-col gap-1 rounded-control p-1 text-left transition-colors {item.used
 				? 'bg-primary-soft'
-				: 'bg-well hover:bg-hover'}"
+				: 'hover:bg-hover'}"
 			title={item.title}
 			onclick={() => onZoom(item)}
 		>
-			<div class="relative aspect-square w-full overflow-hidden rounded-item bg-surface">
+			<div class="relative aspect-square w-full overflow-hidden rounded-item">
 				<img
 					src={item.src}
 					alt={item.alt ?? ''}

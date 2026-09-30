@@ -263,8 +263,8 @@
 		<!-- The pictures -->
 		{#if liveCrop && imgState === undefined}
 			<div class="flex flex-wrap gap-2">
-				<div class="flex flex-col items-center gap-1 rounded-control bg-well p-1">
-					<img src={liveCrop} alt="live crop" class="size-28 rounded-item bg-surface object-contain" />
+				<div class="flex flex-col items-center gap-1">
+					<img src={liveCrop} alt="live crop" class="size-28 rounded-item object-contain" />
 					<span class="text-xs font-medium text-primary-ink">Live</span>
 				</div>
 			</div>
@@ -290,14 +290,14 @@
 								? 'bg-primary-soft'
 								: state === 'dropped'
 									? 'bg-danger-soft'
-									: 'bg-well'}"
+									: ''}"
 							title={state === 'used'
 								? 'Used: produced the applied result'
 								: state === 'dropped'
 									? 'Sent in a parallel request that lost, so thrown out'
 									: 'Captured, not shipped'}
 						>
-							<div class="size-16 rounded-item bg-surface {state === 'dropped' ? 'opacity-50' : ''}">
+							<div class="size-16 rounded-item {state === 'dropped' ? 'opacity-50' : ''}">
 								{#if src}
 									<img {src} alt={img.source} class="size-full object-contain" loading="lazy" />
 								{/if}
@@ -311,11 +311,11 @@
 					{/each}
 				</div>
 				{#if imgState.stockUrl}
-					<div class="ml-auto flex flex-col items-center gap-1 rounded-control bg-well p-1">
+					<div class="ml-auto flex flex-col items-center gap-1">
 						<img
 							src={imgState.stockUrl}
 							alt="Brickognize reference"
-							class="size-28 rounded-item bg-surface object-contain"
+							class="size-28 rounded-item object-contain"
 							loading="lazy"
 						/>
 						<span class="text-xs text-ink-muted">Brickognize</span>

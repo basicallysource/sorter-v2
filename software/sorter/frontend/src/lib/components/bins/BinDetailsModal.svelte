@@ -296,8 +296,8 @@
 			{:else}
 				<div class="grid grid-cols-3 gap-3 sm:grid-cols-4 lg:grid-cols-5">
 					{#each detailsBin.contents.items as item}
-						<div class="overflow-hidden rounded-control bg-well">
-							<div class="relative m-2 mb-0 rounded-item bg-surface p-2">
+						<div class="overflow-hidden rounded-control">
+							<div class="relative p-2">
 								<div class="h-24 w-full">
 									<PieceThumb src={previewUrl(item)} alt={pieceTooltip(item)} fallbackText={item.part_id ?? '?'} />
 								</div>

@@ -704,10 +704,10 @@
 {#snippet thumbCrop(src: string, alt: string, label: string, onclick: () => void)}
 	<button
 		type="button"
-		class="flex flex-col gap-1 rounded-control bg-well p-1 text-left transition-colors hover:bg-hover"
+		class="flex flex-col gap-1 rounded-control p-1 text-left transition-colors hover:bg-hover"
 		{onclick}
 	>
-		<img {src} {alt} class="size-32 rounded-item bg-surface object-contain" loading="lazy" />
+		<img {src} {alt} class="size-32 rounded-item object-contain" loading="lazy" />
 		{#if label}<span class="px-1 text-xs text-ink-muted">{label}</span>{/if}
 	</button>
 {/snippet}
@@ -916,7 +916,7 @@
 				<Panel title="Arrival snapshot">
 					<button
 						type="button"
-						class="flex flex-col gap-1 rounded-control bg-well p-1 text-left transition-colors hover:bg-hover"
+						class="flex flex-col gap-1 rounded-control p-1 text-left transition-colors hover:bg-hover"
 						onclick={() => (zoomImage = { src: drop_src, label: 'At arrival' })}
 					>
 						<img

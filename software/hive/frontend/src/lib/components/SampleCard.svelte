@@ -1,4 +1,5 @@
 <script lang="ts">
+	import Card from './Card.svelte';
 	import type { Sample } from '$lib/api';
 	import { api } from '$lib/api';
 
@@ -16,11 +17,12 @@
 	// status hues stay put in both themes — but they come from the tokens rather
 	// than repeating the hex values.
 	const statusConfig: Record<string, { label: string; color: string; bg: string }> = {
-		accepted: { label: 'Accepted', color: 'var(--color-success)', bg: 'color-mix(in srgb, var(--color-success) 12%, transparent)' },
-		rejected: { label: 'Rejected', color: 'var(--color-primary)', bg: 'color-mix(in srgb, var(--color-primary) 10%, transparent)' },
-		in_review: { label: 'Needs more reviews', color: 'var(--color-info)', bg: 'color-mix(in srgb, var(--color-info) 10%, transparent)' },
-		conflict: { label: 'Conflict', color: 'var(--color-warning)', bg: 'color-mix(in srgb, var(--color-warning) 15%, transparent)' },
-		unreviewed: { label: 'Unreviewed', color: '#FFFFFF', bg: 'rgba(0,0,0,0.45)' }
+		// Chips on a photo are solid, so they read on any picture.
+		accepted: { label: 'Accepted', color: 'var(--on-success)', bg: 'var(--success)' },
+		rejected: { label: 'Rejected', color: 'var(--on-danger)', bg: 'var(--danger)' },
+		in_review: { label: 'Needs more reviews', color: 'var(--on-info)', bg: 'var(--info)' },
+		conflict: { label: 'Conflict', color: 'var(--on-warning)', bg: 'var(--warning)' },
+		unreviewed: { label: 'Unreviewed', color: '#ffffff', bg: 'var(--scrim)' }
 	};
 
 	const sourceRoleLabels: Record<string, string> = {
@@ -80,100 +82,77 @@
 	}
 </script>
 
-<a
-	class="group block overflow-hidden border border-border bg-surface transition hover:border-text-muted"
-	{href}
->
-	<!-- Image with overlays -->
-	<div class="relative aspect-square overflow-hidden bg-bg">
+<Card {href} label="Sample {sample.local_sample_id}" padded={false} class="overflow-hidden">
+	<div class="relative aspect-square overflow-hidden bg-media">
 		<img
 			src={api.sampleImageUrl(sample.id)}
 			alt="Sample {sample.local_sample_id}"
-			class="h-full w-full object-cover transition group-hover:scale-105"
+			class="size-full object-cover"
 			loading="lazy"
 			onload={onImageLoad}
 		/>
-		<!-- Bbox overlay -->
 		{#if showBboxes}
 			<svg
-				class="pointer-events-none absolute inset-0 h-full w-full transition group-hover:scale-105"
+				class="absolute inset-0 size-full"
 				viewBox="0 0 {imgNaturalWidth} {imgNaturalHeight}"
 				preserveAspectRatio="xMidYMid slice"
 			>
-				{#each bboxes as bbox}
+				{#each bboxes as bbox, i (i)}
 					<rect
 						x={bbox[0]}
 						y={bbox[1]}
 						width={bbox[2] - bbox[0]}
 						height={bbox[3] - bbox[1]}
 						fill="none"
-						class="stroke-success"
+						stroke="var(--success)"
 						stroke-width={Math.max(2, Math.round(imgNaturalWidth / 300))}
 						opacity="0.8"
 					/>
 				{/each}
 			</svg>
 		{/if}
-		<!-- Status pill — top left. Global consensus state. -->
-		<span
-			class="absolute top-1.5 left-1.5 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider"
-			style="color: {cfg.color}; background: {cfg.bg}; backdrop-filter: blur(4px);"
-		>
-			{cfg.label}
-		</span>
-		<!-- Personal decision badge — adjacent to the global pill so you can
-		     see at a glance whether you've already voted on this sample. -->
-		{#if sample.my_review_decision}
-			<span
-				class="absolute top-1.5 left-1.5 mt-5 flex items-center gap-0.5 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-white backdrop-blur-sm {sample.my_review_decision === 'accept' ? 'bg-success/85' : 'bg-primary/85'}"
-				title={sample.my_review_decision === 'accept' ? 'You accepted this' : 'You rejected this'}
-			>
-				You: {sample.my_review_decision === 'accept' ? '✓' : '✗'}
-			</span>
-		{/if}
-		<!-- Detection count — top right -->
+		<!-- The consensus, and under it your own vote, top left. -->
+		<div class="absolute top-1.5 left-1.5 flex flex-col items-start gap-1">
+			<span class="inline-flex h-(--size-badge) items-center rounded-badge px-1.5 text-xs font-medium" style="color: {cfg.color}; background: {cfg.bg};">{cfg.label}</span>
+			{#if sample.my_review_decision}
+				<span
+					class="inline-flex h-(--size-badge) items-center rounded-badge px-1.5 text-xs font-medium {sample.my_review_decision === 'accept' ? 'bg-success text-on-success' : 'bg-danger text-on-danger'}"
+					title={sample.my_review_decision === 'accept' ? 'You accepted this' : 'You rejected this'}
+					>You {sample.my_review_decision === 'accept' ? 'accepted' : 'rejected'}</span
+				>
+			{/if}
+		</div>
 		{#if sample.detection_count != null && sample.detection_count > 0}
-			<span class="absolute top-1.5 right-1.5 flex h-5 min-w-5 items-center justify-center bg-black/50 px-1 text-[10px] font-bold text-white backdrop-blur-sm">
-				{sample.detection_count}
-			</span>
+			<span class="inline-flex h-(--size-badge) items-center rounded-badge px-1.5 text-xs font-medium num absolute top-1.5 right-1.5 bg-scrim text-white" title="Pieces found">{sample.detection_count}</span>
 		{/if}
-		<!-- "Raw" marker — no teacher pass yet, boxes are likely incomplete. -->
 		{#if isRaw}
 			<span
-				class="absolute bottom-1.5 left-1.5 bg-warning/85 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-warning-ink backdrop-blur-sm"
-				title="No teacher pass yet — boxes may be incomplete. Consider waiting before reviewing."
+				class="inline-flex h-(--size-badge) items-center rounded-badge px-1.5 text-xs font-medium absolute bottom-1.5 left-1.5 bg-warning text-on-warning"
+				title="No teacher pass yet, so the boxes may be incomplete. Consider waiting before reviewing."
+				>Raw</span
 			>
-				Raw
-			</span>
 		{/if}
-		<!-- Exposure badge — bottom right so it doesn't collide with Raw. -->
 		{#if exposureLabel}
 			<span
-				class="absolute bottom-1.5 right-1.5 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-white backdrop-blur-sm {exposureLabel === 'underexposed' ? 'bg-canvas/85' : 'bg-primary/85'}"
+				class="inline-flex h-(--size-badge) items-center rounded-badge px-1.5 text-xs font-medium absolute right-1.5 bottom-1.5 bg-scrim text-white"
 				title={exposureLabel === 'underexposed'
-					? `Underexposed (mean ${sample.luminance_mean?.toFixed(0)}). Likely a lights-off frame.`
-					: `Overexposed (mean ${sample.luminance_mean?.toFixed(0)}). Likely sensor saturation.`}
+					? `Underexposed (mean ${sample.luminance_mean?.toFixed(0)}); probably a frame with the lights off.`
+					: `Overexposed (mean ${sample.luminance_mean?.toFixed(0)}); probably a saturated sensor.`}
+				>{exposureLabel === 'underexposed' ? 'Dark' : 'Bright'}</span
 			>
-				{exposureLabel === 'underexposed' ? 'Dark' : 'Bright'}
-			</span>
 		{/if}
 	</div>
 
-	<!-- Info row -->
-	<div class="flex items-center justify-between px-2.5 py-2">
-		<div class="flex items-center gap-1.5 text-[10px] text-text-muted">
-			{#if roleLabel}
-				<span class="font-medium text-text">{roleLabel}</span>
-				<span class="text-border">&middot;</span>
-			{/if}
-			<span>{timeAgo}</span>
+	<div class="flex items-center justify-between gap-2 px-2.5 py-2 text-sm text-ink-muted">
+		<span class="flex min-w-0 items-center gap-1.5">
+			{#if roleLabel}<span class="truncate text-ink">{roleLabel}</span>{/if}
+			<span class="shrink-0">{timeAgo}</span>
 			{#if score !== null}
-				<span class="text-border">&middot;</span>
-				<span class="{score >= 80 ? 'text-success' : score >= 50 ? 'text-text' : 'text-primary'}">{score}%</span>
+				<span class="num shrink-0 {score >= 80 ? 'text-success-ink' : score >= 50 ? 'text-ink' : 'text-danger-ink'}"
+					>{score}%</span
+				>
 			{/if}
-		</div>
-		{#if sample.review_count > 0}
-			<span class="text-[10px] text-text-muted">{sample.review_count}x</span>
-		{/if}
+		</span>
+		{#if sample.review_count > 0}<span class="num shrink-0" title="Reviews">{sample.review_count}x</span>{/if}
 	</div>
-</a>
+</Card>

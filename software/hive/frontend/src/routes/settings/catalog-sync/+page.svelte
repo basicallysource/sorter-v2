@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { sentence } from '$lib/text';
 	import { onDestroy } from 'svelte';
 	import { goto } from '$app/navigation';
 	import { auth } from '$lib/auth.svelte';
@@ -10,8 +11,14 @@
 		type CatalogSyncTypeState
 	} from '$lib/api';
 	import Spinner from '$lib/components/Spinner.svelte';
+	import KeyValue from '$lib/components/KeyValue.svelte';
+	import PageHeader from '$lib/components/PageHeader.svelte';
+	import Panel from '$lib/components/Panel.svelte';
+	import ProgressBar from '$lib/components/ProgressBar.svelte';
+	import ArrowLeft from '@lucide/svelte/icons/arrow-left';
 	import Badge from '$lib/components/Badge.svelte';
-	import { Button, Alert } from '$lib/components/primitives';
+	import Button from '$lib/components/Button.svelte';
+	import Alert from '$lib/components/Alert.svelte';
 
 	const REFRESH_MS = 2000;
 
@@ -25,7 +32,7 @@
 		geometry: 'LDraw Geometry'
 	};
 	const TYPE_BLURBS: Record<CatalogSyncType, string> = {
-		parts: 'Full part catalog from Rebrickable (largest sync — paginated, resumable).',
+		parts: 'Full part catalog from Rebrickable (the largest sync; it pages, and resumes).',
 		categories: 'Rebrickable part categories.',
 		colors: 'Rebrickable color list.',
 		prices: 'BrickLink price guide (requires BLA_API_KEY).',
@@ -132,115 +139,74 @@
 	);
 </script>
 
-<svelte:head><title>Catalog Sync · Hive</title></svelte:head>
+<svelte:head><title>Catalog sync - Hive</title></svelte:head>
 
-<div class="mx-auto max-w-3xl px-4 py-8">
-	<div class="mb-6 flex items-center justify-between">
-		<div>
-			<a href="/settings" class="text-sm text-text-muted hover:text-text">← Settings</a>
-			<h1 class="mt-1 text-2xl font-bold text-text">Catalog Sync</h1>
-			<p class="text-sm text-text-muted">
-				Manage the Rebrickable / BrickLink catalog. Syncs resume where they left off — if the
-				server restarts mid-sync, just start the same one again.
-			</p>
-		</div>
+<div class="mx-auto flex w-full max-w-3xl flex-col gap-(--gap-panels)">
+	<div>
+		<Button href="/settings" size="sm" variant="ghost" icon={ArrowLeft}>Settings</Button>
 	</div>
+	<PageHeader
+		title="Catalog sync"
+		description="The Rebrickable and BrickLink catalog. A sync picks up where it stopped: if the server restarts during one, start the same one again."
+	/>
 
-	{#if error}
-		<div class="mb-4"><Alert variant="danger">{error}</Alert></div>
-	{/if}
-	{#if actionError}
-		<div class="mb-4"><Alert variant="danger">{actionError}</Alert></div>
-	{/if}
+	{#if error}<Alert tone="danger" class="wrap-anywhere">{error}</Alert>{/if}
+	{#if actionError}<Alert tone="danger">{actionError}</Alert>{/if}
 
 	{#if loading && !status}
 		<div class="flex justify-center p-8"><Spinner size={32} /></div>
 	{:else if status}
-		<div class="mb-6 border border-border bg-bg p-4 text-sm text-text-muted">
-			<div class="flex flex-wrap gap-x-6 gap-y-1">
-				<span>
-					Auto-sync:
-					<span class="font-medium text-text">{status.auto_sync_enabled ? 'on' : 'off'}</span>
-				</span>
-				<span>
-					Currently running:
-					<span class="font-medium text-text">{status.sync_type ?? 'nothing'}</span>
-				</span>
-				<span>Last checked: {fmtTime(status.auto_sync_last_checked_at)}</span>
+		<Panel flush>
+			<div class="px-(--pad-panel) py-1">
+				<KeyValue
+					items={[
+						{ label: 'Sync on its own', value: status.auto_sync_enabled ? 'On' : 'Off' },
+						{ label: 'Running now', value: status.sync_type ? sentence(status.sync_type) : 'Nothing' },
+						{ label: 'Last checked', value: fmtTime(status.auto_sync_last_checked_at) }
+					]}
+				/>
 			</div>
-		</div>
+		</Panel>
 
-		<div class="space-y-4">
-			{#each orderedTypes as [type, state] (type)}
-				{@const percent = pct(state)}
-				<div class="border border-border bg-surface p-5">
-					<div class="flex items-start justify-between gap-3">
-						<div>
-							<div class="flex items-center gap-2">
-								<h2 class="font-semibold text-text">{TYPE_LABELS[type]}</h2>
-								<Badge text={state.status} variant={badgeVariant(state.status)} />
-							</div>
-							<p class="mt-1 text-xs text-text-muted">{TYPE_BLURBS[type]}</p>
-						</div>
-						<div class="flex shrink-0 gap-2">
-							{#if state.status === 'running'}
-								<Button
-									variant="danger"
-									size="sm"
-									loading={busy === 'stop'}
-									disabled={busy !== null}
-									onclick={stopSync}
-								>
-									Stop
-								</Button>
-							{:else}
-								<Button
-									variant="primary"
-									size="sm"
-									loading={busy === type}
-									disabled={anyRunning || busy !== null}
-									onclick={() => startSync(type)}
-								>
-									{actionLabel(state.status)}
-								</Button>
-							{/if}
-						</div>
-					</div>
-
+		{#each orderedTypes as [type, state] (type)}
+			{@const percent = pct(state)}
+			<Panel title={TYPE_LABELS[type]} description={TYPE_BLURBS[type]}>
+				{#snippet actions()}
+					<Badge tone={badgeVariant(state.status)}>{sentence(state.status)}</Badge>
+				{/snippet}
+				<div class="flex flex-col gap-3">
 					{#if percent !== null}
-						<div class="mt-4">
-							<div class="mb-1 flex justify-between text-xs text-text-muted">
-								<span>{state.progress_current ?? 0} / {state.progress_total}</span>
+						<div>
+							<div class="num mb-1.5 flex justify-between text-sm text-ink-muted">
+								<span>{state.progress_current ?? 0} of {state.progress_total}</span>
 								<span>{percent}%</span>
 							</div>
-							<div class="h-2 bg-bg">
-								<div
-									class="h-full bg-primary transition-[width] duration-300"
-									style="width: {percent}%"
-								></div>
-							</div>
+							<ProgressBar label={`${TYPE_LABELS[type]} progress`} value={percent} />
 						</div>
 					{/if}
-
-					{#if state.last_message}
-						<p class="mt-3 break-words text-sm text-text">{state.last_message}</p>
-					{/if}
-
-					{#if state.error && state.status !== 'running'}
-						<div class="mt-3"><Alert variant="danger">{state.error}</Alert></div>
-					{/if}
-
-					<div class="mt-3 flex flex-wrap gap-x-6 gap-y-1 text-xs text-text-muted">
+					{#if state.last_message}<p class="text-sm break-words text-ink">{state.last_message}</p>{/if}
+					{#if state.error && state.status !== 'running'}<Alert tone="danger" class="wrap-anywhere">{state.error}</Alert>{/if}
+					<div class="flex flex-wrap gap-x-6 gap-y-1 text-sm text-ink-muted">
 						{#if state.cached_count !== null}
-							<span>Cached: <span class="font-medium text-text">{state.cached_count}</span></span>
+							<span>Cached <span class="num text-ink">{state.cached_count}</span></span>
 						{/if}
-						<span>Last completed: {fmtTime(state.last_synced_at)}</span>
-						{#if state.pages_fetched > 0}
-							<span>Pages this run: {state.pages_fetched}</span>
-						{/if}
+						<span>Last finished {fmtTime(state.last_synced_at)}</span>
+						{#if state.pages_fetched > 0}<span>Pages this run <span class="num text-ink">{state.pages_fetched}</span></span>{/if}
 					</div>
 				</div>
-			{/each}
-		</div>
+				{#snippet footer()}
+					{#if state.status === 'running'}
+						<Button variant="danger" loading={busy === 'stop'} disabled={busy !== null} onclick={stopSync}>Stop</Button>
+					{:else}
+						<Button
+							variant="primary"
+							loading={busy === type}
+							disabled={anyRunning || busy !== null}
+							onclick={() => startSync(type)}>{actionLabel(state.status)}</Button
+						>
+					{/if}
+				{/snippet}
+			</Panel>
+		{/each}
 	{/if}
 </div>

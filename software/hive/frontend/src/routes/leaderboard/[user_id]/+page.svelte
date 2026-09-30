@@ -2,7 +2,17 @@
 	import { page } from '$app/state';
 	import { api, type ReviewerProfile } from '$lib/api';
 	import { auth } from '$lib/auth.svelte';
+	import { sentence } from '$lib/text';
 	import Spinner from '$lib/components/Spinner.svelte';
+	import Alert from '$lib/components/Alert.svelte';
+	import Badge from '$lib/components/Badge.svelte';
+	import Button from '$lib/components/Button.svelte';
+	import EmptyState from '$lib/components/EmptyState.svelte';
+	import PageHeader from '$lib/components/PageHeader.svelte';
+	import Panel from '$lib/components/Panel.svelte';
+	import Stat from '$lib/components/Stat.svelte';
+	import ArrowLeft from '@lucide/svelte/icons/arrow-left';
+	import Check from '@lucide/svelte/icons/check';
 
 	const userId = $derived(page.params.user_id ?? '');
 
@@ -33,7 +43,7 @@
 	}
 
 	function pct(n: number | null): string {
-		return n === null ? '—' : `${Math.round(n * 100)}%`;
+		return n === null ? '-' : `${Math.round(n * 100)}%`;
 	}
 
 	function spark(values: number[]): string {
@@ -57,135 +67,132 @@
 </script>
 
 <svelte:head>
-	<title>{profile?.display_name ?? 'Reviewer'} · Leaderboard · Hive</title>
+	<title>{profile?.display_name ?? 'Reviewer'} - Leaderboard - Hive</title>
 </svelte:head>
 
-<div class="space-y-5">
-	<div>
-		<a href="/leaderboard" class="text-xs text-primary hover:underline">← Back to leaderboard</a>
-	</div>
+<div>
+	<Button href="/leaderboard" size="sm" variant="ghost" icon={ArrowLeft}>Leaderboard</Button>
+</div>
 
-	{#if loading}
-		<div class="flex justify-center p-8"><Spinner size={32} /></div>
-	{:else if error}
-		<div class="border border-danger bg-danger/10 px-3 py-2 text-sm text-danger">{error}</div>
-	{:else if profile}
-		{@const isMe = auth.user?.id === profile.user_id}
-		<!-- Header card -->
-		<div class="border border-border bg-surface">
-			<div class="flex flex-wrap items-center gap-4 p-5">
-				{#if profile.avatar_url}
-					<img src={profile.avatar_url} alt="" class="h-20 w-20 shrink-0 rounded-full border border-border bg-bg object-cover" />
-				{:else}
-					<span class="flex h-20 w-20 shrink-0 items-center justify-center rounded-full border border-border bg-bg text-2xl font-semibold text-text-muted">
-						{initials(profile.display_name)}
-					</span>
-				{/if}
-				<div class="min-w-0 flex-1">
-					<div class="flex flex-wrap items-baseline gap-2">
-						<h1 class="text-2xl font-bold text-text">{profile.display_name ?? 'Anonymous'}</h1>
-						<span class="text-[11px] uppercase tracking-wider text-text-muted">{profile.role}</span>
-						{#if isMe}<span class="border border-primary/30 bg-primary-light px-1.5 py-0.5 text-[10px] uppercase tracking-wider text-primary">You</span>{/if}
+{#if loading}
+	<div class="flex justify-center p-8"><Spinner size={32} /></div>
+{:else if error}
+	<Alert tone="danger">{error}</Alert>
+{:else if profile}
+	{@const isMe = auth.user?.id === profile.user_id}
+	<div class="flex flex-col gap-(--gap-panels)">
+		<div class="flex items-start gap-4">
+			{#if profile.avatar_url}
+				<img src={profile.avatar_url} alt="" class="size-14 shrink-0 rounded-full bg-well object-cover" />
+			{:else}
+				<span class="flex size-14 shrink-0 items-center justify-center rounded-full bg-surface text-xl font-medium text-ink-muted"
+					>{initials(profile.display_name)}</span
+				>
+			{/if}
+			<div class="min-w-0 flex-1">
+				<PageHeader
+					title={profile.display_name ?? 'Anonymous'}
+					description={profile.first_review_at
+						? `Reviewing since ${new Date(profile.first_review_at).toLocaleDateString()}.`
+						: undefined}
+				>
+					<div class="flex flex-wrap items-center gap-2">
+						<Badge>{sentence(profile.role)}</Badge>
+						{#if isMe}<Badge tone="primary">You</Badge>{/if}
 					</div>
-					{#if profile.first_review_at}
-						<p class="mt-1 text-xs text-text-muted">
-							Reviewing since {new Date(profile.first_review_at).toLocaleDateString()}
-						</p>
-					{/if}
+				</PageHeader>
+			</div>
+		</div>
+
+		<Panel flush>
+			<div class="-mt-px -ml-px grid grid-cols-1 sm:grid-cols-3">
+				<div class="border-t border-l border-line">
+					<Stat label="Contributions" value={profile.total_contributions.toLocaleString()} hint="Reviews and piece labels" />
+				</div>
+				<div class="border-t border-l border-line">
+					<Stat
+						label="Sample reviews"
+						value={profile.total_reviews.toLocaleString()}
+						hint={`${profile.accepts} accepted, ${profile.rejects} rejected`}
+					/>
+				</div>
+				<div class="border-t border-l border-line">
+					<Stat
+						label="Piece labels"
+						value={(profile.piece_color_labels + profile.piece_crop_links).toLocaleString()}
+						hint={`${profile.piece_color_labels} color, ${profile.piece_crop_links} same piece`}
+					/>
+				</div>
+				<div class="border-t border-l border-line">
+					<Stat label="Agreement" value={pct(profile.agreement_rate)} hint="With the final consensus" />
+				</div>
+				<div class="border-t border-l border-line">
+					<Stat
+						label="Current streak"
+						value={`${profile.current_streak_days}`}
+						unit="days"
+						hint={`Longest: ${profile.longest_streak_days} days`}
+					/>
+				</div>
+				<div class="border-t border-l border-line">
+					<Stat
+						label="Best day"
+						value={profile.speed_record_24h}
+						hint={`${profile.machines_covered} machine${profile.machines_covered === 1 ? '' : 's'} covered`}
+					/>
 				</div>
 			</div>
-
-			<!-- Contributions breakdown: samples vs pieces (kept separate) -->
-			<div class="grid grid-cols-2 gap-px border-t border-border bg-border sm:grid-cols-3">
-				<div class="bg-surface px-4 py-3">
-					<div class="text-[10px] font-semibold uppercase tracking-wider text-text-muted">Total contributions</div>
-					<div class="text-2xl font-bold text-text">{profile.total_contributions.toLocaleString()}</div>
-					<div class="text-[11px] text-text-muted">reviews + piece labels</div>
-				</div>
-				<div class="bg-surface px-4 py-3">
-					<div class="text-[10px] font-semibold uppercase tracking-wider text-text-muted">Sample reviews</div>
-					<div class="text-2xl font-bold text-text">{profile.total_reviews.toLocaleString()}</div>
-					<div class="text-[11px] text-text-muted">
-						<span class="text-success">{profile.accepts}</span> ✓ ·
-						<span class="text-primary">{profile.rejects}</span> ✗
-					</div>
-				</div>
-				<div class="bg-surface px-4 py-3">
-					<div class="text-[10px] font-semibold uppercase tracking-wider text-text-muted">Piece labels</div>
-					<div class="text-2xl font-bold text-text">{(profile.piece_color_labels + profile.piece_crop_links).toLocaleString()}</div>
-					<div class="text-[11px] text-text-muted">{profile.piece_color_labels} color · {profile.piece_crop_links} same-piece</div>
-				</div>
-			</div>
-
-			<!-- Review quality metrics -->
-			<div class="grid grid-cols-2 gap-px border-t border-border bg-border sm:grid-cols-3">
-				<div class="bg-surface px-4 py-3">
-					<div class="text-[10px] font-semibold uppercase tracking-wider text-text-muted">Agreement</div>
-					<div class="text-2xl font-bold text-text">{pct(profile.agreement_rate)}</div>
-					<div class="text-[11px] text-text-muted">vs final consensus</div>
-				</div>
-				<div class="bg-surface px-4 py-3">
-					<div class="text-[10px] font-semibold uppercase tracking-wider text-text-muted">Current streak</div>
-					<div class="text-2xl font-bold text-text">{profile.current_streak_days}d</div>
-					<div class="text-[11px] text-text-muted">longest: {profile.longest_streak_days}d</div>
-				</div>
-				<div class="bg-surface px-4 py-3">
-					<div class="text-[10px] font-semibold uppercase tracking-wider text-text-muted">Best day</div>
-					<div class="text-2xl font-bold text-text">{profile.speed_record_24h}</div>
-					<div class="text-[11px] text-text-muted">{profile.machines_covered} machine{profile.machines_covered === 1 ? '' : 's'} covered</div>
-				</div>
-			</div>
-
-			<!-- Sparkline -->
 			{#if profile.daily_counts.length > 0}
-				<div class="border-t border-border px-4 py-3">
-					<div class="mb-2 flex items-baseline justify-between">
-						<span class="text-[10px] font-semibold uppercase tracking-wider text-text-muted">Last 14 days</span>
-						<span class="text-[11px] text-text-muted">
-							{profile.daily_counts.reduce((s, v) => s + v, 0)} reviews
-						</span>
+				<div class="border-t border-line px-(--pad-panel) py-3">
+					<div class="mb-2 flex items-baseline justify-between text-sm">
+						<span class="text-ink-muted">The last 14 days</span>
+						<span class="num text-ink-muted">{profile.daily_counts.reduce((s, v) => s + v, 0)} reviews</span>
 					</div>
-					<svg viewBox="0 0 {14 * (profile.daily_counts.length - 1 || 1)} 30" class="block h-10 w-full" preserveAspectRatio="none">
-						<path d={spark(profile.daily_counts)} class="fill-primary/10" />
-						<path d={sparkLine(profile.daily_counts)} fill="none" class="stroke-primary" stroke-width="1.5" />
+					<svg
+						viewBox="0 0 {14 * (profile.daily_counts.length - 1 || 1)} 30"
+						class="block h-10 w-full"
+						preserveAspectRatio="none"
+						role="img"
+						aria-label="Reviews a day over the last 14 days"
+					>
+						<path d={spark(profile.daily_counts)} fill="var(--primary-soft)" />
+						<path
+							d={sparkLine(profile.daily_counts)}
+							fill="none"
+							stroke="var(--primary)"
+							stroke-width="1.5"
+							vector-effect="non-scaling-stroke"
+						/>
 					</svg>
 				</div>
 			{/if}
-		</div>
+		</Panel>
 
-		<!-- Achievements -->
-		<div class="border border-border bg-surface">
-			<div class="flex items-center justify-between border-b border-border bg-bg px-4 py-2">
-				<h2 class="text-[10px] font-semibold uppercase tracking-wider text-text-muted">Achievements</h2>
-				<span class="text-[11px] text-text-muted">
-					{profile.achievements.filter((a) => a.earned).length} / {profile.achievements.length} earned
-				</span>
-			</div>
-			<div class="grid grid-cols-1 gap-px bg-border sm:grid-cols-2 lg:grid-cols-3">
+		<Panel title="Achievements" flush>
+			{#snippet actions()}
+				<span class="num text-sm text-ink-muted"
+					>{profile!.achievements.filter((a) => a.earned).length} of {profile!.achievements.length} earned</span
+				>
+			{/snippet}
+			<div class="-ml-px grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
 				{#each profile.achievements as a (a.slug)}
-					<div class="flex items-start gap-3 bg-surface p-3 {a.earned ? '' : 'opacity-50'}">
-						<div class="text-2xl leading-none">{a.icon}</div>
+					<div class="flex items-start gap-3 border-t border-l border-line p-4 {a.earned ? '' : 'opacity-50'}">
+						<span class="text-2xl leading-none">{a.icon}</span>
 						<div class="min-w-0 flex-1">
 							<div class="flex items-center gap-2">
-								<span class="text-sm font-semibold text-text">{a.name}</span>
-								<span class="border px-1 py-0.5 text-[9px] uppercase tracking-wider {
-									a.tier === 'gold' ? 'border-warning/30 bg-warning/10 text-warning-strong'
-									: a.tier === 'silver' ? 'border-border bg-bg text-text-muted'
-									: 'border-border bg-bg text-text-muted'
-								}">{a.tier}</span>
+								<span class="text-sm font-medium text-ink">{a.name}</span>
+								<Badge tone={a.tier === 'gold' ? 'warning' : 'neutral'}>{sentence(a.tier)}</Badge>
 							</div>
-							<p class="mt-0.5 text-xs leading-snug text-text-muted">{a.description}</p>
-							<p class="mt-1 text-[11px] {a.earned ? 'text-success' : 'text-text-muted'}">
-								{a.earned ? '✓ ' : ''}{a.progress}
+							<p class="mt-0.5 text-sm text-ink-muted">{a.description}</p>
+							<p class="mt-1 flex items-center gap-1 text-sm {a.earned ? 'text-success-ink' : 'text-ink-muted'}">
+								{#if a.earned}<Check size={14} class="shrink-0" />{/if}{a.progress}
 							</p>
 						</div>
 					</div>
 				{/each}
 			</div>
-		</div>
-	{:else}
-		<div class="border border-border bg-surface px-3 py-6 text-center text-sm text-text-muted">
-			Reviewer not found.
-		</div>
-	{/if}
-</div>
+		</Panel>
+	</div>
+{:else}
+	<Panel><EmptyState title="Reviewer not found" /></Panel>
+{/if}

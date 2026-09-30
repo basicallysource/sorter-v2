@@ -1,7 +1,10 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import { api, type SampleDetail, type TeacherModelInfo } from '$lib/api';
-	import Spinner from '$lib/components/Spinner.svelte';
+	import Alert from '$lib/components/Alert.svelte';
+	import Button from '$lib/components/Button.svelte';
+	import Panel from '$lib/components/Panel.svelte';
+	import Columns2 from '@lucide/svelte/icons/columns-2';
 
 	interface Props {
 		sampleId: string;
@@ -9,14 +12,11 @@
 		// Returning false will not block the click but signals the panel to keep its
 		// error state visible (currently unused — kept for future hooks).
 		onResult: (sample: SampleDetail) => void;
-		// Highlight a model as "last used" so eye-tracking picks it up first on repeat
-		// reviews. Optional — default to no highlight.
+		// The admin's default model, whose Run is the primary one.
 		preferredModelId?: string | null;
-		// Compact two-column grid (Review sidebar) vs comfortable rows (Sample-detail).
-		dense?: boolean;
 	}
 
-	let { sampleId, onResult, preferredModelId = null, dense = false }: Props = $props();
+	let { sampleId, onResult, preferredModelId = null }: Props = $props();
 
 	// Per-model cost-per-call estimate (USD) for the typical detection payload — roughly
 	// 2k input tokens (instruction + image) and 150 output tokens (the bbox list). Rates
@@ -96,63 +96,44 @@
 	}
 </script>
 
-<div class="border border-border bg-surface">
-	<div class="flex items-center justify-between border-b border-border px-3 py-2">
-		<h3 class="text-xs font-semibold uppercase tracking-wider text-text-muted">Re-run teacher</h3>
-		<a
-			href={`/samples/${sampleId}/compare`}
-			class="text-[11px] text-text-muted hover:text-primary"
-			title="Compare all models side-by-side"
+<Panel title="Re-run the teacher" flush>
+	{#snippet actions()}
+		<Button size="sm" variant="ghost" href={`/samples/${sampleId}/compare`} icon={Columns2} title="Every model side by side"
+			>Compare</Button
 		>
-			Compare →
-		</a>
-	</div>
-
-	{#if modelsError}
-		<div class="border-b border-border bg-warning-bg px-3 py-2 text-[11px] text-warning-strong">
-			{modelsError}
-		</div>
-	{/if}
-
-	<div class="p-2 {dense ? 'grid grid-cols-2 gap-1.5' : 'flex flex-col gap-1.5'}">
+	{/snippet}
+	{#if modelsError}<div class="px-(--pad-panel) pb-3"><Alert tone="warning">{modelsError}</Alert></div>{/if}
+	<ul class="divide-y divide-line border-t border-line">
 		{#each models as m (m.model_id)}
-			{@const running = runningIds.has(m.model_id)}
-			{@const isPreferred = preferredModelId === m.model_id}
-			<button
-				type="button"
-				disabled={running}
-				onclick={() => run(m.model_id)}
-				title={m.notes || m.model_id}
-				class="flex items-center gap-2 border px-2 py-1.5 text-left text-xs transition-colors disabled:cursor-not-allowed disabled:opacity-60 {isPreferred ? 'border-primary bg-primary-light text-primary' : 'border-border bg-surface text-text hover:bg-bg'}"
-			>
-				{#if running}
-					<Spinner size={12} />
-				{:else}
-					<svg class="h-3 w-3 shrink-0 text-text-muted" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-						<path stroke-linecap="round" stroke-linejoin="round" d="M14 5l7 7m0 0l-7 7m7-7H3" />
-					</svg>
-				{/if}
-				<span class="min-w-0 flex-1 truncate font-medium">{m.display_name}</span>
+			<li class="flex items-center gap-3 px-(--pad-panel) py-2" title={m.notes || m.model_id}>
+				<span class="min-w-0 flex-1 truncate text-sm text-ink">{m.display_name}</span>
 				{#if formatPrice(m.model_id)}
-					<span
-						class="shrink-0 font-mono text-[10px] text-text-muted tabular-nums"
-						title="≈ cost per call (2k input + 150 output tokens)"
+					<span class="num text-sm text-ink-muted" title="About the cost of a call: 2,000 tokens in and 150 out"
+						>{formatPrice(m.model_id)}</span
 					>
-						{formatPrice(m.model_id)}
-					</span>
 				{/if}
-			</button>
+				<Button
+					size="sm"
+					variant={preferredModelId === m.model_id ? 'primary' : 'secondary'}
+					loading={runningIds.has(m.model_id)}
+					onclick={() => run(m.model_id)}>Run</Button
+				>
+			</li>
 		{/each}
-	</div>
-
-	{#if lastSuccess}
-		<div class="border-t border-border bg-success/10 px-3 py-1.5 text-[11px] text-success">
-			{lastSuccess.count} box{lastSuccess.count === 1 ? '' : 'es'} via {models.find((m) => m.model_id === lastSuccess?.modelId)?.display_name ?? lastSuccess.modelId}
+	</ul>
+	{#if lastSuccess || lastError}
+		<div class="border-t border-line px-(--pad-panel) py-3">
+			{#if lastSuccess}
+				<Alert tone="success">
+					{lastSuccess.count} box{lastSuccess.count === 1 ? '' : 'es'} from {models.find((m) => m.model_id === lastSuccess?.modelId)
+						?.display_name ?? lastSuccess.modelId}
+				</Alert>
+			{/if}
+			{#if lastError}
+				<Alert tone="warning">
+					{models.find((m) => m.model_id === lastError?.modelId)?.display_name ?? lastError.modelId}: {lastError.message}
+				</Alert>
+			{/if}
 		</div>
 	{/if}
-	{#if lastError}
-		<div class="border-t border-border bg-warning-bg px-3 py-1.5 text-[11px] text-warning-strong">
-			{models.find((m) => m.model_id === lastError?.modelId)?.display_name ?? lastError.modelId}: {lastError.message}
-		</div>
-	{/if}
-</div>
+</Panel>

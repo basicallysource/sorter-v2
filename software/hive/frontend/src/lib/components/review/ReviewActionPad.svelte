@@ -1,5 +1,12 @@
 <script lang="ts">
 	import { FEATURES } from '$lib/features';
+	import Button from '$lib/components/Button.svelte';
+	import Panel from '$lib/components/Panel.svelte';
+	import ArrowDown from '@lucide/svelte/icons/arrow-down';
+	import ArrowLeft from '@lucide/svelte/icons/arrow-left';
+	import ArrowRight from '@lucide/svelte/icons/arrow-right';
+	import ArrowUp from '@lucide/svelte/icons/arrow-up';
+	import PenLine from '@lucide/svelte/icons/pen-line';
 
 	interface Props {
 		annotateMode: boolean;
@@ -28,88 +35,33 @@
 	}: Props = $props();
 </script>
 
-<div class="border border-border bg-surface p-4">
-	<div class="space-y-2 text-xs">
+<Panel title="Your call" flush>
+	<div class="flex flex-col gap-3 px-(--pad-panel) pb-(--pad-panel)">
 		{#if FEATURES.ANNOTATION_EDITING}
-			<div class="flex flex-wrap items-center justify-center gap-2">
-				<button
-					type="button"
-					onclick={onToggleAnnotate}
-					disabled={loading || submitting}
-					class="inline-flex items-center gap-2 border px-2.5 py-2 text-left transition-colors disabled:cursor-not-allowed disabled:opacity-50 {annotateMode ? 'border-info/30 bg-info/10' : 'border-info/20 bg-info/10 hover:bg-info/15'}"
+			<div class="flex flex-wrap gap-2">
+				<Button size="sm" icon={PenLine} disabled={loading || submitting} title="D" onclick={onToggleAnnotate}
+					>{annotateMode ? 'Stop annotating' : 'Annotate'}</Button
 				>
-					<div class="border border-info/30 bg-surface px-2 py-1 text-[11px] font-bold text-info">
-						D
-					</div>
-					<div>
-						<div class="font-medium text-info">Annotate</div>
-						<div class="text-[11px] text-info">Toggle edit mode</div>
-					</div>
-				</button>
-				<button
-					type="button"
-					onclick={onExitAnnotate}
-					disabled={!annotateMode || loading || submitting}
-					class="inline-flex items-center gap-2 border border-border bg-bg px-2.5 py-2 text-left transition-colors hover:bg-bg disabled:cursor-not-allowed disabled:opacity-50"
-				>
-					<div class="border border-border bg-surface px-2 py-1 text-[11px] font-bold text-text">
-						Esc
-					</div>
-					<div>
-						<div class="font-medium text-text">Close</div>
-						<div class="text-[11px] text-text-muted">Exit annotate</div>
-					</div>
-				</button>
+				{#if annotateMode}
+					<Button size="sm" variant="ghost" disabled={loading || submitting} title="Escape" onclick={onExitAnnotate}>Close</Button>
+				{/if}
 			</div>
 		{/if}
 
-		<div class="mx-auto grid max-w-[210px] grid-cols-3 gap-1.5">
-			<div></div>
-			<button
-				type="button"
-				onclick={onAccept}
-				disabled={loading || submitting}
-				class="border border-success/20 bg-success/10 px-3 py-3 text-center transition-colors hover:bg-success/15 disabled:cursor-not-allowed disabled:opacity-50"
+		<!-- Laid out like the arrow keys that do the same. -->
+		<div class="grid grid-cols-3 gap-2">
+			<Button class="col-start-2 w-full" variant="primary" icon={ArrowUp} disabled={loading || submitting} onclick={onAccept}
+				>Accept</Button
 			>
-				<div class="text-2xl font-bold text-success">↑</div>
-				<div class="mt-0.5 font-medium text-success">Accept</div>
-			</button>
-			<div></div>
-
-			<button
-				type="button"
-				onclick={onBack}
-				disabled={reviewHistoryLength === 0 || loading || submitting}
-				class="border border-border bg-bg px-2 py-2 text-center transition-colors hover:bg-bg disabled:cursor-not-allowed disabled:opacity-50"
+			<Button class="col-start-1 w-full" variant="ghost" icon={ArrowLeft} disabled={reviewHistoryLength === 0 || loading || submitting} onclick={onBack}
+				>Back</Button
 			>
-				<div class="text-xl font-bold text-text">←</div>
-				<div class="mt-0.5 font-medium text-text">Back</div>
-			</button>
-			<button
-				type="button"
-				onclick={onReject}
-				disabled={loading || submitting}
-				class="border border-primary/20 bg-primary-light px-3 py-3 text-center transition-colors hover:bg-primary/10 disabled:cursor-not-allowed disabled:opacity-50"
-			>
-				<div class="text-2xl font-bold text-primary">↓</div>
-				<div class="mt-0.5 font-medium text-primary">Reject</div>
-			</button>
-			<button
-				type="button"
-				onclick={onSkip}
-				disabled={loading || submitting}
-				class="border border-border bg-bg px-2 py-2 text-center transition-colors hover:bg-bg disabled:cursor-not-allowed disabled:opacity-50"
-			>
-				<div class="text-xl font-bold text-text">→</div>
-				<div class="mt-0.5 font-medium text-text">Skip</div>
-			</button>
+			<Button class="w-full" icon={ArrowDown} disabled={loading || submitting} onclick={onReject}>Reject</Button>
+			<Button class="w-full" variant="ghost" icon={ArrowRight} disabled={loading || submitting} onclick={onSkip}>Skip</Button>
 		</div>
 
-		<p class="text-center text-[11px] text-text-muted">
-			Green means keep it, red means reject it, and gray moves through the queue.
+		<p class="text-sm text-ink-muted">
+			The arrow keys do the same{#if reviewHistoryLength > 0}; <span class="num">{reviewHistoryLength}</span> reviewed this session{/if}.
 		</p>
-		{#if reviewHistoryLength > 0}
-			<p class="mt-2 text-center text-xs text-text-muted">{reviewHistoryLength} reviewed this session</p>
-		{/if}
 	</div>
-</div>
+</Panel>

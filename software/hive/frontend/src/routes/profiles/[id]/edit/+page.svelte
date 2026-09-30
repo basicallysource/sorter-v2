@@ -1,7 +1,7 @@
 <script lang="ts">
-	import { beforeNavigate } from '$app/navigation';
+	import { afterNavigate, beforeNavigate, goto } from '$app/navigation';
 	import { page } from '$app/state';
-	import { tick } from 'svelte';
+	import { tick, untrack } from 'svelte';
 	import {
 		api,
 		type AiToolTraceItem,
@@ -20,7 +20,8 @@
 	import SetSearch from '$lib/components/profile/SetSearch.svelte';
 	import ProfileChatPanel from '$lib/components/profile/edit/ProfileChatPanel.svelte';
 	import RuleAccordionNode from '$lib/components/profile/edit/RuleAccordionNode.svelte';
-	import { Alert, Button } from '$lib/components/primitives';
+	import Alert from '$lib/components/Alert.svelte';
+	import Button from '$lib/components/Button.svelte';
 	import {
 		aiMessagePerformanceLabel,
 		buildAiProgressCards,
@@ -38,8 +39,15 @@
 	} from '$lib/components/profile/edit/chat-helpers';
 	import { renderMarkdown } from '$lib/markdown';
 	import { uuid } from '$lib/uuid';
-	import ArrowLeft from 'lucide-svelte/icons/arrow-left';
-	import Pencil from 'lucide-svelte/icons/pencil';
+	import Badge from '$lib/components/Badge.svelte';
+	import Field from '$lib/components/Field.svelte';
+	import Input from '$lib/components/Input.svelte';
+	import Modal from '$lib/components/Modal.svelte';
+	import Popover from '$lib/components/Popover.svelte';
+	import ArrowLeft from '@lucide/svelte/icons/arrow-left';
+	import Plus from '@lucide/svelte/icons/plus';
+	import Save from '@lucide/svelte/icons/save';
+	import X from '@lucide/svelte/icons/x';
 
 	const ANY_COLOR_ID = -1;
 
@@ -199,11 +207,32 @@
 	};
 
 	// --- Navigation guard ---
-	beforeNavigate(({ cancel }) => {
-		if (hasUnsavedChanges && !confirm('You have unsaved changes. Leave anyway?')) {
-			cancel();
+	// Leaving with unsaved changes asks first: the move is stopped, and the dialog
+	// either carries it on to where it was headed or stays here.
+	let leaveTarget = $state<{ url: URL; delta: number | undefined } | null>(null);
+	let leaveConfirmed = false;
+
+	beforeNavigate((nav) => {
+		if (leaveConfirmed || !hasUnsavedChanges) return;
+		// Closing the tab or leaving the site gets the browser's own prompt from cancel().
+		nav.cancel();
+		if (!nav.willUnload && nav.to) {
+			leaveTarget = { url: nav.to.url, delta: nav.type === 'popstate' ? nav.delta : undefined };
 		}
 	});
+
+	afterNavigate(() => {
+		leaveConfirmed = false;
+	});
+
+	function leaveAnyway() {
+		const target = leaveTarget;
+		leaveTarget = null;
+		if (!target) return;
+		leaveConfirmed = true;
+		if (target.delta) history.go(target.delta);
+		else void goto(target.url);
+	}
 
 	// --- Load profile ---
 	let lastLoadedProfileId = '';
@@ -399,7 +428,7 @@
 		const lineCount = customSetLineCount(rule);
 		const lineLabel = lineCount === 1 ? 'line item' : 'line items';
 		const partLabel = total === 1 ? 'part' : 'parts';
-		return `${lineCount} ${lineLabel} · ${total} ${partLabel}`;
+		return `${lineCount} ${lineLabel}, ${total} ${partLabel}`;
 	}
 
 	function colorLabel(colorId: number | string | null | undefined, fallback?: string | null): string {
@@ -851,9 +880,15 @@
 	let suggestingNote = $state(false);
 	let suggestNoteError = $state<string | null>(null);
 
-	async function openSavePopover() {
+	// The popover opens from its own button or the bar along the bottom; each
+	// time it opens, the note starts empty and the assistant suggests one when
+	// the rules changed.
+	$effect(() => {
+		if (showSavePopover) untrack(() => void suggestNote());
+	});
+
+	async function suggestNote() {
 		changeNote = '';
-		showSavePopover = true;
 		suggestingNote = false;
 		suggestNoteError = null;
 
@@ -877,10 +912,9 @@
 		}
 	}
 
-	function closeSavePopover() { showSavePopover = false; }
 
 	async function saveVersion() {
-		if (!profile) return;
+		if (!profile || savingVersion) return;
 		savingVersion = true;
 		error = null;
 		try {
@@ -1065,10 +1099,10 @@
 	function conditionSummary(rule: SortingProfileRule): string {
 		if (rule.rule_type === 'set') {
 			if (isCustomSetRule(rule)) {
-				return `Custom set · ${customSetPartsLabel(rule)}`;
+				return `Custom set, ${customSetPartsLabel(rule)}`;
 			}
 			const meta = rule.set_meta;
-			if (meta) return `${rule.set_num} · ${meta.year} · ${meta.num_parts} parts`;
+			if (meta) return `${rule.set_num}, ${meta.year}, ${meta.num_parts} parts`;
 			return rule.set_num || 'LEGO Set';
 		}
 		if (rule.conditions.length === 0) return 'No conditions';
@@ -1076,10 +1110,10 @@
 			.map((c) => {
 				const op = opLabels[c.op] ?? c.op;
 				const val = typeof c.value === 'string' ? c.value : JSON.stringify(c.value);
-				const short = val.length > 20 ? val.slice(0, 20) + '…' : val;
+				const short = val.length > 20 ? val.slice(0, 20) + '...' : val;
 				return `${c.field} ${op} ${short}`;
 			})
-			.join(' · ');
+			.join(', ');
 	}
 
 	function dismissSuccess() { success = null; }
@@ -1106,150 +1140,122 @@
 </script>
 
 <svelte:head>
-	<title>{profile ? `Edit ${profile.name} - Hive` : 'Edit Profile - Hive'}</title>
+	<title>{profile ? `Edit ${profile.name} - Hive` : 'Edit profile - Hive'}</title>
 </svelte:head>
 
 {#if loading}
 	<div class="flex justify-center p-8"><Spinner size={32} /></div>
 {:else if !profile}
-	<Alert variant="danger">Profile not found.</Alert>
+	<Alert tone="danger">Profile not found.</Alert>
 {:else if !profile.current_version}
-	<Alert variant="danger">No version available.</Alert>
+	<Alert tone="danger">This profile has no version to edit.</Alert>
 {:else}
-	<!-- Header -->
-	<div class="mb-4 flex flex-wrap items-center justify-between gap-3">
-		<div class="flex min-w-0 items-center gap-3">
-			<a href={`/profiles/${profile.id}`} class="shrink-0 text-text-muted hover:text-text" title="Back to profile">
-				<ArrowLeft size={20} />
-			</a>
-			<div class="min-w-0">
-				<div class="group flex min-w-0 items-center gap-1.5">
-					<!-- the hidden span sizes the grid cell so the input hugs the name and the pencil sits right after it -->
-					<div class="inline-grid min-w-0 max-w-full items-center overflow-hidden">
-						<span aria-hidden="true" class="invisible col-start-1 row-start-1 whitespace-pre border-b-2 border-transparent px-1 text-xl font-bold">{nameDraft || 'Untitled Profile'}</span>
-						<input
-							type="text"
-							bind:this={nameInput}
-							bind:value={nameDraft}
-							title="Click to rename"
-							onblur={renameProfile}
-							onkeydown={(e) => { if (e.key === 'Enter') (e.currentTarget as HTMLInputElement).blur(); }}
-							class="col-start-1 row-start-1 w-full min-w-0 border-0 border-b-2 border-transparent bg-transparent px-1 text-xl font-bold text-text outline-none group-hover:border-border focus:border-primary"
-						/>
-					</div>
-					<button
-						type="button"
-						title="Rename profile"
-						aria-label="Rename profile"
-						class="text-text-muted opacity-50 transition hover:text-text group-hover:opacity-100"
-						onclick={() => { nameInput?.focus(); nameInput?.select(); }}
-					>
-						<Pencil size={16} />
-					</button>
-				</div>
-				<span class="ml-1 text-xs text-text-muted">v{profile.current_version.version_number}</span>
+	<header class="flex flex-wrap items-center justify-between gap-3">
+		<div class="flex min-w-0 items-center gap-2">
+			<Button href={`/profiles/${profile.id}`} variant="ghost" size="sm" icon={ArrowLeft} label="Back to the profile" />
+			<!-- The hidden span sizes the grid cell, so the field hugs the name. -->
+			<div class="inline-grid min-w-0 max-w-full items-center overflow-hidden">
+				<span aria-hidden="true" class="invisible col-start-1 row-start-1 px-1.5 text-xl font-semibold whitespace-pre"
+					>{nameDraft || 'Untitled Profile'}</span
+				>
+				<input
+					type="text"
+					size="1"
+					aria-label="Profile name"
+					bind:this={nameInput}
+					bind:value={nameDraft}
+					onblur={renameProfile}
+					onkeydown={(e) => {
+						if (e.key === 'Enter') (e.currentTarget as HTMLInputElement).blur();
+					}}
+					class="col-start-1 row-start-1 w-full min-w-0 rounded-control bg-transparent px-1.5 text-xl font-semibold text-ink hover:bg-hover focus:bg-hover focus-visible:-outline-offset-2"
+				/>
 			</div>
+			<Badge><span class="num">v{profile.current_version.version_number}</span></Badge>
 		</div>
-		<div class="relative">
-			<Button onclick={openSavePopover} disabled={savingVersion}>Save</Button>
-			{#if showSavePopover}
-				<!-- svelte-ignore a11y_no_static_element_interactions -->
-				<div class="fixed inset-0 z-40" onclick={closeSavePopover} onkeydown={(e) => { if (e.key === 'Escape') closeSavePopover(); }}></div>
-				<div class="absolute right-0 top-full z-50 mt-2 w-72 border border-border bg-surface p-4">
-					<h3 class="mb-2 text-sm font-semibold text-text">Save New Version</h3>
-					<label class="mb-1 block text-xs text-text-muted" for="save-note">What changed? (optional)</label>
-					<div class="relative mb-3">
-						<input id="save-note" type="text" bind:value={changeNote} placeholder={suggestingNote ? 'Generating...' : 'e.g. Added gear categories'}
-							class="w-full border border-border px-3 py-2 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary {suggestingNote ? 'pr-8' : ''}"
-							onkeydown={(e) => { if (e.key === 'Enter') void saveVersion(); }} />
-						{#if suggestingNote}
-							<div class="absolute right-2.5 top-1/2 -translate-y-1/2">
-								<Spinner size={14} class="text-text-muted" />
-							</div>
-						{/if}
-					</div>
-					{#if suggestNoteError}
-						<p class="mb-3 text-xs text-danger">{suggestNoteError}</p>
-					{/if}
-					<div class="flex justify-end gap-2">
-						<Button variant="secondary" size="sm" onclick={closeSavePopover}>Cancel</Button>
-						<Button size="sm" onclick={() => void saveVersion()} disabled={savingVersion} loading={savingVersion}>
-							{savingVersion ? 'Saving...' : 'Save'}
-						</Button>
-					</div>
+		<Popover label="Save a new version" placement="bottom-end" width="22rem" bind:open={showSavePopover}>
+			{#snippet trigger(props)}
+				<Button {...props} variant="primary" icon={Save} disabled={savingVersion}>Save</Button>
+			{/snippet}
+			<form
+				class="flex flex-col gap-3"
+				onsubmit={(e) => {
+					e.preventDefault();
+					void saveVersion();
+				}}
+			>
+				<Field
+					label="What changed?"
+					for="save-note"
+					help={suggestingNote ? 'Writing a suggestion.' : 'Optional.'}
+					error={suggestNoteError ?? undefined}
+				>
+					<Input
+						id="save-note"
+						bind:value={changeNote}
+						placeholder={suggestingNote ? 'Writing a suggestion' : 'For example: added gear categories'}
+					/>
+				</Field>
+				<div class="flex justify-end gap-2">
+					<Button variant="ghost" size="sm" onclick={() => (showSavePopover = false)}>Cancel</Button>
+					<Button type="submit" variant="primary" size="sm" loading={savingVersion}>Save version</Button>
 				</div>
-			{/if}
-		</div>
-	</div>
+			</form>
+		</Popover>
+	</header>
 
 	{#if error}
-		<div class="mb-3"><Alert variant="danger">{error}</Alert></div>
+		<Alert tone="danger">{error}</Alert>
 	{/if}
 	{#if success}
-		<div class="mb-3 flex items-center justify-between gap-2">
-			<div class="flex-1"><Alert variant="success">{success}</Alert></div>
-			<button onclick={dismissSuccess} class="text-success hover:text-success" aria-label="Dismiss">
-				<svg class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
-					<path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd" />
-				</svg>
-			</button>
-		</div>
+		<Alert tone="success">
+			{success}
+			{#snippet actions()}
+				<Button variant="ghost" size="sm" icon={X} label="Dismiss" onclick={dismissSuccess} />
+			{/snippet}
+		</Alert>
 	{/if}
 
-	<!-- Main 2-column layout: Rules (left, wider) | Chat (right) -->
-	<!-- The viewport-locked height only makes sense once the two panels sit side
-	     by side; stacked, it would split one screen between them. -->
-	<div class="grid min-h-0 grid-cols-1 gap-4 xl:h-[calc(100vh-200px)] xl:grid-cols-[minmax(0,3fr)_minmax(0,2fr)] xl:overflow-hidden">
-
-		<!-- LEFT: Rules (accordion) -->
-		<div class="flex min-h-[60vh] min-w-0 flex-col border border-border bg-surface xl:min-h-0">
-			<div class="flex flex-wrap items-center justify-between gap-2 border-b border-border px-4 py-2">
-				<h2 class="text-sm font-semibold text-text">Rules</h2>
+	<!-- Rules on the left, the assistant on the right. The window-high layout
+	     only makes sense once the two sit side by side; stacked, it would split
+	     one screen between them. -->
+	<div
+		class="grid min-h-0 grid-cols-1 gap-(--gap-panels) xl:h-[calc(100dvh-var(--size-topbar)-9rem)] xl:grid-cols-[minmax(0,3fr)_minmax(0,2fr)] xl:overflow-hidden"
+	>
+		<section class="flex min-h-[60vh] min-w-0 flex-col overflow-hidden rounded-panel bg-surface xl:min-h-0">
+			<header class="flex flex-wrap items-center justify-between gap-2 border-b border-line px-(--pad-panel) py-2">
+				<h2 class="text-base font-semibold text-ink">Rules</h2>
 				{#if !isPreview}
-					<div class="flex flex-wrap items-center gap-1.5">
-						<button onclick={() => addRule()}
-							class="border border-border bg-surface px-2.5 py-1 text-[11px] font-medium text-text-muted hover:bg-bg hover:text-text">
-							+ Rule
-						</button>
-						<button onclick={() => { showSetSearch = true; }}
-							class="border border-border bg-surface px-2.5 py-1 text-[11px] font-medium text-text-muted hover:bg-bg hover:text-text">
-							+ Set
-						</button>
-						<button onclick={addCustomSetRule}
-							class="border border-border bg-surface px-2.5 py-1 text-[11px] font-medium text-text-muted hover:bg-bg hover:text-text">
-							+ Custom Set
-						</button>
+					<div class="flex flex-wrap items-center gap-2">
+						<Button variant="ghost" size="sm" icon={Plus} onclick={() => addRule()}>Rule</Button>
+						<Button variant="ghost" size="sm" icon={Plus} onclick={() => (showSetSearch = true)}>Set</Button>
+						<Button variant="ghost" size="sm" icon={Plus} onclick={addCustomSetRule}>Custom set</Button>
 					</div>
 				{/if}
-			</div>
+			</header>
 			{#if isPreview}
-				<div class="flex flex-wrap items-center justify-between gap-2 border-b border-warning/30 bg-warning/[0.1] px-4 py-2">
-					<span class="min-w-0 text-xs font-medium text-warning-strong">
-						Viewing v{previewVersion?.version_number}
-						{#if previewVersion?.change_note}
-							— {previewVersion.change_note}
-						{/if}
-					</span>
-					<div class="flex gap-2">
-						<button onclick={() => { if (previewVersion) void restoreVersion(previewVersion.id); }}
-							disabled={restoringVersionId !== null}
-							class="bg-primary px-2 py-1 text-xs font-medium text-white hover:bg-primary-hover disabled:opacity-50">
-							{restoringVersionId ? 'Restoring...' : 'Restore'}
-						</button>
-						<button onclick={exitPreview}
-							class="border border-border px-2 py-1 text-xs font-medium text-text-muted hover:bg-bg">
-							Back
-						</button>
-					</div>
-				</div>
+				<Alert tone="warning" title={`Viewing v${previewVersion?.version_number}`}>
+					{previewVersion?.change_note ?? ''}
+					{#snippet actions()}
+						<Button variant="ghost" size="sm" onclick={exitPreview}>Back</Button>
+						<Button
+							variant="primary"
+							size="sm"
+							loading={restoringVersionId !== null}
+							onclick={() => {
+								if (previewVersion) void restoreVersion(previewVersion.id);
+							}}>Restore</Button
+						>
+					{/snippet}
+				</Alert>
 			{/if}
 			<div class="flex-1 overflow-y-auto">
 				{#if previewLoading}
 					<div class="flex items-center justify-center p-8"><Spinner size={32} /></div>
 				{:else if displayRules.length === 0}
-					<div class="p-4 text-center text-sm text-text-muted">
-						No rules yet. Use chat to generate categories, or add one manually.
-					</div>
+					<p class="p-(--pad-panel) text-center text-sm text-ink-muted">
+						No rules yet. Ask the assistant for categories, or add a rule.
+					</p>
 				{:else}
 					{#each displayRules as rule (rule.id)}
 						<RuleAccordionNode
@@ -1291,11 +1297,15 @@
 							onUpdateCustomSetName={updateCustomSetName}
 							onOpenBrickLinkCsvImport={openBrickLinkCsvImport}
 							onEnsureCatalogColorsLoaded={() => void ensureCatalogColorsLoaded()}
-							onSetAddingPartForRule={(id) => { addingPartForRule = id; }}
+							onSetAddingPartForRule={(id) => {
+								addingPartForRule = id;
+							}}
 							onAddCustomSetPart={addCustomSetPart}
 							onUpdateCustomSetPart={updateCustomSetPart}
 							onRemoveCustomSetPart={removeCustomSetPart}
-							onSetChangingSetForRule={(id) => { changingSetForRule = id; }}
+							onSetChangingSetForRule={(id) => {
+								changingSetForRule = id;
+							}}
 							onSetRule={(ruleId, set) => {
 								updateRule(ruleId, {
 									set_source: 'rebrickable',
@@ -1312,28 +1322,33 @@
 				{/if}
 			</div>
 			{#if !isPreview && showSetSearch}
-			<div class="border-t border-border px-3 py-2">
-				<SetSearch onSelect={addSetRule} onCancel={() => { showSetSearch = false; }} />
-			</div>
+				<div class="border-t border-line p-3">
+					<SetSearch onSelect={addSetRule} onCancel={() => (showSetSearch = false)} />
+				</div>
 			{/if}
-			<!-- Fallback UI hidden for now — re-add later when the concept is clearer -->
-		</div>
+		</section>
 
 		<ProfileChatPanel
 			{profile}
 			{rightTab}
-			onRightTabChange={(tab) => { rightTab = tab; }}
+			onRightTabChange={(tab) => {
+				rightTab = tab;
+			}}
 			{hasOpenRouter}
 			{aiMessages}
 			{aiMessage}
-			onAiMessageChange={(value) => { aiMessage = value; }}
+			onAiMessageChange={(value) => {
+				aiMessage = value;
+			}}
 			{aiBusy}
 			{aiError}
 			{aiErrorCode}
 			{isNewProfile}
 			workingRulesLength={workingRules.length}
 			{visibleAiProgressCards}
-			chatContainerRef={(el) => { chatContainer = el; }}
+			chatContainerRef={(el) => {
+				chatContainer = el;
+			}}
 			onSendAiMessage={() => void sendAiMessage()}
 			onViewVersion={(id) => void viewVersion(id)}
 			onRestoreVersion={(id) => void restoreVersion(id)}
@@ -1356,15 +1371,16 @@
 		/>
 	</div>
 
-	<!-- Sticky bottom bar -->
 	{#if hasUnsavedChanges}
-		<div class="fixed bottom-0 left-0 right-0 z-30 border-t border-border bg-surface px-4 py-3">
+		<!-- A bar along the bottom while there is something to save. -->
+		<div class="fixed inset-x-0 bottom-0 z-30 border-t border-line bg-surface px-4 py-3">
 			<div class="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-2">
-				<div class="flex items-center gap-2 text-sm text-text-muted">
-					<span class="inline-block h-2 w-2 bg-warning"></span>
-					Unsaved changes
-				</div>
-				<Button onclick={openSavePopover} disabled={savingVersion}>Save</Button>
+				<span class="flex items-center gap-2 text-sm text-ink-muted">
+					<span class="size-2 rounded-full bg-warning" aria-hidden="true"></span>Unsaved changes
+				</span>
+				<Button variant="primary" icon={Save} disabled={savingVersion} onclick={() => (showSavePopover = true)}
+					>Save</Button
+				>
 			</div>
 		</div>
 		<div class="h-16"></div>
@@ -1378,3 +1394,11 @@
 	class="hidden"
 	onchange={handleBrickLinkCsvSelected}
 />
+
+<Modal open={leaveTarget !== null} title="Leave without saving?" size="sm" onclose={() => (leaveTarget = null)}>
+	<p class="text-sm text-ink">This profile has changes that are not saved. If you leave now, they are lost.</p>
+	{#snippet footer()}
+		<Button variant="ghost" onclick={() => (leaveTarget = null)}>Stay</Button>
+		<Button variant="danger" onclick={leaveAnyway}>Leave without saving</Button>
+	{/snippet}
+</Modal>

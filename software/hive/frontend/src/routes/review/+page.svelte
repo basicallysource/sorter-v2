@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { sentence } from '$lib/text';
 	import { onMount } from 'svelte';
 	import { page } from '$app/state';
 	import { goto } from '$app/navigation';
@@ -18,13 +19,21 @@
 	import { ClassificationApi } from '$lib/components/classification-api.svelte';
 	import ReviewImageViewer from '$lib/components/review/ReviewImageViewer.svelte';
 	import ReviewActionPad from '$lib/components/review/ReviewActionPad.svelte';
-	import ReviewAnnotatorPanel from '$lib/components/review/ReviewAnnotatorPanel.svelte';
+	import SampleAnnotatorPanel from '$lib/components/sample/SampleAnnotatorPanel.svelte';
 	import ReviewHeuristics from '$lib/components/review/ReviewHeuristics.svelte';
 	import TeacherRerunButtons from '$lib/components/teacher/TeacherRerunButtons.svelte';
 	import SampleConditionCard from '$lib/components/sample/SampleConditionCard.svelte';
 	import SampleConditionTagger from '$lib/components/sample/SampleConditionTagger.svelte';
 	import { FEATURES } from '$lib/features';
-	import { Alert } from '$lib/components/primitives';
+	import Alert from '$lib/components/Alert.svelte';
+	import Button from '$lib/components/Button.svelte';
+	import Checkbox from '$lib/components/Checkbox.svelte';
+	import EmptyState from '$lib/components/EmptyState.svelte';
+	import KeyValue from '$lib/components/KeyValue.svelte';
+	import PageHeader from '$lib/components/PageHeader.svelte';
+	import Panel from '$lib/components/Panel.svelte';
+	import SegmentedControl from '$lib/components/SegmentedControl.svelte';
+	import CircleCheck from '@lucide/svelte/icons/circle-check';
 	import { extractLegacyReviewBboxes, extractPrimaryBboxes, mergeUniqueBboxes, parseBboxCollection, proposalColor } from '$lib/components/sample/bbox-helpers';
 
 	type ReviewDecision = 'accept' | 'reject';
@@ -459,7 +468,7 @@
 	}
 
 	function formatDate(value: string | null | undefined) {
-		if (!value) return '—';
+		if (!value) return '-';
 		return new Date(value).toLocaleString('en-US', {
 			day: '2-digit',
 			month: '2-digit',
@@ -480,86 +489,60 @@
 
 <svelte:window onkeydown={handleWindowKeydown} />
 
-<div class="mb-6 flex flex-wrap items-center justify-between gap-3">
-	<div>
-		<h1 class="text-2xl font-bold text-text">Review Queue</h1>
-		<p class="mt-1 text-sm text-text-muted">
-			Arrow up accepts, arrow down rejects, arrow right skips, arrow left goes back{#if FEATURES.ANNOTATION_EDITING}, and <kbd class="border border-border bg-bg px-1.5 py-0.5 text-[11px] font-semibold text-text">D</kbd> toggles annotation{/if}.
-		</p>
-		{#if activeFilterChips.length > 0}
-			<div class="mt-2 flex flex-wrap items-center gap-2 break-all text-[11px]">
-				<span class="text-text-muted">Scoped to:</span>
-				{#each activeFilterChips as [key, value] (key)}
-					<span class="border border-border bg-bg px-1.5 py-0.5 text-text-muted">
-						{key}=<span class="text-text">{value}</span>
-					</span>
-				{/each}
-				<a href="/review" class="text-primary hover:underline">Clear</a>
-			</div>
-		{/if}
-	</div>
-	<!-- Kind switcher — flips the queue between regular detection samples and
-	     piece-condition crops without leaving the review page. -->
-	<div class="flex flex-wrap border border-border bg-surface text-xs">
-		{#each [
-			{ value: '', label: 'All' },
-			{ value: 'regular', label: 'Regular' },
-			{ value: 'condition', label: 'Condition' }
-		] as opt}
-			<button
-				type="button"
-				class="border-l border-border px-3 py-1.5 first:border-l-0 {currentKind === opt.value ? 'bg-primary text-white' : 'text-text hover:bg-bg'}"
-				onclick={() => setKind(opt.value as '' | 'regular' | 'condition')}
-			>
-				{opt.label}
-			</button>
-		{/each}
-	</div>
-</div>
+<PageHeader
+	title="Review"
+	description={`Up accepts, down rejects, right skips and left goes back${FEATURES.ANNOTATION_EDITING ? '; D annotates' : ''}.`}
+>
+	{#if activeFilterChips.length > 0}
+		<div class="flex flex-wrap items-center gap-1.5">
+			<span class="text-sm text-ink-muted">Only</span>
+			{#each activeFilterChips as [key, value] (key)}
+				<Badge>{key} <span class="font-mono text-ink">{value}</span></Badge>
+			{/each}
+			<Button size="sm" variant="ghost" href="/review">Clear</Button>
+		</div>
+	{/if}
+	{#snippet actions()}
+		<SegmentedControl
+			label="Kind"
+			size="sm"
+			value={currentKind}
+			options={[
+				{ value: '', label: 'All' },
+				{ value: 'regular', label: 'Detection' },
+				{ value: 'condition', label: 'Condition' }
+			]}
+			onchange={(kind: string) => setKind(kind as '' | 'regular' | 'condition')}
+		/>
+	{/snippet}
+</PageHeader>
 
 {#if loading}
 	<div class="flex justify-center p-8"><Spinner size={32} /></div>
 {:else if empty}
-	<div class="border border-border bg-surface p-10 text-center">
-		<p class="text-lg font-medium text-text">No more samples to review.</p>
-		<p class="mt-2 text-sm text-text-muted">Come back later when the queue has fresh uploads again.</p>
-	</div>
+	<Panel><EmptyState icon={CircleCheck} title="Nothing left to review">Come back when the machines have uploaded more.</EmptyState></Panel>
 {:else if sample}
-	{#if error}
-		<div class="mb-4"><Alert variant="danger">{error}</Alert></div>
-	{/if}
+	{#if error}<Alert tone="danger">{error}</Alert>{/if}
+	{#if feedback}<Alert tone="success">{feedback}</Alert>{/if}
 
-	{#if feedback}
-		<div class="mb-4"><Alert variant="success">{feedback}</Alert></div>
-	{/if}
-
-	<div class="grid gap-5 lg:grid-cols-[1fr_360px]">
-		<div class="min-w-0 space-y-3">
-			<div class="flex flex-wrap items-center gap-2 bg-bg p-1">
-				<button
-					type="button"
-					onclick={() => {
-						annotateMode = false;
+	<div class="grid gap-(--gap-panels) lg:grid-cols-[1fr_360px]">
+		<div class="flex min-w-0 flex-col gap-3">
+			<div class="flex flex-wrap items-center justify-between gap-3">
+				<SegmentedControl
+					label="Mode"
+					size="sm"
+					value={annotateMode ? 'annotate' : 'review'}
+					options={[
+						{ value: 'review', label: 'Review' },
+						{ value: 'annotate', label: 'Annotate' }
+					]}
+					onchange={(mode: string) => {
+						if (mode === 'annotate' && !annotateMode) toggleAnnotateMode();
+						else if (mode === 'review') annotateMode = false;
 					}}
-					class="px-3 py-1.5 text-xs font-medium transition-colors {annotateMode ? 'text-text-muted hover:text-text' : 'bg-surface text-text'}"
-				>
-					Review
-				</button>
-				<button
-					type="button"
-					onclick={toggleAnnotateMode}
-					class="px-3 py-1.5 text-xs font-medium transition-colors {annotateMode ? 'bg-surface text-text' : 'text-text-muted hover:text-text'}"
-				>
-					Annotate
-				</button>
-
+				/>
 				{#if !annotateMode && proposalBoxes.length > 0}
-					<div class="ml-auto flex items-center gap-1.5 pr-1">
-						<label class="flex cursor-pointer items-center gap-1.5 text-xs text-text-muted select-none">
-							<input type="checkbox" bind:checked={showBboxOverlay} class="h-3 w-3 border-border text-info" />
-							Boxes
-						</label>
-					</div>
+					<Checkbox bind:checked={showBboxOverlay}>Boxes</Checkbox>
 				{/if}
 			</div>
 
@@ -572,7 +555,7 @@
 					imageHeight={sample.image_height}
 					seedBoxes={annotationSeedBoxes}
 					persistedAnnotations={savedAnnotations}
-					hasPersistedAnnotations={hasPersistedAnnotations}
+					{hasPersistedAnnotations}
 					isActive={annotateMode}
 					externalApi={annotatorApi}
 				/>
@@ -590,83 +573,38 @@
 			{/if}
 
 			{#if usingFullFrameFallback}
-				<div class="border border-border bg-bg px-3 py-2 text-xs text-text-muted">
-					Showing the full-frame capture because this classification-chamber sample still carries detection boxes in full-frame coordinates.
-				</div>
+				<Alert>This shows the full frame, because this classification chamber sample's boxes are in full-frame coordinates.</Alert>
 			{/if}
 		</div>
 
-		<div class="space-y-4">
-			<div class="border border-border bg-surface p-4">
-				<div class="flex flex-wrap items-center gap-2">
-					<Badge text={sample.review_status} variant="info" />
+		<div class="flex min-w-0 flex-col gap-(--gap-panels)">
+			<Panel flush>
+				<div class="flex flex-wrap items-center gap-1.5 px-(--pad-panel) pt-4 pb-1">
+					<Badge tone="info">{sentence(sample.review_status)}</Badge>
 					{#if currentDecision}
-						<Badge text={`You: ${currentDecision}`} variant={currentDecision === 'accept' ? 'success' : 'danger'} />
-					{/if}
-					{#if sample.source_role}
-						<Badge text={sample.source_role} variant="neutral" />
-					{/if}
-				</div>
-
-				<div class="mt-3 space-y-2 text-sm">
-					<div class="flex items-center justify-between gap-3">
-						<span class="text-text-muted">Sample</span>
-						<span class="font-medium text-text" title={sample.local_sample_id}>{shortId(sample.local_sample_id)}</span>
-					</div>
-					<div class="flex items-center justify-between gap-3">
-						<span class="text-text-muted">Captured</span>
-						<span class="text-right text-text">{formatDate(sample.captured_at)}</span>
-					</div>
-					<div class="flex items-center justify-between gap-3">
-						<span class="text-text-muted">Uploaded</span>
-						<span class="text-right text-text">{formatDate(sample.uploaded_at)}</span>
-					</div>
-					{#if sample.capture_reason}
-						<div class="flex items-center justify-between gap-3">
-							<span class="text-text-muted">Reason</span>
-							<span class="text-right text-text">{sample.capture_reason}</span>
-						</div>
-					{/if}
-					{#if camera}
-						<div class="flex items-center justify-between gap-3">
-							<span class="text-text-muted">Camera</span>
-							<span class="text-right text-text">{camera}</span>
-						</div>
-					{/if}
-					{#if detectionScope}
-						<div class="flex items-center justify-between gap-3">
-							<span class="text-text-muted">Scope</span>
-							<span class="text-right text-text">{detectionScope}</span>
-						</div>
-					{/if}
-					{#if sample.detection_algorithm}
-						<div class="flex items-center justify-between gap-3">
-							<span class="text-text-muted">Detection</span>
-							<span class="text-right text-text">{sample.detection_algorithm}</span>
-						</div>
-					{/if}
-					{#if sample.detection_score != null}
-						<div class="flex items-center justify-between gap-3">
-							<span class="text-text-muted">Score</span>
-							<span class="text-right text-text">{sample.detection_score.toFixed(2)}</span>
-						</div>
-					{/if}
-					{#if proposalBoxes.length > 0}
-						<div class="flex items-center justify-between gap-3">
-							<span class="text-text-muted">Proposals</span>
-							<span class="text-right font-medium text-text">{proposalBoxes.length}</span>
-						</div>
+						<Badge tone={currentDecision === 'accept' ? 'success' : 'danger'}>{currentDecision === 'accept' ? 'You accepted' : 'You rejected'}</Badge>
 					{/if}
 					{#if detectionFound !== null}
-						<div class="flex items-center justify-between gap-3">
-							<span class="text-text-muted">Found</span>
-							<span class={detectionFound ? 'font-medium text-success' : 'font-medium text-primary'}>
-								{detectionFound ? 'Yes' : 'No'}
-							</span>
-						</div>
+						<Badge tone={detectionFound ? 'success' : 'danger'} dot>{detectionFound ? 'Found' : 'Not found'}</Badge>
 					{/if}
+					{#if sample.source_role}<Badge>{sentence(sample.source_role)}</Badge>{/if}
 				</div>
-			</div>
+				<div class="px-(--pad-panel) pb-2">
+					<KeyValue
+						items={[
+							{ label: 'Sample', value: shortId(sample.local_sample_id), mono: true },
+							{ label: 'Captured', value: formatDate(sample.captured_at) },
+							{ label: 'Uploaded', value: formatDate(sample.uploaded_at) },
+							...(sample.capture_reason ? [{ label: 'Reason', value: sample.capture_reason, mono: true }] : []),
+							...(camera ? [{ label: 'Camera', value: camera }] : []),
+							...(detectionScope ? [{ label: 'Scope', value: detectionScope }] : []),
+							...(sample.detection_algorithm ? [{ label: 'Detection', value: sample.detection_algorithm }] : []),
+							...(sample.detection_score != null ? [{ label: 'Score', value: sample.detection_score.toFixed(2) }] : []),
+							...(proposalBoxes.length > 0 ? [{ label: 'Proposals', value: proposalBoxes.length }] : [])
+						]}
+					/>
+				</div>
+			</Panel>
 
 			<SampleClassificationCard
 				sampleId={sample.id}
@@ -684,9 +622,8 @@
 					sampleId={sample.id}
 					samplePayload={sample.sample_payload}
 					onSaved={(analysis) => {
-						// Splice the freshly-saved analysis into the local sample so the
-						// adjacent SampleConditionCard reflects the new label without
-						// waiting for a refetch.
+						// Splice the saved analysis into the local sample, so the condition
+						// card beside it shows the new label without a refetch.
 						if (sample) {
 							const payload = (sample.sample_payload as Record<string, unknown> | null) ?? {};
 							const analyses = Array.isArray(payload.analyses) ? (payload.analyses as Record<string, unknown>[]) : [];
@@ -704,7 +641,7 @@
 				{submitting}
 				reviewHistoryLength={reviewHistory.length}
 				onToggleAnnotate={toggleAnnotateMode}
-				onExitAnnotate={() => { annotateMode = false; }}
+				onExitAnnotate={() => (annotateMode = false)}
 				onAccept={() => void submitReview('accept')}
 				onReject={() => void submitReview('reject')}
 				onSkip={skip}
@@ -716,16 +653,14 @@
 					sampleId={sample.id}
 					onResult={handleTeacherRerunResult}
 					preferredModelId={auth.user?.preferred_teacher_model ?? null}
-					dense
 				/>
 			{/if}
 
 			<ReviewHeuristics />
 
 			{#if annotateMode}
-				<ReviewAnnotatorPanel {annotatorApi} />
+				<SampleAnnotatorPanel {annotatorApi} />
 			{/if}
-
 		</div>
 	</div>
 {/if}

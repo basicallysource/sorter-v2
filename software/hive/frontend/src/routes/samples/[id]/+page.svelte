@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { sentence } from '$lib/text';
 	import { page } from '$app/state';
 	import { goto } from '$app/navigation';
 	import { SvelteMap } from 'svelte/reactivity';
@@ -12,6 +13,7 @@
 	import Badge from '$lib/components/Badge.svelte';
 	import Spinner from '$lib/components/Spinner.svelte';
 	import Modal from '$lib/components/Modal.svelte';
+	import KeyValue from '$lib/components/KeyValue.svelte';
 	import SampleAnnotator, { type SeedBox } from '$lib/components/SampleAnnotator.svelte';
 	import { FEATURES } from '$lib/features';
 	import TeacherRerunButtons from '$lib/components/teacher/TeacherRerunButtons.svelte';
@@ -22,7 +24,22 @@
 	import SampleAnnotatorPanel from '$lib/components/sample/SampleAnnotatorPanel.svelte';
 	import SampleConditionCard from '$lib/components/sample/SampleConditionCard.svelte';
 	import SampleDetailsSidebar from '$lib/components/sample/SampleDetailsSidebar.svelte';
-	import { Button } from '$lib/components/primitives';
+	import Button from '$lib/components/Button.svelte';
+	import Alert from '$lib/components/Alert.svelte';
+	import Checkbox from '$lib/components/Checkbox.svelte';
+	import EmptyState from '$lib/components/EmptyState.svelte';
+	import PageHeader from '$lib/components/PageHeader.svelte';
+	import Panel from '$lib/components/Panel.svelte';
+	import SegmentedControl from '$lib/components/SegmentedControl.svelte';
+	import ArrowLeft from '@lucide/svelte/icons/arrow-left';
+	import Check from '@lucide/svelte/icons/check';
+	import ChevronLeft from '@lucide/svelte/icons/chevron-left';
+	import ChevronRight from '@lucide/svelte/icons/chevron-right';
+	import Columns2 from '@lucide/svelte/icons/columns-2';
+	import ImageOff from '@lucide/svelte/icons/image-off';
+	import ScanSearch from '@lucide/svelte/icons/scan-search';
+	import Trash2 from '@lucide/svelte/icons/trash-2';
+	import X from '@lucide/svelte/icons/x';
 	import { extractLegacyReviewBboxes, extractPrimaryBboxes, mergeUniqueBboxes, parseBboxCollection, proposalColor } from '$lib/components/sample/bbox-helpers';
 	import {
 		readSampleListContext,
@@ -68,7 +85,6 @@
 	let activeView = $state<ViewMode>(readViewFromUrl());
 	let annotatorMounted = $state(readViewFromUrl() === 'annotate');
 	let showBboxOverlay = $state(true);
-	let showExpandedMeta = $state(false);
 	let imageNaturalWidth = $state(0);
 	let imageNaturalHeight = $state(0);
 	let imageRenderAsset = $state<ImageRenderAsset>('image');
@@ -138,7 +154,7 @@
 		const loc = sampleLocation;
 		if (!loc || !neighborMeta) return null;
 		const absoluteIndex = (loc.pageNum - 1) * navPageSize + loc.idx + 1;
-		return `${absoluteIndex} / ${neighborMeta.total}`;
+		return `${absoluteIndex} of ${neighborMeta.total}`;
 	});
 
 	$effect(() => {
@@ -293,6 +309,14 @@
 		const proposals = mergeUniqueBboxes(bboxes, candidateBboxes);
 		return proposals.length > 0 ? proposals : legacyReviewBboxes;
 	});
+
+	const viewOptions = $derived<{ value: ViewMode; label: string }[]>([
+		{ value: 'image', label: 'Image' },
+		...(sample?.has_full_frame ? [{ value: 'full_frame' as const, label: 'Full frame' }] : []),
+		...(sample?.has_channel_geometry ? [{ value: 'channel_crop' as const, label: 'Channel crop' }] : []),
+		...(sample?.has_overlay ? [{ value: 'overlay' as const, label: 'Overlay' }] : []),
+		...(FEATURES.ANNOTATION_EDITING ? [{ value: 'annotate' as const, label: 'Annotate' }] : [])
+	]);
 
 	const usingFullFrameFallback = $derived.by(() => {
 		return Boolean(
@@ -458,7 +482,7 @@
 	}
 
 	function formatValue(val: unknown): string {
-		if (val === null || val === undefined) return '—';
+		if (val === null || val === undefined) return '-';
 		if (typeof val === 'boolean') return val ? 'Yes' : 'No';
 		if (typeof val === 'number') return Number.isInteger(val) ? String(val) : val.toFixed(4);
 		if (typeof val === 'string') return val;
@@ -476,133 +500,59 @@
 </script>
 
 <svelte:head>
-	<title>Sample Detail - Hive</title>
+	<title>Sample - Hive</title>
 </svelte:head>
 
 <svelte:window onkeydown={onWindowKeyDown} />
 
+<div>
+	<Button href={listBackHref} size="sm" variant="ghost" icon={ArrowLeft}>{teacherJobId ? 'Teacher job' : 'Samples'}</Button>
+</div>
+
 {#if loading}
 	<div class="flex justify-center p-8"><Spinner size={32} /></div>
 {:else if !sample}
-	<p class="text-text-muted">Sample not found.</p>
+	<Panel><EmptyState icon={ImageOff} title="Sample not found">It may have been deleted, or the link is wrong.</EmptyState></Panel>
 {:else}
-	<!-- Header bar -->
-	<div class="mb-5 flex flex-wrap items-center justify-between gap-3">
-		<div class="flex items-center gap-3">
-			<a href={listBackHref} class="flex items-center gap-1 text-sm text-text-muted hover:text-text transition-colors">
-				<svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" /></svg>
-				Samples
-			</a>
-			<span class="text-border">/</span>
-			<span class="text-sm font-medium text-text" title={sample.local_sample_id}>{shortId(sample.local_sample_id)}</span>
-		</div>
-		<div class="flex flex-wrap items-center gap-2">
-			<div class="flex items-center gap-1" title="Use ← / → to navigate samples">
-				<button
-					type="button"
-					onclick={() => navigateToNeighbor(prevSampleId)}
-					disabled={!prevSampleId}
-					aria-label="Previous sample (←)"
-					class="border border-border bg-surface p-1.5 text-text-muted transition-colors hover:bg-bg hover:text-text disabled:cursor-not-allowed disabled:opacity-30"
-				>
-					<svg class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" /></svg>
-				</button>
-				{#if positionLabel}
-					<span class="px-1 text-[11px] text-text-muted tabular-nums">{positionLabel}</span>
-				{/if}
-				<button
-					type="button"
-					onclick={() => navigateToNeighbor(nextSampleId)}
-					disabled={!nextSampleId}
-					aria-label="Next sample (→)"
-					class="border border-border bg-surface p-1.5 text-text-muted transition-colors hover:bg-bg hover:text-text disabled:cursor-not-allowed disabled:opacity-30"
-				>
-					<svg class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" /></svg>
-				</button>
-			</div>
-			<Badge text={statusLabel[sample.review_status] ?? sample.review_status} variant={statusVariant[sample.review_status] ?? 'neutral'} />
+	<PageHeader title={`Sample ${shortId(sample.local_sample_id)}`}>
+		<div class="mt-1.5 flex flex-wrap items-center gap-2">
+			<Badge tone={statusVariant[sample.review_status] ?? 'neutral'}>{statusLabel[sample.review_status] ?? sentence(sample.review_status)}</Badge>
 			{#if sample.review_count > 0}
-				<span class="text-xs text-text-muted">{sample.review_count} review{sample.review_count !== 1 ? 's' : ''}</span>
+				<span class="num text-sm text-ink-muted">{sample.review_count} review{sample.review_count !== 1 ? 's' : ''}</span>
 			{/if}
-			<div class="flex flex-wrap items-center gap-1.5 sm:ml-1">
-				<a
-					href={`/samples/${sample.id}/similar`}
-					class="inline-flex items-center gap-1 border border-border bg-surface px-3 py-1 text-xs font-medium text-text hover:bg-bg"
-					title="Find samples that look visually similar to this one (uses perceptual hashing — good for spotting bursts of near-identical frames or a batch shot under the same bad lighting)."
-				>
-					Find similar
-				</a>
-				{#if auth.isAdmin}
-					<a
-						href={`/samples/${sample.id}/compare`}
-						class="inline-flex items-center gap-1 border border-border bg-surface px-3 py-1 text-xs font-medium text-text hover:bg-bg"
-						title="Run every supported teacher model on this sample and compare bounding boxes side-by-side."
-					>
-						Compare models
-					</a>
-					<Button variant="danger" size="sm" onclick={() => { showDeleteModal = true; }}>
-						Delete
-					</Button>
-				{/if}
-			</div>
 		</div>
-	</div>
-
-	<div class="grid gap-5 lg:grid-cols-[1fr_340px]">
-		<!-- Left: Image area -->
-		<div class="min-w-0 space-y-3">
-			<!-- View toggle toolbar (above image) -->
-			<div class="flex flex-wrap items-center gap-1 bg-bg p-1">
-				<button
-					onclick={() => setView('image')}
-					class="px-3 py-1.5 text-xs font-medium transition-colors {activeView === 'image' ? 'bg-surface text-text' : 'text-text-muted hover:text-text'}"
+		{#snippet actions()}
+			<div class="flex items-center gap-1" title="The arrow keys step through the samples too">
+				<Button icon={ChevronLeft} label="Previous sample" disabled={!prevSampleId} onclick={() => navigateToNeighbor(prevSampleId)} />
+				{#if positionLabel}<span class="num px-1 text-sm text-ink-muted">{positionLabel}</span>{/if}
+				<Button icon={ChevronRight} label="Next sample" disabled={!nextSampleId} onclick={() => navigateToNeighbor(nextSampleId)} />
+			</div>
+			<Button
+				href={`/samples/${sample!.id}/similar`}
+				icon={ScanSearch}
+				title="Samples that look like this one, by perceptual hash: bursts of near-identical frames, or a batch under the same bad light"
+				>Find similar</Button
+			>
+			{#if auth.isAdmin}
+				<Button href={`/samples/${sample!.id}/compare`} icon={Columns2} title="Every teacher model on this sample, side by side"
+					>Compare models</Button
 				>
-					Image
-				</button>
-				{#if sample.has_full_frame}
-					<button
-						onclick={() => setView('full_frame')}
-						class="px-3 py-1.5 text-xs font-medium transition-colors {activeView === 'full_frame' ? 'bg-surface text-text' : 'text-text-muted hover:text-text'}"
-					>
-						Full Frame
-					</button>
-				{/if}
-				{#if sample.has_channel_geometry}
-					<button
-						onclick={() => setView('channel_crop')}
-						class="px-3 py-1.5 text-xs font-medium transition-colors {activeView === 'channel_crop' ? 'bg-surface text-text' : 'text-text-muted hover:text-text'}"
-					>
-						Channel Crop
-					</button>
-				{/if}
-				{#if sample.has_overlay}
-					<button
-						onclick={() => setView('overlay')}
-						class="px-3 py-1.5 text-xs font-medium transition-colors {activeView === 'overlay' ? 'bg-surface text-text' : 'text-text-muted hover:text-text'}"
-					>
-						Overlay
-					</button>
-				{/if}
-				{#if FEATURES.ANNOTATION_EDITING}
-					<button
-						onclick={() => setView('annotate')}
-						class="px-3 py-1.5 text-xs font-medium transition-colors {activeView === 'annotate' ? 'bg-surface text-text' : 'text-text-muted hover:text-text'}"
-					>
-						Annotate
-					</button>
-				{/if}
+				<Button icon={Trash2} onclick={() => (showDeleteModal = true)}>Delete</Button>
+			{/if}
+		{/snippet}
+	</PageHeader>
 
+	<div class="grid gap-(--gap-panels) lg:grid-cols-[1fr_340px]">
+		<div class="flex min-w-0 flex-col gap-3">
+			<div class="flex flex-wrap items-center justify-between gap-3">
+				{#if viewOptions.length > 1}
+					<SegmentedControl label="View" size="sm" value={activeView} options={viewOptions} onchange={setView} />
+				{/if}
 				{#if activeView === 'image' && proposalBoxes.length > 0}
-					<div class="ml-auto flex items-center gap-1.5 pr-1">
-						<label class="flex items-center gap-1.5 text-xs text-text-muted cursor-pointer select-none">
-							<input type="checkbox" bind:checked={showBboxOverlay} class="h-3 w-3 border-border text-primary" />
-							Boxes
-						</label>
-					</div>
+					<Checkbox bind:checked={showBboxOverlay}>Boxes</Checkbox>
 				{/if}
 			</div>
 
-			<!-- Image viewer -->
 			{#if activeView !== 'annotate'}
 				<SampleImageViewer
 					{sample}
@@ -618,9 +568,7 @@
 			{/if}
 
 			{#if usingFullFrameFallback}
-				<div class="border border-border bg-bg px-3 py-2 text-xs text-text-muted">
-					Showing the full-frame capture because this classification-chamber sample still carries detection boxes in full-frame coordinates.
-				</div>
+				<Alert>This shows the full frame, because this classification chamber sample's boxes are in full-frame coordinates.</Alert>
 			{/if}
 
 			{#if annotatorMounted}
@@ -633,133 +581,75 @@
 						imageHeight={sample.image_height}
 						seedBoxes={annotationSeedBoxes}
 						persistedAnnotations={savedAnnotations}
-						hasPersistedAnnotations={hasPersistedAnnotations}
+						{hasPersistedAnnotations}
 						isActive={activeView === 'annotate'}
 						externalApi={annotatorApi}
 					/>
 				</div>
 			{/if}
 
-			<!-- Inline detection message (below image, only when relevant) -->
 			{#if detectionMessage && activeView !== 'annotate'}
-				<div class="bg-bg border border-border px-3 py-2 text-xs text-text-muted">
-					{detectionMessage}
-				</div>
+				<p class="text-sm text-ink-muted">{detectionMessage}</p>
 			{/if}
 		</div>
 
-		<!-- Right sidebar -->
-		<div class="space-y-3">
-			<!-- Annotator controls (only in annotate mode) -->
+		<div class="flex min-w-0 flex-col gap-(--gap-panels)">
 			{#if activeView === 'annotate'}
 				<SampleAnnotatorPanel {annotatorApi} />
 			{/if}
 
-			<!-- Review actions — mirrors the /review page's action pad so
-			     reviewers vote from the same spot regardless of which
-			     surface they're working from. -->
+			<!-- The same vote as the review page's, so a reviewer can change it from here. -->
 			{#if auth.isReviewer}
 				{@const myVote = sample.my_review_decision}
-				<div class="border border-border bg-surface">
-					<div class="flex items-center justify-between border-b border-border px-4 py-2.5">
-						<h2 class="text-xs font-semibold uppercase tracking-wider text-text-muted">Your review</h2>
+				<Panel title="Your review" flush>
+					{#snippet actions()}
 						{#if myVote}
-							<span
-								class="border px-1.5 py-0.5 text-[11px] font-medium {myVote === 'accept' ? 'border-success/30 bg-success/10 text-success' : 'border-primary/30 bg-primary/10 text-primary'}"
-								title={myVote === 'accept' ? 'You accepted this sample' : 'You rejected this sample'}
-							>You: {myVote === 'accept' ? '✓' : '✗'}</span>
+							<Badge tone={myVote === 'accept' ? 'success' : 'danger'}>{myVote === 'accept' ? 'You accepted' : 'You rejected'}</Badge>
 						{:else}
-							<span class="text-[11px] text-text-muted">Not voted</span>
+							<span class="text-sm text-ink-muted">Not voted</span>
 						{/if}
-					</div>
-					<div class="space-y-2 p-3">
-						<div class="grid grid-cols-2 gap-1.5">
-							<button
-								type="button"
+					{/snippet}
+					<div class="flex flex-col gap-3 px-(--pad-panel) pb-(--pad-panel)">
+						<div class="grid grid-cols-2 gap-2">
+							<Button
+								variant="primary"
+								icon={Check}
+								loading={voteSubmitting}
+								disabled={myVote === 'accept'}
 								onclick={() => void submitVote('accept')}
-								disabled={voteSubmitting || myVote === 'accept'}
-								class="border border-success/20 bg-success/10 px-3 py-2.5 text-center transition-colors hover:bg-success/15 disabled:cursor-not-allowed disabled:opacity-50"
-								title={myVote ? 'Change your vote to Accept' : 'Accept this sample'}
+								>{myVote === 'accept' ? 'Accepted' : myVote === 'reject' ? 'Accept instead' : 'Accept'}</Button
 							>
-								<div class="text-xl font-bold text-success">↑</div>
-								<div class="text-xs font-medium text-success">
-									{myVote === 'accept' ? 'Accepted' : myVote === 'reject' ? 'Change to ✓' : 'Accept'}
-								</div>
-							</button>
-							<button
-								type="button"
-								onclick={() => void submitVote('reject')}
-								disabled={voteSubmitting || myVote === 'reject'}
-								class="border border-primary/20 bg-primary-light px-3 py-2.5 text-center transition-colors hover:bg-primary/10 disabled:cursor-not-allowed disabled:opacity-50"
-								title={myVote ? 'Change your vote to Reject' : 'Reject this sample'}
+							<Button icon={X} loading={voteSubmitting} disabled={myVote === 'reject'} onclick={() => void submitVote('reject')}
+								>{myVote === 'reject' ? 'Rejected' : myVote === 'accept' ? 'Reject instead' : 'Reject'}</Button
 							>
-								<div class="text-xl font-bold text-primary">↓</div>
-								<div class="text-xs font-medium text-primary">
-									{myVote === 'reject' ? 'Rejected' : myVote === 'accept' ? 'Change to ✗' : 'Reject'}
-								</div>
-							</button>
 						</div>
-						{#if voteError}
-							<div class="border border-danger bg-danger/10 px-2 py-1 text-[11px] text-danger">{voteError}</div>
-						{/if}
-						<p class="text-center text-[11px] text-text-muted">
-							{sample.review_count} of 3 reviews · {sample.accepted_count} ✓ / {sample.rejected_count} ✗
+						{#if voteError}<Alert tone="danger">{voteError}</Alert>{/if}
+						<p class="num text-sm text-ink-muted">
+							{sample.review_count} of 3 reviews: {sample.accepted_count} accepted, {sample.rejected_count} rejected
 						</p>
 					</div>
-				</div>
+				</Panel>
 			{/if}
 
-			<!-- Detection summary card -->
 			{#if sample.detection_algorithm || detectionFound !== undefined}
-				<div class="border border-border bg-surface">
-					<div class="flex items-center justify-between border-b border-border px-4 py-2.5">
-						<h2 class="text-xs font-semibold uppercase tracking-wider text-text-muted">Detection</h2>
+				<Panel title="Detection" flush>
+					{#snippet actions()}
 						{#if detectionFound !== undefined}
-							{#if detectionFound}
-								<span class="inline-flex items-center gap-1.5 text-xs font-medium text-success">
-									<span class="h-1.5 w-1.5 rounded-full bg-success"></span>
-									Found
-								</span>
-							{:else}
-								<span class="inline-flex items-center gap-1.5 text-xs font-medium text-primary">
-									<span class="h-1.5 w-1.5 rounded-full bg-primary"></span>
-									Not found
-								</span>
-							{/if}
+							<Badge tone={detectionFound ? 'success' : 'danger'} dot>{detectionFound ? 'Found' : 'Not found'}</Badge>
 						{/if}
+					{/snippet}
+					<div class="px-(--pad-panel) pb-2">
+						<KeyValue
+							items={[
+								...(sample.detection_algorithm ? [{ label: 'Algorithm', value: sample.detection_algorithm }] : []),
+								...(sample.detection_count != null ? [{ label: 'Count', value: sample.detection_count }] : []),
+								...(sample.detection_score != null ? [{ label: 'Score', value: sample.detection_score.toFixed(2) }] : []),
+								...(proposalBoxes.length > 0 ? [{ label: 'Proposals', value: proposalBoxes.length }] : []),
+								...(detectionOpenrouterModel ? [{ label: 'Model', value: detectionOpenrouterModel, mono: true }] : [])
+							]}
+						/>
 					</div>
-					<div class="px-4 py-3">
-						<div class="flex flex-wrap gap-x-4 gap-y-2 text-xs">
-							{#if sample.detection_algorithm}
-								<div>
-									<div class="text-text-muted mb-0.5">Algorithm</div>
-									<div class="font-medium text-text">{sample.detection_algorithm}</div>
-								</div>
-							{/if}
-							{#if sample.detection_count != null}
-								<div>
-									<div class="text-text-muted mb-0.5">Count</div>
-									<div class="font-medium text-text">{sample.detection_count}</div>
-								</div>
-							{/if}
-							{#if sample.detection_score != null}
-								<div>
-									<div class="text-text-muted mb-0.5">Score</div>
-									<div class="font-medium text-text">{sample.detection_score.toFixed(2)}</div>
-								</div>
-							{/if}
-							{#if proposalBoxes.length > 0}
-								<div>
-									<div class="text-text-muted mb-0.5">Proposals</div>
-									<div class="font-medium text-text">{proposalBoxes.length}</div>
-								</div>
-							{/if}
-						</div>
-						{#if detectionOpenrouterModel}
-							<div class="mt-2 text-[11px] text-text-muted font-mono truncate" title={detectionOpenrouterModel}>{detectionOpenrouterModel}</div>
-						{/if}
-					</div>
-				</div>
+				</Panel>
 			{/if}
 
 			{#if auth.isAdmin}
@@ -780,32 +670,15 @@
 
 			<SampleConditionCard samplePayload={sample.sample_payload} />
 
-			<SampleDetailsSidebar
-				{sample}
-				{reviews}
-				{camera}
-				{detectionScope}
-				{pieceUuid}
-				{runId}
-				{extra}
-				{extraKeys}
-				{showExpandedMeta}
-				onToggleExpandedMeta={() => { showExpandedMeta = !showExpandedMeta; }}
-				{formatValue}
-				{formatDate}
-				{shortId}
-			/>
-
+			<SampleDetailsSidebar {sample} {reviews} {camera} {detectionScope} {pieceUuid} {runId} {extra} {extraKeys} {formatValue} {formatDate} {shortId} />
 		</div>
 	</div>
 
-	<Modal open={showDeleteModal} title="Delete Sample" onclose={() => { showDeleteModal = false; }}>
-		<div class="space-y-4">
-			<p class="text-sm text-text-muted">Are you sure you want to delete this sample? This action cannot be undone.</p>
-			<div class="flex gap-2 justify-end">
-				<Button variant="secondary" onclick={() => { showDeleteModal = false; }}>Cancel</Button>
-				<Button variant="danger" onclick={handleDelete}>Delete</Button>
-			</div>
-		</div>
+	<Modal open={showDeleteModal} title="Delete this sample?" size="sm" onclose={() => (showDeleteModal = false)}>
+		<p class="text-sm text-ink">The sample, its pictures and its reviews go for good.</p>
+		{#snippet footer()}
+			<Button variant="ghost" onclick={() => (showDeleteModal = false)}>Cancel</Button>
+			<Button variant="danger" onclick={handleDelete}>Delete</Button>
+		{/snippet}
 	</Modal>
 {/if}

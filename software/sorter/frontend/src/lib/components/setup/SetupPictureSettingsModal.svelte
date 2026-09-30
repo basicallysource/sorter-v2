@@ -4,7 +4,6 @@
 	import { pictureSettingsEqual, type PictureSettings } from '$lib/settings/picture-settings';
 	import type { CameraRole } from '$lib/settings/stations';
 	import { roleView } from '$lib/video';
-	import { createEventDispatcher } from 'svelte';
 
 	type TransformMatrix = [number, number, number, number];
 	type PicturePreviewState = {
@@ -16,15 +15,15 @@
 		role,
 		label,
 		source = null,
-		hasCamera = true
+		hasCamera = true,
+		onsaved
 	}: {
 		role: CameraRole;
 		label: string;
 		source?: number | string | null;
 		hasCamera?: boolean;
+		onsaved?: () => void;
 	} = $props();
-
-	const dispatch = createEventDispatcher<{ saved: void }>();
 
 	let picturePreview = $state<PicturePreviewState | null>(null);
 	let previewKey = $state('');
@@ -96,36 +95,26 @@
 
 	function handleSidebarSaved() {
 		picturePreview = null;
-		dispatch('saved');
+		onsaved?.();
 	}
 </script>
 
-<div class="grid gap-4 xl:grid-cols-[minmax(0,1fr)_24rem] xl:items-start">
-	<div class="flex min-w-0 flex-col gap-3">
-		<div class="relative overflow-hidden bg-black">
-			<div
-				class="relative min-h-[24rem] sm:min-h-[30rem] lg:min-h-[36rem] xl:min-h-[42rem]"
-			>
-				{#if hasCamera}
-					<LiveImage
-						view={roleView(role, false, false)}
-						alt={label}
-						class="absolute inset-0 h-full w-full object-contain"
-						style={previewTransformStyle()}
-					/>
-				{:else}
-					<div
-						class="absolute inset-0 flex items-center justify-center px-6 text-center text-sm text-white/80"
-					>
-						<div class="max-w-sm rounded-md bg-black/55 px-4 py-3">
-							Assign a camera first so you can preview picture settings.
-						</div>
-					</div>
-				{/if}
-			</div>
-		</div>
+<!-- The picture beside its settings; below xl, the settings under it. -->
+<div class="grid grid-cols-1 gap-4 xl:grid-cols-[minmax(0,1fr)_22rem] xl:items-start">
+	<div class="dark relative min-h-[20rem] overflow-hidden rounded-control bg-media sm:min-h-[28rem]">
+		{#if hasCamera}
+			<LiveImage
+				view={roleView(role, false, false)}
+				alt={label}
+				class="absolute inset-0 h-full w-full object-contain"
+				style={previewTransformStyle()}
+			/>
+		{:else}
+			<p class="absolute inset-0 flex items-center justify-center px-6 text-center text-sm text-ink-muted">
+				Choose a camera first to preview its picture.
+			</p>
+		{/if}
 	</div>
-
 	<PictureSettingsSidebar
 		{role}
 		{label}

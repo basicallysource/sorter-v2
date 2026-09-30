@@ -1,7 +1,12 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import { goto } from '$app/navigation';
-	import Spinner from '$lib/components/Spinner.svelte';
+	import Spinner from '$lib/components/ui/Spinner.svelte';
+	import Button from '$lib/components/ui/Button.svelte';
+	import Badge from '$lib/components/ui/Badge.svelte';
+	import Alert from '$lib/components/ui/Alert.svelte';
+	import Modal from '$lib/components/ui/Modal.svelte';
+	import EmptyState from '$lib/components/ui/EmptyState.svelte';
 	import { getMachineContext, getMachinesContext } from '$lib/machines/context';
 	import {
 		getBackendHttpBase,
@@ -9,27 +14,26 @@
 		machineHttpBaseUrlFromWsUrl,
 		machineWsUrlFromHttpBaseUrl
 	} from '$lib/backend';
-	import AppHeader from '$lib/components/AppHeader.svelte';
+	import AppShell from '$lib/components/AppShell.svelte';
 	import CameraChannelControls from '$lib/components/CameraChannelControls.svelte';
 	import CameraFeed from '$lib/components/CameraFeed.svelte';
 	import CollapsibleSection from '$lib/components/CollapsibleSection.svelte';
-	import Modal from '$lib/components/Modal.svelte';
 	import RecentObjects from '$lib/components/RecentObjects.svelte';
-	import ResizeHandle from '$lib/components/ResizeHandle.svelte';
 	import SidebarBottomTabs from '$lib/components/SidebarBottomTabs.svelte';
 	import { buildDashboardFeedCrops, type DashboardFeedCrop } from '$lib/dashboard/crops';
-	import { AlertTriangle, Check, Info, RotateCcw, X } from 'lucide-svelte';
+	import Check from '@lucide/svelte/icons/check';
+	import House from '@lucide/svelte/icons/house';
+	import Plug from '@lucide/svelte/icons/plug';
+	import Info from '@lucide/svelte/icons/info';
+	import RotateCcw from '@lucide/svelte/icons/rotate-ccw';
+	import X from '@lucide/svelte/icons/x';
 
-	const SIDEBAR_MIN = 300;
-	const SIDEBAR_MAX = 900;
-	const SIDEBAR_DEFAULT = 420;
 	const EXIT_STUCK_INCIDENT_KIND = 'exit_stuck';
 	const machine = getMachineContext();
 	const manager = getMachinesContext();
 
 	let dashboardCrops = $state<Record<string, DashboardFeedCrop | null>>({});
 	let cropBaseUrl = $state<string | null>(null);
-	let sidebar_width = $state(SIDEBAR_DEFAULT);
 	let startSystemError = $state<string | null>(null);
 	let startSystemPending = $state(false);
 	let exitIncidentActionPending = $state(false);
@@ -41,10 +45,6 @@
 
 	function currentBackendBaseUrl(): string {
 		return machineHttpBaseUrlFromWsUrl(machine.machine?.url) ?? getBackendHttpBase();
-	}
-
-	function onSidebarResize(delta: number) {
-		sidebar_width = Math.min(SIDEBAR_MAX, Math.max(SIDEBAR_MIN, sidebar_width - delta));
 	}
 
 	const hardwareState = $derived(machine.machine?.systemStatus?.hardware_state ?? 'standby');
@@ -282,30 +282,30 @@
 
 	function exitIncidentTitle(incident: Record<string, unknown> | null): string {
 		if (incident?.kind === 'distribution_chute_jam') {
-			return 'Chute Jam';
+			return 'Chute jam';
 		}
 		if (incident?.kind === 'distribution_servo_bus_offline') {
-			return 'Servo Bus Offline';
+			return 'Servo bus offline';
 		}
 		if (incident?.kind === 'distribution_no_bin_available') {
-			return 'No Bin Available';
+			return 'No bin available';
 		}
 		if (incident?.kind === 'classification_unresolved') {
-			return 'Classification Unresolved';
+			return 'Classification unresolved';
 		}
 		if (incident?.kind === 'classification_multi_drop_collision') {
-			return 'Multi-Drop Collision';
+			return 'Multi-drop collision';
 		}
 		if (incident?.kind === 'classification_intake_request_timeout') {
-			return 'Intake Request Timeout';
+			return 'Intake request timeout';
 		}
 		if (incident?.kind === 'classification_track_lost') {
-			return 'Track Lost';
+			return 'Track lost';
 		}
 		if (incident?.kind === 'feeder_jam') {
-			return 'Feeder Jam';
+			return 'Feeder jam';
 		}
-		return 'Exit Stuck';
+		return 'Exit stuck';
 	}
 
 	function exitIncidentScopeLabel(incident: Record<string, unknown> | null): string {
@@ -511,10 +511,10 @@
 
 	const CAMERA_LABELS: Record<string, string> = {
 		feeder: 'Feeder',
-		c_channel_2: 'C-Channel 2',
-		c_channel_3: 'C-Channel 3',
-		carousel: 'Classification Channel',
-		classification_channel: 'Classification Channel'
+		c_channel_2: 'C-channel 2',
+		c_channel_3: 'C-channel 3',
+		carousel: 'Classification channel',
+		classification_channel: 'Classification channel'
 	};
 
 	function cameraLabel(role: string): string {
@@ -531,372 +531,291 @@
 
 <svelte:head><title>Sorter - Dashboard</title></svelte:head>
 
-<div class="min-h-screen bg-bg">
-	<AppHeader />
-	<div class="p-6">
-		{#if machine.machine}
-			<div class="flex h-[calc(100vh-7rem)] min-h-0 gap-3">
-				<div class="flex min-h-0 min-w-0 flex-1 flex-col gap-3">
-					<div class="flex min-h-0 flex-1 gap-3">
-						<div class="min-w-0 flex-1">
-							<CameraFeed
-								camera="c_channel_2"
-								label={cameraLabel('c_channel_2')}
-								crop={cropFor('c_channel_2')}
-								controls={['annotations', 'crop', 'fullscreen']}
-							>
-								{#snippet headerActions()}
-									<CameraChannelControls stepperKey="c_channel_2" />
-								{/snippet}
-							</CameraFeed>
-						</div>
-						<div class="min-w-0 flex-1">
-							<CameraFeed
-								camera="c_channel_3"
-								label={cameraLabel('c_channel_3')}
-								crop={cropFor('c_channel_3')}
-								controls={['annotations', 'crop', 'fullscreen']}
-							>
-								{#snippet headerActions()}
-									<CameraChannelControls stepperKey="c_channel_3" />
-								{/snippet}
-							</CameraFeed>
-						</div>
-					</div>
-					<div class="flex min-h-0 flex-1 gap-3">
-						<div class="min-w-0 flex-1">
-							<CameraFeed
-								camera="classification_channel"
-								label={cameraLabel('classification_channel')}
-								crop={cropFor('classification_channel')}
-								controls={['annotations', 'crop', 'fullscreen']}
-							>
-								{#snippet headerActions()}
-									<CameraChannelControls stepperKey="c_channel_4" />
-								{/snippet}
-							</CameraFeed>
-						</div>
+{#snippet incidentDetails(incident: Record<string, unknown>, title: string)}
+	<Button variant="ghost" icon={Info} class="ml-auto" onclick={() => openIncidentDetails(incident, title)}>
+		Details
+	</Button>
+{/snippet}
 
-					</div>
-				</div>
-
-				<ResizeHandle orientation="vertical" onresize={onSidebarResize} />
-
-				<div
-					class="flex min-h-0 flex-shrink-0 flex-col gap-3 overflow-y-auto"
-					style="width: {sidebar_width}px;"
+<AppShell fit>
+	{#if machine.machine}
+		<!-- From lg up the page is the window. The row is a size container, so the
+		     cameras' width comes from its height: --feed is a picture's height over
+		     its width (9 / 16 for a 16:9 feed), and the group is as wide as the
+		     height allows, so every picture fills its tile and none has a bar. The
+		     column beside takes the rest of the width. See the design system's
+		     docs/layout.md, the dashboard layout. -->
+		<div
+			class="flex min-h-0 flex-1 flex-col gap-(--gap-panels) p-4 sm:p-6 lg:flex-row lg:justify-center lg:[container-type:size]"
+			style="--feed: 0.5625"
+		>
+			<div
+				class="grid grid-cols-1 gap-(--gap-panels) md:grid-cols-2 lg:w-(--cameras) lg:shrink-0 lg:self-start"
+				style="--cameras: min(100cqw - 19rem - var(--gap-panels), (100cqh - 2 * var(--size-control-lg) - (1 - var(--feed) / 2) * var(--gap-panels)) / (1.5 * var(--feed)))"
+			>
+				<CameraFeed
+					camera="c_channel_2"
+					label={cameraLabel('c_channel_2')}
+					crop={cropFor('c_channel_2')}
+					controls={['annotations', 'crop', 'fullscreen']}
+					class="@container"
 				>
-					{#if hardwareState !== 'ready'}
-						<div class="shrink-0 border border-border bg-bg px-4 py-3">
-							{#if hardwareState === 'standby'}
-								<div class="flex items-center justify-between gap-3">
-									<div>
-										<div class="text-sm font-medium text-text">System Standby</div>
-										<div class="text-xs text-text-muted">
-											{#if noPowerDevelopmentMode}
-												Sim Home runs the normal recovery path and skips only the physical homing steps.
-											{:else}
-												Press Home to initialize hardware and home all axes.
-											{/if}
-										</div>
-										{#if startSystemError}
-											<div class="mt-1 text-xs text-danger">{startSystemError}</div>
-										{/if}
+					{#snippet actions()}
+						<CameraChannelControls stepperKey="c_channel_2" />
+					{/snippet}
+				</CameraFeed>
+				<CameraFeed
+					camera="c_channel_3"
+					label={cameraLabel('c_channel_3')}
+					crop={cropFor('c_channel_3')}
+					controls={['annotations', 'crop', 'fullscreen']}
+					class="@container"
+				>
+					{#snippet actions()}
+						<CameraChannelControls stepperKey="c_channel_3" />
+					{/snippet}
+				</CameraFeed>
+				<CameraFeed
+					camera="classification_channel"
+					label={cameraLabel('classification_channel')}
+					crop={cropFor('classification_channel')}
+					controls={['annotations', 'crop', 'fullscreen']}
+					class="@container md:col-span-2"
+				>
+					{#snippet actions()}
+						<CameraChannelControls stepperKey="c_channel_4" />
+					{/snippet}
+				</CameraFeed>
+			</div>
+
+			<!-- Beside the cameras from lg up, from 19rem to 40rem wide. On a phone this
+			     wrapper disappears, so its parts take their place in the page's own order:
+			     the status and any incident first, then the cameras, then the pieces and
+			     the runtime. -->
+			<div
+				class="contents lg:flex lg:max-w-160 lg:min-w-76 lg:min-h-0 lg:flex-1 lg:flex-col lg:gap-(--gap-panels) lg:overflow-y-auto"
+			>
+				{#if hardwareState === 'standby' || hardwareState === 'homing' || hardwareState === 'error'}
+					<section class="shrink-0 rounded-panel bg-surface p-(--pad-panel) max-lg:order-first">
+						{#if hardwareState === 'standby'}
+							<div class="flex items-start justify-between gap-4">
+								<div class="min-w-0">
+									<div class="flex items-center gap-2">
+										<span class="text-base font-semibold text-ink">Standby</span>
+										<Badge tone="warning" dot>Not homed</Badge>
 									</div>
-									<div class="flex shrink-0 items-center gap-2">
+									<p class="mt-1 text-sm text-ink-muted">
 										{#if noPowerDevelopmentMode}
-											<button
-												onclick={startSystem}
-												disabled={startingSystem}
-												class="cursor-pointer border border-border bg-surface px-4 py-1.5 text-sm font-medium text-text hover:bg-bg disabled:cursor-not-allowed disabled:opacity-50"
-											>
-												Sim Home
-											</button>
+											Sim home runs the normal recovery and skips only the physical homing.
+										{:else}
+											Home starts the hardware and moves every axis to its zero.
 										{/if}
-										<button
-											onclick={startSystem}
-											disabled={startingSystem}
-											class="cursor-pointer border border-success bg-success px-4 py-1.5 text-sm font-medium text-white hover:bg-success/90 disabled:cursor-not-allowed disabled:opacity-50"
-										>
-											Home
-										</button>
-									</div>
+									</p>
+									{#if startSystemError}
+										<p class="mt-1 text-sm text-danger-ink">{startSystemError}</p>
+									{/if}
 								</div>
-							{:else if hardwareState === 'homing'}
-								<div class="flex items-center gap-3">
-									<Spinner size={16} class="text-primary" />
-									<div>
-										<div class="text-sm font-medium text-text">Homing...</div>
-										<div class="text-xs text-text-muted">
-											{homingStep ?? 'Initializing hardware...'}
-										</div>
-									</div>
+								<div class="flex shrink-0 items-center gap-2">
+									{#if noPowerDevelopmentMode}
+										<Button onclick={startSystem} disabled={startingSystem}>Sim home</Button>
+									{/if}
+									<Button
+										variant="primary"
+										icon={House}
+										loading={startSystemPending}
+										disabled={startingSystem}
+										onclick={startSystem}
+									>
+										Home
+									</Button>
 								</div>
-							{:else if hardwareState === 'error'}
-								<div class="flex flex-col gap-2">
-									<div class="text-sm font-medium text-danger">
-										{hardwareFault?.title ?? 'Hardware Error'}
+							</div>
+						{:else if hardwareState === 'homing'}
+							<div class="flex items-center gap-3">
+								<Spinner size={16} class="text-primary-ink" />
+								<div class="min-w-0">
+									<div class="text-base font-semibold text-ink">Homing</div>
+									<p class="text-sm text-ink-muted">{homingStep ?? 'Starting the hardware'}</p>
+								</div>
+							</div>
+						{:else}
+							<div class="flex items-start justify-between gap-4">
+								<div class="min-w-0">
+									<div class="flex items-center gap-2">
+										<span class="text-base font-semibold text-ink">
+											{hardwareFault?.title ?? 'Hardware error'}
+										</span>
+										<Badge tone="danger" dot>Stopped</Badge>
 									</div>
 									{#if hardwareError}
-										<div class="text-xs text-text-muted">{hardwareError}</div>
+										<p class="mt-1 text-sm break-words text-ink-muted">{hardwareError}</p>
 									{/if}
-									<button
-										onclick={startSystem}
-										disabled={startingSystem}
-										class="w-fit cursor-pointer border border-border bg-surface px-3 py-1 text-xs text-text hover:bg-bg disabled:cursor-not-allowed disabled:opacity-50"
-									>
-										Retry
-									</button>
 								</div>
+								<Button onclick={startSystem} disabled={startingSystem}>Retry</Button>
+							</div>
+						{/if}
+					</section>
+				{/if}
+
+				{#if exitIncident}
+					<Alert tone="warning" title={exitIncidentTitle(exitIncident)} class="shrink-0 max-lg:order-first">
+						<div class="flex flex-wrap items-center gap-1.5">
+							{#if exitIncidentScopeLabel(exitIncident)}
+								<Badge>{exitIncidentScopeLabel(exitIncident)}</Badge>
 							{/if}
+							<Badge tone="warning">{exitIncidentStatusLabel(exitIncident)}</Badge>
 						</div>
-					{/if}
-					{#if exitIncident}
-						<div class="shrink-0 border border-warning/50 bg-warning/10 px-4 py-3">
-							<div class="flex items-start justify-between gap-3">
-								<div class="flex min-w-0 items-start gap-2">
-									<AlertTriangle size={17} class="mt-0.5 shrink-0 text-warning-dark" />
-									<div class="min-w-0">
-										<div class="flex flex-wrap items-center gap-2">
-											<div class="text-sm font-semibold text-text">
-												{exitIncidentTitle(exitIncident)}
-											</div>
-											{#if exitIncidentScopeLabel(exitIncident)}
-												<div class="bg-bg/70 px-1.5 py-0.5 text-[10px] text-text-muted">
-													{exitIncidentScopeLabel(exitIncident)}
-												</div>
-											{/if}
-											<div
-												class="bg-warning px-1.5 py-0.5 text-[10px] font-semibold text-warning-dark uppercase"
-											>
-												{exitIncidentStatusLabel(exitIncident)}
-											</div>
-										</div>
-										<div class="mt-1 text-xs text-text-muted">
-											{exitIncidentDescription(exitIncident)}
-										</div>
-										{#if incidentString(exitIncident, 'operator_message')}
-											<div class="mt-2 bg-warning/10 px-2 py-1.5 text-xs text-warning-dark">
-												{incidentString(exitIncident, 'operator_message')}
-											</div>
-										{/if}
-									</div>
-								</div>
+						<p class="mt-1.5">{exitIncidentDescription(exitIncident)}</p>
+						{#if incidentString(exitIncident, 'operator_message')}
+							<p class="mt-1.5 font-medium">{incidentString(exitIncident, 'operator_message')}</p>
+						{/if}
+						<dl class="mt-3 grid grid-cols-2 gap-3">
+							<div>
+								<dt class="text-ink-muted">{exitIncidentPrimaryMetricLabel(exitIncident)}</dt>
+								<dd class="num">{exitIncidentPrimaryMetricValue(exitIncident)}</dd>
 							</div>
-							<div class="mt-3 grid grid-cols-2 gap-2 text-xs">
-								<div class="bg-bg/70 px-2 py-1.5">
-									<div class="text-text-muted">
-										{exitIncidentPrimaryMetricLabel(exitIncident)}
-									</div>
-									<div class="font-mono text-text tabular-nums">
-										{exitIncidentPrimaryMetricValue(exitIncident)}
-									</div>
-								</div>
-								<div class="bg-bg/70 px-2 py-1.5">
-									<div class="text-text-muted">
-										{exitIncidentSecondaryMetricLabel(exitIncident)}
-									</div>
-									<div class="font-mono text-text tabular-nums">
-										{exitIncidentSecondaryMetricValue(exitIncident)}
-									</div>
-								</div>
+							<div>
+								<dt class="text-ink-muted">{exitIncidentSecondaryMetricLabel(exitIncident)}</dt>
+								<dd class="num">{exitIncidentSecondaryMetricValue(exitIncident)}</dd>
 							</div>
-							<div class="mt-3 flex flex-wrap gap-2">
-								{#if isC4StallWatchdogIncident(exitIncident)}
-									<button
-										type="button"
-										onclick={() => postExitIncidentAction('auto-resolve')}
-										disabled={exitIncidentActionPending || exitIncidentMotionBusy(exitIncident)}
-										class="inline-flex min-h-10 items-center gap-1.5 bg-warning px-3 py-1.5 text-xs font-semibold text-warning-dark transition-transform hover:bg-warning/90 active:scale-[0.96] disabled:cursor-not-allowed disabled:opacity-50"
-									>
-										<RotateCcw size={13} />
-										Auto Resolve
-									</button>
-								{/if}
-								<button
-									type="button"
-									onclick={() => postExitIncidentAction('clear')}
+						</dl>
+						<div class="mt-3 flex flex-wrap items-center gap-2">
+							{#if isC4StallWatchdogIncident(exitIncident)}
+								<Button
+									variant="primary"
+									icon={RotateCcw}
 									disabled={exitIncidentActionPending || exitIncidentMotionBusy(exitIncident)}
-									class="inline-flex min-h-10 items-center gap-1.5 bg-bg px-3 py-1.5 text-xs font-medium text-text shadow-[inset_0_0_0_1px_var(--color-border)] transition-transform hover:bg-surface active:scale-[0.96] disabled:cursor-not-allowed disabled:opacity-50"
+									onclick={() => postExitIncidentAction('auto-resolve')}
 								>
-									<X size={13} />
-									Incident Solved
-								</button>
-								<button
-									type="button"
-									onclick={() => openIncidentDetails(exitIncident, exitIncidentTitle(exitIncident))}
-									title="Incident details"
-									class="ml-auto inline-flex min-h-10 items-center gap-1.5 px-2 py-1.5 text-xs font-medium text-text-muted transition-colors hover:bg-bg/70 hover:text-text"
-								>
-									<Info size={14} />
-									Details
-								</button>
-							</div>
-							{#if exitIncidentActionError}
-								<div class="mt-2 text-xs text-danger">{exitIncidentActionError}</div>
+									Auto resolve
+								</Button>
 							{/if}
+							<Button
+								icon={X}
+								disabled={exitIncidentActionPending || exitIncidentMotionBusy(exitIncident)}
+								onclick={() => postExitIncidentAction('clear')}
+							>
+								Incident solved
+							</Button>
+							{@render incidentDetails(exitIncident, exitIncidentTitle(exitIncident))}
 						</div>
-					{/if}
-					{#if stallIncident}
-						<div class="shrink-0 border border-danger/50 bg-danger/10 px-4 py-3">
-							<div class="flex items-start justify-between gap-3">
-								<div class="flex min-w-0 items-start gap-2">
-									<AlertTriangle size={17} class="mt-0.5 shrink-0 text-danger" />
-									<div class="min-w-0">
-										<div class="flex flex-wrap items-center gap-2">
-											<div class="text-sm font-semibold text-text">Motor Stall</div>
-											<div class="bg-bg/70 px-1.5 py-0.5 text-[10px] text-text-muted">
-												{stallIncidentSteppersLabel(stallIncident)}
-											</div>
-											<div
-												class="bg-danger px-1.5 py-0.5 text-[10px] font-semibold text-white uppercase"
-											>
-												Halted
-											</div>
-										</div>
-										<div class="mt-1 text-xs text-text-muted">
-											{#if stallIncident.requires_rehome}
-												A stepper stalled and the machine paused. The chute lost its home
-												position, so it must be re-homed before sorting can resume. Clear
-												the jam, then re-home — or clear the stall now and re-home later.
-											{:else}
-												A stepper stalled and the machine paused. Clear the jam, then clear
-												the stall; resume from the header once it's cleared.
-											{/if}
-										</div>
-										{#if incidentString(stallIncident, 'operator_message')}
-											<div class="mt-2 bg-danger/10 px-2 py-1.5 text-xs text-danger">
-												{incidentString(stallIncident, 'operator_message')}
-											</div>
-										{/if}
-									</div>
-								</div>
-							</div>
-							<div class="mt-3 flex flex-wrap items-center gap-2">
-								{#if stallIncident.requires_rehome}
-									<button
-										type="button"
-										onclick={rehomeAfterStall}
-										disabled={stallIncidentActionPending}
-										class="inline-flex min-h-10 items-center gap-1.5 bg-bg px-3 py-1.5 text-xs font-medium text-text shadow-[inset_0_0_0_1px_var(--color-border)] transition-transform hover:bg-surface active:scale-[0.96] disabled:cursor-not-allowed disabled:opacity-50"
-									>
-										<RotateCcw size={13} />
-										Stall Cleared — Re-home
-									</button>
-									<button
-										type="button"
-										onclick={acknowledgeStallIncident}
-										disabled={stallIncidentActionPending}
-										class="inline-flex min-h-10 items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-text-muted transition-colors hover:bg-bg/70 hover:text-text disabled:cursor-not-allowed disabled:opacity-50"
-									>
-										<Check size={13} />
-										Clear stall only
-									</button>
-								{:else}
-									<button
-										type="button"
-										onclick={acknowledgeStallIncident}
-										disabled={stallIncidentActionPending}
-										class="inline-flex min-h-10 items-center gap-1.5 bg-bg px-3 py-1.5 text-xs font-medium text-text shadow-[inset_0_0_0_1px_var(--color-border)] transition-transform hover:bg-surface active:scale-[0.96] disabled:cursor-not-allowed disabled:opacity-50"
-									>
-										<Check size={13} />
-										Clear Stall
-									</button>
-								{/if}
-								<button
-									type="button"
-									onclick={() => openIncidentDetails(stallIncident, 'Motor Stall')}
-									title="Incident details"
-									class="ml-auto inline-flex min-h-10 items-center gap-1.5 px-2 py-1.5 text-xs font-medium text-text-muted transition-colors hover:bg-bg/70 hover:text-text"
-								>
-									<Info size={14} />
-									Details
-								</button>
-							</div>
-							{#if stallIncidentActionError}
-								<div class="mt-2 text-xs text-danger">{stallIncidentActionError}</div>
+						{#if exitIncidentActionError}
+							<p class="mt-2 text-danger-ink">{exitIncidentActionError}</p>
+						{/if}
+					</Alert>
+				{/if}
+
+				{#if stallIncident}
+					<Alert tone="danger" title="Motor stall" class="shrink-0 max-lg:order-first">
+						<div class="flex flex-wrap items-center gap-1.5">
+							<Badge>{stallIncidentSteppersLabel(stallIncident)}</Badge>
+							<Badge tone="danger">Halted</Badge>
+						</div>
+						<p class="mt-1.5">
+							{#if stallIncident.requires_rehome}
+								A stepper stalled and the machine paused. The chute lost its home position, so it
+								has to be re-homed before sorting can resume. Clear the jam, then re-home, or clear
+								the stall now and re-home later.
+							{:else}
+								A stepper stalled and the machine paused. Clear the jam, then clear the stall, and
+								resume from the header.
 							{/if}
-						</div>
-					{/if}
-					{#if needsHomingIncident}
-						<div class="shrink-0 border border-danger/50 bg-danger/10 px-4 py-3">
-							<div class="flex items-start justify-between gap-3">
-								<div class="flex min-w-0 items-start gap-2">
-									<AlertTriangle size={17} class="mt-0.5 shrink-0 text-danger" />
-									<div class="min-w-0">
-										<div class="flex flex-wrap items-center gap-2">
-											<div class="text-sm font-semibold text-text">Needs Homing</div>
-											<div
-												class="bg-danger px-1.5 py-0.5 text-[10px] font-semibold text-white uppercase"
-											>
-												Halted
-											</div>
-										</div>
-										<div class="mt-1 text-xs text-text-muted">
-											The chute lost its home position after a stall, so its location can't
-											be trusted. Re-home the chute to resume sorting.
-										</div>
-										{#if incidentString(needsHomingIncident, 'operator_message')}
-											<div class="mt-2 bg-danger/10 px-2 py-1.5 text-xs text-danger">
-												{incidentString(needsHomingIncident, 'operator_message')}
-											</div>
-										{/if}
-									</div>
-								</div>
-							</div>
-							<div class="mt-3 flex flex-wrap items-center gap-2">
-								<button
-									type="button"
-									onclick={rehomeChute}
-									disabled={rehomeIncidentActionPending}
-									class="inline-flex min-h-10 items-center gap-1.5 bg-bg px-3 py-1.5 text-xs font-medium text-text shadow-[inset_0_0_0_1px_var(--color-border)] transition-transform hover:bg-surface active:scale-[0.96] disabled:cursor-not-allowed disabled:opacity-50"
+						</p>
+						{#if incidentString(stallIncident, 'operator_message')}
+							<p class="mt-1.5 font-medium">{incidentString(stallIncident, 'operator_message')}</p>
+						{/if}
+						<div class="mt-3 flex flex-wrap items-center gap-2">
+							{#if stallIncident.requires_rehome}
+								<Button
+									icon={RotateCcw}
+									disabled={stallIncidentActionPending}
+									onclick={rehomeAfterStall}
 								>
-									<RotateCcw size={13} />
-									Re-home Chute
-								</button>
-								<button
-									type="button"
-									onclick={() => openIncidentDetails(needsHomingIncident, 'Needs Homing')}
-									title="Incident details"
-									class="ml-auto inline-flex min-h-10 items-center gap-1.5 px-2 py-1.5 text-xs font-medium text-text-muted transition-colors hover:bg-bg/70 hover:text-text"
+									Stall cleared, re-home
+								</Button>
+								<Button
+									variant="ghost"
+									icon={Check}
+									disabled={stallIncidentActionPending}
+									onclick={acknowledgeStallIncident}
 								>
-									<Info size={14} />
-									Details
-								</button>
-							</div>
-							{#if rehomeIncidentActionError}
-								<div class="mt-2 text-xs text-danger">{rehomeIncidentActionError}</div>
+									Clear the stall only
+								</Button>
+							{:else}
+								<Button
+									icon={Check}
+									disabled={stallIncidentActionPending}
+									onclick={acknowledgeStallIncident}
+								>
+									Clear the stall
+								</Button>
 							{/if}
+							{@render incidentDetails(stallIncident, 'Motor stall')}
 						</div>
-					{/if}
-					<CollapsibleSection title="Recent Pieces" storageKey="recent" grow>
+						{#if stallIncidentActionError}
+							<p class="mt-2 text-danger-ink">{stallIncidentActionError}</p>
+						{/if}
+					</Alert>
+				{/if}
+
+				{#if needsHomingIncident}
+					<Alert tone="danger" title="Needs homing" class="shrink-0 max-lg:order-first">
+						<div class="flex flex-wrap items-center gap-1.5">
+							<Badge tone="danger">Halted</Badge>
+						</div>
+						<p class="mt-1.5">
+							The chute lost its home position after a stall, so its position can't be trusted.
+							Re-home the chute to resume sorting.
+						</p>
+						{#if incidentString(needsHomingIncident, 'operator_message')}
+							<p class="mt-1.5 font-medium">
+								{incidentString(needsHomingIncident, 'operator_message')}
+							</p>
+						{/if}
+						<div class="mt-3 flex flex-wrap items-center gap-2">
+							<Button icon={RotateCcw} disabled={rehomeIncidentActionPending} onclick={rehomeChute}>
+								Re-home the chute
+							</Button>
+							{@render incidentDetails(needsHomingIncident, 'Needs homing')}
+						</div>
+						{#if rehomeIncidentActionError}
+							<p class="mt-2 text-danger-ink">{rehomeIncidentActionError}</p>
+						{/if}
+					</Alert>
+				{/if}
+
+				<div class="max-lg:order-last lg:contents">
+					<CollapsibleSection title="Recent pieces" storageKey="recent" grow>
 						<RecentObjects />
 					</CollapsibleSection>
+				</div>
+				<div class="max-lg:order-last lg:contents">
 					<CollapsibleSection title="Runtime" storageKey="runtimeTabs">
 						<SidebarBottomTabs />
 					</CollapsibleSection>
 				</div>
 			</div>
-		{:else}
-			<div class="py-12 text-center text-text-muted">
-				No machine selected. Connect to a machine in Settings.
-			</div>
-		{/if}
-	</div>
-</div>
+		</div>
+	{:else}
+		<div class="p-4 sm:p-6">
+			<EmptyState icon={Plug} title="No machine selected">
+				Connect to a machine in Settings.
+			</EmptyState>
+		</div>
+	{/if}
+</AppShell>
+
 <Modal bind:open={incidentDetailsOpen} title={incidentDetailsTitle}>
 	{#if incidentDetailsTarget}
-		<dl class="flex flex-col divide-y divide-border/40">
+		<dl class="divide-y divide-line">
 			{#each incidentDetailEntries(incidentDetailsTarget) as entry (entry.key)}
-				<div class="flex items-start justify-between gap-4 py-1.5">
-					<dt class="shrink-0 font-mono text-xs text-text-muted">{entry.key}</dt>
-					<dd class="max-w-[65%] break-words text-right font-mono text-sm text-text">
-						{entry.value}
-					</dd>
+				<div class="flex items-start justify-between gap-4 py-2">
+					<dt class="shrink-0 font-mono text-ink-muted">{entry.key}</dt>
+					<dd class="max-w-[65%] text-right font-mono break-words text-ink">{entry.value}</dd>
 				</div>
 			{/each}
 		</dl>
 	{:else}
-		<div class="text-sm text-text-muted">No incident details available.</div>
+		<p class="text-ink-muted">No incident details.</p>
 	{/if}
 </Modal>

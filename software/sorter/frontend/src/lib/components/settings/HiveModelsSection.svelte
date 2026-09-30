@@ -1,16 +1,28 @@
 <script lang="ts">
+	import { confirmDialog } from '$lib/confirm.svelte';
 	import { onMount } from 'svelte';
 	import { getBackendHttpBase } from '$lib/backend';
-	import { Alert, Button, Tooltip } from '$lib/components/primitives';
-	import {
-		Download,
-		RefreshCw,
-		Trash2,
-		Search,
-		CheckCircle2,
-		ChevronDown,
-		ChevronRight
-	} from 'lucide-svelte';
+	import Alert from '$lib/components/ui/Alert.svelte';
+	import Button from '$lib/components/ui/Button.svelte';
+	import Panel from '$lib/components/ui/Panel.svelte';
+	import Tabs from '$lib/components/ui/Tabs.svelte';
+	import Input from '$lib/components/ui/Input.svelte';
+	import Select from '$lib/components/ui/Select.svelte';
+	import Checkbox from '$lib/components/ui/Checkbox.svelte';
+	import Field from '$lib/components/ui/Field.svelte';
+	import Badge from '$lib/components/ui/Badge.svelte';
+	import Menu from '$lib/components/ui/Menu.svelte';
+	import Popover from '$lib/components/ui/Popover.svelte';
+	import Spinner from '$lib/components/ui/Spinner.svelte';
+	import EmptyState from '$lib/components/ui/EmptyState.svelte';
+	import SlidersHorizontal from '@lucide/svelte/icons/sliders-horizontal';
+	import Boxes from '@lucide/svelte/icons/boxes';
+	import Download from '@lucide/svelte/icons/download';
+	import RefreshCw from '@lucide/svelte/icons/refresh-cw';
+	import Trash2 from '@lucide/svelte/icons/trash';
+	import CheckCircle2 from '@lucide/svelte/icons/circle-check';
+	import ChevronDown from '@lucide/svelte/icons/chevron-down';
+	import ChevronRight from '@lucide/svelte/icons/chevron-right';
 
 	type HiveTarget = { id: string; name: string; url: string };
 	type ModelSummary = {
@@ -524,9 +536,15 @@
 			return;
 		}
 		const summary = candidates.map((entry) => entry.name).join('\n  • ');
-		if (!confirm(`Remove ${candidates.length} unused downloaded model${candidates.length === 1 ? '' : 's'}?\n\n  • ${summary}`)) {
+		if (
+			!(await confirmDialog({
+				title: `Remove ${candidates.length} unused downloaded model${candidates.length === 1 ? '' : 's'}?`,
+				message: `  • ${summary}`,
+				action: 'Remove them',
+				danger: true
+			}))
+		)
 			return;
-		}
 		actionError = null;
 		cleaningUp = true;
 		try {
@@ -562,7 +580,15 @@
 	}
 
 	async function handleDelete(entry: Installed) {
-		if (!confirm(`Remove the installed model "${entry.name}" from this sorter?`)) return;
+		if (
+			!(await confirmDialog({
+				title: 'Remove the model?',
+				message: `Remove the installed model "${entry.name}" from this sorter?`,
+				action: 'Remove the model',
+				danger: true
+			}))
+		)
+			return;
 		actionError = null;
 		deletingLocalId = entry.local_id;
 		try {
@@ -677,195 +703,161 @@
 		if (!sha) return '—';
 		return `${sha.slice(0, 12)}…`;
 	}
+
+	function refreshView() {
+		if (tab === 'available') void loadModels();
+		if (tab === 'installed') {
+			void loadInstalled();
+			void loadActiveAssignments();
+		}
+	}
+
+	function activateMenu(entry: Installed) {
+		if (activeAssignments.length === 0) {
+			return [{ label: 'No detection subsystems on this machine', disabled: true }];
+		}
+		return activeAssignments.map((slot) => ({
+			label: slot.label,
+			checked: slot.algorithm_id === entry.algorithm_id,
+			hint: (entry.registry_scopes ?? []).includes(slot.registry_scope ?? '__none__')
+				? undefined
+				: 'Not designed for it',
+			disabled: activatingAlgorithmId === entry.algorithm_id,
+			onselect: () => void handleActivateForSlot(entry, slot)
+		}));
+	}
 </script>
 
-<div class="grid gap-5">
-	<!-- ───────────────────── Action feedback ─────────────────────
-	     Errors only — success states are conveyed by the Installed list
-	     itself (Active pill, model appearing/disappearing). -->
+<div class="flex flex-col gap-(--gap-panels)">
+	<!-- Errors only: success shows in the lists themselves (the active model,
+	     a model appearing or going). -->
 	{#if actionError}
-		<Alert variant="danger">
-			<div class="whitespace-pre-line">{actionError}</div>
-		</Alert>
+		<Alert tone="danger"><span class="whitespace-pre-line">{actionError}</span></Alert>
 	{/if}
 
-	<!-- ───────────────────── Catalog manager ───────────────────── -->
 	{#if targetsLoading}
-		<Alert variant="info">Loading Hive targets…</Alert>
+		<div class="flex items-center gap-2 text-sm text-ink-muted">
+			<Spinner size={14} /> Loading the Hive settings
+		</div>
 	{:else if targetsMissing && installed.length === 0}
-		<Alert variant="info">
-			No Hive target configured and no models installed. Configure a target in the Hive
-			card to browse the catalog.
+		<Alert tone="info">
+			No Hive is set up and no models are installed. Set up a Hive in Settings, Hive to browse its
+			models.
 		</Alert>
 	{:else if targetsError}
-		<Alert variant="danger">{targetsError}</Alert>
+		<Alert tone="danger">{targetsError}</Alert>
 	{/if}
 
 	{#if !targetsLoading && !targetsError}
-		<div class="border border-border bg-surface">
-			<!-- Section header: tabs + target picker + refresh -->
-			<header class="flex flex-wrap items-center justify-between gap-3 border-b border-border bg-bg px-2">
-				<nav class="-mb-px flex items-stretch" aria-label="Models view">
-					<button
-						type="button"
-						onclick={() => setTab('installed')}
-						class={`border-b-2 px-3 py-2.5 text-sm font-medium transition-colors ${tab === 'installed' ? 'border-primary text-text' : 'border-transparent text-text-muted hover:text-text'}`}
-					>
-						Installed
-						{#if installed.length > 0}
-							<span class="ml-1 text-xs font-normal text-text-muted">
-								{installed.length}
-							</span>
-						{/if}
-					</button>
-					{#if !targetsMissing}
-						<button
-							type="button"
-							onclick={() => setTab('available')}
-							class={`border-b-2 px-3 py-2.5 text-sm font-medium transition-colors ${tab === 'available' ? 'border-primary text-text' : 'border-transparent text-text-muted hover:text-text'}`}
-						>
-							Browse Hive
-						</button>
-					{/if}
-				</nav>
-
-				<div class="flex items-center gap-2 px-2 py-2">
-					<Tooltip text="Refresh current view">
-						<Button
-							variant="ghost"
-							size="sm"
-							onclick={() => {
-								if (tab === 'available') void loadModels();
-								if (tab === 'installed') {
-									void loadInstalled();
-									void loadActiveAssignments();
-								}
-							}}
-						>
-							<RefreshCw size={14} />
-						</Button>
-					</Tooltip>
+		<Panel flush>
+			<div class="relative">
+				<Tabs
+					label="Models"
+					inset
+					value={tab}
+					onchange={setTab}
+					items={[
+						{
+							value: 'installed',
+							label: 'Installed',
+							count: installed.length > 0 ? installed.length : undefined
+						},
+						...(targetsMissing ? [] : [{ value: 'available' as const, label: 'Browse Hive' }])
+					]}
+				/>
+				<div class="absolute top-1 right-2">
+					<Button variant="ghost" size="sm" icon={RefreshCw} label="Refresh" onclick={refreshView} />
 				</div>
-			</header>
+			</div>
 
-			<div class="p-4">
-
-		{#if tab === 'available'}
-			<div class="flex flex-col gap-4">
-				<div class="flex flex-wrap items-center gap-2">
-					<div class="relative flex-1 min-w-[16rem]">
-						<Search
-							size={14}
-							class="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-text-muted"
-						/>
-						<input
+			{#if tab === 'available'}
+				<div class="flex flex-col gap-3 px-(--pad-panel) py-4">
+					<div class="flex flex-wrap items-center gap-2">
+						<Input
+							type="search"
 							bind:value={query}
 							oninput={onFilterChange}
-							type="text"
-							placeholder="Search name or slug"
-							class="w-full border border-border bg-surface py-2 pl-9 pr-3 text-sm text-text focus:border-primary focus:outline-none"
+							placeholder="Search a name or slug"
+							class="min-w-64 flex-1"
 						/>
-					</div>
-					<select
-						bind:value={purposeFilter}
-						onchange={onFilterChange}
-						class="border border-border bg-surface px-3 py-2 text-sm text-text"
-						aria-label="Model purpose"
-					>
-						{#each PURPOSE_OPTIONS as opt}
-							<option value={opt.value}>{opt.label}</option>
-						{/each}
-					</select>
-					<details class="group">
-						<summary class="cursor-pointer list-none border border-border bg-surface px-3 py-2 text-sm text-text-muted transition-colors hover:bg-bg">
-							<span class="inline-flex items-center gap-1.5">
-								<ChevronRight
-									size={14}
-									class="transition-transform group-open:rotate-90"
-								/>
-								Advanced filters
-							</span>
-						</summary>
-						<div class="mt-2 grid gap-2 sm:grid-cols-3">
-							<input
-								bind:value={scopeFilter}
-								oninput={onFilterChange}
-								type="text"
-								placeholder="Scope (e.g. brick, minifig)"
-								class="border border-border bg-surface px-3 py-2 text-sm text-text"
-							/>
-							<select
-								bind:value={runtimeFilter}
+						<div class="w-56">
+							<Select
+								label="Purpose"
+								bind:value={purposeFilter}
 								onchange={onFilterChange}
-								class="border border-border bg-surface px-3 py-2 text-sm text-text"
-							>
-								{#each RUNTIME_OPTIONS as opt}
-									<option value={opt}>{opt === '' ? 'Any runtime' : opt}</option>
-								{/each}
-							</select>
-							<input
-								bind:value={familyFilter}
-								oninput={onFilterChange}
-								type="text"
-								placeholder="Model family"
-								class="border border-border bg-surface px-3 py-2 text-sm text-text"
+								options={PURPOSE_OPTIONS.map((o) => ({ value: o.value, label: o.label }))}
 							/>
 						</div>
-						<label class="mt-2 flex items-center gap-2 text-sm text-text-muted">
-							<input
-								type="checkbox"
-								bind:checked={includeExperimental}
-								onchange={onFilterChange}
-								class="border border-border"
-							/>
-							Include experimental models
-						</label>
-					</details>
-				</div>
+						<Popover label="More filters" placement="bottom-end">
+							{#snippet trigger(props)}
+								<Button {...props} icon={SlidersHorizontal}>More filters</Button>
+							{/snippet}
+							<div class="flex flex-col gap-4">
+								<Field label="Scope" for="models-scope">
+									<Input
+										id="models-scope"
+										bind:value={scopeFilter}
+										oninput={onFilterChange}
+										placeholder="brick, minifig"
+									/>
+								</Field>
+								<Field label="Runtime" for="models-runtime">
+									<Select
+										id="models-runtime"
+										bind:value={runtimeFilter}
+										onchange={onFilterChange}
+										options={RUNTIME_OPTIONS.map((o) => ({ value: o, label: o === '' ? 'Any runtime' : o }))}
+									/>
+								</Field>
+								<Field label="Family" for="models-family">
+									<Input id="models-family" bind:value={familyFilter} oninput={onFilterChange} />
+								</Field>
+								<Checkbox bind:checked={includeExperimental} onchange={onFilterChange}>
+									Include experimental models
+								</Checkbox>
+							</div>
+						</Popover>
+					</div>
 
-				<div class="flex items-center justify-between text-xs text-text-muted">
-					<span>
+					<div class="flex items-center justify-between gap-3 text-sm text-ink-muted">
 						{#if loadingModels}
-							Loading models…
+							<span class="flex items-center gap-2"><Spinner size={14} /> Loading the models</span>
 						{:else}
-							{modelsTotal} model{modelsTotal === 1 ? '' : 's'}{modelsPages > 1
-								? ` · page ${page} of ${modelsPages}`
-								: ''}
+							<span>
+								<span class="num">{modelsTotal}</span>
+								{modelsTotal === 1 ? 'model' : 'models'}{modelsPages > 1
+									? `, page ${page} of ${modelsPages}`
+									: ''}
+							</span>
 						{/if}
-					</span>
-					{#if query || scopeFilter || runtimeFilter || familyFilter || purposeFilter || includeExperimental}
-						<button
-							type="button"
-							onclick={resetFilters}
-							class="text-text-muted underline-offset-2 hover:text-text hover:underline"
-						>
-							Clear filters
-						</button>
+						{#if query || scopeFilter || runtimeFilter || familyFilter || purposeFilter || includeExperimental}
+							<Button variant="ghost" size="sm" onclick={resetFilters}>Clear the filters</Button>
+						{/if}
+					</div>
+
+					{#if modelsError}
+						<Alert tone="danger">{modelsError}</Alert>
 					{/if}
 				</div>
 
-				{#if modelsError}
-					<Alert variant="danger">{modelsError}</Alert>
-				{/if}
-
 				{#if !loadingModels && models.length === 0 && !modelsError}
-					<div class="border border-border bg-bg px-4 py-6 text-center text-sm text-text-muted">
-						No models found.
+					<div class="px-(--pad-panel) pb-(--pad-panel)">
+						<EmptyState icon={Boxes} title="No models found">Try other filters.</EmptyState>
 					</div>
 				{:else}
-					<ul class="flex flex-col">
-						{#each models as model, idx (model.id)}
+					<ul class="divide-y divide-line border-t border-line">
+						{#each models as model (model.id)}
 							{@const jobActive = activeJobModelIds.has(model.id)}
-							{@const browseHref = model.target_url ? `${model.target_url.replace(/\/+$/, '')}/models/${model.id}` : null}
-							<li
-								class={`flex flex-wrap items-center justify-between gap-3 border border-border bg-surface px-4 py-3 ${idx > 0 ? '-mt-px' : ''}`}
-							>
-								<div class="min-w-0 flex-1">
+							{@const browseHref = model.target_url
+								? `${model.target_url.replace(/\/+$/, '')}/models/${model.id}`
+								: null}
+							<li class="flex flex-wrap items-center justify-between gap-3 px-(--pad-panel) py-3">
+								<div class="min-w-0 grow basis-64">
 									<div class="flex flex-wrap items-center gap-2">
 										{#if model.codename_color}
 											<span
-												class="h-3 w-3 shrink-0 border border-border"
-												style={`background-color: ${model.codename_color}`}
+												class="size-3 shrink-0 rounded-check border border-line"
+												style:background-color={model.codename_color}
 												aria-hidden="true"
 											></span>
 										{/if}
@@ -874,39 +866,32 @@
 												href={browseHref}
 												target="_blank"
 												rel="noopener noreferrer"
-												class="font-mono text-sm font-medium text-text hover:text-primary hover:underline"
-												title={`Open in source Hive: ${browseHref}`}
+												class="font-mono text-sm font-medium text-ink hover:text-primary-ink hover:underline"
+												title="Open it on its Hive"
 											>
 												{titleOf(model)}
 											</a>
 										{:else}
-											<span class="font-mono text-sm font-medium text-text">{titleOf(model)}</span>
+											<span class="font-mono text-sm font-medium text-ink">{titleOf(model)}</span>
 										{/if}
 										{#if model.installed}
-											<span class="inline-flex items-center gap-1 bg-text-muted/20 px-2 py-0.5 text-xs font-semibold uppercase tracking-wider text-text">
-												<CheckCircle2 size={10} />
-												Installed
-											</span>
+											<Badge tone="success"><CheckCircle2 size={12} /> Installed</Badge>
 										{/if}
 										{#if model.experimental}
-											<span class="inline-flex items-center gap-1 bg-warning/20 px-2 py-0.5 text-xs font-semibold uppercase tracking-wider text-warning-dark dark:text-warning">
-												Experimental
-											</span>
+											<Badge tone="warning">Experimental</Badge>
 										{/if}
 										{#if isInert(model)}
-											<span class="inline-flex items-center gap-1 border border-border px-2 py-0.5 text-xs font-semibold uppercase tracking-wider text-text-muted">
-												{PURPOSE_LABELS[purposeOf(model)] ?? purposeOf(model)}
-											</span>
+											<Badge>{PURPOSE_LABELS[purposeOf(model)] ?? purposeOf(model)}</Badge>
 										{/if}
 									</div>
 									{#if isInert(model)}
-										<p class="mt-1 text-sm text-text-muted">
+										<p class="mt-1 text-sm text-ink-muted">
 											Downloads and installs, but nothing on this machine uses it yet.
 										</p>
 									{/if}
-									<div class="mt-1 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-text-muted">
+									<p class="mt-1 flex flex-wrap items-center gap-x-1.5 text-sm text-ink-muted">
 										{#if subtitleOf(model)}
-											<span class="font-mono text-text">{subtitleOf(model)}</span>
+											<span class="font-mono text-ink">{subtitleOf(model)}</span>
 											<span aria-hidden="true">·</span>
 										{/if}
 										<span>{model.model_family}</span>
@@ -914,46 +899,36 @@
 										<span>v{model.version}</span>
 										{#if model.variant_runtimes.length > 0}
 											<span aria-hidden="true">·</span>
-											<span>
-												{model.variant_runtimes.length} format{model.variant_runtimes.length === 1 ? '' : 's'}
-												<span class="text-text-muted/70">
-													({model.variant_runtimes.join(', ')})
-												</span>
+											<span title={model.variant_runtimes.join(', ')}>
+												{model.variant_runtimes.length}
+												{model.variant_runtimes.length === 1 ? 'format' : 'formats'}
 											</span>
 										{/if}
 										<span aria-hidden="true">·</span>
-										<Tooltip text={`Published ${formatDate(model.published_at)}`}>
-											<span class="text-text">
-												published {formatRelativeAge(model.published_at) ?? formatDate(model.published_at)}
-											</span>
-										</Tooltip>
+										<span title="Published {formatDate(model.published_at)}">
+											Published {formatRelativeAge(model.published_at) ?? formatDate(model.published_at)}
+										</span>
 										{#if model.target_url}
 											<span aria-hidden="true">·</span>
-											<span class="font-mono text-text-muted/80" title={`Source Hive: ${model.target_url}`}>
-												{model.target_url.replace(/^https?:\/\//, '')}
-											</span>
+											<span class="font-mono">{model.target_url.replace(/^https?:\/\//, '')}</span>
 										{/if}
-									</div>
+									</p>
 								</div>
 								<Button
 									variant={model.installed ? 'secondary' : 'primary'}
 									size="sm"
-									disabled={jobActive || downloadingModelId === model.id || !model.target_id}
+									icon={Download}
+									disabled={!model.target_id}
 									loading={downloadingModelId === model.id || jobActive}
 									onclick={() => void handleDownload(model)}
 								>
-									{#if !(downloadingModelId === model.id || jobActive)}
-										<Download size={12} />
-									{/if}
-									<span>
-										{jobActive
-											? 'Downloading…'
-											: downloadingModelId === model.id
-												? 'Starting…'
-												: model.installed
-													? 'Download again'
-													: 'Download'}
-									</span>
+									{jobActive
+										? 'Downloading'
+										: downloadingModelId === model.id
+											? 'Starting'
+											: model.installed
+												? 'Download again'
+												: 'Download'}
 								</Button>
 							</li>
 						{/each}
@@ -961,67 +936,57 @@
 				{/if}
 
 				{#if modelsPages > 1}
-					<div class="flex items-center justify-end gap-2 text-xs">
-						<Button variant="secondary" size="sm" onclick={prevPage} disabled={page <= 1}>
-							Previous
-						</Button>
-						<span class="text-text-muted">Page {page} of {modelsPages}</span>
-						<Button
-							variant="secondary"
-							size="sm"
-							onclick={nextPage}
-							disabled={page >= modelsPages}
-						>
+					<div class="flex items-center justify-end gap-2 border-t border-line px-(--pad-panel) py-3 text-sm">
+						<Button variant="ghost" size="sm" onclick={prevPage} disabled={page <= 1}>Previous</Button>
+						<span class="text-ink-muted">Page {page} of {modelsPages}</span>
+						<Button variant="ghost" size="sm" onclick={nextPage} disabled={page >= modelsPages}>
 							Next
 						</Button>
 					</div>
 				{/if}
-			</div>
-		{:else if tab === 'installed'}
-			{@const unusedCount = installed.filter(
-				(entry) =>
-					entry.source === 'hive' &&
-					(entry.compatible === false || activeLabelsFor(entry).length === 0)
-			).length}
-			<div class="flex flex-col gap-4">
+			{:else if tab === 'installed'}
+				{@const unusedCount = installed.filter(
+					(entry) =>
+						entry.source === 'hive' &&
+						(entry.compatible === false || activeLabelsFor(entry).length === 0)
+				).length}
 				{#if installedError}
-					<Alert variant="danger">{installedError}</Alert>
+					<div class="px-(--pad-panel) pt-4"><Alert tone="danger">{installedError}</Alert></div>
 				{/if}
 
 				{#if installed.length > 0}
-					<div class="flex flex-wrap items-center justify-between gap-3 text-xs text-text-muted">
+					<div class="flex flex-wrap items-center justify-between gap-3 px-(--pad-panel) py-3 text-sm text-ink-muted">
 						<span>
-							{installed.length} installed
-							{#if unusedCount > 0}
-								· <span class="text-warning-dark dark:text-warning">{unusedCount} unused</span>
-							{/if}
+							<span class="num">{installed.length}</span> installed{#if unusedCount > 0},
+								<span class="text-warning-ink"><span class="num">{unusedCount}</span> unused</span>{/if}
 						</span>
 						{#if unusedCount > 0}
 							<Button
 								variant="ghost"
 								size="sm"
-								onclick={() => void handleCleanupUnused()}
-								disabled={cleaningUp}
+								icon={Trash2}
 								loading={cleaningUp}
+								onclick={() => void handleCleanupUnused()}
 							>
-								<Trash2 size={12} />
-								<span>
-									{cleaningUp ? 'Cleaning up' : `Cleanup ${unusedCount} unused`}
-								</span>
+								Remove the {unusedCount} unused
 							</Button>
 						{/if}
 					</div>
 				{/if}
 
 				{#if loadingInstalled}
-					<div class="text-sm text-text-muted">Loading installed models…</div>
+					<div class="flex items-center gap-2 px-(--pad-panel) py-4 text-sm text-ink-muted">
+						<Spinner size={14} /> Loading the installed models
+					</div>
 				{:else if installed.length === 0}
-					<div class="border border-border bg-bg px-4 py-6 text-center text-sm text-text-muted">
-						No models installed yet. Open <span class="font-medium text-text">Browse Hive</span> to download one.
+					<div class="p-(--pad-panel)">
+						<EmptyState icon={Boxes} title="No models installed yet">
+							Browse Hive to download one.
+						</EmptyState>
 					</div>
 				{:else}
-					<ul class="flex flex-col">
-						{#each installed as entry, idx (entry.local_id)}
+					<ul class="divide-y divide-line border-t border-line">
+						{#each installed as entry (entry.local_id)}
 							{@const activeLabels = activeLabelsFor(entry)}
 							{@const isActive = activeLabels.length > 0}
 							{@const isExpanded = expandedDetailsId === entry.local_id}
@@ -1030,17 +995,18 @@
 							{@const ageRelative = formatRelativeAge(ageIso)}
 							{@const isCompatible = entry.compatible !== false}
 							{@const hiveBase = targetUrl(entry.target_id) ?? entry.source_url ?? null}
-							{@const detailHref = entry.source === 'hive' && hiveBase ? `${hiveBase.replace(/\/+$/, '')}/models/${entry.model_id}` : null}
-							<li
-								class={`border ${idx > 0 ? '-mt-px' : ''} ${isActive ? 'border-success bg-success/[0.06]' : !isCompatible ? 'border-border bg-bg opacity-70' : 'border-border bg-surface'}`}
-							>
-								<div class="flex flex-wrap items-center justify-between gap-3 px-4 py-3">
-									<div class="min-w-0 flex-1">
+							{@const detailHref =
+								entry.source === 'hive' && hiveBase
+									? `${hiveBase.replace(/\/+$/, '')}/models/${entry.model_id}`
+									: null}
+							<li class={isActive ? 'bg-success-soft' : !isCompatible ? 'opacity-70' : ''}>
+								<div class="flex flex-wrap items-center justify-between gap-3 px-(--pad-panel) py-3">
+									<div class="min-w-0 grow basis-64">
 										<div class="flex flex-wrap items-center gap-2">
 											{#if entry.codename_color}
 												<span
-													class="h-3 w-3 shrink-0 border border-border"
-													style={`background-color: ${entry.codename_color}`}
+													class="size-3 shrink-0 rounded-check border border-line"
+													style:background-color={entry.codename_color}
 													aria-hidden="true"
 												></span>
 											{/if}
@@ -1049,213 +1015,135 @@
 													href={detailHref}
 													target="_blank"
 													rel="noopener noreferrer"
-													class="font-mono text-sm font-medium text-text hover:text-primary hover:underline"
-													title={`Open in source Hive: ${detailHref}`}
+													class="font-mono text-sm font-medium text-ink hover:text-primary-ink hover:underline"
+													title="Open it on its Hive"
 												>
 													{titleOf(entry)}
 												</a>
 											{:else}
-												<span class="font-mono text-sm font-medium text-text">
-													{titleOf(entry)}
-												</span>
+												<span class="font-mono text-sm font-medium text-ink">{titleOf(entry)}</span>
 											{/if}
 											{#if entry.source === 'local'}
-												<Tooltip text="Put in this machine's models directory by hand, not downloaded from Hive">
-													<span class="inline-flex items-center bg-text-muted/20 px-2 py-0.5 text-xs font-semibold uppercase tracking-wider text-text">
-														Local
-													</span>
-												</Tooltip>
+												<span title="Put in this machine's models folder by hand, not downloaded from Hive">
+													<Badge>Local</Badge>
+												</span>
 											{/if}
 											{#if isInert(entry)}
-												<span class="inline-flex items-center bg-warning/20 px-2 py-0.5 text-xs font-semibold uppercase tracking-wider text-warning-dark dark:text-warning">
-													{PURPOSE_LABELS[purposeOf(entry)] ?? purposeOf(entry)}
-												</span>
+												<Badge tone="warning">{PURPOSE_LABELS[purposeOf(entry)] ?? purposeOf(entry)}</Badge>
 											{:else if !isCompatible}
-												<Tooltip text={`Variant runtime "${entry.variant_runtime}" cannot be loaded by the sorter — only ONNX, NCNN, Hailo and RKNN are deployable.`}>
-													<span class="inline-flex items-center bg-warning/20 px-2 py-0.5 text-xs font-semibold uppercase tracking-wider text-warning-dark dark:text-warning">
-														Not supported
-													</span>
-												</Tooltip>
+												<span
+													title="The sorter can't load a {entry.variant_runtime} variant: only ONNX, NCNN, Hailo and RKNN run here."
+												>
+													<Badge tone="warning">Not supported</Badge>
+												</span>
 											{/if}
 										</div>
 										{#if isInert(entry)}
-											<p class="mt-1 text-sm text-text-muted">
-												Installed and inert — no part of the sorting pipeline reads this model yet.
+											<p class="mt-1 text-sm text-ink-muted">
+												Installed, but no part of the sorting reads this model yet.
 											</p>
+										{:else if isActive}
+											<p class="mt-1 text-sm text-success-ink">Active for {activeLabels.join(', ')}</p>
 										{/if}
-										<div class="mt-1 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-text-muted">
+										<p class="mt-1 flex flex-wrap items-center gap-x-1.5 text-sm text-ink-muted">
 											{#if subtitleOf(entry)}
-												<span class="font-mono text-text">{subtitleOf(entry)}</span>
+												<span class="font-mono text-ink">{subtitleOf(entry)}</span>
 												<span aria-hidden="true">·</span>
 											{/if}
 											<span>{entry.model_family}</span>
 											<span aria-hidden="true">·</span>
 											<span>{entry.variant_runtime}</span>
 											<span aria-hidden="true">·</span>
-											<span>{formatSize(entry.size_bytes)}</span>
+											<span class="num">{formatSize(entry.size_bytes)}</span>
 											{#if ageIso}
 												<span aria-hidden="true">·</span>
-												<Tooltip text={`${entry.trained_at ? 'Trained' : 'Downloaded'} ${formatDate(ageIso)}`}>
-													<span class="text-text">
-														{entry.trained_at ? 'trained' : 'downloaded'}
-														{ageRelative}
-													</span>
-												</Tooltip>
+												<span title="{entry.trained_at ? 'Trained' : 'Downloaded'} {formatDate(ageIso)}">
+													{entry.trained_at ? 'Trained' : 'Downloaded'}
+													{ageRelative}
+												</span>
 											{/if}
 											{#if entry.source === 'hive' && hostFromUrl(hiveBase)}
 												<span aria-hidden="true">·</span>
-												<span class="font-mono text-text-muted/80" title={`From Hive: ${hiveBase}`}>
-													{hostFromUrl(hiveBase)}
-												</span>
+												<span class="font-mono">{hostFromUrl(hiveBase)}</span>
 											{/if}
-										</div>
+										</p>
 									</div>
 
 									<div class="flex flex-wrap items-center gap-2">
 										{#if isInert(entry)}
-											<span class="px-3 py-1.5 text-xs text-text-muted">
-												Not wired up yet
-											</span>
+											<span class="text-sm text-ink-muted">Not wired up yet</span>
 										{:else if !isCompatible}
-											<span class="px-3 py-1.5 text-xs text-text-muted">
-												Cannot activate
-											</span>
+											<span class="text-sm text-ink-muted">Can't be activated</span>
 										{:else}
-											<!-- Hover-expand activate: assign this model to a single
-											     subsystem at a time, 1:1 with the TOML, no fallback. -->
-											<div class="group relative">
-												<button
-													type="button"
-													class={`inline-flex items-center gap-1.5 border px-3 py-1.5 text-sm transition-colors ${
-														isActive
-															? 'border-success/40 bg-success/[0.08] text-text'
-															: 'border-border bg-surface text-text hover:bg-bg'
-													}`}
-												>
-													{#if isActive}
-														<CheckCircle2 size={14} class="shrink-0 text-success" />
-														<span>Active: {activeLabels.join(', ')}</span>
-													{:else}
-														<span>Activate</span>
-													{/if}
-													<ChevronDown size={13} class="opacity-70" />
-												</button>
-												<div
-													class="invisible absolute right-0 top-full z-30 mt-px min-w-[16rem] border border-border bg-surface opacity-0 shadow-lg transition-opacity duration-100 group-hover:visible group-hover:opacity-100 group-focus-within:visible group-focus-within:opacity-100"
-												>
-													<div
-														class="border-b border-border px-3 py-2 text-xs font-semibold uppercase tracking-wider text-text-muted"
+											<!-- One model per subsystem, as machine.toml has it, with no fallback. -->
+											<Menu label="Activate {titleOf(entry)}" items={activateMenu(entry)} width="18rem">
+												{#snippet trigger(props)}
+													<Button
+														{...props}
+														size="sm"
+														variant={isActive ? 'secondary' : 'primary'}
+														icon={isActive ? CheckCircle2 : ChevronDown}
 													>
-														Activate for subsystem
-													</div>
-													{#if activeAssignments.length === 0}
-														<div class="px-3 py-2 text-sm text-text-muted">
-															No detection subsystems on this machine setup.
-														</div>
-													{/if}
-													{#each activeAssignments as slot (slot.scope + (slot.role ?? ''))}
-														{@const slotActive = slot.algorithm_id === algorithmId}
-														{@const designedFor = (entry.registry_scopes ?? []).includes(
-															slot.registry_scope ?? '__none__'
-														)}
-														<button
-															type="button"
-															disabled={activatingAlgorithmId === algorithmId}
-															onclick={() => void handleActivateForSlot(entry, slot)}
-															class={`flex w-full items-center justify-between gap-3 px-3 py-2 text-left text-sm transition-colors hover:bg-bg disabled:opacity-60 ${
-																slotActive ? 'bg-success/[0.08]' : ''
-															}`}
-														>
-															<span class="flex min-w-0 items-center gap-2">
-																{#if slotActive}
-																	<CheckCircle2 size={14} class="shrink-0 text-success" />
-																{:else}
-																	<span class="inline-block w-[14px] shrink-0"></span>
-																{/if}
-																<span class="truncate text-text">{slot.label}</span>
-															</span>
-															{#if !designedFor}
-																<span
-																	class="inline-flex shrink-0 items-center bg-warning/20 px-1.5 py-0.5 text-xs font-medium uppercase tracking-wider text-warning-dark dark:text-warning"
-																>
-																	not designed for this
-																</span>
-															{/if}
-														</button>
-													{/each}
-												</div>
-											</div>
+														{isActive ? 'Active' : 'Activate'}
+													</Button>
+												{/snippet}
+											</Menu>
 										{/if}
-										<Tooltip text="Remove this model from the sorter">
-											<Button
-												variant="ghost"
-												size="sm"
-												disabled={deletingLocalId === entry.local_id}
-												onclick={() => void handleDelete(entry)}
-											>
-												<Trash2 size={14} class="text-danger" />
-											</Button>
-										</Tooltip>
-										<button
-											type="button"
+										<Button
+											variant="ghost"
+											size="sm"
+											icon={Trash2}
+											label="Remove this model"
+											disabled={deletingLocalId === entry.local_id}
+											onclick={() => void handleDelete(entry)}
+										/>
+										<Button
+											variant="ghost"
+											size="sm"
+											icon={isExpanded ? ChevronDown : ChevronRight}
 											aria-expanded={isExpanded}
-											aria-controls={`installed-details-${entry.local_id}`}
+											aria-controls="installed-details-{entry.local_id}"
 											onclick={() => toggleDetails(entry.local_id)}
-											class="inline-flex items-center gap-1 px-1.5 py-1 text-xs text-text-muted transition-colors hover:text-text"
 										>
-											{#if isExpanded}
-												<ChevronDown size={14} />
-											{:else}
-												<ChevronRight size={14} />
-											{/if}
-											<span>Details</span>
-										</button>
+											Details
+										</Button>
 									</div>
 								</div>
 
 								{#if isExpanded}
-									<div
-										id={`installed-details-${entry.local_id}`}
-										class="border-t border-border bg-bg px-4 py-3"
-									>
-										<dl class="grid grid-cols-[auto,1fr] gap-x-4 gap-y-1.5 text-xs">
+									<div id="installed-details-{entry.local_id}" class="px-(--pad-panel) pb-3">
+										<dl
+											class="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1.5 rounded-control bg-well px-3 py-2.5 text-sm"
+										>
 											{#if entry.trained_at}
-												<dt class="text-text-muted">Trained</dt>
-												<dd class="text-text">
+												<dt class="text-ink-muted">Trained</dt>
+												<dd class="text-ink">
 													{formatDate(entry.trained_at)}
-													<span class="ml-1 text-text-muted">
-														({formatRelativeAge(entry.trained_at)})
-													</span>
+													<span class="text-ink-muted">({formatRelativeAge(entry.trained_at)})</span>
 												</dd>
 											{/if}
-											<dt class="text-text-muted">SHA-256</dt>
-											<dd class="font-mono text-text" title={entry.sha256 ?? ''}>
-												{shortSha(entry.sha256)}
-											</dd>
-											<dt class="text-text-muted">Size</dt>
-											<dd class="text-text">{formatSize(entry.size_bytes)}</dd>
+											<dt class="text-ink-muted">SHA-256</dt>
+											<dd class="font-mono text-ink" title={entry.sha256 ?? ''}>{shortSha(entry.sha256)}</dd>
+											<dt class="text-ink-muted">Size</dt>
+											<dd class="num text-ink">{formatSize(entry.size_bytes)}</dd>
 											{#if entry.source === 'local'}
-												<dt class="text-text-muted">Source</dt>
-												<dd class="text-text">Put on this machine by hand</dd>
+												<dt class="text-ink-muted">Source</dt>
+												<dd class="text-ink">Put on this machine by hand</dd>
 											{:else}
-												<dt class="text-text-muted">Downloaded</dt>
-												<dd class="text-text">
-													{`${formatDate(entry.downloaded_at)} (${formatRelativeAge(entry.downloaded_at) ?? '—'})`}
+												<dt class="text-ink-muted">Downloaded</dt>
+												<dd class="text-ink">
+													{formatDate(entry.downloaded_at)}
+													<span class="text-ink-muted">({formatRelativeAge(entry.downloaded_at) ?? 'unknown'})</span>
 												</dd>
-												<dt class="text-text-muted">Hive</dt>
-												<dd class="break-all font-mono text-text">
+												<dt class="text-ink-muted">Hive</dt>
+												<dd class="font-mono break-all text-ink">
 													{hiveBase ?? targetName(entry.target_id ?? '')}
 												</dd>
 											{/if}
-											<dt class="text-text-muted">Algorithm ID</dt>
-											<dd class="break-all font-mono text-text">{algorithmId}</dd>
-											<dt class="text-text-muted">Path</dt>
-											<dd
-												class="break-all font-mono text-text"
-												title={entry.path}
-											>
-												{entry.path}
-											</dd>
+											<dt class="text-ink-muted">Algorithm ID</dt>
+											<dd class="font-mono break-all text-ink">{algorithmId}</dd>
+											<dt class="text-ink-muted">Path</dt>
+											<dd class="font-mono break-all text-ink">{entry.path}</dd>
 										</dl>
 									</div>
 								{/if}
@@ -1263,17 +1151,16 @@
 						{/each}
 					</ul>
 				{/if}
-			</div>
-		{/if}
+			{/if}
 
-		{#if jobs.some((job) => job.status === 'failed')}
-			{@const failure = jobs.find((job) => job.status === 'failed')}
-			<Alert variant="danger" class="mt-3">
-				Download failed: {failure?.error ?? failure?.file_name ?? 'unknown error'}
-			</Alert>
-		{/if}
-
-			</div>
-		</div>
+			{#if jobs.some((job) => job.status === 'failed')}
+				{@const failure = jobs.find((job) => job.status === 'failed')}
+				<div class="border-t border-line px-(--pad-panel) py-3">
+					<Alert tone="danger">
+						The download failed: {failure?.error ?? failure?.file_name ?? 'unknown error'}
+					</Alert>
+				</div>
+			{/if}
+		</Panel>
 	{/if}
 </div>

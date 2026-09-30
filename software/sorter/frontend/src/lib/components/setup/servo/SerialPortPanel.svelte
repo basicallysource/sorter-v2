@@ -1,4 +1,7 @@
 <script lang="ts">
+	import Button from '$lib/components/ui/Button.svelte';
+	import Panel from '$lib/components/ui/Panel.svelte';
+	import Select from '$lib/components/ui/Select.svelte';
 	type WavesharePort = {
 		device: string;
 		product: string;
@@ -22,29 +25,21 @@
 	} = $props();
 </script>
 
-<div class="setup-panel p-4">
-	<div class="text-sm font-semibold text-text">Serial port</div>
-	<div class="mt-3 grid gap-3 sm:grid-cols-[2fr_auto_auto]">
-		<select bind:value={port} class="setup-control px-3 py-2 text-text">
-			<option value="">Auto detect / current selection</option>
-			{#each availablePorts as candidate}
-				<option value={candidate.device}>
-					{candidate.device} · {candidate.product}
-				</option>
-			{/each}
-		</select>
-		<button
-			onclick={onLoadPorts}
-			disabled={loadingPorts}
-			class="setup-button-secondary px-3 py-2 text-sm text-text transition-colors disabled:cursor-not-allowed disabled:opacity-60"
-		>
-			{loadingPorts ? 'Refreshing…' : 'Refresh ports'}
-		</button>
-		<button
-			onclick={onScan}
-			class="border border-primary bg-primary px-3 py-2 text-sm font-medium text-primary-contrast transition-colors hover:bg-primary-hover"
-		>
-			Scan bus
-		</button>
+<Panel title="Serial port">
+	<div class="flex flex-wrap items-center gap-2">
+		<Select
+			label="Serial port"
+			class="min-w-0 flex-[2_1_16rem]"
+			bind:value={port}
+			options={[
+				{ value: '', label: 'Detect it, or keep the current one' },
+				...availablePorts.map((candidate) => ({
+					value: candidate.device,
+					label: `${candidate.device} · ${candidate.product}`
+				}))
+			]}
+		/>
+		<Button loading={loadingPorts} onclick={onLoadPorts}>Refresh the ports</Button>
+		<Button variant="primary" onclick={onScan}>Scan the bus</Button>
 	</div>
-</div>
+</Panel>

@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { onMount, type Snippet } from 'svelte';
-	import { ChevronDown, ChevronRight } from 'lucide-svelte';
+	import ChevronRight from '@lucide/svelte/icons/chevron-right';
 
 	interface Props {
 		title: string;
@@ -40,26 +40,28 @@
 	}
 </script>
 
+<!-- A panel whose title opens and closes it, remembered per browser. -->
 <section
-	class="flex min-h-0 flex-col border border-border bg-surface"
+	class="flex flex-col overflow-hidden rounded-panel bg-surface {grow && !collapsed
+		? 'min-h-64'
+		: 'min-h-0'}"
 	style="flex: {collapsed ? '0 0 auto' : grow ? '1 1 auto' : '0 0 auto'};"
 >
-	<div class="setup-card-header flex shrink-0 items-center justify-between px-3 py-2 text-sm">
+	<div class="flex h-(--size-control-lg) shrink-0 items-center justify-between gap-3 pr-2 pl-3">
 		<button
 			type="button"
 			onclick={toggle}
-			class="flex flex-1 items-center gap-2 text-left font-medium text-text hover:text-primary"
+			class="flex h-full flex-1 items-center gap-2 text-left text-sm font-medium text-ink"
 			aria-expanded={!collapsed}
 		>
-			{#if collapsed}
-				<ChevronRight size={16} class="text-text-muted" />
-			{:else}
-				<ChevronDown size={16} class="text-text-muted" />
-			{/if}
-			<span>{title}</span>
+			<ChevronRight
+				size={16}
+				class="shrink-0 text-ink-muted transition-transform {collapsed ? '' : 'rotate-90'}"
+			/>
+			{title}
 		</button>
 		{#if actions}
-			<div class="flex items-center gap-3">
+			<div class="flex items-center gap-2">
 				{@render actions()}
 			</div>
 		{/if}

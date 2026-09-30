@@ -1,6 +1,7 @@
 <script lang="ts">
-	import Camera from '@lucide/svelte/icons/camera';
 	import RotateCw from '@lucide/svelte/icons/rotate-cw';
+	import Cpu from '@lucide/svelte/icons/cpu';
+	import ExternalLink from '@lucide/svelte/icons/external-link';
 	import PageHeader from '$lib/site/PageHeader.svelte';
 	import SiteSection from '$lib/site/SiteSection.svelte';
 	import Specimen from '$lib/site/Specimen.svelte';
@@ -12,6 +13,8 @@
 	import Popover from '$lib/components/Popover.svelte';
 	import Badge from '$lib/components/Badge.svelte';
 	import SegmentedControl from '$lib/components/SegmentedControl.svelte';
+	import Card from '$lib/components/Card.svelte';
+	import MediaTile from '$lib/components/MediaTile.svelte';
 
 	const planes = [
 		{
@@ -31,7 +34,7 @@
 			name: 'Well',
 			token: 'bg-well',
 			fill: 'bg-well',
-			holds: "Sunk into a panel: a chart, a preview, an empty list, a segmented control's track."
+			holds: 'Sunk into a panel: a chart, a preview, an empty list. A box with the panel around it, never a band across it.'
 		},
 		{
 			name: 'Raised',
@@ -52,6 +55,17 @@
 	let tab = $state<'live' | 'recent' | 'errors'>('live');
 	let unit = $state<'duration' | 'degrees'>('degrees');
 	let chosen = $state(2);
+
+	const machines = [
+		{ id: 'bench', name: 'Bench sorter', where: 'Garage, second shelf', online: true, today: 1284 },
+		{ id: 'shop', name: 'Shop sorter', where: 'Back room', online: false, today: 0 }
+	];
+
+	// A stand-in for a camera's picture: an image of its own shape, so the tile shows how it hugs one.
+	function sampleFeed(width: number, height: number) {
+		const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}"><rect width="${width}" height="${height}" fill="#565c66"/><circle cx="${width / 2}" cy="${height / 2}" r="${height * 0.34}" fill="#8b93a1"/><circle cx="${width / 2}" cy="${height / 2}" r="${height * 0.08}" fill="#2b2f36"/></svg>`;
+		return `data:image/svg+xml,${encodeURIComponent(svg)}`;
+	}
 </script>
 
 <svelte:head><title>Surfaces · Sorter design system</title></svelte:head>
@@ -114,6 +128,27 @@
 				<div class="p-4">
 					<div class="text-sm font-semibold text-ink">Driver settings</div>
 				</div>
+			</div>
+		{/snippet}
+	</DoDont>
+	<DoDont
+		wrongNote="A group's name on a band of well. Across the panel a well is a shade off the canvas, so it reads as a gap in the panel with a word in it."
+		rightNote="The name is a label on the list's own plane, with the rows' line above and below it."
+	>
+		{#snippet wrong()}
+			<div class="divide-y divide-line overflow-hidden rounded-panel bg-surface text-sm">
+				<div class="px-3 py-2.5 text-ink">Brick 2 x 4</div>
+				<div class="bg-well px-3 py-1 text-ink-muted">Distributed</div>
+				<div class="px-3 py-2.5 text-ink">Plate 2 x 2 corner</div>
+				<div class="px-3 py-2.5 text-ink">Tile 1 x 1</div>
+			</div>
+		{/snippet}
+		{#snippet right()}
+			<div class="divide-y divide-line overflow-hidden rounded-panel bg-surface text-sm">
+				<div class="px-3 py-2.5 text-ink">Brick 2 x 4</div>
+				<div class="label px-3 py-1.5">Distributed</div>
+				<div class="px-3 py-2.5 text-ink">Plate 2 x 2 corner</div>
+				<div class="px-3 py-2.5 text-ink">Tile 1 x 1</div>
 			</div>
 		{/snippet}
 	</DoDont>
@@ -246,6 +281,55 @@
 </SiteSection>
 
 <SiteSection
+	title="A card you open"
+	lead="A card that is one thing to open (a machine, a profile) is a link as big as the card. The pointer anywhere on it fills it a step, like any state: no shadow, no lift, no heavier line. A button inside it still does its own thing."
+>
+	<Specimen
+		on="canvas"
+		code={`<Card href="/machines/{machine.id}" label={machine.name}>
+	...
+	<Button size="sm" variant="ghost" icon={ExternalLink} label="Open its own page" href={local} />
+</Card>`}
+	>
+		<div class="grid gap-(--gap-panels) md:grid-cols-2">
+			{#each machines as machine (machine.id)}
+				<Card href="/surfaces#{machine.id}" label={machine.name}>
+					<div class="flex items-start gap-3">
+						<span
+							class="flex size-9 shrink-0 items-center justify-center rounded-control {machine.online
+								? 'bg-success-soft text-success-ink'
+								: 'bg-well text-ink-muted'}"
+						>
+							<Cpu size={18} />
+						</span>
+						<div class="min-w-0 flex-1">
+							<div class="flex items-center gap-2">
+								<span class="truncate font-semibold text-ink">{machine.name}</span>
+								<Badge tone={machine.online ? 'success' : 'neutral'} dot
+									>{machine.online ? 'Online' : 'Offline'}</Badge
+								>
+							</div>
+							<p class="mt-0.5 truncate text-sm text-ink-muted">{machine.where}</p>
+						</div>
+						<Button
+							size="sm"
+							variant="ghost"
+							icon={ExternalLink}
+							label="Open its own page"
+							href="/surfaces#{machine.id}-local"
+						/>
+					</div>
+					<p class="mt-4 text-sm text-ink-muted">
+						<span class="num font-medium text-ink">{machine.today.toLocaleString('en-US')}</span> parts
+						sorted today
+					</p>
+				</Card>
+			{/each}
+		</div>
+	</Specimen>
+</SiteSection>
+
+<SiteSection
 	title="The raised plane"
 	lead="What floats is the one thing with a line around it, and it has no shadow: the line and the fill are enough. It closes on a click outside or Escape, and it never covers the thing that opened it."
 >
@@ -264,21 +348,34 @@
 
 <SiteSection
 	title="Media"
-	lead="Camera feeds and photos sit on the media backdrop, dark in both modes. The panel's header strip is the surface; the picture runs to the panel's edges."
+	lead="Camera feeds and photos sit on the media backdrop, dark in both modes, in a media tile: a strip on the surface with the name and the controls, then the picture to the tile's edges. The tile is the shape of its picture, so there is never a bar above and below it or down its sides; a layout gives it a width and the height follows. A tile that is only the picture puts its controls over it, on the scrim. Full screen, the tile fills the window on the media plane, until Exit full screen or Escape."
 >
-	<div class="max-w-xl">
-		<Panel flush>
-			<div class="flex items-center justify-between gap-3 px-4 py-2.5">
-				<span class="text-sm font-medium text-ink">C-Channel 2</span>
-				<div class="flex items-center gap-1">
+	<Specimen
+		on="canvas"
+		code={`<MediaTile title="C-Channel 2" expandable>
+	{#snippet actions()}<Button size="sm" variant="ghost">-1°</Button>...{/snippet}
+	{#snippet overlay()}<Badge tone="success" dot>Live</Badge>{/snippet}
+	<img src={feed} alt="" class="size-full object-contain" />
+</MediaTile>
+
+<MediaTile title="Classification channel" header={false} expandable>
+	<img src={feed} alt="" class="size-full object-contain" />
+</MediaTile>`}
+	>
+		<div class="grid items-start gap-(--gap-panels) md:grid-cols-2">
+			<MediaTile title="C-Channel 2" expandable>
+				{#snippet actions()}
 					<Button size="sm" variant="ghost">-1°</Button>
 					<Button size="sm" variant="ghost">+1°</Button>
 					<Button size="sm" variant="ghost" icon={RotateCw}>180°</Button>
-				</div>
-			</div>
-			<div class="flex aspect-video items-center justify-center bg-media">
-				<Camera size={24} class="text-ink-faint" />
-			</div>
-		</Panel>
-	</div>
+				{/snippet}
+				{#snippet overlay()}<Badge tone="success" dot>Live</Badge>{/snippet}
+				<img src={sampleFeed(1280, 720)} alt="" class="size-full object-contain" />
+			</MediaTile>
+			<MediaTile title="Classification channel" header={false} expandable>
+				{#snippet overlay()}<Badge tone="success" dot>Live</Badge>{/snippet}
+				<img src={sampleFeed(800, 600)} alt="" class="size-full object-contain" />
+			</MediaTile>
+		</div>
+	</Specimen>
 </SiteSection>

@@ -18,6 +18,14 @@
 	import Badge from '$lib/components/Badge.svelte';
 
 	let tab = $state<'bins' | 'layers' | 'discard'>('bins');
+
+	const pages = [
+		{ href: '/navigation', label: 'Dashboard' },
+		{ href: '/navigation#bins', label: 'Bins' },
+		{ href: '/navigation#profiles', label: 'Profiles' },
+		{ href: '/navigation#records', label: 'Records' },
+		{ href: '/navigation#settings', label: 'Settings' }
+	];
 </script>
 
 <svelte:head><title>Navigation · Sorter design system</title></svelte:head>
@@ -30,20 +38,26 @@
 
 <SiteSection
 	title="Top bar"
-	lead="The mark, the app's pages, and on the right what applies everywhere. The current page's mark sits on the bar's own line, in its place."
+	lead="The mark, the app's pages, and on the right what applies everywhere: the machine and its status. The current page's mark sits on the bar's own line, in its place. Light or dark is a setting, never a switch here."
 >
 	<div class="rounded-panel bg-surface p-2">
 		<div class="overflow-hidden rounded-control bg-canvas">
-			<TopBar
-				sticky={false}
-				items={[
-					{ href: '/navigation', label: 'Dashboard' },
-					{ href: '/navigation#bins', label: 'Bins' },
-					{ href: '/navigation#profiles', label: 'Profiles' },
-					{ href: '/navigation#records', label: 'Records' },
-					{ href: '/navigation#settings', label: 'Settings' }
-				]}
-			>
+			<TopBar sticky={false} items={pages}>
+				{#snippet brand()}<Wordmark href="/navigation" />{/snippet}
+				{#snippet end()}<Badge tone="success" dot>Running</Badge>{/snippet}
+			</TopBar>
+			<div class="h-16"></div>
+		</div>
+	</div>
+	<p class="max-w-2xl text-sm text-ink-muted">
+		Where the pages and the right side no longer fit side by side, the pages fold into one menu, its
+		button named for the page you are on. The bar folds by its own width, so here it is at a phone's
+		390px. <code class="font-mono text-ink">collapse</code> sets the point: 768px by default, wider for
+		more pages.
+	</p>
+	<div class="w-full max-w-[24.375rem] rounded-panel bg-surface p-2">
+		<div class="overflow-hidden rounded-control bg-canvas">
+			<TopBar sticky={false} items={pages}>
 				{#snippet brand()}<Wordmark href="/navigation" />{/snippet}
 				{#snippet end()}<Badge tone="success" dot>Running</Badge>{/snippet}
 			</TopBar>

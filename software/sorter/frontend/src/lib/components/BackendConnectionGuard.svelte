@@ -1,5 +1,6 @@
 <script lang="ts">
-	import Spinner from '$lib/components/Spinner.svelte';
+	import Button from '$lib/components/ui/Button.svelte';
+	import Modal from '$lib/components/ui/Modal.svelte';
 	import {
 		backendHealthy,
 		getBackendHttpBase,
@@ -9,8 +10,8 @@
 	} from '$lib/backend';
 	import { getMachinesContext } from '$lib/machines/context';
 	import { machineDowntime } from '$lib/stores/machineDowntime.svelte';
-	import Modal from '$lib/components/Modal.svelte';
-	import { RefreshCw, Power, WifiOff } from 'lucide-svelte';
+	import RefreshCw from '@lucide/svelte/icons/refresh-cw';
+	import Power from '@lucide/svelte/icons/power';
 	import { onMount } from 'svelte';
 
 	// Says so when the backend has been unreachable for a while. Reconnecting
@@ -68,55 +69,30 @@
 	});
 </script>
 
-<Modal open={!healthy && !machineDowntime.deliberate} title="Backend Unavailable">
-	<div class="flex flex-col gap-4">
-		<div class="flex items-start gap-3">
-			<div
-				class="flex h-9 w-9 shrink-0 items-center justify-center border border-danger/25 bg-danger/[0.08] text-[#B11618]"
-			>
-				<WifiOff size={18} />
-			</div>
-			<div class="min-w-0 flex-1">
-				{#if restarting}
-					<div class="text-sm text-text">
-						The backend is restarting. Waiting for it to come back online...
-					</div>
-					<div class="mt-3 flex items-center gap-2 text-xs text-text-muted">
-						<Spinner size={14} />
-						Reconnecting...
-					</div>
-				{:else}
-					<div class="text-sm text-text">
-						The sorter backend is not responding. This could mean the service has crashed, is still
-						starting up, or the network connection was lost.
-					</div>
-					<div class="mt-2 text-sm text-text-muted">
-						Check that the machine is powered on and the backend service is running.
-					</div>
-				{/if}
-			</div>
-		</div>
-
+<Modal
+	open={!healthy && !machineDowntime.deliberate}
+	title="The backend is not responding"
+	size="sm"
+	dismissible={!restarting}
+	status={restarting ? 'Waiting for the backend to come back' : undefined}
+>
+	{#if restarting}
+		<p>The backend is restarting. This closes by itself when it answers again.</p>
+	{:else}
+		<p>
+			The sorter backend is not responding. The service may have crashed or still be starting up, or
+			the network connection may have been lost.
+		</p>
+		<p class="mt-2 text-ink-muted">
+			Check that the machine is powered on and the backend service is running.
+		</p>
+	{/if}
+	{#snippet footer()}
 		{#if !restarting}
-			<div class="flex items-center justify-end gap-2 border-t border-border pt-3">
-				<button
-					type="button"
-					onclick={() => void restartBackend()}
-					class="inline-flex items-center gap-1.5 border border-border bg-bg px-3 py-1.5 text-sm font-medium text-text transition-colors hover:bg-surface"
-				>
-					<Power size={14} />
-					Restart Backend
-				</button>
-				<button
-					type="button"
-					disabled={checking}
-					onclick={() => void retryNow()}
-					class="inline-flex items-center gap-1.5 border border-primary/30 bg-primary/[0.06] px-3 py-1.5 text-sm font-medium text-text transition-colors hover:bg-primary/[0.12] disabled:opacity-50"
-				>
-					<RefreshCw size={14} class={checking ? 'animate-spin' : ''} />
-					Check Connection
-				</button>
-			</div>
+			<Button icon={Power} onclick={() => void restartBackend()}>Restart the backend</Button>
+			<Button variant="primary" icon={RefreshCw} loading={checking} onclick={() => void retryNow()}>
+				Check the connection
+			</Button>
 		{/if}
-	</div>
+	{/snippet}
 </Modal>

@@ -36,8 +36,7 @@ used.
 | `well`        | `#f4f3ef` | `#141413` | Sunk into a panel                                            |
 | `raised`      | `#ffffff` | `#242422` | What floats                                                  |
 | `field`       | `#ffffff` | `#141413` | The inside of a field                                        |
-| `track`       | `#e6e4de` | `#0f0f0e` | The groove of a segmented control or a progress bar          |
-| `thumb`       | `#ffffff` | `#34332f` | The chosen part of a segmented control; the jog buttons      |
+| `track`       | `#e6e4de` | `#0f0f0e` | The groove of a progress bar                                 |
 | `line`        | `#e2dfd8` | `#2e2d2a` | A line between items                                         |
 | `line-strong` | `#b9b4aa` | `#4a4843` | The outline of a field, a select, a checkbox                 |
 | `ink`         | `#1b1a18` | `#eeece7` | All text that matters                                        |

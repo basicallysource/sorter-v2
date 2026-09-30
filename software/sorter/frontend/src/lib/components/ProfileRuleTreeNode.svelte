@@ -1,5 +1,6 @@
 <script lang="ts">
 	import ProfileRuleTreeNode from '$lib/components/ProfileRuleTreeNode.svelte';
+	import Badge from '$lib/components/ui/Badge.svelte';
 
 	type SortingProfileCondition = {
 		id: string;
@@ -38,10 +39,9 @@
 
 	interface Props {
 		rule: SortingProfileRule;
-		depth?: number;
 	}
 
-	let { rule, depth = 0 }: Props = $props();
+	let { rule }: Props = $props();
 
 	function formatConditionValue(value: unknown): string {
 		if (typeof value === 'string') return value;
@@ -88,95 +88,78 @@
 	}
 </script>
 
-<div class="space-y-3 border border-border bg-surface p-3" style={`margin-left: ${Math.min(depth, 5) * 16}px`}>
-	<div class="flex flex-wrap items-start justify-between gap-3">
-		<div class="min-w-0 flex-1">
-			<div class="flex flex-wrap items-center gap-2">
-				<h4 class="text-sm font-semibold text-text">{rule.name}</h4>
-				<span class="border border-border bg-bg px-1.5 py-0.5 text-xs font-medium uppercase tracking-wide text-text-muted">
-					{ruleTypeLabel(rule)}
-				</span>
-				<span class="border border-border bg-bg px-1.5 py-0.5 text-xs font-medium text-text-muted">
-					{rule.match_mode === 'any' ? 'Any condition' : 'All conditions'}
-				</span>
-				{#if rule.disabled}
-					<span class="border border-amber-500/30 bg-amber-500/10 px-1.5 py-0.5 text-xs font-medium text-amber-700 dark:text-amber-300">
-						Disabled
-					</span>
-				{/if}
-			</div>
-			<div class="mt-1 text-sm text-text-muted">
-				<span class="font-mono">{rule.id}</span>
-			</div>
+<!-- One rule of a profile. Its children sit under it, joined by a line down the left. -->
+<div class="flex flex-col gap-3">
+	<div>
+		<div class="flex flex-wrap items-center gap-2">
+			<h4 class="text-sm font-semibold text-ink">{rule.name}</h4>
+			<Badge>{ruleTypeLabel(rule)}</Badge>
+			<Badge>{rule.match_mode === 'any' ? 'Any condition' : 'All conditions'}</Badge>
+			{#if rule.disabled}<Badge tone="warning">Disabled</Badge>{/if}
 		</div>
+		<div class="mt-1 text-sm text-ink-muted"><span class="font-mono">{rule.id}</span></div>
 	</div>
 
 	{#if rule.rule_type === 'set'}
-		<div class="flex flex-col gap-3 border border-border bg-bg/40 p-3 sm:flex-row sm:items-start">
+		<div class="flex flex-col gap-3 rounded-control bg-well p-3 sm:flex-row sm:items-start">
 			{#if rule.set_meta?.img_url}
 				<img
 					src={rule.set_meta.img_url}
 					alt={rule.set_meta?.name ?? rule.name}
-					class="h-20 w-20 shrink-0 border border-border bg-bg object-contain"
+					class="size-20 shrink-0 rounded-item object-contain"
 				/>
 			{/if}
-			<div class="min-w-0 flex-1 space-y-1.5">
-				<div class="text-xs font-semibold uppercase tracking-wide text-text-muted">
-					{sourceLabel(rule)}
-				</div>
+			<div class="min-w-0 flex-1 space-y-2">
+				<div class="label">{sourceLabel(rule)}</div>
 				{#if setMetaBits(rule).length > 0}
 					<div class="flex flex-wrap gap-1.5">
-						{#each setMetaBits(rule) as bit}
-							<span class="border border-border bg-surface px-2 py-1 text-xs text-text-muted">{bit}</span>
-						{/each}
+						{#each setMetaBits(rule) as bit}<Badge>{bit}</Badge>{/each}
 					</div>
 				{/if}
 				{#if rule.custom_parts && rule.custom_parts.length > 0}
 					<div>
-						<div class="mb-1 text-xs font-semibold uppercase tracking-wide text-text-muted">
-							Custom parts
-						</div>
-						<div class="space-y-1">
-							{#each rule.custom_parts as part}
-								<div class="text-xs text-text">{customPartSummary(part)}</div>
-							{/each}
-						</div>
+						<div class="label mb-1">Custom parts</div>
+						<ul class="space-y-0.5 text-sm text-ink">
+							{#each rule.custom_parts as part}<li>{customPartSummary(part)}</li>{/each}
+						</ul>
 					</div>
 				{/if}
 			</div>
 		</div>
 	{/if}
 
-	<div class="space-y-2">
-		<div class="text-xs font-semibold uppercase tracking-wide text-text-muted">Conditions</div>
-		{#if rule.conditions.length === 0}
-			<div class="text-xs text-text-muted">
-				{#if rule.rule_type === 'set'}
-					Set rules match the compiled set inventory directly.
-				{:else}
-					No conditions. This rule currently matches everything in its scope.
-				{/if}
-			</div>
-		{:else}
-			<div class="space-y-2">
-				{#each rule.conditions as condition}
-					<div class="grid gap-2 border border-border bg-bg/40 px-3 py-2 text-xs md:grid-cols-[1fr,auto,1fr]">
-						<div class="font-mono text-text">{condition.field}</div>
-						<div class="text-text-muted">{condition.op}</div>
-						<div class="break-all text-text">{formatConditionValue(condition.value)}</div>
-					</div>
-				{/each}
-			</div>
-		{/if}
-	</div>
+	{#if rule.conditions.length === 0}
+		<p class="text-sm text-ink-muted">
+			{#if rule.rule_type === 'set'}
+				Set rules match the compiled set inventory directly.
+			{:else}
+				No conditions. This rule currently matches everything in its scope.
+			{/if}
+		</p>
+	{:else}
+		<div class="overflow-x-auto rounded-control">
+			<table class="data-table">
+				<thead>
+					<tr><th>Field</th><th>Operator</th><th>Value</th></tr>
+				</thead>
+				<tbody>
+					{#each rule.conditions as condition}
+						<tr>
+							<td class="font-mono">{condition.field}</td>
+							<td class="text-ink-muted">{condition.op}</td>
+							<td class="break-all">{formatConditionValue(condition.value)}</td>
+						</tr>
+					{/each}
+				</tbody>
+			</table>
+		</div>
+	{/if}
 
 	{#if rule.children.length > 0}
-		<div class="space-y-3">
-			<div class="text-xs font-semibold uppercase tracking-wide text-text-muted">
-				Children ({rule.children.length})
-			</div>
+		<div class="ml-1 flex flex-col gap-5 border-l border-line pl-4">
+			<div class="label">Children ({rule.children.length})</div>
 			{#each rule.children as child (child.id)}
-				<ProfileRuleTreeNode rule={child} depth={depth + 1} />
+				<ProfileRuleTreeNode rule={child} />
 			{/each}
 		</div>
 	{/if}

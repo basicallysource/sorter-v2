@@ -1,5 +1,9 @@
 <script lang="ts">
-	import { Alert, Button } from '$lib/components/primitives';
+	import Alert from '$lib/components/ui/Alert.svelte';
+	import Badge from '$lib/components/ui/Badge.svelte';
+	import Button from '$lib/components/ui/Button.svelte';
+	import Panel from '$lib/components/ui/Panel.svelte';
+	import Spinner from '$lib/components/ui/Spinner.svelte';
 	import {
 		activateBsx,
 		deactivateBsx,
@@ -8,7 +12,8 @@
 		uploadBsx,
 		type BsxFile
 	} from '$lib/bsx/api';
-	import { Trash2, Upload } from 'lucide-svelte';
+	import Trash2 from '@lucide/svelte/icons/trash-2';
+	import Upload from '@lucide/svelte/icons/upload';
 	import { onMount } from 'svelte';
 
 	let { baseUrl }: { baseUrl: string } = $props();
@@ -96,72 +101,49 @@
 	}
 </script>
 
-<section class="flex flex-col gap-3">
-	<div class="flex items-center justify-between gap-3">
-		<div>
-			<h2 class="text-xs font-semibold uppercase tracking-wider text-text-muted">
-				BrickLink inventories (.bsx)
-			</h2>
-			<p class="mt-1 text-sm text-text-muted">
-				A store's on-hand inventory. One can be active; a profile with inventory routing sends
-				pieces <em>not</em> in the active inventory to the not-in-inventory bin.
-			</p>
-		</div>
-		<Button variant="secondary" size="sm" loading={uploading} onclick={() => fileInput?.click()}>
-			<Upload class="h-4 w-4" />
-			Upload .bsx
-		</Button>
-		<input
-			bind:this={fileInput}
-			type="file"
-			accept=".bsx"
-			class="hidden"
-			onchange={handleUpload}
-		/>
-	</div>
+<Panel
+	title="BrickLink inventories (.bsx)"
+	description="A store's on-hand inventory. One can be active; a profile with inventory routing sends pieces not in the active inventory to the not-in-inventory bin."
+	flush
+>
+	{#snippet footer()}
+		<Button icon={Upload} loading={uploading} onclick={() => fileInput?.click()}>Upload .bsx</Button>
+	{/snippet}
+	<input bind:this={fileInput} type="file" accept=".bsx" class="hidden" onchange={handleUpload} />
 
-	{#if error}
-		<Alert variant="danger">{error}</Alert>
-	{/if}
-	{#if success}
-		<Alert variant="success">{success}</Alert>
+	{#if error || success}
+		<div class="flex flex-col gap-2 px-(--pad-panel) pb-3">
+			{#if error}<Alert tone="danger">{error}</Alert>{/if}
+			{#if success}<Alert tone="success">{success}</Alert>{/if}
+		</div>
 	{/if}
 
 	{#if loading}
-		<p class="text-sm text-text-muted">Loading…</p>
+		<p class="flex items-center gap-2 px-(--pad-panel) pb-4 text-sm text-ink-muted">
+			<Spinner size={16} />
+			Loading the inventories
+		</p>
 	{:else if files.length === 0}
-		<p class="text-sm text-text-muted">No inventories uploaded yet.</p>
+		<p class="px-(--pad-panel) pb-4 text-sm text-ink-muted">No inventories uploaded yet.</p>
 	{:else}
-		<div class="flex flex-col divide-y divide-border border border-border">
+		<ul class="divide-y divide-line">
 			{#each files as file (file.filename)}
-				<div class="flex items-center justify-between gap-3 bg-surface px-3 py-2">
+				<li class="flex items-center justify-between gap-3 px-(--pad-panel) py-3">
 					<div class="min-w-0">
-						<div class="flex items-center gap-2">
-							<span class="truncate text-sm font-semibold text-text">{file.name}</span>
-							{#if file.is_active}
-								<span
-									class="inline-flex items-center border border-success/60 bg-success/[0.12] px-1.5 py-0.5 text-xs font-semibold uppercase tracking-wider text-success"
-								>
-									Active
-								</span>
-							{/if}
-							{#if file.error}
-								<span
-									class="inline-flex items-center border border-danger/60 bg-danger/[0.12] px-1.5 py-0.5 text-xs font-semibold uppercase tracking-wider text-danger"
-								>
-									Error
-								</span>
-							{/if}
+						<div class="flex flex-wrap items-center gap-2">
+							<span class="truncate text-sm font-medium text-ink">{file.name}</span>
+							{#if file.is_active}<Badge tone="success" dot>Active</Badge>{/if}
+							{#if file.error}<Badge tone="danger">Error</Badge>{/if}
 						</div>
-						<div class="mt-0.5 text-sm text-text-muted">
+						<div class="mt-0.5 text-sm text-ink-muted">
 							{file.num_parts ?? 0} parts · {file.num_unique_items ?? 0} items · uploaded {fmtDate(
 								file.uploaded_at
 							)}
 						</div>
 					</div>
-					<div class="flex shrink-0 items-center gap-2">
+					<div class="flex shrink-0 items-center gap-1">
 						<Button
-							variant={file.is_active ? 'ghost' : 'primary'}
+							variant={file.is_active ? 'secondary' : 'primary'}
 							size="sm"
 							loading={busyFilename === file.filename}
 							disabled={!!file.error}
@@ -172,14 +154,14 @@
 						<Button
 							variant="ghost"
 							size="sm"
-							loading={busyFilename === file.filename}
+							icon={Trash2}
+							label="Delete {file.name}"
+							disabled={busyFilename === file.filename}
 							onclick={() => remove(file)}
-						>
-							<Trash2 class="h-4 w-4" />
-						</Button>
+						/>
 					</div>
-				</div>
+				</li>
 			{/each}
-		</div>
+		</ul>
 	{/if}
-</section>
+</Panel>

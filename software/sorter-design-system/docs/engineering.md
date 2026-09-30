@@ -5,9 +5,11 @@ a component, and the check to run after every visual change.
 
 ## The stack
 
-SvelteKit 2 with Svelte 5 runes, Tailwind 4, TypeScript, pnpm, the static
-adapter with server rendering off, the same as the Sorter UI and Hive, so a
-component behaves here exactly as it will in the app it is copied into.
+SvelteKit 2 with Svelte 5 runes, Tailwind 4, TypeScript and pnpm, the same as
+the apps. This site and the Sorter UI use the static adapter with server
+rendering off; Hive renders on the server (the Node adapter, SSR on). So every
+component is written to work both ways ([Server rendering](#server-rendering)),
+and behaves here as it will in the app it is copied into.
 
 ```sh
 pnpm install
@@ -65,7 +67,32 @@ Never edit a copied component in an app, and never restyle a raw `<button>`,
 - Content is a snippet (`children`, `footer`, `trigger`), rendered with
   `{@render ...}`.
 - A component that wraps a native element passes the rest of its attributes
-  through (`...rest`), so `aria-*` and `data-*` reach the element.
+  through (`...rest`), typed with `svelte/elements`, so `name`,
+  `autocomplete`, `required`, `onkeydown`, `aria-*` and `data-*` reach the
+  element: `Input`, `Textarea` and `Checkbox` to theirs, `Button` to its
+  button or link, `Select` to its button (with `name`, `required` and
+  `autocomplete` on a hidden native select, for forms).
+- `class` sets the outside of a component: its width, its place in a grid.
+  Where a component is more than one element, `class` goes on the one that
+  holds the rest (`Select`'s wrapper, `Input`'s edge).
+
+## Server rendering
+
+Hive renders every page on the server first, then the browser takes over.
+The components and the modules they import (`theme.svelte.ts`,
+`lego-colors.ts`, `place.ts`) are written so that works:
+
+- **Ids come from `$props.id()`**, which gives the same id on the server and
+  in the browser, never from `Math.random()`, whose id would differ and break
+  the link between a label and what it names.
+- **Nothing touches `window`, `document`, `localStorage` or `matchMedia` at
+  a module's top level or while rendering**, only in event handlers and in
+  `$effect`, which run in the browser alone. `theme.svelte.ts` keeps its
+  defaults on the server and reads the stored mode in the browser.
+- **What depends on the window's width is CSS**, not script: the top bar
+  folds with a container query, so the server's HTML is already right.
+
+The Sorter UI, with server rendering off, runs the same code.
 
 ## The check after a visual change
 
@@ -78,7 +105,10 @@ Look; do not assume. Before calling a change done:
    on the primary and the primary as text both read.
 4. **Seams.** Wherever two parts meet, one line or none, never two.
 5. **Overflow.** Nothing scrolls sideways but a table or a list that is meant
-   to; an app screen at 1440 does not scroll at all.
+   to; an app screen at 1440 does not scroll at all. Look with scroll bars
+   that are always drawn (a Mac with a mouse plugged in, Windows): a box that
+   scrolls by one pixel shows nothing where they hide, and a scroll bar in
+   the middle of the top bar where they do not.
 6. **The console** has no errors or warnings.
 7. **Keyboard.** Every control is reachable with Tab, shows the focus
    outline, and anything that opens closes on Escape.

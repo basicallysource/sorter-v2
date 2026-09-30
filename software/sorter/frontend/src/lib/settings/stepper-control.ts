@@ -1,5 +1,8 @@
 import type { StepperKey } from '$lib/settings/stations';
 
+// The two ways a stepper turns, in words.
+export const DIRECTION_WORDS = { cw: 'clockwise', ccw: 'counterclockwise' } as const;
+
 export type StepperPulseMode = 'duration' | 'degrees';
 
 export type StoredStepperPulseSettings = {
@@ -25,7 +28,7 @@ export const STEPPER_GEAR_RATIOS: Record<StepperKey, number> = {
 	chute: 120 / 25
 };
 
-export const CLASSIFICATION_CHANNEL_STEPPER_LABEL = 'Classification C-Channel (C4)';
+export const CLASSIFICATION_CHANNEL_STEPPER_LABEL = 'Classification C-channel (C4)';
 export const CLASSIFICATION_CHANNEL_STEPPER_GEAR_RATIO = STEPPER_GEAR_RATIOS.c_channel_4;
 
 export function stepperPulseStorageKey(stepperKey: StepperKey, field: string): string {
@@ -111,7 +114,7 @@ export async function triggerStoredStepperPulse(
 		if (!res.ok) {
 			throw new Error(await readStepperErrorMessage(res));
 		}
-		return `Moving ${settings.pulseDegrees}° ${direction.toUpperCase()}.`;
+		return `Moving ${settings.pulseDegrees}° ${DIRECTION_WORDS[direction]}.`;
 	}
 
 	const params = new URLSearchParams({
@@ -126,7 +129,7 @@ export async function triggerStoredStepperPulse(
 	if (!res.ok) {
 		throw new Error(await readStepperErrorMessage(res));
 	}
-	return `Pulsing ${direction.toUpperCase()}.`;
+	return `Pulsing ${DIRECTION_WORDS[direction]}.`;
 }
 
 async function readStepperErrorMessage(res: Response): Promise<string> {

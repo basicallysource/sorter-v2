@@ -9,6 +9,7 @@
 	import Settings from '@lucide/svelte/icons/settings';
 	import { page } from '$app/state';
 	import Panel from '$lib/components/Panel.svelte';
+	import PageHeader from '$lib/components/PageHeader.svelte';
 	import MediaTile from '$lib/components/MediaTile.svelte';
 	import Button from '$lib/components/Button.svelte';
 	import Input from '$lib/components/Input.svelte';
@@ -18,16 +19,16 @@
 	import EmptyState from '$lib/components/EmptyState.svelte';
 	import Badge from '$lib/components/Badge.svelte';
 	import JogControl from '../JogControl.svelte';
-	import { labelFor } from '../nav';
+	import { cameraSections, labelFor } from '../nav';
 
-	const withCamera = ['c-channel-2', 'c-channel-3', 'c-channel-4'];
-	const steppers = ['c-channel-1', 'chute', ...withCamera];
+	const steppers = ['c-channel-1', 'chute', ...cameraSections];
 	const section = $derived(page.params.section ?? '');
 	const title = $derived(labelFor(section) ?? 'Settings');
 
-	let current = $state(900);
-	let microsteps = $state('16');
-	let threshold = $state(40);
+	const defaults = { current: 900, microsteps: '16', threshold: 40 };
+	let current = $state(defaults.current);
+	let microsteps = $state(defaults.microsteps);
+	let threshold = $state(32);
 </script>
 
 <svelte:head><title>{title} · Settings · Example app</title></svelte:head>
@@ -44,22 +45,37 @@
 		<div class="border-t border-line">
 			<Disclosure title="Driver settings">
 				<div class="divide-y divide-line pl-6">
-					<SettingRow label="Run current" help="Higher holds better and runs hotter." for="current">
+					<SettingRow
+						label="Run current"
+						help="Higher holds better and runs hotter."
+						for="current"
+						changed={current !== defaults.current}
+						defaultText="{defaults.current} mA"
+						onreset={() => (current = defaults.current)}
+					>
 						<Input id="current" type="number" bind:value={current} unit="mA" class="w-28" />
 					</SettingRow>
-					<SettingRow label="Microsteps" for="microsteps">
-						<div class="w-28">
-							<Select
-								id="microsteps"
-								bind:value={microsteps}
-								options={['8', '16', '32', '64'].map((m) => ({ value: m, label: m }))}
-							/>
-						</div>
+					<SettingRow
+						label="Microsteps"
+						for="microsteps"
+						changed={microsteps !== defaults.microsteps}
+						defaultText={defaults.microsteps}
+						onreset={() => (microsteps = defaults.microsteps)}
+					>
+						<Select
+							id="microsteps"
+							class="w-28"
+							bind:value={microsteps}
+							options={['8', '16', '32', '64'].map((m) => ({ value: m, label: m }))}
+						/>
 					</SettingRow>
 					<SettingRow
 						label="StallGuard threshold"
 						help="Lower stops sooner when the stepper meets resistance."
 						for="threshold"
+						changed={threshold !== defaults.threshold}
+						defaultText={String(defaults.threshold)}
+						onreset={() => (threshold = defaults.threshold)}
 					>
 						<Input id="threshold" type="number" bind:value={threshold} class="w-28" />
 					</SettingRow>
@@ -69,18 +85,18 @@
 	</Panel>
 {/snippet}
 
-<div>
-	<h1 class="text-xl font-semibold tracking-tight text-ink">{title}</h1>
-	{#if withCamera.includes(section)}
-		<p class="mt-1 text-sm text-ink-muted">What this channel's camera sees, and its stepper.</p>
-	{:else if steppers.includes(section)}
-		<p class="mt-1 text-sm text-ink-muted">Move the stepper by hand, and set its driver.</p>
-	{/if}
-</div>
+<PageHeader
+	{title}
+	description={cameraSections.includes(section)
+		? "What this channel's camera sees, and its stepper."
+		: steppers.includes(section)
+			? 'Move the stepper by hand, and set its driver.'
+			: undefined}
+/>
 
-{#if withCamera.includes(section)}
+{#if cameraSections.includes(section)}
 	<div class="grid items-start gap-(--gap-panels) xl:grid-cols-[minmax(0,1fr)_23rem]">
-		<MediaTile title="{title} camera" aspect="4 / 3">
+		<MediaTile title="{title} camera" expandable>
 			{#snippet actions()}
 				<Button size="sm" variant="ghost">-1°</Button>
 				<Button size="sm" variant="ghost">+1°</Button>
@@ -91,7 +107,7 @@
 			{/snippet}
 			<Camera size={24} class="text-ink-faint" />
 		</MediaTile>
-		{@render stepper()}
+		<div class="max-w-xl xl:max-w-none">{@render stepper()}</div>
 	</div>
 {:else if steppers.includes(section)}
 	<div class="max-w-xl">{@render stepper()}</div>

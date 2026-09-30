@@ -35,7 +35,7 @@
 	/>
 	{#if stale}
 		<div
-			class="absolute inset-0 flex items-center justify-center bg-bg text-sm text-text-muted"
+			class="absolute inset-0 flex items-center justify-center bg-well text-sm text-ink-muted"
 		>
 			No preview
 		</div>
@@ -43,5 +43,5 @@
 {:else if source}
 	<img src={source} alt={label} class={`${layoutClass} ${fitClass}`} />
 {:else}
-	<div class="flex h-full items-center justify-center text-sm text-text-muted">No preview</div>
+	<div class="flex h-full items-center justify-center text-sm text-ink-muted">No preview</div>
 {/if}

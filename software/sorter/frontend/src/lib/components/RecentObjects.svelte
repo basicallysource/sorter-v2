@@ -1,16 +1,19 @@
 <script lang="ts">
 	import { getMachineContext } from '$lib/machines/context';
 	import { untrack } from 'svelte';
-	import { Wand2 } from 'lucide-svelte';
+	import Wand2 from '@lucide/svelte/icons/wand-sparkles';
 	import type { KnownObjectData } from '$lib/api/events';
-	import Spinner from './Spinner.svelte';
-	import Modal from './Modal.svelte';
+	import Spinner from '$lib/components/ui/Spinner.svelte';
+	import Modal from '$lib/components/ui/Modal.svelte';
+	import Badge from '$lib/components/ui/Badge.svelte';
+	import Button from '$lib/components/ui/Button.svelte';
 	import PieceCorrection from './PieceCorrection.svelte';
 	import PieceStatusBadge from './PieceStatusBadge.svelte';
 	import { fetchPieceImageState, type DisplayImage } from './records/piece-images';
 	import { sortingProfileStore } from '$lib/stores/sortingProfile.svelte';
 	import { getBackendHttpBase, machineHttpBaseUrlFromWsUrl } from '$lib/backend';
-	import { LEGO_COLORS, type LegoColor } from '$lib/lego-colors';
+	import { findLegoColor } from '$lib/pieces/colors';
+	import { onColor } from '$lib/theme';
 	import {
 		pieceStore,
 		pieceToKnownObjectView,
@@ -528,14 +531,13 @@
 	}
 
 	function confidenceClass(conf: number): string {
-		// 4-tier grading per spec. There is no dedicated orange brand token, so
-		// 80-89 and 60-79 both use the warning amber — 60-79 uses a dimmer
-		// opacity to visually distinguish "marginal" from "good".
+		// Four grades: 90 and up is good, 80 to 89 fair, 60 to 79 marginal
+		// (the fair color, fainter), below 60 poor.
 		const pct = conf * 100;
-		if (pct >= 90) return 'text-success';
-		if (pct >= 80) return 'text-warning';
-		if (pct >= 60) return 'text-warning/70';
-		return 'text-danger';
+		if (pct >= 90) return 'text-success-ink';
+		if (pct >= 80) return 'text-warning-ink';
+		if (pct >= 60) return 'text-warning-ink opacity-75';
+		return 'text-danger-ink';
 	}
 
 	// BrickLink moving-average price (USD) from Hive. Sub-dollar
@@ -556,20 +558,13 @@
 		return typeof y === 'number' && y > 0 ? y : null;
 	}
 
-	function phaseChip(phase: LifecyclePhase): { label: string; cls: string } {
-		// Sharp-edged chip, border + faint tinted bg + solid text. No rounded-*.
-		// 'resolved' never lands here — it renders as PieceStatusBadge instead.
-		if (phase === 'tracking')
-			return { label: 'Tracking', cls: 'border-text-muted bg-text-muted/10 text-text-muted' };
-		if (phase === 'capturing')
-			return { label: 'Capturing', cls: 'border-primary bg-primary/10 text-primary' };
-		return { label: 'Distributed', cls: 'border-border bg-surface text-text-muted' };
+	function phaseTone(phase: LifecyclePhase): { label: string; tone: 'neutral' | 'primary' } {
+		// 'resolved' never lands here: it renders as PieceStatusBadge instead.
+		if (phase === 'tracking') return { label: 'Tracking', tone: 'neutral' };
+		if (phase === 'capturing') return { label: 'Capturing', tone: 'primary' };
+		return { label: 'Distributed', tone: 'neutral' };
 	}
 
-	// Normalize a color id or name to a LEGO_COLORS entry. Brickognize and
-	// BrickLink both use slug-ish ids (e.g. "white", "light-bluish-gray"), and
-	// `color_name` is the canonical display name. Try id first, fall back to
-	// name match (case-insensitive).
 	// --- Multi-drop grouping ----------------------------------------------
 	// A multi drop rejects every piece involved, and each one used to get its own
 	// full-size red card — a wall of alarm for what is physically ONE event. Runs
@@ -611,21 +606,6 @@
 		return capturedCropUrl(obj, lifecyclePhase(obj));
 	}
 
-	function lookupLegoColor(
-		color_id: string | null | undefined,
-		color_name: string | null | undefined
-	): LegoColor | null {
-		if (color_id) {
-			const by_id = LEGO_COLORS.find((c) => c.id === color_id);
-			if (by_id) return by_id;
-		}
-		if (color_name) {
-			const lower = color_name.toLowerCase();
-			const by_name = LEGO_COLORS.find((c) => c.name.toLowerCase() === lower);
-			if (by_name) return by_name;
-		}
-		return null;
-	}
 
 </script>
 
@@ -656,7 +636,7 @@
 
 	{@const lego_color =
 		!is_unknown && !is_multi_drop && obj.color_name && obj.color_name !== 'Any Color'
-			? lookupLegoColor(obj.color_id, obj.color_name)
+			? findLegoColor(obj.color_id, obj.color_name)
 			: null}
 	<!-- Brickognize supplies `part_name` whenever it has a hit; fall back to
 	     the part id when there's no name. -->
@@ -674,10 +654,10 @@
 					? resolved_name!
 					: (obj.part_id ?? obj.uuid.slice(0, 8))}
 	{@const primary_class = is_multi_drop || is_failed
-		? 'text-danger'
+		? 'text-danger-ink'
 		: is_unknown
-			? 'text-text-muted'
-			: 'text-text'}
+			? 'text-ink-muted'
+			: 'text-ink'}
 
 	{@const base_src = is_classified_ok ? reference_src : captured}
 	<!-- Flash through every recognition view (burst frames)
@@ -689,14 +669,15 @@
 
 	<a
 		href={`/tracked/${obj.uuid}`}
-		class="block border border-border bg-bg transition-colors hover:border-primary/70"
+		class="block px-3 py-2.5 transition-colors hover:bg-hover"
 		onmouseenter={() => startHover(obj.uuid)}
 		onmouseleave={endHover}
 	>
-		<div class="flex items-start gap-3 p-2">
-			<!-- Primary image well — flashes through every recognition view while
-			     the piece is being recognized; hover scrubs the same views. -->
-			<div class="relative h-20 w-20 flex-shrink-0 border border-border bg-white">
+		<div class="flex items-start gap-3">
+			<!-- The part's picture sits straight on the row, with no box behind it. It
+			     flashes through every recognition view while the piece is being
+			     recognized; hover scrubs the same views. -->
+			<div class="relative size-16 shrink-0 overflow-hidden">
 				{#if base_src || cycle_src}
 					{#if base_src}
 						<img
@@ -719,8 +700,8 @@
 				{:else if phase === 'distributed'}
 					<!-- Terminal piece with nothing to show (e.g. a durable summary of an
 					     unidentified piece) — a spinner here would imply waiting. -->
-					<div class="flex h-full w-full items-center justify-center text-xs text-text-muted">
-						no image
+					<div class="flex h-full w-full items-center justify-center text-xs text-ink-faint">
+						No image
 					</div>
 				{:else}
 					<div class="flex h-full w-full items-center justify-center">
@@ -731,12 +712,12 @@
 
 			<div class="flex min-w-0 flex-1 flex-col gap-1">
 				<div class="flex items-baseline justify-between gap-2">
-					<span class="truncate text-sm font-semibold {primary_class}">
+					<span class="truncate text-sm font-medium {primary_class}">
 						{primary_text}
 					</span>
 					<div class="flex flex-shrink-0 items-center gap-2">
 						{#if typeof obj.confidence === 'number' && !is_unknown && !is_multi_drop}
-							<span class="text-sm font-semibold tabular-nums {confidenceClass(obj.confidence)}">
+							<span class="num text-sm font-medium {confidenceClass(obj.confidence)}">
 								{(obj.confidence * 100).toFixed(0)}%
 							</span>
 						{/if}
@@ -747,10 +728,10 @@
 								type="button"
 								onclick={(e) => openCorrection(obj.uuid, e)}
 								class="inline-flex items-center transition-colors {submittedCount === 2
-									? 'text-success'
+									? 'text-success-ink'
 									: submittedCount === 1
-										? 'text-warning'
-										: 'text-text-muted hover:text-primary'}"
+										? 'text-warning-ink'
+										: 'text-ink-muted hover:text-primary-ink'}"
 								title={submittedCount === 2
 									? 'Correction sent to Brickognize (2/2)'
 									: submittedCount === 1
@@ -766,10 +747,10 @@
 
 				{#if has_name && obj.part_id}
 					<div class="flex items-baseline justify-between gap-2">
-						<span class="truncate font-mono text-xs text-text-muted">{obj.part_id}</span>
+						<span class="num truncate text-sm text-ink-muted">{obj.part_id}</span>
 						{#if typeof obj.moving_avg_price === 'number'}
 							<span
-								class="flex-shrink-0 text-sm font-semibold tabular-nums text-success"
+								class="num shrink-0 text-sm font-medium text-success-ink"
 								title={(obj.piece_metadata as Record<string, unknown> | null | undefined)
 									?.price_from_base_mold
 									? `Approximate — base mold ${(obj.piece_metadata as Record<string, unknown>).price_from_base_mold} price (no data for this exact print)`
@@ -783,104 +764,86 @@
 						{/if}
 					</div>
 				{:else if phase === 'tracking' && !is_unknown && !is_multi_drop}
-					<div class="text-xs text-text-muted">Tracked on carousel…</div>
+					<div class="text-sm text-ink-muted">Tracked on the classification channel</div>
 				{:else if phase === 'capturing' && !is_unknown && !is_multi_drop}
-					<div class="text-xs text-text-muted">Capturing on C4…</div>
+					<div class="text-sm text-ink-muted">Capturing on C4</div>
 				{/if}
 
 				<div class="mt-0.5 flex flex-wrap items-center gap-1.5">
-					<!-- Phase / status chip. The classification outcome renders through
-					     the shared badge; the green success chip is impossible for
-					     failed/unidentified pieces. -->
+					<!-- The classification outcome renders through the shared badge;
+					     the green one is impossible for failed or unidentified pieces. -->
 					{#if phase === 'resolved' || (phase === 'distributed' && obj.classification_status !== 'classified')}
 						<PieceStatusBadge
 							status={obj.classification_status}
 							requestFailed={Boolean(obj.request_failed)}
 						/>
 					{:else}
-						{@const chip = phaseChip(phase)}
-						<span
-							class="inline-flex items-center border px-1.5 py-0.5 text-xs font-semibold uppercase tracking-wider {chip.cls}"
-						>
-							{chip.label}
-						</span>
+						{@const chip = phaseTone(phase)}
+						<Badge tone={chip.tone}>{chip.label}</Badge>
 					{/if}
 
-					<!-- Too-big chip — recognized piece rerouted to misc for size -->
 					{#if is_too_big}
 						<span
-							class="inline-flex items-center border border-warning/60 bg-warning/[0.12] px-1.5 py-0.5 text-xs font-semibold uppercase tracking-wider text-warning"
+							class="inline-flex"
 							title={obj.too_big_for_layer && typeof obj.intended_layer_index === 'number'
-								? `Too big for layer ${obj.intended_layer_index + 1} — sent to misc bottom bin`
-								: 'Too big — sent to misc bottom bin'}
+								? `Too big for layer ${obj.intended_layer_index + 1}: sent to the misc bottom bin`
+								: 'Too big: sent to the misc bottom bin'}
 						>
-							{too_big_label}{typeof obj.max_dimension_mm === 'number'
-								? ` · ${Math.round(obj.max_dimension_mm)}mm`
-								: ''}
+							<Badge tone="warning"
+								>{too_big_label}{typeof obj.max_dimension_mm === 'number'
+									? ` · ${Math.round(obj.max_dimension_mm)} mm`
+									: ''}</Badge
+							>
 						</span>
 					{/if}
 
-					<!-- High-value chip — piece rerouted by the profile's price override -->
 					{#if obj.high_value_routed}
 						<span
-							class="inline-flex items-center border border-success/60 bg-success/[0.12] px-1.5 py-0.5 text-xs font-semibold uppercase tracking-wider text-success"
-							title="Moving-average price cleared the profile's high-value threshold — rerouted to the high-value bin"
+							class="inline-flex"
+							title="Its moving-average price cleared the profile's high-value threshold, so it went to the high-value bin"
 						>
-							High value
+							<Badge tone="success">High value</Badge>
 						</span>
 					{/if}
 
-					<!-- Not-in-inventory badge — part+color absent from the active .bsx -->
 					{#if obj.not_in_inventory === true}
 						<span
-							class="inline-flex items-center border border-warning/60 bg-warning/[0.12] px-1.5 py-0.5 text-xs font-semibold uppercase tracking-wider text-warning"
-							title="This part+color is not in the active BrickLink inventory (.bsx)"
+							class="inline-flex"
+							title="This part and color are not in the active BrickLink inventory (.bsx)"
 						>
-							Not in inventory
+							<Badge tone="warning">Not in inventory</Badge>
 						</span>
 					{/if}
 
-					<!-- Year badge — first-release year -->
 					{#if yearOf(obj) !== null}
-						<span
-							class="inline-flex items-center border border-border bg-surface px-1.5 py-0.5 text-xs font-semibold tabular-nums text-text-muted"
-							title="First-release year"
-						>
-							{yearOf(obj)}
+						<span class="inline-flex" title="First released">
+							<Badge><span class="num">{yearOf(obj)}</span></Badge>
 						</span>
 					{/if}
 
-					<!-- Color chip — sharp-edged, filled with the LEGO hex -->
+					<!-- The piece's LEGO color, filled with it. -->
 					{#if lego_color}
 						<span
-							class="inline-flex items-center border border-border px-1.5 py-0.5 text-xs font-semibold"
+							class="inline-flex h-(--size-badge) items-center rounded-badge border border-line px-(--pad-badge) text-xs font-medium"
 							style:background-color={lego_color.hex}
-							style:color={lego_color.contrast === 'white' ? '#ffffff' : '#000000'}
+							style:color={onColor(lego_color.hex)}
 						>
 							{lego_color.name}
 						</span>
 					{:else if obj.color_name && obj.color_name !== 'Any Color' && !is_unknown && !is_multi_drop}
-						<span class="inline-flex items-center border border-border bg-surface px-1.5 py-0.5 text-xs text-text-muted">
-							{obj.color_name}
-						</span>
+						<Badge>{obj.color_name}</Badge>
 					{/if}
 
-					<!-- Category (plain, de-emphasized) -->
 					{#if cat_name && !is_unknown && !is_multi_drop}
-						<span class="text-xs text-text-muted">{cat_name}</span>
+						<span class="text-sm text-ink-muted">{cat_name}</span>
 					{/if}
 
-					<!-- Bin chip — monospace, neutral surface -->
 					{#if obj.destination_bin && phase === 'distributed'}
-						<span
-							class="ml-auto inline-flex items-center border border-border bg-surface px-1.5 py-0.5 font-mono text-xs tabular-nums text-text"
-						>
-							{is_unknown || is_multi_drop || is_too_big ? 'discard ' : ''}{formatBin(obj.destination_bin)}
+						<span class="num ml-auto text-sm text-ink">
+							{is_unknown || is_multi_drop || is_too_big ? 'Discard ' : ''}{formatBin(obj.destination_bin)}
 						</span>
 					{:else if phase === 'distributed' && (is_unknown || is_multi_drop || is_too_big)}
-						<span class="ml-auto inline-flex items-center border border-border bg-surface px-1.5 py-0.5 font-mono text-xs text-text-muted">
-							discard bin
-						</span>
+						<span class="ml-auto text-sm text-ink-muted">Discard bin</span>
 					{/if}
 				</div>
 			</div>
@@ -896,127 +859,110 @@
 	{@const shown = thumbs.slice(0, MULTI_DROP_STACK_MAX)}
 	{@const extra = pieces.length - shown.length}
 
-	<a
-		href={`/tracked/${obj.uuid}`}
-		class="block border border-border bg-bg transition-colors hover:border-primary/70"
-	>
-		<div class="flex items-center gap-3 p-2">
-			<!-- Crops from the drop, overlapped into one horizontal stack so the
-			     whole event reads as a single object rather than N alarming cards. -->
-			<div class="flex flex-shrink-0 items-center">
+	<a href={`/tracked/${obj.uuid}`} class="block px-3 py-2.5 transition-colors hover:bg-hover">
+		<div class="flex items-center gap-3">
+			<!-- Crops from the drop, overlapped into one stack so the whole event
+			     reads as one object rather than N alarming rows. -->
+			<div class="flex shrink-0 items-center">
 				{#if shown.length > 0}
 					{#each shown as src, i}
 						<div
-							class="relative h-14 w-14 flex-shrink-0 border border-border bg-white {i > 0
-								? '-ml-9'
+							class="relative size-12 shrink-0 overflow-hidden rounded-item border border-surface bg-surface {i >
+							0
+								? '-ml-8'
 								: ''}"
 							style:z-index={shown.length - i}
 						>
-							<img src={src} alt="rejected piece" class="h-full w-full object-contain" />
+							<img {src} alt="rejected piece" class="h-full w-full object-contain" />
 						</div>
 					{/each}
 				{:else}
-					<div
-						class="flex h-14 w-14 flex-shrink-0 items-center justify-center border border-border bg-white text-xs text-text-muted"
-					>
-						no image
+					<div class="flex size-12 shrink-0 items-center justify-center text-xs text-ink-faint">
+						No image
 					</div>
 				{/if}
 				{#if extra > 0}
-					<span class="ml-1 text-xs tabular-nums text-text-muted">+{extra}</span>
+					<span class="num ml-1 text-sm text-ink-muted">+{extra}</span>
 				{/if}
 			</div>
 
 			<div class="flex min-w-0 flex-1 items-center gap-2">
-				<div class="flex min-w-0 flex-col gap-0.5">
-					<span class="truncate text-sm text-text-muted">
-						Multi drop{pieces.length > 1 ? ` — ${pieces.length} pieces` : ''}
+				<div class="flex min-w-0 flex-col gap-1">
+					<span class="truncate text-sm text-ink-muted">
+						Multi drop{pieces.length > 1 ? `, ${pieces.length} pieces` : ''}
 					</span>
 					<span
-						class="inline-flex w-fit items-center border border-border bg-surface px-1.5 py-0.5 text-xs font-semibold uppercase tracking-wider text-text-muted"
-						title="Pieces overlapped on the classification channel and were rejected without identification"
+						class="inline-flex"
+						title="The pieces overlapped on the classification channel and were rejected unidentified"
 					>
-						rejected
+						<Badge>Rejected</Badge>
 					</span>
 				</div>
-
 				{#if phase === 'distributed'}
-					<span
-						class="ml-auto flex-shrink-0 border border-border bg-surface px-1.5 py-0.5 font-mono text-xs text-text-muted"
-					>
-						discard bin
-					</span>
+					<span class="ml-auto shrink-0 text-sm text-ink-muted">Discard bin</span>
 				{/if}
 			</div>
 		</div>
 	</a>
 {/snippet}
 
-<div class="setup-card-shell flex h-full flex-col border">
-	<div class="setup-card-header px-3 py-2 text-sm font-medium text-text">Recent Pieces</div>
-	<div class="flex-1 overflow-y-auto">
-		{#if activeOnC4.length === 0 && deliveredHistory.length === 0}
-			<div class="p-3 text-center text-sm text-text-muted">No pieces yet</div>
-		{:else}
-			<div class="flex flex-col gap-1 p-1">
-				<!-- Active C4 pieces: farthest from exit at top, nearest exit above line. -->
-				{#each activeRows as row (rowKey(row))}
-					{#if row.kind === 'multi_drop'}
-						{@render multiDropCard(row.pieces)}
-					{:else}
-						{@render pieceCard(row.piece)}
-					{/if}
-				{/each}
+<div class="h-full overflow-y-auto">
+	{#if activeOnC4.length === 0 && deliveredHistory.length === 0}
+		<p class="px-4 py-8 text-center text-sm text-ink-muted">No pieces yet</p>
+	{:else}
+		<div class="divide-y divide-line">
+			<!-- Pieces on C4: farthest from the exit at the top, nearest just above the line. -->
+			{#each activeRows as row (rowKey(row))}
+				{#if row.kind === 'multi_drop'}
+					{@render multiDropCard(row.pieces)}
+				{:else}
+					{@render pieceCard(row.piece)}
+				{/if}
+			{/each}
 
-				<!-- Exit divider -->
-				<div class="flex items-center gap-2 py-1 select-none">
-					<div class="h-px flex-1 bg-border"></div>
-					<span class="text-xs font-semibold uppercase tracking-wider text-text-muted">distributed</span>
-					<div class="h-px flex-1 bg-border"></div>
-				</div>
+			<!-- The exit: what is below it has left the channel, newest first. -->
+			<div class="label px-3 py-1.5 select-none">Distributed</div>
 
-				<!-- Delivered/rejected history: newest-first directly under the line. -->
-				{#each deliveredRows as row (rowKey(row))}
-					{#if row.kind === 'multi_drop'}
-						{@render multiDropCard(row.pieces)}
-					{:else}
-						{@render pieceCard(row.piece)}
-					{/if}
-				{/each}
-			</div>
-		{/if}
-	</div>
+			{#each deliveredRows as row (rowKey(row))}
+				{#if row.kind === 'multi_drop'}
+					{@render multiDropCard(row.pieces)}
+				{:else}
+					{@render pieceCard(row.piece)}
+				{/if}
+			{/each}
+		</div>
+	{/if}
 </div>
 
-<Modal open={correctionOpen} title="Correct prediction" on:close={() => (correctingUuid = null)}>
+<Modal open={correctionOpen} title="Correct the prediction" onclose={() => (correctingUuid = null)}>
 	{#if correctingSummary}
 		{@const capturedSrc =
 			dataImageUrl(
 				correctingPiece?.ws?.thumbnail ?? correctingPiece?.ws?.latest_captured_crop
 			) ?? correctingSummary.preview_url}
-		{@const legoColor = lookupLegoColor(
+		{@const legoColor = findLegoColor(
 			correctingSummary.color_id,
 			correctingSummary.color_name
 		)}
-		<div class="mb-3 flex items-center gap-3 border-b border-border pb-3">
+		<div class="mb-4 flex items-center gap-3">
 			{#if capturedSrc}
 				<img
 					src={capturedSrc}
 					alt=""
-					class="h-16 w-16 flex-shrink-0 border border-border object-contain"
+					class="size-16 shrink-0 object-contain"
 				/>
 			{/if}
 			<div class="flex min-w-0 flex-col gap-1">
-				<span class="truncate text-sm font-semibold text-text">
+				<span class="truncate text-sm font-medium text-ink">
 					{correctingSummary.part_name ?? correctingSummary.part_id ?? 'Unknown part'}
 				</span>
 				{#if correctingSummary.part_id && correctingSummary.part_name}
-					<span class="font-mono text-xs text-text-muted">{correctingSummary.part_id}</span>
+					<span class="num text-sm text-ink-muted">{correctingSummary.part_id}</span>
 				{/if}
-				<span class="inline-flex items-center gap-1.5 text-sm text-text">
+				<span class="inline-flex items-center gap-1.5 text-sm text-ink">
 					{#if legoColor}
 						<span
-							class="inline-block h-3.5 w-3.5 flex-shrink-0 border border-border"
+							class="inline-block size-3.5 shrink-0 rounded-check border border-line"
 							style:background-color={legoColor.hex}
 						></span>
 					{/if}
@@ -1028,7 +974,7 @@
 					src={correctingSummary.preview_url}
 					alt="Brickognize reference"
 					title="Brickognize reference image"
-					class="ml-auto h-16 w-16 flex-shrink-0 border border-border bg-surface object-contain"
+					class="ml-auto size-16 shrink-0 object-contain"
 				/>
 			{/if}
 		</div>
@@ -1036,17 +982,15 @@
 		<!-- The C4 burst crops we captured — never cropped (object-contain), square
 		     boxes letterboxed with a transparent bar rather than a solid fill. -->
 		{#if modalImagesLoading}
-			<div class="mb-3 flex items-center gap-2 text-sm text-text-muted">
-				<Spinner size={14} /> Loading captured photos…
+			<div class="mb-4 flex items-center gap-2 text-sm text-ink-muted">
+				<Spinner size={14} /> Loading the captured photos
 			</div>
 		{:else if modalBurstImages.length > 0}
-			<div class="mb-3 flex flex-col gap-1.5">
-				<span class="text-xs font-semibold tracking-wider text-text-muted uppercase">
-					Captured photos
-				</span>
+			<div class="mb-4 flex flex-col gap-1.5">
+				<span class="label">Captured photos</span>
 				<div class="flex flex-wrap gap-1.5">
 					{#each modalBurstImages as img (img.src)}
-						<div class="h-16 w-16 flex-shrink-0 border border-border">
+						<div class="size-16 shrink-0 overflow-hidden">
 							<img
 								src={img.src}
 								alt="captured crop"

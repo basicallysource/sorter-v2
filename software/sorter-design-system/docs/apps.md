@@ -40,6 +40,8 @@ it takes the components.
   at that machine shows the same color; `src/lib/stores/themeColor.svelte.ts`
   applies it. This system's `src/lib/theme.svelte.ts` shows how the primary and
   the colors that depend on its contrast are applied.
+- Light or dark and the primary are set in Settings > General, not from the
+  top bar.
 - Raw hex on purpose: `src/lib/lego-colors.ts`, which is the LEGO color data.
 - One deliberate side stripe: the servo inventory card
   (`src/lib/components/setup/servo/ServoInventoryCard.svelte`, colors set in
@@ -57,7 +59,10 @@ it takes the components.
   round shape besides a status dot (`rounded-full`).
 - The primary is LEGO red and cannot be changed. Light or dark comes from
   `src/lib/stores/theme.ts`: the reader's stored choice, else the system's
-  preference.
+  preference. The reader sets it in their account's settings, not from the
+  top bar.
+- It renders on the server (the Node adapter, SSR on), so the components are
+  written to render there too ([engineering.md](engineering.md#server-rendering)).
 - Tokens: `src/app.css`. Hive's `canvas` token is the near-black backdrop behind
   photos, the same in both modes; here that is `media`, and `canvas` is the
   page.

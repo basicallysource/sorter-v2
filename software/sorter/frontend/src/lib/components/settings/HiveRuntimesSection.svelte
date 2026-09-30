@@ -1,9 +1,14 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
-	import Spinner from '$lib/components/Spinner.svelte';
+	import Spinner from '$lib/components/ui/Spinner.svelte';
 	import { getBackendHttpBase, machineHttpBaseUrlFromWsUrl } from '$lib/backend';
 	import { getMachineContext } from '$lib/machines/context';
-	import { RefreshCw } from 'lucide-svelte';
+	import RefreshCw from '@lucide/svelte/icons/refresh-cw';
+	import Button from '$lib/components/ui/Button.svelte';
+	import Checkbox from '$lib/components/ui/Checkbox.svelte';
+	import Select from '$lib/components/ui/Select.svelte';
+	import Badge from '$lib/components/ui/Badge.svelte';
+	import Alert from '$lib/components/ui/Alert.svelte';
 
 	type Option = {
 		id: string;
@@ -294,9 +299,9 @@
 	function fpsClass(fps: number): string {
 		// Thresholds reflect how many 30-fps video streams the host can keep
 		// up with: 90 fps → 3 streams, 60 fps → 2 streams, below → deficit.
-		if (fps >= 90) return 'border-success bg-success/10 text-success-dark';
-		if (fps >= 60) return 'border-warning bg-warning/10 text-warning-dark';
-		return 'border-danger bg-danger/10 text-danger-dark';
+		if (fps >= 90) return 'bg-success-soft text-success-ink';
+		if (fps >= 60) return 'bg-warning-soft text-warning-ink';
+		return 'bg-danger-soft text-danger-ink';
 	}
 
 	function threadCountsFor(optionId: string): number[] {
@@ -343,7 +348,7 @@
 	}
 
 	function rankColor(rank: number, available: boolean): string {
-		if (!available) return 'bg-text-muted/50';
+		if (!available) return 'bg-ink-faint';
 		if (rank <= 1) return 'bg-success';
 		if (rank === 2) return 'bg-success';
 		if (rank === 3) return 'bg-primary';
@@ -363,170 +368,140 @@
 </script>
 
 <div class="flex flex-col gap-4">
-	<div class="flex flex-wrap items-center justify-between gap-3 border-b border-border pb-2">
-		<div class="text-sm text-text-muted">
+	<div class="flex flex-wrap items-center justify-between gap-3">
+		<p class="text-sm text-ink-muted">
 			{#if !loading && !error}
 				{#if showAll}
-					Showing everything, including backends not usable on this machine.
+					Everything, including the backends this machine can't use.
 				{:else if hiddenFormatsCount > 0}
-					Showing only supported backends. {hiddenFormatsCount} hidden.
+					Only the backends this machine supports; {hiddenFormatsCount} hidden.
 				{:else}
-					All backends supported on this machine.
+					Every backend is supported on this machine.
 				{/if}
 			{/if}
-		</div>
+		</p>
 		<div class="flex items-center gap-3">
-			<label class="flex cursor-pointer items-center gap-2 text-sm text-text-muted">
-				<input
-					type="checkbox"
-					bind:checked={showAll}
-					class="h-4 w-4 cursor-pointer"
-				/>
-				<span>Show unsupported</span>
-			</label>
-			<button
-				type="button"
-				onclick={load}
-				aria-label="Re-scan runtimes"
-				title="Re-scan runtimes"
-				class="border border-border bg-surface p-1.5 text-text-muted hover:text-text"
-			>
-				<RefreshCw size={14} />
-			</button>
+			<Checkbox bind:checked={showAll}>Show the unsupported ones</Checkbox>
+			<Button variant="ghost" size="sm" icon={RefreshCw} label="Scan the runtimes again" onclick={load} />
 		</div>
 	</div>
 
 	{#if loading}
-		<div class="text-sm text-text-muted">Detecting runtimes…</div>
+		<div class="flex items-center gap-2 text-sm text-ink-muted"><Spinner size={14} /> Finding the runtimes</div>
 	{:else if error}
-		<div class="border border-danger bg-danger/10 px-3 py-2 text-sm text-danger">{error}</div>
+		<Alert tone="danger">{error}</Alert>
 	{:else if visibleFormats.length === 0}
-		<div class="text-sm text-text-muted">
-			{showAll ? 'No runtimes reported.' : 'No runtimes supported on this machine. Toggle "Show unsupported" to see what could work elsewhere.'}
-		</div>
+		<p class="text-sm text-ink-muted">
+			{showAll
+				? 'No runtimes reported.'
+				: "This machine supports none of them. Show the unsupported ones to see what could work elsewhere."}
+		</p>
 	{:else}
 		<div class="grid gap-3" style="grid-template-columns: repeat(auto-fit, minmax(280px, 480px));">
 			{#each visibleFormats as fmt (fmt.id)}
-				<div
-					class="flex flex-col border border-border bg-bg"
-					class:opacity-60={formatUnsupported(fmt)}
-				>
-					<div class="flex flex-col gap-1 border-b border-border bg-surface px-3 py-2.5">
+				<section class="overflow-hidden rounded-control bg-well" class:opacity-60={formatUnsupported(fmt)}>
+					<header class="flex flex-col gap-1 px-3 py-2.5">
 						<div class="flex items-center justify-between gap-2">
-							<span class="text-base font-semibold text-text">{fmt.label}</span>
-							<span class="font-mono text-xs text-text-muted">
-								{fmt.extensions.join(' / ')}
-							</span>
+							<h3 class="text-base font-semibold text-ink">{fmt.label}</h3>
+							<span class="font-mono text-xs text-ink-muted">{fmt.extensions.join(' / ')}</span>
 						</div>
-						<span class="text-sm text-text-muted">{fmt.description}</span>
-						<span class="mt-0.5 text-xs text-text-muted">{formatSupportLine(fmt)}</span>
-					</div>
-					<div class="flex flex-col divide-y divide-border">
+						<p class="text-sm text-ink-muted">{fmt.description}</p>
+						<p class="text-sm text-ink-muted">{formatSupportLine(fmt)}</p>
+					</header>
+					<div class="divide-y divide-line border-t border-line">
 						{#each fmt.options as opt (opt.id)}
-							<div
-								class="flex items-start gap-3 px-3 py-2"
-								class:opacity-50={!opt.available}
-							>
+							<label class="flex items-start gap-3 px-3 py-2.5" class:opacity-50={!opt.available}>
 								{#if opt.available}
-									<input
-										type="radio"
-										name={`runtime-pref-${fmt.id}`}
-										value={opt.id}
-										checked={preferences[fmt.id] === opt.id}
-										onchange={() => void selectPreference(fmt.id, opt.id)}
-										class="mt-1 h-4 w-4 flex-shrink-0 cursor-pointer accent-primary"
-										aria-label={`Use ${opt.label} for ${fmt.label}`}
-									/>
+									<span class="relative mt-0.5 inline-flex size-4 shrink-0">
+										<input
+											type="radio"
+											name="runtime-pref-{fmt.id}"
+											value={opt.id}
+											checked={preferences[fmt.id] === opt.id}
+											onchange={() => void selectPreference(fmt.id, opt.id)}
+											aria-label="Use {opt.label} for {fmt.label}"
+											class="peer size-4 cursor-pointer appearance-none rounded-radio border border-line-strong bg-field transition-colors checked:border-primary hover:border-ink-faint"
+										/>
+										<span
+											class="pointer-events-none absolute inset-1 rounded-radio bg-primary opacity-0 peer-checked:opacity-100"
+										></span>
+									</span>
 								{:else}
 									<span
-										class={`mt-1 inline-flex h-2 w-2 flex-shrink-0 rounded-full ${rankColor(opt.rank, opt.available)}`}
+										class="mt-1.5 inline-flex size-2 shrink-0 rounded-full {rankColor(opt.rank, opt.available)}"
 										aria-hidden="true"
 									></span>
 								{/if}
-								<div class="flex min-w-0 flex-1 flex-col gap-1">
-									<div class="flex items-center justify-between gap-2">
-										<span class="text-sm font-medium text-text">{opt.label}</span>
-										{#if opt.available}
-											<span
-												class="border border-border px-1.5 py-0.5 text-xs uppercase tracking-wide text-text-muted"
-											>
-												{rankLabel(opt.rank)}
-											</span>
-										{/if}
-									</div>
-									<span class="text-sm text-text-muted">
-										{opt.available ? (opt.detail || 'ready') : (opt.reason || 'unavailable')}
+								<span class="flex min-w-0 flex-1 flex-col gap-1">
+									<span class="flex items-center justify-between gap-2">
+										<span class="text-sm font-medium text-ink">{opt.label}</span>
+										{#if opt.available}<Badge>{rankLabel(opt.rank)}</Badge>{/if}
+									</span>
+									<span class="text-sm text-ink-muted">
+										{opt.available ? opt.detail || 'Ready' : opt.reason || 'Unavailable'}
 									</span>
 									{#if opt.available && (isRunnable(opt, fmt.id) || resultsFor(opt).length > 0)}
-										{@const rs = resultsFor(opt)}
-										{#each rs as r (`${r.local_id}@${r.threads}`)}
-											<div
-												class={`flex items-center justify-between gap-2 border px-2 py-1 text-sm ${
-													r.error ? 'border-danger bg-danger/10 text-danger' : fpsClass(r.fps)
-												}`}
+										{#each resultsFor(opt) as r (`${r.local_id}@${r.threads}`)}
+											<span
+												class="flex items-center justify-between gap-2 rounded-control px-2 py-1 text-sm {r.error
+													? 'bg-danger-soft text-danger-ink'
+													: fpsClass(r.fps)}"
 											>
-												<div class="flex min-w-0 flex-col">
-													<span class="truncate text-xs opacity-70" title={r.model_label}>
-														{r.model_label}
-													</span>
-													<span class="opacity-80">
-														{r.threads} thread{r.threads === 1 ? '' : 's'}
-													</span>
-												</div>
+												<span class="flex min-w-0 flex-col">
+													<span class="truncate" title={r.model_label}>{r.model_label}</span>
+													<span class="opacity-80">{r.threads} {r.threads === 1 ? 'thread' : 'threads'}</span>
+												</span>
 												{#if r.error}
-													<span title={r.error}>failed</span>
+													<span title={r.error}>Failed</span>
 												{:else}
-													<span class="font-mono font-medium">
+													<span class="num font-medium">
 														{r.fps.toFixed(1)} fps
 														<span class="opacity-70">· {r.mean_ms.toFixed(1)} ms</span>
 													</span>
 												{/if}
-											</div>
+											</span>
 										{/each}
 										{#if benchmarking && selectedModel}
 											{#each threadCountsFor(opt.id) as threadN (threadN)}
 												{#if benchmarkCurrent === resultKey(opt.id, threadN, selectedModel)}
-													<div class="flex items-center gap-1.5 text-sm text-primary">
-														<Spinner size={12} />
-														<span>running {threadN} thread{threadN === 1 ? '' : 's'}…</span>
-													</div>
+													<span class="flex items-center gap-1.5 text-sm text-primary-ink">
+														<Spinner size={12} /> Running {threadN}
+														{threadN === 1 ? 'thread' : 'threads'}
+													</span>
 												{/if}
 											{/each}
 										{/if}
 									{/if}
-								</div>
-							</div>
+								</span>
+							</label>
 						{/each}
 					</div>
-				</div>
+				</section>
 			{/each}
 		</div>
 	{/if}
 
 	{#if !loading && !error && formats.length > 0}
-		<div class="flex flex-wrap items-center justify-end gap-3 border-t border-border pt-3">
-			<span class="text-sm text-text-muted">Benchmark model:</span>
-			<select
-				bind:value={selectedModel}
-				disabled={benchmarking || installedModels.length === 0}
-				class="border border-border bg-surface px-2 py-1 text-sm text-text disabled:opacity-50"
-			>
-				{#if installedModels.length === 0}
-					<option value={null}>No installed models</option>
-				{:else}
-					{#each installedModels as m (m.local_id)}
-						<option value={m.local_id}>{modelLabel(m)}</option>
-					{/each}
-				{/if}
-			</select>
-			<button
-				type="button"
+		<div class="flex flex-wrap items-center justify-end gap-3 border-t border-line pt-4">
+			<span class="text-sm text-ink-muted">Benchmark with</span>
+			<div class="w-64">
+				<Select
+					label="Model to benchmark"
+					value={selectedModel ?? undefined}
+					onchange={(id) => (selectedModel = id)}
+					disabled={benchmarking || installedModels.length === 0}
+					placeholder="No installed models"
+					options={installedModels.map((m) => ({ value: m.local_id, label: modelLabel(m) }))}
+				/>
+			</div>
+			<Button
+				variant="primary"
+				loading={benchmarking}
+				disabled={!selectedModel}
 				onclick={runAll}
-				disabled={!selectedModel || benchmarking}
-				class="border border-primary/50 bg-primary/10 px-3 py-1.5 text-sm font-medium text-primary hover:bg-primary/20 disabled:cursor-not-allowed disabled:opacity-50"
 			>
-				{benchmarking ? 'Benchmarking…' : 'Benchmark all'}
-			</button>
+				Benchmark them all
+			</Button>
 		</div>
 	{/if}
 </div>

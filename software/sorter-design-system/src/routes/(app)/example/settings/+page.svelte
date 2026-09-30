@@ -10,6 +10,7 @@
 	import HardDrive from '@lucide/svelte/icons/hard-drive';
 	import ArrowRight from '@lucide/svelte/icons/arrow-right';
 	import Panel from '$lib/components/Panel.svelte';
+	import PageHeader from '$lib/components/PageHeader.svelte';
 	import SettingRow from '$lib/components/SettingRow.svelte';
 	import Field from '$lib/components/Field.svelte';
 	import Input from '$lib/components/Input.svelte';
@@ -29,7 +30,8 @@
 
 	let decay = $state(true);
 	let rates = $state({ burst: 6, floor: 1, ramp: 3, jitter: 30 });
-	let cap = $state(1);
+	const defaultCap = 1;
+	let cap = $state(4);
 
 	const rateRows = [
 		{ id: 'burst', label: 'Burst rate', help: 'Samples a minute at the start.', unit: '/min' },
@@ -117,12 +119,10 @@
 	</div>
 {/snippet}
 
-<div class="mb-2">
-	<h1 class="text-xl font-semibold tracking-tight text-ink">General</h1>
-	<p class="mt-1 text-sm text-ink-muted">
-		This machine, how this page reaches it, and how it looks.
-	</p>
-</div>
+<PageHeader
+	title="General"
+	description="This machine, how this page reaches it, and how it looks."
+/>
 
 <Panel title="Connection" description="The machine this page is talking to." flush>
 	<div class="divide-y divide-line">
@@ -209,6 +209,9 @@
 			label="Local storage cap"
 			help="Past this, the oldest samples are deleted. Using 0.00 GB."
 			for="storage-cap"
+			changed={cap !== defaultCap}
+			defaultText="{defaultCap} GB"
+			onreset={() => (cap = defaultCap)}
 		>
 			<Input id="storage-cap" type="number" bind:value={cap} unit="GB" class="w-28" />
 		</SettingRow>

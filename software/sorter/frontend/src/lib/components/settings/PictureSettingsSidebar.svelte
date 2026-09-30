@@ -20,8 +20,13 @@
 		type PictureSettings
 	} from '$lib/settings/picture-settings';
 	import type { CameraRole } from '$lib/settings/stations';
-	import { RotateCcw, Save, SlidersHorizontal, Undo2, X } from 'lucide-svelte';
-	import { Alert } from '$lib/components/primitives';
+	import RotateCcw from '@lucide/svelte/icons/rotate-ccw';
+	import Undo2 from '@lucide/svelte/icons/undo-2';
+	import X from '@lucide/svelte/icons/x';
+	import Alert from '$lib/components/ui/Alert.svelte';
+	import Spinner from '$lib/components/ui/Spinner.svelte';
+	import Button from '$lib/components/ui/Button.svelte';
+	import Panel from '$lib/components/ui/Panel.svelte';
 	import CaptureModePanel from './picture/CaptureModePanel.svelte';
 	import DriftDetection from './picture/DriftDetection.svelte';
 	import DeviceControlsPanel from './picture/DeviceControlsPanel.svelte';
@@ -405,131 +410,92 @@
 	});
 </script>
 
-<aside
-	class="flex h-full min-w-0 flex-col overflow-hidden border border-border bg-white shadow-sm xl:min-h-[32rem] dark:bg-bg"
->
-	{#if showHeader}
-		<div class="border-b border-border bg-surface px-4 py-3">
-			<div class="flex items-start justify-between gap-3">
-				<div class="flex items-start gap-3">
-					<div
-						class="flex h-9 w-9 items-center justify-center rounded-full border border-border bg-white text-text dark:bg-bg"
-					>
-						<SlidersHorizontal size={16} />
-					</div>
-					<div class="min-w-0">
-						<div class="text-sm font-semibold text-text">Picture Settings</div>
-					</div>
-				</div>
-				{#if onClose}
-					<button
-						onclick={closeSidebar}
-						class="inline-flex h-8 w-8 items-center justify-center rounded-full text-text-muted transition-colors hover:bg-white hover:text-text dark:hover:bg-bg"
-						aria-label="Close picture settings"
-					>
-						<X size={15} />
-					</button>
-				{/if}
-			</div>
-		</div>
-	{/if}
+{#snippet closeAction()}
+	<Button variant="ghost" size="sm" icon={X} label="Close the picture settings" onclick={closeSidebar} />
+{/snippet}
 
-	<div class="flex flex-1 flex-col gap-3 bg-white px-4 py-4 dark:bg-bg">
+{#snippet body()}
+	<div class="divide-y divide-line">
 		{#if !hasCamera}
-			<div class="border border-dashed border-border bg-surface px-3 py-2 text-sm text-text-muted">
-				Assign a camera to preview these changes live.
-			</div>
+			<p class="px-(--pad-panel) py-(--pad-row) text-sm text-ink-muted">
+				Choose a camera to see these changes live.
+			</p>
 		{/if}
-
 		{#if error}
-			<Alert variant="danger">
-				<div class="text-xs font-semibold tracking-wider text-danger-dark uppercase dark:text-rose-300">
-					Error
-				</div>
-				<div class="mt-1 text-sm leading-relaxed text-text">{error}</div>
-			</Alert>
+			<div class="px-(--pad-panel) py-(--pad-row)"><Alert tone="danger">{error}</Alert></div>
 		{/if}
-
 		{#if loading}
-			<div class="py-10 text-center text-sm text-text-muted">Loading picture settings...</div>
+			<p class="flex items-center justify-center gap-2 px-(--pad-panel) py-8 text-sm text-ink-muted">
+				<Spinner size={16} />
+				Loading the picture settings
+			</p>
 		{:else}
-			<div class="flex flex-col gap-3">
-				<div class="flex flex-col gap-3">
-					<CaptureModePanel {role} />
-					<DriftDetection
-						{role}
-						onAction={() => {
-							void loadDeviceSettings();
-						}}
-					/>
-
-					<DeviceControlsPanel
-						{deviceProvider}
-						{deviceSupported}
-						{deviceMessage}
-						{usbControls}
-						{draftUsbSettings}
-						onUpdateUsbNumeric={updateUsbNumeric}
-						onUpdateUsbBoolean={updateUsbBoolean}
-					/>
-				</div>
-
-				<OrientationPanel
-					{draftSettings}
-					onUpdateRotation={updateRotation}
-					onUpdateBoolean={updateBooleanSetting}
-				/>
-			</div>
-
-				<div class="mt-auto flex flex-col gap-2 border-t border-border pt-3">
-					{#if status}
-						<div class="text-sm text-text-muted">{status}</div>
-					{/if}
-
+			<CaptureModePanel {role} />
+			<DeviceControlsPanel
+				{deviceProvider}
+				{deviceSupported}
+				{deviceMessage}
+				{usbControls}
+				{draftUsbSettings}
+				onUpdateUsbNumeric={updateUsbNumeric}
+				onUpdateUsbBoolean={updateUsbBoolean}
+			/>
+			<OrientationPanel
+				{draftSettings}
+				onUpdateRotation={updateRotation}
+				onUpdateBoolean={updateBooleanSetting}
+			/>
+			{#if deviceSupported || status}
+				<div class="flex flex-col items-start gap-2 px-(--pad-panel) py-(--pad-row)">
+					{#if status}<p class="text-sm text-ink-muted">{status}</p>{/if}
 					{#if deviceSupported}
-						<button
-							onclick={resetCameraToAutoDefaults}
-							disabled={saving}
-							class="inline-flex w-full cursor-pointer items-center justify-center gap-2 border border-border bg-bg px-3 py-2 text-sm font-medium text-text transition-colors hover:bg-surface disabled:cursor-not-allowed disabled:opacity-50"
-						>
-							<RotateCcw size={15} />
-							<span>Reset Camera To Auto</span>
-						</button>
+						<Button variant="ghost" size="sm" icon={RotateCcw} disabled={saving} onclick={resetCameraToAutoDefaults}>
+							Reset the camera to auto
+						</Button>
 					{/if}
-
-					<div class="flex items-center gap-2">
-					<button
-						onclick={revertChanges}
-						disabled={saving || !hasUnsavedChanges()}
-						title="Revert changes"
-						aria-label="Revert changes"
-						class="inline-flex h-9 w-9 cursor-pointer items-center justify-center border border-border bg-bg text-text transition-colors hover:bg-surface disabled:cursor-not-allowed disabled:opacity-50"
-					>
-						<Undo2 size={15} />
-					</button>
-					<button
-						onclick={resetToDefaults}
-						disabled={saving}
-						title="Reset to defaults"
-						aria-label="Reset to defaults"
-						class="inline-flex h-9 w-9 cursor-pointer items-center justify-center border border-border bg-bg text-text transition-colors hover:bg-surface disabled:cursor-not-allowed disabled:opacity-50"
-					>
-						<RotateCcw size={15} />
-					</button>
-					<button
-						onclick={saveSettings}
-						disabled={saving || !canSave()}
-						class={`inline-flex flex-1 cursor-pointer items-center justify-center gap-2 border px-4 py-2 text-sm font-medium transition-colors disabled:cursor-not-allowed ${
-							canSave()
-								? 'border-success bg-success text-white hover:bg-success/90'
-								: 'border-border bg-surface text-text-muted'
-						}`}
-					>
-						<Save size={15} />
-						<span>{saving ? `${primaryActionLabel}...` : primaryActionLabel}</span>
-					</button>
 				</div>
-			</div>
+			{/if}
 		{/if}
 	</div>
-</aside>
+	{#if !loading}
+		<DriftDetection
+			{role}
+			onAction={() => {
+				void loadDeviceSettings();
+			}}
+		/>
+	{/if}
+{/snippet}
+
+{#snippet foot()}
+	<Button
+		variant="ghost"
+		icon={Undo2}
+		label="Undo the changes"
+		disabled={saving || !hasUnsavedChanges()}
+		onclick={revertChanges}
+	/>
+	<Button variant="ghost" icon={RotateCcw} label="Back to the defaults" disabled={saving} onclick={resetToDefaults} />
+	<Button variant="primary" class="ml-auto" loading={saving} disabled={!canSave()} onclick={saveSettings}>
+		{primaryActionLabel}
+	</Button>
+{/snippet}
+
+<!-- In a page, a panel of its own; in a dialog (no header), just its sections. -->
+{#if showHeader}
+	<Panel
+		title="Picture"
+		flush
+		actions={onClose ? closeAction : undefined}
+		footer={loading ? undefined : foot}
+	>
+		{@render body()}
+	</Panel>
+{:else}
+	<div class="flex flex-col">
+		{@render body()}
+		{#if !loading}
+			<div class="flex items-center gap-2 border-t border-line pt-3">{@render foot()}</div>
+		{/if}
+	</div>
+{/if}

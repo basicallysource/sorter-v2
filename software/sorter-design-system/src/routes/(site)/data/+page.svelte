@@ -93,7 +93,7 @@
 
 <SiteSection
 	title="Tables"
-	lead="A well for the head, one line between rows, no outer border and no vertical lines. Numbers are right-aligned in tabular figures. A row that opens something highlights under the pointer."
+	lead="A head of labels, one line under it and between rows, no outer border and no vertical lines. Numbers are right-aligned in tabular figures. A row that opens something highlights under the pointer."
 >
 	<Panel title="Runs this week" flush>
 		<div class="overflow-x-auto">

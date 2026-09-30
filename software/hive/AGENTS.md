@@ -13,6 +13,10 @@ in [`agent-docs/`](agent-docs/):
 - [`agent-docs/auth.md`](agent-docs/auth.md) — the auth & permissions
   system: every credential type, how scoping works, and the design
   philosophy behind it.
+- [`agent-docs/sorting-profiles.md`](agent-docs/sorting-profiles.md) — sorting
+  profiles: the document people and assistants edit, how it compiles into the
+  program a sorter runs, the flat map older sorters get, kits, Hive's default
+  profiles, and the API and skill for assistants.
 
 > **⚠️ These docs are only useful if they match the code.**
 > If you change anything the docs describe — auth flows, credential types,

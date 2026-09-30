@@ -25,6 +25,7 @@ from perception.overlay import drawChannelZones
 from server import shared_state
 from server.classification_training import TRAINING_ROOT, getClassificationTrainingManager
 from server.machine_naming import display_name_from_hostname, random_display_name
+from server.routers.sorting_profiles import start_first_default_profile_if_none
 from server.routers.tailscale import current_hostname
 from toml_config import getDetectionConfig, getMachineNickname, setDetectionConfig
 from vision.detection_registry import (
@@ -592,6 +593,7 @@ def hive_register(payload: HiveRegisterPayload) -> Dict[str, Any]:
     )
     _save_hive_targets(targets)
     _reloadHiveConsumers()
+    start_first_default_profile_if_none()
     return {
         "ok": True,
         "target_id": target_id,
@@ -635,6 +637,7 @@ def hive_link(payload: HiveLinkPayload) -> Dict[str, Any]:
     )
     _save_hive_targets(targets)
     _reloadHiveConsumers()
+    start_first_default_profile_if_none()
     return {
         "ok": True,
         "target_id": target_id,

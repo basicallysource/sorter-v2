@@ -5,6 +5,35 @@ and a dated entry goes here; the history is git.
 
 ## 2026-09-30
 
+- **Something to copy is a `CopyField`.** Hive showed a new API key, a new
+  machine's token and the message to paste into an assistant three ways, the
+  last in a warning box with the text in monospace and three buttons of three
+  weights beside it. It was read as unfinished, and it was: a key shown once
+  is not a warning, and one thing to copy needs one button. Now each is the
+  text in a well with a Copy button at its edge, and one quiet sentence under
+  it when the text will not be shown again.
+- **A profile is shown as parts, phrases and bins, not as fields.** The
+  Sorter UI's profile view was a table of field names, operators, ID lists
+  and rule UUIDs, and Hive's a wall of words: nobody could tell what a
+  machine would do with a piece. Now a part is one `PartTile` (picture, name,
+  BrickLink ID, the Rebrickable number only when it differs, color, count), a
+  rule's conditions are a `ConditionList` (the field, the operator in words,
+  a chip per value), and a bin is a `ProfileBin`, a card or a row. Hive and
+  the machine's own UI use the same three, with `PartImage` and `ColorChip`
+  under them.
+- **A part's picture sits whole on the card's fill; a missing one is a blank
+  square.** Contained, never cropped, no dark backdrop and no bars, like
+  every part picture before it; one that is missing or fails to load is a
+  quiet square, never a broken-image or "image off" icon.
+- **A bin's examples are rows, not tiles.** The first version showed six
+  example parts as square tiles under each bin, which made every card over
+  600px tall, so a profile of fifty bins was a long scroll of pictures. Rows
+  of a picture, a name and an ID, two to a line, keep the same order and
+  place and make a card about half the height. Tiles remain for a grid of
+  parts.
+- **A rule that only tests colors says "Any part in 6 colors".** Its part
+  count is how many parts the catalog knows in those colors, which is how the
+  bin is pictured, not what it takes; "81,234 parts" was wrong.
 - **The top bar's links are not a scrolling box, and a tab bar's line is
   outside the box that scrolls.** Both pushed the current mark one pixel out
   of a box with `overflow-x-auto`, so the mark was clipped and the box

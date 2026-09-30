@@ -1,7 +1,7 @@
 from fastapi import FastAPI, WebSocket, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 from typing import List, Optional, Dict, Any
 import asyncio
 import json
@@ -230,6 +230,9 @@ async def onStartup() -> None:
 
     getStatusPinger().start()
     db.watch_realtime_thread()
+    from server.routers.sorting_profiles import start_first_default_profile_if_none
+
+    start_first_default_profile_if_none()
 
 
 @app.on_event("shutdown")
@@ -330,6 +333,10 @@ def save_ui_theme(payload: UiThemeUpdateRequest) -> UiThemeResponse:
 
 
 class SortingProfileCategoryMeta(BaseModel):
+    # Hive describes each bin for people too (picture, conditions in words,
+    # part count, examples); they pass through as they came.
+    model_config = ConfigDict(extra="allow")
+
     name: str
 
 
@@ -347,8 +354,11 @@ class SortingProfileMetadataResponse(BaseModel):
     updated_at: str
     default_category_id: str
     categories: Dict[str, SortingProfileCategoryMeta]
+    category_order: List[str] = []
     rules: List[Dict[str, Any]]
     fallback_mode: SortingProfileFallbackMode
+    stats: Dict[str, Any] | None = None
+    requires: List[str] = []
     sync_state: Dict[str, Any] | None = None
 
 
@@ -420,7 +430,10 @@ def getSortingProfileMetadata() -> SortingProfileMetadataResponse:
             k: SortingProfileCategoryMeta(**v)
             for k, v in data.get("categories", {}).items()
         },
+        category_order=[str(item) for item in data.get("category_order") or []],
         rules=data.get("rules", []),
+        stats={k: v for k, v in (data.get("stats") or {}).items() if k != "samples"} or None,
+        requires=[str(item) for item in data.get("requires") or []],
         fallback_mode=SortingProfileFallbackMode(
             **data.get(
                 "fallback_mode",

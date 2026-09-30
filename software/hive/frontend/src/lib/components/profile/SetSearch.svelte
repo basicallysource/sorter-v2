@@ -3,6 +3,7 @@
 	import Spinner from '$lib/components/Spinner.svelte';
 	import Button from '$lib/components/Button.svelte';
 	import Input from '$lib/components/Input.svelte';
+	import PartImage from '$lib/components/PartImage.svelte';
 	import X from '@lucide/svelte/icons/x';
 
 	type SetResult = {
@@ -13,7 +14,11 @@
 		img_url: string | null;
 	};
 
-	let { onSelect, onCancel }: { onSelect: (set: SetResult) => void; onCancel?: () => void } = $props();
+	let {
+		onSelect,
+		onCancel,
+		title = 'Add a LEGO set'
+	}: { onSelect: (set: SetResult) => void; onCancel?: () => void; title?: string } = $props();
 
 	let query = $state('');
 	let minYear = $state<string | number | null>('');
@@ -53,7 +58,7 @@
 
 <div class="flex flex-col gap-2 rounded-control bg-well p-3">
 	<div class="flex items-center justify-between">
-		<h3 class="text-sm font-medium text-ink">Add a LEGO set</h3>
+		<h3 class="text-sm font-medium text-ink">{title}</h3>
 		{#if onCancel}<Button variant="ghost" size="sm" icon={X} label="Close" onclick={onCancel} />{/if}
 	</div>
 	<Input type="search" bind:value={query} oninput={handleInput} placeholder="Search sets, like Space Shuttle or 10283" />
@@ -94,13 +99,7 @@
 						onclick={() => onSelect(set)}
 						class="flex w-full items-center gap-3 px-2 py-2 text-left hover:bg-hover"
 					>
-						{#if set.img_url}
-							<img src={set.img_url} alt={set.name} class="size-12 shrink-0 object-contain" />
-						{:else}
-							<span class="flex size-12 shrink-0 items-center justify-center rounded-control bg-surface text-xs text-ink-muted"
-								>No picture</span
-							>
-						{/if}
+						<PartImage src={set.img_url} class="size-12 shrink-0" />
 						<span class="min-w-0 flex-1">
 							<span class="block truncate text-sm font-medium text-ink">{set.name}</span>
 							<span class="block text-sm text-ink-muted"

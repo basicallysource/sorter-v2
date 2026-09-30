@@ -1,219 +1,535 @@
 <script lang="ts">
 	import { afterNavigate, beforeNavigate, goto } from '$app/navigation';
 	import { page } from '$app/state';
-	import { tick, untrack } from 'svelte';
+	import { untrack } from 'svelte';
+	import ArrowDown from '@lucide/svelte/icons/arrow-down';
+	import ArrowLeft from '@lucide/svelte/icons/arrow-left';
+	import ArrowUp from '@lucide/svelte/icons/arrow-up';
+	import GitFork from '@lucide/svelte/icons/git-fork';
+	import Layers from '@lucide/svelte/icons/layers';
+	import Plus from '@lucide/svelte/icons/plus';
+	import ToggleLeft from '@lucide/svelte/icons/toggle-left';
+	import ToggleRight from '@lucide/svelte/icons/toggle-right';
+	import Trash2 from '@lucide/svelte/icons/trash-2';
+	import X from '@lucide/svelte/icons/x';
 	import {
 		api,
-		type AiToolTraceItem,
-		type BrickLinkCsvImportResult,
-		type CustomSetPart,
-		type ProfileCatalogColor,
-		type ProfileCatalogSearchResult,
-		type SortingProfileAiMessage,
+		type ApiError,
+		type Kit,
+		type KitSummary,
+		type ProfileHead,
+		type ProfilePreview,
+		type ProfileProblem,
 		type SortingProfileDetail,
-		type SortingProfileFallbackMode,
-		type SortingProfileRule
+		type SortingProfileVersion
 	} from '$lib/api';
 	import { auth } from '$lib/auth.svelte';
-	import PartSearch from '$lib/components/profile/PartSearch.svelte';
-	import Spinner from '$lib/components/Spinner.svelte';
-	import SetSearch from '$lib/components/profile/SetSearch.svelte';
-	import ProfileChatPanel from '$lib/components/profile/edit/ProfileChatPanel.svelte';
-	import RuleAccordionNode from '$lib/components/profile/edit/RuleAccordionNode.svelte';
+	import { savedBy } from '$lib/profile-display';
 	import Alert from '$lib/components/Alert.svelte';
-	import Button from '$lib/components/Button.svelte';
-	import {
-		aiMessagePerformanceLabel,
-		buildAiProgressCards,
-		displayAiMessageContent,
-		formatDuration,
-		getExpandableToolResult,
-		getToolResultSummaryLine,
-		proposalActionSummaries,
-		toolTraceTitle,
-		TOOL_RESULT_COLLAPSED_COUNT,
-		type AiProgressEvent,
-		type AiProgressCard,
-		type ExpandableToolResult,
-		type ToolResultListItem
-	} from '$lib/components/profile/edit/chat-helpers';
-	import { renderMarkdown } from '$lib/markdown';
-	import { uuid } from '$lib/uuid';
 	import Badge from '$lib/components/Badge.svelte';
-	import Field from '$lib/components/Field.svelte';
-	import Input from '$lib/components/Input.svelte';
+	import Button from '$lib/components/Button.svelte';
+	import EmptyState from '$lib/components/EmptyState.svelte';
 	import Modal from '$lib/components/Modal.svelte';
-	import Popover from '$lib/components/Popover.svelte';
-	import ArrowLeft from '@lucide/svelte/icons/arrow-left';
-	import Plus from '@lucide/svelte/icons/plus';
-	import Save from '@lucide/svelte/icons/save';
-	import X from '@lucide/svelte/icons/x';
+	import Panel from '$lib/components/Panel.svelte';
+	import Spinner from '$lib/components/Spinner.svelte';
+	import Tabs from '$lib/components/Tabs.svelte';
+	import BinsResult from '$lib/components/profile/edit/BinsResult.svelte';
+	import { catalog } from '$lib/components/profile/edit/catalog.svelte';
+	import FallbackEditor from '$lib/components/profile/edit/FallbackEditor.svelte';
+	import { emptyMessage, isMulti, valueKind } from '$lib/components/profile/edit/fields';
+	import KitLines from '$lib/components/profile/edit/KitLines.svelte';
+	import KitPicker from '$lib/components/profile/edit/KitPicker.svelte';
+	import KitRuleEditor from '$lib/components/profile/edit/KitRuleEditor.svelte';
+	import Matches from '$lib/components/profile/edit/Matches.svelte';
+	import ProfileChatPanel from '$lib/components/profile/edit/ProfileChatPanel.svelte';
+	import RuleEditor from '$lib/components/profile/edit/RuleEditor.svelte';
+	import RuleList from '$lib/components/profile/edit/RuleList.svelte';
+	import type { RowMark } from '$lib/components/profile/edit/RuleRow.svelte';
+	import {
+		allConditions,
+		documentFor,
+		duplicateRule,
+		fallbackChoice,
+		groupBy,
+		groupProblems,
+		isEmptyValue,
+		isKitRule,
+		isUnfinishedWarning,
+		moveRule,
+		newCondition,
+		newKitRule,
+		newRule,
+		nextRuleName,
+		normalizeRule,
+		patchRule,
+		plural,
+		REST_ID,
+		removeRule,
+		reorderRule,
+		replaceRule,
+		topRuleIdFor,
+		type Condition,
+		type FallbackChoice,
+		type Rule
+	} from '$lib/components/profile/edit/rules';
+	import SavePopover from '$lib/components/profile/edit/SavePopover.svelte';
+	import VersionsPanel from '$lib/components/profile/edit/VersionsPanel.svelte';
 
-	const ANY_COLOR_ID = -1;
-
-	type RulePreviewResult = {
-		total: number;
-		sample: Array<Record<string, unknown>>;
-		offset: number;
-		limit: number;
-	};
-
-
-	// --- State ---
-	let loading = $state(true);
-	let profile = $state<SortingProfileDetail | null>(null);
-	let error = $state<string | null>(null);
-	let success = $state<string | null>(null);
-
-	let workingRules = $state<SortingProfileRule[]>([]);
-	let workingFallbackMode = $state<SortingProfileFallbackMode>({
-		rebrickable_categories: false,
-		bricklink_categories: false,
-		by_color: false
-	});
-	let workingDefaultCategoryId = $state('');
-
-	let originalRulesJson = $state('');
-	let originalFallbackJson = $state('');
-	let originalDefaultCategoryId = $state('');
-
-	let selectedRuleId = $state<string | null>(null);
-	let expandedNodes = $state<Set<string>>(new Set());
-
-	let showSetSearch = $state(false);
-	let changingSetForRule = $state<string | null>(null);
-	let addingPartForRule = $state<string | null>(null);
-	let pendingCsvImportRule = $state<string | null>(null);
-	let importingCsvForRule = $state<string | null>(null);
-	let savingVersion = $state(false);
-	let showSavePopover = $state(false);
-	let changeNote = $state('');
-	let catalogColors = $state<ProfileCatalogColor[]>([]);
-	let catalogColorsLoading = $state(false);
-	let csvImportFileInput: HTMLInputElement | undefined = $state(undefined);
-	let customSetImportStatus = $state<Record<string, { tone: 'success' | 'error'; text: string }>>({});
-
-	let rulePreview = $state<RulePreviewResult | null>(null);
-	let rulePreviewLoading = $state(false);
-	let rulePreviewExpanded = $state(false);
-	let previewDebounceTimer: ReturnType<typeof setTimeout> | null = null;
-
-	// Right panel tab
-	let rightTab = $state<'chat' | 'versions'>('chat');
-	let restoringVersionId = $state<string | null>(null);
-
-	// Version preview
-	let previewVersion = $state<import('$lib/api').SortingProfileVersion | null>(null);
-	let previewLoading = $state(false);
-
-	// AI state
-	let aiMessages = $state<SortingProfileAiMessage[]>([]);
-	let aiMessage = $state('');
-	let aiBusy = $state(false);
-	let aiProgress = $state<AiProgressEvent[]>([]);
-	let expandedToolResults = $state<Set<string>>(new Set());
+	type RightTab = 'matches' | 'bins' | 'chat' | 'versions';
+	type NarrowView = 'rules' | 'rule' | RightTab;
 
 	const profileId = $derived(page.params.id ?? '');
 	const isNewProfile = $derived(page.url.searchParams.get('new') === '1');
-
 	const hasOpenRouter = $derived(Boolean(auth.user?.openrouter_configured));
 
-	const hasUnsavedChanges = $derived.by(() => {
-		if (!profile) return false;
-		return (
-			JSON.stringify(workingRules) !== originalRulesJson ||
-			JSON.stringify(workingFallbackMode) !== originalFallbackJson ||
-			workingDefaultCategoryId !== originalDefaultCategoryId
+	// --- The profile and the draft being edited -------------------------------------
+	let loading = $state(true);
+	let loadError = $state<string | null>(null);
+	let profile = $state.raw<SortingProfileDetail | null>(null);
+
+	// The draft: what the rules and the fallback are as edited here, unsaved.
+	let rules = $state.raw<Rule[]>([]);
+	let fallback = $state<FallbackChoice>('none');
+	let defaultCategoryId = $state('misc');
+	// The same, as last saved, for telling whether there is anything to save.
+	let savedRules = $state.raw<Rule[]>([]);
+	let savedKey = $state('');
+	// The version number the draft started from.
+	let baseVersion = $state(0);
+
+	const draftKey = $derived(JSON.stringify([rules, fallback, defaultCategoryId]));
+	const dirty = $derived(profile !== null && draftKey !== savedKey);
+	// What every preview sees: the draft without the places still being made (a
+	// condition with no field, or nothing chosen yet), so it shows the rule as far
+	// as it is made. What a save sends keeps the conditions not yet finished, for
+	// the server to say so.
+	const draft = $derived(documentFor(profile?.name ?? '', rules, fallback, defaultCategoryId, true));
+	const toSave = $derived(documentFor(profile?.name ?? '', rules, fallback, defaultCategoryId));
+	const serverKey = $derived(JSON.stringify(draft));
+	// What decides the parts a rule matches: its own conditions, not its name or
+	// its place, so renaming does not ask for them again.
+	const matchKey = $derived.by(() => {
+		const rule = draft.rules.find((r) => r.id === selectedId);
+		return rule ? JSON.stringify([rule.match_mode, rule.conditions, rule.children]) : '';
+	});
+
+	// --- Choosing ------------------------------------------------------------------------
+	let selectedId = $state<string | null>(null);
+	const selectedRule = $derived(rules.find((rule) => rule.id === selectedId) ?? null);
+	let rightTab = $state<RightTab>('matches');
+	// Below the width where three columns fit, one of them shows at a time.
+	let narrow = $state<'rules' | 'rule' | 'result'>('rules');
+	const narrowTab = $derived<NarrowView>(narrow === 'result' ? rightTab : narrow);
+
+	function select(id: string | null) {
+		selectedId = id;
+		if (id !== null) narrow = 'rule';
+	}
+
+	// --- The live preview -----------------------------------------------------------------
+	let preview = $state.raw<ProfilePreview | null>(null);
+	let previewBusy = $state(false);
+	let previewError = $state<string | null>(null);
+	let previewSeq = 0;
+	// Bumped when the page comes back into view, so a kit edited elsewhere shows.
+	let comeback = $state(0);
+
+	// A preview that fails (the server busy, say) is asked for again a few times.
+	let previewTries = $state(0);
+	let previewFailures = 0;
+
+	$effect(() => {
+		void serverKey;
+		void comeback;
+		void previewTries;
+		if (!profile) return;
+		const body = untrack(() => draft);
+		const first = untrack(() => preview === null);
+		const seq = ++previewSeq;
+		previewBusy = true;
+		let retry: ReturnType<typeof setTimeout> | undefined;
+		const timer = setTimeout(
+			async () => {
+				try {
+					const result = await api.previewSortingProfile(body);
+					if (seq !== previewSeq) return;
+					preview = result;
+					previewError = null;
+					previewFailures = 0;
+					serverProblems = [];
+					catalog.learn(result.categories);
+				} catch {
+					if (seq !== previewSeq) return;
+					previewFailures += 1;
+					if (previewFailures <= 3) {
+						previewError = 'The preview could not be updated. It will try again in a moment.';
+						retry = setTimeout(() => (previewTries += 1), 3000);
+					} else {
+						previewError = 'The preview could not be updated. Change something, or reload the page, to try again.';
+					}
+				}
+				previewBusy = false;
+			},
+			first ? 0 : 300
 		);
+		return () => {
+			clearTimeout(timer);
+			clearTimeout(retry);
+		};
 	});
 
-	const selectedRule = $derived.by(() => {
-		if (!selectedRuleId) return null;
-		return findRule(workingRules, selectedRuleId);
+	// --- Problems and warnings ---------------------------------------------------------------
+	// What the server said was wrong when a save was refused.
+	let serverProblems = $state.raw<ProfileProblem[]>([]);
+	// A save has been tried: from then on, every half-made condition says so.
+	let attempted = $state(false);
+
+	const problems = $derived(serverProblems.length > 0 ? serverProblems : (preview?.problems ?? []));
+	const issues = $derived(groupProblems(problems));
+	const warningsByRule = $derived(groupBy(preview?.warnings ?? [], (warning) => warning.rule_id));
+
+	function problemFor(condition: Condition): string | null {
+		// A value still to be chosen is what the row is waiting for, not a fault,
+		// until a save is tried.
+		if (isEmptyValue(condition.value)) {
+			if (!attempted || !condition.field) return null;
+			return emptyMessage(valueKind(catalog.fieldByKey(condition.field)), isMulti(condition.op));
+		}
+		const message = issues.byCondition[condition.id];
+		if (!message) return null;
+		// The server names the field first ("Name: ..."); the row already does.
+		const label = catalog.fieldByKey(condition.field)?.label;
+		return label && message.startsWith(`${label}: `) ? message.slice(label.length + 2) : message;
+	}
+
+	function problemsOf(rule: Rule): string[] {
+		const out = [...(issues.byRule[rule.id] ?? [])];
+		for (const condition of allConditions(rule)) {
+			const message = problemFor(condition);
+			if (message) out.push(message);
+		}
+		return out;
+	}
+
+	function warningsOf(id: string): string[] {
+		return (warningsByRule[id] ?? [])
+			.filter((warning) => attempted || !isUnfinishedWarning(warning))
+			.map((warning) => warning.message);
+	}
+
+	const marks = $derived.by(() => {
+		const out: Record<string, RowMark> = {};
+		for (const rule of rules) {
+			const wrong = problemsOf(rule);
+			if (wrong.length > 0) {
+				out[rule.id] = { tone: 'danger', text: wrong[0] };
+				continue;
+			}
+			const odd = warningsOf(rule.id);
+			if (odd.length > 0) out[rule.id] = { tone: 'warning', text: odd[0] };
+		}
+		return out;
 	});
 
-	const compiledStats = $derived.by(() => {
-		const cv = profile?.current_version;
-		if (!cv?.compiled_stats) return null;
-		return cv.compiled_stats;
+	// --- Loading ---------------------------------------------------------------------------------
+	let loadedId = '';
+
+	$effect(() => {
+		const id = profileId;
+		if (!id || id === loadedId) return;
+		loadedId = id;
+		untrack(() => void loadProfile());
 	});
 
-	const perCategoryStats = $derived.by(() => {
-		const stats = compiledStats;
-		if (!stats || typeof stats.per_category !== 'object' || stats.per_category === null) return {};
-		return stats.per_category as Record<string, { parts?: number; colors?: number }>;
+	async function loadProfile(options: { keepSelection?: boolean } = {}) {
+		if (!profileId) return;
+		if (!options.keepSelection) loading = true;
+		loadError = null;
+		try {
+			// The fields come first: a saved rule may name one by an older name.
+			const [detail] = await Promise.all([api.getSortingProfile(profileId), catalog.ensureFields()]);
+			profile = detail;
+			nameDraft = detail.name;
+			hydrate(detail, options.keepSelection ?? false);
+		} catch (e) {
+			loadError = (e as ApiError)?.error ?? 'The profile could not be loaded.';
+		} finally {
+			loading = false;
+		}
+	}
+
+	function hydrate(detail: SortingProfileDetail, keepSelection: boolean) {
+		const version = detail.current_version;
+		if (!version) return;
+		const fresh = version.rules.map((rule) => normalizeRule(rule, catalog.aliases));
+		rules = fresh;
+		fallback = fallbackChoice(version.fallback_mode);
+		defaultCategoryId = version.default_category_id || 'misc';
+		savedRules = fresh;
+		savedKey = JSON.stringify([fresh, fallback, defaultCategoryId]);
+		baseVersion = version.version_number;
+		headNotice = null;
+		serverProblems = [];
+		saveError = null;
+		attempted = false;
+		if (!keepSelection) preview = null;
+		const asked = keepSelection ? null : requestedRule(fresh);
+		if (asked) {
+			selectedId = asked;
+			narrow = 'rule';
+		} else if (!keepSelection || !(selectedId === REST_ID || fresh.some((rule) => rule.id === selectedId))) {
+			selectedId = fresh[0]?.id ?? null;
+		}
+	}
+
+	// A link can ask for the rule to open: ?rule=RULE_ID, or ?rule=rest for the
+	// fallback's "Everything else". A rule that is not there opens the first one.
+	function requestedRule(list: Rule[]): string | null {
+		const asked = page.url.searchParams.get('rule');
+		return asked && (asked === REST_ID || list.some((rule) => rule.id === asked)) ? asked : null;
+	}
+
+	// The profile's name is edited in the header, apart from the rules.
+	let nameDraft = $state('');
+
+	async function renameProfile() {
+		if (!profile) return;
+		const name = nameDraft.trim();
+		if (!name || name === profile.name) {
+			nameDraft = profile.name;
+			return;
+		}
+		try {
+			profile = await api.updateSortingProfile(profile.id, { name });
+		} catch {
+			// The name stays as it was.
+		}
+		nameDraft = profile?.name ?? name;
+	}
+
+	// --- Changing the draft ---------------------------------------------------------------------
+	function changeRule(next: Rule) {
+		rules = replaceRule(rules, next.id, next);
+	}
+
+	function addRule() {
+		const rule = { ...newRule(nextRuleName(rules)), conditions: [newCondition()] };
+		rules = [...rules, rule];
+		select(rule.id);
+	}
+
+	function toggleRule(id: string) {
+		const rule = rules.find((r) => r.id === id);
+		if (rule) rules = patchRule(rules, id, { disabled: !rule.disabled });
+	}
+
+	function duplicate(id: string) {
+		const index = rules.findIndex((rule) => rule.id === id);
+		if (index < 0) return;
+		const copy = duplicateRule(rules[index]);
+		rules = [...rules.slice(0, index + 1), copy, ...rules.slice(index + 1)];
+		select(copy.id);
+	}
+
+	let deleting = $state<Rule | null>(null);
+
+	function confirmDelete() {
+		const rule = deleting;
+		deleting = null;
+		if (!rule) return;
+		const index = rules.findIndex((r) => r.id === rule.id);
+		rules = removeRule(rules, rule.id);
+		if (selectedId === rule.id) selectedId = rules[Math.min(index, rules.length - 1)]?.id ?? null;
+	}
+
+	// A kit is chosen in a dialog: for a new kit rule, or to change a rule's kit.
+	let choosingKitFor = $state<'new' | string | null>(null);
+
+	function pickedKit(kit: Kit | KitSummary, open: boolean) {
+		const target = choosingKitFor;
+		choosingKitFor = null;
+		if (target === 'new') {
+			const rule = newKitRule(kit.name, kit.id);
+			rules = [...rules, rule];
+			select(rule.id);
+		} else if (target) {
+			rules = rules.map((rule) =>
+				rule.id === target
+					? {
+							...rule,
+							rule_type: 'kit' as const,
+							kit_id: kit.id,
+							set_source: undefined,
+							set_num: undefined,
+							set_meta: undefined,
+							custom_parts: []
+						}
+					: rule
+			);
+		}
+		comeback += 1;
+		if (open) window.open(`/kits/${kit.id}`, '_blank', 'noopener');
+	}
+
+	// --- Saving ----------------------------------------------------------------------------------------
+	let saving = $state(false);
+	let saveOpen = $state(false);
+	let saveError = $state<string | null>(null);
+	let notice = $state<string | null>(null);
+
+	async function save(note: string | null) {
+		if (!profile || saving) return;
+		saving = true;
+		saveError = null;
+		notice = null;
+		attempted = true;
+		try {
+			const version = await api.saveSortingProfileVersion(profile.id, {
+				name: profile.name,
+				description: profile.description ?? null,
+				default_category_id: defaultCategoryId,
+				rules: toSave.rules,
+				fallback_mode: toSave.fallback_mode,
+				change_note: note
+			});
+			// This version is ours: the head check must not take it for someone else's.
+			baseVersion = version.version_number;
+			saveOpen = false;
+			await loadProfile({ keepSelection: true });
+			notice = `Saved version ${version.version_number}.`;
+		} catch (e) {
+			const failure = e as ApiError & { details?: ProfileProblem[] };
+			saveOpen = false;
+			if (failure.code === 'PROFILE_RULES_INVALID' && Array.isArray(failure.details)) {
+				// Each problem goes where it belongs, on its rule and its condition.
+				serverProblems = failure.details;
+				const count = failure.details.length;
+				saveError = `${count === 1 ? '1 problem keeps' : `${plural(count, 'problem')} keep`} this version from being saved. Each one is shown on its rule.`;
+				const first = failure.details.map((p) => topRuleIdFor(rules, p)).find((id) => id !== null);
+				if (first) select(first);
+			} else {
+				saveError = failure.error ?? 'The version could not be saved.';
+			}
+		} finally {
+			saving = false;
+		}
+	}
+
+	function onapplied(version: SortingProfileVersion) {
+		baseVersion = version.version_number;
+		void loadProfile({ keepSelection: true });
+	}
+
+	// --- Versions ---------------------------------------------------------------------------------------
+	let restoringId = $state<string | null>(null);
+	let askRestore = $state<string | null>(null);
+
+	function restoreClicked(id: string) {
+		if (dirty) askRestore = id;
+		else void restore(id);
+	}
+
+	async function restore(id: string) {
+		askRestore = null;
+		if (!profile) return;
+		restoringId = id;
+		saveError = null;
+		try {
+			const old = (await api.getSortingProfile(profile.id, id)).current_version;
+			if (!old) throw new Error('That version is gone.');
+			const version = await api.saveSortingProfileVersion(profile.id, {
+				name: old.name,
+				description: old.description ?? null,
+				default_category_id: old.default_category_id,
+				rules: old.rules,
+				fallback_mode: old.fallback_mode,
+				change_note: `Restored from v${old.version_number}`
+			});
+			baseVersion = version.version_number;
+			await loadProfile({ keepSelection: true });
+			notice = `Restored version ${old.version_number} as version ${version.version_number}.`;
+			rightTab = 'matches';
+		} catch (e) {
+			saveError = (e as ApiError)?.error ?? (e as Error)?.message ?? 'The version could not be restored.';
+		} finally {
+			restoringId = null;
+		}
+	}
+
+	async function fork(versionId?: string) {
+		if (!profile) return;
+		saveError = null;
+		try {
+			const copy = await api.forkSortingProfile(profile.id, { add_to_library: true }, versionId);
+			await goto(`/profiles/${copy.id}/edit`);
+		} catch (e) {
+			saveError = (e as ApiError)?.error ?? 'The profile could not be forked.';
+		}
+	}
+
+	// --- Someone else saved meanwhile --------------------------------------------------------------------
+	// An assistant saving through the API puts a newer version under the editor. The
+	// head is cheap to ask for, so it is asked every few seconds while the tab shows.
+	let headNotice = $state<ProfileHead | null>(null);
+	let dismissedVersion = 0;
+	let assistantBusy = $state(false);
+	let confirmLoad = $state(false);
+
+	async function checkHead() {
+		if (!profile || saving || restoringId !== null || assistantBusy) return;
+		if (document.visibilityState !== 'visible') return;
+		try {
+			const head = await api.getSortingProfileHead(profile.id);
+			// A save of our own may have started while this was on its way; its
+			// version is not someone else's.
+			if (saving || restoringId !== null || assistantBusy) return;
+			if (head.latest_version_number > baseVersion) {
+				if (head.latest_version_number > dismissedVersion) headNotice = head;
+			} else {
+				headNotice = null;
+			}
+		} catch {
+			// The next check will try again.
+		}
+	}
+
+	$effect(() => {
+		if (!profile?.is_owner) return;
+		const timer = setInterval(() => void checkHead(), 5000);
+		const shown = () => {
+			if (document.visibilityState === 'visible') {
+				comeback += 1;
+				void checkHead();
+			}
+		};
+		document.addEventListener('visibilitychange', shown);
+		return () => {
+			clearInterval(timer);
+			document.removeEventListener('visibilitychange', shown);
+		};
 	});
 
-	const aiProgressCards = $derived.by(() => buildAiProgressCards(aiProgress));
-	const visibleAiProgressCards = $derived.by(() => {
-		const completedTools = aiProgressCards.filter(
-			(card) => card.kind === 'tool' && card.status === 'complete'
-		);
-		const activeCard = [...aiProgressCards].reverse().find((card) => card.status === 'active');
-		const stableCompletedTools =
-			completedTools.length <= 5
-				? completedTools
-				: [
-					...completedTools.slice(0, 2),
-					...completedTools.slice(-3)
-				].filter((card, index, all) => all.findIndex((entry) => entry.id === card.id) === index);
-		return activeCard ? [...stableCompletedTools, activeCard] : stableCompletedTools;
-	});
+	// "by Assistant (API key)", "by the editor's chat", "by Hive"; the editor itself
+	// is another tab, since this one knows its own saves.
+	function whoSaved(head: ProfileHead): string {
+		if (head.created_via === 'web') return 'in another tab of the editor';
+		return savedBy(head.created_via, head.created_via_key_name) ?? 'elsewhere';
+	}
 
-	// --- Field / Op config ---
-	const fieldOptions: string[] = [
-		'name', 'part_num', 'category_id', 'category_name', 'color_id',
-		'year_from', 'year_to', 'bricklink_id', 'bricklink_item_count',
-		'bricklink_primary_item_no', 'bl_price_min', 'bl_price_max',
-		'bl_price_avg', 'bl_price_qty_avg', 'bl_price_lots', 'bl_price_qty',
-		'bl_catalog_name', 'bl_catalog_category_id', 'bl_category_id',
-		'bl_category_name', 'bl_catalog_year_released', 'bl_catalog_weight',
-		'bl_catalog_dim_x', 'bl_catalog_dim_y', 'bl_catalog_dim_z',
-		'bl_catalog_is_obsolete'
-	];
+	function loadIt() {
+		confirmLoad = false;
+		notice = null;
+		void loadProfile({ keepSelection: true });
+	}
 
-	const opOptionsByField: Record<string, string[]> = {
-		name: ['contains', 'regex'],
-		part_num: ['eq', 'neq', 'in'],
-		category_id: ['eq', 'neq', 'in'],
-		category_name: ['contains', 'regex'],
-		color_id: ['eq', 'neq', 'in'],
-		year_from: ['eq', 'neq', 'gte', 'lte'],
-		year_to: ['eq', 'neq', 'gte', 'lte'],
-		bricklink_id: ['eq', 'neq', 'in'],
-		bricklink_item_count: ['eq', 'neq', 'gte', 'lte'],
-		bricklink_primary_item_no: ['eq', 'neq', 'contains', 'regex'],
-		bl_price_min: ['eq', 'neq', 'gte', 'lte'],
-		bl_price_max: ['eq', 'neq', 'gte', 'lte'],
-		bl_price_avg: ['eq', 'neq', 'gte', 'lte'],
-		bl_price_qty_avg: ['eq', 'neq', 'gte', 'lte'],
-		bl_price_lots: ['eq', 'neq', 'gte', 'lte'],
-		bl_price_qty: ['eq', 'neq', 'gte', 'lte'],
-		bl_catalog_name: ['contains', 'regex'],
-		bl_catalog_category_id: ['eq', 'neq', 'in'],
-		bl_category_id: ['eq', 'neq', 'in'],
-		bl_category_name: ['contains', 'regex'],
-		bl_catalog_year_released: ['eq', 'neq', 'gte', 'lte'],
-		bl_catalog_weight: ['eq', 'neq', 'gte', 'lte'],
-		bl_catalog_dim_x: ['eq', 'neq', 'gte', 'lte'],
-		bl_catalog_dim_y: ['eq', 'neq', 'gte', 'lte'],
-		bl_catalog_dim_z: ['eq', 'neq', 'gte', 'lte'],
-		bl_catalog_is_obsolete: ['eq', 'neq']
-	};
-
-	const opLabels: Record<string, string> = {
-		eq: '=', neq: '!=', in: 'in', contains: 'contains',
-		regex: 'regex', gte: '>=', lte: '<='
-	};
-
-	// --- Navigation guard ---
-	// Leaving with unsaved changes asks first: the move is stopped, and the dialog
-	// either carries it on to where it was headed or stays here.
+	// --- Leaving with unsaved changes --------------------------------------------------------------------
+	// The move is stopped, and the dialog either carries it on to where it was
+	// headed or stays here.
 	let leaveTarget = $state<{ url: URL; delta: number | undefined } | null>(null);
 	let leaveConfirmed = false;
 
 	beforeNavigate((nav) => {
-		if (leaveConfirmed || !hasUnsavedChanges) return;
+		if (leaveConfirmed || !dirty) return;
 		// Closing the tab or leaving the site gets the browser's own prompt from cancel().
 		nav.cancel();
 		if (!nav.willUnload && nav.to) {
@@ -234,1166 +550,373 @@
 		else void goto(target.url);
 	}
 
-	// --- Load profile ---
-	let lastLoadedProfileId = '';
+	function onkeydown(event: KeyboardEvent) {
+		if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 's') {
+			event.preventDefault();
+			if (dirty && !saving) saveOpen = true;
+		}
+	}
 
-	$effect(() => {
-		const nextProfileId = profileId;
-		if (!nextProfileId) return;
-		if (nextProfileId === lastLoadedProfileId) return;
-		lastLoadedProfileId = nextProfileId;
-		void loadProfile();
+	// --- What the columns say -------------------------------------------------------------------------------
+	const restMeta = $derived(
+		{
+			none: 'One bin',
+			bl_category: 'A bin for each BrickLink category',
+			rb_category: 'A bin for each Rebrickable category',
+			color: 'A bin for each color'
+		}[fallback]
+	);
+	// The bin for everything else, for how many parts it gets.
+	const restBin = $derived.by(() => {
+		if (!preview) return null;
+		const id = preview.category_order.find((key) => preview?.categories[key]?.kind === 'default');
+		return id ? preview.categories[id] : null;
 	});
 
-	// --- Debounced rule preview ---
-	$effect(() => {
-		const ruleId = selectedRuleId;
-		if (!ruleId) {
-			rulePreview = null;
-			return;
-		}
-		if (selectedRule?.rule_type === 'set') {
-			if (previewDebounceTimer) clearTimeout(previewDebounceTimer);
-			rulePreview = null;
-			rulePreviewLoading = false;
-			return;
-		}
-		rulePreviewExpanded = false;
-		if (previewDebounceTimer) clearTimeout(previewDebounceTimer);
-		previewDebounceTimer = setTimeout(() => {
-			void loadRulePreview(ruleId);
-		}, 500);
-	});
+	const tabs = $derived([
+		{ value: 'matches' as const, label: 'Matches' },
+		{ value: 'bins' as const, label: 'Bins' },
+		{ value: 'chat' as const, label: 'Assistant' },
+		{ value: 'versions' as const, label: 'Versions', count: profile?.versions.length }
+	]);
+	const narrowTabs = $derived([
+		{ value: 'rules' as const, label: 'Rules' },
+		{ value: 'rule' as const, label: 'Rule' },
+		...tabs
+	]);
 
-	// --- Auto-scroll AI chat ---
-	let chatContainer: HTMLDivElement | undefined = $state(undefined);
+	function chooseNarrow(view: NarrowView) {
+		if (view === 'rules' || view === 'rule') narrow = view;
+		else {
+			narrow = 'result';
+			rightTab = view;
+		}
+	}
 
 	$effect(() => {
-		// Track message count, busy state, and progress updates for auto-scroll
-		void aiMessages.length;
-		void aiBusy;
-		void aiProgress.length;
-		if (chatContainer) {
-			requestAnimationFrame(() => {
-				chatContainer?.scrollTo({ top: chatContainer.scrollHeight, behavior: 'smooth' });
-			});
-		}
+		void catalog.ensureFields();
 	});
-
-	let nameDraft = $state('');
-	let nameInput: HTMLInputElement | undefined = $state(undefined);
-
-	async function renameProfile() {
-		if (!profile) return;
-		const newName = nameDraft.trim();
-		if (!newName) {
-			nameDraft = profile.name;
-			return;
-		}
-		if (newName === profile.name) {
-			nameDraft = newName;
-			return;
-		}
-		try {
-			profile = await api.updateSortingProfile(profile.id, { name: newName });
-			nameDraft = profile.name;
-		} catch {
-			nameDraft = profile.name;
-		}
-	}
-
-	async function loadProfile() {
-		if (!profileId) return;
-		loading = true;
-		error = null;
-		try {
-			const detail = await api.getSortingProfile(profileId);
-			profile = detail;
-			nameDraft = detail.name;
-			hydrateWorkingState(detail);
-			void ensureCatalogColorsLoaded();
-			if (detail.is_owner) {
-				aiMessages = await api.getSortingProfileAiMessages(profileId);
-			}
-		} catch (e: any) {
-			error = e.error || 'Failed to load profile';
-		} finally {
-			loading = false;
-		}
-	}
-
-	function hydrateWorkingState(detail: SortingProfileDetail) {
-		const cv = detail.current_version;
-		if (!cv) return;
-		const normalizedRules = normalizeRuleTree(structuredClone(cv.rules));
-		workingRules = normalizedRules;
-		workingFallbackMode = structuredClone(cv.fallback_mode);
-		workingDefaultCategoryId = cv.default_category_id ?? '';
-		originalRulesJson = JSON.stringify(normalizedRules);
-		originalFallbackJson = JSON.stringify(cv.fallback_mode);
-		originalDefaultCategoryId = cv.default_category_id ?? '';
-		selectedRuleId = normalizedRules[0]?.id ?? null;
-		expandedNodes = new Set();
-	}
-
-	async function ensureCatalogColorsLoaded() {
-		if (catalogColorsLoading || catalogColors.length > 0) return;
-		catalogColorsLoading = true;
-		try {
-			const res = await api.getProfileCatalogColors();
-			catalogColors = res.results;
-		} catch {
-			catalogColors = [];
-		} finally {
-			catalogColorsLoading = false;
-		}
-	}
-
-	// --- Rule tree helpers ---
-	function findRule(rules: SortingProfileRule[], ruleId: string): SortingProfileRule | null {
-		for (const rule of rules) {
-			if (rule.id === ruleId) return rule;
-			const found = findRule(rule.children, ruleId);
-			if (found) return found;
-		}
-		return null;
-	}
-
-	function normalizeRuleTree(rules: SortingProfileRule[]): SortingProfileRule[] {
-		return rules.map((rule) => {
-			const setSource =
-				rule.rule_type === 'set'
-					? (rule.set_source ?? (rule.custom_parts?.length ? 'custom' : 'rebrickable'))
-					: undefined;
-			const normalized: SortingProfileRule = {
-				...rule,
-				rule_type: rule.rule_type ?? 'filter',
-				children: normalizeRuleTree(rule.children ?? [])
-			};
-			if (normalized.rule_type === 'set') {
-				normalized.set_source = setSource;
-				normalized.custom_parts = (normalized.custom_parts ?? []).map((part) => ({
-					...part,
-					color_id: normalizeCustomColorId(part.color_id)
-				}));
-				if (normalized.set_source === 'custom') {
-					normalized.set_meta = buildCustomSetMeta(normalized);
-				}
-			}
-			return normalized;
-		});
-	}
-
-	function isCustomSetRule(rule: SortingProfileRule): boolean {
-		return rule.rule_type === 'set' && (rule.set_source === 'custom' || (rule.custom_parts?.length ?? 0) > 0);
-	}
-
-	function normalizeCustomColorId(colorId: number | string | null | undefined): number {
-		if (colorId === null || colorId === undefined || colorId === '' || colorId === 'any' || colorId === 'any_color') {
-			return ANY_COLOR_ID;
-		}
-		const numeric = Number(colorId);
-		return Number.isFinite(numeric) ? numeric : ANY_COLOR_ID;
-	}
-
-	function buildCustomSetMeta(rule: SortingProfileRule): NonNullable<SortingProfileRule['set_meta']> {
-		const parts = rule.custom_parts ?? [];
-		const totalQuantity = parts.reduce((sum, part) => sum + Math.max(0, Number(part.quantity) || 0), 0);
-		return {
-			name: rule.name || 'Custom Set',
-			year: null,
-			num_parts: totalQuantity,
-			img_url: null
-		};
-	}
-
-	function syncCustomSetRule(rule: SortingProfileRule) {
-		if (!isCustomSetRule(rule)) return;
-		rule.set_source = 'custom';
-		rule.include_spares = false;
-		rule.set_num = rule.set_num || `custom:${rule.id}`;
-		rule.custom_parts = (rule.custom_parts ?? []).map((part) => ({
-			...part,
-			color_id: normalizeCustomColorId(part.color_id)
-		}));
-		rule.set_meta = buildCustomSetMeta(rule);
-	}
-
-	function customSetLineCount(rule: SortingProfileRule): number {
-		return rule.custom_parts?.length ?? 0;
-	}
-
-	function customSetPartsLabel(rule: SortingProfileRule): string {
-		const total = buildCustomSetMeta(rule).num_parts ?? 0;
-		const lineCount = customSetLineCount(rule);
-		const lineLabel = lineCount === 1 ? 'line item' : 'line items';
-		const partLabel = total === 1 ? 'part' : 'parts';
-		return `${lineCount} ${lineLabel}, ${total} ${partLabel}`;
-	}
-
-	function colorLabel(colorId: number | string | null | undefined, fallback?: string | null): string {
-		if (fallback) return fallback;
-		const numeric = Number(colorId);
-		if (numeric === ANY_COLOR_ID) return 'Any color';
-		return catalogColors.find((color) => color.id === numeric)?.name ?? String(colorId ?? '');
-	}
-
-	function customPartColorLabel(part: CustomSetPart, colorId: number | string | null | undefined): string {
-		const normalized = normalizeCustomColorId(colorId);
-		if (normalized === ANY_COLOR_ID) return 'Any color';
-		if ((part.part_source ?? 'rebrickable') === 'bricklink' && normalizeCustomColorId(part.color_id) === normalized) {
-			return part.color_name ?? `BrickLink color ${normalized}`;
-		}
-		return colorLabel(normalized);
-	}
-
-	function customPartColorOptions(part: CustomSetPart): Array<{ value: number; label: string }> {
-		const normalized = normalizeCustomColorId(part.color_id);
-		const options =
-			(part.part_source ?? 'rebrickable') === 'bricklink'
-				? [
-					{ value: ANY_COLOR_ID, label: 'Any color' },
-					...(normalized !== ANY_COLOR_ID
-						? [{
-							value: normalized,
-							label: part.color_name ?? `BrickLink color ${normalized}`
-						}]
-						: [])
-				]
-				: [
-					{ value: ANY_COLOR_ID, label: 'Any color' },
-					...catalogColors
-						.filter((color) => color.id !== ANY_COLOR_ID)
-						.map((color) => ({ value: color.id, label: color.name }))
-				];
-
-		// The catalog includes an "unknown" sentinel with id -1, which would duplicate
-		// our explicit "Any color" option and crash the keyed <option> loop.
-		const seen = new Set<number>();
-		return options.filter((option) => {
-			if (seen.has(option.value)) return false;
-			seen.add(option.value);
-			return true;
-		});
-	}
-
-	function mergeCustomSetParts(existing: CustomSetPart[], imported: CustomSetPart[]): CustomSetPart[] {
-		const merged = new Map<string, CustomSetPart>();
-		for (const part of [...existing, ...imported]) {
-			const colorId = normalizeCustomColorId(part.color_id);
-			const partSource = part.part_source ?? 'rebrickable';
-			const key = `${partSource}::${part.part_num}::${colorId}`;
-			const current = merged.get(key);
-			if (current) {
-				current.quantity += Math.max(0, Number(part.quantity) || 0);
-				if (!current.part_name && part.part_name) current.part_name = part.part_name;
-				if (!current.color_name && part.color_name) current.color_name = part.color_name;
-				if (!current.img_url && part.img_url) current.img_url = part.img_url;
-				continue;
-			}
-			merged.set(key, {
-				...part,
-				part_source: partSource,
-				color_id: colorId,
-				color_name: part.color_name ?? colorLabel(colorId),
-				quantity: Math.max(0, Number(part.quantity) || 0)
-			});
-		}
-		return [...merged.values()].filter((part) => part.quantity > 0);
-	}
-
-	function updateRuleList(
-		rules: SortingProfileRule[],
-		ruleId: string,
-		mutator: (rule: SortingProfileRule, siblings: SortingProfileRule[], index: number) => void
-	): boolean {
-		for (let index = 0; index < rules.length; index += 1) {
-			const rule = rules[index];
-			if (rule.id === ruleId) {
-				mutator(rule, rules, index);
-				return true;
-			}
-			if (updateRuleList(rule.children, ruleId, mutator)) return true;
-		}
-		return false;
-	}
-
-	function withRules(mutator: (rules: SortingProfileRule[]) => void) {
-		const nextRules = structuredClone($state.snapshot(workingRules)) as SortingProfileRule[];
-		mutator(nextRules);
-		workingRules = normalizeRuleTree(nextRules);
-	}
-
-	function makeRule(name = 'New Category'): SortingProfileRule {
-		return {
-			id: uuid(),
-			name,
-			match_mode: 'all',
-			conditions: [],
-			children: [],
-			disabled: false
-		};
-	}
-
-	function makeCustomSetRule(name = 'Custom Set'): SortingProfileRule {
-		const rule: SortingProfileRule = {
-			id: uuid(),
-			rule_type: 'set',
-			set_source: 'custom',
-			name,
-			match_mode: 'all',
-			conditions: [],
-			children: [],
-			disabled: false,
-			set_num: '',
-			include_spares: false,
-			set_meta: {
-				name,
-				year: null,
-				num_parts: 0,
-				img_url: null
-			},
-			custom_parts: []
-		};
-		syncCustomSetRule(rule);
-		return rule;
-	}
-
-	// --- Rule manipulation ---
-	function addRule(parentId?: string) {
-		if (parentId) {
-			withRules((rules) => {
-				updateRuleList(rules, parentId, (rule) => {
-					const child = makeRule(`${rule.name} Child ${rule.children.length + 1}`);
-					rule.children.push(child);
-					expandedNodes = new Set([...expandedNodes, parentId]);
-					selectedRuleId = child.id;
-				});
-			});
-		} else {
-			const newRule = makeRule(`Rule ${workingRules.length + 1}`);
-			withRules((rules) => rules.push(newRule));
-			selectedRuleId = newRule.id;
-			expandedNodes = new Set([...expandedNodes, newRule.id]);
-		}
-	}
-
-	function addSetRule(set: { set_num: string; name: string; year: number; num_parts: number; img_url: string | null }) {
-		const newRule: SortingProfileRule = {
-			id: uuid(),
-			rule_type: 'set',
-			set_source: 'rebrickable',
-			name: set.name,
-			match_mode: 'all',
-			conditions: [],
-			children: [],
-			disabled: false,
-			set_num: set.set_num,
-			include_spares: false,
-			custom_parts: [],
-			set_meta: {
-				name: set.name,
-				year: set.year,
-				num_parts: set.num_parts,
-				img_url: set.img_url
-			}
-		};
-		withRules((rules) => rules.push(newRule));
-		selectedRuleId = newRule.id;
-		showSetSearch = false;
-	}
-
-	function addCustomSetRule() {
-		const newRule = makeCustomSetRule(`Custom Set ${workingRules.filter((rule) => isCustomSetRule(rule)).length + 1}`);
-		withRules((rules) => rules.push(newRule));
-		selectedRuleId = newRule.id;
-		expandedNodes = new Set([...expandedNodes, newRule.id]);
-		void ensureCatalogColorsLoaded();
-	}
-
-	function openBrickLinkCsvImport(ruleId: string) {
-		pendingCsvImportRule = ruleId;
-		customSetImportStatus = Object.fromEntries(
-			Object.entries(customSetImportStatus).filter(([key]) => key !== ruleId)
-		);
-		csvImportFileInput?.click();
-	}
-
-	async function handleBrickLinkCsvSelected(event: Event) {
-		const input = event.currentTarget as HTMLInputElement;
-		const file = input.files?.[0];
-		const ruleId = pendingCsvImportRule;
-		input.value = '';
-		if (!file || !ruleId) {
-			pendingCsvImportRule = null;
-			return;
-		}
-		pendingCsvImportRule = null;
-		importingCsvForRule = ruleId;
-
-		try {
-			const csvContent = await file.text();
-			const result = await api.importProfileCatalogBricklinkCsv(csvContent, file.name);
-			await applyBrickLinkCsvImport(ruleId, result);
-		} catch (e: any) {
-			customSetImportStatus = {
-				...customSetImportStatus,
-				[ruleId]: {
-					tone: 'error',
-					text: e?.error || 'Failed to import BrickLink CSV'
-				}
-			};
-		} finally {
-			importingCsvForRule = null;
-		}
-	}
-
-	async function applyBrickLinkCsvImport(ruleId: string, result: BrickLinkCsvImportResult) {
-		let importedLineItems = 0;
-		let updated = false;
-		withRules((rules) => {
-			updated = updateRuleList(rules, ruleId, (rule) => {
-				const existingParts = rule.custom_parts ?? [];
-				rule.custom_parts = mergeCustomSetParts(existingParts, result.parts);
-				if (
-					(!rule.name || rule.name.trim() === '' || rule.name.startsWith('Custom Set')) &&
-					result.suggested_name
-				) {
-					rule.name = result.suggested_name;
-				}
-				syncCustomSetRule(rule);
-				importedLineItems = rule.custom_parts?.length ?? 0;
-			});
-		});
-		if (!updated) {
-			customSetImportStatus = {
-				...customSetImportStatus,
-				[ruleId]: {
-					tone: 'error',
-					text: 'Imported the CSV, but could not apply it to this custom set. Please try again.'
-				}
-			};
-			return;
-		}
-		selectedRuleId = ruleId;
-		expandedNodes = new Set([...expandedNodes, ruleId]);
-		addingPartForRule = null;
-		await tick();
-
-		const warningText =
-			result.warning_count > 0
-				? ` Imported ${result.imported_rows} rows with ${result.warning_count} warnings.${result.warnings[0] ? ` First issue: ${result.warnings[0]}` : ''}`
-				: '';
-		customSetImportStatus = {
-			...customSetImportStatus,
-			[ruleId]: {
-				tone: 'success',
-				text: `Imported ${result.imported_unique_parts} unique parts from BrickLink CSV into ${importedLineItems} line items.${warningText}`
-			}
-		};
-	}
-
-	function updateCustomSetName(ruleId: string, name: string) {
-		withRules((rules) => {
-			updateRuleList(rules, ruleId, (rule) => {
-				rule.name = name;
-				syncCustomSetRule(rule);
-			});
-		});
-	}
-
-	function addCustomSetPart(ruleId: string, part: ProfileCatalogSearchResult) {
-		withRules((rules) => {
-			updateRuleList(rules, ruleId, (rule) => {
-				const nextPart: CustomSetPart = {
-					part_num: part.part_num,
-					part_name: part.name,
-					img_url: part.part_img_url,
-					part_source: 'rebrickable',
-					color_id: ANY_COLOR_ID,
-					color_name: 'Any color',
-					quantity: 1
-				};
-				rule.custom_parts = [...(rule.custom_parts ?? []), nextPart];
-				syncCustomSetRule(rule);
-			});
-		});
-		addingPartForRule = null;
-	}
-
-	function updateCustomSetPart(ruleId: string, index: number, patch: Partial<CustomSetPart>) {
-		withRules((rules) => {
-			updateRuleList(rules, ruleId, (rule) => {
-				const parts = [...(rule.custom_parts ?? [])];
-				const current = parts[index];
-				if (!current) return;
-				const nextColorId =
-					patch.color_id !== undefined
-						? normalizeCustomColorId(patch.color_id)
-						: normalizeCustomColorId(current.color_id ?? ANY_COLOR_ID);
-				const nextColorName =
-					patch.color_name !== undefined
-						? patch.color_name
-						: customPartColorLabel(current, nextColorId);
-				parts[index] = {
-					...current,
-					...patch,
-					color_id: nextColorId,
-					color_name: nextColorName ?? current.color_name ?? null
-				};
-				rule.custom_parts = parts;
-				syncCustomSetRule(rule);
-			});
-		});
-	}
-
-	function removeCustomSetPart(ruleId: string, index: number) {
-		withRules((rules) => {
-			updateRuleList(rules, ruleId, (rule) => {
-				rule.custom_parts = (rule.custom_parts ?? []).filter((_, partIndex) => partIndex !== index);
-				syncCustomSetRule(rule);
-			});
-		});
-	}
-
-	function deleteRule(ruleId: string) {
-		withRules((rules) => {
-			updateRuleList(rules, ruleId, (_rule, siblings, index) => siblings.splice(index, 1));
-		});
-		if (selectedRuleId === ruleId) selectedRuleId = workingRules[0]?.id ?? null;
-	}
-
-	function moveRule(ruleId: string, direction: -1 | 1) {
-		withRules((rules) => {
-			updateRuleList(rules, ruleId, (_rule, siblings, index) => {
-				const nextIndex = index + direction;
-				if (nextIndex < 0 || nextIndex >= siblings.length) return;
-				const [item] = siblings.splice(index, 1);
-				siblings.splice(nextIndex, 0, item);
-			});
-		});
-	}
-
-	function updateRule(ruleId: string, patch: Partial<SortingProfileRule>) {
-		withRules((rules) => {
-			updateRuleList(rules, ruleId, (rule) => Object.assign(rule, patch));
-		});
-	}
-
-	function addCondition(ruleId: string) {
-		withRules((rules) => {
-			updateRuleList(rules, ruleId, (rule) => {
-				rule.conditions.push({ id: uuid(), field: 'part_num', op: 'eq', value: '' });
-			});
-		});
-	}
-
-	function updateCondition(ruleId: string, conditionId: string, patch: Record<string, unknown>) {
-		withRules((rules) => {
-			updateRuleList(rules, ruleId, (rule) => {
-				rule.conditions = rule.conditions.map((c) => c.id === conditionId ? { ...c, ...patch } : c);
-			});
-		});
-	}
-
-	function deleteCondition(ruleId: string, conditionId: string) {
-		withRules((rules) => {
-			updateRuleList(rules, ruleId, (rule) => {
-				rule.conditions = rule.conditions.filter((c) => c.id !== conditionId);
-			});
-		});
-	}
-
-	function updateFallbackMode<K extends keyof SortingProfileFallbackMode>(key: K, value: boolean) {
-		workingFallbackMode = { ...workingFallbackMode, [key]: value };
-	}
-
-	function formatConditionValue(value: unknown): string {
-		if (Array.isArray(value)) return JSON.stringify(value);
-		if (typeof value === 'number') return String(value);
-		if (typeof value === 'string') return value;
-		if (value === null || value === undefined) return '';
-		return JSON.stringify(value);
-	}
-
-	function parseConditionValue(raw: string): unknown {
-		const trimmed = raw.trim();
-		if (!trimmed) return '';
-		if (trimmed.startsWith('[') || trimmed.startsWith('{')) {
-			try { return JSON.parse(trimmed); } catch { return trimmed; }
-		}
-		if (trimmed === 'true') return true;
-		if (trimmed === 'false') return false;
-		if (!Number.isNaN(Number(trimmed)) && trimmed !== '') return Number(trimmed);
-		return trimmed;
-	}
-
-	function toggleNode(ruleId: string) {
-		const next = new Set(expandedNodes);
-		if (next.has(ruleId)) next.delete(ruleId); else next.add(ruleId);
-		expandedNodes = next;
-	}
-
-	function selectRule(ruleId: string) {
-		selectedRuleId = ruleId;
-	}
-
-	function liveRuleForRender(rule: SortingProfileRule): SortingProfileRule {
-		return findRule(displayRules, rule.id) ?? rule;
-	}
-
-	function profileDocument() {
-		return {
-			name: profile?.name ?? '',
-			description: profile?.description ?? null,
-			default_category_id: workingDefaultCategoryId,
-			rules: workingRules,
-			fallback_mode: workingFallbackMode
-		};
-	}
-
-	// --- Rule preview ---
-	async function loadRulePreview(ruleId: string) {
-		if (findRule(workingRules, ruleId)?.rule_type === 'set') {
-			rulePreview = null;
-			return;
-		}
-		rulePreviewLoading = true;
-		try {
-			rulePreview = (await api.previewSortingRule(profileDocument(), { rule_id: ruleId, limit: 5 })) as RulePreviewResult;
-		} catch { rulePreview = null; }
-		finally { rulePreviewLoading = false; }
-	}
-
-	async function loadMorePreview() {
-		if (!selectedRuleId) return;
-		if (selectedRule?.rule_type === 'set') return;
-		rulePreviewLoading = true;
-		try {
-			rulePreview = (await api.previewSortingRule(profileDocument(), { rule_id: selectedRuleId, limit: 25 })) as RulePreviewResult;
-			rulePreviewExpanded = true;
-		} catch { /* keep existing */ }
-		finally { rulePreviewLoading = false; }
-	}
-
-	// --- Save ---
-	let suggestingNote = $state(false);
-	let suggestNoteError = $state<string | null>(null);
-
-	// The popover opens from its own button or the bar along the bottom; each
-	// time it opens, the note starts empty and the assistant suggests one when
-	// the rules changed.
-	$effect(() => {
-		if (showSavePopover) untrack(() => void suggestNote());
-	});
-
-	async function suggestNote() {
-		changeNote = '';
-		suggestingNote = false;
-		suggestNoteError = null;
-
-		if (!profile) return;
-		if (!hasOpenRouter) return;
-		const oldRules = JSON.parse(originalRulesJson || '[]') as SortingProfileRule[];
-		const newRules = $state.snapshot(workingRules) as SortingProfileRule[];
-		const rulesChanged = JSON.stringify(oldRules) !== JSON.stringify(newRules);
-		if (!rulesChanged) return;
-
-		suggestingNote = true;
-		try {
-			const result = await api.suggestChangeNote(profile.id, { old_rules: oldRules, new_rules: newRules });
-			if (showSavePopover && !changeNote) {
-				changeNote = result.change_note;
-			}
-		} catch (e: any) {
-			suggestNoteError = e?.error || 'Could not suggest a change note';
-		} finally {
-			suggestingNote = false;
-		}
-	}
-
-
-	async function saveVersion() {
-		if (!profile || savingVersion) return;
-		savingVersion = true;
-		error = null;
-		try {
-			const version = await api.saveSortingProfileVersion(profile.id, {
-				name: profile.name,
-				description: profile.description ?? null,
-				default_category_id: workingDefaultCategoryId,
-				rules: workingRules,
-				fallback_mode: workingFallbackMode,
-				change_note: changeNote || null
-			});
-			success = `Saved version ${version.version_number}.`;
-			showSavePopover = false;
-			changeNote = '';
-			lastLoadedProfileId = '';
-			await loadProfile();
-		} catch (e: any) {
-			error = e.error || 'Failed to save version';
-		} finally {
-			savingVersion = false;
-		}
-	}
-
-	async function restoreVersion(versionId: string) {
-		if (!profile) return;
-		restoringVersionId = versionId;
-		error = null;
-		try {
-			const oldDetail = await api.getSortingProfile(profile.id, versionId);
-			const oldVersion = oldDetail.current_version;
-			if (!oldVersion) throw new Error('Version not found');
-			await api.saveSortingProfileVersion(profile.id, {
-				name: oldVersion.name,
-				description: oldVersion.description ?? null,
-				default_category_id: oldVersion.default_category_id,
-				rules: oldVersion.rules,
-				fallback_mode: oldVersion.fallback_mode,
-				change_note: `Restored from v${oldVersion.version_number}`
-			});
-			lastLoadedProfileId = '';
-			await loadProfile();
-			rightTab = 'chat';
-		} catch (e: any) {
-			error = e.error || e.message || 'Failed to restore version';
-		} finally {
-			restoringVersionId = null;
-		}
-	}
-
-	async function viewVersion(versionId: string) {
-		if (!profile) return;
-		previewLoading = true;
-		try {
-			const detail = await api.getSortingProfile(profile.id, versionId);
-			previewVersion = detail.current_version;
-		} catch (e: any) {
-			error = e.error || 'Failed to load version';
-		} finally {
-			previewLoading = false;
-		}
-	}
-
-	function exitPreview() {
-		previewVersion = null;
-	}
-
-	async function forkFromVersion(versionId: string) {
-		if (!profile) return;
-		error = null;
-		try {
-			const fork = await api.forkSortingProfile(profile.id, { add_to_library: true }, versionId);
-			window.location.href = `/profiles/${fork.id}/edit`;
-		} catch (e: any) {
-			error = e.error || 'Failed to fork';
-		}
-	}
-
-	const displayRules = $derived(previewVersion ? previewVersion.rules : workingRules);
-	const isPreview = $derived(previewVersion !== null);
-
-	function formatDate(iso: string): string {
-		const d = new Date(iso);
-		return d.toLocaleDateString('en-US', { day: '2-digit', month: '2-digit', year: '2-digit' })
-			+ ' ' + d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
-	}
-
-	// --- AI ---
-	let aiError = $state<string | null>(null);
-	let aiErrorCode = $state<string | null>(null);
-
-	async function sendAiMessage() {
-		if (!profile || !aiMessage.trim()) return;
-		const userMsg = aiMessage.trim();
-		aiMessage = '';
-
-		// Show user message immediately
-		const tempUserMsg: SortingProfileAiMessage = {
-			id: uuid(),
-			role: 'user',
-			content: userMsg,
-			model: null,
-			version_id: profile.current_version?.id ?? null,
-			applied_version_id: null,
-			selected_rule_id: selectedRuleId,
-			usage: null,
-			proposal: null,
-			tool_trace: [],
-			applied_at: null,
-			created_at: new Date().toISOString()
-		};
-		aiMessages = [...aiMessages, tempUserMsg];
-
-		aiBusy = true;
-		aiProgress = [{ type: 'thinking' }];
-		aiError = null;
-		aiErrorCode = null;
-		try {
-			let response: SortingProfileAiMessage;
-			try {
-				// Try streaming endpoint for live progress
-				response = await api.streamSortingProfileAiMessage(
-					profile.id,
-					{
-						message: userMsg,
-						version_id: profile.current_version?.id ?? null,
-						selected_rule_id: selectedRuleId
-					},
-					(event) => {
-						aiProgress = [...aiProgress, event as typeof aiProgress[number]];
-					}
-				);
-			} catch (e: any) {
-				// The fallback exists for a backend without the streaming route. Any
-				// other failure already cost a model call; making it again from the
-				// non-streaming route just doubles the bill and the wait.
-				if (e?.status !== 404) throw e;
-				aiProgress = [{ type: 'thinking' }];
-				response = await api.createSortingProfileAiMessage(profile.id, {
-					message: userMsg,
-					version_id: profile.current_version?.id ?? null,
-					selected_rule_id: selectedRuleId
-				});
-			}
-			aiMessages = [...aiMessages, response];
-
-			// Auto-apply if the AI returned a proposal with actual operations
-			const proposals = response.proposal && Array.isArray((response.proposal as any).proposals)
-				? (response.proposal as any).proposals as unknown[]
-				: [];
-			if (proposals.length > 0) {
-				aiProgress = [...aiProgress, { type: 'applying' }];
-				const version = await api.applySortingProfileAiMessage(profile.id, response.id, {});
-				const idx = aiMessages.findIndex((m) => m.id === response.id);
-				if (idx >= 0) {
-					aiMessages[idx] = { ...aiMessages[idx], applied_at: new Date().toISOString() };
-				}
-				lastLoadedProfileId = '';
-				await loadProfile();
-			}
-		} catch (e: any) {
-			aiError = e.error || e.message || 'Request failed';
-			aiErrorCode = typeof e?.code === 'string' ? e.code : null;
-		} finally {
-			aiBusy = false;
-			aiProgress = [];
-		}
-	}
-
-	// --- Part count helper ---
-	function getPartCount(ruleId: string): number | null {
-		const stats = perCategoryStats[ruleId];
-		if (!stats || stats.parts === undefined) return null;
-		return stats.parts;
-	}
-
-	function formatPartCount(count: number | null): string {
-		if (count === null) return '';
-		if (count >= 1000) return `${(count / 1000).toFixed(1)}k`;
-		return String(count);
-	}
-
-	function conditionSummary(rule: SortingProfileRule): string {
-		if (rule.rule_type === 'set') {
-			if (isCustomSetRule(rule)) {
-				return `Custom set, ${customSetPartsLabel(rule)}`;
-			}
-			const meta = rule.set_meta;
-			if (meta) return `${rule.set_num}, ${meta.year}, ${meta.num_parts} parts`;
-			return rule.set_num || 'LEGO Set';
-		}
-		if (rule.conditions.length === 0) return 'No conditions';
-		return rule.conditions
-			.map((c) => {
-				const op = opLabels[c.op] ?? c.op;
-				const val = typeof c.value === 'string' ? c.value : JSON.stringify(c.value);
-				const short = val.length > 20 ? val.slice(0, 20) + '...' : val;
-				return `${c.field} ${op} ${short}`;
-			})
-			.join(', ');
-	}
-
-	function dismissSuccess() { success = null; }
-
-	function isToolResultExpanded(key: string): boolean {
-		return expandedToolResults.has(key);
-	}
-
-	function toggleToolResult(key: string): void {
-		const next = new Set(expandedToolResults);
-		if (next.has(key)) next.delete(key);
-		else next.add(key);
-		expandedToolResults = next;
-	}
-
-	function visibleToolResultItems(result: ExpandableToolResult, key: string): ToolResultListItem[] {
-		if (isToolResultExpanded(key)) return result.items;
-		return result.items.slice(0, TOOL_RESULT_COLLAPSED_COUNT);
-	}
-
-	function canExpandToolResult(result: ExpandableToolResult): boolean {
-		return result.items.length > TOOL_RESULT_COLLAPSED_COUNT;
-	}
 </script>
 
 <svelte:head>
 	<title>{profile ? `Edit ${profile.name} - Hive` : 'Edit profile - Hive'}</title>
 </svelte:head>
 
+<svelte:window {onkeydown} />
+
 {#if loading}
 	<div class="flex justify-center p-8"><Spinner size={32} /></div>
+{:else if loadError}
+	<Alert tone="danger">{loadError}</Alert>
 {:else if !profile}
 	<Alert tone="danger">Profile not found.</Alert>
 {:else if !profile.current_version}
 	<Alert tone="danger">This profile has no version to edit.</Alert>
+{:else if !profile.is_owner}
+	<Alert tone="info" title="Only the owner can edit this profile">
+		Fork it to get a copy of your own to change.
+		{#snippet actions()}
+			<Button href="/profiles/{profileId}" size="sm">Back to the profile</Button>
+			<Button variant="primary" size="sm" icon={GitFork} onclick={() => void fork()}>Fork it</Button>
+		{/snippet}
+	</Alert>
 {:else}
-	<header class="flex flex-wrap items-center justify-between gap-3">
-		<div class="flex min-w-0 items-center gap-2">
-			<Button href={`/profiles/${profile.id}`} variant="ghost" size="sm" icon={ArrowLeft} label="Back to the profile" />
-			<!-- The hidden span sizes the grid cell, so the field hugs the name. -->
-			<div class="inline-grid min-w-0 max-w-full items-center overflow-hidden">
-				<span aria-hidden="true" class="invisible col-start-1 row-start-1 px-1.5 text-xl font-semibold whitespace-pre"
-					>{nameDraft || 'Untitled Profile'}</span
-				>
-				<input
-					type="text"
-					size="1"
-					aria-label="Profile name"
-					bind:this={nameInput}
-					bind:value={nameDraft}
-					onblur={renameProfile}
-					onkeydown={(e) => {
-						if (e.key === 'Enter') (e.currentTarget as HTMLInputElement).blur();
-					}}
-					class="col-start-1 row-start-1 w-full min-w-0 rounded-control bg-transparent px-1.5 text-xl font-semibold text-ink hover:bg-hover focus:bg-hover focus-visible:-outline-offset-2"
+	<div class="flex min-h-0 flex-col gap-(--gap-panels) xl:h-[calc(100dvh-var(--size-topbar)-3rem)]">
+		<header class="flex items-center justify-between gap-3">
+			<div class="flex min-w-0 flex-1 items-center gap-2">
+				<Button href="/profiles/{profile.id}" variant="ghost" size="sm" icon={ArrowLeft} label="Back to the profile" />
+				<!-- The hidden span sizes the grid cell, so the field hugs the name. -->
+				<div class="inline-grid max-w-full min-w-0 items-center overflow-hidden">
+					<span
+						aria-hidden="true"
+						class="invisible col-start-1 row-start-1 px-1.5 text-xl font-semibold whitespace-pre"
+						>{nameDraft || 'Untitled profile'}</span
+					>
+					<input
+						type="text"
+						size="1"
+						aria-label="Profile name"
+						bind:value={nameDraft}
+						onblur={renameProfile}
+						onkeydown={(e) => {
+							if (e.key === 'Enter') (e.currentTarget as HTMLInputElement).blur();
+						}}
+						class="col-start-1 row-start-1 w-full min-w-0 rounded-control bg-transparent px-1.5 text-xl font-semibold text-ellipsis text-ink hover:bg-hover focus:bg-hover focus-visible:-outline-offset-2"
+					/>
+				</div>
+				<Badge><span class="num">v{profile.current_version.version_number}</span></Badge>
+			</div>
+			<div class="flex shrink-0 items-center gap-3">
+				{#if dirty}<span class="max-sm:hidden"><Badge tone="warning" dot>Unsaved changes</Badge></span>{/if}
+				<SavePopover
+					bind:open={saveOpen}
+					profileId={profile.id}
+					{hasOpenRouter}
+					{savedRules}
+					draftRules={toSave.rules}
+					{dirty}
+					{saving}
+					onsave={save}
 				/>
 			</div>
-			<Badge><span class="num">v{profile.current_version.version_number}</span></Badge>
+		</header>
+
+		{#if saveError}
+			<Alert tone="danger">
+				{saveError}
+				{#snippet actions()}
+					<Button variant="ghost" size="sm" icon={X} label="Dismiss" onclick={() => (saveError = null)} />
+				{/snippet}
+			</Alert>
+		{/if}
+		{#if notice}
+			<Alert tone="success">
+				{notice}
+				{#snippet actions()}
+					<Button variant="ghost" size="sm" icon={X} label="Dismiss" onclick={() => (notice = null)} />
+				{/snippet}
+			</Alert>
+		{/if}
+		{#if headNotice}
+			<Alert tone="info" title="Version {headNotice.latest_version_number} was saved {whoSaved(headNotice)}">
+				{dirty ? 'Load it to see it, and your unsaved changes are replaced. Or keep editing.' : 'Load it to see what changed, or keep editing.'}
+				{#snippet actions()}
+					<Button
+						size="sm"
+						onclick={() => {
+							dismissedVersion = headNotice?.latest_version_number ?? 0;
+							headNotice = null;
+						}}>Keep editing</Button
+					>
+					<Button
+						variant="primary"
+						size="sm"
+						onclick={() => (dirty ? (confirmLoad = true) : loadIt())}>Load it</Button
+					>
+				{/snippet}
+			</Alert>
+		{/if}
+
+		<!-- Below the width where three columns fit, one shows at a time. -->
+		<div class="overflow-hidden rounded-panel bg-surface xl:hidden">
+			<Tabs label="Parts of the editor" inset value={narrowTab} items={narrowTabs} onchange={chooseNarrow} />
 		</div>
-		<Popover label="Save a new version" placement="bottom-end" width="22rem" bind:open={showSavePopover}>
-			{#snippet trigger(props)}
-				<Button {...props} variant="primary" icon={Save} disabled={savingVersion}>Save</Button>
-			{/snippet}
-			<form
-				class="flex flex-col gap-3"
-				onsubmit={(e) => {
-					e.preventDefault();
-					void saveVersion();
-				}}
+
+		<div class="grid min-h-0 flex-1 gap-(--gap-panels) xl:grid-cols-[19rem_minmax(0,1fr)_25rem]">
+			<!-- The bins, in the order a piece meets them. -->
+			<Panel
+				title="Rules"
+				flush
+				fill
+				class="min-w-0 {narrow === 'rules' ? '' : 'max-xl:hidden'}"
 			>
-				<Field
-					label="What changed?"
-					for="save-note"
-					help={suggestingNote ? 'Writing a suggestion.' : 'Optional.'}
-					error={suggestNoteError ?? undefined}
-				>
-					<Input
-						id="save-note"
-						bind:value={changeNote}
-						placeholder={suggestingNote ? 'Writing a suggestion' : 'For example: added gear categories'}
-					/>
-				</Field>
-				<div class="flex justify-end gap-2">
-					<Button variant="ghost" size="sm" onclick={() => (showSavePopover = false)}>Cancel</Button>
-					<Button type="submit" variant="primary" size="sm" loading={savingVersion}>Save version</Button>
-				</div>
-			</form>
-		</Popover>
-	</header>
+				<RuleList
+					{rules}
+					bins={preview?.categories ?? {}}
+					{marks}
+					{selectedId}
+					restName="Everything else"
+					{restMeta}
+					onselect={select}
+					onmove={(id, delta) => (rules = moveRule(rules, id, delta))}
+					onreorder={(id, slot) => (rules = reorderRule(rules, id, slot))}
+					ontoggle={toggleRule}
+					onduplicate={duplicate}
+					ondelete={(id) => (deleting = rules.find((rule) => rule.id === id) ?? null)}
+				/>
+				{#snippet actions()}
+					<Button size="sm" icon={Plus} onclick={addRule}>Add rule</Button>
+					<Button size="sm" icon={Plus} onclick={() => (choosingKitFor = 'new')}>Add kit</Button>
+				{/snippet}
+			</Panel>
 
-	{#if error}
-		<Alert tone="danger">{error}</Alert>
-	{/if}
-	{#if success}
-		<Alert tone="success">
-			{success}
-			{#snippet actions()}
-				<Button variant="ghost" size="sm" icon={X} label="Dismiss" onclick={dismissSuccess} />
-			{/snippet}
-		</Alert>
-	{/if}
-
-	<!-- Rules on the left, the assistant on the right. The window-high layout
-	     only makes sense once the two sit side by side; stacked, it would split
-	     one screen between them. -->
-	<div
-		class="grid min-h-0 grid-cols-1 gap-(--gap-panels) xl:h-[calc(100dvh-var(--size-topbar)-9rem)] xl:grid-cols-[minmax(0,3fr)_minmax(0,2fr)] xl:overflow-hidden"
-	>
-		<section class="flex min-h-[60vh] min-w-0 flex-col overflow-hidden rounded-panel bg-surface xl:min-h-0">
-			<header class="flex flex-wrap items-center justify-between gap-2 border-b border-line px-(--pad-panel) py-2">
-				<h2 class="text-base font-semibold text-ink">Rules</h2>
-				{#if !isPreview}
-					<div class="flex flex-wrap items-center gap-2">
-						<Button variant="ghost" size="sm" icon={Plus} onclick={() => addRule()}>Rule</Button>
-						<Button variant="ghost" size="sm" icon={Plus} onclick={() => (showSetSearch = true)}>Set</Button>
-						<Button variant="ghost" size="sm" icon={Plus} onclick={addCustomSetRule}>Custom set</Button>
-					</div>
-				{/if}
-			</header>
-			{#if isPreview}
-				<Alert tone="warning" title={`Viewing v${previewVersion?.version_number}`}>
-					{previewVersion?.change_note ?? ''}
-					{#snippet actions()}
-						<Button variant="ghost" size="sm" onclick={exitPreview}>Back</Button>
+			<!-- The chosen rule, edited. -->
+			<Panel
+				title={selectedId === REST_ID ? 'Everything else' : selectedRule ? (isKitRule(selectedRule) ? 'Kit' : 'Rule') : 'Rule'}
+				fill
+				class="min-w-0 {narrow === 'rule' ? '' : 'max-xl:hidden'}"
+			>
+				{#snippet actions()}
+					{#if selectedRule}
+						{@const place = rules.findIndex((rule) => rule.id === selectedRule!.id)}
 						<Button
-							variant="primary"
+							variant="ghost"
 							size="sm"
-							loading={restoringVersionId !== null}
-							onclick={() => {
-								if (previewVersion) void restoreVersion(previewVersion.id);
-							}}>Restore</Button
-						>
-					{/snippet}
-				</Alert>
-			{/if}
-			<div class="flex-1 overflow-y-auto">
-				{#if previewLoading}
-					<div class="flex items-center justify-center p-8"><Spinner size={32} /></div>
-				{:else if displayRules.length === 0}
-					<p class="p-(--pad-panel) text-center text-sm text-ink-muted">
-						No rules yet. Ask the assistant for categories, or add a rule.
-					</p>
-				{:else}
-					{#each displayRules as rule (rule.id)}
-						<RuleAccordionNode
-							{rule}
-							depth={0}
-							{isPreview}
-							{expandedNodes}
-							{selectedRuleId}
-							{rulePreview}
-							{rulePreviewLoading}
-							{rulePreviewExpanded}
-							{catalogColorsLoading}
-							{addingPartForRule}
-							{changingSetForRule}
-							{importingCsvForRule}
-							{customSetImportStatus}
-							{fieldOptions}
-							{opOptionsByField}
-							{opLabels}
-							{liveRuleForRender}
-							{isCustomSetRule}
-							{conditionSummary}
-							{customSetPartsLabel}
-							{normalizeCustomColorId}
-							{colorLabel}
-							{customPartColorLabel}
-							{customPartColorOptions}
-							{formatConditionValue}
-							{parseConditionValue}
-							onToggleNode={toggleNode}
-							onSelectRule={selectRule}
-							onMoveRule={moveRule}
-							onDeleteRule={deleteRule}
-							onUpdateRule={updateRule}
-							onAddRule={addRule}
-							onAddCondition={addCondition}
-							onUpdateCondition={updateCondition}
-							onDeleteCondition={deleteCondition}
-							onUpdateCustomSetName={updateCustomSetName}
-							onOpenBrickLinkCsvImport={openBrickLinkCsvImport}
-							onEnsureCatalogColorsLoaded={() => void ensureCatalogColorsLoaded()}
-							onSetAddingPartForRule={(id) => {
-								addingPartForRule = id;
-							}}
-							onAddCustomSetPart={addCustomSetPart}
-							onUpdateCustomSetPart={updateCustomSetPart}
-							onRemoveCustomSetPart={removeCustomSetPart}
-							onSetChangingSetForRule={(id) => {
-								changingSetForRule = id;
-							}}
-							onSetRule={(ruleId, set) => {
-								updateRule(ruleId, {
-									set_source: 'rebrickable',
-									set_num: set.set_num,
-									name: set.name,
-									custom_parts: [],
-									set_meta: { name: set.name, year: set.year, num_parts: set.num_parts, img_url: set.img_url }
-								} as Partial<SortingProfileRule>);
-								changingSetForRule = null;
-							}}
-							onLoadMorePreview={loadMorePreview}
+							icon={ArrowUp}
+							label="Move up"
+							disabled={place <= 0}
+							onclick={() => (rules = moveRule(rules, selectedRule!.id, -1))}
 						/>
-					{/each}
+						<Button
+							variant="ghost"
+							size="sm"
+							icon={ArrowDown}
+							label="Move down"
+							disabled={place === rules.length - 1}
+							onclick={() => (rules = moveRule(rules, selectedRule!.id, 1))}
+						/>
+						<Button
+							variant="ghost"
+							size="sm"
+							icon={selectedRule.disabled ? ToggleRight : ToggleLeft}
+							onclick={() => toggleRule(selectedRule!.id)}
+						>
+							{selectedRule.disabled ? 'Turn on' : 'Turn off'}
+						</Button>
+						<Button
+							variant="ghost"
+							size="sm"
+							icon={Trash2}
+							label="Delete {selectedRule.name}"
+							onclick={() => (deleting = selectedRule)}
+						/>
+					{/if}
+				{/snippet}
+
+				{#if selectedId === REST_ID}
+					<FallbackEditor
+						choice={fallback}
+						requires={preview?.requires ?? []}
+						restParts={restBin?.part_count ?? null}
+						onchange={(choice) => (fallback = choice)}
+					/>
+				{:else if selectedRule}
+					{#key selectedRule.id}
+						{#if isKitRule(selectedRule)}
+							<KitRuleEditor
+								rule={selectedRule}
+								bin={preview?.categories[selectedRule.id]}
+								imageUrl={preview?.categories[selectedRule.id]?.image_url ?? selectedRule.image_url ?? null}
+								warnings={warningsOf(selectedRule.id)}
+								ruleProblems={issues.byRule[selectedRule.id] ?? []}
+								reloadKey={comeback}
+								onchange={changeRule}
+								ontoggle={() => toggleRule(selectedRule!.id)}
+								onchoosekit={() => (choosingKitFor = selectedRule!.id)}
+							/>
+						{:else}
+							<RuleEditor
+								rule={selectedRule}
+								imageUrl={preview?.categories[selectedRule.id]?.image_url ?? selectedRule.image_url ?? null}
+								warnings={warningsOf(selectedRule.id)}
+								ruleProblems={issues.byRule[selectedRule.id] ?? []}
+								{problemFor}
+								{draft}
+								onchange={changeRule}
+								ontoggle={() => toggleRule(selectedRule!.id)}
+							/>
+						{/if}
+					{/key}
+				{:else}
+					<EmptyState icon={Layers} title="No rules yet">
+						A rule takes the parts that match its conditions. A kit collects the parts of a LEGO set or a
+						list until it is full.
+						{#snippet action()}
+							<div class="flex flex-wrap justify-center gap-2">
+								<Button variant="primary" icon={Plus} onclick={addRule}>Add rule</Button>
+								<Button icon={Plus} onclick={() => (choosingKitFor = 'new')}>Add kit</Button>
+							</div>
+						{/snippet}
+					</EmptyState>
 				{/if}
-			</div>
-			{#if !isPreview && showSetSearch}
-				<div class="border-t border-line p-3">
-					<SetSearch onSelect={addSetRule} onCancel={() => (showSetSearch = false)} />
+			</Panel>
+
+			<!-- What the draft does. -->
+			<section
+				class="flex min-h-0 min-w-0 flex-col overflow-hidden rounded-panel bg-surface {narrow === 'result'
+					? ''
+					: 'max-xl:hidden'}"
+			>
+				<div class="max-xl:hidden">
+					<Tabs label="Results and assistant" inset bind:value={rightTab} items={tabs} />
 				</div>
-			{/if}
-		</section>
-
-		<ProfileChatPanel
-			{profile}
-			{rightTab}
-			onRightTabChange={(tab) => {
-				rightTab = tab;
-			}}
-			{hasOpenRouter}
-			{aiMessages}
-			{aiMessage}
-			onAiMessageChange={(value) => {
-				aiMessage = value;
-			}}
-			{aiBusy}
-			{aiError}
-			{aiErrorCode}
-			{isNewProfile}
-			workingRulesLength={workingRules.length}
-			{visibleAiProgressCards}
-			chatContainerRef={(el) => {
-				chatContainer = el;
-			}}
-			onSendAiMessage={() => void sendAiMessage()}
-			onViewVersion={(id) => void viewVersion(id)}
-			onRestoreVersion={(id) => void restoreVersion(id)}
-			onForkFromVersion={(id) => void forkFromVersion(id)}
-			onExitPreview={exitPreview}
-			{restoringVersionId}
-			{previewLoading}
-			{formatDate}
-			{formatDuration}
-			{displayAiMessageContent}
-			{aiMessagePerformanceLabel}
-			{proposalActionSummaries}
-			{toolTraceTitle}
-			{getExpandableToolResult}
-			{getToolResultSummaryLine}
-			{visibleToolResultItems}
-			{canExpandToolResult}
-			{isToolResultExpanded}
-			onToggleToolResult={toggleToolResult}
-		/>
-	</div>
-
-	{#if hasUnsavedChanges}
-		<!-- A bar along the bottom while there is something to save. -->
-		<div class="fixed inset-x-0 bottom-0 z-30 border-t border-line bg-surface px-4 py-3">
-			<div class="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-2">
-				<span class="flex items-center gap-2 text-sm text-ink-muted">
-					<span class="size-2 rounded-full bg-warning" aria-hidden="true"></span>Unsaved changes
-				</span>
-				<Button variant="primary" icon={Save} disabled={savingVersion} onclick={() => (showSavePopover = true)}
-					>Save</Button
-				>
-			</div>
+				<div class="min-h-0 flex-1 overflow-y-auto {rightTab === 'chat' ? 'hidden' : ''}">
+					{#if rightTab === 'matches'}
+						{#if selectedRule && isKitRule(selectedRule)}
+							<KitLines rule={selectedRule} reloadKey={comeback} />
+						{:else if selectedRule}
+							{#key selectedRule.id}
+								<Matches {draft} draftKey={matchKey} ruleId={selectedRule.id} bin={preview?.categories[selectedRule.id]} />
+							{/key}
+						{:else}
+							<p class="p-(--pad-panel) text-sm text-ink-muted">
+								{selectedId === REST_ID
+									? 'This bin takes what no rule takes. The Bins tab shows every bin.'
+									: rules.length === 0
+										? 'Add a rule to see the parts that match it.'
+										: 'Choose a rule to see the parts that match it.'}
+							</p>
+						{/if}
+					{:else if rightTab === 'bins'}
+						<BinsResult
+							{preview}
+							busy={previewBusy}
+							{draft}
+							draftKey={serverKey}
+							{rules}
+							{selectedId}
+							warningsFor={warningsOf}
+							onselect={(id) => {
+								select(id);
+								rightTab = 'matches';
+							}}
+						/>
+						{#if previewError}
+							<div class="px-(--pad-panel) pb-(--pad-panel)"><Alert tone="warning">{previewError}</Alert></div>
+						{/if}
+					{:else if rightTab === 'versions'}
+						<VersionsPanel {profile} {restoringId} onrestore={restoreClicked} onfork={(id) => void fork(id)} />
+					{/if}
+				</div>
+				<ProfileChatPanel
+					{profile}
+					selectedRuleId={selectedId === REST_ID ? null : selectedId}
+					{hasOpenRouter}
+					{isNewProfile}
+					rulesCount={rules.length}
+					{dirty}
+					active={rightTab === 'chat'}
+					onbusy={(busy) => (assistantBusy = busy)}
+					{onapplied}
+				/>
+			</section>
 		</div>
-		<div class="h-16"></div>
-	{/if}
+	</div>
 {/if}
 
-<input
-	bind:this={csvImportFileInput}
-	type="file"
-	accept=".csv,text/csv"
-	class="hidden"
-	onchange={handleBrickLinkCsvSelected}
-/>
+<Modal open={deleting !== null} title="Delete this rule?" size="sm" onclose={() => (deleting = null)}>
+	<p class="text-sm text-ink">
+		"{deleting?.name}" is taken out of the draft, and the pieces it took go to the next rule that takes them.
+	</p>
+	{#snippet footer()}
+		<Button variant="ghost" onclick={() => (deleting = null)}>Keep it</Button>
+		<Button variant="danger" icon={Trash2} onclick={confirmDelete}>Delete rule</Button>
+	{/snippet}
+</Modal>
+
+<Modal open={choosingKitFor !== null} title="Choose a kit" size="lg" onclose={() => (choosingKitFor = null)}>
+	{#if choosingKitFor !== null}
+		<KitPicker onpick={pickedKit} />
+	{/if}
+</Modal>
+
+<Modal open={askRestore !== null} title="Restore this version?" size="sm" onclose={() => (askRestore = null)}>
+	<p class="text-sm text-ink">
+		Restoring saves that version as the newest one, and the changes you have not saved are replaced.
+	</p>
+	{#snippet footer()}
+		<Button variant="ghost" onclick={() => (askRestore = null)}>Cancel</Button>
+		<Button variant="primary" onclick={() => askRestore && void restore(askRestore)}>Restore</Button>
+	{/snippet}
+</Modal>
+
+<Modal open={confirmLoad} title="Load the newer version?" size="sm" onclose={() => (confirmLoad = false)}>
+	<p class="text-sm text-ink">Loading it replaces the changes you have not saved.</p>
+	{#snippet footer()}
+		<Button variant="ghost" onclick={() => (confirmLoad = false)}>Keep editing</Button>
+		<Button variant="danger" onclick={loadIt}>Load it</Button>
+	{/snippet}
+</Modal>
 
 <Modal open={leaveTarget !== null} title="Leave without saving?" size="sm" onclose={() => (leaveTarget = null)}>
 	<p class="text-sm text-ink">This profile has changes that are not saved. If you leave now, they are lost.</p>

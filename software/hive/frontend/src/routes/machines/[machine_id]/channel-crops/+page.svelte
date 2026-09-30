@@ -197,7 +197,7 @@
 							title={`C${crop.channel}, ${zoneLabel(crop.zone_code)}, ${deg(
 								crop.com_forward_to_exit_deg
 							)} to the exit, track ${crop.track_id ?? '-'}, ${when(crop.ts)}`}
-							class="h-20 w-full rounded-control bg-media object-contain"
+							class="h-20 w-full rounded-control object-contain"
 						/>
 					{:else}
 						<div

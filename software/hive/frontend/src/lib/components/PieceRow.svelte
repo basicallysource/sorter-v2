@@ -21,7 +21,7 @@
 	aria-pressed={selected}
 	class="flex w-full items-center gap-3 px-(--pad-panel) py-2 text-left {selected ? 'bg-primary-soft' : 'hover:bg-hover'}"
 >
-	<div class="flex size-10 shrink-0 items-center justify-center rounded-item {card.thumb_seq != null ? 'bg-media' : 'bg-well'}">
+	<div class="flex size-10 shrink-0 items-center justify-center rounded-item {card.thumb_seq != null ? '' : 'bg-well'}">
 		{#if card.thumb_seq != null}
 			<img
 				src={api.colorLabelImageUrl(card.machine_id, card.piece_uuid, card.thumb_seq)}

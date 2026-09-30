@@ -17,13 +17,15 @@
 
 <div {id}>
 	<Card label={card.part.part_name || card.part.part_id || 'Unidentified piece'} onclick={() => onOpen(card)} padded={false} class="overflow-hidden">
-		<div class="relative flex h-24 items-center justify-center {card.thumb_seq != null ? 'bg-media' : 'bg-well'}">
+		<!-- The crop is shown whole in a square, on the card's own fill: a crop is
+		     rarely square, and a backdrop would show as bars beside it. -->
+		<div class="relative flex aspect-square items-center justify-center {card.thumb_seq != null ? '' : 'bg-well'}">
 			{#if card.thumb_seq != null}
 				<img
 					src={api.colorLabelImageUrl(card.machine_id, card.piece_uuid, card.thumb_seq)}
 					alt={card.part.part_name ?? 'piece'}
 					loading="lazy"
-					class="h-24 w-full object-contain"
+					class="absolute inset-0 size-full object-contain"
 				/>
 			{:else}
 				<span class="text-sm text-ink-muted">No picture</span>

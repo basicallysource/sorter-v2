@@ -95,7 +95,10 @@ dims the page behind it (`bg-scrim`). See [overlays.md](overlays.md).
 ## Media
 
 A camera feed or a photo sits on `bg-media` (`MediaTile`), and the tile is the
-shape of its picture, so the backdrop is never seen as a bar. What is drawn
+shape of its picture, so the backdrop is never seen as a bar. Where a picture
+is shown whole in a box of another shape (a piece's crop in a grid of square
+tiles, a thumbnail in a row), it has no backdrop at all: it sits on the fill
+of the card or row it is in. What is drawn
 over the picture (a "Live" badge, a chip) sits in a `dark` subtree, so it uses
 the dark tokens whatever the page's mode ([color.md](color.md)).
 

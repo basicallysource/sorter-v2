@@ -860,7 +860,7 @@
 							src={api.colorLabelImageUrl(machineId, pieceUuid, img.seq)}
 							alt={`Crop ${img.seq}`}
 							title={`Crop ${img.seq}${img.source ? `, ${img.source}` : ''}`}
-							class="size-28 rounded-item bg-media object-contain"
+							class="size-28 rounded-item object-contain"
 						/>
 						{#if img.used}
 							<span class="absolute right-0.5 bottom-0.5 inline-flex h-(--size-badge) items-center rounded-badge bg-success px-1.5 text-xs font-medium text-on-success"
@@ -967,7 +967,7 @@
 							class="flex flex-col items-center gap-1 rounded-item p-1 {selected ? 'bg-primary-soft' : 'bg-well opacity-70 hover:opacity-100'}"
 						>
 							{#if c.available}
-								<img src={api.channelCropLabelImageUrl(machineId, c.local_id)} alt={`Crop ${c.local_id}`} loading="lazy" class="size-16 rounded-item bg-media object-contain" />
+								<img src={api.channelCropLabelImageUrl(machineId, c.local_id)} alt={`Crop ${c.local_id}`} loading="lazy" class="size-16 rounded-item object-contain" />
 							{:else}
 								<div class="flex size-16 items-center justify-center text-sm text-ink-faint">Gone</div>
 							{/if}

@@ -403,7 +403,7 @@
 			{:else if items.length === 0}
 				<Panel><EmptyState icon={Shapes} title="No pieces match">No labelable pieces match these filters.</EmptyState></Panel>
 			{:else if view === 'grid'}
-				<div class="grid grid-cols-2 gap-3 {paneOpen ? 'sm:grid-cols-2 xl:grid-cols-3' : 'sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5'}">
+				<div class="grid grid-cols-[repeat(auto-fill,minmax(9rem,1fr))] gap-3">
 					{#each items as card (cardKey(card))}
 						<PieceCard {card} id={rowElId(card)} selected={selectedKey != null && sameKey(card, selectedKey)} onOpen={open} />
 					{/each}

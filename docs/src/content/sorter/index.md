@@ -42,4 +42,4 @@ These flows do not yet have dedicated pages:
 
 - **Operating the UI at scale** — running long sessions, reviewing classification samples, tuning vision, checking runtime health.
 
-Until those land, the authoritative sources are `software/README.md`, `software/sorter/backend/coordinator.py`, and the in-app [`/styleguide`]({{ '/lab/styleguide/' | relative_url }}) route which renders the live component set.
+Until those land, the authoritative sources are `software/README.md` and `software/sorter/backend/coordinator.py`.

@@ -2,7 +2,8 @@
 
 Hive is the cloud side of the sorter ecosystem: FastAPI backend
 (`backend/`), SvelteKit frontend (`frontend/`), postgres, alembic
-migrations. Frontend design rules: [`frontend/AGENTS.md`](frontend/AGENTS.md).
+migrations. The frontend: [`frontend/AGENTS.md`](frontend/AGENTS.md); how it
+looks: [`../sorter-design-system`](../sorter-design-system).
 
 ## agent-docs/ — read it, and KEEP IT UPDATED
 

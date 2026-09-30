@@ -107,10 +107,10 @@ class Stage:
 #
 # While first boot runs, port 80 shows what it is doing, so a browser pointed
 # at the machine sees progress instead of ERR_CONNECTION_REFUSED. It follows
-# the Sorter UI's style guide (software/sorter/frontend/AGENTS.md and its
-# /styleguide), as the setup page does, with the same two differences: system
-# fonts, and dark mode from the browser. Everything is inline: the page must
-# work with nothing else on the machine answering yet.
+# the design system (software/sorter-design-system), as the setup page does,
+# with the same two differences: system fonts, and dark mode from the browser.
+# Everything is inline: the page must work with nothing else on the machine
+# answering yet.
 #
 # When everything the UI needs is in place the backend starts, while this page
 # keeps port 80. Its supervisor, which serves the UI, tries the port every

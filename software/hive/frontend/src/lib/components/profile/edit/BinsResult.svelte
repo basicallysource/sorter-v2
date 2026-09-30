@@ -72,13 +72,13 @@
 				{#if busy}<Spinner size={14} class="text-ink-muted" />{/if}
 			</div>
 			{#if preview}
-				<p class="text-sm text-ink">{plural(order.length, 'bin')} in this profile.</p>
+				<p class="text-sm text-ink">{plural(order.length, 'category', 'categories')} in this profile.</p>
 				<p class="text-sm text-ink-muted">
 					{preview.stats.sorted.toLocaleString('en-US')} of {preview.stats.total_parts.toLocaleString('en-US')} catalog
-					parts go to a bin of their own.
+					parts are sorted; the rest go to Everything else.
 				</p>
 			{:else}
-				<p class="flex items-center gap-2 text-sm text-ink-muted"><Spinner size={14} />Working out the bins</p>
+				<p class="flex items-center gap-2 text-sm text-ink-muted"><Spinner size={14} />Working out the categories</p>
 			{/if}
 		</section>
 
@@ -97,7 +97,7 @@
 
 		{#if fallbackIds.length > 0}
 			<h3 class="label border-t border-line px-(--pad-panel) py-2">
-				{byColor ? 'One bin for each color' : 'One bin for each category'}
+				{byColor ? 'By color' : 'By category'}
 			</h3>
 			<ul class="divide-y divide-line border-t border-line">
 				{#each shownFallback as id (id)}

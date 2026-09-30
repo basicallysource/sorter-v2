@@ -36,16 +36,16 @@
 	const applied = $derived(
 		formatRelativeTime(syncState?.applied_at ?? localProfile?.updated_at ?? null)
 	);
-	// What it sorts into, in a sentence: "50 bins; 59,000 of 81,000 known parts have a bin of their own."
+	// What it sorts into, in a sentence: "50 categories; 59,000 of 81,000 known parts are sorted."
 	const sorts = $derived.by(() => {
 		if (!metadata) return null;
 		const count = Object.keys(metadata.categories ?? {}).length;
-		const bins = `${whole(count)} ${count === 1 ? 'bin' : 'bins'}`;
+		const bins = `${whole(count)} ${count === 1 ? 'category' : 'categories'}`;
 		const { sorted, total_parts: total } = metadata.stats ?? {};
 		if (sorted == null || total == null) return `${bins}.`;
 		return sorted === total
-			? `${bins}; every one of the ${whole(total)} known parts has a bin of its own.`
-			: `${bins}; ${whole(sorted)} of ${whole(total)} known parts have a bin of their own.`;
+			? `${bins}; all ${whole(total)} known parts are sorted.`
+			: `${bins}; ${whole(sorted)} of ${whole(total)} known parts are sorted, the rest go to Everything else.`;
 	});
 
 	function whole(n: number) {
@@ -55,7 +55,7 @@
 
 <Panel title="On this machine" description="The profile this machine sorts with now.">
 	{#snippet actions()}
-		<Button size="sm" icon={Boxes} onclick={onOpenBins}>See its bins</Button>
+		<Button size="sm" icon={Boxes} onclick={onOpenBins}>See its categories</Button>
 	{/snippet}
 	<div class="flex flex-col gap-3">
 		<div>

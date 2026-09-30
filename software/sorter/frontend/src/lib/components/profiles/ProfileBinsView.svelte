@@ -71,15 +71,9 @@
 		{/if}
 
 		{#if groups.rules.length > 0}
-			<div class="grid gap-(--gap-panels) sm:grid-cols-2">
+			<div class="flex flex-col gap-2">
 				{#each groups.rules as entry (entry.id)}
-					<ProfileBin
-						bin={entry.bin}
-						number={entry.number}
-						warnings={entry.warnings}
-						plane="well"
-						examples={3}
-					/>
+					<ProfileBin bin={entry.bin} number={entry.number} warnings={entry.warnings} plane="well" />
 				{/each}
 			</div>
 		{/if}
@@ -99,9 +93,9 @@
 		{/if}
 
 		{#if groups.rest.length > 0}
-			<div class="grid gap-(--gap-panels) sm:grid-cols-2">
+			<div class="flex flex-col gap-2">
 				{#each groups.rest as entry (entry.id)}
-					<ProfileBin bin={entry.bin} warnings={entry.warnings} plane="well" examples={3} />
+					<ProfileBin bin={entry.bin} warnings={entry.warnings} plane="well" />
 				{/each}
 			</div>
 		{/if}

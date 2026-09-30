@@ -162,7 +162,7 @@
 			</ul>
 			{#if bins.length > MAX_BINS}
 				<div>
-					<Button size="sm" variant="ghost" onclick={props.onOpenDetails}>See all bins</Button>
+					<Button size="sm" variant="ghost" onclick={props.onOpenDetails}>See all categories</Button>
 				</div>
 			{/if}
 		{:else if rules.length > 0}

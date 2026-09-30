@@ -145,14 +145,14 @@
 			case 'fallback':
 				return 'No rule takes it, so the fallback sends it here.';
 			default:
-				return 'No rule takes it, and the fallback has no bin for it.';
+				return 'No rule takes it, and the fallback has no category for it.';
 		}
 	}
 </script>
 
 <Panel
 	title="Where would a piece go?"
-	description="Type a part and a color to see which bin takes it."
+	description="Type a part and a color to see where it goes."
 	flush
 >
 	{#snippet actions()}

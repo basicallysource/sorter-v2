@@ -107,7 +107,7 @@
 		rule: 'The first rule that takes it.',
 		kit: 'A kit that still needs it.',
 		fallback: 'No rule takes it, so the fallback sends it here.',
-		default: 'No rule takes it, and the fallback has no bin for it.'
+		default: 'No rule takes it, and the fallback has no category for it.'
 	};
 	const why = $derived.by(() => {
 		if (!result) return '';

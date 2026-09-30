@@ -146,10 +146,10 @@
 	});
 	const fallbackText = $derived(
 		{
-			bricklink: 'Pieces no rule takes go to a bin for their BrickLink category, or to Everything else when they have none.',
-			rebrickable: 'Pieces no rule takes go to a bin for their Rebrickable category, or to Everything else when they have none.',
-			color: 'Pieces no rule takes go to a bin for their color.',
-			none: 'Pieces no rule takes go to one bin.'
+			bricklink: 'Pieces no rule takes are sorted by their BrickLink category, or go to Everything else when they have none.',
+			rebrickable: 'Pieces no rule takes are sorted by their Rebrickable category, or go to Everything else when they have none.',
+			color: 'Pieces no rule takes are sorted by their color.',
+			none: 'Pieces no rule takes all go to Everything else.'
 		}[fallbackBy ?? 'none']
 	);
 	const fallbackMatches = $derived.by(() => {
@@ -285,9 +285,9 @@
 		const removed = [...was.keys()].filter((id) => !now.has(id));
 		const changed = [...now.keys()].filter((id) => was.has(id) && was.get(id) !== now.get(id));
 		const parts = [
-			added.length ? `${plural(added.length, 'bin')} added` : null,
-			changed.length ? `${plural(changed.length, 'bin')} changed` : null,
-			removed.length ? `${plural(removed.length, 'bin')} removed` : null
+			added.length ? `${plural(added.length, 'category', 'categories')} added` : null,
+			changed.length ? `${plural(changed.length, 'category', 'categories')} changed` : null,
+			removed.length ? `${plural(removed.length, 'category', 'categories')} removed` : null
 		].filter(Boolean);
 		return { summary: parts.length ? `${parts.join(', ')}.` : null, ids: [...added, ...changed] };
 	}
@@ -546,17 +546,17 @@
 		</Panel>
 	{:else}
 		<div class="flex flex-col gap-(--gap-panels) lg:grid lg:grid-cols-[minmax(0,1fr)_22rem] lg:items-start">
-			<section class="order-2 flex min-w-0 flex-col gap-(--gap-panels) lg:col-start-1 lg:row-start-1" aria-label="Bins">
+			<section class="order-2 flex min-w-0 flex-col gap-(--gap-panels) lg:col-start-1 lg:row-start-1" aria-label="Rules">
 				{#if ruleEntries.length > 0 || !fallbackBy}
 					<div>
-						<h2 class="text-base font-semibold text-ink">Bins</h2>
-						<p class="mt-0.5 text-sm text-ink-muted">A piece goes to the first bin that takes it. The numbers are the order.</p>
+						<h2 class="text-base font-semibold text-ink">Rules</h2>
+						<p class="mt-0.5 text-sm text-ink-muted">A piece goes to the first rule that takes it. The numbers are the order.</p>
 					</div>
 
 					{#if ruleEntries.length === 0}
 						<Panel>
 							<EmptyState icon={Funnel} title="No rules yet">
-								Every piece goes to {defaultEntry?.bin.name ?? 'one bin'}.
+								Every piece goes to {defaultEntry?.bin.name ?? 'Everything else'}.
 								{#snippet action()}
 									{#if profile!.is_owner}
 										<Button href={`/profiles/${profile!.id}/edit`} variant="primary" icon={Pencil}>Edit profile</Button>
@@ -565,7 +565,8 @@
 							</EmptyState>
 						</Panel>
 					{:else}
-						<div class="grid gap-(--gap-panels) sm:grid-cols-2 lg:grid-cols-1 xl:grid-cols-2">
+						<!-- One card to a line; the owner opens the editor at a bin's rule from it. -->
+						<div class="flex flex-col gap-2">
 							{#each ruleEntries as entry (entry.id)}
 								<div data-bin={entry.id} class="flex min-w-0">
 									<ProfileBin
@@ -573,6 +574,7 @@
 										number={entry.number}
 										warnings={entry.warnings}
 										selected={flashed.has(entry.id)}
+										href={profile!.is_owner ? `/profiles/${profile!.id}/edit?rule=${encodeURIComponent(entry.id)}` : undefined}
 										class="flex-1"
 									/>
 								</div>
@@ -591,8 +593,9 @@
 						<div class="border-t border-line">
 							<div class="flex items-center justify-between gap-3 px-(--pad-panel) py-3">
 								<span class="label">
-									{plural(fallbackEntries.length, 'bin')}
-									{fallbackBy === 'color' ? 'by color' : 'by category'}
+									{fallbackBy === 'color'
+										? plural(fallbackEntries.length, 'color')
+										: plural(fallbackEntries.length, 'category', 'categories')}
 								</span>
 								{#if fallbackEntries.length > 10}
 									<Input
@@ -600,8 +603,8 @@
 										size="sm"
 										class="w-48"
 										bind:value={fallbackFilter}
-										placeholder="Filter the bins"
-										aria-label="Filter the bins"
+										placeholder="Filter by name"
+										aria-label="Filter by name"
 									/>
 								{/if}
 							</div>
@@ -613,7 +616,7 @@
 								{/each}
 							</ul>
 							{#if fallbackMatches.length === 0}
-								<p class="border-t border-line px-(--pad-panel) py-3 text-sm text-ink-muted">No bin matches.</p>
+								<p class="border-t border-line px-(--pad-panel) py-3 text-sm text-ink-muted">Nothing matches.</p>
 							{:else if fallbackMatches.length > fallbackShown}
 								<div class="flex items-center gap-3 border-t border-line px-(--pad-panel) py-3">
 									<Button size="sm" onclick={() => (fallbackShown += 50)}

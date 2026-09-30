@@ -141,7 +141,7 @@
 			return version.bins.map((bin) => ({
 				id: bin.id,
 				bin: {
-					name: bin.name ?? 'Bin',
+					name: bin.name ?? 'Unnamed',
 					kind: bin.kind,
 					image_url: bin.image_url,
 					part_count: bin.part_count,
@@ -165,7 +165,7 @@
 
 <PageHeader
 	title="Sorting profiles"
-	description="A profile says which bin each piece goes to. Make your own, or start from one of Hive's."
+	description="A profile says where each piece goes. Make your own, or start from one of Hive's."
 >
 	{#snippet actions()}
 		<Button variant="primary" icon={Plus} loading={creating} onclick={createProfile}>New profile</Button>

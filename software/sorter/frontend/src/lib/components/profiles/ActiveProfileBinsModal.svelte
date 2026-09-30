@@ -18,7 +18,7 @@
 	let { open = $bindable(), metadata, loading, error }: Props = $props();
 </script>
 
-<Modal bind:open title="Bins on this machine" size="lg">
+<Modal bind:open title="What this machine sorts into" size="lg">
 	<div class="flex flex-col gap-6">
 		{#if metadata}
 			<div>

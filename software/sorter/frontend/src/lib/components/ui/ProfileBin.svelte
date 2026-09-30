@@ -4,13 +4,13 @@
 	picture (a color bin shows its color, a kit its picture), its place in the
 	order and its name, what kind of bin it is (Rule, Kit, Category, Color,
 	Everything else), how many parts it takes and in how many colors when it
-	limits them, its conditions in words, up to six example parts, and what is
-	wrong with it in the warning tone. The row is one line of that, for a long
+	limits them, its conditions in words, example parts only when asked
+	(`examples`), and what is wrong with it in the warning tone. The row is one line of that, for a long
 	list of bins: the place, the picture, the name, how many parts, the kind,
 	and a kit's progress.
 
-	Every bin of one profile looks the same, so a grid of them can be read at
-	a glance. A bin from a version saved before bins were described has only a
+	Every bin of one profile looks the same, so a stack of them, one to a line,
+	can be read at a glance. A bin from a version saved before bins were described has only a
 	name; it shows as a plain, name-only bin. The whole bin is the target when
 	it has `href` or `onclick`, like a Card (controls inside still work).
 	`plane="well"` for a card on a dialog, which is itself a surface.
@@ -76,7 +76,7 @@
 		href,
 		layout = 'card',
 		plane = 'surface',
-		examples = 6,
+		examples = 0,
 		class: className = ''
 	}: {
 		bin: Bin;

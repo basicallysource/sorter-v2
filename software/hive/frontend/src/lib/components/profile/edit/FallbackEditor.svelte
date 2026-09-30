@@ -36,18 +36,18 @@
 		name="fallback"
 		value={choice}
 		options={[
-			{ value: 'none', label: 'One bin', help: 'Every piece no rule takes goes into the same bin.' },
+			{ value: 'none', label: 'All together', help: 'Every piece no rule takes goes to Everything else.' },
 			{
 				value: 'bl_category',
 				label: 'BrickLink categories',
-				help: 'One bin for each BrickLink category, such as Brick, Plate or Tile.'
+				help: 'Sorted by BrickLink category, such as Brick, Plate or Tile.'
 			},
 			{
 				value: 'rb_category',
 				label: 'Rebrickable categories',
-				help: 'One bin for each Rebrickable category.'
+				help: 'Sorted by Rebrickable category.'
 			},
-			{ value: 'color', label: 'Color', help: 'One bin for each color, whatever the part.' }
+			{ value: 'color', label: 'Color', help: 'Sorted by color, whatever the part.' }
 		]}
 		{onchange}
 	/>

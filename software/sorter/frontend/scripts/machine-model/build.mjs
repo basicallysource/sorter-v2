@@ -16,8 +16,7 @@
 // - each feeder rotor on its own pivot, and each motor on its own, so the page
 //   can turn them and light them;
 // - one bin of each kind in the frame of the face it sits on, which the page
-//   places from the machine's own bin layout;
-// - every surface's CAD colour as a vertex colour, for the look that shows it.
+//   places from the machine's own bin layout.
 // asset.extras.machine says where everything is (see src/lib/machine3d/model.ts).
 //
 // Fasteners, inserts, wiring, parts inside housings and anything smaller than
@@ -191,14 +190,11 @@ function surfaces(part) {
 	for (const [l, prims] of byLook) {
 		const pos = [];
 		const nor = [];
-		const col = [];
 		const idx = [];
 		const seen = new Map();
 		for (const prim of prims) {
 			const p = prim.getAttribute('POSITION').getArray();
 			const n = prim.getAttribute('NORMAL').getArray();
-			// The CAD's own colour of the part, for the look that shows it.
-			const c = (prim.getMaterial()?.getBaseColorFactor() ?? [0.6, 0.6, 0.6, 1]).slice(0, 3);
 			const remap = [];
 			for (let v = 0; v < p.length / 3; v++) {
 				const k = [
@@ -207,8 +203,7 @@ function surfaces(part) {
 					Math.round(p[v * 3 + 2] * 1e6),
 					Math.round(n[v * 3] * 1e3),
 					Math.round(n[v * 3 + 1] * 1e3),
-					Math.round(n[v * 3 + 2] * 1e3),
-					...c.map((x) => Math.round(x * 255))
+					Math.round(n[v * 3 + 2] * 1e3)
 				].join(',');
 				let i = seen.get(k);
 				if (i === undefined) {
@@ -216,7 +211,6 @@ function surfaces(part) {
 					seen.set(k, i);
 					pos.push(p[v * 3], p[v * 3 + 1], p[v * 3 + 2]);
 					nor.push(n[v * 3], n[v * 3 + 1], n[v * 3 + 2]);
-					col.push(...c);
 				}
 				remap.push(i);
 			}
@@ -235,7 +229,6 @@ function surfaces(part) {
 		const used = new Map();
 		const outPos = [];
 		const outNor = [];
-		const outCol = [];
 		const outIdx = new Uint32Array(kept.length);
 		for (let k = 0; k < kept.length; k++) {
 			let i = used.get(kept[k]);
@@ -245,7 +238,6 @@ function surfaces(part) {
 				const v = kept[k];
 				outPos.push(pos[v * 3], pos[v * 3 + 1], pos[v * 3 + 2]);
 				outNor.push(nor[v * 3], nor[v * 3 + 1], nor[v * 3 + 2]);
-				outCol.push(col[v * 3], col[v * 3 + 1], col[v * 3 + 2]);
 			}
 			outIdx[k] = i;
 		}
@@ -253,7 +245,6 @@ function surfaces(part) {
 			look: l,
 			pos: outPos,
 			nor: outNor,
-			col: outCol,
 			idx: outIdx,
 			before: idx.length / 3
 		});
@@ -364,7 +355,6 @@ function meshFrom(name, items) {
 		const count = list.reduce((n, { s }) => n + s.idx.length, 0);
 		const pos = new Float32Array(vertices * 3);
 		const nor = new Float32Array(vertices * 3);
-		const col = new Uint8Array(vertices * 3);
 		const idx = new Uint32Array(count);
 		let v = 0;
 		let i = 0;
@@ -374,10 +364,6 @@ function meshFrom(name, items) {
 				const d = direction(m, [s.nor[k], s.nor[k + 1], s.nor[k + 2]]);
 				const len = Math.hypot(...d) || 1;
 				nor.set([d[0] / len, d[1] / len, d[2] / len], v * 3 + k);
-				col.set(
-					[s.col[k], s.col[k + 1], s.col[k + 2]].map((x) => Math.round(x * 255)),
-					v * 3 + k
-				);
 			}
 			for (let k = 0; k < s.idx.length; k++) idx[i + k] = s.idx[k] + v;
 			v += s.pos.length / 3;
@@ -395,10 +381,6 @@ function meshFrom(name, items) {
 				.setAttribute(
 					'NORMAL',
 					doc.createAccessor().setType('VEC3').setArray(nor).setBuffer(buffer)
-				)
-				.setAttribute(
-					'COLOR_0',
-					doc.createAccessor().setType('VEC3').setArray(col).setNormalized(true).setBuffer(buffer)
 				)
 				.setIndices(doc.createAccessor().setType('SCALAR').setArray(idx).setBuffer(buffer))
 		);

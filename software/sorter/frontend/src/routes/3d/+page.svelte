@@ -6,7 +6,11 @@
 	//
 	// State comes from the websocket's pieces as they are routed and from a
 	// few slow reads, never a fast poll: the layout every 15 s, the chute and
-	// the doors every 5 s while nothing is sorting. three.js loads only here.
+	// the doors every 5 s while nothing is sorting, and the bins' contents
+	// only when their change token moves. three.js loads only here.
+	//
+	// Each bin's card is a BinFrontCard in a layer behind the canvas, which
+	// the view turns onto the bin's front (see view.ts).
 	import { onMount, untrack } from 'svelte';
 	import AppShell from '$lib/components/AppShell.svelte';
 	import Panel from '$lib/components/ui/Panel.svelte';
@@ -17,6 +21,7 @@
 	import Alert from '$lib/components/ui/Alert.svelte';
 	import Spinner from '$lib/components/ui/Spinner.svelte';
 	import Menu from '$lib/components/ui/Menu.svelte';
+	import BinFrontCard, { PIECES } from '$lib/components/machine3d/BinFrontCard.svelte';
 	import Crosshair from '@lucide/svelte/icons/crosshair';
 	import LayoutGrid from '@lucide/svelte/icons/layout-grid';
 	import { getMachineContext } from '$lib/machines/context';
@@ -35,10 +40,11 @@
 	import type { Manifest } from '$lib/machine3d/model';
 	import type { DoorState, MachineView } from '$lib/machine3d/view';
 	import { readTheme } from '$lib/machine3d/theme';
-	import { cardsFor } from '$lib/machine3d/cards-data';
+	import { watchContents, type Recent } from '$lib/machine3d/contents';
 
 	const LAYOUT_EVERY_MS = 15_000;
 	const LIVE_EVERY_MS = 5_000;
+	const CONTENTS_EVERY_MS = 5_000;
 
 	const machine = getMachineContext();
 	// A touch screen has no right click and no wheel; the help says what it has.
@@ -47,6 +53,8 @@
 	const sorting = $derived(machine.machine?.sorterState?.state === 'running');
 
 	let canvas: HTMLCanvasElement;
+	let cardLayer: HTMLDivElement;
+	let cardCamera: HTMLDivElement;
 	let menu: Menu | undefined = $state();
 	let view = $state.raw<MachineView | null>(null);
 	let manifest = $state<Manifest | null>(null);
@@ -57,12 +65,13 @@
 	let chuteAngle = $state<number | null>(null);
 	let homed = $state<boolean | null>(null);
 	let selected = $state<BinPlace | null>(null);
+	let hovered = $state<string | null>(null);
+	let recent = $state.raw<Recent>({});
 	let seeInside = $state(false);
 	let aiming = $state(false);
 	let aimError = $state<string | null>(null);
 
 	const places = $derived(manifest && geo ? placeBins(layers, geo, manifest) : []);
-	const cards = $derived(cardsFor(places, null));
 	// The layer whose door is closed catches the next piece; the chute points
 	// at a bin there.
 	const catching = $derived(doors.findIndex((d) => d.calibrated && d.open < 0.5));
@@ -103,7 +112,7 @@
 	};
 
 	// A read that says what the page already has changes nothing: the bins and
-	// their labels are rebuilt only when the layout or the chute's geometry does.
+	// their cards are placed again only when the layout or the chute's geometry does.
 	let layoutText = '';
 	let geoText = '';
 
@@ -156,9 +165,12 @@
 		if (live.current_angle !== null) chuteAngle = live.current_angle;
 	}
 
+	const contents = $derived(watchContents(base, PIECES, (next) => (recent = next)));
+
 	// ------------------------------------------------------------ pieces on their way
 	// A piece routed to a bin: the chute turns to it, its layer's door closes and
-	// the others open, and the bin lights until the piece is in.
+	// the others open, and the bin lights until the piece is in; then its card
+	// shows it.
 	const seen = new Map<string, string>();
 	$effect(() => {
 		const pieces = machine.machine?.recentObjects ?? [];
@@ -181,6 +193,7 @@
 				doors = doors.map((d, i) => ({ ...d, open: i === dest[0] || !d.calibrated ? 0 : 1 }));
 			} else if (stage === 'distributed') {
 				view?.lightBin(key, false);
+				void contents.check();
 			}
 		}
 		if (seen.size > 200) for (const uuid of [...seen.keys()].slice(0, 100)) seen.delete(uuid);
@@ -190,7 +203,7 @@
 	$effect(() => {
 		if (layers.length) view?.setLayers(layerKinds(layers));
 	});
-	$effect(() => view?.setBins(places, cards));
+	$effect(() => view?.setBins(places));
 	$effect(() => {
 		if (view && geo && manifest) {
 			const frame = chuteFrame(geo, manifest);
@@ -236,7 +249,8 @@
 		requestAnimationFrame(() => {
 			hoverQueued = false;
 			const hit = view?.pick(e.clientX, e.clientY) ?? null;
-			view?.hover(hit?.key ?? null);
+			hovered = hit?.key ?? null;
+			view?.hover(hovered);
 			canvas.style.cursor = hit ? 'pointer' : '';
 		});
 	}
@@ -289,6 +303,18 @@
 		}
 	}
 
+	/** Hands a card's element to the view, which puts it on its bin. */
+	function onBin(el: HTMLElement, key: string) {
+		let off = view?.card(el, key);
+		return {
+			update(next: string) {
+				off?.();
+				off = view?.card(el, next);
+			},
+			destroy: () => off?.()
+		};
+	}
+
 	const menuItems = $derived([
 		{
 			label: 'Point the chute here',
@@ -310,8 +336,10 @@
 		quiet(readHardware());
 		quiet(readLayout());
 		quiet(readChute());
+		void contents.check();
 		timers.push(
 			setInterval(() => visible() && quiet(readLayout()), LAYOUT_EVERY_MS),
+			setInterval(() => visible() && void contents.check(), CONTENTS_EVERY_MS),
 			setInterval(() => {
 				if (!visible() || sorting) return;
 				quiet(readChute());
@@ -331,6 +359,7 @@
 				const loaded = await loadModel();
 				if (stopped) return;
 				view = new MachineView(canvas, loaded);
+				view.setCardLayer(cardLayer, cardCamera);
 				view.setTheme(readTheme());
 				manifest = loaded.manifest;
 				if (import.meta.env.DEV) {
@@ -383,8 +412,8 @@
 		lines.push(`select ${((performance.now() - t) / 20).toFixed(2)} ms`);
 		view.select(selected?.key ?? null);
 		t = performance.now();
-		view.setBins(places, cards);
-		lines.push(`bins and labels ${(performance.now() - t).toFixed(1)} ms`);
+		view.setBins(places);
+		lines.push(`bins and cards ${(performance.now() - t).toFixed(1)} ms`);
 		return lines.join('\n');
 	}
 
@@ -409,14 +438,41 @@
 		<div
 			class="relative h-[70dvh] min-h-0 overflow-hidden rounded-panel bg-surface lg:h-auto lg:flex-1"
 		>
+			<!-- Behind the canvas, which shows each card through a hole where nothing is in front of it. -->
+			<div
+				bind:this={cardLayer}
+				class="pointer-events-none absolute inset-0 overflow-hidden"
+				aria-hidden="true"
+			>
+				<div bind:this={cardCamera} class="absolute top-0 left-0 transform-3d">
+					{#if view}
+						{#each places as p (p.key)}
+							<div use:onBin={p.key} class="absolute top-0 left-0">
+								<BinFrontCard
+									number={p.globalIndex + 1}
+									name={categoryLabel(p.categoryIds)}
+									pieces={recent[p.key] ?? []}
+									chosen={selected?.key === p.key}
+									current={aimed?.key === p.key}
+									hovered={hovered === p.key}
+									off={!p.enabled || !p.reachable}
+								/>
+							</div>
+						{/each}
+					{/if}
+				</div>
+			</div>
 			<canvas
 				bind:this={canvas}
-				class="block h-full w-full touch-none select-none"
+				class="relative block h-full w-full touch-none select-none"
 				aria-label="The machine in 3D"
 				{onpointerdown}
 				{onpointerup}
 				{onpointermove}
-				onpointerleave={() => view?.hover(null)}
+				onpointerleave={() => {
+					hovered = null;
+					view?.hover(null);
+				}}
 				{oncontextmenu}
 			></canvas>
 			{#if !manifest && !loadError}

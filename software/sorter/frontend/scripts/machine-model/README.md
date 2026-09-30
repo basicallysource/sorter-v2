@@ -50,8 +50,6 @@ browser caches it for good. No model file goes in git.
   at azimuth 0 with its ring's base at height 0. The page places bins from
   the machine's own layout (`GET /api/bins/layout`), so a machine with more
   or fewer layers, or other bins per section, is drawn as it is.
-- Stores each surface's CAD colour as a vertex colour, for the look that
-  shows them.
 - Compresses with meshopt and quantizes. A node that holds a mesh gets the
   quantization's scale and offset, so every pivot the page turns is a node
   of its own with the mesh on a child.

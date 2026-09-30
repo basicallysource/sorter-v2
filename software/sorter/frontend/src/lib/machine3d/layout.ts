@@ -59,6 +59,10 @@ export type BinPlace = {
 
 export const binKey = (layer: number, section: number, bin: number) => `${layer}:${section}:${bin}`;
 
+/** Every bin's card is laid out at this size, in CSS pixels, and the view
+ *  scales it to fit the narrowest bin's front, so all the cards are one size. */
+export const CARD_SIZE = { width: 176, height: 78 };
+
 const wrap = (deg: number) => (((deg % 360) + 540) % 360) - 180;
 
 /** The chute's degrees turn clockwise from home, seen from above; azimuths turn

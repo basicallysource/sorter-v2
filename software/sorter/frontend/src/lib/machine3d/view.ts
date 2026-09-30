@@ -8,45 +8,48 @@
 // a few merged meshes and instanced repeats; the tower (each layer's frame and
 // posts) and the bins are instanced from the machine's own layers and layout,
 // so a frame is about a hundred draw calls however many layers and bins there
-// are. The cards on the bins are one instanced quad per bin reading one
-// texture, so they cost no DOM and hide behind what is in front of them.
+// are.
+//
+// The cards on the bins are the page's own elements, laid out in a layer
+// behind the canvas and turned in CSS to sit on each bin's front, so they are
+// the app's components, sharp at any distance. Where a card is the nearest
+// thing, the canvas draws a transparent hole (one instanced quad per bin), so
+// the card shows through and whatever is in front of it covers it. Only the
+// layer's camera transform changes as the view turns: one style a frame.
 import {
 	Box3,
-	BufferAttribute,
 	BufferGeometry,
-	CanvasTexture,
 	Color,
 	DirectionalLight,
-	EdgesGeometry,
 	Euler,
 	HemisphereLight,
-	InstancedBufferAttribute,
 	InstancedMesh,
-	LineSegments,
 	type Material,
 	Matrix4,
 	Mesh,
 	MeshBasicMaterial,
 	MeshStandardMaterial,
 	MOUSE,
+	CustomBlending,
 	Object3D,
 	PerspectiveCamera,
 	PlaneGeometry,
 	Quaternion,
+	ShaderMaterial,
+	SrcAlphaFactor,
 	Raycaster,
 	Scene,
 	SRGBColorSpace,
 	Vector2,
 	Vector3,
-	WebGLRenderer
+	WebGLRenderer,
+	ZeroFactor
 } from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { MeshoptDecoder } from 'three/addons/libs/meshopt_decoder.module.js';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { MODEL, type Manifest } from './model';
-import type { BinPlace } from './layout';
-import { LOOKS, makeLook, type LookMaterials, type LookName } from './looks';
-import { CARD_STYLES, drawCards, type CardData, type CardStyle, type CardTheme } from './cards';
+import { CARD_SIZE, type BinPlace } from './layout';
 
 // Each bin kind's mesh, and the transform its node gives it.
 type BinKinds = Map<string, { geometry: BufferGeometry; local: Matrix4 }>;
@@ -98,12 +101,20 @@ export function loadModel(): Promise<Loaded> {
 	return loading;
 }
 
-export type Theme = CardTheme & {
+export type Theme = {
 	canvas: string;
+	surface: string;
+	ink: string;
+	primary: string;
 	success: string;
-	info: string;
 	dark: boolean;
 };
+
+// A card's width as a share of the narrowest front, its centre as a share of the
+// bin's height from its base, and how far in front of the bin it sits (m).
+const CARD_FILL = 0.9;
+const CARD_LIFT = 0.36;
+const CARD_OFFSET = 0.0005;
 
 export type DoorState = { open: number; calibrated: boolean };
 
@@ -123,8 +134,6 @@ const FLAP_SWING = (40 * Math.PI) / 180;
 const FLAP_SPEED = 3; // swings a second
 const CHUTE_SPEED = 180; // degrees a second
 const GLOW_FADE = 1.2; // seconds for a bin's light to fade
-// Creases sharper than this get a line in the looks that draw lines.
-const CREASE = 35;
 
 // A kind's bins, and (seeing inside) the ones that are lit, drawn solid over the ghosts.
 type BinBatch = { mesh: InstancedMesh; lit: InstancedMesh; places: BinPlace[] };
@@ -152,11 +161,15 @@ export class MachineView {
 	private batches: BinBatch[] = [];
 	private places: BinPlace[] = [];
 	private twins: Mesh[] = [];
-	private lines: LineSegments[] = [];
-	private cards: InstancedMesh | null = null;
-	private atlas: CanvasTexture | null = null;
-	private cardData: CardData[] = [];
-	private cardStyle: CardStyle = 'paper';
+	// The cards: the page's layer and its camera element, each bin's element
+	// and where it goes, the holes, and what the layer was last given.
+	private cardLayer: { root: HTMLElement; camera: HTMLElement } | null = null;
+	private cardEls = new Map<string, HTMLElement>();
+	private cardAt = new Map<string, { css: string; at: Vector3; out: Vector3 }>();
+	private cardFacing = new Map<string, boolean>();
+	private holes: InstancedMesh | null = null;
+	private cardStyleShown = { perspective: '', camera: '' };
+	private size = { w: 0, h: 0 };
 	private raycaster = new Raycaster();
 	private frame = 0;
 	private last = 0;
@@ -175,23 +188,22 @@ export class MachineView {
 	private seeInside = false;
 	private azimuthOf: (angle: number) => number = (a) => -a;
 
-	private theme: Theme | null = null;
-	private look: LookName = 'lit';
 	private colors = {
-		body: new Color(),
-		dark: new Color(),
 		bin: new Color(),
 		off: new Color(),
-		line: new Color(),
 		primary: new Color(),
-		success: new Color(),
-		info: new Color()
+		success: new Color()
 	};
-	private mats: LookMaterials;
+	private mats = {
+		body: new MeshStandardMaterial({ roughness: 0.85 }),
+		dark: new MeshStandardMaterial({ roughness: 0.7 }),
+		// White, so each bin's instance colour is its colour.
+		bin: new MeshStandardMaterial({ roughness: 0.9 })
+	};
 	private ghost = { body: ghostMaterial(), dark: ghostMaterial(), bin: ghostMaterial() };
 	private active = new MeshStandardMaterial({ roughness: 0.6 });
 	private depthOnly = new MeshBasicMaterial({ colorWrite: false });
-	private cardMaterial = new MeshBasicMaterial({ transparent: true });
+	private holeMaterial = holeMaterial();
 	private hemisphere = new HemisphereLight(0xffffff, 0x444444, 1.1);
 	private key = new DirectionalLight(0xffffff, 2.2);
 
@@ -202,6 +214,8 @@ export class MachineView {
 		this.renderer = new WebGLRenderer({
 			canvas,
 			antialias: true,
+			// For the holes the cards show through.
+			alpha: true,
 			powerPreference: 'high-performance'
 		});
 		this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
@@ -213,7 +227,6 @@ export class MachineView {
 		this.camera.add(this.key);
 		this.scene.add(this.camera, this.hemisphere);
 
-		this.mats = makeLook(this.look, this.colors);
 		this.root = loaded.scene.clone();
 		this.scene.add(this.root);
 		this.chute = this.root.getObjectByName('chute')!;
@@ -229,6 +242,9 @@ export class MachineView {
 		this.controls = new OrbitControls(this.camera, canvas);
 		this.controls.enableDamping = true;
 		this.controls.dampingFactor = 0.12;
+		// Zoom toward what is under the pointer, as CAD viewers do, so scrolling
+		// over a bin comes to that bin.
+		this.controls.zoomToCursor = true;
 		// The right button is the bins' menu; pan with shift or two fingers.
 		this.controls.mouseButtons = { LEFT: MOUSE.ROTATE, MIDDLE: MOUSE.DOLLY, RIGHT: null };
 		this.controls.addEventListener('change', () => this.invalidate());
@@ -274,7 +290,6 @@ export class MachineView {
 		});
 		// After the walk, which would otherwise walk into the twins it makes.
 		for (const o of ghosts) this.twin(o);
-		if (LOOKS.find((l) => l.name === this.look)?.lines) this.addLines(obj);
 	}
 
 	private materialFor(o: Mesh): Material {
@@ -284,7 +299,7 @@ export class MachineView {
 		return this.mats[surface];
 	}
 
-	/** Every surface's material again, after the look or seeing inside changed. */
+	/** Every surface's material again, after seeing inside changed. */
 	private repaint() {
 		this.root.traverse((o) => {
 			if (o instanceof Mesh && o.userData.surface && !o.userData.twin)
@@ -296,8 +311,8 @@ export class MachineView {
 			b.lit.visible = this.seeInside;
 		}
 		for (const t of this.twins) t.visible = this.seeInside;
-		for (const l of this.lines) l.visible = !this.seeInside;
-		if (this.cards) this.cards.visible = !this.seeInside;
+		if (this.holes) this.holes.visible = !this.seeInside;
+		if (this.cardLayer) this.cardLayer.root.style.visibility = this.seeInside ? 'hidden' : '';
 		this.paintBins();
 		this.invalidate();
 	}
@@ -317,76 +332,12 @@ export class MachineView {
 		this.twins.push(twin);
 	}
 
-	private edges = new WeakMap<BufferGeometry, Float32Array>();
-
-	/** Lines along the creases of every surface under `obj`: one set of lines
-	 *  per mesh, with an instanced mesh's copies merged into it. */
-	private addLines(obj: Object3D) {
-		const meshes: Mesh[] = [];
-		obj.traverse((o) => {
-			if (o instanceof Mesh && o.userData.surface && !o.userData.twin) meshes.push(o);
-		});
-		const m = new Matrix4();
-		const v = new Vector3();
-		for (const mesh of meshes) {
-			let e = this.edges.get(mesh.geometry);
-			if (!e) {
-				e = new EdgesGeometry(mesh.geometry, CREASE).getAttribute('position').array as Float32Array;
-				this.edges.set(mesh.geometry, e);
-			}
-			const copies = mesh instanceof InstancedMesh ? mesh.count : 1;
-			const out = new Float32Array(e.length * copies);
-			for (let i = 0; i < copies; i++) {
-				if (mesh instanceof InstancedMesh) mesh.getMatrixAt(i, m);
-				else m.identity();
-				for (let k = 0; k < e.length; k += 3) {
-					v.set(e[k], e[k + 1], e[k + 2]).applyMatrix4(m);
-					out.set([v.x, v.y, v.z], i * e.length + k);
-				}
-			}
-			const g = new BufferGeometry();
-			g.setAttribute('position', new BufferAttribute(out, 3));
-			const lines = new LineSegments(g, this.mats.line);
-			lines.userData.twin = true;
-			lines.raycast = () => {};
-			lines.visible = !this.seeInside;
-			mesh.add(lines);
-			this.lines.push(lines);
-		}
-	}
-
-	private dropLines() {
-		for (const l of this.lines) {
-			l.removeFromParent();
-			l.geometry.dispose();
-		}
-		this.lines = [];
-	}
-
 	private forget(obj: Object3D) {
 		const inside = (t: Object3D) => {
 			for (let p: Object3D | null = t; p; p = p.parent) if (p === obj) return true;
 			return false;
 		};
 		this.twins = this.twins.filter((t) => !inside(t));
-		this.lines = this.lines.filter((l) => {
-			if (!inside(l)) return true;
-			l.geometry.dispose();
-			return false;
-		});
-	}
-
-	/** Draws the machine another way (looks.ts). */
-	setLook(name: LookName) {
-		if (name === this.look) return;
-		this.look = name;
-		for (const m of Object.values(this.mats)) m.dispose();
-		this.mats = makeLook(name, this.colors);
-		this.dropLines();
-		if (LOOKS.find((l) => l.name === name)?.lines) {
-			this.addLines(this.root);
-		}
-		this.repaint();
 	}
 
 	// ------------------------------------------------------------ the tower
@@ -522,7 +473,6 @@ export class MachineView {
 
 	// ------------------------------------------------------------ what the page sets
 	setTheme(theme: Theme) {
-		this.theme = theme;
 		const canvas = new Color(theme.canvas);
 		const ink = new Color(theme.ink);
 		const mix = (t: number) => canvas.clone().lerp(ink, t);
@@ -530,29 +480,23 @@ export class MachineView {
 		this.scene.background = new Color(theme.surface);
 		// The bins are what the page is about, so they carry the most contrast;
 		// the frame steps back.
-		this.colors.body.copy(mix(theme.dark ? 0.3 : 0.2));
-		this.colors.dark.copy(mix(theme.dark ? 0.14 : 0.66));
+		const body = mix(theme.dark ? 0.3 : 0.2);
+		const dark = mix(theme.dark ? 0.14 : 0.66);
+		this.mats.body.color.copy(body);
+		this.mats.dark.color.copy(dark);
+		this.ghost.body.color.copy(body);
+		this.ghost.dark.color.copy(dark);
 		this.colors.bin.copy(mix(theme.dark ? 0.55 : 0.46));
 		this.colors.off.copy(mix(theme.dark ? 0.2 : 0.16));
-		this.colors.line.copy(mix(theme.dark ? 0.62 : 0.72));
 		this.colors.primary.set(theme.primary);
 		this.colors.success.set(theme.success);
-		this.colors.info.set(theme.info);
-		// The look's materials take the new colours.
-		for (const m of Object.values(this.mats)) m.dispose();
-		this.mats = makeLook(this.look, this.colors);
-		for (const l of this.lines) l.material = this.mats.line;
-		this.ghost.body.color.copy(this.colors.body);
-		this.ghost.dark.color.copy(this.colors.dark);
-		this.ghost.bin.color.set(0xffffff);
 		this.active.color.copy(this.colors.success);
 		this.hemisphere.groundColor.copy(canvas.clone().lerp(new Color(0), 0.5));
 		this.repaint();
-		this.drawCards();
 	}
 
-	/** The bins, placed from the machine's layout, and what each one's card says. */
-	setBins(places: BinPlace[], cards: CardData[]) {
+	/** The bins, placed from the machine's layout. */
+	setBins(places: BinPlace[]) {
 		for (const b of this.batches) {
 			this.forget(b.mesh);
 			b.mesh.removeFromParent();
@@ -588,12 +532,10 @@ export class MachineView {
 			mesh.matrixAutoUpdate = false;
 			this.root.add(mesh);
 			this.twin(mesh);
-			if (LOOKS.find((l) => l.name === this.look)?.lines) this.addLines(mesh);
 			// The bins take their colour per instance, not from their material.
 			mesh.material = this.seeInside ? this.ghost.bin : this.mats.bin;
 			this.batches.push({ mesh, lit, places: list });
 		}
-		this.cardData = cards;
 		this.placeCards();
 		this.paintBins();
 		this.invalidate();
@@ -689,80 +631,119 @@ export class MachineView {
 	}
 
 	// ------------------------------------------------------------ cards
-	/** How each bin's card is drawn (cards.ts). */
-	setCardStyle(style: CardStyle) {
-		if (style === this.cardStyle) return;
-		this.cardStyle = style;
-		this.placeCards();
-	}
-
-	private placeCards() {
-		this.cards?.removeFromParent();
-		this.cards?.dispose();
-		this.cards = null;
-		const places = this.places;
-		if (!places.length) return;
-		const shape = CARD_STYLES.find((s) => s.name === this.cardStyle)!;
-		const quad = new PlaneGeometry(1, 1);
-		const mesh = new InstancedMesh(quad, this.cardMaterial, places.length);
-		const m = new Matrix4();
-		const q = new Quaternion().setFromEuler(new Euler(0, Math.PI / 2, 0));
-		places.forEach((p, i) => {
-			// On the bin's front, just in front of it.
-			const kind = this.manifest.binKinds[p.kind];
-			const width = (kind.max[2] - kind.min[2]) * p.widthScale * shape.width;
-			const local = new Vector3(
-				kind.max[0] + shape.offset,
-				kind.min[1] + (kind.max[1] - kind.min[1]) * shape.lift,
-				(kind.min[2] + kind.max[2]) / 2 + p.along
-			);
-			const face = new Matrix4().makeRotationY((p.faceAzimuth * Math.PI) / 180);
-			const at = local.applyMatrix4(face).add(new Vector3(0, this.levelBase(p.level), 0));
-			const turn = new Quaternion().setFromRotationMatrix(face).multiply(q);
-			mesh.setMatrixAt(i, m.compose(at, turn, new Vector3(width, width / shape.aspect, 1)));
-		});
-		mesh.matrixAutoUpdate = false;
-		mesh.visible = !this.seeInside;
-		mesh.raycast = () => {};
-		this.cards = mesh;
-		this.root.add(mesh);
-		this.drawCards();
-	}
-
-	private drawCards() {
-		if (!this.cards || !this.theme) return;
-		const shape = CARD_STYLES.find((s) => s.name === this.cardStyle)!;
-		const data = this.places.map((_, i) => this.cardData[i] ?? blankCard);
-		const b = this.colors.bin.clone().convertLinearToSRGB();
-		const onBin = 0.2126 * b.r + 0.7152 * b.g + 0.0722 * b.b > 0.45 ? '#1b1a18' : '#ffffff';
-		const atlas = drawCards(shape, data, { ...this.theme, onBin });
-		const cells = new Float32Array(data.length * 2);
-		data.forEach((_, i) => {
-			cells[i * 2] = (i % atlas.columns) / atlas.columns;
-			cells[i * 2 + 1] = 1 - (Math.floor(i / atlas.columns) + 1) / atlas.rows;
-		});
-		this.cards.geometry.setAttribute('cellOffset', new InstancedBufferAttribute(cells, 2));
-		const cellSize = { value: new Vector2(1 / atlas.columns, 1 / atlas.rows) };
-		this.cardMaterial.onBeforeCompile = (shader) => {
-			shader.uniforms.cellSize = cellSize;
-			shader.vertexShader = shader.vertexShader
-				.replace(
-					'#include <common>',
-					'#include <common>\nattribute vec2 cellOffset;\nuniform vec2 cellSize;'
-				)
-				.replace(
-					'#include <uv_vertex>',
-					'#include <uv_vertex>\n#ifdef USE_MAP\nvMapUv = cellOffset + uv * cellSize;\n#endif'
-				);
-		};
-		this.cardMaterial.customProgramCacheKey = () => `machine3d-card-${atlas.columns}x${atlas.rows}`;
-		this.atlas?.dispose();
-		this.atlas = new CanvasTexture(atlas.canvas);
-		this.atlas.colorSpace = SRGBColorSpace;
-		this.atlas.anisotropy = Math.min(8, this.renderer.capabilities.getMaxAnisotropy());
-		this.cardMaterial.map = this.atlas;
-		this.cardMaterial.needsUpdate = true;
+	/** The page's layer for the cards: `root` the size of the canvas, behind
+	 *  it, and `camera` inside it, holding each bin's card element. */
+	setCardLayer(root: HTMLElement, camera: HTMLElement) {
+		this.cardLayer = { root, camera };
+		this.cardStyleShown = { perspective: '', camera: '' };
+		root.style.visibility = this.seeInside ? 'hidden' : '';
+		this.resize();
 		this.invalidate();
+	}
+
+	/** Puts a bin's card element on that bin's front; call the result to take
+	 *  it off. The element is a direct child of the camera; the view sizes it. */
+	card(el: HTMLElement, key: string): () => void {
+		this.cardEls.set(key, el);
+		el.style.width = `${CARD_SIZE.width}px`;
+		el.style.height = `${CARD_SIZE.height}px`;
+		el.style.transform = this.cardAt.get(key)?.css ?? 'scale(0)';
+		this.cardFacing.delete(key);
+		this.invalidate();
+		return () => {
+			if (this.cardEls.get(key) === el) this.cardEls.delete(key);
+		};
+	}
+
+	/** Where each bin's card goes: one size for every bin, the narrowest
+	 *  front's, centred on each bin's front. */
+	private placeCards() {
+		this.holes?.removeFromParent();
+		this.holes?.geometry.dispose();
+		this.holes?.dispose();
+		this.holes = null;
+		this.cardAt.clear();
+		const places = this.places.filter((p) => this.manifest.binKinds[p.kind]);
+		if (places.length) {
+			let front = Infinity;
+			let height = Infinity;
+			for (const p of places) {
+				const k = this.manifest.binKinds[p.kind];
+				front = Math.min(front, (k.max[2] - k.min[2]) * p.widthScale);
+				height = Math.min(height, k.max[1] - k.min[1]);
+			}
+			// Metres per CSS pixel of the card.
+			const scale = Math.min(
+				(front * CARD_FILL) / CARD_SIZE.width,
+				(height * 0.6) / CARD_SIZE.height
+			);
+			const size = new Vector3(CARD_SIZE.width * scale, CARD_SIZE.height * scale, 1);
+			const holes = new InstancedMesh(new PlaneGeometry(1, 1), this.holeMaterial, places.length);
+			// A plane faces +z; a bin's front faces +x in its face's frame.
+			const outward = new Quaternion().setFromEuler(new Euler(0, Math.PI / 2, 0));
+			const m = new Matrix4();
+			this.root.updateMatrixWorld(true);
+			places.forEach((p, i) => {
+				const k = this.manifest.binKinds[p.kind];
+				const face = new Matrix4().makeRotationY((p.faceAzimuth * Math.PI) / 180);
+				const at = new Vector3(
+					k.max[0] + CARD_OFFSET,
+					k.min[1] + (k.max[1] - k.min[1]) * CARD_LIFT,
+					((k.min[2] + k.max[2]) / 2) * p.widthScale + p.along
+				)
+					.applyMatrix4(face)
+					.add(new Vector3(0, this.levelBase(p.level), 0));
+				const turn = new Quaternion().setFromRotationMatrix(face).multiply(outward);
+				holes.setMatrixAt(i, m.compose(at, turn, size));
+				m.compose(at, turn, new Vector3(scale, scale, scale)).premultiply(this.root.matrixWorld);
+				this.cardAt.set(p.key, {
+					css: objectCss(m),
+					at: at.clone().applyMatrix4(this.root.matrixWorld),
+					out: new Vector3(0, 0, 1).applyQuaternion(turn).transformDirection(this.root.matrixWorld)
+				});
+			});
+			holes.matrixAutoUpdate = false;
+			holes.visible = !this.seeInside;
+			holes.raycast = () => {};
+			holes.computeBoundingSphere();
+			this.holes = holes;
+			this.root.add(holes);
+		}
+		for (const [key, el] of this.cardEls)
+			el.style.transform = this.cardAt.get(key)?.css ?? 'scale(0)';
+		this.cardFacing.clear();
+	}
+
+	/** The card layer's camera, after a frame: only what changed is written. */
+	private syncCards() {
+		const layer = this.cardLayer;
+		if (!layer || this.seeInside || !this.size.h) return;
+		const halfW = this.size.w / 2;
+		const halfH = this.size.h / 2;
+		const fov = this.camera.projectionMatrix.elements[5] * halfH;
+		const perspective = `${fov}px`;
+		if (perspective !== this.cardStyleShown.perspective) {
+			layer.root.style.perspective = perspective;
+			this.cardStyleShown.perspective = perspective;
+		}
+		const camera = `translateZ(${fov}px)${cameraCss(this.camera.matrixWorldInverse)}translate(${halfW}px,${halfH}px)`;
+		if (camera !== this.cardStyleShown.camera) {
+			layer.camera.style.transform = camera;
+			this.cardStyleShown.camera = camera;
+		}
+		// A card turned away is hidden here, not with backface-visibility, which
+		// some browsers do not honour in a layer like this one; its hole has
+		// faded it into its bin by then. Written only when it turns.
+		const eye = this.camera.position;
+		const to = new Vector3();
+		for (const [key, el] of this.cardEls) {
+			const card = this.cardAt.get(key);
+			if (!card) continue;
+			const facing = to.subVectors(eye, card.at).normalize().dot(card.out) > 0.15;
+			if (this.cardFacing.get(key) === facing) continue;
+			el.style.visibility = facing ? '' : 'hidden';
+			this.cardFacing.set(key, facing);
+		}
 	}
 
 	// ------------------------------------------------------------ drawing
@@ -776,7 +757,7 @@ export class MachineView {
 				const glow = this.glow.get(p.key) ?? 0;
 				const aimed = p.key === this.aimedKey;
 				const chosen = p.key === this.selectedKey || p.key === this.hoverKey;
-				if (aimed) c.lerp(this.colors.info, 0.35);
+				if (aimed) c.lerp(this.colors.success, 0.35);
 				if (glow > 0) c.lerp(this.colors.success, 0.75 * glow);
 				if (p.key === this.hoverKey) c.lerp(this.colors.primary, 0.3);
 				if (p.key === this.selectedKey) c.copy(this.colors.primary);
@@ -850,6 +831,7 @@ export class MachineView {
 		const moving = this.step(dt);
 		this.controls.update();
 		this.renderer.render(this.scene, this.camera);
+		this.syncCards();
 		if (moving) this.invalidate();
 		else this.last = 0;
 	};
@@ -860,6 +842,11 @@ export class MachineView {
 		const h = canvas.clientHeight;
 		if (!w || !h) return;
 		this.renderer.setSize(w, h, false);
+		this.size = { w, h };
+		if (this.cardLayer) {
+			this.cardLayer.camera.style.width = `${w}px`;
+			this.cardLayer.camera.style.height = `${h}px`;
+		}
 		this.camera.aspect = w / h;
 		this.camera.updateProjectionMatrix();
 		this.invalidate();
@@ -891,15 +878,19 @@ export class MachineView {
 		cancelAnimationFrame(this.frame);
 		this.resizeObserver.disconnect();
 		this.controls.dispose();
-		this.dropLines();
 		for (const b of this.batches) {
 			b.mesh.dispose();
 			b.lit.dispose();
 		}
-		this.cards?.geometry.dispose();
-		this.cards?.dispose();
-		this.atlas?.dispose();
-		for (const m of [...Object.values(this.mats), ...Object.values(this.ghost), this.active])
+		this.holes?.geometry.dispose();
+		this.holes?.dispose();
+		for (const m of [
+			...Object.values(this.mats),
+			...Object.values(this.ghost),
+			this.active,
+			this.depthOnly,
+			this.holeMaterial
+		])
 			m.dispose();
 		// This view's copy of the model goes; the parsed model stays for the
 		// next visit, and the GPU's copy goes with the context.
@@ -908,7 +899,53 @@ export class MachineView {
 	}
 }
 
-const blankCard: CardData = { name: '', code: '', number: '', colors: [], images: [] };
+// A matrix as CSS, where y points down, as three.js's CSS3DRenderer writes
+// them: the card layer is laid out the way that renderer lays out its own.
+const num = (v: number) => (Math.abs(v) < 1e-10 ? 0 : v);
+
+function objectCss(m: Matrix4) {
+	const e = m.elements;
+	const flip = [e[0], e[1], e[2], e[3], -e[4], -e[5], -e[6], -e[7], ...e.slice(8)];
+	return `translate(-50%,-50%) matrix3d(${flip.map(num).join(',')})`;
+}
+
+function cameraCss(m: Matrix4) {
+	const e = m.elements;
+	const flip = e.map((v, i) => (i % 4 === 1 ? -v : v));
+	return `matrix3d(${flip.map(num).join(',')})`;
+}
+
+/** Clears the canvas to transparent where a card is the nearest thing, drawn
+ *  after everything solid so whatever is in front of it covers it. A card
+ *  turned away fades into its bin (it keeps that share of what is drawn
+ *  there), since a card seen edge on is only noise. */
+function holeMaterial() {
+	return new ShaderMaterial({
+		vertexShader: `
+			varying float facing;
+			void main() {
+				mat4 m = modelMatrix;
+				#ifdef USE_INSTANCING
+					m = m * instanceMatrix;
+				#endif
+				vec4 world = m * vec4(position, 1.0);
+				facing = dot(normalize(mat3(m) * vec3(0.0, 0.0, 1.0)), normalize(cameraPosition - world.xyz));
+				gl_Position = projectionMatrix * viewMatrix * world;
+			}`,
+		fragmentShader: `
+			varying float facing;
+			void main() {
+				gl_FragColor = vec4(0.0, 0.0, 0.0, 1.0 - smoothstep(0.2, 0.45, facing));
+			}`,
+		transparent: true,
+		depthWrite: false,
+		blending: CustomBlending,
+		blendSrc: ZeroFactor,
+		blendDst: SrcAlphaFactor,
+		blendSrcAlpha: ZeroFactor,
+		blendDstAlpha: SrcAlphaFactor
+	});
+}
 
 function ghostMaterial() {
 	return new MeshBasicMaterial({ transparent: true, opacity: 0.24, depthWrite: false });

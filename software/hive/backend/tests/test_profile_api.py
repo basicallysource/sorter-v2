@@ -305,3 +305,21 @@ def test_conditions_may_leave_out_their_ids(client: TestClient, auth_headers: di
     assert response.status_code == 200, response.text
     condition = response.json()["current_version"]["rules"][0]["conditions"][0]
     assert condition["id"]
+
+
+def test_the_editors_chat_can_set_a_rules_picture() -> None:
+    from app.services.profile_ai import apply_profile_ai_proposal
+
+    rules = apply_profile_ai_proposal(
+        rules=[{"id": "r1", "name": "Bricks", "conditions": [{"id": "c", "field": "bl_category_id", "op": "eq", "value": 5}]}],
+        selected_rule_id=None,
+        proposal={
+            "proposals": [
+                {"action": "edit", "target_rule_id": "r1", "name": "Bricks", "match_mode": "all",
+                 "conditions": [{"field": "bl_category_id", "op": "eq", "value": 5}], "image_url": "https://img.example/3001.png"},
+                {"action": "create", "name": "Plates", "match_mode": "all",
+                 "conditions": [{"field": "bl_category_id", "op": "eq", "value": 26}], "image_url": "https://img.example/3020.png"},
+            ]
+        },
+    )
+    assert [rule.get("image_url") for rule in rules] == ["https://img.example/3001.png", "https://img.example/3020.png"]

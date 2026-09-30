@@ -1257,6 +1257,8 @@ def apply_profile_ai_proposal(
             )
             if created_rule_id is None:
                 raise APIError(400, "AI proposal references an unknown parent rule", "AI_INVALID_PARENT")
+            if item.get("image_url"):
+                profile_sorting_profile.getRule(profile_like, created_rule_id)["image_url"] = item["image_url"]
             continue
 
         if action == "create_set":
@@ -1278,6 +1280,7 @@ def apply_profile_ai_proposal(
                 "conditions": [],
                 "children": [],
                 "disabled": False,
+                "image_url": item.get("image_url") or None,
             }
             # Set rules must always be top-level (they have no conditions,
             # so nesting them as children would act as always-true subchecks).
@@ -1306,6 +1309,7 @@ def apply_profile_ai_proposal(
                 "conditions": [],
                 "children": [],
                 "disabled": False,
+                "image_url": item.get("image_url") or None,
             }
             if position is not None and 0 <= position <= len(profile_like.rules):
                 profile_like.rules.insert(position, new_rule)
@@ -1336,6 +1340,8 @@ def apply_profile_ai_proposal(
         target_rule["name"] = item.get("name") or target_rule.get("name") or "Unnamed Rule"
         target_rule["match_mode"] = item.get("match_mode", "all")
         target_rule["conditions"] = _normalize_conditions(item.get("conditions", []))
+        if "image_url" in item:
+            target_rule["image_url"] = item.get("image_url") or None
 
         if parent_id is not None or position is not None:
             moved_rule = copy.deepcopy(target_rule)
@@ -1642,7 +1648,8 @@ You MUST always respond with JSON matching this schema:
       "conditions": [{{"field": "name", "op": "contains", "value": "brick"}}],
       "set_num": "10283-1",
       "set_meta": {{"name": "Set Name", "year": 2021, "num_parts": 2354, "img_url": "https://..."}},
-      "custom_parts": [{{"part_num": "2780", "color_id": -1, "color_name": "Any color", "quantity": 20}}]
+      "custom_parts": [{{"part_num": "2780", "color_id": -1, "color_name": "Any color", "quantity": 20}}],
+      "image_url": "optional: the bin's picture"
     }}
   ]
 }}
@@ -1671,6 +1678,7 @@ Guidelines:
 - Keep proposals small and actionable.
 - If the user asks to split a category into multiple child rules, return multiple proposals.
 - Prefer 'contains' over complex regex unless the user explicitly asks for regex.
+- When the user wants a picture on a bin, set image_url to a part's img_url from search_parts results (any action but delete and move). An edit that leaves image_url out keeps the rule's picture.
 - Do NOT include emojis or special characters in rule names. Use plain text only (e.g. "Bricks" not "🧱 Bricks").
 - When the user wants to add a LEGO set, use search_sets to find the correct set_num, then use action "create_set" with set_num and set_meta from the search results. Never use action "create" for sets.
 - When the user asks which parts are inside an official LEGO set, first use search_sets to identify the exact set_num, then use get_set_inventory with that set_num.

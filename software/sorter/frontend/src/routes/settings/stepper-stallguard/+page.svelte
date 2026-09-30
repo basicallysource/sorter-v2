@@ -1,7 +1,15 @@
 <script lang="ts">
+	import { confirmDialog } from '$lib/confirm.svelte';
 	import { getBackendHttpBase } from '$lib/backend';
-	import { Button, Input, Alert } from '$lib/components/primitives';
-	import SectionCard from '$lib/components/settings/SectionCard.svelte';
+	import Button from '$lib/components/ui/Button.svelte';
+	import Input from '$lib/components/ui/Input.svelte';
+	import Alert from '$lib/components/ui/Alert.svelte';
+	import Panel from '$lib/components/ui/Panel.svelte';
+	import Checkbox from '$lib/components/ui/Checkbox.svelte';
+	import Field from '$lib/components/ui/Field.svelte';
+	import Select from '$lib/components/ui/Select.svelte';
+	import PageHeader from '$lib/components/ui/PageHeader.svelte';
+	import Trash2 from '@lucide/svelte/icons/trash-2';
 	import StallGuardChart from '$lib/components/StallGuardChart.svelte';
 
 	const STEPPERS = ['carousel', 'chute', 'c_channel_1', 'c_channel_2', 'c_channel_3'];
@@ -250,7 +258,15 @@
 
 	async function deleteRun(run: Run, ev: Event) {
 		ev.stopPropagation();
-		if (!confirm(`Delete run ${run.id.slice(0, 8)} and its samples?`)) return;
+		if (
+			!(await confirmDialog({
+				title: 'Delete the run?',
+				message: `Delete run ${run.id.slice(0, 8)} and its samples?`,
+				action: 'Delete the run',
+				danger: true
+			}))
+		)
+			return;
 		try {
 			const res = await fetch(`${base()}/api/stepper-telemetry/runs/${run.id}`, {
 				method: 'DELETE',
@@ -282,348 +298,277 @@
 		loadRuns();
 		loadSummary();
 	});
+	const stepperOptions = STEPPERS.map((s) => ({ value: s, label: s }));
+	const directionOptions: { value: 'cw' | 'ccw'; label: string }[] = [
+		{ value: 'cw', label: 'Clockwise' },
+		{ value: 'ccw', label: 'Counterclockwise' }
+	];
+	const profileOptions: { value: Profile; label: string }[] = [
+		{ value: 'constant', label: 'Constant spin' },
+		{ value: 'chute_random', label: 'Chute: random go-to-angle' },
+		{ value: 'pulsed', label: 'Pulsed with jitter' }
+	];
 </script>
 
 <svelte:head><title>Sorter - StallGuard</title></svelte:head>
 
 <svelte:window onkeydown={onKeydown} />
 
-<div class="flex flex-col gap-6 p-6">
-	<div>
-		<div class="text-lg font-semibold text-text">Stepper StallGuard Telemetry</div>
-		<div class="mt-1 text-sm text-text-muted">
-			Record and visualize TMC2209 load (<span class="font-mono">SG_RESULT</span>) per motor. Run
-			targeted sweeps, inspect the load curve, and write a stall threshold to the machine config.
-		</div>
-	</div>
+<div class="flex flex-col gap-(--gap-panels)">
+	<PageHeader
+		title="StallGuard"
+		description="Record the TMC2209 load (SG_RESULT) of each motor. Run a sweep, read the load curve, and write a stall threshold to the machine config."
+	/>
 
-	{#if error}
-		<Alert variant="danger">{error}</Alert>
-	{/if}
-	{#if notice}
-		<Alert variant="success">{notice}</Alert>
-	{/if}
+	{#if error}<Alert tone="danger">{error}</Alert>{/if}
+	{#if notice}<Alert tone="success">{notice}</Alert>{/if}
 
-	<SectionCard
-		title="Per-motor summary"
-		description="Rollup of all recorded SG_RESULT samples for each motor."
-	>
+	<Panel title="Each motor" description="Every SG_RESULT sample recorded, by motor." flush>
 		{#if summary.length === 0}
-			<div class="text-sm text-text-muted">No telemetry recorded yet. Run a sweep below.</div>
+			<p class="px-(--pad-panel) pb-4 text-sm text-ink-muted">Nothing recorded yet. Run a sweep below.</p>
 		{:else}
-			<table class="w-full text-sm">
-				<thead>
-					<tr class="border-b border-border text-left text-text-muted">
-						<th class="py-2 pr-4 font-medium">Motor</th>
-						<th class="py-2 pr-4 font-medium">Samples</th>
-						<th class="py-2 pr-4 font-medium">SG min</th>
-						<th class="py-2 pr-4 font-medium">SG mean</th>
-						<th class="py-2 pr-4 font-medium">SG max</th>
-						<th class="py-2 pr-4 font-medium">Last seen</th>
-					</tr>
-				</thead>
-				<tbody>
-					{#each summary as row}
-						<tr class="border-b border-border/50 text-text">
-							<td class="py-2 pr-4 font-mono">{row.stepper_name}</td>
-							<td class="py-2 pr-4">{row.samples}</td>
-							<td class="py-2 pr-4">{row.sg_min}</td>
-							<td class="py-2 pr-4">{Math.round(row.sg_mean)}</td>
-							<td class="py-2 pr-4">{row.sg_max}</td>
-							<td class="py-2 pr-4 text-text-muted">{fmtTime(row.last_seen)}</td>
+			<div class="overflow-x-auto">
+				<table class="data-table">
+					<thead>
+						<tr>
+							<th>Motor</th><th class="num">Samples</th><th class="num">SG min</th>
+							<th class="num">SG mean</th><th class="num">SG max</th><th>Last seen</th>
 						</tr>
-					{/each}
-				</tbody>
-			</table>
-		{/if}
-	</SectionCard>
-
-	<SectionCard
-		title="Run a targeted sweep"
-		description="Drives one motor with a representative motion profile and records its load curve. Use the loaded option for a deliberate stall test — hold/resist the motor by hand while it runs."
-	>
-		<Alert variant="warning">
-			This moves a real motor. Keep the area clear and your hand near the stop control.
-		</Alert>
-
-		<div class="mt-4 flex flex-wrap items-end gap-4">
-			<div class="flex flex-col gap-1">
-				<label class="text-sm text-text" for="sw-stepper">Motor</label>
-				<select
-					id="sw-stepper"
-					bind:value={swStepper}
-					onchange={onStepperChange}
-					class="setup-control"
-					style="min-width: 10rem;"
-				>
-					{#each STEPPERS as s}
-						<option value={s}>{s}</option>
-					{/each}
-				</select>
-			</div>
-			<div class="flex flex-col gap-1">
-				<label class="text-sm text-text" for="sw-profile">Motion profile</label>
-				<select id="sw-profile" bind:value={swProfile} class="setup-control" style="min-width: 11rem;">
-					<option value="constant">constant spin</option>
-					<option value="chute_random">chute: random go-to-angle</option>
-					<option value="pulsed">pulsed + jitter</option>
-				</select>
-			</div>
-			<label class="flex w-40 flex-col gap-1 text-sm text-text">
-				Speed (µsteps/s)
-				<Input type="number" bind:value={swSpeed} />
-			</label>
-			<div class="flex flex-col gap-1">
-				<label class="text-sm text-text" for="sw-dir">Direction</label>
-				<select id="sw-dir" bind:value={swDirection} class="setup-control">
-					<option value="cw">cw</option>
-					<option value="ccw">ccw</option>
-				</select>
-			</div>
-			<label class="flex w-32 flex-col gap-1 text-sm text-text">
-				Duration (s)
-				<Input type="number" bind:value={swDuration} />
-			</label>
-			<label class="flex w-56 flex-col gap-1 text-sm text-text">
-				Label (optional)
-				<Input type="text" bind:value={swLabel} />
-			</label>
-			<label class="flex items-center gap-2 text-sm text-text">
-				<input type="checkbox" bind:checked={swLoaded} class="accent-primary" />
-				Loaded (stall test)
-			</label>
-			<Button variant="primary" onclick={runSweep} loading={running}>Run sweep</Button>
-			<label class="flex items-center gap-2 text-sm text-text">
-				<input type="checkbox" bind:checked={swEnterToRun} class="accent-primary" />
-				Enter to run
-			</label>
-		</div>
-
-		{#if swProfile === 'chute_random'}
-			<div class="mt-4 flex flex-wrap items-end gap-4">
-				<label class="flex w-40 flex-col gap-1 text-sm text-text">
-					Min angle (output °)
-					<Input type="number" bind:value={swChuteMinDeg} />
-				</label>
-				<label class="flex w-40 flex-col gap-1 text-sm text-text">
-					Max angle (output °)
-					<Input type="number" bind:value={swChuteMaxDeg} />
-				</label>
-				<label class="flex w-40 flex-col gap-1 text-sm text-text">
-					Min angle delta (°)
-					<Input type="number" bind:value={swMinDeltaDeg} />
-				</label>
-				<div class="max-w-md text-sm text-text-muted">
-					Random go-to-angle within [min, max] output degrees (auto-clamped to the chute's safe
-					travel, max 345°), with an immediate turnaround on each arrival. Homes the chute first if
-					needed, so it operates on absolute angles and can never reach an endstop.
-				</div>
-			</div>
-		{:else if swProfile === 'pulsed'}
-			<div class="mt-4 flex flex-wrap items-end gap-4">
-				<label class="flex w-40 flex-col gap-1 text-sm text-text">
-					Pulse size (motor °)
-					<Input type="number" bind:value={swPulseDeg} />
-				</label>
-				<label class="flex w-32 flex-col gap-1 text-sm text-text">
-					Dwell (ms)
-					<Input type="number" bind:value={swDwellMs} />
-				</label>
-				<label class="flex w-40 flex-col gap-1 text-sm text-text">
-					Jitter every N pulses
-					<Input type="number" bind:value={swJitterEvery} />
-				</label>
-				<div class="max-w-md text-sm text-text-muted">
-					Discrete pulses with a dwell between (how the rotors and carousel actually run), with an
-					unstick jitter every N pulses. Only the moving phases are sampled. Set jitter to 0 to
-					disable it.
-				</div>
-			</div>
-		{/if}
-
-		<div class="mt-4 flex flex-wrap items-end gap-4 border-t border-border/40 pt-4">
-			<label class="flex w-44 flex-col gap-1 text-sm text-text">
-				Cruise TSTEP (threshold)
-				<Input type="number" bind:value={swCruiseTstep} />
-			</label>
-			<div class="max-w-lg text-sm text-text-muted">
-				Only motion at cruise (TSTEP ≤ this; lower = faster) sets the threshold — the accel/decel and
-				reversal transients dip SG even unloaded and would drag the floor down. Stays in StealthChop
-				(the TMC2209's StallGuard works there, not SpreadCycle). The chute cruises at TSTEP ~75–150;
-				saved as the enforcement velocity floor so DIAG only acts at cruise.
-			</div>
-		</div>
-	</SectionCard>
-
-	<div class="grid grid-cols-1 gap-6 lg:grid-cols-3">
-		<div class="lg:col-span-1">
-			<SectionCard title="Runs" description="Recent recordings. Click to view.">
-				{#if runs.length === 0}
-					<div class="text-sm text-text-muted">No runs yet.</div>
-				{:else}
-					<div class="flex max-h-[28rem] flex-col overflow-y-auto">
-						{#each runs as run}
-							<div
-								class="border-b border-border/50 {selectedRun?.id === run.id
-									? 'bg-primary-light/60'
-									: ''}"
-							>
-								<button
-									type="button"
-									onclick={() => selectRun(run)}
-									class="flex w-full flex-col gap-1 px-2 pt-2 text-left hover:bg-primary-light/40"
-								>
-									<div class="flex items-center justify-between gap-2">
-										<span class="font-mono text-sm text-text">{run.stepper_name ?? '—'}</span>
-										<span class="text-xs uppercase tracking-wider text-text-muted">{run.source}</span>
-									</div>
-									<div class="text-sm text-text-muted">{fmtTime(run.started_at)}</div>
-									<div class="text-sm text-text-muted">
-										{run.sample_count} samples{#if run.sg_min != null}, SG {run.sg_min}–{run.sg_max}{/if}{#if run.suggested_sgthrs != null}, SGTHRS {run.suggested_sgthrs}{/if}
-										{#if run.label}<span class="text-text"> · {run.label}</span>{/if}
-									</div>
-								</button>
-								<div class="flex justify-end px-2 pb-2">
-									<button
-										type="button"
-										onclick={(e) => deleteRun(run, e)}
-										class="text-sm text-danger hover:underline"
-										aria-label="Delete run">delete</button
-									>
-								</div>
-							</div>
+					</thead>
+					<tbody>
+						{#each summary as row (row.stepper_name)}
+							<tr>
+								<td class="font-mono">{row.stepper_name}</td>
+								<td class="num">{row.samples}</td>
+								<td class="num">{row.sg_min}</td>
+								<td class="num">{Math.round(row.sg_mean)}</td>
+								<td class="num">{row.sg_max}</td>
+								<td class="text-ink-muted">{fmtTime(row.last_seen)}</td>
+							</tr>
 						{/each}
-					</div>
+					</tbody>
+				</table>
+			</div>
+		{/if}
+	</Panel>
+
+	<Panel
+		title="Run a sweep"
+		description="Drives one motor through a representative motion and records its load curve. For a deliberate stall test, choose Loaded and hold the motor back by hand while it runs."
+	>
+		<div class="flex flex-col gap-4">
+			<Alert tone="warning">
+				This moves a real motor. Keep the area clear and your hand near the stop control.
+			</Alert>
+			<div class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+				<Field label="Motor" for="sw-stepper">
+					<Select
+						id="sw-stepper"
+						bind:value={swStepper}
+						options={stepperOptions}
+						onchange={onStepperChange}
+					/>
+				</Field>
+				<Field label="Motion" for="sw-profile">
+					<Select id="sw-profile" bind:value={swProfile} options={profileOptions} />
+				</Field>
+				<Field label="Direction" for="sw-direction">
+					<Select id="sw-direction" bind:value={swDirection} options={directionOptions} />
+				</Field>
+				<Field label="Speed" for="sw-speed">
+					<Input id="sw-speed" type="number" unit="µsteps/s" bind:value={swSpeed} />
+				</Field>
+				<Field label="Duration" for="sw-duration">
+					<Input id="sw-duration" type="number" unit="s" bind:value={swDuration} />
+				</Field>
+				<Field label="Label" for="sw-label" help="Optional.">
+					<Input id="sw-label" bind:value={swLabel} />
+				</Field>
+				{#if swProfile === 'chute_random'}
+					<Field label="Min angle" for="sw-min">
+						<Input id="sw-min" type="number" unit="° output" bind:value={swChuteMinDeg} />
+					</Field>
+					<Field label="Max angle" for="sw-max">
+						<Input id="sw-max" type="number" unit="° output" bind:value={swChuteMaxDeg} />
+					</Field>
+					<Field label="Min angle change" for="sw-delta">
+						<Input id="sw-delta" type="number" unit="°" bind:value={swMinDeltaDeg} />
+					</Field>
+					<p class="text-sm text-ink-muted sm:col-span-2 lg:col-span-3">
+						Random go-to-angle between the min and max output angle (clamped to the chute's safe
+						travel, 345° at most), turning straight back on each arrival. Homes the chute first if
+						needed, so it moves on absolute angles and can never reach an endstop.
+					</p>
+				{:else if swProfile === 'pulsed'}
+					<Field label="Pulse size" for="sw-pulse">
+						<Input id="sw-pulse" type="number" unit="° motor" bind:value={swPulseDeg} />
+					</Field>
+					<Field label="Dwell" for="sw-dwell">
+						<Input id="sw-dwell" type="number" unit="ms" bind:value={swDwellMs} />
+					</Field>
+					<Field label="Jitter every" for="sw-jitter" help="0 turns the jitter off.">
+						<Input id="sw-jitter" type="number" unit="pulses" bind:value={swJitterEvery} />
+					</Field>
+					<p class="text-sm text-ink-muted sm:col-span-2 lg:col-span-3">
+						Separate pulses with a dwell between them, as the rotors and carousel really run, and an
+						unstick jitter every few pulses. Only the moving phases are sampled.
+					</p>
 				{/if}
-			</SectionCard>
+				<Field
+					label="Cruise TSTEP"
+					for="sw-tstep"
+					help="Only motion at cruise (TSTEP at or below this; lower is faster) sets the threshold, since speeding up, slowing down and reversing dip SG even unloaded. Stays in StealthChop, where the TMC2209's StallGuard works. The chute cruises at TSTEP 75 to 150; this is saved as the velocity floor, so DIAG only acts at cruise."
+				>
+					<Input id="sw-tstep" type="number" bind:value={swCruiseTstep} />
+				</Field>
+			</div>
 		</div>
+		{#snippet footer()}
+			<div class="mr-auto flex flex-wrap gap-x-5 gap-y-2">
+				<Checkbox bind:checked={swLoaded}>Loaded (stall test)</Checkbox>
+				<Checkbox bind:checked={swEnterToRun}>Enter runs a sweep</Checkbox>
+			</div>
+			<Button variant="primary" onclick={runSweep} loading={running}>Run sweep</Button>
+		{/snippet}
+	</Panel>
 
-		<div class="lg:col-span-2">
-			<SectionCard title="Load curve" description="SG_RESULT over time. Lower = more load; a stall drops it toward 0.">
-				{#if selectedRun}
-					<div class="mb-3 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm">
-						<span class="text-text-muted">Motor:</span>
-						<span class="font-mono text-text">{selectedRun.stepper_name}</span>
-						<span class="text-text-muted">Speed:</span>
-						<span class="text-text">{selectedRun.params?.speed ?? '—'} µsteps/s</span>
-						<span class="text-text-muted">Dir:</span>
-						<span class="text-text">{selectedRun.params?.direction ?? '—'}</span>
-						<span class="text-text-muted">Duration:</span>
-						<span class="text-text">{selectedRun.params?.duration_s ?? '—'} s</span>
-						{#if selectedRun.sg_mean != null}
-							<span class="text-text-muted">Mean SG:</span>
-							<span class="text-text">{Math.round(selectedRun.sg_mean)}</span>
-						{/if}
-						{#if selectedRun.suggested_sgthrs != null}
-							<span class="text-text-muted">Suggested SGTHRS:</span>
-							<span class="text-text">{selectedRun.suggested_sgthrs}</span>
-							<span class="text-text-muted">(trigger ≤ {triggerLevel})</span>
-						{/if}
-					</div>
-					<div class="mb-3 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm">
-						<span class="text-text-muted">IRUN:</span>
-						<span class="text-text">{selectedRun.params?.irun ?? '—'}</span>
-						<span class="text-text-muted">Accel:</span>
-						<span class="text-text">{selectedRun.params?.acceleration ?? '—'} µsteps/s²</span>
-						<span class="text-text-muted">Microsteps:</span>
-						<span class="text-text">{selectedRun.params?.microsteps ?? '—'}</span>
-						<span class="text-text-muted">Chopper:</span>
-						<span class="text-text">
-							{selectedRun.params?.stealthchop == null
-								? '—'
-								: selectedRun.params.stealthchop
-									? 'StealthChop'
-									: 'SpreadCycle'}
-						</span>
-						<span class="text-text-muted">Loaded:</span>
-						<span class="text-text">{selectedRun.params?.loaded ? 'yes' : 'no'}</span>
-						<span class="text-text-muted">Cruise TSTEP:</span>
-						<span class="text-text">{selectedRun.params?.cruise_tstep ?? '—'}</span>
-					</div>
-					<div class="mb-3 flex items-center gap-4 text-sm">
-						<label class="flex items-center gap-2 text-text">
-							<input type="checkbox" bind:checked={showCs} class="accent-warning" /> CS_ACTUAL panel
-						</label>
-						<label class="flex items-center gap-2 text-text">
-							<input type="checkbox" bind:checked={showTstep} class="accent-success" /> TSTEP panel
-						</label>
-					</div>
+	<div class="grid grid-cols-1 gap-(--gap-panels) lg:grid-cols-3">
+		<Panel title="Runs" description="Recent recordings." flush>
+			{#if runs.length === 0}
+				<p class="px-(--pad-panel) pb-4 text-sm text-ink-muted">No runs yet.</p>
+			{:else}
+				<ul class="max-h-[28rem] divide-y divide-line overflow-y-auto">
+					{#each runs as run (run.id)}
+						<li class="flex items-start gap-2 pr-2 {selectedRun?.id === run.id ? 'bg-primary-soft' : 'hover:bg-hover'}">
+							<button
+								type="button"
+								onclick={() => selectRun(run)}
+								class="flex min-w-0 flex-1 flex-col gap-0.5 py-(--pad-row) pl-(--pad-panel) text-left text-sm"
+							>
+								<span class="flex items-center justify-between gap-2">
+									<span class="font-mono text-ink">{run.stepper_name ?? '–'}</span>
+									<span class="text-ink-muted">{run.source}</span>
+								</span>
+								<span class="text-ink-muted">{fmtTime(run.started_at)}</span>
+								<span class="text-ink-muted">
+									{run.sample_count} samples{#if run.sg_min != null}, SG {run.sg_min} to {run.sg_max}{/if}{#if run.suggested_sgthrs != null}, SGTHRS {run.suggested_sgthrs}{/if}
+									{#if run.label}<span class="text-ink"> · {run.label}</span>{/if}
+								</span>
+							</button>
+							<Button
+								variant="ghost"
+								size="sm"
+								icon={Trash2}
+								label="Delete run"
+								class="mt-2"
+								onclick={(e: MouseEvent) => deleteRun(run, e)}
+							/>
+						</li>
+					{/each}
+				</ul>
+			{/if}
+		</Panel>
 
+		<Panel
+			title="Load curve"
+			description="SG_RESULT over time. Lower means more load; a stall drops it toward 0."
+			class="lg:col-span-2"
+		>
+			{#if selectedRun}
+				{@const params = selectedRun.params ?? {}}
+				<div class="flex flex-col gap-4">
+					{@render facts([
+						['Motor', selectedRun.stepper_name ?? '–'],
+						['Speed', `${params.speed ?? '–'} µsteps/s`],
+						['Direction', params.direction ?? '–'],
+						['Duration', `${params.duration_s ?? '–'} s`],
+						...(selectedRun.sg_mean != null ? [['Mean SG', Math.round(selectedRun.sg_mean)] as [string, number]] : []),
+						...(selectedRun.suggested_sgthrs != null
+							? [['Suggested SGTHRS', `${selectedRun.suggested_sgthrs} (trigger at or below ${triggerLevel})`] as [string, string]]
+							: []),
+						['IRUN', params.irun ?? '–'],
+						['Acceleration', `${params.acceleration ?? '–'} µsteps/s²`],
+						['Microsteps', params.microsteps ?? '–'],
+						['Chopper', params.stealthchop == null ? '–' : params.stealthchop ? 'StealthChop' : 'SpreadCycle'],
+						['Loaded', params.loaded ? 'Yes' : 'No'],
+						['Cruise TSTEP', params.cruise_tstep ?? '–']
+					])}
+					<div class="flex flex-wrap gap-x-5 gap-y-2">
+						<Checkbox bind:checked={showCs}>CS_ACTUAL</Checkbox>
+						<Checkbox bind:checked={showTstep}>TSTEP</Checkbox>
+					</div>
 					{#if loadingSamples}
-						<div class="text-sm text-text-muted">Loading samples…</div>
+						<p class="text-sm text-ink-muted">Loading samples…</p>
 					{:else}
-						<StallGuardChart
-							{points}
-							triggerLevel={triggerLevel}
-							sgMean={selectedRun.sg_mean}
-							cruiseTstep={selectedRun.params?.cruise_tstep ?? null}
-							{showCs}
-							{showTstep}
-						/>
+						<div class="rounded-control bg-well p-3">
+							<StallGuardChart
+								{points}
+								{triggerLevel}
+								sgMean={selectedRun.sg_mean}
+								cruiseTstep={params.cruise_tstep ?? null}
+								{showCs}
+								{showTstep}
+							/>
+						</div>
 					{/if}
-
 					{#if suggestion}
-						<div class="mt-4 border border-border bg-bg px-4 py-4">
-							<div class="text-base font-semibold text-text">
+						<section class="flex flex-col gap-3 rounded-control bg-well p-4">
+							<h3 class="text-base font-semibold text-ink">
 								Threshold suggestion for {suggestion.stepper}
-							</div>
-							<div class="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm">
-								<span class="text-text-muted">Unloaded floor:</span>
-								<span class="text-text">{suggestion.unloaded_floor ?? '—'}</span>
-								<span class="text-text-muted">Loaded dip:</span>
-								<span class="text-text">{suggestion.loaded_dip ?? '—'}</span>
-								<span class="text-text-muted">→ Trigger ≤:</span>
-								<span class="text-text">{suggestion.trigger_level ?? '—'}</span>
-								<span class="text-text-muted">→ SGTHRS:</span>
-								<span class="text-text">{suggestion.suggested_sgthrs ?? '—'}</span>
-							</div>
-							<div class="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm">
-								<span class="text-text-muted">Measured cruise TSTEP:</span>
-								<span class="text-text">{suggestion.measured_cruise_tstep ?? '—'}</span>
-								<span class="text-text-muted">→ Gate TCOOLTHRS:</span>
-								<span class="text-text">{suggestion.cruise_tstep}</span>
-								<span class="text-text-muted">Real-motion floor:</span>
-								<span class="text-text">{suggestion.realistic_floor ?? '—'}</span>
-							</div>
-							<div class="mt-1 text-sm text-text-muted">
-								SGTHRS = geometric midpoint of the measured floor/dip gap. TCOOLTHRS = measured
-								cruise TSTEP (fastest sustained) ×1.75, so the gate stays open through cruise but off
-								during accel/decel. Both written to machine.toml on Save — nothing assumed.
-							</div>
+							</h3>
+							{@render facts([
+								['Unloaded floor', suggestion.unloaded_floor ?? '–'],
+								['Loaded dip', suggestion.loaded_dip ?? '–'],
+								['Trigger at or below', suggestion.trigger_level ?? '–'],
+								['SGTHRS', suggestion.suggested_sgthrs ?? '–'],
+								['Measured cruise TSTEP', suggestion.measured_cruise_tstep ?? '–'],
+								['Gate TCOOLTHRS', suggestion.cruise_tstep],
+								['Real-motion floor', suggestion.realistic_floor ?? '–']
+							])}
+							<p class="text-sm text-ink-muted">
+								SGTHRS is the geometric midpoint of the gap between the measured floor and dip.
+								TCOOLTHRS is the measured cruise TSTEP (the fastest sustained) times 1.75, so the gate
+								stays open through cruise and off while speeding up or slowing down. Save writes both
+								to machine.toml; nothing is assumed.
+							</p>
 							{#if suggestion.enough_data && !suggestion.reliable}
-								<!-- Computable but the data says it won't work here — hard stop, not a nudge. -->
-								<div class="mt-3">
-									<Alert variant="danger">
-										<div class="font-semibold">
-											⚠ Not reliably tunable{suggestion.speed
-												? ` at ${suggestion.speed} µs/s`
-												: ''}
-										</div>
-										<div class="mt-1">{suggestion.detail}</div>
-									</Alert>
-								</div>
+								<!-- Computable, but the data says it won't work here: a hard stop, not a nudge. -->
+								<Alert
+									tone="danger"
+									title="Not reliably tunable{suggestion.speed ? ` at ${suggestion.speed} µsteps/s` : ''}"
+								>
+									{suggestion.detail}
+								</Alert>
 							{:else if !suggestion.enough_data}
-								<Alert variant="warning">{suggestion.detail}</Alert>
+								<Alert tone="warning">{suggestion.detail}</Alert>
 							{/if}
 							{#if suggestion.suggested_sgthrs != null}
 								{@const safe = suggestion.enough_data && suggestion.reliable}
-								<div class="mt-3">
+								<div>
 									<Button
 										variant={safe ? 'secondary' : 'ghost'}
 										onclick={saveThreshold}
 										loading={savingThreshold}
 									>
-										{safe ? 'Save' : 'Save anyway (unreliable)'} SGTHRS={suggestion.suggested_sgthrs},
-										TCOOLTHRS={suggestion.cruise_tstep} to machine.toml
+										{safe ? 'Save' : 'Save anyway (unreliable)'} SGTHRS {suggestion.suggested_sgthrs} and
+										TCOOLTHRS {suggestion.cruise_tstep} to machine.toml
 									</Button>
 								</div>
 							{/if}
-						</div>
+						</section>
 					{/if}
-				{:else}
-					<div class="text-sm text-text-muted">Select a run to view its load curve.</div>
-				{/if}
-			</SectionCard>
-		</div>
+				</div>
+			{:else}
+				<p class="text-sm text-ink-muted">Choose a run to see its load curve.</p>
+			{/if}
+		</Panel>
 	</div>
 </div>
+
+{#snippet facts(items: [string, string | number][])}
+	<dl class="flex flex-wrap gap-x-5 gap-y-1 text-sm">
+		{#each items as [key, value] (key)}
+			<div class="flex gap-1.5"><dt class="text-ink-muted">{key}</dt><dd class="text-ink">{value}</dd></div>
+		{/each}
+	</dl>
+{/snippet}

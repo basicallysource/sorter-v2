@@ -27,6 +27,12 @@ it needs a section instead: a heading, or a line between two groups of rows.
 The old UI's worst screens were five bordered boxes deep; the most this
 allows is canvas, surface, well.
 
+A group's name inside a list (the pieces that have left the machine, under
+the ones still in it) is a `label` on the list's own plane, with the rows'
+line above and below it. It is never a band of well: across a panel's full
+width a well is a shade off the canvas, and reads as a gap in the panel with
+a word in it.
+
 ## Two kinds of line
 
 Both are 1px. There is no thicker structural line; emphasis comes from fill
@@ -34,9 +40,9 @@ and color.
 
 - `line` (`border-line`, `divide-line`) divides items on one plane: the rows
   of a list, the sections of a panel, a panel's footer from its body.
-- `line-strong` (`border-line-strong`) outlines a control you type in or
-  tick: a field, a select, a checkbox. The outline says "you can type here".
-  Buttons are tints and have no outline.
+- `line-strong` (`border-line-strong`) outlines a control you type in, tick
+  or choose from: a field, a select, a checkbox, a segmented control. The
+  outline says "you can act here". Buttons are tints and have no outline.
 
 A divider runs the full width of its panel by default: a row's padding is
 inside the row, so `divide-y` on the rows draws edge to edge. Inset a divider
@@ -57,8 +63,11 @@ tab's mark (`--indicator`, 3px) and the 2px focus outline.
 - **A tab bar.** Owns the line under it, and the current tab's mark sits on
   that line in place of it.
 - **Controls in a row.** Keep a gap of at least 8px. Choices that belong
-  together are one control with no lines inside (a segmented control, the
-  jog control's track).
+  together are one control: a single `line-strong` outline with one 1px
+  line between the segments, no gap and no padding, the chosen one shown by
+  a fill (a segmented control, the jog control). Never a padded track with
+  loose segments in it: with 1px corners and no shadows it reads as a thick
+  grey border around white boxes.
 - **A grid of cells.** Stats in a row are a grid with `gap-px` on a
   `bg-line` background and a fill on each cell: the gaps are the lines, so
   there is never one at the edge.
@@ -83,9 +92,13 @@ dims the page behind it (`bg-scrim`). See [overlays.md](overlays.md).
 
 ## Media
 
-A camera feed or a photo sits on `bg-media` (`MediaTile`). What is drawn over
-the picture (a "Live" badge, a chip) sits in a `dark` subtree, so it uses the
-dark tokens whatever the page's mode ([color.md](color.md)).
+A camera feed or a photo sits on `bg-media` (`MediaTile`), and the tile is the
+shape of its picture, so the backdrop is never seen as a bar. What is drawn
+over the picture (a "Live" badge, a chip) sits in a `dark` subtree, so it uses
+the dark tokens whatever the page's mode ([color.md](color.md)).
+
+A part's image is not media: it sits straight on the panel or the row it is
+in, with no well and no backdrop behind it.
 
 ## Corners
 

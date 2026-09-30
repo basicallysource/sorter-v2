@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { confirmDialog } from '$lib/confirm.svelte';
 	import { onMount } from 'svelte';
 	import { getBackendHttpBase, machineHttpBaseUrlFromWsUrl } from '$lib/backend';
 	import { getMachineContext } from '$lib/machines/context';
@@ -8,9 +9,30 @@
 		DEFAULT_HIVE_URL,
 		defaultHiveTargetName
 	} from '$lib/hive/link-flow';
-	import { Cloud, Link2, Pencil, Plus, RefreshCw, Shield, Star, Trash2, Upload } from 'lucide-svelte';
+	import Cloud from '@lucide/svelte/icons/cloud';
+	import Link2 from '@lucide/svelte/icons/link-2';
+	import Pencil from '@lucide/svelte/icons/pencil';
+	import Plus from '@lucide/svelte/icons/plus';
+	import RefreshCw from '@lucide/svelte/icons/refresh-cw';
+	import Shield from '@lucide/svelte/icons/shield';
+	import Star from '@lucide/svelte/icons/star';
+	import Trash2 from '@lucide/svelte/icons/trash';
+	import Upload from '@lucide/svelte/icons/upload';
 	import MachineNameField from '$lib/components/MachineNameField.svelte';
-	import Modal from '$lib/components/Modal.svelte';
+	import Modal from '$lib/components/ui/Modal.svelte';
+	import Panel from '$lib/components/ui/Panel.svelte';
+	import Button from '$lib/components/ui/Button.svelte';
+	import Badge from '$lib/components/ui/Badge.svelte';
+	import Alert from '$lib/components/ui/Alert.svelte';
+	import Field from '$lib/components/ui/Field.svelte';
+	import Input from '$lib/components/ui/Input.svelte';
+	import Checkbox from '$lib/components/ui/Checkbox.svelte';
+	import Menu from '$lib/components/ui/Menu.svelte';
+	import KeyValue from '$lib/components/ui/KeyValue.svelte';
+	import Stat from '$lib/components/ui/Stat.svelte';
+	import Spinner from '$lib/components/ui/Spinner.svelte';
+	import EmptyState from '$lib/components/ui/EmptyState.svelte';
+	import Ellipsis from '@lucide/svelte/icons/ellipsis';
 
 	const machine = getMachineContext();
 
@@ -408,7 +430,15 @@
 	}
 
 	async function handleRemoveTarget(target: HiveTarget) {
-		if (!confirm(`Remove the Hive target "${target.name}" from this sorter?`)) return;
+		if (
+			!(await confirmDialog({
+				title: 'Remove the Hive target?',
+				message: `Remove "${target.name}" from this sorter?`,
+				action: 'Remove the target',
+				danger: true
+			}))
+		)
+			return;
 		removingTargetId = target.id;
 		clearMessages();
 		try {
@@ -533,9 +563,15 @@
 			target.uploader.queue_size > 0
 				? `This will remove ${target.uploader.queue_size} queued sync job${target.uploader.queue_size === 1 ? '' : 's'} for "${target.name}".`
 				: `This will clear any queued or retrying sync jobs for "${target.name}".`;
-		if (!confirm(`${queueHint} An upload that is already in flight may still finish.`)) {
+		if (
+			!(await confirmDialog({
+				title: 'Clear the sync jobs?',
+				message: `${queueHint} An upload that is already in flight may still finish.`,
+				action: 'Clear the jobs',
+				danger: true
+			}))
+		)
 			return;
-		}
 
 		purgingTargetId = target.id;
 		clearMessages();
@@ -569,10 +605,33 @@
 		return 'Connected, waiting for server';
 	}
 
-	function statusToneClass(target: HiveTarget): string {
-		if (!target.enabled) return 'text-amber-600 dark:text-amber-400';
-		if (target.uploader.server_reachable) return 'text-success dark:text-emerald-400';
-		return 'text-amber-600 dark:text-amber-400';
+	function statusTone(target: HiveTarget): 'success' | 'warning' {
+		return target.enabled && target.uploader.server_reachable ? 'success' : 'warning';
+	}
+
+	function targetMenu(target: HiveTarget) {
+		return [
+			{
+				label: backfillingTargetId === target.id ? 'Queueing the backfill' : 'Queue a backfill',
+				icon: Upload,
+				disabled: backfillingTargetId === target.id || !target.enabled,
+				onselect: () => void handleBackfill(target)
+			},
+			{
+				label: purgingTargetId === target.id ? 'Purging the queue' : 'Purge the queue',
+				icon: Trash2,
+				disabled: purgingTargetId === target.id,
+				onselect: () => void handlePurge(target)
+			},
+			'separator' as const,
+			{
+				label: removingTargetId === target.id ? 'Removing' : 'Remove this Hive',
+				icon: Trash2,
+				danger: true,
+				disabled: removingTargetId === target.id,
+				onselect: () => void handleRemoveTarget(target)
+			}
+		];
 	}
 
 	async function handleReturnedLink() {
@@ -593,462 +652,326 @@
 	});
 </script>
 
-<div class="grid gap-4">
+<div class="flex flex-col gap-(--gap-panels)">
 	{#if loading}
-		<div class="text-sm text-text-muted">Loading Hive configuration...</div>
+		<div class="flex items-center gap-2 text-sm text-ink-muted">
+			<Spinner size={14} /> Loading the Hive settings
+		</div>
 	{:else if config}
 		<div class="flex flex-wrap items-center justify-between gap-3">
-			<div class="text-sm text-text-muted">
+			<p class="text-sm text-ink-muted">
 				{#if targets.length > 0}
-					{config.enabled_count} of {config.configured_count} Hive target{config.configured_count ===
-					1
-						? ''
-						: 's'} receiving live samples.
+					{config.enabled_count} of {config.configured_count}
+					{config.configured_count === 1 ? 'Hive gets' : 'Hives get'} live samples.
 				{:else}
-					No Hive targets configured yet.
+					No Hive set up yet.
 				{/if}
-			</div>
-			<div class="flex flex-wrap gap-2">
-				<button
-					type="button"
-					onclick={openPairForm}
-					class="inline-flex items-center gap-1.5 border border-primary bg-primary/10 px-3 py-1.5 text-xs text-text transition-colors hover:bg-primary/20"
-				>
-					<Link2 size={12} />
-					Pair with Hive
-				</button>
-				<button
-					type="button"
-					onclick={openRegisterForm}
-					class="inline-flex items-center gap-1.5 border border-border bg-bg px-3 py-1.5 text-xs text-text-muted transition-colors hover:bg-surface"
-					title="Email + password registration (use Pair with Hive instead when possible)"
-				>
-					<Plus size={12} />
-					Register (legacy)
-				</button>
-				<button
-					type="button"
-					onclick={() => openTargetEditor(null)}
-					class="inline-flex items-center gap-1.5 border border-border bg-bg px-3 py-1.5 text-xs text-text-muted transition-colors hover:bg-surface"
-				>
-					<Cloud size={12} />
-					Add Existing Token
-				</button>
-				<button
-					type="button"
+			</p>
+			<div class="flex flex-wrap items-center gap-2">
+				<Button
+					variant="ghost"
+					icon={RefreshCw}
+					label="Refresh"
 					onclick={() => void loadConfig()}
-					class="inline-flex items-center gap-1.5 border border-border bg-bg px-3 py-1.5 text-xs text-text transition-colors hover:bg-surface"
-					title="Refresh targets"
+				/>
+				<Button icon={Cloud} onclick={() => openTargetEditor(null)}>Add an existing token</Button>
+				<Button
+					icon={Plus}
+					onclick={openRegisterForm}
 				>
-					<RefreshCw size={12} />
-					Refresh
-				</button>
+					Register (legacy)
+				</Button>
+				<Button variant="primary" icon={Link2} onclick={openPairForm}>Pair with Hive</Button>
 			</div>
 		</div>
 
+		{#if errorMsg}
+			<Alert tone="danger">{errorMsg}</Alert>
+		{/if}
+		{#if statusMsg}
+			<Alert tone="success">{statusMsg}</Alert>
+		{/if}
+
 		{#if targets.length === 0}
-			<div class="border border-border bg-surface px-3 py-3">
-				<div class="text-sm text-text-muted">
-					Add one Hive target for local testing, production, or both. Enable the targets that should
-					receive live samples from C2, C3, and C4.
-				</div>
-			</div>
+			<EmptyState icon={Cloud} title="No Hive yet">
+				Pair with a Hive for testing, production, or both, and turn on the ones that should get live
+				samples from C2, C3 and C4.
+			</EmptyState>
 		{:else}
-			<div class="grid gap-4">
-				{#each targets as target (target.id)}
-					<div class="border border-border bg-surface px-3 py-3">
-						<div class="flex flex-wrap items-start justify-between gap-3">
-							<div class="min-w-0">
-								<div class="flex items-center gap-2">
-									<Cloud size={14} class="text-text-muted" />
-									<span class="text-sm font-medium text-text">{target.name}</span>
-									{#if target.is_primary}
-										<span
-											class="inline-flex items-center gap-1 border border-primary bg-primary/10 px-1.5 py-0.5 text-xs font-semibold uppercase tracking-wider text-primary"
-										>
-											<Star size={11} />
-											Primary
-										</span>
-									{/if}
-								</div>
-								<div class={`mt-1 text-xs ${statusToneClass(target)}`}>{statusLabel(target)}</div>
-								<div class="mt-0.5 text-sm text-text-muted">
-									{target.is_primary
-										? 'Used for piece metadata lookups (dimensions, etc).'
-										: ''}
-								</div>
-							</div>
-
-							<div class="flex flex-wrap justify-end gap-2">
-								{#if !target.is_primary}
-									<button
-										type="button"
-										onclick={() => void handleSetPrimary(target)}
-										disabled={settingPrimaryTargetId === target.id}
-										class="inline-flex items-center gap-1.5 border border-border bg-bg px-3 py-1.5 text-xs text-text transition-colors hover:bg-surface disabled:cursor-not-allowed disabled:opacity-50"
-									>
-										<Star size={12} />
-										{settingPrimaryTargetId === target.id ? 'Setting...' : 'Set Primary'}
-									</button>
+			{#each targets as target (target.id)}
+				<Panel flush>
+					<div class="flex flex-wrap items-start justify-between gap-3 px-(--pad-panel) pt-4 pb-3">
+						<div class="min-w-0">
+							<div class="flex flex-wrap items-center gap-2">
+								<h2 class="text-base font-semibold text-ink">{target.name}</h2>
+								{#if target.is_primary}
+									<Badge tone="primary"><Star size={12} /> Primary</Badge>
 								{/if}
-								<button
-									type="button"
-									onclick={() => openTargetEditor(target)}
-									class="inline-flex items-center gap-1.5 border border-border bg-bg px-3 py-1.5 text-xs text-text transition-colors hover:bg-surface"
-								>
-									<Pencil size={12} />
-									Edit
-								</button>
-								<button
-									type="button"
-									onclick={() => {
-										clearMessages();
-										uploadsTargetId = target.id;
-									}}
-									class="inline-flex items-center gap-1.5 border border-border bg-bg px-3 py-1.5 text-xs text-text transition-colors hover:bg-surface"
-									title="Choose what this Sorter uploads to this Hive"
-								>
-									<Shield size={12} />
-									Uploads
-								</button>
-								<button
-									type="button"
-									onclick={() => void handleBackfill(target)}
-									disabled={backfillingTargetId === target.id || !target.enabled}
-									class="inline-flex items-center gap-1.5 border border-border bg-bg px-3 py-1.5 text-xs text-text transition-colors hover:bg-surface disabled:cursor-not-allowed disabled:opacity-50"
-								>
-									<Upload size={12} />
-									{backfillingTargetId === target.id ? 'Queueing...' : 'Queue Backfill'}
-								</button>
-								<button
-									type="button"
-									onclick={() => void handlePurge(target)}
-									disabled={purgingTargetId === target.id}
-									class="inline-flex items-center gap-1.5 border border-border bg-bg px-3 py-1.5 text-xs text-text transition-colors hover:bg-surface disabled:cursor-not-allowed disabled:opacity-50"
-								>
-									<Trash2 size={12} />
-									{purgingTargetId === target.id ? 'Purging...' : 'Purge Queue'}
-								</button>
-								<button
-									type="button"
-									onclick={() => void handleToggleEnabled(target)}
-									class="border border-border bg-bg px-3 py-1.5 text-xs text-text transition-colors hover:bg-surface"
-								>
-									{target.enabled ? 'Stop Samples' : 'Send Samples'}
-								</button>
-								<button
-									type="button"
-									onclick={() => void handleRemoveTarget(target)}
-									disabled={removingTargetId === target.id}
-									class="inline-flex items-center gap-1.5 border border-danger bg-danger px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-danger/80 disabled:cursor-not-allowed disabled:opacity-50 dark:border-danger dark:bg-danger dark:hover:bg-danger/80"
-								>
-									<Trash2 size={12} />
-									{removingTargetId === target.id ? 'Removing...' : 'Remove'}
-								</button>
+								<Badge tone={statusTone(target)} dot>{statusLabel(target)}</Badge>
 							</div>
-						</div>
-
-						<div class="mt-3 grid grid-cols-[auto,1fr] gap-x-3 gap-y-1 text-xs">
-							<span class="text-text-muted">Server</span>
-							<span class="font-mono text-text">{target.url}</span>
-							<span class="text-text-muted">Machine ID</span>
-							<span class="font-mono text-text">{target.machine_id ?? '—'}</span>
-							<span class="text-text-muted">Token</span>
-							<span class="font-mono text-text">{target.api_token_masked ?? '—'}</span>
-						</div>
-
-						{#if backfillTargetId === target.id && backfillResult}
-							<div
-								class="mt-3 border border-success bg-success/10 px-3 py-2 text-sm font-medium text-success dark:border-success dark:bg-success/10 dark:text-emerald-200"
-							>
-								{backfillResult}
-							</div>
-						{/if}
-
-						{#if purgeTargetId === target.id && purgeResult}
-							<div
-								class="mt-3 border border-amber-500 bg-amber-500/10 px-3 py-2 text-sm font-medium text-amber-700 dark:border-amber-400 dark:bg-amber-400/10 dark:text-amber-200"
-							>
-								{purgeResult}
-							</div>
-						{/if}
-
-						<div class="mt-4 border-t border-border pt-4">
-							<div class="flex items-center gap-2">
-								<Upload size={14} class="text-text-muted" />
-								<span class="text-sm font-medium text-text">Status</span>
-							</div>
-							<div class="mt-3 grid grid-cols-4 gap-2 text-center text-xs">
-								<div>
-									<div class="text-lg font-semibold text-text">{target.uploader.uploaded}</div>
-									<div class="text-text-muted">Uploaded</div>
-								</div>
-								<div>
-									<div class="text-lg font-semibold text-text">{target.uploader.queue_size}</div>
-									<div class="text-text-muted">Queued</div>
-								</div>
-								<div>
-									<div
-										class="text-lg font-semibold {target.uploader.requeued > 0
-											? 'text-amber-500'
-											: 'text-text'}"
-									>
-										{target.uploader.requeued}
-									</div>
-									<div class="text-text-muted">Requeued</div>
-								</div>
-								<div>
-									<div
-										class="text-lg font-semibold {target.uploader.failed > 0
-											? 'text-danger'
-											: 'text-text'}"
-									>
-										{target.uploader.failed}
-									</div>
-									<div class="text-text-muted">Failed</div>
-								</div>
-							</div>
-							{#if target.uploader.last_error}
-								<div class="mt-3 text-xs text-amber-600 dark:text-amber-400">
-									{target.uploader.last_error}
-								</div>
+							{#if target.is_primary}
+								<p class="mt-0.5 text-sm text-ink-muted">
+									Used for piece metadata lookups, such as dimensions.
+								</p>
 							{/if}
 						</div>
+						<div class="flex flex-wrap items-center gap-2">
+							{#if !target.is_primary}
+								<Button
+									size="sm"
+									icon={Star}
+									loading={settingPrimaryTargetId === target.id}
+									onclick={() => void handleSetPrimary(target)}
+								>
+									Make primary
+								</Button>
+							{/if}
+							<Button size="sm" icon={Pencil} onclick={() => openTargetEditor(target)}>Edit</Button>
+							<Button
+								size="sm"
+								icon={Shield}
+								onclick={() => {
+									clearMessages();
+									uploadsTargetId = target.id;
+								}}
+							>
+								Uploads
+							</Button>
+							<Button
+								size="sm"
+								variant={target.enabled ? 'secondary' : 'primary'}
+								onclick={() => void handleToggleEnabled(target)}
+							>
+								{target.enabled ? 'Stop samples' : 'Send samples'}
+							</Button>
+							<Menu label="More for {target.name}" items={targetMenu(target)}>
+								{#snippet trigger(props)}
+									<Button {...props} size="sm" variant="ghost" icon={Ellipsis} label="More" />
+								{/snippet}
+							</Menu>
+						</div>
 					</div>
-				{/each}
-			</div>
+
+					<div class="px-(--pad-panel)">
+						<KeyValue
+							items={[
+								{ label: 'Server', value: target.url, mono: true },
+								{ label: 'Machine ID', value: target.machine_id ?? 'None', mono: true },
+								{ label: 'Token', value: target.api_token_masked ?? 'None', mono: true }
+							]}
+						/>
+					</div>
+
+					{#if (backfillTargetId === target.id && backfillResult) || (purgeTargetId === target.id && purgeResult)}
+						<div class="flex flex-col gap-2 px-(--pad-panel) pb-3">
+							{#if backfillTargetId === target.id && backfillResult}
+								<Alert tone="success">{backfillResult}</Alert>
+							{/if}
+							{#if purgeTargetId === target.id && purgeResult}
+								<Alert tone="warning">{purgeResult}</Alert>
+							{/if}
+						</div>
+					{/if}
+
+					<div class="grid grid-cols-2 gap-px border-t border-line bg-line sm:grid-cols-4">
+						<div class="bg-surface"><Stat label="Uploaded" value={target.uploader.uploaded} /></div>
+						<div class="bg-surface"><Stat label="Queued" value={target.uploader.queue_size} /></div>
+						<div class="bg-surface">
+							<Stat
+								label="Requeued"
+								value={target.uploader.requeued}
+								tone={target.uploader.requeued > 0 ? 'warning' : undefined}
+							/>
+						</div>
+						<div class="bg-surface">
+							<Stat
+								label="Failed"
+								value={target.uploader.failed}
+								tone={target.uploader.failed > 0 ? 'danger' : undefined}
+							/>
+						</div>
+					</div>
+					{#if target.uploader.last_error}
+						<p class="border-t border-line px-(--pad-panel) py-3 text-sm break-words text-warning-ink">
+							{target.uploader.last_error}
+						</p>
+					{/if}
+				</Panel>
+			{/each}
 		{/if}
 
 		{#if editingTargetId !== null}
 			<Modal
 				open={true}
 				title={editingTargetId === 'new'
-					? 'Add Hive Target'
-					: `Edit ${getTarget(editingTargetId)?.name ?? 'Hive Target'}`}
-				on:close={closeForms}
+					? 'Add a Hive'
+					: `Edit ${getTarget(editingTargetId)?.name ?? 'the Hive'}`}
+				onclose={closeForms}
 			>
-				<div class="grid gap-3">
-				<input
-					bind:value={targetName}
-					type="text"
-					placeholder="Target name (for example Local or Live)"
-					class="border border-border bg-bg px-2 py-1.5 text-sm text-text"
-				/>
-				<input
-					bind:value={targetUrl}
-					type="url"
-					placeholder="https://hive.example.com"
-					class="border border-border bg-bg px-2 py-1.5 text-sm text-text"
-				/>
-				<input
-					bind:value={targetToken}
-					type="password"
-					placeholder={editingTargetId === 'new'
-						? 'Machine API token'
-						: 'Leave empty to keep current token'}
-					class="border border-border bg-bg px-2 py-1.5 font-mono text-sm text-text"
-				/>
-				<label class="flex items-center gap-2 text-xs text-text-muted">
-					<input bind:checked={targetEnabled} type="checkbox" class="h-4 w-4 border-border" />
-					Send live samples to this target immediately
-				</label>
-				<div class="flex justify-end gap-2">
-					<button
-						type="button"
-						onclick={closeForms}
-						class="border border-border bg-bg px-3 py-1.5 text-xs text-text transition-colors hover:bg-surface"
+				<div class="flex flex-col gap-4">
+					<Field label="Name" for="hive-target-name">
+						<Input id="hive-target-name" bind:value={targetName} placeholder="Local, or Live" />
+					</Field>
+					<Field label="Server" for="hive-target-url">
+						<Input
+							id="hive-target-url"
+							type="url"
+							bind:value={targetUrl}
+							placeholder="https://hive.example.com"
+						/>
+					</Field>
+					<Field
+						label="Machine token"
+						for="hive-target-token"
+						help={editingTargetId === 'new' ? undefined : 'Leave it empty to keep the current token.'}
 					>
-						Cancel
-					</button>
-					<button
-						type="button"
-						onclick={() => void handleSaveTarget()}
-						disabled={savingTarget ||
-							!targetUrl.trim() ||
-							(editingTargetId === 'new' && !targetToken.trim())}
-						class="border border-border bg-bg px-3 py-1.5 text-xs text-text transition-colors hover:bg-surface disabled:cursor-not-allowed disabled:opacity-50"
-					>
-						{savingTarget ? 'Saving...' : 'Save'}
-					</button>
+						<Input
+							id="hive-target-token"
+							type="password"
+							bind:value={targetToken}
+							class="font-mono"
+						/>
+					</Field>
+					<Checkbox bind:checked={targetEnabled}>Send live samples to this Hive right away</Checkbox>
 				</div>
-			</div>
-		</Modal>
+				{#snippet footer()}
+					<Button variant="ghost" onclick={closeForms}>Cancel</Button>
+					<Button
+						variant="primary"
+						loading={savingTarget}
+						disabled={!targetUrl.trim() || (editingTargetId === 'new' && !targetToken.trim())}
+						onclick={() => void handleSaveTarget()}
+					>
+						Save
+					</Button>
+				{/snippet}
+			</Modal>
 		{/if}
 
 		{#if getTarget(uploadsTargetId)}
 			{@const uploadsTarget = getTarget(uploadsTargetId)!}
-			<Modal
-				open={true}
-				title={`Uploads to ${uploadsTarget.name}`}
-				on:close={() => (uploadsTargetId = null)}
-			>
-				<div class="grid gap-3">
-					<div class="text-sm text-text-muted">
-						Choose what this Sorter is allowed to upload to this Hive. Anything unchecked never
-						leaves the machine. Changes apply immediately, including to uploads already queued.
-					</div>
-					<div class="grid gap-2.5">
-						{#each telemetryFields as field (field.key)}
-							<label class="flex cursor-pointer items-start gap-2.5">
-								<input
-									type="checkbox"
-									checked={targetAllows(uploadsTarget, field.key)}
-									disabled={telemetrySaving}
-									onchange={() => handleToggleTelemetry(uploadsTarget, field)}
-									class="mt-0.5 h-4 w-4 border-border"
-								/>
-								<span class="min-w-0">
-									<span class="text-sm font-medium text-text">{field.label}</span>
-									<span class="block text-sm text-text-muted">{field.description}</span>
-								</span>
-							</label>
-						{/each}
-					</div>
-					<div class="flex items-center justify-between gap-2 border-t border-border pt-3">
-						<button
-							type="button"
-							onclick={() => handleResetTelemetry(uploadsTarget)}
-							disabled={telemetrySaving}
-							class="border border-border bg-bg px-3 py-1.5 text-xs text-text transition-colors hover:bg-surface disabled:cursor-not-allowed disabled:opacity-50"
-						>
-							Reset to defaults
-						</button>
-						<button
-							type="button"
-							onclick={() => (uploadsTargetId = null)}
-							class="border border-border bg-bg px-3 py-1.5 text-xs text-text transition-colors hover:bg-surface"
-						>
-							Done
-						</button>
-					</div>
+			<Modal open={true} title="Uploads to {uploadsTarget.name}" onclose={() => (uploadsTargetId = null)}>
+				<p class="text-ink-muted">
+					What this Sorter may upload to this Hive. Anything unchecked never leaves the machine.
+					Changes apply at once, including to uploads already queued.
+				</p>
+				<div class="mt-4 flex flex-col gap-3">
+					{#each telemetryFields as field (field.key)}
+						<div>
+							<Checkbox
+								checked={targetAllows(uploadsTarget, field.key)}
+								disabled={telemetrySaving}
+								onchange={() => handleToggleTelemetry(uploadsTarget, field)}
+							>
+								<span class="font-medium">{field.label}</span>
+							</Checkbox>
+							<p class="mt-0.5 ml-6.5 text-sm text-ink-muted">{field.description}</p>
+						</div>
+					{/each}
 				</div>
+				{#snippet footer()}
+					<Button
+						variant="ghost"
+						class="mr-auto"
+						disabled={telemetrySaving}
+						onclick={() => handleResetTelemetry(uploadsTarget)}
+					>
+						Reset to the defaults
+					</Button>
+					<Button variant="primary" onclick={() => (uploadsTargetId = null)}>Done</Button>
+				{/snippet}
 			</Modal>
 		{/if}
 
 		{#if showPairForm}
-			<div class="grid gap-3 border border-primary bg-primary/[0.05] px-3 py-3">
-				<div class="text-sm font-medium text-text">Pair with a Hive</div>
-				<div class="text-sm text-text-muted">
-					Enter the Hive URL, then continue on Hive to pick a machine name. Hive sends you back here
-					once the link is saved — no email or password leaves this Sorter.
-				</div>
-				<label class="flex flex-col gap-1 text-sm text-text">
-					Hive URL
-					<input
-						bind:value={pairUrl}
-						type="url"
-						placeholder={DEFAULT_HIVE_URL}
-						class="border border-border bg-bg px-2 py-1.5 text-sm text-text"
-					/>
-				</label>
-				<label class="flex flex-col gap-1 text-sm text-text">
-					Target name (optional)
-					<input
-						bind:value={pairTargetName}
-						type="text"
-						placeholder={pairUrl.trim() ? defaultHiveTargetName(pairUrl) : 'e.g. Hive Community'}
-						class="border border-border bg-bg px-2 py-1.5 text-sm text-text"
-					/>
-				</label>
-				<label class="flex flex-col gap-1 text-sm text-text">
-					Suggested machine name (optional)
-					<MachineNameField
-						bind:value={pairMachineName}
-						backendBaseUrl={currentBackendBaseUrl()}
-						placeholder="Hive names this machine if you leave it blank"
-					/>
-				</label>
-				<div class="flex justify-end gap-2">
-					<button
-						type="button"
-						onclick={closeForms}
-						class="border border-border bg-bg px-3 py-1.5 text-xs text-text transition-colors hover:bg-surface"
+			<Modal open={true} title="Pair with a Hive" onclose={closeForms}>
+				<p class="text-ink-muted">
+					Enter the Hive's address, then pick a name for this machine on Hive. Hive sends you back
+					here once the link is saved; no email or password leaves this Sorter.
+				</p>
+				<div class="mt-4 flex flex-col gap-4">
+					<Field label="Hive" for="pair-url">
+						<Input id="pair-url" type="url" bind:value={pairUrl} placeholder={DEFAULT_HIVE_URL} />
+					</Field>
+					<Field label="Name for this Hive" for="pair-name" help="Optional.">
+						<Input
+							id="pair-name"
+							bind:value={pairTargetName}
+							placeholder={pairUrl.trim() ? defaultHiveTargetName(pairUrl) : 'Hive Community'}
+						/>
+					</Field>
+					<Field
+						label="Suggested machine name"
+						for="pair-machine-name"
+						help="Optional: Hive names the machine if you leave it blank."
 					>
-						Cancel
-					</button>
-					<button
-						type="button"
+						<MachineNameField
+							id="pair-machine-name"
+							bind:value={pairMachineName}
+							backendBaseUrl={currentBackendBaseUrl()}
+						/>
+					</Field>
+				</div>
+				{#snippet footer()}
+					<Button variant="ghost" onclick={closeForms}>Cancel</Button>
+					<Button
+						variant="primary"
+						icon={Link2}
+						loading={pairing}
+						disabled={!pairUrl.trim()}
 						onclick={handlePair}
-						disabled={pairing || !pairUrl.trim()}
-						class="border border-primary bg-primary px-3 py-1.5 text-xs text-primary-contrast transition-colors hover:bg-primary-hover disabled:cursor-not-allowed disabled:opacity-50"
 					>
-						{pairing ? 'Opening Hive…' : 'Continue on Hive →'}
-					</button>
-				</div>
-			</div>
+						Continue on Hive
+					</Button>
+				{/snippet}
+			</Modal>
 		{/if}
 
 		{#if showRegisterForm}
-			<div class="grid gap-3 border border-border bg-surface px-3 py-3">
-				<div class="text-sm font-medium text-text">Register a New Hive Machine</div>
-				<input
-					bind:value={regTargetName}
-					type="text"
-					placeholder="Target name (for example Local or Live)"
-					class="border border-border bg-bg px-2 py-1.5 text-sm text-text"
-				/>
-				<input
-					bind:value={regUrl}
-					type="url"
-					placeholder="https://hive.example.com"
-					class="border border-border bg-bg px-2 py-1.5 text-sm text-text"
-				/>
-				<input
-					bind:value={regEmail}
-					type="email"
-					placeholder="Account email"
-					class="border border-border bg-bg px-2 py-1.5 text-sm text-text"
-				/>
-				<input
-					bind:value={regPassword}
-					type="password"
-					placeholder="Account password"
-					class="border border-border bg-bg px-2 py-1.5 text-sm text-text"
-				/>
-				<MachineNameField
-					bind:value={regMachineName}
-					backendBaseUrl={currentBackendBaseUrl()}
-					placeholder="Machine name"
-				/>
-				<input
-					bind:value={regMachineDescription}
-					type="text"
-					placeholder="Machine description (optional)"
-					class="border border-border bg-bg px-2 py-1.5 text-sm text-text"
-				/>
-				<div class="flex justify-end gap-2">
-					<button
-						type="button"
-						onclick={closeForms}
-						class="border border-border bg-bg px-3 py-1.5 text-xs text-text transition-colors hover:bg-surface"
-					>
-						Cancel
-					</button>
-					<button
-						type="button"
-						onclick={() => void handleRegister()}
-						disabled={registering ||
-							!regUrl.trim() ||
+			<Modal open={true} title="Register a new machine on a Hive" onclose={closeForms}>
+				<div class="flex flex-col gap-4">
+					<Field label="Name for this Hive" for="reg-name">
+						<Input id="reg-name" bind:value={regTargetName} placeholder="Local, or Live" />
+					</Field>
+					<Field label="Hive" for="reg-url">
+						<Input id="reg-url" type="url" bind:value={regUrl} placeholder="https://hive.example.com" />
+					</Field>
+					<Field label="Account email" for="reg-email">
+						<Input id="reg-email" type="email" bind:value={regEmail} />
+					</Field>
+					<Field label="Account password" for="reg-password">
+						<Input id="reg-password" type="password" bind:value={regPassword} />
+					</Field>
+					<Field label="Machine name" for="reg-machine-name">
+						<MachineNameField
+							id="reg-machine-name"
+							bind:value={regMachineName}
+							backendBaseUrl={currentBackendBaseUrl()}
+						/>
+					</Field>
+					<Field label="Machine description" for="reg-description" help="Optional.">
+						<Input id="reg-description" bind:value={regMachineDescription} />
+					</Field>
+				</div>
+				{#snippet footer()}
+					<Button variant="ghost" onclick={closeForms}>Cancel</Button>
+					<Button
+						variant="primary"
+						loading={registering}
+						disabled={!regUrl.trim() ||
 							!regEmail.trim() ||
 							!regPassword.trim() ||
 							!regMachineName.trim()}
-						class="border border-border bg-bg px-3 py-1.5 text-xs text-text transition-colors hover:bg-surface disabled:cursor-not-allowed disabled:opacity-50"
+						onclick={() => void handleRegister()}
 					>
-						{registering ? 'Registering...' : 'Register'}
-					</button>
-				</div>
-			</div>
+						Register
+					</Button>
+				{/snippet}
+			</Modal>
 		{/if}
-	{/if}
-
-	{#if errorMsg}
-		<div
-			class="border border-danger bg-danger/10 px-3 py-2 text-sm text-danger dark:border-danger dark:bg-danger/10 dark:text-red-400"
-		>
-			{errorMsg}
-		</div>
-	{/if}
-	{#if statusMsg}
-		<div class="text-sm text-text-muted">{statusMsg}</div>
+	{:else}
+		{#if errorMsg}
+			<Alert tone="danger">{errorMsg}</Alert>
+		{/if}
 	{/if}
 </div>

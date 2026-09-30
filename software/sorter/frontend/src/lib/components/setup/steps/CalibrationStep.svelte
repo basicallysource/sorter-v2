@@ -2,6 +2,12 @@
 	import { getBackendHttpBase, machineHttpBaseUrlFromWsUrl } from '$lib/backend';
 	import { getMachinesContext } from '$lib/machines/context';
 	import { onMount } from 'svelte';
+	import Cable from '@lucide/svelte/icons/cable';
+	import Alert from '$lib/components/ui/Alert.svelte';
+	import Button from '$lib/components/ui/Button.svelte';
+	import Field from '$lib/components/ui/Field.svelte';
+	import Input from '$lib/components/ui/Input.svelte';
+	import Panel from '$lib/components/ui/Panel.svelte';
 
 	type ChuteLiveStatus = {
 		live_available: boolean;
@@ -75,9 +81,9 @@
 	}
 
 	function endstopStatusClass(triggered: boolean | null, error: string | undefined): string {
-		if (error) return 'border-danger bg-primary-light text-[#7A0A0B]';
-		if (triggered) return 'border-success bg-[#D4EDDA] text-success';
-		return 'border-border bg-bg text-text-muted';
+		if (error) return 'bg-danger-soft text-danger-ink';
+		if (triggered) return 'bg-success-soft text-success-ink';
+		return 'bg-well text-ink-muted';
 	}
 
 	async function loadChuteSettings() {
@@ -234,231 +240,127 @@
 	});
 </script>
 
-<div class="flex flex-col gap-4">
+<div class="flex flex-col gap-(--gap-panels)">
 	{#if systemState === 'initializing' || systemState === 'homing'}
-		<div
-			class="flex items-center gap-3 border border-warning bg-[#FFF7E0] px-4 py-3 text-sm text-[#7A5A00]"
-		>
-			<div class="flex flex-col">
-				<span class="font-medium">Powering on steppers…</span>
-				<span class="text-xs text-[#7A5A00]/80">
-					{homingStep ?? 'Discovering hardware'} — endstop checks unlock once the boards are
-					ready.
-				</span>
-			</div>
-		</div>
+		<Alert tone="warning" title="Powering on the steppers…">
+			{homingStep ?? 'Finding the hardware'}. The endstop checks unlock once the boards are ready.
+		</Alert>
 	{:else if systemState === 'standby'}
-		<div class="setup-panel flex flex-wrap items-center justify-between gap-3 px-4 py-3 text-sm">
-			<span class="text-text-muted">The steppers are off.</span>
-			<button
-				onclick={onInitialize}
-				class="setup-button-secondary inline-flex items-center gap-2 px-3 py-1.5 text-sm text-text transition-colors"
-			>
-				Power on steppers
-			</button>
-		</div>
+		<Alert tone="info" title="The steppers are off.">
+			{#snippet actions()}
+				<Button size="sm" onclick={onInitialize}>Power on the steppers</Button>
+			{/snippet}
+		</Alert>
 	{:else if systemState === 'error'}
-		<div
-			class="flex items-center gap-3 border border-danger bg-primary-light px-4 py-3 text-sm text-[#7A0A0B]"
-		>
-			<div class="flex flex-col">
-				<span class="font-medium">Hardware connection failed</span>
-				<span class="text-xs text-[#7A0A0B]/80">
-					{homingStep ?? 'The steppers could not be initialized — check the USB cabling and reset the wizard.'}
-				</span>
-			</div>
-		</div>
+		<Alert tone="danger" title="The hardware connection failed">
+			{homingStep ?? 'The steppers could not start. Check the USB cables and reset the wizard.'}
+		</Alert>
 	{/if}
 
-	<div class="setup-panel px-4 py-3 text-sm text-text-muted">
-		<div class="flex flex-wrap items-start justify-between gap-3">
-			<div class="min-w-0 flex-1">
-				Verify the chute endstop before homing.
-			</div>
-			<button
-				onclick={() => (showEndstopWiringHelp = !showEndstopWiringHelp)}
-				class="setup-button-secondary inline-flex items-center gap-2 px-3 py-1.5 text-xs font-medium text-text transition-colors"
-			>
-				{showEndstopWiringHelp ? 'Hide wiring help' : 'Show wiring help'}
-			</button>
-		</div>
-	</div>
-
-	{#if showEndstopWiringHelp}
-		<div class="setup-panel px-4 py-4 text-sm text-text">
-			<div class="text-sm font-semibold text-text">SKR Pico endstop wiring</div>
-			<div class="mt-1 text-sm text-text-muted">
-				Reference for the SKR Pico V1.0 endstop header used by the distributor board.
-			</div>
-			<div class="mt-3 grid gap-4 lg:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)]">
-				<a
-					href={SKR_PICO_WIRING_DIAGRAM_URL}
-					target="_blank"
-					rel="noopener noreferrer"
-					class="block border border-border bg-white p-1"
-				>
-					<img
-						src={SKR_PICO_WIRING_DIAGRAM_URL}
-						alt="SKR Pico V1.0 board with labeled headers"
-						loading="lazy"
-						class="block h-auto w-full"
-					/>
-				</a>
-				<div class="flex flex-col gap-2 text-xs">
-					<div class="font-semibold tracking-wide text-text uppercase">Sorter mapping</div>
-					<table class="w-full border-collapse">
-						<tbody>
-							<tr>
-								<td class="py-1 pr-3 text-text-muted">Chute endstop</td>
-								<td class="py-1 font-medium text-text">Distributor · E0-STOP</td>
-							</tr>
-						</tbody>
-					</table>
-				</div>
-			</div>
-		</div>
-	{/if}
-
-	<div class="grid gap-4">
-		<div class="setup-panel p-4">
-			<div class="flex items-start justify-between gap-3">
-				<div>
-					<div class="text-sm font-semibold text-text">Chute endstop and home</div>
-					<div class="mt-1 text-sm text-text-muted">
-						Set the chute homing polarity and verify the chute can find its mechanical reference.
+	<Panel
+		title="Chute endstop and home"
+		description="Check the chute's endstop before homing: set its polarity, and make sure the chute can find its mechanical reference."
+	>
+		{#snippet actions()}
+			<Button size="sm" variant="ghost" icon={Cable} onclick={() => (showEndstopWiringHelp = !showEndstopWiringHelp)}>
+				<span class="max-sm:sr-only">{showEndstopWiringHelp ? 'Hide the wiring' : 'Show the wiring'}</span>
+			</Button>
+		{/snippet}
+		<div class="flex flex-col gap-4">
+			{#if showEndstopWiringHelp}
+				<div class="grid grid-cols-1 gap-4 rounded-control bg-well p-4 lg:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)]">
+					<a href={SKR_PICO_WIRING_DIAGRAM_URL} target="_blank" rel="noopener noreferrer" class="block">
+						<img
+							src={SKR_PICO_WIRING_DIAGRAM_URL}
+							alt="SKR Pico V1.0 board with labeled headers"
+							loading="lazy"
+							class="block h-auto w-full rounded-control"
+						/>
+					</a>
+					<div class="flex flex-col gap-2 text-sm">
+						<h3 class="font-medium text-ink">SKR Pico endstop wiring</h3>
+						<p class="text-ink-muted">The SKR Pico V1.0 endstop header the distributor board uses.</p>
+						<p>
+							<span class="text-ink-muted">Chute endstop</span>
+							<span class="font-mono text-ink">Distributor · E0-STOP</span>
+						</p>
 					</div>
-				</div>
-			</div>
-
-			<div class="mt-4 text-sm text-text-muted">
-				<span class="font-medium text-text">Step 1:</span> Manually trigger the chute endstop and
-				confirm the indicator below flips to <span class="font-medium text-text">Triggered</span>.
-				Adjust the polarity below if it stays Not triggered.
-			</div>
-
-			<div
-				class={`mt-3 flex items-center justify-between border px-4 py-3 transition-colors ${endstopStatusClass(
-					chuteLive.endstop_triggered,
-					chuteLive.endstop_error
-				)}`}
-			>
-				<span class="text-xs tracking-[0.16em] uppercase">Chute endstop</span>
-				<span class="text-base font-semibold">
-					{endstopStatusLabel(
-						chuteLive.endstop_triggered,
-						chuteLive.endstop_error,
-						chuteLive.live_available
-					)}
-				</span>
-			</div>
-			<div class="mt-2 text-sm text-text-muted">
-				Input channel
-				<span class="font-medium text-text"> {chuteLive.home_pin_channel ?? '--'}</span>
-				{#if chuteLive.raw_endstop_high !== null}
-					· raw signal
-					<span class="font-medium text-text">
-						{chuteLive.raw_endstop_high ? 'HIGH' : 'LOW'}
-					</span>
-				{/if}
-			</div>
-			{#if chuteLive.endstop_error}
-				<div class="mt-2 border border-danger bg-primary-light px-3 py-2 text-sm text-[#7A0A0B]">
-					Live endstop read failed: {chuteLive.endstop_error}
 				</div>
 			{/if}
 
-			<div class="mt-4 grid gap-3 sm:grid-cols-2">
-				<label class="flex flex-col gap-1 text-sm">
-					<span class="text-text-muted">First bin center</span>
-					<input
-						type="number"
-						step="0.1"
-						bind:value={chuteFirstBinCenter}
-						class="setup-control px-3 py-2 text-text"
-					/>
-				</label>
-				<label class="flex flex-col gap-1 text-sm">
-					<span class="text-text-muted">Pillar width (deg)</span>
-					<input
-						type="number"
-						step="0.1"
-						bind:value={chutePillarWidthDeg}
-						class="setup-control px-3 py-2 text-text"
-					/>
-				</label>
+			<p class="text-sm text-ink-muted">
+				First, trigger the chute's endstop by hand and check that it reads Triggered below. If it
+				stays Not triggered, flip the polarity.
+			</p>
+			<div
+				class="flex items-center justify-between rounded-control px-4 py-3 transition-colors {endstopStatusClass(
+					chuteLive.endstop_triggered,
+					chuteLive.endstop_error
+				)}"
+			>
+				<span class="text-sm">Chute endstop</span>
+				<span class="text-base font-semibold">
+					{endstopStatusLabel(chuteLive.endstop_triggered, chuteLive.endstop_error, chuteLive.live_available)}
+				</span>
+			</div>
+			<p class="text-sm text-ink-muted">
+				Input channel <span class="font-medium text-ink">{chuteLive.home_pin_channel ?? '–'}</span>
+				{#if chuteLive.raw_endstop_high !== null}
+					· raw signal <span class="font-medium text-ink">{chuteLive.raw_endstop_high ? 'high' : 'low'}</span>
+				{/if}
+			</p>
+			{#if chuteLive.endstop_error}
+				<Alert tone="danger">The live endstop read failed: {chuteLive.endstop_error}</Alert>
+			{/if}
+
+			<div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+				<Field label="First bin center" for="setup-first-bin" help="Saved when you continue.">
+					<Input id="setup-first-bin" type="number" step={0.1} bind:value={chuteFirstBinCenter} />
+				</Field>
+				<Field label="Pillar width" for="setup-pillar" help="Saved when you continue.">
+					<Input id="setup-pillar" type="number" step={0.1} unit="°" bind:value={chutePillarWidthDeg} />
+				</Field>
 			</div>
 
-			<div class="mt-3 flex flex-col gap-2">
-				<div>
-					<button
-						onclick={flipChutePolarity}
-						disabled={chuteSaving}
-						class="setup-button-secondary inline-flex items-center gap-2 px-3 py-1.5 text-xs font-medium text-text transition-colors disabled:cursor-not-allowed disabled:opacity-60"
-					>
-						{chuteSaving ? 'Saving…' : 'Trigger state looks inverted? Flip polarity'}
-					</button>
-					<div class="mt-1 text-sm text-text-muted">
-						Currently treating the input as
-						<span class="font-medium text-text"
-							>{chuteEndstopActiveHigh ? 'active-high' : 'active-low'}</span
-						>.
-					</div>
+			<div class="flex flex-col gap-3 text-sm text-ink-muted">
+				<div class="flex flex-wrap items-center gap-x-3 gap-y-1">
+					<Button size="sm" loading={chuteSaving} onclick={flipChutePolarity}>Flip the polarity</Button>
+					<span>
+						If the trigger looks inverted. The input reads as
+						<span class="font-medium text-ink">{chuteEndstopActiveHigh ? 'active-high' : 'active-low'}</span>.
+					</span>
 				</div>
-				<div>
-					<button
-						onclick={flipChuteDirection}
-						disabled={chuteSaving}
-						class="setup-button-secondary inline-flex items-center gap-2 px-3 py-1.5 text-xs font-medium text-text transition-colors disabled:cursor-not-allowed disabled:opacity-60"
-					>
-						{chuteSaving ? 'Saving…' : 'Chute moves the wrong way? Flip direction'}
-					</button>
-					<div class="mt-1 text-sm text-text-muted">
-						Stepper direction is currently
-						<span class="font-medium text-text">
+				<div class="flex flex-wrap items-center gap-x-3 gap-y-1">
+					<Button size="sm" loading={chuteSaving} onclick={flipChuteDirection}>Flip the direction</Button>
+					<span>
+						If the chute moves the wrong way. Its direction is
+						<span class="font-medium text-ink">
 							{chuteLive.stepper_direction_inverted === null
-								? '--'
+								? '–'
 								: chuteLive.stepper_direction_inverted
 									? 'inverted'
-									: 'normal'}
-						</span>.
-					</div>
+									: 'normal'}</span
+						>.
+					</span>
 				</div>
-			</div>
-
-			<div class="mt-1 text-sm text-text-muted">
-				First-bin and pillar values are saved automatically when you continue to the next step.
-			</div>
-
-			<div class="mt-4 flex flex-wrap gap-2">
-				<button
-					onclick={findChuteEndstop}
-					disabled={!(systemState === 'ready' || systemState === 'initialized') || chuteHoming}
-					class="border border-success bg-success px-3 py-2 text-sm font-medium text-white transition-colors hover:bg-success/90 disabled:cursor-not-allowed disabled:opacity-60"
-				>
-					{chuteHoming ? 'Homing...' : 'Find chute endstop'}
-				</button>
-				<button
-					onclick={cancelChute}
-					disabled={chuteCanceling}
-					class="setup-button-secondary px-3 py-2 text-sm text-text transition-colors disabled:cursor-not-allowed disabled:opacity-60"
-				>
-					{chuteCanceling ? 'Stopping...' : 'Stop motion'}
-				</button>
 			</div>
 
 			{#if chuteError}
-				<div
-					class="mt-3 border border-danger bg-primary-light px-3 py-2 text-sm text-[#7A0A0B]"
-				>
-					{chuteError}
-				</div>
+				<Alert tone="danger">{chuteError}</Alert>
 			{:else if chuteStatus}
-				<div
-					class="mt-3 border border-success bg-[#D4EDDA] px-3 py-2 text-sm font-medium text-success"
-				>
-					{chuteStatus}
-				</div>
+				<Alert tone="success">{chuteStatus}</Alert>
 			{/if}
 		</div>
-	</div>
+		{#snippet footer()}
+			<Button variant="ghost" loading={chuteCanceling} onclick={cancelChute}>Stop the motion</Button>
+			<Button
+				variant="primary"
+				loading={chuteHoming}
+				disabled={!(systemState === 'ready' || systemState === 'initialized')}
+				onclick={findChuteEndstop}
+			>
+				Find the chute endstop
+			</Button>
+		{/snippet}
+	</Panel>
 </div>

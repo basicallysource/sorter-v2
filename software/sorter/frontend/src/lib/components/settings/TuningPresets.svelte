@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { Button } from '$lib/components/primitives';
+	import Button from '$lib/components/ui/Button.svelte';
 	import type { TuningPreset, TuningValues } from '$lib/settings/tuning';
 
 	// Renders a list of one-click presets for a tuning page. Clicking one merges
@@ -18,15 +18,13 @@
 	}
 </script>
 
-<div class="flex flex-col gap-3">
+<ul class="divide-y divide-line">
 	{#each presets as preset}
-		<div class="flex items-start gap-3">
+		<li class="flex flex-col gap-2 px-(--pad-panel) py-(--pad-row) sm:flex-row sm:items-center sm:gap-4">
 			<div class="w-44 shrink-0">
-				<Button variant="secondary" size="sm" onclick={() => apply(preset)}>
-					{preset.label}
-				</Button>
+				<Button size="sm" onclick={() => apply(preset)}>{preset.label}</Button>
 			</div>
-			<span class="text-sm text-text-muted">{preset.description}</span>
-		</div>
+			<span class="text-sm text-ink-muted">{preset.description}</span>
+		</li>
 	{/each}
-</div>
+</ul>

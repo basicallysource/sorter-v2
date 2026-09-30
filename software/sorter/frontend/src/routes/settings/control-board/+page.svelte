@@ -1,9 +1,9 @@
 <script lang="ts">
 	import ControlBoardSection from '$lib/components/settings/ControlBoardSection.svelte';
+	import PageHeader from '$lib/components/ui/PageHeader.svelte';
 </script>
 
-<svelte:head><title>Sorter - Control Board</title></svelte:head>
+<svelte:head><title>Sorter - Control board</title></svelte:head>
 
-<div class="lg:max-w-4xl">
-	<ControlBoardSection />
-</div>
+<PageHeader title="Control board" description="The machine's control boards and their firmware." />
+<ControlBoardSection />

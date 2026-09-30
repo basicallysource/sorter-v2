@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { chartFont, token } from '$lib/theme';
 	// Stacked time-series panels for StallGuard telemetry. Each signal gets its own
 	// panel on its own real scale — SG_RESULT (0..512), TSTEP (log, decades differ
 	// by 1000x within one move), CS_ACTUAL (0..31). They share the time axis and the
@@ -44,12 +45,6 @@
 	const CS_MAX = 31;
 	const PAD = { top: 16, right: 16, bottom: 30, left: 48 };
 	const PANEL_GAP = 26;
-
-	function cssVar(name: string, fallback: string): string {
-		if (typeof window === 'undefined' || !canvas) return fallback;
-		const v = getComputedStyle(canvas).getPropertyValue(name).trim();
-		return v || fallback;
-	}
 
 	// Samples with a valid TSTEP reading, in time order — the basis for every gate calc.
 	function tstepPoints(): { x: number; tstep: number }[] {
@@ -108,16 +103,18 @@
 		ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
 		ctx.clearRect(0, 0, width, height);
 
-		const colText = cssVar('--color-text', '#1a1a1a');
-		const colMuted = cssVar('--color-text-muted', '#7a7770');
-		const colBorder = cssVar('--color-border', '#e2e0db');
-		const colPrimary = cssVar('--color-primary', '#0055bf');
-		const colDanger = cssVar('--color-danger', '#d01012');
-		const colWarning = cssVar('--color-warning', '#f2a900');
-		const colSuccess = cssVar('--color-success', '#00852b');
-		const colBg = cssVar('--color-bg', '#ffffff');
+		const colText = token('--ink', canvas);
+		const colMuted = token('--ink-muted', canvas);
+		const colBorder = token('--line', canvas);
+		const colPrimary = token('--primary', canvas);
+		const colDanger = token('--danger', canvas);
+		const colWarning = token('--warning', canvas);
+		const colSuccess = token('--success', canvas);
+		const colBg = token('--raised', canvas);
 
-		ctx.font = '11px ui-sans-serif, system-ui, sans-serif';
+		const labelFont = chartFont(canvas);
+		const titleFont = chartFont(canvas, 600);
+		ctx.font = labelFont;
 
 		const plotW = width - PAD.left - PAD.right;
 		const x0 = PAD.left;
@@ -229,9 +226,9 @@
 			ctx.fillStyle = color;
 			ctx.textAlign = 'left';
 			ctx.textBaseline = 'top';
-			ctx.font = '600 11px ui-sans-serif, system-ui, sans-serif';
+			ctx.font = titleFont;
 			ctx.fillText(title, x0 + 4, y0 + 3);
-			ctx.font = '11px ui-sans-serif, system-ui, sans-serif';
+			ctx.font = labelFont;
 		};
 
 		const yLabel = (text: string, y: number, color: string) => {

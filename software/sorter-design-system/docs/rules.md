@@ -19,10 +19,11 @@ a section (a heading, or a line between rows). See [surfaces.md](surfaces.md).
 No double borders, anywhere. A double line appears where two parts both draw
 the edge between them, so every line has one owner: the rows of a list own
 the lines between them and none at the ends, a panel has no border, the top
-bar owns the line under it, and controls in a row keep a gap. A divider runs
-the full width of its panel by default; it is inset only where a full line
-would cut one group in two. The ownership rules are in
-[surfaces.md](surfaces.md).
+bar owns the line under it, and controls in a row keep a gap. Choices that
+belong together are one control: one outline and one line between the
+segments, never a padded track. A divider runs the full width of its panel by
+default; it is inset only where a full line would cut one group in two. The
+ownership rules are in [surfaces.md](surfaces.md).
 
 ## 3. One loading indicator
 

@@ -5,12 +5,16 @@
 	import { stepperLabels } from '$lib/settings/stations';
 	import type { EndstopConfig } from '$lib/settings/stations';
 	import {
+		DIRECTION_WORDS,
 		STEPPER_GEAR_RATIOS,
 		loadStoredStepperPulseSetting,
 		persistStoredStepperPulseSetting
 	} from '$lib/settings/stepper-control';
-	import { Cog } from 'lucide-svelte';
-	import { Alert, Button } from '$lib/components/primitives';
+	import Alert from '$lib/components/ui/Alert.svelte';
+	import Button from '$lib/components/ui/Button.svelte';
+	import Badge from '$lib/components/ui/Badge.svelte';
+	import Disclosure from '$lib/components/ui/Disclosure.svelte';
+	import Spinner from '$lib/components/ui/Spinner.svelte';
 	import { onMount } from 'svelte';
 	import StepperPulseControls from './stepper/StepperPulseControls.svelte';
 	import StepperHoming from './stepper/StepperHoming.svelte';
@@ -325,9 +329,9 @@
 				errorMsg = humanizeStepperError(await readErrorMessage(res));
 				return;
 			}
-			statusMsg = `Pulsing ${direction.toUpperCase()}.`;
+			statusMsg = `Pulsing ${DIRECTION_WORDS[direction]}.`;
 		} catch {
-			errorMsg = `${direction.toUpperCase()} request failed.`;
+			errorMsg = `The ${DIRECTION_WORDS[direction]} request failed.`;
 		} finally {
 			pulsing = { ...pulsing, [key]: false };
 		}
@@ -355,9 +359,9 @@
 				errorMsg = humanizeStepperError(await readErrorMessage(res));
 				return;
 			}
-			statusMsg = `Moving ${pulseDegrees}° ${direction.toUpperCase()}.`;
+			statusMsg = `Moving ${pulseDegrees}° ${DIRECTION_WORDS[direction]}.`;
 		} catch {
-			errorMsg = `${direction.toUpperCase()} request failed.`;
+			errorMsg = `The ${DIRECTION_WORDS[direction]} request failed.`;
 		} finally {
 			pulsing = { ...pulsing, [key]: false };
 		}
@@ -692,87 +696,67 @@
 		}, 500);
 		return () => clearInterval(interval);
 	});
+
+	// Opening the driver settings reads them from the driver the first time.
+	$effect(() => {
+		if (driverSettingsOpen && !tmcLoaded) void loadTmcSettings();
+	});
 </script>
 
 <svelte:window onkeydown={handleWindowKeydown} />
 
-<aside
-	class="flex h-full min-w-0 flex-col border border-border bg-bg"
->
-	<!-- Header -->
-	<div class="border-b border-border bg-surface px-4 py-3">
-		<div class="flex items-start gap-3">
-			<div
-				class="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-bg text-text"
-			>
-				<Cog size={16} />
-			</div>
-			<div class="min-w-0">
-				<div class="text-sm font-semibold text-text">{displayLabel}</div>
-				<div
-					class="mt-1 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-text-muted"
-				>
-					<span
-						>{stepperStopped === null ? '--' : stepperStopped ? 'Stopped' : 'Moving'}</span
-					>
-					{#if isChute}
-						<span>·</span>
-						<span>Chute {formatNumber(chuteOutputAngle)}°</span>
-						<span>·</span>
-						<span>Motor {formatNumber(chuteStepperDegrees)}°</span>
-						<span>·</span>
-						<span>{stepperMicrosteps ?? '--'} µs</span>
-					{:else}
-						<span>·</span>
-						<span>{formatNumber(currentPositionDegrees)}°</span>
-						<span>·</span>
-						<span>{stepperMicrosteps ?? '--'} µs</span>
-					{/if}
-				</div>
-				{#if isChute}
-					<div class="mt-1 text-xs text-text-muted">
-						Gear ratio {gearRatio.toFixed(2)}× ({chuteStepperDegrees !== null && chuteOutputAngle !== null ? `${formatNumber(chuteStepperDegrees, 1)}° ÷ ${gearRatio.toFixed(2)} = ${formatNumber(chuteOutputAngle, 1)}°` : 'motor ÷ ratio = chute'})
-					</div>
-					<div class="mt-0.5 text-xs {chuteHomed === true ? 'text-success dark:text-green-400' : chuteHomed === false ? 'text-warning' : 'text-text-muted'}">
-						{chuteHomed === true ? 'Homed' : chuteHomed === false ? 'Not homed' : 'Homed: --'}
-					</div>
-				{/if}
-				{#if hasEndstop && endstopTriggered !== null}
-					<div
-						class="mt-0.5 text-xs {endstopTriggered
-							? 'text-success dark:text-green-400'
-							: 'text-text-muted'}"
-					>
-						Endstop: {endstopTriggered ? 'Triggered' : 'Not Triggered'}
-					</div>
-				{/if}
-			</div>
+<section class="flex min-w-0 flex-col overflow-hidden rounded-panel bg-surface">
+	<header class="px-(--pad-panel) pt-4 pb-3">
+		<div class="flex flex-wrap items-center gap-2">
+			<h2 class="text-base font-semibold text-ink">{displayLabel}</h2>
+			{#if stepperStopped === null}
+				<Badge dot>Unknown</Badge>
+			{:else if stepperStopped}
+				<Badge dot>Stopped</Badge>
+			{:else}
+				<Badge tone="primary" dot>Moving</Badge>
+			{/if}
+			{#if isChute && chuteHomed !== null}
+				<Badge tone={chuteHomed ? 'success' : 'warning'} dot>{chuteHomed ? 'Homed' : 'Not homed'}</Badge>
+			{/if}
+			{#if hasEndstop && endstopTriggered !== null}
+				<Badge tone={endstopTriggered ? 'success' : 'neutral'}>
+					{endstopTriggered ? 'Endstop triggered' : 'Endstop clear'}
+				</Badge>
+			{/if}
 		</div>
-	</div>
-
-	<!-- Scrollable content -->
-	<div class="flex flex-1 flex-col gap-4 overflow-y-auto px-4 py-4">
-		{#if tmcStalled}
-			<Alert variant="danger">
-				<div class="flex items-center justify-between gap-3">
-					<div>
-						<div class="font-semibold">⚠ {displayLabel} is stalled</div>
-						<div class="mt-1">
-							Stall detection latched and halted this motor. Clear the jam, then clear the
-							stall. The home reference was dropped — re-home before precise moves.
-						</div>
-					</div>
-					<Button
-						variant="danger"
-						size="sm"
-						loading={tmcClearingStall}
-						onclick={() => void clearStall()}
-					>
-						Clear stall
-					</Button>
-				</div>
-			</Alert>
+		<p class="num mt-1 text-sm text-ink-muted">
+			{#if isChute}
+				Chute {formatNumber(chuteOutputAngle)}°, motor {formatNumber(chuteStepperDegrees)}°,
+				{stepperMicrosteps ?? 'unknown'} microsteps
+			{:else}
+				At {formatNumber(currentPositionDegrees)}°, {stepperMicrosteps ?? 'unknown'} microsteps
+			{/if}
+		</p>
+		{#if isChute}
+			<p class="num text-sm text-ink-muted">
+				Gear ratio {gearRatio.toFixed(2)}:1{chuteStepperDegrees !== null && chuteOutputAngle !== null
+					? `: ${formatNumber(chuteStepperDegrees, 1)}° at the motor is ${formatNumber(chuteOutputAngle, 1)}° at the chute`
+					: ''}
+			</p>
 		{/if}
+	</header>
+
+	{#if tmcStalled}
+		<div class="px-(--pad-panel) pb-3">
+			<Alert tone="danger" title="{displayLabel} stalled">
+				Stall detection halted this motor. Clear the jam, then clear the stall. Its home position was
+				dropped, so home it again before precise moves.
+				{#snippet actions()}
+					<Button variant="danger" size="sm" loading={tmcClearingStall} onclick={() => void clearStall()}>
+						Clear the stall
+					</Button>
+				{/snippet}
+			</Alert>
+		</div>
+	{/if}
+
+	<div class="px-(--pad-panel) pb-(--pad-panel)">
 		<StepperPulseControls
 			{stepperKey}
 			{keyboardShortcuts}
@@ -788,7 +772,9 @@
 			onPulse={pulse}
 			onStop={stopStepper}
 		/>
+	</div>
 
+	<div class="divide-y divide-line border-t border-line">
 		{#if isChute}
 			<StepperChuteOperation
 				{loading}
@@ -820,52 +806,50 @@
 			<StepperChuteStressTest operatingSpeed={chuteOperatingSpeed} />
 		{/if}
 
-		<StepperDriverSettings
-			bind:open={driverSettingsOpen}
-			loading={tmcLoading}
-			saving={tmcSaving}
-			{hasEndstop}
-			bind:tmcIrun
-			bind:tmcIhold
-			bind:tmcMicrosteps
-			bind:tmcStealthchop
-			bind:tmcCoolstep
-			bind:sgEnabled
-			bind:sgThrs
-			bind:sgTcoolthrs
-			bind:stepperDirectionInverted
-			{tmcDrvStatus}
-			onToggle={() => {
-				driverSettingsOpen = !driverSettingsOpen;
-				if (driverSettingsOpen && !tmcLoaded) void loadTmcSettings();
-			}}
-			onSave={saveTmcSettings}
-		/>
+		<Disclosure title="Driver settings" help="Currents, microsteps, stall detection" bind:open={driverSettingsOpen}>
+			<StepperDriverSettings
+				loading={tmcLoading}
+				saving={tmcSaving}
+				{hasEndstop}
+				bind:tmcIrun
+				bind:tmcIhold
+				bind:tmcMicrosteps
+				bind:tmcStealthchop
+				bind:tmcCoolstep
+				bind:sgEnabled
+				bind:sgThrs
+				bind:sgTcoolthrs
+				bind:stepperDirectionInverted
+				{tmcDrvStatus}
+				onSave={saveTmcSettings}
+			/>
+		</Disclosure>
 
 		{#if hasEndstop}
-			<StepperEndstopSettings
-				bind:open={endstopSettingsOpen}
-				{loading}
-				{saving}
-				{homing}
-				{canceling}
-				bind:endstopActiveHigh
-				onToggle={() => (endstopSettingsOpen = !endstopSettingsOpen)}
-				onSave={saveEndstopSettings}
-			/>
+			<Disclosure title="Endstop settings" bind:open={endstopSettingsOpen}>
+				<StepperEndstopSettings
+					{loading}
+					{saving}
+					{homing}
+					{canceling}
+					bind:endstopActiveHigh
+					onSave={saveEndstopSettings}
+				/>
+			</Disclosure>
 		{/if}
+	</div>
 
-		<!-- Status / Error footer -->
-		<div class="mt-auto">
+	{#if errorMsg || statusMsg || homing || calibrating}
+		<div class="border-t border-line px-(--pad-panel) py-3 text-sm">
 			{#if errorMsg}
-				<div class="text-sm text-danger dark:text-red-400">{errorMsg}</div>
+				<p class="text-danger-ink">{errorMsg}</p>
 			{:else if statusMsg}
-				<div class="text-sm text-text-muted">{statusMsg}</div>
+				<p class="text-ink-muted">{statusMsg}</p>
 			{:else if homing}
-				<div class="text-sm text-primary">Homing to endstop...</div>
+				<p class="flex items-center gap-2 text-primary-ink"><Spinner size={14} /> Homing to the endstop</p>
 			{:else if calibrating}
-				<div class="text-sm text-primary">Calibrating full rotation...</div>
+				<p class="flex items-center gap-2 text-primary-ink"><Spinner size={14} /> Calibrating a full turn</p>
 			{/if}
 		</div>
-	</div>
-</aside>
+	{/if}
+</section>

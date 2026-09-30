@@ -1,4 +1,5 @@
 <script lang="ts">
+	import Stat from '$lib/components/ui/Stat.svelte';
 	import { getMachineContext } from '$lib/machines/context';
 
 	const ctx = getMachineContext();
@@ -114,116 +115,68 @@
 	}
 </script>
 
-<div class="flex h-full flex-col">
-	<div class="flex-1 overflow-y-auto p-2">
-		{#if !ctx.machine || !ctx.machine.runtimeStats}
-			<div class="text-sm text-text-muted">No runtime stats yet</div>
-		{:else}
-			<!-- Primary tile: goal KPI — classified single + distributed -->
-			<div class="grid grid-cols-2 gap-2">
-				<div class="border border-border bg-bg p-2">
-					<div class="text-xs font-semibold uppercase tracking-wider text-text-muted">
-						Dist / min (5m avg)
-					</div>
-					<div class="flex items-baseline gap-1">
-						<span class="text-3xl font-semibold tabular-nums text-text">
-							{fmtPpm(rolling_5min_ppm)}
-						</span>
-						<span class="text-xs text-text-muted">ppm · goal 8</span>
-					</div>
-				</div>
-				<div class="border border-border bg-bg p-2">
-					<div class="text-xs font-semibold uppercase tracking-wider text-text-muted">
-						Classify success
-					</div>
-					<div class="flex items-baseline gap-1">
-						<span class="text-3xl font-semibold tabular-nums text-text">
-							{fmtPct(classification_success_pct)}
-						</span>
-						<span class="text-xs text-text-muted tabular-nums">
-							{classified_n}/{classified_n + unknown_n + multi_drop_n}
-						</span>
-					</div>
-				</div>
-
-				<div class="border border-border bg-bg p-2">
-					<div class="text-xs font-semibold uppercase tracking-wider text-text-muted">
-						Multi-drop rate
-					</div>
-					<div class="flex items-baseline gap-1">
-						<span class="text-2xl font-semibold tabular-nums text-text">
-							{fmtPct(multi_drop_pct, 1)}
-						</span>
-						<span class="text-xs text-text-muted tabular-nums">
-							{multi_drop_n}/{pieces_seen}
-						</span>
-					</div>
-				</div>
-				<div class="border border-border bg-bg p-2">
-					<div class="text-xs font-semibold uppercase tracking-wider text-text-muted">
-						Feed rate
-					</div>
-					<div class="flex items-baseline gap-1">
-						<span class="text-2xl font-semibold tabular-nums text-text">
-							{fmtPpm(feed_rate_ppm)}
-						</span>
-						<span class="text-xs text-text-muted">ppm seen</span>
-					</div>
-				</div>
-
-				<div class="border border-border bg-bg p-2">
-					<div class="text-xs font-semibold uppercase tracking-wider text-text-muted">
-						C4 active ppm
-					</div>
-					<div class="flex items-baseline gap-1">
-						<span class="text-2xl font-semibold tabular-nums text-text">
-							{fmtPpm(c4_active_ppm)}
-						</span>
-					</div>
-				</div>
-				<div class="border border-border bg-bg p-2">
-					<div class="text-xs font-semibold uppercase tracking-wider text-text-muted">
-						In C4
-					</div>
-					<div class="flex items-baseline gap-1">
-						<span class="text-2xl font-semibold tabular-nums text-text">
-							{fmtInt(active_in_c4)}
-						</span>
-						<span class="text-xs text-text-muted">pieces</span>
-					</div>
-				</div>
+<div class="h-full overflow-y-auto">
+	{#if !ctx.machine || !ctx.machine.runtimeStats}
+		<p class="px-4 py-8 text-center text-sm text-ink-muted">No runtime stats yet</p>
+	{:else}
+		<div class="grid grid-cols-2 gap-px bg-line">
+			<div class="bg-surface">
+				<Stat
+					label="Distributed a minute"
+					value={fmtPpm(rolling_5min_ppm)}
+					unit="ppm"
+					hint="5 min average, goal 8"
+				/>
 			</div>
-
-			<!-- 60 s sparkline of classifications in 10 s buckets -->
-			<div class="mt-2 border border-border bg-bg p-2">
-				<div class="flex items-baseline justify-between">
-					<div class="text-xs font-semibold uppercase tracking-wider text-text-muted">
-						Last 60 s classifications
-					</div>
-					<div class="text-xs text-text-muted tabular-nums">
-						peak {peak_bucket}
-					</div>
-				</div>
-				<div class="mt-1 flex h-10 items-end gap-0.5">
-					{#each buckets as v, i (i)}
-						<div
-							class="flex-1 bg-primary/80"
-							style="height: {peak_bucket > 0 ? (v / peak_bucket) * 100 : 0}%; min-height: 1px;"
-							title="{v} classified ({(N_BUCKETS - i) * BUCKET_S}s ago)"
-						></div>
-					{/each}
-				</div>
+			<div class="bg-surface">
+				<Stat
+					label="Classified"
+					value={fmtPct(classification_success_pct)}
+					hint="{classified_n} of {classified_n + unknown_n + multi_drop_n}"
+				/>
 			</div>
-
-			<!-- Totals footer strip -->
-			<div class="mt-2 flex items-baseline justify-between border border-border bg-bg px-2 py-1.5 text-sm">
-				<span class="text-text-muted">Totals</span>
-				<div class="flex items-baseline gap-3 tabular-nums">
-					<span class="text-text-muted">seen <span class="text-text">{fmtInt(pieces_seen)}</span></span>
-					<span class="text-text-muted">cls <span class="text-text">{fmtInt(classified_n)}</span></span>
-					<span class="text-text-muted">dist <span class="text-text">{fmtInt(distributed_n)}</span></span>
-				</div>
+			<div class="bg-surface">
+				<Stat
+					label="Multi-drop rate"
+					value={fmtPct(multi_drop_pct, 1)}
+					hint="{multi_drop_n} of {pieces_seen}"
+				/>
 			</div>
-		{/if}
-	</div>
+			<div class="bg-surface">
+				<Stat label="Feed rate" value={fmtPpm(feed_rate_ppm)} unit="ppm" hint="Pieces seen" />
+			</div>
+			<div class="bg-surface">
+				<Stat label="C4 active" value={fmtPpm(c4_active_ppm)} unit="ppm" />
+			</div>
+			<div class="bg-surface">
+				<Stat label="On C4" value={fmtInt(active_in_c4)} unit="pieces" />
+			</div>
+		</div>
+
+		<!-- 60 s of classifications in 10 s buckets -->
+		<div class="border-t border-line px-4 py-3">
+			<div class="flex items-baseline justify-between gap-3">
+				<span class="label">Classified in the last 60 s</span>
+				<span class="num text-sm text-ink-muted">Peak {peak_bucket}</span>
+			</div>
+			<div class="mt-2 flex h-10 items-end gap-0.5">
+				{#each buckets as v, i (i)}
+					<div
+						class="min-h-px flex-1 bg-primary"
+						style:height="{peak_bucket > 0 ? (v / peak_bucket) * 100 : 0}%"
+						title="{v} classified ({(N_BUCKETS - i) * BUCKET_S} s ago)"
+					></div>
+				{/each}
+			</div>
+		</div>
+
+		<div class="flex items-baseline justify-between gap-3 border-t border-line px-4 py-2.5 text-sm">
+			<span class="text-ink-muted">Totals</span>
+			<span class="num flex items-baseline gap-3 text-ink-muted">
+				<span>Seen <span class="text-ink">{fmtInt(pieces_seen)}</span></span>
+				<span>Classified <span class="text-ink">{fmtInt(classified_n)}</span></span>
+				<span>Distributed <span class="text-ink">{fmtInt(distributed_n)}</span></span>
+			</span>
+		</div>
+	{/if}
 </div>

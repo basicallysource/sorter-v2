@@ -48,7 +48,8 @@ Lucide, and each lives in one component.
 | Rescan, reload                         | `refresh-cw`                                              |
 | Settings                               | `settings`                                                |
 | Home the machine                       | `house`                                                   |
-| The machine's power menu               | `power`                                                   |
+| Start the hardware                     | `power`                                                   |
+| Power the machine down                 | `power-off`                                               |
 | Start sorting, pause                   | `play`, `pause`                                           |
 | Stop a motor                           | `square`, filled                                          |
 | Rotate a camera                        | `rotate-cw`                                               |
@@ -64,10 +65,20 @@ Lucide, and each lives in one component.
 | Back to where you were                 | `arrow-left`                                              |
 | Goes somewhere else                    | `arrow-right`                                             |
 | Leaves the app                         | `arrow-up-right`                                          |
-| More actions (a menu)                  | `ellipsis`                                                |
+| A button that opens a menu             | `ellipsis`, three dots                                    |
 | Chosen, done                           | `check`                                                   |
 | Light mode, dark mode                  | `sun`, `moon`                                             |
 | Info, success, warning, danger notices | `info`, `circle-check`, `triangle-alert`, `octagon-alert` |
 
 A new meaning gets a row here before it gets an icon. The site's Icons page
 shows them all.
+
+## A menu's button is three dots
+
+A button that opens a menu shows three dots (`ellipsis`), never the icon of
+one of the actions inside. The machine's menu (restart the backend, restart
+the machine, power down) opens from three dots named "System", not from a
+power icon: a power icon says the button powers something off, and pressing
+it would be a surprise. `power` and `power-off` belong to the menu's items,
+next to their words. Only a button that opens a list of choices for the
+current value, a `Select` or a switcher, shows `chevron-down` instead.

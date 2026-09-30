@@ -1,9 +1,12 @@
 <script lang="ts">
 	import { getBackendHttpBase } from '$lib/backend';
-	import { Button, Alert } from '$lib/components/primitives';
-	import SectionCard from '$lib/components/settings/SectionCard.svelte';
+	import Alert from '$lib/components/ui/Alert.svelte';
+	import Panel from '$lib/components/ui/Panel.svelte';
 	import TuningParamRow from '$lib/components/settings/TuningParamRow.svelte';
 	import type { TuningFieldMeta, TuningValues } from '$lib/settings/tuning';
+	import PageHeader from '$lib/components/ui/PageHeader.svelte';
+	import SettingsSaveBar from '$lib/components/settings/SettingsSaveBar.svelte';
+	import Spinner from '$lib/components/ui/Spinner.svelte';
 
 	let fields = $state<TuningFieldMeta[]>([]);
 	let values = $state<TuningValues>({});
@@ -58,38 +61,31 @@
 	});
 </script>
 
-<svelte:head><title>Sorter - Classification Channel Tuning</title></svelte:head>
+<svelte:head><title>Sorter - Classification channel tuning</title></svelte:head>
 
-<div class="flex flex-col gap-6 p-6">
-	<div>
-		<div class="text-lg font-semibold text-text">Classification Channel — Rev01 Tuning</div>
-		<div class="mt-1 text-sm text-text-muted">
-			Changes take effect on the next piece (no restart needed).
+<PageHeader
+	title="Classification channel tuning"
+	description="The parameters of the rev01 state machine. Changes apply to the next piece, with no restart."
+/>
+
+{#if error}
+	<Alert tone="danger">{error}</Alert>
+{/if}
+{#if saved}
+	<Alert tone="success">Saved. The changes apply to the next piece.</Alert>
+{/if}
+
+<Panel title="Parameters" flush>
+	{#if loading}
+		<div class="px-(--pad-panel) pb-(--pad-panel)"><div class="flex items-center gap-2 text-sm text-ink-muted"><Spinner size={14} /> Loading</div></div>
+	{:else}
+		<div class="divide-y divide-line">
+			{#each fields as field}
+				<TuningParamRow {field} bind:values />
+			{/each}
 		</div>
-	</div>
-
-	{#if error}
-		<Alert variant="danger">{error}</Alert>
 	{/if}
-
-	{#if saved}
-		<Alert variant="success">Saved. Changes will apply on the next piece.</Alert>
-	{/if}
-
-	<SectionCard title="Parameters" description="All tunable parameters for the rev01 state machine.">
-		{#if loading}
-			<div class="text-sm text-text-muted">Loading…</div>
-		{:else}
-			<div class="flex flex-col gap-2">
-				{#each fields as field}
-					<TuningParamRow {field} bind:values />
-				{/each}
-			</div>
-
-			<div class="mt-6 flex gap-3">
-				<Button variant="primary" onclick={save} loading={saving}>Save</Button>
-				<Button variant="secondary" onclick={load} disabled={saving}>Reset to saved</Button>
-			</div>
-		{/if}
-	</SectionCard>
-</div>
+	{#snippet footer()}
+		<SettingsSaveBar {save} reset={load} {saving} disabled={loading} />
+	{/snippet}
+</Panel>

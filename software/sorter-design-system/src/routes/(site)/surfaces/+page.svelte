@@ -1,5 +1,4 @@
 <script lang="ts">
-	import Camera from '@lucide/svelte/icons/camera';
 	import RotateCw from '@lucide/svelte/icons/rotate-cw';
 	import Cpu from '@lucide/svelte/icons/cpu';
 	import ExternalLink from '@lucide/svelte/icons/external-link';
@@ -35,7 +34,7 @@
 			name: 'Well',
 			token: 'bg-well',
 			fill: 'bg-well',
-			holds: "Sunk into a panel: a chart, a preview, an empty list, a segmented control's track."
+			holds: 'Sunk into a panel: a chart, a preview, an empty list, the head of a table.'
 		},
 		{
 			name: 'Raised',
@@ -61,6 +60,12 @@
 		{ id: 'bench', name: 'Bench sorter', where: 'Garage, second shelf', online: true, today: 1284 },
 		{ id: 'shop', name: 'Shop sorter', where: 'Back room', online: false, today: 0 }
 	];
+
+	// A stand-in for a camera's picture: an image of its own shape, so the tile shows how it hugs one.
+	function sampleFeed(width: number, height: number) {
+		const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}"><rect width="${width}" height="${height}" fill="#565c66"/><circle cx="${width / 2}" cy="${height / 2}" r="${height * 0.34}" fill="#8b93a1"/><circle cx="${width / 2}" cy="${height / 2}" r="${height * 0.08}" fill="#2b2f36"/></svg>`;
+		return `data:image/svg+xml,${encodeURIComponent(svg)}`;
+	}
 </script>
 
 <svelte:head><title>Surfaces · Sorter design system</title></svelte:head>
@@ -123,6 +128,27 @@
 				<div class="p-4">
 					<div class="text-sm font-semibold text-ink">Driver settings</div>
 				</div>
+			</div>
+		{/snippet}
+	</DoDont>
+	<DoDont
+		wrongNote="A group's name on a band of well. Across the panel a well is a shade off the canvas, so it reads as a gap in the panel with a word in it."
+		rightNote="The name is a label on the list's own plane, with the rows' line above and below it."
+	>
+		{#snippet wrong()}
+			<div class="divide-y divide-line overflow-hidden rounded-panel bg-surface text-sm">
+				<div class="px-3 py-2.5 text-ink">Brick 2 x 4</div>
+				<div class="bg-well px-3 py-1 text-ink-muted">Distributed</div>
+				<div class="px-3 py-2.5 text-ink">Plate 2 x 2 corner</div>
+				<div class="px-3 py-2.5 text-ink">Tile 1 x 1</div>
+			</div>
+		{/snippet}
+		{#snippet right()}
+			<div class="divide-y divide-line overflow-hidden rounded-panel bg-surface text-sm">
+				<div class="px-3 py-2.5 text-ink">Brick 2 x 4</div>
+				<div class="label px-3 py-1.5">Distributed</div>
+				<div class="px-3 py-2.5 text-ink">Plate 2 x 2 corner</div>
+				<div class="px-3 py-2.5 text-ink">Tile 1 x 1</div>
 			</div>
 		{/snippet}
 	</DoDont>
@@ -322,7 +348,7 @@
 
 <SiteSection
 	title="Media"
-	lead="Camera feeds and photos sit on the media backdrop, dark in both modes, in a media tile: a strip on the surface with the name and the controls, then the picture to the tile's edges. A tile that is only the picture puts its controls over it, on the scrim. Full screen, the tile fills the window on the media plane, until Exit full screen or Escape."
+	lead="Camera feeds and photos sit on the media backdrop, dark in both modes, in a media tile: a strip on the surface with the name and the controls, then the picture to the tile's edges. The tile is the shape of its picture, so there is never a bar above and below it or down its sides; a layout gives it a width and the height follows. A tile that is only the picture puts its controls over it, on the scrim. Full screen, the tile fills the window on the media plane, until Exit full screen or Escape."
 >
 	<Specimen
 		on="canvas"
@@ -332,7 +358,9 @@
 	<img src={feed} alt="" class="size-full object-contain" />
 </MediaTile>
 
-<MediaTile title="Classification channel" header={false} expandable>...</MediaTile>`}
+<MediaTile title="Classification channel" header={false} expandable>
+	<img src={feed} alt="" class="size-full object-contain" />
+</MediaTile>`}
 	>
 		<div class="grid items-start gap-(--gap-panels) md:grid-cols-2">
 			<MediaTile title="C-Channel 2" expandable>
@@ -342,11 +370,11 @@
 					<Button size="sm" variant="ghost" icon={RotateCw}>180°</Button>
 				{/snippet}
 				{#snippet overlay()}<Badge tone="success" dot>Live</Badge>{/snippet}
-				<Camera size={24} class="text-ink-faint" />
+				<img src={sampleFeed(1280, 720)} alt="" class="size-full object-contain" />
 			</MediaTile>
 			<MediaTile title="Classification channel" header={false} expandable>
 				{#snippet overlay()}<Badge tone="success" dot>Live</Badge>{/snippet}
-				<Camera size={24} class="text-ink-faint" />
+				<img src={sampleFeed(800, 600)} alt="" class="size-full object-contain" />
 			</MediaTile>
 		</div>
 	</Specimen>

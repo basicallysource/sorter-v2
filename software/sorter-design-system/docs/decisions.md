@@ -3,6 +3,18 @@
 What was decided, and when. When a rule changes, the rule's own file changes
 and a dated entry goes here; the history is git.
 
+## 2026-09-30
+
+- **The top bar's links are not a scrolling box, and a tab bar's line is
+  outside the box that scrolls.** Both pushed the current mark one pixel out
+  of a box with `overflow-x-auto`, so the mark was clipped and the box
+  scrolled by that pixel: with scroll bars that are always drawn, a scroll
+  bar stood in the top bar beside the last page. The top bar folds instead of
+  scrolling; tabs scroll inside their line's element, without a scroll bar.
+- **A group's name in a list is a label, not a band of well.** The Sorter
+  UI's list of recent pieces had "Distributed" on a well across the panel,
+  which is nearly the canvas's color and read as a gap in the panel.
+
 ## 2026-09-29
 
 - **One place.** The design system is `software/sorter-design-system`: a
@@ -57,6 +69,34 @@ and a dated entry goes here; the history is git.
   still work.
 - **The components render on the server too**, for Hive: ids from
   `$props.id()`, and no `window` or storage outside the browser.
+- **A media tile hugs its picture; a layout never gives it a height.** The
+  first version stretched a feed's box to the height the dashboard chose, so
+  two feeds had black bars above and below and the third down both sides.
+  Now the picture's box takes the feed's own shape (read from the loaded
+  image or video, with `aspect` as its shape until then), `fill` is gone, and
+  the dashboard sizes the group of three cameras to their pictures so they
+  fill the window's height with no bar; the right column takes the rest of
+  the width. Full screen is the one place a picture has bars.
+- **A part's picture sits on the surface.** No grey well or box behind a
+  part's image on the dashboard's recent pieces or anywhere a part is shown:
+  it made every thumbnail a boxed, framed thing.
+- **No padded tracks: they read as heavy borders.** With 1px corners and no
+  shadows, a grey track with white segments in it looked like a thick grey
+  border around the jog buttons and the Degrees / Time choice. A segmented
+  control and the jog control are one control now: a single 1px
+  `line-strong` outline, the segments divided by 1px lines with no gap and no
+  padding, the chosen one filled with the primary's tint and its ink (chosen
+  over a neutral fill because a chosen item is the primary's tint everywhere
+  else). The `thumb` token is gone; `track` stays for the progress bar.
+- **A page whose main thing is a camera uses the whole width.** A channel
+  page was capped at 1152px like a page of forms, so on a wide screen the
+  camera was small and half the window empty. It now takes the content width
+  up to 1800px, the camera beside the stepper's panel from `xl` and above it
+  below; pages of forms keep 1152px.
+- **A button that opens a menu is three dots.** The top bar's machine menu
+  showed a power icon, which read as a button that powers the machine off.
+  It is `ellipsis` with a name; `power` and `power-off` are only for the
+  items inside the menu, next to their words.
 
 ### The look, chosen from options side by side
 

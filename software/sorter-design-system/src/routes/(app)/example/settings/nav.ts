@@ -52,6 +52,9 @@ export const settingsGroups = [
 	}
 ];
 
+// The channel pages whose main thing is a camera: they take the whole width.
+export const cameraSections = ['c-channel-2', 'c-channel-3', 'c-channel-4'];
+
 export function labelFor(section: string): string | undefined {
 	return settingsGroups.flatMap((g) => g.items).find((i) => i.href === `${base}/${section}`)?.label;
 }

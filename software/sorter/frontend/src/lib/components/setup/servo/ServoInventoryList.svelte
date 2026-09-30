@@ -1,5 +1,7 @@
 <script lang="ts">
 	import ServoInventoryCard from './ServoInventoryCard.svelte';
+	import Alert from '$lib/components/ui/Alert.svelte';
+	import Panel from '$lib/components/ui/Panel.svelte';
 
 	type BusServo = {
 		id: number;
@@ -19,8 +21,8 @@
 		inverted: boolean;
 		isFactory: boolean;
 		state: 'factory' | 'needs-calibration' | 'needs-assignment' | 'ready';
+		tone?: 'success' | 'warning' | 'primary';
 		accent: string;
-		headerTone: string;
 		title: string;
 		description: string;
 	};
@@ -68,23 +70,17 @@
 	} = $props();
 </script>
 
-<div class="setup-panel p-4">
-	<div>
-		<div class="text-sm font-semibold text-text">Detected servos</div>
-		<div class="mt-1 text-sm text-text-muted">
-			{busServos.length} on the bus · highest ID ever seen: {highestSeenId || '–'}
-			{#if suggestedNextId !== null}
-				· next free ID: {suggestedNextId}
-			{/if}
-		</div>
-	</div>
-
+<Panel
+	title="Servos on the bus"
+	description="{busServos.length} on the bus · the highest ID seen is {highestSeenId || '–'}{suggestedNextId !== null ? ` · the next free ID is ${suggestedNextId}` : ''}"
+	flush
+>
 	{#if busServos.length === 0}
-		<div class="mt-4 border border-dashed border-border px-4 py-6 text-center text-sm text-text-muted">
-			No servos found yet. Connect your first servo — the bus auto-scans every few seconds.
-		</div>
+		<p class="px-(--pad-panel) pb-4 text-sm text-ink-muted">
+			No servos found yet. Connect the first one; the bus scans itself every few seconds.
+		</p>
 	{:else}
-		<div class="mt-4 grid gap-3">
+		<div class="divide-y divide-line">
 			{#each busServos as servo (servo.id)}
 				{@const setup = servoSetupState(servo)}
 				<ServoInventoryCard
@@ -113,19 +109,14 @@
 			{/each}
 		</div>
 	{/if}
-
-	<div
-		class="mt-4 border border-warning bg-[#FFF7E0] px-4 py-3 text-sm leading-relaxed text-[#7A5A00]"
-	>
-		<div class="font-semibold text-[#5C4400]">Connect one servo at a time</div>
-		<div class="mt-1">
-			Brand-new Waveshare servos all ship with the factory ID <span class="font-semibold">1</span>,
-			and the bus can only talk to one device at that ID. Plug servos in one by one — as soon
-			as a fresh one shows up, we automatically promote it to the next free ID
-			{#if suggestedNextId !== null}
-				(currently <span class="font-semibold">{suggestedNextId}</span>)
-			{/if}
-			so you can connect the next servo without a collision.
+	{#snippet footer()}
+		<div class="mr-auto w-full">
+			<Alert tone="warning" title="Connect one servo at a time">
+				New Waveshare servos all ship with the factory ID 1, and the bus can only talk to one device
+				at that ID. Plug them in one by one: as soon as a new one shows up it is promoted to the next
+				free ID{suggestedNextId !== null ? ` (now ${suggestedNextId})` : ''}, so the next one can connect
+				without a clash.
+			</Alert>
 		</div>
-	</div>
-</div>
+	{/snippet}
+</Panel>

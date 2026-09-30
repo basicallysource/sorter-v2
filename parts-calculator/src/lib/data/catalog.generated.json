@@ -8225,11 +8225,15 @@
 			"uid": "nmlx",
 			"version": "1",
 			"name": "LED drop (L, Lp)",
-			"description": "One camera lamp's power: a metre-long Dupont lead from an LED header on the board to an inline barrel jack, then a 6 in pigtail from the matching plug to the clamp-on connector on the lamp's strip. The barrel pair is the unplug point, so a lamp comes off without unpicking the board end. Run the drop as one continuous pair instead if you would rather have no barrel in it. 1 per camera lamp.",
+			"description": "One camera lamp's power: a metre-long Dupont lead from an LED header on the board to an inline barrel jack, then a 6 in pigtail from the matching plug to the clamp-on connector on the lamp's strip. The barrel pair is the unplug point, so a lamp comes off without unpicking the board end. 1 per camera lamp.",
 			"joining": [
 				{
 					"method": "crimp",
-					"note": "The strip connector clamps onto the cut end of the COB strip and onto the pigtail wire, so neither end is soldered."
+					"note": "The strip connector clamps onto the cut end of the COB strip and onto the plug's leads, so that end is not soldered."
+				},
+				{
+					"method": "solder",
+					"note": "Join the barrel jack's leads to the cut end of the Dupont lead, tip to red, and cover each joint with heatshrink."
 				}
 			],
 			"lines": [
@@ -28138,7 +28142,7 @@
 			},
 			"name": "Pre-crimped 2-pin Dupont lead, 1 m",
 			"category": "Wire harness",
-			"description": "A metre of 22 AWG red and black with a 2-pin 2.54 mm Dupont housing crimped on. One of these is a whole LED drop: the Dupont end pushes onto an LED header (J8 to J11), the far end goes into the strip connector. The pack is male-to-female, so cut the male plug off and discard it.",
+			"description": "A metre of 22 AWG red and black with a 2-pin 2.54 mm Dupont housing crimped on. The board cable of an LED drop: the Dupont end pushes onto an LED header (J8 to J11), and the far end is cut and joined to an inline barrel jack. The pack is male-to-female, so cut the male plug off and discard it.",
 			"note": "Sold male-to-female: cut the male plug off and discard it. Any 22 AWG pair plus a 2-pin Dupont housing does the same job if you own a crimp tool.",
 			"created_at": "2026-09-10",
 			"updated_at": "2026-09-12",
@@ -28180,7 +28184,7 @@
 				]
 			},
 			"alternative": "Your own 22 AWG pair plus a 2-pin 2.54 mm Dupont housing and two crimps",
-			"caption": "Cut the male end off and it is one LED drop.",
+			"caption": "Cut the male end off and join the barrel jack to it.",
 			"docs_page": "/hardware/helpers/led-strip/",
 			"conflicts": null,
 			"image": "https://assets.basically.website/sorter-parts/dupont-lead-2p-1m-full-1d6495f8bb1b.jpg"
@@ -28391,13 +28395,12 @@
 			"uid": "ls0v",
 			"kind": "cots",
 			"cots": {
-				"type": "connector",
-				"optional": true
+				"type": "connector"
 			},
 			"name": "DC barrel jack, 5.5 x 2.1 mm female, inline",
 			"category": "Wire harness",
-			"description": "The unplug point partway along an LED drop, so a camera lamp can come off without unpicking the board end. One per lamp when the drop is built in two segments.",
-			"note": "Optional on a v1.3 board. The drop can be one continuous 22 AWG pair from the LED header to the strip connector, with no barrel anywhere, and Spencer's built lamp is wired that way. Fit these if you want the lamp to unplug.",
+			"description": "The unplug point of an LED drop, so a camera lamp can come off without unpicking the board end. Joined to the cut end of the Dupont lead; the lamp pigtail's barrel plug pushes into it. One per lamp.",
+			"note": "Buy it as a moulded jack already on its own short leads and join those to the Dupont lead. The socket goes on the board half and the plug on the lamp half, because the board half is live at 24 V.",
 			"created_at": "2026-09-14",
 			"updated_at": "2026-09-14",
 			"attributes": [
@@ -28421,7 +28424,7 @@
 			"stock": null,
 			"sourcing": null,
 			"alternative": null,
-			"caption": "The unplug point in an LED drop. Skip it and run one continuous pair.",
+			"caption": "The unplug point in an LED drop, on the board cable.",
 			"docs_page": "/hardware/helpers/led-strip/",
 			"conflicts": null,
 			"image": "https://assets.basically.website/sorter-parts/dc-jack-5521-inline-full-7804080cd0ea.jpg"

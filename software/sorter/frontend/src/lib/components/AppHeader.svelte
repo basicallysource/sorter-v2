@@ -19,6 +19,7 @@
 	import { getMachinesContext } from '$lib/machines/context';
 	import { machineDowntime } from '$lib/stores/machineDowntime.svelte';
 	import { userConfig } from '$lib/stores/userConfig.svelte';
+	import Ellipsis from '@lucide/svelte/icons/ellipsis';
 	import House from '@lucide/svelte/icons/house';
 	import Pause from '@lucide/svelte/icons/pause';
 	import Play from '@lucide/svelte/icons/play';
@@ -377,7 +378,7 @@
 		{/if}
 		<Menu label="System" items={systemItems}>
 			{#snippet trigger(props)}
-				<Button {...props} variant="ghost" icon={Power} label="System" />
+				<Button {...props} variant="ghost" icon={Ellipsis} label="System menu" />
 			{/snippet}
 		</Menu>
 	{/snippet}

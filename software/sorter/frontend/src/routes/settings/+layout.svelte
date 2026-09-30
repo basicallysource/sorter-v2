@@ -87,6 +87,10 @@
 		void triggerGlobalStepperHotkey(stepperKey);
 	}
 
+	// A page whose main thing is a camera (a channel page) takes the whole width, up
+	// to 1800px; a page of forms stays at 1152px (design system docs/layout.md).
+	const wide = $derived(page.route.id === '/settings/[station]');
+
 	const navItems = settingsNavGroups.flatMap((g) => g.items);
 	// The phone's select lists every page, so a page is named with its group.
 	const navOptions = settingsNavGroups.flatMap((g) =>
@@ -107,7 +111,11 @@
 			<SideNav groups={settingsNavGroups} label="Settings" />
 		</aside>
 		<div class="min-w-0 flex-1 lg:overflow-y-auto">
-			<div class="flex max-w-6xl flex-col gap-(--gap-panels) px-4 py-6 sm:px-8">
+			<div
+				class="flex flex-col gap-(--gap-panels) px-4 py-6 sm:px-8 {wide
+					? 'max-w-[1800px]'
+					: 'max-w-6xl'}"
+			>
 				<div class="lg:hidden">
 					<Select
 						label="Settings page"

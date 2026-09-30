@@ -90,15 +90,15 @@
 <Panel title={label} {description} flush>
 	{#snippet actions()}<Badge>{required ? 'Required' : 'Optional'}</Badge>{/snippet}
 	{#if selectedSource !== null}
-		<CameraFeed camera={role} label={selectedLabel} header={false} aspect="4 / 3" />
+		<CameraFeed camera={role} label={selectedLabel} header={false} />
 	{:else if others.length > 0}
-		<div class="grid aspect-4/3 grid-cols-2 gap-2 bg-well p-2">
+		<div class="grid aspect-video grid-cols-2 gap-2 bg-well p-2">
 			{#each others as option (option.key)}
 				{@render choice(option, () => onSelect?.(role, option.key), false, true)}
 			{/each}
 		</div>
 	{:else}
-		<div class="flex aspect-4/3 flex-col items-center justify-center gap-1 bg-well px-6 text-center text-sm">
+		<div class="flex aspect-video flex-col items-center justify-center gap-1 bg-well px-6 text-center text-sm">
 			<span class="font-medium text-ink">No camera chosen yet</span>
 			<span class="text-ink-muted">Refresh the cameras to find them, then choose one here.</span>
 		</div>

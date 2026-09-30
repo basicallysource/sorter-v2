@@ -19,8 +19,6 @@
 		crop = null,
 		controls = ['annotations'],
 		actions,
-		fill = false,
-		aspect,
 		class: className = ''
 	}: {
 		camera: string;
@@ -30,8 +28,6 @@
 		crop?: DashboardFeedCrop | null;
 		controls?: ControlKey[];
 		actions?: Snippet;
-		fill?: boolean;
-		aspect?: string;
 		class?: string;
 	} = $props();
 
@@ -101,8 +97,6 @@
 	title={display_label}
 	{header}
 	{actions}
-	{fill}
-	{aspect}
 	class={className}
 	expandable={controls.includes('fullscreen')}
 >

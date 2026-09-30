@@ -674,9 +674,10 @@
 		onmouseleave={endHover}
 	>
 		<div class="flex items-start gap-3">
-			<!-- Primary image well — flashes through every recognition view while
-			     the piece is being recognized; hover scrubs the same views. -->
-			<div class="relative size-16 shrink-0 overflow-hidden rounded-item bg-well">
+			<!-- The part's picture sits straight on the row, with no box behind it. It
+			     flashes through every recognition view while the piece is being
+			     recognized; hover scrubs the same views. -->
+			<div class="relative size-16 shrink-0 overflow-hidden">
 				{#if base_src || cycle_src}
 					{#if base_src}
 						<img
@@ -866,7 +867,7 @@
 				{#if shown.length > 0}
 					{#each shown as src, i}
 						<div
-							class="relative size-12 shrink-0 overflow-hidden rounded-item border border-surface bg-well {i >
+							class="relative size-12 shrink-0 overflow-hidden rounded-item border border-surface bg-surface {i >
 							0
 								? '-ml-8'
 								: ''}"
@@ -876,9 +877,7 @@
 						</div>
 					{/each}
 				{:else}
-					<div
-						class="flex size-12 shrink-0 items-center justify-center rounded-item bg-well text-xs text-ink-faint"
-					>
+					<div class="flex size-12 shrink-0 items-center justify-center text-xs text-ink-faint">
 						No image
 					</div>
 				{/if}
@@ -950,7 +949,7 @@
 				<img
 					src={capturedSrc}
 					alt=""
-					class="size-16 shrink-0 rounded-item bg-well object-contain"
+					class="size-16 shrink-0 object-contain"
 				/>
 			{/if}
 			<div class="flex min-w-0 flex-col gap-1">
@@ -975,7 +974,7 @@
 					src={correctingSummary.preview_url}
 					alt="Brickognize reference"
 					title="Brickognize reference image"
-					class="ml-auto size-16 shrink-0 rounded-item bg-well object-contain"
+					class="ml-auto size-16 shrink-0 object-contain"
 				/>
 			{/if}
 		</div>
@@ -991,7 +990,7 @@
 				<span class="label">Captured photos</span>
 				<div class="flex flex-wrap gap-1.5">
 					{#each modalBurstImages as img (img.src)}
-						<div class="size-16 shrink-0 overflow-hidden rounded-item bg-well">
+						<div class="size-16 shrink-0 overflow-hidden">
 							<img
 								src={img.src}
 								alt="captured crop"

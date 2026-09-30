@@ -573,17 +573,21 @@
 						</div>
 
 						<div class="flex flex-wrap items-center gap-2">
-							<div role="group" aria-label="Jog {layer.label}" class="flex items-center gap-0.5 rounded-button bg-track p-0.5">
+							<div
+								role="group"
+								aria-label="Jog {layer.label}"
+								class="flex h-(--size-control-sm) items-stretch divide-x divide-line-strong overflow-hidden rounded-button border border-line-strong bg-field"
+							>
 								<button
 									type="button"
 									aria-label="Jog toward a lower angle"
 									disabled={idle || !layerHasChannel(layer)}
 									onclick={() => jog(layer.layerIndex, -jogStep)}
-									class="flex size-(--size-control-sm) items-center justify-center rounded-button-inner bg-thumb text-ink transition-colors hover:bg-thumb/70 disabled:pointer-events-none disabled:opacity-45"
+									class="flex w-(--size-control-sm) items-center justify-center text-ink transition-colors hover:bg-hover focus-visible:-outline-offset-2 disabled:pointer-events-none disabled:opacity-45"
 								>
 									<ChevronLeft size={16} />
 								</button>
-								<span class="num min-w-16 px-2 text-center text-sm text-ink">
+								<span class="num flex min-w-16 items-center justify-center px-2 text-sm text-ink">
 									{layer.currentAngle === null ? 'Unknown' : `${layer.currentAngle}°`}
 								</span>
 								<button
@@ -591,7 +595,7 @@
 									aria-label="Jog toward a higher angle"
 									disabled={idle || !layerHasChannel(layer)}
 									onclick={() => jog(layer.layerIndex, jogStep)}
-									class="flex size-(--size-control-sm) items-center justify-center rounded-button-inner bg-thumb text-ink transition-colors hover:bg-thumb/70 disabled:pointer-events-none disabled:opacity-45"
+									class="flex w-(--size-control-sm) items-center justify-center text-ink transition-colors hover:bg-hover focus-visible:-outline-offset-2 disabled:pointer-events-none disabled:opacity-45"
 								>
 									<ChevronRight size={16} />
 								</button>

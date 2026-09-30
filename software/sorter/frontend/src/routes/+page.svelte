@@ -19,7 +19,6 @@
 	import CameraFeed from '$lib/components/CameraFeed.svelte';
 	import CollapsibleSection from '$lib/components/CollapsibleSection.svelte';
 	import RecentObjects from '$lib/components/RecentObjects.svelte';
-	import ResizeHandle from '$lib/components/ResizeHandle.svelte';
 	import SidebarBottomTabs from '$lib/components/SidebarBottomTabs.svelte';
 	import { buildDashboardFeedCrops, type DashboardFeedCrop } from '$lib/dashboard/crops';
 	import Check from '@lucide/svelte/icons/check';
@@ -29,16 +28,12 @@
 	import RotateCcw from '@lucide/svelte/icons/rotate-ccw';
 	import X from '@lucide/svelte/icons/x';
 
-	const SIDEBAR_MIN = 300;
-	const SIDEBAR_MAX = 900;
-	const SIDEBAR_DEFAULT = 420;
 	const EXIT_STUCK_INCIDENT_KIND = 'exit_stuck';
 	const machine = getMachineContext();
 	const manager = getMachinesContext();
 
 	let dashboardCrops = $state<Record<string, DashboardFeedCrop | null>>({});
 	let cropBaseUrl = $state<string | null>(null);
-	let sidebar_width = $state(SIDEBAR_DEFAULT);
 	let startSystemError = $state<string | null>(null);
 	let startSystemPending = $state(false);
 	let exitIncidentActionPending = $state(false);
@@ -50,10 +45,6 @@
 
 	function currentBackendBaseUrl(): string {
 		return machineHttpBaseUrlFromWsUrl(machine.machine?.url) ?? getBackendHttpBase();
-	}
-
-	function onSidebarResize(delta: number) {
-		sidebar_width = Math.min(SIDEBAR_MAX, Math.max(SIDEBAR_MIN, sidebar_width - delta));
 	}
 
 	const hardwareState = $derived(machine.machine?.systemStatus?.hardware_state ?? 'standby');
@@ -548,14 +539,25 @@
 
 <AppShell fit>
 	{#if machine.machine}
-		<div class="flex min-h-0 flex-1 flex-col gap-(--gap-panels) p-4 sm:p-6 lg:flex-row lg:gap-2">
-			<div class="grid grid-cols-1 min-h-0 min-w-0 flex-1 gap-(--gap-panels) md:grid-cols-2 lg:grid-rows-2">
+		<!-- From lg up the page is the window. The row is a size container, so the
+		     cameras' width comes from its height: --feed is a picture's height over
+		     its width (9 / 16 for a 16:9 feed), and the group is as wide as the
+		     height allows, so every picture fills its tile and none has a bar. The
+		     column beside takes the rest of the width. See the design system's
+		     docs/layout.md, the dashboard layout. -->
+		<div
+			class="flex min-h-0 flex-1 flex-col gap-(--gap-panels) p-4 sm:p-6 lg:flex-row lg:justify-center lg:[container-type:size]"
+			style="--feed: 0.5625"
+		>
+			<div
+				class="grid grid-cols-1 gap-(--gap-panels) md:grid-cols-2 lg:w-(--cameras) lg:shrink-0 lg:self-start"
+				style="--cameras: min(100cqw - 19rem - var(--gap-panels), (100cqh - 2 * var(--size-control-lg) - (1 - var(--feed) / 2) * var(--gap-panels)) / (1.5 * var(--feed)))"
+			>
 				<CameraFeed
 					camera="c_channel_2"
 					label={cameraLabel('c_channel_2')}
 					crop={cropFor('c_channel_2')}
 					controls={['annotations', 'crop', 'fullscreen']}
-					fill
 				>
 					{#snippet actions()}
 						<CameraChannelControls stepperKey="c_channel_2" />
@@ -566,7 +568,6 @@
 					label={cameraLabel('c_channel_3')}
 					crop={cropFor('c_channel_3')}
 					controls={['annotations', 'crop', 'fullscreen']}
-					fill
 				>
 					{#snippet actions()}
 						<CameraChannelControls stepperKey="c_channel_3" />
@@ -577,7 +578,6 @@
 					label={cameraLabel('classification_channel')}
 					crop={cropFor('classification_channel')}
 					controls={['annotations', 'crop', 'fullscreen']}
-					fill
 					class="md:col-span-2"
 				>
 					{#snippet actions()}
@@ -586,16 +586,12 @@
 				</CameraFeed>
 			</div>
 
-			<div class="hidden lg:flex">
-				<ResizeHandle orientation="vertical" onresize={onSidebarResize} />
-			</div>
-
-			<!-- Beside the cameras from lg up. On a phone this wrapper disappears, so its
-			     parts take their place in the page's own order: the status and any
-			     incident first, then the cameras, then the pieces and the runtime. -->
+			<!-- Beside the cameras from lg up, from 19rem to 40rem wide. On a phone this
+			     wrapper disappears, so its parts take their place in the page's own order:
+			     the status and any incident first, then the cameras, then the pieces and
+			     the runtime. -->
 			<div
-				class="contents min-h-0 w-full shrink-0 flex-col gap-(--gap-panels) lg:flex lg:w-(--sidebar) lg:overflow-y-auto"
-				style:--sidebar="{sidebar_width}px"
+				class="contents lg:flex lg:max-w-160 lg:min-w-76 lg:min-h-0 lg:flex-1 lg:flex-col lg:gap-(--gap-panels) lg:overflow-y-auto"
 			>
 				{#if hardwareState === 'standby' || hardwareState === 'homing' || hardwareState === 'error'}
 					<section class="shrink-0 rounded-panel bg-surface p-(--pad-panel) max-lg:order-first">

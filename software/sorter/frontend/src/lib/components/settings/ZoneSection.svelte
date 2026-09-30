@@ -4090,13 +4090,16 @@
 		{/if}
 
 		{#if !wizardMode && !activeSidebar && hasStepper && stepperKey}
-			<StepperSidebar
-				{stepperKey}
-				endstop={stepperEndstop}
-				label={stepperLabel}
-				gearRatioOverride={stepperGearRatio}
-				keyboardShortcuts={true}
-			/>
+			<!-- Beside the camera from xl up; under it, no wider than a form. -->
+			<div class="max-w-xl min-w-0 xl:max-w-none">
+				<StepperSidebar
+					{stepperKey}
+					endstop={stepperEndstop}
+					label={stepperLabel}
+					gearRatioOverride={stepperGearRatio}
+					keyboardShortcuts={true}
+				/>
+			</div>
 		{/if}
 	</div>
 </div>

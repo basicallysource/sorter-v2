@@ -40,18 +40,23 @@
 	} = $props();
 </script>
 
-<!-- Moving a stepper by hand, as one control: the three buttons that move it
-     joined in one track (Stop in the middle), how far each press goes, and
-     how fast. The arrow keys press the outer buttons when shortcuts are on. -->
+<!-- Moving a stepper by hand, as one control: the three buttons that move it in
+     one outline with a line between them (Stop in the middle, the direction
+     that is moving filled with the primary's tint), how far each press goes,
+     and how fast. The arrow keys press the outer buttons when shortcuts are on. -->
 <div class="flex flex-col gap-4">
-	<div role="group" aria-label="Jog" class="grid grid-cols-[1fr_auto_1fr] gap-1 rounded-button bg-track p-1">
+	<div
+		role="group"
+		aria-label="Jog"
+		class="grid h-(--size-control-lg) grid-cols-[1fr_auto_1fr] divide-x divide-line-strong overflow-hidden rounded-button border border-line-strong bg-field"
+	>
 		<button
 			type="button"
 			aria-label="Counterclockwise"
 			onclick={() => onPulse('ccw')}
 			disabled={Boolean(pulsing[`${stepperKey}:ccw`]) || homing || canceling}
-			class="flex h-(--size-control-lg) items-center justify-center gap-1.5 rounded-button-inner text-sm font-medium transition-colors disabled:pointer-events-none disabled:opacity-45
-				{pulsing[`${stepperKey}:ccw`] ? 'bg-primary text-on-primary' : 'bg-thumb text-ink hover:bg-thumb/70'}"
+			class="flex h-full items-center justify-center gap-1.5 text-sm font-medium transition-colors focus-visible:-outline-offset-2 disabled:pointer-events-none disabled:opacity-45
+				{pulsing[`${stepperKey}:ccw`] ? 'bg-primary-soft text-primary-ink' : 'text-ink hover:bg-hover'}"
 		>
 			<ChevronLeft size={18} />CCW
 		</button>
@@ -59,7 +64,7 @@
 			type="button"
 			onclick={onStop}
 			disabled={stopping || homing || canceling}
-			class="flex h-(--size-control-lg) items-center justify-center gap-2 rounded-button-inner bg-thumb px-5 text-sm font-medium text-danger-ink transition-colors hover:bg-thumb/70 disabled:pointer-events-none disabled:opacity-45"
+			class="flex h-full items-center justify-center gap-2 px-5 text-sm font-medium text-danger-ink transition-colors hover:bg-danger-soft focus-visible:-outline-offset-2 disabled:pointer-events-none disabled:opacity-45"
 		>
 			<Square size={12} fill="currentColor" />Stop
 		</button>
@@ -68,8 +73,8 @@
 			aria-label="Clockwise"
 			onclick={() => onPulse('cw')}
 			disabled={Boolean(pulsing[`${stepperKey}:cw`]) || homing || canceling}
-			class="flex h-(--size-control-lg) items-center justify-center gap-1.5 rounded-button-inner text-sm font-medium transition-colors disabled:pointer-events-none disabled:opacity-45
-				{pulsing[`${stepperKey}:cw`] ? 'bg-primary text-on-primary' : 'bg-thumb text-ink hover:bg-thumb/70'}"
+			class="flex h-full items-center justify-center gap-1.5 text-sm font-medium transition-colors focus-visible:-outline-offset-2 disabled:pointer-events-none disabled:opacity-45
+				{pulsing[`${stepperKey}:cw`] ? 'bg-primary-soft text-primary-ink' : 'text-ink hover:bg-hover'}"
 		>
 			CW<ChevronRight size={18} />
 		</button>

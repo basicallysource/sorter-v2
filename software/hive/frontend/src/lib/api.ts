@@ -713,6 +713,8 @@ export interface SortingProfileSummary {
 	// Hive's own defaults, which every machine gets.
 	is_default: boolean;
 	default_rank: number | null;
+	// The profile's page on this Hive.
+	web_url?: string | null;
 	latest_version: SortingProfileVersionSummary | null;
 	latest_published_version: SortingProfileVersionSummary | null;
 }
@@ -772,8 +774,11 @@ export interface BinSample {
 }
 
 export interface BinColor {
-	// BrickLink color ID.
+	// BrickLink color ID (what a sorter reports).
 	id: string;
+	bricklink_id?: string;
+	// The Rebrickable color ID, which rule conditions take.
+	rebrickable_id?: number;
 	name: string | null;
 	rgb: string | null;
 }
@@ -815,7 +820,9 @@ export interface ProfileDocument {
 }
 
 export interface ProfilePreview {
-	stats: { total_parts: number; matched: number; unmatched: number; per_category: Record<string, { parts: number; colors: number }> };
+	// `sorted` of `total_parts` catalog parts go to a bin of their own (a rule,
+	// a kit or a fallback category); the rest go to the default bin.
+	stats: { total_parts: number; sorted: number };
 	categories: Record<string, ProfileBin>;
 	category_order: string[];
 	rules: SortingProfileRule[];
@@ -864,6 +871,8 @@ export interface RouteResult {
 	category_id: string;
 	category_name: string;
 	why: 'rule' | 'kit' | 'fallback' | 'default';
+	// For a kit: how many more of this part and color it still takes.
+	kit_left: number | null;
 }
 
 export interface ProfileHead {
@@ -2367,8 +2376,9 @@ export const api = {
 	previewSortingProfile(data: ProfileDocument) {
 		return request<ProfilePreview>('POST', '/api/profiles/preview', data);
 	},
-	// Where pieces would go, under a draft or a saved version.
-	routePieces(data: { document?: ProfileDocument; profile_id?: string; version_id?: string; pieces: RoutePiece[] }) {
+	// Where pieces would go, under a draft or a saved version. Kits start empty
+	// and fill in the order the pieces are given, unless fill_kits is false.
+	routePieces(data: { document?: ProfileDocument; profile_id?: string; version_id?: string; pieces: RoutePiece[]; fill_kits?: boolean }) {
 		return request<{ results: RouteResult[] }>('POST', '/api/profiles/route', data);
 	},
 	getProfileFields() {

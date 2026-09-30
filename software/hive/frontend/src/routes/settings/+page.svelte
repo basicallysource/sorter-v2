@@ -1010,7 +1010,7 @@
 	{/snippet}
 </Modal>
 
-<!-- Wide, so the address and the key each fit on a line of their own. -->
+<!-- The dialogs that show something to copy are wide, so an address or a key fits on a line of its own. -->
 <Modal bind:open={assistantShown} title="Connect an assistant" size="lg" onclose={() => (assistantKey = null)}>
 	{#if assistantKey}
 		<CopyField
@@ -1028,7 +1028,7 @@
 	{/snippet}
 </Modal>
 
-<Modal bind:open={apiKeyShown} title="New API key" onclose={() => (apiKeyJustCreated = null)}>
+<Modal bind:open={apiKeyShown} title="New API key" size="lg" onclose={() => (apiKeyJustCreated = null)}>
 	{#if apiKeyJustCreated}
 		<CopyField
 			label={apiKeyJustCreated.name}

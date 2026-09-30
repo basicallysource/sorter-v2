@@ -377,7 +377,8 @@
 	{/snippet}
 </Modal>
 
-<Modal bind:open={showTokenModal} title="Machine token" onclose={() => (tokenDisplay = '')}>
+<!-- Wide, so the token fits on one line. -->
+<Modal bind:open={showTokenModal} title="Machine token" size="lg" onclose={() => (tokenDisplay = '')}>
 	<CopyField
 		name="machine token"
 		value={tokenDisplay}

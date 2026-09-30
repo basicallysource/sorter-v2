@@ -214,14 +214,14 @@
 	{/if}
 
 	<Panel title="Parameters" description="The chosen tracker's parameters." flush>
-		{#each sections as section}
-			<div class="label bg-well px-(--pad-panel) py-1.5">{section.name}</div>
-			<div class="divide-y divide-line">
+		<div class="divide-y divide-line">
+			{#each sections as section}
+				<div class="label px-(--pad-panel) py-1.5">{section.name}</div>
 				{#each section.fields as field}
 					<TuningParamRow {field} bind:values={valuesByType[selectedType]} />
 				{/each}
-			</div>
-		{/each}
+			{/each}
+		</div>
 		{#snippet footer()}
 			<SettingsSaveBar {save} reset={load} {saving} />
 		{/snippet}

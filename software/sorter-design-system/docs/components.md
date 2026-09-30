@@ -152,11 +152,11 @@ layout; a fifth kind of message is a panel, not a new notice.
   `danger`), no border. `dot` puts a status dot before the text.
 - **`Stat`**: a number and its name. Stats in a row are a grid of cells:
   `grid gap-px bg-line`, each cell with its own fill.
-- **Tables** use the `.data-table` class: a well for the head, one line
-  between rows, no outer border and no vertical lines, so a table sits in a
-  flush `Panel`. `num` on a numeric column right-aligns it in the number
-  style; `is-link` on a row that opens something highlights it under the
-  pointer. A wide table scrolls sideways inside its panel.
+- **Tables** use the `.data-table` class: a head of labels, one line under
+  it and between rows, no outer border and no vertical lines, so a table
+  sits in a flush `Panel`. `num` on a numeric column right-aligns it in the
+  number style; `is-link` on a row that opens something highlights it under
+  the pointer. A wide table scrolls sideways inside its panel.
 - **`KeyValue`**: facts about one thing, one line between pairs; `mono` for
   a value someone might copy.
 - **`ProgressBar`**: how far along, when that is known. A track and a fill

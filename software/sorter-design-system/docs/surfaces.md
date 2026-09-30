@@ -10,7 +10,7 @@ line has one owner, so two never meet.
 | ------- | ------------ | -------------------------------------------------------------------------------------------- |
 | Canvas  | `bg-canvas`  | The page: page titles, the gaps between panels                                               |
 | Surface | `bg-surface` | A panel (`Panel`), the top bar, the side nav column                                          |
-| Well    | `bg-well`    | Sunk into a panel: a chart, a preview, an empty list, the head of a table                    |
+| Well    | `bg-well`    | Sunk into a panel: a chart, a preview, an empty list                                          |
 | Raised  | `bg-raised`  | What floats: a popover, a menu, a select's list, a tooltip, a dialog                         |
 | Media   | `bg-media`   | Behind a camera feed or a photo. Dark in both modes, so a picture never sits in a bright box |
 
@@ -28,10 +28,11 @@ The old UI's worst screens were five bordered boxes deep; the most this
 allows is canvas, surface, well.
 
 A group's name inside a list (the pieces that have left the machine, under
-the ones still in it) is a `label` on the list's own plane, with the rows'
-line above and below it. It is never a band of well: across a panel's full
-width a well is a shade off the canvas, and reads as a gap in the panel with
-a word in it.
+the ones still in it), a section's name in a panel of settings and a table's
+head are `label`s on the list's own plane, with the rows' line above and
+below. None is a band of well: across a panel's full width a well is a shade
+off the canvas, and reads as a gap in the panel with a word in it. A well is
+a box inside a panel, with the panel's fill around it.
 
 ## Two kinds of line
 
@@ -56,7 +57,8 @@ tab's mark (`--indicator`, 3px) and the 2px focus outline.
 
 - **A list or a table.** The rows own the lines between them. No line above
   the first row or below the last, and the panel around them has none.
-  Tables use `.data-table`, whose head is a well rather than a line.
+  Tables use `.data-table`, whose head is a row of labels with the rows'
+  line under it.
 - **A panel.** Owns only the line above its footer. Its edges are its fill.
 - **The top bar.** Owns the line under it. Nothing below it draws a line at
   its top, and a banner under it is a fill.

@@ -143,7 +143,7 @@ class RuntimeStatsCollectorBinClearTests(unittest.TestCase):
         live = collector.snapshot(live=True)
 
         self.assertEqual(
-            {"counts", "throughput", "channel_throughput", "state_machines", "bus_recent", "active_incident"},
+            {"counts", "throughput", "channel_throughput", "state_machines", "bus_recent", "active_incident", "incident_card"},
             set(live),
         )
         self.assertEqual({"current_state": "idle", "entered_at": 2.0}, live["state_machines"]["feeder"])

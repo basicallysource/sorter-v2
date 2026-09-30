@@ -26,13 +26,16 @@
 	import {
 		binKey,
 		chuteFrame,
+		layerKinds,
 		placeBins,
 		type BinPlace,
 		type Geometry,
 		type LayoutLayer
 	} from '$lib/machine3d/layout';
 	import type { Manifest } from '$lib/machine3d/model';
-	import type { DoorState, MachineView, Theme } from '$lib/machine3d/view';
+	import type { DoorState, MachineView } from '$lib/machine3d/view';
+	import { readTheme } from '$lib/machine3d/theme';
+	import { cardsFor } from '$lib/machine3d/cards-data';
 
 	const LAYOUT_EVERY_MS = 15_000;
 	const LIVE_EVERY_MS = 5_000;
@@ -59,7 +62,7 @@
 	let aimError = $state<string | null>(null);
 
 	const places = $derived(manifest && geo ? placeBins(layers, geo, manifest) : []);
-	const labels = $derived(places.map((p) => categoryLabel(p.categoryIds)));
+	const cards = $derived(cardsFor(places, null));
 	// The layer whose door is closed catches the next piece; the chute points
 	// at a bin there.
 	const catching = $derived(doors.findIndex((d) => d.calibrated && d.open < 0.5));
@@ -184,7 +187,10 @@
 	}
 
 	// ------------------------------------------------------------ the view
-	$effect(() => view?.setBins(places, labels));
+	$effect(() => {
+		if (layers.length) view?.setLayers(layerKinds(layers));
+	});
+	$effect(() => view?.setBins(places, cards));
 	$effect(() => {
 		if (view && geo && manifest) {
 			const frame = chuteFrame(geo, manifest);
@@ -206,20 +212,6 @@
 	$effect(() => view?.setAimed(aimed?.key ?? null));
 	$effect(() => view?.select(selected?.key ?? null));
 	$effect(() => view?.setSeeInside(seeInside));
-
-	function readTheme(): Theme {
-		const css = getComputedStyle(document.documentElement);
-		const token = (name: string) => css.getPropertyValue(name).trim();
-		return {
-			canvas: token('--canvas'),
-			surface: token('--surface'),
-			ink: token('--ink'),
-			primary: token('--primary'),
-			success: token('--success'),
-			info: token('--info'),
-			dark: document.documentElement.classList.contains('dark')
-		};
-	}
 
 	// ------------------------------------------------------------ pointing
 	let down: { x: number; y: number } | null = null;
@@ -391,7 +383,7 @@
 		lines.push(`select ${((performance.now() - t) / 20).toFixed(2)} ms`);
 		view.select(selected?.key ?? null);
 		t = performance.now();
-		view.setBins(places, labels);
+		view.setBins(places, cards);
 		lines.push(`bins and labels ${(performance.now() - t).toFixed(1)} ms`);
 		return lines.join('\n');
 	}

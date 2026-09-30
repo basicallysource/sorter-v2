@@ -9,12 +9,15 @@
 // OUT.glb is small enough to load on a phone and draw in a few dozen calls:
 // - the fixed parts, merged by look ("body", "dark"), with every part used
 //   more than once stored once and instanced;
-// - the chute, which turns about the vertical axis, holding each layer's flap
-//   (on its hinge) and servo;
+// - the tower in parts the page stacks for the machine's own layer count: the
+//   top, one layer's frame and posts, and the base;
+// - the chute, which turns about the vertical axis: its top, and one chute
+//   layer of each kind with its flap (on its hinge) and servo;
 // - each feeder rotor on its own pivot, and each motor on its own, so the page
 //   can turn them and light them;
 // - one bin of each kind in the frame of the face it sits on, which the page
-//   places from the machine's own bin layout.
+//   places from the machine's own bin layout;
+// - every surface's CAD colour as a vertex colour, for the look that shows it.
 // asset.extras.machine says where everything is (see src/lib/machine3d/model.ts).
 //
 // Fasteners, inserts, wiring, parts inside housings and anything smaller than
@@ -188,11 +191,14 @@ function surfaces(part) {
 	for (const [l, prims] of byLook) {
 		const pos = [];
 		const nor = [];
+		const col = [];
 		const idx = [];
 		const seen = new Map();
 		for (const prim of prims) {
 			const p = prim.getAttribute('POSITION').getArray();
 			const n = prim.getAttribute('NORMAL').getArray();
+			// The CAD's own colour of the part, for the look that shows it.
+			const c = (prim.getMaterial()?.getBaseColorFactor() ?? [0.6, 0.6, 0.6, 1]).slice(0, 3);
 			const remap = [];
 			for (let v = 0; v < p.length / 3; v++) {
 				const k = [
@@ -201,7 +207,8 @@ function surfaces(part) {
 					Math.round(p[v * 3 + 2] * 1e6),
 					Math.round(n[v * 3] * 1e3),
 					Math.round(n[v * 3 + 1] * 1e3),
-					Math.round(n[v * 3 + 2] * 1e3)
+					Math.round(n[v * 3 + 2] * 1e3),
+					...c.map((x) => Math.round(x * 255))
 				].join(',');
 				let i = seen.get(k);
 				if (i === undefined) {
@@ -209,6 +216,7 @@ function surfaces(part) {
 					seen.set(k, i);
 					pos.push(p[v * 3], p[v * 3 + 1], p[v * 3 + 2]);
 					nor.push(n[v * 3], n[v * 3 + 1], n[v * 3 + 2]);
+					col.push(...c);
 				}
 				remap.push(i);
 			}
@@ -227,6 +235,7 @@ function surfaces(part) {
 		const used = new Map();
 		const outPos = [];
 		const outNor = [];
+		const outCol = [];
 		const outIdx = new Uint32Array(kept.length);
 		for (let k = 0; k < kept.length; k++) {
 			let i = used.get(kept[k]);
@@ -236,10 +245,18 @@ function surfaces(part) {
 				const v = kept[k];
 				outPos.push(pos[v * 3], pos[v * 3 + 1], pos[v * 3 + 2]);
 				outNor.push(nor[v * 3], nor[v * 3 + 1], nor[v * 3 + 2]);
+				outCol.push(col[v * 3], col[v * 3 + 1], col[v * 3 + 2]);
 			}
 			outIdx[k] = i;
 		}
-		result.push({ look: l, pos: outPos, nor: outNor, idx: outIdx, before: idx.length / 3 });
+		result.push({
+			look: l,
+			pos: outPos,
+			nor: outNor,
+			col: outCol,
+			idx: outIdx,
+			before: idx.length / 3
+		});
 	}
 	prepared.set(cacheKey, result);
 	return result;
@@ -347,6 +364,7 @@ function meshFrom(name, items) {
 		const count = list.reduce((n, { s }) => n + s.idx.length, 0);
 		const pos = new Float32Array(vertices * 3);
 		const nor = new Float32Array(vertices * 3);
+		const col = new Uint8Array(vertices * 3);
 		const idx = new Uint32Array(count);
 		let v = 0;
 		let i = 0;
@@ -356,6 +374,10 @@ function meshFrom(name, items) {
 				const d = direction(m, [s.nor[k], s.nor[k + 1], s.nor[k + 2]]);
 				const len = Math.hypot(...d) || 1;
 				nor.set([d[0] / len, d[1] / len, d[2] / len], v * 3 + k);
+				col.set(
+					[s.col[k], s.col[k + 1], s.col[k + 2]].map((x) => Math.round(x * 255)),
+					v * 3 + k
+				);
 			}
 			for (let k = 0; k < s.idx.length; k++) idx[i + k] = s.idx[k] + v;
 			v += s.pos.length / 3;
@@ -374,6 +396,10 @@ function meshFrom(name, items) {
 					'NORMAL',
 					doc.createAccessor().setType('VEC3').setArray(nor).setBuffer(buffer)
 				)
+				.setAttribute(
+					'COLOR_0',
+					doc.createAccessor().setType('VEC3').setArray(col).setNormalized(true).setBuffer(buffer)
+				)
 				.setIndices(doc.createAccessor().setType('SCALAR').setArray(idx).setBuffer(buffer))
 		);
 	}
@@ -382,12 +408,14 @@ function meshFrom(name, items) {
 const triangles = (mesh) =>
 	mesh.listPrimitives().reduce((n, p) => n + p.getIndices().getCount() / 3, 0);
 
-// A group of parts under one node, each at `local(part)`: parts used once are
-// merged, a part used more than once is stored once and instanced.
-function group(name, list, parent, at = [0, 0, 0]) {
+// A group of parts under one node at `at`: parts used once are merged, a part
+// used more than once is stored once and instanced. `floor` is the height the
+// group's frame starts from (a layer's ring base), so the page can set it at
+// any height.
+function group(name, list, parent, at = [0, 0, 0], floor = 0) {
 	const n = doc.createNode(name).setTranslation(at);
 	parent.addChild(n);
-	const inverse = translate(-at[0], -at[1], -at[2]);
+	const inverse = translate(-at[0], -at[1] - floor, -at[2]);
 	const byMesh = new Map();
 	for (const p of list) byMesh.set(p.mesh, [...(byMesh.get(p.mesh) ?? []), p]);
 	const single = [];
@@ -437,20 +465,72 @@ function group(name, list, parent, at = [0, 0, 0]) {
 	return n;
 }
 
-// Sort the parts into the groups that move (or light up) on their own.
-const fixed = [];
-const chuteBody = [];
-const perLayer = flaps.map(() => ({ flap: [], servo: [] }));
+// ---------------------------------------------------------------- layers
+// The tower repeats every PITCH: the same brackets, retainers and posts at
+// every layer, and the same chute layer (one kind with a funnel for three-bin
+// layers, one for two-bin layers). The model keeps one of each; the page
+// stacks as many as the machine has, under the top (feeder, drive,
+// electronics), which stays where it is, and puts the base (legs, casters,
+// the chute's bottom mount) under the lowest. The lowest layer stands on the
+// base's legs, so the posts are kept apart and left out under it.
+const PITCH = 0.16;
+const CANON = 1;
+const lowest = levels.length - 1;
+const NEMA23 = '23HS32-4004S_nema23_stepper';
+const bandOf = (p) => {
+	const y = center(p.box)[1];
+	return levels.findIndex((l) => y >= l.base - 0.03 && y < l.base + 0.13);
+};
+const isFrame = (p) =>
+	!BIN.test(p.name) && !inChute(p) && !rotors.includes(p) && !motorOf.has(p) && p.name !== NEMA23;
+const frameBands = new Map();
+for (const p of kept.filter(isFrame)) {
+	const b = bandOf(p);
+	if (b >= 0) frameBands.set(p.name, (frameBands.get(p.name) ?? new Set()).add(b));
+}
+const repeats = (p) => (frameBands.get(p.name)?.size ?? 0) >= 2;
+const isPost = (p) => !frameBands.get(p.name).has(lowest);
+
+// A chute layer is the chute assembly its flap is in; the stack's own parts
+// that repeat at every layer (its connectors) go with the nearest flap.
+const flapY = flaps.map((f) => center(f.box)[1]);
+const stackCount = new Map();
+for (const p of kept.filter((p) => inChute(p) && layerIndex.get(chuteLayerOf(p)) === undefined))
+	stackCount.set(p.name, (stackCount.get(p.name) ?? 0) + 1);
+function chuteLayer(p) {
+	const l = layerIndex.get(chuteLayerOf(p));
+	if (l !== undefined) return l;
+	if ((stackCount.get(p.name) ?? 0) < 2) return -1;
+	const y = center(p.box)[1];
+	return flapY.reduce(
+		(best, fy, i) => (Math.abs(fy - y) < Math.abs(flapY[best] - y) ? i : best),
+		0
+	);
+}
+// Each chute kind is kept from a layer of that kind, away from the ends.
+const chuteKinds = {};
+for (const kind of new Set(levels.map((l) => l.kind))) {
+	const inner = levels.findIndex((l, i) => i > 0 && i < lowest && l.kind === kind);
+	chuteKinds[kind] = inner >= 0 ? inner : levels.findIndex((l) => l.kind === kind);
+}
+
+// Sort the parts into the groups the page places, moves or lights.
+const top = [];
+const base = [];
+const layer = [];
+const posts = [];
+const chuteTop = [];
+const chuteParts = flaps.map(() => ({ body: [], flap: [], servo: [] }));
 const rotorParts = rotors.map(() => []);
 const motorParts = new Map();
 for (const p of kept) {
 	if (BIN.test(p.name)) continue;
 	if (inChute(p)) {
-		const layer = layerIndex.get(chuteLayerOf(p));
-		if (layer !== undefined && p.name === 'gen3_chute_flap_print_side')
-			perLayer[layer].flap.push(p);
-		else if (layer !== undefined && p.name === 'MG995-1') perLayer[layer].servo.push(p);
-		else chuteBody.push(p);
+		const l = chuteLayer(p);
+		if (l < 0) chuteTop.push(p);
+		else if (p.name === 'gen3_chute_flap_print_side') chuteParts[l].flap.push(p);
+		else if (p.name === 'MG995-1') chuteParts[l].servo.push(p);
+		else chuteParts[l].body.push(p);
 		continue;
 	}
 	const rotor = rotors.indexOf(p);
@@ -458,24 +538,38 @@ for (const p of kept) {
 		rotorParts[rotor].push(p);
 		continue;
 	}
-	const motor = motorOf.get(p) ?? (p.name === '23HS32-4004S_nema23_stepper' ? 'chute' : null);
+	const motor = motorOf.get(p) ?? (p.name === NEMA23 ? 'chute' : null);
 	if (motor) {
 		motorParts.set(motor, [...(motorParts.get(motor) ?? []), p]);
 		continue;
 	}
-	fixed.push(p);
+	const band = bandOf(p);
+	if (repeats(p) && band >= 0) {
+		// Every layer's copy but one is made again by the page.
+		if (band === CANON) (isPost(p) ? posts : layer).push(p);
+	} else if (p.path[1] === 'bottom interface') base.push(p);
+	else top.push(p);
 }
 
-group('fixed', fixed, scene);
-const chute = group('chute', chuteBody, scene);
-const flapHinges = [];
-for (const [i, l] of perLayer.entries()) {
-	const f = l.flap[0];
+group('top', top, scene);
+group('base', base, scene, [0, 0, 0], levels[lowest].base);
+group('layer', layer, scene, [0, 0, 0], levels[CANON].base);
+group('layer-posts', posts, scene, [0, 0, 0], levels[CANON].base);
+const chute = doc.createNode('chute');
+scene.addChild(chute);
+group('chute-top', chuteTop, chute);
+const flapHinges = {};
+for (const [kind, i] of Object.entries(chuteKinds)) {
+	const floor = levels[i].base;
+	const module = group(`chute-${kind}`, chuteParts[i].body, chute, [0, 0, 0], floor);
+	const f = chuteParts[i].flap[0];
 	const origin = point(f.world, FLAP_HINGE.origin);
+	origin[1] -= floor;
 	const axis = direction(f.world, FLAP_HINGE.axis);
-	flapHinges.push({ origin: origin.map((v) => round(v)), axis: axis.map((v) => round(v)) });
-	group(`flap-${i}`, l.flap, chute, origin);
-	group(`servo-${i}`, l.servo, chute);
+	flapHinges[kind] = { origin: origin.map((v) => round(v)), axis: axis.map((v) => round(v)) };
+	// Names are unique across the file: three.js's loader renames repeats.
+	group(`flap-${kind}`, chuteParts[i].flap, module, origin, floor);
+	group(`servo-${kind}`, chuteParts[i].servo, module, [0, 0, 0], floor);
 }
 const rotorPivots = [];
 for (const [i, list] of rotorParts.entries()) {
@@ -517,17 +611,16 @@ const box = [0, 1].map((k) =>
 
 doc.getRoot().getAsset().extras = {
 	machine: {
-		version: 1,
+		version: 2,
 		units: 'm',
 		up: 'y',
 		box: box.map((p) => p.map((v) => round(v))),
-		// The bin rings from the top; the backend's layer 0 is the top one.
-		levels: levels.map((l, i) => ({
-			kind: l.kind,
-			base: round(l.base),
-			top: round(l.top),
-			flap: flapHinges[i] ?? null
-		})),
+		// The CAD's bin rings from the top (the backend's layer 0 is the top
+		// one), and how far apart layers are.
+		levels: levels.map((l) => ({ kind: l.kind, base: round(l.base), top: round(l.top) })),
+		pitch: PITCH,
+		// Each chute kind's flap hinge, in its chute layer's frame.
+		flaps: flapHinges,
 		faces: [0, 60, 120, 180, 240, 300],
 		binKinds,
 		homeAzimuth: round((((home % 360) + 540) % 360) - 180, 2),

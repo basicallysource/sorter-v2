@@ -3,28 +3,32 @@
 // animation is still running), never on a timer, and nothing while the tab is
 // hidden. Everything the page asks of it goes through the methods below.
 //
-// The model (see model.ts) is fetched once per visit and kept for the next; its
-// fixed parts are a few merged meshes and instanced repeats, and the bins are
-// instanced from the machine's own layout, so a frame is about a hundred draw
-// calls however many bins there are. Bin labels are one instanced quad per bin
-// reading from one texture, so they cost no DOM and hide behind what is in
-// front of them like any other surface.
+// The model (see model.ts) is fetched once per visit and kept for the next;
+// each view draws its own copy of it, sharing the geometry. Its fixed parts are
+// a few merged meshes and instanced repeats; the tower (each layer's frame and
+// posts) and the bins are instanced from the machine's own layers and layout,
+// so a frame is about a hundred draw calls however many layers and bins there
+// are. The cards on the bins are one instanced quad per bin reading one
+// texture, so they cost no DOM and hide behind what is in front of them.
 import {
 	Box3,
+	BufferAttribute,
 	BufferGeometry,
 	CanvasTexture,
 	Color,
 	DirectionalLight,
+	EdgesGeometry,
 	Euler,
 	HemisphereLight,
 	InstancedBufferAttribute,
 	InstancedMesh,
-	Material,
+	LineSegments,
+	type Material,
 	Matrix4,
 	Mesh,
 	MeshBasicMaterial,
-	MOUSE,
 	MeshStandardMaterial,
+	MOUSE,
 	Object3D,
 	PerspectiveCamera,
 	PlaneGeometry,
@@ -41,35 +45,51 @@ import { MeshoptDecoder } from 'three/addons/libs/meshopt_decoder.module.js';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { MODEL, type Manifest } from './model';
 import type { BinPlace } from './layout';
+import { LOOKS, makeLook, type LookMaterials, type LookName } from './looks';
+import { CARD_STYLES, drawCards, type CardData, type CardStyle, type CardTheme } from './cards';
 
 // Each bin kind's mesh, and the transform its node gives it.
 type BinKinds = Map<string, { geometry: BufferGeometry; local: Matrix4 }>;
-type Loaded = { scene: Object3D; manifest: Manifest; kinds: BinKinds };
+// The parts the view stacks for the machine's layers: one layer's frame, its
+// posts, and one chute layer of each kind.
+type Modules = { layer: Object3D; posts: Object3D; chute: Record<string, Object3D> };
+type Loaded = { scene: Object3D; manifest: Manifest; kinds: BinKinds; modules: Modules };
+type Surface = 'body' | 'dark' | 'bin';
 let loading: Promise<Loaded> | null = null;
 
 /** The model, fetched and parsed once, then kept for the next visit. The bin
- *  kinds come out of the scene; the view instances them. */
+ *  kinds and the stacked parts come out of the scene; the view instances them. */
 export function loadModel(): Promise<Loaded> {
 	loading ??= new GLTFLoader()
 		.setMeshoptDecoder(MeshoptDecoder)
 		.loadAsync(MODEL.url)
 		.then((gltf) => {
+			const scene = gltf.scene;
+			// Each surface remembers its kind, since the view gives it its own material.
+			scene.traverse((o) => {
+				if (o instanceof Mesh) o.userData.surface = (o.material as Material).name || 'body';
+			});
+			const take = (name: string) => {
+				const o = scene.getObjectByName(name);
+				if (!o) throw new Error(`the model has no ${name}`);
+				o.removeFromParent();
+				o.updateMatrixWorld(true);
+				return o;
+			};
 			const kinds: BinKinds = new Map();
-			const holder = gltf.scene.getObjectByName('bin-kinds');
-			for (const child of holder?.children ?? [])
-				if (child instanceof Mesh) {
-					child.updateMatrix();
+			for (const child of take('bin-kinds').children)
+				if (child instanceof Mesh)
 					kinds.set(child.name.replace(/^bin-/, ''), {
 						geometry: child.geometry,
 						local: child.matrix.clone()
 					});
-				}
-			holder?.removeFromParent();
-			return {
-				scene: gltf.scene,
-				manifest: gltf.parser.json.asset.extras.machine as Manifest,
-				kinds
+			const modules: Modules = {
+				layer: take('layer'),
+				posts: take('layer-posts'),
+				chute: { third: take('chute-third'), half: take('chute-half') }
 			};
+			const manifest = gltf.parser.json.asset.extras.machine as Manifest;
+			return { scene, manifest, kinds, modules };
 		})
 		.catch((err) => {
 			loading = null;
@@ -78,11 +98,8 @@ export function loadModel(): Promise<Loaded> {
 	return loading;
 }
 
-export type Theme = {
+export type Theme = CardTheme & {
 	canvas: string;
-	surface: string;
-	ink: string;
-	primary: string;
 	success: string;
 	info: string;
 	dark: boolean;
@@ -90,15 +107,24 @@ export type Theme = {
 
 export type DoorState = { open: number; calibrated: boolean };
 
+/** Where the camera looks from: degrees around and above, and how far away as
+ *  a share of the distance that fits the whole machine. `target` is a point to
+ *  look at instead of the machine's centre. */
+export type CameraView = {
+	azimuth: number;
+	elevation: number;
+	distance?: number;
+	target?: Vector3;
+};
+
 // How far a flap swings between closed and open, and how fast things move
 // when the backend does not say.
 const FLAP_SWING = (40 * Math.PI) / 180;
 const FLAP_SPEED = 3; // swings a second
 const CHUTE_SPEED = 180; // degrees a second
 const GLOW_FADE = 1.2; // seconds for a bin's light to fade
-// A label's texture cell, in pixels, and how many to a row of the atlas.
-const CELL = { w: 256, h: 64 };
-const ATLAS_COLUMNS = 16;
+// Creases sharper than this get a line in the looks that draw lines.
+const CREASE = 35;
 
 // A kind's bins, and (seeing inside) the ones that are lit, drawn solid over the ghosts.
 type BinBatch = { mesh: InstancedMesh; lit: InstancedMesh; places: BinPlace[] };
@@ -112,16 +138,25 @@ export class MachineView {
 	private manifest: Manifest;
 	private root: Object3D;
 	private chute: Object3D;
+	private modules: Modules;
+	private kinds: BinKinds;
+	// What was built for the machine's layers, and for how many of which kind.
+	private tower: Object3D | null = null;
+	private chuteLayers: Object3D[] = [];
+	private layersKey = '';
+	private framed = false;
+	private view: CameraView = { azimuth: 35, elevation: 18 };
 	private flaps: { node: Object3D; axis: Vector3; rest: Quaternion }[] = [];
 	private servos: Mesh[][] = [];
 	private motors = new Map<string, Mesh[]>();
-	private kinds: BinKinds;
 	private batches: BinBatch[] = [];
-	private byKey = new Map<string, { batch: BinBatch; index: number }>();
-	// Each surface's own material, to go back to when it stops being lit.
-	private own = new Map<Mesh, Material>();
-	private labels: InstancedMesh | null = null;
+	private places: BinPlace[] = [];
+	private twins: Mesh[] = [];
+	private lines: LineSegments[] = [];
+	private cards: InstancedMesh | null = null;
 	private atlas: CanvasTexture | null = null;
+	private cardData: CardData[] = [];
+	private cardStyle: CardStyle = 'paper';
 	private raycaster = new Raycaster();
 	private frame = 0;
 	private last = 0;
@@ -141,42 +176,29 @@ export class MachineView {
 	private azimuthOf: (angle: number) => number = (a) => -a;
 
 	private theme: Theme | null = null;
+	private look: LookName = 'lit';
 	private colors = {
+		body: new Color(),
+		dark: new Color(),
 		bin: new Color(),
 		off: new Color(),
+		line: new Color(),
 		primary: new Color(),
 		success: new Color(),
-		info: new Color(),
-		hover: new Color()
+		info: new Color()
 	};
-	private outer = {
-		body: new MeshStandardMaterial({ roughness: 0.85 }),
-		dark: new MeshStandardMaterial({ roughness: 0.7 }),
-		bin: new MeshStandardMaterial({ roughness: 0.9 })
-	};
-	private ghost = {
-		body: ghostMaterial(),
-		dark: ghostMaterial(),
-		bin: ghostMaterial()
-	};
-	// The look of every surface that becomes a ghost seeing inside, and each
-	// surface's material otherwise.
-	private outerLook = new Map<Mesh, 'body' | 'dark' | 'bin'>();
-	private normal = new Map<Mesh, Material>();
+	private mats: LookMaterials;
+	private ghost = { body: ghostMaterial(), dark: ghostMaterial(), bin: ghostMaterial() };
+	private active = new MeshStandardMaterial({ roughness: 0.6 });
 	private depthOnly = new MeshBasicMaterial({ colorWrite: false });
-	private twins: Mesh[] = [];
-	private inner = {
-		body: new MeshStandardMaterial({ roughness: 0.85 }),
-		dark: new MeshStandardMaterial({ roughness: 0.7 }),
-		active: new MeshStandardMaterial({ roughness: 0.6 })
-	};
-	private labelMaterial = new MeshBasicMaterial({ transparent: true });
+	private cardMaterial = new MeshBasicMaterial({ transparent: true });
 	private hemisphere = new HemisphereLight(0xffffff, 0x444444, 1.1);
 	private key = new DirectionalLight(0xffffff, 2.2);
 
 	constructor(canvas: HTMLCanvasElement, loaded: Loaded) {
 		this.manifest = loaded.manifest;
 		this.kinds = loaded.kinds;
+		this.modules = loaded.modules;
 		this.renderer = new WebGLRenderer({
 			canvas,
 			antialias: true,
@@ -191,10 +213,18 @@ export class MachineView {
 		this.camera.add(this.key);
 		this.scene.add(this.camera, this.hemisphere);
 
-		this.root = loaded.scene;
+		this.mats = makeLook(this.look, this.colors);
+		this.root = loaded.scene.clone();
 		this.scene.add(this.root);
 		this.chute = this.root.getObjectByName('chute')!;
-		this.adoptModel();
+		this.adopt(this.root);
+		for (const name of this.manifest.motors) {
+			const meshes: Mesh[] = [];
+			this.root
+				.getObjectByName(`motor-${name}`)
+				?.traverse((o) => o instanceof Mesh && meshes.push(o));
+			this.motors.set(name, meshes);
+		}
 
 		this.controls = new OrbitControls(this.camera, canvas);
 		this.controls.enableDamping = true;
@@ -206,7 +236,6 @@ export class MachineView {
 		this.resizeObserver = new ResizeObserver(() => this.resize());
 		this.resizeObserver.observe(canvas);
 		this.resize();
-		this.frameMachine();
 		void this.warm();
 	}
 
@@ -214,178 +243,61 @@ export class MachineView {
 	 *  the first switch does not stall a frame. */
 	private async warm() {
 		const on = this.seeInside;
-		for (const t of this.twins) t.visible = true;
-		for (const [mesh, look] of this.outerLook) mesh.material = this.ghost[look];
+		this.seeInside = true;
+		this.repaint();
 		try {
 			await this.renderer.compileAsync(this.scene, this.camera);
 		} catch {
 			// compiled on first use instead
 		}
 		if (this.disposed) return;
-		this.setSeeInside(on);
+		this.seeInside = on;
+		this.repaint();
 	}
 
-	// ------------------------------------------------------------ the model
-	private adoptModel() {
-		// Every surface takes one of the view's materials, by the look the model
-		// gave it. Seeing inside, the doors and their servos stay solid and
-		// everything else, the chute's body too, becomes a ghost.
-		const solid = new Set<Object3D>();
-		for (let i = 0; i < this.manifest.levels.length; i++)
-			for (const name of [`flap-${i}`, `servo-${i}`]) {
-				const node = this.chute.getObjectByName(name);
-				if (node) solid.add(node);
-			}
-		this.root.traverse((o) => {
-			if (!(o instanceof Mesh)) return;
-			const look = (o.material as Material).name as 'body' | 'dark' | 'bin';
-			let inChute = false;
-			let isSolid = false;
-			for (let p: Object3D | null = o; p; p = p.parent) {
-				if (p === this.chute) inChute = true;
-				if (solid.has(p)) isSolid = true;
-			}
-			o.material = inChute
-				? look === 'dark'
-					? this.inner.dark
-					: this.inner.body
-				: this.outer[look];
-			this.own.set(o, o.material as Material);
-			this.normal.set(o, o.material as Material);
-			if (isSolid) o.renderOrder = -1;
-			else this.outerLook.set(o, look);
+	// ------------------------------------------------------------ materials
+	/** Marks every surface under `obj` with what decides its material, and
+	 *  gives each one that becomes a ghost seeing inside its depth twin. The
+	 *  doors and their servos stay solid seeing inside; everything else, the
+	 *  chute's body too, becomes a ghost. */
+	private adopt(obj: Object3D) {
+		const ghosts: Mesh[] = [];
+		obj.traverse((o) => {
+			if (!(o instanceof Mesh) || o.userData.twin) return;
+			let solid = false;
+			for (let p: Object3D | null = o; p; p = p.parent)
+				if (/^(flap|servo)-/.test(p.name)) solid = true;
+			o.userData.solid = solid;
+			if (solid) o.renderOrder = -1;
+			else ghosts.push(o);
+			o.material = this.materialFor(o);
 		});
-		for (const mesh of this.outerLook.keys()) this.twin(mesh);
-		for (const [i, level] of this.manifest.levels.entries()) {
-			const node = this.chute.getObjectByName(`flap-${i}`);
-			if (!node || !level.flap) continue;
-			this.flaps.push({
-				node,
-				axis: new Vector3(...level.flap.axis).normalize(),
-				rest: node.quaternion.clone()
-			});
-			const servo: Mesh[] = [];
-			this.chute.getObjectByName(`servo-${i}`)?.traverse((o) => o instanceof Mesh && servo.push(o));
-			this.servos.push(servo);
-		}
-		this.doorShown = this.flaps.map(() => 0);
-		this.doorTarget = this.flaps.map(() => 0);
-		for (const name of this.manifest.motors) {
-			const meshes: Mesh[] = [];
-			this.root
-				.getObjectByName(`motor-${name}`)
-				?.traverse((o) => o instanceof Mesh && meshes.push(o));
-			this.motors.set(name, meshes);
-		}
-		this.root.updateMatrixWorld(true);
+		// After the walk, which would otherwise walk into the twins it makes.
+		for (const o of ghosts) this.twin(o);
+		if (LOOKS.find((l) => l.name === this.look)?.lines) this.addLines(obj);
 	}
 
-	private frameMachine() {
-		const [lo, hi] = this.manifest.box;
-		const box = new Box3(new Vector3(...lo), new Vector3(...hi));
-		const centre = box.getCenter(new Vector3());
-		const size = box.getSize(new Vector3());
-		const radius = size.length() / 2;
-		// Far enough that the machine's height, and its width, fit with a margin.
-		const tan = Math.tan((this.camera.fov * Math.PI) / 360);
-		const distance =
-			Math.max(
-				size.y / 2 / tan,
-				Math.max(size.x, size.z) / 2 / (tan * Math.max(this.camera.aspect, 0.5))
-			) * 1.25;
-		const az = (35 * Math.PI) / 180;
-		const el = (18 * Math.PI) / 180;
-		this.camera.position.set(
-			centre.x + distance * Math.cos(el) * Math.cos(az),
-			centre.y + distance * Math.sin(el),
-			centre.z - distance * Math.cos(el) * Math.sin(az)
-		);
-		this.controls.target.copy(centre);
-		this.controls.minDistance = radius * 0.4;
-		this.controls.maxDistance = distance * 2;
-		this.controls.maxPolarAngle = Math.PI * 0.62;
-		this.controls.update();
+	private materialFor(o: Mesh): Material {
+		const surface = o.userData.surface as Surface;
+		if (o.userData.lit) return this.active;
+		if (this.seeInside && !o.userData.solid) return this.ghost[surface];
+		return this.mats[surface];
 	}
 
-	// ------------------------------------------------------------ what the page sets
-	setTheme(theme: Theme) {
-		this.theme = theme;
-		const canvas = new Color(theme.canvas);
-		const ink = new Color(theme.ink);
-		const mix = (t: number) => canvas.clone().lerp(ink, t);
-		// The view is a panel's content, so it sits on the surface.
-		this.scene.background = new Color(theme.surface);
-		// The bins are what the page is about, so they carry the most contrast;
-		// the frame steps back.
-		const body = mix(theme.dark ? 0.3 : 0.2);
-		const dark = mix(theme.dark ? 0.14 : 0.66);
-		this.colors.bin = mix(theme.dark ? 0.55 : 0.46);
-		this.colors.off = mix(theme.dark ? 0.2 : 0.16);
-		this.colors.primary = new Color(theme.primary);
-		this.colors.success = new Color(theme.success);
-		this.colors.info = new Color(theme.info);
-		this.colors.hover = this.colors.bin.clone().lerp(this.colors.primary, 0.3);
-		this.outer.body.color.copy(body);
-		this.outer.dark.color.copy(dark);
-		this.ghost.body.color.copy(body);
-		this.ghost.dark.color.copy(dark);
-		this.ghost.bin.color.set(0xffffff);
-		this.outer.bin.color.set(0xffffff);
-		this.inner.body.color.copy(body);
-		this.inner.dark.color.copy(dark);
-		this.inner.active.color.copy(this.colors.success);
-		this.hemisphere.groundColor.copy(canvas.clone().lerp(new Color(0), 0.5));
-		this.paintBins();
-		this.drawLabels();
-		this.invalidate();
-	}
-
-	private labelText: string[] = [];
-
-	/** The bins, placed from the machine's layout, and each one's label. */
-	setBins(places: BinPlace[], labels: string[]) {
+	/** Every surface's material again, after the look or seeing inside changed. */
+	private repaint() {
+		this.root.traverse((o) => {
+			if (o instanceof Mesh && o.userData.surface && !o.userData.twin)
+				o.material = this.materialFor(o);
+		});
 		for (const b of this.batches) {
-			b.mesh.removeFromParent();
-			b.mesh.dispose();
-			b.lit.removeFromParent();
-			b.lit.dispose();
-			this.twins = this.twins.filter((t) => t.parent !== b.mesh);
+			b.mesh.material = this.seeInside ? this.ghost.bin : this.mats.bin;
+			b.lit.material = this.mats.bin;
+			b.lit.visible = this.seeInside;
 		}
-		this.batches = [];
-		this.byKey.clear();
-		const byKind = new Map<string, BinPlace[]>();
-		for (const p of places)
-			if (this.kinds.has(p.kind)) byKind.set(p.kind, [...(byKind.get(p.kind) ?? []), p]);
-		const m = new Matrix4();
-		for (const [kind, list] of byKind) {
-			const { geometry, local } = this.kinds.get(kind)!;
-			const mesh = new InstancedMesh(
-				geometry,
-				this.seeInside ? this.ghost.bin : this.outer.bin,
-				list.length
-			);
-			mesh.name = `bins ${kind}`;
-			const lit = new InstancedMesh(geometry, this.outer.bin, list.length);
-			lit.count = 0;
-			lit.visible = this.seeInside;
-			lit.renderOrder = -1;
-			lit.frustumCulled = false;
-			lit.matrixAutoUpdate = false;
-			lit.raycast = () => {};
-			this.root.add(lit);
-			const batch = { mesh, lit, places: list };
-			list.forEach((p, i) => {
-				mesh.setMatrixAt(i, this.binMatrix(p, m).multiply(local));
-				this.byKey.set(p.key, { batch, index: i });
-			});
-			mesh.computeBoundingSphere();
-			mesh.matrixAutoUpdate = false;
-			this.root.add(mesh);
-			this.twin(mesh);
-			this.batches.push(batch);
-		}
-		this.labelText = [];
-		this.buildLabels(places, labels);
+		for (const t of this.twins) t.visible = this.seeInside;
+		for (const l of this.lines) l.visible = !this.seeInside;
+		if (this.cards) this.cards.visible = !this.seeInside;
 		this.paintBins();
 		this.invalidate();
 	}
@@ -398,19 +310,301 @@ export class MachineView {
 			copy.instanceMatrix = mesh.instanceMatrix;
 			twin = copy;
 		} else twin = new Mesh(mesh.geometry, this.depthOnly);
+		twin.userData.twin = true;
 		twin.visible = this.seeInside;
 		twin.raycast = () => {};
 		mesh.add(twin);
 		this.twins.push(twin);
 	}
 
+	private edges = new WeakMap<BufferGeometry, Float32Array>();
+
+	/** Lines along the creases of every surface under `obj`: one set of lines
+	 *  per mesh, with an instanced mesh's copies merged into it. */
+	private addLines(obj: Object3D) {
+		const meshes: Mesh[] = [];
+		obj.traverse((o) => {
+			if (o instanceof Mesh && o.userData.surface && !o.userData.twin) meshes.push(o);
+		});
+		const m = new Matrix4();
+		const v = new Vector3();
+		for (const mesh of meshes) {
+			let e = this.edges.get(mesh.geometry);
+			if (!e) {
+				e = new EdgesGeometry(mesh.geometry, CREASE).getAttribute('position').array as Float32Array;
+				this.edges.set(mesh.geometry, e);
+			}
+			const copies = mesh instanceof InstancedMesh ? mesh.count : 1;
+			const out = new Float32Array(e.length * copies);
+			for (let i = 0; i < copies; i++) {
+				if (mesh instanceof InstancedMesh) mesh.getMatrixAt(i, m);
+				else m.identity();
+				for (let k = 0; k < e.length; k += 3) {
+					v.set(e[k], e[k + 1], e[k + 2]).applyMatrix4(m);
+					out.set([v.x, v.y, v.z], i * e.length + k);
+				}
+			}
+			const g = new BufferGeometry();
+			g.setAttribute('position', new BufferAttribute(out, 3));
+			const lines = new LineSegments(g, this.mats.line);
+			lines.userData.twin = true;
+			lines.raycast = () => {};
+			lines.visible = !this.seeInside;
+			mesh.add(lines);
+			this.lines.push(lines);
+		}
+	}
+
+	private dropLines() {
+		for (const l of this.lines) {
+			l.removeFromParent();
+			l.geometry.dispose();
+		}
+		this.lines = [];
+	}
+
+	private forget(obj: Object3D) {
+		const inside = (t: Object3D) => {
+			for (let p: Object3D | null = t; p; p = p.parent) if (p === obj) return true;
+			return false;
+		};
+		this.twins = this.twins.filter((t) => !inside(t));
+		this.lines = this.lines.filter((l) => {
+			if (!inside(l)) return true;
+			l.geometry.dispose();
+			return false;
+		});
+	}
+
+	/** Draws the machine another way (looks.ts). */
+	setLook(name: LookName) {
+		if (name === this.look) return;
+		this.look = name;
+		for (const m of Object.values(this.mats)) m.dispose();
+		this.mats = makeLook(name, this.colors);
+		this.dropLines();
+		if (LOOKS.find((l) => l.name === name)?.lines) {
+			this.addLines(this.root);
+		}
+		this.repaint();
+	}
+
+	// ------------------------------------------------------------ the tower
+	/** Where layer `k` (0 the top) has its ring's base: the top stays where the
+	 *  CAD has it and the layers hang under it. */
+	levelBase(k: number) {
+		return this.manifest.levels[0].base - k * this.manifest.pitch;
+	}
+
+	/** Builds the tower for the machine's layers, from the top: each one's bin
+	 *  kind ('third' or 'half'), which picks its chute layer. The frame and the
+	 *  posts are one instanced mesh per part for every layer, and the base goes
+	 *  under the lowest layer. */
+	setLayers(kinds: string[]) {
+		const n = Math.max(1, kinds.length);
+		const key = kinds.join(',') || 'third';
+		if (key === this.layersKey) return;
+		this.layersKey = key;
+		for (const old of [this.tower, ...this.chuteLayers]) {
+			if (!old) continue;
+			this.forget(old);
+			old.removeFromParent();
+		}
+		this.chuteLayers = [];
+		const tower = new Object3D();
+		tower.name = 'tower';
+		this.stack(tower, this.modules.layer, [...Array(n).keys()]);
+		this.stack(tower, this.modules.posts, [...Array(n - 1).keys()]);
+		this.root.add(tower);
+		this.adopt(tower);
+		this.tower = tower;
+		const base = this.root.getObjectByName('base');
+		if (base) base.position.y = this.levelBase(n - 1);
+
+		this.flaps = [];
+		this.servos = [];
+		for (let k = 0; k < n; k++) {
+			const kind = this.modules.chute[kinds[k]] ? kinds[k] : 'third';
+			const layer = this.modules.chute[kind].clone();
+			layer.position.y = this.levelBase(k);
+			this.chute.add(layer);
+			this.adopt(layer);
+			this.chuteLayers.push(layer);
+			const flap = layer.getObjectByName(`flap-${kind}`);
+			const hinge = this.manifest.flaps[kind];
+			if (flap && hinge)
+				this.flaps.push({
+					node: flap,
+					axis: new Vector3(...hinge.axis).normalize(),
+					rest: flap.quaternion.clone()
+				});
+			const servo: Mesh[] = [];
+			layer.getObjectByName(`servo-${kind}`)?.traverse((o) => o instanceof Mesh && servo.push(o));
+			this.servos.push(servo);
+		}
+		this.doorShown = this.flaps.map((_, i) => this.doorShown[i] ?? 0);
+		this.doorTarget = this.flaps.map((_, i) => this.doorTarget[i] ?? 0);
+		this.root.updateMatrixWorld(true);
+		if (!this.framed) {
+			this.framed = true;
+			this.setCamera(this.view);
+		}
+		this.invalidate();
+	}
+
+	/** Every mesh of `module`, once for each of the layers, as one instanced mesh. */
+	private stack(into: Object3D, module: Object3D, layers: number[]) {
+		if (!layers.length) return;
+		const at = new Matrix4();
+		const inst = new Matrix4();
+		const m = new Matrix4();
+		module.traverse((o) => {
+			if (!(o instanceof Mesh)) return;
+			const per = o instanceof InstancedMesh ? o.count : 1;
+			const mesh = new InstancedMesh(o.geometry, o.material, per * layers.length);
+			mesh.userData.surface = o.userData.surface;
+			let i = 0;
+			for (const k of layers) {
+				at.makeTranslation(0, this.levelBase(k), 0).multiply(o.matrixWorld);
+				for (let j = 0; j < per; j++) {
+					if (o instanceof InstancedMesh) o.getMatrixAt(j, inst);
+					else inst.identity();
+					mesh.setMatrixAt(i++, m.multiplyMatrices(at, inst));
+				}
+			}
+			mesh.computeBoundingSphere();
+			mesh.matrixAutoUpdate = false;
+			into.add(mesh);
+		});
+	}
+
+	// ------------------------------------------------------------ the camera
+	/** Points the camera (see CameraView); the machine is framed to fit. */
+	setCamera(view: CameraView) {
+		this.view = view;
+		const box = new Box3().setFromObject(this.root);
+		const centre = view.target ?? box.getCenter(new Vector3());
+		const size = box.getSize(new Vector3());
+		const radius = size.length() / 2;
+		// Far enough that the machine's height, and its width, fit with a margin.
+		const tan = Math.tan((this.camera.fov * Math.PI) / 360);
+		const fit =
+			Math.max(
+				size.y / 2 / tan,
+				Math.max(size.x, size.z) / 2 / (tan * Math.max(this.camera.aspect, 0.5))
+			) * 1.25;
+		const distance = fit * (view.distance ?? 1);
+		const az = (view.azimuth * Math.PI) / 180;
+		const el = (view.elevation * Math.PI) / 180;
+		this.camera.position.set(
+			centre.x + distance * Math.cos(el) * Math.cos(az),
+			centre.y + distance * Math.sin(el),
+			centre.z - distance * Math.cos(el) * Math.sin(az)
+		);
+		this.controls.target.copy(centre);
+		this.controls.minDistance = radius * 0.15;
+		this.controls.maxDistance = fit * 2;
+		this.controls.maxPolarAngle = Math.PI * 0.62;
+		this.controls.update();
+		this.invalidate();
+	}
+
+	/** The middle of a bin's front, for pointing the camera at it. */
+	binFront(key: string): Vector3 | null {
+		const p = this.places.find((b) => b.key === key);
+		if (!p) return null;
+		const k = this.manifest.binKinds[p.kind];
+		const face = new Matrix4().makeRotationY((p.faceAzimuth * Math.PI) / 180);
+		return new Vector3(k.max[0], (k.min[1] + k.max[1]) / 2, (k.min[2] + k.max[2]) / 2 + p.along)
+			.applyMatrix4(face)
+			.add(new Vector3(0, this.levelBase(p.level), 0));
+	}
+
+	// ------------------------------------------------------------ what the page sets
+	setTheme(theme: Theme) {
+		this.theme = theme;
+		const canvas = new Color(theme.canvas);
+		const ink = new Color(theme.ink);
+		const mix = (t: number) => canvas.clone().lerp(ink, t);
+		// The view is a panel's content, so it sits on the surface.
+		this.scene.background = new Color(theme.surface);
+		// The bins are what the page is about, so they carry the most contrast;
+		// the frame steps back.
+		this.colors.body.copy(mix(theme.dark ? 0.3 : 0.2));
+		this.colors.dark.copy(mix(theme.dark ? 0.14 : 0.66));
+		this.colors.bin.copy(mix(theme.dark ? 0.55 : 0.46));
+		this.colors.off.copy(mix(theme.dark ? 0.2 : 0.16));
+		this.colors.line.copy(mix(theme.dark ? 0.62 : 0.72));
+		this.colors.primary.set(theme.primary);
+		this.colors.success.set(theme.success);
+		this.colors.info.set(theme.info);
+		// The look's materials take the new colours.
+		for (const m of Object.values(this.mats)) m.dispose();
+		this.mats = makeLook(this.look, this.colors);
+		for (const l of this.lines) l.material = this.mats.line;
+		this.ghost.body.color.copy(this.colors.body);
+		this.ghost.dark.color.copy(this.colors.dark);
+		this.ghost.bin.color.set(0xffffff);
+		this.active.color.copy(this.colors.success);
+		this.hemisphere.groundColor.copy(canvas.clone().lerp(new Color(0), 0.5));
+		this.repaint();
+		this.drawCards();
+	}
+
+	/** The bins, placed from the machine's layout, and what each one's card says. */
+	setBins(places: BinPlace[], cards: CardData[]) {
+		for (const b of this.batches) {
+			this.forget(b.mesh);
+			b.mesh.removeFromParent();
+			b.mesh.dispose();
+			b.lit.removeFromParent();
+			b.lit.dispose();
+		}
+		this.batches = [];
+		this.places = places;
+		const byKind = new Map<string, BinPlace[]>();
+		for (const p of places)
+			if (this.kinds.has(p.kind)) byKind.set(p.kind, [...(byKind.get(p.kind) ?? []), p]);
+		const m = new Matrix4();
+		for (const [kind, list] of byKind) {
+			const { geometry, local } = this.kinds.get(kind)!;
+			const mesh = new InstancedMesh(
+				geometry,
+				this.seeInside ? this.ghost.bin : this.mats.bin,
+				list.length
+			);
+			mesh.name = `bins ${kind}`;
+			mesh.userData.surface = 'bin';
+			const lit = new InstancedMesh(geometry, this.mats.bin, list.length);
+			lit.count = 0;
+			lit.visible = this.seeInside;
+			lit.renderOrder = -1;
+			lit.frustumCulled = false;
+			lit.matrixAutoUpdate = false;
+			lit.raycast = () => {};
+			this.root.add(lit);
+			list.forEach((p, i) => mesh.setMatrixAt(i, this.binMatrix(p, m).multiply(local)));
+			mesh.computeBoundingSphere();
+			mesh.matrixAutoUpdate = false;
+			this.root.add(mesh);
+			this.twin(mesh);
+			if (LOOKS.find((l) => l.name === this.look)?.lines) this.addLines(mesh);
+			// The bins take their colour per instance, not from their material.
+			mesh.material = this.seeInside ? this.ghost.bin : this.mats.bin;
+			this.batches.push({ mesh, lit, places: list });
+		}
+		this.cardData = cards;
+		this.placeCards();
+		this.paintBins();
+		this.invalidate();
+	}
+
 	private binMatrix(p: BinPlace, into: Matrix4) {
-		const level = this.manifest.levels[p.level];
 		const face = new Matrix4().makeRotationY((p.faceAzimuth * Math.PI) / 180);
 		const along = new Matrix4()
 			.makeTranslation(0, 0, p.along)
 			.multiply(new Matrix4().makeScale(1, 1, p.widthScale));
-		return into.makeTranslation(0, level.base, 0).multiply(face).multiply(along);
+		return into.makeTranslation(0, this.levelBase(p.level), 0).multiply(face).multiply(along);
 	}
 
 	/** The chute's position in the backend's degrees, and how fast it gets there. */
@@ -466,26 +660,15 @@ export class MachineView {
 		this.invalidate();
 	}
 
-	/** See through the frame and the bins, to the chute and its doors. */
+	/** See through the frame and the bins, to the chute and its doors. The
+	 *  frame and the bins become faint, unlit ghosts. Each has a twin that only
+	 *  writes depth, drawn after the chute and before the ghosts, so only the
+	 *  nearest ghost surface is blended over the chute: several layers of
+	 *  translucency over every pixel cost four times a normal frame. */
 	setSeeInside(on: boolean) {
+		if (on === this.seeInside) return;
 		this.seeInside = on;
-		// The frame and the bins become faint, unlit ghosts. Each has a twin that
-		// only writes depth, drawn after the chute and before the ghosts, so only
-		// the nearest ghost surface is blended over the chute: several layers of
-		// translucency over every pixel cost four times a normal frame.
-		for (const [mesh, look] of this.outerLook) {
-			const m = on ? this.ghost[look] : this.normal.get(mesh)!;
-			this.own.set(mesh, m);
-			mesh.material = m;
-		}
-		for (const b of this.batches) {
-			b.mesh.material = on ? this.ghost.bin : this.outer.bin;
-			b.lit.visible = on;
-		}
-		for (const t of this.twins) t.visible = on;
-		this.paintBins();
-		if (this.labels) this.labels.visible = !on;
-		this.invalidate();
+		this.repaint();
 	}
 
 	/** The bin under a point on the canvas, if any. */
@@ -505,44 +688,62 @@ export class MachineView {
 		return batch?.places[hit.instanceId] ?? null;
 	}
 
-	// ------------------------------------------------------------ labels
-	private buildLabels(places: BinPlace[], labels: string[]) {
-		this.labels?.removeFromParent();
-		this.labels?.dispose();
-		this.labels = null;
+	// ------------------------------------------------------------ cards
+	/** How each bin's card is drawn (cards.ts). */
+	setCardStyle(style: CardStyle) {
+		if (style === this.cardStyle) return;
+		this.cardStyle = style;
+		this.placeCards();
+	}
+
+	private placeCards() {
+		this.cards?.removeFromParent();
+		this.cards?.dispose();
+		this.cards = null;
+		const places = this.places;
 		if (!places.length) return;
-		const count = places.length;
-		const rows = Math.ceil(count / ATLAS_COLUMNS);
+		const shape = CARD_STYLES.find((s) => s.name === this.cardStyle)!;
 		const quad = new PlaneGeometry(1, 1);
-		const cells = new Float32Array(count * 2);
-		const mesh = new InstancedMesh(quad, this.labelMaterial, count);
+		const mesh = new InstancedMesh(quad, this.cardMaterial, places.length);
 		const m = new Matrix4();
 		const q = new Quaternion().setFromEuler(new Euler(0, Math.PI / 2, 0));
 		places.forEach((p, i) => {
-			cells[i * 2] = (i % ATLAS_COLUMNS) / ATLAS_COLUMNS;
-			cells[i * 2 + 1] = 1 - (Math.floor(i / ATLAS_COLUMNS) + 1) / rows;
-			// On the bin's outer face, a little in front of it, across its lower half.
+			// On the bin's front, just in front of it.
 			const kind = this.manifest.binKinds[p.kind];
-			const width = (kind.max[2] - kind.min[2]) * p.widthScale * 0.86;
-			const height = width * (CELL.h / CELL.w);
+			const width = (kind.max[2] - kind.min[2]) * p.widthScale * shape.width;
 			const local = new Vector3(
-				kind.max[0] + 0.002,
-				kind.min[1] + (kind.max[1] - kind.min[1]) * 0.32,
-				(kind.min[2] + kind.max[2]) / 2
+				kind.max[0] + shape.offset,
+				kind.min[1] + (kind.max[1] - kind.min[1]) * shape.lift,
+				(kind.min[2] + kind.max[2]) / 2 + p.along
 			);
-			const level = this.manifest.levels[p.level];
 			const face = new Matrix4().makeRotationY((p.faceAzimuth * Math.PI) / 180);
-			const at = local
-				.clone()
-				.add(new Vector3(0, 0, p.along))
-				.applyMatrix4(face)
-				.add(new Vector3(0, level.base, 0));
+			const at = local.applyMatrix4(face).add(new Vector3(0, this.levelBase(p.level), 0));
 			const turn = new Quaternion().setFromRotationMatrix(face).multiply(q);
-			mesh.setMatrixAt(i, m.compose(at, turn, new Vector3(width, height, 1)));
+			mesh.setMatrixAt(i, m.compose(at, turn, new Vector3(width, width / shape.aspect, 1)));
 		});
-		quad.setAttribute('cellOffset', new InstancedBufferAttribute(cells, 2));
-		const cellSize = { value: new Vector2(1 / ATLAS_COLUMNS, 1 / rows) };
-		this.labelMaterial.onBeforeCompile = (shader) => {
+		mesh.matrixAutoUpdate = false;
+		mesh.visible = !this.seeInside;
+		mesh.raycast = () => {};
+		this.cards = mesh;
+		this.root.add(mesh);
+		this.drawCards();
+	}
+
+	private drawCards() {
+		if (!this.cards || !this.theme) return;
+		const shape = CARD_STYLES.find((s) => s.name === this.cardStyle)!;
+		const data = this.places.map((_, i) => this.cardData[i] ?? blankCard);
+		const b = this.colors.bin.clone().convertLinearToSRGB();
+		const onBin = 0.2126 * b.r + 0.7152 * b.g + 0.0722 * b.b > 0.45 ? '#1b1a18' : '#ffffff';
+		const atlas = drawCards(shape, data, { ...this.theme, onBin });
+		const cells = new Float32Array(data.length * 2);
+		data.forEach((_, i) => {
+			cells[i * 2] = (i % atlas.columns) / atlas.columns;
+			cells[i * 2 + 1] = 1 - (Math.floor(i / atlas.columns) + 1) / atlas.rows;
+		});
+		this.cards.geometry.setAttribute('cellOffset', new InstancedBufferAttribute(cells, 2));
+		const cellSize = { value: new Vector2(1 / atlas.columns, 1 / atlas.rows) };
+		this.cardMaterial.onBeforeCompile = (shader) => {
 			shader.uniforms.cellSize = cellSize;
 			shader.vertexShader = shader.vertexShader
 				.replace(
@@ -554,45 +755,13 @@ export class MachineView {
 					'#include <uv_vertex>\n#ifdef USE_MAP\nvMapUv = cellOffset + uv * cellSize;\n#endif'
 				);
 		};
-		this.labelMaterial.customProgramCacheKey = () => 'machine3d-label';
-		this.labelMaterial.needsUpdate = true;
-		mesh.matrixAutoUpdate = false;
-		mesh.visible = !this.seeInside;
-		this.labels = mesh;
-		this.labelText = labels;
-		this.root.add(mesh);
-		this.drawLabels();
-	}
-
-	private drawLabels() {
-		if (!this.labels || !this.theme) return;
-		const count = this.labelText.length;
-		const rows = Math.ceil(count / ATLAS_COLUMNS);
-		const canvas = document.createElement('canvas');
-		canvas.width = CELL.w * ATLAS_COLUMNS;
-		canvas.height = CELL.h * rows;
-		const g = canvas.getContext('2d')!;
-		const font = getComputedStyle(document.body).fontFamily || 'sans-serif';
-		g.font = `500 21px ${font}`;
-		g.textBaseline = 'middle';
-		this.labelText.forEach((text, i) => {
-			const x = (i % ATLAS_COLUMNS) * CELL.w;
-			const y = Math.floor(i / ATLAS_COLUMNS) * CELL.h;
-			if (!text) return;
-			g.fillStyle = this.theme!.surface;
-			g.fillRect(x, y, CELL.w, CELL.h);
-			g.fillStyle = this.theme!.ink;
-			const lines = wrap(g, text, CELL.w - 20, 2);
-			lines.forEach((line, n) =>
-				g.fillText(line, x + 10, y + CELL.h / 2 + (n - (lines.length - 1) / 2) * 25)
-			);
-		});
+		this.cardMaterial.customProgramCacheKey = () => `machine3d-card-${atlas.columns}x${atlas.rows}`;
 		this.atlas?.dispose();
-		this.atlas = new CanvasTexture(canvas);
+		this.atlas = new CanvasTexture(atlas.canvas);
 		this.atlas.colorSpace = SRGBColorSpace;
 		this.atlas.anisotropy = Math.min(8, this.renderer.capabilities.getMaxAnisotropy());
-		this.labelMaterial.map = this.atlas;
-		this.labelMaterial.needsUpdate = true;
+		this.cardMaterial.map = this.atlas;
+		this.cardMaterial.needsUpdate = true;
 		this.invalidate();
 	}
 
@@ -636,7 +805,7 @@ export class MachineView {
 			moving = true;
 		} else this.chuteShown = this.chuteTarget;
 		this.chute.rotation.y = (this.azimuthOf(this.chuteShown) * Math.PI) / 180;
-		this.setMotor('chute', Math.abs(d) > 0.01);
+		for (const m of this.motors.get('chute') ?? []) this.light(m, Math.abs(d) > 0.01);
 
 		const q = new Quaternion();
 		this.flaps.forEach((f, i) => {
@@ -664,12 +833,10 @@ export class MachineView {
 		return moving || fading;
 	}
 
-	private setMotor(name: string, on: boolean) {
-		for (const m of this.motors.get(name) ?? []) this.light(m, on);
-	}
-
 	private light(mesh: Mesh, on: boolean) {
-		mesh.material = on ? this.inner.active : (this.own.get(mesh) ?? mesh.material);
+		if (!!mesh.userData.lit === on) return;
+		mesh.userData.lit = on;
+		mesh.material = this.materialFor(mesh);
 	}
 
 	invalidate() {
@@ -724,55 +891,25 @@ export class MachineView {
 		cancelAnimationFrame(this.frame);
 		this.resizeObserver.disconnect();
 		this.controls.dispose();
+		this.dropLines();
 		for (const b of this.batches) {
-			b.mesh.removeFromParent();
 			b.mesh.dispose();
-			b.lit.removeFromParent();
 			b.lit.dispose();
 		}
-		this.labels?.removeFromParent();
-		this.labels?.geometry.dispose();
+		this.cards?.geometry.dispose();
+		this.cards?.dispose();
 		this.atlas?.dispose();
-		// The parsed model stays for the next visit, as it came; the GPU copy
-		// goes with the context.
-		for (const t of this.twins) t.removeFromParent();
-		this.root.removeFromParent();
+		for (const m of [...Object.values(this.mats), ...Object.values(this.ghost), this.active])
+			m.dispose();
+		// This view's copy of the model goes; the parsed model stays for the
+		// next visit, and the GPU's copy goes with the context.
 		this.renderer.dispose();
 		this.renderer.forceContextLoss();
 	}
 }
 
+const blankCard: CardData = { name: '', code: '', number: '', colors: [], images: [] };
+
 function ghostMaterial() {
 	return new MeshBasicMaterial({ transparent: true, opacity: 0.24, depthWrite: false });
-}
-
-function wrap(
-	g: CanvasRenderingContext2D,
-	text: string,
-	width: number,
-	maxLines: number
-): string[] {
-	const words = text.split(/\s+/);
-	const lines: string[] = [];
-	let line = '';
-	for (const word of words) {
-		const next = line ? `${line} ${word}` : word;
-		if (g.measureText(next).width <= width || !line) line = next;
-		else {
-			lines.push(line);
-			line = word;
-		}
-	}
-	if (line) lines.push(line);
-	if (lines.length > maxLines) {
-		lines.length = maxLines;
-		let last = lines[maxLines - 1];
-		while (last.length > 1 && g.measureText(`${last}…`).width > width) last = last.slice(0, -1);
-		lines[maxLines - 1] = `${last}…`;
-	}
-	return lines.map((l) => {
-		let s = l;
-		while (s.length > 1 && g.measureText(s).width > width) s = s.slice(0, -1);
-		return s;
-	});
 }

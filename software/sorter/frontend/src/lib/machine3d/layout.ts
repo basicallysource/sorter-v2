@@ -24,6 +24,14 @@ export type LayoutLayer = {
 
 export type Geometry = ChuteGeometry & { maxAngleDeg: number };
 
+/** Each layer's chute and bin kind, from the top: three bins a section is
+ *  'third', two is 'half', and any other count draws as 'third'. */
+export function layerKinds(layers: LayoutLayer[]): string[] {
+	return [...layers]
+		.sort((a, b) => a.layer_index - b.layer_index)
+		.map((l) => (Math.round(l.bin_count / Math.max(1, l.section_count)) === 2 ? 'half' : 'third'));
+}
+
 /** One bin as the model draws it. */
 export type BinPlace = {
 	key: string;
@@ -85,7 +93,6 @@ export function placeBins(layers: LayoutLayer[], geo: Geometry, manifest: Manife
 	const thirdWidth = third ? third.max[2] - third.min[2] : 0.16;
 	const places: BinPlace[] = [];
 	for (const layer of layers) {
-		if (layer.layer_index >= manifest.levels.length) continue;
 		const perSection = new Map<number, number>();
 		for (const b of layer.bins)
 			perSection.set(b.section_index, (perSection.get(b.section_index) ?? 0) + 1);

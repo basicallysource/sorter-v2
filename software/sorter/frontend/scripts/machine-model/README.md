@@ -33,25 +33,36 @@ browser caches it for good. No model file goes in git.
   keeps, so flat faces stay flat.
 - Merges the parts used once, per look (`body`, `dark`), and stores a part
   used more than once a single time, instanced (`EXT_mesh_gpu_instancing`).
+- Splits the tower into parts the page stacks for the machine's own number
+  of layers: the top (feeder, chute drive, electronics), which stays where
+  the CAD has it; one layer's frame (`layer`) and its posts
+  (`layer-posts`, left out under the lowest layer, which stands on the base's
+  legs), taken from the second layer, since every layer's frame is the same;
+  and the base (legs, casters, the chute's bottom mount), which goes under
+  the lowest layer. Layers are `pitch` (160 mm) apart.
 - Keeps apart what moves or lights up: `chute` (turns about the vertical
-  axis) with `flap-N` (each layer's door, on its hinge from the CAD's
-  revolute mate) and `servo-N`; `rotor-NAME` for each feeder rotor;
-  `motor-NAME` for each motor, named as the backend names its steppers.
+  axis) with `chute-top` and one chute layer of each kind, `chute-third` and
+  `chute-half` (their funnels differ), each with its door (`flap-third`,
+  `flap-half`, on the hinge from the CAD's revolute mate) and servo;
+  `rotor-NAME` for each feeder rotor; `motor-NAME` for each motor, named as
+  the backend names its steppers.
 - Keeps one bin of each kind under `bin-kinds`, in the frame of the face
   at azimuth 0 with its ring's base at height 0. The page places bins from
-  the machine's own layout (`GET /api/bins/layout`), so a machine with fewer
-  layers, or other bins per section, is drawn as it is.
+  the machine's own layout (`GET /api/bins/layout`), so a machine with more
+  or fewer layers, or other bins per section, is drawn as it is.
+- Stores each surface's CAD colour as a vertex colour, for the look that
+  shows them.
 - Compresses with meshopt and quantizes. A node that holds a mesh gets the
   quantization's scale and offset, so every pivot the page turns is a node
   of its own with the mesh on a child.
 - Writes `asset.extras.machine` (typed in `src/lib/machine3d/model.ts`):
-  the bin rings from the top with their heights and flap hinges, the bin
-  kinds' boxes, the hexagon's faces, and where the chute points when it is
-  home, measured from the limit switch and the stop that turns with the
-  chute.
+  the CAD's bin rings from the top, the layer pitch, each chute kind's flap
+  hinge, the bin kinds' boxes, the hexagon's faces, and where the chute
+  points when it is home, measured from the limit switch and the stop that
+  turns with the chute.
 
-Node names have no spaces: three.js's loader turns a space into an
-underscore.
+Node names have no spaces and no repeats: three.js's loader turns a space
+into an underscore and renames a repeated name.
 
 ## On the page
 

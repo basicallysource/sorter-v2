@@ -1,6 +1,6 @@
 import time
 from dataclasses import replace
-from typing import Optional, TYPE_CHECKING
+from typing import TYPE_CHECKING
 
 from states.base_state import BaseState
 from subsystems.shared_variables import SharedVariables
@@ -16,8 +16,8 @@ from .config import (
 )
 from .blind_arc import BlindArc, forward
 from .dispense_gate import DispenseGate
-from .stuck_watchdog import FeederStuckWatchdog
-from subsystems.feeder.incidents import feeder_jam_incident_active
+from .stuck import JITTER_PRESETS, StuckPieces, jitterSeconds
+import incidents
 
 # A deliberately simple pulsing state machine on the new perception stack.
 #
@@ -57,24 +57,6 @@ MIN_MOVE_SPEED_USTEPS_PER_S = 16
 _CONFIG_TTL_S = 1.0
 
 
-def _leading_com(state) -> Optional[float]:
-    # Leading (most-forward) on-channel piece's travel position toward the exit.
-    # None when the channel reports no piece this frame. The jam watchdog treats
-    # this as the channel's progress signal.
-    pieces = getattr(state, "pieces", ())
-    if pieces:
-        return float(pieces[0].com_forward_to_exit_deg)
-    return None
-
-
-def _wants_advance(action) -> bool:
-    # The channel is actively trying to move THIS piece (ADVANCE/PRECISE), vs.
-    # intentionally holding for a busy downstream (FREEZE) or empty (IDLE).
-    from perception.cascade import Action
-
-    return action in (Action.ADVANCE, Action.PRECISE)
-
-
 class PulsePerceptionFeeding(BaseState):
     def __init__(
         self,
@@ -89,7 +71,7 @@ class PulsePerceptionFeeding(BaseState):
         self.shared = shared
         self.vision = vision
         self._busy_until: dict[str, float] = {}
-        self._stuck_watchdog = FeederStuckWatchdog(gc)
+        self._stuck = StuckPieces(gc)
         self._config: PulsePerceptionConfig = PulsePerceptionConfig()
         self._config_loaded_at: float = 0.0
         # One piece per hand-off: C2 into C3, C3 into the classification channel.
@@ -249,21 +231,8 @@ class PulsePerceptionFeeding(BaseState):
                 greedy=cfg.ch3_greedy_enabled,
             )
             action, hidden_cap = self._withHiddenPieces(3, c3, action, now_mono, cfg)
-            # C3 hung at the C2->C3 hand-off: keep C3 from hammering a piece it
-            # can't move; nudge C2 (its upstream) to free it, escalate on failure.
-            self._stuck_watchdog.observe(
-                channel_id=3,
-                channel_label="C3",
-                upstream_label="C2",
-                upstream_channel_id=2,
-                upstream_stepper=self.irl.c_channel_2_rotor_stepper,
-                upstream_enabled=bool(cfg.enable_ch2),
-                leading_pos_deg=_leading_com(c3),
-                wants_advance=_wants_advance(action),
-                cfg=cfg,
-                now=now_mono,
-            )
-            if not feeder_jam_incident_active(self.gc, channel_label="C3"):
+            if incidents.openIncident(self.gc, "feeder_jam", subject="C3") is None:
+                self._unstick(3, "C2", c3, now_mono, cfg)
                 self._apply_action(
                     "ch3", 3, action, self.irl.c_channel_3_rotor_stepper, c3, cfg, hidden_cap
                 )
@@ -280,21 +249,8 @@ class PulsePerceptionFeeding(BaseState):
                 greedy=cfg.ch2_greedy_enabled,
             )
             action, hidden_cap = self._withHiddenPieces(2, c2, action, now_mono, cfg)
-            # C2 hung at the C1->C2 hand-off: nudge C1 (its upstream) to free the
-            # piece, escalate to the operator jam incident if that keeps failing.
-            self._stuck_watchdog.observe(
-                channel_id=2,
-                channel_label="C2",
-                upstream_label="C1",
-                upstream_channel_id=1,
-                upstream_stepper=self.irl.c_channel_1_rotor_stepper,
-                upstream_enabled=bool(cfg.enable_ch1),
-                leading_pos_deg=_leading_com(c2),
-                wants_advance=_wants_advance(action),
-                cfg=cfg,
-                now=now_mono,
-            )
-            if not feeder_jam_incident_active(self.gc, channel_label="C2"):
+            if incidents.openIncident(self.gc, "feeder_jam", subject="C2") is None:
+                self._unstick(2, "C1", c2, now_mono, cfg)
                 self._apply_action(
                     "ch2", 2, action, self.irl.c_channel_2_rotor_stepper, c2, cfg, hidden_cap
                 )
@@ -379,6 +335,42 @@ class PulsePerceptionFeeding(BaseState):
                 self._gates[channel].notePush(pieces[0] if pieces else None)
         # IDLE / FREEZE: no move.
 
+    def _unstick(self, channel: int, upstream_label: str, state, now: float, cfg) -> None:
+        """Watch for a piece that does not ride its channel, and run the remedy
+        the watch calls for (stuck.py)."""
+        stepper = self._stepperFor(channel)
+        if self._busy(stepper) or not stepper.stopped:
+            return
+        remedy = self._stuck.observe(
+            channel=channel,
+            label=f"C{channel}",
+            upstream_label=upstream_label,
+            state=state,
+            odometer=self._odometer.get(channel, 0.0),
+            now=now,
+            cfg=cfg,
+            can_nudge=bool(getattr(cfg, f"enable_ch{channel - 1}", False)),
+        )
+        if remedy is None:
+            return
+        if remedy.kind == "nudge_upstream":
+            upstream = channel - 1
+            self._move(f"nudge_c{upstream}", upstream, self._stepperFor(upstream), cfg.stuck_nudge_output_deg, 0, cfg)
+            return
+        amplitude, cycles, speed, accel = JITTER_PRESETS[remedy.preset]
+        if stepper.jitter_degrees(amplitude, cycles, speed, accel):
+            steps = stepper.microsteps_for_degrees(amplitude)
+            self._busy_until[stepper._name] = (
+                time.monotonic() + jitterSeconds(steps, cycles, speed, accel) + 0.3
+            )
+
+    def _stepperFor(self, channel: int):
+        return {
+            1: self.irl.c_channel_1_rotor_stepper,
+            2: self.irl.c_channel_2_rotor_stepper,
+            3: self.irl.c_channel_3_rotor_stepper,
+        }[channel]
+
     def _withHiddenPieces(self, channel: int, state, action, now: float, cfg: PulsePerceptionConfig):
         """Keep advancing while a piece rides the part of the ring the camera
         cannot see, and cap the advance so it cannot come out of there and run
@@ -427,5 +419,5 @@ class PulsePerceptionFeeding(BaseState):
     def cleanup(self) -> None:
         for blind in self._blind.values():
             blind.clear()
-        self._stuck_watchdog.reset()
+        self._stuck.reset()
         super().cleanup()

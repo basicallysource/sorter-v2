@@ -94,26 +94,14 @@ class PulsePerceptionConfig:
     # drop-zone values so greedy mode behaves identically until tuned apart.
     greedy_pulse_output_deg: float = 30.0
     greedy_pulse_pause_ms: int = 250
-    # Inter-channel jam watchdog. A downstream feeder channel (C2/C3) can keep
-    # pulsing a piece it sees in its drop zone that never advances, because the
-    # piece is physically hung at the UPSTREAM channel's exit lip (its camera
-    # read it as "arrived" while it is still on the upstream rotor). When a
-    # channel makes no forward progress for the timeout while actively pulsing,
-    # nudge the upstream rotor to free/seat the piece; after the max attempts,
-    # raise the operator "Feeder Jam" incident.
-    stuck_watchdog_enabled: bool = True
-    # A channel must go this long with a piece on it, actively pulsing, and no
-    # forward progress before the watchdog acts.
-    stuck_no_progress_ms: int = 30000
-    # The leading piece's travel position (channel-output degrees toward the
-    # exit) must improve by at least this much to count as "moving." Smaller =
-    # more sensitive to a truly stuck piece; larger tolerates detector jitter.
-    stuck_progress_epsilon_deg: float = 3.0
-    # How far to nudge the upstream rotor forward per recovery attempt.
+    # A piece that does not move when its channel turns (stuck.py): after the
+    # channel has turned this far under it, try the remedies (a nudge of the
+    # channel above where it drops, shakes of this one), at most this many,
+    # then call the operator.
+    stuck_after_deg: float = 15.0
+    stuck_max_attempts: int = 3
+    # How far a nudge turns the channel above.
     stuck_nudge_output_deg: float = 4.0
-    # Upstream nudges to try before declaring a jam and calling the operator.
-    stuck_max_nudge_attempts: int = 3
-
 
 _DEFAULTS = PulsePerceptionConfig()
 
@@ -143,6 +131,9 @@ FIELD_META: list[dict] = [
     {"section": "Channels", "key": "gate_ch3_on_classification_ready", "label": "Gate C3 on classification ready", "type": "bool", "default": _DEFAULTS.gate_ch3_on_classification_ready, "description": "Hold C3 from pushing a piece into the classification channel (C4) until C4 reports it is ready to accept one. Prevents two pieces landing in the same spot."},
     {"section": "Hand-off", "key": "dispense_vanish_confirm_ms", "label": "Fallen after gone for (ms)", "type": "int", "default": _DEFAULTS.dispense_vanish_confirm_ms, "description": "The piece being pushed off the exit counts as fallen once the camera has not seen it for this long. Longer ignores detector blinks; shorter reacts sooner."},
     {"section": "Hand-off", "key": "dispense_hold_ms", "label": "Hold after a piece falls (ms)", "type": "int", "default": _DEFAULTS.dispense_hold_ms, "description": "After the piece being pushed off falls, the exit pushes nothing for this long, so the next channel sees it before another piece can follow."},
+    {"section": "Stuck pieces", "key": "stuck_after_deg", "label": "Stuck after the channel turns (deg)", "type": "float", "default": _DEFAULTS.stuck_after_deg, "description": "A piece that has not moved while its channel turned this far under it is stuck: it straddles the rim, hangs on the channel above, or sticks at the exit."},
+    {"section": "Stuck pieces", "key": "stuck_max_attempts", "label": "Tries before calling you", "type": "int", "default": _DEFAULTS.stuck_max_attempts, "description": "How many remedies to try on a stuck piece (a nudge of the channel above where it drops, short shakes of this channel) before the Feeder jam card. Set the Feeder jam incident to Manual on the Incidents page to be called at once."},
+    {"section": "Stuck pieces", "key": "stuck_nudge_output_deg", "label": "Nudge of the channel above (output deg)", "type": "float", "default": _DEFAULTS.stuck_nudge_output_deg, "description": "How far the channel above turns to drop a piece hanging on its lip."},
     {"section": "Channels", "key": "enable_ch1", "label": "Enable C1 (bulk)", "type": "bool", "default": _DEFAULTS.enable_ch1, "description": "Run the C1 (bulk) channel. Off = this channel never moves."},
     {"section": "Channels", "key": "enable_ch2", "label": "Enable C2", "type": "bool", "default": _DEFAULTS.enable_ch2, "description": "Run the C2 channel. Off = this channel never moves."},
     {"section": "Channels", "key": "enable_ch3", "label": "Enable C3", "type": "bool", "default": _DEFAULTS.enable_ch3, "description": "Run the C3 channel. Off = this channel never moves."},
@@ -151,11 +142,6 @@ FIELD_META: list[dict] = [
     {"section": "Greedy mode", "key": "ch3_greedy_enabled", "label": "C3 greedy (advance piece anywhere on channel)", "type": "bool", "default": _DEFAULTS.ch3_greedy_enabled, "description": "Greedy: start pushing a piece toward the exit as soon as it is seen anywhere on C3, instead of waiting for it to settle in the drop zone — clears the channel for the next piece sooner."},
     {"section": "Greedy mode", "key": "greedy_pulse_output_deg", "label": "Greedy advance pulse distance (output deg)", "type": "float", "default": _DEFAULTS.greedy_pulse_output_deg, "description": "Pulse distance used while greedily advancing a piece that has left the drop zone but not yet reached the exit edge."},
     {"section": "Greedy mode", "key": "greedy_pulse_pause_ms", "label": "Greedy advance pause between pulses (ms)", "type": "int", "default": _DEFAULTS.greedy_pulse_pause_ms, "description": "Pause between greedy advance pulses."},
-    {"section": "Jam watchdog", "key": "stuck_watchdog_enabled", "label": "Enable inter-channel jam watchdog", "type": "bool", "default": _DEFAULTS.stuck_watchdog_enabled, "description": "Detect a downstream channel (C2/C3) that keeps pulsing a piece that never moves — because it is hung at the previous channel's exit — and nudge the upstream channel to free it. If nudging fails, raise the Feeder Jam incident. (The 'Feeder Jam' entry on the Incidents page also gates this: set it to Off to disable entirely, Manual to skip the nudges and call the operator straight away.)"},
-    {"section": "Jam watchdog", "key": "stuck_no_progress_ms", "label": "No-progress timeout (ms)", "type": "int", "default": _DEFAULTS.stuck_no_progress_ms, "description": "How long a channel must keep pulsing with the piece not advancing before the watchdog nudges the upstream channel."},
-    {"section": "Jam watchdog", "key": "stuck_progress_epsilon_deg", "label": "Progress threshold (output deg)", "type": "float", "default": _DEFAULTS.stuck_progress_epsilon_deg, "description": "How far the leading piece must travel toward the exit to count as moving. Below this over the timeout window is treated as stuck. Larger tolerates detector jitter; smaller reacts to a truly stuck piece sooner."},
-    {"section": "Jam watchdog", "key": "stuck_nudge_output_deg", "label": "Upstream nudge distance (output deg)", "type": "float", "default": _DEFAULTS.stuck_nudge_output_deg, "description": "How far the upstream channel is nudged forward each recovery attempt to push the hung piece the rest of the way onto this channel."},
-    {"section": "Jam watchdog", "key": "stuck_max_nudge_attempts", "label": "Max nudge attempts before jam", "type": "int", "default": _DEFAULTS.stuck_max_nudge_attempts, "description": "How many upstream nudges to try before giving up and raising the Feeder Jam incident for the operator."},
 ]
 
 

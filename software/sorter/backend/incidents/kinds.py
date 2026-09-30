@@ -60,12 +60,12 @@ KINDS: dict[str, IncidentKind] = {
         IncidentKind(
             "feeder_jam",
             title="Feeder jam",
-            todo="A piece is stuck where {upstream} drops onto {channel}. Free it, then press Done.",
+            todo="A piece on {channel} does not move when {channel} turns. Free it, then press Done.",
             actions=("done",),
             scope="Feeder",
-            description="A feeder channel keeps moving but its piece does not.",
+            description="A piece does not move when its feeder channel turns: it straddles the rim, hangs on the channel above, or sticks at the exit.",
             default_handling=AUTOMATIC,
-            automatic_label="Nudge the channel above to free it, then call the operator",
+            automatic_label="Shake the channel (and nudge the one above) to free it, then call the operator",
         ),
         IncidentKind(
             "stepper_stall",

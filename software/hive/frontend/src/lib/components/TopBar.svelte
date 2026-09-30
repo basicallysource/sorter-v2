@@ -11,7 +11,8 @@
 	that point, as the bar's own width (the window's, in an app): `md` (768px)
 	by default, wider for more pages or a busy right side. It is a container
 	query, so the bar folds the same on the server and in the browser, and a
-	bar shown inside a page folds by its own width.
+	bar shown inside a page folds by its own width. The links are never a
+	scrolling box: one would clip the mark off the line and show a scroll bar.
 -->
 <script lang="ts">
 	import type { Snippet } from 'svelte';
@@ -70,7 +71,7 @@
 		<div class="flex shrink-0 items-center">{@render brand()}</div>
 		{#if items.length}
 			<nav aria-label="Main" class="flex h-full min-w-0 items-stretch">
-				<div class="flex h-full min-w-0 items-stretch gap-1 overflow-x-auto {wide}">
+				<div class="flex h-full min-w-0 items-stretch gap-1 {wide}">
 					{#each items as item (item.href)}
 						{@const on = item.href === current}
 						<a

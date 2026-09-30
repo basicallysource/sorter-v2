@@ -24,8 +24,10 @@ gets the attributes that wire its button to the panel; spread them onto it:
 
 ## Menu
 
-`Menu.svelte`. Actions or links from one button: the machine's power menu, a
-card's "more" menu (`ellipsis`), a switcher. The arrow keys, Home and End
+`Menu.svelte`. Actions or links from one button: the machine's menu, a
+card's "more" menu, a switcher. The button that opens an actions menu shows
+three dots (`ellipsis`) and a name, never the icon of one of the actions
+inside it ([icons.md](icons.md#a-menus-button-is-three-dots)). The arrow keys, Home and End
 move, Enter chooses, Escape and Tab close. An item that destroys something
 comes last, after a separator, in danger ink, and its action asks first (a
 `Modal`). A switcher's items take `checked`, and the current one gets a

@@ -1,6 +1,7 @@
 <!--
 	Moving a stepper by hand, as one control: where it is, the three buttons
-	that move it (joined in one track, Stop in the middle), how far each press
+	that move it (one outline, a 1px line between them, Stop in the middle, the
+	direction that is moving filled with the primary's tint), how far each press
 	goes and how fast. The arrow keys press the outer buttons when nothing
 	that takes typing has focus.
 -->
@@ -59,14 +60,14 @@
 	<div
 		role="group"
 		aria-label="Jog"
-		class="grid grid-cols-[1fr_auto_1fr] gap-1 rounded-button bg-track p-1"
+		class="grid h-(--size-control-lg) grid-cols-[1fr_auto_1fr] divide-x divide-line-strong overflow-hidden rounded-button border border-line-strong bg-field"
 	>
 		{#each [{ dir: 'ccw', label: 'Counterclockwise', short: 'CCW' }, { dir: 'stop' }, { dir: 'cw', label: 'Clockwise', short: 'CW' }] as b (b.dir)}
 			{#if b.dir === 'stop'}
 				<button
 					type="button"
 					onclick={() => (moving = null)}
-					class="flex h-(--size-control-lg) items-center justify-center gap-2 rounded-button-inner bg-thumb px-5 text-sm font-medium text-danger-ink transition-colors hover:bg-thumb/70"
+					class="flex h-full items-center justify-center gap-2 px-5 text-sm font-medium text-danger-ink transition-colors hover:bg-danger-soft focus-visible:-outline-offset-2"
 				>
 					<Square size={12} fill="currentColor" />Stop
 				</button>
@@ -75,8 +76,8 @@
 					type="button"
 					aria-label={b.label}
 					onclick={() => jog(b.dir as 'ccw' | 'cw')}
-					class="flex h-(--size-control-lg) items-center justify-center gap-1.5 rounded-button-inner text-sm font-medium transition-colors
-						{moving === b.dir ? 'bg-primary text-on-primary' : 'bg-thumb text-ink hover:bg-thumb/70'}"
+					class="flex h-full items-center justify-center gap-1.5 text-sm font-medium transition-colors focus-visible:-outline-offset-2
+						{moving === b.dir ? 'bg-primary-soft text-primary-ink' : 'text-ink hover:bg-hover'}"
 				>
 					{#if b.dir === 'ccw'}<ChevronLeft size={18} />{b.short}{:else}{b.short}<ChevronRight
 							size={18}

@@ -114,7 +114,7 @@
 	<DoDont
 		on="surface"
 		wrongNote="Two bordered buttons pressed together share a seam, and the seam is two lines thick."
-		rightNote="Buttons in a row keep a gap. Choices that belong together are one control, a segmented one, with no lines inside."
+		rightNote="Buttons in a row keep a gap. Choices that belong together are one control, a segmented one: a single outline and one line between the segments."
 	>
 		{#snippet wrong()}
 			<div class="flex">

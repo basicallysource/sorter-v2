@@ -19,10 +19,9 @@
 	import EmptyState from '$lib/components/EmptyState.svelte';
 	import Badge from '$lib/components/Badge.svelte';
 	import JogControl from '../JogControl.svelte';
-	import { labelFor } from '../nav';
+	import { cameraSections, labelFor } from '../nav';
 
-	const withCamera = ['c-channel-2', 'c-channel-3', 'c-channel-4'];
-	const steppers = ['c-channel-1', 'chute', ...withCamera];
+	const steppers = ['c-channel-1', 'chute', ...cameraSections];
 	const section = $derived(page.params.section ?? '');
 	const title = $derived(labelFor(section) ?? 'Settings');
 
@@ -88,16 +87,16 @@
 
 <PageHeader
 	{title}
-	description={withCamera.includes(section)
+	description={cameraSections.includes(section)
 		? "What this channel's camera sees, and its stepper."
 		: steppers.includes(section)
 			? 'Move the stepper by hand, and set its driver.'
 			: undefined}
 />
 
-{#if withCamera.includes(section)}
+{#if cameraSections.includes(section)}
 	<div class="grid items-start gap-(--gap-panels) xl:grid-cols-[minmax(0,1fr)_23rem]">
-		<MediaTile title="{title} camera" aspect="4 / 3" expandable>
+		<MediaTile title="{title} camera" expandable>
 			{#snippet actions()}
 				<Button size="sm" variant="ghost">-1°</Button>
 				<Button size="sm" variant="ghost">+1°</Button>
@@ -108,7 +107,7 @@
 			{/snippet}
 			<Camera size={24} class="text-ink-faint" />
 		</MediaTile>
-		{@render stepper()}
+		<div class="max-w-xl xl:max-w-none">{@render stepper()}</div>
 	</div>
 {:else if steppers.includes(section)}
 	<div class="max-w-xl">{@render stepper()}</div>

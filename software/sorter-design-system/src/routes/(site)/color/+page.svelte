@@ -42,12 +42,8 @@
 			title: 'Controls',
 			lead: 'The inside of a field, and the parts of a control that slides.',
 			rows: [
-				{ token: 'field', use: 'The inside of a field.' },
-				{ token: 'track', use: 'The groove of a segmented control or a progress bar.' },
-				{
-					token: 'thumb',
-					use: "The chosen part of a segmented control; the jog control's buttons."
-				},
+				{ token: 'field', use: 'The inside of a field, and of a segmented control.' },
+				{ token: 'track', use: 'The groove of a progress bar.' },
 				{ token: 'knob', use: 'The knob of a switch.' }
 			]
 		},

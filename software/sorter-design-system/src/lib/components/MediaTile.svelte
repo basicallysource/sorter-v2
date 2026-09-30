@@ -3,8 +3,15 @@
 	surface with its name and its controls, then the picture on the media
 	backdrop, which is dark in both modes. Anything drawn over the picture
 	sits in a dark subtree, so it reads on the backdrop whatever the page's
-	mode. The picture keeps its aspect ratio; with `fill`, from lg up it takes
-	the height the layout gives it instead (a dashboard that fits the window).
+	mode.
+
+	The picture's box is the picture's own shape, so the tile hugs its picture
+	and never shows a bar above and below it or down its sides. `aspect` (a CSS
+	ratio, "16 / 9") is that shape until the picture has loaded; then the
+	natural size of the <img> or <video> inside takes over, whatever the camera
+	sends. A layout gives a tile a width and lets its height follow; it never
+	gives a tile a height the picture would not fill (docs/layout.md, the
+	dashboard layout).
 
 	`header={false}` drops the strip, for a picture that is the whole tile:
 	the name only names it for a screen reader, and `actions` go over the
@@ -13,7 +20,8 @@
 	`expandable` adds a full screen button. Full screen, the tile itself fills
 	the window on the media plane (the browser's top layer), so a live feed
 	is never loaded twice; its button becomes "Exit full screen", and Escape
-	leaves too. `bind:expanded` drives it from code.
+	leaves too. `bind:expanded` drives it from code. Full screen is the one
+	place a picture has bars: the window has its own shape.
 -->
 <script lang="ts">
 	import { tick, type Snippet } from 'svelte';
@@ -29,7 +37,6 @@
 		overlay,
 		expandable = false,
 		expanded = $bindable(false),
-		fill = false,
 		aspect = '16 / 9',
 		class: className = ''
 	}: {
@@ -43,12 +50,14 @@
 		overlay?: Snippet;
 		expandable?: boolean;
 		expanded?: boolean;
-		fill?: boolean;
+		// The picture's shape as a CSS ratio, until it loads and reports its own.
 		aspect?: string;
 		class?: string;
 	} = $props();
 
 	let tile: HTMLElement;
+	// The picture's own shape once an <img> or <video> inside has loaded.
+	let natural = $state<string | null>(null);
 	// The tile's height, held in the page while it is full screen, so
 	// nothing under it moves and the scroll stays where it was.
 	let held = $state(0);
@@ -56,6 +65,17 @@
 	$effect(() => {
 		if (expanded && !tile.matches(':popover-open')) tile.showPopover();
 	});
+
+	function measure(event: Event) {
+		const el = event.target;
+		const [width, height] =
+			el instanceof HTMLImageElement
+				? [el.naturalWidth, el.naturalHeight]
+				: el instanceof HTMLVideoElement
+					? [el.videoWidth, el.videoHeight]
+					: [0, 0];
+		if (width > 0 && height > 0) natural = `${width} / ${height}`;
+	}
 
 	function toggle() {
 		if (expanded) return tile.hidePopover();
@@ -104,7 +124,7 @@
 	aria-label={header ? undefined : title}
 	class="flex min-h-0 flex-col overflow-hidden {expanded
 		? 'dark fixed inset-0 m-0 h-auto max-h-none w-auto max-w-none border-0 bg-media p-0 text-ink'
-		: `rounded-panel bg-surface ${fill ? 'lg:h-full' : ''} ${className}`}"
+		: `rounded-panel bg-surface ${className}`}"
 >
 	{#if header}
 		<header
@@ -122,17 +142,17 @@
 	<div
 		class="dark relative flex items-center justify-center overflow-hidden bg-media {expanded
 			? 'min-h-0 flex-1'
-			: fill
-				? 'aspect-(--aspect) lg:aspect-auto lg:min-h-0 lg:flex-1'
-				: 'aspect-(--aspect)'}"
-		style:--aspect={aspect}
+			: 'aspect-(--aspect)'}"
+		style:--aspect={natural ?? aspect}
+		onloadcapture={measure}
+		onloadedmetadatacapture={measure}
 	>
 		{@render children()}
 		{#if overlay || (!header && (actions || expandable))}
 			<div class="absolute top-2 right-2 flex items-center gap-1.5">
 				{#if overlay}{@render overlay()}{/if}
 				{#if !header && (actions || expandable)}
-					<div class="flex items-center gap-1 rounded-button bg-scrim p-0.5">
+					<div class="flex items-center gap-1 rounded-button bg-scrim">
 						{#if actions}{@render actions()}{/if}
 						{#if expandable}{@render expand()}{/if}
 					</div>

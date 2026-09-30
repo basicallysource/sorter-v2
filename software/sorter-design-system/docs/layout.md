@@ -34,23 +34,57 @@ box around it to belong together.
 ## The settings layout
 
 The side nav on the left (240px), and the page's panels on the canvas beside
-it, left-aligned, at most 1152px wide, each column scrolling on its own.
-Below `lg` the side nav becomes a `Select` above the page. A page is a title
-and one sentence, then panels, one per job, 16px apart; see the example
-app's General page.
+it, left-aligned, each column scrolling on its own. A page of panels and
+forms is at most 1152px wide, a comfortable line for reading a setting. Below
+`lg` the side nav becomes a `Select` above the page. A page is a title and one
+sentence, then panels, one per job, 16px apart; see the example app's General
+page.
 
-A settings page for a channel with a camera shows the camera (`MediaTile`) as
-the main thing and its stepper's controls beside it; the jog control is one
-control (a track with counterclockwise, Stop and clockwise, the step presets
-and the speed), not a row of loose buttons.
+**A page whose main thing is a camera** (a channel page) is not a page of
+forms, so it takes the whole content width, capped at 1800px on a very large
+screen. From `xl` up the camera takes all the width the stepper's panel
+leaves (23rem, on the right), and below `xl` the stepper's panel goes under
+the camera; whatever else the page has (the C4 sectors) is below both. The
+stepper's controls are one control: a jog control (counterclockwise, Stop and
+clockwise, in one outline with a line between them), the step presets and the
+speed, not a row of loose buttons or a padded track.
 
 ## The dashboard layout
 
-The cameras fill the left, the status and the numbers sit at the top right,
-and the recent pieces take the rest of the right column and scroll inside
-their panel. On a phone the status and its Home come first, then the
-cameras, then the pieces: the page's order in the markup is the phone's
-order.
+From `lg` up the dashboard is exactly the window: the cameras on the left,
+one column on the right with the status, the numbers, the recent pieces (they
+scroll inside their panel) and the runtime. On a phone the status and its
+Home come first, then the cameras, then the pieces: the page's order in the
+markup is the phone's order.
+
+**The cameras are laid out to their pictures, not to the space.** A camera
+tile is its picture (the strip, then a box of the feed's own shape,
+[components.md](components.md#panels)), so a layout gives the group of tiles
+a width and lets the pictures set the heights. Two feeds share the first row
+and the third takes the whole second row. The group is as wide as the
+window's height allows, so its pictures fill the height exactly; the right
+column takes the rest of the width, from 19rem to 40rem, and on a screen
+wider than that the two are centered. Nothing is stretched, so nothing has a
+bar.
+
+The example app's dashboard does it with a size container (the row that holds
+both, `container-type: size`) and container units, from the pictures' shape
+(`--feed`, the height of a picture over its width, `9 / 16` for 16:9) and the
+strips and the gap that do not scale:
+
+```
+--cameras: min(
+	100cqw - 19rem - var(--gap-panels),                       /* the width left after the column's least */
+	(100cqh - 2 * var(--size-control-lg) - (1 - var(--feed) / 2) * var(--gap-panels))
+		/ (1.5 * var(--feed))                                 /* the width the height allows */
+);
+```
+
+Two strips of `--size-control-lg`, one gap, and two rows of pictures (each of
+the first row's is half the group's width less the gap, the second row's the
+whole width) add up to the height of the container; solving for the width
+gives the second line. A feed with another shape changes `--feed` and the
+`aspect` the tiles start with, and nothing else.
 
 ## A page
 

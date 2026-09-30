@@ -1,8 +1,10 @@
 <!--
-	docs/components.md#segmented-control. Two to five choices that apply at
-	once (Light / Dark, Duration / Degrees). A track, and a thumb on the
-	chosen one told apart by its fill: no borders, so it never adds a line to
-	the panel it sits in. More than five choices, or long labels, is a Select.
+	docs/components.md#choices. Two to five choices that apply at once (Light /
+	Dark, Duration / Degrees), as one control: a single 1px outline, the
+	segments divided by 1px lines with no gap or padding between them, and the
+	chosen segment shown by a fill, the primary's tint with its ink. There is no
+	track and no raised thumb: a padded well around segments reads as a thick
+	border. More than five choices, or long labels, is a Select.
 -->
 <script lang="ts" generics="T extends string">
 	import type { Component } from 'svelte';
@@ -52,7 +54,10 @@
 	aria-label={label}
 	tabindex="-1"
 	{onkeydown}
-	class="{full ? 'flex w-full' : 'inline-flex'} gap-0.5 rounded-button bg-track p-0.5"
+	class="{full
+		? 'flex w-full'
+		: 'inline-flex'} divide-x divide-line-strong overflow-hidden rounded-button border border-line-strong bg-field
+		{size === 'sm' ? 'h-(--size-control-sm)' : 'h-(--size-control)'}"
 >
 	{#each options as option (option.value)}
 		{@const on = option.value === value}
@@ -63,11 +68,11 @@
 			tabindex={on ? 0 : -1}
 			data-value={option.value}
 			onclick={() => choose(option.value)}
-			class="inline-flex items-center justify-center gap-1.5 rounded-button-inner text-sm whitespace-nowrap transition-colors
-				{full ? 'flex-1' : ''} {size === 'sm'
-				? 'h-[calc(var(--size-control-sm)-4px)] px-(--pad-control-sm)'
-				: 'h-[calc(var(--size-control)-4px)] px-(--pad-control)'}
-				{on ? 'bg-thumb font-medium text-ink' : 'text-ink-muted hover:bg-hover hover:text-ink'}"
+			class="inline-flex h-full items-center justify-center gap-1.5 text-sm whitespace-nowrap transition-colors focus-visible:-outline-offset-2
+				{full ? 'flex-1' : ''} {size === 'sm' ? 'px-(--pad-control-sm)' : 'px-(--pad-control)'}
+				{on
+				? 'bg-primary-soft font-medium text-primary-ink'
+				: 'text-ink-muted hover:bg-hover hover:text-ink'}"
 		>
 			{#if option.icon}<option.icon size={14} />{/if}
 			<span class={labelClass}>{option.label}</span>

@@ -1,6 +1,6 @@
 <!--
 	docs/overlays.md#menu. Actions or links that open from a button: the
-	machine's power menu, a card's "more" menu, a profile switcher. It floats,
+	machine's menu, a card's "more" menu, a profile switcher. It floats,
 	so it is the raised plane, like a Popover: a fill and one line, no shadow. The arrow keys move through the
 	items, Enter chooses, Escape or a click outside closes it, and focus goes
 	back to the button. An item that destroys something goes last, after a
@@ -8,8 +8,11 @@
 	A group (`{ group: 'Admin', items: [...] }`) puts its name over its items,
 	as a label; a link that is `checked` is the current page.
 
+	The button that opens a menu shows three dots (`ellipsis`) and a name, never
+	the icon of one of the actions inside (docs/icons.md).
+
 	<Menu label="Machine" items={[...]}>
-		{#snippet trigger(props)}<Button {...props} icon={Power} label="Machine" />{/snippet}
+		{#snippet trigger(props)}<Button {...props} icon={Ellipsis} label="Machine" />{/snippet}
 	</Menu>
 -->
 <script lang="ts">

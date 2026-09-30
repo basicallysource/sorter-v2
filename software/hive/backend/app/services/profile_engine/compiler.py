@@ -882,6 +882,9 @@ def compile_document(
         "total_parts": size,
         "matched": int(matched.sum()),
         "unmatched": unmatched_count,
+        # Parts that go to a bin of their own (a rule, a kit or a fallback
+        # category) rather than the default bin.
+        "sorted": size - int(default_rows.sum()),
         "per_category": per_category,
         "samples": samples,
     }
@@ -892,6 +895,19 @@ def compile_document(
     )
     if default_category not in category_order:
         category_order.append(default_category)
+    # The first bins in order, small enough to keep beside a version's stats
+    # for lists that show a profile by its bins without loading the artifact.
+    stats["bins"] = [
+        {
+            "id": category,
+            "name": categories[category].get("name"),
+            "kind": categories[category].get("kind"),
+            "image_url": categories[category].get("image_url"),
+            "rgb": categories[category].get("rgb"),
+            "part_count": categories[category].get("part_count"),
+        }
+        for category in category_order[:12]
+    ]
     artifact: dict[str, Any] = {
         "schema_version": ARTIFACT_SCHEMA_VERSION,
         "id": doc["id"],

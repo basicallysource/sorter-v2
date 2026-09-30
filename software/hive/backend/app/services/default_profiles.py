@@ -8,7 +8,6 @@ version of it.
 
 from __future__ import annotations
 
-import json
 import logging
 import threading
 from datetime import datetime, timezone
@@ -89,15 +88,10 @@ def _system_owner(db: Session) -> User:
     return owner
 
 
-def _same(version: SortingProfileVersion | None, artifact: dict[str, Any], definition: dict[str, Any]) -> bool:
-    if version is None:
-        return False
-    return (
-        json.dumps(version.rules_json, sort_keys=True) == json.dumps(artifact["rules"], sort_keys=True)
-        and json.dumps(version.fallback_mode_json, sort_keys=True) == json.dumps(artifact["fallback_mode"], sort_keys=True)
-        and version.name == definition["name"]
-        and (version.description or "") == definition["description"]
-    )
+def _same(version: SortingProfileVersion | None, artifact: dict[str, Any]) -> bool:
+    # The compiled result, not only the definition: a catalog update that moves
+    # parts between categories publishes a new version too.
+    return version is not None and version.compiled_hash == artifact["artifact_hash"]
 
 
 def ensure_default_profiles(db: Session) -> list[str]:
@@ -144,7 +138,7 @@ def ensure_default_profiles(db: Session) -> list[str]:
             .order_by(SortingProfileVersion.version_number.desc())
             .first()
         )
-        if _same(latest, artifact, definition):
+        if _same(latest, artifact):
             continue
         number = int(profile.latest_version_number or 0) + 1
         stats = artifact["stats"]
@@ -153,7 +147,7 @@ def ensure_default_profiles(db: Session) -> list[str]:
                 profile_id=profile.id,
                 created_by_id=owner.id,
                 version_number=number,
-                change_note="Hive's default" if number == 1 else "Hive's default, redefined",
+                change_note="Hive's default" if number == 1 else "Hive's default, recompiled",
                 name=definition["name"],
                 description=definition["description"],
                 default_category_id=artifact["default_category_id"],
@@ -162,7 +156,7 @@ def ensure_default_profiles(db: Session) -> list[str]:
                 compiled_artifact_json=artifact,
                 compiled_stats_json={**stats, "warnings": compiled.warnings, "requires": artifact["requires"]},
                 compiled_hash=artifact["artifact_hash"],
-                compiled_part_count=int(stats.get("matched") or 0),
+                compiled_part_count=int(stats.get("sorted") or 0),
                 coverage_ratio=(stats["matched"] / stats["total_parts"]) if stats.get("total_parts") else None,
                 is_published=True,
                 created_via="system",

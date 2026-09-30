@@ -65,6 +65,17 @@ class SortingProfileRuleSummaryResponse(BaseModel):
     child_count: int = 0
 
 
+class SortingProfileBinSummaryResponse(BaseModel):
+    """One of a version's first bins, for a card that shows a profile by them."""
+
+    id: str
+    name: str | None = None
+    kind: str | None = None
+    image_url: str | None = None
+    rgb: str | None = None
+    part_count: int | None = None
+
+
 class SortingProfileVersionSummaryResponse(BaseModel):
     id: UUID
     version_number: int
@@ -76,6 +87,8 @@ class SortingProfileVersionSummaryResponse(BaseModel):
     coverage_ratio: float | None
     created_at: datetime
     rules_summary: list[SortingProfileRuleSummaryResponse] = Field(default_factory=list)
+    # The first bins in order (versions compiled before bins had pictures have none).
+    bins: list[SortingProfileBinSummaryResponse] = Field(default_factory=list)
     # "web", "api", "assistant" or "system", and the API key's name for "api".
     created_via: str | None = None
     created_via_key_name: str | None = None

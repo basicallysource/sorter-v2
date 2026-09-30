@@ -1617,7 +1617,7 @@ def _create_version(
         compiled_artifact_json=artifact,
         compiled_stats_json={**stats, "warnings": compiled.warnings, "requires": artifact["requires"]},
         compiled_hash=artifact["artifact_hash"],
-        compiled_part_count=int(stats.get("matched") or 0),
+        compiled_part_count=int(stats.get("sorted") or 0),
         coverage_ratio=(stats["matched"] / stats["total_parts"]) if stats.get("total_parts") else None,
         is_published=bool(payload.publish),
         created_via=via,
@@ -1664,6 +1664,11 @@ def _profile_type_for_version(version: SortingProfileVersion | None) -> str:
     if version is None:
         return "rule"
     return "set" if _rules_include_kits(version.rules_json) else "rule"
+
+
+def _version_bins(version: SortingProfileVersion) -> list[dict[str, Any]]:
+    stats = version.compiled_stats_json if isinstance(version.compiled_stats_json, dict) else {}
+    return [item for item in stats.get("bins") or [] if isinstance(item, dict) and item.get("id")]
 
 
 def _version_requires(version: SortingProfileVersion) -> list[str]:
@@ -1774,6 +1779,7 @@ def _serialize_version_summary(version: SortingProfileVersion | None) -> Sorting
         created_via=version.created_via,
         created_via_key_name=version.created_via_key.name if version.created_via_key else None,
         requires=_version_requires(version),
+        bins=_version_bins(version),
     )
 
 
@@ -1804,7 +1810,7 @@ def _serialize_version_detail(version: SortingProfileVersion | None) -> SortingP
             "default_category_id": version.default_category_id,
             "rules": version.rules_json or [],
             "fallback_mode": version.fallback_mode_json or {},
-            "compiled_stats": {key: value for key, value in stats.items() if key not in ("warnings", "requires")},
+            "compiled_stats": {key: value for key, value in stats.items() if key not in ("warnings", "requires", "bins")},
             "categories": categories,
             "category_order": category_order,
             "warnings": list(stats.get("warnings") or []),

@@ -34,7 +34,7 @@
 			name: 'Well',
 			token: 'bg-well',
 			fill: 'bg-well',
-			holds: 'Sunk into a panel: a chart, a preview, an empty list, the head of a table.'
+			holds: 'Sunk into a panel: a chart, a preview, an empty list. A box with the panel around it, never a band across it.'
 		},
 		{
 			name: 'Raised',

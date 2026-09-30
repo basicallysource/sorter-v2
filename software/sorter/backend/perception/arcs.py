@@ -16,7 +16,7 @@ from typing import Iterable, Tuple
 
 import numpy as np
 
-from .channel import ChannelDef, SECTION_COUNT, SECTION_DEG
+from .channel import FEEDER_CHANNELS, ChannelDef, SECTION_COUNT, SECTION_DEG
 
 
 Bbox = Tuple[int, int, int, int]
@@ -136,13 +136,15 @@ def _inMask(mask: np.ndarray, x: float, y: float) -> bool:
 
 def bboxInsideChannelMask(bbox: Bbox, channel: ChannelDef) -> bool:
     """A box is on this channel when its center is inside the channel's mask,
-    or when it straddles the mask's edge at the exit: a piece on the lip, mostly
-    past the rotor's edge, still rides this channel until it falls. A box that
-    crosses from this channel into the next one belongs to this one."""
+    or, on a feeder channel, when it straddles the mask's edge at the exit: a
+    piece on the lip, mostly past the rotor's edge, still rides this channel
+    until it falls. A box that crosses from this channel into the next one
+    belongs to this one. (The classification channel's exit drops into the
+    chute: a piece on its lip has been ejected.)"""
     cx, cy = bboxCenter(bbox)
     if _inMask(channel.mask, cx, cy):
         return True
-    if not channel.exit_sections:
+    if channel.channel_id not in FEEDER_CHANNELS or not channel.exit_sections:
         return False
     angle = float(np.degrees(np.arctan2(cy - channel.center[1], cx - channel.center[0])))
     section = int(((angle - channel.radius1_angle_image) % 360.0) / SECTION_DEG) % SECTION_COUNT

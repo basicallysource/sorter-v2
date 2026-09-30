@@ -27,3 +27,8 @@ def test_a_box_straddling_the_edge_elsewhere_is_not() -> None:
 
 def test_a_box_wholly_past_the_edge_at_the_exit_is_not() -> None:
     assert not bboxInsideChannelMask(_box(270.0, OUTER + 30), _channel())
+
+
+def test_the_classification_channel_keeps_the_center_rule() -> None:
+    # Its exit drops into the chute: a piece on its lip has been ejected.
+    assert not bboxInsideChannelMask(_box(270.0, OUTER + 8), _channel(channel_id=4))

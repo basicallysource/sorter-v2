@@ -43,6 +43,10 @@ CHANNEL_REGISTRY: dict[int, tuple[str, str, str]] = {
 }
 
 
+# The feeder channels: their exits drop onto the next channel.
+FEEDER_CHANNELS: frozenset[int] = frozenset({2, 3})
+
+
 # Zone-type vocabulary for secondary zones. A secondary zone is a labeled
 # polygon a camera sees that belongs to ANOTHER channel (e.g. the carousel
 # camera can see C3's exit). It is display-/tag-only: it never feeds into the

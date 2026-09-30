@@ -11,6 +11,7 @@ browser session, since it spends the user's own model key.
 from __future__ import annotations
 
 import copy
+import gzip
 import json
 import logging
 import threading
@@ -794,6 +795,7 @@ def publish_profile_version(
 def get_profile_artifact(
     profile_id: UUID,
     version_id: UUID,
+    request: Request,
     format: str = Query(default="program", pattern="^(program|legacy)$"),
     db: Session = Depends(get_db),
     current_user: User = READ,
@@ -805,7 +807,7 @@ def get_profile_artifact(
     version = _resolve_visible_version(profile, current_user, version_id)
     if version is None:
         raise APIError(404, "Version not found", "PROFILE_VERSION_NOT_FOUND")
-    return _artifact_response(version, format)
+    return _artifact_response(version, format, request)
 
 
 @router.get("/profiles/{profile_id}/ai/messages", response_model=list[SortingProfileAiMessageResponse])
@@ -1325,6 +1327,7 @@ def get_machine_profile_detail(
 @router.get("/machine/profiles/versions/{version_id}/artifact")
 def download_machine_profile_artifact(
     version_id: UUID,
+    request: Request,
     format: str = Query(default="legacy", pattern="^(program|legacy)$"),
     features: str | None = Query(default=None),
     db: Session = Depends(get_db),
@@ -1345,7 +1348,7 @@ def download_machine_profile_artifact(
             "This profile needs newer sorter software. Update the sorter to run it.",
             "PROFILE_NEEDS_NEWER_SORTER",
         )
-    return _artifact_response(version, format)
+    return _artifact_response(version, format, request)
 
 
 @router.post("/machine/profile-activation", response_model=MachineProfileAssignmentResponse)
@@ -1372,19 +1375,32 @@ def report_machine_profile_activation(
 
 # --- Artifacts ------------------------------------------------------------------------
 
-# The flat map is built on request and kept for the last few versions asked
-# for: a sorter from before the program downloads a profile when it is
-# applied, and a busy profile's map runs to tens of MB.
+# The flat map is built on request and kept, gzipped, for the last few
+# versions asked for: a sorter from before the program downloads a profile
+# when it is applied, and a busy profile's map runs to tens of MB (a tenth of
+# that gzipped).
 _LEGACY_CACHE: OrderedDict[tuple[str, str, int], bytes] = OrderedDict()
-_LEGACY_CACHE_SIZE = 2
+_LEGACY_CACHE_SIZE = 4
 _legacy_lock = threading.Lock()
 
 
-def _artifact_response(version: SortingProfileVersion, format: str) -> Response:
+def _json_response(body: bytes, request: Request | None, *, gzipped: bool = False) -> Response:
+    """JSON, gzipped for a client that takes it (every sorter does): artifacts
+    are large and compress about tenfold."""
+    accepts_gzip = request is not None and "gzip" in (request.headers.get("accept-encoding") or "")
+    if gzipped and not accepts_gzip:
+        return Response(content=gzip.decompress(body), media_type="application/json")
+    if not gzipped and accepts_gzip and len(body) > 64_000:
+        body, gzipped = gzip.compress(body, compresslevel=5), True
+    headers = {"Content-Encoding": "gzip", "Vary": "Accept-Encoding"} if gzipped else None
+    return Response(content=body, media_type="application/json", headers=headers)
+
+
+def _artifact_response(version: SortingProfileVersion, format: str, request: Request | None = None) -> Response:
     artifact = version.compiled_artifact_json or {}
     if format == "program" or "program" not in artifact:
         # A version compiled before the program is already the flat map.
-        return Response(content=json.dumps({"artifact": artifact}), media_type="application/json")
+        return _json_response(json.dumps({"artifact": artifact}).encode(), request)
     index = get_profile_catalog_service().index()
     key = (str(version.id), str(artifact.get("artifact_hash")), index.generation)
     with _legacy_lock:
@@ -1392,12 +1408,12 @@ def _artifact_response(version: SortingProfileVersion, format: str) -> Response:
         if body is not None:
             _LEGACY_CACHE.move_to_end(key)
     if body is None:
-        body = json.dumps({"artifact": expand_legacy(artifact, index)}).encode()
+        body = gzip.compress(json.dumps({"artifact": expand_legacy(artifact, index)}).encode(), compresslevel=5)
         with _legacy_lock:
             _LEGACY_CACHE[key] = body
             while len(_LEGACY_CACHE) > _LEGACY_CACHE_SIZE:
                 _LEGACY_CACHE.popitem(last=False)
-    return Response(content=body, media_type="application/json")
+    return _json_response(body, request, gzipped=True)
 
 
 # --- Helpers ----------------------------------------------------------------------------

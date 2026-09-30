@@ -238,7 +238,12 @@ class TestDefaultProfiles:
         assert program.json()["artifact"]["program"]["fallback"] == {"by": "color"}
 
         bricklink = old_sorter[0]["latest_published_version"]["id"]
-        legacy = client.get(f"/api/machine/profiles/versions/{bricklink}/artifact", headers=machine).json()["artifact"]
+        gzipped = client.get(f"/api/machine/profiles/versions/{bricklink}/artifact", headers={**machine, "Accept-Encoding": "gzip"})
+        assert gzipped.headers.get("content-encoding") == "gzip"
+        plain = client.get(f"/api/machine/profiles/versions/{bricklink}/artifact", headers={**machine, "Accept-Encoding": "identity"})
+        assert plain.headers.get("content-encoding") is None
+        legacy = plain.json()["artifact"]
+        assert gzipped.json()["artifact"] == legacy
         # the flat map, for a sorter from before the program (these made-up
         # parts have no BrickLink category, so it files none of them)
         assert "program" not in legacy

@@ -157,3 +157,62 @@ class TestStartingOnADefault:
         )
         assert router.apply_first_default_profile_if_none() is None
         assert applied == []
+
+
+class TestApplyingFromHive:
+    class _Client:
+        api_url = "https://hive.example"
+
+        def __init__(self, fail_on: str | None = None):
+            self.fail_on = fail_on
+            self.calls: list[str] = []
+
+        def _call(self, name, value):
+            self.calls.append(name)
+            if self.fail_on == name:
+                from server.hive_models import HiveError
+
+                raise HiveError(409, "This profile needs newer sorter software. Update the sorter to run it.")
+            return value
+
+        def assign_profile(self, profile_id, version_id):
+            return self._call("assign", {"ok": True})
+
+        def profile_artifact(self, version_id):
+            return self._call("artifact", {"program": PROGRAM, "artifact_hash": "abc", "name": "P", "rules": []})
+
+        def report_profile_activation(self, version_id, artifact_hash):
+            return self._call("activate", {"artifact_hash": artifact_hash})
+
+    def _apply(self, monkeypatch, tmp_path, client):
+        from server import shared_state
+        from server.routers import sorting_profiles as router
+
+        path = tmp_path / "active_sorting_profile.json"
+        monkeypatch.setattr(shared_state, "gc_ref", SimpleNamespace(sorting_profile_path=str(path), logger=None))
+        monkeypatch.setattr(shared_state, "publishSortingProfileStatus", lambda status: None)
+        monkeypatch.setattr(router, "_get_target_or_404", lambda target_id: {"id": target_id, "name": "Hive", "url": "https://hive.example"})
+        monkeypatch.setattr(router, "_target_client", lambda target: client)
+        monkeypatch.setattr(router, "_reload_runtime_profile", lambda: True)
+        monkeypatch.setattr(router, "start_new_sorting_session", lambda reason: None)
+        saved: dict = {}
+        monkeypatch.setattr(router, "set_sorting_profile_sync_state", lambda state: saved.update(state))
+        monkeypatch.setattr(router, "get_sorting_profile_sync_state", lambda: saved)
+        payload = router.ApplySortingProfilePayload(target_id="t1", profile_id="p1", profile_name="P", version_id="v1")
+        return router.apply_sorting_profile(payload), path, saved
+
+    def test_the_program_is_written_and_reported(self, monkeypatch, tmp_path):
+        client = self._Client()
+        result, path, saved = self._apply(monkeypatch, tmp_path, client)
+        assert client.calls == ["assign", "artifact", "activate"]
+        assert json.loads(path.read_text())["program"] == PROGRAM
+        assert saved["artifact_hash"] == "abc"
+        assert result["activation_error"] is None
+
+    def test_a_profile_this_sorter_cannot_run_is_refused_with_hives_reason(self, monkeypatch, tmp_path):
+        from fastapi import HTTPException
+
+        with pytest.raises(HTTPException) as refused:
+            self._apply(monkeypatch, tmp_path, self._Client(fail_on="artifact"))
+        assert refused.value.status_code == 409
+        assert "newer sorter software" in refused.value.detail

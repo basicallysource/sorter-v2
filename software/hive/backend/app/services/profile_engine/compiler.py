@@ -98,6 +98,39 @@ class CatalogIndex:
         self._masks: OrderedDict[str, np.ndarray] = OrderedDict()
         self._lock = threading.Lock()
         self._popularity: np.ndarray | None = None
+        # Which colors each part is known to come in (BrickLink's catalog), by
+        # BrickLink color ID: rows per color. None until loaded; empty when the
+        # catalog has none, and then color-limited bins count every part.
+        self.known_color_rows: dict[str, np.ndarray] | None = None
+        self._known_color_masks: dict[tuple[str, ...], np.ndarray] = {}
+
+    def set_known_colors(self, pairs: Iterable[tuple[str, Any]]) -> None:
+        rows_by_color: dict[str, list[int]] = {}
+        for item_no, color in pairs:
+            for row in self.rows_by_bricklink_id.get(str(item_no), ()):
+                rows_by_color.setdefault(str(color), []).append(row)
+        self.known_color_rows = {color: np.array(sorted(set(rows)), dtype=np.int64) for color, rows in rows_by_color.items()}
+
+    def known_in(self, colors: list[str]) -> np.ndarray | None:
+        """Parts known to come in any of these colors, or None when the
+        catalog does not say which colors parts come in."""
+        if not self.known_color_rows:
+            return None
+        key = tuple(sorted(colors))
+        with self._lock:
+            cached = self._known_color_masks.get(key)
+        if cached is not None:
+            return cached
+        mask = np.zeros(self.size, dtype=bool)
+        for color in colors:
+            rows = self.known_color_rows.get(color)
+            if rows is not None:
+                mask[rows] = True
+        with self._lock:
+            if len(self._known_color_masks) > 256:
+                self._known_color_masks.clear()
+            self._known_color_masks[key] = mask
+        return mask
 
     def part(self, row: int) -> dict:
         return self._parts[self.part_nums[row]]
@@ -760,8 +793,12 @@ def compile_document(
             warnings.append({"rule_id": rule_id, "message": "This rule has no conditions yet, so it takes nothing."})
             continue
         received = np.zeros(size, dtype=bool)
+        # What the bin is shown by: for a color-limited part of the rule, the
+        # parts known to come in those colors (when the catalog knows).
+        shown = np.zeros(size, dtype=bool)
         color_set: set[str] = set()
         any_color = False
+        any_part = False
         for parts, colors in evaluator.groups([rule]):
             mask = np.ones(size, dtype=bool) if parts is True else parts
             receives = mask & ~fully_claimed
@@ -776,26 +813,33 @@ def compile_document(
             )
             filter_entries_so_far.append((rule_id, parts, colors))
             received |= receives
+            any_part = any_part or parts is True
             if colors is None:
                 any_color = True
                 fully_claimed |= mask
+                shown |= receives
                 if parts is True:
                     catch_all_rule = rule_id
             else:
                 color_set.update(colors)
+                known = index.known_in(colors)
+                shown |= receives if known is None else receives & known
         matched |= received
-        part_count = int(received.sum())
+        part_count = int(shown.sum())
         display["part_count"] = part_count
+        if any_part:
+            # Takes any part in its colors, including parts the catalog lacks.
+            display["any_part"] = True
         if not any_color:
             display["color_count"] = len(color_set)
             display["colors"] = [index.bl_colors.get(color, {"id": color, "name": color}) for color in sorted(color_set, key=_color_sort_key)[:24]]
-        display["samples"] = [_sample(row, index) for row in _sample_rows(received, index)]
+        display["samples"] = [_sample(row, index) for row in _sample_rows(shown, index)]
         if not display["image_url"] and display["samples"]:
             display["image_url"] = display["samples"][0]["img_url"]
             display["image_source"] = "part" if display["image_url"] else None
         per_category[rule_id] = {"parts": part_count, "colors": 0 if any_color else len(color_set)}
         samples[rule_id] = display["samples"]
-        if part_count == 0:
+        if not received.any():
             warnings.append({"rule_id": rule_id, "message": "Rules above this one already take every part it matches."})
 
     fallback_by = normalize_fallback(doc["fallback_mode"])

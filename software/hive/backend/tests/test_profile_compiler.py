@@ -414,3 +414,21 @@ class TestDisplay:
         category = compile_document(_doc(rule), index).artifact["categories"]["r1"]
         assert category["image_url"] == "https://hive.example/rule.png"
         assert category["image_source"] == "rule"
+
+
+class TestKnownColors:
+    def test_a_color_bin_counts_the_parts_known_in_its_colors(self):
+        index = CatalogIndex(_parts_data())
+        index.set_known_colors([("3001", 12), ("3068b", 12), ("3001", 5)])
+        compiled = compile_document(_doc(_rule("clear", "Transparent", ("color_id", "in", [47]))), index)
+        clear = compiled.artifact["categories"]["clear"]
+        assert clear["part_count"] == 2
+        assert clear["any_part"] is True
+        assert [sample["part_num"] for sample in clear["samples"]] == ["3001", "3068b"]
+        # what the sorter runs is unchanged: any part in the color
+        assert Router(compiled.artifact["program"]).route("3003", "12")[0] == "clear"
+
+    def test_without_color_data_every_part_counts(self, index):
+        index.set_known_colors([])
+        compiled = compile_document(_doc(_rule("clear", "Transparent", ("color_id", "in", [47]))), index)
+        assert compiled.artifact["categories"]["clear"]["part_count"] == index.size

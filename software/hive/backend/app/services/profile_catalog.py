@@ -641,7 +641,18 @@ class ProfileCatalogService:
         }
 
     def index(self) -> CatalogIndex:
-        return catalog_index(self._parts_data)
+        index = catalog_index(self._parts_data)
+        if index.known_color_rows is None:
+            conn = getattr(self, "_conn", None)
+            pairs: list = []
+            if conn is not None:
+                try:
+                    with self._lock:
+                        pairs = conn.execute("SELECT item_no, bl_color_id FROM bricklink_item_colors").fetchall()
+                except Exception:
+                    pairs = []
+            index.set_known_colors(pairs)
+        return index
 
     def compile_document(self, document: dict[str, Any], kits: dict[str, dict[str, Any]] | None = None) -> Compiled:
         """Compile a profile document. `kits` holds the kits its kit rules name,

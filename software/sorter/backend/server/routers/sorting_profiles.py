@@ -10,13 +10,13 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-import requests
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
 from bin_contents import start_new_sorting_session
 from local_state import get_hive_config, get_sorting_profile_sync_state, set_sorting_profile_sync_state
 from server import shared_state
+from server.hive_models import HiveClient, HiveError
 from sorting_profile import profileSummary
 from server.routers.bins import (
     clear_bin_category_assignments,
@@ -25,12 +25,6 @@ from server.routers.bins import (
 )
 
 router = APIRouter()
-
-# What this sorter can run, named to Hive when it asks for profiles: the
-# compiled program (not only the flat part map), sorting leftovers by color,
-# and kits that pass pieces on once full. Hive leaves out profiles that need
-# more than a sorter names.
-HIVE_PROFILE_FEATURES = "program,color_fallback,kit_cascade"
 
 
 class ApplySortingProfilePayload(BaseModel):
@@ -65,32 +59,20 @@ def _get_target_or_404(target_id: str) -> dict[str, Any]:
     raise HTTPException(status_code=404, detail="Hive target not found.")
 
 
-def _target_session(target: dict[str, Any]) -> requests.Session:
+def _target_client(target: dict[str, Any]) -> HiveClient:
     url = target.get("url")
     api_token = target.get("api_token")
     if not isinstance(url, str) or not url.strip():
         raise HTTPException(status_code=400, detail="Hive target URL is missing.")
     if not isinstance(api_token, str) or not api_token.strip():
         raise HTTPException(status_code=400, detail="Hive target token is missing.")
-    session = requests.Session()
-    session.headers["Authorization"] = f"Bearer {api_token.strip()}"
-    session.headers["Content-Type"] = "application/json"
-    return session
+    return HiveClient(url.strip(), api_token.strip())
 
 
-def _target_base_url(target: dict[str, Any]) -> str:
-    url = target.get("url")
-    if not isinstance(url, str) or not url.strip():
-        raise HTTPException(status_code=400, detail="Hive target URL is missing.")
-    return url.strip().rstrip("/")
-
-
-def _safe_json(response: requests.Response) -> dict[str, Any]:
-    try:
-        data = response.json()
-        return data if isinstance(data, dict) else {"data": data}
-    except Exception:
-        return {"error": response.text}
+def _hive_http_error(exc: Exception) -> HTTPException:
+    if isinstance(exc, HiveError):
+        return HTTPException(status_code=exc.status_code, detail=str(exc))
+    return HTTPException(status_code=502, detail=f"Hive could not be reached: {exc}")
 
 
 def _target_meta(target: dict[str, Any]) -> dict[str, Any]:
@@ -114,21 +96,11 @@ def _fetch_target_library(target: dict[str, Any]) -> dict[str, Any]:
     if not payload["enabled"]:
         return payload
     try:
-        session = _target_session(target)
-        response = session.get(
-            f"{_target_base_url(target)}/api/machine/profiles/library",
-            params={"features": HIVE_PROFILE_FEATURES},
-            timeout=20,
-        )
-        if not response.ok:
-            body = _safe_json(response)
-            message = body.get("error") or body.get("detail") or f"HTTP {response.status_code}"
-            raise RuntimeError(str(message))
-        body = response.json()
+        body = _target_client(target).profile_library()
         payload["profiles"] = body.get("profiles", []) if isinstance(body, dict) else []
         payload["assignment"] = body.get("assignment") if isinstance(body, dict) else None
     except Exception as exc:
-        payload["error"] = str(exc)
+        payload["error"] = exc.detail if isinstance(exc, HTTPException) else str(exc)
     return payload
 
 
@@ -467,18 +439,11 @@ def get_sorting_profile_detail(
     profile_id: str,
     version_id: str | None = None,
 ) -> dict[str, Any]:
-    target = _get_target_or_404(target_id)
-    session = _target_session(target)
-    response = session.get(
-        f"{_target_base_url(target)}/api/machine/profiles/{profile_id}",
-        params={"version_id": version_id} if version_id else None,
-        timeout=20,
-    )
-    if not response.ok:
-        body = _safe_json(response)
-        message = body.get("error") or body.get("detail") or f"HTTP {response.status_code}"
-        raise HTTPException(status_code=response.status_code, detail=str(message))
-    data = response.json()
+    client = _target_client(_get_target_or_404(target_id))
+    try:
+        data = client.profile_detail(profile_id, version_id)
+    except Exception as exc:
+        raise _hive_http_error(exc) from exc
     return data if isinstance(data, dict) else {"data": data}
 
 
@@ -494,8 +459,7 @@ def reload_sorting_profile() -> dict[str, Any]:
 @router.post("/api/sorting-profiles/apply")
 def apply_sorting_profile(payload: ApplySortingProfilePayload) -> dict[str, Any]:
     target = _get_target_or_404(payload.target_id)
-    session = _target_session(target)
-    base_url = _target_base_url(target)
+    client = _target_client(target)
 
     if shared_state.gc_ref is None:
         raise HTTPException(status_code=500, detail="Global config not initialized.")
@@ -509,33 +473,11 @@ def apply_sorting_profile(payload: ApplySortingProfilePayload) -> dict[str, Any]
     if mode in ("empty", "rules"):
         reset_result = clear_bin_category_assignments(scope="all")
 
-    assignment_response = session.put(
-        f"{base_url}/api/machine/profile-assignment",
-        json={
-            "profile_id": payload.profile_id,
-            "version_id": payload.version_id,
-        },
-        timeout=20,
-    )
-    if not assignment_response.ok:
-        body = _safe_json(assignment_response)
-        message = body.get("error") or body.get("detail") or f"HTTP {assignment_response.status_code}"
-        raise HTTPException(status_code=assignment_response.status_code, detail=str(message))
-
-    artifact_response = session.get(
-        f"{base_url}/api/machine/profiles/versions/{payload.version_id}/artifact",
-        params={"format": "program", "features": HIVE_PROFILE_FEATURES},
-        timeout=30,
-    )
-    if not artifact_response.ok:
-        body = _safe_json(artifact_response)
-        message = body.get("error") or body.get("detail") or f"HTTP {artifact_response.status_code}"
-        raise HTTPException(status_code=artifact_response.status_code, detail=str(message))
-
-    artifact_body = artifact_response.json()
-    artifact = artifact_body.get("artifact") if isinstance(artifact_body, dict) else None
-    if not isinstance(artifact, dict):
-        raise HTTPException(status_code=502, detail="Hive returned an invalid artifact payload.")
+    try:
+        client.assign_profile(payload.profile_id, payload.version_id)
+        artifact = client.profile_artifact(payload.version_id)
+    except Exception as exc:
+        raise _hive_http_error(exc) from exc
 
     artifact_hash = str(artifact.get("artifact_hash") or "")
     _atomic_write_json(shared_state.gc_ref.sorting_profile_path, artifact)
@@ -550,7 +492,7 @@ def apply_sorting_profile(payload: ApplySortingProfilePayload) -> dict[str, Any]
         "local_filename": None,
         "target_id": payload.target_id,
         "target_name": target.get("name") or target.get("url"),
-        "target_url": base_url,
+        "target_url": client.api_url,
         "profile_id": payload.profile_id,
         "profile_name": payload.profile_name,
         "version_id": payload.version_id,
@@ -563,22 +505,10 @@ def apply_sorting_profile(payload: ApplySortingProfilePayload) -> dict[str, Any]
 
     activation_error: str | None = None
     try:
-        activation_response = session.post(
-            f"{base_url}/api/machine/profile-activation",
-            json={
-                "version_id": payload.version_id,
-                "artifact_hash": artifact_hash or None,
-            },
-            timeout=20,
-        )
-        if activation_response.ok:
-            activation_data = activation_response.json()
-            if isinstance(activation_data, dict):
-                sync_state["activated_at"] = datetime.now(timezone.utc).isoformat()
-                sync_state["assignment"] = activation_data
-        else:
-            body = _safe_json(activation_response)
-            activation_error = str(body.get("error") or body.get("detail") or f"HTTP {activation_response.status_code}")
+        activation_data = client.report_profile_activation(payload.version_id, artifact_hash or None)
+        if isinstance(activation_data, dict):
+            sync_state["activated_at"] = datetime.now(timezone.utc).isoformat()
+            sync_state["assignment"] = activation_data
     except Exception as exc:
         activation_error = str(exc)
 

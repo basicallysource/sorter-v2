@@ -305,10 +305,10 @@
 	font-variant-numeric: tabular-nums;
 }
 
-/* A table of records (docs/components.md#table): a well for the head, one
-   line between rows, no outer border, so it sits in a flush Panel with no
-   line doubling its edge. Put `num` on a numeric column's cells, and
-   `is-link` on a row that opens something. */
+/* A table of records (docs/components.md#table): the head is labels on the
+   table's own plane, one line under it and between rows, no outer border, so
+   it sits in a flush Panel with no line doubling its edge. Put `num` on a
+   numeric column's cells, and `is-link` on a row that opens something. */
 .data-table {
 	width: 100%;
 	border-collapse: collapse;
@@ -317,7 +317,7 @@
 }
 
 .data-table th {
-	background: var(--well);
+	border-bottom: 1px solid var(--line);
 	padding: 0.5rem var(--pad-row);
 	text-align: left;
 	font-size: 0.875rem;

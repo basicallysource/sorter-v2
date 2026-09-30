@@ -45,6 +45,14 @@ class PulsePerceptionConfig:
     # Equal to exit_pulse_output_deg: always the small pulse.
     exit_move_max_deg: float = 10.0
     exit_move_margin_deg: float = 4.0
+    # The arc of each channel's ring that its camera cannot see (sections,
+    # start -> end in the travel direction; equal = none). A piece that
+    # vanishes where it starts is expected where it ends, and the channel keeps
+    # advancing meanwhile (blind_arc.py).
+    ch2_blind_arc_start_deg: float = 0.0
+    ch2_blind_arc_end_deg: float = 0.0
+    ch3_blind_arc_start_deg: float = 0.0
+    ch3_blind_arc_end_deg: float = 0.0
     # C1 (bulk feeder) has no vision zones: pulse it forward a fixed amount
     # whenever C2's drop zone is clear.
     ch1_pulse_output_deg: float = 1.0
@@ -125,6 +133,10 @@ FIELD_META: list[dict] = [
     {"section": "Exit pulse", "key": "exit_pulse_output_deg", "label": "Exit pulse distance (output deg)", "type": "float", "default": _DEFAULTS.exit_pulse_output_deg, "description": "How far a piece is nudged per pulse once it reaches the exit edge and is being metered into the next channel. Smaller is gentler and less likely to push two pieces through at once. Use the speed presets above to set this."},
     {"section": "Exit pulse", "key": "exit_move_max_deg", "label": "Longest exit move (output deg)", "type": "float", "default": _DEFAULTS.exit_move_max_deg, "description": "When nothing is close behind the piece at the exit, one move pushes it this far so it drops in one go. The move always stops short of letting the next piece reach the exit. Set it equal to the exit pulse distance to always pulse."},
     {"section": "Exit pulse", "key": "exit_move_margin_deg", "label": "Room kept for the next piece (output deg)", "type": "float", "default": _DEFAULTS.exit_move_margin_deg, "description": "A longer exit move stops this far before the next piece's front edge would reach the exit."},
+    {"section": "Out of view", "key": "ch2_blind_arc_start_deg", "label": "C2 unseen arc start (deg)", "type": "float", "default": _DEFAULTS.ch2_blind_arc_start_deg, "description": "Where pieces on C2 go out of the camera's picture, in the channel's zone angles. Equal start and end: C2's camera sees its whole ring."},
+    {"section": "Out of view", "key": "ch2_blind_arc_end_deg", "label": "C2 unseen arc end (deg)", "type": "float", "default": _DEFAULTS.ch2_blind_arc_end_deg, "description": "Where pieces on C2 come back into the picture. While a piece is out of view between the two, C2 keeps advancing, never so far it could pass the staging zone unseen."},
+    {"section": "Out of view", "key": "ch3_blind_arc_start_deg", "label": "C3 unseen arc start (deg)", "type": "float", "default": _DEFAULTS.ch3_blind_arc_start_deg, "description": "Where pieces on C3 go out of the camera's picture, in the channel's zone angles. Equal start and end: C3's camera sees its whole ring."},
+    {"section": "Out of view", "key": "ch3_blind_arc_end_deg", "label": "C3 unseen arc end (deg)", "type": "float", "default": _DEFAULTS.ch3_blind_arc_end_deg, "description": "Where pieces on C3 come back into the picture. While a piece is out of view between the two, C3 keeps advancing, never so far it could pass the staging zone unseen."},
     {"section": "Exit pulse", "key": "exit_pulse_pause_ms", "label": "Exit pause between pulses (ms)", "type": "int", "default": _DEFAULTS.exit_pulse_pause_ms, "description": "Pause after each exit pulse so the downstream channel registers the piece before another nudge."},
     {"section": "C1 (bulk)", "key": "ch1_pulse_output_deg", "label": "C1 bulk pulse distance (output deg)", "type": "float", "default": _DEFAULTS.ch1_pulse_output_deg, "description": "C1 (bulk) has no camera — it just pulses forward this far whenever C2's drop zone is clear."},
     {"section": "C1 (bulk)", "key": "ch1_pulse_pause_ms", "label": "C1 pause between pulses (ms)", "type": "int", "default": _DEFAULTS.ch1_pulse_pause_ms, "description": "Pause between C1 bulk pulses."},

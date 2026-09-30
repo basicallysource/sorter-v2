@@ -14,6 +14,7 @@ from .config import (
     channelMaxMoveOutputDeg,
     channelMoveSpeed,
 )
+from .blind_arc import BlindArc, forward
 from .dispense_gate import DispenseGate
 from .stuck_watchdog import FeederStuckWatchdog
 from subsystems.feeder.incidents import feeder_jam_incident_active
@@ -93,6 +94,10 @@ class PulsePerceptionFeeding(BaseState):
         self._config_loaded_at: float = 0.0
         # One piece per hand-off: C2 into C3, C3 into the classification channel.
         self._gates: dict[int, DispenseGate] = {2: DispenseGate(), 3: DispenseGate()}
+        # Output degrees each channel has been moved forward, and the pieces
+        # it carries through the part of its ring its camera cannot see.
+        self._odometer: dict[int, float] = {1: 0.0, 2: 0.0, 3: 0.0}
+        self._blind: dict[int, BlindArc] = {2: BlindArc(), 3: BlindArc()}
         # Per-channel monotonic timestamp of the last frame that reported a piece
         # in the drop zone. Drives the C2/C3 drop-zone occupancy latch.
         self._drop_seen_at: dict[int, float] = {}
@@ -142,6 +147,8 @@ class PulsePerceptionFeeding(BaseState):
         except Exception as exc:
             self.gc.logger.warning(f"PulsePerception: {label} speed set failed: {exc}")
         success = stepper.move_degrees(motor_deg)
+        if success:
+            self._odometer[channel] = self._odometer.get(channel, 0.0) + output_deg
         exec_ms = stepper.estimateMoveDegreesMs(abs(motor_deg), max_speed=speed or 5000)
         cooldown_ms = (max(0, exec_ms) + max(0, pause_ms)) if success else 500
         self._busy_until[stepper._name] = time.monotonic() + cooldown_ms / 1000.0
@@ -241,6 +248,7 @@ class PulsePerceptionFeeding(BaseState):
                 downstream_clear=self._classification_ready(cfg) and gate3.exitAllowed(now_mono),
                 greedy=cfg.ch3_greedy_enabled,
             )
+            action, hidden_cap = self._withHiddenPieces(3, c3, action, now_mono, cfg)
             # C3 hung at the C2->C3 hand-off: keep C3 from hammering a piece it
             # can't move; nudge C2 (its upstream) to free it, escalate on failure.
             self._stuck_watchdog.observe(
@@ -257,7 +265,7 @@ class PulsePerceptionFeeding(BaseState):
             )
             if not feeder_jam_incident_active(self.gc, channel_label="C3"):
                 self._apply_action(
-                    "ch3", 3, action, self.irl.c_channel_3_rotor_stepper, c3, cfg
+                    "ch3", 3, action, self.irl.c_channel_3_rotor_stepper, c3, cfg, hidden_cap
                 )
 
         if cfg.enable_ch2:
@@ -271,6 +279,7 @@ class PulsePerceptionFeeding(BaseState):
                 downstream_clear=(not c3.in_drop) and gate2.exitAllowed(now_mono),
                 greedy=cfg.ch2_greedy_enabled,
             )
+            action, hidden_cap = self._withHiddenPieces(2, c2, action, now_mono, cfg)
             # C2 hung at the C1->C2 hand-off: nudge C1 (its upstream) to free the
             # piece, escalate to the operator jam incident if that keeps failing.
             self._stuck_watchdog.observe(
@@ -287,7 +296,7 @@ class PulsePerceptionFeeding(BaseState):
             )
             if not feeder_jam_incident_active(self.gc, channel_label="C2"):
                 self._apply_action(
-                    "ch2", 2, action, self.irl.c_channel_2_rotor_stepper, c2, cfg
+                    "ch2", 2, action, self.irl.c_channel_2_rotor_stepper, c2, cfg, hidden_cap
                 )
 
         if cfg.enable_ch1:
@@ -312,6 +321,7 @@ class PulsePerceptionFeeding(BaseState):
         stepper: "StepperMotor",
         state,
         cfg: PulsePerceptionConfig,
+        hidden_cap: float | None = None,
     ) -> None:
         from perception.cascade import Action
 
@@ -339,6 +349,13 @@ class PulsePerceptionFeeding(BaseState):
             if clearance is not None and clearance < output_deg:
                 output_deg = clearance
                 enforce_min = False
+            # Nor may a piece the camera cannot see be carried past the
+            # staging point unseen.
+            if hidden_cap is not None and hidden_cap < output_deg:
+                if hidden_cap <= 0:
+                    return
+                output_deg = hidden_cap
+                enforce_min = False
             self._move(
                 move_label,
                 channel,
@@ -363,6 +380,32 @@ class PulsePerceptionFeeding(BaseState):
                 self._gates[channel].notePush(pieces[0] if pieces else None)
         # IDLE / FREEZE: no move.
 
+    def _withHiddenPieces(self, channel: int, state, action, now: float, cfg: PulsePerceptionConfig):
+        """Keep advancing while a piece rides the part of the ring the camera
+        cannot see, and cap the advance so it cannot come out of there and run
+        past the staging point unseen. Returns (action, cap or None)."""
+        from perception.arcs import exitNearEdgeSection
+        from perception.cascade import Action
+
+        blind = self._blind[channel]
+        blind.start_deg = getattr(cfg, f"ch{channel}_blind_arc_start_deg")
+        blind.end_deg = getattr(cfg, f"ch{channel}_blind_arc_end_deg")
+        odometer = self._odometer.get(channel, 0.0)
+        blind.update(state, now, odometer)
+        expected = blind.expected(odometer)
+        if not expected:
+            return action, None
+        perception_service = getattr(self.gc, "perception_service", None)
+        channel_def = perception_service.channels().get(channel) if perception_service else None
+        near = exitNearEdgeSection(channel_def) if channel_def is not None else None
+        if near is None:
+            return action, None
+        cap = min(forward(pos, float(near)) for pos in expected) - cfg.exit_move_margin_deg
+        greedy = getattr(cfg, f"ch{channel}_greedy_enabled")
+        if action == Action.IDLE and greedy:
+            action = Action.ADVANCE
+        return action, cap
+
     def _exitMoveDeg(self, channel: int, state, cfg: PulsePerceptionConfig) -> float:
         """One exit move: as far as it takes to drop the lead piece, up to
         exit_move_max_deg, but never so far that a piece behind it reaches the
@@ -383,4 +426,6 @@ class PulsePerceptionFeeding(BaseState):
         return max(small, min(cfg.exit_move_max_deg, room - cfg.exit_move_margin_deg))
 
     def cleanup(self) -> None:
+        for blind in self._blind.values():
+            blind.clear()
         super().cleanup()

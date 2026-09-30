@@ -18,7 +18,8 @@
 	import CameraFeed from '$lib/components/CameraFeed.svelte';
 	import CollapsibleSection from '$lib/components/CollapsibleSection.svelte';
 	import RecentObjects from '$lib/components/RecentObjects.svelte';
-	import RuntimeStats from '$lib/components/RuntimeStats.svelte';
+	import RuntimeStats, { RUNTIME_SPANS, type RuntimeSpan } from '$lib/components/RuntimeStats.svelte';
+	import SegmentedControl from '$lib/components/ui/SegmentedControl.svelte';
 	import { buildDashboardFeedCrops, type DashboardFeedCrop } from '$lib/dashboard/crops';
 	import House from '@lucide/svelte/icons/house';
 	import Plug from '@lucide/svelte/icons/plug';
@@ -30,6 +31,7 @@
 	let cropBaseUrl = $state<string | null>(null);
 	let startSystemError = $state<string | null>(null);
 	let startSystemPending = $state(false);
+	let runtimeSpan = $state<RuntimeSpan>('1h');
 
 	function currentBackendBaseUrl(): string {
 		return machineHttpBaseUrlFromWsUrl(machine.machine?.url) ?? getBackendHttpBase();
@@ -279,7 +281,10 @@
 				</div>
 				<div class="max-lg:order-last lg:contents">
 					<CollapsibleSection title="Runtime" storageKey="runtimeTabs">
-						<RuntimeStats />
+						{#snippet actions()}
+							<SegmentedControl bind:value={runtimeSpan} options={RUNTIME_SPANS} label="Time span" size="sm" />
+						{/snippet}
+						<RuntimeStats span={runtimeSpan} />
 					</CollapsibleSection>
 				</div>
 			</div>

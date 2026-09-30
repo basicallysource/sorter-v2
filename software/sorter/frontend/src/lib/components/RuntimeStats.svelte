@@ -1,32 +1,42 @@
+<script lang="ts" module>
+	export type RuntimeSpan = '10m' | '1h' | 'today';
+	export const RUNTIME_SPANS: { value: RuntimeSpan; label: string }[] = [
+		{ value: '10m', label: '10 min' },
+		{ value: '1h', label: '1 hour' },
+		{ value: 'today', label: 'Today' }
+	];
+</script>
+
 <script lang="ts">
 	/*
-		How sorting is going: the rates that matter (pieces classified and fed a
-		minute, the share that were multi-drops) and a graph of them over time.
-		Everything comes from the machine's piece records (/runtime-stats/rates),
-		so it survives restarts and a tab left in the background.
+		How sorting is going over the span picked in the section's header: pieces
+		classified and fed a minute, the share that were multi-drops and the share
+		classified, and a graph of them over the span. Rates are per minute of
+		sorting (minutes with no piece seen are left out), so a pause does not drag
+		them down. Pointing at the graph shows that moment's numbers. Everything
+		comes from the machine's piece records (/runtime-stats/rates), so it
+		survives restarts and a tab left in the background.
 	*/
-	import SegmentedControl from '$lib/components/ui/SegmentedControl.svelte';
 	import Stat from '$lib/components/ui/Stat.svelte';
 	import { getBackendHttpBase, machineHttpBaseUrlFromWsUrl } from '$lib/backend';
 	import { getMachineContext } from '$lib/machines/context';
 
 	type Bucket = { t: number; seen: number; classified: number; multi_drop: number };
-	type Span = '10m' | '1h' | 'today';
+
+	let { span }: { span: RuntimeSpan } = $props();
 
 	const ctx = getMachineContext();
-	const SPANS: { value: Span; label: string }[] = [
-		{ value: '10m', label: '10 min' },
-		{ value: '1h', label: '1 hour' },
-		{ value: 'today', label: 'Today' }
-	];
-	// Rates on the numbers are over the last five minutes.
-	const RECENT_S = 300;
+	const SPAN_HINT: Record<RuntimeSpan, string> = {
+		'10m': 'Last 10 min',
+		'1h': 'Last hour',
+		today: 'Today'
+	};
 
-	let span = $state<Span>('1h');
 	let buckets = $state<Bucket[]>([]);
 	let window_ = $state({ since: 0, bucket: 60, now: 0 });
+	let hover = $state<number | null>(null);
 
-	function windowFor(s: Span): { since: number; bucket: number } {
+	function windowFor(s: RuntimeSpan): { since: number; bucket: number } {
 		const now = Date.now() / 1000;
 		if (s === '10m') return { since: now - 600, bucket: 20 };
 		if (s === '1h') return { since: now - 3600, bucket: 60 };
@@ -52,41 +62,58 @@
 	$effect(() => {
 		void span;
 		void ctx.machine?.url;
+		hover = null;
 		load();
 		const id = setInterval(load, 15000);
 		return () => clearInterval(id);
 	});
 
-	function sum(list: Bucket[], key: keyof Omit<Bucket, 't'>): number {
-		return list.reduce((a, b) => a + b[key], 0);
-	}
-
-	const recent = $derived(buckets.filter((b) => b.t >= window_.now - RECENT_S));
-	const classified_rate = $derived((sum(recent, 'classified') * 60) / RECENT_S);
-	const feed_rate = $derived((sum(recent, 'seen') * 60) / RECENT_S);
-	const seen_n = $derived(sum(buckets, 'seen'));
-	const multi_pct = $derived(seen_n ? (sum(buckets, 'multi_drop') / seen_n) * 100 : null);
-	const classified_pct = $derived(seen_n ? (sum(buckets, 'classified') / seen_n) * 100 : null);
-
-	// The graph: one point per bucket, empty buckets as zero.
-	const W = 300;
-	const H = 90;
-	const series = $derived.by(() => {
+	// One point per bucket over the span, empty buckets as zero.
+	const points = $derived.by(() => {
 		const { since, bucket, now } = window_;
 		const n = Math.max(1, Math.ceil((now - since) / bucket));
 		const byIndex = new Map(buckets.map((b) => [Math.round((b.t - since) / bucket), b]));
-		const pts = Array.from({ length: n }, (_, i) => {
+		return Array.from({ length: n }, (_, i) => {
 			const b = byIndex.get(i);
-			const seen = b?.seen ?? 0;
-			return {
-				feed: (seen * 60) / bucket,
-				classified: ((b?.classified ?? 0) * 60) / bucket,
-				multi: seen ? ((b?.multi_drop ?? 0) / seen) * 100 : null
-			};
+			return { t: since + i * bucket, seen: b?.seen ?? 0, classified: b?.classified ?? 0, multi: b?.multi_drop ?? 0 };
 		});
-		const ppmMax = Math.max(1, ...pts.map((p) => p.feed));
-		const pctMax = Math.max(25, ...pts.map((p) => p.multi ?? 0));
-		const x = (i: number) => (n === 1 ? W : (i / (n - 1)) * W);
+	});
+
+	// Minutes of sorting: minutes (or longer buckets) in which a piece was seen.
+	const sortingMinutes = $derived.by(() => {
+		const slot = Math.max(window_.bucket, 60);
+		const slots = new Set(points.filter((p) => p.seen > 0).map((p) => Math.floor((p.t - window_.since) / slot)));
+		return (slots.size * slot) / 60;
+	});
+
+	function sum(key: 'seen' | 'classified' | 'multi'): number {
+		return points.reduce((a, p) => a + p[key], 0);
+	}
+
+	// What the numbers show: the span, or the bucket under the pointer.
+	const shown = $derived.by(() => {
+		const p = hover == null ? null : points[hover];
+		const minutes = p ? window_.bucket / 60 : sortingMinutes;
+		const seen = p ? p.seen : sum('seen');
+		const classified = p ? p.classified : sum('classified');
+		const multi = p ? p.multi : sum('multi');
+		return {
+			hint: p ? timeLabel(p.t) : SPAN_HINT[span],
+			classifiedRate: minutes ? classified / minutes : null,
+			feedRate: minutes ? seen / minutes : null,
+			multiPct: seen ? (multi / seen) * 100 : null,
+			classifiedPct: seen ? (classified / seen) * 100 : null,
+			seen
+		};
+	});
+
+	const W = 300;
+	const H = 90;
+	const x = (i: number) => (points.length === 1 ? W : (i / (points.length - 1)) * W);
+	const series = $derived.by(() => {
+		const perMin = 60 / window_.bucket;
+		const ppmMax = Math.max(1, ...points.map((p) => p.seen * perMin));
+		const pctMax = Math.max(25, ...points.map((p) => (p.seen ? (p.multi / p.seen) * 100 : 0)));
 		const line = (vals: (number | null)[], max: number) =>
 			vals
 				.map((v, i) => (v == null ? null : `${x(i).toFixed(1)},${(H - (v / max) * H).toFixed(1)}`))
@@ -95,14 +122,29 @@
 		return {
 			ppmMax,
 			pctMax,
-			feed: line(pts.map((p) => p.feed), ppmMax),
-			classified: line(pts.map((p) => p.classified), ppmMax),
-			multi: line(pts.map((p) => p.multi), pctMax)
+			feed: line(points.map((p) => p.seen * perMin), ppmMax),
+			classified: line(points.map((p) => p.classified * perMin), ppmMax),
+			multi: line(points.map((p) => (p.seen ? (p.multi / p.seen) * 100 : null)), pctMax)
 		};
 	});
 
-	function fmtRate(n: number): string {
-		return Number.isFinite(n) ? n.toFixed(1) : '–';
+	function onPointer(e: PointerEvent) {
+		const box = (e.currentTarget as SVGElement).getBoundingClientRect();
+		const frac = Math.min(1, Math.max(0, (e.clientX - box.left) / box.width));
+		hover = Math.round(frac * (points.length - 1));
+	}
+
+	function timeLabel(t: number): string {
+		const fmt = (s: number) => {
+			const d = new Date(s * 1000);
+			const h = d.getHours() % 12 || 12;
+			return `${h}:${String(d.getMinutes()).padStart(2, '0')} ${d.getHours() < 12 ? 'am' : 'pm'}`;
+		};
+		return window_.bucket >= 300 ? `${fmt(t)} to ${fmt(t + window_.bucket)}` : `At ${fmt(t)}`;
+	}
+
+	function fmtRate(n: number | null): string {
+		return n == null || !Number.isFinite(n) ? '–' : n.toFixed(1);
 	}
 
 	function fmtPct(n: number | null): string {
@@ -113,35 +155,43 @@
 <div class="h-full overflow-y-auto">
 	<div class="grid grid-cols-2 gap-px bg-line">
 		<div class="bg-surface">
-			<Stat label="Classified a minute" value={fmtRate(classified_rate)} unit="ppm" hint="Last 5 min" />
+			<Stat label="Classified a minute" value={fmtRate(shown.classifiedRate)} unit="ppm" hint={shown.hint} />
 		</div>
 		<div class="bg-surface">
-			<Stat label="Fed a minute" value={fmtRate(feed_rate)} unit="ppm" hint="Pieces seen, last 5 min" />
+			<Stat label="Fed a minute" value={fmtRate(shown.feedRate)} unit="ppm" hint={shown.hint} />
 		</div>
 		<div class="bg-surface">
-			<Stat label="Multi-drop rate" value={fmtPct(multi_pct)} hint="Of pieces seen" />
+			<Stat label="Multi-drop rate" value={fmtPct(shown.multiPct)} hint="Of pieces seen" />
 		</div>
 		<div class="bg-surface">
-			<Stat label="Classified" value={fmtPct(classified_pct)} hint="Of pieces seen" />
+			<Stat label="Classified" value={fmtPct(shown.classifiedPct)} hint="Of pieces seen" />
 		</div>
 	</div>
 
 	<div class="border-t border-line px-4 py-3">
-		<div class="flex items-center justify-between gap-3">
-			<SegmentedControl bind:value={span} options={SPANS} label="Time span" size="sm" />
-			<span class="num text-sm text-ink-muted">{seen_n} pieces</span>
-		</div>
-		<svg viewBox="0 0 {W} {H}" preserveAspectRatio="none" class="mt-3 block h-24 w-full overflow-visible">
+		<svg
+			viewBox="0 0 {W} {H}"
+			preserveAspectRatio="none"
+			class="block h-24 w-full cursor-crosshair overflow-visible"
+			role="img"
+			aria-label="Rates over the span; point at it for a moment's numbers"
+			onpointermove={onPointer}
+			onpointerdown={onPointer}
+			onpointerleave={() => (hover = null)}
+		>
 			<line x1="0" y1={H} x2={W} y2={H} stroke="var(--color-line)" vector-effect="non-scaling-stroke" />
 			<polyline points={series.feed} fill="none" stroke="var(--color-ink-muted)" stroke-width="1.5" vector-effect="non-scaling-stroke" />
 			<polyline points={series.classified} fill="none" stroke="var(--color-primary)" stroke-width="2" vector-effect="non-scaling-stroke" />
 			<polyline points={series.multi} fill="none" stroke="var(--color-danger)" stroke-width="1.5" stroke-dasharray="3 3" vector-effect="non-scaling-stroke" />
+			{#if hover != null}
+				<line x1={x(hover)} y1="0" x2={x(hover)} y2={H} stroke="var(--color-ink)" stroke-width="1" vector-effect="non-scaling-stroke" />
+			{/if}
 		</svg>
 		<div class="num mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-ink-muted">
 			<span class="flex items-center gap-1"><span class="h-0.5 w-3 bg-primary"></span>Classified/min</span>
 			<span class="flex items-center gap-1"><span class="h-0.5 w-3 bg-ink-muted"></span>Fed/min</span>
 			<span class="flex items-center gap-1"><span class="h-0.5 w-3 bg-danger"></span>Multi-drop %</span>
-			<span class="ml-auto">top {fmtRate(series.ppmMax)} ppm · {series.pctMax.toFixed(0)}%</span>
+			<span class="ml-auto">{shown.seen} pieces · top {fmtRate(series.ppmMax)} ppm · {series.pctMax.toFixed(0)}%</span>
 		</div>
 	</div>
 </div>

@@ -52,7 +52,7 @@ Each page lists the tools for its own steps.
   <li>A multimeter with a continuity buzzer.</li>
   <li>Side cutters, wire strippers and needle-nose pliers.</li>
   <li>A ratcheting crimp tool for open-barrel contacts (Dupont, JST-PH, JST-VH), unless you <a href="{{ '/hardware/parts/harness-order/' | relative_url }}">order the harness ready made</a>.</li>
-  <li>Insulated-terminal crimping pliers, with a red 22 to 16 AWG jaw, for butt connectors, fork terminals and receptacles. Not needed if you solder those joints.</li>
+  <li>Insulated-terminal crimping pliers, with a jaw for 22 to 16 AWG (0.33 to 1.3 mm²) wire, for butt connectors, fork terminals and receptacles. Not needed if you solder those joints.</li>
   <li>Small flat and Phillips screwdrivers, an 8 mm spanner, a mallet and a tape measure.</li>
 </ul>
 

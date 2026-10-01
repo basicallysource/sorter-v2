@@ -162,8 +162,21 @@ def _configureStepper(
             run("set the StallGuard threshold", lambda: stepper.write_driver_register(_TMC_REG_SGTHRS, sgthrs))
             run("set the StallGuard speed floor", lambda: stepper.write_driver_register(_TMC_REG_TCOOLTHRS, tcoolthrs))
             writes += 2
-            run("clear its stall latch", stepper.clear_stall)
-            run("arm stall detection", lambda: stepper.enable_stall_detection(True))
+            try:
+                run("clear its stall latch", stepper.clear_stall)
+                run("arm stall detection", lambda: stepper.enable_stall_detection(True))
+            except Exception as exc:
+                # Boards that wire no DIAG pin for a channel (e.g. SKR Pico:
+                # STEPPER_DIAG_PINS = {-1, -1, -1, -1}) can never arm StallGuard;
+                # the firmware rejects the command with b'No DIAG pin for channel
+                # N'. Run that stepper without stall detection instead of failing
+                # the whole init.
+                if "No DIAG pin" not in str(exc):
+                    raise
+                stepper.stallguard_enabled = False
+                gc.logger.warning(
+                    f"StallGuard skipped for the {label} stepper: the board reports no DIAG pin for this channel."
+                )
 
     if verify:
         took = (interfaceCount() - before) % 256

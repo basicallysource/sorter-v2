@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { binCenterAngle, reachInfo, type ChuteGeometry } from './geometry';
+	import { binCenterAngle, reachInfo, type ChuteGeometry } from '$lib/chute/geometry';
 
 	type Selected = { section: number; bin: number; binCount: number };
 

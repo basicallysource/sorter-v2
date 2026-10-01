@@ -10,11 +10,10 @@ permalink: /hardware/helpers/pi-24v-lead/
 author: effreek
 contributors: [brickcyclealice]
 warning: >-
-  **The photographs are from a real build; the numbers are not all settled.** One builder has made
-  this lead, and the 100 mm below is her converter's own lead length rather than a specification.
-  The finished length has never been measured on a mounted machine, and the 22 AWG (0.33 mm²) is a **GUESS**
-  in the [wire harness]({{ '/hardware/electronics/wire-harness/' | relative_url }}) notes, marked
-  as one on the drawing.
+  **The numbers are not all settled.** One builder has made this lead, and the 100 mm below is her
+  converter's own lead length rather than a specification. The finished length has never been measured
+  on a mounted machine, and the 22 AWG (0.33 mm²) is a **GUESS** in the
+  [wire harness]({{ '/hardware/electronics/wire-harness/' | relative_url }}) notes, marked as one on the drawing.
 parts_needed:
   - part: buck-24v-5v-usbc
     qty: 1
@@ -24,7 +23,6 @@ parts_needed:
     qty: 1
   - part: butt-connector-red-22-16
     qty: 2
-og_image: https://assets.basically.website/sorter-docs/harness-pi-24v-lead-built-w1600-d117f59e66d7.jpg
 tools_needed: ["A ruler or tape measure, to measure the converter's input wires", "Side cutters, only if you have to extend the wires", "Wire strippers, for 22 AWG (0.33 mm²) wire, only for a moulded plug or extended wires", "Insulated-terminal crimping pliers with a jaw for 22 to 16 AWG (0.33 to 1.3 mm²) wire, for the butt connectors on a moulded plug or extended wires", "A small screwdriver, only for a screw-terminal plug", "Multimeter, to find the tip and to check the finished lead", "Only if you solder the joints instead of crimping them: a soldering iron, solder and adhesive-lined heat shrink (see Getting started)"]
 ---
 
@@ -50,11 +48,6 @@ The converter takes 8 to 32 V in and gives 5 V out at up to 5 A. It is potted, s
 </figure>
 
 ## Build it
-
-<figure class="single-figure">
-  <img class="doc-figure" src="https://assets.basically.website/sorter-docs/harness-pi-24v-lead-parts-w1600-e990b550277e.jpg" alt="The buck converter as it arrives: a small black potted block with a long captive USB-C lead out of one side, two short red and black input wires out of the other with a warning label on them, and a separate screw-terminal DC barrel plug lying beside it">
-  <figcaption>What you start with. The converter's input wires are the short pair; the plug is the only thing you add. <cite>Photo: BrickCycleAlice.</cite></figcaption>
-</figure>
 
 <ol class="numbered-steps">
   <li>Measure the converter's own input wires with a ruler, from the case to the cut end. <b>100 mm or more and nothing needs extending</b>: they go straight to the plug. Shorter than 100 mm, do step 2 first; otherwise skip it.</li>
@@ -105,10 +98,7 @@ Choose the jaw by the size marked on it, not by its colour. To solder instead of
 
 The converter with a barrel plug on its input wires and its USB-C lead free. One per machine, and that is the whole lead.
 
-<figure class="single-figure">
-  <img class="doc-figure" src="https://assets.basically.website/sorter-docs/harness-pi-24v-lead-built-w1600-d117f59e66d7.jpg" alt="The finished lead: the buck converter with a screw-terminal DC barrel plug fitted to its red and black input wires, and its captive USB-C lead curving away from the other side">
-  <figcaption>The plug fitted straight to the converter's own wires, no splice. <cite>Photo: BrickCycleAlice.</cite></figcaption>
-</figure>
+<div class="img-placeholder">Image coming: the finished W3 lead with a moulded barrel plug, the plug at one end and the converter in the frame</div>
 
 The plug goes into any of the three jacks on the PSU box, all three the same 24 V. Where the USB-C end goes is at [connecting the components]({{ '/hardware/electronics/connecting/' | relative_url }}), step 6.
 

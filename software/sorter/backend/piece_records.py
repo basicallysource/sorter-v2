@@ -966,3 +966,22 @@ def getAggregates(gc: Any, *, days: int = 365) -> dict[str, Any]:
     with _AGGREGATES_LOCK:
         _aggregates_memo[days] = (time.time() + _AGGREGATES_TTL_S, guard, result)
     return result
+
+
+def rateBuckets(since: float, bucket_s: float) -> list[dict[str, Any]]:
+    """Pieces seen, classified and multi-dropped per ``bucket_s`` since ``since``
+    (epoch seconds): the dashboard's rate graph. Buckets with no pieces are
+    left out."""
+    bucket_s = max(10.0, float(bucket_s))
+    with _connection() as conn:
+        rows = conn.execute(
+            "SELECT CAST((seen_at - ?) / ? AS INTEGER) AS b, COUNT(*), "
+            "SUM(classification_status = 'classified'), "
+            "SUM(classification_status = 'multi_drop_fail') "
+            "FROM piece_records WHERE dead = 0 AND seen_at >= ? GROUP BY b ORDER BY b",
+            (since, bucket_s, since),
+        ).fetchall()
+    return [
+        {"t": since + b * bucket_s, "seen": seen, "classified": classified or 0, "multi_drop": multi or 0}
+        for b, seen, classified, multi in rows
+    ]

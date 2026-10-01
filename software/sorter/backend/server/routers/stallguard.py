@@ -907,7 +907,6 @@ def clear_stepper_stall(stepper: str) -> Dict[str, Any]:
     return {"ok": True, "stepper": stepper, "stalled": False}
 
 
-@router.post("/stall-incident/clear")
 def clear_stall_incident() -> Dict[str, Any]:
     """Clear ALL motors' stall latches (the global 'Acknowledge'). Resets every
     armed driver's firmware latch + re-arms, then drops the blocking incident; the
@@ -929,7 +928,6 @@ def clear_stall_incident() -> Dict[str, Any]:
     return {"ok": True, "cleared": cleared, "kind": STEPPER_STALL_INCIDENT_KIND}
 
 
-@router.post("/stall-incident/rehome")
 def rehome_after_stall() -> Dict[str, Any]:
     """Clear stall latches AND re-home the chute in place, then drop the hold.
 

@@ -6470,6 +6470,58 @@
       "docs_page": "/hardware/helpers/led-strip/"
     },
     {
+      "id": "butt-connector-red-22-16",
+      "uid": "4uj5",
+      "kind": "cots",
+      "cots": {
+        "type": "connector"
+      },
+      "name": "Insulated butt connector, red, 22-16 AWG",
+      "category": "Wire harness",
+      "description": "Joins two wires end to end without soldering: one wire goes in each end and the barrel is crimped onto it. Two on the control board's 24 V lead, one for each of the moulded barrel plug's leads.",
+      "note": "Crimp it with insulated-terminal crimping pliers, in the jaw marked for 22 to 16 AWG (0.33 to 1.3 mm²), not picked by colour. A crimp tool for open-barrel Dupont and PH contacts has the wrong die and will not close this connector properly.",
+      "alternative": "Solder the two wires together and cover each joint with a 25 mm piece of 3 mm adhesive-lined heat shrink instead",
+      "created_at": "2026-10-01",
+      "updated_at": "2026-10-01",
+      "image_url": "https://assets.basically.website/sorter-parts/butt-connector-red-22-16-full-34dedee6c550.jpg",
+      "attributes": [
+        {
+          "label": "Wire",
+          "value": "22 to 16 AWG, stranded or solid copper"
+        },
+        {
+          "label": "Strip length",
+          "value": "6.8 mm"
+        },
+        {
+          "label": "Insulation",
+          "value": "Vinyl, red"
+        },
+        {
+          "label": "Used on",
+          "value": "The two joints between the moulded barrel plug's leads and the wire of the board's 24 V lead, W1"
+        }
+      ],
+      "sheet_qty": {
+        "per_machine": 2
+      },
+      "caption": "Two on the control board's 24 V lead, one for each wire of the moulded barrel plug.",
+      "docs_page": "/hardware/helpers/board-24v-lead/",
+      "sourcing": {
+        "vendors": [
+          {
+            "region": "US",
+            "vendor": "Cable Ties Unlimited",
+            "url": "https://www.cabletiesunlimited.com/products/22-18-awg-red-vinyl-insulated-butted-seam-butt-connectors-100-bag",
+            "price": 5.15,
+            "pack_qty": 100,
+            "as_of": "2026-10-01",
+            "note": "SKU GS20080, 100 per bag. The listing title says 22-18 AWG (0.8 to 0.33 mm²), the bag says 22-16 (1.3 to 0.33 mm²)."
+          }
+        ]
+      }
+    },
+    {
       "id": "jst-vhr-2",
       "uid": "gukn",
       "kind": "cots",
@@ -15633,14 +15685,18 @@
     },
     {
       "id": "harness-board-24v",
-      "uid": "odr5",
-      "version": "1",
+      "uid": "9yz2",
+      "version": "2",
       "name": "24 V board feed (W1)",
       "description": "The control board's 24 V lead, W1 on the power drawing: a barrel plug into one of the PSU box jacks at one end, a 2-pin VHR-2 onto J1 at the board end. 36 in of 18 AWG (0.82 mm²), deliberately long. Pin 1 is +24 V and pin 2 is ground. 1 per machine.",
       "joining": [
         {
           "method": "crimp",
-          "note": "An SVH-21T contact onto each wire, then push it into the back of the VHR-2 until it clicks and will not pull out."
+          "note": "The moulded barrel plug's two leads are joined to the 18 AWG (0.82 mm²) pair with a red insulated butt connector on each, crimped in the jaw marked 22 to 16 AWG (0.33 to 1.3 mm²) of an insulated-terminal crimper. Then an SVH-21T contact onto each wire at the other end, pushed into the back of the VHR-2 until it clicks and will not pull out."
+        },
+        {
+          "method": "solder",
+          "note": "Or solder each of the plug's leads to the wire of the same colour and cover each joint with adhesive-lined heat shrink."
         }
       ],
       "lines": [
@@ -15649,12 +15705,47 @@
           "qty": 1
         },
         {
+          "part": "butt-connector-red-22-16",
+          "qty": 2
+        },
+        {
           "part": "jst-vhr-2",
           "qty": 1
         },
         {
           "part": "jst-svh-21t",
           "qty": 2
+        }
+      ],
+      "versions": [
+        {
+          "version": "1",
+          "uid": "odr5",
+          "message": "As recorded before the first stamped change.",
+          "lines": [
+            {
+              "part": "dc-plug-5521-male",
+              "qty": 1,
+              "uid": "ky9z"
+            },
+            {
+              "part": "jst-vhr-2",
+              "qty": 1,
+              "uid": "gukn"
+            },
+            {
+              "part": "jst-svh-21t",
+              "qty": 2,
+              "uid": "3kex"
+            }
+          ]
+        },
+        {
+          "version": "2",
+          "date": "2026-10-01",
+          "message": "The moulded barrel plug's two leads are joined to the wire with two insulated butt connectors, crimped, as in the LED drop. Soldering each joint with heat shrink stays as the alternative. A screw-terminal plug needs neither. The lead itself is the same lead.",
+          "breaking": false,
+          "commit": null
         }
       ]
     },

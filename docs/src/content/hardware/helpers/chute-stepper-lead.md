@@ -20,16 +20,18 @@ parts_needed:
     qty: 1
   - part: jst-sph-002t
     qty: 4
+  - part: butt-connector-24-20
+    qty: 4
   - part: wire-24awg
     qty: 1
-tools_needed: ["Multimeter, to find the coils and to check the finished lead", "Side cutters, to cut the tail wire to length", "Wire strippers that take both 24 AWG (0.20 mm²) and 20 AWG (0.52 mm²) wire", "Soldering iron and solder, for the four splices", "Adhesive-lined heat shrink, for the splices", "A heat gun, to shrink it", "Crimping pliers for open-barrel contacts, with a die for 24 AWG (0.20 mm²) wire", "A ruler or tape measure, to cut the tail to length"]
+tools_needed: ["Multimeter, to find the coils and to check the finished lead", "Side cutters, to cut the tail wire to length", "Wire strippers that take both 24 AWG (0.20 mm²) and 20 AWG (0.52 mm²) wire", "Insulated-terminal crimping pliers with a die marked for 24 to 20 AWG (0.2 to 0.6 mm²), for the four butt splices", "Crimping pliers for open-barrel contacts, with a die for 24 AWG (0.20 mm²) wire, for the four PH contacts", "A ruler or tape measure, to cut the tail to length", "Only if you solder the splices instead: soldering iron and solder, adhesive-lined heat shrink, and a heat gun to shrink it"]
 ---
 
 The chute stepper is the NEMA 23 that drives the chute. It is the only motor on the machine with bare flying leads: the four channel steppers have their own 6-pin socket and take a bought cable. So this one lead gets built. **One per machine.**
 
 <div class="callout callout-warning">
   <span class="callout-icon" aria-hidden="true">⚠</span>
-  <p><b>The motor's own leads are too thick for the connector, however long they are.</b> They are <b>20 AWG (0.52 mm²)</b> (UL1007 on the motor drawing) and a JST PH contact takes 24 to 28 AWG (0.08 to 0.20 mm²), so the board end of this lead is always a short 24 AWG (0.20 mm²) tail spliced onto them. Length decides how long that tail is, not whether you need one.</p>
+  <p><b>The motor's own leads are too thick for the connector, however long they are.</b> They are <b>20 AWG (0.52 mm²)</b> (UL1007 on the motor drawing) and a JST PH contact takes 24 to 28 AWG (0.08 to 0.20 mm²), so the board end of this lead is always a short 24 AWG (0.20 mm²) tail spliced onto them. Length decides how long that tail is, not whether you need one. A butt splice made for 24 to 20 AWG (0.2 to 0.6 mm²) holds both sizes, so the splice is crimped.</p>
 </div>
 
 ## The pin order
@@ -108,7 +110,7 @@ All five stepper outputs on the board have the same pinout, pin 1 to pin 4:
       <line x1="468" y1="269" x2="674" y2="269" stroke="#1f63c8" stroke-width="5.4" stroke-linecap="round"/>
       <rect x="412" y="261" width="56" height="16" rx="8" fill="var(--surface)" stroke="var(--muted)" stroke-width="1.5"/>
       <text x="440" y="126" font-size="12" font-weight="700" fill="var(--ink)" text-anchor="middle">splice</text>
-      <text x="440" y="142" font-size="11" fill="var(--muted)" text-anchor="middle">solder, then heat shrink</text>
+      <text x="440" y="142" font-size="11" fill="var(--muted)" text-anchor="middle">crimped butt splice, 24 to 20 AWG</text>
       <text x="345.0" y="301" font-size="11" fill="var(--muted)" text-anchor="middle">24 AWG (0.20 mm²) tail you add</text>
       <text x="570.0" y="301" font-size="11" fill="var(--muted)" text-anchor="middle">the motor's own 20 AWG (0.52 mm²) leads</text>
       <text x="465" y="331" font-size="12" fill="var(--muted)" text-anchor="middle">The motor's leads are too thick for a JST-PH contact, so the last stretch to the board is a thinner tail. Find the coil pairs with a meter first.</text>
@@ -133,14 +135,37 @@ The motor's four leads are coloured, and the colours do not tell you which pair 
 <ol class="numbered-steps">
   <li>Hold the motor where it will sit and see how far its own leads get you. They come out of the motor at 300 to 500 mm depending on the batch, and the harness notes put the finished lead at about 1 m (40 in).</li>
   <li>Cut four pieces of 24 AWG (0.20 mm²) wire, one in each colour of the motor's four leads, long enough to make the length up and <b>at least 100 mm</b> even when the motor's own leads already reach.</li>
-  <li>Splice each one onto the motor lead of the same colour, as under <b>Splicing a tail onto a motor lead</b>, below. <b>These joints are soldered, not crimped:</b> a butt connector is too big for 24 AWG (0.20 mm²) wire.</li>
+  <li>Splice each one onto the motor lead of the same colour with a 24 to 20 AWG (0.2 to 0.6 mm²) butt splice, as under <b>Splicing a tail onto a motor lead</b>, below. Or solder them, as under <b>Or solder the splices</b>.</li>
   <li>Crimp a PH contact onto the free end of each of the four tails, as under <b>Crimping a PH contact</b>, below.</li>
   <li>Push the contacts into the housing until each one clicks: <b>one coil into positions 1 and 2, the other coil into positions 3 and 4</b>. Which coil goes in which pair does not matter. Nor does which lead of a pair goes in which position: that only reverses the direction the motor turns, and the direction is set in the software.</li>
 </ol>
 
 ## Splicing a tail onto a motor lead
 
-Four joints, one per lead. The harness spec is a solder splice with adhesive-lined heat shrink, one sleeve per conductor and one over all four, and no twist-and-tape.
+Four joints, one per lead, each in its own butt splice. A butt splice is a clear tube with a metal barrel inside that you crimp onto a wire at each end. Use the 24 to 20 AWG (0.2 to 0.6 mm²) one in the parts list: a splice made for thicker wire does not grip a 24 AWG (0.20 mm²) tail, and one made for thinner wire does not take the motor's leads.
+
+<ol class="numbered-steps">
+  <li>Strip the end of the tail and the end of the motor lead. Hold each wire against the splice to judge how much insulation to take off, then check it in the next step and adjust.</li>
+  <li>Push the motor lead into one end of the splice until it stops. <b>The insulation should sit against the end of the metal barrel, and the bare strands should reach the stop in the middle.</b> The plastic is clear, so you can see both through it. Strip a little more or less until they do.</li>
+  <li>Crimp that end in the die of the insulated-terminal pliers marked for 24 to 20 AWG (0.2 to 0.6 mm²), with the metal barrel in the die. Choose the die by the size marked on it, not by its colour.</li>
+  <li>Push the tail into the other end in the same way and crimp that end.</li>
+  <li>Pull on both wires to check the joint holds.</li>
+  <li>Make the other three joints the same way, <b>staggered along the cable</b> so no two sit side by side.</li>
+</ol>
+
+<figure class="single-figure">
+  <img class="doc-figure" src="https://assets.basically.website/sorter-docs/chute-stepper-lead-butt-splice-diagram-full-03ca94566783.png" alt="Four panels. 1: the stripped end of a motor lead, 20 AWG (0.52 mm²), and of a 24 AWG (0.20 mm²) tail. 2: one wire in each end of a clear butt splice, the insulation against the barrel and the stripped ends reaching the wire stop in the centre. 3: the splice between the two jaws of a crimping die marked 24 to 20 AWG (0.2 to 0.6 mm²), crimped one end and then the other. 4: four wires, black, green, red and blue, each with its splice at a different distance along the cable.">
+  <figcaption>Strip, one wire in each end, crimp each end in the marked die, then repeat staggered.</figcaption>
+</figure>
+
+<div class="callout callout-warning">
+  <span class="callout-icon" aria-hidden="true">⚠</span>
+  <p><b>This is not the die for the PH contacts.</b> Pliers made for open-barrel contacts, the kind that crimp the PH and Dupont contacts, do not close this splice properly. The PH contacts take their own die, below.</p>
+</div>
+
+## Or solder the splices
+
+You can solder each joint instead of crimping it. The harness spec is a solder splice with adhesive-lined heat shrink, one sleeve per conductor and one over all four, and no twist-and-tape. You then need the soldering iron, solder, heat shrink and heat gun from the tools list, and you do not need the butt splices.
 
 <ol class="numbered-steps">
   <li>Slide a piece of adhesive-lined heat shrink onto the 24 AWG (0.20 mm²) tail, well back from the end. It cannot go on once the joint is soldered.</li>
@@ -152,7 +177,7 @@ Four joints, one per lead. The harness spec is a solder splice with adhesive-lin
 </ol>
 
 <figure class="single-figure">
-  <img class="doc-figure" src="https://assets.basically.website/sorter-docs/chute-stepper-lead-splice-diagram-full-d82885551061.png" alt="Four panels. 1: a 24 AWG tail with a piece of heat shrink already slid on, facing the stripped end of the motor's thicker lead. 2: the two bare ends overlapped side by side and covered in solder. 3: the heat shrink slid over the joint. 4: four wires, black, green, red and blue, each with its own joint at a different distance along the cable, and one more sleeve over all four.">
+  <img class="doc-figure" src="https://assets.basically.website/sorter-docs/chute-stepper-lead-splice-diagram-full-7394cb74d6af.png" alt="Four panels. 1: a 24 AWG tail with a piece of heat shrink already slid on, facing the stripped end of the motor's thicker lead. 2: the two bare ends overlapped side by side and covered in solder. 3: the heat shrink slid over the joint. 4: four wires, black, green, red and blue, each with its own joint at a different distance along the cable, and one more sleeve over all four.">
   <figcaption>Heat shrink on first, solder, shrink, then repeat staggered and sleeve the four.</figcaption>
 </figure>
 
@@ -193,7 +218,7 @@ Both carry `A2`, `A1`, `B1`, `B2` on positions 1 to 4, and the board prints the 
 
 One lead: the motor with a 24 AWG (0.20 mm²) tail spliced onto its four thick leads, ending in a 4-pin PHR-4 with each coil on one pair of positions.
 
-<div class="img-placeholder">Image coming: the finished lead, the four splices sleeved together and the PHR-4 at the end of the thin tail, with the motor in frame at the other end</div>
+<div class="img-placeholder">Image coming: the finished lead, the four splices staggered along the cable and the PHR-4 at the end of the thin tail, with the motor in frame at the other end</div>
 
 ## Reference
 

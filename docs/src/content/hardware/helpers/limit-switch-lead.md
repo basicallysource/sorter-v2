@@ -195,7 +195,7 @@ Then push the receptacles onto the switch and meter the housing again. With the 
 
 **The housing is not keyed, so it can go on `J5` either way round.** Turned over, the two wires land on the 3.3 V pin and the signal pin: nothing is damaged, but the machine never sees the switch change.
 
-The board prints `3.3V` and `SIG` beside `J5`. Push the housing on with the empty position over the pin marked `3.3V`. Ground is pin 1, at the other end, on the square pad, so the housing's position 1 goes over it.
+The board prints `3.3V` and `SIG` beside `J5`. Push the housing on with the empty position over the pin marked `3.3V`. Ground is the pin at the other end, on the square pad.
 
 <figure class="single-figure">
   <img class="doc-figure" src="https://assets.basically.website/sorter-docs/limit-switch-lead-board-end-orientation-full-ae6132915534.png" alt="Two drawings of the 3-pin header J5 with its pins labelled 3.3V at the top, SIG in the middle and GND on a square pad at the bottom, and the housing beside it. Right way: the empty position is over the 3.3V pin and the two wires are on SIG and GND. Wrong way: the housing is turned over, the empty position is over GND and the two wires are on 3.3V and SIG.">

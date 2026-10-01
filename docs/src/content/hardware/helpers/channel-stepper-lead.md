@@ -21,7 +21,7 @@ parts_needed:
     qty: 4
   - part: jst-phr-6
     qty: 4
-tools_needed: [Multimeter, "A fine pick or a sliver of shim", Side cutters, "Only if you crimp instead: wire strippers and a crimp tool for open-barrel contacts"]
+tools_needed: ["Multimeter, to find the coils and to check the finished lead", "A fine pick or a sliver of shim, for moving contacts out of a housing (the first route only)", "Side cutters, to cut the Dupont housing off or to cut wire to length (the second and third routes)", "Wire strippers, for 24 AWG (0.20 mm²) wire (the second and third routes)", "Crimping pliers for open-barrel contacts, with a die for 24 AWG (0.20 mm²) wire (the second and third routes)", "A ruler or tape measure, to cut the wire to length (the third route only)"]
 ---
 
 These are `S1` to `S4` on the [harness drawings]({{ '/hardware/parts/harness-order/#channel-stepper' | relative_url }}), one for each of the four c-channel motors. **Four per machine**, all identical.
@@ -32,6 +32,12 @@ These are `S1` to `S4` on the [harness drawings]({{ '/hardware/parts/harness-ord
 </div>
 
 **Both faults are in that one housing.** So there are three ways to get a correct lead, and the parts above are for the first of them, which needs no crimp tool. The other two say what they need instead.
+
+<dl class="spec-list">
+  <dt>Move four contacts</dt><dd>Start from a ready-made cable and a PHR-6. Tools: the pick and the multimeter. No crimping.</dd>
+  <dt>Re-house the motor's lead</dt><dd>Keep the lead the motor came with and replace its Dupont end. Tools: side cutters, wire strippers, the crimping pliers and the multimeter.</dd>
+  <dt>Crimp it from wire</dt><dd>Make the whole lead. The same tools as the second route, and a ruler.</dd>
+</dl>
 
 ## The two ends
 
@@ -140,16 +146,46 @@ This keeps the 1 m lead already plugged into the motor and replaces only its boa
 <ol class="numbered-steps">
   <li>Cut the Dupont housing off close to the housing, so the cable keeps its length.</li>
   <li>Find the two coils <a href="{{ '/hardware/helpers/multimeter/' | relative_url }}#resistance-for-finding-a-steppers-coils">with the meter</a> before you crimp anything. Two of the four wires read a couple of ohms between them and open circuit to the other two: those two are one coil. On the motor in the parts list that reading is 2.3 &Omega;, and its colour key is black <code>A+</code>, blue <code>A-</code>, green <code>B+</code>, red <code>B-</code>, so it is usually black with blue and green with red. Meter it rather than trusting the colours.</li>
-  <li>Strip about 2 mm off each conductor and crimp a contact onto it: the inner wings close on the bare strands, the outer wings on the insulation. Practise on a scrap first, the contacts are small and easy to spoil.</li>
+  <li>Strip and crimp a contact onto each conductor, as under <b>Crimping a PH contact</b>, below. Practise on a scrap first, the contacts are small and easy to spoil.</li>
   <li>Load the <code>PHR-4</code> with one coil in positions 1 and 2 and the other in 3 and 4, which for the colours above is black, blue, green, red. Each contact goes in from the back with its lance facing the slot in the housing, and clicks when it is home.</li>
   <li>Pull gently on each wire, then meter across positions 1 and 2 and across 3 and 4 with the motor plugged in. Both read a couple of ohms. If either reads open circuit, two contacts are in the wrong places.</li>
 </ol>
+
+<figure class="single-figure">
+  <img class="doc-figure" src="https://assets.basically.website/sorter-docs/channel-stepper-lead-rehouse-diagram-full-f466787a9d03.png" alt="Two rows. Top: the motor with its own lead running to a Dupont housing, a dashed line marking where to cut close to the housing, the housing marked as scrap. Bottom: the same lead with a crimped contact on each of its four wires, loaded into a 4-pin PHR-4 with positions 1 and 2 bracketed as coil A and 3 and 4 as coil B.">
+  <figcaption>Cut the Dupont housing off, crimp a contact on each wire, load the PHR-4 one coil at a time.</figcaption>
+</figure>
 
 The Dupont housing you cut off is scrap.
 
 ## Or: crimp the whole lead from wire
 
-**Per lead: four conductors of `wire-24awg`, one `jst-phr-4`, one `jst-phr-6` and eight `jst-sph-002t` contacts**, so thirty-two contacts for the machine, twice the route above. Crimp each contact, seat the strands fully in the barrel, then load both housings to the crossover table above. Buy four colours of wire: the colour is how you keep the crossover straight over a metre of cable.
+**Per lead: four conductors of `wire-24awg`, one `jst-phr-4`, one `jst-phr-6` and eight `jst-sph-002t` contacts**, so thirty-two contacts for the machine, twice the route above. Buy four colours of wire: the colour is how you keep the crossover straight over a metre of cable. The colours below are the ones on the drawing above.
+
+<ol class="numbered-steps">
+  <li>Cut one wire of each colour, blue, green, red and black, all the same length. The harness drawing says 1 m; see <b>How long</b>, below, before you cut.</li>
+  <li>Strip and crimp a contact onto both ends of every wire, eight in all, as under <b>Crimping a PH contact</b>, below.</li>
+  <li>Load the <code>PHR-4</code>, the board end, from the back: blue into position 1, green into 2, red into 3 and black into 4.</li>
+  <li>Load the <code>PHR-6</code>, the motor end: blue into position 1, <b>black into 6, red into 3 and green into 4</b>. Positions 2 and 5 stay empty. Each wire goes to the position its colour has in the drawing above, so the two crossing wires are the green and the red.</li>
+  <li>Pull gently on each wire, then meter across board positions 1 and 2 and across 3 and 4 with the motor plugged in. Both read a few ohms. If either reads open circuit, two contacts are in the wrong places.</li>
+</ol>
+
+## Crimping a PH contact
+
+Used by the second and third routes. A PH contact takes 24 to 28 AWG (0.08 to 0.20 mm²) wire only.
+
+<ol class="numbered-steps">
+  <li>Strip about 2 mm off the end of the wire.</li>
+  <li>Close the contact's inner wings on the bare strands and its outer wings on the insulation, in the die of the crimping pliers marked for 24 AWG (0.20 mm²) wire.</li>
+  <li>Pull on the wire to check it holds, then push the contact into the housing from the back, with its lance facing the slot in the housing, until it clicks.</li>
+</ol>
+
+<figure class="single-figure">
+  <img class="doc-figure" src="https://assets.basically.website/sorter-docs/ph-contact-crimp-steps-full-985dd5dc580a.png" alt="Three stages: a wire with about 2 mm of bare strands; a contact crimped on, its outer wings on the insulation and its inner wings on the bare strands; the contact pushed into the back of a housing until it clicks.">
+  <figcaption>Strip, crimp, push in until it clicks.</figcaption>
+</figure>
+
+Choose the die by the size marked on it, not by its colour.
 
 ## How long
 

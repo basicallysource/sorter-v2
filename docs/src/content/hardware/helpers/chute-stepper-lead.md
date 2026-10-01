@@ -22,8 +22,6 @@ parts_needed:
     qty: 4
   - part: wire-24awg
     qty: 1
-  - part: connector-kit-crimp
-    qty: 1
 tools_needed: [Wire strippers, "Crimp tool for open-barrel contacts", "Soldering iron and adhesive-lined heat shrink", Multimeter]
 ---
 
@@ -151,7 +149,7 @@ The board gives the chute two sockets side by side and they are wired to the sam
 
 <dl class="spec-list">
   <dt><code>J23</code></dt><dd>JST-PH 4-pin, the housing in the parts list above.</dd>
-  <dt><code>J24</code></dt><dd>A row of 2.54 mm pins, which takes a 4-pin Dupont housing instead. Use this one if you have Dupont parts and no PH contacts; the crimp kit carries Dupont housings and the PH ones are a separate buy.</dd>
+  <dt><code>J24</code></dt><dd>A row of 2.54 mm pins, which takes a 4-pin Dupont housing instead. Use this one if you have Dupont housings and no PH contacts.</dd>
 </dl>
 
 Both carry `A2`, `A1`, `B1`, `B2` on positions 1 to 4, and the board prints the coil name beside each pin, so the names can be read off the board rather than counted.

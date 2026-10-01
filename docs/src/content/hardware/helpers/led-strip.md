@@ -15,7 +15,7 @@ warning: >-
   **AI-generated first draft.** Written from the LED strip catalog parts and the earlier version of this page,
   not from an actual build. The barrel plug and socket, the butt connectors and the heat shrink have not been
   fitted by anyone from these steps yet, and the 25 mm heat shrink pieces and the 7 mm strip length are
-  estimates. The red jaw of the crimper is for 22 to 16 AWG, which is what the butt connectors are.
+  estimates. The red jaw of the crimping pliers is for 22 to 16 AWG, which is what the butt connectors are.
 parts_needed:
   - part: led-strip-24v
     qty: 1
@@ -29,11 +29,9 @@ parts_needed:
     qty: 6
   - part: dupont-lead-2p-1m
     qty: 3
-  - part: crimper-insulated-ratcheting
-    qty: 1
   - part: heat-shrink-3-1-adhesive-3mm
     qty: 3
-tools_needed: [Side cutters, Wire strippers, "Multimeter (only if you fit the plug and socket)", "Soldering iron and solder (only if you solder)", "Only if you make your own Dupont cable: the crimper from the crimp and connector kit (not the insulated-terminal crimper above)"]
+tools_needed: [Side cutters, Wire strippers, "Multimeter (only if you fit the plug and socket)", "Soldering iron and solder (only if you solder)", "Insulated-terminal crimping pliers with a red 22 to 16 AWG jaw (only if you crimp the butt connectors)", "Only if you make your own Dupont cable: a crimp tool for open-barrel contacts"]
 ---
 
 Each camera lamp needs a cable that takes 24 V from the control board to its strip. The best way to build it is **two cables that meet at a barrel plug and socket**. The plug and socket are **optional but recommended**. **They make maintenance easier:** the power supply to a lamp can be disconnected right next to the lamp, so you can take a lamp down, swap it or work on it without touching the board end of its cable or the cables of the other lamps. **A machine takes three of each.** The quantities above are a whole machine's worth: one 5 m roll cuts into five lengths, and the Dupont cables come five to a pack.
@@ -51,7 +49,7 @@ Each camera lamp needs a cable that takes 24 V from the control board to its str
   <li><b>Socket joints:</b> crimp them with butt connectors (5a), or solder them (5b).</li>
 </ul>
 
-Crimping needs the **insulated-terminal crimper** from the parts list. Soldering needs a soldering iron, solder and the **heat shrink**. You need only one of the two.
+Crimping needs **insulated-terminal crimping pliers** from the tools list. Soldering needs a soldering iron, solder and the **heat shrink**. You need only one of the two.
 
 <div class="callout callout-warning">
   <span class="callout-icon" aria-hidden="true">⚠</span>
@@ -84,7 +82,7 @@ Leave the blue protective film on until the strip is going where it lives. It is
 
 The cable comes from the pack with a plug on both ends: the **male** one has two pins sticking out of it, the **female** one has two holes. **Cut the male plug off.** The female end stays on: that is what pushes onto the board later. With the plug and socket, the socket joins here in step 5. Without them, this cut end goes straight onto the strip in step 4, and you skip steps 3 and 5.
 
-If you own the crimper from the crimp and connector kit, you can make this cable instead: about a metre of 22 AWG, one red and one black, with a 2-pin 2.54 mm Dupont female housing crimped on.
+If you own a crimp tool for open-barrel contacts, you can make this cable instead: about a metre of 22 AWG, one red and one black, with a 2-pin 2.54 mm Dupont female housing crimped on.
 
 {% include step.html n="3" title="Find the tip of the plug and of the socket" %}
 
@@ -136,7 +134,7 @@ A butt connector is a red vinyl-insulated barrel that takes one wire in each end
 <ol class="numbered-steps">
   <li>Strip 7 mm off both wires of each joint, and twist the strands of each wire tight.</li>
   <li>Push the socket's wire into one end of a red butt connector, and the cable's wire of the same colour into the other, until the insulation of each wire meets the end of the barrel.</li>
-  <li>Close each end of the barrel in the <b>red jaw</b> of the insulated-terminal crimper (22 to 16 AWG), so each wire is crimped separately. Squeeze until the tool releases. Pull on each wire to check it holds.</li>
+  <li>Close each end of the barrel in the <b>red jaw</b> of the insulated-terminal crimping pliers (22 to 16 AWG), so each wire is crimped separately. Squeeze until the tool releases. Pull on each wire to check it holds.</li>
   <li>Stagger the two butt connectors by a few millimetres along the cable so they cannot touch.</li>
 </ol>
 
@@ -147,7 +145,7 @@ A butt connector is a red vinyl-insulated barrel that takes one wire in each end
 
 <div class="callout callout-warning">
   <span class="callout-icon" aria-hidden="true">⚠</span>
-  <p><b>Use the insulated-terminal crimper from the parts list.</b> The crimper in the <a href="https://parts-calculator.basically.website/hardware?hw=connector-kit-crimp">crimp and connector kit</a> has a die for open-barrel contacts only, and will not close a butt connector properly.</p>
+  <p><b>Use insulated-terminal crimping pliers.</b> A crimp tool for open-barrel contacts, the kind that does Dupont and PH, has the wrong die and will not close a butt connector properly.</p>
 </div>
 
 {% include step.html n="5b" title="Or: solder the socket's wires to the cable" %}

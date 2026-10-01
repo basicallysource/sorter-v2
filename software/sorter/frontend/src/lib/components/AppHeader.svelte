@@ -343,6 +343,7 @@
 	items={[
 		{ href: '/', label: 'Dashboard' },
 		{ href: '/bins', label: 'Bins' },
+		{ href: '/3d', label: '3D' },
 		{ href: '/profiles', label: 'Profiles' },
 		{ href: '/records', label: 'Records' },
 		{ href: '/settings', label: 'Settings' }

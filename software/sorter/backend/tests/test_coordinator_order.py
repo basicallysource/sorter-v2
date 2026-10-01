@@ -47,6 +47,7 @@ class CoordinatorOrderTests(unittest.TestCase):
         )
         sorting_profile = SimpleNamespace(
             is_set_based=False,
+            setKitProgress=lambda tracker: None,
             set_inventories=None,
             reload=lambda: None,
         )
@@ -84,6 +85,7 @@ class CoordinatorOrderTests(unittest.TestCase):
         )
         sorting_profile = SimpleNamespace(
             is_set_based=False,
+            setKitProgress=lambda tracker: None,
             set_inventories=None,
             reload=lambda: None,
         )
@@ -121,6 +123,7 @@ class CoordinatorOrderTests(unittest.TestCase):
         )
         sorting_profile = SimpleNamespace(
             is_set_based=False,
+            setKitProgress=lambda tracker: None,
             set_inventories=None,
             reload=lambda: None,
         )

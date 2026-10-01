@@ -302,6 +302,11 @@ class InferenceWorker:
                 Detection(
                     bbox=bbox,
                     in_primary=in_primary,
+                    in_margin=(
+                        not in_primary
+                        and ch.exit_margin_mask is not None
+                        and bboxInsideMask(bbox, ch.exit_margin_mask)
+                    ),
                     secondary_zone_ids=sids,
                     sv_bt_track_id=tids.get(bbox),
                 )
@@ -656,10 +661,17 @@ class InferenceWorker:
                 )
                 attribute_ms = _now_ms() - attribute_t0
 
+                margin = self._channel_def.exit_margin_mask
+                on_channel = {tuple(int(v) for v in b[:4]) for b in bboxes}
+                in_margin = margin is not None and any(
+                    box not in on_channel and bboxInsideMask(box, margin)
+                    for box in (tuple(int(v) for v in b[:4]) for b in raw_bboxes_full)
+                )
                 state = ChannelState(
                     ts=frame.timestamp,
                     in_drop=in_drop,
                     in_exit=in_exit,
+                    in_margin=in_margin,
                     n_pieces=n_pieces,
                     in_precise=in_precise,
                     in_exit_majority=in_exit_majority,

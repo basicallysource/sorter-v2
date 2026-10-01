@@ -1,6 +1,8 @@
 <script lang="ts">
 	import { getBackendHttpBase, machineHttpBaseUrlFromWsUrl } from '$lib/backend';
 	import AppShell from '$lib/components/AppShell.svelte';
+	import ActiveProfileBinsModal from '$lib/components/profiles/ActiveProfileBinsModal.svelte';
+	import ActiveProfilePanel from '$lib/components/profiles/ActiveProfilePanel.svelte';
 	import ProfileApplyModal from '$lib/components/profiles/ProfileApplyModal.svelte';
 	import BsxSection from '$lib/components/profiles/BsxSection.svelte';
 	import LocalProfileCard from '$lib/components/profiles/LocalProfileCard.svelte';
@@ -8,6 +10,7 @@
 	import ProfileCardSkeleton from '$lib/components/profiles/ProfileCardSkeleton.svelte';
 	import ProfileDetailsModal from '$lib/components/profiles/ProfileDetailsModal.svelte';
 	import ProfilePagination from '$lib/components/profiles/ProfilePagination.svelte';
+	import RouteCheckPanel from '$lib/components/profiles/RouteCheckPanel.svelte';
 	import Alert from '$lib/components/ui/Alert.svelte';
 	import Button from '$lib/components/ui/Button.svelte';
 	import EmptyState from '$lib/components/ui/EmptyState.svelte';
@@ -27,6 +30,7 @@
 		uploadLocalProfile,
 		visibleVersions
 	} from '$lib/sorting-profiles/api';
+	import { newerVersion, ownFirst } from '$lib/sorting-profiles/bins';
 	import { sortingProfileStore } from '$lib/stores/sortingProfile.svelte';
 	import type {
 		HiveTargetLibrary,
@@ -75,6 +79,10 @@
 	let deletingFilename = $state<string | null>(null);
 	let pendingDelete = $state<LocalSortingProfile | null>(null);
 	let localDeleteOpen = $state(false);
+	let binsModalOpen = $state(false);
+	let metadataLoading = $state(false);
+	let metadataError = $state<string | null>(null);
+	let updating = $state(false);
 
 	function baseUrl(): string {
 		return (
@@ -176,6 +184,7 @@
 					targets: library.targets.map((t) => (t.id === targetId ? { ...t, ...result } : t))
 				};
 			}
+			forgetChangedDetails(targetId, result.profiles);
 		} catch (e: unknown) {
 			const message = e instanceof Error ? e.message : 'Failed to load profiles';
 			if (library) {
@@ -187,6 +196,29 @@
 		} finally {
 			const { [targetId]: _ignore, ...rest } = targetLoading;
 			targetLoading = rest;
+		}
+	}
+
+	// A profile that has a new version since its versions were loaded (an assistant
+	// saves them often) is loaded again, so a card never activates an old one.
+	function forgetChangedDetails(targetId: string, profiles: SortingProfileSummary[]) {
+		for (const profile of profiles) {
+			const key = detailKey(targetId, profile.id);
+			const known = detailCache[key];
+			if (
+				!known ||
+				(known.latest_version_number === profile.latest_version_number &&
+					known.latest_published_version_number === profile.latest_published_version_number)
+			) {
+				continue;
+			}
+			const { [key]: _detail, ...details } = detailCache;
+			detailCache = details;
+			const { [key]: _chosen, ...chosen } = selectedVersionIds;
+			selectedVersionIds = chosen;
+			versionDetailCache = Object.fromEntries(
+				Object.entries(versionDetailCache).filter(([k]) => !k.startsWith(`${key}:`))
+			);
 		}
 	}
 
@@ -333,6 +365,81 @@
 		}
 	}
 
+	// ─── The profile this machine runs ──────────────────────────────────
+
+	const hasActiveProfile = $derived(
+		Boolean(library?.local_profile?.path || library?.sync_state?.profile_name)
+	);
+
+	// The running profile, when it came from Hive and Hive has a newer version:
+	// the owner's own newest, anyone else's newest published.
+	const activeUpdate = $derived.by(() => {
+		const sync = library?.sync_state;
+		if (!library || !sync || sync.source === 'local' || !sync.profile_id || !sync.target_id) {
+			return null;
+		}
+		const target = library.targets.find((t) => t.id === sync.target_id);
+		const profile = target?.profiles.find((p) => p.id === sync.profile_id);
+		if (!target || !profile) return null;
+		const latest = newerVersion(profile, sync.version_number);
+		return latest == null ? null : { target, profile, latest, current: sync.version_number ?? 0 };
+	});
+
+	async function openActiveBins() {
+		binsModalOpen = true;
+		metadataLoading = true;
+		metadataError = null;
+		try {
+			await sortingProfileStore.reload(baseUrl());
+		} catch (e: unknown) {
+			metadataError = e instanceof Error ? e.message : 'Could not load the bins of this profile.';
+		} finally {
+			metadataLoading = false;
+		}
+	}
+
+	// Put Hive's newer version of the running profile in place. The bins keep what
+	// is in them: nothing is reset, unlike choosing another profile.
+	async function updateActiveProfile() {
+		const info = activeUpdate;
+		if (!info) return;
+		updating = true;
+		error = null;
+		success = null;
+		warning = null;
+		try {
+			const key = detailKey(info.target.id, info.profile.id);
+			// The versions are read again: an assistant may have saved this one since.
+			const detail = await fetchProfileDetail(baseUrl(), info.target.id, info.profile.id);
+			detailCache = { ...detailCache, [key]: detail };
+			const versions = visibleVersions(detail);
+			const version = versions.find((v) => v.version_number === info.latest) ?? versions[0];
+			if (!version) throw new Error('No version available for this profile.');
+			const payload = await applyProfile(
+				baseUrl(),
+				{
+					target_id: info.target.id,
+					profile_id: info.profile.id,
+					profile_name: info.profile.name,
+					version_id: version.id,
+					version_number: version.version_number ?? null,
+					version_label: version.label ?? null
+				},
+				{ keepBins: true }
+			);
+			success = `Updated ${info.profile.name} to v${version.version_number}. The bins kept what was in them.`;
+			if (payload.activation_error) {
+				warning = `Hive activation could not be confirmed: ${payload.activation_error}`;
+			}
+			await sortingProfileStore.reload(baseUrl());
+			await loadLibrary();
+		} catch (e: unknown) {
+			error = e instanceof Error ? e.message : 'Failed to update the sorting profile';
+		} finally {
+			updating = false;
+		}
+	}
+
 	function localProfiles(): LocalSortingProfile[] {
 		return library?.local_profiles ?? [];
 	}
@@ -454,6 +561,7 @@
 			profile.description,
 			profile.profile_type,
 			profile.visibility,
+			profile.is_default ? 'Hive default' : null,
 			...(profile.tags ?? []),
 			owner?.display_name,
 			owner?.github_login,
@@ -466,8 +574,9 @@
 
 	function allProfileEntries(): SortingProfileCardEntry[] {
 		if (!library) return [];
-		return library.targets.flatMap((target) =>
-			target.profiles.map((profile) => ({ target, profile }))
+		// The person's own profiles first, then Hive's defaults.
+		return ownFirst(
+			library.targets.flatMap((target) => target.profiles.map((profile) => ({ target, profile })))
 		);
 	}
 
@@ -671,6 +780,7 @@
 		detailsModalTargetId = null;
 		detailsModalProfileId = null;
 		void loadLibrary();
+		void sortingProfileStore.load(baseUrl()).catch(() => {});
 	});
 
 	// Auto-load versions whenever the visible card set changes.
@@ -682,6 +792,7 @@
 
 	onMount(() => {
 		void loadLibrary();
+		void sortingProfileStore.load(baseUrl()).catch(() => {});
 		// Poll the cheap local tier often (active-profile + local-profile
 		// changes); refresh the expensive Hive tier on a slower cadence to
 		// spare the CPU-bound backend.
@@ -729,6 +840,21 @@
 			onchange={handleUploadFile}
 		/>
 
+		{#if hasActiveProfile}
+			<div class="grid items-start gap-(--gap-panels) lg:grid-cols-2">
+				<ActiveProfilePanel
+					syncState={library?.sync_state ?? null}
+					localProfile={library?.local_profile ?? null}
+					metadata={sortingProfileStore.data}
+					update={activeUpdate ? { latest: activeUpdate.latest, current: activeUpdate.current } : null}
+					{updating}
+					onUpdate={() => void updateActiveProfile()}
+					onOpenBins={() => void openActiveBins()}
+				/>
+				<RouteCheckPanel baseUrl={baseUrl()} />
+			</div>
+		{/if}
+
 		<BsxSection baseUrl={baseUrl()} />
 
 		<section class="flex flex-col gap-3">
@@ -757,6 +883,7 @@
 							activating={localApplyingFilename === profile.filename}
 							deleting={deletingFilename === profile.filename}
 							onActivate={() => requestApplyLocal(profile)}
+							onOpenBins={() => void openActiveBins()}
 							onDelete={() => {
 								pendingDelete = profile;
 								localDeleteOpen = true;
@@ -861,6 +988,13 @@
 		? selectedVersionIdFor(detailsModalTargetId, detailsModalProfileId)
 		: null}
 	onVersionChange={(versionId) => void handleDetailsModalVersionChange(versionId)}
+/>
+
+<ActiveProfileBinsModal
+	bind:open={binsModalOpen}
+	metadata={sortingProfileStore.data}
+	loading={metadataLoading}
+	error={metadataError}
 />
 
 <Modal bind:open={localApplyOpen} title="Activate the local profile">

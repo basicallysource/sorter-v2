@@ -430,7 +430,16 @@ class TwoPieceClassificationChannel(Rev01BaseState):
             self.logger.info(f"{LOG_TAG} retired piece track={tid}")
 
     def _flagDoubleFeeds(self, state) -> None:
-        drop = [tp for tp in self._pieces.values() if tp.zone == _ZONE_DROP]
+        # Only pieces seen in this frame count. A piece that bounces as it lands
+        # often settles under a new track id, and its old id stays here (last
+        # seen in the drop zone) until it retires; counting that read one piece
+        # as two and sent it to misc.
+        seen = {po.sv_bt_track_id for po in getattr(state, "pieces", ())}
+        drop = [
+            tp
+            for tp in self._pieces.values()
+            if tp.zone == _ZONE_DROP and tp.track_id in seen
+        ]
         frame_ts = float(getattr(state, "ts", 0.0))
         if frame_ts != self._multi_drop_last_ts:
             self._multi_drop_last_ts = frame_ts
@@ -515,6 +524,10 @@ class TwoPieceClassificationChannel(Rev01BaseState):
         raw = None
         for tp in list(self._pieces.values()):
             if tp.zone != _ZONE_DROP or tp.capture_done or tp.double_feed:
+                continue
+            if tp.last_seen != now:
+                # Not in this frame: its box is where it was, and a crop of it now
+                # may be empty platter.
                 continue
             if raw is None:
                 raw = perception_service.read_bboxes_and_frame(4)
@@ -673,10 +686,29 @@ class TwoPieceClassificationChannel(Rev01BaseState):
         if stopped:
             gap = state.exit_com_forward_to_center_deg
             if gap is not None and gap > self.ctx.config.discharge_center_tolerance_deg:
-                move = min(self.ctx.config.discharge_max_move_output_deg, gap)
+                # One move for the whole cycle: far enough to drop the head, and
+                # to bring the piece being staged to the holding band, so the
+                # staging that follows has nothing left to do.
+                move = max(gap, self._stageGap())
+                move = min(self.ctx.config.discharge_max_move_output_deg, move)
                 self.startOutputMove(
                     C4_TRAVEL_SIGN * move, self.ctx.config.discharge_speed_usteps_per_s
                 )
+
+    def _stageGap(self) -> float:
+        """How far the piece being staged is from the start of the holding band
+        (the precise zone); 0 when unknown."""
+        target = self._stage_target
+        if target is None or target.gap_to_exit is None:
+            return 0.0
+        perception_service = getattr(self.gc, "perception_service", None)
+        channels = perception_service.channels() if perception_service is not None else {}
+        channel = channels.get(4)
+        if channel is None or not channel.precise_sections:
+            return 0.0
+        from perception.channel import SECTION_DEG
+
+        return max(0.0, float(target.gap_to_exit) - len(channel.precise_sections) * SECTION_DEG)
 
     def _staging(self, state, stopped: bool, now: float) -> None:
         # Advance the platter until the DROP ZONE IS CLEAR — i.e. the new piece and

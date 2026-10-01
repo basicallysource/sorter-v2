@@ -44,7 +44,16 @@ Lucide, and each lives in one component.
 | Rename, edit                           | `pencil`                                                  |
 | Delete                                 | `trash-2`                                                 |
 | Duplicate, copy                        | `copy`                                                    |
+| Fork: a profile of your own from one   | `git-fork`                                                |
 | Download a file                        | `download`                                                |
+| Upload a file or a picture             | `upload`                                                  |
+| Publish, public                        | `globe`                                                   |
+| Save                                   | `save`                                                    |
+| Save to your library                   | `bookmark-plus`                                           |
+| Swap for another                       | `replace`                                                 |
+| Move up, move down in a list           | `arrow-up`, `arrow-down`                                  |
+| Drag to reorder                        | `grip-vertical`                                           |
+| Turn on, turn off                      | `toggle-right`, `toggle-left`                             |
 | Rescan, reload                         | `refresh-cw`                                              |
 | Settings                               | `settings`                                                |
 | Home the machine                       | `house`                                                   |
@@ -58,15 +67,22 @@ Lucide, and each lives in one component.
 | Storage layers                         | `layers`                                                  |
 | Hive                                   | `cloud`                                                   |
 | Connect                                | `plug`                                                    |
+| An API key, a token                    | `key-round`                                               |
+| AI, an assistant                       | `sparkles`                                                |
+| Send a message                         | `send`                                                    |
+| A kit                                  | `boxes`                                                   |
+| A profile's rules, a filter            | `funnel`                                                  |
+| A picture                              | `image`                                                   |
+| Where a piece goes                     | `corner-down-right`                                       |
 | Search                                 | `search`                                                  |
 | Opens a list below                     | `chevron-down`                                            |
 | Opens a section; jogs clockwise        | `chevron-right`                                           |
 | Jogs counterclockwise                  | `chevron-left`                                            |
 | Back to where you were                 | `arrow-left`                                              |
 | Goes somewhere else                    | `arrow-right`                                             |
-| Leaves the app                         | `arrow-up-right`                                          |
+| Leaves the app, or opens a new tab     | `arrow-up-right`                                          |
 | A button that opens a menu             | `ellipsis`, three dots                                    |
-| Chosen, done                           | `check`                                                   |
+| Chosen, done, yes                      | `check`                                                   |
 | Light mode, dark mode                  | `sun`, `moon`                                             |
 | Info, success, warning, danger notices | `info`, `circle-check`, `triangle-alert`, `octagon-alert` |
 

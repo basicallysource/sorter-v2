@@ -13,6 +13,7 @@ import MessageSquareWarning from '@lucide/svelte/icons/message-square-warning';
 import Hourglass from '@lucide/svelte/icons/hourglass';
 import Signpost from '@lucide/svelte/icons/signpost';
 import Table from '@lucide/svelte/icons/table';
+import Boxes from '@lucide/svelte/icons/boxes';
 import Gauge from '@lucide/svelte/icons/gauge';
 import Settings from '@lucide/svelte/icons/settings';
 import BookOpen from '@lucide/svelte/icons/book-open';
@@ -43,7 +44,8 @@ export const groups = [
 			{ href: '/notices', label: 'Notices', icon: MessageSquareWarning },
 			{ href: '/loading', label: 'Loading', icon: Hourglass },
 			{ href: '/navigation', label: 'Navigation', icon: Signpost },
-			{ href: '/data', label: 'Data', icon: Table }
+			{ href: '/data', label: 'Data', icon: Table },
+			{ href: '/profiles', label: 'Profiles', icon: Boxes }
 		]
 	},
 	{

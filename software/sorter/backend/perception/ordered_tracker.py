@@ -250,7 +250,10 @@ class OrderedChannelTracker:
         # Pieces only ever move FORWARD (gap shrinks toward the exit). A detection
         # whose gap grew beyond a small jitter tolerance moved backward -> cannot
         # be this track. A large forward jump is free (that is the whole point).
-        if det.gap - tr.gap > cfg.back_tol_deg:
+        # A piece still landing (both in the drop zone) bounces back as well, and
+        # giving it a new id there loses what it was photographed as.
+        landing = tr.zone == _DROP_ZONE and det.zone == _DROP_ZONE
+        if det.gap - tr.gap > (cfg.drop_back_tol_deg if landing else cfg.back_tol_deg):
             return _INF
         appearance = (
             cfg.color_weight * _color_dist(tr.color, det.color)

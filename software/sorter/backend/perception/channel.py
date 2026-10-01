@@ -43,6 +43,10 @@ CHANNEL_REGISTRY: dict[int, tuple[str, str, str]] = {
 }
 
 
+# The feeder channels: their exits drop onto the next channel.
+FEEDER_CHANNELS: frozenset[int] = frozenset({2, 3})
+
+
 # Zone-type vocabulary for secondary zones. A secondary zone is a labeled
 # polygon a camera sees that belongs to ANOTHER channel (e.g. the carousel
 # camera can see C3's exit). It is display-/tag-only: it never feeds into the
@@ -102,6 +106,10 @@ class ChannelDef:
     # the exit-only arc instead of the near edge (see ``arcs._leadingExitApproach``).
     # Set per channel from ``REVERSE_TRAVEL_CHANNELS``; C2/C3 stay forward.
     reverse: bool = False
+    # A band just past the exit's edge, across the exit's angles (feeder
+    # channels). A detection wholly inside it is kept and shown, but it is not
+    # on this channel: the piece has left it.
+    exit_margin_mask: np.ndarray | None = None
 
     @property
     def has_zones(self) -> bool:
@@ -347,7 +355,39 @@ def buildChannelDef(
         precise_sections=precise_sections,
         secondary_zones=secondary_zones,
         reverse=channel_id in REVERSE_TRAVEL_CHANNELS,
+        exit_margin_mask=(
+            _exitMarginMask(mask, center, exit_arc)
+            if channel_id in FEEDER_CHANNELS and exit_arc is not None
+            else None
+        ),
     )
+
+
+# How far past the exit's edge the margin reaches, as a share of the frame's width.
+EXIT_MARGIN_FRACTION = 0.05
+
+
+def _exitMarginMask(
+    mask: np.ndarray,
+    center: tuple[float, float],
+    exit_arc: tuple[float, float],
+) -> np.ndarray:
+    h, w = mask.shape[:2]
+    px = max(3, int(round(EXIT_MARGIN_FRACTION * w)))
+    grown = cv2.dilate(mask, np.ones((2 * px + 1, 2 * px + 1), np.uint8))
+    start = exit_arc[0]
+    span = (exit_arc[1] - exit_arc[0]) % 360.0
+    reach = float(w + h)
+    wedge_pts = [center] + [
+        (
+            center[0] + reach * np.cos(np.radians(start + span * i / 16)),
+            center[1] + reach * np.sin(np.radians(start + span * i / 16)),
+        )
+        for i in range(17)
+    ]
+    wedge = np.zeros_like(mask)
+    cv2.fillPoly(wedge, [np.asarray(wedge_pts, dtype=np.int32)], 255)
+    return cv2.bitwise_and(cv2.bitwise_and(grown, cv2.bitwise_not(mask)), wedge)
 
 
 def channelDefFromBlob(

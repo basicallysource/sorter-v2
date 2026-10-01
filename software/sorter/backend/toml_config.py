@@ -247,84 +247,21 @@ def setMachineNickname(nickname: str | None) -> None:
 _INCIDENT_MODE_OFF = "off"
 _INCIDENT_MODE_MANUAL = "manual"
 _INCIDENT_MODE_AUTOMATIC = "automatic"
-_INCIDENT_EXIT_STUCK = "exit_stuck"
-_INCIDENT_KIND_ALIASES: dict[str, str] = {
-    "classification_exit_release": _INCIDENT_EXIT_STUCK,
-    "channel_exit_stuck": _INCIDENT_EXIT_STUCK,
-    "classification_exit_stuck": _INCIDENT_EXIT_STUCK,
-}
-# Only kinds that can actually fire on the default codepath
-# (PULSE_PERCEPTION_REV01 feeder + TWO_PIECE_STATE_MACHINE_REV01 classification
-# + distribution). Legacy-only kinds (dropzone stuck, bulk feeder, DYNAMIC
-# classification fallbacks, ...) get no policy row: their publishers never run
-# on the default setup.
-_INCIDENT_FEEDER_JAM = "feeder_jam"
-_INCIDENT_HANDLING_DEFAULTS: dict[str, str] = {
-    _INCIDENT_EXIT_STUCK: _INCIDENT_MODE_AUTOMATIC,
-    _INCIDENT_FEEDER_JAM: _INCIDENT_MODE_AUTOMATIC,
-    # Off by default: the chute-jam check is a move-budget timeout, and on
-    # deployed machines it has fired on stalls unrelated to the chute
-    # (#594). StallGuard still covers a real mechanical jam.
-    "distribution_chute_jam": _INCIDENT_MODE_OFF,
-    "distribution_servo_bus_offline": _INCIDENT_MODE_MANUAL,
-    "distribution_no_bin_available": _INCIDENT_MODE_MANUAL,
-}
-_INCIDENT_DEFINITIONS: tuple[dict[str, Any], ...] = (
-    {
-        "kind": _INCIDENT_EXIT_STUCK,
-        "label": "Exit Stuck",
-        "scope": "C4",
-        "description": "The classification channel stopped making progress with a piece on it.",
-        "off_label": "Do not raise exit-stuck incidents",
-        "manual_label": "Operator clears the stuck piece",
-        "automatic_label": "Rotate the channel forward until it clears",
-        "automatic_supported": True,
-    },
-    {
-        "kind": _INCIDENT_FEEDER_JAM,
-        "label": "Feeder Jam",
-        "scope": "Feeder",
-        "description": "A feeder channel keeps trying to advance a piece that will not move — it is hung at the previous channel's hand-off.",
-        "off_label": "Do not detect feeder hand-off jams",
-        "manual_label": "Call the operator as soon as a channel is stuck",
-        "automatic_label": "Nudge the upstream channel to free it, then call the operator",
-        "automatic_supported": True,
-    },
-    {
-        "kind": "distribution_chute_jam",
-        "label": "Chute Jam",
-        "scope": "Distribution",
-        "description": "The distribution chute did not finish moving.",
-        "off_label": "Use hardware alert only",
-        "manual_label": "Operator clears the chute",
-        "automatic_label": "Automatic chute recovery",
-        "automatic_supported": False,
-    },
-    {
-        "kind": "distribution_servo_bus_offline",
-        "label": "Servo Bus Offline",
-        "scope": "Distribution",
-        "description": "The distribution servo bus is not responding.",
-        "off_label": "Use hardware alert only",
-        "manual_label": "Operator restores the servo bus",
-        "automatic_label": "Automatic servo bus recovery",
-        "automatic_supported": False,
-    },
-    {
-        "kind": "distribution_no_bin_available",
-        "label": "No Bin Available",
-        "scope": "Distribution",
-        "description": "No matching bin is available for the piece.",
-        "off_label": "Allow bottom-tray passthrough",
-        "manual_label": "Operator assigns capacity or approves passthrough",
-        "automatic_label": "Automatic no-bin passthrough",
-        "automatic_supported": False,
-    },
-)
+# Every incident kind is defined once, in incidents/kinds.py; the ones with a
+# default handling are the ones this settings section offers.
+def _incidentRegistry():
+    from incidents import ALIASES, KINDS
+
+    return KINDS, ALIASES
+
+
+def _incidentHandlingDefaults() -> dict[str, str]:
+    kinds, _aliases = _incidentRegistry()
+    return {k: v.default_handling for k, v in kinds.items() if v.default_handling}
+
 
 _DASHBOARD_DEFAULTS: dict[str, Any] = {
     "show_sample_capture": False,
-    "incident_handling": dict(_INCIDENT_HANDLING_DEFAULTS),
 }
 
 
@@ -334,14 +271,14 @@ def _canonicalIncidentKind(kind: Any) -> str | None:
     normalized = kind.strip()
     if not normalized:
         return None
-    return _INCIDENT_KIND_ALIASES.get(normalized, normalized)
+    return _incidentRegistry()[1].get(normalized, normalized)
 
 
 def _sanitizeIncidentHandling(value: Any) -> dict[str, str]:
     if not isinstance(value, dict):
         return {}
     sanitized: dict[str, str] = {}
-    supported_kinds = set(_INCIDENT_HANDLING_DEFAULTS.keys())
+    supported_kinds = set(_incidentHandlingDefaults().keys())
     for kind, mode in value.items():
         canonical_kind = _canonicalIncidentKind(kind)
         if canonical_kind not in supported_kinds:
@@ -352,7 +289,21 @@ def _sanitizeIncidentHandling(value: Any) -> dict[str, str]:
 
 
 def incidentDefinitions() -> list[dict[str, Any]]:
-    return [dict(entry) for entry in _INCIDENT_DEFINITIONS]
+    kinds, _aliases = _incidentRegistry()
+    return [
+        {
+            "kind": k.kind,
+            "label": k.title,
+            "scope": k.scope,
+            "description": k.description,
+            "off_label": k.off_label,
+            "manual_label": k.manual_label,
+            "automatic_label": k.automatic_label or "",
+            "automatic_supported": k.automatic_label is not None,
+        }
+        for k in kinds.values()
+        if k.default_handling
+    ]
 
 
 # The control loop asks how each incident is handled on every tick, so the map
@@ -374,7 +325,7 @@ def incidentHandlingMode(kind: str) -> str:
     mode = cached[2].get(canonical_kind)
     if mode in {_INCIDENT_MODE_OFF, _INCIDENT_MODE_MANUAL, _INCIDENT_MODE_AUTOMATIC}:
         return str(mode)
-    return _INCIDENT_HANDLING_DEFAULTS.get(canonical_kind, _INCIDENT_MODE_MANUAL)
+    return _incidentHandlingDefaults().get(canonical_kind, _INCIDENT_MODE_MANUAL)
 
 
 def incidentHandlingAutomatic(kind: str) -> bool:
@@ -391,14 +342,14 @@ def getDashboardConfig() -> dict[str, Any]:
     section = config.get("dashboard")
     merged = {
         "show_sample_capture": bool(_DASHBOARD_DEFAULTS["show_sample_capture"]),
-        "incident_handling": dict(_INCIDENT_HANDLING_DEFAULTS),
+        "incident_handling": _incidentHandlingDefaults(),
         "incident_definitions": incidentDefinitions(),
     }
     if isinstance(section, dict):
         value = section.get("show_sample_capture")
         if isinstance(value, bool):
             merged["show_sample_capture"] = value
-        handling = dict(_INCIDENT_HANDLING_DEFAULTS)
+        handling = _incidentHandlingDefaults()
         handling.update(_sanitizeIncidentHandling(section.get("incident_handling")))
         merged["incident_handling"] = handling
     return merged
@@ -419,7 +370,7 @@ def setDashboardConfig(updates: dict[str, Any]) -> dict[str, Any]:
                 if isinstance(existing_config.get("incident_handling"), dict)
                 else {}
             )
-            merged_handling = dict(_INCIDENT_HANDLING_DEFAULTS)
+            merged_handling = _incidentHandlingDefaults()
             merged_handling.update(_sanitizeIncidentHandling(existing))
             merged_handling.update(handling)
             sanitized["incident_handling"] = merged_handling

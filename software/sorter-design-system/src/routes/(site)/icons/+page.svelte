@@ -35,6 +35,24 @@
 	import Plug from '@lucide/svelte/icons/plug';
 	import RotateCw from '@lucide/svelte/icons/rotate-cw';
 	import Crosshair from '@lucide/svelte/icons/crosshair';
+	import GitFork from '@lucide/svelte/icons/git-fork';
+	import Upload from '@lucide/svelte/icons/upload';
+	import Globe from '@lucide/svelte/icons/globe';
+	import Save from '@lucide/svelte/icons/save';
+	import BookmarkPlus from '@lucide/svelte/icons/bookmark-plus';
+	import Replace from '@lucide/svelte/icons/replace';
+	import ArrowUp from '@lucide/svelte/icons/arrow-up';
+	import ArrowDown from '@lucide/svelte/icons/arrow-down';
+	import GripVertical from '@lucide/svelte/icons/grip-vertical';
+	import ToggleRight from '@lucide/svelte/icons/toggle-right';
+	import ToggleLeft from '@lucide/svelte/icons/toggle-left';
+	import KeyRound from '@lucide/svelte/icons/key-round';
+	import Sparkles from '@lucide/svelte/icons/sparkles';
+	import Send from '@lucide/svelte/icons/send';
+	import Boxes from '@lucide/svelte/icons/boxes';
+	import Funnel from '@lucide/svelte/icons/funnel';
+	import ImageIcon from '@lucide/svelte/icons/image';
+	import CornerDownRight from '@lucide/svelte/icons/corner-down-right';
 	import PageHeader from '$lib/site/PageHeader.svelte';
 	import SiteSection from '$lib/site/SiteSection.svelte';
 	import Specimen from '$lib/site/Specimen.svelte';
@@ -47,7 +65,18 @@
 		{ icon: Pencil, name: 'pencil', means: 'Rename, edit' },
 		{ icon: Trash, name: 'trash-2', means: 'Delete' },
 		{ icon: Copy, name: 'copy', means: 'Duplicate, copy' },
+		{ icon: GitFork, name: 'git-fork', means: 'Fork: a profile of your own from one' },
 		{ icon: Download, name: 'download', means: 'Download a file' },
+		{ icon: Upload, name: 'upload', means: 'Upload a file or a picture' },
+		{ icon: Globe, name: 'globe', means: 'Publish, public' },
+		{ icon: Save, name: 'save', means: 'Save' },
+		{ icon: BookmarkPlus, name: 'bookmark-plus', means: 'Save to your library' },
+		{ icon: Replace, name: 'replace', means: 'Swap for another' },
+		{ icon: ArrowUp, name: 'arrow-up', means: 'Move up in a list' },
+		{ icon: ArrowDown, name: 'arrow-down', means: 'Move down in a list' },
+		{ icon: GripVertical, name: 'grip-vertical', means: 'Drag to reorder' },
+		{ icon: ToggleRight, name: 'toggle-right', means: 'Turn on' },
+		{ icon: ToggleLeft, name: 'toggle-left', means: 'Turn off' },
 		{ icon: RefreshCw, name: 'refresh-cw', means: 'Rescan, reload (never spun)' },
 		{ icon: Settings, name: 'settings', means: 'Settings' },
 		{ icon: House, name: 'house', means: 'Home the machine' },
@@ -62,15 +91,22 @@
 		{ icon: Layers, name: 'layers', means: 'Storage layers' },
 		{ icon: Cloud, name: 'cloud', means: 'Hive' },
 		{ icon: Plug, name: 'plug', means: 'Connect' },
+		{ icon: KeyRound, name: 'key-round', means: 'An API key, a token' },
+		{ icon: Sparkles, name: 'sparkles', means: 'AI, an assistant' },
+		{ icon: Send, name: 'send', means: 'Send a message' },
+		{ icon: Boxes, name: 'boxes', means: 'A kit' },
+		{ icon: Funnel, name: 'funnel', means: "A profile's rules, a filter" },
+		{ icon: ImageIcon, name: 'image', means: 'A picture' },
+		{ icon: CornerDownRight, name: 'corner-down-right', means: 'Where a piece goes' },
 		{ icon: Search, name: 'search', means: 'Search' },
 		{ icon: ChevronDown, name: 'chevron-down', means: 'Opens a list below' },
 		{ icon: ChevronRight, name: 'chevron-right', means: 'Opens a section, jogs clockwise' },
 		{ icon: ChevronLeft, name: 'chevron-left', means: 'Jogs counterclockwise' },
 		{ icon: ArrowLeft, name: 'arrow-left', means: 'Back to where you were' },
 		{ icon: ArrowRight, name: 'arrow-right', means: 'Goes somewhere else' },
-		{ icon: ArrowUpRight, name: 'arrow-up-right', means: 'Leaves the app' },
+		{ icon: ArrowUpRight, name: 'arrow-up-right', means: 'Leaves the app, or opens a new tab' },
 		{ icon: Ellipsis, name: 'ellipsis', means: 'A button that opens a menu (three dots)' },
-		{ icon: Check, name: 'check', means: 'Chosen, done' },
+		{ icon: Check, name: 'check', means: 'Chosen, done, yes' },
 		{ icon: Sun, name: 'sun', means: 'Light mode' },
 		{ icon: Moon, name: 'moon', means: 'Dark mode' },
 		{ icon: Info, name: 'info', means: 'An info notice' },

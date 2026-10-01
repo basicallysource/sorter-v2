@@ -4,6 +4,7 @@ from collections import OrderedDict
 from typing import Any
 
 import db
+import incidents
 
 MAX_TIMING_SAMPLES = 5000
 MAX_STATE_TIMELINE_EVENTS = 5000
@@ -827,6 +828,7 @@ class RuntimeStatsCollector:
                 else []
             ),
             "active_incident": dict(self._active_incident) if self._active_incident else None,
+            "incident_card": incidents.describe(self._active_incident),
         }
         if live:
             live_part["state_machines"] = {

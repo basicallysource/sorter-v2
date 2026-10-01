@@ -88,6 +88,62 @@ class HiveClient:
         (id/name/rgb/is_trans) for the machine's color-correction dropdown."""
         return self._request("GET", "/api/machine/bricklink-colors", timeout=(2, 8))
 
+    # --- Sorting profiles ---------------------------------------------------
+    # What this client runs, named to Hive so it leaves out profiles that need
+    # more: the compiled program (not only the flat part map), sorting leftover
+    # pieces by color, and kits that pass pieces on once they have enough.
+    PROFILE_FEATURES = ("program", "color_fallback", "kit_cascade")
+
+    def profile_library(self) -> dict:
+        """GET /api/machine/profiles/library -- the profiles this machine may
+        run (its owner's, those saved to their library, Hive's defaults) and
+        what it is assigned."""
+        return self._request(
+            "GET",
+            "/api/machine/profiles/library",
+            params={"features": ",".join(self.PROFILE_FEATURES)},
+            timeout=20,
+        )
+
+    def profile_detail(self, profile_id: str, version_id: str | None = None) -> dict:
+        """GET /api/machine/profiles/{id} -- a profile, its versions, and one
+        version's rules and bins (the latest the machine may use by default)."""
+        params = {"version_id": version_id} if version_id else None
+        return self._request("GET", f"/api/machine/profiles/{profile_id}", params=params, timeout=20)
+
+    def assign_profile(self, profile_id: str, version_id: str) -> dict:
+        """PUT /api/machine/profile-assignment -- record what this machine runs."""
+        return self._request(
+            "PUT",
+            "/api/machine/profile-assignment",
+            json={"profile_id": profile_id, "version_id": version_id},
+            timeout=20,
+        )
+
+    def profile_artifact(self, version_id: str) -> dict:
+        """GET /api/machine/profiles/versions/{id}/artifact -- a version as
+        this client runs it: the compiled program (versions compiled before the
+        program come as their flat part map)."""
+        body = self._request(
+            "GET",
+            f"/api/machine/profiles/versions/{version_id}/artifact",
+            params={"format": "program", "features": ",".join(self.PROFILE_FEATURES)},
+            timeout=60,
+        )
+        artifact = body.get("artifact") if isinstance(body, dict) else None
+        if not isinstance(artifact, dict):
+            raise HiveError(502, "Hive returned no profile artifact")
+        return artifact
+
+    def report_profile_activation(self, version_id: str, artifact_hash: str | None) -> dict:
+        """POST /api/machine/profile-activation -- this machine now runs it."""
+        return self._request(
+            "POST",
+            "/api/machine/profile-activation",
+            json={"version_id": version_id, "artifact_hash": artifact_hash},
+            timeout=20,
+        )
+
     def upload_sample(
         self,
         source_session_id: str,

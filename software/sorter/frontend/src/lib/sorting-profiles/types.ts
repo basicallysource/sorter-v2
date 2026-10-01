@@ -1,3 +1,5 @@
+import type { Bin } from '$lib/components/ui/ProfileBin.svelte';
+
 export type SortingProfileRuleSummary = {
 	name: string;
 	rule_type: 'set' | 'filter' | string;
@@ -14,6 +16,17 @@ export type SortingProfileRuleSummary = {
 	child_count: number;
 };
 
+// A version's first bins, for a card that shows a profile by them. Versions
+// compiled before bins were described have none.
+export type ProfileBinSummary = {
+	id: string;
+	name: string | null;
+	kind: 'rule' | 'kit' | 'fallback' | 'default' | null;
+	image_url: string | null;
+	rgb: string | null;
+	part_count: number | null;
+};
+
 export type SortingProfileVersionSummary = {
 	id: string;
 	version_number: number;
@@ -24,6 +37,15 @@ export type SortingProfileVersionSummary = {
 	coverage_ratio: number | null;
 	created_at: string;
 	rules_summary?: SortingProfileRuleSummary[];
+	bins?: ProfileBinSummary[];
+	// "web", "api" (an API key, named in created_via_key_name), "assistant" or "system".
+	created_via?: string | null;
+	created_via_key_name?: string | null;
+};
+
+export type ProfileWarning = {
+	rule_id: string | null;
+	message: string;
 };
 
 export type SortingProfileCondition = {
@@ -74,12 +96,17 @@ export type SortingProfileVersionDetail = SortingProfileVersionSummary & {
 	rules: SortingProfileRule[];
 	fallback_mode: SortingProfileFallbackMode;
 	compiled_stats?: {
-		matched?: number;
 		total_parts?: number;
+		// Parts that go to a bin of their own rather than to Everything else.
+		sorted?: number;
+		matched?: number;
 		unmatched?: number;
-		per_category?: Record<string, number>;
 	} | null;
-	categories?: Record<string, Record<string, unknown>>;
+	// Every bin the version fills, by category, and the order to show them in.
+	// A version compiled before bins were described has only a name for each.
+	categories?: Record<string, Bin>;
+	category_order?: string[];
+	warnings?: ProfileWarning[];
 };
 
 export type SortingProfileSummary = {
@@ -92,6 +119,9 @@ export type SortingProfileSummary = {
 	tags: string[];
 	latest_version_number?: number | null;
 	latest_published_version_number?: number | null;
+	// Hive's own profiles, which every machine gets.
+	is_default?: boolean;
+	default_rank?: number | null;
 	fork_count?: number;
 	source?: unknown;
 	owner?: {

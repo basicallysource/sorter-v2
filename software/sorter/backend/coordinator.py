@@ -77,6 +77,7 @@ class Coordinator:
                 self.sorting_profile.set_inventories,
                 self.sorting_profile.artifact_hash,
             )
+        self.sorting_profile.setKitProgress(self.gc.set_progress_tracker)
 
         try:
             from server.set_progress_sync import getSetProgressSyncWorker

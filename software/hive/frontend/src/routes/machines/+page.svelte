@@ -12,14 +12,13 @@
 	import FileText from '@lucide/svelte/icons/file-text';
 	import Ellipsis from '@lucide/svelte/icons/ellipsis';
 	import Plus from '@lucide/svelte/icons/plus';
-	import Copy from '@lucide/svelte/icons/copy';
-	import Check from '@lucide/svelte/icons/check';
 	import AnalyticsDashboard from '$lib/components/charts/AnalyticsDashboard.svelte';
 	import PageHeader from '$lib/components/PageHeader.svelte';
 	import Alert from '$lib/components/Alert.svelte';
 	import Badge from '$lib/components/Badge.svelte';
 	import Button from '$lib/components/Button.svelte';
 	import Card from '$lib/components/Card.svelte';
+	import CopyField from '$lib/components/CopyField.svelte';
 	import Panel from '$lib/components/Panel.svelte';
 	import EmptyState from '$lib/components/EmptyState.svelte';
 	import Field from '$lib/components/Field.svelte';
@@ -44,7 +43,6 @@
 
 	let showTokenModal = $state(false);
 	let tokenDisplay = $state('');
-	let tokenCopied = $state(false);
 
 	let showEditModal = $state(false);
 	let editMachine = $state<Machine | null>(null);
@@ -100,7 +98,6 @@
 			newName = '';
 			newDescription = '';
 			tokenDisplay = result.raw_token;
-			tokenCopied = false;
 			showTokenModal = true;
 		} catch (err) {
 			error = (err as { error?: string }).error || 'Failed to create machine';
@@ -113,7 +110,6 @@
 		try {
 			const result = await api.rotateToken(machine.id);
 			tokenDisplay = result.raw_token;
-			tokenCopied = false;
 			showTokenModal = true;
 		} catch (err) {
 			error = (err as { error?: string }).error || 'Failed to rotate token';
@@ -212,11 +208,6 @@
 	function formatNumber(n: number): string {
 		if (n >= 1000) return `${(n / 1000).toFixed(1).replace(/\.0$/, '')}k`;
 		return n.toString();
-	}
-
-	async function copyToken() {
-		await navigator.clipboard.writeText(tokenDisplay);
-		tokenCopied = true;
 	}
 </script>
 
@@ -386,16 +377,16 @@
 	{/snippet}
 </Modal>
 
-<Modal bind:open={showTokenModal} title="Machine token">
-	<div class="flex flex-col gap-4">
-		<Alert tone="warning">Save this token now. It will not be shown again.</Alert>
-		<div class="flex items-center gap-2">
-			<code class="min-w-0 flex-1 rounded-control bg-well px-3 py-2 font-mono text-sm break-all">{tokenDisplay}</code>
-			<Button icon={tokenCopied ? Check : Copy} onclick={copyToken}>{tokenCopied ? 'Copied' : 'Copy'}</Button>
-		</div>
-	</div>
+<!-- Wide, so the token fits on one line. -->
+<Modal bind:open={showTokenModal} title="Machine token" size="lg" onclose={() => (tokenDisplay = '')}>
+	<CopyField
+		name="machine token"
+		value={tokenDisplay}
+		mono
+		note="Hive shows the token only now. The machine needs it to send its pieces and samples here."
+	/>
 	{#snippet footer()}
-		<Button variant="primary" onclick={() => (showTokenModal = false)}>Done</Button>
+		<Button onclick={() => (showTokenModal = false)}>Done</Button>
 	{/snippet}
 </Modal>
 

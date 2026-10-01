@@ -5,7 +5,7 @@ from __future__ import annotations
 import os
 import shutil
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List
 from uuid import uuid4
 
 import cv2
@@ -25,6 +25,7 @@ from perception.overlay import drawChannelZones
 from server import shared_state
 from server.classification_training import TRAINING_ROOT, getClassificationTrainingManager
 from server.machine_naming import display_name_from_hostname, random_display_name
+from server.routers.sorting_profiles import start_first_default_profile_if_none
 from server.routers.tailscale import current_hostname
 from toml_config import getDetectionConfig, getMachineNickname, setDetectionConfig
 from vision.detection_registry import (
@@ -226,16 +227,6 @@ def perception_debug_fullframe(channel_id: int):
 
 SUPPORTED_API_KEY_PROVIDERS = ("openrouter",)
 FEEDER_DETECTION_ROLES = ("c_channel_2", "c_channel_3")
-EXIT_STUCK_INCIDENT_KIND = "exit_stuck"
-FEEDER_JAM_INCIDENT_KIND = "feeder_jam"
-DISTRIBUTION_CHUTE_JAM_INCIDENT_KIND = "distribution_chute_jam"
-DISTRIBUTION_SERVO_BUS_OFFLINE_INCIDENT_KIND = "distribution_servo_bus_offline"
-DISTRIBUTION_NO_BIN_AVAILABLE_INCIDENT_KIND = "distribution_no_bin_available"
-CLASSIFICATION_UNRESOLVED_INCIDENT_KIND = "classification_unresolved"
-CLASSIFICATION_MULTI_DROP_COLLISION_INCIDENT_KIND = "classification_multi_drop_collision"
-CLASSIFICATION_INTAKE_TIMEOUT_INCIDENT_KIND = "classification_intake_request_timeout"
-CLASSIFICATION_TRACK_LOST_INCIDENT_KIND = "classification_track_lost"
-C4_STALL_WATCHDOG_SOURCE_KIND = "c4_stall_watchdog"
 # Detection algorithm helper functions
 
 
@@ -300,14 +291,6 @@ class HiveRegisterPayload(BaseModel):
     password: str
     machine_name: str
     machine_description: str = ""
-
-
-class ClassificationExitIncidentActionPayload(BaseModel):
-    piece_uuid: Optional[str] = None
-
-
-class ChannelExitIncidentActionPayload(BaseModel):
-    channel: Optional[str] = None
 
 
 class HiveLinkPayload(BaseModel):
@@ -592,6 +575,7 @@ def hive_register(payload: HiveRegisterPayload) -> Dict[str, Any]:
     )
     _save_hive_targets(targets)
     _reloadHiveConsumers()
+    start_first_default_profile_if_none()
     return {
         "ok": True,
         "target_id": target_id,
@@ -635,6 +619,7 @@ def hive_link(payload: HiveLinkPayload) -> Dict[str, Any]:
     )
     _save_hive_targets(targets)
     _reloadHiveConsumers()
+    start_first_default_profile_if_none()
     return {
         "ok": True,
         "target_id": target_id,
@@ -761,139 +746,6 @@ def _reconcilePerception() -> None:
 
 
 # Detection debug/test endpoints
-
-
-@router.post("/api/classification-channel/exit-incident/auto-resolve")
-def classification_channel_exit_incident_auto_resolve() -> Dict[str, Any]:
-    controller = shared_state.controller_ref
-    coordinator = getattr(controller, "coordinator", None) if controller is not None else None
-    classification = getattr(coordinator, "classification", None) if coordinator is not None else None
-    request = getattr(classification, "requestStallAutoResolve", None)
-    if not callable(request):
-        raise HTTPException(status_code=503, detail="Classification channel is not running.")
-    if not bool(request()):
-        raise HTTPException(
-            status_code=409, detail="No active C4 exit-stuck incident to auto-resolve."
-        )
-    return {"ok": True, "accepted": True}
-
-
-@router.post("/api/classification-channel/exit-incident/clear")
-def classification_channel_exit_incident_clear(
-    payload: ClassificationExitIncidentActionPayload | None = None,
-) -> Dict[str, Any]:
-    runtime_stats = _runtime_stats_or_503()
-    active = runtime_stats.activeIncident() if hasattr(runtime_stats, "activeIncident") else None
-    if (
-        isinstance(active, dict)
-        and active.get("kind") == EXIT_STUCK_INCIDENT_KIND
-        and active.get("source_kind") == C4_STALL_WATCHDOG_SOURCE_KIND
-    ):
-        runtime_stats.clearActiveIncident(kind=EXIT_STUCK_INCIDENT_KIND, resolved_by="operator")
-        return {"ok": True, "cleared": True, "kind": EXIT_STUCK_INCIDENT_KIND, "channel": "c4"}
-    return {"ok": True, "cleared": False, "reason": "no_active_incident"}
-
-
-@router.post("/api/classification-channel/fallback-incident/clear")
-def classification_channel_fallback_incident_clear(
-    payload: ClassificationExitIncidentActionPayload | None = None,
-) -> Dict[str, Any]:
-    runtime_stats = _runtime_stats_or_503()
-    active = runtime_stats.activeIncident() if hasattr(runtime_stats, "activeIncident") else None
-    fallback_kinds = {
-        CLASSIFICATION_UNRESOLVED_INCIDENT_KIND,
-        CLASSIFICATION_MULTI_DROP_COLLISION_INCIDENT_KIND,
-        CLASSIFICATION_INTAKE_TIMEOUT_INCIDENT_KIND,
-        CLASSIFICATION_TRACK_LOST_INCIDENT_KIND,
-    }
-    if not isinstance(active, dict) or active.get("kind") not in fallback_kinds:
-        for kind in fallback_kinds:
-            runtime_stats.clearActiveIncident(kind=kind)
-        return {"ok": True, "cleared": False, "reason": "no_active_incident"}
-
-    requested_piece_uuid = None if payload is None else payload.piece_uuid
-    if (
-        isinstance(requested_piece_uuid, str)
-        and requested_piece_uuid.strip()
-        and requested_piece_uuid.strip() != active.get("piece_uuid")
-    ):
-        raise HTTPException(
-            status_code=400,
-            detail="The active classification incident belongs to another piece.",
-        )
-
-    kind = str(active.get("kind"))
-    runtime_stats.clearActiveIncident(
-        kind=kind,
-        piece_uuid=(
-            str(active.get("piece_uuid"))
-            if isinstance(active.get("piece_uuid"), str)
-            else None
-        ),
-        resolved_by="operator",
-    )
-    return {
-        "ok": True,
-        "cleared": True,
-        "kind": kind,
-        "piece_uuid": active.get("piece_uuid"),
-        "channel": "c4",
-    }
-
-
-def _runtime_stats_or_503() -> Any:
-    runtime_stats = (
-        getattr(shared_state.gc_ref, "runtime_stats", None)
-        if shared_state.gc_ref is not None
-        else None
-    )
-    if runtime_stats is None:
-        raise HTTPException(status_code=503, detail="Runtime stats are not available.")
-    return runtime_stats
-
-
-@router.post("/api/feeder/jam-incident/clear")
-def feeder_jam_incident_clear(
-    payload: ChannelExitIncidentActionPayload | None = None,
-) -> Dict[str, Any]:
-    runtime_stats = _runtime_stats_or_503()
-    active = runtime_stats.activeIncident() if hasattr(runtime_stats, "activeIncident") else None
-    if not isinstance(active, dict) or active.get("kind") != FEEDER_JAM_INCIDENT_KIND:
-        runtime_stats.clearActiveIncident(kind=FEEDER_JAM_INCIDENT_KIND)
-        return {"ok": True, "cleared": False, "reason": "no_active_incident"}
-
-    requested = None if payload is None else payload.channel
-    if requested is not None and str(requested).lower() != str(active.get("channel") or "").lower():
-        raise HTTPException(status_code=400, detail="The active feeder jam belongs to another channel.")
-
-    runtime_stats.clearActiveIncident(kind=FEEDER_JAM_INCIDENT_KIND, resolved_by="operator")
-    return {"ok": True, "cleared": True, "kind": FEEDER_JAM_INCIDENT_KIND, "channel": active.get("channel")}
-
-
-@router.post("/api/distribution/incident/clear")
-def distribution_incident_clear() -> Dict[str, Any]:
-    runtime_stats = _runtime_stats_or_503()
-    active = runtime_stats.activeIncident() if hasattr(runtime_stats, "activeIncident") else None
-    distribution_kinds = {
-        DISTRIBUTION_CHUTE_JAM_INCIDENT_KIND,
-        DISTRIBUTION_SERVO_BUS_OFFLINE_INCIDENT_KIND,
-        DISTRIBUTION_NO_BIN_AVAILABLE_INCIDENT_KIND,
-    }
-    if not isinstance(active, dict) or active.get("kind") not in distribution_kinds:
-        for kind in distribution_kinds:
-            runtime_stats.clearActiveIncident(kind=kind)
-        return {"ok": True, "cleared": False, "reason": "no_active_incident"}
-
-    kind = str(active.get("kind"))
-    if kind == DISTRIBUTION_NO_BIN_AVAILABLE_INCIDENT_KIND:
-        approver = getattr(shared_state, "approveDistributionNoBinPassthrough", None)
-        if callable(approver):
-            try:
-                approver(active.get("piece_uuid") if isinstance(active.get("piece_uuid"), str) else None)
-            except Exception:
-                pass
-    runtime_stats.clearActiveIncident(kind=kind, resolved_by="operator")
-    return {"ok": True, "cleared": True, "kind": kind, "channel": "distribution"}
 
 
 def _frame_luma_payload(frame_bgr: Any) -> Dict[str, Any]:

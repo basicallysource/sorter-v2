@@ -293,7 +293,7 @@ The Orange Pi talks to the control board over USB, through the powered hub. The 
 </figure>
 
 <ol class="numbered-steps">
-  <li>Plug the buck converter's USB-C lead into the socket the board prints <code>PWR IN</code>. <b>The Pi has two USB-C sockets that look the same, and the other one is not a power input.</b> Check that the converter is putting out 5 V before it goes anywhere near the Pi.</li>
+  <li>Plug the buck converter's USB-C lead into the socket the board prints <code>PWR IN</code>. <b>The Pi has two USB-C sockets that look the same</b> and only the one marked <code>PWR IN</code> is a power input. The other is USB 3.1 and DisplayPort, with no power function. Check that the converter is putting out 5 V before it goes anywhere near the Pi, as under <b>Check the lead</b> on <a href="{{ '/hardware/helpers/pi-24v-lead/' | relative_url }}#check-the-lead">Make the Orange Pi's 24 V lead</a>.</li>
   <li>Run a USB cable from the Pico's micro USB socket to any port on the hub.</li>
   <li>Run a USB cable from the hub to the port marked <code>UP USB3.0</code> on the Pi, the upper of the two stacked sockets. The hub comes with a USB-A to USB-A lead for this.</li>
   <li>Plug the three cameras into the three remaining hub ports. Each one arrives with its own lead: the <b>IMX415 4K</b> module on the <a href="{{ '/hardware/assembly/feeder/camera-lamp/classification-camera-lamp/' | relative_url }}">classification camera lamp</a>, and the two <b>OV9732 720p</b> modules on the C2 and C3 <a href="{{ '/hardware/assembly/feeder/camera-lamp/feeder-camera-lamp/' | relative_url }}">feeder camera lamps</a>.</li>

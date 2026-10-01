@@ -20,11 +20,13 @@ parts_needed:
     qty: 1
   - part: wire-18awg-2c
     qty: 1
+  - part: butt-connector-red-22-16
+    qty: 2
   - part: jst-vhr-2
     qty: 1
   - part: jst-svh-21t
     qty: 2
-tools_needed: [Wire strippers, "Crimp tool for open-barrel contacts", Multimeter, "A small screwdriver, for a screw-terminal plug", "Only if you splice: soldering iron and adhesive-lined heat shrink"]
+tools_needed: ["Side cutters, to cut the pair to length", "Wire strippers, for 18 AWG (0.82 mm²) wire", "Crimping pliers for open-barrel contacts, with a die for 22 to 16 AWG (0.33 to 1.3 mm²), for the VH contacts", "Insulated-terminal crimping pliers with a jaw for 22 to 16 AWG (0.33 to 1.3 mm²) wire, for the butt connectors on a moulded plug", "Multimeter, to find the tip and to check the finished lead", "A small screwdriver, only for a screw-terminal plug", "Only if you solder a moulded plug's leads instead of crimping them: a soldering iron, solder and adhesive-lined heat shrink (see Getting started)"]
 ---
 
 This is `W1` on the [harness drawings]({{ '/hardware/parts/harness-order/#board-power' | relative_url }}). It runs from one of the three jacks on the [PSU box]({{ '/hardware/electronics/installation/psu-box/' | relative_url }}) to `J1`, the 24 V input on the control board. **One per machine.**
@@ -48,14 +50,37 @@ This is `W1` on the [harness drawings]({{ '/hardware/parts/harness-order/#board-
 
 ## Build it
 
+<figure class="single-figure">
+  <img class="doc-figure" src="https://assets.basically.website/sorter-docs/w1-24v-lead-diagram-full-3e650b166e22.png" alt="Diagram of the finished lead, left to right: a barrel plug with two short leads, red and black, each joined to the 18 AWG pair by a butt connector, the two connectors staggered; the pair, 914 mm end to end; and two VH contacts in a two-position VHR-2 housing, red in position 1 for +24 V and black in position 2 for ground.">
+  <figcaption>The finished lead, with a moulded plug. A screw-terminal plug has no butt connectors: the pair's wires go straight under its screws.</figcaption>
+</figure>
+
 <ol class="numbered-steps">
   <li>Cut the 18 AWG (0.82 mm²) pair so the finished lead is 914 mm (36 in) end to end.</li>
-  <li><b>Fit the barrel plug to one end.</b> On a <b>screw-terminal plug</b>, strip 5 mm off each conductor, get the bare strands fully under the screws, tighten firmly and pull on each wire. On a <b>moulded plug on a short lead</b>, splice the pair onto that lead: solder each conductor, cover each one with adhesive-lined heat shrink, then sleeve both together.</li>
+  <li><b>Fit the barrel plug to one end.</b> On a <b>screw-terminal plug</b>, strip 5 mm off each conductor, get the bare strands fully under the screws, tighten firmly and pull on each wire. On a <b>moulded plug on a short lead</b>, join each of its two leads to one wire of the pair with a butt connector. How is under <b>Joining a moulded plug's leads</b>, below.</li>
   <li>Find which conductor is the tip. Set the <a href="{{ '/hardware/helpers/multimeter/' | relative_url }}#continuity-for-tracing-a-cable">multimeter to continuity</a> and hold one probe on the centre pin inside the plug. The conductor that beeps is <b>+24 V</b>. Red is the tip on most plugs, but a few are wired the other way, so this is the step where you find out rather than assume.</li>
   <li>Strip 3 mm off the free end of each conductor.</li>
   <li>Crimp a VH contact onto each. Seat the bare strands fully in the barrel, crimp in the matching die, then pull on the wire to check it holds.</li>
   <li>Push each contact into the back of the VHR-2 housing until it clicks and will not pull out: <b>+24 V into position 1, ground into position 2</b>.</li>
 </ol>
+
+### Joining a moulded plug's leads
+
+Only if your plug is moulded on a short lead. The plug's two leads and the two wires of the pair are joined end to end, one joint per wire, so there are two. **Join the plug's red lead to the pair's red wire and its black lead to the black wire.** Do one joint at a time so the two never touch.
+
+A butt connector is a vinyl-insulated barrel that takes one wire in each end, rated for 22 to 16 AWG (0.33 to 1.3 mm²) wire. Nothing is soldered.
+
+<ol class="numbered-steps">
+  <li>Strip 7 mm off the plug's lead and off the pair's wire, and twist the strands of each tight.</li>
+  <li>Push the plug's lead into one end of a red butt connector, and the pair's wire of the same colour into the other, until the insulation of each wire meets the end of the barrel.</li>
+  <li>Close each end of the barrel in the jaw of the insulated-terminal crimping pliers marked for 22 to 16 AWG (0.33 to 1.3 mm²), so each wire is crimped separately. Squeeze until the tool releases. Pull on each wire to check it holds.</li>
+  <li>Stagger the two butt connectors by a few millimetres along the lead so they cannot touch.</li>
+</ol>
+
+<div class="callout callout-warning">
+  <span class="callout-icon" aria-hidden="true">⚠</span>
+  <p><b>Use insulated-terminal crimping pliers.</b> A crimp tool for open-barrel contacts, the kind that does the VH contacts, has the wrong die and will not close a butt connector properly.</p>
+</div>
 
 **Which position is 1.** `J1` on the board is a shrouded header, so the housing only goes on one way round. Hold the housing as it will go into that shroud: position 1 is the one over the **square pad**, and the round pad beside it is position 2. Every other pad on that footprint is round, so the square one is unambiguous.
 

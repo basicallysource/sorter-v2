@@ -8338,14 +8338,18 @@
 		},
 		{
 			"id": "harness-stepper-chute",
-			"uid": "ujmp",
-			"version": "1",
+			"uid": "1taq",
+			"version": "2",
 			"name": "Chute stepper cable (CH)",
 			"description": "The chute stepper's cable: a 4-pin PHR-4 into the board at one end, bare labelled leads at the other spliced to the motor's flying leads. Straight through, not a crossover, 40 in of 24 AWG (0.20 mm\u00b2). Find the coil pairs with a multimeter first. 1 per machine.",
 			"joining": [
 				{
 					"method": "crimp",
-					"note": "One SPH-002T contact onto each of the four board-end conductors."
+					"note": "One SPH-002T contact onto each of the four board-end conductors: strip about 2 mm, close the inner wings on the bare strands and the outer wings on the insulation, in the crimper die marked for 24 AWG (0.20 mm\u00b2). Then push each into the PHR-4 until it latches. Splice each of the 24 AWG (0.20 mm\u00b2) tails onto a motor lead with a 24-20 AWG (0.2 to 0.6 mm\u00b2) butt splice, in the insulated-terminal die marked for that range, stagger the four joints along the cable and check each wire end through the clear window."
+				},
+				{
+					"method": "solder",
+					"note": "Instead of the butt splices, solder each 24 AWG (0.20 mm\u00b2) tail to a motor's 20 AWG (0.52 mm\u00b2) lead, cover each joint with adhesive-lined heat shrink, then sleeve the four together. The board end cannot be soldered this way: a PH contact needs a crimp."
 				}
 			],
 			"lines": [
@@ -8356,6 +8360,37 @@
 				{
 					"part": "jst-sph-002t",
 					"qty": 4
+				},
+				{
+					"part": "butt-connector-24-20",
+					"qty": 4
+				}
+			],
+			"versions": [
+				{
+					"version": "1",
+					"uid": "ujmp",
+					"message": "As recorded before the first stamped change.",
+					"lines": [
+						{
+							"part": "jst-phr-4",
+							"qty": 1,
+							"uid": "frxy"
+						},
+						{
+							"part": "jst-sph-002t",
+							"qty": 4,
+							"uid": "ysu7"
+						}
+					]
+				},
+				{
+					"version": "2",
+					"uid": "1taq",
+					"date": "2026-10-01",
+					"message": "The four joints between the cable's 24 AWG (0.20 mm\u00b2) tails and the motor's 20 AWG (0.52 mm\u00b2) leads are now crimped, with a 24 to 20 AWG (0.2 to 0.6 mm\u00b2) butt splice each, instead of soldered. Soldering them is still allowed. The cable itself is unchanged, so a cable built the old way works in its place.",
+					"breaking": false,
+					"commit": null
 				}
 			]
 		},
@@ -28912,6 +28947,65 @@
 			"docs_page": "/hardware/helpers/limit-switch-lead/",
 			"conflicts": null,
 			"image": "https://assets.basically.website/sorter-parts/dupont-housing-3p-full-50d0a6c664ee.jpg"
+		},
+		{
+			"id": "butt-connector-24-20",
+			"uid": "tdg1",
+			"kind": "cots",
+			"cots": {
+				"type": "connector"
+			},
+			"name": "Insulated butt splice, clear, 24 to 20 AWG (0.2 to 0.6 mm\u00b2) (TE PIDG 323975)",
+			"category": "Wire harness",
+			"description": "Joins two wires end to end without soldering: one wire goes in each end and the barrel is crimped onto it. The only common size that holds both the chute stepper cable's 24 AWG (0.20 mm\u00b2) wire and the motor's own 20 AWG (0.52 mm\u00b2) leads. Four on the chute stepper cable, one per motor lead.",
+			"note": "Crimp it with insulated-terminal crimping pliers, in the die marked for 24 to 20 AWG (0.2 to 0.6 mm\u00b2), not picked by colour. The insulation sits against the end of the barrel, not inside it, and each wire end goes in until it touches the stop in the middle: look through the clear window to check. A crimp tool for open-barrel Dupont and PH contacts has the wrong die and will not close this splice properly.",
+			"created_at": "2026-10-01",
+			"updated_at": "2026-10-01",
+			"attributes": [
+				{
+					"label": "Wire",
+					"value": "24 to 20 AWG (0.2 to 0.6 mm\u00b2), stranded copper"
+				},
+				{
+					"label": "Wire insulation",
+					"value": "1.02 to 2.54 mm across"
+				},
+				{
+					"label": "Insulation",
+					"value": "Clear nylon, with a window to see the wire end"
+				},
+				{
+					"label": "Length",
+					"value": "26.3 mm"
+				},
+				{
+					"label": "Used on",
+					"value": "The four joints between the chute stepper cable's 24 AWG (0.20 mm\u00b2) tails and the motor's 20 AWG (0.52 mm\u00b2) leads"
+				}
+			],
+			"sheet_qty": {
+				"per_machine": 4
+			},
+			"sheet_qty_text": null,
+			"stock": null,
+			"sourcing": {
+				"vendors": [
+					{
+						"region": "US",
+						"vendor": "Aircraft Spruce",
+						"url": "https://www.aircraftspruce.com/catalog/pnpages/323975.php",
+						"price": 0.79,
+						"pack_qty": 1,
+						"as_of": "2026-10-01",
+						"note": "TE part 323975, sold singly here. TE's own kit is 50 per pack. Mil-spec M7928/5-2 class 1."
+					}
+				]
+			},
+			"alternative": "Solder the two wires together and cover each joint with a piece of adhesive-lined heat shrink instead",
+			"caption": "Four on the chute stepper cable, one on each of the motor's leads.",
+			"docs_page": "/hardware/helpers/chute-stepper-lead/",
+			"conflicts": null,
+			"image": "https://assets.basically.website/sorter-parts/butt-connector-24-20-full-dbd531960c4e.jpg"
 		},
 		{
 			"id": "terminal-fork-m35",

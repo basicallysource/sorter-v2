@@ -8,13 +8,8 @@ kicker: Helpers — Control board 24 V lead
 lede: The lead that powers basically board v1.3, a barrel plug at the PSU end and a JST-VH housing crimped on at the board end. One per machine.
 permalink: /hardware/helpers/board-24v-lead/
 author: effreek
-contributors: [spencer, brickcyclealice]
-warning: >-
-  **AI-generated first draft.** Written from the basically board v1.3 board files and the [wire
-  harness]({{ '/hardware/electronics/wire-harness/' | relative_url }}) schedule, not from an actual build. The
-  connector, the pin order and the socket come from the board itself and are real. Nobody has made
-  this lead from these steps yet. The 914 mm (36 in) length is a **GUESS** in the harness notes and
-  is longer than the run needs.
+contributors: [spencer, brickcyclealice, barthel]
+last_verified: 2026-10-01
 parts_needed:
   - part: dc-plug-5521-male
     qty: 1

@@ -8,14 +8,8 @@ kicker: Helpers — Channel stepper leads
 lede: The four leads from the control board to the c-channel motors. Four per machine, all identical, and three ways to make one.
 permalink: /hardware/helpers/channel-stepper-lead/
 author: effreek
-contributors: [daddyosbricksbill, spencer, brickcyclealice]
-warning: >-
-  **AI-generated first draft.** Written from the basically board v1.3 board files and the [wire
-  harness]({{ '/hardware/electronics/wire-harness/' | relative_url }}) schedule, not from an actual build. The
-  sockets, the pin order and the crossover are read off the board and the motor and are real.
-  Nobody has made a lead from these steps yet. **The length is unsettled**: the harness drawing
-  says 1 m, the ready-made cable below is 63 cm, and nobody has measured the run on a finished
-  machine.
+contributors: [daddyosbricksbill, spencer, brickcyclealice, barthel]
+last_verified: 2026-10-01
 parts_needed:
   - part: jst-ph-cable-4p-63cm
     qty: 4
@@ -31,7 +25,7 @@ These are `S1` to `S4` on the [harness drawings]({{ '/hardware/parts/harness-ord
   <p><b>The lead that comes in the box with the motor is not usable as it comes.</b> Two of its four conductors are in the wrong order for this board, so the driver drives half of one coil against half of the other and the motor buzzes and barely turns. It also ends in a Dupont housing, which does fit the 2.54 mm pins beside each stepper socket, so it looks right. Pull a Dupont contact sideways and its spring lifts off the pin: resistance rises, the joint heats, and it gets worse from there. Two have cooked on running machines.</p>
 </div>
 
-**Both faults are in that one housing.** So there are three ways to get a correct lead, and the parts above are for the first of them, which needs no crimp tool. The other two say what they need instead.
+**Both faults are in that one housing.** The crossover has been built and fitted this way on a motor's own lead, by swapping the two middle contacts in its Dupont plug. The routes below do the same with a PH housing instead of the plug. So there are three ways to get a correct lead, and the parts above are for the first of them, which needs no crimp tool. The other two say what they need instead.
 
 <dl class="spec-list">
   <dt>Move four contacts</dt><dd>Start from a ready-made cable and a PHR-6. Tools: the pick and the multimeter. No crimping.</dd>

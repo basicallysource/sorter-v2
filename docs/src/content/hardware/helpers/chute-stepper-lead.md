@@ -5,7 +5,7 @@ type: how-to
 section: hardware
 slug: helper-chute-stepper-lead
 kicker: Helpers — Chute stepper lead
-lede: The only stepper cable you build. A 24 AWG tail onto the motor's four bare leads, then a 4-pin housing in the right coil order. One per machine.
+lede: The only stepper cable you build. A 24 AWG (0.20 mm²) tail onto the motor's four bare leads, then a 4-pin housing in the right coil order. One per machine.
 permalink: /hardware/helpers/chute-stepper-lead/
 author: effreek
 contributors: [spencer, brickcyclealice]
@@ -31,7 +31,7 @@ The chute stepper is the NEMA 23 that drives the chute. It is the only motor on 
 
 <div class="callout callout-warning">
   <span class="callout-icon" aria-hidden="true">⚠</span>
-  <p><b>The motor's own leads are too thick for the connector, however long they are.</b> They are <b>20 AWG</b> (UL1007 on the motor drawing) and a JST PH contact takes 24 to 28 AWG, so the board end of this lead is always a short 24 AWG tail spliced onto them. Length decides how long that tail is, not whether you need one.</p>
+  <p><b>The motor's own leads are too thick for the connector, however long they are.</b> They are <b>20 AWG (0.52 mm²)</b> (UL1007 on the motor drawing) and a JST PH contact takes 24 to 28 AWG (0.08 to 0.20 mm²), so the board end of this lead is always a short 24 AWG (0.20 mm²) tail spliced onto them. Length decides how long that tail is, not whether you need one.</p>
 </div>
 
 ## The pin order
@@ -111,8 +111,8 @@ All five stepper outputs on the board have the same pinout, pin 1 to pin 4:
       <rect x="412" y="261" width="56" height="16" rx="8" fill="var(--surface)" stroke="var(--muted)" stroke-width="1.5"/>
       <text x="440" y="126" font-size="12" font-weight="700" fill="var(--ink)" text-anchor="middle">splice</text>
       <text x="440" y="142" font-size="11" fill="var(--muted)" text-anchor="middle">solder, then heat shrink</text>
-      <text x="345.0" y="301" font-size="11" fill="var(--muted)" text-anchor="middle">24 AWG tail you add</text>
-      <text x="570.0" y="301" font-size="11" fill="var(--muted)" text-anchor="middle">the motor's own 20 AWG leads</text>
+      <text x="345.0" y="301" font-size="11" fill="var(--muted)" text-anchor="middle">24 AWG (0.20 mm²) tail you add</text>
+      <text x="570.0" y="301" font-size="11" fill="var(--muted)" text-anchor="middle">the motor's own 20 AWG (0.52 mm²) leads</text>
       <text x="465" y="331" font-size="12" fill="var(--muted)" text-anchor="middle">The motor's leads are too thick for a JST-PH contact, so the last stretch to the board is a thinner tail. Find the coil pairs with a meter first.</text>
     </svg>
   </div>  <figcaption>One lead end to end, with the splice that makes it the only stepper lead you build.</figcaption>
@@ -134,8 +134,8 @@ The motor's four leads are coloured, and the colours do not tell you which pair 
 
 <ol class="numbered-steps">
   <li>Hold the motor where it will sit and see how far its own leads get you. They come out of the motor at 300 to 500 mm depending on the batch, and the harness notes put the finished lead at about 1 m (40 in).</li>
-  <li>Splice 24 AWG of the matching colour onto each of the four, long enough to make the length up and at least 100 mm even when the motor's own leads already reach: solder each conductor, cover it with adhesive-lined heat shrink, and sleeve the four together. The thin ends are what the contacts crimp onto.</li>
-  <li>Strip 2 mm off the end of each of the four <b>24 AWG</b> conductors.</li>
+  <li>Splice 24 AWG (0.20 mm²) of the matching colour onto each of the four, long enough to make the length up and at least 100 mm even when the motor's own leads already reach: solder each conductor, cover it with adhesive-lined heat shrink, and sleeve the four together. The thin ends are what the contacts crimp onto.</li>
+  <li>Strip 2 mm off the end of each of the four <b>24 AWG (0.20 mm²)</b> conductors.</li>
   <li>Crimp a PH contact onto each. Seat the strands fully in the barrel, crimp in the matching die, then pull on the wire to check it holds.</li>
   <li>Push the contacts into the housing until each one clicks: <b>one coil into positions 1 and 2, the other coil into positions 3 and 4</b>. Which coil goes in which pair does not matter. Nor does which lead of a pair goes in which position: that only reverses the direction the motor turns, and the direction is set in the software.</li>
 </ol>
@@ -158,7 +158,7 @@ Both carry `A2`, `A1`, `B1`, `B2` on positions 1 to 4, and the board prints the 
 
 ## The finished result
 
-One lead: the motor with a 24 AWG tail spliced onto its four thick leads, ending in a 4-pin PHR-4 with each coil on one pair of positions.
+One lead: the motor with a 24 AWG (0.20 mm²) tail spliced onto its four thick leads, ending in a 4-pin PHR-4 with each coil on one pair of positions.
 
 <div class="img-placeholder">Image coming: the finished lead, the four splices sleeved together and the PHR-4 at the end of the thin tail, with the motor in frame at the other end</div>
 

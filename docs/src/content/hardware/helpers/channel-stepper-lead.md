@@ -53,11 +53,11 @@ The board and the motor do not use the same positions, so this cable is not stra
 Board 1 goes to motor 1, 2 to 4, 3 to 3 and 4 to 6, which is the crossing pair in the middle of
 the drawing. Motor positions 2 and 5 stay empty.
 
-**On the motor, pin 1 is the left end of the socket** when you look at the motor from the shaft end with the socket at the bottom edge. Reading left to right the positions are 1, empty, 3, 4, empty, 6. Positions 1 and 4 are one coil and 3 and 6 are the other, whatever colour the wires are.
+**On the motor, pin 1 is the right end of the socket** when you look at the motor from the shaft end with the socket at the top edge. Reading left to right the positions are 6, empty, 4, 3, empty, 1. Positions 1 and 4 are one coil and 3 and 6 are the other, whatever colour the wires are.
 
 <figure class="single-figure">
-  <img class="doc-figure" src="https://assets.basically.website/sorter-docs/channel-stepper-lead-motor-pin1-full-deb036e58e29.png" alt="The NEMA 17 seen from the shaft end, with its 6-position socket on the bottom edge. The positions are numbered 1 to 6 from left to right with pin 1 at the left end. Positions 1 and 4 are filled in blue as coil A, positions 3 and 6 in green as coil B, and positions 2 and 5 are empty. A list beside it gives the board net for each position: A2, empty, B1, A1, empty, B2.">
-  <figcaption>The motor's socket as drawn on its datasheet. Position 1 is at the left, 2 and 5 are empty.</figcaption>
+  <img class="doc-figure" src="https://assets.basically.website/sorter-docs/channel-stepper-lead-motor-pin1-top-full-c61ff3727a76.png" alt="The NEMA 17 seen from the shaft end, with its 6-position socket on the top edge. The positions are numbered 6 to 1 from left to right with pin 1 at the right end. Positions 1 and 4 are filled in blue as coil A, positions 3 and 6 in green as coil B, and positions 2 and 5 are empty. A list beside it gives the board net for each position: A2, empty, B1, A1, empty, B2.">
+  <figcaption>The motor's socket, with the socket at the top. Position 1 is at the right, 2 and 5 are empty.</figcaption>
 </figure>
 
 <figure class="harness-figure">

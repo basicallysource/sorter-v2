@@ -110,7 +110,7 @@ All five stepper outputs on the board have the same pinout, pin 1 to pin 4:
       <line x1="468" y1="269" x2="674" y2="269" stroke="#1f63c8" stroke-width="5.4" stroke-linecap="round"/>
       <rect x="412" y="261" width="56" height="16" rx="8" fill="var(--surface)" stroke="var(--muted)" stroke-width="1.5"/>
       <text x="440" y="126" font-size="12" font-weight="700" fill="var(--ink)" text-anchor="middle">splice</text>
-      <text x="440" y="142" font-size="11" fill="var(--muted)" text-anchor="middle">crimped butt splice, 24 to 20 AWG</text>
+      <text x="440" y="142" font-size="11" fill="var(--muted)" text-anchor="middle">crimped butt splice, 24 to 20 AWG (0.2 to 0.6 mm²)</text>
       <text x="345.0" y="301" font-size="11" fill="var(--muted)" text-anchor="middle">24 AWG (0.20 mm²) tail you add</text>
       <text x="570.0" y="301" font-size="11" fill="var(--muted)" text-anchor="middle">the motor's own 20 AWG (0.52 mm²) leads</text>
       <text x="465" y="331" font-size="12" fill="var(--muted)" text-anchor="middle">The motor's leads are too thick for a JST-PH contact, so the last stretch to the board is a thinner tail. Find the coil pairs with a meter first.</text>

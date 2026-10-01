@@ -49,6 +49,21 @@ like a group in the side nav:
 >
 ```
 
+With no `trigger`, a Menu is a context menu: the thing that was right-clicked
+opens it where the pointer is, with `openAt(event)` on the component (on a
+Mac it waits for the button's release), and it closes like any other menu. Keep what it offers on the page as well (a
+button beside the selection), since a touch screen has no right click:
+
+```svelte
+<Menu bind:this={menu} label="Bin" items={[{ label: 'Point the chute here', onselect: aim }]} />
+<canvas
+	oncontextmenu={(e) => {
+		e.preventDefault();
+		menu.openAt(e);
+	}}
+></canvas>
+```
+
 ## Select
 
 `Select.svelte` is a field that opens a list: our own, not the browser's, so

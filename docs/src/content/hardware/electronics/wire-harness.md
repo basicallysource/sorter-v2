@@ -288,7 +288,7 @@ All three drops now feed an LED strip in a [camera lamp]({{ '/hardware/assembly/
 - DC barrel jack, male: load pigtails, and the LED pigtails (optional)
 - JST-VH female (VHR-2): basically board v1.3 24V input (W1)
 - 2x1 dupont (2.54 mm): LED drops (L1-L3)
-- 1x3 dupont (2.54 mm), 2 positions populated: limit switch board end, keyed so it cannot go on backwards
+- 1x3 dupont (2.54 mm), 2 positions populated: limit switch board end. The empty position goes over the 3.3 V pin of J5; the housing is not keyed
 - Quick-connect receptacle, #187 (4.75 × 0.5 mm tab), fully insulated: limit switch end. The switch is an Omron V-155-1C25, SPDT, so it has three tabs and the harness uses two
 - JST-PH 4-pin (PHR-4): steppers at the board, J23, J27, J31, J35, J39. Contacts are SPH-002T-P0.5S &middot; [JST PH series](https://www.jst.com/products/crimp-style-connectors-wire-to-board-type/ph-connector/)
 - JST-PH 6-pin (PHR-6): the NEMA 17 motor socket, cable S motor end. Positions 2 and 5 are unpopulated; same contacts as the 4-pin

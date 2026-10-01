@@ -26,7 +26,7 @@ parts_needed:
     qty: 2
   - part: connector-kit-crimp
     qty: 1
-tools_needed: [Wire strippers, "Crimp tool for open-barrel contacts", Multimeter, "A small screwdriver, for a screw-terminal plug", "Only if you splice: soldering iron and adhesive-lined heat shrink"]
+tools_needed: ["Side cutters, to cut the pair to length", "Wire strippers, for 18 AWG (0.82 mm²) wire", "Crimping pliers for open-barrel contacts, with a die for 22 to 16 AWG (0.33 to 1.3 mm²), for the VH contacts", "Multimeter, to find the tip and to check the finished lead", "A small screwdriver, only for a screw-terminal plug", "Only if you splice onto a moulded plug: a soldering iron, solder, adhesive-lined heat shrink and a heat gun"]
 ---
 
 This is `W1` on the [harness drawings]({{ '/hardware/parts/harness-order/#board-power' | relative_url }}). It runs from one of the three jacks on the [PSU box]({{ '/hardware/electronics/installation/psu-box/' | relative_url }}) to `J1`, the 24 V input on the control board. **One per machine.**

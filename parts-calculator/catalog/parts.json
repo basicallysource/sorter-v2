@@ -6528,7 +6528,7 @@
       },
       "name": "Insulated butt connector, red, 22-16 AWG",
       "category": "Wire harness",
-      "description": "Joins two wires end to end without soldering: one wire goes in each end and the barrel is crimped onto it. Two per LED drop, one for each of the barrel socket's wires, so six for the three lamps, plus two on the control board's 24 V lead, one for each of the moulded barrel plug's leads, so eight per machine.",
+      "description": "Joins two wires end to end without soldering: one wire goes in each end and the barrel is crimped onto it. Two per LED drop, one for each of the barrel socket's wires, so six for the three lamps, plus two on the control board's 24 V lead and two on the Orange Pi's 24 V lead, one for each of the moulded barrel plug's leads (or one for each extension of a short converter wire), so ten per machine.",
       "note": "Crimp it with insulated-terminal crimping pliers, in the jaw marked for 22 to 16 AWG (0.33 to 1.3 mm²), not picked by colour. A crimp tool for open-barrel Dupont and PH contacts has the wrong die and will not close this connector properly.",
       "alternative": "Solder the two wires together and cover each joint with a 25 mm piece of 3 mm adhesive-lined heat shrink instead",
       "created_at": "2026-10-01",
@@ -6549,13 +6549,13 @@
         },
         {
           "label": "Used on",
-          "value": "The two joints between the barrel socket's wires and the Dupont cable, LJ1 to LJ3, and the two between the moulded barrel plug's leads and the wire of the board's 24 V lead, W1"
+          "value": "The two joints between the barrel socket's wires and the Dupont cable, LJ1 to LJ3, the two between the moulded barrel plug's leads and the wire of the board's 24 V lead, W1, and the two between the moulded barrel plug's leads and the buck converter's input wires, W3"
         }
       ],
       "sheet_qty": {
-        "per_machine": 8
+        "per_machine": 10
       },
-      "caption": "Two per lamp, one for each wire of the barrel socket, and two on the control board's 24 V lead.",
+      "caption": "Two per lamp, one for each wire of the barrel socket, and two on each of the control board's and the Orange Pi's 24 V leads.",
       "docs_page": "/hardware/helpers/led-strip/",
       "sourcing": {
         "vendors": [
@@ -15877,20 +15877,49 @@
     },
     {
       "id": "harness-buck-24v",
-      "uid": "6odt",
-      "version": "1",
+      "uid": "yd1v",
+      "version": "2",
       "name": "24 V buck converter lead (W3)",
-      "description": "The feed to the 24 V to 5 V buck converter that powers the Orange Pi, W3 on the power drawing: a barrel plug into a PSU box jack at one end, bare tinned leads at the other. 6 in of 22 AWG (0.33 mm²). The converter itself is not placed in the tree yet, so this sits on the mount its load bolts beside. 1 per machine.",
+      "description": "The feed to the 24 V to 5 V buck converter that powers the Orange Pi, W3 on the power drawing: a barrel plug into a PSU box jack at one end, the converter's red and black input wires at the other. The converter's own input wires are 100 mm or more and are used as they are; if they are shorter they are extended to about 150 mm (6 in) with 22 AWG (0.33 mm²) wire. The converter itself is not placed in the tree yet, so this sits on the mount its load bolts beside. 1 per machine.",
       "joining": [
         {
+          "method": "crimp",
+          "note": "The moulded barrel plug's two leads are joined to the converter's red and black input wires with a red insulated butt connector on each, crimped in the jaw marked 22 to 16 AWG (0.33 to 1.3 mm²) of an insulated-terminal crimper, the two staggered. A screw-terminal plug needs no butt connectors. If the converter's wires are shorter than 100 mm, extend each with a butt connector first."
+        },
+        {
           "method": "solder",
-          "note": "Splice the bare end to the converter's input leads."
+          "note": "Or solder each joint and cover it with adhesive-lined heat shrink."
         }
       ],
       "lines": [
         {
           "part": "dc-plug-5521-male",
           "qty": 1
+        },
+        {
+          "part": "butt-connector-red-22-16",
+          "qty": 2
+        }
+      ],
+      "versions": [
+        {
+          "version": "1",
+          "uid": "6odt",
+          "message": "As recorded before the first stamped change.",
+          "lines": [
+            {
+              "part": "dc-plug-5521-male",
+              "qty": 1,
+              "uid": "ky9z"
+            }
+          ]
+        },
+        {
+          "version": "2",
+          "date": "2026-10-01",
+          "message": "The moulded barrel plug's two leads are joined to the converter's input wires with two insulated butt connectors, crimped. Soldering each joint with heat shrink stays as the alternative. A screw-terminal plug needs neither. The lead itself is the same lead.",
+          "breaking": false,
+          "commit": null
         }
       ]
     },

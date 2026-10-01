@@ -17,11 +17,11 @@ warning: >-
   says 1 m, the ready-made cable below is 63 cm, and nobody has measured the run on a finished
   machine.
 parts_needed:
-  - part: jst-ph-cable-4p-63cm
+  - part: jst-phr-4
     qty: 4
-  - part: jst-phr-6
-    qty: 4
-tools_needed: ["Multimeter, to find the coils and to check the finished lead", "A fine pick or a sliver of shim, for moving contacts out of a housing (the first route only)", "Side cutters, to cut the Dupont housing off or to cut wire to length (the second and third routes)", "Wire strippers, for 24 AWG (0.20 mm²) wire (the second and third routes)", "Crimping pliers for open-barrel contacts, with a die for 24 AWG (0.20 mm²) wire (the second and third routes)", "A ruler or tape measure, to cut the wire to length (the third route only)"]
+  - part: jst-sph-002t
+    qty: 16
+tools_needed: ["Multimeter, to find the coils and to check the finished lead", "Side cutters, to cut the Dupont housing off or to cut wire to length (the first and third routes)", "Wire strippers, for 24 AWG (0.20 mm²) wire (the first and third routes)", "Crimping pliers for open-barrel contacts, with a die for 24 AWG (0.20 mm²) wire (the first and third routes)", "A fine pick or a sliver of shim, for moving contacts out of a housing (the second route only)", "A ruler or tape measure, to cut the wire to length (the third route only)"]
 ---
 
 These are `S1` to `S4` on the [harness drawings]({{ '/hardware/parts/harness-order/#channel-stepper' | relative_url }}), one for each of the four c-channel motors. **Four per machine**, all identical.
@@ -31,12 +31,12 @@ These are `S1` to `S4` on the [harness drawings]({{ '/hardware/parts/harness-ord
   <p><b>The lead that comes in the box with the motor is not usable as it comes.</b> Two of its four conductors are in the wrong order for this board, so the driver drives half of one coil against half of the other and the motor buzzes and barely turns. It also ends in a Dupont housing, which does fit the 2.54 mm pins beside each stepper socket, so it looks right. Pull a Dupont contact sideways and its spring lifts off the pin: resistance rises, the joint heats, and it gets worse from there. Two have cooked on running machines.</p>
 </div>
 
-**Both faults are in that one housing.** So there are three ways to get a correct lead, and the parts above are for the first of them, which needs no crimp tool. The other two say what they need instead.
+**Both faults are in that one housing.** So there are three ways to get a correct lead. **The first is the one to use**: it keeps the motor's own lead, which is already right at the motor end, and replaces only the board end with four crimped contacts and a PHR-4, and the parts above are for it. It needs a crimp tool. If you do not have one, the second route needs none. The other two say what they need instead.
 
 <dl class="spec-list">
-  <dt>Move four contacts</dt><dd>Start from a ready-made cable and a PHR-6. Tools: the pick and the multimeter. No crimping.</dd>
-  <dt>Re-house the motor's lead</dt><dd>Keep the lead the motor came with and replace its Dupont end. Tools: side cutters, wire strippers, the crimping pliers and the multimeter.</dd>
-  <dt>Crimp it from wire</dt><dd>Make the whole lead. The same tools as the second route, and a ruler.</dd>
+  <dt>Re-house the motor's lead</dt><dd>Preferred. Keep the lead the motor came with and replace its Dupont end. Tools: side cutters, wire strippers, the crimping pliers and the multimeter.</dd>
+  <dt>Move four contacts</dt><dd>No crimp tool. Start from a ready-made cable and a PHR-6. Tools: the pick and the multimeter.</dd>
+  <dt>Crimp it from wire</dt><dd>Make the whole lead. The same tools as the first route, and a ruler.</dd>
 </dl>
 
 ## The two ends
@@ -130,28 +130,9 @@ the drawing. Motor positions 2 and 5 stay empty.
 
 **Positions 1 and 2 on the board are one coil, 3 and 4 are the other.** Keeping each pair together is what matters. Swapping the two wires inside a coil only reverses which way the motor turns, and the direction is set in the software.
 
-## Build it: move four contacts
+## Re-house the lead the motor came with
 
-**This is what the parts list above buys**, and it needs no crimp tool. Start from a ready-made 4-pin PH cable with a PHR-4 on both ends, and leave the shipped lead in its box. **Per lead: one cable and one `PHR-6`.**
-
-<ol class="numbered-steps">
-  <li>Leave one end alone. It plugs into the board as it comes.</li>
-  <li>Note which colour is in which position at the other end, before you move any of them. The colours are not the same on every cable.</li>
-  <li>Get the four contacts out of that housing. Each one is held by a small lance inside the housing: press the lance back with the pick and the contact slides out of the back. Take your time, a bent lance will not hold in the new housing.</li>
-  <li>Push the four contacts into the PHR-6 until each one clicks: the wire from board position 1 into motor position 1, 2 into 4, 3 into 3, 4 into 6. Motor positions 2 and 5 stay empty.</li>
-  <li>Pull gently on each wire. A contact that comes back out has a bent lance; straighten it or use one of the spares.</li>
-</ol>
-
-The PHR-4 the contacts came out of is now spare.
-
-<div class="callout callout-warning">
-  <span class="callout-icon" aria-hidden="true">⚠</span>
-  <p><b>Check the coils on the finished lead.</b> Meter across board positions 1 and 2, then across 3 and 4, with the motor plugged in. Both read a few ohms. If either reads open circuit, two contacts are in the wrong places: a motor wired across its coils buzzes and barely turns.</p>
-</div>
-
-## Or: re-house the lead the motor came with
-
-This keeps the 1 m lead already plugged into the motor and replaces only its board end, so it is the route that costs nothing extra if you own a crimp tool. **Per lead: one `jst-phr-4` and four `jst-sph-002t` contacts**, so sixteen contacts for the machine. You need a crimp tool for open-barrel contacts. Buy neither the ready-made cable nor the PHR-6 for this route.
+This keeps the 1 m lead already plugged into the motor and replaces only its board end, so it is the preferred route: the motor's end is left alone and only four contacts are crimped. **Per lead: one `jst-phr-4` and four `jst-sph-002t` contacts**, so sixteen contacts for the machine. You need a crimp tool for open-barrel contacts. Buy neither the ready-made cable nor the PHR-6 for this route.
 
 **The motor's own end is already right.** It is a 6-position JST-PH socket on the can, the lead is in it, the crossover above is already made inside the cable, and its 26 AWG (0.13 mm²) is inside the 24 to 28 AWG (0.08 to 0.20 mm²) a PH contact takes. Only the Dupont end is wrong.
 
@@ -170,9 +151,28 @@ This keeps the 1 m lead already plugged into the motor and replaces only its boa
 
 The Dupont housing you cut off is scrap.
 
+## Or: move four contacts
+
+**This route needs no crimp tool.** Buy the ready-made cable and the PHR-6 for it, not the parts list above. Start from a ready-made 4-pin PH cable with a PHR-4 on both ends, and leave the shipped lead in its box. **Per lead: one cable and one `PHR-6`.**
+
+<ol class="numbered-steps">
+  <li>Leave one end alone. It plugs into the board as it comes.</li>
+  <li>Note which colour is in which position at the other end, before you move any of them. The colours are not the same on every cable.</li>
+  <li>Get the four contacts out of that housing. Each one is held by a small lance inside the housing: press the lance back with the pick and the contact slides out of the back. Take your time, a bent lance will not hold in the new housing.</li>
+  <li>Push the four contacts into the PHR-6 until each one clicks: the wire from board position 1 into motor position 1, 2 into 4, 3 into 3, 4 into 6. Motor positions 2 and 5 stay empty.</li>
+  <li>Pull gently on each wire. A contact that comes back out has a bent lance; straighten it or use one of the spares.</li>
+</ol>
+
+The PHR-4 the contacts came out of is now spare.
+
+<div class="callout callout-warning">
+  <span class="callout-icon" aria-hidden="true">⚠</span>
+  <p><b>Check the coils on the finished lead.</b> Meter across board positions 1 and 2, then across 3 and 4, with the motor plugged in. Both read a few ohms. If either reads open circuit, two contacts are in the wrong places: a motor wired across its coils buzzes and barely turns.</p>
+</div>
+
 ## Or: crimp the whole lead from wire
 
-**Per lead: four conductors of `wire-24awg`, one `jst-phr-4`, one `jst-phr-6` and eight `jst-sph-002t` contacts**, so thirty-two contacts for the machine, twice the route above. Buy four colours of wire: the colour is how you keep the crossover straight over a metre of cable. Any four different colours work. Call the wire that goes to board position 1 wire 1, and so on. The colours below are the ones on the drawing above: blue, green, red and black for wires 1 to 4.
+**Per lead: four conductors of `wire-24awg`, one `jst-phr-4`, one `jst-phr-6` and eight `jst-sph-002t` contacts**, so thirty-two contacts for the machine, twice as many as re-housing. Buy four colours of wire: the colour is how you keep the crossover straight over a metre of cable. Any four different colours work. Call the wire that goes to board position 1 wire 1, and so on. The colours below are the ones on the drawing above: blue, green, red and black for wires 1 to 4.
 
 <ol class="numbered-steps">
   <li>Cut one wire of each colour, blue, green, red and black, all the same length. The harness drawing says 1 m; see <b>How long</b>, below, before you cut.</li>
@@ -184,7 +184,7 @@ The Dupont housing you cut off is scrap.
 
 ## Crimping a PH contact
 
-Used by the second and third routes. A PH contact takes 24 to 28 AWG (0.08 to 0.20 mm²) wire only.
+Used by the first and third routes. A PH contact takes 24 to 28 AWG (0.08 to 0.20 mm²) wire only.
 
 <ol class="numbered-steps">
   <li>Strip about 2 mm off the end of the wire.</li>

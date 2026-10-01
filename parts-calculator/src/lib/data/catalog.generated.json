@@ -8237,7 +8237,7 @@
 				},
 				{
 					"method": "solder",
-					"note": "Or solder each of the socket's wires to the Dupont cable's wire of the same colour, tip to red, and cover each joint with heat shrink."
+					"note": "Or solder each of the socket's wires to the Dupont cable's wire of the same colour, tip to red, and cover each joint with adhesive-lined heat shrink."
 				}
 			],
 			"lines": [
@@ -8260,10 +8260,6 @@
 				{
 					"part": "led-strip-connector-8mm",
 					"qty": 1
-				},
-				{
-					"part": "heat-shrink-3-1-adhesive-3mm",
-					"qty": 1
 				}
 			],
 			"versions": [
@@ -8271,7 +8267,7 @@
 					"version": "2",
 					"uid": "nmlx",
 					"date": "2026-09-30",
-					"message": "The barrel plug on the lamp pigtail is now its own catalog part, so it and the inline barrel socket can both be marked optional (recommended, for lamps that come off at the lamp). The socket splice gains a solderless route, two insulated butt connectors per drop, as an alternative to soldering, and the soldered route's heat shrink is now a part. The insulated-terminal crimper is its own part too. No physical change to what an old unit is.",
+					"message": "The barrel plug on the lamp pigtail is now its own catalog part, so it and the inline barrel socket can both be marked optional (recommended, for lamps that come off at the lamp). The socket splice gains a solderless route, two insulated butt connectors per drop, as an alternative to soldering. The insulated-terminal crimper is its own part too. No physical change to what an old unit is.",
 					"breaking": false,
 					"commit": null
 				}
@@ -28149,7 +28145,7 @@
 					}
 				]
 			},
-			"alternative": "Solder the wire to the strip pads instead, which needs no connector at all",
+			"alternative": "Solder the wire to the strip pads instead, with a 25 mm piece of 3 mm adhesive-lined heat shrink over each joint, which needs no connector at all",
 			"caption": "One per lamp. Strip in one end, your wire in the other.",
 			"docs_page": "/hardware/helpers/led-strip/",
 			"conflicts": null,
@@ -28555,7 +28551,7 @@
 					}
 				]
 			},
-			"alternative": "Solder the two wires together and cover the joint with heat shrink instead",
+			"alternative": "Solder the two wires together and cover each joint with a 25 mm piece of 3 mm adhesive-lined heat shrink instead",
 			"caption": "Two per lamp, one for each wire of the barrel socket.",
 			"docs_page": "/hardware/helpers/led-strip/",
 			"conflicts": null,
@@ -29899,69 +29895,11 @@
 					}
 				]
 			},
-			"alternative": "Solder the joints and cover them with heat shrink instead",
+			"alternative": "Solder the joints and cover them with 3 mm adhesive-lined heat shrink instead",
 			"caption": "Red jaw for the LED drop's butt connectors. One tool.",
 			"docs_page": "/hardware/helpers/led-strip/",
 			"conflicts": null,
 			"image": "https://assets.basically.website/sorter-parts/crimper-insulated-ratcheting-full-7fe452b0e7b1.jpg"
-		},
-		{
-			"id": "heat-shrink-3-1-adhesive-3mm",
-			"uid": "s426",
-			"kind": "cots",
-			"cots": {
-				"type": "stock-material",
-				"size": "1/8 in (3 mm)",
-				"optional": true
-			},
-			"name": "Adhesive-lined heat shrink, 3:1, 1/8 in (3 mm)",
-			"category": "Wire harness",
-			"description": "Only for the soldered route: it covers a soldered joint and seals it. 3:1 dual-wall tubing, 3.2 mm before shrinking and about 1 mm after, with a glue lining that melts and seals the joint. About 100 mm per lamp: a 25 mm piece over each of the four soldered joints.",
-			"note": "Slide it on before you solder, then shrink it with a heat gun or the side of a lighter flame. Single-wall tubing does the same job for insulation, but does not seal.",
-			"created_at": "2026-10-01",
-			"updated_at": "2026-10-01",
-			"attributes": [
-				{
-					"label": "Shrink ratio",
-					"value": "3:1, adhesive lined, dual wall"
-				},
-				{
-					"label": "Size",
-					"value": "1/8 in (3.2 mm) before shrinking"
-				},
-				{
-					"label": "Per lamp",
-					"value": "About 100 mm, in four 25 mm pieces"
-				}
-			],
-			"sheet_qty": {
-				"per_machine": 3
-			},
-			"sheet_qty_text": null,
-			"stock": {
-				"unit_length_mm": 1219,
-				"cut_length_mm": 100,
-				"pieces_per_unit": 12,
-				"unit_label": "4 ft (1.22 m) stick",
-				"piece_label": "one lamp's worth (100 mm, four 25 mm pieces)"
-			},
-			"sourcing": {
-				"vendors": [
-					{
-						"region": "US",
-						"vendor": "Polar Wire",
-						"url": "https://store.polarwire.com/heat-shrink-1-8-black-4-adhesive-lined-dual-wall",
-						"price": 4.12,
-						"as_of": "2026-10-01",
-						"note": "Black, 4 ft stick, HS-0125-BK-48."
-					}
-				]
-			},
-			"alternative": "Crimp the joints in insulated butt connectors instead, which needs no heat shrink",
-			"caption": "Soldered route only. About 100 mm per lamp.",
-			"docs_page": "/hardware/helpers/led-strip/",
-			"conflicts": null,
-			"image": "https://assets.basically.website/sorter-parts/heat-shrink-3-1-adhesive-3mm-full-35796142022d.jpg"
 		}
 	],
 	"lasercut": [

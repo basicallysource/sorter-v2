@@ -24,7 +24,7 @@ parts_needed:
     qty: 6
   - part: dupont-lead-2p-1m
     qty: 3
-tools_needed: [Side cutters, Wire strippers, "Multimeter (only if you fit the plug and socket)", "Insulated-terminal crimping pliers with a red 22 to 16 AWG jaw, for the butt connectors", "Only if you solder instead: a soldering iron, solder and 3 mm adhesive-lined heat shrink (see Getting started)", "Only if you make your own Dupont cable: a crimp tool for open-barrel contacts"]
+tools_needed: [Side cutters, Wire strippers, "Multimeter (only if you fit the plug and socket)", "Insulated-terminal crimping pliers with a red 22 to 16 AWG jaw, for the butt connectors", "Only if you solder instead of crimping or clamping: a soldering iron, solder and 3 mm adhesive-lined heat shrink (see Getting started)", "Only if you make your own Dupont cable: a crimp tool for open-barrel contacts"]
 ---
 
 Each camera lamp needs a cable that takes 24 V from the control board to its strip. The best way to build it is **two cables that meet at a barrel plug and socket**. The plug and socket are **optional but recommended**. **They make maintenance easier:** the power supply to a lamp can be disconnected right next to the lamp, so you can take a lamp down, swap it or work on it without touching the board end of its cable or the cables of the other lamps. **A machine takes three of each.** The quantities above are a whole machine's worth: one 5 m roll cuts into five lengths, and the Dupont cables come five to a pack.
@@ -42,7 +42,7 @@ Each camera lamp needs a cable that takes 24 V from the control board to its str
   <li><b>Socket joints:</b> crimp them with butt connectors (step 5).</li>
 </ul>
 
-Nothing here needs soldering. Each of steps 4 and 5 ends with how to solder that joint instead, if you would rather.
+Nothing here needs soldering. If you would rather solder a joint, the connector cards in the parts list name it as the alternative.
 
 <div class="callout callout-warning">
   <span class="callout-icon" aria-hidden="true">⚠</span>
@@ -99,8 +99,6 @@ The solderless connector is a hinged body with sprung contacts at each end: the 
   <figcaption>The strip into the open connector, then the connector pressed shut on it. <cite>Manufacturer photos (LED strip connector product listing; seller not recorded).</cite></figcaption>
 </figure>
 
-**To solder instead,** skip the connector. Slide a 25 mm piece of 3 mm adhesive-lined heat shrink over each wire and push it back out of the heat. Tin the two pads and 3 mm of each wire, hold the wire on its pad and touch the iron to both for a second or two, tip wire (or red wire) to `+24V`. Then slide the heat shrink over each joint and shrink it so the two cannot touch. Keep the iron on the pad briefly: the strip's backing and the LED beside the pad do not like being cooked.
-
 {% include step.html n="5" title="Crimp the socket's wires to the cable" %}
 
 Only if you are fitting the plug and socket. The socket's wires and the Dupont cable's wires are joined end to end, one joint per wire, so there are two. **The socket's tip wire joins the cable's red wire**, and the socket's ground wire joins the black one. Red is the wire that goes to <code>+V</code> on the board, so this is the joint that keeps the polarity right. Do one joint at a time so the two never touch.
@@ -123,8 +121,6 @@ A butt connector is a red vinyl-insulated barrel that takes one wire in each end
   <span class="callout-icon" aria-hidden="true">⚠</span>
   <p><b>Use insulated-terminal crimping pliers.</b> A crimp tool for open-barrel contacts, the kind that does Dupont and PH, has the wrong die and will not close a butt connector properly.</p>
 </div>
-
-**To solder instead,** slide a 25 mm piece of 3 mm adhesive-lined heat shrink over each wire before anything is joined. Strip 5 mm off each wire, twist the two ends of each joint together so they lie side by side, and solder until the solder has run into the strands. Slide the heat shrink over the joint and shrink it. Stagger the two joints by a few millimetres so they cannot touch.
 
 {% include step.html n="6" title="Check it before it goes anywhere" %}
 

@@ -6158,7 +6158,7 @@
       "category": "Wire harness",
       "description": "Joins an LED strip to wire without soldering: the cut end of the strip clamps under sprung contacts at one end, the wire clamps into the other. One per Camera lamp, so three per machine.",
       "note": "8 mm COB strip only: a 10 mm connector, or one for SMD strip, will not grip. Soldering the pads is the only other way to get wire onto the strip.",
-      "alternative": "Solder the wire to the strip pads instead, which needs no connector at all",
+      "alternative": "Solder the wire to the strip pads instead, with a 25 mm piece of 3 mm adhesive-lined heat shrink over each joint, which needs no connector at all",
       "created_at": "2026-09-10",
       "updated_at": "2026-09-10",
       "image_url": "https://assets.basically.website/sorter-parts/led-strip-connector-8mm-full-915e0ed03fdc.jpg",
@@ -6530,7 +6530,7 @@
       "category": "Wire harness",
       "description": "Joins two wires end to end without soldering: one wire goes in each end and the barrel is crimped onto it. Two per LED drop, one for each of the barrel socket's wires, so six per machine.",
       "note": "Crimp it with insulated-terminal crimping pliers (the red jaw). A crimp tool for open-barrel Dupont and PH contacts has the wrong die and will not close this connector properly.",
-      "alternative": "Solder the two wires together and cover the joint with heat shrink instead",
+      "alternative": "Solder the two wires together and cover each joint with a 25 mm piece of 3 mm adhesive-lined heat shrink instead",
       "created_at": "2026-10-01",
       "updated_at": "2026-10-01",
       "image_url": "https://assets.basically.website/sorter-parts/butt-connector-red-22-16-full-34dedee6c550.jpg",
@@ -8097,7 +8097,7 @@
       "category": "Wire harness",
       "description": "The pliers that close insulated butt connectors, fork terminals and quick-connect receptacles. Three colour-coded jaws: red for 22 to 16 AWG, blue for 16 to 14 AWG, yellow for 12 to 10 AWG. The ratchet will not release until the crimp is complete. The red jaw closes the butt connectors in an LED drop.",
       "note": "A crimp tool for open-barrel Dupont, PH and XH contacts cannot close an insulated terminal, so it is not a substitute. Any ratcheting crimper with a red 22 to 16 AWG jaw for insulated terminals does the same job; the Klein 3005CR is the one checked here.",
-      "alternative": "Solder the joints and cover them with heat shrink instead",
+      "alternative": "Solder the joints and cover them with 3 mm adhesive-lined heat shrink instead",
       "created_at": "2026-10-01",
       "updated_at": "2026-10-01",
       "image_url": "https://assets.basically.website/sorter-parts/crimper-insulated-ratcheting-full-7fe452b0e7b1.jpg",
@@ -8141,62 +8141,6 @@
             "price": 34.97,
             "as_of": "2026-10-01",
             "note": "Klein Tools 3005CR, SKU JB-KLE-3005CR."
-          }
-        ]
-      }
-    },
-    {
-      "id": "heat-shrink-3-1-adhesive-3mm",
-      "uid": "s426",
-      "kind": "cots",
-      "cots": {
-        "type": "stock-material",
-        "size": "1/8 in (3 mm)",
-        "optional": true
-      },
-      "name": "Adhesive-lined heat shrink, 3:1, 1/8 in (3 mm)",
-      "category": "Wire harness",
-      "description": "Only for the soldered route: it covers a soldered joint and seals it. 3:1 dual-wall tubing, 3.2 mm before shrinking and about 1 mm after, with a glue lining that melts and seals the joint. About 100 mm per lamp: a 25 mm piece over each of the four soldered joints.",
-      "note": "Slide it on before you solder, then shrink it with a heat gun or the side of a lighter flame. Single-wall tubing does the same job for insulation, but does not seal.",
-      "alternative": "Crimp the joints in insulated butt connectors instead, which needs no heat shrink",
-      "created_at": "2026-10-01",
-      "updated_at": "2026-10-01",
-      "image_url": "https://assets.basically.website/sorter-parts/heat-shrink-3-1-adhesive-3mm-full-35796142022d.jpg",
-      "attributes": [
-        {
-          "label": "Shrink ratio",
-          "value": "3:1, adhesive lined, dual wall"
-        },
-        {
-          "label": "Size",
-          "value": "1/8 in (3.2 mm) before shrinking"
-        },
-        {
-          "label": "Per lamp",
-          "value": "About 100 mm, in four 25 mm pieces"
-        }
-      ],
-      "sheet_qty": {
-        "per_machine": 3
-      },
-      "stock": {
-        "unit_length_mm": 1219,
-        "cut_length_mm": 100,
-        "pieces_per_unit": 12,
-        "unit_label": "4 ft (1.22 m) stick",
-        "piece_label": "one lamp's worth (100 mm, four 25 mm pieces)"
-      },
-      "caption": "Soldered route only. About 100 mm per lamp.",
-      "docs_page": "/hardware/helpers/led-strip/",
-      "sourcing": {
-        "vendors": [
-          {
-            "region": "US",
-            "vendor": "Polar Wire",
-            "url": "https://store.polarwire.com/heat-shrink-1-8-black-4-adhesive-lined-dual-wall",
-            "price": 4.12,
-            "as_of": "2026-10-01",
-            "note": "Black, 4 ft stick, HS-0125-BK-48."
           }
         ]
       }
@@ -15931,7 +15875,7 @@
         },
         {
           "method": "solder",
-          "note": "Or solder each of the socket's wires to the Dupont cable's wire of the same colour, tip to red, and cover each joint with heat shrink."
+          "note": "Or solder each of the socket's wires to the Dupont cable's wire of the same colour, tip to red, and cover each joint with adhesive-lined heat shrink."
         }
       ],
       "lines": [
@@ -15954,17 +15898,13 @@
         {
           "part": "led-strip-connector-8mm",
           "qty": 1
-        },
-        {
-          "part": "heat-shrink-3-1-adhesive-3mm",
-          "qty": 1
         }
       ],
       "versions": [
         {
           "version": "2",
           "date": "2026-09-30",
-          "message": "The barrel plug on the lamp pigtail is now its own catalog part, so it and the inline barrel socket can both be marked optional (recommended, for lamps that come off at the lamp). The socket splice gains a solderless route, two insulated butt connectors per drop, as an alternative to soldering, and the soldered route's heat shrink is now a part. The insulated-terminal crimper is its own part too. No physical change to what an old unit is.",
+          "message": "The barrel plug on the lamp pigtail is now its own catalog part, so it and the inline barrel socket can both be marked optional (recommended, for lamps that come off at the lamp). The socket splice gains a solderless route, two insulated butt connectors per drop, as an alternative to soldering. The insulated-terminal crimper is its own part too. No physical change to what an old unit is.",
           "breaking": false,
           "commit": null
         }

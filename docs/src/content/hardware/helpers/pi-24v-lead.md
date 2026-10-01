@@ -68,6 +68,8 @@ The converter takes 8 to 32 V in and gives 5 V out at up to 5 A. It is potted, s
 
 Used in step 2 and, on a moulded plug, in step 4. A butt connector is a vinyl-insulated barrel that takes one wire in each end, rated for 22 to 16 AWG (0.33 to 1.3 mm²) wire. Make one joint at a time so the two never touch.
 
+The listing for the converter does not give the gauge of its input wires. Before you crimp, strip one wire and push it into the connector: the strands should fill the barrel. If they sit loose with room to spare, the wire is too thin for this connector, so solder it and cover the joint with heat shrink instead.
+
 <ol class="numbered-steps">
   <li>Strip 7 mm off each of the two wires, and twist the strands of each tight.</li>
   <li>Push one wire into each end of the butt connector, until the insulation of each wire meets the end of the barrel.</li>
@@ -95,7 +97,7 @@ Choose the jaw by the size marked on it, not by its colour. To solder instead of
 
 <ol class="numbered-steps">
   <li>Plug the finished lead into a PSU box jack, with nothing on the USB-C end.</li>
-  <li>Set the multimeter to DC volts and meter the USB-C lead. It reads about 5 V.</li>
+  <li>Set the multimeter to DC volts and meter the USB-C plug. Each row of its contacts has 12 in a line: the contact at the very end of a row is ground and the fourth contact in from either end of the same row is +5 V. Touch the black probe to the end contact and the red probe to the fourth one. It reads about 5 V.</li>
   <li>If it reads 0 V, or anything near 24 V, unplug the lead from the jack at once and check which wire went to the tip.</li>
 </ol>
 
@@ -108,12 +110,7 @@ The converter with a barrel plug on its input wires and its USB-C lead free. One
   <figcaption>The plug fitted straight to the converter's own wires, no splice. <cite>Photo: BrickCycleAlice.</cite></figcaption>
 </figure>
 
-The plug goes into any of the three jacks on the PSU box, all three the same 24 V. The USB-C end goes into the socket the Pi prints `PWR IN`, at [connecting the components]({{ '/hardware/electronics/connecting/' | relative_url }}), step 6.
-
-<div class="callout callout-warning">
-  <span class="callout-icon" aria-hidden="true">⚠</span>
-  <p><b>The Pi has two USB-C sockets that look the same</b> and only the one marked <code>PWR IN</code> is a power input. The other is USB 3.1 and DisplayPort, with no power function.</p>
-</div>
+The plug goes into any of the three jacks on the PSU box, all three the same 24 V. Where the USB-C end goes is at [connecting the components]({{ '/hardware/electronics/connecting/' | relative_url }}), step 6.
 
 ## Reference
 

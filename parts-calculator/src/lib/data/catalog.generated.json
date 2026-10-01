@@ -8225,19 +8225,19 @@
 			"uid": "nmlx",
 			"version": "2",
 			"name": "LED drop (L, Lp)",
-			"description": "One camera lamp's power: a metre-long Dupont lead from an LED header on the board to the lamp's strip. Optional but recommended: an inline barrel jack on the lead and a 6 in pigtail from the matching plug to the lamp, which is the unplug point, so a lamp comes off next to the lamp without unpicking the board end. The jack's leads are joined to the Dupont lead with two butt connectors or by soldering. Without the pair the lead goes straight to the strip. 1 per camera lamp.",
+			"description": "One camera lamp's power: a metre-long Dupont cable from an LED header on the board to the lamp's strip. Optional but recommended: an inline barrel socket on the cable and a 6 in pigtail from the matching plug to the lamp, which is the unplug point, so a lamp comes off next to the lamp without unpicking the board end. The socket's wires are joined to the Dupont cable with two butt connectors or by soldering. Without the pair the cable goes straight to the strip. 1 per camera lamp.",
 			"joining": [
 				{
 					"method": "crimp",
-					"note": "The strip connector clamps onto the cut end of the COB strip and onto the plug's leads, so that end is not soldered."
+					"note": "The strip connector clamps onto the cut end of the COB strip and onto the plug's wires, so that end is not soldered."
 				},
 				{
 					"method": "crimp",
-					"note": "The socket's two leads can instead be joined to the Dupont lead's wires with a red insulated butt connector on each, crimped in the insulated-terminal die."
+					"note": "The socket's two wires can instead be joined to the Dupont cable's wires with a red insulated butt connector on each, crimped in the red jaw of an insulated-terminal crimper."
 				},
 				{
 					"method": "solder",
-					"note": "Or solder each of the socket's leads to the Dupont lead's wire of the same colour, tip to red, and cover each joint with heat shrink."
+					"note": "Or solder each of the socket's wires to the Dupont cable's wire of the same colour, tip to red, and cover each joint with heat shrink."
 				}
 			],
 			"lines": [
@@ -8260,6 +8260,10 @@
 				{
 					"part": "led-strip-connector-8mm",
 					"qty": 1
+				},
+				{
+					"part": "heat-shrink-3-1-adhesive-3mm",
+					"qty": 1
 				}
 			],
 			"versions": [
@@ -8267,7 +8271,7 @@
 					"version": "2",
 					"uid": "nmlx",
 					"date": "2026-09-30",
-					"message": "The barrel plug on the lamp pigtail is now its own catalog part, so it and the inline barrel jack can both be marked optional (recommended, for lamps that come off at the lamp). The socket splice gains a solderless route, two insulated butt connectors per drop, as an alternative to soldering. No physical change to what an old unit is.",
+					"message": "The barrel plug on the lamp pigtail is now its own catalog part, so it and the inline barrel socket can both be marked optional (recommended, for lamps that come off at the lamp). The socket splice gains a solderless route, two insulated butt connectors per drop, as an alternative to soldering, and the soldered route's heat shrink is now a part. The insulated-terminal crimper is its own part too. No physical change to what an old unit is.",
 					"breaking": false,
 					"commit": null
 				}
@@ -28158,9 +28162,9 @@
 			"cots": {
 				"type": "cable"
 			},
-			"name": "Pre-crimped 2-pin Dupont lead, 1 m",
+			"name": "Pre-crimped 2-pin Dupont cable, 1 m",
 			"category": "Wire harness",
-			"description": "A metre of 22 AWG red and black with a 2-pin 2.54 mm Dupont housing crimped on. The board cable of an LED drop: the Dupont end pushes onto an LED header (J8 to J11), and the far end is cut and joined to an inline barrel jack. The pack is male-to-female, so cut the male plug off and discard it.",
+			"description": "A metre of 22 AWG red and black with a 2-pin 2.54 mm Dupont housing crimped on. The board cable of an LED drop: the Dupont end pushes onto an LED header (J8 to J11), and the far end is cut and joined to the inline barrel socket. The pack is male-to-female, so cut the male plug off and discard it.",
 			"note": "Sold male-to-female: cut the male plug off and discard it. Any 22 AWG pair plus a 2-pin Dupont housing does the same job if you own a crimp tool.",
 			"created_at": "2026-09-10",
 			"updated_at": "2026-09-12",
@@ -28202,7 +28206,7 @@
 				]
 			},
 			"alternative": "Your own 22 AWG pair plus a 2-pin 2.54 mm Dupont housing and two crimps",
-			"caption": "Cut the male end off and join the barrel jack to it.",
+			"caption": "Cut the male end off and join the barrel socket to it.",
 			"docs_page": "/hardware/helpers/led-strip/",
 			"conflicts": null,
 			"image": "https://assets.basically.website/sorter-parts/dupont-lead-2p-1m-full-1d6495f8bb1b.jpg"
@@ -28371,7 +28375,7 @@
 			},
 			"name": "DC barrel plug, 5.5 x 2.1 mm male, for the LED pigtail",
 			"category": "Wire harness",
-			"description": "Optional but recommended. The plug on a camera lamp's pigtail, which pushes into the inline barrel jack on the board cable so the lamp can come off next to the lamp. Tip is +24 V and the sleeve is ground. Leave the pair out and the lamp's strip is connected straight to the Dupont lead instead. Buy it as a moulded plug already on a short lead; its leads are what go onto the strip. One per lamp.",
+			"description": "Optional but recommended. The plug on a camera lamp's pigtail, which pushes into the inline barrel socket on the board cable so the lamp can come off next to the lamp. Tip is +24 V and the sleeve is ground. Leave the pair out and the lamp's strip is connected straight to the Dupont cable instead. Buy it as a moulded plug already on a short pair of wires; those wires go onto the strip. One per lamp.",
 			"note": "5.5 x 2.5 mm looks identical and does not mate: the 0.4 mm is on the centre pin. Check the pin size on the listing, not the outside diameter.",
 			"created_at": "2026-09-30",
 			"updated_at": "2026-09-30",
@@ -28470,10 +28474,10 @@
 				"type": "connector",
 				"optional": true
 			},
-			"name": "DC barrel jack, 5.5 x 2.1 mm female, inline",
+			"name": "DC barrel socket, 5.5 x 2.1 mm female, inline",
 			"category": "Wire harness",
-			"description": "Optional but recommended. The unplug point of an LED drop, so a camera lamp can come off without unpicking the board end. Joined to the cut end of the Dupont lead; the lamp pigtail's barrel plug pushes into it. Leave the pair out and the strip is connected straight to the Dupont lead instead. One per lamp.",
-			"note": "Buy it as a moulded jack already on its own short leads and join those to the Dupont lead. The socket goes on the board half and the plug on the lamp half, because the board half is live at 24 V.",
+			"description": "Optional but recommended. The unplug point of an LED drop, so a camera lamp can come off without unpicking the board end. Its two wires are joined to the cut end of the Dupont cable, and the lamp pigtail's barrel plug pushes into it. Leave the pair out and the strip is connected straight to the Dupont cable instead. One per lamp.",
+			"note": "Buy it as a moulded socket already on its own short wires and join those to the Dupont cable. The socket goes on the board cable and the plug on the lamp pigtail, because the board end is live at 24 V.",
 			"created_at": "2026-09-14",
 			"updated_at": "2026-09-30",
 			"attributes": [
@@ -28511,8 +28515,8 @@
 			},
 			"name": "Insulated butt connector, red, 22-16 AWG",
 			"category": "Wire harness",
-			"description": "Joins two wires end to end without soldering: one wire goes in each end and the barrel is crimped onto it. Two per LED drop, one for each of the barrel socket's leads, so six per machine.",
-			"note": "Crimp it with a crimper that has an insulated-terminal die (the red one). The crimper in the crimp kit has an open-barrel die only, and will not close this connector properly.",
+			"description": "Joins two wires end to end without soldering: one wire goes in each end and the barrel is crimped onto it. Two per LED drop, one for each of the barrel socket's wires, so six per machine.",
+			"note": "Crimp it with the insulated-terminal crimper (the red die). The crimper in the crimp kit has an open-barrel die only, and will not close this connector properly.",
 			"created_at": "2026-10-01",
 			"updated_at": "2026-10-01",
 			"attributes": [
@@ -28530,7 +28534,7 @@
 				},
 				{
 					"label": "Used on",
-					"value": "The two joints between the barrel socket's leads and the Dupont lead, LJ1 to LJ3"
+					"value": "The two joints between the barrel socket's wires and the Dupont cable, LJ1 to LJ3"
 				}
 			],
 			"sheet_qty": {
@@ -29837,6 +29841,126 @@
 			"docs_page": null,
 			"conflicts": null,
 			"image": "https://assets.basically.website/sorter-parts/extrusion-extrusion-2020-full-01bd50e7eac0.png"
+		},
+		{
+			"id": "crimper-insulated-ratcheting",
+			"uid": "bl30",
+			"kind": "cots",
+			"cots": {
+				"type": "tool"
+			},
+			"name": "Ratcheting crimper for insulated terminals, 22-10 AWG",
+			"category": "Wire harness",
+			"description": "The pliers that close insulated butt connectors, fork terminals and quick-connect receptacles. Three colour-coded jaws: red for 22 to 16 AWG, blue for 16 to 14 AWG, yellow for 12 to 10 AWG. The ratchet will not release until the crimp is complete. The red jaw closes the butt connectors in an LED drop.",
+			"note": "This is not the crimper in the crimp kit: that one has a die for open-barrel Dupont, PH and XH contacts and cannot close an insulated terminal. Any ratcheting crimper with a red 22 to 16 AWG jaw for insulated terminals does the same job; the Klein 3005CR is the one checked here.",
+			"created_at": "2026-10-01",
+			"updated_at": "2026-10-01",
+			"attributes": [
+				{
+					"label": "Wire",
+					"value": "22 to 10 AWG"
+				},
+				{
+					"label": "Jaws",
+					"value": "Red 22 to 16 AWG, blue 16 to 14 AWG, yellow 12 to 10 AWG"
+				},
+				{
+					"label": "Terminals",
+					"value": "Insulated: butt connectors, fork terminals, quick-connect receptacles"
+				},
+				{
+					"label": "Used on",
+					"value": "The butt connectors of an LED drop, and the PSU pigtail's fork and receptacle terminals"
+				}
+			],
+			"sheet_qty": {
+				"per_machine": 1
+			},
+			"sheet_qty_text": null,
+			"stock": null,
+			"sourcing": {
+				"vendors": [
+					{
+						"region": "US",
+						"vendor": "Zoro",
+						"url": "https://www.zoro.com/klein-tools-ratcheting-crimper-10-22-awg-insulated-terminals-3005cr/i/G0259543/",
+						"price": 34.97,
+						"as_of": "2026-10-01",
+						"note": "Klein Tools 3005CR, Zoro G0259543."
+					},
+					{
+						"region": "US",
+						"vendor": "JB Tools",
+						"url": "https://www.jbtools.com/klein-3005cr-ratcheting-crimper-10-22-awg-insulated-terminals/",
+						"price": 34.97,
+						"as_of": "2026-10-01",
+						"note": "Klein Tools 3005CR, SKU JB-KLE-3005CR."
+					}
+				]
+			},
+			"alternative": "Solder the joints and cover them with heat shrink instead",
+			"caption": "Red jaw for the LED drop's butt connectors. One tool.",
+			"docs_page": "/hardware/helpers/led-strip/",
+			"conflicts": null,
+			"image": "https://assets.basically.website/sorter-parts/crimper-insulated-ratcheting-full-7fe452b0e7b1.jpg"
+		},
+		{
+			"id": "heat-shrink-3-1-adhesive-3mm",
+			"uid": "s426",
+			"kind": "cots",
+			"cots": {
+				"type": "stock-material",
+				"size": "1/8 in (3 mm)",
+				"optional": true
+			},
+			"name": "Adhesive-lined heat shrink, 3:1, 1/8 in (3 mm)",
+			"category": "Wire harness",
+			"description": "Only for the soldered route: it covers a soldered joint and seals it. 3:1 dual-wall tubing, 3.2 mm before shrinking and about 1 mm after, with a glue lining that melts and seals the joint. About 100 mm per lamp: a 25 mm piece over each of the four soldered joints.",
+			"note": "Slide it on before you solder, then shrink it with a heat gun or the side of a lighter flame. Single-wall tubing does the same job for insulation, but does not seal.",
+			"created_at": "2026-10-01",
+			"updated_at": "2026-10-01",
+			"attributes": [
+				{
+					"label": "Shrink ratio",
+					"value": "3:1, adhesive lined, dual wall"
+				},
+				{
+					"label": "Size",
+					"value": "1/8 in (3.2 mm) before shrinking"
+				},
+				{
+					"label": "Per lamp",
+					"value": "About 100 mm, in four 25 mm pieces"
+				}
+			],
+			"sheet_qty": {
+				"per_machine": 3
+			},
+			"sheet_qty_text": null,
+			"stock": {
+				"unit_length_mm": 1219,
+				"cut_length_mm": 100,
+				"pieces_per_unit": 12,
+				"unit_label": "4 ft (1.22 m) stick",
+				"piece_label": "one lamp's worth (100 mm, four 25 mm pieces)"
+			},
+			"sourcing": {
+				"vendors": [
+					{
+						"region": "US",
+						"vendor": "Polar Wire",
+						"url": "https://store.polarwire.com/heat-shrink-1-8-black-4-adhesive-lined-dual-wall",
+						"price": 4.12,
+						"as_of": "2026-10-01",
+						"note": "Black, 4 ft stick, HS-0125-BK-48."
+					}
+				]
+			},
+			"alternative": "Crimp the joints in insulated butt connectors instead, which needs no heat shrink",
+			"caption": "Soldered route only. About 100 mm per lamp.",
+			"docs_page": "/hardware/helpers/led-strip/",
+			"conflicts": null,
+			"image": "https://assets.basically.website/sorter-parts/heat-shrink-3-1-adhesive-3mm-full-35796142022d.jpg"
 		}
 	],
 	"lasercut": [

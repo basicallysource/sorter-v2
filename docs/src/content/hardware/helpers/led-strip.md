@@ -10,7 +10,12 @@ permalink: /hardware/helpers/led-strip/
 author: brickcyclealice
 contributors: [effreek, reveryx, spencer, barthel]
 og_image: https://assets.basically.website/sorter-parts/led-strip-connector-8mm-full-915e0ed03fdc.jpg
-last_verified: 2026-09-30
+last_verified: 2026-09-25
+warning: >-
+  **AI-generated first draft.** Written from the LED strip catalog parts and the earlier version of this page,
+  not from an actual build. The barrel plug and socket, the butt connectors and the heat shrink have not been
+  fitted by anyone from these steps yet, and the 25 mm heat shrink pieces and the 7 mm strip length are
+  estimates. The red jaw of the crimper is for 22 to 16 AWG, which is what the butt connectors are.
 parts_needed:
   - part: led-strip-24v
     qty: 1
@@ -24,36 +29,47 @@ parts_needed:
     qty: 6
   - part: dupont-lead-2p-1m
     qty: 3
-tools_needed: [Side cutters, Wire strippers, "Soldering iron, solder and heatshrink (if you solder)", "Crimp tool with an insulated-terminal die (for the butt connectors)", "Multimeter (with the plug and socket)", "Only if you make your own lead: crimp tool"]
+  - part: crimper-insulated-ratcheting
+    qty: 1
+  - part: heat-shrink-3-1-adhesive-3mm
+    qty: 3
+tools_needed: [Side cutters, Wire strippers, "Multimeter (only if you fit the plug and socket)", "Soldering iron and solder (only if you solder)", "Only if you make your own Dupont cable: the crimper from the crimp and connector kit (not the insulated-terminal crimper above)"]
 ---
 
-A camera lamp's power is best built as **two cables that meet at a barrel plug and socket**, so a lamp can come off without unwiring the board end. The plug and socket are **optional but recommended**. **They make maintenance easier:** the power supply to a lamp can be disconnected right next to the lamp, so you can take a lamp down, swap it or work on it without touching the board end of its cable or the cables of the other lamps. **A machine takes three of each.** The quantities above are a whole machine's worth: one 5 m roll cuts into five lengths, and the Dupont leads come five to a pack.
+Each camera lamp needs a cable that takes 24 V from the control board to its strip. The best way to build it is **two cables that meet at a barrel plug and socket**. The plug and socket are **optional but recommended**. **They make maintenance easier:** the power supply to a lamp can be disconnected right next to the lamp, so you can take a lamp down, swap it or work on it without touching the board end of its cable or the cables of the other lamps. **A machine takes three of each.** The quantities above are a whole machine's worth: one 5 m roll cuts into five lengths, and the Dupont cables come five to a pack.
 
-**Leaving the pair out** gives you one cable instead of two: the Dupont lead's cut end goes straight onto the strip, by the clamp (2a) or by solder (2b), in place of the plug's leads. Skip "Find the tip" and step 3 (3a or 3b), and read the lead's red wire as the one that goes to <code>+24V</code>. A lamp is then taken off by unplugging the Dupont end at the board.
+<figure class="single-figure">
+  <img class="doc-figure" src="https://assets.basically.website/sorter-docs/led-two-cable-set-full-eecf910789d0.png" alt="Diagram of the finished set from left to right: an LED strip, a clamp-on connector, a pair of red and black wires ending in a barrel plug, a barrel socket, two butt connectors staggered on the red and black wires, a longer cable and a two-pin Dupont plug. A blue bracket marks everything up to the plug as the lamp pigtail, and a green bracket marks the socket onward as the board cable.">
+  <figcaption>The two cables: the lamp pigtail stays with the lamp, the board cable stays with the machine.</figcaption>
+</figure>
 
-<dl class="spec-list">
-  <dt>Lamp pigtail</dt><dd>The strip, a clamp-on connector (or solder) and, optionally, a male barrel plug on the plug's own short leads, about 150 mm (6 in). It stays with the lamp.</dd>
-  <dt>Board cable</dt><dd>The Dupont lead, about a metre of 22 AWG red and black, with the Dupont plug that goes onto the board at one end and, optionally, a female barrel socket at the other. It stays with the machine.</dd>
-  <dt>Where they meet</dt><dd>The plug pushes into the socket (optional but recommended). The Dupont end goes onto an LED port when the machine is wired up: step 4 of <a href="{{ '/hardware/electronics/connecting/' | relative_url }}">connecting the components</a>.</dd>
-</dl>
+**Pick your build:**
+
+<ul>
+  <li><b>Plug and socket:</b> fit them (recommended), or leave them out. Leaving them out makes one cable: skip steps 3 and 5, and the Dupont cable's cut end goes onto the strip in step 4.</li>
+  <li><b>Strip end:</b> clamp it with a connector (4a), or solder it (4b).</li>
+  <li><b>Socket joints:</b> crimp them with butt connectors (5a), or solder them (5b).</li>
+</ul>
+
+Crimping needs the **insulated-terminal crimper** from the parts list. Soldering needs a soldering iron, solder and the **heat shrink**. You need only one of the two.
 
 <div class="callout callout-warning">
   <span class="callout-icon" aria-hidden="true">⚠</span>
-  <p>Check the roll you bought is the <b>24 V</b> one. The listing in the catalog also sells a 12 V strip of the same width, and the board's LED headers feed 24 V.</p>
+  <p>Check the roll you bought is the <b>24 V</b> one. The board's LED headers feed 24 V.</p>
 </div>
 
 <div class="callout callout-warning">
   <span class="callout-icon" aria-hidden="true">⚠</span>
-  <p><b>If you fit the pair, the socket goes on the board cable and the plug goes on the lamp, never the other way round.</b> The board side is live at 24 V whenever the power supply is on, and a socket has its contacts recessed where a plug's are not. Both are <b>5.5 x 2.1 mm, centre-positive</b>: the tip is +24 V and the sleeve is ground.</p>
+  <p><b>The socket goes on the board cable and the plug goes on the lamp pigtail, never the other way round.</b> The board end is live at 24 V whenever the power supply is on, and a socket has its contacts recessed where a plug's are not. Both are <b>5.5 x 2.1 mm, centre-positive</b>: the tip is +24 V and the sleeve is ground.</p>
 </div>
 
 {% include step.html n="1" title="Cut the strip to length, on a mark" %}
 
 **Two turns of the [camera lamp]({{ '/hardware/assembly/feeder/camera-lamp/' | relative_url }})'s reflector skirt**, which is about 920 mm of strip. One 5 m roll gives five lamps' worth.
 
-**Take off any lead the roll came with.** Some rolls have a lead soldered to the end, and it may finish in a female connector. Cut the strip just past its solder joints, on a mark, so the lead and its connector go and the strip starts with bare pads. Measure from there.
+**Take off any wire the roll came with.** Some rolls have a wire soldered to the end, and it may finish in a female connector. Cut the strip just past its solder joints, on a mark, so the wire and its connector go and the strip starts with bare pads. Measure from there.
 
-**Cut only on the printed marks**, never between them: the solder pads are at the marks, so a cut anywhere else leaves nothing to connect to. **The marks are not the same pitch on every roll**, and 31 mm, 38 mm and 50 mm have all turned up on rolls people have bought, so work in marks rather than in millimetres: coil the strip dry inside the skirt and cut at the last mark before the free end reaches the start of the coil. That lands somewhere near 920 mm.
+**Cut only on the printed marks**, never between them: the solder pads are at the marks, so a cut anywhere else leaves nothing to connect to. **The marks are not the same pitch on every roll**, so count marks rather than millimetres: coil the strip dry inside the skirt and cut at the last mark before the free end reaches the start of the coil. That lands somewhere near 920 mm.
 
 **Take the mark under two turns rather than the one over it.** Strip past two turns has nowhere to sit: it lifts out from under the cover and the light leaves the lamp at an odd angle. A small gap where the ends do not quite meet does not show.
 
@@ -64,19 +80,25 @@ Leave the blue protective film on until the strip is going where it lives. It is
   <figcaption>The cut points, with the pads that sit either side of them. Each cut leaves you half of a pad, printed <code>+24V</code> on one side. <cite>Manufacturer diagram (VOEWT).</cite></figcaption>
 </figure>
 
-## The lamp pigtail
+{% include step.html n="2" title="Cut the male plug off the Dupont cable" %}
 
-It is the strip with the male barrel plug on it (optional but recommended). The plug comes on a short lead of its own, and that lead is what goes onto the strip, by clamping or by soldering. Without the plug, the Dupont lead's cut end takes its place and you go straight to 2a or 2b.
+The cable comes from the pack with a plug on both ends: the **male** one has two pins sticking out of it, the **female** one has two holes. **Cut the male plug off.** The female end stays on: that is what pushes onto the board later. With the plug and socket, the socket joins here in step 5. Without them, this cut end goes straight onto the strip in step 4, and you skip steps 3 and 5.
 
-**Find the tip first.** Set the <a href="{{ '/hardware/helpers/multimeter/' | relative_url }}#continuity-for-tracing-a-cable">multimeter to continuity</a> and hold one probe on the plug's centre pin: the lead that beeps goes to the strip's <code>+24V</code> pad. Do not go by lead colour, because moulded plugs are not consistent about it. Then cut the plug's leads to about 150 mm (6 in).
+If you own the crimper from the crimp and connector kit, you can make this cable instead: about a metre of 22 AWG, one red and one black, with a 2-pin 2.54 mm Dupont female housing crimped on.
 
-{% include step.html n="2a" title="Either: clamp the leads onto the pads" %}
+{% include step.html n="3" title="Find the tip of the plug and of the socket" %}
+
+Only if you are fitting the plug and socket. Set the <a href="{{ '/hardware/helpers/multimeter/' | relative_url }}#continuity-for-tracing-a-cable">multimeter to continuity</a> and hold one probe on the centre pin. The wire that beeps is the tip, which is **+24 V**. The other is ground. Do this for the plug and for the socket, and **do not go by wire colour**, because moulded plugs are not consistent about it.
+
+Then cut the plug's wires to about 150 mm (6 in).
+
+{% include step.html n="4a" title="Either: clamp the wires onto the strip" %}
 
 The solderless connector is a hinged body with sprung contacts at each end: the strip goes in one end, the wire in the other, and nothing is stripped or tinned.
 
 <ol class="numbered-steps">
-  <li>Lift the lid at the strip end, slide the cut end in until the two copper pads sit under the contacts, and press it shut. The pad printed <code>+24V</code> takes the lead you found to be the tip (or the red wire).</li>
-  <li>Clamp the plug's two leads (or, without the plug, the Dupont lead's two wires) into the other end, the tip lead (or the red wire) on the <code>+24V</code> side. It bites through the insulation, so the leads do not need stripping either.</li>
+  <li>Lift the lid at the strip end, slide the cut end in until the two copper pads sit under the contacts, and press it shut.</li>
+  <li>Clamp the plug's two wires into the other end (or, without the plug, the Dupont cable's two wires). The tip wire (or the red wire) goes on the <code>+24V</code> side. It bites through the insulation, so the wires do not need stripping either.</li>
 </ol>
 
 **Match the width.** These are 8 mm COB connectors and nothing else will grip: a 10 mm body, or one meant for SMD strip, will not hold the pads against the contacts. Buy <code>SBL-RA2P-8</code>: the <code>-DC</code> variant ends in a barrel socket, which is the wrong way round on the lamp pigtail.
@@ -86,15 +108,16 @@ The solderless connector is a hinged body with sprung contacts at each end: the 
   <figcaption>The strip into the open connector, then the connector pressed shut on it. <cite>Manufacturer photos (LED strip connector product listing; seller not recorded).</cite></figcaption>
 </figure>
 
-{% include step.html n="2b" title="Or: solder the leads to the pads" %}
+{% include step.html n="4b" title="Or: solder the wires to the strip" %}
 
 Perfectly good, and what the strip is designed for. It needs no connector at all.
 
 <ol class="numbered-steps">
+  <li>Slide a 25 mm piece of heat shrink over each wire, and push it well back out of the heat.</li>
   <li>Clear any coating off the two pads and melt a little solder onto each until it wets the copper.</li>
-  <li>Strip 3 mm off each of the plug's leads (or the Dupont lead's wires) and tin them the same way.</li>
-  <li>Hold the lead on the pad and touch the iron to both for a second or two. The tip lead (or red wire) goes to <code>+24V</code>, the other to <code>-</code>.</li>
-  <li>Insulate each joint, with heatshrink over the wire or a piece over the whole end, so the two cannot touch.</li>
+  <li>Strip 3 mm off each of the plug's wires (or the Dupont cable's wires) and tin them the same way.</li>
+  <li>Hold the wire on the pad and touch the iron to both for a second or two. The tip wire (or red wire) goes to <code>+24V</code>, the other to <code>-</code>.</li>
+  <li>Slide the heat shrink over each joint and shrink it, so the two cannot touch.</li>
 </ol>
 
 Keep the iron on the pad briefly. The strip's backing and the LED next to the pad do not like being cooked.
@@ -104,57 +127,58 @@ Keep the iron on the pad briefly. The strip's backing and the LED next to the pa
   <figcaption>A soldered end, insulated with clear heatshrink over the joint. <cite>Manufacturer photo (LED strip product listing; seller not recorded).</cite></figcaption>
 </figure>
 
-## The board cable
+{% include step.html n="5a" title="Either: crimp the socket's wires to the cable" %}
 
-It is the Dupont lead, with the female barrel socket on its far end if you are fitting the pair. The lead comes from the pack with a plug on both ends, and the socket's own short leads are joined to it. If you own a crimp tool you can make the lead instead: about a metre of 22 AWG, one red and one black, with a 2-pin 2.54 mm Dupont female housing crimped on.
+Only if you are fitting the plug and socket. The socket's wires and the Dupont cable's wires are joined end to end, one joint per wire, so there are two. **The socket's tip wire joins the cable's red wire**, and the socket's ground wire joins the black one. Red is the wire that goes to <code>+V</code> on the board, so this is the joint that keeps the polarity right. Do one joint at a time so the two never touch.
+
+A butt connector is a red vinyl-insulated barrel that takes one wire in each end. Nothing is soldered.
+
+<ol class="numbered-steps">
+  <li>Strip 7 mm off both wires of each joint, and twist the strands of each wire tight.</li>
+  <li>Push the socket's wire into one end of a red butt connector, and the cable's wire of the same colour into the other, until the insulation of each wire meets the end of the barrel.</li>
+  <li>Close each end of the barrel in the <b>red jaw</b> of the insulated-terminal crimper (22 to 16 AWG), so each wire is crimped separately. Squeeze until the tool releases. Pull on each wire to check it holds.</li>
+  <li>Stagger the two butt connectors by a few millimetres along the cable so they cannot touch.</li>
+</ol>
+
+<figure class="single-figure">
+  <img class="doc-figure" src="https://assets.basically.website/sorter-docs/butt-crimp-steps-full-4df790374da6.png" alt="Three panels: a red and a black wire each with 7 mm of bare strands; a red wire pushed into each end of a red butt connector; the connector held in the red jaw of a crimping tool, marked 22 to 16.">
+  <figcaption>Strip, push in, crimp each end in the red jaw.</figcaption>
+</figure>
 
 <div class="callout callout-warning">
   <span class="callout-icon" aria-hidden="true">⚠</span>
-  <p><b>Cut the male plug off the lead first.</b> The bought lead has a plug on both ends: the <b>male</b> one has two pins sticking out of it, the <b>female</b> one has two holes. <b>Cut the male plug off</b> and join the socket there (or, without the pair, the strip). The female end stays on: that is what pushes onto the board later.</p>
+  <p><b>Use the insulated-terminal crimper from the parts list.</b> The crimper in the <a href="https://parts-calculator.basically.website/hardware?hw=connector-kit-crimp">crimp and connector kit</a> has a die for open-barrel contacts only, and will not close a butt connector properly.</p>
 </div>
 
-{% include step.html n="3" title="Join the socket's leads to the lead (optional but recommended)" %}
+{% include step.html n="5b" title="Or: solder the socket's wires to the cable" %}
 
-The socket's leads and the lead's wires are joined end to end, one joint per conductor, and there are two of them. You can crimp each joint in an insulated butt connector (3a), or solder it (3b). Both start the same way, and do one joint at a time so the two never touch.
-
-<ol class="numbered-steps">
-  <li><b>Find the tip of the socket.</b> Set the multimeter to continuity as above and hold one probe on the socket's centre pin: the lead that beeps is <b>+24 V</b>. The other is ground.</li>
-  <li><b>Match the pairs.</b> The socket's <b>tip lead joins the lead's red wire</b>, and the socket's ground lead joins the black one. Red is the wire that goes to <code>+V</code> on the board, so this is the joint that keeps the polarity right.</li>
-</ol>
-
-{% include step.html n="3a" title="Either: crimp each joint in a butt connector" %}
-
-The butt connector is a red vinyl-insulated barrel that takes one wire in each end. Nothing is soldered.
+Only if you are fitting the plug and socket. The tip wire of the socket joins the cable's red wire, and the ground wire joins the black one, one joint at a time.
 
 <ol class="numbered-steps">
-  <li>Strip 7 mm off both ends of each pair, and twist the strands of each wire tight.</li>
-  <li>Push the socket's wire into one end of a red butt connector, and the lead's wire of the same colour into the other, until the insulation of each wire meets the end of the barrel.</li>
-  <li>Crimp each end of the barrel in the <b>red die</b> of the insulated-terminal crimp tool (22 to 16 AWG), so each wire is crimped separately. Pull on each wire to check it holds.</li>
-  <li>Stagger the two connectors by a few millimetres along the cable so they cannot touch.</li>
+  <li>Slide a 25 mm piece of heat shrink over each wire before anything is joined, and push it well back out of the heat. Stagger the two joints by a few millimetres so they cannot touch.</li>
+  <li>Strip 5 mm off both wires of each joint, twist the strands of the two ends together so they lie side by side, and solder the joint until the solder has run into the strands.</li>
+  <li>Slide the heat shrink over the joint and shrink it. Do the other wire the same way.</li>
 </ol>
 
-<div class="callout callout-warning">
-  <span class="callout-icon" aria-hidden="true">⚠</span>
-  <p><b>Use a crimp tool with an insulated-terminal die.</b> The crimper in the <a href="https://parts-calculator.basically.website/hardware?hw=connector-kit-crimp">crimp and connector kit</a> has a die for open-barrel contacts only, and will not close a butt connector properly.</p>
-</div>
+{% include step.html n="6" title="Check it before it goes anywhere" %}
 
-{% include step.html n="3b" title="Or: solder each joint" %}
+Set the multimeter to continuity. **With the plug and socket**, push the two cables together first.
 
 <ol class="numbered-steps">
-  <li>Slide a piece of heatshrink over each wire before anything is joined, about 25 mm long, and push it well back out of the heat. Stagger the two joints by a few millimetres so they cannot touch.</li>
-  <li>Strip 5 mm off both ends of each pair, twist the strands of the two ends together so they lie side by side, and solder the joint until the solder has run into the strands.</li>
-  <li>Slide the heatshrink over the joint and shrink it. Do the other conductor the same way.</li>
+  <li>Touch one probe to the strip's <code>+24V</code> pad and the other to the Dupont pin that goes to <code>+V</code> on the board. It should beep.</li>
+  <li>Move the second probe to the other Dupont pin. It should not beep.</li>
+  <li>Touch the two Dupont pins to each other. It should not beep.</li>
 </ol>
 
-**Check it before it goes anywhere.** Push the two cables together and set the multimeter to continuity. From the strip's `+24V` pad to the Dupont pin that goes to `+V` on the board should beep, and from `+24V` to the other pin should not. If it beeps the wrong way round, the two joints have crossed. If the two pins beep to each other, something is shorting.
+If the first test does not beep, or the second does, the two joints have crossed. If the third beeps, something is shorting.
 
 ## The finished result
 
-With the pair fitted, two cables that plug together. A two-turn length of strip, about 920 mm, with its male barrel plug on the end of a short lead, and a metre of red and black wire with a female barrel socket at one end and a 2-pin Dupont plug at the other. Three of each make a machine. Without the pair it is one cable, the Dupont lead running straight to the strip. Nothing is joined end to end along the strip, so its far end stays dead.
+With the pair fitted, two cables that plug together. A two-turn length of strip, about 920 mm, with its male barrel plug on the end of a short pair of wires, and a metre of red and black wire with a female barrel socket at one end and a 2-pin Dupont plug at the other. Three of each make a machine. Without the pair it is one cable, the Dupont cable running straight to the strip. Nothing is joined end to end along the strip, so its far end stays dead.
 
 <figure class="single-figure">
   <img class="doc-figure" src="https://assets.basically.website/sorter-parts/led-strip-connector-8mm-full-915e0ed03fdc.jpg" alt="A length of 8 mm COB LED strip with a clear clamp-on connector on its cut end, a red and a black wire leaving the other side of the connector in a white sheath">
-  <figcaption>The strip end of the pigtail: the cut end, the joint, and the lead that leaves it. <cite>Manufacturer photo (SuperBrightLEDs).</cite></figcaption>
+  <figcaption>The strip end of the pigtail: the cut end, the joint, and the wires that leave it. <cite>Manufacturer photo (SuperBrightLEDs).</cite></figcaption>
 </figure>
 
 The Dupont end goes onto an LED port at [connecting the components]({{ '/hardware/electronics/connecting/' | relative_url }}), step 4.

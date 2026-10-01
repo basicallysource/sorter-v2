@@ -38,7 +38,7 @@ This is `W1` on the [harness drawings]({{ '/hardware/parts/harness-order/#board-
 <dl class="spec-list">
   <dt>PSU end</dt><dd>Male DC barrel plug, <b>5.5 mm outside and 2.1 mm inside</b>, centre-positive: the tip is +24 V and the sleeve is ground. A 2.5 mm plug looks the same and does not mate. It comes as a <b>screw-terminal</b> body you wire yourself or as a <b>moulded</b> plug on a short lead; either works and the step below covers both.</dd>
   <dt>Board end</dt><dd>JST <b>VH</b> housing, 2-pin (VHR-2), with a VH crimp contact on each conductor. VH pins are 3.96 mm apart, so the housing is much chunkier than the 2.0 mm PH housings the steppers use. The two do not interchange.</dd>
-  <dt>Wire</dt><dd>18 AWG, two conductor, red and black: <b>red is +24 V, black is ground</b>, the same convention as every other DC lead on the machine. Cut it 914 mm (36 in) long.</dd>
+  <dt>Wire</dt><dd>18 AWG (0.82 mm²), two conductor, red and black: <b>red is +24 V, black is ground</b>, the same convention as every other DC lead on the machine. Cut it 914 mm (36 in) long.</dd>
 </dl>
 
 <div class="callout callout-warning">
@@ -49,7 +49,7 @@ This is `W1` on the [harness drawings]({{ '/hardware/parts/harness-order/#board-
 ## Build it
 
 <ol class="numbered-steps">
-  <li>Cut the 18 AWG pair so the finished lead is 914 mm (36 in) end to end.</li>
+  <li>Cut the 18 AWG (0.82 mm²) pair so the finished lead is 914 mm (36 in) end to end.</li>
   <li><b>Fit the barrel plug to one end.</b> On a <b>screw-terminal plug</b>, strip 5 mm off each conductor, get the bare strands fully under the screws, tighten firmly and pull on each wire. On a <b>moulded plug on a short lead</b>, splice the pair onto that lead: solder each conductor, cover each one with adhesive-lined heat shrink, then sleeve both together.</li>
   <li>Find which conductor is the tip. Set the <a href="{{ '/hardware/helpers/multimeter/' | relative_url }}#continuity-for-tracing-a-cable">multimeter to continuity</a> and hold one probe on the centre pin inside the plug. The conductor that beeps is <b>+24 V</b>. Red is the tip on most plugs, but a few are wired the other way, so this is the step where you find out rather than assume.</li>
   <li>Strip 3 mm off the free end of each conductor.</li>

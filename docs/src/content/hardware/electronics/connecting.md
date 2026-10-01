@@ -64,9 +64,9 @@ All three plug into the PSU box's three DC jacks, which are the same 24 V, so it
 The buck converter is the only bought part of the three. The leads themselves are:
 
 <dl class="spec-list">
-  <dt><code>W1</code>, control board</dt><dd>18 AWG, 36 in. Male DC barrel plug at the PSU end, JST-VH 2-pin (VHR-2) housing at the board end. No supplier sells that pair of ends, so this is one you make: <a href="{{ '/hardware/helpers/board-24v-lead/' | relative_url }}">make the control board's 24 V lead</a>.</dd>
-  <dt><code>W2</code>, USB hub</dt><dd>22 AWG, 12 in, with a male DC barrel plug at <i>both</i> ends. The hub's input is an ordinary female barrel socket, so buy this one ready made.</dd>
-  <dt><code>W3</code>, Orange Pi</dt><dd>22 AWG, 6 in, a male DC barrel plug onto the buck converter's input wires. The buck's USB-C lead is the other half of the run.</dd>
+  <dt><code>W1</code>, control board</dt><dd>18 AWG (0.82 mm²), 36 in. Male DC barrel plug at the PSU end, JST-VH 2-pin (VHR-2) housing at the board end. No supplier sells that pair of ends, so this is one you make: <a href="{{ '/hardware/helpers/board-24v-lead/' | relative_url }}">make the control board's 24 V lead</a>.</dd>
+  <dt><code>W2</code>, USB hub</dt><dd>22 AWG (0.33 mm²), 12 in, with a male DC barrel plug at <i>both</i> ends. The hub's input is an ordinary female barrel socket, so buy this one ready made.</dd>
+  <dt><code>W3</code>, Orange Pi</dt><dd>22 AWG (0.33 mm²), 6 in, a male DC barrel plug onto the buck converter's input wires. The buck's USB-C lead is the other half of the run.</dd>
 </dl>
 
 The machine needs four male barrel plugs for these three (`W2` takes one at each end), plus, if you fit the optional LED plug and socket, one on each of the three LED pigtails. [Ordering the wire harness]({{ '/hardware/parts/harness-order/' | relative_url }}) has a drawing of every cable in the machine, with the gauge, the length and both end connectors on it.
@@ -200,7 +200,7 @@ At the switch end, push the two #187 tabs onto the switch's `COM` and `NC` termi
 
 {% include step.html n="4" title="Plug in the three camera lamps" %}
 
-The board has four LED ports. The fan in the housing lid is already on one of them, so the three [camera lamps]({{ '/hardware/assembly/feeder/camera-lamp/' | relative_url }}) take the other three. Each lamp comes with a [prepared LED strip]({{ '/hardware/helpers/led-strip/' | relative_url }}) and a board cable of about a metre of 22 AWG with the Dupont housing on one end. The barrel plug on the strip and the matching socket on the cable's other end are optional but recommended: they make maintenance easier, because the lamp's power can be disconnected close to the lamp. Without them the cable runs straight to the strip.
+The board has four LED ports. The fan in the housing lid is already on one of them, so the three [camera lamps]({{ '/hardware/assembly/feeder/camera-lamp/' | relative_url }}) take the other three. Each lamp comes with a [prepared LED strip]({{ '/hardware/helpers/led-strip/' | relative_url }}) and a board cable of about a metre of 22 AWG (0.33 mm²) with the Dupont housing on one end. The barrel plug on the strip and the matching socket on the cable's other end are optional but recommended: they make maintenance easier, because the lamp's power can be disconnected close to the lamp. Without them the cable runs straight to the strip.
 
 <table>
   <thead><tr><th>Port</th><th>Printed on the board</th><th>What goes on it</th></tr></thead>

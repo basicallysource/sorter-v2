@@ -38,7 +38,7 @@ These are `S1` to `S4` on the [harness drawings]({{ '/hardware/parts/harness-ord
 <dl class="spec-list">
   <dt>Board end</dt><dd>JST <b>PH</b> housing, 4-pin (PHR-4), 2.0 mm pitch, into <code>J27</code>, <code>J31</code>, <code>J35</code> or <code>J39</code>. Positions 1 to 4 are <code>A2</code>, <code>A1</code>, <code>B1</code>, <code>B2</code>.</dd>
   <dt>Motor end</dt><dd>JST <b>PH</b> housing, 6-pin (PHR-6), into the socket on the motor can. Only four of the six positions carry a contact.</dd>
-  <dt>Wire</dt><dd>24 AWG, four colours. The drawing says 1 m; see the note on length below.</dd>
+  <dt>Wire</dt><dd>24 AWG (0.20 mm²), four colours. The drawing says 1 m; see the note on length below.</dd>
 </dl>
 
 ### The crossover
@@ -135,7 +135,7 @@ The PHR-4 the contacts came out of is now spare.
 
 This keeps the 1 m lead already plugged into the motor and replaces only its board end, so it is the route that costs nothing extra if you own a crimp tool. **Per lead: one `jst-phr-4` and four `jst-sph-002t` contacts**, so sixteen contacts for the machine. You need a crimp tool for open-barrel contacts. Buy neither the ready-made cable nor the PHR-6 for this route.
 
-**The motor's own end is already right.** It is a 6-position JST-PH socket on the can, the lead is in it, the crossover above is already made inside the cable, and its 26 AWG is inside the 24 to 28 AWG a PH contact takes. Only the Dupont end is wrong.
+**The motor's own end is already right.** It is a 6-position JST-PH socket on the can, the lead is in it, the crossover above is already made inside the cable, and its 26 AWG (0.13 mm²) is inside the 24 to 28 AWG (0.08 to 0.20 mm²) a PH contact takes. Only the Dupont end is wrong.
 
 <ol class="numbered-steps">
   <li>Cut the Dupont housing off close to the housing, so the cable keeps its length.</li>

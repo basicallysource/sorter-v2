@@ -28,7 +28,7 @@ This page is the wiring. Where the PSU, the control board and the Orange Pi phys
   <dt>Output</dt><dd>24V, 14.6A, 350.4W, single output</dd>
   <dt>Enclosure</dt><dd>Custom 3D-printed box, fused AC input</dd>
   <dt>Terminal block</dt><dd>9-position, MEAN WELL's own numbering: <b>1</b> AC/L, <b>2</b> AC/N, <b>3</b> FG, <b>4-6</b> DC OUTPUT -V, <b>7-9</b> DC OUTPUT +V (LRS-350-SPEC)</dd>
-  <dt>DC outputs</dt><dd>3 × female DC jack, each a 4 in 18 AWG pigtail with 2 × spade/fork terminals (M3.5, 8 mm wide max, Molex 0191310031 or equivalent). One pigtail per +V/-V screw pair: 7 with 4, 8 with 5, 9 with 6</dd>
+  <dt>DC outputs</dt><dd>3 × female DC jack, each a 4 in 18 AWG (0.82 mm²) pigtail with 2 × spade/fork terminals (M3.5, 8 mm wide max, Molex 0191310031 or equivalent). One pigtail per +V/-V screw pair: 7 with 4, 8 with 5, 9 with 6</dd>
   <dt>AC input</dt><dd>Screws 1, 2, 3. Fed by the fused IEC inlet switch's own pre-terminated leads, so there is no cable to make</dd>
   <dt>Loads</dt><dd>basically board v1.3, the USB hub, and the Orange Pi buck converter. One jack each, no spare</dd>
   <dt>Not on this bus, but on the 24V bus indirectly</dt><dd>The cooling fans. Not a direct PSU jack. The control board's own 40mm fan plugs into one of board v1.3's four LED ports instead (24V, GPIO-switched, current-limited unless a bypass jumper is bridged), see <a href="{{ '/hardware/electronics/installation/control-board-housing/' | relative_url }}">control board housing</a> step 5, and <a href="#6--open-items">open items</a> for how this superseded an earlier 5V-native plan. The Orange Pi needs nothing off this bus: it is cooled by the 5V heatsink fan on its own SoC, which runs off the board's own FAN socket.</dd>
@@ -183,7 +183,7 @@ Which socket drives which motor is on [connecting the components]({{ '/hardware/
 
 ### 3.1 &nbsp; Inside the PSU box
 
-**Nothing in this box is a cable cut to a length.** The three DC output pigtails are built on [Make your own PSU output pigtail]({{ '/hardware/helpers/psu-pigtail/' | relative_url }}): 18 AWG, a panel-mount barrel jack at one end and a fork terminal on each lead at the other. The fused mains inlet switch's three leads come already attached to it, so there is no AC cable to make either.
+**Nothing in this box is a cable cut to a length.** The three DC output pigtails are built on [Make your own PSU output pigtail]({{ '/hardware/helpers/psu-pigtail/' | relative_url }}): 18 AWG (0.82 mm²), a panel-mount barrel jack at one end and a fork terminal on each lead at the other. The fused mains inlet switch's three leads come already attached to it, so there is no AC cable to make either.
 
 Which screw on the terminal block each lead lands on, with a drawing of the whole block, is steps 1 and 2 of the [PSU box]({{ '/hardware/electronics/installation/psu-box/' | relative_url }}) page. Screws 1 to 3 are the mains side and are live whenever the unit is plugged in. Enclosure CAD: [Onshape](https://cad.onshape.com/documents/ff3546ceb03f5fc907e6ed4c/v/f06d891a27f145d952ee5678/e/b9f80b00e4dd34407e23b560).
 
@@ -194,9 +194,9 @@ A male DC barrel plug on each wire mates one of the PSU output jacks (PJ1-PJ3), 
 <table>
   <thead><tr><th>ID</th><th>Load</th><th>From</th><th>To</th><th>Cond.</th><th>Length</th><th>Gauge</th></tr></thead>
   <tbody>
-    <tr><td class="wire-id">W1</td><td>basically board v1.3</td><td>PSU PJ1, male DC</td><td>JST-VH female (board 24V in)</td><td>2</td><td>36 in <span class="flagged">too long</span></td><td>18 AWG</td></tr>
-    <tr><td class="wire-id">W2</td><td>Waveshare 4-port USB hub, 24V</td><td>PSU PJ2, male DC</td><td>Male DC (hub)</td><td>2</td><td>12 in</td><td>22 AWG <span class="flagged">guess</span></td></tr>
-    <tr><td class="wire-id">W3</td><td>Orange Pi 5</td><td>PSU PJ3, male DC</td><td>24V-5V USB-C buck</td><td>2</td><td>6 in</td><td>22 AWG <span class="flagged">guess</span></td></tr>
+    <tr><td class="wire-id">W1</td><td>basically board v1.3</td><td>PSU PJ1, male DC</td><td>JST-VH female (board 24V in)</td><td>2</td><td>36 in <span class="flagged">too long</span></td><td>18 AWG (0.82 mm²)</td></tr>
+    <tr><td class="wire-id">W2</td><td>Waveshare 4-port USB hub, 24V</td><td>PSU PJ2, male DC</td><td>Male DC (hub)</td><td>2</td><td>12 in</td><td>22 AWG (0.33 mm²) <span class="flagged">guess</span></td></tr>
+    <tr><td class="wire-id">W3</td><td>Orange Pi 5</td><td>PSU PJ3, male DC</td><td>24V-5V USB-C buck</td><td>2</td><td>6 in</td><td>22 AWG (0.33 mm²) <span class="flagged">guess</span></td></tr>
   </tbody>
 </table>
 
@@ -271,7 +271,7 @@ All three drops now feed an LED strip in a [camera lamp]({{ '/hardware/assembly/
 ## 4 &nbsp; Parts
 
 - MEAN WELL LRS-350-24, 350.4W 24V 14.6A single output &middot; [link](https://www.amazon.com/dp/B013ETVO12)
-- 3Dman fused mains inlet switch, 15A 250V rocker + 10A fuse, 3-pin, 18 AWG &middot; [link](https://www.amazon.com/dp/B07RQV2NPN)
+- 3Dman fused mains inlet switch, 15A 250V rocker + 10A fuse, 3-pin, 18 AWG (0.82 mm²) &middot; [link](https://www.amazon.com/dp/B07RQV2NPN)
 - DC 12V/24V to 5V USB-C buck converter, 5A 25W, powers Orange Pi 5 &middot; [link](https://www.amazon.com/dp/B0FV3P6KLS)
 - Current-limiting resistor for any COB board not fed through basically board v1.3: 220&#8486;, 1/4 W, one per board. The board's own LED headers already have theirs (see 3.3). The LED strip does not need one
 - Cooling fan, 40×40×10mm, 24V (WINSINN 4010, catalog `fan-40mm-24v`) &middot; one, in the control board housing cover. It plugs into one of the board's own LED ports (see open items and control board housing).

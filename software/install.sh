@@ -4,7 +4,7 @@
 #
 # Usage:
 #   ./install.sh                 # install everything in dev mode
-#   ./install.sh --as-service    # also build UI and install systemd units
+#   ./install.sh --as-service    # also build the UI and run it as a systemd service
 #   ./install.sh --skip-apt      # skip apt-get steps (when packages already installed)
 #   ./install.sh --help
 
@@ -163,27 +163,25 @@ ok "UI deps installed"
 # 8. systemd service install (optional)
 # ─────────────────────────────────────────────────────────────────────────────
 if [[ "$AS_SERVICE" == "true" ]]; then
-    log "Building UI for production..."
+    # The backend's supervisor serves this build on port 80.
+    log "Building the UI..."
     ( cd "$SOFTWARE_DIR/sorter/frontend" && pnpm build )
 
     log "Installing systemd units..."
     UV_BIN="$(command -v uv)"
-    PNPM_BIN="$(command -v pnpm)"
 
-    for unit in sorter-backend.service sorter-ui.service sorter-backend-dev.service sorter-ui-dev.service; do
+    for unit in sorter-backend.service sorter-backend-dev.service; do
         sed -e "s|__USER__|$USER|g" \
             -e "s|__SOFTWARE_DIR__|$SOFTWARE_DIR|g" \
             -e "s|__UV_BIN__|$UV_BIN|g" \
-            -e "s|__PNPM_BIN__|$PNPM_BIN|g" \
             "$SOFTWARE_DIR/systemd/$unit" \
             | sudo tee "/etc/systemd/system/$unit" >/dev/null
     done
 
     sudo systemctl daemon-reload
-    sudo systemctl enable --now sorter-backend-dev.service sorter-ui-dev.service
-    ok "Services installed and started (dev mode)"
-    log "Backend logs:  sudo journalctl -u sorter-backend-dev -f"
-    log "UI logs:       sudo journalctl -u sorter-ui-dev -f"
+    sudo systemctl enable --now sorter-backend-dev.service
+    ok "Service installed and started (dev mode)"
+    log "Logs:  sudo journalctl -u sorter-backend-dev -f"
 fi
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -194,7 +192,7 @@ ok "Install complete."
 echo
 if [[ "$AS_SERVICE" == "true" ]]; then
     echo "Sorter is running as a systemd service."
-    echo "Open  http://localhost:5173/  in a browser on the sorter host."
+    echo "Open  http://localhost/  in a browser on the sorter host."
 else
     echo "Run the dev runner from $SOFTWARE_DIR:"
     echo "  ./dev.sh"

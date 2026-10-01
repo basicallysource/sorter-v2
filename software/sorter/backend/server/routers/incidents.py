@@ -106,3 +106,24 @@ def listIncidents(
         next_cursor=result["next_cursor"],
         total=result["total"],
     )
+
+
+class IncidentActionBody(BaseModel):
+    action: str
+
+
+@router.post("/api/incidents/action")
+def incident_action(body: IncidentActionBody) -> dict:
+    """Run one of the open incident's card buttons (see incidents.actions)."""
+    import incidents
+    from server import shared_state
+
+    gc = shared_state.gc_ref
+    if gc is None or getattr(gc, "runtime_stats", None) is None:
+        raise HTTPException(status_code=503, detail="The machine is not running.")
+    try:
+        return incidents.act(gc, body.action)
+    except HTTPException:
+        raise
+    except Exception as exc:
+        raise HTTPException(status_code=409, detail=str(exc))

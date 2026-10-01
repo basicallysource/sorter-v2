@@ -1,204 +1,458 @@
 @import 'tailwindcss';
 
-@theme {
-	--color-primary: #D01012;
-	--color-primary-hover: #B00E10;
-	--color-bg: #F7F6F3;
-	--color-surface: #FFFFFF;
-	--color-border: #E2E0DB;
-	--color-text: #1A1A1A;
-	--color-text-muted: #7A7770;
-	--color-primary-light: #FEF2F2;
-	--color-danger: #9B1D20;
-	--color-success: #00852B;
-	--color-warning: #FFD500;
-	/* warning yellow is the LEGO accent; for readable copy on white use the dark amber pair. */
-	--color-warning-strong: #92400E;
-	--color-warning-bg: #FEF3C7;
-	/* Ink for text sitting on the *fixed* LEGO yellow (`bg-warning`, e.g. the "Raw"
-	   chip over a sample photo). That background never flips, so neither does this —
-	   there is deliberately no `.dark` override. For yellow tints over a themed
-	   surface use `text-warning-strong`, which does flip. */
-	--color-warning-ink: #92400E;
-	--color-info: #0055BF;
-	/* Media backdrop for image/annotation viewers. Deliberately near-black in BOTH
-	   themes — a photo canvas reads better on a dark mat regardless of the app theme —
-	   so it has no `.dark` override below. Use it instead of a raw Tailwind neutral. */
-	--color-canvas: #0A0A0B;
+/* How the tokens work (docs/color.md).
+   Every color is a plain custom property (--canvas, --ink, ...) with a light
+   value and a dark value. <html> carries the class `dark` in dark mode, and
+   any element can carry `light` or `dark` to fix the mode of what is inside it
+   (a camera feed's controls, the two columns of the color page). The block
+   below maps each property to Tailwind's name inline, so a utility such as
+   bg-canvas reads var(--canvas) where it is used and follows the nearest mode.
+   So markup never needs a dark: modifier, and in an arbitrary value it names
+   the property itself: border-(--primary).
 
-	--font-sans: 'IBM Plex Sans', system-ui, sans-serif;
-	--font-mono: 'IBM Plex Mono', monospace;
+   Corners, sizes, type and the button style are custom properties too, set
+   once below (docs/decisions.md). */
+
+@custom-variant dark (&:where(.dark, .dark *):not(:where(.light, .light *)));
+
+@theme inline {
+	/* Planes (docs/surfaces.md). */
+	--color-canvas: var(--canvas);
+	--color-surface: var(--surface);
+	--color-well: var(--well);
+	--color-raised: var(--raised);
+	--color-field: var(--field);
+	--color-media: var(--media);
+	--color-scrim: var(--scrim);
+	/* The groove of a progress bar, and the knob of a switch. */
+	--color-track: var(--track);
+	--color-knob: var(--knob);
+
+	/* Lines: `line` divides items on one plane; `line-strong` outlines a control. */
+	--color-line: var(--line);
+	--color-line-strong: var(--line-strong);
+
+	/* Text. */
+	--color-ink: var(--ink);
+	--color-ink-muted: var(--ink-muted);
+	--color-ink-faint: var(--ink-faint);
+
+	/* State fills, translucent so they work on every plane. */
+	--color-hover: var(--hover);
+	--color-pressed: var(--pressed);
+	--color-soft: var(--soft);
+
+	/* The primary: the operator's pick on a machine (src/lib/theme.svelte.ts). */
+	--color-primary: var(--primary);
+	--color-primary-hover: var(--primary-hover);
+	--color-primary-soft: var(--primary-soft);
+	--color-primary-ink: var(--primary-ink);
+	--color-on-primary: var(--on-primary);
+
+	/* Status. `-soft` is a tint for a notice or badge, `-ink` the text on a
+	   surface or on that tint, `on-` the text on the solid color. */
+	--color-success: var(--success);
+	--color-success-soft: var(--success-soft);
+	--color-success-ink: var(--success-ink);
+	--color-on-success: var(--on-success);
+	--color-warning: var(--warning);
+	--color-warning-soft: var(--warning-soft);
+	--color-warning-ink: var(--warning-ink);
+	--color-on-warning: var(--on-warning);
+	--color-danger: var(--danger);
+	--color-danger-hover: var(--danger-hover);
+	--color-danger-soft: var(--danger-soft);
+	--color-danger-ink: var(--danger-ink);
+	--color-on-danger: var(--on-danger);
+	--color-info: var(--info);
+	--color-info-soft: var(--info-soft);
+	--color-info-ink: var(--info-ink);
+	--color-on-info: var(--on-info);
+
+	/* Corners: rounded-panel, rounded-control and the rest, one radius each (docs/decisions.md). */
+	--radius-panel: var(--r-panel);
+	--radius-control: var(--r-control);
+	--radius-item: var(--r-item);
+	--radius-button: var(--r-button);
+	--radius-button-inner: var(--r-button-inner);
+	--radius-badge: var(--r-badge);
+	--radius-check: var(--r-check);
+	--radius-radio: var(--r-radio);
+
+	--font-sans: var(--sans);
+	--font-mono: var(--mono);
 }
 
+/* ---------------------------------------------------------------- colors */
+
+/* The primary, until src/lib/theme.svelte.ts sets the operator's on <html>:
+   LEGO blue, the machine's default. Only <html> ever sets these, so every
+   light or dark subtree shares them. */
 :root {
-	color-scheme: light;
+	--primary: #0055bf;
+	--on-primary: #ffffff;
+	--primary-ink-light: #0055bf;
+	--primary-ink-dark: #6f9eff;
 }
 
+/* Light. */
+:root,
+.light {
+	color-scheme: light;
+	--canvas: #eceae5;
+	--surface: #ffffff;
+	--well: #f4f3ef;
+	--raised: #ffffff;
+	--field: #ffffff;
+	--track: #e6e4de;
+	--line: #e2dfd8;
+	--line-strong: #b9b4aa;
+	--ink: #1b1a18;
+	--ink-muted: #686460;
+	--ink-faint: #9d988f;
+	--primary-ink: var(--primary-ink-light);
+	--primary-soft: color-mix(in oklab, var(--primary) 12%, transparent);
+	--success-soft: color-mix(in oklab, var(--success) 11%, transparent);
+	--success-ink: #006b23;
+	--warning-soft: color-mix(in oklab, var(--warning) 22%, transparent);
+	--warning-ink: #6e5200;
+	--danger-soft: color-mix(in oklab, var(--danger) 10%, transparent);
+	--danger-ink: #a80d0f;
+	--info-soft: color-mix(in oklab, var(--info) 10%, transparent);
+	--info-ink: #0055bf;
+}
+
+/* Dark. */
 .dark {
 	color-scheme: dark;
-	--color-bg: #15120f;
-	--color-surface: #1f1b18;
-	--color-border: #3a332d;
-	--color-text: #f3efe8;
-	--color-text-muted: #b7afa2;
-	--color-primary-light: #341517;
-	/* The light-theme amber pair is tuned for readable copy on white and is unreadable
-	   on the dark surface (both fail contrast there), so it flips: light amber ink on a
-	   deep amber wash. */
-	--color-warning-strong: #E7B84B;
-	--color-warning-bg: #3A2E12;
+	--canvas: #0e0e0d;
+	--surface: #1b1b19;
+	--well: #141413;
+	--raised: #242422;
+	--field: #141413;
+	--track: #0f0f0e;
+	--line: #2e2d2a;
+	--line-strong: #4a4843;
+	--ink: #eeece7;
+	--ink-muted: #a39f96;
+	--ink-faint: #6f6c65;
+	--primary-ink: var(--primary-ink-dark);
+	--primary-soft: color-mix(in oklab, var(--primary) 22%, transparent);
+	--success-soft: color-mix(in oklab, var(--success) 20%, transparent);
+	--success-ink: #5cc97f;
+	--warning-soft: color-mix(in oklab, var(--warning) 14%, transparent);
+	--warning-ink: #ffd500;
+	--danger-soft: color-mix(in oklab, var(--danger) 22%, transparent);
+	--danger-ink: #ff6b66;
+	--info-soft: color-mix(in oklab, var(--info) 26%, transparent);
+	--info-ink: #7fb0ff;
 }
+
+/* The same in both modes, or made from the values above. Declared wherever a
+   mode is, so a light or dark subtree works them out from its own values. */
+:root,
+.light,
+.dark {
+	--media: #000000;
+	--scrim: rgb(14 14 13 / 0.55);
+	--knob: #ffffff;
+	--hover: color-mix(in oklab, var(--ink) 5%, transparent);
+	--pressed: color-mix(in oklab, var(--ink) 9%, transparent);
+	/* A neutral fill for a control that has no outline (a soft button). */
+	--soft: color-mix(in oklab, var(--ink) 7%, transparent);
+	--soft-hover: color-mix(in oklab, var(--ink) 11%, transparent);
+	--primary-hover: color-mix(in oklab, var(--primary) 86%, black);
+	--primary-tint-hover: color-mix(in oklab, var(--primary) 20%, transparent);
+	/* The status colors are LEGO's and never change with the mode or the
+	   primary. Warning is LEGO yellow, #FFD500. */
+	--success: #00852b;
+	--warning: #ffd500;
+	--danger: #d01012;
+	--danger-hover: color-mix(in oklab, var(--danger) 86%, black);
+	--danger-tint-hover: color-mix(in oklab, var(--danger) 18%, transparent);
+	--info: #0055bf;
+	--on-success: #ffffff;
+	--on-warning: #1b1a18;
+	--on-danger: #ffffff;
+	--on-info: #ffffff;
+}
+
+/* ------------------------------------------------------------ the buttons
+   What the four variants of Button.svelte are drawn with: tints, nothing
+   solid (docs/decisions.md). Declared with the modes, so a light or dark
+   subtree works them out from its own colors. */
+:root,
+.light,
+.dark {
+	--btn-primary-bg: var(--primary-soft);
+	--btn-primary-fg: var(--primary-ink);
+	--btn-primary-line: transparent;
+	--btn-primary-hover: var(--primary-tint-hover);
+	--btn-secondary-bg: var(--soft);
+	--btn-secondary-fg: var(--ink);
+	--btn-secondary-line: transparent;
+	--btn-secondary-hover: var(--soft-hover);
+	--btn-danger-bg: var(--danger-soft);
+	--btn-danger-fg: var(--danger-ink);
+	--btn-danger-line: transparent;
+	--btn-danger-hover: var(--danger-tint-hover);
+}
+
+/* ---------------------------------------------------------------- corners
+   1px, nearly square (docs/decisions.md). A radio is round and a status dot
+   is round (rounded-full); nothing else is. */
+:root {
+	--r-panel: 1px;
+	--r-control: 1px;
+	--r-item: 1px;
+	--r-button: 1px;
+	--r-button-inner: 1px;
+	--r-badge: 1px;
+	--r-check: 1px;
+	--r-radio: 999px;
+}
+
+/* ------------------------------------------------------------------ sizes
+   One scale, so every control steps together (docs/layout.md). Heights are
+   the whole control, border included. */
+:root {
+	--size-control: 2.25rem;
+	--size-control-sm: 1.875rem;
+	--size-control-lg: 2.75rem;
+	--pad-control: 0.875rem;
+	--pad-control-sm: 0.625rem;
+	--size-badge: 1.375rem;
+	--pad-badge: 0.5rem;
+	--switch-w: 2.5rem;
+	--switch-h: 1.375rem;
+	--size-topbar: 3rem;
+	--size-nav-item: 2rem;
+	--size-tab: 2.5rem;
+	--size-menu-item: 2.125rem;
+	--indicator: 3px;
+	--pad-panel: 1.25rem;
+	--pad-row: 0.875rem;
+	--gap-panels: 1rem;
+}
+
+/* ------------------------------------------------------------------- type
+   Geist, with Geist Mono for what someone copies (docs/type.md). Both are
+   self-hosted (src/routes/+layout.svelte), because a machine may be offline. */
+:root {
+	--sans: 'Geist Variable', system-ui, sans-serif;
+	--mono: 'Geist Mono Variable', ui-monospace, monospace;
+}
+
+/* ------------------------------------------------------------------- base */
 
 @layer base {
-  html {
-    background: var(--color-bg);
-  }
-  body {
-    background: var(--color-bg);
-    color: var(--color-text);
-    font-family: var(--font-sans);
-    -webkit-font-smoothing: antialiased;
-    -moz-osx-font-smoothing: grayscale;
-  }
-  input,
-  textarea,
-  select {
-    background: var(--color-surface);
-    color: var(--color-text);
-  }
-  ::selection {
-    background: color-mix(in srgb, var(--color-primary) 30%, transparent);
-  }
-  a, button, select, input {
-    transition-property: color, background-color, border-color, box-shadow;
-    transition-duration: 150ms;
-    transition-timing-function: ease;
-  }
-  :focus-visible {
-    outline: 2px solid var(--color-primary);
-    outline-offset: 2px;
-  }
-}
-
-@layer components {
-	.chat-message-assistant {
-		border: 1px solid var(--color-border);
-		background: var(--color-surface);
-		color: color-mix(in srgb, var(--color-text) 72%, var(--color-text-muted));
+	html {
+		background: var(--canvas);
+		color: var(--ink);
+		font-family: var(--sans);
+		-webkit-font-smoothing: antialiased;
+		-moz-osx-font-smoothing: grayscale;
 	}
 
-	.chat-message-user {
-		border: 1px solid color-mix(in srgb, var(--color-info) 30%, var(--color-border));
-		background: color-mix(in srgb, var(--color-info) 10%, var(--color-surface));
-		color: var(--color-text);
+	/* Tailwind's default border color is currentColor; ours is the divider. */
+	*,
+	::before,
+	::after {
+		border-color: var(--line);
 	}
 
-	.markdown-body {
-		min-width: 0;
-		max-width: 100%;
-		overflow-wrap: anywhere;
+	:focus-visible {
+		outline: 2px solid var(--primary);
+		outline-offset: 2px;
 	}
 
-	.markdown-body > :first-child {
-		margin-top: 0;
+	button:not(:disabled),
+	[role='button']:not([aria-disabled='true']),
+	summary,
+	label[for] {
+		cursor: pointer;
 	}
 
-	.markdown-body > :last-child {
-		margin-bottom: 0;
+	::selection {
+		background: color-mix(in oklab, var(--primary) 28%, transparent);
 	}
 
-	.markdown-body p,
-	.markdown-body ul,
-	.markdown-body ol,
-	.markdown-body pre,
-	.markdown-body table,
-	.markdown-body blockquote {
-		margin: 0.5rem 0;
-	}
-
-	.markdown-body ul,
-	.markdown-body ol {
-		padding-left: 1.25rem;
-	}
-
-	.markdown-body ul {
-		list-style: disc;
-	}
-
-	.markdown-body ol {
-		list-style: decimal;
-	}
-
-	.markdown-body li + li {
-		margin-top: 0.2rem;
-	}
-
-	.markdown-body code {
-		border-radius: 0.25rem;
-		background: color-mix(in srgb, var(--color-surface) 70%, var(--color-border));
-		padding: 0.08rem 0.3rem;
-		font-family: var(--font-mono);
-		font-size: 0.92em;
-	}
-
-	.markdown-body pre {
-		max-width: 100%;
-		overflow-x: auto;
-		border: 1px solid var(--color-border);
-		background: color-mix(in srgb, var(--color-surface) 82%, black 18%);
-		padding: 0.75rem;
-	}
-
-	.markdown-body pre code {
-		background: transparent;
-		padding: 0;
-	}
-
-	.markdown-body table {
-		display: block;
-		max-width: 100%;
-		overflow-x: auto;
-		border-collapse: collapse;
-		border: 1px solid var(--color-border);
-		background: var(--color-surface);
-	}
-
-	.markdown-body th,
-	.markdown-body td {
-		border: 1px solid var(--color-border);
-		padding: 0.4rem 0.5rem;
-		text-align: left;
-		vertical-align: top;
-	}
-
-	.markdown-body th {
-		background: color-mix(in srgb, var(--color-surface) 75%, var(--color-bg));
-		font-weight: 600;
-	}
-
-	.markdown-body blockquote {
-		border-left: 3px solid var(--color-border);
-		padding-left: 0.75rem;
-		color: var(--color-text-muted);
-	}
-
-	.markdown-compact p,
-	.markdown-compact ul,
-	.markdown-compact ol,
-	.markdown-compact pre,
-	.markdown-compact table,
-	.markdown-compact blockquote {
-		margin: 0.3rem 0;
-	}
-
-	.markdown-compact ul,
-	.markdown-compact ol {
-		padding-left: 1rem;
-	}
-
-	.markdown-compact th,
-	.markdown-compact td {
-		padding: 0.3rem 0.4rem;
+	/* A dialog's backdrop (Modal.svelte). Popovers have none: they never dim
+	   the page. */
+	dialog::backdrop {
+		background: var(--scrim);
 	}
 }
 
+/* Icons: square caps and mitred joins, like the nearly square corners (docs/icons.md). */
+.lucide {
+	stroke-linecap: square;
+	stroke-linejoin: miter;
+}
+
+/* A label: a group's name in a nav, a stat's name. Sentence case, like
+   every other word; nothing is in capitals. */
+.label {
+	font-size: 0.875rem;
+	line-height: 1.25rem;
+	font-weight: 500;
+	color: var(--ink-muted);
+}
+
+/* Numbers that change in place line up and do not jitter: Geist's own
+   tabular figures, not the mono. */
+.num {
+	font-variant-numeric: tabular-nums;
+}
+
+/* A table of records (docs/components.md#table): the head is labels on the
+   table's own plane, one line under it and between rows, no outer border, so
+   it sits in a flush Panel with no line doubling its edge. Put `num` on a
+   numeric column's cells, and `is-link` on a row that opens something. */
+.data-table {
+	width: 100%;
+	border-collapse: collapse;
+	font-size: 0.875rem;
+	line-height: 1.25rem;
+}
+
+.data-table th {
+	border-bottom: 1px solid var(--line);
+	padding: 0.5rem var(--pad-row);
+	text-align: left;
+	font-size: 0.875rem;
+	line-height: 1.25rem;
+	font-weight: 500;
+	color: var(--ink-muted);
+	white-space: nowrap;
+}
+
+.data-table td {
+	padding: 0.625rem var(--pad-row);
+	color: var(--ink);
+	vertical-align: middle;
+}
+
+.data-table tbody tr + tr td {
+	border-top: 1px solid var(--line);
+}
+
+.data-table .num {
+	text-align: right;
+}
+
+.data-table tbody tr.is-link:hover td {
+	background: var(--hover);
+	cursor: pointer;
+}
+
+/* ================================================================ Hive's own
+   Everything above is software/sorter-design-system/src/app.css, unchanged;
+   copy it again when the system changes. What follows is Hive's alone. */
+
+/* Hive's primary is LEGO red and never changes (the design system's
+   docs/apps.md). The two inks are the red that reads on each mode's surface. */
+:root {
+	--primary: #d01012;
+	--on-primary: #ffffff;
+	--primary-ink-light: #d01012;
+	--primary-ink-dark: #df5c5e;
+}
+
+/* Markdown rendered from a string (the profile assistant's replies), where
+   the elements carry no classes of their own. */
+.markdown-body {
+	min-width: 0;
+	max-width: 100%;
+	overflow-wrap: anywhere;
+}
+
+.markdown-body > :first-child {
+	margin-top: 0;
+}
+
+.markdown-body > :last-child {
+	margin-bottom: 0;
+}
+
+.markdown-body :is(p, ul, ol, pre, table, blockquote) {
+	margin: 0.5rem 0;
+}
+
+.markdown-body :is(ul, ol) {
+	padding-left: 1.25rem;
+}
+
+.markdown-body ul {
+	list-style: disc;
+}
+
+.markdown-body ol {
+	list-style: decimal;
+}
+
+.markdown-body li + li {
+	margin-top: 0.2rem;
+}
+
+.markdown-body code {
+	border-radius: var(--r-control);
+	background: var(--soft);
+	padding: 0.08rem 0.3rem;
+	font-family: var(--mono);
+	font-size: 0.92em;
+}
+
+.markdown-body pre {
+	max-width: 100%;
+	overflow-x: auto;
+	border-radius: var(--r-control);
+	background: var(--well);
+	padding: 0.75rem;
+}
+
+.markdown-body pre code {
+	background: transparent;
+	padding: 0;
+}
+
+.markdown-body table {
+	display: block;
+	max-width: 100%;
+	overflow-x: auto;
+	border-collapse: collapse;
+}
+
+.markdown-body :is(th, td) {
+	padding: 0.4rem 0.5rem;
+	text-align: left;
+	vertical-align: top;
+}
+
+.markdown-body th {
+	background: var(--well);
+	font-weight: 500;
+	color: var(--ink-muted);
+}
+
+.markdown-body tr + tr td {
+	border-top: 1px solid var(--line);
+}
+
+.markdown-body blockquote {
+	border-left: 1px solid var(--line-strong);
+	padding-left: 0.75rem;
+	color: var(--ink-muted);
+}
+
+.markdown-compact :is(p, ul, ol, pre, table, blockquote) {
+	margin: 0.3rem 0;
+}
+
+.markdown-compact :is(ul, ol) {
+	padding-left: 1rem;
+}
+
+.markdown-compact :is(th, td) {
+	padding: 0.3rem 0.4rem;
+}

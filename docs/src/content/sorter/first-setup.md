@@ -38,7 +38,8 @@ Type the machine's address into your browser. Which address depends on how you i
 | Install | Address |
 |---|---|
 | SorterOS image | `http://sorter.local/` |
-| Generic Linux, or by hand | `http://<machine name>:5173/` |
+| Generic Linux as a service (`install.sh --as-service`) | `http://<machine name>/` |
+| Generic Linux with `./dev.sh`, or by hand | `http://<machine name>:5173/` |
 
 If you gave the machine a different hostname during the install, use that name instead of `sorter`. If no `.local` address answers, use the machine's IP address from your router.
 

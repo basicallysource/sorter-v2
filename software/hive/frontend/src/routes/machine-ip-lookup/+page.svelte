@@ -1,8 +1,12 @@
 <script lang="ts">
 	import { onMount, onDestroy } from 'svelte';
 	import { getApiBaseUrl } from '$lib/api';
-	import { Button, Alert } from '$lib/components/primitives';
+	import Button from '$lib/components/Button.svelte';
+	import Alert from '$lib/components/Alert.svelte';
 	import Spinner from '$lib/components/Spinner.svelte';
+	import Panel from '$lib/components/Panel.svelte';
+	import ArrowRight from '@lucide/svelte/icons/arrow-right';
+	import Check from '@lucide/svelte/icons/check';
 
 	type Phase = 'waiting' | 'found' | 'invalid' | 'expired';
 
@@ -180,66 +184,57 @@
 </script>
 
 <svelte:head>
-	<title>Find your sorter · Hive</title>
+	<title>Find your sorter - Hive</title>
 	<meta name="robots" content="noindex" />
 </svelte:head>
 
-<div class="mx-auto flex min-h-screen w-full max-w-xl flex-col justify-center gap-6 px-5 py-10">
+<div class="mx-auto flex min-h-dvh w-full max-w-xl flex-col justify-center gap-(--gap-panels) px-4 py-10">
 	<div class="text-center">
-		<div class="font-mono text-sm tracking-wider text-text-muted uppercase">
-			SorterOS onboarding
-		</div>
-		<h1 class="mt-1 text-2xl font-bold text-text">Find your sorter</h1>
+		<p class="label">SorterOS setup</p>
+		<h1 class="mt-1 text-2xl font-semibold tracking-tight text-ink">Find your sorter</h1>
 	</div>
 
 	{#if phase === 'invalid'}
-		<Alert variant="danger" title="Link incomplete">
-			This page needs the one-time id the sorter's setup screen puts in the link. Open the
-			"Find my sorter" link from the sorter's Wi-Fi setup page again.
+		<Alert tone="danger" title="The link is incomplete">
+			This page needs the one-time id that the sorter's setup page puts in the link. Open the "Find my sorter" link
+			from the sorter's Wi-Fi setup page again.
 		</Alert>
 	{:else if phase === 'waiting'}
-		<div
-			class="flex flex-col items-center gap-4 border border-border bg-surface px-6 py-10 text-center"
-		>
-			<Spinner size={32} />
-			<div class="text-text">Waiting for your sorter to come online…</div>
-			<p class="max-w-sm text-sm text-text-muted">
-				Make sure you've rejoined your normal Wi-Fi. Once the sorter is on it, its address shows up
-				here within seconds. The address is encrypted end to end, so only this browser can read it.
-			</p>
-			<p class="max-w-sm text-sm text-text-muted">
-				If the sorter's setup network (<span class="font-mono">SorterOS-Setup-…</span>) shows up in
-				your Wi-Fi list again, it couldn't join. Connect to it again to see why and try again.
-			</p>
-			<div class="font-mono text-xs text-text-muted">
-				{Math.floor(elapsed / 60)}:{String(elapsed % 60).padStart(2, '0')} elapsed
+		<Panel>
+			<div class="flex flex-col items-center gap-4 py-6 text-center">
+				<Spinner size={32} />
+				<p class="text-ink">Waiting for your sorter to come online</p>
+				<p class="max-w-sm text-sm text-ink-muted">
+					Rejoin your usual Wi-Fi. Once the sorter is on it, its address shows up here within seconds. The address is
+					encrypted from end to end, so only this browser can read it.
+				</p>
+				<p class="max-w-sm text-sm text-ink-muted">
+					If the sorter's setup network (<span class="font-mono">SorterOS-Setup-...</span>) is back in your Wi-Fi list, it
+					couldn't join. Connect to it again to see why, and try again.
+				</p>
+				<p class="num text-sm text-ink-muted">{Math.floor(elapsed / 60)}:{String(elapsed % 60).padStart(2, '0')}</p>
 			</div>
-		</div>
+		</Panel>
 	{:else if phase === 'found' && info}
-		<div
-			class="flex flex-col items-center gap-5 border border-success/40 bg-success/[0.06] px-6 py-10 text-center"
-		>
-			<div class="text-lg font-semibold text-text">Your sorter is online! 🎉</div>
-			{#if info.hostname}
-				<div class="font-mono text-sm text-text-muted">{info.hostname}</div>
-			{/if}
-			<div class="text-sm text-text-muted">
-				{info.ssid ? `On the Wi-Fi network ${info.ssid}` : 'Connected by cable'}
+		<Panel>
+			<div class="flex flex-col items-center gap-4 py-6 text-center">
+				<span class="flex size-10 items-center justify-center rounded-control bg-success-soft text-success-ink"
+					><Check size={20} /></span
+				>
+				<p class="text-lg font-semibold text-ink">Your sorter is online</p>
+				{#if info.hostname}<p class="font-mono text-sm text-ink-muted">{info.hostname}</p>{/if}
+				<p class="text-sm text-ink-muted">{info.ssid ? `On the Wi-Fi network ${info.ssid}` : 'Connected by cable'}</p>
+				<p class="font-mono text-base break-all text-ink">{sorterUrl()}</p>
+				<Button href={sorterUrl()} variant="primary" icon={ArrowRight}>Open the sorter</Button>
+				<p class="max-w-sm text-sm text-ink-muted">Bookmark the address: it is your sorter's page on your own network.</p>
 			</div>
-			<div class="font-mono text-base break-all text-text">{sorterUrl()}</div>
-			<a href={sorterUrl()} class="w-full max-w-xs">
-				<Button variant="primary">Open the sorter →</Button>
-			</a>
-			<p class="max-w-sm text-xs text-text-muted">
-				Bookmark this address — it's your sorter's dashboard on your local network.
-			</p>
-		</div>
+		</Panel>
 	{:else if phase === 'expired'}
-		<Alert variant="warning" title="No sorter reported in">
-			Fifteen minutes passed without the sorter checking in. If its setup network
-			(<span class="font-mono">SorterOS-Setup-…</span>) is back in your Wi-Fi list, it couldn't
-			join: connect to it and try again. Otherwise it's online but can't reach Hive, so try the
-			<span class="font-mono">.local</span> address its setup page showed.
+		<Alert tone="warning" title="No sorter checked in">
+			Fifteen minutes passed without the sorter checking in. If its setup network (<span class="font-mono"
+				>SorterOS-Setup-...</span
+			>) is back in your Wi-Fi list, it couldn't join: connect to it and try again. Otherwise it is online but can't
+			reach Hive, so try the <span class="font-mono">.local</span> address its setup page showed.
 		</Alert>
 	{/if}
 </div>

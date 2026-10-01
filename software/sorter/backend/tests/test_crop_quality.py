@@ -5,10 +5,10 @@ import cv2
 import numpy as np
 
 from subsystems.classification_channel import crop_quality
-from subsystems.classification_channel.simple_state_machine_rev01.base import (
+from subsystems.classification_channel.two_piece.base import (
     Rev01BaseState,
 )
-from subsystems.classification_channel.simple_state_machine_rev01.rev01_config import (
+from subsystems.classification_channel.two_piece.rev01_config import (
     Rev01Config,
 )
 

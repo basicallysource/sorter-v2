@@ -13,6 +13,7 @@
 	import { joinFailure } from '$lib/words';
 	import Alert from './Alert.svelte';
 	import Button from './Button.svelte';
+	import Input from './Input.svelte';
 
 	let {
 		target,
@@ -75,82 +76,74 @@
 		onjoin({ ssid: wanted, password: open ? '' : password, hidden: target.hidden, name: newName });
 	}
 
-	const field = 'setup-control w-full min-w-0 px-3 text-base';
+
 </script>
 
 <form class="flex flex-col gap-5" onsubmit={submit} novalidate>
-	<button
-		type="button"
-		class="-my-2 -ml-2 inline-flex min-h-11 items-center gap-1 self-start px-2 text-sm font-medium text-text-muted hover:text-text"
-		onclick={onback}
-	>
-		<ChevronLeft size={16} />
-		All networks
-	</button>
+	<div class="-ml-3 self-start">
+		<Button variant="ghost" icon={ChevronLeft} onclick={onback}>All networks</Button>
+	</div>
 
 	{#if failure}
-		<Alert variant="danger">
-			<p class="font-medium">{joinFailure(failure)}</p>
+		<Alert tone="danger" title={joinFailure(failure)}>
 			{#if failure.reason === 'other' && failure.detail}
-				<p class="text-text-muted">{failure.detail}</p>
+				<span class="text-ink-muted">{failure.detail}</span>
 			{/if}
 		</Alert>
 	{/if}
 
 	{#if target.hidden}
-		<h1 class="text-2xl font-bold text-text">Other network</h1>
-		<div>
-			<label for="ssid" class="mb-1.5 block text-sm font-medium text-text">Network name</label>
-			<input
+		<h1 class="text-2xl font-semibold tracking-tight text-ink">Other network</h1>
+		<div class="flex flex-col gap-1.5">
+			<label for="ssid" class="text-sm font-medium text-ink">Network name</label>
+			<Input
 				id="ssid"
-				bind:this={ssidInput}
+				bind:element={ssidInput}
 				bind:value={ssid}
-				class={field}
+				class="text-base"
 				autocomplete="off"
 				autocapitalize="off"
 				autocorrect="off"
 				spellcheck="false"
-				aria-invalid={problems.ssid ? 'true' : undefined}
+				invalid={!!problems.ssid}
 			/>
-			{#if problems.ssid}<p class="mt-1.5 text-sm text-danger">{problems.ssid}</p>{/if}
+			{#if problems.ssid}<p class="text-sm text-danger-ink">{problems.ssid}</p>{/if}
 		</div>
 	{:else}
 		<div>
-			<h1 class="text-2xl font-bold break-words text-text">{target.ssid}</h1>
-			{#if open}<p class="mt-1 text-sm text-text-muted">Open network. No password needed.</p>{/if}
+			<h1 class="text-2xl font-semibold tracking-tight break-words text-ink">{target.ssid}</h1>
+			{#if open}<p class="mt-1 text-sm text-ink-muted">Open network. No password needed.</p>{/if}
 		</div>
 	{/if}
 
 	{#if !open}
-		<div>
-			<label for="password" class="mb-1.5 block text-sm font-medium text-text">Password</label>
-			<div class="flex">
-				<input
-					id="password"
-					bind:this={passwordInput}
-					bind:value={password}
-					type={showPassword ? 'text' : 'password'}
-					class={field}
-					autocomplete="off"
-					autocapitalize="off"
-					autocorrect="off"
-					spellcheck="false"
-					enterkeyhint="go"
-					aria-invalid={problems.password ? 'true' : undefined}
-				/>
-				<button
-					type="button"
-					class="setup-button-secondary -ml-px min-h-11 w-18 shrink-0 text-sm font-medium text-text"
-					aria-pressed={showPassword}
-					onclick={() => (showPassword = !showPassword)}
-				>
-					{showPassword ? 'Hide' : 'Show'}
-				</button>
-			</div>
+		<div class="flex flex-col gap-1.5">
+			<label for="password" class="text-sm font-medium text-ink">Password</label>
+			<Input
+				id="password"
+				bind:element={passwordInput}
+				bind:value={password}
+				type={showPassword ? 'text' : 'password'}
+				autocomplete="off"
+				autocapitalize="off"
+				autocorrect="off"
+				spellcheck="false"
+				enterkeyhint="go"
+				invalid={!!problems.password}
+			>
+				{#snippet end()}
+					<Button
+						size="sm"
+						variant="ghost"
+						aria-pressed={showPassword}
+						onclick={() => (showPassword = !showPassword)}>{showPassword ? 'Hide' : 'Show'}</Button
+					>
+				{/snippet}
+			</Input>
 			{#if problems.password}
-				<p class="mt-1.5 text-sm text-danger">{problems.password}</p>
+				<p class="text-sm text-danger-ink">{problems.password}</p>
 			{:else if target.hidden}
-				<p class="mt-1.5 text-sm text-text-muted">Leave it empty if the network is open.</p>
+				<p class="text-sm text-ink-muted">Leave it empty if the network is open.</p>
 			{/if}
 		</div>
 	{/if}
@@ -158,7 +151,7 @@
 	<div>
 		<button
 			type="button"
-			class="-my-2 -ml-2 inline-flex min-h-11 items-center gap-1 px-2 text-sm font-medium text-text-muted hover:text-text"
+			class="-ml-1 inline-flex h-(--size-control) items-center gap-1 px-1 text-sm font-medium text-ink-muted hover:text-ink"
 			aria-expanded={naming}
 			onclick={() => (naming = !naming)}
 		>
@@ -166,27 +159,28 @@
 			Name this Sorter
 		</button>
 		{#if naming}
-			<input
-				bind:this={nameInput}
-				bind:value={name}
-				class="{field} mt-3"
-				placeholder={currentName}
-				aria-label="Name this Sorter"
-				autocomplete="off"
-				autocapitalize="off"
-				autocorrect="off"
-				spellcheck="false"
-				aria-invalid={problems.name ? 'true' : undefined}
-			/>
-			<p class="mt-1.5 text-sm {problems.name ? 'text-danger' : 'text-text-muted'}">
-				{problems.name ?? 'Lowercase letters, digits and dashes.'}
-			</p>
+			<div class="mt-2 flex flex-col gap-1.5">
+				<Input
+					bind:element={nameInput}
+					bind:value={name}
+					placeholder={currentName}
+					aria-label="Name this Sorter"
+					autocomplete="off"
+					autocapitalize="off"
+					autocorrect="off"
+					spellcheck="false"
+					invalid={!!problems.name}
+				/>
+				<p class="text-sm {problems.name ? 'text-danger-ink' : 'text-ink-muted'}">
+					{problems.name ?? 'Lowercase letters, digits and dashes.'}
+				</p>
+			</div>
 		{/if}
 	</div>
 
 	{#if error}
-		<Alert variant="danger">{error}</Alert>
+		<Alert tone="danger">{error}</Alert>
 	{/if}
 
-	<Button variant="primary" type="submit" wide loading={busy}>Join</Button>
+	<Button variant="primary" type="submit" size="lg" class="w-full" loading={busy}>Join</Button>
 </form>

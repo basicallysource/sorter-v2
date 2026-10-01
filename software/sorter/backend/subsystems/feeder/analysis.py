@@ -1,6 +1,5 @@
 from dataclasses import dataclass
-from enum import Enum
-from typing import Any, List, Dict, Tuple
+from typing import Any, Dict, Tuple
 import numpy as np
 
 from defs.consts import (
@@ -9,7 +8,7 @@ from defs.consts import (
     CH2_PRECISE_SECTIONS, CH2_DROPZONE_SECTIONS,
     CLASSIFICATION_CHANNEL_CLOCKWISE,
 )
-from defs.channel import PolygonChannel, ChannelGeometry, ChannelDetection
+from defs.channel import PolygonChannel
 
 
 @dataclass(frozen=True)
@@ -421,27 +420,6 @@ def channelArcCropPolygon(
     return np.array(points, dtype=np.int32)
 
 
-def channelArcInnerPolygon(
-    zones: ChannelArcZones,
-    *,
-    segment_count: int = 96,
-    center: Tuple[float, float] | None = None,
-    radius_scale: float = 1.0,
-) -> np.ndarray:
-    cx, cy = zones.center if center is None else center
-    inner_radius = float(zones.inner_radius) * float(radius_scale)
-    return np.array(
-        [
-            [
-                int(round(cx + inner_radius * np.cos((2 * np.pi * i) / segment_count))),
-                int(round(cy + inner_radius * np.sin((2 * np.pi * i) / segment_count))),
-            ]
-            for i in range(segment_count)
-        ],
-        dtype=np.int32,
-    )
-
-
 def zoneSectionsForChannel(
     channel_id: int,
     section_zero_angle: float,
@@ -473,73 +451,6 @@ def zoneSectionsForChannel(
     )
 
 
-class ChannelAction(Enum):
-    IDLE = "idle"
-    PULSE_NORMAL = "normal"
-    PULSE_PRECISE = "precise"
-
-
-def computeChannelGeometry(
-    saved_polygons: Dict[str, np.ndarray],
-    channel_angles: Dict[str, float],
-    channel_masks: Dict[str, np.ndarray],
-    channel_arc_params: Dict[str, Any] | None = None,
-) -> ChannelGeometry:
-    geometry = ChannelGeometry(second_channel=None, third_channel=None)
-
-    second_poly = saved_polygons.get("second_channel")
-    if second_poly is not None and len(second_poly) >= 3:
-        center = tuple(np.mean(second_poly, axis=0).tolist())
-        r1_angle = channel_angles.get("second", 0.0)
-        second_zones = parseSavedChannelArcZones("second", channel_angles, channel_arc_params)
-        second_drop_sections, second_exit_sections = zoneSectionsForChannel(2, r1_angle, second_zones)
-        geometry.second_channel = PolygonChannel(
-            channel_id=2,
-            polygon=second_poly,
-            center=center,
-            radius1_angle_image=r1_angle,
-            mask=channel_masks["second_channel"],
-            dropzone_sections=second_drop_sections,
-            exit_sections=second_exit_sections,
-        )
-
-    third_poly = saved_polygons.get("third_channel")
-    if third_poly is not None and len(third_poly) >= 3:
-        center = tuple(np.mean(third_poly, axis=0).tolist())
-        r1_angle = channel_angles.get("third", 0.0)
-        third_zones = parseSavedChannelArcZones("third", channel_angles, channel_arc_params)
-        third_drop_sections, third_exit_sections = zoneSectionsForChannel(3, r1_angle, third_zones)
-        geometry.third_channel = PolygonChannel(
-            channel_id=3,
-            polygon=third_poly,
-            center=center,
-            radius1_angle_image=r1_angle,
-            mask=channel_masks["third_channel"],
-            dropzone_sections=third_drop_sections,
-            exit_sections=third_exit_sections,
-        )
-
-    return geometry
-
-
-def _isInChannel(point: Tuple[float, float], ch: PolygonChannel) -> bool:
-    x, y = int(point[0]), int(point[1])
-    if 0 <= y < ch.mask.shape[0] and 0 <= x < ch.mask.shape[1]:
-        return ch.mask[y, x] > 0
-    return False
-
-
-def determineObjectChannel(
-    obj_center_image: Tuple[float, float],
-    geometry: ChannelGeometry,
-) -> PolygonChannel | None:
-    if geometry.third_channel and _isInChannel(obj_center_image, geometry.third_channel):
-        return geometry.third_channel
-    if geometry.second_channel and _isInChannel(obj_center_image, geometry.second_channel):
-        return geometry.second_channel
-    return None
-
-
 def getBboxSections(bbox: Tuple[int, int, int, int], channel: PolygonChannel) -> set[int]:
     x1, y1, x2, y2 = bbox
     mx, my = (x1 + x2) / 2.0, (y1 + y2) / 2.0
@@ -556,14 +467,6 @@ def getBboxSections(bbox: Tuple[int, int, int, int], channel: PolygonChannel) ->
         relative = (angle - channel.radius1_angle_image) % 360
         sections.add(int(relative / CHANNEL_SECTION_DEG))
     return sections
-
-
-def _sectionForPoint(px: float, py: float, channel: PolygonChannel) -> int:
-    dx = px - channel.center[0]
-    dy = py - channel.center[1]
-    angle = np.degrees(np.arctan2(dy, dx))
-    relative = (angle - channel.radius1_angle_image) % 360
-    return int(relative / CHANNEL_SECTION_DEG)
 
 
 def _orderedCircularSections(sections: set[int]) -> list[int]:
@@ -587,142 +490,3 @@ def _orderedCircularSections(sections: set[int]) -> list[int]:
     return sorted(normalized, key=lambda section: (section - start) % section_count)
 
 
-def bboxCenterCrossedSectionMidpoint(
-    bbox: Tuple[int, int, int, int],
-    channel: PolygonChannel,
-    sections: set[int],
-) -> bool:
-    """Return True once a bbox center reaches the latter half of a section arc."""
-    ordered_sections = _orderedCircularSections(sections)
-    if not ordered_sections:
-        return False
-    x1, y1, x2, y2 = bbox
-    center_section = _sectionForPoint((x1 + x2) / 2.0, (y1 + y2) / 2.0, channel)
-    midpoint_index = max(0, len(ordered_sections) // 2)
-    return center_section in set(ordered_sections[midpoint_index:])
-
-
-def bboxSectionOverlapRatio(
-    bbox: Tuple[int, int, int, int],
-    channel: PolygonChannel,
-    sections: set[int],
-    *,
-    samples_per_axis: int = 5,
-) -> float:
-    """Approximate how much of a bbox lies inside a channel section set."""
-    if not sections:
-        return 0.0
-    x1, y1, x2, y2 = bbox
-    left, right = sorted((float(x1), float(x2)))
-    top, bottom = sorted((float(y1), float(y2)))
-    if right <= left or bottom <= top or samples_per_axis <= 0:
-        return 0.0
-
-    total = 0
-    inside_sections = 0
-    for py in np.linspace(top, bottom, samples_per_axis):
-        for px in np.linspace(left, right, samples_per_axis):
-            if not _isInChannel((px, py), channel):
-                continue
-            total += 1
-            if _sectionForPoint(float(px), float(py), channel) in sections:
-                inside_sections += 1
-
-    if total <= 0:
-        return 0.0
-    return float(inside_sections) / float(total)
-
-
-def _bboxExitOverlapRatio(
-    bbox: Tuple[int, int, int, int],
-    channel: PolygonChannel,
-    *,
-    samples_per_axis: int = 5,
-) -> float:
-    """Approximate how much of a bbox lies inside the channel exit zone."""
-    return bboxSectionOverlapRatio(
-        bbox,
-        channel,
-        channel.exit_sections,
-        samples_per_axis=samples_per_axis,
-    )
-
-
-class FeederAnalysis:
-    def __init__(self) -> None:
-        self.ch2_action = ChannelAction.IDLE
-        self.ch3_action = ChannelAction.IDLE
-        self.ch3_dropzone_occupied = False
-        self.ch2_dropzone_occupied = False
-        # Max sampled bbox area overlap-ratio of any detection in the channel.
-        # Used by the exit-zone incident guard to spot pieces that are parked
-        # inside the exit zone instead of falling through.
-        self.ch2_exit_overlap_max: float = 0.0
-        self.ch3_exit_overlap_max: float = 0.0
-        self.ch2_exit_center_crossed: bool = False
-        self.ch3_exit_center_crossed: bool = False
-        self.ch2_dropzone_overlap_max: float = 0.0
-        self.ch3_dropzone_overlap_max: float = 0.0
-
-
-def _exitOverlapRatio(sections: set[int], exit_sections: set[int]) -> float:
-    if not sections or not exit_sections:
-        return 0.0
-    return float(len(sections & exit_sections)) / float(len(sections))
-
-
-def analyzeFeederChannels(
-    detections: List[ChannelDetection],
-    ignored_dropzone_detection_ids: set[tuple[int, int]] | None = None,
-) -> FeederAnalysis:
-    result = FeederAnalysis()
-    ignored_dropzone_detection_ids = ignored_dropzone_detection_ids or set()
-
-    for det in detections:
-        sections = getBboxSections(det.bbox, det.channel)
-        global_id = getattr(det, "global_id", None)
-        ignore_dropzone = (
-            isinstance(global_id, int)
-            and (int(det.channel_id), int(global_id)) in ignored_dropzone_detection_ids
-        )
-
-        if det.channel_id == 3:
-            drop_overlap = bboxSectionOverlapRatio(det.bbox, det.channel, det.channel.dropzone_sections)
-            if drop_overlap > result.ch3_dropzone_overlap_max:
-                result.ch3_dropzone_overlap_max = drop_overlap
-            if not ignore_dropzone and sections & det.channel.dropzone_sections:
-                result.ch3_dropzone_occupied = True
-            overlap = _bboxExitOverlapRatio(det.bbox, det.channel)
-            if overlap > result.ch3_exit_overlap_max:
-                result.ch3_exit_overlap_max = overlap
-            if bboxCenterCrossedSectionMidpoint(
-                det.bbox,
-                det.channel,
-                det.channel.exit_sections,
-            ):
-                result.ch3_exit_center_crossed = True
-            if overlap > 0.0 or result.ch3_exit_center_crossed:
-                result.ch3_action = ChannelAction.PULSE_PRECISE
-            elif result.ch3_action == ChannelAction.IDLE:
-                result.ch3_action = ChannelAction.PULSE_NORMAL
-        elif det.channel_id == 2:
-            drop_overlap = bboxSectionOverlapRatio(det.bbox, det.channel, det.channel.dropzone_sections)
-            if drop_overlap > result.ch2_dropzone_overlap_max:
-                result.ch2_dropzone_overlap_max = drop_overlap
-            if not ignore_dropzone and sections & det.channel.dropzone_sections:
-                result.ch2_dropzone_occupied = True
-            overlap = _bboxExitOverlapRatio(det.bbox, det.channel)
-            if overlap > result.ch2_exit_overlap_max:
-                result.ch2_exit_overlap_max = overlap
-            if bboxCenterCrossedSectionMidpoint(
-                det.bbox,
-                det.channel,
-                det.channel.exit_sections,
-            ):
-                result.ch2_exit_center_crossed = True
-            if overlap > 0.0 or result.ch2_exit_center_crossed:
-                result.ch2_action = ChannelAction.PULSE_PRECISE
-            elif result.ch2_action == ChannelAction.IDLE:
-                result.ch2_action = ChannelAction.PULSE_NORMAL
-
-    return result

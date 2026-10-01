@@ -1,9 +1,13 @@
 from __future__ import annotations
 
+import os
+import tempfile
 import unittest
+from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import Mock, patch
 
+import machine_toml
 from server import shared_state
 from server.waveshare_inventory import WaveshareInventoryManager
 
@@ -11,20 +15,24 @@ from server.waveshare_inventory import WaveshareInventoryManager
 class WaveshareInventoryManagerTests(unittest.TestCase):
     def setUp(self) -> None:
         self._hardware_state = shared_state.hardware_state
+        self._tmpdir = tempfile.TemporaryDirectory()
+        self._env = patch.dict(
+            os.environ,
+            {machine_toml.ENV_VAR: str(Path(self._tmpdir.name) / "machine.toml")},
+        )
+        self._env.start()
 
     def tearDown(self) -> None:
         shared_state.hardware_state = self._hardware_state
+        self._env.stop()
+        self._tmpdir.cleanup()
+
+    def _config(self, data: dict) -> None:
+        with machine_toml.edit() as config:
+            config.update(data)
 
     def test_refresh_caches_ports_and_servos_for_configured_port(self) -> None:
-        config_holder = {"servo": {"port": "/dev/ttyUSB0"}}
-
-        def fake_read_machine_params_config():
-            return "/tmp/machine_params.toml", config_holder
-
-        def fake_write_machine_params_config(path: str, data: dict) -> None:
-            del path
-            config_holder.clear()
-            config_holder.update(data)
+        self._config({"servo": {"port": "/dev/ttyUSB0"}})
 
         fake_service = Mock()
         fake_service.list_servo_infos.return_value = (
@@ -37,8 +45,6 @@ class WaveshareInventoryManagerTests(unittest.TestCase):
 
         shared_state.hardware_state = "standby"
         with (
-            patch("server.waveshare_inventory.read_machine_params_config", side_effect=fake_read_machine_params_config),
-            patch("server.waveshare_inventory.write_machine_params_config", side_effect=fake_write_machine_params_config),
             patch("server.waveshare_inventory.shared_state.getActiveIRL", return_value=None),
             patch(
                 "server.waveshare_inventory.serial.tools.list_ports.comports",
@@ -61,12 +67,10 @@ class WaveshareInventoryManagerTests(unittest.TestCase):
         self.assertEqual(status["all_servo_ids"], [1, 3])
         self.assertEqual(status["highest_seen_id"], 3)
         self.assertEqual(status["suggested_next_id"], 4)
+        self.assertEqual(machine_toml.read()["servo"], {"port": "/dev/ttyUSB0", "highest_seen_id": 3})
 
     def test_refresh_during_homing_keeps_previous_snapshot_without_rescanning(self) -> None:
-        config_holder = {"servo": {"port": "/dev/ttyUSB0", "highest_seen_id": 5}}
-
-        def fake_read_machine_params_config():
-            return "/tmp/machine_params.toml", config_holder
+        self._config({"servo": {"port": "/dev/ttyUSB0", "highest_seen_id": 5}})
 
         fake_service = Mock()
         fake_service.list_servo_infos.return_value = (
@@ -76,8 +80,6 @@ class WaveshareInventoryManagerTests(unittest.TestCase):
 
         shared_state.hardware_state = "standby"
         with (
-            patch("server.waveshare_inventory.read_machine_params_config", side_effect=fake_read_machine_params_config),
-            patch("server.waveshare_inventory.write_machine_params_config"),
             patch("server.waveshare_inventory.shared_state.getActiveIRL", return_value=None),
             patch(
                 "server.waveshare_inventory.serial.tools.list_ports.comports",
@@ -105,15 +107,7 @@ class WaveshareInventoryManagerTests(unittest.TestCase):
         fake_service.list_servo_infos.assert_not_called()
 
     def test_automatic_refresh_skips_active_runtime_bus(self) -> None:
-        config_holder = {"servo": {"port": "/dev/ttyUSB0"}}
-
-        def fake_read_machine_params_config():
-            return "/tmp/machine_params.toml", config_holder
-
-        def fake_write_machine_params_config(path: str, data: dict) -> None:
-            del path
-            config_holder.clear()
-            config_holder.update(data)
+        self._config({"servo": {"port": "/dev/ttyUSB0"}})
 
         fake_service = Mock()
         fake_service.port = "/dev/ttyUSB0"
@@ -128,8 +122,6 @@ class WaveshareInventoryManagerTests(unittest.TestCase):
 
         shared_state.hardware_state = "ready"
         with (
-            patch("server.waveshare_inventory.read_machine_params_config", side_effect=fake_read_machine_params_config),
-            patch("server.waveshare_inventory.write_machine_params_config", side_effect=fake_write_machine_params_config),
             patch("server.waveshare_inventory.shared_state.getActiveIRL", return_value=fake_irl),
             patch(
                 "server.waveshare_inventory.serial.tools.list_ports.comports",

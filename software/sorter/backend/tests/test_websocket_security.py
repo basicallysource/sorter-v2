@@ -15,10 +15,11 @@ def test_websocket_accepts_allowed_origin() -> None:
     assert first_message["tag"] == "identity"
 
 
-def test_websocket_rejects_disallowed_origin() -> None:
+@pytest.mark.parametrize("path", ["/ws", "/ws/video"])
+def test_websocket_rejects_disallowed_origin(path: str) -> None:
     with TestClient(app) as client:
         with pytest.raises(WebSocketDisconnect) as exc_info:
-            with client.websocket_connect("/ws", headers={"origin": "http://evil.example"}):
+            with client.websocket_connect(path, headers={"origin": "http://evil.example"}):
                 pass
 
     assert exc_info.value.code == 1008

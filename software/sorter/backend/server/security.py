@@ -5,8 +5,12 @@ import json
 import os
 import socket
 import subprocess
+import threading
 import time
+from typing import Callable
 from urllib.parse import urlsplit
+
+import db
 
 # How long a computed snapshot of this device's own addresses/names is reused
 # before we look them up again. Keeps a wifi/IP/Tailscale change visible within
@@ -104,27 +108,36 @@ def _this_device_hosts() -> frozenset[str]:
 
 
 _hosts_snapshot: tuple[float, frozenset[str]] = (0.0, frozenset())
+_refreshing = threading.Lock()
 
 
 def _allowed_hosts() -> frozenset[str]:
-    global _hosts_snapshot
-    now = time.monotonic()
+    # The origin check runs on the API's event loop, so it never waits on the
+    # subprocesses behind this snapshot: once the snapshot is stale it is
+    # rebuilt on a background thread and the check uses the current one.
     cached_at, hosts = _hosts_snapshot
-    if hosts and now - cached_at < _REFRESH_SECONDS:
-        return hosts
-    hosts = _this_device_hosts()
-    _hosts_snapshot = (now, hosts)
+    if not hosts:
+        return refresh_device_identity()
+    if time.monotonic() - cached_at >= _REFRESH_SECONDS and _refreshing.acquire(blocking=False):
+        threading.Thread(target=_refresh_in_background, name="device-identity", daemon=True).start()
     return hosts
 
 
-def refresh_device_identity() -> None:
-    # Drop the cached snapshots so the next origin check re-reads this device's
-    # current IPs / hostname / Tailscale name. Call right after a join, logout,
-    # or rename so the new name is accepted immediately instead of after the
-    # refresh window.
-    global _hosts_snapshot, _tailscale_hostname_cache
-    _hosts_snapshot = (0.0, frozenset())
-    _tailscale_hostname_cache = (0.0, None)
+def _refresh_in_background() -> None:
+    try:
+        refresh_device_identity()
+    finally:
+        _refreshing.release()
+
+
+def refresh_device_identity() -> frozenset[str]:
+    # Re-read this device's current IPs / hostname / Tailscale name now. Also
+    # called right after a join, logout, or rename so the new name is accepted
+    # immediately instead of after the refresh window.
+    global _hosts_snapshot
+    hosts = _this_device_hosts()
+    _hosts_snapshot = (time.monotonic(), hosts)
+    return hosts
 
 
 def is_ui_origin_allowed(origin: str | None) -> bool:
@@ -141,10 +154,11 @@ def is_ui_origin_allowed(origin: str | None) -> bool:
         port = parsed.port
     except ValueError:
         return False
-    # Accept the configured UI dev port (5173) AND a bare host with no explicit
-    # port (the UI served on the default 80/443), so http://<device-ip> works
-    # just like http://<device-ip>:5173.
-    if port is not None and str(port) != _ui_port():
+    # Accept the configured UI dev port (5173), the port the supervisor serves
+    # the UI on, AND a bare host with no explicit port (the UI served on the
+    # default 80/443), so http://<device-ip> works just like
+    # http://<device-ip>:5173.
+    if port is not None and str(port) not in (_ui_port(), os.getenv("SORTER_SUPERVISOR_UI_PORT")):
         return False
     # Any mDNS .local name (e.g. sorter.local) resolves only on the local link,
     # so it's treated as this device on the LAN.
@@ -172,7 +186,7 @@ def describe_origin_decision(origin: str | None) -> str:
     return (
         f"allowed={allowed} origin={origin!r} normalized={normalized!r} "
         f"host={host!r} port={port_str!r} ui_port={_ui_port()!r} "
-        f"explicit_overrides={explicit_allowed_origins()} device_hosts={sorted(_this_device_hosts())}"
+        f"explicit_overrides={explicit_allowed_origins()} device_hosts={sorted(_allowed_hosts())}"
     )
 
 
@@ -192,37 +206,38 @@ def compute_allowed_ui_origins() -> list[str]:
         return override
     port = _ui_port()
     origins: list[str] = []
-    for host in sorted(_this_device_hosts()):
+    for host in sorted(_allowed_hosts()):
         origins.append(f"http://{host}:{port}")
         origins.append(f"http://{host}")
     return _dedupe_origins(origins)
 
 
-_tailscale_hostname_cache: tuple[float, str | None] = (0.0, None)
+# The last name Tailscale reported. The backend starts it from the name it
+# saved last time and saves each new one (keep_tailscale_name), so the origin
+# check knows the name even while Tailscale is not up yet at boot.
+_tailscale_name: str | None = None
+_saved_tailscale_name: str | None = None
+_save_tailscale_name: Callable[[str], None] | None = None
+
+
+def keep_tailscale_name(saved: str | None, save: Callable[[str], None]) -> None:
+    global _tailscale_name, _saved_tailscale_name, _save_tailscale_name
+    _tailscale_name = _saved_tailscale_name = saved
+    _save_tailscale_name = save
 
 
 def _tailscale_hostname() -> str | None:
-    global _tailscale_hostname_cache
-    now = time.monotonic()
-    cached_at, value = _tailscale_hostname_cache
-    if value is not None and now - cached_at < _REFRESH_SECONDS:
-        return value
-
-    from local_state import get_tailscale_hostname, set_tailscale_hostname
-
-    resolved = _query_tailscale_hostname()
-    if resolved:
-        # Persist so future boots resolve the name even if Tailscale isn't up yet
-        # when this process starts.
-        try:
-            set_tailscale_hostname(resolved)
-        except Exception:
-            pass
-    else:
-        resolved = get_tailscale_hostname()
-
-    _tailscale_hostname_cache = (now, resolved)
-    return resolved
+    global _tailscale_name, _saved_tailscale_name
+    name = _query_tailscale_hostname()
+    if name:
+        _tailscale_name = name
+        if _save_tailscale_name is not None and name != _saved_tailscale_name:
+            try:
+                _save_tailscale_name(name)
+                _saved_tailscale_name = name
+            except Exception as exc:
+                db.report_failure("saving the Tailscale name", exc)
+    return _tailscale_name
 
 
 def _query_tailscale_hostname() -> str | None:

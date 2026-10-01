@@ -5,11 +5,10 @@ import queue
 import sqlite3
 import threading
 import time
-from contextlib import contextmanager
 from pathlib import Path
-from typing import Any, Iterator, Optional
+from typing import Any, Optional
 
-from local_state import local_state_db_path
+import db
 
 # Durable per-piece image store. Every crop gathered for a piece (the C4 burst
 # plus upstream C2/C3 match crops) is written to disk as a plain JPEG and
@@ -24,9 +23,6 @@ from local_state import local_state_db_path
 # Writes never happen on the capture / state-machine threads: the broadcaster
 # enqueues (bounded, drop-on-full) and a single daemon worker does base64
 # decode, file writes, inserts, and retention sweeps.
-
-_INIT_LOCK = threading.Lock()
-_initialized = False
 
 _QUEUE_MAX_ITEMS = 512
 _RETENTION_SWEEP_INTERVAL_S = 60.0
@@ -49,21 +45,29 @@ _seen_order: list[str] = []
 # themselves were written, so they land as one late UPDATE pass per piece.
 _flags_done: set[str] = set()
 _worker_started = threading.Event()
+_worker_lock = threading.Lock()
 _logger: Any = None
 
-_stats_lock = threading.Lock()
-_stats = {
-    "enqueued": 0,
-    "dropped_queue_full": 0,
-    "written": 0,
-    "write_errors": 0,
-    "evicted_files": 0,
-}
+# Whether the last enqueue found the queue full: one warning per stretch of drops.
+_dropping = False
 
 
 def configure(logger: Any) -> None:
     global _logger
     _logger = logger
+
+
+def _enqueue(entry: tuple[str, str, Any]) -> bool:
+    global _dropping
+    try:
+        _queue.put_nowait(entry)
+    except queue.Full:
+        if not _dropping:
+            _dropping = True
+            _log("warning", "piece_image_store: the write queue is full; dropping images until it drains")
+        return False
+    _dropping = False
+    return True
 
 
 def _log(level: str, message: str) -> None:
@@ -77,120 +81,87 @@ def _log(level: str, message: str) -> None:
 
 
 def piece_images_dir() -> Path:
-    return local_state_db_path().parent / "piece_images"
+    return db.local_state_db_path().parent / "piece_images"
 
 
 def piece_link_images_dir() -> Path:
     # Model-guess crops live in their own tree so they can never be confused
     # with (or globbed up with) the ground-truth piece_images files.
-    return local_state_db_path().parent / "piece_link_images"
+    return db.local_state_db_path().parent / "piece_link_images"
 
 
-def _connect() -> sqlite3.Connection:
-    db_path = local_state_db_path()
-    db_path.parent.mkdir(parents=True, exist_ok=True)
-    conn = sqlite3.connect(db_path, timeout=5.0)
-    conn.row_factory = sqlite3.Row
-    conn.execute("PRAGMA journal_mode = WAL")
-    conn.execute("PRAGMA synchronous = NORMAL")
-    conn.execute("PRAGMA busy_timeout = 5000")
-    return conn
+def _createTables(conn: sqlite3.Connection) -> None:
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS piece_images ("
+        "id INTEGER PRIMARY KEY AUTOINCREMENT, "
+        "piece_uuid TEXT NOT NULL, "
+        "seq INTEGER NOT NULL, "
+        "source TEXT, "
+        "channel INTEGER, "
+        "ts REAL, "
+        "created_at REAL NOT NULL, "
+        "sharpness REAL, "
+        "bytes INTEGER NOT NULL, "
+        # Path relative to piece_images_dir(); NULL only for legacy rows.
+        "file_path TEXT NOT NULL, "
+        # Set when the local file was removed by retention. The row (and
+        # any hive pointer) survives so the image stays addressable.
+        "deleted_at REAL, "
+        # Hive sync markers, written by the uploader once it exists.
+        "synced_at REAL, "
+        "hive_image_id TEXT, "
+        # Classification outcome flags, updated once per piece after
+        # the applied Brickognize result settles (see enqueue path).
+        "used INTEGER NOT NULL DEFAULT 0, "
+        "excluded_from_result INTEGER NOT NULL DEFAULT 0, "
+        "score REAL, "
+        "UNIQUE(piece_uuid, seq)"
+        ")"
+    )
+    db.add_columns(conn, "piece_images", {
+        "used": "INTEGER NOT NULL DEFAULT 0",
+        "excluded_from_result": "INTEGER NOT NULL DEFAULT 0",
+        "score": "REAL",
+    })
+    conn.execute(
+        # Piece-link model guesses. A separate table on purpose: no
+        # synced_at / hive_image_id columns exist here because these
+        # rows are never uploaded as piece images.
+        "CREATE TABLE IF NOT EXISTS piece_link_images ("
+        "id INTEGER PRIMARY KEY AUTOINCREMENT, "
+        "piece_uuid TEXT NOT NULL, "
+        "seq INTEGER NOT NULL, "
+        "channel INTEGER, "
+        "ts REAL, "
+        "created_at REAL NOT NULL, "
+        "score REAL, "
+        "used INTEGER NOT NULL DEFAULT 0, "
+        "bytes INTEGER NOT NULL, "
+        "file_path TEXT NOT NULL, "
+        "deleted_at REAL, "
+        "UNIQUE(piece_uuid, seq)"
+        ")"
+    )
+    conn.execute(
+        "CREATE INDEX IF NOT EXISTS idx_piece_link_images_uuid "
+        "ON piece_link_images(piece_uuid)"
+    )
+    conn.execute(
+        "CREATE INDEX IF NOT EXISTS idx_piece_images_uuid "
+        "ON piece_images(piece_uuid)"
+    )
+    conn.execute(
+        "CREATE INDEX IF NOT EXISTS idx_piece_images_live "
+        "ON piece_images(created_at) WHERE deleted_at IS NULL"
+    )
+    conn.execute(
+        "CREATE INDEX IF NOT EXISTS idx_piece_images_unsynced "
+        "ON piece_images(created_at) WHERE synced_at IS NULL AND deleted_at IS NULL"
+    )
 
 
-@contextmanager
-def _connection() -> Iterator[sqlite3.Connection]:
-    _ensureInitialized()
-    conn = _connect()
-    try:
-        yield conn
-    finally:
-        conn.close()
-
-
-def _ensureInitialized() -> None:
-    global _initialized
-    if _initialized:
-        return
-    with _INIT_LOCK:
-        if _initialized:
-            return
-        conn = _connect()
-        try:
-            conn.execute(
-                "CREATE TABLE IF NOT EXISTS piece_images ("
-                "id INTEGER PRIMARY KEY AUTOINCREMENT, "
-                "piece_uuid TEXT NOT NULL, "
-                "seq INTEGER NOT NULL, "
-                "source TEXT, "
-                "channel INTEGER, "
-                "ts REAL, "
-                "created_at REAL NOT NULL, "
-                "sharpness REAL, "
-                "bytes INTEGER NOT NULL, "
-                # Path relative to piece_images_dir(); NULL only for legacy rows.
-                "file_path TEXT NOT NULL, "
-                # Set when the local file was removed by retention. The row (and
-                # any hive pointer) survives so the image stays addressable.
-                "deleted_at REAL, "
-                # Hive sync markers, written by the uploader once it exists.
-                "synced_at REAL, "
-                "hive_image_id TEXT, "
-                # Classification outcome flags, updated once per piece after
-                # the applied Brickognize result settles (see enqueue path).
-                "used INTEGER NOT NULL DEFAULT 0, "
-                "excluded_from_result INTEGER NOT NULL DEFAULT 0, "
-                "score REAL, "
-                "UNIQUE(piece_uuid, seq)"
-                ")"
-            )
-            for column, decl in (
-                ("used", "INTEGER NOT NULL DEFAULT 0"),
-                ("excluded_from_result", "INTEGER NOT NULL DEFAULT 0"),
-                ("score", "REAL"),
-            ):
-                try:
-                    conn.execute(f"ALTER TABLE piece_images ADD COLUMN {column} {decl}")
-                except sqlite3.OperationalError:
-                    pass
-            conn.execute(
-                # Piece-link model guesses. A separate table on purpose: no
-                # synced_at / hive_image_id columns exist here because these
-                # rows are never uploaded as piece images.
-                "CREATE TABLE IF NOT EXISTS piece_link_images ("
-                "id INTEGER PRIMARY KEY AUTOINCREMENT, "
-                "piece_uuid TEXT NOT NULL, "
-                "seq INTEGER NOT NULL, "
-                "channel INTEGER, "
-                "ts REAL, "
-                "created_at REAL NOT NULL, "
-                "score REAL, "
-                "used INTEGER NOT NULL DEFAULT 0, "
-                "bytes INTEGER NOT NULL, "
-                "file_path TEXT NOT NULL, "
-                "deleted_at REAL, "
-                "UNIQUE(piece_uuid, seq)"
-                ")"
-            )
-            conn.execute(
-                "CREATE INDEX IF NOT EXISTS idx_piece_link_images_uuid "
-                "ON piece_link_images(piece_uuid)"
-            )
-            conn.execute(
-                "CREATE INDEX IF NOT EXISTS idx_piece_images_uuid "
-                "ON piece_images(piece_uuid)"
-            )
-            conn.execute(
-                "CREATE INDEX IF NOT EXISTS idx_piece_images_live "
-                "ON piece_images(created_at) WHERE deleted_at IS NULL"
-            )
-            conn.execute(
-                "CREATE INDEX IF NOT EXISTS idx_piece_images_unsynced "
-                "ON piece_images(created_at) WHERE synced_at IS NULL AND deleted_at IS NULL"
-            )
-            conn.commit()
-            _initialized = True
-        finally:
-            conn.close()
+def _connection():
+    return db.connect(_createTables)
 
 
 def _noteNewImages(piece_uuid: str, total_images: int) -> int:
@@ -236,13 +207,7 @@ def enqueueKnownObjectImages(payload: dict[str, Any]) -> None:
                 "created_at": entry.get("created_at"),
                 "sharpness": entry.get("sharpness"),
             }
-            try:
-                _queue.put_nowait(("image", piece_uuid, (seq, item)))
-                with _stats_lock:
-                    _stats["enqueued"] += 1
-            except queue.Full:
-                with _stats_lock:
-                    _stats["dropped_queue_full"] += 1
+            _enqueue(("image", piece_uuid, (seq, item)))
 
     _maybeEnqueueFlags(piece_uuid, images)
 
@@ -271,11 +236,7 @@ def _maybeEnqueueFlags(piece_uuid: str, images: list[Any]) -> None:
         if isinstance(entry, dict)
     ]
     _ensureWorker()
-    try:
-        _queue.put_nowait(("flags", piece_uuid, flags))
-    except queue.Full:
-        with _stats_lock:
-            _stats["dropped_queue_full"] += 1
+    if not _enqueue(("flags", piece_uuid, flags)):
         return
     with _seen_lock:
         _flags_done.add(piece_uuid)
@@ -286,7 +247,7 @@ def _maybeEnqueueFlags(piece_uuid: str, images: list[Any]) -> None:
 def _ensureWorker() -> None:
     if _worker_started.is_set():
         return
-    with _INIT_LOCK:
+    with _worker_lock:
         if _worker_started.is_set():
             return
         thread = threading.Thread(target=_workerLoop, daemon=True, name="piece-image-store")
@@ -308,18 +269,12 @@ def _workerLoop() -> None:
                 if kind == "image":
                     seq, item = payload
                     _writeImage(piece_uuid, seq, item)
-                    with _stats_lock:
-                        _stats["written"] += 1
                 elif kind == "link_image":
                     seq, item = payload
                     _writeLinkImage(piece_uuid, seq, item)
-                    with _stats_lock:
-                        _stats["written"] += 1
                 elif kind == "flags":
                     _updateImageFlags(piece_uuid, payload)
             except Exception as exc:
-                with _stats_lock:
-                    _stats["write_errors"] += 1
                 _log("warning", f"piece_image_store: failed to persist {kind} for {piece_uuid[:8]}: {exc}")
         now = time.monotonic()
         if now - last_sweep >= _RETENTION_SWEEP_INTERVAL_S:
@@ -405,13 +360,7 @@ def enqueueKnownObjectLinkImages(payload: dict[str, Any]) -> None:
             "score": entry.get("score"),
             "used": entry.get("used"),
         }
-        try:
-            _queue.put_nowait(("link_image", piece_uuid, (seq, item)))
-            with _stats_lock:
-                _stats["enqueued"] += 1
-        except queue.Full:
-            with _stats_lock:
-                _stats["dropped_queue_full"] += 1
+        _enqueue(("link_image", piece_uuid, (seq, item)))
 
 
 def _writeLinkImage(piece_uuid: str, seq: int, item: dict[str, Any]) -> None:
@@ -562,8 +511,6 @@ def _sweepTable(
         )
         conn.commit()
     evicted = len(victims)
-    with _stats_lock:
-        _stats["evicted_files"] += evicted
     _log(
         "info",
         f"piece_image_store: {label} evicted {evicted} files ({freed / 1024 / 1024:.1f} MB)",
@@ -705,19 +652,3 @@ def markImagesSyncedUpTo(max_id: int, synced_at: float) -> None:
             (float(synced_at), int(max_id)),
         )
         conn.commit()
-
-
-def getStats() -> dict[str, Any]:
-    with _stats_lock:
-        stats = dict(_stats)
-    stats["queue_depth"] = _queue.qsize()
-    with _connection() as conn:
-        row = conn.execute(
-            "SELECT COUNT(*) AS n, COALESCE(SUM(bytes), 0) AS total FROM piece_images "
-            "WHERE deleted_at IS NULL"
-        ).fetchone()
-        stats["live_files"] = int(row["n"]) if row is not None else 0
-        stats["live_bytes"] = int(row["total"]) if row is not None else 0
-        row = conn.execute("SELECT COUNT(*) AS n FROM piece_images").fetchone()
-        stats["total_rows"] = int(row["n"]) if row is not None else 0
-    return stats

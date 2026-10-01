@@ -148,19 +148,18 @@ class FeederAutotuneStorageTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             os.environ["LOCAL_STATE_DB_PATH"] = os.path.join(tmp, "state.sqlite")
             try:
-                import importlib
+                import feeder_autotune_records
                 import local_state
 
-                importlib.reload(local_state)
-                run = local_state.createFeederAutotuneRun(
+                run = feeder_autotune_records.createFeederAutotuneRun(
                     {"drop_pulse_output_deg": 30.0}, {"trial_duration_s": 60.0}
                 )
                 self.assertIsNotNone(run)
                 self.assertEqual(run["status"], "active")
-                trial_id = local_state.insertFeederAutotuneTrial(
+                trial_id = feeder_autotune_records.insertFeederAutotuneTrial(
                     run["id"], 0, "baseline", {"drop_pulse_output_deg": 30.0}
                 )
-                local_state.finalizeFeederAutotuneTrial(
+                feeder_autotune_records.finalizeFeederAutotuneTrial(
                     trial_id,
                     status="done",
                     measured_s=60.0,
@@ -172,13 +171,13 @@ class FeederAutotuneStorageTests(unittest.TestCase):
                     feasible=False,
                     score=9.0,
                 )
-                local_state.setFeederAutotuneBestTrial(run["id"], trial_id)
-                local_state.finishFeederAutotuneRun(run["id"], "finished")
+                feeder_autotune_records.setFeederAutotuneBestTrial(run["id"], trial_id)
+                feeder_autotune_records.finishFeederAutotuneRun(run["id"], "finished")
 
-                fetched = local_state.getFeederAutotuneRun(run["id"])
+                fetched = feeder_autotune_records.getFeederAutotuneRun(run["id"])
                 self.assertEqual(fetched["status"], "finished")
                 self.assertEqual(fetched["best_trial_id"], trial_id)
-                trials = local_state.listFeederAutotuneTrials(run["id"])
+                trials = feeder_autotune_records.listFeederAutotuneTrials(run["id"])
                 self.assertEqual(len(trials), 1)
                 self.assertEqual(trials[0]["pieces_delivered"], 12)
                 self.assertEqual(trials[0]["feasible"], False)
@@ -186,7 +185,7 @@ class FeederAutotuneStorageTests(unittest.TestCase):
                 self.assertEqual(
                     trials[0]["params_json"], {"drop_pulse_output_deg": 30.0}
                 )
-                dataset = local_state.listFeederAutotuneDataset()
+                dataset = feeder_autotune_records.listFeederAutotuneDataset()
                 self.assertEqual(len(dataset), 1)
 
                 local_state.setFeederAutotuneBackground(
@@ -198,25 +197,21 @@ class FeederAutotuneStorageTests(unittest.TestCase):
                 local_state.setFeederAutotuneBackground(None)
                 self.assertIsNone(local_state.getFeederAutotuneBackground())
 
-                interrupted_run = local_state.createFeederAutotuneRun(
+                interrupted_run = feeder_autotune_records.createFeederAutotuneRun(
                     {"drop_pulse_output_deg": 25.0}, {}
                 )
-                local_state.insertFeederAutotuneTrial(
+                feeder_autotune_records.insertFeederAutotuneTrial(
                     interrupted_run["id"], 0, "explore", {"drop_pulse_output_deg": 40.0}
                 )
-                recovered = local_state.interruptActiveFeederAutotuneRuns()
+                recovered = feeder_autotune_records.interruptActiveFeederAutotuneRuns()
                 self.assertEqual(len(recovered), 1)
                 self.assertEqual(recovered[0]["id"], interrupted_run["id"])
-                after = local_state.getFeederAutotuneRun(interrupted_run["id"])
+                after = feeder_autotune_records.getFeederAutotuneRun(interrupted_run["id"])
                 self.assertEqual(after["status"], "interrupted")
-                aborted = local_state.listFeederAutotuneTrials(interrupted_run["id"])
+                aborted = feeder_autotune_records.listFeederAutotuneTrials(interrupted_run["id"])
                 self.assertEqual(aborted[0]["status"], "aborted")
             finally:
                 os.environ.pop("LOCAL_STATE_DB_PATH", None)
-                import importlib
-                import local_state
-
-                importlib.reload(local_state)
 
 
 if __name__ == "__main__":

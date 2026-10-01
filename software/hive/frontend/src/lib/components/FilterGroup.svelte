@@ -1,5 +1,6 @@
 <script lang="ts">
 	import type { Snippet } from 'svelte';
+	import ChevronRight from '@lucide/svelte/icons/chevron-right';
 
 	type Props = {
 		title: string;
@@ -16,8 +17,8 @@
 		active?: boolean;
 		/**
 		 * Short label of the active selection (e.g. "Conflict", "Underexposed").
-		 * Rendered as a chip on the collapsed header so you can still read off
-		 * what's filtered without expanding the body.
+		 * Shown on the collapsed header so you can still read off what's
+		 * filtered without expanding the body.
 		 */
 		activeLabel?: string | null;
 		children: Snippet;
@@ -26,7 +27,7 @@
 	let { title, storageKey, active = false, activeLabel = null, children }: Props = $props();
 
 	const STORAGE_PREFIX = 'hive.filter.';
-	const fullKey = STORAGE_PREFIX + storageKey;
+	const fullKey = $derived(STORAGE_PREFIX + storageKey);
 
 	// null = no user preference saved yet → fall back to auto-expand rule.
 	// true / false = user explicitly toggled; honor that even when the
@@ -61,34 +62,21 @@
 	}
 </script>
 
-<div class="border border-border bg-surface">
-	<!-- svelte-ignore a11y_click_events_have_key_events -->
+<!-- One filter in a filter column: a heading that opens and closes (remembered
+     in this browser), the current choice beside it while closed, and the
+     choices under it. Groups sit in a divided list on the column's surface. -->
+<div>
 	<button
 		type="button"
 		onclick={toggle}
-		class="group flex w-full items-center justify-between gap-2 px-2 py-1.5 text-[10px] font-semibold uppercase tracking-wider text-text {expanded ? 'border-b border-border bg-bg' : 'hover:bg-bg'}"
 		aria-expanded={expanded}
+		class="flex h-(--size-nav-item) w-full items-center gap-2 px-(--pad-control-sm) text-left text-sm font-medium text-ink hover:bg-hover"
 	>
-		<span class="flex min-w-0 items-center gap-2">
-			<span class="truncate">{title}</span>
-			{#if activeLabel && !expanded}
-				<span class="border border-primary/30 bg-primary-light px-1 py-0.5 text-[9px] font-medium normal-case tracking-normal text-primary">
-					{activeLabel}
-				</span>
-			{/if}
-		</span>
-		<svg
-			class="h-3 w-3 shrink-0 transition-transform {expanded ? 'rotate-90' : ''}"
-			viewBox="0 0 20 20"
-			fill="currentColor"
-			aria-hidden="true"
-		>
-			<path fill-rule="evenodd" d="M7.21 14.77a.75.75 0 010-1.06L10.94 10 7.21 6.29a.75.75 0 011.08-1.04l4.25 4.25a.75.75 0 010 1.06l-4.25 4.25a.75.75 0 01-1.08-.04z" clip-rule="evenodd" />
-		</svg>
+		<ChevronRight size={16} class="shrink-0 text-ink-muted transition-transform {expanded ? 'rotate-90' : ''}" />
+		<span class="min-w-0 flex-1 truncate">{title}</span>
+		{#if active && activeLabel && !expanded}<span class="max-w-[60%] truncate text-sm font-normal text-primary-ink">{activeLabel}</span>{/if}
 	</button>
 	{#if expanded}
-		<div class="px-1.5 py-2">
-			{@render children()}
-		</div>
+		<div class="px-1.5 pb-2">{@render children()}</div>
 	{/if}
 </div>

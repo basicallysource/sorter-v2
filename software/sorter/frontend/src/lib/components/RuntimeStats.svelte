@@ -1,256 +1,197 @@
+<script lang="ts" module>
+	export type RuntimeSpan = '10m' | '1h' | 'today';
+	export const RUNTIME_SPANS: { value: RuntimeSpan; label: string }[] = [
+		{ value: '10m', label: '10 min' },
+		{ value: '1h', label: '1 hour' },
+		{ value: 'today', label: 'Today' }
+	];
+</script>
+
 <script lang="ts">
+	/*
+		How sorting is going over the span picked in the section's header: pieces
+		classified and fed a minute, the share that were multi-drops and the share
+		classified, and a graph of them over the span. Rates are per minute of
+		sorting (minutes with no piece seen are left out), so a pause does not drag
+		them down. Pointing at the graph shows that moment's numbers. Everything
+		comes from the machine's piece records (/runtime-stats/rates), so it
+		survives restarts and a tab left in the background.
+	*/
+	import Stat from '$lib/components/ui/Stat.svelte';
+	import { getBackendHttpBase, machineHttpBaseUrlFromWsUrl } from '$lib/backend';
 	import { getMachineContext } from '$lib/machines/context';
-	import { LayoutDashboard } from 'lucide-svelte';
+
+	type Bucket = { t: number; seen: number; classified: number; multi_drop: number };
+
+	let { span }: { span: RuntimeSpan } = $props();
 
 	const ctx = getMachineContext();
-
-	type OutcomeEntry = {
-		count?: number;
-		overall_ppm?: number;
-		active_ppm?: number;
-	};
-	type ChannelThroughputEntry = {
-		exit_count?: number;
-		overall_ppm?: number;
-		active_ppm?: number;
-		outcomes?: Record<string, OutcomeEntry>;
+	const SPAN_HINT: Record<RuntimeSpan, string> = {
+		'10m': 'Last 10 min',
+		'1h': 'Last hour',
+		today: 'Today'
 	};
 
-	const runtime_stats = $derived((ctx.machine?.runtimeStats ?? {}) as Record<string, unknown>);
-	const counts = $derived((runtime_stats.counts ?? {}) as Record<string, number>);
-	const throughput = $derived((runtime_stats.throughput ?? {}) as Record<string, unknown>);
-	const channel_throughput = $derived(
-		(runtime_stats.channel_throughput ?? {}) as Record<string, ChannelThroughputEntry>
-	);
-	const c4 = $derived(channel_throughput.classification_channel ?? {});
-	const state_machines = $derived(
-		(runtime_stats.state_machines ?? {}) as Record<
-			string,
-			{ current_state?: string }
-		>
-	);
+	let buckets = $state<Bucket[]>([]);
+	let window_ = $state({ since: 0, bucket: 60, now: 0 });
+	let hover = $state<number | null>(null);
 
-	// Derived metrics
-	const pieces_seen = $derived(counts.pieces_seen ?? 0);
-	const classified_n = $derived(counts.classified ?? 0);
-	const distributed_n = $derived(counts.distributed ?? 0);
-	const multi_drop_n = $derived(counts.multi_drop_fail ?? 0);
-	const unknown_n = $derived((counts.unknown ?? 0) + (counts.not_found ?? 0));
+	function windowFor(s: RuntimeSpan): { since: number; bucket: number } {
+		const now = Date.now() / 1000;
+		if (s === '10m') return { since: now - 600, bucket: 20 };
+		if (s === '1h') return { since: now - 3600, bucket: 60 };
+		const midnight = new Date();
+		midnight.setHours(0, 0, 0, 0);
+		return { since: midnight.getTime() / 1000, bucket: 300 };
+	}
 
-	// Classified-and-distributed rate — the goal-line KPI: pieces that
-	// passed Brickognize as Single (not Unknown / Not-Found / Multi-Drop
-	// Reject) AND were physically distributed. Backend publishes this as
-	// `distributed_success.overall_ppm` on the classification_channel
-	// throughput. `overall_ppm` divides by total running_time_s so it
-	// reflects steady-state throughput rather than peak active periods.
-	const goal_rate_ppm = $derived.by(() => {
-		const outcomes = c4.outcomes ?? {};
-		const v = outcomes.distributed_success?.overall_ppm;
-		return typeof v === 'number' && Number.isFinite(v) ? v : 0;
-	});
+	async function load() {
+		const w = windowFor(span);
+		const base = machineHttpBaseUrlFromWsUrl(ctx.machine?.url) ?? getBackendHttpBase();
+		try {
+			const res = await fetch(`${base}/runtime-stats/rates?since=${w.since}&bucket_s=${w.bucket}`);
+			if (!res.ok) return;
+			const body = await res.json();
+			buckets = body.buckets ?? [];
+			window_ = { ...w, now: Date.now() / 1000 };
+		} catch {
+			// The next poll tries again.
+		}
+	}
 
-	// Classification success rate (classified vs. total finished classifications).
-	const classification_success_pct = $derived.by(() => {
-		const finished = classified_n + unknown_n + multi_drop_n;
-		if (finished === 0) return null;
-		return (classified_n / finished) * 100;
-	});
-
-	// Multi-drop rate: multi_drop_fail / pieces_seen.
-	const multi_drop_pct = $derived.by(() => {
-		if (pieces_seen === 0) return null;
-		return (multi_drop_n / pieces_seen) * 100;
-	});
-
-	const c4_active_ppm = $derived(typeof c4.active_ppm === 'number' ? c4.active_ppm : 0);
-
-	// Rolling 5-minute distributed ppm — all pieces physically distributed in
-	// the last 300 s, regardless of classification outcome.
-	const rolling_5min_ppm = $derived.by(() => {
-		const v = (throughput as Record<string, unknown>).rolling_5min_ppm;
-		return typeof v === 'number' && Number.isFinite(v) ? v : null;
-	});
-
-	// Feed rate: pieces_seen / running_time_s.
-	const feed_rate_ppm = $derived.by(() => {
-		const running_s = throughput.running_time_s;
-		if (typeof running_s !== 'number' || running_s <= 0) return 0;
-		return (pieces_seen * 60) / running_s;
-	});
-
-	// Active pieces in C4 (pieces past feeding, pre-distributed).
-	const active_in_c4 = $derived.by(() => {
-		const recent = ctx.machine?.recentObjects ?? [];
-		return recent.filter(
-			(o) =>
-				o.first_carousel_seen_ts != null &&
-				o.stage !== 'distributed' &&
-				!o.distributed_at
-		).length;
-	});
-
-	// ── Local rolling 60 s sparkline ────────────────────────────────────────
-	// We track classified_n over time locally so we can show the last 60 s of
-	// classification throughput in 10 s buckets (6 bars).
-	const BUCKET_S = 10;
-	const N_BUCKETS = 6;
-	let samples = $state<{ t: number; classified: number }[]>([]);
-	let now_tick = $state(0);
 	$effect(() => {
-		const id = setInterval(() => {
-			now_tick += 1;
-			const now = Date.now() / 1000;
-			samples = [
-				...samples.filter((s) => now - s.t <= BUCKET_S * N_BUCKETS + BUCKET_S),
-				{ t: now, classified: classified_n }
-			];
-		}, 1000);
+		void span;
+		void ctx.machine?.url;
+		hover = null;
+		load();
+		const id = setInterval(load, 15000);
 		return () => clearInterval(id);
 	});
 
-	const buckets = $derived.by(() => {
-		void now_tick;
-		const now = Date.now() / 1000;
-		const out: number[] = new Array(N_BUCKETS).fill(0);
-		for (let i = 0; i < N_BUCKETS; i += 1) {
-			const lo = now - BUCKET_S * (N_BUCKETS - i);
-			const hi = now - BUCKET_S * (N_BUCKETS - i - 1);
-			const earliest = samples.find((s) => s.t >= lo);
-			const latest = [...samples].reverse().find((s) => s.t <= hi);
-			if (earliest && latest && latest.classified >= earliest.classified) {
-				out[i] = latest.classified - earliest.classified;
-			}
-		}
-		return out;
+	// One point per bucket over the span, empty buckets as zero.
+	const points = $derived.by(() => {
+		const { since, bucket, now } = window_;
+		const n = Math.max(1, Math.ceil((now - since) / bucket));
+		const byIndex = new Map(buckets.map((b) => [Math.round((b.t - since) / bucket), b]));
+		return Array.from({ length: n }, (_, i) => {
+			const b = byIndex.get(i);
+			return { t: since + i * bucket, seen: b?.seen ?? 0, classified: b?.classified ?? 0, multi: b?.multi_drop ?? 0 };
+		});
 	});
 
-	const peak_bucket = $derived(Math.max(1, ...buckets));
+	// Minutes of sorting: minutes (or longer buckets) in which a piece was seen.
+	const sortingMinutes = $derived.by(() => {
+		const slot = Math.max(window_.bucket, 60);
+		const slots = new Set(points.filter((p) => p.seen > 0).map((p) => Math.floor((p.t - window_.since) / slot)));
+		return (slots.size * slot) / 60;
+	});
 
-	function fmtInt(n: number): string {
-		return Number.isFinite(n) ? Math.round(n).toString() : '–';
+	function sum(key: 'seen' | 'classified' | 'multi'): number {
+		return points.reduce((a, p) => a + p[key], 0);
 	}
 
-	function fmtPct(n: number | null, digits = 0): string {
-		if (n == null || !Number.isFinite(n)) return '–';
-		return `${n.toFixed(digits)}%`;
+	// What the numbers show: the span, or the bucket under the pointer.
+	const shown = $derived.by(() => {
+		const p = hover == null ? null : points[hover];
+		const minutes = p ? window_.bucket / 60 : sortingMinutes;
+		const seen = p ? p.seen : sum('seen');
+		const classified = p ? p.classified : sum('classified');
+		const multi = p ? p.multi : sum('multi');
+		return {
+			hint: p ? timeLabel(p.t) : SPAN_HINT[span],
+			classifiedRate: minutes ? classified / minutes : null,
+			feedRate: minutes ? seen / minutes : null,
+			multiPct: seen ? (multi / seen) * 100 : null,
+			classifiedPct: seen ? (classified / seen) * 100 : null,
+			seen
+		};
+	});
+
+	const W = 300;
+	const H = 90;
+	const x = (i: number) => (points.length === 1 ? W : (i / (points.length - 1)) * W);
+	const series = $derived.by(() => {
+		const perMin = 60 / window_.bucket;
+		const ppmMax = Math.max(1, ...points.map((p) => p.seen * perMin));
+		const pctMax = Math.max(25, ...points.map((p) => (p.seen ? (p.multi / p.seen) * 100 : 0)));
+		const line = (vals: (number | null)[], max: number) =>
+			vals
+				.map((v, i) => (v == null ? null : `${x(i).toFixed(1)},${(H - (v / max) * H).toFixed(1)}`))
+				.filter((p) => p !== null)
+				.join(' ');
+		return {
+			ppmMax,
+			pctMax,
+			feed: line(points.map((p) => p.seen * perMin), ppmMax),
+			classified: line(points.map((p) => p.classified * perMin), ppmMax),
+			multi: line(points.map((p) => (p.seen ? (p.multi / p.seen) * 100 : null)), pctMax)
+		};
+	});
+
+	function onPointer(e: PointerEvent) {
+		const box = (e.currentTarget as SVGElement).getBoundingClientRect();
+		const frac = Math.min(1, Math.max(0, (e.clientX - box.left) / box.width));
+		hover = Math.round(frac * (points.length - 1));
 	}
 
-	function fmtPpm(n: number | null | undefined): string {
-		if (typeof n !== 'number' || !Number.isFinite(n)) return '–';
-		return n.toFixed(1);
+	function timeLabel(t: number): string {
+		const fmt = (s: number) => {
+			const d = new Date(s * 1000);
+			const h = d.getHours() % 12 || 12;
+			return `${h}:${String(d.getMinutes()).padStart(2, '0')} ${d.getHours() < 12 ? 'am' : 'pm'}`;
+		};
+		return window_.bucket >= 300 ? `${fmt(t)} to ${fmt(t + window_.bucket)}` : `At ${fmt(t)}`;
+	}
+
+	function fmtRate(n: number | null): string {
+		return n == null || !Number.isFinite(n) ? '–' : n.toFixed(1);
+	}
+
+	function fmtPct(n: number | null): string {
+		return n == null || !Number.isFinite(n) ? '–' : `${n.toFixed(0)}%`;
 	}
 </script>
 
-<div class="flex h-full flex-col">
-	<div class="flex-1 overflow-y-auto p-2">
-		{#if !ctx.machine || !ctx.machine.runtimeStats}
-			<div class="text-sm text-text-muted">No runtime stats yet</div>
-		{:else}
-			<!-- Primary tile: goal KPI — classified single + distributed -->
-			<div class="grid grid-cols-2 gap-2">
-				<div class="border border-border bg-bg p-2">
-					<div class="text-xs font-semibold uppercase tracking-wider text-text-muted">
-						Dist / min (5m avg)
-					</div>
-					<div class="flex items-baseline gap-1">
-						<span class="text-3xl font-semibold tabular-nums text-text">
-							{fmtPpm(rolling_5min_ppm)}
-						</span>
-						<span class="text-xs text-text-muted">ppm · goal 8</span>
-					</div>
-				</div>
-				<div class="border border-border bg-bg p-2">
-					<div class="text-xs font-semibold uppercase tracking-wider text-text-muted">
-						Classify success
-					</div>
-					<div class="flex items-baseline gap-1">
-						<span class="text-3xl font-semibold tabular-nums text-text">
-							{fmtPct(classification_success_pct)}
-						</span>
-						<span class="text-xs text-text-muted tabular-nums">
-							{classified_n}/{classified_n + unknown_n + multi_drop_n}
-						</span>
-					</div>
-				</div>
+<div class="h-full overflow-y-auto">
+	<div class="grid grid-cols-2 gap-px bg-line">
+		<div class="bg-surface">
+			<Stat label="Classified a minute" value={fmtRate(shown.classifiedRate)} unit="ppm" hint={shown.hint} />
+		</div>
+		<div class="bg-surface">
+			<Stat label="Fed a minute" value={fmtRate(shown.feedRate)} unit="ppm" hint={shown.hint} />
+		</div>
+		<div class="bg-surface">
+			<Stat label="Multi-drop rate" value={fmtPct(shown.multiPct)} hint="Of pieces seen" />
+		</div>
+		<div class="bg-surface">
+			<Stat label="Classified" value={fmtPct(shown.classifiedPct)} hint="Of pieces seen" />
+		</div>
+	</div>
 
-				<div class="border border-border bg-bg p-2">
-					<div class="text-xs font-semibold uppercase tracking-wider text-text-muted">
-						Multi-drop rate
-					</div>
-					<div class="flex items-baseline gap-1">
-						<span class="text-2xl font-semibold tabular-nums text-text">
-							{fmtPct(multi_drop_pct, 1)}
-						</span>
-						<span class="text-xs text-text-muted tabular-nums">
-							{multi_drop_n}/{pieces_seen}
-						</span>
-					</div>
-				</div>
-				<div class="border border-border bg-bg p-2">
-					<div class="text-xs font-semibold uppercase tracking-wider text-text-muted">
-						Feed rate
-					</div>
-					<div class="flex items-baseline gap-1">
-						<span class="text-2xl font-semibold tabular-nums text-text">
-							{fmtPpm(feed_rate_ppm)}
-						</span>
-						<span class="text-xs text-text-muted">ppm seen</span>
-					</div>
-				</div>
-
-				<div class="border border-border bg-bg p-2">
-					<div class="text-xs font-semibold uppercase tracking-wider text-text-muted">
-						C4 active ppm
-					</div>
-					<div class="flex items-baseline gap-1">
-						<span class="text-2xl font-semibold tabular-nums text-text">
-							{fmtPpm(c4_active_ppm)}
-						</span>
-					</div>
-				</div>
-				<div class="border border-border bg-bg p-2">
-					<div class="text-xs font-semibold uppercase tracking-wider text-text-muted">
-						In C4
-					</div>
-					<div class="flex items-baseline gap-1">
-						<span class="text-2xl font-semibold tabular-nums text-text">
-							{fmtInt(active_in_c4)}
-						</span>
-						<span class="text-xs text-text-muted">pieces</span>
-					</div>
-				</div>
-			</div>
-
-			<!-- 60 s sparkline of classifications in 10 s buckets -->
-			<div class="mt-2 border border-border bg-bg p-2">
-				<div class="flex items-baseline justify-between">
-					<div class="text-xs font-semibold uppercase tracking-wider text-text-muted">
-						Last 60 s classifications
-					</div>
-					<div class="text-xs text-text-muted tabular-nums">
-						peak {peak_bucket}
-					</div>
-				</div>
-				<div class="mt-1 flex h-10 items-end gap-0.5">
-					{#each buckets as v, i (i)}
-						<div
-							class="flex-1 bg-primary/80"
-							style="height: {peak_bucket > 0 ? (v / peak_bucket) * 100 : 0}%; min-height: 1px;"
-							title="{v} classified ({(N_BUCKETS - i) * BUCKET_S}s ago)"
-						></div>
-					{/each}
-				</div>
-			</div>
-
-			<!-- Totals footer strip -->
-			<div class="mt-2 flex items-baseline justify-between border border-border bg-bg px-2 py-1.5 text-sm">
-				<span class="text-text-muted">Totals</span>
-				<div class="flex items-baseline gap-3 tabular-nums">
-					<span class="text-text-muted">seen <span class="text-text">{fmtInt(pieces_seen)}</span></span>
-					<span class="text-text-muted">cls <span class="text-text">{fmtInt(classified_n)}</span></span>
-					<span class="text-text-muted">dist <span class="text-text">{fmtInt(distributed_n)}</span></span>
-				</div>
-			</div>
-		{/if}
+	<div class="border-t border-line px-4 py-3">
+		<svg
+			viewBox="0 0 {W} {H}"
+			preserveAspectRatio="none"
+			class="block h-24 w-full cursor-crosshair overflow-visible"
+			role="img"
+			aria-label="Rates over the span; point at it for a moment's numbers"
+			onpointermove={onPointer}
+			onpointerdown={onPointer}
+			onpointerleave={() => (hover = null)}
+		>
+			<line x1="0" y1={H} x2={W} y2={H} stroke="var(--color-line)" vector-effect="non-scaling-stroke" />
+			<polyline points={series.feed} fill="none" stroke="var(--color-ink-muted)" stroke-width="1.5" vector-effect="non-scaling-stroke" />
+			<polyline points={series.classified} fill="none" stroke="var(--color-primary)" stroke-width="2" vector-effect="non-scaling-stroke" />
+			<polyline points={series.multi} fill="none" stroke="var(--color-danger)" stroke-width="1.5" stroke-dasharray="3 3" vector-effect="non-scaling-stroke" />
+			{#if hover != null}
+				<line x1={x(hover)} y1="0" x2={x(hover)} y2={H} stroke="var(--color-ink)" stroke-width="1" vector-effect="non-scaling-stroke" />
+			{/if}
+		</svg>
+		<div class="num mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-ink-muted">
+			<span class="flex items-center gap-1"><span class="h-0.5 w-3 bg-primary"></span>Classified/min</span>
+			<span class="flex items-center gap-1"><span class="h-0.5 w-3 bg-ink-muted"></span>Fed/min</span>
+			<span class="flex items-center gap-1"><span class="h-0.5 w-3 bg-danger"></span>Multi-drop %</span>
+			<span class="ml-auto">{shown.seen} pieces · top {fmtRate(series.ppmMax)} ppm · {series.pctMax.toFixed(0)}%</span>
+		</div>
 	</div>
 </div>

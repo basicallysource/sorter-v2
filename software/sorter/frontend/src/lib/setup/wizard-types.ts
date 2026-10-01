@@ -1,3 +1,4 @@
+import type { HardwareErrorData } from '$lib/api/events';
 export type DiscoveredBoard = {
 	family: string;
 	role: string;
@@ -47,43 +48,11 @@ export type WizardSummary = {
 	};
 	hardware: {
 		state: string;
-		error: string | null;
+		error: HardwareErrorData | null;
 		homing_step: string | null;
-		machine_profile: {
-			camera_layout?: string;
-			feeding_mode?: string;
-			servo_backend?: string;
-			boards?: Array<{
-				family: string;
-				role: string;
-				device_name: string;
-				port: string;
-				address: number;
-				logical_steppers: string[];
-				input_aliases: Record<string, number>;
-			}>;
-		} | null;
 	};
 	config: {
 		camera_assignments: Record<string, number | string | null>;
-		feeding: {
-			mode: 'auto_channels' | 'manual_carousel';
-		};
-		machine_setup: {
-			key: 'classification_channel' | 'manual_carousel';
-			label: string;
-			description: string;
-			feeding_mode: 'auto_channels' | 'manual_carousel';
-			automatic_feeder: boolean;
-			uses_carousel_transport: boolean;
-			uses_classification_chamber: boolean;
-			uses_classification_channel: boolean;
-			runs_reverse_pulse_calibration: boolean;
-			homes_carousel: boolean;
-			homes_chute: boolean;
-			requires_carousel_endstop: boolean;
-			runtime_supported: boolean;
-		};
 		servo: {
 			backend: string;
 			layer_count: number;
@@ -106,7 +75,6 @@ export type WizardSummary = {
 		usb_devices: UsbDevice[];
 		bootloader_board: boolean;
 		issues: string[];
-		recommended_camera_layout: 'default' | 'split_feeder';
 	};
 	readiness: Record<string, boolean>;
 };

@@ -39,8 +39,8 @@ import channel_crop_store
 import piece_image_store
 import piece_records
 import control_data_store
-from blob_manager import getHiveConfig
 from hive_telemetry import HiveTelemetryClient, telemetryAllows
+from local_state import get_hive_config
 
 log = logging.getLogger(__name__)
 
@@ -524,7 +524,7 @@ class HiveSyncWorker:
         for syncer in self._syncers.values():
             syncer.stop()
         self._syncers = {}
-        config = getHiveConfig()
+        config = get_hive_config()
         targets = config.get("targets") if isinstance(config, dict) else None
         if not isinstance(targets, list):
             return

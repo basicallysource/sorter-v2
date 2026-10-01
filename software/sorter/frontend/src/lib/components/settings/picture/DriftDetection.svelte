@@ -1,7 +1,8 @@
 <script lang="ts">
 	import { getBackendHttpBase } from '$lib/backend';
-	import Modal from '$lib/components/Modal.svelte';
-	import { Alert } from '$lib/components/primitives';
+	import Alert from '$lib/components/ui/Alert.svelte';
+	import Button from '$lib/components/ui/Button.svelte';
+	import Modal from '$lib/components/ui/Modal.svelte';
 	import type { CameraRole } from '$lib/settings/stations';
 
 	type Diff = {
@@ -152,65 +153,31 @@
 	});
 </script>
 
-<Modal bind:open title="Camera settings drifted">
+<Modal bind:open title="The camera's settings drifted">
 	<div class="flex flex-col gap-3">
-		<p class="text-sm text-text">
-			The camera is reporting different values than what's saved. What should happen?
-		</p>
-
-		{#if error}
-			<Alert variant="danger">
-				<div class="text-sm text-text">{error}</div>
-			</Alert>
-		{/if}
-
-		<div class="border border-border">
-			<table class="w-full text-sm">
-				<thead class="bg-surface text-xs font-semibold tracking-wider text-text-muted uppercase">
-					<tr>
-						<th class="px-3 py-2 text-left">Setting</th>
-						<th class="px-3 py-2 text-right">Saved</th>
-						<th class="px-3 py-2 text-right">Live</th>
-					</tr>
+		<p>The camera reports different values than the saved ones. Which should it use?</p>
+		{#if error}<Alert tone="danger">{error}</Alert>{/if}
+		<div class="overflow-x-auto">
+			<table class="data-table">
+				<thead>
+					<tr><th>Setting</th><th class="num">Saved</th><th class="num">Live</th></tr>
 				</thead>
 				<tbody>
 					{#each diffs as diff}
-						<tr class="border-t border-border">
-							<td class="px-3 py-2 font-medium text-text">{diff.key}</td>
-							<td class="px-3 py-2 text-right font-mono text-text">{formatValue(diff.saved)}</td>
-							<td class="px-3 py-2 text-right font-mono text-warning-dark">{formatValue(diff.live)}</td>
+						<tr>
+							<td class="font-medium">{diff.key}</td>
+							<td class="num font-mono">{formatValue(diff.saved)}</td>
+							<td class="num font-mono text-warning-ink">{formatValue(diff.live)}</td>
 						</tr>
 					{/each}
 				</tbody>
 			</table>
 		</div>
-
-		<div class="flex flex-col gap-2 sm:flex-row sm:justify-end">
-			<button
-				onclick={ignore}
-				disabled={applying}
-				class="inline-flex items-center justify-center border border-border bg-bg px-4 py-2 text-sm text-text transition-colors hover:bg-surface disabled:cursor-not-allowed disabled:opacity-50"
-			>
-				Ignore
-			</button>
-			<button
-				onclick={adopt}
-				disabled={applying}
-				class="inline-flex items-center justify-center border border-primary bg-primary px-4 py-2 text-sm font-medium text-primary-contrast transition-colors hover:bg-primary-hover disabled:cursor-not-allowed disabled:opacity-50"
-			>
-				Adopt live
-			</button>
-			<button
-				onclick={restore}
-				disabled={applying}
-				class="inline-flex items-center justify-center border border-success bg-success px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-success/90 disabled:cursor-not-allowed disabled:opacity-50"
-			>
-				Restore saved
-			</button>
-		</div>
-
-		{#if status}
-			<div class="text-sm text-text-muted">{status}</div>
-		{/if}
+		{#if status}<p class="text-ink-muted">{status}</p>{/if}
 	</div>
+	{#snippet footer()}
+		<Button variant="ghost" disabled={applying} onclick={ignore}>Ignore</Button>
+		<Button disabled={applying} onclick={adopt}>Keep the live values</Button>
+		<Button variant="primary" disabled={applying} onclick={restore}>Restore the saved values</Button>
+	{/snippet}
 </Modal>

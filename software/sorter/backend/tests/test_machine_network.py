@@ -43,8 +43,8 @@ NMCLI_WIFI = "no:Neighbour:wlan0\nyes:Home\\:Net:wlan0\n"
 
 @pytest.fixture()
 def host(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
-    """A fake machine: /sys/class/net, systemd units, the SorterOS file, and
-    the two commands the fallback runs."""
+    """A fake machine: /sys/class/net, the SorterOS file, and the two
+    commands the fallback runs."""
     sys_net = tmp_path / "sys-class-net"
     for iface, marker in (("eth0", "device"), ("eth1", "device"), ("wlan0", "wireless"), ("wlan0", "device")):
         (sys_net / iface / marker).mkdir(parents=True, exist_ok=True)
@@ -52,9 +52,9 @@ def host(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     (sys_net / "tailscale0").mkdir(parents=True)
     (sys_net / "wg0").mkdir(parents=True)
     monkeypatch.setattr(machine_network, "SYS_CLASS_NET", sys_net)
-    monkeypatch.setattr(machine_network, "SYSTEMD_DIR", tmp_path / "systemd")
     monkeypatch.setattr(machine_network, "SORTEROS_NETWORK_FILE", tmp_path / "run" / "network.json")
     monkeypatch.setattr(machine_network.socket, "gethostname", lambda: "sorter")
+    monkeypatch.delenv("SORTER_SUPERVISOR_UI_PORT", raising=False)
     monkeypatch.delenv("SORTER_UI_PORT", raising=False)
 
     def fake_run(command: list[str], env: dict[str, str] | None = None) -> str | None:
@@ -88,17 +88,6 @@ def _write_sorteros_file(host: Path, **overrides) -> dict:
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(block))
     return block
-
-
-def _enable_ui_unit(host: Path, unit: str, exec_start: str) -> None:
-    systemd = host / "systemd"
-    (systemd / "multi-user.target.wants").mkdir(parents=True, exist_ok=True)
-    (systemd / unit).write_text(
-        "[Service]\n"
-        "# `--port 5173` in a comment is not the port.\n"
-        f"ExecStart={exec_start}\n"
-    )
-    (systemd / "multi-user.target.wants" / unit).write_text("")
 
 
 def test_fresh_sorteros_file_is_the_source(host: Path) -> None:
@@ -184,16 +173,10 @@ def test_fqdn_hostname_gives_its_first_label_as_mdns(host: Path, monkeypatch: py
     assert machine_network.buildNetworkBlock()["mdns"] == "sorter-01.local"
 
 
-def test_ui_port_comes_from_the_enabled_ui_unit(host: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_ui_port_is_where_the_supervisor_serves_it(host: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("SORTER_UI_PORT", "5173")
-    _enable_ui_unit(host, "sorter-ui-dev.service", "/usr/bin/pnpm dev --host 0.0.0.0 --port 80 --strictPort")
+    monkeypatch.setenv("SORTER_SUPERVISOR_UI_PORT", "80")
     assert machine_network.buildNetworkBlock()["ports"]["ui"] == 80
-
-
-def test_ui_port_from_a_unit_that_is_not_enabled_is_ignored(host: Path) -> None:
-    _enable_ui_unit(host, "sorter-ui.service", "/usr/bin/pnpm preview --host 0.0.0.0 --port=8080")
-    (host / "systemd" / "multi-user.target.wants" / "sorter-ui.service").unlink()
-    assert machine_network.buildNetworkBlock()["ports"]["ui"] == machine_network.DEV_UI_PORT
 
 
 def test_ui_port_falls_back_to_the_configured_port(host: Path, monkeypatch: pytest.MonkeyPatch) -> None:

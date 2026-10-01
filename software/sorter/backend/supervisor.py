@@ -1,59 +1,57 @@
+"""Runs the backend (main.py) and restarts it when it exits, and serves the
+UI's static build, so the page loads even while the backend restarts."""
+
 from __future__ import annotations
 
 import argparse
+import html
+import ipaddress
 import json
+import mimetypes
 import os
+import posixpath
 import shutil
 import signal
 import subprocess
 import sys
 import threading
 import time
-from collections import deque
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from typing import Any
-from urllib import error as urllib_error
-from urllib import request as urllib_request
+from urllib.parse import unquote, urlsplit
 
 from dotenv import load_dotenv
-from server.security import (
-    is_loopback_client_address,
-    is_ui_origin_allowed,
-    normalize_origin,
-)
-
 
 load_dotenv(Path(__file__).resolve().parents[2] / ".env")
 
-
-DEFAULT_CONTROL_HOST = os.getenv("BACKEND_SUPERVISOR_HOST", "127.0.0.1")
-DEFAULT_CONTROL_PORT = int(os.getenv("BACKEND_SUPERVISOR_PORT", "8001"))
-DEFAULT_BACKEND_PORT = int(os.getenv("BACKEND_PORT", "8000"))
-DEFAULT_HEALTH_INTERVAL_S = float(os.getenv("BACKEND_SUPERVISOR_HEALTH_INTERVAL_S", "2.0"))
-DEFAULT_HEALTH_TIMEOUT_S = float(os.getenv("BACKEND_SUPERVISOR_HEALTH_TIMEOUT_S", "1.5"))
+DEFAULT_UI_PORT = 80
 DEFAULT_RESTART_BACKOFF_S = float(os.getenv("BACKEND_SUPERVISOR_RESTART_BACKOFF_S", "0.2"))
 DEFAULT_STOP_TIMEOUT_S = float(os.getenv("BACKEND_SUPERVISOR_STOP_TIMEOUT_S", "5.0"))
 DEFAULT_FAST_CRASH_WINDOW_S = float(os.getenv("BACKEND_SUPERVISOR_FAST_CRASH_WINDOW_S", "30.0"))
 CACHE_CLEAR_CRASH_THRESHOLD = 3
-CRASH_OUTPUT_MAX_LINES = 60
-CRASH_OUTPUT_MAX_CHARS = 4000
 
-
-def _timestamp() -> float:
-    return time.time()
+UI_BUILD_DIR = Path(__file__).resolve().parents[1] / "frontend" / "build"
+RESTART_PATH = "/api/supervisor/restart"
+# Built files under here have a content hash in their names: a new build
+# gets new names, so browsers may keep these for good.
+IMMUTABLE_PREFIX = "/_app/immutable/"
+PRECOMPRESSED = (("br", ".br"), ("gzip", ".gz"))
+# Python's own table, the same on every machine, whatever /etc/mime.types says.
+CONTENT_TYPES = mimetypes.MimeTypes()
+CONTENT_TYPES.add_type("font/woff2", ".woff2")
 
 
 class BackendSupervisor:
+    """Runs the backend, restarts it when it exits, and restarts it on request.
+    The backend inherits the supervisor's stdout and stderr (the journal)."""
+
     def __init__(
         self,
         *,
         command: list[str],
         cwd: Path,
         environment: dict[str, str],
-        backend_health_url: str,
-        health_interval_s: float,
-        health_timeout_s: float,
         restart_backoff_s: float,
         stop_timeout_s: float,
         fast_crash_window_s: float = DEFAULT_FAST_CRASH_WINDOW_S,
@@ -61,186 +59,58 @@ class BackendSupervisor:
         self._command = list(command)
         self._cwd = cwd
         self._environment = dict(environment)
-        self._backend_health_url = backend_health_url
-        self._health_interval_s = health_interval_s
-        self._health_timeout_s = health_timeout_s
         self._restart_backoff_s = restart_backoff_s
         self._stop_timeout_s = stop_timeout_s
         self._fast_crash_window_s = fast_crash_window_s
-
         self._lock = threading.RLock()
         self._shutdown = threading.Event()
         self._restart_requested = False
-        self._manual_stop_requested = False
+        # Started with start_new_session, so its pid is also its process group.
         self._process: subprocess.Popen[bytes] | None = None
-        self._process_group_pid: int | None = None
         self._process_started_at: float | None = None
-        self._last_exit_code: int | None = None
-        self._last_exit_at: float | None = None
-        self._last_exit_reason: str | None = None
-        self._last_health_error: str | None = None
-        self._last_health_ok_at: float | None = None
-        self._health_failures = 0
         self._consecutive_fast_crashes = 0
         self._cache_cleared_for_streak = False
-        self._pycache_cleared_at: float | None = None
-        self._last_crash_output: str | None = None
-        self._state = "stopped"
-
-        self._health_thread = threading.Thread(
-            target=self._health_loop, daemon=True, name="supervisor-health"
-        )
 
     def start(self) -> None:
-        self._start_backend(reason="initial start")
-        self._health_thread.start()
+        self._start_backend()
 
     def shutdown(self) -> None:
         self._shutdown.set()
-        self._stop_backend(reason="supervisor shutdown")
+        self._stop_backend()
 
-    def status(self) -> dict[str, Any]:
-        with self._lock:
-            process = self._process
-            running = process is not None and process.poll() is None
-            return {
-                "ok": True,
-                "supervisor_protocol": 2,
-                "manual_stop_safe": True,
-                "supervisor_state": self._state,
-                "backend_running": running,
-                "backend_pid": process.pid if running and process is not None else None,
-                "backend_started_at": self._process_started_at,
-                "backend_health_url": self._backend_health_url,
-                "backend_healthy": self._last_health_error is None and self._last_health_ok_at is not None,
-                "last_health_ok_at": self._last_health_ok_at,
-                "last_health_error": self._last_health_error,
-                "consecutive_health_failures": self._health_failures,
-                "last_exit_code": self._last_exit_code,
-                "last_exit_at": self._last_exit_at,
-                "last_exit_reason": self._last_exit_reason,
-                "restart_requested": self._restart_requested,
-                "consecutive_fast_crashes": self._consecutive_fast_crashes,
-                "crash_looping": self._consecutive_fast_crashes >= CACHE_CLEAR_CRASH_THRESHOLD,
-                "last_crash_output": self._last_crash_output,
-                "pycache_cleared_at": self._pycache_cleared_at,
-                "command": list(self._command),
-            }
-
-    def request_restart(self, *, reason: str) -> bool:
+    def request_restart(self) -> bool:
         with self._lock:
             if self._restart_requested:
                 return False
             self._restart_requested = True
-            self._manual_stop_requested = False
-            self._state = "restarting"
-
-        threading.Thread(
-            target=self._restart_worker,
-            kwargs={"reason": reason},
-            daemon=True,
-        ).start()
+        threading.Thread(target=self._restart_worker, daemon=True).start()
         return True
 
-    def request_stop(self, *, reason: str) -> None:
-        with self._lock:
-            self._manual_stop_requested = True
-            self._restart_requested = False
-            self._state = "stopping"
-        self._stop_backend(reason=reason)
-
-    def _restart_worker(self, *, reason: str) -> None:
+    def _restart_worker(self) -> None:
         try:
-            self._stop_backend(reason=reason)
+            self._stop_backend()
             if self._shutdown.is_set():
                 return
             time.sleep(self._restart_backoff_s)
-            self._start_backend(reason=reason)
+            self._start_backend()
         finally:
             with self._lock:
                 self._restart_requested = False
 
-    def _health_loop(self) -> None:
-        while not self._shutdown.wait(self._health_interval_s):
-            with self._lock:
-                process = self._process
-                running = process is not None and process.poll() is None
-            if not running:
-                continue
-
-            try:
-                with urllib_request.urlopen(
-                    self._backend_health_url,
-                    timeout=self._health_timeout_s,
-                ) as response:
-                    if response.status < 200 or response.status >= 300:
-                        raise RuntimeError(f"health returned {response.status}")
-                with self._lock:
-                    self._last_health_ok_at = _timestamp()
-                    self._last_health_error = None
-                    self._health_failures = 0
-                    self._consecutive_fast_crashes = 0
-                    self._cache_cleared_for_streak = False
-            except Exception as exc:
-                with self._lock:
-                    self._last_health_error = str(exc)
-                    self._health_failures += 1
-
-    def _start_backend(self, *, reason: str) -> None:
+    def _start_backend(self) -> None:
         with self._lock:
             process = self._process
             if process is not None and process.poll() is None:
                 return
-            self._manual_stop_requested = False
-
             child = subprocess.Popen(
                 self._command,
                 cwd=str(self._cwd),
                 env=self._environment,
                 start_new_session=True,
-                stderr=subprocess.PIPE,
             )
             self._process = child
-            self._process_group_pid = child.pid
-            self._process_started_at = _timestamp()
-            self._last_exit_code = None
-            self._last_exit_at = None
-            self._last_exit_reason = reason
-            self._last_health_error = None
-            self._health_failures = 0
-            self._state = "running"
-
-        stderr_tail: deque[str] = deque(maxlen=CRASH_OUTPUT_MAX_LINES)
-        stderr_thread = threading.Thread(
-            target=self._pump_stderr,
-            args=(child, stderr_tail),
-            daemon=True,
-            name="supervisor-stderr",
-        )
-        stderr_thread.start()
-
-        threading.Thread(
-            target=self._watch_process,
-            args=(child, stderr_tail, stderr_thread),
-            daemon=True,
-        ).start()
-
-    def _pump_stderr(self, child: subprocess.Popen[bytes], tail: deque[str]) -> None:
-        stream = child.stderr
-        if stream is None:
-            return
-        try:
-            for raw_line in iter(stream.readline, b""):
-                sys.stderr.buffer.write(raw_line)
-                sys.stderr.buffer.flush()
-                tail.append(raw_line.decode("utf-8", errors="replace"))
-        except (OSError, ValueError):
-            pass
-        finally:
-            try:
-                stream.close()
-            except OSError:
-                pass
+            self._process_started_at = time.time()
+        threading.Thread(target=self._watch_process, args=(child,), daemon=True).start()
 
     def _clear_bytecode_caches(self) -> int:
         cleared = 0
@@ -262,46 +132,16 @@ class BackendSupervisor:
                     pass
         return cleared
 
-    def _watch_process(
-        self,
-        child: subprocess.Popen[bytes],
-        stderr_tail: deque[str] | None = None,
-        stderr_thread: threading.Thread | None = None,
-    ) -> None:
-        return_code = child.wait()
-        if stderr_thread is not None:
-            stderr_thread.join(timeout=2.0)
-        clear_cache = False
+    def _watch_process(self, child: subprocess.Popen[bytes]) -> None:
+        child.wait()
         with self._lock:
             if self._process is not child:
                 return
             started_at = self._process_started_at
             self._process = None
-            self._process_group_pid = None
-            self._last_exit_code = return_code
-            self._last_exit_at = _timestamp()
-            if self._shutdown.is_set():
-                self._state = "stopped"
-                if self._last_exit_reason is None:
-                    self._last_exit_reason = "supervisor shutdown"
+            if self._shutdown.is_set() or self._restart_requested:
                 return
-            if self._manual_stop_requested:
-                self._state = "stopped"
-                if self._last_exit_reason is None:
-                    self._last_exit_reason = "manual stop requested"
-                return
-            if self._restart_requested:
-                self._state = "restarting"
-                return
-            self._state = "crashed"
-            self._last_exit_reason = "backend exited unexpectedly"
-            if stderr_tail:
-                self._last_crash_output = "".join(stderr_tail)[-CRASH_OUTPUT_MAX_CHARS:]
-            fast = (
-                started_at is not None
-                and self._last_exit_at - started_at < self._fast_crash_window_s
-            )
-            if fast:
+            if started_at is not None and time.time() - started_at < self._fast_crash_window_s:
                 self._consecutive_fast_crashes += 1
             else:
                 self._consecutive_fast_crashes = 0
@@ -310,15 +150,14 @@ class BackendSupervisor:
                 self._consecutive_fast_crashes >= CACHE_CLEAR_CRASH_THRESHOLD
                 and not self._cache_cleared_for_streak
             )
+            if clear_cache:
+                self._cache_cleared_for_streak = True
 
         if clear_cache:
             # A corrupt .pyc never self-heals: Python trusts the cache header while the
             # body is garbage, so the backend crash-loops forever. Clearing the caches
             # once per streak is free and lets the next start recompile from source.
             cleared = self._clear_bytecode_caches()
-            with self._lock:
-                self._cache_cleared_for_streak = True
-                self._pycache_cleared_at = _timestamp()
             print(
                 f"[supervisor] crash loop detected ({self._consecutive_fast_crashes} fast exits); "
                 f"cleared {cleared} __pycache__ dirs before restarting",
@@ -327,258 +166,212 @@ class BackendSupervisor:
 
         time.sleep(self._restart_backoff_s)
         if not self._shutdown.is_set():
-            self._start_backend(reason="auto restart after crash")
+            self._start_backend()
 
-    def _stop_backend(self, *, reason: str) -> None:
+    def _stop_backend(self) -> None:
         with self._lock:
             process = self._process
-            pgid = self._process_group_pid
-            if process is None or process.poll() is not None or pgid is None:
-                self._process = None
-                self._process_group_pid = None
-                self._last_exit_reason = reason
-                self._state = (
-                    "stopped"
-                    if self._shutdown.is_set() or self._manual_stop_requested
-                    else "restarting"
-                )
-                return
-            self._last_exit_reason = reason
+        if process is None or process.poll() is not None:
+            return
 
         try:
-            os.killpg(pgid, signal.SIGTERM)
+            os.killpg(process.pid, signal.SIGTERM)
         except ProcessLookupError:
             pass
-
-        deadline = time.time() + self._stop_timeout_s
-        while time.time() < deadline:
-            if process.poll() is not None:
-                break
-            time.sleep(0.1)
-
-        if process.poll() is None:
+        try:
+            process.wait(timeout=self._stop_timeout_s)
+        except subprocess.TimeoutExpired:
             try:
-                os.killpg(pgid, signal.SIGKILL)
+                os.killpg(process.pid, signal.SIGKILL)
             except ProcessLookupError:
                 pass
-            deadline = time.time() + 2.0
-            while time.time() < deadline:
-                if process.poll() is not None:
-                    break
-                time.sleep(0.05)
-
-        with self._lock:
-            if self._process is process and process.poll() is not None:
-                self._process = None
-                self._process_group_pid = None
-                self._last_exit_code = process.returncode
-                self._last_exit_at = _timestamp()
-                self._state = (
-                    "stopped"
-                    if self._shutdown.is_set() or self._manual_stop_requested
-                    else "restarting"
-                )
+            try:
+                process.wait(timeout=2.0)
+            except subprocess.TimeoutExpired:
+                pass
 
 
-def _handler_factory(supervisor: BackendSupervisor):
-    class SupervisorHandler(BaseHTTPRequestHandler):
-        def do_OPTIONS(self) -> None:
-            if not self.path.startswith("/api/supervisor/"):
-                self._send_json(404, {"ok": False, "message": "Not found"})
-                return
-            authorized, origin = self._authorize_request(require_origin=True)
-            if not authorized:
-                return
-            self._send_json(204, {"ok": True}, origin=origin)
+def _file_in(root: Path, url_path: str) -> Path | None:
+    """The file under root that url_path names; None for a directory, a
+    missing file, or anything outside root ('..' or a symlink out)."""
+    try:
+        file = (root / url_path.lstrip("/")).resolve()
+        return file if file.is_relative_to(root.resolve()) and file.is_file() else None
+    except (OSError, ValueError):
+        return None
+
+
+def _names_this_machine(host: str) -> bool:
+    """Whether a Host header names this machine the way people reach it: an IP
+    address, localhost, a bare or mDNS (.local) name, or a Tailscale name. A
+    public domain means DNS rebinding: another site's page, reaching this
+    machine under that site's own name, where Origin matches Host."""
+    name = urlsplit(f"//{host}").hostname or ""
+    try:
+        ipaddress.ip_address(name)
+        return True
+    except ValueError:
+        return name == "localhost" or "." not in name or name.endswith((".local", ".ts.net"))
+
+
+def _ui_handler(supervisor: BackendSupervisor, build_dir: Path) -> type[BaseHTTPRequestHandler]:
+    not_built = (
+        "<!doctype html><meta charset=utf-8><title>Sorter UI not built</title>"
+        "<p>The Sorter UI is not built on this machine yet. Build it, then reload this page:</p>"
+        f"<pre>cd {html.escape(str(build_dir.parent))} &amp;&amp; "
+        "pnpm install --frozen-lockfile &amp;&amp; pnpm build</pre>"
+    ).encode()
+
+    class UIHandler(BaseHTTPRequestHandler):
+        # Keep-alive: a page load's files share a few connections instead of
+        # opening one each. An idle connection is dropped after the timeout.
+        protocol_version = "HTTP/1.1"
+        timeout = 60
 
         def do_GET(self) -> None:
-            if self.path == "/health":
-                self._send_json(200, {"status": "ok"})
+            self._serve(body=True)
+
+        def do_HEAD(self) -> None:
+            self._serve(body=False)
+
+        def _serve(self, body: bool) -> None:
+            shell = build_dir / "index.html"
+            if not shell.is_file():
+                self._send(503, not_built, {"Content-Type": "text/html; charset=utf-8"}, body)
                 return
-            if self.path == "/api/supervisor/status":
-                authorized, origin = self._authorize_request(require_origin=False)
-                if not authorized:
-                    return
-                self._send_json(200, supervisor.status(), origin=origin)
+            path = posixpath.normpath(unquote(self.path.split("?", 1)[0].split("#", 1)[0]))
+            file = _file_in(build_dir, path)
+            if file is None and path.startswith("/_app/"):
+                # A missing script or stylesheet must fail, not become the page.
+                self._send(404, b"Not found\n", {"Content-Type": "text/plain"}, body)
                 return
-            self._send_json(404, {"ok": False, "message": "Not found"})
+            # Any other path is a page of the app, which the shell renders.
+            file = file or shell
+            headers = {
+                "Content-Type": CONTENT_TYPES.guess_type(file.name)[0] or "application/octet-stream",
+                "Vary": "Accept-Encoding",
+            }
+            if path.startswith(IMMUTABLE_PREFIX):
+                headers["Cache-Control"] = "public, max-age=31536000, immutable"
+            accepted = {part.split(";")[0].strip().lower() for part in self.headers.get("Accept-Encoding", "").split(",")}
+            for encoding, suffix in PRECOMPRESSED:
+                compressed = file.with_name(file.name + suffix)
+                if encoding in accepted and compressed.is_file():
+                    file, headers["Content-Encoding"] = compressed, encoding
+                    break
+            try:
+                content = file.read_bytes()
+            except OSError:  # a build replacing it right now
+                self._send(404, b"Not found\n", {"Content-Type": "text/plain"}, body)
+                return
+            self._send(200, content, headers, body)
 
         def do_POST(self) -> None:
-            if self.path == "/api/supervisor/restart":
-                authorized, origin = self._authorize_request(require_origin=True)
-                if not authorized:
-                    return
-                accepted = supervisor.request_restart(reason="hard restart requested")
-                self._send_json(
-                    202,
-                    {
-                        "ok": True,
-                        "accepted": accepted,
-                        "message": "Hard restart requested.",
-                    },
-                    origin=origin,
-                )
+            if self.path != RESTART_PATH:
+                self._send_json(404, {"ok": False, "message": "Not found"})
                 return
-            if self.path == "/api/supervisor/start":
-                authorized, origin = self._authorize_request(require_origin=True)
-                if not authorized:
-                    return
-                supervisor._start_backend(reason="manual start requested")
-                self._send_json(
-                    200,
-                    {"ok": True, "message": "Backend start requested."},
-                    origin=origin,
-                )
+            # Another site's page can post here too, but its browser names that
+            # site in Origin: only the UI served from here may restart.
+            origin = urlsplit(self.headers.get("Origin") or "").netloc.lower()
+            host = (self.headers.get("Host") or "").lower()
+            if not origin or origin != host or not _names_this_machine(host):
+                self._send_json(403, {"ok": False, "message": "Origin must match Host, and name this machine."})
                 return
-            if self.path == "/api/supervisor/stop":
-                authorized, origin = self._authorize_request(require_origin=True)
-                if not authorized:
-                    return
-                supervisor.request_stop(reason="manual stop requested")
-                self._send_json(
-                    200,
-                    {"ok": True, "message": "Backend stop requested."},
-                    origin=origin,
-                )
-                return
-            self._send_json(404, {"ok": False, "message": "Not found"})
+            print(f"[supervisor] restart requested by {self.client_address[0]}", flush=True)
+            accepted = supervisor.request_restart()
+            self._send_json(202, {"ok": True, "accepted": accepted, "message": "Hard restart requested."})
 
-        def log_message(self, format: str, *args: Any) -> None:
-            message = format % args
-            print(f"[supervisor] {self.address_string()} {message}", flush=True)
+        def log_request(self, code: int | str = "-", size: int | str = "-") -> None:
+            return  # not a journal line per file; errors are still logged
 
-        def _authorize_request(self, *, require_origin: bool) -> tuple[bool, str | None]:
-            client_host = self.client_address[0] if self.client_address else None
-            if not is_loopback_client_address(client_host):
-                self._send_json(403, {"ok": False, "message": "Supervisor control is restricted to loopback clients."})
-                return False, None
+        def log_error(self, format: str, *args: Any) -> None:
+            if not format.startswith("Request timed out"):  # an idle kept-alive connection closing
+                super().log_error(format, *args)
 
-            origin = normalize_origin(self.headers.get("Origin"))
-            if origin is not None and not is_ui_origin_allowed(origin):
-                self._send_json(403, {"ok": False, "message": "Origin not allowed for supervisor control."})
-                return False, None
-            if require_origin and origin is None:
-                self._send_json(403, {"ok": False, "message": "Supervisor control requests must include an allowed Origin header."})
-                return False, None
-            return True, origin
+        def _send_json(self, status: int, payload: dict[str, Any]) -> None:
+            self._send(status, json.dumps(payload).encode(), {"Content-Type": "application/json"})
 
-        def _send_json(
-            self,
-            status: int,
-            payload: dict[str, Any],
-            *,
-            origin: str | None = None,
-        ) -> None:
-            body = json.dumps(payload).encode("utf-8")
+        def _send(self, status: int, content: bytes, headers: dict[str, str], body: bool = True) -> None:
+            # Everything but the hashed files is checked on every load, so a
+            # new build shows on the next one.
+            headers.setdefault("Cache-Control", "no-cache")
             self.send_response(status)
-            self.send_header("Content-Type", "application/json")
-            self.send_header("Content-Length", str(len(body)))
-            if origin is not None and is_ui_origin_allowed(origin):
-                self.send_header("Access-Control-Allow-Origin", origin)
-                self.send_header("Access-Control-Allow-Methods", "GET,POST,OPTIONS")
-                self.send_header("Access-Control-Allow-Headers", "Content-Type")
-                self.send_header("Vary", "Origin")
+            for name, value in headers.items():
+                self.send_header(name, value)
+            self.send_header("Content-Length", str(len(content)))
             self.end_headers()
-            if status != 204:
-                self.wfile.write(body)
+            if body:
+                self.wfile.write(content)
 
-    return SupervisorHandler
+    return UIHandler
 
 
-def _default_backend_command(script_dir: Path) -> list[str]:
-    return [sys.executable, str(script_dir / "main.py")]
+class _UIServer(ThreadingHTTPServer):
+    # A page load opens dozens of connections at once. The default backlog of
+    # 5 drops some, and a dropped connection waits a second to try again.
+    request_queue_size = 128
+
+
+def _bind_ui(port: int, handler: type[BaseHTTPRequestHandler]) -> ThreadingHTTPServer:
+    """The UI's server on every interface, once it has the port, however long
+    that takes: on SorterOS's first boot the progress page keeps port 80
+    until the backend answers, then lets it go."""
+    waiting = False
+    while True:
+        try:
+            return _UIServer(("0.0.0.0", port), handler)
+        except OSError as exc:
+            if not waiting:
+                print(f"[supervisor] cannot serve the UI on port {port} yet ({exc}); trying every second", flush=True)
+                waiting = True
+            time.sleep(1)
+
+
+def _serve_ui(supervisor: BackendSupervisor, port: int) -> None:
+    server = _bind_ui(port, _ui_handler(supervisor, UI_BUILD_DIR))
+    print(f"[supervisor] serving the UI from {UI_BUILD_DIR} on port {port}", flush=True)
+    server.serve_forever()
 
 
 def _parse_args() -> argparse.Namespace:
-    script_dir = Path(__file__).resolve().parent
     parser = argparse.ArgumentParser(description="Supervisor for the sorter backend.")
-    parser.add_argument("--host", default=DEFAULT_CONTROL_HOST)
-    parser.add_argument("--control-port", type=int, default=DEFAULT_CONTROL_PORT)
-    parser.add_argument("--backend-port", type=int, default=DEFAULT_BACKEND_PORT)
-    parser.add_argument(
-        "--health-url",
-        default=None,
-        help="Backend health URL to probe. Defaults to http://127.0.0.1:<backend-port>/health",
-    )
-    parser.add_argument(
-        "--health-interval",
-        type=float,
-        default=DEFAULT_HEALTH_INTERVAL_S,
-    )
-    parser.add_argument(
-        "--health-timeout",
-        type=float,
-        default=DEFAULT_HEALTH_TIMEOUT_S,
-    )
-    parser.add_argument(
-        "--restart-backoff",
-        type=float,
-        default=DEFAULT_RESTART_BACKOFF_S,
-    )
-    parser.add_argument(
-        "--stop-timeout",
-        type=float,
-        default=DEFAULT_STOP_TIMEOUT_S,
-    )
-    parser.add_argument(
-        "backend_command",
-        nargs=argparse.REMAINDER,
-        help="Optional backend command after '--'. Defaults to running main.py with the current Python.",
-    )
+    parser.add_argument("--ui-port", type=int, default=DEFAULT_UI_PORT,
+                        help="Port to serve the UI's build on (all interfaces); 0 serves no UI.")
+    parser.add_argument("--restart-backoff", type=float, default=DEFAULT_RESTART_BACKOFF_S)
+    parser.add_argument("--stop-timeout", type=float, default=DEFAULT_STOP_TIMEOUT_S)
+    parser.add_argument("backend_command", nargs=argparse.REMAINDER,
+                        help="Optional backend command after '--'. Defaults to running main.py with the current Python.")
     args = parser.parse_args()
-
-    default_command = _default_backend_command(script_dir)
-    command = list(args.backend_command)
-    if command and command[0] == "--":
-        command = command[1:]
-    args.backend_command = command or default_command
-    if args.health_url is None:
-        args.health_url = f"http://127.0.0.1:{args.backend_port}/health"
+    command = args.backend_command[1:] if args.backend_command[:1] == ["--"] else args.backend_command
+    args.backend_command = command or [sys.executable, str(Path(__file__).resolve().parent / "main.py")]
     return args
 
 
 def main() -> None:
     args = _parse_args()
-    script_dir = Path(__file__).resolve().parent
+    environment = os.environ.copy()
+    if args.ui_port:
+        # Where the UI is, for the backend: its heartbeat reports it, and its
+        # origin check lets that page call the API.
+        environment["SORTER_SUPERVISOR_UI_PORT"] = str(args.ui_port)
     supervisor = BackendSupervisor(
-        command=list(args.backend_command),
-        cwd=script_dir,
-        environment=os.environ.copy(),
-        backend_health_url=str(args.health_url),
-        health_interval_s=float(args.health_interval),
-        health_timeout_s=float(args.health_timeout),
-        restart_backoff_s=float(args.restart_backoff),
-        stop_timeout_s=float(args.stop_timeout),
+        command=args.backend_command,
+        cwd=Path(__file__).resolve().parent,
+        environment=environment,
+        restart_backoff_s=args.restart_backoff,
+        stop_timeout_s=args.stop_timeout,
     )
+    stop = threading.Event()
+    signal.signal(signal.SIGINT, lambda *_: stop.set())
+    signal.signal(signal.SIGTERM, lambda *_: stop.set())
+
+    print(f"[supervisor] command={' '.join(args.backend_command)}", flush=True)
     supervisor.start()
-
-    server = ThreadingHTTPServer((str(args.host), int(args.control_port)), _handler_factory(supervisor))
-
-    def _shutdown(*_args: Any) -> None:
-        # server.shutdown() waits for serve_forever() to return, and that runs
-        # on this thread, so called here it deadlocks until systemd's SIGKILL.
-        # Mark the supervisor stopping first so it doesn't restart the backend
-        # that systemd's SIGTERM just stopped.
-        def _stop() -> None:
-            supervisor.shutdown()
-            server.shutdown()
-
-        threading.Thread(target=_stop, daemon=True).start()
-
-    signal.signal(signal.SIGINT, _shutdown)
-    signal.signal(signal.SIGTERM, _shutdown)
-
-    print(
-        f"[supervisor] control=http://{args.host}:{args.control_port} "
-        f"backend_health={args.health_url} command={' '.join(args.backend_command)}",
-        flush=True,
-    )
-
-    try:
-        server.serve_forever()
-    finally:
-        supervisor.shutdown()
-        server.server_close()
+    if args.ui_port:
+        threading.Thread(target=_serve_ui, args=(supervisor, args.ui_port), daemon=True).start()
+    stop.wait()
+    # Stop the backend before exiting, so it never outlives the supervisor.
+    supervisor.shutdown()
 
 
 if __name__ == "__main__":

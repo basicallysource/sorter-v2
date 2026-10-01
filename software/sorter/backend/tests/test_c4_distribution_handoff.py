@@ -19,9 +19,9 @@ from unittest.mock import patch
 
 from defs.known_object import ClassificationStatus, KnownObject, PieceStage
 from piece_transport import ClassificationChannelTransport
-from runtime_stats import RuntimeStatsCollector
-from subsystems.classification_channel import two_piece
-from subsystems.classification_channel.two_piece import (
+from runtime_stats import C4_WAITING_FOR_PIECE, RuntimeStatsCollector
+from subsystems.classification_channel.two_piece import flow as two_piece
+from subsystems.classification_channel.two_piece.flow import (
     TwoPieceClassificationChannel,
     _Phase,
     _TrackedPiece,
@@ -87,10 +87,9 @@ def _mkChannel(transport, shared) -> TwoPieceClassificationChannel:
     ch.transport = transport
     ch.shared = shared
     ch.logger = _LOGGER
-    ch.gc = SimpleNamespace()
+    ch.gc = _mkGc()
     ch.irl = SimpleNamespace()
     ch.irl_config = SimpleNamespace()
-    ch.cv = SimpleNamespace(_vision=None)
     ch.ctx = SimpleNamespace(reset=lambda: None, known_object=None)
     ch._pieces = {}
     ch._phase = _Phase.WAITING
@@ -103,6 +102,11 @@ def _mkChannel(transport, shared) -> TwoPieceClassificationChannel:
     ch._multi_drop_seq = 0
     ch._bucket_hold_cycles = 0
     return ch
+
+
+def _c4(ch: TwoPieceClassificationChannel) -> dict:
+    """C4's entry in the runtime stats, as the dashboard reads it."""
+    return ch.gc.runtime_stats.snapshot(live=True)["channel_throughput"]["classification_channel"]
 
 
 def _addPiece(
@@ -133,8 +137,8 @@ def _addPiece(
 
 def test_positioning_records_the_piece_it_aims_for() -> None:
     piece = KnownObject(part_id="3001", color_id="1")
+    piece.too_big = True  # the oversize passthrough reaches READY without a profile or layout
     shared = SharedVariables()
-    shared.sample_collection_mode = True
     shared.transport = SimpleNamespace(getPieceForDistributionPositioning=lambda: piece)
     layout = SimpleNamespace(layers=[])
     positioning = Positioning(
@@ -200,24 +204,6 @@ def test_ready_goes_idle_when_positioned_piece_is_withdrawn() -> None:
     assert transport.clearPieceForDistribution(obj)
 
     assert ready.step() == DistributionState.IDLE
-
-
-def test_ready_without_slot_handoff_still_treats_slot_change_as_drop() -> None:
-    # Transports that do not promote the positioned piece into a drop slot (the
-    # dynamic channel, the carousel) keep the old rule.
-    slots = SimpleNamespace(wait=KnownObject(), drop=None)
-    transport = SimpleNamespace(
-        getPieceForDistributionPositioning=lambda: slots.wait,
-        getPieceForDistributionDrop=lambda: slots.drop,
-    )
-    shared = _mkShared(transport)
-    shared.distribution_positioned_uuid = slots.wait.uuid
-    ready = Ready(SimpleNamespace(), _mkGc(), shared)  # type: ignore[arg-type]
-    assert ready.step() is None
-
-    slots.wait = KnownObject()
-
-    assert ready.step() == DistributionState.SENDING
 
 
 def test_sending_does_not_record_an_already_committed_piece_again() -> None:
@@ -343,6 +329,7 @@ def test_stall_auto_clear_withdraws_a_placed_piece_that_was_never_aimed() -> Non
     assert transport.getPieceForDistributionDrop() is None
     assert transport.getPieceForDistributionPositioning() is None
     assert ch._pieces == {}
+    assert _c4(ch)["exit_count"] == 0  # withdrawn, not a C4 exit
 
 
 def test_stall_auto_clear_commits_a_placed_head_whose_chute_is_aimed() -> None:
@@ -358,6 +345,7 @@ def test_stall_auto_clear_commits_a_placed_head_whose_chute_is_aimed() -> None:
 
     assert transport.getPieceForDistributionDrop() is obj
     assert transport.getPieceForDistributionPositioning() is None
+    assert _c4(ch)["exit_count"] == 1  # swept into the chute: a C4 exit
 
 
 def test_cleanup_withdraws_the_placed_piece() -> None:
@@ -400,3 +388,40 @@ def test_phantom_ahead_then_real_eject_does_not_wedge_distribution() -> None:
     sending.start_time = time.time() - (CHUTE_SETTLE_MS / 1000.0) - 5.0
     assert sending.step() == DistributionState.IDLE
     assert gc.run_recorder.pieces == [obj45]
+
+
+# ------------------------------------------------------------------ runtime stats
+
+
+def test_eject_counts_a_c4_exit_and_gives_an_active_ppm() -> None:
+    transport = ClassificationChannelTransport()
+    shared = _mkShared(transport)
+    ch = _mkChannel(transport, shared)
+    stats = ch.gc.runtime_stats
+    now = time.monotonic()
+    stats.setLifecycleState("running", now_monotonic=now - 60.0)
+    stats.observeStateTransition("classification", None, "ejecting", now_monotonic=now - 60.0)
+    obj = _positioned(transport, shared)
+    tp = _addPiece(ch, 9, gap_to_exit=2.0, obj=obj, placed=True, last_seen_ago_s=1.0)
+    ch._eject_target = tp
+    ch._phase = _Phase.EJECTING
+
+    ch._ejecting(SimpleNamespace(), True, now)
+
+    c4 = _c4(ch)
+    assert c4["exit_count"] == 1
+    # One exit in the minute the channel was busy ejecting.
+    assert 0.95 < c4["active_ppm"] <= 1.0
+
+
+def test_waiting_with_the_drop_zone_clear_reads_as_waiting_for_a_piece() -> None:
+    transport = ClassificationChannelTransport()
+    shared = _mkShared(transport)
+    ch = _mkChannel(transport, shared)
+
+    shared.classification_ready = False  # a piece in the drop zone, or moving
+    assert ch.phaseName() == "waiting"
+    shared.classification_ready = True
+    assert ch.phaseName() == C4_WAITING_FOR_PIECE
+    ch._phase = _Phase.EJECTING
+    assert ch.phaseName() == "ejecting"

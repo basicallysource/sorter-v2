@@ -1,6 +1,7 @@
 <script lang="ts">
+	import { confirmDialog } from '$lib/confirm.svelte';
 	import { getBackendHttpBase, machineHttpBaseUrlFromWsUrl } from '$lib/backend';
-	import AppHeader from '$lib/components/AppHeader.svelte';
+	import AppShell from '$lib/components/AppShell.svelte';
 	import BinDetailsModal from '$lib/components/bins/BinDetailsModal.svelte';
 	import BinLayoutSection from '$lib/components/bins/BinLayoutSection.svelte';
 	import BinsHeaderActions from '$lib/components/bins/BinsHeaderActions.svelte';
@@ -11,13 +12,18 @@
 	import { categoryLabel } from '$lib/components/bins/pieces';
 	import SnapshotsModal from '$lib/components/bins/SnapshotsModal.svelte';
 	import type { BinContents, BinInfo, LayerInfo, SetMeta, SetProgressSummary } from '$lib/components/bins/types';
-	import { Skeleton, ToggleSwitch } from '$lib/components/primitives';
-	import StatusBanner from '$lib/components/StatusBanner.svelte';
+	import Alert from '$lib/components/ui/Alert.svelte';
+	import Button from '$lib/components/ui/Button.svelte';
+	import EmptyState from '$lib/components/ui/EmptyState.svelte';
+	import Modal from '$lib/components/ui/Modal.svelte';
+	import PageHeader from '$lib/components/ui/PageHeader.svelte';
+	import Panel from '$lib/components/ui/Panel.svelte';
+	import SettingRow from '$lib/components/ui/SettingRow.svelte';
+	import Skeleton from '$lib/components/ui/Skeleton.svelte';
+	import Switch from '$lib/components/ui/Switch.svelte';
 	import { getMachinesContext } from '$lib/machines/context';
-	import { bricklinkParts } from '$lib/stores/bricklinkParts.svelte';
 	import { sortingProfileStore } from '$lib/stores/sortingProfile.svelte';
 	import { onMount } from 'svelte';
-	import Spinner from '$lib/components/Spinner.svelte';
 
 	const manager = getMachinesContext();
 	// Active profile (id/name) — bin layouts are scoped to it. Local profiles carry a
@@ -81,8 +87,6 @@
 		for (const item of contents.items) {
 			if (item.part_id && item.part_id.toLowerCase().includes(query)) return true;
 			if (item.color_name && item.color_name.toLowerCase().includes(query)) return true;
-			const partName = bricklinkParts.get(item.part_id)?.name;
-			if (partName && partName.toLowerCase().includes(query)) return true;
 		}
 		return false;
 	}
@@ -259,13 +263,6 @@
 			next[entry.bin_key] = entry as BinContents;
 		}
 		contentsByKey = next;
-		// bricklinkParts is cached per part, so re-applying the full snapshot only
-		// hits the (slow) BrickLink API for parts we haven't seen yet.
-		for (const bin of Object.values(next)) {
-			for (const item of bin.items) {
-				if (item.part_id) void bricklinkParts.fetch(baseUrl(), item.part_id);
-			}
-		}
 	}
 
 	// Change token from /api/bins/contents/version. The heavy contents payload is
@@ -464,7 +461,17 @@
 	) {
 		if (movingTo || homing || togglingLayerKey !== null || hasClearingKey(busyKey)) return;
 		if (scope === 'all' ? hasAnyClearing() : isGlobalClearing()) return;
-		if (!window.confirm(confirmMessage)) return;
+		const verb = endpoint === 'contents/clear' ? 'Empty' : 'Reset';
+		const what = scope === 'all' ? 'all bins' : scope === 'layer' ? 'this layer' : 'this bin';
+		if (
+			!(await confirmDialog({
+				title: `${verb} ${what}?`,
+				message: confirmMessage,
+				action: `${verb} ${what}`,
+				danger: endpoint === 'categories/clear'
+			}))
+		)
+			return;
 
 		const nextState: ClearingState = {
 			endpoint,
@@ -509,7 +516,16 @@
 	) {
 		if (movingTo || homing || togglingLayerKey !== null || hasClearingKey(busyKey)) return;
 		if (scope === 'all' ? hasAnyClearing() : isGlobalClearing()) return;
-		if (!window.confirm(confirmMessage)) return;
+		const what = scope === 'all' ? 'all bins' : 'this layer';
+		if (
+			!(await confirmDialog({
+				title: `Reset ${what}?`,
+				message: confirmMessage,
+				action: `Reset ${what}`,
+				danger: true
+			}))
+		)
+			return;
 
 		clearingStates = [
 			...clearingStates,
@@ -726,109 +742,66 @@
 
 <svelte:head><title>Sorter - Bins</title></svelte:head>
 
-<div class="min-h-screen bg-bg">
-	<AppHeader />
-	{#if isGlobalClearing()}
-		<div class="fixed inset-0 z-[60] flex items-center justify-center bg-black/40 px-4">
-			<div class="w-full max-w-md border border-border bg-surface p-6 shadow-xl">
-				<div class="flex items-start gap-4">
-					<div class="flex h-10 w-10 items-center justify-center border border-border bg-bg">
-						<Spinner size={18} class="text-primary" />
-					</div>
-					<div class="space-y-2">
-						<h3 class="text-lg font-semibold text-text">{globalClearingTitle()}</h3>
-						<p class="text-sm leading-6 text-text-muted">{globalClearingDescription()}</p>
-						<p class="text-xs uppercase tracking-wide text-text-muted">Please wait while the sorter refreshes the bin state.</p>
-					</div>
-				</div>
-			</div>
-		</div>
-	{/if}
-	<div class="p-4 sm:p-6">
-		<div class="mb-4 flex items-center justify-between gap-4">
-			<div>
-				<h2 class="text-xl font-bold text-text">Bin Grid</h2>
-			</div>
-			<BinsHeaderActions
-				csvUrl={currentContentsCsvUrl()}
-				{homing}
-				emptyBusy={hasClearingKey('empty-all')}
-				resetBusy={hasClearingKey('reset-all')}
-				disabled={homing || !!movingTo || hasAnyClearing() || togglingLayerKey !== null}
-				onSnapshots={() => (snapshotsOpen = true)}
-				onHome={() => void homeChute()}
-				onEmptyAll={() =>
-					void runBinAction(
-						'contents/clear',
-						'all',
-						{},
-						'Please make sure all physical bins are empty first. This will mark every bin on the machine as emptied, but keep the current profile-to-bin assignments in place.',
-						'empty-all'
-					)}
-				onResetAll={() =>
-					void runBinReset(
-						'all',
-						undefined,
-						'Please make sure all physical bins are empty first. This will remove every learned bin assignment on the machine and mark all bins as empty.',
-						'reset-all'
-					)}
-			/>
-		</div>
+<AppShell>
+	<div class="mx-auto flex w-full max-w-[1500px] flex-col gap-(--gap-panels) px-4 py-6 sm:px-6">
+		<PageHeader title="Bins" description="What each bin holds and which categories it takes.">
+			{#snippet actions()}
+				<BinsHeaderActions
+					csvUrl={currentContentsCsvUrl()}
+					{homing}
+					emptyBusy={hasClearingKey('empty-all')}
+					resetBusy={hasClearingKey('reset-all')}
+					disabled={homing || !!movingTo || hasAnyClearing() || togglingLayerKey !== null}
+					onSnapshots={() => (snapshotsOpen = true)}
+					onHome={() => void homeChute()}
+					onEmptyAll={() =>
+						void runBinAction(
+							'contents/clear',
+							'all',
+							{},
+							'Please make sure all physical bins are empty first. This will mark every bin on the machine as emptied, but keep the current profile-to-bin assignments in place.',
+							'empty-all'
+						)}
+					onResetAll={() =>
+						void runBinReset(
+							'all',
+							undefined,
+							'Please make sure all physical bins are empty first. This will remove every learned bin assignment on the machine and mark all bins as empty.',
+							'reset-all'
+						)}
+				/>
+			{/snippet}
+		</PageHeader>
 
 		<BinLayoutSection baseUrl={baseUrl()} profileId={activeProfileId} profileName={activeProfileName} />
 
-		<div class="mb-4 flex items-center justify-between gap-4 border border-border bg-surface px-4 py-3">
-			<div class="pr-4">
-				<div class="text-sm font-medium text-text">Allow multiple categories per bin</div>
-				<div class="mt-0.5 text-sm text-text-muted">
-					When every bin already has an assignment, keep sorting new categories by
-					combining them into existing bins (least-loaded first) instead of sending
-					them to the discard passthrough.
-				</div>
-			</div>
-			<ToggleSwitch
-				checked={allowMultiCategory}
-				label="Allow multiple categories per bin"
-				disabled={savingMultiCategory}
-				onToggle={() => void toggleMultiCategory()}
-			/>
-		</div>
-
-		<div class="mb-4 border border-border bg-surface px-4 py-3">
-			<div class="flex flex-wrap items-center justify-between gap-4">
-				<div class="pr-4">
-					<div class="text-sm font-medium text-text">Auto-assign bins</div>
-					<div class="mt-0.5 text-sm text-text-muted">
-						Ranks the active profile's categories by how many recently-sorted pieces
-						hit them, then fills bins biggest-first — the larger bottom bins get the
-						highest-volume categories. Overwrites current normal-bin assignments;
-						not-in-inventory bins are left alone.
-					</div>
-				</div>
-				<div class="flex items-center gap-2">
-					<button
-						type="button"
-						onclick={() => void runAutoAssign(false)}
-						disabled={autoAssignBusy}
-						class="flex items-center gap-2 border border-border bg-surface px-3.5 py-2 text-sm font-medium text-text transition-colors hover:bg-bg disabled:cursor-not-allowed disabled:opacity-50"
-					>
+		<Panel flush>
+			<div class="divide-y divide-line">
+				<SettingRow
+					label="Allow multiple categories per bin"
+					help="When every bin already has an assignment, keep sorting new categories by combining them into existing bins (least-loaded first) instead of sending them to the discard passthrough."
+				>
+					<Switch
+						checked={allowMultiCategory}
+						label="Allow multiple categories per bin"
+						disabled={savingMultiCategory}
+						onchange={() => void toggleMultiCategory()}
+					/>
+				</SettingRow>
+				<SettingRow
+					label="Auto-assign bins"
+					help="Ranks the active profile's categories by how many recently sorted pieces hit them, then fills bins biggest first: the larger bottom bins get the highest-volume categories. Overwrites current normal-bin assignments; not-in-inventory bins are left alone."
+					below={autoAssignResult ? autoAssignNote : undefined}
+				>
+					<Button loading={autoAssignBusy} onclick={() => void runAutoAssign(false)}>
 						{autoAssignBusy ? 'Assigning…' : 'Auto-assign'}
-					</button>
-					<button
-						type="button"
-						onclick={() => void runAutoAssign(true)}
-						disabled={autoAssignBusy}
-						title="Pack every ranked category in, sharing bins once they run out"
-						class="flex items-center gap-2 border border-border bg-surface px-3.5 py-2 text-sm font-medium text-text transition-colors hover:bg-bg disabled:cursor-not-allowed disabled:opacity-50"
-					>
-						{autoAssignBusy ? 'Assigning…' : 'Auto-assign + overlap'}
-					</button>
-				</div>
+					</Button>
+					<Button loading={autoAssignBusy} onclick={() => void runAutoAssign(true)}>
+						{autoAssignBusy ? 'Assigning…' : 'Auto-assign and overlap'}
+					</Button>
+				</SettingRow>
 			</div>
-			{#if autoAssignResult}
-				<div class="mt-2 text-sm text-text-muted">{autoAssignResult}</div>
-			{/if}
-		</div>
+		</Panel>
 
 		{#if !loading && layers.length > 0 && maxSectionCount() > 0}
 			<ColumnsPanel
@@ -844,137 +817,144 @@
 			/>
 		{/if}
 
-		<StatusBanner message={statusMsg} variant="success" />
-		<StatusBanner message={error ?? ''} variant="error" />
+		{#if statusMsg}<Alert tone="success">{statusMsg}</Alert>{/if}
+		{#if error}<Alert tone="danger">{error}</Alert>{/if}
 
 		{#if !loading && layers.length > 0}
 			<BinSearchBar bind:query={searchQuery} matchCount={searchMatchCount} totalBins={totalBinCount} />
 		{/if}
 
 		{#if loading}
-			<div class="flex flex-col gap-6">
+			<div class="flex flex-col gap-(--gap-panels)" aria-busy="true">
 				{#each Array(2) as _layerUnused}
-					<div class="border border-border">
-						<div class="flex items-center justify-between border-b border-border bg-surface px-4 py-3">
-							<Skeleton class="h-6 w-40" />
-							<Skeleton class="h-9 w-72" />
+					<Panel>
+						<div class="mb-4 flex items-center justify-between gap-4">
+							<Skeleton class="h-5 w-40" />
+							<Skeleton class="h-6 w-16" />
 						</div>
-						<div class="grid grid-cols-6 gap-3 p-3">
+						<div class="grid grid-cols-2 gap-2 md:grid-cols-4 xl:grid-cols-6">
 							{#each Array(6) as _binUnused}
-								<div class="flex flex-col border border-border">
-									<div class="border-b border-border bg-surface px-3 py-2">
-										<Skeleton class="h-5 w-3/4" />
-									</div>
-									<div class="grid grid-cols-4 gap-2 p-3">
+								<div class="flex flex-col gap-2 rounded-control bg-well p-2.5">
+									<Skeleton class="h-5 w-3/4" />
+									<div class="grid grid-cols-4 gap-2">
 										{#each Array(4) as _thumbUnused}
 											<Skeleton class="aspect-square w-full" />
 										{/each}
 									</div>
-									<div class="flex items-center justify-between border-t border-border px-3 py-2">
-										<Skeleton class="h-4 w-16" />
-										<Skeleton class="h-4 w-12" />
-									</div>
+									<Skeleton class="h-4 w-16" />
 								</div>
 							{/each}
 						</div>
-					</div>
+					</Panel>
 				{/each}
 			</div>
 		{:else if layers.length === 0}
-			<p class="text-text-muted">No storage layers configured.</p>
+			<EmptyState title="No storage layers are configured" />
 		{:else}
-			<div class="flex flex-col gap-6">
-				{#each layers as layer (layer.layer_index)}
-					{@const layerBusy = isLayerClearing(layer.layer_index)}
-					{@const layerIsActive = activeLayer === layer.layer_index}
-					<LayerPanel
-						{layer}
-						isActive={layerIsActive}
-						{layerBusy}
-						layerClearingLabel={layerClearingLabel(layer.layer_index)}
-						emptyBusy={hasClearingKey(`empty-layer-${layer.layer_index}`)}
-						resetBusy={hasClearingKey(`reset-layer-${layer.layer_index}`)}
-						niiBusy={niiBusyLayer === layer.layer_index}
-						niiDisabled={niiBusyLayer !== null}
-						controlsDisabled={homing || !!movingTo || hasAnyClearing() || togglingLayerKey !== null}
-						clearDisabled={homing || !!movingTo || isGlobalClearing() || layerBusy || togglingLayerKey !== null}
-						sectionToggleDisabled={homing || !!movingTo || hasAnyClearing() || sectionBusyKey !== null}
-						pointDisabled={homing || !!movingTo || pointingSectionKey !== null}
-						pointingKey={pointingSectionKey}
-						{contentsLoaded}
-						contentsFor={(bin) => contentsForBin(layer.layer_index, bin)}
-						setMetaFor={(bin) => assignedSetMeta(bin.category_ids)}
-						setProgressFor={(bin) => binSetProgress(bin.category_ids)}
-						isCurrentBin={(bin) => isCurrentBin(bin) && layerIsActive}
-						isMovingBin={(bin) => movingTo === `${layer.layer_index}-${bin.section_index}-${bin.bin_index}`}
-						isClearingBin={(bin) => isBinClearing(layer.layer_index, bin.section_index, bin.bin_index)}
-						binClearingLabel={(bin) => binClearingLabel(layer.layer_index, bin.section_index, bin.bin_index)}
-						sectionEnabled={(sectionIndex) => sectionEnabled(layer, sectionIndex)}
-						moveDisabled={!!movingTo || homing || hasAnyClearing()}
-						{searchActive}
-						searchMatch={(bin) => binMatchesSearch(layer.layer_index, bin)}
-						onToggleEnabled={(enabled) => void toggleLayerEnabled(layer.layer_index, enabled)}
-						onEmptyLayer={() =>
-							void runBinAction(
-								'contents/clear',
-								'layer',
-								{ layer_index: layer.layer_index },
-								`Please make sure layer ${layer.layer_index + 1} is physically empty first. This will mark all bins on that layer as emptied, but keep their assignments.`,
-								`empty-layer-${layer.layer_index}`
-							)}
-						onResetLayer={() =>
-							void runBinReset(
-								'layer',
-								layer.layer_index,
-								`Please make sure layer ${layer.layer_index + 1} is physically empty first. This will remove all learned assignments from that layer and mark its bins as empty.`,
-								`reset-layer-${layer.layer_index}`
-							)}
-						onToggleNii={(enabled) => void setLayerNotInInventory(layer.layer_index, enabled)}
-						onToggleSection={(sectionIndex, enabled) =>
-							void setSectionEnabled(
-								'section',
-								enabled,
-								{ layer_index: layer.layer_index, section_index: sectionIndex },
-								`sec-${layer.layer_index}-${sectionIndex}`
-							)}
-						onPointSection={(sectionIndex) => void pointAtSection(sectionIndex)}
-						onOpenDetails={(bin) => openBinDetails(layer.layer_index, bin)}
-						onMoveTo={(bin) => void moveToBin(layer.layer_index, bin.section_index, bin.bin_index)}
-						onEmptyBin={(bin) =>
-							void runBinAction(
-								'contents/clear',
-								'bin',
-								{ layer_index: layer.layer_index, section_index: bin.section_index, bin_index: bin.bin_index },
-								`Please make sure bin ${bin.global_index + 1} is physically empty first. This will mark the bin as emptied but keep its assignment.`,
-								`empty-bin-${layer.layer_index}-${bin.section_index}-${bin.bin_index}`
-							)}
-						onResetBin={(bin) =>
-							void runBinAction(
-								'categories/clear',
-								'bin',
-								{ layer_index: layer.layer_index, section_index: bin.section_index, bin_index: bin.bin_index },
-								`Please make sure bin ${bin.global_index + 1} is physically empty first. This will remove the learned assignment for just this bin and mark it as empty.`,
-								`reset-bin-${layer.layer_index}-${bin.section_index}-${bin.bin_index}`
-							)}
-					/>
-				{/each}
+			{#each layers as layer (layer.layer_index)}
+				{@const layerBusy = isLayerClearing(layer.layer_index)}
+				{@const layerIsActive = activeLayer === layer.layer_index}
+				<LayerPanel
+					{layer}
+					isActive={layerIsActive}
+					{layerBusy}
+					layerClearingLabel={layerClearingLabel(layer.layer_index)}
+					emptyBusy={hasClearingKey(`empty-layer-${layer.layer_index}`)}
+					resetBusy={hasClearingKey(`reset-layer-${layer.layer_index}`)}
+					niiBusy={niiBusyLayer === layer.layer_index}
+					niiDisabled={niiBusyLayer !== null}
+					controlsDisabled={homing || !!movingTo || hasAnyClearing() || togglingLayerKey !== null}
+					clearDisabled={homing || !!movingTo || isGlobalClearing() || layerBusy || togglingLayerKey !== null}
+					sectionToggleDisabled={homing || !!movingTo || hasAnyClearing() || sectionBusyKey !== null}
+					pointDisabled={homing || !!movingTo || pointingSectionKey !== null}
+					pointingKey={pointingSectionKey}
+					{contentsLoaded}
+					contentsFor={(bin) => contentsForBin(layer.layer_index, bin)}
+					setMetaFor={(bin) => assignedSetMeta(bin.category_ids)}
+					setProgressFor={(bin) => binSetProgress(bin.category_ids)}
+					isCurrentBin={(bin) => isCurrentBin(bin) && layerIsActive}
+					isMovingBin={(bin) => movingTo === `${layer.layer_index}-${bin.section_index}-${bin.bin_index}`}
+					isClearingBin={(bin) => isBinClearing(layer.layer_index, bin.section_index, bin.bin_index)}
+					binClearingLabel={(bin) => binClearingLabel(layer.layer_index, bin.section_index, bin.bin_index)}
+					sectionEnabled={(sectionIndex) => sectionEnabled(layer, sectionIndex)}
+					moveDisabled={!!movingTo || homing || hasAnyClearing()}
+					{searchActive}
+					searchMatch={(bin) => binMatchesSearch(layer.layer_index, bin)}
+					onToggleEnabled={(enabled) => void toggleLayerEnabled(layer.layer_index, enabled)}
+					onEmptyLayer={() =>
+						void runBinAction(
+							'contents/clear',
+							'layer',
+							{ layer_index: layer.layer_index },
+							`Please make sure layer ${layer.layer_index + 1} is physically empty first. This will mark all bins on that layer as emptied, but keep their assignments.`,
+							`empty-layer-${layer.layer_index}`
+						)}
+					onResetLayer={() =>
+						void runBinReset(
+							'layer',
+							layer.layer_index,
+							`Please make sure layer ${layer.layer_index + 1} is physically empty first. This will remove all learned assignments from that layer and mark its bins as empty.`,
+							`reset-layer-${layer.layer_index}`
+						)}
+					onToggleNii={(enabled) => void setLayerNotInInventory(layer.layer_index, enabled)}
+					onToggleSection={(sectionIndex, enabled) =>
+						void setSectionEnabled(
+							'section',
+							enabled,
+							{ layer_index: layer.layer_index, section_index: sectionIndex },
+							`sec-${layer.layer_index}-${sectionIndex}`
+						)}
+					onPointSection={(sectionIndex) => void pointAtSection(sectionIndex)}
+					onOpenDetails={(bin) => openBinDetails(layer.layer_index, bin)}
+					onMoveTo={(bin) => void moveToBin(layer.layer_index, bin.section_index, bin.bin_index)}
+					onEmptyBin={(bin) =>
+						void runBinAction(
+							'contents/clear',
+							'bin',
+							{ layer_index: layer.layer_index, section_index: bin.section_index, bin_index: bin.bin_index },
+							`Please make sure bin ${bin.global_index + 1} is physically empty first. This will mark the bin as emptied but keep its assignment.`,
+							`empty-bin-${layer.layer_index}-${bin.section_index}-${bin.bin_index}`
+						)}
+					onResetBin={(bin) =>
+						void runBinAction(
+							'categories/clear',
+							'bin',
+							{ layer_index: layer.layer_index, section_index: bin.section_index, bin_index: bin.bin_index },
+							`Please make sure bin ${bin.global_index + 1} is physically empty first. This will remove the learned assignment for just this bin and mark it as empty.`,
+							`reset-bin-${layer.layer_index}-${bin.section_index}-${bin.bin_index}`
+						)}
+				/>
+			{/each}
 
-				<DiscardBinCard />
-			</div>
+			<DiscardBinCard />
 		{/if}
 	</div>
+</AppShell>
 
-	<SnapshotsModal bind:open={snapshotsOpen} baseUrl={baseUrl()} />
+{#snippet autoAssignNote()}
+	<p class="px-3 py-2 text-sm text-ink-muted">{autoAssignResult}</p>
+{/snippet}
 
-	<BinDetailsModal
-		bind:open={detailsOpen}
-		{detailsBin}
-		baseUrl={baseUrl()}
-		{layers}
-		onSaved={(message) => {
-			statusMsg = message;
-			void loadLayout();
-		}}
-		onError={(message) => (error = message)}
-	/>
-</div>
+<Modal
+	open={isGlobalClearing()}
+	title={globalClearingTitle()}
+	size="sm"
+	dismissible={false}
+	status="Refreshing the bin state"
+>
+	<p>{globalClearingDescription()}</p>
+</Modal>
+
+<SnapshotsModal bind:open={snapshotsOpen} baseUrl={baseUrl()} />
+
+<BinDetailsModal
+	bind:open={detailsOpen}
+	{detailsBin}
+	baseUrl={baseUrl()}
+	{layers}
+	onSaved={(message) => {
+		statusMsg = message;
+		void loadLayout();
+	}}
+	onError={(message) => (error = message)}
+/>

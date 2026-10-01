@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import base64
 import binascii
+import functools
 import secrets
 import sqlite3
 import time
@@ -22,6 +23,8 @@ import time
 from cryptography.fernet import Fernet, InvalidToken
 from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives.kdf.hkdf import HKDF
+
+import db
 
 ENCRYPTED_PREFIX = "fernet:v1:"
 _SEED_STATE_KEY = "__secret_seed"
@@ -35,17 +38,15 @@ _SEED_CORRUPT_MSG = (
 )
 
 
-def _load_or_create_seed() -> bytes:
-    from local_state import local_state_db_path
+def _createStateEntries(conn: sqlite3.Connection) -> None:
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS state_entries "
+        "(key TEXT PRIMARY KEY, json_value TEXT NOT NULL, updated_at REAL NOT NULL)"
+    )
 
-    db_path = local_state_db_path()
-    conn = sqlite3.connect(str(db_path))
-    try:
-        conn.execute(
-            "CREATE TABLE IF NOT EXISTS state_entries "
-            "(key TEXT PRIMARY KEY, json_value TEXT NOT NULL, updated_at REAL NOT NULL)"
-        )
-        conn.commit()
+
+def _load_or_create_seed() -> bytes:
+    with db.connect(_createStateEntries) as conn:
         row = conn.execute(
             "SELECT json_value FROM state_entries WHERE key = ?", (_SEED_STATE_KEY,)
         ).fetchone()
@@ -55,18 +56,16 @@ def _load_or_create_seed() -> bytes:
             # in the database (and the operator would only find out when an
             # upload starts failing auth, like the 2026-05-24 Hive incident).
             raw = row[0].strip('"')
+            db_path = str(db.local_state_db_path())
             try:
                 data = base64.b64decode(raw)
             except (binascii.Error, ValueError) as exc:
                 raise RuntimeError(
-                    _SEED_CORRUPT_MSG.format(path=str(db_path), detail=f"base64 decode failed: {exc}")
+                    _SEED_CORRUPT_MSG.format(path=db_path, detail=f"base64 decode failed: {exc}")
                 ) from exc
             if len(data) < 32:
                 raise RuntimeError(
-                    _SEED_CORRUPT_MSG.format(
-                        path=str(db_path),
-                        detail=f"got {len(data)} bytes, need >= 32",
-                    )
+                    _SEED_CORRUPT_MSG.format(path=db_path, detail=f"got {len(data)} bytes, need >= 32")
                 )
             return data[:32]
         # First-run path only: no seed yet. Generate one and persist.
@@ -78,11 +77,16 @@ def _load_or_create_seed() -> bytes:
         )
         conn.commit()
         return material
-    finally:
-        conn.close()
 
 
 def _fernet() -> Fernet:
+    return _fernet_for(str(db.local_state_db_path()))
+
+
+# The seed never changes while the backend runs (recovering from a bad seed
+# takes a restart), so one key per database file is derived once.
+@functools.cache
+def _fernet_for(_db_path: str) -> Fernet:
     seed = _load_or_create_seed()
     hkdf = HKDF(
         algorithm=hashes.SHA256(),

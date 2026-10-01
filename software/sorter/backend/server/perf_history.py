@@ -1,16 +1,12 @@
 """In-memory performance time-series for the performance dashboard.
 
-The main loop broadcasts a full ``runtime_stats`` snapshot once per second.
-That snapshot is cumulative (its ``perf_ms`` histograms are ring buffers over
-the whole run), so on its own it can't answer "how did the machine behave over
-the last 5 minutes vs. the last hour." This module keeps a compact, derived row
-per snapshot in a bounded ring buffer so the dashboard can show real time
-windows that survive page reloads.
-
-Lives in the SERVER process and is fed from ``shared_state`` whenever a
-runtime_stats snapshot lands. Recording is idempotent per snapshot
-``updated_at`` so it doesn't matter how many code paths forward the same
-snapshot.
+The broadcaster thread (main.py) takes a full runtime-stats snapshot once per
+second. That snapshot is cumulative (its ``perf_ms`` histograms are ring buffers
+over the whole run), so on its own it can't answer "how did the machine behave
+over the last 5 minutes vs. the last hour." This module keeps a compact, derived
+row per snapshot in a bounded ring buffer so the dashboard can show real time
+windows that survive page reloads. Recording is idempotent per snapshot
+``updated_at``.
 
 Everything here is plain numbers translated into dashboard-friendly shapes —
 the frontend renders these directly without re-deriving from raw DB-style keys.
@@ -128,7 +124,8 @@ def record(snapshot: dict[str, Any], captured_at: float) -> None:
 
 def window(window_s: float, now: float) -> list[dict[str, Any]]:
     cutoff = now - max(0.0, window_s)
-    return [row for row in _history if row["t"] >= cutoff]
+    # list() copies atomically; the broadcaster thread appends meanwhile.
+    return [row for row in list(_history) if row["t"] >= cutoff]
 
 
 def _rate(rows: list[dict[str, Any]], count_key: str) -> Optional[float]:

@@ -115,12 +115,6 @@ sorter/backend/local_state.sqlite-wal
 sorter/backend/piece_images/
 sorter/backend/.secret_seed
 
-# Android app local/build state
-android-camera-app/.gradle/
-android-camera-app/build/
-android-camera-app/app/build/
-android-camera-app/local.properties
-
 # Model weight files (too large for git)
 *.pt
 

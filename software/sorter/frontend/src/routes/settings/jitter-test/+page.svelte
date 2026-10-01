@@ -1,8 +1,13 @@
 <script lang="ts">
 	import { getBackendHttpBase, machineHttpBaseUrlFromWsUrl } from '$lib/backend';
 	import { getMachinesContext } from '$lib/machines/context';
-	import SectionCard from '$lib/components/settings/SectionCard.svelte';
-	import { Alert, Button, Input } from '$lib/components/primitives';
+	import Panel from '$lib/components/ui/Panel.svelte';
+	import Select from '$lib/components/ui/Select.svelte';
+	import Field from '$lib/components/ui/Field.svelte';
+	import PageHeader from '$lib/components/ui/PageHeader.svelte';
+	import Alert from '$lib/components/ui/Alert.svelte';
+	import Button from '$lib/components/ui/Button.svelte';
+	import Input from '$lib/components/ui/Input.svelte';
 	import { STEPPER_GEAR_RATIOS } from '$lib/settings/stepper-control';
 	import { stepperLabels, type StepperKey } from '$lib/settings/stations';
 
@@ -42,20 +47,20 @@
 	// travel, medium strength, medium length. The others are variants around it:
 	// travel = amplitude, length = cycles, strength = speed + accel.
 	const PRESETS: JitterPreset[] = [
-		{ name: 'Heavy Stuck', blurb: 'Reference — medium everything (the one that worked)', amplitudeDeg: 6, cycles: 12, speed: 5000, acceleration: 100000 },
-		{ name: 'Quick Stuck', blurb: 'Same force & travel, shorter', amplitudeDeg: 6, cycles: 6, speed: 5000, acceleration: 100000 },
-		{ name: 'Brief Stuck', blurb: 'Same force & travel, very short burst', amplitudeDeg: 6, cycles: 3, speed: 5000, acceleration: 100000 },
-		{ name: 'Sharp & Short', blurb: 'Stronger jerk, shorter', amplitudeDeg: 6, cycles: 6, speed: 6500, acceleration: 180000 },
-		{ name: 'Hard Snap', blurb: 'Max jerk, tiny burst', amplitudeDeg: 6, cycles: 3, speed: 7000, acceleration: 220000 },
-		{ name: 'Soft & Long', blurb: 'Softer but longer', amplitudeDeg: 5, cycles: 30, speed: 3500, acceleration: 55000 },
-		{ name: 'Gentle Marathon', blurb: 'Very soft, very long', amplitudeDeg: 4, cycles: 50, speed: 3000, acceleration: 45000 },
-		{ name: 'Big Travel', blurb: 'More throw, medium length', amplitudeDeg: 9, cycles: 12, speed: 5000, acceleration: 110000 },
-		{ name: 'Big & Brief', blurb: 'Big throw, short', amplitudeDeg: 9, cycles: 5, speed: 6000, acceleration: 150000 },
-		{ name: 'Big & Hard', blurb: 'Big throw, strong jerk', amplitudeDeg: 9, cycles: 8, speed: 6500, acceleration: 200000 },
-		{ name: 'Max Shake', blurb: 'Largest throw, strong', amplitudeDeg: 13, cycles: 12, speed: 6500, acceleration: 190000 },
-		{ name: 'Wide & Soft', blurb: 'Big throw but gentle, long', amplitudeDeg: 9, cycles: 16, speed: 3500, acceleration: 55000 },
-		{ name: 'Fast Buzz', blurb: 'Medium throw, fast & long', amplitudeDeg: 6, cycles: 24, speed: 6000, acceleration: 150000 },
-		{ name: 'Strong & Long', blurb: 'Strong and persistent', amplitudeDeg: 8, cycles: 30, speed: 6000, acceleration: 140000 }
+		{ name: 'Heavy stuck', blurb: 'Reference: medium everything, the one that worked', amplitudeDeg: 6, cycles: 12, speed: 5000, acceleration: 100000 },
+		{ name: 'Quick stuck', blurb: 'Same force & travel, shorter', amplitudeDeg: 6, cycles: 6, speed: 5000, acceleration: 100000 },
+		{ name: 'Brief stuck', blurb: 'Same force & travel, very short burst', amplitudeDeg: 6, cycles: 3, speed: 5000, acceleration: 100000 },
+		{ name: 'Sharp & short', blurb: 'Stronger jerk, shorter', amplitudeDeg: 6, cycles: 6, speed: 6500, acceleration: 180000 },
+		{ name: 'Hard snap', blurb: 'Max jerk, tiny burst', amplitudeDeg: 6, cycles: 3, speed: 7000, acceleration: 220000 },
+		{ name: 'Soft & long', blurb: 'Softer but longer', amplitudeDeg: 5, cycles: 30, speed: 3500, acceleration: 55000 },
+		{ name: 'Gentle marathon', blurb: 'Very soft, very long', amplitudeDeg: 4, cycles: 50, speed: 3000, acceleration: 45000 },
+		{ name: 'Big travel', blurb: 'More throw, medium length', amplitudeDeg: 9, cycles: 12, speed: 5000, acceleration: 110000 },
+		{ name: 'Big & brief', blurb: 'Big throw, short', amplitudeDeg: 9, cycles: 5, speed: 6000, acceleration: 150000 },
+		{ name: 'Big & hard', blurb: 'Big throw, strong jerk', amplitudeDeg: 9, cycles: 8, speed: 6500, acceleration: 200000 },
+		{ name: 'Max shake', blurb: 'Largest throw, strong', amplitudeDeg: 13, cycles: 12, speed: 6500, acceleration: 190000 },
+		{ name: 'Wide & soft', blurb: 'Big throw but gentle, long', amplitudeDeg: 9, cycles: 16, speed: 3500, acceleration: 55000 },
+		{ name: 'Fast buzz', blurb: 'Medium throw, fast & long', amplitudeDeg: 6, cycles: 24, speed: 6000, acceleration: 150000 },
+		{ name: 'Strong & long', blurb: 'Strong and persistent', amplitudeDeg: 8, cycles: 30, speed: 6000, acceleration: 140000 }
 	];
 
 	const STORAGE_KEY = 'jitter-test:settings';
@@ -162,99 +167,84 @@
 	}
 </script>
 
-<svelte:head><title>Sorter - Jitter Test</title></svelte:head>
+<svelte:head><title>Sorter - Jitter test</title></svelte:head>
 
-<div class="mx-auto flex max-w-3xl flex-col gap-6 p-6">
-	<header class="flex flex-col gap-1">
-		<h1 class="text-xl font-semibold tracking-wide">Jitter Test</h1>
-		<p class="text-sm text-neutral-400">
-			Fire a short, sharp back-and-forth oscillation on a stepper to break static friction —
-			tuned to nudge a stuck piece off a C channel without a violent shake. The motion runs on the
-			firmware's real-time core and returns to the starting position.
-		</p>
-	</header>
+<PageHeader
+	title="Jitter test"
+	description="A short, sharp back-and-forth on a stepper that breaks static friction: enough to nudge a stuck piece off a C channel without a violent shake. It runs on the firmware's real-time core and ends where it started."
+/>
 
-	<SectionCard title="Motor">
-		<div class="flex flex-wrap gap-2">
-			{#each STEPPERS as key (key)}
-				<Button
-					variant={settings.stepper === key ? 'primary' : 'secondary'}
-					size="sm"
-					onclick={() => (settings.stepper = key)}
-				>
-					{stepperLabels[key]}
-				</Button>
-			{/each}
-		</div>
-	</SectionCard>
-
-	<SectionCard title="Presets">
-		<p class="mb-3 text-sm text-neutral-400">
-			Click a scenario to load its parameters below, then press Jitter. Amplitudes are motor
-			degrees; the rotor moves ~{gearRatio.toFixed(1)}× less.
-		</p>
-		<div class="grid grid-cols-2 gap-2 sm:grid-cols-3">
-			{#each PRESETS as p (p.name)}
-				{@const selected =
-					settings.amplitudeDeg === p.amplitudeDeg &&
-					settings.cycles === p.cycles &&
-					settings.speed === p.speed &&
-					settings.acceleration === p.acceleration}
-				<button
-					type="button"
-					onclick={() => applyPreset(p)}
-					class="flex flex-col gap-0.5 border p-2 text-left transition-colors {selected
-						? 'border-primary bg-primary/10'
-						: 'border-neutral-700/40 hover:border-neutral-500'}"
-				>
-					<span class="text-sm font-semibold">{p.name}</span>
-					<span class="text-sm text-neutral-400">{p.blurb}</span>
-					<span class="text-xs text-neutral-500"
-						>±{p.amplitudeDeg}° · {p.cycles}c · {p.speed} · {(p.acceleration / 1000).toFixed(0)}k</span
-					>
-				</button>
-			{/each}
-		</div>
-	</SectionCard>
-
-	<SectionCard title="Parameters">
-		<div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
-			<label class="flex flex-col gap-1">
-				<span class="text-sm font-medium">Amplitude (motor °/stroke)</span>
-				<Input type="number" step="0.1" bind:value={settings.amplitudeDeg} />
-				<span class="text-sm text-neutral-400">
-					≈ {outputAmplitudeDeg.toFixed(2)}° at the rotor (gear {gearRatio.toFixed(2)}:1)
-				</span>
-			</label>
-
-			<label class="flex flex-col gap-1">
-				<span class="text-sm font-medium">Cycles (back-and-forths)</span>
-				<Input type="number" step="1" bind:value={settings.cycles} />
-			</label>
-
-			<label class="flex flex-col gap-1">
-				<span class="text-sm font-medium">Speed (µsteps/s)</span>
-				<Input type="number" step="100" bind:value={settings.speed} />
-			</label>
-
-			<label class="flex flex-col gap-1">
-				<span class="text-sm font-medium">Acceleration (µsteps/s²)</span>
-				<Input type="number" step="5000" bind:value={settings.acceleration} />
-				<span class="text-sm text-neutral-400">Higher accel = sharper jerk per stroke.</span>
-			</label>
-		</div>
-	</SectionCard>
-
-	<div class="flex flex-wrap items-center gap-3">
-		<Button variant="primary" size="md" loading={busy} onclick={runJitter}>Jitter</Button>
-		<Button variant="danger" size="md" onclick={stopStepper}>Stop</Button>
-		<Button variant="ghost" size="sm" onclick={resetDefaults}>Reset defaults</Button>
+<Panel title="Motor">
+	<div class="max-w-64">
+		<Select
+			label="Motor"
+			bind:value={settings.stepper}
+			options={STEPPERS.map((key) => ({ value: key, label: stepperLabels[key] }))}
+		/>
 	</div>
+</Panel>
 
-	{#if statusMsg}
-		<Alert variant="info">{statusMsg}</Alert>
-	{/if}
-	{#if errorMsg}
-		<Alert variant="danger">{errorMsg}</Alert>
-	{/if}
-</div>
+<Panel
+	title="Presets"
+	description="A preset fills in the settings below; then press Jitter. Amplitudes are at the motor: the rotor moves about {gearRatio.toFixed(1)} times less."
+	flush
+>
+	<div
+		class="grid grid-cols-1 gap-px border-t border-line bg-line sm:grid-cols-3 sm:[&>:last-child:nth-child(3n+1)]:col-span-3 sm:[&>:last-child:nth-child(3n+2)]:col-span-2"
+	>
+		{#each PRESETS as p (p.name)}
+			{@const selected =
+				settings.amplitudeDeg === p.amplitudeDeg &&
+				settings.cycles === p.cycles &&
+				settings.speed === p.speed &&
+				settings.acceleration === p.acceleration}
+			<!-- The cell is opaque, so the chosen tint sits on the surface and not on the lines between cells. -->
+			<button type="button" aria-pressed={selected} onclick={() => applyPreset(p)} class="bg-surface text-left">
+				<span
+					class="flex h-full flex-col gap-0.5 px-(--pad-panel) py-(--pad-row) transition-colors {selected
+						? 'bg-primary-soft'
+						: 'hover:bg-well'}"
+				>
+					<span class="text-sm font-medium {selected ? 'text-primary-ink' : 'text-ink'}">{p.name}</span>
+					<span class="text-sm text-ink-muted">{p.blurb}</span>
+					<span class="num text-sm text-ink-muted">
+						±{p.amplitudeDeg}°, {p.cycles} cycles, {p.speed} µsteps/s, {(p.acceleration / 1000).toFixed(0)}k
+					</span>
+				</span>
+			</button>
+		{/each}
+	</div>
+</Panel>
+
+<Panel title="Settings">
+	<div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+		<Field
+			label="Amplitude"
+			for="jitter-amplitude"
+			help="About {outputAmplitudeDeg.toFixed(2)}° at the rotor (gear ratio {gearRatio.toFixed(2)}:1)."
+		>
+			<Input id="jitter-amplitude" type="number" step={0.1} bind:value={settings.amplitudeDeg} unit="° a stroke" />
+		</Field>
+		<Field label="Cycles" for="jitter-cycles" help="Back-and-forths.">
+			<Input id="jitter-cycles" type="number" step={1} bind:value={settings.cycles} />
+		</Field>
+		<Field label="Speed" for="jitter-speed">
+			<Input id="jitter-speed" type="number" step={100} bind:value={settings.speed} unit="µsteps/s" />
+		</Field>
+		<Field label="Acceleration" for="jitter-accel" help="Higher is a sharper jerk each stroke.">
+			<Input id="jitter-accel" type="number" step={5000} bind:value={settings.acceleration} unit="µsteps/s²" />
+		</Field>
+	</div>
+	{#snippet footer()}
+		<Button variant="ghost" class="mr-auto" onclick={resetDefaults}>Back to the defaults</Button>
+		<Button variant="danger" onclick={stopStepper}>Stop</Button>
+		<Button variant="primary" loading={busy} onclick={runJitter}>Jitter</Button>
+	{/snippet}
+</Panel>
+
+{#if statusMsg}
+	<Alert tone="info">{statusMsg}</Alert>
+{/if}
+{#if errorMsg}
+	<Alert tone="danger">{errorMsg}</Alert>
+{/if}

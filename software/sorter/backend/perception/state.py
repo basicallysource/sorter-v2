@@ -114,6 +114,10 @@ class ChannelState:
     # still being classified in the drop zone. No cross-frame identity — reason by
     # position + zone, not tracking.
     pieces: tuple[PieceObservation, ...] = ()
+    # A detection sits wholly in this feeder channel's exit margin this frame
+    # (ChannelDef.exit_margin_mask): a piece that left the channel, or one
+    # hanging off its lip. Not one of ``pieces``.
+    in_margin: bool = False
 
 
 EMPTY_STATE = ChannelState(ts=EMPTY_STATE_TS, in_drop=False, in_exit=False, n_pieces=0)

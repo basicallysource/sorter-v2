@@ -5,8 +5,8 @@ import threading
 import time
 from typing import Any
 
-from blob_manager import getSampleCollectionConfig, setSampleCollectionConfig
 from global_config import GlobalConfig
+from local_state import get_sample_collection_state, set_sample_collection_state
 from sample_ingest import ingestSampleFrame
 
 DEFAULT_INTERVAL_S = 10.0
@@ -69,7 +69,7 @@ class SampleCollector:
         return fallback
 
     def _loadPersisted(self) -> None:
-        saved = getSampleCollectionConfig()
+        saved = get_sample_collection_state()
         if not isinstance(saved, dict):
             return
         self._enabled = bool(saved.get("enabled", False))
@@ -89,7 +89,7 @@ class SampleCollector:
             self._decay_anchor_ts = float(anchor)
 
     def _persist(self) -> None:
-        setSampleCollectionConfig(
+        set_sample_collection_state(
             {
                 "enabled": self._enabled,
                 "interval_s": self._interval_s,

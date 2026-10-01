@@ -1,6 +1,6 @@
 # Hive Sorter Client
 
-Python client for the Hive machine API. Used by sorting machines to send heartbeats and upload classification samples.
+Python client for the Hive machine API. Used by sorting machines to send heartbeats, upload classification samples, fetch models and run sorting profiles.
 
 ## Installation
 
@@ -51,6 +51,26 @@ client.download_default_model(
     expected_sha256=item["variant"]["sha256"],
 )
 ```
+
+### Sorting profiles
+
+A machine runs the profiles its owner has, those saved to their library, and
+Hive's defaults. The client names what it can run (`PROFILE_FEATURES`: the
+compiled program, sorting leftovers by color, kits that pass pieces on once
+full), so Hive leaves out any profile that needs more:
+
+```python
+library = client.profile_library()        # {"profiles": [...], "assignment": ...}
+profile = library["profiles"][0]
+version_id = profile["latest_version"]["id"]
+client.assign_profile(profile["id"], version_id)
+artifact = client.profile_artifact(version_id)   # the compiled program
+client.report_profile_activation(version_id, artifact["artifact_hash"])
+```
+
+A profile's `program` is an ordered list of rules, first match wins; how to
+run one is `ProfileRouter` in `software/sorter/backend/sorting_profile.py`,
+and how Hive makes one is `software/hive/agent-docs/sorting-profiles.md`.
 
 ## curl Examples
 

@@ -124,7 +124,9 @@
 			"name": "Secure the Mean Well 24V PSU box cap",
 			"priority": "P0",
 			"condition": "broken",
-			"description": "Improve the Mean Well 24V enclosure because the current cap can pop off too easily. Redesign the cap retention so it locks securely in place.",
+			"status": "complete",
+			"completed_at": "2026-09-26",
+			"description": "Replaced the three-plate box and its cap with the five-piece PSU housing, whose two lids screw down.",
 			"targets": {
 				"parts": [
 					"meanwell-psu-back-mount",
@@ -8135,7 +8137,7 @@
 			"uid": "kog5",
 			"version": "1",
 			"name": "PSU output pigtail (PJ)",
-			"description": "One of the PSU box's three 24 V outputs: a panel-mount barrel jack through the connections plate, fed by a 4 in 18 AWG pigtail with a fork terminal crimped onto each wire. The pair lands on one +V/-V screw pair of the LRS-350-24, 7 with 4, 8 with 5, 9 with 6. Buy the jacks with their leads already attached; building one from a bare jack and loose wire is more work for the same part. 3 per machine.",
+			"description": "One of the PSU box's three 24 V outputs: a panel-mount barrel jack through the connections plate, fed by a 4 in 18 AWG (0.82 mm\u00b2) pigtail with a fork terminal crimped onto each wire. The pair lands on one +V/-V screw pair of the LRS-350-24, 7 with 4, 8 with 5, 9 with 6. Buy the jacks with their leads already attached; building one from a bare jack and loose wire is more work for the same part. 3 per machine.",
 			"joining": [
 				{
 					"method": "crimp",
@@ -8155,20 +8157,28 @@
 		},
 		{
 			"id": "harness-board-24v",
-			"uid": "odr5",
-			"version": "1",
+			"uid": "9yz2",
+			"version": "2",
 			"name": "24 V board feed (W1)",
-			"description": "The control board's 24 V lead, W1 on the power drawing: a barrel plug into one of the PSU box jacks at one end, a 2-pin VHR-2 onto J1 at the board end. 36 in of 18 AWG, deliberately long. Pin 1 is +24 V and pin 2 is ground. 1 per machine.",
+			"description": "The control board's 24 V lead, W1 on the power drawing: a barrel plug into one of the PSU box jacks at one end, a 2-pin VHR-2 onto J1 at the board end. 36 in of 18 AWG (0.82 mm\u00b2), deliberately long. Pin 1 is +24 V and pin 2 is ground. 1 per machine.",
 			"joining": [
 				{
 					"method": "crimp",
-					"note": "An SVH-21T contact onto each wire, then push it into the back of the VHR-2 until it clicks and will not pull out."
+					"note": "The moulded barrel plug's two leads are joined to the 18 AWG (0.82 mm\u00b2) pair with a red insulated butt connector on each, crimped in the jaw marked 22 to 16 AWG (0.33 to 1.3 mm\u00b2) of an insulated-terminal crimper. Then an SVH-21T contact onto each wire at the other end, pushed into the back of the VHR-2 until it clicks and will not pull out."
+				},
+				{
+					"method": "solder",
+					"note": "Or solder each of the plug's leads to the wire of the same colour and cover each joint with adhesive-lined heat shrink."
 				}
 			],
 			"lines": [
 				{
 					"part": "dc-plug-5521-male",
 					"qty": 1
+				},
+				{
+					"part": "butt-connector-red-22-16",
+					"qty": 2
 				},
 				{
 					"part": "jst-vhr-2",
@@ -8178,6 +8188,38 @@
 					"part": "jst-svh-21t",
 					"qty": 2
 				}
+			],
+			"versions": [
+				{
+					"version": "1",
+					"uid": "odr5",
+					"message": "As recorded before the first stamped change.",
+					"lines": [
+						{
+							"part": "dc-plug-5521-male",
+							"qty": 1,
+							"uid": "ky9z"
+						},
+						{
+							"part": "jst-vhr-2",
+							"qty": 1,
+							"uid": "gukn"
+						},
+						{
+							"part": "jst-svh-21t",
+							"qty": 2,
+							"uid": "3kex"
+						}
+					]
+				},
+				{
+					"version": "2",
+					"uid": "9yz2",
+					"date": "2026-10-01",
+					"message": "The moulded barrel plug's two leads are joined to the wire with two insulated butt connectors, crimped, as in the LED drop. Soldering each joint with heat shrink stays as the alternative. A screw-terminal plug needs neither. The lead itself is the same lead.",
+					"breaking": false,
+					"commit": null
+				}
 			]
 		},
 		{
@@ -8185,7 +8227,7 @@
 			"uid": "8b59",
 			"version": "1",
 			"name": "24 V USB hub lead (W2)",
-			"description": "The powered USB hub's feed, W2 on the power drawing: a barrel plug at each end, one into a PSU box jack and one into the hub's own jack. 12 in of 22 AWG. It sits at the Electronics level beside the box the lead starts at. 1 per machine.",
+			"description": "The powered USB hub's feed, W2 on the power drawing: a barrel plug at each end, one into a PSU box jack and one into the hub's own jack. 12 in of 22 AWG (0.33 mm\u00b2). It sits at the Electronics level beside the box the lead starts at. 1 per machine.",
 			"joining": [
 				{
 					"method": "solder",
@@ -8201,33 +8243,67 @@
 		},
 		{
 			"id": "harness-buck-24v",
-			"uid": "6odt",
-			"version": "1",
+			"uid": "yd1v",
+			"version": "2",
 			"name": "24 V buck converter lead (W3)",
-			"description": "The feed to the 24 V to 5 V buck converter that powers the Orange Pi, W3 on the power drawing: a barrel plug into a PSU box jack at one end, bare tinned leads at the other. 6 in of 22 AWG. The converter itself is not placed in the tree yet, so this sits on the mount its load bolts beside. 1 per machine.",
+			"description": "The feed to the 24 V to 5 V buck converter that powers the Orange Pi, W3 on the power drawing: a barrel plug into a PSU box jack at one end, the converter's red and black input wires at the other. The converter's own input wires are 100 mm or more and are used as they are; if they are shorter they are extended to about 150 mm (6 in) with 22 AWG (0.33 mm\u00b2) wire. The converter itself is not placed in the tree yet, so this sits on the mount its load bolts beside. 1 per machine.",
 			"joining": [
 				{
+					"method": "crimp",
+					"note": "The moulded barrel plug's two leads are joined to the converter's red and black input wires with a red insulated butt connector on each, crimped in the jaw marked 22 to 16 AWG (0.33 to 1.3 mm\u00b2) of an insulated-terminal crimper, the two staggered. A screw-terminal plug needs no butt connectors. If the converter's wires are shorter than 100 mm, extend each with a butt connector first."
+				},
+				{
 					"method": "solder",
-					"note": "Splice the bare end to the converter's input leads."
+					"note": "Or solder each joint and cover it with adhesive-lined heat shrink."
 				}
 			],
 			"lines": [
 				{
 					"part": "dc-plug-5521-male",
 					"qty": 1
+				},
+				{
+					"part": "butt-connector-red-22-16",
+					"qty": 2
+				}
+			],
+			"versions": [
+				{
+					"version": "1",
+					"uid": "6odt",
+					"message": "As recorded before the first stamped change.",
+					"lines": [
+						{
+							"part": "dc-plug-5521-male",
+							"qty": 1,
+							"uid": "ky9z"
+						}
+					]
+				},
+				{
+					"version": "2",
+					"uid": "yd1v",
+					"date": "2026-10-01",
+					"message": "The moulded barrel plug's two leads are joined to the converter's input wires with two insulated butt connectors, crimped. Soldering each joint with heat shrink stays as the alternative. A screw-terminal plug needs neither. The lead itself is the same lead.",
+					"breaking": false,
+					"commit": null
 				}
 			]
 		},
 		{
 			"id": "harness-led-drop",
 			"uid": "nmlx",
-			"version": "1",
+			"version": "2",
 			"name": "LED drop (L, Lp)",
-			"description": "One camera lamp's power: a metre-long Dupont lead from an LED header on the board to an inline barrel jack, then a 6 in pigtail from the matching plug to the clamp-on connector on the lamp's strip. The barrel pair is the unplug point, so a lamp comes off without unpicking the board end. Run the drop as one continuous pair instead if you would rather have no barrel in it. 1 per camera lamp.",
+			"description": "One camera lamp's power: a metre-long Dupont cable from an LED header on the board to the lamp's strip. Optional but recommended: an inline barrel socket on the cable and a 6 in pigtail from the matching plug to the lamp, which is the unplug point, so a lamp comes off next to the lamp without unpicking the board end. The socket's wires are joined to the Dupont cable with two butt connectors or by soldering. Without the pair the cable goes straight to the strip. 1 per camera lamp.",
 			"joining": [
 				{
 					"method": "crimp",
-					"note": "The strip connector clamps onto the cut end of the COB strip and onto the pigtail wire, so neither end is soldered."
+					"note": "The strip connector clamps onto the cut end of the COB strip and onto the plug's wires, so that end is not soldered. The socket's two wires are joined to the Dupont cable's wires with a red insulated butt connector on each, crimped in the jaw marked 22 to 16 AWG (0.33 to 1.3 mm\u00b2) of an insulated-terminal crimper."
+				},
+				{
+					"method": "solder",
+					"note": "Or solder each of the socket's wires to the Dupont cable's wire of the same colour, tip to red, and cover each joint with adhesive-lined heat shrink."
 				}
 			],
 			"lines": [
@@ -8240,12 +8316,26 @@
 					"qty": 1
 				},
 				{
-					"part": "dc-plug-5521-male",
+					"part": "butt-connector-red-22-16",
+					"qty": 2
+				},
+				{
+					"part": "dc-plug-5521-male-led",
 					"qty": 1
 				},
 				{
 					"part": "led-strip-connector-8mm",
 					"qty": 1
+				}
+			],
+			"versions": [
+				{
+					"version": "2",
+					"uid": "nmlx",
+					"date": "2026-09-30",
+					"message": "The barrel plug on the lamp pigtail is now its own catalog part, so it and the inline barrel socket can both be marked optional (recommended, for lamps that come off at the lamp). The socket splice gains a solderless route, two insulated butt connectors per drop, as an alternative to soldering. The insulated-terminal crimper is its own part too. No physical change to what an old unit is.",
+					"breaking": false,
+					"commit": null
 				}
 			]
 		},
@@ -8254,7 +8344,7 @@
 			"uid": "ims7",
 			"version": "1",
 			"name": "Channel stepper cable (S)",
-			"description": "One C-channel stepper's cable: a 4-pin PHR-4 into a stepper socket on the board, a 6-pin PHR-6 into the NEMA 17's own socket, four 24 AWG conductors between them, sleeved as one bundle. The board's 1, 2, 3, 4 go to motor positions 1, 4, 3, 6, so this is a crossover and the pin order matters; positions 2 and 5 on the motor housing stay empty. Check the coil pairs with a multimeter before connecting. 1 per C-channel drive.",
+			"description": "One C-channel stepper's cable: a 4-pin PHR-4 into a stepper socket on the board, a 6-pin PHR-6 into the NEMA 17's own socket, four 24 AWG (0.20 mm\u00b2) conductors between them, sleeved as one bundle. The board's 1, 2, 3, 4 go to motor positions 1, 4, 3, 6, so this is a crossover and the pin order matters; positions 2 and 5 on the motor housing stay empty. Check the coil pairs with a multimeter before connecting. 1 per C-channel drive.",
 			"joining": [
 				{
 					"method": "crimp",
@@ -8278,14 +8368,18 @@
 		},
 		{
 			"id": "harness-stepper-chute",
-			"uid": "ujmp",
-			"version": "1",
+			"uid": "1taq",
+			"version": "2",
 			"name": "Chute stepper cable (CH)",
-			"description": "The chute stepper's cable: a 4-pin PHR-4 into the board at one end, bare labelled leads at the other spliced to the motor's flying leads. Straight through, not a crossover, 40 in of 24 AWG. Find the coil pairs with a multimeter first. 1 per machine.",
+			"description": "The chute stepper's cable: a 4-pin PHR-4 into the board at one end, bare labelled leads at the other spliced to the motor's flying leads. Straight through, not a crossover, 40 in of 24 AWG (0.20 mm\u00b2). Find the coil pairs with a multimeter first. 1 per machine.",
 			"joining": [
 				{
 					"method": "crimp",
-					"note": "One SPH-002T contact onto each of the four board-end conductors."
+					"note": "One SPH-002T contact onto each of the four board-end conductors: strip about 2 mm, close the inner wings on the bare strands and the outer wings on the insulation, in the crimper die marked for 24 AWG (0.20 mm\u00b2). Then push each into the PHR-4 until it latches. Splice each of the 24 AWG (0.20 mm\u00b2) tails onto a motor lead with a 24-20 AWG (0.2 to 0.6 mm\u00b2) butt splice, in the insulated-terminal die marked for that range, stagger the four joints along the cable and check each wire end through the clear window."
+				},
+				{
+					"method": "solder",
+					"note": "Instead of the butt splices, solder each 24 AWG (0.20 mm\u00b2) tail to a motor's 20 AWG (0.52 mm\u00b2) lead, cover each joint with adhesive-lined heat shrink, then sleeve the four together. The board end cannot be soldered this way: a PH contact needs a crimp."
 				}
 			],
 			"lines": [
@@ -8296,6 +8390,37 @@
 				{
 					"part": "jst-sph-002t",
 					"qty": 4
+				},
+				{
+					"part": "butt-connector-24-20",
+					"qty": 4
+				}
+			],
+			"versions": [
+				{
+					"version": "1",
+					"uid": "ujmp",
+					"message": "As recorded before the first stamped change.",
+					"lines": [
+						{
+							"part": "jst-phr-4",
+							"qty": 1,
+							"uid": "frxy"
+						},
+						{
+							"part": "jst-sph-002t",
+							"qty": 4,
+							"uid": "ysu7"
+						}
+					]
+				},
+				{
+					"version": "2",
+					"uid": "1taq",
+					"date": "2026-10-01",
+					"message": "The four joints between the cable's 24 AWG (0.20 mm\u00b2) tails and the motor's 20 AWG (0.52 mm\u00b2) leads are now crimped, with a 24 to 20 AWG (0.2 to 0.6 mm\u00b2) butt splice each, instead of soldered. Soldering them is still allowed. The cable itself is unchanged, so a cable built the old way works in its place.",
+					"breaking": false,
+					"commit": null
 				}
 			]
 		},
@@ -8304,7 +8429,7 @@
 			"uid": "76vq",
 			"version": "1",
 			"name": "Limit switch cable (LIM)",
-			"description": "The chute limit switch's cable: a 3-pin Dupont housing onto J5 with the third position left empty so the plug cannot go on backwards, and an insulated #187 quick-connect on each wire pushing onto the switch's blade tabs. 24 in of 22 AWG, and nothing on it is soldered. 1 per machine.",
+			"description": "The chute limit switch's cable: a 3-pin Dupont housing onto J5 with the third position left empty so the plug cannot go on backwards, and an insulated #187 quick-connect on each wire pushing onto the switch's blade tabs. 24 in of 22 AWG (0.33 mm\u00b2), and nothing on it is soldered. 1 per machine.",
 			"joining": [
 				{
 					"method": "crimp",
@@ -26878,7 +27003,7 @@
 				},
 				{
 					"label": "Leads",
-					"value": "4 bare flying leads, 20 AWG, 300 mm on the drawing; some batches ship 500 mm"
+					"value": "4 bare flying leads, 20 AWG (0.52 mm\u00b2), 300 mm on the drawing; some batches ship 500 mm"
 				},
 				{
 					"label": "Weight",
@@ -27376,7 +27501,7 @@
 			"caption": null,
 			"docs_page": null,
 			"conflicts": null,
-			"image": "https://assets.basically.website/sorter-parts/microsd-32gb-full-18128a75110f.jpg"
+			"image": "https://assets.basically.website/sorter-parts/microsd-32gb-single-full-eda2d8917f21.jpg"
 		},
 		{
 			"id": "wifi-module-opi5",
@@ -28088,7 +28213,7 @@
 				},
 				{
 					"label": "Wire",
-					"value": "22 AWG, not supplied"
+					"value": "22 AWG (0.33 mm\u00b2), not supplied"
 				},
 				{
 					"label": "Conductors",
@@ -28121,7 +28246,7 @@
 					}
 				]
 			},
-			"alternative": "Solder the wire to the strip pads instead, which needs no connector at all",
+			"alternative": "Solder the wire to the strip pads instead, with a 25 mm piece of 3 mm adhesive-lined heat shrink over each joint, which needs no connector at all",
 			"caption": "One per lamp. Strip in one end, your wire in the other.",
 			"docs_page": "/hardware/helpers/led-strip/",
 			"conflicts": null,
@@ -28134,10 +28259,10 @@
 			"cots": {
 				"type": "cable"
 			},
-			"name": "Pre-crimped 2-pin Dupont lead, 1 m",
+			"name": "Pre-crimped 2-pin Dupont cable, 1 m",
 			"category": "Wire harness",
-			"description": "A metre of 22 AWG red and black with a 2-pin 2.54 mm Dupont housing crimped on. One of these is a whole LED drop: the Dupont end pushes onto an LED header (J8 to J11), the far end goes into the strip connector. The pack is male-to-female, so cut the male plug off and discard it.",
-			"note": "Sold male-to-female: cut the male plug off and discard it. Any 22 AWG pair plus a 2-pin Dupont housing does the same job if you own a crimp tool.",
+			"description": "A metre of 22 AWG (0.33 mm\u00b2) red and black with a 2-pin 2.54 mm Dupont housing crimped on. The board cable of an LED drop: the Dupont end pushes onto an LED header (J8 to J11), and the far end is cut and joined to the inline barrel socket. The pack is male-to-female, so cut the male plug off and discard it.",
+			"note": "Sold male-to-female: cut the male plug off and discard it. Any 22 AWG (0.33 mm\u00b2) pair plus a 2-pin Dupont housing does the same job if you own a crimp tool.",
 			"created_at": "2026-09-10",
 			"updated_at": "2026-09-12",
 			"attributes": [
@@ -28147,7 +28272,7 @@
 				},
 				{
 					"label": "Wire",
-					"value": "22 AWG stranded, red and black"
+					"value": "22 AWG (0.33 mm\u00b2) stranded, red and black"
 				},
 				{
 					"label": "Length",
@@ -28177,8 +28302,8 @@
 					}
 				]
 			},
-			"alternative": "Your own 22 AWG pair plus a 2-pin 2.54 mm Dupont housing and two crimps",
-			"caption": "Cut the male end off and it is one LED drop.",
+			"alternative": "Your own 22 AWG (0.33 mm\u00b2) pair plus a 2-pin 2.54 mm Dupont housing and two crimps",
+			"caption": "Cut the male end off and join the barrel socket to it.",
 			"docs_page": "/hardware/helpers/led-strip/",
 			"conflicts": null,
 			"image": "https://assets.basically.website/sorter-parts/dupont-lead-2p-1m-full-1d6495f8bb1b.jpg"
@@ -28293,10 +28418,10 @@
 			},
 			"name": "DC barrel plug, 5.5 x 2.1 mm male",
 			"category": "Wire harness",
-			"description": "The plug on the end of every 24 V lead that goes into a PSU box jack or an LED unplug point. Tip is +24 V and the sleeve is ground. Buy it as a moulded plug already on a short lead and splice to that; a screw-terminal plug you assemble yourself works but is bulkier and comes loose.",
+			"description": "The plug on the end of a 24 V lead that goes into a PSU box jack. Tip is +24 V and the sleeve is ground. Buy it as a moulded plug already on a short lead and splice to that; a screw-terminal plug you assemble yourself works but is bulkier and comes loose.",
 			"note": "5.5 x 2.5 mm looks identical and does not mate: the 0.4 mm is on the centre pin. Check the pin size on the listing, not the outside diameter.",
 			"created_at": "2026-09-14",
-			"updated_at": "2026-09-14",
+			"updated_at": "2026-09-30",
 			"attributes": [
 				{
 					"label": "Size",
@@ -28312,11 +28437,11 @@
 				},
 				{
 					"label": "Used on",
-					"value": "W1, both ends of W2, W3, and the three LED pigtails L1p to L3p"
+					"value": "W1, both ends of W2 and W3"
 				}
 			],
 			"sheet_qty": {
-				"per_machine": 7
+				"per_machine": 4
 			},
 			"sheet_qty_text": null,
 			"stock": null,
@@ -28332,8 +28457,62 @@
 				]
 			},
 			"alternative": null,
-			"caption": "Seven per machine. W2 takes one at each end.",
+			"caption": "Four per machine. W2 takes one at each end.",
 			"docs_page": "/hardware/electronics/wire-harness/",
+			"conflicts": null,
+			"image": "https://assets.basically.website/sorter-parts/dc-plug-5521-male-full-9cabce9431e7.jpg"
+		},
+		{
+			"id": "dc-plug-5521-male-led",
+			"uid": "yfy2",
+			"kind": "cots",
+			"cots": {
+				"type": "connector",
+				"optional": true
+			},
+			"name": "DC barrel plug, 5.5 x 2.1 mm male, for the LED pigtail",
+			"category": "Wire harness",
+			"description": "Optional but recommended. The plug on a camera lamp's pigtail, which pushes into the inline barrel socket on the board cable so the lamp can come off next to the lamp. Tip is +24 V and the sleeve is ground. Leave the pair out and the lamp's strip is connected straight to the Dupont cable instead. Buy it as a moulded plug already on a short pair of wires; those wires go onto the strip. One per lamp.",
+			"note": "5.5 x 2.5 mm looks identical and does not mate: the 0.4 mm is on the centre pin. Check the pin size on the listing, not the outside diameter.",
+			"created_at": "2026-09-30",
+			"updated_at": "2026-09-30",
+			"attributes": [
+				{
+					"label": "Size",
+					"value": "5.5 mm outside, 2.1 mm centre pin"
+				},
+				{
+					"label": "Polarity",
+					"value": "Centre positive"
+				},
+				{
+					"label": "Rating",
+					"value": "5 A or better on the three PSU leads"
+				},
+				{
+					"label": "Used on",
+					"value": "The three LED pigtails, L1p to L3p"
+				}
+			],
+			"sheet_qty": {
+				"per_machine": 3
+			},
+			"sheet_qty_text": null,
+			"stock": null,
+			"sourcing": {
+				"vendors": [
+					{
+						"region": "US",
+						"vendor": "JacobsParts",
+						"url": "https://www.jacobsparts.com/items/DCCONN-D",
+						"as_of": "2026-09-14",
+						"note": "DCCONN-D, 6 in lead. Any 5.5 x 2.1 mm centre-positive pigtail does."
+					}
+				]
+			},
+			"alternative": null,
+			"caption": "Recommended. One per lamp, on the pigtail.",
+			"docs_page": "/hardware/helpers/led-strip/",
 			"conflicts": null,
 			"image": "https://assets.basically.website/sorter-parts/dc-plug-5521-male-full-9cabce9431e7.jpg"
 		},
@@ -28346,7 +28525,7 @@
 			},
 			"name": "DC barrel jack, 5.5 x 2.1 mm female, panel-mount",
 			"category": "Wire harness",
-			"description": "The three outputs of the PSU box, mounted through its connections plate. Each one is fed by a short 18 AWG pigtail with a spade terminal on each wire, landing on one +V/-V screw pair of the LRS-350-24.",
+			"description": "The three outputs of the PSU box, mounted through its connections plate. Each one is fed by a short 18 AWG (0.82 mm\u00b2) pigtail with a spade terminal on each wire, landing on one +V/-V screw pair of the LRS-350-24.",
 			"note": "Buy the jacks with the pigtail leads already attached. Building one from a bare jack and loose wire is more work for the same part, and the leads are the fiddly bit.",
 			"created_at": "2026-09-14",
 			"updated_at": "2026-09-20",
@@ -28365,7 +28544,7 @@
 				},
 				{
 					"label": "Lead",
-					"value": "About 4 in of 18 AWG, usually supplied on the jack"
+					"value": "About 4 in of 18 AWG (0.82 mm\u00b2), usually supplied on the jack"
 				},
 				{
 					"label": "Mounting",
@@ -28379,7 +28558,7 @@
 			"stock": null,
 			"sourcing": null,
 			"alternative": null,
-			"caption": "Three per machine, with the 18 AWG leads already attached. The fork terminals go on afterwards.",
+			"caption": "Three per machine, with the 18 AWG (0.82 mm\u00b2) leads already attached. The fork terminals go on afterwards.",
 			"docs_page": "/hardware/helpers/psu-pigtail/",
 			"conflicts": null,
 			"image": "https://assets.basically.website/sorter-parts/dc-jack-5521-panel-full-63a00536559f.jpg"
@@ -28392,12 +28571,12 @@
 				"type": "connector",
 				"optional": true
 			},
-			"name": "DC barrel jack, 5.5 x 2.1 mm female, inline",
+			"name": "DC barrel socket, 5.5 x 2.1 mm female, inline",
 			"category": "Wire harness",
-			"description": "The unplug point partway along an LED drop, so a camera lamp can come off without unpicking the board end. One per lamp when the drop is built in two segments.",
-			"note": "Optional on a v1.3 board. The drop can be one continuous 22 AWG pair from the LED header to the strip connector, with no barrel anywhere, and Spencer's built lamp is wired that way. Fit these if you want the lamp to unplug.",
+			"description": "Optional but recommended. The unplug point of an LED drop, so a camera lamp can come off without unpicking the board end. Its two wires are joined to the cut end of the Dupont cable, and the lamp pigtail's barrel plug pushes into it. Leave the pair out and the strip is connected straight to the Dupont cable instead. One per lamp.",
+			"note": "Buy it as a moulded socket already on its own short wires and join those to the Dupont cable. The socket goes on the board cable and the plug on the lamp pigtail, because the board end is live at 24 V.",
 			"created_at": "2026-09-14",
-			"updated_at": "2026-09-14",
+			"updated_at": "2026-09-30",
 			"attributes": [
 				{
 					"label": "Size",
@@ -28419,10 +28598,65 @@
 			"stock": null,
 			"sourcing": null,
 			"alternative": null,
-			"caption": "The unplug point in an LED drop. Skip it and run one continuous pair.",
+			"caption": "Recommended. The unplug point in an LED drop, on the board cable.",
 			"docs_page": "/hardware/helpers/led-strip/",
 			"conflicts": null,
 			"image": "https://assets.basically.website/sorter-parts/dc-jack-5521-inline-full-7804080cd0ea.jpg"
+		},
+		{
+			"id": "butt-connector-red-22-16",
+			"uid": "4uj5",
+			"kind": "cots",
+			"cots": {
+				"type": "connector"
+			},
+			"name": "Insulated butt connector, red, 22-16 AWG",
+			"category": "Wire harness",
+			"description": "Joins two wires end to end without soldering: one wire goes in each end and the barrel is crimped onto it. Two per LED drop, one for each of the barrel socket's wires, so six for the three lamps, plus two on the control board's 24 V lead and two on the Orange Pi's 24 V lead, one for each of the moulded barrel plug's leads (or one for each extension of a short converter wire), so ten per machine.",
+			"note": "Crimp it with insulated-terminal crimping pliers, in the jaw marked for 22 to 16 AWG (0.33 to 1.3 mm\u00b2), not picked by colour. A crimp tool for open-barrel Dupont and PH contacts has the wrong die and will not close this connector properly.",
+			"created_at": "2026-10-01",
+			"updated_at": "2026-10-01",
+			"attributes": [
+				{
+					"label": "Wire",
+					"value": "22 to 16 AWG, stranded or solid copper"
+				},
+				{
+					"label": "Strip length",
+					"value": "6.8 mm"
+				},
+				{
+					"label": "Insulation",
+					"value": "Vinyl, red"
+				},
+				{
+					"label": "Used on",
+					"value": "The two joints between the barrel socket's wires and the Dupont cable, LJ1 to LJ3, the two between the moulded barrel plug's leads and the wire of the board's 24 V lead, W1, and the two between the moulded barrel plug's leads and the buck converter's input wires, W3"
+				}
+			],
+			"sheet_qty": {
+				"per_machine": 10
+			},
+			"sheet_qty_text": null,
+			"stock": null,
+			"sourcing": {
+				"vendors": [
+					{
+						"region": "US",
+						"vendor": "Cable Ties Unlimited",
+						"url": "https://www.cabletiesunlimited.com/products/22-18-awg-red-vinyl-insulated-butted-seam-butt-connectors-100-bag",
+						"price": 5.15,
+						"pack_qty": 100,
+						"as_of": "2026-10-01",
+						"note": "SKU GS20080, 100 per bag. The listing title says 22-18 AWG (0.8 to 0.33 mm\u00b2), the bag says 22-16 (1.3 to 0.33 mm\u00b2)."
+					}
+				]
+			},
+			"alternative": "Solder the two wires together and cover each joint with a 25 mm piece of 3 mm adhesive-lined heat shrink instead",
+			"caption": "Two per lamp, one for each wire of the barrel socket, and two on each of the control board's and the Orange Pi's 24 V leads.",
+			"docs_page": "/hardware/helpers/led-strip/",
+			"conflicts": null,
+			"image": "https://assets.basically.website/sorter-parts/butt-connector-red-22-16-full-34dedee6c550.jpg"
 		},
 		{
 			"id": "jst-vhr-2",
@@ -28456,7 +28690,7 @@
 				},
 				{
 					"label": "Wire",
-					"value": "16 to 22 AWG through the contact; W1 is 18 AWG"
+					"value": "16 to 22 AWG (0.33 to 1.3 mm\u00b2) through the contact; W1 is 18 AWG (0.82 mm\u00b2)"
 				}
 			],
 			"sheet_qty": {
@@ -28501,7 +28735,7 @@
 				},
 				{
 					"label": "Wire",
-					"value": "16 to 22 AWG"
+					"value": "16 to 22 AWG (0.33 to 1.3 mm\u00b2)"
 				},
 				{
 					"label": "Goes in",
@@ -28585,7 +28819,7 @@
 					}
 				]
 			},
-			"alternative": "The Preciva crimp tool and connector kit (connector-kit-crimp) includes this, along with the crimper, and jst-ph-cable-4p-63cm arrives with one fitted at each end",
+			"alternative": "jst-ph-cable-4p-63cm arrives with one fitted at each end",
 			"caption": "Board end of S1 to S4 and CH.",
 			"docs_page": "/hardware/parts/harness-order/",
 			"conflicts": null,
@@ -28658,7 +28892,7 @@
 			"name": "JST PH crimp contact (SPH-002T-P0.5S)",
 			"category": "Wire harness",
 			"description": "The contacts inside every PH housing on the machine. Crimp one onto each conductor, then push it into the housing until it latches.",
-			"note": "PH contacts take 24 to 28 AWG only, which is why the stepper cables are 24 AWG and not something heavier. Buy well over the count; these are small and easy to spoil.",
+			"note": "PH contacts take 24 to 28 AWG (0.08 to 0.20 mm\u00b2) only, which is why the stepper cables are 24 AWG (0.20 mm\u00b2) and not something heavier. Buy well over the count; these are small and easy to spoil.",
 			"created_at": "2026-09-14",
 			"updated_at": "2026-09-14",
 			"attributes": [
@@ -28668,7 +28902,7 @@
 				},
 				{
 					"label": "Wire",
-					"value": "24 to 28 AWG"
+					"value": "24 to 28 AWG (0.08 to 0.20 mm\u00b2)"
 				},
 				{
 					"label": "Goes in",
@@ -28695,7 +28929,7 @@
 					}
 				]
 			},
-			"alternative": "The Preciva crimp tool and connector kit (connector-kit-crimp) includes this, along with the crimper. Buying jst-ph-cable-4p-63cm drops the count to 4, the chute's board end only",
+			"alternative": "Buying jst-ph-cable-4p-63cm drops the count to 4, the chute's board end only",
 			"caption": "Thirty-six per machine. Buy spares.",
 			"docs_page": "/hardware/electronics/wire-harness/",
 			"conflicts": null,
@@ -28738,11 +28972,70 @@
 			"sheet_qty_text": null,
 			"stock": null,
 			"sourcing": null,
-			"alternative": "The Preciva crimp tool and connector kit (connector-kit-crimp) includes this, along with the crimper",
+			"alternative": null,
 			"caption": "Position 3 stays empty; that is what keys it.",
 			"docs_page": "/hardware/helpers/limit-switch-lead/",
 			"conflicts": null,
 			"image": "https://assets.basically.website/sorter-parts/dupont-housing-3p-full-50d0a6c664ee.jpg"
+		},
+		{
+			"id": "butt-connector-24-20",
+			"uid": "tdg1",
+			"kind": "cots",
+			"cots": {
+				"type": "connector"
+			},
+			"name": "Insulated butt splice, clear, 24 to 20 AWG (0.2 to 0.6 mm\u00b2) (TE PIDG 323975)",
+			"category": "Wire harness",
+			"description": "Joins two wires end to end without soldering: one wire goes in each end and the barrel is crimped onto it. The only common size that holds both the chute stepper cable's 24 AWG (0.20 mm\u00b2) wire and the motor's own 20 AWG (0.52 mm\u00b2) leads. Four on the chute stepper cable, one per motor lead.",
+			"note": "Crimp it with insulated-terminal crimping pliers, in the die marked for 24 to 20 AWG (0.2 to 0.6 mm\u00b2), not picked by colour. The insulation sits against the end of the barrel, not inside it, and each wire end goes in until it touches the stop in the middle: look through the clear window to check. A crimp tool for open-barrel Dupont and PH contacts has the wrong die and will not close this splice properly.",
+			"created_at": "2026-10-01",
+			"updated_at": "2026-10-01",
+			"attributes": [
+				{
+					"label": "Wire",
+					"value": "24 to 20 AWG (0.2 to 0.6 mm\u00b2), stranded copper"
+				},
+				{
+					"label": "Wire insulation",
+					"value": "1.02 to 2.54 mm across"
+				},
+				{
+					"label": "Insulation",
+					"value": "Clear nylon, with a window to see the wire end"
+				},
+				{
+					"label": "Length",
+					"value": "26.3 mm"
+				},
+				{
+					"label": "Used on",
+					"value": "The four joints between the chute stepper cable's 24 AWG (0.20 mm\u00b2) tails and the motor's 20 AWG (0.52 mm\u00b2) leads"
+				}
+			],
+			"sheet_qty": {
+				"per_machine": 4
+			},
+			"sheet_qty_text": null,
+			"stock": null,
+			"sourcing": {
+				"vendors": [
+					{
+						"region": "US",
+						"vendor": "Aircraft Spruce",
+						"url": "https://www.aircraftspruce.com/catalog/pnpages/323975.php",
+						"price": 0.79,
+						"pack_qty": 1,
+						"as_of": "2026-10-01",
+						"note": "TE part 323975, sold singly here. TE's own kit is 50 per pack. Mil-spec M7928/5-2 class 1."
+					}
+				]
+			},
+			"alternative": "Solder the two wires together and cover each joint with a piece of adhesive-lined heat shrink instead",
+			"caption": "Four on the chute stepper cable, one on each of the motor's leads.",
+			"docs_page": "/hardware/helpers/chute-stepper-lead/",
+			"conflicts": null,
+			"image": "https://assets.basically.website/sorter-parts/butt-connector-24-20-full-dbd531960c4e.jpg"
 		},
 		{
 			"id": "terminal-fork-m35",
@@ -28751,7 +29044,7 @@
 			"cots": {
 				"type": "terminal"
 			},
-			"name": "Insulated fork terminal, M3.5, 18 AWG",
+			"name": "Insulated fork terminal, M3.5, 18 AWG (0.82 mm\u00b2)",
 			"category": "Wire harness",
 			"description": "Crimped onto both wires of each PSU output pigtail, landing under the screws of the LRS-350-24 terminal block. Three pigtails, two terminals each.",
 			"note": "8 mm wide at most. Plenty of fork terminals are wider and simply will not fit between the LRS-350-24's output screws, and the listing rarely gives the width, so go by the stud size: M3.5 or #6.",
@@ -28764,7 +29057,7 @@
 				},
 				{
 					"label": "Wire",
-					"value": "18 AWG, in a 22 to 16 AWG barrel"
+					"value": "18 AWG (0.82 mm\u00b2), in a 22 to 16 AWG (0.33 to 1.3 mm\u00b2) barrel"
 				},
 				{
 					"label": "Width",
@@ -28811,7 +29104,7 @@
 				},
 				{
 					"label": "Wire",
-					"value": "22 AWG, in an 18 to 22 AWG barrel"
+					"value": "22 AWG (0.33 mm\u00b2), in an 18 to 22 AWG (0.33 to 0.82 mm\u00b2) barrel"
 				},
 				{
 					"label": "Insulation",
@@ -28852,7 +29145,7 @@
 				"type": "stock-material",
 				"size": "18 AWG"
 			},
-			"name": "Hook-up wire, 18 AWG, 2-conductor red and black",
+			"name": "Hook-up wire, 18 AWG (0.82 mm\u00b2), 2-conductor red and black",
 			"category": "Wire harness",
 			"description": "The heavy gauge in the machine: the three PSU output pigtails inside the box, and W1, the 24 V feed to the control board. A bonded red and black pair is easiest, since the polarity is then obvious at both ends.",
 			"note": "You may cut none of this. The panel-mount jacks normally arrive with their 0.102 m (10.2 cm, 4 in) leads attached, which leaves only W1's 0.914 m (91.4 cm, 36 in) to make.",
@@ -28861,7 +29154,7 @@
 			"attributes": [
 				{
 					"label": "Gauge",
-					"value": "18 AWG stranded"
+					"value": "18 AWG (0.82 mm\u00b2) stranded"
 				},
 				{
 					"label": "Conductors",
@@ -28894,7 +29187,7 @@
 						"vendor": "BNTECHGO",
 						"url": "https://bntechgo.com/bntechgo-18-gauge-100ft-flexible-2-conductor-parallel-silicone-wire-spool-red-black-highly-resistant-to-200-c-600v-for-single-color-led-strip-extension-lead-wire-stranded-tinned-copper-wire/",
 						"as_of": "2026-09-14",
-						"note": "Any 18 AWG bonded red and black pair does. Shorter spools exist and are enough."
+						"note": "Any 18 AWG (0.82 mm\u00b2) bonded red and black pair does. Shorter spools exist and are enough."
 					}
 				]
 			},
@@ -28912,7 +29205,7 @@
 				"type": "stock-material",
 				"size": "22 AWG"
 			},
-			"name": "Hook-up wire, 22 AWG, 2-conductor red and black",
+			"name": "Hook-up wire, 22 AWG (0.33 mm\u00b2), 2-conductor red and black",
 			"category": "Wire harness",
 			"description": "Everything lighter than the board feed: W2 to the USB hub, W3 to the buck converter, the three LED drops and their pigtails, and the chute limit switch cable.",
 			"note": null,
@@ -28921,7 +29214,7 @@
 			"attributes": [
 				{
 					"label": "Gauge",
-					"value": "22 AWG stranded"
+					"value": "22 AWG (0.33 mm\u00b2) stranded"
 				},
 				{
 					"label": "Conductors",
@@ -28933,7 +29226,7 @@
 				},
 				{
 					"label": "Note",
-					"value": "22 AWG on W2 and W3 is the harness drawing's guess, not a measured figure. Gauge per segment is an open item on the wire harness page"
+					"value": "22 AWG (0.33 mm\u00b2) on W2 and W3 is the harness drawing's guess, not a measured figure. Gauge per segment is an open item on the wire harness page"
 				}
 			],
 			"sheet_qty": {
@@ -28954,7 +29247,7 @@
 						"vendor": "BNTECHGO",
 						"url": "https://bntechgo.com/bntechgo-22-gauge-50ft-flexible-2-conductor-parallel-silicone-wire-spool-red-black-highly-resistant-to-200-c-600v-for-single-color-led-strip-extension-lead-wire-stranded-tinned-copper-wire/",
 						"as_of": "2026-09-14",
-						"note": "Any 22 AWG bonded red and black pair does."
+						"note": "Any 22 AWG (0.33 mm\u00b2) bonded red and black pair does."
 					}
 				]
 			},
@@ -28972,16 +29265,16 @@
 				"type": "stock-material",
 				"size": "24 AWG"
 			},
-			"name": "Hook-up wire, 24 AWG, four colours",
+			"name": "Hook-up wire, 24 AWG (0.20 mm\u00b2), four colours",
 			"category": "Wire harness",
 			"description": "The stepper cables. Each of the five is a four-wire bundle, and the colours are how you keep the crossover straight: black, blue, green and red, matching the stepper pin map on the docs page.",
-			"note": "24 AWG is not a choice: it is the heaviest wire the JST PH contacts accept. Do not go up a gauge for these.",
+			"note": "24 AWG (0.20 mm\u00b2) is not a choice: it is the heaviest wire the JST PH contacts accept. Do not go up a gauge for these.",
 			"created_at": "2026-09-14",
 			"updated_at": "2026-09-18",
 			"attributes": [
 				{
 					"label": "Gauge",
-					"value": "24 AWG stranded"
+					"value": "24 AWG (0.20 mm\u00b2) stranded"
 				},
 				{
 					"label": "Colours",
@@ -29014,11 +29307,11 @@
 						"vendor": "Plusivo",
 						"url": "https://www.plusivo.com/awg24-silicone-wire-kit/97-plusivo-awg24-hook-up-silicone-wire-kit-600v-stranded-tinned-copper-silicone-wire-of-6-different-colors-x-9-m-30-ft-each.html",
 						"as_of": "2026-09-14",
-						"note": "Six colours x 9 m. Any 24 AWG stranded kit with black, blue, green and red in it does."
+						"note": "Six colours x 9 m. Any 24 AWG (0.20 mm\u00b2) stranded kit with black, blue, green and red in it does."
 					}
 				]
 			},
-			"alternative": "Not needed for the channel steppers if you buy jst-ph-cable-4p-63cm, which is 24 AWG already",
+			"alternative": "Not needed for the channel steppers if you buy jst-ph-cable-4p-63cm, which is 24 AWG (0.20 mm\u00b2) already",
 			"caption": "Four colours, because S1 to S4 are crossover cables.",
 			"docs_page": "/hardware/parts/harness-order/",
 			"conflicts": null,
@@ -29083,6 +29376,7 @@
 		{
 			"id": "connector-kit-crimp",
 			"uid": "9fxb",
+			"retired_at": "2026-10-01",
 			"kind": "cots",
 			"cots": {
 				"type": "kit",
@@ -29090,14 +29384,14 @@
 			},
 			"name": "Crimp tool and connector kit (Dupont, JST-PH, JST-XH)",
 			"category": "Wire harness",
-			"description": "One box instead of several line items: a ratcheting crimper for open-barrel contacts plus 1565 terminals and a spread of Dupont 2.54 mm, JST-PH 2.0 mm and JST-XH 2.5 mm housings. It covers the PH housings and contacts and the Dupont housing this machine needs, and it is the crimp tool the connecting and PSU pigtail pages ask for.",
+			"description": "Retired. A Preciva 1565-piece crimp tool and Dupont, JST-PH and JST-XH connector kit, taken out of the docs and the parts list. The docs now list a crimp tool for open-barrel contacts under Tools needed instead, and the parts that were in the kit are bought on their own. Do not re-add it to a page.",
 			"note": "Read what it does not cover before you rely on it. The housings run 1 to 5 pin, so the 6-pin PHR-6 at the stepper motor end is not in it. There are no VH 3.96 mm housings, though the crimper's range does take the VH contacts. And the die is for non-insulated open-barrel contacts, so it will not crimp the PSU fork terminals or the #187 receptacles, which need an insulated-terminal die.",
 			"created_at": "2026-09-14",
-			"updated_at": "2026-09-14",
+			"updated_at": "2026-10-01",
 			"attributes": [
 				{
 					"label": "Crimper",
-					"value": "Ratcheting, 28 to 16 AWG, non-insulated open-barrel contacts"
+					"value": "Ratcheting, 28 to 16 AWG (0.08 to 1.3 mm\u00b2), non-insulated open-barrel contacts"
 				},
 				{
 					"label": "Housings",
@@ -29148,7 +29442,7 @@
 			},
 			"name": "JST PH 4-pin cable, 63 cm, connector at both ends",
 			"category": "Wire harness",
-			"description": "A whole channel stepper cable with no crimping: 63 cm of twisted 24 AWG with a 4-pin PHR-4 at each end. One end plugs into the board as it comes. At the other, lift the four contacts out of their housing and re-seat them in a PHR-6 in the crossover order, which needs a pick and no crimp tool.",
+			"description": "A whole channel stepper cable with no crimping: 63 cm of twisted 24 AWG (0.20 mm\u00b2) with a 4-pin PHR-4 at each end. One end plugs into the board as it comes. At the other, lift the four contacts out of their housing and re-seat them in a PHR-6 in the crossover order, which needs a pick and no crimp tool.",
 			"note": "Buy a PHR-6 per cable for the motor end; the housing the contacts came out of is then a spare. Contacts are held by a small lance inside the housing: press it back with a fine pick or a sliver of shim and the contact slides out, and it goes back into the PHR-6 until it clicks. Take your time, a bent lance will not retain.",
 			"created_at": "2026-09-14",
 			"updated_at": "2026-09-19",
@@ -29159,7 +29453,7 @@
 				},
 				{
 					"label": "Wire",
-					"value": "24 AWG twisted, UL 1007, rated 2 A and 100 V. Steppers draw up to 1.5 A a phase"
+					"value": "24 AWG (0.20 mm\u00b2) twisted, UL 1007, rated 2 A and 100 V. Steppers draw up to 1.5 A a phase"
 				},
 				{
 					"label": "Ends",
@@ -29288,7 +29582,7 @@
 				},
 				{
 					"label": "Wiring",
-					"value": "18 AWG, pre-attached"
+					"value": "18 AWG (0.82 mm\u00b2), pre-attached"
 				},
 				{
 					"label": "Cutout",
@@ -29365,7 +29659,7 @@
 						"price": 6.94,
 						"pack_qty": 1,
 						"as_of": "2026-09-23",
-						"note": "Amazon Basics 6 ft, NEMA 5-15P to C13, 18 AWG, UL listed. That is the US plug; outside the US buy the same cord with your own plug on it, or use one you already have."
+						"note": "Amazon Basics 6 ft, NEMA 5-15P to C13, 18 AWG (0.82 mm\u00b2), UL listed. That is the US plug; outside the US buy the same cord with your own plug on it, or use one you already have."
 					}
 				]
 			},

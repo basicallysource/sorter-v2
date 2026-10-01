@@ -1,6 +1,12 @@
 <script lang="ts">
+	import Check from '@lucide/svelte/icons/check';
+	import Circle from '@lucide/svelte/icons/circle';
 	import CameraFeed from '$lib/components/CameraFeed.svelte';
 	import CameraSourcePreview from '$lib/components/CameraSourcePreview.svelte';
+	import Badge from '$lib/components/ui/Badge.svelte';
+	import Button from '$lib/components/ui/Button.svelte';
+	import Modal from '$lib/components/ui/Modal.svelte';
+	import Panel from '$lib/components/ui/Panel.svelte';
 	import type { CameraRole } from '$lib/settings/stations';
 
 	let changingCamera = $state(false);
@@ -9,8 +15,6 @@
 		key: string;
 		label: string;
 		source: number | string | null;
-		previewSrc: string | null;
-		previewKind: 'mjpeg' | 'image';
 	};
 
 	let {
@@ -46,170 +50,107 @@
 			? null
 			: (choices.find((choice) => choice.key === selectedKey)?.source ?? null)
 	);
-
-	function previewForChoice(choice: CameraChoice) {
-		return choice.previewSrc;
-	}
+	const others = $derived(choices.filter((choice) => choice.key !== '__none__'));
 </script>
 
-<div class="setup-panel overflow-hidden p-4">
-	<div class="flex flex-wrap items-start justify-between gap-3">
-		<div class="min-w-0 flex-1">
-			<div class="flex flex-wrap items-center gap-2">
-				<div class="text-sm font-semibold text-text">{label}</div>
-				<div class:text-danger={required} class:text-text-muted={!required} class="text-xs">
-					{required ? 'Required' : 'Optional'}
-				</div>
-			</div>
-			<div class="mt-1 text-sm text-text-muted">{description}</div>
-		</div>
-	</div>
-
-	<div class="mt-4 flex items-center gap-2 text-xs">
-		<div class="flex min-w-0 flex-[1.15] basis-0 items-center gap-2">
-			<button
-				onclick={() => selectedSource !== null && (changingCamera = !changingCamera)}
-				disabled={selectedSource === null}
-				class={`inline-flex min-w-0 flex-1 items-center justify-center border px-2 py-1.5 text-center text-xs font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-60 sm:text-xs ${selectedSource === null ? 'border-border bg-bg text-text-muted' : 'border-success/30 bg-success/10 text-success hover:bg-success/15'}`}
-			>
-				<span class="whitespace-nowrap"
-					>{selectedSource === null ? 'Choose camera' : 'Camera selected'}</span
-				>
-			</button>
-			<div
-				class={`h-px w-8 shrink-0 ${selectedSource === null ? 'bg-border' : 'bg-success/25'}`}
-			></div>
-		</div>
-		<div class="flex min-w-0 flex-[1.05] basis-0 items-center gap-2">
-			<button
-				onclick={() => onOpenZoneEditor?.(role)}
-				disabled={selectedSource === null}
-				class={`inline-flex min-w-0 flex-1 items-center justify-center border px-2 py-1.5 text-center text-xs font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-60 sm:text-xs ${zoneReviewed ? 'border-success/30 bg-success/10 text-success hover:bg-success/15' : 'border-border bg-bg text-text-muted hover:border-border/80 hover:bg-surface'}`}
-			>
-				<span class="whitespace-nowrap">{zoneReviewed ? 'Zone reviewed' : 'Review zone'}</span>
-			</button>
-			<div class={`h-px w-8 shrink-0 ${zoneReviewed ? 'bg-success/25' : 'bg-border'}`}></div>
-		</div>
-		<div class="min-w-0 flex-1 basis-0">
-			<button
-				onclick={() => onOpenPictureSettings?.(role)}
-				disabled={selectedSource === null}
-				class={`inline-flex w-full min-w-0 items-center justify-center border px-2 py-1.5 text-center text-xs font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-60 sm:text-xs ${pictureTuned ? 'border-success/30 bg-success/10 text-success hover:bg-success/15' : 'border-border bg-bg text-text-muted hover:border-border/80 hover:bg-surface'}`}
-			>
-				<span class="whitespace-nowrap">{pictureTuned ? 'Picture tuned' : 'Picture tuning'}</span>
-			</button>
-		</div>
-	</div>
-
-	<div class="mt-3 overflow-hidden border border-border bg-bg">
-		{#if selectedSource !== null}
-			<div class="relative aspect-video overflow-hidden bg-surface">
-				<CameraFeed camera={role} label={selectedLabel} showHeader={false} framed={false} />
-				<div
-					class="pointer-events-none absolute right-1.5 bottom-1.5 rounded-full border border-white/20 bg-black/65 px-3 py-1 text-xs font-medium text-white shadow-sm backdrop-blur-sm"
-				>
-					{selectedLabel}
-				</div>
-			</div>
-		{:else if choices.filter((choice) => choice.key !== '__none__').length > 0}
-			<div class="aspect-[4/3] bg-surface">
-				<div class="grid h-full grid-cols-2 gap-2 p-2">
-					{#each choices.filter((choice) => choice.key !== '__none__') as choice}
-						<button
-							onclick={() => onSelect?.(role, choice.key)}
-							class="flex min-h-0 flex-col overflow-hidden border border-border bg-surface text-left transition-colors hover:border-primary hover:bg-primary/5"
-						>
-							<div class="min-h-0 flex-1">
-								<div class="relative h-full border border-border bg-bg">
-									{#if previewForChoice(choice)}
-										<CameraSourcePreview src={previewForChoice(choice)} label={choice.label} />
-									{:else}
-										<div class="flex h-full items-center justify-center text-sm text-text-muted">
-											No preview
-										</div>
-									{/if}
-								</div>
-							</div>
-							<div class="border-t border-border px-2 py-1 text-xs text-text">{choice.label}</div>
-						</button>
-					{/each}
-				</div>
-			</div>
-		{:else}
-			<div class="aspect-[4/3] bg-surface">
-				<div
-					class="flex h-full flex-col items-center justify-center px-6 text-center text-sm text-text-muted"
-				>
-					<div class="font-medium text-text">No camera selected yet</div>
-					<div class="mt-2">Refresh sources to discover cameras, then choose one here.</div>
-				</div>
-			</div>
-		{/if}
-	</div>
-
-	{#if changingCamera && selectedSource !== null}
-		<div
-			class="fixed inset-0 z-40 flex items-center justify-center bg-black/50 px-4"
-			onclick={(event) => event.target === event.currentTarget && (changingCamera = false)}
-			onkeydown={(event) => event.key === 'Escape' && (changingCamera = false)}
-			role="dialog"
-			tabindex="0"
+{#snippet choice(option: CameraChoice, onpick: () => void, chosen = false, onWell = false)}
+	<button
+		type="button"
+		onclick={onpick}
+		aria-pressed={chosen}
+		class="flex min-h-0 w-full flex-col overflow-hidden rounded-control text-left transition-colors {chosen
+			? 'bg-primary-soft'
+			: onWell
+				? 'bg-surface hover:bg-hover'
+				: 'bg-well hover:bg-hover'}"
+	>
+		<span class="dark relative block min-h-0 flex-1 bg-media">
+			<CameraSourcePreview source={option.source} label={option.label} />
+		</span>
+		<span
+			class="flex items-center gap-1.5 px-2.5 py-1.5 text-sm {chosen ? 'text-primary-ink' : 'text-ink'}"
 		>
-			<div class="max-h-[85vh] w-full max-w-5xl overflow-auto border border-border bg-bg shadow-lg">
-				<div
-					class="sticky top-0 flex items-center justify-between border-b border-border bg-surface px-4 py-3"
-				>
-					<div>
-						<div class="text-sm font-semibold text-text">Change camera</div>
-						<div class="mt-1 text-sm text-text-muted">
-							Pick a different live source for {label}.
-						</div>
-					</div>
-					<button
-						onclick={() => (changingCamera = false)}
-						class="setup-button-secondary px-3 py-1.5 text-sm text-text"
-					>
-						Close
-					</button>
-				</div>
-				<div class="grid gap-3 p-4 md:grid-cols-2 xl:grid-cols-3">
-					{#each choices.filter((choice) => choice.key !== '__none__') as choice}
-						<button
-							onclick={() => {
-								onSelect?.(role, choice.key);
-								changingCamera = false;
-							}}
-							class={`overflow-hidden border bg-surface text-left transition-colors ${choice.key === selectedKey ? 'border-primary ring-1 ring-primary/30' : 'border-border hover:border-primary hover:bg-primary/5'}`}
-						>
-							<div class="aspect-[4/3] min-h-0 bg-surface">
-								<div class="relative h-full border border-border bg-bg">
-									{#if previewForChoice(choice)}
-										<CameraSourcePreview src={previewForChoice(choice)} label={choice.label} />
-									{:else}
-										<div class="flex h-full items-center justify-center text-sm text-text-muted">
-											No preview
-										</div>
-									{/if}
-								</div>
-							</div>
-							<div class="border-t border-border px-3 py-2 text-sm font-medium text-text">
-								{choice.label}
-							</div>
-						</button>
-					{/each}
-				</div>
-				<div class="flex items-center justify-end border-t border-border px-4 py-3">
-					<button
-						onclick={() => {
-							onSelect?.(role, '__none__');
-							changingCamera = false;
-						}}
-						class="rounded border border-border bg-surface px-3 py-2 text-sm text-text transition-colors hover:border-danger hover:bg-danger/5 hover:text-danger"
-					>
-						Clear camera
-					</button>
-				</div>
-			</div>
+			{#if chosen}<Check size={14} class="shrink-0" />{/if}
+			<span class="truncate">{option.label}</span>
+		</span>
+	</button>
+{/snippet}
+
+{#snippet need(done: boolean, text: string, action: string, onclick: () => void)}
+	<li class="flex items-center gap-3 px-(--pad-panel) py-2">
+		<span class="shrink-0 {done ? 'text-success-ink' : 'text-ink-faint'}">
+			{#if done}<Check size={16} />{:else}<Circle size={16} />{/if}
+		</span>
+		<span class="min-w-0 flex-1 truncate text-sm text-ink">{text}</span>
+		<Button size="sm" variant="ghost" disabled={selectedSource === null} {onclick}>{action}</Button>
+	</li>
+{/snippet}
+
+<!-- One camera role: its picture, and the three things it needs. -->
+<Panel title={label} {description} flush>
+	{#snippet actions()}<Badge>{required ? 'Required' : 'Optional'}</Badge>{/snippet}
+	{#if selectedSource !== null}
+		<CameraFeed camera={role} label={selectedLabel} header={false} />
+	{:else if others.length > 0}
+		<div class="grid aspect-video grid-cols-2 gap-2 bg-well p-2">
+			{#each others as option (option.key)}
+				{@render choice(option, () => onSelect?.(role, option.key), false, true)}
+			{/each}
+		</div>
+	{:else}
+		<div class="flex aspect-video flex-col items-center justify-center gap-1 bg-well px-6 text-center text-sm">
+			<span class="font-medium text-ink">No camera chosen yet</span>
+			<span class="text-ink-muted">Refresh the cameras to find them, then choose one here.</span>
 		</div>
 	{/if}
-</div>
+	<ul class="divide-y divide-line">
+		{@render need(
+			selectedSource !== null,
+			selectedSource !== null ? 'Camera chosen' : 'No camera chosen',
+			'Change',
+			() => (changingCamera = true)
+		)}
+		{@render need(zoneReviewed, zoneReviewed ? 'Zone reviewed' : 'Zone not reviewed', 'Review', () =>
+			onOpenZoneEditor?.(role)
+		)}
+		{@render need(pictureTuned, pictureTuned ? 'Picture tuned' : 'Picture not tuned', 'Tune', () =>
+			onOpenPictureSettings?.(role)
+		)}
+	</ul>
+</Panel>
+
+<Modal
+	open={changingCamera && selectedSource !== null}
+	title="Change the camera"
+	size="lg"
+	onclose={() => (changingCamera = false)}
+>
+	<p class="mb-4 text-ink-muted">Pick a different live source for {label}.</p>
+	<div class="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+		{#each others as option (option.key)}
+			<div class="aspect-4/3 flex">
+				{@render choice(
+					option,
+					() => {
+						onSelect?.(role, option.key);
+						changingCamera = false;
+					},
+					option.key === selectedKey
+				)}
+			</div>
+		{/each}
+	</div>
+	{#snippet footer()}
+		<Button
+			variant="danger"
+			class="mr-auto"
+			onclick={() => {
+				onSelect?.(role, '__none__');
+				changingCamera = false;
+			}}
+		>
+			Clear the camera
+		</Button>
+		<Button variant="ghost" onclick={() => (changingCamera = false)}>Close</Button>
+	{/snippet}
+</Modal>

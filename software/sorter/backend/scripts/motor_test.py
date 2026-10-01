@@ -13,7 +13,6 @@ import argparse
 import sys
 import threading
 import time
-import tomllib
 from pathlib import Path
 from typing import Any
 
@@ -26,7 +25,7 @@ import subprocess
 import cv2
 from flask import Flask, Response, jsonify, request
 from global_config import GlobalConfig, Timeouts
-from machine_toml import machine_toml_path
+import machine_toml
 from logger import Logger
 from hardware.sorter_interface import StepperMotor, ServoMotor, DigitalOutputPin, DigitalInputPin
 import irl.config as _irl_bootstrap  # must precede machine_platform import to resolve circular dep
@@ -697,12 +696,7 @@ def _camera_capture_loop(name: str, index: int) -> None:
 
 
 def _load_chute_home_config() -> int:
-    machine_toml = machine_toml_path()
-    if not machine_toml.exists():
-        return 0
-    with machine_toml.open("rb") as f:
-        data = tomllib.load(f)
-    return data.get("chute", {}).get("home_pin_channel", 0)
+    return machine_toml.read().get("chute", {}).get("home_pin_channel", 0)
 
 
 def main() -> None:

@@ -11,7 +11,7 @@ is no further role-string dispatch on the hot path. The
 and on ``inference.InferenceWorker.__init__``'s source_id check.
 
 This module is the one place perception depends on the rest of the
-backend (camera_service, detection_registry, toml_config, blob_manager).
+backend (camera_service, detection_registry, toml_config, local_state).
 That dependency is read-only at boot — no method here is called on the
 hot path.
 """
@@ -28,7 +28,7 @@ import numpy as np
 
 from .arcs import bboxInsideChannelMask
 from .capture import CaptureWorker
-from .channel import CHANNEL_REGISTRY, SECTION_DEG, ChannelDef, channelDefFromBlob
+from .channel import CHANNEL_REGISTRY, ChannelDef, channelDefFromBlob
 from .inference import InferenceWorker, OnExitEdge
 from .overlay import renderFeedOverlay
 from .runtime import InferenceRuntime, RknnYoloRuntime
@@ -275,7 +275,6 @@ class PerceptionService:
                     conf_threshold=gathered.conf,
                     on_exit_edge=ctx.on_c3_exit_edge if channel_id == 3 else None,
                     runtime_stats=getattr(ctx.gc, "runtime_stats", None),
-                    profiler=getattr(ctx.gc, "profiler", None),
                     logger=getattr(ctx.gc, "logger", None),
                     log_attribution=getattr(ctx.gc, "log_perception_attribution", False),
                 )
@@ -373,16 +372,6 @@ class PerceptionService:
             return None
         return worker.latest_pieces_frame
 
-    def read_detections(self, channel_id: int):
-        """Latest in-crop ``Detection`` list for this channel, each tagged with
-        ``in_primary`` and the secondary-zone ids it falls in. Display/tag only —
-        the state machine still reads the primary-only slot / ``latest_raw``.
-        Returns ``None`` if the channel isn't wired or hasn't produced a cycle."""
-        worker = self._workers.get(channel_id)
-        if worker is None:
-            return None
-        return worker.latest_detections
-
     def secondary_zone_occupied(
         self,
         channel_id: int,
@@ -417,22 +406,6 @@ class PerceptionService:
                 return True
         return False
 
-    def channel_center(self, channel_id: int):
-        """Center pixel of the channel's rotation arc as ``(cx, cy)``, or
-        ``None`` if the channel isn't wired in this service instance."""
-        ch = self._channels.get(channel_id)
-        return ch.center if ch is not None else None
-
-    def precise_zone_len_deg(self, channel_id: int) -> float:
-        """Angular length (output degrees) of this channel's precise sub-arc, or
-        0.0 if the channel isn't wired / has no precise zone. Static per channel
-        (sections are immutable on the ChannelDef). The fast-eject controller
-        uses this as the default trigger distance when the tuning value is 0."""
-        ch = self._channels.get(channel_id)
-        if ch is None:
-            return 0.0
-        return float(len(ch.precise_sections)) * SECTION_DEG
-
     # --- introspection --------------------------------------------------
 
     def channels(self) -> Dict[int, ChannelDef]:
@@ -456,9 +429,6 @@ class PerceptionService:
 
     def runtimes(self) -> Dict[int, InferenceRuntime]:
         return dict(self._runtimes)
-
-    def source_id_assertion_count(self) -> int:
-        return sum(w.source_id_assertions for w in self._workers.values())
 
     def channel_id_for_source(self, camera_source_id: str) -> Optional[int]:
         for channel_id, channel in self._channels.items():
@@ -728,20 +698,17 @@ class _GatheredChannel:
 
 def _read_disk_inputs(gc: Any) -> _DiskInputs:
     """Read the saved zone blob + detection config that perception is driven
-    by. Cheap (small JSON via blob_manager) — safe to call every reconcile
-    pass and on every UI-save poke.
+    by. Cheap (small JSON via local_state and toml_config) — safe to call
+    every reconcile pass and on every UI-save poke.
 
     Saved blob shape: { "polygons": {"second_channel": [...], ...},
                         "channel_angles": {"second": ..., ...},
                         "arc_params": {"second": {drop_zone, exit_zone, ...}, ...} }
     """
-    from blob_manager import (
-        getChannelPolygons,
-        getFeederDetectionConfig,
-        getCarouselDetectionConfig,
-    )
+    from local_state import get_channel_polygons
+    from toml_config import getDetectionConfig
 
-    raw_polygons = getChannelPolygons() or {}
+    raw_polygons = get_channel_polygons() or {}
     channel_angles = raw_polygons.get("channel_angles") or {}
     arc_params = raw_polygons.get("arc_params") or {}
     secondary_zones = raw_polygons.get("secondary_zones") or {}
@@ -756,7 +723,7 @@ def _read_disk_inputs(gc: Any) -> _DiskInputs:
         except Exception:
             continue
     algo_by_channel = _resolve_algorithm_id_per_channel(
-        getFeederDetectionConfig(), getCarouselDetectionConfig()
+        getDetectionConfig("feeder"), getDetectionConfig("carousel")
     )
     return _DiskInputs(
         saved_polygons=saved_polygons,

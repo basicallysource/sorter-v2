@@ -1,5 +1,6 @@
 """sorteros-firstboot's progress page and the moment it hands port 80 to the
-Sorter UI. Run: cd test && python3 -m unittest test_firstboot"""
+Sorter UI, which the backend's supervisor serves.
+Run: cd test && python3 -m unittest test_firstboot"""
 
 import importlib.util
 import json
@@ -125,7 +126,7 @@ class Handover(unittest.TestCase):
         self.ui_ready = threading.Event()
         self.saved = (fb.subprocess.run, fb._backend_answers, fb._sorter_services, fb.time)
         fb.subprocess.run = lambda cmd, **kw: self.calls.append(("run", tuple(cmd), self.ui_ready.is_set()))
-        fb._sorter_services = lambda: ["sorter-backend-dev.service", "sorter-ui-dev.service"]
+        fb._sorter_services = lambda: ["sorter-backend-dev.service"]
         fb.time = FakeClock()
 
     def tearDown(self):
@@ -138,7 +139,7 @@ class Handover(unittest.TestCase):
         t.start()
         return t
 
-    def test_the_backend_goes_first_and_the_ui_waits_for_it(self):
+    def test_the_page_keeps_port_80_until_the_backend_answers(self):
         answers = iter([False, False, False, True])
 
         def backend_answers():
@@ -149,21 +150,19 @@ class Handover(unittest.TestCase):
         self.assertEqual(self.calls, [
             ("run", ("systemctl", "start", "sorter-backend-dev.service"), False),
             ("asked", False), ("asked", False), ("asked", False), ("asked", False),
-            ("run", ("systemctl", "start", "sorter-ui-dev.service"), True),
         ])
+        self.assertTrue(self.ui_ready.is_set())  # the page lets port 80 go
 
     def test_a_backend_that_never_answers_still_gets_its_ui(self):
         fb._backend_answers = lambda: False
         fb._start_sorter(self.keeper(), self.ui_ready)
         self.assertTrue(self.ui_ready.is_set())
-        self.assertEqual(self.calls[-1], ("run", ("systemctl", "start", "sorter-ui-dev.service"), True))
         self.assertGreaterEqual(fb.time.now - 1_790_000_000.0, fb.BACKEND_START_TIMEOUT)
 
-    def test_without_the_page_everything_starts_at_once(self):
+    def test_without_the_page_the_backend_just_starts(self):
         fb._backend_answers = lambda: self.fail("no page, nothing to wait for")
         fb._start_sorter(None, self.ui_ready)
-        self.assertEqual(self.calls, [
-            ("run", ("systemctl", "start", "sorter-backend-dev.service", "sorter-ui-dev.service"), False)])
+        self.assertEqual(self.calls, [("run", ("systemctl", "start", "sorter-backend-dev.service"), False)])
 
 
 if __name__ == "__main__":

@@ -33,119 +33,32 @@ router = APIRouter(prefix="/api/hive", tags=["hive-models"])
 # ``group`` — coarse logical grouping (``c_channels`` | ``chamber`` |
 # ``carousel``) the UI can collapse into a single line when every slot in the
 # group runs the same model.
-# NOTE: ``toml_section`` here is what the *live VisionManager* reads, not
+# NOTE: ``toml_section`` here is what the perception service reads, not
 # whatever the operator-facing label suggests. The C4 station in the
 # ``classification_channel`` setup is wired pipeline-side as the carousel
 # detection — so its persisted algorithm lives in ``[detection.carousel]``,
 # never in a ``[detection.classification_channel]`` section (which would be
 # dead config nobody picks up).
 _ACTIVE_ASSIGNMENT_SLOTS: tuple[tuple[str, str | None, str, str, str], ...] = (
-    ("classification", None, "Chamber", "classification", "chamber"),
     ("feeder", "c_channel_2", "C-Channel 2", "feeder", "c_channels"),
     ("feeder", "c_channel_3", "C-Channel 3", "feeder", "c_channels"),
-    ("feeder", "carousel", "Carousel feed", "feeder", "carousel"),
     ("carousel", None, "Classification C-Channel (C4)", "carousel", "c_channels"),
-    ("carousel", None, "Carousel detect", "carousel", "carousel"),
 )
 
 
-def _push_to_live_vision_manager(
-    scope: str, role: str | None, algorithm_id: str
-) -> None:
-    """Update the running VisionManager so the next frame uses the new model.
-
-    Without this, ``/activate`` only writes to ``machine_params.toml`` and the
-    live pipeline keeps running with whatever was loaded at process start —
-    which silently falls back to MOG2/heatmap_diff if the persisted algorithm
-    couldn't be resolved at startup time.
-    """
+def _reconcilePerception() -> None:
     from server import shared_state
 
-    vision_manager = getattr(shared_state, "vision_manager", None)
-    if vision_manager is None:
-        return
-    try:
-        if scope == "feeder":
-            setter = getattr(vision_manager, "setFeederDetectionAlgorithm", None)
-            if setter is not None:
-                if role is not None:
-                    setter(algorithm_id, role)
-                else:
-                    setter(algorithm_id)
-        elif scope == "carousel":
-            setter = getattr(vision_manager, "setCarouselDetectionAlgorithm", None)
-            if setter is not None:
-                setter(algorithm_id)
-        elif scope == "classification":
-            setter = getattr(vision_manager, "setClassificationDetectionAlgorithm", None)
-            if setter is not None:
-                setter(algorithm_id)
-    except Exception:  # pragma: no cover - defensive: TOML still got written
-        import logging
-        logging.getLogger(__name__).exception(
-            "Failed to push %s/%s → %s to live VisionManager", scope, role, algorithm_id
-        )
-
-
-def _slots_for_setup(setup_key: str | None) -> tuple[tuple[str, str | None, str, str, str], ...]:
-    """Filter the slot list to those that exist in the current machine setup.
-
-    A ``classification_channel`` machine has no carousel and no chamber, so
-    surfacing those rows would be misleading. A ``standard_carousel`` machine
-    has no C4. ``manual_carousel`` keeps the same slot set as the standard
-    setup minus the operator-managed feeder.
-    """
-    from machine_setup import get_machine_setup_definition
-
-    setup = get_machine_setup_definition(setup_key)
-    keep_chamber = setup.uses_classification_chamber
-    keep_carousel = setup.uses_carousel_transport
-    keep_c4 = setup.uses_classification_channel
-
-    visible: list[tuple[str, str | None, str, str, str]] = []
-    for slot in _ACTIVE_ASSIGNMENT_SLOTS:
-        toml_section, role, _label, _scope, group = slot
-        if toml_section == "classification" and not keep_chamber:
-            continue
-        if group == "carousel" and not keep_carousel:
-            continue
-        if toml_section == "classification_channel" and not keep_c4:
-            continue
-        # Drop the ``feeder.carousel`` role when carousel transport is gone:
-        # in classification_channel mode no piece ever lands in that slot.
-        if (
-            toml_section == "feeder"
-            and role == "carousel"
-            and not keep_carousel
-        ):
-            continue
-        visible.append(slot)
-    return tuple(visible)
-
-
-def _current_setup_key() -> str | None:
-    try:
-        from toml_config import _read_toml  # type: ignore[attr-defined]
-    except Exception:
-        return None
-    try:
-        cfg = _read_toml()
-    except Exception:
-        return None
-    raw = cfg.get("machine_setup") if isinstance(cfg, dict) else None
-    if isinstance(raw, dict):
-        candidate = raw.get("type")
-        if isinstance(candidate, str) and candidate.strip():
-            return candidate.strip()
-    return None
+    perception = getattr(shared_state.gc_ref, "perception_service", None)
+    if perception is not None:
+        perception.request_reconcile()
 
 
 def _collect_active_assignments() -> list[dict[str, str | None]]:
     from toml_config import getDetectionConfig
 
-    setup_key = _current_setup_key()
     items: list[dict[str, str | None]] = []
-    for scope, role, label, registry_scope, group in _slots_for_setup(setup_key):
+    for scope, role, label, registry_scope, group in _ACTIVE_ASSIGNMENT_SLOTS:
         cfg = getDetectionConfig(scope)
         if not isinstance(cfg, dict):
             algorithm = None
@@ -182,9 +95,8 @@ def _apply_active_assignments(algorithm_id: str, registry_scopes: set[str]) -> d
     applied: list[str] = []
     skipped: list[str] = []
     by_scope_changes: dict[str, dict[str, dict]] = {}
-    live_pushes: list[tuple[str, str | None, str]] = []
 
-    for scope, role, label, registry_scope, _group in _slots_for_setup(_current_setup_key()):
+    for scope, role, label, registry_scope, _group in _ACTIVE_ASSIGNMENT_SLOTS:
         if registry_scope not in registry_scopes:
             skipped.append(label)
             continue
@@ -194,7 +106,6 @@ def _apply_active_assignments(algorithm_id: str, registry_scopes: set[str]) -> d
         else:
             roles_map = scope_changes["set"].setdefault("algorithm_by_role", {})
             roles_map[role] = algorithm_id
-        live_pushes.append((scope, role, algorithm_id))
         applied.append(label)
 
     for scope, changes in by_scope_changes.items():
@@ -212,10 +123,7 @@ def _apply_active_assignments(algorithm_id: str, registry_scopes: set[str]) -> d
                 merged[key] = value
         setDetectionConfig(scope, merged)
 
-    # Push to the live VisionManager *after* persistence so a crash here
-    # still leaves the next process restart with the right config.
-    for scope, role, algo in live_pushes:
-        _push_to_live_vision_manager(scope, role, algo)
+    _reconcilePerception()
 
     return {"applied": applied, "skipped": skipped}
 
@@ -345,12 +253,12 @@ def _apply_active_assignment_to_slot(
     """Write ``algorithm_id`` to exactly ONE subsystem slot. 1:1 with the TOML,
     no fan-out and NO scope gate — a model may be assigned to a slot whose
     training scope it doesn't claim (perception loads any model by id; the UI
-    surfaces a 'not designed for this' note). Pushes the live VisionManager and
-    pokes perception to reconcile so the change applies without a restart."""
+    surfaces a 'not designed for this' note). Reconciles perception so the
+    change applies without a restart."""
     from toml_config import getDetectionConfig, setDetectionConfig
 
     slot = None
-    for s in _slots_for_setup(_current_setup_key()):
+    for s in _ACTIVE_ASSIGNMENT_SLOTS:
         if s[0] == target_scope and s[1] == target_role:
             slot = s
             break
@@ -371,15 +279,7 @@ def _apply_active_assignment_to_slot(
         )
         merged["algorithm_by_role"] = {**current, role: algorithm_id}
     setDetectionConfig(scope, merged)
-    _push_to_live_vision_manager(scope, role, algorithm_id)
-    try:
-        from server import shared_state
-
-        ps = getattr(getattr(shared_state, "gc_ref", None), "perception_service", None)
-        if ps is not None and hasattr(ps, "request_reconcile"):
-            ps.request_reconcile()
-    except Exception:
-        pass
+    _reconcilePerception()
     return {"applied": [label], "skipped": []}
 
 

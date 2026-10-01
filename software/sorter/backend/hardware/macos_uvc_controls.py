@@ -863,12 +863,6 @@ def _extract_unit_ids(extra_ptr: POINTER(c_uint8), extra_length: int) -> tuple[i
     return processing_unit_id, camera_terminal_id
 
 
-def _get_control_spec(control_id: str) -> dict[str, Any]:
-    if control_id not in CONTROL_SPECS:
-        raise UvcControllerError(f"Unknown control: {control_id}")
-    return CONTROL_SPECS[control_id]
-
-
 def _build_windex(camera_descriptor: UvcCameraDescriptor, control_spec: dict[str, Any]) -> int:
     unit_id = getattr(camera_descriptor, control_spec["unit_key"], None)
     if unit_id is None:

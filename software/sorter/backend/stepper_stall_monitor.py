@@ -3,7 +3,7 @@
 The TMC2209 raises its DIAG line when a configured motor stalls; the firmware
 latches that per channel. Detection is turned ON for any stepper that has an
 enabled `[stepper_stallguard.*]` entry — switched on once at hardware init (see
-`applyStepperStallguard`) and left on. There is NO per-move or per-state arming:
+`_configureStepper` in irl/config.py) and left on. There is NO per-move or per-state arming:
 if a motor has a threshold, every move is protected, full stop.
 
 This monitor is the single source of truth for "is motor X stalled". Each poll it

@@ -272,16 +272,11 @@ class ControlDataCollector:
         except Exception:
             pass
         try:
-            machine_setup = getattr(self._irl_config, "machine_setup", None)
-            meta["machine_setup"] = getattr(machine_setup, "key", None)
-            feeder = getattr(self._irl_config, "feeder", None)
-            mode = getattr(feeder, "mode", None)
-            meta["feeder_mode"] = getattr(mode, "value", None) or (str(mode) if mode else None)
-            cc = getattr(self._irl_config, "classification_channel", None)
-            cc_mode = getattr(cc, "mode", None)
-            meta["classification_mode"] = getattr(cc_mode, "value", None) or (
-                str(cc_mode) if cc_mode else None
-            )
+            from irl.config import CLASSIFICATION_CHANNEL_FLOW, FEEDER_FLOW, MACHINE_SETUP
+
+            meta["machine_setup"] = MACHINE_SETUP
+            meta["feeder_mode"] = FEEDER_FLOW
+            meta["classification_mode"] = CLASSIFICATION_CHANNEL_FLOW
         except Exception:
             pass
         try:
@@ -291,10 +286,9 @@ class ControlDataCollector:
         except Exception:
             pass
         try:
-            from toml_config import getPulsePerceptionConfig, getGoToAngleConfig
+            from toml_config import getPulsePerceptionConfig
 
             meta["pulse_perception_config"] = getPulsePerceptionConfig()
-            meta["go_to_angle_config"] = getGoToAngleConfig()
         except Exception:
             pass
         try:

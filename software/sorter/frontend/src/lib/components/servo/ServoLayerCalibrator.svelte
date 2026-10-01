@@ -1,25 +1,29 @@
 <script lang="ts">
-	import {
-		ChevronLeft,
-		ChevronRight,
-		Lock,
-		LockOpen,
-		DoorOpen,
-		DoorClosed,
-		Crosshair,
-		Save,
-		RotateCcw,
-		Plus,
-		Trash2,
-		Keyboard,
-		Cog,
-		Eraser
-	} from 'lucide-svelte';
+	import ChevronLeft from '@lucide/svelte/icons/chevron-left';
+	import ChevronRight from '@lucide/svelte/icons/chevron-right';
+	import Lock from '@lucide/svelte/icons/lock';
+	import LockOpen from '@lucide/svelte/icons/lock-open';
+	import DoorOpen from '@lucide/svelte/icons/door-open';
+	import DoorClosed from '@lucide/svelte/icons/door-closed';
+	import Layers from '@lucide/svelte/icons/layers';
+	import RotateCcw from '@lucide/svelte/icons/rotate-ccw';
+	import Plus from '@lucide/svelte/icons/plus';
+	import Trash2 from '@lucide/svelte/icons/trash';
+	import Eraser from '@lucide/svelte/icons/eraser';
 	import ServoSpeedSettings from './ServoSpeedSettings.svelte';
 	import { onMount } from 'svelte';
 	import { getBackendHttpBase, machineHttpBaseUrlFromWsUrl } from '$lib/backend';
 	import { getMachinesContext } from '$lib/machines/context';
-	import { Alert, Button } from '$lib/components/primitives';
+	import Alert from '$lib/components/ui/Alert.svelte';
+	import Button from '$lib/components/ui/Button.svelte';
+	import Panel from '$lib/components/ui/Panel.svelte';
+	import Badge from '$lib/components/ui/Badge.svelte';
+	import Select from '$lib/components/ui/Select.svelte';
+	import Input from '$lib/components/ui/Input.svelte';
+	import Checkbox from '$lib/components/ui/Checkbox.svelte';
+	import Field from '$lib/components/ui/Field.svelte';
+	import Spinner from '$lib/components/ui/Spinner.svelte';
+	import EmptyState from '$lib/components/ui/EmptyState.svelte';
 
 	type ServoBackend = 'pca9685' | 'waveshare';
 
@@ -401,302 +405,285 @@
 	});
 </script>
 
-<div class="flex flex-col gap-4">
-	{#if showDirections}
-		<Alert variant="info">
-			<div class="flex flex-col gap-1 text-sm">
-				<div class="font-semibold">Calibrate each door servo before sorting</div>
-				<ol class="ml-4 list-decimal space-y-0.5">
-					<li>Pick the channel this layer's servo is wired to.</li>
-					<li>Click a layer to select it, then jog with ◀ ▶ (or arrow keys) until the door is fully open, and press <b>Lock open</b>.</li>
-					<li>Jog until it's fully closed, then press <b>Lock closed</b>.</li>
-					<li>A layer can only sort once both angles are locked in.</li>
-				</ol>
-			</div>
-		</Alert>
-	{:else}
-		<div class="text-sm text-text-muted">
-			Click a layer to control it with the arrow keys. Jog each door to its open and closed
-			positions and lock in the angles — a layer must have both angles locked before it will move
-			during sorting.
-		</div>
-	{/if}
+{#if showDirections}
+	<Alert tone="info" title="Calibrate each door servo before sorting">
+		<ol class="mt-1 ml-4 list-decimal space-y-0.5">
+			<li>Choose the channel this layer's servo is wired to.</li>
+			<li>
+				Select a layer, then jog it with the arrows (or the arrow keys) until its door is fully open,
+				and lock the open angle.
+			</li>
+			<li>Jog until it's fully closed, then lock the closed angle.</li>
+			<li>A layer sorts only once both angles are locked.</li>
+		</ol>
+	</Alert>
+{/if}
 
-	{#if backend === 'pca9685'}
-		<ServoSpeedSettings
-			bind:openSpeed
-			bind:closeSpeed
-			bind:homingSpeed
-			disabled={loading || saving}
-		/>
-	{/if}
+{#if backend === 'pca9685'}
+	<ServoSpeedSettings bind:openSpeed bind:closeSpeed bind:homingSpeed disabled={loading || saving} />
+{/if}
 
-	{#if backend === 'waveshare'}
-		<Alert variant="warning">
-			This calibrator is for the PCA9685 (PWM) servo backend. The current machine is configured for
-			the Waveshare bus.
-		</Alert>
-	{:else}
-		<div class="flex flex-wrap items-center gap-3">
-			<label class="flex items-center gap-2 text-sm text-text">
-				Jog step (°)
-				<input
-					type="number"
-					min="1"
-					max="45"
-					step="1"
-					bind:value={jogStep}
-					class="setup-control w-16 px-2 py-1.5 text-text"
-				/>
-			</label>
-			<button
-				onclick={addLayer}
-				disabled={loading || saving}
-				class="inline-flex items-center gap-1.5 border border-border bg-surface px-3 py-1.5 text-sm text-text hover:bg-bg disabled:cursor-not-allowed disabled:opacity-50"
-			>
-				<Plus size={14} /> Add layer
-			</button>
+{#if backend === 'waveshare'}
+	<Alert tone="warning">
+		This calibrator is for the PCA9685 (PWM) servo backend, and this machine is set up for the
+		Waveshare bus.
+	</Alert>
+{:else}
+	<Panel
+		title="Layers"
+		description="Select a layer to jog it with the arrow keys. A layer moves during sorting only once its open and closed angles are both locked."
+		flush
+	>
+		<!-- The panel's own controls, in a row that wraps on a phone. -->
+		<div class="flex flex-wrap items-center justify-end gap-2 px-(--pad-panel) pb-3">
+			<Input
+				type="number"
+				min={1}
+				max={45}
+				step={1}
+				bind:value={jogStep}
+				unit="° a press"
+				size="sm"
+				class="w-32"
+				aria-label="Jog step"
+			/>
+			<Button size="sm" icon={Plus} disabled={loading || saving} onclick={addLayer}>Add a layer</Button>
 		</div>
 
 		{#if layers.length === 0 && !loading}
-			<div class="text-sm text-text-muted">No storage layers configured.</div>
+			<div class="px-(--pad-panel) pb-(--pad-panel)">
+				<EmptyState icon={Layers} title="No storage layers yet">Add a layer to start.</EmptyState>
+			</div>
+		{:else if loading && layers.length === 0}
+			<div class="flex items-center gap-2 px-(--pad-panel) pb-(--pad-panel) text-sm text-ink-muted">
+				<Spinner size={14} /> Loading the layers
+			</div>
 		{/if}
 
-		<div class="flex flex-col gap-3">
+		<div class="divide-y divide-line">
 			{#each layers as layer (layer.layerIndex)}
 				{@const calibrated = layerIsCalibrated(layer)}
 				{@const selected = selectedIndex === layer.layerIndex}
+				{@const idle = loading || saving || layer.busy}
 				<div
 					role="button"
 					tabindex="0"
+					aria-pressed={selected}
 					onclick={() => toggleSelect(layer.layerIndex)}
 					onkeydown={(e) => {
+						if (e.target !== e.currentTarget) return;
 						if (e.key === 'Enter' || e.key === ' ') {
 							e.preventDefault();
 							toggleSelect(layer.layerIndex);
 						}
 					}}
-					class="setup-panel relative flex cursor-pointer flex-wrap items-center gap-x-3 gap-y-2 p-3 transition-colors {selected
-						? 'outline! outline-2! outline-offset-2! outline-primary!'
-						: 'outline-none hover:border-border'} {layer.enabled ? '' : 'opacity-60'}"
+					class="flex cursor-pointer flex-col gap-3 px-(--pad-panel) py-(--pad-row) transition-colors
+						{selected ? 'bg-primary-soft' : 'hover:bg-hover'} {layer.enabled ? '' : 'opacity-60'}"
 				>
-					{#if selected}
-						<div
-							class="absolute -top-3 right-3 z-10 inline-flex items-center gap-1.5 bg-primary px-2 py-1 text-xs font-medium text-primary-contrast"
-						>
-							<Keyboard size={13} />
-							Use ← → to jog · Esc to deselect
-						</div>
-					{/if}
-
-					<!-- Label + calibration status -->
-					<div class="flex items-center gap-2">
-						<span class="text-sm font-semibold text-text">{layer.label}</span>
+					<div class="flex flex-wrap items-center gap-2">
+						<span class="text-sm font-semibold text-ink">{layer.label}</span>
 						{#if calibrated}
-							<span class="inline-flex items-center gap-1 bg-success/15 px-2 py-0.5 text-xs font-medium text-success">
-								<Lock size={12} /> Calibrated
-							</span>
+							<Badge tone="success"><Lock size={12} /> Calibrated</Badge>
 						{:else}
-							<span class="inline-flex items-center gap-1 bg-warning/15 px-2 py-0.5 text-xs font-medium text-warning">
-								<LockOpen size={12} /> Needs calibration
-							</span>
+							<Badge tone="warning"><LockOpen size={12} /> Needs calibrating</Badge>
 						{/if}
-					</div>
-
-					<div class="h-6 w-px bg-border"></div>
-
-					<!-- Hardware settings -->
-					<label class="inline-flex items-center gap-1 text-sm text-text-muted" onclick={(e) => e.stopPropagation()}>
-						<Cog size={13} /> Ch
-						<select
-							value={layer.channel}
-							onchange={(event) => setLayer(layer.layerIndex, { channel: event.currentTarget.value })}
-							disabled={loading || saving}
-							class="setup-control w-14 px-1 py-1 text-text"
-						>
-							<option value="">-</option>
-							{#each channelChoices as choice}
-								<option value={String(choice)}>{choice}</option>
-							{/each}
-						</select>
-					</label>
-					<label class="inline-flex items-center gap-1.5 text-sm text-text" onclick={(e) => e.stopPropagation()}>
-						<input
-							class="setup-toggle"
-							type="checkbox"
-							checked={layer.invert}
-							onchange={(event) => setLayer(layer.layerIndex, { invert: event.currentTarget.checked })}
-							disabled={loading || saving}
-						/>
-						Invert
-					</label>
-					<label class="inline-flex items-center gap-1 text-sm text-text-muted" onclick={(e) => e.stopPropagation()}>
-						Bins
-						<select
-							value={layer.binCount}
-							onchange={(event) => setLayer(layer.layerIndex, { binCount: event.currentTarget.value })}
-							disabled={loading || saving}
-							class="setup-control w-16 px-1 py-1 text-text"
-						>
-							{#each allowedCounts as count}
-								<option value={String(count)}>{count}</option>
-							{/each}
-						</select>
-					</label>
-					<label class="inline-flex items-center gap-1 text-sm text-text-muted" onclick={(e) => e.stopPropagation()}>
-						Max/bin
-						<input
-							type="number"
-							min="1"
-							step="1"
-							placeholder="∞"
-							value={layer.maxPiecesPerBin}
-							oninput={(event) => setLayer(layer.layerIndex, { maxPiecesPerBin: event.currentTarget.value })}
-							disabled={loading || saving}
-							class="setup-control w-16 px-1 py-1 text-text"
-						/>
-					</label>
-
-					<div class="h-6 w-px bg-border"></div>
-
-					<!-- Jog + current angle -->
-					<div class="inline-flex items-center gap-1" onclick={(e) => e.stopPropagation()}>
-						<button
-							onclick={() => jog(layer.layerIndex, -jogStep)}
-							disabled={loading || saving || layer.busy || !layerHasChannel(layer)}
-							class="flex h-8 w-8 items-center justify-center border border-border bg-surface text-text hover:bg-bg disabled:cursor-not-allowed disabled:opacity-50"
-							title="Jog towards lower angle"
-						>
-							<ChevronLeft size={16} />
-						</button>
-						<span class="inline-flex items-center gap-1 px-1 text-sm text-text">
-							<Crosshair size={13} class="text-text-muted" />
-							{layer.currentAngle === null ? 'unknown' : `${layer.currentAngle}°`}
-						</span>
-						<button
-							onclick={() => jog(layer.layerIndex, jogStep)}
-							disabled={loading || saving || layer.busy || !layerHasChannel(layer)}
-							class="flex h-8 w-8 items-center justify-center border border-border bg-surface text-text hover:bg-bg disabled:cursor-not-allowed disabled:opacity-50"
-							title="Jog towards higher angle"
-						>
-							<ChevronRight size={16} />
-						</button>
-					</div>
-
-					<!-- Calibrate -->
-					<div class="inline-flex items-center gap-2" onclick={(e) => e.stopPropagation()}>
-						<Button
-							variant="secondary"
-							size="sm"
-							onclick={() => lockAngle(layer.layerIndex, 'open')}
-							disabled={loading || saving || layer.busy || !layerHasChannel(layer)}
-						>
-							<LockOpen size={14} /> Lock open
-						</Button>
-						<Button
-							variant="secondary"
-							size="sm"
-							onclick={() => lockAngle(layer.layerIndex, 'closed')}
-							disabled={loading || saving || layer.busy || !layerHasChannel(layer)}
-						>
-							<Lock size={14} /> Lock closed
-						</Button>
-						<Button
-							variant="ghost"
-							size="sm"
-							onclick={() => clearAngles(layer.layerIndex)}
-							disabled={loading || saving || layer.busy || !layerIsCalibrated(layer)}
-							title="Clear this layer's calibration back to unknown"
-						>
-							<Eraser size={14} /> Clear
-						</Button>
-						{#if layer.lockStatus === 'saving'}
-							<span class="text-sm text-text-muted">Saving…</span>
-						{:else if layer.lockStatus === 'saved'}
-							<span class="text-sm text-success">Saved</span>
-						{:else if layer.lockStatus === 'error'}
-							<span class="text-sm text-danger" title={layer.lockError}>Failed</span>
+						{#if selected}
+							<Badge tone="primary">The arrow keys jog it; Escape lets go</Badge>
 						{/if}
-					</div>
-
-					<div class="h-6 w-px bg-border"></div>
-
-					<!-- Open / Close -->
-					<div class="inline-flex items-center gap-2" onclick={(e) => e.stopPropagation()}>
-						<Button
-							variant="ghost"
-							size="sm"
-							onclick={() => moveTo(layer.layerIndex, layer.openAngle)}
-							disabled={loading || saving || layer.busy || layer.openAngle === null}
-						>
-							<DoorOpen size={14} /> Open
-						</Button>
-						<Button
-							variant="ghost"
-							size="sm"
-							onclick={() => moveTo(layer.layerIndex, layer.closedAngle)}
-							disabled={loading || saving || layer.busy || layer.closedAngle === null}
-						>
-							<DoorClosed size={14} /> Close
-						</Button>
-					</div>
-
-					<!-- Angles summary + active + remove, pushed right -->
-					<div class="ml-auto flex items-center gap-3">
-						<span class="text-sm text-text-muted">
-							open {layer.openAngle === null ? 'unknown' : `${layer.openAngle}°`} · closed
+						<span class="num ml-auto text-sm text-ink-muted">
+							Open {layer.openAngle === null ? 'unknown' : `${layer.openAngle}°`}, closed
 							{layer.closedAngle === null ? 'unknown' : `${layer.closedAngle}°`}
 						</span>
-						<label class="inline-flex items-center gap-2 text-sm text-text" onclick={(e) => e.stopPropagation()}>
-							<input
-								class="setup-toggle"
-								type="checkbox"
+						<!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
+						<span class="flex items-center gap-3" onclick={(e) => e.stopPropagation()}>
+							<Checkbox
 								checked={layer.enabled}
-								onchange={(event) => setLayer(layer.layerIndex, { enabled: event.currentTarget.checked })}
 								disabled={loading || saving}
+								onchange={(e) =>
+									setLayer(layer.layerIndex, { enabled: (e.currentTarget as HTMLInputElement).checked })}
+							>
+								Active
+							</Checkbox>
+							<Button
+								variant="ghost"
+								size="sm"
+								icon={Trash2}
+								label="Remove {layer.label}"
+								disabled={loading || saving}
+								onclick={() => removeLayer(layer.layerIndex)}
 							/>
-							Active
-						</label>
-						<button
-							onclick={(e) => {
-								e.stopPropagation();
-								removeLayer(layer.layerIndex);
-							}}
-							disabled={loading || saving}
-							class="inline-flex items-center border border-danger/30 bg-danger/[0.06] px-2 py-1.5 text-danger hover:bg-danger/10 disabled:cursor-not-allowed disabled:opacity-50"
-							title="Remove {layer.label}"
-						>
-							<Trash2 size={14} />
-						</button>
+						</span>
+					</div>
+
+					<!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
+					<div class="flex flex-wrap items-end gap-x-5 gap-y-3" onclick={(e) => e.stopPropagation()}>
+						<Field label="Channel" for="layer-{layer.layerIndex}-channel">
+							<div class="w-24">
+								<Select
+									id="layer-{layer.layerIndex}-channel"
+									size="sm"
+									value={layer.channel}
+									disabled={loading || saving}
+									onchange={(channel) => setLayer(layer.layerIndex, { channel })}
+									options={[
+										{ value: '', label: 'None' },
+										...channelChoices.map((c) => ({ value: String(c), label: String(c) }))
+									]}
+								/>
+							</div>
+						</Field>
+						<Field label="Bins" for="layer-{layer.layerIndex}-bins">
+							<div class="w-20">
+								<Select
+									id="layer-{layer.layerIndex}-bins"
+									size="sm"
+									value={layer.binCount}
+									disabled={loading || saving}
+									onchange={(binCount) => setLayer(layer.layerIndex, { binCount })}
+									options={allowedCounts.map((c) => ({ value: String(c), label: String(c) }))}
+								/>
+							</div>
+						</Field>
+						<Field label="Most a bin" for="layer-{layer.layerIndex}-max">
+							<Input
+								id="layer-{layer.layerIndex}-max"
+								type="number"
+								size="sm"
+								min={1}
+								step={1}
+								placeholder="∞"
+								value={layer.maxPiecesPerBin}
+								disabled={loading || saving}
+								oninput={(e) =>
+									setLayer(layer.layerIndex, {
+										maxPiecesPerBin: (e.currentTarget as HTMLInputElement).value
+									})}
+								class="w-24"
+							/>
+						</Field>
+						<div class="pb-1.5">
+							<Checkbox
+								checked={layer.invert}
+								disabled={loading || saving}
+								onchange={(e) =>
+									setLayer(layer.layerIndex, { invert: (e.currentTarget as HTMLInputElement).checked })}
+							>
+								Invert
+							</Checkbox>
+						</div>
+
+						<div class="flex flex-wrap items-center gap-2">
+							<div
+								role="group"
+								aria-label="Jog {layer.label}"
+								class="flex h-(--size-control-sm) items-stretch divide-x divide-line-strong overflow-hidden rounded-button border border-line-strong bg-field"
+							>
+								<button
+									type="button"
+									aria-label="Jog toward a lower angle"
+									disabled={idle || !layerHasChannel(layer)}
+									onclick={() => jog(layer.layerIndex, -jogStep)}
+									class="flex w-(--size-control-sm) items-center justify-center text-ink transition-colors hover:bg-hover focus-visible:-outline-offset-2 disabled:pointer-events-none disabled:opacity-45"
+								>
+									<ChevronLeft size={16} />
+								</button>
+								<span class="num flex min-w-16 items-center justify-center px-2 text-sm text-ink">
+									{layer.currentAngle === null ? 'Unknown' : `${layer.currentAngle}°`}
+								</span>
+								<button
+									type="button"
+									aria-label="Jog toward a higher angle"
+									disabled={idle || !layerHasChannel(layer)}
+									onclick={() => jog(layer.layerIndex, jogStep)}
+									class="flex w-(--size-control-sm) items-center justify-center text-ink transition-colors hover:bg-hover focus-visible:-outline-offset-2 disabled:pointer-events-none disabled:opacity-45"
+								>
+									<ChevronRight size={16} />
+								</button>
+							</div>
+							<Button
+								size="sm"
+								icon={LockOpen}
+								disabled={idle || !layerHasChannel(layer)}
+								onclick={() => lockAngle(layer.layerIndex, 'open')}
+							>
+								Lock open
+							</Button>
+							<Button
+								size="sm"
+								icon={Lock}
+								disabled={idle || !layerHasChannel(layer)}
+								onclick={() => lockAngle(layer.layerIndex, 'closed')}
+							>
+								Lock closed
+							</Button>
+							<Button
+								variant="ghost"
+								size="sm"
+								icon={Eraser}
+								disabled={idle || !layerIsCalibrated(layer)}
+								onclick={() => clearAngles(layer.layerIndex)}
+							>
+								Clear the angles
+							</Button>
+						</div>
+
+						<div class="flex items-center gap-2">
+							<Button
+								variant="ghost"
+								size="sm"
+								icon={DoorOpen}
+								disabled={idle || layer.openAngle === null}
+								onclick={() => moveTo(layer.layerIndex, layer.openAngle)}
+							>
+								Open
+							</Button>
+							<Button
+								variant="ghost"
+								size="sm"
+								icon={DoorClosed}
+								disabled={idle || layer.closedAngle === null}
+								onclick={() => moveTo(layer.layerIndex, layer.closedAngle)}
+							>
+								Close
+							</Button>
+							{#if layer.lockStatus === 'saving'}
+								<span class="flex items-center gap-1.5 text-sm text-ink-muted"><Spinner size={12} /> Saving</span>
+							{:else if layer.lockStatus === 'saved'}
+								<span class="text-sm text-success-ink">Saved</span>
+							{:else if layer.lockStatus === 'error'}
+								<span class="text-sm text-danger-ink" title={layer.lockError}>Not saved</span>
+							{/if}
+						</div>
 					</div>
 
 					{#if layer.enabled && !calibrated}
-						<div class="w-full text-sm text-warning">
-							Lock both the open and closed angles before this layer can sort.
-						</div>
+						<p class="text-sm text-warning-ink">
+							Lock both the open and the closed angle before this layer can sort.
+						</p>
 					{/if}
 				</div>
 			{/each}
 		</div>
 
-		<div class="flex flex-wrap items-center gap-2">
-			<Button variant="primary" size="sm" onclick={saveSettings} loading={saving} disabled={loading}>
-				<Save size={14} /> Save servo layers
-			</Button>
-			<Button variant="secondary" size="sm" onclick={loadSettings} disabled={loading || saving}>
-				<RotateCcw size={14} /> Reload
-			</Button>
-			{#if dirty}
-				<span class="inline-flex items-center gap-1 bg-warning/15 px-2 py-0.5 text-xs font-medium text-warning">
-					Unsaved changes — save to apply
-				</span>
-			{/if}
-		</div>
-	{/if}
+		{#snippet footer()}
+			<div class="flex w-full flex-wrap items-center justify-end gap-2">
+				{#if dirty}
+					<Badge tone="warning">Unsaved changes</Badge>
+				{/if}
+				<span class="mr-auto"></span>
+				<Button variant="ghost" icon={RotateCcw} disabled={loading || saving} onclick={loadSettings}>
+					Reload
+				</Button>
+				<Button variant="primary" loading={saving} disabled={loading} onclick={saveSettings}>
+					Save the layers
+				</Button>
+			</div>
+		{/snippet}
+	</Panel>
+{/if}
 
-	{#if errorMsg}
-		<Alert variant="danger">{errorMsg}</Alert>
-	{:else if statusMsg}
-		<div class="text-sm text-text-muted">{statusMsg}</div>
-	{/if}
-</div>
+{#if errorMsg}
+	<Alert tone="danger">{errorMsg}</Alert>
+{:else if statusMsg}
+	<p class="text-sm text-ink-muted">{statusMsg}</p>
+{/if}

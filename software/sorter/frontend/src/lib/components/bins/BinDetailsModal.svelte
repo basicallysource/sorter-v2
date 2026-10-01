@@ -1,11 +1,16 @@
 <script lang="ts">
-	import Modal from '$lib/components/Modal.svelte';
 	import PieceStatusBadge from '$lib/components/PieceStatusBadge.svelte';
 	import PieceThumb from '$lib/components/PieceThumb.svelte';
-	import { Button, SelectMenu } from '$lib/components/primitives';
-	import { bricklinkParts } from '$lib/stores/bricklinkParts.svelte';
+	import Badge from '$lib/components/ui/Badge.svelte';
+	import Button from '$lib/components/ui/Button.svelte';
+	import EmptyState from '$lib/components/ui/EmptyState.svelte';
+	import Input from '$lib/components/ui/Input.svelte';
+	import Modal from '$lib/components/ui/Modal.svelte';
+	import Popover from '$lib/components/ui/Popover.svelte';
 	import { sortingProfileStore } from '$lib/stores/sortingProfile.svelte';
-	import { Plus, Tag, X } from 'lucide-svelte';
+	import Plus from '@lucide/svelte/icons/plus';
+	import Tag from '@lucide/svelte/icons/tag';
+	import X from '@lucide/svelte/icons/x';
 	import { categoryLabel, formatCategoryName, itemDisplayName, itemSecondaryText, pieceTooltip, previewUrl } from './pieces';
 	import QuantityBadge from './QuantityBadge.svelte';
 	import type { BinContents, BinInfo, LayerInfo, SetMeta } from './types';
@@ -47,9 +52,6 @@
 		assignSelected = [...detailsBin.bin.category_ids];
 		assignSearch = '';
 		assignDropdownOpen = false;
-		for (const item of detailsBin.contents?.items ?? []) {
-			if (item.part_id) void bricklinkParts.fetch(baseUrl, item.part_id);
-		}
 	});
 
 	const setMeta = $derived.by((): SetMeta | null => {
@@ -158,33 +160,38 @@
 	}
 </script>
 
-<Modal bind:open title={detailsBin ? `Bin ${detailsBin.bin.global_index + 1} Details` : 'Bin Details'} wide={true}>
+<Modal bind:open title={detailsBin ? `Bin ${detailsBin.bin.global_index + 1}` : 'Bin details'} size="lg">
 	{#if detailsBin}
-		<div class="space-y-4">
-			<div class="grid gap-4 border border-border bg-surface px-4 py-4 text-sm text-text-muted md:grid-cols-3">
+		<div class="flex flex-col gap-4">
+			<dl class="grid grid-cols-1 gap-4 sm:grid-cols-3">
 				<div>
-					<div class="text-xs uppercase tracking-wide">Layer</div>
-					<div class="mt-1 text-base font-medium text-text">{detailsBin.layerIndex + 1}</div>
+					<dt class="label">Layer</dt>
+					<dd class="num mt-1 text-base font-medium text-ink">{detailsBin.layerIndex + 1}</dd>
 				</div>
 				<div>
-					<div class="text-xs uppercase tracking-wide">Assigned Category</div>
-					<div class="mt-1 text-base font-medium text-text">{categoryLabel(detailsBin.bin.category_ids) || 'None'}</div>
+					<dt class="label">Assigned category</dt>
+					<dd class="mt-1 text-base font-medium text-ink">
+						{categoryLabel(detailsBin.bin.category_ids) || 'None'}
+					</dd>
 				</div>
 				<div>
-					<div class="text-xs uppercase tracking-wide">Recorded Pieces</div>
-					<div class="mt-1 text-base font-medium text-text">{detailsBin.contents?.piece_count ?? 0} {(detailsBin.contents?.piece_count ?? 0) === 1 ? 'piece' : 'pieces'}</div>
+					<dt class="label">Recorded pieces</dt>
+					<dd class="num mt-1 text-base font-medium text-ink">
+						{detailsBin.contents?.piece_count ?? 0}
+						{(detailsBin.contents?.piece_count ?? 0) === 1 ? 'piece' : 'pieces'}
+					</dd>
 				</div>
-			</div>
+			</dl>
 
 			<!-- Manual category assignment. Pick one or more sorting-profile
 			     categories to route into this bin. Assigning a category here
 			     removes it from any other bin (a category lives in one bin). -->
-			<div class="border border-border bg-bg p-4">
-				<div class="mb-2 flex items-center justify-between gap-3">
-					<div class="flex items-center gap-2 text-sm font-semibold text-text">
-						<Tag size={15} />
+			<section class="rounded-control bg-well p-4">
+				<div class="flex items-center justify-between gap-3">
+					<h3 class="flex items-center gap-2 text-base font-semibold text-ink">
+						<Tag size={16} />
 						Assign categories
-					</div>
+					</h3>
 					<Button
 						size="sm"
 						variant="primary"
@@ -195,133 +202,116 @@
 						Save
 					</Button>
 				</div>
-				<p class="mb-3 text-sm text-text-muted">
-					Choose one or more categories from your sorting profile to route into this bin.
-					Assigning a category here moves it out of whatever bin it was in before.
+				<p class="mt-1 mb-3 text-sm text-ink-muted">
+					Choose one or more categories from your sorting profile to route into this bin. Assigning a
+					category here moves it out of whatever bin it was in before.
 				</p>
 
 				<div class="flex flex-wrap items-center gap-2">
 					{#each assignSelected as id (id)}
 						{@const elsewhere = assignedElsewhereLabel(id)}
-						<span class="inline-flex items-center gap-1.5 border border-primary bg-primary/[0.08] px-2 py-1 text-sm text-text">
+						<Badge tone="primary">
 							{formatCategoryName(id) || id}
-							{#if elsewhere}
-								<span class="text-xs text-text-muted">(was {elsewhere})</span>
-							{/if}
+							{#if elsewhere}<span class="text-ink-muted">(was {elsewhere})</span>{/if}
 							<button
 								type="button"
-								class="text-text-muted transition-colors hover:text-danger"
+								class="-mr-1 ml-0.5 rounded-badge p-0.5 hover:bg-hover"
 								onclick={() => removeAssignCategory(id)}
 								aria-label={`Remove ${formatCategoryName(id) || id}`}
 							>
-								<X size={13} />
+								<X size={12} />
 							</button>
-						</span>
+						</Badge>
 					{/each}
 
-					<SelectMenu
-						bind:open={assignDropdownOpen}
-						bind:search={assignSearch}
-						searchPlaceholder="Search categories…"
-						width={320}
-					>
-						{#snippet trigger()}
-							<span class="inline-flex items-center gap-1 border border-border bg-white px-2 py-1 text-sm text-text transition-colors hover:bg-surface">
-								<Plus size={14} />
-								Add category
-							</span>
+					<Popover label="Add a category" bind:open={assignDropdownOpen} width="20rem" padded={false}>
+						{#snippet trigger(props)}
+							<Button {...props} size="sm" icon={Plus}>Add a category</Button>
 						{/snippet}
-						{#if availableCategories().length === 0}
-							<div class="px-3 py-3 text-sm text-text-muted">
-								No categories in the active sorting profile.
-							</div>
-						{:else}
-							{#each pickableCategories() as cat (cat.id)}
-								{@const elsewhere = assignedElsewhereLabel(cat.id)}
-								<button
-									type="button"
-									onclick={() => addAssignCategory(cat.id)}
-									class="flex w-full items-center justify-between gap-2 border-b border-border bg-white px-3 py-2 text-left text-sm transition-colors last:border-b-0 hover:bg-surface"
-								>
-									<span class="flex-1 text-text">{cat.name}</span>
-									{#if elsewhere}
-										<span
-											class="shrink-0 border border-border bg-surface px-1.5 py-0.5 text-xs text-text-muted"
-											title="Currently assigned here — adding will move it"
-										>
-											{elsewhere}
-										</span>
-									{/if}
-								</button>
-							{/each}
-							{#if pickableCategories().length === 0}
-								<div class="px-3 py-3 text-sm text-text-muted">
-									{assignSearch.trim() ? `No categories match “${assignSearch}”.` : 'All categories are already added.'}
-								</div>
+						<div class="p-2">
+							<Input aria-label="Search categories" placeholder="Search categories…" bind:value={assignSearch} />
+						</div>
+						<div class="max-h-64 overflow-y-auto border-t border-line py-1">
+							{#if availableCategories().length === 0}
+								<p class="px-3 py-2 text-sm text-ink-muted">No categories in the active sorting profile.</p>
+							{:else}
+								{#each pickableCategories() as cat (cat.id)}
+									{@const elsewhere = assignedElsewhereLabel(cat.id)}
+									<button
+										type="button"
+										onclick={() => addAssignCategory(cat.id)}
+										class="flex min-h-(--size-menu-item) w-full items-center justify-between gap-2 px-3 text-left text-sm text-ink hover:bg-hover"
+									>
+										<span class="min-w-0 flex-1 truncate">{cat.name}</span>
+										{#if elsewhere}<Badge>{elsewhere}</Badge>{/if}
+									</button>
+								{/each}
+								{#if pickableCategories().length === 0}
+									<p class="px-3 py-2 text-sm text-ink-muted">
+										{assignSearch.trim()
+											? `No categories match “${assignSearch}”.`
+											: 'All categories are already added.'}
+									</p>
+								{/if}
 							{/if}
-						{/if}
-					</SelectMenu>
+						</div>
+					</Popover>
 				</div>
 
 				{#if assignSelected.length === 0}
-					<div class="mt-3 text-sm text-text-muted">
-						No categories assigned — matching pieces fall through to the discard bin.
-					</div>
+					<p class="mt-3 text-sm text-ink-muted">
+						No categories assigned. Matching pieces fall through to the discard bin.
+					</p>
 				{/if}
-			</div>
+			</section>
 
 			{#if setMeta}
-				<div class="border border-border bg-bg p-4">
-					<div class="grid gap-4 md:grid-cols-[160px_1fr] md:items-center">
-						<div class="flex items-center justify-center bg-surface p-3">
-							{#if setMeta.img_url}
-								<img src={setMeta.img_url} alt={setMeta.name} class="h-32 w-full object-contain" />
-							{/if}
+				<section class="grid grid-cols-1 gap-4 rounded-control bg-well p-4 md:grid-cols-[10rem_1fr] md:items-center">
+					<div class="flex items-center justify-center rounded-item bg-surface p-3">
+						{#if setMeta.img_url}
+							<img src={setMeta.img_url} alt={setMeta.name} class="h-32 w-full object-contain" />
+						{/if}
+					</div>
+					<div>
+						<h3 class="text-base font-semibold text-ink">{setMeta.name}</h3>
+						{#if setMeta.set_num}<p class="num mt-1 text-sm text-ink-muted">{setMeta.set_num}</p>{/if}
+						<div class="mt-3 flex flex-wrap gap-2">
+							<Badge>
+								{detailsBin.contents?.unique_item_count ?? 0}
+								{(detailsBin.contents?.unique_item_count ?? 0) === 1 ? 'item type' : 'item types'}
+							</Badge>
+							<Badge>{detailsBin.contents?.piece_count ?? 0} total pieces</Badge>
 						</div>
-						<div>
-							<div class="text-lg font-semibold text-text">{setMeta.name}</div>
-							{#if setMeta.set_num}
-								<div class="mt-1 text-sm text-text-muted">{setMeta.set_num}</div>
-							{/if}
-							<div class="mt-3 flex flex-wrap gap-2 text-xs text-text-muted">
-								<span class="border border-border bg-surface px-2 py-1">{detailsBin.contents?.unique_item_count ?? 0} {(detailsBin.contents?.unique_item_count ?? 0) === 1 ? 'item type' : 'item types'}</span>
-								<span class="border border-border bg-surface px-2 py-1">{detailsBin.contents?.piece_count ?? 0} total pieces</span>
-							</div>
-							<div class="mt-4">
-								<button
-									type="button"
-									onclick={() => openSetChecklist(detailsBin?.bin.category_ids ?? [])}
-									class="border border-border bg-surface px-3 py-2 text-sm text-text transition-colors hover:bg-bg"
-								>
-									Open checklist
-								</button>
-							</div>
+						<div class="mt-4">
+							<Button onclick={() => openSetChecklist(detailsBin?.bin.category_ids ?? [])}>
+								Open the checklist
+							</Button>
 						</div>
 					</div>
-				</div>
+				</section>
 			{/if}
 
 			{#if !detailsBin.contents || detailsBin.contents.items.length === 0}
-				<div class="border border-border bg-bg px-4 py-4 text-sm text-text-muted">No detailed piece records for this bin yet.</div>
+				<EmptyState title="No detailed piece records for this bin yet." />
 			{:else}
-				<div class="grid gap-3 grid-cols-3 sm:grid-cols-4 lg:grid-cols-6">
+				<div class="grid grid-cols-3 gap-3 sm:grid-cols-4 lg:grid-cols-5">
 					{#each detailsBin.contents.items as item}
-						<div class="overflow-hidden border border-border bg-bg">
-							<div class="relative bg-surface p-2">
+						<div class="overflow-hidden rounded-control">
+							<div class="relative p-2">
 								<div class="h-24 w-full">
 									<PieceThumb src={previewUrl(item)} alt={pieceTooltip(item)} fallbackText={item.part_id ?? '?'} />
 								</div>
 								<QuantityBadge count={item.count} />
 							</div>
-							<div class="px-2 py-2">
+							<div class="px-2.5 py-2 text-sm">
 								<div class="flex items-start justify-between gap-2">
-									<div class="text-sm font-medium text-text">{itemDisplayName(item)}</div>
+									<div class="font-medium text-ink">{itemDisplayName(item)}</div>
 									{#if item.classification_status && item.classification_status !== 'classified'}
 										<PieceStatusBadge status={item.classification_status} />
 									{/if}
 								</div>
-								<div class="mt-1 text-sm text-text-muted">{itemSecondaryText(item)}</div>
-								<div class="mt-2 text-sm text-text-muted">{formatCategoryName(item.category_id) || 'No category'}</div>
+								<div class="mt-1 text-ink-muted">{itemSecondaryText(item)}</div>
+								<div class="mt-1 text-ink-muted">{formatCategoryName(item.category_id) || 'No category'}</div>
 							</div>
 						</div>
 					{/each}

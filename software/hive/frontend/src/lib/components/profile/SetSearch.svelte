@@ -1,6 +1,10 @@
 <script lang="ts">
 	import { api } from '$lib/api';
 	import Spinner from '$lib/components/Spinner.svelte';
+	import Button from '$lib/components/Button.svelte';
+	import Input from '$lib/components/Input.svelte';
+	import PartImage from '$lib/components/PartImage.svelte';
+	import X from '@lucide/svelte/icons/x';
 
 	type SetResult = {
 		set_num: string;
@@ -10,11 +14,15 @@
 		img_url: string | null;
 	};
 
-	let { onSelect, onCancel }: { onSelect: (set: SetResult) => void; onCancel?: () => void } = $props();
+	let {
+		onSelect,
+		onCancel,
+		title = 'Add a LEGO set'
+	}: { onSelect: (set: SetResult) => void; onCancel?: () => void; title?: string } = $props();
 
 	let query = $state('');
-	let minYear = $state('');
-	let maxYear = $state('');
+	let minYear = $state<string | number | null>('');
+	let maxYear = $state<string | number | null>('');
 	let results = $state<SetResult[]>([]);
 	let loading = $state(false);
 	let searched = $state(false);
@@ -36,8 +44,8 @@
 		searched = true;
 		try {
 			const opts: { min_year?: number; max_year?: number } = {};
-			if (minYear) opts.min_year = parseInt(minYear, 10);
-			if (maxYear) opts.max_year = parseInt(maxYear, 10);
+			if (minYear) opts.min_year = parseInt(String(minYear), 10);
+			if (maxYear) opts.max_year = parseInt(String(maxYear), 10);
 			const res = await api.searchProfileCatalogSets(q, opts);
 			results = res.results;
 		} catch {
@@ -48,50 +56,59 @@
 	}
 </script>
 
-<div class="border border-border bg-surface p-3">
-	<div class="mb-2 flex items-center justify-between">
-		<h3 class="text-sm font-semibold text-text">Add LEGO Set</h3>
-		{#if onCancel}
-			<button onclick={onCancel} class="p-1 text-text-muted hover:text-text" aria-label="Close">
-				<svg class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
-					<path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd" />
-				</svg>
-			</button>
-		{/if}
+<div class="flex flex-col gap-2 rounded-control bg-well p-3">
+	<div class="flex items-center justify-between">
+		<h3 class="text-sm font-medium text-ink">{title}</h3>
+		{#if onCancel}<Button variant="ghost" size="sm" icon={X} label="Close" onclick={onCancel} />{/if}
 	</div>
-	<input type="text" bind:value={query} oninput={handleInput}
-		placeholder="Search sets... (e.g. Space Shuttle, 10283)"
-		class="mb-2 w-full border border-border px-3 py-2 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary" />
-	<div class="mb-2 flex items-center gap-2">
-		<input type="number" bind:value={minYear} oninput={handleInput}
-			placeholder="From year" min="1949" max="2030"
-			class="w-24 border border-border px-2 py-1 text-xs focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary" />
-		<span class="text-xs text-text-muted">&ndash;</span>
-		<input type="number" bind:value={maxYear} oninput={handleInput}
-			placeholder="To year" min="1949" max="2030"
-			class="w-24 border border-border px-2 py-1 text-xs focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary" />
+	<Input type="search" bind:value={query} oninput={handleInput} placeholder="Search sets, like Space Shuttle or 10283" />
+	<div class="flex items-center gap-2">
+		<Input
+			size="sm"
+			type="number"
+			class="w-28"
+			bind:value={minYear}
+			oninput={handleInput}
+			placeholder="From year"
+			min={1949}
+			max={2030}
+		/>
+		<span class="text-sm text-ink-muted">to</span>
+		<Input
+			size="sm"
+			type="number"
+			class="w-28"
+			bind:value={maxYear}
+			oninput={handleInput}
+			placeholder="To year"
+			min={1949}
+			max={2030}
+		/>
 	</div>
 
 	{#if loading}
-		<div class="flex items-center justify-center gap-1.5 py-4 text-xs text-text-muted"><Spinner size={12} /> Searching...</div>
+		<p class="flex items-center justify-center gap-2 py-4 text-sm text-ink-muted"><Spinner size={14} />Searching</p>
 	{:else if searched && results.length === 0}
-		<div class="py-4 text-center text-xs text-text-muted">No sets found</div>
+		<p class="py-4 text-center text-sm text-ink-muted">No sets found.</p>
 	{:else if results.length > 0}
-		<div class="max-h-64 space-y-1 overflow-y-auto">
+		<ul class="max-h-64 divide-y divide-line overflow-y-auto">
 			{#each results as set (set.set_num)}
-				<button onclick={() => onSelect(set)}
-					class="flex w-full items-center gap-3 border border-border p-2 text-left hover:bg-bg">
-					{#if set.img_url}
-						<img src={set.img_url} alt={set.name} class="h-12 w-12 shrink-0 object-contain" />
-					{:else}
-						<div class="flex h-12 w-12 shrink-0 items-center justify-center bg-bg text-xs text-text-muted">N/A</div>
-					{/if}
-					<div class="min-w-0 flex-1">
-						<div class="truncate text-sm font-medium text-text">{set.name}</div>
-						<div class="text-xs text-text-muted">{set.set_num} · {set.year} · {set.num_parts} parts</div>
-					</div>
-				</button>
+				<li>
+					<button
+						type="button"
+						onclick={() => onSelect(set)}
+						class="flex w-full items-center gap-3 px-2 py-2 text-left hover:bg-hover"
+					>
+						<PartImage src={set.img_url} class="size-12 shrink-0" />
+						<span class="min-w-0 flex-1">
+							<span class="block truncate text-sm font-medium text-ink">{set.name}</span>
+							<span class="block text-sm text-ink-muted"
+								><span class="font-mono">{set.set_num}</span>, {set.year}, <span class="num">{set.num_parts}</span> parts</span
+							>
+						</span>
+					</button>
+				</li>
 			{/each}
-		</div>
+		</ul>
 	{/if}
 </div>

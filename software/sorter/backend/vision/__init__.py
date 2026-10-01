@@ -1,7 +1,6 @@
 from .types import VisionResult, CameraFrame
-from .regions import RegionName, Region
 
-__all__ = ["VisionManager", "VisionResult", "CameraFrame", "RegionName", "Region"]
+__all__ = ["VisionManager", "VisionResult", "CameraFrame"]
 
 
 def __getattr__(name: str):

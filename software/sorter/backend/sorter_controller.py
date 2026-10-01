@@ -1,7 +1,6 @@
 from defs.sorter_controller import SorterLifecycle
 from irl.config import IRLInterface, IRLConfig
 from global_config import GlobalConfig
-from runtime_variables import RuntimeVariables
 from coordinator import Coordinator
 from vision import VisionManager
 import queue
@@ -12,10 +11,7 @@ def _broadcastSorterState(state_value: str) -> None:
         from server import shared_state
     except Exception:
         return
-    layout = None
-    if shared_state.vision_manager is not None:
-        layout = getattr(shared_state.vision_manager, "_camera_layout", None)
-    shared_state.publishSorterState(state_value, layout)
+    shared_state.publishSorterState(state_value)
 
 
 class SorterController:
@@ -26,7 +22,6 @@ class SorterController:
         gc: GlobalConfig,
         vision: VisionManager,
         event_queue: queue.Queue,
-        rv: RuntimeVariables,
     ):
         self.state = SorterLifecycle.INITIALIZING
         self.irl = irl
@@ -34,7 +29,7 @@ class SorterController:
         self.vision = vision
         self.event_queue = event_queue
         self.coordinator = Coordinator(
-            irl, irl_config, gc, vision, event_queue, rv
+            irl, irl_config, gc, vision, event_queue
         )
         _broadcastSorterState(self.state.value)
 
@@ -49,7 +44,6 @@ class SorterController:
         self.gc.runtime_stats.setLifecycleState(self.state.value)
         self.gc.run_recorder.markRunning()
         self.gc.lifetime_stats.markRunning()
-        self._setTrackerActive(True)
         _broadcastSorterState(self.state.value)
 
     def pause(self) -> None:
@@ -58,7 +52,6 @@ class SorterController:
         self.gc.runtime_stats.setLifecycleState(self.state.value)
         self.gc.run_recorder.markPaused()
         self.gc.lifetime_stats.markStopped()
-        self._setTrackerActive(False)
         _broadcastSorterState(self.state.value)
 
     def stop(self) -> None:
@@ -67,16 +60,7 @@ class SorterController:
         self.gc.runtime_stats.setLifecycleState(self.state.value)
         self.gc.run_recorder.markPaused()
         self.gc.lifetime_stats.markStopped()
-        self._setTrackerActive(False)
         _broadcastSorterState(self.state.value)
-
-    def _setTrackerActive(self, active: bool) -> None:
-        setter = getattr(self.vision, "setFeederTrackerActive", None)
-        if setter is not None:
-            try:
-                setter(active)
-            except Exception:
-                pass
 
     def reloadSortingProfile(self) -> None:
         self.coordinator.reload_sorting_profile()

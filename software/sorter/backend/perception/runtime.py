@@ -154,9 +154,6 @@ class StubRuntime:
         self._bboxes: tuple[Bbox, ...] = tuple(bboxes)
         self.calls: int = 0
 
-    def set_bboxes(self, bboxes: Iterable[Bbox]) -> None:
-        self._bboxes = tuple(bboxes)
-
     def infer(
         self, bgr: np.ndarray, *, conf_threshold: Optional[float] = None
     ) -> Sequence[Bbox]:

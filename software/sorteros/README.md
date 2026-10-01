@@ -32,14 +32,18 @@ fresh flash
    │    │   (hostname, SSH key, Tailscale key)
    │    ├─ stages: ssh-keys, grow-rootfs, swap, clone-repo (newest
    │    │           sorter/stable/v* tag), env files, machine.toml,
-   │    │           uv-sync, pnpm, install-services
-   │    ├─ status HTML on :80 until those are done, with any stage's error
+   │    │           uv-sync, pnpm (install, then build the UI),
+   │    │           install-services
+   │    ├─ status HTML on :80 until those are done and the backend
+   │    │   answers, with any stage's error
    │    └─ then tailscale (if a key was given) in the background; gives up
    │       after 10 failures instead of blocking anything
    │
-   └─→ sorter-ui.service takes over :80 with the regular setup wizard,
-       and the backend installs Hive's default vision model for this
-       hardware on every channel that has none
+   └─→ sorter-backend-dev.service: its supervisor takes over :80 (it
+       tries every second until the status page lets go) and serves the
+       UI's build, with the regular setup wizard; the backend installs
+       Hive's default vision model for this hardware on every channel
+       that has none
 ```
 
 The image does not carry the Sorter software: first boot checks out the newest

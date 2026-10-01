@@ -16,7 +16,7 @@ import stepper_telemetry
 import tmc_telemetry
 from global_config import GlobalConfig
 from hardware.sorter_interface import DISABLE_STALLGUARD
-from local_state import (
+from stress_test_runs import (
     finalizeChuteStressRun,
     recordChuteStressRunStart,
     updateChuteStressRunProgress,

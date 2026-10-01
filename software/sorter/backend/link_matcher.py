@@ -8,7 +8,7 @@ a LinkHead scoring [emb_anchor, emb_candidate, |diff|, product, meta] -> P(same)
 — which combines appearance with those same time/position features.
 
 Model-first, heuristic-as-fallback: the model can only re-rank what
-findPossibleCrops already returned, never recover a crop it dropped.
+findPossibleCropsAt already returned, never recover a crop it dropped.
 
 The 11-d meta vector must be built EXACTLY as it was during training or the
 model scores nonsense rather than failing. The publisher bakes the ordered
@@ -239,31 +239,6 @@ def resolveActiveModel(gc: Any) -> Optional[LoadedLinkModel]:
     return loadModel(gc, str(entry["local_id"]), Path(path))
 
 
-def matchForPiece(
-    gc: Any, piece_uuid: str, limit: int = 40
-) -> Optional[dict[str, Any]]:
-    """Full path: heuristic candidate set -> model re-rank. None when the
-    matcher is off or unusable, so callers keep the heuristic ranking."""
-    model = resolveActiveModel(gc)
-    if model is None:
-        return None
-
-    import channel_crop_lookup
-
-    found = channel_crop_lookup.findPossibleCrops(gc, piece_uuid, limit=limit)
-    candidates = found.get("candidates") or []
-    scored = scoreCandidates(gc, model, piece_uuid, candidates)
-    if scored is None:
-        return None
-    return {
-        "arrival_ts": found.get("arrival_ts"),
-        "candidates": scored,
-        "link_model": model.name,
-        "link_model_local_id": model.local_id,
-        "prediction_source": "model",
-    }
-
-
 def matchForPieceLive(
     gc: Any, piece_uuid: str, anchor_bgr: Any, arrival_ts: float, limit: int = 40
 ) -> Optional[list[dict[str, Any]]]:
@@ -327,30 +302,6 @@ def candidateMeta(candidate: dict[str, Any]):
     )
 
 
-def _anchorPath(piece_uuid: str, classification_channel_id: int) -> Optional[Path]:
-    import piece_image_store
-
-    try:
-        images = piece_image_store.listPieceImages(piece_uuid)
-    except Exception:
-        return None
-    # Prefer a C4 burst frame that actually drove the classification, then any
-    # C4 frame, then anything at all.
-    ordered = sorted(
-        images,
-        key=lambda im: (
-            0 if (im.get("channel") == classification_channel_id and im.get("used")) else
-            1 if im.get("channel") == classification_channel_id else 2,
-            im.get("ts") or 0.0,
-        ),
-    )
-    for im in ordered:
-        path = piece_image_store.getImageFileById(im["id"])
-        if path is not None and path.is_file():
-            return path
-    return None
-
-
 def _preprocessBgr(bgr, size: int):
     """Same preprocessing as _preprocess, for an in-memory BGR frame. The live
     path has the C4 crop in hand before it ever reaches disk."""
@@ -380,13 +331,12 @@ def scoreCandidates(
     model: LoadedLinkModel,
     piece_uuid: str,
     candidates: list[dict[str, Any]],
-    classification_channel_id: int = 4,
     anchor_bgr: Any = None,
 ) -> Optional[list[dict[str, Any]]]:
     """Attach ``model_score`` / ``model_same`` to each candidate, best-effort.
 
-    ``anchor_bgr`` supplies the anchor from memory (the live path); otherwise it
-    is read from piece_image_store (the review path).
+    ``anchor_bgr`` is the piece's C4 crop, from memory: it is scored before the
+    piece's images reach disk.
 
     Returns None when the model could not be run at all (no anchor pixels, no
     readable candidate crops) so the caller can fall back to the heuristic
@@ -399,23 +349,14 @@ def scoreCandidates(
     if not candidates:
         return []
 
-    anchor = None
-    if anchor_bgr is not None:
-        try:
-            anchor = _preprocessBgr(anchor_bgr, model.input_size)
-        except Exception as exc:
-            gc.logger.debug(f"[link] {piece_uuid}: anchor preprocess failed: {exc}")
-            anchor = None
-    if anchor is None:
-        anchor_path = _anchorPath(piece_uuid, classification_channel_id)
-        if anchor_path is None:
-            gc.logger.debug(f"[link] {piece_uuid}: no anchor image available")
-            return None
-        try:
-            anchor = _preprocess(anchor_path, model.input_size)
-        except Exception as exc:
-            gc.logger.debug(f"[link] {piece_uuid}: anchor read failed: {exc}")
-            return None
+    if anchor_bgr is None:
+        gc.logger.debug(f"[link] {piece_uuid}: no anchor image available")
+        return None
+    try:
+        anchor = _preprocessBgr(anchor_bgr, model.input_size)
+    except Exception as exc:
+        gc.logger.debug(f"[link] {piece_uuid}: anchor preprocess failed: {exc}")
+        return None
 
     usable: list[dict[str, Any]] = []
     crops = []

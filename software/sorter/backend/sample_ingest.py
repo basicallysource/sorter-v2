@@ -54,20 +54,11 @@ def scopeForRole(role: str) -> str:
 
 
 def _openRouterModelForScope(scope: str) -> str:
-    from blob_manager import (
-        getCarouselDetectionConfig,
-        getClassificationDetectionConfig,
-        getFeederDetectionConfig,
-    )
+    from toml_config import getDetectionConfig
     from vision.gemini_sam_detector import DEFAULT_OPENROUTER_MODEL, normalize_openrouter_model
 
     try:
-        if scope == "feeder":
-            cfg = getFeederDetectionConfig()
-        elif scope == "carousel":
-            cfg = getCarouselDetectionConfig()
-        else:
-            cfg = getClassificationDetectionConfig()
+        cfg = getDetectionConfig(scope)
         model = cfg.get("openrouter_model") if isinstance(cfg, dict) else None
         return normalize_openrouter_model(model)
     except Exception:

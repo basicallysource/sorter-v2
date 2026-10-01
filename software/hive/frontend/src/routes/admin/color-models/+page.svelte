@@ -3,7 +3,13 @@
 	import { api, type ColorModel } from '$lib/api';
 	import { goto } from '$app/navigation';
 	import Spinner from '$lib/components/Spinner.svelte';
-	import { Alert, Button } from '$lib/components/primitives';
+	import EmptyState from '$lib/components/EmptyState.svelte';
+	import PageHeader from '$lib/components/PageHeader.svelte';
+	import Panel from '$lib/components/Panel.svelte';
+	import Badge from '$lib/components/Badge.svelte';
+	import RefreshCw from '@lucide/svelte/icons/refresh-cw';
+	import Alert from '$lib/components/Alert.svelte';
+	import Button from '$lib/components/Button.svelte';
 
 	let models = $state<ColorModel[]>([]);
 	let modelDir = $state('');
@@ -74,91 +80,63 @@
 </script>
 
 <svelte:head>
-	<title>Color Models · Hive</title>
+	<title>Color models - Hive</title>
 </svelte:head>
 
-<div class="space-y-5">
-	<div class="flex flex-wrap items-start justify-between gap-3">
-		<div>
-			<h1 class="text-2xl font-bold text-text">Color models</h1>
-			<p class="mt-1 max-w-2xl text-sm text-text-muted">
-				The active model predicts a piece's color from its crops in the labeling view, alongside the
-				pixel-average guess. Models are ONNX files uploaded to the scan directory on the server; this
-				page reflects whatever is on disk.
-			</p>
-		</div>
-		<Button variant="secondary" size="sm" onclick={load} loading={loading}>Rescan</Button>
-	</div>
+<PageHeader title="Color models" description="The active model predicts a piece's color from its crops in the labeling view, beside the average of its pixels. A model is an ONNX file in the scan folder on the server; this page shows what is there.">
+	{#snippet actions()}
+		<Button icon={RefreshCw} onclick={load} {loading}>Rescan</Button>
+	{/snippet}
+</PageHeader>
 
-	{#if modelDir}
-		<p class="text-xs text-text-muted">
-			Scan directory: <code class="break-all bg-bg px-1.5 py-0.5 text-text">{modelDir}</code>
-		</p>
-	{/if}
-
-	{#if error}
-		<Alert variant="danger">{error}</Alert>
-	{/if}
+<div class="flex flex-col gap-(--gap-panels)">
+	{#if error}<Alert tone="danger">{error}</Alert>{/if}
 
 	{#if loading}
 		<div class="flex justify-center py-16"><Spinner size={32} /></div>
 	{:else if models.length === 0}
-		<div class="border border-border bg-surface px-4 py-10 text-center text-sm text-text-muted">
-			No color models found in the scan directory. Upload an <code>.onnx</code> file there and hit Rescan.
-		</div>
+		<Panel>
+			<EmptyState title="No models in the scan folder">Put an <code class="font-mono">.onnx</code> file in the scan folder and rescan.</EmptyState>
+		</Panel>
 	{:else}
-		<div class="border border-border bg-surface">
-			<div class="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 border-b border-border bg-bg px-4 py-2">
-				<span class="text-[10px] font-semibold uppercase tracking-wider text-text-muted">
-					{models.length} model{models.length === 1 ? '' : 's'} on disk
-				</span>
-				<span class="text-xs text-text-muted">
-					{#if activeModel}
-						Active: <span class="font-medium text-text">{activeModel.name}</span>
-					{:else}
-						None active — using pixel-average guess
-					{/if}
-				</span>
-			</div>
-
-			{#each models as m (m.id)}
-				<div class="flex flex-wrap items-center gap-4 border-b border-border px-4 py-3 last:border-b-0 {m.is_active ? 'bg-primary-light/30' : ''}">
-					<div class="min-w-0 flex-1">
-						<div class="flex flex-wrap items-center gap-2">
-							<span class="font-medium text-text">{m.name}</span>
-							{#if m.is_active}
-								<span class="border border-primary/30 bg-primary-light px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-primary">Active</span>
-							{/if}
+		<Panel
+			title={`${models.length} model${models.length === 1 ? '' : 's'} on disk`}
+			description={activeModel
+				? `Active: ${activeModel.name}. Only one is active at a time.`
+				: 'None is active, so the labeling view uses the average of its pixels.'}
+			flush
+		>
+			<ul class="divide-y divide-line border-t border-line">
+				{#each models as m (m.id)}
+					<li class="flex flex-wrap items-center gap-4 px-(--pad-panel) py-3 {m.is_active ? 'bg-primary-soft' : ''}">
+						<div class="min-w-0 flex-1">
+							<div class="flex flex-wrap items-center gap-2">
+								<span class="font-medium text-ink">{m.name}</span>
+								{#if m.is_active}<Badge tone="primary">Active</Badge>{/if}
+							</div>
+							{#if m.description}<p class="mt-0.5 truncate text-sm text-ink-muted">{m.description}</p>{/if}
+							<p class="mt-1 flex flex-wrap gap-x-3 gap-y-0.5 text-sm break-all text-ink-muted">
+								<span class="font-mono">{m.filename}</span>
+								<span class="num">{m.class_count} colors</span>
+								<span class="num">{m.input_size} x {m.input_size}</span>
+								<span class="num">{fmtSize(m.file_size)}</span>
+								<span class="font-mono" title={m.sha256}>sha {m.sha256.slice(0, 10)}</span>
+							</p>
 						</div>
-						{#if m.description}
-							<p class="mt-0.5 truncate text-xs text-text-muted">{m.description}</p>
-						{/if}
-						<p class="mt-1 flex flex-wrap gap-x-3 gap-y-0.5 break-all text-[11px] text-text-muted">
-							<span><code class="text-text-muted">{m.filename}</code></span>
-							<span>{m.class_count} colors</span>
-							<span>{m.input_size}×{m.input_size}</span>
-							<span>{fmtSize(m.file_size)}</span>
-							<span title={m.sha256}>sha {m.sha256.slice(0, 10)}</span>
-						</p>
-					</div>
-					<div class="flex items-center gap-2">
 						{#if m.is_active}
-							<Button variant="secondary" size="sm" loading={busyId === m.id} onclick={() => deactivate(m)}>
-								Deactivate
-							</Button>
+							<Button size="sm" loading={busyId === m.id} onclick={() => deactivate(m)}>Deactivate</Button>
 						{:else}
-							<Button variant="primary" size="sm" loading={busyId === m.id} onclick={() => activate(m)}>
-								Activate
-							</Button>
+							<Button variant="primary" size="sm" loading={busyId === m.id} onclick={() => activate(m)}>Activate</Button>
 						{/if}
-					</div>
-				</div>
-			{/each}
-		</div>
+					</li>
+				{/each}
+			</ul>
+		</Panel>
+	{/if}
 
-		<p class="text-xs text-text-muted">
-			Only one model is active at a time. Deactivating leaves the labeling view on the pixel-average
-			guess.
+	{#if modelDir}
+		<p class="text-sm text-ink-muted">
+			Scan folder <code class="rounded-control bg-surface px-1.5 py-0.5 font-mono break-all text-ink">{modelDir}</code>
 		</p>
 	{/if}
 </div>

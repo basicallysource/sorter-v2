@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import threading
+
 from server import security
 from server.security import (
     compute_allowed_ui_origins,
@@ -99,6 +101,44 @@ def test_ui_origin_rejects_other_hosts_and_wrong_port(monkeypatch) -> None:
     assert is_ui_origin_allowed(None) is False
 
 
+def test_ui_origin_allows_the_port_the_supervisor_serves_the_ui_on(monkeypatch) -> None:
+    _set_device(monkeypatch, hostname="orangepi5", ips=["192.168.89.96"])
+    monkeypatch.setenv("SORTER_SUPERVISOR_UI_PORT", "8080")
+    assert is_ui_origin_allowed("http://192.168.89.96:8080") is True
+    assert is_ui_origin_allowed("http://192.168.89.96:5173") is True
+    assert is_ui_origin_allowed("http://192.168.89.96:8081") is False
+
+
 def test_ui_origin_honors_explicit_override(monkeypatch) -> None:
     monkeypatch.setenv("SORTER_API_ALLOWED_ORIGINS", "https://sorter.example.com")
     assert is_ui_origin_allowed("https://sorter.example.com") is True
+
+
+def test_a_stale_host_snapshot_is_rebuilt_off_the_checking_thread(monkeypatch) -> None:
+    _set_device(monkeypatch, ips=["10.0.0.5"])
+    assert is_ui_origin_allowed("http://10.0.0.5:5173") is True
+    rebuilt_on = []
+
+    def slow_lookup() -> frozenset[str]:
+        rebuilt_on.append(threading.current_thread())
+        return frozenset({"10.0.0.6"})
+
+    monkeypatch.setattr(security, "_this_device_hosts", slow_lookup)
+    monkeypatch.setattr(security, "_hosts_snapshot", (0.0, security._hosts_snapshot[1]))
+    assert is_ui_origin_allowed("http://10.0.0.5:5173") is True  # the old snapshot answers
+    assert security._refreshing.acquire(timeout=5)  # the rebuild has finished
+    security._refreshing.release()
+    assert rebuilt_on and rebuilt_on[0] is not threading.current_thread()
+    assert is_ui_origin_allowed("http://10.0.0.6:5173") is True
+
+
+def test_the_tailscale_name_is_saved_only_when_it_changes(monkeypatch) -> None:
+    for name in ("_tailscale_name", "_saved_tailscale_name", "_save_tailscale_name"):
+        monkeypatch.setattr(security, name, getattr(security, name))
+    saved: list[str] = []
+    security.keep_tailscale_name("sorter-1", saved.append)
+    reported = ["sorter-1", "sorter-1", "sorter-2", "sorter-2", None]
+    monkeypatch.setattr(security, "_query_tailscale_hostname", lambda: reported.pop(0))
+    names = [security._tailscale_hostname() for _ in range(5)]
+    assert names == ["sorter-1", "sorter-1", "sorter-2", "sorter-2", "sorter-2"]
+    assert saved == ["sorter-2"]

@@ -42,7 +42,7 @@ Camera assignment happens in the UI: open the running frontend and use the Setti
 
 ```bash
 cd sorter/frontend
-npm install
+pnpm install --frozen-lockfile
 ```
 
 ---
@@ -76,14 +76,6 @@ That starts the full machine client with the controller, hardware bindings, and 
 ```bash
 ./dev.sh api
 ```
-
-If you want to use an Android phone as the carousel camera on macOS, run:
-
-```bash
-./scripts/android_camera_bridge.sh
-```
-
-Then point `[cameras].carousel` at `http://127.0.0.1:18081/carousel.mjpg`.
 
 `uv` will install Python 3.13 and all dependencies on first run. The `.env` file is loaded automatically.
 

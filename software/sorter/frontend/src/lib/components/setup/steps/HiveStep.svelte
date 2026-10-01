@@ -1,6 +1,12 @@
 <script lang="ts">
-	import { Check, ExternalLink } from 'lucide-svelte';
-	import Spinner from '$lib/components/Spinner.svelte';
+	import ExternalLink from '@lucide/svelte/icons/external-link';
+	import Spinner from '$lib/components/ui/Spinner.svelte';
+	import Alert from '$lib/components/ui/Alert.svelte';
+	import Button from '$lib/components/ui/Button.svelte';
+	import Field from '$lib/components/ui/Field.svelte';
+	import Input from '$lib/components/ui/Input.svelte';
+	import KeyValue from '$lib/components/ui/KeyValue.svelte';
+	import Panel from '$lib/components/ui/Panel.svelte';
 
 	type HiveSetupTarget = {
 		id: string;
@@ -35,121 +41,65 @@
 	} = $props();
 </script>
 
-<div class="flex flex-col gap-4">
+<div class="flex flex-col gap-(--gap-panels)">
 	{#if hiveLoading}
-		<div class="setup-panel flex items-center gap-2 px-4 py-3 text-sm text-text-muted">
-			<Spinner size={14} />
-			Checking current Hive configuration…
-		</div>
+		<Panel>
+			<p class="flex items-center gap-2 text-sm text-ink-muted">
+				<Spinner size={16} />
+				Checking the Hive connection…
+			</p>
+		</Panel>
 	{:else if officialHiveTarget}
-		<div
-			class="border border-success/40 bg-success/[0.06] px-4 py-3 dark:border-emerald-500/40 dark:bg-emerald-500/[0.08]"
-		>
-			<div class="flex items-start gap-3">
-				<div
-					class="mt-0.5 flex h-6 w-6 items-center justify-center rounded-full bg-success text-white"
-				>
-					<Check size={14} strokeWidth={3} />
-				</div>
-				<div class="flex min-w-0 flex-1 flex-col gap-1">
-					<div
-						class="text-xs font-semibold tracking-wider text-success-dark uppercase dark:text-emerald-200"
-					>
-						Connected to Hive
-					</div>
-					<div class="text-sm leading-relaxed text-text">
-						This sorter is registered with
-						<span class="font-mono">{officialHiveTarget.url}</span>.
-					</div>
-					{#if officialHiveTarget.machine_id}
-						<div class="text-xs text-text-muted">
-							Machine ID
-							<span class="font-mono text-text">{officialHiveTarget.machine_id}</span>
-						</div>
-					{/if}
-				</div>
-			</div>
-		</div>
-		<div class="text-xs text-text-muted">
-			You can manage this connection later under Settings › Hive. Click Continue to finish the
-			setup wizard.
-		</div>
+		<Alert tone="success" title="Connected to Hive">
+			This sorter is registered with <span class="font-mono">{officialHiveTarget.url}</span>.
+			{#if officialHiveTarget.machine_id}
+				Machine ID <span class="font-mono">{officialHiveTarget.machine_id}</span>.
+			{/if}
+			You can manage the connection later in Settings > Hive; Continue finishes the setup.
+		</Alert>
 	{:else}
-		<div class="setup-panel flex flex-col gap-2 px-4 py-3">
-			<div class="text-xs font-semibold tracking-wider text-text-muted uppercase">
-				Hive server
+		<Panel
+			title="Link to Hive"
+			description="Continue takes you to the Hive server below. Sign in there (or make an account first) and confirm the machine's name; Hive brings you straight back here and finishes the link. No password is ever stored on this sorter."
+		>
+			<div class="flex max-w-xl flex-col gap-4">
+				<Field
+					label="Hive server"
+					for="setup-hive-url"
+					help="The official community platform by default; a local or custom Hive for development."
+				>
+					<Input
+						id="setup-hive-url"
+						type="url"
+						class="font-mono"
+						bind:value={hiveUrl}
+						placeholder={defaultHiveUrl}
+						disabled={hiveConnecting}
+					/>
+				</Field>
+				<KeyValue items={[{ label: 'Machine name', value: machineDisplayName }]} />
+				<p class="text-sm text-ink-muted">
+					This is how the sorter appears in Hive. Change it in the first step if it needs to.
+				</p>
 			</div>
-			<input
-				type="url"
-				bind:value={hiveUrl}
-				placeholder={defaultHiveUrl}
-				class="setup-control px-3 py-2 font-mono text-sm text-text"
-				disabled={hiveConnecting}
-			/>
-			<div class="text-xs text-text-muted">
-				Uses the official community platform by default. You can enter a local or custom Hive
-				URL here for development.
-			</div>
-		</div>
-
-		<div class="setup-panel flex flex-col gap-1 px-4 py-3">
-			<div class="text-xs font-semibold tracking-wider text-text-muted uppercase">
-				Machine name
-			</div>
-			<div class="text-sm text-text">{machineDisplayName}</div>
-			<div class="text-xs text-text-muted">
-				This is how your sorter will appear in Hive. Change it in Step 1 if needed.
-			</div>
-		</div>
-
-		<div class="text-sm leading-relaxed text-text-muted">
-			Continuing will send you to the Hive server above. Sign in there (or create an
-			account first) and confirm the machine name — Hive will bring you straight back
-			here and finish the link. No password is ever stored on this Sorter.
-		</div>
-
-		<div class="flex flex-wrap items-center gap-2">
-			<button
-				type="button"
-				onclick={onConnect}
-				disabled={hiveConnecting || !hiveUrl.trim()}
-				class="inline-flex items-center gap-2 border border-success bg-success px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-success/90 disabled:cursor-not-allowed disabled:opacity-60"
-			>
-				{#if hiveConnecting}
-					<Spinner size={14} />
-					Opening Hive…
-				{:else}
-					<ExternalLink size={14} />
-					Continue on Hive
-				{/if}
-			</button>
-			<button
-				type="button"
-				onclick={onSkip}
-				disabled={hiveConnecting}
-				class="setup-button-secondary inline-flex items-center gap-2 px-3 py-2 text-sm text-text transition-colors disabled:cursor-not-allowed disabled:opacity-60"
-			>
-				Skip for now
-			</button>
-		</div>
+			{#snippet footer()}
+				<Button variant="ghost" disabled={hiveConnecting} onclick={onSkip}>Skip for now</Button>
+				<Button
+					variant="primary"
+					icon={ExternalLink}
+					loading={hiveConnecting}
+					disabled={!hiveUrl.trim()}
+					onclick={onConnect}
+				>
+					{hiveConnecting ? 'Opening Hive…' : 'Continue on Hive'}
+				</Button>
+			{/snippet}
+		</Panel>
 	{/if}
 
 	{#if hiveError}
-		<div
-			class="border border-danger/40 bg-danger/[0.06] px-3 py-2 text-sm leading-relaxed text-text dark:border-rose-500/40 dark:bg-rose-500/[0.08]"
-		>
-			<div
-				class="mb-1 text-xs font-semibold tracking-wider text-danger-dark uppercase dark:text-rose-200"
-			>
-				Hive connection failed
-			</div>
-			{hiveError}
-		</div>
+		<Alert tone="danger" title="The Hive connection failed">{hiveError}</Alert>
 	{:else if hiveStatus}
-		<div
-			class="border border-success/40 bg-success/[0.06] px-3 py-2 text-sm leading-relaxed text-text dark:border-emerald-500/40 dark:bg-emerald-500/[0.08]"
-		>
-			{hiveStatus}
-		</div>
+		<Alert tone="success">{hiveStatus}</Alert>
 	{/if}
 </div>

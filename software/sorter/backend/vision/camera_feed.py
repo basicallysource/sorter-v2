@@ -43,7 +43,7 @@ class CameraFeed:
         self.role = role
         self._device = device
         self._overlays: list[FrameOverlay] = []
-        self._cached_annotated: tuple[tuple[float, bool], CameraFrame] | None = None
+        self._cached_annotated: tuple[float, CameraFrame] | None = None
         self._pinned_ts_provider = pinned_ts_provider
         self._lock = threading.Lock()
 
@@ -108,7 +108,6 @@ class CameraFeed:
         self,
         annotated: bool = True,
         exclude_categories: Optional[frozenset[str]] = None,
-        color_correct: bool = True,
     ) -> Optional[CameraFrame]:
         latest = self._device.latest_frame
         if latest is None:
@@ -129,39 +128,21 @@ class CameraFeed:
                     frame = pinned_frame
 
         with self._lock:
-            raw = frame.raw if color_correct or frame.uncorrected_raw is None else frame.uncorrected_raw
+            raw = frame.raw
             if not annotated or not self._overlays:
-                if raw is frame.raw:
-                    return frame
-                return CameraFrame(
-                    raw=raw,
-                    annotated=None,
-                    results=frame.results,
-                    timestamp=frame.timestamp,
-                    segmentation_map=frame.segmentation_map,
-                    uncorrected_raw=frame.uncorrected_raw,
-                )
+                return frame
 
             active_overlays = [
                 ov for ov in self._overlays
                 if not exclude_categories or getattr(ov, "category", "") not in exclude_categories
             ]
             if not active_overlays:
-                if raw is frame.raw:
-                    return frame
-                return CameraFrame(
-                    raw=raw,
-                    annotated=None,
-                    results=frame.results,
-                    timestamp=frame.timestamp,
-                    segmentation_map=frame.segmentation_map,
-                    uncorrected_raw=frame.uncorrected_raw,
-                )
+                return frame
 
             # Cache only the default (unfiltered) path — keeps the hot loop fast
             # without per-filter cache bookkeeping.
             cache_eligible = not exclude_categories
-            cache_key = (frame.timestamp, bool(color_correct))
+            cache_key = frame.timestamp
             if (
                 cache_eligible
                 and self._cached_annotated is not None
@@ -179,7 +160,6 @@ class CameraFeed:
                 results=frame.results,
                 timestamp=frame.timestamp,
                 segmentation_map=frame.segmentation_map,
-                uncorrected_raw=frame.uncorrected_raw,
             )
             if cache_eligible:
                 self._cached_annotated = (cache_key, result)

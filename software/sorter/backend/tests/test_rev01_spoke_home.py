@@ -2,7 +2,7 @@ from unittest.mock import patch
 
 import pytest
 
-from subsystems.classification_channel.simple_state_machine_rev01.spoke_home import (
+from subsystems.classification_channel.two_piece.spoke_home import (
     Annulus,
     angleForPoint,
     computeForwardAlignmentDeltaDeg,
@@ -31,7 +31,7 @@ def test_loadSpokeHomeGeometry_uses_classification_section_zero_point() -> None:
     }
 
     with patch(
-        "subsystems.classification_channel.simple_state_machine_rev01.spoke_home.getChannelPolygons",
+        "subsystems.classification_channel.two_piece.spoke_home.get_channel_polygons",
         return_value=saved,
     ):
         geometry = loadSpokeHomeGeometry((100, 200))
@@ -57,7 +57,7 @@ def test_loadSpokeHomeGeometry_falls_back_to_channel_angle() -> None:
     }
 
     with patch(
-        "subsystems.classification_channel.simple_state_machine_rev01.spoke_home.getChannelPolygons",
+        "subsystems.classification_channel.two_piece.spoke_home.get_channel_polygons",
         return_value=saved,
     ):
         geometry = loadSpokeHomeGeometry((100, 200))

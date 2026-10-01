@@ -1,19 +1,43 @@
+"""Sorting profiles: the catalog to build them from, the profiles and their
+versions, and what machines download.
+
+A profile is edited as a document (ordered rules) and saved as versions; each
+version is compiled when saved (profile_engine.compiler). Every route a
+person's browser uses also takes an API key with the profiles scopes, so an
+assistant can do what the editor does; the chat in the editor stays on the
+browser session, since it spends the user's own model key.
+"""
+
 from __future__ import annotations
 
 import copy
+import gzip
 import json
 import logging
+import threading
+from collections import OrderedDict
 from datetime import datetime, timezone
 from time import perf_counter
+from typing import Any
 from uuid import UUID, uuid4
 
 from fastapi import APIRouter, Depends, Query, Request
-from fastapi.responses import StreamingResponse
+from fastapi.responses import Response, StreamingResponse
 from sqlalchemy import or_
 from sqlalchemy.exc import SQLAlchemyError
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, object_session
 
-from app.deps import get_current_machine, get_current_user, get_db, require_role, verify_csrf
+from app.config import settings
+from app.deps import (
+    API_KEY_SCOPE_PROFILES_READ,
+    API_KEY_SCOPE_PROFILES_WRITE,
+    get_current_machine,
+    get_current_user,
+    get_db,
+    require_api_key_scopes,
+    require_role,
+    verify_csrf,
+)
 from app.errors import APIError
 from app.models.machine import Machine
 from app.models.machine_profile_assignment import MachineProfileAssignment
@@ -30,14 +54,15 @@ from app.schemas.profile import (
     SortingProfileAiApplyRequest,
     SortingProfileAiMessageResponse,
     SortingProfileAiRequest,
-    SortingProfileArtifactResponse,
     SortingProfileBricklinkCsvImportRequest,
     SortingProfileChangeNoteSuggestRequest,
     SortingProfileChangeNoteSuggestResponse,
     SortingProfileCreateRequest,
     SortingProfileDetailResponse,
     SortingProfileForkRequest,
+    SortingProfileHeadResponse,
     SortingProfilePreviewRequest,
+    SortingProfileRouteRequest,
     SortingProfileSetProgressResponse,
     SortingProfileSummaryResponse,
     SortingProfileUpdateRequest,
@@ -55,13 +80,24 @@ from app.services.profile_ai import (
     generate_profile_ai_proposal_streaming,
 )
 from app.services.ai_usage import record_ai_usage
+from app.services.kits import kits_for_rules, kits_from_set_rules, missing_kits
+from app.services.profile_display import described, display_for
 from app.services.secrets import decrypt_secret
 from app.services.machine_set_progress import summarize_machine_set_progress
 from app.services.profile_catalog import PROFILE_CATALOG_SYNC_TYPES, get_profile_catalog_service
+from app.services.profile_engine.compiler import Router as ProfileRouter, expand_legacy, part_preview
+from app.services.profile_engine.fields import FIELD_ALIASES, FIELDS, OP_LABELS
 from app.services.rate_limit import rate_limit
 
 router = APIRouter(prefix="/api", tags=["profiles"])
 logger = logging.getLogger("uvicorn.error").getChild("profiles")
+
+# One dependency object each, so a route that names it twice (itself and its
+# rate limit) resolves the caller once.
+_reader = require_api_key_scopes(API_KEY_SCOPE_PROFILES_READ)
+_writer = require_api_key_scopes(API_KEY_SCOPE_PROFILES_WRITE)
+READ = Depends(_reader)
+WRITE = Depends(_writer)
 
 CATALOG_SYNC_TYPES = set(PROFILE_CATALOG_SYNC_TYPES)
 AI_CONVERSATION_HISTORY_LIMIT = 12
@@ -142,24 +178,101 @@ def stop_profile_catalog_sync(
     return {"stopped": True}
 
 
+
+# --- The catalog a profile is built from ----------------------------------------
+
+
+@router.get("/profile-catalog/fields")
+def list_profile_fields(_current_user: User = READ):
+    """Every field a condition can test: its type, the operators it takes, and
+    what its values name ("bl_category", "color", ...)."""
+    return {
+        "fields": [
+            {
+                "field": spec.key,
+                "label": spec.label,
+                "group": spec.group,
+                "type": spec.type,
+                "ops": list(spec.ops),
+                "ref": spec.ref,
+                "unit": spec.unit,
+                "description": spec.description,
+            }
+            for spec in FIELDS.values()
+            if spec.alias_of is None
+        ],
+        # Older names still found in saved rules, and the field each now is.
+        "aliases": {
+            **FIELD_ALIASES,
+            **{spec.key: spec.alias_of for spec in FIELDS.values() if spec.alias_of},
+        },
+        "ops": OP_LABELS,
+        # Where the values a ref names are listed.
+        "refs": {
+            "bl_category": "/api/profile-catalog/bricklink-categories",
+            "rb_category": "/api/profile-catalog/categories",
+            "color": "/api/profile-catalog/colors (the Rebrickable id)",
+            "part": "/api/profile-catalog/search-parts (the Rebrickable part_num)",
+            "bl_part": "/api/profile-catalog/search-parts or /api/profile-catalog/parts/{id} (a BrickLink ID)",
+        },
+    }
+
+
 @router.get("/profile-catalog/search-parts")
 def search_profile_catalog_parts(
     q: str = "",
     cat_id: int | None = None,
     limit: int = 100,
     offset: int = 0,
-    _current_user: User = Depends(get_current_user),
-    _rl: None = Depends(rate_limit("catalog_search")),
+    _current_user: User = READ,
+    _rl: None = Depends(rate_limit("catalog_search", user=_reader)),
 ):
     return get_profile_catalog_service().search_parts(q, cat_id, limit, offset)
 
 
+@router.get("/profile-catalog/parts/{part}")
+def get_profile_catalog_part(part: str, _current_user: User = READ):
+    """One part by Rebrickable number or BrickLink ID."""
+    index = get_profile_catalog_service().index()
+    rows = index.rows_for(part)
+    if not rows:
+        raise APIError(404, f"No part {part!r} in the catalog", "PART_NOT_FOUND")
+    return part_preview(rows[0], index)
+
+
 @router.get("/profile-catalog/categories")
-def list_profile_catalog_categories(_current_user: User = Depends(get_current_user)):
-    """The Rebrickable part categories, for narrowing a part search. Served to any
-    signed-in user — the admin parts-db route is the same list behind a role gate,
-    and the part-correction picker needs it without making labelers admins."""
+def list_profile_catalog_categories(_current_user: User = READ):
+    """The Rebrickable part categories. Served to any signed-in user: the
+    part-correction picker needs it without making labelers admins."""
     return {"results": get_profile_catalog_service().admin_list_categories()}
+
+
+@router.get("/profile-catalog/bricklink-categories")
+def list_profile_catalog_bricklink_categories(
+    q: str = "",
+    all: bool = False,
+    _current_user: User = READ,
+):
+    """The BrickLink part categories with how many catalog parts are in each:
+    only those with parts (most of BrickLink's are sets and themes) unless
+    all=true, and only those whose name contains q."""
+    index = get_profile_catalog_service().index()
+    counts: dict[int, int] = {}
+    for value in index.column("bl_category_id"):
+        if value == value:  # not NaN
+            counts[int(value)] = counts.get(int(value), 0) + 1
+    needle = q.strip().lower()
+    results = [
+        {
+            "id": category_id,
+            "name": category.get("category_name") or str(category_id),
+            "parent_id": category.get("parent_id"),
+            "part_count": counts.get(category_id, 0),
+        }
+        for category_id, category in index.bricklink_categories.items()
+        if (all or counts.get(category_id)) and needle in (category.get("category_name") or "").lower()
+    ]
+    return {"results": sorted(results, key=lambda item: item["name"].lower())}
 
 
 @router.get("/profile-catalog/search-sets")
@@ -167,72 +280,200 @@ def search_profile_catalog_sets(
     q: str = "",
     min_year: int | None = None,
     max_year: int | None = None,
-    _current_user: User = Depends(get_current_user),
+    _current_user: User = READ,
 ):
+    if not settings.REBRICKABLE_API_KEY:
+        raise APIError(503, "Set search is not set up on this Hive (it has no Rebrickable key)", "SET_SEARCH_UNAVAILABLE")
     if not q.strip():
         return {"results": []}
-    return {"results": get_profile_catalog_service().search_sets(
-        q.strip(), min_year=min_year, max_year=max_year,
-    )}
+    return {"results": get_profile_catalog_service().search_sets(q.strip(), min_year=min_year, max_year=max_year)}
+
+
+@router.get("/profile-catalog/sets/{set_num}")
+def get_profile_catalog_set(set_num: str, _current_user: User = READ):
+    """A LEGO set and its parts inventory."""
+    return get_profile_catalog_service().get_set_inventory(set_num)
 
 
 @router.get("/profile-catalog/colors")
-def list_profile_catalog_colors(
-    _current_user: User = Depends(get_current_user),
-):
-    return {"results": get_profile_catalog_service().list_colors()}
+def list_profile_catalog_colors(q: str = "", _current_user: User = READ):
+    """The colors rules test: `id` is the Rebrickable color ID (what conditions
+    take), `bricklink_id` the BrickLink one (what a sorter reports). q filters
+    by name."""
+    catalog = get_profile_catalog_service()
+    index = catalog.index()
+    needle = q.strip().lower()
+    return {
+        "results": [
+            {**color, "bricklink_id": index.bl_color(color["id"])}
+            for color in catalog.list_colors()
+            if needle in (color.get("name") or "").lower()
+        ]
+    }
 
 
 @router.post("/profile-catalog/import-bricklink-csv")
 def import_profile_catalog_bricklink_csv(
     payload: SortingProfileBricklinkCsvImportRequest,
-    _current_user: User = Depends(get_current_user),
+    _current_user: User = READ,
     _csrf: None = Depends(verify_csrf),
 ):
-    return get_profile_catalog_service().import_bricklink_csv(
-        payload.csv_content,
-        filename=payload.filename,
-    )
+    return get_profile_catalog_service().import_bricklink_csv(payload.csv_content, filename=payload.filename)
+
+
+# --- Trying a profile out without saving it --------------------------------------
+
+
+def _compile_draft(db: Session, owner_id: UUID, document: dict[str, Any]):
+    kits = kits_for_rules(db, owner_id, document.get("rules") or [])
+    compiled = get_profile_catalog_service().compile_document(document, kits)
+    return compiled, missing_kits(document.get("rules") or [], kits)
 
 
 @router.post("/profiles/preview")
 def preview_sorting_profile(
     payload: SortingProfilePreviewRequest,
-    _current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+    current_user: User = READ,
 ):
-    return get_profile_catalog_service().preview_document(payload.model_dump())
+    """Compile a draft: each bin it fills (name, picture, conditions in words,
+    part count, examples), what is wrong with it, and totals. Nothing is saved."""
+    started = perf_counter()
+    compiled, missing = _compile_draft(db, current_user.id, payload.model_dump())
+    artifact = compiled.artifact
+    stats = artifact["stats"]
+    return {
+        # Parts that go to a bin of their own (a rule, a kit or a fallback
+        # category) out of every part in the catalog; the rest go to the default.
+        "stats": {"total_parts": stats["total_parts"], "sorted": stats["sorted"]},
+        "categories": artifact["categories"],
+        "category_order": artifact["category_order"],
+        "rules": artifact["rules"],
+        "warnings": compiled.warnings,
+        "problems": [problem.as_dict() for problem in compiled.problems] + missing,
+        "requires": artifact["requires"],
+        "artifact_hash": artifact["artifact_hash"],
+        "compile_ms": round((perf_counter() - started) * 1000, 1),
+    }
 
 
 @router.post("/profiles/preview-rule")
 def preview_sorting_rule(
     payload: SortingProfilePreviewRequest,
-    rule_id: str | None = None,
+    rule_id: str,
     q: str = "",
-    offset: int = 0,
-    limit: int = 50,
+    offset: int = Query(default=0, ge=0),
+    limit: int = Query(default=50, ge=1, le=500),
     standalone: bool = False,
-    _current_user: User = Depends(get_current_user),
+    _current_user: User = READ,
 ):
-    target_rule = _find_rule(payload.rules, rule_id) if rule_id else None
-    if target_rule is None:
-        raise APIError(404, "Rule not found", "PROFILE_RULE_NOT_FOUND")
-    return get_profile_catalog_service().preview_rule(
-        rule=target_rule,
-        rules=[rule.model_dump() for rule in payload.rules],
-        rule_id=rule_id,
-        q=q,
-        offset=offset,
-        limit=limit,
-        standalone=standalone,
-    )
+    """The parts one rule of a draft matches, most sold first. A child rule is
+    matched inside its parents unless standalone."""
+    rules = [rule.model_dump() for rule in payload.rules]
+    try:
+        return get_profile_catalog_service().preview_rule(
+            rules=rules, rule_id=rule_id, q=q, offset=offset, limit=limit, standalone=standalone
+        )
+    except KeyError:
+        raise APIError(404, "Rule not found", "PROFILE_RULE_NOT_FOUND") from None
+
+
+@router.post("/profiles/route")
+def route_pieces(
+    payload: SortingProfileRouteRequest,
+    db: Session = Depends(get_db),
+    current_user: User = READ,
+):
+    """Where each piece would go, under a draft or a saved version: the bin it
+    lands in, and whether a rule, a kit, the fallback or the default sent it."""
+    catalog = get_profile_catalog_service()
+    index = catalog.index()
+    if payload.document is not None:
+        compiled, _missing = _compile_draft(db, current_user.id, payload.document.model_dump())
+        artifact = compiled.artifact
+    else:
+        if payload.profile_id is None:
+            raise APIError(400, "Give a document or a profile_id", "PROFILE_ROUTE_TARGET_MISSING")
+        profile = _get_profile_or_404(db, payload.profile_id)
+        _require_profile_view_access(profile, current_user)
+        version = _resolve_visible_version(profile, current_user, payload.version_id)
+        if version is None:
+            raise APIError(404, "Version not found", "PROFILE_VERSION_NOT_FOUND")
+        artifact = version.compiled_artifact_json or {}
+        if "program" not in artifact:
+            # Compiled before the program existed: compile its rules again.
+            recompiled, _missing = _compile_draft(db, profile.owner_id, _document_from_version(version))
+            artifact = recompiled.artifact
+    routing = ProfileRouter(artifact["program"])
+    categories = artifact.get("categories") or {}
+    # Kits start empty and fill in the order the pieces are given, as on a
+    # machine: a kit that has all it needs of a part passes the next one on.
+    left: dict[tuple[str, str, str], int] = {}
+    for kit_category, inventory in (artifact.get("set_inventories") or {}).items():
+        for line in inventory.get("parts") or []:
+            color = "any" if line.get("color_id") in (None, -1, "-1") else str(line.get("color_id"))
+            key = (str(kit_category), str(line.get("part_num")), color)
+            left[key] = left.get(key, 0) + int(line.get("quantity") or 0)
+
+    def kit_lines(category: str, part: str, color: str | None) -> list[tuple[str, str, str]]:
+        return [key for key in ((category, part, color or ""), (category, part, "any")) if key in left]
+
+    def kit_is_full(category: str, part: str, color: str | None) -> bool:
+        if not payload.fill_kits:
+            return False
+        lines = kit_lines(category, part, color)
+        return bool(lines) and all(left[key] <= 0 for key in lines)
+
+    results = []
+    for piece in payload.pieces:
+        rows = index.rows_for(piece.part)
+        part_key = index.keys[rows[0]][0] if rows else piece.part.strip()
+        color = None
+        color_info = None
+        if piece.color_id is not None:
+            if piece.color_id not in index.colors:
+                raise APIError(400, f"No Rebrickable color {piece.color_id}", "COLOR_NOT_FOUND")
+            color = index.bl_color(piece.color_id)
+        elif piece.bricklink_color_id is not None:
+            color = str(piece.bricklink_color_id)
+        if color is not None:
+            color_info = index.bl_colors.get(color, {"id": color, "name": f"BrickLink color {color}"})
+        category, why = routing.route(part_key, color, kit_is_full)
+        kit_left = None
+        if why == "kit":
+            lines = [key for key in kit_lines(category, part_key, color) if left[key] > 0]
+            if lines and payload.fill_kits:
+                left[lines[0]] -= 1
+            kit_left = sum(max(left[key], 0) for key in kit_lines(category, part_key, color))
+        category_info = categories.get(category) or {}
+        part = index.part(rows[0]) if rows else {}
+        results.append(
+            {
+                "part": piece.part,
+                "bricklink_id": part_key,
+                "part_name": part.get("name"),
+                "img_url": part.get("part_img_url"),
+                "known_part": bool(rows),
+                "color": color_info,
+                "category_id": category,
+                "category_name": category_info.get("name", category),
+                "why": why,
+                # For a kit: how many more of this part and color it still takes.
+                "kit_left": kit_left,
+            }
+        )
+    return {"results": results}
+
+
+# --- Profiles ---------------------------------------------------------------------
 
 
 @router.get("/profiles", response_model=list[SortingProfileSummaryResponse])
 def list_profiles(
-    scope: str = Query(default="discover"),
+    scope: str = Query(default="discover", pattern="^(discover|mine|library|defaults)$"),
     q: str = Query(default=""),
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = READ,
 ):
     profiles = _query_profiles_for_scope(db, current_user, scope, q)
     saved_profile_ids = _saved_profile_ids(db, current_user.id)
@@ -242,10 +483,12 @@ def list_profiles(
 @router.post("/profiles", response_model=SortingProfileDetailResponse)
 def create_profile(
     payload: SortingProfileCreateRequest,
+    request: Request,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = WRITE,
     _csrf: None = Depends(verify_csrf),
 ):
+    """A new profile, private, with a first version from the rules given (or none)."""
     visibility = _normalize_visibility(payload.visibility)
     profile = SortingProfile(
         owner_id=current_user.id,
@@ -258,18 +501,18 @@ def create_profile(
     )
     db.add(profile)
     db.flush()
-
     version = _create_version(
         db=db,
         profile=profile,
         current_user=current_user,
+        request=request,
         payload=SortingProfileVersionCreateRequest(
             name=profile.name,
             description=profile.description,
-            default_category_id="misc",
-            rules=[],
-            fallback_mode={},
-            change_note="Initial version",
+            default_category_id=payload.default_category_id or "misc",
+            rules=payload.rules,
+            fallback_mode=payload.fallback_mode.model_dump() if payload.fallback_mode is not None else {},
+            change_note=(payload.change_note or "").strip() or "Initial version",
             publish=False,
         ),
     )
@@ -283,7 +526,7 @@ def get_profile(
     profile_id: UUID,
     version_id: UUID | None = None,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = READ,
 ):
     profile = _get_profile_or_404(db, profile_id)
     _require_profile_view_access(profile, current_user)
@@ -292,11 +535,38 @@ def get_profile(
     return _serialize_profile_detail(db, profile, current_user, saved_profile_ids, current_version=current_version)
 
 
+@router.get("/profiles/{profile_id}/head", response_model=SortingProfileHeadResponse)
+def get_profile_head(
+    profile_id: UUID,
+    db: Session = Depends(get_db),
+    current_user: User = READ,
+):
+    """The profile's latest version and when it changed: cheap enough for an
+    open page to ask every few seconds, so a change made elsewhere (by an
+    assistant through the API, say) shows up without a reload."""
+    profile = _get_profile_or_404(db, profile_id)
+    _require_profile_view_access(profile, current_user)
+    query = db.query(SortingProfileVersion).filter(SortingProfileVersion.profile_id == profile.id)
+    if profile.owner_id != current_user.id:
+        query = query.filter(SortingProfileVersion.is_published.is_(True))
+    latest = query.order_by(SortingProfileVersion.version_number.desc()).first()
+    return {
+        "profile_id": profile.id,
+        "name": profile.name,
+        "updated_at": profile.updated_at,
+        "latest_version_id": latest.id if latest else None,
+        "latest_version_number": latest.version_number if latest else 0,
+        "latest_version_created_at": latest.created_at if latest else None,
+        "created_via": latest.created_via if latest else None,
+        "created_via_key_name": latest.created_via_key.name if latest and latest.created_via_key else None,
+    }
+
+
 @router.get("/profiles/{profile_id}/set-progress", response_model=SortingProfileSetProgressResponse)
 def get_profile_set_progress(
     profile_id: UUID,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = READ,
 ):
     from app.models.machine_set_progress import MachineSetProgress
 
@@ -356,7 +626,7 @@ def update_profile(
     profile_id: UUID,
     payload: SortingProfileUpdateRequest,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = WRITE,
     _csrf: None = Depends(verify_csrf),
 ):
     profile = _get_profile_or_404(db, profile_id)
@@ -384,7 +654,7 @@ def update_profile(
 def delete_profile(
     profile_id: UUID,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = WRITE,
     _csrf: None = Depends(verify_csrf),
 ):
     profile = _get_profile_or_404(db, profile_id)
@@ -407,7 +677,7 @@ def delete_profile(
 def save_profile_to_library(
     profile_id: UUID,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = WRITE,
     _csrf: None = Depends(verify_csrf),
 ):
     profile = _get_profile_or_404(db, profile_id)
@@ -426,7 +696,7 @@ def save_profile_to_library(
 def remove_profile_from_library(
     profile_id: UUID,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = WRITE,
     _csrf: None = Depends(verify_csrf),
 ):
     entry = db.query(SortingProfileLibraryEntry).filter(
@@ -447,9 +717,10 @@ def remove_profile_from_library(
 def fork_profile(
     profile_id: UUID,
     payload: SortingProfileForkRequest,
+    request: Request,
     version_id: UUID | None = None,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = WRITE,
     _csrf: None = Depends(verify_csrf),
 ):
     source_profile = _get_profile_or_404(db, profile_id)
@@ -474,6 +745,7 @@ def fork_profile(
         db=db,
         profile=fork,
         current_user=current_user,
+        request=request,
         payload=SortingProfileVersionCreateRequest(
             name=source_version.name,
             description=source_version.description,
@@ -540,17 +812,21 @@ def suggest_change_note(
     return {"change_note": note}
 
 
+
 @router.post("/profiles/{profile_id}/versions", response_model=SortingProfileVersionResponse)
 def create_profile_version(
     profile_id: UUID,
     payload: SortingProfileVersionCreateRequest,
+    request: Request,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = WRITE,
     _csrf: None = Depends(verify_csrf),
 ):
+    """Save a document as the profile's next version. Refused, with every
+    problem listed, when a condition cannot be evaluated or a kit is missing."""
     profile = _get_profile_or_404(db, profile_id)
     _require_profile_edit_access(profile, current_user)
-    version = _create_version(db=db, profile=profile, current_user=current_user, payload=payload)
+    version = _create_version(db=db, profile=profile, current_user=current_user, payload=payload, request=request)
     db.commit()
     db.refresh(version)
     return _serialize_version_detail(version)
@@ -561,7 +837,7 @@ def publish_profile_version(
     profile_id: UUID,
     version_id: UUID,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = WRITE,
     _csrf: None = Depends(verify_csrf),
 ):
     profile = _get_profile_or_404(db, profile_id)
@@ -573,24 +849,29 @@ def publish_profile_version(
         or version.version_number >= profile.latest_published_version_number
     ):
         profile.latest_published_version_number = version.version_number
+    profile.updated_at = datetime.now(timezone.utc)
     db.commit()
     db.refresh(version)
     return _serialize_version_detail(version)
 
 
-@router.get("/profiles/{profile_id}/versions/{version_id}/artifact", response_model=SortingProfileArtifactResponse)
+@router.get("/profiles/{profile_id}/versions/{version_id}/artifact")
 def get_profile_artifact(
     profile_id: UUID,
     version_id: UUID,
+    request: Request,
+    format: str = Query(default="program", pattern="^(program|legacy)$"),
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = READ,
 ):
+    """What a sorter runs for a version. "legacy" is the flat part map sorters
+    from before the program read (and their local profile upload takes)."""
     profile = _get_profile_or_404(db, profile_id)
     _require_profile_view_access(profile, current_user)
     version = _resolve_visible_version(profile, current_user, version_id)
     if version is None:
         raise APIError(404, "Version not found", "PROFILE_VERSION_NOT_FOUND")
-    return {"artifact": copy.deepcopy(version.compiled_artifact_json)}
+    return _artifact_response(version, format, request)
 
 
 @router.get("/profiles/{profile_id}/ai/messages", response_model=list[SortingProfileAiMessageResponse])
@@ -916,6 +1197,7 @@ def apply_profile_ai_message(
         db=db,
         profile=profile,
         current_user=current_user,
+        created_via="assistant",
         payload=SortingProfileVersionCreateRequest(
             name=base_version.name,
             description=base_version.description,
@@ -934,6 +1216,10 @@ def apply_profile_ai_message(
     return _serialize_version_detail(version)
 
 
+
+# --- Machines -----------------------------------------------------------------------
+
+
 @router.put("/machines/{machine_id}/profile-assignment", response_model=MachineProfileAssignmentResponse)
 def assign_machine_profile(
     machine_id: UUID,
@@ -942,8 +1228,6 @@ def assign_machine_profile(
     current_user: User = Depends(get_current_user),
     _csrf: None = Depends(verify_csrf),
 ):
-    from app.models.machine_set_progress import MachineSetProgress
-
     machine = (
         db.query(Machine)
         .filter(Machine.id == machine_id, Machine.owner_id == current_user.id)
@@ -1010,6 +1294,17 @@ def clear_machine_profile_assignment(
     return {"ok": True}
 
 
+# What a sorter can run, from the `features` it names when it asks. A sorter
+# that names none is one from before the program: it reads the flat map and
+# nothing a profile may require.
+def _machine_features(features: str | None) -> frozenset[str]:
+    return frozenset(item.strip() for item in (features or "").split(",") if item.strip())
+
+
+def _runs_on(version: SortingProfileVersion | None, features: frozenset[str]) -> bool:
+    return version is None or set(_version_requires(version)) <= features
+
+
 @router.get("/machine/profile-assignment", response_model=MachineProfileAssignmentResponse | None)
 def get_machine_profile_assignment(
     db: Session = Depends(get_db),
@@ -1046,12 +1341,21 @@ def assign_current_machine_profile(
 
 @router.get("/machine/profiles/library", response_model=MachineProfileLibraryResponse)
 def get_machine_profile_library(
+    features: str | None = Query(default=None),
     db: Session = Depends(get_db),
     machine: Machine = Depends(get_current_machine),
 ):
+    """The profiles a machine may run: its owner's, those in the owner's
+    library, and Hive's defaults, less any this sorter cannot run."""
+    runs = _machine_features(features)
     accessible_profiles = _accessible_profiles_for_user(db, machine.owner_id)
     saved_profile_ids = _saved_profile_ids(db, machine.owner_id)
-    profiles = [_serialize_profile_summary(db, profile, machine.owner, saved_profile_ids) for profile in accessible_profiles]
+    profiles = []
+    for profile in accessible_profiles:
+        versions = _visible_versions_for_user(profile, machine.owner)
+        if versions and not _runs_on(versions[0], runs):
+            continue
+        profiles.append(_serialize_profile_summary(db, profile, machine.owner, saved_profile_ids))
     assignment = (
         _serialize_machine_assignment(db, machine.profile_assignment, machine.owner, saved_profile_ids)
         if machine.profile_assignment is not None
@@ -1084,12 +1388,17 @@ def get_machine_profile_detail(
     )
 
 
-@router.get("/machine/profiles/versions/{version_id}/artifact", response_model=SortingProfileArtifactResponse)
+@router.get("/machine/profiles/versions/{version_id}/artifact")
 def download_machine_profile_artifact(
     version_id: UUID,
+    request: Request,
+    format: str = Query(default="legacy", pattern="^(program|legacy)$"),
+    features: str | None = Query(default=None),
     db: Session = Depends(get_db),
     machine: Machine = Depends(get_current_machine),
 ):
+    """A version as the asking sorter runs it: the program for a sorter that
+    asks for it, the flat part map for one that does not."""
     version = db.query(SortingProfileVersion).filter(SortingProfileVersion.id == version_id).first()
     if version is None:
         raise APIError(404, "Version not found", "PROFILE_VERSION_NOT_FOUND")
@@ -1097,7 +1406,13 @@ def download_machine_profile_artifact(
     if profile is None:
         raise APIError(404, "Profile not found", "PROFILE_NOT_FOUND")
     _require_profile_assignable_for_machine(profile, version, machine.owner_id, db)
-    return {"artifact": copy.deepcopy(version.compiled_artifact_json)}
+    if not _runs_on(version, _machine_features(features)):
+        raise APIError(
+            409,
+            "This profile needs newer sorter software. Update the sorter to run it.",
+            "PROFILE_NEEDS_NEWER_SORTER",
+        )
+    return _artifact_response(version, format, request)
 
 
 @router.post("/machine/profile-activation", response_model=MachineProfileAssignmentResponse)
@@ -1122,6 +1437,52 @@ def report_machine_profile_activation(
     return _serialize_machine_assignment(db, assignment, machine.owner, _saved_profile_ids(db, machine.owner_id))
 
 
+# --- Artifacts ------------------------------------------------------------------------
+
+# The flat map is built on request and kept, gzipped, for the last few
+# versions asked for: a sorter from before the program downloads a profile
+# when it is applied, and a busy profile's map runs to tens of MB (a tenth of
+# that gzipped).
+_LEGACY_CACHE: OrderedDict[tuple[str, str, int], bytes] = OrderedDict()
+_LEGACY_CACHE_SIZE = 4
+_legacy_lock = threading.Lock()
+
+
+def _json_response(body: bytes, request: Request | None, *, gzipped: bool = False) -> Response:
+    """JSON, gzipped for a client that takes it (every sorter does): artifacts
+    are large and compress about tenfold."""
+    accepts_gzip = request is not None and "gzip" in (request.headers.get("accept-encoding") or "")
+    if gzipped and not accepts_gzip:
+        return Response(content=gzip.decompress(body), media_type="application/json")
+    if not gzipped and accepts_gzip and len(body) > 64_000:
+        body, gzipped = gzip.compress(body, compresslevel=5), True
+    headers = {"Content-Encoding": "gzip", "Vary": "Accept-Encoding"} if gzipped else None
+    return Response(content=body, media_type="application/json", headers=headers)
+
+
+def _artifact_response(version: SortingProfileVersion, format: str, request: Request | None = None) -> Response:
+    artifact = version.compiled_artifact_json or {}
+    if format == "program" or "program" not in artifact:
+        # A version compiled before the program is already the flat map.
+        return _json_response(json.dumps({"artifact": artifact}).encode(), request)
+    index = get_profile_catalog_service().index()
+    key = (str(version.id), str(artifact.get("artifact_hash")), index.generation)
+    with _legacy_lock:
+        body = _LEGACY_CACHE.get(key)
+        if body is not None:
+            _LEGACY_CACHE.move_to_end(key)
+    if body is None:
+        body = gzip.compress(json.dumps({"artifact": expand_legacy(artifact, index)}).encode(), compresslevel=5)
+        with _legacy_lock:
+            _LEGACY_CACHE[key] = body
+            while len(_LEGACY_CACHE) > _LEGACY_CACHE_SIZE:
+                _LEGACY_CACHE.popitem(last=False)
+    return _json_response(body, request, gzipped=True)
+
+
+# --- Helpers ----------------------------------------------------------------------------
+
+
 def _query_profiles_for_scope(db: Session, current_user: User, scope: str, query: str) -> list[SortingProfile]:
     q = db.query(SortingProfile)
     search = f"%{query.lower()}%" if query else None
@@ -1135,6 +1496,8 @@ def _query_profiles_for_scope(db: Session, current_user: User, scope: str, query
             )
             .filter(SortingProfileLibraryEntry.user_id == current_user.id)
         )
+    elif scope == "defaults":
+        q = q.filter(SortingProfile.default_rank.is_not(None))
     else:
         q = q.filter(
             SortingProfile.visibility == "public",
@@ -1148,6 +1511,8 @@ def _query_profiles_for_scope(db: Session, current_user: User, scope: str, query
                 SortingProfile.description.ilike(search),
             )
         )
+    if scope == "defaults":
+        return q.order_by(SortingProfile.default_rank.asc()).all()
     return q.order_by(SortingProfile.updated_at.desc()).all()
 
 
@@ -1158,6 +1523,18 @@ def _saved_profile_ids(db: Session, user_id: UUID) -> set[UUID]:
         .all()
     )
     return {row[0] for row in rows}
+
+
+def _default_profiles(db: Session) -> list[SortingProfile]:
+    return (
+        db.query(SortingProfile)
+        .filter(
+            SortingProfile.default_rank.is_not(None),
+            SortingProfile.latest_published_version_number.is_not(None),
+        )
+        .order_by(SortingProfile.default_rank.asc())
+        .all()
+    )
 
 
 def _accessible_profiles_for_user(db: Session, user_id: UUID) -> list[SortingProfile]:
@@ -1175,7 +1552,7 @@ def _accessible_profiles_for_user(db: Session, user_id: UUID) -> list[SortingPro
         .order_by(SortingProfile.updated_at.desc())
         .all()
     )
-    for profile in library_profiles:
+    for profile in [*library_profiles, *_default_profiles(db)]:
         if profile.owner_id != user_id and profile.latest_published_version_number is None:
             continue
         if profile.id not in profile_ids:
@@ -1236,7 +1613,7 @@ def _require_profile_edit_access(profile: SortingProfile, current_user: User) ->
 
 
 def _require_profile_assignable(profile: SortingProfile, current_user: User, db: Session) -> None:
-    if profile.owner_id == current_user.id:
+    if profile.owner_id == current_user.id or profile.default_rank is not None:
         return
     if profile.visibility not in {"public", "unlisted"}:
         raise APIError(403, "This profile cannot be assigned", "PROFILE_ASSIGN_DENIED")
@@ -1250,6 +1627,8 @@ def _require_profile_assignable_for_machine(profile: SortingProfile, version: So
         return
     if not version.is_published:
         raise APIError(403, "Only published versions are available to machines", "PROFILE_VERSION_NOT_PUBLISHED")
+    if profile.default_rank is not None:
+        return
     saved_profile_ids = _saved_profile_ids(db, owner_id)
     if profile.id not in saved_profile_ids:
         raise APIError(403, "Profile is not in the machine owner's library", "PROFILE_LIBRARY_REQUIRED")
@@ -1268,15 +1647,41 @@ def _sanitize_tags(tags: list[str] | None) -> list[str]:
     return [tag.strip() for tag in tags if isinstance(tag, str) and tag.strip()]
 
 
+def _origin(request: Request | None, created_via: str | None) -> tuple[str, UUID | None]:
+    if created_via:
+        return created_via, None
+    if request is not None and getattr(request.state, "auth_via_api_key", False):
+        return "api", getattr(request.state, "api_key_id", None)
+    return "web", None
+
+
 def _create_version(
     *,
     db: Session,
     profile: SortingProfile,
     current_user: User,
     payload: SortingProfileVersionCreateRequest,
+    request: Request | None = None,
+    created_via: str | None = None,
 ) -> SortingProfileVersion:
     catalog = get_profile_catalog_service()
-    compiled = catalog.compile_document(payload.model_dump())
+    document = payload.model_dump()
+    document["id"] = str(profile.id)
+    owner = profile.owner or current_user
+    document["rules"] = kits_from_set_rules(db, catalog, owner, document["rules"])
+    kits = kits_for_rules(db, profile.owner_id, document["rules"])
+    compiled = catalog.compile_document(document, kits)
+    problems = [problem.as_dict() for problem in compiled.problems] + missing_kits(document["rules"], kits)
+    if problems:
+        raise APIError(
+            400,
+            f"{len(problems)} problem(s) keep this profile from compiling; nothing was saved",
+            "PROFILE_RULES_INVALID",
+            details=problems,
+        )
+    artifact = compiled.artifact
+    stats = artifact["stats"]
+    via, key_id = _origin(request, created_via)
     next_version_number = int(profile.latest_version_number or 0) + 1
     version = SortingProfileVersion(
         profile_id=profile.id,
@@ -1286,21 +1691,23 @@ def _create_version(
         change_note=(payload.change_note or "").strip() or None,
         name=payload.name.strip() or profile.name,
         description=(payload.description or "").strip() or None,
-        default_category_id=payload.default_category_id.strip() or "misc",
-        rules_json=[rule.model_dump() if hasattr(rule, "model_dump") else rule for rule in payload.rules],
-        fallback_mode_json=payload.fallback_mode.model_dump() if hasattr(payload.fallback_mode, "model_dump") else payload.fallback_mode,
-        compiled_artifact_json=compiled["artifact"],
-        compiled_stats_json=compiled["stats"],
-        compiled_hash=compiled["artifact_hash"],
-        compiled_part_count=compiled["compiled_part_count"],
-        coverage_ratio=compiled["coverage_ratio"],
+        default_category_id=artifact["default_category_id"],
+        rules_json=artifact["rules"],
+        fallback_mode_json=artifact["fallback_mode"],
+        compiled_artifact_json=artifact,
+        compiled_stats_json={**stats, "warnings": compiled.warnings, "requires": artifact["requires"]},
+        compiled_hash=artifact["artifact_hash"],
+        compiled_part_count=int(stats.get("sorted") or 0),
+        coverage_ratio=(stats["matched"] / stats["total_parts"]) if stats.get("total_parts") else None,
         is_published=bool(payload.publish),
+        created_via=via,
+        created_via_key_id=key_id,
     )
     db.add(version)
     profile.latest_version_number = next_version_number
     if payload.publish:
         profile.latest_published_version_number = next_version_number
-    profile.profile_type = _profile_type_from_artifact(compiled["artifact"])
+    profile.profile_type = artifact["profile_type"]
     profile.name = payload.name.strip() or profile.name
     profile.description = (payload.description or "").strip() or None
     profile.updated_at = datetime.now(timezone.utc)
@@ -1319,37 +1726,34 @@ def _document_from_version(version: SortingProfileVersion) -> dict:
     }
 
 
-def _rules_include_set_rules(rules: list | None) -> bool:
+def _rules_include_kits(rules: list | None) -> bool:
     for rule in rules or []:
         data = rule.model_dump() if hasattr(rule, "model_dump") else rule
         if not isinstance(data, dict):
             continue
-        if data.get("rule_type") == "set":
+        if data.get("rule_type") in ("set", "kit"):
             return True
-        if _rules_include_set_rules(data.get("children")):
+        if _rules_include_kits(data.get("children")):
             return True
     return False
 
 
-def _profile_type_from_artifact(artifact: dict | None) -> str:
-    if not isinstance(artifact, dict):
-        return "rule"
-    if artifact.get("profile_type") == "set":
-        return "set"
-    if artifact.get("set_inventories"):
-        return "set"
-    return "rule"
-
-
 def _profile_type_for_version(version: SortingProfileVersion | None) -> str:
+    # From the rules, not the compiled artifact, so a list of profiles never
+    # loads an artifact.
     if version is None:
         return "rule"
-    artifact_type = _profile_type_from_artifact(version.compiled_artifact_json)
-    if artifact_type == "set":
-        return "set"
-    if _rules_include_set_rules(version.rules_json):
-        return "set"
-    return "rule"
+    return "set" if _rules_include_kits(version.rules_json) else "rule"
+
+
+def _version_bins(version: SortingProfileVersion) -> list[dict[str, Any]]:
+    stats = version.compiled_stats_json if isinstance(version.compiled_stats_json, dict) else {}
+    return [item for item in stats.get("bins") or [] if isinstance(item, dict) and item.get("id")]
+
+
+def _version_requires(version: SortingProfileVersion) -> list[str]:
+    stats = version.compiled_stats_json if isinstance(version.compiled_stats_json, dict) else {}
+    return list(stats.get("requires") or [])
 
 
 def _serialize_profile_summary(
@@ -1396,6 +1800,9 @@ def _serialize_profile_summary(
         source=source,
         saved_in_library=profile.id in saved_profile_ids,
         is_owner=profile.owner_id == current_user.id,
+        is_default=profile.default_rank is not None,
+        default_rank=profile.default_rank,
+        web_url=f"{settings.public_app_url}/profiles/{profile.id}",
         latest_version=_serialize_version_summary(latest_version) if latest_version else None,
         latest_published_version=_serialize_version_summary(latest_published) if latest_published else None,
     )
@@ -1450,6 +1857,10 @@ def _serialize_version_summary(version: SortingProfileVersion | None) -> Sorting
         coverage_ratio=version.coverage_ratio,
         created_at=version.created_at,
         rules_summary=rules_summary,
+        created_via=version.created_via,
+        created_via_key_name=version.created_via_key.name if version.created_via_key else None,
+        requires=_version_requires(version),
+        bins=_version_bins(version),
     )
 
 
@@ -1459,14 +1870,30 @@ def _serialize_version_detail(version: SortingProfileVersion | None) -> SortingP
     summary = _serialize_version_summary(version)
     if summary is None:
         return None
-    raw_categories = (version.compiled_artifact_json or {}).get("categories", {})
+    stats = version.compiled_stats_json if isinstance(version.compiled_stats_json, dict) else {}
+    if described(version):
+        artifact = version.compiled_artifact_json or {}
+        raw_categories = artifact.get("categories", {})
+        category_order = artifact.get("category_order") or []
+        warnings = list(stats.get("warnings") or [])
+    else:
+        # Compiled before bins were described: its rules compiled again, for
+        # display only (and never its stored map, which runs to tens of MB).
+        try:
+            display = display_for(object_session(version), version)
+            raw_categories, category_order, warnings = display["categories"], display["category_order"], display["warnings"]
+        except Exception:
+            logger.exception("profiles: version %s could not be described", version.id)
+            raw_categories = {
+                str(rule.get("id")): {"name": rule.get("name") or "Untitled"}
+                for rule in version.rules_json or []
+                if isinstance(rule, dict)
+            }
+            category_order, warnings = list(raw_categories), []
     categories: dict[str, dict[str, Any]] = {}
     if isinstance(raw_categories, dict):
         for category_id, category_meta in raw_categories.items():
-            if isinstance(category_meta, dict):
-                categories[str(category_id)] = dict(category_meta)
-            else:
-                categories[str(category_id)] = {}
+            categories[str(category_id)] = dict(category_meta) if isinstance(category_meta, dict) else {}
     payload = summary.model_dump()
     payload.update(
         {
@@ -1475,8 +1902,15 @@ def _serialize_version_detail(version: SortingProfileVersion | None) -> SortingP
             "default_category_id": version.default_category_id,
             "rules": version.rules_json or [],
             "fallback_mode": version.fallback_mode_json or {},
-            "compiled_stats": version.compiled_stats_json,
+            # The totals; each bin's own count and examples are in categories.
+            "compiled_stats": {
+                key: value
+                for key, value in stats.items()
+                if key not in ("warnings", "requires", "bins", "bins_backfilled", "per_category", "samples")
+            },
             "categories": categories,
+            "category_order": [category for category in category_order if category in categories],
+            "warnings": warnings,
         }
     )
     return SortingProfileVersionResponse(**payload)
@@ -1597,16 +2031,3 @@ def _upsert_machine_assignment(
             MachineSetProgress.assignment_id == assignment.id
         ).delete(synchronize_session=False)
     return assignment
-
-
-def _find_rule(rules: list, rule_id: str | None):
-    if not rule_id:
-        return None
-    for rule in rules:
-        data = rule.model_dump() if hasattr(rule, "model_dump") else rule
-        if data.get("id") == rule_id:
-            return data
-        found = _find_rule(data.get("children", []), rule_id)
-        if found is not None:
-            return found
-    return None

@@ -1,6 +1,5 @@
 import unittest
 from types import SimpleNamespace
-from unittest.mock import patch
 
 import cv2
 import numpy as np
@@ -9,28 +8,6 @@ from fastapi.testclient import TestClient
 
 from server import shared_state
 from server.routers import detection
-
-
-class _FakeVisionManager:
-    def __init__(self) -> None:
-        self.calls: list[tuple[str, bool]] = []
-
-    def debugFeederDetection(self, role: str, *, include_capture: bool = False):
-        self.calls.append((role, include_capture))
-        return {
-            "camera": role,
-            "algorithm": "gemini_sam",
-            "found": False,
-            "message": "No piece in frame.",
-            "frame_resolution": [1280, 720],
-            "candidate_bboxes": [],
-            "bbox_count": 0,
-            "bbox": None,
-            "zone_bbox": None,
-        }
-
-    def getFeederOpenRouterModel(self) -> str:
-        return "google/gemini-3-flash-preview"
 
 
 def _synthetic_rotor_frame(phase_deg: float = 22.0) -> np.ndarray:
@@ -56,111 +33,23 @@ def _synthetic_rotor_frame(phase_deg: float = 22.0) -> np.ndarray:
 
 class DetectionRouteTests(unittest.TestCase):
     def setUp(self) -> None:
+        self._old_gc_ref = shared_state.gc_ref
         self._old_vision_manager = shared_state.vision_manager
         self._old_controller_ref = shared_state.controller_ref
 
     def tearDown(self) -> None:
+        shared_state.gc_ref = self._old_gc_ref
         shared_state.vision_manager = self._old_vision_manager
         shared_state.controller_ref = self._old_controller_ref
 
-    def test_debug_feeder_detection_accepts_classification_channel_role(self) -> None:
-        fake_vision = _FakeVisionManager()
-        shared_state.vision_manager = fake_vision
+    def test_sector_occupancy_waits_for_first_inference(self) -> None:
+        perception = SimpleNamespace(read_bboxes_and_frame=lambda channel_id: None)
+        shared_state.gc_ref = SimpleNamespace(perception_service=perception)
 
-        payload = detection.debug_feeder_detection("carousel")
+        with self.assertRaises(HTTPException) as error:
+            detection.classification_channel_sector_occupancy()
 
-        self.assertTrue(payload["ok"])
-        self.assertEqual("carousel", payload["camera"])
-        self.assertEqual([("carousel", True)], fake_vision.calls)
-
-    def test_debug_feeder_detection_rejects_unknown_role(self) -> None:
-        shared_state.vision_manager = _FakeVisionManager()
-
-        with self.assertRaises(HTTPException) as excinfo:
-            detection.debug_feeder_detection("nope")
-
-        self.assertEqual(400, excinfo.exception.status_code)
-        self.assertEqual("Unsupported feeder role.", excinfo.exception.detail)
-
-    def test_aux_detection_save_uses_actual_crop_offset_and_c4_source_role(self) -> None:
-        saved_calls: list[dict] = []
-
-        class FakeTrainingManager:
-            def saveAuxiliaryDetectionCapture(self, **kwargs):
-                saved_calls.append(kwargs)
-                return {"ok": True}
-
-        class FakeVision:
-            def supportsCarouselSampleCollection(self) -> bool:
-                return True
-
-            def sampleSourceRoleForRole(self, role: str) -> str:
-                return "classification_channel" if role == "carousel" else role
-
-        shared_state.vision_manager = FakeVision()
-        sample_capture = {
-            "input_image": np.zeros((1080, 1308, 3), dtype=np.uint8),
-            "frame": np.zeros((1080, 1920, 3), dtype=np.uint8),
-            "crop_offset": (308, 0),
-        }
-        payload = {
-            "camera": "carousel",
-            "algorithm": "gemini_sam",
-            "frame_resolution": [1920, 1080],
-            "zone_bbox": [308, -60, 1616, 1248],
-            "found": True,
-            "bbox": [914, 0, 1087, 158],
-            "candidate_bboxes": [
-                [914, 0, 1087, 158],
-                [996, 3, 1112, 130],
-                [738, 85, 815, 129],
-            ],
-            "bbox_count": 3,
-            "score": 0.99,
-            "message": "Cloud vision found candidate pieces.",
-        }
-
-        with patch.object(detection, "getClassificationTrainingManager", return_value=FakeTrainingManager()):
-            result = detection._finalize_aux_detection_debug_payload(
-                role="carousel",
-                payload=payload,
-                sample_capture=sample_capture,
-                openrouter_model="google/gemini-3-flash-preview",
-            )
-
-        self.assertTrue(result["ok"])
-        self.assertEqual(1, len(saved_calls))
-        saved = saved_calls[0]
-        self.assertEqual("classification_channel", saved["source_role"])
-        self.assertEqual("carousel", saved["detection_scope"])
-        self.assertEqual([606, 0, 779, 158], saved["detection_bbox"])
-        self.assertEqual(
-            [
-                [606, 0, 779, 158],
-                [688, 3, 804, 130],
-                [430, 85, 507, 129],
-            ],
-            saved["detection_candidate_bboxes"],
-        )
-
-    def test_classification_channel_wall_phase_uses_live_frame(self) -> None:
-        class FakeVision:
-            def getCaptureThreadForRole(self, role: str):
-                if role == "carousel":
-                    return SimpleNamespace(
-                        latest_frame=SimpleNamespace(raw=_synthetic_rotor_frame())
-                    )
-                return None
-
-        shared_state.vision_manager = FakeVision()
-
-        payload = detection.classification_channel_wall_phase()
-
-        self.assertTrue(payload["ok"])
-        self.assertGreaterEqual(payload["wall_count"], 4)
-        self.assertAlmostEqual(22.0, payload["sector_offset_deg"], delta=3.0)
-        self.assertGreater(payload["frame_luma"]["mean"], 100.0)
-        self.assertGreater(payload["frame_luma"]["nonblack_gt25_ratio"], 0.5)
+        self.assertEqual(503, error.exception.status_code)
 
     def test_classification_channel_sector_occupancy_rolls_candidates_into_sectors(self) -> None:
         frame = _synthetic_rotor_frame(phase_deg=22.0)
@@ -182,21 +71,14 @@ class DetectionRouteTests(unittest.TestCase):
             bbox_at_angle(202.0),
         ]
 
-        class FakeVision:
-            def __init__(self) -> None:
-                self.calls: list[tuple[bool, object]] = []
+        calls = []
 
-            def getCaptureThreadForRole(self, role: str):
-                if role == "carousel":
-                    return SimpleNamespace(latest_frame=SimpleNamespace(raw=frame))
-                return None
+        class FakePerception:
+            def read_bboxes_and_frame(self, channel_id):
+                calls.append(channel_id)
+                return candidates, SimpleNamespace(bgr=frame)
 
-            def getClassificationChannelDetectionCandidates(self, *, force: bool = False, frame=None):
-                self.calls.append((force, frame))
-                return candidates
-
-        fake_vision = FakeVision()
-        shared_state.vision_manager = fake_vision
+        shared_state.gc_ref = SimpleNamespace(perception_service=FakePerception())
         shared_state.controller_ref = SimpleNamespace(
             coordinator=SimpleNamespace(
                 irl_config=SimpleNamespace(
@@ -228,23 +110,16 @@ class DetectionRouteTests(unittest.TestCase):
             for sector in payload["sectors"]
             if sector["state"] == "occupied"
         ])
-        self.assertEqual(1, len(fake_vision.calls))
-        self.assertFalse(fake_vision.calls[0][0])
-        self.assertIs(fake_vision.calls[0][1].raw, frame)
+        self.assertEqual([4], calls)
 
     def test_classification_channel_sector_occupancy_reports_dark_frame_diagnostics(self) -> None:
         frame = np.zeros((720, 720, 3), dtype=np.uint8)
 
-        class FakeVision:
-            def getCaptureThreadForRole(self, role: str):
-                if role == "carousel":
-                    return SimpleNamespace(latest_frame=SimpleNamespace(raw=frame))
-                return None
+        class FakePerception:
+            def read_bboxes_and_frame(self, channel_id):
+                return [], SimpleNamespace(bgr=frame)
 
-            def getClassificationChannelDetectionCandidates(self, *, force: bool = False, frame=None):
-                raise AssertionError("detection should not run before wall phase succeeds")
-
-        shared_state.vision_manager = FakeVision()
+        shared_state.gc_ref = SimpleNamespace(perception_service=FakePerception())
 
         payload = detection.classification_channel_sector_occupancy()
 
@@ -259,16 +134,11 @@ class DetectionRouteTests(unittest.TestCase):
     def test_classification_channel_sector_occupancy_endpoint_reports_dark_frame_diagnostics(self) -> None:
         frame = np.zeros((720, 720, 3), dtype=np.uint8)
 
-        class FakeVision:
-            def getCaptureThreadForRole(self, role: str):
-                if role == "carousel":
-                    return SimpleNamespace(latest_frame=SimpleNamespace(raw=frame))
-                return None
+        class FakePerception:
+            def read_bboxes_and_frame(self, channel_id):
+                return [], SimpleNamespace(bgr=frame)
 
-            def getClassificationChannelDetectionCandidates(self, *, force: bool = False, frame=None):
-                raise AssertionError("detection should not run before wall phase succeeds")
-
-        shared_state.vision_manager = FakeVision()
+        shared_state.gc_ref = SimpleNamespace(perception_service=FakePerception())
         app = FastAPI()
         app.include_router(detection.router)
 

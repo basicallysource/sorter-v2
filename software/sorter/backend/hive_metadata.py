@@ -4,8 +4,8 @@ import threading
 import time
 from typing import Any, Optional
 
-from blob_manager import getHiveConfig
 from global_config import GlobalConfig
+from local_state import get_hive_config
 
 # The sorter-client ``HiveClient`` lives alongside the sorter tree and is
 # injected onto ``sys.path`` by ``server.hive_models`` at import time.
@@ -13,7 +13,7 @@ from server.hive_models import HiveClient, HiveError
 
 # Single source of per-piece metadata + BrickLink pricing. Hive owns the parts
 # catalog; the machine fetches flattened metadata over the API and keeps a
-# write-through persistent cache (local_state.hive_part_metadata_cache) so prices
+# write-through persistent cache (hive_metadata_cache.py) so prices
 # keep working across restarts and Hive outages. Nothing here reads a local
 # parts.db — that dependency was removed.
 
@@ -42,7 +42,7 @@ _bricklink_colors_lock = threading.Lock()
 
 
 def getPrimaryHiveTarget() -> Optional[dict[str, Any]]:
-    config = getHiveConfig()
+    config = get_hive_config()
     if not isinstance(config, dict):
         return None
     targets = [
@@ -110,7 +110,7 @@ def _fetchFromHive(
 def _storeResult(
     part_num: str, color_key: Optional[int], metadata: Optional[dict[str, Any]]
 ) -> None:
-    from local_state import put_cached_part_metadata
+    from hive_metadata_cache import put_cached_part_metadata
 
     with _cache_lock:
         _cache[(part_num, color_key)] = metadata
@@ -156,7 +156,7 @@ def getPieceMetadata(
             if key in _cache:
                 return _cache[key]
 
-        from local_state import get_cached_part_metadata
+        from hive_metadata_cache import get_cached_part_metadata
 
         payload, _moving_avg, cached_at = get_cached_part_metadata(part_num, color_key)
         if payload is not None and cached_at is not None:
@@ -172,13 +172,37 @@ def getPieceMetadata(
     return metadata
 
 
+def cachedPieceMetadata(
+    part_num: Optional[str], color_id: Optional[Any] = None
+) -> tuple[bool, Optional[dict[str, Any]]]:
+    """(known, metadata) from memory only, never the database or Hive: what the
+    control loop may call. getPieceMetadata on another thread fills the memory."""
+    if not part_num:
+        return True, None
+    with _cache_lock:
+        key = (part_num, _parseColorKey(color_id))
+        if key in _cache:
+            return True, _cache[key]
+    return False, None
+
+
+def warmPieceMetadata(gc: GlobalConfig, part_num: str, color_id: Optional[Any] = None) -> None:
+    def _run() -> None:
+        try:
+            getPieceMetadata(gc, part_num, color_id)
+        except Exception as exc:
+            gc.logger.warning(f"hive piece metadata warm-up failed for {part_num}: {exc}")
+
+    threading.Thread(target=_run, daemon=True, name="hive-metadata-warm").start()
+
+
 def getBatchMovingAvgPrices(
     gc: GlobalConfig, pairs: list[tuple[Optional[str], Optional[Any]]]
 ) -> dict[tuple[Optional[str], Optional[Any]], Optional[float]]:
     """Moving-average price for many (part_id, color_id) pairs. Serves from the
     persistent cache (any age — historical revaluation tolerates stale) and fills
     all misses with a single batch request to Hive. Missing/unreachable → None."""
-    from local_state import get_cached_part_prices, put_cached_part_prices
+    from hive_metadata_cache import get_cached_part_prices, put_cached_part_prices
 
     result: dict[tuple[Optional[str], Optional[Any]], Optional[float]] = {}
     lookup_pairs = [(p, c) for (p, c) in pairs if p]

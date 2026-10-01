@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { coverageColor } from './coverage';
 	interface Props {
 		values: number[];
 		height?: number;
@@ -31,16 +32,7 @@
 	});
 
 	const last = $derived(values.length > 0 ? values[values.length - 1] : 0);
-	const color = $derived(
-		// Same coverage ramp as DiversityDonut: token endpoints, untokenised midpoints.
-		last >= 1
-			? 'var(--color-success)'
-			: last >= 0.6
-				? '#7AAE3D'
-				: last >= 0.3
-					? '#FFA500'
-					: 'var(--color-primary)'
-	);
+	const color = $derived(coverageColor(Math.max(last, 0.01)));
 </script>
 
 <div class="relative w-full" class:pr-8={showAxis} style="height: {height}px;">
@@ -51,7 +43,7 @@
 				x2="100"
 				y1={100 - g}
 				y2={100 - g}
-				class="stroke-border"
+				class="stroke-line"
 				stroke-width="1"
 				stroke-dasharray="2,2"
 				vector-effect="non-scaling-stroke"
@@ -74,7 +66,7 @@
 	{#if showAxis}
 		{#each gridlines as g (g)}
 			<span
-				class="pointer-events-none absolute right-0 -translate-y-1/2 pl-1 text-[9px] tabular-nums text-text-muted"
+				class="num pointer-events-none absolute right-0 -translate-y-1/2 pl-1 text-xs text-ink-muted"
 				style="top: {100 - g}%;"
 			>
 				{g}%

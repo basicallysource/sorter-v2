@@ -1,45 +1,27 @@
 from __future__ import annotations
 
-from dataclasses import asdict, is_dataclass
 import threading
 import time
-from typing import Any, Dict, Literal, cast
+from typing import Any, Dict
 
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 import serial.tools.list_ports
 
-from machine_setup import (
-    CLASSIFICATION_CHANNEL_SETUP,
-    MANUAL_CAROUSEL_SETUP,
-    get_machine_setup_definition,
-    get_machine_setup_options,
-    machine_setup_key_from_feeding_mode,
-    normalize_machine_setup_key,
-)
-from blob_manager import getMachineId, getMachineNickname
 from hardware.bus import MCUBus
 from hardware.firmware_flash import bootloaderPresent
-from irl.config import (
-    DEFAULT_CLASSIFICATION_CHANNEL_MODE,
-    DEFAULT_FEEDER_MODE,
-    ClassificationChannelMode,
-    FeederMode,
-    _requiredCanonicalStepperNames,
-    cameraLayout,
-)
+from irl.config import _requiredCanonicalStepperNames
 from irl.parse_user_toml import (
     LOGICAL_STEPPER_BINDING_BASES,
-    loadMachineSetupConfig,
     loadStepperBindingOverrides,
 )
+from local_state import get_or_create_machine_id
 from machine_platform.control_board import discover_control_boards
 from server import shared_state
-from server.config_helpers import (
-    read_machine_params_config as _read_machine_params_config,
-    write_machine_params_config as _write_machine_params_config,
-)
-from server.routers.hardware import _servo_settings_from_config
+import machine_toml
+from server.routers.cameras import CAMERA_SETUP_ROLES, _camera_source_for_role
+from server.routers.servos import _servo_settings_from_config
+from toml_config import getMachineNickname
 
 router = APIRouter()
 
@@ -58,26 +40,6 @@ C4_BACKING_STEPPER = "carousel"
 
 class StepperDirectionPayload(BaseModel):
     inverted: bool
-
-
-class CameraLayoutPayload(BaseModel):
-    layout: Literal["default", "split_feeder"]
-
-
-class FeedingModePayload(BaseModel):
-    mode: Literal["auto_channels", "manual_carousel"]
-
-
-class MachineSetupPayload(BaseModel):
-    setup: Literal["classification_channel", "manual_carousel"]
-
-
-class ClassificationChannelModePayload(BaseModel):
-    mode: str
-
-
-class FeederSubsystemModePayload(BaseModel):
-    mode: str
 
 
 def _board_summary(board: Any) -> dict[str, Any]:
@@ -110,99 +72,28 @@ def _close_discovered_boards(boards: list[Any]) -> None:
 
 
 def _camera_assignments_from_config(config: Dict[str, Any]) -> dict[str, Any]:
-    cameras = config.get("cameras", {})
-    if not isinstance(cameras, dict):
-        cameras = {}
-    layout = cameras.get("layout")
-    if layout not in {"default", "split_feeder"}:
-        layout = None
-    return {
-        "layout": layout,
-        "feeder": cameras.get("feeder"),
-        "c_channel_2": cameras.get("c_channel_2"),
-        "c_channel_3": cameras.get("c_channel_3"),
-        "classification_channel": cameras.get("classification_channel", cameras.get("carousel")),
-        "carousel": cameras.get("carousel"),
-        "classification_top": cameras.get("classification_top"),
-        "classification_bottom": cameras.get("classification_bottom"),
-    }
+    return {role: _camera_source_for_role(config, role) for role in CAMERA_SETUP_ROLES}
 
 
 def _camera_assignments_complete(camera_assignments: dict[str, Any]) -> bool:
-    layout = camera_assignments.get("layout")
-    if layout not in {"default", "split_feeder"}:
-        return False
-    if layout == "split_feeder":
-        return all(camera_assignments.get(role) is not None for role in ("c_channel_2", "c_channel_3")) and (
-            camera_assignments.get("classification_channel") is not None
-            or camera_assignments.get("carousel") is not None
-        )
-    required_roles = ("feeder",)
-    return all(camera_assignments.get(role) is not None for role in required_roles)
-
-
-def _legacy_feeding_mode_from_config(config: Dict[str, Any]) -> str:
-    feeding = config.get("feeding", {})
-    if not isinstance(feeding, dict):
-        return "auto_channels"
-    mode = feeding.get("mode", "auto_channels")
-    if mode not in {"auto_channels", "manual_carousel"}:
-        return "auto_channels"
-    return cast(str, mode)
-
-
-def _machine_setup_key_from_config(config: Dict[str, Any]) -> str:
-    machine_setup = config.get("machine_setup", {})
-    if isinstance(machine_setup, dict):
-        setup_key = normalize_machine_setup_key(machine_setup.get("type"))
-        if setup_key is not None:
-            return setup_key
-    return machine_setup_key_from_feeding_mode(_legacy_feeding_mode_from_config(config))
-
-
-def _machine_setup_payload(setup_key: str) -> dict[str, Any]:
-    return get_machine_setup_definition(setup_key).to_dict()
-
-
-def _feeding_mode_from_config(config: Dict[str, Any]) -> str:
-    return get_machine_setup_definition(_machine_setup_key_from_config(config)).feeding_mode
-
-
-def _persist_machine_setup(config: Dict[str, Any], setup_key: str) -> Dict[str, Any]:
-    definition = get_machine_setup_definition(setup_key)
-
-    machine_setup = config.get("machine_setup", {})
-    if not isinstance(machine_setup, dict):
-        machine_setup = {}
-    config["machine_setup"] = {
-        **machine_setup,
-        "type": definition.key,
-    }
-
-    feeding = config.get("feeding", {})
-    if not isinstance(feeding, dict):
-        feeding = {}
-    config["feeding"] = {
-        **feeding,
-        "mode": definition.feeding_mode,
-    }
-    return config
+    return all(
+        camera_assignments.get(role) is not None
+        for role in ("c_channel_2", "c_channel_3", "classification_channel")
+    )
 
 
 def _current_stepper_direction_payload() -> list[dict[str, Any]]:
-    _, config = _read_machine_params_config()
+    config = machine_toml.read()
     inverts = config.get("stepper_direction_inverts", {})
     if not isinstance(inverts, dict):
         inverts = {}
 
     active_irl = shared_state.getActiveIRL()
     entries: list[dict[str, Any]] = []
-    logical_names = list(LOGICAL_STEPPER_BINDING_BASES.keys())
-    if _machine_setup_key_from_config(config) == CLASSIFICATION_CHANNEL_SETUP:
-        logical_names = [
-            C4_LOGICAL_STEPPER if name == C4_BACKING_STEPPER else name
-            for name in logical_names
-        ]
+    logical_names = [
+        C4_LOGICAL_STEPPER if name == C4_BACKING_STEPPER else name
+        for name in LOGICAL_STEPPER_BINDING_BASES
+    ]
 
     for logical_name in logical_names:
         attr_base = _stepper_attr_base(logical_name)
@@ -494,13 +385,10 @@ def _build_discovery_payload(
     }
     gc = shared_state.gc_ref
     try:
-        machine_setup_key = loadMachineSetupConfig(gc) if gc is not None else None
         binding_overrides = loadStepperBindingOverrides(gc) if gc is not None else {}
     except Exception:
-        machine_setup_key = None
         binding_overrides = {}
-    machine_setup = get_machine_setup_definition(machine_setup_key)
-    required_stepper_names = _requiredCanonicalStepperNames(machine_setup, binding_overrides)
+    required_stepper_names = _requiredCanonicalStepperNames(binding_overrides)
     missing_required_steppers = sorted(
         stepper_name
         for stepper_name in required_stepper_names
@@ -599,46 +487,30 @@ def _build_discovery_payload(
     }
 
 
-def _serialize_machine_profile(active_irl: Any | None) -> dict[str, Any] | None:
-    if active_irl is None:
-        return None
-    profile = getattr(active_irl, "machine_profile", None)
-    if profile is None:
-        return None
-    if is_dataclass(profile):
-        return asdict(cast(Any, profile))
-    return None
-
-
 @router.get("/api/setup-wizard/needed")
 def get_setup_wizard_needed() -> Dict[str, bool]:
     # A machine that has never been through the wizard has neither a name nor a
     # single camera (first boot writes -1 or nothing). Cheap on purpose: the
     # Dashboard asks on every first load, and the full summary probes the USB buses.
-    _, config = _read_machine_params_config()
+    config = machine_toml.read()
     assignments = _camera_assignments_from_config(config)
     any_camera = any(
         value is not None and value != -1
         for role, value in assignments.items()
-        if role != "layout"
     )
     return {"needed": not getMachineNickname() and not any_camera}
 
 
 @router.get("/api/setup-wizard")
 def get_setup_wizard_summary() -> Dict[str, Any]:
-    _, config = _read_machine_params_config()
+    config = machine_toml.read()
     camera_assignments = _camera_assignments_from_config(config)
-    feeding_mode = _feeding_mode_from_config(config)
-    machine_setup_key = _machine_setup_key_from_config(config)
     servo_settings = _servo_settings_from_config(config)
     discovery = _discover_control_board_summary()
-    active_irl = shared_state.getActiveIRL()
 
     readiness = {
         "machine_named": bool(getMachineNickname()),
-        "boards_detected": len(discovery["boards"]) > 0,
-        "camera_layout_selected": camera_assignments["layout"] in {"default", "split_feeder"},
+        "boards_detected": bool(discovery["boards"]) and not discovery["missing_required_steppers"],
         "cameras_assigned": _camera_assignments_complete(camera_assignments),
         "servo_configured": (
             servo_settings["backend"] == "waveshare"
@@ -650,21 +522,16 @@ def get_setup_wizard_summary() -> Dict[str, Any]:
 
     return {
         "machine": {
-            "machine_id": shared_state.gc_ref.machine_id if shared_state.gc_ref is not None else getMachineId(),
+            "machine_id": shared_state.gc_ref.machine_id if shared_state.gc_ref is not None else get_or_create_machine_id(),
             "nickname": getMachineNickname(),
         },
         "hardware": {
             "state": shared_state.hardware_state,
             "error": shared_state.hardware_error,
             "homing_step": shared_state.hardware_homing_step,
-            "machine_profile": _serialize_machine_profile(active_irl),
         },
         "config": {
             "camera_assignments": camera_assignments,
-            "feeding": {
-                "mode": feeding_mode,
-            },
-            "machine_setup": _machine_setup_payload(machine_setup_key),
             "servo": {
                 "backend": servo_settings["backend"],
                 "layer_count": servo_settings["layer_count"],
@@ -672,135 +539,9 @@ def get_setup_wizard_summary() -> Dict[str, Any]:
             },
             "stepper_directions": _current_stepper_direction_payload(),
         },
-        "discovery": {
-            **discovery,
-            "recommended_camera_layout": cameraLayout(config.get("cameras")),
-        },
+        "discovery": discovery,
         "readiness": readiness,
     }
-
-
-@router.get("/api/feeding-mode")
-def get_feeding_mode() -> Dict[str, Any]:
-    _, config = _read_machine_params_config()
-    machine_setup_key = _machine_setup_key_from_config(config)
-    return {
-        "mode": _feeding_mode_from_config(config),
-        "machine_setup": _machine_setup_payload(machine_setup_key),
-        "requires_rehome": True,
-    }
-
-
-@router.post("/api/feeding-mode")
-def set_feeding_mode(payload: FeedingModePayload) -> Dict[str, Any]:
-    params_path, config = _read_machine_params_config()
-    if payload.mode == "manual_carousel":
-        next_setup_key = MANUAL_CAROUSEL_SETUP
-    else:
-        next_setup_key = CLASSIFICATION_CHANNEL_SETUP
-
-    config = _persist_machine_setup(config, next_setup_key)
-
-    try:
-        _write_machine_params_config(params_path, config)
-    except Exception as exc:
-        raise HTTPException(status_code=500, detail=f"Failed to write config: {exc}")
-
-    return {
-        "ok": True,
-        "mode": get_machine_setup_definition(next_setup_key).feeding_mode,
-        "machine_setup": _machine_setup_payload(next_setup_key),
-        "requires_rehome": True,
-    }
-
-
-@router.get("/api/machine-setup")
-def get_machine_setup() -> Dict[str, Any]:
-    _, config = _read_machine_params_config()
-    setup_key = _machine_setup_key_from_config(config)
-    return {
-        "setup": setup_key,
-        "machine_setup": _machine_setup_payload(setup_key),
-        "options": get_machine_setup_options(),
-        "requires_rehome": True,
-    }
-
-
-@router.post("/api/machine-setup")
-def set_machine_setup(payload: MachineSetupPayload) -> Dict[str, Any]:
-    params_path, config = _read_machine_params_config()
-    config = _persist_machine_setup(config, payload.setup)
-
-    try:
-        _write_machine_params_config(params_path, config)
-    except Exception as exc:
-        raise HTTPException(status_code=500, detail=f"Failed to write config: {exc}")
-
-    return {
-        "ok": True,
-        "setup": payload.setup,
-        "machine_setup": _machine_setup_payload(payload.setup),
-        "options": get_machine_setup_options(),
-        "requires_rehome": True,
-    }
-
-
-@router.get("/api/classification-channel-mode")
-def get_classification_channel_mode() -> Dict[str, Any]:
-    _, config = _read_machine_params_config()
-    current = config.get("classification_channel", {}).get("mode", DEFAULT_CLASSIFICATION_CHANNEL_MODE.value)
-    return {
-        "mode": current,
-        "default": DEFAULT_CLASSIFICATION_CHANNEL_MODE.value,
-        "options": [m.value for m in ClassificationChannelMode],
-    }
-
-
-@router.post("/api/classification-channel-mode")
-def set_classification_channel_mode(payload: ClassificationChannelModePayload) -> Dict[str, Any]:
-    valid = {m.value for m in ClassificationChannelMode}
-    if payload.mode not in valid:
-        raise HTTPException(status_code=400, detail=f"Invalid mode {payload.mode!r}; valid: {sorted(valid)}")
-    params_path, config = _read_machine_params_config()
-    section = config.get("classification_channel", {})
-    if not isinstance(section, dict):
-        section = {}
-    section["mode"] = payload.mode
-    config["classification_channel"] = section
-    try:
-        _write_machine_params_config(params_path, config)
-    except Exception as exc:
-        raise HTTPException(status_code=500, detail=f"Failed to write config: {exc}")
-    return {"ok": True, "mode": payload.mode}
-
-
-@router.get("/api/feeder-subsystem-mode")
-def get_feeder_subsystem_mode() -> Dict[str, Any]:
-    _, config = _read_machine_params_config()
-    current = config.get("feeder", {}).get("mode", DEFAULT_FEEDER_MODE.value)
-    return {
-        "mode": current,
-        "default": DEFAULT_FEEDER_MODE.value,
-        "options": [m.value for m in FeederMode],
-    }
-
-
-@router.post("/api/feeder-subsystem-mode")
-def set_feeder_subsystem_mode(payload: FeederSubsystemModePayload) -> Dict[str, Any]:
-    valid = {m.value for m in FeederMode}
-    if payload.mode not in valid:
-        raise HTTPException(status_code=400, detail=f"Invalid mode {payload.mode!r}; valid: {sorted(valid)}")
-    params_path, config = _read_machine_params_config()
-    section = config.get("feeder", {})
-    if not isinstance(section, dict):
-        section = {}
-    section["mode"] = payload.mode
-    config["feeder"] = section
-    try:
-        _write_machine_params_config(params_path, config)
-    except Exception as exc:
-        raise HTTPException(status_code=500, detail=f"Failed to write config: {exc}")
-    return {"ok": True, "mode": payload.mode}
 
 
 @router.get("/api/setup-wizard/stepper-directions")
@@ -817,17 +558,12 @@ def set_stepper_direction(stepper_name: str, payload: StepperDirectionPayload) -
         )
     config_key = _stepper_config_key(stepper_name)
 
-    params_path, config = _read_machine_params_config()
-    inverts = config.get("stepper_direction_inverts", {})
-    if not isinstance(inverts, dict):
-        inverts = {}
-    inverts = {**inverts, config_key: bool(payload.inverted)}
-    config["stepper_direction_inverts"] = inverts
-
-    try:
-        _write_machine_params_config(params_path, config)
-    except Exception as exc:
-        raise HTTPException(status_code=500, detail=f"Failed to write config: {exc}")
+    with machine_toml.edit() as config:
+        inverts = config.get("stepper_direction_inverts", {})
+        if not isinstance(inverts, dict):
+            inverts = {}
+        inverts = {**inverts, config_key: bool(payload.inverted)}
+        config["stepper_direction_inverts"] = inverts
 
     applied_live = False
     active_irl = shared_state.getActiveIRL()
@@ -847,25 +583,4 @@ def set_stepper_direction(stepper_name: str, payload: StepperDirectionPayload) -
         "inverted": bool(payload.inverted),
         "applied_live": applied_live,
         "steppers": _current_stepper_direction_payload(),
-    }
-
-
-@router.post("/api/setup-wizard/camera-layout")
-def set_setup_camera_layout(payload: CameraLayoutPayload) -> Dict[str, Any]:
-    params_path, config = _read_machine_params_config()
-    cameras = config.get("cameras", {})
-    if not isinstance(cameras, dict):
-        cameras = {}
-    cameras = {**cameras, "layout": payload.layout}
-    config["cameras"] = cameras
-
-    try:
-        _write_machine_params_config(params_path, config)
-    except Exception as exc:
-        raise HTTPException(status_code=500, detail=f"Failed to write config: {exc}")
-
-    return {
-        "ok": True,
-        "layout": payload.layout,
-        "camera_assignments": _camera_assignments_from_config(config),
     }

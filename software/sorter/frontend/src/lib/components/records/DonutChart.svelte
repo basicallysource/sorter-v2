@@ -1,6 +1,6 @@
 <script lang="ts">
-	// Hand-rolled SVG donut. Segments drawn with stroke-dasharray on a circle so
-	// there's no arc math to get wrong; legend carries the exact numbers.
+	// A donut drawn in SVG on a well. Segments are stroke-dasharray on a circle,
+	// so there is no arc math to get wrong; the legend carries the exact numbers.
 	export type DonutSegment = { label: string; value: number; color: string };
 
 	let {
@@ -34,60 +34,43 @@
 </script>
 
 {#if total === 0}
-	<div class="flex h-32 items-center justify-center text-sm text-text-muted">No data yet.</div>
+	<div class="flex h-32 items-center justify-center rounded-control bg-well text-sm text-ink-muted">
+		No data yet.
+	</div>
 {:else}
-	<div class="flex flex-wrap items-center gap-4">
-		<svg viewBox="0 0 120 120" class="h-36 w-36 flex-shrink-0" role="img">
-			<circle
-				cx="60"
-				cy="60"
-				r={R}
-				fill="none"
-				stroke="var(--color-border)"
-				stroke-width={STROKE}
-			/>
-			{#each arcs as a (a.label)}
-				<circle
-					cx="60"
-					cy="60"
-					r={R}
-					fill="none"
-					stroke={a.color}
-					stroke-width={STROKE}
-					stroke-dasharray="{a.dash} {C - a.dash}"
-					stroke-dashoffset={-a.offset}
-					transform="rotate(-90 60 60)"
-				>
-					<title>{a.label}: {a.value.toLocaleString()} ({pct(a.frac)})</title>
-				</circle>
-			{/each}
-			<text
-				x="60"
-				y="58"
-				text-anchor="middle"
-				font-size="14"
-				font-weight="700"
-				fill="var(--color-text)"
-			>
-				{total.toLocaleString()}
-			</text>
-			{#if centerLabel}
-				<text x="60" y="72" text-anchor="middle" font-size="9" fill="var(--color-text-muted)">
-					{centerLabel}
-				</text>
-			{/if}
-		</svg>
-		<div class="flex min-w-0 flex-1 flex-col gap-1">
-			{#each arcs as a (a.label)}
-				<div class="flex items-center gap-2 text-sm">
-					<span class="h-3 w-3 flex-shrink-0 border border-border" style:background-color={a.color}
-					></span>
-					<span class="truncate text-text">{a.label}</span>
-					<span class="ml-auto tabular-nums text-text-muted">
-						{a.value.toLocaleString()} · {pct(a.frac)}
-					</span>
-				</div>
-			{/each}
+	<div class="flex flex-wrap items-center gap-4 rounded-control bg-well p-4">
+		<div class="relative size-36 shrink-0">
+			<svg viewBox="0 0 120 120" class="size-full" role="img" aria-label="{centerLabel || 'Total'}: {total.toLocaleString()}">
+				<circle cx="60" cy="60" r={R} fill="none" stroke="var(--line)" stroke-width={STROKE} />
+				{#each arcs as a (a.label)}
+					<circle
+						cx="60"
+						cy="60"
+						r={R}
+						fill="none"
+						stroke={a.color}
+						stroke-width={STROKE}
+						stroke-dasharray="{a.dash} {C - a.dash}"
+						stroke-dashoffset={-a.offset}
+						transform="rotate(-90 60 60)"
+					>
+						<title>{a.label}: {a.value.toLocaleString()} ({pct(a.frac)})</title>
+					</circle>
+				{/each}
+			</svg>
+			<div class="pointer-events-none absolute inset-0 flex flex-col items-center justify-center">
+				<span class="num text-base font-semibold text-ink">{total.toLocaleString()}</span>
+				{#if centerLabel}<span class="text-xs text-ink-muted">{centerLabel}</span>{/if}
+			</div>
 		</div>
+		<ul class="flex min-w-0 flex-1 flex-col gap-1">
+			{#each arcs as a (a.label)}
+				<li class="flex items-center gap-2 text-sm">
+					<span class="size-3 shrink-0 rounded-badge" style:background-color={a.color}></span>
+					<span class="truncate text-ink">{a.label}</span>
+					<span class="num ml-auto text-ink-muted">{a.value.toLocaleString()} · {pct(a.frac)}</span>
+				</li>
+			{/each}
+		</ul>
 	</div>
 {/if}

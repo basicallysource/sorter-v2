@@ -7,7 +7,7 @@ the channel's center + reference angle, and the section sets that name the
 drop and exit arcs.
 
 This module imports numpy and cv2 only. It does NOT import from
-``vision_manager``, ``subsystems.feeder.*``, ``vision.tracking.*``, or
+``vision_manager``, ``subsystems.feeder.*``, or
 anything else from the legacy stack. The arc-zone parsing is intentionally
 re-implemented here from the saved-blob schema rather than reused from
 ``subsystems.feeder.analysis`` — perception is meant to stand alone.
@@ -41,6 +41,10 @@ CHANNEL_REGISTRY: dict[int, tuple[str, str, str]] = {
     3: ("c_channel_3", "third_channel", "third"),
     4: ("carousel", "classification_channel", "classification_channel"),
 }
+
+
+# The feeder channels: their exits drop onto the next channel.
+FEEDER_CHANNELS: frozenset[int] = frozenset({2, 3})
 
 
 # Zone-type vocabulary for secondary zones. A secondary zone is a labeled
@@ -102,6 +106,10 @@ class ChannelDef:
     # the exit-only arc instead of the near edge (see ``arcs._leadingExitApproach``).
     # Set per channel from ``REVERSE_TRAVEL_CHANNELS``; C2/C3 stay forward.
     reverse: bool = False
+    # A band just past the exit's edge, across the exit's angles (feeder
+    # channels). A detection wholly inside it is kept and shown, but it is not
+    # on this channel: the piece has left it.
+    exit_margin_mask: np.ndarray | None = None
 
     @property
     def has_zones(self) -> bool:
@@ -156,7 +164,7 @@ def _parse_arc_center(
 ) -> tuple[float, float] | None:
     """The arc center from the saved blob — the radial pivot the saved angles
     are measured from. THIS is the angle reference, not the polygon centroid.
-    The UI's zone overlay (``handdrawn_region_provider._channelMask``) uses
+    The UI's zone overlay uses
     ``arc.center`` for the exact same reason; perception must match or its
     section→pixel mapping silently drifts."""
     if not isinstance(arc_params_entry, Mapping):
@@ -175,7 +183,7 @@ def _parse_resolution(
 ) -> tuple[float, float] | None:
     """The (width, height) the polygon + arc were drawn against in the UI
     zone editor. The saved pixel coordinates are in this space; perception
-    (like ``handdrawn_region_provider._scaleForFrame``) must rescale them to
+    must rescale them to
     the live capture resolution or every zone lands off-frame when the camera
     delivers a different size than the editor used (e.g. zones saved at 4K,
     camera now streaming 720p)."""
@@ -278,9 +286,8 @@ def buildChannelDef(
 
     ``saved_resolution`` is the (width, height) the polygon + arc_center were
     drawn against in the zone editor. When it differs from ``frame_shape`` the
-    pixel coordinates are rescaled by ``(frame_w/saved_w, frame_h/saved_h)`` —
-    the same transform ``handdrawn_region_provider._scaleForFrame`` applies on
-    the legacy preview path. Section angles are resolution-independent, so only
+    pixel coordinates are rescaled by ``(frame_w/saved_w, frame_h/saved_h)``.
+    Section angles are resolution-independent, so only
     the polygon mask and the center pivot are scaled. Tests that already pass
     frame-space coordinates omit it and get the identity transform.
     """
@@ -348,7 +355,39 @@ def buildChannelDef(
         precise_sections=precise_sections,
         secondary_zones=secondary_zones,
         reverse=channel_id in REVERSE_TRAVEL_CHANNELS,
+        exit_margin_mask=(
+            _exitMarginMask(mask, center, exit_arc)
+            if channel_id in FEEDER_CHANNELS and exit_arc is not None
+            else None
+        ),
     )
+
+
+# How far past the exit's edge the margin reaches, as a share of the frame's width.
+EXIT_MARGIN_FRACTION = 0.05
+
+
+def _exitMarginMask(
+    mask: np.ndarray,
+    center: tuple[float, float],
+    exit_arc: tuple[float, float],
+) -> np.ndarray:
+    h, w = mask.shape[:2]
+    px = max(3, int(round(EXIT_MARGIN_FRACTION * w)))
+    grown = cv2.dilate(mask, np.ones((2 * px + 1, 2 * px + 1), np.uint8))
+    start = exit_arc[0]
+    span = (exit_arc[1] - exit_arc[0]) % 360.0
+    reach = float(w + h)
+    wedge_pts = [center] + [
+        (
+            center[0] + reach * np.cos(np.radians(start + span * i / 16)),
+            center[1] + reach * np.sin(np.radians(start + span * i / 16)),
+        )
+        for i in range(17)
+    ]
+    wedge = np.zeros_like(mask)
+    cv2.fillPoly(wedge, [np.asarray(wedge_pts, dtype=np.int32)], 255)
+    return cv2.bitwise_and(cv2.bitwise_and(grown, cv2.bitwise_not(mask)), wedge)
 
 
 def channelDefFromBlob(
@@ -430,7 +469,7 @@ def loadChannelDefs(
     """Build a ChannelDef per registered perception channel.
 
     Inputs are the same three blobs the legacy code reads from
-    ``local_state`` / ``blob_manager``:
+    ``local_state``:
     - ``saved_polygons``  → keys like ``"second_channel"`` / ``"third_channel"``
                              / ``"classification_channel"``
     - ``channel_angles``  → keys ``"second"`` / ``"third"`` / ``"classification_channel"``

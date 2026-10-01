@@ -1,6 +1,6 @@
 import time
 from dataclasses import replace
-from typing import Optional, TYPE_CHECKING
+from typing import TYPE_CHECKING
 
 from states.base_state import BaseState
 from subsystems.shared_variables import SharedVariables
@@ -9,14 +9,15 @@ from irl.config import IRLInterface, IRLConfig
 from global_config import GlobalConfig
 from vision import VisionManager
 
-from ..states import FeederState
 from .config import (
     PulsePerceptionConfig,
     channelMaxMoveOutputDeg,
     channelMoveSpeed,
 )
-from .stuck_watchdog import FeederStuckWatchdog
-from subsystems.feeder.incidents import feeder_jam_incident_active
+from .blind_arc import BlindArc, forward
+from .dispense_gate import DispenseGate
+from .stuck import JITTER_PRESETS, StuckPieces, jitterSeconds
+import incidents
 
 # A deliberately simple pulsing state machine on the new perception stack.
 #
@@ -55,28 +56,6 @@ MIN_MOVE_SPEED_USTEPS_PER_S = 16
 # takes effect live without a restart, without hammering the filesystem.
 _CONFIG_TTL_S = 1.0
 
-# After a C3 exit dispense, keep C3 blocked this long so the in-flight piece
-# can register downstream before we consider another move.
-CLASSIFICATION_PENDING_ADMISSION_MS = 1500
-
-
-def _leading_com(state) -> Optional[float]:
-    # Leading (most-forward) on-channel piece's travel position toward the exit.
-    # None when the channel reports no piece this frame. The jam watchdog treats
-    # this as the channel's progress signal.
-    pieces = getattr(state, "pieces", ())
-    if pieces:
-        return float(pieces[0].com_forward_to_exit_deg)
-    return None
-
-
-def _wants_advance(action) -> bool:
-    # The channel is actively trying to move THIS piece (ADVANCE/PRECISE), vs.
-    # intentionally holding for a busy downstream (FREEZE) or empty (IDLE).
-    from perception.cascade import Action
-
-    return action in (Action.ADVANCE, Action.PRECISE)
-
 
 class PulsePerceptionFeeding(BaseState):
     def __init__(
@@ -92,19 +71,18 @@ class PulsePerceptionFeeding(BaseState):
         self.shared = shared
         self.vision = vision
         self._busy_until: dict[str, float] = {}
-        self._stuck_watchdog = FeederStuckWatchdog(gc)
+        self._stuck = StuckPieces(gc)
         self._config: PulsePerceptionConfig = PulsePerceptionConfig()
         self._config_loaded_at: float = 0.0
-        self._classification_pending_until: float = 0.0
-        self._ch3_was_at_exit: bool = False
+        # One piece per hand-off: C2 into C3, C3 into the classification channel.
+        self._gates: dict[int, DispenseGate] = {2: DispenseGate(), 3: DispenseGate()}
+        # Output degrees each channel has been moved forward, and the pieces
+        # it carries through the part of its ring its camera cannot see.
+        self._odometer: dict[int, float] = {1: 0.0, 2: 0.0, 3: 0.0}
+        self._blind: dict[int, BlindArc] = {2: BlindArc(), 3: BlindArc()}
         # Per-channel monotonic timestamp of the last frame that reported a piece
         # in the drop zone. Drives the C2/C3 drop-zone occupancy latch.
         self._drop_seen_at: dict[int, float] = {}
-        machine_setup = getattr(irl_config, "machine_setup", None)
-        self._classification_setup = bool(
-            machine_setup is not None
-            and getattr(machine_setup, "uses_classification_channel", False)
-        )
 
     def _cfg(self) -> PulsePerceptionConfig:
         now = time.monotonic()
@@ -131,7 +109,10 @@ class PulsePerceptionFeeding(BaseState):
         cfg: PulsePerceptionConfig,
         enforce_min: bool = True,
     ) -> bool:
-        if self._busy(stepper):
+        # The window is the ramp-aware move time plus the pause, so the pause
+        # follows the end of the move; the board's own stopped state is the
+        # check, since the firmware refuses a pulse on an axis still moving.
+        if self._busy(stepper) or not stepper.stopped:
             return False
         speed = channelMoveSpeed(cfg, channel)
         output_deg = abs(output_deg)
@@ -148,6 +129,8 @@ class PulsePerceptionFeeding(BaseState):
         except Exception as exc:
             self.gc.logger.warning(f"PulsePerception: {label} speed set failed: {exc}")
         success = stepper.move_degrees(motor_deg)
+        if success:
+            self._odometer[channel] = self._odometer.get(channel, 0.0) + output_deg
         exec_ms = stepper.estimateMoveDegreesMs(abs(motor_deg), max_speed=speed or 5000)
         cooldown_ms = (max(0, exec_ms) + max(0, pause_ms)) if success else 500
         self._busy_until[stepper._name] = time.monotonic() + cooldown_ms / 1000.0
@@ -173,16 +156,17 @@ class PulsePerceptionFeeding(BaseState):
                 )
             except Exception:
                 pass
-        self._classification_pending_until = (
-            time.monotonic() + CLASSIFICATION_PENDING_ADMISSION_MS / 1000.0
-        )
 
     def _classification_ready(self, cfg: PulsePerceptionConfig) -> bool:
-        if not cfg.gate_ch3_on_classification_ready or not self._classification_setup:
+        if not cfg.gate_ch3_on_classification_ready:
             return True
-        if time.monotonic() < self._classification_pending_until:
-            return False
         return bool(self.shared.classification_ready)
+
+    def _gate(self, channel: int, cfg: PulsePerceptionConfig) -> DispenseGate:
+        gate = self._gates[channel]
+        gate.vanish_confirm_s = max(0, cfg.dispense_vanish_confirm_ms) / 1000.0
+        gate.hold_s = max(0, cfg.dispense_hold_ms) / 1000.0
+        return gate
 
     def _latch_drop(self, ch: int, state, now: float, cfg: PulsePerceptionConfig):
         """Persist drop-zone occupancy for one feeder channel.
@@ -203,18 +187,18 @@ class PulsePerceptionFeeding(BaseState):
             return replace(state, in_drop=True)
         return state
 
-    def step(self) -> Optional[FeederState]:
+    def step(self) -> None:
         cfg = self._cfg()
 
         can_run = self.gc.rotary_channel_steppers_can_operate_in_parallel or (
             not self.shared.chute_move_in_progress
         )
         if not can_run:
-            return FeederState.FEEDING
+            return
 
         perception_service = getattr(self.gc, "perception_service", None)
         if perception_service is None:
-            return FeederState.FEEDING
+            return
 
         from perception.cascade import Action, feederChannelAction, c1Action
         from perception.state import EMPTY_STATE
@@ -222,7 +206,6 @@ class PulsePerceptionFeeding(BaseState):
         states = perception_service.read_states()
         c2 = states.get(2, EMPTY_STATE)
         c3 = states.get(3, EMPTY_STATE)
-        c4 = states.get(4, EMPTY_STATE)
 
         now_mono = time.monotonic()
         # Hold C2/C3 drop-zone occupancy across brief detector dropouts so the
@@ -237,64 +220,39 @@ class PulsePerceptionFeeding(BaseState):
             # by the classification channel (shared.classification_ready, set per
             # its active mode: single-piece = whole channel empty, two-piece = drop
             # zone clear). The feeder just asks. The only feeder-side gate is the
-            # post-dispense admission window (let an in-flight piece register first).
-            c3_downstream_ready = (
-                now_mono >= self._classification_pending_until
-                and self._classification_ready(cfg)
-            )
-            action = feederChannelAction(
-                c3, downstream_clear=c3_downstream_ready, greedy=cfg.ch3_greedy_enabled
-            )
-            # C3 hung at the C2->C3 hand-off: keep C3 from hammering a piece it
-            # can't move; nudge C2 (its upstream) to free it, escalate on failure.
-            self._stuck_watchdog.observe(
-                channel_id=3,
-                channel_label="C3",
-                upstream_label="C2",
-                upstream_channel_id=2,
-                upstream_stepper=self.irl.c_channel_2_rotor_stepper,
-                upstream_enabled=bool(cfg.enable_ch2),
-                leading_pos_deg=_leading_com(c3),
-                wants_advance=_wants_advance(action),
-                cfg=cfg,
-                now=now_mono,
-            )
-            if not feeder_jam_incident_active(self.gc, channel_label="C3"):
-                self._apply_action(
-                    "ch3", 3, action, self.irl.c_channel_3_rotor_stepper, c3, cfg
-                )
-            # A piece counts as delivered the moment it clears C3's exit zone
-            # (the precise pulses stop on their own once perception no longer
-            # sees it there). Fire the downstream notification + admission window
-            # once on that falling edge, not on every micro-pulse.
-            ch3_at_exit_now = c3.in_exit
-            if self._ch3_was_at_exit and not ch3_at_exit_now:
+            # hand-off: once a piece falls, C3 pushes nothing more off for a
+            # while, so C4 sees it before the next one can follow.
+            gate3 = self._gate(3, cfg)
+            if gate3.observe(c3, now_mono):
                 self._on_ch3_dispense()
-            self._ch3_was_at_exit = ch3_at_exit_now
+            action = feederChannelAction(
+                c3,
+                downstream_clear=self._classification_ready(cfg) and gate3.exitAllowed(now_mono),
+                greedy=cfg.ch3_greedy_enabled,
+            )
+            action, hidden_cap = self._withHiddenPieces(3, c3, action, now_mono, cfg)
+            if incidents.openIncident(self.gc, "feeder_jam", subject="C3") is None:
+                self._unstick(3, "C2", c3, now_mono, cfg)
+                self._apply_action(
+                    "ch3", 3, action, self.irl.c_channel_3_rotor_stepper, c3, cfg, hidden_cap
+                )
 
         if cfg.enable_ch2:
             # C2's downstream is C3. "Clear" = C3's drop zone is not occupied,
-            # so we never pulse a C2 piece off the edge into a busy C3.
+            # so we never pulse a C2 piece off the edge into a busy C3; and once
+            # a piece falls, nothing more goes for a while, so C3 sees it land.
+            gate2 = self._gate(2, cfg)
+            gate2.observe(c2, now_mono)
             action = feederChannelAction(
-                c2, downstream_clear=not c3.in_drop, greedy=cfg.ch2_greedy_enabled
+                c2,
+                downstream_clear=(not c3.in_drop) and gate2.exitAllowed(now_mono),
+                greedy=cfg.ch2_greedy_enabled,
             )
-            # C2 hung at the C1->C2 hand-off: nudge C1 (its upstream) to free the
-            # piece, escalate to the operator jam incident if that keeps failing.
-            self._stuck_watchdog.observe(
-                channel_id=2,
-                channel_label="C2",
-                upstream_label="C1",
-                upstream_channel_id=1,
-                upstream_stepper=self.irl.c_channel_1_rotor_stepper,
-                upstream_enabled=bool(cfg.enable_ch1),
-                leading_pos_deg=_leading_com(c2),
-                wants_advance=_wants_advance(action),
-                cfg=cfg,
-                now=now_mono,
-            )
-            if not feeder_jam_incident_active(self.gc, channel_label="C2"):
+            action, hidden_cap = self._withHiddenPieces(2, c2, action, now_mono, cfg)
+            if incidents.openIncident(self.gc, "feeder_jam", subject="C2") is None:
+                self._unstick(2, "C1", c2, now_mono, cfg)
                 self._apply_action(
-                    "ch2", 2, action, self.irl.c_channel_2_rotor_stepper, c2, cfg
+                    "ch2", 2, action, self.irl.c_channel_2_rotor_stepper, c2, cfg, hidden_cap
                 )
 
         if cfg.enable_ch1:
@@ -311,8 +269,6 @@ class PulsePerceptionFeeding(BaseState):
                     cfg,
                 )
 
-        return FeederState.FEEDING
-
     def _apply_action(
         self,
         label: str,
@@ -321,6 +277,7 @@ class PulsePerceptionFeeding(BaseState):
         stepper: "StepperMotor",
         state,
         cfg: PulsePerceptionConfig,
+        hidden_cap: float | None = None,
     ) -> None:
         from perception.cascade import Action
 
@@ -348,6 +305,12 @@ class PulsePerceptionFeeding(BaseState):
             if clearance is not None and clearance < output_deg:
                 output_deg = clearance
                 enforce_min = False
+            # Nor may a piece the camera cannot see be carried past the
+            # staging point unseen. A cap of nothing is no cap: the expectation
+            # is then wrong, and a channel that never moves never finds out.
+            if hidden_cap is not None and 0 < hidden_cap < output_deg:
+                output_deg = hidden_cap
+                enforce_min = False
             self._move(
                 move_label,
                 channel,
@@ -358,16 +321,103 @@ class PulsePerceptionFeeding(BaseState):
                 enforce_min=enforce_min,
             )
         elif action == Action.PRECISE:
-            self._move(
+            moved = self._move(
                 f"{label}_exit",
                 channel,
                 stepper,
-                cfg.exit_pulse_output_deg,
+                self._exitMoveDeg(channel, state, cfg),
                 cfg.exit_pulse_pause_ms,
                 cfg,
                 enforce_min=False,
             )
+            if moved and channel in self._gates:
+                pieces = getattr(state, "pieces", ())
+                self._gates[channel].notePush(pieces[0] if pieces else None)
         # IDLE / FREEZE: no move.
 
+    def _unstick(self, channel: int, upstream_label: str, state, now: float, cfg) -> None:
+        """Watch for a piece that does not ride its channel, and run the remedy
+        the watch calls for (stuck.py)."""
+        stepper = self._stepperFor(channel)
+        if self._busy(stepper) or not stepper.stopped:
+            return
+        remedy = self._stuck.observe(
+            channel=channel,
+            label=f"C{channel}",
+            upstream_label=upstream_label,
+            state=state,
+            odometer=self._odometer.get(channel, 0.0),
+            now=now,
+            cfg=cfg,
+            can_nudge=bool(getattr(cfg, f"enable_ch{channel - 1}", False)),
+        )
+        if remedy is None:
+            return
+        if remedy.kind == "nudge_upstream":
+            upstream = channel - 1
+            self._move(f"nudge_c{upstream}", upstream, self._stepperFor(upstream), cfg.stuck_nudge_output_deg, 0, cfg)
+            return
+        amplitude, cycles, speed, accel = JITTER_PRESETS[remedy.preset]
+        if stepper.jitter_degrees(amplitude, cycles, speed, accel):
+            steps = stepper.microsteps_for_degrees(amplitude)
+            self._busy_until[stepper._name] = (
+                time.monotonic() + jitterSeconds(steps, cycles, speed, accel) + 0.3
+            )
+
+    def _stepperFor(self, channel: int):
+        return {
+            1: self.irl.c_channel_1_rotor_stepper,
+            2: self.irl.c_channel_2_rotor_stepper,
+            3: self.irl.c_channel_3_rotor_stepper,
+        }[channel]
+
+    def _withHiddenPieces(self, channel: int, state, action, now: float, cfg: PulsePerceptionConfig):
+        """Keep advancing while a piece rides the part of the ring the camera
+        cannot see, and cap the advance so it cannot come out of there and run
+        past the staging point unseen. Returns (action, cap or None)."""
+        from perception.arcs import exitNearEdgeSection
+        from perception.cascade import Action
+
+        blind = self._blind[channel]
+        blind.start_deg = getattr(cfg, f"ch{channel}_blind_arc_start_deg")
+        blind.end_deg = getattr(cfg, f"ch{channel}_blind_arc_end_deg")
+        odometer = self._odometer.get(channel, 0.0)
+        blind.update(state, now, odometer)
+        expected = blind.expected(odometer)
+        if not expected:
+            return action, None
+        perception_service = getattr(self.gc, "perception_service", None)
+        channel_def = perception_service.channels().get(channel) if perception_service else None
+        near = exitNearEdgeSection(channel_def) if channel_def is not None else None
+        if near is None:
+            return action, None
+        cap = min(forward(pos, float(near)) for pos in expected) - cfg.exit_move_margin_deg
+        greedy = getattr(cfg, f"ch{channel}_greedy_enabled")
+        if action == Action.IDLE and greedy:
+            action = Action.ADVANCE
+        return action, cap
+
+    def _exitMoveDeg(self, channel: int, state, cfg: PulsePerceptionConfig) -> float:
+        """One exit move: as far as it takes to drop the lead piece, up to
+        exit_move_max_deg, but never so far that a piece behind it reaches the
+        exit. With a piece close behind, that is the small exit pulse."""
+        small = cfg.exit_pulse_output_deg
+        if cfg.exit_move_max_deg <= small:
+            return small
+        pieces = getattr(state, "pieces", ())
+        if len(pieces) < 2:
+            return cfg.exit_move_max_deg
+        perception_service = getattr(self.gc, "perception_service", None)
+        channel_def = perception_service.channels().get(channel) if perception_service else None
+        if channel_def is None:
+            return small
+        from perception.arcs import forwardGapToExitDeg
+
+        room = min(forwardGapToExitDeg(p.bbox, channel_def) for p in pieces[1:])
+        return max(small, min(cfg.exit_move_max_deg, room - cfg.exit_move_margin_deg))
+
     def cleanup(self) -> None:
+        for blind in self._blind.values():
+            blind.clear()
+        self._stuck.reset()
         super().cleanup()

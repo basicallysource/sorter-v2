@@ -1,8 +1,10 @@
 <script lang="ts">
 	import { api, type ColorCoverageEntry } from '$lib/api';
 	import Spinner from '$lib/components/Spinner.svelte';
-	import ChevronDown from 'lucide-svelte/icons/chevron-down';
-	import ChevronRight from 'lucide-svelte/icons/chevron-right';
+	import Alert from '$lib/components/Alert.svelte';
+	import Disclosure from '$lib/components/Disclosure.svelte';
+	import Panel from '$lib/components/Panel.svelte';
+	import ChevronRight from '@lucide/svelte/icons/chevron-right';
 
 	// Palette-coverage view: how well the labeled data covers the BrickLink color
 	// palette. Surfaces the gaps — "we have plenty of white, nothing from metallic
@@ -101,104 +103,75 @@
 	});
 </script>
 
-<div class="mb-6 border border-border bg-surface">
-	<button
-		type="button"
-		class="flex w-full items-center gap-2 px-4 py-2.5 text-left hover:bg-bg"
-		onclick={() => (open = !open)}
+<Panel flush>
+	<Disclosure
+		title="Palette coverage"
+		help={loading ? undefined : `${coveredColors} of ${totalColors} colors have labeled pieces${gaps.length > 0 ? `; ${gaps.length} have none` : ''}`}
+		bind:open
 	>
-		{#if open}<ChevronDown size={16} class="shrink-0 text-text-muted" />{:else}<ChevronRight
-				size={16}
-				class="shrink-0 text-text-muted"
-			/>{/if}
-		<span class="text-sm font-semibold text-text">Palette coverage</span>
-		{#if !loading}
-			<span class="text-xs text-text-muted">
-				{coveredColors} of {totalColors} colors have labeled pieces
-				{#if gaps.length > 0}· <span class="text-warning">{gaps.length} with none</span>{/if}
-			</span>
-		{/if}
-	</button>
-
-	{#if open}
-		<div class="border-t border-border p-4">
+		<div class="flex flex-col gap-4 px-(--pad-panel) pb-2">
 			{#if loading}
 				<div class="flex justify-center py-8"><Spinner size={32} /></div>
 			{:else if error}
-				<div class="bg-primary/8 p-3 text-sm text-primary">{error}</div>
+				<Alert tone="danger">{error}</Alert>
 			{:else}
-				<!-- Coverage bar -->
-				<div class="mb-4">
-					<div class="mb-1 flex h-2 w-full overflow-hidden border border-border">
-						<div
-							class="bg-success"
-							style={`width:${totalColors ? (coveredColors / totalColors) * 100 : 0}%`}
-							title={`${coveredColors} covered`}
-						></div>
-						<div class="flex-1 bg-border" title={`${gaps.length} uncovered`}></div>
+				<div>
+					<div class="mb-1.5 flex h-2 overflow-hidden rounded-item bg-track">
+						<div class="bg-success" style={`width:${totalColors ? (coveredColors / totalColors) * 100 : 0}%`} title={`${coveredColors} covered`}></div>
 					</div>
-					<div class="text-xs text-text-muted">
-						<span class="text-text tabular-nums">{Math.round((coveredColors / Math.max(1, totalColors)) * 100)}%</span>
-						of the palette has at least one labeled piece.
-					</div>
+					<p class="text-sm text-ink-muted">
+						<span class="num text-ink">{Math.round((coveredColors / Math.max(1, totalColors)) * 100)}%</span> of the palette has at least one
+						labeled piece.
+					</p>
 				</div>
 
-				<!-- Full palette, clustered by hue (open by default) -->
-				<button
-					type="button"
-					class="mb-2 flex items-center gap-1 text-xs font-semibold uppercase tracking-wider text-text-muted hover:text-text"
-					onclick={() => (showAll = !showAll)}
-				>
-					{#if showAll}<ChevronDown size={13} />{:else}<ChevronRight size={13} />{/if}
-					Full palette ({totalColors})
-				</button>
-				{#if showAll}
-					<div class="mb-4 flex flex-wrap gap-1">
-						{#each sortedByHue as c (c.id)}
-							<span
-								class="flex h-9 w-9 flex-col items-center justify-center border text-[10px] leading-none tabular-nums {c.pieces ===
-								0
-									? 'border-dashed border-border text-text-muted'
-									: 'border-border text-text'}"
-								style={c.pieces > 0 ? `background:#${c.rgb ?? '000'}22` : ''}
-								title={`${c.name} (${c.id}) — ${c.pieces} piece${c.pieces === 1 ? '' : 's'}, ${c.labels} label${c.labels === 1 ? '' : 's'}`}
-							>
+				<div>
+					<button
+						type="button"
+						class="label mb-2 flex items-center gap-1 hover:text-ink"
+						aria-expanded={showAll}
+						onclick={() => (showAll = !showAll)}
+					>
+						<ChevronRight size={16} class="transition-transform {showAll ? 'rotate-90' : ''}" />
+						The whole palette, {totalColors}
+					</button>
+					{#if showAll}
+						<div class="flex flex-wrap gap-1">
+							{#each sortedByHue as c (c.id)}
 								<span
-									class="mb-0.5 h-3.5 w-3.5 border border-border {c.is_trans ? 'opacity-70' : ''}"
-									style={`background:#${c.rgb ?? '000'}`}
-								></span>
-								{c.pieces}
-							</span>
-						{/each}
-					</div>
-				{/if}
+									class="num flex size-9 flex-col items-center justify-center rounded-item text-xs leading-none {c.pieces === 0
+										? 'bg-well text-ink-muted'
+										: 'text-ink'}"
+									style={c.pieces > 0 ? `background:#${c.rgb ?? '000'}22` : ''}
+									title={`${c.name} (${c.id}): ${c.pieces} piece${c.pieces === 1 ? '' : 's'}, ${c.labels} label${c.labels === 1 ? '' : 's'}`}
+								>
+									<span class="mb-0.5 size-3.5 rounded-check border border-line {c.is_trans ? 'opacity-70' : ''}" style={`background:#${c.rgb ?? '000'}`}></span>
+									{c.pieces}
+								</span>
+							{/each}
+						</div>
+					{/if}
+				</div>
 
-				<!-- Gaps: what we're missing -->
 				{#if gaps.length > 0}
-					<div class="mb-1.5 flex items-baseline gap-2">
-						<span class="text-xs font-semibold uppercase tracking-wider text-text-muted">Coverage gaps</span>
-						<span class="text-xs text-text-muted">
-							no labeled pieces yet · {solidGapCount} solid
-						</span>
-					</div>
-					<div class="flex flex-wrap gap-1.5">
-						{#each gaps as c (c.id)}
-							<span
-								class="flex items-center gap-1.5 border border-dashed border-border bg-bg py-0.5 pl-0.5 pr-1.5"
-								title={`${c.name} (${c.id}) — no labeled pieces`}
-							>
-								<span
-									class="h-4 w-4 shrink-0 border border-border {c.is_trans ? 'opacity-70' : ''}"
-									style={`background:#${c.rgb ?? '000'}`}
-								></span>
-								<span class="max-w-[9rem] truncate text-xs text-text-muted">{c.name}</span>
-							</span>
-						{/each}
+					<div>
+						<div class="mb-2 flex flex-wrap items-baseline gap-x-2">
+							<span class="label">Gaps</span>
+							<span class="num text-sm text-ink-muted">no labeled pieces yet, {solidGapCount} of them solid</span>
+						</div>
+						<div class="flex flex-wrap gap-1.5">
+							{#each gaps as c (c.id)}
+								<span class="flex items-center gap-1.5 rounded-item bg-well py-0.5 pr-2 pl-0.5" title={`${c.name} (${c.id}): no labeled pieces`}>
+									<span class="size-4 shrink-0 rounded-check border border-line {c.is_trans ? 'opacity-70' : ''}" style={`background:#${c.rgb ?? '000'}`}></span>
+									<span class="max-w-36 truncate text-sm text-ink-muted">{c.name}</span>
+								</span>
+							{/each}
+						</div>
 					</div>
 				{:else}
-					<p class="text-sm text-text-muted">Every palette color has at least one labeled piece.</p>
+					<p class="text-sm text-ink-muted">Every palette color has at least one labeled piece.</p>
 				{/if}
 			{/if}
 		</div>
-	{/if}
-</div>
+	</Disclosure>
+</Panel>

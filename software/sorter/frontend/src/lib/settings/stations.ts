@@ -1,42 +1,34 @@
-import {
-	Activity,
-	Camera,
-	CircuitBoard,
-	Cloud,
-	Cpu,
-	Gauge,
-	GitBranch,
-	Layers3,
-	Network,
-	Settings,
-	Shapes,
-	ShieldAlert,
-	SlidersHorizontal,
-	Wrench,
-	Zap
-} from 'lucide-svelte';
+import Activity from '@lucide/svelte/icons/activity';
+import Camera from '@lucide/svelte/icons/camera';
+import CircuitBoard from '@lucide/svelte/icons/circuit-board';
+import Cloud from '@lucide/svelte/icons/cloud';
+import Cpu from '@lucide/svelte/icons/cpu';
+import Gauge from '@lucide/svelte/icons/gauge';
+import GitBranch from '@lucide/svelte/icons/git-branch';
+import Layers3 from '@lucide/svelte/icons/layers';
+import Network from '@lucide/svelte/icons/network';
+import Settings from '@lucide/svelte/icons/settings';
+import Shapes from '@lucide/svelte/icons/shapes';
+import ShieldAlert from '@lucide/svelte/icons/shield-alert';
+import SlidersHorizontal from '@lucide/svelte/icons/sliders-horizontal';
+import Wrench from '@lucide/svelte/icons/wrench';
+import Zap from '@lucide/svelte/icons/zap';
 import {
 	CLASSIFICATION_CHANNEL_STEPPER_GEAR_RATIO,
 	CLASSIFICATION_CHANNEL_STEPPER_LABEL
 } from '$lib/settings/stepper-control';
 
-export type MachineSetupKey = 'classification_channel' | 'manual_carousel';
-
 export type CameraRole =
 	| 'c_channel_2'
 	| 'c_channel_3'
 	| 'carousel'
-	| 'classification_channel'
-	| 'classification_top'
-	| 'classification_bottom';
+	| 'classification_channel';
 
 export type ZoneChannel =
 	| 'second'
 	| 'third'
 	| 'carousel'
-	| 'classification_channel'
-	| 'class_top'
-	| 'class_bottom';
+	| 'classification_channel';
 
 export type StepperKey =
 	| 'c_channel_1'
@@ -58,9 +50,7 @@ export type StationSlug =
 	| 'c-channel-1'
 	| 'c-channel-2'
 	| 'c-channel-3'
-	| 'carousel'
-	| 'classification-channel'
-	| 'classification-chamber';
+	| 'classification-channel';
 
 export type SettingsNavItem = {
 	href: string;
@@ -86,7 +76,7 @@ export const generalNavItem: SettingsNavItem = {
 
 export const storageLayersNavItem: SettingsNavItem = {
 	href: '/settings/storage-layers',
-	label: 'Storage Layers',
+	label: 'Storage layers',
 	icon: Layers3
 };
 
@@ -98,7 +88,7 @@ export const hiveNavItem: SettingsNavItem = {
 
 export const hiveModelsNavItem: SettingsNavItem = {
 	href: '/settings/hive/models',
-	label: 'Local Models',
+	label: 'Local models',
 	icon: Cpu
 };
 
@@ -122,13 +112,13 @@ export const chuteNavItem: SettingsNavItem = {
 
 export const controlBoardNavItem: SettingsNavItem = {
 	href: '/settings/control-board',
-	label: 'Control Board',
+	label: 'Control board',
 	icon: CircuitBoard
 };
 
 export const chuteAimingNavItem: SettingsNavItem = {
 	href: '/settings/chute-aiming',
-	label: 'Chute Aiming',
+	label: 'Chute aiming',
 	icon: Shapes
 };
 
@@ -140,7 +130,7 @@ export const stallguardNavItem: SettingsNavItem = {
 
 export const jitterTestNavItem: SettingsNavItem = {
 	href: '/settings/jitter-test',
-	label: 'Jitter Test',
+	label: 'Jitter test',
 	icon: Zap
 };
 
@@ -158,39 +148,29 @@ export const incidentsNavItem: SettingsNavItem = {
 
 export const powerStressNavItem: SettingsNavItem = {
 	href: '/settings/power-stress',
-	label: 'Power Stress Test',
+	label: 'Power stress test',
 	icon: Zap
 };
 
 export const tuningNavItems: SettingsNavItem[] = [
 	{
-		href: '/settings/tuning/feeder-go-to-angle',
-		label: 'Feeder Go-To-Angle',
-		icon: SlidersHorizontal
-	},
-	{
 		href: '/settings/tuning/feeder-pulse-perception',
-		label: 'Feeder Simple Pulse',
-		icon: SlidersHorizontal
-	},
-	{
-		href: '/settings/tuning/feeder-constant-movement',
-		label: 'Feeder Constant Movement',
+		label: 'Feeder simple pulse',
 		icon: SlidersHorizontal
 	},
 	{
 		href: '/settings/tuning/classification-channel',
-		label: 'Classification Channel',
+		label: 'Classification channel',
 		icon: SlidersHorizontal
 	},
 	{
 		href: '/settings/tuning/object-tracker',
-		label: 'Object Tracker',
+		label: 'Object tracker',
 		icon: SlidersHorizontal
 	},
 	{
 		href: '/settings/tuning/piece-link',
-		label: 'Piece Link (experimental)',
+		label: 'Piece link (experimental)',
 		icon: SlidersHorizontal
 	}
 ];
@@ -199,7 +179,7 @@ export const stationPageConfigs: StationPageConfig[] = [
 	{
 		slug: 'c-channel-1',
 		href: '/settings/c-channel-1',
-		label: 'C-Channel 1',
+		label: 'C-channel 1',
 		icon: Wrench,
 		description: 'Bulk feed channel. This station only exposes manual stepper control.',
 		cameraRoles: [],
@@ -209,7 +189,7 @@ export const stationPageConfigs: StationPageConfig[] = [
 	{
 		slug: 'c-channel-2',
 		href: '/settings/c-channel-2',
-		label: 'C-Channel 2',
+		label: 'C-channel 2',
 		icon: Camera,
 		description: 'Configure the second feeder camera, zone geometry, and rotor stepper controls.',
 		cameraRoles: ['c_channel_2'],
@@ -219,7 +199,7 @@ export const stationPageConfigs: StationPageConfig[] = [
 	{
 		slug: 'c-channel-3',
 		href: '/settings/c-channel-3',
-		label: 'C-Channel 3',
+		label: 'C-channel 3',
 		icon: Camera,
 		description: 'Configure the third feeder camera, zone geometry, and rotor stepper controls.',
 		cameraRoles: ['c_channel_3'],
@@ -227,27 +207,9 @@ export const stationPageConfigs: StationPageConfig[] = [
 		stepperKeys: ['c_channel_3']
 	},
 	{
-		slug: 'carousel',
-		href: '/settings/carousel',
-		label: 'Carousel',
-		icon: Shapes,
-		description: 'Configure the carousel camera, carousel polygon, and carousel stepper.',
-		cameraRoles: ['carousel'],
-		zoneChannels: ['carousel'],
-		stepperKeys: ['carousel'],
-		stepperEndstops: {
-			carousel: {
-				configEndpoint: '/api/hardware-config/carousel',
-				liveEndpoint: '/api/hardware-config/carousel/live',
-				homeEndpoint: '/api/hardware-config/carousel/home',
-				homeCancelEndpoint: '/api/hardware-config/carousel/home/cancel'
-			}
-		}
-	},
-	{
 		slug: 'classification-channel',
 		href: '/settings/classification-channel',
-		label: 'Classification C-Channel (C4)',
+		label: 'Classification channel',
 		icon: Camera,
 		description:
 			'Configure the fourth C-channel camera, arc zones, and classification-channel stepper.',
@@ -260,17 +222,6 @@ export const stationPageConfigs: StationPageConfig[] = [
 				gearRatio: CLASSIFICATION_CHANNEL_STEPPER_GEAR_RATIO
 			}
 		}
-	},
-	{
-		slug: 'classification-chamber',
-		href: '/settings/classification-chamber',
-		label: 'Classification Chamber',
-		icon: Camera,
-		description:
-			'Manage the classification chamber cameras and crop zones. Camera tuning controls are not exposed by the backend yet.',
-		cameraRoles: ['classification_top', 'classification_bottom'],
-		zoneChannels: ['class_top', 'class_bottom'],
-		stepperKeys: []
 	}
 ];
 
@@ -281,7 +232,7 @@ export type SettingsNavHeading = {
 
 export type SettingsNavEntry = SettingsNavItem | SettingsNavHeading;
 
-const baseSettingsNavItems: SettingsNavEntry[] = [
+export const settingsNavItems: SettingsNavEntry[] = [
 	generalNavItem,
 	hiveNavItem,
 	hiveModelsNavItem,
@@ -303,32 +254,27 @@ const baseSettingsNavItems: SettingsNavEntry[] = [
 	...tuningNavItems
 ];
 
-export function settingsNavItemsForSetup(setup: MachineSetupKey): SettingsNavEntry[] {
-	const hiddenSlugs =
-		setup === 'classification_channel'
-			? new Set<StationSlug>(['carousel', 'classification-chamber'])
-			: new Set<StationSlug>(['classification-channel']);
+// The same entries as the side nav's groups: each heading starts a group.
+export const settingsNavGroups: { label?: string; items: SettingsNavItem[] }[] =
+	settingsNavItems.reduce<{ label?: string; items: SettingsNavItem[] }[]>(
+		(groups, entry) => {
+			if ('href' in entry) groups[groups.length - 1].items.push(entry);
+			else groups.push({ label: entry.label, items: [] });
+			return groups;
+		},
+		[{ items: [] }]
+	);
 
-	return baseSettingsNavItems.filter((entry) => {
-		if (!('href' in entry)) return true;
-		const station = stationPageConfigs.find((candidate) => candidate.href === entry.href);
-		if (!station) return true;
-		return !hiddenSlugs.has(station.slug);
-	});
-}
-
-export const settingsNavItems: SettingsNavEntry[] =
-	settingsNavItemsForSetup('classification_channel');
 
 export function getStationPageConfig(slug: string): StationPageConfig | undefined {
 	return stationPageConfigs.find((station) => station.slug === slug);
 }
 
 export const stepperLabels: Record<StepperKey, string> = {
-	c_channel_1: 'C Channel 1',
-	c_channel_2: 'C Channel 2',
-	c_channel_3: 'C Channel 3',
-	c_channel_4: 'C Channel 4',
-	carousel: 'Carousel',
+	c_channel_1: 'C-channel 1',
+	c_channel_2: 'C-channel 2',
+	c_channel_3: 'C-channel 3',
+	c_channel_4: 'C-channel 4',
+	carousel: CLASSIFICATION_CHANNEL_STEPPER_LABEL,
 	chute: 'Chute'
 };

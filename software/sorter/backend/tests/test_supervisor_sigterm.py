@@ -3,14 +3,12 @@ taking the backend with it, instead of waiting out the unit's stop timeout."""
 
 from __future__ import annotations
 
-import json
 import os
 import signal
 import socket
 import subprocess
 import sys
 import time
-import urllib.request
 from pathlib import Path
 
 BACKEND_DIR = Path(__file__).resolve().parents[1]
@@ -22,32 +20,27 @@ def _free_port() -> int:
         return sock.getsockname()[1]
 
 
-def _backend_pid(port: int) -> int:
+def _backend_pid(pid_file: Path) -> int:
     deadline = time.time() + 20
-    while True:
-        try:
-            with urllib.request.urlopen(f"http://127.0.0.1:{port}/api/supervisor/status", timeout=1) as res:
-                pid = json.load(res).get("backend_pid")
-            if pid:
-                return pid
-        except OSError:
-            pass
+    while not pid_file.exists() or not pid_file.read_text().strip():
         if time.time() > deadline:
-            raise TimeoutError("the supervisor never reported a running backend")
+            raise TimeoutError("the supervisor never started the backend")
         time.sleep(0.1)
+    return int(pid_file.read_text())
 
 
-def test_sigterm_stops_the_supervisor_and_its_backend():
+def test_sigterm_stops_the_supervisor_and_its_backend(tmp_path):
     port = _free_port()
+    pid_file = tmp_path / "backend.pid"
     supervisor = subprocess.Popen(
-        [sys.executable, "supervisor.py", "--control-port", str(port),
-         "--health-url", "http://127.0.0.1:1/health", "--", "sleep", "60"],
+        [sys.executable, "supervisor.py", "--ui-port", str(port),
+         "--", "sh", "-c", f"echo $$ > {pid_file}; exec sleep 60"],
         cwd=BACKEND_DIR,
         stdout=subprocess.DEVNULL,
         stderr=subprocess.DEVNULL,
     )
     try:
-        backend = _backend_pid(port)
+        backend = _backend_pid(pid_file)
         supervisor.send_signal(signal.SIGTERM)
         supervisor.wait(timeout=10)
         try:

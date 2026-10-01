@@ -25,8 +25,6 @@ parts_needed:
     qty: 1
   - part: ctrl-board-housing-fan-retainer
     qty: 2
-  - part: ctrl-board-basically
-    qty: 1
   - part: fan-40mm-24v
     qty: 1
   - part: hsi-m3

@@ -6,7 +6,7 @@ import time
 from enum import Enum
 from typing import Any, Optional
 
-from irl.config import CameraConfig, CameraColorProfile, CameraPictureSettings
+from irl.config import CameraConfig, CameraPictureSettings
 from .camera import CaptureThread
 from .types import CameraFrame
 
@@ -101,15 +101,6 @@ class CameraDevice:
     def set_picture_settings(self, settings: CameraPictureSettings) -> None:
         self._capture.setPictureSettings(settings)
 
-    def get_picture_settings(self) -> CameraPictureSettings:
-        return self._capture.getPictureSettings()
-
-    def set_color_profile(self, profile: CameraColorProfile | None) -> None:
-        self._capture.setColorProfile(profile)
-
-    def get_color_profile(self) -> CameraColorProfile:
-        return self._capture.getColorProfile()
-
     def set_device_settings(
         self,
         settings: dict[str, int | float | bool] | None,
@@ -117,9 +108,6 @@ class CameraDevice:
         persist: bool = False,
     ) -> dict[str, int | float | bool]:
         return self._capture.setDeviceSettings(settings, persist=persist)
-
-    def get_device_settings(self) -> dict[str, int | float | bool]:
-        return self._capture.getDeviceSettings()
 
     def describe_device_controls(self) -> tuple[list[dict[str, Any]], dict[str, int | float | bool]]:
         return self._capture.describeDeviceControls()

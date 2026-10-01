@@ -51,9 +51,7 @@ class Ready(BaseState):
         if transport is not None and self._positioned_uuid is not None:
             current = transport.getPieceForDistributionPositioning()
             if current is None or current.uuid != self._positioned_uuid:
-                if getattr(transport, "slot_handoff", False) and not self._positionedPieceDropped(
-                    transport
-                ):
+                if not self._positionedPieceDropped(transport):
                     # It left the positioning slot but never reached the drop
                     # slot: classification withdrew it (the piece was lost or the
                     # channel was force-cleared) or placed a different piece.

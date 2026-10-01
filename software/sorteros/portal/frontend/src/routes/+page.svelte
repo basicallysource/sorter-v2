@@ -220,7 +220,7 @@
 
 <main class="mx-auto flex w-full max-w-md flex-col gap-6 px-4 pt-6 pb-16">
 	{#if lost}
-		<Alert variant="warning">
+		<Alert tone="warning">
 			Lost the connection to the Sorter. If your phone left
 			<span class="font-medium">{live?.setup_network?.ssid ?? "the Sorter's setup network"}</span>,
 			rejoin it.
@@ -229,7 +229,7 @@
 
 	{#if !live}
 		{#if !lost}
-			<div class="flex justify-center py-16 text-text-muted"><Spinner size={24} /></div>
+			<div class="flex justify-center py-16 text-ink-muted"><Spinner size={24} /></div>
 		{/if}
 	{:else if screen === 'joining' && join}
 		<Joining

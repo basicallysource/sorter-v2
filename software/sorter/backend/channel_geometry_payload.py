@@ -48,9 +48,9 @@ def buildChannelGeometryForRole(role: str) -> dict[str, Any] | None:
         return None
     poly_key, angle_key, channel_id = keys
 
-    from blob_manager import getChannelPolygons
+    from local_state import get_channel_polygons
 
-    blob = getChannelPolygons() or {}
+    blob = get_channel_polygons() or {}
     polygons = blob.get("polygons") or {}
     channel_angles = blob.get("channel_angles") or {}
     arc_params = blob.get("arc_params") or {}

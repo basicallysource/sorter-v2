@@ -22,8 +22,6 @@ parts_needed:
     qty: 1
   - part: terminal-qc-187
     qty: 2
-  - part: connector-kit-crimp
-    qty: 1
 tools_needed: [Wire strippers, "Crimp tool for open-barrel contacts", "Crimp tool for insulated terminals", Multimeter]
 ---
 
@@ -37,7 +35,7 @@ Nothing on this lead is soldered. The switch end pushes on, and the board end is
   <dt>Board end</dt><dd>Dupont housing, <b>1x3 female, 2.54 mm</b>, with a contact in only two of its three positions. The empty position is what keys it: it lines up with the 3.3 V pin on <code>J5</code>, so the housing cannot go on backwards.</dd>
   <dt>Which way round</dt><dd>It does not matter. <code>J5</code> position 1 is ground and position 2 is the signal, and the switch simply closes the circuit between them, so either conductor can take either one.</dd>
   <dt>Switch end</dt><dd>Two <b>#187</b> insulated quick-connect receptacles, for a 4.75 x 0.5 mm blade. They push straight onto the switch's tabs.</dd>
-  <dt>Wire</dt><dd>22 AWG, two conductor. Cut it 610 mm (24 in) long.</dd>
+  <dt>Wire</dt><dd>22 AWG (0.33 mm²), two conductor. Cut it 610 mm (24 in) long.</dd>
 </dl>
 
 <figure class="harness-figure">
@@ -128,7 +126,7 @@ The switch is an SPDT with three tabs and the third one, `NO`, stays bare. Wired
 ## Build it
 
 <figure class="single-figure">
-  <img class="doc-figure" src="https://assets.basically.website/sorter-docs/harness-limit-switch-parts-w1600-661badd2af06.jpg" alt="Laid out on a bench: the red roller-lever switch with its three bare tabs, two insulated quick-connect receptacles already crimped onto short leads, and the stripped end of a red and black 22 AWG pair">
+  <img class="doc-figure" src="https://assets.basically.website/sorter-docs/harness-limit-switch-parts-w1600-661badd2af06.jpg" alt="Laid out on a bench: the red roller-lever switch with its three bare tabs, two insulated quick-connect receptacles already crimped onto short leads, and the stripped end of a red and black 22 AWG (0.33 mm²) pair">
   <figcaption>What the switch end takes: two #187 receptacles and the pair. Nothing here is soldered. <cite>Photo: BrickCycleAlice.</cite></figcaption>
 </figure>
 

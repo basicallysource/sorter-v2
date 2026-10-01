@@ -85,4 +85,4 @@ This is more reliable than any ML-based color detection the team tested.
 
 - [Object detection research]({{ '/lab/object-detection/' | relative_url }}) — the detector that finds pieces in the chamber before classification
 - [SorterOS architecture]({{ '/sorter/architecture/' | relative_url }}) — how classification fits into the sorting pipeline
-- [Camera calibration]({{ '/sorter/camera-calibration/' | relative_url }}) — the color calibration workflow that feeds into classification
+- [Camera calibration]({{ '/sorter/camera-calibration/' | relative_url }}) — focusing each camera, which detection and classification depend on

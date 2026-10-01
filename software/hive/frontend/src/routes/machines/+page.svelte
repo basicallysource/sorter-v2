@@ -1,20 +1,39 @@
 <script lang="ts">
-	import { goto } from '$app/navigation';
-	import { api, type Machine, type MachineProfileAssignment, type MachineStats, type MachineWithToken, type SortingProfileDetail, type SortingProfileSummary } from '$lib/api';
-	import Badge from '$lib/components/Badge.svelte';
-	import Modal from '$lib/components/Modal.svelte';
-	import Spinner from '$lib/components/Spinner.svelte';
-	import AnalyticsDashboard from '$lib/components/charts/AnalyticsDashboard.svelte';
+	import {
+		api,
+		type Machine,
+		type MachineProfileAssignment,
+		type MachineStats,
+		type MachineWithToken
+	} from '$lib/api';
 	import { localUiUrl } from '$lib/machineNetwork';
-	import ExternalLink from 'lucide-svelte/icons/external-link';
+	import Cpu from '@lucide/svelte/icons/cpu';
+	import ExternalLink from '@lucide/svelte/icons/external-link';
+	import FileText from '@lucide/svelte/icons/file-text';
+	import Ellipsis from '@lucide/svelte/icons/ellipsis';
+	import Plus from '@lucide/svelte/icons/plus';
+	import AnalyticsDashboard from '$lib/components/charts/AnalyticsDashboard.svelte';
+	import PageHeader from '$lib/components/PageHeader.svelte';
+	import Alert from '$lib/components/Alert.svelte';
+	import Badge from '$lib/components/Badge.svelte';
+	import Button from '$lib/components/Button.svelte';
+	import Card from '$lib/components/Card.svelte';
+	import CopyField from '$lib/components/CopyField.svelte';
+	import Panel from '$lib/components/Panel.svelte';
+	import EmptyState from '$lib/components/EmptyState.svelte';
+	import Field from '$lib/components/Field.svelte';
+	import Input from '$lib/components/Input.svelte';
+	import Menu from '$lib/components/Menu.svelte';
+	import Modal from '$lib/components/Modal.svelte';
+	import ProgressBar from '$lib/components/ProgressBar.svelte';
+	import Spinner from '$lib/components/Spinner.svelte';
+	import Stat from '$lib/components/Stat.svelte';
 
 	let machines = $state<Machine[]>([]);
 	let loading = $state(true);
 	let error = $state<string | null>(null);
 
-	let accessibleProfiles = $state<SortingProfileSummary[]>([]);
 	let assignments = $state<Record<string, MachineProfileAssignment | null>>({});
-	let setProgress = $state<Record<string, { total_needed: number; total_found: number } | null>>({});
 	let machineStats = $state<Record<string, MachineStats>>({});
 
 	let showAddModal = $state(false);
@@ -24,7 +43,6 @@
 
 	let showTokenModal = $state(false);
 	let tokenDisplay = $state('');
-	let tokenCopied = $state(false);
 
 	let showEditModal = $state(false);
 	let editMachine = $state<Machine | null>(null);
@@ -38,51 +56,16 @@
 	let purging = $state(false);
 	let purgeResult = $state<string | null>(null);
 
-	let showAssignModal = $state(false);
-	let assignmentMachine = $state<Machine | null>(null);
-	let assignmentProfileId = $state('');
-	let assignmentVersionId = $state('');
-	let assignmentLoading = $state(false);
-	let assignmentSaving = $state(false);
-	let assignmentClearing = $state(false);
-	let assignmentProfileDetail = $state<SortingProfileDetail | null>(null);
-
-	let openMenuId = $state<string | null>(null);
-
 	$effect(() => {
 		void loadMachines();
 	});
-
-	async function loadSetProgressForAssignment(machineId: string, assignment: MachineProfileAssignment | null) {
-		if (assignment?.profile?.profile_type !== 'set') {
-			setProgress = { ...setProgress, [machineId]: null };
-			return;
-		}
-		try {
-			const result = await api.getMachineSetProgress(machineId);
-			const total_needed = result.progress.reduce((sum, p) => sum + p.quantity_needed, 0);
-			const total_found = result.progress.reduce((sum, p) => sum + p.quantity_found, 0);
-			setProgress = {
-				...setProgress,
-				[machineId]: { total_needed, total_found }
-			};
-		} catch {
-			setProgress = { ...setProgress, [machineId]: null };
-		}
-	}
 
 	async function loadMachines() {
 		loading = true;
 		error = null;
 		try {
-			const [machineList, mine, library, stats] = await Promise.all([
-				api.getMachines(),
-				api.getProfiles({ scope: 'mine' }),
-				api.getProfiles({ scope: 'library' }),
-				api.getMachineStats()
-			]);
+			const [machineList, stats] = await Promise.all([api.getMachines(), api.getMachineStats()]);
 			machines = machineList;
-			accessibleProfiles = dedupeProfiles([...mine, ...library]);
 			machineStats = stats;
 
 			const nextAssignments: Record<string, MachineProfileAssignment | null> = {};
@@ -96,27 +79,6 @@
 				})
 			);
 			assignments = nextAssignments;
-
-			// Fetch set progress for machines with set-based profiles
-			const nextSetProgress: Record<string, { total_needed: number; total_found: number } | null> = {};
-			await Promise.all(
-				machineList.map(async (machine) => {
-					const assignment = nextAssignments[machine.id];
-					if (assignment?.profile?.profile_type !== 'set') {
-						nextSetProgress[machine.id] = null;
-						return;
-					}
-					try {
-						const result = await api.getMachineSetProgress(machine.id);
-						const total_needed = result.progress.reduce((sum, p) => sum + p.quantity_needed, 0);
-						const total_found = result.progress.reduce((sum, p) => sum + p.quantity_found, 0);
-						nextSetProgress[machine.id] = { total_needed, total_found };
-					} catch {
-						nextSetProgress[machine.id] = null;
-					}
-				})
-			);
-			setProgress = nextSetProgress;
 		} catch (err) {
 			error = (err as { error?: string }).error || 'Failed to load machines';
 		} finally {
@@ -124,17 +86,9 @@
 		}
 	}
 
-	function dedupeProfiles(items: SortingProfileSummary[]) {
-		const seen = new Set<string>();
-		return items.filter((profile) => {
-			if (seen.has(profile.id)) return false;
-			seen.add(profile.id);
-			return true;
-		});
-	}
-
 	async function handleAdd(event: Event) {
 		event.preventDefault();
+		if (addSubmitting || !newName.trim()) return;
 		addSubmitting = true;
 		try {
 			const result: MachineWithToken = await api.createMachine(newName, newDescription || undefined);
@@ -156,7 +110,6 @@
 		try {
 			const result = await api.rotateToken(machine.id);
 			tokenDisplay = result.raw_token;
-			tokenCopied = false;
 			showTokenModal = true;
 		} catch (err) {
 			error = (err as { error?: string }).error || 'Failed to rotate token';
@@ -165,7 +118,7 @@
 
 	async function handleEdit(event: Event) {
 		event.preventDefault();
-		if (!editMachine) return;
+		if (!editMachine || !editName.trim()) return;
 		try {
 			const updated = await api.updateMachine(editMachine.id, { name: editName });
 			machines = machines.map((machine) => (machine.id === updated.id ? updated : machine));
@@ -176,37 +129,20 @@
 		}
 	}
 
-async function handleDelete() {
-	if (!deleteMachine) return;
-	const machineToDelete = deleteMachine;
-	try {
-		await api.deleteMachine(machineToDelete.id);
-		machines = machines.filter((machine) => machine.id !== machineToDelete.id);
-		const nextAssignments = { ...assignments };
-		delete nextAssignments[machineToDelete.id];
-		assignments = nextAssignments;
-		showDeleteModal = false;
-		deleteMachine = null;
+	async function handleDelete() {
+		if (!deleteMachine) return;
+		const machineToDelete = deleteMachine;
+		try {
+			await api.deleteMachine(machineToDelete.id);
+			machines = machines.filter((machine) => machine.id !== machineToDelete.id);
+			const nextAssignments = { ...assignments };
+			delete nextAssignments[machineToDelete.id];
+			assignments = nextAssignments;
+			showDeleteModal = false;
+			deleteMachine = null;
 		} catch (err) {
 			error = (err as { error?: string }).error || 'Failed to delete machine';
 		}
-	}
-
-	function openEdit(machine: Machine) {
-		editMachine = machine;
-		editName = machine.name;
-		showEditModal = true;
-	}
-
-	function openDelete(machine: Machine) {
-		deleteMachine = machine;
-		showDeleteModal = true;
-	}
-
-	function openPurge(machine: Machine) {
-		purgeMachine = machine;
-		purgeResult = null;
-		showPurgeModal = true;
 	}
 
 	async function handlePurge() {
@@ -224,530 +160,274 @@ async function handleDelete() {
 		}
 	}
 
-	function toggleMenu(machineId: string) {
-		openMenuId = openMenuId === machineId ? null : machineId;
+	function machineMenu(machine: Machine) {
+		return [
+			{
+				label: 'Edit',
+				onselect: () => {
+					editMachine = machine;
+					editName = machine.name;
+					showEditModal = true;
+				}
+			},
+			{ label: 'Rotate token', onselect: () => void handleRotateToken(machine) },
+			'separator' as const,
+			{
+				label: 'Purge data',
+				danger: true,
+				onselect: () => {
+					purgeMachine = machine;
+					purgeResult = null;
+					showPurgeModal = true;
+				}
+			},
+			{
+				label: 'Delete machine',
+				danger: true,
+				onselect: () => {
+					deleteMachine = machine;
+					showDeleteModal = true;
+				}
+			}
+		];
 	}
 
 	function formatUptime(createdAt: string): string {
 		const diff = Date.now() - new Date(createdAt).getTime();
 		const days = Math.floor(diff / (1000 * 60 * 60 * 24));
-		if (days < 1) return 'Today';
-		if (days === 1) return '1 day';
-		if (days < 30) return `${days} days`;
+		if (days < 1) return 'today';
+		if (days === 1) return '1 day ago';
+		if (days < 30) return `${days} days ago`;
 		const months = Math.floor(days / 30);
-		if (months === 1) return '1 month';
-		if (months < 12) return `${months} months`;
+		if (months === 1) return '1 month ago';
+		if (months < 12) return `${months} months ago`;
 		const years = Math.floor(months / 12);
-		return years === 1 ? '1 year' : `${years} years`;
+		return years === 1 ? '1 year ago' : `${years} years ago`;
 	}
 
 	function formatNumber(n: number): string {
 		if (n >= 1000) return `${(n / 1000).toFixed(1).replace(/\.0$/, '')}k`;
 		return n.toString();
 	}
-
-	async function copyToken() {
-		await navigator.clipboard.writeText(tokenDisplay);
-		tokenCopied = true;
-	}
-
-	function visibleVersions(detail: SortingProfileDetail | null) {
-		if (!detail) return [];
-		return detail.is_owner ? detail.versions : detail.versions.filter((version) => version.is_published);
-	}
-
-	async function openAssignModal(machine: Machine) {
-		showAssignModal = true;
-		assignmentMachine = machine;
-		assignmentLoading = true;
-		assignmentProfileDetail = null;
-		error = null;
-
-		try {
-			const existingAssignment = assignments[machine.id];
-			if (existingAssignment?.profile) {
-				assignmentProfileId = existingAssignment.profile.id;
-				const detail = await loadAssignmentProfile(existingAssignment.profile.id);
-				assignmentVersionId =
-					existingAssignment.desired_version?.id ??
-					detail.current_version?.id ??
-					visibleVersions(detail)[0]?.id ??
-					'';
-			} else {
-				const defaultProfile = accessibleProfiles[0] ?? null;
-				assignmentProfileId = defaultProfile?.id ?? '';
-				if (defaultProfile) {
-					const detail = await loadAssignmentProfile(defaultProfile.id);
-					assignmentVersionId =
-						detail.current_version?.id ?? visibleVersions(detail)[0]?.id ?? '';
-				} else {
-					assignmentVersionId = '';
-				}
-			}
-		} catch (err) {
-			error = (err as { error?: string }).error || 'Failed to load assignment options';
-		} finally {
-			assignmentLoading = false;
-		}
-	}
-
-async function loadAssignmentProfile(profileId: string) {
-	const detail = await api.getSortingProfile(profileId);
-	assignmentProfileDetail = detail;
-	return detail;
-}
-
-	async function handleAssignmentProfileChange(profileId: string) {
-		assignmentProfileId = profileId;
-		assignmentVersionId = '';
-		if (!profileId) {
-			assignmentProfileDetail = null;
-			return;
-		}
-	assignmentLoading = true;
-	try {
-		const detail = await loadAssignmentProfile(profileId);
-		assignmentVersionId = detail.current_version?.id ?? visibleVersions(detail)[0]?.id ?? '';
-	} catch (err) {
-		error = (err as { error?: string }).error || 'Failed to load versions';
-	} finally {
-			assignmentLoading = false;
-		}
-	}
-
-	async function handleSaveAssignment() {
-		if (!assignmentMachine || !assignmentProfileId || !assignmentVersionId) return;
-		assignmentSaving = true;
-		error = null;
-		try {
-			const nextAssignment = await api.assignMachineProfile(
-				assignmentMachine.id,
-				assignmentProfileId,
-				assignmentVersionId
-			);
-			assignments = {
-				...assignments,
-				[assignmentMachine.id]: nextAssignment
-			};
-			await loadSetProgressForAssignment(assignmentMachine.id, nextAssignment);
-			showAssignModal = false;
-		} catch (err) {
-			error = (err as { error?: string }).error || 'Failed to assign profile';
-		} finally {
-			assignmentSaving = false;
-		}
-	}
-
-	async function handleClearAssignment(machine: Machine) {
-		assignmentClearing = true;
-		error = null;
-		try {
-			await api.clearMachineProfileAssignment(machine.id);
-			assignments = { ...assignments, [machine.id]: null };
-			setProgress = { ...setProgress, [machine.id]: null };
-			if (assignmentMachine?.id === machine.id) {
-				showAssignModal = false;
-			}
-		} catch (err) {
-			error = (err as { error?: string }).error || 'Failed to clear machine assignment';
-		} finally {
-			assignmentClearing = false;
-		}
-	}
 </script>
-
-<svelte:window onclick={() => { openMenuId = null; }} />
 
 <svelte:head>
 	<title>Machines - Hive</title>
 </svelte:head>
 
-<div class="mb-6 flex flex-wrap items-center justify-between gap-3">
-	<div class="min-w-0">
-		<h1 class="text-2xl font-bold text-text">Machines</h1>
-		<p class="mt-1 text-sm text-text-muted">
-			Manage machine tokens and decide which sorting profile version each machine should pull.
-		</p>
-	</div>
-	<button
-		onclick={() => { showAddModal = true; }}
-		class="shrink-0 bg-primary px-4 py-2 text-sm font-medium text-white hover:bg-primary-hover"
-	>
-		Add Machine
-	</button>
-</div>
+<PageHeader
+	title="Machines"
+	description="Manage machine tokens and decide which sorting profile version each machine should pull."
+>
+	{#snippet actions()}
+		<Button variant="primary" icon={Plus} onclick={() => (showAddModal = true)}>Add machine</Button>
+	{/snippet}
+</PageHeader>
 
 {#if error}
-	<div class="mb-4 bg-primary/8 p-3 text-sm text-primary">{error}</div>
+	<Alert tone="danger">{error}</Alert>
 {/if}
 
 {#if loading}
 	<div class="flex justify-center p-8"><Spinner size={32} /></div>
 {:else if machines.length === 0}
-	<p class="text-text-muted">No machines yet. Add one to get started.</p>
+	<Panel>
+		<EmptyState icon={Cpu} title="No machines yet">
+			Add a machine to get a token for it; the Sorter uses it to send its pieces and samples here.
+			{#snippet action()}
+				<Button variant="primary" icon={Plus} onclick={() => (showAddModal = true)}>Add machine</Button>
+			{/snippet}
+		</EmptyState>
+	</Panel>
 {:else}
-	<div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+	<div class="grid gap-(--gap-panels) sm:grid-cols-2 lg:grid-cols-3">
 		{#each machines as machine (machine.id)}
 			{@const assignment = assignments[machine.id]}
 			{@const stats = machineStats[machine.id]}
-			{@const isOnline = machine.last_seen_at && (Date.now() - new Date(machine.last_seen_at).getTime()) < 5 * 60 * 1000}
-			{@const acceptRate = stats && stats.total_samples > 0 ? Math.round((stats.accepted_samples / stats.total_samples) * 100) : null}
+			{@const isOnline =
+				machine.last_seen_at && Date.now() - new Date(machine.last_seen_at).getTime() < 5 * 60 * 1000}
+			{@const acceptRate =
+				stats && stats.total_samples > 0
+					? Math.round((stats.accepted_samples / stats.total_samples) * 100)
+					: null}
 			{@const localUi = localUiUrl(machine.network_info)}
-			<!-- svelte-ignore a11y_no_static_element_interactions -->
-			<div
-				class="flex cursor-pointer flex-col border border-border bg-surface transition-colors hover:border-text-muted"
-				role="link"
-				tabindex="0"
-				onclick={() => goto(`/machines/${machine.id}`)}
-				onkeydown={(e) => { if (e.key === 'Enter') goto(`/machines/${machine.id}`); }}
-			>
-				<!-- Header -->
-				<div class="flex items-start gap-3 px-4 pt-4 pb-3">
-					<div class="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center {isOnline ? 'bg-success/10 text-success' : 'bg-border/60 text-text-muted'}">
-						<svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
-							<path stroke-linecap="square" stroke-linejoin="miter" d="M8.25 3v1.5M4.5 8.25H3m18 0h-1.5M4.5 12H3m18 0h-1.5m-15 3.75H3m18 0h-1.5M8.25 19.5V21M12 3v1.5m0 15V21m3.75-18v1.5m0 15V21m-9-1.5h10.5a2.25 2.25 0 002.25-2.25V6.75a2.25 2.25 0 00-2.25-2.25H6.75A2.25 2.25 0 004.5 6.75v10.5a2.25 2.25 0 002.25 2.25z" />
-						</svg>
-					</div>
+			<Card href={`/machines/${machine.id}`} label={machine.name} padded={false} class="overflow-hidden">
+				<div class="flex items-start gap-3 px-(--pad-panel) pt-4 pb-3">
+					<span
+						class="mt-0.5 flex size-9 shrink-0 items-center justify-center rounded-control {isOnline
+							? 'bg-success-soft text-success-ink'
+							: 'bg-well text-ink-muted'}"
+					>
+						<Cpu size={18} />
+					</span>
 					<div class="min-w-0 flex-1">
 						<div class="flex items-center gap-2">
-							<a href={`/machines/${machine.id}`} class="truncate text-sm font-semibold text-text hover:text-primary hover:underline">{machine.name}</a>
-							<span class="shrink-0 text-[10px] font-medium uppercase tracking-wider {isOnline ? 'text-success' : 'text-text-muted'}">
-								{isOnline ? 'Online' : 'Offline'}
-							</span>
+							<span class="truncate font-semibold text-ink">{machine.name}</span>
+							<Badge tone={isOnline ? 'success' : 'neutral'} dot>{isOnline ? 'Online' : 'Offline'}</Badge>
 						</div>
 						{#if machine.description}
-							<p class="mt-0.5 truncate text-xs text-text-muted">{machine.description}</p>
+							<p class="mt-0.5 truncate text-sm text-ink-muted">{machine.description}</p>
 						{/if}
 						{#if machine.last_seen_at && !machine.network_info}
-							<p class="mt-0.5 text-xs text-text-muted">Update the Sorter software to get a link to it here.</p>
+							<p class="mt-0.5 text-sm text-ink-muted">Update the Sorter software to get a link to it here.</p>
 						{/if}
 					</div>
-					<div class="flex shrink-0 items-center gap-0.5">
+					<div class="-mt-1 -mr-2 flex shrink-0 items-center">
 						{#if localUi}
-							<a href={localUi}
-								target="_blank" rel="noopener noreferrer"
-								onclick={(event) => event.stopPropagation()}
-								class="-mt-1 p-1.5 text-text-muted hover:text-primary" title={`Open the Sorter at ${localUi}`} aria-label="Open the Sorter's UI">
-								<ExternalLink size={16} />
-							</a>
+							<Button
+								href={localUi}
+								target="_blank"
+								rel="noopener noreferrer"
+								variant="ghost"
+								size="sm"
+								icon={ExternalLink}
+								label="Open the Sorter's own page"
+							/>
 						{/if}
-					<!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
-					<div class="relative" onclick={(event) => event.stopPropagation()}>
-						<button onclick={() => toggleMenu(machine.id)}
-							class="-mr-1 -mt-1 p-1.5 text-text-muted hover:text-text" title="More actions">
-							<svg class="h-4 w-4" fill="currentColor" viewBox="0 0 20 20">
-								<path d="M10 6a2 2 0 110-4 2 2 0 010 4zM10 12a2 2 0 110-4 2 2 0 010 4zM10 18a2 2 0 110-4 2 2 0 010 4z" />
-							</svg>
-						</button>
-						{#if openMenuId === machine.id}
-							<div class="absolute right-0 z-10 mt-1 w-48 border border-border bg-surface py-1 shadow-sm">
-								<button onclick={() => openEdit(machine)} class="flex w-full items-center gap-2 px-4 py-2 text-sm text-text hover:bg-bg">Edit</button>
-								<button onclick={() => { void handleRotateToken(machine); openMenuId = null; }}
-									class="flex w-full items-center gap-2 px-4 py-2 text-sm text-text hover:bg-bg">
-									Rotate Token
-								</button>
-								<div class="my-1 border-b border-border"></div>
-								<button onclick={() => { openPurge(machine); openMenuId = null; }}
-									class="flex w-full items-center gap-2 px-4 py-2 text-sm text-primary hover:bg-primary/8">
-									Purge Data
-								</button>
-								<button onclick={() => { openDelete(machine); openMenuId = null; }}
-									class="flex w-full items-center gap-2 px-4 py-2 text-sm text-primary hover:bg-primary-light">
-									Delete Machine
-								</button>
-							</div>
-						{/if}
-					</div>
+						<Menu label={`${machine.name} actions`} items={machineMenu(machine)}>
+							{#snippet trigger(props)}
+								<Button {...props} variant="ghost" size="sm" icon={Ellipsis} label="More actions" />
+							{/snippet}
+						</Menu>
 					</div>
 				</div>
 
-				<!-- Stats grid -->
-				<div class="grid grid-cols-3 gap-px border-t border-border bg-border">
-					<div class="flex flex-col items-center bg-surface py-3">
-						<span class="text-lg font-bold text-text">{stats ? formatNumber(stats.total_samples) : '—'}</span>
-						<span class="text-[10px] uppercase tracking-wider text-text-muted">Samples</span>
-					</div>
-					<div class="flex flex-col items-center bg-surface py-3">
-						<span class="text-lg font-bold {acceptRate !== null && acceptRate >= 80 ? 'text-success' : acceptRate !== null ? 'text-text' : 'text-text'}">
-							{acceptRate !== null ? `${acceptRate}%` : '—'}
-						</span>
-						<span class="text-[10px] uppercase tracking-wider text-text-muted">Accepted</span>
-					</div>
-					<div class="flex flex-col items-center bg-surface py-3">
-						<span class="text-lg font-bold text-text">{stats ? formatNumber(stats.total_sessions) : '—'}</span>
-						<span class="text-[10px] uppercase tracking-wider text-text-muted">Sessions</span>
-					</div>
+				<div class="grid grid-cols-3 divide-x divide-line border-t border-line">
+					<Stat label="Samples" value={stats ? formatNumber(stats.total_samples) : '-'} />
+					<Stat
+						label="Accepted"
+						value={acceptRate !== null ? `${acceptRate}%` : '-'}
+						tone={acceptRate !== null && acceptRate >= 80 ? 'success' : undefined}
+					/>
+					<Stat label="Sessions" value={stats ? formatNumber(stats.total_sessions) : '-'} />
 				</div>
 
-				<!-- Set progress bar (if set-based profile) -->
 				{#if stats && stats.parts_needed > 0}
-					{@const pct = Math.round((stats.parts_found / stats.parts_needed) * 100)}
-					<div class="border-t border-border px-4 py-2.5">
-						<div class="mb-1.5 flex items-center justify-between text-xs">
-							<span class="font-medium text-text">Parts Found</span>
-							<span class="font-mono text-text-muted">{stats.parts_found}/{stats.parts_needed}</span>
+					<div class="border-t border-line px-(--pad-panel) py-3">
+						<div class="mb-2 flex items-center justify-between text-sm">
+							<span class="text-ink">Parts found</span>
+							<span class="num text-ink-muted">{stats.parts_found} of {stats.parts_needed}</span>
 						</div>
-						<div class="h-2 w-full bg-border">
-							<div class="h-full bg-success transition-all" style="width: {pct}%"></div>
-						</div>
+						<ProgressBar
+							label="Parts found"
+							value={stats.parts_found}
+							max={stats.parts_needed}
+							tone="success"
+						/>
 					</div>
 				{/if}
 
-				<!-- Profile assignment -->
 				{#if assignment?.profile && assignment.desired_version}
-					<div class="mt-auto border-t border-border px-4 py-2.5">
-						<div class="flex items-center gap-2 text-xs">
-							<svg class="h-3.5 w-3.5 shrink-0 text-text-muted" viewBox="0 0 20 20" fill="currentColor">
-								<path fill-rule="evenodd" d="M4.5 2A1.5 1.5 0 003 3.5v13A1.5 1.5 0 004.5 18h11a1.5 1.5 0 001.5-1.5V7.621a1.5 1.5 0 00-.44-1.06l-4.12-4.122A1.5 1.5 0 0011.378 2H4.5z" clip-rule="evenodd" />
-							</svg>
-								<a href={`/profiles/${assignment.profile.id}`} onclick={(event) => event.stopPropagation()} class="truncate font-medium text-text hover:text-primary hover:underline">{assignment.profile.name}</a>
-							<span class="shrink-0 text-text-muted">v{assignment.desired_version.version_number}</span>
-							{#if assignment.active_version}
-								<Badge text="Synced" variant="success" />
-							{:else}
-								<Badge text="Pending" variant="neutral" />
-							{/if}
-						</div>
-					</div>
-				{/if}
-
-				<!-- Footer -->
-				<div class="mt-auto border-t border-border bg-bg px-4 py-2">
-					<div class="flex flex-wrap items-center justify-between gap-x-3 gap-y-0.5 text-[10px] text-text-muted">
-						<span>Registered {formatUptime(machine.created_at)} ago</span>
-						{#if machine.last_seen_at}
-							<span>{isOnline ? 'Online now' : `Last seen ${new Date(machine.last_seen_at).toLocaleString()}`}</span>
+					<div class="flex items-center gap-2 border-t border-line px-(--pad-panel) py-3 text-sm">
+						<FileText size={16} class="shrink-0 text-ink-muted" />
+						<a href={`/profiles/${assignment.profile.id}`} class="truncate font-medium text-ink hover:underline"
+							>{assignment.profile.name}</a
+						>
+						<span class="num shrink-0 text-ink-muted">v{assignment.desired_version.version_number}</span>
+						{#if assignment.active_version}
+							<Badge tone="success">Synced</Badge>
 						{:else}
-							<span>Never connected</span>
+							<Badge>Pending</Badge>
 						{/if}
 					</div>
+				{/if}
+
+				<div
+					class="mt-auto flex flex-wrap items-center justify-between gap-x-3 gap-y-0.5 border-t border-line px-(--pad-panel) py-2.5 text-sm text-ink-muted"
+				>
+					<span>Registered {formatUptime(machine.created_at)}</span>
+					{#if machine.last_seen_at}
+						<span
+							>{isOnline
+								? 'Online now'
+								: `Last seen ${new Date(machine.last_seen_at).toLocaleString()}`}</span
+						>
+					{:else}
+						<span>Never connected</span>
+					{/if}
 				</div>
-			</div>
+			</Card>
 		{/each}
 	</div>
-{/if}
 
-{#if !loading && machines.length > 0}
-	<section class="mt-10">
-		<h2 class="mb-3 text-lg font-semibold text-text">Fleet analytics</h2>
+	<section>
+		<h2 class="mb-(--gap-panels) text-base font-semibold text-ink">Fleet analytics</h2>
 		<AnalyticsDashboard scope="mine" />
 	</section>
 {/if}
 
-<Modal open={showAddModal} title="Add Machine" onclose={() => { showAddModal = false; }}>
-	<form onsubmit={handleAdd} class="space-y-4">
-		<div>
-			<label for="machineName" class="mb-1 block text-sm font-medium text-text">Name</label>
-			<input
-				id="machineName"
-				type="text"
-				bind:value={newName}
-				required
-				class="w-full border border-border px-3 py-2 text-sm focus:border-primary focus:ring-1 focus:ring-primary focus:outline-none"
-			/>
-		</div>
-		<div>
-			<label for="machineDesc" class="mb-1 block text-sm font-medium text-text">Description (optional)</label>
-			<input
-				id="machineDesc"
-				type="text"
-				bind:value={newDescription}
-				class="w-full border border-border px-3 py-2 text-sm focus:border-primary focus:ring-1 focus:ring-primary focus:outline-none"
-			/>
-		</div>
-		<button
-			type="submit"
-			disabled={addSubmitting}
-			class="w-full bg-primary px-4 py-2 text-sm font-medium text-white hover:bg-primary-hover disabled:opacity-50"
-		>
-			{addSubmitting ? 'Creating...' : 'Create Machine'}
-		</button>
+<Modal bind:open={showAddModal} title="Add machine" size="sm">
+	<form id="add-machine" onsubmit={handleAdd} class="flex flex-col gap-4">
+		<Field label="Name" for="machine-name">
+			<Input id="machine-name" bind:value={newName} />
+		</Field>
+		<Field label="Description" for="machine-description" help="Optional.">
+			<Input id="machine-description" bind:value={newDescription} />
+		</Field>
 	</form>
-</Modal>
-
-<Modal open={showTokenModal} title="API Token" onclose={() => { showTokenModal = false; }}>
-	<div class="space-y-4">
-		<div class="bg-warning/12 p-3 text-sm text-warning-strong">
-			Save this token now. It will not be shown again.
-		</div>
-		<div class="flex items-center gap-2">
-			<code class="flex-1 overflow-x-auto bg-bg p-2 text-xs break-all">{tokenDisplay}</code>
-			<button
-				onclick={copyToken}
-				class="shrink-0 border border-border px-3 py-1 text-xs font-medium text-text hover:bg-bg"
-			>
-				{tokenCopied ? 'Copied!' : 'Copy'}
-			</button>
-		</div>
-	</div>
-</Modal>
-
-<Modal open={showEditModal} title="Edit Machine" onclose={() => { showEditModal = false; }}>
-	<form onsubmit={handleEdit} class="space-y-4">
-		<div>
-			<label for="editName" class="mb-1 block text-sm font-medium text-text">Name</label>
-			<input
-				id="editName"
-				type="text"
-				bind:value={editName}
-				required
-				class="w-full border border-border px-3 py-2 text-sm focus:border-primary focus:ring-1 focus:ring-primary focus:outline-none"
-			/>
-		</div>
-		<button
+	{#snippet footer()}
+		<Button variant="ghost" onclick={() => (showAddModal = false)}>Cancel</Button>
+		<Button
 			type="submit"
-			class="w-full bg-primary px-4 py-2 text-sm font-medium text-white hover:bg-primary-hover"
+			form="add-machine"
+			variant="primary"
+			loading={addSubmitting}
+			disabled={!newName.trim()}>Create machine</Button
 		>
-			Save
-		</button>
-	</form>
+	{/snippet}
 </Modal>
 
-<Modal open={showDeleteModal} title="Delete Machine" onclose={() => { showDeleteModal = false; }}>
-	<div class="space-y-4">
-		<p class="text-sm text-text-muted">
-			Are you sure you want to delete <strong>{deleteMachine?.name}</strong>? This also removes upload sessions, samples, and reviews associated with this machine.
+<!-- Wide, so the token fits on one line. -->
+<Modal bind:open={showTokenModal} title="Machine token" size="lg" onclose={() => (tokenDisplay = '')}>
+	<CopyField
+		name="machine token"
+		value={tokenDisplay}
+		mono
+		note="Hive shows the token only now. The machine needs it to send its pieces and samples here."
+	/>
+	{#snippet footer()}
+		<Button onclick={() => (showTokenModal = false)}>Done</Button>
+	{/snippet}
+</Modal>
+
+<Modal bind:open={showEditModal} title="Edit machine" size="sm">
+	<form id="edit-machine" onsubmit={handleEdit}>
+		<Field label="Name" for="edit-machine-name">
+			<Input id="edit-machine-name" bind:value={editName} />
+		</Field>
+	</form>
+	{#snippet footer()}
+		<Button variant="ghost" onclick={() => (showEditModal = false)}>Cancel</Button>
+		<Button type="submit" form="edit-machine" variant="primary" disabled={!editName.trim()}>Save</Button>
+	{/snippet}
+</Modal>
+
+<Modal bind:open={showDeleteModal} title="Delete machine" size="sm">
+	<p class="text-sm text-ink-muted">
+		Delete <strong class="font-medium text-ink">{deleteMachine?.name}</strong>? This also removes the upload
+		sessions, samples and reviews that came from it.
+	</p>
+	{#snippet footer()}
+		<Button variant="ghost" onclick={() => (showDeleteModal = false)}>Cancel</Button>
+		<Button variant="danger" onclick={handleDelete}>Delete machine</Button>
+	{/snippet}
+</Modal>
+
+<Modal bind:open={showPurgeModal} title="Purge machine data" size="sm">
+	{#if purgeResult}
+		<Alert tone="success">{purgeResult}</Alert>
+	{:else}
+		<p class="text-sm text-ink-muted">
+			This deletes <strong class="font-medium text-ink">all upload sessions, samples, reviews and files</strong>
+			for <strong class="font-medium text-ink">{purgeMachine?.name}</strong>. The machine itself stays registered.
 		</p>
-		<div class="flex justify-end gap-2">
-			<button
-				onclick={() => { showDeleteModal = false; }}
-				class="border border-border px-4 py-2 text-sm font-medium text-text hover:bg-bg"
-			>
-				Cancel
-			</button>
-			<button
-				onclick={handleDelete}
-				class="bg-primary px-4 py-2 text-sm font-medium text-white hover:bg-primary-hover"
-			>
-				Delete
-			</button>
-		</div>
-	</div>
-</Modal>
-
-<Modal open={showPurgeModal} title="Purge Machine Data" onclose={() => { showPurgeModal = false; }}>
-	<div class="space-y-4">
+	{/if}
+	{#snippet footer()}
 		{#if purgeResult}
-			<div class="bg-success/10 p-3 text-sm text-success">{purgeResult}</div>
-			<div class="flex justify-end">
-				<button
-					onclick={() => { showPurgeModal = false; }}
-					class="border border-border px-4 py-2 text-sm font-medium text-text hover:bg-bg"
-				>
-					Close
-				</button>
-			</div>
+			<Button variant="primary" onclick={() => (showPurgeModal = false)}>Done</Button>
 		{:else}
-			<p class="text-sm text-text-muted">
-				This deletes <strong>all upload sessions, samples, reviews, and files</strong> for <strong>{purgeMachine?.name}</strong>. The machine itself remains registered.
-			</p>
-			<div class="flex justify-end gap-2">
-				<button
-					onclick={() => { showPurgeModal = false; }}
-					class="border border-border px-4 py-2 text-sm font-medium text-text hover:bg-bg"
-				>
-					Cancel
-				</button>
-				<button
-					onclick={handlePurge}
-					disabled={purging}
-					class="bg-primary px-4 py-2 text-sm font-medium text-white hover:bg-primary-hover disabled:opacity-50"
-				>
-					{purging ? 'Purging...' : 'Purge All Data'}
-				</button>
-			</div>
+			<Button variant="ghost" onclick={() => (showPurgeModal = false)}>Cancel</Button>
+			<Button variant="danger" loading={purging} onclick={handlePurge}>Purge all data</Button>
 		{/if}
-	</div>
-</Modal>
-
-<Modal
-	open={showAssignModal}
-	title={assignmentMachine ? `Assign Profile to ${assignmentMachine.name}` : 'Assign Profile'}
-	onclose={() => { showAssignModal = false; }}
->
-	<div class="space-y-4">
-		{#if assignmentLoading}
-			<div class="flex justify-center p-8"><Spinner size={32} /></div>
-		{:else if accessibleProfiles.length === 0}
-			<p class="text-sm text-text-muted">
-				No profiles are available yet. Create one or save a public profile to your library first.
-			</p>
-			<div class="flex justify-end">
-				<a
-					href="/profiles?scope=mine"
-					class="border border-border px-4 py-2 text-sm font-medium text-text hover:bg-bg"
-				>
-					Open Profiles
-				</a>
-			</div>
-		{:else}
-			<div>
-				<label for="assignment-profile" class="mb-1 block text-sm font-medium text-text">Profile</label>
-				<select
-					id="assignment-profile"
-					bind:value={assignmentProfileId}
-					onchange={(event) => void handleAssignmentProfileChange((event.currentTarget as HTMLSelectElement).value)}
-					class="w-full border border-border px-3 py-2 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
-				>
-					<option value="">Select a profile</option>
-					{#each accessibleProfiles as profile}
-						<option value={profile.id}>
-							{profile.name}
-							{profile.is_owner ? ' · your profile' : ` · ${profile.owner.display_name ?? profile.owner.github_login ?? 'community'}`}
-						</option>
-					{/each}
-				</select>
-			</div>
-
-			<div>
-				<label for="assignment-version" class="mb-1 block text-sm font-medium text-text">Version</label>
-				<select
-					id="assignment-version"
-					bind:value={assignmentVersionId}
-					disabled={!assignmentProfileDetail}
-					class="w-full border border-border px-3 py-2 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary disabled:bg-bg"
-				>
-					<option value="">Select a version</option>
-					{#each visibleVersions(assignmentProfileDetail) as version}
-						<option value={version.id}>
-							v{version.version_number}
-							{version.label ? ` · ${version.label}` : ''}
-							{version.is_published ? ' · published' : ' · draft'}
-						</option>
-					{/each}
-				</select>
-			</div>
-
-			{#if assignmentProfileDetail}
-				<div class="bg-bg p-3 text-sm text-text-muted">
-					<div class="font-medium text-text">{assignmentProfileDetail.name}</div>
-					{#if assignmentProfileDetail.description}
-						<p class="mt-1">{assignmentProfileDetail.description}</p>
-					{/if}
-					<div class="mt-2 text-xs text-text-muted">
-						{assignmentProfileDetail.latest_version?.compiled_part_count ?? 0} mapped parts in the newest visible version
-					</div>
-				</div>
-			{/if}
-
-			<div class="flex justify-end gap-2">
-				{#if assignmentMachine && assignments[assignmentMachine.id]}
-					<button
-						onclick={() => { if (assignmentMachine) void handleClearAssignment(assignmentMachine); }}
-						disabled={assignmentClearing}
-						class="border border-border px-4 py-2 text-sm font-medium text-text hover:bg-bg disabled:opacity-50"
-					>
-						{assignmentClearing ? 'Clearing...' : 'Clear'}
-					</button>
-				{/if}
-				<button
-					onclick={() => void handleSaveAssignment()}
-					disabled={assignmentSaving || !assignmentProfileId || !assignmentVersionId}
-					class="bg-primary px-4 py-2 text-sm font-medium text-white hover:bg-primary-hover disabled:opacity-50"
-				>
-					{assignmentSaving ? 'Saving...' : 'Save Assignment'}
-				</button>
-			</div>
-		{/if}
-	</div>
+	{/snippet}
 </Modal>

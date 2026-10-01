@@ -1,7 +1,15 @@
 <script lang="ts">
 	import { getBackendHttpBase } from '$lib/backend';
-	import { Button, Alert, Input } from '$lib/components/primitives';
-	import SectionCard from '$lib/components/settings/SectionCard.svelte';
+	import Alert from '$lib/components/ui/Alert.svelte';
+	import Input from '$lib/components/ui/Input.svelte';
+	import Panel from '$lib/components/ui/Panel.svelte';
+	import PageHeader from '$lib/components/ui/PageHeader.svelte';
+	import SettingsSaveBar from '$lib/components/settings/SettingsSaveBar.svelte';
+	import Spinner from '$lib/components/ui/Spinner.svelte';
+	import RadioGroup from '$lib/components/ui/RadioGroup.svelte';
+	import Checkbox from '$lib/components/ui/Checkbox.svelte';
+	import SettingRow from '$lib/components/ui/SettingRow.svelte';
+	import Badge from '$lib/components/ui/Badge.svelte';
 
 	type InstalledLinkModel = {
 		local_id: string;
@@ -84,130 +92,100 @@
 	});
 </script>
 
-<svelte:head><title>Sorter - Piece Link Matching</title></svelte:head>
+<svelte:head><title>Sorter - Piece link matching</title></svelte:head>
 
-<div class="flex flex-col gap-6 p-6">
-	<div>
-		<div class="flex flex-wrap items-center gap-2">
-			<div class="text-lg font-semibold text-text">Piece Link Matching</div>
-			<span
-				class="bg-warning/20 px-2 py-0.5 text-xs font-semibold tracking-wider text-warning-dark uppercase dark:text-warning"
-			>
-				Experimental
-			</span>
-		</div>
-		<div class="mt-1 text-sm text-text-muted">
-			Given a piece that has just been classified at C4, score which of the upstream C2/C3 bbox
-			crops are the same physical piece — from the crop images plus the timing and position data.
-			Replaces the hand-tuned time/angle scoring on the piece detail page's "Possibly the same
-			piece" gallery. Off by default; it costs one small CPU model pass per lookup.
-		</div>
-	</div>
+<PageHeader
+	title="Piece link matching"
+	description="Given a piece just classified on C4, score which of the upstream C2 and C3 crops show the same piece, from the crop pictures and the timing and position data. It replaces the hand-tuned time and angle scoring in the piece page's &quot;Possibly the same piece&quot; gallery. Off by default: it costs one small CPU model pass per lookup."
+>
+	<Badge tone="warning">Experimental</Badge>
+</PageHeader>
 
-	{#if error}
-		<Alert variant="danger">{error}</Alert>
+{#if error}
+	<Alert tone="danger">{error}</Alert>
+{/if}
+{#if saved}
+	<Alert tone="success">Saved.</Alert>
+{/if}
+
+{#if loading}
+	<div class="flex items-center gap-2 text-sm text-ink-muted"><Spinner size={14} /> Loading</div>
+{:else}
+	{#if loaded && !hasModel}
+		<Alert tone="info">
+			No piece-link model is installed. Download one from
+			<a class="font-medium underline" href="/settings/hive/models">Local models</a> (set the purpose
+			to "Piece link"), then come back to turn it on.
+		</Alert>
 	{/if}
 
-	{#if saved}
-		<Alert variant="success">Saved.</Alert>
-	{/if}
-
-	{#if loading}
-		<div class="text-sm text-text-muted">Loading…</div>
-	{:else}
-		{#if loaded && !hasModel}
-			<Alert variant="info">
-				No piece-link model is installed. Download one from
-				<a class="underline" href="/settings/hive/models">Hive Models</a> — set the purpose filter
-				to "Piece link" — then come back here to enable it.
-			</Alert>
-		{/if}
-
-		{#if loaded}
-		<SectionCard
+	{#if loaded}
+		<Panel
 			title="Matching"
-			description="When enabled, the model re-ranks the candidates the time/angle lookup already found. It cannot find crops the lookup missed, so turning it off always falls back cleanly."
+			description="The model re-ranks the candidates the time and angle lookup already found. It can't find crops the lookup missed, so turning it off always falls back cleanly."
+			flush
 		>
-			<label class="flex items-start gap-3">
-				<input
-					type="checkbox"
-					bind:checked={enabled}
-					disabled={!hasModel}
-					class="mt-1 border border-border"
-				/>
-				<span class="flex flex-col">
-					<span class="text-sm font-medium text-text">Use the model to rank possible crops</span>
-					<span class="text-sm text-text-muted">
+			<div class="divide-y divide-line">
+				<div class="px-(--pad-panel) py-(--pad-row)">
+					<Checkbox bind:checked={enabled} disabled={!hasModel}>
+						<span class="font-medium">Use the model to rank the possible crops</span>
+					</Checkbox>
+					<p class="mt-1 ml-6.5 text-sm text-ink-muted">
 						{#if hasModel}
-							The piece detail page will show a "Model" badge and each crop's match probability
-							instead of the heuristic score.
+							The piece page then shows a "Model" badge and each crop's match probability instead of
+							the heuristic score.
 						{:else}
 							Unavailable until a piece-link model is installed.
 						{/if}
-					</span>
-				</span>
-			</label>
-
-			<div class="mt-4 flex flex-col gap-1">
-				<label for="link-min-confidence" class="text-sm font-medium text-text">
-					Minimum confidence
-				</label>
-				<span class="text-sm text-text-muted">
-					Crops must score at or above this (0–1) to count as the same piece — below it they
-					are still shown on the piece detail page, just unchecked and never fused into
-					classification. Overrides the cutoff baked into the model (0.5 for link-v3).
-				</span>
-				<Input
-					id="link-min-confidence"
-					type="number"
-					bind:value={minConfidence}
-					disabled={!hasModel}
-					class="max-w-32"
-				/>
+					</p>
+				</div>
+				<SettingRow
+					label="Minimum confidence"
+					help="Crops scoring at or above this (0 to 1) count as the same piece. Below it they still show on the piece page, unchecked and never fused into the classification. Overrides the cutoff built into the model (0.5 for link-v3)."
+					for="link-min-confidence"
+				>
+					<Input
+						id="link-min-confidence"
+						type="number"
+						bind:value={minConfidence}
+						disabled={!hasModel}
+						class="w-28"
+					/>
+				</SettingRow>
 			</div>
-		</SectionCard>
+		</Panel>
 
 		{#if hasModel}
-			<SectionCard
+			<Panel
 				title="Model"
-				description="Which installed piece-link model to use. Leave on Automatic unless you have more than one and want to pin a specific version."
+				description="Which installed piece-link model to use. Leave it on automatic unless there is more than one and you want to pin a version."
 			>
-				<div class="flex flex-col gap-2">
-					<label class="flex items-center gap-3 text-sm">
-						<input type="radio" bind:group={algorithm} value="" />
-						<span class="text-text">Automatic — use whichever is installed</span>
-					</label>
-					{#each installed as m (m.local_id)}
-						<label class="flex items-start gap-3 text-sm">
-							<input type="radio" bind:group={algorithm} value={m.local_id} class="mt-1" />
-							<span class="flex flex-col">
-								<span class="font-mono text-text">{m.name ?? m.local_id}</span>
-								<span class="text-xs text-text-muted">
-									downloaded {formatDate(m.downloaded_at)}
-								</span>
-							</span>
-						</label>
-					{/each}
-				</div>
-			</SectionCard>
+				<RadioGroup
+					name="piece-link-model"
+					label="Piece-link model"
+					bind:value={algorithm}
+					options={[
+						{ value: '', label: 'Automatic', help: 'Use whichever one is installed.' },
+						...installed.map((m) => ({
+							value: m.local_id,
+							label: m.name ?? m.local_id,
+							help: `Downloaded ${formatDate(m.downloaded_at)}`
+						}))
+					]}
+				/>
+			</Panel>
 		{/if}
 
-		<div class="flex gap-3">
-			<Button variant="primary" onclick={save} loading={saving} disabled={!hasModel && !enabled}>
-				Save
-			</Button>
-			<Button variant="secondary" onclick={load} disabled={saving}>Reset to saved</Button>
-		</div>
+		<SettingsSaveBar {save} reset={load} {saving} disabled={!hasModel && !enabled} />
 
 		{#if metaFeatures}
-			<SectionCard
+			<Panel
 				title="Feature contract"
-				description="The time/position features this build feeds the model, in order. A model trained on anything different refuses to load rather than scoring nonsense — if you see a mismatch error in the logs, the model and this software are out of sync."
+				description="The time and position features this build feeds the model, in order. A model trained on anything different refuses to load rather than score nonsense: a mismatch error in the log means the model and this software are out of step."
 			>
 				<pre
-					class="overflow-x-auto bg-bg p-3 text-xs text-text-muted">{metaFeatures}</pre>
-			</SectionCard>
-		{/if}
+					class="overflow-x-auto rounded-control bg-well p-3 font-mono text-sm text-ink-muted">{metaFeatures}</pre>
+			</Panel>
 		{/if}
 	{/if}
-</div>
+{/if}

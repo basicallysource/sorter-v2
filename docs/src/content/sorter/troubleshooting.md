@@ -100,7 +100,7 @@ These are for [the SorterOS image]({{ '/sorter/installation/sorter-os/' | relati
 
 **Fix:** Read the `[backend]` lines in `./dev.sh`. The last line before the silence tells you which import failed. Fix that and restart.
 
-**Verify:** `curl -fsS http://localhost:8000/api/health` returns JSON.
+**Verify:** `curl -fsS http://localhost:8000/health` returns JSON.
 
 ---
 
@@ -123,16 +123,6 @@ The wizard's Controller Discovery step lists no controllers, and the issue banne
 **Fix:** Re-run `install.sh`, or by hand: `sudo cp software/systemd/99-sorter-pico.rules /etc/udev/rules.d/ && sudo usermod -aG plugdev $USER && sudo udevadm control --reload-rules && sudo udevadm trigger`. Unplug and replug. For headless/SSH, log out and back in so the group takes effect.
 
 **Verify:** `ls -l /dev/ttyACM*` shows the device owned by `root:plugdev` with mode `0660`, and `id` lists `plugdev` for your user.
-
----
-
-## Feeder camera sees a part but the MOG2 detector never triggers
-
-**Cause:** Bootstrap window — each channel needs 24 frames of background before reporting detections, and the counter resets on any image-shape change. Or: the channel was rotating when the part landed (motion blur is suppressed on purpose).
-
-**Fix:** Wait ~2 seconds after homing or any camera setting change before dropping a part. If detections come in late but never fire, raise `var_threshold` in `mog2_diff_configs`.
-
-**Verify:** A part landing in the dropzone produces `feeder: idle -> feeding` in the log within ~500 ms.
 
 ---
 
@@ -166,7 +156,7 @@ The wizard's Controller Discovery step lists no controllers, and the issue banne
 
 **Cause:** Wrong URL/token, or Hive is unreachable from this machine. The uploader keeps samples on disk and backs off — nothing is dropped.
 
-**Fix:** Test with `curl -fsS "$HIVE_URL/api/health"`. If that fails, fix the network. If it returns but uploads still 401, the token is wrong. Set both under **Settings → Hive** in the UI (stored via `blob_manager`, not `.env`).
+**Fix:** Test with `curl -fsS "$HIVE_URL/api/health"`. If that fails, fix the network. If it returns but uploads still 401, the token is wrong. Set both under **Settings → Hive** in the UI (stored in the backend's `local_state.sqlite`, not `.env`).
 
 **Verify:** The pending queue drains at roughly one upload per second per worker.
 

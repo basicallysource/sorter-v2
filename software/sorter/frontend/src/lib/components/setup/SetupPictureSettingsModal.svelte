@@ -1,43 +1,31 @@
 <script lang="ts">
+	import LiveImage from '$lib/components/LiveImage.svelte';
 	import PictureSettingsSidebar from '$lib/components/settings/PictureSettingsSidebar.svelte';
 	import { pictureSettingsEqual, type PictureSettings } from '$lib/settings/picture-settings';
 	import type { CameraRole } from '$lib/settings/stations';
-	import { createEventDispatcher } from 'svelte';
+	import { roleView } from '$lib/video';
 
-	type CalibrationHighlight = [number, number, number, number];
-	type PreviewImageSize = { width: number; height: number };
 	type TransformMatrix = [number, number, number, number];
 	type PicturePreviewState = {
 		saved: PictureSettings;
 		draft: PictureSettings;
 	};
 
-	const COLOR_CHECKER_REFERENCE_IMAGE = '/setup/color-checker-reference.png';
-	const COLOR_CHECKER_BRICKLINK_URL =
-		'https://www.bricklink.com/v3/studio/design.page?idModel=810209';
-
 	let {
 		role,
 		label,
 		source = null,
 		hasCamera = true,
-		backendBaseUrl
+		onsaved
 	}: {
 		role: CameraRole;
 		label: string;
 		source?: number | string | null;
 		hasCamera?: boolean;
-		backendBaseUrl: string;
+		onsaved?: () => void;
 	} = $props();
 
-	const dispatch = createEventDispatcher<{ saved: void }>();
-
 	let picturePreview = $state<PicturePreviewState | null>(null);
-	let calibrationHighlight = $state<CalibrationHighlight | null>(null);
-	let previewViewportEl: HTMLDivElement | null = null;
-	let previewViewportSize = $state<PreviewImageSize>({ width: 0, height: 0 });
-	let previewImageSize = $state<PreviewImageSize>({ width: 0, height: 0 });
-	let feedRevision = $state(0);
 	let previewKey = $state('');
 
 	$effect(() => {
@@ -45,72 +33,7 @@
 		if (nextKey === previewKey) return;
 		previewKey = nextKey;
 		picturePreview = null;
-		calibrationHighlight = null;
-		previewImageSize = { width: 0, height: 0 };
-		feedRevision += 1;
 	});
-
-	function updatePreviewViewportSize() {
-		if (!previewViewportEl) return;
-		const rect = previewViewportEl.getBoundingClientRect();
-		const width = Math.max(0, Math.round(rect.width));
-		const height = Math.max(0, Math.round(rect.height));
-		if (width === previewViewportSize.width && height === previewViewportSize.height) return;
-		previewViewportSize = { width, height };
-	}
-
-	$effect(() => {
-		if (!previewViewportEl || typeof ResizeObserver === 'undefined') {
-			previewViewportSize = { width: 0, height: 0 };
-			return;
-		}
-
-		const observer = new ResizeObserver(() => updatePreviewViewportSize());
-		updatePreviewViewportSize();
-		observer.observe(previewViewportEl);
-		return () => observer.disconnect();
-	});
-
-	function rememberPreviewImageSize(media: HTMLImageElement | null) {
-		if (!media) return;
-		const width = media.naturalWidth;
-		const height = media.naturalHeight;
-		if (width <= 0 || height <= 0) return;
-		if (width === previewImageSize.width && height === previewImageSize.height) return;
-		previewImageSize = { width, height };
-	}
-
-	function containedImageRect(
-		container: PreviewImageSize,
-		sourceSize: PreviewImageSize
-	): { left: number; top: number; width: number; height: number } {
-		if (
-			container.width <= 0 ||
-			container.height <= 0 ||
-			sourceSize.width <= 0 ||
-			sourceSize.height <= 0
-		) {
-			return {
-				left: 0,
-				top: 0,
-				width: container.width,
-				height: container.height
-			};
-		}
-
-		const scale = Math.min(
-			container.width / sourceSize.width,
-			container.height / sourceSize.height
-		);
-		const width = sourceSize.width * scale;
-		const height = sourceSize.height * scale;
-		return {
-			left: (container.width - width) / 2,
-			top: (container.height - height) / 2,
-			width,
-			height
-		};
-	}
 
 	function multiplyTransformMatrices(
 		left: TransformMatrix,
@@ -170,87 +93,34 @@
 		return `transform: matrix(${relativeMatrix[0]}, ${relativeMatrix[2]}, ${relativeMatrix[1]}, ${relativeMatrix[3]}, 0, 0); transform-origin: center center;`;
 	}
 
-	function previewOverlayStyle(): string {
-		const transformStyle = previewTransformStyle();
-		if (previewImageSize.width <= 0 || previewImageSize.height <= 0) {
-			return `inset:0;${transformStyle}`;
-		}
-		const fitted = containedImageRect(previewViewportSize, previewImageSize);
-		return `left:${fitted.left}px;top:${fitted.top}px;width:${fitted.width}px;height:${fitted.height}px;${transformStyle}`;
-	}
-
-	const mjpegSrc = $derived.by(() => {
-		const params = new URLSearchParams({
-			annotated: '0',
-			layer: 'raw',
-			dashboard: '0',
-			color_correct: '1',
-			show_regions: '0'
-		});
-		return `${backendBaseUrl}/api/cameras/feed/${encodeURIComponent(role)}?${params.toString()}`;
-	});
-
 	function handleSidebarSaved() {
 		picturePreview = null;
-		feedRevision += 1;
-		dispatch('saved');
+		onsaved?.();
 	}
 </script>
 
-<div class="grid gap-4 xl:grid-cols-[minmax(0,1fr)_24rem] xl:items-start">
-	<div class="flex min-w-0 flex-col gap-3">
-		<div class="relative overflow-hidden bg-black">
-			<div
-				class="relative min-h-[24rem] sm:min-h-[30rem] lg:min-h-[36rem] xl:min-h-[42rem]"
-				bind:this={previewViewportEl}
-			>
-				{#if hasCamera}
-					{#key `${role}::${typeof source === 'string' ? source : source === null ? 'none' : source}::${feedRevision}`}
-						<img
-							src={mjpegSrc}
-							alt={label}
-							class="absolute inset-0 h-full w-full object-contain"
-							style={previewTransformStyle()}
-							onload={(event) =>
-								rememberPreviewImageSize(event.currentTarget as HTMLImageElement)}
-						/>
-						<div class="pointer-events-none absolute" style={previewOverlayStyle()}>
-							{#if calibrationHighlight}
-								<div
-									class="absolute border-2 border-sky-400 shadow-[0_0_0_1px_rgba(255,255,255,0.35),0_0_24px_rgba(56,189,248,0.35)]"
-									style={`left:${calibrationHighlight[0] * 100}%;top:${calibrationHighlight[1] * 100}%;width:${(calibrationHighlight[2] - calibrationHighlight[0]) * 100}%;height:${(calibrationHighlight[3] - calibrationHighlight[1]) * 100}%;`}
-								>
-									<div
-										class="absolute -top-7 left-0 rounded bg-sky-400 px-2 py-1 text-xs font-medium text-slate-950 shadow-md"
-									>
-										Color Check
-									</div>
-								</div>
-							{/if}
-						</div>
-					{/key}
-				{:else}
-					<div
-						class="absolute inset-0 flex items-center justify-center px-6 text-center text-sm text-white/80"
-					>
-						<div class="max-w-sm rounded-md bg-black/55 px-4 py-3">
-							Assign a camera first so you can preview picture settings and place the Color Check
-							target.
-						</div>
-					</div>
-				{/if}
-			</div>
-		</div>
+<!-- The picture beside its settings; below xl, the settings under it. -->
+<div class="grid grid-cols-1 gap-4 xl:grid-cols-[minmax(0,1fr)_22rem] xl:items-start">
+	<div class="dark relative min-h-[20rem] overflow-hidden rounded-control bg-media sm:min-h-[28rem]">
+		{#if hasCamera}
+			<LiveImage
+				view={roleView(role, false, false)}
+				alt={label}
+				class="absolute inset-0 h-full w-full object-contain"
+				style={previewTransformStyle()}
+			/>
+		{:else}
+			<p class="absolute inset-0 flex items-center justify-center px-6 text-center text-sm text-ink-muted">
+				Choose a camera first to preview its picture.
+			</p>
+		{/if}
 	</div>
-
 	<PictureSettingsSidebar
 		{role}
 		{label}
 		{source}
 		{hasCamera}
 		showHeader={false}
-		calibrationReferenceImageSrc={COLOR_CHECKER_REFERENCE_IMAGE}
-		calibrationReferenceLinkUrl={COLOR_CHECKER_BRICKLINK_URL}
 		primaryActionLabel="Confirm"
 		allowPrimaryActionWithoutChanges={true}
 		onSaved={handleSidebarSaved}
@@ -260,9 +130,6 @@
 				saved: savedSettings,
 				draft: draftSettings
 			};
-		}}
-		onCalibrationHighlightChange={(bbox) => {
-			calibrationHighlight = bbox;
 		}}
 	/>
 </div>

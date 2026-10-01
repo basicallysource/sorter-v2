@@ -1,6 +1,12 @@
 <script lang="ts">
 	import { getBackendHttpBase } from '$lib/backend';
-	import { AlertTriangle, CheckCircle2, RefreshCw } from 'lucide-svelte';
+	import AlertTriangle from '@lucide/svelte/icons/triangle-alert';
+	import CheckCircle2 from '@lucide/svelte/icons/circle-check';
+	import RefreshCw from '@lucide/svelte/icons/refresh-cw';
+	import Alert from '$lib/components/ui/Alert.svelte';
+	import Button from '$lib/components/ui/Button.svelte';
+	import Panel from '$lib/components/ui/Panel.svelte';
+	import Stat from '$lib/components/ui/Stat.svelte';
 	import { onMount } from 'svelte';
 
 	type SectorState = 'free' | 'occupied' | 'handoff' | 'exit';
@@ -54,16 +60,10 @@
 	);
 
 	function sectorClass(sector: Sector): string {
-		if (sector.occupied) {
-			return 'border-primary bg-primary/10 text-text';
-		}
-		if (sector.state === 'handoff') {
-			return 'border-warning bg-warning/10 text-text';
-		}
-		if (sector.state === 'exit') {
-			return 'border-info bg-info/10 text-text';
-		}
-		return 'border-border bg-bg text-text-muted';
+		if (sector.occupied) return 'bg-primary-soft text-ink';
+		if (sector.state === 'handoff') return 'bg-warning-soft text-ink';
+		if (sector.state === 'exit') return 'bg-info-soft text-ink';
+		return 'bg-well text-ink-muted';
 	}
 
 	function sectorLabel(sector: Sector): string {
@@ -73,15 +73,12 @@
 		return 'Free';
 	}
 
-	async function scan(forceDetection = false): Promise<void> {
+	async function scan(): Promise<void> {
 		loading = true;
 		error = '';
 		try {
-			const params = new URLSearchParams({
-				force_detection: forceDetection ? 'true' : 'false'
-			});
 			const res = await fetch(
-				`${getBackendHttpBase()}/api/classification-channel/sector-occupancy?${params.toString()}`,
+				`${getBackendHttpBase()}/api/classification-channel/sector-occupancy`,
 				{ method: 'POST' }
 			);
 			const data = (await res.json().catch(() => ({}))) as SectorOccupancyPayload | { detail?: string };
@@ -102,88 +99,58 @@
 	}
 
 	onMount(() => {
-		void scan(false);
+		void scan();
 	});
 </script>
 
-<div class="flex flex-col gap-4">
-	<div class="flex flex-wrap items-center justify-between gap-3">
-		<div class="flex flex-wrap items-center gap-2 text-xs text-text-muted">
+<Panel title="C4 sectors" flush>
+	{#snippet actions()}
+		<Button size="sm" icon={RefreshCw} {loading} onclick={() => scan()}>Scan</Button>
+	{/snippet}
+	<div class="flex flex-col gap-4 px-(--pad-panel) pb-(--pad-panel)">
+		<div class="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-ink-muted">
 			<span class="inline-flex items-center gap-1.5">
 				{#if payload?.phase_ok}
-					<CheckCircle2 size={13} class="text-success" />
+					<CheckCircle2 size={14} class="text-success-ink" />
 				{:else}
-					<AlertTriangle size={13} class="text-warning" />
+					<AlertTriangle size={14} class="text-warning-ink" />
 				{/if}
 				Phase {phaseText}
 			</span>
 			<span>{frameText}</span>
-			<span>{occupiedCount}/5 occupied</span>
-			{#if lastScan}
-				<span>{lastScan.toLocaleTimeString()}</span>
-			{/if}
+			<span class="num">{occupiedCount} of 5 occupied</span>
+			{#if lastScan}<span class="num">{lastScan.toLocaleTimeString()}</span>{/if}
 		</div>
-		<button
-			type="button"
-			onclick={() => scan(true)}
-			disabled={loading}
-			class="inline-flex items-center gap-1.5 border border-border bg-bg px-3 py-1.5 text-xs font-medium text-text transition-colors hover:bg-surface disabled:cursor-not-allowed disabled:opacity-60"
-			title="Scan C4 sectors"
-		>
-			<RefreshCw size={13} class={loading ? 'animate-spin' : ''} />
-			{loading ? 'Scanning' : 'Scan'}
-		</button>
-	</div>
-
-	{#if error}
-		<div class="border border-warning bg-warning/10 px-3 py-2 text-sm text-text">
-			<div class="flex items-start gap-2">
-				<AlertTriangle size={15} class="mt-0.5 shrink-0 text-warning" />
-				<span>{error}</span>
-			</div>
-		</div>
-	{/if}
-
-	<div class="grid grid-cols-5 gap-2">
-		{#each sectors as sector (sector.sector_index)}
-			<div class={`min-h-24 border px-3 py-2 ${sectorClass(sector)}`}>
-				<div class="flex items-start justify-between gap-2">
-					<div class="text-sm font-semibold">S{sector.sector_index + 1}</div>
-					<div class="text-xs">{sectorLabel(sector)}</div>
-				</div>
-				<div class="mt-3 grid gap-1 text-xs">
-					<div>Detections {sector.detection_count}</div>
-					<div>Confidence {sector.max_confidence.toFixed(2)}</div>
-				</div>
-			</div>
-		{/each}
-		{#if sectors.length === 0}
-			{#each Array.from({ length: 5 }) as _, index (index)}
-				<div class="min-h-24 border border-dashed border-border bg-bg px-3 py-2 text-text-muted">
-					<div class="text-sm font-semibold">S{index + 1}</div>
+		{#if error}<Alert tone="warning">{error}</Alert>{/if}
+		<div class="grid grid-cols-3 gap-2 sm:grid-cols-5">
+			{#each sectors as sector (sector.sector_index)}
+				<div class="min-h-24 rounded-control px-3 py-2 text-sm {sectorClass(sector)}">
+					<div class="flex items-start justify-between gap-2">
+						<span class="font-medium">S{sector.sector_index + 1}</span>
+						<span>{sectorLabel(sector)}</span>
+					</div>
+					<div class="num mt-3 grid gap-0.5 text-ink-muted">
+						<span>Detections {sector.detection_count}</span>
+						<span>Confidence {sector.max_confidence.toFixed(2)}</span>
+					</div>
 				</div>
 			{/each}
-		{/if}
+			{#if sectors.length === 0}
+				{#each Array.from({ length: 5 }) as _, index (index)}
+					<div class="min-h-24 rounded-control bg-well px-3 py-2 text-sm font-medium text-ink-muted">
+						S{index + 1}
+					</div>
+				{/each}
+			{/if}
+		</div>
 	</div>
-
 	{#if payload}
-		<div class="grid gap-2 text-xs text-text-muted sm:grid-cols-4">
-			<div class="border border-border bg-bg px-3 py-2">
-				<div class="font-medium text-text">Candidates</div>
-				<div>{candidateCount}</div>
-			</div>
-			<div class="border border-border bg-bg px-3 py-2">
-				<div class="font-medium text-text">Detections</div>
-				<div>{detectionCount}</div>
-			</div>
-			<div class="border border-border bg-bg px-3 py-2">
-				<div class="font-medium text-text">Handoff</div>
-				<div>{payload.handoff_sector === null || payload.handoff_sector === undefined ? 'n/a' : `S${payload.handoff_sector + 1}`}</div>
-			</div>
-			<div class="border border-border bg-bg px-3 py-2">
-				<div class="font-medium text-text">Exit</div>
-				<div>{payload.exit_sector === null || payload.exit_sector === undefined ? 'n/a' : `S${payload.exit_sector + 1}`}</div>
-			</div>
+		{@const sectorName = (i: number | null | undefined) => (i == null ? 'None' : `S${i + 1}`)}
+		<div class="grid grid-cols-2 gap-px border-t border-line bg-line sm:grid-cols-4">
+			<div class="bg-surface"><Stat label="Candidates" value={candidateCount} /></div>
+			<div class="bg-surface"><Stat label="Detections" value={detectionCount} /></div>
+			<div class="bg-surface"><Stat label="Handoff" value={sectorName(payload.handoff_sector)} /></div>
+			<div class="bg-surface"><Stat label="Exit" value={sectorName(payload.exit_sector)} /></div>
 		</div>
 	{/if}
-</div>
+</Panel>

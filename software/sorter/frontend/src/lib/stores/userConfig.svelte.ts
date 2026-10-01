@@ -5,7 +5,7 @@
  * on every load and would rather show immediately from disk, then reconcile
  * with the backend once connected. Right now that's the user-chosen theme color
  * and the machine name (so the top bar paints correctly before the WebSocket
- * identity arrives), plus the set of notification ids the user has dismissed.
+ * identity arrives).
  *
  * Hydration is synchronous at import (reads localStorage once) so consumers can
  * read the cached value before the first paint. Every setter is equality-guarded
@@ -17,13 +17,11 @@ const STORAGE_KEY = 'sorter.userConfig';
 export interface UserConfigData {
 	machineName: string | null;
 	colorId: string | null;
-	dismissedNotifications: string[];
 }
 
 const DEFAULTS: UserConfigData = {
 	machineName: null,
-	colorId: null,
-	dismissedNotifications: []
+	colorId: null
 };
 
 function readStored(): UserConfigData {
@@ -34,10 +32,7 @@ function readStored(): UserConfigData {
 		const parsed = JSON.parse(raw) as Partial<UserConfigData>;
 		return {
 			machineName: typeof parsed.machineName === 'string' ? parsed.machineName : null,
-			colorId: typeof parsed.colorId === 'string' ? parsed.colorId : null,
-			dismissedNotifications: Array.isArray(parsed.dismissedNotifications)
-				? parsed.dismissedNotifications.filter((x): x is string => typeof x === 'string')
-				: []
+			colorId: typeof parsed.colorId === 'string' ? parsed.colorId : null
 		};
 	} catch {
 		return { ...DEFAULTS };
@@ -62,9 +57,6 @@ export const userConfig = {
 	get colorId(): string | null {
 		return data.colorId;
 	},
-	get dismissedNotifications(): readonly string[] {
-		return data.dismissedNotifications;
-	},
 
 	setMachineName(name: string | null): void {
 		if (data.machineName === name) return;
@@ -75,16 +67,6 @@ export const userConfig = {
 	setColorId(colorId: string | null): void {
 		if (data.colorId === colorId) return;
 		data.colorId = colorId;
-		persist();
-	},
-
-	isDismissed(id: string): boolean {
-		return data.dismissedNotifications.includes(id);
-	},
-
-	dismiss(id: string): void {
-		if (data.dismissedNotifications.includes(id)) return;
-		data.dismissedNotifications = [...data.dismissedNotifications, id];
 		persist();
 	}
 };

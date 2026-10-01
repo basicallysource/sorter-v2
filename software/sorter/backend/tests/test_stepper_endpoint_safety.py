@@ -15,13 +15,18 @@ class _RejectingStepper:
         self.stopped = True
         self.speed_limits: list[tuple[int, int]] = []
 
-    def move_at_speed(self, _speed: int) -> bool:
+    def enable_force(self, enabled: bool) -> None:
+        self.enabled = enabled
+
+    def move_at_speed(self, _speed: int, *, force: bool = False) -> bool:
+        assert force is True
         return False
 
     def set_speed_limits(self, min_speed: int, max_speed: int) -> None:
         self.speed_limits.append((int(min_speed), int(max_speed)))
 
-    def move_degrees(self, _degrees: float) -> bool:
+    def move_degrees(self, _degrees: float, *, acceleration=None, force: bool = False) -> bool:
+        assert force is True
         return False
 
 
@@ -79,11 +84,14 @@ def test_move_degrees_halts_if_background_stopped_poll_crashes(monkeypatch) -> N
         def set_speed_limits(self, min_speed: int, max_speed: int) -> None:
             pass
 
-        def move_degrees(self, _degrees: float) -> bool:
+        def enable_force(self, enabled: bool) -> None:
+            self.enabled = enabled
+
+        def move_degrees(self, _degrees: float, *, acceleration=None, force: bool = False) -> bool:
+            assert force is True
             return True
 
-        @property
-        def stopped(self) -> bool:
+        def stopped_force(self) -> bool:
             raise RuntimeError("poll failed")
 
         def halt(self, *, disable_driver: bool = True) -> bool:

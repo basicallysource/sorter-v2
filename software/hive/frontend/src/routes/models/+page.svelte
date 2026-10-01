@@ -1,7 +1,17 @@
 <script lang="ts">
 	import { api, type PaginatedDetectionModels } from '$lib/api';
 	import ModelCard from '$lib/components/ModelCard.svelte';
+	import { sentence } from '$lib/text';
 	import Spinner from '$lib/components/Spinner.svelte';
+	import Alert from '$lib/components/Alert.svelte';
+	import Button from '$lib/components/Button.svelte';
+	import EmptyState from '$lib/components/EmptyState.svelte';
+	import Field from '$lib/components/Field.svelte';
+	import Input from '$lib/components/Input.svelte';
+	import PageHeader from '$lib/components/PageHeader.svelte';
+	import Panel from '$lib/components/Panel.svelte';
+	import Select from '$lib/components/Select.svelte';
+	import Boxes from '@lucide/svelte/icons/boxes';
 
 	let data = $state<PaginatedDetectionModels | null>(null);
 	let loading = $state(true);
@@ -66,101 +76,60 @@
 	}
 </script>
 
-<div class="space-y-6">
-	<div>
-		<h1 class="text-2xl font-bold text-text">Detection Models</h1>
-		<p class="text-sm text-text-muted">Published model catalog — browse and download model variants.</p>
-	</div>
+<svelte:head>
+	<title>Models - Hive</title>
+</svelte:head>
 
-	<div class="flex flex-wrap items-end gap-3 border border-border bg-surface p-4">
-		<label class="flex flex-col gap-1 text-xs text-text-muted">
-			<span>Search</span>
-			<input
-				type="text"
-				bind:value={query}
-				placeholder="slug or name"
-				class="border border-border bg-bg px-2 py-1 text-sm text-text"
-			/>
-		</label>
-		<label class="flex flex-col gap-1 text-xs text-text-muted">
-			<span>Scope</span>
-			<select
-				bind:value={filterScope}
-				class="border border-border bg-bg px-2 py-1 text-sm text-text"
-			>
-				{#each scopeOptions as opt (opt)}
-					<option value={opt}>{opt || 'Any scope'}</option>
-				{/each}
-			</select>
-		</label>
-		<label class="flex flex-col gap-1 text-xs text-text-muted">
-			<span>Runtime</span>
-			<select
-				bind:value={filterRuntime}
-				class="border border-border bg-bg px-2 py-1 text-sm text-text"
-			>
-				{#each runtimeOptions as opt (opt)}
-					<option value={opt}>{opt || 'Any runtime'}</option>
-				{/each}
-			</select>
-		</label>
-		<label class="flex flex-col gap-1 text-xs text-text-muted">
-			<span>Family</span>
-			<input
-				type="text"
-				bind:value={filterFamily}
-				placeholder="yolo, nanodet, …"
-				class="border border-border bg-bg px-2 py-1 text-sm text-text"
-			/>
-		</label>
-		<button
-			onclick={clearFilters}
-			class="border border-border px-3 py-1 text-sm text-text-muted hover:text-text"
-			type="button"
-		>
-			Reset
-		</button>
-	</div>
+<PageHeader title="Detection models" description="The published models, with a download for each runtime." />
 
-	{#if error}
-		<div class="border border-primary bg-primary-light p-3 text-sm text-primary">{error}</div>
-	{/if}
-
-	{#if loading && !data}
-		<div class="flex justify-center py-12"><Spinner size={32} /></div>
-	{:else if data && data.items.length === 0}
-		<div class="border border-dashed border-border p-8 text-center text-sm text-text-muted">
-			No models match the current filters.
-		</div>
-	{:else if data}
-		<div class="grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-3">
-			{#each data.items as model (model.id)}
-				<ModelCard {model} />
-			{/each}
-		</div>
-
-		{#if data.pages > 1}
-			<div class="flex items-center justify-center gap-2">
-				<button
-					disabled={currentPage <= 1}
-					onclick={() => { currentPage = Math.max(1, currentPage - 1); }}
-					class="border border-border px-3 py-1 text-sm disabled:opacity-40"
-					type="button"
-				>
-					Prev
-				</button>
-				<span class="text-sm text-text-muted">
-					Page {data.page} / {data.pages} · {data.total} total
-				</span>
-				<button
-					disabled={currentPage >= data.pages}
-					onclick={() => { const total = data?.pages ?? 1; currentPage = Math.min(total, currentPage + 1); }}
-					class="border border-border px-3 py-1 text-sm disabled:opacity-40"
-					type="button"
-				>
-					Next
-				</button>
-			</div>
-		{/if}
-	{/if}
+<div class="flex flex-wrap items-end gap-3">
+	<Field label="Search" for="model-search" class="w-full sm:w-56">
+		<Input id="model-search" type="search" bind:value={query} placeholder="Slug or name" />
+	</Field>
+	<Field label="Scope" for="model-scope" class="w-full sm:w-52">
+		<Select
+			id="model-scope"
+			bind:value={filterScope}
+			options={scopeOptions.map((o) => ({ value: o, label: o ? sentence(o) : 'Any scope' }))}
+		/>
+	</Field>
+	<Field label="Runtime" for="model-runtime" class="w-full sm:w-40">
+		<Select
+			id="model-runtime"
+			bind:value={filterRuntime}
+			options={runtimeOptions.map((o) => ({ value: o, label: o || 'Any runtime' }))}
+		/>
+	</Field>
+	<Field label="Family" for="model-family" class="w-full sm:w-40">
+		<Input id="model-family" bind:value={filterFamily} placeholder="yolo, nanodet" />
+	</Field>
+	<Button variant="ghost" onclick={clearFilters}>Reset</Button>
 </div>
+
+{#if error}
+	<Alert tone="danger">{error}</Alert>
+{/if}
+
+{#if loading && !data}
+	<div class="flex justify-center py-12"><Spinner size={32} /></div>
+{:else if data && data.items.length === 0}
+	<Panel><EmptyState icon={Boxes} title="No models match">Change or reset the filters.</EmptyState></Panel>
+{:else if data}
+	<div class="grid grid-cols-1 gap-(--gap-panels) md:grid-cols-2 lg:grid-cols-3">
+		{#each data.items as model (model.id)}
+			<ModelCard {model} />
+		{/each}
+	</div>
+
+	{#if data.pages > 1}
+		<div class="flex items-center justify-center gap-2">
+			<Button size="sm" disabled={currentPage <= 1} onclick={() => (currentPage = Math.max(1, currentPage - 1))}>Previous</Button>
+			<span class="num text-sm text-ink-muted">Page {data.page} of {data.pages}, {data.total} models</span>
+			<Button
+				size="sm"
+				disabled={currentPage >= data.pages}
+				onclick={() => (currentPage = Math.min(data?.pages ?? 1, currentPage + 1))}>Next</Button
+			>
+		</div>
+	{/if}
+{/if}

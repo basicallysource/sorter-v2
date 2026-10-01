@@ -24,7 +24,7 @@ parts_needed:
     qty: 6
   - part: dupont-lead-2p-1m
     qty: 3
-tools_needed: [Side cutters, Wire strippers, "Multimeter (only if you fit the plug and socket)", "Insulated-terminal crimping pliers with a red 22 to 16 AWG jaw, for the butt connectors", "Only if you solder instead of crimping or clamping: a soldering iron, solder and 3 mm adhesive-lined heat shrink (see Getting started)", "Only if you make your own Dupont cable: a crimp tool for open-barrel contacts"]
+tools_needed: [Side cutters, Wire strippers, "Multimeter (only if you fit the plug and socket)", "Insulated-terminal crimping pliers with a jaw for 22 to 16 AWG (0.33 to 1.3 mm²) wire, for the butt connectors", "Only if you solder instead of crimping or clamping: a soldering iron, solder and 3 mm adhesive-lined heat shrink (see Getting started)", "Only if you make your own Dupont cable: a crimp tool for open-barrel contacts"]
 ---
 
 Each camera lamp needs a cable that takes 24 V from the control board to its strip. The best way to build it is **two cables that meet at a barrel plug and socket**. The plug and socket are **optional but recommended**. **They make maintenance easier:** the power supply to a lamp can be disconnected right next to the lamp, so you can take a lamp down, swap it or work on it without touching the board end of its cable or the cables of the other lamps. **A machine takes three of each.** The quantities above are a whole machine's worth: one 5 m roll cuts into five lengths, and the Dupont cables come five to a pack.
@@ -75,7 +75,7 @@ Leave the blue protective film on until the strip is going where it lives. It is
 
 The cable comes from the pack with a plug on both ends: the **male** one has two pins sticking out of it, the **female** one has two holes. **Cut the male plug off.** The female end stays on: that is what pushes onto the board later. With the plug and socket, the socket joins here in step 5. Without them, this cut end goes straight onto the strip in step 4, and you skip steps 3 and 5.
 
-If you own a crimp tool for open-barrel contacts, you can make this cable instead: about a metre of 22 AWG, one red and one black, with a 2-pin 2.54 mm Dupont female housing crimped on.
+If you own a crimp tool for open-barrel contacts, you can make this cable instead: about a metre of 22 AWG (0.33 mm²), one red and one black, with a 2-pin 2.54 mm Dupont female housing crimped on.
 
 {% include step.html n="3" title="Find the tip of the plug and of the socket" %}
 
@@ -103,18 +103,18 @@ The solderless connector is a hinged body with sprung contacts at each end: the 
 
 Only if you are fitting the plug and socket. The socket's wires and the Dupont cable's wires are joined end to end, one joint per wire, so there are two. **The socket's tip wire joins the cable's red wire**, and the socket's ground wire joins the black one. Red is the wire that goes to <code>+V</code> on the board, so this is the joint that keeps the polarity right. Do one joint at a time so the two never touch.
 
-A butt connector is a red vinyl-insulated barrel that takes one wire in each end. Nothing is soldered.
+A butt connector is a vinyl-insulated barrel that takes one wire in each end, rated for 22 to 16 AWG (0.33 to 1.3 mm²) wire. Nothing is soldered.
 
 <ol class="numbered-steps">
   <li>Strip 7 mm off both wires of each joint, and twist the strands of each wire tight.</li>
   <li>Push the socket's wire into one end of a red butt connector, and the cable's wire of the same colour into the other, until the insulation of each wire meets the end of the barrel.</li>
-  <li>Close each end of the barrel in the <b>red jaw</b> of the insulated-terminal crimping pliers (22 to 16 AWG), so each wire is crimped separately. Squeeze until the tool releases. Pull on each wire to check it holds.</li>
+  <li>Close each end of the barrel in the jaw of the insulated-terminal crimping pliers marked for 22 to 16 AWG (0.33 to 1.3 mm²), so each wire is crimped separately. Squeeze until the tool releases. Pull on each wire to check it holds.</li>
   <li>Stagger the two butt connectors by a few millimetres along the cable so they cannot touch.</li>
 </ol>
 
 <figure class="single-figure">
-  <img class="doc-figure" src="https://assets.basically.website/sorter-docs/butt-crimp-steps-full-3537584b7c38.png" alt="Three stages: a wire with 7 mm of bare strands; a wire pushed into each end of a red butt connector; the connector held between the jaws of a crimping tool, the red jaw marked 22 to 16.">
-  <figcaption>Strip, push in, crimp each end in the red jaw.</figcaption>
+  <img class="doc-figure" src="https://assets.basically.website/sorter-docs/butt-crimp-steps-full-3537584b7c38.png" alt="Three stages: a wire with 7 mm of bare strands; a wire pushed into each end of a red butt connector; the connector held between the jaws of a crimping tool, the jaw marked 22 to 16.">
+  <figcaption>Strip, push in, crimp each end in the marked jaw.</figcaption>
 </figure>
 
 <div class="callout callout-warning">

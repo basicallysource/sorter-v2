@@ -50,6 +50,11 @@ This is `W1` on the [harness drawings]({{ '/hardware/parts/harness-order/#board-
 
 ## Build it
 
+<figure class="single-figure">
+  <img class="doc-figure" src="https://assets.basically.website/sorter-docs/w1-24v-lead-diagram-full-3e650b166e22.png" alt="Diagram of the finished lead, left to right: a barrel plug with two short leads, red and black, each joined to the 18 AWG pair by a butt connector, the two connectors staggered; the pair, 914 mm end to end; and two VH contacts in a two-position VHR-2 housing, red in position 1 for +24 V and black in position 2 for ground.">
+  <figcaption>The finished lead, with a moulded plug. A screw-terminal plug has no butt connectors: the pair's wires go straight under its screws.</figcaption>
+</figure>
+
 <ol class="numbered-steps">
   <li>Cut the 18 AWG (0.82 mm²) pair so the finished lead is 914 mm (36 in) end to end.</li>
   <li><b>Fit the barrel plug to one end.</b> On a <b>screw-terminal plug</b>, strip 5 mm off each conductor, get the bare strands fully under the screws, tighten firmly and pull on each wire. On a <b>moulded plug on a short lead</b>, join each of its two leads to one wire of the pair with a butt connector. How is under <b>Joining a moulded plug's leads</b>, below.</li>

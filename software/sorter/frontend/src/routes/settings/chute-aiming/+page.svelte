@@ -17,7 +17,7 @@
 	import Check from '@lucide/svelte/icons/check';
 	import BinLayoutViz from './BinLayoutViz.svelte';
 	import ErrorBanner from './ErrorBanner.svelte';
-	import { binCenterAngle, reachInfo } from './geometry';
+	import { binCenterAngle, reachInfo } from '$lib/chute/geometry';
 
 	const manager = getMachinesContext();
 

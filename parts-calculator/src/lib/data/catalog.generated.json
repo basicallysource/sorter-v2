@@ -8330,7 +8330,7 @@
 					"version": "2",
 					"uid": "1taq",
 					"date": "2026-10-01",
-					"message": "The four joints between the cable's 24 AWG tails and the motor's 20 AWG leads are now crimped, with a 24-20 AWG butt splice each, instead of soldered. Soldering them is still allowed. The cable itself is unchanged, so a cable built the old way works in its place.",
+					"message": "The four joints between the cable's 24 AWG (0.20 mm\u00b2) tails and the motor's 20 AWG (0.52 mm\u00b2) leads are now crimped, with a 24 to 20 AWG (0.2 to 0.6 mm\u00b2) butt splice each, instead of soldered. Soldering them is still allowed. The cable itself is unchanged, so a cable built the old way works in its place.",
 					"breaking": false,
 					"commit": null
 				}
@@ -28622,7 +28622,7 @@
 					}
 				]
 			},
-			"alternative": "The Preciva crimp tool and connector kit (connector-kit-crimp) includes this, along with the crimper, and jst-ph-cable-4p-63cm arrives with one fitted at each end",
+			"alternative": "jst-ph-cable-4p-63cm arrives with one fitted at each end",
 			"caption": "Board end of S1 to S4 and CH.",
 			"docs_page": "/hardware/parts/harness-order/",
 			"conflicts": null,
@@ -28732,7 +28732,7 @@
 					}
 				]
 			},
-			"alternative": "The Preciva crimp tool and connector kit (connector-kit-crimp) includes this, along with the crimper. Buying jst-ph-cable-4p-63cm drops the count to 4, the chute's board end only",
+			"alternative": "Buying jst-ph-cable-4p-63cm drops the count to 4, the chute's board end only",
 			"caption": "Thirty-six per machine. Buy spares.",
 			"docs_page": "/hardware/electronics/wire-harness/",
 			"conflicts": null,
@@ -28775,7 +28775,7 @@
 			"sheet_qty_text": null,
 			"stock": null,
 			"sourcing": null,
-			"alternative": "The Preciva crimp tool and connector kit (connector-kit-crimp) includes this, along with the crimper",
+			"alternative": null,
 			"caption": "Position 3 stays empty; that is what keys it.",
 			"docs_page": "/hardware/helpers/limit-switch-lead/",
 			"conflicts": null,
@@ -28788,7 +28788,7 @@
 			"cots": {
 				"type": "connector"
 			},
-			"name": "Insulated butt splice, clear, 24-20 AWG (TE PIDG 323975)",
+			"name": "Insulated butt splice, clear, 24 to 20 AWG (0.2 to 0.6 mm\u00b2) (TE PIDG 323975)",
 			"category": "Wire harness",
 			"description": "Joins two wires end to end without soldering: one wire goes in each end and the barrel is crimped onto it. The only common size that holds both the chute stepper cable's 24 AWG (0.20 mm\u00b2) wire and the motor's own 20 AWG (0.52 mm\u00b2) leads. Four on the chute stepper cable, one per motor lead.",
 			"note": "Crimp it with insulated-terminal crimping pliers, in the die marked for 24 to 20 AWG (0.2 to 0.6 mm\u00b2), not picked by colour. The insulation sits against the end of the barrel, not inside it, and each wire end goes in until it touches the stop in the middle: look through the clear window to check. A crimp tool for open-barrel Dupont and PH contacts has the wrong die and will not close this splice properly.",
@@ -28813,7 +28813,7 @@
 				},
 				{
 					"label": "Used on",
-					"value": "The four joints between the chute stepper cable's 24 AWG tails and the motor's 20 AWG leads"
+					"value": "The four joints between the chute stepper cable's 24 AWG (0.20 mm\u00b2) tails and the motor's 20 AWG (0.52 mm\u00b2) leads"
 				}
 			],
 			"sheet_qty": {
@@ -29179,6 +29179,7 @@
 		{
 			"id": "connector-kit-crimp",
 			"uid": "9fxb",
+			"retired_at": "2026-10-01",
 			"kind": "cots",
 			"cots": {
 				"type": "kit",
@@ -29186,10 +29187,10 @@
 			},
 			"name": "Crimp tool and connector kit (Dupont, JST-PH, JST-XH)",
 			"category": "Wire harness",
-			"description": "One box instead of several line items: a ratcheting crimper for open-barrel contacts plus 1565 terminals and a spread of Dupont 2.54 mm, JST-PH 2.0 mm and JST-XH 2.5 mm housings. It covers the PH housings and contacts and the Dupont housing this machine needs, and it is the crimp tool the connecting and PSU pigtail pages ask for.",
+			"description": "Retired. A Preciva 1565-piece crimp tool and Dupont, JST-PH and JST-XH connector kit, taken out of the docs and the parts list. The docs now list a crimp tool for open-barrel contacts under Tools needed instead, and the parts that were in the kit are bought on their own. Do not re-add it to a page.",
 			"note": "Read what it does not cover before you rely on it. The housings run 1 to 5 pin, so the 6-pin PHR-6 at the stepper motor end is not in it. There are no VH 3.96 mm housings, though the crimper's range does take the VH contacts. And the die is for non-insulated open-barrel contacts, so it will not crimp the PSU fork terminals or the #187 receptacles, which need an insulated-terminal die.",
 			"created_at": "2026-09-14",
-			"updated_at": "2026-09-14",
+			"updated_at": "2026-10-01",
 			"attributes": [
 				{
 					"label": "Crimper",

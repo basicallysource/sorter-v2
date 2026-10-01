@@ -39,13 +39,13 @@ tools_needed: [Side cutters, Wire strippers, "Multimeter (only if you fit the pl
 Each camera lamp needs a cable that takes 24 V from the control board to its strip. The best way to build it is **two cables that meet at a barrel plug and socket**. The plug and socket are **optional but recommended**. **They make maintenance easier:** the power supply to a lamp can be disconnected right next to the lamp, so you can take a lamp down, swap it or work on it without touching the board end of its cable or the cables of the other lamps. **A machine takes three of each.** The quantities above are a whole machine's worth: one 5 m roll cuts into five lengths, and the Dupont cables come five to a pack.
 
 <figure class="single-figure">
-  <img class="doc-figure" src="https://assets.basically.website/sorter-docs/led-two-cable-set-full-eecf910789d0.png" alt="Diagram of the finished set from left to right: an LED strip, a clamp-on connector, a pair of red and black wires ending in a barrel plug, a barrel socket, two butt connectors staggered on the red and black wires, a longer cable and a two-pin Dupont plug. A blue bracket marks everything up to the plug as the lamp pigtail, and a green bracket marks the socket onward as the board cable.">
+  <img class="doc-figure" src="https://assets.basically.website/sorter-docs/led-two-cable-set-full-bd0cd4147090.png" alt="Diagram of two cables. Cable 1, the lamp pigtail: an LED strip, a clamp-on connector, and red and black wires ending in a barrel plug. Cable 2, the board cable: a barrel socket, two staggered butt connectors on its red and black wires, and a longer cable ending in a two-pin Dupont plug that goes to the board.">
   <figcaption>The two cables: the lamp pigtail stays with the lamp, the board cable stays with the machine.</figcaption>
 </figure>
 
 **Pick your build:**
 
-<ul>
+<ul class="bulleted-list">
   <li><b>Plug and socket:</b> fit them (recommended), or leave them out. Leaving them out makes one cable: skip steps 3 and 5, and the Dupont cable's cut end goes onto the strip in step 4.</li>
   <li><b>Strip end:</b> clamp it with a connector (4a), or solder it (4b).</li>
   <li><b>Socket joints:</b> crimp them with butt connectors (5a), or solder them (5b).</li>
@@ -141,7 +141,7 @@ A butt connector is a red vinyl-insulated barrel that takes one wire in each end
 </ol>
 
 <figure class="single-figure">
-  <img class="doc-figure" src="https://assets.basically.website/sorter-docs/butt-crimp-steps-full-4df790374da6.png" alt="Three panels: a red and a black wire each with 7 mm of bare strands; a red wire pushed into each end of a red butt connector; the connector held in the red jaw of a crimping tool, marked 22 to 16.">
+  <img class="doc-figure" src="https://assets.basically.website/sorter-docs/butt-crimp-steps-full-3537584b7c38.png" alt="Three stages: a wire with 7 mm of bare strands; a wire pushed into each end of a red butt connector; the connector held between the jaws of a crimping tool, the red jaw marked 22 to 16.">
   <figcaption>Strip, push in, crimp each end in the red jaw.</figcaption>
 </figure>
 

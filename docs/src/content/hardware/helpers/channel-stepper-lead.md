@@ -18,14 +18,14 @@ parts_needed:
 tools_needed: ["Multimeter, to find the coils and to check the finished lead", "A fine pick or a sliver of shim, for moving contacts out of a housing (the first route only)", "Side cutters, to cut the Dupont housing off or to cut wire to length (the second and third routes)", "Wire strippers, for 24 AWG (0.20 mm²) wire (the second and third routes)", "Crimping pliers for open-barrel contacts, with a die for 24 AWG (0.20 mm²) wire (the second and third routes)", "A ruler or tape measure, to cut the wire to length (the third route only)"]
 ---
 
-These are `S1` to `S4` on the [harness drawings]({{ '/hardware/parts/harness-order/#channel-stepper' | relative_url }}), one for each of the four c-channel motors. **Four per machine**, all identical.
+These are `S1` to `S4` on the [harness drawings]({{ '/hardware/parts/harness-order/#channel-stepper' | relative_url }}), one for each of the four c-channel motors. **Four per machine**, all identical. The crossover has been built on a motor's own lead by swapping the two middle contacts in its Dupont plug; the routes below make the same lead with a PH housing instead of the plug.
 
 <div class="callout callout-warning">
   <span class="callout-icon" aria-hidden="true">⚠</span>
   <p><b>The lead that comes in the box with the motor is not usable as it comes.</b> Two of its four conductors are in the wrong order for this board, so the driver drives half of one coil against half of the other and the motor buzzes and barely turns. It also ends in a Dupont housing, which does fit the 2.54 mm pins beside each stepper socket, so it looks right. Pull a Dupont contact sideways and its spring lifts off the pin: resistance rises, the joint heats, and it gets worse from there. Two have cooked on running machines.</p>
 </div>
 
-**Both faults are in that one housing.** The crossover has been built and fitted this way on a motor's own lead, by swapping the two middle contacts in its Dupont plug. The routes below do the same with a PH housing instead of the plug. So there are three ways to get a correct lead, and the parts above are for the first of them, which needs no crimp tool. The other two say what they need instead.
+**Both faults are in that one housing.** So there are three ways to get a correct lead, and the parts above are for the first of them, which needs no crimp tool. The other two say what they need instead.
 
 <dl class="spec-list">
   <dt>Move four contacts</dt><dd>Start from a ready-made cable and a PHR-6. Tools: the pick and the multimeter. No crimping.</dd>

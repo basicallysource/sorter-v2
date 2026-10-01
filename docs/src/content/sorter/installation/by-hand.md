@@ -96,7 +96,7 @@ cp machine.example.toml machine.toml
 
 This is the step that bites people manually: `.env.example` ships with a placeholder path, `SORTING_PROFILE_PATH="/home/user/sorter-v2/software/..."`, which you must replace with the absolute path of your own clone.
 
-`machine.toml` is the machine's own config, and settings you save in the UI are written to it. Copy it rather than pointing the Sorter at the example, or those settings land in a file git tracks. The [machine.toml reference]({{ '/sorter/machine-toml-reference/' | relative_url }}) describes every field, and the setup wizard fills most of them in for you.
+`machine.toml` is the machine's own config, and settings you save in the UI are written to it. Copy it rather than pointing SorterOS at the example, or those settings land in a file git tracks. The [machine.toml reference]({{ '/sorter/machine-toml-reference/' | relative_url }}) describes every field, and the setup wizard fills most of them in for you.
 
 ### 7. Install dependencies
 
@@ -117,7 +117,7 @@ This starts the Python backend on `:8000` and the Vite dev server on `:5173`.
 
 ## Verify the install
 
-Open `http://localhost:5173/` in a browser. You should see the Sorter UI.
+Open `http://localhost:5173/` in a browser. You should see the SorterOS UI.
 
 ```bash
 curl -fsS http://localhost:8000/health
@@ -127,13 +127,13 @@ Should return a JSON status response.
 
 ## If something goes wrong
 
-See [Sorter troubleshooting]({{ '/sorter/troubleshooting/' | relative_url }}) for the common failures and their fixes.
+See [SorterOS troubleshooting]({{ '/sorter/troubleshooting/' | relative_url }}) for the common failures and their fixes.
 
 ## The finished result
 
-The Sorter UI open in a browser, with nothing set up on the machine yet.
+The SorterOS UI open in a browser, with nothing set up on the machine yet.
 
-<div class="img-placeholder">Screenshot of the Sorter UI as it first loads on a by-hand install, before the setup wizard has been run.</div>
+<div class="img-placeholder">Screenshot of the SorterOS UI as it first loads on a by-hand install, before the setup wizard has been run.</div>
 
 ## Next
 
@@ -144,4 +144,4 @@ Then [First setup in the UI]({{ '/sorter/first-setup/' | relative_url }}) takes 
 ## Related
 
 - [Install on a Linux machine (generic)]({{ '/sorter/installation/linux-generic/' | relative_url }}) — the maintained one-command path.
-- [Sorter troubleshooting]({{ '/sorter/troubleshooting/' | relative_url }})
+- [SorterOS troubleshooting]({{ '/sorter/troubleshooting/' | relative_url }})

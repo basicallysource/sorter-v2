@@ -4,7 +4,7 @@ title: Shutting down the machine
 type: how-to
 section: sorter
 slug: sorter-safe-shutdown
-kicker: Sorter — Operations
+kicker: SorterOS — Operations
 lede: Two proper ways to power the machine down, and why pulling the plug is a last resort.
 permalink: /sorter/safe-shutdown/
 ---

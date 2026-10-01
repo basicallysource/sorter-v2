@@ -28,7 +28,7 @@ A few names recur across these sections and are worth fixing here, once: the fee
   <li><strong><a href="{{ '/hardware/assembly/feeder/' | relative_url }}">Feeder</a></strong>. The C-channel stages that meter parts in.</li>
   <li><strong><a href="{{ '/hardware/electronics/' | relative_url }}">Electronics</a></strong>. Boards, wiring, and steppers.</li>
   <li><strong><a href="{{ '/hardware/assembly/install-bins/' | relative_url }}">Install the bins</a></strong>. Printed or laser cut, dropped into the finished tower.</li>
-  <li><strong><a href="{{ '/hardware/software-setup/' | relative_url }}">Software setup</a></strong>. Flash and configure. Hands off to the <a href="{{ '/sorter/' | relative_url }}">Sorter</a> section.</li>
+  <li><strong><a href="{{ '/hardware/software-setup/' | relative_url }}">Software setup</a></strong>. Flash and configure. Hands off to the <a href="{{ '/sorter/' | relative_url }}">SorterOS</a> section.</li>
 </ol>
 
 ## The finished result

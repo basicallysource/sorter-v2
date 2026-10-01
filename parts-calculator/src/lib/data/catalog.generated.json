@@ -28587,7 +28587,7 @@
 					}
 				]
 			},
-			"alternative": "The Preciva crimp tool and connector kit (connector-kit-crimp) includes this, along with the crimper, and jst-ph-cable-4p-63cm arrives with one fitted at each end",
+			"alternative": "jst-ph-cable-4p-63cm arrives with one fitted at each end",
 			"caption": "Board end of S1 to S4 and CH.",
 			"docs_page": "/hardware/parts/harness-order/",
 			"conflicts": null,
@@ -28697,7 +28697,7 @@
 					}
 				]
 			},
-			"alternative": "The Preciva crimp tool and connector kit (connector-kit-crimp) includes this, along with the crimper. Buying jst-ph-cable-4p-63cm drops the count to 4, the chute's board end only",
+			"alternative": "Buying jst-ph-cable-4p-63cm drops the count to 4, the chute's board end only",
 			"caption": "Thirty-six per machine. Buy spares.",
 			"docs_page": "/hardware/electronics/wire-harness/",
 			"conflicts": null,
@@ -28740,7 +28740,7 @@
 			"sheet_qty_text": null,
 			"stock": null,
 			"sourcing": null,
-			"alternative": "The Preciva crimp tool and connector kit (connector-kit-crimp) includes this, along with the crimper",
+			"alternative": null,
 			"caption": "Position 3 stays empty; that is what keys it.",
 			"docs_page": "/hardware/helpers/limit-switch-lead/",
 			"conflicts": null,
@@ -29085,6 +29085,7 @@
 		{
 			"id": "connector-kit-crimp",
 			"uid": "9fxb",
+			"retired_at": "2026-10-01",
 			"kind": "cots",
 			"cots": {
 				"type": "kit",
@@ -29092,10 +29093,10 @@
 			},
 			"name": "Crimp tool and connector kit (Dupont, JST-PH, JST-XH)",
 			"category": "Wire harness",
-			"description": "One box instead of several line items: a ratcheting crimper for open-barrel contacts plus 1565 terminals and a spread of Dupont 2.54 mm, JST-PH 2.0 mm and JST-XH 2.5 mm housings. It covers the PH housings and contacts and the Dupont housing this machine needs, and it is the crimp tool the connecting and PSU pigtail pages ask for.",
+			"description": "Retired. A Preciva 1565-piece crimp tool and Dupont, JST-PH and JST-XH connector kit, taken out of the docs and the parts list. The docs now list a crimp tool for open-barrel contacts under Tools needed instead, and the parts that were in the kit are bought on their own. Do not re-add it to a page.",
 			"note": "Read what it does not cover before you rely on it. The housings run 1 to 5 pin, so the 6-pin PHR-6 at the stepper motor end is not in it. There are no VH 3.96 mm housings, though the crimper's range does take the VH contacts. And the die is for non-insulated open-barrel contacts, so it will not crimp the PSU fork terminals or the #187 receptacles, which need an insulated-terminal die.",
 			"created_at": "2026-09-14",
-			"updated_at": "2026-09-14",
+			"updated_at": "2026-10-01",
 			"attributes": [
 				{
 					"label": "Crimper",

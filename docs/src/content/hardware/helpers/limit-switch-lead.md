@@ -22,8 +22,6 @@ parts_needed:
     qty: 1
   - part: terminal-qc-187
     qty: 2
-  - part: connector-kit-crimp
-    qty: 1
 tools_needed: [Wire strippers, "Crimp tool for open-barrel contacts", "Crimp tool for insulated terminals", Multimeter]
 ---
 

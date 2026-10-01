@@ -12,7 +12,7 @@ contributors: [brickcyclealice]
 warning: >-
   **The photographs are from a real build; the numbers are not all settled.** One builder has made
   this lead, and the 100 mm below is her converter's own lead length rather than a specification.
-  The finished length has never been measured on a mounted machine, and the 22 AWG is a **GUESS**
+  The finished length has never been measured on a mounted machine, and the 22 AWG (0.33 mm²) is a **GUESS**
   in the [wire harness]({{ '/hardware/electronics/wire-harness/' | relative_url }}) notes, marked
   as one on the drawing.
 parts_needed:
@@ -37,7 +37,7 @@ This is `W3` on the [harness drawings]({{ '/hardware/parts/harness-order/#power'
 <dl class="spec-list">
   <dt>PSU end</dt><dd>Male DC barrel plug, <b>5.5 mm outside and 2.1 mm inside</b>, centre-positive. A 2.5 mm plug looks identical and does not mate.</dd>
   <dt>Converter end</dt><dd>No connector. The converter's own two input wires, red positive and black negative, printed on its case.</dd>
-  <dt>Wire</dt><dd>None, usually. The harness gives this lead as 150 mm (6 in) of 22 AWG, and the converter arrives with most of that already: the one measured is about 120 mm. <b>Under 100 mm is where you add wire</b>, and that is the only reason this lead ever gets spliced.</dd>
+  <dt>Wire</dt><dd>None, usually. The harness gives this lead as 150 mm (6 in) of 22 AWG (0.33 mm²), and the converter arrives with most of that already: the one measured is about 120 mm. <b>Under 100 mm is where you add wire</b>, and that is the only reason this lead ever gets spliced.</dd>
 </dl>
 
 The converter takes 8 to 32 V in and gives 5 V out at up to 5 A. It is potted, so there is nothing to open and nothing to adjust, and its output is a captive USB-C lead.
@@ -51,7 +51,7 @@ The converter takes 8 to 32 V in and gives 5 V out at up to 5 A. It is potted, s
 
 <ol class="numbered-steps">
   <li>Measure the converter's own input wires. <b>100 mm or more and nothing gets spliced</b>: they go straight into the plug, and the converter ends up hanging at the PSU box, which is where the long USB-C lead expects it to be. Shorter than 100 mm, do step 2 first; otherwise skip it.</li>
-  <li><b>Only if they are short.</b> Splice a length of 22 AWG red and black on to make the lead up to about 150 mm (6 in): solder each joint, cover each one with adhesive-lined heat shrink, then sleeve the pair together. Red to red, black to black.</li>
+  <li><b>Only if they are short.</b> Splice a length of 22 AWG (0.33 mm²) red and black on to make the lead up to about 150 mm (6 in): solder each joint, cover each one with adhesive-lined heat shrink, then sleeve the pair together. Red to red, black to black.</li>
   <li>Work out which terminal of the plug is the tip. A screw-terminal plug is usually marked <code>+</code> and <code>-</code>; a moulded one is two wires. Either way, set the <a href="{{ '/hardware/helpers/multimeter/' | relative_url }}#continuity-for-tracing-a-cable">multimeter to continuity</a> and hold one probe on the centre pin inside the plug: the terminal or wire that beeps is <b>+24 V</b>. This is the step where you find out rather than assume.</li>
   <li>Fit the plug, <b>the converter's red wire to the tip and its black wire to the sleeve</b>. On a screw-terminal plug, get the bare strands fully under the screws, tighten firmly and pull on each wire; on a moulded one, solder and heat shrink each joint as in step 2.</li>
 </ol>

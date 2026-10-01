@@ -6529,7 +6529,7 @@
       "name": "Insulated butt connector, red, 22-16 AWG",
       "category": "Wire harness",
       "description": "Joins two wires end to end without soldering: one wire goes in each end and the barrel is crimped onto it. Two per LED drop, one for each of the barrel socket's wires, so six for the three lamps, plus two on the control board's 24 V lead, one for each of the moulded barrel plug's leads, so eight per machine.",
-      "note": "Crimp it with insulated-terminal crimping pliers, in the jaw marked for 22 to 16 AWG (0.33 to 1.3 mm\u00b2), not picked by colour. A crimp tool for open-barrel Dupont and PH contacts has the wrong die and will not close this connector properly.",
+      "note": "Crimp it with insulated-terminal crimping pliers, in the jaw marked for 22 to 16 AWG (0.33 to 1.3 mm²), not picked by colour. A crimp tool for open-barrel Dupont and PH contacts has the wrong die and will not close this connector properly.",
       "alternative": "Solder the two wires together and cover each joint with a 25 mm piece of 3 mm adhesive-lined heat shrink instead",
       "created_at": "2026-10-01",
       "updated_at": "2026-10-01",
@@ -15743,7 +15743,7 @@
       "joining": [
         {
           "method": "crimp",
-          "note": "The moulded barrel plug's two leads are joined to the 18 AWG (0.82 mm\u00b2) pair with a red insulated butt connector on each, crimped in the jaw marked 22 to 16 AWG (0.33 to 1.3 mm\u00b2) of an insulated-terminal crimper. Then an SVH-21T contact onto each wire at the other end, pushed into the back of the VHR-2 until it clicks and will not pull out."
+          "note": "The moulded barrel plug's two leads are joined to the 18 AWG (0.82 mm²) pair with a red insulated butt connector on each, crimped in the jaw marked 22 to 16 AWG (0.33 to 1.3 mm²) of an insulated-terminal crimper. Then an SVH-21T contact onto each wire at the other end, pushed into the back of the VHR-2 until it clicks and will not pull out."
         },
         {
           "method": "solder",
@@ -15769,6 +15769,28 @@
         }
       ],
       "versions": [
+        {
+          "version": "1",
+          "uid": "odr5",
+          "message": "As recorded before the first stamped change.",
+          "lines": [
+            {
+              "part": "dc-plug-5521-male",
+              "qty": 1,
+              "uid": "ky9z"
+            },
+            {
+              "part": "jst-vhr-2",
+              "qty": 1,
+              "uid": "gukn"
+            },
+            {
+              "part": "jst-svh-21t",
+              "qty": 2,
+              "uid": "3kex"
+            }
+          ]
+        },
         {
           "version": "2",
           "date": "2026-10-01",
@@ -15825,7 +15847,7 @@
       "joining": [
         {
           "method": "crimp",
-          "note": "The strip connector clamps onto the cut end of the COB strip and onto the plug's wires, so that end is not soldered. The socket's two wires are joined to the Dupont cable's wires with a red insulated butt connector on each, crimped in the jaw marked 22 to 16 AWG (0.33 to 1.3 mm\u00b2) of an insulated-terminal crimper."
+          "note": "The strip connector clamps onto the cut end of the COB strip and onto the plug's wires, so that end is not soldered. The socket's two wires are joined to the Dupont cable's wires with a red insulated butt connector on each, crimped in the jaw marked 22 to 16 AWG (0.33 to 1.3 mm²) of an insulated-terminal crimper."
         },
         {
           "method": "solder",

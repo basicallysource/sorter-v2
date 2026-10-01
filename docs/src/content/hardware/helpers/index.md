@@ -38,6 +38,6 @@ USB hub's 24 V lead, is bought ready made with a plug at both ends.
 - **[Make the Orange Pi's 24 V lead]({{ '/hardware/helpers/pi-24v-lead/' | relative_url }})**. A barrel plug onto the buck converter's own input wires. The shortest of the three.
 - **[Make the channel stepper leads]({{ '/hardware/helpers/channel-stepper-lead/' | relative_url }})**. The four c-channel motor leads. The lead in the motor's box cannot be used as it comes. Four per machine.
 - **[Make the chute stepper lead]({{ '/hardware/helpers/chute-stepper-lead/' | relative_url }})**. The chute motor has bare flying leads, so this one gets a tail and a housing.
-- **[Make the chute limit switch lead]({{ '/hardware/helpers/limit-switch-lead/' | relative_url }})**. Push-on tabs at the switch, a keyed 3-pin housing at the board. Nothing soldered.
+- **[Make the chute limit switch lead]({{ '/hardware/helpers/limit-switch-lead/' | relative_url }})**. Push-on tabs at the switch, a 3-pin housing at the board. Nothing soldered.
 
 Every socket these leads plug into is on [connecting the components]({{ '/hardware/electronics/connecting/' | relative_url }}), and the drawings and lengths are on [ordering the wire harness]({{ '/hardware/parts/harness-order/' | relative_url }}).

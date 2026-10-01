@@ -194,7 +194,7 @@ Every socket has a row of 2.54 mm pins beside it carrying the same signals, so a
 
 {% include step.html n="3" title="Wire the chute limit switch" %}
 
-The switch tells the machine where the chute is. Its cable ends in a 3-pin Dupont housing with only two positions filled, and it goes on `J5`, the header the board prints `HALL_SW_0`. The filled positions are ground and signal, and the empty one lines up with the 3.3 V pin, so the housing cannot go on backwards.
+The switch tells the machine where the chute is. Its cable ends in a 3-pin Dupont housing with only two positions filled, and it goes on `J5`, the header the board prints `HALL_SW_0`. The filled positions are ground and signal, and the empty one goes over the pin the board prints `3.3V`. The housing is not keyed and fits either way round, so check that before you push it on: [the limit switch lead]({{ '/hardware/helpers/limit-switch-lead/#putting-the-housing-on-the-board' | relative_url }}) shows it.
 
 At the switch end, push the two #187 tabs onto the switch's `COM` and `NC` terminals. The switch has three tabs and one stays empty. Wired this way the circuit is closed while the lever is free and opens when the chute presses it, which is what the machine expects. If homing runs the wrong way round later, the setting is in the software, not the wiring.
 

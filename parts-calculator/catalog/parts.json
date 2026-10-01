@@ -6839,11 +6839,11 @@
       },
       "name": "Dupont housing, 1x3 female, 2.54 mm",
       "category": "Wire harness",
-      "description": "The board end of the chute limit switch cable, onto J5. Only two of the three positions are wired: signal and ground.",
-      "note": "The third position is left empty on purpose, so the plug cannot go onto J5 the wrong way round. Do not fill it.",
+      "description": "The board end of the chute limit switch cable, onto J5. Only two of the three positions hold a contact: ground and signal.",
+      "note": "The third position is left empty on purpose: it goes over J5's 3.3 V pin, so no contact can touch it. The housing is not keyed, so it can still be pushed on the wrong way round. The board prints 3.3V beside that pin; put the empty position over it.",
       "alternative": null,
       "created_at": "2026-09-14",
-      "updated_at": "2026-09-19",
+      "updated_at": "2026-10-01",
       "image_url": "https://assets.basically.website/sorter-parts/dupont-housing-3p-full-50d0a6c664ee.jpg",
       "attributes": [
         {
@@ -6860,14 +6860,72 @@
         },
         {
           "label": "Contacts",
-          "value": "Standard 2.54 mm Dupont crimps, not supplied with most housing packs"
+          "value": "Female 2.54 mm Dupont crimp contacts, bought separately (dupont-contact-female); most housing packs do not include them"
         }
       ],
       "sheet_qty": {
         "per_machine": 1
       },
-      "caption": "Position 3 stays empty; that is what keys it.",
+      "caption": "Position 3 stays empty and goes over the pin marked 3.3V.",
       "docs_page": "/hardware/helpers/limit-switch-lead/"
+    },
+    {
+      "id": "dupont-contact-female",
+      "uid": "hhff",
+      "kind": "cots",
+      "cots": {
+        "type": "terminal"
+      },
+      "name": "Dupont female crimp contact, 2.54 mm",
+      "category": "Wire harness",
+      "description": "The contact inside a Dupont housing. Crimp one onto each conductor, then push it into the housing until it latches. Two go in the limit switch lead's board end.",
+      "note": "Takes 22 to 28 AWG (0.08 to 0.33 mm²), so the 22 AWG (0.33 mm²) limit switch wire is at the thick end of the range. Crimp it in the die for open-barrel contacts, not the insulated-terminal die. Buy well over the count; they are small and easy to spoil.",
+      "alternative": null,
+      "created_at": "2026-10-01",
+      "updated_at": "2026-10-01",
+      "image_url": "https://assets.basically.website/sorter-parts/dupont-contact-female-full-full-8e553c7f48d1.jpg",
+      "attributes": [
+        {
+          "label": "Pitch",
+          "value": "2.54 mm"
+        },
+        {
+          "label": "Wire",
+          "value": "22 to 28 AWG (0.08 to 0.33 mm²)"
+        },
+        {
+          "label": "Goes in",
+          "value": "Dupont 2.54 mm housings, such as dupont-housing-3p"
+        },
+        {
+          "label": "Per machine",
+          "value": "2: the limit switch lead's board end"
+        }
+      ],
+      "sheet_qty": {
+        "per_machine": 2
+      },
+      "caption": "Two per machine. Buy a bag of 100.",
+      "docs_page": "/hardware/helpers/limit-switch-lead/",
+      "sourcing": {
+        "vendors": [
+          {
+            "region": "US",
+            "vendor": "Pololu",
+            "url": "https://www.pololu.com/product/1930",
+            "as_of": "2026-10-01",
+            "note": "PCX female crimp pins, 100 pack, 22 to 28 AWG."
+          },
+          {
+            "region": "US",
+            "vendor": "Amazon",
+            "url": "https://www.amazon.com/dp/B0BFXNP72Z",
+            "affiliate_url": "https://www.amazon.com/dp/B0BFXNP72Z?tag=sorterv2-20",
+            "as_of": "2026-10-01",
+            "note": "200 pack of female crimp pins, 28 to 22 AWG."
+          }
+        ]
+      }
     },
     {
       "id": "butt-connector-24-20",
@@ -16057,14 +16115,14 @@
     },
     {
       "id": "harness-limit-switch",
-      "uid": "76vq",
-      "version": "1",
+      "uid": "fxa2",
+      "version": "2",
       "name": "Limit switch cable (LIM)",
-      "description": "The chute limit switch's cable: a 3-pin Dupont housing onto J5 with the third position left empty so the plug cannot go on backwards, and an insulated #187 quick-connect on each wire pushing onto the switch's blade tabs. 24 in of 22 AWG (0.33 mm²), and nothing on it is soldered. 1 per machine.",
+      "description": "The chute limit switch's cable: a 3-pin Dupont housing onto J5 with two contacts in it and the third position left empty, over the board's 3.3 V pin, and an insulated #187 quick-connect on each wire pushing onto the switch's blade tabs. 24 in of 22 AWG (0.33 mm²), and nothing on it is soldered. 1 per machine.",
       "joining": [
         {
           "method": "crimp",
-          "note": "A quick-connect receptacle onto each wire at the switch end and a Dupont contact at the board end."
+          "note": "One insulated quick-connect receptacle onto each wire at the switch end, in the insulated-terminal die marked for 22 to 18 AWG (0.33 to 0.82 mm²). One Dupont female contact onto each wire at the board end, in the open-barrel die for 22 AWG (0.33 mm²): the inner wings close on the bare strands and the outer wings on the insulation. Then push the two contacts into positions 1 and 2 of the housing until they latch."
         }
       ],
       "lines": [
@@ -16075,6 +16133,36 @@
         {
           "part": "terminal-qc-187",
           "qty": 2
+        },
+        {
+          "part": "dupont-contact-female",
+          "qty": 2
+        }
+      ],
+      "versions": [
+        {
+          "version": "1",
+          "uid": "76vq",
+          "message": "As recorded before the first stamped change.",
+          "lines": [
+            {
+              "part": "dupont-housing-3p",
+              "qty": 1,
+              "uid": "rf21"
+            },
+            {
+              "part": "terminal-qc-187",
+              "qty": 2,
+              "uid": "hunw"
+            }
+          ]
+        },
+        {
+          "version": "2",
+          "date": "2026-10-01",
+          "message": "The two Dupont contacts for the board end are now a line of their own, as they were in the crimp kit that has been retired. The cable itself is unchanged, so a cable built before works in its place.",
+          "breaking": false,
+          "commit": null
         }
       ]
     }

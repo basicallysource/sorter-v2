@@ -8229,11 +8229,7 @@
 			"joining": [
 				{
 					"method": "crimp",
-					"note": "The strip connector clamps onto the cut end of the COB strip and onto the plug's wires, so that end is not soldered."
-				},
-				{
-					"method": "crimp",
-					"note": "The socket's two wires can instead be joined to the Dupont cable's wires with a red insulated butt connector on each, crimped in the red jaw of an insulated-terminal crimper."
+					"note": "The strip connector clamps onto the cut end of the COB strip and onto the plug's wires, so that end is not soldered. The socket's two wires are joined to the Dupont cable's wires with a red insulated butt connector on each, crimped in the red jaw of an insulated-terminal crimper."
 				},
 				{
 					"method": "solder",

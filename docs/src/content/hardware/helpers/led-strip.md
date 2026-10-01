@@ -11,11 +11,6 @@ author: brickcyclealice
 contributors: [effreek, reveryx, spencer, barthel]
 og_image: https://assets.basically.website/sorter-parts/led-strip-connector-8mm-full-915e0ed03fdc.jpg
 last_verified: 2026-09-25
-warning: >-
-  **AI-generated first draft.** Written from the LED strip catalog parts and the earlier version of this page,
-  not from an actual build. The barrel plug and socket, the butt connectors and the heat shrink have not been
-  fitted by anyone from these steps yet, and the 25 mm heat shrink pieces and the 7 mm strip length are
-  estimates. The red jaw of the crimping pliers is for 22 to 16 AWG, which is what the butt connectors are.
 parts_needed:
   - part: led-strip-24v
     qty: 1

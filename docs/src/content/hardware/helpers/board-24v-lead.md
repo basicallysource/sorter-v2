@@ -56,11 +56,11 @@ This is `W1` on the [harness drawings]({{ '/hardware/parts/harness-order/#board-
 </figure>
 
 <ol class="numbered-steps">
-  <li>Cut the 18 AWG (0.82 mm²) pair so the finished lead is 914 mm (36 in) end to end.</li>
+  <li>Cut the 18 AWG (0.82 mm²) pair with side cutters so the finished lead is 914 mm (36 in) end to end.</li>
   <li><b>Fit the barrel plug to one end.</b> On a <b>screw-terminal plug</b>, strip 5 mm off each conductor, get the bare strands fully under the screws, tighten firmly and pull on each wire. On a <b>moulded plug on a short lead</b>, join each of its two leads to one wire of the pair with a butt connector. How is under <b>Joining a moulded plug's leads</b>, below.</li>
-  <li>Find which conductor is the tip. Set the <a href="{{ '/hardware/helpers/multimeter/' | relative_url }}#continuity-for-tracing-a-cable">multimeter to continuity</a> and hold one probe on the centre pin inside the plug. The conductor that beeps is <b>+24 V</b>. Red is the tip on most plugs, but a few are wired the other way, so this is the step where you find out rather than assume.</li>
+  <li>Find which conductor is the tip. Set the <a href="{{ '/hardware/helpers/multimeter/' | relative_url }}#continuity-for-tracing-a-cable">multimeter to continuity</a> and hold one probe on the centre pin inside the plug. The conductor that beeps is <b>+24 V</b>. Red is the tip on most plugs, but a few are wired the other way, so this is the step where you find out rather than assume. Put a turn of tape on the +24 V conductor at each end, whatever its colour, so you still know which one it is in the steps below.</li>
   <li>Strip 3 mm off the free end of each conductor.</li>
-  <li>Crimp a VH contact onto each. Seat the bare strands fully in the barrel, crimp in the matching die, then pull on the wire to check it holds.</li>
+  <li>Crimp a VH contact onto each. Seat the bare strands fully in the barrel and crimp it in the die of the open-barrel pliers marked for 22 to 16 AWG (0.33 to 1.3 mm²). Then pull on the wire to check it holds.</li>
   <li>Push each contact into the back of the VHR-2 housing until it clicks and will not pull out: <b>+24 V into position 1, ground into position 2</b>.</li>
 </ol>
 
@@ -84,10 +84,18 @@ A butt connector is a vinyl-insulated barrel that takes one wire in each end, ra
 
 **Which position is 1.** `J1` on the board is a shrouded header, so the housing only goes on one way round. Hold the housing as it will go into that shroud: position 1 is the one over the **square pad**, and the round pad beside it is position 2. Every other pad on that footprint is round, so the square one is unambiguous.
 
-<div class="callout callout-warning">
-  <span class="callout-icon" aria-hidden="true">⚠</span>
-  <p><b>Meter the finished lead before it goes anywhere near the PSU.</b> Continuity from the plug's centre pin to position 1 of the housing, and from the sleeve to position 2. Backwards on a 24 V input is not something the board recovers from.</p>
-</div>
+### Check the finished lead
+
+Do this before the lead goes anywhere near the PSU. A lead wired backwards is not something the 24 V input on the board recovers from.
+
+<ol class="numbered-steps">
+  <li>Set the <a href="{{ '/hardware/helpers/multimeter/' | relative_url }}#continuity-for-tracing-a-cable">multimeter to continuity</a>.</li>
+  <li>Hold one probe on the centre pin inside the plug and the other on the metal contact in <b>position 1</b> of the housing. It must beep.</li>
+  <li>Hold one probe on the metal sleeve of the plug and the other on the metal contact in <b>position 2</b>. It must beep.</li>
+  <li>Hold one probe on the centre pin and the other on position 2. It must <b>not</b> beep. Do the same from the sleeve to position 1.</li>
+</ol>
+
+If a check gives the wrong answer, do not plug the lead in. Find the wire that is in the wrong position or the joint that is bad, and fix it first.
 
 ## The finished result
 

@@ -16,7 +16,7 @@ parts_needed:
     qty: 3
   - part: terminal-fork-m35
     qty: 6
-tools_needed: [Wire strippers, "Ratcheting crimp tool, or ordinary pliers", Multimeter]
+tools_needed: ["Wire strippers, for 18 AWG wire", "Insulated-terminal crimping pliers with a red 22 to 16 AWG jaw, for the fork terminals (ordinary pliers will do, see the note under Crimping)", "Multimeter (only if the jack's leads are not red and black)"]
 ---
 
 The PSU box has three DC outputs. Each one is a short pigtail: a panel-mount barrel jack at one end, a crimp fork terminal on each of its two leads at the other. **Build three**, one for each 24 V load: the basically board, the USB hub and the Orange Pi buck.

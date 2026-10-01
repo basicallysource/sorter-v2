@@ -7,6 +7,8 @@
 	separator, in danger ink, and its action asks for confirmation (Modal).
 	A group (`{ group: 'Admin', items: [...] }`) puts its name over its items,
 	as a label; a link that is `checked` is the current page.
+	With no `trigger` it is a context menu: `openAt(event)` opens it where
+	something was right-clicked.
 
 	The button that opens a menu shows three dots (`ellipsis`) and a name, never
 	the icon of one of the actions inside (docs/icons.md).
@@ -50,7 +52,8 @@
 		width = '15rem'
 	}: {
 		items: Item[];
-		trigger: Snippet<[TriggerProps]>;
+		// The button that opens it; without one, open it with `openAt`.
+		trigger?: Snippet<[TriggerProps]>;
 		// The menu's accessible name.
 		label: string;
 		placement?: Placement;
@@ -59,9 +62,24 @@
 
 	const uid = $props.id();
 	const id = `${uid}-menu`;
-	let anchor: HTMLElement;
+	let anchor: HTMLElement | undefined = $state();
 	let panel: HTMLElement;
 	let open = $state(false);
+	// Where a context menu was asked for, in window coordinates.
+	let point: DOMRect | null = null;
+
+	/** Opens the menu where a mouse event happened: a context menu. On a Mac
+	 *  the contextmenu event comes while the button is still down, and its
+	 *  release would close a menu opened then, so it opens on the release. */
+	export function openAt(event: MouseEvent) {
+		const show = () => {
+			point = new DOMRect(event.clientX, event.clientY, 0, 0);
+			if (open) panel.hidePopover();
+			panel.showPopover();
+		};
+		if (event.buttons) window.addEventListener('pointerup', show, { once: true });
+		else show();
+	}
 
 	const actions = $derived(
 		items
@@ -78,8 +96,17 @@
 
 	function ontoggle(event: ToggleEvent) {
 		open = event.newState === 'open';
-		if (!open) return;
-		const at = place(anchor.getBoundingClientRect(), panel.getBoundingClientRect(), placement);
+		if (!open) {
+			point = null;
+			return;
+		}
+		const from = point ?? anchor?.getBoundingClientRect() ?? new DOMRect();
+		const at = place(
+			from,
+			panel.getBoundingClientRect(),
+			point ? 'bottom-start' : placement,
+			point ? 2 : 6
+		);
 		panel.style.top = `${at.top}px`;
 		panel.style.left = `${at.left}px`;
 		entries()[0]?.focus();
@@ -143,9 +170,11 @@
 	{/if}
 {/snippet}
 
-<span bind:this={anchor} class="inline-flex">
-	{@render trigger({ popovertarget: id, 'aria-expanded': open, 'aria-haspopup': 'menu' })}
-</span>
+{#if trigger}
+	<span bind:this={anchor} class="inline-flex">
+		{@render trigger({ popovertarget: id, 'aria-expanded': open, 'aria-haspopup': 'menu' })}
+	</span>
+{/if}
 
 <div
 	bind:this={panel}

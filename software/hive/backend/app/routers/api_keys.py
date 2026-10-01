@@ -8,10 +8,10 @@ from sqlalchemy.orm import Session
 
 from app.deps import (
     API_KEY_SCOPE_KEYS_MANAGE,
+    USER_GRANTABLE_API_KEY_SCOPES,
     get_db,
     normalize_api_key_scopes,
     require_api_key_scopes,
-    require_role_flex,
     verify_csrf,
 )
 from app.errors import APIError
@@ -59,13 +59,17 @@ def list_api_keys(
 def create_api_key(
     payload: ApiKeyCreateRequest,
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_role_flex("admin")),
-    _scope_guard: User = Depends(require_api_key_scopes(API_KEY_SCOPE_KEYS_MANAGE)),
+    current_user: User = Depends(require_api_key_scopes(API_KEY_SCOPE_KEYS_MANAGE)),
     _csrf: None = Depends(verify_csrf),
 ):
     scopes = normalize_api_key_scopes(payload.scopes)
     if not scopes:
         raise APIError(400, "API key must have at least one scope", "API_KEY_SCOPES_REQUIRED")
+    # Anyone can connect an assistant to their own profiles and records; the
+    # other scopes reach fleet-wide or server data and stay with admins.
+    beyond = sorted(set(scopes) - USER_GRANTABLE_API_KEY_SCOPES)
+    if beyond and current_user.role != "admin":
+        raise APIError(403, f"Only admins can make keys with {', '.join(beyond)}", "API_KEY_SCOPE_ADMIN_ONLY")
     machine_ids: list[str] | None = None
     if payload.machine_ids is not None:
         requested = {str(machine_id) for machine_id in payload.machine_ids}

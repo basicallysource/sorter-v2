@@ -26,14 +26,6 @@ format:
 check:
 	pyright --project sorter/backend/pyproject.toml sorter/backend
 generate:
-	@echo "Starting FastAPI server..."
-	@$(PYTHON) sorter/backend/api_only.py & echo $$! > .api.pid
-	@sleep 2
-	@echo "Generating REST API types..."
-	@cd sorter/frontend && npx openapi-typescript http://localhost:8000/openapi.json -o src/lib/api/rest.ts
-	@kill $$(cat .api.pid) && rm .api.pid
-	@echo "Generating WebSocket event types..."
 	@$(PYTHON) scripts/export_types.py sorter/frontend/src/lib/api/events.ts
-	@echo "Types generated in ui/src/lib/api/"
 list-cameras:
 	ffmpeg -f avfoundation -list_devices true -i ""

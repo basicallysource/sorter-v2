@@ -2,10 +2,20 @@
 	import { onDestroy } from 'svelte';
 	import { goto } from '$app/navigation';
 	import { page } from '$app/state';
-	import { api, type SampleDiversityResponse } from '$lib/api';
+	import { api, type SampleDiversityBucketFills, type SampleDiversityResponse } from '$lib/api';
+	import SegmentedControl from '$lib/components/SegmentedControl.svelte';
 	import DiversityDonut from '$lib/components/DiversityDonut.svelte';
 	import Sparkline from '$lib/components/Sparkline.svelte';
 	import Spinner from '$lib/components/Spinner.svelte';
+	import { sentence } from '$lib/text';
+	import Alert from '$lib/components/Alert.svelte';
+	import Button from '$lib/components/Button.svelte';
+	import Card from '$lib/components/Card.svelte';
+	import EmptyState from '$lib/components/EmptyState.svelte';
+	import PageHeader from '$lib/components/PageHeader.svelte';
+	import Panel from '$lib/components/Panel.svelte';
+	import ArrowLeft from '@lucide/svelte/icons/arrow-left';
+	import ChartPie from '@lucide/svelte/icons/chart-pie';
 
 	const REFRESH_MS = 5000;
 
@@ -48,37 +58,31 @@
 		if (timer) clearInterval(timer);
 	});
 
-	function prettifyToken(value: string): string {
-		return value
-			.split('_')
-			.filter(Boolean)
-			.map((p) => p.charAt(0).toUpperCase() + p.slice(1))
-			.join(' ');
-	}
+	const prettifyToken = sentence;
 
 	function formatRelative(iso: string | null): string {
-		if (!iso) return '—';
+		if (!iso) return '-';
 		const seconds = Math.max(0, (Date.now() - new Date(iso).getTime()) / 1000);
-		if (seconds < 60) return `${Math.round(seconds)}s ago`;
-		if (seconds < 3600) return `${Math.round(seconds / 60)}m ago`;
-		if (seconds < 86400) return `${Math.round(seconds / 3600)}h ago`;
-		return `${Math.round(seconds / 86400)}d ago`;
+		if (seconds < 60) return `${Math.round(seconds)} s ago`;
+		if (seconds < 3600) return `${Math.round(seconds / 60)} min ago`;
+		if (seconds < 86400) return `${Math.round(seconds / 3600)} h ago`;
+		return `${Math.round(seconds / 86400)} d ago`;
 	}
 
 	function formatEta(seconds: number | null, lastUploadedAt: string | null, coverage: number): string {
-		if (coverage >= 1) return 'done';
+		if (coverage >= 1) return 'Full';
 		if (lastUploadedAt) {
 			const idle = (Date.now() - new Date(lastUploadedAt).getTime()) / 1000;
-			if (idle > 600) return 'paused';
+			if (idle > 600) return 'Paused';
 		}
-		if (seconds === null || seconds <= 0) return 'stalled';
-		if (seconds < 60) return 'imminent';
-		if (seconds < 3600) return `~${Math.round(seconds / 60)}m`;
+		if (seconds === null || seconds <= 0) return 'Stalled';
+		if (seconds < 60) return 'Full any moment';
+		if (seconds < 3600) return `Full in about ${Math.round(seconds / 60)} min`;
 		if (seconds < 86400) {
 			const h = seconds / 3600;
-			return h < 10 ? `~${h.toFixed(1)}h` : `~${Math.round(h)}h`;
+			return `Full in about ${h < 10 ? h.toFixed(1) : Math.round(h)} h`;
 		}
-		return `~${Math.round(seconds / 86400)}d`;
+		return `Full in about ${Math.round(seconds / 86400)} d`;
 	}
 </script>
 
@@ -86,100 +90,82 @@
 	<title>Diversity - Hive</title>
 </svelte:head>
 
-<div class="mb-6 flex flex-wrap items-center justify-between gap-4">
-	<div class="min-w-0">
-		<div class="mb-1 text-xs text-text-muted">
-			<a href="/samples" class="hover:underline">Samples</a>
-			<span class="mx-1">/</span>
-			<span>Diversity</span>
+{#snippet card(href: string, title: string, total: number, fills: SampleDiversityBucketFills, coverage: number, trend: number[], eta: string, machines: string, machinesShort: boolean, machinesTitle: string, score: number | null, last: string | null, sources?: number)}
+	<Card {href} label={title}>
+		<div class="mb-3 flex items-baseline justify-between gap-2">
+			<h2 class="truncate font-semibold text-ink">{title}</h2>
+			<span class="num shrink-0 text-sm text-ink-muted">{total.toLocaleString()}</span>
 		</div>
-		<h1 class="text-2xl font-bold text-text">Diversity Overview</h1>
-		<p class="mt-1 text-sm text-text-muted">
-			Each donut shows how close a capture reason is to full, balanced piece-count diversity. Targets per bucket
-			are role-specific — e.g. classification ignores 9+ pieces. Strikethrough wedges are out-of-scope. The score
-			is additionally multiplied by a machine factor (samples spread across {data?.machine_target ?? 3} rigs
-			before a reason can hit 100%), so a fully bucketed reason from a single machine won't read as "done".
-			Refreshes every {REFRESH_MS / 1000}s.
-		</p>
-	</div>
-	<div class="flex flex-col items-end gap-2">
-		<div class="flex items-center gap-1 bg-bg p-1">
-			<button
-				onclick={() => setScope('all')}
-				class="px-2.5 py-1 text-xs font-medium transition-colors {scope === 'all' ? 'bg-surface text-text' : 'text-text-muted hover:text-text'}"
-			>
-				All
-			</button>
-			<button
-				onclick={() => setScope('mine')}
-				class="px-2.5 py-1 text-xs font-medium transition-colors {scope === 'mine' ? 'bg-surface text-text' : 'text-text-muted hover:text-text'}"
-			>
-				Mine
-			</button>
+		<div class="flex justify-center py-2">
+			<DiversityDonut bucketFills={fills} bucketKeys={data!.bucket_keys} {coverage} size={220} />
 		</div>
-		{#if data}
-			<div class="text-right text-xs text-text-muted">
-				<div class="tabular-nums text-text">{data.total.toLocaleString()} samples</div>
-				<div>updated {formatRelative(data.generated_at)}</div>
+		<div class="mt-3">
+			<div class="mb-1 flex items-center justify-between text-sm text-ink-muted">
+				<span>Trend</span>
+				<span class="font-medium text-ink">{eta}</span>
 			</div>
-		{/if}
-	</div>
+			<Sparkline values={trend} height={72} />
+		</div>
+		<div class="num mt-2 flex flex-wrap items-center justify-between gap-x-3 gap-y-0.5 text-sm text-ink-muted">
+			{#if sources != null}<span>{sources} source{sources === 1 ? '' : 's'}</span>{/if}
+			<span class={machinesShort ? 'text-warning-ink' : ''} title={machinesTitle}>{machines}</span>
+			<span title="The average score">{score !== null ? `Score ${score.toFixed(3)}` : 'No scores'}</span>
+			<span>{formatRelative(last)}</span>
+		</div>
+	</Card>
+{/snippet}
+
+<div>
+	<Button href="/samples" size="sm" variant="ghost" icon={ArrowLeft}>Samples</Button>
 </div>
+
+<PageHeader
+	title="Diversity"
+	description={`How near each capture reason is to full, balanced piece-count diversity. Each bucket's target depends on the role (classification ignores 9 or more pieces), and struck-through wedges don't count. The score is also scaled by how many machines took part (${data?.machine_target ?? 3} before a reason can reach 100%), so one machine alone never reads as done. It refreshes every ${REFRESH_MS / 1000} seconds.`}
+>
+	{#snippet actions()}
+		{#if data}
+			<span class="num text-sm text-ink-muted"
+				>{data.total.toLocaleString()} samples, updated {formatRelative(data.generated_at)}</span
+			>
+		{/if}
+		<SegmentedControl
+			label="Whose samples"
+			size="sm"
+			value={scope}
+			options={[
+				{ value: 'all', label: 'All' },
+				{ value: 'mine', label: 'Mine' }
+			]}
+			onchange={setScope}
+		/>
+	{/snippet}
+</PageHeader>
 
 {#if loading && !data}
 	<div class="flex justify-center p-8"><Spinner size={32} /></div>
 {:else if error && !data}
-	<div class="border border-border bg-surface px-6 py-12 text-center text-sm text-text-muted">
-		{error}
-	</div>
+	<Alert tone="danger">{error}</Alert>
 {:else if data && data.groups.length === 0}
-	<div class="border border-border bg-surface px-6 py-12 text-center text-sm text-text-muted">
-		No capture reasons recorded yet.
-	</div>
+	<Panel><EmptyState icon={ChartPie} title="No capture reasons yet" /></Panel>
 {:else if data}
-	<div class="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
+	<div class="grid grid-cols-1 gap-(--gap-panels) md:grid-cols-2 xl:grid-cols-3">
 		{#each data.groups as group (group.capture_reason)}
-			<a
-				href="/samples/diversity/{encodeURIComponent(group.capture_reason)}"
-				class="block border border-border bg-surface p-4 transition-colors hover:border-primary"
-			>
-				<div class="mb-3 flex items-baseline justify-between gap-2">
-					<h2 class="truncate text-sm font-semibold text-text">{prettifyToken(group.capture_reason)}</h2>
-					<span class="shrink-0 tabular-nums text-xs text-text-muted">
-						{group.total.toLocaleString()}
-					</span>
-				</div>
-				<div class="flex justify-center py-2">
-					<DiversityDonut
-						bucketFills={group.bucket_fills}
-						bucketKeys={data.bucket_keys}
-						coverage={group.coverage}
-						size={220}
-					/>
-				</div>
-				<div class="mt-3">
-					<div class="mb-1 flex items-center justify-between text-[10px] uppercase tracking-wider text-text-muted">
-						<span>Trend</span>
-						<span>ETA <span class="font-semibold text-text">{formatEta(group.eta_seconds, group.last_uploaded_at, group.coverage)}</span></span>
-					</div>
-					<Sparkline values={group.coverage_trend} height={72} />
-				</div>
-				<div class="mt-2 flex flex-wrap items-center justify-between gap-x-2 gap-y-0.5 text-[11px] text-text-muted">
-					<span>
-						{group.by_source_role.length} source{group.by_source_role.length === 1 ? '' : 's'}
-					</span>
-					<span
-						title={`Machines contributing: ${group.machine_count} / target ${group.machine_target}. Coverage is multiplied by ${group.machine_factor.toFixed(2)}.`}
-						class={group.machine_factor < 1 ? 'text-warning-strong' : ''}
-					>
-						{group.machine_count}/{group.machine_target} machines
-					</span>
-					<span>
-						{group.avg_score !== null ? `⌀ ${group.avg_score.toFixed(3)}` : '—'}
-					</span>
-					<span>{formatRelative(group.last_uploaded_at)}</span>
-				</div>
-			</a>
+			{@render card(
+				`/samples/diversity/${encodeURIComponent(group.capture_reason)}`,
+				prettifyToken(group.capture_reason),
+				group.total,
+				group.bucket_fills,
+				group.coverage,
+				group.coverage_trend,
+				formatEta(group.eta_seconds, group.last_uploaded_at, group.coverage),
+				`${group.machine_count} of ${group.machine_target} machines`,
+				group.machine_factor < 1,
+				`Coverage is multiplied by ${group.machine_factor.toFixed(2)}.`,
+				group.avg_score,
+				group.last_uploaded_at,
+				group.by_source_role.length
+			)}
 		{/each}
 	</div>
 {/if}

@@ -1,18 +1,10 @@
 from __future__ import annotations
 
-from types import SimpleNamespace
 from unittest.mock import patch
 
 import numpy as np
 
-from server import shared_state
-from server.routers import cameras
-
-
-def _vision_manager(*, classification_channel_setup: bool):
-    return SimpleNamespace(
-        _usesClassificationChannelSetup=lambda: classification_channel_setup,
-    )
+from vision import dashboard_crop
 
 
 def test_dashboard_crop_uses_c2_channel_resolution_metadata() -> None:
@@ -26,8 +18,8 @@ def test_dashboard_crop_uses_c2_channel_resolution_metadata() -> None:
         },
     }
 
-    with patch("server.routers.cameras.getChannelPolygons", return_value=saved):
-        spec = cameras._dashboard_crop_spec("c_channel_2", 800, 800)
+    with patch("vision.dashboard_crop.get_channel_polygons", return_value=saved):
+        spec = dashboard_crop.dashboard_crop_spec("c_channel_2", 800, 800)
 
     assert spec is not None
     assert spec["kind"] == "bbox_masked"
@@ -48,8 +40,8 @@ def test_dashboard_crop_uses_c3_channel_resolution_metadata() -> None:
         },
     }
 
-    with patch("server.routers.cameras.getChannelPolygons", return_value=saved):
-        spec = cameras._dashboard_crop_spec("c_channel_3", 800, 800)
+    with patch("vision.dashboard_crop.get_channel_polygons", return_value=saved):
+        spec = dashboard_crop.dashboard_crop_spec("c_channel_3", 800, 800)
 
     assert spec is not None
     assert spec["kind"] == "bbox_masked"
@@ -69,15 +61,13 @@ def test_dashboard_crop_uses_c4_classification_channel_resolution_metadata() -> 
             "classification_channel": {"resolution": [400, 400]},
         },
     }
-    old_vm = shared_state.vision_manager
-    shared_state.vision_manager = _vision_manager(classification_channel_setup=True)
-    try:
-        with patch("server.routers.cameras.getChannelPolygons", return_value=saved):
-            spec = cameras._dashboard_crop_spec("carousel", 800, 800)
-    finally:
-        shared_state.vision_manager = old_vm
+    with patch("vision.dashboard_crop.get_channel_polygons", return_value=saved):
+        spec = dashboard_crop.dashboard_crop_spec("carousel", 800, 800)
+        alias_spec = dashboard_crop.dashboard_crop_spec("classification_channel", 800, 800)
 
     assert spec is not None
+    assert alias_spec is not None
+    np.testing.assert_allclose(spec["polygons"][0], alias_spec["polygons"][0])
     assert spec["kind"] == "bbox_masked"
     np.testing.assert_allclose(
         spec["polygons"][0],
@@ -94,27 +84,8 @@ def test_dashboard_masked_crop_paints_pixels_outside_polygon_light_gray() -> Non
         ],
     }
 
-    cropped = cameras._apply_dashboard_crop(frame, spec)
+    cropped = dashboard_crop.apply_dashboard_crop(frame, spec)
 
     assert cropped.shape == (4, 4, 3)
     assert cropped[0, 0].tolist() == [100, 100, 100]
     assert cropped[3, 3].tolist() == [230, 230, 230]
-
-
-def test_dashboard_classification_crop_uses_per_camera_quad_resolution() -> None:
-    saved = {
-        "resolution": [1920, 1080],
-        "polygons": {
-            "top": [[100, 100], [300, 100], [300, 300], [100, 300]],
-        },
-        "quad_params": {
-            "class_top": {"resolution": [400, 400]},
-        },
-    }
-
-    with patch("server.routers.cameras.getClassificationPolygons", return_value=saved):
-        spec = cameras._dashboard_crop_spec("classification_top", 800, 800)
-
-    assert spec is not None
-    assert spec["kind"] == "rectified"
-    assert spec["size"] == (496, 496)

@@ -1,11 +1,9 @@
 from __future__ import annotations
 
 import sqlite3
-import threading
-from contextlib import contextmanager
-from typing import Any, Iterator, Optional
+from typing import Any, Optional
 
-from local_state import local_state_db_path
+import db
 
 # Durable per-run runtime-stats history, fully decomposed into typed relational
 # tables — no JSON blobs. Replaces the old per-run JSON dumps that only landed on
@@ -15,121 +13,89 @@ from local_state import local_state_db_path
 # getSnapshot() reconstitutes exactly the subset of the live snapshot() payload
 # that the history pages (dashboard/runtime, settings/performance) consume.
 
-_INIT_LOCK = threading.Lock()
-_initialized = False
-
 # group keys for the EAV runtime_metrics table
 GROUP_COUNTS = "counts"
 GROUP_PERF_TOTAL_COUNTS = "perf_total_counts"
 
 
-def _connect() -> sqlite3.Connection:
-    db_path = local_state_db_path()
-    db_path.parent.mkdir(parents=True, exist_ok=True)
-    conn = sqlite3.connect(db_path, timeout=5.0)
-    conn.row_factory = sqlite3.Row
-    conn.execute("PRAGMA journal_mode = WAL")
-    conn.execute("PRAGMA busy_timeout = 5000")
-    conn.execute("PRAGMA foreign_keys = ON")
-    return conn
+def _createTables(conn: sqlite3.Connection) -> None:
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS runtime_runs ("
+        "run_id TEXT PRIMARY KEY, "
+        "machine_id TEXT, "
+        "sorting_profile_path TEXT, "
+        "started_at REAL, "
+        "ended_at REAL, "
+        "total_pieces INTEGER, "
+        "lifecycle_state TEXT, "
+        "is_running INTEGER, "
+        "updated_at REAL, "
+        "running_time_s REAL, "
+        "distributed_count INTEGER, "
+        "overall_ppm REAL, "
+        "rolling_5min_ppm REAL, "
+        "pieces_seen INTEGER"
+        ")"
+    )
+    conn.execute(
+        "CREATE INDEX IF NOT EXISTS idx_runtime_runs_started "
+        "ON runtime_runs(started_at)"
+    )
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS runtime_metrics ("
+        "run_id TEXT NOT NULL, "
+        "metric_group TEXT NOT NULL, "
+        "key TEXT NOT NULL, "
+        "value REAL, "
+        "PRIMARY KEY (run_id, metric_group, key)"
+        ")"
+    )
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS runtime_perf_ms ("
+        "run_id TEXT NOT NULL, "
+        "key TEXT NOT NULL, "
+        "n INTEGER, "
+        "avg_ms REAL, "
+        "med_ms REAL, "
+        "p90_ms REAL, "
+        "min_ms REAL, "
+        "max_ms REAL, "
+        "last_ms REAL, "
+        "PRIMARY KEY (run_id, key)"
+        ")"
+    )
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS runtime_state_machines ("
+        "run_id TEXT NOT NULL, "
+        "machine TEXT NOT NULL, "
+        "current_state TEXT, "
+        "entered_at REAL, "
+        "PRIMARY KEY (run_id, machine)"
+        ")"
+    )
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS runtime_state_times ("
+        "run_id TEXT NOT NULL, "
+        "machine TEXT NOT NULL, "
+        "state TEXT NOT NULL, "
+        "time_s REAL, "
+        "PRIMARY KEY (run_id, machine, state)"
+        ")"
+    )
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS runtime_timeline ("
+        "run_id TEXT NOT NULL, "
+        "seq INTEGER NOT NULL, "
+        "ts REAL, "
+        "machine TEXT, "
+        "to_state TEXT, "
+        "PRIMARY KEY (run_id, seq)"
+        ")"
+    )
 
 
-@contextmanager
-def _connection() -> Iterator[sqlite3.Connection]:
-    _ensureInitialized()
-    conn = _connect()
-    try:
-        yield conn
-    finally:
-        conn.close()
-
-
-def _ensureInitialized() -> None:
-    global _initialized
-    if _initialized:
-        return
-    with _INIT_LOCK:
-        if _initialized:
-            return
-        conn = _connect()
-        try:
-            conn.execute(
-                "CREATE TABLE IF NOT EXISTS runtime_runs ("
-                "run_id TEXT PRIMARY KEY, "
-                "machine_id TEXT, "
-                "sorting_profile_path TEXT, "
-                "started_at REAL, "
-                "ended_at REAL, "
-                "total_pieces INTEGER, "
-                "lifecycle_state TEXT, "
-                "is_running INTEGER, "
-                "updated_at REAL, "
-                "running_time_s REAL, "
-                "distributed_count INTEGER, "
-                "overall_ppm REAL, "
-                "rolling_5min_ppm REAL, "
-                "pieces_seen INTEGER"
-                ")"
-            )
-            conn.execute(
-                "CREATE INDEX IF NOT EXISTS idx_runtime_runs_started "
-                "ON runtime_runs(started_at)"
-            )
-            conn.execute(
-                "CREATE TABLE IF NOT EXISTS runtime_metrics ("
-                "run_id TEXT NOT NULL, "
-                "metric_group TEXT NOT NULL, "
-                "key TEXT NOT NULL, "
-                "value REAL, "
-                "PRIMARY KEY (run_id, metric_group, key)"
-                ")"
-            )
-            conn.execute(
-                "CREATE TABLE IF NOT EXISTS runtime_perf_ms ("
-                "run_id TEXT NOT NULL, "
-                "key TEXT NOT NULL, "
-                "n INTEGER, "
-                "avg_ms REAL, "
-                "med_ms REAL, "
-                "p90_ms REAL, "
-                "min_ms REAL, "
-                "max_ms REAL, "
-                "last_ms REAL, "
-                "PRIMARY KEY (run_id, key)"
-                ")"
-            )
-            conn.execute(
-                "CREATE TABLE IF NOT EXISTS runtime_state_machines ("
-                "run_id TEXT NOT NULL, "
-                "machine TEXT NOT NULL, "
-                "current_state TEXT, "
-                "entered_at REAL, "
-                "PRIMARY KEY (run_id, machine)"
-                ")"
-            )
-            conn.execute(
-                "CREATE TABLE IF NOT EXISTS runtime_state_times ("
-                "run_id TEXT NOT NULL, "
-                "machine TEXT NOT NULL, "
-                "state TEXT NOT NULL, "
-                "time_s REAL, "
-                "PRIMARY KEY (run_id, machine, state)"
-                ")"
-            )
-            conn.execute(
-                "CREATE TABLE IF NOT EXISTS runtime_timeline ("
-                "run_id TEXT NOT NULL, "
-                "seq INTEGER NOT NULL, "
-                "ts REAL, "
-                "machine TEXT, "
-                "to_state TEXT, "
-                "PRIMARY KEY (run_id, seq)"
-                ")"
-            )
-            conn.commit()
-            _initialized = True
-        finally:
-            conn.close()
+def _connection():
+    return db.connect(_createTables)
 
 
 def _deleteRun(conn: sqlite3.Connection, run_id: str) -> None:

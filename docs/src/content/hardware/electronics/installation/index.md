@@ -26,7 +26,7 @@ The Pico is bought with its header pins already fitted, so there is nothing to p
   <li><strong><a href="{{ '/hardware/electronics/installation/psu-box/' | relative_url }}">PSU box</a></strong>. The printed enclosure around the Mean Well LRS-350-24, its mains inlet, and the wiring inside it.</li>
   <li><strong><a href="{{ '/hardware/electronics/installation/control-board-prep/' | relative_url }}">Preparing the control board</a></strong>. The five stepper drivers, the Pico, and the ten jumpers that address the drivers. Done with the board loose.</li>
   <li><strong><a href="{{ '/hardware/electronics/installation/control-board-housing/' | relative_url }}">Control board housing</a></strong>. The prepared board closed into its printed housing, with the 40 mm fan and the reset plunger in the cover.</li>
-  <li><strong><a href="{{ '/hardware/electronics/installation/orange-pi-prep/' | relative_url }}">Preparing the Orange Pi</a></strong>. The heatsink fan, the WiFi module and the first boot that sets the network, all while the board is still loose on the bench.</li>
+  <li><strong><a href="{{ '/hardware/electronics/installation/orange-pi-prep/' | relative_url }}">Preparing the Orange Pi</a></strong>. The heatsink fan and the WiFi module, both fitted while the board is still loose on the bench.</li>
   <li><strong><a href="{{ '/hardware/electronics/installation/orange-pi-mount/' | relative_url }}">Orange Pi housing</a></strong>. The Orange Pi 5 closed into its printed housing, with the USB hub and the buck converter clamped to its roof.</li>
 </ol>
 

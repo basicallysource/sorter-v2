@@ -2,8 +2,12 @@
 	import { onMount } from 'svelte';
 	import { getBackendHttpBase, machineHttpBaseUrlFromWsUrl } from '$lib/backend';
 	import { getMachineContext } from '$lib/machines/context';
-	import SectionCard from '$lib/components/settings/SectionCard.svelte';
-	import { Button, Alert } from '$lib/components/primitives';
+	import Alert from '$lib/components/ui/Alert.svelte';
+	import Panel from '$lib/components/ui/Panel.svelte';
+	import SegmentedControl from '$lib/components/ui/SegmentedControl.svelte';
+	import Select from '$lib/components/ui/Select.svelte';
+	import Stat from '$lib/components/ui/Stat.svelte';
+	import PageHeader from '$lib/components/ui/PageHeader.svelte';
 
 	const ctx = getMachineContext();
 
@@ -105,8 +109,9 @@
 		};
 	}
 
-	// Live snapshot from the websocket (updates every ~1s).
-	const liveProfile = $derived(deriveProfile(ctx.machine?.runtimeStats as Snapshot));
+	// The full snapshot is not pushed; loadHistory fetches it with the history.
+	let liveSnapshot = $state<Snapshot | null>(null);
+	const liveProfile = $derived(deriveProfile(liveSnapshot));
 	const machineName = $derived(
 		ctx.machine?.identity?.nickname || ctx.machine?.identity?.machine_id || 'this machine'
 	);
@@ -128,8 +133,12 @@
 
 	async function loadHistory() {
 		try {
-			const res = await fetch(`${backendBase()}/runtime-stats/perf-history?window_s=${windowS}`);
+			const [res, live] = await Promise.all([
+				fetch(`${backendBase()}/runtime-stats/perf-history?window_s=${windowS}`),
+				fetch(`${backendBase()}/runtime-stats`)
+			]);
 			if (!res.ok) throw new Error(await res.text());
+			if (live.ok) liveSnapshot = (await live.json()).payload ?? null;
 			const body = await res.json();
 			rows = Array.isArray(body.rows) ? body.rows : [];
 			windowRates = body.rates ?? { hz: {}, cameras_hz: {}, current: {} };
@@ -207,43 +216,8 @@
 		}
 	}
 
-	// ── Profiler toggle (toml-backed, default on) ───────────────────────────
-	let profilerEnabled = $state<boolean | null>(null);
-	let profilerSaving = $state(false);
-	let profilerError = $state<string | null>(null);
-
-	async function loadProfiler() {
-		try {
-			const res = await fetch(`${backendBase()}/api/system/profiler-config`);
-			if (!res.ok) throw new Error(await res.text());
-			const body = await res.json();
-			profilerEnabled = Boolean(body.enabled);
-		} catch (e: any) {
-			profilerError = e?.message ?? 'Failed to load profiler setting';
-		}
-	}
-	async function saveProfiler(next: boolean) {
-		profilerSaving = true;
-		profilerError = null;
-		try {
-			const res = await fetch(`${backendBase()}/api/system/profiler-config`, {
-				method: 'POST',
-				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({ enabled: next })
-			});
-			if (!res.ok) throw new Error(await res.text());
-			const body = await res.json();
-			profilerEnabled = Boolean(body.enabled);
-		} catch (e: any) {
-			profilerError = e?.message ?? 'Failed to save profiler setting';
-		} finally {
-			profilerSaving = false;
-		}
-	}
-
 	onMount(() => {
 		void loadRecords();
-		void loadProfiler();
 	});
 
 	function unionCameras(a: Profile, b: Profile): string[] {
@@ -269,190 +243,130 @@
 		if (s < 3600) return `${Math.floor(s / 60)}m ${Math.round(s % 60)}s`;
 		return `${Math.floor(s / 3600)}h ${Math.floor((s % 3600) / 60)}m`;
 	}
-	// Lower-is-better (latency/age). good < warn < bad.
-	function msHealth(v: number | null, good: number, warn: number): string {
-		if (v == null) return 'text-text';
-		if (v <= good) return 'text-success';
-		if (v <= warn) return 'text-warning';
-		return 'text-danger';
+	type Tone = 'success' | 'warning' | 'danger' | undefined;
+	const TONE_INK = { success: 'text-success-ink', warning: 'text-warning-ink', danger: 'text-danger-ink' };
+	// Lower is better (latency, age): good < warn < bad.
+	function msTone(v: number | null, good: number, warn: number): Tone {
+		if (v == null) return undefined;
+		return v <= good ? 'success' : v <= warn ? 'warning' : 'danger';
 	}
-	// Higher-is-better (rates). good > warn.
-	function hzHealth(v: number | null, good: number, warn: number): string {
-		if (v == null) return 'text-text';
-		if (v >= good) return 'text-success';
-		if (v >= warn) return 'text-warning';
-		return 'text-danger';
+	// Higher is better (rates): good > warn.
+	function hzTone(v: number | null, good: number, warn: number): Tone {
+		if (v == null) return undefined;
+		return v >= good ? 'success' : v >= warn ? 'warning' : 'danger';
 	}
+	const rangeOptions = RANGES.map((r, i) => ({ value: String(i), label: r.label }));
+	const recordOptions = $derived([
+		{ value: '', label: 'None' },
+		...records.map((rec) => ({
+			value: rec.record_id,
+			label: new Date(rec.started_at * 1000).toLocaleString(),
+			hint: `${rec.total_pieces} pcs`
+		}))
+	]);
 </script>
 
 <svelte:head><title>Sorter - Performance</title></svelte:head>
 
-<div class="flex flex-col gap-6">
-	<SectionCard
+<div class="flex flex-col gap-(--gap-panels)">
+	<PageHeader
 		title="Performance"
-		description="How fast this machine is thinking and how fresh the data behind each decision is. Core rates are always collected; the detailed profiler can be toggled below."
-	>
-		<!-- Range + machine -->
-		<div class="flex flex-wrap items-center justify-between gap-3">
-			<div class="text-sm text-text-muted">
-				Showing <span class="font-medium text-text">{machineName}</span>
-				{#if liveProfile.lifecycle}
-					· <span class="text-text">{liveProfile.lifecycle}</span>
-				{/if}
-				· running {fmtDuration(liveProfile.running_time_s)}
-			</div>
-			<div class="flex items-center gap-1">
-				{#each RANGES as r, i (r.label)}
-					<Button
-						variant={i === rangeIdx ? 'primary' : 'ghost'}
-						size="sm"
-						onclick={() => (rangeIdx = i)}
-					>
-						{r.label}
-					</Button>
-				{/each}
-			</div>
-		</div>
-		{#if historyError}
-			<div class="mt-2 text-sm text-danger">{historyError}</div>
-		{/if}
+		description="How fast this machine is thinking and how fresh the data behind each decision is."
+	/>
+	<div class="flex flex-wrap items-center justify-between gap-3">
+		<p class="text-sm text-ink-muted">
+			Showing <span class="font-medium text-ink">{machineName}</span>
+			{#if liveProfile.lifecycle}· <span class="text-ink">{liveProfile.lifecycle}</span>{/if}
+			· running {fmtDuration(liveProfile.running_time_s)}
+		</p>
+		<SegmentedControl
+			label="Time range"
+			size="sm"
+			value={String(rangeIdx)}
+			options={rangeOptions}
+			onchange={(v) => (rangeIdx = Number(v))}
+		/>
+	</div>
+	{#if historyError}<Alert tone="danger">{historyError}</Alert>{/if}
 
-		<!-- ── Decision loop ──────────────────────────────────────────────── -->
-		<div class="mt-5 text-xs font-semibold uppercase tracking-wider text-text-muted">
-			Decision loop
+	<Panel title="Decision loop" flush>
+		{@render stats([
+			{ label: 'Decisions a second', value: fmtHz(liveProfile.decision_hz), unit: 'Hz', hint: 'Classification ticks', tone: hzTone(liveProfile.decision_hz, 60, 30) },
+			{ label: 'Decision data age', value: fmtMs(liveProfile.decision_frame_age_ms), unit: 'ms', hint: 'Age of the camera data', tone: msTone(liveProfile.decision_frame_age_ms, 150, 300) },
+			{ label: 'Control loop rate', value: fmtHz(liveProfile.loop_hz), unit: 'Hz', hint: 'Target 100', tone: hzTone(liveProfile.loop_hz, 80, 50) },
+			{ label: 'GIL stall', value: fmtMs(liveProfile.gil_stall_ms), unit: 'ms', hint: 'Loop contention', tone: msTone(liveProfile.gil_stall_ms, 5, 15) }
+		])}
+		<div class="grid grid-cols-1 gap-3 border-t border-line p-(--pad-panel) md:grid-cols-3">
+			{@render spark('Decision data age (ms)', decisionAgeSeries, 'Over ' + RANGES[rangeIdx].label)}
+			{@render spark('Control loop interval (ms)', loopIntervalSeries, 'Lower is faster')}
+			{@render spark('Decisions a second', decisionHzSeries, 'Over ' + RANGES[rangeIdx].label)}
 		</div>
-		<div class="mt-2 grid grid-cols-2 gap-2 md:grid-cols-4">
-			<div class="border border-border bg-bg p-3">
-				<div class="text-sm text-text-muted">Decisions / sec</div>
-				<div class="mt-1 text-3xl font-semibold tabular-nums {hzHealth(liveProfile.decision_hz, 60, 30)}">
-					{fmtHz(liveProfile.decision_hz)}
-				</div>
-				<div class="mt-0.5 text-sm text-text-muted">Hz · classification ticks</div>
-			</div>
-			<div class="border border-border bg-bg p-3">
-				<div class="text-sm text-text-muted">Decision data age</div>
-				<div class="mt-1 text-3xl font-semibold tabular-nums {msHealth(liveProfile.decision_frame_age_ms, 150, 300)}">
-					{fmtMs(liveProfile.decision_frame_age_ms)}
-				</div>
-				<div class="mt-0.5 text-sm text-text-muted">ms old camera data</div>
-			</div>
-			<div class="border border-border bg-bg p-3">
-				<div class="text-sm text-text-muted">Control loop rate</div>
-				<div class="mt-1 text-3xl font-semibold tabular-nums {hzHealth(liveProfile.loop_hz, 80, 50)}">
-					{fmtHz(liveProfile.loop_hz)}
-				</div>
-				<div class="mt-0.5 text-sm text-text-muted">Hz · target 100</div>
-			</div>
-			<div class="border border-border bg-bg p-3">
-				<div class="text-sm text-text-muted">GIL stall</div>
-				<div class="mt-1 text-3xl font-semibold tabular-nums {msHealth(liveProfile.gil_stall_ms, 5, 15)}">
-					{fmtMs(liveProfile.gil_stall_ms)}
-				</div>
-				<div class="mt-0.5 text-sm text-text-muted">ms · loop contention</div>
-			</div>
-		</div>
+	</Panel>
 
-		<!-- sparklines over the selected window -->
-		<div class="mt-2 grid grid-cols-1 gap-2 md:grid-cols-3">
-			{@render spark('Decision data age (ms)', decisionAgeSeries, 'over ' + RANGES[rangeIdx].label)}
-			{@render spark('Control loop interval (ms)', loopIntervalSeries, 'lower = faster')}
-			{@render spark('Decisions / sec', decisionHzSeries, 'over ' + RANGES[rangeIdx].label)}
-		</div>
-
-		<!-- ── Perception (per camera) ────────────────────────────────────── -->
-		<div class="mt-6 text-xs font-semibold uppercase tracking-wider text-text-muted">
-			Perception — inference per camera
-		</div>
+	<Panel title="Perception" description="Inference on each camera." flush>
 		{#if liveProfile.cameras.length === 0}
-			<div class="mt-2 text-sm text-text-muted">No active inference cameras reporting yet.</div>
+			<p class="px-(--pad-panel) pb-4 text-sm text-ink-muted">No inference cameras are reporting yet.</p>
 		{:else}
-			<div class="mt-2 flex flex-col gap-2">
+			<div class="divide-y divide-line">
 				{#each liveProfile.cameras as cam (cam.source_id)}
-					<div class="border border-border bg-bg p-3">
-						<div class="flex flex-wrap items-baseline justify-between gap-2">
-							<div class="text-base font-medium text-text">{cam.source_id}</div>
-							<div class="flex items-baseline gap-4 text-sm tabular-nums">
-								<span class="text-text-muted">
-									rate
-									<span class="text-lg font-semibold {hzHealth(cam.infer_hz, 15, 8)}">
-										{fmtHz(cam.infer_hz)}
-									</span> Hz
-								</span>
-								<span class="text-text-muted">
-									infer
-									<span class="font-semibold {msHealth(cam.infer_ms, 40, 80)}">{fmtMs(cam.infer_ms)}</span> ms
-								</span>
-								<span class="text-text-muted">
-									cycle <span class="font-semibold text-text">{fmtMs(cam.cycle_ms)}</span> ms
-								</span>
-								<span class="text-text-muted">
-									frame age
-									<span class="font-semibold {msHealth(cam.frame_age_ms, 80, 160)}">{fmtMs(cam.frame_age_ms)}</span> ms
-								</span>
-							</div>
+					<div class="px-(--pad-panel) py-(--pad-row)">
+						<div class="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 text-sm">
+							<span class="font-medium text-ink">{cam.source_id}</span>
+							<span class="flex flex-wrap gap-x-4">
+								{@render reading('Rate', fmtHz(cam.infer_hz), 'Hz', hzTone(cam.infer_hz, 15, 8))}
+								{@render reading('Infer', fmtMs(cam.infer_ms), 'ms', msTone(cam.infer_ms, 40, 80))}
+								{@render reading('Cycle', fmtMs(cam.cycle_ms), 'ms')}
+								{@render reading('Frame age', fmtMs(cam.frame_age_ms), 'ms', msTone(cam.frame_age_ms, 80, 160))}
+							</span>
 						</div>
-						{@render bars(rateSeries(`infer.${cam.source_id}`))}
+						{@render line(rateSeries(`infer.${cam.source_id}`), 'mt-2 h-8')}
 					</div>
 				{/each}
 			</div>
 		{/if}
+	</Panel>
 
-		<!-- ── Subsystem step cost ────────────────────────────────────────── -->
-		<div class="mt-6 text-xs font-semibold uppercase tracking-wider text-text-muted">
-			Subsystem step cost (per control tick)
-		</div>
-		<div class="mt-2 grid grid-cols-2 gap-2 md:grid-cols-4">
-			{@render stat('Distribution', fmtMs(liveProfile.distribution_ms), 'ms', msHealth(liveProfile.distribution_ms, 2, 6))}
-			{@render stat('Classification', fmtMs(liveProfile.classification_ms), 'ms', msHealth(liveProfile.classification_ms, 2, 6))}
-			{@render stat('Feeder', fmtMs(liveProfile.feeder_ms), 'ms', msHealth(liveProfile.feeder_ms, 2, 6))}
-			{@render stat('Controller step', fmtMs(liveProfile.controller_step_ms), 'ms', msHealth(liveProfile.controller_step_ms, 4, 10))}
-		</div>
+	<Panel title="Subsystem step cost" description="Each control tick." flush>
+		{@render stats([
+			{ label: 'Distribution', value: fmtMs(liveProfile.distribution_ms), unit: 'ms', tone: msTone(liveProfile.distribution_ms, 2, 6) },
+			{ label: 'Classification', value: fmtMs(liveProfile.classification_ms), unit: 'ms', tone: msTone(liveProfile.classification_ms, 2, 6) },
+			{ label: 'Feeder', value: fmtMs(liveProfile.feeder_ms), unit: 'ms', tone: msTone(liveProfile.feeder_ms, 2, 6) },
+			{ label: 'Controller step', value: fmtMs(liveProfile.controller_step_ms), unit: 'ms', tone: msTone(liveProfile.controller_step_ms, 4, 10) }
+		])}
+	</Panel>
 
-		<!-- ── Throughput ─────────────────────────────────────────────────── -->
-		<div class="mt-6 text-xs font-semibold uppercase tracking-wider text-text-muted">Throughput</div>
-		<div class="mt-2 grid grid-cols-2 gap-2 md:grid-cols-4">
-			{@render stat('Pieces / min (5m)', fmtPpm(liveProfile.rolling_5min_ppm), 'ppm', 'text-text')}
-			{@render stat('Pieces / min (avg)', fmtPpm(liveProfile.overall_ppm), 'ppm', 'text-text')}
-			{@render stat('Pieces seen', liveProfile.pieces_seen?.toString() ?? '–', '', 'text-text')}
-			{@render stat('Distributed', liveProfile.distributed?.toString() ?? '–', '', 'text-text')}
-		</div>
-	</SectionCard>
+	<Panel title="Throughput" flush>
+		{@render stats([
+			{ label: 'Pieces a minute (5 min)', value: fmtPpm(liveProfile.rolling_5min_ppm), unit: 'ppm' },
+			{ label: 'Pieces a minute (average)', value: fmtPpm(liveProfile.overall_ppm), unit: 'ppm' },
+			{ label: 'Pieces seen', value: liveProfile.pieces_seen?.toString() ?? '–' },
+			{ label: 'Distributed', value: liveProfile.distributed?.toString() ?? '–' }
+		])}
+	</Panel>
 
-	<!-- ── Compare to a past run ──────────────────────────────────────────── -->
-	<SectionCard
+	<Panel
 		title="Compare to a past run"
-		description="Put this machine's current session next to a finished run — same numbers, side by side. Useful for comparing machines or spotting a regression."
+		description="This machine's current session beside a finished run, the same numbers side by side. Useful for comparing machines or spotting a regression."
+		flush
 	>
-		<div class="flex flex-wrap items-center gap-2">
-			<select
+		<div class="flex flex-wrap items-center gap-3 px-(--pad-panel) pb-4">
+			<Select
+				label="Past run"
+				class="w-72 max-w-full"
 				bind:value={selectedRecordId}
-				onchange={() => void loadCompare(selectedRecordId)}
-				class="border border-border bg-bg px-3 py-2 text-sm text-text"
-			>
-				<option value="">Select a finished run…</option>
-				{#each records as rec (rec.record_id)}
-					<option value={rec.record_id}>
-						{new Date(rec.started_at * 1000).toLocaleString()} · {rec.total_pieces} pcs
-					</option>
-				{/each}
-			</select>
-			{#if records.length === 0}
-				<span class="text-sm text-text-muted">No saved runs yet.</span>
-			{/if}
+				options={recordOptions}
+				onchange={(id) => void loadCompare(id)}
+			/>
+			{#if records.length === 0}<span class="text-sm text-ink-muted">No saved runs yet.</span>{/if}
 		</div>
-
 		{#if compareProfile}
-			<div class="mt-3 overflow-x-auto">
-				<table class="w-full border-collapse text-sm">
+			<div class="overflow-x-auto">
+				<table class="data-table">
 					<thead>
-						<tr class="text-left text-text-muted">
-							<th class="border border-border px-3 py-2 font-semibold">Metric</th>
-							<th class="border border-border px-3 py-2 font-semibold">{machineName} (now)</th>
-							<th class="border border-border px-3 py-2 font-semibold">{compareLabel}</th>
-						</tr>
+						<tr><th>Metric</th><th class="num">{machineName} (now)</th><th class="num">{compareLabel}</th></tr>
 					</thead>
-					<tbody class="tabular-nums text-text">
-						{@render cmp('Decisions / sec', fmtHz(liveProfile.decision_hz), fmtHz(compareProfile.decision_hz))}
+					<tbody>
+						{@render cmp('Decisions a second', fmtHz(liveProfile.decision_hz), fmtHz(compareProfile.decision_hz))}
 						{@render cmp('Decision data age (ms)', fmtMs(liveProfile.decision_frame_age_ms), fmtMs(compareProfile.decision_frame_age_ms))}
 						{@render cmp('Control loop rate (Hz)', fmtHz(liveProfile.loop_hz), fmtHz(compareProfile.loop_hz))}
 						{@render cmp('GIL stall (ms)', fmtMs(liveProfile.gil_stall_ms), fmtMs(compareProfile.gil_stall_ms))}
@@ -460,7 +374,7 @@
 						{@render cmp('Distribution step (ms)', fmtMs(liveProfile.distribution_ms), fmtMs(compareProfile.distribution_ms))}
 						{@render cmp('Classification step (ms)', fmtMs(liveProfile.classification_ms), fmtMs(compareProfile.classification_ms))}
 						{@render cmp('Feeder step (ms)', fmtMs(liveProfile.feeder_ms), fmtMs(compareProfile.feeder_ms))}
-						{@render cmp('Pieces / min (avg)', fmtPpm(liveProfile.overall_ppm), fmtPpm(compareProfile.overall_ppm))}
+						{@render cmp('Pieces a minute (average)', fmtPpm(liveProfile.overall_ppm), fmtPpm(compareProfile.overall_ppm))}
 						{#each unionCameras(liveProfile, compareProfile) as id (id)}
 							{@render cmp(
 								`Inference ${id} (Hz)`,
@@ -472,85 +386,55 @@
 				</table>
 			</div>
 		{/if}
-	</SectionCard>
-
-	<!-- ── Profiler toggle ────────────────────────────────────────────────── -->
-	<SectionCard
-		title="Detailed profiler"
-		description="The detailed code profiler adds per-block timers and a periodic report. Headline rates above are always collected regardless of this setting; this only controls the extra fine-grained instrumentation. Persisted to this machine's config and applied live."
-	>
-		<Alert variant="warning">
-			Leave this <strong>off</strong> for normal sorting. The profiler adds per-call timing
-			overhead across hot loops — it can noticeably slow things like the live camera feed — and
-			writes telemetry to disk. It's a diagnostic for comparing one machine against another, not
-			something to run continuously.
-		</Alert>
-		<label class="mt-3 flex items-start gap-3 border border-border bg-bg px-3 py-2.5 text-sm text-text">
-			<input
-				type="checkbox"
-				checked={profilerEnabled ?? false}
-				disabled={profilerEnabled == null || profilerSaving}
-				onchange={(e) => void saveProfiler(e.currentTarget.checked)}
-				class="mt-0.5 h-4 w-4 accent-sky-500"
-			/>
-			<span class="min-w-0">
-				<span class="block text-sm font-medium text-text">Enable detailed profiler</span>
-				<span class="mt-0.5 block text-sm text-text-muted">
-					Off by default. The Performance numbers above keep working either way — only turn this
-					on temporarily when you need fine-grained per-block timings.
-				</span>
-			</span>
-		</label>
-		{#if profilerError}
-			<div class="mt-2 text-sm text-danger">{profilerError}</div>
-		{/if}
-	</SectionCard>
+	</Panel>
 </div>
 
-<!-- ── Snippets ───────────────────────────────────────────────────────────── -->
-{#snippet stat(label: string, value: string, unit: string, color: string)}
-	<div class="border border-border bg-bg p-3">
-		<div class="text-sm text-text-muted">{label}</div>
-		<div class="mt-1 flex items-baseline gap-1">
-			<span class="text-2xl font-semibold tabular-nums {color}">{value}</span>
-			{#if unit}<span class="text-sm text-text-muted">{unit}</span>{/if}
-		</div>
-	</div>
-{/snippet}
-
-{#snippet cmp(label: string, a: string, b: string)}
-	<tr>
-		<td class="border border-border px-3 py-1.5 text-text-muted">{label}</td>
-		<td class="border border-border px-3 py-1.5">{a}</td>
-		<td class="border border-border px-3 py-1.5">{b}</td>
-	</tr>
-{/snippet}
-
-{#snippet bars(series: number[])}
-	{@const peak = Math.max(1e-6, ...series)}
-	<div class="mt-2 flex h-8 items-end gap-px">
-		{#each series as v, i (i)}
-			<div
-				class="flex-1 bg-primary/70"
-				style="height: {Math.max(2, (v / peak) * 100)}%;"
-			></div>
+{#snippet stats(items: { label: string; value: string; unit?: string; hint?: string; tone?: Tone }[])}
+	<div class="grid grid-cols-2 gap-px bg-line md:grid-cols-4">
+		{#each items as item (item.label)}
+			<div class="bg-surface"><Stat {...item} /></div>
 		{/each}
 	</div>
 {/snippet}
 
-{#snippet spark(title: string, series: number[], sub: string)}
+{#snippet reading(label: string, value: string, unit: string, tone?: Tone)}
+	<span class="text-ink-muted">
+		{label} <span class="num font-medium {tone ? TONE_INK[tone] : 'text-ink'}">{value}</span>
+		{unit}
+	</span>
+{/snippet}
+
+{#snippet cmp(label: string, a: string, b: string)}
+	<tr><td class="text-ink-muted">{label}</td><td class="num">{a}</td><td class="num">{b}</td></tr>
+{/snippet}
+
+<!-- A series as a 1.5px line in the primary, scaled to its own peak. -->
+{#snippet line(series: number[], cls: string)}
 	{@const peak = Math.max(1e-6, ...series)}
-	{@const last = series.length ? series[series.length - 1] : 0}
-	<div class="border border-border bg-bg p-3">
-		<div class="flex items-baseline justify-between">
-			<div class="text-sm text-text-muted">{title}</div>
-			<div class="text-sm tabular-nums text-text">{last < 10 ? last.toFixed(1) : Math.round(last)}</div>
+	<svg
+		viewBox="0 -0.1 {Math.max(1, series.length - 1)} 1.2"
+		preserveAspectRatio="none"
+		class="block w-full {cls}"
+		aria-hidden="true"
+	>
+		<polyline
+			points={series.map((v, i) => `${i},${1 - v / peak}`).join(' ')}
+			fill="none"
+			stroke="var(--primary)"
+			stroke-width="1.5"
+			vector-effect="non-scaling-stroke"
+		/>
+	</svg>
+{/snippet}
+
+{#snippet spark(title: string, series: number[], sub: string)}
+	{@const last = series.at(-1) ?? 0}
+	<div class="rounded-control bg-well p-3">
+		<div class="flex items-baseline justify-between gap-2 text-sm">
+			<span class="text-ink-muted">{title}</span>
+			<span class="num text-ink">{last < 10 ? last.toFixed(1) : Math.round(last)}</span>
 		</div>
-		<div class="mt-2 flex h-10 items-end gap-px">
-			{#each series as v, i (i)}
-				<div class="flex-1 bg-primary/60" style="height: {Math.max(2, (v / peak) * 100)}%;"></div>
-			{/each}
-		</div>
-		<div class="mt-1 text-sm text-text-muted">{sub}</div>
+		{@render line(series, 'mt-2 h-10')}
+		<div class="mt-1 text-xs text-ink-muted">{sub}</div>
 	</div>
 {/snippet}

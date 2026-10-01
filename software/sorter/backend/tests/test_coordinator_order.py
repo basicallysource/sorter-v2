@@ -1,29 +1,11 @@
 import queue
 import unittest
 from types import SimpleNamespace
+from contextlib import ExitStack
 from unittest.mock import patch
 
 from coordinator import Coordinator
 from runtime_stats import RuntimeStatsCollector
-
-
-class _NullTimer:
-    def __enter__(self):
-        return self
-
-    def __exit__(self, exc_type, exc, tb) -> None:
-        return None
-
-
-class _Profiler:
-    def hit(self, *args, **kwargs) -> None:
-        pass
-
-    def mark(self, *args, **kwargs) -> None:
-        pass
-
-    def timer(self, *args, **kwargs):
-        return _NullTimer()
 
 
 class _Logger:
@@ -34,106 +16,89 @@ class _Logger:
         pass
 
 
-class _FakeRuntime:
-    def __init__(self, calls: list[str]) -> None:
-        self._calls = calls
+def _patched_subsystems(calls: list[str]) -> ExitStack:
+    def fake(name: str):
+        return lambda *args, **kwargs: SimpleNamespace(
+            step=lambda: calls.append(name), cleanup=lambda: None
+        )
 
-    def create_transport(self, *, gc, event_queue):
-        _ = gc, event_queue
-        return SimpleNamespace()
-
-    def create_distribution(self, **kwargs):
-        _ = kwargs
-        return SimpleNamespace(step=lambda: self._calls.append("distribution"), cleanup=lambda: None)
-
-    def create_classification(self, **kwargs):
-        _ = kwargs
-        return SimpleNamespace(step=lambda: self._calls.append("classification"), cleanup=lambda: None)
-
-    def create_feeder(self, **kwargs):
-        _ = kwargs
-        return SimpleNamespace(step=lambda: self._calls.append("feeder"), cleanup=lambda: None)
+    stack = ExitStack()
+    stack.enter_context(patch("coordinator.ClassificationChannelTransport", SimpleNamespace))
+    stack.enter_context(
+        patch("subsystems.distribution.state_machine.DistributionStateMachine", fake("distribution"))
+    )
+    stack.enter_context(
+        patch(
+            "subsystems.classification_channel.state_machine.ClassificationChannelStateMachine",
+            fake("classification"),
+        )
+    )
+    stack.enter_context(patch("subsystems.feeder.pulse_perception.flow.PulsePerceptionFeeding", fake("feeder")))
+    return stack
 
 
 class CoordinatorOrderTests(unittest.TestCase):
     def test_step_runs_downstream_first(self) -> None:
         calls: list[str] = []
-        fake_runtime = _FakeRuntime(calls)
         gc = SimpleNamespace(
             logger=_Logger(),
-            profiler=_Profiler(),
             runtime_stats=RuntimeStatsCollector(),
             set_progress_tracker=None,
         )
         sorting_profile = SimpleNamespace(
             is_set_based=False,
+            setKitProgress=lambda tracker: None,
             set_inventories=None,
             reload=lambda: None,
         )
-        machine_setup = SimpleNamespace(
-            key="classification_channel",
-            manual_feed_mode=False,
-            runtime_supported=True,
-        )
 
-        with patch("coordinator.build_machine_runtime", return_value=fake_runtime), patch(
+        with _patched_subsystems(calls), patch(
             "coordinator.mkSortingProfile", return_value=sorting_profile
-        ), patch(
-            "coordinator.get_machine_setup_definition", return_value=machine_setup
         ):
             coordinator = Coordinator(
                 irl=SimpleNamespace(distribution_layout=SimpleNamespace()),
-                irl_config=SimpleNamespace(machine_setup=machine_setup, feeding_mode="auto_channels"),
+                irl_config=SimpleNamespace(classification_channel_config=SimpleNamespace()),
                 gc=gc,
                 vision=SimpleNamespace(),
                 event_queue=queue.Queue(),
-                rv=SimpleNamespace(),
             )
 
         coordinator.step()
 
         self.assertEqual(["distribution", "classification", "feeder"], calls)
 
-    def test_classification_exit_incident_holds_feeder_and_distribution(self) -> None:
+    def test_c4_stall_incident_holds_feeder_and_distribution(self) -> None:
         calls: list[str] = []
-        fake_runtime = _FakeRuntime(calls)
         runtime_stats = RuntimeStatsCollector()
         runtime_stats.setActiveIncident(
             {
-                "kind": "classification_exit_release",
-                "piece_uuid": "piece-stuck",
+                "kind": "exit_stuck",
+                "source_kind": "c4_stall_watchdog",
+                "channel": "c4",
                 "status": "waiting_for_operator",
             }
         )
         gc = SimpleNamespace(
             logger=_Logger(),
-            profiler=_Profiler(),
             runtime_stats=runtime_stats,
             set_progress_tracker=None,
         )
         sorting_profile = SimpleNamespace(
             is_set_based=False,
+            setKitProgress=lambda tracker: None,
             set_inventories=None,
             reload=lambda: None,
         )
-        machine_setup = SimpleNamespace(
-            key="classification_channel",
-            manual_feed_mode=False,
-            runtime_supported=True,
-        )
 
-        with patch("coordinator.build_machine_runtime", return_value=fake_runtime), patch(
+        with _patched_subsystems(calls), patch(
             "coordinator.mkSortingProfile", return_value=sorting_profile
-        ), patch(
-            "coordinator.get_machine_setup_definition", return_value=machine_setup
         ):
             coordinator = Coordinator(
                 irl=SimpleNamespace(distribution_layout=SimpleNamespace()),
-                irl_config=SimpleNamespace(machine_setup=machine_setup, feeding_mode="auto_channels"),
+                irl_config=SimpleNamespace(classification_channel_config=SimpleNamespace()),
                 gc=gc,
                 vision=SimpleNamespace(),
                 event_queue=queue.Queue(),
-                rv=SimpleNamespace(),
             )
 
         coordinator.step()
@@ -144,7 +109,6 @@ class CoordinatorOrderTests(unittest.TestCase):
 
     def test_non_exit_incident_holds_all_subsystems(self) -> None:
         calls: list[str] = []
-        fake_runtime = _FakeRuntime(calls)
         runtime_stats = RuntimeStatsCollector()
         runtime_stats.setActiveIncident(
             {
@@ -154,33 +118,25 @@ class CoordinatorOrderTests(unittest.TestCase):
         )
         gc = SimpleNamespace(
             logger=_Logger(),
-            profiler=_Profiler(),
             runtime_stats=runtime_stats,
             set_progress_tracker=None,
         )
         sorting_profile = SimpleNamespace(
             is_set_based=False,
+            setKitProgress=lambda tracker: None,
             set_inventories=None,
             reload=lambda: None,
         )
-        machine_setup = SimpleNamespace(
-            key="classification_channel",
-            manual_feed_mode=False,
-            runtime_supported=True,
-        )
 
-        with patch("coordinator.build_machine_runtime", return_value=fake_runtime), patch(
+        with _patched_subsystems(calls), patch(
             "coordinator.mkSortingProfile", return_value=sorting_profile
-        ), patch(
-            "coordinator.get_machine_setup_definition", return_value=machine_setup
         ):
             coordinator = Coordinator(
                 irl=SimpleNamespace(distribution_layout=SimpleNamespace()),
-                irl_config=SimpleNamespace(machine_setup=machine_setup, feeding_mode="auto_channels"),
+                irl_config=SimpleNamespace(classification_channel_config=SimpleNamespace()),
                 gc=gc,
                 vision=SimpleNamespace(),
                 event_queue=queue.Queue(),
-                rv=SimpleNamespace(),
             )
 
         coordinator.step()

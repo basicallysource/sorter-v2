@@ -1,7 +1,7 @@
 import time
 import queue
 import random
-from typing import Any, Optional
+from typing import Optional
 import server.shared_state as shared_state
 from states.base_state import BaseState
 from subsystems.shared_variables import SharedVariables
@@ -11,16 +11,16 @@ from irl.bin_layout import DistributionLayout, Bin, extractCategories
 from irl.config import IRLInterface
 from global_config import GlobalConfig
 from sorting_profile import SortingProfile, MISC_CATEGORY
-from blob_manager import setBinCategories
+from bin_layout_store import set_bin_categories
+import db
 from defs.events import PauseCommandData, PauseCommandEvent
 from defs.known_object import PieceStage
+from hardware.fault import HardwareFault
 from utils.event import knownObjectToEvent
 
 
-BINS_FULL_ALERT_PREFIX = "No bin available"
-MISC_PASSTHROUGH_ALERT_PREFIX = "Misc passthrough"
-CHUTE_JAM_ALERT_PREFIX = "Chute jam"
-SERVO_BUS_ALERT_PREFIX = "Servo bus offline"
+CHUTE_JAM_TITLE = "Chute jammed"
+SERVO_BUS_OFFLINE_TITLE = "Servo bus offline"
 DISTRIBUTION_CHUTE_JAM_INCIDENT_KIND = "distribution_chute_jam"
 DISTRIBUTION_SERVO_BUS_OFFLINE_INCIDENT_KIND = "distribution_servo_bus_offline"
 DISTRIBUTION_NO_BIN_AVAILABLE_INCIDENT_KIND = "distribution_no_bin_available"
@@ -29,6 +29,9 @@ DISTRIBUTION_NO_BIN_AVAILABLE_INCIDENT_KIND = "distribution_no_bin_available"
 # a real jam reliably.
 CHUTE_MOVE_TIMEOUT_MS = 6000
 CHUTE_MOVE_TIMEOUT_MULTIPLIER = 3.0
+# A door still moving refuses a new command, so the doors for the next piece
+# are set only once every flap has stopped; after this long, set them anyway.
+DOORS_STOP_WAIT_S = 2.0
 
 
 def _incidentHandlingOff(kind: str) -> bool:
@@ -51,21 +54,12 @@ def _allowMultiCategoryBins() -> bool:
         return False
 
 
-
-def _persistBinCategories(logger: Any, layout: DistributionLayout) -> None:
-    # Runs inside the control loop. If another writer holds the SQLite write
-    # lock (a media retention sweep, say) this write times out after
-    # busy_timeout and raises - and an exception here unwinds main() and takes
-    # the whole backend down to standby mid-sort. The in-memory layout already
-    # carries the assignment, and every call writes the full layout, so a
-    # missed write is repaired by the next successful one. Warn and carry on.
-    try:
-        setBinCategories(extractCategories(layout))
-    except Exception as exc:
-        logger.warning(
-            f"Positioning: failed to persist bin categories ({type(exc).__name__}: {exc}); "
-            "keeping the in-memory layout, will retry on the next assignment"
-        )
+def _persistBinCategories(layout: DistributionLayout) -> None:
+    # Runs on the control loop, so the write runs on the database writer
+    # thread. The in-memory layout already carries the assignment, and every
+    # call writes the full layout, so a failed write is repaired by the next.
+    categories = extractCategories(layout)
+    db.defer("set_bin_categories", lambda: set_bin_categories(categories))
 
 
 class Positioning(BaseState):
@@ -88,6 +82,7 @@ class Positioning(BaseState):
         self._phase: str = "init"
         self._target_address: BinAddress | None = None
         self._door_servo_index: int | None = None
+        self._doors_wait_since: float | None = None
         self._state_entered_at: float = 0.0
         self._moving_started_at: float = 0.0
         self._piece = None
@@ -114,6 +109,9 @@ class Positioning(BaseState):
         now = time.monotonic()
 
         if self._phase == "init":
+            if not self._doorsStopped(now):
+                self._setOccupancyState("positioning.wait_doors_stopped")
+                return None
             # Fresh evaluation per piece — an earlier transient servo
             # glitch must not permanently disable a layer.
             self._blocked_layers.clear()
@@ -132,23 +130,6 @@ class Positioning(BaseState):
                 return DistributionState.IDLE
             self.shared.distribution_positioned_uuid = piece.uuid
 
-            if getattr(self.shared, "sample_collection_mode", False):
-                self.logger.info(
-                    "Positioning: sample collection mode — opening all layer doors for discard passthrough"
-                )
-                self._clearBinsFullAlertIfOwned()
-                self._clearChuteJamAlertIfOwned()
-                self._openAllDoorsForPassthrough()
-                piece.stage = PieceStage.distributing
-                piece.distributing_at = time.time()
-                piece.distribution_target_selected_at = piece.distributing_at
-                piece.destination_bin = None
-                piece.updated_at = time.time()
-                self._piece = piece
-                self.event_queue.put(knownObjectToEvent(piece))
-                self._setOccupancyState("positioning.sample_collection_passthrough")
-                return DistributionState.READY
-
             if piece.too_big:
                 # Oversize for any real bin — send it down the center of the
                 # chute to the misc bottom bin (open every usable door so it
@@ -158,7 +139,6 @@ class Positioning(BaseState):
                     f"Positioning: piece {piece.uuid} is too big "
                     f"({piece.max_dimension_mm}mm) — passthrough to misc bottom bin"
                 )
-                self._clearBinsFullAlertIfOwned()
                 self._clearChuteJamAlertIfOwned()
                 self._openAllDoorsForPassthrough()
                 piece.stage = PieceStage.distributing
@@ -209,7 +189,6 @@ class Positioning(BaseState):
                     f"Positioning: unrouted piece loose on the classification channel — "
                     f"piece {piece.uuid} passes through to the bucket instead of claiming a bin"
                 )
-                self._clearBinsFullAlertIfOwned()
                 self._clearChuteJamAlertIfOwned()
                 self._openAllDoorsForPassthrough()
                 piece.stage = PieceStage.distributing
@@ -273,7 +252,6 @@ class Positioning(BaseState):
                     f"Positioning: piece {piece.uuid} ({piece.max_dimension_mm}mm) exceeds "
                     f"layer {address.layer_index} limit ({layer_max}mm) — passthrough to misc bottom bin"
                 )
-                self._clearBinsFullAlertIfOwned()
                 self._clearChuteJamAlertIfOwned()
                 self._openAllDoorsForPassthrough()
                 piece.stage = PieceStage.distributing
@@ -289,7 +267,6 @@ class Positioning(BaseState):
                 self._setOccupancyState("positioning.passthrough_too_big_for_layer")
                 return DistributionState.READY
 
-            self._clearBinsFullAlertIfOwned()
             self._clearChuteJamAlertIfOwned()
             self.logger.info(
                 f"Positioning: moving to bin at layer={address.layer_index}, section={address.section_index}, bin={address.bin_index}"
@@ -351,6 +328,12 @@ class Positioning(BaseState):
                 self.logger.info(f"Positioning: init phase took {init_ms:.0f}ms, now waiting for servo+chute")
             return None
 
+        if self._phase == "start_chute":
+            if self.chute.stepper.stopped:
+                self._startChuteMove()
+                self._moving_started_at = time.monotonic()
+            return None
+
         if self._phase == "moving":
             self._setOccupancyState("positioning.wait_servo_and_chute_motion")
             chute_stopped = self.chute.stepper.stopped
@@ -398,6 +381,13 @@ class Positioning(BaseState):
         if self._piece is not None and self._piece.distribution_motion_started_at is None:
             self._piece.distribution_motion_started_at = time.time()
         estimated_ms = self.chute.moveToBin(self._target_address)
+        if estimated_ms is None:
+            # The board refused the move because the chute was still moving.
+            # Sending it again once the chute stops keeps the piece from
+            # dropping wherever the chute happens to be.
+            self.logger.warning("Positioning: chute refused the move; resending once it stops")
+            self._phase = "start_chute"
+            return
         self._chute_move_estimated_ms = int(estimated_ms)
         self.logger.info(
             f"Positioning: chute move started (est_ms={estimated_ms})"
@@ -485,17 +475,41 @@ class Positioning(BaseState):
             f"Positioning: disabling layer {layer_index} temporarily because {reason}"
         )
 
+    def _doorsStopped(self, now: float) -> bool:
+        if self.gc.disable_servos:
+            return True
+        for index, servo in enumerate(self.irl.servos):
+            try:
+                moving = bool(getattr(servo, "available", True)) and not servo.stopped
+            except Exception:
+                moving = False  # an unreachable servo is _isLayerUsable's to judge
+            if not moving:
+                continue
+            if self._doors_wait_since is None:
+                self._doors_wait_since = now
+            if now - self._doors_wait_since < DOORS_STOP_WAIT_S:
+                return False
+            self.logger.warning(
+                f"Positioning: layer {index} door still reports moving after "
+                f"{DOORS_STOP_WAIT_S:.0f} s; setting the doors anyway"
+            )
+            break
+        self._doors_wait_since = None
+        return True
+
     def _isDoorServoStopped(self) -> bool:
         if self._door_servo_index is None:
             return True
         try:
             return self.irl.servos[self._door_servo_index].stopped
         except Exception as exc:
+            # Unknown is not stopped: keep waiting, and let the move budget raise
+            # the jam instead of dropping the piece behind a flap in an unknown place.
             self._markLayerUnavailable(
                 self._door_servo_index,
                 f"servo stop check failed: {exc}",
             )
-            return True
+            return False
 
     def _raiseBinsFullAlert(self, category_id: str) -> None:
         return
@@ -574,12 +588,11 @@ class Positioning(BaseState):
             return
         self._servo_bus_pause_enqueued = True
         message = (
-            f"{SERVO_BUS_ALERT_PREFIX} — {detail}. "
-            "Check Waveshare USB + power, then press Resume."
+            f"{detail[:1].upper()}{detail[1:]}. "
+            "Check the servo bus's USB cable and power, then press Resume."
         )
-        self.logger.error(message)
+        self.logger.error(f"{SERVO_BUS_OFFLINE_TITLE}: {message}")
         try:
-            self.gc.profiler.hit("distribution.servo_bus_offline")
             self.gc.runtime_stats.observeBlockedReason(
                 "distribution", "servo_bus_offline"
             )
@@ -588,7 +601,9 @@ class Positioning(BaseState):
             pass
         try:
             with shared_state.hardware_lifecycle_lock:
-                shared_state.setHardwareStatus(error=message)
+                shared_state.setHardwareStatus(
+                    error=HardwareFault(SERVO_BUS_OFFLINE_TITLE, message)
+                )
         except Exception:
             pass
         try:
@@ -668,7 +683,7 @@ class Positioning(BaseState):
         try:
             with shared_state.hardware_lifecycle_lock:
                 err = shared_state.hardware_error
-                if isinstance(err, str) and err.startswith(SERVO_BUS_ALERT_PREFIX):
+                if err is not None and err["title"] == SERVO_BUS_OFFLINE_TITLE:
                     shared_state.setHardwareStatus(clear_error=True)
         except Exception:
             pass
@@ -694,7 +709,7 @@ class Positioning(BaseState):
             if not self._jam_ignored_logged:
                 self._jam_ignored_logged = True
                 self.logger.warning(
-                    f"{CHUTE_JAM_ALERT_PREFIX} check tripped ({detail}) but Chute Jam "
+                    f"Chute jam check tripped ({detail}) but Chute Jam "
                     "handling is Off - ignoring and waiting for the motion to finish"
                 )
             return
@@ -712,19 +727,17 @@ class Positioning(BaseState):
             return
         self._jam_pause_enqueued = True
         message = (
-            f"{CHUTE_JAM_ALERT_PREFIX}: {detail}. "
-            "Clear any piece stuck in the chute or on the distribution tray, "
+            f"{detail[:1].upper()}{detail[1:]}. Clear any piece stuck in the chute or on the distribution tray, "
             "make sure the servo flap can move freely, then press play."
         )
-        self.logger.error(message)
+        self.logger.error(f"{CHUTE_JAM_TITLE}: {message}")
         try:
-            self.gc.profiler.hit("distribution.chute_jam")
             self.gc.runtime_stats.observeBlockedReason("distribution", "chute_jam")
         except Exception:
             pass
         try:
             with shared_state.hardware_lifecycle_lock:
-                shared_state.setHardwareStatus(error=message)
+                shared_state.setHardwareStatus(error=HardwareFault(CHUTE_JAM_TITLE, message))
         except Exception:
             pass
         try:
@@ -739,25 +752,13 @@ class Positioning(BaseState):
         try:
             with shared_state.hardware_lifecycle_lock:
                 err = shared_state.hardware_error
-                if isinstance(err, str) and err.startswith(CHUTE_JAM_ALERT_PREFIX):
+                if err is not None and err["title"] == CHUTE_JAM_TITLE:
                     shared_state.setHardwareStatus(clear_error=True)
         except Exception:
             pass
         self._jam_pause_enqueued = False
         self._jam_ignored_logged = False
         self._clearDistributionIncident(DISTRIBUTION_CHUTE_JAM_INCIDENT_KIND)
-
-    def _clearBinsFullAlertIfOwned(self) -> None:
-        try:
-            with shared_state.hardware_lifecycle_lock:
-                err = shared_state.hardware_error
-                if isinstance(err, str) and (
-                    err.startswith(BINS_FULL_ALERT_PREFIX)
-                    or err.startswith(MISC_PASSTHROUGH_ALERT_PREFIX)
-                ):
-                    shared_state.setHardwareStatus(clear_error=True)
-        except Exception:
-            pass
 
     def _openAllDoorsForPassthrough(self) -> None:
         """Open every usable layer door so a piece with no assigned bin
@@ -780,7 +781,8 @@ class Positioning(BaseState):
             try:
                 if hasattr(servo, "apply_open_speed"):
                     servo.apply_open_speed()
-                servo.open()
+                if not servo.open():
+                    self._markLayerUnavailable(i, "its servo refused to open for passthrough")
             except Exception as exc:
                 self._markLayerUnavailable(
                     i,
@@ -810,8 +812,10 @@ class Positioning(BaseState):
             try:
                 if hasattr(servo, "apply_open_speed"):
                     servo.apply_open_speed()
-                servo.open()
-                opened_layers.append(i)
+                if servo.open():
+                    opened_layers.append(i)
+                else:
+                    self._markLayerUnavailable(i, "its parked servo refused to open")
             except Exception as exc:
                 self._markLayerUnavailable(
                     i,
@@ -821,7 +825,9 @@ class Positioning(BaseState):
         try:
             if hasattr(target_servo, "apply_close_speed"):
                 target_servo.apply_close_speed()
-            target_servo.close()
+            if not target_servo.close():
+                self._markLayerUnavailable(target_layer_index, "its servo refused to close")
+                return False
         except Exception as exc:
             self._markLayerUnavailable(
                 target_layer_index,
@@ -846,7 +852,7 @@ class Positioning(BaseState):
         # everyone else routes only among the normal bins. The two pools never
         # mix. Within the not-in-inventory pool, overlap (multi-category) is
         # always allowed as the last resort ("if we run out, overlap them").
-        from local_state import get_current_bin_piece_counts
+        from bin_contents import get_current_bin_piece_counts
 
         piece_counts = get_current_bin_piece_counts()
         # A category may be assigned to more than one bin (the same category_id
@@ -948,7 +954,7 @@ class Positioning(BaseState):
         if first_unassigned is not None and category_id != MISC_CATEGORY:
             address, b = first_unassigned
             b.category_ids = [category_id]
-            _persistBinCategories(self.logger, self.layout)
+            _persistBinCategories(self.layout)
             self.logger.info(
                 f"Positioning: assigned category {category_id} to bin at layer={address.layer_index}, section={address.section_index}, bin={address.bin_index}"
             )
@@ -966,7 +972,7 @@ class Positioning(BaseState):
         ):
             _, _, address, b = best_combine
             b.category_ids.append(category_id)
-            _persistBinCategories(self.logger, self.layout)
+            _persistBinCategories(self.layout)
             self.logger.info(
                 f"Positioning: combined category {category_id} into shared bin at "
                 f"layer={address.layer_index}, section={address.section_index}, "

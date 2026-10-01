@@ -2,13 +2,11 @@
 	import { onMount } from 'svelte';
 	import { getMachineContext } from '$lib/machines/context';
 	import { getBackendHttpBase, machineHttpBaseUrlFromWsUrl } from '$lib/backend';
+	import SegmentedControl from '$lib/components/ui/SegmentedControl.svelte';
+	import Badge from '$lib/components/ui/Badge.svelte';
+	import Alert from '$lib/components/ui/Alert.svelte';
 
 	const EXIT_STUCK_INCIDENT_KIND = 'exit_stuck';
-	const INCIDENT_KIND_ALIASES: Record<string, string> = {
-		classification_exit_release: EXIT_STUCK_INCIDENT_KIND,
-		channel_exit_stuck: EXIT_STUCK_INCIDENT_KIND,
-		classification_exit_stuck: EXIT_STUCK_INCIDENT_KIND
-	};
 
 	type IncidentHandlingMode = 'off' | 'manual' | 'automatic';
 	type IncidentDefinition = {
@@ -25,7 +23,7 @@
 	const INCIDENT_FALLBACK_DEFINITIONS: IncidentDefinition[] = [
 		{
 			kind: EXIT_STUCK_INCIDENT_KIND,
-			label: 'Exit Stuck',
+			label: 'Exit stuck',
 			scope: 'C4',
 			description: 'The classification channel stopped making progress with a piece on it.',
 			off_label: 'Do not raise exit-stuck incidents',
@@ -35,10 +33,10 @@
 		},
 		{
 			kind: 'feeder_jam',
-			label: 'Feeder Jam',
+			label: 'Feeder jam',
 			scope: 'Feeder',
 			description:
-				"A feeder channel keeps trying to advance a piece that will not move — it is hung at the previous channel's hand-off.",
+				"A feeder channel keeps trying to advance a piece that will not move, because it is hung at the previous channel's hand-off.",
 			off_label: 'Do not detect feeder hand-off jams',
 			manual_label: 'Call the operator as soon as a channel is stuck',
 			automatic_label: 'Nudge the upstream channel to free it, then call the operator',
@@ -46,7 +44,7 @@
 		},
 		{
 			kind: 'distribution_chute_jam',
-			label: 'Chute Jam',
+			label: 'Chute jam',
 			scope: 'Distribution',
 			description: 'The distribution chute did not finish moving.',
 			off_label: 'Use hardware alert only',
@@ -56,7 +54,7 @@
 		},
 		{
 			kind: 'distribution_servo_bus_offline',
-			label: 'Servo Bus Offline',
+			label: 'Servo bus offline',
 			scope: 'Distribution',
 			description: 'The distribution servo bus is not responding.',
 			off_label: 'Use hardware alert only',
@@ -66,7 +64,7 @@
 		},
 		{
 			kind: 'distribution_no_bin_available',
-			label: 'No Bin Available',
+			label: 'No bin available',
 			scope: 'Distribution',
 			description: 'No matching bin is available for the piece.',
 			off_label: 'Allow bottom-tray passthrough',
@@ -88,16 +86,15 @@
 		return machineHttpBaseUrlFromWsUrl(machine.machine?.url) ?? getBackendHttpBase();
 	}
 
-	function canonicalIncidentKind(kind: unknown): string | null {
-		if (typeof kind !== 'string' || kind.length === 0) return null;
-		return INCIDENT_KIND_ALIASES[kind] ?? kind;
-	}
-
 	function normalizeIncidentMode(value: unknown): IncidentHandlingMode {
 		if (value === 'automatic') return 'automatic';
 		if (value === 'off') return 'off';
 		return 'manual';
 	}
+
+	// The backend names its incidents in Title Case; the UI writes sentence case.
+	const sentenceCase = (text: string) =>
+		text.replace(/(\s)([A-Z])(?=[a-z])/g, (_, space: string, letter: string) => space + letter.toLowerCase());
 
 	function normalizeIncidentDefinitions(value: unknown): IncidentDefinition[] {
 		if (!Array.isArray(value)) return INCIDENT_FALLBACK_DEFINITIONS;
@@ -106,10 +103,9 @@
 				if (!entry || typeof entry !== 'object') return null;
 				const raw = entry as Record<string, unknown>;
 				if (typeof raw.kind !== 'string' || typeof raw.label !== 'string') return null;
-				const kind = canonicalIncidentKind(raw.kind) ?? raw.kind;
 				return {
-					kind,
-					label: raw.label,
+					kind: raw.kind,
+					label: sentenceCase(raw.label),
 					scope: typeof raw.scope === 'string' ? raw.scope : '',
 					description:
 						typeof raw.description === 'string' ? raw.description : 'Operator review required.',
@@ -131,41 +127,22 @@
 		return deduped.length > 0 ? deduped : INCIDENT_FALLBACK_DEFINITIONS;
 	}
 
-	function incidentHandlingValue(
-		handling: Record<string, unknown>,
-		definition_kind: string
-	): unknown {
-		if (handling[definition_kind] !== undefined) return handling[definition_kind];
-		for (const [alias, canonical] of Object.entries(INCIDENT_KIND_ALIASES)) {
-			if (canonical === definition_kind && handling[alias] !== undefined) return handling[alias];
-		}
-		return undefined;
-	}
-
 	function incidentMode(kind: string): IncidentHandlingMode {
-		return normalizeIncidentMode(incidentHandling[canonicalIncidentKind(kind) ?? kind]);
+		return normalizeIncidentMode(incidentHandling[kind]);
 	}
 
 	const runtimeStats = $derived((machine.machine?.runtimeStats ?? {}) as Record<string, unknown>);
 	const activeIncidentKind = $derived.by(() => {
 		const incident = runtimeStats.active_incident;
 		if (!incident || typeof incident !== 'object') return null;
-		return canonicalIncidentKind((incident as Record<string, unknown>).kind);
+		const kind = (incident as Record<string, unknown>).kind;
+		return typeof kind === 'string' && kind.length > 0 ? kind : null;
 	});
 
 	function incidentDefinitionActive(definition: IncidentDefinition): boolean {
 		return activeIncidentKind === definition.kind;
 	}
 
-	function incidentModeButtonClass(active: boolean, disabled = false): string {
-		const base =
-			'min-h-8 px-2.5 text-xs font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-40';
-		if (active)
-			return `${base} bg-primary text-white shadow-[inset_0_0_0_1px_var(--color-primary)]`;
-		if (disabled)
-			return `${base} bg-bg text-text-muted shadow-[inset_0_0_0_1px_var(--color-border)]`;
-		return `${base} bg-bg text-text-muted shadow-[inset_0_0_0_1px_var(--color-border)] hover:bg-surface hover:text-text`;
-	}
 
 	async function saveIncidentMode(kind: string, mode: IncidentHandlingMode) {
 		if (incidentPolicySaving) return;
@@ -191,7 +168,7 @@
 				const next: Record<string, IncidentHandlingMode> = {};
 				for (const definition of incidentDefinitions) {
 					next[definition.kind] = normalizeIncidentMode(
-						incidentHandlingValue(handling as Record<string, unknown>, definition.kind)
+						(handling as Record<string, unknown>)[definition.kind]
 					);
 				}
 				incidentHandling = next;
@@ -217,9 +194,7 @@
 					: {};
 			const nextHandling: Record<string, IncidentHandlingMode> = {};
 			for (const definition of definitions) {
-				nextHandling[definition.kind] = normalizeIncidentMode(
-					incidentHandlingValue(handling, definition.kind)
-				);
+				nextHandling[definition.kind] = normalizeIncidentMode(handling[definition.kind]);
 			}
 			incidentHandling = nextHandling;
 		} catch {
@@ -245,65 +220,33 @@
 	});
 </script>
 
-<div class="flex flex-col gap-2">
+<ul class="divide-y divide-line">
 	{#each incidentDefinitions as definition (definition.kind)}
-		{@const mode = incidentMode(definition.kind)}
-		{@const active = incidentDefinitionActive(definition)}
-		<div class="border border-border bg-bg px-3 py-2">
-			<div class="flex items-start justify-between gap-3">
-				<div class="min-w-0">
-					<div class="flex flex-wrap items-center gap-2">
-						<div class="text-sm font-semibold text-text">{definition.label}</div>
-						{#if definition.scope}
-							<div class="bg-surface px-1.5 py-0.5 text-xs text-text-muted">
-								{definition.scope}
-							</div>
-						{/if}
-						{#if active}
-							<div
-								class="bg-warning px-1.5 py-0.5 text-xs font-semibold text-warning-dark uppercase"
-							>
-								Active
-							</div>
-						{/if}
-					</div>
-					<div class="mt-1 text-sm text-text-muted">{definition.description}</div>
+		<li class="flex flex-col gap-3 px-(--pad-panel) py-(--pad-row) sm:flex-row sm:items-center sm:justify-between">
+			<div class="min-w-0">
+				<div class="flex flex-wrap items-center gap-2">
+					<span class="text-sm font-medium text-ink">{definition.label}</span>
+					{#if definition.scope}<Badge>{definition.scope}</Badge>{/if}
+					{#if incidentDefinitionActive(definition)}<Badge tone="warning" dot>Active</Badge>{/if}
 				</div>
-				<div class="flex shrink-0 overflow-hidden">
-					<button
-						type="button"
-						onclick={() => void saveIncidentMode(definition.kind, 'off')}
-						disabled={incidentPolicySaving === definition.kind}
-						class={incidentModeButtonClass(mode === 'off')}
-					>
-						Off
-					</button>
-					<button
-						type="button"
-						onclick={() => void saveIncidentMode(definition.kind, 'manual')}
-						disabled={incidentPolicySaving === definition.kind}
-						class={incidentModeButtonClass(mode === 'manual')}
-					>
-						Manual
-					</button>
-					<button
-						type="button"
-						onclick={() => void saveIncidentMode(definition.kind, 'automatic')}
-						disabled={!definition.automatic_supported ||
-							incidentPolicySaving === definition.kind}
-						class={incidentModeButtonClass(
-							mode === 'automatic',
-							!definition.automatic_supported
-						)}
-						title={definition.automatic_supported ? definition.automatic_label : 'Manual only'}
-					>
-						Auto
-					</button>
-				</div>
+				<p class="mt-0.5 max-w-prose text-sm text-ink-muted">{definition.description}</p>
 			</div>
-		</div>
+			<div class="shrink-0" title={definition.automatic_supported ? definition.automatic_label : 'Manual only'}>
+				<SegmentedControl
+					label="When {definition.label} happens"
+					size="sm"
+					value={incidentMode(definition.kind)}
+					onchange={(mode) => void saveIncidentMode(definition.kind, mode)}
+					options={[
+						{ value: 'off' as const, label: 'Off' },
+						{ value: 'manual' as const, label: 'Manual' },
+						...(definition.automatic_supported ? [{ value: 'automatic' as const, label: 'Automatic' }] : [])
+					]}
+				/>
+			</div>
+		</li>
 	{/each}
-	{#if incidentPolicyError}
-		<div class="text-sm text-danger">{incidentPolicyError}</div>
-	{/if}
-</div>
+</ul>
+{#if incidentPolicyError}
+	<div class="px-(--pad-panel) pb-(--pad-panel)"><Alert tone="danger">{incidentPolicyError}</Alert></div>
+{/if}

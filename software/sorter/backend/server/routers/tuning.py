@@ -8,26 +8,20 @@ from fastapi import APIRouter, HTTPException
 from toml_config import (
     getClassificationChannelRev01Config,
     setClassificationChannelRev01Config,
-    getGoToAngleConfig,
-    setGoToAngleConfig,
     getActiveTrackerType,
     setActiveTrackerType,
     getTrackerConfig,
     setTrackerConfig,
     getPulsePerceptionConfig,
     setPulsePerceptionConfig,
-    getConstantMovementConfig,
-    setConstantMovementConfig,
     getClassificationProviders,
     setClassificationProviders,
     getLinkMatchingConfig,
     setLinkMatchingConfig,
 )
 from classification.providers import COLOR_PROVIDER_SPECS, MOLD_PROVIDER_SPECS
-from subsystems.classification_channel.simple_state_machine_rev01.rev01_config import FIELD_META
-from subsystems.feeder.go_to_angle.config import FIELD_META as GO_TO_ANGLE_FIELD_META
+from subsystems.classification_channel.two_piece.rev01_config import FIELD_META
 from subsystems.feeder.pulse_perception.config import FIELD_META as PULSE_PERCEPTION_FIELD_META
-from subsystems.feeder.constant_movement.config import FIELD_META as CONSTANT_MOVEMENT_FIELD_META
 from perception.tracker_config import TRACKER_SPECS
 
 router = APIRouter()
@@ -45,23 +39,6 @@ def get_cc_rev01_config() -> dict[str, Any]:
 def set_cc_rev01_config(body: dict[str, Any]) -> dict[str, Any]:
     try:
         updated = setClassificationChannelRev01Config(body)
-    except Exception as exc:
-        raise HTTPException(status_code=400, detail=str(exc))
-    return {"config": updated}
-
-
-@router.get("/api/tuning/feeder-go-to-angle")
-def get_go_to_angle_config() -> dict[str, Any]:
-    return {
-        "config": getGoToAngleConfig(),
-        "fields": GO_TO_ANGLE_FIELD_META,
-    }
-
-
-@router.post("/api/tuning/feeder-go-to-angle")
-def set_go_to_angle_config(body: dict[str, Any]) -> dict[str, Any]:
-    try:
-        updated = setGoToAngleConfig(body)
     except Exception as exc:
         raise HTTPException(status_code=400, detail=str(exc))
     return {"config": updated}
@@ -137,66 +114,9 @@ def set_pulse_perception_autotune_background(body: dict[str, Any] | None = None)
 
 @router.get("/api/tuning/feeder-pulse-perception/autotune/dataset")
 def get_pulse_perception_autotune_dataset(limit: int = 5000) -> dict[str, Any]:
-    import local_state
+    import feeder_autotune_records
 
-    return {"trials": local_state.listFeederAutotuneDataset(limit=limit)}
-
-
-@router.get("/api/tuning/feeder-pulse-perception/autotune/runs")
-def list_pulse_perception_autotune_runs(limit: int = 50) -> dict[str, Any]:
-    import local_state
-
-    return {"runs": local_state.listFeederAutotuneRuns(limit=limit)}
-
-
-@router.get("/api/tuning/feeder-pulse-perception/autotune/runs/{run_id}")
-def get_pulse_perception_autotune_run(run_id: str) -> dict[str, Any]:
-    import local_state
-
-    run = local_state.getFeederAutotuneRun(run_id)
-    if run is None:
-        raise HTTPException(status_code=404, detail="run not found")
-    return {"run": run, "trials": local_state.listFeederAutotuneTrials(run_id)}
-
-
-@router.post("/api/tuning/feeder-pulse-perception/autotune/apply-best")
-def apply_pulse_perception_autotune_best(body: dict[str, Any] | None = None) -> dict[str, Any]:
-    import local_state
-
-    run_id = (body or {}).get("run_id")
-    if not isinstance(run_id, str) or not run_id:
-        runs = local_state.listFeederAutotuneRuns(limit=1)
-        if not runs:
-            raise HTTPException(status_code=404, detail="no auto-tune runs found")
-        run_id = runs[0]["id"]
-    run = local_state.getFeederAutotuneRun(run_id)
-    if run is None:
-        raise HTTPException(status_code=404, detail="run not found")
-    best_trial_id = run.get("best_trial_id")
-    if best_trial_id is None:
-        raise HTTPException(status_code=404, detail="run has no best trial yet")
-    trial = local_state.getFeederAutotuneTrial(int(best_trial_id))
-    if trial is None or not trial.get("params_json"):
-        raise HTTPException(status_code=404, detail="best trial not found")
-    updated = setPulsePerceptionConfig(trial["params_json"])
-    return {"config": updated, "applied_trial": trial}
-
-
-@router.get("/api/tuning/feeder-constant-movement")
-def get_constant_movement_config() -> dict[str, Any]:
-    return {
-        "config": getConstantMovementConfig(),
-        "fields": CONSTANT_MOVEMENT_FIELD_META,
-    }
-
-
-@router.post("/api/tuning/feeder-constant-movement")
-def set_constant_movement_config(body: dict[str, Any]) -> dict[str, Any]:
-    try:
-        updated = setConstantMovementConfig(body)
-    except Exception as exc:
-        raise HTTPException(status_code=400, detail=str(exc))
-    return {"config": updated}
+    return {"trials": feeder_autotune_records.listFeederAutotuneDataset(limit=limit)}
 
 
 @router.get("/api/tuning/classification-providers")

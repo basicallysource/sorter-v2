@@ -28,10 +28,27 @@ Design philosophy: **a key grants exactly what its scopes say, nothing more.**
 - Scope vocabulary lives in `deps.py` (`VALID_API_KEY_SCOPES`): currently
   `models:read`, `models:write`, `samples:read`, `samples:write`,
   `keys:manage`, `stats:read`, `fleet:read`, `fleet:anon`,
-  `contributors:read`, `parts:read`, `parts:prices`, `server_health:read`.
+  `contributors:read`, `parts:read`, `parts:prices`, `server_health:read`,
+  `profiles:read`, `profiles:write`, `records:read`.
   The picker in `frontend/src/routes/settings/+page.svelte` is a hand-kept copy
   of this list — a scope missing there cannot be minted from the UI at all, so
   add it in the same change.
+- **The assistant scopes** are the only ones a member may put on a key
+  (`USER_GRANTABLE_API_KEY_SCOPES`); every other scope reaches fleet-wide or
+  server data and stays with admins. They exist so anyone can hand an
+  assistant a key and the skill Hive serves at `/api/agent/skill.md`:
+
+  | Scope | Grants |
+  |---|---|
+  | `profiles:read` | the caller's sorting profiles and kits, public ones, the parts catalog routes the editor uses, draft previews and piece routing |
+  | `profiles:write` | creating and changing profiles, versions and kits; uploading rule pictures |
+  | `records:read` | `/api/records`: the pieces the caller's **own** machines sorted, even for an admin, within the key's machine whitelist |
+
+  None of them reaches a machine: a profile only changes what a machine does
+  when its owner applies it there. The editor's chat stays on the browser
+  session (it spends the user's own model key). A version saved through a key
+  records the key (`sorting_profile_versions.created_via_key_id`), so the
+  profile page can say which assistant changed it.
 - The last six are the **service-to-service surface** —
   `routers/public_stats.py` and `routers/public_catalog.py`. Every tier of it
   additionally requires the key's owner to be an admin and the key to be
@@ -81,7 +98,8 @@ Design philosophy: **a key grants exactly what its scopes say, nothing more.**
   history.
 - `keys:manage` lets a key mint, list, and revoke keys via
   `/api/auth/api-keys` — this is how bots get programmatic key management.
-  Key creation additionally requires the resolved user to be an admin.
+  Anyone may create keys with the assistant scopes above; any other scope
+  requires the resolved user to be an admin.
 
 **Invariant for endpoint authors:** any endpoint that accepts API-key auth
 must pair `get_current_user_or_api_key` / `require_role_flex` with

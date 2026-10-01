@@ -16,23 +16,12 @@ class VisionResult:
 
 
 @dataclass
-class DetectedMask:
-    mask: np.ndarray
-    confidence: float
-    class_id: int
-    instance_id: int
-    from_cache: bool = False
-    created_at: float = field(default_factory=time.time)
-
-
-@dataclass
 class CameraFrame:
     raw: np.ndarray
     annotated: Optional[np.ndarray]
     results: List[VisionResult]
     timestamp: float
     segmentation_map: Optional[np.ndarray] = field(default=None)
-    uncorrected_raw: Optional[np.ndarray] = field(default=None)
     # The camera's own JPEG for this frame, untouched (no rotation, flip or
     # colour profile applied): what the recording tee ships. None when the
     # capture path could not hand us the compressed buffer (non-MJPEG source,

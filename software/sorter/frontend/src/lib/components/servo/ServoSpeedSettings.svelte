@@ -1,5 +1,10 @@
 <script lang="ts">
-	import { Undo2 } from 'lucide-svelte';
+	import Undo2 from '@lucide/svelte/icons/undo-2';
+	import Panel from '$lib/components/ui/Panel.svelte';
+	import SettingRow from '$lib/components/ui/SettingRow.svelte';
+	import Input from '$lib/components/ui/Input.svelte';
+	import Button from '$lib/components/ui/Button.svelte';
+	import Spinner from '$lib/components/ui/Spinner.svelte';
 	import { getBackendHttpBase, machineHttpBaseUrlFromWsUrl } from '$lib/backend';
 	import { getMachinesContext } from '$lib/machines/context';
 
@@ -67,47 +72,46 @@
 	}
 </script>
 
-<div class="border border-border">
-	<div class="flex items-center justify-between border-b border-border bg-surface px-3 py-2">
-		<span class="text-xs font-semibold uppercase tracking-wider text-text-muted">Servo Speeds</span>
+<Panel title="Servo speeds" description="For every layer. The standard speed is used at startup and for jogging." flush>
+	{#snippet actions()}
 		{#if saveStatus === 'saving'}
-			<span class="text-xs text-text-muted">Saving…</span>
+			<span class="flex items-center gap-2 text-sm text-ink-muted"><Spinner size={14} /> Saving</span>
 		{:else if saveStatus === 'saved'}
-			<span class="text-xs text-success">Saved</span>
+			<span class="text-sm text-success-ink">Saved</span>
 		{:else if saveStatus === 'error'}
-			<span class="text-xs text-danger" title={saveError}>Failed to save</span>
+			<span class="text-sm text-danger-ink" title={saveError}>Not saved</span>
 		{/if}
-	</div>
-	<div class="flex flex-wrap items-center gap-x-6 gap-y-3 p-3">
+	{/snippet}
+	<div class="divide-y divide-line">
 		{#each [
-			{ label: 'Open speed',     get: () => openSpeed,    set: (v: number | null) => { openSpeed = v;    scheduleAutoSave(); } },
-			{ label: 'Close speed',    get: () => closeSpeed,   set: (v: number | null) => { closeSpeed = v;   scheduleAutoSave(); } },
-			{ label: 'Standard speed', get: () => homingSpeed,  set: (v: number | null) => { homingSpeed = v;  scheduleAutoSave(); } },
-		] as entry}
-			<div class="flex flex-col gap-1">
-				<span class="text-xs font-semibold uppercase tracking-wider text-text-muted">{entry.label}</span>
-				<div class="flex items-center gap-1.5">
-					<input
-						type="number" min="1" max="2000" step="1"
-						value={entry.get() ?? FW_DEFAULT}
-						oninput={(e) => entry.set(parseSpeed(e.currentTarget.value))}
+			{ id: 'open', label: 'Opening', get: () => openSpeed, set: (v: number | null) => { openSpeed = v; scheduleAutoSave(); } },
+			{ id: 'close', label: 'Closing', get: () => closeSpeed, set: (v: number | null) => { closeSpeed = v; scheduleAutoSave(); } },
+			{ id: 'standard', label: 'Standard', get: () => homingSpeed, set: (v: number | null) => { homingSpeed = v; scheduleAutoSave(); } }
+		] as entry (entry.id)}
+			<SettingRow label={entry.label} for="servo-speed-{entry.id}">
+				{#if entry.get() !== null}
+					<Button
+						variant="ghost"
+						size="sm"
+						icon={Undo2}
+						label="Back to the firmware default, {FW_DEFAULT} °/s"
 						{disabled}
-						class="setup-control w-24 px-2 py-1.5 text-text"
+						onclick={() => entry.set(null)}
 					/>
-					<span class="text-sm text-text-muted">°/s</span>
-					{#if entry.get() !== null}
-						<button
-							onclick={() => entry.set(null)}
-							{disabled}
-							title="Reset to firmware default ({FW_DEFAULT} °/s)"
-							class="inline-flex items-center gap-1 border border-border bg-surface px-2 py-1.5 text-sm text-text-muted hover:bg-bg disabled:cursor-not-allowed disabled:opacity-50"
-						><Undo2 size={13} /> {FW_DEFAULT}</button>
-					{/if}
-				</div>
-			</div>
+				{/if}
+				<Input
+					id="servo-speed-{entry.id}"
+					type="number"
+					min={1}
+					max={2000}
+					step={1}
+					value={entry.get() ?? FW_DEFAULT}
+					oninput={(e) => entry.set(parseSpeed((e.currentTarget as HTMLInputElement).value))}
+					{disabled}
+					unit="°/s"
+					class="w-32"
+				/>
+			</SettingRow>
 		{/each}
-		<p class="w-full text-sm text-text-muted">
-			Applied to all layers. Standard speed is used at startup and for jog.
-		</p>
 	</div>
-</div>
+</Panel>

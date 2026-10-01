@@ -94,7 +94,7 @@ drawings:
     guide: /hardware/helpers/chute-stepper-lead/
     caption: >-
       The one stepper lead that is spliced rather than plugged. The NEMA 23's
-      own leads are 20 AWG, too thick for a PH contact, so a 24 AWG tail
+      own leads are 20 AWG (0.52 mm²), too thick for a PH contact, so a 24 AWG (0.20 mm²) tail
       carries the last stretch to the board.
     png: https://assets.basically.website/sorter-harness/chute-stepper-full-6b5f10e6aded.png
     svg: https://assets.basically.website/sorter-harness/chute-stepper-def0dee01019.svg

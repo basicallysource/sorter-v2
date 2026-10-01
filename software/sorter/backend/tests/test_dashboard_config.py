@@ -2,6 +2,9 @@ import os
 from pathlib import Path
 import tempfile
 import unittest
+from unittest import mock
+
+import toml_config
 
 from toml_config import (
     getDashboardConfig,
@@ -107,6 +110,12 @@ class DashboardConfigTests(unittest.TestCase):
 
         self.assertEqual("automatic", config["incident_handling"]["exit_stuck"])
         self.assertTrue(incidentHandlingAutomatic("exit_stuck"))
+
+    def test_asking_every_tick_reads_the_file_at_most_once_a_second(self) -> None:
+        with mock.patch.object(toml_config, "getDashboardConfig", wraps=toml_config.getDashboardConfig) as read:
+            for _ in range(100):
+                incidentHandlingOff("feeder_jam")
+        self.assertEqual(1, read.call_count)
 
 
 if __name__ == "__main__":

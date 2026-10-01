@@ -148,7 +148,7 @@ export function aiMessagePerformanceLabel(message: SortingProfileAiMessage): str
 	if (typeof perf.roundCount === 'number' && perf.roundCount > 1) parts.push(`${perf.roundCount} rounds`);
 	if (typeof perf.toolCallCount === 'number' && perf.toolCallCount > 0) parts.push(`${perf.toolCallCount} tool calls`);
 	if (typeof perf.cost === 'number' && perf.cost > 0) parts.push(formatCost(perf.cost));
-	return parts.length > 0 ? parts.join(' · ') : null;
+	return parts.length > 0 ? parts.join(', ') : null;
 }
 
 function formatToolResultCount(result: ExpandableToolResult): string {
@@ -177,7 +177,7 @@ function buildSetToolResult(output: Record<string, unknown>): ExpandableToolResu
 		return {
 			id: asString(legoSet.set_num) ?? `set-${index}`,
 			primary: name,
-			secondary: badges.length > 0 ? badges.join(' · ') : null,
+			secondary: badges.length > 0 ? badges.join(', ') : null,
 			imageUrl: asString(legoSet.img_url) ?? asString(legoSet.set_img_url)
 		};
 	});
@@ -205,7 +205,7 @@ function buildPartToolResult(output: Record<string, unknown>): ExpandableToolRes
 		return {
 			id: asString(part.part_num) ?? `part-${index}`,
 			primary: name,
-			secondary: bits.length > 0 ? bits.join(' · ') : null
+			secondary: bits.length > 0 ? bits.join(', ') : null
 		};
 	});
 	const total = asNumber(output.total) ?? items.length;
@@ -233,7 +233,7 @@ function buildSetInventoryToolResult(output: Record<string, unknown>): Expandabl
 		return {
 			id: `${asString(part.part_num) ?? 'part'}-${asString(part.color_name) ?? asNumber(part.color_id) ?? index}-${index}`,
 			primary: name,
-			secondary: bits.length > 0 ? bits.join(' · ') : null,
+			secondary: bits.length > 0 ? bits.join(', ') : null,
 			imageUrl: asString(part.img_url)
 		};
 	});

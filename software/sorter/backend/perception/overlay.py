@@ -37,6 +37,8 @@ SECONDARY_ZONE_COLORS = {
 }
 SECONDARY_ZONE_DEFAULT_COLOR = (180, 180, 180)
 SECONDARY_DETECTION_COLOR = (255, 255, 0)
+# A piece just past a feeder channel's exit: seen, no longer on the channel.
+EXIT_MARGIN_COLOR = (160, 160, 160)
 
 _ZONE_OVERLAY_CACHE: dict[tuple, tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]] = {}
 # The zone overlay is static per channel config, so we cache the full-res build
@@ -179,6 +181,12 @@ def drawChannelZones(img: np.ndarray, channel: Any, thick: int) -> None:
             outline, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE
         )
         cv2.drawContours(img, contours, -1, CHANNEL_OUTLINE_COLOR, thick, cv2.LINE_AA)
+        # The exit margin: where a piece that has left the channel is still seen.
+        margin_mask = getattr(channel, "exit_margin_mask", None)
+        if margin_mask is not None:
+            margin = _scaledMask(margin_mask, th, tw, (_zoneKey(channel), "margin"))
+            contours, _ = cv2.findContours(margin, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+            cv2.drawContours(img, contours, -1, EXIT_MARGIN_COLOR, thick, cv2.LINE_AA)
 
 
 def drawDetectionBoxes(
@@ -315,6 +323,12 @@ def renderFeedOverlay(
             if not d.in_primary and d.secondary_zone_ids
         ]
         drawDetectionBoxes(img, secondary_hits, SECONDARY_DETECTION_COLOR, thick)
+        margin_hits = [
+            _scaleBbox(d.bbox, scale)
+            for d in detections
+            if not d.in_primary and getattr(d, "in_margin", False)
+        ]
+        drawDetectionBoxes(img, margin_hits, EXIT_MARGIN_COLOR, thick)
     drawDetectionBoxes(
         img, [_scaleBbox(b, scale) for b in on_bboxes], ON_CHANNEL_COLOR, thick
     )

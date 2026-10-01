@@ -36,6 +36,9 @@
 	export type ValueBucket = { pieces: number; priced_pieces: number; value_usd: number };
 	export type ValueStats = { currency: string; all_time: ValueBucket; last_24h: ValueBucket };
 
+	import Panel from '$lib/components/ui/Panel.svelte';
+	import Stat from '$lib/components/ui/Stat.svelte';
+
 	let {
 		overview,
 		lifetime,
@@ -89,67 +92,68 @@
 			? (lifetime.seconds_sorted / lifetime.seconds_powered) * 100
 			: 0
 	);
+
+	const dash = '—';
+	const count = (n: number | undefined) => (n === undefined ? dash : n.toLocaleString());
+
+	const cells = $derived<{ label: string; value: string; hint?: string }[]>([
+		{ label: 'Pieces seen', value: count(overview?.total_pieces) },
+		{ label: 'Distributed', value: count(overview?.distributed_pieces) },
+		{ label: 'Classified', value: count(overview?.classified_pieces) },
+		{ label: 'Runs', value: count(overview?.total_runs) },
+		{
+			label: 'Hours sorted',
+			value: lifetime ? formatHours(lifetime.seconds_sorted) : dash,
+			hint: lifetime ? `${formatDuration(lifetime.seconds_sorted)} active` : undefined
+		},
+		{
+			label: 'Hours powered',
+			value: lifetime ? formatHours(lifetime.seconds_powered) : dash,
+			hint: lifetime ? `${formatDuration(lifetime.seconds_powered)} on` : undefined
+		},
+		{ label: 'Utilization', value: lifetime ? `${utilizationPct.toFixed(0)}%` : dash },
+		{ label: 'Active days', value: count(lifetime?.active_days) },
+		{
+			label: 'Throughput',
+			value: lifetime ? formatPpm(lifetime.overall_ppm) : dash,
+			hint: 'avg pieces/min'
+		},
+		{
+			label: 'Best hour',
+			value: lifetime ? formatPpm(lifetime.best_hour_ppm) : dash,
+			hint: 'peak pieces/min'
+		},
+		{ label: 'Unique parts', value: count(overview?.unique_parts) },
+		{ label: 'Unique colors', value: count(overview?.unique_colors) },
+		{
+			label: 'Total value',
+			value: value ? formatUsd(value.all_time.value_usd) : dash,
+			hint: value
+				? `${value.all_time.priced_pieces.toLocaleString()} of ${value.all_time.pieces.toLocaleString()} priced`
+				: undefined
+		},
+		{
+			label: 'Value, last 24 hours',
+			value: value ? formatUsd(value.last_24h.value_usd) : dash,
+			hint: value
+				? `${value.last_24h.priced_pieces.toLocaleString()} of ${value.last_24h.pieces.toLocaleString()} priced`
+				: undefined
+		},
+		{ label: 'First seen', value: overview ? formatDate(overview.first_seen) : dash },
+		{ label: 'Last seen', value: overview ? formatDate(overview.last_seen) : dash }
+	]);
 </script>
 
-{#snippet statCard(label: string, value_text: string, sub: string | null = null)}
-	<div class="border border-border bg-surface px-4 py-3">
-		<div class="text-xs font-semibold tracking-wider text-text-muted uppercase">{label}</div>
-		<div class="mt-1 text-2xl font-bold text-text">{value_text}</div>
-		{#if sub}
-			<div class="mt-0.5 text-sm text-text-muted">{sub}</div>
-		{/if}
+<Panel
+	title="Lifetime"
+	description="Every piece seen across all saved runs; value from the BrickLink moving average."
+	flush
+>
+	<div class="grid grid-cols-2 gap-px bg-line sm:grid-cols-4">
+		{#each cells as cell (cell.label)}
+			<div class="bg-surface">
+				<Stat label={cell.label} value={cell.value} hint={cell.hint} />
+			</div>
+		{/each}
 	</div>
-{/snippet}
-
-<h3 class="text-sm font-semibold tracking-wider text-text-muted uppercase">
-	Lifetime
-	<span class="ml-1 font-normal normal-case text-text-muted"
-		>— every piece seen across all saved runs; value from BrickLink moving avg</span
-	>
-</h3>
-<div class="grid grid-cols-2 gap-3 sm:grid-cols-4">
-	{@render statCard('Pieces seen', overview ? overview.total_pieces.toLocaleString() : '—')}
-	{@render statCard('Distributed', overview ? overview.distributed_pieces.toLocaleString() : '—')}
-	{@render statCard('Classified', overview ? overview.classified_pieces.toLocaleString() : '—')}
-	{@render statCard('Runs', overview ? overview.total_runs.toLocaleString() : '—')}
-	{@render statCard(
-		'Hours sorted',
-		lifetime ? formatHours(lifetime.seconds_sorted) : '—',
-		lifetime ? formatDuration(lifetime.seconds_sorted) + ' active' : null
-	)}
-	{@render statCard(
-		'Hours powered',
-		lifetime ? formatHours(lifetime.seconds_powered) : '—',
-		lifetime ? formatDuration(lifetime.seconds_powered) + ' on' : null
-	)}
-	{@render statCard('Utilization', lifetime ? `${utilizationPct.toFixed(0)}%` : '—')}
-	{@render statCard('Active days', lifetime ? lifetime.active_days.toLocaleString() : '—')}
-	{@render statCard(
-		'Throughput',
-		lifetime ? formatPpm(lifetime.overall_ppm) : '—',
-		'avg pieces/min'
-	)}
-	{@render statCard(
-		'Best hour',
-		lifetime ? formatPpm(lifetime.best_hour_ppm) : '—',
-		'peak pieces/min'
-	)}
-	{@render statCard('Unique parts', overview ? overview.unique_parts.toLocaleString() : '—')}
-	{@render statCard('Unique colors', overview ? overview.unique_colors.toLocaleString() : '—')}
-	{@render statCard(
-		'Total value',
-		value ? formatUsd(value.all_time.value_usd) : '—',
-		value
-			? `${value.all_time.priced_pieces.toLocaleString()} of ${value.all_time.pieces.toLocaleString()} pieces priced`
-			: null
-	)}
-	{@render statCard(
-		'Value · last 24h',
-		value ? formatUsd(value.last_24h.value_usd) : '—',
-		value
-			? `${value.last_24h.priced_pieces.toLocaleString()} of ${value.last_24h.pieces.toLocaleString()} pieces priced`
-			: null
-	)}
-	{@render statCard('First seen', overview ? formatDate(overview.first_seen) : '—')}
-	{@render statCard('Last seen', overview ? formatDate(overview.last_seen) : '—')}
-</div>
+</Panel>

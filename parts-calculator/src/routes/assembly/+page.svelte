@@ -1756,8 +1756,9 @@
 		box-shadow: 0 0 0 2px var(--color-primary);
 	}
 	/* The guide line under an open node is itself the collapse control: the
-	   whole height is clickable. The visible line stays 1px (see AGENTS.md
-	   § Design rules) — hover recolors it instead of thickening it. */
+	   whole height is clickable. The visible line stays 1px
+	   (software/sorter-design-system/docs/rules.md): hover recolors it
+	   instead of thickening it. */
 	.tree-line {
 		position: absolute;
 		top: 2px;

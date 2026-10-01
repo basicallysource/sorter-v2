@@ -2,7 +2,7 @@ from typing import List
 from dataclasses import dataclass, field
 from enum import Enum
 
-from machine_toml import machine_toml_path
+import machine_toml
 
 
 @dataclass
@@ -21,7 +21,7 @@ class LayerConfig:
     # layer. None / wrong length is normalized to all-enabled in __post_init__.
     section_enabled: List[bool] | None = None
     # Which PWM servo channel drives this layer's door. The calibration angles
-    # live per-channel in local_state (servo_channel_calibration), NOT here, so
+    # live per-channel in bin_layout_store (servo_channel_calibration), NOT here, so
     # editing/switching layouts never touches calibration. None => fall back to
     # the layer index (the historical 1:1 mapping). servo_open_angle /
     # servo_closed_angle above are DEPRECATED (kept only for the one-time
@@ -222,13 +222,7 @@ def _parseLayersDict(data: dict) -> BinLayoutConfig | None:
 
 
 def _loadFromToml() -> BinLayoutConfig | None:
-    import os
-    from toml_config import loadTomlFile
-
-    path = machine_toml_path()
-    if not path.exists():
-        return None
-    config = loadTomlFile(path)
+    config = machine_toml.read()
 
     layers_table = config.get("layers")
     if not isinstance(layers_table, dict):
@@ -285,7 +279,7 @@ def _loadFromToml() -> BinLayoutConfig | None:
 
 
 def getBinLayout() -> BinLayoutConfig:
-    from local_state import get_bin_layout
+    from bin_layout_store import get_bin_layout
 
     data = get_bin_layout()
     if isinstance(data, dict):
@@ -301,7 +295,7 @@ def getBinLayout() -> BinLayoutConfig:
 
 
 def saveBinLayout(config: BinLayoutConfig) -> None:
-    from local_state import set_bin_layout
+    from bin_layout_store import set_bin_layout
 
     data = {
         "layers": [
@@ -338,7 +332,7 @@ def calibratedAnglesForLayer(config: "BinLayoutConfig", layer_index: int, servo_
     """Resolve a layer's (open, closed) angles from the per-channel calibration
     store, falling back to the layer's legacy angles if the channel isn't
     calibrated yet (ultra-safe during the migration window)."""
-    from local_state import get_servo_channel_calibration
+    from bin_layout_store import get_servo_channel_calibration
 
     channel_id = channelIdForLayer(config, layer_index, servo_channel_config)
     cal = get_servo_channel_calibration().get(str(channel_id)) or {}
@@ -349,27 +343,6 @@ def calibratedAnglesForLayer(config: "BinLayoutConfig", layer_index: int, servo_
         open_angle = layer.servo_open_angle
         closed_angle = layer.servo_closed_angle
     return open_angle, closed_angle
-
-
-def snapshotLayout(config: "BinLayoutConfig", bin_categories=None, not_in_inventory=None) -> dict:
-    """Snapshot a layout for the bin_layouts presets table: geometry + enabled +
-    section flags + layer->channel ref + assignments + NII. NO servo angles
-    (those are per-channel and machine-level)."""
-    return {
-        "layers": [
-            {
-                "sections": layer.sections,
-                "enabled": layer.enabled,
-                "servo_channel_id": layer.servo_channel_id,
-                "max_pieces_per_bin": layer.max_pieces_per_bin,
-                "max_dimension_mm": layer.max_dimension_mm,
-                "section_enabled": layer.section_enabled,
-            }
-            for layer in config.layers
-        ],
-        "bin_categories": bin_categories,
-        "not_in_inventory_bins": not_in_inventory,
-    }
 
 
 def mkLayoutFromConfig(config: BinLayoutConfig) -> DistributionLayout:
@@ -393,10 +366,6 @@ def mkLayoutFromConfig(config: BinLayoutConfig) -> DistributionLayout:
     return DistributionLayout(layers=layers)
 
 
-def mkDefaultLayout() -> DistributionLayout:
-    return mkLayoutFromConfig(DEFAULT_BIN_LAYOUT)
-
-
 def extractCategories(layout: DistributionLayout) -> list[list[list[list[str]]]]:
     return [
         [[list(b.category_ids) for b in section.bins] for section in layer.sections]
@@ -418,13 +387,6 @@ def applyNotInInventory(
         for section_idx, section in enumerate(layer.sections):
             for bin_idx, b in enumerate(section.bins):
                 b.not_in_inventory = bool(flags[layer_idx][section_idx][bin_idx])
-
-
-def emptyNotInInventory(layout: DistributionLayout) -> list[list[list[bool]]]:
-    return [
-        [[False for _ in section.bins] for section in layer.sections]
-        for layer in layout.layers
-    ]
 
 
 def notInInventoryMatchesLayout(

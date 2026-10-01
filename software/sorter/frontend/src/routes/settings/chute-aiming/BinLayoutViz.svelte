@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { binCenterAngle, reachInfo, type ChuteGeometry } from './geometry';
+	import { binCenterAngle, reachInfo, type ChuteGeometry } from '$lib/chute/geometry';
 
 	type Selected = { section: number; bin: number; binCount: number };
 
@@ -67,20 +67,16 @@
 	}
 </script>
 
-<div class="flex flex-col gap-1 border border-border bg-bg p-3">
-	<div class="flex items-baseline justify-between">
-		<div class="text-sm font-semibold text-text">{binCount} {binCount === 1 ? 'bin' : 'bins'}/section</div>
-		<div class={`text-sm ${unreachableCount === 0 ? 'text-success' : 'text-danger'}`}>
-			{#if unreachableCount === 0}
-				all {total} reachable
-			{:else}
-				{unreachableCount}/{total} unreachable
-			{/if}
-		</div>
+<div class="flex flex-col gap-1 rounded-control bg-well p-3">
+	<div class="flex items-baseline justify-between gap-2 text-sm">
+		<span class="font-medium text-ink">{binCount} {binCount === 1 ? 'bin' : 'bins'} a section</span>
+		<span class={unreachableCount === 0 ? 'text-success-ink' : 'text-danger-ink'}>
+			{unreachableCount === 0 ? `All ${total} reachable` : `${unreachableCount} of ${total} unreachable`}
+		</span>
 	</div>
 
 	<svg viewBox="0 0 220 220" class="w-full" role="img" aria-label={`${binCount}-bin layout`}>
-		<circle cx={CX} cy={CY} r={R} class="fill-surface stroke-border" stroke-width="1" />
+		<circle cx={CX} cy={CY} r={R} class="fill-surface stroke-line" stroke-width="1" />
 
 		<!-- The single mechanical deadzone: the wedge between max travel and home. -->
 		<path d={deadzonePath} class="fill-danger" opacity="0.12" />
@@ -95,13 +91,13 @@
 		{#each Array.from({ length: numSections }, (_, s) => firstSectionOffsetDeg + s * sectionPitchDeg) as edge}
 			{@const p = polar(edge, R + 5)}
 			{@const p0 = polar(edge, R - 4)}
-			<line x1={p0.x} y1={p0.y} x2={p.x} y2={p.y} class="stroke-border" stroke-width="0.75" />
+			<line x1={p0.x} y1={p0.y} x2={p.x} y2={p.y} class="stroke-line" stroke-width="0.75" />
 		{/each}
 
 		<!-- Home + max markers. -->
-		<line x1={CX} y1={CY} x2={homeRim.x} y2={homeRim.y} class="stroke-text-muted" stroke-width="0.5" stroke-dasharray="2 2" />
+		<line x1={CX} y1={CY} x2={homeRim.x} y2={homeRim.y} class="stroke-ink-muted" stroke-width="0.5" stroke-dasharray="2 2" />
 		<circle cx={homeRim.x} cy={homeRim.y} r="2.5" class="fill-primary" />
-		<text x={homeLabel.x} y={homeLabel.y} text-anchor="middle" font-size="10" class="fill-text-muted">home 0°</text>
+		<text x={homeLabel.x} y={homeLabel.y} text-anchor="middle" font-size="10" class="fill-ink-muted">home 0°</text>
 		<text x={maxTick.x} y={maxTick.y} text-anchor="middle" font-size="10" class="fill-danger">max {maxAngleDeg.toFixed(0)}°</text>
 
 		{#if needle}
@@ -114,7 +110,7 @@
 				<title>
 					Section {b.section + 1}, bin {b.bin + 1} → {b.angle.toFixed(1)}°{b.reachable
 						? ''
-						: ` — UNREACHABLE: ${b.reason}`}
+						: `, unreachable: ${b.reason}`}
 				</title>
 				<circle
 					cx={b.x}
@@ -125,7 +121,7 @@
 							? 'fill-surface stroke-danger'
 							: isSel
 								? 'fill-primary stroke-primary'
-								: 'fill-bg stroke-text-muted'
+								: 'fill-canvas stroke-ink-muted'
 					}`}
 					stroke-width="1"
 					role="button"
@@ -143,11 +139,11 @@
 			</g>
 		{/each}
 
-		<circle cx={CX} cy={CY} r="2" class="fill-text-muted" />
+		<circle cx={CX} cy={CY} r="2" class="fill-ink-muted" />
 	</svg>
 
 	{#if unreachableCount > 0}
-		<p class="text-sm text-danger">
+		<p class="text-sm text-danger-ink">
 			{unreachableCount}
 			{unreachableCount === 1 ? 'bin falls' : 'bins fall'} in the {maxAngleDeg.toFixed(0)}° no-go wedge by home.
 		</p>

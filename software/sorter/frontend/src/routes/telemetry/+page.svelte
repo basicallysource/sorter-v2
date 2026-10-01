@@ -1,6 +1,13 @@
 <script lang="ts">
 	import { getBackendHttpBase } from '$lib/backend';
-	import AppHeader from '$lib/components/AppHeader.svelte';
+	import AppShell from '$lib/components/AppShell.svelte';
+	import Alert from '$lib/components/ui/Alert.svelte';
+	import Badge from '$lib/components/ui/Badge.svelte';
+	import Button from '$lib/components/ui/Button.svelte';
+	import PageHeader from '$lib/components/ui/PageHeader.svelte';
+	import Panel from '$lib/components/ui/Panel.svelte';
+	import SettingRow from '$lib/components/ui/SettingRow.svelte';
+	import Spinner from '$lib/components/ui/Spinner.svelte';
 	import { onMount } from 'svelte';
 
 	type StatusPayload = {
@@ -52,145 +59,66 @@
 </script>
 
 <svelte:head>
-	<title>Telemetry · Sorter</title>
+	<title>Telemetry - Sorter</title>
 	<meta name="robots" content="noindex" />
 </svelte:head>
 
-<AppHeader />
+<AppShell>
+	<div class="mx-auto flex w-full max-w-3xl flex-col gap-(--gap-panels) px-4 py-6 sm:px-6">
+		<PageHeader
+			title="Anonymous status ping"
+			description="Once an hour this machine sends a small anonymous report, so we know how many machines are out there, what software they run and roughly how much they sort. It carries a random install ID, never your Hive account. The full field list is in the docs under Sorter, Under the hood, What leaves the machine."
+		/>
 
-<main class="page">
-	<h1>Anonymous status ping</h1>
-	<p class="lede">
-		Once an hour, this machine sends a small anonymous report so we know how many machines are out
-		there, what software they run, and roughly how much they sort. It carries a random install ID —
-		never your Hive account. Full field list is in the docs under
-		<em>Sorter → Under the hood → What leaves the machine</em>.
-	</p>
+		{#if loading}
+			<Panel>
+				<p class="flex items-center gap-2 text-sm text-ink-muted">
+					<Spinner size={16} />
+					Loading the status
+				</p>
+			</Panel>
+		{:else if error}
+			<Alert tone="danger" title="The status did not load">{error}</Alert>
+		{:else if status}
+			<Panel flush>
+				<div class="divide-y divide-line">
+					<SettingRow
+						label="Status"
+						help={status.enabled ? undefined : 'Turned off with SORTER_BASE_REPORTING_OFF.'}
+					>
+						<Badge tone={status.enabled ? 'success' : 'neutral'} dot>{status.enabled ? 'On' : 'Off'}</Badge>
+					</SettingRow>
+					<SettingRow label="Install ID">
+						<span class="font-mono text-sm break-all text-ink">{status.install_id}</span>
+						<Button size="sm" onclick={copyId}>{copied ? 'Copied' : 'Copy'}</Button>
+					</SettingRow>
+					<SettingRow label="First seen">
+						<span class="text-sm text-ink">{fmtDate(status.created_at)}</span>
+					</SettingRow>
+					<SettingRow label="Sends to">
+						<span class="font-mono text-sm break-all text-ink">{status.endpoint}</span>
+					</SettingRow>
+				</div>
+			</Panel>
 
-	{#if loading}
-		<p>Loading…</p>
-	{:else if error}
-		<p class="error">Couldn't load status: {error}</p>
-	{:else if status}
-		<section class="card">
-			<div class="row">
-				<span class="label">Status</span>
-				<span class="value">
-					{#if status.enabled}
-						<span class="on">On</span>
-					{:else}
-						<span class="off">Off</span> — disabled via SORTER_BASE_REPORTING_OFF
-					{/if}
-				</span>
-			</div>
-			<div class="row">
-				<span class="label">Install ID</span>
-				<span class="value mono">
-					{status.install_id}
-					<button class="copy" onclick={copyId}>{copied ? 'Copied' : 'Copy'}</button>
-				</span>
-			</div>
-			<div class="row">
-				<span class="label">First seen</span>
-				<span class="value">{fmtDate(status.created_at)}</span>
-			</div>
-			<div class="row">
-				<span class="label">Sends to</span>
-				<span class="value mono">{status.endpoint}</span>
-			</div>
-		</section>
+			<Panel title="Delete this data">
+				<p class="text-sm text-ink-muted">
+					To have everything tied to this install ID erased, paste the ID above into the deletion form:
+					<a href={FORGET_URL} target="_blank" rel="noreferrer" class="text-primary-ink hover:underline">
+						{FORGET_URL}
+					</a>. To stop future pings, set
+					<code class="rounded-badge bg-well px-1 font-mono text-ink">SORTER_BASE_REPORTING_OFF=1</code>
+					in the machine environment and restart the backend.
+				</p>
+			</Panel>
 
-		<h2>Delete this data</h2>
-		<p>
-			To have everything tied to this install ID erased, paste the ID above into the deletion form:
-			<a href={FORGET_URL} target="_blank" rel="noreferrer">{FORGET_URL}</a>. To stop future pings,
-			set <code>SORTER_BASE_REPORTING_OFF=1</code> in the machine environment and restart the
-			backend.
-		</p>
-
-		<h2>Exactly what gets sent</h2>
-		<pre class="payload">{JSON.stringify(status.sample_payload, null, 2)}</pre>
-	{/if}
-</main>
-
-<style>
-	.page {
-		max-width: 720px;
-		margin: 0 auto;
-		padding: 1.5rem 1rem 3rem;
-	}
-	h1 {
-		font-size: 1.4rem;
-		margin: 0 0 0.5rem;
-	}
-	h2 {
-		font-size: 1.05rem;
-		margin: 1.75rem 0 0.5rem;
-	}
-	.lede {
-		color: var(--color-text-muted, #666);
-		font-size: 0.9rem;
-		line-height: 1.5;
-	}
-	.card {
-		border: 1px solid var(--color-border, #ddd);
-		background: var(--color-surface, #fafafa);
-		padding: 1rem;
-		margin: 1rem 0;
-	}
-	.row {
-		display: flex;
-		gap: 1rem;
-		padding: 0.4rem 0;
-		border-bottom: 1px solid var(--color-border, #eee);
-		font-size: 0.9rem;
-	}
-	.row:last-child {
-		border-bottom: none;
-	}
-	.label {
-		width: 8rem;
-		flex: none;
-		color: var(--color-text-muted, #666);
-	}
-	.value {
-		display: flex;
-		align-items: center;
-		gap: 0.5rem;
-		flex-wrap: wrap;
-	}
-	.mono {
-		font-family: ui-monospace, monospace;
-	}
-	.on {
-		color: var(--color-success, #2a7);
-		font-weight: 600;
-	}
-	.off {
-		color: var(--color-text-muted, #999);
-		font-weight: 600;
-	}
-	.copy {
-		font-size: 0.75rem;
-		padding: 0.1rem 0.5rem;
-		cursor: pointer;
-		border: 1px solid var(--color-border, #ccc);
-		background: transparent;
-	}
-	.error {
-		color: var(--color-danger, #c33);
-	}
-	.payload {
-		background: var(--color-surface, #f4f4f4);
-		border: 1px solid var(--color-border, #ddd);
-		padding: 1rem;
-		overflow-x: auto;
-		font-size: 0.8rem;
-		line-height: 1.4;
-	}
-	code {
-		font-family: ui-monospace, monospace;
-		background: var(--color-surface, #f0f0f0);
-		padding: 0.05rem 0.3rem;
-	}
-</style>
+			<Panel title="Exactly what gets sent">
+				<pre class="overflow-x-auto rounded-control bg-well p-4 text-xs leading-5 text-ink">{JSON.stringify(
+						status.sample_payload,
+						null,
+						2
+					)}</pre>
+			</Panel>
+		{/if}
+	</div>
+</AppShell>

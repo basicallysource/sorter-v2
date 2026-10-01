@@ -2,21 +2,23 @@
 	let { size = 16, class: className = '' }: { size?: number; class?: string } = $props();
 </script>
 
-<div
+<!-- A span, not a div, so it is valid inside a button. -->
+<span
 	class="sorter-spinner {className}"
 	style={`--spinner-size:${size}px`}
 	role="status"
 	aria-label="Loading"
 >
 	<i></i><i></i><i></i><i></i>
-</div>
+</span>
 
 <style>
-	/* Canonical loading indicator: four squares, one lit at a time, snapping
-	   clockwise every quarter cycle. Discrete (not eased) and sharp-cornered to
-	   match the industrial style. Inherits color via currentColor and scales via
-	   the size prop. Deliberately keeps animating under prefers-reduced-motion —
-	   a frozen loading indicator reads as a hung process. */
+	/* The only loading indicator (docs/loading.md): four squares, one lit at a
+	   time, snapping clockwise every quarter cycle. Discrete, not eased, and
+	   sharp-cornered like everything else. It takes its color from the text
+	   around it and its size from the prop. It keeps moving under
+	   prefers-reduced-motion, because a frozen loading indicator reads as a
+	   hung process. */
 	.sorter-spinner {
 		position: relative;
 		display: inline-block;
@@ -33,12 +35,34 @@
 		opacity: 0.2;
 		animation: sorter-spinner-quarter 0.667s linear infinite;
 	}
-	.sorter-spinner i:nth-child(1) { top: 0; left: 0; animation-delay: 0s; }
-	.sorter-spinner i:nth-child(2) { top: 0; right: 0; animation-delay: 0.1667s; }
-	.sorter-spinner i:nth-child(3) { bottom: 0; right: 0; animation-delay: 0.3333s; }
-	.sorter-spinner i:nth-child(4) { bottom: 0; left: 0; animation-delay: 0.5s; }
+	.sorter-spinner i:nth-child(1) {
+		top: 0;
+		left: 0;
+		animation-delay: 0s;
+	}
+	.sorter-spinner i:nth-child(2) {
+		top: 0;
+		right: 0;
+		animation-delay: 0.1667s;
+	}
+	.sorter-spinner i:nth-child(3) {
+		bottom: 0;
+		right: 0;
+		animation-delay: 0.3333s;
+	}
+	.sorter-spinner i:nth-child(4) {
+		bottom: 0;
+		left: 0;
+		animation-delay: 0.5s;
+	}
 	@keyframes sorter-spinner-quarter {
-		0%, 24% { opacity: 1; }
-		25%, 100% { opacity: 0.2; }
+		0%,
+		24% {
+			opacity: 1;
+		}
+		25%,
+		100% {
+			opacity: 0.2;
+		}
 	}
 </style>

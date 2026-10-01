@@ -231,19 +231,3 @@ sections:
             url: /lab/object-detection/device-benchmarking/
           - title: Hailo HEF Workflow
             url: /lab/object-detection/hailo-hef-workflow/
-      - title: Styleguide
-        pages:
-          - title: Overview
-            url: /lab/styleguide/
-          - title: Design Principles
-            url: /lab/styleguide/#design-principles
-          - title: Colors
-            url: /lab/styleguide/#colors
-          - title: Typography
-            url: /lab/styleguide/#typography
-          - title: Notifications
-            url: /lab/styleguide/#notifications
-          - title: Components
-            url: /lab/styleguide/#components
-          - title: Primary Color
-            url: /lab/styleguide/#primary-color

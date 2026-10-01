@@ -1,7 +1,13 @@
 <script lang="ts">
 	import { getBackendHttpBase } from '$lib/backend';
-	import { Button, Alert, Input } from '$lib/components/primitives';
-	import SectionCard from '$lib/components/settings/SectionCard.svelte';
+	import Button from '$lib/components/ui/Button.svelte';
+	import Alert from '$lib/components/ui/Alert.svelte';
+	import Input from '$lib/components/ui/Input.svelte';
+	import Panel from '$lib/components/ui/Panel.svelte';
+	import Field from '$lib/components/ui/Field.svelte';
+	import Checkbox from '$lib/components/ui/Checkbox.svelte';
+	import Spinner from '$lib/components/ui/Spinner.svelte';
+	import PageHeader from '$lib/components/ui/PageHeader.svelte';
 	import TuningParamRow from '$lib/components/settings/TuningParamRow.svelte';
 	import TuningPresets from '$lib/components/settings/TuningPresets.svelte';
 	import SettingsSaveBar from '$lib/components/settings/SettingsSaveBar.svelte';
@@ -406,104 +412,95 @@
 	});
 </script>
 
-<svelte:head><title>Sorter - Feeder Pulse Perception Tuning</title></svelte:head>
+<svelte:head><title>Sorter - Feeder simple pulse tuning</title></svelte:head>
 
-<div class="flex flex-col gap-6 p-6">
-	<div>
-		<div class="text-lg font-semibold text-text">Feeder — Simple Pulse Tuning</div>
-		<div class="mt-1 text-sm text-text-muted">
-			Changes take effect within ~1 second (no restart needed).
-		</div>
-	</div>
+<PageHeader
+	title="Feeder simple pulse"
+	description="How the simple pulsing feeder moves pieces. Changes apply within about a second, with no restart."
+/>
 
-	{#if !loading}
-		<SettingsSaveBar {save} reset={load} {saving} dirty={guard.isDirty} />
-	{/if}
+{#if !loading}
+	<SettingsSaveBar {save} reset={load} {saving} dirty={guard.isDirty} />
+{/if}
 
-	{#if error}
-		<Alert variant="danger">{error}</Alert>
-	{/if}
+{#if error}
+	<Alert tone="danger">{error}</Alert>
+{/if}
+{#if saved}
+	<Alert tone="success">Saved. The changes apply within about a second.</Alert>
+{/if}
 
-	{#if saved}
-		<Alert variant="success">Saved. Changes apply within ~1 second.</Alert>
-	{/if}
-
-	{#if !loading}
-		<SectionCard
-			title="Exit pulse speed"
-			description="One-click presets for how hard C2/C3 push a piece off the exit edge into the next channel. Clicking one fills in the exit-pulse fields below — review, then Save."
-		>
-			<TuningPresets presets={exitPulsePresets} bind:values />
-		</SectionCard>
-	{/if}
-
-	<SectionCard
-		title="Parameters"
-		description="Pulse distance and pause time per region for the simple pulsing feeder."
+{#if !loading}
+	<Panel
+		title="Exit pulse speed"
+		description="Presets for how hard C2 and C3 push a piece off the exit edge into the next channel. One fills in the exit pulse fields below; review them, then Save."
+		flush
 	>
-		{#if loading}
-			<div class="text-sm text-text-muted">Loading…</div>
-		{:else}
-			<div class="flex flex-col gap-8">
-				{#each sections as section}
-					<div class="flex flex-col gap-2">
-						<div class="text-xs font-semibold tracking-wider text-text-muted uppercase">
-							{section.name}
-						</div>
-						{#each section.fields as field}
-							<TuningParamRow {field} bind:values />
-						{/each}
-					</div>
+		<TuningPresets presets={exitPulsePresets} bind:values />
+	</Panel>
+{/if}
+
+<Panel title="Parameters" description="Pulse distance and pause time for each region." flush>
+	{#if loading}
+		<div class="px-(--pad-panel) pb-(--pad-panel)">
+			<div class="flex items-center gap-2 text-sm text-ink-muted"><Spinner size={14} /> Loading</div>
+		</div>
+	{:else}
+		<div class="divide-y divide-line">
+			{#each sections as section}
+				<div class="label px-(--pad-panel) py-1.5">{section.name}</div>
+				{#each section.fields as field}
+					<TuningParamRow {field} bind:values />
 				{/each}
-			</div>
+			{/each}
+		</div>
+	{/if}
+	{#snippet footer()}
+		<SettingsSaveBar {save} reset={load} {saving} dirty={guard.isDirty} disabled={loading} />
+	{/snippet}
+</Panel>
 
-			<div class="mt-6">
-				<SettingsSaveBar {save} reset={load} {saving} dirty={guard.isDirty} />
-			</div>
-		{/if}
-	</SectionCard>
-
-	<SectionCard
+	<Panel
 		title="Auto-tune"
-		description="Searches for the fastest pulse parameters on this machine. Each trial applies a candidate config and measures pieces/min into the classification channel. A trial only counts as feasible if its double-drop rate stays under the cap below — among feasible trials, highest throughput wins. The trial clock only advances while sorting is running, so this runs on top of normal sorting."
+		description="Searches for the fastest pulse parameters on this machine. Each trial applies a candidate and measures the pieces a minute into the classification channel. A trial counts only if its double-drop rate stays under the cap below; of those, the highest throughput wins. The trial clock runs only while sorting, so this runs alongside normal sorting."
 	>
 		{#if autotuneError}
-			<Alert variant="danger">{autotuneError}</Alert>
+			<Alert tone="danger">{autotuneError}</Alert>
 		{/if}
 
 		{#if autotune?.state === 'running'}
 			<div class="flex flex-col gap-4">
 				{#if autotune.mode === 'background'}
-					<Alert variant="info">
-						Background exploration is on — a new random candidate is applied every trial
-						while you sort. It keeps collecting across restarts until you turn it off.
+					<Alert tone="info">
+						Background exploration is on: a new random candidate is tried every trial while you
+						sort, and it keeps collecting across restarts until you turn it off.
 					</Alert>
 				{/if}
 				{#if !autotune.machine_running}
-					<Alert variant="warning">
-						Machine is not running — the trial clock is paused. Start sorting to resume
-						measurement.
+					<Alert tone="warning">
+						The machine isn't sorting, so the trial clock is paused. Start sorting to resume
+						the measurement.
 					</Alert>
 				{/if}
 
 				{#if autotune.current_trial}
-					<div class="text-sm text-text">
-						<span class="font-semibold">
-							Trial {autotune.current_trial.trial_index}
-						</span>
-						<span class="text-text-muted">({autotune.current_trial.kind})</span>
-						— {fmt(autotune.current_trial.measured_s, 0)}s /
-						{fmt(autotune.current_trial.duration_s, 0)}s measured,
-						{autotune.current_trial.pieces_delivered} pieces,
-						{autotune.current_trial.double_drops} double-drops
+					<div class="text-sm text-ink">
+						<span class="font-medium">Trial {autotune.current_trial.trial_index}</span>
+						<span class="text-ink-muted">({autotune.current_trial.kind})</span>:
+						<span class="num">{fmt(autotune.current_trial.measured_s, 0)} s</span> of
+						<span class="num">{fmt(autotune.current_trial.duration_s, 0)} s</span> measured,
+						<span class="num">{autotune.current_trial.pieces_delivered}</span> pieces,
+						<span class="num">{autotune.current_trial.double_drops}</span> double drops
 					</div>
-					<div class="text-sm text-text-muted">
+					<div class="text-sm text-ink-muted">
 						{#each Object.entries(autotune.current_trial.params) as [key, value]}
 							<div>{paramLabel(key)}: <span class="font-mono">{value}</span></div>
 						{/each}
 					</div>
 				{:else}
-					<div class="text-sm text-text-muted">Preparing first trial…</div>
+					<div class="flex items-center gap-2 text-sm text-ink-muted">
+						<Spinner size={14} /> Preparing the first trial
+					</div>
 				{/if}
 
 				{#if autotune.mode === 'background'}
@@ -523,61 +520,54 @@
 							onclick={() => stopAutotune('baseline')}
 							loading={autotuneBusy}
 						>
-							Stop & restore baseline
+							Stop and restore the baseline
 						</Button>
 						<Button
 							variant="secondary"
 							onclick={() => stopAutotune('best')}
 							disabled={autotuneBusy || !autotune.best_trial}
 						>
-							Stop & apply best
+							Stop and apply the best
 						</Button>
 					</div>
 				{/if}
 			</div>
 		{:else}
 			<div class="flex flex-col gap-4">
-				<div class="grid grid-cols-1 gap-3 sm:grid-cols-3">
-					<label class="flex flex-col gap-1 text-sm text-text">
-						Trial length (s of sorting time)
-						<Input type="number" bind:value={trialDurationS} />
-					</label>
-					<label class="flex flex-col gap-1 text-sm text-text">
-						Max double-drop rate (%)
-						<Input type="number" bind:value={maxDoubleDropPct} />
-					</label>
-					<label class="flex flex-col gap-1 text-sm text-text">
-						Jam cost (pieces per incident)
-						<Input type="number" bind:value={incidentWeight} />
-						<span class="text-sm text-text-muted">
-							If a jam/stall incident opens during a trial, its score is docked as if
-							it had delivered this many fewer pieces.
-						</span>
-					</label>
+				<div class="grid grid-cols-1 gap-4 sm:grid-cols-3">
+					<Field label="Trial length" for="autotune-trial">
+						<Input id="autotune-trial" type="number" bind:value={trialDurationS} unit="s sorting" />
+					</Field>
+					<Field label="Most double drops" for="autotune-dd">
+						<Input id="autotune-dd" type="number" bind:value={maxDoubleDropPct} unit="%" />
+					</Field>
+					<Field
+						label="Jam cost"
+						for="autotune-jam"
+						help="A jam or stall during a trial docks its score as if it delivered this many fewer pieces."
+					>
+						<Input id="autotune-jam" type="number" bind:value={incidentWeight} unit="pieces" />
+					</Field>
 				</div>
 
-				<div class="text-sm text-text-muted">
-					Each trial costs ~{SETTLE_S}s settle + {trialDurationS}s of sorting time ≈
-					<span class="font-semibold text-text">{fmt(trialsPerHour, 1)} trials per hour of sorting</span>.
-					With {selectedParamCount} parameters selected, expect to need roughly
-					{suggestedTrials}+ trials (~{fmt(suggestedHours, 0)}+ hours of sorting) before
-					the search has meaningfully covered the space. It runs until you stop it — the
-					dataset below accumulates across runs, so stopping and resuming later loses
-					nothing.
+				<div class="text-sm text-ink-muted">
+					Each trial costs about {SETTLE_S} s to settle plus {trialDurationS} s of sorting, so
+					<span class="font-medium text-ink">{fmt(trialsPerHour, 1)} trials an hour of sorting</span>.
+					With {selectedParamCount} parameters chosen, expect about {suggestedTrials} trials (about
+					{fmt(suggestedHours, 0)} hours of sorting) before the search has covered the space. It runs
+					until you stop it, and the data below builds up across runs, so stopping and resuming
+					later loses nothing.
 				</div>
 
 				{#if autotune}
-					<div class="flex flex-col gap-1">
-						<div class="text-xs font-semibold tracking-wider text-text-muted uppercase">
-							Parameters to tune
-						</div>
-						<div class="grid grid-cols-1 gap-1 sm:grid-cols-2">
+					<div class="flex flex-col gap-2">
+						<div class="label">Parameters to tune</div>
+						<div class="grid grid-cols-1 gap-2 sm:grid-cols-2">
 							{#each autotune.tunable_params as meta}
-								<label class="flex items-center gap-2 text-sm text-text">
-									<input type="checkbox" bind:checked={selectedParams[meta.key]} />
+								<Checkbox bind:checked={selectedParams[meta.key]}>
 									{meta.label}
-									<span class="text-text-muted">[{meta.min}–{meta.max}]</span>
-								</label>
+									<span class="num text-ink-muted">{meta.min} to {meta.max}</span>
+								</Checkbox>
 							{/each}
 						</div>
 					</div>
@@ -591,27 +581,25 @@
 						Enable background exploration
 					</Button>
 				</div>
-				<div class="text-sm text-text-muted">
-					A tuning session hunts for the best config (75% refining around the best so
-					far). Background exploration instead samples purely random candidates while you
-					do normal sorting — slower to find a winner, but it builds an even dataset of
-					the whole space and survives restarts until you turn it off.
-				</div>
+				<p class="text-sm text-ink-muted">
+					A tuning session hunts for the best settings, spending three trials in four near the
+					best so far. Background exploration instead tries purely random candidates during
+					normal sorting: slower to find a winner, but it builds an even picture of the whole space
+					and survives restarts until you turn it off.
+				</p>
 			</div>
 		{/if}
 
 		{#if autotune?.best_trial}
 			<div class="mt-6 flex flex-col gap-2">
-				<div class="text-xs font-semibold tracking-wider text-text-muted uppercase">
-					Best so far
+				<div class="label">Best so far</div>
+				<div class="text-sm text-ink">
+					Trial {autotune.best_trial.trial_index}:
+					<span class="num font-medium">{fmt(autotune.best_trial.pieces_per_min, 2)} pieces a minute</span>
+					at <span class="num">{fmt((autotune.best_trial.double_drop_rate ?? 0) * 100, 1)}%</span> double
+					drops (score <span class="num">{fmt(autotune.best_trial.score, 2)}</span>)
 				</div>
-				<div class="text-sm text-text">
-					Trial {autotune.best_trial.trial_index} —
-					<span class="font-semibold">{fmt(autotune.best_trial.pieces_per_min, 2)} pieces/min</span>
-					at {fmt((autotune.best_trial.double_drop_rate ?? 0) * 100, 1)}% double-drops
-					(score {fmt(autotune.best_trial.score, 2)})
-				</div>
-				<div class="text-sm text-text-muted">
+				<div class="text-sm text-ink-muted">
 					{#each Object.entries(autotune.best_trial.params) as [key, value]}
 						<div>{paramLabel(key)}: <span class="font-mono">{value}</span></div>
 					{/each}
@@ -630,20 +618,20 @@
 
 		{#if chartPoints.length > 0}
 			<div class="mt-6 flex flex-col gap-2">
-				<div class="text-xs font-semibold tracking-wider text-text-muted uppercase">
-					Throughput vs double-drop rate — all collected trials ({chartPoints.length})
+				<div class="label">
+					Throughput against double-drop rate, every trial collected ({chartPoints.length})
 				</div>
-				<div class="flex flex-wrap gap-4 text-sm text-text">
+				<div class="flex flex-wrap gap-4 text-sm text-ink">
 					<span class="flex items-center gap-2">
-						<svg width="10" height="10" class="text-success"><rect width="10" height="10" fill="currentColor" /></svg>
-						Within cap
+						<svg width="10" height="10" class="text-success-ink"><rect width="10" height="10" fill="currentColor" /></svg>
+						Within the cap
 					</span>
 					<span class="flex items-center gap-2">
-						<svg width="10" height="10" class="text-danger"><rect x="1" y="1" width="8" height="8" fill="none" stroke="currentColor" stroke-width="2" /></svg>
-						Over cap
+						<svg width="10" height="10" class="text-danger-ink"><rect x="1" y="1" width="8" height="8" fill="none" stroke="currentColor" stroke-width="2" /></svg>
+						Over the cap
 					</span>
 					<span class="flex items-center gap-2">
-						<svg width="14" height="10" class="text-text-muted"><line x1="7" y1="0" x2="7" y2="10" stroke="currentColor" stroke-width="2" stroke-dasharray="3 2" /></svg>
+						<svg width="14" height="10" class="text-ink-muted"><line x1="7" y1="0" x2="7" y2="10" stroke="currentColor" stroke-width="2" stroke-dasharray="3 2" /></svg>
 						{maxDoubleDropPct}% cap
 					</span>
 				</div>
@@ -660,7 +648,7 @@
 								x2={CHART.w - CHART.r}
 								y1={chartY(t)}
 								y2={chartY(t)}
-								class="text-text-muted"
+								class="text-ink-muted"
 								stroke="currentColor"
 								stroke-opacity="0.15"
 							/>
@@ -668,7 +656,7 @@
 								x={CHART.l - 6}
 								y={chartY(t) + 4}
 								text-anchor="end"
-								class="fill-current text-text-muted"
+								class="fill-current text-ink-muted"
 								font-size="11"
 							>
 								{fmt(t, 0)}
@@ -679,7 +667,7 @@
 								x={chartX(t)}
 								y={CHART.h - CHART.b + 16}
 								text-anchor="middle"
-								class="fill-current text-text-muted"
+								class="fill-current text-ink-muted"
 								font-size="11"
 							>
 								{fmt(t, 0)}%
@@ -690,7 +678,7 @@
 							x2={CHART.w - CHART.r}
 							y1={CHART.h - CHART.b}
 							y2={CHART.h - CHART.b}
-							class="text-text-muted"
+							class="text-ink-muted"
 							stroke="currentColor"
 							stroke-opacity="0.4"
 						/>
@@ -699,7 +687,7 @@
 							x2={chartX(Number(maxDoubleDropPct))}
 							y1={CHART.t}
 							y2={CHART.h - CHART.b}
-							class="text-text-muted"
+							class="text-ink-muted"
 							stroke="currentColor"
 							stroke-width="1.5"
 							stroke-dasharray="4 3"
@@ -711,7 +699,7 @@
 									y={p.py - 3.5}
 									width="7"
 									height="7"
-									class="text-success"
+									class="text-success-ink"
 									fill="currentColor"
 								>
 									<title>{p.label}</title>
@@ -722,7 +710,7 @@
 									y={p.py - 3.5}
 									width="7"
 									height="7"
-									class="text-danger"
+									class="text-danger-ink"
 									fill="none"
 									stroke="currentColor"
 									stroke-width="1.5"
@@ -735,20 +723,20 @@
 							x={(CHART.l + CHART.w - CHART.r) / 2}
 							y={CHART.h - 2}
 							text-anchor="middle"
-							class="fill-current text-text-muted"
+							class="fill-current text-ink-muted"
 							font-size="11"
 						>
-							double-drop rate (% of pieces)
+							Double-drop rate (% of pieces)
 						</text>
 						<text
 							x={12}
 							y={(CHART.t + CHART.h - CHART.b) / 2}
 							text-anchor="middle"
 							transform={`rotate(-90 12 ${(CHART.t + CHART.h - CHART.b) / 2})`}
-							class="fill-current text-text-muted"
+							class="fill-current text-ink-muted"
 							font-size="11"
 						>
-							pieces/min
+							Pieces a minute
 						</text>
 					</svg>
 				</div>
@@ -757,40 +745,38 @@
 
 		{#if autotune && autotune.trials.length > 0}
 			<div class="mt-6 flex flex-col gap-2">
-				<div class="text-xs font-semibold tracking-wider text-text-muted uppercase">
-					Trials (this run)
-				</div>
-				<div class="overflow-x-auto">
-					<table class="w-full text-sm text-text">
+				<div class="label">Trials in this run</div>
+				<div class="-mx-(--pad-panel) overflow-x-auto">
+					<table class="data-table">
 						<thead>
-							<tr class="text-left text-text-muted">
-								<th class="py-1 pr-3 font-normal">#</th>
-								<th class="py-1 pr-3 font-normal">Kind</th>
-								<th class="py-1 pr-3 font-normal">Measured</th>
-								<th class="py-1 pr-3 font-normal">Pieces</th>
-								<th class="py-1 pr-3 font-normal">P/min</th>
-								<th class="py-1 pr-3 font-normal">Inc</th>
-								<th class="py-1 pr-3 font-normal">DD%</th>
-								<th class="py-1 pr-3 font-normal">Score</th>
-								<th class="py-1 font-normal"></th>
+							<tr>
+								<th class="num">Trial</th>
+								<th>Kind</th>
+								<th class="num">Measured</th>
+								<th class="num">Pieces</th>
+								<th class="num">A minute</th>
+								<th class="num">Incidents</th>
+								<th class="num">Double drops</th>
+								<th class="num">Score</th>
+								<th><span class="sr-only">Load</span></th>
 							</tr>
 						</thead>
 						<tbody>
 							{#each autotune.trials as trial (trial.id)}
-								<tr class="border-t border-text-muted/20" class:opacity-60={trial.feasible === false}>
-									<td class="py-1 pr-3">{trial.trial_index}</td>
-									<td class="py-1 pr-3">{trial.kind}</td>
-									<td class="py-1 pr-3">{fmt(trial.measured_s, 0)}s</td>
-									<td class="py-1 pr-3">{trial.pieces_delivered}</td>
-									<td class="py-1 pr-3">{fmt(trial.pieces_per_min, 2)}</td>
-									<td class="py-1 pr-3">{trial.incidents}</td>
-									<td class="py-1 pr-3" class:text-danger={trial.feasible === false}>
-										{fmt(ddPct(trial), 1)}
+								<tr class:opacity-60={trial.feasible === false}>
+									<td class="num">{trial.trial_index}</td>
+									<td>{trial.kind}</td>
+									<td class="num">{fmt(trial.measured_s, 0)} s</td>
+									<td class="num">{trial.pieces_delivered}</td>
+									<td class="num">{fmt(trial.pieces_per_min, 2)}</td>
+									<td class="num">{trial.incidents}</td>
+									<td class="num" class:text-danger-ink={trial.feasible === false}>
+										{fmt(ddPct(trial), 1)}%
 									</td>
-									<td class="py-1 pr-3 font-semibold">
-										{trial.feasible === false ? 'over cap' : fmt(trial.score, 2)}
+									<td class="num font-medium">
+										{trial.feasible === false ? 'Over the cap' : fmt(trial.score, 2)}
 									</td>
-									<td class="py-1">
+									<td class="text-right">
 										<Button
 											variant="ghost"
 											size="sm"
@@ -806,7 +792,6 @@
 				</div>
 			</div>
 		{/if}
-	</SectionCard>
+	</Panel>
 
-	<UnsavedChangesDialog {guard} />
-</div>
+<UnsavedChangesDialog {guard} />

@@ -5,6 +5,13 @@
 	import { page } from '$app/state';
 	import { onMount } from 'svelte';
 	import OAuthButtons from '$lib/components/OAuthButtons.svelte';
+	import Alert from '$lib/components/Alert.svelte';
+	import Badge from '$lib/components/Badge.svelte';
+	import Button from '$lib/components/Button.svelte';
+	import Field from '$lib/components/Field.svelte';
+	import Input from '$lib/components/Input.svelte';
+	import Panel from '$lib/components/Panel.svelte';
+	import Wordmark from '$lib/components/Wordmark.svelte';
 
 	let email = $state('');
 	let password = $state('');
@@ -39,6 +46,7 @@
 
 	async function handleSubmit(e: Event) {
 		e.preventDefault();
+		if (submitting) return;
 		error = null;
 		submitting = true;
 		const result = await auth.login(email, password);
@@ -61,55 +69,30 @@
 </script>
 
 <svelte:head>
-	<title>Login - Hive</title>
+	<title>Sign in - Hive</title>
 </svelte:head>
 
 <div class="flex min-h-[80vh] items-center justify-center">
-	<div class="w-full max-w-sm border border-border bg-surface p-8">
-		<h1 class="mb-6 text-center text-2xl font-bold text-text">Sign in to Hive</h1>
-
-		{#if currentError()}
-			<div class="mb-4 bg-primary-light p-3 text-sm text-danger">{currentError()}</div>
-		{/if}
-
-		<form onsubmit={handleSubmit} class="space-y-4">
-			<div>
-				<label for="email" class="mb-1 block text-sm font-medium text-text">Email</label>
-				<input
-					id="email"
-					type="email"
-					bind:value={email}
-					required
-					class="w-full border border-border px-3 py-2 text-sm focus:border-primary focus:ring-1 focus:ring-primary focus:outline-none"
-				/>
-			</div>
-			<div>
-				<label for="password" class="mb-1 block text-sm font-medium text-text">Password</label>
-				<input
-					id="password"
-					type="password"
-					bind:value={password}
-					required
-					class="w-full border border-border px-3 py-2 text-sm focus:border-primary focus:ring-1 focus:ring-primary focus:outline-none"
-				/>
-			</div>
-			<button
-				type="submit"
-				disabled={submitting}
-				class="relative w-full bg-primary px-4 py-2 text-sm font-medium text-white hover:bg-primary-hover disabled:opacity-50"
-			>
-				{submitting ? 'Signing in...' : 'Sign in'}
-				{#if lastMethod === 'password'}
-					<span class="absolute right-2 top-1/2 -translate-y-1/2 rounded-full bg-white/20 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-white">Last used</span>
-				{/if}
-			</button>
-		</form>
-
-		<OAuthButtons options={authOptions} next={safeNextPath()} lastUsed={lastMethod} />
-
-		<p class="mt-4 text-center text-sm text-text-muted">
-			Don't have an account?
-			<a href={`/register${nextQueryString()}`} class="text-primary hover:underline">Register</a>
-		</p>
+	<div class="flex w-full max-w-sm flex-col gap-(--gap-panels)">
+		<div class="flex justify-center"><Wordmark name="Hive" /></div>
+		<Panel title="Sign in to Hive">
+			<form onsubmit={handleSubmit} class="flex flex-col gap-4">
+				{#if currentError()}<Alert tone="danger">{currentError()}</Alert>{/if}
+				<Field label="Email" for="email">
+					<Input id="email" type="email" bind:value={email} required autocomplete="email" />
+				</Field>
+				<Field label="Password" for="password">
+					<Input id="password" type="password" bind:value={password} required autocomplete="current-password" />
+				</Field>
+				<Button type="submit" variant="primary" loading={submitting} class="relative w-full">
+					Sign in
+					{#if lastMethod === 'password'}<span class="absolute right-2"><Badge>Last used</Badge></span>{/if}
+				</Button>
+			</form>
+			<OAuthButtons options={authOptions} next={safeNextPath()} lastUsed={lastMethod} />
+			<p class="mt-4 text-center text-sm text-ink-muted">
+				No account yet? <a href={`/register${nextQueryString()}`} class="font-medium text-primary-ink hover:underline">Create one</a>
+			</p>
+		</Panel>
 	</div>
 </div>

@@ -17,16 +17,23 @@
 	import PieceLabelPanel, { type PieceLabelPatch } from '$lib/components/PieceLabelPanel.svelte';
 	import PieceRow from '$lib/components/PieceRow.svelte';
 	import Spinner from '$lib/components/Spinner.svelte';
-	import { Button } from '$lib/components/primitives';
-	import ArrowRight from 'lucide-svelte/icons/arrow-right';
-	import LayoutGrid from 'lucide-svelte/icons/layout-grid';
-	import Rows3 from 'lucide-svelte/icons/rows-3';
+	import Button from '$lib/components/Button.svelte';
+	import Alert from '$lib/components/Alert.svelte';
+	import EmptyState from '$lib/components/EmptyState.svelte';
+	import FilterOption from '$lib/components/FilterOption.svelte';
+	import PageHeader from '$lib/components/PageHeader.svelte';
+	import Panel from '$lib/components/Panel.svelte';
+	import SegmentedControl from '$lib/components/SegmentedControl.svelte';
+	import Shapes from '@lucide/svelte/icons/shapes';
+	import ArrowRight from '@lucide/svelte/icons/arrow-right';
+	import LayoutGrid from '@lucide/svelte/icons/layout-grid';
+	import Rows3 from '@lucide/svelte/icons/rows-3';
 
 	const BATCH = 60;
 
 	const SORTS: { value: ColorLabelSort; label: string }[] = [
-		{ value: 'priority', label: 'Priority (candidates, least-labeled)' },
-		{ value: 'rare_color', label: 'Likely rare color (low-confidence, near a rare color)' },
+		{ value: 'priority', label: 'Priority: candidates, least labeled' },
+		{ value: 'rare_color', label: 'Likely a rare color' },
 		{ value: 'needs_me', label: 'Needs my label' },
 		{ value: 'least_color', label: 'Fewest color labels' },
 		{ value: 'most_color', label: 'Most color labels' },
@@ -286,203 +293,148 @@
 </script>
 
 <svelte:head>
-	<title>Piece Labeling · Hive</title>
+	<title>Piece labeling - Hive</title>
 </svelte:head>
 
-<div class="mb-5 flex flex-wrap items-end justify-between gap-3">
-	<div>
-		<h1 class="text-2xl font-bold text-text">Piece Labeling</h1>
-		<p class="text-sm text-text-muted">
-			Label each synced piece — its true BrickLink color and which upstream crops are the same
-			piece.
-		</p>
-	</div>
-	<Button variant="primary" size="sm" onclick={startLabeling} disabled={loading || items.length === 0}>
-		Start labeling <ArrowRight size={14} />
-	</Button>
-</div>
+<PageHeader title="Piece labeling" description="Label each synced piece: its true BrickLink color, and which earlier crops are the same piece.">
+	{#snippet actions()}
+		<Button variant="primary" icon={ArrowRight} onclick={startLabeling} disabled={loading || items.length === 0}>Start labeling</Button>
+	{/snippet}
+</PageHeader>
 
-{#if error}
-	<div class="mb-4 bg-primary/8 p-3 text-sm text-primary">{error}</div>
-{/if}
+{#if error}<Alert tone="danger">{error}</Alert>{/if}
 
-<!-- Compact dashboard -->
 {#if stats}
-	<div class="mb-6 grid gap-3 border border-border bg-surface p-4 sm:grid-cols-[minmax(0,1fr)_auto]">
-		<div>
-			<div class="flex flex-wrap items-baseline gap-x-6 gap-y-1">
+	<Panel flush>
+		<div class="grid gap-4 px-(--pad-panel) py-4 sm:grid-cols-[minmax(0,1fr)_auto]">
+			<div>
+				<div class="num flex flex-wrap items-baseline gap-x-6 gap-y-1">
+					<div><span class="text-2xl font-semibold text-ink">{coverage}%</span> <span class="text-sm text-ink-muted">have a color</span></div>
+					<div class="text-sm text-ink-muted">
+						<span class="text-ink">{stats.color_labeled_pieces.toLocaleString()}</span> of {stats.total_labelable.toLocaleString()} pieces,
+						<span class="text-ink">{stats.crop_linked_pieces.toLocaleString()}</span> with the same piece found
+					</div>
+				</div>
+				<div class="mt-3 flex h-2 overflow-hidden rounded-item bg-track">
+					{#each [
+						{ key: '3+', cls: 'bg-success', label: '3 or more labelers' },
+						{ key: '2', cls: 'bg-success/70', label: '2 labelers' },
+						{ key: '1', cls: 'bg-success/40', label: '1 labeler' }
+					] as bar (bar.key)}
+						<div class={bar.cls} style={`width:${(hist[bar.key as keyof typeof hist] / histTotal) * 100}%`} title={`${bar.label}: ${hist[bar.key as keyof typeof hist]}`}></div>
+					{/each}
+				</div>
+				<div class="num mt-2 flex flex-wrap gap-x-4 gap-y-1 text-sm text-ink-muted">
+					<span class="flex items-center gap-1.5"><span class="size-2.5 rounded-full bg-success"></span>3 or more, {hist['3+']}</span>
+					<span class="flex items-center gap-1.5"><span class="size-2.5 rounded-full bg-success/70"></span>2, {hist['2']}</span>
+					<span class="flex items-center gap-1.5"><span class="size-2.5 rounded-full bg-success/40"></span>1, {hist['1']}</span>
+					<span class="flex items-center gap-1.5"><span class="size-2.5 rounded-full bg-track"></span>None, {hist['0'].toLocaleString()}</span>
+				</div>
+			</div>
+			<div class="num flex gap-6 border-t border-line pt-3 sm:border-t-0 sm:border-l sm:pt-0 sm:pl-6">
 				<div>
-					<span class="text-2xl font-bold text-text tabular-nums">{coverage}%</span>
-					<span class="text-sm text-text-muted">color-labeled</span>
+					<div class="text-xl font-semibold text-ink">{stats.labeled_by_me.toLocaleString()}</div>
+					<div class="text-sm text-ink-muted">Your colors</div>
 				</div>
-				<div class="text-sm text-text-muted">
-					<span class="text-text tabular-nums">{stats.color_labeled_pieces.toLocaleString()}</span>
-					of {stats.total_labelable.toLocaleString()} pieces ·
-					<span class="text-text tabular-nums">{stats.crop_linked_pieces.toLocaleString()}</span> same-piece
+				<div>
+					<div class="text-xl font-semibold text-ink">{stats.crop_links_by_me.toLocaleString()}</div>
+					<div class="text-sm text-ink-muted">Your same pieces</div>
 				</div>
-			</div>
-			<div class="mt-3 flex h-3 w-full overflow-hidden border border-border">
-				<div class="bg-success" style={`width:${(hist['3+'] / histTotal) * 100}%`} title={`3+ labelers: ${hist['3+']}`}></div>
-				<div class="bg-success/70" style={`width:${(hist['2'] / histTotal) * 100}%`} title={`2 labelers: ${hist['2']}`}></div>
-				<div class="bg-success/40" style={`width:${(hist['1'] / histTotal) * 100}%`} title={`1 labeler: ${hist['1']}`}></div>
-				<div class="bg-border" style={`width:${(hist['0'] / histTotal) * 100}%`} title={`unlabeled: ${hist['0']}`}></div>
-			</div>
-			<div class="mt-1.5 flex flex-wrap gap-x-4 gap-y-0.5 text-xs text-text-muted">
-				<span><span class="mr-1 inline-block h-2 w-2 bg-success align-middle"></span>3+ ({hist['3+']})</span>
-				<span><span class="mr-1 inline-block h-2 w-2 bg-success/70 align-middle"></span>2 ({hist['2']})</span>
-				<span><span class="mr-1 inline-block h-2 w-2 bg-success/40 align-middle"></span>1 ({hist['1']})</span>
-				<span><span class="mr-1 inline-block h-2 w-2 bg-border align-middle"></span>0 ({hist['0'].toLocaleString()})</span>
 			</div>
 		</div>
-		<div class="flex gap-6 border-t border-border pt-3 sm:border-l sm:border-t-0 sm:pl-6 sm:pt-0">
-			<div>
-				<div class="text-xl font-bold text-text tabular-nums">{stats.labeled_by_me.toLocaleString()}</div>
-				<div class="text-xs text-text-muted">your colors</div>
-			</div>
-			<div>
-				<div class="text-xl font-bold text-text tabular-nums">{stats.crop_links_by_me.toLocaleString()}</div>
-				<div class="text-xs text-text-muted">your same-piece</div>
-			</div>
-		</div>
-	</div>
+	</Panel>
 {/if}
 
-<!-- Palette coverage — for reviewers/admins: which colors are well-covered vs
-     rare or missing in what's actually been labeled. -->
+<!-- For reviewers: which colors are well covered, and which are rare or missing. -->
 {#if auth.isReviewer}
 	<PaletteCoverage {machineId} />
 {/if}
 
-{#snippet filterBtn(label: string, selected: boolean, onClick: () => void)}
-	<button
-		class="w-full px-2 py-1 text-left text-sm {selected
-			? 'bg-primary-light font-medium text-primary'
-			: 'text-text-muted hover:bg-bg hover:text-text'}"
-		onclick={onClick}
-	>
-		{label}
-	</button>
-{/snippet}
-
-<div class="flex flex-col gap-6 lg:flex-row lg:items-start">
-	<!-- Filters (shared FilterGroup, same UI as the Channel Samples page) -->
-	<aside class="flex shrink-0 flex-col gap-3 lg:w-60">
-		<FilterGroup title="Sort" storageKey="pb-sort" active={sort !== 'priority'} activeLabel={sortLabel}>
-			<div class="flex flex-col">
-				{#each SORTS as s (s.value)}
-					{@render filterBtn(s.label, sort === s.value, () => setSort(s.value))}
-				{/each}
-			</div>
-		</FilterGroup>
-
-		<FilterGroup title="Machine" storageKey="pb-machine" active={machineId !== null} activeLabel={machineName}>
-			<div class="flex flex-col gap-2">
-				{@render filterBtn('All machines', machineId === null, () => setMachine(null))}
-				{#each machineGroups as [owner, group] (owner)}
-					<div>
-						<div class="px-2 pb-0.5 text-xs font-semibold uppercase tracking-wider text-text-muted">{owner}</div>
+<div class="flex flex-col gap-(--gap-panels) lg:flex-row lg:items-start">
+	<!-- The filters, the same FilterGroups as the samples page -->
+	<aside class="w-full shrink-0 lg:w-60">
+		<div class="flex flex-col divide-y divide-line overflow-hidden rounded-panel bg-surface py-1">
+			<FilterGroup title="Sort" storageKey="pb-sort" active={sort !== 'priority'} activeLabel={sortLabel}>
+				<ul class="flex flex-col gap-px">
+					{#each SORTS as option (option.value)}
+						<FilterOption label={option.label} on={sort === option.value} onclick={() => setSort(option.value)} />
+					{/each}
+				</ul>
+			</FilterGroup>
+			<FilterGroup title="Machine" storageKey="pb-machine" active={machineId !== null} activeLabel={machineName}>
+				<ul class="flex flex-col gap-px">
+					<FilterOption label="All machines" on={machineId === null} onclick={() => setMachine(null)} />
+					{#each machineGroups as [owner, group] (owner)}
+						<li class="label px-2.5 pt-2 pb-1">{owner}</li>
 						{#each group as m (m.id)}
-							{@render filterBtn(m.name, machineId === m.id, () => setMachine(m.id))}
+							<FilterOption label={m.name} on={machineId === m.id} onclick={() => setMachine(m.id)} />
 						{/each}
-					</div>
-				{/each}
-			</div>
-		</FilterGroup>
-
-		<FilterGroup title="Same piece" storageKey="pb-candidates" active={withCandidates} activeLabel={withCandidates ? 'Has candidates' : null}>
-			<div class="flex flex-col">
-				{@render filterBtn('All pieces', !withCandidates, () => setWithCandidates(false))}
-				{@render filterBtn('Has candidate crops', withCandidates, () => setWithCandidates(true))}
-			</div>
-		</FilterGroup>
+					{/each}
+				</ul>
+			</FilterGroup>
+			<FilterGroup title="Same piece" storageKey="pb-candidates" active={withCandidates} activeLabel={withCandidates ? 'Has candidates' : null}>
+				<ul class="flex flex-col gap-px">
+					<FilterOption label="All pieces" on={!withCandidates} onclick={() => setWithCandidates(false)} />
+					<FilterOption label="Has candidate crops" on={withCandidates} onclick={() => setWithCandidates(true)} />
+				</ul>
+			</FilterGroup>
+		</div>
 	</aside>
 
-	<!-- List + optional labeling pane -->
-	<div class="flex min-w-0 flex-1 flex-col gap-4 lg:flex-row lg:items-start">
-		<!-- List column -->
-		<div class="min-w-0 flex-1">
-			<!-- View toggle -->
-			<div class="mb-3 flex items-center justify-between gap-2">
-				<span class="text-xs text-text-muted">
-					{#if !loading}{items.length} shown{/if}
-				</span>
-				<div class="flex border border-border">
-					<button
-						type="button"
-						title="Grid"
-						onclick={() => setView('grid')}
-						class="flex items-center gap-1 px-2 py-1 text-xs {view === 'grid'
-							? 'bg-primary-light text-primary'
-							: 'text-text-muted hover:bg-bg hover:text-text'}"
-					>
-						<LayoutGrid size={14} /> Grid
-					</button>
-					<button
-						type="button"
-						title="Rows"
-						onclick={() => setView('rows')}
-						class="flex items-center gap-1 border-l border-border px-2 py-1 text-xs {view === 'rows'
-							? 'bg-primary-light text-primary'
-							: 'text-text-muted hover:bg-bg hover:text-text'}"
-					>
-						<Rows3 size={14} /> Rows
-					</button>
-				</div>
+	<!-- The list, and the labeling pane beside it -->
+	<div class="flex min-w-0 flex-1 flex-col gap-(--gap-panels) lg:flex-row lg:items-start">
+		<div class="flex min-w-0 flex-1 flex-col gap-3">
+			<div class="flex items-center justify-between gap-2">
+				<span class="num text-sm text-ink-muted">{#if !loading}{items.length} shown{/if}</span>
+				<SegmentedControl
+					label="View"
+					size="sm"
+					value={view}
+					options={[
+						{ value: 'grid', label: 'Grid', icon: LayoutGrid },
+						{ value: 'rows', label: 'Rows', icon: Rows3 }
+					]}
+					onchange={setView}
+				/>
 			</div>
 
 			{#if loading}
 				<div class="flex justify-center py-16"><Spinner size={32} /></div>
 			{:else if items.length === 0}
-				<div class="border border-border bg-surface p-10 text-center">
-					<p class="text-sm text-text-muted">No labelable pieces match these filters.</p>
-				</div>
+				<Panel><EmptyState icon={Shapes} title="No pieces match">No labelable pieces match these filters.</EmptyState></Panel>
 			{:else if view === 'grid'}
-				<div
-					class="grid grid-cols-2 gap-3 {paneOpen
-						? 'sm:grid-cols-2 xl:grid-cols-3'
-						: 'sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5'}"
-				>
+				<div class="grid grid-cols-[repeat(auto-fill,minmax(9rem,1fr))] gap-3">
 					{#each items as card (cardKey(card))}
-						<PieceCard
-							{card}
-							id={rowElId(card)}
-							selected={selectedKey != null && sameKey(card, selectedKey)}
-							onOpen={open}
-						/>
+						<PieceCard {card} id={rowElId(card)} selected={selectedKey != null && sameKey(card, selectedKey)} onOpen={open} />
 					{/each}
 				</div>
 			{:else}
-				<div class="border border-border bg-surface">
+				<div class="divide-y divide-line overflow-hidden rounded-panel bg-surface">
 					{#each items as card (cardKey(card))}
-						<PieceRow
-							{card}
-							id={rowElId(card)}
-							selected={selectedKey != null && sameKey(card, selectedKey)}
-							onOpen={open}
-						/>
+						<PieceRow {card} id={rowElId(card)} selected={selectedKey != null && sameKey(card, selectedKey)} onOpen={open} />
 					{/each}
 				</div>
 			{/if}
 
 			{#if !loading && items.length > 0}
-				<div class="mt-4 flex justify-center">
+				<div class="flex justify-center">
 					{#if hasMore}
-						<!-- Auto-fetch sentinel; the button is a manual fallback. -->
+						<!-- It fetches on its own as it scrolls into view; the button is the fallback. -->
 						<div bind:this={sentinel} class="flex justify-center py-2">
-							<Button variant="secondary" size="sm" loading={fetchingMore} onclick={fetchMore}>
-								Load more
-							</Button>
+							<Button size="sm" loading={fetchingMore} onclick={fetchMore}>Load more</Button>
 						</div>
 					{:else}
-						<span class="text-xs text-text-muted">End of list · {items.length} shown</span>
+						<span class="num text-sm text-ink-muted">The end of the list, {items.length} shown</span>
 					{/if}
 				</div>
 			{/if}
 		</div>
 
-		<!-- Labeling pane (50/50) -->
+		<!-- The labeling pane, half the width -->
 		{#if paneOpen && selectedKey}
-			<div class="min-w-0 flex-1 lg:sticky lg:top-4 lg:max-h-[calc(100vh-2rem)] lg:overflow-y-auto">
+			<div
+				class="min-w-0 flex-1 lg:sticky lg:top-[calc(var(--size-topbar)+1rem)] lg:max-h-[calc(100dvh-var(--size-topbar)-2rem)] lg:overflow-y-auto"
+			>
 				{#key cardKey(selectedKey)}
 					<PieceLabelPanel
 						machineId={selectedKey.machine_id}

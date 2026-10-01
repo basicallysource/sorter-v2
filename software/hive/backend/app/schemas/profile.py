@@ -15,7 +15,8 @@ class ProfileOwnerResponse(BaseModel):
 
 
 class SortingProfileConditionResponse(BaseModel):
-    id: str
+    # Made on save when left out.
+    id: str | None = None
     field: str
     op: str
     value: Any
@@ -35,6 +36,10 @@ class SortingProfileRuleResponse(BaseModel):
     include_spares: bool = False
     set_meta: dict[str, Any] | None = None
     custom_parts: list[dict[str, Any]] = Field(default_factory=list)
+    # Kit rules (rule_type == "kit"): the kit whose parts this rule collects.
+    kit_id: str | None = None
+    # A picture for the rule's bin. Without one, pages show its best known part.
+    image_url: str | None = None
 
 
 class SortingProfileFallbackModeResponse(BaseModel):
@@ -61,6 +66,17 @@ class SortingProfileRuleSummaryResponse(BaseModel):
     child_count: int = 0
 
 
+class SortingProfileBinSummaryResponse(BaseModel):
+    """One of a version's first bins, for a card that shows a profile by them."""
+
+    id: str
+    name: str | None = None
+    kind: str | None = None
+    image_url: str | None = None
+    rgb: str | None = None
+    part_count: int | None = None
+
+
 class SortingProfileVersionSummaryResponse(BaseModel):
     id: UUID
     version_number: int
@@ -72,6 +88,13 @@ class SortingProfileVersionSummaryResponse(BaseModel):
     coverage_ratio: float | None
     created_at: datetime
     rules_summary: list[SortingProfileRuleSummaryResponse] = Field(default_factory=list)
+    # The first bins in order (versions compiled before bins had pictures have none).
+    bins: list[SortingProfileBinSummaryResponse] = Field(default_factory=list)
+    # "web", "api", "assistant" or "system", and the API key's name for "api".
+    created_via: str | None = None
+    created_via_key_name: str | None = None
+    # What a sorter must be able to run for this version ("color_fallback").
+    requires: list[str] = Field(default_factory=list)
 
 
 class SortingProfileVersionResponse(SortingProfileVersionSummaryResponse):
@@ -81,7 +104,12 @@ class SortingProfileVersionResponse(SortingProfileVersionSummaryResponse):
     rules: list[SortingProfileRuleResponse]
     fallback_mode: SortingProfileFallbackModeResponse
     compiled_stats: dict[str, Any] | None = None
+    # Each bin the profile fills: name, picture, its conditions in words, how
+    # many parts it takes and a few of them. category_order is the order to
+    # show them in.
     categories: dict[str, dict[str, Any]] = Field(default_factory=dict)
+    category_order: list[str] = Field(default_factory=list)
+    warnings: list[dict[str, Any]] = Field(default_factory=list)
 
 
 class SortingProfileSummaryResponse(BaseModel):
@@ -101,6 +129,11 @@ class SortingProfileSummaryResponse(BaseModel):
     source: SortingProfileForkSourceResponse | None = None
     saved_in_library: bool = False
     is_owner: bool = False
+    # A profile Hive keeps and gives every machine.
+    is_default: bool = False
+    default_rank: int | None = None
+    # The profile's page on this Hive.
+    web_url: str | None = None
     latest_version: SortingProfileVersionSummaryResponse | None = None
     latest_published_version: SortingProfileVersionSummaryResponse | None = None
 
@@ -115,6 +148,11 @@ class SortingProfileCreateRequest(BaseModel):
     description: str | None = None
     visibility: str = "private"
     tags: list[str] = Field(default_factory=list)
+    # The first version's rules and fallback; an empty profile without them.
+    rules: list["SortingProfileRuleResponse"] = Field(default_factory=list)
+    fallback_mode: "SortingProfileFallbackModeResponse | None" = None
+    default_category_id: str = "misc"
+    change_note: str | None = None
 
 
 class SortingProfileUpdateRequest(BaseModel):
@@ -156,6 +194,41 @@ class SortingProfileForkRequest(BaseModel):
     name: str | None = None
     description: str | None = None
     add_to_library: bool = True
+
+
+class SortingProfileHeadResponse(BaseModel):
+    """Enough to tell whether a page showing a profile is out of date."""
+
+    profile_id: UUID
+    name: str
+    updated_at: datetime
+    latest_version_id: UUID | None = None
+    latest_version_number: int
+    latest_version_created_at: datetime | None = None
+    created_via: str | None = None
+    created_via_key_name: str | None = None
+
+
+class SortingProfileRoutePiece(BaseModel):
+    # A part by BrickLink ID or Rebrickable number.
+    part: str
+    # Its color: a Rebrickable color ID (as in rule conditions) or a BrickLink
+    # color ID; neither means the color is unknown.
+    color_id: int | None = None
+    bricklink_color_id: int | None = None
+
+
+class SortingProfileRouteRequest(BaseModel):
+    """Where pieces would go: under a draft document, or a saved version (the
+    profile's latest when version_id is left out)."""
+
+    document: SortingProfilePreviewRequest | None = None
+    profile_id: UUID | None = None
+    version_id: UUID | None = None
+    pieces: list[SortingProfileRoutePiece] = Field(..., min_length=1, max_length=200)
+    # Kits start empty and fill in the order the pieces are given, as on a
+    # machine; false asks where each piece goes with every kit still collecting.
+    fill_kits: bool = True
 
 
 class SortingProfileAiRequest(BaseModel):

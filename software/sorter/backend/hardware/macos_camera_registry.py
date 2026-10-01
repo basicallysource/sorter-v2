@@ -167,6 +167,3 @@ def refresh_macos_cameras(*, force: bool = False) -> tuple[MacOSCameraInfo, ...]
         _last_enum_time = now
     return enumerate_macos_cameras()
 
-
-def get_macos_camera(index: int) -> MacOSCameraInfo | None:
-    return next((camera for camera in enumerate_macos_cameras() if camera.index == index), None)

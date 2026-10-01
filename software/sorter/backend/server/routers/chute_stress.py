@@ -7,8 +7,8 @@ from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
 
 import stepper_telemetry
-from local_state import getChuteStressRun, listChuteStressRuns
 from server import shared_state
+from stress_test_runs import listChuteStressRuns
 from subsystems.distribution.chute_stress import (
     CHUTE_MAX_ANGLE_LIMIT_DEG,
     ChuteStressTestRunner,
@@ -162,14 +162,6 @@ def listStressTestRuns(limit: int = 100) -> StressTestRunsResponse:
     if limit <= 0 or limit > 1000:
         raise HTTPException(status_code=400, detail="limit must be in (0, 1000]")
     return StressTestRunsResponse(runs=listChuteStressRuns(limit=limit))
-
-
-@router.get("/api/chute/stress-test/runs/{run_id}")
-def getStressTestRun(run_id: str) -> dict[str, Any]:
-    run = getChuteStressRun(run_id)
-    if run is None:
-        raise HTTPException(status_code=404, detail=f"Run '{run_id}' not found")
-    return run
 
 
 @router.get("/api/chute/stress-test/runs/{run_id}/telemetry")

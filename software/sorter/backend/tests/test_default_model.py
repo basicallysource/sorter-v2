@@ -204,36 +204,16 @@ def test_fresh_install_downloads_the_default_and_assigns_it_to_every_slot(
     ]
 
 
-def test_every_slot_of_a_carousel_setup_is_filled(
-    models_dir: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    from toml_config import _update_toml
-
-    _update_toml(lambda cfg: cfg.update({"machine_setup": {"type": "standard_carousel"}}))
-    monkeypatch.setattr(
-        hive_models, "HiveClient", FakeHive({"rknn": _default_item("m1", "rknn", "r5.rknn")})
-    )
-
-    default_model.DefaultModelInstaller(RecordingLogger()).run_once()
-
-    algorithm_id = "hive:hive-m1-rknn"
-    assert _assigned("classification") == algorithm_id
-    assert _assigned(*C2) == algorithm_id
-    assert _assigned(*C3) == algorithm_id
-    assert _assigned("feeder", "carousel") == algorithm_id
-    assert _assigned("carousel") == algorithm_id
-
-
+@pytest.mark.parametrize("unavailable", ["mog2", "bundled:r4-c-channel-yolo11s-320-silu"])
 def test_only_slots_without_a_resolvable_model_are_filled(
-    models_dir: Path, monkeypatch: pytest.MonkeyPatch
+    models_dir: Path, monkeypatch: pytest.MonkeyPatch, unavailable: str
 ) -> None:
     existing = _seed_hive_model(models_dir, "chosen", "onnx")
     setDetectionConfig(
         "feeder",
         {
-            "algorithm": "mog2",
-            # A model from before models came from Hive: no longer resolves.
-            "algorithm_by_role": {"c_channel_2": "bundled:r4-c-channel-yolo11s-320-silu", "c_channel_3": "mog2"},
+            "algorithm": existing,
+            "algorithm_by_role": {"c_channel_2": unavailable, "c_channel_3": existing},
         },
     )
     setDetectionConfig("carousel", {"algorithm": existing})
@@ -246,16 +226,17 @@ def test_only_slots_without_a_resolvable_model_are_filled(
     default_model.DefaultModelInstaller(RecordingLogger()).run_once()
 
     assert _assigned(*C2) == "hive:hive-m1-rknn"
-    assert _assigned(*C3) == "mog2"  # the operator's explicit built-in
+    assert _assigned(*C3) == existing
     assert _assigned("carousel") == existing  # an installed model that resolves
-    assert getDetectionConfig("feeder")["algorithm"] == "mog2"
+    assert getDetectionConfig("feeder")["algorithm"] == existing
 
 
 def test_nothing_to_do_means_no_network(models_dir: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    existing = _seed_hive_model(models_dir, "chosen", "onnx")
     setDetectionConfig(
-        "feeder", {"algorithm_by_role": {"c_channel_2": "mog2", "c_channel_3": "gemini_sam"}}
+        "feeder", {"algorithm_by_role": {"c_channel_2": existing, "c_channel_3": existing}}
     )
-    setDetectionConfig("carousel", {"algorithm": "heatmap_diff"})
+    setDetectionConfig("carousel", {"algorithm": existing})
     monkeypatch.setattr(hive_models, "HiveClient", NoNetwork())
 
     assert default_model.DefaultModelInstaller(RecordingLogger()).run_once() is True
@@ -326,7 +307,11 @@ def test_network_error_is_logged_once_and_retried(
     logger = RecordingLogger()
     installer = default_model.DefaultModelInstaller(logger)
     sleeps: list[float] = []
-    monkeypatch.setattr(installer, "_sleep", sleeps.append)
+    def sleepOnce(seconds: float) -> None:
+        assert not sleeps, "installer should succeed after one retry"
+        sleeps.append(seconds)
+
+    monkeypatch.setattr(installer, "_sleep", sleepOnce)
 
     installer._loop()
 
@@ -340,17 +325,22 @@ def test_network_error_is_logged_once_and_retried(
 def test_the_loop_stops_once_no_slot_needs_a_model(
     models_dir: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
+    existing = _seed_hive_model(models_dir, "chosen", "onnx")
     monkeypatch.setattr(hive_models, "HiveClient", FakeHive({}))
     installer = default_model.DefaultModelInstaller(RecordingLogger())
+    sleeps: list[float] = []
 
     def _operator_picks_models(_seconds: float) -> None:
+        assert not sleeps, "installer should stop after the operator assigns models"
+        sleeps.append(_seconds)
         setDetectionConfig(
-            "feeder", {"algorithm_by_role": {"c_channel_2": "mog2", "c_channel_3": "mog2"}}
+            "feeder", {"algorithm_by_role": {"c_channel_2": existing, "c_channel_3": existing}}
         )
-        setDetectionConfig("carousel", {"algorithm": "heatmap_diff"})
+        setDetectionConfig("carousel", {"algorithm": existing})
 
     monkeypatch.setattr(installer, "_sleep", _operator_picks_models)
 
     installer._loop()  # returns: after one failed attempt nothing needs a model
 
-    assert _assigned(*C2) == "mog2"
+    assert _assigned(*C2) == existing
+    assert sleeps == [default_model.RETRY_INTERVAL_S]

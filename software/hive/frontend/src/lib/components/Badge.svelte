@@ -1,24 +1,34 @@
+<!--
+	docs/components.md#badge. A short status or count next to what it
+	describes. A tint and the tone's ink, never a border. `dot` puts a
+	status dot before the text: always round, whatever the corners.
+-->
 <script lang="ts">
-	interface Props {
-		text: string;
-		variant?: 'success' | 'warning' | 'danger' | 'info' | 'neutral';
-	}
+	import type { Snippet } from 'svelte';
 
-	let { text, variant = 'neutral' }: Props = $props();
+	type Tone = 'neutral' | 'primary' | 'info' | 'success' | 'warning' | 'danger';
 
-	const colors: Record<string, string> = {
-		success: 'border border-success/30 bg-success/10 text-success',
-		warning: 'border border-warning/30 bg-warning/15 text-warning-strong',
-		danger: 'border border-primary/30 bg-primary/8 text-primary',
-		info: 'border border-info/30 bg-info/8 text-info',
-		neutral: 'border border-border bg-bg text-text-muted'
+	let {
+		tone = 'neutral',
+		dot = false,
+		children
+	}: { tone?: Tone; dot?: boolean; children: Snippet } = $props();
+
+	const tones: Record<Tone, { box: string; dot: string }> = {
+		neutral: { box: 'bg-hover text-ink-muted', dot: 'bg-ink-faint' },
+		primary: { box: 'bg-primary-soft text-primary-ink', dot: 'bg-primary' },
+		info: { box: 'bg-info-soft text-info-ink', dot: 'bg-info' },
+		success: { box: 'bg-success-soft text-success-ink', dot: 'bg-success' },
+		warning: { box: 'bg-warning-soft text-warning-ink', dot: 'bg-warning' },
+		danger: { box: 'bg-danger-soft text-danger-ink', dot: 'bg-danger' }
 	};
-
-	function formatText(value: string): string {
-		return value.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
-	}
 </script>
 
-<span class="inline-flex items-center px-2.5 py-0.5 text-xs font-medium {colors[variant]}">
-	{formatText(text)}
+<span
+	class="inline-flex h-(--size-badge) shrink-0 items-center gap-1.5 rounded-badge px-(--pad-badge) text-xs font-medium whitespace-nowrap {tones[
+		tone
+	].box}"
+>
+	{#if dot}<span class="size-1.5 rounded-full {tones[tone].dot}"></span>{/if}
+	{@render children()}
 </span>

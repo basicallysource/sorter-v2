@@ -2,23 +2,18 @@ from __future__ import annotations
 
 import json
 import sqlite3
-import threading
 import time
 import uuid
-from contextlib import contextmanager
-from typing import Any, Iterable, Iterator, Optional
+from typing import Any, Iterable, Optional
 
-from local_state import local_state_db_path
+import db
 
 # Stepper / TMC2209 StallGuard telemetry. Lives in the shared local_state SQLite
 # DB (same file as the rest of the machine's persistent state) but owns its own
 # tables and module so the high-volume sample writes stay self-contained. Two
-# tables, mirroring the chute_stress_runs + *_snapshots pattern already in
-# local_state.py: a run row groups a recording session (a targeted sweep, a
+# tables, mirroring the power_stress_runs + power_stress_events pattern in
+# stress_test_runs.py: a run row groups a recording session (a targeted sweep, a
 # stall test, or a passive logging window), and many sample rows hang off it.
-
-_INIT_LOCK = threading.Lock()
-_initialized = False
 
 # Recording sources.
 SOURCE_SWEEP = "sweep"          # constant-speed targeted test
@@ -32,114 +27,80 @@ RUN_STATUS_ABORTED = "aborted"
 RUN_STATUS_ERROR = "error"
 
 
-def _connect() -> sqlite3.Connection:
-    db_path = local_state_db_path()
-    db_path.parent.mkdir(parents=True, exist_ok=True)
-    conn = sqlite3.connect(db_path, timeout=5.0)
-    conn.row_factory = sqlite3.Row
-    conn.execute("PRAGMA journal_mode = WAL")
-    conn.execute("PRAGMA busy_timeout = 5000")
-    return conn
+def _createTables(conn: sqlite3.Connection) -> None:
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS stepper_telemetry_runs ("
+        "id TEXT PRIMARY KEY, "
+        "started_at REAL NOT NULL, "
+        "ended_at REAL, "
+        "source TEXT NOT NULL, "
+        "stepper_name TEXT, "
+        "label TEXT, "
+        "status TEXT NOT NULL, "
+        "params_json TEXT, "
+        "machine_id TEXT, "
+        "sorting_session_id TEXT, "
+        "sample_count INTEGER NOT NULL DEFAULT 0, "
+        "sg_min INTEGER, "
+        "sg_max INTEGER, "
+        "sg_mean REAL, "
+        "suggested_sgthrs INTEGER, "
+        "notes TEXT, "
+        "error TEXT, "
+        "chute_stress_run_id TEXT"
+        ")"
+    )
+    db.add_columns(conn, "stepper_telemetry_runs", {"chute_stress_run_id": "TEXT"})
+    conn.execute(
+        "CREATE INDEX IF NOT EXISTS idx_stepper_telemetry_runs_time "
+        "ON stepper_telemetry_runs(started_at)"
+    )
+    conn.execute(
+        "CREATE INDEX IF NOT EXISTS idx_stepper_telemetry_runs_stepper "
+        "ON stepper_telemetry_runs(stepper_name, started_at)"
+    )
+    conn.execute(
+        "CREATE INDEX IF NOT EXISTS idx_stepper_telemetry_runs_chute_stress "
+        "ON stepper_telemetry_runs(chute_stress_run_id)"
+    )
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS stepper_telemetry_samples ("
+        "id INTEGER PRIMARY KEY AUTOINCREMENT, "
+        "run_id TEXT NOT NULL, "
+        "recorded_at REAL NOT NULL, "
+        "stepper_name TEXT NOT NULL, "
+        "channel INTEGER, "
+        "sg_result INTEGER, "
+        "cs_actual INTEGER, "
+        "tstep INTEGER, "
+        "drv_status_raw INTEGER, "
+        "commanded_speed INTEGER, "
+        "irun INTEGER, "
+        "microsteps INTEGER, "
+        "stealthchop INTEGER, "
+        "loaded INTEGER, "
+        "acceleration INTEGER, "
+        "pwm_scale INTEGER, "
+        "ioin INTEGER"
+        ")"
+    )
+    # Migration: add columns introduced after the table first shipped, so
+    # DBs created by earlier versions gain them without a manual rebuild.
+    db.add_columns(conn, "stepper_telemetry_samples", {
+        "acceleration": "INTEGER", "pwm_scale": "INTEGER", "ioin": "INTEGER",
+    })
+    conn.execute(
+        "CREATE INDEX IF NOT EXISTS idx_stepper_telemetry_samples_run "
+        "ON stepper_telemetry_samples(run_id, recorded_at)"
+    )
+    conn.execute(
+        "CREATE INDEX IF NOT EXISTS idx_stepper_telemetry_samples_stepper "
+        "ON stepper_telemetry_samples(stepper_name, recorded_at)"
+    )
 
 
-def _ensureColumn(conn: sqlite3.Connection, table: str, column: str, decl: str) -> None:
-    existing = {row[1] for row in conn.execute(f"PRAGMA table_info({table})")}
-    if column not in existing:
-        conn.execute(f"ALTER TABLE {table} ADD COLUMN {column} {decl}")
-
-
-@contextmanager
-def _connection() -> Iterator[sqlite3.Connection]:
-    _ensureInitialized()
-    conn = _connect()
-    try:
-        yield conn
-    finally:
-        conn.close()
-
-
-def _ensureInitialized() -> None:
-    global _initialized
-    if _initialized:
-        return
-    with _INIT_LOCK:
-        if _initialized:
-            return
-        conn = _connect()
-        try:
-            conn.execute(
-                "CREATE TABLE IF NOT EXISTS stepper_telemetry_runs ("
-                "id TEXT PRIMARY KEY, "
-                "started_at REAL NOT NULL, "
-                "ended_at REAL, "
-                "source TEXT NOT NULL, "
-                "stepper_name TEXT, "
-                "label TEXT, "
-                "status TEXT NOT NULL, "
-                "params_json TEXT, "
-                "machine_id TEXT, "
-                "sorting_session_id TEXT, "
-                "sample_count INTEGER NOT NULL DEFAULT 0, "
-                "sg_min INTEGER, "
-                "sg_max INTEGER, "
-                "sg_mean REAL, "
-                "suggested_sgthrs INTEGER, "
-                "notes TEXT, "
-                "error TEXT, "
-                "chute_stress_run_id TEXT"
-                ")"
-            )
-            _ensureColumn(conn, "stepper_telemetry_runs", "chute_stress_run_id", "TEXT")
-            conn.execute(
-                "CREATE INDEX IF NOT EXISTS idx_stepper_telemetry_runs_time "
-                "ON stepper_telemetry_runs(started_at)"
-            )
-            conn.execute(
-                "CREATE INDEX IF NOT EXISTS idx_stepper_telemetry_runs_stepper "
-                "ON stepper_telemetry_runs(stepper_name, started_at)"
-            )
-            conn.execute(
-                "CREATE INDEX IF NOT EXISTS idx_stepper_telemetry_runs_chute_stress "
-                "ON stepper_telemetry_runs(chute_stress_run_id)"
-            )
-            conn.execute(
-                "CREATE TABLE IF NOT EXISTS stepper_telemetry_samples ("
-                "id INTEGER PRIMARY KEY AUTOINCREMENT, "
-                "run_id TEXT NOT NULL, "
-                "recorded_at REAL NOT NULL, "
-                "stepper_name TEXT NOT NULL, "
-                "channel INTEGER, "
-                "sg_result INTEGER, "
-                "cs_actual INTEGER, "
-                "tstep INTEGER, "
-                "drv_status_raw INTEGER, "
-                "commanded_speed INTEGER, "
-                "irun INTEGER, "
-                "microsteps INTEGER, "
-                "stealthchop INTEGER, "
-                "loaded INTEGER, "
-                "acceleration INTEGER, "
-                "pwm_scale INTEGER, "
-                "ioin INTEGER"
-                ")"
-            )
-            # Migration: add columns introduced after the table first shipped, so
-            # DBs created by earlier versions gain them without a manual rebuild.
-            _ensureColumn(conn, "stepper_telemetry_samples", "acceleration", "INTEGER")
-            _ensureColumn(conn, "stepper_telemetry_samples", "pwm_scale", "INTEGER")
-            _ensureColumn(conn, "stepper_telemetry_samples", "ioin", "INTEGER")
-            conn.execute(
-                "CREATE INDEX IF NOT EXISTS idx_stepper_telemetry_samples_run "
-                "ON stepper_telemetry_samples(run_id, recorded_at)"
-            )
-            conn.execute(
-                "CREATE INDEX IF NOT EXISTS idx_stepper_telemetry_samples_stepper "
-                "ON stepper_telemetry_samples(stepper_name, recorded_at)"
-            )
-            conn.commit()
-            _initialized = True
-        finally:
-            conn.close()
+def _connection():
+    return db.connect(_createTables)
 
 
 def createRun(
@@ -353,19 +314,3 @@ def deleteRun(run_id: str) -> None:
         conn.commit()
 
 
-def pruneOldRuns(*, keep_runs: int = 500) -> int:
-    # Retention guard so passive logging across many sorting sessions can't grow
-    # the DB without bound. Keeps the newest keep_runs runs; drops the rest and
-    # their samples.
-    with _connection() as conn:
-        stale = conn.execute(
-            "SELECT id FROM stepper_telemetry_runs ORDER BY started_at DESC "
-            "LIMIT -1 OFFSET ?",
-            (max(0, keep_runs),),
-        ).fetchall()
-        ids = [r["id"] for r in stale]
-        for run_id in ids:
-            conn.execute("DELETE FROM stepper_telemetry_samples WHERE run_id = ?", (run_id,))
-            conn.execute("DELETE FROM stepper_telemetry_runs WHERE id = ?", (run_id,))
-        conn.commit()
-    return len(ids)

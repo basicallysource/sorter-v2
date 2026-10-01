@@ -23,13 +23,14 @@ from unittest.mock import patch
 
 from defs.known_object import ClassificationStatus, KnownObject, PieceStage
 from piece_transport import ClassificationChannelTransport
-from subsystems.classification_channel import two_piece
-from subsystems.classification_channel.simple_state_machine_rev01 import channel_clear
-from subsystems.classification_channel.simple_state_machine_rev01.channel_clear import (
+from runtime_stats import RuntimeStatsCollector
+from subsystems.classification_channel.two_piece import flow as two_piece
+from subsystems.classification_channel.two_piece import channel_clear
+from subsystems.classification_channel.two_piece.channel_clear import (
     ChannelClearResult,
     clearChannelByAdvancing,
 )
-from subsystems.classification_channel.two_piece import (
+from subsystems.classification_channel.two_piece.flow import (
     _Phase,
     _TrackedPiece,
     TwoPieceClassificationChannel,
@@ -56,15 +57,17 @@ class _Servo:
     def isClosed(self) -> bool:
         return not self._shadow_open
 
-    def open(self) -> None:
+    def open(self) -> bool:
         self.open_calls += 1
         self._shadow_open = True
         self._log.append(f"open{self._index}")
+        return True
 
-    def close(self) -> None:
+    def close(self) -> bool:
         self.close_calls += 1
         self._shadow_open = False
         self._log.append(f"close{self._index}")
+        return True
 
     def apply_open_speed(self) -> None:
         pass
@@ -171,10 +174,9 @@ def _mkChannel(transport, shared) -> TwoPieceClassificationChannel:
     ch.transport = transport
     ch.shared = shared
     ch.logger = _LOGGER
-    ch.gc = SimpleNamespace()
+    ch.gc = SimpleNamespace(runtime_stats=RuntimeStatsCollector())
     ch.irl = SimpleNamespace()
     ch.irl_config = SimpleNamespace()
-    ch.cv = SimpleNamespace(_vision=None)
     ch.ctx = SimpleNamespace(reset=lambda: None, known_object=None)
     ch._pieces = {}
     ch._phase = _Phase.WAITING

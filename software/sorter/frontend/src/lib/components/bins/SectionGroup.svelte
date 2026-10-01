@@ -1,7 +1,8 @@
 <script lang="ts">
-	import { ToggleSwitch } from '$lib/components/primitives';
-	import { Crosshair } from 'lucide-svelte';
-	import Spinner from '$lib/components/Spinner.svelte';
+	import Crosshair from '@lucide/svelte/icons/crosshair';
+	import Badge from '$lib/components/ui/Badge.svelte';
+	import Button from '$lib/components/ui/Button.svelte';
+	import Switch from '$lib/components/ui/Switch.svelte';
 	import type { Snippet } from 'svelte';
 	import type { BinInfo } from './types';
 
@@ -37,45 +38,35 @@
 	});
 </script>
 
-<div class="flex flex-col border border-border bg-surface {enabled ? '' : 'opacity-60'}">
-	<div class="flex items-center justify-between gap-2 border-b border-border bg-bg px-3 py-2">
-		<div class="flex min-w-0 items-baseline gap-2">
-			<span class="shrink-0 text-xs font-semibold uppercase tracking-wider text-text">
-				Section {sectionIndex + 1}
-			</span>
-			<span class="truncate text-xs text-text-muted">{binRangeLabel}</span>
-			{#if !enabled}
-				<span class="shrink-0 bg-text-muted px-1.5 py-0.5 text-xs font-semibold uppercase tracking-wide text-surface">
-					Off
-				</span>
-			{/if}
+<!-- A section of a layer: its name and controls, then its bins. -->
+<div class="flex flex-col gap-2">
+	<div class="flex items-center justify-between gap-2">
+		<div class="flex min-w-0 items-center gap-2 text-sm">
+			<span class="shrink-0 font-medium text-ink">Section {sectionIndex + 1}</span>
+			<span class="truncate text-ink-muted">{binRangeLabel}</span>
+			{#if !enabled}<Badge>Off</Badge>{/if}
 		</div>
-		<div class="flex shrink-0 items-center gap-1.5">
-			<ToggleSwitch
+		<div class="flex shrink-0 items-center gap-2">
+			<Switch
 				checked={enabled}
-				size="sm"
 				label={enabled
-					? `Disable layer ${layerIndex + 1} section ${sectionIndex + 1}`
-					: `Enable layer ${layerIndex + 1} section ${sectionIndex + 1}`}
+					? `Turn off layer ${layerIndex + 1} section ${sectionIndex + 1}`
+					: `Turn on layer ${layerIndex + 1} section ${sectionIndex + 1}`}
 				disabled={toggleDisabled}
-				onToggle={() => onToggle(!enabled)}
+				onchange={() => onToggle(!enabled)}
 			/>
-			<button
-				type="button"
-				onclick={onPoint}
+			<Button
+				size="sm"
+				variant="ghost"
+				icon={Crosshair}
+				label="Point the chute at section {sectionIndex + 1}"
+				loading={pointing}
 				disabled={pointDisabled}
-				class="flex items-center justify-center border border-border bg-surface p-1 text-text transition-colors hover:bg-bg disabled:cursor-not-allowed disabled:opacity-50"
-				title="Point chute at section {sectionIndex + 1}"
-			>
-				{#if pointing}
-					<Spinner size={13} />
-				{:else}
-					<Crosshair size={13} />
-				{/if}
-			</button>
+				onclick={onPoint}
+			/>
 		</div>
 	</div>
-	<div class="grid flex-1 gap-3 p-3 {bins.length > 1 ? 'grid-cols-2' : 'grid-cols-1'}">
+	<div class="grid flex-1 grid-cols-1 gap-2 {bins.length > 1 ? 'sm:grid-cols-2' : ''} {enabled ? '' : 'opacity-60'}">
 		{#each bins as bin (bin.global_index)}
 			{@render binCard(bin)}
 		{/each}

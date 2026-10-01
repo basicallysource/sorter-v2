@@ -7,17 +7,20 @@ logger = logging.getLogger(__name__)
 
 
 class APIError(HTTPException):
-    def __init__(self, status_code: int, error: str, code: str):
+    def __init__(self, status_code: int, error: str, code: str, details: object | None = None):
         self.error_message = error
         self.error_code = code
+        # Everything wrong at once (each rule's problem, say), for a client
+        # that fixes them all before trying again.
+        self.error_details = details
         super().__init__(status_code=status_code, detail=error)
 
 
 async def api_error_handler(request: Request, exc: APIError) -> JSONResponse:
-    return JSONResponse(
-        status_code=exc.status_code,
-        content={"ok": False, "error": exc.error_message, "code": exc.error_code},
-    )
+    content: dict[str, object] = {"ok": False, "error": exc.error_message, "code": exc.error_code}
+    if exc.error_details is not None:
+        content["details"] = exc.error_details
+    return JSONResponse(status_code=exc.status_code, content=content)
 
 
 async def http_exception_handler(request: Request, exc: HTTPException) -> JSONResponse:

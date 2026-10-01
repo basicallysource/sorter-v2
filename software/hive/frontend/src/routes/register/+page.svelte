@@ -5,6 +5,12 @@
 	import { page } from '$app/state';
 	import { onMount } from 'svelte';
 	import OAuthButtons from '$lib/components/OAuthButtons.svelte';
+	import Alert from '$lib/components/Alert.svelte';
+	import Button from '$lib/components/Button.svelte';
+	import Field from '$lib/components/Field.svelte';
+	import Input from '$lib/components/Input.svelte';
+	import Panel from '$lib/components/Panel.svelte';
+	import Wordmark from '$lib/components/Wordmark.svelte';
 
 	let email = $state('');
 	let password = $state('');
@@ -34,6 +40,7 @@
 
 	async function handleSubmit(e: Event) {
 		e.preventDefault();
+		if (submitting) return;
 		error = null;
 		submitting = true;
 		const result = await auth.register(email, password, displayName);
@@ -47,63 +54,30 @@
 </script>
 
 <svelte:head>
-	<title>Register - Hive</title>
+	<title>Create an account - Hive</title>
 </svelte:head>
 
 <div class="flex min-h-[80vh] items-center justify-center">
-	<div class="w-full max-w-sm border border-border bg-surface p-8">
-		<h1 class="mb-6 text-center text-2xl font-bold text-text">Create an account</h1>
-
-		{#if error}
-			<div class="mb-4 bg-primary-light p-3 text-sm text-danger">{error}</div>
-		{/if}
-
-		<form onsubmit={handleSubmit} class="space-y-4">
-			<div>
-				<label for="displayName" class="mb-1 block text-sm font-medium text-text">Display Name</label>
-				<input
-					id="displayName"
-					type="text"
-					bind:value={displayName}
-					required
-					class="w-full border border-border px-3 py-2 text-sm focus:border-primary focus:ring-1 focus:ring-primary focus:outline-none"
-				/>
-			</div>
-			<div>
-				<label for="email" class="mb-1 block text-sm font-medium text-text">Email</label>
-				<input
-					id="email"
-					type="email"
-					bind:value={email}
-					required
-					class="w-full border border-border px-3 py-2 text-sm focus:border-primary focus:ring-1 focus:ring-primary focus:outline-none"
-				/>
-			</div>
-			<div>
-				<label for="password" class="mb-1 block text-sm font-medium text-text">Password</label>
-				<input
-					id="password"
-					type="password"
-					bind:value={password}
-					required
-					minlength="8"
-					class="w-full border border-border px-3 py-2 text-sm focus:border-primary focus:ring-1 focus:ring-primary focus:outline-none"
-				/>
-			</div>
-			<button
-				type="submit"
-				disabled={submitting}
-				class="w-full bg-primary px-4 py-2 text-sm font-medium text-white hover:bg-primary-hover disabled:opacity-50"
-			>
-				{submitting ? 'Creating account...' : 'Register'}
-			</button>
-		</form>
-
-		<OAuthButtons options={authOptions} next={safeNextPath()} />
-
-		<p class="mt-4 text-center text-sm text-text-muted">
-			Already have an account?
-			<a href={`/login${nextQueryString()}`} class="text-primary hover:underline">Sign in</a>
-		</p>
+	<div class="flex w-full max-w-sm flex-col gap-(--gap-panels)">
+		<div class="flex justify-center"><Wordmark name="Hive" /></div>
+		<Panel title="Create an account">
+			<form onsubmit={handleSubmit} class="flex flex-col gap-4">
+				{#if error}<Alert tone="danger">{error}</Alert>{/if}
+				<Field label="Display name" for="displayName">
+					<Input id="displayName" bind:value={displayName} required autocomplete="nickname" />
+				</Field>
+				<Field label="Email" for="email">
+					<Input id="email" type="email" bind:value={email} required autocomplete="email" />
+				</Field>
+				<Field label="Password" for="password" help="At least 8 characters.">
+					<Input id="password" type="password" bind:value={password} required minlength={8} autocomplete="new-password" />
+				</Field>
+				<Button type="submit" variant="primary" loading={submitting} class="w-full">Create the account</Button>
+			</form>
+			<OAuthButtons options={authOptions} next={safeNextPath()} />
+			<p class="mt-4 text-center text-sm text-ink-muted">
+				Have an account? <a href={`/login${nextQueryString()}`} class="font-medium text-primary-ink hover:underline">Sign in</a>
+			</p>
+		</Panel>
 	</div>
 </div>

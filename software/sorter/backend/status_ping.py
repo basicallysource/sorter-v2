@@ -147,48 +147,13 @@ def _softwareInfo() -> dict[str, Any]:
 
 
 def _configInfo() -> dict[str, Any]:
-    info: dict[str, Any] = {
-        "machine_setup": None,
-        "feeder_mode": None,
-        "classification_channel_mode": None,
+    from irl.config import CLASSIFICATION_CHANNEL_FLOW, FEEDER_FLOW, MACHINE_SETUP
+
+    return {
+        "machine_setup": MACHINE_SETUP,
+        "feeder_mode": FEEDER_FLOW,
+        "classification_channel_mode": CLASSIFICATION_CHANNEL_FLOW,
     }
-    try:
-        from machine_setup import DEFAULT_MACHINE_SETUP
-
-        info["machine_setup"] = (
-            DEFAULT_MACHINE_SETUP
-            if isinstance(DEFAULT_MACHINE_SETUP, str)
-            else getattr(DEFAULT_MACHINE_SETUP, "key", None)
-        )
-    except Exception:
-        pass
-    # Feeder / classification-channel modes default to the hardcoded rev04 values
-    # unless machine.toml overrides them; report whichever is actually in force.
-    try:
-        from irl.config import DEFAULT_CLASSIFICATION_CHANNEL_MODE, DEFAULT_FEEDER_MODE
-
-        info["feeder_mode"] = DEFAULT_FEEDER_MODE.value
-        info["classification_channel_mode"] = DEFAULT_CLASSIFICATION_CHANNEL_MODE.value
-    except Exception:
-        pass
-    try:
-        from machine_toml import machine_toml_path
-        from toml_config import loadTomlFile
-
-        params_path = machine_toml_path()
-        if params_path.exists():
-            raw = loadTomlFile(params_path)
-            if isinstance(raw, dict):
-                info["machine_setup"] = raw.get("machine_setup", info["machine_setup"])
-                feeder = raw.get("feeder")
-                if isinstance(feeder, dict) and feeder.get("mode"):
-                    info["feeder_mode"] = feeder.get("mode")
-                cc = raw.get("classification_channel")
-                if isinstance(cc, dict) and cc.get("mode"):
-                    info["classification_channel_mode"] = cc.get("mode")
-    except Exception:
-        pass
-    return info
 
 
 def _usageInfo() -> dict[str, Any]:

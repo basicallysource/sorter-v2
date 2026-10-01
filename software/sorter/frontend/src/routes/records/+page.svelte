@@ -1,8 +1,11 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
-	import { RefreshCw, ChevronLeft, ChevronRight, Download } from 'lucide-svelte';
+	import RefreshCw from '@lucide/svelte/icons/refresh-cw';
+	import ChevronLeft from '@lucide/svelte/icons/chevron-left';
+	import ChevronRight from '@lucide/svelte/icons/chevron-right';
+	import Download from '@lucide/svelte/icons/download';
 	import { getBackendHttpBase, machineHttpBaseUrlFromWsUrl } from '$lib/backend';
-	import AppHeader from '$lib/components/AppHeader.svelte';
+	import AppShell from '$lib/components/AppShell.svelte';
 	import RecordsStats, {
 		type Lifetime,
 		type Overview,
@@ -12,6 +15,9 @@
 	import IncidentsReport from '$lib/components/records/IncidentsReport.svelte';
 	import DailyTable from '$lib/components/records/DailyTable.svelte';
 	import PieceCard from '$lib/components/records/PieceCard.svelte';
+	import Button from '$lib/components/ui/Button.svelte';
+	import EmptyState from '$lib/components/ui/EmptyState.svelte';
+	import PageHeader from '$lib/components/ui/PageHeader.svelte';
 	import { fetchPieceImageState, type ImageState } from '$lib/components/records/piece-images';
 	import { getMachineContext } from '$lib/machines/context';
 	import {
@@ -268,66 +274,51 @@
 </script>
 
 <svelte:head>
-	<title>Records · Sorter</title>
+	<title>Records - Sorter</title>
 </svelte:head>
 
 {#snippet pager()}
-	<div class="flex items-center gap-3 text-sm text-text-muted">
-		<span>
+	<div class="flex items-center gap-3 text-sm text-ink-muted">
+		<span class="num">
 			{#if total > 0}
 				{rangeStart.toLocaleString()}–{rangeEnd.toLocaleString()} of {total.toLocaleString()}
-				{#if liveCount > 0}
-					<span class="text-primary">+{liveCount} live</span>
-				{/if}
+				{#if liveCount > 0}<span class="text-primary-ink">+{liveCount} live</span>{/if}
 			{:else}
 				0 records
 			{/if}
 		</span>
-		<div class="flex border border-border">
-			<button
-				type="button"
-				onclick={prevPage}
+		<div class="flex items-center gap-1">
+			<Button
+				size="sm"
+				variant="ghost"
+				icon={ChevronLeft}
+				label="Previous page"
 				disabled={pageIndex <= 0 || loading}
-				aria-label="Previous page"
-				class="border-r border-border px-2 py-1 text-text-muted hover:text-text disabled:opacity-40"
-			>
-				<ChevronLeft size={14} />
-			</button>
-			<span class="px-3 py-1 text-text">{pageNum} / {pageCount}</span>
-			<button
-				type="button"
-				onclick={nextPage}
+				onclick={prevPage}
+			/>
+			<span class="num px-1 text-ink">{pageNum} / {pageCount}</span>
+			<Button
+				size="sm"
+				variant="ghost"
+				icon={ChevronRight}
+				label="Next page"
 				disabled={nextCursor === null || loading}
-				aria-label="Next page"
-				class="border-l border-border px-2 py-1 text-text-muted hover:text-text disabled:opacity-40"
-			>
-				<ChevronRight size={14} />
-			</button>
+				onclick={nextPage}
+			/>
 		</div>
 	</div>
 {/snippet}
 
-<div class="min-h-screen bg-bg">
-	<AppHeader />
-	<div class="flex flex-col gap-4 p-4 sm:p-6">
-		<header class="flex flex-wrap items-end justify-between gap-3 border-b border-border pb-3">
-			<div>
-				<h2 class="text-xl font-bold text-text">Records</h2>
-				<p class="mt-1 text-sm text-text-muted">
-					Sorting history for this machine — every piece seen across all saved runs.
-				</p>
-			</div>
-			<button
-				type="button"
-				onclick={refresh}
-				disabled={loading}
-				aria-label="Reload"
-				title="Reload records"
-				class="border border-border bg-surface p-1.5 text-text-muted hover:text-text disabled:opacity-50"
-			>
-				<RefreshCw size={14} class={loading ? 'animate-spin' : ''} />
-			</button>
-		</header>
+<AppShell>
+	<div class="mx-auto flex w-full max-w-[1500px] flex-col gap-(--gap-panels) px-4 py-6 sm:px-6">
+		<PageHeader
+			title="Records"
+			description="Sorting history for this machine: every piece seen across all saved runs."
+		>
+			{#snippet actions()}
+				<Button icon={RefreshCw} label="Reload the records" {loading} onclick={refresh} />
+			{/snippet}
+		</PageHeader>
 
 		<RecordsStats {overview} {lifetime} {value} />
 
@@ -340,44 +331,36 @@
 			exportUrl={`${effectiveBase()}/api/pieces/lifetime/export.csv`}
 		/>
 
-		<div class="flex items-center justify-between gap-3">
-			<h3 class="text-sm font-semibold tracking-wider text-text-muted uppercase">Pieces</h3>
-			<div class="flex items-center gap-3">
-				<a
-					href={`${effectiveBase()}/api/pieces/export.csv`}
-					download
-					class="inline-flex items-center justify-center gap-2 border border-border bg-surface px-2.5 py-1 text-xs font-medium text-text transition-colors hover:bg-bg"
-					title="Download every recorded piece as CSV (streamed from the backend)"
-				>
-					<Download size={13} />
-					Export CSV
-				</a>
-				{@render pager()}
-			</div>
-		</div>
-
-		{#if displayRows.length === 0}
-			<div class="border border-border bg-surface p-8 text-center text-sm text-text-muted">
-				{loading ? 'Loading…' : 'No records yet.'}
-			</div>
-		{:else}
-			<div class="flex flex-col gap-3">
-				{#each displayRows as row (row.piece.uuid)}
-					<PieceCard
-						piece={row.piece}
-						imgState={imagesByUuid[row.piece.uuid]}
-						endpointBase={effectiveBase()}
-						liveCrop={row.liveCrop}
-						reclassifyOpen={expandedReclassify.has(row.piece.uuid)}
-						onToggleReclassify={() => toggleReclassify(row.piece.uuid)}
-						{onPieceCorrected}
-					/>
-				{/each}
+		<section class="flex flex-col gap-3">
+			<div class="flex flex-wrap items-center justify-between gap-3">
+				<h2 class="text-base font-semibold text-ink">Pieces</h2>
+				<div class="flex flex-wrap items-center gap-3">
+					<Button size="sm" icon={Download} href={`${effectiveBase()}/api/pieces/export.csv`} download>
+						Export CSV
+					</Button>
+					{@render pager()}
+				</div>
 			</div>
 
-			<div class="flex items-center justify-end gap-3">
-				{@render pager()}
-			</div>
-		{/if}
+			{#if displayRows.length === 0}
+				<EmptyState title={loading ? 'Loading the records' : 'No records yet'} />
+			{:else}
+				<div class="flex flex-col gap-(--gap-panels)">
+					{#each displayRows as row (row.piece.uuid)}
+						<PieceCard
+							piece={row.piece}
+							imgState={imagesByUuid[row.piece.uuid]}
+							endpointBase={effectiveBase()}
+							liveCrop={row.liveCrop}
+							reclassifyOpen={expandedReclassify.has(row.piece.uuid)}
+							onToggleReclassify={() => toggleReclassify(row.piece.uuid)}
+							{onPieceCorrected}
+						/>
+					{/each}
+				</div>
+
+				<div class="flex justify-end">{@render pager()}</div>
+			{/if}
+		</section>
 	</div>
-</div>
+</AppShell>

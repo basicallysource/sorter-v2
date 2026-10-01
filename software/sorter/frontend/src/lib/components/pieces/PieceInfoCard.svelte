@@ -1,9 +1,10 @@
 <script lang="ts">
+	import Panel from '$lib/components/ui/Panel.svelte';
 	import type { InfoRow } from './types';
 
-	// Titled key/value card used for every "facts about this piece" panel on the
-	// piece detail page. Both the live (in-memory) and disk-fallback views feed
-	// the same component so the two can't drift apart visually.
+	// Titled key/value panel used for every "facts about this piece" section on
+	// the piece detail page. Both the live (in-memory) and disk-fallback views
+	// feed the same component so the two can't drift apart visually.
 	let {
 		title,
 		rows,
@@ -19,32 +20,27 @@
 	} = $props();
 </script>
 
-<section class="flex flex-col border border-border bg-surface">
-	<div class="border-b border-border bg-bg px-3 py-2 text-sm font-medium text-text">
-		{title}
-	</div>
-	<div class="grid grid-cols-[minmax(0,1fr)_auto]">
-		<div class="grid grid-cols-[auto_minmax(0,1fr)] gap-x-4 gap-y-2 px-3 py-3 text-sm">
+<Panel {title} flush>
+	<div class="flex items-start gap-4 {image ? 'pr-(--pad-panel) pb-(--pad-panel)' : ''}">
+		<dl class="min-w-0 flex-1 divide-y divide-line text-sm">
 			{#each rows as row (row.label)}
-				<span class="text-text-muted">{row.label}</span>
-				<span class={`${row.mono ? 'font-mono ' : ''}${row.valueClass ?? 'text-text'}`}>
-					{row.value}
-				</span>
+				<div class="flex items-baseline justify-between gap-6 px-(--pad-panel) py-2.5">
+					<dt class="shrink-0 text-ink-muted">{row.label}</dt>
+					<dd class="min-w-0 truncate text-right {row.mono ? 'font-mono' : ''} {row.valueClass ?? 'text-ink'}">
+						{row.value}
+					</dd>
+				</div>
 			{/each}
-		</div>
+		</dl>
 		{#if image}
 			<button
 				type="button"
-				class="flex items-center justify-center border-l border-border bg-surface p-3 hover:bg-bg"
+				class="shrink-0 rounded-control p-2 transition-colors hover:bg-hover"
+				aria-label="Enlarge the {imageAlt}"
 				onclick={onImageClick}
 			>
-				<img
-					src={image}
-					alt={imageAlt}
-					class="h-24 w-24 cursor-zoom-in object-contain"
-					loading="lazy"
-				/>
+				<img src={image} alt={imageAlt} class="size-24 rounded-item object-contain" loading="lazy" />
 			</button>
 		{/if}
 	</div>
-</section>
+</Panel>

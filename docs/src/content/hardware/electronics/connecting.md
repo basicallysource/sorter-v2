@@ -45,9 +45,9 @@ If a cable is still missing, seven of them have a page that builds them: the [PS
     <tr><td>24 V, USB hub</td><td>PSU box jack, male DC barrel</td><td>Hub DC input, male DC barrel</td></tr>
     <tr><td>24 V, Orange Pi</td><td>PSU box jack, male DC barrel</td><td>Buck converter, then USB-C into <code>PWR IN</code> (<a href="{{ '/hardware/helpers/pi-24v-lead/' | relative_url }}">make the Orange Pi's 24 V lead</a>)</td></tr>
     <tr><td>Channel steppers (×4)</td><td>Board <code>J27</code> / <code>J31</code> / <code>J35</code> / <code>J39</code>, JST-PH 4-pin</td><td>The motor's own JST-PH 6-pin socket (<a href="{{ '/hardware/helpers/channel-stepper-lead/' | relative_url }}">make the channel stepper leads</a>)</td></tr>
-    <tr><td>Chute stepper</td><td>Board <code>J24</code>, 4-pin Dupont on 2.54 mm pins</td><td>The motor's flying leads, crimped into the housing (<a href="{{ '/hardware/helpers/chute-stepper-lead/' | relative_url }}">make the chute stepper lead</a>)</td></tr>
+    <tr><td>Chute stepper</td><td>Board <code>J23</code>, 4-pin JST-PH (or <code>J24</code> beside it, 4-pin Dupont on 2.54 mm pins)</td><td>The motor's flying leads, spliced to a thinner tail and crimped into a PH housing (<a href="{{ '/hardware/helpers/chute-stepper-lead/' | relative_url }}">make the chute stepper lead</a>)</td></tr>
     <tr><td>Chute limit switch</td><td>Board <code>J5</code>, 3-pin Dupont, 2 positions used</td><td>Two #187 push-on tabs on the switch (<a href="{{ '/hardware/helpers/limit-switch-lead/' | relative_url }}">make the limit switch lead</a>)</td></tr>
-    <tr><td>Camera lamps (×3)</td><td>Board <code>J8</code> / <code>J9</code> / <code>J10</code>, 2-pin Dupont</td><td>Clamp-on connector on the LED strip (<a href="{{ '/hardware/helpers/led-strip/' | relative_url }}">prepare the LED strip</a>)</td></tr>
+    <tr><td>Camera lamps (×3)</td><td>Board <code>J8</code> / <code>J9</code> / <code>J10</code>, 2-pin Dupont</td><td>Barrel socket, which takes the barrel plug on the lamp's pigtail (optional but recommended; without it the cable runs to the strip) (<a href="{{ '/hardware/helpers/led-strip/' | relative_url }}">prepare the LED strip</a>)</td></tr>
     <tr><td>Ribbon to the layers</td><td>Board <code>J17</code>, 16-pin IDC</td><td><code>J3</code> on the first layer board, 16-pin IDC</td></tr>
     <tr><td>Pico to hub</td><td>Micro USB on the Pico</td><td>USB-A on the hub</td></tr>
     <tr><td>Hub to Orange Pi</td><td>USB-A on the hub</td><td><code>UP USB3.0</code> on the Pi</td></tr>
@@ -64,12 +64,12 @@ All three plug into the PSU box's three DC jacks, which are the same 24 V, so it
 The buck converter is the only bought part of the three. The leads themselves are:
 
 <dl class="spec-list">
-  <dt><code>W1</code>, control board</dt><dd>18 AWG, 36 in. Male DC barrel plug at the PSU end, JST-VH 2-pin (VHR-2) housing at the board end. No supplier sells that pair of ends, so this is one you make: <a href="{{ '/hardware/helpers/board-24v-lead/' | relative_url }}">make the control board's 24 V lead</a>.</dd>
-  <dt><code>W2</code>, USB hub</dt><dd>22 AWG, 12 in, with a male DC barrel plug at <i>both</i> ends. The hub's input is an ordinary female barrel socket, so buy this one ready made.</dd>
-  <dt><code>W3</code>, Orange Pi</dt><dd>22 AWG, 6 in, a male DC barrel plug onto the buck converter's input wires. The buck's USB-C lead is the other half of the run.</dd>
+  <dt><code>W1</code>, control board</dt><dd>18 AWG (0.82 mm²), 36 in. Male DC barrel plug at the PSU end, JST-VH 2-pin (VHR-2) housing at the board end. No supplier sells that pair of ends, so this is one you make: <a href="{{ '/hardware/helpers/board-24v-lead/' | relative_url }}">make the control board's 24 V lead</a>.</dd>
+  <dt><code>W2</code>, USB hub</dt><dd>22 AWG (0.33 mm²), 12 in, with a male DC barrel plug at <i>both</i> ends. The hub's input is an ordinary female barrel socket, so buy this one ready made.</dd>
+  <dt><code>W3</code>, Orange Pi</dt><dd>22 AWG (0.33 mm²), 6 in, a male DC barrel plug onto the buck converter's input wires. The buck's USB-C lead is the other half of the run.</dd>
 </dl>
 
-The machine needs seven male barrel plugs in total: these three (`W2` takes one at each end) and one on each of the three LED pigtails. [Ordering the wire harness]({{ '/hardware/parts/harness-order/' | relative_url }}) has a drawing of every cable in the machine, with the gauge, the length and both end connectors on it.
+The machine needs four male barrel plugs for these three (`W2` takes one at each end), plus, if you fit the optional LED plug and socket, one on each of the three LED pigtails. [Ordering the wire harness]({{ '/hardware/parts/harness-order/' | relative_url }}) has a drawing of every cable in the machine, with the gauge, the length and both end connectors on it.
 
 <div class="callout callout-warning">
   <span class="callout-icon" aria-hidden="true">⚠</span>
@@ -177,7 +177,7 @@ Each stepper has its own socket, and the socket decides which motor the software
 <table>
   <thead><tr><th>Socket</th><th>Printed beside it</th><th>The motor that goes on it</th><th>Cable end</th></tr></thead>
   <tbody>
-    <tr><td><code>J24</code></td><td><code>Stepper_A2</code></td><td>Chute stepper</td><td>4-pin Dupont on the 2.54 mm pins. The chute motor has bare leads, so they are crimped into a housing: <a href="{{ '/hardware/helpers/chute-stepper-lead/' | relative_url }}">make the chute stepper lead</a></td></tr>
+    <tr><td><code>J23</code></td><td><code>Stepper_A2</code></td><td>Chute stepper</td><td>JST-PH 4-pin, built on the motor's bare leads (a 4-pin Dupont housing goes on <code>J24</code> beside it instead): <a href="{{ '/hardware/helpers/chute-stepper-lead/' | relative_url }}">make the chute stepper lead</a></td></tr>
     <tr><td><code>J27</code></td><td><code>Stepper_A3</code></td><td>C-channel 1 rotor</td><td>JST-PH 4-pin</td></tr>
     <tr><td><code>J31</code></td><td><code>Stepper_A4</code></td><td>C-channel 3 rotor</td><td>JST-PH 4-pin</td></tr>
     <tr><td><code>J35</code></td><td><code>Stepper_A5</code></td><td>Classification channel rotor (the software calls it the carousel)</td><td>JST-PH 4-pin</td></tr>
@@ -200,7 +200,7 @@ At the switch end, push the two #187 tabs onto the switch's `COM` and `NC` termi
 
 {% include step.html n="4" title="Plug in the three camera lamps" %}
 
-The board has four LED ports. The fan in the housing lid is already on one of them, so the three [camera lamps]({{ '/hardware/assembly/feeder/camera-lamp/' | relative_url }}) take the other three. Each arrives as a [prepared LED strip]({{ '/hardware/helpers/led-strip/' | relative_url }}) with about a metre of 22 AWG on it.
+The board has four LED ports. The fan in the housing lid is already on one of them, so the three [camera lamps]({{ '/hardware/assembly/feeder/camera-lamp/' | relative_url }}) take the other three. Each lamp comes with a [prepared LED strip]({{ '/hardware/helpers/led-strip/' | relative_url }}) and a board cable of about a metre of 22 AWG (0.33 mm²) with the Dupont housing on one end. The barrel plug on the strip and the matching socket on the cable's other end are optional but recommended: they make maintenance easier, because the lamp's power can be disconnected close to the lamp. Without them the cable runs straight to the strip.
 
 <table>
   <thead><tr><th>Port</th><th>Printed on the board</th><th>What goes on it</th></tr></thead>
@@ -221,9 +221,9 @@ The board prints `+V` beside one pin of each port and `GND` beside the other. Th
 
 The solder jumper beside each of these three ports should already be bridged, from [preparing the control board]({{ '/hardware/electronics/installation/control-board-prep/' | relative_url }}), step 4. If you skipped it, do it before the lamps go on: the 180 Ω resistor in each port is there for a COB LED board and only dims a strip.
 
-**Plugging one in.** Push the lamp's 2-pin 2.54 mm Dupont housing onto the port, red to `+V`, [metering which pin that is]({{ '/hardware/helpers/multimeter/' | relative_url }}#continuity-for-tracing-a-cable) first. A lead bought male-to-female has the male plug cut off; the female end is the plug you want. Cable-tie the pair along whatever it runs down so it is not left hanging.
+**Plugging one in.** Push the board cable's 2-pin 2.54 mm Dupont housing onto the port, red to `+V`, [metering which pin that is]({{ '/hardware/helpers/multimeter/' | relative_url }}#continuity-for-tracing-a-cable) first. If you fitted the plug and socket, push the lamp's barrel plug into the socket on the other end of that cable. Cable-tie the pair along whatever it runs down so it is not left hanging.
 
-**If you want a lamp to come off without unwiring**, put a 5.5 × 2.1 mm barrel pair in the run partway along, tip positive. Nothing on a v1.3 board needs it, and the same size fits a PSU output, so check what you are plugging into.
+**The barrel pair is optional but recommended, and it makes maintenance easier.** It is the point where a lamp comes off, so the power to a lamp can be disconnected close to the lamp and the lamp unplugged without unwiring the board end. It is the same 5.5 × 2.1 mm size as a PSU output jack, so check what you are plugging into.
 
 **Then assign the output in software**: Settings, the channel, the LED button, pick which output that lamp is on and set the brightness. **Nothing lights until an output is assigned.** The lamps are `L1` to `L3` in the [wire harness]({{ '/hardware/electronics/wire-harness/' | relative_url }}) schedule, which still draws every drop split at a barrel jack.
 
@@ -293,7 +293,7 @@ The Orange Pi talks to the control board over USB, through the powered hub. The 
 </figure>
 
 <ol class="numbered-steps">
-  <li>Plug the buck converter's USB-C lead into the socket the board prints <code>PWR IN</code>. <b>The Pi has two USB-C sockets that look the same, and the other one is not a power input.</b> Check that the converter is putting out 5 V before it goes anywhere near the Pi.</li>
+  <li>Plug the buck converter's USB-C lead into the socket the board prints <code>PWR IN</code>. <b>The Pi has two USB-C sockets that look the same</b> and only the one marked <code>PWR IN</code> is a power input. The other is USB 3.1 and DisplayPort, with no power function. Check that the converter is putting out 5 V before it goes anywhere near the Pi, as under <b>Check the lead</b> on <a href="{{ '/hardware/helpers/pi-24v-lead/' | relative_url }}#check-the-lead">Make the Orange Pi's 24 V lead</a>.</li>
   <li>Run a USB cable from the Pico's micro USB socket to any port on the hub.</li>
   <li>Run a USB cable from the hub to the port marked <code>UP USB3.0</code> on the Pi, the upper of the two stacked sockets. The hub comes with a USB-A to USB-A lead for this.</li>
   <li>Plug the three cameras into the three remaining hub ports. Each one arrives with its own lead: the <b>IMX415 4K</b> module on the <a href="{{ '/hardware/assembly/feeder/camera-lamp/classification-camera-lamp/' | relative_url }}">classification camera lamp</a>, and the two <b>OV9732 720p</b> modules on the C2 and C3 <a href="{{ '/hardware/assembly/feeder/camera-lamp/feeder-camera-lamp/' | relative_url }}">feeder camera lamps</a>.</li>

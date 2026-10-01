@@ -1,9 +1,17 @@
 <script lang="ts">
-	import { api, type SortingProfileRule } from '$lib/api';
+	import { api, type Kit, type SortingProfileRule } from '$lib/api';
 	import { auth } from '$lib/auth.svelte';
 	import { goto } from '$app/navigation';
 	import SetSearch from '$lib/components/profile/SetSearch.svelte';
-	import Spinner from '$lib/components/Spinner.svelte';
+	import Alert from '$lib/components/Alert.svelte';
+	import Button from '$lib/components/Button.svelte';
+	import Checkbox from '$lib/components/Checkbox.svelte';
+	import Field from '$lib/components/Field.svelte';
+	import Input from '$lib/components/Input.svelte';
+	import PageHeader from '$lib/components/PageHeader.svelte';
+	import Panel from '$lib/components/Panel.svelte';
+	import RadioGroup from '$lib/components/RadioGroup.svelte';
+	import ArrowLeft from '@lucide/svelte/icons/arrow-left';
 	import { uuid } from '$lib/uuid';
 
 	type SetResult = {
@@ -34,54 +42,47 @@
 		selectedSets = selectedSets.filter((s) => s.set_num !== set_num);
 	}
 
-	function makeSetRule(set: SetResult): SortingProfileRule {
+	// A kit bin for a kit: it collects the kit's parts until each line is full.
+	function makeKitRule(kit: Kit): SortingProfileRule {
 		return {
 			id: uuid(),
-			rule_type: 'set',
-			name: set.name,
+			rule_type: 'kit',
+			kit_id: kit.id,
+			name: kit.name,
 			match_mode: 'all',
 			conditions: [],
 			children: [],
-			disabled: false,
-			set_num: set.set_num,
-			include_spares: includeSpares,
-			set_meta: {
-				name: set.name,
-				year: set.year,
-				num_parts: set.num_parts,
-				img_url: set.img_url
-			}
+			disabled: false
 		};
 	}
 
 	async function handleCreate(e: Event) {
 		e.preventDefault();
-		if (!name.trim()) return;
+		if (creating || !name.trim()) return;
 		if (profileType === 'set' && selectedSets.length === 0) {
-			error = 'Please add at least one set';
+			error = 'Add at least one set.';
 			return;
 		}
 
 		creating = true;
 		error = null;
 		try {
-			const profile = await api.createSortingProfile({
-				name: name.trim(),
-				visibility: 'private'
-			});
-
 			if (profileType === 'set') {
-				await api.saveSortingProfileVersion(profile.id, {
-					name: profile.name,
-					description: profile.description,
-					default_category_id: 'misc',
-					rules: selectedSets.map((set) => makeSetRule(set)),
-					fallback_mode: { rebrickable_categories: false, bricklink_categories: false, by_color: false },
-					change_note: 'Initial set rules',
-					publish: true
+				// Each set becomes a kit of its own, and a kit bin for each.
+				const kits: Kit[] = [];
+				for (const set of selectedSets) {
+					kits.push(
+						await api.createKitFromSet({ set_num: set.set_num, include_spares: includeSpares, name: set.name })
+					);
+				}
+				const profile = await api.createSortingProfile({
+					name: name.trim(),
+					visibility: 'private',
+					rules: kits.map(makeKitRule)
 				});
 				goto(`/profiles/${profile.id}/edit`);
 			} else {
+				const profile = await api.createSortingProfile({ name: name.trim(), visibility: 'private' });
 				goto(`/profiles/${profile.id}/edit?new=1`);
 			}
 		} catch (e: any) {
@@ -93,140 +94,94 @@
 </script>
 
 <svelte:head>
-	<title>New Profile - Hive</title>
+	<title>New profile - Hive</title>
 </svelte:head>
 
-<div class="mx-auto max-w-lg py-12">
-	<a href="/profiles" class="mb-6 inline-flex items-center gap-1 text-sm text-text-muted hover:text-text">
-		<svg class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
-			<path fill-rule="evenodd" d="M17 10a.75.75 0 01-.75.75H5.612l4.158 3.96a.75.75 0 11-1.04 1.08l-5.5-5.25a.75.75 0 010-1.08l5.5-5.25a.75.75 0 111.04 1.08L5.612 9.25H16.25A.75.75 0 0117 10z" clip-rule="evenodd" />
-		</svg>
-		Profiles
-	</a>
+<div class="mx-auto flex w-full max-w-xl flex-col gap-(--gap-panels)">
+	<div>
+		<Button href="/profiles" size="sm" variant="ghost" icon={ArrowLeft}>Profiles</Button>
+	</div>
 
-	<h1 class="mb-2 text-2xl font-bold text-text">Create a Sorting Profile</h1>
-	<p class="mb-8 text-sm text-text-muted">
-		Choose your profile type and configure it.
-	</p>
+	<PageHeader title="New sorting profile" description="Choose what kind of profile it is, then name it." />
 
 	{#if error}
-		<div class="mb-4 border border-primary/20 bg-primary-light p-3 text-sm text-primary">{error}</div>
+		<Alert tone="danger">{error}</Alert>
 	{/if}
 
-	<form onsubmit={handleCreate} class="space-y-5">
-		<!-- Profile Type Toggle -->
-		<div>
-			<div class="mb-2 text-sm font-medium text-text">Profile Type</div>
-			<div class="flex flex-col gap-2 sm:flex-row">
-				<button
-					type="button"
-					class="flex-1 border px-4 py-3 text-sm font-medium transition-colors {profileType === 'rule'
-						? 'border-primary bg-primary-light text-primary'
-						: 'border-border text-text-muted hover:bg-bg'}"
-					onclick={() => (profileType = 'rule')}
-				>
-					<div class="font-medium">Rule-based</div>
-					<div class="mt-0.5 text-xs opacity-70">Sort by part properties (category, color, price)</div>
-				</button>
-				<button
-					type="button"
-					class="flex-1 border px-4 py-3 text-sm font-medium transition-colors {profileType === 'set'
-						? 'border-primary bg-primary-light text-primary'
-						: 'border-border text-text-muted hover:bg-bg'}"
-					onclick={() => (profileType = 'set')}
-				>
-					<div class="font-medium">Set-based</div>
-					<div class="mt-0.5 text-xs opacity-70">Reassemble specific LEGO sets from mixed parts</div>
-				</button>
-			</div>
-		</div>
-
-		<div>
-			<label for="profile-name" class="mb-1 block text-sm font-medium text-text">
-				Profile Name
-			</label>
-			<input
-				id="profile-name"
-				type="text"
-				bind:value={name}
-				required
-				placeholder={profileType === 'set' ? 'e.g. UCS Collection Sort' : 'e.g. My Technic Sorter'}
-				class="w-full border border-border px-3 py-2 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+	<Panel>
+		<form id="new-profile" onsubmit={handleCreate} class="flex flex-col gap-5">
+			<RadioGroup
+				name="profile-type"
+				label="Profile type"
+				bind:value={profileType}
+				options={[
+					{ value: 'rule', label: 'Rule based', help: 'Sort by what parts are: category, color, price.' },
+					{ value: 'set', label: 'Kit based', help: 'Collect the parts of particular LEGO sets from mixed parts.' }
+				]}
 			/>
-		</div>
 
-		{#if profileType === 'rule'}
-			{#if !hasOpenRouter}
-				<div class="border border-warning/30 bg-warning/[0.1] p-4 text-sm text-warning-strong">
-					<strong>AI Assistant requires an OpenRouter API key.</strong>
-					You can still create a profile and edit rules manually, or
-					<a href="/settings" class="font-medium underline hover:text-warning-strong">configure your API key</a> first.
-				</div>
-			{/if}
-		{:else}
-			<div>
-				<div class="mb-1 text-sm font-medium text-text">
-					Add LEGO Sets
-				</div>
-				<SetSearch onSelect={addSet} />
-			</div>
-
-			{#if selectedSets.length > 0}
-				<div>
-					<div class="mb-1 text-sm font-medium text-text">
-						Selected Sets ({selectedSets.length})
-					</div>
-					<div class="space-y-1">
-						{#each selectedSets as set}
-							<div class="flex items-center gap-3 border border-border bg-bg px-3 py-2">
-								{#if set.img_url}
-									<img src={set.img_url} alt="" class="h-8 w-8 object-contain" />
-								{:else}
-									<div class="flex h-8 w-8 items-center justify-center bg-bg text-xs text-text-muted">?</div>
-								{/if}
-								<div class="min-w-0 flex-1 text-sm">
-									<div class="truncate font-medium">{set.name}</div>
-									<div class="text-xs text-text-muted">{set.set_num} &middot; {set.num_parts} parts</div>
-								</div>
-								<button
-									type="button"
-									class="text-xs text-primary hover:text-primary-hover"
-									onclick={() => removeSet(set.set_num)}
-								>
-									Remove
-								</button>
-							</div>
-						{/each}
-					</div>
-				</div>
-			{/if}
-
-			<div class="flex items-center gap-2">
-				<input
-					id="include-spares"
-					type="checkbox"
-					bind:checked={includeSpares}
-					class="h-4 w-4"
+			<Field label="Name" for="profile-name">
+				<Input
+					id="profile-name"
+					bind:value={name}
+					placeholder={profileType === 'set' ? 'For example: UCS collection' : 'For example: my Technic sorter'}
 				/>
-				<label for="include-spares" class="text-sm text-text-muted">Include spare parts</label>
-			</div>
-		{/if}
+			</Field>
 
-		<button
-			type="submit"
-			disabled={creating || !name.trim() || (profileType === 'set' && selectedSets.length === 0)}
-			class="w-full bg-primary px-4 py-3 text-sm font-medium text-white hover:bg-primary-hover disabled:opacity-50"
-		>
-			{#if creating}
-				<span class="flex items-center justify-center gap-2">
-					<Spinner size={16} />
-					Creating...
-				</span>
-			{:else if profileType === 'set'}
-				Create Profile & Open Set Editor
+			{#if profileType === 'rule'}
+				{#if !hasOpenRouter}
+					<Alert tone="warning" title="The assistant needs an OpenRouter key">
+						You can still create the profile and write its rules yourself, or add a key first.
+						{#snippet actions()}
+							<Button href="/settings" size="sm">Settings</Button>
+						{/snippet}
+					</Alert>
+				{/if}
 			{:else}
-				Create Profile & Open Editor
+				<div class="flex flex-col gap-2">
+					<div class="text-sm font-medium text-ink">Sets</div>
+					<SetSearch onSelect={addSet} />
+				</div>
+
+				{#if selectedSets.length > 0}
+					<div class="flex flex-col gap-1">
+						<div class="text-sm font-medium text-ink">
+							Chosen sets <span class="num text-ink-muted">{selectedSets.length}</span>
+						</div>
+						<ul class="divide-y divide-line">
+							{#each selectedSets as set (set.set_num)}
+								<li class="flex items-center gap-3 py-2">
+									{#if set.img_url}
+										<img src={set.img_url} alt="" class="size-8 object-contain" />
+									{:else}
+										<span class="flex size-8 items-center justify-center rounded-control bg-well text-xs text-ink-muted">?</span>
+									{/if}
+									<span class="min-w-0 flex-1 text-sm">
+										<span class="block truncate font-medium text-ink">{set.name}</span>
+										<span class="block text-ink-muted"
+											><span class="font-mono">{set.set_num}</span>, <span class="num">{set.num_parts}</span> parts</span
+										>
+									</span>
+									<Button variant="ghost" size="sm" onclick={() => removeSet(set.set_num)}>Remove</Button>
+								</li>
+							{/each}
+						</ul>
+					</div>
+				{/if}
+
+				<Checkbox id="include-spares" bind:checked={includeSpares}>Include spare parts</Checkbox>
 			{/if}
-		</button>
-	</form>
+		</form>
+		{#snippet footer()}
+			<Button href="/profiles" variant="ghost">Cancel</Button>
+			<Button
+				type="submit"
+				form="new-profile"
+				variant="primary"
+				loading={creating}
+				disabled={!name.trim() || (profileType === 'set' && selectedSets.length === 0)}
+				>Create and open the editor</Button
+			>
+		{/snippet}
+	</Panel>
 </div>

@@ -6,7 +6,6 @@ from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
 
 from defs.sorter_controller import SorterLifecycle
-from local_state import getPowerStressRun, listPowerStressRuns
 from server import shared_state
 from subsystems.power_stress import (
     DEFAULT_CHUTE_MAX_DEG,
@@ -20,6 +19,7 @@ from subsystems.power_stress import (
     getActivePowerStressRunner,
     getPowerStressRunner,
 )
+from stress_test_runs import getPowerStressRun, listPowerStressRuns
 
 router = APIRouter()
 

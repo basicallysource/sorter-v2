@@ -15,6 +15,7 @@ images and other assets from the asset service.
 |---|---|---|
 | `software/sorter/backend/` | The machine's Python backend: hardware, vision, state machines, API | `software/README.md` |
 | `software/sorter/frontend/` | The machine's web UI | `software/sorter/frontend/AGENTS.md` |
+| `software/sorter-design-system/` | How the machine's web UI, Hive and the SorterOS pages look: tokens, components, rules, and a site that shows them | `software/sorter-design-system/AGENTS.md` |
 | `software/firmware/` | Firmware for the control boards | its `README.md` |
 | `software/sorteros/` | The Orange Pi OS image, first boot, and the image customizer site | `software/sorteros/README.md` |
 | `software/hive/` | Hive, the cloud side: backend, frontend, postgres | `software/hive/AGENTS.md` |

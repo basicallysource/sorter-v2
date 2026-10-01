@@ -1,7 +1,10 @@
 <script lang="ts">
 	import { getBackendHttpBase } from '$lib/backend';
-	import { Button, Alert } from '$lib/components/primitives';
-	import SectionCard from '$lib/components/settings/SectionCard.svelte';
+	import Alert from '$lib/components/ui/Alert.svelte';
+	import Panel from '$lib/components/ui/Panel.svelte';
+	import PageHeader from '$lib/components/ui/PageHeader.svelte';
+	import SettingsSaveBar from '$lib/components/settings/SettingsSaveBar.svelte';
+	import Spinner from '$lib/components/ui/Spinner.svelte';
 	import ProviderSelect from '$lib/components/settings/ProviderSelect.svelte';
 	import type { ProviderInfo } from '$lib/components/settings/ProviderSelect.svelte';
 
@@ -76,50 +79,38 @@
 
 <svelte:head><title>Sorter - Providers</title></svelte:head>
 
-<div class="flex flex-col gap-6 p-6">
-	<div>
-		<div class="text-lg font-semibold text-text">Providers</div>
-		<div class="mt-1 text-sm text-text-muted">
-			Which service identifies each piece's mold, and which predicts its color. The two run in
-			parallel during classification; if a remote color provider is slow or unreachable the piece
-			falls back to Brickognize's color. Changes apply to the next piece — no restart needed.
-		</div>
-	</div>
+<PageHeader
+	title="Providers"
+	description="Which service identifies each piece's mold, and which predicts its color. The two run side by side during classification; if a remote color provider is slow or unreachable, the piece falls back to Brickognize's color. Changes apply to the next piece, with no restart."
+/>
 
-	{#if error}
-		<Alert variant="danger">{error}</Alert>
-	{/if}
+{#if error}
+	<Alert tone="danger">{error}</Alert>
+{/if}
+{#if saved}
+	<Alert tone="success">Saved. It applies to the next classified piece.</Alert>
+{/if}
 
-	{#if saved}
-		<Alert variant="success">Saved. Applies to the next classified piece.</Alert>
-	{/if}
+{#if loading}
+	<div class="flex items-center gap-2 text-sm text-ink-muted"><Spinner size={14} /> Loading</div>
+{:else}
+	<Panel title="Color prediction" description="Which service says what color a piece is.">
+		<ProviderSelect
+			name="Color provider"
+			options={colorProviders}
+			bind:selected={selectedColor}
+			active={activeColor}
+		/>
+	</Panel>
 
-	{#if loading}
-		<div class="text-sm text-text-muted">Loading…</div>
-	{:else}
-		<SectionCard
-			title="Color prediction"
-			description="Which service answers what color is this piece."
-		>
-			<ProviderSelect options={colorProviders} bind:selected={selectedColor} active={activeColor} />
-			{#if currentColor}
-				<div class="mt-3 text-sm text-text-muted">{currentColor.description}</div>
-			{/if}
-		</SectionCard>
+	<Panel title="Mold detection" description="Which service says what part a piece is.">
+		<ProviderSelect
+			name="Mold provider"
+			options={moldProviders}
+			bind:selected={selectedMold}
+			active={activeMold}
+		/>
+	</Panel>
 
-		<SectionCard
-			title="Mold detection"
-			description="Which service answers what part is this piece."
-		>
-			<ProviderSelect options={moldProviders} bind:selected={selectedMold} active={activeMold} />
-			{#if currentMold}
-				<div class="mt-3 text-sm text-text-muted">{currentMold.description}</div>
-			{/if}
-		</SectionCard>
-
-		<div class="flex gap-3">
-			<Button variant="primary" onclick={save} loading={saving}>Save</Button>
-			<Button variant="secondary" onclick={load} disabled={saving}>Reset to saved</Button>
-		</div>
-	{/if}
-</div>
+	<SettingsSaveBar {save} reset={load} {saving} />
+{/if}

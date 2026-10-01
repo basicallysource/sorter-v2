@@ -7,7 +7,6 @@ from types import SimpleNamespace
 
 import pytest
 
-from irl.config import ClassificationChannelMode
 from subsystems.classification_channel.incidents import (
     C4_EXIT_STUCK_INCIDENT_KIND,
     C4_STALL_WATCHDOG_SOURCE_KIND,
@@ -25,6 +24,9 @@ class FakeRuntimeStats:
 
     def setActiveIncident(self, incident: dict) -> None:
         self._active = dict(incident)
+
+    def observeStateTransition(self, machine: str, from_state, to_state) -> None:
+        pass
 
     def activeIncident(self):
         return dict(self._active) if self._active else None
@@ -92,8 +94,8 @@ def mkWatchdogSm(n_pieces: int = 1) -> ClassificationChannelStateMachine:
         perception_service=FakePerception(n_pieces),
     )
     sm.logger = logging.getLogger("test_c4_stall_watchdog")
-    sm._mode = ClassificationChannelMode.TWO_PIECE_STATE_MACHINE_REV01
     sm._two_piece = FakeTwoPiece()
+    sm._phase = sm._two_piece.phaseName()
     sm._last_progress_at = time.monotonic()
     sm._stall_incident_raised = False
     sm._stall_resolve_requested = False

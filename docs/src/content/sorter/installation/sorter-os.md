@@ -43,7 +43,7 @@ In Balena Etcher: **Flash from file**, pick the `.zip`, **Select target**, pick 
 
 ## 3. Power on
 
-Put the card in the Orange Pi and power it on.
+Put the card in the Orange Pi and power it on. Power goes in at the USB-C socket marked `PWR IN`.
 
 **On Ethernet to your router?** The Pi goes online by itself. Skip to step 5.
 
@@ -91,6 +91,22 @@ On a phone or computer on the same WiFi, open **[http://sorter.local](http://sor
 </div>
 
 When it's ready, the page opens the SorterOS UI by itself.
+
+## 6. If you fitted the WiFi module
+
+Nothing needs installing for the module itself: the driver is in the official Orange Pi Ubuntu image that SorterOS is built on, so a SorterOS machine picks it up on its own. Third-party OS images may not have the driver at all.
+
+Once the UI is up, the adapter shows under **Settings → WiFi**, which is where the network and password go in. Over SSH, `nmcli device wifi list` lists what it can see.
+
+**Take the adapter's address before you unplug the Ethernet.** Joining a network gets the machine a second address, different from the one it has been answering on, and once connected the adapter's row on that same WiFi page shows what it is. Write it down, then pull the Ethernet and browse to it. Doing it the other way round leaves you hunting for the machine, because the page you were reading goes with the cable.
+
+## 7. Shut it down before you unplug it
+
+**Never cut the power to a running board.** It writes files continuously, and pulling the plug mid-write can corrupt the card you just flashed.
+
+Press the small black button on the side of the Orange Pi once and leave it alone. Shutdown takes about a minute and a half, and it has finished when the red and green LEDs stop blinking. Only then unplug it. The button is a shutdown button, not a power switch: the board starts again the moment it has power, with no press needed.
+
+[Shutting down the machine]({{ '/sorter/safe-shutdown/' | relative_url }}) covers the same from the UI.
 
 ## The finished result
 

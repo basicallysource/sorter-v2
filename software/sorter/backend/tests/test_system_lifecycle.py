@@ -5,6 +5,7 @@ import unittest
 from fastapi import HTTPException
 
 import server.shared_state as shared_state
+from hardware.fault import HardwareFault
 from server.routers import steppers, system
 
 
@@ -102,8 +103,25 @@ class SystemLifecycleTests(unittest.TestCase):
             shared_state.hardware_worker_thread.join(timeout=0.05)
 
         self.assertEqual("error", shared_state.hardware_state)
-        self.assertEqual("boom", shared_state.hardware_error)
+        self.assertEqual({"title": "Hardware error", "message": "boom"}, shared_state.hardware_error)
         self.assertIsNone(shared_state.hardware_worker_thread)
+
+    def test_recover_failure_keeps_the_faults_title(self) -> None:
+        def start_fn() -> None:
+            raise HardwareFault("Stepper setup failed", "The chute driver did not answer.")
+
+        shared_state._hardware_start_fn = start_fn
+
+        self.assertTrue(system.recover_system()["ok"])
+        deadline = time.monotonic() + 1.0
+        while shared_state.hardware_worker_thread is not None and time.monotonic() < deadline:
+            shared_state.hardware_worker_thread.join(timeout=0.05)
+
+        self.assertEqual("error", shared_state.hardware_state)
+        self.assertEqual(
+            {"title": "Stepper setup failed", "message": "The chute driver did not answer."},
+            shared_state.hardware_error,
+        )
 
     def test_recover_does_not_start_twice(self) -> None:
         started = threading.Event()
@@ -137,7 +155,7 @@ class SystemLifecycleTests(unittest.TestCase):
 
         shared_state.hardware_state = "ready"
         shared_state.hardware_homing_step = "Old step"
-        shared_state.hardware_error = "old"
+        shared_state.hardware_error = {"title": "Old", "message": "old"}
         shared_state._hardware_reset_fn = reset_fn
 
         response = system.reset_system()

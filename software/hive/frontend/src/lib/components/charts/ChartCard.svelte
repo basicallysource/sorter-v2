@@ -1,5 +1,10 @@
+<!--
+	A chart in a panel: the panel's title and one sentence, and the chart on a
+	well (the design system's docs/components.md, Charts).
+-->
 <script lang="ts">
 	import type { Snippet } from 'svelte';
+	import Panel from '$lib/components/Panel.svelte';
 
 	let {
 		title,
@@ -12,10 +17,6 @@
 	} = $props();
 </script>
 
-<div class="border border-border bg-surface">
-	<div class="border-b border-border bg-bg px-4 py-2">
-		<h3 class="text-sm font-semibold text-text">{title}</h3>
-		{#if subtitle}<p class="text-xs text-text-muted">{subtitle}</p>{/if}
-	</div>
-	<div class="p-3">{@render children()}</div>
-</div>
+<Panel {title} description={subtitle || undefined}>
+	<div class="rounded-control bg-well p-3">{@render children()}</div>
+</Panel>

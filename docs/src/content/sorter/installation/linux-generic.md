@@ -78,7 +78,7 @@ Then [First setup in the UI]({{ '/sorter/first-setup/' | relative_url }}) takes 
 ```bash
 ./install.sh --help
 ./install.sh                 # default — install everything in dev mode
-./install.sh --as-service    # also build the UI for production and install systemd units
+./install.sh --as-service    # also build the UI and run the Sorter as a systemd service
 ./install.sh --skip-apt      # skip the apt step (useful when packages are already installed)
 ```
 
@@ -92,20 +92,19 @@ For an "appliance" install on the Pi 5 that should boot straight into a running 
 
 In addition to all the steps above, this also:
 
-- runs `pnpm build` to produce a production UI bundle;
+- runs `pnpm build`, which writes the UI as static files to `software/sorter/frontend/build/`;
 - substitutes the actual user, paths, and binary locations into the unit templates under `software/systemd/`;
-- writes four units into `/etc/systemd/system/`: `sorter-backend.service`, `sorter-ui.service`, and a `-dev` variant of each;
-- runs `systemctl daemon-reload`, then `systemctl enable --now sorter-backend-dev.service sorter-ui-dev.service`, so those two start immediately and on every subsequent boot.
+- writes two units into `/etc/systemd/system/`: `sorter-backend.service` and its `-dev` variant;
+- runs `systemctl daemon-reload`, then `systemctl enable --now sorter-backend-dev.service`, so it starts immediately and on every subsequent boot.
 
-**It is the `-dev` pair that gets enabled**, not the production pair, even though the production bundle was built. To run the built bundle instead, disable the dev units and enable `sorter-backend.service` and `sorter-ui.service` yourself.
+**It is the `-dev` unit that gets enabled.** The two differ only in how quickly systemd restarts them; enable `sorter-backend.service` instead if you prefer.
 
-**Both UI units bind port 80**, so a service install answers at `http://<machine name>/` with no port on the end. The `:5173` address is the dev runner's, and only applies when you start `./dev.sh` by hand.
+**The backend's supervisor serves the UI on port 80**, so a service install answers at `http://<machine name>/` with no port on the end. It serves the build, so there is no Node process running on the machine, and the page still loads while the backend itself restarts. The `:5173` address is the dev runner's, and only applies when you start `./dev.sh` by hand. After changing UI code, run `pnpm build` in `software/sorter/frontend/` again; the next page load picks it up.
 
-The backend and the UI are separate units on purpose, so you can restart one without bouncing the other. View the logs with:
+View the logs with:
 
 ```bash
 sudo journalctl -u sorter-backend-dev -f
-sudo journalctl -u sorter-ui-dev -f
 ```
 
 ## Verifying the installer in Docker

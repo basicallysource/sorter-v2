@@ -7,6 +7,7 @@ MJPEG at its own resolution: 4K on a 4K camera, 720p on the rest.
 
 from __future__ import annotations
 
+import platform
 import re
 import subprocess
 from typing import Any
@@ -104,3 +105,81 @@ def preview_capture_mode(modes: list[dict[str, Any]]) -> dict[str, Any] | None:
         return None
     best = min(mjpeg, key=lambda m: (int(m["width"]) * int(m["height"]), abs(int(m["fps"]) - TARGET_FPS)))
     return {"width": int(best["width"]), "height": int(best["height"]), "fps": int(best["fps"]), "fourcc": "MJPG"}
+
+
+def capture_modes_for_source(source: int | str | None) -> tuple[list[dict[str, Any]], str]:
+    """(modes, backend) for a camera source: the modes it can capture in
+    ({width, height, fps, fourcc, native_fourcc}) and where the list came from.
+    Only a USB camera (an int source) has modes."""
+    if not isinstance(source, int):
+        return [], "none"
+
+    common = [
+        (640, 480),
+        (800, 600),
+        (1024, 768),
+        (1280, 720),
+        (1280, 960),
+        (1600, 1200),
+        (1920, 1080),
+        (2048, 1536),
+        (2560, 1440),
+        (2592, 1944),
+        (3840, 2160),
+    ]
+    fallback_modes = [
+        {"width": w, "height": h, "fps": 30, "fourcc": "MJPG", "native_fourcc": "MJPG"}
+        for (w, h) in common
+    ]
+
+    if platform.system() == "Darwin":
+        try:
+            from hardware.macos_camera_modes import list_modes_for_unique_id
+            from hardware.macos_camera_registry import refresh_macos_cameras as _refresh
+
+            cam = next((c for c in _refresh() if c.index == source), None)
+            unique_id = cam.path if (cam is not None and isinstance(cam.path, str)) else None
+            if unique_id:
+                modes = list_modes_for_unique_id(unique_id)
+                if modes:
+                    return (
+                        [
+                            {
+                                "width": m.width,
+                                "height": m.height,
+                                "fps": int(round(m.max_fps)),
+                                "fourcc": _avf_to_opencv_fourcc(m.fourcc),
+                                "native_fourcc": m.fourcc,
+                            }
+                            for m in modes
+                        ],
+                        "avfoundation",
+                    )
+        except Exception:
+            pass
+
+    if platform.system() == "Linux":
+        v4l2_modes = list_v4l2_modes(source)
+        if v4l2_modes:
+            return (v4l2_modes, "v4l2")
+
+    # Fallback: allow common USB modes when format enumeration fails.
+    # Some UVC devices still stream fine even when the discovery API
+    # returns an empty format list.
+    return (fallback_modes, "probe-fallback")
+
+
+def _avf_to_opencv_fourcc(native: str) -> str | None:
+    """AVFoundation subtype -> optional OpenCV fourcc hint.
+
+    AVFoundation often reports uncompressed pixel formats such as ``420v``.
+    Forcing those to ``MJPG`` can make OpenCV open the device but never
+    deliver frames on cameras like the Logitech StreamCam, so only return a
+    hint for real compressed/native OpenCV-style formats.
+    """
+    normalized = (native or "").strip().upper()
+    if normalized in {"MJPG", "MJPEG"}:
+        return "MJPG"
+    if normalized in {"YUY2", "YUYV"}:
+        return "YUYV"
+    return None

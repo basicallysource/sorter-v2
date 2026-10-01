@@ -2,12 +2,10 @@ from __future__ import annotations
 
 import json
 import sqlite3
-import threading
 import time
-from contextlib import contextmanager
-from typing import Any, Iterator, Optional
+from typing import Any, Optional
 
-from local_state import local_state_db_path
+import db
 
 # Durable log of operator-facing incidents (classification-channel stalls,
 # chute jams, feeder dropzone stuck pieces, distribution faults, stepper
@@ -20,76 +18,44 @@ from local_state import local_state_db_path
 # incident payload is also kept as JSON so kind-specific fields (stalled_ms,
 # bbox, steppers, ...) are never lost even before they earn their own column.
 
-_INIT_LOCK = threading.Lock()
-_initialized = False
+def _createTables(conn: sqlite3.Connection) -> None:
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS incidents ("
+        "id INTEGER PRIMARY KEY AUTOINCREMENT, "
+        "run_id TEXT, "
+        "machine_id TEXT, "
+        "kind TEXT NOT NULL, "
+        "source TEXT, "
+        "source_kind TEXT, "
+        "severity TEXT, "
+        "scope TEXT, "
+        "channel TEXT, "
+        "role TEXT, "
+        "channel_label TEXT, "
+        "piece_uuid TEXT, "
+        "track_id INTEGER, "
+        "reason TEXT, "
+        "rule TEXT, "
+        "resolution_hint TEXT, "
+        "operator_message TEXT, "
+        "status TEXT NOT NULL, "
+        "triggered_at REAL NOT NULL, "
+        "updated_at REAL, "
+        "resolved_at REAL, "
+        "resolved_by TEXT, "
+        "duration_s REAL, "
+        "details_json TEXT"
+        ")"
+    )
+    conn.execute(
+        "CREATE INDEX IF NOT EXISTS idx_incidents_triggered ON incidents(triggered_at)"
+    )
+    conn.execute("CREATE INDEX IF NOT EXISTS idx_incidents_kind ON incidents(kind)")
+    conn.execute("CREATE INDEX IF NOT EXISTS idx_incidents_status ON incidents(status)")
 
 
-def _connect() -> sqlite3.Connection:
-    db_path = local_state_db_path()
-    db_path.parent.mkdir(parents=True, exist_ok=True)
-    conn = sqlite3.connect(db_path, timeout=5.0)
-    conn.row_factory = sqlite3.Row
-    conn.execute("PRAGMA journal_mode = WAL")
-    conn.execute("PRAGMA busy_timeout = 5000")
-    return conn
-
-
-@contextmanager
-def _connection() -> Iterator[sqlite3.Connection]:
-    _ensureInitialized()
-    conn = _connect()
-    try:
-        yield conn
-    finally:
-        conn.close()
-
-
-def _ensureInitialized() -> None:
-    global _initialized
-    if _initialized:
-        return
-    with _INIT_LOCK:
-        if _initialized:
-            return
-        conn = _connect()
-        try:
-            conn.execute(
-                "CREATE TABLE IF NOT EXISTS incidents ("
-                "id INTEGER PRIMARY KEY AUTOINCREMENT, "
-                "run_id TEXT, "
-                "machine_id TEXT, "
-                "kind TEXT NOT NULL, "
-                "source TEXT, "
-                "source_kind TEXT, "
-                "severity TEXT, "
-                "scope TEXT, "
-                "channel TEXT, "
-                "role TEXT, "
-                "channel_label TEXT, "
-                "piece_uuid TEXT, "
-                "track_id INTEGER, "
-                "reason TEXT, "
-                "rule TEXT, "
-                "resolution_hint TEXT, "
-                "operator_message TEXT, "
-                "status TEXT NOT NULL, "
-                "triggered_at REAL NOT NULL, "
-                "updated_at REAL, "
-                "resolved_at REAL, "
-                "resolved_by TEXT, "
-                "duration_s REAL, "
-                "details_json TEXT"
-                ")"
-            )
-            conn.execute(
-                "CREATE INDEX IF NOT EXISTS idx_incidents_triggered ON incidents(triggered_at)"
-            )
-            conn.execute("CREATE INDEX IF NOT EXISTS idx_incidents_kind ON incidents(kind)")
-            conn.execute("CREATE INDEX IF NOT EXISTS idx_incidents_status ON incidents(status)")
-            conn.commit()
-            _initialized = True
-        finally:
-            conn.close()
+def _connection():
+    return db.connect(_createTables)
 
 
 def _machineId() -> Optional[str]:

@@ -50,7 +50,7 @@
 {#if show}
 	<div
 		use:portal
-		class="pointer-events-none fixed z-[60] border border-border bg-surface p-1 shadow-xl"
+		class="pointer-events-none fixed z-[60] rounded-panel border border-line bg-raised p-1"
 		style={style}
 	>
 		<img {src} alt="" class="h-full w-full bg-transparent object-contain" />

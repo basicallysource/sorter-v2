@@ -625,7 +625,12 @@ export interface CustomSetPart {
 
 export interface SortingProfileRule {
 	id: string;
-	rule_type?: 'filter' | 'set';
+	// "set" rules are from before kits; saving a profile makes each one a kit.
+	rule_type?: 'filter' | 'set' | 'kit';
+	// Kit rules: the kit whose parts the rule collects.
+	kit_id?: string | null;
+	// A picture for the rule's bin; without one, the bin shows its best known part.
+	image_url?: string | null;
 	name: string;
 	match_mode: 'all' | 'any' | string;
 	conditions: SortingProfileCondition[];
@@ -672,6 +677,14 @@ export interface SortingProfileVersionSummary {
 	coverage_ratio: number | null;
 	created_at: string;
 	rules_summary: RuleSummary[];
+	// "web", "api" (an API key, named in created_via_key_name), "assistant"
+	// (the editor's chat) or "system" (Hive's own defaults).
+	created_via: string | null;
+	created_via_key_name: string | null;
+	// What a sorter must run for this version, e.g. "color_fallback".
+	requires: string[];
+	// The version's first bins in order, for a card that shows a profile by them.
+	bins: Array<{ id: string; name: string | null; kind: ProfileBin['kind'] | null; image_url: string | null; rgb: string | null; part_count: number | null }>;
 }
 
 export interface SortingProfileForkSource {
@@ -697,6 +710,11 @@ export interface SortingProfileSummary {
 	source: SortingProfileForkSource | null;
 	saved_in_library: boolean;
 	is_owner: boolean;
+	// Hive's own defaults, which every machine gets.
+	is_default: boolean;
+	default_rank: number | null;
+	// The profile's page on this Hive.
+	web_url?: string | null;
 	latest_version: SortingProfileVersionSummary | null;
 	latest_published_version: SortingProfileVersionSummary | null;
 }
@@ -708,7 +726,250 @@ export interface SortingProfileVersion extends SortingProfileVersionSummary {
 	rules: SortingProfileRule[];
 	fallback_mode: SortingProfileFallbackMode;
 	compiled_stats: Record<string, unknown> | null;
-	categories: Record<string, { name: string }>;
+	// Every bin the version fills, keyed by category (a rule's id, bl_5, color_5,
+	// misc), and the order to show them in.
+	categories: Record<string, ProfileBin>;
+	category_order: string[];
+	warnings: ProfileWarning[];
+}
+
+// --- How Hive describes a profile's bins -------------------------------------
+// The same shape on Hive and on a sorter (which gets it in the profile it runs).
+
+export interface BinConditionValue {
+	value: unknown;
+	label: string;
+	// A color's swatch.
+	rgb?: string | null;
+	// A part's picture and IDs.
+	img_url?: string | null;
+	part_num?: string;
+	bricklink_id?: string;
+}
+
+export interface BinCondition {
+	id?: string;
+	field: string;
+	field_label: string;
+	op: string;
+	op_label: string;
+	values: BinConditionValue[];
+	invalid?: boolean;
+}
+
+export interface BinConditions {
+	mode: 'all' | 'any' | string;
+	items: BinCondition[];
+	groups: Array<BinConditions & { id?: string; name?: string }>;
+}
+
+export interface BinSample {
+	// BrickLink ID (what a sorter reports), and the Rebrickable number.
+	part_num: string;
+	rb_part_num?: string | null;
+	name: string;
+	img_url: string | null;
+	// Tried when img_url fails: img_url may be a render in the bin's color.
+	fallback_img_url?: string | null;
+	color_name?: string | null;
+	quantity?: number | null;
+}
+
+export interface BinColor {
+	// BrickLink color ID (what a sorter reports).
+	id: string;
+	bricklink_id?: string;
+	// The Rebrickable color ID, which rule conditions take.
+	rebrickable_id?: number;
+	name: string | null;
+	rgb: string | null;
+}
+
+export interface ProfileBin {
+	name: string;
+	kind: 'rule' | 'kit' | 'fallback' | 'default';
+	image_url?: string | null;
+	image_fallback_url?: string | null;
+	image_source?: 'rule' | 'kit' | 'part' | null;
+	conditions?: BinConditions;
+	// Parts the bin takes (null for a color bin: that depends on the pile).
+	part_count: number | null;
+	// When a rule takes only some colors.
+	color_count?: number;
+	colors?: BinColor[];
+	// Takes any part in its colors, including parts the catalog lacks.
+	any_part?: boolean;
+	samples: BinSample[];
+	kit?: { kit_id?: string | null; set_num?: string | null; line_count: number; total_quantity: number; any_color_lines: number };
+	// A color bin's color.
+	rgb?: string | null;
+}
+
+export interface ProfileWarning {
+	rule_id: string | null;
+	// What kind of warning, for code to tell them apart; `message` is for people.
+	code?:
+		| 'unreachable'
+		| 'kit_empty'
+		| 'kit_any_color'
+		| 'kit_parts_taken_above'
+		| 'condition_incomplete'
+		| 'no_conditions'
+		| 'taken_above'
+		| 'matches_nothing';
+	message: string;
+}
+
+export interface ProfileProblem {
+	rule_id: string | null;
+	condition_id: string | null;
+	message: string;
+}
+
+export interface ProfileDocument {
+	name?: string;
+	description?: string | null;
+	default_category_id?: string;
+	rules: SortingProfileRule[];
+	fallback_mode: SortingProfileFallbackMode;
+}
+
+export interface ProfilePreview {
+	// `sorted` of `total_parts` catalog parts go to a bin of their own (a rule,
+	// a kit or a fallback category); the rest go to the default bin.
+	stats: { total_parts: number; sorted: number };
+	categories: Record<string, ProfileBin>;
+	category_order: string[];
+	rules: SortingProfileRule[];
+	warnings: ProfileWarning[];
+	problems: ProfileProblem[];
+	requires: string[];
+	artifact_hash: string;
+	compile_ms: number;
+}
+
+export interface RuleMatchPart {
+	part_num: string;
+	bricklink_id: string | null;
+	bricklink_ids: string[];
+	name: string;
+	img_url: string | null;
+	rb_category: { id: number; name: string } | null;
+	bl_category: { id: number; name: string } | null;
+	year_from: number | null;
+	year_to: number | null;
+}
+
+export interface RuleMatches {
+	total: number;
+	items: RuleMatchPart[];
+	offset: number;
+	limit: number;
+	// The colors the rule limits its parts to, or null for every color.
+	colors: BinColor[] | null;
+	problems: ProfileProblem[];
+}
+
+export interface RoutePiece {
+	part: string;
+	color_id?: number | null;
+	bricklink_color_id?: number | null;
+}
+
+export interface RouteResult {
+	part: string;
+	bricklink_id: string;
+	part_name: string | null;
+	img_url: string | null;
+	known_part: boolean;
+	color: BinColor | null;
+	category_id: string;
+	category_name: string;
+	why: 'rule' | 'kit' | 'fallback' | 'default';
+	// For a kit: how many more of this part and color it still takes.
+	kit_left: number | null;
+}
+
+export interface ProfileHead {
+	profile_id: string;
+	name: string;
+	updated_at: string;
+	latest_version_id: string | null;
+	latest_version_number: number;
+	latest_version_created_at: string | null;
+	created_via: string | null;
+	created_via_key_name: string | null;
+}
+
+export interface ProfileField {
+	field: string;
+	label: string;
+	group: string;
+	// `bool` is a yes or no, stored as 1 or 0.
+	type: 'str' | 'str_list' | 'int' | 'float' | 'bool';
+	// The operators worth offering for this field.
+	ops: string[];
+	// What a value names: "bl_category", "rb_category", "color", "part", "bl_part".
+	ref: string | null;
+	unit: string | null;
+	// What it reads, when the label does not say it all.
+	description?: string | null;
+}
+
+export interface BrickLinkCategory {
+	id: number;
+	name: string;
+	parent_id: number | null;
+	part_count: number;
+}
+
+export interface KitPart {
+	part_num: string;
+	part_source: 'rebrickable' | 'bricklink';
+	bricklink_id: string | null;
+	part_name: string | null;
+	// The part in the line's color when it has a render; fallback_img_url is its photo.
+	img_url: string | null;
+	fallback_img_url?: string | null;
+	// Rebrickable color, null for any color.
+	color_id: number | null;
+	bricklink_color_id: number | null;
+	color_name: string | null;
+	rgb: string | null;
+	quantity: number;
+}
+
+export interface KitSummary {
+	id: string;
+	name: string;
+	description: string | null;
+	image_url: string | null;
+	source: 'custom' | 'set' | 'bricklink';
+	set_num: string | null;
+	set_meta: { set_num?: string; name?: string; year?: number | null; num_parts?: number | null; img_url?: string | null } | null;
+	visibility: 'private' | 'unlisted' | 'public';
+	line_count: number;
+	total_quantity: number;
+	any_color_lines: number;
+	owner: ProfileOwner;
+	is_owner: boolean;
+	created_at: string;
+	updated_at: string;
+}
+
+export interface Kit extends KitSummary {
+	parts: KitPart[];
+	warnings: string[];
+	used_by: Array<{ profile_id: string; name: string; version_number: number }>;
+}
+
+export interface KitPartInput {
+	// A Rebrickable part number or a BrickLink ID.
+	part: string;
+	quantity: number;
+	// Rebrickable color, or BrickLink color; neither for any color.
+	color_id?: number | null;
+	bricklink_color_id?: number | null;
 }
 
 export interface SortingProfileDetail extends SortingProfileSummary {
@@ -885,10 +1146,13 @@ export interface ProfileCatalogSearchResult {
 }
 
 export interface ProfileCatalogColor {
+	// Rebrickable color ID (what rule conditions use).
 	id: number;
 	name: string;
 	rgb: string | null;
 	is_trans: boolean;
+	// The BrickLink color ID (what a sorter reports).
+	bricklink_id?: string;
 }
 
 export interface ProfileCatalogCategory {
@@ -2107,15 +2371,86 @@ export const api = {
 	},
 
 	// Sorting Profiles
-	getProfiles(params: { scope?: 'discover' | 'mine' | 'library'; q?: string } = {}) {
+	getProfiles(params: { scope?: 'discover' | 'mine' | 'library' | 'defaults'; q?: string } = {}) {
 		const searchParams = new URLSearchParams();
 		if (params.scope) searchParams.set('scope', params.scope);
 		if (params.q) searchParams.set('q', params.q);
 		const qs = searchParams.toString();
 		return request<SortingProfileSummary[]>('GET', `/api/profiles${qs ? '?' + qs : ''}`);
 	},
-	createSortingProfile(data: { name: string; description?: string | null; visibility?: 'private' | 'unlisted' | 'public'; tags?: string[] }) {
+	createSortingProfile(data: {
+		name: string;
+		description?: string | null;
+		visibility?: 'private' | 'unlisted' | 'public';
+		tags?: string[];
+		rules?: SortingProfileRule[];
+		fallback_mode?: SortingProfileFallbackMode;
+		default_category_id?: string;
+	}) {
 		return request<SortingProfileDetail>('POST', '/api/profiles', data);
+	},
+	getSortingProfileHead(id: string) {
+		return request<ProfileHead>('GET', `/api/profiles/${id}/head`);
+	},
+	// A draft's bins, warnings and problems, compiled without saving.
+	previewSortingProfile(data: ProfileDocument) {
+		return request<ProfilePreview>('POST', '/api/profiles/preview', data);
+	},
+	// Where pieces would go, under a draft or a saved version. Kits start empty
+	// and fill in the order the pieces are given, unless fill_kits is false.
+	routePieces(data: { document?: ProfileDocument; profile_id?: string; version_id?: string; pieces: RoutePiece[]; fill_kits?: boolean }) {
+		return request<{ results: RouteResult[] }>('POST', '/api/profiles/route', data);
+	},
+	getProfileFields() {
+		// `aliases`: older field names still found in saved rules, and the field each now is.
+		return request<{ fields: ProfileField[]; aliases?: Record<string, string>; ops: Record<string, string> }>(
+			'GET',
+			'/api/profile-catalog/fields'
+		);
+	},
+	getBrickLinkCategories() {
+		return request<{ results: BrickLinkCategory[] }>('GET', '/api/profile-catalog/bricklink-categories');
+	},
+	getProfileCatalogPart(part: string) {
+		return request<RuleMatchPart>('GET', `/api/profile-catalog/parts/${encodeURIComponent(part)}`);
+	},
+	getProfileCatalogSet(setNum: string) {
+		return request<{
+			set: { set_num: string; name: string; year: number | null; num_parts: number | null; img_url: string | null };
+			inventory: Array<{ part_num: string; color_id: number; quantity: number; part_name: string | null; color_name: string | null; part_img_url: string | null; is_spare: boolean }>;
+		}>('GET', `/api/profile-catalog/sets/${encodeURIComponent(setNum)}`);
+	},
+	// Kits
+	listKits(params: { scope?: 'mine' | 'public'; q?: string } = {}) {
+		const searchParams = new URLSearchParams();
+		if (params.scope) searchParams.set('scope', params.scope);
+		if (params.q) searchParams.set('q', params.q);
+		const qs = searchParams.toString();
+		return request<KitSummary[]>('GET', `/api/kits${qs ? '?' + qs : ''}`);
+	},
+	getKit(id: string) {
+		return request<Kit>('GET', `/api/kits/${id}`);
+	},
+	createKit(data: { name: string; description?: string | null; image_url?: string | null; visibility?: 'private' | 'unlisted' | 'public'; parts: KitPartInput[] }) {
+		return request<Kit>('POST', '/api/kits', data);
+	},
+	createKitFromSet(data: { set_num: string; include_spares?: boolean; name?: string | null }) {
+		return request<Kit>('POST', '/api/kits/from-set', data);
+	},
+	createKitFromBricklinkCsv(data: { csv_content: string; filename?: string | null; name?: string | null }) {
+		return request<Kit>('POST', '/api/kits/from-bricklink-csv', data);
+	},
+	updateKit(id: string, data: { name?: string; description?: string | null; image_url?: string | null; visibility?: 'private' | 'unlisted' | 'public'; parts?: KitPartInput[] }) {
+		return request<Kit>('PATCH', `/api/kits/${id}`, data);
+	},
+	deleteKit(id: string) {
+		return request<{ ok: boolean }>('DELETE', `/api/kits/${id}`);
+	},
+	// A picture for a rule or a kit; set the returned url as its image_url.
+	uploadProfileImage(file: File) {
+		const form = new FormData();
+		form.append('file', file);
+		return request<{ url: string }>('POST', '/api/profile-images', form);
 	},
 	getSortingProfile(id: string, versionId?: string) {
 		const qs = versionId ? `?${new URLSearchParams({ version_id: versionId }).toString()}` : '';
@@ -2145,6 +2480,10 @@ export const api = {
 	}) {
 		return request<SortingProfileVersion>('POST', `/api/profiles/${id}/versions`, data);
 	},
+	// Lets other people's machines use a version (the owner's own can use any).
+	publishSortingProfileVersion(profileId: string, versionId: string) {
+		return request<SortingProfileVersion>('POST', `/api/profiles/${profileId}/versions/${versionId}/publish`);
+	},
 	saveSortingProfileToLibrary(id: string) {
 		return request<{ ok: boolean }>('POST', `/api/profiles/${id}/library`);
 	},
@@ -2169,7 +2508,7 @@ export const api = {
 			}
 		}
 		const qs = searchParams.toString();
-		return request<Record<string, unknown>>('POST', `/api/profiles/preview-rule${qs ? '?' + qs : ''}`, data);
+		return request<RuleMatches>('POST', `/api/profiles/preview-rule${qs ? '?' + qs : ''}`, data);
 	},
 	getSortingProfileAiMessages(profileId: string) {
 		return request<SortingProfileAiMessage[]>('GET', `/api/profiles/${profileId}/ai/messages`);

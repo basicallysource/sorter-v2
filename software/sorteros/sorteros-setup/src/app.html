@@ -4,7 +4,21 @@
         <meta charset="utf-8" />
         <link rel="icon" href="%sveltekit.assets%/favicon.ico" />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
-        <meta name="theme-color" content="#f7f6f3" />
+        <meta name="color-scheme" content="light dark" />
+        <meta name="theme-color" content="#eceae5" media="(prefers-color-scheme: light)" />
+        <meta name="theme-color" content="#0e0e0d" media="(prefers-color-scheme: dark)" />
+        <script>
+            // Light or dark follows the reader's system, before the first paint
+            // and as it changes.
+            (function () {
+                var dark = matchMedia('(prefers-color-scheme: dark)');
+                var apply = function () {
+                    document.documentElement.classList.toggle('dark', dark.matches);
+                };
+                apply();
+                if (dark.addEventListener) dark.addEventListener('change', apply);
+            })();
+        </script>
         %sveltekit.head%
     </head>
     <body data-sveltekit-preload-data="hover">

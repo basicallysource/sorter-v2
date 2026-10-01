@@ -15,6 +15,7 @@ import threading
 import time
 from pathlib import Path
 from typing import Any, Callable
+from unittest.mock import Mock, call
 
 import pytest
 
@@ -29,15 +30,21 @@ HiveError = hive_models.HiveError
 # ---------------------------------------------------------------------------
 
 
+@pytest.fixture(autouse=True)
+def hardwareWithoutAccelerators(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(hive_models, "_HAS_HAILO_CACHE", False)
+    monkeypatch.setattr(hive_models, "_HAS_RKNN_NPU_CACHE", False)
+
+
 class TestPickRuntime:
-    def setup_method(self) -> None:
-        hive_models._reset_hailo_cache_for_tests()
-
-    def teardown_method(self) -> None:
-        hive_models._reset_hailo_cache_for_tests()
-
-    def test_empty_list_returns_none(self) -> None:
-        assert hive_models.pick_runtime_for_this_machine([]) is None
+    @pytest.mark.parametrize("runtimes", [[], ["pytorch"], ["unknown"]])
+    def test_no_deployable_runtime_skips_hardware_probe(
+        self, monkeypatch: pytest.MonkeyPatch, runtimes: list[str]
+    ) -> None:
+        probe = Mock(side_effect=AssertionError("should not probe hardware"))
+        monkeypatch.setattr(hive_models, "compatible_runtimes_for_this_machine", probe)
+        assert hive_models.pick_runtime_for_this_machine(runtimes) is None
+        probe.assert_not_called()
 
     def test_prefers_hailo_when_available(self, monkeypatch: pytest.MonkeyPatch) -> None:
         monkeypatch.setattr(hive_models, "_has_hailo", lambda: True)
@@ -62,12 +69,19 @@ class TestPickRuntime:
             == "onnx"
         )
 
-    def test_pytorch_only_falls_back_to_pytorch(
+    @pytest.mark.parametrize("runtimes", [["pytorch"], ["unknown"], ["hailo"], ["rknn"], ["pytorch", "unknown", "hailo", "rknn"]])
+    def test_unsupported_runtimes_return_none(
+        self, monkeypatch: pytest.MonkeyPatch, runtimes: list[str]
+    ) -> None:
+        monkeypatch.setattr(hive_models, "compatible_runtimes_for_this_machine", lambda: ["onnx", "ncnn"])
+        assert hive_models.pick_runtime_for_this_machine(runtimes) is None
+
+    def test_automatic_variant_selection_rejects_unsupported_runtime(
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:
-        monkeypatch.setattr(hive_models, "_has_hailo", lambda: False)
-        monkeypatch.setattr(hive_models.platform, "machine", lambda: "x86_64")
-        assert hive_models.pick_runtime_for_this_machine(["pytorch"]) == "pytorch"
+        monkeypatch.setattr(hive_models, "compatible_runtimes_for_this_machine", lambda: ["onnx", "ncnn"])
+        detail = {"variants": [{"runtime": "pytorch"}, {"runtime": "hailo"}]}
+        assert hive_models._pick_variant(detail, None) is None
 
     def test_hailo_not_selected_when_hardware_missing(
         self, monkeypatch: pytest.MonkeyPatch
@@ -97,6 +111,39 @@ class TestPickRuntime:
         assert hive_models.compatible_runtimes_for_this_machine() == ["onnx", "ncnn"]
         monkeypatch.setattr(hive_models.platform, "machine", lambda: "aarch64")
         assert hive_models.compatible_runtimes_for_this_machine() == ["ncnn", "onnx"]
+
+
+@pytest.mark.parametrize(
+    "probe_name,cache_name,first_path,fallback_path",
+    [
+        ("_has_hailo", "_HAS_HAILO_CACHE", "/dev/hailo0", "/sys/class/misc/hailo0"),
+        ("_has_rknn_npu", "_HAS_RKNN_NPU_CACHE", "/sys/kernel/debug/rknpu/version", "/usr/lib/librknnrt.so"),
+    ],
+)
+@pytest.mark.parametrize("fallback_present", [False, True, OSError("unreadable")])
+def test_runtime_probe_checks_fallback_after_permission_error(
+    monkeypatch: pytest.MonkeyPatch,
+    probe_name: str,
+    cache_name: str,
+    first_path: str,
+    fallback_path: str,
+    fallback_present: bool | OSError,
+) -> None:
+    first = Mock()
+    first.exists.side_effect = PermissionError("access denied")
+    fallback = Mock()
+    if isinstance(fallback_present, OSError):
+        fallback.exists.side_effect = fallback_present
+    else:
+        fallback.exists.return_value = fallback_present
+    paths = Mock(side_effect=[first, fallback])
+    monkeypatch.setattr(hive_models, "Path", paths)
+    monkeypatch.setattr(hive_models, cache_name, None)
+    probe = getattr(hive_models, probe_name)
+    expected = fallback_present is True
+    assert probe() is expected
+    assert probe() is expected
+    assert paths.call_args_list == [call(first_path), call(fallback_path)]
 
 
 # ---------------------------------------------------------------------------

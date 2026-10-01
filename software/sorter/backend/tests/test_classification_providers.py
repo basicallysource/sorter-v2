@@ -7,10 +7,10 @@ from classification.providers import (
     COLOR_PROVIDER_HIVE_BASICALLY,
     MOLD_PROVIDER_BRICKOGNIZE,
 )
-from subsystems.classification_channel.simple_state_machine_rev01.base import (
+from subsystems.classification_channel.two_piece.base import (
     Rev01BaseState,
 )
-from subsystems.classification_channel.simple_state_machine_rev01.context import (
+from subsystems.classification_channel.two_piece.context import (
     SimpleStateMachineRev01Context,
 )
 

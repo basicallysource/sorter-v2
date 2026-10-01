@@ -100,14 +100,6 @@ class WaveshareBusService:
     def calibrate_servo(self, servo_id: int) -> tuple[int, int]:
         return self._execute(lambda bus: calibrate_servo_impl(bus, servo_id))
 
-    def soft_reset(self) -> bool:
-        """Force a close + reopen of the underlying serial port and ping a
-        known servo (id=1) to verify the bus is alive. Returns ``True``
-        when the bus responds after reopening.
-        """
-        with self._lock:
-            return self._soft_recover_locked("explicit")
-
     @property
     def consecutive_failures(self) -> int:
         return self._consecutive_failures
@@ -217,15 +209,6 @@ class WaveshareBusRegistry:
                 self._services[normalized] = service
             return service
 
-    def close_service(self, port: str) -> None:
-        normalized = port.strip()
-        if not normalized:
-            return
-        with self._lock:
-            service = self._services.pop(normalized, None)
-        if service is not None:
-            service.close()
-
     def close_all(self) -> None:
         with self._lock:
             services = list(self._services.values())
@@ -239,10 +222,6 @@ _REGISTRY = WaveshareBusRegistry()
 
 def get_waveshare_bus_service(port: str, *, baudrate: int = 1_000_000, timeout: float = 0.05) -> WaveshareBusService:
     return _REGISTRY.get_service(port, baudrate=baudrate, timeout=timeout)
-
-
-def close_waveshare_bus_service(port: str) -> None:
-    _REGISTRY.close_service(port)
 
 
 def close_all_waveshare_bus_services() -> None:

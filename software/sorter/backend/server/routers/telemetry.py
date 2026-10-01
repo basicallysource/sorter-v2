@@ -1,6 +1,6 @@
 """Router for stepper / StallGuard telemetry: recorded runs, samples, rollups.
 
-The data is written by the StallGuard sweep endpoint (server/routers/steppers.py)
+The data is written by the StallGuard sweep endpoint (server/routers/stallguard.py)
 and by the passive background sampler. This router is read-only plus run deletion;
 it backs the telemetry visualization page.
 """
@@ -41,14 +41,6 @@ def listTelemetryRuns(
 @router.get("/api/stepper-telemetry/summary", response_model=StepperSummaryResponse)
 def stepperTelemetrySummary() -> StepperSummaryResponse:
     return StepperSummaryResponse(steppers=stepper_telemetry.getStepperSummary())
-
-
-@router.get("/api/stepper-telemetry/runs/{run_id}")
-def getTelemetryRun(run_id: str) -> dict[str, Any]:
-    run = stepper_telemetry.getRun(run_id)
-    if run is None:
-        raise HTTPException(status_code=404, detail=f"Run '{run_id}' not found")
-    return run
 
 
 @router.get("/api/stepper-telemetry/runs/{run_id}/samples")

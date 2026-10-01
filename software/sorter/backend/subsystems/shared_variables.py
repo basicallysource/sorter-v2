@@ -5,8 +5,7 @@ import time
 from typing import Optional, TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from subsystems.classification.carousel import Carousel
-    from piece_transport import PieceTransport
+    from piece_transport import ClassificationChannelTransport
     from global_config import GlobalConfig
     from subsystems.bus import TickBus
 
@@ -29,8 +28,7 @@ class SharedVariables:
         self._bus = bus
         self._classification_ready: bool = False
         self._distribution_ready: bool = True
-        self.transport: Optional["PieceTransport"] = None
-        self.carousel: Optional["Carousel"] = None
+        self.transport: Optional["ClassificationChannelTransport"] = None
         # uuid of the piece distribution most recently started positioning for.
         # Written by Positioning, read by Ready, so READY waits on the piece the
         # chute was actually aimed for, not whatever holds the slot when READY
@@ -43,13 +41,6 @@ class SharedVariables:
         # falls. Written by the classification channel, read by Positioning.
         self.bucket_passthrough_hold: bool = False
         self._chute_move_in_progress: bool = False
-        # Sample-collection maintenance mode. When True, the feeder ignores
-        # downstream gates (ch3_held / classification_channel_block) so C2/C3
-        # keep advancing pieces past the cameras regardless of whether the
-        # classification channel is ready. Use during training-sample drives
-        # so the pipeline doesn't stall on ghost detections in C4. Toggled
-        # via the /api/sample-collection-mode endpoint.
-        self._sample_collection_mode: bool = False
         self._ignored_classification_dropzone_track_ids: set[int] = set()
 
     @property
@@ -81,14 +72,6 @@ class SharedVariables:
     @chute_move_in_progress.setter
     def chute_move_in_progress(self, value: bool) -> None:
         self.set_chute_motion(bool(value), target_bin=None)
-
-    @property
-    def sample_collection_mode(self) -> bool:
-        return self._sample_collection_mode
-
-    @sample_collection_mode.setter
-    def sample_collection_mode(self, value: bool) -> None:
-        self._sample_collection_mode = bool(value)
 
     def set_classification_gate(
         self,
@@ -228,23 +211,6 @@ class SharedVariables:
                 return bool(motion.in_progress)
         return self._chute_move_in_progress
 
-    def set_classification_dropzone_track_ignored(
-        self,
-        global_id: int,
-        ignored: bool,
-    ) -> None:
-        track_id = int(global_id)
-        if ignored:
-            self._ignored_classification_dropzone_track_ids.add(track_id)
-        else:
-            self._ignored_classification_dropzone_track_ids.discard(track_id)
-
-    def ignored_classification_dropzone_track_ids(self) -> set[int]:
-        return set(self._ignored_classification_dropzone_track_ids)
-
-    def is_classification_dropzone_track_ignored(self, global_id: int) -> bool:
-        return int(global_id) in self._ignored_classification_dropzone_track_ids
-
     # DEV-LOG: remove before merge — instruments every gate write (incl. no-ops)
     # with caller frame, used to track down rev01 gate regression. Drop along
     # with the call in set_classification_gate.
@@ -295,8 +261,4 @@ class SharedVariables:
         )
 
     def _bus_enabled(self) -> bool:
-        return bool(
-            self._gc is not None
-            and getattr(self._gc, "use_channel_bus", False)
-            and self._bus is not None
-        )
+        return self._bus is not None

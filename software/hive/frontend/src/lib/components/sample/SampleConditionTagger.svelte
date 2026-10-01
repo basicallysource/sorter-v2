@@ -1,5 +1,14 @@
 <script lang="ts">
 	import { api } from '$lib/api';
+	import { sentence } from '$lib/text';
+	import Alert from '$lib/components/Alert.svelte';
+	import Badge from '$lib/components/Badge.svelte';
+	import Button from '$lib/components/Button.svelte';
+	import Checkbox from '$lib/components/Checkbox.svelte';
+	import Field from '$lib/components/Field.svelte';
+	import Input from '$lib/components/Input.svelte';
+	import Panel from '$lib/components/Panel.svelte';
+	import Select from '$lib/components/Select.svelte';
 
 	type Props = {
 		sampleId: string;
@@ -22,7 +31,7 @@
 		{ value: 'single_part', label: 'Single' },
 		{ value: 'compound_part', label: 'Compound' },
 		{ value: 'multi_part', label: 'Multiple' },
-		{ value: 'empty_or_not_lego', label: 'Empty / NaL' },
+		{ value: 'empty_or_not_lego', label: 'Empty, or not LEGO' },
 		{ value: 'uncertain', label: 'Unsure' }
 	] as const;
 
@@ -126,109 +135,45 @@
 	const providerLabel = $derived.by<string | null>(() => {
 		const analysis = existingAnalysis(samplePayload);
 		const provider = analysis?.provider;
-		return typeof provider === 'string' ? provider.replace(/_/g, ' ') : null;
+		return typeof provider === 'string' ? sentence(provider) : null;
 	});
 </script>
 
-<div class="border border-border bg-surface">
-	<div class="flex items-center justify-between border-b border-border px-4 py-2.5">
-		<h2 class="text-xs font-semibold uppercase tracking-wider text-text-muted">Tag condition</h2>
-		{#if providerLabel}
-			<span class="bg-bg px-2 py-0.5 text-[11px] font-medium text-text-muted">
-				Was: {providerLabel}
-			</span>
+<Panel title="Tag the condition" flush>
+	{#snippet actions()}
+		{#if providerLabel}<Badge>Was {providerLabel}</Badge>{/if}
+	{/snippet}
+	<div class="flex flex-col gap-4 px-(--pad-panel) pb-(--pad-panel)">
+		<div class="grid grid-cols-2 gap-3">
+			<Field label="Composition" for="condition-composition">
+				<Select id="condition-composition" bind:value={composition} options={[...COMPOSITION_OPTIONS]} />
+			</Field>
+			<Field label="Condition" for="condition-condition">
+				<Select id="condition-condition" bind:value={condition} options={[...CONDITION_OPTIONS]} />
+			</Field>
+		</div>
+
+		<fieldset>
+			<legend class="label mb-2">Flags, each on its own</legend>
+			<div class="grid grid-cols-2 gap-2">
+				{#each FLAG_CHIPS as chip (chip.value)}
+					<Checkbox checked={flags[chip.value] ?? false} onchange={() => toggleFlag(chip.value)}>{chip.label}</Checkbox>
+				{/each}
+			</div>
+		</fieldset>
+
+		<Field label="Evidence" for="condition-evidence" help="Optional; one short line.">
+			<Input id="condition-evidence" bind:value={evidence} placeholder="A scratch on the top stud, a little discolored" />
+		</Field>
+
+		{#if justSaved}
+			<Alert tone="success">Saved. It overrides any earlier automatic label.</Alert>
+		{:else if saveError}
+			<Alert tone="danger">{saveError}</Alert>
 		{/if}
 	</div>
-
-	<div class="space-y-4 p-3">
-		<div>
-			<div class="mb-1.5 text-[10px] font-semibold uppercase tracking-wide text-text-muted">
-				Composition
-			</div>
-			<div class="flex flex-wrap gap-1.5">
-				{#each COMPOSITION_OPTIONS as opt}
-					<button
-						type="button"
-						class="border px-2.5 py-1 text-[11px] font-medium {composition === opt.value
-							? 'border-primary bg-primary text-white'
-							: 'border-border bg-surface text-text hover:border-primary'}"
-						onclick={() => (composition = opt.value)}
-					>
-						{opt.label}
-					</button>
-				{/each}
-			</div>
-		</div>
-
-		<div>
-			<div class="mb-1.5 text-[10px] font-semibold uppercase tracking-wide text-text-muted">
-				Condition
-			</div>
-			<div class="flex flex-wrap gap-1.5">
-				{#each CONDITION_OPTIONS as opt}
-					<button
-						type="button"
-						class="border px-2.5 py-1 text-[11px] font-medium {condition === opt.value
-							? 'border-primary bg-primary text-white'
-							: 'border-border bg-surface text-text hover:border-primary'}"
-						onclick={() => (condition = opt.value)}
-					>
-						{opt.label}
-					</button>
-				{/each}
-			</div>
-		</div>
-
-		<div>
-			<div class="mb-1.5 text-[10px] font-semibold uppercase tracking-wide text-text-muted">
-				Flags (independent modifiers)
-			</div>
-			<div class="flex flex-wrap gap-1.5">
-				{#each FLAG_CHIPS as chip}
-					<button
-						type="button"
-						class="border px-2.5 py-1 text-[11px] font-medium {flags[chip.value]
-							? 'border-text bg-text text-surface'
-							: 'border-border bg-surface text-text-muted hover:border-text'}"
-						onclick={() => toggleFlag(chip.value)}
-					>
-						{chip.label}
-					</button>
-				{/each}
-			</div>
-		</div>
-
-		<div>
-			<label class="mb-1.5 block text-[10px] font-semibold uppercase tracking-wide text-text-muted" for="condition-evidence">
-				Evidence (optional, one short line)
-			</label>
-			<input
-				id="condition-evidence"
-				type="text"
-				bind:value={evidence}
-				placeholder="Visible scratch on top stud, slight discoloration..."
-				class="w-full border border-border bg-surface px-2 py-1.5 text-xs text-text focus:border-primary focus:outline-none"
-			/>
-		</div>
-
-		<div class="flex items-center justify-between gap-3 border-t border-border pt-3">
-			<div class="text-[11px] text-text-muted">
-				{#if justSaved}
-					<span class="text-success">Saved — overrides any prior auto-label.</span>
-				{:else if saveError}
-					<span class="text-danger">{saveError}</span>
-				{:else}
-					Human override always wins over Perceptron auto-label.
-				{/if}
-			</div>
-			<button
-				type="button"
-				class="border border-primary bg-primary px-4 py-1.5 text-xs font-semibold text-white hover:bg-primary-hover disabled:cursor-not-allowed disabled:opacity-50"
-				disabled={saving || !composition || !condition}
-				onclick={() => void save()}
-			>
-				{saving ? 'Saving…' : 'Save tag'}
-			</button>
-		</div>
-	</div>
-</div>
+	{#snippet footer()}
+		<span class="mr-auto text-sm text-ink-muted">A person's tag always wins over Perceptron's.</span>
+		<Button variant="primary" size="sm" loading={saving} disabled={!composition || !condition} onclick={() => void save()}>Save the tag</Button>
+	{/snippet}
+</Panel>

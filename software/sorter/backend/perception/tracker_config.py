@@ -241,6 +241,10 @@ class OrderedTrackerConfig:
     # than this (deg) moved backward, so it can't be that track. Small — just
     # absorbs COM jitter. Large forward jumps are always allowed.
     back_tol_deg: float = 8.0
+    # Except while a piece lands: it bounces, back as well as forward, before it
+    # rides the platter. While a track and its detection are both in the drop
+    # zone, the detection may be this much further back.
+    drop_back_tol_deg: float = 60.0
     # How long (s) to keep coasting a track with no matching detection before
     # giving up its id. Long enough to ride out a detector blink; a piece that
     # truly left (off the exit) ages out and its disappearance reads as ejected.
@@ -289,6 +293,19 @@ ORDERED_FIELD_META: list[dict] = [
             "moved backward by more than this many degrees can't be the same piece "
             "(just absorbs detection jitter). Forward jumps of any size are always "
             "allowed — that's what makes this robust to the platter's fast moves."
+        ),
+    },
+    {
+        "section": "Matching",
+        "key": "drop_back_tol_deg",
+        "label": "Backward tolerance while landing (°)",
+        "type": "float",
+        "default": OrderedTrackerConfig().drop_back_tol_deg,
+        "description": (
+            "A piece that has just landed bounces, back as well as forward, before "
+            "it rides the platter. In the drop zone a detection may be this many "
+            "degrees further back and still be the same piece, so the piece keeps "
+            "the id it was photographed and classified under."
         ),
     },
     {

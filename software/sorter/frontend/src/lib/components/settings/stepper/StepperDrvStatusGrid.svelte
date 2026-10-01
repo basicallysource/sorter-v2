@@ -6,59 +6,61 @@
 	} = $props();
 </script>
 
-<div class="flex flex-col gap-1">
-	<div class="text-xs uppercase tracking-[0.18em] text-text-muted">
-		DRV_STATUS
+{#snippet flag(label: string, on: boolean, tone: 'danger' | 'warning')}
+	<div class="flex justify-between gap-2">
+		<dt class="text-ink-muted">{label}</dt>
+		<dd class={on ? (tone === 'danger' ? 'font-medium text-danger-ink' : 'font-medium text-warning-ink') : 'text-ink'}>
+			{on ? 'Yes' : 'No'}
+		</dd>
 	</div>
-	<div class="grid grid-cols-2 gap-x-3 gap-y-1 text-xs">
-		<div class={drvStatus.ot ? 'font-semibold text-danger' : 'text-text-muted'}>
-			Overtemp: {drvStatus.ot ? 'YES' : 'No'}
+{/snippet}
+
+<div class="px-(--pad-panel) py-(--pad-row)">
+	<div class="label">Driver status (DRV_STATUS)</div>
+	<dl class="mt-2 grid grid-cols-2 gap-x-6 gap-y-1 rounded-control bg-well p-3 text-sm">
+		{@render flag('Overheated', drvStatus.ot, 'danger')}
+		{@render flag('Heat warning', drvStatus.otpw, 'warning')}
+		{@render flag('Short, coil A', drvStatus.s2ga, 'danger')}
+		{@render flag('Short, coil B', drvStatus.s2gb, 'danger')}
+		{@render flag('Open, coil A', drvStatus.ola, 'warning')}
+		{@render flag('Open, coil B', drvStatus.olb, 'warning')}
+		<div class="flex justify-between gap-2">
+			<dt class="text-ink-muted">StealthChop</dt>
+			<dd class="text-ink">{drvStatus.stealth ? 'Active' : 'Off'}</dd>
 		</div>
-		<div class={drvStatus.otpw ? 'font-semibold text-yellow-500' : 'text-text-muted'}>
-			OT Pre-warn: {drvStatus.otpw ? 'YES' : 'No'}
+		<div class="flex justify-between gap-2">
+			<dt class="text-ink-muted">Standing still</dt>
+			<dd class="text-ink">{drvStatus.stst ? 'Yes' : 'No'}</dd>
 		</div>
-		<div class={drvStatus.s2ga ? 'font-semibold text-danger' : 'text-text-muted'}>
-			Short A: {drvStatus.s2ga ? 'YES' : 'No'}
+		<div class="flex justify-between gap-2">
+			<dt class="text-ink-muted">Current (CS_ACTUAL)</dt>
+			<dd class="num text-ink">{drvStatus.cs_actual}</dd>
 		</div>
-		<div class={drvStatus.s2gb ? 'font-semibold text-danger' : 'text-text-muted'}>
-			Short B: {drvStatus.s2gb ? 'YES' : 'No'}
-		</div>
-		<div class={drvStatus.ola ? 'font-semibold text-yellow-500' : 'text-text-muted'}>
-			Open A: {drvStatus.ola ? 'YES' : 'No'}
-		</div>
-		<div class={drvStatus.olb ? 'font-semibold text-yellow-500' : 'text-text-muted'}>
-			Open B: {drvStatus.olb ? 'YES' : 'No'}
-		</div>
-		<div class="text-text-muted">
-			StealthChop: {drvStatus.stealth ? 'Active' : 'Off'}
-		</div>
-		<div class="text-text-muted">
-			Standstill: {drvStatus.stst ? 'Yes' : 'No'}
-		</div>
-		<div class="text-text-muted">
-			CS Actual: {drvStatus.cs_actual}
-		</div>
-		<div class="text-text-muted">
-			SG Result: {drvStatus.sg_result}
+		<div class="flex justify-between gap-2">
+			<dt class="text-ink-muted">SG_RESULT</dt>
+			<dd class="num text-ink">{drvStatus.sg_result}</dd>
 		</div>
 		<div
-			class="col-span-2 {drvStatus.ot
-				? 'font-semibold text-danger'
+			class="col-span-2 flex justify-between gap-2 {drvStatus.ot
+				? 'font-medium text-danger-ink'
 				: drvStatus.otpw
-					? 'font-semibold text-yellow-500'
-					: 'text-text-muted'}"
+					? 'font-medium text-warning-ink'
+					: ''}"
 		>
-			Temp: {drvStatus.ot
-				? '>157°C SHUTDOWN'
-				: drvStatus.t157
-					? '>157°C'
-					: drvStatus.t150
-						? '>150°C'
-						: drvStatus.t143
-							? '>143°C'
-							: drvStatus.t120
-								? '>120°C'
-								: '<120°C'}
+			<dt class={drvStatus.ot || drvStatus.otpw ? '' : 'text-ink-muted'}>Temperature</dt>
+			<dd class={drvStatus.ot || drvStatus.otpw ? '' : 'text-ink'}>
+				{drvStatus.ot
+					? 'Above 157 °C, shut down'
+					: drvStatus.t157
+						? 'Above 157 °C'
+						: drvStatus.t150
+							? 'Above 150 °C'
+							: drvStatus.t143
+								? 'Above 143 °C'
+								: drvStatus.t120
+									? 'Above 120 °C'
+									: 'Below 120 °C'}
+			</dd>
 		</div>
-	</div>
+	</dl>
 </div>

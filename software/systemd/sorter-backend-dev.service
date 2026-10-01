@@ -4,7 +4,7 @@ After=network-online.target
 Wants=network-online.target
 Conflicts=sorter-backend.service
 # No start-rate limit: field machines get power-cut and must keep retrying
-# instead of giving up forever after 3 fast failures (see sorter-ui-dev).
+# instead of giving up forever after 3 fast failures.
 StartLimitIntervalSec=0
 
 [Service]
@@ -16,13 +16,19 @@ WorkingDirectory=__SOFTWARE_DIR__/sorter/backend
 # 2026-08-01). /tmp is RAM-backed, so caches regenerate fresh every boot and
 # can never carry corruption across one.
 Environment=PYTHONPYCACHEPREFIX=/tmp/sorter-pycache
+# The supervisor also serves the UI's build (software/sorter/frontend/build) on
+# --ui-port, 80 so that http://<host>.local needs no port. The capability lets
+# a non-root User= bind it.
+AmbientCapabilities=CAP_NET_BIND_SERVICE
 # Dev mode notes:
 #   - Same supervisor + main.py as prod so hardware/coordinator behavior matches.
-#   - For fast iteration on a code edit, prefer a soft restart of main.py via the
-#     supervisor control endpoint instead of `systemctl restart`:
-#       curl -sS -X POST http://127.0.0.1:8001/api/supervisor/restart
-#     That skips systemd's RestartSec=5 and the supervisor warmup.
-ExecStart=/bin/bash -c "set -a; source __SOFTWARE_DIR__/.env; exec __UV_BIN__ run python supervisor.py"
+#   - For fast iteration on a code edit, prefer a soft restart of main.py through
+#     the supervisor instead of `systemctl restart`:
+#       curl -sS -X POST http://localhost/api/supervisor/restart -H "Origin: http://localhost"
+#     That skips systemd's RestartSec and the supervisor warmup.
+#   - A UI edit shows on the next page load once rebuilt (`pnpm build` in
+#     software/sorter/frontend); for hot reload, `pnpm dev` there (port 5173).
+ExecStart=/bin/bash -c "set -a; source __SOFTWARE_DIR__/.env; exec __UV_BIN__ run python supervisor.py --ui-port 80"
 Restart=on-failure
 RestartSec=2
 StandardOutput=journal

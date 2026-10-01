@@ -55,6 +55,6 @@ Machines are built and running, and they sort every day. It is not a product yet
   </div>
   <div class="callout">
     <strong><a href="{{ '/lab/' | relative_url }}">Lab</a></strong>
-    <p>Research and contributor references: detector runtime findings, model artifacts, benchmarks, and the shared styleguide.</p>
+    <p>Research and contributor references: detector runtime findings, model artifacts, and benchmarks.</p>
   </div>
 </div>

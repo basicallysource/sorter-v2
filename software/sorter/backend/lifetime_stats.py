@@ -1,13 +1,12 @@
 from __future__ import annotations
 
+import functools
 import sqlite3
 import threading
 import time
-from contextlib import contextmanager
-from typing import Any, Iterator
+from typing import Any
 
-from global_config import GlobalConfig
-from local_state import local_state_db_path
+import db
 
 # Durable, machine-lifetime cumulative stats — survives the dev soft-restart
 # (os._exit) the same way piece_records does, because it never relies on a
@@ -21,51 +20,20 @@ from local_state import local_state_db_path
 
 SECONDS_PER_HOUR = 3600
 
-_INIT_LOCK = threading.Lock()
-_initialized = False
+
+def _createTables(conn: sqlite3.Connection) -> None:
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS lifetime_hourly ("
+        "hour_start INTEGER PRIMARY KEY, "
+        "seconds_powered REAL NOT NULL DEFAULT 0, "
+        "seconds_sorted REAL NOT NULL DEFAULT 0, "
+        "updated_at REAL"
+        ")"
+    )
 
 
-def _connect() -> sqlite3.Connection:
-    db_path = local_state_db_path()
-    db_path.parent.mkdir(parents=True, exist_ok=True)
-    conn = sqlite3.connect(db_path, timeout=5.0)
-    conn.row_factory = sqlite3.Row
-    conn.execute("PRAGMA journal_mode = WAL")
-    conn.execute("PRAGMA busy_timeout = 5000")
-    return conn
-
-
-@contextmanager
-def _connection() -> Iterator[sqlite3.Connection]:
-    _ensureInitialized()
-    conn = _connect()
-    try:
-        yield conn
-    finally:
-        conn.close()
-
-
-def _ensureInitialized() -> None:
-    global _initialized
-    if _initialized:
-        return
-    with _INIT_LOCK:
-        if _initialized:
-            return
-        conn = _connect()
-        try:
-            conn.execute(
-                "CREATE TABLE IF NOT EXISTS lifetime_hourly ("
-                "hour_start INTEGER PRIMARY KEY, "
-                "seconds_powered REAL NOT NULL DEFAULT 0, "
-                "seconds_sorted REAL NOT NULL DEFAULT 0, "
-                "updated_at REAL"
-                ")"
-            )
-            conn.commit()
-            _initialized = True
-        finally:
-            conn.close()
+def _connection():
+    return db.connect(_createTables)
 
 
 def _hourBucket(ts: float) -> int:
@@ -87,8 +55,7 @@ def accumulate(*, hour_start: int, powered_delta_s: float, sorted_delta_s: float
 
 
 class LifetimeStatsTracker:
-    def __init__(self, gc: GlobalConfig):
-        self.gc = gc
+    def __init__(self) -> None:
         self._running = False
         self._lock = threading.Lock()
         self._last_flush_mono = time.monotonic()
@@ -96,7 +63,8 @@ class LifetimeStatsTracker:
     # Flush the elapsed wall-time delta into the current hour bucket, attributing
     # it to "sorted" only while the machine is actively running. Shared monotonic
     # cursor means transition hooks and the periodic heartbeat can never double
-    # count the same interval.
+    # count the same interval. Called on the control loop, so the write itself
+    # runs on the database writer thread.
     def flush(self) -> None:
         with self._lock:
             self._flushLocked()
@@ -118,16 +86,16 @@ class LifetimeStatsTracker:
         if delta <= 0:
             return
         wall = time.time()
-        sorted_delta = delta if self._running else 0.0
-        try:
-            accumulate(
+        db.defer(
+            "lifetime_stats.accumulate",
+            functools.partial(
+                accumulate,
                 hour_start=_hourBucket(wall),
                 powered_delta_s=delta,
-                sorted_delta_s=sorted_delta,
+                sorted_delta_s=delta if self._running else 0.0,
                 now=wall,
-            )
-        except Exception as e:
-            self.gc.logger.warning(f"LifetimeStatsTracker: flush failed: {e}")
+            ),
+        )
 
 
 def _piecesByDay(conn: sqlite3.Connection, since: float) -> dict[str, dict[str, int]]:

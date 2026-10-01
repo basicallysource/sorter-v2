@@ -2,7 +2,11 @@
 	import { onMount } from 'svelte';
 	import { getBackendHttpBase, machineHttpBaseUrlFromWsUrl } from '$lib/backend';
 	import { getMachineContext } from '$lib/machines/context';
-	import { Key, Check, AlertTriangle } from 'lucide-svelte';
+	import Field from '$lib/components/ui/Field.svelte';
+	import Input from '$lib/components/ui/Input.svelte';
+	import Button from '$lib/components/ui/Button.svelte';
+	import Badge from '$lib/components/ui/Badge.svelte';
+	import Alert from '$lib/components/ui/Alert.svelte';
 
 	const machine = getMachineContext();
 
@@ -74,50 +78,41 @@
 	});
 </script>
 
-<div class="grid gap-4">
-	<div class="border border-border bg-surface px-3 py-3">
-		<div class="flex items-center gap-2">
-			<Key size={14} class="text-text-muted" />
-			<span class="text-sm font-medium text-text">{PROVIDER.label}</span>
-			{#if savedKeys[PROVIDER.id]}
-				<span class="ml-auto flex items-center gap-1 text-xs text-success dark:text-emerald-400">
-					<Check size={12} />
-					{savedKeys[PROVIDER.id]}
-				</span>
-			{:else}
-				<span class="ml-auto flex items-center gap-1 text-xs text-text-muted">
-					<AlertTriangle size={12} />
-					Not set
-				</span>
-			{/if}
-		</div>
-		<div class="mt-2 flex gap-2">
-			<input
+<div class="flex flex-col gap-4">
+	<div class="flex items-center gap-2">
+		<span class="text-sm font-medium text-ink">{PROVIDER.label} key</span>
+		{#if savedKeys[PROVIDER.id]}
+			<Badge tone="success" dot><span class="font-mono">{savedKeys[PROVIDER.id]}</span></Badge>
+		{:else}
+			<Badge tone="warning" dot>Not set</Badge>
+		{/if}
+	</div>
+	<Field
+		label="New key"
+		for="openrouter-key"
+		help="Used for cloud-assisted detection, as {PROVIDER.envVar}."
+	>
+		<div class="flex gap-2">
+			<Input
+				id="openrouter-key"
 				type="password"
 				placeholder={PROVIDER.placeholder}
 				bind:value={inputKeys[PROVIDER.id]}
-				class="flex-1 border border-border bg-bg px-2 py-1.5 font-mono text-xs text-text"
+				class="min-w-0 flex-1 font-mono"
 			/>
-			<button
-				type="button"
+			<Button
+				loading={saving[PROVIDER.id]}
+				disabled={!inputKeys[PROVIDER.id]?.trim()}
 				onclick={() => void saveKey(PROVIDER.id)}
-				disabled={!inputKeys[PROVIDER.id]?.trim() || saving[PROVIDER.id]}
-				class="border border-border bg-bg px-3 py-1.5 text-xs text-text transition-colors hover:bg-surface disabled:cursor-not-allowed disabled:opacity-50"
 			>
-				{saving[PROVIDER.id] ? 'Saving...' : 'Save'}
-			</button>
+				Save
+			</Button>
 		</div>
-		<div class="mt-1 text-sm text-text-muted">
-			Used for cloud-assisted detection via <code class="font-mono">{PROVIDER.envVar}</code>.
-		</div>
-	</div>
-
+	</Field>
 	{#if errorMsg}
-		<div class="border border-danger bg-danger/10 px-3 py-2 text-sm text-danger dark:border-danger dark:bg-danger/10 dark:text-red-400">
-			{errorMsg}
-		</div>
+		<Alert tone="danger">{errorMsg}</Alert>
 	{/if}
 	{#if statusMsg}
-		<div class="text-sm text-text-muted">{statusMsg}</div>
+		<p class="text-sm text-ink-muted">{statusMsg}</p>
 	{/if}
 </div>

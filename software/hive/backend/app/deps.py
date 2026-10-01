@@ -59,6 +59,19 @@ API_KEY_SCOPE_PARTS_PRICES = "parts:prices"
 # much disk is left. Admin-only on top of the scope, because the storage and DB
 # figures say as much about the business as they do about the box.
 API_KEY_SCOPE_SERVER_HEALTH_READ = "server_health:read"
+# Sorting profiles and kits, for an assistant a user connects to Hive: read
+# them, and write rules, versions and kits. Neither reaches a machine: a
+# profile only changes what a machine does when its owner applies it there.
+API_KEY_SCOPE_PROFILES_READ = "profiles:read"
+API_KEY_SCOPE_PROFILES_WRITE = "profiles:write"
+# The pieces the key owner's own machines sorted, so an assistant can build a
+# profile from what actually comes through them.
+API_KEY_SCOPE_RECORDS_READ = "records:read"
+# The scopes any user may put on a key. The rest are for admins: they reach
+# fleet-wide or server data.
+USER_GRANTABLE_API_KEY_SCOPES = frozenset(
+    {API_KEY_SCOPE_PROFILES_READ, API_KEY_SCOPE_PROFILES_WRITE, API_KEY_SCOPE_RECORDS_READ}
+)
 VALID_API_KEY_SCOPES = frozenset(
     {
         API_KEY_SCOPE_MODELS_READ,
@@ -73,6 +86,9 @@ VALID_API_KEY_SCOPES = frozenset(
         API_KEY_SCOPE_PARTS_READ,
         API_KEY_SCOPE_PARTS_PRICES,
         API_KEY_SCOPE_SERVER_HEALTH_READ,
+        API_KEY_SCOPE_PROFILES_READ,
+        API_KEY_SCOPE_PROFILES_WRITE,
+        API_KEY_SCOPE_RECORDS_READ,
     }
 )
 
@@ -198,7 +214,7 @@ def _parse_key_machine_ids(raw: object) -> frozenset[str] | None:
     return frozenset(str(v) for v in raw if isinstance(v, str) and v)
 
 
-def _resolve_api_key(db: Session, raw_token: str) -> tuple[User, frozenset[str], frozenset[str] | None]:
+def _resolve_api_key(db: Session, raw_token: str) -> tuple[User, frozenset[str], frozenset[str] | None, UserApiKey]:
     token_hash = hashlib.sha256(raw_token.encode()).hexdigest()
     key = (
         db.query(UserApiKey)
@@ -225,6 +241,7 @@ def _resolve_api_key(db: Session, raw_token: str) -> tuple[User, frozenset[str],
         user,
         frozenset(normalize_api_key_scopes(key.scopes) or []),
         _parse_key_machine_ids(key.machine_ids),
+        key,
     )
 
 
@@ -246,13 +263,15 @@ def get_current_user_or_api_key(
     """
     request.state.auth_via_api_key = False
     request.state.api_key_scopes = frozenset()
+    request.state.api_key_id = None
 
     if authorization and authorization.startswith("Bearer "):
         raw = authorization[7:].strip()
         if raw.startswith(API_KEY_PREFIX):
-            user, scopes, machine_ids = _resolve_api_key(db, raw)
+            user, scopes, machine_ids, key = _resolve_api_key(db, raw)
             request.state.auth_via_api_key = True
             request.state.api_key_scopes = scopes
+            request.state.api_key_id = key.id
             # Transient, request-scoped attribute read by the access helpers in
             # services/access_window.py — the credential's machine whitelist
             # rides with the user object so every visibility check sees it.
@@ -334,7 +353,7 @@ def resolve_public_scopes(db: Session, presented: str) -> frozenset[str]:
     """
     if not presented.startswith(API_KEY_PREFIX):
         raise HTTPException(status_code=401, detail="This endpoint requires an API key")
-    user, scopes, machine_ids = _resolve_api_key(db, presented)
+    user, scopes, machine_ids, _key = _resolve_api_key(db, presented)
     if user.role != "admin":
         raise HTTPException(status_code=403, detail="Insufficient permissions")
     if machine_ids is not None:

@@ -82,6 +82,20 @@ def test_new_piece_at_drop_gets_fresh_id():
     assert out[b] != ida
 
 
+def test_landing_bounce_keeps_its_id():
+    # A piece lands and bounces back 18 deg, then 5 more, before it settles. It
+    # is still in the drop zone, so it is the same piece.
+    tr = ot.OrderedChannelTracker(_cfg(min_hits=1))
+    box = (100, 100, 140, 140)
+    pid = _run(tr, [(226, _DROP, box)], 0.0)[box]
+    assert _run(tr, [(244, _DROP, box)], 0.05)[box] == pid
+    assert _run(tr, [(249, _DROP, box)], 0.1)[box] == pid
+    # Riding the platter, the same step back is another piece.
+    tr = ot.OrderedChannelTracker(_cfg(min_hits=1))
+    pid = _run(tr, [(120, _FWD, box)], 0.0)[box]
+    assert _run(tr, [(138, _FWD, box)], 0.05)[box] != pid
+
+
 def test_head_exit_retires_only_head():
     cfg = _cfg(min_hits=1)
     tr = ot.OrderedChannelTracker(cfg)

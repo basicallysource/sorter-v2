@@ -33,7 +33,7 @@
 </script>
 
 <svelte:head>
-	<title>Label piece · Hive</title>
+	<title>Label a piece - Hive</title>
 </svelte:head>
 
 {#key `${machineId}|${pieceUuid}`}

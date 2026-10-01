@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { chartFont, token } from '$lib/theme';
 	// Canvas time-series chart for chute-stress TMC2209 telemetry. The signals have
 	// very different native scales (SG_RESULT 0..512, CS_ACTUAL 0..31, PWM_SCALE
 	// 0..255, TSTEP up to ~1e6), so each enabled series is min-max normalized to the
@@ -40,12 +41,6 @@
 
 	const PAD = { top: 16, right: 16, bottom: 32, left: 36 };
 
-	function cssVar(name: string, fallback: string): string {
-		if (typeof window === 'undefined' || !canvas) return fallback;
-		const v = getComputedStyle(canvas).getPropertyValue(name).trim();
-		return v || fallback;
-	}
-
 	function normalized(key: SeriesKey): { x: number; v: number }[] {
 		const vals = points.filter((p) => p[key] != null && (p[key] as number) >= 0);
 		if (vals.length === 0) return [];
@@ -67,13 +62,13 @@
 		ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
 		ctx.clearRect(0, 0, width, height);
 
-		const colText = cssVar('--color-text', '#1a1a1a');
-		const colMuted = cssVar('--color-text-muted', '#7a7770');
-		const colBorder = cssVar('--color-border', '#e2e0db');
-		const colPrimary = cssVar('--color-primary', '#0055bf');
-		const colDanger = cssVar('--color-danger', '#d01012');
-		const colWarning = cssVar('--color-warning', '#f2a900');
-		const colSuccess = cssVar('--color-success', '#00852b');
+		const colText = token('--ink', canvas);
+		const colMuted = token('--ink-muted', canvas);
+		const colBorder = token('--line', canvas);
+		const colPrimary = token('--primary', canvas);
+		const colDanger = token('--danger', canvas);
+		const colWarning = token('--warning', canvas);
+		const colSuccess = token('--success', canvas);
 
 		const plotW = width - PAD.left - PAD.right;
 		const plotH = height - PAD.top - PAD.bottom;
@@ -89,7 +84,7 @@
 		const syNorm = (v: number) => y0 + plotH - v * plotH;
 
 		// Horizontal gridlines (normalized 0..1)
-		ctx.font = '11px ui-sans-serif, system-ui, sans-serif';
+		ctx.font = chartFont(canvas);
 		ctx.textBaseline = 'middle';
 		ctx.lineWidth = 1;
 		for (const gv of [0, 0.25, 0.5, 0.75, 1]) {

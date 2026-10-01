@@ -120,7 +120,7 @@ This starts the Python backend on `:8000` and the Vite dev server on `:5173`.
 Open `http://localhost:5173/` in a browser. You should see the SorterOS UI.
 
 ```bash
-curl -fsS http://localhost:8000/api/health
+curl -fsS http://localhost:8000/health
 ```
 
 Should return a JSON status response.

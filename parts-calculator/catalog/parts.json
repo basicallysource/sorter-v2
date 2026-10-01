@@ -6158,7 +6158,7 @@
       "category": "Wire harness",
       "description": "Joins an LED strip to wire without soldering: the cut end of the strip clamps under sprung contacts at one end, the wire clamps into the other. One per Camera lamp, so three per machine.",
       "note": "8 mm COB strip only: a 10 mm connector, or one for SMD strip, will not grip. Soldering the pads is the only other way to get wire onto the strip.",
-      "alternative": "Solder the wire to the strip pads instead, which needs no connector at all",
+      "alternative": "Solder the wire to the strip pads instead, with a 25 mm piece of 3 mm adhesive-lined heat shrink over each joint, which needs no connector at all",
       "created_at": "2026-09-10",
       "updated_at": "2026-09-10",
       "image_url": "https://assets.basically.website/sorter-parts/led-strip-connector-8mm-full-915e0ed03fdc.jpg",
@@ -6210,9 +6210,9 @@
       "cots": {
         "type": "cable"
       },
-      "name": "Pre-crimped 2-pin Dupont lead, 1 m",
+      "name": "Pre-crimped 2-pin Dupont cable, 1 m",
       "category": "Wire harness",
-      "description": "A metre of 22 AWG (0.33 mm²) red and black with a 2-pin 2.54 mm Dupont housing crimped on. One of these is a whole LED drop: the Dupont end pushes onto an LED header (J8 to J11), the far end goes into the strip connector. The pack is male-to-female, so cut the male plug off and discard it.",
+      "description": "A metre of 22 AWG (0.33 mm²) red and black with a 2-pin 2.54 mm Dupont housing crimped on. The board cable of an LED drop: the Dupont end pushes onto an LED header (J8 to J11), and the far end is cut and joined to the inline barrel socket. The pack is male-to-female, so cut the male plug off and discard it.",
       "note": "Sold male-to-female: cut the male plug off and discard it. Any 22 AWG (0.33 mm²) pair plus a 2-pin Dupont housing does the same job if you own a crimp tool.",
       "alternative": "Your own 22 AWG (0.33 mm²) pair plus a 2-pin 2.54 mm Dupont housing and two crimps",
       "created_at": "2026-09-10",
@@ -6239,7 +6239,7 @@
       "sheet_qty": {
         "per_machine": 3
       },
-      "caption": "Cut the male end off and it is one LED drop.",
+      "caption": "Cut the male end off and join the barrel socket to it.",
       "docs_page": "/hardware/helpers/led-strip/",
       "sourcing": {
         "vendors": [
@@ -6352,10 +6352,10 @@
       },
       "name": "DC barrel plug, 5.5 x 2.1 mm male",
       "category": "Wire harness",
-      "description": "The plug on the end of every 24 V lead that goes into a PSU box jack or an LED unplug point. Tip is +24 V and the sleeve is ground. Buy it as a moulded plug already on a short lead and splice to that; a screw-terminal plug you assemble yourself works but is bulkier and comes loose.",
+      "description": "The plug on the end of a 24 V lead that goes into a PSU box jack. Tip is +24 V and the sleeve is ground. Buy it as a moulded plug already on a short lead and splice to that; a screw-terminal plug you assemble yourself works but is bulkier and comes loose.",
       "note": "5.5 x 2.5 mm looks identical and does not mate: the 0.4 mm is on the centre pin. Check the pin size on the listing, not the outside diameter.",
       "created_at": "2026-09-14",
-      "updated_at": "2026-09-14",
+      "updated_at": "2026-09-30",
       "image_url": "https://assets.basically.website/sorter-parts/dc-plug-5521-male-full-9cabce9431e7.jpg",
       "attributes": [
         {
@@ -6372,14 +6372,64 @@
         },
         {
           "label": "Used on",
-          "value": "W1, both ends of W2, W3, and the three LED pigtails L1p to L3p"
+          "value": "W1, both ends of W2 and W3"
         }
       ],
       "sheet_qty": {
-        "per_machine": 7
+        "per_machine": 4
       },
-      "caption": "Seven per machine. W2 takes one at each end.",
+      "caption": "Four per machine. W2 takes one at each end.",
       "docs_page": "/hardware/electronics/wire-harness/",
+      "sourcing": {
+        "vendors": [
+          {
+            "region": "US",
+            "vendor": "JacobsParts",
+            "url": "https://www.jacobsparts.com/items/DCCONN-D",
+            "as_of": "2026-09-14",
+            "note": "DCCONN-D, 6 in lead. Any 5.5 x 2.1 mm centre-positive pigtail does."
+          }
+        ]
+      }
+    },
+    {
+      "id": "dc-plug-5521-male-led",
+      "uid": "yfy2",
+      "kind": "cots",
+      "cots": {
+        "type": "connector",
+        "optional": true
+      },
+      "name": "DC barrel plug, 5.5 x 2.1 mm male, for the LED pigtail",
+      "category": "Wire harness",
+      "description": "Optional but recommended. The plug on a camera lamp's pigtail, which pushes into the inline barrel socket on the board cable so the lamp can come off next to the lamp. Tip is +24 V and the sleeve is ground. Leave the pair out and the lamp's strip is connected straight to the Dupont cable instead. Buy it as a moulded plug already on a short pair of wires; those wires go onto the strip. One per lamp.",
+      "note": "5.5 x 2.5 mm looks identical and does not mate: the 0.4 mm is on the centre pin. Check the pin size on the listing, not the outside diameter.",
+      "created_at": "2026-09-30",
+      "updated_at": "2026-09-30",
+      "image_url": "https://assets.basically.website/sorter-parts/dc-plug-5521-male-full-9cabce9431e7.jpg",
+      "attributes": [
+        {
+          "label": "Size",
+          "value": "5.5 mm outside, 2.1 mm centre pin"
+        },
+        {
+          "label": "Polarity",
+          "value": "Centre positive"
+        },
+        {
+          "label": "Rating",
+          "value": "5 A or better on the three PSU leads"
+        },
+        {
+          "label": "Used on",
+          "value": "The three LED pigtails, L1p to L3p"
+        }
+      ],
+      "sheet_qty": {
+        "per_machine": 3
+      },
+      "caption": "Recommended. One per lamp, on the pigtail.",
+      "docs_page": "/hardware/helpers/led-strip/",
       "sourcing": {
         "vendors": [
           {
@@ -6442,12 +6492,12 @@
         "type": "connector",
         "optional": true
       },
-      "name": "DC barrel jack, 5.5 x 2.1 mm female, inline",
+      "name": "DC barrel socket, 5.5 x 2.1 mm female, inline",
       "category": "Wire harness",
-      "description": "The unplug point partway along an LED drop, so a camera lamp can come off without unpicking the board end. One per lamp when the drop is built in two segments.",
-      "note": "Optional on a v1.3 board. The drop can be one continuous 22 AWG (0.33 mm²) pair from the LED header to the strip connector, with no barrel anywhere, and Spencer's built lamp is wired that way. Fit these if you want the lamp to unplug.",
+      "description": "Optional but recommended. The unplug point of an LED drop, so a camera lamp can come off without unpicking the board end. Its two wires are joined to the cut end of the Dupont cable, and the lamp pigtail's barrel plug pushes into it. Leave the pair out and the strip is connected straight to the Dupont cable instead. One per lamp.",
+      "note": "Buy it as a moulded socket already on its own short wires and join those to the Dupont cable. The socket goes on the board cable and the plug on the lamp pigtail, because the board end is live at 24 V.",
       "created_at": "2026-09-14",
-      "updated_at": "2026-09-14",
+      "updated_at": "2026-09-30",
       "image_url": "https://assets.basically.website/sorter-parts/dc-jack-5521-inline-full-7804080cd0ea.jpg",
       "attributes": [
         {
@@ -6466,7 +6516,7 @@
       "sheet_qty": {
         "per_machine": 3
       },
-      "caption": "The unplug point in an LED drop. Skip it and run one continuous pair.",
+      "caption": "Recommended. The unplug point in an LED drop, on the board cable.",
       "docs_page": "/hardware/helpers/led-strip/"
     },
     {
@@ -6478,7 +6528,7 @@
       },
       "name": "Insulated butt connector, red, 22-16 AWG",
       "category": "Wire harness",
-      "description": "Joins two wires end to end without soldering: one wire goes in each end and the barrel is crimped onto it. Two on the control board's 24 V lead, one for each of the moulded barrel plug's leads.",
+      "description": "Joins two wires end to end without soldering: one wire goes in each end and the barrel is crimped onto it. Two per LED drop, one for each of the barrel socket's wires, so six for the three lamps, plus two on the control board's 24 V lead, one for each of the moulded barrel plug's leads, so eight per machine.",
       "note": "Crimp it with insulated-terminal crimping pliers, in the jaw marked for 22 to 16 AWG (0.33 to 1.3 mm²), not picked by colour. A crimp tool for open-barrel Dupont and PH contacts has the wrong die and will not close this connector properly.",
       "alternative": "Solder the two wires together and cover each joint with a 25 mm piece of 3 mm adhesive-lined heat shrink instead",
       "created_at": "2026-10-01",
@@ -6499,14 +6549,14 @@
         },
         {
           "label": "Used on",
-          "value": "The two joints between the moulded barrel plug's leads and the wire of the board's 24 V lead, W1"
+          "value": "The two joints between the barrel socket's wires and the Dupont cable, LJ1 to LJ3, and the two between the moulded barrel plug's leads and the wire of the board's 24 V lead, W1"
         }
       ],
       "sheet_qty": {
-        "per_machine": 2
+        "per_machine": 8
       },
-      "caption": "Two on the control board's 24 V lead, one for each wire of the moulded barrel plug.",
-      "docs_page": "/hardware/helpers/board-24v-lead/",
+      "caption": "Two per lamp, one for each wire of the barrel socket, and two on the control board's 24 V lead.",
+      "docs_page": "/hardware/helpers/led-strip/",
       "sourcing": {
         "vendors": [
           {
@@ -15791,13 +15841,17 @@
     {
       "id": "harness-led-drop",
       "uid": "nmlx",
-      "version": "1",
+      "version": "2",
       "name": "LED drop (L, Lp)",
-      "description": "One camera lamp's power: a metre-long Dupont lead from an LED header on the board to an inline barrel jack, then a 6 in pigtail from the matching plug to the clamp-on connector on the lamp's strip. The barrel pair is the unplug point, so a lamp comes off without unpicking the board end. Run the drop as one continuous pair instead if you would rather have no barrel in it. 1 per camera lamp.",
+      "description": "One camera lamp's power: a metre-long Dupont cable from an LED header on the board to the lamp's strip. Optional but recommended: an inline barrel socket on the cable and a 6 in pigtail from the matching plug to the lamp, which is the unplug point, so a lamp comes off next to the lamp without unpicking the board end. The socket's wires are joined to the Dupont cable with two butt connectors or by soldering. Without the pair the cable goes straight to the strip. 1 per camera lamp.",
       "joining": [
         {
           "method": "crimp",
-          "note": "The strip connector clamps onto the cut end of the COB strip and onto the pigtail wire, so neither end is soldered."
+          "note": "The strip connector clamps onto the cut end of the COB strip and onto the plug's wires, so that end is not soldered. The socket's two wires are joined to the Dupont cable's wires with a red insulated butt connector on each, crimped in the jaw marked 22 to 16 AWG (0.33 to 1.3 mm²) of an insulated-terminal crimper."
+        },
+        {
+          "method": "solder",
+          "note": "Or solder each of the socket's wires to the Dupont cable's wire of the same colour, tip to red, and cover each joint with adhesive-lined heat shrink."
         }
       ],
       "lines": [
@@ -15810,12 +15864,25 @@
           "qty": 1
         },
         {
-          "part": "dc-plug-5521-male",
+          "part": "butt-connector-red-22-16",
+          "qty": 2
+        },
+        {
+          "part": "dc-plug-5521-male-led",
           "qty": 1
         },
         {
           "part": "led-strip-connector-8mm",
           "qty": 1
+        }
+      ],
+      "versions": [
+        {
+          "version": "2",
+          "date": "2026-09-30",
+          "message": "The barrel plug on the lamp pigtail is now its own catalog part, so it and the inline barrel socket can both be marked optional (recommended, for lamps that come off at the lamp). The socket splice gains a solderless route, two insulated butt connectors per drop, as an alternative to soldering. The insulated-terminal crimper is its own part too. No physical change to what an old unit is.",
+          "breaking": false,
+          "commit": null
         }
       ]
     },

@@ -79,7 +79,7 @@ The solderless connector is a hinged body with sprung contacts at each end: the 
   <li>Clamp the plug's two leads (or, without the plug, the Dupont lead's two wires) into the other end, the tip lead (or the red wire) on the <code>+24V</code> side. It bites through the insulation, so the leads do not need stripping either.</li>
 </ol>
 
-**Match the width.** These are 8 mm COB connectors and nothing else will grip: a 10 mm body, or one meant for SMD strip, will not hold the pads against the contacts.
+**Match the width.** These are 8 mm COB connectors and nothing else will grip: a 10 mm body, or one meant for SMD strip, will not hold the pads against the contacts. Buy <code>SBL-RA2P-8</code>: the <code>-DC</code> variant ends in a barrel socket, which is the wrong way round on the lamp pigtail.
 
 <figure class="single-figure">
   <img class="doc-figure" src="https://assets.basically.website/sorter-docs/led-strip-clamp-sequence-black-full-3e4b2ec3e816.png" alt="Two stages of clamping: above, the cut end of a COB strip lined up with the open connector, an arrow showing it going in, with red and black wire already in the far end; below, the connector pressed shut on the strip with the pair leaving it">
@@ -106,7 +106,7 @@ Keep the iron on the pad briefly. The strip's backing and the LED next to the pa
 
 ## The board cable
 
-It is the Dupont lead, with the female barrel socket on its far end if you are fitting the pair. The lead comes from the pack with a plug on both ends, and the socket's own short leads are joined to it.
+It is the Dupont lead, with the female barrel socket on its far end if you are fitting the pair. The lead comes from the pack with a plug on both ends, and the socket's own short leads are joined to it. If you own a crimp tool you can make the lead instead: about a metre of 22 AWG, one red and one black, with a 2-pin 2.54 mm Dupont female housing crimped on.
 
 <div class="callout callout-warning">
   <span class="callout-icon" aria-hidden="true">⚠</span>
@@ -147,16 +147,6 @@ The butt connector is a red vinyl-insulated barrel that takes one wire in each e
 </ol>
 
 **Check it before it goes anywhere.** Push the two cables together and set the multimeter to continuity. From the strip's `+24V` pad to the Dupont pin that goes to `+V` on the board should beep, and from `+24V` to the other pin should not. If it beeps the wrong way round, the two joints have crossed. If the two pins beep to each other, something is shorting.
-
-## Choosing the parts
-
-<dl class="spec-list">
-  <dt>Which clamp-on connector</dt><dd><code>SBL-RA2P-8</code> is the one in the list above, and it is the one that takes your own wire. <code>SBL-RA2P-8-1</code> arrives with 4 in of tinned lead on it, so it gets spliced rather than clamped. <code>SBL-RA2P-8-DC</code> ends in a barrel <b>socket</b>, which is the wrong way round for the lamp pigtail. All are <b>8 mm COB only</b>.</dd>
-  <dt>The butt connectors</dt><dd>Red, vinyl-insulated, <b>22 to 16 AWG</b>, two per lamp. They are only for the socket splice in step 3a, and only if you fit the pair and crimp rather than solder.</dd>
-  <dt>The barrel plug and socket</dt><dd>Optional but recommended. Buy each as a moulded part already on its own short leads, and splice or clamp to those. A screw-terminal plug works but is bulkier and comes loose. Both must be <b>5.5 x 2.1 mm</b>: a 2.5 mm plug looks the same and does not mate.</dd>
-  <dt>If you own a crimp tool</dt><dd>You can make the board cable's lead instead of buying it: about a metre of 22 AWG stranded per run, one red and one black, plus a 2-pin 2.54 mm Dupont female housing and two crimps.</dd>
-  <dt>Heatshrink</dt><dd>For soldered joints only, in steps 2b and 3b. Crimped joints are insulated already, and nothing else on this page needs insulating.</dd>
-</dl>
 
 ## The finished result
 

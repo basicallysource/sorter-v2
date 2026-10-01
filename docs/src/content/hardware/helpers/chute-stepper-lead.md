@@ -24,7 +24,7 @@ parts_needed:
     qty: 1
   - part: connector-kit-crimp
     qty: 1
-tools_needed: [Wire strippers, "Crimp tool for open-barrel contacts", "Soldering iron and adhesive-lined heat shrink", Multimeter]
+tools_needed: ["Multimeter, to find the coils and to check the finished lead", "Side cutters, to cut the tail wire to length", "Wire strippers that take both 24 AWG (0.20 mm²) and 20 AWG (0.52 mm²) wire", "Soldering iron and solder, for the four splices", "Adhesive-lined heat shrink, for the splices", "A heat gun, to shrink it", "Crimping pliers for open-barrel contacts, with a die for 24 AWG (0.20 mm²) wire", "A ruler or tape measure, to cut the tail to length"]
 ---
 
 The chute stepper is the NEMA 23 that drives the chute. It is the only motor on the machine with bare flying leads: the four channel steppers have their own 6-pin socket and take a bought cable. So this one lead gets built. **One per machine.**
@@ -134,11 +134,46 @@ The motor's four leads are coloured, and the colours do not tell you which pair 
 
 <ol class="numbered-steps">
   <li>Hold the motor where it will sit and see how far its own leads get you. They come out of the motor at 300 to 500 mm depending on the batch, and the harness notes put the finished lead at about 1 m (40 in).</li>
-  <li>Splice 24 AWG (0.20 mm²) of the matching colour onto each of the four, long enough to make the length up and at least 100 mm even when the motor's own leads already reach: solder each conductor, cover it with adhesive-lined heat shrink, and sleeve the four together. The thin ends are what the contacts crimp onto.</li>
-  <li>Strip 2 mm off the end of each of the four <b>24 AWG (0.20 mm²)</b> conductors.</li>
-  <li>Crimp a PH contact onto each. Seat the strands fully in the barrel, crimp in the matching die, then pull on the wire to check it holds.</li>
+  <li>Cut four pieces of 24 AWG (0.20 mm²) wire, one in each colour of the motor's four leads, long enough to make the length up and <b>at least 100 mm</b> even when the motor's own leads already reach.</li>
+  <li>Splice each one onto the motor lead of the same colour, as under <b>Splicing a tail onto a motor lead</b>, below. <b>These joints are soldered, not crimped:</b> a butt connector is too big for 24 AWG (0.20 mm²) wire.</li>
+  <li>Crimp a PH contact onto the free end of each of the four tails, as under <b>Crimping a PH contact</b>, below.</li>
   <li>Push the contacts into the housing until each one clicks: <b>one coil into positions 1 and 2, the other coil into positions 3 and 4</b>. Which coil goes in which pair does not matter. Nor does which lead of a pair goes in which position: that only reverses the direction the motor turns, and the direction is set in the software.</li>
 </ol>
+
+## Splicing a tail onto a motor lead
+
+Four joints, one per lead. The harness spec is a solder splice with adhesive-lined heat shrink, one sleeve per conductor and one over all four, and no twist-and-tape.
+
+<ol class="numbered-steps">
+  <li>Slide a piece of adhesive-lined heat shrink onto the 24 AWG (0.20 mm²) tail, well back from the end. It cannot go on once the joint is soldered.</li>
+  <li>Strip the same length off the end of the tail and off the end of the motor lead.</li>
+  <li>Lay the two bare ends side by side, overlapping, and solder them together until the solder has run through both sets of strands.</li>
+  <li>Slide the heat shrink over the joint, so it covers the bare metal and a little insulation either side, and shrink it with the heat gun until it grips the wire.</li>
+  <li>Make the other three joints the same way, <b>staggered along the cable</b> so no two sit side by side.</li>
+  <li>Slide one more piece of heat shrink over all four and shrink it, so the four leave the motor as one cable.</li>
+</ol>
+
+<figure class="single-figure">
+  <img class="doc-figure" src="https://assets.basically.website/sorter-docs/chute-stepper-lead-splice-diagram-full-d82885551061.png" alt="Four panels. 1: a 24 AWG tail with a piece of heat shrink already slid on, facing the stripped end of the motor's thicker lead. 2: the two bare ends overlapped side by side and covered in solder. 3: the heat shrink slid over the joint. 4: four wires, black, green, red and blue, each with its own joint at a different distance along the cable, and one more sleeve over all four.">
+  <figcaption>Heat shrink on first, solder, shrink, then repeat staggered and sleeve the four.</figcaption>
+</figure>
+
+## Crimping a PH contact
+
+A PH contact takes 24 to 28 AWG (0.08 to 0.20 mm²) wire only, which is why it goes on the tail and not on the motor's own leads.
+
+<ol class="numbered-steps">
+  <li>Strip about 2 mm off the end of the tail.</li>
+  <li>Close the contact's inner wings on the bare strands and its outer wings on the insulation, in the die of the crimping pliers marked for 24 AWG (0.20 mm²) wire.</li>
+  <li>Pull on the wire to check it holds, then push the contact into the housing from the back, with its lance facing the slot in the housing, until it clicks.</li>
+</ol>
+
+<figure class="single-figure">
+  <img class="doc-figure" src="https://assets.basically.website/sorter-docs/ph-contact-crimp-steps-full-985dd5dc580a.png" alt="Three stages: a wire with about 2 mm of bare strands; a contact crimped on, its outer wings on the insulation and its inner wings on the bare strands; the contact pushed into the back of a housing until it clicks.">
+  <figcaption>Strip, crimp, push in until it clicks.</figcaption>
+</figure>
+
+Choose the die by the size marked on it, not by its colour.
 
 <div class="callout callout-warning">
   <span class="callout-icon" aria-hidden="true">⚠</span>

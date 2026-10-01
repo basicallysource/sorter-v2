@@ -24,8 +24,6 @@ parts_needed:
     qty: 1
   - part: jst-svh-21t
     qty: 2
-  - part: connector-kit-crimp
-    qty: 1
 tools_needed: [Wire strippers, "Crimp tool for open-barrel contacts", Multimeter, "A small screwdriver, for a screw-terminal plug", "Only if you splice: soldering iron and adhesive-lined heat shrink"]
 ---
 
@@ -45,7 +43,7 @@ This is `W1` on the [harness drawings]({{ '/hardware/parts/harness-order/#board-
 
 <div class="callout callout-warning">
   <span class="callout-icon" aria-hidden="true">⚠</span>
-  <p><b>The connector kit has no VH housing.</b> Its crimper does take the VH contacts, so the VHR-2 and its two contacts in the list above are a separate buy and the kit's tool crimps them.</p>
+  <p><b>No Dupont or PH kit has a VH housing.</b> Your open-barrel crimp tool does take the VH contacts, so the VHR-2 and its two contacts in the list above are a separate buy and the same tool crimps them.</p>
 </div>
 
 ## Build it

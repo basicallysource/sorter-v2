@@ -406,7 +406,7 @@ export type ResolvedPart = {
 	// Interchangeable alternative (e.g. socket vs button head): true for a bare
 	// tag, or a string naming the alternative. Renders the green "A" badge.
 	alternative?: string | boolean;
-	// Bought item the build works without (the WiFi module, the crimp kit).
+	// Bought item the build works without (the WiFi module).
 	// Straight off the catalog's `cots.optional`, the same flag the parts
 	// calculator badges, so the two sites mark the same parts. Printed parts
 	// carry an `optional` of their own and it is deliberately not read here:

@@ -133,7 +133,7 @@ The PHR-4 the contacts came out of is now spare.
 
 ## Or: re-house the lead the motor came with
 
-This keeps the 1 m lead already plugged into the motor and replaces only its board end, so it is the route that costs nothing extra if you own a crimp tool. **Per lead: one `jst-phr-4` and four `jst-sph-002t` contacts**, so sixteen contacts for the machine, plus the [crimp and connector kit](https://parts-calculator.basically.website/hardware?hw=connector-kit-crimp) if you do not have a crimper. Buy neither the ready-made cable nor the PHR-6 for this route.
+This keeps the 1 m lead already plugged into the motor and replaces only its board end, so it is the route that costs nothing extra if you own a crimp tool. **Per lead: one `jst-phr-4` and four `jst-sph-002t` contacts**, so sixteen contacts for the machine. You need a crimp tool for open-barrel contacts. Buy neither the ready-made cable nor the PHR-6 for this route.
 
 **The motor's own end is already right.** It is a 6-position JST-PH socket on the can, the lead is in it, the crossover above is already made inside the cable, and its 26 AWG is inside the 24 to 28 AWG a PH contact takes. Only the Dupont end is wrong.
 

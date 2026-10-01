@@ -6582,7 +6582,7 @@
       "category": "Wire harness",
       "description": "The board end of the stepper cables, into a 4-pin JST-PH stepper output on basically board v1.3. Which socket you plug it into is what decides which motor the software drives, so follow the mapping on the docs page rather than guessing.",
       "note": "Count of 5 follows the harness drawing, which puts the chute cable's board end on a PHR-4 as well. The v1.3 netlist reads the chute as a Dupont header instead, which would make this 4. Unsettled, so buy 5 and have a spare.",
-      "alternative": "The Preciva crimp tool and connector kit (connector-kit-crimp) includes this, along with the crimper, and jst-ph-cable-4p-63cm arrives with one fitted at each end",
+      "alternative": "jst-ph-cable-4p-63cm arrives with one fitted at each end",
       "created_at": "2026-09-14",
       "updated_at": "2026-09-14",
       "image_url": "https://assets.basically.website/sorter-parts/jst-phr-4-full-0556181a4cd7.jpg",
@@ -6689,7 +6689,7 @@
       "category": "Wire harness",
       "description": "The contacts inside every PH housing on the machine. Crimp one onto each conductor, then push it into the housing until it latches.",
       "note": "PH contacts take 24 to 28 AWG only, which is why the stepper cables are 24 AWG and not something heavier. Buy well over the count; these are small and easy to spoil.",
-      "alternative": "The Preciva crimp tool and connector kit (connector-kit-crimp) includes this, along with the crimper. Buying jst-ph-cable-4p-63cm drops the count to 4, the chute's board end only",
+      "alternative": "Buying jst-ph-cable-4p-63cm drops the count to 4, the chute's board end only",
       "created_at": "2026-09-14",
       "updated_at": "2026-09-14",
       "image_url": "https://assets.basically.website/sorter-parts/jst-sph-002t-full-020470b7194a.jpg",
@@ -6739,7 +6739,7 @@
       "category": "Wire harness",
       "description": "The board end of the chute limit switch cable, onto J5. Only two of the three positions are wired: signal and ground.",
       "note": "The third position is left empty on purpose, so the plug cannot go onto J5 the wrong way round. Do not fill it.",
-      "alternative": "The Preciva crimp tool and connector kit (connector-kit-crimp) includes this, along with the crimper",
+      "alternative": null,
       "created_at": "2026-09-14",
       "updated_at": "2026-09-19",
       "image_url": "https://assets.basically.website/sorter-parts/dupont-housing-3p-full-50d0a6c664ee.jpg",
@@ -7092,10 +7092,10 @@
       },
       "name": "Crimp tool and connector kit (Dupont, JST-PH, JST-XH)",
       "category": "Wire harness",
-      "description": "One box instead of several line items: a ratcheting crimper for open-barrel contacts plus 1565 terminals and a spread of Dupont 2.54 mm, JST-PH 2.0 mm and JST-XH 2.5 mm housings. It covers the PH housings and contacts and the Dupont housing this machine needs, and it is the crimp tool the connecting and PSU pigtail pages ask for.",
+      "description": "Retired. A Preciva 1565-piece crimp tool and Dupont, JST-PH and JST-XH connector kit, taken out of the docs and the parts list. The docs now list a crimp tool for open-barrel contacts under Tools needed instead, and the parts that were in the kit are bought on their own. Do not re-add it to a page.",
       "note": "Read what it does not cover before you rely on it. The housings run 1 to 5 pin, so the 6-pin PHR-6 at the stepper motor end is not in it. There are no VH 3.96 mm housings, though the crimper's range does take the VH contacts. And the die is for non-insulated open-barrel contacts, so it will not crimp the PSU fork terminals or the #187 receptacles, which need an insulated-terminal die.",
       "created_at": "2026-09-14",
-      "updated_at": "2026-09-14",
+      "updated_at": "2026-10-01",
       "image_url": "https://assets.basically.website/sorter-parts/connector-kit-crimp-full-e3e61c2d331b.jpg",
       "attributes": [
         {
@@ -7133,7 +7133,8 @@
             "note": "Preciva 1565-piece kit. Suggested by Jon."
           }
         ]
-      }
+      },
+      "retired_at": "2026-10-01"
     },
     {
       "id": "jst-ph-cable-4p-63cm",

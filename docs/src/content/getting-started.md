@@ -50,7 +50,7 @@ Each page lists the tools for its own steps.
   <li>A soldering iron, solder and adhesive-lined heat shrink.</li>
   <li>A multimeter with a continuity buzzer.</li>
   <li>Side cutters, wire strippers and needle-nose pliers.</li>
-  <li>A crimp tool, from the <a href="https://parts-calculator.basically.website/hardware?hw=connector-kit-crimp">crimp and connector kit</a>, unless you <a href="{{ '/hardware/parts/harness-order/' | relative_url }}">order the harness ready made</a>.</li>
+  <li>A ratcheting crimp tool for open-barrel contacts (Dupont, JST-PH, JST-VH), unless you <a href="{{ '/hardware/parts/harness-order/' | relative_url }}">order the harness ready made</a>.</li>
   <li>Small flat and Phillips screwdrivers, an 8 mm spanner, a mallet and a tape measure.</li>
 </ul>
 

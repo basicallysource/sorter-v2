@@ -25,6 +25,7 @@
 	import Badge from '$lib/components/Badge.svelte';
 
 	let profile = $state('september');
+	let contextMenu: Menu | undefined = $state();
 	let last = $state('');
 	let confirmOpen = $state(false);
 	let restarting = $state(false);
@@ -165,6 +166,29 @@
 				{/snippet}
 			</Menu>
 			{#if last}<span class="text-sm text-ink-muted">Chose: {last}</span>{/if}
+		</div>
+	</Specimen>
+	<Specimen
+		code={`<Menu bind:this={menu} label="Bin" items={[...]} />
+<div oncontextmenu={(e) => { e.preventDefault(); menu.openAt(e); }}>...</div>`}
+	>
+		<Menu
+			bind:this={contextMenu}
+			label="Bin"
+			items={[
+				{ label: 'Point the chute here', onselect: () => (last = 'Point the chute here') },
+				{ label: 'Show what is in it', onselect: () => (last = 'Show what is in it') }
+			]}
+		/>
+		<div
+			role="presentation"
+			class="flex h-28 items-center justify-center rounded-panel bg-well text-sm text-ink-muted"
+			oncontextmenu={(e) => {
+				e.preventDefault();
+				contextMenu?.openAt(e);
+			}}
+		>
+			Right-click here
 		</div>
 	</Specimen>
 </SiteSection>

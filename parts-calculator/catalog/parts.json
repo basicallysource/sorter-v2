@@ -15980,7 +15980,7 @@
       "joining": [
         {
           "method": "crimp",
-          "note": "One SPH-002T contact onto each of the eight conductor ends, then push each into its housing until it latches."
+          "note": "One SPH-002T contact onto each of the eight conductor ends: strip about 2 mm, close the inner wings on the bare strands and the outer wings on the insulation, in the crimper die marked for 24 AWG (0.20 mm²). Then push each into its housing until it latches."
         }
       ],
       "lines": [

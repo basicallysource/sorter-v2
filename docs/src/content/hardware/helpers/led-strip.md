@@ -20,14 +20,16 @@ parts_needed:
     qty: 3
   - part: dc-jack-5521-inline
     qty: 3
+  - part: butt-connector-red-22-16
+    qty: 6
   - part: dupont-lead-2p-1m
     qty: 3
-tools_needed: [Side cutters, Wire strippers, "Soldering iron, solder and heatshrink", "Multimeter (with the plug and socket)", "Only if you make your own lead: crimp tool"]
+tools_needed: [Side cutters, Wire strippers, "Soldering iron, solder and heatshrink (if you solder)", "Crimp tool with an insulated-terminal die (for the butt connectors)", "Multimeter (with the plug and socket)", "Only if you make your own lead: crimp tool"]
 ---
 
 A camera lamp's power is best built as **two cables that meet at a barrel plug and socket**, so a lamp can come off without unwiring the board end. The plug and socket are **optional but recommended**. **They make maintenance easier:** the power supply to a lamp can be disconnected right next to the lamp, so you can take a lamp down, swap it or work on it without touching the board end of its cable or the cables of the other lamps. **A machine takes three of each.** The quantities above are a whole machine's worth: one 5 m roll cuts into five lengths, and the Dupont leads come five to a pack.
 
-**Leaving the pair out** gives you one cable instead of two: the Dupont lead's cut end goes straight onto the strip, by the clamp (2a) or by solder (2b), in place of the plug's leads. Skip "Find the tip" and step 3, and read the lead's red wire as the one that goes to <code>+24V</code>. A lamp is then taken off by unplugging the Dupont end at the board.
+**Leaving the pair out** gives you one cable instead of two: the Dupont lead's cut end goes straight onto the strip, by the clamp (2a) or by solder (2b), in place of the plug's leads. Skip "Find the tip" and step 3 (3a or 3b), and read the lead's red wire as the one that goes to <code>+24V</code>. A lamp is then taken off by unplugging the Dupont end at the board.
 
 <dl class="spec-list">
   <dt>Lamp pigtail</dt><dd>The strip, a clamp-on connector (or solder) and, optionally, a male barrel plug on the plug's own short leads, about 150 mm (6 in). It stays with the lamp.</dd>
@@ -113,11 +115,32 @@ It is the Dupont lead, with the female barrel socket on its far end if you are f
 
 {% include step.html n="3" title="Join the socket's leads to the lead (optional but recommended)" %}
 
-The socket's leads and the lead's wires are joined end to end, one joint per conductor, and there are two of them. Do one at a time so the two never touch.
+The socket's leads and the lead's wires are joined end to end, one joint per conductor, and there are two of them. You can crimp each joint in an insulated butt connector (3a), or solder it (3b). Both start the same way, and do one joint at a time so the two never touch.
 
 <ol class="numbered-steps">
   <li><b>Find the tip of the socket.</b> Set the multimeter to continuity as above and hold one probe on the socket's centre pin: the lead that beeps is <b>+24 V</b>. The other is ground.</li>
   <li><b>Match the pairs.</b> The socket's <b>tip lead joins the lead's red wire</b>, and the socket's ground lead joins the black one. Red is the wire that goes to <code>+V</code> on the board, so this is the joint that keeps the polarity right.</li>
+</ol>
+
+{% include step.html n="3a" title="Either: crimp each joint in a butt connector" %}
+
+The butt connector is a red vinyl-insulated barrel that takes one wire in each end. Nothing is soldered.
+
+<ol class="numbered-steps">
+  <li>Strip 7 mm off both ends of each pair, and twist the strands of each wire tight.</li>
+  <li>Push the socket's wire into one end of a red butt connector, and the lead's wire of the same colour into the other, until the insulation of each wire meets the end of the barrel.</li>
+  <li>Crimp each end of the barrel in the <b>red die</b> of the insulated-terminal crimp tool (22 to 16 AWG), so each wire is crimped separately. Pull on each wire to check it holds.</li>
+  <li>Stagger the two connectors by a few millimetres along the cable so they cannot touch.</li>
+</ol>
+
+<div class="callout callout-warning">
+  <span class="callout-icon" aria-hidden="true">⚠</span>
+  <p><b>Use a crimp tool with an insulated-terminal die.</b> The crimper in the <a href="https://parts-calculator.basically.website/hardware?hw=connector-kit-crimp">crimp and connector kit</a> has a die for open-barrel contacts only, and will not close a butt connector properly.</p>
+</div>
+
+{% include step.html n="3b" title="Or: solder each joint" %}
+
+<ol class="numbered-steps">
   <li>Slide a piece of heatshrink over each wire before anything is joined, about 25 mm long, and push it well back out of the heat. Stagger the two joints by a few millimetres so they cannot touch.</li>
   <li>Strip 5 mm off both ends of each pair, twist the strands of the two ends together so they lie side by side, and solder the joint until the solder has run into the strands.</li>
   <li>Slide the heatshrink over the joint and shrink it. Do the other conductor the same way.</li>
@@ -129,9 +152,10 @@ The socket's leads and the lead's wires are joined end to end, one joint per con
 
 <dl class="spec-list">
   <dt>Which clamp-on connector</dt><dd><code>SBL-RA2P-8</code> is the one in the list above, and it is the one that takes your own wire. <code>SBL-RA2P-8-1</code> arrives with 4 in of tinned lead on it, so it gets spliced rather than clamped. <code>SBL-RA2P-8-DC</code> ends in a barrel <b>socket</b>, which is the wrong way round for the lamp pigtail. All are <b>8 mm COB only</b>.</dd>
+  <dt>The butt connectors</dt><dd>Red, vinyl-insulated, <b>22 to 16 AWG</b>, two per lamp. They are only for the socket splice in step 3a, and only if you fit the pair and crimp rather than solder.</dd>
   <dt>The barrel plug and socket</dt><dd>Optional but recommended. Buy each as a moulded part already on its own short leads, and splice or clamp to those. A screw-terminal plug works but is bulkier and comes loose. Both must be <b>5.5 x 2.1 mm</b>: a 2.5 mm plug looks the same and does not mate.</dd>
   <dt>If you own a crimp tool</dt><dd>You can make the board cable's lead instead of buying it: about a metre of 22 AWG stranded per run, one red and one black, plus a 2-pin 2.54 mm Dupont female housing and two crimps.</dd>
-  <dt>Heatshrink</dt><dd>For the joints, in steps 2b and 3. Nothing else on this page needs insulating.</dd>
+  <dt>Heatshrink</dt><dd>For soldered joints only, in steps 2b and 3b. Crimped joints are insulated already, and nothing else on this page needs insulating.</dd>
 </dl>
 
 ## The finished result

@@ -6520,6 +6520,58 @@
       "docs_page": "/hardware/helpers/led-strip/"
     },
     {
+      "id": "butt-connector-red-22-16",
+      "uid": "4uj5",
+      "kind": "cots",
+      "cots": {
+        "type": "connector"
+      },
+      "name": "Insulated butt connector, red, 22-16 AWG",
+      "category": "Wire harness",
+      "description": "Joins two wires end to end without soldering: one wire goes in each end and the barrel is crimped onto it. Two per LED drop, one for each of the barrel socket's leads, so six per machine.",
+      "note": "Crimp it with a crimper that has an insulated-terminal die (the red one). The crimper in the crimp kit has an open-barrel die only, and will not close this connector properly.",
+      "alternative": "Solder the two wires together and cover the joint with heat shrink instead",
+      "created_at": "2026-10-01",
+      "updated_at": "2026-10-01",
+      "image_url": "https://assets.basically.website/sorter-parts/butt-connector-red-22-16-full-34dedee6c550.jpg",
+      "attributes": [
+        {
+          "label": "Wire",
+          "value": "22 to 16 AWG, stranded or solid copper"
+        },
+        {
+          "label": "Strip length",
+          "value": "6.8 mm"
+        },
+        {
+          "label": "Insulation",
+          "value": "Vinyl, red"
+        },
+        {
+          "label": "Used on",
+          "value": "The two joints between the barrel socket's leads and the Dupont lead, LJ1 to LJ3"
+        }
+      ],
+      "sheet_qty": {
+        "per_machine": 6
+      },
+      "caption": "Two per lamp, one for each wire of the barrel socket.",
+      "docs_page": "/hardware/helpers/led-strip/",
+      "sourcing": {
+        "vendors": [
+          {
+            "region": "US",
+            "vendor": "Cable Ties Unlimited",
+            "url": "https://www.cabletiesunlimited.com/products/22-18-awg-red-vinyl-insulated-butted-seam-butt-connectors-100-bag",
+            "price": 5.15,
+            "pack_qty": 100,
+            "as_of": "2026-10-01",
+            "note": "SKU GS20080, 100 per bag. The listing title says 22-18 AWG, the bag says 22-16."
+          }
+        ]
+      }
+    },
+    {
       "id": "jst-vhr-2",
       "uid": "gukn",
       "kind": "cots",
@@ -15751,15 +15803,19 @@
       "uid": "nmlx",
       "version": "2",
       "name": "LED drop (L, Lp)",
-      "description": "One camera lamp's power: a metre-long Dupont lead from an LED header on the board to the lamp's strip. Optional but recommended: an inline barrel jack on the lead and a 6 in pigtail from the matching plug to the lamp, which is the unplug point, so a lamp comes off next to the lamp without unpicking the board end. Without the pair the lead goes straight to the strip. 1 per camera lamp.",
+      "description": "One camera lamp's power: a metre-long Dupont lead from an LED header on the board to the lamp's strip. Optional but recommended: an inline barrel jack on the lead and a 6 in pigtail from the matching plug to the lamp, which is the unplug point, so a lamp comes off next to the lamp without unpicking the board end. The jack's leads are joined to the Dupont lead with two butt connectors or by soldering. Without the pair the lead goes straight to the strip. 1 per camera lamp.",
       "joining": [
         {
           "method": "crimp",
           "note": "The strip connector clamps onto the cut end of the COB strip and onto the plug's leads, so that end is not soldered."
         },
         {
+          "method": "crimp",
+          "note": "The socket's two leads can instead be joined to the Dupont lead's wires with a red insulated butt connector on each, crimped in the insulated-terminal die."
+        },
+        {
           "method": "solder",
-          "note": "Join the barrel jack's leads to the cut end of the Dupont lead, tip to red, and cover each joint with heatshrink."
+          "note": "Or solder each of the socket's leads to the Dupont lead's wire of the same colour, tip to red, and cover each joint with heat shrink."
         }
       ],
       "lines": [
@@ -15770,6 +15826,10 @@
         {
           "part": "dc-jack-5521-inline",
           "qty": 1
+        },
+        {
+          "part": "butt-connector-red-22-16",
+          "qty": 2
         },
         {
           "part": "dc-plug-5521-male-led",
@@ -15784,7 +15844,7 @@
         {
           "version": "2",
           "date": "2026-09-30",
-          "message": "The barrel plug on the lamp pigtail is now its own catalog part, so it and the inline barrel jack can both be marked optional (recommended, for lamps that come off at the lamp). No physical change.",
+          "message": "The barrel plug on the lamp pigtail is now its own catalog part, so it and the inline barrel jack can both be marked optional (recommended, for lamps that come off at the lamp). The socket splice gains a solderless route, two insulated butt connectors per drop, as an alternative to soldering. No physical change to what an old unit is.",
           "breaking": false,
           "commit": null
         }

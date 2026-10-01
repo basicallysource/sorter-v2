@@ -16,7 +16,7 @@ parts_needed:
     qty: 3
   - part: terminal-fork-m35
     qty: 6
-tools_needed: ["Wire strippers, for 18 AWG wire", "Ratcheting crimping pliers with a jaw for 22 to 16 AWG insulated terminals, for the fork terminals", Multimeter]
+tools_needed: ["Wire strippers, for 18 AWG (0.82 mm²) wire", "Ratcheting crimping pliers with a jaw for 22 to 16 AWG (0.33 to 1.3 mm²) insulated terminals, for the fork terminals", Multimeter]
 ---
 
 The PSU box has three DC outputs. Each one is a short pigtail: a panel-mount barrel jack at one end, a crimp fork terminal on each of its two leads at the other. **Build three**, one for each 24 V load: the basically board, the USB hub and the Orange Pi buck. All three are the same, so it does not matter which one goes to which load.
@@ -40,20 +40,20 @@ If the first test does not beep, or the second does, the two terminals are on th
 
 ### Crimping the fork terminal
 
-The crimp is the part that takes care. Do one lead at a time. The leads are 18 AWG and the terminals are rated for 22 to 16 AWG wire, so use the jaw of your pliers for that range.
+The crimp is the part that takes care. Do one lead at a time. The leads are 18 AWG (0.82 mm²) and the terminals are rated for 22 to 16 AWG (0.33 to 1.3 mm²) wire, so use the jaw of your pliers for that range.
 
-**Do not choose the jaw by colour.** Colour codes on crimpers and terminals differ between makers, and some pliers have none. Go by the wire size marked on the jaw, or in the tool's own table.
+**Do not choose the jaw by colour.** Colour codes on crimpers and terminals differ between makers, and some pliers have none. Go by the wire size marked on the jaw, in mm² or AWG, or in the tool's own table. If your jaw gives only mm², use the one that covers 0.82 mm².
 
 <ol class="numbered-steps">
   <li>Hold the terminal against the lead and strip as much insulation as the metal barrel is long.</li>
   <li>Push the bare strands into the barrel until they show at its far end and the wire's own insulation reaches the terminal's plastic sleeve.</li>
-  <li>Close the terminal in the jaw marked for 22 to 16 AWG. Squeeze until the ratchet releases.</li>
+  <li>Close the terminal in the jaw marked for 22 to 16 AWG (0.33 to 1.3 mm²). Squeeze until the ratchet releases.</li>
   <li>Pull on the terminal to check it holds.</li>
 </ol>
 
 <div class="photo-grid">
   <figure>
-    <img src="https://assets.basically.website/sorter-docs/harness-psu-pigtail-step1-stripped-w1600-7fe6beee8efc.png" alt="Stripped end of the 18 AWG wire showing bare strands">
+    <img src="https://assets.basically.website/sorter-docs/harness-psu-pigtail-step1-stripped-w1600-7fe6beee8efc.png" alt="Stripped end of the 18 AWG (0.82 mm²) wire showing bare strands">
     <figcaption>Strip the wire back to bare strands. <cite>Photo: Jon.</cite></figcaption>
   </figure>
   <figure>
@@ -61,8 +61,8 @@ The crimp is the part that takes care. Do one lead at a time. The leads are 18 A
     <figcaption>Seat the bare strands fully in the terminal barrel. <cite>Photo: Jon.</cite></figcaption>
   </figure>
   <figure>
-    <img src="https://assets.basically.website/sorter-docs/harness-psu-pigtail-step3-crimping-w1600-0ecacc7e17fd.png" alt="Crimping the terminal in the 22 to 16 AWG die of a ratcheting crimp tool">
-    <figcaption>Crimp in the jaw marked 22 to 16 AWG, which suits the 18 AWG wire. <cite>Photo: Jon.</cite></figcaption>
+    <img src="https://assets.basically.website/sorter-docs/harness-psu-pigtail-step3-crimping-w1600-0ecacc7e17fd.png" alt="Crimping the terminal in the 22 to 16 AWG (0.33 to 1.3 mm²) die of a ratcheting crimp tool">
+    <figcaption>Crimp in the jaw marked 22 to 16 AWG (0.33 to 1.3 mm²), which suits the 18 AWG (0.82 mm²) wire. <cite>Photo: Jon.</cite></figcaption>
   </figure>
   <figure>
     <img src="https://assets.basically.website/sorter-docs/harness-psu-pigtail-step4-crimped-w1600-ba1c9b488c45.png" alt="The finished crimp with the insulation grip closed on the wire jacket">
@@ -75,7 +75,7 @@ The crimp is the part that takes care. Do one lead at a time. The leads are 18 A
 Three pigtails, each a panel-mount jack with a fork terminal crimped on both of its leads.
 
 <figure class="single-figure">
-  <img class="doc-figure" src="https://assets.basically.website/sorter-docs/harness-psu-pigtail-built-w1600-59554dc6b189.jpg" alt="An assembled PSU output pigtail: a panel-mount barrel jack with red and black 18 AWG leads, each ending in an insulated fork terminal">
+  <img class="doc-figure" src="https://assets.basically.website/sorter-docs/harness-psu-pigtail-built-w1600-59554dc6b189.jpg" alt="An assembled PSU output pigtail: a panel-mount barrel jack with red and black 18 AWG (0.82 mm²) leads, each ending in an insulated fork terminal">
   <figcaption>One finished pigtail: the jack, its red +24 V and black ground leads, and an insulated fork terminal crimped on each. <cite>Photo: Jon.</cite></figcaption>
 </figure>
 

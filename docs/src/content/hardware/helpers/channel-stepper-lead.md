@@ -47,6 +47,13 @@ These are `S1` to `S4` on the [harness drawings]({{ '/hardware/parts/harness-ord
   <dt>Wire</dt><dd>24 AWG (0.20 mm²), four colours. The drawing says 1 m; see the note on length below.</dd>
 </dl>
 
+**Count positions from the triangle.** Both PH housings have a small triangle moulded beside position 1: use it on the PHR-6 as well as the PHR-4. On the board, position 1 is the pin on the square pad, so the PHR-4 goes on with its triangle end over that pad.
+
+<figure class="single-figure">
+  <img class="doc-figure" src="https://assets.basically.website/sorter-docs/stepper-lead-pin1-end-full-22bee566ce1c.png" alt="Two rows. Top: a PHR-4 housing with cavities numbered 1 to 4 and a red triangle moulded at the left end beside cavity 1, an arrow from that end to the 4-pin board socket drawn from above, whose first pad is square and labelled A2, followed by A1, B1 and B2. Bottom: a plain 4-pin Dupont housing with no marking, beside the 2.54 mm pin row on the board, whose first pin is on a square pad labelled A2.">
+  <figcaption>Position 1 is the end of the housing with the triangle, and the pin on the square pad on the board.</figcaption>
+</figure>
+
 ### The crossover
 
 The board and the motor do not use the same positions, so this cable is not straight through.
@@ -152,8 +159,8 @@ This keeps the 1 m lead already plugged into the motor and replaces only its boa
 </ol>
 
 <figure class="single-figure">
-  <img class="doc-figure" src="https://assets.basically.website/sorter-docs/channel-stepper-lead-rehouse-diagram-full-f466787a9d03.png" alt="Two rows. Top: the motor with its own lead running to a Dupont housing, a dashed line marking where to cut close to the housing, the housing marked as scrap. Bottom: the same lead with a crimped contact on each of its four wires, loaded into a 4-pin PHR-4 with positions 1 and 2 bracketed as coil A and 3 and 4 as coil B.">
-  <figcaption>Cut the Dupont housing off, crimp a contact on each wire, load the PHR-4 one coil at a time.</figcaption>
+  <img class="doc-figure" src="https://assets.basically.website/sorter-docs/channel-stepper-lead-rehouse-pin1-diagram-full-45036c9ba2ab.png" alt="Two rows. Top: the motor with its own lead running to a Dupont housing, a dashed line marking where to cut close to the housing, the housing marked as scrap. Bottom: the same lead with a crimped contact on each of its four wires, loaded into a 4-pin PHR-4 with a red triangle on the housing beside position 1 and positions 1 and 2 bracketed as coil A and 3 and 4 as coil B.">
+  <figcaption>Cut the Dupont housing off, crimp a contact on each wire, load the PHR-4 one coil at a time, counting from the triangle.</figcaption>
 </figure>
 
 The Dupont housing you cut off is scrap.

@@ -24,9 +24,7 @@ parts_needed:
     qty: 6
   - part: dupont-lead-2p-1m
     qty: 3
-  - part: heat-shrink-3-1-adhesive-3mm
-    qty: 3
-tools_needed: [Side cutters, Wire strippers, "Multimeter (only if you fit the plug and socket)", "Soldering iron and solder (only if you solder)", "Insulated-terminal crimping pliers with a red 22 to 16 AWG jaw (only if you crimp the butt connectors)", "Only if you make your own Dupont cable: a crimp tool for open-barrel contacts"]
+tools_needed: [Side cutters, Wire strippers, "Multimeter (only if you fit the plug and socket)", "Insulated-terminal crimping pliers with a red 22 to 16 AWG jaw, for the butt connectors", "Only if you solder instead: a soldering iron, solder and 3 mm adhesive-lined heat shrink (see Getting started)", "Only if you make your own Dupont cable: a crimp tool for open-barrel contacts"]
 ---
 
 Each camera lamp needs a cable that takes 24 V from the control board to its strip. The best way to build it is **two cables that meet at a barrel plug and socket**. The plug and socket are **optional but recommended**. **They make maintenance easier:** the power supply to a lamp can be disconnected right next to the lamp, so you can take a lamp down, swap it or work on it without touching the board end of its cable or the cables of the other lamps. **A machine takes three of each.** The quantities above are a whole machine's worth: one 5 m roll cuts into five lengths, and the Dupont cables come five to a pack.
@@ -40,11 +38,11 @@ Each camera lamp needs a cable that takes 24 V from the control board to its str
 
 <ul class="bulleted-list">
   <li><b>Plug and socket:</b> fit them (recommended), or leave them out. Leaving them out makes one cable: skip steps 3 and 5, and the Dupont cable's cut end goes onto the strip in step 4.</li>
-  <li><b>Strip end:</b> clamp it with a connector (4a), or solder it (4b).</li>
-  <li><b>Socket joints:</b> crimp them with butt connectors (5a), or solder them (5b).</li>
+  <li><b>Strip end:</b> clamp it with a connector (step 4).</li>
+  <li><b>Socket joints:</b> crimp them with butt connectors (step 5).</li>
 </ul>
 
-Crimping needs **insulated-terminal crimping pliers** from the tools list. Soldering needs a soldering iron, solder and the **heat shrink**. You need only one of the two.
+Nothing here needs soldering. Each of steps 4 and 5 ends with how to solder that joint instead, if you would rather.
 
 <div class="callout callout-warning">
   <span class="callout-icon" aria-hidden="true">⚠</span>
@@ -85,7 +83,7 @@ Only if you are fitting the plug and socket. Set the <a href="{{ '/hardware/help
 
 Then cut the plug's wires to about 150 mm (6 in).
 
-{% include step.html n="4a" title="Either: clamp the wires onto the strip" %}
+{% include step.html n="4" title="Clamp the wires onto the strip" %}
 
 The solderless connector is a hinged body with sprung contacts at each end: the strip goes in one end, the wire in the other, and nothing is stripped or tinned.
 
@@ -101,26 +99,9 @@ The solderless connector is a hinged body with sprung contacts at each end: the 
   <figcaption>The strip into the open connector, then the connector pressed shut on it. <cite>Manufacturer photos (LED strip connector product listing; seller not recorded).</cite></figcaption>
 </figure>
 
-{% include step.html n="4b" title="Or: solder the wires to the strip" %}
+**To solder instead,** skip the connector. Slide a 25 mm piece of 3 mm adhesive-lined heat shrink over each wire and push it back out of the heat. Tin the two pads and 3 mm of each wire, hold the wire on its pad and touch the iron to both for a second or two, tip wire (or red wire) to `+24V`. Then slide the heat shrink over each joint and shrink it so the two cannot touch. Keep the iron on the pad briefly: the strip's backing and the LED beside the pad do not like being cooked.
 
-Perfectly good, and what the strip is designed for. It needs no connector at all.
-
-<ol class="numbered-steps">
-  <li>Slide a 25 mm piece of heat shrink over each wire, and push it well back out of the heat.</li>
-  <li>Clear any coating off the two pads and melt a little solder onto each until it wets the copper.</li>
-  <li>Strip 3 mm off each of the plug's wires (or the Dupont cable's wires) and tin them the same way.</li>
-  <li>Hold the wire on the pad and touch the iron to both for a second or two. The tip wire (or red wire) goes to <code>+24V</code>, the other to <code>-</code>.</li>
-  <li>Slide the heat shrink over each joint and shrink it, so the two cannot touch.</li>
-</ol>
-
-Keep the iron on the pad briefly. The strip's backing and the LED next to the pad do not like being cooked.
-
-<figure class="single-figure">
-  <img class="doc-figure" src="https://assets.basically.website/sorter-docs/led-strip-soldered-joint-clean-full-bdad7637dc9c.png" alt="The cut end of a COB LED strip with a red and a black wire soldered to its two pads, a piece of clear heatshrink over the joint, and the pair running away from the strip">
-  <figcaption>A soldered end, insulated with clear heatshrink over the joint. <cite>Manufacturer photo (LED strip product listing; seller not recorded).</cite></figcaption>
-</figure>
-
-{% include step.html n="5a" title="Either: crimp the socket's wires to the cable" %}
+{% include step.html n="5" title="Crimp the socket's wires to the cable" %}
 
 Only if you are fitting the plug and socket. The socket's wires and the Dupont cable's wires are joined end to end, one joint per wire, so there are two. **The socket's tip wire joins the cable's red wire**, and the socket's ground wire joins the black one. Red is the wire that goes to <code>+V</code> on the board, so this is the joint that keeps the polarity right. Do one joint at a time so the two never touch.
 
@@ -143,15 +124,7 @@ A butt connector is a red vinyl-insulated barrel that takes one wire in each end
   <p><b>Use insulated-terminal crimping pliers.</b> A crimp tool for open-barrel contacts, the kind that does Dupont and PH, has the wrong die and will not close a butt connector properly.</p>
 </div>
 
-{% include step.html n="5b" title="Or: solder the socket's wires to the cable" %}
-
-Only if you are fitting the plug and socket. The tip wire of the socket joins the cable's red wire, and the ground wire joins the black one, one joint at a time.
-
-<ol class="numbered-steps">
-  <li>Slide a 25 mm piece of heat shrink over each wire before anything is joined, and push it well back out of the heat. Stagger the two joints by a few millimetres so they cannot touch.</li>
-  <li>Strip 5 mm off both wires of each joint, twist the strands of the two ends together so they lie side by side, and solder the joint until the solder has run into the strands.</li>
-  <li>Slide the heat shrink over the joint and shrink it. Do the other wire the same way.</li>
-</ol>
+**To solder instead,** slide a 25 mm piece of 3 mm adhesive-lined heat shrink over each wire before anything is joined. Strip 5 mm off each wire, twist the two ends of each joint together so they lie side by side, and solder until the solder has run into the strands. Slide the heat shrink over the joint and shrink it. Stagger the two joints by a few millimetres so they cannot touch.
 
 {% include step.html n="6" title="Check it before it goes anywhere" %}
 

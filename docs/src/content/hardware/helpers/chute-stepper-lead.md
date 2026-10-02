@@ -140,8 +140,8 @@ The motor's four leads are coloured, and the colours do not tell you which pair 
 ## Build it
 
 <ol class="numbered-steps">
-  <li>Hold the motor where it will sit and see how far its own leads get you. They come out of the motor at 300 to 500 mm depending on the batch, and the harness notes put the finished lead at about 1 m (40 in).</li>
-  <li>Cut four pieces of 24 AWG (0.20 mm²) wire, one in each colour of the motor's four leads, long enough to make the length up and <b>at least 100 mm</b> even when the motor's own leads already reach.</li>
+  <li>Hold the motor where it will sit and see how far its own leads get you. They come out of the motor at 300 to 500 mm depending on the batch. The finished lead should be about 600 mm (24 in) long, so the tail is 600 mm minus the length of the motor's own leads: 100 mm for 500 mm leads, 300 mm for 300 mm leads.</li>
+  <li>Cut four pieces of 24 AWG (0.20 mm²) wire, one in each colour of the motor's four leads, the length you worked out in step 1 and <b>never under 100 mm</b>, even when the motor's own leads already reach.</li>
   <li>Splice each one onto the motor lead of the same colour with a 24 to 20 AWG (0.2 to 0.6 mm²) butt splice, as under <b>Splicing a tail onto a motor lead</b>, below. Or solder them, as under <b>Or solder the splices</b>.</li>
   <li>Crimp a PH contact onto the free end of each of the four tails, as under <b>Crimping a PH contact</b>, below.</li>
   <li>Push the contacts into the housing until each one clicks: <b>one coil into positions 1 and 2, the other coil into positions 3 and 4</b>. Which coil goes in which pair does not matter. Nor does which lead of a pair goes in which position: that only reverses the direction the motor turns, and the direction is set in the software.</li>

@@ -119,8 +119,6 @@ sections:
             url: /hardware/helpers/pulley-gear-mod/
           - title: Soldering Pico headers
             url: /hardware/helpers/pico-headers/
-          - title: Preparing the 3D printed cable cage plates
-            url: /hardware/helpers/cable-cage-plates/
           - title: Preparing the LED strip
             url: /hardware/helpers/led-strip/
           - title: Using a multimeter

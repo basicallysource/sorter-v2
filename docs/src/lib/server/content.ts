@@ -397,6 +397,8 @@ export type ResolvedPart = {
 	page?: string;
 	qty?: number;
 	caption?: string;
+	/** This page's own remark on the part, from its parts_needed entry. Shown in place of the caption. */
+	note?: string;
 	// Screw length in mm, stamped on the corner of the card image. One photo
 	// stands in for a whole family of screws, so the length is the one thing it
 	// cannot show, the same reason the parts calculator's hardware list carries it.
@@ -550,8 +552,9 @@ function resolveParts(partsNeeded: any[]): { groups: PartsGroup[]; conflicts: Re
 	const resolved: Array<ResolvedPart & { category: string }> = partsNeeded.map((entry) => {
 		const id = typeof entry === 'string' ? entry : entry.part;
 		const qty = typeof entry === 'object' ? entry.qty : undefined;
+		const note = typeof entry === 'object' ? entry.note : undefined;
 		const part = catalog[id];
-		if (!part) return { id, name: id, qty, missing: true, category: 'Other' };
+		if (!part) return { id, name: id, qty, note, missing: true, category: 'Other' };
 		return {
 			id,
 			name: part.name,
@@ -566,6 +569,7 @@ function resolveParts(partsNeeded: any[]): { groups: PartsGroup[]; conflicts: Re
 			conflicts: part.conflicts,
 			detail: part.detail,
 			qty,
+			note,
 			category: part.category ?? 'Other',
 			variant_group: part.variant_group,
 			variant_name: part.variant_name

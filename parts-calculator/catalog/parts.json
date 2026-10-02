@@ -6402,7 +6402,7 @@
       "name": "DC lead, 5.5 x 2.1 mm male to male, 2 ft",
       "category": "Wire harness",
       "description": "A ready-made lead with a 5.5 x 2.1 mm barrel plug at each end, about 2 ft (600 mm) of 22 AWG (0.33 mm²) between them. It is the powered USB hub's 24 V lead, W2: one end into a PSU box jack, the other into the hub's own jack. It is wired plug to plug, so the centre pin stays positive at both ends. Nothing is made or joined.",
-      "note": "5.5 x 2.5 mm leads look identical and do not mate: the 0.4 mm is on the centre pin. Check the pin size on the listing, not the outside diameter. Any male to male 5.5 x 2.1 mm lead of 22 AWG or thicker and centre positive does. Instead of this lead you can buy one more moulded barrel plug on a short lead (the plug the other 24 V leads use) and screw its two bare wires into the hub's 2-pin power terminal, matching the + and - printed on the hub's circuit board. That is one fewer part to carry but the screw terminal is only reachable with the hub's case open.",
+      "note": "5.5 x 2.5 mm leads look identical and do not mate: the 0.4 mm is on the centre pin. Check the pin size on the listing, not the outside diameter. Any male to male 5.5 x 2.1 mm lead of 22 AWG or thicker and centre positive does. Instead of this lead you can buy one more moulded barrel plug on a short lead (the plug the other 24 V leads use) and screw its two bare wires into the hub's 2-pin power terminal, matching the + and - printed on the hub's circuit board.",
       "created_at": "2026-10-02",
       "updated_at": "2026-10-02",
       "image_url": "https://assets.basically.website/sorter-parts/dc-lead-5521-mm-full-f2efa5518ec3.jpg",
@@ -15962,7 +15962,7 @@
       "uid": "ks7s",
       "version": "2",
       "name": "24 V USB hub lead (W2)",
-      "description": "The powered USB hub's feed, W2 on the power drawing: a ready-made lead with a barrel plug at each end, one into a PSU box jack and one into the hub's own jack. About 2 ft (600 mm) of 22 AWG (0.33 mm²), bought, so nothing is cut or joined. It sits at the Electronics level beside the box the lead starts at. 1 per machine. The alternative is to screw the bare wires of one moulded barrel plug into the hub's own 2-pin power terminal, matching the + and - printed on its circuit board, which needs the hub's case open.",
+      "description": "The powered USB hub's feed, W2 on the power drawing: a ready-made lead with a barrel plug at each end, one into a PSU box jack and one into the hub's own jack. About 2 ft (600 mm) of 22 AWG (0.33 mm²), bought, so nothing is cut or joined. It sits at the Electronics level beside the box the lead starts at. 1 per machine. The alternative is to screw the bare wires of one moulded barrel plug into the hub's own 2-pin power terminal, matching the + and - printed on its circuit board.",
       "lines": [
         {
           "part": "dc-lead-5521-mm",

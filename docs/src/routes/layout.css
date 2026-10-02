@@ -2648,14 +2648,11 @@ blockquote {
 	height: 100%;
 	max-width: 100%;
 	max-height: 100%;
-	padding: clamp(12px, 3vh, 32px) 16px;
+	padding: clamp(12px, 4vh, 48px) 16px;
 	background: transparent;
 	border: none;
-	cursor: zoom-out;
-	flex-direction: column;
 	align-items: center;
 	justify-content: center;
-	gap: 12px;
 }
 
 .lightbox:not([open]) {
@@ -2667,41 +2664,63 @@ blockquote {
 }
 
 .lightbox::backdrop {
-	background: rgba(0, 0, 0, 0.8);
+	background: rgba(0, 0, 0, 0.46);
+}
+
+/* Same panel as .modal-panel, but it shrinks to the image instead of being
+   900px wide. */
+.lightbox-panel {
+	display: flex;
+	flex-direction: column;
+	min-width: min(320px, 100%);
+	max-width: 100%;
+	max-height: 100%;
+	background: var(--surface);
+	border: 1px solid var(--line);
+	box-shadow:
+		0 4px 6px -1px rgba(0, 0, 0, 0.1),
+		0 16px 48px -8px rgba(0, 0, 0, 0.18);
+	overflow: hidden;
+}
+
+.lightbox-title {
+	margin: 0;
+	font-size: 0.875rem;
+	font-weight: 600;
+	line-height: 1.3;
+	color: var(--ink);
+	display: -webkit-box;
+	-webkit-box-orient: vertical;
+	-webkit-line-clamp: 1;
+	line-clamp: 1;
+	overflow: hidden;
+}
+
+/* The alt text is a sentence or two; it must not decide how wide the panel
+   is, the image does. */
+.lightbox-panel .modal-heading {
+	contain: inline-size;
+}
+
+.lightbox .modal-subtitle a {
+	color: inherit;
+	text-decoration: underline;
+}
+
+.lightbox .modal-subtitle a:hover {
+	color: var(--ink);
+}
+
+.lightbox-body {
+	min-height: 0;
+	display: flex;
+	justify-content: center;
+	background: var(--bg);
 }
 
 .lightbox-img {
 	display: block;
-	min-height: 0;
 	max-width: 100%;
-	max-height: calc(100% - 48px);
+	max-height: calc(100dvh - 2 * clamp(12px, 4vh, 48px) - 60px);
 	object-fit: contain;
-	background: var(--surface);
-	border: 1px solid var(--line);
-}
-
-.lightbox-bar {
-	display: flex;
-	align-items: center;
-	gap: 16px;
-	font-size: 0.875rem;
-}
-
-.lightbox-bar a {
-	color: #fff;
-	text-decoration: underline;
-	cursor: pointer;
-}
-
-.lightbox-close {
-	padding: 4px 12px;
-	font: inherit;
-	color: var(--ink);
-	background: var(--surface);
-	border: 1px solid var(--line);
-	cursor: pointer;
-}
-
-.lightbox-close:hover {
-	border-color: var(--muted);
 }

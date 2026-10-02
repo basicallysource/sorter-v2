@@ -412,7 +412,6 @@ export type Part = {
 	folder?: string | null; // display-only collapsible grouping; carries no BOM semantics
 	variant_group?: string | null; // parts in a group are alternatives chosen per layer
 	variant_name?: string | null;
-	variant_heading?: string | null; // docs: the heading over the choice this group offers
 	description: string;
 	version: string;
 	created_at: string;

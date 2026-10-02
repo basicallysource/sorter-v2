@@ -16031,14 +16031,14 @@
     },
     {
       "id": "harness-stepper-channel",
-      "uid": "ims7",
-      "version": "1",
+      "uid": "5la8",
+      "version": "2",
       "name": "Channel stepper cable (S)",
-      "description": "One C-channel stepper's cable: a 4-pin PHR-4 into a stepper socket on the board, a 6-pin PHR-6 into the NEMA 17's own socket, four 24 AWG (0.20 mm²) conductors between them, sleeved as one bundle. The board's 1, 2, 3, 4 go to motor positions 1, 4, 3, 6, so this is a crossover and the pin order matters; positions 2 and 5 on the motor housing stay empty. Check the coil pairs with a multimeter before connecting. 1 per C-channel drive.",
+      "description": "One C-channel stepper's cable, made from the motor's own lead. The Dupont plug it ships with is cut off and a 4-pin PHR-4 is crimped on in its place, to go into a stepper socket on the board. The motor end is the 6-pin housing the lead already ends in and is left as it is. The board's 1, 2, 3, 4 go to motor positions 1, 4, 3, 6, so this is a crossover and the position order matters; positions 2 and 5 on the motor housing stay empty. Follow the position each wire sits in at the motor, not its colour. 1 per C-channel drive.",
       "joining": [
         {
           "method": "crimp",
-          "note": "One SPH-002T contact onto each of the eight conductor ends: strip about 2 mm, close the inner wings on the bare strands and the outer wings on the insulation, in the crimper die marked for 24 AWG (0.20 mm²). Then push each into its housing until it latches."
+          "note": "Cut the Dupont housing off the motor's lead, then one SPH-002T contact onto each of the four conductors: strip about 2 mm, close the inner wings on the bare strands and the outer wings on the insulation, in the crimper die marked for 24 AWG (0.20 mm²). Then push each into the PHR-4 until it latches."
         }
       ],
       "lines": [
@@ -16048,11 +16048,16 @@
         },
         {
           "part": "jst-sph-002t",
-          "qty": 8
-        },
+          "qty": 4
+        }
+      ],
+      "versions": [
         {
-          "part": "jst-phr-6",
-          "qty": 1
+          "version": "2",
+          "date": "2026-10-02",
+          "message": "Built and confirmed by barthel: the cable is the motor's own lead with its Dupont plug cut off and a PHR-4 crimped on, so four contacts and no PHR-6. The motor end is the housing the lead already has, and no wire is bought for it.",
+          "breaking": false,
+          "commit": null
         }
       ]
     },

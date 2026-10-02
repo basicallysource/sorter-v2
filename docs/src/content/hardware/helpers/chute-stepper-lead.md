@@ -24,7 +24,10 @@ parts_needed:
     qty: 4
   - part: wire-24awg
     qty: 1
-tools_needed: ["Multimeter, to find the coils and to check the finished lead", "Side cutters, to cut the tail wire to length", "Wire strippers that take both 24 AWG (0.20 mm²) and 20 AWG (0.52 mm²) wire", "Insulated-terminal crimping pliers with a die marked for 24 to 20 AWG (0.2 to 0.6 mm²), for the four butt splices", "Crimping pliers for open-barrel contacts, with a die for 24 AWG (0.20 mm²) wire, for the four PH contacts", "A ruler or tape measure, to cut the tail to length", "Only if you solder the splices instead: soldering iron and solder, adhesive-lined heat shrink, and a heat gun to shrink it"]
+  - part: sleeving-braided-6mm
+    qty: 1
+    note: Optional. About 1 m over the four wires.
+tools_needed: ["Multimeter, to find the coils and to check the finished lead", "Side cutters, to cut the tail wire to length", "Wire strippers that take both 24 AWG (0.20 mm²) and 20 AWG (0.52 mm²) wire", "Insulated-terminal crimping pliers with a die marked for 24 to 20 AWG (0.2 to 0.6 mm²), for the four butt splices", "Crimping pliers for open-barrel contacts, with a die for 24 AWG (0.20 mm²) wire, for the four PH contacts", "A ruler or tape measure, to cut the tail to length", "Only if you solder the splices instead: soldering iron and solder, adhesive-lined heat shrink, and a heat gun to shrink it", "Optional, for the sleeving: scissors and tape, or a hot knife"]
 ---
 
 The chute stepper is the NEMA 23 that drives the chute. It is the only motor on the machine with bare flying leads: the four channel steppers have their own 6-pin socket and take a bought cable. So this one lead gets built. **One per machine.**
@@ -143,6 +146,7 @@ The motor's four leads are coloured, and the colours do not tell you which pair 
   <li>Hold the motor where it will sit and see how far its own leads get you. They come out of the motor at 300 to 500 mm depending on the batch, and the harness notes put the finished lead at about 1 m (40 in).</li>
   <li>Cut four pieces of 24 AWG (0.20 mm²) wire, one in each colour of the motor's four leads, long enough to make the length up and <b>at least 100 mm</b> even when the motor's own leads already reach.</li>
   <li>Splice each one onto the motor lead of the same colour with a 24 to 20 AWG (0.2 to 0.6 mm²) butt splice, as under <b>Splicing a tail onto a motor lead</b>, below. Or solder them, as under <b>Or solder the splices</b>.</li>
+  <li><b>Optional:</b> if you will sleeve the lead, slide a 1 m length of braided sleeving over the four tails from their free ends now, before you crimp the contacts, and push it along over the splices. The 4-pin housing may not go through it, so it goes on first. Leave it bunched up on the cable for now; <a href="#sleeving-optional">Sleeving (optional)</a> says how to cut and finish it.</li>
   <li>Crimp a PH contact onto the free end of each of the four tails, as under <b>Crimping a PH contact</b>, below.</li>
   <li>Push the contacts into the housing until each one clicks: <b>one coil into positions 1 and 2, the other coil into positions 3 and 4</b>. Which coil goes in which pair does not matter. Nor does which lead of a pair goes in which position: that only reverses the direction the motor turns, and the direction is set in the software.</li>
 </ol>
@@ -220,6 +224,26 @@ The board gives the chute two sockets side by side and they are wired to the sam
 </dl>
 
 Both carry `A2`, `A1`, `B1`, `B2` on positions 1 to 4, and the board prints the coil name beside each pin, so the names can be read off the board rather than counted.
+
+## Sleeving (optional)
+
+<div class="callout">
+  <p><b>You can skip this and the lead works the same.</b> The sleeving is on the parts list as optional. It keeps the wires together as one tidy cable and protects them where the lead runs along the frame, and it is another way of securing the cables.</p>
+</div>
+
+**Where:** over the four wires, from just clear of the motor to just short of the PHR-4, so it covers the four splices as well as the tail. About 1 m.
+
+**How:**
+
+<ol class="numbered-steps">
+  <li>Push the braid together lengthwise to open it: it widens as it shortens. Feed all the wires into it together, so none of them is left outside.</li>
+  <li>Cut it to length with a hot knife or a soldering iron with a blade tip, so the cut melts shut. Plain scissors leave the braid fraying. With no hot tool, wrap a turn of tape around the braid where you will cut, cut through the middle of the tape with scissors, and leave the tape on.</li>
+  <li>Stop the sleeving 5 to 10 mm short of the PHR-4, so the crimped contacts and the housing can flex and the sleeving never crowds into the housing.</li>
+  <li>Hold each end with a small piece of heat shrink or a turn of tape, so that the braid cannot creep back along the wires.</li>
+</ol>
+
+Leave the sleeving loose enough to bend, and do not tie it down so tightly that it crushes the braid.
+
 
 ## The finished result
 

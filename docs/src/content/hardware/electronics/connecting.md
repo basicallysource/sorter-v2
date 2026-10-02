@@ -26,7 +26,7 @@ parts_needed:
     qty: 1
   - part: sleeving-braided-6mm
     qty: 1
-    note: Optional. 1 m for each of the four channel stepper leads.
+    note: Optional. About 10 m for the machine, over every lead you make.
 tools_needed: [Multimeter, Side cutters or a small screwdriver, "Only if you make your own W1 lead: wire strippers and a crimp tool", "Optional, for the sleeving: scissors and tape, or a hot knife"]
 ---
 
@@ -78,6 +78,38 @@ The machine needs four male barrel plugs for these three (`W2` takes one at each
   <span class="callout-icon" aria-hidden="true">⚠</span>
   <p>Every jack on the PSU box is <b>5.5 x 2.1 mm, centre-positive</b>. A 2.5 mm plug looks the same and does not mate. Check the pin size before you buy a barrel lead.</p>
 </div>
+
+### Sleeving the leads you make (optional)
+
+<div class="callout">
+  <p><b>You can skip this and the machine works the same.</b> The braided sleeving keeps the wires of each lead together as one tidy cable, protects them where they run along the frame past the moving parts, and is another way of securing the cables.</p>
+</div>
+
+**Where:** over every lead you make yourself. Each helper page has the length and the step where it goes on:
+
+<ul class="bulleted-list">
+  <li>The four <a href="{{ '/hardware/helpers/channel-stepper-lead/#sleeving-optional' | relative_url }}">channel stepper leads</a>, 1 m each.</li>
+  <li>The <a href="{{ '/hardware/helpers/chute-stepper-lead/#sleeving-optional' | relative_url }}">chute stepper lead</a>, about 1 m.</li>
+  <li>The <a href="{{ '/hardware/helpers/board-24v-lead/#sleeving-optional' | relative_url }}">control board's 24 V lead</a>, about 0.9 m.</li>
+  <li>The <a href="{{ '/hardware/helpers/limit-switch-lead/#sleeving-optional' | relative_url }}">limit switch lead</a>, about 0.6 m.</li>
+  <li>The three <a href="{{ '/hardware/helpers/led-strip/#sleeving-optional' | relative_url }}">LED board cables</a>, about 1 m each, and their short lamp pigtails, 0.1 m each.</li>
+  <li>The <a href="{{ '/hardware/helpers/pi-24v-lead/#sleeving-optional' | relative_url }}">Orange Pi's 24 V lead</a>, about 0.1 m.</li>
+</ul>
+
+The `W2` lead to the USB hub, the USB cables and the ribbon are bought ready made and are not sleeved, and neither are the PSU box pigtails. In all, about 10 m for the machine: one 15.2 m roll.
+
+**When:** while you make each lead, from the cut end, before you fit the connector that goes on it. A finished plug or housing may not go through the sleeving: the 6-pin housing on a channel stepper lead is too big for it, and a 4-pin PH housing is a tight fit that has not been tried. Do not plan on adding sleeving to a finished lead. The harness drawings sleeve the four channel stepper leads only; sleeving the rest is a choice, not part of the drawing.
+
+**How:** the same on every lead.
+
+<ol class="numbered-steps">
+  <li>Push the braid together lengthwise to open it: it widens as it shortens. Feed all the wires of the lead into it together, so none of them is left outside.</li>
+  <li>Cut it to length with a hot knife or a soldering iron with a blade tip, so the cut melts shut. Plain scissors leave the braid fraying. With no hot tool, wrap a turn of tape around the braid where you will cut, cut through the middle of the tape with scissors, and leave the tape on.</li>
+  <li>Stop the sleeving 5 to 10 mm short of each housing or plug, so the crimped contacts and the housings can flex and the sleeving never crowds into one.</li>
+  <li>Hold each end with a small piece of heat shrink or a turn of tape, so that the braid cannot creep back along the wires.</li>
+</ol>
+
+Leave the sleeving loose enough to bend. A cable tie that anchors a lead goes on over the sleeving: pull it tight enough to hold, but not so tight that it crushes the braid.
 
 ## The control board, socket by socket
 
@@ -196,27 +228,6 @@ Every socket has a row of 2.54 mm pins beside it carrying the same signals, so a
   <span class="callout-icon" aria-hidden="true">⚠</span>
   <p><b>Check the coils before you plug a motor in.</b> A stepper has two coils, two wires each, and the plug has four holes: holes 1 and 2 feed one coil, 3 and 4 the other. Put a <a href="{{ '/hardware/helpers/multimeter/' | relative_url }}#resistance-for-finding-a-steppers-coils">multimeter</a> across the wires that should be a pair. A pair reads a few ohms; two wires from different coils read open circuit. If holes 2 and 3 are the pair, pull those two contacts out of the housing and swap them, or the motor will buzz and barely turn. Full pinout and the board-side footprint: <a href="{{ '/hardware/electronics/wire-harness/#21--stepper-pinout-and-polarity' | relative_url }}">the wire harness page</a>.</p>
 </div>
-
-### Sleeving the channel stepper leads (optional)
-
-<div class="callout">
-  <p><b>You can skip this and the machine works the same.</b> The braided sleeving keeps the four wires of each channel stepper lead together as one tidy cable, and protects them where the lead runs along the frame past the moving parts.</p>
-</div>
-
-**Where:** over the four wires of each channel stepper lead, from just behind the 6-pin motor housing to just short of the 4-pin board housing. One metre per lead, four metres for the machine. No other cable on the machine is sleeved.
-
-**When:** while you make each lead, from the cut end, before you load the wires into the 4-pin housing. The 6-pin motor housing is too big to pull the sleeving over. The 4-pin housing is a tight fit that has not been tried, so do not plan on adding sleeving to a finished lead. The [channel stepper lead]({{ '/hardware/helpers/channel-stepper-lead/' | relative_url }}) page has the step where it goes on.
-
-**How:**
-
-<ol class="numbered-steps">
-  <li>Push the braid together lengthwise to open it: it widens as it shortens. Feed the four wires into it together, so none of them is left outside.</li>
-  <li>Cut it to length with a hot knife or a soldering iron with a blade tip, so the cut melts shut. Plain scissors leave the braid fraying. With no hot tool, wrap a turn of tape around the braid where you will cut, cut through the middle of the tape with scissors, and leave the tape on.</li>
-  <li>Stop the sleeving 5 to 10 mm short of each housing, so the crimped contacts and the housings can flex and the sleeving never crowds into a housing.</li>
-  <li>Hold each end with a small piece of heat shrink or a turn of tape, so that the braid cannot creep back along the wires.</li>
-</ol>
-
-Leave the sleeving loose enough to bend. The cable tie that [anchors the lead above the connector]({{ '/hardware/helpers/channel-stepper-lead/#how-long' | relative_url }}) goes on over the sleeving: pull it tight enough to hold, but not so tight that it crushes the braid.
 
 {% include step.html n="3" title="Wire the chute limit switch" %}
 

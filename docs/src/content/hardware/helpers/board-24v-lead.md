@@ -21,7 +21,10 @@ parts_needed:
     qty: 1
   - part: jst-svh-21t
     qty: 2
-tools_needed: ["Side cutters, to cut the pair to length", "Wire strippers, for 18 AWG (0.82 mm²) wire", "Crimping pliers for open-barrel contacts, with a die for 22 to 16 AWG (0.33 to 1.3 mm²), for the VH contacts", "Insulated-terminal crimping pliers with a jaw for 22 to 16 AWG (0.33 to 1.3 mm²) wire, for the butt connectors on a moulded plug", "Multimeter, to find the tip and to check the finished lead", "A small screwdriver, only for a screw-terminal plug", "Only if you solder a moulded plug's leads instead of crimping them: a soldering iron, solder and adhesive-lined heat shrink (see Getting started)"]
+  - part: sleeving-braided-6mm
+    qty: 1
+    note: Optional. About 0.9 m over the pair.
+tools_needed: ["Side cutters, to cut the pair to length", "Wire strippers, for 18 AWG (0.82 mm²) wire", "Crimping pliers for open-barrel contacts, with a die for 22 to 16 AWG (0.33 to 1.3 mm²), for the VH contacts", "Insulated-terminal crimping pliers with a jaw for 22 to 16 AWG (0.33 to 1.3 mm²) wire, for the butt connectors on a moulded plug", "Multimeter, to find the tip and to check the finished lead", "A small screwdriver, only for a screw-terminal plug", "Only if you solder a moulded plug's leads instead of crimping them: a soldering iron, solder and adhesive-lined heat shrink (see Getting started)", "Optional, for the sleeving: scissors and tape, or a hot knife"]
 ---
 
 This is `W1` on the [harness drawings]({{ '/hardware/parts/harness-order/#board-power' | relative_url }}). It runs from one of the three jacks on the [PSU box]({{ '/hardware/electronics/installation/psu-box/' | relative_url }}) to `J1`, the 24 V input on the control board. **One per machine.**
@@ -52,6 +55,7 @@ This is `W1` on the [harness drawings]({{ '/hardware/parts/harness-order/#board-
 
 <ol class="numbered-steps">
   <li>Cut the 18 AWG (0.82 mm²) pair with side cutters so the finished lead is 914 mm (36 in) end to end.</li>
+  <li><b>Optional:</b> if you will sleeve the lead, slide a 0.9 m length of braided sleeving over the pair now, before you fit the plug or crimp the VH contacts. A finished plug or housing may not go through it, so it goes on first. Leave it bunched up on the pair for now; <a href="#sleeving-optional">Sleeving (optional)</a> says how to cut and finish it.</li>
   <li><b>Fit the barrel plug to one end.</b> On a <b>screw-terminal plug</b>, strip 5 mm off each conductor, get the bare strands fully under the screws, tighten firmly and pull on each wire. On a <b>moulded plug on a short lead</b>, join each of its two leads to one wire of the pair with a butt connector. How is under <b>Joining a moulded plug's leads</b>, below.</li>
   <li>Find which conductor is the tip. Set the <a href="{{ '/hardware/helpers/multimeter/' | relative_url }}#continuity-for-tracing-a-cable">multimeter to continuity</a> and hold one probe on the centre pin inside the plug. The conductor that beeps is <b>+24 V</b>. Red is the tip on most plugs, but a few are wired the other way, so this is the step where you find out rather than assume. Put a turn of tape on the +24 V conductor at each end, whatever its colour, so you still know which one it is in the steps below.</li>
   <li>Strip 3 mm off the free end of each conductor.</li>
@@ -96,6 +100,26 @@ Do this before the lead goes anywhere near the PSU. A lead wired backwards is no
 </ol>
 
 If a check gives the wrong answer, do not plug the lead in. Find the wire that is in the wrong position or the joint that is bad, and fix it first.
+
+## Sleeving (optional)
+
+<div class="callout">
+  <p><b>You can skip this and the lead works the same.</b> The sleeving is on the parts list as optional. It keeps the wires together as one tidy cable and protects them where the lead runs along the frame, and it is another way of securing the cables.</p>
+</div>
+
+**Where:** over the pair, from just short of the barrel plug (or of its butt connectors, on a moulded plug) to just short of the VHR-2 housing. About 0.9 m.
+
+**How:**
+
+<ol class="numbered-steps">
+  <li>Push the braid together lengthwise to open it: it widens as it shortens. Feed all the wires into it together, so none of them is left outside.</li>
+  <li>Cut it to length with a hot knife or a soldering iron with a blade tip, so the cut melts shut. Plain scissors leave the braid fraying. With no hot tool, wrap a turn of tape around the braid where you will cut, cut through the middle of the tape with scissors, and leave the tape on.</li>
+  <li>Stop the sleeving 5 to 10 mm short of the plug, or of its butt connectors, and short of the VHR-2, so the contacts and the housing can flex and the sleeving never crowds into either.</li>
+  <li>Hold each end with a small piece of heat shrink or a turn of tape, so that the braid cannot creep back along the wires.</li>
+</ol>
+
+Leave the sleeving loose enough to bend, and do not tie it down so tightly that it crushes the braid.
+
 
 ## The finished result
 

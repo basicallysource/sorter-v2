@@ -17,6 +17,7 @@ parts_needed:
     qty: 20
   - part: sleeving-braided-6mm
     qty: 1
+    note: Optional. 1 m per lead, 4 m for the four.
 tools_needed: ["Multimeter, to check the finished lead", "Side cutters, to cut the Dupont housing off", "Wire strippers, for 26 AWG (0.13 mm²) wire", "Crimping pliers for open-barrel contacts, with a die for 24 AWG (0.20 mm²) wire", "Optional, for the sleeving: scissors and tape, or a hot knife"]
 ---
 

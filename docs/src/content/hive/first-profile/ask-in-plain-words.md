@@ -24,11 +24,11 @@ There are two ways to have an assistant write the profile. Both end the same way
 
 ## In Hive's editor
 
-Open your profile, press **Edit profile**, go to the **Assistant** tab beside the rules, and say what you want. On a narrow screen it is one of the tabs along the top. These all work:
+Open your profile, press **Edit profile**, go to the **Assistant** tab beside the rules, and say what you want. On a narrow screen it is one of the tabs along the top. These all work, and the pieces they leave out go to **Everything else**:
 
-- `Sort by part type: bricks, plates, tiles, slopes, wedges, and one box for everything else.`
+- `Sort by part type: bricks, plates, tiles, slopes and wedges.`
 - `Sort Technic parts by function: gears, beams, pins, axles, connectors.`
-- `I have 12 bins. Give me 11 boxes and one box for anything that does not match.`
+- `I have 12 bins, so give me at most 12 boxes.`
 - `Put all minifigure parts and accessories in their own box.`
 
 The assistant looks parts, colors, categories and sets up in the catalog, writes the rules, and saves them as a new version at once, showing each step it takes. It can add, change, move and delete rules, and add a LEGO set, or a parts list you give it, as a kit. It does not change the fallback, the choice for what no box takes: you make that on the **Everything else** row (see [asking for colour](#asking-for-colour)).

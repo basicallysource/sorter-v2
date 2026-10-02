@@ -8827,7 +8827,7 @@
         },
         {
           "label": "Length per machine",
-          "value": "1.016 m (101.6 cm, 40 in) of each colour per machine, for CH only"
+          "value": "0.3 m (30 cm, 12 in) of each colour per machine, for CH only: the tail is 100 mm with 500 mm motor leads and 300 mm with 300 mm leads"
         },
         {
           "label": "Buy",
@@ -8836,10 +8836,10 @@
       ],
       "stock": {
         "unit_length_mm": 9000,
-        "cut_length_mm": 1016,
-        "pieces_per_unit": 8,
+        "cut_length_mm": 300,
+        "pieces_per_unit": 30,
         "unit_label": "kit with about 9 m (30 ft) of each colour",
-        "piece_label": "one machine's worth (1.016 m / 101.6 cm / 40 in of each of four colours)"
+        "piece_label": "one machine's worth (0.3 m / 30 cm / 12 in of each of four colours)"
       },
       "sheet_qty": {
         "per_machine": 1
@@ -18132,7 +18132,7 @@
       "uid": "1taq",
       "version": "2",
       "name": "Chute stepper cable (CH)",
-      "description": "The chute stepper's cable: a 4-pin PHR-4 into the board at one end, bare labelled leads at the other spliced to the motor's flying leads. Straight through, not a crossover, 40 in of 24 AWG (0.20 mm²). Find the coil pairs with a multimeter first. 1 per machine.",
+      "description": "The chute stepper's cable: a 4-pin PHR-4 into the board at one end, bare labelled leads at the other spliced to the motor's flying leads. Straight through, not a crossover, about 24 in (600 mm) long, of which the last 100 to 300 mm is the 24 AWG (0.20 mm²) tail. Find the coil pairs with a multimeter first. 1 per machine.",
       "joining": [
         {
           "method": "crimp",

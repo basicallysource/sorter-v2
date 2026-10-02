@@ -135,7 +135,7 @@ The fifth stepper cable, the chute one, is straight through and is built rather 
 ## Guesses to verify before sending
 
 1. **LED feed Dupont polarity.** Which pin is +24 V on `L1` to `L3` at the board. The board's own 24 V input is settled (JST-VH, pin 1 is +24 V); these have not been checked.
-2. **Chute stepper cable.** The 40 in is copied from the channel steppers, and no drawing covers that cable at all.
+2. **Chute stepper cable.** No drawing covers that cable. The 24 in is the length of one built lead, so check it on your motor.
 3. **LED drop count.** Three feeds and three pigtails, per the wire schedule. Re-count against the machine.
 4. **Motor coil order.** The 1·4·3·6 map and the two empty positions come from the drawing, not from a measurement. Check the coils with a multimeter first.
 5. **Limit switch contact.** The Omron V-155-1C25 is SPDT with three tabs and the harness lands on two. Confirm which pair, `COM` + `NC` or `COM` + `NO`, against the board.

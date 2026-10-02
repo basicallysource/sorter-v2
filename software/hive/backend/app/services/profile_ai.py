@@ -18,6 +18,7 @@ from app.services.openrouter import OpenRouterResponse, run_openrouter_chat
 from app.services.profile_engine import sorting_profile as profile_sorting_profile
 from app.services.profile_catalog import ProfileCatalogService
 from app.services.secrets import decrypt_secret
+from app.services.profile_engine.compiler import NO_BIN_POLICIES, fallback_flags, normalize_fallback, normalize_no_bin
 from app.services.profile_engine.fields import FIELDS as PROFILE_FIELDS
 
 logger = logging.getLogger("uvicorn.error").getChild("profile_ai")
@@ -30,6 +31,10 @@ logger = logging.getLogger("uvicorn.error").getChild("profile_ai")
 VALID_FIELDS = {key for key in PROFILE_FIELDS if not re.match(r"bl_price_(inv|ord)_", key)}
 FIELD_OPS = {key: set(PROFILE_FIELDS[key].ops) for key in VALID_FIELDS}
 VALID_OPS = {op for ops in FIELD_OPS.values() for op in ops}
+PIECE_FIELD_KEYS = sorted(key for key in VALID_FIELDS if PROFILE_FIELDS[key].piece)
+FALLBACK_CHOICES = {"none": None, "bl_category": "bl_category", "rb_category": "rb_category", "color": "color"}
+# How deep a proposal may nest groups; the compiler takes any depth.
+MAX_GROUP_DEPTH = 6
 
 MAX_TOOL_ROUNDS = 5
 CUSTOM_SET_INTENT_RE = re.compile(
@@ -1238,12 +1243,18 @@ def apply_profile_ai_proposal(
         parent_id = item.get("parent_id")
         position = item.get("position")
 
+        if action == "settings":
+            # The fallback and the bin policy: apply_profile_ai_settings.
+            continue
+
         if action == "create":
             conditions = _normalize_conditions(item.get("conditions", []))
             candidate_rule = {
                 "name": item.get("name") or "New Rule",
                 "match_mode": item.get("match_mode", "all"),
+                "negate": bool(item.get("negate")),
                 "conditions": conditions,
+                "children": _proposal_groups(item.get("children")),
             }
             if _has_duplicate_filter_rule(profile_like, candidate_rule, parent_id):
                 continue
@@ -1257,8 +1268,12 @@ def apply_profile_ai_proposal(
             )
             if created_rule_id is None:
                 raise APIError(400, "AI proposal references an unknown parent rule", "AI_INVALID_PARENT")
+            created = profile_sorting_profile.getRule(profile_like, created_rule_id)
+            created["children"] = candidate_rule["children"]
+            if candidate_rule["negate"]:
+                created["negate"] = True
             if item.get("image_url"):
-                profile_sorting_profile.getRule(profile_like, created_rule_id)["image_url"] = item["image_url"]
+                created["image_url"] = item["image_url"]
             continue
 
         if action == "create_set":
@@ -1340,6 +1355,14 @@ def apply_profile_ai_proposal(
         target_rule["name"] = item.get("name") or target_rule.get("name") or "Unnamed Rule"
         target_rule["match_mode"] = item.get("match_mode", "all")
         target_rule["conditions"] = _normalize_conditions(item.get("conditions", []))
+        # Left out, a rule keeps its groups and whether it is negated.
+        if "children" in item:
+            target_rule["children"] = _proposal_groups(item.get("children"))
+        if "negate" in item:
+            if item.get("negate"):
+                target_rule["negate"] = True
+            else:
+                target_rule.pop("negate", None)
         if "image_url" in item:
             target_rule["image_url"] = item.get("image_url") or None
 
@@ -1349,6 +1372,45 @@ def apply_profile_ai_proposal(
             _insert_existing_rule(profile_like, moved_rule, parent_id, position)
 
     return profile_like.rules
+
+
+def apply_profile_ai_settings(*, fallback_mode: dict[str, Any] | None, proposal: dict[str, Any]) -> dict[str, Any]:
+    """The fallback and bin policy after a proposal's "settings" actions; what
+    an action leaves out stays as it was."""
+    by = normalize_fallback(fallback_mode)
+    no_bin = normalize_no_bin(fallback_mode)
+    for item in proposal.get("proposals", []):
+        if not isinstance(item, dict) or item.get("action") != "settings":
+            continue
+        if "fallback" in item:
+            by = FALLBACK_CHOICES[item["fallback"]]
+        if "no_bin" in item:
+            no_bin = item["no_bin"] if item["no_bin"] in NO_BIN_POLICIES else None
+    flags: dict[str, Any] = fallback_flags(by)
+    if no_bin:
+        flags["no_bin"] = no_bin
+    return flags
+
+
+def _proposal_groups(groups: Any) -> list[dict[str, Any]]:
+    """Groups inside a proposed rule, in the document's shape, with new IDs."""
+    out: list[dict[str, Any]] = []
+    for group in groups if isinstance(groups, list) else []:
+        if not isinstance(group, dict):
+            continue
+        rule: dict[str, Any] = {
+            "id": str(uuid.uuid4()),
+            "name": str(group.get("name") or "Group"),
+            "rule_type": "filter",
+            "match_mode": "any" if group.get("match_mode") == "any" else "all",
+            "conditions": _normalize_conditions(group.get("conditions") or []),
+            "children": _proposal_groups(group.get("children")),
+            "disabled": False,
+        }
+        if group.get("negate"):
+            rule["negate"] = True
+        out.append(rule)
+    return out
 
 
 def _iter_rules(rules: list[dict[str, Any]]) -> Generator[dict[str, Any], None, None]:
@@ -1390,29 +1452,28 @@ def _canonical_custom_part_key(part: dict[str, Any]) -> tuple[str, int, int]:
     )
 
 
-def _has_duplicate_filter_rule(profile_like: SimpleNamespace, candidate_rule: dict[str, Any], parent_id: str | None) -> bool:
-    candidate_name = str(candidate_rule.get("name") or "").strip().lower()
-    candidate_mode = str(candidate_rule.get("match_mode") or "all")
-    candidate_conditions = sorted(
-        _canonical_condition_key(condition)
-        for condition in candidate_rule.get("conditions", [])
-        if isinstance(condition, dict)
+def _logic_key(rule: dict[str, Any]) -> tuple[Any, ...]:
+    """What a rule tests, IDs and names of groups aside."""
+    return (
+        str(rule.get("match_mode") or "all"),
+        bool(rule.get("negate")),
+        tuple(sorted(_canonical_condition_key(c) for c in rule.get("conditions", []) if isinstance(c, dict))),
+        tuple(sorted((_logic_key(child) for child in rule.get("children") or [] if isinstance(child, dict)), key=repr)),
     )
 
+
+def _has_duplicate_filter_rule(profile_like: SimpleNamespace, candidate_rule: dict[str, Any], parent_id: str | None) -> bool:
+    candidate_name = str(candidate_rule.get("name") or "").strip().lower()
+    candidate_logic = _logic_key(candidate_rule)
+
     for existing in _iter_rules(profile_like.rules):
-        if existing.get("rule_type") == "set":
+        if existing.get("rule_type") in ("set", "kit"):
             continue
         existing_parent_id = _parent_rule_id(profile_like, str(existing.get("id") or ""))
         if existing_parent_id != parent_id:
             continue
         existing_name = str(existing.get("name") or "").strip().lower()
-        existing_mode = str(existing.get("match_mode") or "all")
-        existing_conditions = sorted(
-            _canonical_condition_key(condition)
-            for condition in existing.get("conditions", [])
-            if isinstance(condition, dict)
-        )
-        if existing_name == candidate_name and existing_mode == candidate_mode and existing_conditions == candidate_conditions:
+        if existing_name == candidate_name and _logic_key(existing) == candidate_logic:
             return True
     return False
 
@@ -1554,23 +1615,15 @@ def _validate_proposal(proposal: dict[str, Any]) -> None:
         if not isinstance(item, dict):
             raise APIError(502, f"AI proposal {index + 1} is invalid", "AI_INVALID_JSON")
         action = item.get("action")
-        if action not in {"edit", "create", "create_set", "create_custom_set", "move", "delete"}:
+        if action not in {"edit", "create", "create_set", "create_custom_set", "move", "delete", "settings"}:
             raise APIError(502, f"AI proposal action '{action}' is invalid", "AI_ACTION_INVALID")
+        if action == "settings":
+            if "fallback" in item and item["fallback"] not in FALLBACK_CHOICES:
+                raise APIError(502, f"AI proposal used an unknown fallback '{item['fallback']}'", "AI_SETTINGS_INVALID")
+            if "no_bin" in item and item["no_bin"] not in ("machine", *NO_BIN_POLICIES):
+                raise APIError(502, f"AI proposal used an unknown bin policy '{item['no_bin']}'", "AI_SETTINGS_INVALID")
         if action in {"edit", "create"}:
-            if item.get("match_mode") not in {"all", "any"}:
-                raise APIError(502, "AI proposal contained an invalid match_mode", "AI_MATCH_MODE_INVALID")
-            conditions = item.get("conditions")
-            if not isinstance(conditions, list):
-                raise APIError(502, "AI proposal conditions must be a list", "AI_CONDITIONS_INVALID")
-            for condition in conditions:
-                if not isinstance(condition, dict):
-                    raise APIError(502, "AI proposal condition is invalid", "AI_CONDITIONS_INVALID")
-                field = condition.get("field")
-                op = condition.get("op")
-                if field not in VALID_FIELDS:
-                    raise APIError(502, f"AI proposal used unknown field '{field}'", "AI_FIELD_INVALID")
-                if op not in VALID_OPS or op not in FIELD_OPS.get(field, VALID_OPS):
-                    raise APIError(502, f"AI proposal used invalid operator '{op}' for '{field}'", "AI_OPERATOR_INVALID")
+            _validate_proposal_group(item, depth=0)
         if action == "create_set":
             if not item.get("set_num"):
                 raise APIError(502, "AI create_set proposal missing set_num", "AI_SET_NUM_MISSING")
@@ -1578,6 +1631,34 @@ def _validate_proposal(proposal: dict[str, Any]) -> None:
             custom_parts = item.get("custom_parts")
             if not isinstance(custom_parts, list) or not custom_parts:
                 raise APIError(502, "AI create_custom_set proposal missing custom_parts", "AI_CUSTOM_SET_PARTS_MISSING")
+
+
+def _validate_proposal_group(group: dict[str, Any], *, depth: int) -> None:
+    if depth > MAX_GROUP_DEPTH:
+        raise APIError(502, "AI proposal nested groups too deep", "AI_CONDITIONS_INVALID")
+    if group.get("match_mode") not in {"all", "any"}:
+        raise APIError(502, "AI proposal contained an invalid match_mode", "AI_MATCH_MODE_INVALID")
+    if "negate" in group and not isinstance(group["negate"], bool):
+        raise APIError(502, "AI proposal negate must be true or false", "AI_CONDITIONS_INVALID")
+    conditions = group.get("conditions", [] if depth else None)
+    if not isinstance(conditions, list):
+        raise APIError(502, "AI proposal conditions must be a list", "AI_CONDITIONS_INVALID")
+    for condition in conditions:
+        if not isinstance(condition, dict):
+            raise APIError(502, "AI proposal condition is invalid", "AI_CONDITIONS_INVALID")
+        field = condition.get("field")
+        op = condition.get("op")
+        if field not in VALID_FIELDS:
+            raise APIError(502, f"AI proposal used unknown field '{field}'", "AI_FIELD_INVALID")
+        if op not in VALID_OPS or op not in FIELD_OPS.get(field, VALID_OPS):
+            raise APIError(502, f"AI proposal used invalid operator '{op}' for '{field}'", "AI_OPERATOR_INVALID")
+    children = group.get("children", [])
+    if not isinstance(children, list):
+        raise APIError(502, "AI proposal children must be a list of groups", "AI_CONDITIONS_INVALID")
+    for child in children:
+        if not isinstance(child, dict):
+            raise APIError(502, "AI proposal group is invalid", "AI_CONDITIONS_INVALID")
+        _validate_proposal_group(child, depth=depth + 1)
 
 
 def _build_system_prompt(catalog: ProfileCatalogService, document: dict[str, Any], selected_rule_id: str | None) -> str:
@@ -1611,6 +1692,8 @@ def _build_system_prompt(catalog: ProfileCatalogService, document: dict[str, Any
         catalog_section += f"\nColors:\n{color_list}\n"
 
     has_parts = bool(catalog.parts_data.parts)
+    current_fallback = normalize_fallback(document.get("fallback_mode")) or "none"
+    current_no_bin = normalize_no_bin(document.get("fallback_mode")) or "machine"
 
     if has_parts:
         tool_section = """
@@ -1631,21 +1714,32 @@ Do NOT try to create precise custom kits from chat without a synced parts catalo
 
     return f"""You help users create LEGO sorting profiles.
 
-Profiles contain top-level categories and nested child rules. Child rules refine matching, but final parts still map to their top-level parent category.
+A profile is an ordered list of top-level rules; each is one bin, and a piece goes to the first rule that takes it. A rule's conditions combine by its match_mode ("all" or "any"). Its "children" are groups inside it, each with its own match_mode, conditions and children, to any depth; a group counts as one more true or false inside its parent, never as a bin of its own. "negate": true on a rule or a group takes the opposite: with "any", none of its conditions and groups hold ("none of"); with "all", not all of them do ("not all of"). With and, or, not and groups, any Boolean formula can be written: "plates that are not printed" is all of [category is a plate category] with a negated group any of [name contains "print", name contains "pattern"].
+
+Pieces no rule takes go to the fallback (one bin per BrickLink category, per Rebrickable category, or per color) or, with none, to the default bin "Everything else". Change it with a "settings" action. When the machine has no free bin for a new category, the profile's no_bin policy decides: "machine" (the machine's own setting, which stops and asks the operator), "misc" (send it to Everything else and keep going) or "share" (put the category in the least filled bin).
+
+Fields in group "Piece" ({", ".join(PIECE_FIELD_KEYS)}) are what the machine observes about each piece as it sorts it, not catalog facts: "confidence" and "color_confidence" are 0 to 100 (gte/lte), "identified" is whether recognition named a part (eq/neq, true or false; a piece it could not identify has no part and no color and confidence 0), "piece_price" is BrickLink's average price for this part in this piece's color, in US$. Use them for "send pieces it is not sure about to a review bin" (a top rule: confidence lte 60, or identified eq false), or "anything worth more than $2 in its color". The catalog price fields read the part's most traded color instead. Rules on piece fields need current sorter software.
 {tool_section}
+
+Current fallback: {current_fallback}
+Current no_bin policy: {current_no_bin}
 
 You MUST always respond with JSON matching this schema:
 {{
   "summary": "human-readable message to the user",
   "proposals": [
     {{
-      "action": "edit" | "create" | "create_set" | "create_custom_set" | "move" | "delete",
+      "action": "edit" | "create" | "create_set" | "create_custom_set" | "move" | "delete" | "settings",
       "target_rule_id": "existing-rule-id-or-null",
       "parent_id": "parent-rule-id-or-null",
       "position": 0,
       "name": "Rule name",
       "match_mode": "all" | "any",
+      "negate": false,
       "conditions": [{{"field": "name", "op": "contains", "value": "brick"}}],
+      "children": [{{"name": "Group name", "match_mode": "any", "negate": false, "conditions": [], "children": []}}],
+      "fallback": "none" | "bl_category" | "rb_category" | "color",
+      "no_bin": "machine" | "misc" | "share",
       "set_num": "10283-1",
       "set_meta": {{"name": "Set Name", "year": 2021, "num_parts": 2354, "img_url": "https://..."}},
       "custom_parts": [{{"part_num": "2780", "color_id": -1, "color_name": "Any color", "quantity": 20}}],
@@ -1658,7 +1752,8 @@ You MUST always respond with JSON matching this schema:
 - For delete actions, only target_rule_id is required (no name, conditions, or match_mode needed).
 - For "create_set" action: you MUST first call search_sets to find the set, then provide set_num (Rebrickable set number like "10283-1"), name, and set_meta with {{name, year, num_parts, img_url}} from the search_sets results. Do NOT include conditions or match_mode for set rules. Set rules are always top-level — do not nest them as children.
 - For "create_custom_set" action: you MUST first call search_parts to verify each distinct part you want to include, then provide name and custom_parts. Each custom_parts entry must include {{part_num, color_id, quantity}} and may include color_name. Use Rebrickable part numbers from search_parts. If the user did not specify a color, use color_id -1 and color_name "Any color". Do NOT include conditions or match_mode for custom set rules. Custom set rules are always top-level.
-- For "create" and "edit" actions: provide name, match_mode, and conditions. Do NOT use create_set fields (set_num, set_meta).
+- For "create" and "edit" actions: provide name, match_mode, and conditions, and children and negate when the rule needs them. Do NOT use create_set fields (set_num, set_meta). An edit that leaves out children or negate keeps the rule's own; give children to replace all of them.
+- For "settings" actions: give fallback, no_bin or both, and nothing else. Use it whenever the user asks how the leftover pieces are sorted ("sort the rest by color") or what happens when the bins run out.
 
 Current rules:
 {json.dumps(prompt_rules, indent=2, ensure_ascii=False)}
@@ -1859,9 +1954,14 @@ def _prompt_rule_snapshot(rule: dict[str, Any] | None, *, expand_custom_parts: b
                 ]
             else:
                 snapshot["custom_parts_summary"] = _prompt_custom_parts_summary(custom_parts)
+    elif rule_type == "kit":
+        snapshot["rule_type"] = "kit"
+        snapshot["kit_id"] = str(rule.get("kit_id") or "")
     else:
         snapshot["rule_type"] = "filter"
         snapshot["match_mode"] = str(rule.get("match_mode") or "all")
+        if rule.get("negate"):
+            snapshot["negate"] = True
         snapshot["conditions"] = [
             {
                 "field": condition.get("field"),

@@ -997,15 +997,14 @@
       "uid": "xgzj",
       "name": "External bracket — bottom vertical",
       "description": "Part of the external distribution-frame bracket (3-part assembly).",
-      "internal_notes": "External distribution-frame bracket assembly member. 6 per distribution frame (per layer). Not used at the top interface: that joint has no bottom vertical or flange (top-interface.md step 14, confirmed 2026-08-25). The earlier 'interface: 6' assumption here was wrong, removed. Frame color.",
+      "internal_notes": "External distribution-frame bracket assembly member. 6 per distribution frame (per layer), including the bottom layer (bottom-layer.md step 4 caps each piece D with one). Not used at the top interface: that joint has no bottom vertical or flange (top-interface.md step 14, confirmed 2026-08-25). The earlier 'interface: 6' assumption here was wrong, removed. Frame color.",
       "version": "1",
       "created_at": "2026-06-27",
       "updated_at": "2026-06-27",
       "stl_hash": "313397afb08fc1943f045905b96131f73f1dc70c05d59fd2583c77da38318c36",
       "source": "1_printed_crossbeams - bottom_vertical_bracket.stl",
       "quantities": {
-        "layer": 6,
-        "interface": 6
+        "layer": 6
       },
       "assembly": "external-bracket",
       "color": {
@@ -1013,7 +1012,7 @@
       },
       "optional": false,
       "support": false,
-      "layer_scope": "non-bottom",
+      "layer_scope": null,
       "onshape_version": "https://cad.onshape.com/documents/a4a1965bbaf3a15aff2b13ed/v/7279a42b05833c7b828efb0d/e/b0ee2e787191265cba1c1a31"
     },
     {

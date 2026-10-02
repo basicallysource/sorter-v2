@@ -203,10 +203,10 @@
 					{#if parts.groups.length > 1 || group.category !== 'Other'}
 						<p class="parts-category">{group.category}</p>
 					{/if}
-					{#if group.choices.length}
-						<p class="parts-category">One of these per layer</p>
+					{#each group.choices as set (set.heading)}
+						<p class="parts-category">{set.heading}</p>
 						<div class="parts-choices">
-							{#each group.choices as choice, i (choice.label)}
+							{#each set.options as choice, i (choice.label)}
 								{#if i > 0}<span class="parts-choice-or">or</span>{/if}
 								<div class="parts-choice">
 									<p class="parts-choice-name">{choice.label}</p>
@@ -216,7 +216,7 @@
 								</div>
 							{/each}
 						</div>
-					{/if}
+					{/each}
 					{#if group.parts.length}
 						<ul class="parts-list">
 							{#each group.parts as part (part.id)}{@render partCard(part)}{/each}

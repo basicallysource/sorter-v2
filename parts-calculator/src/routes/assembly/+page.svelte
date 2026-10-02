@@ -1426,6 +1426,8 @@
 					{#if qty === 'per-layer'}×{layers} (1 per layer)
 					{:else if qty === 'non-bottom-layers'}×{Math.max(0, layers - 1)} (every bin layer but the lowest)
 					{:else if qty === 'middle-layers'}×{Math.max(0, layers - 2)} (layers between the interfaces)
+					{:else if qty === 'per-half-layer'}×{layerStore.sizes.slice(0, layers).filter((s) => s === 'half').length} (1 per half-size layer)
+					{:else if qty === 'per-third-layer'}×{layers - layerStore.sizes.slice(0, layers).filter((s) => s === 'half').length} (1 per third-size layer)
 					{:else if qty !== 1}×{qty}{/if}
 				</span>
 				{@render tagChips(asm.id)}

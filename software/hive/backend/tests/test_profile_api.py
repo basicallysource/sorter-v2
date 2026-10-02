@@ -247,6 +247,10 @@ class TestDefaultProfiles:
         )
         assert program.status_code == 200
         assert program.json()["artifact"]["program"]["fallback"] == {"by": "color"}
+        # every default keeps a run going when the bins run out, and that asks
+        # nothing new of a sorter: an old one is still offered BrickLink categories
+        assert program.json()["artifact"]["program"]["no_bin"] == "misc"
+        assert all(definition["fallback_mode"]["no_bin"] == "misc" for definition in default_profiles.DEFINITIONS)
 
         bricklink = old_sorter[0]["latest_published_version"]["id"]
         gzipped = client.get(f"/api/machine/profiles/versions/{bricklink}/artifact", headers={**machine, "Accept-Encoding": "gzip"})

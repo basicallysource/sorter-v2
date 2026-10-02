@@ -134,7 +134,8 @@ applies the profile on that machine.
   run keeps going), `"share"` (the least filled bin takes the category too),
   or left out (the machine's own setting, which by default stops and asks
   the operator). A profile with more categories than the machine has bins
-  (a fallback by category or color usually is) should say one.
+  (a fallback by category or color usually is) should say one; Hive's
+  default profiles say `"misc"`.
 
 ## Conditions
 

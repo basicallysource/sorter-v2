@@ -205,7 +205,7 @@ Every socket has a row of 2.54 mm pins beside it carrying the same signals, so a
 
 **Where:** over the four wires of each channel stepper lead, from just behind the 6-pin motor housing to just short of the 4-pin board housing. One metre per lead, four metres for the machine. No other cable on the machine is sleeved.
 
-**When:** while you make each lead, before the 4-pin housing is crimped on. Neither housing fits through the sleeving, so it cannot be added to a finished lead. The [channel stepper lead]({{ '/hardware/helpers/channel-stepper-lead/' | relative_url }}) page has the step where it goes on.
+**When:** while you make each lead, from the cut end, before you load the wires into the 4-pin housing. The 6-pin motor housing is too big to pull the sleeving over. The 4-pin housing is a tight fit that has not been tried, so do not plan on adding sleeving to a finished lead. The [channel stepper lead]({{ '/hardware/helpers/channel-stepper-lead/' | relative_url }}) page has the step where it goes on.
 
 **How:**
 

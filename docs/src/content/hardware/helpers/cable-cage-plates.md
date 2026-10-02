@@ -17,9 +17,11 @@ parts_needed:
     qty: 1
   - part: scr-m3-12-bhcs
     qty: 12
+    temporary: true
     note: Only a temporary clamp while the glue sets. They come out again.
   - part: nut-m3
     qty: 12
+    temporary: true
     note: Only a temporary clamp while the glue sets. They come out again.
 tools_needed: ["Superglue (cyanoacrylate)", "A flat surface to build the plate on", "A 2.5 mm hex key, for the M3 bolts", "A file or sandpaper, for any hard glue"]
 ---

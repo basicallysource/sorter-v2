@@ -142,7 +142,6 @@ for (const [path, raw] of Object.entries(dataFiles)) {
 			// offering a choice, not a shopping list — see resolveParts.
 			variant_group: pt.variant_group,
 			variant_name: pt.variant_name,
-			variant_heading: pt.variant_heading,
 			conflicts: pt.conflicts,
 			detail: {
 				kind: 'printed',
@@ -176,7 +175,6 @@ for (const [path, raw] of Object.entries(dataFiles)) {
 			caption: lc.caption,
 			variant_group: lc.variant_group,
 			variant_name: lc.variant_name,
-			variant_heading: lc.variant_heading,
 			detail: {
 				kind: 'lasercut',
 				uid: lc.uid,
@@ -434,7 +432,6 @@ export type ResolvedPart = {
 	variant_group?: string | null;
 	variant_name?: string | null;
 	// Heading over the choice the family offers ("One of these per layer").
-	variant_heading?: string | null;
 	/** Everything the part modal shows, taken straight off the calculator's
 	 *  generated catalog so the two never drift. Absent on a missing part. */
 	detail?: PartDetail;
@@ -514,8 +511,14 @@ function resolvePeople(ids: unknown): ResolvedPerson[] {
  *  the family's first listed part. Order within a choice follows the page's own
  *  parts_needed, and the choices render above the category's plain cards:
  *  picking a variant is the decision that comes before shopping the rest. */
+const VARIANT_HEADINGS: Record<string, string> = {
+	bin: 'One of these per layer',
+	funnel: 'One of these per layer',
+	'cable-cage-plates': 'Cable cage plates: laser cut or 3D printed'
+};
+
 function foldVariants(groups: PartsGroup[], listed: ResolvedPart[]): void {
-	type Family = { home: PartsGroup; variants: Map<string, ResolvedPart[]>; heading?: string | null };
+	type Family = { home: PartsGroup; variants: Map<string, ResolvedPart[]> };
 	const byFamily = new Map<string, Family>();
 	for (const p of listed) {
 		if (!p.variant_group || !p.variant_name) continue;
@@ -525,20 +528,19 @@ function foldVariants(groups: PartsGroup[], listed: ResolvedPart[]): void {
 			if (!home) continue;
 			byFamily.set(p.variant_group, (fam = { home, variants: new Map() }));
 		}
-		fam.heading ??= p.variant_heading;
 		const bucket = fam.variants.get(p.variant_name);
 		if (bucket) bucket.push(p);
 		else fam.variants.set(p.variant_name, [p]);
 	}
 	const folded = new Set<ResolvedPart>();
-	for (const fam of byFamily.values()) {
+	for (const [group, fam] of byFamily) {
 		if (fam.variants.size < 2) continue;
 		const options: PartsChoice[] = [];
 		for (const [label, parts] of fam.variants) {
 			options.push({ label, parts });
 			for (const p of parts) folded.add(p);
 		}
-		fam.home.choices.push({ heading: fam.heading ?? 'Choose one', options });
+		fam.home.choices.push({ heading: VARIANT_HEADINGS[group] ?? 'Choose one', options });
 	}
 	if (folded.size) for (const g of groups) g.parts = g.parts.filter((p) => !folded.has(p));
 }
@@ -566,8 +568,7 @@ function resolveParts(partsNeeded: any[]): { groups: PartsGroup[]; conflicts: Re
 			qty,
 			category: part.category ?? 'Other',
 			variant_group: part.variant_group,
-			variant_name: part.variant_name,
-			variant_heading: part.variant_heading
+			variant_name: part.variant_name
 		};
 	});
 	const groups: PartsGroup[] = [];

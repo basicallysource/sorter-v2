@@ -25,7 +25,7 @@ tools_needed: ["A ruler or tape measure, to measure the converter's input wires"
 This is `W3` on the [harness drawings]({{ '/hardware/parts/harness-order/#power' | relative_url }}). It runs from one of the three jacks on the [PSU box]({{ '/hardware/electronics/installation/psu-box/' | relative_url }}) to the buck converter, and the converter's own USB-C lead is the rest of the run to the Pi. **One per machine.**
 
 <div class="callout">
-  <p><b>This is the shortest of the three 24 V leads and the only one with no connector at its far end.</b> The converter arrives with bare input wires, so the whole job is putting a barrel plug on them, and usually without adding any wire. The <a href="{{ '/hardware/helpers/board-24v-lead/' | relative_url }}">lead to the board</a> is the other one you make; the one to the USB hub is bought ready made with a plug at each end.</p>
+  <p><b>This is the shortest of the three 24 V leads and the only one with no connector at its far end.</b> The converter arrives with bare input wires, so the whole job is putting a barrel plug on them, and usually without adding any wire. The <a href="{{ '/hardware/helpers/board-24v-lead/' | relative_url }}">lead to the board</a> is the other one you make; the one to the USB hub is just a barrel plug screwed into the hub's own power terminal, with no page.</p>
 </div>
 
 ## The two ends

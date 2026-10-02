@@ -212,7 +212,7 @@ The board has four LED ports. The fan in the housing lid is already on one of th
   </tbody>
 </table>
 
-The board prints `+V` beside one pin of each port and `GND` beside the other. The red wire goes to `+V`.
+The board prints `+V` beside the pin on the square pad of each port and `GND` beside the round one. The red wire goes to `+V`. The Dupont housing has no key and fits either way up, and the arrow moulded on it is not a polarity mark, so look at which pin the red wire is over before you push it on.
 
 <div class="callout">
   <span class="callout-icon" aria-hidden="true">›</span>

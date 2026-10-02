@@ -27,11 +27,12 @@ So read these when a page sends you, not in order.
 - **[Preparing the Lazy Susan]({{ '/hardware/helpers/lazy-susan/' | relative_url }})**. Pulling the rubber feet off the bearing, if yours came with them.
 - **[Preparing the 20-tooth timing pulley]({{ '/hardware/helpers/pulley-gear-mod/' | relative_url }})**. Removing the top flange so the pulley fits the interface gear.
 - **[Soldering Pico headers]({{ '/hardware/helpers/pico-headers/' | relative_url }})**. **Optional.** The parts list buys a Pico with its pins already on, so a standard build skips this page.
+- **[Preparing the 3D printed cable cage plates]({{ '/hardware/helpers/cable-cage-plates/' | relative_url }})**. **Optional.** Gluing the printed pieces into the two cable cage plates, if you print them instead of having them laser-cut.
 
 ## Making a cable
 
 Seven of the machine's cables are made by hand, one page each. The eighth, the
-USB hub's 24 V lead, is bought ready made with a plug at both ends.
+USB hub's 24 V lead, is a barrel plug screwed into the hub's own power terminal, so it needs no page.
 
 - **[Preparing the LED strip]({{ '/hardware/helpers/led-strip/' | relative_url }})**. Cutting a lamp's length of strip and getting its cable on the end, clamped or soldered. Three per machine.
 - **[Make your own PSU output pigtail]({{ '/hardware/helpers/psu-pigtail/' | relative_url }})**. The barrel jack and its two fork terminals, for each of the PSU box's three outputs. Three per machine.

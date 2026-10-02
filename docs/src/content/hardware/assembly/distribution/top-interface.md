@@ -152,6 +152,7 @@ The top interface holds a chute that rotates on a lazy-susan bearing to aim inco
 <div class="prep-item">
   <div class="prep-item-body">
     <p><strong>Have the <a href="https://parts-calculator.basically.website/lasercut">Cable cage top</a> laser-cut and ready by step 10, and the Cable cage bottom by step 12.</strong> Same as the Top plate: laser-cut ahead of time, not built on this page.</p>
+    <p><strong>Printing the cable cage plates instead?</strong> The parts list offers two options: the two laser-cut plates, or ten printed hex corners and one printed motor piece. For the printed ones, glue the pieces into the two plates first, on <a href="{{ '/hardware/helpers/cable-cage-plates/' | relative_url }}">Preparing the 3D printed cable cage plates</a>, and have them ready by step 10 and step 12. The steps below are the same either way.</p>
   </div>
   <div class="prep-item-figure prep-item-figure-split">
     <figure>
@@ -163,10 +164,6 @@ The top interface holds a chute that rotates on a lazy-susan bearing to aim inco
       <figcaption>Cable cage bottom.</figcaption>
     </figure>
   </div>
-</div>
-
-<div class="callout">
-  <p><b>Printing the cable cage plates instead?</b> The parts list offers two options for them: the two laser-cut plates, or ten printed hex corners and one printed motor piece. For the printed ones, glue the pieces into the two plates first, on <a href="{{ '/hardware/helpers/cable-cage-plates/' | relative_url }}">Preparing the 3D printed cable cage plates</a>, and have them ready by step 10 and step 12. The steps below are the same either way.</p>
 </div>
 
 The fasteners and quantities are in the parts list above and are called out inline at each step.

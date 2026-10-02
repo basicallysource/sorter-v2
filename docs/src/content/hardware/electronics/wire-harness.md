@@ -87,7 +87,7 @@ This page is the wiring. Where the PSU, the control board and the Orange Pi phys
       <text x="262" y="184" font-size="9.5" fill="var(--muted)">24V in: JST-VH female</text>
       <g font-size="11" fill="var(--ink)" text-anchor="middle">
         <text x="207" y="184">W1 · 36 in</text>
-        <text x="207" y="354">W2 · 24 in</text>
+        <text x="207" y="354">W2 · 6 in</text>
         <text x="207" y="404">W3 · 6 in</text>
       </g>
       <g font-size="10" fill="var(--primary)" font-style="italic" text-anchor="middle">
@@ -195,7 +195,7 @@ A male DC barrel plug on each wire mates one of the PSU output jacks (PJ1-PJ3), 
   <thead><tr><th>ID</th><th>Load</th><th>From</th><th>To</th><th>Cond.</th><th>Length</th><th>Gauge</th></tr></thead>
   <tbody>
     <tr><td class="wire-id">W1</td><td>basically board v1.3</td><td>PSU PJ1, male DC</td><td>JST-VH female (board 24V in)</td><td>2</td><td>36 in <span class="flagged">too long</span></td><td>18 AWG (0.82 mm²)</td></tr>
-    <tr><td class="wire-id">W2</td><td>Waveshare 4-port USB hub, 24V</td><td>PSU PJ2, male DC</td><td>Male DC (hub)</td><td>2</td><td>24 in, bought ready made <span class="flagged">reach not checked</span></td><td>22 AWG (0.33 mm²)</td></tr>
+    <tr><td class="wire-id">W2</td><td>Waveshare 4-port USB hub, 24V</td><td>PSU PJ2, male DC</td><td>Hub 2-pin power terminal (or male DC, with the bought lead)</td><td>2</td><td>6 in, the plug's own lead (24 in with the bought lead) <span class="flagged">reach not checked</span></td><td>22 AWG (0.33 mm²)</td></tr>
     <tr><td class="wire-id">W3</td><td>Orange Pi 5</td><td>PSU PJ3, male DC</td><td>24V-5V USB-C buck</td><td>2</td><td>6 in</td><td>22 AWG (0.33 mm²) <span class="flagged">guess</span></td></tr>
   </tbody>
 </table>
@@ -277,7 +277,7 @@ All three drops now feed an LED strip in a [camera lamp]({{ '/hardware/assembly/
 - Cooling fan, 40×40×10mm, 24V (WINSINN 4010, catalog `fan-40mm-24v`) &middot; one, in the control board housing cover. It plugs into one of the board's own LED ports (see open items and control board housing).
 - uxcell 16-pin IDC flat ribbon cable, FC/FC, 2.54 mm, 1.2 to 1.5 m, gray &middot; [link](https://www.amazon.com/dp/B07S2W4N9T)
 - Waveshare 4-port USB hub, 24V model (USB 3.2 version, not the 5V industrial one, which cannot take 24V in)
-- DC lead, 5.5 x 2.1 mm male to male, 22 AWG, 2 ft, centre positive: `W2`, the hub's 24 V lead, bought ready made &middot; [link](https://www.l-com.com/dc-power-cable-5.5mm-2.1mm-male-male-2-ft-dc5521mm-2ft)
+- Optional, only if the plug's lead does not reach the hub: DC lead, 5.5 x 2.1 mm male to male, 22 AWG, 2 ft, centre positive, for `W2` &middot; [link](https://www.l-com.com/dc-power-cable-5.5mm-2.1mm-male-male-2-ft-dc5521mm-2ft)
 - Orange Pi 5
 - USB cables, Pi to hub and hub to Pico: 3 ft or shorter is plenty, but they must be data cables. A lot of short USB cables are power-only.
 

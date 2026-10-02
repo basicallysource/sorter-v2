@@ -27,7 +27,7 @@ tools_needed: ["Side cutters, to cut the pair to length", "Wire strippers, for 1
 This is `W1` on the [harness drawings]({{ '/hardware/parts/harness-order/#board-power' | relative_url }}). It runs from one of the three jacks on the [PSU box]({{ '/hardware/electronics/installation/psu-box/' | relative_url }}) to `J1`, the 24 V input on the control board. **One per machine.**
 
 <div class="callout">
-  <p><b>This is the one 24 V lead you make yourself.</b> No supplier sells a barrel plug with a JST-VH housing on the other end, so buying one is not an option. The other two 24 V leads are bought ready made.</p>
+  <p><b>This is the one 24 V lead you make yourself.</b> No supplier sells a barrel plug with a JST-VH housing on the other end, so buying one is not an option. The other two 24 V leads need no JST housing: one is a barrel plug on the buck converter's wires, the other a barrel plug screwed into the USB hub.</p>
 </div>
 
 ## The two ends

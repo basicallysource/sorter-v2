@@ -6372,13 +6372,13 @@
         },
         {
           "label": "Used on",
-          "value": "W1 and W3"
+          "value": "W1, W2 and W3"
         }
       ],
       "sheet_qty": {
-        "per_machine": 2
+        "per_machine": 3
       },
-      "caption": "Two per machine, one each on W1 and W3.",
+      "caption": "Three per machine, one each on W1, W2 and W3.",
       "docs_page": "/hardware/electronics/wire-harness/",
       "sourcing": {
         "vendors": [
@@ -6397,12 +6397,13 @@
       "uid": "yv7e",
       "kind": "cots",
       "cots": {
-        "type": "cable"
+        "type": "cable",
+        "optional": true
       },
       "name": "DC lead, 5.5 x 2.1 mm male to male, 2 ft",
       "category": "Wire harness",
-      "description": "A ready-made lead with a 5.5 x 2.1 mm barrel plug at each end, about 2 ft (600 mm) of 22 AWG (0.33 mm²) between them. It is the powered USB hub's 24 V lead, W2: one end into a PSU box jack, the other into the hub's own jack. It is wired plug to plug, so the centre pin stays positive at both ends. Nothing is made or joined.",
-      "note": "5.5 x 2.5 mm leads look identical and do not mate: the 0.4 mm is on the centre pin. Check the pin size on the listing, not the outside diameter. Any male to male 5.5 x 2.1 mm lead of 22 AWG or thicker and centre positive does. Instead of this lead you can buy one more moulded barrel plug on a short lead (the plug the other 24 V leads use) and screw its two bare wires into the hub's 2-pin power terminal, matching the + and - printed on the hub's circuit board.",
+      "description": "The alternative for the powered USB hub's 24 V lead, W2, when a moulded barrel plug's own lead is too short to reach the hub's screw terminal: a ready-made lead with a 5.5 x 2.1 mm barrel plug at each end and about 2 ft (600 mm) of 22 AWG (0.33 mm²) between them. One end goes into a PSU box jack and the other into the hub's own jack. It is wired plug to plug, so the centre pin stays positive at both ends. Nothing is made or joined. Buy it only if you take that route; it is not on the machine's parts list otherwise.",
+      "note": "5.5 x 2.5 mm leads look identical and do not mate: the 0.4 mm is on the centre pin. Check the pin size on the listing, not the outside diameter. Any male to male 5.5 x 2.1 mm lead of 22 AWG or thicker and centre positive does.",
       "created_at": "2026-10-02",
       "updated_at": "2026-10-02",
       "image_url": "https://assets.basically.website/sorter-parts/dc-lead-5521-mm-full-f2efa5518ec3.jpg",
@@ -6425,13 +6426,10 @@
         },
         {
           "label": "Used on",
-          "value": "W2, the USB hub lead"
+          "value": "W2, instead of a plug into the hub terminal"
         }
       ],
-      "sheet_qty": {
-        "per_machine": 1
-      },
-      "caption": "One per machine. The USB hub lead, bought ready made.",
+      "caption": "Alternative to the plug in the hub's terminal, only when that plug's lead does not reach.",
       "docs_page": "/hardware/electronics/connecting/",
       "sourcing": {
         "vendors": [
@@ -15962,10 +15960,10 @@
       "uid": "ks7s",
       "version": "2",
       "name": "24 V USB hub lead (W2)",
-      "description": "The powered USB hub's feed, W2 on the power drawing: a ready-made lead with a barrel plug at each end, one into a PSU box jack and one into the hub's own jack. About 2 ft (600 mm) of 22 AWG (0.33 mm²), bought, so nothing is cut or joined. It sits at the Electronics level beside the box the lead starts at. 1 per machine. The alternative is to screw the bare wires of one moulded barrel plug into the hub's own 2-pin power terminal, matching the + and - printed on its circuit board.",
+      "description": "The powered USB hub's feed, W2 on the power drawing: a moulded barrel plug into a PSU box jack, with its two bare wires screwed into the 2-pin power terminal on the hub's circuit board, matching the + and - printed on the board. The plug's own lead has to reach the hub; if it does not, buy the ready-made male to male lead (the optional DC lead, 5.5 x 2.1 mm male to male, 2 ft) and plug it into the hub's jack instead. The hub's place on the machine is not settled, so the reach is not checked. It sits at the Electronics level beside the box the lead starts at. 1 per machine.",
       "lines": [
         {
-          "part": "dc-lead-5521-mm",
+          "part": "dc-plug-5521-male",
           "qty": 1
         }
       ],
@@ -15985,7 +15983,7 @@
         {
           "version": "2",
           "date": "2026-10-02",
-          "message": "The USB hub's 24 V lead is bought ready made, a 5.5 x 2.1 mm male to male lead, instead of two moulded barrel plugs spliced together. It stays the same length class and does the same job. It is no longer made, so there is no joint. The hub's own screw terminal with one plug's wires is the documented alternative.",
+          "message": "The USB hub's 24 V lead takes one moulded barrel plug instead of two spliced together: the plug goes into the PSU box jack and its bare wires are screwed into the hub's own 2-pin power terminal, matching the + and - on the hub's board. A ready-made male to male lead is the documented alternative when the plug's lead does not reach. No joint is made.",
           "breaking": false,
           "commit": null
         }

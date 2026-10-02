@@ -18,8 +18,6 @@ warning: >-
 parts_needed:
   - part: usb-hub-powered-24v
     qty: 1
-  - part: dc-lead-5521-mm
-    qty: 1
   - part: buck-24v-5v-usbc
     qty: 1
   - part: cable-micro-usb
@@ -31,7 +29,7 @@ tools_needed: [Multimeter, Side cutters or a small screwdriver, "Only if you mak
 
 The [PSU box]({{ '/hardware/electronics/installation/psu-box/' | relative_url }}), the [control board housing]({{ '/hardware/electronics/installation/control-board-housing/' | relative_url }}) and the [Orange Pi housing]({{ '/hardware/electronics/installation/orange-pi-mount/' | relative_url }}) are all bolted to the frame, and every cable is already made. This page plugs them together. Nothing here needs a soldering iron.
 
-If a cable is still missing, seven of them have a page that builds them: the [PSU output pigtails]({{ '/hardware/helpers/psu-pigtail/' | relative_url }}), the [prepared LED strips]({{ '/hardware/helpers/led-strip/' | relative_url }}), the [control board's 24 V lead]({{ '/hardware/helpers/board-24v-lead/' | relative_url }}), the [Orange Pi's 24 V lead]({{ '/hardware/helpers/pi-24v-lead/' | relative_url }}), the [channel stepper leads]({{ '/hardware/helpers/channel-stepper-lead/' | relative_url }}), the [chute stepper lead]({{ '/hardware/helpers/chute-stepper-lead/' | relative_url }}) and the [chute limit switch lead]({{ '/hardware/helpers/limit-switch-lead/' | relative_url }}). The only one with no page is the USB hub's lead, which is bought ready made with a plug at each end. The [wire harness]({{ '/hardware/electronics/wire-harness/' | relative_url }}) page has the length and gauge of the rest.
+If a cable is still missing, seven of them have a page that builds them: the [PSU output pigtails]({{ '/hardware/helpers/psu-pigtail/' | relative_url }}), the [prepared LED strips]({{ '/hardware/helpers/led-strip/' | relative_url }}), the [control board's 24 V lead]({{ '/hardware/helpers/board-24v-lead/' | relative_url }}), the [Orange Pi's 24 V lead]({{ '/hardware/helpers/pi-24v-lead/' | relative_url }}), the [channel stepper leads]({{ '/hardware/helpers/channel-stepper-lead/' | relative_url }}), the [chute stepper lead]({{ '/hardware/helpers/chute-stepper-lead/' | relative_url }}) and the [chute limit switch lead]({{ '/hardware/helpers/limit-switch-lead/' | relative_url }}). The only one with no page is the USB hub's lead, which is a barrel plug screwed into the hub's own power terminal (or, if the plug's lead is too short, a bought lead with a plug at each end). The [wire harness]({{ '/hardware/electronics/wire-harness/' | relative_url }}) page has the length and gauge of the rest.
 
 <div class="callout callout-warning">
   <span class="callout-icon" aria-hidden="true">⚠</span>
@@ -67,11 +65,11 @@ The buck converter is the only bought part of the three. The leads themselves ar
 
 <dl class="spec-list">
   <dt><code>W1</code>, control board</dt><dd>18 AWG (0.82 mm²), 36 in. Male DC barrel plug at the PSU end, JST-VH 2-pin (VHR-2) housing at the board end. No supplier sells that pair of ends, so this is one you make: <a href="{{ '/hardware/helpers/board-24v-lead/' | relative_url }}">make the control board's 24 V lead</a>.</dd>
-  <dt><code>W2</code>, USB hub</dt><dd>22 AWG (0.33 mm²), 2 ft, with a male DC barrel plug at <i>both</i> ends. The hub's input is an ordinary female barrel socket, so buy this one ready made: a male to male 5.5 x 2.1 mm lead is an ordinary stocked cable, and the parts list has one. The plugs are wired tip to tip and sleeve to sleeve, so the centre pin is +24 V at both ends. <b>Instead,</b> the hub also has a 2-pin screw terminal for power on its circuit board. You can screw the bare wires of one moulded barrel plug into it, matching the <code>+</code> and <code>-</code> printed on the board, and plug that into the PSU box. The plug's centre pin is +24 V: find which wire is the tip with the <a href="{{ '/hardware/helpers/multimeter/' | relative_url }}#continuity-for-tracing-a-cable">multimeter on continuity</a> before you tighten anything.</dd>
+  <dt><code>W2</code>, USB hub</dt><dd>22 AWG (0.33 mm²), a moulded male DC barrel plug on its own short lead, with no second plug. The hub has a 2-pin screw terminal for power on its circuit board. Plug the barrel plug into the PSU box and screw its two bare wires into that terminal, matching the <code>+</code> and <code>-</code> printed on the board. The plug's centre pin is +24 V: find which wire is the tip with the <a href="{{ '/hardware/helpers/multimeter/' | relative_url }}#continuity-for-tracing-a-cable">multimeter on continuity</a> before you tighten anything. <b>If the plug's own lead does not reach the hub,</b> buy a ready-made male to male 5.5 x 2.1 mm lead instead (an ordinary stocked cable, listed in the parts calculator as the alternative), with a barrel plug at both ends and the centre pin +24 V at both. It goes into the hub's own barrel jack, and the hub's terminal stays unused.</dd>
   <dt><code>W3</code>, Orange Pi</dt><dd>22 AWG (0.33 mm²), 6 in, a male DC barrel plug onto the buck converter's input wires. The buck's USB-C lead is the other half of the run.</dd>
 </dl>
 
-The machine needs two male barrel plugs for `W1` and `W3` (`W2` is bought with its own), plus, if you fit the optional LED plug and socket, one on each of the three LED pigtails. [Ordering the wire harness]({{ '/hardware/parts/harness-order/' | relative_url }}) has a drawing of every cable in the machine, with the gauge, the length and both end connectors on it.
+The machine needs three male barrel plugs for these three, plus, if you fit the optional LED plug and socket, one on each of the three LED pigtails. [Ordering the wire harness]({{ '/hardware/parts/harness-order/' | relative_url }}) has a drawing of every cable in the machine, with the gauge, the length and both end connectors on it.
 
 <div class="callout callout-warning">
   <span class="callout-icon" aria-hidden="true">⚠</span>

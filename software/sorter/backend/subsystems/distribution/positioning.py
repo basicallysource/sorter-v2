@@ -10,7 +10,7 @@ from .chute import Chute, BinAddress
 from irl.bin_layout import DistributionLayout, Bin, extractCategories
 from irl.config import IRLInterface
 from global_config import GlobalConfig
-from sorting_profile import SortingProfile, MISC_CATEGORY
+from sorting_profile import SortingProfile, MISC_CATEGORY, observedPieceFacts
 from bin_layout_store import set_bin_categories
 import db
 from defs.events import PauseCommandData, PauseCommandEvent
@@ -152,10 +152,12 @@ class Positioning(BaseState):
                 self._setOccupancyState("positioning.passthrough_too_big")
                 return DistributionState.READY
 
-            if piece.part_id is not None:
-                category_id = self.sorting_profile.getCategoryIdForPart(piece.part_id, piece.color_id)
-            else:
-                category_id = MISC_CATEGORY
+            # A piece recognition could not identify (part_id None) goes
+            # through the profile too: it lands in the default bin unless a
+            # rule on the piece itself takes it ("Identified is no").
+            category_id = self.sorting_profile.getCategoryIdForPart(
+                piece.part_id, piece.color_id, piece=observedPieceFacts(piece)
+            )
             # High-value override: a piece whose Hive moving-average price
             # clears the profile's high_value_routing threshold is rerouted into
             # the configured category (e.g. Yellow/Orange Tiles), so it lands in
@@ -202,8 +204,11 @@ class Positioning(BaseState):
                 self._setOccupancyState("positioning.passthrough_loose_piece")
                 return DistributionState.READY
 
+            no_bin_policy = self.sorting_profile.noBinPolicy()
             address, _ = self._findOrAssignBinForCategory(
-                category_id, not_in_inventory=route_not_in_inventory
+                category_id,
+                not_in_inventory=route_not_in_inventory,
+                share=no_bin_policy == "share",
             )
             if address is None and self._servo_bus_pause_enqueued:
                 # Fatal: the servo bus is offline, so every layer is
@@ -215,9 +220,12 @@ class Positioning(BaseState):
             if address is None:
                 # MISC is the intentional reject/default category. It should
                 # pass through to the bottom tray without claiming a real bin
-                # and without raising the operator no-bin incident.
+                # and without raising the operator no-bin incident. A profile
+                # that says what to do when the bins run out ("misc" or
+                # "share") never stops the run to ask either.
                 if (
                     category_id != MISC_CATEGORY
+                    and no_bin_policy is None
                     and not self._consumeNoBinPassthroughApproval(piece)
                     and self._raiseNoBinAvailableIncident(piece, category_id)
                 ):
@@ -845,7 +853,7 @@ class Positioning(BaseState):
         return True
 
     def _findOrAssignBinForCategory(
-        self, category_id: str, not_in_inventory: bool = False
+        self, category_id: str, not_in_inventory: bool = False, share: bool = False
     ) -> tuple[Optional[BinAddress], bool]:
         # ``not_in_inventory`` selects which bin pool to search. Pieces absent
         # from the active .bsx route only among bins flagged not-in-inventory;
@@ -961,14 +969,15 @@ class Positioning(BaseState):
             return address, True
 
         # Every bin is already assigned and none is empty. If the operator
-        # enabled multi-category bins, keep sorting by combining this category
-        # into the least-loaded existing bin rather than dumping to the discard
+        # enabled multi-category bins, or the profile asks to share them when
+        # the bins run out, keep sorting by combining this category into the
+        # least-loaded existing bin rather than dumping to the discard
         # passthrough. Checked here (rather than per-piece up top) so it only
         # costs a TOML read once bins are actually exhausted.
         if (
             category_id != MISC_CATEGORY
             and best_combine is not None
-            and (not_in_inventory or _allowMultiCategoryBins())
+            and (not_in_inventory or share or _allowMultiCategoryBins())
         ):
             _, _, address, b = best_combine
             b.category_ids.append(category_id)

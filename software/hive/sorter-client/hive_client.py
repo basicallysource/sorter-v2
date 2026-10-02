@@ -91,8 +91,10 @@ class HiveClient:
     # --- Sorting profiles ---------------------------------------------------
     # What this client runs, named to Hive so it leaves out profiles that need
     # more: the compiled program (not only the flat part map), sorting leftover
-    # pieces by color, and kits that pass pieces on once they have enough.
-    PROFILE_FEATURES = ("program", "color_fallback", "kit_cascade")
+    # pieces by color, kits that pass pieces on once they have enough, and
+    # rules on the piece itself (recognition confidence, identified or not,
+    # its price in its color).
+    PROFILE_FEATURES = ("program", "color_fallback", "kit_cascade", "piece_conditions")
 
     def profile_library(self) -> dict:
         """GET /api/machine/profiles/library -- the profiles this machine may

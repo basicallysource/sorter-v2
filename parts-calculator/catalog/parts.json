@@ -4608,6 +4608,16 @@
             "currency": "EUR",
             "as_of": "2026-10-02",
             "note": "Flanged button head (ISO 7380-2), A2 stainless. Minimum order is 10 pieces, sold in steps of 10. Shipping is extra."
+          },
+          {
+            "region": "EU",
+            "vendor": "Amazon DE",
+            "url": "https://www.amazon.de/dp/B08PQ24NR5",
+            "price": 9.97,
+            "pack_qty": 25,
+            "currency": "EUR",
+            "as_of": "2026-10-02",
+            "note": "Flanged button head (ISO 7380-2), the nearest Amazon DE offer to a pancake head."
           }
         ]
       },
@@ -5473,6 +5483,15 @@
             "currency": "EUR",
             "pack_qty": 100,
             "note": "Choose the 100 pcs pack size."
+          },
+          {
+            "region": "EU",
+            "vendor": "Amazon DE",
+            "url": "https://www.amazon.de/dp/B0FDGNHDYH",
+            "price": 14.99,
+            "pack_qty": 120,
+            "currency": "EUR",
+            "as_of": "2026-10-02"
           }
         ]
       },
@@ -5822,7 +5841,7 @@
       "category": "Motors",
       "description": "C-channel and carousel drive motors",
       "created_at": "2026-07-18",
-      "updated_at": "2026-09-25",
+      "updated_at": "2026-10-02",
       "sheet_qty": {
         "per_machine": 4
       },
@@ -5890,6 +5909,16 @@
             "pack_qty": 3,
             "as_of": "2026-09-25",
             "note": "One unit is three motors. Pick Deutschland under \"Versendet von\". VAT is added at checkout, not in the price shown."
+          },
+          {
+            "region": "EU",
+            "vendor": "Amazon DE",
+            "url": "https://www.amazon.de/dp/B0B38GHRH8",
+            "price": 23.99,
+            "pack_qty": 3,
+            "currency": "EUR",
+            "as_of": "2026-10-02",
+            "note": "StepperOnline 17HE15-1504S, 3-pack. The listing gives a 38 mm body."
           }
         ]
       }
@@ -5905,7 +5934,7 @@
       "category": "Motors",
       "description": "Chute drive motor",
       "created_at": "2026-07-18",
-      "updated_at": "2026-09-25",
+      "updated_at": "2026-10-02",
       "sheet_qty": {
         "per_machine": 1
       },
@@ -5981,6 +6010,15 @@
             "pack_qty": 1,
             "as_of": "2026-09-25",
             "note": "Pick Deutschland under \"Versendet von\". VAT is added at checkout, not in the price shown."
+          },
+          {
+            "region": "EU",
+            "vendor": "Amazon DE",
+            "url": "https://www.amazon.de/dp/B091C37FJ2",
+            "price": 31.99,
+            "pack_qty": 1,
+            "currency": "EUR",
+            "as_of": "2026-10-02"
           }
         ]
       }
@@ -6158,6 +6196,15 @@
             "currency": "EUR",
             "as_of": "2026-10-02",
             "note": "Sold per piece, set the quantity you need. Price shown is for one; it drops to 2.61 EUR each from 4 pieces."
+          },
+          {
+            "region": "EU",
+            "vendor": "Amazon DE",
+            "url": "https://www.amazon.de/dp/B09FYVDZ5B",
+            "price": 16.78,
+            "pack_qty": 10,
+            "currency": "EUR",
+            "as_of": "2026-10-02"
           }
         ]
       },
@@ -6212,6 +6259,15 @@
             "currency": "EUR",
             "as_of": "2026-10-02",
             "note": "Sold per piece, set the quantity you need. Price shown is for one; it drops to 0.69 EUR each from 4 pieces."
+          },
+          {
+            "region": "EU",
+            "vendor": "Amazon DE",
+            "url": "https://www.amazon.de/dp/B0F9PF7H9N",
+            "price": 10.3,
+            "pack_qty": 10,
+            "currency": "EUR",
+            "as_of": "2026-10-02"
           }
         ]
       },
@@ -6276,6 +6332,15 @@
             "currency": "EUR",
             "as_of": "2026-10-02",
             "note": "Sold per piece, set the quantity you need. Price shown is for one; it drops to 2.73 EUR each from 4 pieces and 2.63 EUR each from 10."
+          },
+          {
+            "region": "EU",
+            "vendor": "Amazon DE",
+            "url": "https://www.amazon.de/dp/B0DS8WPR92",
+            "price": 13.19,
+            "pack_qty": 8,
+            "currency": "EUR",
+            "as_of": "2026-10-02"
           }
         ]
       },
@@ -6637,6 +6702,15 @@
             "currency": "EUR",
             "as_of": "2026-10-02",
             "note": "Waveshare USB3.2 Gen1 HUB-4U, the model in the note. Price includes 19% German VAT. Choose your delivery country at the top of the page."
+          },
+          {
+            "region": "EU",
+            "vendor": "Amazon DE",
+            "url": "https://www.amazon.de/dp/B0D97V3N3R",
+            "price": 27.99,
+            "pack_qty": 1,
+            "currency": "EUR",
+            "as_of": "2026-10-02"
           }
         ]
       },
@@ -6732,6 +6806,16 @@
             "currency": "EUR",
             "as_of": "2026-10-02",
             "note": "Choose the TMC2209 V1.3 option. Sold singly, so buy five."
+          },
+          {
+            "region": "EU",
+            "vendor": "Amazon DE",
+            "url": "https://www.amazon.de/dp/B07ZQ3C1XW",
+            "price": 63.17,
+            "pack_qty": 5,
+            "currency": "EUR",
+            "as_of": "2026-10-02",
+            "note": "The listing says V1.2/V1.3 boards, check the revision matches before wiring."
           }
         ]
       },
@@ -7242,6 +7326,16 @@
             "currency": "EUR",
             "as_of": "2026-10-02",
             "note": "The version without cable (ohne Kabel): strip clamps in one end, your own wire up to 22 AWG in the other. 8 mm, 2-pole, up to 4 A. Sold singly, buy three."
+          },
+          {
+            "region": "EU",
+            "vendor": "Amazon DE",
+            "url": "https://www.amazon.de/dp/B0FRZD1FYF",
+            "price": 8.49,
+            "pack_qty": 20,
+            "currency": "EUR",
+            "as_of": "2026-10-02",
+            "note": "2-pin 8 mm solderless connectors, 5 V to 24 V."
           }
         ]
       },
@@ -7341,6 +7435,16 @@
             "url": "https://www.conrad.de/de/p/omron-v-155-1c25-mikroschalter-250-v-dc-15-a-1-x-ein-ein-1-st-bag-2594146.html",
             "pack_qty": 1,
             "note": "Part V-155-1C25, sold singly. Check the title says V-155-1C25 before you order."
+          },
+          {
+            "region": "EU",
+            "vendor": "Amazon DE",
+            "url": "https://www.amazon.de/dp/B07S91JNJ8",
+            "price": 9.99,
+            "pack_qty": 6,
+            "currency": "EUR",
+            "as_of": "2026-10-02",
+            "note": "Clone-branded boards with the same V-155-1C25 style switch."
           }
         ]
       },
@@ -7867,6 +7971,16 @@
             "vendor": "TME",
             "url": "https://www.tme.eu/en/details/vhr-2n/raster-signal-connectors-3-96mm/jst/",
             "note": "JST VHR-2N. Sold singly, contacts are a separate buy."
+          },
+          {
+            "region": "EU",
+            "vendor": "Amazon DE",
+            "url": "https://www.amazon.de/dp/B0FB8RVGF9",
+            "price": 10.41,
+            "pack_qty": 10,
+            "currency": "EUR",
+            "as_of": "2026-10-02",
+            "note": "eMagTech kit with 10 plugs, 10 housings and 20 terminals, 3.96 mm pitch, 2 pin."
           }
         ]
       }
@@ -7926,6 +8040,16 @@
             "vendor": "TME",
             "url": "https://www.tme.eu/en/details/svh-21t-p1.1/raster-signal-connectors-3-96mm/jst/",
             "note": "JST SVH-21T-P1.1. Buy a few more than 2."
+          },
+          {
+            "region": "EU",
+            "vendor": "Amazon DE",
+            "url": "https://www.amazon.de/dp/B0FB8RVGF9",
+            "price": 10.41,
+            "pack_qty": 20,
+            "currency": "EUR",
+            "as_of": "2026-10-02",
+            "note": "Same eMagTech kit as the housing, with 20 terminals. The listing does not name them as SVH-21T, so check they fit."
           }
         ]
       }
@@ -8171,6 +8295,16 @@
             "currency": "EUR",
             "as_of": "2026-10-02",
             "note": "Sold singly. Contacts are a separate buy."
+          },
+          {
+            "region": "EU",
+            "vendor": "Amazon DE",
+            "url": "https://www.amazon.de/dp/B01NAQIJ23",
+            "price": 13.99,
+            "pack_qty": 25,
+            "currency": "EUR",
+            "as_of": "2026-10-02",
+            "note": "710-piece Dupont kit: 25 housings of each size from 1 to 9 pins, plus female contacts."
           }
         ]
       }
@@ -8239,6 +8373,16 @@
             "currency": "EUR",
             "as_of": "2026-10-02",
             "note": "100 female crimp contacts for 22 to 28 AWG, tinned brass."
+          },
+          {
+            "region": "EU",
+            "vendor": "Amazon DE",
+            "url": "https://www.amazon.de/dp/B01NAQIJ23",
+            "price": 13.99,
+            "pack_qty": 220,
+            "currency": "EUR",
+            "as_of": "2026-10-02",
+            "note": "Same 710-piece Dupont kit as the housings. Includes 220 female crimp contacts."
           }
         ]
       }
@@ -8726,6 +8870,16 @@
             "vendor": "Conrad",
             "url": "https://www.conrad.de/de/p/hellermanntyton-170-81101-hegpetfrx06-pet-bk-geflechtschlauch-schwarz-polyester-3-bis-10-mm-meterware-2625600.html",
             "note": "HellermannTyton HEGPETFRX06-PET-BK, black polyester expandable braid, 3 to 10 mm. Sold by the metre."
+          },
+          {
+            "region": "EU",
+            "vendor": "Amazon DE",
+            "url": "https://www.amazon.de/dp/B071JH14WZ",
+            "price": 7.99,
+            "pack_qty": 1,
+            "currency": "EUR",
+            "as_of": "2026-10-02",
+            "note": "7.5 m of braided sleeving."
           }
         ]
       },
@@ -8886,6 +9040,15 @@
             "currency": "EUR",
             "as_of": "2026-10-02",
             "note": "Genuine Mean Well, price includes 19% VAT. Set the slide switch to 230 V before first power-up."
+          },
+          {
+            "region": "EU",
+            "vendor": "Amazon DE",
+            "url": "https://www.amazon.de/dp/B0CN1JVD4Y",
+            "price": 38.03,
+            "pack_qty": 1,
+            "currency": "EUR",
+            "as_of": "2026-10-02"
           }
         ]
       },

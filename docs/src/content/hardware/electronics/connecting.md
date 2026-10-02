@@ -34,12 +34,77 @@ parts_needed:
     qty: 1
   - part: cable-idc-2x8-long
     qty: 1
-tools_needed: [Multimeter, "A small screwdriver, for the hub's power terminal", "Side cutters or wire strippers, only if the plug's two wires do not already have bare ends", "Only if you make your own W1 lead: wire strippers and a crimp tool"]
+  - part: sleeving-braided-6mm
+    qty: 1
+    note: Optional. About 10 m for the machine, over every lead you make.
+tools_needed: [Multimeter, "A small screwdriver, for the hub's power terminal", "Side cutters or wire strippers, only if the plug's two wires do not already have bare ends", "Only if you make your own W1 lead: wire strippers and a crimp tool", "Optional, for the sleeving: scissors and tape, or a hot knife"]
 ---
 
 The [PSU box]({{ '/hardware/electronics/installation/psu-box/' | relative_url }}), the [control board housing]({{ '/hardware/electronics/installation/control-board-housing/' | relative_url }}) and the [Orange Pi housing]({{ '/hardware/electronics/installation/orange-pi-mount/' | relative_url }}) are all bolted to the frame, and the cables are made or bought. This page plugs them together, and screws the USB hub's power wires into the hub. Nothing here needs a soldering iron.
 
-If a cable is missing, seven of them have a page that builds them: the [PSU output pigtails]({{ '/hardware/helpers/psu-pigtail/' | relative_url }}), the [prepared LED strips]({{ '/hardware/helpers/led-strip/' | relative_url }}), the [control board's 24 V lead]({{ '/hardware/helpers/board-24v-lead/' | relative_url }}), the [Orange Pi's 24 V lead]({{ '/hardware/helpers/pi-24v-lead/' | relative_url }}), the [channel stepper leads]({{ '/hardware/helpers/channel-stepper-lead/' | relative_url }}), the [chute stepper lead]({{ '/hardware/helpers/chute-stepper-lead/' | relative_url }}) and the [chute limit switch lead]({{ '/hardware/helpers/limit-switch-lead/' | relative_url }}). The only one with no page is the USB hub's lead: step 6 below connects it. The [wire harness]({{ '/hardware/electronics/wire-harness/' | relative_url }}) page has the length and gauge of the rest.
+**Make these leads before you start.** Each has a page that builds it, and the step named plugs it in.
+
+<div class="prep-item">
+  <div class="prep-item-body">
+    <p><strong>Make the <a href="{{ '/hardware/helpers/board-24v-lead/' | relative_url }}">control board's 24 V lead</a> before you start.</strong> One barrel plug at the PSU end and a JST-VH housing at the board end, 914 mm of 18 AWG (0.82 mm²) pair between them. Step 1 plugs it in.</p>
+  </div>
+  <figure class="prep-item-figure">
+    <img class="doc-figure" src="https://assets.basically.website/sorter-docs/w1-24v-lead-pin1-diagram-full-284f502e161c.png" alt="Diagram of the finished lead, left to right: a barrel plug with two short leads, red and black, each joined to the 18 AWG pair by a butt connector, the two connectors staggered; the pair, 914 mm end to end; and two VH contacts in a two-position VHR-2 housing, red in pin 1 for +24 V and black in pin 2 for ground.">
+    <figcaption>The finished lead, with a moulded plug. <cite>Diagram: author not recorded.</cite></figcaption>
+  </figure>
+</div>
+
+<div class="prep-item">
+  <div class="prep-item-body">
+    <p><strong>Make the <a href="{{ '/hardware/helpers/pi-24v-lead/' | relative_url }}">Orange Pi's 24 V lead</a> before you start.</strong> A barrel plug on the buck converter's own input wires, with the converter's USB-C lead going on to the Pi. Step 7 plugs it in.</p>
+  </div>
+  <figure class="prep-item-figure">
+    <img class="doc-figure" src="https://assets.basically.website/sorter-docs/w3-24v-lead-diagram-full-22caf5109dd5.png" alt="Diagram of the finished lead with a moulded plug, left to right: a barrel plug with two short leads, red and black, each joined to one of the converter's red and black input wires by a butt connector, the two connectors staggered; the converter's input wires, 100 mm or more; the buck converter; and its own USB-C lead going to the Pi's PWR IN socket.">
+    <figcaption>The finished lead, with a moulded plug. <cite>Diagram: author not recorded.</cite></figcaption>
+  </figure>
+</div>
+
+<div class="prep-item">
+  <div class="prep-item-body">
+    <p><strong>Make four <a href="{{ '/hardware/helpers/channel-stepper-lead/' | relative_url }}">channel stepper leads</a> before you start.</strong> Each is the motor's own lead with its Dupont plug replaced by a 4-pin JST-PH housing. Step 2 plugs them into <code>J27</code>, <code>J31</code>, <code>J35</code> and <code>J39</code>.</p>
+  </div>
+  <figure class="prep-item-figure">
+    <img class="doc-figure" src="https://assets.basically.website/sorter-docs/channel-stepper-lead-rehouse-plug-shape-both-png-full-afd12ce6e219.png" alt="A line drawing in the style of the StepperOnline cable drawing. On the left the 6-pin PHR-6 housing at the motor end, drawn to the shape in that drawing: a lane down the mating side, two blocks with a rectangular window between them, and a flange on the wire side with chamfered corners. Positions 6 at the top down to 1 at the bottom are labelled RED B-, empty, BLU A-, GRN B+, empty and BLK A+. On the right the 4-pin PHR-4 at the board end, the same outline mirrored and scaled to four positions with its flange on the wire side, positions 4 at the top down to 1 at the bottom, labelled coil B from motor 6, coil B from motor 3, coil A from motor 4 and coil A from motor 1. Four wires join them: motor 6 to PHR-4 position 4, motor 4 to position 2, motor 3 to position 3 and motor 1 to position 1, so the wires from motor positions 4 and 3 cross.">
+    <figcaption>One lead: the motor's 6-pin housing on the left, the 4-pin board housing on the right. <cite>Diagram: author not recorded.</cite></figcaption>
+  </figure>
+</div>
+
+<div class="prep-item">
+  <div class="prep-item-body">
+    <p><strong>Make the <a href="{{ '/hardware/helpers/chute-stepper-lead/' | relative_url }}">chute stepper lead</a> before you start.</strong> A 24 AWG (0.20 mm²) tail spliced onto the motor's four leads and ending in a 4-pin JST-PH housing. Step 2 plugs it into <code>J23</code>.</p>
+  </div>
+  <figure class="prep-item-figure">
+    <img class="doc-figure" src="https://assets.basically.website/sorter-docs/chute-stepper-lead-butt-splice-diagram-full-03ca94566783.png" alt="Four panels. 1: the stripped end of a motor lead, 20 AWG (0.52 mm²), and of a 24 AWG (0.20 mm²) tail. 2: one wire in each end of a clear butt splice, the insulation against the barrel and the stripped ends reaching the wire stop in the centre. 3: the splice between the two jaws of a crimping die marked 24 to 20 AWG (0.2 to 0.6 mm²), crimped one end and then the other. 4: four wires, black, green, red and blue, each with its splice at a different distance along the cable.">
+    <figcaption>The splices that join the tail to the motor's leads, staggered along the cable. <cite>Diagram: author not recorded.</cite></figcaption>
+  </figure>
+</div>
+
+<div class="prep-item">
+  <div class="prep-item-body">
+    <p><strong>Make the <a href="{{ '/hardware/helpers/limit-switch-lead/' | relative_url }}">chute limit switch lead</a> before you start.</strong> A 610 mm pair with two #187 push-on receptacles at the switch end and a 3-pin Dupont housing at the board end. Step 3 plugs it into <code>J5</code>.</p>
+  </div>
+  <figure class="prep-item-figure">
+    <img class="doc-figure" src="https://assets.basically.website/sorter-docs/harness-limit-switch-parts-w1600-661badd2af06.jpg" alt="Laid out on a bench: the red roller-lever switch with its three bare tabs, two insulated quick-connect receptacles already crimped onto short leads, and the stripped end of a red and black 22 AWG (0.33 mm²) pair">
+    <figcaption>The switch end of the lead: two #187 receptacles on the pair. <cite>Photo: BrickCycleAlice.</cite></figcaption>
+  </figure>
+</div>
+
+<div class="prep-item">
+  <div class="prep-item-body">
+    <p><strong>Prepare three <a href="{{ '/hardware/helpers/led-strip/' | relative_url }}">LED strips</a> with their cables before you start.</strong> Each lamp has a strip with a short pigtail ending in a barrel plug, and a board cable of about a metre with the matching socket and a 2-pin Dupont housing. Step 4 plugs the board cables into the LED ports.</p>
+  </div>
+  <figure class="prep-item-figure">
+    <img class="doc-figure" src="https://assets.basically.website/sorter-docs/led-two-cable-set-pin1-full-ad3551b6b708.png" alt="Diagram of two cables. Cable 1, the lamp pigtail: an LED strip, a clamp-on connector, and red and black wires ending in a barrel plug. Cable 2, the board cable: a barrel socket, two staggered butt connectors on its red and black wires, and a longer cable ending in a two-pin Dupont plug that goes to the board, red in pin 1 for +V and black in the other for GND.">
+    <figcaption>The two cables of one lamp. <cite>Diagram: author not recorded.</cite></figcaption>
+  </figure>
+</div>
+
+The PSU output pigtails are already in the PSU box. The USB hub's lead has no page: step 6 below connects it. The [wire harness]({{ '/hardware/electronics/wire-harness/' | relative_url }}) page has the length and gauge of every lead.
 
 <div class="callout callout-warning">
   <span class="callout-icon" aria-hidden="true">⚠</span>
@@ -85,6 +150,38 @@ The machine needs three male barrel plugs for these three, plus, if you fit the 
   <span class="callout-icon" aria-hidden="true">⚠</span>
   <p>Every jack on the PSU box is <b>5.5 x 2.1 mm, centre-positive</b>. A 2.5 mm plug looks the same and does not mate. Check the pin size before you buy a barrel lead.</p>
 </div>
+
+### Sleeving the leads you make (optional)
+
+<div class="callout">
+  <p><b>You can skip this and the machine works the same.</b> The braided sleeving keeps the wires of each lead together as one tidy cable, protects them where they run along the frame past the moving parts, and is another way of securing the cables.</p>
+</div>
+
+**Where:** over every lead you make yourself. Each helper page has the length and the step where it goes on:
+
+<ul class="bulleted-list">
+  <li>The four <a href="{{ '/hardware/helpers/channel-stepper-lead/#sleeving-optional' | relative_url }}">channel stepper leads</a>, 1 m each.</li>
+  <li>The <a href="{{ '/hardware/helpers/chute-stepper-lead/#sleeving-optional' | relative_url }}">chute stepper lead</a>, about 1 m.</li>
+  <li>The <a href="{{ '/hardware/helpers/board-24v-lead/#sleeving-optional' | relative_url }}">control board's 24 V lead</a>, about 0.9 m.</li>
+  <li>The <a href="{{ '/hardware/helpers/limit-switch-lead/#sleeving-optional' | relative_url }}">limit switch lead</a>, about 0.6 m.</li>
+  <li>The three <a href="{{ '/hardware/helpers/led-strip/#sleeving-optional' | relative_url }}">LED board cables</a>, about 1 m each, and their short lamp pigtails, 0.1 m each.</li>
+  <li>The <a href="{{ '/hardware/helpers/pi-24v-lead/#sleeving-optional' | relative_url }}">Orange Pi's 24 V lead</a>, about 0.1 m.</li>
+</ul>
+
+The `W2` lead to the USB hub, the USB cables and the ribbon are bought parts with no page to make them, and the PSU box pigtails stay inside the box, so none of those is sleeved. In all, about 10 m for the machine: one 15.2 m roll.
+
+**When:** while you make each lead, from the cut end, before you fit the connector that goes on it. A finished plug or housing may not go through the sleeving: the 6-pin housing on a channel stepper lead is too big for it, and a 4-pin PH housing is a tight fit that has not been tried. Do not plan on adding sleeving to a finished lead. The harness drawings sleeve the four channel stepper leads only; sleeving the rest is a choice, not part of the drawing.
+
+**How:** the same on every lead.
+
+<ol class="numbered-steps">
+  <li>Push the braid together lengthwise to open it: it widens as it shortens. Feed all the wires of the lead into it together, so none of them is left outside.</li>
+  <li>Cut it to length with a hot knife or a soldering iron with a blade tip, so the cut melts shut. Plain scissors leave the braid fraying. With no hot tool, wrap a turn of tape around the braid where you will cut, cut through the middle of the tape with scissors, and leave the tape on.</li>
+  <li>Stop the sleeving 5 to 10 mm short of each housing or plug, so the crimped contacts and the housings can flex and the sleeving never crowds into one.</li>
+  <li>Hold each end with a small piece of heat shrink or a turn of tape, so that the braid cannot creep back along the wires.</li>
+</ol>
+
+Leave the sleeving loose enough to bend. A cable tie that anchors a lead goes on over the sleeving: pull it tight enough to hold, but not so tight that it crushes the braid.
 
 ## The control board, socket by socket
 

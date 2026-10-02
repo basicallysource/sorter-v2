@@ -13522,8 +13522,8 @@
 			"quantities": {},
 			"assembly": "cable-cage",
 			"folder": null,
-			"variant_group": null,
-			"variant_name": null,
+			"variant_group": "cable-cage-plates",
+			"variant_name": "3D printed",
 			"description": "One corner segment of the 3D-printed cable cage hexagon. 6 build the bottom plate; 4 plus one cage motor piece build the top plate.",
 			"version": "1",
 			"created_at": "2026-08-24",
@@ -13653,8 +13653,8 @@
 			"quantities": {},
 			"assembly": "cable-cage",
 			"folder": null,
-			"variant_group": null,
-			"variant_name": null,
+			"variant_group": "cable-cage-plates",
+			"variant_name": "3D printed",
 			"description": "The chute-motor segment of the 3D-printed cable cage top plate. 1 needed, alongside 4 hex corner pieces.",
 			"version": "1",
 			"created_at": "2026-08-24",
@@ -32310,7 +32310,9 @@
 						"qty": 1
 					}
 				]
-			}
+			},
+			"variant_group": "cable-cage-plates",
+			"variant_name": "Laser cut"
 		},
 		{
 			"id": "cable-cage-bottom",
@@ -32342,7 +32344,9 @@
 						"qty": 6
 					}
 				]
-			}
+			},
+			"variant_group": "cable-cage-plates",
+			"variant_name": "Laser cut"
 		},
 		{
 			"id": "top-plate",

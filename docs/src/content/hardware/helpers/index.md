@@ -26,6 +26,7 @@ So read these when a page sends you, not in order.
 - **[Preparing the Lazy Susan]({{ '/hardware/helpers/lazy-susan/' | relative_url }})**. Pulling the rubber feet off the bearing, if yours came with them.
 - **[Preparing the 20-tooth timing pulley]({{ '/hardware/helpers/pulley-gear-mod/' | relative_url }})**. Removing the top flange so the pulley fits the interface gear.
 - **[Soldering Pico headers]({{ '/hardware/helpers/pico-headers/' | relative_url }})**. **Optional.** The parts list buys a Pico with its pins already on, so a standard build skips this page.
+- **[Preparing the 3D printed cable cage plates]({{ '/hardware/helpers/cable-cage-plates/' | relative_url }})**. **Optional.** Gluing the printed pieces into the two cable cage plates, if you print them instead of having them laser-cut.
 
 ## Making a cable
 

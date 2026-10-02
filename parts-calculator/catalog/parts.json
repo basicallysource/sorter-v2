@@ -1474,7 +1474,9 @@
         "role": "frame"
       },
       "optional": true,
-      "support": false
+      "support": false,
+      "variant_group": "cable-cage-plates",
+      "variant_name": "3D printed"
     },
     {
       "id": "cage-top-motor-piece",
@@ -1492,7 +1494,9 @@
         "role": "frame"
       },
       "optional": true,
-      "support": false
+      "support": false,
+      "variant_group": "cable-cage-plates",
+      "variant_name": "3D printed"
     },
     {
       "id": "ribbon-cable-clamp",
@@ -9826,7 +9830,9 @@
             "qty": 1
           }
         ]
-      }
+      },
+      "variant_group": "cable-cage-plates",
+      "variant_name": "Laser cut"
     },
     {
       "id": "cable-cage-bottom",
@@ -9859,7 +9865,9 @@
             "qty": 6
           }
         ]
-      }
+      },
+      "variant_group": "cable-cage-plates",
+      "variant_name": "Laser cut"
     },
     {
       "id": "top-plate",

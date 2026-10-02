@@ -25,7 +25,7 @@ Your machine sorts on its own. It does not need Hive to sort. Hive adds two thin
 
 <ul class="bulleted-list">
   <li><strong>Profiles.</strong> The boxes your machine sorts into, and the rules for which part goes in which box. You build one in Hive and send it to your machine. See <a href="{{ '/hive/first-profile/' | relative_url }}">Build your first sorting profile</a>.</li>
-  <li><strong>Machines.</strong> Each machine you link to your account has a page. It shows if the machine is online, what it has sorted and what it is running.</li>
+  <li><strong>Machines.</strong> Each machine you link to your account has a page. It shows whether the machine is online, what it has sorted and what it is running.</li>
   <li><strong>Kits.</strong> A list of parts in colours with quantities, such as a set or an order. A bin in a profile can be set to fill with a kit.</li>
   <li><strong>Samples.</strong> Camera pictures from machines. Each has outlines drawn around the pieces. Reviewers check the outlines. See <a href="#what-a-sample-is">What a sample is</a> below.</li>
   <li><strong>Models.</strong> The programs that find pieces in the camera picture. They are trained from reviewed samples. Machines download them from here.</li>
@@ -38,7 +38,7 @@ There are two separate connections. They are easy to mix up.
 
 <ul class="bulleted-list">
   <li><strong>The status ping.</strong> Once an hour, a machine sends a small anonymous report. The project uses it to count machines and see roughly how much they sort. It has no pictures. It needs no account.</li>
-  <li><strong>Your linked machine.</strong> You sign in to Hive and connect your machine. You do this in <a href="{{ '/sorter/first-setup/' | relative_url }}">step 8 of first setup</a>, or later under <strong>Settings</strong> → <strong>Hive</strong> on the machine. The machine then stays in touch with Hive and uploads what you allow. Each kind of upload has its own switch. You can remove the connection at any time.</li>
+  <li><strong>Your linked machine.</strong> You sign in to Hive and connect your machine. You do this in <a href="{{ '/sorter/first-setup/' | relative_url }}">step 8 of first setup</a>, or later under <strong>Settings</strong> → <strong>Hive</strong> on the machine. The machine then stays in touch with Hive. It uploads only what you allow, and each kind of upload has its own switch. You can remove the connection at any time.</li>
 </ul>
 
 The full list of what is sent, and what you can turn off, is on [What leaves the machine]({{ '/sorter/what-leaves-the-machine/' | relative_url }}).
@@ -66,7 +66,7 @@ Two details change what you see in Hive:
 
 <ul class="bulleted-list">
   <li><strong>The rate slows down.</strong> A run starts with a quick burst of pictures. Over about three days it slows to about one an hour. This stops the same setup from uploading nearly identical pictures.</li>
-  <li><strong>The outlines need an AI service.</strong> Switch on <strong>Annotate with OpenRouter</strong> and add your OpenRouter key. The machine then draws the outlines before it uploads. Without this, the sample arrives with no checked outlines. Hive hides those samples from the review queue by default. To set up the key, see <a href="{{ '/hive/first-profile/openrouter-key/' | relative_url }}">set up an OpenRouter key</a>.</li>
+  <li><strong>The outlines need an AI service.</strong> Switch on <strong>Annotate with OpenRouter</strong> and add your OpenRouter key. The machine then draws the outlines before it uploads. Without this, the sample arrives with no checked outlines, and Hive hides it from the review queue by default. To get a key, see <a href="{{ '/hive/first-profile/openrouter-key/' | relative_url }}">set up an OpenRouter key</a>.</li>
 </ul>
 
 ### What happens to a sample

@@ -31,7 +31,7 @@ So read these when a page sends you, not in order.
 ## Making a cable
 
 Seven of the machine's cables are made by hand, one page each. The eighth, the
-USB hub's 24 V lead, is bought ready made with a plug at both ends.
+USB hub's 24 V lead, is a barrel plug screwed into the hub's own power terminal, so it needs no page.
 
 - **[Preparing the LED strip]({{ '/hardware/helpers/led-strip/' | relative_url }})**. Cutting a lamp's length of strip and getting its cable on the end, clamped or soldered. Three per machine.
 - **[Make your own PSU output pigtail]({{ '/hardware/helpers/psu-pigtail/' | relative_url }})**. The barrel jack and its two fork terminals, for each of the PSU box's three outputs. Three per machine.

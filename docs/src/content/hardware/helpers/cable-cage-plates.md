@@ -36,7 +36,7 @@ Each plate is made of several flat pieces. Where two pieces meet, each has a hal
   <figcaption>The two plates and which piece goes where. Each overlap strip is one joint. <cite>Drawing: Balloon, from the STL files.</cite></figcaption>
 </figure>
 
-Print every piece flat on the bed, the way the file comes.
+Print the pieces in PLA, with the **Print settings** at the top of the [parts calculator](https://parts-calculator.basically.website/). Print every piece flat on the bed, the way the file comes.
 
 {% include step.html n="1" title="Dry-fit the plate" %}
 

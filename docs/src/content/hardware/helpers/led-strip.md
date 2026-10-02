@@ -75,7 +75,14 @@ Leave the blue protective film on until the strip is going where it lives. It is
 
 The cable comes from the pack with a plug on both ends: the **male** one has two pins sticking out of it, the **female** one has two holes. **Cut the male plug off.** The female end stays on: that is what pushes onto the board later. With the plug and socket, the socket joins here in step 5. Without them, this cut end goes straight onto the strip in step 4, and you skip steps 3 and 5.
 
-If you own a crimp tool for open-barrel contacts, you can make this cable instead: about a metre of 22 AWG (0.33 mm²), one red and one black, with a 2-pin 2.54 mm Dupont female housing crimped on.
+If you own a crimp tool for open-barrel contacts, you can make this cable instead: about a metre of 22 AWG (0.33 mm²), one red and one black, with a 2-pin 2.54 mm Dupont female housing crimped on. Put the red wire's contact in the cavity next to the moulded arrow, so the arrow marks red on the cables you make.
+
+**The housing does not tell you which way round it goes.** It has no key, so it pushes onto the board's two pins either way up, and only the wire colour decides the polarity: **the red wire goes over the pin the board prints `+V`**, which is the one on the square pad. **The small arrow moulded into the housing is not a polarity mark.** It sits beside one contact, but on the ready-made cables in the listing photo it is beside the black wire's contact, so do not use it to find red.
+
+<figure class="single-figure">
+  <img class="doc-figure" src="https://assets.basically.website/sorter-docs/led-dupont-orientation-full-d7b88c61fe57.png" alt="Two views of the Dupont housing from above on an LED port. Left, right: the red wire's cavity is over the pin on the square pad printed +V and the black wire's is over the round GND pin, with the moulded arrow beside the black one. Right, wrong: the housing turned half a turn, so red is over GND and the arrow has moved to the other side.">
+  <figcaption>The same housing both ways round. The arrow turns with it, so it cannot tell you which is right.</figcaption>
+</figure>
 
 {% include step.html n="3" title="Find the tip of the plug and of the socket" %}
 
@@ -127,9 +134,9 @@ A butt connector is a vinyl-insulated barrel that takes one wire in each end, ra
 Set the multimeter to continuity. **With the plug and socket**, push the two cables together first.
 
 <ol class="numbered-steps">
-  <li>Touch one probe to the strip's <code>+24V</code> pad and the other to the Dupont pin that goes to <code>+V</code> on the board. It should beep.</li>
-  <li>Move the second probe to the other Dupont pin. It should not beep.</li>
-  <li>Touch the two Dupont pins to each other. It should not beep.</li>
+  <li>Touch one probe to the strip's <code>+24V</code> pad and the other to the hole in the Dupont housing that the red wire runs to. It should beep. That is the contact that goes over <code>+V</code> on the board.</li>
+  <li>Move the second probe to the other hole in the housing. It should not beep.</li>
+  <li>Put one probe in each of the two holes. It should not beep.</li>
 </ol>
 
 If the first test does not beep, or the second does, the two joints have crossed. If the third beeps, something is shorting.

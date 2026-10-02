@@ -55,6 +55,10 @@ parts_needed:
     qty: 1
   - part: cable-cage-bottom
     qty: 1
+  - part: cage-top-hex-corner
+    qty: 10
+  - part: cage-top-motor-piece
+    qty: 1
   - part: cable-clamp-outer
     qty: 1
   - part: cable-clamp-inner
@@ -159,6 +163,10 @@ The top interface holds a chute that rotates on a lazy-susan bearing to aim inco
       <figcaption>Cable cage bottom.</figcaption>
     </figure>
   </div>
+</div>
+
+<div class="callout">
+  <p><b>Printing the cable cage plates instead?</b> The parts list offers two options for them: the two laser-cut plates, or ten printed hex corners and one printed motor piece. For the printed ones, glue the pieces into the two plates first, on <a href="{{ '/hardware/helpers/cable-cage-plates/' | relative_url }}">Preparing the 3D printed cable cage plates</a>, and have them ready by step 10 and step 12. The steps below are the same either way.</p>
 </div>
 
 The fasteners and quantities are in the parts list above and are called out inline at each step.

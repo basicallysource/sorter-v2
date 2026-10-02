@@ -25004,11 +25004,15 @@
 			"description": "Secures the limit switch hammer into the top interface chute mount from below, into the hammer's M3 insert.",
 			"note": "The \u00d71 is the top-interface count (limit-switch hammer). Screws used elsewhere on the machine aren't tallied here yet.",
 			"created_at": "2026-08-18",
-			"updated_at": "2026-08-18",
+			"updated_at": "2026-10-02",
 			"attributes": [
 				{
 					"label": "Thread",
 					"value": "M3"
+				},
+				{
+					"label": "Pitch",
+					"value": "0.5 mm (standard)"
 				},
 				{
 					"label": "Length",
@@ -25017,6 +25021,14 @@
 				{
 					"label": "Head",
 					"value": "Countersunk (flat) socket"
+				},
+				{
+					"label": "Material",
+					"value": "Stainless steel"
+				},
+				{
+					"label": "Drive",
+					"value": "Hex socket"
 				}
 			],
 			"sheet_qty": {
@@ -25024,7 +25036,28 @@
 			},
 			"sheet_qty_text": null,
 			"stock": null,
-			"sourcing": null,
+			"sourcing": {
+				"vendors": [
+					{
+						"region": "US",
+						"vendor": "Amazon",
+						"url": "https://www.amazon.com/dp/B0CQ4ZJD27",
+						"price": 5.69,
+						"pack_qty": 100,
+						"as_of": "2026-10-02",
+						"affiliate_url": "https://www.amazon.com/dp/B0CQ4ZJD27?tag=sorterv2-20"
+					},
+					{
+						"region": "EU",
+						"vendor": "Amazon DE",
+						"url": "https://www.amazon.de/dp/B084QG41JG",
+						"price": 3.93,
+						"pack_qty": 100,
+						"currency": "EUR",
+						"as_of": "2026-10-02"
+					}
+				]
+			},
 			"alternative": null,
 			"caption": null,
 			"docs_page": null,
@@ -25084,14 +25117,18 @@
 			},
 			"name": "M3 \u00d7 8 mm countersunk",
 			"category": "Screws",
-			"description": "The workhorse M3 screw \u2014 used all over the machine wherever a flush head is wanted.",
+			"description": "The workhorse M3 screw, used all over the machine wherever a flush head is wanted.",
 			"note": null,
 			"created_at": "2026-07-18",
-			"updated_at": "2026-07-18",
+			"updated_at": "2026-10-02",
 			"attributes": [
 				{
 					"label": "Thread",
 					"value": "M3"
+				},
+				{
+					"label": "Pitch",
+					"value": "0.5 mm (standard)"
 				},
 				{
 					"label": "Length",
@@ -25108,6 +25145,10 @@
 				{
 					"label": "Finish",
 					"value": "Silver"
+				},
+				{
+					"label": "Drive",
+					"value": "Hex socket"
 				}
 			],
 			"sheet_qty": null,
@@ -25120,7 +25161,18 @@
 						"vendor": "Amazon",
 						"url": "https://www.amazon.com/DTGN-M3-0-5-Socket-Stainless-Countersunk/dp/B0CQ4XMVLZ",
 						"affiliate_url": "https://www.amazon.com/DTGN-M3-0-5-Socket-Stainless-Countersunk/dp/B0CQ4XMVLZ?tag=sorterv2-20",
-						"as_of": "2026-07-18"
+						"as_of": "2026-10-02",
+						"price": 6.79,
+						"pack_qty": 100
+					},
+					{
+						"region": "EU",
+						"vendor": "Amazon DE",
+						"url": "https://www.amazon.de/dp/B084Q7LNZ3",
+						"price": 5.84,
+						"pack_qty": 100,
+						"currency": "EUR",
+						"as_of": "2026-10-02"
 					}
 				]
 			},
@@ -25227,11 +25279,15 @@
 			"description": "The long M3 countersunk. Used all over the machine.",
 			"note": null,
 			"created_at": "2026-07-18",
-			"updated_at": "2026-07-18",
+			"updated_at": "2026-10-02",
 			"attributes": [
 				{
 					"label": "Thread",
 					"value": "M3"
+				},
+				{
+					"label": "Pitch",
+					"value": "0.5 mm (standard)"
 				},
 				{
 					"label": "Length",
@@ -25248,6 +25304,10 @@
 				{
 					"label": "Finish",
 					"value": "Silver"
+				},
+				{
+					"label": "Drive",
+					"value": "Hex socket"
 				}
 			],
 			"sheet_qty": null,
@@ -25260,7 +25320,18 @@
 						"vendor": "Amazon",
 						"url": "https://www.amazon.com/DTGN-M3-0-5-Socket-Stainless-Countersunk/dp/B0CQ4W72GZ",
 						"affiliate_url": "https://www.amazon.com/DTGN-M3-0-5-Socket-Stainless-Countersunk/dp/B0CQ4W72GZ?tag=sorterv2-20",
-						"as_of": "2026-07-18"
+						"as_of": "2026-10-02",
+						"price": 6.29,
+						"pack_qty": 100
+					},
+					{
+						"region": "EU",
+						"vendor": "Amazon DE",
+						"url": "https://www.amazon.de/dp/B084Q4XZQG",
+						"price": 5.84,
+						"pack_qty": 100,
+						"currency": "EUR",
+						"as_of": "2026-10-02"
 					}
 				]
 			},
@@ -25282,14 +25353,18 @@
 			},
 			"name": "M3 \u00d7 20 mm countersunk",
 			"category": "Screws",
-			"description": "Joins the C-channel light post to the NEMA bracket. Threads straight into the printed post \u2014 no insert, no nut.",
+			"description": "Joins the C-channel light post to the NEMA bracket. Threads straight into the printed post. No insert and no nut.",
 			"note": null,
 			"created_at": "2026-07-18",
-			"updated_at": "2026-07-18",
+			"updated_at": "2026-10-02",
 			"attributes": [
 				{
 					"label": "Thread",
 					"value": "M3"
+				},
+				{
+					"label": "Pitch",
+					"value": "0.5 mm (standard)"
 				},
 				{
 					"label": "Length",
@@ -25302,6 +25377,10 @@
 				{
 					"label": "Material",
 					"value": "Stainless steel"
+				},
+				{
+					"label": "Drive",
+					"value": "Hex socket"
 				}
 			],
 			"sheet_qty": null,
@@ -25314,8 +25393,18 @@
 						"vendor": "Amazon",
 						"url": "https://www.amazon.com/Kozelo-50Pcs-Socket-Screws-Countersunk/dp/B0GDZJTX3K",
 						"affiliate_url": "https://www.amazon.com/Kozelo-50Pcs-Socket-Screws-Countersunk/dp/B0GDZJTX3K?tag=sorterv2-20",
-						"as_of": "2026-07-18",
-						"pack_qty": 50
+						"as_of": "2026-10-02",
+						"pack_qty": 50,
+						"price": 5.59
+					},
+					{
+						"region": "EU",
+						"vendor": "Amazon DE",
+						"url": "https://www.amazon.de/dp/B084Q6Z9RQ",
+						"price": 2.24,
+						"pack_qty": 10,
+						"currency": "EUR",
+						"as_of": "2026-10-02"
 					}
 				]
 			},
@@ -25337,14 +25426,18 @@
 			},
 			"name": "M3 \u00d7 16 mm socket/button head",
 			"category": "Screws",
-			"description": "No longer the C-channel stepper screw: those are countersunk (scr-m3-16-cs). Holds the roller lever limit switch to its housing (2, into the housing's inserts).",
+			"description": "Holds the roller lever limit switch to its housing. 2 screws, into the housing's inserts.",
 			"note": null,
 			"created_at": "2026-07-18",
-			"updated_at": "2026-09-26",
+			"updated_at": "2026-10-02",
 			"attributes": [
 				{
 					"label": "Thread",
 					"value": "M3"
+				},
+				{
+					"label": "Pitch",
+					"value": "0.5 mm (standard)"
 				},
 				{
 					"label": "Length",
@@ -25352,13 +25445,42 @@
 				},
 				{
 					"label": "Head",
-					"value": "Socket or button head, interchangeable (both flat-bottomed, so either just clamps; socket is the default)"
+					"value": "Socket head (buy this) or button head. Either works."
+				},
+				{
+					"label": "Material",
+					"value": "Stainless steel"
+				},
+				{
+					"label": "Drive",
+					"value": "Hex socket"
 				}
 			],
 			"sheet_qty": null,
 			"sheet_qty_text": null,
 			"stock": null,
-			"sourcing": null,
+			"sourcing": {
+				"vendors": [
+					{
+						"region": "US",
+						"vendor": "Amazon",
+						"url": "https://www.amazon.com/dp/B07X2RLJR9",
+						"price": 8.49,
+						"pack_qty": 100,
+						"as_of": "2026-10-02",
+						"affiliate_url": "https://www.amazon.com/dp/B07X2RLJR9?tag=sorterv2-20"
+					},
+					{
+						"region": "EU",
+						"vendor": "Amazon DE",
+						"url": "https://www.amazon.de/dp/B0DQV71S6P",
+						"price": 7.7,
+						"pack_qty": 100,
+						"currency": "EUR",
+						"as_of": "2026-10-02"
+					}
+				]
+			},
 			"alternative": "Socket or button head",
 			"caption": null,
 			"docs_page": null,
@@ -25380,11 +25502,15 @@
 			"description": "Bolts the NEMA 17 stepper to the NEMA bracket, into the stepper's tapped face holes. 3 per C-channel.",
 			"note": null,
 			"created_at": "2026-09-01",
-			"updated_at": "2026-09-01",
+			"updated_at": "2026-10-02",
 			"attributes": [
 				{
 					"label": "Thread",
 					"value": "M3"
+				},
+				{
+					"label": "Pitch",
+					"value": "0.5 mm (standard)"
 				},
 				{
 					"label": "Length",
@@ -25393,12 +25519,41 @@
 				{
 					"label": "Head",
 					"value": "Countersunk (flat) socket"
+				},
+				{
+					"label": "Material",
+					"value": "Stainless steel"
+				},
+				{
+					"label": "Drive",
+					"value": "Hex socket"
 				}
 			],
 			"sheet_qty": null,
 			"sheet_qty_text": null,
 			"stock": null,
-			"sourcing": null,
+			"sourcing": {
+				"vendors": [
+					{
+						"region": "US",
+						"vendor": "Amazon",
+						"url": "https://www.amazon.com/dp/B0CQ4YS4CR",
+						"price": 6.39,
+						"pack_qty": 100,
+						"as_of": "2026-10-02",
+						"affiliate_url": "https://www.amazon.com/dp/B0CQ4YS4CR?tag=sorterv2-20"
+					},
+					{
+						"region": "EU",
+						"vendor": "Amazon DE",
+						"url": "https://www.amazon.de/dp/B07KFJS922",
+						"price": 4.84,
+						"pack_qty": 25,
+						"currency": "EUR",
+						"as_of": "2026-10-02"
+					}
+				]
+			},
 			"alternative": null,
 			"caption": null,
 			"docs_page": null,
@@ -25420,11 +25575,15 @@
 			"description": "Holds the layer adapter board down on the chute core's heat inserts.",
 			"note": null,
 			"created_at": "2026-07-18",
-			"updated_at": "2026-08-18",
+			"updated_at": "2026-10-02",
 			"attributes": [
 				{
 					"label": "Thread",
 					"value": "M3"
+				},
+				{
+					"label": "Pitch",
+					"value": "0.5 mm (standard)"
 				},
 				{
 					"label": "Length",
@@ -25432,13 +25591,42 @@
 				},
 				{
 					"label": "Head",
-					"value": "Socket or button head, interchangeable (both flat-bottomed, so either just clamps; button is the default)"
+					"value": "Button head (buy this) or socket head. Either works."
+				},
+				{
+					"label": "Material",
+					"value": "Stainless steel"
+				},
+				{
+					"label": "Drive",
+					"value": "Hex socket"
 				}
 			],
 			"sheet_qty": null,
 			"sheet_qty_text": null,
 			"stock": null,
-			"sourcing": null,
+			"sourcing": {
+				"vendors": [
+					{
+						"region": "US",
+						"vendor": "Amazon",
+						"url": "https://www.amazon.com/dp/B09HQKLX6B",
+						"price": 6.99,
+						"pack_qty": 100,
+						"as_of": "2026-10-02",
+						"affiliate_url": "https://www.amazon.com/dp/B09HQKLX6B?tag=sorterv2-20"
+					},
+					{
+						"region": "EU",
+						"vendor": "Amazon DE",
+						"url": "https://www.amazon.de/dp/B07K7NWGHM",
+						"price": 4.99,
+						"pack_qty": 50,
+						"currency": "EUR",
+						"as_of": "2026-10-02"
+					}
+				]
+			},
 			"alternative": "Socket or button head",
 			"caption": null,
 			"docs_page": null,
@@ -25460,11 +25648,15 @@
 			"description": "Mounts the cable clamp to the interface, and fastens the camera extension into the Camera & LED insert.",
 			"note": null,
 			"created_at": "2026-07-18",
-			"updated_at": "2026-09-01",
+			"updated_at": "2026-10-02",
 			"attributes": [
 				{
 					"label": "Thread",
 					"value": "M3"
+				},
+				{
+					"label": "Pitch",
+					"value": "0.5 mm (standard)"
 				},
 				{
 					"label": "Length",
@@ -25472,13 +25664,42 @@
 				},
 				{
 					"label": "Head",
-					"value": "Socket or button head, interchangeable (both flat-bottomed, so either just clamps; button is the default)"
+					"value": "Button head (buy this) or socket head. Either works."
+				},
+				{
+					"label": "Material",
+					"value": "Stainless steel"
+				},
+				{
+					"label": "Drive",
+					"value": "Hex socket"
 				}
 			],
 			"sheet_qty": null,
 			"sheet_qty_text": null,
 			"stock": null,
-			"sourcing": null,
+			"sourcing": {
+				"vendors": [
+					{
+						"region": "US",
+						"vendor": "Amazon",
+						"url": "https://www.amazon.com/dp/B09HQL741X",
+						"price": 6.99,
+						"pack_qty": 100,
+						"as_of": "2026-10-02",
+						"affiliate_url": "https://www.amazon.com/dp/B09HQL741X?tag=sorterv2-20"
+					},
+					{
+						"region": "EU",
+						"vendor": "Amazon DE",
+						"url": "https://www.amazon.de/dp/B07K7MNZFM",
+						"price": 4.99,
+						"pack_qty": 50,
+						"currency": "EUR",
+						"as_of": "2026-10-02"
+					}
+				]
+			},
 			"alternative": "Socket or button head",
 			"caption": null,
 			"docs_page": null,
@@ -25541,11 +25762,15 @@
 			"description": "The long M3 that clamps the two cable-clamp halves together at the top interface, threading into an M3 nut in the pocket in the Cable clamp (outer).",
 			"note": null,
 			"created_at": "2026-09-09",
-			"updated_at": "2026-09-09",
+			"updated_at": "2026-10-02",
 			"attributes": [
 				{
 					"label": "Thread",
 					"value": "M3"
+				},
+				{
+					"label": "Pitch",
+					"value": "0.5 mm (standard)"
 				},
 				{
 					"label": "Length",
@@ -25554,12 +25779,29 @@
 				{
 					"label": "Head",
 					"value": "Flat (pancake) head, hex socket. Pan head works too."
+				},
+				{
+					"label": "Material",
+					"value": "Stainless steel"
 				}
 			],
 			"sheet_qty": null,
 			"sheet_qty_text": null,
 			"stock": null,
-			"sourcing": null,
+			"sourcing": {
+				"vendors": [
+					{
+						"region": "EU",
+						"vendor": "normreich",
+						"url": "https://www.normreich.de/1x-Linsenkopfschraube-mit-Flansch-M3x40-ISO-7380-2-ISK-A2",
+						"price": 1.01,
+						"pack_qty": 10,
+						"currency": "EUR",
+						"as_of": "2026-10-02",
+						"note": "Flanged button head (ISO 7380-2), A2 stainless. Minimum order is 10 pieces, sold in steps of 10. Shipping is extra."
+					}
+				]
+			},
 			"alternative": "Flat or pan head",
 			"caption": null,
 			"docs_page": null,
@@ -25581,11 +25823,15 @@
 			"description": "Fastens the printed PSU housing to the power supply's own case threads.",
 			"note": null,
 			"created_at": "2026-07-18",
-			"updated_at": "2026-07-18",
+			"updated_at": "2026-10-02",
 			"attributes": [
 				{
 					"label": "Thread",
 					"value": "M4"
+				},
+				{
+					"label": "Pitch",
+					"value": "0.7 mm (standard)"
 				},
 				{
 					"label": "Length",
@@ -25594,12 +25840,41 @@
 				{
 					"label": "Head",
 					"value": "Countersunk (flat) socket"
+				},
+				{
+					"label": "Material",
+					"value": "Stainless steel"
+				},
+				{
+					"label": "Drive",
+					"value": "Hex socket"
 				}
 			],
 			"sheet_qty": null,
 			"sheet_qty_text": null,
 			"stock": null,
-			"sourcing": null,
+			"sourcing": {
+				"vendors": [
+					{
+						"region": "US",
+						"vendor": "Amazon",
+						"url": "https://www.amazon.com/dp/B0GV4613GN",
+						"price": 5.99,
+						"pack_qty": 50,
+						"as_of": "2026-10-02",
+						"affiliate_url": "https://www.amazon.com/dp/B0GV4613GN?tag=sorterv2-20"
+					},
+					{
+						"region": "EU",
+						"vendor": "Amazon DE",
+						"url": "https://www.amazon.de/dp/B09JVCP9YM",
+						"price": 7.76,
+						"pack_qty": 100,
+						"currency": "EUR",
+						"as_of": "2026-10-02"
+					}
+				]
+			},
 			"alternative": null,
 			"caption": null,
 			"docs_page": null,
@@ -25618,14 +25893,18 @@
 			},
 			"name": "M4 \u00d7 12 mm countersunk",
 			"category": "Screws",
-			"description": "Bolts the power supply into the PSU box's shell rear tray, 4 per box, on the case's own 150 \u00d7 50 mm M4 pattern through a 9.00 mm pad. 12 is the only stock length that fits: Mean Well's drawing caps that pattern at 3 mm of screw inside the case. Not for the lazy Susans, which take the M4 \u00d7 16 (scr-m4-16-cs): the bearing is 10 mm thick, and a 12 leaves 1.0 to 3.0 mm of thread in an 8.1 mm insert.",
-			"note": "Measured 2026-09-19 off the assembly-frame STLs. Top interface, inner ring: the Top interface lazy Susan washer is 1.000 mm and the chute mount's pockets are \u00d85.80 \u00d7 8.200 mm blind, so an M4 \u00d7 12 reaches 2.0 to 3.0 mm and an M4 \u00d7 16 reaches 6.0 to 7.0 mm. Top interface, outer ring: the Interface big spacer is 1.000 mm and the Interface upper fixed section's pockets are \u00d85.80 \u00d7 8.200 mm, so a 12 reaches 1.0 mm and a 16 reaches 5.0 mm. Bottom lazy Susan: 9.500 mm pockets both sides, so a 12 reaches 1.0 mm on the rotating side and 3.0 mm on the static side against 5.0 and 7.0 for a 16.",
+			"description": "Bolts the power supply into the PSU box's shell rear tray, 4 per box. Use this length only here. The lazy Susans take the M4 \u00d7 16 instead.",
+			"note": null,
 			"created_at": "2026-07-18",
-			"updated_at": "2026-09-26",
+			"updated_at": "2026-10-02",
 			"attributes": [
 				{
 					"label": "Thread",
 					"value": "M4"
+				},
+				{
+					"label": "Pitch",
+					"value": "0.7 mm (standard)"
 				},
 				{
 					"label": "Length",
@@ -25634,12 +25913,41 @@
 				{
 					"label": "Head",
 					"value": "Countersunk (flat) socket"
+				},
+				{
+					"label": "Material",
+					"value": "Stainless steel"
+				},
+				{
+					"label": "Drive",
+					"value": "Hex socket"
 				}
 			],
 			"sheet_qty": null,
 			"sheet_qty_text": null,
 			"stock": null,
-			"sourcing": null,
+			"sourcing": {
+				"vendors": [
+					{
+						"region": "US",
+						"vendor": "Amazon",
+						"url": "https://www.amazon.com/dp/B08P5MP8P7",
+						"price": 9.49,
+						"pack_qty": 100,
+						"as_of": "2026-10-02",
+						"affiliate_url": "https://www.amazon.com/dp/B08P5MP8P7?tag=sorterv2-20"
+					},
+					{
+						"region": "EU",
+						"vendor": "Amazon DE",
+						"url": "https://www.amazon.de/dp/B084Q5YVSR",
+						"price": 9.93,
+						"pack_qty": 100,
+						"currency": "EUR",
+						"as_of": "2026-10-02"
+					}
+				]
+			},
 			"alternative": null,
 			"caption": null,
 			"docs_page": null,
@@ -25658,14 +25966,18 @@
 			},
 			"name": "M4 \u00d7 16 mm countersunk",
 			"category": "Screws",
-			"description": "Bolts each lazy Susan to the parts either side of it \u2014 4 a side, into M4 inserts. 2 lazy Susans per machine.",
+			"description": "Bolts each lazy Susan to the parts either side of it, 4 a side, into M4 inserts. 2 lazy Susans per machine.",
 			"note": null,
 			"created_at": "2026-09-19",
-			"updated_at": "2026-09-19",
+			"updated_at": "2026-10-02",
 			"attributes": [
 				{
 					"label": "Thread",
 					"value": "M4"
+				},
+				{
+					"label": "Pitch",
+					"value": "0.7 mm (standard)"
 				},
 				{
 					"label": "Length",
@@ -25674,12 +25986,41 @@
 				{
 					"label": "Head",
 					"value": "Countersunk (flat) socket"
+				},
+				{
+					"label": "Material",
+					"value": "Stainless steel"
+				},
+				{
+					"label": "Drive",
+					"value": "Hex socket"
 				}
 			],
 			"sheet_qty": null,
 			"sheet_qty_text": null,
 			"stock": null,
-			"sourcing": null,
+			"sourcing": {
+				"vendors": [
+					{
+						"region": "US",
+						"vendor": "Amazon",
+						"url": "https://www.amazon.com/dp/B0CPSLSKHF",
+						"price": 7.64,
+						"pack_qty": 100,
+						"as_of": "2026-10-02",
+						"affiliate_url": "https://www.amazon.com/dp/B0CPSLSKHF?tag=sorterv2-20"
+					},
+					{
+						"region": "EU",
+						"vendor": "Amazon DE",
+						"url": "https://www.amazon.de/dp/B084QJTSDH",
+						"price": 7.19,
+						"pack_qty": 50,
+						"currency": "EUR",
+						"as_of": "2026-10-02"
+					}
+				]
+			},
 			"alternative": null,
 			"caption": null,
 			"docs_page": null,
@@ -25701,11 +26042,15 @@
 			"description": "Holds the NEMA 23 stepper onto the interface bracket.",
 			"note": null,
 			"created_at": "2026-07-18",
-			"updated_at": "2026-08-18",
+			"updated_at": "2026-10-02",
 			"attributes": [
 				{
 					"label": "Thread",
 					"value": "M5"
+				},
+				{
+					"label": "Pitch",
+					"value": "0.8 mm (standard)"
 				},
 				{
 					"label": "Length",
@@ -25713,13 +26058,42 @@
 				},
 				{
 					"label": "Head",
-					"value": "Socket or button head, interchangeable (both flat-bottomed, so either just clamps; socket is the default)"
+					"value": "Socket head (buy this) or button head. Either works."
+				},
+				{
+					"label": "Material",
+					"value": "Stainless steel"
+				},
+				{
+					"label": "Drive",
+					"value": "Hex socket"
 				}
 			],
 			"sheet_qty": null,
 			"sheet_qty_text": null,
 			"stock": null,
-			"sourcing": null,
+			"sourcing": {
+				"vendors": [
+					{
+						"region": "US",
+						"vendor": "Amazon",
+						"url": "https://www.amazon.com/dp/B09QH4R61P",
+						"price": 8.79,
+						"pack_qty": 50,
+						"as_of": "2026-10-02",
+						"affiliate_url": "https://www.amazon.com/dp/B09QH4R61P?tag=sorterv2-20"
+					},
+					{
+						"region": "EU",
+						"vendor": "Amazon DE",
+						"url": "https://www.amazon.de/dp/B08ZJM52FZ",
+						"price": 11.99,
+						"pack_qty": 100,
+						"currency": "EUR",
+						"as_of": "2026-10-02"
+					}
+				]
+			},
 			"alternative": "Socket or button head",
 			"caption": null,
 			"docs_page": null,
@@ -25739,13 +26113,17 @@
 			"name": "M5 \u00d7 16 mm socket/button head",
 			"category": "Screws",
 			"description": "The most-used M5 in the machine: every external bracket, every bin bracket, every interface rib, every lazy Susan extrusion mount.",
-			"note": "Designed to self-tap into printed plastic wherever it lands in an external bracket or the upper fixed section \u2014 no nut and no insert there.",
+			"note": "Designed to self-tap into printed plastic wherever it lands in an external bracket or the upper fixed section, no nut and no insert there.",
 			"created_at": "2026-07-18",
-			"updated_at": "2026-08-18",
+			"updated_at": "2026-10-02",
 			"attributes": [
 				{
 					"label": "Thread",
 					"value": "M5"
+				},
+				{
+					"label": "Pitch",
+					"value": "0.8 mm (standard)"
 				},
 				{
 					"label": "Length",
@@ -25753,13 +26131,42 @@
 				},
 				{
 					"label": "Head",
-					"value": "Socket or button head, interchangeable (both flat-bottomed, so either just clamps; socket is the default)"
+					"value": "Socket head (buy this) or button head. Either works."
+				},
+				{
+					"label": "Material",
+					"value": "Stainless steel"
+				},
+				{
+					"label": "Drive",
+					"value": "Hex socket"
 				}
 			],
 			"sheet_qty": null,
 			"sheet_qty_text": null,
 			"stock": null,
-			"sourcing": null,
+			"sourcing": {
+				"vendors": [
+					{
+						"region": "US",
+						"vendor": "Amazon",
+						"url": "https://www.amazon.com/dp/B0GHN9C98P",
+						"price": 9.55,
+						"pack_qty": 100,
+						"as_of": "2026-10-02",
+						"affiliate_url": "https://www.amazon.com/dp/B0GHN9C98P?tag=sorterv2-20"
+					},
+					{
+						"region": "EU",
+						"vendor": "Amazon DE",
+						"url": "https://www.amazon.de/dp/B08ZJ5177W",
+						"price": 9.5,
+						"pack_qty": 50,
+						"currency": "EUR",
+						"as_of": "2026-10-02"
+					}
+				]
+			},
 			"alternative": "Socket or button head",
 			"caption": null,
 			"docs_page": null,
@@ -25781,11 +26188,15 @@
 			"description": "Mounts the chute limit switch assembly to the interface frame, into T-nuts.",
 			"note": null,
 			"created_at": "2026-07-18",
-			"updated_at": "2026-08-18",
+			"updated_at": "2026-10-02",
 			"attributes": [
 				{
 					"label": "Thread",
 					"value": "M5"
+				},
+				{
+					"label": "Pitch",
+					"value": "0.8 mm (standard)"
 				},
 				{
 					"label": "Length",
@@ -25793,13 +26204,42 @@
 				},
 				{
 					"label": "Head",
-					"value": "Socket or button head, interchangeable (both flat-bottomed, so either just clamps; socket is the default)"
+					"value": "Socket head (buy this) or button head. Either works."
+				},
+				{
+					"label": "Material",
+					"value": "Stainless steel"
+				},
+				{
+					"label": "Drive",
+					"value": "Hex socket"
 				}
 			],
 			"sheet_qty": null,
 			"sheet_qty_text": null,
 			"stock": null,
-			"sourcing": null,
+			"sourcing": {
+				"vendors": [
+					{
+						"region": "US",
+						"vendor": "Amazon",
+						"url": "https://www.amazon.com/dp/B09B394B59",
+						"price": 8.98,
+						"pack_qty": 50,
+						"as_of": "2026-10-02",
+						"affiliate_url": "https://www.amazon.com/dp/B09B394B59?tag=sorterv2-20"
+					},
+					{
+						"region": "EU",
+						"vendor": "Amazon DE",
+						"url": "https://www.amazon.de/dp/B08ZJM8Q9T",
+						"price": 13.99,
+						"pack_qty": 100,
+						"currency": "EUR",
+						"as_of": "2026-10-02"
+					}
+				]
+			},
 			"alternative": "Socket or button head",
 			"caption": null,
 			"docs_page": null,
@@ -25821,11 +26261,15 @@
 			"description": "Attaches the cable cage to the six interface brackets.",
 			"note": null,
 			"created_at": "2026-07-18",
-			"updated_at": "2026-08-18",
+			"updated_at": "2026-10-02",
 			"attributes": [
 				{
 					"label": "Thread",
 					"value": "M5"
+				},
+				{
+					"label": "Pitch",
+					"value": "0.8 mm (standard)"
 				},
 				{
 					"label": "Length",
@@ -25833,13 +26277,43 @@
 				},
 				{
 					"label": "Head",
-					"value": "Socket or button head, interchangeable (both flat-bottomed, so either just clamps; socket is the default)"
+					"value": "Socket head (buy this) or button head. Either works."
+				},
+				{
+					"label": "Material",
+					"value": "Stainless steel"
+				},
+				{
+					"label": "Drive",
+					"value": "Hex socket"
 				}
 			],
 			"sheet_qty": null,
 			"sheet_qty_text": null,
 			"stock": null,
-			"sourcing": null,
+			"sourcing": {
+				"vendors": [
+					{
+						"region": "US",
+						"vendor": "Amazon",
+						"url": "https://www.amazon.com/dp/B09B38962P",
+						"price": 9.98,
+						"pack_qty": 50,
+						"as_of": "2026-10-02",
+						"affiliate_url": "https://www.amazon.com/dp/B09B38962P?tag=sorterv2-20"
+					},
+					{
+						"region": "EU",
+						"vendor": "Amazon DE",
+						"url": "https://www.amazon.de/dp/B08ZJ2R45S",
+						"price": 9.99,
+						"pack_qty": 50,
+						"currency": "EUR",
+						"as_of": "2026-10-02",
+						"note": "Partly threaded."
+					}
+				]
+			},
 			"alternative": "Socket or button head",
 			"caption": null,
 			"docs_page": null,
@@ -25861,11 +26335,15 @@
 			"description": "The long screws that stack the cable cage together, and that bolt the plywood top plate down onto the interface brackets.",
 			"note": null,
 			"created_at": "2026-07-18",
-			"updated_at": "2026-07-18",
+			"updated_at": "2026-10-02",
 			"attributes": [
 				{
 					"label": "Thread",
 					"value": "M5"
+				},
+				{
+					"label": "Pitch",
+					"value": "0.8 mm (standard)"
 				},
 				{
 					"label": "Length",
@@ -25901,6 +26379,26 @@
 						"as_of": "2026-07-18",
 						"pack_qty": 20,
 						"price": 5.99
+					},
+					{
+						"region": "EU",
+						"vendor": "normreich",
+						"url": "https://www.normreich.de/1x-Linsenkopfschraube-mit-Flansch-M5x35-ISO-7380-2-ISK-A2",
+						"price": 0.96,
+						"pack_qty": 10,
+						"currency": "EUR",
+						"as_of": "2026-10-02",
+						"note": "Flanged button head (ISO 7380-2), A2 stainless. Minimum order is 10 pieces, sold in steps of 10. Shipping is extra."
+					},
+					{
+						"region": "EU",
+						"vendor": "Amazon DE",
+						"url": "https://www.amazon.de/dp/B08PQ24NR5",
+						"price": 9.97,
+						"pack_qty": 25,
+						"currency": "EUR",
+						"as_of": "2026-10-02",
+						"note": "Flanged button head (ISO 7380-2), the nearest Amazon DE offer to a pancake head."
 					}
 				]
 			},
@@ -25925,11 +26423,15 @@
 			"description": "Loosely fixes the limit-switch interface bracket's extrusion into the interface rib while aligning it, into a T-nut.",
 			"note": "A snug fit here, it barely reaches the T-nut. Opening the countersink a little and tightening firmly gets the head to sit flush. The \u00d76 is the top-interface count (1 per interface bracket); screws used elsewhere on the machine aren't tallied here yet.",
 			"created_at": "2026-08-18",
-			"updated_at": "2026-08-18",
+			"updated_at": "2026-10-02",
 			"attributes": [
 				{
 					"label": "Thread",
 					"value": "M5"
+				},
+				{
+					"label": "Pitch",
+					"value": "0.8 mm (standard)"
 				},
 				{
 					"label": "Length",
@@ -25938,6 +26440,14 @@
 				{
 					"label": "Head",
 					"value": "Countersunk (flat) socket"
+				},
+				{
+					"label": "Material",
+					"value": "Stainless steel"
+				},
+				{
+					"label": "Drive",
+					"value": "Hex socket"
 				}
 			],
 			"sheet_qty": {
@@ -25945,7 +26455,28 @@
 			},
 			"sheet_qty_text": null,
 			"stock": null,
-			"sourcing": null,
+			"sourcing": {
+				"vendors": [
+					{
+						"region": "US",
+						"vendor": "Amazon",
+						"url": "https://www.amazon.com/dp/B08P6BWGZN",
+						"price": 8.99,
+						"pack_qty": 100,
+						"as_of": "2026-10-02",
+						"affiliate_url": "https://www.amazon.com/dp/B08P6BWGZN?tag=sorterv2-20"
+					},
+					{
+						"region": "EU",
+						"vendor": "Amazon DE",
+						"url": "https://www.amazon.de/dp/B084QF13GC",
+						"price": 8.58,
+						"pack_qty": 100,
+						"currency": "EUR",
+						"as_of": "2026-10-02"
+					}
+				]
+			},
 			"alternative": null,
 			"caption": null,
 			"docs_page": null,
@@ -25967,11 +26498,15 @@
 			"description": "Bolts the interface bracket assembly and all six interface brackets down through the laser-cut top plate (holes S2/S3, then I1\u2013I6 and O1\u2013O6).",
 			"note": "The top plate's laser-cut holes aren't countersunk, so where a flush head won't seat an M5 \u00d7 20 button head is used instead. The \u00d714 is the top-interface count (2 to the top plate, 12 through the bracket holes); screws used elsewhere on the machine aren't tallied here yet.",
 			"created_at": "2026-08-18",
-			"updated_at": "2026-08-18",
+			"updated_at": "2026-10-02",
 			"attributes": [
 				{
 					"label": "Thread",
 					"value": "M5"
+				},
+				{
+					"label": "Pitch",
+					"value": "0.8 mm (standard)"
 				},
 				{
 					"label": "Length",
@@ -25980,6 +26515,14 @@
 				{
 					"label": "Head",
 					"value": "Countersunk (flat) socket"
+				},
+				{
+					"label": "Material",
+					"value": "Stainless steel"
+				},
+				{
+					"label": "Drive",
+					"value": "Hex socket"
 				}
 			],
 			"sheet_qty": {
@@ -25987,7 +26530,28 @@
 			},
 			"sheet_qty_text": null,
 			"stock": null,
-			"sourcing": null,
+			"sourcing": {
+				"vendors": [
+					{
+						"region": "US",
+						"vendor": "Amazon",
+						"url": "https://www.amazon.com/dp/B0GCYMM7KD",
+						"price": 4.45,
+						"pack_qty": 25,
+						"as_of": "2026-10-02",
+						"affiliate_url": "https://www.amazon.com/dp/B0GCYMM7KD?tag=sorterv2-20"
+					},
+					{
+						"region": "EU",
+						"vendor": "Amazon DE",
+						"url": "https://www.amazon.de/dp/B08D4P5TF1",
+						"price": 13.98,
+						"pack_qty": 100,
+						"currency": "EUR",
+						"as_of": "2026-10-02"
+					}
+				]
+			},
 			"alternative": null,
 			"caption": null,
 			"docs_page": null,
@@ -26091,14 +26655,18 @@
 			},
 			"name": "M5 washer",
 			"category": "Washers",
-			"description": "Plain M5 flat washer, 10 mm outer diameter, 1 mm thick. One under the head of each M5 screw that bolts an electronics enclosure to the 2020 frame.",
+			"description": "Plain M5 flat washer, 5.3 mm hole, 10 mm outer diameter, 1 mm thick. Put one under the head of each M5 screw that bolts an electronics enclosure to the 2020 frame.",
 			"note": null,
 			"created_at": "2026-09-26",
-			"updated_at": "2026-09-26",
+			"updated_at": "2026-10-02",
 			"attributes": [
 				{
 					"label": "Thread",
 					"value": "M5"
+				},
+				{
+					"label": "Inner diameter",
+					"value": "5.3 mm"
 				},
 				{
 					"label": "Outer diameter",
@@ -26111,12 +26679,37 @@
 				{
 					"label": "Type",
 					"value": "Flat"
+				},
+				{
+					"label": "Standard",
+					"value": "DIN 125 form A (ISO 7089)"
 				}
 			],
 			"sheet_qty": null,
 			"sheet_qty_text": null,
 			"stock": null,
-			"sourcing": null,
+			"sourcing": {
+				"vendors": [
+					{
+						"region": "US",
+						"vendor": "Amazon",
+						"url": "https://www.amazon.com/dp/B08HJXRGJ8",
+						"price": 6.99,
+						"pack_qty": 100,
+						"as_of": "2026-10-02",
+						"affiliate_url": "https://www.amazon.com/dp/B08HJXRGJ8?tag=sorterv2-20"
+					},
+					{
+						"region": "EU",
+						"vendor": "Amazon DE",
+						"url": "https://www.amazon.de/dp/B0CDG7CKT4",
+						"price": 7.1,
+						"pack_qty": 50,
+						"currency": "EUR",
+						"as_of": "2026-10-02"
+					}
+				]
+			},
 			"alternative": null,
 			"caption": null,
 			"docs_page": null,
@@ -26136,15 +26729,27 @@
 			"description": "Plain M3 hex nut. Backs the camera-arm screws and the cable clamp's long screw.",
 			"note": null,
 			"created_at": "2026-07-18",
-			"updated_at": "2026-07-18",
+			"updated_at": "2026-10-02",
 			"attributes": [
 				{
 					"label": "Thread",
 					"value": "M3"
 				},
 				{
+					"label": "Pitch",
+					"value": "0.5 mm (standard coarse)"
+				},
+				{
 					"label": "Type",
 					"value": "Hex"
+				},
+				{
+					"label": "Standard",
+					"value": "DIN 934"
+				},
+				{
+					"label": "Width across flats",
+					"value": "5.5 mm"
 				},
 				{
 					"label": "Material",
@@ -26158,7 +26763,28 @@
 			"sheet_qty": null,
 			"sheet_qty_text": null,
 			"stock": null,
-			"sourcing": null,
+			"sourcing": {
+				"vendors": [
+					{
+						"region": "US",
+						"vendor": "Amazon",
+						"url": "https://www.amazon.com/dp/B084NWGSHP",
+						"price": 8.14,
+						"pack_qty": 100,
+						"as_of": "2026-10-02",
+						"affiliate_url": "https://www.amazon.com/dp/B084NWGSHP?tag=sorterv2-20"
+					},
+					{
+						"region": "EU",
+						"vendor": "Amazon DE",
+						"url": "https://www.amazon.de/dp/B07JX9BFCB",
+						"price": 4.19,
+						"pack_qty": 100,
+						"currency": "EUR",
+						"as_of": "2026-10-02"
+					}
+				]
+			},
 			"alternative": null,
 			"caption": null,
 			"docs_page": null,
@@ -26178,15 +26804,27 @@
 			"description": "Plain M5 hex nut. Holds the cable cage's six long screws on.",
 			"note": null,
 			"created_at": "2026-07-18",
-			"updated_at": "2026-07-18",
+			"updated_at": "2026-10-02",
 			"attributes": [
 				{
 					"label": "Thread",
 					"value": "M5"
 				},
 				{
+					"label": "Pitch",
+					"value": "0.8 mm (standard coarse)"
+				},
+				{
 					"label": "Type",
 					"value": "Hex"
+				},
+				{
+					"label": "Standard",
+					"value": "DIN 934"
+				},
+				{
+					"label": "Width across flats",
+					"value": "8 mm"
 				},
 				{
 					"label": "Material",
@@ -26200,7 +26838,28 @@
 			"sheet_qty": null,
 			"sheet_qty_text": null,
 			"stock": null,
-			"sourcing": null,
+			"sourcing": {
+				"vendors": [
+					{
+						"region": "US",
+						"vendor": "Amazon",
+						"url": "https://www.amazon.com/dp/B084P9Y8MT",
+						"price": 9.34,
+						"pack_qty": 100,
+						"as_of": "2026-10-02",
+						"affiliate_url": "https://www.amazon.com/dp/B084P9Y8MT?tag=sorterv2-20"
+					},
+					{
+						"region": "EU",
+						"vendor": "Amazon DE",
+						"url": "https://www.amazon.de/dp/B0C3YFSZPY",
+						"price": 4.8,
+						"pack_qty": 10,
+						"currency": "EUR",
+						"as_of": "2026-10-02"
+					}
+				]
+			},
 			"alternative": null,
 			"caption": null,
 			"docs_page": null,
@@ -26278,10 +26937,10 @@
 			},
 			"name": "Ruthex M3 heat insert",
 			"category": "Heat inserts",
-			"description": "ruthex RX-M3x5.7 brass heat-set threaded insert. The default M3 insert anywhere one is called for.",
+			"description": "ruthex RX-M3x5.7 brass heat-set threaded insert, 5.7 mm long. Melt it into a printed part with a soldering iron to make an M3 thread. Use it wherever a part calls for an M3 insert. Do not swap in the short M3S (RX-M3Sx4.0), which is a different part.",
 			"note": null,
 			"created_at": "2026-07-18",
-			"updated_at": "2026-07-18",
+			"updated_at": "2026-10-02",
 			"attributes": [
 				{
 					"label": "Type",
@@ -26316,7 +26975,28 @@
 						"price": 9.99,
 						"pack_qty": 100,
 						"as_of": "2026-07-18",
-						"affiliate_url": "https://www.amazon.com/ruthex-M3-Threaded-Inserts-RX-M3x5-7/dp/B08BCRZZS3?tag=sorterv2-20"
+						"affiliate_url": "https://www.amazon.com/ruthex-M3-Threaded-Inserts-RX-M3x5-7/dp/B08BCRZZS3?tag=sorterv2-20",
+						"note": "Pack of 100."
+					},
+					{
+						"region": "EU",
+						"vendor": "ruthex",
+						"url": "https://www.ruthex.de/en/products/ruthex-gewindeeinsatz-m3-100-stuck-rx-m3x5-7-messing-gewindebuchsen",
+						"price": 8.99,
+						"pack_qty": 100,
+						"currency": "EUR",
+						"as_of": "2026-10-02",
+						"note": "Pack of 100."
+					},
+					{
+						"region": "EU",
+						"vendor": "Amazon DE (ruthex)",
+						"url": "https://www.amazon.de/dp/B08BCRZZS3",
+						"price": 8.99,
+						"pack_qty": 100,
+						"currency": "EUR",
+						"as_of": "2026-10-02",
+						"note": "Pack of 100."
 					},
 					{
 						"region": "CN",
@@ -26414,10 +27094,10 @@
 			},
 			"name": "Ruthex M5 heat insert",
 			"category": "Heat inserts",
-			"description": "ruthex RX-M5x9.5 brass heat-set threaded insert. The default M5 insert anywhere one is called for.",
+			"description": "ruthex RX-M5x9.5 brass heat-set threaded insert, 9.5 mm long. Melt it into a printed part with a soldering iron to make an M5 thread. Use it wherever a part calls for an M5 insert. Do not swap in the short M5S (RX-M5Sx5.8), which is a different part.",
 			"note": null,
 			"created_at": "2026-07-18",
-			"updated_at": "2026-07-18",
+			"updated_at": "2026-10-02",
 			"attributes": [
 				{
 					"label": "Type",
@@ -26453,6 +27133,24 @@
 						"price": 9.99,
 						"pack_qty": 50,
 						"as_of": "2026-07-18"
+					},
+					{
+						"region": "EU",
+						"vendor": "ruthex",
+						"url": "https://www.ruthex.de/en/products/ruthex-gewindeeinsatz-m5-50-stuck-rx-m5x9-5-messing-gewindebuchsen",
+						"price": 9.99,
+						"pack_qty": 50,
+						"currency": "EUR",
+						"as_of": "2026-10-02"
+					},
+					{
+						"region": "EU",
+						"vendor": "Amazon DE",
+						"url": "https://www.amazon.de/dp/B07YSVXWS8",
+						"price": 9.99,
+						"pack_qty": 50,
+						"currency": "EUR",
+						"as_of": "2026-10-02"
 					}
 				]
 			},
@@ -26472,10 +27170,10 @@
 			},
 			"name": "Ruthex M4 heat insert",
 			"category": "Heat inserts",
-			"description": "ruthex RX-M4x8.1 brass heat-set threaded insert. The only M4 insert in the machine.",
+			"description": "ruthex RX-M4x8.1 brass heat-set threaded insert, 8.1 mm long. Melt it into a printed part with a soldering iron to make an M4 thread. It is the only M4 insert in the machine. Do not swap in the short M4S (RX-M4Sx4.0), which is a different part.",
 			"note": null,
 			"created_at": "2026-07-18",
-			"updated_at": "2026-07-18",
+			"updated_at": "2026-10-02",
 			"attributes": [
 				{
 					"label": "Type",
@@ -26511,6 +27209,24 @@
 						"price": 9.99,
 						"pack_qty": 50,
 						"as_of": "2026-07-18"
+					},
+					{
+						"region": "EU",
+						"vendor": "ruthex",
+						"url": "https://www.ruthex.de/en/products/ruthex-gewindeeinsatz-m4-50-stuck-rx-m4x8-1-messing-gewindebuchsen",
+						"price": 9.49,
+						"pack_qty": 50,
+						"currency": "EUR",
+						"as_of": "2026-10-02"
+					},
+					{
+						"region": "EU",
+						"vendor": "Amazon DE",
+						"url": "https://www.amazon.de/dp/B07YSV66Y5",
+						"price": 9.49,
+						"pack_qty": 50,
+						"currency": "EUR",
+						"as_of": "2026-10-02"
 					}
 				]
 			},
@@ -26529,11 +27245,28 @@
 			},
 			"name": "Standoff - M3 - 10mm",
 			"category": "Standoffs",
-			"description": "Stood the Orange Pi off its extrusion mount plate. Unused as of 2026-09-26: the Orange Pi housing's base has printed posts with heat inserts instead. Retired in place per VERSIONING.md.",
+			"description": "M3 nylon standoff, 10 mm long, black. It holds a circuit board 10 mm off the surface it is screwed to.",
 			"note": "Removed 2026-09-26 with the plate it screwed into. Do not re-add.",
 			"created_at": "2026-07-18",
-			"updated_at": "2026-09-26",
-			"attributes": [],
+			"updated_at": "2026-10-02",
+			"attributes": [
+				{
+					"label": "Thread",
+					"value": "M3"
+				},
+				{
+					"label": "Length",
+					"value": "10 mm"
+				},
+				{
+					"label": "Material",
+					"value": "Nylon (polyamide)"
+				},
+				{
+					"label": "Colour",
+					"value": "Black"
+				}
+			],
 			"sheet_qty": {
 				"per_machine": 4
 			},
@@ -26549,6 +27282,15 @@
 						"pack_qty": 30,
 						"as_of": "2026-04-16",
 						"affiliate_url": "https://www.amazon.com/Black-Nylon-Standoff-Spacers-Screws/dp/B0F297R23T?tag=sorterv2-20"
+					},
+					{
+						"region": "EU",
+						"vendor": "Amazon DE",
+						"url": "https://www.amazon.de/dp/B01MY5HPID",
+						"price": 2.39,
+						"pack_qty": 4,
+						"currency": "EUR",
+						"as_of": "2026-10-02"
 					}
 				]
 			},
@@ -26568,10 +27310,10 @@
 			},
 			"name": "M5 roll-in T-nut, 2020",
 			"category": "Nuts",
-			"description": "Every button-head M5 screw that goes into extrusion lands in one of these.",
+			"description": "Spring-loaded M5 T-nut for 2020 extrusion (6 mm slot). Tilt it into the slot from the side, so it can go in anywhere along the extrusion. Every M5 button-head screw that goes into the extrusion screws into one of these.",
 			"note": null,
 			"created_at": "2026-07-18",
-			"updated_at": "2026-07-18",
+			"updated_at": "2026-10-02",
 			"attributes": [
 				{
 					"label": "Thread",
@@ -26602,7 +27344,8 @@
 						"affiliate_url": "https://www.amazon.com/dp/B0DX7B5ZNN?tag=sorterv2-20",
 						"price": 9.99,
 						"pack_qty": 100,
-						"as_of": "2026-07-18"
+						"as_of": "2026-07-18",
+						"note": "Pack of 100."
 					},
 					{
 						"region": "US",
@@ -26610,7 +27353,25 @@
 						"url": "https://www.zyltech.com/100x-zyltech-spring-loaded-t-nuts-for-2020-aluminum-extrusion-m4-or-m5/",
 						"price": 12.95,
 						"pack_qty": 100,
-						"as_of": "2026-07-18"
+						"as_of": "2026-07-18",
+						"note": "Choose M5 under Thread Specs. Pack of 100."
+					},
+					{
+						"region": "EU",
+						"vendor": "Motedis",
+						"url": "https://www.motedis.com/en/T-nut-with-spring-ball-with-guidance-I-Type-slot-6-M5",
+						"currency": "EUR",
+						"pack_qty": 100,
+						"note": "Choose the 100 pcs pack size."
+					},
+					{
+						"region": "EU",
+						"vendor": "Amazon DE",
+						"url": "https://www.amazon.de/dp/B0FDGNHDYH",
+						"price": 14.99,
+						"pack_qty": 120,
+						"currency": "EUR",
+						"as_of": "2026-10-02"
 					}
 				]
 			},
@@ -26632,7 +27393,7 @@
 			"description": "Classification top camera. The innomaker IMX415 4K USB module.",
 			"note": null,
 			"created_at": "2026-07-18",
-			"updated_at": "2026-09-25",
+			"updated_at": "2026-10-02",
 			"attributes": [
 				{
 					"label": "Model",
@@ -26686,6 +27447,15 @@
 						"pack_qty": 1,
 						"as_of": "2026-04-16",
 						"affiliate_url": "https://amzn.to/4dyTdtA?tag=sorterv2-20"
+					},
+					{
+						"region": "EU",
+						"vendor": "Amazon DE",
+						"url": "https://www.amazon.de/dp/B0FQJB4Z79",
+						"price": 89.0,
+						"pack_qty": 1,
+						"currency": "EUR",
+						"as_of": "2026-10-02"
 					}
 				]
 			},
@@ -26707,7 +27477,7 @@
 			"description": "C-channel and carousel drop plate detection cameras",
 			"note": null,
 			"created_at": "2026-07-18",
-			"updated_at": "2026-09-25",
+			"updated_at": "2026-10-02",
 			"attributes": [
 				{
 					"label": "Connection",
@@ -26765,6 +27535,16 @@
 						"price": 32.0,
 						"currency": "EUR",
 						"as_of": "2026-04-30"
+					},
+					{
+						"region": "EU",
+						"vendor": "Amazon DE",
+						"url": "https://www.amazon.de/dp/B0DYJW1S1N",
+						"price": 36.99,
+						"pack_qty": 3,
+						"currency": "EUR",
+						"as_of": "2026-10-02",
+						"note": "Set of three, 2 m cable, 100 degree."
 					}
 				]
 			},
@@ -26783,11 +27563,40 @@
 			},
 			"name": "Timing pulley (20T, 8 mm shaft, 10 mm belt)",
 			"category": "Pulleys",
-			"description": "Interface between stepper shaft and chute gear",
+			"description": "Timing pulley that sits on the stepper motor shaft and carries the chute gear. It has 20 teeth, an 8 mm bore and GT2 (2 mm) pitch, and takes a 10 mm wide belt. It arrives with two flanges, and the top flange is removed during assembly. It is fixed to the shaft with two M3 grub screws.",
 			"note": null,
 			"created_at": "2026-07-18",
-			"updated_at": "2026-07-18",
-			"attributes": [],
+			"updated_at": "2026-10-02",
+			"attributes": [
+				{
+					"label": "Teeth",
+					"value": "20"
+				},
+				{
+					"label": "Bore",
+					"value": "8 mm"
+				},
+				{
+					"label": "Pitch",
+					"value": "GT2 (2 mm)"
+				},
+				{
+					"label": "Belt width",
+					"value": "10 mm"
+				},
+				{
+					"label": "Material",
+					"value": "Aluminum"
+				},
+				{
+					"label": "Fixing",
+					"value": "Two M3 grub screws"
+				},
+				{
+					"label": "Flanges",
+					"value": "Two as supplied, top one removed in the build"
+				}
+			],
 			"sheet_qty": {
 				"per_machine": 1
 			},
@@ -26803,6 +27612,16 @@
 						"pack_qty": 5,
 						"as_of": "2026-04-16",
 						"affiliate_url": "https://amzn.to/4tzhGnj?tag=sorterv2-20"
+					},
+					{
+						"region": "EU",
+						"vendor": "3D Mechatronics",
+						"url": "https://3d-mechatronics.de/en/riemenscheibe-gt2-10mm-20-zaehne-8mm_360.html",
+						"price": 6.34,
+						"pack_qty": 1,
+						"currency": "EUR",
+						"as_of": "2026-10-02",
+						"note": "Sold singly. Check the bore reads 8mm in the title (Riemenscheibe GT2 10mm 20 Zaehne 8mm)."
 					}
 				]
 			},
@@ -26822,10 +27641,10 @@
 			},
 			"name": "2020 M6 foot connector",
 			"category": "Wheels",
-			"description": "It needs to move...",
+			"description": "Mounting foot that fits in the open end of each foot extension (piece D). It takes the caster's M6 stem so the machine can roll. You need 6, one per corner. It comes with its bolts and nuts.",
 			"note": null,
 			"created_at": "2026-07-18",
-			"updated_at": "2026-07-18",
+			"updated_at": "2026-10-02",
 			"attributes": [
 				{
 					"label": "Fits",
@@ -26936,7 +27755,7 @@
 			"description": "C-channel and carousel drive motors",
 			"note": null,
 			"created_at": "2026-07-18",
-			"updated_at": "2026-09-25",
+			"updated_at": "2026-10-02",
 			"attributes": [
 				{
 					"label": "Model",
@@ -27005,6 +27824,16 @@
 						"pack_qty": 3,
 						"as_of": "2026-09-25",
 						"note": "One unit is three motors. Pick Deutschland under \"Versendet von\". VAT is added at checkout, not in the price shown."
+					},
+					{
+						"region": "EU",
+						"vendor": "Amazon DE",
+						"url": "https://www.amazon.de/dp/B0B38GHRH8",
+						"price": 23.99,
+						"pack_qty": 3,
+						"currency": "EUR",
+						"as_of": "2026-10-02",
+						"note": "StepperOnline 17HE15-1504S, 3-pack. The listing gives a 38 mm body."
 					}
 				]
 			},
@@ -27026,7 +27855,7 @@
 			"description": "Chute drive motor",
 			"note": null,
 			"created_at": "2026-07-18",
-			"updated_at": "2026-09-25",
+			"updated_at": "2026-10-02",
 			"attributes": [
 				{
 					"label": "Model",
@@ -27103,6 +27932,15 @@
 						"pack_qty": 1,
 						"as_of": "2026-09-25",
 						"note": "Pick Deutschland under \"Versendet von\". VAT is added at checkout, not in the price shown."
+					},
+					{
+						"region": "EU",
+						"vendor": "Amazon DE",
+						"url": "https://www.amazon.de/dp/B091C37FJ2",
+						"price": 31.99,
+						"pack_qty": 1,
+						"currency": "EUR",
+						"as_of": "2026-10-02"
 					}
 				]
 			},
@@ -27121,10 +27959,10 @@
 			},
 			"name": "MG995 servo",
 			"category": "Motors",
-			"description": "Standard Servo for flap (serial upgrade see note)",
+			"description": "Standard-size MG995 servo for the chute flap. Buy the 180\u00b0 positional version, not the 360\u00b0 continuous-rotation one. It comes with a set of servo horns.",
 			"note": "Sold in a 360\u00b0 continuous-rotation version under the same name and in an identical case. The flap needs the positional one, so check the listing says 180\u00b0.",
 			"created_at": "2026-07-18",
-			"updated_at": "2026-09-26",
+			"updated_at": "2026-10-02",
 			"attributes": [
 				{
 					"label": "Model",
@@ -27186,6 +28024,16 @@
 						"pack_qty": 4,
 						"as_of": "2026-09-26",
 						"affiliate_url": "https://www.amazon.com/dp/B07NQJ1VZ2?tag=sorterv2-20"
+					},
+					{
+						"region": "EU",
+						"vendor": "Amazon DE",
+						"url": "https://www.amazon.de/dp/B0D3DHBNP8",
+						"price": 17.99,
+						"pack_qty": 4,
+						"currency": "EUR",
+						"as_of": "2026-10-02",
+						"note": "Pack of 4 digital metal-gear servos, 180\u00b0 (not 360\u00b0). Same ratings as the US listing: 4.8 to 7.2 V, 12 kgf\u00b7cm at 6 V, 300 mm lead."
 					}
 				]
 			},
@@ -27204,15 +28052,47 @@
 			},
 			"name": "MG995 Servo Horn",
 			"category": "Motors",
-			"description": "Two-arm splined servo horn. Clasped between the servo-adapter's two halves once they're screwed together.",
+			"description": "Two-arm servo horn with a 25-tooth spline. It comes in the box with the MG995 servo, so you do not need to buy it. It is clamped between the two halves of the printed servo adapter when they are screwed together.",
 			"note": "Ships in the box with the MG995 servo. Not sold separately, so it has no sourcing of its own here.",
 			"created_at": "2026-08-24",
-			"updated_at": "2026-08-24",
-			"attributes": [],
+			"updated_at": "2026-10-02",
+			"attributes": [
+				{
+					"label": "Spline",
+					"value": "25 teeth (Futaba-type), fits the MG995"
+				},
+				{
+					"label": "Arms",
+					"value": "Two-arm"
+				}
+			],
 			"sheet_qty": null,
 			"sheet_qty_text": null,
 			"stock": null,
-			"sourcing": null,
+			"sourcing": {
+				"vendors": [
+					{
+						"region": "US",
+						"vendor": "Amazon",
+						"url": "https://www.amazon.com/dp/B07NS3MJ5B",
+						"price": 12.39,
+						"pack_qty": 1,
+						"as_of": "2026-10-02",
+						"note": "Spare only, the servo already includes a horn. Plastic 25T set for Futaba with single and double arms, 3 mm hole. Use the two-arm one.",
+						"affiliate_url": "https://www.amazon.com/dp/B07NS3MJ5B?tag=sorterv2-20"
+					},
+					{
+						"region": "EU",
+						"vendor": "Pichler",
+						"url": "https://pichler.de/Servohebel-Set-Nylon-verstaerkt-25-Zaehne-FUT-Master-etc",
+						"price": 5.95,
+						"pack_qty": 1,
+						"currency": "EUR",
+						"as_of": "2026-10-02",
+						"note": "Spare only, the servo already includes a horn. Nylon horn set with 25 teeth (Futaba type). Use the two-arm horn from the set."
+					}
+				]
+			},
 			"alternative": null,
 			"caption": null,
 			"docs_page": null,
@@ -27231,7 +28111,7 @@
 			"description": "Pressed into the output gear of each C-channel rotor, one per channel.",
 			"note": null,
 			"created_at": "2026-07-18",
-			"updated_at": "2026-07-18",
+			"updated_at": "2026-10-02",
 			"attributes": [
 				{
 					"label": "Size",
@@ -27261,6 +28141,25 @@
 						"pack_qty": 10,
 						"as_of": "2026-04-16",
 						"affiliate_url": "https://www.amazon.com/dp/B082PXK5K9?tag=sorterv2-20"
+					},
+					{
+						"region": "EU",
+						"vendor": "kugellager-express",
+						"url": "https://www.kugellager-express.de/deep-groove-ball-bearing-6806-61806-2rs-30x42x7-mm",
+						"price": 2.89,
+						"pack_qty": 1,
+						"currency": "EUR",
+						"as_of": "2026-10-02",
+						"note": "Sold per piece, set the quantity you need. Price shown is for one; it drops to 2.61 EUR each from 4 pieces."
+					},
+					{
+						"region": "EU",
+						"vendor": "Amazon DE",
+						"url": "https://www.amazon.de/dp/B09FYVDZ5B",
+						"price": 16.78,
+						"pack_qty": 10,
+						"currency": "EUR",
+						"as_of": "2026-10-02"
 					}
 				]
 			},
@@ -27282,8 +28181,17 @@
 			"description": "Pressed into the idler gear of each C-channel drive and into the chute stepper's idler gear. Four in the feeder and one in the top interface. No screw, no glue, no heat.",
 			"note": null,
 			"created_at": "2026-07-18",
-			"updated_at": "2026-07-18",
-			"attributes": [],
+			"updated_at": "2026-10-02",
+			"attributes": [
+				{
+					"label": "Size",
+					"value": "8 \u00d7 22 \u00d7 7 mm (ID \u00d7 OD \u00d7 W)"
+				},
+				{
+					"label": "Seal",
+					"value": "Double rubber (2RS)"
+				}
+			],
 			"sheet_qty": {
 				"per_machine": 5
 			},
@@ -27299,6 +28207,25 @@
 						"pack_qty": 20,
 						"as_of": "2026-04-16",
 						"affiliate_url": "https://www.amazon.com/dp/B09PKD8QZZ?tag=sorterv2-20"
+					},
+					{
+						"region": "EU",
+						"vendor": "kugellager-express",
+						"url": "https://www.kugellager-express.de/miniature-deep-groove-ball-bearing-608-2rs-8x22x7-mm",
+						"price": 0.81,
+						"pack_qty": 1,
+						"currency": "EUR",
+						"as_of": "2026-10-02",
+						"note": "Sold per piece, set the quantity you need. Price shown is for one; it drops to 0.69 EUR each from 4 pieces."
+					},
+					{
+						"region": "EU",
+						"vendor": "Amazon DE",
+						"url": "https://www.amazon.de/dp/B0F9PF7H9N",
+						"price": 10.3,
+						"pack_qty": 10,
+						"currency": "EUR",
+						"as_of": "2026-10-02"
 					}
 				]
 			},
@@ -27317,10 +28244,10 @@
 			},
 			"name": "6704-2RS bearing",
 			"category": "Bearings",
-			"description": "Bearings for chute flap",
+			"description": "Thin sealed ball bearings for the chute flap.",
 			"note": null,
 			"created_at": "2026-07-18",
-			"updated_at": "2026-07-18",
+			"updated_at": "2026-10-02",
 			"attributes": [
 				{
 					"label": "Size",
@@ -27364,6 +28291,25 @@
 						"region": "CN",
 						"vendor": "AliExpress",
 						"url": "https://www.aliexpress.com/item/1005009552884836.html"
+					},
+					{
+						"region": "EU",
+						"vendor": "kugellager-express",
+						"url": "https://www.kugellager-express.de/deep-groove-ball-bearing-6704-61704-2rs-20x27x4-mm",
+						"price": 3.2,
+						"pack_qty": 1,
+						"currency": "EUR",
+						"as_of": "2026-10-02",
+						"note": "Sold per piece, set the quantity you need. Price shown is for one; it drops to 2.73 EUR each from 4 pieces and 2.63 EUR each from 10."
+					},
+					{
+						"region": "EU",
+						"vendor": "Amazon DE",
+						"url": "https://www.amazon.de/dp/B0DS8WPR92",
+						"price": 13.19,
+						"pack_qty": 8,
+						"currency": "EUR",
+						"as_of": "2026-10-02"
 					}
 				]
 			},
@@ -27385,7 +28331,7 @@
 			"description": "The bearing either end of the distribution stack: one in the top interface between the chute mount and the upper fixed section, one in the bottom interface.",
 			"note": null,
 			"created_at": "2026-07-18",
-			"updated_at": "2026-07-18",
+			"updated_at": "2026-10-02",
 			"attributes": [
 				{
 					"label": "Size",
@@ -27422,6 +28368,16 @@
 						"url": "https://www.aliexpress.us/item/3256807110215562.html?gatewayAdapt=glo2usa4itemAdapt",
 						"price": 11.31,
 						"as_of": "2026-04-16"
+					},
+					{
+						"region": "EU",
+						"vendor": "Amazon DE",
+						"url": "https://www.amazon.de/dp/B07T2C6VDH",
+						"price": 25.38,
+						"pack_qty": 1,
+						"currency": "EUR",
+						"as_of": "2026-10-02",
+						"note": "8 inch (200 mm) aluminium swivel plate, 10 mm thick."
 					}
 				]
 			},
@@ -27440,10 +28396,10 @@
 			},
 			"name": "Orange Pi 5",
 			"category": "Computer",
-			"description": "Host computer (optional, see note)",
+			"description": "The computer that runs the machine's software. Buy the Orange Pi 5, 8 GB: SorterOS, the ready-made image, is built for it. A Raspberry Pi 5 also works, but it needs the manual Linux install instead of the ready-made image.",
 			"note": "Buy the plain Orange Pi 5, 8 GB. The 5 Plus, 5 Pro, 5 Max and 5 Ultra are separate boards rather than options on this one: none of them share its mounting-hole pattern, so the printed housing's posts do not line up, and the WiFi module listed in this catalog fits the plain 5 only. The 5B is not supported either: it does fit the housing's posts, but SorterOS is built from the plain 5's image and there is no 5B build.",
 			"created_at": "2026-07-18",
-			"updated_at": "2026-09-26",
+			"updated_at": "2026-10-02",
 			"attributes": [
 				{
 					"label": "Memory",
@@ -27533,11 +28489,24 @@
 			},
 			"name": "32gb+ Micro SD Card",
 			"category": "Computer",
-			"description": "32 GB or larger, from a name brand like Samsung. SorterOS writes to the card all day, and cheap cards corrupt.",
+			"description": "The card SorterOS runs from, in the Orange Pi's microSD slot. Buy a 32 GB or larger high-endurance card from a name brand such as SanDisk or Samsung. SorterOS writes to the card all day, and cheap cards corrupt.",
 			"note": null,
 			"created_at": "2026-07-18",
-			"updated_at": "2026-07-18",
-			"attributes": [],
+			"updated_at": "2026-10-02",
+			"attributes": [
+				{
+					"label": "Capacity",
+					"value": "32 GB or larger"
+				},
+				{
+					"label": "Type",
+					"value": "High-endurance microSD (the kind sold for dash cams)"
+				},
+				{
+					"label": "Brand",
+					"value": "SanDisk or Samsung. Avoid no-name cards"
+				}
+			],
 			"sheet_qty": {
 				"per_machine": 1
 			},
@@ -27553,6 +28522,24 @@
 						"pack_qty": 2,
 						"as_of": "2026-04-16",
 						"affiliate_url": "https://www.amazon.com/Amazon-Basics-microSDXC-Memory-Adapter/dp/B08TJTB8XS?tag=sorterv2-20"
+					},
+					{
+						"region": "US",
+						"vendor": "Amazon",
+						"url": "https://www.amazon.com/dp/B07P14QHB7",
+						"pack_qty": 1,
+						"note": "SanDisk High Endurance, 32 GB, one card with SD adapter.",
+						"affiliate_url": "https://www.amazon.com/dp/B07P14QHB7?tag=sorterv2-20"
+					},
+					{
+						"region": "EU",
+						"vendor": "Amazon DE",
+						"url": "https://www.amazon.de/dp/B07P14QHB7",
+						"price": 25.99,
+						"pack_qty": 1,
+						"currency": "EUR",
+						"as_of": "2026-10-02",
+						"note": "SanDisk High Endurance, 32 GB, one card with SD adapter."
 					}
 				]
 			},
@@ -27644,10 +28631,10 @@
 			},
 			"name": "Powered USB Hub - 24v - 4 ports",
 			"category": "Computer",
-			"description": "Powered USB Hub(s) for webcams and Picos (see note)",
+			"description": "The powered USB hub that connects the cameras and the Pico to the Orange Pi. It runs on 24 V from the PSU, so the model matters (see note). Buy one.",
 			"note": "The hub is fed 24 V, so it has to take 24 V DC in. Waveshare sell four hubs of this shape: USB3.2-Gen1-HUB-4U and USB3.2-Gen1-HUB-2IN-4OUT take 7 to 36 V and both work. USB-HUB-4U and USB-HUB-2IN-4OUT are 5 V only and will not run. Check the DC input range on the listing before you buy; the model is printed on the case. The hub clamp on the Orange Pi housing's roof is drawn around the USB3.2-Gen1-HUB-4U.",
 			"created_at": "2026-07-18",
-			"updated_at": "2026-09-26",
+			"updated_at": "2026-10-02",
 			"attributes": [
 				{
 					"label": "Part number",
@@ -27689,6 +28676,25 @@
 						"pack_qty": 1,
 						"as_of": "2026-09-23",
 						"note": "The USB3.2-Gen1-HUB-2IN-4OUT, which works here. The 4U itself has no Australian listing."
+					},
+					{
+						"region": "EU",
+						"vendor": "Eckstein",
+						"url": "https://eckstein-shop.de/waveshare-usb3-2-gen1-hub-4u-en",
+						"price": 21.46,
+						"pack_qty": 1,
+						"currency": "EUR",
+						"as_of": "2026-10-02",
+						"note": "Waveshare USB3.2 Gen1 HUB-4U, the model in the note. Price includes 19% German VAT. Choose your delivery country at the top of the page."
+					},
+					{
+						"region": "EU",
+						"vendor": "Amazon DE",
+						"url": "https://www.amazon.de/dp/B0D97V3N3R",
+						"price": 27.99,
+						"pack_qty": 1,
+						"currency": "EUR",
+						"as_of": "2026-10-02"
 					}
 				]
 			},
@@ -27707,11 +28713,20 @@
 			},
 			"name": "Micro USB Data Cable",
 			"category": "Computer",
-			"description": "Connect Picos to host",
+			"description": "Connects the Raspberry Pi Pico on the control board to the powered USB hub. Use a micro USB cable that carries data. Charge-only cables do not work.",
 			"note": "USB Cables totally vary in quality. Ensure it supports data",
 			"created_at": "2026-07-18",
-			"updated_at": "2026-07-18",
-			"attributes": [],
+			"updated_at": "2026-10-02",
+			"attributes": [
+				{
+					"label": "Connector",
+					"value": "USB-A plug on one end, micro USB plug on the other"
+				},
+				{
+					"label": "Data",
+					"value": "Must carry data, not charge-only"
+				}
+			],
 			"sheet_qty": {
 				"per_machine": 1
 			},
@@ -27753,11 +28768,28 @@
 			},
 			"name": "TMC2209 Stepper Motor Driver Modules",
 			"category": "Electronics",
-			"description": "Driver for the all steppers",
+			"description": "Stepper motor driver, one per stepper. A machine uses five. Buy the BigTreeTech TMC2209 V1.3 module (StepStick size, with heatsink, UART mode), or an identical StepStick TMC2209.",
 			"note": null,
 			"created_at": "2026-07-18",
-			"updated_at": "2026-09-21",
-			"attributes": [],
+			"updated_at": "2026-10-02",
+			"attributes": [
+				{
+					"label": "Model",
+					"value": "BIGTREETECH TMC2209 V1.3"
+				},
+				{
+					"label": "Format",
+					"value": "StepStick module with heatsink"
+				},
+				{
+					"label": "Mode",
+					"value": "UART"
+				},
+				{
+					"label": "Quantity",
+					"value": "5 per machine"
+				}
+			],
 			"sheet_qty": null,
 			"sheet_qty_text": null,
 			"stock": null,
@@ -27779,6 +28811,26 @@
 						"price": 16.45,
 						"currency": "EUR",
 						"as_of": "2026-04-25"
+					},
+					{
+						"region": "EU",
+						"vendor": "3DJake",
+						"url": "https://www.3djake.de/bigtreetech/stepper-motor-driver",
+						"price": 6.99,
+						"pack_qty": 1,
+						"currency": "EUR",
+						"as_of": "2026-10-02",
+						"note": "Choose the TMC2209 V1.3 option. Sold singly, so buy five."
+					},
+					{
+						"region": "EU",
+						"vendor": "Amazon DE",
+						"url": "https://www.amazon.de/dp/B07ZQ3C1XW",
+						"price": 63.17,
+						"pack_qty": 5,
+						"currency": "EUR",
+						"as_of": "2026-10-02",
+						"note": "The listing says V1.2/V1.3 boards, check the revision matches before wiring."
 					}
 				]
 			},
@@ -27800,7 +28852,7 @@
 			"description": "Shunt for the control board's MS1/MS2 headers, which set each TMC2209's address on its UART bus. 10 per machine, two per driver.",
 			"note": null,
 			"created_at": "2026-08-23",
-			"updated_at": "2026-09-21",
+			"updated_at": "2026-10-02",
 			"attributes": [
 				{
 					"label": "Pitch",
@@ -27822,6 +28874,16 @@
 						"url": "https://www.amazon.com/dp/B0BRK36G33",
 						"affiliate_url": "https://www.amazon.com/dp/B0BRK36G33?tag=sorterv2-20",
 						"as_of": "2026-08-23"
+					},
+					{
+						"region": "EU",
+						"vendor": "Amazon DE",
+						"url": "https://www.amazon.de/dp/B0B5LGCMDT",
+						"price": 9.99,
+						"pack_qty": 200,
+						"currency": "EUR",
+						"as_of": "2026-10-02",
+						"note": "Pack of 200 open-top 2-pin caps."
 					}
 				]
 			},
@@ -27880,7 +28942,7 @@
 			"description": "Embedded MCU for controlling motors. Bought with its two rows of 20 header pins already fitted, ready to seat in the control board.",
 			"note": null,
 			"created_at": "2026-09-21",
-			"updated_at": "2026-09-21",
+			"updated_at": "2026-10-02",
 			"attributes": [
 				{
 					"label": "Chip",
@@ -27909,6 +28971,16 @@
 						"pack_qty": 1,
 						"as_of": "2026-09-21",
 						"note": "Ships with a loose 1x3 debug header and a micro USB cable; neither is needed."
+					},
+					{
+						"region": "EU",
+						"vendor": "Amazon DE",
+						"url": "https://www.amazon.de/dp/B091TLCNJD",
+						"price": 14.99,
+						"pack_qty": 1,
+						"currency": "EUR",
+						"as_of": "2026-10-02",
+						"note": "IBest RP2040 Pico board with headers fitted. The listing does not say what else is in the box."
 					}
 				]
 			},
@@ -27966,18 +29038,22 @@
 			},
 			"name": "IDC ribbon cable, 16-pin (2\u00d78), 1.2 to 1.5 m",
 			"category": "Electronics",
-			"description": "Cable from distribution board to chute",
+			"description": "Ribbon cable from the distribution board to the chute. One per machine. Any length from 1.2 m to 1.5 m works, with a female socket on both ends.",
 			"note": null,
 			"created_at": "2026-07-18",
-			"updated_at": "2026-09-09",
+			"updated_at": "2026-10-02",
 			"attributes": [
 				{
 					"label": "Pins",
-					"value": "16 (2\u00d78), FC to FC, A-type"
+					"value": "16 (2\u00d78), female socket on both ends (FC to FC), A-type"
 				},
 				{
 					"label": "Pitch",
 					"value": "2.54 mm"
+				},
+				{
+					"label": "Length",
+					"value": "1.2 to 1.5 m"
 				}
 			],
 			"sheet_qty": {
@@ -27996,6 +29072,16 @@
 						"as_of": "2026-09-09",
 						"affiliate_url": "https://www.amazon.com/dp/B0GJ8PP3LH?tag=sorterv2-20",
 						"note": "1.5 m, the long end of the range. Any 16-pin FC-to-FC cable between 1.2 m and 1.5 m works."
+					},
+					{
+						"region": "EU",
+						"vendor": "Amazon DE",
+						"url": "https://www.amazon.de/dp/B00Y20XY2U",
+						"price": 7.59,
+						"pack_qty": 1,
+						"currency": "EUR",
+						"as_of": "2026-10-02",
+						"note": "sourcing map, 16 pin female to female, 28 AWG. The cable is 118 cm, 2 cm under the 1.2 m the range starts at."
 					}
 				]
 			},
@@ -28017,10 +29103,10 @@
 			},
 			"name": "IDC ribbon cable, 16-pin (2\u00d78), 30 cm",
 			"category": "Electronics",
-			"description": "Cable between layer and layer below",
+			"description": "Ribbon cable that links one distribution layer to the layer below it. A machine uses 2 (3 layers) or 4 (5 layers). 30 cm long, female socket on both ends.",
 			"note": null,
 			"created_at": "2026-07-18",
-			"updated_at": "2026-09-09",
+			"updated_at": "2026-10-02",
 			"attributes": [
 				{
 					"label": "Pins",
@@ -28029,6 +29115,10 @@
 				{
 					"label": "Pitch",
 					"value": "2.54 mm"
+				},
+				{
+					"label": "Length",
+					"value": "30 cm"
 				}
 			],
 			"sheet_qty": {
@@ -28046,6 +29136,16 @@
 						"pack_qty": 6,
 						"as_of": "2026-07-18",
 						"affiliate_url": "https://www.amazon.com/dp/B07FZWH9S6?tag=sorterv2-20"
+					},
+					{
+						"region": "EU",
+						"vendor": "Amazon DE",
+						"url": "https://www.amazon.de/dp/B0DQ4WDF35",
+						"price": 9.99,
+						"pack_qty": 6,
+						"currency": "EUR",
+						"as_of": "2026-10-02",
+						"note": "Pack of 6, 30 cm, 16 pin, female to female."
 					}
 				]
 			},
@@ -28177,7 +29277,7 @@
 			"description": "The light in a Camera lamp: two turns inside the reflector's skirt, held by the six LED hooks. Three per machine, all from one roll. Cut on the strip's printed marks, not to a measurement: the solder pads are at the marks, and the pitch differs from roll to roll.",
 			"note": "Buy the 24 V roll: 5 m, 6000 K, 8 mm COB. The same listing also sells a 12 V one, and outside the US the link may not land on this product at all.",
 			"created_at": "2026-07-18",
-			"updated_at": "2026-09-14",
+			"updated_at": "2026-10-02",
 			"attributes": [
 				{
 					"label": "Voltage",
@@ -28233,7 +29333,8 @@
 						"url": "https://www.amazon.com/dp/B0DHV8ZF4R",
 						"price": 9.99,
 						"as_of": "2026-04-16",
-						"affiliate_url": "https://www.amazon.com/dp/B0DHV8ZF4R?tag=sorterv2-20"
+						"affiliate_url": "https://www.amazon.com/dp/B0DHV8ZF4R?tag=sorterv2-20",
+						"note": "Choose the 16.4 ft 24 V size option. The listing also sells a 12 V roll, which does not work here."
 					},
 					{
 						"region": "EU",
@@ -28242,7 +29343,7 @@
 						"price": 19.63,
 						"currency": "EUR",
 						"as_of": "2026-09-14",
-						"note": "BERIXDEEP, a different roll: 10 m, 384 LEDs/m, CRI 92, 9 to 10 W/m. Same 24 V, 8 mm, COB, 6000 K and IP20, so it fits the lamp and the clamp-on connector. Pick a plain length option, not the 10, 12, 15 or 30 mm widths. One roll does two machines."
+						"note": "BERIXDEEP, a different roll: 10 m, 384 LEDs/m, CRI 92, 9 to 10 W/m. Same 24 V, 8 mm, COB, 6000 K and IP20, so it fits the lamp and the clamp-on connector. Pick a plain length option, not the 10, 12, 15 or 30 mm widths."
 					}
 				]
 			},
@@ -28264,7 +29365,7 @@
 			"description": "Joins an LED strip to wire without soldering: the cut end of the strip clamps under sprung contacts at one end, the wire clamps into the other. One per Camera lamp, so three per machine.",
 			"note": "8 mm COB strip only: a 10 mm connector, or one for SMD strip, will not grip. Soldering the pads is the only other way to get wire onto the strip.",
 			"created_at": "2026-09-10",
-			"updated_at": "2026-09-10",
+			"updated_at": "2026-10-02",
 			"attributes": [
 				{
 					"label": "Fits",
@@ -28302,6 +29403,26 @@
 						"pack_qty": 1,
 						"as_of": "2026-09-10",
 						"note": "Part SBL-RA2P-8, sold singly."
+					},
+					{
+						"region": "EU",
+						"vendor": "SK-LED",
+						"url": "https://sk-led.com/led-zubehoer/led-kabel-verbinder/led-anschlussverbinder-2-polig-8-mm-loetfrei-frei-konfigurierbar-fuer-einfarbige-cob-led-streifen-ohne-kabel/22392",
+						"price": 1.99,
+						"pack_qty": 1,
+						"currency": "EUR",
+						"as_of": "2026-10-02",
+						"note": "The version without cable (ohne Kabel): strip clamps in one end, your own wire up to 22 AWG in the other. 8 mm, 2-pole, up to 4 A. Sold singly, buy three."
+					},
+					{
+						"region": "EU",
+						"vendor": "Amazon DE",
+						"url": "https://www.amazon.de/dp/B0FRZD1FYF",
+						"price": 8.49,
+						"pack_qty": 20,
+						"currency": "EUR",
+						"as_of": "2026-10-02",
+						"note": "2-pin 8 mm solderless connectors, 5 V to 24 V."
 					}
 				]
 			},
@@ -28376,11 +29497,32 @@
 			},
 			"name": "Roller lever limit switch (V-155-1C25)",
 			"category": "Wire harness",
-			"description": "Hinged roller-lever microswitch. Senses the chute at its home position.",
+			"description": "Roller-lever microswitch, part number V-155-1C25. It tells the machine when the chute is at its home position. One per machine.",
 			"note": null,
 			"created_at": "2026-07-18",
-			"updated_at": "2026-07-18",
-			"attributes": [],
+			"updated_at": "2026-10-02",
+			"attributes": [
+				{
+					"label": "Part number",
+					"value": "V-155-1C25"
+				},
+				{
+					"label": "Lever",
+					"value": "Short hinge roller lever"
+				},
+				{
+					"label": "Contacts",
+					"value": "SPDT, three terminals (the machine uses two)"
+				},
+				{
+					"label": "Terminals",
+					"value": "Push-on tabs, #187 (4.75 mm wide)"
+				},
+				{
+					"label": "Rating",
+					"value": "15 A, 250 V"
+				}
+			],
 			"sheet_qty": {
 				"per_machine": 1
 			},
@@ -28404,6 +29546,23 @@
 						"price": 0.54,
 						"currency": "EUR",
 						"as_of": "2026-04-25"
+					},
+					{
+						"region": "EU",
+						"vendor": "Conrad",
+						"url": "https://www.conrad.de/de/p/omron-v-155-1c25-mikroschalter-250-v-dc-15-a-1-x-ein-ein-1-st-bag-2594146.html",
+						"pack_qty": 1,
+						"note": "Part V-155-1C25, sold singly. Check the title says V-155-1C25 before you order."
+					},
+					{
+						"region": "EU",
+						"vendor": "Amazon DE",
+						"url": "https://www.amazon.de/dp/B07S91JNJ8",
+						"price": 9.99,
+						"pack_qty": 6,
+						"currency": "EUR",
+						"as_of": "2026-10-02",
+						"note": "Clone-branded boards with the same V-155-1C25 style switch."
 					}
 				]
 			},
@@ -28425,7 +29584,7 @@
 			"description": "Powers the Orange Pi from the 24 V PSU.",
 			"note": null,
 			"created_at": "2026-07-18",
-			"updated_at": "2026-09-19",
+			"updated_at": "2026-10-02",
 			"attributes": [
 				{
 					"label": "Input",
@@ -28459,6 +29618,16 @@
 						"price": 8.99,
 						"pack_qty": 1,
 						"as_of": "2026-07-18"
+					},
+					{
+						"region": "EU",
+						"vendor": "Amazon DE",
+						"url": "https://www.amazon.de/dp/B0GZCGDBK6",
+						"price": 11.79,
+						"pack_qty": 1,
+						"currency": "EUR",
+						"as_of": "2026-10-02",
+						"note": "One converter: input 8 to 32 V, output 5 V 5 A (25 W) over USB-C, IP68."
 					}
 				]
 			},
@@ -28480,7 +29649,7 @@
 			"description": "The plug on the end of a 24 V lead that goes into a PSU box jack. Tip is +24 V and the sleeve is ground. Buy it as a moulded plug already on a short lead and splice to that; a screw-terminal plug you assemble yourself works but is bulkier and comes loose.",
 			"note": "5.5 x 2.5 mm looks identical and does not mate: the 0.4 mm is on the centre pin. Check the pin size on the listing, not the outside diameter.",
 			"created_at": "2026-09-14",
-			"updated_at": "2026-09-30",
+			"updated_at": "2026-10-02",
 			"attributes": [
 				{
 					"label": "Size",
@@ -28512,6 +29681,36 @@
 						"url": "https://www.jacobsparts.com/items/DCCONN-D",
 						"as_of": "2026-09-14",
 						"note": "DCCONN-D, 6 in lead. Any 5.5 x 2.1 mm centre-positive pigtail does."
+					},
+					{
+						"region": "US",
+						"vendor": "Amazon",
+						"url": "https://www.amazon.com/dp/B00R1XZ09K",
+						"price": 3.99,
+						"pack_qty": 5,
+						"as_of": "2026-10-02",
+						"note": "Pick the 5 x Male option. 5-pack of moulded 5.5 x 2.1 mm male plugs on short leads.",
+						"affiliate_url": "https://www.amazon.com/dp/B00R1XZ09K?tag=sorterv2-20"
+					},
+					{
+						"region": "US",
+						"vendor": "Amazon",
+						"url": "https://www.amazon.com/dp/B0DB4N14F3",
+						"price": 7.39,
+						"pack_qty": 5,
+						"as_of": "2026-10-02",
+						"note": "5 pairs of male and female 5.5 x 2.1 mm pigtails on 18 AWG (0.82 mm\u00b2) leads, about 22.5 cm long. Use the male plugs.",
+						"affiliate_url": "https://www.amazon.com/dp/B0DB4N14F3?tag=sorterv2-20"
+					},
+					{
+						"region": "EU",
+						"vendor": "Amazon DE",
+						"url": "https://www.amazon.de/dp/B08JCFHW4X",
+						"price": 11.99,
+						"pack_qty": 10,
+						"currency": "EUR",
+						"as_of": "2026-10-02",
+						"note": "10 pairs of male and female 5.5 x 2.1 mm pigtails on 18 AWG (0.82 mm\u00b2) leads, about 22.5 cm long. Use the male plugs."
 					}
 				]
 			},
@@ -28531,10 +29730,10 @@
 			},
 			"name": "DC barrel plug, 5.5 x 2.1 mm male, for the LED pigtail",
 			"category": "Wire harness",
-			"description": "Optional but recommended. The plug on a camera lamp's pigtail, which pushes into the inline barrel socket on the board cable so the lamp can come off next to the lamp. Tip is +24 V and the sleeve is ground. Leave the pair out and the lamp's strip is connected straight to the Dupont cable instead. Buy it as a moulded plug already on a short pair of wires; those wires go onto the strip. One per lamp.",
+			"description": "Optional but recommended. The plug on a camera lamp's pigtail. It pushes into the inline barrel socket on the board cable, so the lamp can be unplugged at the lamp. Tip is +24 V and the sleeve is ground. Leave the pair out and the lamp's strip is connected straight to the Dupont cable instead. Buy it as a moulded plug already on a short pair of wires. Those wires go onto the strip. One per lamp.",
 			"note": "5.5 x 2.5 mm looks identical and does not mate: the 0.4 mm is on the centre pin. Check the pin size on the listing, not the outside diameter.",
 			"created_at": "2026-09-30",
-			"updated_at": "2026-09-30",
+			"updated_at": "2026-10-02",
 			"attributes": [
 				{
 					"label": "Size",
@@ -28546,11 +29745,15 @@
 				},
 				{
 					"label": "Rating",
-					"value": "5 A or better on the three PSU leads"
+					"value": "5 A or better"
 				},
 				{
 					"label": "Used on",
 					"value": "The three LED pigtails, L1p to L3p"
+				},
+				{
+					"label": "Per machine",
+					"value": "3, one per lamp"
 				}
 			],
 			"sheet_qty": {
@@ -28566,6 +29769,36 @@
 						"url": "https://www.jacobsparts.com/items/DCCONN-D",
 						"as_of": "2026-09-14",
 						"note": "DCCONN-D, 6 in lead. Any 5.5 x 2.1 mm centre-positive pigtail does."
+					},
+					{
+						"region": "US",
+						"vendor": "Amazon",
+						"url": "https://www.amazon.com/dp/B00R1XZ09K",
+						"price": 3.99,
+						"pack_qty": 5,
+						"as_of": "2026-10-02",
+						"note": "Pick the 5 x Male option. 5-pack of moulded 5.5 x 2.1 mm male plugs on short leads.",
+						"affiliate_url": "https://www.amazon.com/dp/B00R1XZ09K?tag=sorterv2-20"
+					},
+					{
+						"region": "US",
+						"vendor": "Amazon",
+						"url": "https://www.amazon.com/dp/B0DB4N14F3",
+						"price": 7.39,
+						"pack_qty": 5,
+						"as_of": "2026-10-02",
+						"note": "5 pairs of male and female 5.5 x 2.1 mm pigtails on 18 AWG (0.82 mm\u00b2) leads, about 22.5 cm long. Use the male plugs.",
+						"affiliate_url": "https://www.amazon.com/dp/B0DB4N14F3?tag=sorterv2-20"
+					},
+					{
+						"region": "EU",
+						"vendor": "Amazon DE",
+						"url": "https://www.amazon.de/dp/B08JCFHW4X",
+						"price": 11.99,
+						"pack_qty": 10,
+						"currency": "EUR",
+						"as_of": "2026-10-02",
+						"note": "10 pairs of male and female 5.5 x 2.1 mm pigtails on 18 AWG (0.82 mm\u00b2) leads, about 22.5 cm long. Use the male plugs."
 					}
 				]
 			},
@@ -28587,7 +29820,7 @@
 			"description": "The three outputs of the PSU box, mounted through its connections plate. Each one is fed by a short 18 AWG (0.82 mm\u00b2) pigtail with a spade terminal on each wire, landing on one +V/-V screw pair of the LRS-350-24.",
 			"note": "Buy the jacks with the pigtail leads already attached. Building one from a bare jack and loose wire is more work for the same part, and the leads are the fiddly bit.",
 			"created_at": "2026-09-14",
-			"updated_at": "2026-09-20",
+			"updated_at": "2026-10-02",
 			"attributes": [
 				{
 					"label": "Size",
@@ -28615,7 +29848,30 @@
 			},
 			"sheet_qty_text": null,
 			"stock": null,
-			"sourcing": null,
+			"sourcing": {
+				"vendors": [
+					{
+						"region": "US",
+						"vendor": "Amazon",
+						"url": "https://www.amazon.com/dp/B0DLKN8J7M",
+						"price": 8.19,
+						"pack_qty": 5,
+						"as_of": "2026-10-02",
+						"note": "5 panel-mount 5.5 x 2.1 mm jacks with 18 AWG leads attached (about 20 cm, longer than needed: trim to length).",
+						"affiliate_url": "https://www.amazon.com/dp/B0DLKN8J7M?tag=sorterv2-20"
+					},
+					{
+						"region": "EU",
+						"vendor": "Amazon DE",
+						"url": "https://www.amazon.de/dp/B0FBW3Z4N1",
+						"price": 6.59,
+						"pack_qty": 5,
+						"currency": "EUR",
+						"as_of": "2026-10-02",
+						"note": "5 panel-mount 5.5 x 2.1 mm jacks with 18 AWG leads attached (about 16 cm, longer than needed: trim to length)."
+					}
+				]
+			},
 			"alternative": null,
 			"caption": "Three per machine, with the 18 AWG (0.82 mm\u00b2) leads already attached. The fork terminals go on afterwards.",
 			"docs_page": "/hardware/helpers/psu-pigtail/",
@@ -28635,7 +29891,7 @@
 			"description": "Optional but recommended. The unplug point of an LED drop, so a camera lamp can come off without unpicking the board end. Its two wires are joined to the cut end of the Dupont cable, and the lamp pigtail's barrel plug pushes into it. Leave the pair out and the strip is connected straight to the Dupont cable instead. One per lamp.",
 			"note": "Buy it as a moulded socket already on its own short wires and join those to the Dupont cable. The socket goes on the board cable and the plug on the lamp pigtail, because the board end is live at 24 V.",
 			"created_at": "2026-09-14",
-			"updated_at": "2026-09-30",
+			"updated_at": "2026-10-02",
 			"attributes": [
 				{
 					"label": "Size",
@@ -28655,7 +29911,30 @@
 			},
 			"sheet_qty_text": null,
 			"stock": null,
-			"sourcing": null,
+			"sourcing": {
+				"vendors": [
+					{
+						"region": "US",
+						"vendor": "Amazon",
+						"url": "https://www.amazon.com/dp/B0DB4N14F3",
+						"price": 7.39,
+						"pack_qty": 5,
+						"as_of": "2026-10-02",
+						"note": "5 pairs of male and female 5.5 x 2.1 mm pigtails on 18 AWG (0.82 mm\u00b2) leads. Use the female sockets, and the males for the lamp pigtails.",
+						"affiliate_url": "https://www.amazon.com/dp/B0DB4N14F3?tag=sorterv2-20"
+					},
+					{
+						"region": "EU",
+						"vendor": "Amazon DE",
+						"url": "https://www.amazon.de/dp/B08JCFHW4X",
+						"price": 11.99,
+						"pack_qty": 10,
+						"currency": "EUR",
+						"as_of": "2026-10-02",
+						"note": "10 pairs of male and female 5.5 x 2.1 mm pigtails on 18 AWG (0.82 mm\u00b2) leads. Use the female sockets, and the males for the lamp pigtails."
+					}
+				]
+			},
 			"alternative": null,
 			"caption": "Recommended. The unplug point in an LED drop, on the board cable.",
 			"docs_page": "/hardware/helpers/led-strip/",
@@ -28674,7 +29953,7 @@
 			"description": "Joins two wires end to end without soldering: one wire goes in each end and the barrel is crimped onto it. Two per LED drop, one for each of the barrel socket's wires, so six for the three lamps, plus two on the control board's 24 V lead and two on the Orange Pi's 24 V lead, one for each of the moulded barrel plug's leads (or one for each extension of a short converter wire), so ten per machine.",
 			"note": "Crimp it with insulated-terminal crimping pliers, in the jaw marked for 22 to 16 AWG (0.33 to 1.3 mm\u00b2), not picked by colour. A crimp tool for open-barrel Dupont and PH contacts has the wrong die and will not close this connector properly.",
 			"created_at": "2026-10-01",
-			"updated_at": "2026-10-01",
+			"updated_at": "2026-10-02",
 			"attributes": [
 				{
 					"label": "Wire",
@@ -28708,6 +29987,42 @@
 						"pack_qty": 100,
 						"as_of": "2026-10-01",
 						"note": "SKU GS20080, 100 per bag. The listing title says 22-18 AWG (0.8 to 0.33 mm\u00b2), the bag says 22-16 (1.3 to 0.33 mm\u00b2)."
+					},
+					{
+						"region": "US",
+						"vendor": "Amazon",
+						"url": "https://www.amazon.com/dp/B0DR22TM24",
+						"price": 6.69,
+						"pack_qty": 100,
+						"as_of": "2026-10-02",
+						"note": "Red vinyl, 22-16 AWG. 100 in the pack.",
+						"affiliate_url": "https://www.amazon.com/dp/B0DR22TM24?tag=sorterv2-20"
+					},
+					{
+						"region": "US",
+						"vendor": "Amazon",
+						"url": "https://www.amazon.com/dp/B005GDFIS0",
+						"price": 19.99,
+						"pack_qty": 100,
+						"as_of": "2026-10-02",
+						"note": "Morris 10182, red, 22-16 AWG. 100 in the pack.",
+						"affiliate_url": "https://www.amazon.com/dp/B005GDFIS0?tag=sorterv2-20"
+					},
+					{
+						"region": "EU",
+						"vendor": "Amazon DE",
+						"url": "https://www.amazon.de/dp/B09FM5L1YH",
+						"price": 7.99,
+						"pack_qty": 100,
+						"currency": "EUR",
+						"as_of": "2026-10-02",
+						"note": "Red, 0.5 to 1.5 mm\u00b2 (22-16 AWG). 100 in the pack."
+					},
+					{
+						"region": "EU",
+						"vendor": "Conrad",
+						"url": "https://www.conrad.de/de/p/te-connectivity-320559-stossverbinder-mit-sichtloch-0-25-mm-1-6-mm-vollisoliert-rot-1-st-808692.html",
+						"note": "TE 320559, red, 0.25 to 1.6 mm\u00b2 (22-16 AWG), with a window to see the wire end. Sold singly."
 					}
 				]
 			},
@@ -28729,11 +30044,15 @@
 			"description": "The board end of W1, the 24 V feed into basically board v1.3. It pushes onto J1, the big 2-pin header in the corner of the board, and it is the only connector of that size there. Pin 1 is +24 V and pin 2 is ground.",
 			"note": "VH is 3.96 mm between pins and is much chunkier than the 2.0 mm PH housings the steppers use. The two are not interchangeable and a PH plug will not stay on J1.",
 			"created_at": "2026-09-14",
-			"updated_at": "2026-09-19",
+			"updated_at": "2026-10-02",
 			"attributes": [
 				{
 					"label": "Series",
 					"value": "JST VH"
+				},
+				{
+					"label": "Order code",
+					"value": "VHR-2N"
 				},
 				{
 					"label": "Pitch",
@@ -28749,7 +30068,11 @@
 				},
 				{
 					"label": "Wire",
-					"value": "16 to 22 AWG (0.33 to 1.3 mm\u00b2) through the contact; W1 is 18 AWG (0.82 mm\u00b2)"
+					"value": "18 to 22 AWG (0.33 to 0.83 mm\u00b2) through the contact; W1 is 18 AWG (0.82 mm\u00b2)"
+				},
+				{
+					"label": "Rating",
+					"value": "10 A, 250 V"
 				}
 			],
 			"sheet_qty": {
@@ -28765,6 +30088,22 @@
 						"url": "https://www.lcsc.com/product-detail/C157900.html",
 						"as_of": "2026-09-14",
 						"note": "JST VHR-2N, LCSC C157900. Sold singly; kits pairing housings with contacts are usually cheaper."
+					},
+					{
+						"region": "EU",
+						"vendor": "TME",
+						"url": "https://www.tme.eu/en/details/vhr-2n/raster-signal-connectors-3-96mm/jst/",
+						"note": "JST VHR-2N. Sold singly, contacts are a separate buy."
+					},
+					{
+						"region": "EU",
+						"vendor": "Amazon DE",
+						"url": "https://www.amazon.de/dp/B0FB8RVGF9",
+						"price": 10.41,
+						"pack_qty": 10,
+						"currency": "EUR",
+						"as_of": "2026-10-02",
+						"note": "eMagTech kit with 10 plugs, 10 housings and 20 terminals, 3.96 mm pitch, 2 pin."
 					}
 				]
 			},
@@ -28786,7 +30125,7 @@
 			"description": "The two metal contacts that go inside the VHR-2 housing. Crimp one onto each wire of W1, then push them into the back of the shell until they click and will not pull out.",
 			"note": "Buy spares. The first one or two crimps in a series you have not done before usually come out wrong, and a contact cannot be recovered once it is mis-crimped.",
 			"created_at": "2026-09-14",
-			"updated_at": "2026-09-19",
+			"updated_at": "2026-10-02",
 			"attributes": [
 				{
 					"label": "Series",
@@ -28794,7 +30133,11 @@
 				},
 				{
 					"label": "Wire",
-					"value": "16 to 22 AWG (0.33 to 1.3 mm\u00b2)"
+					"value": "18 to 22 AWG (0.33 to 0.83 mm\u00b2)"
+				},
+				{
+					"label": "Finish",
+					"value": "Tin plated phosphor bronze"
 				},
 				{
 					"label": "Goes in",
@@ -28818,6 +30161,22 @@
 						"url": "https://www.lcsc.com/product-detail/C160349.html",
 						"as_of": "2026-09-14",
 						"note": "JST SVH-21T-P1.1, LCSC C160349."
+					},
+					{
+						"region": "EU",
+						"vendor": "TME",
+						"url": "https://www.tme.eu/en/details/svh-21t-p1.1/raster-signal-connectors-3-96mm/jst/",
+						"note": "JST SVH-21T-P1.1. Buy a few more than 2."
+					},
+					{
+						"region": "EU",
+						"vendor": "Amazon DE",
+						"url": "https://www.amazon.de/dp/B0FB8RVGF9",
+						"price": 10.41,
+						"pack_qty": 20,
+						"currency": "EUR",
+						"as_of": "2026-10-02",
+						"note": "Same eMagTech kit as the housing, with 20 terminals. The listing does not name them as SVH-21T, so check they fit."
 					}
 				]
 			},
@@ -28837,13 +30196,17 @@
 			"name": "JST PH housing, 4-pin (PHR-4)",
 			"category": "Wire harness",
 			"description": "The board end of the stepper cables, into a 4-pin JST-PH stepper output on basically board v1.3. Which socket you plug it into is what decides which motor the software drives, so follow the mapping on the docs page rather than guessing.",
-			"note": "Count of 5 follows the harness drawing, which puts the chute cable's board end on a PHR-4 as well. The v1.3 netlist reads the chute as a Dupont header instead, which would make this 4. Unsettled, so buy 5 and have a spare.",
+			"note": "Buy one or two spare housings.",
 			"created_at": "2026-09-14",
 			"updated_at": "2026-10-02",
 			"attributes": [
 				{
 					"label": "Series",
 					"value": "JST PH"
+				},
+				{
+					"label": "Order code",
+					"value": "PHR-4"
 				},
 				{
 					"label": "Pitch",
@@ -28856,6 +30219,10 @@
 				{
 					"label": "Contacts",
 					"value": "Takes 4 x SPH-002T-P0.5S, bought separately"
+				},
+				{
+					"label": "Rating",
+					"value": "4 A, 125 V"
 				},
 				{
 					"label": "Pin order",
@@ -28875,6 +30242,12 @@
 						"url": "https://www.lcsc.com/product-detail/C111514.html",
 						"as_of": "2026-09-14",
 						"note": "JST PHR-4, LCSC C111514. A mixed PH kit covers this and the PHR-6 and the contacts in one buy."
+					},
+					{
+						"region": "EU",
+						"vendor": "TME",
+						"url": "https://www.tme.eu/en/details/phr-4/raster-signal-connectors-2-00mm/jst/",
+						"note": "JST PHR-4. Contacts are a separate buy."
 					}
 				]
 			},
@@ -28950,7 +30323,7 @@
 			"name": "JST PH crimp contact (SPH-002T-P0.5S)",
 			"category": "Wire harness",
 			"description": "The contacts inside every PH housing on the machine. Crimp one onto each conductor, then push it into the housing until it latches.",
-			"note": "PH contacts take 24 to 28 AWG (0.08 to 0.20 mm\u00b2) only, which is why the chute's tail is 24 AWG (0.20 mm\u00b2) and the channel motors' own 26 AWG leads are a fit. Buy well over the count; these are small and easy to spoil.",
+			"note": "Wire must be 24 to 30 AWG (0.05 to 0.22 mm\u00b2). The 24 AWG chute wire and the motors' own 26 AWG leads both fit. Buy well over the count; these are small and easy to spoil.",
 			"created_at": "2026-09-14",
 			"updated_at": "2026-10-02",
 			"attributes": [
@@ -28960,7 +30333,7 @@
 				},
 				{
 					"label": "Wire",
-					"value": "24 to 28 AWG (0.08 to 0.20 mm\u00b2)"
+					"value": "24 to 30 AWG (0.05 to 0.22 mm\u00b2)"
 				},
 				{
 					"label": "Goes in",
@@ -28984,6 +30357,12 @@
 						"url": "https://www.lcsc.com/product-detail/C111515.html",
 						"as_of": "2026-09-14",
 						"note": "JST SPH-002T-P0.5S, LCSC C111515."
+					},
+					{
+						"region": "EU",
+						"vendor": "TME",
+						"url": "https://www.tme.eu/en/details/sph-002t-p0.5s/raster-signal-connectors-2-00mm/jst/",
+						"note": "JST SPH-002T-P0.5S."
 					}
 				]
 			},
@@ -29005,7 +30384,7 @@
 			"description": "The board end of the chute limit switch cable, onto J5. Only two of the three positions hold a contact: ground and signal.",
 			"note": "The third position is left empty on purpose: it goes over J5's 3.3 V pin, so no contact can touch it. The housing is not keyed, so it can still be pushed on the wrong way round. The board prints 3.3V beside that pin; put the empty position over it.",
 			"created_at": "2026-09-14",
-			"updated_at": "2026-10-01",
+			"updated_at": "2026-10-02",
 			"attributes": [
 				{
 					"label": "Pitch",
@@ -29029,7 +30408,49 @@
 			},
 			"sheet_qty_text": null,
 			"stock": null,
-			"sourcing": null,
+			"sourcing": {
+				"vendors": [
+					{
+						"region": "US",
+						"vendor": "Pololu",
+						"url": "https://www.pololu.com/product/1902",
+						"price": 2.54,
+						"pack_qty": 25,
+						"as_of": "2026-10-02",
+						"note": "1x3 female housing, 25 pack. Contacts are a separate buy."
+					},
+					{
+						"region": "US",
+						"vendor": "Amazon",
+						"url": "https://www.amazon.com/dp/B0B11SX39B",
+						"price": 9.99,
+						"pack_qty": 600,
+						"as_of": "2026-10-02",
+						"note": "600-piece Dupont kit with 3-pin housings and female crimp pins, so it also covers the contacts.",
+						"affiliate_url": "https://www.amazon.com/dp/B0B11SX39B?tag=sorterv2-20"
+					},
+					{
+						"region": "EU",
+						"vendor": "BerryBase",
+						"url": "https://www.berrybase.de/en/dupont-housing-1x3-pin",
+						"price": 0.04,
+						"pack_qty": 1,
+						"currency": "EUR",
+						"as_of": "2026-10-02",
+						"note": "Sold singly. Contacts are a separate buy."
+					},
+					{
+						"region": "EU",
+						"vendor": "Amazon DE",
+						"url": "https://www.amazon.de/dp/B01NAQIJ23",
+						"price": 13.99,
+						"pack_qty": 25,
+						"currency": "EUR",
+						"as_of": "2026-10-02",
+						"note": "710-piece Dupont kit: 25 housings of each size from 1 to 9 pins, plus female contacts."
+					}
+				]
+			},
 			"alternative": null,
 			"caption": "Position 3 stays empty and goes over the pin marked 3.3V.",
 			"docs_page": "/hardware/helpers/limit-switch-lead/",
@@ -29048,7 +30469,7 @@
 			"description": "The contact inside a Dupont housing. Crimp one onto each conductor, then push it into the housing until it latches. Two go in the limit switch lead's board end.",
 			"note": "Takes 22 to 28 AWG (0.08 to 0.33 mm\u00b2), so the 22 AWG (0.33 mm\u00b2) limit switch wire is at the thick end of the range. Crimp it in the die for open-barrel contacts, not the insulated-terminal die. Buy well over the count; they are small and easy to spoil.",
 			"created_at": "2026-10-01",
-			"updated_at": "2026-10-01",
+			"updated_at": "2026-10-02",
 			"attributes": [
 				{
 					"label": "Pitch",
@@ -29088,6 +30509,26 @@
 						"affiliate_url": "https://www.amazon.com/dp/B0BFXNP72Z?tag=sorterv2-20",
 						"as_of": "2026-10-01",
 						"note": "200 pack of female crimp pins, 28 to 22 AWG."
+					},
+					{
+						"region": "EU",
+						"vendor": "BerryBase",
+						"url": "https://www.berrybase.de/dupont-crimpkontakt-fuer-kabel-awg-22-28-female",
+						"price": 3.9,
+						"pack_qty": 100,
+						"currency": "EUR",
+						"as_of": "2026-10-02",
+						"note": "100 female crimp contacts for 22 to 28 AWG, tinned brass."
+					},
+					{
+						"region": "EU",
+						"vendor": "Amazon DE",
+						"url": "https://www.amazon.de/dp/B01NAQIJ23",
+						"price": 13.99,
+						"pack_qty": 220,
+						"currency": "EUR",
+						"as_of": "2026-10-02",
+						"note": "Same 710-piece Dupont kit as the housings. Includes 220 female crimp contacts."
 					}
 				]
 			},
@@ -29168,7 +30609,7 @@
 			"description": "Crimped onto both wires of each PSU output pigtail, landing under the screws of the LRS-350-24 terminal block. Three pigtails, two terminals each.",
 			"note": "8 mm wide at most. Plenty of fork terminals are wider and simply will not fit between the LRS-350-24's output screws, and the listing rarely gives the width, so go by the stud size: M3.5 or #6.",
 			"created_at": "2026-09-14",
-			"updated_at": "2026-09-18",
+			"updated_at": "2026-10-02",
 			"attributes": [
 				{
 					"label": "Stud",
@@ -29196,7 +30637,30 @@
 			},
 			"sheet_qty_text": null,
 			"stock": null,
-			"sourcing": null,
+			"sourcing": {
+				"vendors": [
+					{
+						"region": "US",
+						"vendor": "Amazon",
+						"url": "https://www.amazon.com/dp/B01B17DL0G",
+						"price": 6.59,
+						"pack_qty": 100,
+						"as_of": "2026-10-02",
+						"note": "Red vinyl fork terminals for a #6 (M3.5) stud, 22-16 AWG. 100 in the pack.",
+						"affiliate_url": "https://www.amazon.com/dp/B01B17DL0G?tag=sorterv2-20"
+					},
+					{
+						"region": "EU",
+						"vendor": "Amazon DE",
+						"url": "https://www.amazon.de/dp/B06XKLBKKX",
+						"price": 4.55,
+						"pack_qty": 10,
+						"currency": "EUR",
+						"as_of": "2026-10-02",
+						"note": "M3.5 fork terminals (DIN 46245), partially insulated, 0.5 to 1.5 mm\u00b2. 10 in the pack."
+					}
+				]
+			},
 			"alternative": null,
 			"caption": "Six per machine. The 8 mm width limit is the one that bites.",
 			"docs_page": "/hardware/helpers/psu-pigtail/",
@@ -29215,7 +30679,7 @@
 			"description": "The switch end of the chute limit switch cable. It pushes straight onto the Omron V-155-1C25's blade tabs, so there is nothing to solder.",
 			"note": "Fully insulated, not the open kind. The switch is SPDT with three tabs and only two are used, so a bare receptacle can touch the spare one.",
 			"created_at": "2026-09-14",
-			"updated_at": "2026-09-19",
+			"updated_at": "2026-10-02",
 			"attributes": [
 				{
 					"label": "Tab",
@@ -29247,6 +30711,22 @@
 						"url": "https://vetco.net/products/sr-fqd-2f_female_quick_disconnect_terminal_-_fully_insulated_-_22-18_awg_-_-187_-_100_pack",
 						"as_of": "2026-09-14",
 						"note": "SR-FQD-2F, 100 pack."
+					},
+					{
+						"region": "US",
+						"vendor": "Amazon",
+						"url": "https://www.amazon.com/dp/B0058TX6OK",
+						"price": 14.95,
+						"pack_qty": 100,
+						"as_of": "2026-10-02",
+						"note": "Install Bay RNFD187F, fully insulated nylon female .187 receptacles, 22-18 AWG. 100 in the pack.",
+						"affiliate_url": "https://www.amazon.com/dp/B0058TX6OK?tag=sorterv2-20"
+					},
+					{
+						"region": "EU",
+						"vendor": "Conrad",
+						"url": "https://www.conrad.de/de/p/weidmueller-1491880000-flachsteckhuelse-steckbreite-4-8-mm-steckdicke-0-5-mm-vollisoliert-rot-100-st-1949814.html",
+						"note": "Weidmuller 1491880000, fully insulated, red, 4.8 x 0.5 mm. 100 in the pack."
 					}
 				]
 			},
@@ -29267,9 +30747,9 @@
 			"name": "Hook-up wire, 18 AWG (0.82 mm\u00b2), 2-conductor red and black",
 			"category": "Wire harness",
 			"description": "The heavy gauge in the machine: the three PSU output pigtails inside the box, and W1, the 24 V feed to the control board. A bonded red and black pair is easiest, since the polarity is then obvious at both ends.",
-			"note": "You may cut none of this. The panel-mount jacks normally arrive with their 0.102 m (10.2 cm, 4 in) leads attached, which leaves only W1's 0.914 m (91.4 cm, 36 in) to make.",
+			"note": "The panel-mount jacks normally arrive with their 0.102 m (10.2 cm, 4 in) leads attached, which leaves only W1's 0.914 m (91.4 cm, 36 in) to make.",
 			"created_at": "2026-09-14",
-			"updated_at": "2026-09-18",
+			"updated_at": "2026-10-02",
 			"attributes": [
 				{
 					"label": "Gauge",
@@ -29307,6 +30787,26 @@
 						"url": "https://bntechgo.com/bntechgo-18-gauge-100ft-flexible-2-conductor-parallel-silicone-wire-spool-red-black-highly-resistant-to-200-c-600v-for-single-color-led-strip-extension-lead-wire-stranded-tinned-copper-wire/",
 						"as_of": "2026-09-14",
 						"note": "Any 18 AWG (0.82 mm\u00b2) bonded red and black pair does. Shorter spools exist and are enough."
+					},
+					{
+						"region": "US",
+						"vendor": "Amazon",
+						"url": "https://www.amazon.com/dp/B0FH4XTP88",
+						"price": 9.99,
+						"pack_qty": 1,
+						"as_of": "2026-10-02",
+						"note": "10 m (32.8 ft) reel, red and black, 18 AWG (0.82 mm\u00b2), tinned copper. Shorter than the 30.5 m spool and enough for several machines.",
+						"affiliate_url": "https://www.amazon.com/dp/B0FH4XTP88?tag=sorterv2-20"
+					},
+					{
+						"region": "EU",
+						"vendor": "Amazon DE",
+						"url": "https://www.amazon.de/dp/B0CM3GHD9Z",
+						"price": 29.95,
+						"pack_qty": 1,
+						"currency": "EUR",
+						"as_of": "2026-10-02",
+						"note": "20 m reel, red and black, 18 AWG (0.75 mm\u00b2), tinned copper. One reel covers many machines."
 					}
 				]
 			},
@@ -29329,7 +30829,7 @@
 			"description": "Everything lighter than the board feed: W2 to the USB hub, W3 to the buck converter, the three LED drops and their pigtails, and the chute limit switch cable.",
 			"note": null,
 			"created_at": "2026-09-14",
-			"updated_at": "2026-09-18",
+			"updated_at": "2026-10-02",
 			"attributes": [
 				{
 					"label": "Gauge",
@@ -29367,6 +30867,26 @@
 						"url": "https://bntechgo.com/bntechgo-22-gauge-50ft-flexible-2-conductor-parallel-silicone-wire-spool-red-black-highly-resistant-to-200-c-600v-for-single-color-led-strip-extension-lead-wire-stranded-tinned-copper-wire/",
 						"as_of": "2026-09-14",
 						"note": "Any 22 AWG (0.33 mm\u00b2) bonded red and black pair does."
+					},
+					{
+						"region": "US",
+						"vendor": "Amazon",
+						"url": "https://www.amazon.com/dp/B0FW51MV6H",
+						"price": 19.99,
+						"pack_qty": 1,
+						"as_of": "2026-10-02",
+						"note": "30 m (98.4 ft) reel, red and black, 22 AWG, tinned copper. Far more than one machine needs.",
+						"affiliate_url": "https://www.amazon.com/dp/B0FW51MV6H?tag=sorterv2-20"
+					},
+					{
+						"region": "EU",
+						"vendor": "Amazon DE",
+						"url": "https://www.amazon.de/dp/B09BZCK7FS",
+						"price": 9.39,
+						"pack_qty": 1,
+						"currency": "EUR",
+						"as_of": "2026-10-02",
+						"note": "20 m reel, red and black, 22 AWG, tinned copper."
 					}
 				]
 			},
@@ -29386,7 +30906,7 @@
 			},
 			"name": "Hook-up wire, 24 AWG (0.20 mm\u00b2), four colours",
 			"category": "Wire harness",
-			"description": "The tail of the chute stepper cable (CH): a four-wire bundle in four colours, which are how you keep the coil pairs straight. The channel cables no longer use it, because they are made from the motors' own leads.",
+			"description": "The tail of the chute stepper cable (CH): a four-wire bundle in four colours, which is how you keep the coil pairs straight.",
 			"note": "24 AWG (0.20 mm\u00b2) is not a choice: it is the heaviest wire the JST PH contacts accept. Do not go up a gauge for these.",
 			"created_at": "2026-09-14",
 			"updated_at": "2026-10-02",
@@ -29427,6 +30947,26 @@
 						"url": "https://www.plusivo.com/awg24-silicone-wire-kit/97-plusivo-awg24-hook-up-silicone-wire-kit-600v-stranded-tinned-copper-silicone-wire-of-6-different-colors-x-9-m-30-ft-each.html",
 						"as_of": "2026-09-14",
 						"note": "Six colours x 9 m. Any 24 AWG (0.20 mm\u00b2) stranded kit with black, blue, green and red in it does."
+					},
+					{
+						"region": "US",
+						"vendor": "Amazon",
+						"url": "https://www.amazon.com/dp/B07G2BWBX8",
+						"price": 15.79,
+						"pack_qty": 6,
+						"as_of": "2026-10-02",
+						"note": "TUOFENG 24 AWG silicone wire, 6 colours (red, black, white, blue, green, yellow), 30 ft of each. Pack is 6 spools.",
+						"affiliate_url": "https://www.amazon.com/dp/B07G2BWBX8?tag=sorterv2-20"
+					},
+					{
+						"region": "EU",
+						"vendor": "Amazon DE",
+						"url": "https://www.amazon.de/dp/B0BTBMW3X7",
+						"price": 15.85,
+						"pack_qty": 6,
+						"currency": "EUR",
+						"as_of": "2026-10-02",
+						"note": "Coomoors 24 AWG silicone wire, 6 colours (black, red, blue, white, green, yellow), 7 m of each. Pack is 6 spools."
 					}
 				]
 			},
@@ -29447,9 +30987,9 @@
 			"name": "Braided cable sleeving, 1/4 in",
 			"category": "Wire harness",
 			"description": "Holds each stepper cable's four wires together as one bundle, so a metre of loose wire does not end up spread across the frame.",
-			"note": "The harness drawing calls it PVC sleeving. What is commonly sold is PET braid at the same size, which is what the sourcing link is, and it does the same job. The drawing sleeves the four S bundles only, not CH.",
+			"note": "Buy PET braid in 1/4 in (6 mm) size, which is what the links are. Sleeve only the four S bundles, not CH.",
 			"created_at": "2026-09-14",
-			"updated_at": "2026-09-18",
+			"updated_at": "2026-10-02",
 			"attributes": [
 				{
 					"label": "Size",
@@ -29483,6 +31023,32 @@
 						"url": "https://www.techtoolsupply.com/1-4in-Expandable-Sleeving-Black-200ft-p/ptn0.25-ms.htm",
 						"as_of": "2026-09-14",
 						"note": "Techflex Flexo PET, 1/4 in. Any expandable braid at this size does."
+					},
+					{
+						"region": "US",
+						"vendor": "Amazon",
+						"url": "https://www.amazon.com/dp/B00ZATM2A2",
+						"price": 14.86,
+						"pack_qty": 1,
+						"as_of": "2026-10-02",
+						"note": "Electriduct 1/4 in black PET expandable braided sleeving, 50 ft (15.2 m).",
+						"affiliate_url": "https://www.amazon.com/dp/B00ZATM2A2?tag=sorterv2-20"
+					},
+					{
+						"region": "EU",
+						"vendor": "Conrad",
+						"url": "https://www.conrad.de/de/p/hellermanntyton-170-81101-hegpetfrx06-pet-bk-geflechtschlauch-schwarz-polyester-3-bis-10-mm-meterware-2625600.html",
+						"note": "HellermannTyton HEGPETFRX06-PET-BK, black polyester expandable braid, 3 to 10 mm. Sold by the metre."
+					},
+					{
+						"region": "EU",
+						"vendor": "Amazon DE",
+						"url": "https://www.amazon.de/dp/B071JH14WZ",
+						"price": 7.99,
+						"pack_qty": 1,
+						"currency": "EUR",
+						"as_of": "2026-10-02",
+						"note": "7.5 m of braided sleeving."
 					}
 				]
 			},
@@ -29622,10 +31188,10 @@
 			},
 			"name": "24 V PSU, 350 W (Mean Well LRS-350-24)",
 			"category": "Power supply",
-			"description": "Power supply",
+			"description": "Mean Well LRS-350-24, the 24 V 350 W power supply for the whole machine. Buy this exact model, do not substitute. Before first power-up, set the slide switch on its side to 115 V (US) or 230 V (EU).",
 			"note": null,
 			"created_at": "2026-07-18",
-			"updated_at": "2026-09-23",
+			"updated_at": "2026-10-02",
 			"attributes": [
 				{
 					"label": "Input",
@@ -29661,8 +31227,37 @@
 						"url": "https://www.amazon.com/dp/B013ETVO12",
 						"price": 27.35,
 						"pack_qty": 1,
-						"note": "sheet's link was broken/truncated; relinked to the LRS-350-24 listing",
+						"note": "Mean Well LRS-350-24 only. Check the title says LRS-350-24 before you buy.",
 						"affiliate_url": "https://www.amazon.com/dp/B013ETVO12?tag=sorterv2-20"
+					},
+					{
+						"region": "EU",
+						"vendor": "StepperOnline",
+						"url": "https://www.omc-stepperonline.com/de/lrs-350-24-mean-well-350w-24vdc-14-6a-115-230vac-geschlossenes-schaltnetzteil-lrs-350-24",
+						"price": 17.99,
+						"pack_qty": 1,
+						"currency": "EUR",
+						"as_of": "2026-10-02",
+						"note": "Genuine Mean Well. Price is ex VAT, VAT is added at checkout. Pick the Germany warehouse to avoid customs. Set the slide switch to 230 V before first power-up."
+					},
+					{
+						"region": "EU",
+						"vendor": "M-Drivers",
+						"url": "https://www.m-drivers.de/MEANWELL-LRS-350-24-Netzteil-CV-24V/DC-max-146A-max-350W",
+						"price": 37.31,
+						"pack_qty": 1,
+						"currency": "EUR",
+						"as_of": "2026-10-02",
+						"note": "Genuine Mean Well, price includes 19% VAT. Set the slide switch to 230 V before first power-up."
+					},
+					{
+						"region": "EU",
+						"vendor": "Amazon DE",
+						"url": "https://www.amazon.de/dp/B0CN1JVD4Y",
+						"price": 38.03,
+						"pack_qty": 1,
+						"currency": "EUR",
+						"as_of": "2026-10-02"
 					}
 				]
 			},
@@ -29684,7 +31279,7 @@
 			"description": "Mains inlet for the PSU: switched, fused, pre-wired.",
 			"note": "Its red and blue leads are not consistent between units: both have arrived with the live on either colour. The fuse and the switch are in the live side, so pull the fuse and meter which lead loses continuity to its C14 pin, and land that one on the supply's L. Going by colour risks fusing and switching the neutral.",
 			"created_at": "2026-07-18",
-			"updated_at": "2026-09-21",
+			"updated_at": "2026-10-02",
 			"attributes": [
 				{
 					"label": "Inlet",
@@ -29722,6 +31317,16 @@
 						"price": 10.99,
 						"pack_qty": 2,
 						"as_of": "2026-07-18"
+					},
+					{
+						"region": "EU",
+						"vendor": "Amazon DE",
+						"url": "https://www.amazon.de/dp/B07RRY5MYZ",
+						"price": 9.99,
+						"pack_qty": 1,
+						"currency": "EUR",
+						"as_of": "2026-10-02",
+						"note": "3Dman, same switch and cutout. The listing gives the installed fuse as 5 A (the title says 10 A), so check or swap the 5 x 20 mm fuse."
 					}
 				]
 			},
@@ -29740,10 +31345,10 @@
 			},
 			"name": "Mains lead, IEC C13 to wall plug",
 			"category": "Power supply",
-			"description": "The cable from the wall socket to the machine. A C13 socket at the machine end, which is what the inlet's C14 mates with, and your country's plug at the other. The cord a desktop PC or a monitor comes with.",
+			"description": "The cable from the wall socket to the machine. The machine end is a C13 socket, which mates with the inlet's C14. The wall end is your local plug: US NEMA 5-15 or EU Schuko CEE 7/7. It is the cord a desktop PC or a monitor comes with.",
 			"note": "Three core: the machine earths through this cable. 10 A or better, which matches the inlet's own fuse and is far more than the machine draws. It is listed so it is not forgotten at the end of a build, not because it has to be bought; most people have a spare one already.",
 			"created_at": "2026-09-23",
-			"updated_at": "2026-09-23",
+			"updated_at": "2026-10-02",
 			"attributes": [
 				{
 					"label": "Machine end",
@@ -29751,7 +31356,7 @@
 				},
 				{
 					"label": "Wall end",
-					"value": "Whatever plug your country uses"
+					"value": "Your local plug: US NEMA 5-15, EU Schuko CEE 7/7"
 				},
 				{
 					"label": "Cores",
@@ -29778,6 +31383,16 @@
 						"pack_qty": 1,
 						"as_of": "2026-09-23",
 						"note": "Amazon Basics 6 ft, NEMA 5-15P to C13, 18 AWG (0.82 mm\u00b2), UL listed. That is the US plug; outside the US buy the same cord with your own plug on it, or use one you already have."
+					},
+					{
+						"region": "EU",
+						"vendor": "Amazon DE",
+						"url": "https://www.amazon.de/dp/B07W5KTJN5",
+						"price": 11.9,
+						"pack_qty": 1,
+						"currency": "EUR",
+						"as_of": "2026-10-02",
+						"note": "Schuko CEE 7/7 plug to C13, 3-core, 1.8 m, 10 A 250 V, 3 \u00d7 0.75 mm\u00b2. Use one you already have if it is 3-core."
 					}
 				]
 			},
@@ -29799,7 +31414,7 @@
 			"description": "40 x 40 x 10 mm axial fan, 24 V, on the control board housing cover, held against its vent by two printed fan retainers. Comes with an XH2.54 2-pin lead, which plugs straight into one of the board's LED ports. One per machine: the Orange Pi is cooled by its own heatsink fan instead.",
 			"note": null,
 			"created_at": "2026-08-22",
-			"updated_at": "2026-09-26",
+			"updated_at": "2026-10-02",
 			"attributes": [
 				{
 					"label": "Size",
@@ -29848,6 +31463,36 @@
 						"pack_qty": 5,
 						"as_of": "2026-08-23",
 						"note": "The 24V - 5000RPM style. The listing also sells 5 V and 12 V under the same page."
+					},
+					{
+						"region": "EU",
+						"vendor": "Amazon DE",
+						"url": "https://www.amazon.de/dp/B09KP9NBJP",
+						"price": 19.99,
+						"pack_qty": 5,
+						"currency": "EUR",
+						"as_of": "2026-10-02",
+						"note": "Pack of 5, 24 V, 30 cm XH2.54 2-pin lead. This listing says dual ball bearing, 0.05 A and 4.69 CFM, so the bearing and figures differ slightly from the hydraulic US listing."
+					},
+					{
+						"region": "EU",
+						"vendor": "Amazon DE",
+						"url": "https://www.amazon.de/dp/B07RFC8KNX",
+						"price": 9.98,
+						"pack_qty": 1,
+						"currency": "EUR",
+						"as_of": "2026-10-02",
+						"note": "ANVISION YDM4010B24, 24 V, 40 x 40 x 10 mm, dual ball bearing, 0.06 A, 6000 RPM. The lead is 150 mm, long enough for the housing, and the listing says it fits a 2.5 mm 2-pin plug."
+					},
+					{
+						"region": "EU",
+						"vendor": "Amazon DE",
+						"url": "https://www.amazon.de/dp/B07RJGXHPY",
+						"price": 15.98,
+						"pack_qty": 2,
+						"currency": "EUR",
+						"as_of": "2026-10-02",
+						"note": "Same ANVISION fan as the single, pack of 2. One fan is needed per machine."
 					}
 				]
 			},
@@ -29930,15 +31575,55 @@
 			},
 			"name": "Hex outer horizontal (A)",
 			"category": "Aluminum extrusion (2020)",
-			"description": "2020 aluminum extrusion, cut to 320 mm (piece A). The outer ring of every hex frame: six per ring, on each bin layer and on the interface frame, which are the same frame built to the same guide.",
+			"description": "2020 aluminum extrusion, piece A, 320 mm long. Outer ring of every hex frame. Six per ring, on each bin layer and on the interface frame, all built to the same guide. Order it cut to 320 mm. Buy every extrusion piece from the same supplier in one order.",
 			"note": null,
 			"created_at": "2026-08-21",
-			"updated_at": "2026-09-07",
-			"attributes": [],
+			"updated_at": "2026-10-02",
+			"attributes": [
+				{
+					"label": "Profile",
+					"value": "20x20 mm T-slot, slot 6 (6 mm slot)"
+				},
+				{
+					"label": "Alloy",
+					"value": "6063-T5"
+				},
+				{
+					"label": "Finish",
+					"value": "Anodized aluminum"
+				},
+				{
+					"label": "Corners",
+					"value": "Angular (square) T-slot corners preferred"
+				},
+				{
+					"label": "Cut length",
+					"value": "320 mm (12 5/8 in)"
+				},
+				{
+					"label": "Buy as",
+					"value": "Cut to length by the supplier, no saw needed"
+				}
+			],
 			"sheet_qty": null,
 			"sheet_qty_text": null,
 			"stock": null,
-			"sourcing": null,
+			"sourcing": {
+				"vendors": [
+					{
+						"region": "US",
+						"vendor": "TNUTZ",
+						"url": "https://www.tnutz.com/product/exm-2020/",
+						"note": "Order cut to 320 mm. Set Length (in) to 12 and Fractional length to 0.625\" (5/8\"), which is within 0.8 mm of 320 mm. Part EXM-2020."
+					},
+					{
+						"region": "EU",
+						"vendor": "easy-systemprofile.de",
+						"url": "https://easy-systemprofile.de/Profil--Nutprofil--Aluprofil--Aluminiumprofil--Saarland--Aluprofil-20x20--Aluminiumprofil-20x20.html",
+						"note": "Order cut to 320 mm. Cutting is included in the price. The profile is sold in 100 mm units, so buy the total length of all your pieces in units and write each cut length and count in the order comment."
+					}
+				]
+			},
 			"alternative": null,
 			"caption": "2020 aluminum extrusion, cut to 320 mm (piece A).",
 			"docs_page": null,
@@ -29958,15 +31643,55 @@
 			},
 			"name": "Hex spoke (B)",
 			"category": "Aluminum extrusion (2020)",
-			"description": "2020 aluminum extrusion, cut to 158 mm (piece B). The inner ring of every hex frame: six spokes per ring, on each bin layer and on the interface frame. Not to be confused with the Interface spoke, long (E), which belongs to the interface bracket mounts rather than a hex frame.",
+			"description": "2020 aluminum extrusion, piece B, 158 mm long. Inner ring of every hex frame. Six spokes per ring, on each bin layer and on the interface frame. Do not confuse it with the Interface spoke, long (E), which is 238 mm and belongs to the interface frame. Order it cut to 158 mm. Buy every extrusion piece from the same supplier in one order.",
 			"note": null,
 			"created_at": "2026-08-21",
-			"updated_at": "2026-09-07",
-			"attributes": [],
+			"updated_at": "2026-10-02",
+			"attributes": [
+				{
+					"label": "Profile",
+					"value": "20x20 mm T-slot, slot 6 (6 mm slot)"
+				},
+				{
+					"label": "Alloy",
+					"value": "6063-T5"
+				},
+				{
+					"label": "Finish",
+					"value": "Anodized aluminum"
+				},
+				{
+					"label": "Corners",
+					"value": "Angular (square) T-slot corners preferred"
+				},
+				{
+					"label": "Cut length",
+					"value": "158 mm (6 1/4 in)"
+				},
+				{
+					"label": "Buy as",
+					"value": "Cut to length by the supplier, no saw needed"
+				}
+			],
 			"sheet_qty": null,
 			"sheet_qty_text": null,
 			"stock": null,
-			"sourcing": null,
+			"sourcing": {
+				"vendors": [
+					{
+						"region": "US",
+						"vendor": "TNUTZ",
+						"url": "https://www.tnutz.com/product/exm-2020/",
+						"note": "Order cut to 158 mm. Set Length (in) to 6 and Fractional length to 0.250\" (1/4\"), which is within 0.8 mm of 158 mm. Part EXM-2020."
+					},
+					{
+						"region": "EU",
+						"vendor": "easy-systemprofile.de",
+						"url": "https://easy-systemprofile.de/Profil--Nutprofil--Aluprofil--Aluminiumprofil--Saarland--Aluprofil-20x20--Aluminiumprofil-20x20.html",
+						"note": "Order cut to 158 mm. Cutting is included in the price. The profile is sold in 100 mm units, so buy the total length of all your pieces in units and write each cut length and count in the order comment."
+					}
+				]
+			},
 			"alternative": null,
 			"caption": "2020 aluminum extrusion, cut to 158 mm (piece B).",
 			"docs_page": null,
@@ -29987,15 +31712,55 @@
 			},
 			"name": "Layer vertical support (C)",
 			"category": "Aluminum extrusion (2020)",
-			"description": "2020 aluminum extrusion, cut to 154 mm (piece C).",
+			"description": "2020 aluminum extrusion, piece C, 154 mm long. Vertical support between two layers. One per corner, joining one hex frame to the next. Order it cut to 154 mm. Buy every extrusion piece from the same supplier in one order.",
 			"note": null,
 			"created_at": "2026-08-21",
-			"updated_at": "2026-08-21",
-			"attributes": [],
+			"updated_at": "2026-10-02",
+			"attributes": [
+				{
+					"label": "Profile",
+					"value": "20x20 mm T-slot, slot 6 (6 mm slot)"
+				},
+				{
+					"label": "Alloy",
+					"value": "6063-T5"
+				},
+				{
+					"label": "Finish",
+					"value": "Anodized aluminum"
+				},
+				{
+					"label": "Corners",
+					"value": "Angular (square) T-slot corners preferred"
+				},
+				{
+					"label": "Cut length",
+					"value": "154 mm (6 1/16 in)"
+				},
+				{
+					"label": "Buy as",
+					"value": "Cut to length by the supplier, no saw needed"
+				}
+			],
 			"sheet_qty": null,
 			"sheet_qty_text": null,
 			"stock": null,
-			"sourcing": null,
+			"sourcing": {
+				"vendors": [
+					{
+						"region": "US",
+						"vendor": "TNUTZ",
+						"url": "https://www.tnutz.com/product/exm-2020/",
+						"note": "Order cut to 154 mm. Set Length (in) to 6 and Fractional length to 0.063\" (1/16\"), which is within 0.8 mm of 154 mm. Part EXM-2020."
+					},
+					{
+						"region": "EU",
+						"vendor": "easy-systemprofile.de",
+						"url": "https://easy-systemprofile.de/Profil--Nutprofil--Aluprofil--Aluminiumprofil--Saarland--Aluprofil-20x20--Aluminiumprofil-20x20.html",
+						"note": "Order cut to 154 mm. Cutting is included in the price. The profile is sold in 100 mm units, so buy the total length of all your pieces in units and write each cut length and count in the order comment."
+					}
+				]
+			},
 			"alternative": null,
 			"caption": "2020 aluminum extrusion, cut to 154 mm (piece C).",
 			"docs_page": null,
@@ -30016,15 +31781,55 @@
 			},
 			"name": "Foot extension (D)",
 			"category": "Aluminum extrusion (2020)",
-			"description": "2020 aluminum extrusion, cut to 231 mm (piece D). Replaces piece C on the bottom layer: one D per corner runs from the caster up through that layer's corner to the layer above, so 6 per machine.",
+			"description": "2020 aluminum extrusion, piece D, 231 mm long. Replaces piece C on the bottom layer. One D per corner runs from the caster up through that layer's corner to the layer above, so 6 per machine. Order it cut to 231 mm. Buy every extrusion piece from the same supplier in one order.",
 			"note": null,
 			"created_at": "2026-08-21",
-			"updated_at": "2026-09-06",
-			"attributes": [],
+			"updated_at": "2026-10-02",
+			"attributes": [
+				{
+					"label": "Profile",
+					"value": "20x20 mm T-slot, slot 6 (6 mm slot)"
+				},
+				{
+					"label": "Alloy",
+					"value": "6063-T5"
+				},
+				{
+					"label": "Finish",
+					"value": "Anodized aluminum"
+				},
+				{
+					"label": "Corners",
+					"value": "Angular (square) T-slot corners preferred"
+				},
+				{
+					"label": "Cut length",
+					"value": "231 mm (9 1/8 in)"
+				},
+				{
+					"label": "Buy as",
+					"value": "Cut to length by the supplier, no saw needed"
+				}
+			],
 			"sheet_qty": null,
 			"sheet_qty_text": null,
 			"stock": null,
-			"sourcing": null,
+			"sourcing": {
+				"vendors": [
+					{
+						"region": "US",
+						"vendor": "TNUTZ",
+						"url": "https://www.tnutz.com/product/exm-2020/",
+						"note": "Order cut to 231 mm. Set Length (in) to 9 and Fractional length to 0.125\" (1/8\"), which is within 0.8 mm of 231 mm. Part EXM-2020."
+					},
+					{
+						"region": "EU",
+						"vendor": "easy-systemprofile.de",
+						"url": "https://easy-systemprofile.de/Profil--Nutprofil--Aluprofil--Aluminiumprofil--Saarland--Aluprofil-20x20--Aluminiumprofil-20x20.html",
+						"note": "Order cut to 231 mm. Cutting is included in the price. The profile is sold in 100 mm units, so buy the total length of all your pieces in units and write each cut length and count in the order comment."
+					}
+				]
+			},
 			"alternative": null,
 			"caption": "2020 aluminum extrusion, cut to 231 mm (piece D).",
 			"docs_page": null,
@@ -30045,15 +31850,55 @@
 			},
 			"name": "Interface spoke, long (E)",
 			"category": "Aluminum extrusion (2020)",
-			"description": "2020 aluminum extrusion, cut to 238 mm (piece E). Formerly `extrusion-e`; same part, same `/u/rwuw` link.",
+			"description": "2020 aluminum extrusion, piece E, 238 mm long. Spoke of the interface frame. One E is aligned with each Interface bracket. It is not part of a hex frame. Order it cut to 238 mm. Buy every extrusion piece from the same supplier in one order.",
 			"note": null,
 			"created_at": "2026-08-21",
-			"updated_at": "2026-09-06",
-			"attributes": [],
+			"updated_at": "2026-10-02",
+			"attributes": [
+				{
+					"label": "Profile",
+					"value": "20x20 mm T-slot, slot 6 (6 mm slot)"
+				},
+				{
+					"label": "Alloy",
+					"value": "6063-T5"
+				},
+				{
+					"label": "Finish",
+					"value": "Anodized aluminum"
+				},
+				{
+					"label": "Corners",
+					"value": "Angular (square) T-slot corners preferred"
+				},
+				{
+					"label": "Cut length",
+					"value": "238 mm (9 3/8 in)"
+				},
+				{
+					"label": "Buy as",
+					"value": "Cut to length by the supplier, no saw needed"
+				}
+			],
 			"sheet_qty": null,
 			"sheet_qty_text": null,
 			"stock": null,
-			"sourcing": null,
+			"sourcing": {
+				"vendors": [
+					{
+						"region": "US",
+						"vendor": "TNUTZ",
+						"url": "https://www.tnutz.com/product/exm-2020/",
+						"note": "Order cut to 238 mm. Set Length (in) to 9 and Fractional length to 0.375\" (3/8\"), which is within 0.8 mm of 238 mm. Part EXM-2020."
+					},
+					{
+						"region": "EU",
+						"vendor": "easy-systemprofile.de",
+						"url": "https://easy-systemprofile.de/Profil--Nutprofil--Aluprofil--Aluminiumprofil--Saarland--Aluprofil-20x20--Aluminiumprofil-20x20.html",
+						"note": "Order cut to 238 mm. Cutting is included in the price. The profile is sold in 100 mm units, so buy the total length of all your pieces in units and write each cut length and count in the order comment."
+					}
+				]
+			},
 			"alternative": null,
 			"caption": "2020 aluminum extrusion, cut to 238 mm (piece E).",
 			"docs_page": null,
@@ -30074,15 +31919,55 @@
 			},
 			"name": "Interface vertical support (F)",
 			"category": "Aluminum extrusion (2020)",
-			"description": "2020 aluminum extrusion, cut to 274 mm (piece F). Formerly `extrusion-f`; same part, same `/u/dfbb` link.",
+			"description": "2020 aluminum extrusion, piece F, 274 mm long. Vertical support at the interface. One F per corner stands in an Interface bracket and runs down to the top layer. Order it cut to 274 mm. Buy every extrusion piece from the same supplier in one order.",
 			"note": null,
 			"created_at": "2026-08-21",
-			"updated_at": "2026-09-06",
-			"attributes": [],
+			"updated_at": "2026-10-02",
+			"attributes": [
+				{
+					"label": "Profile",
+					"value": "20x20 mm T-slot, slot 6 (6 mm slot)"
+				},
+				{
+					"label": "Alloy",
+					"value": "6063-T5"
+				},
+				{
+					"label": "Finish",
+					"value": "Anodized aluminum"
+				},
+				{
+					"label": "Corners",
+					"value": "Angular (square) T-slot corners preferred"
+				},
+				{
+					"label": "Cut length",
+					"value": "274 mm (10 13/16 in)"
+				},
+				{
+					"label": "Buy as",
+					"value": "Cut to length by the supplier, no saw needed"
+				}
+			],
 			"sheet_qty": null,
 			"sheet_qty_text": null,
 			"stock": null,
-			"sourcing": null,
+			"sourcing": {
+				"vendors": [
+					{
+						"region": "US",
+						"vendor": "TNUTZ",
+						"url": "https://www.tnutz.com/product/exm-2020/",
+						"note": "Order cut to 274 mm. Set Length (in) to 10 and Fractional length to 0.813\" (13/16\"), which is within 0.8 mm of 274 mm. Part EXM-2020."
+					},
+					{
+						"region": "EU",
+						"vendor": "easy-systemprofile.de",
+						"url": "https://easy-systemprofile.de/Profil--Nutprofil--Aluprofil--Aluminiumprofil--Saarland--Aluprofil-20x20--Aluminiumprofil-20x20.html",
+						"note": "Order cut to 274 mm. Cutting is included in the price. The profile is sold in 100 mm units, so buy the total length of all your pieces in units and write each cut length and count in the order comment."
+					}
+				]
+			},
 			"alternative": null,
 			"caption": "2020 aluminum extrusion, cut to 274 mm (piece F).",
 			"docs_page": null,
@@ -30102,15 +31987,55 @@
 			},
 			"name": "C-channel 1 support leg (J)",
 			"category": "Aluminum extrusion (2020)",
-			"description": "2020 aluminum extrusion, 228 mm, piece J on the framing list. C-channel 1's three support legs, standing in its layout guide. C-channels 2 and 3 use printed legs instead, so this is 3 per machine.",
+			"description": "2020 aluminum extrusion, piece J, 228 mm long. Support leg for C-channel 1. C-channel 1 stands on three of these, held by their own weight, so this is 3 per machine. C-channels 2 and 3 use printed legs and need none. Order it cut to 228 mm. Buy every extrusion piece from the same supplier in one order.",
 			"note": null,
 			"created_at": "2026-09-02",
-			"updated_at": "2026-09-07",
-			"attributes": [],
+			"updated_at": "2026-10-02",
+			"attributes": [
+				{
+					"label": "Profile",
+					"value": "20x20 mm T-slot, slot 6 (6 mm slot)"
+				},
+				{
+					"label": "Alloy",
+					"value": "6063-T5"
+				},
+				{
+					"label": "Finish",
+					"value": "Anodized aluminum"
+				},
+				{
+					"label": "Corners",
+					"value": "Angular (square) T-slot corners preferred"
+				},
+				{
+					"label": "Cut length",
+					"value": "228 mm (9 in)"
+				},
+				{
+					"label": "Buy as",
+					"value": "Cut to length by the supplier, no saw needed"
+				}
+			],
 			"sheet_qty": null,
 			"sheet_qty_text": null,
 			"stock": null,
-			"sourcing": null,
+			"sourcing": {
+				"vendors": [
+					{
+						"region": "US",
+						"vendor": "TNUTZ",
+						"url": "https://www.tnutz.com/product/exm-2020/",
+						"note": "Order cut to 228 mm. Set Length (in) to 9 and Fractional length to 0.000\", which is within 0.8 mm of 228 mm. Part EXM-2020."
+					},
+					{
+						"region": "EU",
+						"vendor": "easy-systemprofile.de",
+						"url": "https://easy-systemprofile.de/Profil--Nutprofil--Aluprofil--Aluminiumprofil--Saarland--Aluprofil-20x20--Aluminiumprofil-20x20.html",
+						"note": "Order cut to 228 mm. Cutting is included in the price. The profile is sold in 100 mm units, so buy the total length of all your pieces in units and write each cut length and count in the order comment."
+					}
+				]
+			},
 			"alternative": null,
 			"caption": "2020 aluminum extrusion, 228 mm, piece J on the framing list.",
 			"docs_page": null,

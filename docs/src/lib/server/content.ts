@@ -122,7 +122,11 @@ for (const [path, raw] of Object.entries(dataFiles)) {
 				vendors: (h.sourcing?.vendors ?? []).map((v: any) => ({
 					vendor: v.vendor,
 					region: v.region,
-					url: v.affiliate_url ?? v.url
+					url: v.affiliate_url ?? v.url,
+					// Set only on a row that carries the project's referral tag: the
+					// modal shows the untagged listing next to it.
+					plain_url: v.affiliate_url ? v.url : undefined,
+					note: v.note
 				})),
 				stock_label: h.stock?.unit_label,
 				sheet_qty_text: h.sheet_qty_text,
@@ -468,7 +472,7 @@ export type PartDetail = {
 	low_tolerance_note?: string;
 	requires?: { id: string; name: string; qty: number }[];
 	// cots
-	vendors?: { vendor: string; region?: string; url: string }[];
+	vendors?: { vendor: string; region?: string; url: string; plain_url?: string; note?: string }[];
 	stock_label?: string;
 	sheet_qty_text?: string;
 	// laser-cut

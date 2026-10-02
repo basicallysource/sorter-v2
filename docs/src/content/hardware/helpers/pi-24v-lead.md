@@ -8,12 +8,8 @@ kicker: Helpers — Orange Pi 24 V lead
 lede: A barrel plug onto the buck converter's own input wires, so the Pi runs off the same 24 V supply as everything else. One per machine.
 permalink: /hardware/helpers/pi-24v-lead/
 author: effreek
-contributors: [brickcyclealice]
-warning: >-
-  **The numbers are not all settled.** One builder has made this lead, and the 100 mm below is her
-  converter's own lead length rather than a specification. The finished length has never been measured
-  on a mounted machine, and the 22 AWG (0.33 mm²) is a **GUESS** in the
-  [wire harness]({{ '/hardware/electronics/wire-harness/' | relative_url }}) notes, marked as one on the drawing.
+contributors: [brickcyclealice, barthel]
+last_verified: 2026-10-01
 parts_needed:
   - part: buck-24v-5v-usbc
     qty: 1

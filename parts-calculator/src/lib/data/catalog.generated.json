@@ -29072,6 +29072,16 @@
 						"as_of": "2026-09-09",
 						"affiliate_url": "https://www.amazon.com/dp/B0GJ8PP3LH?tag=sorterv2-20",
 						"note": "1.5 m, the long end of the range. Any 16-pin FC-to-FC cable between 1.2 m and 1.5 m works."
+					},
+					{
+						"region": "EU",
+						"vendor": "Amazon DE",
+						"url": "https://www.amazon.de/dp/B00Y20XY2U",
+						"price": 7.59,
+						"pack_qty": 1,
+						"currency": "EUR",
+						"as_of": "2026-10-02",
+						"note": "sourcing map, 16 pin female to female, 28 AWG. The cable is 118 cm, 2 cm under the 1.2 m the range starts at."
 					}
 				]
 			},

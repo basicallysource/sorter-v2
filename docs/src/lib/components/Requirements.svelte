@@ -189,6 +189,25 @@
 											are skipping it.
 										</p>
 									</Popover>{/if}
+								{#if part.temporary}<Popover
+										class="part-card-optional-pop"
+										label="Temporary part"
+										width="17rem"
+									>
+										{#snippet trigger({ toggle, props })}
+											<button
+												type="button"
+												class="part-card-optional"
+												onclick={toggle}
+												aria-label="Temporary part"
+												{...props}>Temporary</button
+											>
+										{/snippet}
+										<p>
+											<strong>Temporary</strong><br />Only used while you build this part, then taken
+											out again. It is not part of the machine and is not in the parts list totals.
+										</p>
+									</Popover>{/if}
 								{#if part.note ?? part.caption}<span class="part-card-caption">{part.note ?? part.caption}</span>{/if}
 							{/if}
 						</li>

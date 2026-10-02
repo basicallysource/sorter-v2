@@ -168,7 +168,7 @@ Everything in steps 1 to 5 plugs into this board. It is drawn from above, the wa
 
 {% include step.html n="1" title="Plug 24 V into the control board" %}
 
-The board's power input is `J1`, the big 2-pin socket in one corner of the board. It is the only connector of that size on the board, and the plug only goes in one way up. Pin 1 is +24 V and pin 2 is ground, and both are fused on the board.
+The board's power input is `J1`, the big 2-pin socket in one corner of the board. It is the only connector of that size on the board, and the plug only goes in one way up. Pin 1 is +24 V and pin 2 is ground, and both are fused on the board. The board prints `24V` beside pin 1 and `GND` beside pin 2: the red wire goes on the `24V` side.
 
 {% include step.html n="2" title="Plug in the five stepper cables" %}
 
@@ -212,7 +212,7 @@ The board has four LED ports. The fan in the housing lid is already on one of th
   </tbody>
 </table>
 
-The board prints `+V` beside one pin of each port and `GND` beside the other. The red wire goes to `+V`.
+The board prints `+V` beside the pin on the square pad of each port and `GND` beside the round one. The red wire goes to `+V`. The Dupont housing has no key and fits either way up, and the arrow moulded on it is not a polarity mark, so look at which pin the red wire is over before you push it on.
 
 <div class="callout">
   <span class="callout-icon" aria-hidden="true">›</span>

@@ -52,8 +52,13 @@ under <b>Re-house the lead</b>, below. Motor positions 2 and 5 stay empty.
 
 ## Re-house the lead the motor came with
 
+<div class="callout callout-warning">
+  <span class="callout-icon" aria-hidden="true">⚠</span>
+  <p><b>Check the wire diagram that came with your motor before you cut anything.</b> StepperOnline supplies a small wire diagram with the motor that names the wire in every position of the 6-pin housing, with its colour and its coil (A+, A-, B+, B-). The figure below is drawn from the datasheet for the 17HE15-1504S, and the wire colours and the position 1 end have not been checked against a real motor. Lay the motor's own drawing next to this figure: positions 1 and 4 must be the same coil, and positions 3 and 6 the other. If your drawing differs, follow it. A photo of that drawing from a real motor is still missing from this page, so if you have one, please post it in the Discord.</p>
+</div>
+
 <figure class="single-figure">
-  <img class="doc-figure" src="https://assets.basically.website/sorter-docs/channel-stepper-lead-rehouse-keyed-full-png-full-9201a116b599.png" alt="Two connector housings drawn to shape with four wires between them. On the left the 6-pin housing at the motor end, positions 1 to 6 from the top, positions 2 and 5 empty and labelled so, and wires in positions 1, 3, 4 and 6, with a note that position 1 is the end on motor pin 1. On the right the 4-pin PHR-4 at the board end, positions 1 to 4 from the top, with a note that position 1 is the end over the square pad. The wire in motor position 1 goes to PHR-4 position 1, motor 4 goes to PHR-4 position 2, motor 3 to PHR-4 position 3 and motor 6 to PHR-4 position 4, so the wires from motor positions 3 and 4 cross. Positions 1 and 2 on the PHR-4 are marked coil A and positions 3 and 4 coil B.">
+  <img class="doc-figure" src="https://assets.basically.website/sorter-docs/channel-stepper-lead-rehouse-datasheet-style-png-full-54ea4face49d.png" alt="A line drawing in the style of the StepperOnline cable drawing. On the left the 6-pin PHR-6 housing at the motor end, positions 6 at the top down to 1 at the bottom, with the labels RED B-, empty, BLU A-, GRN B+, empty, BLK A+ beside positions 6, 5, 4, 3, 2 and 1. On the right the 4-pin PHR-4 at the board end, positions 4 at the top down to 1 at the bottom, labelled coil B from motor 6, coil B from motor 3, coil A from motor 4 and coil A from motor 1. Four wires join them: motor 6 to PHR-4 position 4, motor 4 to position 2, motor 3 to position 3 and motor 1 to position 1, so the wires from motor positions 4 and 3 cross."">
   <figcaption>Follow the position, not the colour. Each wire goes from the motor-end position on the left to the PHR-4 position on the right.</figcaption>
 </figure>
 

@@ -173,8 +173,6 @@ for (const [path, raw] of Object.entries(dataFiles)) {
 			image: lc.photo,
 			category: 'Laser-cut parts',
 			caption: lc.caption,
-			variant_group: lc.variant_group,
-			variant_name: lc.variant_name,
 			detail: {
 				kind: 'lasercut',
 				uid: lc.uid,
@@ -431,7 +429,6 @@ export type ResolvedPart = {
 	// foldVariants.
 	variant_group?: string | null;
 	variant_name?: string | null;
-	// Heading over the choice the family offers ("One of these per layer").
 	/** Everything the part modal shows, taken straight off the calculator's
 	 *  generated catalog so the two never drift. Absent on a missing part. */
 	detail?: PartDetail;
@@ -480,14 +477,12 @@ export type PartDetail = {
 /** One alternative within a category: every part a reader takes if they pick
  *  this variant. `label` is the catalog's variant_name ("Half", "Third"). */
 export type PartsChoice = { label: string; parts: ResolvedPart[] };
-/** One family's alternatives, side by side under a heading. */
-export type PartsChoiceSet = { heading: string; options: PartsChoice[] };
 export type PartsGroup = {
 	category: string;
 	parts: ResolvedPart[];
 	// Rendered after `parts` as "one of these per layer", each choice separated
 	// by an "or". Empty on every page that lists at most one variant per group.
-	choices: PartsChoiceSet[];
+	choices: PartsChoice[];
 };
 export type ResolvedPerson = { name: string; url?: string };
 
@@ -499,50 +494,36 @@ function resolvePeople(ids: unknown): ResolvedPerson[] {
 	});
 }
 
-/** Move a variant family out of the flat card lists and into a choice, so the
- *  panel can show "Half OR Third" instead of every variant side by side as
- *  though a reader needed all of them. A page listing all five bins was
- *  reading as 30 bins where a layer takes 12 or 18.
+/** Move a category's one-of-these-per-layer families out of its flat card list
+ *  and into `choices`, so the panel can show "Half OR Third" instead of every
+ *  variant side by side as though a reader needed all of them. A page listing
+ *  all five bins was reading as 30 bins where a layer takes 12 or 18.
  *
- *  Only folds a family the page offers a real choice from: one variant_name is
- *  not a choice, so a page listing just the half bins renders unchanged. A
- *  family's variants can sit in different categories (laser-cut plates or
- *  printed pieces for the same plate); the choice renders in the category of
- *  the family's first listed part. Order within a choice follows the page's own
- *  parts_needed, and the choices render above the category's plain cards:
- *  picking a variant is the decision that comes before shopping the rest. */
-const VARIANT_HEADINGS: Record<string, string> = {
-	bin: 'One of these per layer',
-	funnel: 'One of these per layer',
-	'cable-cage-plates': 'Cable cage plates: laser cut or 3D printed'
-};
-
-function foldVariants(groups: PartsGroup[], listed: ResolvedPart[]): void {
-	type Family = { home: PartsGroup; variants: Map<string, ResolvedPart[]> };
-	const byFamily = new Map<string, Family>();
-	for (const p of listed) {
+ *  Only folds a group the page offers a real choice from: one variant_name is
+ *  not a choice, so a page listing just the half bins renders unchanged. Order
+ *  within a choice follows the page's own parts_needed, and the choices render
+ *  above the category's plain cards: picking a variant is the decision that
+ *  comes before shopping the rest, and both affected pages list their variants
+ *  first. */
+function foldVariants(group: PartsGroup): void {
+	const byGroup = new Map<string, Map<string, ResolvedPart[]>>();
+	for (const p of group.parts) {
 		if (!p.variant_group || !p.variant_name) continue;
-		let fam = byFamily.get(p.variant_group);
-		if (!fam) {
-			const home = groups.find((g) => g.parts.includes(p));
-			if (!home) continue;
-			byFamily.set(p.variant_group, (fam = { home, variants: new Map() }));
-		}
-		const bucket = fam.variants.get(p.variant_name);
+		let variants = byGroup.get(p.variant_group);
+		if (!variants) byGroup.set(p.variant_group, (variants = new Map()));
+		const bucket = variants.get(p.variant_name);
 		if (bucket) bucket.push(p);
-		else fam.variants.set(p.variant_name, [p]);
+		else variants.set(p.variant_name, [p]);
 	}
 	const folded = new Set<ResolvedPart>();
-	for (const [group, fam] of byFamily) {
-		if (fam.variants.size < 2) continue;
-		const options: PartsChoice[] = [];
-		for (const [label, parts] of fam.variants) {
-			options.push({ label, parts });
+	for (const variants of byGroup.values()) {
+		if (variants.size < 2) continue;
+		for (const [label, parts] of variants) {
+			group.choices.push({ label, parts });
 			for (const p of parts) folded.add(p);
 		}
-		fam.home.choices.push({ heading: VARIANT_HEADINGS[group] ?? 'Choose one', options });
 	}
-	if (folded.size) for (const g of groups) g.parts = g.parts.filter((p) => !folded.has(p));
+	if (folded.size) group.parts = group.parts.filter((p) => !folded.has(p));
 }
 
 function resolveParts(partsNeeded: any[]): { groups: PartsGroup[]; conflicts: ResolvedPart[] } {
@@ -577,7 +558,7 @@ function resolveParts(partsNeeded: any[]): { groups: PartsGroup[]; conflicts: Re
 		if (!g) groups.push((g = { category: p.category, parts: [], choices: [] }));
 		g.parts.push(p);
 	}
-	foldVariants(groups, resolved);
+	for (const g of groups) foldVariants(g);
 	return { groups, conflicts: resolved.filter((p) => p.conflicts?.length) };
 }
 

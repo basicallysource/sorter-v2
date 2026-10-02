@@ -43,7 +43,7 @@ There are two separate connections. They are easy to mix up.
 
 The full list of what is sent, and what you can turn off, is on [What leaves the machine]({{ '/sorter/what-leaves-the-machine/' | relative_url }}).
 
-Your Hive account also has a role. A normal account sees its own machines and its own samples. The **reviewer** role lets you vote on all samples. The Basically team gives out this role.
+A normal Hive account sees its own machines and its own samples. The people who check samples are called reviewers, and they see samples from every machine. Most users are not reviewers. [Reviewing samples]({{ '/hive/review-samples/' | relative_url }}) explains who they are and how they work.
 
 ## What a sample is
 
@@ -87,4 +87,4 @@ New piece-finding models are trained from Accepted samples. Better outlines in t
   <li><strong>The Records page</strong> on your machine is where you correct what it named. It is not part of Hive's review.</li>
 </ul>
 
-The next page is [Reviewing samples]({{ '/hive/review-samples/' | relative_url }}). It shows how to review well, and what to check when the queue is empty.
+The next page is [Reviewing samples]({{ '/hive/review-samples/' | relative_url }}). It explains who the reviewers are, how they work, and what it means for you.

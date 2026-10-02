@@ -2726,7 +2726,7 @@
           "date": "2026-09-26",
           "message": "The fan is held by two printed fan retainers instead of screws through its own corners: each retainer lies across one edge of the fan, locates on two pegs in the fan's corner holes, and screws to the cover with two M3 x 8 countersunk, self-tapping into 2.8 mm pilots in four new 8 mm posts beside the fan. The four old self-tapping holes for the fan are filled. The five openings over the stepper connectors become 20.2 mm wide bays, open through the top as well as the side. An old cover still works in its place, carrying the fan the old way on four M3 x 12 button heads.",
           "breaking": false,
-          "commit": null,
+          "commit": "0f6a3ba1",
           "onshape_version": "https://cad.onshape.com/documents/d8339d00eaef603e65e5e050/v/32e64a3fe696f998a73a0f9f/e/43b5beb92ddd433860558e91"
         }
       ]
@@ -2763,7 +2763,7 @@
           "date": "2026-09-26",
           "message": "The reset button is recessed: the plunger's head is cut down by 3.2 mm, so its top sits 0.75 mm below the cover's surface instead of standing proud of it. An old plunger still fits and still works, standing proud as before.",
           "breaking": false,
-          "commit": null,
+          "commit": "0f6a3ba1",
           "onshape_version": "https://cad.onshape.com/documents/d8339d00eaef603e65e5e050/v/32e64a3fe696f998a73a0f9f/e/43b5beb92ddd433860558e91"
         }
       ]
@@ -2800,7 +2800,7 @@
           "date": "2026-09-26",
           "message": "An 11.6 mm square pocket, 0.8 mm deep, in its top face around the plunger, which goes with the recessed plunger. An old retainer still fits and holds either plunger.",
           "breaking": false,
-          "commit": null,
+          "commit": "0f6a3ba1",
           "onshape_version": "https://cad.onshape.com/documents/d8339d00eaef603e65e5e050/v/32e64a3fe696f998a73a0f9f/e/43b5beb92ddd433860558e91"
         }
       ]
@@ -3229,7 +3229,7 @@
           "date": "2026-09-26",
           "message": "Room behind the mains inlet, for sorter-v2#738. The bottom rail behind the front panel is cut back over the 53.5 mm behind the inlet, down to 5 mm below the lower screw hole's centreline, so the lower inlet screw and a nut on it clear the rail. A 12 mm wide notch, 1.1 mm deep, in the lip under the panel at the inlet clears the inlet's lower flange. The four holes where this module meets the rear tray, two in each end wall, get a countersunk seat, with a clear bore in front of each for the driver. Nothing that mates with the rear tray, the lids or the panel moved, so an old print still fits: the nut behind the lower inlet screw goes on, just tightly.",
           "breaking": false,
-          "commit": null,
+          "commit": "caa5c32c",
           "onshape_version": "https://cad.onshape.com/documents/d8339d00eaef603e65e5e050/v/32e64a3fe696f998a73a0f9f/e/52c259ec13c7da4fe13e8a63"
         }
       ]
@@ -3308,7 +3308,7 @@
           "date": "2026-09-26",
           "message": "The mains inlet's two screw holes are 2.8 mm pilots through the panel's full 4.9 mm, where they were 3.2 mm clearance, so an M3 cuts its own thread instead of depending on how tight a printer makes a 3.2 mm hole (sorter-v2#738). The outline, the cutouts and the which-way-up difference between the two holes' edge distances are unchanged. An old print still works, with a nut behind each inlet screw.",
           "breaking": false,
-          "commit": null,
+          "commit": "caa5c32c",
           "onshape_version": "https://cad.onshape.com/documents/d8339d00eaef603e65e5e050/v/32e64a3fe696f998a73a0f9f/e/52c259ec13c7da4fe13e8a63"
         }
       ]
@@ -9842,10 +9842,43 @@
         },
         {
           "version": "3",
+          "uid": "3pju",
           "date": "2026-09-25",
           "message": "The top plate bolts to the Interface NEMA 23 bracket with 2 screws through holes S2 and S3, not 6. The two M5 inserts that take them were measured off the bracket's STL: Diameter 6.40 x 10.2 mm, 30 mm apart on its centre line, opening upward at the plate's underside, and they are the only upward-opening M5 pockets on the part. The joint also moves to the screw top-interface.md actually names, M5 x 22 countersunk, which was already counted once on the interface node; it is counted here instead, because this is the node where both the plate and the interface are members. Confirmed by barthel.",
           "breaking": false,
-          "commit": null
+          "commit": null,
+          "lines": [
+            {
+              "part": "top-plate",
+              "qty": 1,
+              "uid": "1g22"
+            },
+            {
+              "assembly": "interface",
+              "qty": 1,
+              "uid": "j0l1"
+            },
+            {
+              "assembly": "layer",
+              "qty": "non-bottom-layers",
+              "uid": "5nnb"
+            },
+            {
+              "assembly": "bottom-layer",
+              "qty": 1,
+              "uid": "scr8"
+            },
+            {
+              "assembly": "bottom-interface",
+              "qty": 1,
+              "uid": "7lk2"
+            },
+            {
+              "part": "scr-m5-22-cs",
+              "qty": 2,
+              "uid": "hr49"
+            }
+          ]
         },
         {
           "version": "4",
@@ -14902,10 +14935,33 @@
         },
         {
           "version": "5",
+          "uid": "40ok",
           "date": "2026-09-26",
           "message": "The powered USB hub and the 24 V to 5 V buck converter move into the Orange Pi housing (orange-pi-mount v5), whose roof clamps both. Same parts, same counts across the machine; only where they sit in the tree changed. The hub's 24 V lead stays here.",
           "breaking": false,
-          "commit": null
+          "commit": null,
+          "lines": [
+            {
+              "assembly": "meanwell-psu-box",
+              "qty": 1,
+              "uid": "dxsv"
+            },
+            {
+              "assembly": "ctrl-board-mount",
+              "qty": 1,
+              "uid": "y2yu"
+            },
+            {
+              "assembly": "orange-pi-mount",
+              "qty": 1,
+              "uid": "hxqn"
+            },
+            {
+              "assembly": "harness-hub-24v",
+              "qty": 1,
+              "uid": "8b59"
+            }
+          ]
         },
         {
           "version": "6",

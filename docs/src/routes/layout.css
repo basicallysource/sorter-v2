@@ -2632,3 +2632,76 @@ blockquote {
 	color: var(--surface);
 	background: var(--ink);
 }
+
+/* ── Image lightbox ────────────────────────────────────────────────────── */
+/* ImageLightbox.svelte. Images in the article body that are not already a
+   link get .zoomable from the page component. */
+
+.md-content img.zoomable {
+	cursor: zoom-in;
+}
+
+.lightbox {
+	position: fixed;
+	inset: 0;
+	width: 100%;
+	height: 100%;
+	max-width: 100%;
+	max-height: 100%;
+	padding: clamp(12px, 3vh, 32px) 16px;
+	background: transparent;
+	border: none;
+	cursor: zoom-out;
+	flex-direction: column;
+	align-items: center;
+	justify-content: center;
+	gap: 12px;
+}
+
+.lightbox:not([open]) {
+	display: none;
+}
+
+.lightbox[open] {
+	display: flex;
+}
+
+.lightbox::backdrop {
+	background: rgba(0, 0, 0, 0.8);
+}
+
+.lightbox-img {
+	display: block;
+	min-height: 0;
+	max-width: 100%;
+	max-height: calc(100% - 48px);
+	object-fit: contain;
+	background: var(--surface);
+	border: 1px solid var(--line);
+}
+
+.lightbox-bar {
+	display: flex;
+	align-items: center;
+	gap: 16px;
+	font-size: 0.875rem;
+}
+
+.lightbox-bar a {
+	color: #fff;
+	text-decoration: underline;
+	cursor: pointer;
+}
+
+.lightbox-close {
+	padding: 4px 12px;
+	font: inherit;
+	color: var(--ink);
+	background: var(--surface);
+	border: 1px solid var(--line);
+	cursor: pointer;
+}
+
+.lightbox-close:hover {
+	border-color: var(--muted);
+}

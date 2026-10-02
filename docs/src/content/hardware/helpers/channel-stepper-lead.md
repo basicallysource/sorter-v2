@@ -17,7 +17,7 @@ parts_needed:
     qty: 20
   - part: sleeving-braided-6mm
     qty: 1
-tools_needed: ["Multimeter, to check the finished lead", "Side cutters, to cut the Dupont housing off", "Wire strippers, for 26 AWG (0.13 mm²) wire", "Crimping pliers for open-barrel contacts, with a die for 24 AWG (0.20 mm²) wire"]
+tools_needed: ["Multimeter, to check the finished lead", "Side cutters, to cut the Dupont housing off", "Wire strippers, for 26 AWG (0.13 mm²) wire", "Crimping pliers for open-barrel contacts, with a die for 24 AWG (0.20 mm²) wire", "Optional, for the sleeving: scissors and tape, or a hot knife"]
 ---
 
 These are `S1` to `S4` on the [harness drawings]({{ '/hardware/parts/harness-order/#channel-stepper' | relative_url }}), one for each of the four c-channel motors. **Four per machine**, all identical. The crossover has been built on a motor's own lead by swapping the two middle contacts in its Dupont plug; this page makes the same lead with a PH housing instead of the plug.
@@ -78,21 +78,21 @@ under <b>Re-house the lead</b>, below. Motor positions 2 and 5 stay empty.
 ## Sleeving (optional)
 
 <div class="callout">
-  <p><b>You can skip this and the lead works the same.</b> The sleeving is on the parts list as optional. It keeps the four wires of each lead together as one tidy cable, and it protects them where the lead runs along the frame and past the moving parts. The harness drawing lists sleeving on these four leads and on no other lead in the machine, as PVC sleeving. The parts list sells a braided one that does the same job.</p>
+  <p><b>You can skip this and the lead works the same.</b> The sleeving is on the parts list as optional. It keeps the four wires of each lead together as one tidy cable, and it protects them where the lead runs along the frame and past the moving parts. The parts list sells a braided sleeving for it.</p>
 </div>
 
-**Where:** over the four wires of each lead, from just behind the 6-pin motor housing to just short of where the wires fan out into the PHR-4. One metre per lead, four metres for the machine. Nothing else on the machine is sleeved on the drawings.
+**Where:** over the four wires of each lead, from just behind the 6-pin motor housing to just short of where the wires fan out into the PHR-4. One metre per lead, four metres for the machine.
 
 **How:**
 
 <ol class="numbered-steps">
   <li>Push the braid together lengthwise to open it: it widens as it shortens. Feed the four wires into it together, so none of them is left outside.</li>
-  <li>Cut it to length with a hot knife or a soldering iron with a blade tip, so the cut fuses. Scissors leave a braid that frays and unravels. With no hot tool, wrap a turn of tape around the braid at the cut, cut through the middle of the tape, and leave the tape on.</li>
+  <li>Cut it to length with a hot knife or a soldering iron with a blade tip, so the cut melts shut. Plain scissors leave the braid fraying. With no hot tool, wrap a turn of tape around the braid where you will cut, cut through the middle of the tape with scissors, and leave the tape on.</li>
   <li>Stop the sleeving 5 to 10 mm short of the PHR-4 and short of the 6-pin housing, so the crimped contacts and the housing can flex and the sleeving never crowds into a housing.</li>
   <li>Hold each end with a small piece of heat shrink or a turn of tape, so that the braid cannot creep back along the wires.</li>
 </ol>
 
-**Leave the sleeving loose enough to bend.** The anchor under <b>How long</b>, below, goes on over the sleeving: pull the tie snug, not hard enough to dimple the braid.
+**Leave the sleeving loose enough to bend.** The anchor under <b>How long</b>, below, goes on over the sleeving: pull the tie tight enough to hold, but not so tight that it crushes the braid.
 
 ## How long
 

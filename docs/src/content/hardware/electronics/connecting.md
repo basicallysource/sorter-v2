@@ -42,7 +42,7 @@ If a cable is still missing, seven of them have a page that builds them: the [PS
   <thead><tr><th>Cable</th><th>From, and its connector</th><th>To, and its connector</th></tr></thead>
   <tbody>
     <tr><td>24 V, control board</td><td>PSU box jack, male DC barrel</td><td>Board <code>J1</code>, JST-VH 2-pin (<a href="{{ '/hardware/helpers/board-24v-lead/' | relative_url }}">make the control board's 24 V lead</a>)</td></tr>
-    <tr><td>24 V, USB hub</td><td>PSU box jack, male DC barrel</td><td>Hub DC input, male DC barrel</td></tr>
+    <tr><td>24 V, USB hub</td><td>PSU box jack, male DC barrel</td><td>Hub 2-pin power terminal, bare wires (or the hub's DC jack, with a male to male lead)</td></tr>
     <tr><td>24 V, Orange Pi</td><td>PSU box jack, male DC barrel</td><td>Buck converter, then USB-C into <code>PWR IN</code> (<a href="{{ '/hardware/helpers/pi-24v-lead/' | relative_url }}">make the Orange Pi's 24 V lead</a>)</td></tr>
     <tr><td>Channel steppers (×4)</td><td>Board <code>J27</code> / <code>J31</code> / <code>J35</code> / <code>J39</code>, JST-PH 4-pin</td><td>The motor's own JST-PH 6-pin socket (<a href="{{ '/hardware/helpers/channel-stepper-lead/' | relative_url }}">make the channel stepper leads</a>)</td></tr>
     <tr><td>Chute stepper</td><td>Board <code>J23</code>, 4-pin JST-PH (or <code>J24</code> beside it, 4-pin Dupont on 2.54 mm pins)</td><td>The motor's flying leads, spliced to a thinner tail and crimped into a PH housing (<a href="{{ '/hardware/helpers/chute-stepper-lead/' | relative_url }}">make the chute stepper lead</a>)</td></tr>

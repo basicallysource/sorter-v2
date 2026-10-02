@@ -18,6 +18,8 @@ warning: >-
 parts_needed:
   - part: usb-hub-powered-24v
     qty: 1
+  - part: dc-lead-5521-mm
+    qty: 1
   - part: buck-24v-5v-usbc
     qty: 1
   - part: cable-micro-usb
@@ -65,11 +67,11 @@ The buck converter is the only bought part of the three. The leads themselves ar
 
 <dl class="spec-list">
   <dt><code>W1</code>, control board</dt><dd>18 AWG (0.82 mm²), 36 in. Male DC barrel plug at the PSU end, JST-VH 2-pin (VHR-2) housing at the board end. No supplier sells that pair of ends, so this is one you make: <a href="{{ '/hardware/helpers/board-24v-lead/' | relative_url }}">make the control board's 24 V lead</a>.</dd>
-  <dt><code>W2</code>, USB hub</dt><dd>22 AWG (0.33 mm²), 12 in, with a male DC barrel plug at <i>both</i> ends. The hub's input is an ordinary female barrel socket, so buy this one ready made.</dd>
+  <dt><code>W2</code>, USB hub</dt><dd>22 AWG (0.33 mm²), 2 ft, with a male DC barrel plug at <i>both</i> ends. The hub's input is an ordinary female barrel socket, so buy this one ready made: a male to male 5.5 x 2.1 mm lead is an ordinary stocked cable, and the parts list has one. The plugs are wired tip to tip and sleeve to sleeve, so the centre pin is +24 V at both ends. <b>Instead,</b> the hub also has a 2-pin screw terminal for power on its circuit board. You can screw the bare wires of one moulded barrel plug into it, matching the <code>+</code> and <code>-</code> printed on the board, and plug that into the PSU box. The plug's centre pin is +24 V: find which wire is the tip with the <a href="{{ '/hardware/helpers/multimeter/' | relative_url }}#continuity-for-tracing-a-cable">multimeter on continuity</a> before you tighten anything.</dd>
   <dt><code>W3</code>, Orange Pi</dt><dd>22 AWG (0.33 mm²), 6 in, a male DC barrel plug onto the buck converter's input wires. The buck's USB-C lead is the other half of the run.</dd>
 </dl>
 
-The machine needs four male barrel plugs for these three (`W2` takes one at each end), plus, if you fit the optional LED plug and socket, one on each of the three LED pigtails. [Ordering the wire harness]({{ '/hardware/parts/harness-order/' | relative_url }}) has a drawing of every cable in the machine, with the gauge, the length and both end connectors on it.
+The machine needs two male barrel plugs for `W1` and `W3` (`W2` is bought with its own), plus, if you fit the optional LED plug and socket, one on each of the three LED pigtails. [Ordering the wire harness]({{ '/hardware/parts/harness-order/' | relative_url }}) has a drawing of every cable in the machine, with the gauge, the length and both end connectors on it.
 
 <div class="callout callout-warning">
   <span class="callout-icon" aria-hidden="true">⚠</span>

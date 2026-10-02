@@ -5,49 +5,35 @@ type: how-to
 section: hardware
 slug: helper-channel-stepper-lead
 kicker: Helpers — Channel stepper leads
-lede: The four leads from the control board to the c-channel motors. Four per machine, all identical, and three ways to make one.
+lede: The four leads from the control board to the c-channel motors. Four per machine, all identical, each made by replacing the Dupont plug on the motor's own lead with a 4-pin JST connector.
 permalink: /hardware/helpers/channel-stepper-lead/
 author: effreek
-contributors: [daddyosbricksbill, spencer, brickcyclealice]
-warning: >-
-  **AI-generated first draft.** Written from the basically board v1.3 board files and the [wire
-  harness]({{ '/hardware/electronics/wire-harness/' | relative_url }}) schedule, not from an actual build. The
-  sockets, the pin order and the crossover are read off the board and the motor and are real.
-  Nobody has made a lead from these steps yet. **The length is unsettled**: the harness drawing
-  says 1 m, the ready-made cable below is 63 cm, and nobody has measured the run on a finished
-  machine.
+contributors: [daddyosbricksbill, spencer, brickcyclealice, barthel]
+last_verified: 2026-10-01
 parts_needed:
   - part: jst-phr-4
     qty: 4
   - part: jst-sph-002t
-    qty: 16
-tools_needed: ["Multimeter, to find the coils and to check the finished lead", "Side cutters, to cut the Dupont housing off or to cut wire to length (the first and third routes)", "Wire strippers, for 24 AWG (0.20 mm²) wire (the first and third routes)", "Crimping pliers for open-barrel contacts, with a die for 24 AWG (0.20 mm²) wire (the first and third routes)", "A fine pick or a sliver of shim, for moving contacts out of a housing (the second route only)", "A ruler or tape measure, to cut the wire to length (the third route only)"]
+    qty: 20
+tools_needed: ["Multimeter, to check the finished lead", "Side cutters, to cut the Dupont housing off", "Wire strippers, for 26 AWG (0.13 mm²) wire", "Crimping pliers for open-barrel contacts, with a die for 24 AWG (0.20 mm²) wire"]
 ---
 
-These are `S1` to `S4` on the [harness drawings]({{ '/hardware/parts/harness-order/#channel-stepper' | relative_url }}), one for each of the four c-channel motors. **Four per machine**, all identical.
+These are `S1` to `S4` on the [harness drawings]({{ '/hardware/parts/harness-order/#channel-stepper' | relative_url }}), one for each of the four c-channel motors. **Four per machine**, all identical. The crossover has been built on a motor's own lead by swapping the two middle contacts in its Dupont plug; this page makes the same lead with a PH housing instead of the plug.
 
 <div class="callout callout-warning">
   <span class="callout-icon" aria-hidden="true">⚠</span>
   <p><b>The lead that comes in the box with the motor is not usable as it comes.</b> Two of its four conductors are in the wrong order for this board, so the driver drives half of one coil against half of the other and the motor buzzes and barely turns. It also ends in a Dupont housing, which does fit the 2.54 mm pins beside each stepper socket, so it looks right. Pull a Dupont contact sideways and its spring lifts off the pin: resistance rises, the joint heats, and it gets worse from there. Two have cooked on running machines.</p>
 </div>
 
-**Both faults are in that one housing.** So there are three ways to get a correct lead. **The first is the one to use**: it keeps the motor's own lead, which is already right at the motor end, and replaces only the board end with four crimped contacts and a PHR-4, and the parts above are for it. It needs a crimp tool. If you do not have one, the second route needs none. The other two say what they need instead.
-
-<dl class="spec-list">
-  <dt>Re-house the motor's lead</dt><dd>Preferred. Keep the lead the motor came with and replace its Dupont end. Tools: side cutters, wire strippers, the crimping pliers and the multimeter.</dd>
-  <dt>Move four contacts</dt><dd>No crimp tool. Start from a ready-made cable and a PHR-6. Tools: the pick and the multimeter.</dd>
-  <dt>Crimp it from wire</dt><dd>Make the whole lead. The same tools as the first route, and a ruler.</dd>
-</dl>
+**Both faults are in that one housing.** So the fix is to replace it: cut the plug off the motor's own lead, crimp a contact onto each of the four wires and load them into a 4-pin PHR-4 in the order below. The motor end of the lead is already right and stays as it is. **Per lead: one `jst-phr-4` and four `jst-sph-002t` contacts**, so sixteen contacts for the machine. The parts list says twenty: four spares, because the first crimps on a contact this small are easy to spoil. You also need a crimp tool for open-barrel contacts. You do not need a ready-made cable or a PHR-6.
 
 ## The two ends
 
 <dl class="spec-list">
   <dt>Board end</dt><dd>JST <b>PH</b> housing, 4-pin (PHR-4), 2.0 mm pitch, into <code>J27</code>, <code>J31</code>, <code>J35</code> or <code>J39</code>. Positions 1 to 4 are <code>A2</code>, <code>A1</code>, <code>B1</code>, <code>B2</code>.</dd>
-  <dt>Motor end</dt><dd>JST <b>PH</b> housing, 6-pin (PHR-6), into the socket on the motor can. Only four of the six positions carry a contact.</dd>
-  <dt>Wire</dt><dd>24 AWG (0.20 mm²), four colours. The drawing says 1 m; see the note on length below.</dd>
+  <dt>Motor end</dt><dd>The 6-pin JST <b>PH</b> housing the motor's lead already ends in, plugged into the socket on the motor can. Only four of the six positions carry a contact. Leave it alone.</dd>
+  <dt>Wire</dt><dd>The motor's own lead, four conductors of 26 AWG (0.13 mm²). The harness drawing says 1 m; see the note on length below.</dd>
 </dl>
-
-**Position 1 is the end that lands on pin 1.** Both PH housings are keyed and only plug in one way round, so offer the housing to its socket to see which end goes over pin 1, on the PHR-6 as well as the PHR-4. On the board, position 1 is the pin on the square pad, so the PHR-4 goes on with its position 1 end over that pad.
 
 <figure class="single-figure">
   <img class="doc-figure" src="https://assets.basically.website/sorter-docs/stepper-lead-pin1-plug-shape-full-ac4c5740e493.png" alt="Two rows. Top: a PHR-4 housing drawn in the datasheet plug shape (flange at the wire side, a lane at each end, a window between) with positions numbered 1 to 4 and a note that it is keyed and plugs in one way round only, an arrow from the position 1 end to the 4-pin board socket drawn from above, whose first pad is square and labelled A2, followed by A1, B1 and B2. Bottom: a plain 4-pin Dupont housing with no marking, beside the 2.54 mm pin row on the board, whose first pin is on a square pad labelled A2.">
@@ -57,159 +43,39 @@ These are `S1` to `S4` on the [harness drawings]({{ '/hardware/parts/harness-ord
 ### The crossover
 
 The board and the motor do not use the same positions, so this cable is not straight through.
-Board 1 goes to motor 1, 2 to 4, 3 to 3 and 4 to 6, which is the crossing pair in the middle of
-the drawing. Motor positions 2 and 5 stay empty.
+Board 1 goes to motor 1, 2 to 4, 3 to 3 and 4 to 6, which is why two wires cross in the drawing
+under <b>Re-house the lead</b>, below. Motor positions 2 and 5 stay empty.
 
 **On the motor, pin 1 is the right end of the socket** when you look at the motor from the shaft end with the socket at the top edge. Reading left to right the positions are 6, empty, 4, 3, empty, 1. Positions 1 and 4 are one coil and 3 and 6 are the other, whatever colour the wires are.
-
-<figure class="single-figure">
-  <img class="doc-figure" src="https://assets.basically.website/sorter-docs/channel-stepper-lead-motor-pin1-top-full-c61ff3727a76.png" alt="The NEMA 17 seen from the shaft end, with its 6-position socket on the top edge. The positions are numbered 6 to 1 from left to right with pin 1 at the right end. Positions 1 and 4 are filled in blue as coil A, positions 3 and 6 in green as coil B, and positions 2 and 5 are empty. A list beside it gives the board net for each position: A2, empty, B1, A1, empty, B2.">
-  <figcaption>The motor's socket, with the socket at the top. Position 1 is at the right, 2 and 5 are empty.</figcaption>
-</figure>
-
-<figure class="harness-figure">
-  <div class="diagram diagram-wide">
-    <svg viewBox="0 0 930 435" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="One channel stepper lead: a 4-pin board connector on the left with positions A2, A1, B1 and B2, four wires running to the motor's 6-pin socket on the right, the middle two crossing so board position 2 lands on motor position 4 and board position 3 on motor position 3, with motor positions 2 and 5 empty">
-      <text x="0" y="20" font-size="17" font-weight="700" fill="var(--ink)">One channel stepper lead</text>
-      <text x="0" y="41" font-size="12" fill="var(--muted)">basically board v1.3 to one c-channel motor. Four per machine, all the same.</text>
-      <line x1="0" y1="64" x2="26" y2="64" stroke="#1f63c8" stroke-width="2.6" stroke-linecap="round"/>
-      <text x="34" y="68" font-size="11" fill="var(--muted)">wire 1, blue</text>
-      <line x1="150" y1="64" x2="176" y2="64" stroke="#1f8a45" stroke-width="2.6" stroke-linecap="round"/>
-      <text x="184" y="68" font-size="11" fill="var(--muted)">wire 2, green</text>
-      <line x1="300" y1="64" x2="326" y2="64" stroke="#d01012" stroke-width="2.6" stroke-linecap="round"/>
-      <text x="334" y="68" font-size="11" fill="var(--muted)">wire 3, red</text>
-      <line x1="450" y1="64" x2="476" y2="64" stroke="#1a1a1a" stroke-width="2.6" stroke-linecap="round"/>
-      <text x="484" y="68" font-size="11" fill="var(--muted)">wire 4, black</text>
-      <rect x="0" y="92" width="250" height="273" rx="5" fill="var(--bg)" stroke="var(--ink)" stroke-width="1.5"/>
-      <text x="14" y="116" font-size="13" font-weight="700" fill="var(--ink)">basically board v1.3</text>
-      <text x="14" y="134" font-size="11" fill="var(--muted)">J27 / J31 / J35 / J39</text>
-      <circle cx="250" cy="181.0" r="4.5" fill="var(--ink)"/>
-      <text x="236" y="185.0" font-size="11" font-weight="700" fill="var(--muted)" text-anchor="end">1</text>
-      <text x="218" y="185.0" font-size="12" font-weight="600" fill="var(--ink)" text-anchor="end">A2</text>
-      <circle cx="250" cy="228.0" r="4.5" fill="var(--ink)"/>
-      <text x="236" y="232.0" font-size="11" font-weight="700" fill="var(--muted)" text-anchor="end">2</text>
-      <text x="218" y="232.0" font-size="12" font-weight="600" fill="var(--ink)" text-anchor="end">A1</text>
-      <circle cx="250" cy="275.0" r="4.5" fill="var(--ink)"/>
-      <text x="236" y="279.0" font-size="11" font-weight="700" fill="var(--muted)" text-anchor="end">3</text>
-      <text x="218" y="279.0" font-size="12" font-weight="600" fill="var(--ink)" text-anchor="end">B1</text>
-      <circle cx="250" cy="322.0" r="4.5" fill="var(--ink)"/>
-      <text x="236" y="326.0" font-size="11" font-weight="700" fill="var(--muted)" text-anchor="end">4</text>
-      <text x="218" y="326.0" font-size="12" font-weight="600" fill="var(--ink)" text-anchor="end">B2</text>
-      <path d="M 142 181.0 h 10 v 47.0 h -10" fill="none" stroke="var(--muted)" stroke-width="1.4"/>
-      <text x="158" y="208.5" font-size="11" font-weight="600" fill="var(--muted)">coil A</text>
-      <path d="M 142 275.0 h 10 v 47.0 h -10" fill="none" stroke="var(--muted)" stroke-width="1.4"/>
-      <text x="158" y="302.5" font-size="11" font-weight="600" fill="var(--muted)">coil B</text>
-      <rect x="680" y="92" width="250" height="273" rx="5" fill="var(--bg)" stroke="var(--ink)" stroke-width="1.5"/>
-      <text x="694" y="116" font-size="13" font-weight="700" fill="var(--ink)">NEMA 17 motor</text>
-      <text x="694" y="134" font-size="11" fill="var(--muted)">its own 6-pin socket</text>
-      <text x="694" y="149" font-size="11" fill="var(--muted)">pin 1: see the motor drawing</text>
-      <circle cx="680" cy="164" r="4.5" fill="var(--ink)"/>
-      <text x="694" y="168" font-size="11" font-weight="700" fill="var(--muted)">1</text>
-      <text x="712" y="168" font-size="12" font-weight="600" fill="var(--ink)">A2</text>
-      <text x="745" y="168" font-size="11" fill="var(--muted)">coil A</text>
-      <circle cx="680" cy="199" r="4.5" fill="var(--surface)" stroke="var(--muted)" stroke-width="1.5"/>
-      <text x="694" y="203" font-size="11" font-weight="700" fill="var(--muted)">2</text>
-      <text x="712" y="203" font-size="12" fill="var(--muted)">empty</text>
-      <circle cx="680" cy="234" r="4.5" fill="var(--ink)"/>
-      <text x="694" y="238" font-size="11" font-weight="700" fill="var(--muted)">3</text>
-      <text x="712" y="238" font-size="12" font-weight="600" fill="var(--ink)">B1</text>
-      <text x="745" y="238" font-size="11" fill="var(--muted)">coil B</text>
-      <circle cx="680" cy="269" r="4.5" fill="var(--ink)"/>
-      <text x="694" y="273" font-size="11" font-weight="700" fill="var(--muted)">4</text>
-      <text x="712" y="273" font-size="12" font-weight="600" fill="var(--ink)">A1</text>
-      <text x="745" y="273" font-size="11" fill="var(--muted)">coil A</text>
-      <circle cx="680" cy="304" r="4.5" fill="var(--surface)" stroke="var(--muted)" stroke-width="1.5"/>
-      <text x="694" y="308" font-size="11" font-weight="700" fill="var(--muted)">5</text>
-      <text x="712" y="308" font-size="12" fill="var(--muted)">empty</text>
-      <circle cx="680" cy="339" r="4.5" fill="var(--ink)"/>
-      <text x="694" y="343" font-size="11" font-weight="700" fill="var(--muted)">6</text>
-      <text x="712" y="343" font-size="12" font-weight="600" fill="var(--ink)">B2</text>
-      <text x="745" y="343" font-size="11" fill="var(--muted)">coil B</text>
-      <path d="M 256 181.0 C 465.0 181.0, 465.0 164, 674 164" fill="none" stroke="#1f63c8" stroke-width="2.8" stroke-linecap="round"/>
-      <path d="M 256 228.0 C 465.0 228.0, 465.0 269, 674 269" fill="none" stroke="#1f8a45" stroke-width="2.8" stroke-linecap="round"/>
-      <path d="M 256 275.0 C 465.0 275.0, 465.0 234, 674 234" fill="none" stroke="#d01012" stroke-width="2.8" stroke-linecap="round"/>
-      <path d="M 256 322.0 C 465.0 322.0, 465.0 339, 674 339" fill="none" stroke="#1a1a1a" stroke-width="2.8" stroke-linecap="round"/>
-      <text x="465" y="397" font-size="12" fill="var(--muted)" text-anchor="middle">Two conductors change places: board 2 goes to motor 4, board 3 to motor 3.</text>
-      <text x="465" y="417" font-size="12" fill="var(--muted)" text-anchor="middle">Wire colours are an example: any four colours work, so follow the numbers. Meter the coils to check.</text>
-    </svg>
-  </div>  <figcaption>One lead end to end. The two conductors that change places are the crossing pair in the middle.</figcaption>
-</figure>
 
 **Positions 1 and 2 on the board are one coil, 3 and 4 are the other.** Keeping each pair together is what matters. Swapping the two wires inside a coil only reverses which way the motor turns, and the direction is set in the software.
 
 ## Re-house the lead the motor came with
 
-This keeps the 1 m lead already plugged into the motor and replaces only its board end, so it is the preferred route: the motor's end is left alone and only four contacts are crimped. **Per lead: one `jst-phr-4` and four `jst-sph-002t` contacts**, so sixteen contacts for the machine. You need a crimp tool for open-barrel contacts. Buy neither the ready-made cable nor the PHR-6 for this route.
-
-**The motor's own end is already right.** It is a 6-position JST-PH socket on the can, the lead is in it, the crossover above is already made inside the cable, and its 26 AWG (0.13 mm²) is inside the 24 to 28 AWG (0.08 to 0.20 mm²) a PH contact takes. Only the Dupont end is wrong.
-
-<ol class="numbered-steps">
-  <li>Cut the Dupont housing off close to the housing, so the cable keeps its length.</li>
-  <li>Find the two coils <a href="{{ '/hardware/helpers/multimeter/' | relative_url }}#resistance-for-finding-a-steppers-coils">with the meter</a> before you crimp anything. Two of the four wires read a couple of ohms between them and open circuit to the other two: those two are one coil. On the motor in the parts list that reading is 2.3 &Omega;, and its colour key is black <code>A+</code>, blue <code>A-</code>, green <code>B+</code>, red <code>B-</code>, so it is usually black with blue and green with red. Meter it rather than trusting the colours.</li>
-  <li>Strip and crimp a contact onto each conductor, as under <b>Crimping a PH contact</b>, below. Practise on a scrap first, the contacts are small and easy to spoil.</li>
-  <li>Load the <code>PHR-4</code> with one coil in positions 1 and 2 and the other in 3 and 4. For the colours above that is black, blue, green, red; if your colours differ, go by the pairs you metered, and either order within a pair works. Each contact goes in from the back with its lance facing the slot in the housing, and clicks when it is home.</li>
-  <li>Pull gently on each wire, then meter across positions 1 and 2 and across 3 and 4 with the motor plugged in. Both read a couple of ohms. If either reads open circuit, two contacts are in the wrong places.</li>
-</ol>
-
-<figure class="single-figure">
-  <img class="doc-figure" src="https://assets.basically.website/sorter-docs/channel-stepper-lead-rehouse-pin1-plug-shape-full-a930463bfa08.png" alt="Two rows. Top: the motor with its own lead running to a Dupont housing, a dashed line marking where to cut close to the housing, the housing marked as scrap. Bottom: the same lead with a crimped contact on each of its four wires, loaded into a 4-pin PHR-4 drawn in the datasheet plug shape, with a note that position 1 is the end over pin 1 and positions 1 and 2 bracketed as coil A and 3 and 4 as coil B.">
-  <figcaption>Cut the Dupont housing off, crimp a contact on each wire, load the PHR-4 one coil at a time, counting from the end that goes over pin 1.</figcaption>
-</figure>
-
-The Dupont housing you cut off is scrap.
-
-## Or: move four contacts
-
-**This route needs no crimp tool.** Buy the ready-made cable and the PHR-6 for it, not the parts list above. Start from a ready-made 4-pin PH cable with a PHR-4 on both ends, and leave the shipped lead in its box. **Per lead: one cable and one `PHR-6`.**
-
-<ol class="numbered-steps">
-  <li>Leave one end alone. It plugs into the board as it comes.</li>
-  <li>Note which colour is in which position at the other end, before you move any of them. The colours are not the same on every cable.</li>
-  <li>Get the four contacts out of that housing. Each one is held by a small lance inside the housing: press the lance back with the pick and the contact slides out of the back. Take your time, a bent lance will not hold in the new housing.</li>
-  <li>Push the four contacts into the PHR-6 until each one clicks: the wire from board position 1 into motor position 1, 2 into 4, 3 into 3, 4 into 6. Motor positions 2 and 5 stay empty.</li>
-  <li>Pull gently on each wire. A contact that comes back out has a bent lance; straighten it or use one of the spares.</li>
-</ol>
-
-The PHR-4 the contacts came out of is now spare.
-
 <div class="callout callout-warning">
   <span class="callout-icon" aria-hidden="true">⚠</span>
-  <p><b>Check the coils on the finished lead.</b> Meter across board positions 1 and 2, then across 3 and 4, with the motor plugged in. Both read a few ohms. If either reads open circuit, two contacts are in the wrong places: a motor wired across its coils buzzes and barely turns.</p>
+  <p><b>Check the wire diagram that came with your motor before you cut anything.</b> StepperOnline supplies a small wire diagram with the motor that names the wire in every position of the 6-pin housing, with its colour and its coil (A+, A-, B+, B-). Lay the motor's own drawing next to the figure below: positions 1 and 4 must be the same coil, and positions 3 and 6 the other. If your drawing differs, follow it.</p>
 </div>
 
-## Or: crimp the whole lead from wire
-
-**Per lead: four conductors of `wire-24awg`, one `jst-phr-4`, one `jst-phr-6` and eight `jst-sph-002t` contacts**, so thirty-two contacts for the machine, twice as many as re-housing. Buy four colours of wire: the colour is how you keep the crossover straight over a metre of cable. Any four different colours work. Call the wire that goes to board position 1 wire 1, and so on. The colours below are the ones on the drawing above: blue, green, red and black for wires 1 to 4.
-
-<ol class="numbered-steps">
-  <li>Cut one wire of each colour, blue, green, red and black, all the same length. The harness drawing says 1 m; see <b>How long</b>, below, before you cut.</li>
-  <li>Strip and crimp a contact onto both ends of every wire, eight in all, as under <b>Crimping a PH contact</b>, below.</li>
-  <li>Load the <code>PHR-4</code>, the board end, from the back: wire 1 (blue) into position 1, wire 2 (green) into 2, wire 3 (red) into 3 and wire 4 (black) into 4.</li>
-  <li>Load the <code>PHR-6</code>, the motor end: wire 1 (blue) into position 1, <b>wire 4 (black) into 6, wire 3 (red) into 3 and wire 2 (green) into 4</b>. Positions 2 and 5 stay empty. Each wire goes to the motor position its number has in the drawing above, so the two crossing wires are wires 2 and 3.</li>
-  <li>Pull gently on each wire, then meter across board positions 1 and 2 and across 3 and 4 with the motor plugged in. Both read a few ohms. If either reads open circuit, two contacts are in the wrong places.</li>
-</ol>
-
-## Crimping a PH contact
-
-Used by the first and third routes. A PH contact takes 24 to 28 AWG (0.08 to 0.20 mm²) wire only.
-
-<ol class="numbered-steps">
-  <li>Strip about 2 mm off the end of the wire.</li>
-  <li>Close the contact's inner wings on the bare strands and its outer wings on the insulation, in the die of the crimping pliers marked for 24 AWG (0.20 mm²) wire.</li>
-  <li>Pull on the wire to check it holds, then push the contact into the housing from the back, with its lance facing the slot in the housing, until it clicks.</li>
-</ol>
-
 <figure class="single-figure">
-  <img class="doc-figure" src="https://assets.basically.website/sorter-docs/ph-contact-crimp-steps-full-985dd5dc580a.png" alt="Three stages: a wire with about 2 mm of bare strands; a contact crimped on, its outer wings on the insulation and its inner wings on the bare strands; the contact pushed into the back of a housing until it clicks.">
-  <figcaption>Strip, crimp, push in until it clicks.</figcaption>
+  <img class="doc-figure" src="https://assets.basically.website/sorter-docs/channel-stepper-lead-rehouse-plug-shape-both-png-full-afd12ce6e219.png" alt="A line drawing in the style of the StepperOnline cable drawing. On the left the 6-pin PHR-6 housing at the motor end, drawn to the shape in that drawing: a lane down the mating side, two blocks with a rectangular window between them, and a flange on the wire side with chamfered corners. Positions 6 at the top down to 1 at the bottom are labelled RED B-, empty, BLU A-, GRN B+, empty and BLK A+. On the right the 4-pin PHR-4 at the board end, the same outline mirrored and scaled to four positions with its flange on the wire side, positions 4 at the top down to 1 at the bottom, labelled coil B from motor 6, coil B from motor 3, coil A from motor 4 and coil A from motor 1. Four wires join them: motor 6 to PHR-4 position 4, motor 4 to position 2, motor 3 to position 3 and motor 1 to position 1, so the wires from motor positions 4 and 3 cross."">
+  <figcaption>Follow the position, not the colour. Each wire goes from the motor-end position on the left to the PHR-4 position on the right.</figcaption>
 </figure>
 
-Choose the die by the size marked on it, not by its colour.
+**Position 1 is the end that lands on pin 1.** Both housings are keyed and only plug in one way round, so the end that goes over pin 1 of the socket is position 1 and the positions count away from it. On the motor it is the end described under <b>The crossover</b>, above, and on the board it is the square pad. The wire colours on the drawing are an example: your wires may be other colours, and the drawing still works because each wire is named by the motor-end position it sits in.
+
+<ol class="numbered-steps">
+  <li>Look at the back of the 6-pin housing at the motor end while it is still plugged into the motor, with the shaft towards you: position 1 is the right-hand end and the positions count 1 to 6 from right to left. Four wires sit in positions 1, 3, 4 and 6, and 2 and 5 are empty. Write down which colour is in which position, or tag each wire with a bit of tape marked with its position if two look alike.</li>
+  <li>Cut the Dupont housing off, close to it, so the cable keeps its length.</li>
+  <li>Strip about 2 mm off each conductor and crimp a contact onto it, in the die of the crimping pliers marked for 24 AWG (0.20 mm²) wire. Pull on each wire to check it holds. Practise on a scrap first, the contacts are small and easy to spoil.</li>
+  <li>Load the <code>PHR-4</code> from the back, counting from the end that goes over the square pad of the board socket (offer the empty housing to the socket to see which end that is): the wire from motor position 1 into position 1, the wire from motor position 4 into 2, the wire from motor position 3 into 3 and the wire from motor position 6 into 4. Push each contact in until it clicks.</li>
+  <li>Pull gently on each wire, then meter across <code>PHR-4</code> positions 1 and 2 and across 3 and 4 with the motor plugged in. Both read a couple of ohms, 2.3 &Omega; on the motor in the parts list, and across the two pairs is open circuit. If either pair reads open, two contacts are in the wrong places.</li>
+</ol>
 
 ## How long
 
 <div class="callout">
-  <p><b>Two numbers are in circulation and neither is measured.</b> The harness drawing says 1 m. The ready-made cable in the parts list is 63 cm, which is the longest 4-pin PH-to-PH that supplier makes. The motors ship with 1 m of their own, which is the length you keep if you re-house that lead. The lengths were set while the c-channel positions were still moving, so check the run on your own frame before you cut or buy.</p>
+  <p><b>The length is not measured.</b> The harness drawing says 1 m, which is also what the motors ship with and the length you keep. It was set while the c-channel positions were still moving, so check the run on your own frame before you cut the plug off.</p>
 </div>
 
 Whatever the length, **anchor the cable above the connector**. Zip-tie it to the frame a short way back from the plug and leave a service loop, so that nothing hanging off the cable can lever the housing sideways.

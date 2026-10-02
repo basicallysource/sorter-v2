@@ -627,7 +627,7 @@
         {
           "version": "2",
           "date": "2026-08-18",
-          "message": "Increased the dovetail clearance so the cap slides onto the stator more easily and seats without excessive force.",
+          "message": "Increased the dovetail clearance so the cap slides onto the stator more easily and seats without excessive force. The part is also 7 mm shorter, 244.2 mm tall instead of 251.2 mm, so it fits a 250 mm Z limit.",
           "commit": "5faa101",
           "onshape_version": "https://cad.onshape.com/documents/60aa51fc61d18f2155b99910/v/3101eccaa723ea34388cbee9/e/66109ce96b305bf318354f93"
         }

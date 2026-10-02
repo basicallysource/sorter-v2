@@ -48,11 +48,11 @@ All five stepper outputs on the board have the same pinout, pin 1 to pin 4:
   </tbody>
 </table>
 
-**Position 1 is the pin on the square pad.** A PH housing has a small triangle moulded beside its position 1, so the PHR-4 goes on with its triangle end over that pad. A Dupont housing is not keyed and fits either way up, and nothing moulded on it tells you which end is 1, so go by the pad: the first wire goes over the square one. Turned half a turn it still goes on, with the wires in reverse order. Nothing is damaged, but the motor then turns the other way, so check the direction in the software.
+**Position 1 is the pin on the square pad.** A PH housing is keyed and only plugs in one way round, so the PHR-4 goes on with its position 1 over that pad. A Dupont housing is not keyed and fits either way up, and nothing moulded on it tells you which end is 1, so go by the pad: the first wire goes over the square one. Turned half a turn it still goes on, with the wires in reverse order. Nothing is damaged, but the motor then turns the other way, so check the direction in the software.
 
 <figure class="single-figure">
-  <img class="doc-figure" src="https://assets.basically.website/sorter-docs/stepper-lead-pin1-end-full-22bee566ce1c.png" alt="Two rows. Top: a PHR-4 housing with cavities numbered 1 to 4 and a red triangle moulded at the left end beside cavity 1, an arrow from that end to the 4-pin board socket drawn from above, whose first pad is square and labelled A2, followed by A1, B1 and B2. Bottom: a plain 4-pin Dupont housing with no marking, beside the 2.54 mm pin row on the board, whose first pin is on a square pad labelled A2.">
-  <figcaption>Position 1 is the end of the housing with the triangle, and the pin on the square pad on the board.</figcaption>
+  <img class="doc-figure" src="https://assets.basically.website/sorter-docs/stepper-lead-pin1-keyed-full-png-full-c3b56c297119.png" alt="Two rows. Top: a PHR-4 housing with cavities numbered 1 to 4 and a note that it is keyed and plugs in one way round only, an arrow from the position 1 end to the 4-pin board socket drawn from above, whose first pad is square and labelled A2, followed by A1, B1 and B2. Bottom: a plain 4-pin Dupont housing with no marking, beside the 2.54 mm pin row on the board, whose first pin is on a square pad labelled A2.">
+  <figcaption>Position 1 is the end of the housing that goes over the pin on the square pad on the board.</figcaption>
 </figure>
 
 **Positions 1 and 2 are one coil, 3 and 4 are the other.** Swapping the two wires inside a coil only reverses the direction the motor turns. Splitting a coil across the 2 and 3 boundary is what stops it working, so keep each pair together.

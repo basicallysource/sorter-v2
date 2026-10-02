@@ -18,8 +18,8 @@ parts_needed:
   - part: wire-22awg-2c
     qty: 1
   - part: butt-connector-red-22-16
-    qty: 2
-tools_needed: ["A ruler or tape measure, to measure the converter's input wires", "Side cutters, only if you have to extend the wires", "Wire strippers, for 22 AWG (0.33 mm²) wire, only for a moulded plug or extended wires", "Insulated-terminal crimping pliers with a jaw for 22 to 16 AWG (0.33 to 1.3 mm²) wire, for the butt connectors on a moulded plug or extended wires", "A small screwdriver, only for a screw-terminal plug", "Multimeter, to find the tip and to check the finished lead", "Only if you solder the joints instead of crimping them: a soldering iron, solder and adhesive-lined heat shrink (see Getting started)"]
+    qty: 4
+tools_needed: ["A ruler or tape measure, to measure the converter's input wires", "Side cutters, only if you have to extend the wires", "Wire strippers, for 22 AWG (0.33 mm²) wire, only for a moulded plug or extended wires", "Insulated-terminal crimping pliers with a die for 22 to 16 AWG (0.33 to 1.3 mm²) wire, for the butt connectors on a moulded plug or extended wires", "A small screwdriver, only for a screw-terminal plug", "Multimeter, to find the tip and to check the finished lead", "Only if you solder the joints instead of crimping them: a soldering iron, solder and adhesive-lined heat shrink (see Getting started)"]
 ---
 
 This is `W3` on the [harness drawings]({{ '/hardware/parts/harness-order/#power' | relative_url }}). It runs from one of the three jacks on the [PSU box]({{ '/hardware/electronics/installation/psu-box/' | relative_url }}) to the buck converter, and the converter's own USB-C lead is the rest of the run to the Pi. **One per machine.**
@@ -55,22 +55,22 @@ The converter takes 8 to 32 V in and gives 5 V out at up to 5 A. It is potted, s
 
 ### Joining two wires with a butt connector
 
-Used in step 2 and, on a moulded plug, in step 4. A butt connector is a vinyl-insulated barrel that takes one wire in each end, rated for 22 to 16 AWG (0.33 to 1.3 mm²) wire. Make one joint at a time so the two never touch.
+Used in step 2 and, on a moulded plug, in step 4. A butt connector is a vinyl-insulated barrel that takes one wire in each end, rated for 22 to 16 AWG (0.33 to 1.3 mm²) wire. Make one joint at a time so the two never touch. The list has four, two more than the lead can use, for a first crimp that goes wrong. More on crimping is at [Crimping connectors]({{ '/hardware/helpers/crimping/' | relative_url }}).
 
 The listing for the converter does not give the gauge of its input wires. Before you crimp, strip one wire and push it into the connector: the strands should fill the barrel. If they sit loose with room to spare, the wire is too thin for this connector, so solder it and cover the joint with heat shrink instead.
 
 <ol class="numbered-steps">
   <li>Strip 7 mm off each of the two wires, and twist the strands of each tight.</li>
   <li>Push one wire into each end of the butt connector, until the insulation of each wire meets the end of the barrel.</li>
-  <li>Close each end of the barrel in the jaw of the insulated-terminal crimping pliers marked for 22 to 16 AWG (0.33 to 1.3 mm²), so each wire is crimped separately. Squeeze until the tool releases. Pull on each wire to check it holds.</li>
+  <li>Close each end of the barrel in the die of the insulated-terminal crimping pliers marked for 22 to 16 AWG (0.33 to 1.3 mm²), so each wire is crimped separately. Squeeze until the tool releases. Pull on each wire to check it holds.</li>
 </ol>
 
 <figure class="single-figure">
   <img class="doc-figure" src="https://assets.basically.website/sorter-docs/butt-crimp-steps-marked-full-bc997851a06a.png" alt="Three stages: a wire with 7 mm of bare strands; a wire pushed into each end of an insulated butt connector; the connector held between the jaws of a crimping tool, the jaw marked for 22 to 16 AWG, 0.33 to 1.3 mm².">
-  <figcaption>Strip, push in, crimp each end in the marked jaw.</figcaption>
+  <figcaption>Strip, push in, crimp each end in the marked die.</figcaption>
 </figure>
 
-Choose the jaw by the size marked on it, not by its colour. To solder instead of crimping, solder the two wires together and cover each joint with a 25 mm piece of 3 mm adhesive-lined heat shrink (see Getting started).
+Choose the die by the size marked on it, not by its colour. To solder instead of crimping, solder the two wires together and cover each joint with a 25 mm piece of 3 mm adhesive-lined heat shrink (see Getting started).
 
 <div class="callout callout-warning">
   <span class="callout-icon" aria-hidden="true">⚠</span>
@@ -85,6 +85,7 @@ Choose the jaw by the size marked on it, not by its colour. To solder instead of
 </div>
 
 <ol class="numbered-steps">
+  <li>With the lead not plugged in anywhere, set the multimeter to continuity. The plug's centre pin must beep to the converter's red input wire and the plug's metal sleeve to its black input wire. The pin and the sleeve must not beep to each other. If any of these is wrong, a joint is on the wrong wire: fix it before going on.</li>
   <li>Plug the finished lead into a PSU box jack, with nothing on the USB-C end.</li>
   <li>Set the multimeter to DC volts and meter the USB-C plug. Each row of its contacts has 12 in a line: the contact at the very end of a row is ground and the fourth contact in from either end of the same row is +5 V. Touch the black probe to the end contact and the red probe to the fourth one. It reads about 5 V.</li>
   <li>If it reads 0 V, or anything near 24 V, unplug the lead from the jack at once and check which wire went to the tip.</li>

@@ -18,6 +18,7 @@ So read these when a page sends you, not in order.
 ## Using a tool
 
 - **[Using a multimeter]({{ '/hardware/helpers/multimeter/' | relative_url }})**. Continuity, resistance and DC volts, the three checks the pages below ask for. Each one links straight to the check it needs.
+- **[Crimping connectors]({{ '/hardware/helpers/crimping/' | relative_url }})**. The two kinds of crimp and their pliers, how to read the die, and the steps for each. Every lead page below links here.
 
 ## Preparing a bought part
 

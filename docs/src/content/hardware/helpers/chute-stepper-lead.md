@@ -8,13 +8,8 @@ kicker: Helpers — Chute stepper lead
 lede: The only stepper cable you build. A 24 AWG (0.20 mm²) tail onto the motor's four bare leads, then a 4-pin housing in the right coil order. One per machine.
 permalink: /hardware/helpers/chute-stepper-lead/
 author: effreek
-contributors: [spencer, brickcyclealice]
-warning: >-
-  **AI-generated first draft.** Written from the basically board v1.3 board files and the [wire
-  harness]({{ '/hardware/electronics/wire-harness/' | relative_url }}) schedule, not from an actual build. The
-  pin order and the sockets are read off the board and are real. The cable length is a **GUESS**,
-  copied from the channel stepper cables, and no harness drawing covers this cable. The motor's own
-  leads have been measured on one build at 500 mm against the drawing's 300 mm, so check yours.
+contributors: [spencer, brickcyclealice, barthel]
+last_verified: 2026-10-02
 parts_needed:
   - part: jst-phr-4
     qty: 1
@@ -24,7 +19,10 @@ parts_needed:
     qty: 6
   - part: wire-24awg
     qty: 1
-tools_needed: ["Multimeter, to find the coils and to check the finished lead", "Side cutters, to cut the tail wire to length", "Wire strippers that take both 24 AWG (0.20 mm²) and 20 AWG (0.52 mm²) wire", "Insulated-terminal crimping pliers with a die marked for 24 to 20 AWG (0.2 to 0.6 mm²), for the four butt splices", "Crimping pliers for open-barrel contacts, with a die for 24 AWG (0.20 mm²) wire, for the four PH contacts", "A ruler or tape measure, to cut the tail to length", "Only if you solder the splices instead: soldering iron and solder, adhesive-lined heat shrink, and a heat gun to shrink it"]
+  - part: sleeving-braided-6mm
+    qty: 1
+    note: Optional. About 1 m over the four wires.
+tools_needed: ["Multimeter, to find the coils and to check the finished lead", "Side cutters, to cut the tail wire to length", "Wire strippers that take both 24 AWG (0.20 mm²) and 20 AWG (0.52 mm²) wire", "Insulated-terminal crimping pliers with a die marked for 24 to 20 AWG (0.2 to 0.6 mm²), for the four butt splices", "Crimping pliers for open-barrel contacts, with a die for 24 AWG (0.20 mm²) wire, for the four PH contacts", "A ruler or tape measure, to cut the tail to length", "Only if you solder the splices instead: soldering iron and solder, adhesive-lined heat shrink, and a heat gun to shrink it", "Optional, for the sleeving: scissors and tape, or a hot knife"]
 ---
 
 The chute stepper is the NEMA 23 that drives the chute. It is the only motor on the machine with bare flying leads: the four channel steppers have their own 6-pin socket, and their own lead that you [re-house]({{ '/hardware/helpers/channel-stepper-lead/' | relative_url }}) with a PHR-4. So this one lead gets built from the motor's bare leads. **One per machine.** The parts list has six butt splices and six PH contacts, two more of each than the lead uses: the first crimps on a new part are easy to spoil. General help with crimping is at [Crimping connectors]({{ '/hardware/helpers/crimping/' | relative_url }}).
@@ -57,72 +55,9 @@ All five stepper outputs on the board have the same pinout, pin 1 to pin 4:
 
 **Positions 1 and 2 are one coil, 3 and 4 are the other.** Swapping the two wires inside a coil only reverses the direction the motor turns. Splitting a coil across the 2 and 3 boundary is what stops it working, so keep each pair together.
 
-<figure class="harness-figure">
-  <div class="diagram diagram-wide">
-    <svg viewBox="0 0 930 347" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="The chute stepper lead: a 4-pin board connector on the left with positions A2, A1, B1 and B2, four wires running straight across to the NEMA 23's four bare flying leads on the right, with a splice marked in the middle where the thin tail you add meets the motor's thicker leads">
-      <text x="0" y="20" font-size="17" font-weight="700" fill="var(--ink)">The chute stepper lead</text>
-      <text x="0" y="41" font-size="12" fill="var(--muted)">basically board v1.3 to the chute motor. One per machine, and the only stepper lead you splice.</text>
-      <line x1="0" y1="64" x2="26" y2="64" stroke="#1a1a1a" stroke-width="2.6" stroke-linecap="round"/>
-      <text x="34" y="68" font-size="11" fill="var(--muted)">black</text>
-      <line x1="91" y1="64" x2="117" y2="64" stroke="#1f8a45" stroke-width="2.6" stroke-linecap="round"/>
-      <text x="125" y="68" font-size="11" fill="var(--muted)">green</text>
-      <line x1="182" y1="64" x2="208" y2="64" stroke="#d01012" stroke-width="2.6" stroke-linecap="round"/>
-      <text x="216" y="68" font-size="11" fill="var(--muted)">red</text>
-      <line x1="259" y1="64" x2="285" y2="64" stroke="#1f63c8" stroke-width="2.6" stroke-linecap="round"/>
-      <text x="293" y="68" font-size="11" fill="var(--muted)">blue</text>
-      <rect x="0" y="92" width="250" height="203" rx="5" fill="var(--bg)" stroke="var(--ink)" stroke-width="1.5"/>
-      <text x="14" y="116" font-size="13" font-weight="700" fill="var(--ink)">basically board v1.3</text>
-      <text x="14" y="134" font-size="11" fill="var(--muted)">J23, or J24 beside it</text>
-      <circle cx="250" cy="164" r="4.5" fill="var(--ink)"/>
-      <text x="236" y="168" font-size="11" font-weight="700" fill="var(--muted)" text-anchor="end">1</text>
-      <text x="218" y="168" font-size="12" font-weight="600" fill="var(--ink)" text-anchor="end">A2</text>
-      <circle cx="250" cy="199" r="4.5" fill="var(--ink)"/>
-      <text x="236" y="203" font-size="11" font-weight="700" fill="var(--muted)" text-anchor="end">2</text>
-      <text x="218" y="203" font-size="12" font-weight="600" fill="var(--ink)" text-anchor="end">A1</text>
-      <circle cx="250" cy="234" r="4.5" fill="var(--ink)"/>
-      <text x="236" y="238" font-size="11" font-weight="700" fill="var(--muted)" text-anchor="end">3</text>
-      <text x="218" y="238" font-size="12" font-weight="600" fill="var(--ink)" text-anchor="end">B1</text>
-      <circle cx="250" cy="269" r="4.5" fill="var(--ink)"/>
-      <text x="236" y="273" font-size="11" font-weight="700" fill="var(--muted)" text-anchor="end">4</text>
-      <text x="218" y="273" font-size="12" font-weight="600" fill="var(--ink)" text-anchor="end">B2</text>
-      <path d="M 132 164 h 10 v 35 h -10" fill="none" stroke="var(--muted)" stroke-width="1.4"/>
-      <text x="148" y="185.5" font-size="11" font-weight="600" fill="var(--muted)">coil A</text>
-      <path d="M 132 234 h 10 v 35 h -10" fill="none" stroke="var(--muted)" stroke-width="1.4"/>
-      <text x="148" y="255.5" font-size="11" font-weight="600" fill="var(--muted)">coil B</text>
-      <rect x="680" y="92" width="250" height="203" rx="5" fill="var(--bg)" stroke="var(--ink)" stroke-width="1.5"/>
-      <text x="694" y="116" font-size="13" font-weight="700" fill="var(--ink)">NEMA 23 motor</text>
-      <text x="694" y="134" font-size="11" fill="var(--muted)">four bare flying leads</text>
-      <circle cx="680" cy="164" r="4.5" fill="var(--ink)"/>
-      <text x="694" y="168" font-size="11" font-weight="700" fill="var(--muted)"></text>
-      <text x="712" y="168" font-size="12" font-weight="600" fill="var(--ink)">coil A</text>
-      <circle cx="680" cy="199" r="4.5" fill="var(--ink)"/>
-      <text x="694" y="203" font-size="11" font-weight="700" fill="var(--muted)"></text>
-      <text x="712" y="203" font-size="12" font-weight="600" fill="var(--ink)">coil A</text>
-      <circle cx="680" cy="234" r="4.5" fill="var(--ink)"/>
-      <text x="694" y="238" font-size="11" font-weight="700" fill="var(--muted)"></text>
-      <text x="712" y="238" font-size="12" font-weight="600" fill="var(--ink)">coil B</text>
-      <circle cx="680" cy="269" r="4.5" fill="var(--ink)"/>
-      <text x="694" y="273" font-size="11" font-weight="700" fill="var(--muted)"></text>
-      <text x="712" y="273" font-size="12" font-weight="600" fill="var(--ink)">coil B</text>
-      <line x1="256" y1="164" x2="412" y2="164" stroke="#1a1a1a" stroke-width="2.6" stroke-linecap="round"/>
-      <line x1="468" y1="164" x2="674" y2="164" stroke="#1a1a1a" stroke-width="5.4" stroke-linecap="round"/>
-      <rect x="412" y="156" width="56" height="16" rx="8" fill="var(--surface)" stroke="var(--muted)" stroke-width="1.5"/>
-      <line x1="256" y1="199" x2="412" y2="199" stroke="#1f8a45" stroke-width="2.6" stroke-linecap="round"/>
-      <line x1="468" y1="199" x2="674" y2="199" stroke="#1f8a45" stroke-width="5.4" stroke-linecap="round"/>
-      <rect x="412" y="191" width="56" height="16" rx="8" fill="var(--surface)" stroke="var(--muted)" stroke-width="1.5"/>
-      <line x1="256" y1="234" x2="412" y2="234" stroke="#d01012" stroke-width="2.6" stroke-linecap="round"/>
-      <line x1="468" y1="234" x2="674" y2="234" stroke="#d01012" stroke-width="5.4" stroke-linecap="round"/>
-      <rect x="412" y="226" width="56" height="16" rx="8" fill="var(--surface)" stroke="var(--muted)" stroke-width="1.5"/>
-      <line x1="256" y1="269" x2="412" y2="269" stroke="#1f63c8" stroke-width="2.6" stroke-linecap="round"/>
-      <line x1="468" y1="269" x2="674" y2="269" stroke="#1f63c8" stroke-width="5.4" stroke-linecap="round"/>
-      <rect x="412" y="261" width="56" height="16" rx="8" fill="var(--surface)" stroke="var(--muted)" stroke-width="1.5"/>
-      <text x="440" y="126" font-size="12" font-weight="700" fill="var(--ink)" text-anchor="middle">splice</text>
-      <text x="440" y="142" font-size="11" fill="var(--muted)" text-anchor="middle">crimped butt splice, 24 to 20 AWG (0.2 to 0.6 mm²)</text>
-      <text x="345.0" y="301" font-size="11" fill="var(--muted)" text-anchor="middle">24 AWG (0.20 mm²) tail you add</text>
-      <text x="570.0" y="301" font-size="11" fill="var(--muted)" text-anchor="middle">the motor's own 20 AWG (0.52 mm²) leads</text>
-      <text x="465" y="331" font-size="12" fill="var(--muted)" text-anchor="middle">The motor's leads are too thick for a JST-PH contact, so the last stretch to the board is a thinner tail. Find the coil pairs with a meter first.</text>
-    </svg>
-  </div>  <figcaption>One lead end to end, with the splice that makes it the only stepper lead you build.</figcaption>
+<figure class="single-figure">
+  <img class="doc-figure" src="https://assets.basically.website/sorter-docs/chute-stepper-lead-plug-shape-full-e59f2acad5e2.png" alt="A line drawing in the style of the channel stepper lead drawing. On the left the motor's four bare leads, from the top RED, BLU, GRN and BLK, the top two marked coil B and the bottom two coil A, drawn thick. Each runs into a butt splice for 24 to 20 AWG wire and on as a thinner tail. On the right a 4-pin PHR-4 housing drawn in the plug shape, a lane at each end, a window between and a flange on the wire side, with positions 4 at the top down to 1 at the bottom, labelled coil B net B2, coil B net B1, coil A net A1 and coil A net A2. The four wires run straight across with no crossing.">
+  <figcaption>One lead end to end: each of the motor's leads is spliced onto a thin tail, and the tails go into the PHR-4. Each coil stays in its own pair of positions.</figcaption>
 </figure>
 
 The full pinout and the board-side footprint are on the [wire harness]({{ '/hardware/electronics/wire-harness/#21--stepper-pinout-and-polarity' | relative_url }}) page.
@@ -140,9 +75,10 @@ The motor's four leads are coloured, and the colours do not tell you which pair 
 ## Build it
 
 <ol class="numbered-steps">
-  <li>Hold the motor where it will sit and see how far its own leads get you. They come out of the motor at 300 to 500 mm depending on the batch, and the harness notes put the finished lead at about 1 m (40 in).</li>
-  <li>Cut four pieces of 24 AWG (0.20 mm²) wire, one in each colour of the motor's four leads, long enough to make the length up and <b>at least 100 mm</b> even when the motor's own leads already reach.</li>
+  <li>Hold the motor where it will sit and see how far its own leads get you. They come out of the motor at 300 to 500 mm depending on the batch. The finished lead should be about 600 mm (24 in) long, so the tail is 600 mm minus the length of the motor's own leads: 100 mm for 500 mm leads, 300 mm for 300 mm leads.</li>
+  <li>Cut four pieces of 24 AWG (0.20 mm²) wire, one in each colour of the motor's four leads, the length you worked out in step 1 and <b>never under 100 mm</b>, even when the motor's own leads already reach.</li>
   <li>Splice each one onto the motor lead of the same colour with a 24 to 20 AWG (0.2 to 0.6 mm²) butt splice, as under <b>Splicing a tail onto a motor lead</b>, below. Or solder them, as under <b>Or solder the splices</b>.</li>
+  <li><b>Optional:</b> if you will sleeve the lead, slide a 1 m length of braided sleeving over the four tails from their free ends now, before you crimp the contacts, and push it along over the splices. The 4-pin housing may not go through it, so it goes on first. Leave it bunched up on the cable for now; <a href="#sleeving-optional">Sleeving (optional)</a> says how to cut and finish it.</li>
   <li>Crimp a PH contact onto the free end of each of the four tails, as under <b>Crimping a PH contact</b>, below.</li>
   <li>Push the contacts into the housing until each one clicks: <b>one coil into positions 1 and 2, the other coil into positions 3 and 4</b>. Which coil goes in which pair does not matter. Nor does which lead of a pair goes in which position: that only reverses the direction the motor turns, and the direction is set in the software.</li>
 </ol>
@@ -220,6 +156,26 @@ The board gives the chute two sockets side by side and they are wired to the sam
 </dl>
 
 Both carry `A2`, `A1`, `B1`, `B2` on positions 1 to 4, and the board prints the coil name beside each pin, so the names can be read off the board rather than counted.
+
+## Sleeving (optional)
+
+<div class="callout">
+  <p><b>You can skip this and the lead works the same.</b> The sleeving is on the parts list as optional. It keeps the wires together as one tidy cable and protects them where the lead runs along the frame, and it is another way of securing the cables.</p>
+</div>
+
+**Where:** over the four wires, from just clear of the motor to just short of the PHR-4, so it covers the four splices as well as the tail. About 1 m.
+
+**How:**
+
+<ol class="numbered-steps">
+  <li>Push the braid together lengthwise to open it: it widens as it shortens. Feed all the wires into it together, so none of them is left outside.</li>
+  <li>Cut it to length with a hot knife or a soldering iron with a blade tip, so the cut melts shut. Plain scissors leave the braid fraying. With no hot tool, wrap a turn of tape around the braid where you will cut, cut through the middle of the tape with scissors, and leave the tape on.</li>
+  <li>Stop the sleeving 5 to 10 mm short of the PHR-4, so the crimped contacts and the housing can flex and the sleeving never crowds into the housing.</li>
+  <li>Hold each end with a small piece of heat shrink or a turn of tape, so that the braid cannot creep back along the wires.</li>
+</ol>
+
+Leave the sleeving loose enough to bend, and do not tie it down so tightly that it crushes the braid.
+
 
 ## The finished result
 

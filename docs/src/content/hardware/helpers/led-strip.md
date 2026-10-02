@@ -24,7 +24,10 @@ parts_needed:
     qty: 8
   - part: dupont-lead-2p-1m
     qty: 3
-tools_needed: [Side cutters, Wire strippers, "Multimeter (only if you fit the plug and socket)", "Insulated-terminal crimping pliers with a die for 22 to 16 AWG (0.33 to 1.3 mm²) wire, for the butt connectors", "Only if you solder instead of crimping or clamping: a soldering iron, solder and 3 mm adhesive-lined heat shrink (see Getting started)", "Only if you make your own Dupont cable: a crimp tool for open-barrel contacts"]
+  - part: sleeving-braided-6mm
+    qty: 1
+    note: Optional. About 1 m over each of the three board cables and 0.1 m over each of the three lamp pigtails.
+tools_needed: [Side cutters, Wire strippers, "Multimeter (only if you fit the plug and socket)", "Insulated-terminal crimping pliers with a die for 22 to 16 AWG (0.33 to 1.3 mm²) wire, for the butt connectors", "Only if you solder instead of crimping or clamping: a soldering iron, solder and 3 mm adhesive-lined heat shrink (see Getting started)", "Only if you make your own Dupont cable: a crimp tool for open-barrel contacts", "Optional, for the sleeving: scissors and tape, or a hot knife"]
 ---
 
 Each camera lamp needs a cable that takes 24 V from the control board to its strip. The best way to build it is **two cables that meet at a barrel plug and socket**. The plug and socket are **optional but recommended**. **They make maintenance easier:** the power supply to a lamp can be disconnected right next to the lamp, so you can take a lamp down, swap it or work on it without touching the board end of its cable or the cables of the other lamps. **A machine takes three of each.** The quantities above are a whole machine's worth: one 5 m roll cuts into five lengths, and the Dupont cables come five to a pack.
@@ -84,11 +87,15 @@ If you own a crimp tool for open-barrel contacts, you can make this cable instea
   <figcaption>The same housing both ways round. The arrow turns with it, so it cannot tell you which is right.</figcaption>
 </figure>
 
+**Optional:** if you will sleeve the board cable, slide a 1 m length of braided sleeving over its two wires from the cut end now, before you join the socket in step 5 or clamp the wires onto the strip in step 4. A finished socket or clamp may not go through it, so it goes on first. If you make your own cable, slide it on before you crimp the housing. [Sleeving (optional)](#sleeving-optional) says how to cut and finish it.
+
 {% include step.html n="3" title="Find the tip of the plug and of the socket" %}
 
 Only if you are fitting the plug and socket. Set the <a href="{{ '/hardware/helpers/multimeter/' | relative_url }}#continuity-for-tracing-a-cable">multimeter to continuity</a> and hold one probe on the centre pin. The wire that beeps is the tip, which is **+24 V**. The other is ground. Do this for the plug and for the socket, and **do not go by wire colour**, because moulded plugs are not consistent about it.
 
 Then cut the plug's wires to about 150 mm (6 in).
+
+**Optional:** if you will sleeve the lamp pigtail, slide a 0.1 m length of braided sleeving over its two wires from the cut end now, before you clamp them onto the strip in step 4.
 
 {% include step.html n="4" title="Clamp the wires onto the strip" %}
 
@@ -140,6 +147,23 @@ Set the multimeter to continuity. **With the plug and socket**, push the two cab
 </ol>
 
 If the first test does not beep, or the second does, the two joints have crossed. If the third beeps, something is shorting.
+
+## Sleeving (optional)
+
+<div class="callout">
+  <p><b>You can skip this and the lamp works the same.</b> The sleeving is on the parts list as optional. It keeps the two wires together as one tidy cable and protects them where the cable runs along the frame, and it is another way of securing the cables.</p>
+</div>
+
+**Where:** over the two wires of each board cable, from just short of the barrel socket (or of its butt connectors) to just short of the Dupont housing, about 1 m. The short lamp pigtail can have a 0.1 m length as well, from just short of the clamp to just short of the plug. Three of each per machine.
+
+**How:**
+
+<ol class="numbered-steps">
+  <li>Push the braid together lengthwise to open it: it widens as it shortens. Feed both wires into it together, so neither is left outside.</li>
+  <li>Cut it to length with a hot knife or a soldering iron with a blade tip, so the cut melts shut. Plain scissors leave the braid fraying. With no hot tool, wrap a turn of tape around the braid where you will cut, cut through the middle of the tape with scissors, and leave the tape on.</li>
+  <li>Stop the sleeving 5 to 10 mm short of the socket, the plug, the clamp and the Dupont housing, so the sleeving never crowds into them and the joints can flex.</li>
+  <li>Hold each end with a small piece of heat shrink or a turn of tape, so that the braid cannot creep back along the wires.</li>
+</ol>
 
 ## The finished result
 

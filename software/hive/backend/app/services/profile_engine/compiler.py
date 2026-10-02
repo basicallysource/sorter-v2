@@ -16,12 +16,22 @@ request, so both route every piece the same way.
 Colors in conditions are Rebrickable color IDs (what the catalog lists); the
 program speaks BrickLink IDs for parts and colors, because that is what a
 sorter's classifier reports.
+
+Any group of conditions (a rule, or a group inside one) can be negated: "none
+of" is not-any, "not all of" is not-all. Negation is compiled away like the
+rest: the program still lists parts and colors.
+
+Conditions on the piece itself (how sure recognition was, whether it named a
+part, its price in its color) cannot be decided here. A rule that tests them
+is compiled once for each way they can turn out, and each entry carries the
+outcome it stands for as `when`, which the sorter checks against the piece.
 """
 
 from __future__ import annotations
 
 import copy
 import hashlib
+import itertools
 import json
 import re
 import threading
@@ -44,6 +54,7 @@ from app.services.profile_engine.fields import (
     bricklink_category_id,
     bricklink_ids,
     field_spec,
+    is_piece_field,
     normalize_condition,
     read_field,
 )
@@ -56,8 +67,16 @@ ARTIFACT_SCHEMA_VERSION = 2
 FEATURE_PROGRAM = "program"
 FEATURE_COLOR_FALLBACK = "color_fallback"
 FEATURE_KIT_CASCADE = "kit_cascade"
+# Entries guarded by what the machine observes about the piece (`when`).
+FEATURE_PIECE_CONDITIONS = "piece_conditions"
 SAMPLE_LIMIT = 6
 KIT_ANY_COLOR_ID = -1
+# A rule is compiled once per way its piece conditions can turn out (2^n), so
+# their number is kept small; nobody writes more than a few.
+MAX_PIECE_CONDITIONS = 6
+# What a profile does when a piece's category has no bin and none is free:
+# the machine's own setting (None), the default bin, or share a bin.
+NO_BIN_POLICIES = ("misc", "share")
 
 
 # --- The catalog, laid out for rules -----------------------------------------
@@ -315,6 +334,26 @@ def fallback_flags(by: str | None) -> dict[str, bool]:
     }
 
 
+def normalize_no_bin(raw: Any) -> str | None:
+    """What the profile wants when a piece's category has no bin and none is
+    free: "misc" (the default bin, never stop), "share" (put the category in
+    the least filled bin), or None (the machine's own setting, which by
+    default stops and asks). Kept beside the fallback flags."""
+    flags = raw if isinstance(raw, dict) else {}
+    value = flags.get("no_bin")
+    return value if value in NO_BIN_POLICIES else None
+
+
+def fallback_document(raw: Any) -> dict[str, Any]:
+    """The fallback flags as a document keeps them; the bin policy only when
+    one is chosen, so a profile without one compiles as it always has."""
+    out: dict[str, Any] = fallback_flags(normalize_fallback(raw))
+    no_bin = normalize_no_bin(raw)
+    if no_bin:
+        out["no_bin"] = no_bin
+    return out
+
+
 def _migrate_rule(rule: dict[str, Any], problems: list[Problem]) -> dict[str, Any]:
     rule = dict(rule)
     rule.pop("priority", None)
@@ -325,6 +364,11 @@ def _migrate_rule(rule: dict[str, Any], problems: list[Problem]) -> dict[str, An
     rule["disabled"] = bool(rule.get("disabled", False))
     if rule_type == "filter":
         rule["match_mode"] = "any" if rule.get("match_mode") == "any" else "all"
+        # Kept only when set, so documents without it compile as before.
+        if rule.get("negate"):
+            rule["negate"] = True
+        else:
+            rule.pop("negate", None)
         conditions = rule.get("conditions")
         if isinstance(conditions, dict):
             conditions = _flatten_condition_tree(conditions)
@@ -358,16 +402,33 @@ def normalize_document(document: dict[str, Any]) -> tuple[dict[str, Any], list[P
     that keep a condition from being evaluated."""
     problems: list[Problem] = []
     rules = [_migrate_rule(rule, problems) for rule in document.get("rules") or [] if isinstance(rule, dict)]
-    by = normalize_fallback(document.get("fallback_mode"))
+    for rule in rules:
+        _check_piece_conditions(rule, problems)
     normalized = {
         "id": str(document.get("id") or ""),
         "name": str(document.get("name") or "").strip() or "Untitled Profile",
         "description": str(document.get("description") or ""),
         "default_category_id": str(document.get("default_category_id") or "misc").strip() or "misc",
-        "fallback_mode": fallback_flags(by),
+        "fallback_mode": fallback_document(document.get("fallback_mode")),
         "rules": rules,
     }
     return normalized, problems
+
+
+def _check_piece_conditions(rule: dict[str, Any], problems: list[Problem]) -> None:
+    count = sum(
+        1
+        for condition in _enabled_conditions(rule)
+        if not condition.get("invalid") and is_piece_field(str(condition.get("field") or ""))
+    )
+    if count > MAX_PIECE_CONDITIONS:
+        problems.append(
+            Problem(
+                rule["id"],
+                f"{count} conditions on the piece itself; a rule can test at most {MAX_PIECE_CONDITIONS} "
+                "(recognition confidence, color confidence, identified, price of this piece).",
+            )
+        )
 
 
 def walk_rules(rules: Iterable[dict[str, Any]]) -> Iterable[dict[str, Any]]:
@@ -424,6 +485,23 @@ def _enabled_conditions(node: dict[str, Any]) -> Iterable[dict[str, Any]]:
             yield from _enabled_conditions(child)
 
 
+def _is_empty(node: dict[str, Any]) -> bool:
+    """A group with nothing in it (or only empty groups): it says nothing, so
+    it is left out instead of counting as true, which in "any of" would take
+    every piece, or as false once negated."""
+    return not node.get("conditions") and all(
+        child.get("disabled") or _is_empty(child) for child in node.get("children") or []
+    )
+
+
+def _not(result: Any) -> Any:
+    if result is True:
+        return False
+    if result is False:
+        return True
+    return ~result
+
+
 def has_conditions(rule: dict[str, Any]) -> bool:
     return any(not condition.get("invalid") for condition in _enabled_conditions(rule))
 
@@ -439,60 +517,81 @@ def _color_matches(condition: dict[str, Any], rb_color_id: int) -> bool:
     return rb_color_id not in value
 
 
+# One way a rule's piece conditions turn out: (condition, true or false) for
+# each; empty when the rule tests nothing about the piece.
+When = tuple[tuple[dict[str, Any], bool], ...]
+
+
+def when_entry(when: When) -> list[dict[str, Any]] | None:
+    """A `when` as the program carries it: each piece condition and whether it
+    must hold, or None when the entry does not depend on the piece."""
+    if not when:
+        return None
+    return [
+        {"field": condition["field"], "op": condition["op"], "value": condition["value"], "is": truth}
+        for condition, truth in when
+    ]
+
+
 class _Evaluator:
     def __init__(self, index: CatalogIndex) -> None:
         self.index = index
 
-    def evaluate(self, node: dict[str, Any], color_truth: dict[int, bool]) -> Any:
+    def evaluate(self, node: dict[str, Any], truth: dict[int, bool]) -> Any:
+        """True, False or a part mask. Color and piece conditions are given
+        their truth in `truth` (by id); the rest are read off the catalog."""
         results: list[Any] = []
         for condition in node.get("conditions") or []:
-            if condition.get("invalid"):
-                # Half-made conditions take nothing, whatever they are combined with.
-                return False
-            if condition["field"] == "color_id":
-                results.append(color_truth[id(condition)])
+            if id(condition) in truth:
+                results.append(truth[id(condition)])
             else:
                 results.append(self.index.part_mask(condition))
         for child in node.get("children") or []:
-            if child.get("disabled"):
+            if child.get("disabled") or _is_empty(child):
                 continue
-            results.append(self.evaluate(child, color_truth))
+            results.append(self.evaluate(child, truth))
         if not results:
-            return True
-        if node.get("match_mode") == "any":
-            return _or(results, self.index.size)
-        return _and(results, self.index.size)
+            result: Any = True
+        elif node.get("match_mode") == "any":
+            result = _or(results, self.index.size)
+        else:
+            result = _and(results, self.index.size)
+        return _not(result) if node.get("negate") else result
 
-    def groups(self, rules: list[dict[str, Any]]) -> list[tuple[Any, list[str] | None]]:
+    def groups(self, rules: list[dict[str, Any]]) -> list[tuple[Any, list[str] | None, When]]:
         """What a chain of rules (a rule's ancestors, then the rule) takes, as
-        (parts, colors) pairs: parts True (every part) or a mask, colors a list
-        of BrickLink color IDs or None for every color."""
-        color_conditions = [
-            condition
-            for rule in rules
-            for condition in _enabled_conditions(rule)
-            if condition["field"] == "color_id" and not condition.get("invalid")
-        ]
+        (parts, colors, when): parts True (every part) or a mask, colors a list
+        of BrickLink color IDs or None for every color, and `when` the outcome
+        of the rule's piece conditions this holds for (empty when it has none).
+        A chain with a condition that cannot be evaluated takes nothing."""
+        conditions = [condition for rule in rules for condition in _enabled_conditions(rule)]
+        if any(condition.get("invalid") for condition in conditions):
+            return []
+        color_conditions = [condition for condition in conditions if condition["field"] == "color_id"]
+        piece_conditions = [condition for condition in conditions if is_piece_field(condition["field"])]
 
-        def combined(color_truth: dict[int, bool]) -> Any:
-            return _and([self.evaluate(rule, color_truth) for rule in rules], self.index.size)
+        def combined(truth: dict[int, bool]) -> Any:
+            return _and([self.evaluate(rule, truth) for rule in rules], self.index.size)
 
-        if not color_conditions:
-            result = combined({})
-            return [] if result is False else [(result, None)]
         by_signature: dict[tuple[bool, ...], list[int]] = {}
-        for rb_color_id in self.index.colors:
-            signature = tuple(_color_matches(condition, rb_color_id) for condition in color_conditions)
-            by_signature.setdefault(signature, []).append(rb_color_id)
-        out: list[tuple[Any, list[str] | None]] = []
-        for signature, rb_color_ids in by_signature.items():
-            result = combined({id(condition): truth for condition, truth in zip(color_conditions, signature)})
-            if result is False:
-                continue
-            if len(by_signature) == 1:
-                out.append((result, None))
-            else:
-                out.append((result, sorted({self.index.bl_color(rb) for rb in rb_color_ids}, key=_color_sort_key)))
+        if color_conditions:
+            for rb_color_id in self.index.colors:
+                signature = tuple(_color_matches(condition, rb_color_id) for condition in color_conditions)
+                by_signature.setdefault(signature, []).append(rb_color_id)
+        else:
+            by_signature[()] = []
+        out: list[tuple[Any, list[str] | None, When]] = []
+        for outcome in itertools.product((True, False), repeat=len(piece_conditions)):
+            when: When = tuple(zip(piece_conditions, outcome))
+            piece_truth = {id(condition): value for condition, value in when}
+            for signature, rb_color_ids in by_signature.items():
+                result = combined({**piece_truth, **{id(c): t for c, t in zip(color_conditions, signature)}})
+                if result is False:
+                    continue
+                if len(by_signature) == 1:
+                    out.append((result, None, when))
+                else:
+                    out.append((result, sorted({self.index.bl_color(rb) for rb in rb_color_ids}, key=_color_sort_key), when))
         return out
 
 
@@ -570,15 +669,19 @@ def describe_condition(condition: dict[str, Any], index: CatalogIndex) -> dict[s
 
 
 def describe_conditions(rule: dict[str, Any], index: CatalogIndex) -> dict[str, Any]:
-    return {
+    out: dict[str, Any] = {
         "mode": rule.get("match_mode", "all"),
         "items": [describe_condition(condition, index) for condition in rule.get("conditions") or []],
         "groups": [
             {"id": child.get("id"), "name": child.get("name"), **describe_conditions(child, index)}
             for child in rule.get("children") or []
-            if not child.get("disabled")
+            if not child.get("disabled") and not _is_empty(child)
         ],
     }
+    if rule.get("negate"):
+        # "None of" (not any) or "not all of": pages say so above the group.
+        out["negate"] = True
+    return out
 
 
 def _sample_rows(mask: np.ndarray, index: CatalogIndex, limit: int = SAMPLE_LIMIT) -> list[int]:
@@ -775,6 +878,7 @@ def compile_document(
     warnings: list[dict[str, Any]] = []
     filter_entries_so_far: list[tuple[str, Any, list[str] | None]] = []
     catch_all_rule: str | None = None
+    requires: list[str] = []
 
     for rule in doc["rules"]:
         rule_id = rule["id"]
@@ -871,33 +975,54 @@ def compile_document(
         any_part = False
         # Whether the rule matches any part at all, before the rules above take theirs.
         matches_any = False
-        for parts, colors in evaluator.groups([rule]):
+        # What the rule takes in every color however its piece conditions turn
+        # out, and whether that is every piece: only that is gone for the rules below.
+        claims: dict[tuple[bool, ...], np.ndarray] = {}
+        catches_all: dict[tuple[bool, ...], bool] = {}
+        # What the rule receives in some color, by outcome: a part counts as
+        # matched (not left for the default bin) only if it does in every one.
+        receipts: dict[tuple[bool, ...], np.ndarray] = {}
+        for parts, colors, when in evaluator.groups([rule]):
+            outcome = tuple(truth for _condition, truth in when)
+            claims.setdefault(outcome, np.zeros(size, dtype=bool))
+            catches_all.setdefault(outcome, False)
+            receipts.setdefault(outcome, np.zeros(size, dtype=bool))
             mask = np.ones(size, dtype=bool) if parts is True else parts
             matches_any = matches_any or parts is True or bool(mask.any())
             receives = mask & ~fully_claimed
             if parts is not True and not receives.any():
                 continue
-            program_rules.append(
-                {
-                    "category": rule_id,
-                    "parts": None if parts is True else _keys_for_rows(np.flatnonzero(receives), index),
-                    "colors": colors,
-                }
-            )
-            filter_entries_so_far.append((rule_id, parts, colors))
+            entry: dict[str, Any] = {
+                "category": rule_id,
+                "parts": None if parts is True else _keys_for_rows(np.flatnonzero(receives), index),
+                "colors": colors,
+            }
+            guard = when_entry(when)
+            if guard is not None:
+                entry["when"] = guard
+                if FEATURE_PIECE_CONDITIONS not in requires:
+                    requires.append(FEATURE_PIECE_CONDITIONS)
+            program_rules.append(entry)
+            if not when:
+                filter_entries_so_far.append((rule_id, parts, colors))
             received |= receives
+            receipts[outcome] |= receives
             any_part = any_part or parts is True
             if colors is None:
                 any_color = True
-                fully_claimed |= mask
+                claims[outcome] |= mask
+                catches_all[outcome] = catches_all[outcome] or parts is True
                 shown |= receives
-                if parts is True:
-                    catch_all_rule = rule_id
             else:
                 color_set.update(colors)
                 known = index.known_in(colors)
                 shown |= receives if known is None else receives & known
-        matched |= received
+        piece_count = len(next(iter(claims))) if claims else 0
+        if claims and len(claims) == 2**piece_count:
+            fully_claimed |= np.logical_and.reduce(list(claims.values()))
+            matched |= np.logical_and.reduce(list(receipts.values()))
+            if all(catches_all.values()):
+                catch_all_rule = rule_id
         part_count = int(shown.sum())
         display["part_count"] = part_count
         if any_part:
@@ -923,7 +1048,6 @@ def compile_document(
 
     fallback_by = normalize_fallback(doc["fallback_mode"])
     default_category = doc["default_category_id"]
-    requires: list[str] = []
     program_fallback: dict[str, Any] | None = None
     fallback_counts: dict[str, int] = {}
     fallback_rows: dict[str, list[int]] = {}
@@ -1003,6 +1127,10 @@ def compile_document(
         "fallback": program_fallback,
         "default": default_category,
     }
+    no_bin = normalize_no_bin(doc["fallback_mode"])
+    if no_bin:
+        # A sorter that does not know it keeps its own setting.
+        program["no_bin"] = no_bin
     stats = {
         "total_parts": size,
         "matched": int(matched.sum()),
@@ -1111,6 +1239,10 @@ def expand_legacy(artifact: dict[str, Any], index: CatalogIndex) -> dict[str, An
     every_key: list[str] | None = None
     for entry in program.get("rules") or []:
         category = entry["category"]
+        if entry.get("when"):
+            # Depends on the piece, which a flat map cannot say; a profile
+            # with such entries requires a sorter that runs the program.
+            continue
         kit = entry.get("kit")
         if kit is not None:
             for part, colors in kit.items():
@@ -1153,36 +1285,77 @@ def expand_legacy(artifact: dict[str, Any], index: CatalogIndex) -> dict[str, An
 # --- Asking a compiled profile where a piece goes ----------------------------
 
 
+def piece_condition_holds(condition: dict[str, Any], piece: dict[str, Any]) -> bool:
+    """Whether a condition on the piece holds for what the machine observed.
+    An unknown value never satisfies one (the sorter has the same test)."""
+    value = piece.get(condition.get("field"))
+    target = condition.get("value")
+    if value is None or target is None:
+        return False
+    try:
+        value, target = float(value), float(target)
+    except (TypeError, ValueError):
+        return False
+    op = condition.get("op")
+    if op == "gte":
+        return value >= target
+    if op == "lte":
+        return value <= target
+    if op == "eq":
+        return value == target
+    if op == "neq":
+        return value != target
+    return False
+
+
+def when_holds(when: list[dict[str, Any]] | None, piece: dict[str, Any]) -> bool:
+    return not when or all(piece_condition_holds(item, piece) == bool(item.get("is", True)) for item in when)
+
+
 class Router:
     """The program as a sorter runs it: first rule that takes the piece; a kit
-    that already has enough of it passes it on."""
+    that already has enough of it passes it on; an entry guarded by `when`
+    takes the piece only when what the machine saw of it agrees."""
 
     def __init__(self, program: dict[str, Any]) -> None:
-        self.rules: list[tuple[str, str, Any, Any]] = []
+        self.rules: list[tuple[str, str, Any, Any, Any]] = []
         for entry in program.get("rules") or []:
+            when = entry.get("when") or None
             if entry.get("kit") is not None:
-                self.rules.append(("kit", entry["category"], {part: set(colors) for part, colors in entry["kit"].items()}, None))
+                self.rules.append(("kit", entry["category"], {part: set(colors) for part, colors in entry["kit"].items()}, None, when))
             else:
                 parts = entry.get("parts")
                 colors = entry.get("colors")
                 self.rules.append(
-                    ("rule", entry["category"], None if parts is None else set(parts), None if colors is None else set(colors))
+                    ("rule", entry["category"], None if parts is None else set(parts), None if colors is None else set(colors), when)
                 )
         fallback = program.get("fallback") or {}
         self.fallback_by = fallback.get("by")
         self.fallback_map: dict[str, str] = fallback.get("map") or {}
         self.default = program.get("default") or "misc"
+        self.no_bin = program.get("no_bin")
 
     def route(
         self,
-        part: str,
+        part: str | None,
         color: str | None,
         kit_is_full: Callable[[str, str, str | None], bool] | None = None,
+        piece: dict[str, Any] | None = None,
     ) -> tuple[str, str]:
-        """(category, why): why is "rule", "kit", "fallback" or "default"."""
-        for kind, category, parts, colors in self.rules:
+        """(category, why): why is "rule", "kit", "fallback" or "default".
+        `part` is None for a piece recognition could not identify: it has no
+        color either, and only entries that take any part can have it.
+        `piece` is what the machine observed (piece fields in fields.py)."""
+        facts = dict(piece or {})
+        facts["identified"] = 1 if part is not None else 0
+        if part is None:
+            color = None
+            facts["confidence"] = 0
+        for kind, category, parts, colors, when in self.rules:
+            if when is not None and not when_holds(when, facts):
+                continue
             if kind == "kit":
-                wanted = parts.get(part)
+                wanted = parts.get(part) if part is not None else None
                 if wanted is None or not (color in wanted or None in wanted):
                     continue
                 if kit_is_full is not None and kit_is_full(category, part, color):
@@ -1226,7 +1399,7 @@ def rule_matches(
     evaluator = _Evaluator(index)
     mask = np.zeros(index.size, dtype=bool)
     colors: set[str] | None = set()
-    for parts, group_colors in evaluator.groups(chain):
+    for parts, group_colors, _when in evaluator.groups(chain):
         group = np.ones(index.size, dtype=bool) if parts is True else parts
         if group_colors is None:
             colors = None

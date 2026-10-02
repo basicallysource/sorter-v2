@@ -74,6 +74,7 @@ from app.services.profile_ai import (
     AiProgressEvent,
     AiProposalResult,
     apply_profile_ai_proposal,
+    apply_profile_ai_settings,
     generate_change_note,
     generate_change_note_from_diff,
     generate_profile_ai_proposal,
@@ -197,6 +198,9 @@ def list_profile_fields(_current_user: User = READ):
                 "ref": spec.ref,
                 "unit": spec.unit,
                 "description": spec.description,
+                # Observed by the machine as it sorts each piece, not looked
+                # up in the catalog: a rule on it needs current sorter software.
+                "piece": spec.piece,
             }
             for spec in FIELDS.values()
             if spec.alias_of is None
@@ -426,11 +430,14 @@ def route_pieces(
 
     results = []
     for piece in payload.pieces:
-        rows = index.rows_for(piece.part)
-        part_key = index.keys[rows[0]][0] if rows else piece.part.strip()
+        given_part = (piece.part or "").strip()
+        rows = index.rows_for(given_part) if given_part else []
+        part_key: str | None = (index.keys[rows[0]][0] if rows else given_part) or None
         color = None
         color_info = None
-        if piece.color_id is not None:
+        if part_key is None:
+            pass
+        elif piece.color_id is not None:
             if piece.color_id not in index.colors:
                 raise APIError(400, f"No Rebrickable color {piece.color_id}", "COLOR_NOT_FOUND")
             color = index.bl_color(piece.color_id)
@@ -438,7 +445,12 @@ def route_pieces(
             color = str(piece.bricklink_color_id)
         if color is not None:
             color_info = index.bl_colors.get(color, {"id": color, "name": f"BrickLink color {color}"})
-        category, why = routing.route(part_key, color, kit_is_full)
+        observed = {
+            "confidence": 100.0 if piece.confidence is None else piece.confidence,
+            "color_confidence": 100.0 if piece.color_confidence is None else piece.color_confidence,
+            "piece_price": piece.price,
+        }
+        category, why = routing.route(part_key, color, kit_is_full, observed)
         kit_left = None
         if why == "kit":
             lines = [key for key in kit_lines(category, part_key, color) if left[key] > 0]
@@ -454,6 +466,7 @@ def route_pieces(
                 "part_name": part.get("name"),
                 "img_url": part.get("part_img_url"),
                 "known_part": bool(rows),
+                "identified": part_key is not None,
                 "color": color_info,
                 "category_id": category,
                 "category_name": category_info.get("name", category),
@@ -1152,6 +1165,10 @@ def apply_profile_ai_message(
         selected_rule_id=message.selected_rule_id,
         proposal=copy.deepcopy(message.proposal_json),
     )
+    next_fallback = apply_profile_ai_settings(
+        fallback_mode=base_version.fallback_mode_json or {},
+        proposal=message.proposal_json,
+    )
 
     # Generate a concise change note via Haiku
     change_note = payload.change_note
@@ -1203,7 +1220,7 @@ def apply_profile_ai_message(
             description=base_version.description,
             default_category_id=base_version.default_category_id,
             rules=next_rules,
-            fallback_mode=base_version.fallback_mode_json or {},
+            fallback_mode=next_fallback,
             change_note=change_note,
             label=payload.label,
             publish=payload.publish,

@@ -27,6 +27,9 @@ class SortingProfileRuleResponse(BaseModel):
     rule_type: str = "filter"
     name: str
     match_mode: str = "all"
+    # Takes the opposite of what its conditions and groups say: with "any",
+    # none of them; with "all", not all of them.
+    negate: bool = False
     conditions: list[SortingProfileConditionResponse] = Field(default_factory=list)
     children: list["SortingProfileRuleResponse"] = Field(default_factory=list)
     disabled: bool = False
@@ -46,6 +49,10 @@ class SortingProfileFallbackModeResponse(BaseModel):
     rebrickable_categories: bool = False
     bricklink_categories: bool = False
     by_color: bool = False
+    # When a piece's category has no bin and none is free: "misc" (the default
+    # bin, never stop), "share" (the least filled bin takes the category too),
+    # or None (the machine's own setting, which stops and asks by default).
+    no_bin: str | None = None
 
 
 class SortingProfileForkSourceResponse(BaseModel):
@@ -210,12 +217,19 @@ class SortingProfileHeadResponse(BaseModel):
 
 
 class SortingProfileRoutePiece(BaseModel):
-    # A part by BrickLink ID or Rebrickable number.
-    part: str
+    # A part by BrickLink ID or Rebrickable number; none for a piece
+    # recognition could not identify.
+    part: str | None = None
     # Its color: a Rebrickable color ID (as in rule conditions) or a BrickLink
     # color ID; neither means the color is unknown.
     color_id: int | None = None
     bricklink_color_id: int | None = None
+    # What the machine would observe (rules on the piece itself): recognition
+    # and color confidence, 0 to 100 (100 when left out for an identified
+    # piece), and this part's price in this color, in US$ (unknown when left out).
+    confidence: float | None = None
+    color_confidence: float | None = None
+    price: float | None = None
 
 
 class SortingProfileRouteRequest(BaseModel):

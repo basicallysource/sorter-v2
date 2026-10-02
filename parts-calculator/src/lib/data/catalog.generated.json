@@ -7015,8 +7015,8 @@
 		},
 		{
 			"id": "electronics",
-			"uid": "40ok",
-			"version": "5",
+			"uid": "655n",
+			"version": "6",
 			"name": "Electronics",
 			"description": "The PSU, the control board and the Orange Pi, each in its own printed box bolted to the frame, plus the 24 V lead to the powered USB hub, which rides on the Orange Pi housing's roof with the converter that powers the Pi.",
 			"docs": "/hardware/electronics/installation/",
@@ -7035,6 +7035,10 @@
 				},
 				{
 					"assembly": "harness-hub-24v",
+					"qty": 1
+				},
+				{
+					"assembly": "harness-spares",
 					"qty": 1
 				}
 			],
@@ -7171,6 +7175,36 @@
 					"uid": "40ok",
 					"date": "2026-09-26",
 					"message": "The powered USB hub and the 24 V to 5 V buck converter move into the Orange Pi housing (orange-pi-mount v5), whose roof clamps both. Same parts, same counts across the machine; only where they sit in the tree changed. The hub's 24 V lead stays here.",
+					"breaking": false,
+					"commit": null,
+					"lines": [
+						{
+							"assembly": "meanwell-psu-box",
+							"qty": 1,
+							"uid": "dxsv"
+						},
+						{
+							"assembly": "ctrl-board-mount",
+							"qty": 1,
+							"uid": "y2yu"
+						},
+						{
+							"assembly": "orange-pi-mount",
+							"qty": 1,
+							"uid": "hxqn"
+						},
+						{
+							"assembly": "harness-hub-24v",
+							"qty": 1,
+							"uid": "8b59"
+						}
+					]
+				},
+				{
+					"version": "6",
+					"uid": "655n",
+					"date": "2026-10-02",
+					"message": "The spare crimp parts the lead pages list join the machine as one group, Spare crimp parts, so the parts list matches the pages. They are not on any cable and nothing is built from them. Nothing else changes.",
 					"breaking": false,
 					"commit": null
 				}
@@ -8164,7 +8198,7 @@
 			"joining": [
 				{
 					"method": "crimp",
-					"note": "The moulded barrel plug's two leads are joined to the 18 AWG (0.82 mm\u00b2) pair with a red insulated butt connector on each, crimped in the jaw marked 22 to 16 AWG (0.33 to 1.3 mm\u00b2) of an insulated-terminal crimper. Then an SVH-21T contact onto each wire at the other end, pushed into the back of the VHR-2 until it clicks and will not pull out."
+					"note": "The moulded barrel plug's two leads are joined to the 18 AWG (0.82 mm\u00b2) pair with a red insulated butt connector on each, crimped in the die marked 22 to 16 AWG (0.33 to 1.3 mm\u00b2) of an insulated-terminal crimper. Then an SVH-21T contact onto each wire at the other end, pushed into the back of the VHR-2 until it clicks and will not pull out."
 				},
 				{
 					"method": "solder",
@@ -8250,7 +8284,7 @@
 			"joining": [
 				{
 					"method": "crimp",
-					"note": "The moulded barrel plug's two leads are joined to the converter's red and black input wires with a red insulated butt connector on each, crimped in the jaw marked 22 to 16 AWG (0.33 to 1.3 mm\u00b2) of an insulated-terminal crimper, the two staggered. A screw-terminal plug needs no butt connectors. If the converter's wires are shorter than 100 mm, extend each with a butt connector first."
+					"note": "The moulded barrel plug's two leads are joined to the converter's red and black input wires with a red insulated butt connector on each, crimped in the die marked 22 to 16 AWG (0.33 to 1.3 mm\u00b2) of an insulated-terminal crimper, the two staggered. A screw-terminal plug needs no butt connectors. If the converter's wires are shorter than 100 mm, extend each with a butt connector first."
 				},
 				{
 					"method": "solder",
@@ -8299,7 +8333,7 @@
 			"joining": [
 				{
 					"method": "crimp",
-					"note": "The strip connector clamps onto the cut end of the COB strip and onto the plug's wires, so that end is not soldered. The socket's two wires are joined to the Dupont cable's wires with a red insulated butt connector on each, crimped in the jaw marked 22 to 16 AWG (0.33 to 1.3 mm\u00b2) of an insulated-terminal crimper."
+					"note": "The strip connector clamps onto the cut end of the COB strip and onto the plug's wires, so that end is not soldered. The socket's two wires are joined to the Dupont cable's wires with a red insulated butt connector on each, crimped in the die marked 22 to 16 AWG (0.33 to 1.3 mm\u00b2) of an insulated-terminal crimper."
 				},
 				{
 					"method": "solder",
@@ -8503,6 +8537,43 @@
 					"message": "The two Dupont contacts for the board end are now a line of their own, as they were in the crimp kit that has been retired. The cable itself is unchanged, so a cable built before works in its place.",
 					"breaking": false,
 					"commit": null
+				}
+			]
+		},
+		{
+			"id": "harness-spares",
+			"uid": "e5g1",
+			"version": "1",
+			"name": "Spare crimp parts",
+			"description": "The spare contacts, terminals and connectors the lead pages list on top of what each lead uses, because the first crimps in a series you have not done before usually come out wrong and a crimped contact cannot be recovered. Two spare butt connectors for each of the board's 24 V lead, the Orange Pi's 24 V lead and the three LED drops, two for the chute stepper splices, two SVH contacts, one spare PH contact per channel stepper lead and two for the chute lead, two fork terminals, two #187 receptacles and two Dupont contacts. These parts are not on any cable, so none of them is a joint of the machine.",
+			"lines": [
+				{
+					"part": "butt-connector-red-22-16",
+					"qty": 6
+				},
+				{
+					"part": "butt-connector-24-20",
+					"qty": 2
+				},
+				{
+					"part": "jst-svh-21t",
+					"qty": 2
+				},
+				{
+					"part": "jst-sph-002t",
+					"qty": 6
+				},
+				{
+					"part": "terminal-fork-m35",
+					"qty": 2
+				},
+				{
+					"part": "terminal-qc-187",
+					"qty": 2
+				},
+				{
+					"part": "dupont-contact-female",
+					"qty": 2
 				}
 			]
 		}
@@ -28671,8 +28742,8 @@
 			},
 			"name": "Insulated butt connector, red, 22-16 AWG",
 			"category": "Wire harness",
-			"description": "Joins two wires end to end without soldering: one wire goes in each end and the barrel is crimped onto it. Two per LED drop, one for each of the barrel socket's wires, so six for the three lamps, plus two on the control board's 24 V lead and two on the Orange Pi's 24 V lead, one for each of the moulded barrel plug's leads (or one for each extension of a short converter wire), so ten per machine.",
-			"note": "Crimp it with insulated-terminal crimping pliers, in the jaw marked for 22 to 16 AWG (0.33 to 1.3 mm\u00b2), not picked by colour. A crimp tool for open-barrel Dupont and PH contacts has the wrong die and will not close this connector properly.",
+			"description": "Joins two wires end to end without soldering: one wire goes in each end and the barrel is crimped onto it. Two per LED drop, one for each of the barrel socket's wires, so six for the three lamps, plus two on the control board's 24 V lead and two on the Orange Pi's 24 V lead, one for each of the moulded barrel plug's leads (or one for each extension of a short converter wire), so ten used per machine, plus two spares for each of those three kinds of lead, six more, sixteen in all.",
+			"note": "Crimp it with insulated-terminal crimping pliers, in the die marked for 22 to 16 AWG (0.33 to 1.3 mm\u00b2), not picked by colour. A crimp tool for open-barrel Dupont and PH contacts has the wrong die and will not close this connector properly.",
 			"created_at": "2026-10-01",
 			"updated_at": "2026-10-01",
 			"attributes": [
@@ -28694,7 +28765,7 @@
 				}
 			],
 			"sheet_qty": {
-				"per_machine": 10
+				"per_machine": 16
 			},
 			"sheet_qty_text": null,
 			"stock": null,
@@ -28712,7 +28783,7 @@
 				]
 			},
 			"alternative": "Solder the two wires together and cover each joint with a 25 mm piece of 3 mm adhesive-lined heat shrink instead",
-			"caption": "Two per lamp, one for each wire of the barrel socket, and two on each of the control board's and the Orange Pi's 24 V leads.",
+			"caption": "Two per lamp, one for each wire of the barrel socket, and two on each of the control board's and the Orange Pi's 24 V leads. Six more are spares.",
 			"docs_page": "/hardware/helpers/led-strip/",
 			"conflicts": null,
 			"image": "https://assets.basically.website/sorter-parts/butt-connector-red-22-16-full-34dedee6c550.jpg"
@@ -28802,11 +28873,11 @@
 				},
 				{
 					"label": "Per machine",
-					"value": "2, one per conductor of W1"
+					"value": "4: one per conductor of W1, plus two spares"
 				}
 			],
 			"sheet_qty": {
-				"per_machine": 2
+				"per_machine": 4
 			},
 			"sheet_qty_text": null,
 			"stock": null,
@@ -28822,7 +28893,7 @@
 				]
 			},
 			"alternative": null,
-			"caption": "Crimp onto the wire first, then push into the shell.",
+			"caption": "Two on W1 and two spares. Crimp onto the wire first, then push into the shell.",
 			"docs_page": "/hardware/helpers/board-24v-lead/",
 			"conflicts": null,
 			"image": "https://assets.basically.website/sorter-parts/jst-svh-21t-full-12fe480e1b3f.jpg"
@@ -28968,11 +29039,11 @@
 				},
 				{
 					"label": "Per machine",
-					"value": "20: four contacts at the board end of each of S1 to S4, plus four at CH's board end"
+					"value": "26: four contacts at the board end of each of S1 to S4 and of CH (20), plus one spare per channel lead and two for CH"
 				}
 			],
 			"sheet_qty": {
-				"per_machine": 20
+				"per_machine": 26
 			},
 			"sheet_qty_text": null,
 			"stock": null,
@@ -28988,7 +29059,7 @@
 				]
 			},
 			"alternative": null,
-			"caption": "Twenty per machine. Buy spares.",
+			"caption": "Twenty-six per machine: twenty on the cables and six spares.",
 			"docs_page": "/hardware/electronics/wire-harness/",
 			"conflicts": null,
 			"image": "https://assets.basically.website/sorter-parts/jst-sph-002t-full-020470b7194a.jpg"
@@ -29045,7 +29116,7 @@
 			},
 			"name": "Dupont female crimp contact, 2.54 mm",
 			"category": "Wire harness",
-			"description": "The contact inside a Dupont housing. Crimp one onto each conductor, then push it into the housing until it latches. Two go in the limit switch lead's board end.",
+			"description": "The contact inside a Dupont housing. Crimp one onto each conductor, then push it into the housing until it latches. Two go in the limit switch lead's board end and two are spares.",
 			"note": "Takes 22 to 28 AWG (0.08 to 0.33 mm\u00b2), so the 22 AWG (0.33 mm\u00b2) limit switch wire is at the thick end of the range. Crimp it in the die for open-barrel contacts, not the insulated-terminal die. Buy well over the count; they are small and easy to spoil.",
 			"created_at": "2026-10-01",
 			"updated_at": "2026-10-01",
@@ -29064,11 +29135,11 @@
 				},
 				{
 					"label": "Per machine",
-					"value": "2: the limit switch lead's board end"
+					"value": "4: two in the limit switch lead's board end, plus two spares"
 				}
 			],
 			"sheet_qty": {
-				"per_machine": 2
+				"per_machine": 4
 			},
 			"sheet_qty_text": null,
 			"stock": null,
@@ -29092,7 +29163,7 @@
 				]
 			},
 			"alternative": null,
-			"caption": "Two per machine. Buy a bag of 100.",
+			"caption": "Two on the cable and two spares. Buy a bag of 100.",
 			"docs_page": "/hardware/helpers/limit-switch-lead/",
 			"conflicts": null,
 			"image": "https://assets.basically.website/sorter-parts/dupont-contact-female-full-full-8e553c7f48d1.jpg"
@@ -29106,7 +29177,7 @@
 			},
 			"name": "Insulated butt splice, clear, 24 to 20 AWG (0.2 to 0.6 mm\u00b2) (TE PIDG 323975)",
 			"category": "Wire harness",
-			"description": "Joins two wires end to end without soldering: one wire goes in each end and the barrel is crimped onto it. The only common size that holds both the chute stepper cable's 24 AWG (0.20 mm\u00b2) wire and the motor's own 20 AWG (0.52 mm\u00b2) leads. Four on the chute stepper cable, one per motor lead.",
+			"description": "Joins two wires end to end without soldering: one wire goes in each end and the barrel is crimped onto it. The only common size that holds both the chute stepper cable's 24 AWG (0.20 mm\u00b2) wire and the motor's own 20 AWG (0.52 mm\u00b2) leads. Four on the chute stepper cable, one per motor lead, plus two spares, six in all.",
 			"note": "Crimp it with insulated-terminal crimping pliers, in the die marked for 24 to 20 AWG (0.2 to 0.6 mm\u00b2), not picked by colour. The insulation sits against the end of the barrel, not inside it, and each wire end goes in until it touches the stop in the middle: look through the clear window to check. A crimp tool for open-barrel Dupont and PH contacts has the wrong die and will not close this splice properly.",
 			"created_at": "2026-10-01",
 			"updated_at": "2026-10-01",
@@ -29133,7 +29204,7 @@
 				}
 			],
 			"sheet_qty": {
-				"per_machine": 4
+				"per_machine": 6
 			},
 			"sheet_qty_text": null,
 			"stock": null,
@@ -29151,7 +29222,7 @@
 				]
 			},
 			"alternative": "Solder the two wires together and cover each joint with a piece of adhesive-lined heat shrink instead",
-			"caption": "Four on the chute stepper cable, one on each of the motor's leads.",
+			"caption": "Four on the chute stepper cable, one on each of the motor's leads, and two spares.",
 			"docs_page": "/hardware/helpers/chute-stepper-lead/",
 			"conflicts": null,
 			"image": "https://assets.basically.website/sorter-parts/butt-connector-24-20-full-dbd531960c4e.jpg"
@@ -29165,7 +29236,7 @@
 			},
 			"name": "Insulated fork terminal, M3.5, 18 AWG (0.82 mm\u00b2)",
 			"category": "Wire harness",
-			"description": "Crimped onto both wires of each PSU output pigtail, landing under the screws of the LRS-350-24 terminal block. Three pigtails, two terminals each.",
+			"description": "Crimped onto both wires of each PSU output pigtail, landing under the screws of the LRS-350-24 terminal block. Three pigtails, two terminals each, plus two spares.",
 			"note": "8 mm wide at most. Plenty of fork terminals are wider and simply will not fit between the LRS-350-24's output screws, and the listing rarely gives the width, so go by the stud size: M3.5 or #6.",
 			"created_at": "2026-09-14",
 			"updated_at": "2026-09-18",
@@ -29188,17 +29259,17 @@
 				},
 				{
 					"label": "Per machine",
-					"value": "6: two on each of the three PSU pigtails"
+					"value": "8: two on each of the three PSU pigtails, plus two spares"
 				}
 			],
 			"sheet_qty": {
-				"per_machine": 6
+				"per_machine": 8
 			},
 			"sheet_qty_text": null,
 			"stock": null,
 			"sourcing": null,
 			"alternative": null,
-			"caption": "Six per machine. The 8 mm width limit is the one that bites.",
+			"caption": "Eight per machine: six on the pigtails and two spares. The 8 mm width limit is the one that bites.",
 			"docs_page": "/hardware/helpers/psu-pigtail/",
 			"conflicts": null,
 			"image": "https://assets.basically.website/sorter-parts/terminal-fork-m35-full-98f7ee7ba1a5.jpg"
@@ -29235,7 +29306,7 @@
 				}
 			],
 			"sheet_qty": {
-				"per_machine": 2
+				"per_machine": 4
 			},
 			"sheet_qty_text": null,
 			"stock": null,
@@ -29251,7 +29322,7 @@
 				]
 			},
 			"alternative": null,
-			"caption": "Pushes onto the switch tabs. No soldering.",
+			"caption": "Two on the cable and two spares. Pushes onto the switch tabs, no soldering.",
 			"docs_page": "/hardware/helpers/limit-switch-lead/",
 			"conflicts": null,
 			"image": "https://assets.basically.website/sorter-parts/terminal-qc-187-full-1b297cc335ae.jpg"
@@ -29326,7 +29397,7 @@
 			},
 			"name": "Hook-up wire, 22 AWG (0.33 mm\u00b2), 2-conductor red and black",
 			"category": "Wire harness",
-			"description": "Everything lighter than the board feed: W2 to the USB hub, W3 to the buck converter, the three LED drops and their pigtails, and the chute limit switch cable.",
+			"description": "The wire for the chute limit switch cable, and for extending the Orange Pi converter's input wires if they are shorter than 100 mm. The USB hub's 24 V lead is bought ready made and the LED drops are bought Dupont cables and barrel plugs on their own leads, so none of those takes this wire. Making your own Dupont cable for a lamp is the one other use.",
 			"note": null,
 			"created_at": "2026-09-14",
 			"updated_at": "2026-09-18",
@@ -29341,11 +29412,11 @@
 				},
 				{
 					"label": "Length per machine",
-					"value": "4.27 m (426.7 cm, 168 in) per machine: W2 0.305 m (30.5 cm, 12 in), W3 0.152 m (15.2 cm, 6 in), LED feeds 3 x 0.914 m (91.4 cm, 36 in), LED pigtails 3 x 0.152 m (15.2 cm, 6 in), limit switch 0.610 m (61 cm, 24 in)"
+					"value": "0.76 m (76.2 cm, 30 in) per machine: limit switch 0.610 m (61 cm, 24 in), and up to 0.152 m (15.2 cm, 6 in) to extend W3's converter wires. A home-made Dupont cable for each lamp is 3 x 0.914 m (91.4 cm, 36 in) more"
 				},
 				{
 					"label": "Note",
-					"value": "22 AWG (0.33 mm\u00b2) on W2 and W3 is the harness drawing's guess, not a measured figure. Gauge per segment is an open item on the wire harness page"
+					"value": "The gauge on W3 is the harness drawing's guess, not a measured figure. Gauge per segment is an open item on the wire harness page"
 				}
 			],
 			"sheet_qty": {
@@ -29354,10 +29425,10 @@
 			"sheet_qty_text": null,
 			"stock": {
 				"unit_length_mm": 15240,
-				"cut_length_mm": 4267,
-				"pieces_per_unit": 3,
+				"cut_length_mm": 762,
+				"pieces_per_unit": 20,
 				"unit_label": "15.2 m (50 ft) spool",
-				"piece_label": "one machine's worth (4.27 m / 426.7 cm / 168 in)"
+				"piece_label": "one machine's worth (0.76 m / 76.2 cm / 30 in)"
 			},
 			"sourcing": {
 				"vendors": [
@@ -29371,7 +29442,7 @@
 				]
 			},
 			"alternative": null,
-			"caption": "4.27 m a machine, most of it the three LED drops.",
+			"caption": "0.76 m a machine: the limit switch cable and, if the converter's wires are short, the Orange Pi lead.",
 			"docs_page": "/hardware/electronics/wire-harness/",
 			"conflicts": null,
 			"image": "https://assets.basically.website/sorter-parts/wire-22awg-2c-full-c5bdc4a8c04e.jpg"

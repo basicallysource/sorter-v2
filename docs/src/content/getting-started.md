@@ -34,7 +34,7 @@ You do not need to be an engineer.
 
 **Taught here, when you need it.** [Heat-set inserts]({{ '/hardware/helpers/heat-inserts/' | relative_url }}), [crimping]({{ '/hardware/helpers/channel-stepper-lead/' | relative_url }}) and [using a multimeter]({{ '/hardware/helpers/multimeter/' | relative_url }}).
 
-**Some soldering.** [Four solder jumpers on the control board]({{ '/hardware/electronics/installation/control-board-prep/' | relative_url }}), and a splice on [the chute stepper lead]({{ '/hardware/helpers/chute-stepper-lead/' | relative_url }}) and [the board's 24 V lead]({{ '/hardware/helpers/board-24v-lead/' | relative_url }}).
+**A little soldering.** [Four solder jumpers on the control board]({{ '/hardware/electronics/installation/control-board-prep/' | relative_url }}). The cable joints are crimped, and soldering them is only an alternative.
 
 **Not needed.** No CAD, no PCB design and no programming.
 
@@ -47,12 +47,12 @@ Each page lists the tools for its own steps.
 <ul class="bulleted-list">
   <li>A 3D printer with a bed of at least 256 x 256 mm. See <a href="{{ '/hardware/printing/' | relative_url }}">Printing the parts</a>.</li>
   <li>Hex keys: 2, 2.5, 3 and 4 mm.</li>
-  <li>A soldering iron, and flux-cored solder. Set the iron to around 350 C, or 320 C if your solder is leaded. A standard build solders four jumpers on the control board and a splice on the <a href="{{ '/hardware/helpers/chute-stepper-lead/' | relative_url }}">chute stepper lead</a> and the <a href="{{ '/hardware/helpers/board-24v-lead/' | relative_url }}">board's 24 V lead</a>. The <a href="{{ '/hardware/helpers/led-strip/' | relative_url }}">LED lamp cables</a> are crimped and clamped, and soldering is only their alternative.</li>
-  <li>Adhesive-lined heat shrink, to insulate and seal a soldered splice. The lamp cables use 3:1 dual-wall tubing, 3 mm (1/8 in) before shrinking, in 25 mm pieces. You also need a heat gun, or the side of a lighter flame, to shrink it.</li>
+  <li>A soldering iron, and flux-cored solder. Set the iron to around 350 C, or 320 C if your solder is leaded. A standard build solders four jumpers on the control board. The cable joints, on the <a href="{{ '/hardware/helpers/chute-stepper-lead/' | relative_url }}">chute stepper lead</a>, the <a href="{{ '/hardware/helpers/board-24v-lead/' | relative_url }}">board's 24 V lead</a> and the <a href="{{ '/hardware/helpers/led-strip/' | relative_url }}">LED lamp cables</a>, are crimped or clamped, and soldering is only their alternative.</li>
+  <li>Only if you solder a cable joint instead of crimping it: adhesive-lined heat shrink, to insulate and seal it. The lamp cables use 3:1 dual-wall tubing, 3 mm (1/8 in) before shrinking, in 25 mm pieces. You also need a heat gun, or the side of a lighter flame, to shrink it.</li>
   <li>A multimeter with a continuity buzzer.</li>
   <li>Side cutters, wire strippers and needle-nose pliers.</li>
   <li>A ratcheting crimp tool for open-barrel contacts (Dupont, JST-PH, JST-VH), unless you <a href="{{ '/hardware/parts/harness-order/' | relative_url }}">order the harness ready made</a>.</li>
-  <li>Insulated-terminal crimping pliers, with a jaw for 22 to 16 AWG (0.33 to 1.3 mm²) wire, for butt connectors, fork terminals and receptacles. Not needed if you solder those joints.</li>
+  <li>Insulated-terminal crimping pliers, with a die for 22 to 16 AWG (0.33 to 1.3 mm²) wire, for butt connectors, fork terminals and receptacles. Not needed if you solder those joints.</li>
   <li>Small flat and Phillips screwdrivers, an 8 mm spanner, a mallet and a tape measure.</li>
 </ul>
 

@@ -514,18 +514,21 @@ function resolvePeople(ids: unknown): ResolvedPerson[] {
  *  the family's first listed part. Order within a choice follows the page's own
  *  parts_needed, and the choices render above the category's plain cards:
  *  picking a variant is the decision that comes before shopping the rest. */
-function foldVariants(groups: PartsGroup[]): void {
-	const byFamily = new Map<string, { home: PartsGroup; variants: Map<string, ResolvedPart[]>; heading?: string | null }>();
-	for (const g of groups) {
-		for (const p of g.parts) {
-			if (!p.variant_group || !p.variant_name) continue;
-			let fam = byFamily.get(p.variant_group);
-			if (!fam) byFamily.set(p.variant_group, (fam = { home: g, variants: new Map() }));
-			fam.heading ??= p.variant_heading;
-			const bucket = fam.variants.get(p.variant_name);
-			if (bucket) bucket.push(p);
-			else fam.variants.set(p.variant_name, [p]);
+function foldVariants(groups: PartsGroup[], listed: ResolvedPart[]): void {
+	type Family = { home: PartsGroup; variants: Map<string, ResolvedPart[]>; heading?: string | null };
+	const byFamily = new Map<string, Family>();
+	for (const p of listed) {
+		if (!p.variant_group || !p.variant_name) continue;
+		let fam = byFamily.get(p.variant_group);
+		if (!fam) {
+			const home = groups.find((g) => g.parts.includes(p));
+			if (!home) continue;
+			byFamily.set(p.variant_group, (fam = { home, variants: new Map() }));
 		}
+		fam.heading ??= p.variant_heading;
+		const bucket = fam.variants.get(p.variant_name);
+		if (bucket) bucket.push(p);
+		else fam.variants.set(p.variant_name, [p]);
 	}
 	const folded = new Set<ResolvedPart>();
 	for (const fam of byFamily.values()) {
@@ -573,7 +576,7 @@ function resolveParts(partsNeeded: any[]): { groups: PartsGroup[]; conflicts: Re
 		if (!g) groups.push((g = { category: p.category, parts: [], choices: [] }));
 		g.parts.push(p);
 	}
-	foldVariants(groups);
+	foldVariants(groups, resolved);
 	return { groups, conflicts: resolved.filter((p) => p.conflicts?.length) };
 }
 

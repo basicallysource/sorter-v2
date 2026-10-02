@@ -2670,6 +2670,7 @@ blockquote {
 /* Same panel as .modal-panel, but it shrinks to the image instead of being
    900px wide. */
 .lightbox-panel {
+	position: relative;
 	display: flex;
 	flex-direction: column;
 	min-width: min(320px, 100%);
@@ -2683,44 +2684,56 @@ blockquote {
 	overflow: hidden;
 }
 
-.lightbox-title {
-	margin: 0;
-	font-size: 0.875rem;
-	font-weight: 600;
-	line-height: 1.3;
-	color: var(--ink);
-	display: -webkit-box;
-	-webkit-box-orient: vertical;
-	-webkit-line-clamp: 1;
-	line-clamp: 1;
-	overflow: hidden;
-}
-
-/* The alt text is a sentence or two; it must not decide how wide the panel
-   is, the image does. */
-.lightbox-panel .modal-heading {
-	contain: inline-size;
-}
-
-.lightbox .modal-subtitle a {
-	color: inherit;
-	text-decoration: underline;
-}
-
-.lightbox .modal-subtitle a:hover {
-	color: var(--ink);
+.lightbox-close {
+	position: absolute;
+	top: 10px;
+	right: 10px;
+	z-index: 1;
+	background: var(--surface);
 }
 
 .lightbox-body {
 	min-height: 0;
 	display: flex;
 	justify-content: center;
-	background: var(--bg);
+	background: var(--surface);
 }
 
 .lightbox-img {
 	display: block;
 	max-width: 100%;
-	max-height: calc(100dvh - 2 * clamp(12px, 4vh, 48px) - 60px);
+	max-height: calc(100dvh - 2 * clamp(12px, 4vh, 48px) - 92px);
 	object-fit: contain;
+}
+
+/* contain: the alt text is a sentence or two and must not decide how wide the
+   panel is; the image does. */
+.lightbox-caption {
+	contain: inline-size;
+	padding: 10px 14px;
+	border-top: 1px solid var(--line);
+	font-size: 0.875rem;
+	line-height: 1.4;
+	color: var(--ink);
+}
+
+.lightbox-caption p {
+	margin: 0;
+	display: -webkit-box;
+	-webkit-box-orient: vertical;
+	-webkit-line-clamp: 2;
+	line-clamp: 2;
+	overflow: hidden;
+}
+
+.lightbox-caption a {
+	display: inline-block;
+	margin-top: 4px;
+	font: 0.72rem/1.4 var(--font-mono);
+	color: var(--muted);
+	text-decoration: underline;
+}
+
+.lightbox-caption a:hover {
+	color: var(--ink);
 }

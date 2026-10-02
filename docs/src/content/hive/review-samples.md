@@ -16,7 +16,7 @@ warning: >-
   you use it.
 ---
 
-Samples are camera images your machine uploads to Hive while it runs. Reviewers vote **accept** or **reject** on the boxes drawn on each one. A sample needs 3 agreeing votes to count as accepted, and the accepted samples are what a new vision model is trained from.
+Samples are camera images your machine uploads to Hive while it runs. If that is new to you, [How Hive works]({{ '/hive/how-hive-works/' | relative_url }}) explains what a sample is first. Reviewers vote **accept** or **reject** on the boxes drawn on each one. A sample needs 3 agreeing votes to count as accepted, and the accepted samples are what a new vision model is trained from.
 
 ## Which samples to review first
 

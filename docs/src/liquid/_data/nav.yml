@@ -197,6 +197,8 @@ sections:
     pages:
       - title: Overview
         url: /hive/
+      - title: How Hive works
+        url: /hive/how-hive-works/
       - title: Build your first sorting profile
         url: /hive/first-profile/
         children:

@@ -14,7 +14,7 @@ parts_needed:
   - part: jst-phr-4
     qty: 4
   - part: jst-sph-002t
-    qty: 16
+    qty: 20
 tools_needed: ["Multimeter, to check the finished lead", "Side cutters, to cut the Dupont housing off", "Wire strippers, for 26 AWG (0.13 mm²) wire", "Crimping pliers for open-barrel contacts, with a die for 24 AWG (0.20 mm²) wire"]
 ---
 
@@ -25,7 +25,7 @@ These are `S1` to `S4` on the [harness drawings]({{ '/hardware/parts/harness-ord
   <p><b>The lead that comes in the box with the motor is not usable as it comes.</b> Two of its four conductors are in the wrong order for this board, so the driver drives half of one coil against half of the other and the motor buzzes and barely turns. It also ends in a Dupont housing, which does fit the 2.54 mm pins beside each stepper socket, so it looks right. Pull a Dupont contact sideways and its spring lifts off the pin: resistance rises, the joint heats, and it gets worse from there. Two have cooked on running machines.</p>
 </div>
 
-**Both faults are in that one housing.** So the fix is to replace it: cut the plug off the motor's own lead, crimp a contact onto each of the four wires and load them into a 4-pin PHR-4 in the order below. The motor end of the lead is already right and stays as it is. **Per lead: one `jst-phr-4` and four `jst-sph-002t` contacts**, so sixteen contacts for the machine, and a crimp tool for open-barrel contacts. You do not need a ready-made cable or a PHR-6.
+**Both faults are in that one housing.** So the fix is to replace it: cut the plug off the motor's own lead, crimp a contact onto each of the four wires and load them into a 4-pin PHR-4 in the order below. The motor end of the lead is already right and stays as it is. **Per lead: one `jst-phr-4` and four `jst-sph-002t` contacts**, so sixteen contacts for the machine. The parts list says twenty: four spares, because the first crimps on a contact this small are easy to spoil. You also need a crimp tool for open-barrel contacts. You do not need a ready-made cable or a PHR-6.
 
 ## The two ends
 
@@ -49,7 +49,7 @@ under <b>Re-house the lead</b>, below. Motor positions 2 and 5 stay empty.
 
 <div class="callout callout-warning">
   <span class="callout-icon" aria-hidden="true">⚠</span>
-  <p><b>Check the wire diagram that came with your motor before you cut anything.</b> StepperOnline supplies a small wire diagram with the motor that names the wire in every position of the 6-pin housing, with its colour and its coil (A+, A-, B+, B-). The figure below is drawn from the datasheet for the 17HE15-1504S, and the wire colours and the position 1 end have not been checked against a real motor. Lay the motor's own drawing next to this figure: positions 1 and 4 must be the same coil, and positions 3 and 6 the other. If your drawing differs, follow it. A photo of that drawing from a real motor is still missing from this page, so if you have one, please post it in the Discord.</p>
+  <p><b>Check the wire diagram that came with your motor before you cut anything.</b> StepperOnline supplies a small wire diagram with the motor that names the wire in every position of the 6-pin housing, with its colour and its coil (A+, A-, B+, B-). Lay the motor's own drawing next to the figure below: positions 1 and 4 must be the same coil, and positions 3 and 6 the other. If your drawing differs, follow it.</p>
 </div>
 
 <figure class="single-figure">
@@ -57,13 +57,13 @@ under <b>Re-house the lead</b>, below. Motor positions 2 and 5 stay empty.
   <figcaption>Follow the position, not the colour. Each wire goes from the motor-end position on the left to the PHR-4 position on the right.</figcaption>
 </figure>
 
-**Position 1 is the end that lands on pin 1.** Both housings are keyed and only plug in one way round, so the end that goes over pin 1 of the socket is position 1 and the positions count away from it. On the motor that is the right end of the socket in the figure above, and on the board it is the square pad. The wire colours on the drawing are an example: your wires may be other colours, and the drawing still works because each wire is named by the motor-end position it sits in.
+**Position 1 is the end that lands on pin 1.** Both housings are keyed and only plug in one way round, so the end that goes over pin 1 of the socket is position 1 and the positions count away from it. On the motor it is the end described under <b>The crossover</b>, above, and on the board it is the square pad. The wire colours on the drawing are an example: your wires may be other colours, and the drawing still works because each wire is named by the motor-end position it sits in.
 
 <ol class="numbered-steps">
   <li>Look at the back of the 6-pin housing at the motor end while it is still plugged into the motor, with the shaft towards you: position 1 is the right-hand end and the positions count 1 to 6 from right to left. Four wires sit in positions 1, 3, 4 and 6, and 2 and 5 are empty. Write down which colour is in which position, or tag each wire with a bit of tape marked with its position if two look alike.</li>
-  <li>Cut the Dupont housing off close to the housing, so the cable keeps its length.</li>
+  <li>Cut the Dupont housing off, close to it, so the cable keeps its length.</li>
   <li>Strip about 2 mm off each conductor and crimp a contact onto it, in the die of the crimping pliers marked for 24 AWG (0.20 mm²) wire. Pull on each wire to check it holds. Practise on a scrap first, the contacts are small and easy to spoil.</li>
-  <li>Load the <code>PHR-4</code> from the back, counting from the end that goes over the square pad of the board socket (offer the empty housing to the socket to see which end that is): the wire from motor position 1 into position 1, the wire from motor position 4 into 2, the wire from motor position 3 into 3 and the wire from motor position 6 into 4. Each contact goes in with its lance facing the slot in the housing, and clicks when it is home.</li>
+  <li>Load the <code>PHR-4</code> from the back, counting from the end that goes over the square pad of the board socket (offer the empty housing to the socket to see which end that is): the wire from motor position 1 into position 1, the wire from motor position 4 into 2, the wire from motor position 3 into 3 and the wire from motor position 6 into 4. Push each contact in until it clicks.</li>
   <li>Pull gently on each wire, then meter across <code>PHR-4</code> positions 1 and 2 and across 3 and 4 with the motor plugged in. Both read a couple of ohms, 2.3 &Omega; on the motor in the parts list, and across the two pairs is open circuit. If either pair reads open, two contacts are in the wrong places.</li>
 </ol>
 

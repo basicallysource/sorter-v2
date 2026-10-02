@@ -122,7 +122,11 @@ for (const [path, raw] of Object.entries(dataFiles)) {
 				vendors: (h.sourcing?.vendors ?? []).map((v: any) => ({
 					vendor: v.vendor,
 					region: v.region,
-					url: v.affiliate_url ?? v.url
+					url: v.affiliate_url ?? v.url,
+					// Set only on a row that carries the project's referral tag: the
+					// modal shows the untagged listing next to it.
+					plain_url: v.affiliate_url ? v.url : undefined,
+					note: v.note
 				})),
 				stock_label: h.stock?.unit_label,
 				sheet_qty_text: h.sheet_qty_text,
@@ -435,7 +439,9 @@ export type ResolvedPart = {
 	// foldVariants.
 	variant_group?: string | null;
 	variant_name?: string | null;
-	// Heading over the choice the family offers ("One of these per layer").
+	// Heading over the "or" row, from the page's own parts_needed entry; a family
+	// the page does not title gets VARIANT_HEADINGS or the default.
+	variant_heading?: string | null;
 	/** Everything the part modal shows, taken straight off the calculator's
 	 *  generated catalog so the two never drift. Absent on a missing part. */
 	detail?: PartDetail;
@@ -475,7 +481,7 @@ export type PartDetail = {
 	low_tolerance_note?: string;
 	requires?: { id: string; name: string; qty: number }[];
 	// cots
-	vendors?: { vendor: string; region?: string; url: string }[];
+	vendors?: { vendor: string; region?: string; url: string; plain_url?: string; note?: string }[];
 	stock_label?: string;
 	sheet_qty_text?: string;
 	// laser-cut
@@ -540,11 +546,13 @@ function foldVariants(groups: PartsGroup[], listed: ResolvedPart[]): void {
 	for (const [group, fam] of byFamily) {
 		if (fam.variants.size < 2) continue;
 		const options: PartsChoice[] = [];
+		let heading: string | null | undefined;
 		for (const [label, parts] of fam.variants) {
 			options.push({ label, parts });
+			heading ??= parts.find((p) => p.variant_heading)?.variant_heading;
 			for (const p of parts) folded.add(p);
 		}
-		fam.home.choices.push({ heading: VARIANT_HEADINGS[group] ?? 'Choose one', options });
+		fam.home.choices.push({ heading: heading ?? VARIANT_HEADINGS[group] ?? 'One of these per layer', options });
 	}
 	if (folded.size) for (const g of groups) g.parts = g.parts.filter((p) => !folded.has(p));
 }
@@ -575,8 +583,11 @@ function resolveParts(partsNeeded: any[]): { groups: PartsGroup[]; conflicts: Re
 			note,
 			temporary,
 			category: part.category ?? 'Other',
-			variant_group: part.variant_group,
-			variant_name: part.variant_name
+			// A page can group parts that are alternatives for one job on its own
+			// (the hub's 24 V lead); the catalog's tags are for the per-layer families.
+			variant_group: entry.variant_group ?? part.variant_group,
+			variant_name: entry.variant_name ?? part.variant_name,
+			variant_heading: entry.variant_heading
 		};
 	});
 	const groups: PartsGroup[] = [];

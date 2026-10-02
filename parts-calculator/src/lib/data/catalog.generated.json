@@ -28942,7 +28942,7 @@
 			"description": "Embedded MCU for controlling motors. Bought with its two rows of 20 header pins already fitted, ready to seat in the control board.",
 			"note": null,
 			"created_at": "2026-09-21",
-			"updated_at": "2026-09-21",
+			"updated_at": "2026-10-02",
 			"attributes": [
 				{
 					"label": "Chip",
@@ -28971,6 +28971,16 @@
 						"pack_qty": 1,
 						"as_of": "2026-09-21",
 						"note": "Ships with a loose 1x3 debug header and a micro USB cable; neither is needed."
+					},
+					{
+						"region": "EU",
+						"vendor": "Amazon DE",
+						"url": "https://www.amazon.de/dp/B091TLCNJD",
+						"price": 14.99,
+						"pack_qty": 1,
+						"currency": "EUR",
+						"as_of": "2026-10-02",
+						"note": "IBest RP2040 Pico board with headers fitted. The listing does not say what else is in the box."
 					}
 				]
 			},

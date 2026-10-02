@@ -24,7 +24,10 @@ parts_needed:
     qty: 1
   - part: cable-idc-2x8-long
     qty: 1
-tools_needed: [Multimeter, Side cutters or a small screwdriver, "Only if you make your own W1 lead: wire strippers and a crimp tool"]
+  - part: sleeving-braided-6mm
+    qty: 1
+    note: Optional. 1 m for each of the four channel stepper leads.
+tools_needed: [Multimeter, Side cutters or a small screwdriver, "Only if you make your own W1 lead: wire strippers and a crimp tool", "Optional, for the sleeving: scissors and tape, or a hot knife"]
 ---
 
 The [PSU box]({{ '/hardware/electronics/installation/psu-box/' | relative_url }}), the [control board housing]({{ '/hardware/electronics/installation/control-board-housing/' | relative_url }}) and the [Orange Pi housing]({{ '/hardware/electronics/installation/orange-pi-mount/' | relative_url }}) are all bolted to the frame, and every cable is already made. This page plugs them together. Nothing here needs a soldering iron.
@@ -193,6 +196,27 @@ Every socket has a row of 2.54 mm pins beside it carrying the same signals, so a
   <span class="callout-icon" aria-hidden="true">⚠</span>
   <p><b>Check the coils before you plug a motor in.</b> A stepper has two coils, two wires each, and the plug has four holes: holes 1 and 2 feed one coil, 3 and 4 the other. Put a <a href="{{ '/hardware/helpers/multimeter/' | relative_url }}#resistance-for-finding-a-steppers-coils">multimeter</a> across the wires that should be a pair. A pair reads a few ohms; two wires from different coils read open circuit. If holes 2 and 3 are the pair, pull those two contacts out of the housing and swap them, or the motor will buzz and barely turn. Full pinout and the board-side footprint: <a href="{{ '/hardware/electronics/wire-harness/#21--stepper-pinout-and-polarity' | relative_url }}">the wire harness page</a>.</p>
 </div>
+
+### Sleeving the channel stepper leads (optional)
+
+<div class="callout">
+  <p><b>You can skip this and the machine works the same.</b> The braided sleeving keeps the four wires of each channel stepper lead together as one tidy cable, and protects them where the lead runs along the frame past the moving parts.</p>
+</div>
+
+**Where:** over the four wires of each channel stepper lead, from just behind the 6-pin motor housing to just short of the 4-pin board housing. One metre per lead, four metres for the machine. No other cable on the machine is sleeved.
+
+**When:** while you make each lead, before the 4-pin housing is crimped on. Neither housing fits through the sleeving, so it cannot be added to a finished lead. The [channel stepper lead]({{ '/hardware/helpers/channel-stepper-lead/' | relative_url }}) page has the step where it goes on.
+
+**How:**
+
+<ol class="numbered-steps">
+  <li>Push the braid together lengthwise to open it: it widens as it shortens. Feed the four wires into it together, so none of them is left outside.</li>
+  <li>Cut it to length with a hot knife or a soldering iron with a blade tip, so the cut melts shut. Plain scissors leave the braid fraying. With no hot tool, wrap a turn of tape around the braid where you will cut, cut through the middle of the tape with scissors, and leave the tape on.</li>
+  <li>Stop the sleeving 5 to 10 mm short of each housing, so the crimped contacts and the housings can flex and the sleeving never crowds into a housing.</li>
+  <li>Hold each end with a small piece of heat shrink or a turn of tape, so that the braid cannot creep back along the wires.</li>
+</ol>
+
+Leave the sleeving loose enough to bend. The cable tie that [anchors the lead above the connector]({{ '/hardware/helpers/channel-stepper-lead/#how-long' | relative_url }}) goes on over the sleeving: pull it tight enough to hold, but not so tight that it crushes the braid.
 
 {% include step.html n="3" title="Wire the chute limit switch" %}
 

@@ -6684,9 +6684,8 @@
       "category": "Wire harness",
       "description": "The board end of the stepper cables, into a 4-pin JST-PH stepper output on basically board v1.3. Which socket you plug it into is what decides which motor the software drives, so follow the mapping on the docs page rather than guessing.",
       "note": "Count of 5 follows the harness drawing, which puts the chute cable's board end on a PHR-4 as well. The v1.3 netlist reads the chute as a Dupont header instead, which would make this 4. Unsettled, so buy 5 and have a spare.",
-      "alternative": "jst-ph-cable-4p-63cm arrives with one fitted at each end",
       "created_at": "2026-09-14",
-      "updated_at": "2026-09-14",
+      "updated_at": "2026-10-02",
       "image_url": "https://assets.basically.website/sorter-parts/jst-phr-4-full-0556181a4cd7.jpg",
       "attributes": [
         {
@@ -6736,10 +6735,9 @@
       },
       "name": "JST PH housing, 6-pin (PHR-6)",
       "category": "Wire harness",
-      "description": "The motor end of the four channel and carousel stepper cables, into the NEMA 17's own 6-pin socket. Only four of the six positions carry a contact.",
-      "note": "Positions 2 and 5 are deliberately left empty. The board's four conductors map 1, 2, 3, 4 to motor positions 1, 4, 3, 6, so this is a crossover cable and the pin order matters. Buying jst-ph-cable-4p-63cm does not remove this: that cable is 4-pin at both ends, so the motor end still needs one of these.",
+      "description": "Retired. This was the motor end of the channel stepper cable. The cable is now the motor's own lead re-housed with a PHR-4 at the board end, and the motor end is the 6-pin housing that lead already ends in, so nothing is bought for it. Do not re-add it: old docs and photos may still show a PHR-6 on the cable.",
       "created_at": "2026-09-14",
-      "updated_at": "2026-09-19",
+      "updated_at": "2026-10-02",
       "image_url": "https://assets.basically.website/sorter-parts/jst-phr-6-full-bf8127ef2725.jpg",
       "attributes": [
         {
@@ -6763,10 +6761,6 @@
           "value": "The NEMA 17's own PH socket"
         }
       ],
-      "sheet_qty": {
-        "per_machine": 4
-      },
-      "caption": "Motor end of S1 to S4. Two positions stay empty.",
       "docs_page": "/hardware/helpers/channel-stepper-lead/",
       "sourcing": {
         "vendors": [
@@ -6778,7 +6772,8 @@
             "note": "JST PHR-6, LCSC C157952."
           }
         ]
-      }
+      },
+      "retired_at": "2026-10-02"
     },
     {
       "id": "jst-sph-002t",
@@ -6790,10 +6785,9 @@
       "name": "JST PH crimp contact (SPH-002T-P0.5S)",
       "category": "Wire harness",
       "description": "The contacts inside every PH housing on the machine. Crimp one onto each conductor, then push it into the housing until it latches.",
-      "note": "PH contacts take 24 to 28 AWG (0.08 to 0.20 mm²) only, which is why the stepper cables are 24 AWG (0.20 mm²) and not something heavier. Buy well over the count; these are small and easy to spoil.",
-      "alternative": "Buying jst-ph-cable-4p-63cm drops the count to 4, the chute's board end only",
+      "note": "PH contacts take 24 to 28 AWG (0.08 to 0.20 mm²) only, which is why the chute's tail is 24 AWG (0.20 mm²) and the channel motors' own 26 AWG leads are a fit. Buy well over the count; these are small and easy to spoil.",
       "created_at": "2026-09-14",
-      "updated_at": "2026-09-14",
+      "updated_at": "2026-10-02",
       "image_url": "https://assets.basically.website/sorter-parts/jst-sph-002t-full-020470b7194a.jpg",
       "attributes": [
         {
@@ -6806,17 +6800,17 @@
         },
         {
           "label": "Goes in",
-          "value": "PHR-4 and PHR-6 housings"
+          "value": "PHR-4 housings"
         },
         {
           "label": "Per machine",
-          "value": "36: four contacts at each end of S1 to S4, plus four at CH's board end"
+          "value": "20: four contacts at the board end of each of S1 to S4, plus four at CH's board end"
         }
       ],
       "sheet_qty": {
-        "per_machine": 36
+        "per_machine": 20
       },
-      "caption": "Thirty-six per machine. Buy spares.",
+      "caption": "Twenty per machine. Buy spares.",
       "docs_page": "/hardware/electronics/wire-harness/",
       "sourcing": {
         "vendors": [
@@ -7197,11 +7191,10 @@
       },
       "name": "Hook-up wire, 24 AWG (0.20 mm²), four colours",
       "category": "Wire harness",
-      "description": "The stepper cables. Each of the five is a four-wire bundle, and the colours are how you keep the crossover straight: black, blue, green and red, matching the stepper pin map on the docs page.",
+      "description": "The tail of the chute stepper cable (CH): a four-wire bundle in four colours, which are how you keep the coil pairs straight. The channel cables no longer use it, because they are made from the motors' own leads.",
       "note": "24 AWG (0.20 mm²) is not a choice: it is the heaviest wire the JST PH contacts accept. Do not go up a gauge for these.",
-      "alternative": "Not needed for the channel steppers if you buy jst-ph-cable-4p-63cm, which is 24 AWG (0.20 mm²) already",
       "created_at": "2026-09-14",
-      "updated_at": "2026-09-18",
+      "updated_at": "2026-10-02",
       "image_url": "https://assets.basically.website/sorter-parts/wire-24awg-full-f63b62a78fb9.jpg",
       "attributes": [
         {
@@ -7214,7 +7207,7 @@
         },
         {
           "label": "Length per machine",
-          "value": "5.02 m (501.6 cm, 197.5 in) of each colour per machine: 4 x 1 m (100 cm, 39.4 in) for S1 to S4, plus 1.016 m (101.6 cm, 40 in) for CH"
+          "value": "1.016 m (101.6 cm, 40 in) of each colour per machine, for CH only"
         },
         {
           "label": "Buy",
@@ -7223,15 +7216,15 @@
       ],
       "stock": {
         "unit_length_mm": 9000,
-        "cut_length_mm": 5020,
-        "pieces_per_unit": 1,
+        "cut_length_mm": 1016,
+        "pieces_per_unit": 8,
         "unit_label": "kit with about 9 m (30 ft) of each colour",
-        "piece_label": "one machine's worth (5.02 m / 501.6 cm / 197.5 in of each of four colours)"
+        "piece_label": "one machine's worth (1.016 m / 101.6 cm / 40 in of each of four colours)"
       },
       "sheet_qty": {
         "per_machine": 1
       },
-      "caption": "Four colours, because S1 to S4 are crossover cables.",
+      "caption": "Four colours, for the chute stepper cable.",
       "docs_page": "/hardware/parts/harness-order/",
       "sourcing": {
         "vendors": [
@@ -7311,7 +7304,7 @@
       "description": "Retired. A Preciva 1565-piece crimp tool and Dupont, JST-PH and JST-XH connector kit, taken out of the docs and the parts list. The docs now list a crimp tool for open-barrel contacts under Tools needed instead, and the parts that were in the kit are bought on their own. Do not re-add it to a page.",
       "note": "Read what it does not cover before you rely on it. The housings run 1 to 5 pin, so the 6-pin PHR-6 at the stepper motor end is not in it. There are no VH 3.96 mm housings, though the crimper's range does take the VH contacts. And the die is for non-insulated open-barrel contacts, so it will not crimp the PSU fork terminals or the #187 receptacles, which need an insulated-terminal die.",
       "created_at": "2026-09-14",
-      "updated_at": "2026-10-01",
+      "updated_at": "2026-10-02",
       "image_url": "https://assets.basically.website/sorter-parts/connector-kit-crimp-full-e3e61c2d331b.jpg",
       "attributes": [
         {
@@ -7332,10 +7325,10 @@
         },
         {
           "label": "Does not cover",
-          "value": "jst-phr-6 (6-pin), jst-vhr-2 (VH 3.96 mm), terminal-fork-m35 and terminal-qc-187 (insulated die)"
+          "value": "jst-vhr-2 (VH 3.96 mm), terminal-fork-m35 and terminal-qc-187 (insulated die)"
         }
       ],
-      "caption": "Covers the PH and Dupont ends, and the crimper. Not the 6-pin or the insulated terminals.",
+      "caption": "Covers the PH and Dupont ends, and the crimper. Not the insulated terminals.",
       "docs_page": "/hardware/electronics/wire-harness/",
       "sourcing": {
         "vendors": [
@@ -7362,11 +7355,9 @@
       },
       "name": "JST PH 4-pin cable, 63 cm, connector at both ends",
       "category": "Wire harness",
-      "description": "A whole channel stepper cable with no crimping: 63 cm of twisted 24 AWG (0.20 mm²) with a 4-pin PHR-4 at each end. One end plugs into the board as it comes. At the other, lift the four contacts out of their housing and re-seat them in a PHR-6 in the crossover order, which needs a pick and no crimp tool.",
-      "note": "Buy a PHR-6 per cable for the motor end; the housing the contacts came out of is then a spare. Contacts are held by a small lance inside the housing: press it back with a fine pick or a sliver of shim and the contact slides out, and it goes back into the PHR-6 until it clicks. Take your time, a bent lance will not retain.",
-      "alternative": "Make the cable from wire-24awg plus a jst-phr-4, a jst-phr-6 and eight jst-sph-002t contacts",
+      "description": "Retired. This was a ready-made 63 cm PH cable whose four contacts were moved into a PHR-6 for the channel steppers. The channel cable is now the motor's own lead re-housed with a PHR-4, so no ready-made cable is bought. Do not re-add it: old docs and photos may still show it.",
       "created_at": "2026-09-14",
-      "updated_at": "2026-09-19",
+      "updated_at": "2026-10-02",
       "image_url": "https://assets.basically.website/sorter-parts/jst-ph-cable-4p-63cm-full-9f00b9a255c8.jpg",
       "attributes": [
         {
@@ -7394,10 +7385,6 @@
           "value": "One jst-phr-6 per cable. No contacts and no crimp tool"
         }
       ],
-      "sheet_qty": {
-        "per_machine": 4
-      },
-      "caption": "One per channel stepper. Move four contacts into a PHR-6 and it is done.",
       "docs_page": "/hardware/helpers/channel-stepper-lead/",
       "sourcing": {
         "vendors": [
@@ -7410,7 +7397,8 @@
             "note": "Item #5627, $3.89 each at qty 5. Chosen by Jon. The 63 cm is the longest 4-pin PH-to-PH Pololu make."
           }
         ]
-      }
+      },
+      "retired_at": "2026-10-02"
     },
     {
       "id": "psu-24v-350w",
@@ -16052,6 +16040,28 @@
         }
       ],
       "versions": [
+        {
+          "version": "1",
+          "uid": "ims7",
+          "message": "As recorded before the first stamped change.",
+          "lines": [
+            {
+              "part": "jst-phr-4",
+              "qty": 1,
+              "uid": "frxy"
+            },
+            {
+              "part": "jst-sph-002t",
+              "qty": 8,
+              "uid": "ysu7"
+            },
+            {
+              "part": "jst-phr-6",
+              "qty": 1,
+              "uid": "qlfa"
+            }
+          ]
+        },
         {
           "version": "2",
           "date": "2026-10-02",

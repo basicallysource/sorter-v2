@@ -189,7 +189,7 @@
 											are skipping it.
 										</p>
 									</Popover>{/if}
-								{#if part.caption}<span class="part-card-caption">{part.caption}</span>{/if}
+								{#if part.note ?? part.caption}<span class="part-card-caption">{part.note ?? part.caption}</span>{/if}
 							{/if}
 						</li>
 {/snippet}

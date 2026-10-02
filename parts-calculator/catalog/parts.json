@@ -15971,6 +15971,18 @@
       ],
       "versions": [
         {
+          "version": "1",
+          "uid": "8b59",
+          "message": "As recorded before the first stamped change.",
+          "lines": [
+            {
+              "part": "dc-plug-5521-male",
+              "qty": 2,
+              "uid": "ky9z"
+            }
+          ]
+        },
+        {
           "version": "2",
           "date": "2026-10-02",
           "message": "The USB hub's 24 V lead is bought ready made, a 5.5 x 2.1 mm male to male lead, instead of two moulded barrel plugs spliced together. It stays the same length class and does the same job. It is no longer made, so there is no joint. The hub's own screw terminal with one plug's wires is the documented alternative.",

@@ -87,7 +87,7 @@ This page is the wiring. Where the PSU, the control board and the Orange Pi phys
       <text x="262" y="184" font-size="9.5" fill="var(--muted)">24V in: JST-VH female</text>
       <g font-size="11" fill="var(--ink)" text-anchor="middle">
         <text x="207" y="184">W1 · 36 in</text>
-        <text x="207" y="354">W2 · 6 in</text>
+        <text x="207" y="354">W2 · 11 in</text>
         <text x="207" y="404">W3 · 6 in</text>
       </g>
       <g font-size="10" fill="var(--primary)" font-style="italic" text-anchor="middle">
@@ -195,7 +195,7 @@ A male DC barrel plug on each wire mates one of the PSU output jacks (PJ1-PJ3), 
   <thead><tr><th>ID</th><th>Load</th><th>From</th><th>To</th><th>Cond.</th><th>Length</th><th>Gauge</th></tr></thead>
   <tbody>
     <tr><td class="wire-id">W1</td><td>basically board v1.3</td><td>PSU PJ1, male DC</td><td>JST-VH female (board 24V in)</td><td>2</td><td>36 in <span class="flagged">too long</span></td><td>18 AWG (0.82 mm²)</td></tr>
-    <tr><td class="wire-id">W2</td><td>Waveshare 4-port USB hub, 24V</td><td>PSU PJ2, male DC</td><td>Hub 2-pin power terminal (or male DC, with the bought lead)</td><td>2</td><td>6 in, the plug's own lead (24 in with the bought lead) <span class="flagged">reach not checked</span></td><td>22 AWG (0.33 mm²)</td></tr>
+    <tr><td class="wire-id">W2</td><td>Waveshare 4-port USB hub, 24V</td><td>PSU PJ2, male DC</td><td>Hub 2-pin power terminal (or male DC, with the bought lead)</td><td>2</td><td>11 in (28 cm), the plug's own lead; 24 in with the bought lead</td><td>22 AWG (0.33 mm²)</td></tr>
     <tr><td class="wire-id">W3</td><td>Orange Pi 5</td><td>PSU PJ3, male DC</td><td>24V-5V USB-C buck</td><td>2</td><td>6 in</td><td>22 AWG (0.33 mm²) <span class="flagged">guess</span></td></tr>
   </tbody>
 </table>

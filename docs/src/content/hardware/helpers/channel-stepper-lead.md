@@ -43,11 +43,6 @@ under <b>Re-house the lead</b>, below. Motor positions 2 and 5 stay empty.
 
 **On the motor, pin 1 is the right end of the socket** when you look at the motor from the shaft end with the socket at the top edge. Reading left to right the positions are 6, empty, 4, 3, empty, 1. Positions 1 and 4 are one coil and 3 and 6 are the other, whatever colour the wires are.
 
-<figure class="single-figure">
-  <img class="doc-figure" src="https://assets.basically.website/sorter-docs/channel-stepper-lead-motor-pin1-top-full-c61ff3727a76.png" alt="The NEMA 17 seen from the shaft end, with its 6-position socket on the top edge. The positions are numbered 6 to 1 from left to right with pin 1 at the right end. Positions 1 and 4 are filled in blue as coil A, positions 3 and 6 in green as coil B, and positions 2 and 5 are empty. A list beside it gives the board net for each position: A2, empty, B1, A1, empty, B2.">
-  <figcaption>The motor's socket, with the socket at the top. Position 1 is at the right, 2 and 5 are empty.</figcaption>
-</figure>
-
 **Positions 1 and 2 on the board are one coil, 3 and 4 are the other.** Keeping each pair together is what matters. Swapping the two wires inside a coil only reverses which way the motor turns, and the direction is set in the software.
 
 ## Re-house the lead the motor came with
@@ -67,36 +62,10 @@ under <b>Re-house the lead</b>, below. Motor positions 2 and 5 stay empty.
 <ol class="numbered-steps">
   <li>Look at the back of the 6-pin housing at the motor end while it is still plugged into the motor, with the shaft towards you: position 1 is the right-hand end and the positions count 1 to 6 from right to left. Four wires sit in positions 1, 3, 4 and 6, and 2 and 5 are empty. Write down which colour is in which position, or tag each wire with a bit of tape marked with its position if two look alike.</li>
   <li>Cut the Dupont housing off close to the housing, so the cable keeps its length.</li>
-  <li>Strip and crimp a contact onto each conductor, as under <b>Crimping a PH contact</b>, below. Practise on a scrap first, the contacts are small and easy to spoil.</li>
+  <li>Strip about 2 mm off each conductor and crimp a contact onto it, in the die of the crimping pliers marked for 24 AWG (0.20 mm²) wire. Pull on each wire to check it holds. Practise on a scrap first, the contacts are small and easy to spoil.</li>
   <li>Load the <code>PHR-4</code> from the back, counting from the end that goes over the square pad of the board socket (offer the empty housing to the socket to see which end that is): the wire from motor position 1 into position 1, the wire from motor position 4 into 2, the wire from motor position 3 into 3 and the wire from motor position 6 into 4. Each contact goes in with its lance facing the slot in the housing, and clicks when it is home.</li>
   <li>Pull gently on each wire, then meter across <code>PHR-4</code> positions 1 and 2 and across 3 and 4 with the motor plugged in. Both read a couple of ohms, 2.3 &Omega; on the motor in the parts list, and across the two pairs is open circuit. If either pair reads open, two contacts are in the wrong places.</li>
 </ol>
-
-**If you cannot tell which wire was in which position,** meter the wires <a href="{{ '/hardware/helpers/multimeter/' | relative_url }}#resistance-for-finding-a-steppers-coils">with the meter</a> instead. Two of the four read a couple of ohms between them and open circuit to the other two: those two are one coil. Put one coil in <code>PHR-4</code> positions 1 and 2 and the other in 3 and 4. Either order inside a pair works, it only reverses which way the motor turns, and the direction is set in the software.
-
-<figure class="single-figure">
-  <img class="doc-figure" src="https://assets.basically.website/sorter-docs/channel-stepper-lead-rehouse-pin1-plug-shape-full-a930463bfa08.png" alt="Two rows. Top: the motor with its own lead running to a Dupont housing, a dashed line marking where to cut close to the housing, the housing marked as scrap. Bottom: the same lead with a crimped contact on each of its four wires, loaded into a 4-pin PHR-4 drawn in the datasheet plug shape (flange where the wires enter, a lane at each end, a window between), with positions 1 and 2 bracketed as coil A and 3 and 4 as coil B.">
-  <figcaption>Cut the Dupont housing off, crimp a contact on each wire, load the PHR-4 one coil at a time.</figcaption>
-</figure>
-
-The Dupont housing you cut off is scrap.
-
-## Crimping a PH contact
-
-A PH contact takes 24 to 28 AWG (0.08 to 0.20 mm²) wire only.
-
-<ol class="numbered-steps">
-  <li>Strip about 2 mm off the end of the wire.</li>
-  <li>Close the contact's inner wings on the bare strands and its outer wings on the insulation, in the die of the crimping pliers marked for 24 AWG (0.20 mm²) wire.</li>
-  <li>Pull on the wire to check it holds, then push the contact into the housing from the back, with its lance facing the slot in the housing, until it clicks.</li>
-</ol>
-
-<figure class="single-figure">
-  <img class="doc-figure" src="https://assets.basically.website/sorter-docs/ph-contact-crimp-steps-full-985dd5dc580a.png" alt="Three stages: a wire with about 2 mm of bare strands; a contact crimped on, its outer wings on the insulation and its inner wings on the bare strands; the contact pushed into the back of a housing until it clicks.">
-  <figcaption>Strip, crimp, push in until it clicks.</figcaption>
-</figure>
-
-Choose the die by the size marked on it, not by its colour.
 
 ## How long
 

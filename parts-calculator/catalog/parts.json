@@ -9232,7 +9232,7 @@
       "category": "Electronics",
       "description": "40 x 40 x 10 mm axial fan, 24 V, on the control board housing cover, held against its vent by two printed fan retainers. Comes with an XH2.54 2-pin lead, which plugs straight into one of the board's LED ports. One per machine: the Orange Pi is cooled by its own heatsink fan instead.",
       "created_at": "2026-08-22",
-      "updated_at": "2026-09-26",
+      "updated_at": "2026-10-02",
       "attributes": [
         {
           "label": "Size",
@@ -9279,6 +9279,16 @@
             "pack_qty": 5,
             "as_of": "2026-08-23",
             "note": "The 24V - 5000RPM style. The listing also sells 5 V and 12 V under the same page."
+          },
+          {
+            "region": "EU",
+            "vendor": "Amazon DE",
+            "url": "https://www.amazon.de/dp/B09KP9NBJP",
+            "price": 19.99,
+            "pack_qty": 5,
+            "currency": "EUR",
+            "as_of": "2026-10-02",
+            "note": "Pack of 5, 24 V, 30 cm XH2.54 2-pin lead. This listing says dual ball bearing, 0.05 A and 4.69 CFM, so the bearing and figures differ slightly from the hydraulic US listing."
           }
         ]
       }

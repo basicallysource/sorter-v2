@@ -19,15 +19,15 @@ parts_needed:
   - part: jst-phr-4
     qty: 1
   - part: jst-sph-002t
-    qty: 4
+    qty: 6
   - part: butt-connector-24-20
-    qty: 4
+    qty: 6
   - part: wire-24awg
     qty: 1
 tools_needed: ["Multimeter, to find the coils and to check the finished lead", "Side cutters, to cut the tail wire to length", "Wire strippers that take both 24 AWG (0.20 mm²) and 20 AWG (0.52 mm²) wire", "Insulated-terminal crimping pliers with a die marked for 24 to 20 AWG (0.2 to 0.6 mm²), for the four butt splices", "Crimping pliers for open-barrel contacts, with a die for 24 AWG (0.20 mm²) wire, for the four PH contacts", "A ruler or tape measure, to cut the tail to length", "Only if you solder the splices instead: soldering iron and solder, adhesive-lined heat shrink, and a heat gun to shrink it"]
 ---
 
-The chute stepper is the NEMA 23 that drives the chute. It is the only motor on the machine with bare flying leads: the four channel steppers have their own 6-pin socket and take a bought cable. So this one lead gets built. **One per machine.**
+The chute stepper is the NEMA 23 that drives the chute. It is the only motor on the machine with bare flying leads: the four channel steppers have their own 6-pin socket, and their own lead that you [re-house]({{ '/hardware/helpers/channel-stepper-lead/' | relative_url }}) with a PHR-4. So this one lead gets built from the motor's bare leads. **One per machine.** The parts list has six butt splices and six PH contacts, two more of each than the lead uses: the first crimps on a new part are easy to spoil. General help with crimping is at [Crimping connectors]({{ '/hardware/helpers/crimping/' | relative_url }}).
 
 <div class="callout callout-warning">
   <span class="callout-icon" aria-hidden="true">⚠</span>
@@ -195,7 +195,7 @@ A PH contact takes 24 to 28 AWG (0.08 to 0.20 mm²) wire only, which is why it g
 <ol class="numbered-steps">
   <li>Strip about 2 mm off the end of the tail.</li>
   <li>Close the contact's inner wings on the bare strands and its outer wings on the insulation, in the die of the crimping pliers marked for 24 AWG (0.20 mm²) wire.</li>
-  <li>Pull on the wire to check it holds, then push the contact into the housing from the back, with its lance facing the slot in the housing, until it clicks.</li>
+  <li>Pull on the wire to check it holds, then push the contact into the housing from the back until it clicks.</li>
 </ol>
 
 <figure class="single-figure">
@@ -229,8 +229,8 @@ One lead: the motor with a 24 AWG (0.20 mm²) tail spliced onto its four thick l
 
 ## Reference
 
-The vendor drawing for this lead, its bill of materials and its downloads are on the [WireViz
-drawings]({{ '/hardware/parts/harness-order/#chute-stepper' | relative_url }}) page. It shows the same lead in the form a cable supplier quotes from.
+No supplier drawing covers this lead yet. The other leads, and the rest of the harness, are on the [WireViz
+drawings]({{ '/hardware/parts/harness-order/#chute-stepper' | relative_url }}) page.
 
 ## Where it goes
 

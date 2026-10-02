@@ -21,15 +21,15 @@ parts_needed:
   - part: dupont-housing-3p
     qty: 1
   - part: terminal-qc-187
-    qty: 2
+    qty: 4
   - part: dupont-contact-female
-    qty: 2
+    qty: 4
 tools_needed: ["Side cutters, to cut the wire to length", "A ruler or tape measure, to measure 610 mm (24 in)", "Wire strippers that take 22 AWG (0.33 mm²) wire", "Insulated-terminal crimping pliers with a die marked for 22 to 18 AWG (0.33 to 0.82 mm²), for the two #187 receptacles", "Crimping pliers for open-barrel contacts, with a die for 22 AWG (0.33 mm²) wire, for the two Dupont contacts", "Multimeter, to check the finished lead and the switch"]
 ---
 
 This is `LIM` on the [harness drawings]({{ '/hardware/parts/harness-order/#limit-switch' | relative_url }}). It runs from `J5` on the control board to the roller-lever switch on the chute. **One per machine.**
 
-Nothing on this lead is soldered. The switch end pushes on, and the board end is two crimps into a housing.
+Nothing on this lead is soldered. The switch end pushes on, and the board end is two crimps into a housing. The parts list has four receptacles and four contacts, two more of each than the lead uses: the first crimps on a new part are easy to spoil. General help with crimping is at [Crimping connectors]({{ '/hardware/helpers/crimping/' | relative_url }}).
 
 ## The two ends
 

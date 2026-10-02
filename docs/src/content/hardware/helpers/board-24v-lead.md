@@ -16,12 +16,12 @@ parts_needed:
   - part: wire-18awg-2c
     qty: 1
   - part: butt-connector-red-22-16
-    qty: 2
+    qty: 4
   - part: jst-vhr-2
     qty: 1
   - part: jst-svh-21t
-    qty: 2
-tools_needed: ["Side cutters, to cut the pair to length", "Wire strippers, for 18 AWG (0.82 mm²) wire", "Crimping pliers for open-barrel contacts, with a die for 22 to 16 AWG (0.33 to 1.3 mm²), for the VH contacts", "Insulated-terminal crimping pliers with a jaw for 22 to 16 AWG (0.33 to 1.3 mm²) wire, for the butt connectors on a moulded plug", "Multimeter, to find the tip and to check the finished lead", "A small screwdriver, only for a screw-terminal plug", "Only if you solder a moulded plug's leads instead of crimping them: a soldering iron, solder and adhesive-lined heat shrink (see Getting started)"]
+    qty: 4
+tools_needed: ["Side cutters, to cut the pair to length", "Wire strippers, for 18 AWG (0.82 mm²) wire", "Crimping pliers for open-barrel contacts, with a die for 22 to 16 AWG (0.33 to 1.3 mm²), for the VH contacts", "Insulated-terminal crimping pliers with a die for 22 to 16 AWG (0.33 to 1.3 mm²) wire, for the butt connectors on a moulded plug", "Multimeter, to find the tip and to check the finished lead", "A small screwdriver, only for a screw-terminal plug", "Only if you solder a moulded plug's leads instead of crimping them: a soldering iron, solder and adhesive-lined heat shrink (see Getting started)"]
 ---
 
 This is `W1` on the [harness drawings]({{ '/hardware/parts/harness-order/#board-power' | relative_url }}). It runs from one of the three jacks on the [PSU box]({{ '/hardware/electronics/installation/psu-box/' | relative_url }}) to `J1`, the 24 V input on the control board. **One per machine.**
@@ -40,7 +40,7 @@ This is `W1` on the [harness drawings]({{ '/hardware/parts/harness-order/#board-
 
 <div class="callout callout-warning">
   <span class="callout-icon" aria-hidden="true">⚠</span>
-  <p><b>No Dupont or PH kit has a VH housing.</b> Your open-barrel crimp tool does take the VH contacts, so the VHR-2 and its two contacts in the list above are a separate buy and the same tool crimps them.</p>
+  <p><b>No Dupont or PH kit has a VH housing.</b> Your open-barrel crimp tool does take the VH contacts, so the VHR-2 and its contacts in the list above are a separate buy and the same tool crimps them. The list has four VH contacts and four butt connectors, two more of each than the lead uses: the first crimps on a new part are easy to spoil, and a mis-crimped contact cannot be reused.</p>
 </div>
 
 ## Build it
@@ -55,7 +55,7 @@ This is `W1` on the [harness drawings]({{ '/hardware/parts/harness-order/#board-
   <li><b>Fit the barrel plug to one end.</b> On a <b>screw-terminal plug</b>, strip 5 mm off each conductor, get the bare strands fully under the screws, tighten firmly and pull on each wire. On a <b>moulded plug on a short lead</b>, join each of its two leads to one wire of the pair with a butt connector. How is under <b>Joining a moulded plug's leads</b>, below.</li>
   <li>Find which conductor is the tip. Set the <a href="{{ '/hardware/helpers/multimeter/' | relative_url }}#continuity-for-tracing-a-cable">multimeter to continuity</a> and hold one probe on the centre pin inside the plug. The conductor that beeps is <b>+24 V</b>. Red is the tip on most plugs, but a few are wired the other way, so this is the step where you find out rather than assume. Put a turn of tape on the +24 V conductor at each end, whatever its colour, so you still know which one it is in the steps below.</li>
   <li>Strip 3 mm off the free end of each conductor.</li>
-  <li>Crimp a VH contact onto each. Seat the bare strands fully in the barrel and crimp it in the die of the open-barrel pliers marked for 22 to 16 AWG (0.33 to 1.3 mm²). Then pull on the wire to check it holds.</li>
+  <li>Crimp a VH contact onto each. Seat the bare strands fully in the barrel and crimp it in the die of the open-barrel pliers marked for 22 to 16 AWG (0.33 to 1.3 mm²). Then pull on the wire to check it holds. How a contact is crimped, with a picture, is on [Crimping connectors]({{ '/hardware/helpers/crimping/' | relative_url }}).</li>
   <li>Push each contact into the back of the VHR-2 housing until it clicks and will not pull out. The two cavities look identical, so find the right one first: hold the housing with the end the wires will leave from toward you and the raised <b>latch bar</b> on top. <b>+24 V (red) goes in the left cavity, ground (black) in the right.</b> Dab a marker on the housing above the red cavity so you can see which is which later.</li>
 </ol>
 
@@ -75,7 +75,7 @@ A butt connector is a vinyl-insulated barrel that takes one wire in each end, ra
 <ol class="numbered-steps">
   <li>Strip 7 mm off the plug's lead and off the pair's wire, and twist the strands of each tight.</li>
   <li>Push the plug's lead into one end of a red butt connector, and the pair's wire of the same colour into the other, until the insulation of each wire meets the end of the barrel.</li>
-  <li>Close each end of the barrel in the jaw of the insulated-terminal crimping pliers marked for 22 to 16 AWG (0.33 to 1.3 mm²), so each wire is crimped separately. Squeeze until the tool releases. Pull on each wire to check it holds.</li>
+  <li>Close each end of the barrel in the die of the insulated-terminal crimping pliers marked for 22 to 16 AWG (0.33 to 1.3 mm²), so each wire is crimped separately. Squeeze until the tool releases. Pull on each wire to check it holds.</li>
   <li>Stagger the two butt connectors by a few millimetres along the lead so they cannot touch.</li>
 </ol>
 

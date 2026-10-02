@@ -123,6 +123,8 @@ sections:
             url: /hardware/helpers/led-strip/
           - title: Using a multimeter
             url: /hardware/helpers/multimeter/
+          - title: Crimping connectors
+            url: /hardware/helpers/crimping/
           - title: Make your own PSU output pigtail
             url: /hardware/helpers/psu-pigtail/
           - title: Make the control board's 24 V lead

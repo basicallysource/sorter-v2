@@ -2,6 +2,7 @@
 	import { tipScope } from '$lib/popover';
 	import PageMeta from '$lib/components/PageMeta.svelte';
 	import Requirements from '$lib/components/Requirements.svelte';
+	import ImageLightbox from '$lib/components/ImageLightbox.svelte';
 
 	let { data } = $props();
 
@@ -101,6 +102,39 @@
 				flashCopied(btn);
 			});
 			target.appendChild(btn);
+		}
+	});
+
+	// Photos and diagrams in the article open full size in a lightbox. One
+	// delegated listener, so images added later (or by a Liquid include) need no
+	// markup. An image that is already inside a link or button keeps doing what
+	// that does. Keyboard access: each one is made a focusable button.
+	let lightbox = $state<{ src: string; alt: string } | null>(null);
+
+	function zoomable(img: HTMLImageElement) {
+		return !img.closest('a, button');
+	}
+
+	function onContentClick(e: MouseEvent) {
+		if (!(e.target instanceof HTMLImageElement) || !zoomable(e.target)) return;
+		lightbox = { src: e.target.currentSrc || e.target.src, alt: e.target.alt };
+	}
+
+	function onContentKeydown(e: KeyboardEvent) {
+		if (e.key !== 'Enter' && e.key !== ' ') return;
+		if (!(e.target instanceof HTMLImageElement) || !zoomable(e.target)) return;
+		e.preventDefault();
+		lightbox = { src: e.target.currentSrc || e.target.src, alt: e.target.alt };
+	}
+
+	$effect(() => {
+		p.url; // rerun per page — {@html} replaces the DOM on navigation
+		if (!contentEl) return;
+		for (const img of contentEl.querySelectorAll('img')) {
+			if (!zoomable(img)) continue;
+			img.classList.add('zoomable');
+			img.tabIndex = 0;
+			img.setAttribute('role', 'button');
 		}
 	});
 
@@ -238,8 +272,17 @@
 <!-- `tipScope` picks up every `data-tip` in the rendered markdown (the
      affiliate-link star, anything a page marks up by hand) and gives it the
      same popover-family label the rest of the site uses. -->
-<div class="md-content" bind:this={contentEl} use:tipScope>
+<!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
+<div
+	class="md-content"
+	bind:this={contentEl}
+	use:tipScope
+	onclick={onContentClick}
+	onkeydown={onContentKeydown}
+>
 	{@html p.html}
 </div>
+
+<ImageLightbox bind:image={lightbox} />
 
 <PageMeta {fm} />

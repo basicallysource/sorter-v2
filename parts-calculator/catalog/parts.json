@@ -6927,7 +6927,7 @@
       "description": "Embedded MCU for controlling motors. Bought with its two rows of 20 header pins already fitted, ready to seat in the control board.",
       "alternative": "A bare Raspberry Pi Pico plus 40 header pins, soldered on by hand: [[docs:/hardware/helpers/pico-headers/|Soldering Pico headers]]",
       "created_at": "2026-09-21",
-      "updated_at": "2026-09-21",
+      "updated_at": "2026-10-02",
       "image_url": "https://assets.basically.website/sorter-parts/mcu-rpi-pico-presoldered-full-fc3efcd791b5.jpg",
       "attributes": [
         {
@@ -6954,6 +6954,16 @@
             "pack_qty": 1,
             "as_of": "2026-09-21",
             "note": "Ships with a loose 1x3 debug header and a micro USB cable; neither is needed."
+          },
+          {
+            "region": "EU",
+            "vendor": "Amazon DE",
+            "url": "https://www.amazon.de/dp/B091TLCNJD",
+            "price": 14.99,
+            "pack_qty": 1,
+            "currency": "EUR",
+            "as_of": "2026-10-02",
+            "note": "IBest RP2040 Pico board with headers fitted. The listing does not say what else is in the box."
           }
         ]
       }

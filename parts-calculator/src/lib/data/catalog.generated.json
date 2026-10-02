@@ -31473,6 +31473,26 @@
 						"currency": "EUR",
 						"as_of": "2026-10-02",
 						"note": "Pack of 5, 24 V, 30 cm XH2.54 2-pin lead. This listing says dual ball bearing, 0.05 A and 4.69 CFM, so the bearing and figures differ slightly from the hydraulic US listing."
+					},
+					{
+						"region": "EU",
+						"vendor": "Amazon DE",
+						"url": "https://www.amazon.de/dp/B07RFC8KNX",
+						"price": 9.98,
+						"pack_qty": 1,
+						"currency": "EUR",
+						"as_of": "2026-10-02",
+						"note": "ANVISION YDM4010B24, 24 V, 40 x 40 x 10 mm, dual ball bearing, 0.06 A, 6000 RPM. The lead is 150 mm (the catalog fan has 30 cm) and the listing says it fits a 2.5 mm 2-pin plug, so check it reaches the board and fits the XH2.54 port."
+					},
+					{
+						"region": "EU",
+						"vendor": "Amazon DE",
+						"url": "https://www.amazon.de/dp/B07RJGXHPY",
+						"price": 15.98,
+						"pack_qty": 2,
+						"currency": "EUR",
+						"as_of": "2026-10-02",
+						"note": "Same ANVISION fan as the single, pack of 2. One fan is needed per machine."
 					}
 				]
 			},

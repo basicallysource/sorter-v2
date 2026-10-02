@@ -140,7 +140,9 @@ without saving them: BrickLink categories, Colors, and Colors and basic
 pieces. Hive keeps them itself (owned by a user no one signs in as), public,
 with `system_key` and `default_rank`. On every start it compiles each one and
 publishes a new version when the result changed (a new definition, or a
-catalog update). A sorter with no profile starts on the first one.
+catalog update). A sorter with no profile starts on the first one. Each has
+more categories than a machine has bins, so each sets `no_bin: misc`: a
+category with no free bin goes to Everything else and the run keeps going.
 
 ## For assistants
 

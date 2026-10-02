@@ -35,6 +35,11 @@ These are `S1` to `S4` on the [harness drawings]({{ '/hardware/parts/harness-ord
   <dt>Wire</dt><dd>The motor's own lead, four conductors of 26 AWG (0.13 mm²). The harness drawing says 1 m; see the note on length below.</dd>
 </dl>
 
+<figure class="single-figure">
+  <img class="doc-figure" src="https://assets.basically.website/sorter-docs/stepper-lead-pin1-plug-shape-full-ac4c5740e493.png" alt="Two rows. Top: a PHR-4 housing drawn in the datasheet plug shape (flange at the wire side, a lane at each end, a window between) with positions numbered 1 to 4 and a note that it is keyed and plugs in one way round only, an arrow from the position 1 end to the 4-pin board socket drawn from above, whose first pad is square and labelled A2, followed by A1, B1 and B2. Bottom: a plain 4-pin Dupont housing with no marking, beside the 2.54 mm pin row on the board, whose first pin is on a square pad labelled A2.">
+  <figcaption>Position 1 is the end of the housing that goes over the pin on the square pad on the board.</figcaption>
+</figure>
+
 ### The crossover
 
 The board and the motor do not use the same positions, so this cable is not straight through.

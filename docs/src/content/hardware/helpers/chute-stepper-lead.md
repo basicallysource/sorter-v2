@@ -8,13 +8,8 @@ kicker: Helpers — Chute stepper lead
 lede: The only stepper cable you build. A 24 AWG (0.20 mm²) tail onto the motor's four bare leads, then a 4-pin housing in the right coil order. One per machine.
 permalink: /hardware/helpers/chute-stepper-lead/
 author: effreek
-contributors: [spencer, brickcyclealice]
-warning: >-
-  **AI-generated first draft.** Written from the basically board v1.3 board files and the [wire
-  harness]({{ '/hardware/electronics/wire-harness/' | relative_url }}) schedule, not from an actual build. The
-  pin order and the sockets are read off the board and are real. The cable length is a **GUESS**,
-  copied from the channel stepper cables, and no harness drawing covers this cable. The motor's own
-  leads have been measured on one build at 500 mm against the drawing's 300 mm, so check yours.
+contributors: [spencer, brickcyclealice, barthel]
+last_verified: 2026-10-02
 parts_needed:
   - part: jst-phr-4
     qty: 1

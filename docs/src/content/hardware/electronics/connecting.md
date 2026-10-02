@@ -21,12 +21,12 @@ parts_needed:
   - part: dc-plug-5521-male
     qty: 1
     variant_group: hub-24v-lead
-    variant_name: "Barrel plug on its own leads, screwed into the hub's terminal"
+    variant_name: "Barrel plug on its own two wires, one of the three plugs, screwed into the hub's terminal"
     variant_heading: "For the USB hub's 24 V lead, one of these"
   - part: dc-lead-5521-mm
     qty: 1
     variant_group: hub-24v-lead
-    variant_name: "Plug-to-plug lead, into the hub's DC jack (only if the housings are far apart)"
+    variant_name: "Lead with a barrel plug at each end, into the hub's DC jack (only if the housings are far apart)"
     variant_heading: "For the USB hub's 24 V lead, one of these"
   - part: buck-24v-5v-usbc
     qty: 1
@@ -34,12 +34,12 @@ parts_needed:
     qty: 1
   - part: cable-idc-2x8-long
     qty: 1
-tools_needed: [Multimeter, Side cutters or a small screwdriver, "Only if you make your own W1 lead: wire strippers and a crimp tool"]
+tools_needed: [Multimeter, "A small screwdriver, for the hub's power terminal", "Side cutters or wire strippers, only if the plug's two wires do not already have bare ends", "Only if you make your own W1 lead: wire strippers and a crimp tool"]
 ---
 
-The [PSU box]({{ '/hardware/electronics/installation/psu-box/' | relative_url }}), the [control board housing]({{ '/hardware/electronics/installation/control-board-housing/' | relative_url }}) and the [Orange Pi housing]({{ '/hardware/electronics/installation/orange-pi-mount/' | relative_url }}) are all bolted to the frame, and every cable is already made. This page plugs them together. Nothing here needs a soldering iron.
+The [PSU box]({{ '/hardware/electronics/installation/psu-box/' | relative_url }}), the [control board housing]({{ '/hardware/electronics/installation/control-board-housing/' | relative_url }}) and the [Orange Pi housing]({{ '/hardware/electronics/installation/orange-pi-mount/' | relative_url }}) are all bolted to the frame, and the cables are made or bought. This page plugs them together, and screws the USB hub's power wires into the hub. Nothing here needs a soldering iron.
 
-If a cable is still missing, seven of them have a page that builds them: the [PSU output pigtails]({{ '/hardware/helpers/psu-pigtail/' | relative_url }}), the [prepared LED strips]({{ '/hardware/helpers/led-strip/' | relative_url }}), the [control board's 24 V lead]({{ '/hardware/helpers/board-24v-lead/' | relative_url }}), the [Orange Pi's 24 V lead]({{ '/hardware/helpers/pi-24v-lead/' | relative_url }}), the [channel stepper leads]({{ '/hardware/helpers/channel-stepper-lead/' | relative_url }}), the [chute stepper lead]({{ '/hardware/helpers/chute-stepper-lead/' | relative_url }}) and the [chute limit switch lead]({{ '/hardware/helpers/limit-switch-lead/' | relative_url }}). The only one with no page is the USB hub's lead, which is a barrel plug screwed into the hub's own power terminal (or, if the plug's lead is too short, a bought lead with a plug at each end). The [wire harness]({{ '/hardware/electronics/wire-harness/' | relative_url }}) page has the length and gauge of the rest.
+If a cable is missing, seven of them have a page that builds them: the [PSU output pigtails]({{ '/hardware/helpers/psu-pigtail/' | relative_url }}), the [prepared LED strips]({{ '/hardware/helpers/led-strip/' | relative_url }}), the [control board's 24 V lead]({{ '/hardware/helpers/board-24v-lead/' | relative_url }}), the [Orange Pi's 24 V lead]({{ '/hardware/helpers/pi-24v-lead/' | relative_url }}), the [channel stepper leads]({{ '/hardware/helpers/channel-stepper-lead/' | relative_url }}), the [chute stepper lead]({{ '/hardware/helpers/chute-stepper-lead/' | relative_url }}) and the [chute limit switch lead]({{ '/hardware/helpers/limit-switch-lead/' | relative_url }}). The only one with no page is the USB hub's lead: step 6 below connects it. The [wire harness]({{ '/hardware/electronics/wire-harness/' | relative_url }}) page has the length and gauge of the rest.
 
 <div class="callout callout-warning">
   <span class="callout-icon" aria-hidden="true">⚠</span>
@@ -52,7 +52,7 @@ If a cable is still missing, seven of them have a page that builds them: the [PS
   <thead><tr><th>Cable</th><th>From, and its connector</th><th>To, and its connector</th></tr></thead>
   <tbody>
     <tr><td>24 V, control board</td><td>PSU box jack, male DC barrel</td><td>Board <code>J1</code>, JST-VH 2-pin (<a href="{{ '/hardware/helpers/board-24v-lead/' | relative_url }}">make the control board's 24 V lead</a>)</td></tr>
-    <tr><td>24 V, USB hub</td><td>PSU box jack, male DC barrel</td><td>Hub 2-pin power terminal, bare wires (or the hub's DC jack, with a male to male lead)</td></tr>
+    <tr><td>24 V, USB hub</td><td>PSU box jack, male DC barrel</td><td>Hub 2-pin power terminal, bare wires (or the hub's DC jack, with a lead that has a barrel plug at each end)</td></tr>
     <tr><td>24 V, Orange Pi</td><td>PSU box jack, male DC barrel</td><td>Buck converter, then USB-C into <code>PWR IN</code> (<a href="{{ '/hardware/helpers/pi-24v-lead/' | relative_url }}">make the Orange Pi's 24 V lead</a>)</td></tr>
     <tr><td>Channel steppers (×4)</td><td>Board <code>J27</code> / <code>J31</code> / <code>J35</code> / <code>J39</code>, JST-PH 4-pin</td><td>The motor's own JST-PH 6-pin socket (<a href="{{ '/hardware/helpers/channel-stepper-lead/' | relative_url }}">make the channel stepper leads</a>)</td></tr>
     <tr><td>Chute stepper</td><td>Board <code>J23</code>, 4-pin JST-PH (or <code>J24</code> beside it, 4-pin Dupont on 2.54 mm pins)</td><td>The motor's flying leads, spliced to a thinner tail and crimped into a PH housing (<a href="{{ '/hardware/helpers/chute-stepper-lead/' | relative_url }}">make the chute stepper lead</a>)</td></tr>
@@ -75,7 +75,7 @@ The buck converter is the only bought part of the three. The leads themselves ar
 
 <dl class="spec-list">
   <dt><code>W1</code>, control board</dt><dd>18 AWG (0.82 mm²), 36 in. Male DC barrel plug at the PSU end, JST-VH 2-pin (VHR-2) housing at the board end. No supplier sells that pair of ends, so this is one you make: <a href="{{ '/hardware/helpers/board-24v-lead/' | relative_url }}">make the control board's 24 V lead</a>.</dd>
-  <dt><code>W2</code>, USB hub</dt><dd>22 AWG (0.33 mm²), a moulded male DC barrel plug on its own short lead, with no second plug. The hub has a 2-pin screw terminal for power on its circuit board. Plug the barrel plug into the PSU box and screw its two bare wires into that terminal, matching the <code>+</code> and <code>-</code> printed on the board. The plug's centre pin is +24 V: find which wire is the tip with the <a href="{{ '/hardware/helpers/multimeter/' | relative_url }}#continuity-for-tracing-a-cable">multimeter on continuity</a> before you tighten anything. The plug's own lead, about 28 cm with the plug, is long enough when the Orange Pi housing, which carries the hub on its roof, is bolted next to the PSU box as in the <a href="{{ '/hardware/electronics/installation/' | relative_url }}#bolting-the-enclosures-to-the-frame">frame drawing</a>. <b>If you mount them further apart and the lead does not reach,</b> buy a ready-made male to male 5.5 x 2.1 mm lead instead (an ordinary stocked cable, listed in the parts calculator as the alternative), with a barrel plug at both ends and the centre pin +24 V at both. It goes into the hub's own barrel jack, and the hub's terminal stays unused.</dd>
+  <dt><code>W2</code>, USB hub</dt><dd>22 AWG (0.33 mm²), a moulded male DC barrel plug on its own short lead, with no second plug. Its two bare wires go into the hub, not into the board: <a href="#step-6">step 6</a> shows how.</dd>
   <dt><code>W3</code>, Orange Pi</dt><dd>22 AWG (0.33 mm²), 6 in, a male DC barrel plug onto the buck converter's input wires. The buck's USB-C lead is the other half of the run.</dd>
 </dl>
 
@@ -245,7 +245,27 @@ One flat 16-pin ribbon, 1.2 to 1.5 m, runs from `J17` on the control board down 
 
 The layer boards are already chained to each other with their own 30 cm ribbons, and their servos are already plugged in. Both happen as each [layer adapter board]({{ '/hardware/assembly/distribution/chute/pcb/' | relative_url }}) is built and the chute tower goes together.
 
-{% include step.html n="6" title="Plug in the USB: the Pico, the hub and the Orange Pi" %}
+{% include step.html n="6" title="Power the USB hub" %}
+
+The hub has its own 2-pin screw terminal for power, on its circuit board. The plug's two wires go in there. Do this with the PSU box not plugged in to the mains.
+
+<ol class="numbered-steps">
+  <li>Plug the barrel plug into a free 24 V jack on the PSU box. Push it fully home.</li>
+  <li>Find out which of the plug's two wires is the <b>+</b> wire. Inside the plug's barrel there is a centre contact. The outer metal sleeve is the other contact. Touch one multimeter probe to the centre contact and the other to the end of each wire in turn, with the <a href="{{ '/hardware/helpers/multimeter/' | relative_url }}#continuity-for-tracing-a-cable">multimeter on continuity</a>. The wire that beeps is <b>+</b>. Mark it, for example with a piece of tape.</li>
+  <li>If the two wires do not already have bare ends, cut off a little of the plastic from the end of each so the bare copper is long enough to go all the way into the terminal.</li>
+  <li>On the hub's circuit board, find the 2-pin terminal. The board prints <code>+</code> and <code>-</code> next to it. Loosen both screws a few turns.</li>
+  <li>Push the <b>+</b> wire into the opening marked <code>+</code> and the other wire into the opening marked <code>-</code>. Push each one in until no bare copper shows outside the terminal.</li>
+  <li>Tighten both screws, then give each wire a gentle pull. If a wire moves, tighten the screw more.</li>
+</ol>
+
+The plug's own lead, about 28 cm with the plug, is long enough when the Orange Pi housing, which carries the hub on its roof, is bolted next to the PSU box as in the <a href="{{ '/hardware/electronics/installation/' | relative_url }}#bolting-the-enclosures-to-the-frame">frame drawing</a>.
+
+<div class="callout">
+  <span class="callout-icon" aria-hidden="true">›</span>
+  <p><b>If you mounted the two housings further apart and the lead does not reach,</b> buy a ready-made lead with a 5.5 x 2.1 mm barrel plug at each end, centre contact +24 V at both ends (it is listed in the parts above as the alternative). Plug one end into the PSU box and the other into the round DC socket on the hub. The terminal stays empty, so skip points 2 to 6 of the list above.</p>
+</div>
+
+{% include step.html n="7" title="Plug in the USB: the Pico, the hub and the Orange Pi" %}
 
 The Orange Pi talks to the control board over USB, through the powered hub. The three cameras are on the same hub.
 
@@ -318,22 +338,19 @@ That fills the hub: three cameras and the Pico, no spare port.
   <p><b>They have to be data cables.</b> Many short USB cables carry power only and nothing will appear on the Pi. Use the powered hub as well: a hub running off the Pi's own power has been seen to brown the Pi out and crash it.</p>
 </div>
 
-{% include step.html n="7" title="Check it over, then plug it in" %}
+{% include step.html n="8" title="Check it over, then plug it in" %}
 
 Before the machine sees mains:
 
 <ol class="numbered-steps">
   <li>All three DC leads are in their jacks, and the PSU box is closed.</li>
+  <li>At the hub's power terminal, the wire from the plug's centre contact is under <code>+</code>, and neither wire pulls out.</li>
   <li>Every stepper plug is fully home, and no plug is hanging on one contact.</li>
   <li>The ribbon goes from the board to <code>J3</code> of the first layer board, and down the stack <code>J4</code> to <code>J3</code>.</li>
   <li>Nothing is resting on the fan blades.</li>
 </ol>
 
 Then plug the machine in and switch the inlet switch on. The red power light on the Orange Pi comes on. The fan in the housing lid does not run yet, because the software switches it.
-
-## What is not recorded yet
-
-- **Where the USB hub mounts.** Its place on the machine is not settled, so it is not fastened to anything here.
 
 ## The finished result
 

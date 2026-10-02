@@ -56,6 +56,7 @@
 		isKitRule,
 		isUnfinishedWarning,
 		moveRule,
+		noBinChoice,
 		newCondition,
 		newKitRule,
 		newRule,
@@ -70,6 +71,7 @@
 		topRuleIdFor,
 		type Condition,
 		type FallbackChoice,
+		type NoBinChoice,
 		type Rule
 	} from '$lib/components/profile/edit/rules';
 	import SavePopover from '$lib/components/profile/edit/SavePopover.svelte';
@@ -90,6 +92,7 @@
 	// The draft: what the rules and the fallback are as edited here, unsaved.
 	let rules = $state.raw<Rule[]>([]);
 	let fallback = $state<FallbackChoice>('none');
+	let noBin = $state<NoBinChoice>('machine');
 	let defaultCategoryId = $state('misc');
 	// The same, as last saved, for telling whether there is anything to save.
 	let savedRules = $state.raw<Rule[]>([]);
@@ -97,14 +100,14 @@
 	// The version number the draft started from.
 	let baseVersion = $state(0);
 
-	const draftKey = $derived(JSON.stringify([rules, fallback, defaultCategoryId]));
+	const draftKey = $derived(JSON.stringify([rules, fallback, noBin, defaultCategoryId]));
 	const dirty = $derived(profile !== null && draftKey !== savedKey);
 	// What every preview sees: the draft without the places still being made (a
 	// condition with no field, or nothing chosen yet), so it shows the rule as far
 	// as it is made. What a save sends keeps the conditions not yet finished, for
 	// the server to say so.
-	const draft = $derived(documentFor(profile?.name ?? '', rules, fallback, defaultCategoryId, true));
-	const toSave = $derived(documentFor(profile?.name ?? '', rules, fallback, defaultCategoryId));
+	const draft = $derived(documentFor(profile?.name ?? '', rules, fallback, defaultCategoryId, true, noBin));
+	const toSave = $derived(documentFor(profile?.name ?? '', rules, fallback, defaultCategoryId, false, noBin));
 	const serverKey = $derived(JSON.stringify(draft));
 	// What decides the parts a rule matches: its own conditions, not its name or
 	// its place, so renaming does not ask for them again.
@@ -264,9 +267,10 @@
 		const fresh = version.rules.map((rule) => normalizeRule(rule, catalog.aliases));
 		rules = fresh;
 		fallback = fallbackChoice(version.fallback_mode);
+		noBin = noBinChoice(version.fallback_mode);
 		defaultCategoryId = version.default_category_id || 'misc';
 		savedRules = fresh;
-		savedKey = JSON.stringify([fresh, fallback, defaultCategoryId]);
+		savedKey = JSON.stringify([fresh, fallback, noBin, defaultCategoryId]);
 		baseVersion = version.version_number;
 		headNotice = null;
 		serverProblems = [];
@@ -781,9 +785,11 @@
 				{#if selectedId === REST_ID}
 					<FallbackEditor
 						choice={fallback}
+						{noBin}
 						requires={preview?.requires ?? []}
 						restParts={restBin?.part_count ?? null}
 						onchange={(choice) => (fallback = choice)}
+						onnobin={(choice) => (noBin = choice)}
 					/>
 				{:else if selectedRule}
 					{#key selectedRule.id}

@@ -4,6 +4,7 @@
 // page, so every edit is a new array or object and the page only swaps them in.
 
 import type {
+	NoBinPolicy,
 	ProfileDocument,
 	ProfileProblem,
 	ProfileWarning,
@@ -19,6 +20,9 @@ export const REST_ID = 'rest';
 export type Rule = SortingProfileRule;
 export type Condition = SortingProfileCondition;
 export type FallbackChoice = 'none' | 'bl_category' | 'rb_category' | 'color';
+// When a piece's category has no bin and none is free: the machine's own
+// setting (it stops and asks by default), Everything else, or a shared bin.
+export type NoBinChoice = 'machine' | NoBinPolicy;
 
 // --- What happens to the pieces no rule takes ---------------------------------
 
@@ -30,11 +34,16 @@ export function fallbackChoice(mode: SortingProfileFallbackMode | null | undefin
 	return 'none';
 }
 
-export function fallbackMode(choice: FallbackChoice): SortingProfileFallbackMode {
+export function noBinChoice(mode: SortingProfileFallbackMode | null | undefined): NoBinChoice {
+	return mode?.no_bin === 'misc' || mode?.no_bin === 'share' ? mode.no_bin : 'machine';
+}
+
+export function fallbackMode(choice: FallbackChoice, noBin: NoBinChoice = 'machine'): SortingProfileFallbackMode {
 	return {
 		rebrickable_categories: choice === 'rb_category',
 		bricklink_categories: choice === 'bl_category',
-		by_color: choice === 'color'
+		by_color: choice === 'color',
+		no_bin: noBin === 'machine' ? null : noBin
 	};
 }
 
@@ -86,6 +95,7 @@ export function normalizeRule(rule: Rule, aliases: Record<string, string> = {}):
 		...rule,
 		rule_type: rule.rule_type ?? 'filter',
 		match_mode: rule.match_mode === 'any' ? 'any' : 'all',
+		negate: Boolean(rule.negate),
 		conditions: (rule.conditions ?? []).map((condition) => ({
 			...condition,
 			id: condition.id || uuid(),
@@ -222,13 +232,14 @@ export function documentFor(
 	fallback: FallbackChoice,
 	defaultCategoryId: string,
 	// For a preview: leave out conditions with nothing chosen yet.
-	forPreview = false
+	forPreview = false,
+	noBin: NoBinChoice = 'machine'
 ): ProfileDocument {
 	return {
 		name,
 		default_category_id: defaultCategoryId,
 		rules: rules.map((rule) => withoutPlaceholders(rule, false, forPreview) as Rule),
-		fallback_mode: fallbackMode(fallback)
+		fallback_mode: fallbackMode(fallback, noBin)
 	};
 }
 

@@ -15,7 +15,7 @@
 	import ConditionGroup from './ConditionGroup.svelte';
 	import { toList, valueKind } from './fields';
 	import RulePicture, { type Candidate } from './RulePicture.svelte';
-	import { firstCondition, hasDefaultName, type Condition, type Rule } from './rules';
+	import { allConditions, firstCondition, hasDefaultName, type Condition, type Rule } from './rules';
 
 	let {
 		rule,
@@ -94,6 +94,11 @@
 	$effect(() => {
 		void catalog.ensureFields();
 	});
+
+	// A rule on what the machine observes about a piece (how sure recognition
+	// was, whether it named a part, its price in its color) is decided as each
+	// piece is sorted, so the preview cannot count its parts for certain.
+	const onThePiece = $derived(allConditions(rule).some((condition) => catalog.fieldByKey(condition.field)?.piece));
 </script>
 
 <div class="flex flex-col gap-5">
@@ -134,6 +139,12 @@
 	{#if warnings.length > 0}
 		<Alert tone="warning">
 			{#each warnings as message, i (i)}<p>{message}</p>{/each}
+		</Alert>
+	{/if}
+	{#if onThePiece}
+		<Alert tone="info" title="Decided on the machine">
+			This rule tests the piece itself, so the machine decides it as each piece is sorted, and the parts shown are
+			the ones it can take. It needs the sorter's current software.
 		</Alert>
 	{/if}
 

@@ -633,6 +633,9 @@ export interface SortingProfileRule {
 	image_url?: string | null;
 	name: string;
 	match_mode: 'all' | 'any' | string;
+	// Takes the opposite: with "any", none of its conditions and groups; with
+	// "all", not all of them.
+	negate?: boolean;
 	conditions: SortingProfileCondition[];
 	children: SortingProfileRule[];
 	disabled: boolean;
@@ -653,7 +656,12 @@ export interface SortingProfileFallbackMode {
 	rebrickable_categories: boolean;
 	bricklink_categories: boolean;
 	by_color: boolean;
+	// When a piece's category has no bin and none is free: the default bin
+	// ("misc"), a shared bin ("share"), or the machine's own setting (none).
+	no_bin?: NoBinPolicy | null;
 }
+
+export type NoBinPolicy = 'misc' | 'share';
 
 export interface RuleSummary {
 	name: string;
@@ -759,6 +767,8 @@ export interface BinCondition {
 
 export interface BinConditions {
 	mode: 'all' | 'any' | string;
+	// "None of" (with any) or "not all of" (with all).
+	negate?: boolean;
 	items: BinCondition[];
 	groups: Array<BinConditions & { id?: string; name?: string }>;
 }
@@ -914,6 +924,9 @@ export interface ProfileField {
 	unit: string | null;
 	// What it reads, when the label does not say it all.
 	description?: string | null;
+	// Observed by the machine as it sorts each piece (recognition confidence,
+	// identified or not, its price in its color), not looked up in the catalog.
+	piece?: boolean;
 }
 
 export interface BrickLinkCategory {

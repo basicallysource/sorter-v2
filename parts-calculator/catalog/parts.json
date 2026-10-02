@@ -2713,7 +2713,7 @@
           "date": "2026-09-26",
           "message": "The fan is held by two printed fan retainers instead of screws through its own corners: each retainer lies across one edge of the fan, locates on two pegs in the fan's corner holes, and screws to the cover with two M3 x 8 countersunk, self-tapping into 2.8 mm pilots in four new 8 mm posts beside the fan. The four old self-tapping holes for the fan are filled. The five openings over the stepper connectors become 20.2 mm wide bays, open through the top as well as the side. An old cover still works in its place, carrying the fan the old way on four M3 x 12 button heads.",
           "breaking": false,
-          "commit": null,
+          "commit": "0f6a3ba1",
           "onshape_version": "https://cad.onshape.com/documents/d8339d00eaef603e65e5e050/v/32e64a3fe696f998a73a0f9f/e/43b5beb92ddd433860558e91"
         }
       ]
@@ -2750,7 +2750,7 @@
           "date": "2026-09-26",
           "message": "The reset button is recessed: the plunger's head is cut down by 3.2 mm, so its top sits 0.75 mm below the cover's surface instead of standing proud of it. An old plunger still fits and still works, standing proud as before.",
           "breaking": false,
-          "commit": null,
+          "commit": "0f6a3ba1",
           "onshape_version": "https://cad.onshape.com/documents/d8339d00eaef603e65e5e050/v/32e64a3fe696f998a73a0f9f/e/43b5beb92ddd433860558e91"
         }
       ]
@@ -2787,7 +2787,7 @@
           "date": "2026-09-26",
           "message": "An 11.6 mm square pocket, 0.8 mm deep, in its top face around the plunger, which goes with the recessed plunger. An old retainer still fits and holds either plunger.",
           "breaking": false,
-          "commit": null,
+          "commit": "0f6a3ba1",
           "onshape_version": "https://cad.onshape.com/documents/d8339d00eaef603e65e5e050/v/32e64a3fe696f998a73a0f9f/e/43b5beb92ddd433860558e91"
         }
       ]
@@ -2817,11 +2817,11 @@
       "id": "ctrl-board-extrusion-mount",
       "uid": "1d5n",
       "name": "Control Board Extrusion Mount",
-      "description": "Plate the basically Embedded Control Board stands off, which bolts to the 2020 extrusion. The v1 mounting, in the machine today; the printed housing is the candidate that would replace it.",
+      "description": "Plate the basically Embedded Control Board stood off, bolted to the 2020 extrusion. Replaced by the printed control board housing (ctrl-board-mount v2, 2026-08-23) and retired 2026-10-02. Older versions of the control board mount still show it. Do not re-add from old docs or photos.",
       "internal_notes": "Superseded by the printed housing (ctrl-board-mount v2, 2026-08-23). Kept for the v1 snapshot only: no quantities, out of the bundle.",
       "version": "1",
       "created_at": "2026-08-22",
-      "updated_at": "2026-08-23",
+      "updated_at": "2026-10-02",
       "quantities": {},
       "assembly": null,
       "stl_hash": "f855b06c3b0f57fbd3756ebca08fa7e9a5aaf2f7c0b72d41c72ccb8cb5716873",
@@ -2830,7 +2830,8 @@
       },
       "optional": false,
       "support": false,
-      "onshape_version": "https://cad.onshape.com/documents/10ae43b609bb2df0f86cce4b/v/226293ea2e329f1f548b78a1/e/6e1da7cee8967d584080406f"
+      "onshape_version": "https://cad.onshape.com/documents/10ae43b609bb2df0f86cce4b/v/226293ea2e329f1f548b78a1/e/6e1da7cee8967d584080406f",
+      "retired_at": "2026-10-02"
     },
     {
       "id": "orange-pi-extrusion-mount",
@@ -3215,7 +3216,7 @@
           "date": "2026-09-26",
           "message": "Room behind the mains inlet, for sorter-v2#738. The bottom rail behind the front panel is cut back over the 53.5 mm behind the inlet, down to 5 mm below the lower screw hole's centreline, so the lower inlet screw and a nut on it clear the rail. A 12 mm wide notch, 1.1 mm deep, in the lip under the panel at the inlet clears the inlet's lower flange. The four holes where this module meets the rear tray, two in each end wall, get a countersunk seat, with a clear bore in front of each for the driver. Nothing that mates with the rear tray, the lids or the panel moved, so an old print still fits: the nut behind the lower inlet screw goes on, just tightly.",
           "breaking": false,
-          "commit": null,
+          "commit": "caa5c32c",
           "onshape_version": "https://cad.onshape.com/documents/d8339d00eaef603e65e5e050/v/32e64a3fe696f998a73a0f9f/e/52c259ec13c7da4fe13e8a63"
         }
       ]
@@ -3294,7 +3295,7 @@
           "date": "2026-09-26",
           "message": "The mains inlet's two screw holes are 2.8 mm pilots through the panel's full 4.9 mm, where they were 3.2 mm clearance, so an M3 cuts its own thread instead of depending on how tight a printer makes a 3.2 mm hole (sorter-v2#738). The outline, the cutouts and the which-way-up difference between the two holes' edge distances are unchanged. An old print still works, with a nut behind each inlet screw.",
           "breaking": false,
-          "commit": null,
+          "commit": "caa5c32c",
           "onshape_version": "https://cad.onshape.com/documents/d8339d00eaef603e65e5e050/v/32e64a3fe696f998a73a0f9f/e/52c259ec13c7da4fe13e8a63"
         }
       ]
@@ -4093,7 +4094,7 @@
       },
       "name": "M4 × 6 mm countersunk",
       "category": "Screws",
-      "description": "Fastens the printed PSU housing to the power supply's own case threads.",
+      "description": "Unused. It once fastened the printed PSU housing to the power supply's own case threads; the housing now takes four M4 x 12 countersunk screws (scr-m4-12-cs). Retired 2026-10-02, on no current assembly or docs page. Do not re-add from old docs or photos.",
       "created_at": "2026-07-18",
       "updated_at": "2026-10-02",
       "attributes": [
@@ -4143,7 +4144,8 @@
             "as_of": "2026-10-02"
           }
         ]
-      }
+      },
+      "retired_at": "2026-10-02"
     },
     {
       "id": "scr-m4-12-cs",
@@ -5374,12 +5376,9 @@
       },
       "name": "Standoff - M3 - 10mm",
       "category": "Standoffs",
-      "description": "M3 nylon standoff, 10 mm long, black. It holds a circuit board 10 mm off the surface it is screwed to.",
+      "description": "Stood the Orange Pi off its extrusion mount plate. Unused since 2026-09-26: the Orange Pi housing's base has printed posts with heat inserts instead. Retired 2026-10-02.",
       "created_at": "2026-07-18",
       "updated_at": "2026-10-02",
-      "sheet_qty": {
-        "per_machine": 4
-      },
       "image_url": "https://assets.basically.website/sorter-parts/standoff-m3-10mm-full-08660bba7bbb.jpg",
       "sourcing": {
         "vendors": [
@@ -5422,7 +5421,8 @@
           "value": "Black"
         }
       ],
-      "internal_notes": "Unused as of 2026-09-26: the Orange Pi housing base has printed posts with heat inserts instead. Removed with the plate it screwed into; retired in place per VERSIONING.md, do not re-add."
+      "internal_notes": "Unused as of 2026-09-26: the Orange Pi housing base has printed posts with heat inserts instead. Removed with the plate it screwed into; retired in place per VERSIONING.md, do not re-add.",
+      "retired_at": "2026-10-02"
     },
     {
       "id": "tnut-m5-2020",
@@ -8884,12 +8884,13 @@
       "kind": "cots",
       "cots": {
         "type": "stock-material",
-        "size": "1/4 in"
+        "size": "1/4 in",
+        "optional": true
       },
       "name": "Braided cable sleeving, 1/4 in",
       "category": "Wire harness",
-      "description": "Holds each stepper cable's four wires together as one bundle, so a metre of loose wire does not end up spread across the frame.",
-      "note": "Buy PET braid in 1/4 in (6 mm) size, which is what the links are. Sleeve only the four S bundles, not CH.",
+      "description": "Optional. Holds the wires of each lead you make together as one bundle, and protects them where they run along the frame, so a metre of loose wire does not end up spread across the machine. Every lead works without it.",
+      "note": "Buy PET braid in 1/4 in (6 mm) size, which is what the links are. The harness drawing sleeves only the four S bundles; sleeving the other leads is a choice, as a way of securing the cables.",
       "created_at": "2026-09-14",
       "updated_at": "2026-10-02",
       "image_url": "https://assets.basically.website/sorter-parts/sleeving-braided-6mm-full-39f6e9222044.jpg",
@@ -8900,7 +8901,7 @@
         },
         {
           "label": "Length per machine",
-          "value": "4.0 m (400 cm, 157.5 in) per machine: 1 m (100 cm, 39.4 in) over each of the four S bundles"
+          "value": "About 10 m (1,000 cm, 394 in) per machine, with a little over for cutting: 1 m over each of the four channel stepper leads, about 1 m each over the board 24 V lead, the chute stepper lead and the three LED board cables, 0.6 m over the limit switch lead, and about 0.1 m over each of the four short pigtails (the Orange Pi 24 V lead and the three LED lamp pigtails)"
         },
         {
           "label": "Material",
@@ -8909,16 +8910,16 @@
       ],
       "stock": {
         "unit_length_mm": 15240,
-        "cut_length_mm": 4000,
-        "pieces_per_unit": 3,
+        "cut_length_mm": 10000,
+        "pieces_per_unit": 1,
         "unit_label": "15.2 m (50 ft) roll",
-        "piece_label": "one machine's worth (4.0 m / 400 cm / 157.5 in)"
+        "piece_label": "one machine's worth (about 10 m / 1,000 cm / 394 in)"
       },
       "sheet_qty": {
         "per_machine": 1
       },
-      "caption": "One roll does three machines.",
-      "docs_page": "/hardware/electronics/wire-harness/",
+      "caption": "One roll does one machine.",
+      "docs_page": "/hardware/electronics/connecting/",
       "sourcing": {
         "vendors": [
           {
@@ -8949,14 +8950,14 @@
             "vendor": "Amazon DE",
             "url": "https://www.amazon.de/dp/B071JH14WZ",
             "price": 7.99,
-            "pack_qty": 1,
+            "pack_qty": 0.5,
             "currency": "EUR",
             "as_of": "2026-10-02",
-            "note": "7.5 m of braided sleeving."
+            "note": "7.5 m of braided sleeving, about half the 15.2 m roll the line counts in, so a machine's 10 m takes two."
           }
         ]
       },
-      "internal_notes": "The harness drawing calls it PVC sleeving. What is commonly sold is PET braid at the same size, which is what the sourcing link is, and it does the same job. The drawing sleeves the four S bundles only, not CH."
+      "internal_notes": "The harness drawing calls it PVC sleeving. What is commonly sold is PET braid at the same size, which is what the sourcing link is, and it does the same job. The drawing sleeves the four S bundles only, not CH. The helper pages for every other lead also offer it, at barthel's request on 2026-10-02, as a way of securing the cables."
     },
     {
       "id": "connector-kit-crimp",
@@ -11728,8 +11729,8 @@
     },
     {
       "id": "superstructure",
-      "uid": "3pju",
-      "version": "3",
+      "uid": "z5qr",
+      "version": "4",
       "name": "Superstructure",
       "description": "What the feeder and the electronics mount onto: the top plate, the top interface, the distribution layers between the interfaces, and the bottom interface.",
       "docs": "/hardware/assembly/distribution/",
@@ -11757,6 +11758,22 @@
         {
           "part": "scr-m5-22-cs",
           "qty": 2
+        },
+        {
+          "part": "funnel-third",
+          "qty": "per-third-layer"
+        },
+        {
+          "part": "funnel-half",
+          "qty": "per-half-layer"
+        },
+        {
+          "assembly": "bin-set-third",
+          "qty": "per-third-layer"
+        },
+        {
+          "assembly": "bin-set-half",
+          "qty": "per-half-layer"
         }
       ],
       "connections": [
@@ -11847,8 +11864,48 @@
         },
         {
           "version": "3",
+          "uid": "3pju",
           "date": "2026-09-25",
           "message": "The top plate bolts to the Interface NEMA 23 bracket with 2 screws through holes S2 and S3, not 6. The two M5 inserts that take them were measured off the bracket's STL: Diameter 6.40 x 10.2 mm, 30 mm apart on its centre line, opening upward at the plate's underside, and they are the only upward-opening M5 pockets on the part. The joint also moves to the screw top-interface.md actually names, M5 x 22 countersunk, which was already counted once on the interface node; it is counted here instead, because this is the node where both the plate and the interface are members. Confirmed by barthel.",
+          "breaking": false,
+          "commit": null,
+          "lines": [
+            {
+              "part": "top-plate",
+              "qty": 1,
+              "uid": "1g22"
+            },
+            {
+              "assembly": "interface",
+              "qty": 1,
+              "uid": "j0l1"
+            },
+            {
+              "assembly": "layer",
+              "qty": "non-bottom-layers",
+              "uid": "5nnb"
+            },
+            {
+              "assembly": "bottom-layer",
+              "qty": 1,
+              "uid": "scr8"
+            },
+            {
+              "assembly": "bottom-interface",
+              "qty": 1,
+              "uid": "7lk2"
+            },
+            {
+              "part": "scr-m5-22-cs",
+              "qty": 2,
+              "uid": "hr49"
+            }
+          ]
+        },
+        {
+          "version": "4",
+          "date": "2026-10-02",
+          "message": "The funnels and the bins join the tree. Each layer takes one funnel and one set of bins, third or half size, so the new lines count by how many layers are that size (per-third-layer, per-half-layer) and hang here, where the whole stack is in view, rather than on the size-agnostic layer node. Same counts as the parts panel: one funnel and 18 or 12 bins per layer. No physical change.",
           "breaking": false,
           "commit": null
         }
@@ -16743,8 +16800,8 @@
     },
     {
       "id": "electronics",
-      "uid": "40ok",
-      "version": "5",
+      "uid": "2yqw",
+      "version": "6",
       "name": "Electronics",
       "description": "The PSU, the control board and the Orange Pi, each in its own printed box bolted to the frame, plus the 24 V lead to the powered USB hub, which rides on the Orange Pi housing's roof with the converter that powers the Pi.",
       "docs": "/hardware/electronics/installation/",
@@ -16763,6 +16820,10 @@
         },
         {
           "assembly": "harness-hub-24v",
+          "qty": 1
+        },
+        {
+          "assembly": "harness-wire-stock",
           "qty": 1
         }
       ],
@@ -16896,8 +16957,38 @@
         },
         {
           "version": "5",
+          "uid": "40ok",
           "date": "2026-09-26",
           "message": "The powered USB hub and the 24 V to 5 V buck converter move into the Orange Pi housing (orange-pi-mount v5), whose roof clamps both. Same parts, same counts across the machine; only where they sit in the tree changed. The hub's 24 V lead stays here.",
+          "breaking": false,
+          "commit": null,
+          "lines": [
+            {
+              "assembly": "meanwell-psu-box",
+              "qty": 1,
+              "uid": "dxsv"
+            },
+            {
+              "assembly": "ctrl-board-mount",
+              "qty": 1,
+              "uid": "y2yu"
+            },
+            {
+              "assembly": "orange-pi-mount",
+              "qty": 1,
+              "uid": "hxqn"
+            },
+            {
+              "assembly": "harness-hub-24v",
+              "qty": 1,
+              "uid": "8b59"
+            }
+          ]
+        },
+        {
+          "version": "6",
+          "date": "2026-10-02",
+          "message": "The cut-to-length wire and the optional braided sleeving join Electronics as one group, harness-wire-stock. They were in the BOM and on the lead pages with a hand count and in no assembly. One line each rather than one per lead, because each is bought as a spool or roll and a line per lead would count a spool once for every lead cut from it. No physical change.",
           "breaking": false,
           "commit": null
         }
@@ -18234,6 +18325,72 @@
           "message": "The two Dupont contacts for the board end are now a line of their own, as they were in the crimp kit that has been retired. The cable itself is unchanged, so a cable built before works in its place.",
           "breaking": false,
           "commit": null
+        }
+      ]
+    },
+    {
+      "id": "harness-wire-stock",
+      "uid": "xo4j",
+      "version": "1",
+      "name": "Wire and sleeving",
+      "description": "The cut-to-length wire the leads are made from, and the optional braided sleeving over the leads you make. Each is bought as a spool or roll and one machine's worth is one line, so each counts once however many leads are cut from it. Gauge and length per machine are on each part: 18 AWG two-core for the PSU pigtails and W1, 22 AWG two-core for the lighter leads, four-colour 24 AWG for the chute stepper cable.",
+      "docs": "/hardware/electronics/wire-harness/",
+      "lines": [
+        {
+          "part": "wire-18awg-2c",
+          "qty": 1
+        },
+        {
+          "part": "wire-22awg-2c",
+          "qty": 1
+        },
+        {
+          "part": "wire-24awg",
+          "qty": 1
+        },
+        {
+          "part": "sleeving-braided-6mm",
+          "qty": 1
+        }
+      ]
+    },
+    {
+      "id": "bin-set-third",
+      "uid": "d5w1",
+      "version": "1",
+      "name": "Third-size bins",
+      "description": "The bins of one third-size layer: three designs, six of each, 18 in all. A layer takes this set or the half-size set, never both; the tower counts one of these per third-size layer.",
+      "docs": "/hardware/assembly/install-bins/",
+      "lines": [
+        {
+          "part": "bin-third-left",
+          "qty": 6
+        },
+        {
+          "part": "bin-third-center",
+          "qty": 6
+        },
+        {
+          "part": "bin-third-rightback",
+          "qty": 6
+        }
+      ]
+    },
+    {
+      "id": "bin-set-half",
+      "uid": "06j8",
+      "version": "1",
+      "name": "Half-size bins",
+      "description": "The bins of one half-size layer: a left and a right design, six of each, 12 in all. A layer takes this set or the third-size set, never both; the tower counts one of these per half-size layer.",
+      "docs": "/hardware/assembly/install-bins/",
+      "lines": [
+        {
+          "part": "bin-half-left",
+          "qty": 6
+        },
+        {
+          "part": "bin-half-right",
+          "qty": 6
         }
       ]
     }

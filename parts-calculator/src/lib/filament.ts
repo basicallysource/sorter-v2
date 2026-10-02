@@ -6,6 +6,7 @@
 import { LASER_CUT_PARTS, type LaserCutPart } from './lasercut';
 import raw from '$lib/data/catalog.generated.json';
 import { getBambuColor, type BambuColor } from '$lib/bambu-colors';
+import { layerStore } from './layers.svelte';
 
 export type PlatePart = { name: string; count: number; part_id: string | null };
 export type Plate = { id: string; name: string; download: string; thumbs: string[]; parts: PlatePart[] };
@@ -50,13 +51,21 @@ export type Folder = { id: string; name: string; description?: string };
  *  qty 'per-layer' multiplies by the total configured layer count;
  *  'non-bottom-layers' by (count − 1) — every bin layer but the lowest, which
  *  is built differently; 'middle-layers' by (count − 2). The first two mirror
- *  the 'all' / 'non-bottom' halves of a part's `layer_scope`. */
+ *  the 'all' / 'non-bottom' halves of a part's `layer_scope`.
+ *  'per-half-layer' / 'per-third-layer' by how many of the layers are that
+ *  size, read from the layer store (the bins and funnels are chosen per layer). */
 export type AssemblyLine = {
 	part?: string;
 	assembly?: string;
 	param?: string; // a slot: filled by the instantiation's args, else the param's default
 	args?: Record<string, string>; // passed to a sub-assembly; '$x' forwards this assembly's own param
-	qty: number | 'per-layer' | 'non-bottom-layers' | 'middle-layers';
+	qty:
+		| number
+		| 'per-layer'
+		| 'non-bottom-layers'
+		| 'middle-layers'
+		| 'per-half-layer'
+		| 'per-third-layer';
 };
 
 /** A parameterized slot an assembly declares: instantiations may pass a
@@ -730,7 +739,17 @@ export function lineQty(line: AssemblyLine, layers: number): number {
 	if (line.qty === 'per-layer') return layers;
 	if (line.qty === 'non-bottom-layers') return Math.max(0, layers - 1);
 	if (line.qty === 'middle-layers') return Math.max(0, layers - 2);
+	if (line.qty === 'per-half-layer') return layerSizeCounts(layers).half;
+	if (line.qty === 'per-third-layer') return layerSizeCounts(layers).third;
 	return line.qty;
+}
+
+/** How many of the `layers` layers are half and third size. The store holds one
+ *  size per layer; if a caller asks for a different count, the missing layers
+ *  are taken as third, the default. */
+function layerSizeCounts(layers: number): { half: number; third: number } {
+	const half = layerStore.sizes.slice(0, layers).filter((s) => s === 'half').length;
+	return { half, third: Math.max(0, layers - half) };
 }
 
 /** Sum the hardware reachable from an assembly, multiplied down the tree — the

@@ -24,7 +24,10 @@ parts_needed:
     qty: 2
   - part: dupont-contact-female
     qty: 2
-tools_needed: ["Side cutters, to cut the wire to length", "A ruler or tape measure, to measure 610 mm (24 in)", "Wire strippers that take 22 AWG (0.33 mm²) wire", "Insulated-terminal crimping pliers with a die marked for 22 to 18 AWG (0.33 to 0.82 mm²), for the two #187 receptacles", "Crimping pliers for open-barrel contacts, with a die for 22 AWG (0.33 mm²) wire, for the two Dupont contacts", "Multimeter, to check the finished lead and the switch"]
+  - part: sleeving-braided-6mm
+    qty: 1
+    note: Optional. About 0.6 m over the pair.
+tools_needed: ["Side cutters, to cut the wire to length", "A ruler or tape measure, to measure 610 mm (24 in)", "Wire strippers that take 22 AWG (0.33 mm²) wire", "Insulated-terminal crimping pliers with a die marked for 22 to 18 AWG (0.33 to 0.82 mm²), for the two #187 receptacles", "Crimping pliers for open-barrel contacts, with a die for 22 AWG (0.33 mm²) wire, for the two Dupont contacts", "Multimeter, to check the finished lead and the switch", "Optional, for the sleeving: scissors and tape, or a hot knife"]
 ---
 
 This is `LIM` on the [harness drawings]({{ '/hardware/parts/harness-order/#limit-switch' | relative_url }}). It runs from `J5` on the control board to the roller-lever switch on the chute. **One per machine.**
@@ -128,6 +131,7 @@ The switch is an SPDT with three tabs and the third one, `NO`, stays bare. Wired
 
 <ol class="numbered-steps">
   <li>Cut 610 mm (24 in) of the pair.</li>
+  <li><b>Optional:</b> if you will sleeve the lead, slide a 0.6 m length of braided sleeving over the pair now, before you crimp anything onto either end. A finished receptacle or housing may not go through it, so it goes on first. Leave it bunched up on the pair for now; <a href="#sleeving-optional">Sleeving (optional)</a> says how to cut and finish it.</li>
   <li>At the switch end, crimp a #187 receptacle onto each of the two conductors, as under <b>Crimping a #187 receptacle</b>, below.</li>
   <li>At the board end, crimp a Dupont contact onto each of the two conductors, as under <b>Crimping a Dupont contact</b>, below.</li>
   <li>Push the two contacts into the housing from the back until each one clicks: one into position 1 and one into position 2. <b>Position 3 stays empty.</b></li>
@@ -201,6 +205,26 @@ The board prints `3.3V` and `SIG` beside `J5`. Push the housing on with the empt
   <img class="doc-figure" src="https://assets.basically.website/sorter-docs/limit-switch-lead-board-end-orientation-full-ae6132915534.png" alt="Two drawings of the 3-pin header J5 with its pins labelled 3.3V at the top, SIG in the middle and GND on a square pad at the bottom, and the housing beside it. Right way: the empty position is over the 3.3V pin and the two wires are on SIG and GND. Wrong way: the housing is turned over, the empty position is over GND and the two wires are on 3.3V and SIG.">
   <figcaption>Empty position over <code>3.3V</code>. The same housing turned over is wrong.</figcaption>
 </figure>
+
+## Sleeving (optional)
+
+<div class="callout">
+  <p><b>You can skip this and the lead works the same.</b> The sleeving is on the parts list as optional. It keeps the wires together as one tidy cable and protects them where the lead runs along the frame, and it is another way of securing the cables.</p>
+</div>
+
+**Where:** over the pair, from just short of the two receptacles to just short of the Dupont housing. About 0.6 m.
+
+**How:**
+
+<ol class="numbered-steps">
+  <li>Push the braid together lengthwise to open it: it widens as it shortens. Feed all the wires into it together, so none of them is left outside.</li>
+  <li>Cut it to length with a hot knife or a soldering iron with a blade tip, so the cut melts shut. Plain scissors leave the braid fraying. With no hot tool, wrap a turn of tape around the braid where you will cut, cut through the middle of the tape with scissors, and leave the tape on.</li>
+  <li>Stop the sleeving 5 to 10 mm short of the receptacles and short of the housing, so the two receptacles can pull apart to go on their tabs and the sleeving never crowds into the housing.</li>
+  <li>Hold each end with a small piece of heat shrink or a turn of tape, so that the braid cannot creep back along the wires.</li>
+</ol>
+
+Leave the sleeving loose enough to bend, and do not tie it down so tightly that it crushes the braid.
+
 
 ## The finished result
 

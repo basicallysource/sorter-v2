@@ -15,7 +15,10 @@ parts_needed:
     qty: 4
   - part: jst-sph-002t
     qty: 20
-tools_needed: ["Multimeter, to check the finished lead", "Side cutters, to cut the Dupont housing off", "Wire strippers, for 26 AWG (0.13 mm²) wire", "Crimping pliers for open-barrel contacts, with a die for 24 AWG (0.20 mm²) wire"]
+  - part: sleeving-braided-6mm
+    qty: 1
+    note: Optional. 1 m per lead, 4 m for the four.
+tools_needed: ["Multimeter, to check the finished lead", "Side cutters, to cut the Dupont housing off", "Wire strippers, for 26 AWG (0.13 mm²) wire", "Crimping pliers for open-barrel contacts, with a die for 24 AWG (0.20 mm²) wire", "Optional, for the sleeving: scissors and tape, or a hot knife"]
 ---
 
 These are `S1` to `S4` on the [harness drawings]({{ '/hardware/parts/harness-order/#channel-stepper' | relative_url }}), one for each of the four c-channel motors. **Four per machine**, all identical. The crossover has been built on a motor's own lead by swapping the two middle contacts in its Dupont plug; this page makes the same lead with a PH housing instead of the plug.
@@ -67,10 +70,30 @@ under <b>Re-house the lead</b>, below. Motor positions 2 and 5 stay empty.
 <ol class="numbered-steps">
   <li>Look at the back of the 6-pin housing at the motor end while it is still plugged into the motor, with the shaft towards you: position 1 is the right-hand end and the positions count 1 to 6 from right to left. Four wires sit in positions 1, 3, 4 and 6, and 2 and 5 are empty. Write down which colour is in which position, or tag each wire with a bit of tape marked with its position if two look alike.</li>
   <li>Cut the Dupont housing off, close to it, so the cable keeps its length.</li>
+  <li><b>Optional:</b> if you will sleeve the lead, slide a 1 m length of braided sleeving over the four wires from the cut end now, before you load the 4-pin housing. The 6-pin housing on the other end is too big for it to go over. Leave it bunched up on the cable for now; <a href="#sleeving-optional">Sleeving (optional)</a> says how to cut and finish it.</li>
   <li>Strip about 2 mm off each conductor and crimp a contact onto it, in the die of the crimping pliers marked for 24 AWG (0.20 mm²) wire. Pull on each wire to check it holds. Practise on a scrap first, the contacts are small and easy to spoil.</li>
   <li>Load the <code>PHR-4</code> from the back, counting from the end that goes over the square pad of the board socket (offer the empty housing to the socket to see which end that is): the wire from motor position 1 into position 1, the wire from motor position 4 into 2, the wire from motor position 3 into 3 and the wire from motor position 6 into 4. Push each contact in until it clicks.</li>
   <li>Pull gently on each wire, then meter across <code>PHR-4</code> positions 1 and 2 and across 3 and 4 with the motor plugged in. Both read a couple of ohms, 2.3 &Omega; on the motor in the parts list, and across the two pairs is open circuit. If either pair reads open, two contacts are in the wrong places.</li>
 </ol>
+
+## Sleeving (optional)
+
+<div class="callout">
+  <p><b>You can skip this and the lead works the same.</b> The sleeving is on the parts list as optional. It keeps the four wires of each lead together as one tidy cable, and it protects them where the lead runs along the frame and past the moving parts. The parts list sells a braided sleeving for it.</p>
+</div>
+
+**Where:** over the four wires of each lead, from just behind the 6-pin motor housing to just short of where the wires fan out into the PHR-4. One metre per lead, four metres for the machine.
+
+**How:**
+
+<ol class="numbered-steps">
+  <li>Push the braid together lengthwise to open it: it widens as it shortens. Feed the four wires into it together, so none of them is left outside.</li>
+  <li>Cut it to length with a hot knife or a soldering iron with a blade tip, so the cut melts shut. Plain scissors leave the braid fraying. With no hot tool, wrap a turn of tape around the braid where you will cut, cut through the middle of the tape with scissors, and leave the tape on.</li>
+  <li>Stop the sleeving 5 to 10 mm short of the PHR-4 and short of the 6-pin housing, so the crimped contacts and the housing can flex and the sleeving never crowds into a housing.</li>
+  <li>Hold each end with a small piece of heat shrink or a turn of tape, so that the braid cannot creep back along the wires.</li>
+</ol>
+
+**Leave the sleeving loose enough to bend.** The anchor under <b>How long</b>, below, goes on over the sleeving: pull the tie tight enough to hold, but not so tight that it crushes the braid.
 
 ## How long
 

@@ -56,8 +56,9 @@ Ordered list. First rule whose conditions match wins; later rules don't evaluate
 | `name` | Must match `categories[id].name`. |
 | `disabled` | If `true`, the rule is skipped. |
 | `match_mode` | `"any"` (OR) or `"all"` (AND). |
+| `negate` | If `true`, the rule or group takes the opposite: "none of" with `"any"`, "not all of" with `"all"`. |
 | `conditions` | See below. |
-| `children` | Reserved for nested rules. Currently unused. |
+| `children` | Groups inside the rule, each with its own `match_mode`, `negate`, `conditions` and `children`, to any depth. A group is not a bin: its answer counts as one more true or false inside its parent. |
 
 ### Condition fields and operators
 
@@ -134,14 +135,13 @@ When `profile_type` is `"set"` or `set_inventories` is populated, the profile re
 }
 ```
 
-`SetProgressTracker` (`set_progress.py`) decrements quantities as parts are classified. Progress is keyed by `artifact_hash` — editing the profile resets progress, intentionally.
+`SetProgressTracker` (`set_progress.py`) counts each kit's pieces as they are sorted. The counts belong to the kit rule (its `id`, which is its bin) and each of its lines, not to one version of the profile: a new version keeps a line's count, up to the line's quantity now. They start again from zero only when the operator resets the kit (Set progress page, or `POST /api/set-progress/reset`).
 
 ## `artifact_hash`
 
 Content hash of the compiled map + categories. Used for:
 
-1. Set-progress persistence (keyed by hash → identical compiles share progress).
-2. Stale-profile detection — when Hive deploys a profile, the backend compares hashes and calls `reload_sorting_profile()` if they differ. No restart needed.
+1. Stale-profile detection — when Hive deploys a profile, the backend compares hashes and calls `reload_sorting_profile()` if they differ. No restart needed.
 
 Recomputed on save. Don't edit by hand.
 

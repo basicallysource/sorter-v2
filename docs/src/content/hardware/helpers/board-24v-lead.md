@@ -56,8 +56,15 @@ This is `W1` on the [harness drawings]({{ '/hardware/parts/harness-order/#board-
   <li>Find which conductor is the tip. Set the <a href="{{ '/hardware/helpers/multimeter/' | relative_url }}#continuity-for-tracing-a-cable">multimeter to continuity</a> and hold one probe on the centre pin inside the plug. The conductor that beeps is <b>+24 V</b>. Red is the tip on most plugs, but a few are wired the other way, so this is the step where you find out rather than assume. Put a turn of tape on the +24 V conductor at each end, whatever its colour, so you still know which one it is in the steps below.</li>
   <li>Strip 3 mm off the free end of each conductor.</li>
   <li>Crimp a VH contact onto each. Seat the bare strands fully in the barrel and crimp it in the die of the open-barrel pliers marked for 22 to 16 AWG (0.33 to 1.3 mm²). Then pull on the wire to check it holds.</li>
-  <li>Push each contact into the back of the VHR-2 housing until it clicks and will not pull out: <b>+24 V into position 1, ground into position 2</b>.</li>
+  <li>Push each contact into the back of the VHR-2 housing until it clicks and will not pull out. The two cavities look identical, so find the right one first: hold the housing with the end the wires will leave from toward you and the raised <b>latch bar</b> on top. <b>+24 V (red) goes in the left cavity, ground (black) in the right.</b> Dab a marker on the housing above the red cavity so you can see which is which later.</li>
 </ol>
+
+<figure class="single-figure">
+  <img class="doc-figure" src="https://assets.basically.website/sorter-docs/w1-vh-cavity-full-b39b0b4fd1e4.png" alt="Two drawings. First, the VH housing held with the wire end toward you and the latch bar on top: the left cavity is position 1, +24 V, red, and the right cavity is position 2, ground, black. Second, the housing seen from above on the board's 2-pin header: the red cavity sits over the square pad, beside the 24V print, and the black cavity over the round pad, beside the GND print; the latch bar is on the side where the printing is.">
+  <figcaption>Latch bar on top, red on the left. On the board, red lands beside the <code>24V</code> print.</figcaption>
+</figure>
+
+**On the board.** `J1` is a shrouded header with a slot for the latch, so the housing only goes on one way round, and that fixes which cavity is which. Position 1, the red one, lands on the **square pad**, beside the `24V` printed on the board. The round pad is position 2, beside `GND`. Check this when you plug it in: the red wire should be on the `24V` side.
 
 ### Joining a moulded plug's leads
 
@@ -76,8 +83,6 @@ A butt connector is a vinyl-insulated barrel that takes one wire in each end, ra
   <span class="callout-icon" aria-hidden="true">⚠</span>
   <p><b>Use insulated-terminal crimping pliers.</b> A crimp tool for open-barrel contacts, the kind that does the VH contacts, has the wrong die and will not close a butt connector properly.</p>
 </div>
-
-**Which position is 1.** `J1` on the board is a shrouded header, so the housing only goes on one way round. Hold the housing as it will go into that shroud: position 1 is the one over the **square pad**, and the round pad beside it is position 2. Every other pad on that footprint is round, so the square one is unambiguous.
 
 ### Check the finished lead
 

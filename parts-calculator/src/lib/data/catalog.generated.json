@@ -8224,20 +8224,36 @@
 		},
 		{
 			"id": "harness-hub-24v",
-			"uid": "8b59",
-			"version": "1",
+			"uid": "ks7s",
+			"version": "2",
 			"name": "24 V USB hub lead (W2)",
-			"description": "The powered USB hub's feed, W2 on the power drawing: a barrel plug at each end, one into a PSU box jack and one into the hub's own jack. 12 in of 22 AWG (0.33 mm\u00b2). It sits at the Electronics level beside the box the lead starts at. 1 per machine.",
-			"joining": [
-				{
-					"method": "solder",
-					"note": "Splice the two moulded plug leads together, or use a single double-ended lead if you can buy one."
-				}
-			],
+			"description": "The powered USB hub's feed, W2 on the power drawing: a moulded barrel plug into a PSU box jack, with its two bare wires screwed into the 2-pin power terminal on the hub's circuit board, matching the + and - printed on the board. The plug's own lead, about 28 cm with the plug, reaches the hub when the Orange Pi housing that carries it is bolted next to the PSU box as the frame drawing shows. If the two are mounted further apart, buy the ready-made male to male lead (the optional DC lead, 5.5 x 2.1 mm male to male, 2 ft) and plug it into the hub's jack instead. It sits at the Electronics level beside the box the lead starts at. 1 per machine.",
 			"lines": [
 				{
 					"part": "dc-plug-5521-male",
-					"qty": 2
+					"qty": 1
+				}
+			],
+			"versions": [
+				{
+					"version": "1",
+					"uid": "8b59",
+					"message": "As recorded before the first stamped change.",
+					"lines": [
+						{
+							"part": "dc-plug-5521-male",
+							"qty": 2,
+							"uid": "ky9z"
+						}
+					]
+				},
+				{
+					"version": "2",
+					"uid": "ks7s",
+					"date": "2026-10-02",
+					"message": "The USB hub's 24 V lead takes one moulded barrel plug instead of two spliced together: the plug goes into the PSU box jack and its bare wires are screwed into the hub's own 2-pin power terminal, matching the + and - on the hub's board. A ready-made male to male lead is the documented alternative when the plug's lead does not reach. No joint is made.",
+					"breaking": false,
+					"commit": null
 				}
 			]
 		},
@@ -29665,11 +29681,11 @@
 				},
 				{
 					"label": "Used on",
-					"value": "W1, both ends of W2 and W3"
+					"value": "W1, W2 and W3"
 				}
 			],
 			"sheet_qty": {
-				"per_machine": 4
+				"per_machine": 3
 			},
 			"sheet_qty_text": null,
 			"stock": null,
@@ -29715,10 +29731,68 @@
 				]
 			},
 			"alternative": null,
-			"caption": "Four per machine. W2 takes one at each end.",
+			"caption": "Three per machine, one each on W1, W2 and W3.",
 			"docs_page": "/hardware/electronics/wire-harness/",
 			"conflicts": null,
 			"image": "https://assets.basically.website/sorter-parts/dc-plug-5521-male-full-9cabce9431e7.jpg"
+		},
+		{
+			"id": "dc-lead-5521-mm",
+			"uid": "yv7e",
+			"kind": "cots",
+			"cots": {
+				"type": "cable",
+				"optional": true
+			},
+			"name": "DC lead, 5.5 x 2.1 mm male to male, 2 ft",
+			"category": "Wire harness",
+			"description": "The alternative for the powered USB hub's 24 V lead, W2, when the Orange Pi housing is mounted too far from the PSU box for a moulded barrel plug's own lead (about 28 cm) to reach the hub's screw terminal: a ready-made lead with a 5.5 x 2.1 mm barrel plug at each end and about 2 ft (600 mm) of 22 AWG (0.33 mm\u00b2) between them. One end goes into a PSU box jack and the other into the hub's own jack. It is wired plug to plug, so the centre pin stays positive at both ends. Nothing is made or joined. Buy it only if you take that route; it is not on the machine's parts list otherwise.",
+			"note": "5.5 x 2.5 mm leads look identical and do not mate: the 0.4 mm is on the centre pin. Check the pin size on the listing, not the outside diameter. Any male to male 5.5 x 2.1 mm lead of 22 AWG or thicker and centre positive does.",
+			"created_at": "2026-10-02",
+			"updated_at": "2026-10-02",
+			"attributes": [
+				{
+					"label": "Size",
+					"value": "5.5 mm outside, 2.1 mm centre pin, both ends"
+				},
+				{
+					"label": "Polarity",
+					"value": "Centre positive"
+				},
+				{
+					"label": "Wire",
+					"value": "22 AWG (0.33 mm\u00b2)"
+				},
+				{
+					"label": "Length",
+					"value": "About 2 ft (600 mm)"
+				},
+				{
+					"label": "Used on",
+					"value": "W2, instead of a plug into the hub terminal"
+				}
+			],
+			"sheet_qty": null,
+			"sheet_qty_text": null,
+			"stock": null,
+			"sourcing": {
+				"vendors": [
+					{
+						"region": "US",
+						"vendor": "L-com",
+						"url": "https://www.l-com.com/dc-power-cable-5.5mm-2.1mm-male-male-2-ft-dc5521mm-2ft",
+						"price": 5.29,
+						"pack_qty": 1,
+						"as_of": "2026-10-02",
+						"note": "DC5521MM-2FT, 22 AWG, 2 ft, centre positive. Parts Express sell the same lead as 090-1010."
+					}
+				]
+			},
+			"alternative": null,
+			"caption": "Alternative to the plug in the hub's terminal, only when the housings are mounted too far apart for that plug's lead.",
+			"docs_page": "/hardware/electronics/connecting/",
+			"conflicts": null,
+			"image": "https://assets.basically.website/sorter-parts/dc-lead-5521-mm-full-f2efa5518ec3.jpg"
 		},
 		{
 			"id": "dc-plug-5521-male-led",

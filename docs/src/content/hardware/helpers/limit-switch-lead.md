@@ -21,9 +21,9 @@ parts_needed:
   - part: dupont-housing-3p
     qty: 1
   - part: terminal-qc-187
-    qty: 2
+    qty: 4
   - part: dupont-contact-female
-    qty: 2
+    qty: 4
   - part: sleeving-braided-6mm
     qty: 1
     note: Optional. About 0.6 m over the pair.
@@ -32,7 +32,7 @@ tools_needed: ["Side cutters, to cut the wire to length", "A ruler or tape measu
 
 This is `LIM` on the [harness drawings]({{ '/hardware/parts/harness-order/#limit-switch' | relative_url }}). It runs from `J5` on the control board to the roller-lever switch on the chute. **One per machine.**
 
-Nothing on this lead is soldered. The switch end pushes on, and the board end is two crimps into a housing.
+Nothing on this lead is soldered. The switch end pushes on, and the board end is two crimps into a housing. The parts list has four receptacles and four contacts, two more of each than the lead uses: the first crimps on a new part are easy to spoil. General help with crimping is at [Crimping connectors]({{ '/hardware/helpers/crimping/' | relative_url }}).
 
 ## The two ends
 

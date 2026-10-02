@@ -18,6 +18,16 @@ warning: >-
 parts_needed:
   - part: usb-hub-powered-24v
     qty: 1
+  - part: dc-plug-5521-male
+    qty: 1
+    variant_group: hub-24v-lead
+    variant_name: "Barrel plug on its own leads, screwed into the hub's terminal"
+    variant_heading: "For the USB hub's 24 V lead, one of these"
+  - part: dc-lead-5521-mm
+    qty: 1
+    variant_group: hub-24v-lead
+    variant_name: "Plug-to-plug lead, into the hub's DC jack (only if the housings are far apart)"
+    variant_heading: "For the USB hub's 24 V lead, one of these"
   - part: buck-24v-5v-usbc
     qty: 1
   - part: cable-micro-usb

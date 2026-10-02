@@ -429,6 +429,9 @@ export type ResolvedPart = {
 	// foldVariants.
 	variant_group?: string | null;
 	variant_name?: string | null;
+	// Heading over the "or" row, from the page's own parts_needed entry; the
+	// catalog's per-layer families leave it unset and get the default.
+	variant_heading?: string | null;
 	/** Everything the part modal shows, taken straight off the calculator's
 	 *  generated catalog so the two never drift. Absent on a missing part. */
 	detail?: PartDetail;
@@ -483,6 +486,7 @@ export type PartsGroup = {
 	// Rendered after `parts` as "one of these per layer", each choice separated
 	// by an "or". Empty on every page that lists at most one variant per group.
 	choices: PartsChoice[];
+	choicesHeading: string;
 };
 export type ResolvedPerson = { name: string; url?: string };
 
@@ -519,6 +523,8 @@ function foldVariants(group: PartsGroup): void {
 	for (const variants of byGroup.values()) {
 		if (variants.size < 2) continue;
 		for (const [label, parts] of variants) {
+			const heading = parts.find((p) => p.variant_heading)?.variant_heading;
+			if (heading) group.choicesHeading = heading;
 			group.choices.push({ label, parts });
 			for (const p of parts) folded.add(p);
 		}
@@ -548,14 +554,17 @@ function resolveParts(partsNeeded: any[]): { groups: PartsGroup[]; conflicts: Re
 			detail: part.detail,
 			qty,
 			category: part.category ?? 'Other',
-			variant_group: part.variant_group,
-			variant_name: part.variant_name
+			// A page can group parts that are alternatives for one job on its own
+			// (the hub's 24 V lead); the catalog's tags are for the per-layer families.
+			variant_group: entry.variant_group ?? part.variant_group,
+			variant_name: entry.variant_name ?? part.variant_name,
+			variant_heading: entry.variant_heading
 		};
 	});
 	const groups: PartsGroup[] = [];
 	for (const p of resolved) {
 		let g = groups.find((g) => g.category === p.category);
-		if (!g) groups.push((g = { category: p.category, parts: [], choices: [] }));
+		if (!g) groups.push((g = { category: p.category, parts: [], choices: [], choicesHeading: 'One of these per layer' }));
 		g.parts.push(p);
 	}
 	for (const g of groups) foldVariants(g);

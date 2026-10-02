@@ -204,7 +204,7 @@
 						<p class="parts-category">{group.category}</p>
 					{/if}
 					{#if group.choices.length}
-						<p class="parts-category">One of these per layer</p>
+						<p class="parts-category">{group.choicesHeading}</p>
 						<div class="parts-choices">
 							{#each group.choices as choice, i (choice.label)}
 								{#if i > 0}<span class="parts-choice-or">or</span>{/if}

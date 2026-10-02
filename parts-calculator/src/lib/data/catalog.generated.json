@@ -29604,10 +29604,10 @@
 			},
 			"name": "Braided cable sleeving, 1/4 in",
 			"category": "Wire harness",
-			"description": "Optional. Holds each channel stepper lead's four wires together as one bundle, so a metre of loose wire does not end up spread across the frame. The lead works without it.",
-			"note": "The harness drawing calls it PVC sleeving. What is commonly sold is PET braid at the same size, which is what the sourcing link is, and it does the same job. The drawing sleeves the four S bundles only, not CH.",
+			"description": "Optional. Holds the wires of each lead you make together as one bundle, and protects them where they run along the frame, so a metre of loose wire does not end up spread across the machine. Every lead works without it.",
+			"note": "The harness drawing calls it PVC sleeving. What is commonly sold is PET braid at the same size, which is what the sourcing link is, and it does the same job. The harness drawing sleeves the four channel stepper bundles (S) only; the other leads are sleeved on the builder's own choice, as a way of securing the cables.",
 			"created_at": "2026-09-14",
-			"updated_at": "2026-09-18",
+			"updated_at": "2026-10-02",
 			"attributes": [
 				{
 					"label": "Size",
@@ -29615,7 +29615,7 @@
 				},
 				{
 					"label": "Length per machine",
-					"value": "4.0 m (400 cm, 157.5 in) per machine: 1 m (100 cm, 39.4 in) over each of the four S bundles"
+					"value": "About 10 m (1,000 cm, 394 in) per machine, with a little over for cutting: 1 m over each of the four channel stepper leads, about 1 m each over the board 24 V lead, the chute stepper lead and the three LED board cables, 0.6 m over the limit switch lead, and about 0.1 m over each of the four short pigtails (the Orange Pi 24 V lead and the three LED lamp pigtails)"
 				},
 				{
 					"label": "Material",
@@ -29628,10 +29628,10 @@
 			"sheet_qty_text": null,
 			"stock": {
 				"unit_length_mm": 15240,
-				"cut_length_mm": 4000,
-				"pieces_per_unit": 3,
+				"cut_length_mm": 10000,
+				"pieces_per_unit": 1,
 				"unit_label": "15.2 m (50 ft) roll",
-				"piece_label": "one machine's worth (4.0 m / 400 cm / 157.5 in)"
+				"piece_label": "one machine's worth (about 10 m / 1,000 cm / 394 in)"
 			},
 			"sourcing": {
 				"vendors": [
@@ -29645,7 +29645,7 @@
 				]
 			},
 			"alternative": null,
-			"caption": "One roll does three machines.",
+			"caption": "One roll does one machine.",
 			"docs_page": "/hardware/helpers/channel-stepper-lead/",
 			"conflicts": null,
 			"image": "https://assets.basically.website/sorter-parts/sleeving-braided-6mm-full-39f6e9222044.jpg"

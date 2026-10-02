@@ -15,18 +15,18 @@ parts_needed:
     qty: 10
   - part: cage-top-motor-piece
     qty: 1
-  - part: scr-m3-8-shcs
+  - part: scr-m3-12-bhcs
     qty: 12
   - part: nut-m3
     qty: 12
-tools_needed: ["Superglue (cyanoacrylate)", "A flat surface to build the plate on", "A 2.5 mm hex key, for the M3 bolts"]
+tools_needed: ["Superglue (cyanoacrylate)", "A flat surface to build the plate on", "A 2.5 mm hex key, for the M3 bolts", "A file or sandpaper, for any hard glue"]
 ---
 
 <div class="callout">
   <p><b>This page is optional.</b> The standard build has both cable cage plates laser-cut, or cut by hand from the <a href="https://parts-calculator.basically.website/lasercut">parts calculator's laser-cut page</a>. If you would rather print them, this page turns the printed pieces into the same two plates, and the <a href="{{ '/hardware/assembly/distribution/top-interface/' | relative_url }}">top interface</a> page takes it from there.</p>
 </div>
 
-The printed plates are made of pieces because a whole hexagon, 325 mm across the flats, will not fit on most printers. Each piece is a 3 mm plate, and neighbouring pieces overlap in a half-thickness joint with two M3 holes in it, so they lock flat against each other and the glue does the rest. **Ten hex corners and one motor piece make both plates:**
+Each plate is made of several flat pieces. Where two pieces meet, each has a half-thickness step, and the two steps overlap. Two M3 holes go through every overlap. **Ten hex corners and one motor piece make both plates:**
 
 - **The plate with the plain round centre hole** is **six hex corners**. It is the one that goes on at step 10 of the top interface page.
 - **The plate with the keyed cutout** is **four hex corners and the one motor piece**. The motor piece is the one with the pocket in its edge. It goes on at step 12.
@@ -36,36 +36,34 @@ The printed plates are made of pieces because a whole hexagon, 325 mm across the
   <figcaption>The two plates and which piece goes where. Each overlap strip is one joint. <cite>Drawing: Balloon, from the STL files.</cite></figcaption>
 </figure>
 
-Print the pieces flat on the bed, the way the files come. The design is Alec's (flewber on Discord), shared by zed0.
+Print every piece flat on the bed, the way the file comes.
 
 {% include step.html n="1" title="Dry-fit the plate" %}
 
-Lay the pieces out on a flat surface in the order in the drawing above, **with every other corner piece turned over**. The two halves of each overlap are cut as a pair: one piece has its lower half sticking out, the next has its upper half sticking out, and they only meet flush when every second piece is flipped. If a joint will not close flat, the piece next to it is the wrong way up.
+Lay the pieces on a flat surface in the order in the drawing above, **with every other corner piece turned upside down**. At each overlap one piece has its step on the underside and the next has its step on the top. If an overlap does not lie flat, turn one of the two pieces over.
 
 {% include step.html n="2" title="Clamp the joints with M3 bolts" %}
 
-Put an {% include fastener.html size="M3" variant="socket-button" length="8" %} bolt through each of the two M3 holes in every joint, with an {% include fastener.html size="M3" variant="nut" %} on the back, and snug them down. 8 mm is long enough for the 3 mm overlap and a nut. That is two bolts per joint, so **12 for the six-piece plate and 10 for the five-piece one**, and the same bolts go on the second plate once the first is done.
+Put an {% include fastener.html size="M3" variant="socket-button" length="12" %} bolt through each of the two M3 holes in every joint, with an {% include fastener.html size="M3" variant="nut" %} on the back, and tighten them by hand until the pieces lie flat. That is two bolts per joint, so **12 for the six-piece plate and 10 for the five-piece one**, and the same bolts go on the second plate once the first is done.
 
 <div class="callout callout-warning">
   <span class="callout-icon" aria-hidden="true">⚠</span>
-  <p><b>The bolts are only a clamp.</b> They come out again in step 4. Do not tighten them hard enough to bow the plate: it has to stay flat or the cage will rub the chute.</p>
+  <p><b>The bolts are only a clamp.</b> They come out again in step 4. Do not overtighten them: the plate must stay flat.</p>
 </div>
 
 {% include step.html n="3" title="Glue every joint" %}
 
-With the plate flat and the bolts in, run superglue into each joint from the edge and let it wick in. Keep the plate flat on the table until it is set, and let it cure completely before you lift it.
+With the plate flat and the bolts in, put superglue between the two steps of every overlap, then press them together. Keep the plate flat on the table. Leave it for the full curing time on the glue's label before you lift it.
 
 {% include step.html n="4" title="Take the M3 hardware out" %}
 
-Once the glue has cured, take every bolt and nut out. **Leave nothing in the plate:** the ribbon cable runs through the cage, and a bolt end or nut on the face of the plate catches it as the chute turns. Check both faces of each joint with a fingertip, and file or sand any glue bead flat.
+Once the glue has cured, take every bolt and nut out. **Leave nothing in the plate:** the ribbon cable runs through the cage, and a bolt or nut left on the plate catches it as the chute turns. Run a fingertip over both faces of every overlap, and file or sand any hard glue flat.
 
 Do the other plate the same way.
 
 ## Check the plate before it goes on
 
-Look at the central hole of the finished plate. It must be the same round hole all the way round, with no step or glue bead at any joint, because the chute turns inside it.
-
-<div class="img-placeholder">Image coming: a finished printed plate, both faces, with the joints visible</div>
+Look at the central hole of the finished plate. The edge must be smooth all the way round, with no step or lump of glue at any overlap, because the chute turns inside it.
 
 ## Where it goes
 

@@ -8617,7 +8617,7 @@
 			"uid": "xo4j",
 			"version": "1",
 			"name": "Wire and sleeving",
-			"description": "The cut-to-length wire the leads are made from, and the optional braided sleeving over the channel stepper leads. Each is bought as a spool or roll and one machine's worth is one line, so each counts once however many leads are cut from it. Gauge and length per machine are on each part: 18 AWG two-core for the PSU pigtails and W1, 22 AWG two-core for the lighter leads, four-colour 24 AWG for the chute stepper cable.",
+			"description": "The cut-to-length wire the leads are made from, and the optional braided sleeving over the leads you make. Each is bought as a spool or roll and one machine's worth is one line, so each counts once however many leads are cut from it. Gauge and length per machine are on each part: 18 AWG two-core for the PSU pigtails and W1, 22 AWG two-core for the lighter leads, four-colour 24 AWG for the chute stepper cable.",
 			"docs": "/hardware/electronics/wire-harness/",
 			"lines": [
 				{
@@ -31277,16 +31277,16 @@
 						"vendor": "Amazon DE",
 						"url": "https://www.amazon.de/dp/B071JH14WZ",
 						"price": 7.99,
-						"pack_qty": 1,
+						"pack_qty": 0.5,
 						"currency": "EUR",
 						"as_of": "2026-10-02",
-						"note": "7.5 m of braided sleeving."
+						"note": "7.5 m of braided sleeving, about half the 15.2 m roll the line counts in, so a machine's 10 m takes two."
 					}
 				]
 			},
 			"alternative": null,
 			"caption": "One roll does one machine.",
-			"docs_page": "/hardware/helpers/channel-stepper-lead/",
+			"docs_page": "/hardware/electronics/connecting/",
 			"conflicts": null,
 			"image": "https://assets.basically.website/sorter-parts/sleeving-braided-6mm-full-39f6e9222044.jpg"
 		},

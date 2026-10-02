@@ -11678,8 +11678,7 @@
 			"uid": "xgzj",
 			"name": "External bracket \u2014 bottom vertical",
 			"quantities": {
-				"layer": 6,
-				"interface": 6
+				"layer": 6
 			},
 			"assembly": "external-bracket",
 			"folder": null,
@@ -11716,7 +11715,7 @@
 			"info": null,
 			"low_tolerance": false,
 			"low_tolerance_note": null,
-			"layer_scope": "non-bottom",
+			"layer_scope": null,
 			"requires": [],
 			"caption": null,
 			"docs_page": null,

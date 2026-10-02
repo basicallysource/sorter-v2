@@ -26,24 +26,78 @@ def _summarize(data: dict[str, Any]) -> dict[str, Any]:
 
 
 ANY_COLOR = "any_color"
+# What a profile may ask for when a piece's category has no bin and none is
+# free: the default bin ("misc", the run never stops) or a shared bin.
+NO_BIN_POLICIES = ("misc", "share")
+
+
+def pieceConditionHolds(condition: dict[str, Any], piece: dict[str, Any]) -> bool:
+    """Whether a condition on the piece itself (Hive's piece fields: identified,
+    confidence, color_confidence, piece_price) holds for what this machine
+    observed. An unknown value never satisfies one."""
+    value = piece.get(condition.get("field"))
+    target = condition.get("value")
+    if value is None or target is None:
+        return False
+    try:
+        value, target = float(value), float(target)
+    except (TypeError, ValueError):
+        return False
+    op = condition.get("op")
+    if op == "gte":
+        return value >= target
+    if op == "lte":
+        return value <= target
+    if op == "eq":
+        return value == target
+    if op == "neq":
+        return value != target
+    return False
+
+
+def _whenHolds(when: Optional[list[dict[str, Any]]], piece: dict[str, Any]) -> bool:
+    return not when or all(
+        pieceConditionHolds(item, piece) == bool(item.get("is", True)) for item in when if isinstance(item, dict)
+    )
+
+
+def observedPieceFacts(piece: Any) -> dict[str, Any]:
+    """What a profile's piece conditions read off a piece: recognition and
+    color confidence in percent, and the part's price in its color. Whether it
+    was identified comes from its part."""
+
+    def percent(score: Any) -> Optional[float]:
+        try:
+            return None if score is None else float(score) * 100.0
+        except (TypeError, ValueError):
+            return None
+
+    return {
+        "confidence": percent(getattr(piece, "confidence", None)),
+        "color_confidence": percent(getattr(piece, "color_confidence", None)),
+        "piece_price": getattr(piece, "moving_avg_price", None),
+    }
 
 
 class ProfileRouter:
     """A compiled program (Hive's format since the flat part map): an ordered
     list of rules, each taking some parts in some colors, first match wins.
     A kit rule takes a part only while its kit still needs it, so once a kit
-    has enough of a part, further pieces go on to the next rule."""
+    has enough of a part, further pieces go on to the next rule. An entry with
+    `when` takes a piece only when what the machine observed of it agrees
+    (a rule on recognition confidence, say)."""
 
     def __init__(self, program: dict[str, Any]) -> None:
-        self.rules: list[tuple[str, str, Any, Any]] = []
+        self.rules: list[tuple[str, str, Any, Any, Any]] = []
         for entry in program.get("rules") or []:
             if not isinstance(entry, dict) or not entry.get("category"):
                 continue
             category = str(entry["category"])
+            when = entry.get("when") if isinstance(entry.get("when"), list) and entry.get("when") else None
             kit = entry.get("kit")
             if isinstance(kit, dict):
                 self.rules.append(
-                    ("kit", category, {str(part): {None if c is None else str(c) for c in colors} for part, colors in kit.items()}, None)
+                    ("kit", category, {str(part): {None if c is None else str(c) for c in colors} for part, colors in kit.items()}, None, when)
                 )
                 continue
             parts = entry.get("parts")
@@ -54,24 +108,37 @@ class ProfileRouter:
                     category,
                     None if parts is None else {str(part) for part in parts},
                     None if colors is None else {str(color) for color in colors},
+                    when,
                 )
             )
         fallback = program.get("fallback") if isinstance(program.get("fallback"), dict) else {}
         self.fallback_by = fallback.get("by")
         self.fallback_map: dict[str, str] = {str(k): str(v) for k, v in (fallback.get("map") or {}).items()}
         self.default = str(program.get("default") or MISC_CATEGORY)
+        no_bin = program.get("no_bin")
+        self.no_bin: Optional[str] = no_bin if no_bin in NO_BIN_POLICIES else None
 
     def route(
         self,
-        part_id: str,
+        part_id: Optional[str],
         color_id: Optional[str],
         kit_is_full: Optional[Callable[[str, str, str], bool]] = None,
+        piece: Optional[dict[str, Any]] = None,
     ) -> str:
-        part = str(part_id)
-        color = None if color_id in (None, "", ANY_COLOR) else str(color_id)
-        for kind, category, parts, colors in self.rules:
+        """`part_id` None is a piece recognition could not identify: it has no
+        color, counts as 0% confident, and only entries that take any part
+        (a rule on the piece itself, say) can have it."""
+        part = None if part_id is None else str(part_id)
+        color = None if part is None or color_id in (None, "", ANY_COLOR) else str(color_id)
+        facts = dict(piece or {})
+        facts["identified"] = 0 if part is None else 1
+        if part is None:
+            facts["confidence"] = 0.0
+        for kind, category, parts, colors, when in self.rules:
+            if when is not None and not _whenHolds(when, facts):
+                continue
             if kind == "kit":
-                wanted = parts.get(part)
+                wanted = parts.get(part) if part is not None else None
                 if wanted is None or not (color in wanted or None in wanted):
                     continue
                 if kit_is_full is not None and kit_is_full(category, part, color or ANY_COLOR):
@@ -134,8 +201,21 @@ def profileSummary(path: str) -> dict[str, Any]:
 
 class SortingProfile(ABC):
     @abstractmethod
-    def getCategoryIdForPart(self, part_id: str, color_id: str = "any_color") -> str:
+    def getCategoryIdForPart(
+        self,
+        part_id: Optional[str],
+        color_id: str = "any_color",
+        piece: Optional[dict[str, Any]] = None,
+    ) -> str:
+        """The category a piece goes to. `part_id` None is a piece recognition
+        could not identify; `piece` is what the machine observed of it
+        (observedPieceFacts), for rules on the piece itself."""
         pass
+
+    def noBinPolicy(self) -> Optional[str]:
+        """What the profile wants when a piece's category has no bin and none
+        is free: "misc", "share", or None for the machine's own setting."""
+        return None
 
     def setKitProgress(self, tracker: Any) -> None:
         """The kit tracker whose counts decide when a kit passes pieces on;
@@ -231,14 +311,24 @@ class JsonSortingProfile(SortingProfile):
         """The kit tracker whose counts decide when a kit passes pieces on."""
         self._kit_is_full = tracker.isFull if tracker is not None else None
 
-    def getCategoryIdForPart(self, part_id: str, color_id: str = "any_color") -> str:
+    def getCategoryIdForPart(
+        self,
+        part_id: Optional[str],
+        color_id: str = "any_color",
+        piece: Optional[dict[str, Any]] = None,
+    ) -> str:
         if self._router is not None:
-            return self._router.route(part_id, color_id, self._kit_is_full)
+            return self._router.route(part_id, color_id, self._kit_is_full, piece)
+        if part_id is None:
+            return self.default_category_id
         color_key = f"{color_id}-{part_id}"
         if color_key in self.part_to_category:
             return self.part_to_category[color_key]
         any_key = f"any_color-{part_id}"
         return self.part_to_category.get(any_key, self.default_category_id)
+
+    def noBinPolicy(self) -> Optional[str]:
+        return self._router.no_bin if self._router is not None else None
 
     def highValueCategoryId(self, price: Optional[float]) -> Optional[str]:
         cfg = self.high_value_routing

@@ -57,7 +57,7 @@ client.download_default_model(
 A machine runs the profiles its owner has, those saved to their library, and
 Hive's defaults. The client names what it can run (`PROFILE_FEATURES`: the
 compiled program, sorting leftovers by color, kits that pass pieces on once
-full), so Hive leaves out any profile that needs more:
+full, rules on the piece itself), so Hive leaves out any profile that needs more:
 
 ```python
 library = client.profile_library()        # {"profiles": [...], "assignment": ...}

@@ -19,7 +19,10 @@ parts_needed:
     qty: 1
   - part: butt-connector-red-22-16
     qty: 2
-tools_needed: ["A ruler or tape measure, to measure the converter's input wires", "Side cutters, only if you have to extend the wires", "Wire strippers, for 22 AWG (0.33 mm²) wire, only for a moulded plug or extended wires", "Insulated-terminal crimping pliers with a jaw for 22 to 16 AWG (0.33 to 1.3 mm²) wire, for the butt connectors on a moulded plug or extended wires", "A small screwdriver, only for a screw-terminal plug", "Multimeter, to find the tip and to check the finished lead", "Only if you solder the joints instead of crimping them: a soldering iron, solder and adhesive-lined heat shrink (see Getting started)"]
+  - part: sleeving-braided-6mm
+    qty: 1
+    note: Optional. About 0.1 m over the converter's two input wires.
+tools_needed: ["A ruler or tape measure, to measure the converter's input wires", "Side cutters, only if you have to extend the wires", "Wire strippers, for 22 AWG (0.33 mm²) wire, only for a moulded plug or extended wires", "Insulated-terminal crimping pliers with a jaw for 22 to 16 AWG (0.33 to 1.3 mm²) wire, for the butt connectors on a moulded plug or extended wires", "A small screwdriver, only for a screw-terminal plug", "Multimeter, to find the tip and to check the finished lead", "Only if you solder the joints instead of crimping them: a soldering iron, solder and adhesive-lined heat shrink (see Getting started)", "Optional, for the sleeving: scissors and tape, or a hot knife"]
 ---
 
 This is `W3` on the [harness drawings]({{ '/hardware/parts/harness-order/#power' | relative_url }}). It runs from one of the three jacks on the [PSU box]({{ '/hardware/electronics/installation/psu-box/' | relative_url }}) to the buck converter, and the converter's own USB-C lead is the rest of the run to the Pi. **One per machine.**
@@ -49,13 +52,14 @@ The converter takes 8 to 32 V in and gives 5 V out at up to 5 A. It is potted, s
   <li>Measure the converter's own input wires with a ruler, from the case to the cut end. <b>100 mm or more and nothing needs extending</b>: they go straight to the plug. Shorter than 100 mm, do step 2 first; otherwise skip it.</li>
   <li><b>Only if they are short.</b> Cut a red and black pair of 22 AWG (0.33 mm²) wire with side cutters, long enough to make the lead up to about 150 mm (6 in). Join each wire of it to the converter wire of the same colour with a butt connector, red to red and black to black. How is under <b>Joining two wires with a butt connector</b>, below.</li>
   <li>Work out which terminal of the plug is the tip. A screw-terminal plug is usually marked <code>+</code> and <code>-</code>; a moulded one is two wires. Either way, set the <a href="{{ '/hardware/helpers/multimeter/' | relative_url }}#continuity-for-tracing-a-cable">multimeter to continuity</a> and hold one probe on the centre pin inside the plug: the terminal or wire that beeps is <b>+24 V</b>. This is the step where you find out rather than assume. On a moulded plug, put a turn of tape on the tip wire so you can tell it from the other.</li>
+  <li><b>Optional:</b> if you will sleeve the lead, slide a 0.1 m length of braided sleeving over the converter's two input wires from the free end now, before you fit the plug. A finished plug may not go through it, so it goes on first. Leave it bunched up near the converter for now; <a href="#sleeving-optional">Sleeving (optional)</a> says how to cut and finish it.</li>
   <li>Fit the plug, <b>the converter's red wire to the tip and its black wire to the sleeve</b>. On a <b>screw-terminal plug</b>, get the bare strands fully under the screws, tighten firmly and pull on each wire. On a <b>moulded plug</b>, join the converter's red wire to the plug's tip wire and the converter's black wire to the plug's other wire, one butt connector each, as in step 2. Stagger the two connectors by a few millimetres along the lead so they cannot touch.</li>
   <li>Check the output, as under <b>Check the lead</b>, below.</li>
 </ol>
 
 ### Joining two wires with a butt connector
 
-Used in step 2 and, on a moulded plug, in step 4. A butt connector is a vinyl-insulated barrel that takes one wire in each end, rated for 22 to 16 AWG (0.33 to 1.3 mm²) wire. Make one joint at a time so the two never touch.
+Used in step 2 and, on a moulded plug, in step 5. A butt connector is a vinyl-insulated barrel that takes one wire in each end, rated for 22 to 16 AWG (0.33 to 1.3 mm²) wire. Make one joint at a time so the two never touch.
 
 The listing for the converter does not give the gauge of its input wires. Before you crimp, strip one wire and push it into the connector: the strands should fill the barrel. If they sit loose with room to spare, the wire is too thin for this connector, so solder it and cover the joint with heat shrink instead.
 
@@ -89,6 +93,24 @@ Choose the jaw by the size marked on it, not by its colour. To solder instead of
   <li>Set the multimeter to DC volts and meter the USB-C plug. Each row of its contacts has 12 in a line: the contact at the very end of a row is ground and the fourth contact in from either end of the same row is +5 V. Touch the black probe to the end contact and the red probe to the fourth one. It reads about 5 V.</li>
   <li>If it reads 0 V, or anything near 24 V, unplug the lead from the jack at once and check which wire went to the tip.</li>
 </ol>
+
+## Sleeving (optional)
+
+<div class="callout">
+  <p><b>You can skip this and the lead works the same.</b> The sleeving is on the parts list as optional. It keeps the wires together as one tidy cable and protects them where the lead runs along the frame, and it is another way of securing the cables.</p>
+</div>
+
+**Where:** over the converter's two input wires, from just clear of the converter's case to just short of the plug. About 0.1 m, which is a short run, so this one does little beyond keeping the two wires together.
+
+**How:**
+
+<ol class="numbered-steps">
+  <li>Push the braid together lengthwise to open it: it widens as it shortens. Feed all the wires into it together, so none of them is left outside.</li>
+  <li>Cut it to length with a hot knife or a soldering iron with a blade tip, so the cut melts shut. Plain scissors leave the braid fraying. With no hot tool, wrap a turn of tape around the braid where you will cut, cut through the middle of the tape with scissors, and leave the tape on.</li>
+  <li>Stop the sleeving 5 to 10 mm short of the plug, and short of its butt connectors on a moulded plug, so the sleeving never crowds into the joints.</li>
+  <li>Hold each end with a small piece of heat shrink or a turn of tape, so that the braid cannot creep back along the wires.</li>
+</ol>
+
 
 ## The finished result
 

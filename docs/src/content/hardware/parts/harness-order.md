@@ -186,7 +186,7 @@ The fifth stepper cable, the chute one, is straight through and is built rather 
 
 ## Guesses to verify before sending
 
-1. **LED feed Dupont polarity.** Which pin is +24 V on `L1` to `L3` at the board. The board's own 24 V input is settled (JST-VH, pin 1 is +24 V); these have not been checked.
+1. **LED feed Dupont polarity (settled).** The board's `J8` to `J11` are plain Dupont headers with no reverse-polarity protection, and the housing has no key, so it fits either way round. The board prints `GND` beside each port: the **black** wire goes over the `GND` pin and the **red** wire over the other one (`+V`, the square pad). At the strip, the red wire goes to the pad marked `+24V` through the clamp-on connector. Meter red from the housing to the strip's `+24V` pad before first power.
 2. **Lengths.** `W2` is 310 mm (12 in) on the drawing, and the wire-harness page gives 280 mm (11 in) for the plug's own lead. `CH` is 610 mm (24 in) here and on its helper page, while the YAML source still says 1020 mm (40 in). `W1` is 920 mm (36 in) and longer than it needs to be. Check each against the built machine.
 3. **LED drop count.** Three feeds and three pigtails, per the wire schedule. Re-count against the machine.
 4. **Motor coil order.** The 1·4·3·6 map and the two empty positions come from the drawing, not from a measurement. Check the coils with a multimeter first.

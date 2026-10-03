@@ -60,12 +60,12 @@ Every cable and lead in the machine, one row each, with its ID. The IDs are the 
     <tr><td class="wire-id">RIB1</td><td>1</td><td>Buy</td><td>16-pin IDC (2×8), female, into board <code>J17</code></td><td>16-pin IDC (2×8), female, into <code>J3</code> on the first layer board</td><td>1.2 to 1.5 m (47 to 59 in)</td><td>Flat ribbon</td></tr>
     <tr><td class="wire-id">U1</td><td>1</td><td>Buy</td><td>USB-A on the hub</td><td><code>UP USB3.0</code> on the Orange Pi</td><td>0.9 m (3 ft) or shorter</td><td>USB data cable</td></tr>
     <tr><td class="wire-id">U2</td><td>1</td><td>Buy</td><td>Micro USB on the Pico</td><td>USB-A on the hub</td><td>0.9 m (3 ft) or shorter</td><td>USB data cable</td></tr>
-    <tr><td class="wire-id">RIB2</td><td>n - 1</td><td>Buy</td><td>16-pin IDC (2×8), female, into <code>J4</code> on a layer board</td><td>16-pin IDC (2×8), female, into <code>J3</code> on the layer board below</td><td>300 mm (12 in)</td><td>Flat ribbon</td></tr>
+    <tr><td class="wire-id">RIB2</td><td>layers - 1</td><td>Buy</td><td>16-pin IDC (2×8), female, into <code>J4</code> on a layer board</td><td>16-pin IDC (2×8), female, into <code>J3</code> on the layer board below</td><td>300 mm (12 in)</td><td>Flat ribbon</td></tr>
     <tr><td class="wire-id">AC1</td><td>1</td><td>Buy</td><td>IEC C13 socket, onto the PSU box's inlet</td><td>Wall plug for your country (NEMA 5-15 or CEE 7/7)</td><td>As supplied</td><td>Mains cord</td></tr>
   </tbody>
 </table>
 
-`RIB2` is one per layer joint: 2 on a 3-layer machine, 4 on 5. `CH` is listed as the tail wire to cut, 300 mm (12 in); the motor's own leads are 300 to 500 mm (12 to 20 in) depending on the batch and are not part of it. `U1` and `U2` must be real data cables, because a lot of short USB cables are power-only. The three cameras use their own USB leads and are not scheduled.
+`RIB2` is one per joint between two layers, so one fewer than the number of layers: 2 on a 3-layer machine, 4 on 5. `CH` is listed as the tail wire to cut, 300 mm (12 in); the motor's own leads are 300 to 500 mm (12 to 20 in) depending on the batch and are not part of it. `U1` and `U2` must be real data cables, because a lot of short USB cables are power-only. The three cameras use their own USB leads and are not scheduled.
 
 On `L1` to `L3`, the optional inline socket and the plug on `L1p` to `L3p` can be left out, in which case the feed runs straight to the strip and the pigtail is not needed. The plug and socket are recommended because they let the lamp be unplugged close to where it is.
 

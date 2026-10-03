@@ -1,6 +1,6 @@
 metadata:
   title: LED drops and limit switch
-  description: "LED feeds L1-L3 (board to unplug point), pigtails L1p-L3p,\nand the limit switch cable. The 2026-08-08 reference drawings\ndo not cover the LED drops, so apart from the limit switch\nterminals everything here is still from earlier engineering\nnotes. Values marked GUESS are guesses, not measurements."
+  description: "LED feeds L1-L3 (board to unplug point), pigtails L1p-L3p\nto the three lamp strips, and the limit switch cable. The 2026-08-08 reference drawings\ndo not cover the LED drops, so apart from the limit switch\nterminals everything here is still from earlier engineering\nnotes. Values marked GUESS are guesses, not measurements."
 
 connectors:
   BOARD_L1: &dupont
@@ -20,15 +20,12 @@ connectors:
     pinlabels: [+24V (tip), GND (sleeve)]
   LP2: *ledplug
   LP3: *ledplug
-  COB1: &cob
-    type: Solder pads
-    pinlabels: [+24V, GND]
-    notes: "COB board - solder direct."
-  COB2: *cob
-  STRIP:
+  STRIP1: &strip
     type: Solderless clamp-on strip connector
     pinlabels: [+24V, GND]
     notes: "LED strip, 6000K. Clamp-on connector instead\nof soldering. Pick the variant with IDC crimp\npoints on both sides so it takes the pigtail\nwire as well as the strip."
+  STRIP2: *strip
+  STRIP3: *strip
   BOARD_LIM:
     type: Dupont 1x3 female, 2.54 mm
     pincount: 3
@@ -76,15 +73,15 @@ connections:
   -
     - LP1: [1-2]
     - L1P: [1-2]
-    - COB1: [1-2]
+    - STRIP1: [1-2]
   -
     - LP2: [1-2]
     - L2P: [1-2]
-    - COB2: [1-2]
+    - STRIP2: [1-2]
   -
     - LP3: [1-2]
     - L3P: [1-2]
-    - STRIP: [1-2]
+    - STRIP3: [1-2]
   -
     - BOARD_LIM: [1-2]
     - LIM: [1-2]

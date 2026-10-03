@@ -34,9 +34,9 @@ What every cable is built to, whoever builds it.
   <dt>Wire</dt><dd>UL1007 stranded, 300 V, tinned copper</dd>
   <dt>Gauges</dt><dd>18 AWG, 0.82 mm² (PSU box internals) · 22 AWG, 0.33 mm² (all barrel-plug 24 V runs, LED feeds, limit switch) · 24 AWG, 0.20 mm² (stepper cables, set by the JST-PH contact limit)</dd>
   <dt>Colours</dt><dd>Red = +24 V, black = GND on every 2-conductor power cable. Stepper colours are on the drawings.</dd>
-  <dt>Barrel jacks and plugs</dt><dd><b>5.5 mm outside, 2.1 mm inside</b>, centre-positive, rated 5 A or better. Confirmed against the Waveshare hub (their part DC-044). 5.5 × 2.5 mm exists, looks identical and does not mate, so put 2.1 on every line of the order.</dd>
-  <dt>Length tolerance</dt><dd>±10 mm, and ±25 mm is fine on anything 36 in or longer</dd>
-  <dt>Bare ends</dt><dd>Strip 5 mm, tin</dd>
+  <dt>Barrel jacks and plugs</dt><dd><b>5.5 mm (0.217 in) outside, 2.1 mm (0.083 in) inside</b>, centre-positive, rated 5 A or better. Confirmed against the Waveshare hub (their part DC-044). 5.5 × 2.5 mm (0.217 × 0.098 in) exists, looks identical and does not mate, so put 2.1 on every line of the order.</dd>
+  <dt>Length tolerance</dt><dd>±10 mm (±0.4 in), and ±25 mm (±1 in) is fine on anything 914 mm (36 in) or longer</dd>
+  <dt>Bare ends</dt><dd>Strip 5 mm (0.2 in), tin</dd>
   <dt>Labelling</dt><dd>Each cable labelled with its ID from the schedule below (<code>W2</code>, <code>S1</code>…) on a flag label near end A, which is the left-hand end in the schedule. <b>S1 to S4 are labelled at both ends</b>: four identical cables land within inches of each other at the board and at the motors, and they cannot be told apart once unplugged. Printed wrap-around laser labels or printed heat shrink are both fine.</dd>
   <dt>Acceptance test</dt><dd>100% continuity, every conductor, end to end. On <code>S1</code> to <code>S4</code> that means checking the position map in the pin map below, not just that each wire arrives. No hipot. No UL listing or IPC class is asked for at this stage.</dd>
   <dt>Packaging</dt><dd>One bag per cable type, ID on the bag</dd>
@@ -51,18 +51,18 @@ Every cable and lead in the machine, one row each, with its ID. The IDs are the 
 <table>
   <thead><tr><th>ID</th><th>Qty</th><th>End A</th><th>End B</th><th>Length</th><th>Wire</th><th>Route</th></tr></thead>
   <tbody>
-    <tr><td class="wire-id">PJ1, PJ2, PJ3</td><td>3</td><td>Panel-mount DC jack, female, on the PSU box plate</td><td>Two insulated M3.5 fork terminals, onto the PSU's paired screws (7+4, 8+5, 9+6)</td><td>4 in</td><td>18 AWG, red and black</td><td>Vendor, or <a href="{{ '/hardware/helpers/psu-pigtail/' | relative_url }}">build</a></td></tr>
-    <tr><td class="wire-id">W1</td><td>1</td><td>DC plug, male, into <code>PJ1</code></td><td>JST VHR-2 housing into board <code>J1</code>, pin 1 = +24 V, pin 2 = GND</td><td>36 in</td><td>18 AWG, red and black</td><td><a href="{{ '/hardware/helpers/board-24v-lead/' | relative_url }}">You build</a></td></tr>
-    <tr><td class="wire-id">W2</td><td>1</td><td>DC plug, male, into <code>PJ2</code></td><td>Bare, tinned, into the USB hub's 2-pin 24 V terminal</td><td>12 in (see guesses)</td><td>22 AWG, red and black</td><td>Vendor</td></tr>
-    <tr><td class="wire-id">W3</td><td>1</td><td>DC plug, male, into <code>PJ3</code></td><td>Bare, tinned, spliced to the buck converter's input leads</td><td>6 in</td><td>22 AWG, red and black</td><td>Vendor, or <a href="{{ '/hardware/helpers/pi-24v-lead/' | relative_url }}">build</a></td></tr>
-    <tr><td class="wire-id">L1, L2, L3</td><td>3</td><td>2-position Dupont housing, 2.54 mm, into board <code>J8</code>, <code>J9</code>, <code>J10</code></td><td>Inline DC socket, female</td><td>36 in</td><td>22 AWG, red and black</td><td>Vendor</td></tr>
-    <tr><td class="wire-id">L1p, L2p, L3p</td><td>3</td><td>DC plug, male, into the matching <code>L1</code> to <code>L3</code> socket</td><td>Bare, tinned, to the clamp-on connector on the LED strip</td><td>6 in</td><td>22 AWG, red and black</td><td>Vendor</td></tr>
-    <tr><td class="wire-id">LIM</td><td>1</td><td>3-position Dupont housing into board <code>J5</code>: position 1 ground, position 2 signal, position 3 empty</td><td>Two insulated #187 quick-connect receptacles, onto the limit switch</td><td>24 in</td><td>22 AWG, any two colours</td><td>Vendor, or <a href="{{ '/hardware/helpers/limit-switch-lead/' | relative_url }}">build</a></td></tr>
-    <tr><td class="wire-id">S1, S2, S3, S4</td><td>4</td><td>JST PHR-4 into board <code>J27</code>, <code>J31</code>, <code>J35</code>, <code>J39</code></td><td>JST PHR-6 into the motor's own socket, positions 1·4·3·6 (see the pin map)</td><td>1 m</td><td>24 AWG, blue, green, red, black</td><td>Vendor</td></tr>
-    <tr><td class="wire-id">CH</td><td>1</td><td>JST PHR-4 into board <code>J23</code></td><td>The chute motor's flying leads, spliced</td><td>24 in</td><td>24 AWG</td><td><a href="{{ '/hardware/helpers/chute-stepper-lead/' | relative_url }}">You build</a></td></tr>
-    <tr><td class="wire-id">RIB</td><td>1</td><td>16-pin IDC (2×8), female, into board <code>J17</code></td><td>16-pin IDC (2×8), female, into <code>J3</code> on the first layer board</td><td>1.2 to 1.5 m</td><td>Flat ribbon</td><td>Buy</td></tr>
-    <tr><td class="wire-id">U1</td><td>1</td><td>USB-A on the hub</td><td><code>UP USB3.0</code> on the Orange Pi</td><td>3 ft or shorter</td><td>USB data cable</td><td>Buy</td></tr>
-    <tr><td class="wire-id">U2</td><td>1</td><td>Micro USB on the Pico</td><td>USB-A on the hub</td><td>3 ft or shorter</td><td>USB data cable</td><td>Buy</td></tr>
+    <tr><td class="wire-id">PJ1, PJ2, PJ3</td><td>3</td><td>Panel-mount DC jack, female, on the PSU box plate</td><td>Two insulated M3.5 fork terminals, onto the PSU's paired screws (7+4, 8+5, 9+6)</td><td>100 mm (4 in)</td><td>18 AWG, red and black</td><td>Vendor, or <a href="{{ '/hardware/helpers/psu-pigtail/' | relative_url }}">build</a></td></tr>
+    <tr><td class="wire-id">W1</td><td>1</td><td>DC plug, male, into <code>PJ1</code></td><td>JST VHR-2 housing into board <code>J1</code>, pin 1 = +24 V, pin 2 = GND</td><td>914 mm (36 in)</td><td>18 AWG, red and black</td><td><a href="{{ '/hardware/helpers/board-24v-lead/' | relative_url }}">You build</a></td></tr>
+    <tr><td class="wire-id">W2</td><td>1</td><td>DC plug, male, into <code>PJ2</code></td><td>Bare, tinned, into the USB hub's 2-pin 24 V terminal</td><td>305 mm (12 in), see guesses</td><td>22 AWG, red and black</td><td>Vendor</td></tr>
+    <tr><td class="wire-id">W3</td><td>1</td><td>DC plug, male, into <code>PJ3</code></td><td>Bare, tinned, spliced to the buck converter's input leads</td><td>150 mm (6 in)</td><td>22 AWG, red and black</td><td>Vendor, or <a href="{{ '/hardware/helpers/pi-24v-lead/' | relative_url }}">build</a></td></tr>
+    <tr><td class="wire-id">L1, L2, L3</td><td>3</td><td>2-position Dupont housing, 2.54 mm (0.1 in), into board <code>J8</code>, <code>J9</code>, <code>J10</code></td><td>Inline DC socket, female</td><td>914 mm (36 in)</td><td>22 AWG, red and black</td><td>Vendor</td></tr>
+    <tr><td class="wire-id">L1p, L2p, L3p</td><td>3</td><td>DC plug, male, into the matching <code>L1</code> to <code>L3</code> socket</td><td>Bare, tinned, to the clamp-on connector on the LED strip</td><td>150 mm (6 in)</td><td>22 AWG, red and black</td><td>Vendor</td></tr>
+    <tr><td class="wire-id">LIM</td><td>1</td><td>3-position Dupont housing into board <code>J5</code>: position 1 ground, position 2 signal, position 3 empty</td><td>Two insulated #187 quick-connect receptacles, onto the limit switch</td><td>610 mm (24 in)</td><td>22 AWG, any two colours</td><td>Vendor, or <a href="{{ '/hardware/helpers/limit-switch-lead/' | relative_url }}">build</a></td></tr>
+    <tr><td class="wire-id">S1, S2, S3, S4</td><td>4</td><td>JST PHR-4 into board <code>J27</code>, <code>J31</code>, <code>J35</code>, <code>J39</code></td><td>JST PHR-6 into the motor's own socket, positions 1·4·3·6 (see the pin map)</td><td>1 m (39 in)</td><td>24 AWG, blue, green, red, black</td><td>Vendor</td></tr>
+    <tr><td class="wire-id">CH</td><td>1</td><td>JST PHR-4 into board <code>J23</code></td><td>The chute motor's flying leads, spliced</td><td>610 mm (24 in)</td><td>24 AWG</td><td><a href="{{ '/hardware/helpers/chute-stepper-lead/' | relative_url }}">You build</a></td></tr>
+    <tr><td class="wire-id">RIB</td><td>1</td><td>16-pin IDC (2×8), female, into board <code>J17</code></td><td>16-pin IDC (2×8), female, into <code>J3</code> on the first layer board</td><td>1.2 to 1.5 m (47 to 59 in)</td><td>Flat ribbon</td><td>Buy</td></tr>
+    <tr><td class="wire-id">U1</td><td>1</td><td>USB-A on the hub</td><td><code>UP USB3.0</code> on the Orange Pi</td><td>0.9 m (3 ft) or shorter</td><td>USB data cable</td><td>Buy</td></tr>
+    <tr><td class="wire-id">U2</td><td>1</td><td>Micro USB on the Pico</td><td>USB-A on the hub</td><td>0.9 m (3 ft) or shorter</td><td>USB data cable</td><td>Buy</td></tr>
   </tbody>
 </table>
 
@@ -80,13 +80,13 @@ What goes on the ends in the schedule. The part numbers are the ones the machine
     <tr><td>Board 24 V input</td><td>JST VHR-2N, 2-position</td><td>JST SVH-21T-P1.1</td><td><code>W1</code></td></tr>
     <tr><td>Stepper, board end</td><td>JST PHR-4, 4-position</td><td>JST SPH-002T-P0.5S</td><td><code>S1</code> to <code>S4</code>, <code>CH</code></td></tr>
     <tr><td>Stepper, motor end</td><td>JST PHR-6, 6-position, 4 populated</td><td>JST SPH-002T-P0.5S</td><td><code>S1</code> to <code>S4</code></td></tr>
-    <tr><td>LED feeds, limit switch</td><td>Dupont housing, female, 2.54 mm: 2-position, and 3-position with 2 populated</td><td>Dupont female crimp contact, 2.54 mm. No part number yet.</td><td><code>L1</code> to <code>L3</code>, <code>LIM</code></td></tr>
-    <tr><td>Limit switch</td><td>Fully insulated female quick-connect receptacle, #187 (4.75 × 0.5 mm tab), for 22 AWG. No part number yet.</td><td>Mates the Omron V-155-1C25</td><td><code>LIM</code></td></tr>
-    <tr><td>DC plug</td><td>Barrel plug, male, 5.5 × 2.1 mm, centre-positive, 5 A or better. No part number yet.</td><td>Soldered or crimped per the vendor's process</td><td><code>W1</code> to <code>W3</code>, <code>L1p</code> to <code>L3p</code></td></tr>
-    <tr><td>DC socket</td><td>Barrel socket, female, 5.5 × 2.1 mm, panel-mount on <code>PJ1</code> to <code>PJ3</code>, inline on <code>L1</code> to <code>L3</code>. No part number yet.</td><td>As above</td><td><code>PJ1</code> to <code>PJ3</code>, <code>L1</code> to <code>L3</code></td></tr>
-    <tr><td>PSU terminal block</td><td>Insulated fork terminal, M3.5 stud, 8 mm wide at most, for 18 AWG. No part number yet.</td><td>Crimp</td><td><code>PJ1</code> to <code>PJ3</code></td></tr>
-    <tr><td>Ribbon</td><td>16-pin IDC (2×8), 2.54 mm, female, both ends</td><td>Pre-made, bought</td><td><code>RIB</code></td></tr>
-    <tr><td>Bare ends</td><td>Strip 5 mm, tin</td><td>No connector</td><td><code>W2</code>, <code>W3</code>, <code>L1p</code> to <code>L3p</code></td></tr>
+    <tr><td>LED feeds, limit switch</td><td>Dupont housing, female, 2.54 mm (0.1 in): 2-position, and 3-position with 2 populated</td><td>Dupont female crimp contact, 2.54 mm (0.1 in). No part number yet.</td><td><code>L1</code> to <code>L3</code>, <code>LIM</code></td></tr>
+    <tr><td>Limit switch</td><td>Fully insulated female quick-connect receptacle, #187 (4.75 × 0.5 mm, 0.187 × 0.020 in, tab), for 22 AWG. No part number yet.</td><td>Mates the Omron V-155-1C25</td><td><code>LIM</code></td></tr>
+    <tr><td>DC plug</td><td>Barrel plug, male, 5.5 × 2.1 mm (0.217 × 0.083 in), centre-positive, 5 A or better. No part number yet.</td><td>Soldered or crimped per the vendor's process</td><td><code>W1</code> to <code>W3</code>, <code>L1p</code> to <code>L3p</code></td></tr>
+    <tr><td>DC socket</td><td>Barrel socket, female, 5.5 × 2.1 mm (0.217 × 0.083 in), panel-mount on <code>PJ1</code> to <code>PJ3</code>, inline on <code>L1</code> to <code>L3</code>. No part number yet.</td><td>As above</td><td><code>PJ1</code> to <code>PJ3</code>, <code>L1</code> to <code>L3</code></td></tr>
+    <tr><td>PSU terminal block</td><td>Insulated fork terminal, M3.5 stud, 8 mm (0.31 in) wide at most, for 18 AWG. No part number yet.</td><td>Crimp</td><td><code>PJ1</code> to <code>PJ3</code></td></tr>
+    <tr><td>Ribbon</td><td>16-pin IDC (2×8), 2.54 mm (0.1 in), female, both ends</td><td>Pre-made, bought</td><td><code>RIB</code></td></tr>
+    <tr><td>Bare ends</td><td>Strip 5 mm (0.2 in), tin</td><td>No connector</td><td><code>W2</code>, <code>W3</code>, <code>L1p</code> to <code>L3p</code></td></tr>
   </tbody>
 </table>
 
@@ -186,7 +186,7 @@ The fifth stepper cable, the chute one, is straight through and is built rather 
 ## Guesses to verify before sending
 
 1. **LED feed Dupont polarity.** Which pin is +24 V on `L1` to `L3` at the board. The board's own 24 V input is settled (JST-VH, pin 1 is +24 V); these have not been checked.
-2. **Lengths.** `W2` is 12 in on the drawing, and the wire-harness page gives 11 in for the plug's own lead. `CH` is 24 in here and on its helper page, while the YAML source still says 40 in. `W1` is 36 in and longer than it needs to be. Check each against the built machine.
+2. **Lengths.** `W2` is 305 mm (12 in) on the drawing, and the wire-harness page gives 280 mm (11 in) for the plug's own lead. `CH` is 610 mm (24 in) here and on its helper page, while the YAML source still says 1016 mm (40 in). `W1` is 914 mm (36 in) and longer than it needs to be. Check each against the built machine.
 3. **LED drop count.** Three feeds and three pigtails, per the wire schedule. Re-count against the machine.
 4. **Motor coil order.** The 1·4·3·6 map and the two empty positions come from the drawing, not from a measurement. Check the coils with a multimeter first.
 5. **Limit switch contact.** The Omron V-155-1C25 is SPDT with three tabs and the harness lands on two. Confirm which pair, `COM` + `NC` or `COM` + `NO`, against the board.

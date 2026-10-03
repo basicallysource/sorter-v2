@@ -38,7 +38,7 @@ What every cable is built to, whoever builds it.
   <dt>Length tolerance</dt><dd>±10 mm (±0.4 in), and ±25 mm (±1 in) is fine on anything 920 mm (36 in) or longer</dd>
   <dt>Bare ends</dt><dd>Strip 5 mm (0.2 in), tin</dd>
   <dt>Labelling</dt><dd>Each cable labelled with its ID from the schedule below (<code>W2</code>, <code>S1</code>…) on a flag label near end A, which is the left-hand end in the schedule. <b>S1 to S4 are labelled at both ends</b>: four identical cables land within inches of each other at the board and at the motors, and they cannot be told apart once unplugged. Printed wrap-around laser labels or printed heat shrink are both fine.</dd>
-  <dt>Acceptance test</dt><dd>100% continuity, every conductor, end to end. On <code>S1</code> to <code>S4</code> that means checking the position map in the pin map below, not just that each wire arrives. No hipot. No UL listing or IPC class is asked for at this stage.</dd>
+  <dt>Acceptance test</dt><dd>100% continuity, every conductor, end to end. On <code>S1</code> to <code>S4</code> that means checking the position map under <a href="#channel-stepper">Channel stepper lead</a>, not just that each wire arrives. No hipot. No UL listing or IPC class is asked for at this stage.</dd>
   <dt>Packaging</dt><dd>One bag per cable type, ID on the bag</dd>
   <dt>Parts and brands</dt><dd>Any RoHS-compliant equivalent of the connectors in the connector table is acceptable if it mates and crimps the same. The part numbers there are the ones the machine was designed against.</dd>
   <dt>Order quantity</dt><dd>2 full sets, because the lengths are guesses and spares are cheap. Treat them as the sample run.</dd>
@@ -58,7 +58,7 @@ Every cable and lead in the machine, one row each, with its ID. The IDs are the 
     <tr><td class="wire-id">L1, L2, L3</td><td>3</td><td>2-position Dupont housing, 2.54 mm (0.1 in), into board <code>J8</code>, <code>J9</code>, <code>J10</code>: black wire in the cavity at the moulded arrow, red in the other</td><td>Inline DC socket, female</td><td>920 mm (36 in)</td><td>22 AWG (0.33 mm²), red and black</td><td>Vendor</td></tr>
     <tr><td class="wire-id">L1p, L2p, L3p</td><td>3</td><td>DC plug, male, into the matching <code>L1</code> to <code>L3</code> socket</td><td>Bare, tinned, to the clamp-on connector on the LED strip</td><td>150 mm (6 in)</td><td>22 AWG (0.33 mm²), red and black</td><td>Vendor</td></tr>
     <tr><td class="wire-id">LIM</td><td>1</td><td>3-position Dupont housing into board <code>J5</code>: position 1 (the cavity at the moulded arrow) ground, position 2 signal, position 3 empty. Black for ground, white for signal</td><td>Two insulated #187 quick-connect receptacles, onto the limit switch</td><td>610 mm (24 in)</td><td>22 AWG (0.33 mm²), black and white</td><td>Vendor, or <a href="{{ '/hardware/helpers/limit-switch-lead/' | relative_url }}">build</a></td></tr>
-    <tr><td class="wire-id">S1, S2, S3, S4</td><td>4</td><td>JST PHR-4 into board <code>J27</code>, <code>J31</code>, <code>J35</code>, <code>J39</code></td><td>JST PHR-6 into the motor's own socket, positions 1·4·3·6 (see the pin map)</td><td>1 m (39 in)</td><td>24 AWG (0.20 mm²), blue, green, red, black</td><td>Vendor</td></tr>
+    <tr><td class="wire-id">S1, S2, S3, S4</td><td>4</td><td>JST PHR-4 into board <code>J27</code>, <code>J31</code>, <code>J35</code>, <code>J39</code></td><td>JST PHR-6 into the motor's own socket, positions 1·4·3·6 (see the <a href="#channel-stepper">pin map</a>)</td><td>1 m (39 in)</td><td>24 AWG (0.20 mm²), blue, green, red, black</td><td>Vendor</td></tr>
     <tr><td class="wire-id">CH</td><td>1</td><td>JST PHR-4 into board <code>J23</code></td><td>The chute motor's flying leads, spliced</td><td>300 mm (12 in) tail, about 600 mm (24 in) overall with the motor's own leads</td><td>24 AWG (0.20 mm²)</td><td><a href="{{ '/hardware/helpers/chute-stepper-lead/' | relative_url }}">You build</a></td></tr>
     <tr><td class="wire-id">RIB1</td><td>1</td><td>16-pin IDC (2×8), female, into board <code>J17</code></td><td>16-pin IDC (2×8), female, into <code>J3</code> on the first layer board</td><td>1.2 to 1.5 m (47 to 59 in)</td><td>Flat ribbon</td><td>Buy</td></tr>
     <tr><td class="wire-id">U1</td><td>1</td><td>USB-A on the hub</td><td><code>UP USB3.0</code> on the Orange Pi</td><td>0.9 m (3 ft) or shorter</td><td>USB data cable</td><td>Buy</td></tr>
@@ -119,28 +119,6 @@ Some parts come with their own fixed leads or solder pads, so the harness cannot
 
 The connectors themselves, with a photo and a per-machine count for each, are in the [parts catalog](https://parts-calculator.basically.website/hardware) under **Wire harness**.
 
-## Stepper cable pin map
-
-The four channel stepper cables are the only crossover in the harness, so they are the ones to spell out. The motor end is a 6-position housing with four positions populated, so the four board positions land on motor positions 1, 4, 3 and 6. The nets match end to end; the positions do not.
-
-<table style="max-width:520px">
-  <thead><tr><th>Board PHR-4 position</th><th>Net</th><th>Motor PHR-6 position</th><th>Colour</th></tr></thead>
-  <tbody>
-    <tr><td>1</td><td><code>A2</code></td><td>1</td><td>blue</td></tr>
-    <tr><td>2</td><td><code>A1</code></td><td>4</td><td>green</td></tr>
-    <tr><td>3</td><td><code>B1</code></td><td>3</td><td>red</td></tr>
-    <tr><td>4</td><td><code>B2</code></td><td>6</td><td>black</td></tr>
-    <tr><td>—</td><td>—</td><td>2 and 5</td><td>unpopulated</td></tr>
-  </tbody>
-</table>
-
-<div class="callout callout-warning">
-  <span class="callout-icon" aria-hidden="true">⚠</span>
-  <p><b>For the vendor, explicitly:</b> this is <b>not</b> a straight-through cable, and the two ends have a different number of positions. Board 1 to motor 1, board 2 to motor 4, board 3 to motor 3, board 4 to motor 6. Motor positions 2 and 5 are left empty.</p>
-</div>
-
-The fifth stepper cable, the chute one, is straight through and is built rather than ordered: [make the chute stepper lead]({{ '/hardware/helpers/chute-stepper-lead/' | relative_url }}).
-
 **The drawings.** One per buildable cable, each with the bill of materials for it.
 
 <ul class="harness-contents">{% for d in site.data.harness.drawings %}{% unless d.of %}<li><a href="#{{ d.name }}">{{ d.title }}</a>{% assign parts = site.data.harness.drawings | where: "of", d.name %}{% if parts.size > 0 %}<ul>{% for p in parts %}<li><a href="#{{ p.name }}">{{ p.title }}</a></li>{% endfor %}</ul>{% endif %}</li>{% endunless %}{% endfor %}</ul>
@@ -168,6 +146,8 @@ The fifth stepper cable, the chute one, is straight through and is built rather 
   <a href="{{ d.guide | relative_url }}"><b>How to make your own →</b></a>
 </p>
 {% endif %}
+
+{% if d.name == "channel-stepper" %}{% include harness/stepper-pin-map.html %}{% endif %}
 
 <p class="download-line">
   <span>Download:</span>

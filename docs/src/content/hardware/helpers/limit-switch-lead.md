@@ -134,7 +134,7 @@ The switch is an SPDT with three tabs and the third one, `NO`, stays bare. Wired
   <li><b>Optional:</b> if you will sleeve the lead, slide a 600 mm (24 in) length of braided sleeving over the pair now, before you crimp anything onto either end. A finished receptacle or housing may not go through it, so it goes on first. Leave it bunched up on the pair for now; <a href="#sleeving-optional">Sleeving (optional)</a> says how to cut and finish it.</li>
   <li>At the switch end, crimp a #187 receptacle onto each of the two conductors, as under <b>Crimping a #187 receptacle</b>, below.</li>
   <li>At the board end, crimp a Dupont contact onto each of the two conductors, as under <b>Crimping a Dupont contact</b>, below.</li>
-  <li>Push the two contacts into the housing from the back until each one clicks: one into position 1 and one into position 2. <b>Position 3 stays empty.</b></li>
+  <li>Push the two contacts into the housing from the back until each one clicks: one into position 1, the cavity next to the moulded arrow, and one into position 2. <b>Position 3 stays empty.</b></li>
   <li>Check the lead, as under <b>Check the lead</b>, below.</li>
   <li>Push the two receptacles onto <code>COM</code> and <code>NC</code>. They are a firm push; the switch does not need holding in anything to do it.</li>
 </ol>

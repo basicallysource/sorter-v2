@@ -189,5 +189,5 @@ The fifth stepper cable, the chute one, is straight through and is built rather 
 2. **Lengths.** `W2` is 310 mm (12 in) on the drawing, and the wire-harness page gives 280 mm (11 in) for the plug's own lead. `CH` is the 300 mm (12 in) tail wire without the motor's own leads, about 600 mm (24 in) overall with them, and the helper page agrees; the drawing used to say 1020 mm (40 in) overall. `W1` is 920 mm (36 in) and longer than it needs to be. Check each against the built machine.
 3. **LED drop count.** Three feeds and three pigtails, per the wire schedule. Re-count against the machine.
 4. **Motor coil order.** The 1·4·3·6 map and the two empty positions come from the drawing, not from a measurement. Check the coils with a multimeter first.
-5. **Limit switch contact.** The Omron V-155-1C25 is SPDT with three tabs and the harness lands on two. Confirm which pair, `COM` + `NC` or `COM` + `NO`, against the board.
+5. **Limit switch contact (not a vendor matter).** The Omron V-155-1C25 is SPDT with three tabs and the harness lands on two. `LIM` has an identical receptacle on each end of the pair, so the cable is the same whichever tabs are used. Which pair, `COM` + `NC` or `COM` + `NO`, is the builder's check against the board.
 6. **Missing part numbers.** The Dupont, quick-connect, barrel and fork-terminal rows in the connector table have specs only.

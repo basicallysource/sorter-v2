@@ -111,7 +111,7 @@ The two connectors in each pair are the JST-PH socket and the row of 2.54 mm (0.
 
 {% include step.html n="4" title="Bridge the bypass jumpers on the LED ports" %}
 
-The board has four LED ports, and each one feeds +24&nbsp;V through a 180 Ω resistor: `R21` on `J8`, `R22` on `J9`, `R27` on `J10`, `R28` on `J11`. That resistor is there for a COB LED board, which has no current limiting of its own. Nothing this machine plugs into those ports wants it: the [camera lamps]({{ '/hardware/assembly/feeder/camera-lamp/' | relative_url }}) run LED strip, which limits its own current, so the resistor only costs brightness, and brightness is set with PWM in the software instead.
+The board has four LED ports, and each one feeds +24&nbsp;V through a 180 Ω resistor: `R21` on `J8`, `R22` on `J9`, `R27` on `J10`, `R28` on `J11`. That resistor is there for a bare LED board, which has no current limiting of its own. Nothing this machine plugs into those ports wants it: the [camera lamps]({{ '/hardware/assembly/feeder/camera-lamp/' | relative_url }}) run LED strip, which limits its own current, so the resistor only costs brightness, and brightness is set with PWM in the software instead.
 
 **Bridge all four.** Beside each port is a two-pad solder jumper, printed `Bypass R21`, `Bypass R22`, `Bypass R27` and `Bypass R28`. Melt a blob of solder across both pads of each so they are joined. Nothing is added to the board (Jon, 2026-09-13 and 2026-09-23).
 

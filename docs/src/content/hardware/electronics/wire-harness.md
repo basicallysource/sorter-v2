@@ -206,7 +206,7 @@ Three outputs, three loads, no spare. The cooling fans are deliberately not on t
 
 Each LED drop is drawn as two segments: a 2x1 dupont feed (`L1` to `L3`) from the board to a female DC jack (the unplug point), then a 150 mm (6 in) male-DC pigtail (`L1p` to `L3p`) into the module. The jack and the male plug are optional but recommended, because they make maintenance easier: the lamp's power can be disconnected close to the lamp. Without them the Dupont feed runs straight to the strip. The pigtail ends in a solderless clamp-on connector at the strip. Building the drop is [Preparing the LED strip]({{ '/hardware/helpers/led-strip/' | relative_url }}).
 
-All three drops now feed an LED strip in a [camera lamp]({{ '/hardware/assembly/feeder/camera-lamp/' | relative_url }}), on C-channels 2 and 3 and the classification channel. The 50 mm COB plates that L1 and L2 used to feed went with the light post they were mounted on. The [WireViz drawing]({{ '/hardware/parts/harness-order/#leds' | relative_url }}) still shows them as COB boards and has not been redrawn yet.
+All three drops now feed an LED strip in a [camera lamp]({{ '/hardware/assembly/feeder/camera-lamp/' | relative_url }}), on C-channels 2 and 3 and the classification channel.
 
 <table>
   <thead><tr><th>ID</th><th>Segment</th><th>From</th><th>To</th><th>Cond.</th><th>Length</th></tr></thead>
@@ -225,18 +225,11 @@ All three drops now feed an LED strip in a [camera lamp]({{ '/hardware/assembly/
   <p>The strip is <b>6000K</b> daylight white, 8 mm COB, and each lamp takes <b>two turns</b> around the inside of the reflector's skirt, about 920 mm (36 in). Three lamps is about 2.8 m (9.2 ft), so one 5 m (16 ft) roll does a machine. The 220 mm (8.7 in) figure that used to be here was two turns around the old classification dome's inner tube, which is retired.</p>
 </div>
 
-<div class="callout callout-warning">
-  <span class="callout-icon" aria-hidden="true">⚠</span>
-  <p><b>Every COB board needs a current-limiting resistor in series, one per board.</b> The 50 mm COB plates have no current limiting of their own. Wired straight to 24V a plate pulls about 0.5A (12W), runs far hotter than it needs to, and melts its printed mount. Two boards sharing one resistor is not enough; give each its own. <b>This does not apply to the LED strip</b> (L3), which has current limiting built in (Jon, 2026-08-17 and 2026-08-19).</p>
-</div>
+<p><b>The LED strip needs no current-limiting resistor.</b> It limits its own current, so nothing is added in series on any of the three drops.</p>
 
 <dl class="spec-list">
-  <dt>Fit your own</dt><dd><b>220&#8486;</b>, <b>1/4 W</b>, in series, one per COB board. That is what Basically settled on for the C-channel plates and the classification chamber, and what Jon recommends. <b>200&#8486;</b> is the ballpark given to people whose lights are overheating</dd>
-  <dt>On basically board v1.3</dt><dd>Already fitted, so a COB board fed from the board needs nothing added. <b>180&#8486;</b>, 1206, 250 mW, 1% (LCSC C17924) in series with the +24V feed to each of the four LED headers: R21 on J8, R22 on J9, R27 on J10, R28 on J11. Each has a solder jumper next to it (JP1-JP4) that bridges the resistor out. <b>All four get bridged on this machine</b>: nothing it plugs into them needs the resistor, the LED strip limits its own current, and brightness is set with PWM in the software instead. Feed a COB plate from a port and that one keeps its resistor. Doing it is <a href="{{ '/hardware/electronics/installation/control-board-prep/' | relative_url }}">preparing the control board</a>, step 4 (Jon, 2026-08-19, 2026-09-13 and 2026-09-23)</dd>
-  <dt>Effect</dt><dd>Draw drops from ~0.5A to ~0.1A. Still bright enough for the camera, per the C-channel testing in Feb 2026</dd>
+  <dt>On basically board v1.3</dt><dd>Each of the four LED headers has a <b>180&#8486;</b>, 1206, 250 mW, 1% resistor (LCSC C17924) in series with its +24V feed: R21 on J8, R22 on J9, R27 on J10, R28 on J11. Each has a solder jumper next to it (JP1-JP4) that bridges the resistor out. <b>All four get bridged on this machine</b>: the strip limits its own current, so the resistor only costs brightness, and brightness is set with PWM in the software instead. Doing it is <a href="{{ '/hardware/electronics/installation/control-board-prep/' | relative_url }}">preparing the control board</a>, step 4 (Jon, 2026-09-13 and 2026-09-23)</dd>
 </dl>
-
-<p>Sources, since this has been asked several times: #c-channels 2026-02-13 (&ldquo;went for 220ohm resistor&rdquo;), the classification chamber thread 2026-03-22 (&ldquo;220 ohm&rdquo;), and #machine-setup-help 2026-05-13 (&ldquo;They need resistor. Ballpark of 200ohm is good&rdquo;, in series, 1/4 W) after a builder's C-channel COB mount started melting after a minute; Jon in #electronics 2026-08-17 and 2026-08-19.</p>
 
 ### 3.4 &nbsp; Sensors and steppers (from basically board v1.3)
 
@@ -273,7 +266,6 @@ All three drops now feed an LED strip in a [camera lamp]({{ '/hardware/assembly/
 - MEAN WELL LRS-350-24, 350.4W 24V 14.6A single output &middot; [link](https://www.amazon.com/dp/B013ETVO12)
 - 3Dman fused mains inlet switch, 15A 250V rocker + 10A fuse, 3-pin, 18 AWG (0.82 mm²) &middot; [link](https://www.amazon.com/dp/B07RQV2NPN)
 - DC 12V/24V to 5V USB-C buck converter, 5A 25W, powers Orange Pi 5 &middot; [link](https://www.amazon.com/dp/B0FV3P6KLS)
-- Current-limiting resistor for any COB board not fed through basically board v1.3: 220&#8486;, 1/4 W, one per board. The board's own LED headers already have theirs (see 3.3). The LED strip does not need one
 - Cooling fan, 40×40×10mm, 24V (WINSINN 4010, catalog `fan-40mm-24v`) &middot; one, in the control board housing cover. It plugs into one of the board's own LED ports (see open items and control board housing).
 - uxcell 16-pin IDC flat ribbon cable (`RIB`), FC/FC, 2.54 mm (0.1 in), 1.2 to 1.5 m (47 to 59 in), gray &middot; [link](https://www.amazon.com/dp/B07S2W4N9T)
 - Waveshare 4-port USB hub, 24V model (USB 3.2 version, not the 5V industrial one, which cannot take 24V in)

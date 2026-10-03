@@ -139,7 +139,7 @@ All three plug into the PSU box's three DC jacks, which are the same 24 V, so it
 The buck converter is the only bought part of the three. The leads themselves are:
 
 <dl class="spec-list">
-  <dt><code>W1</code>, control board</dt><dd>18 AWG (0.82 mm²), 920 mm (36 in). Male DC barrel plug at the PSU end, JST-VH 2-pin (VHR-2) housing at the board end. No supplier sells that pair of ends, so this is one you make: <a href="{{ '/hardware/helpers/board-24v-lead/' | relative_url }}">make the control board's 24 V lead</a>.</dd>
+  <dt><code>W1</code>, control board</dt><dd>18 AWG (0.82 mm²), 920 mm (36 in). Male DC barrel plug at the PSU end, JST-VH 2-pin (VHR-2) housing at the board end. No stock cable has that pair of ends, so a vendor makes it as part of the <a href="{{ '/hardware/parts/harness-order/' | relative_url }}">harness order</a>, or you can <a href="{{ '/hardware/helpers/board-24v-lead/' | relative_url }}">make the control board's 24 V lead</a> yourself.</dd>
   <dt><code>W2</code>, USB hub</dt><dd>22 AWG (0.33 mm²), a moulded male DC barrel plug on its own short lead, with no second plug. Its two bare wires go into the hub, not into the board: <a href="#step-6">step 6</a> shows how.</dd>
   <dt><code>W3</code>, Orange Pi</dt><dd>22 AWG (0.33 mm²), 150 mm (6 in), a male DC barrel plug onto the buck converter's input wires. The buck's USB-C lead is the other half of the run.</dd>
 </dl>

@@ -13,8 +13,10 @@ Hive itself is at **[hive.basically.website](https://hive.basically.website)**. 
 
 ## Start here
 
+- **[How Hive works]({{ '/hive/how-hive-works/' | relative_url }})**: what Hive holds, what your machine sends it, and what a sample is.
 - **[Build your first sorting profile]({{ '/hive/first-profile/' | relative_url }})** — ask Hive's assistant for the boxes you want, check what it proposes, and send the result to your machine.
 - **[When the profile chat goes wrong]({{ '/hive/chat-errors/' | relative_url }})** — every error message the profile chat can show, and what to do about it.
+- **[Reviewing samples]({{ '/hive/review-samples/' | relative_url }})** — who the reviewers are, how they work through the queue, and Records page versus Hive review.
 
 ## Coming soon
 

@@ -39,7 +39,7 @@ Nothing on this lead is soldered. The switch end pushes on, and the board end is
 <dl class="spec-list">
   <dt>Board end</dt><dd>Dupont housing, <b>1x3 female, 2.54 mm (0.1 in)</b>, with a contact in two of its three positions. The empty position goes over the pin the board prints <code>3.3V</code>.</dd>
   <dt>Switch end</dt><dd>Two <b>#187</b> insulated quick-connect receptacles, for a 4.75 x 0.5 mm (0.187 x 0.02 in) blade. They push straight onto the switch's tabs.</dd>
-  <dt>Wire</dt><dd>22 AWG (0.33 mm²), two conductor. Cut it 610 mm (24 in) long. Any two colours do, as long as the two conductors differ.</dd>
+  <dt>Wire</dt><dd>22 AWG (0.33 mm²), two conductor. Cut it 610 mm (24 in) long. Use black for the ground wire and white for the signal wire.</dd>
 </dl>
 
 <figure class="harness-figure">
@@ -100,7 +100,7 @@ Three positions on the housing, three tabs on the switch. Two wires join them:
   <dt><code>NO</code></dt><dd>Nothing. This tab on the switch stays bare.</dd>
 </dl>
 
-Which wire goes to <code>COM</code> and which to <code>NC</code> does not matter, and neither does which wire is red. The switch only closes the circuit between the two, so the two wires can swap ends. What does matter is that one wire is in position 1 and the other in position 2.
+Which wire goes to <code>COM</code> and which to <code>NC</code> does not matter. The switch only closes the circuit between the two, so the two wires can swap ends. What does matter is that one wire is in position 1 and the other in position 2.
 
 **The switch prints its own tab names.** The body carries a little schematic with `NC` and `NO` against the two tabs on its side and `COM` against the one on its bottom edge, so you can read the three off the switch in your hand rather than counting positions.
 
@@ -134,7 +134,7 @@ The switch is an SPDT with three tabs and the third one, `NO`, stays bare. Wired
   <li><b>Optional:</b> if you will sleeve the lead, slide a 600 mm (24 in) length of braided sleeving over the pair now, before you crimp anything onto either end. A finished receptacle or housing may not go through it, so it goes on first. Leave it bunched up on the pair for now; <a href="#sleeving-optional">Sleeving (optional)</a> says how to cut and finish it.</li>
   <li>At the switch end, crimp a #187 receptacle onto each of the two conductors, as under <b>Crimping a #187 receptacle</b>, below.</li>
   <li>At the board end, crimp a Dupont contact onto each of the two conductors, as under <b>Crimping a Dupont contact</b>, below.</li>
-  <li>Push the two contacts into the housing from the back until each one clicks: one into position 1, the cavity next to the moulded arrow, and one into position 2. <b>Position 3 stays empty.</b></li>
+  <li>Push the two contacts into the housing from the back until each one clicks: the black wire into position 1, the cavity next to the moulded arrow, and the white wire into position 2. <b>Position 3 stays empty.</b></li>
   <li>Check the lead, as under <b>Check the lead</b>, below.</li>
   <li>Push the two receptacles onto <code>COM</code> and <code>NC</code>. They are a firm push; the switch does not need holding in anything to do it.</li>
 </ol>
@@ -199,7 +199,7 @@ Then push the receptacles onto the switch and meter the housing again. With the 
 
 **The housing is not keyed, so it can go on `J5` either way round.** Turned over, the two wires land on the 3.3 V pin and the signal pin: nothing is damaged, but the machine never sees the switch change.
 
-The board prints `3.3V` and `SIG` beside `J5`. Push the housing on with the empty position over the pin marked `3.3V`. Ground is the pin at the other end, on the square pad.
+The board prints `3.3V` and `SIG` beside `J5`. Push the housing on with the empty position over the pin marked `3.3V`. Ground is the pin at the other end, on the square pad, and that is where the moulded arrow ends up: the arrow always marks ground.
 
 <figure class="single-figure">
   <img class="doc-figure" src="https://assets.basically.website/sorter-docs/limit-switch-lead-board-end-orientation-full-ae6132915534.png" alt="Two drawings of the 3-pin header J5 with its pins labelled 3.3V at the top, SIG in the middle and GND on a square pad at the bottom, and the housing beside it. Right way: the empty position is over the 3.3V pin and the two wires are on SIG and GND. Wrong way: the housing is turned over, the empty position is over GND and the two wires are on 3.3V and SIG.">

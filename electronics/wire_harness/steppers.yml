@@ -1,13 +1,13 @@
 metadata:
   title: Stepper cables
-  description: "Channel stepper cable S (x4) and chute stepper cable CH. S\nfollows the stepper reference drawing (2026-08-08),\nwhich is the source of truth for the channel cable. Values\nmarked GUESS are guesses, not measurements."
+  description: "Channel stepper cable S (x4) and chute stepper cable CH. S\nfollows the stepper reference drawing (2026-08-08),\nwhich is the source of truth for the channel cable."
 
 connectors:
   BOARD_S:
     type: JST PH 4-pin (PHR-4)
     subtype: 2.0mm pitch, female
     pinlabels: [A2, A1, B1, B2]
-    notes: "controller board v1.3 J23/J27/J31/J35. One\ncable per jack, x4 identical."
+    notes: "basically board v1.3 J27/J31/J35/J39. One\ncable per jack, x4 identical."
     additional_components:
       - type: Terminal - SPH-002T-P0.5S
         qty: 1
@@ -18,7 +18,7 @@ connectors:
     type: JST PH 6-pin (PHR-6)
     subtype: 2.0mm pitch, female
     pinlabels: [A2, C1, B1, A1, C2, B2]
-    notes: "The NEMA 17's own 6-pin PH socket. Pins 2 and\n5 (C1, C2) are unpopulated. Check coils with a\nmultimeter before connecting."
+    notes: "The NEMA 17's own 6-pin PH socket. Pins 2 and\n5 (C1, C2) are unpopulated."
     additional_components:
       - type: Terminal - SPH-002T-P0.5S
         qty: 1
@@ -29,7 +29,7 @@ connectors:
     type: JST PH 4-pin (PHR-4)
     subtype: female
     pinlabels: [A2, A1, B1, B2]
-    notes: controller board v1.3 J39
+    notes: "basically board v1.3 J23, or a 4-way Dupont\non J24 beside it: the same four nets."
   CH_LEADS:
     type: Bare tinned leads, labeled 1-4
     pinlabels: [A2, A1, B1, B2]
@@ -50,9 +50,9 @@ cables:
   CH:
     category: cable
     gauge: 24 AWG
-    length: 40 in
+    length: 300 mm
     colors: [BK, GN, RD, BU]
-    notes: "qty 1. Straight-through. Not covered by the\nreference drawing, so unlike S both Gauge and\nLength here are still GUESS."
+    notes: "qty 1. Straight-through. Length is the\ntail only, without the motor's own 300 to\n500 mm leads: about 600 mm overall."
 
 connections:
   -

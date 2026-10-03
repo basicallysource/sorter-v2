@@ -130,7 +130,7 @@ The PSU output pigtails are already in the PSU box. The USB hub's lead has no pa
   </tbody>
 </table>
 
-The [wire harness]({{ '/hardware/electronics/wire-harness/' | relative_url }}) page calls the first three `W1`, `W2` and `W3`, the steppers `S1` to `S4` and `CH`, the limit switch `LIM`, the lamps `L1` to `L3`, and the ribbon `RIB1`. [Ordering the wire harness]({{ '/hardware/parts/harness-order/' | relative_url }}) calls the hub-to-Pi and Pico-to-hub USB runs `U1` and `U2`; they are ordinary bought cables, and the cameras use their own leads.
+The [wire harness]({{ '/hardware/electronics/wire-harness/' | relative_url }}) page calls the first three `W1`, `W2` and `W3`, the steppers `S1` to `S4` and `CH`, the limit switch `LIM`, the lamps `L1` to `L3`, and the ribbon `RIB`. [Ordering the wire harness]({{ '/hardware/parts/harness-order/' | relative_url }}) calls the hub-to-Pi and Pico-to-hub USB runs `U1` and `U2`; they are ordinary bought cables, and the cameras use their own leads.
 
 ### The three 24 V leads
 

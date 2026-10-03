@@ -5,7 +5,8 @@
 	picture, name and ID, a category its name, a number its unit; nothing is
 	shown as a field name, an ID list or a UUID. Conditions joined by "all of"
 	or "any of" say so once above them, and a group inside a rule is indented
-	under its own "all of" or "any of".
+	under its own "all of" or "any of". A negated group says "none of" or "not
+	all of", even when it holds one condition.
 
 	`limit` is how many chips one condition shows before "+N more", which opens
 	the rest in place. A condition that cannot be evaluated yet is in the
@@ -38,6 +39,8 @@
 
 	export interface BinConditions {
 		mode: 'all' | 'any' | string;
+		// "None of" (with any) or "not all of" (with all).
+		negate?: boolean;
 		items: BinCondition[];
 		groups: Array<BinConditions & { id?: string; name?: string }>;
 	}
@@ -75,6 +78,13 @@
 
 	function size(group: BinConditions) {
 		return group.items.length + group.groups.length;
+	}
+
+	// Said above a group: always when it is negated, else when it joins several.
+	function heading(group: BinConditions): string | null {
+		if (group.negate) return group.mode === 'any' || size(group) === 1 ? 'None of' : 'Not all of';
+		if (size(group) < 2) return null;
+		return group.mode === 'any' ? 'Any of' : 'All of';
 	}
 </script>
 
@@ -128,17 +138,16 @@
 {/snippet}
 
 {#snippet members(group: BinConditions, path: string)}
-	{#if size(group) > 1}
-		<div class="mb-1.5 text-sm font-medium text-ink-muted">
-			{group.mode === 'any' ? 'Any of' : 'All of'}
-		</div>
+	{@const words = heading(group)}
+	{#if words}
+		<div class="mb-1.5 text-sm font-medium text-ink-muted">{words}</div>
 	{/if}
 	<ul class="flex flex-col gap-2">
 		{#each group.items as item, i (i)}
 			<li>{@render phrase(item, `${path}.${i}`)}</li>
 		{/each}
 		{#each group.groups as child, i (i)}
-			<li class={size(child) > 1 ? 'pl-4' : ''}>{@render members(child, `${path}.g${i}`)}</li>
+			<li class={heading(child) ? 'pl-4' : ''}>{@render members(child, `${path}.g${i}`)}</li>
 		{/each}
 	</ul>
 {/snippet}

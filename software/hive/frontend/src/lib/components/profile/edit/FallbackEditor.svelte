@@ -3,24 +3,32 @@
 	rest all go to one bin, or to a bin for each BrickLink category, each
 	Rebrickable category, or each color. A fallback by color needs the sorter's
 	current software, which is said when it is chosen.
+
+	Below it, what the machine does when a piece's category has no bin and none
+	is free: stop and ask (the machine's own setting), send it to Everything
+	else, or share a bin, so a run with more categories than bins keeps going.
 -->
 <script lang="ts">
 	import Alert from '$lib/components/Alert.svelte';
 	import RadioGroup from '$lib/components/RadioGroup.svelte';
-	import { plural, type FallbackChoice } from './rules';
+	import { plural, type FallbackChoice, type NoBinChoice } from './rules';
 
 	let {
 		choice,
+		noBin,
 		requires,
 		restParts,
-		onchange
+		onchange,
+		onnobin
 	}: {
 		choice: FallbackChoice;
+		noBin: NoBinChoice;
 		// What a sorter must be able to do to run the profile as it is now.
 		requires: string[];
 		// How many parts no rule and no fallback bin takes, when known.
 		restParts: number | null;
 		onchange: (choice: FallbackChoice) => void;
+		onnobin: (choice: NoBinChoice) => void;
 	} = $props();
 
 	const needsNewSoftware = $derived(choice === 'color' || requires.includes('color_fallback'));
@@ -63,4 +71,30 @@
 			{plural(restParts, 'part')} in the catalog {restParts === 1 ? 'goes' : 'go'} to the bin for everything else.
 		</p>
 	{/if}
+
+	<div class="border-t border-line pt-5">
+		<RadioGroup
+			label="When the bins run out"
+			name="no-bin"
+			value={noBin}
+			options={[
+				{
+					value: 'machine',
+					label: 'Stop and ask',
+					help: "The machine's own setting: it waits for someone to give the new category a bin."
+				},
+				{
+					value: 'misc',
+					label: 'Send it to Everything else',
+					help: 'A category that finds no free bin goes with everything else, and the run keeps going.'
+				},
+				{
+					value: 'share',
+					label: 'Share a bin',
+					help: 'The least filled bin takes the new category too, and the run keeps going.'
+				}
+			]}
+			onchange={onnobin}
+		/>
+	</div>
 </div>

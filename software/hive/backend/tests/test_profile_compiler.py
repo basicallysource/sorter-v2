@@ -10,6 +10,8 @@ import pytest
 
 from app.services.profile_engine.compiler import (
     FEATURE_COLOR_FALLBACK,
+    FEATURE_PIECE_CONDITIONS,
+    MAX_PIECE_CONDITIONS,
     CatalogIndex,
     Router,
     compile_document,
@@ -530,3 +532,182 @@ def test_a_bin_limited_to_colors_shows_its_parts_in_them(index):
     assert sample["fallback_img_url"] == "https://img.example/3001.png"
     assert sample["color_name"] == "Red"
     assert compiled.artifact["categories"]["red"]["image_fallback_url"] == "https://img.example/3001.png"
+
+
+class TestNegation:
+    """Not over any group: "none of" (not any) and "not all of"."""
+
+    def test_none_of_inside_a_rule(self, index):
+        rule = _rule(
+            "bricks",
+            "Bricks but not 2 x 2",
+            ("bl_category_id", "eq", 5),
+            children=[_rule("g", "Sizes", ("name", "contains", "2 x 2"), match_mode="any", negate=True)],
+        )
+        compiled = compile_document(_doc(rule), index)
+        router = Router(compiled.artifact["program"])
+        assert router.route("3001", "5")[0] == "bricks"
+        assert router.route("3004", "5")[0] == "bricks"
+        assert router.route("3003", "5")[0] == "misc"
+        _assert_legacy_routes_like_program(compiled, index)
+
+    def test_a_negated_rule_takes_everything_else(self, index):
+        compiled = compile_document(_doc(_rule("other", "Not bricks", ("bl_category_id", "eq", 5), negate=True)), index)
+        router = Router(compiled.artifact["program"])
+        assert router.route("3001", "5")[0] == "misc"
+        assert router.route("3020", "5")[0] == "other"
+        assert router.route("3068b", None)[0] == "other"
+        _assert_legacy_routes_like_program(compiled, index)
+
+    def test_a_negated_color_group(self, index):
+        rule = _rule(
+            "plates",
+            "Plates that are not red",
+            ("bl_category_id", "eq", 26),
+            children=[_rule("g", "Red", ("color_id", "in", [4]), negate=True)],
+        )
+        compiled = compile_document(_doc(rule), index)
+        router = Router(compiled.artifact["program"])
+        assert router.route("3020", "5")[0] == "misc"
+        assert router.route("3020", "7")[0] == "plates"
+        _assert_legacy_routes_like_program(compiled, index)
+
+    def test_not_all_of(self, index):
+        rule = _rule("r", "Anything but red bricks", ("bl_category_id", "eq", 5), ("color_id", "eq", 4), negate=True)
+        compiled = compile_document(_doc(rule), index)
+        router = Router(compiled.artifact["program"])
+        assert router.route("3001", "5")[0] == "misc"
+        assert router.route("3001", "7")[0] == "r"
+        assert router.route("3020", "5")[0] == "r"
+        _assert_legacy_routes_like_program(compiled, index)
+
+    def test_negation_nests(self, index):
+        # not (bricks and not 2 x 2): everything except the bricks that are not 2 x 2
+        inner = _rule("i", "Not 2 x 2", ("name", "contains", "2 x 2"), negate=True)
+        rule = _rule("r", "Outer", ("bl_category_id", "eq", 5), children=[inner], negate=True)
+        compiled = compile_document(_doc(rule), index)
+        router = Router(compiled.artifact["program"])
+        assert router.route("3003", None)[0] == "r"
+        assert router.route("3020", None)[0] == "r"
+        assert router.route("3001", None)[0] == "misc"
+
+    def test_an_empty_group_says_nothing(self, index):
+        rule = _rule("tiles", "Tiles", ("bl_category_id", "eq", 37), match_mode="any", children=[_rule("g", "Empty")])
+        compiled = compile_document(_doc(rule), index)
+        router = Router(compiled.artifact["program"])
+        assert router.route("3068b", None)[0] == "tiles"
+        # an empty group in "any of" used to count as true and take every piece
+        assert router.route("3001", None)[0] == "misc"
+        assert compiled.artifact["categories"]["tiles"]["conditions"]["groups"] == []
+
+    def test_pages_are_told_a_group_is_negated(self, index):
+        rule = _rule("r", "R", ("bl_category_id", "eq", 5), children=[_rule("g", "G", ("color_id", "eq", 4), negate=True)])
+        conditions = compile_document(_doc(rule), index).artifact["categories"]["r"]["conditions"]
+        assert "negate" not in conditions
+        assert conditions["groups"][0]["negate"] is True
+
+    def test_a_document_without_negation_is_unchanged(self, index):
+        compiled = compile_document(_doc(_rule("r", "R", ("bl_category_id", "eq", 5), negate=False)), index)
+        assert "negate" not in compiled.artifact["rules"][0]
+        assert "negate" not in compiled.artifact["categories"]["r"]["conditions"]
+
+
+class TestPieceConditions:
+    """Rules on what the machine observes about a piece: decided on the sorter."""
+
+    def test_a_review_bin_for_unsure_pieces(self, index):
+        compiled = compile_document(
+            _doc(_rule("review", "Not sure", ("confidence", "lte", 60)), _rule("bricks", "Bricks", ("bl_category_id", "eq", 5))),
+            index,
+        )
+        program = compiled.artifact["program"]
+        assert program["rules"][0] == {
+            "category": "review",
+            "parts": None,
+            "colors": None,
+            "when": [{"field": "confidence", "op": "lte", "value": 60.0, "is": True}],
+        }
+        assert compiled.requires == [FEATURE_PIECE_CONDITIONS]
+        router = Router(program)
+        assert router.route("3001", "5", piece={"confidence": 53})[0] == "review"
+        assert router.route("3001", "5", piece={"confidence": 99})[0] == "bricks"
+        # a piece recognition could not identify counts as 0% sure
+        assert router.route(None, None)[0] == "review"
+        # the bricks below it still get every brick: a guarded rule claims nothing for sure
+        assert not any(w["rule_id"] == "bricks" for w in compiled.warnings)
+        # and the parts it may take are not counted as sorted for certain
+        assert compiled.stats["matched"] == 3
+
+    def test_or_with_a_catalog_condition(self, index):
+        rule = _rule("r", "Plates, or anything unsure", ("confidence", "lte", 60), ("bl_category_id", "eq", 26), match_mode="any")
+        router = Router(compile_document(_doc(rule), index).artifact["program"])
+        assert router.route("3020", "5", piece={"confidence": 99})[0] == "r"
+        assert router.route("3001", "5", piece={"confidence": 40})[0] == "r"
+        assert router.route("3001", "5", piece={"confidence": 99})[0] == "misc"
+
+    def test_a_bin_for_pieces_it_could_not_identify(self, index):
+        compiled = compile_document(
+            _doc(_rule("unknown", "Unknown", ("identified", "eq", False)), _rule("red", "Red", ("color_id", "eq", 4))),
+            index,
+        )
+        router = Router(compiled.artifact["program"])
+        assert router.route(None, "5") == ("unknown", "rule")
+        assert router.route("3001", "5") == ("red", "rule")
+
+    def test_an_unidentified_piece_has_no_color(self, index):
+        router = Router(compile_document(_doc(_rule("red", "Red", ("color_id", "eq", 4))), index).artifact["program"])
+        assert router.route(None, "5") == ("misc", "default")
+
+    def test_the_price_of_this_piece(self, index):
+        rule = _rule("valuable", "Worth $2", ("piece_price", "gte", 2), ("bl_category_id", "eq", 5))
+        router = Router(compile_document(_doc(rule), index).artifact["program"])
+        assert router.route("3001", "5", piece={"piece_price": 2.5})[0] == "valuable"
+        assert router.route("3001", "5", piece={"piece_price": 0.1})[0] == "misc"
+        # an unknown price never matches
+        assert router.route("3001", "5")[0] == "misc"
+
+    def test_negating_a_piece_condition(self, index):
+        rule = _rule("sure", "Sure bricks", ("bl_category_id", "eq", 5), children=[_rule("g", "Unsure", ("confidence", "lte", 60), negate=True)])
+        router = Router(compile_document(_doc(rule), index).artifact["program"])
+        assert router.route("3001", "5", piece={"confidence": 90})[0] == "sure"
+        assert router.route("3001", "5", piece={"confidence": 30})[0] == "misc"
+
+    def test_older_sorters_cannot_run_them(self, index):
+        compiled = compile_document(_doc(_rule("review", "Not sure", ("confidence", "lte", 60))), index)
+        legacy = expand_legacy(compiled.artifact, index)
+        assert legacy["part_to_category"] == {}
+
+    def test_a_piece_field_takes_only_thresholds(self, index):
+        compiled = compile_document(_doc(_rule("r", "R", ("confidence", "in", [50]))), index)
+        assert compiled.problems and "does not take" in compiled.problems[0].message
+
+    def test_a_rule_tests_a_few_at_most(self, index):
+        many = [("confidence", "gte", n) for n in range(MAX_PIECE_CONDITIONS + 1)]
+        compiled = compile_document(_doc(_rule("r", "R", *many)), index)
+        assert any("at most" in problem.message for problem in compiled.problems)
+
+    def test_a_catch_all_below_a_guarded_rule_still_catches_the_rest(self, index):
+        compiled = compile_document(
+            _doc(
+                _rule("review", "Not sure", ("confidence", "lte", 60)),
+                _rule("all", "Every color", ("color_id", "neq", 999)),
+                _rule("late", "Late", ("color_id", "eq", 4)),
+            ),
+            index,
+        )
+        assert any(w["rule_id"] == "late" and "Nothing reaches" in w["message"] for w in compiled.warnings)
+        assert not any(w["rule_id"] == "all" for w in compiled.warnings)
+
+
+class TestNoBinPolicy:
+    def test_the_profile_says_what_to_do_when_the_bins_run_out(self, index):
+        compiled = compile_document(_doc(fallback={"bricklink_categories": True, "no_bin": "misc"}), index)
+        assert compiled.artifact["program"]["no_bin"] == "misc"
+        assert compiled.artifact["fallback_mode"]["no_bin"] == "misc"
+        assert compiled.requires == []
+
+    def test_without_one_the_machine_decides(self, index):
+        for fallback in ({}, {"no_bin": None}, {"no_bin": "explode"}):
+            compiled = compile_document(_doc(fallback=fallback), index)
+            assert "no_bin" not in compiled.artifact["program"]
+            assert "no_bin" not in compiled.artifact["fallback_mode"]

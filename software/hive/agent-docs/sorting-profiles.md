@@ -12,8 +12,14 @@ What people and assistants edit: an ordered list of **rules**, a
   catalog fields and its color (`app/services/profile_engine/fields.py`
   lists every field, its type, its operators and what its values name), a
   `match_mode` (`all` or `any`), and `children`: groups inside it with their
-  own mode, combined with the rule's own conditions by the rule's mode. A
+  own mode, combined with the rule's own conditions by the rule's mode, to
+  any depth. `negate: true` on a rule or a group takes the opposite ("none
+  of" with `any`, "not all of" with `all`); it is kept in a document only
+  when true. A group with nothing in it is left out, not counted as true. A
   rule without conditions takes nothing.
+- A few fields (`piece` in `fields.py`: `identified`, `confidence`,
+  `color_confidence`, `piece_price`) are what the machine observes about a
+  piece as it sorts it, not catalog facts. See `when` below.
 - A **kit rule** (`rule_type: "kit"`) names a kit (`kit_id`): parts in colors
   with quantities (`app/models/kit.py`). Set rules from before kits
   (`rule_type: "set"`, a set number or a parts list held in the rule) still
@@ -23,6 +29,10 @@ What people and assistants edit: an ordered list of **rules**, a
 - The **fallback** takes what no rule does: one bin per BrickLink category,
   per Rebrickable category, or per color. The document keeps the three old
   switches (`fallback_mode`); they are read as one choice, BrickLink first.
+- `fallback_mode.no_bin` is what a machine does when a piece's category has
+  no bin and none is free: `misc` (to the default bin, the run never stops),
+  `share` (the least filled bin takes the category too), or absent (the
+  machine's own No-bin setting, which stops and asks by default).
 
 **A rule's id is its bin.** A sorter assigns bins by rule id, so an edit
 keeps a rule's id and a new rule gets a new one.
@@ -51,15 +61,24 @@ the truth of each color condition, colors with the same answers are grouped,
 and the rule's formula is evaluated once per group. The result for each group
 is (parts, colors), where either may be "any".
 
+Negation is compiled away like the rest of the formula: the program still
+lists parts and colors. A rule with piece conditions is compiled once for
+each way they can turn out (at most 6 per rule, so at most 64 ways), and each
+entry it gives carries that outcome as `when`: `[{"field", "op", "value",
+"is": true|false}]`. Such entries never count as claiming their parts for
+the rules below, unless every outcome takes them.
+
 The output, the **artifact**, holds:
 
 - `program`: what a sorter runs. An ordered list of entries, first match
   wins: `{"category", "parts": [BrickLink IDs] | null, "colors": [BrickLink
   color IDs] | null}` for a filter rule (one entry per color group), or
-  `{"category", "kit": {part: [colors, null for any]}}` for a kit rule; then
-  the `fallback` (`{"by": "category", "map": {part: category}}` or
-  `{"by": "color"}`) and the `default`. A rule that only tests color stays
-  one entry with `parts: null`, instead of one entry per part and color.
+  `{"category", "kit": {part: [colors, null for any]}}` for a kit rule, either
+  with `when` when it depends on the piece; then the `fallback` (`{"by":
+  "category", "map": {part: category}}` or `{"by": "color"}`), the
+  `default`, and `no_bin` when the document sets one. A rule that only tests
+  color stays one entry with `parts: null`, instead of one entry per part and
+  color.
 - `categories`: every bin described for people, keyed by category id (a
   rule's id, `bl_5`, `rb_11`, `color_5`, `misc`): name, kind, picture
   (`image_url`: the rule's own, the kit's, or the rule's best known part),
@@ -89,8 +108,11 @@ first claim wins, so it routes every piece the way the program does (tests
 check it against the compiler the program replaced). It is built on request
 and kept for the last two versions asked for.
 
-`requires` lists what a sorter must be able to run a version: today only
-`color_fallback` (the flat map cannot say "any part in this color"). A sorter
+`requires` lists what a sorter must be able to run a version:
+`color_fallback` (the flat map cannot say "any part in this color") and
+`piece_conditions` (entries with `when`; the flat map leaves them out). A
+sorter that does not know `no_bin` keeps its own setting, so it is not
+required. A sorter
 that does not name a required feature is not offered the profile in its
 library and is refused its artifact with `PROFILE_NEEDS_NEWER_SORTER`.
 
@@ -98,7 +120,18 @@ On the sorter, `sorting_profile.ProfileRouter` runs the program. A kit entry
 takes a piece only while the kit still needs that part and color
 (`SetProgressTracker.isFull`); once it has enough, the piece goes on to the
 next entry that takes it. A sorter without the program keeps sending such
-pieces to the kit's bin.
+pieces to the kit's bin. An entry with `when` takes a piece only when what
+the machine observed agrees (`observedPieceFacts`: confidences in percent,
+the part's price in its color; an unknown value never meets a condition). A
+piece recognition could not identify is routed too, with no part and no
+color and confidence 0, so only entries with `parts: null` and `colors: null`
+can take it; without one it goes to the default bin, as before.
+
+Kit counts belong to the kit rule (its id, which is its bin) and each line,
+not to a version: `SetProgressTracker` restores them whatever version saved
+them, a line capped at its quantity now, and keeps the counts of kit rules
+the active profile lacks for when it comes back. Only a reset (`POST
+/api/set-progress/reset`, Set progress on the sorter) starts them again.
 
 ## Hive's default profiles
 
@@ -107,7 +140,9 @@ without saving them: BrickLink categories, Colors, and Colors and basic
 pieces. Hive keeps them itself (owned by a user no one signs in as), public,
 with `system_key` and `default_rank`. On every start it compiles each one and
 publishes a new version when the result changed (a new definition, or a
-catalog update). A sorter with no profile starts on the first one.
+catalog update). A sorter with no profile starts on the first one. Each has
+more categories than a machine has bins, so each sets `no_bin: misc`: a
+category with no free bin goes to Everything else and the run keeps going.
 
 ## For assistants
 

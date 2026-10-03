@@ -1,5 +1,16 @@
+"""How many pieces each kit rule has collected, line by line.
+
+The counts belong to a kit rule, which is a bin, and to each of its lines
+(a part in a color): not to one version of the profile. A new version keeps a
+kit rule's id unless the rule was deleted and made again, so applying a new
+version, or editing an unrelated rule, carries the counts over. A line the kit
+still lists keeps its count, up to the line's quantity now; a line it no
+longer lists stops being counted. Counts start again from zero only when
+someone resets them (`reset`, POST /api/set-progress/reset).
+"""
+
 import time
-from typing import Any
+from typing import Any, Optional
 
 from local_state import get_set_progress_state, set_set_progress_state
 AUTO_SAVE_INTERVAL_SEC = 5.0
@@ -12,6 +23,9 @@ class SetProgressTracker:
         self._dirty = False
         self._last_saved_at = 0.0
         self._state_token = 0
+        # Counts saved for kit rules the active profile does not have (another
+        # profile's), kept so that going back to that profile finds them.
+        self._saved_elsewhere: dict[str, dict[str, int]] = {}
         # Build lookup: key = "{color_id}-{part_num}" -> list of entries for matching sets.
         self._part_lookup: dict[str, list[dict[str, Any]]] = {}
         self._set_info: dict[str, dict[str, Any]] = {}
@@ -212,11 +226,30 @@ class SetProgressTracker:
             "state_token": self._state_token,
         }
 
+    def reset(self, category_id: Optional[str] = None) -> bool:
+        """Count one kit (or every kit, and those of other profiles too) from
+        zero. False when there is no such kit."""
+        if category_id is not None and category_id not in self._set_info:
+            return False
+        targets = [category_id] if category_id is not None else list(self._set_info)
+        for target in targets:
+            for entry in self._set_parts.get(target, []):
+                entry["quantity_found"] = 0
+            self._set_info[target]["total_found"] = 0
+        if category_id is None:
+            self._saved_elsewhere = {}
+        self._dirty = True
+        self._state_token += 1
+        self.save()
+        return True
+
     def save(self) -> None:
         """Persist progress to local SQLite state."""
         if not self._dirty and get_set_progress_state() is not None:
             return
-        progress_data: dict[str, dict[str, int]] = {}
+        progress_data: dict[str, dict[str, int]] = {
+            category_id: dict(parts) for category_id, parts in self._saved_elsewhere.items()
+        }
         for category_id, entries in self._set_parts.items():
             for entry in entries:
                 part_key = f"{entry['color_id']}-{entry['part_num']}"
@@ -238,16 +271,22 @@ class SetProgressTracker:
             self.save()
 
     def _load(self) -> None:
-        """Load progress from local SQLite state if artifact hash matches."""
+        """Counts saved for these kit rules, whichever version of the profile
+        saved them (see the module's docstring)."""
         data = get_set_progress_state()
         if not isinstance(data, dict):
             return
-        if data.get("artifact_hash") != self._artifact_hash:
-            return  # Profile changed, start fresh
         progress = data.get("progress", {})
+        if not isinstance(progress, dict):
+            return
         restored_any = False
         for category_id, parts in progress.items():
+            if not isinstance(parts, dict):
+                continue
             if category_id not in self._set_info:
+                self._saved_elsewhere[str(category_id)] = {
+                    str(key): int(value) for key, value in parts.items() if isinstance(value, (int, float))
+                }
                 continue
             restored_found = 0
             for entry in self._set_parts.get(category_id, []):

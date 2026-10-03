@@ -440,6 +440,27 @@ export function proposalActionSummaries(proposal: Record<string, unknown> | null
 		if (action === 'edit') return `Edited "${name}"`;
 		if (action === 'move') return `Moved "${name}"`;
 		if (action === 'delete') return `Deleted "${name}"`;
+		if (action === 'settings') return settingsSummary(p);
 		return `${action} "${name}"`;
 	});
+}
+
+const FALLBACK_WORDS: Record<string, string> = {
+	none: 'the rest go to Everything else',
+	bl_category: 'the rest go by BrickLink category',
+	rb_category: 'the rest go by Rebrickable category',
+	color: 'the rest go by color'
+};
+
+const NO_BIN_WORDS: Record<string, string> = {
+	machine: 'when the bins run out, the machine stops and asks',
+	misc: 'when the bins run out, pieces go to Everything else',
+	share: 'when the bins run out, bins are shared'
+};
+
+function settingsSummary(p: Record<string, unknown>): string {
+	const parts = [FALLBACK_WORDS[p.fallback as string], NO_BIN_WORDS[p.no_bin as string]].filter(Boolean);
+	if (parts.length === 0) return 'Changed nothing';
+	const text = parts.join('; ');
+	return text.charAt(0).toUpperCase() + text.slice(1);
 }

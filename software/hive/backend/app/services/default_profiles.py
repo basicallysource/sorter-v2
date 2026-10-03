@@ -51,6 +51,9 @@ BASIC_PIECE_RULES = [
     _category_rule("default-basic-slopes", "Slopes", [31, 438, 32]),
 ]
 
+# Each default has more categories than a machine has bins, so each says what
+# to do when the bins run out: a new category with no free bin goes to
+# Everything else and the run keeps going, instead of stopping to ask.
 DEFINITIONS: list[dict[str, Any]] = [
     {
         "key": "default:bricklink-categories",
@@ -58,7 +61,7 @@ DEFINITIONS: list[dict[str, Any]] = [
         "name": "BrickLink categories",
         "description": "One bin for each BrickLink category, busiest first.",
         "rules": [],
-        "fallback_mode": {"bricklink_categories": True},
+        "fallback_mode": {"bricklink_categories": True, "no_bin": "misc"},
     },
     {
         "key": "default:colors",
@@ -66,7 +69,7 @@ DEFINITIONS: list[dict[str, Any]] = [
         "name": "Colors",
         "description": "One bin for each color.",
         "rules": [],
-        "fallback_mode": {"by_color": True},
+        "fallback_mode": {"by_color": True, "no_bin": "misc"},
     },
     {
         "key": "default:colors-and-basic-pieces",
@@ -74,7 +77,7 @@ DEFINITIONS: list[dict[str, Any]] = [
         "name": "Colors and basic pieces",
         "description": "Bricks, plates, tiles and slopes each get a bin; everything else goes by color.",
         "rules": BASIC_PIECE_RULES,
-        "fallback_mode": {"by_color": True},
+        "fallback_mode": {"by_color": True, "no_bin": "misc"},
     },
 ]
 

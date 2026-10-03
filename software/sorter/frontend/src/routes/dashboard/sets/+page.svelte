@@ -5,6 +5,8 @@
 	import ChevronDown from '@lucide/svelte/icons/chevron-down';
 	import ChevronRight from '@lucide/svelte/icons/chevron-right';
 	import Printer from '@lucide/svelte/icons/printer';
+	import RotateCcw from '@lucide/svelte/icons/rotate-ccw';
+	import { confirmDialog } from '$lib/confirm.svelte';
 	import AppShell from '$lib/components/AppShell.svelte';
 	import Alert from '$lib/components/ui/Alert.svelte';
 	import Button from '$lib/components/ui/Button.svelte';
@@ -92,6 +94,36 @@
 		void fetchProgress();
 	});
 
+	// A kit's counts carry over from one version of the profile to the next;
+	// they start again from zero only from here.
+	let resetting = $state<string | null>(null);
+
+	async function resetKit(set_progress: SetProgress) {
+		const name = set_progress.name || set_progress.set_num;
+		const ok = await confirmDialog({
+			title: `Count ${name} from zero`,
+			message: `The sorter forgets the ${set_progress.total_found} pieces it counted for this kit and collects all ${set_progress.total_needed} again. Pieces already in its bin stay there.`,
+			action: 'Count from zero',
+			danger: true
+		});
+		if (!ok) return;
+		resetting = set_progress.id;
+		try {
+			const res = await fetch(`${currentBackendBaseUrl()}/api/set-progress/reset`, {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ category_id: set_progress.id })
+			});
+			if (!res.ok) throw new Error(`HTTP ${res.status}`);
+			data = await res.json();
+			error = null;
+		} catch (e) {
+			error = e instanceof Error ? e.message : 'The kit could not be reset';
+		} finally {
+			resetting = null;
+		}
+	}
+
 	const progress = $derived(data?.progress);
 	const is_set_based = $derived(data?.is_set_based ?? false);
 
@@ -104,7 +136,10 @@
 
 <AppShell>
 	<div class="mx-auto flex w-full max-w-[1500px] flex-col gap-(--gap-panels) px-4 py-6 sm:px-6">
-		<PageHeader title="Set progress" description="How many of each set's parts the sorter has found so far.">
+		<PageHeader
+			title="Set progress"
+			description="How many of each set's parts the sorter has found so far. The counts carry over when the profile changes."
+		>
 			{#snippet actions()}
 				<Button icon={Printer} href="/dashboard/sets/checklist">Checklist</Button>
 			{/snippet}
@@ -190,6 +225,17 @@
 										{/each}
 									</tbody>
 								</table>
+							</div>
+						{/if}
+						{#if is_expanded}
+							<div class="flex justify-end border-t border-line px-(--pad-panel) py-3">
+								<Button
+									variant="ghost"
+									size="sm"
+									icon={RotateCcw}
+									loading={resetting === set_progress.id}
+									onclick={() => resetKit(set_progress)}>Count from zero</Button
+								>
 							</div>
 						{/if}
 					</Panel>

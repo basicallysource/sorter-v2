@@ -39,7 +39,7 @@ parts_needed:
 
 <div class="prep-item">
   <div class="prep-item-body">
-    <p><strong>Make three <a href="{{ '/hardware/helpers/psu-pigtail/' | relative_url }}">PSU output pigtails</a> before you start.</strong> Each is a panel-mount barrel jack with a fork terminal crimped onto each of its two leads, and they are commonly sold with the leads already on. That page builds them; step 1 here fits and wires them.</p>
+    <p><strong>Make three <a href="{{ '/hardware/helpers/psu-pigtail/' | relative_url }}">PSU output pigtails</a> (<code>PJ1</code> to <code>PJ3</code>) before you start.</strong> Each is a panel-mount barrel jack with a fork terminal crimped onto each of its two leads, and they are commonly sold with the leads already on. That page builds them; step 1 here fits and wires them.</p>
   </div>
   <figure class="prep-item-figure">
     <img class="doc-figure" src="https://assets.basically.website/sorter-docs/harness-psu-pigtail-built-w1600-59554dc6b189.jpg" alt="An assembled PSU output pigtail: a panel-mount barrel jack with red and black 18 AWG (0.82 mm²) leads, each ending in an insulated fork terminal">
@@ -94,12 +94,12 @@ Set the panel down beside the supply for now. The leads land on the terminal blo
 
 <div class="callout callout-warning">
   <span class="callout-icon" aria-hidden="true">⚠</span>
-  <p><b>No mains cable in the inlet.</b> Not for this step, not for any of the ones after it, and not until the box is closed and the wiring checked.</p>
+  <p><b>No mains cable (<code>AC1</code>) in the inlet.</b> Not for this step, not for any of the ones after it, and not until the box is closed and the wiring checked.</p>
 </div>
 
 The **IEC C14 inlet, switch + 10 A fuse** is the machine's mains entry and its on/off switch. Its three leads come already attached, so there is no AC cable to make.
 
-**The cable from the wall is an ordinary IEC C13 mains lead**, the cord a desktop PC or a monitor comes with, with the plug your country uses. It is in the parts above. Three core, because the machine earths through it and out to the supply's earth screw, and 10 A or better, which matches the module's own fuse and is far more than the machine draws. It is the one part of this build most people already own, so check a drawer before buying one.
+**The cable from the wall is an ordinary IEC C13 mains lead (`AC1`)**, the cord a desktop PC or a monitor comes with, with the plug your country uses. It is in the parts above. Three core, because the machine earths through it and out to the supply's earth screw, and 10 A or better, which matches the module's own fuse and is far more than the machine draws. It is the one part of this build most people already own, so check a drawer before buying one.
 
 Push the inlet module into the rectangular cutout from the outside, so its flange sits flat on the outer face of the panel and its two holes line up with the panel's two small holes. **The rocker can face either way**, left or right, and nothing later depends on which.
 
@@ -142,7 +142,7 @@ If you have been testing the inlet module on the bench, screw it into the panel 
 Hold the front panel up to the open end of the tray, close enough that its leads reach, and land them all:
 
 <ol class="numbered-steps">
-  <li><b>The three pigtails</b>, one per <b>+V/-V</b> pair: <b>7 with 4, 8 with 5, 9 with 6</b>, the red terminal on the +V screw and the black on the -V screw of the same pair. Each pigtail must keep to one pair.</li>
+  <li><b>The three pigtails (<code>PJ1</code> to <code>PJ3</code>)</b>, one per <b>+V/-V</b> pair: <b>7 with 4, 8 with 5, 9 with 6</b>, the red terminal on the +V screw and the black on the -V screw of the same pair. Each pigtail must keep to one pair.</li>
   <li><b>The inlet's three leads</b>: <b>live on 1</b> (AC/L), <b>neutral on 2</b> (AC/N), <b>earth on 3</b>. The earth lead is the green-yellow one.</li>
 </ol>
 
@@ -191,7 +191,7 @@ The supply inside the closed housing, both lids down, the mains inlet and the th
 
 <div class="callout callout-warning">
   <span class="callout-icon" aria-hidden="true">⚠</span>
-  <p><b>Once it is in service, pull the cord out of the wall before you open this box.</b> The rocker is not an isolator you can rely on: a plug that goes in either way round means the switch may be breaking the neutral rather than the live, so treat everything inside as live whenever the cord is in.</p>
+  <p><b>Once it is in service, pull the cord (<code>AC1</code>) out of the wall before you open this box.</b> The rocker is not an isolator you can rely on: a plug that goes in either way round means the switch may be breaking the neutral rather than the live, so treat everything inside as live whenever the cord is in.</p>
 </div>
 
 **Bolting it to the frame is on the [installation overview]({{ '/hardware/electronics/installation/' | relative_url }})**, once all three enclosures are built.

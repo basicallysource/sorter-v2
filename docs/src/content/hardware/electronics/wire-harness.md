@@ -10,6 +10,7 @@ permalink: /hardware/electronics/wire-harness/
 author: spencer
 contributors: [effreek]
 last_verified: 2026-10-03
+og_image: https://assets.basically.website/sorter-docs/wire-harness-interconnect-diagram-full-a5af9c462d00.png
 ---
 
 This page is the wiring. Where the PSU, the control board and the Orange Pi physically mount is [Installing the electronics]({{ '/hardware/electronics/installation/' | relative_url }}), and the render of where each one sits is on that page. Plugging them together afterwards is [connecting the components]({{ '/hardware/electronics/connecting/' | relative_url }}).

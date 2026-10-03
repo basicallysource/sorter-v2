@@ -1,6 +1,6 @@
 metadata:
   title: 24V power distribution
-  description: "PSU box pigtails PJ1-PJ3 and load cables W1-W3. The PSU end\nand the board end follow the DC_PSU_Harness and\ncontroller-board reference drawings (2026-08-08),\nwhich are the source of truth for those. Values marked GUESS\nare guesses, not measurements."
+  description: "PSU box pigtails PJ1-PJ3 and load cables W1-W3. The PSU end\nand the board end follow the DC_PSU_Harness and\ncontroller-board reference drawings (2026-08-08),\nwhich are the source of truth for those."
 
 connectors:
   PSU:
@@ -30,9 +30,9 @@ connectors:
         manufacturer: JST
         mpn: SVH-21T-P1.1
   HUB:
-    type: DC plug 5.5x2.1 male
-    pinlabels: [+24V (tip), GND (sleeve)]
-    notes: "into the Waveshare hub jack\n(DC-044, 5.5x2.1)"
+    type: Bare tinned leads
+    pinlabels: [+24V, GND]
+    notes: "into the hub's 2-pin 24V terminal\n(+ and - are printed on the hub board)"
   BUCK:
     type: Bare tinned leads
     pinlabels: [+24V, GND]
@@ -55,12 +55,12 @@ cables:
     gauge: 22 AWG
     length: 12 in
     colors: [RD, BK]
-    notes: "USB hub, double-male. Gauge = GUESS, not\ncovered by the reference drawings."
+    notes: "USB hub. Plug at one end, bare tinned end\ninto the hub's 24V terminal."
   W3:
     gauge: 22 AWG
     length: 6 in
     colors: [RD, BK]
-    notes: "Orange Pi buck. Gauge = GUESS, not covered by\nthe reference drawings."
+    notes: "Orange Pi buck. Plug at one end, bare tinned\nend spliced to the buck input leads."
 
 connections:
   -

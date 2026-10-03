@@ -180,7 +180,7 @@ them as cleanup, and do not take them as precedent for committing new renders.
 
 ## Status
 
-Nothing here has been validated against the physical machine. Guessed values
-are marked `GUESS` in the drawings, the order spec lists what to verify before
-sending, and the harness page carries the open items. Treat it as Spencer's
-July 12th 2026 notes plus engineering guesses, not measured truth.
+Nothing here has been validated against the physical machine. The harness
+page carries the open items. Treat it as Spencer's July 12th 2026 notes plus
+engineering estimates, not measured truth. Drawings carry no "guess" marks:
+anything still unproven is said on the ordering page, once.

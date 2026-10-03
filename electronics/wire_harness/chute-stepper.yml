@@ -1,6 +1,6 @@
 metadata:
   title: Chute stepper lead
-  description: "The chute stepper lead, x1 per machine. The buildable\nsub-harness for CH on the stepper cables drawing. The\nNEMA 23 has bare flying leads, so this one is spliced\nrather than plugged. Values marked GUESS are guesses,\nnot measurements."
+  description: "The chute stepper lead, x1 per machine. The buildable\nsub-harness for CH on the stepper cables drawing. The\nNEMA 23 has bare flying leads, so this one is spliced\nrather than plugged."
 
 connectors:
   BOARD:
@@ -27,7 +27,7 @@ cables:
     wirecount: 4
     length: 300 mm
     colors: [BK, GN, RD, BU]
-    notes: "qty 1. Straight through. Gauge is set by the\nPH contact, which takes 24 to 28 AWG.\nLength is the tail only, without the motor's\nown 300 to 500 mm leads: about 600 mm\noverall with 300 mm leads. A GUESS."
+    notes: "qty 1. Straight through. Gauge is set by the\nPH contact, which takes 24 to 28 AWG.\nLength is the tail only, without the motor's\nown 300 to 500 mm leads: about 600 mm\noverall with 300 mm leads."
 
 connections:
   -

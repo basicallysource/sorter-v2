@@ -96,14 +96,6 @@ What goes on the ends in the schedule. The part numbers are the ones the machine
 
 The Dupont, quick-connect, barrel and fork-terminal rows have specs but no manufacturer part numbers yet. They are added as they are chosen, and the [parts catalog](https://parts-calculator.basically.website/hardware) carries each one with its per-machine count.
 
-## How to order it
-
-- **A custom harness vendor** (Alibaba "custom cable assembly", or a quick-turn shop): send them the zip. Expect MOQ 50 to 100 pieces per line item from China; small shops and some AliExpress custom-cable storefronts will do 5 to 10.
-- **Low volume instead:** buy pre-crimped PH, XH and Dupont leads plus housings and assemble them. The only labour a vendor saves you is crimping.
-- The reasoning behind the guessed gauges: steppers draw 1.5 A per phase or less, so 24 AWG (0.20 mm²) is fine at these lengths; no single barrel-plug load exceeds about 3 A, so 22 AWG (0.33 mm²) is fine; the PSU box pigtails carry worst-case single-load current, hence 18 AWG (0.82 mm²).
-
-**Two things are not part of the order.** The mains inlet wiring comes pre-made on the 3Dman inlet switch, so there is no AC cable to have built. The 16-pin IDC ribbons are an off-the-shelf part: buy them, do not have them made.
-
 ## Ends the vendor cannot terminate
 
 Some parts come with their own fixed leads or solder pads, so the harness cannot fully land on them. Those cables are ordered with one end bare and tinned, and joined on the machine.

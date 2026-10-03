@@ -245,7 +245,7 @@ All three drops now feed an LED strip in a [camera lamp]({{ '/hardware/assembly/
   <tbody>
     <tr><td class="wire-id">LIM</td><td>Limit switch (Omron V-155-1C25)</td><td>basically board v1.3, 1x3 dupont (position 3 empty)</td><td>#187 quick-connect, push-on</td><td>2</td><td>610 mm (24 in)</td></tr>
     <tr><td class="wire-id">S1-4</td><td>Stepper, channels 1-4 (×4)</td><td>basically board v1.3, JST-PH 4-pin (PHR-4)</td><td>Stepper, JST-PH 6-pin (PHR-6), positions 1·4·3·6</td><td>4</td><td>1 m (39 in)</td></tr>
-    <tr><td class="wire-id">CH</td><td>Chute stepper</td><td>basically board v1.3, JST-PH 4-pin (PHR-4)</td><td>Chute stepper, flying leads, needs prep</td><td>4</td><td>610 mm (24 in)</td></tr>
+    <tr><td class="wire-id">CH</td><td>Chute stepper</td><td>basically board v1.3, JST-PH 4-pin (PHR-4)</td><td>Chute stepper, flying leads, needs prep</td><td>4</td><td>300 mm (12 in) tail, about 600 mm (24 in) overall with the motor's own leads</td></tr>
   </tbody>
 </table>
 

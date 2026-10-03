@@ -52,7 +52,7 @@ Every cable and lead in the machine, one row each, with its ID. The IDs are the 
   <thead><tr><th>ID</th><th>Qty</th><th>End A</th><th>End B</th><th>Length</th><th>Wire</th><th>Route</th></tr></thead>
   <tbody>
     <tr><td class="wire-id">PJ1, PJ2, PJ3</td><td>3</td><td>Panel-mount DC jack, female, on the PSU box plate</td><td>Two insulated M3.5 fork terminals, onto the PSU's paired screws (7+4, 8+5, 9+6)</td><td>100 mm (4 in)</td><td>18 AWG (0.82 mm²), red and black</td><td>Vendor, or <a href="{{ '/hardware/helpers/psu-pigtail/' | relative_url }}">build</a></td></tr>
-    <tr><td class="wire-id">W1</td><td>1</td><td>DC plug, male, into <code>PJ1</code></td><td>JST VHR-2 housing into board <code>J1</code>, pin 1 = +24 V, pin 2 = GND</td><td>920 mm (36 in)</td><td>18 AWG (0.82 mm²), red and black</td><td><a href="{{ '/hardware/helpers/board-24v-lead/' | relative_url }}">You build</a></td></tr>
+    <tr><td class="wire-id">W1</td><td>1</td><td>DC plug, male, into <code>PJ1</code></td><td>JST VHR-2 housing into board <code>J1</code>, pin 1 = +24 V, pin 2 = GND</td><td>920 mm (36 in)</td><td>18 AWG (0.82 mm²), red and black</td><td>Vendor, or <a href="{{ '/hardware/helpers/board-24v-lead/' | relative_url }}">build</a></td></tr>
     <tr><td class="wire-id">W2</td><td>1</td><td>DC plug, male, into <code>PJ2</code></td><td>Bare, tinned, into the USB hub's 2-pin 24 V terminal</td><td>310 mm (12 in), see guesses</td><td>22 AWG (0.33 mm²), red and black</td><td>Vendor</td></tr>
     <tr><td class="wire-id">W3</td><td>1</td><td>DC plug, male, into <code>PJ3</code></td><td>Bare, tinned, spliced to the buck converter's input leads</td><td>150 mm (6 in)</td><td>22 AWG (0.33 mm²), red and black</td><td>Vendor, or <a href="{{ '/hardware/helpers/pi-24v-lead/' | relative_url }}">build</a></td></tr>
     <tr><td class="wire-id">L1, L2, L3</td><td>3</td><td>2-position Dupont housing, 2.54 mm (0.1 in), into board <code>J8</code>, <code>J9</code>, <code>J10</code></td><td>Inline DC socket, female</td><td>920 mm (36 in)</td><td>22 AWG (0.33 mm²), red and black</td><td>Vendor</td></tr>
@@ -68,7 +68,7 @@ Every cable and lead in the machine, one row each, with its ID. The IDs are the 
   </tbody>
 </table>
 
-That is 23 IDs, and 24 cables on a 3-layer machine, because `RIB2` is one per layer joint (2 on 3 layers, 4 on 5). 18 are in the zip, 16 of those are built by a vendor, and the other two (`W1`, `CH`) are built on the bench. `RIB`, `RIB2`, `U1`, `U2` and `AC1` are bought. The three cameras use their own USB leads and are not scheduled. `U1` and `U2` are new IDs, given here so every cable in the machine has one; they must be real data cables, because a lot of short USB cables are power-only.
+That is 23 IDs, and 24 cables on a 3-layer machine, because `RIB2` is one per layer joint (2 on 3 layers, 4 on 5). 18 are in the zip, 17 of those are built by a vendor, and the other one (`CH`) is built on the bench. `RIB`, `RIB2`, `U1`, `U2` and `AC1` are bought. The three cameras use their own USB leads and are not scheduled. `U1` and `U2` are new IDs, given here so every cable in the machine has one; they must be real data cables, because a lot of short USB cables are power-only.
 
 On `L1` to `L3`, the optional inline socket and the plug on `L1p` to `L3p` can be left out, in which case the feed runs straight to the strip and the pigtail is not needed. The plug and socket are recommended because they let the lamp be unplugged close to where it is.
 
@@ -107,7 +107,6 @@ The Dupont, quick-connect, barrel and fork-terminal rows have specs but no manuf
 Some parts come with their own fixed leads or solder pads, so the harness cannot fully land on them. Those cables are ordered with one end bare and tinned, and joined on the machine.
 
 - **24 V to 5 V USB-C buck** (`W3`): the converter has fixed input leads, so splice.
-- **Control board feed** (`W1`): no supplier sells a barrel plug to JST-VH, so it is built rather than ordered. [Make the control board's 24 V lead]({{ '/hardware/helpers/board-24v-lead/' | relative_url }}).
 - **Chute stepper** (`CH`): flying leads out of the motor, so splice. [Make the chute stepper lead]({{ '/hardware/helpers/chute-stepper-lead/' | relative_url }}).
 - **LED strips** (`L1p`, `L2p`, `L3p`): a solderless clamp-on connector bites onto the cut strip, so nothing is soldered. Pick the variant with IDC crimp points on both sides and it takes the pigtail wire too.
 

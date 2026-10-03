@@ -105,8 +105,8 @@ drawings:
   - name: leds
     title: LED drops and limit switch (L1 to L3, L1p to L3p, LIM)
     caption: >-
-      LED feeds L1 to L3 to their unplug-point jacks, pigtails L1p to L3p to the COB
-      boards and strip, and the limit switch cable (LIM, 1x3 dupont at the
+      LED feeds L1 to L3 to their unplug-point jacks, pigtails L1p to L3p to the LED
+      strips, and the limit switch cable (LIM, 1x3 dupont at the
       board, push-on blade terminals at the switch).
     png: https://assets.basically.website/sorter-harness/leds-full-d0732af588cc.png
     svg: https://assets.basically.website/sorter-harness/leds-6aae09039d68.svg

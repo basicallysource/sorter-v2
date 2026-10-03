@@ -254,12 +254,14 @@ All three drops now feed an LED strip in a [camera lamp]({{ '/hardware/assembly/
   <p><b>Done, and here is why:</b> the stepper cables are JST-PH 4-pin at the board, not 4x1 dupont. Dupont contacts do not take side load. The wires leave at an angle, that depresses the spring contact, the connection goes loose, resistance goes up and it heats. Two of these have already burned up on real machines. JST-PH takes the side load without damage.</p>
 </div>
 
-### 3.5 &nbsp; Servo adapter (ribbon)
+### 3.5 &nbsp; Servo adapter (ribbon) and USB
 
 <table>
   <thead><tr><th>ID</th><th>Segment</th><th>From</th><th>To</th><th>Cond.</th><th>Length</th></tr></thead>
   <tbody>
     <tr><td class="wire-id">RIB</td><td>Ribbon cable</td><td>basically board v1.3, 16-pin IDC (FC)</td><td>First servo adapter board, 16-pin IDC (FC)</td><td>16</td><td>1.2 to 1.5 m</td></tr>
+    <tr><td class="wire-id">U1</td><td>USB, hub to Orange Pi</td><td>USB-A on the hub</td><td><code>UP USB3.0</code> on the Orange Pi</td><td>4</td><td>3 ft or shorter</td></tr>
+    <tr><td class="wire-id">U2</td><td>USB, Pico to hub</td><td>Micro USB on the Pico</td><td>USB-A on the hub</td><td>4</td><td>3 ft or shorter</td></tr>
   </tbody>
 </table>
 

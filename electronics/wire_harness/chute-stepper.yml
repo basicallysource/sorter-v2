@@ -15,9 +15,9 @@ connectors:
         manufacturer: JST
         mpn: SPH-002T-P0.5S
   MOTOR:
-    type: Bare flying leads, spliced
+    type: Bare tinned leads, spliced
     pinlabels: [coil A, coil A, coil B, coil B]
-    notes: "The NEMA 23's own four leads, 20 AWG, too\nthick for a PH contact. Splice the 24 AWG\ntail on. Find the coil pairs with a meter\nfirst: a pair reads well under an ohm."
+    notes: "Ordered with this end bare: stripped 5 mm\nand tinned. Splice it to the NEMA 23's own\nfour leads, 20 AWG, too thick for a PH\ncontact. Find the coil pairs with a meter\nfirst: a pair reads well under an ohm."
 
 cables:
   CH:

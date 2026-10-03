@@ -43,11 +43,11 @@ Seat it over the four inserts and fasten it with 4 {% include fastener.html size
   <figcaption>The four inserts the board sits on, all on the panel at the top end of the chute core's rear face. <cite>Render: Balloon.</cite></figcaption>
 </figure>
 
-{% include step.html n="2" title="Connect the ribbon cables (`RIB1`, `RIB2`) and the servo" %}
+{% include step.html n="2" title="Connect the ribbon cables (`RIB`, `RIB2`) and the servo" %}
 
 Do these now, while the chute is still on the bench. Once it is in the frame the three connectors are hard to reach.
 
-The board has two identical 16-pin sockets. **`J3` is the ribbon coming in (`RIB1` or `RIB2`) and `J4` is the ribbon going on down to the next layer (`RIB2`).** Nothing but the designator printed on the board tells them apart.
+The board has two identical 16-pin sockets. **`J3` is the ribbon coming in (`RIB` or `RIB2`) and `J4` is the ribbon going on down to the next layer (`RIB2`).** Nothing but the designator printed on the board tells them apart.
 
 <div class="callout callout-warning">
   <span class="callout-icon" aria-hidden="true">⚠</span>
@@ -58,7 +58,7 @@ This layer's servo plugs into `J5`, the 3-pin header beside them: pin 1 signal, 
 
 Put the 300 mm (12 in) ribbon (`RIB2`) from the parts list into `J4` now and leave its far end loose. It only reaches the board below once the chutes are in the frame, so it is joined up there, at the same time as the [layer connectors]({{ '/hardware/assembly/distribution/chute/layer-connectors/' | relative_url }}).
 
-`J3` takes the ribbon (`RIB2`) coming down from the board above. On the topmost chute that is the long ribbon from the control board (`RIB1`) instead, at [connecting the components]({{ '/hardware/electronics/connecting/' | relative_url }}), step 5.
+`J3` takes the ribbon (`RIB2`) coming down from the board above. On the topmost chute that is the long ribbon from the control board (`RIB`) instead, at [connecting the components]({{ '/hardware/electronics/connecting/' | relative_url }}), step 5.
 
 Full harness routing is covered in the [harness drawings]({{ '/hardware/parts/harness-order/' | relative_url }}).
 

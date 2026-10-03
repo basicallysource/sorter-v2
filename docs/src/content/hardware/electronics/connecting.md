@@ -123,14 +123,14 @@ The PSU output pigtails (`PJ1` to `PJ3`) are already in the PSU box. The USB hub
     <tr><td>Chute stepper (<code>CH</code>)</td><td>Board <code>J23</code>, 4-pin JST-PH (or <code>J24</code> beside it, 4-pin Dupont on 2.54 mm (0.1 in) pins)</td><td>The motor's flying leads, spliced to a thinner tail and crimped into a PH housing (<a href="{{ '/hardware/helpers/chute-stepper-lead/' | relative_url }}">make the chute stepper lead</a>)</td></tr>
     <tr><td>Chute limit switch (<code>LIM</code>)</td><td>Board <code>J5</code>, 3-pin Dupont, 2 positions used</td><td>Two #187 push-on tabs on the switch (<a href="{{ '/hardware/helpers/limit-switch-lead/' | relative_url }}">make the limit switch lead</a>)</td></tr>
     <tr><td>Camera lamps (×3: <code>L1</code> to <code>L3</code>)</td><td>Board <code>J8</code> / <code>J9</code> / <code>J10</code>, 2-pin Dupont</td><td>Barrel socket, which takes the barrel plug on the lamp's pigtail (<code>L1p</code> to <code>L3p</code>) (optional but recommended; without it the cable runs to the strip) (<a href="{{ '/hardware/helpers/led-strip/' | relative_url }}">prepare the LED strip</a>)</td></tr>
-    <tr><td>Ribbon to the layers (<code>RIB1</code>)</td><td>Board <code>J17</code>, 16-pin IDC</td><td><code>J3</code> on the first layer board, 16-pin IDC</td></tr>
+    <tr><td>Ribbon to the layers (<code>RIB</code>)</td><td>Board <code>J17</code>, 16-pin IDC</td><td><code>J3</code> on the first layer board, 16-pin IDC</td></tr>
     <tr><td>Pico to hub (<code>U2</code>)</td><td>Micro USB on the Pico</td><td>USB-A on the hub</td></tr>
     <tr><td>Hub to Orange Pi (<code>U1</code>)</td><td>USB-A on the hub</td><td><code>UP USB3.0</code> on the Pi</td></tr>
     <tr><td>Cameras (×3)</td><td>The camera's own USB lead, one IMX415 and two OV9732</td><td>USB-A on the hub</td></tr>
   </tbody>
 </table>
 
-The [wire harness]({{ '/hardware/electronics/wire-harness/' | relative_url }}) page calls the first three `W1`, `W2` and `W3`, the steppers `S1` to `S4` and `CH`, the limit switch `LIM`, the lamps `L1` to `L3`, and the ribbon `RIB1`. The two bought USB cables between the Pico, the hub and the Orange Pi are `U2` and `U1`; the cameras' own USB leads have no label.
+The [wire harness]({{ '/hardware/electronics/wire-harness/' | relative_url }}) page calls the first three `W1`, `W2` and `W3`, the steppers `S1` to `S4` and `CH`, the limit switch `LIM`, the lamps `L1` to `L3`, and the ribbon `RIB`. The two bought USB cables between the Pico, the hub and the Orange Pi are `U2` and `U1`; the cameras' own USB leads have no label.
 
 ### The three 24 V leads (`W1` to `W3`)
 
@@ -168,7 +168,7 @@ The machine needs three male barrel plugs for these three, plus, if you fit the 
   <li>The <a href="{{ '/hardware/helpers/pi-24v-lead/#sleeving-optional' | relative_url }}">Orange Pi's 24 V lead</a> (`W3`), about 150 mm (6 in).</li>
 </ul>
 
-The `W2` lead to the USB hub, the USB cables (`U1`, `U2`) and the ribbon (`RIB1`) are bought parts with no page to make them, and the PSU box pigtails (`PJ1` to `PJ3`) stay inside the box, so none of those is sleeved. In all, about 10 m (33 ft) for the machine: one 15.2 m (50 ft) roll.
+The `W2` lead to the USB hub, the USB cables (`U1`, `U2`) and the ribbon (`RIB`) are bought parts with no page to make them, and the PSU box pigtails (`PJ1` to `PJ3`) stay inside the box, so none of those is sleeved. In all, about 10 m (33 ft) for the machine: one 15.2 m (50 ft) roll.
 
 **When:** while you make each lead, from the cut end, before you fit the connector that goes on it. A finished plug or housing may not go through the sleeving: the 6-pin housing on a channel stepper lead is too big for it, and a 4-pin PH housing is a tight fit that has not been tried. Do not plan on adding sleeving to a finished lead. The harness drawings sleeve the four channel stepper leads (`S1` to `S4`) only; sleeving the rest is a choice, not part of the drawing.
 
@@ -234,7 +234,7 @@ Everything in steps 1 to 5 plugs into this board. It is drawn from above, the wa
       <text x="154" y="326.0" font-size="11" font-weight="400" text-anchor="end" fill="var(--muted)">C-channel 2 rotor</text>
       <rect x="246.0" y="550.4" width="85.3" height="21.4" rx="2" fill="var(--surface)" stroke="var(--primary)" stroke-width="2"/>
       <path d="M287.6 571.8 L287.6 605.0" stroke="var(--muted)" stroke-width="1" fill="none"/>
-      <text x="287.6" y="634.4" font-size="12" font-weight="700" text-anchor="middle" fill="var(--ink)">J17 · 16-pin ribbon (RIB1)</text>
+      <text x="287.6" y="634.4" font-size="12" font-weight="700" text-anchor="middle" fill="var(--ink)">J17 · 16-pin ribbon (RIB)</text>
       <text x="287.6" y="649.4" font-size="11" font-weight="400" text-anchor="middle" fill="var(--muted)">down to the layer boards</text>
       <rect x="317.0" y="490.8" width="63.0" height="10.5" rx="2" fill="var(--bg)" stroke="var(--ink)" stroke-width="1" stroke-dasharray="3 3"/>
       <text x="346.4" y="479.0" font-size="10" text-anchor="middle" fill="var(--muted)">J12 · unused PWM</text>
@@ -336,9 +336,9 @@ The solder jumper beside each of these three ports should already be bridged, fr
 
 **Then assign the output in software**: Settings, the channel, the LED button, pick which output that lamp is on and set the brightness. **Nothing lights until an output is assigned.** The lamps' board cables are `L1` to `L3`, and their pigtails `L1p` to `L3p`, in the [wire harness]({{ '/hardware/electronics/wire-harness/' | relative_url }}) schedule, which still draws every drop split at a barrel jack.
 
-{% include step.html n="5" title="Run the ribbon down to the layers (RIB1)" %}
+{% include step.html n="5" title="Run the ribbon down to the layers (RIB)" %}
 
-One flat 16-pin ribbon (`RIB1`), 1.2 to 1.5 m (47 to 59 in), runs from `J17` on the control board down to `J3` on the first layer board in the chute stack. Both ends are keyed, so it only goes in one way up.
+One flat 16-pin ribbon (`RIB`), 1.2 to 1.5 m (47 to 59 in), runs from `J17` on the control board down to `J3` on the first layer board in the chute stack. Both ends are keyed, so it only goes in one way up.
 
 The layer boards are already chained to each other with their own 300 mm (12 in) ribbons (`RIB2`), and their servos are already plugged in. Both happen as each [layer adapter board]({{ '/hardware/assembly/distribution/chute/pcb/' | relative_url }}) is built and the chute tower goes together.
 
@@ -443,7 +443,7 @@ Before the machine sees mains:
   <li>All three DC leads (<code>W1</code> to <code>W3</code>) are in their jacks, and the PSU box is closed.</li>
   <li>At the hub's power terminal, the wire from the plug's centre contact is under <code>+</code>, and neither wire pulls out.</li>
   <li>Every stepper plug is fully home, and no plug is hanging on one contact.</li>
-  <li>The ribbon (<code>RIB1</code>) goes from the board to <code>J3</code> of the first layer board, and down the stack on the layer ribbons (<code>RIB2</code>), <code>J4</code> to <code>J3</code>.</li>
+  <li>The ribbon (<code>RIB</code>) goes from the board to <code>J3</code> of the first layer board, and down the stack on the layer ribbons (<code>RIB2</code>), <code>J4</code> to <code>J3</code>.</li>
   <li>Nothing is resting on the fan blades.</li>
 </ol>
 

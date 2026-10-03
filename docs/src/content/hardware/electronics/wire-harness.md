@@ -107,8 +107,8 @@ This page is the wiring. Where the PSU, the control board and the Orange Pi phys
         <text x="258" y="414">Orange Pi 5</text>
       </g>
       <g font-size="12" font-weight="700" fill="var(--ink)">
-        <text x="652" y="55">COB board</text>
-        <text x="652" y="105">COB board</text>
+        <text x="652" y="55">LED strip (6000K)</text>
+        <text x="652" y="105">LED strip (6000K)</text>
         <text x="652" y="155">LED strip (6000K)</text>
         <text x="652" y="205">Limit switch</text>
         <text x="652" y="255">Stepper, channels 1-4 (×4)</text>

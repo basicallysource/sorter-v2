@@ -1,0 +1,11 @@
+Comment,Designator,Footprint,LCSC Part #,MPN,Manufacturer,Mount,Qty,Description
+0Ω,R1,R_0603,C21189,0603WAF0000T5E,UNI-ROYAL(Uniroyal Elec),SMT,1,100mW Thick Film Resistors 75V ±1% 0Ω 0603 Chip Resistor - Surface Mount ROHS
+100nF,C3,C_0603,C14663,CC0603KRX7R9BB104,YAGEO,SMT,1,50V 100nF X7R ±10% 0603 Multilayer Ceramic Capacitors MLCC - SMD/SMT ROHS
+100uF,C1,CAP-SMD_BD6.3-L6.6-W6.6-LS7.4-FD,C2836442,,,SMT,1,"Polarized capacitor, US symbol"
+10kΩ,R3,R_0603,C25804,0603WAF1002T5E,UNI-ROYAL(Uniroyal Elec),SMT,1,100mW Thick Film Resistors 75V ±100ppm/°C ±1% 10kΩ 0603 Chip Resistor - Surface Mount ROHS
+1uF,C2,C_0603,C15849,CL10A105KB8NNNC,Samsung Electro-Mechanics,SMT,1,50V 1uF X5R ±10% 0603 Multilayer Ceramic Capacitors MLCC - SMD/SMT ROHS
+Conn_01x03,J5,PinHeader_1x03_P2.54mm_Horizontal,C492411,,,THT,1,"Generic connector, single row, 01x03"
+Conn_01x04,J6 J7,JST_XA_B04B-XASK-1-A_1x04_P2.50mm_Vertical,C264994,,,THT,2,"Generic connector, single row, 01x04"
+Conn_01x10,J1 J2,JST_XA_B10B-XASK-1-A_1x10_P2.50mm_Vertical,C378928,,,THT,2,"Generic connector, single row, 01x10"
+Conn_02x08_Odd_Even,J3 J4,IDC-Header_2x08_P2.54mm_Vertical,C429960,,,THT,2,"Generic connector, double row, 02x08"
+SolderJumper_2_Bridged,JP1,SolderJumper-2_P1.3mm_Open_TrianglePad1.0x1.5mm,,,,SMT,1,"Solder Jumper, 2-pole, closed/bridged"

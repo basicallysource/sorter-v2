@@ -7011,9 +7011,9 @@
         "length_min_mm": 1200,
         "length_max_mm": 1500
       },
-      "name": "IDC ribbon cable (RIB), 16-pin (2×8), 1.2 to 1.5 m (47 to 59 in)",
+      "name": "IDC ribbon cable (RIB1), 16-pin (2×8), 1.2 to 1.5 m (47 to 59 in)",
       "category": "Electronics",
-      "description": "Ribbon cable (RIB) from the control board's J17 to J3 on the first layer board. One per machine. Any length from 1.2 m (47 in) to 1.5 m (59 in) works, with a female socket on both ends.",
+      "description": "Ribbon cable (RIB1) from the control board's J17 to J3 on the first layer board. One per machine. Any length from 1.2 m (47 in) to 1.5 m (59 in) works, with a female socket on both ends.",
       "created_at": "2026-07-18",
       "updated_at": "2026-10-02",
       "sheet_qty": {
@@ -16313,7 +16313,7 @@
           "version": "4",
           "uid": "esvy",
           "date": "2026-09-23",
-          "message": "The board's cables join the housing. W1 on the power drawing is a barrel plug at the PSU box end and a VHR-2 with two SVH-21T contacts onto J1; the 16-pin ribbon RIB runs from J17 down to J3 on the first layer board; the micro USB cable runs from the Pico's own socket to a port on the USB hub. Each is listed beside the board or the Pico it plugs into, because that is the end that is in the tree and the end that decides the cable. All three were hand counts before this and the tree totals are the same.",
+          "message": "The board's cables join the housing. W1 on the power drawing is a barrel plug at the PSU box end and a VHR-2 with two SVH-21T contacts onto J1; the 16-pin ribbon RIB1 runs from J17 down to J3 on the first layer board; the micro USB cable runs from the Pico's own socket to a port on the USB hub. Each is listed beside the board or the Pico it plugs into, because that is the end that is in the tree and the end that decides the cable. All three were hand counts before this and the tree totals are the same.",
           "breaking": false,
           "commit": null,
           "lines": [

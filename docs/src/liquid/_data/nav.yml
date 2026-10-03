@@ -121,23 +121,23 @@ sections:
             url: /hardware/helpers/pico-headers/
           - title: Preparing the 3D printed cable cage plates
             url: /hardware/helpers/cable-cage-plates/
-          - title: Preparing the LED strip
+          - title: Preparing the LED strip and its drop (L1 to L3, L1p to L3p)
             url: /hardware/helpers/led-strip/
           - title: Using a multimeter
             url: /hardware/helpers/multimeter/
           - title: Crimping connectors
             url: /hardware/helpers/crimping/
-          - title: Make your own PSU output pigtail
+          - title: Make your own PSU output pigtail (PJ1 to PJ3)
             url: /hardware/helpers/psu-pigtail/
-          - title: Make the control board's 24 V lead
+          - title: Make the control board's 24 V lead (W1)
             url: /hardware/helpers/board-24v-lead/
-          - title: Make the Orange Pi's 24 V lead
+          - title: Make the Orange Pi's 24 V lead (W3)
             url: /hardware/helpers/pi-24v-lead/
-          - title: Make the channel stepper leads
+          - title: Make the channel stepper leads (S1 to S4)
             url: /hardware/helpers/channel-stepper-lead/
-          - title: Make the chute stepper lead
+          - title: Make the chute stepper lead (CH)
             url: /hardware/helpers/chute-stepper-lead/
-          - title: Make the chute limit switch lead
+          - title: Make the chute limit switch lead (LIM)
             url: /hardware/helpers/limit-switch-lead/
       - title: Parts
         url: /hardware/parts/
@@ -201,6 +201,8 @@ sections:
     pages:
       - title: Overview
         url: /hive/
+      - title: How Hive works
+        url: /hive/how-hive-works/
       - title: Build your first sorting profile
         url: /hive/first-profile/
         children:
@@ -216,6 +218,8 @@ sections:
             url: /hive/first-profile/openrouter-key/
       - title: When the profile chat goes wrong
         url: /hive/chat-errors/
+      - title: Reviewing samples
+        url: /hive/review-samples/
 
   - id: lab
     title: Lab

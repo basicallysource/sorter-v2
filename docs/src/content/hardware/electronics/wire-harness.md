@@ -279,7 +279,7 @@ All three drops now feed an LED strip in a [camera lamp]({{ '/hardware/assembly/
 - Cooling fan, 40×40×10mm, 24V (WINSINN 4010, catalog `fan-40mm-24v`) &middot; one, in the control board housing cover. It plugs into one of the board's own LED ports (see open items and control board housing).
 - uxcell 16-pin IDC flat ribbon cable, FC/FC, 2.54 mm, 1.2 to 1.5 m, gray &middot; [link](https://www.amazon.com/dp/B07S2W4N9T)
 - Waveshare 4-port USB hub, 24V model (USB 3.2 version, not the 5V industrial one, which cannot take 24V in)
-- Optional, only if the plug's lead does not reach the hub: DC lead, 5.5 x 2.1 mm male to male, 22 AWG, 2 ft, centre positive, for `W2` &middot; [link](https://www.l-com.com/dc-power-cable-5.5mm-2.1mm-male-male-2-ft-dc5521mm-2ft)
+- Optional, only if the plug's lead does not reach the hub: DC lead, 5.5 x 2.1 mm male to male, 22 AWG (0.33 mm²), 2 ft, centre positive, for `W2` &middot; [link](https://www.l-com.com/dc-power-cable-5.5mm-2.1mm-male-male-2-ft-dc5521mm-2ft)
 - Orange Pi 5
 - USB cables, Pi to hub and hub to Pico: 3 ft or shorter is plenty, but they must be data cables. A lot of short USB cables are power-only.
 

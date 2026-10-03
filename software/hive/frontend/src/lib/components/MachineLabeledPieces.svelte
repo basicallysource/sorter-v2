@@ -2,6 +2,8 @@
 	import { api, type MachineLabeledPiece } from '$lib/api';
 	import Spinner from '$lib/components/Spinner.svelte';
 	import ZoomImage from '$lib/components/ZoomImage.svelte';
+	import Alert from '$lib/components/Alert.svelte';
+	import Panel from '$lib/components/Panel.svelte';
 
 	// Color-range reference column: other already-labeled pieces on THIS machine,
 	// human ground-truth only (never model output), sorted into a hue gradient so
@@ -53,48 +55,45 @@
 	});
 </script>
 
-<div class="border border-border bg-surface">
-	<div class="border-b border-border px-3 py-2">
-		<div class="text-sm font-medium text-text">Labeled on this machine</div>
-		<div class="text-xs text-text-muted">
-			{#if !loading && total > 0}
-				{total} labeled piece{total === 1 ? '' : 's'} · color range for reference
-			{:else}
-				this machine's known colors, for reference
-			{/if}
-		</div>
-	</div>
-
+<Panel
+	title="Labeled on this machine"
+	description={!loading && total > 0
+		? `${total} labeled piece${total === 1 ? '' : 's'}, this machine's color range for reference`
+		: "This machine's known colors, for reference"}
+	flush
+>
 	{#if loading}
 		<div class="flex justify-center py-8"><Spinner size={32} /></div>
 	{:else if error}
-		<div class="p-3 text-sm text-primary">{error}</div>
+		<div class="px-(--pad-panel) pb-(--pad-panel)"><Alert tone="danger">{error}</Alert></div>
 	{:else if items.length === 0}
-		<p class="p-4 text-sm text-text-muted">This machine has no pieces labeled yet.</p>
+		<p class="px-(--pad-panel) pb-(--pad-panel) text-sm text-ink-muted">This machine has no pieces labeled yet.</p>
 	{:else}
-		<div class="flex flex-col">
+		<ul class="divide-y divide-line border-t border-line">
 			{#each shown as it (it.piece_uuid)}
-				<a
-					href={`/piece-bboxes/${machineId}/${encodeURIComponent(it.piece_uuid)}`}
-					class="flex items-center gap-2 border-b border-border px-2 py-1.5 last:border-b-0 hover:bg-bg"
-					title={`${it.color_name} (${it.color_id}) · ${it.label_count} labeler${it.label_count === 1 ? '' : 's'}`}
-				>
-					<div class="flex h-12 w-12 shrink-0 items-center justify-center bg-bg">
-						{#if it.thumb_seq != null}
-							<ZoomImage
-								src={api.machineLabeledPieceImageUrl(machineId, it.piece_uuid, it.thumb_seq)}
-								alt={it.color_name}
-								class="h-12 w-12 bg-transparent object-contain"
-							/>
-						{/if}
-					</div>
-					<span
-						class="h-4 w-4 shrink-0 border border-border {it.is_trans ? 'opacity-70' : ''}"
-						style={`background:#${it.rgb ?? '000'}`}
-					></span>
-					<span class="min-w-0 flex-1 truncate text-xs text-text-muted">{it.color_name}</span>
-				</a>
+				<li>
+					<a
+						href={`/piece-bboxes/${machineId}/${encodeURIComponent(it.piece_uuid)}`}
+						class="flex items-center gap-2 px-(--pad-panel) py-1.5 hover:bg-hover"
+						title={`${it.color_name} (${it.color_id}), ${it.label_count} labeler${it.label_count === 1 ? '' : 's'}`}
+					>
+						<div class="flex size-12 shrink-0 items-center justify-center rounded-item {it.thumb_seq != null ? '' : 'bg-well'}">
+							{#if it.thumb_seq != null}
+								<ZoomImage
+									src={api.machineLabeledPieceImageUrl(machineId, it.piece_uuid, it.thumb_seq)}
+									alt={it.color_name}
+									class="size-12 object-contain"
+								/>
+							{/if}
+						</div>
+						<span
+							class="size-4 shrink-0 rounded-check border border-line {it.is_trans ? 'opacity-70' : ''}"
+							style={`background:#${it.rgb ?? '000'}`}
+						></span>
+						<span class="min-w-0 flex-1 truncate text-sm text-ink-muted">{it.color_name}</span>
+					</a>
+				</li>
 			{/each}
-		</div>
+		</ul>
 	{/if}
-</div>
+</Panel>

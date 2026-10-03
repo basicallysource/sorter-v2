@@ -127,3 +127,61 @@ def test_reply_that_never_finishes_is_reported_as_partial() -> None:
 
     with pytest.raises(MCUBusError, match="Partial response"):
         _mkBus(port).send_command(0, GET_STALL_STATUS, 0, b"", retries=0)
+
+
+def test_a_lone_terminator_is_a_garbled_reply_not_a_crash() -> None:
+    port = _ScriptedPort([(0.002, b"\x00")])
+
+    with pytest.raises(MCUBusError, match="Garbled response"):
+        _mkBus(port).send_command(0, GET_STALL_STATUS, 0, b"", retries=0)
+
+
+def test_a_reply_too_short_for_a_header_is_a_garbled_reply() -> None:
+    port = _ScriptedPort([(0.002, bytes(cobs.encode(b"\x01\x02")) + b"\x00")])
+
+    with pytest.raises(MCUBusError, match="Garbled response"):
+        _mkBus(port).send_command(0, GET_STALL_STATUS, 0, b"", retries=0)
+
+
+def test_a_failing_port_is_an_mcu_bus_error() -> None:
+    class _GonePort(_ScriptedPort):
+        def write(self, data) -> int:
+            from serial import SerialException
+
+            raise SerialException("device disconnected")
+
+    with pytest.raises(MCUBusError, match="Serial port failed"):
+        _mkBus(_GonePort([])).send_command(0, GET_STALL_STATUS, 0, b"", retries=0)
+
+
+def test_a_busy_port_is_waited_for(monkeypatch) -> None:
+    from serial import SerialException
+
+    from hardware import bus as bus_module
+
+    attempts = []
+
+    def fake_serial(port, **kwargs):
+        attempts.append(kwargs.get("exclusive"))
+        if len(attempts) < 3:
+            raise SerialException("Could not exclusively lock port /dev/ttyACM0: [Errno 11]")
+        return _ScriptedPort([])
+
+    monkeypatch.setattr(bus_module.serial, "Serial", fake_serial)
+    MCUBus("/dev/ttyACM0")
+    assert attempts == [True, True, True]
+
+
+def test_other_open_errors_are_not_retried(monkeypatch) -> None:
+    from serial import SerialException
+
+    from hardware import bus as bus_module
+
+    def fake_serial(port, **kwargs):
+        raise SerialException("could not open port /dev/ttyACM0: No such file or directory")
+
+    monkeypatch.setattr(bus_module.serial, "Serial", fake_serial)
+    started = time.monotonic()
+    with pytest.raises(SerialException):
+        MCUBus("/dev/ttyACM0")
+    assert time.monotonic() - started < 0.5

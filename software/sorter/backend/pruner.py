@@ -9,20 +9,14 @@ from typing import TYPE_CHECKING, Optional, Union
 if TYPE_CHECKING:
     from global_config import GlobalConfig
 
-# Single background pruning system for everything that grows unbounded on the
-# machine: the software/logs/ run logs, plus a one-time drain of the legacy
-# per-second metric snapshot tables that used to bloat local_state.sqlite
-# (metric writes now go to local_metrics.sqlite, which does its own retention).
-# One daemon thread runs every _PRUNE_INTERVAL_S, drops itself to idle I/O +
-# CPU priority and paces its deletes so a multi-GB cleanup can never choke the
-# camera / hardware hot loops.
+# Background pruning of the software/logs/ run logs. One daemon thread runs
+# every _PRUNE_INTERVAL_S, drops itself to idle I/O + CPU priority and paces its
+# deletes so a multi-GB cleanup can never choke the camera / hardware hot loops.
 
 DEFAULT_MAX_LOG_BYTES = 1 * 1024 ** 3
 
 _PRUNE_INTERVAL_S = 3600
 _LOG_DELETE_PACING_S = 0.1
-_DB_DELETE_BATCH = 5000
-_DB_DELETE_PACING_S = 0.05
 
 # Arch-specific __NR_ioprio_set — glibc ships no wrapper for it, so we go
 # straight through syscall(). Numbers differ per ABI; the Orange Pi is aarch64.
@@ -112,20 +106,6 @@ def _pruneLogs(gc: "GlobalConfig", log_dir: Path, current_log: Optional[Path], m
         )
 
 
-def _drainLegacyMetricTables(gc: "GlobalConfig") -> None:
-    from local_state import drain_legacy_metric_snapshot_tables
-
-    deleted = drain_legacy_metric_snapshot_tables(
-        batch_size=_DB_DELETE_BATCH, pacing_s=_DB_DELETE_PACING_S
-    )
-    total = sum(deleted.values())
-    if total:
-        detail = ", ".join(f"{name}={count}" for name, count in deleted.items() if count)
-        gc.logger.info(
-            f"legacy metrics drain: removed {total} snapshot row(s) and dropped emptied table(s) ({detail})"
-        )
-
-
 def _run(
     gc: "GlobalConfig",
     log_dir: Path,
@@ -139,13 +119,6 @@ def _run(
         except Exception as exc:
             try:
                 gc.logger.error(f"log prune failed: {exc}")
-            except Exception:
-                pass
-        try:
-            _drainLegacyMetricTables(gc)
-        except Exception as exc:
-            try:
-                gc.logger.error(f"legacy metrics drain failed: {exc}")
             except Exception:
                 pass
         time.sleep(_PRUNE_INTERVAL_S)

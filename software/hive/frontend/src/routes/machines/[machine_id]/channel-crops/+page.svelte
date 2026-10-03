@@ -2,7 +2,14 @@
 	import { page } from '$app/state';
 	import { api, type MachineChannelCropInfo } from '$lib/api';
 	import Spinner from '$lib/components/Spinner.svelte';
-	import { Button } from '$lib/components/primitives';
+	import Button from '$lib/components/Button.svelte';
+	import Alert from '$lib/components/Alert.svelte';
+	import EmptyState from '$lib/components/EmptyState.svelte';
+	import PageHeader from '$lib/components/PageHeader.svelte';
+	import Panel from '$lib/components/Panel.svelte';
+	import SegmentedControl from '$lib/components/SegmentedControl.svelte';
+	import ArrowLeft from '@lucide/svelte/icons/arrow-left';
+	import Crop from '@lucide/svelte/icons/crop';
 
 	const PAGE_SIZE = 120;
 
@@ -90,132 +97,127 @@
 	const ZONE_LABELS: Record<number, string> = { 0: 'mid', 1: 'drop', 2: 'exit', 3: 'precise' };
 
 	function zoneLabel(z: number | null): string {
-		return z == null ? '—' : (ZONE_LABELS[z] ?? String(z));
+		return z == null ? '-' : (ZONE_LABELS[z] ?? String(z));
 	}
 
-	// Border color encodes the zone the piece's COM sat in — dense near the exit
-	// is where the same-piece heuristic cares most, so make exit/precise pop.
-	function zoneBorder(z: number | null): string {
+	// The dot's color is the zone the piece's center sat in. Near the exit is
+	// where matching the same piece matters most, so exit and precise stand out.
+	function zoneDot(z: number | null): string {
 		switch (z) {
 			case 3:
-				return 'border-success';
+				return 'bg-success';
 			case 2:
-				return 'border-primary';
+				return 'bg-primary';
 			case 1:
-				return 'border-info';
+				return 'bg-info';
 			default:
-				return 'border-border';
+				return 'bg-ink-faint';
 		}
 	}
 
 	function deg(d: number | null): string {
-		return d == null ? '—' : `${d.toFixed(1)}°`;
+		return d == null ? '-' : `${d.toFixed(1)}°`;
 	}
 
 	function when(iso: string | null): string {
-		if (!iso) return '—';
+		if (!iso) return '-';
 		return new Date(iso).toLocaleTimeString();
 	}
 
-	const CHANNEL_FILTERS = [
-		{ label: 'All channels', value: null },
-		{ label: 'C2', value: 2 },
-		{ label: 'C3', value: 3 }
-	];
-	const ZONE_FILTERS = [
-		{ label: 'All zones', value: null },
-		{ label: 'Exit', value: 2 },
-		{ label: 'Precise', value: 3 },
-		{ label: 'Drop', value: 1 },
-		{ label: 'Mid', value: 0 }
-	];
 </script>
 
 <svelte:head>
-	<title>{machineName ? `${machineName} — Channel crops` : 'Channel crops'} · Hive</title>
+	<title>{machineName ? `${machineName} channel crops` : 'Channel crops'} - Hive</title>
 </svelte:head>
 
-<div class="mb-4">
-	<a href={`/machines/${machineId}`} class="text-sm text-text-muted hover:text-text">← Machine overview</a>
+<div>
+	<Button href={`/machines/${machineId}`} size="sm" variant="ghost" icon={ArrowLeft}>Machine overview</Button>
 </div>
 
-<div class="mb-4 flex flex-wrap items-end justify-between gap-x-4 gap-y-1">
-	<div class="min-w-0">
-		<h1 class="text-2xl font-bold text-text">{machineName || 'Machine'}</h1>
-		<p class="text-sm text-text-muted">
-			Unlabeled C2/C3 bbox crops synced from this machine — tagged with the piece's
-			distance to the exit zone, for same-piece lookup.
-		</p>
-	</div>
-	{#if !loading}
-		<span class="shrink-0 text-sm text-text-muted">
-			{crops.length.toLocaleString()} of {total.toLocaleString()} loaded
-		</span>
-	{/if}
-</div>
+<PageHeader
+	title={machineName || 'Machine'}
+	description="Unlabeled crops of pieces on the second and third channels, tagged with how far the piece was from the exit, for matching the same piece later."
+>
+	{#snippet actions()}
+		{#if !loading}
+			<span class="num text-sm text-ink-muted"
+				>{crops.length.toLocaleString()} of {total.toLocaleString()} loaded</span
+			>
+		{/if}
+	{/snippet}
+</PageHeader>
 
-<div class="mb-5 flex flex-wrap items-center gap-2">
-	<div class="flex flex-wrap gap-1">
-		{#each CHANNEL_FILTERS as f (f.label)}
-			<Button
-				variant={channel === f.value ? 'primary' : 'secondary'}
-				size="sm"
-				onclick={() => (channel = f.value)}>{f.label}</Button
-			>
-		{/each}
-	</div>
-	<div class="flex flex-wrap gap-1">
-		{#each ZONE_FILTERS as f (f.label)}
-			<Button
-				variant={zoneCode === f.value ? 'primary' : 'secondary'}
-				size="sm"
-				onclick={() => (zoneCode = f.value)}>{f.label}</Button
-			>
-		{/each}
-	</div>
+<div class="flex flex-wrap items-center gap-2">
+	<SegmentedControl
+		label="Channel"
+		size="sm"
+		value={channel === null ? 'all' : String(channel)}
+		onchange={(v: string) => (channel = v === 'all' ? null : Number(v))}
+		options={[
+			{ value: 'all', label: 'All channels' },
+			{ value: '2', label: 'C2' },
+			{ value: '3', label: 'C3' }
+		]}
+	/>
+	<SegmentedControl
+		label="Zone"
+		size="sm"
+		value={zoneCode === null ? 'all' : String(zoneCode)}
+		onchange={(v: string) => (zoneCode = v === 'all' ? null : Number(v))}
+		options={[
+			{ value: 'all', label: 'All zones' },
+			{ value: '2', label: 'Exit' },
+			{ value: '3', label: 'Precise' },
+			{ value: '1', label: 'Drop' },
+			{ value: '0', label: 'Mid' }
+		]}
+	/>
 </div>
 
 {#if error}
-	<div class="mb-4 bg-primary/8 p-3 text-sm text-primary">{error}</div>
+	<Alert tone="danger">{error}</Alert>
 {/if}
 
 {#if loading}
-	<div class="flex justify-center py-12">
-		<Spinner size={32} />
-	</div>
+	<div class="flex justify-center py-12"><Spinner size={32} /></div>
 {:else if crops.length === 0}
-	<div class="border border-border bg-surface p-8 text-center text-sm text-text-muted">
-		No channel crops synced from this machine yet.
-	</div>
+	<Panel>
+		<EmptyState icon={Crop} title="No channel crops yet">No channel crops have synced from this machine yet.</EmptyState>
+	</Panel>
 {:else}
-	<div class="flex flex-wrap gap-2">
-		{#each crops as crop (crop.local_id)}
-			<div class="flex w-24 flex-col border border-border bg-surface p-1">
-				{#if crop.available}
-					<img
-						src={api.machineChannelCropImageUrl(machineId, crop.local_id)}
-						alt={`crop ${crop.local_id}`}
-						loading="lazy"
-						title={`C${crop.channel} · ${zoneLabel(crop.zone_code)} · ${deg(
-							crop.com_forward_to_exit_deg
-						)} to exit · track ${crop.track_id ?? '—'} · ${when(crop.ts)}`}
-						class="h-20 w-full border-2 object-contain {zoneBorder(crop.zone_code)}"
-					/>
-				{:else}
-					<div
-						class="flex h-20 w-full items-center justify-center border border-dashed border-border bg-bg text-center text-[9px] text-text-muted"
-						title="evicted before sync"
-					>
-						evicted
-					</div>
-				{/if}
-				<div class="mt-1 text-center text-[10px] leading-tight text-text-muted">
-					<div class="text-text">C{crop.channel} · {zoneLabel(crop.zone_code)}</div>
-					<div class="tabular-nums">{deg(crop.com_forward_to_exit_deg)}</div>
-				</div>
-			</div>
-		{/each}
-	</div>
+	<Panel>
+		<div class="grid grid-cols-[repeat(auto-fill,minmax(6rem,1fr))] gap-3">
+			{#each crops as crop (crop.local_id)}
+				<figure class="flex flex-col gap-1.5">
+					{#if crop.available}
+						<img
+							src={api.machineChannelCropImageUrl(machineId, crop.local_id)}
+							alt={`Crop ${crop.local_id}`}
+							loading="lazy"
+							title={`C${crop.channel}, ${zoneLabel(crop.zone_code)}, ${deg(
+								crop.com_forward_to_exit_deg
+							)} to the exit, track ${crop.track_id ?? '-'}, ${when(crop.ts)}`}
+							class="h-20 w-full rounded-control object-contain"
+						/>
+					{:else}
+						<div
+							class="flex h-20 w-full items-center justify-center rounded-control bg-well text-center text-xs text-ink-muted"
+							title="Removed before it synced"
+						>
+							Removed
+						</div>
+					{/if}
+					<figcaption class="text-xs leading-tight text-ink-muted">
+						<span class="flex items-center gap-1.5 text-ink">
+							<span class="size-1.5 shrink-0 rounded-full {zoneDot(crop.zone_code)}" aria-hidden="true"></span>
+							C{crop.channel}, {zoneLabel(crop.zone_code)}
+						</span>
+						<span class="num">{deg(crop.com_forward_to_exit_deg)}</span>
+					</figcaption>
+				</figure>
+			{/each}
+		</div>
+	</Panel>
 
 	<div bind:this={sentinel} class="h-px"></div>
 
@@ -223,9 +225,9 @@
 		{#if loadingMore}
 			<Spinner size={24} />
 		{:else if nextCursor != null}
-			<Button variant="secondary" size="sm" onclick={loadMore}>Load more</Button>
+			<Button size="sm" onclick={loadMore}>Load more</Button>
 		{:else}
-			<span class="text-xs text-text-muted">End of list · {total.toLocaleString()} crops total</span>
+			<span class="text-sm text-ink-muted">End of the list, {total.toLocaleString()} crops.</span>
 		{/if}
 	</div>
 {/if}

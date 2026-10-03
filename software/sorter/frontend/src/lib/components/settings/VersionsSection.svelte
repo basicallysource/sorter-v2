@@ -6,8 +6,14 @@
 		waitForBackend
 	} from '$lib/backend';
 	import { getMachineContext } from '$lib/machines/context';
-	import { Button, Alert } from '$lib/components/primitives';
-	import { GitBranch, Tag, RefreshCcw } from 'lucide-svelte';
+	import Button from '$lib/components/ui/Button.svelte';
+	import Alert from '$lib/components/ui/Alert.svelte';
+	import Panel from '$lib/components/ui/Panel.svelte';
+	import Badge from '$lib/components/ui/Badge.svelte';
+	import Spinner from '$lib/components/ui/Spinner.svelte';
+	import GitBranch from '@lucide/svelte/icons/git-branch';
+	import Tag from '@lucide/svelte/icons/tag';
+	import RefreshCcw from '@lucide/svelte/icons/refresh-ccw';
 
 	const machine = getMachineContext();
 
@@ -106,6 +112,8 @@
 				? `Updated ${data.old_sha} → ${data.new_sha}. Restarting backend...`
 				: 'Already at this version. Restarting backend...';
 			await waitForBackend(httpBase());
+			// The update rebuilt the UI as well: load the new one.
+			if (data.changed) location.reload();
 			updateNotice = updateNotice.replace('Restarting backend...', 'Backend is back up.');
 			await load(false);
 		} catch (e: any) {
@@ -120,133 +128,127 @@
 	});
 </script>
 
-<div class="flex flex-col gap-4">
-	<div class="border border-border bg-surface px-3 py-3">
-		<div class="flex items-center gap-2">
-			<span class="text-sm font-medium text-text">Current version</span>
-			{#if payload?.current.dirty}
-				<span class="text-xs text-warning">local changes present</span>
+<Panel title="This machine" flush>
+	{#snippet actions()}
+		{#if payload?.current.dirty}<Badge tone="warning">Local changes</Badge>{/if}
+		<Button
+			variant="ghost"
+			size="sm"
+			icon={RefreshCcw}
+			label="Check for updates"
+			loading={loading}
+			onclick={() => void load(true)}
+		/>
+	{/snippet}
+	{#if payload}
+		<dl class="divide-y divide-line px-(--pad-panel) pb-2 text-sm">
+			<div class="flex items-baseline justify-between gap-6 py-2.5">
+				<dt class="text-ink-muted">
+					{currentChannel ? 'Channel' : payload.current.detached ? 'Version' : 'Branch'}
+				</dt>
+				<dd class={currentChannel ? 'text-ink capitalize' : 'font-mono text-ink'}>
+					{currentChannel ?? payload.current.ref}
+				</dd>
+			</div>
+			<div class="flex items-baseline justify-between gap-6 py-2.5">
+				<dt class="shrink-0 text-ink-muted">Commit</dt>
+				<dd class="min-w-0 truncate text-right text-ink">
+					<span class="font-mono">{payload.current.sha}</span>{#if payload.current.subject}<span class="text-ink-muted">: {payload.current.subject}</span>{/if}
+				</dd>
+			</div>
+			{#if payload.current.commit_unix}
+				<div class="flex items-baseline justify-between gap-6 py-2.5">
+					<dt class="text-ink-muted">Made</dt>
+					<dd class="text-ink">{formatDate(payload.current.commit_unix)}</dd>
+				</div>
 			{/if}
-			<button
-				type="button"
-				class="ml-auto inline-flex items-center gap-1 text-sm text-text-muted transition-colors hover:text-text"
-				title="Refresh from origin"
-				disabled={loading}
-				onclick={() => void load(true)}
-			>
-				<RefreshCcw size={14} class={loading ? 'animate-spin' : ''} />
-			</button>
+		</dl>
+	{:else if loading}
+		<div class="flex items-center gap-2 px-(--pad-panel) pb-(--pad-panel) text-sm text-ink-muted">
+			<Spinner size={14} /> Loading
 		</div>
-		{#if payload}
-			<div class="mt-2 flex flex-col gap-0.5">
-				<div class="text-sm text-text-muted">
-					{#if currentChannel}
-						Channel: <span class="text-text capitalize">{currentChannel}</span>
-					{:else}
-						{payload.current.detached ? 'Version' : 'Branch'}:
-						<span class="font-mono text-text">{payload.current.ref}</span>
-					{/if}
-				</div>
-				<div class="text-sm text-text-muted">
-					Commit:
-					<span class="font-mono text-text">{payload.current.sha}</span>
-					{#if payload.current.subject}
-						<span class="text-text-muted"> — {payload.current.subject}</span>
-					{/if}
-				</div>
-				{#if payload.current.commit_unix}
-					<div class="text-sm text-text-muted">{formatDate(payload.current.commit_unix)}</div>
-				{/if}
-			</div>
-		{:else if loading}
-			<div class="mt-2 text-sm text-text-muted">Loading...</div>
-		{/if}
+	{/if}
+	{#snippet footer()}
 		{#if currentUpdate}
-			<div class="mt-3 flex items-center justify-between gap-3 border-t border-border pt-3">
-				<span class="text-sm text-text-muted">
-					New version available —
-					<span class="font-mono text-text">{currentUpdate.sha}</span>
-				</span>
-				<Button
-					variant="success"
-					disabled={updatingRef !== null}
-					loading={updatingRef === `${currentUpdate.kind}:${currentUpdate.name}`}
-					onclick={() => void applyUpdate(currentUpdate)}
-				>
-					Update
-				</Button>
-			</div>
+			<span class="mr-auto text-sm text-ink-muted">
+				A new version is out: <span class="font-mono text-ink">{currentUpdate.sha}</span>
+			</span>
+			<Button
+				variant="primary"
+				disabled={updatingRef !== null}
+				loading={updatingRef === `${currentUpdate.kind}:${currentUpdate.name}`}
+				onclick={() => void applyUpdate(currentUpdate)}
+			>
+				Update
+			</Button>
+		{:else}
+			<span class="mr-auto text-sm text-ink-muted">Up to date.</span>
 		{/if}
-	</div>
+	{/snippet}
+</Panel>
 
-	{#if payload?.fetch_error}
-		<Alert variant="warning">Could not fetch from origin: {payload.fetch_error}</Alert>
-	{/if}
-	{#if loadError}
-		<Alert variant="danger">{loadError}</Alert>
-	{/if}
-	{#if updateError}
-		<Alert variant="danger">{updateError}</Alert>
-	{/if}
-	{#if updateNotice}
-		<Alert variant="success">{updateNotice}</Alert>
-	{/if}
-	{#if depsWarning}
-		<Alert variant="warning">{depsWarning}</Alert>
-	{/if}
+{#if payload?.fetch_error}
+	<Alert tone="warning">Couldn't reach the software's source: {payload.fetch_error}</Alert>
+{/if}
+{#if loadError}
+	<Alert tone="danger">{loadError}</Alert>
+{/if}
+{#if updateError}
+	<Alert tone="danger">{updateError}</Alert>
+{/if}
+{#if updateNotice}
+	<Alert tone="success">{updateNotice}</Alert>
+{/if}
+{#if depsWarning}
+	<Alert tone="warning">{depsWarning}</Alert>
+{/if}
 
-	{#if payload && payload.available.length > 0}
-		<div class="border border-border">
-			<div class="border-b border-border bg-surface px-3 py-2">
-				<span class="text-sm font-medium text-text">Release channels</span>
-			</div>
-			<ul class="divide-y divide-border">
-				{#each payload.available as entry (entry.kind + entry.name)}
-					<li class="flex items-center gap-3 px-3 py-2.5">
-						{#if entry.kind === 'branch'}
-							<GitBranch size={14} class="shrink-0 text-text-muted" />
-						{:else}
-							<Tag size={14} class="shrink-0 text-text-muted" />
-						{/if}
-						<div class="min-w-0 flex-1">
-							<div class="flex items-center gap-2">
-								{#if entry.channel}
-									<span class="shrink-0 text-sm font-medium text-text capitalize">{entry.channel}</span>
-									<span class="truncate font-mono text-xs text-text-muted">{entry.name}</span>
-								{:else}
-									<span class="truncate font-mono text-sm text-text">{entry.name}</span>
-								{/if}
-								{#if entry.is_current && entry.up_to_date}
-									<span class="shrink-0 text-xs text-success">up to date</span>
-								{:else if entry.is_current}
-									<span class="shrink-0 text-xs text-text-muted">current</span>
-								{/if}
-							</div>
-							<div class="truncate text-xs text-text-muted">
-								<span class="font-mono">{entry.sha}</span>
-								— {entry.subject} · {formatDate(entry.commit_unix)}
-							</div>
+{#if payload && payload.available.length > 0}
+	<Panel title="Release channels" flush>
+		<ul class="divide-y divide-line">
+			{#each payload.available as entry (entry.kind + entry.name)}
+				<li class="flex items-center gap-3 px-(--pad-panel) py-(--pad-row)">
+					{#if entry.kind === 'branch'}
+						<GitBranch size={16} class="shrink-0 text-ink-muted" />
+					{:else}
+						<Tag size={16} class="shrink-0 text-ink-muted" />
+					{/if}
+					<div class="min-w-0 flex-1">
+						<div class="flex items-center gap-2">
+							{#if entry.channel}
+								<span class="shrink-0 text-sm font-medium text-ink capitalize">{entry.channel}</span>
+								<span class="truncate font-mono text-sm text-ink-muted">{entry.name}</span>
+							{:else}
+								<span class="truncate font-mono text-sm text-ink">{entry.name}</span>
+							{/if}
+							{#if entry.is_current && entry.up_to_date}
+								<Badge tone="success">Up to date</Badge>
+							{:else if entry.is_current}
+								<Badge>Running</Badge>
+							{/if}
 						</div>
-						{#if !entry.is_current}
-							<Button
-								variant="secondary"
-								size="sm"
-								disabled={updatingRef !== null}
-								loading={updatingRef === `${entry.kind}:${entry.name}`}
-								onclick={() => void applyUpdate(entry)}
-							>
-								{updatingRef === `${entry.kind}:${entry.name}` ? 'Switching...' : 'Switch'}
-							</Button>
-						{/if}
-					</li>
-				{/each}
-			</ul>
-		</div>
-	{/if}
+						<p class="truncate text-sm text-ink-muted">
+							<span class="font-mono">{entry.sha}</span>: {entry.subject}, {formatDate(entry.commit_unix)}
+						</p>
+					</div>
+					{#if !entry.is_current}
+						<Button
+							size="sm"
+							disabled={updatingRef !== null}
+							loading={updatingRef === `${entry.kind}:${entry.name}`}
+							onclick={() => void applyUpdate(entry)}
+						>
+							Switch
+						</Button>
+					{/if}
+				</li>
+			{/each}
+		</ul>
+	</Panel>
+{/if}
 
-	<p class="text-sm text-text-muted">
-		Updating checks out the selected version on this machine and restarts the backend. Machine
-		config (machine.toml, .env, sorting data) is never touched; local code edits are stashed, not
-		lost.
-	</p>
-</div>
+<p class="text-sm text-ink-muted">
+	Updating checks out the chosen version on this machine, builds its UI and restarts the backend. The
+	machine's own settings (machine.toml, .env, sorting data) are never touched, and local code edits
+	are stashed, not lost.
+</p>

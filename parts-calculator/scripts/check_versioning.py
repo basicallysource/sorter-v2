@@ -1,6 +1,6 @@
 """Guard the revision-tracking discipline in catalog/parts.json.
 
-VERSIONING.md defines the model this enforces. Two rules, both pure JSON plus
+VERSIONING.md defines the model this enforces. Three rules, all pure JSON plus
 one git read (the same HEAD~1 baseline check_generated_pins.py uses: the
 previous main commit on a push, the base branch on a PR's merge ref):
 
@@ -20,6 +20,13 @@ previous main commit on a push, the base branch on a PR's merge ref):
    new revision by definition and must bump its `version` with a new entry
    the same way.
 
+3. **Retired means out of the current machine.** A part, hardware item or
+   assembly with `retired_at` (a YYYY-MM-DD date) is invisible to the
+   current version and kept whole for the older ones. So no current line of
+   a live assembly may name it, no param may default to it, no live part
+   may require it, and it carries no quantities of its own. It is never
+   deleted: there is nothing further to do to a retired entry.
+
     python scripts/check_versioning.py [--base <ref>]
 
 Exits non-zero listing every violation.
@@ -27,6 +34,7 @@ Exits non-zero listing every violation.
 import argparse
 import collections
 import json
+import re
 import subprocess
 import sys
 from pathlib import Path
@@ -132,6 +140,36 @@ def check_change_stamps(manifest, prev):
     return bad
 
 
+def check_retired(manifest):
+    bad = []
+    nodes = manifest.get("parts", []) + manifest.get("assemblies", [])
+    retired = {n["id"] for n in nodes if "retired_at" in n}
+    for n in nodes:
+        if "retired_at" in n and not re.fullmatch(r"\d{4}-\d{2}-\d{2}", str(n["retired_at"])):
+            bad.append(f"{n['id']}: retired_at must be a YYYY-MM-DD date, got {n['retired_at']!r}")
+        if n["id"] in retired and (n.get("quantities") or n.get("sheet_qty")):
+            bad.append(f"{n['id']}: retired, but still carries quantities -- a retired entry "
+                       f"counts toward nothing")
+    for a in manifest.get("assemblies", []):
+        if a["id"] in retired:
+            continue
+        for line in a.get("lines") or []:
+            ref = line.get("part") or line.get("assembly")
+            if ref in retired:
+                bad.append(f"assembly {a['id']}: a current line names {ref}, which is retired "
+                           f"-- take it out of the line (stamp the assembly), or un-retire it")
+        for name, spec in (a.get("params") or {}).items():
+            if (spec or {}).get("default") in retired:
+                bad.append(f"assembly {a['id']} param {name}: defaults to a retired entry")
+    for p in manifest.get("parts", []):
+        if p["id"] in retired:
+            continue
+        for r in p.get("requires") or []:
+            if r.get("part") in retired:
+                bad.append(f"part {p['id']}: requires {r['part']}, which is retired")
+    return bad
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--base", default="HEAD~1",
@@ -140,7 +178,7 @@ def main():
     args = ap.parse_args()
 
     manifest = json.loads((HERE / "catalog" / "parts.json").read_text())
-    bad = check_breaking_bits(manifest)
+    bad = check_breaking_bits(manifest) + check_retired(manifest)
     prev = previous_manifest(args.base)
     if prev is not None:
         bad += check_change_stamps(manifest, prev)
@@ -151,7 +189,7 @@ def main():
             print(f"  {b}")
         print("\nThe model is defined in parts-calculator/VERSIONING.md.")
         sys.exit(1)
-    print("versioning discipline holds (breaking bits + change stamps)")
+    print("versioning discipline holds (breaking bits, change stamps, retired entries)")
 
 
 if __name__ == "__main__":

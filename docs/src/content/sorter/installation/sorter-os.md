@@ -1,33 +1,41 @@
 ---
 layout: default
-title: Install SorterOS
+title: Install the SorterOS image
 type: installation
 section: sorter
 slug: installation-sorter-os
-kicker: Installation — SorterOS
+kicker: Installation — SorterOS image
 lede: Flash an SD card, power on the Orange Pi, and put it on your WiFi from your phone. The Pi sets up the rest.
 permalink: /sorter/installation/sorter-os/
+og_image: https://assets.basically.website/sorter-docs/sorteros-first-load-sorter-ui-full-c7e8aae4ac07.png
 audience: self-hosting operator
 applies_to: sorteros v4.x
 last_verified: 2026-09-24
+tools_needed:
+  - A computer with a microSD card reader
+  - Balena Etcher
+  - A phone, or an Ethernet cable to your router
+parts_needed:
+  - part: microsd-32gb
+    qty: 1
 ---
 
 <div class="notice notice-warn">
   <strong>Orange Pi 5 only</strong>
-  <p>SorterOS runs on the <a href="{{ '/hardware/orange-pi-5/' | relative_url }}">Orange Pi 5</a> with 8 GB of memory or more.</p>
+  <p>The SorterOS image runs on the <a href="{{ '/hardware/orange-pi-5/' | relative_url }}">Orange Pi 5</a> with 8 GB of memory or more.</p>
 </div>
 
 ## What you need
 
-- An [Orange Pi 5]({{ '/hardware/orange-pi-5/' | relative_url }}) with 8 GB of memory or more
-- **A 32 GB or larger microSD card from a name brand, like Samsung** ([the SD card part](https://parts-calculator.basically.website/u/7fvo/)). The Pi writes to it all day, and cheap cards corrupt.
-- A computer with an SD card reader, and [Balena Etcher](https://etcher.balena.io/)
-  - On Windows, open Etcher with right-click, **Run as administrator**. Otherwise the flash can fail with "Error starting flasher sidecar process".
-- A phone and your WiFi's password, or an Ethernet cable to your router
+The [Orange Pi 5]({{ '/hardware/orange-pi-5/' | relative_url }}) already in the machine, with 8 GB of memory or more, and the card and tools above. You also need your WiFi's password, unless the machine is on a cable.
+
+**Buy the card from a name brand, like Samsung.** The Pi writes to it all day and cheap cards corrupt.
+
+**On Windows, open [Balena Etcher](https://etcher.balena.io/) with right-click, Run as administrator.** Otherwise the flash can fail with "Error starting flasher sidecar process".
 
 ## 1. Download
 
-Download the `.zip` from the latest **SorterOS** release on [GitHub](https://github.com/basicallysource/sorter-v2/releases).
+Download the `.zip` from the newest **SorterOS** release, the top one in [this list on GitHub](https://github.com/basicallysource/sorter-v2/releases?q=SorterOS&expanded=true).
 
 ## 2. Flash
 
@@ -35,7 +43,7 @@ In Balena Etcher: **Flash from file**, pick the `.zip`, **Select target**, pick 
 
 ## 3. Power on
 
-Put the card in the Orange Pi and power it on.
+Put the card in the Orange Pi and power it on. Power goes in at the USB-C socket marked `PWR IN`.
 
 **On Ethernet to your router?** The Pi goes online by itself. Skip to step 5.
 
@@ -73,7 +81,7 @@ No setup page? Stay on the `SorterOS-Setup` network and open [http://10.42.0.1](
 
 ## 5. Open the installation progress
 
-On a phone or computer on the same WiFi, open **[http://sorter.local](http://sorter.local)**. It shows SorterOS installing the Sorter software, which takes a few minutes.
+On a phone or computer on the same WiFi, open **[http://sorter.local](http://sorter.local)**. It shows the Pi installing SorterOS, which takes a few minutes.
 
 <div class="img-row">
   <figure>
@@ -82,23 +90,47 @@ On a phone or computer on the same WiFi, open **[http://sorter.local](http://sor
   </figure>
 </div>
 
-When it's ready, the page opens the Sorter UI by itself.
+When it's ready, the page opens the SorterOS UI by itself.
+
+## 6. If you fitted the WiFi module
+
+Nothing needs installing for the module itself: the driver is in the official Orange Pi Ubuntu image that SorterOS is built on, so a SorterOS machine picks it up on its own. Third-party OS images may not have the driver at all.
+
+Once the UI is up, the adapter shows under **Settings → WiFi**, which is where the network and password go in. Over SSH, `nmcli device wifi list` lists what it can see.
+
+**Take the adapter's address before you unplug the Ethernet.** Joining a network gets the machine a second address, different from the one it has been answering on, and once connected the adapter's row on that same WiFi page shows what it is. Write it down, then pull the Ethernet and browse to it. Doing it the other way round leaves you hunting for the machine, because the page you were reading goes with the cable.
+
+## 7. Shut it down before you unplug it
+
+**Never cut the power to a running board.** It writes files continuously, and pulling the plug mid-write can corrupt the card you just flashed.
+
+Press the small black button on the side of the Orange Pi once and leave it alone. Shutdown takes about a minute and a half, and it has finished when the red and green LEDs stop blinking. Only then unplug it. The button is a shutdown button, not a power switch: the board starts again the moment it has power, with no press needed.
+
+[Shutting down the machine]({{ '/sorter/safe-shutdown/' | relative_url }}) covers the same from the UI.
+
+## The finished result
+
+The SorterOS UI open in a browser, with nothing set up on the machine yet.
 
 <div class="img-row">
   <figure>
-    <img src="https://assets.basically.website/sorter-docs/sorteros-first-load-sorter-ui-full-c7e8aae4ac07.png" alt="The Sorter UI's dashboard the first time it loads: no camera assigned yet, no pieces, and the machine in standby with a Home button">
-    <figcaption>The Sorter UI, the first time it loads. <cite>Screenshot recorded in a browser.</cite></figcaption>
+    <img src="https://assets.basically.website/sorter-docs/sorteros-first-load-sorter-ui-full-c7e8aae4ac07.png" alt="The SorterOS UI's dashboard the first time it loads: no camera assigned yet, no pieces, and the machine in standby with a Home button">
+    <figcaption>The SorterOS UI, the first time it loads. <cite>Screenshot recorded in a browser.</cite></figcaption>
   </figure>
 </div>
 
-Then set the machine up with the setup wizard: in the Sorter UI, **Settings**, then **Open Setup Wizard**. [First setup in the UI]({{ '/sorter/first-setup/' | relative_url }}) goes through it.
+## Next
+
+**Flash the control board before you open the setup wizard.** The wizard only lists boards that already answer on USB serial, so a board with no firmware on it does not appear and the wizard says `No MCU buses found`. [Software setup]({{ '/hardware/software-setup/' | relative_url }}) step 2 has the route.
+
+Then set the machine up with the setup wizard: in the SorterOS UI, **Settings**, then **Open Setup Wizard**. [First setup in the UI]({{ '/sorter/first-setup/' | relative_url }}) goes through it.
 
 ## Debugging
 
 - **No `SorterOS-Setup` network.** It only appears while the Pi is offline. On a cable with internet, the Pi is already online: go to step 5.
 - **The setup page didn't open.** Open [http://10.42.0.1](http://10.42.0.1) in Safari or Chrome while on the setup network.
 - **Your phone left the setup network during the join** (it can on a WiFi that's only 5 GHz). Join it again to see the result.
-- **`sorter.local` doesn't open.** Use the address the setup page showed. Older Windows needs [Bonjour](https://support.apple.com/en-us/106380), and Android usually can't open `.local` names. A second SorterOS machine is `sorter-2.local`.
+- **`sorter.local` doesn't open.** Use the address the setup page showed. Older Windows needs [Bonjour](https://support.apple.com/en-us/106380), and Android usually can't open `.local` names. A second machine running the SorterOS image is `sorter-2.local`.
 - **Office or school WiFi** that asks for a username as well as a password can't be set up this way. Use Ethernet.
 
 More in [troubleshooting]({{ '/sorter/troubleshooting/' | relative_url }}#first-boot).
@@ -110,5 +142,5 @@ More in [troubleshooting]({{ '/sorter/troubleshooting/' | relative_url }}#first-
 ## Later
 
 - **New router or WiFi password.** When the Pi can't reach the internet for about a minute, its setup network comes back. Do step 4 again.
-- **Updates.** Settings, then Versions, in the Sorter UI. You only need a new SorterOS image when the image itself changes.
+- **Updates.** Settings, then Versions, in the SorterOS UI. You only need a new SorterOS image when the image itself changes.
 - **SSH.** User `root`, password `orangepi`.

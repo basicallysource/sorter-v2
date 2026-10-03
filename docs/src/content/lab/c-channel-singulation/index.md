@@ -76,4 +76,4 @@ The key insight: **the drops between stages are the primary separation mechanism
 
 - [Feeder experiments]({{ '/lab/feeder-experiments/' | relative_url }}) — the turntable and vibration approaches that preceded C-channels
 - [Object detection research]({{ '/lab/object-detection/' | relative_url }}) — the detector models that find pieces inside the classification chamber
-- [Sorter architecture]({{ '/sorter/architecture/' | relative_url }}) — how the C-channel control loop fits into the overall software
+- [SorterOS architecture]({{ '/sorter/architecture/' | relative_url }}) — how the C-channel control loop fits into the overall software

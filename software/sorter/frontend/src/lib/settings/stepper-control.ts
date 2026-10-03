@@ -1,4 +1,7 @@
-import type { MachineSetupKey, StepperKey } from '$lib/settings/stations';
+import type { StepperKey } from '$lib/settings/stations';
+
+// The two ways a stepper turns, in words.
+export const DIRECTION_WORDS = { cw: 'clockwise', ccw: 'counterclockwise' } as const;
 
 export type StepperPulseMode = 'duration' | 'degrees';
 
@@ -21,25 +24,12 @@ export const STEPPER_GEAR_RATIOS: Record<StepperKey, number> = {
 	c_channel_2: 130 / 12,
 	c_channel_3: 130 / 12,
 	c_channel_4: 130 / 12,
-	carousel: 1,
+	carousel: 130 / 12,
 	chute: 120 / 25
 };
 
-export const CLASSIFICATION_CHANNEL_STEPPER_LABEL = 'Classification C-Channel (C4)';
+export const CLASSIFICATION_CHANNEL_STEPPER_LABEL = 'Classification C-channel (C4)';
 export const CLASSIFICATION_CHANNEL_STEPPER_GEAR_RATIO = STEPPER_GEAR_RATIOS.c_channel_4;
-
-export function stepperGearRatioForSetup(
-	stepperKey: StepperKey,
-	machineSetup?: MachineSetupKey
-): number {
-	if (
-		stepperKey === 'c_channel_4' ||
-		(stepperKey === 'carousel' && machineSetup === 'classification_channel')
-	) {
-		return CLASSIFICATION_CHANNEL_STEPPER_GEAR_RATIO;
-	}
-	return STEPPER_GEAR_RATIOS[stepperKey] ?? 1;
-}
 
 export function stepperPulseStorageKey(stepperKey: StepperKey, field: string): string {
 	return `stepper:${stepperKey}:${field}`;
@@ -124,7 +114,7 @@ export async function triggerStoredStepperPulse(
 		if (!res.ok) {
 			throw new Error(await readStepperErrorMessage(res));
 		}
-		return `Moving ${settings.pulseDegrees}° ${direction.toUpperCase()}.`;
+		return `Moving ${settings.pulseDegrees}° ${DIRECTION_WORDS[direction]}.`;
 	}
 
 	const params = new URLSearchParams({
@@ -139,7 +129,7 @@ export async function triggerStoredStepperPulse(
 	if (!res.ok) {
 		throw new Error(await readStepperErrorMessage(res));
 	}
-	return `Pulsing ${direction.toUpperCase()}.`;
+	return `Pulsing ${DIRECTION_WORDS[direction]}.`;
 }
 
 async function readStepperErrorMessage(res: Response): Promise<string> {

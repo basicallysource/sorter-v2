@@ -1,3 +1,6 @@
+import { LEGO_COLORS, type LegoColor } from '$lib/lego-colors';
+import { onColor } from '$lib/theme';
+
 // The full BrickLink LEGO color palette, served by GET /api/pieces/colors and
 // used to populate the correction color picker. Cached per backend base so the
 // palette is fetched once per machine per session rather than on every open.
@@ -44,15 +47,26 @@ export function swatchHex(rgb: string | null | undefined): string | null {
 	return /^[0-9a-fA-F]{6}$/.test(trimmed) ? `#${trimmed}` : null;
 }
 
-// Readable text-on-swatch: white for dark colors, black for light. Mirrors the
-// luminance threshold used by lego-colors.ts.
+// Readable text on a swatch: white or ink, by contrast.
 export function swatchTextColor(rgb: string | null | undefined): string {
 	const hex = swatchHex(rgb);
-	if (!hex) return '#000000';
-	const r = parseInt(hex.slice(1, 3), 16) / 255;
-	const g = parseInt(hex.slice(3, 5), 16) / 255;
-	const b = parseInt(hex.slice(5, 7), 16) / 255;
-	const lin = (c: number) => (c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4);
-	const luminance = 0.2126 * lin(r) + 0.7152 * lin(g) + 0.0722 * lin(b);
-	return luminance > 0.3 ? '#000000' : '#ffffff';
+	return hex ? onColor(hex) : onColor('#ffffff');
+}
+
+// The LEGO color a piece's color id or name refers to (Brickognize and the
+// machine report either), or null when it is not one of LEGO_COLORS.
+export function findLegoColor(
+	color_id: string | null | undefined,
+	color_name: string | null | undefined
+): LegoColor | null {
+	if (color_id) {
+		const by_id = LEGO_COLORS.find((c) => c.id === color_id);
+		if (by_id) return by_id;
+	}
+	if (color_name) {
+		const lower = color_name.toLowerCase();
+		const by_name = LEGO_COLORS.find((c) => c.name.toLowerCase() === lower);
+		if (by_name) return by_name;
+	}
+	return null;
 }

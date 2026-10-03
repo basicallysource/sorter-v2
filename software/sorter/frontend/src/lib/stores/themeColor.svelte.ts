@@ -6,14 +6,14 @@
  * Locally we mirror it into a Svelte 5 rune so reactive UI bits (the swatch
  * grid in the wizard / settings) can highlight the active swatch.
  *
- * Applying a color = writing four CSS variables (`--color-primary`,
- * `--color-primary-hover`, `--color-primary-dark`, `--color-primary-contrast`)
- * onto `<html>`. Tailwind v4 utilities like `bg-primary` reference those vars,
- * so the entire UI re-skins instantly without a reload.
+ * Applying a color sets `--primary` on `<html>`, with the colors that depend
+ * on its contrast worked out from it ($lib/theme), so the entire UI re-skins
+ * instantly without a reload.
  */
 
 import { getBackendHttpBase } from '$lib/backend';
-import { applyLegoColorVars, DEFAULT_COLOR_ID, getLegoColor } from '$lib/lego-colors';
+import { DEFAULT_COLOR_ID, legoColor } from '$lib/lego-colors';
+import { applyPrimary } from '$lib/theme';
 import { userConfig } from '$lib/stores/userConfig.svelte';
 
 // Start from the last color the backend gave us (cached in localStorage) so the
@@ -22,7 +22,7 @@ import { userConfig } from '$lib/stores/userConfig.svelte';
 let currentColorId = $state(userConfig.colorId ?? DEFAULT_COLOR_ID);
 
 if (typeof document !== 'undefined') {
-	applyLegoColorVars(getLegoColor(currentColorId));
+	applyPrimary(legoColor(currentColorId).hex);
 }
 
 export function getCurrentThemeColorId(): string {
@@ -34,9 +34,9 @@ export function getCurrentThemeColorId(): string {
  * Does NOT persist to the backend — call `setThemeColor` for that.
  */
 function applyColorIdLocally(colorId: string): void {
-	const color = getLegoColor(colorId);
+	const color = legoColor(colorId);
 	currentColorId = color.id;
-	applyLegoColorVars(color);
+	applyPrimary(color.hex);
 }
 
 /**

@@ -68,7 +68,7 @@ def exportSocketEvent(output_path: str) -> None:
     generate_typescript_defs(
         "defs.events",
         output_path,
-        exclude=["ServerToMainThreadEvent", "MainThreadToServerCommand"],
+        exclude=["ServerToMainThreadEvent"],
         json2ts_cmd=json2tsCommand(),
     )
 

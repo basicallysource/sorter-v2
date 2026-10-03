@@ -1,12 +1,9 @@
 <script lang="ts">
     import '../app.css';
-    import { onMount } from 'svelte';
+    import '@fontsource-variable/geist';
+    import '@fontsource-variable/geist-mono';
 
     let { children } = $props();
-
-    onMount(() => {
-        document.documentElement.className = 'light';
-    });
 </script>
 
 {@render children?.()}

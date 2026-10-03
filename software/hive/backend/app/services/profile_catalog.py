@@ -1,16 +1,12 @@
 from __future__ import annotations
 
-import copy
 import csv
-import hashlib
 import io
-import json
 import os
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from threading import Event, Lock, Thread
-from types import SimpleNamespace
 from typing import Any
 
 from app.config import settings
@@ -18,8 +14,7 @@ from app.errors import APIError
 from app.services import bricklink
 from app.services.profile_engine import db as profile_db
 from app.services.profile_engine import parts_cache as profile_parts_cache
-from app.services.profile_engine import rule_engine as profile_rule_engine
-from app.services.profile_engine import sorting_profile as profile_sorting_profile
+from app.services.profile_engine.compiler import CatalogIndex, Compiled, catalog_index, compile_document, rule_matches
 from app.services.set_inventory import get_cached_inventory, get_cached_set, fetch_set_inventory, search_sets as _search_sets
 
 CUSTOM_SET_ANY_COLOR_ID = -1
@@ -645,110 +640,98 @@ class ProfileCatalogService:
             "suggested_name": suggested_name,
         }
 
-    def compile_document(self, document: dict[str, Any]) -> dict[str, Any]:
-        payload = normalize_profile_document(document)
+    def index(self) -> CatalogIndex:
+        index = catalog_index(self._parts_data)
+        if index.known_color_rows is None:
+            conn = getattr(self, "_conn", None)
+            pairs: list = []
+            if conn is not None:
+                try:
+                    with self._lock:
+                        pairs = conn.execute("SELECT item_no, bl_color_id FROM bricklink_item_colors").fetchall()
+                except Exception:
+                    pairs = []
+            index.set_known_colors(pairs)
+        return index
 
-        # Resolve set rules into BrickLink-keyed mappings and runtime inventories.
-        set_mappings, set_inventories = self._resolve_set_rule_data(payload.rules)
-        is_set_based = bool(set_inventories)
-
-        result = profile_rule_engine.generateProfile(
-            payload,
-            self._parts_data.parts,
-            self._parts_data.categories,
-            self._parts_data.bricklink_categories,
-            fallback_mode=payload.fallback_mode,
-            parts_generation=self._parts_data.generation,
-            rb_to_bl_color=self._parts_data.rb_to_bl_color,
-            set_mappings=set_mappings or None,
-        )
-        categories = build_category_metadata(payload.rules, result["stats"], self._parts_data)
-        artifact: dict[str, Any] = {
-            "schema_version": 1,
-            "id": str(document.get("id") or ""),
-            "name": payload.name,
-            "description": payload.description,
-            "profile_type": "set" if is_set_based else "rule",
-            "default_category_id": payload.default_category_id,
-            "fallback_mode": payload.fallback_mode,
-            "rules": payload.rules,
-            "categories": categories,
-            "part_to_category": result["part_to_category"],
-            "stats": result["stats"],
-        }
-        if set_inventories:
-            artifact["set_inventories"] = set_inventories
-        artifact_hash = hashlib.sha256(json.dumps(artifact, sort_keys=True, default=str).encode()).hexdigest()
-        artifact["artifact_hash"] = artifact_hash
-        total_parts = int(result["stats"].get("total_parts") or 0)
-        matched = int(result["stats"].get("matched") or 0)
-        coverage_ratio = (matched / total_parts) if total_parts else None
-        return {
-            "artifact": artifact,
-            "stats": result["stats"],
-            "artifact_hash": artifact_hash,
-            "compiled_part_count": len(result["part_to_category"]),
-            "coverage_ratio": coverage_ratio,
-        }
-
-    def preview_document(self, document: dict[str, Any]) -> dict[str, Any]:
-        return self.compile_document(document)["stats"]
+    def compile_document(self, document: dict[str, Any], kits: dict[str, dict[str, Any]] | None = None) -> Compiled:
+        """Compile a profile document. `kits` holds the kits its kit rules name,
+        by kit ID; a kit rule whose kit is missing compiles as an empty kit."""
+        inventories = self.resolve_inventories(document.get("rules") or [], kits or {})
+        return compile_document(document, self.index(), inventories)
 
     def preview_rule(
         self,
         *,
-        rule: dict[str, Any],
-        rules: list[dict[str, Any]] | None = None,
-        rule_id: str | None = None,
+        rules: list[dict[str, Any]],
+        rule_id: str,
         q: str = "",
         offset: int = 0,
         limit: int = 50,
         standalone: bool = False,
     ) -> dict[str, Any]:
-        payload_rule = copy.deepcopy(rule)
-        payload_rules = copy.deepcopy(rules or [])
-        profile_sorting_profile._migrateRules([payload_rule])
-        profile_sorting_profile._migrateRules(payload_rules)
-        ancestor_checks = []
-        if not standalone and rule_id:
-            fake_profile = SimpleNamespace(rules=payload_rules)
-            ancestor_checks = profile_sorting_profile.getAncestorChecks(fake_profile, rule_id)
-        return profile_rule_engine.previewRule(
-            payload_rule,
-            self._parts_data.parts,
-            categories=self._parts_data.categories,
-            bricklink_categories=self._parts_data.bricklink_categories,
-            limit=limit,
-            offset=offset,
-            q=q,
-            ancestor_checks=ancestor_checks,
-            parts_generation=self._parts_data.generation,
-        )
+        return rule_matches(rules, rule_id, self.index(), q=q, offset=offset, limit=limit, standalone=standalone)
 
-
-    def _resolve_set_rule_data(
+    def resolve_inventories(
         self,
         rules: list[dict[str, Any]],
-    ) -> tuple[dict[str, dict[str, str]], dict[str, dict[str, Any]]]:
-        """Resolve set rules into compile-time mappings and runtime inventories."""
-        set_mappings: dict[str, dict[str, str]] = {}
-        set_inventories: dict[str, dict[str, Any]] = {}
+        kits: dict[str, dict[str, Any]],
+    ) -> dict[str, dict[str, Any]]:
+        """The parts of each kit rule (and each set rule from before kits), in
+        the shape a sorter counts them in, keyed by rule ID."""
+        inventories: dict[str, dict[str, Any]] = {}
         for rule in rules:
-            if rule.get("disabled"):
+            if not isinstance(rule, dict) or rule.get("disabled"):
                 continue
-            if rule.get("rule_type") != "set":
-                continue
-            rule_id = str(rule["id"])
-            set_source = str(rule.get("set_source") or ("custom" if rule.get("custom_parts") else "rebrickable"))
-            if set_source == "custom":
-                mapping, inventory = self._compile_custom_set_rule(rule)
+            rule_id = str(rule.get("id") or "")
+            rule_type = rule.get("rule_type")
+            if rule_type == "kit":
+                kit = kits.get(str(rule.get("kit_id") or ""))
+                inventory = self.kit_inventory(kit, rule_id=rule_id, name=rule.get("name")) if kit else None
+            elif rule_type == "set":
+                set_source = str(rule.get("set_source") or ("custom" if rule.get("custom_parts") else "rebrickable"))
+                if set_source == "custom":
+                    _, inventory = self._compile_custom_set_rule(rule)
+                else:
+                    _, inventory = self._compile_rebrickable_set_rule(rule)
             else:
-                mapping, inventory = self._compile_rebrickable_set_rule(rule)
-            if not inventory:
                 continue
-            set_mappings[rule_id] = mapping
-            set_inventories[rule_id] = inventory
-        return set_mappings, set_inventories
+            if inventory:
+                inventories[rule_id] = inventory
+        return inventories
+
+    def kit_inventory(self, kit: dict[str, Any], *, rule_id: str, name: str | None = None) -> dict[str, Any]:
+        parts: list[dict[str, Any]] = []
+        for raw in kit.get("parts") or []:
+            if not isinstance(raw, dict):
+                continue
+            compiled = self._compile_inventory_part(
+                part_num=raw.get("part_num"),
+                color_id=raw.get("color_id", CUSTOM_SET_ANY_COLOR_ID),
+                quantity=raw.get("quantity"),
+                part_name=raw.get("part_name"),
+                color_name=raw.get("color_name"),
+                img_url=raw.get("img_url"),
+                allow_any_color=True,
+                require_known_part=False,
+                require_known_color=False,
+                identifier_source=str(raw.get("part_source") or "rebrickable"),
+            )
+            if compiled is not None:
+                parts.append(compiled)
+        set_meta = kit.get("set_meta") if isinstance(kit.get("set_meta"), dict) else {}
+        return {
+            "rule_id": rule_id,
+            "kit_id": str(kit.get("id")),
+            "set_num": kit.get("set_num") or f"kit:{kit.get('id')}",
+            "name": str(name or kit.get("name") or "Kit"),
+            "img_url": kit.get("image_url") or set_meta.get("img_url"),
+            "year": set_meta.get("year"),
+            "num_parts": sum(int(part["quantity"]) for part in parts),
+            "include_spares": bool(kit.get("include_spares", False)),
+            "set_source": "kit",
+            "parts": parts,
+        }
 
     def _compile_rebrickable_set_rule(self, rule: dict[str, Any]) -> tuple[dict[str, str], dict[str, Any] | None]:
         set_num = str(rule.get("set_num") or "").strip()
@@ -1044,79 +1027,19 @@ class ProfileCatalogService:
         }
 
 
-def normalize_profile_document(document: dict[str, Any]) -> SimpleNamespace:
-    payload = SimpleNamespace(
-        id=str(document.get("id") or ""),
-        name=str(document.get("name") or "Untitled Profile"),
-        description=str(document.get("description") or ""),
-        default_category_id=str(document.get("default_category_id") or "misc"),
-        rules=copy.deepcopy(document.get("rules") or []),
-        fallback_mode=normalize_fallback_mode(document.get("fallback_mode")),
-    )
-    profile_sorting_profile._migrateRules(payload.rules)
-    return payload
-
-
-def normalize_fallback_mode(raw: Any) -> dict[str, bool]:
-    raw_dict = raw if isinstance(raw, dict) else {}
-    return {
-        "rebrickable_categories": bool(raw_dict.get("rebrickable_categories", False)),
-        "bricklink_categories": bool(raw_dict.get("bricklink_categories", False)),
-        "by_color": bool(raw_dict.get("by_color", False)),
-    }
-
-
-def build_category_metadata(rules: list[dict[str, Any]], stats: dict[str, Any], parts_data: Any) -> dict[str, dict[str, str]]:
-    categories: dict[str, dict[str, str]] = {}
-    for rule in rules:
-        rule_id = str(rule.get("id") or "")
-        if not rule_id:
-            continue
-        if rule.get("rule_type") == "set":
-            meta: dict[str, str] = {"name": str(rule.get("name") or rule_id)}
-            set_meta = rule.get("set_meta")
-            set_source = str(rule.get("set_source") or ("custom" if rule.get("custom_parts") else "rebrickable"))
-            meta["set_source"] = set_source
-            if isinstance(set_meta, dict):
-                if set_meta.get("img_url"):
-                    meta["set_img_url"] = str(set_meta["img_url"])
-                elif set_meta.get("set_img_url"):
-                    meta["set_img_url"] = str(set_meta["set_img_url"])
-                if set_meta.get("year") is not None:
-                    meta["year"] = str(set_meta["year"])
-                if set_meta.get("num_parts") is not None:
-                    meta["num_parts"] = str(set_meta["num_parts"])
-            if rule.get("set_num"):
-                meta["set_num"] = str(rule["set_num"])
-            categories[rule_id] = meta
-        else:
-            categories[rule_id] = {"name": str(rule.get("name") or rule_id)}
-    per_category = stats.get("per_category") if isinstance(stats, dict) else {}
-    if isinstance(per_category, dict):
-        for cat_id in per_category:
-            cat_id_str = str(cat_id)
-            if cat_id_str in categories:
-                continue
-            if cat_id_str.startswith("rb_"):
-                rb_cat = parts_data.categories.get(int(cat_id_str[3:]))
-                categories[cat_id_str] = {"name": rb_cat["name"] if rb_cat else cat_id_str}
-            elif cat_id_str.startswith("bl_"):
-                bl_cat = parts_data.bricklink_categories.get(int(cat_id_str[3:]))
-                categories[cat_id_str] = {
-                    "name": bl_cat.get("category_name", cat_id_str) if isinstance(bl_cat, dict) else cat_id_str
-                }
-            else:
-                categories[cat_id_str] = {"name": cat_id_str}
-    return categories
-
-
 _catalog_service: ProfileCatalogService | None = None
+# Building the service loads the catalog and rebuilds its search index, a
+# write: requests that arrive together after a start must wait for one build,
+# not each start their own and find the database locked.
+_catalog_service_lock = Lock()
 
 
 def get_profile_catalog_service() -> ProfileCatalogService:
     global _catalog_service
     if _catalog_service is None:
-        _catalog_service = ProfileCatalogService()
+        with _catalog_service_lock:
+            if _catalog_service is None:
+                _catalog_service = ProfileCatalogService()
     return _catalog_service
 
 

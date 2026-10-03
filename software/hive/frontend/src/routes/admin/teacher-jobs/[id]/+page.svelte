@@ -5,7 +5,16 @@
 	import { auth } from '$lib/auth.svelte';
 	import { api, type TeacherJobDetail, type TeacherJobItemSummary } from '$lib/api';
 	import Spinner from '$lib/components/Spinner.svelte';
-	import { Button } from '$lib/components/primitives';
+	import { sentence } from '$lib/text';
+	import Alert from '$lib/components/Alert.svelte';
+	import Badge from '$lib/components/Badge.svelte';
+	import EmptyState from '$lib/components/EmptyState.svelte';
+	import PageHeader from '$lib/components/PageHeader.svelte';
+	import Panel from '$lib/components/Panel.svelte';
+	import ProgressBar from '$lib/components/ProgressBar.svelte';
+	import SegmentedControl from '$lib/components/SegmentedControl.svelte';
+	import ArrowLeft from '@lucide/svelte/icons/arrow-left';
+	import Button from '$lib/components/Button.svelte';
 
 	const REFRESH_MS = 3000;
 	const PAGE_SIZE = 50;
@@ -88,29 +97,24 @@
 
 	const pct = $derived(job && job.total > 0 ? Math.round((job.processed / job.total) * 100) : 0);
 
-	function statusBadge(status: string): string {
+	function statusTone(status: string): 'primary' | 'info' | 'success' | 'warning' | 'neutral' {
 		switch (status) {
-			case 'queued':
-				return 'bg-info text-white';
 			case 'running':
-				return 'bg-primary text-white';
-			case 'done':
-				return 'bg-success text-white';
-			case 'error':
-				return 'bg-warning-strong text-bg';
-			case 'skipped':
-				return 'bg-border text-text';
+				return 'primary';
 			case 'pending':
-				return 'bg-info text-white';
-			case 'cancelled':
-				return 'bg-border text-text';
+			case 'queued':
+				return 'info';
+			case 'done':
+				return 'success';
+			case 'error':
+				return 'warning';
 			default:
-				return 'bg-bg text-text';
+				return 'neutral';
 		}
 	}
 
 	function formatDate(iso: string | null): string {
-		if (!iso) return '—';
+		if (!iso) return '-';
 		return new Date(iso).toLocaleString('en-US', {
 			day: '2-digit',
 			month: '2-digit',
@@ -148,7 +152,7 @@
 	}
 
 	function formatUsd(value: number | null | undefined): string {
-		if (value == null) return '—';
+		if (value == null) return '-';
 		if (value === 0) return '$0.00';
 		if (Math.abs(value) < 0.01) return `$${value.toFixed(4)}`;
 		return `$${value.toFixed(2)}`;
@@ -156,203 +160,130 @@
 </script>
 
 <svelte:head>
-	<title>Teacher Job - Hive</title>
+	<title>Teacher job - Hive</title>
 </svelte:head>
 
-<div class="mb-6 flex items-end justify-between gap-3">
-	<div class="min-w-0">
-		<div class="mb-1 text-xs text-text-muted">
-			<a href="/samples" class="hover:underline">Samples</a>
-			<span class="mx-1">/</span>
-			<a href="/admin/teacher-jobs" class="hover:underline">Teacher Jobs</a>
-			<span class="mx-1">/</span>
-			<span class="font-mono">{jobId.slice(0, 8)}</span>
-		</div>
-		<h1 class="text-2xl font-bold text-text">Teacher Job Detail</h1>
-		{#if job}
-			<p class="mt-1 text-sm text-text-muted">
-				{job.openrouter_model} · created {formatDate(job.created_at)}
-				{#if job.finished_at}· finished {formatDate(job.finished_at)}{/if}
-			</p>
-		{/if}
-	</div>
-	<div class="flex items-center gap-2">
-		{#if job?.status === 'pending' || job?.status === 'running'}
-			<Button variant="secondary" size="sm" onclick={cancelJob}>Cancel job</Button>
-		{/if}
-	</div>
+<div>
+	<Button href="/admin/teacher-jobs" size="sm" variant="ghost" icon={ArrowLeft}>Teacher jobs</Button>
 </div>
+
+<PageHeader
+	title={`Teacher job ${jobId.slice(0, 8)}`}
+	description={job
+		? `${job.openrouter_model}. Started ${formatDate(job.created_at)}${job.finished_at ? `, finished ${formatDate(job.finished_at)}` : ''}.`
+		: undefined}
+>
+	{#snippet actions()}
+		{#if job?.status === 'pending' || job?.status === 'running'}
+			<Button onclick={cancelJob}>Cancel job</Button>
+		{/if}
+	{/snippet}
+</PageHeader>
 
 {#if loading && !job}
 	<div class="flex justify-center p-8"><Spinner size={32} /></div>
 {:else if error && !job}
-	<div class="border border-border bg-surface px-6 py-12 text-center text-sm text-text-muted">
-		{error}
-	</div>
+	<Alert tone="danger">{error}</Alert>
 {:else if job}
-	<div class="mb-5 border border-border bg-surface">
-		<div class="flex flex-wrap items-center gap-3 border-b border-border px-4 py-2.5">
-			<span class="px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider {statusBadge(job.status)}">
-				{job.status}
-			</span>
-			<span class="tabular-nums text-sm font-medium text-text">{job.processed}/{job.total}</span>
-			<span class="text-xs text-text-muted">{pct}%</span>
-			<span
-				class="tabular-nums text-xs text-text"
-				title="Real billed cost from OpenRouter so far"
-			>
-				{formatUsd(job.cost_usd)}
-				{#if job.cost_usd_estimated_total != null && job.status !== 'done' && job.status !== 'cancelled'}
-					<span class="text-text-muted">/ est. {formatUsd(job.cost_usd_estimated_total)}</span>
-				{/if}
-			</span>
-			<div class="ml-auto flex flex-wrap gap-3 text-[11px]">
-				<span><span class="font-semibold text-info">{statusCount('queued')}</span> <span class="text-text-muted">queued</span></span>
-				<span><span class="font-semibold text-primary">{statusCount('running')}</span> <span class="text-text-muted">running</span></span>
-				<span><span class="font-semibold text-success">{statusCount('done')}</span> <span class="text-text-muted">done</span></span>
-				{#if statusCount('error') > 0}
-					<span><span class="font-semibold text-warning-strong">{statusCount('error')}</span> <span class="text-text-muted">error</span></span>
-				{/if}
-				{#if statusCount('skipped') > 0}
-					<span><span class="font-semibold text-text-muted">{statusCount('skipped')}</span> <span class="text-text-muted">skipped</span></span>
-				{/if}
-			</div>
-		</div>
-		<div class="h-1.5 bg-bg">
-			<div
-				class="h-full transition-[width] duration-300 {job.status === 'cancelled' ? 'bg-border' : 'bg-primary'}"
-				style="width: {pct}%"
-			></div>
-		</div>
-		<div class="flex flex-wrap items-center gap-2 px-4 py-2 text-[11px]">
-			{#each filterChips(job.filter as Record<string, unknown> | null | undefined) as [key, value] (key)}
-				<span class="border border-border bg-bg px-1.5 py-0.5 text-text-muted">
-					{key}=<span class="text-text">{value}</span>
-				</span>
-			{:else}
-				<span class="text-text-muted">no filter (all samples)</span>
-			{/each}
-			{#if job.last_error}
-				<span class="ml-auto text-warning-strong">last error: {job.last_error}</span>
+	<!-- The pages of the samples, a footer only when there is more than one. -->
+	{#snippet pager()}
+		{@const j = job!}
+		<span class="num mr-auto text-sm text-ink-muted"
+			>Page {j.items_page} of {j.items_pages}: {(j.items_page - 1) * j.items_page_size + 1} to {Math.min(
+				j.items_page * j.items_page_size,
+				j.items_total
+			)} of {j.items_total.toLocaleString()}</span
+		>
+		<Button size="sm" disabled={j.items_page <= 1} onclick={() => goToPage(j.items_page - 1)}>Previous</Button>
+		{#each Array.from({ length: j.items_pages }, (_, i) => i + 1) as p (p)}
+			{#if j.items_pages <= 7 || p === 1 || p === j.items_pages || (p >= j.items_page - 1 && p <= j.items_page + 1)}
+				<Button size="sm" variant={p === j.items_page ? 'primary' : 'ghost'} onclick={() => goToPage(p)}>{p}</Button>
+			{:else if p === 2 || p === j.items_pages - 1}
+				<span class="text-sm text-ink-muted">...</span>
 			{/if}
-		</div>
-	</div>
-
-	<section>
-		<div class="mb-3 flex flex-wrap items-end justify-between gap-3">
-			<div>
-				<h2 class="text-sm font-semibold uppercase tracking-wider text-text">
-					Items
-				</h2>
-				<p class="text-[11px] text-text-muted">
-					{job.items_total.toLocaleString()} match{job.items_total === 1 ? '' : 'es'}
-					{itemsFilter !== 'all' ? ` (filtered to ${itemsFilter})` : ''}
-				</p>
+		{/each}
+		<Button size="sm" disabled={j.items_page >= j.items_pages} onclick={() => goToPage(j.items_page + 1)}>Next</Button>
+	{/snippet}
+	<div class="flex flex-col gap-(--gap-panels)">
+		<Panel flush>
+			<div class="flex flex-wrap items-center gap-3 px-(--pad-panel) py-3 text-sm">
+				<Badge tone={statusTone(job.status)} dot>{sentence(job.status)}</Badge>
+				<span class="num font-medium text-ink">{job.processed} of {job.total}</span>
+				<span class="num text-ink-muted">{pct}%</span>
+				<span class="num text-ink" title="What OpenRouter has billed so far"
+					>{formatUsd(job.cost_usd)}{#if job.cost_usd_estimated_total != null && job.status !== 'done' && job.status !== 'cancelled'}<span
+							class="text-ink-muted">, about {formatUsd(job.cost_usd_estimated_total)} in all</span
+						>{/if}</span
+				>
+				<div class="num ml-auto flex flex-wrap gap-3 text-ink-muted">
+					<span><span class="text-info-ink">{statusCount('queued')}</span> queued</span>
+					<span><span class="text-primary-ink">{statusCount('running')}</span> running</span>
+					<span><span class="text-success-ink">{statusCount('done')}</span> done</span>
+					{#if statusCount('error') > 0}<span><span class="text-warning-ink">{statusCount('error')}</span> failed</span>{/if}
+					{#if statusCount('skipped') > 0}<span><span class="text-ink">{statusCount('skipped')}</span> skipped</span>{/if}
+				</div>
 			</div>
-			<div class="flex flex-wrap items-center gap-1 bg-bg p-1">
-				{#each FILTER_OPTIONS as opt (opt)}
-					{@const opt_count = opt === 'all' ? job.total : statusCount(opt)}
-					<button
-						type="button"
-						onclick={() => setFilter(opt)}
-						class="px-2.5 py-1 text-xs font-medium transition-colors {itemsFilter === opt ? 'bg-surface text-text' : 'text-text-muted hover:text-text'}"
-					>
-						{opt}
-						<span class="ml-1 tabular-nums text-text-muted">{opt_count.toLocaleString()}</span>
-					</button>
+			<div class="px-(--pad-panel) pb-3">
+				<ProgressBar label="Job progress" value={pct} />
+			</div>
+			<div class="flex flex-wrap items-center gap-2 border-t border-line px-(--pad-panel) py-3 text-sm">
+				{#each filterChips(job.filter as Record<string, unknown> | null | undefined) as [key, value] (key)}
+					<Badge>{key} <span class="text-ink">{value}</span></Badge>
+				{:else}
+					<span class="text-ink-muted">Every sample, no filter</span>
 				{/each}
 			</div>
-		</div>
-		{#if job.items.length === 0}
-			<div class="border border-border bg-surface px-6 py-8 text-center text-sm text-text-muted">
-				{#if itemsFilter === 'all'}
-					No items in this job.
-				{:else}
-					No items with status <span class="font-mono">{itemsFilter}</span>.
-				{/if}
-			</div>
-		{:else}
-			{@render itemGrid(job.items)}
-		{/if}
-
-		{#if job.items_pages > 1}
-			{@const j = job}
-			<div class="mt-4 flex flex-wrap items-center justify-between gap-x-3 gap-y-2 border border-border bg-surface px-4 py-2.5 text-xs">
-				<span class="text-text-muted">
-					Page {j.items_page} of {j.items_pages} · showing
-					{(j.items_page - 1) * j.items_page_size + 1}–{Math.min(j.items_page * j.items_page_size, j.items_total)}
-					of {j.items_total.toLocaleString()}
-				</span>
-				<div class="flex flex-wrap items-center gap-1">
-					<button
-						type="button"
-						onclick={() => goToPage(j.items_page - 1)}
-						disabled={j.items_page <= 1}
-						class="border border-border px-3 py-1.5 text-xs font-medium text-text hover:bg-bg disabled:opacity-30"
-					>
-						Previous
-					</button>
-					{#each Array.from({ length: j.items_pages }, (_, i) => i + 1) as p}
-						{#if j.items_pages <= 7 || p === 1 || p === j.items_pages || (p >= j.items_page - 1 && p <= j.items_page + 1)}
-							<button
-								type="button"
-								onclick={() => goToPage(p)}
-								class="min-w-[32px] px-2.5 py-1.5 text-xs font-medium {p === j.items_page ? 'bg-primary text-white' : 'text-text hover:bg-bg'}"
-							>
-								{p}
-							</button>
-						{:else if p === 2 || p === j.items_pages - 1}
-							<span class="px-1 text-text-muted">…</span>
-						{/if}
-					{/each}
-					<button
-						type="button"
-						onclick={() => goToPage(j.items_page + 1)}
-						disabled={j.items_page >= j.items_pages}
-						class="border border-border px-3 py-1.5 text-xs font-medium text-text hover:bg-bg disabled:opacity-30"
-					>
-						Next
-					</button>
-				</div>
-			</div>
-		{/if}
-	</section>
-{/if}
-
-{#snippet itemRow(item: TeacherJobItemSummary)}
-	<a
-		href={sampleHref(item.sample_id)}
-		class="flex items-center gap-3 border border-border bg-surface px-3 py-2 transition-colors hover:border-primary"
-	>
-		<img
-			src={sampleThumbUrl(item.sample_id)}
-			alt=""
-			loading="lazy"
-			class="h-10 w-10 shrink-0 border border-border object-cover"
-		/>
-		<div class="min-w-0 flex-1">
-			<div class="truncate font-mono text-[11px] text-text-muted">{item.sample_id.slice(0, 8)}</div>
-			{#if item.error_message}
-				<div class="truncate text-[11px] text-warning-strong" title={item.error_message}>{item.error_message}</div>
-			{:else if item.detection_count != null}
-				<div class="text-[11px] text-text-muted">
-					{item.detection_count} piece{item.detection_count === 1 ? '' : 's'}
-					{#if item.processed_at}· {formatDate(item.processed_at)}{/if}
-				</div>
-			{:else if item.processed_at}
-				<div class="text-[11px] text-text-muted">{formatDate(item.processed_at)}</div>
+			{#if job.last_error}
+				<div class="px-(--pad-panel) pb-3"><Alert tone="warning" title="Last error">{job.last_error}</Alert></div>
 			{/if}
-		</div>
-		<span class="px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider {statusBadge(item.status)}">
-			{item.status}
-		</span>
-	</a>
-{/snippet}
+		</Panel>
 
-{#snippet itemGrid(items: TeacherJobItemSummary[])}
-	<div class="grid gap-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-		{#each items as item (item.id)}
-			{@render itemRow(item)}
-		{/each}
+		<Panel
+			title="Samples"
+			description={`${job.items_total.toLocaleString()} match${job.items_total === 1 ? '' : 'es'}${itemsFilter !== 'all' ? `, ${itemsFilter} only` : ''}.`}
+			footer={job.items_pages > 1 ? pager : undefined}
+		>
+			{#snippet actions()}
+				<SegmentedControl
+					label="Show"
+					size="sm"
+					value={itemsFilter}
+					onchange={setFilter}
+					options={FILTER_OPTIONS.map((opt) => ({
+						value: opt,
+						label: `${sentence(opt)} ${(opt === 'all' ? job!.total : statusCount(opt)).toLocaleString()}`
+					}))}
+				/>
+			{/snippet}
+			{#if job.items.length === 0}
+				<EmptyState title={itemsFilter === 'all' ? 'No samples in this job' : `No ${itemsFilter} samples`} />
+			{:else}
+				<div class="grid gap-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+					{#each job.items as item (item.id)}
+						<a
+							href={sampleHref(item.sample_id)}
+							class="flex items-center gap-3 rounded-control bg-well px-3 py-2 transition-colors hover:bg-hover"
+						>
+							<img src={sampleThumbUrl(item.sample_id)} alt="" loading="lazy" class="size-10 shrink-0 rounded-control bg-media object-cover" />
+							<span class="min-w-0 flex-1">
+								<span class="block truncate font-mono text-sm text-ink-muted">{item.sample_id.slice(0, 8)}</span>
+								{#if item.error_message}
+									<span class="block truncate text-sm text-warning-ink" title={item.error_message}>{item.error_message}</span>
+								{:else if item.detection_count != null}
+									<span class="num block text-sm text-ink-muted"
+										>{item.detection_count} piece{item.detection_count === 1 ? '' : 's'}{#if item.processed_at}, {formatDate(
+												item.processed_at
+											)}{/if}</span
+									>
+								{:else if item.processed_at}
+									<span class="block text-sm text-ink-muted">{formatDate(item.processed_at)}</span>
+								{/if}
+							</span>
+							<Badge tone={statusTone(item.status)}>{sentence(item.status)}</Badge>
+						</a>
+					{/each}
+				</div>
+			{/if}
+		</Panel>
 	</div>
-{/snippet}
+{/if}

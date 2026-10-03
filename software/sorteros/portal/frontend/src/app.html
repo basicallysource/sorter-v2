@@ -5,8 +5,19 @@
 		<meta name="viewport" content="width=device-width, initial-scale=1" />
 		<meta name="color-scheme" content="light dark" />
 		<meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)" />
-		<meta name="theme-color" content="#1a1918" media="(prefers-color-scheme: dark)" />
+		<meta name="theme-color" content="#1b1b19" media="(prefers-color-scheme: dark)" />
 		<title>Sorter setup</title>
+		<script>
+			// Light or dark follows the phone, before the first paint and as it changes.
+			(function () {
+				var dark = matchMedia('(prefers-color-scheme: dark)');
+				var apply = function () {
+					document.documentElement.classList.toggle('dark', dark.matches);
+				};
+				apply();
+				if (dark.addEventListener) dark.addEventListener('change', apply);
+			})();
+		</script>
 		%sveltekit.head%
 	</head>
 	<body>

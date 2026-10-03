@@ -2,11 +2,11 @@
 
 from __future__ import annotations
 
-import hashlib
 import json
 from types import SimpleNamespace
 from uuid import UUID
 
+import app.routers.kits as kits_router
 import app.routers.profiles as profiles_router
 from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session
@@ -16,6 +16,7 @@ from app.models.machine_set_progress import MachineSetProgress
 from app.models.sorting_profile_ai_message import SortingProfileAiMessage
 from app.models.user import User
 from app.services.profile_ai import AiProposalResult
+from app.services.profile_catalog import ProfileCatalogService
 from tests.conftest import _auth_headers, _login_user, _register_user
 
 
@@ -52,99 +53,43 @@ def _set_rule(rule_id: str, name: str, set_num: str) -> dict:
     }
 
 
-class _DummyCatalogService:
-    def __init__(self, part_defs_by_set: dict[str, list[tuple[str, int, int]]]) -> None:
-        self._part_defs_by_set = part_defs_by_set
-
-    def compile_document(self, document: dict[str, object]) -> dict[str, object]:
-        rules = document.get("rules") if isinstance(document, dict) else []
-        fallback_mode = document.get("fallback_mode") if isinstance(document, dict) else {}
-        if not isinstance(rules, list):
-            rules = []
-        if not isinstance(fallback_mode, dict):
-            fallback_mode = {}
-
-        categories: dict[str, dict[str, str]] = {}
-        part_to_category: dict[str, str] = {}
-        set_inventories: dict[str, dict[str, object]] = {}
-
-        for raw_rule in rules:
-            if not isinstance(raw_rule, dict):
-                continue
-            rule_id = str(raw_rule.get("id") or "")
-            if not rule_id:
-                continue
-            rule_name = str(raw_rule.get("name") or rule_id)
-            categories[rule_id] = {"name": rule_name}
-            if raw_rule.get("rule_type") != "set":
-                continue
-
-            set_num = str(raw_rule.get("set_num") or f"custom:{rule_id}")
-            if raw_rule.get("set_source") == "custom" or raw_rule.get("custom_parts"):
-                raw_custom_parts = raw_rule.get("custom_parts")
-                if not isinstance(raw_custom_parts, list):
-                    raw_custom_parts = []
-                parts = [
-                    {
-                        "part_num": str(part.get("part_num") or ""),
-                        "color_id": int(part.get("color_id") if part.get("color_id") is not None else -1),
-                        "quantity": int(part.get("quantity") or 0),
-                        "part_name": part.get("part_name"),
-                        "color_name": part.get("color_name"),
-                    }
-                    for part in raw_custom_parts
-                    if isinstance(part, dict) and part.get("part_num")
-                ]
-            else:
-                if not set_num:
-                    continue
-                part_defs = self._part_defs_by_set.get(set_num, [])
-                parts = [
-                    {"part_num": part_num, "color_id": color_id, "quantity": quantity}
-                    for part_num, color_id, quantity in part_defs
-                ]
-            set_inventories[rule_id] = {
-                "rule_id": rule_id,
-                "set_num": set_num,
-                "name": str(raw_rule.get("name") or set_num),
-                "set_source": raw_rule.get("set_source") or ("custom" if raw_rule.get("custom_parts") else "rebrickable"),
-                "parts": parts,
+def _catalog(sets: dict[str, list[tuple[str, int, int]]]) -> ProfileCatalogService:
+    """The real catalog service over a few made-up parts, colors and sets."""
+    service = ProfileCatalogService.__new__(ProfileCatalogService)
+    part_nums = {"2780", "32054", "3001", "3002", "3003"} | {part for lines in sets.values() for part, _, _ in lines}
+    service._parts_data = SimpleNamespace(
+        parts={
+            part: {
+                "part_num": part,
+                "name": f"Part {part}",
+                "part_cat_id": 11,
+                "part_img_url": None,
+                "external_ids": {"BrickLink": [part]},
             }
-            for part in parts:
-                color_key = "any_color" if int(part["color_id"]) == -1 else str(part["color_id"])
-                key = f"{color_key}-{part['part_num']}"
-                part_to_category.setdefault(key, rule_id)
+            for part in sorted(part_nums)
+        },
+        categories={11: {"name": "Bricks"}},
+        bricklink_categories={},
+        colors={
+            5: {"name": "Red", "rgb": "C91A09", "external_ids": {"BrickLink": {"ext_ids": [5]}}},
+            7: {"name": "Blue", "rgb": "0055BF", "external_ids": {"BrickLink": {"ext_ids": [7]}}},
+        },
+        rb_to_bl_color={5: 5, 7: 7},
+        bl_to_rb_part={part: part for part in part_nums},
+        generation=len(sets) + 1000,
+    )
 
-        artifact: dict[str, object] = {
-            "schema_version": 1,
-            "id": str(document.get("id") or ""),
-            "name": str(document.get("name") or "Test Profile"),
-            "description": document.get("description"),
-            "profile_type": "set" if set_inventories else "rule",
-            "default_category_id": str(document.get("default_category_id") or "misc"),
-            "fallback_mode": fallback_mode,
-            "rules": rules,
-            "categories": categories,
-            "part_to_category": part_to_category,
-            "stats": {
-                "total_parts": len(part_to_category),
-                "matched": len(part_to_category),
-                "unmatched": 0,
-                "per_category": {},
-            },
-        }
-        if set_inventories:
-            artifact["set_inventories"] = set_inventories
-
-        artifact_hash = hashlib.sha256(json.dumps(artifact, sort_keys=True, default=str).encode()).hexdigest()
-        artifact["artifact_hash"] = artifact_hash
+    def get_set_inventory(set_num: str) -> dict:
         return {
-            "artifact": artifact,
-            "artifact_hash": artifact_hash,
-            "stats": artifact["stats"],
-            "compiled_part_count": len(part_to_category),
-            "coverage_ratio": 1.0 if part_to_category else None,
+            "set": {"set_num": set_num, "name": f"Set {set_num}", "year": 2024, "num_parts": 3, "img_url": None},
+            "inventory": [
+                {"part_num": part, "color_id": color, "quantity": quantity, "part_name": f"Part {part}", "color_name": None, "part_img_url": None, "is_spare": False}
+                for part, color, quantity in sets.get(set_num, [])
+            ],
         }
+
+    service.get_set_inventory = get_set_inventory
+    return service
 
 
 def _create_profile(client: TestClient, auth_headers: dict[str, str], **overrides: object) -> dict:
@@ -246,7 +191,7 @@ class TestProfileSettings:
         monkeypatch.setattr(
             profiles_router,
             "get_profile_catalog_service",
-            lambda: _DummyCatalogService({}),
+            lambda: _catalog({}),
         )
 
         profile = _create_profile(client, auth_headers, name="Custom Orders")
@@ -288,13 +233,16 @@ class TestProfileSettings:
             ],
         )
 
-        assert version["rules_summary"][0]["set_source"] == "custom"
-
+        # A custom set held inside the rule is saved as a kit of its own.
+        assert version["rules_summary"][0]["rule_type"] == "kit"
         detail_response = client.get(f"/api/profiles/{profile['id']}", headers=auth_headers)
         assert detail_response.status_code == 200, detail_response.text
         current_rule = detail_response.json()["current_version"]["rules"][0]
-        assert current_rule["set_source"] == "custom"
-        assert current_rule["custom_parts"][0]["part_num"] == "2780"
+        assert current_rule["id"] == "custom-order"
+        assert current_rule["rule_type"] == "kit"
+        monkeypatch.setattr(kits_router, "get_profile_catalog_service", lambda: _catalog({}))
+        kit = client.get(f"/api/kits/{current_rule['kit_id']}", headers=auth_headers).json()
+        assert [(line["part_num"], line["color_id"], line["quantity"]) for line in kit["parts"]] == [("2780", None, 20), ("32054", 5, 10)]
 
 
 class TestProfileCatalogPermissions:
@@ -514,7 +462,7 @@ class TestCommunityAndMachineFlows:
         monkeypatch.setattr(
             profiles_router,
             "get_profile_catalog_service",
-            lambda: _DummyCatalogService({"77777-1": [("3001", 5, 2)]}),
+            lambda: _catalog({"77777-1": [("3001", 5, 2)]}),
         )
 
         machine_response = client.post(
@@ -579,7 +527,7 @@ class TestSetProgressHardening:
         monkeypatch.setattr(
             profiles_router,
             "get_profile_catalog_service",
-            lambda: _DummyCatalogService(
+            lambda: _catalog(
                 {
                     "11111-1": [("3001", 5, 2)],
                     "22222-1": [("3002", 7, 1)],
@@ -686,7 +634,7 @@ class TestSetProgressHardening:
         monkeypatch.setattr(
             profiles_router,
             "get_profile_catalog_service",
-            lambda: _DummyCatalogService(
+            lambda: _catalog(
                 {
                     "33333-1": [("3001", 5, 2), ("3002", 7, 1)],
                 }

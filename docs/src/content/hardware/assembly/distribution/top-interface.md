@@ -55,6 +55,10 @@ parts_needed:
     qty: 1
   - part: cable-cage-bottom
     qty: 1
+  - part: cage-top-hex-corner
+    qty: 10
+  - part: cage-top-motor-piece
+    qty: 1
   - part: cable-clamp-outer
     qty: 1
   - part: cable-clamp-inner
@@ -148,6 +152,7 @@ The top interface holds a chute that rotates on a lazy-susan bearing to aim inco
 <div class="prep-item">
   <div class="prep-item-body">
     <p><strong>Have the <a href="https://parts-calculator.basically.website/lasercut">Cable cage top</a> laser-cut and ready by step 10, and the Cable cage bottom by step 12.</strong> Same as the Top plate: laser-cut ahead of time, not built on this page.</p>
+    <p><strong>Printing the cable cage plates instead?</strong> The parts list offers two options: the two laser-cut plates, or ten printed hex corners and one printed motor piece. For the printed ones, glue the pieces into the two plates first, on <a href="{{ '/hardware/helpers/cable-cage-plates/' | relative_url }}">Preparing the 3D printed cable cage plates</a>, and have them ready by step 10 and step 12. The steps below are the same either way.</p>
   </div>
   <div class="prep-item-figure prep-item-figure-split">
     <figure>
@@ -800,7 +805,7 @@ Slide an Interface spacer onto each piece of extrusion, with the lip at the top 
 
 Build a [hex frame]({{ '/hardware/assembly/distribution/bin-frame/hex-frame/' | relative_url }}), then place it onto the interface assembly.
 
-Roll 6 {% include fastener.html size="M5" variant="t-nut" text="T-nuts" %} into this hex frame's own extrusions while you are here, 2 each for the PSU box, the control board housing and the Orange Pi mount. All three bolt onto this frame later, and the layout render on [installing the electronics]({{ '/hardware/electronics/installation/' | relative_url }}) shows where each one sits. Their screws and the rest of their hardware are listed on those pages, not here.
+Roll 6 {% include fastener.html size="M5" variant="t-nut" text="T-nuts" %} into this hex frame's own extrusions while you are here, 2 each for the PSU box, the control board housing and the Orange Pi housing. All three bolt onto this frame later, and the layout render on [installing the electronics]({{ '/hardware/electronics/installation/' | relative_url }}) shows where each one sits. Their screws and the rest of their hardware are listed on those pages, not here.
 
 <div class="callout">
   <p><b>No problem if you forget them.</b> The {% include fastener.html size="M5" variant="t-nut" text="T-nut" %} this build specifies is the spring-loaded roll-in kind, which drops into the slot anywhere along its length, so these six can still go in later without taking the frame apart.</p>

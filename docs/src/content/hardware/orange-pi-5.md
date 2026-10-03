@@ -15,7 +15,7 @@ last_verified: 2026-05-19
 
 <div class="notice">
   <strong>Main compute platform</strong>
-  <p>The Orange Pi 5 is the required compute board for Sorter. SorterOS is built on top of the official Ubuntu image provided by Orange Pi for this board.</p>
+  <p>The Orange Pi 5 is the required compute board for Sorter. The SorterOS image is built on top of the official Ubuntu image provided by Orange Pi for this board.</p>
 </div>
 
 The Orange Pi 5 is installed and wired during [Electronics assembly]({{ '/hardware/electronics/installation/orange-pi-mount/' | relative_url }}), where it connects to the Pico controllers and cameras; this page only covers selecting and configuring the board itself.
@@ -67,11 +67,11 @@ If you order the wrong module for your board variant it will not physically seat
 
 ### Installing the module
 
-[Preparing the Orange Pi]({{ '/hardware/electronics/installation/orange-pi-prep/' | relative_url }}) is the procedure. Do it while the board is still loose on the bench, before it goes on its mount and before the first boot: the slot, the retention screw and the antenna leads are all on the underside of the board, and the mount sits under the board.
+[Preparing the Orange Pi]({{ '/hardware/electronics/installation/orange-pi-prep/' | relative_url }}) is the procedure. Do it while the board is still loose on the bench, before it goes into its housing: the slot, the retention screw and the antenna leads are all on the underside of the board, and the housing's base sits under the board.
 
 <div class="notice">
   <strong>Driver support</strong>
-  <p>The AP6275P module for the original Orange Pi 5 requires drivers included in the official Orange Pi Ubuntu image. It works on SorterOS (which is based on that image) but may not work on other third-party OS images out of the box.</p>
+  <p>The AP6275P module for the original Orange Pi 5 requires drivers included in the official Orange Pi Ubuntu image. It works on the SorterOS image (which is based on it) but may not work on other third-party OS images out of the box.</p>
 </div>
 
 ## USB hubs

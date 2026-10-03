@@ -11,19 +11,12 @@ import numpy as np
 
 log = logging.getLogger(__name__)
 
-# One-shot flags so we log only the *first* time a non-identity picture/color
-# path runs in a given process. Lets ops grep journalctl for these strings —
-# their absence means we never paid the cost.
 _PICTURE_NONIDENTITY_LOGGED = False
-_COLOR_ACTIVE_LOGGED = False
 
 from irl.config import (
-    COLOR_CORRECTION_ENABLED,
     CameraConfig,
-    CameraColorProfile,
     CameraPictureSettings,
     cameraDeviceSettingsToDict,
-    clampCameraColorProfile,
     clampCameraPictureSettings,
     parseCameraDeviceSettings,
 )
@@ -651,80 +644,6 @@ def apply_picture_settings(
     return adjusted
 
 
-def apply_camera_color_profile(
-    frame: np.ndarray,
-    profile: CameraColorProfile | None,
-) -> np.ndarray:
-    # Single choke point for every correction path (capture loop, calibration
-    # captures, direct stream) — gating here means the kill switch cannot be
-    # bypassed by a caller that reaches for a profile directly.
-    if not COLOR_CORRECTION_ENABLED:
-        return frame
-
-    if profile is None or not getattr(profile, "enabled", False):
-        return frame
-
-    global _COLOR_ACTIVE_LOGGED
-    if not _COLOR_ACTIVE_LOGGED:
-        _COLOR_ACTIVE_LOGGED = True
-        log.warning(
-            "apply_camera_color_profile: enabled branch active — full-frame LUT+tensordot+gamma will run per frame"
-        )
-
-    current = clampCameraColorProfile(profile)
-    if not current.enabled:
-        return frame
-
-    matrix = np.array(current.matrix, dtype=np.float32)
-    bias = np.array(current.bias, dtype=np.float32)
-    if matrix.shape != (3, 3) or bias.shape != (3,):
-        return frame
-
-    # Step 1: Linearize via response LUT (if available)
-    has_lut = (
-        current.response_lut_r is not None
-        and current.response_lut_g is not None
-        and current.response_lut_b is not None
-        and len(current.response_lut_r) == 256
-        and len(current.response_lut_g) == 256
-        and len(current.response_lut_b) == 256
-    )
-
-    if has_lut:
-        # Build per-channel LUT: uint8 → float32 linear [0, 1]
-        lut_b = np.array(current.response_lut_b, dtype=np.float32)
-        lut_g = np.array(current.response_lut_g, dtype=np.float32)
-        lut_r = np.array(current.response_lut_r, dtype=np.float32)
-        rgb = np.stack([lut_r[frame[:, :, 2]], lut_g[frame[:, :, 1]], lut_b[frame[:, :, 0]]], axis=-1)
-    else:
-        rgb = frame[:, :, ::-1].astype(np.float32) / 255.0
-
-    # Step 2: Affine CCM (3×3 matrix + bias)
-    corrected = np.tensordot(rgb, matrix.T, axes=1) + bias
-
-    # Step 3: Per-channel gamma (if available)
-    has_gamma = (
-        current.gamma_a is not None
-        and current.gamma_exp is not None
-        and current.gamma_b is not None
-        and len(current.gamma_a) == 3
-        and len(current.gamma_exp) == 3
-        and len(current.gamma_b) == 3
-    )
-
-    if has_gamma:
-        ga = current.gamma_a
-        ge = current.gamma_exp
-        gb = current.gamma_b
-        for c in range(3):
-            ch = np.clip(corrected[:, :, c], 0.0, None)
-            corrected[:, :, c] = ga[c] * np.power(ch, ge[c]) + gb[c]
-
-    corrected = np.clip(corrected, 0.0, 1.0)
-    return np.round(corrected[:, :, ::-1] * 255.0).astype(np.uint8)
-
-
-
 def _enable_raw_mjpeg_read(cap: cv2.VideoCapture, source: int | str, fourcc: str | None) -> bool:
     """Ask OpenCV's V4L2 backend to hand back the camera's MJPEG buffer instead of
     decoding it for us. We then decode with ``cv2.imdecode`` (the same libjpeg
@@ -801,10 +720,8 @@ class CaptureThread:
         self._ring_buffer: deque[CameraFrame] = deque(maxlen=90)
         self._picture_settings = clampCameraPictureSettings(config.picture_settings)
         self._device_settings = parseCameraDeviceSettingsForCapture(config.device_settings)
-        self._color_profile = clampCameraColorProfile(config.color_profile)
         self._picture_settings_lock = threading.Lock()
         self._device_settings_lock = threading.Lock()
-        self._color_profile_lock = threading.Lock()
         self._config_lock = threading.Lock()
         self._cap_lock = threading.Lock()
         # Recording tee: consumers of the camera's own JPEG bytes per frame.
@@ -894,15 +811,6 @@ class CaptureThread:
         with self._picture_settings_lock:
             return clampCameraPictureSettings(self._picture_settings)
 
-    def setColorProfile(self, profile: CameraColorProfile | None) -> None:
-        clamped = clampCameraColorProfile(profile or CameraColorProfile())
-        with self._color_profile_lock:
-            self._color_profile = clamped
-            self._config.color_profile = clamped
-
-    def getColorProfile(self) -> CameraColorProfile:
-        with self._color_profile_lock:
-            return clampCameraColorProfile(self._color_profile)
 
     def setDeviceSettings(
         self,
@@ -1094,22 +1002,6 @@ class CaptureThread:
         next_open_attempt_at = 0.0
         previous_source: int | str | None = None
         expected_frame_settle_until = 0.0
-        # One-shot startup log per camera so journalctl shows the
-        # picture/color identity state. If `picture=identity color=disabled`
-        # appears for every camera and the non-identity warnings never fire,
-        # we know the per-frame apply_* calls are no-ops the whole run.
-        _initial_pic = self._picture_settings
-        _initial_col = self._color_profile
-        log.warning(
-            "CaptureThread[%s] starting — picture=%s color=%s",
-            self.name,
-            "identity"
-            if _picture_settings_is_identity(_initial_pic)
-            else f"rotation={getattr(_initial_pic, 'rotation', '?')} flip_h={getattr(_initial_pic, 'flip_horizontal', '?')} flip_v={getattr(_initial_pic, 'flip_vertical', '?')}",
-            "globally-disabled"
-            if not COLOR_CORRECTION_ENABLED
-            else ("enabled" if getattr(_initial_col, "enabled", False) else "disabled"),
-        )
         last_expected_frame_at = 0.0
         # Some UVC cameras (especially on Linux with MJPG) reset device controls
         # (e.g. auto_exposure) when streaming starts on the first cap.read().
@@ -1273,20 +1165,12 @@ class CaptureThread:
                     post_stream_settings = None
                     post_stream_source = None
                 picture_settings = self.getPictureSettings()
-                color_profile = self.getColorProfile()
-                # Apply rotation/flip once; downstream consumers see the same
-                # geometry whether or not color correction is active.
                 geom_frame = apply_picture_settings(frame, picture_settings)
-                if getattr(color_profile, "enabled", False):
-                    corrected_frame = apply_camera_color_profile(geom_frame, color_profile)
-                else:
-                    corrected_frame = geom_frame
                 camera_frame = CameraFrame(
-                    raw=corrected_frame,
+                    raw=geom_frame,
                     annotated=None,
                     results=[],
                     timestamp=time.time(),
-                    uncorrected_raw=geom_frame,
                     raw_jpeg=raw_jpeg,
                 )
                 self.latest_frame = camera_frame

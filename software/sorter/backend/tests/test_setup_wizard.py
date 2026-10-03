@@ -1,13 +1,15 @@
 import os
 from pathlib import Path
+from types import SimpleNamespace
 import tempfile
 import unittest
 from unittest.mock import patch
 
+from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
 from server.api import app
-from server.routers import cameras, setup
+from server.routers import camera_picture_settings, cameras, setup
 
 
 class SetupWizardConfigTests(unittest.TestCase):
@@ -34,79 +36,129 @@ class SetupWizardConfigTests(unittest.TestCase):
 
         self._tmpdir.cleanup()
 
-    def test_modes_report_what_the_machine_runs_when_the_toml_names_none(self) -> None:
-        from irl.config import DEFAULT_CLASSIFICATION_CHANNEL_MODE, DEFAULT_FEEDER_MODE
-
-        self.machine_params_path.write_text('[cameras]\nlayout = "default"\n', encoding="utf-8")
-        classification = setup.get_classification_channel_mode()
-        feeder = setup.get_feeder_subsystem_mode()
-        self.assertEqual(classification["mode"], DEFAULT_CLASSIFICATION_CHANNEL_MODE.value)
-        self.assertEqual(classification["default"], DEFAULT_CLASSIFICATION_CHANNEL_MODE.value)
-        self.assertEqual(feeder["mode"], DEFAULT_FEEDER_MODE.value)
-        self.assertEqual(feeder["default"], DEFAULT_FEEDER_MODE.value)
-
-    def test_split_feeder_is_the_layout_when_the_toml_names_none(self) -> None:
+    def test_channel_cameras_ignore_removed_layout_and_chamber_settings(self) -> None:
         from irl.config import mkIRLConfig
 
-        no_boards = {
-            "scanned_at_ms": 0,
-            "source": "unavailable",
-            "mcu_ports": [],
-            "boards": [],
-            "roles": {"feeder": False, "distribution": False},
-            "missing_required_steppers": [],
-            "pca_available": False,
-            "waveshare_ports": [],
-            "issues": [],
-        }
-        cases = {
-            # What SorterOS's first boot wrote until 2026-09-25, then since.
-            "[cameras]\nfeeder = -1\nclassification_top = -1\nclassification_bottom = -1\n": "split_feeder",
-            "[cameras]\n": "split_feeder",
-            "": "split_feeder",
-            '[cameras]\nlayout = "default"\nfeeder = 0\n': "default",
-        }
-        for toml, layout in cases.items():
-            with self.subTest(toml=toml):
-                self.machine_params_path.write_text(toml, encoding="utf-8")
-                with (
-                    patch("server.routers.setup._discover_control_board_summary", return_value=no_boards),
-                    patch("server.routers.setup.getMachineNickname", return_value=None),
-                    patch("server.routers.setup.shared_state.hardware_state", "standby"),
-                    patch("server.routers.setup.shared_state.hardware_error", None),
-                    patch("server.routers.setup.shared_state.hardware_homing_step", None),
-                    patch("server.routers.setup.shared_state.getActiveIRL", return_value=None),
-                ):
+        for role in ("carousel", "classification_channel"):
+            with self.subTest(role=role):
+                self.machine_params_path.write_text(
+                    '[cameras]\nlayout = "default"\nfeeder = 8\nclassification_top = 9\n'
+                    f'c_channel_2 = 0\nc_channel_3 = 1\n{role} = 2\n'
+                    f'[camera_capture_modes.{role}]\nwidth = 1920\nheight = 1080\nfps = 30\n',
+                    encoding="utf-8",
+                )
+                config = mkIRLConfig()
+                self.assertEqual(0, config.c_channel_2_camera.device_index)
+                self.assertEqual(1, config.c_channel_3_camera.device_index)
+                self.assertEqual(2, config.carousel_camera.device_index)
+                self.assertEqual(1920, config.carousel_camera.width)
+                self.assertFalse(hasattr(config, "feeder_camera"))
+                self.assertFalse(hasattr(config, "classification_camera_top"))
+                self.assertFalse(hasattr(config, "camera_layout"))
+                self.assertEqual(
+                    {"c_channel_2": 0, "c_channel_3": 1, "classification_channel": 2, "carousel": 2},
+                    cameras.get_camera_config(),
+                )
+
+    def test_classification_channel_settings_accept_both_aliases_independent_of_source(self) -> None:
+        from irl.config import mkIRLConfig
+
+        for source_role in ("carousel", "classification_channel"):
+            for settings_role in ("carousel", "classification_channel"):
+                with self.subTest(source_role=source_role, settings_role=settings_role):
+                    self.machine_params_path.write_text(
+                        f'[cameras]\n{source_role} = 2\n'
+                        f'[camera_capture_modes.{settings_role}]\nwidth = 1280\nheight = 720\nfps = 60\n'
+                        f'[camera_picture_settings.{settings_role}]\nrotation = 90\n'
+                        f'[camera_device_settings.{settings_role}]\nbrightness = 7\n',
+                        encoding="utf-8",
+                    )
+                    camera = mkIRLConfig().carousel_camera
+                    self.assertEqual(1280, camera.width)
+                    self.assertEqual(90, camera.picture_settings.rotation)
+                    self.assertEqual(7, camera.device_settings["brightness"])
+                    self.assertEqual(90, camera_picture_settings.get_camera_picture_settings("carousel")["settings"]["rotation"])
+                    self.assertEqual(90, camera_picture_settings.get_camera_picture_settings("classification_channel")["settings"]["rotation"])
+                    with self.machine_params_path.open("a", encoding="utf-8") as file:
+                        other_role = "carousel" if settings_role == "classification_channel" else "classification_channel"
+                        file.write(f'[camera_picture_settings.{other_role}]\nrotation = 180\n')
+                    expected = 90 if settings_role == "classification_channel" else 180
+                    self.assertEqual(expected, mkIRLConfig().carousel_camera.picture_settings.rotation)
+
+    def test_invalid_sources_resolve_identically_in_camera_config_and_runtime(self) -> None:
+        from irl.config import mkIRLConfig
+
+        for value in ('-1', '""', '"none"', '"-1"', 'false'):
+            with self.subTest(value=value):
+                self.machine_params_path.write_text(
+                    f'[cameras]\nc_channel_2 = {value}\nc_channel_3 = {value}\nclassification_channel = {value}\n',
+                    encoding="utf-8",
+                )
+                config = mkIRLConfig()
+                self.assertIsNone(config.c_channel_2_camera)
+                self.assertIsNone(config.c_channel_3_camera)
+                self.assertIsNone(config.carousel_camera)
+                self.assertTrue(all(value is None for value in cameras.get_camera_config().values()))
+
+    def test_camera_assignment_preserves_classification_channel_alias(self) -> None:
+        self.machine_params_path.write_text('[cameras]\ncarousel = 2\n', encoding="utf-8")
+        with (
+            patch.object(cameras.shared_state, "vision_manager", None),
+            patch.object(cameras.shared_state, "gc_ref", None),
+        ):
+            for role, value in (("classification_channel", 3), ("carousel", 4), ("classification_channel", None)):
+                with self.subTest(role=role, value=value):
+                    response = cameras.assign_cameras(cameras.CameraAssignment(**{role: value}))
+                    self.assertEqual(value, response["assignment"]["classification_channel"])
+                    self.assertEqual(value, response["assignment"]["carousel"])
+                    self.assertEqual(response["assignment"], cameras.get_camera_config())
+
+    def test_camera_assignment_rejects_removed_roles_and_layout(self) -> None:
+        app = FastAPI()
+        app.include_router(cameras.router)
+        with TestClient(app) as client:
+            for field in ("feeder", "classification_top", "classification_bottom", "layout"):
+                with self.subTest(field=field):
+                    response = client.post("/api/cameras/assign", json={field: 0})
+                    self.assertEqual(422, response.status_code)
+            self.assertEqual(404, client.post("/api/cameras/layout", json={"layout": "default"}).status_code)
+
+    def test_camera_readiness_requires_all_three_channel_sources(self) -> None:
+        for role in ("c_channel_2", "c_channel_3", "classification_channel"):
+            for value in (None, -1, "", "-1", "none"):
+                with self.subTest(role=role, value=value):
+                    assignments = {"c_channel_2": 0, "c_channel_3": 1, "classification_channel": 2}
+                    assignments[role] = value
+                    normalized = setup._camera_assignments_from_config({"cameras": assignments})
+                    self.assertFalse(setup._camera_assignments_complete(normalized))
+        for role in ("carousel", "classification_channel"):
+            assignments = setup._camera_assignments_from_config({
+                "cameras": {"c_channel_2": 0, "c_channel_3": 1, role: "http://camera/video"}
+            })
+            self.assertTrue(setup._camera_assignments_complete(assignments))
+
+    def test_discovery_requires_classification_channel_stepper(self) -> None:
+        for overrides, expected in (({}, "carousel"), ({"carousel": "distribution_aux_1"}, "distribution_aux_1")):
+            with (
+                self.subTest(overrides=overrides),
+                patch.object(setup, "loadStepperBindingOverrides", return_value=overrides),
+                patch.object(setup, "_enumerate_usb_devices", return_value=[]),
+                patch.object(setup.shared_state, "gc_ref", SimpleNamespace(machine_id="test-machine")),
+                patch.object(setup.shared_state, "getActiveIRL", return_value=None),
+            ):
+                discovery = setup._build_discovery_payload(
+                    board_summaries=[{
+                        "logical_steppers": ["chute_stepper", "c_channel_1_rotor", "c_channel_2_rotor", "c_channel_3_rotor"],
+                        "servo_count": 0,
+                    }],
+                    mcu_ports=[],
+                    source="scan",
+                    issue_messages=[],
+                )
+                self.assertEqual([expected], discovery["missing_required_steppers"])
+                with patch.object(setup, "_discover_control_board_summary", return_value=discovery):
                     summary = setup.get_setup_wizard_summary()
-                self.assertEqual(layout, summary["discovery"]["recommended_camera_layout"])
-                self.assertEqual(layout, cameras.get_camera_config()["layout"])
-                self.assertEqual(layout, mkIRLConfig().camera_layout)
-
-    def test_camera_layout_roundtrip_supports_default(self) -> None:
-        response = cameras.save_camera_layout(cameras.CameraLayoutPayload(layout="default"))
-
-        self.assertEqual("default", response["layout"])
-        current = cameras.get_camera_config()
-        self.assertEqual("default", current["layout"])
-        self.assertIsNone(current["feeder"])
-
-    def test_assign_cameras_supports_default_feeder_role(self) -> None:
-        cameras.save_camera_layout(cameras.CameraLayoutPayload(layout="default"))
-
-        response = cameras.assign_cameras(
-            cameras.CameraAssignment(
-                feeder=2,
-                classification_top="http://127.0.0.1:8080/video",
-            )
-        )
-
-        self.assertTrue(response["ok"])
-        self.assertEqual("default", response["assignment"]["layout"])
-        self.assertEqual(2, response["assignment"]["feeder"])
-        self.assertEqual(
-            "http://127.0.0.1:8080/video",
-            response["assignment"]["classification_top"],
-        )
+                self.assertFalse(summary["readiness"]["boards_detected"])
 
     def test_setup_stepper_direction_persists_and_reads_back(self) -> None:
         response = setup.set_stepper_direction(
@@ -123,133 +175,7 @@ class SetupWizardConfigTests(unittest.TestCase):
             entry["name"]: entry
             for entry in directions["steppers"]
         }
-        # On the classification-channel default the carousel logical stepper
-        # is surfaced as c_channel_4. Either label is acceptable.
-        carousel_entry = by_name.get("carousel") or by_name.get("c_channel_4")
-        self.assertIsNotNone(carousel_entry)
-        self.assertTrue(carousel_entry["inverted"])
-
-    def test_feeding_mode_defaults_to_auto_channels(self) -> None:
-        response = setup.get_feeding_mode()
-
-        self.assertEqual("auto_channels", response["mode"])
-        self.assertEqual("classification_channel", response["machine_setup"]["key"])
-        self.assertTrue(response["requires_rehome"])
-
-    def test_feeding_mode_roundtrip_is_reflected_in_setup_summary(self) -> None:
-        setup.set_feeding_mode(setup.FeedingModePayload(mode="manual_carousel"))
-
-        discovery_payload = {
-            "scanned_at_ms": 0,
-            "source": "scan",
-            "mcu_ports": [],
-            "boards": [],
-            "roles": {"feeder": True, "distribution": True},
-            "missing_required_steppers": [],
-            "pca_available": False,
-            "waveshare_ports": [],
-            "issues": [],
-        }
-
-        with (
-            patch("server.routers.setup._discover_control_board_summary", return_value=discovery_payload),
-            patch("server.routers.setup.getMachineNickname", return_value="Bench A"),
-            patch("server.routers.setup.shared_state.hardware_state", "standby"),
-            patch("server.routers.setup.shared_state.hardware_error", None),
-            patch("server.routers.setup.shared_state.hardware_homing_step", None),
-            patch("server.routers.setup.shared_state.getActiveIRL", return_value=None),
-        ):
-            summary = setup.get_setup_wizard_summary()
-
-        self.assertEqual("manual_carousel", summary["config"]["feeding"]["mode"])
-        self.assertEqual("manual_carousel", summary["config"]["machine_setup"]["key"])
-
-    def test_machine_setup_defaults_to_classification_channel(self) -> None:
-        response = setup.get_machine_setup()
-
-        self.assertEqual("classification_channel", response["setup"])
-        self.assertEqual("classification_channel", response["machine_setup"]["key"])
-        self.assertTrue(response["requires_rehome"])
-
-    def test_machine_setup_roundtrip_is_reflected_in_setup_summary(self) -> None:
-        setup.set_machine_setup(
-            setup.MachineSetupPayload(setup="classification_channel")
-        )
-
-        discovery_payload = {
-            "scanned_at_ms": 0,
-            "source": "scan",
-            "mcu_ports": [],
-            "boards": [],
-            "roles": {"feeder": True, "distribution": True},
-            "missing_required_steppers": [],
-            "pca_available": False,
-            "waveshare_ports": [],
-            "issues": [],
-        }
-
-        with (
-            patch("server.routers.setup._discover_control_board_summary", return_value=discovery_payload),
-            patch("server.routers.setup.getMachineNickname", return_value="Bench A"),
-            patch("server.routers.setup.shared_state.hardware_state", "standby"),
-            patch("server.routers.setup.shared_state.hardware_error", None),
-            patch("server.routers.setup.shared_state.hardware_homing_step", None),
-            patch("server.routers.setup.shared_state.getActiveIRL", return_value=None),
-        ):
-            summary = setup.get_setup_wizard_summary()
-
-        self.assertEqual("classification_channel", summary["config"]["machine_setup"]["key"])
-        self.assertEqual("auto_channels", summary["config"]["feeding"]["mode"])
-
-    def test_feeding_mode_auto_preserves_classification_channel_setup(self) -> None:
-        setup.set_machine_setup(
-            setup.MachineSetupPayload(setup="classification_channel")
-        )
-
-        response = setup.set_feeding_mode(
-            setup.FeedingModePayload(mode="auto_channels")
-        )
-
-        self.assertEqual("auto_channels", response["mode"])
-        self.assertEqual("classification_channel", response["machine_setup"]["key"])
-
-    def test_setup_summary_requires_explicit_camera_layout_selection(self) -> None:
-        discovery_payload = {
-            "scanned_at_ms": 0,
-            "source": "scan",
-            "mcu_ports": [],
-            "boards": [
-                {
-                    "family": "sorter",
-                    "role": "distribution",
-                    "device_name": "Distribution Board",
-                    "port": "/dev/ttyUSB0",
-                    "address": 1,
-                    "logical_steppers": ["c_channel_2_rotor", "c_channel_3_rotor", "carousel"],
-                    "servo_count": 0,
-                    "input_aliases": {},
-                }
-            ],
-            "roles": {"feeder": True, "distribution": True},
-            "missing_required_steppers": [],
-            "pca_available": False,
-            "waveshare_ports": [],
-            "issues": [],
-        }
-
-        with (
-            patch("server.routers.setup._discover_control_board_summary", return_value=discovery_payload),
-            patch("server.routers.setup.getMachineNickname", return_value=None),
-            patch("server.routers.setup.shared_state.hardware_state", "standby"),
-            patch("server.routers.setup.shared_state.hardware_error", None),
-            patch("server.routers.setup.shared_state.hardware_homing_step", None),
-            patch("server.routers.setup.shared_state.getActiveIRL", return_value=None),
-        ):
-            summary = setup.get_setup_wizard_summary()
-
-        self.assertIsNone(summary["config"]["camera_assignments"]["layout"])
-        self.assertFalse(summary["readiness"]["camera_layout_selected"])
-        self.assertEqual("split_feeder", summary["discovery"]["recommended_camera_layout"])
+        self.assertTrue(by_name["c_channel_4"]["inverted"])
 
     def test_setup_routes_respond_via_fastapi_app(self) -> None:
         discovery_payload = {
@@ -272,37 +198,13 @@ class SetupWizardConfigTests(unittest.TestCase):
             patch("server.routers.setup.shared_state.getActiveIRL", return_value=None),
             TestClient(app) as client,
         ):
-            layout_response = client.post(
-                "/api/setup-wizard/camera-layout",
-                json={"layout": "split_feeder"},
-            )
-            self.assertEqual(200, layout_response.status_code)
-            self.assertEqual("split_feeder", layout_response.json()["layout"])
-
-            feeding_response = client.post(
-                "/api/feeding-mode",
-                json={"mode": "manual_carousel"},
-            )
-            self.assertEqual(200, feeding_response.status_code)
-            self.assertEqual("manual_carousel", feeding_response.json()["mode"])
-
-            machine_setup_response = client.post(
-                "/api/machine-setup",
-                json={"setup": "classification_channel"},
-            )
-            self.assertEqual(200, machine_setup_response.status_code)
-            self.assertEqual("classification_channel", machine_setup_response.json()["setup"])
-
             summary_response = client.get("/api/setup-wizard")
             self.assertEqual(200, summary_response.status_code)
-            self.assertEqual(
-                "split_feeder",
-                summary_response.json()["config"]["camera_assignments"]["layout"],
-            )
-            self.assertEqual(
-                "classification_channel",
-                summary_response.json()["config"]["machine_setup"]["key"],
-            )
+            summary = summary_response.json()
+            self.assertEqual(set(cameras.CAMERA_SETUP_ROLES), set(summary["config"]["camera_assignments"]))
+            self.assertNotIn("camera_layout_selected", summary["readiness"])
+            self.assertNotIn("recommended_camera_layout", summary["discovery"])
+            self.assertEqual(404, client.post("/api/setup-wizard/camera-layout", json={"layout": "split_feeder"}).status_code)
 
     def test_setup_is_needed_only_by_a_machine_never_set_up(self) -> None:
         cases = [
@@ -310,7 +212,7 @@ class SetupWizardConfigTests(unittest.TestCase):
             (None, "[cameras]\nfeeder = -1\nclassification_top = -1\nclassification_bottom = -1\n", True),
             ("Sorting Bench A", "", False),
             (None, "[cameras]\nc_channel_2 = 0\n", False),
-            (None, '[cameras]\nlayout = "default"\nfeeder = "usb-cam"\n', False),
+            (None, '[cameras]\nlayout = "default"\nfeeder = "usb-cam"\n', True),
         ]
         for nickname, toml, needed in cases:
             with self.subTest(nickname=nickname, toml=toml):

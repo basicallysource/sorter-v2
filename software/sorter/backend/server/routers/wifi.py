@@ -191,23 +191,3 @@ def wifi_connect(payload: WifiConnectPayload) -> Dict[str, Any]:
         return {"ok": False, "error": err}
     return {"ok": True, "message": (proc.stdout or "").strip() or f"Connected to {ssid}"}
 
-
-class WifiDisconnectPayload(BaseModel):
-    device: str
-
-
-@router.post("/api/wifi/disconnect")
-def wifi_disconnect(payload: WifiDisconnectPayload) -> Dict[str, Any]:
-    if not _have_nmcli():
-        return {"ok": False, "error": "nmcli not found"}
-    device = payload.device.strip()
-    if not device:
-        return {"ok": False, "error": "device is required"}
-    try:
-        proc = _run("device", "disconnect", device, timeout=15.0)
-    except subprocess.TimeoutExpired:
-        return {"ok": False, "error": "Timed out disconnecting."}
-    if proc.returncode != 0:
-        err = (proc.stderr or proc.stdout or "").strip() or "Failed to disconnect"
-        return {"ok": False, "error": err}
-    return {"ok": True, "message": (proc.stdout or "").strip() or f"Disconnected {device}"}

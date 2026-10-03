@@ -7,54 +7,41 @@ import this single module without circular dependencies.
 from __future__ import annotations
 
 import asyncio
-import math
+import json
 import queue
 import threading
 import time
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, Optional
 
-from fastapi import WebSocket
+from fastapi import WebSocket, status
 
 from global_config import GlobalConfig
-from runtime_variables import RuntimeVariables
-import server.perf_history as perf_history
+from hardware.fault import HardwareFault
+from server.security import describe_origin_decision, websocket_connection_allowed
 
 # ---------------------------------------------------------------------------
 # Global state
 # ---------------------------------------------------------------------------
 
-active_connections: List[WebSocket] = []
 server_loop: Optional[asyncio.AbstractEventLoop] = None
-runtime_vars: Optional[RuntimeVariables] = None
 command_queue: Optional[queue.Queue] = None
 controller_ref: Optional[Any] = None
 gc_ref: Optional[GlobalConfig] = None
 vision_manager: Optional[Any] = None
 
-# Per-client send budget for a single broadcast. Bounds how long one slow or
-# half-dead websocket client can hold up a broadcast before it's pruned. On a
-# healthy LAN a send is sub-millisecond, so this only ever fires for genuinely
-# stuck clients.
-_BROADCAST_SEND_TIMEOUT_S = 0.25
-
-# Liveness of the websocket broadcast pipeline. Stamped at the top of every
-# broadcastEvent — reaching there means the single asyncio loop actually ran the
-# coroutine. A watchdog thread (main.py) compares this against wall-clock: if
-# clients are connected but nothing has broadcast for a while, the loop is wedged
-# (MJPEG saturation or a blocking call) and the live feed is silently frozen.
+# Liveness of the websocket pipeline: stamped on the event loop each time a
+# message is handed to the clients (a heartbeat goes out every 2 s). A watchdog
+# thread (main.py) compares it against wall-clock: if clients are connected but
+# nothing has gone out for a while, the loop is wedged and the live feed frozen.
 last_broadcast_ok_ts: float = 0.0
 camera_service: Optional[Any] = None
 pulse_locks: Dict[str, threading.Lock] = {}
 distribution_no_bin_passthrough_approvals: set[str] = set()
 distribution_no_bin_passthrough_lock = threading.RLock()
-camera_device_preview_overrides: Dict[str, Dict[str, int | float | bool]] = {}
-camera_calibration_tasks: Dict[str, Dict[str, Any]] = {}
-camera_calibration_tasks_lock = threading.Lock()
+# Both set by the broadcaster thread (main.py): the full snapshot behind
+# GET /runtime-stats, and the live part last pushed to the dashboard.
 runtime_stats_snapshot: Optional[dict[str, Any]] = None
-system_status_snapshot: Optional[dict[str, Any]] = None
-sorter_state_snapshot: Optional[dict[str, Any]] = None
-cameras_config_snapshot: Optional[dict[str, Any]] = None
-sorting_profile_status_snapshot: Optional[dict[str, Any]] = None
+runtime_stats_live: Optional[dict[str, Any]] = None
 
 # Hardware lifecycle state:
 # "standby" | "initializing" | "initialized" | "homing" | "ready" | "error"
@@ -63,7 +50,8 @@ sorting_profile_status_snapshot: Optional[dict[str, Any]] = None
 # motor. Manual jogs and runtime resume must stay blocked until the worker
 # reaches "initialized" or "ready".
 hardware_state: str = "standby"
-hardware_error: Optional[str] = None
+# What stopped or needs the operator: {"title", "message"} (HardwareFault.data()).
+hardware_error: Optional[dict[str, str]] = None
 hardware_homing_step: Optional[str] = None  # Current homing phase description
 _hardware_start_fn: Optional[Any] = None  # Callable set by main.py
 _hardware_initialize_fn: Optional[Any] = None  # Callable set by main.py
@@ -76,29 +64,6 @@ CLASSIFICATION_BASELINE_SAMPLES = 12
 CLASSIFICATION_BASELINE_CAPTURE_TIMEOUT_S = 4.0
 CLASSIFICATION_BASELINE_CAPTURE_INTERVAL_S = 0.1
 
-SAMPLE_COLLECTION_SPEED_ROLES = (
-    "c_channel_1",
-    "c_channel_2",
-    "c_channel_3",
-    "classification_channel",
-)
-SAMPLE_COLLECTION_SPEED_ROLE_ALIASES = {
-    "c1": "c_channel_1",
-    "bulk": "c_channel_1",
-    "carousel": "classification_channel",
-    "c_channel_4": "classification_channel",
-    "c4": "classification_channel",
-}
-SAMPLE_COLLECTION_SPEED_MIN_RPM = 0.01
-SAMPLE_COLLECTION_SPEED_MAX_RPM = 25.0
-SAMPLE_COLLECTION_SPEED_MAX_RPM_BY_ROLE = {
-    role: SAMPLE_COLLECTION_SPEED_MAX_RPM for role in SAMPLE_COLLECTION_SPEED_ROLES
-}
-SAMPLE_COLLECTION_SPEED_MAX_RPM_BY_ROLE["classification_channel"] = 50.0
-sample_collection_speed_rpm_by_role: Dict[str, Optional[float]] = {
-    role: None for role in SAMPLE_COLLECTION_SPEED_ROLES
-}
-sample_collection_speed_lock = threading.RLock()
 
 # ---------------------------------------------------------------------------
 # Setter functions (called from main.py at startup)
@@ -108,18 +73,6 @@ sample_collection_speed_lock = threading.RLock()
 def setGlobalConfig(gc: GlobalConfig) -> None:
     global gc_ref
     gc_ref = gc
-
-
-def setRuntimeVariables(rv: RuntimeVariables) -> None:
-    global runtime_vars
-    runtime_vars = rv
-
-
-def _getRuntimeVariables() -> RuntimeVariables:
-    global runtime_vars
-    if runtime_vars is None:
-        runtime_vars = RuntimeVariables()
-    return runtime_vars
 
 
 def setCommandQueue(q: queue.Queue) -> None:
@@ -166,8 +119,6 @@ def setCameraService(svc: Any) -> None:
 def setVisionManager(mgr: Any) -> None:
     global vision_manager
     vision_manager = mgr
-    from server.classification_training import getClassificationTrainingManager
-    getClassificationTrainingManager().setVisionManager(mgr)
 
 
 def approveDistributionNoBinPassthrough(piece_uuid: str | None) -> bool:
@@ -194,120 +145,116 @@ def consumeDistributionNoBinPassthrough(piece_uuid: str | None) -> bool:
 # ---------------------------------------------------------------------------
 
 
-async def broadcastEvent(event: dict) -> None:
-    global runtime_stats_snapshot, system_status_snapshot, sorter_state_snapshot, cameras_config_snapshot, sorting_profile_status_snapshot
-    global last_broadcast_ok_ts
-    # Stamped before the no-clients early-return so heartbeats keep it fresh even
-    # with zero connections; the watchdog only warns when clients are attached.
-    last_broadcast_ok_ts = time.time()
-    tag = event.get("tag")
-    data = event.get("data") if isinstance(event.get("data"), dict) else None
-    if tag == "runtime_stats" and data is not None:
-        payload = data.get("payload")
-        if isinstance(payload, dict):
-            runtime_stats_snapshot = payload
-            perf_history.record(payload, time.time())
-    elif tag == "system_status" and data is not None:
-        system_status_snapshot = dict(data)
-    elif tag == "sorter_state" and data is not None:
-        sorter_state_snapshot = dict(data)
-    elif tag == "cameras_config" and data is not None:
-        cameras_config_snapshot = dict(data)
-    elif tag == "sorting_profile_status" and data is not None:
-        sorting_profile_status_snapshot = dict(data)
-    connections = active_connections[:]
-    if not connections:
-        return
+# A client that cannot take a message for this long (its socket stays backed
+# up) is closed. The heartbeat lets its tab notice silence and reconnect.
+WS_SLOW_CLIENT_LIMIT_S = 5.0
+WS_HEARTBEAT_INTERVAL_S = 2.0
+ws_clients: set["WsClient"] = set()
+ws_slow_clients_closed = 0
 
-    # Fan out to every client CONCURRENTLY with a per-client timeout. The old
-    # code awaited send_json sequentially with no timeout, so a single slow or
-    # half-dead client (closed laptop, sleeping phone, congested wifi) blocked
-    # every other client AND the broadcaster thread behind it — making piece
-    # state arrive seconds late regardless of payload size. Now a stuck client
-    # costs at most SEND_TIMEOUT_S once, then gets pruned.
-    async def _send(connection) -> object | None:
+
+async def acceptWebsocket(websocket: WebSocket) -> bool:
+    """Accept a websocket from the UI; refuse one from any other origin."""
+    host = websocket.client.host if websocket.client is not None else None
+    origin = websocket.headers.get("Origin")
+    if websocket_connection_allowed(origin, host):
+        await websocket.accept()
+        return True
+    if gc_ref is not None:
+        gc_ref.logger.info(f"[WS reject] client_host={host!r} {describe_origin_decision(origin)}")
+    await websocket.close(code=status.WS_1008_POLICY_VIOLATION, reason="WebSocket origin not allowed.")
+    return False
+
+
+class WsClient:
+    """One websocket and what waits for it: the latest message of each kind
+    (per tag; per piece for known_object). A slow client skips the versions it
+    could not take instead of queueing them, and never holds up the others."""
+
+    def __init__(self, websocket: WebSocket) -> None:
+        self.websocket = websocket
+        self.pending: dict[str, str] = {}
+        self.wake = asyncio.Event()
+
+    def push(self, key: str, text: str) -> None:
+        self.pending.pop(key, None)
+        self.pending[key] = text
+        self.wake.set()
+
+    async def send(self) -> None:
+        """Send until the socket fails or stays unwritable past the limit."""
+        global ws_slow_clients_closed
         try:
-            await asyncio.wait_for(
-                connection.send_json(event), timeout=_BROADCAST_SEND_TIMEOUT_S
-            )
-            return None
+            while True:
+                while self.pending:
+                    text = self.pending.pop(next(iter(self.pending)))
+                    started = time.perf_counter()
+                    await asyncio.wait_for(self.websocket.send_text(text), WS_SLOW_CLIENT_LIMIT_S)
+                    observePerfMs("socket.client_send_ms", (time.perf_counter() - started) * 1000.0)
+                self.wake.clear()
+                await self.wake.wait()
+        except TimeoutError:
+            ws_slow_clients_closed += 1
+            observePerfMs("socket.slow_client_closed_ms", WS_SLOW_CLIENT_LIMIT_S * 1000.0)
+            if gc_ref is not None:
+                host = self.websocket.client.host if self.websocket.client else "?"
+                gc_ref.logger.warning(
+                    f"[ws] closing {host}: it took no message for {WS_SLOW_CLIENT_LIMIT_S:.0f} s "
+                    f"({ws_slow_clients_closed} slow client(s) closed since start)"
+                )
         except Exception:
-            return connection
+            pass  # the socket is gone; the endpoint's reader sees the disconnect
 
-    _fanout_started = time.perf_counter()
-    results = await asyncio.gather(*[_send(conn) for conn in connections])
-    for conn in results:
-        if conn is not None and conn in active_connections:
-            active_connections.remove(conn)
-    # Pure client-send fanout time (concurrent across clients). Compared against
-    # socket.broadcast_event_ms (which also includes loop-scheduling delay) and
-    # socket.loop_lag_ms, this splits "slow client" from "loop is blocked".
+
+def observePerfMs(name: str, value_ms: float) -> None:
     if gc_ref is not None and getattr(gc_ref, "runtime_stats", None) is not None:
-        gc_ref.runtime_stats.observePerfMs(
-            "socket.client_send_ms", (time.perf_counter() - _fanout_started) * 1000.0
-        )
+        gc_ref.runtime_stats.observePerfMs(name, value_ms)
 
 
-def _update_snapshot(event: dict) -> None:
-    """Update in-memory snapshot globals so WS-connect replay is accurate."""
-    global runtime_stats_snapshot, system_status_snapshot, sorter_state_snapshot, cameras_config_snapshot, sorting_profile_status_snapshot
-    tag = event.get("tag")
-    data = event.get("data") if isinstance(event.get("data"), dict) else None
-    if tag == "system_status" and data is not None:
-        system_status_snapshot = dict(data)
-    elif tag == "sorter_state" and data is not None:
-        sorter_state_snapshot = dict(data)
-    elif tag == "cameras_config" and data is not None:
-        cameras_config_snapshot = dict(data)
-    elif tag == "sorting_profile_status" and data is not None:
-        sorting_profile_status_snapshot = dict(data)
-    elif tag == "runtime_stats" and data is not None:
-        payload = data.get("payload")
-        if isinstance(payload, dict):
-            runtime_stats_snapshot = payload
-            perf_history.record(payload, time.time())
+def encodeEvent(event: dict) -> str:
+    return json.dumps(event, separators=(",", ":"), ensure_ascii=False, default=str)
 
 
-def broadcast_from_thread(event: dict) -> None:
-    """Thread-safe broadcast helper — schedules a broadcast on the server loop.
-
-    Safe to call from any thread, including synchronous request handlers.
-    Always updates the snapshot first; the live broadcast is best-effort and
-    silently no-ops if the server loop is not running.
-    """
-    _update_snapshot(event)
+def broadcast(event: dict) -> None:
+    """Send an event to every websocket client; safe from any thread. It is
+    encoded once, here in the caller's thread, and never waits for a client."""
+    tag = str(event.get("tag"))
+    key = f"{tag}:{event['data'].get('uuid')}" if tag == "known_object" else tag
+    text = encodeEvent(event)
     loop = server_loop
-    if loop is None or not loop.is_running():
-        return
-    try:
-        asyncio.run_coroutine_threadsafe(broadcastEvent(event), loop)
-    except Exception:
-        # Loop closed / not running — best-effort only.
-        pass
+    if loop is not None:
+        try:
+            loop.call_soon_threadsafe(fanOut, key, text)
+        except RuntimeError:
+            pass  # the loop has shut down
+
+
+def fanOut(key: str, text: str) -> None:
+    """On the event loop: hand an encoded message to every client's sender."""
+    global last_broadcast_ok_ts
+    last_broadcast_ok_ts = time.time()
+    for client in ws_clients:
+        client.push(key, text)
+
+
+def systemStatusData() -> dict[str, Any]:
+    return {
+        "hardware_state": hardware_state,
+        "hardware_error": hardware_error,
+        "homing_step": hardware_homing_step,
+        "no_power_development_mode": bool(getattr(gc_ref, "no_power_development_mode", False)),
+    }
 
 
 def publishSystemStatus() -> None:
     """Broadcast the current hardware status snapshot over WS."""
-    no_power_development_mode = bool(
-        getattr(gc_ref, "no_power_development_mode", False)
-    )
-    broadcast_from_thread(
-        {
-            "tag": "system_status",
-            "data": {
-                "hardware_state": hardware_state,
-                "hardware_error": hardware_error,
-                "homing_step": hardware_homing_step,
-                "no_power_development_mode": no_power_development_mode,
-            },
-        }
-    )
+    broadcast({"tag": "system_status", "data": systemStatusData()})
 
 
 def setHardwareStatus(
     *,
     state: Optional[str] = None,
-    error: Optional[str] = None,
+    error: Optional[HardwareFault] = None,
     homing_step: Optional[str] = None,
     clear_error: bool = False,
     clear_homing_step: bool = False,
@@ -323,8 +270,8 @@ def setHardwareStatus(
     if state is not None and state != hardware_state:
         hardware_state = state
         changed = True
-    if error is not None and error != hardware_error:
-        hardware_error = error
+    if error is not None and error.data() != hardware_error:
+        hardware_error = error.data()
         changed = True
     elif clear_error and hardware_error is not None:
         hardware_error = None
@@ -339,94 +286,13 @@ def setHardwareStatus(
         publishSystemStatus()
 
 
-def normalizeSampleCollectionSpeedRole(role: object) -> str | None:
-    normalized = str(role or "").strip().lower()
-    if not normalized:
-        return None
-    normalized = SAMPLE_COLLECTION_SPEED_ROLE_ALIASES.get(normalized, normalized)
-    if normalized in SAMPLE_COLLECTION_SPEED_ROLES:
-        return normalized
-    return None
-
-
-def getSampleCollectionSpeedRpm(role: object) -> Optional[float]:
-    normalized = normalizeSampleCollectionSpeedRole(role)
-    if normalized is None:
-        return None
-    with sample_collection_speed_lock:
-        return sample_collection_speed_rpm_by_role.get(normalized)
-
-
-def getSampleCollectionSpeedsRpmByRole() -> Dict[str, Optional[float]]:
-    with sample_collection_speed_lock:
-        return {
-            role: sample_collection_speed_rpm_by_role.get(role)
-            for role in SAMPLE_COLLECTION_SPEED_ROLES
-        }
-
-
-def getSampleCollectionSpeedMaxRpm(role: object) -> float:
-    normalized = normalizeSampleCollectionSpeedRole(role)
-    if normalized is None:
-        return SAMPLE_COLLECTION_SPEED_MAX_RPM
-    return float(
-        SAMPLE_COLLECTION_SPEED_MAX_RPM_BY_ROLE.get(
-            normalized,
-            SAMPLE_COLLECTION_SPEED_MAX_RPM,
-        )
-    )
-
-
-def getSampleCollectionSpeedMaxRpmByRole() -> Dict[str, float]:
-    return {
-        role: getSampleCollectionSpeedMaxRpm(role)
-        for role in SAMPLE_COLLECTION_SPEED_ROLES
-    }
-
-
-def setSampleCollectionSpeedRpm(role: object, rpm: object) -> Optional[float]:
-    normalized = normalizeSampleCollectionSpeedRole(role)
-    if normalized is None:
-        raise ValueError(f"invalid sample collection speed role: {role!r}")
-
-    if rpm is None or rpm == "":
-        value = None
-    else:
-        try:
-            value = float(rpm)
-        except (TypeError, ValueError) as exc:
-            raise ValueError(f"invalid rpm for {normalized}: {rpm!r}") from exc
-        if not math.isfinite(value):
-            raise ValueError(f"invalid rpm for {normalized}: {rpm!r}")
-        max_rpm = getSampleCollectionSpeedMaxRpm(normalized)
-        if value < SAMPLE_COLLECTION_SPEED_MIN_RPM or value > max_rpm:
-            raise ValueError(
-                f"rpm for {normalized} must be between "
-                f"{SAMPLE_COLLECTION_SPEED_MIN_RPM:g} and {max_rpm:g}"
-            )
-        value = round(value, 3)
-
-    with sample_collection_speed_lock:
-        sample_collection_speed_rpm_by_role[normalized] = value
-    return value
-
-
-def setSampleCollectionSpeedsRpm(values: Dict[str, Any]) -> Dict[str, Optional[float]]:
-    if not isinstance(values, dict):
-        raise ValueError("speeds must be an object keyed by channel role")
-    for role, rpm in values.items():
-        setSampleCollectionSpeedRpm(role, rpm)
-    return getSampleCollectionSpeedsRpmByRole()
-
-
-def publishSorterState(state: str, camera_layout: Optional[str] = None) -> None:
+def publishSorterState(state: str) -> None:
     """Broadcast the sorter-controller FSM state over WS."""
-    broadcast_from_thread(
+    broadcast(
         {
             "tag": "sorter_state",
             "data": {
                 "state": state,
-                "camera_layout": camera_layout,
             },
         }
     )
@@ -434,7 +300,7 @@ def publishSorterState(state: str, camera_layout: Optional[str] = None) -> None:
 
 def publishCamerasConfig(cameras: Dict[str, Any]) -> None:
     """Broadcast the camera role → source map over WS."""
-    broadcast_from_thread(
+    broadcast(
         {
             "tag": "cameras_config",
             "data": {"cameras": dict(cameras)},
@@ -446,7 +312,7 @@ def publishSortingProfileStatus(status: Dict[str, Any]) -> None:
     """Broadcast the sorting profile sync status + local profile metadata over WS."""
     sync_state = status.get("sync_state") if isinstance(status.get("sync_state"), dict) else {}
     local_profile = status.get("local_profile") if isinstance(status.get("local_profile"), dict) else {}
-    broadcast_from_thread(
+    broadcast(
         {
             "tag": "sorting_profile_status",
             "data": {

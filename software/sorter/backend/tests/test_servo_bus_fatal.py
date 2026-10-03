@@ -29,10 +29,11 @@ from server import shared_state
 from sorting_profile import MISC_CATEGORY, SortingProfile
 from subsystems.distribution.chute import BinAddress, Chute
 from subsystems.distribution.positioning import (
-    CHUTE_JAM_ALERT_PREFIX,
+    CHUTE_JAM_TITLE,
     DISTRIBUTION_NO_BIN_AVAILABLE_INCIDENT_KIND,
+    DOORS_STOP_WAIT_S,
     Positioning,
-    SERVO_BUS_ALERT_PREFIX,
+    SERVO_BUS_OFFLINE_TITLE,
 )
 from subsystems.distribution.states import DistributionState
 from subsystems.shared_variables import SharedVariables
@@ -53,11 +54,6 @@ class _Logger:
 
     def error(self, msg: str, *args, **kwargs) -> None:
         self.messages.append(("error", str(msg)))
-
-
-class _Profiler:
-    def hit(self, *_args, **_kwargs) -> None:
-        return
 
 
 class _AllCategoriesProfile(SortingProfile):
@@ -117,10 +113,8 @@ class ServoBusFatalTests(unittest.TestCase):
         self.gc = SimpleNamespace(
             logger=self.logger,
             disable_servos=False,
-            profiler=_Profiler(),
             runtime_stats=self.runtime_stats,
             run_recorder=SimpleNamespace(markPaused=lambda: None, markRunning=lambda: None),
-            use_channel_bus=False,
         )
 
     def tearDown(self) -> None:
@@ -168,8 +162,7 @@ class ServoBusFatalTests(unittest.TestCase):
         # Fatal banner set + distinct from chute-jam prefix.
         self.assertIsNotNone(shared_state.hardware_error)
         assert shared_state.hardware_error is not None
-        self.assertTrue(shared_state.hardware_error.startswith(SERVO_BUS_ALERT_PREFIX))
-        self.assertFalse(shared_state.hardware_error.startswith(CHUTE_JAM_ALERT_PREFIX))
+        self.assertEqual(SERVO_BUS_OFFLINE_TITLE, shared_state.hardware_error["title"])
 
         # A pause command was enqueued for the main-thread handler.
         self.assertFalse(self.cmd_queue.empty())
@@ -198,6 +191,56 @@ class ServoBusFatalTests(unittest.TestCase):
         self.assertIsNone(shared_state.hardware_error)
         self.assertTrue(self.cmd_queue.empty())
         self.assertIsNone(self.runtime_stats.servo_bus_offline_since_ts)
+
+    def test_a_refused_chute_move_is_resent_and_never_reaches_ready(self) -> None:
+        positioning = self._mk_positioning(servos=[_mk_healthy_servo()])
+        positioning.chute.moveToBin = MagicMock(side_effect=[None, 250])
+        positioning.chute.stepper = SimpleNamespace(stopped=False)
+
+        self.assertIsNone(positioning.step())  # the board refuses: the chute is busy
+        self.assertIsNone(positioning.step())  # still moving: wait, send nothing
+        self.assertEqual(1, positioning.chute.moveToBin.call_count)
+
+        positioning.chute.stepper.stopped = True
+        self.assertIsNone(positioning.step())  # stopped: sent again and accepted
+        self.assertEqual(2, positioning.chute.moveToBin.call_count)
+        self.assertEqual(DistributionState.READY, positioning.step())
+
+    def test_the_doors_for_a_piece_are_set_only_once_every_door_has_stopped(self) -> None:
+        moving = _mk_healthy_servo()
+        moving.stopped = False
+        servos = [_mk_healthy_servo(), moving]
+        positioning = self._mk_positioning(servos=servos)
+        commands = lambda servo: servo.open.call_count + servo.close.call_count
+
+        self.assertIsNone(positioning.step())  # layer 1's door is still moving
+        self.assertIsNone(positioning.step())
+        self.assertEqual([0, 0], [commands(servo) for servo in servos])
+        positioning.chute.moveToBin.assert_not_called()
+
+        moving.stopped = True
+        self.assertIsNone(positioning.step())  # doors set, chute sent
+        self.assertEqual([1, 1], [commands(servo) for servo in servos])
+        positioning.chute.moveToBin.assert_called_once()
+
+    def test_a_door_that_never_stops_is_set_anyway_after_the_wait(self) -> None:
+        moving = _mk_healthy_servo()
+        moving.stopped = False
+        positioning = self._mk_positioning(servos=[_mk_healthy_servo(), moving])
+
+        self.assertIsNone(positioning.step())
+        positioning._doors_wait_since -= DOORS_STOP_WAIT_S
+        positioning.step()
+        positioning.chute.moveToBin.assert_called_once()
+
+    def test_a_refused_door_close_marks_the_layer_unavailable(self) -> None:
+        servo = _mk_healthy_servo()
+        servo.close = MagicMock(return_value=False)
+        positioning = self._mk_positioning(servos=[servo])
+
+        self.assertEqual(DistributionState.IDLE, positioning.step())
+        positioning.chute.moveToBin.assert_not_called()
+        self.assertIn(0, positioning._blocked_layers)
 
     def test_no_bin_available_publishes_distribution_incident_before_passthrough(self) -> None:
         positioning = self._mk_positioning(
@@ -297,8 +340,8 @@ class ServoBusFatalTests(unittest.TestCase):
         servos = [_mk_offline_servo(), _mk_offline_servo()]
         positioning = self._mk_positioning(servos=servos)
         positioning.step()
-        self.assertTrue(
-            (shared_state.hardware_error or "").startswith(SERVO_BUS_ALERT_PREFIX)
+        self.assertEqual(
+            SERVO_BUS_OFFLINE_TITLE, (shared_state.hardware_error or {}).get("title")
         )
 
         # Bus recovered: flip the servos back to healthy.
@@ -335,7 +378,7 @@ class ServoBusFatalTests(unittest.TestCase):
 
         self.assertIsNotNone(shared_state.hardware_error)
         assert shared_state.hardware_error is not None
-        self.assertTrue(shared_state.hardware_error.startswith(CHUTE_JAM_ALERT_PREFIX))
+        self.assertEqual(CHUTE_JAM_TITLE, shared_state.hardware_error["title"])
         snap = self.runtime_stats.snapshot()
         self.assertIsNotNone(snap.get("active_incident"))
         self.assertEqual("distribution_chute_jam", snap["active_incident"]["kind"])
@@ -392,7 +435,7 @@ class MainBootServoHealthCheckTests(unittest.TestCase):
         self._run_check([_mk_offline_servo(), _mk_offline_servo()])
         self.assertIsNotNone(shared_state.hardware_error)
         assert shared_state.hardware_error is not None
-        self.assertTrue(shared_state.hardware_error.startswith(SERVO_BUS_ALERT_PREFIX))
+        self.assertEqual(SERVO_BUS_OFFLINE_TITLE, shared_state.hardware_error["title"])
         self.assertIsNotNone(self.runtime_stats.servo_bus_offline_since_ts)
 
     def test_boot_with_at_least_one_online_leaves_error_clear(self) -> None:

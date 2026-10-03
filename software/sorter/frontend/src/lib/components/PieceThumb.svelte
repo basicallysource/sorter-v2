@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { Skeleton } from '$lib/components/primitives';
+	import Skeleton from '$lib/components/ui/Skeleton.svelte';
 
 	// A piece image that loads independently of the rest of the page: skeleton
 	// pulse while the image fetches, and a part-id chip instead of the browser's
@@ -36,7 +36,7 @@
 		/>
 	{:else}
 		<div class="flex h-full w-full items-center justify-center overflow-hidden px-1 text-center">
-			<span class="truncate text-xs text-[#9A968E]">{fallbackText || '—'}</span>
+			<span class="truncate text-xs text-ink-faint">{fallbackText || '—'}</span>
 		</div>
 	{/if}
 </div>

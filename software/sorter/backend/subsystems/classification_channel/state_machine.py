@@ -1,12 +1,8 @@
 import time
 
 from global_config import GlobalConfig
-from irl.config import ClassificationChannelMode, IRLConfig, IRLInterface
+from irl.config import IRLConfig, IRLInterface
 from piece_transport import ClassificationChannelTransport
-from subsystems.base_subsystem import BaseSubsystem
-from subsystems.classification_channel.detecting import Detecting
-from subsystems.classification_channel.ejecting import Ejecting
-from subsystems.classification_channel.idle import Idle
 from subsystems.classification_channel.incidents import (
     C4_EXIT_STUCK_INCIDENT_KIND,
     c4_stall_incident_active,
@@ -18,9 +14,9 @@ from subsystems.classification_channel.incidents import (
 # General no-progress watchdog: if a piece is physically on the classification
 # channel (perception n_pieces > 0) but the flow makes NO progress for this
 # long, the process is wedged — no matter WHICH state it's stuck in or which
-# zone perception thinks the piece is in. "Progress" is a state transition in
-# simple mode; in two-piece mode it also covers track ids appearing/leaving,
-# zone changes, substantial piece movement, and capture/classify milestones.
+# zone perception thinks the piece is in. "Progress" covers phase changes,
+# track ids appearing/leaving, zone changes, substantial piece movement, and
+# capture/classify milestones.
 # With automatic handling the watchdog first tries to clear the channel itself
 # (rotate forward up to _STALL_AUTO_CLEAR_MAX_TURNS full output turns, checking
 # occupancy as it goes); only if that fails does it raise the operator
@@ -30,28 +26,10 @@ from subsystems.classification_channel.incidents import (
 # dwell (rotate/classify/discharge all transition within a few seconds).
 _STALL_INCIDENT_MS = 30000.0
 _STALL_AUTO_CLEAR_MAX_TURNS = 2
-from subsystems.classification_channel.running import Running
-from subsystems.classification_channel.simple_state_machine_rev01 import (
-    buildRev01StatesMap,
-)
-from subsystems.classification_channel.snapping import Snapping
-from subsystems.classification_channel.states import ClassificationChannelState
 from subsystems.shared_variables import SharedVariables
 
-# =============================================================================
-# CLASSIFICATION CHANNEL PATHS
-# =============================================================================
-# SIMPLE_STATE_MACHINE_REV01  (the one that pairs with GO_TO_ANGLE_REV01 feeder)
-#   - The rev01 package (simple_state_machine_rev01/) is the relevant one for
-#     current Rev04 + jitter work on the classification side.
-#   - Has its own perception vs legacy vision branches inside the rev01 states.
-#
-# Everything else (DYNAMIC + the old classification/ package states) is the
-# legacy path and is not the focus when working on go-to-angle feeder jitter.
-# =============================================================================
 
-
-class ClassificationChannelStateMachine(BaseSubsystem):
+class ClassificationChannelStateMachine:
     def __init__(
         self,
         *,
@@ -63,7 +41,6 @@ class ClassificationChannelStateMachine(BaseSubsystem):
         event_queue,
         transport: ClassificationChannelTransport,
     ):
-        super().__init__()
         self.irl = irl
         self.gc = gc
         self.logger = gc.logger
@@ -72,81 +49,28 @@ class ClassificationChannelStateMachine(BaseSubsystem):
         self.event_queue = event_queue
         self.transport = transport
         self.irl_config = irl_config
-        self._mode: ClassificationChannelMode = getattr(
-            irl_config.classification_channel_config,
-            "mode",
-            ClassificationChannelMode.DYNAMIC,
+        from subsystems.classification_channel.two_piece import (
+            TwoPieceClassificationChannel,
         )
-        self._dynamic_mode = self._mode == ClassificationChannelMode.DYNAMIC
-        if self._dynamic_mode:
-            self.transport.configureDynamicMode(irl_config.classification_channel_config)
-        self.current_state = ClassificationChannelState.IDLE
-        # The two-piece codepath is a single self-contained controller (not a
-        # states_map); step()/cleanup() delegate to it when this mode is active.
-        self._two_piece = None
-        if self._mode == ClassificationChannelMode.SIMPLE_STATE_MACHINE_REV01:
-            self.states_map = buildRev01StatesMap(
-                irl=irl,
-                irl_config=irl_config,
-                gc=gc,
-                shared=shared,
-                transport=transport,
-                vision=vision,
-                event_queue=event_queue,
-            )
-        elif self._mode == ClassificationChannelMode.TWO_PIECE_STATE_MACHINE_REV01:
-            from subsystems.classification_channel.two_piece import (
-                TwoPieceClassificationChannel,
-            )
-            from subsystems.classification_channel.simple_state_machine_rev01.context import (
-                SimpleStateMachineRev01Context,
-            )
-            self.states_map = {}
-            self._two_piece = TwoPieceClassificationChannel(
-                irl,
-                irl_config,
-                gc,
-                shared,
-                transport,
-                vision,
-                event_queue,
-                SimpleStateMachineRev01Context(),
-            )
-        else:
-            self.states_map = {
-                ClassificationChannelState.IDLE: Idle(
-                    irl, irl_config, gc, shared, transport, vision
-                ),
-            }
-            if self._dynamic_mode:
-                self.states_map[ClassificationChannelState.RUNNING] = Running(
-                    irl,
-                    irl_config,
-                    gc,
-                    shared,
-                    transport,
-                    vision,
-                    event_queue,
-                )
-            else:
-                self.states_map.update(
-                    {
-                        ClassificationChannelState.DETECTING: Detecting(
-                            irl, gc, shared, transport, vision, event_queue
-                        ),
-                        ClassificationChannelState.SNAPPING: Snapping(
-                            irl, gc, shared, transport, vision, event_queue
-                        ),
-                        ClassificationChannelState.EJECTING: Ejecting(
-                            irl, irl_config, gc, shared, transport, vision, event_queue
-                        ),
-                    }
-                )
-        self.gc.profiler.enterState("classification", self.current_state.value)
+        from subsystems.classification_channel.two_piece.context import (
+            SimpleStateMachineRev01Context,
+        )
+
+        self._two_piece = TwoPieceClassificationChannel(
+            irl,
+            irl_config,
+            gc,
+            shared,
+            transport,
+            vision,
+            event_queue,
+            SimpleStateMachineRev01Context(),
+        )
+        # The flow's phase (waiting_for_piece, waiting, ejecting, staging) is
+        # what the runtime stats show as the classification channel's state.
+        self._phase = self._two_piece.phaseName()
         if hasattr(self.gc, "runtime_stats"):
-            self.gc.runtime_stats.observeStateTransition(
-                "classification", None, self.current_state.value
-            )
+            self.gc.runtime_stats.observeStateTransition("classification", None, self._phase)
         # No-progress watchdog state: last time the SM made a transition (its
         # "progress" signal) and whether we've raised the stall incident.
         self._last_progress_at = time.monotonic()
@@ -165,86 +89,25 @@ class ClassificationChannelStateMachine(BaseSubsystem):
         if stall_hold and self._stall_resolve_requested:
             self._runRequestedStallResolve()
             stall_hold = self._stall_incident_raised and c4_stall_incident_active(self.gc)
-        if self._two_piece is not None:
-            if not stall_hold:
-                self._two_piece.step()
-            self._checkStall(time.monotonic())
-            return
-        if stall_hold:
-            self._checkStall(time.monotonic())
-            return
-        import time as _time
-        _t0 = _time.perf_counter()
-        self.gc.profiler.hit("classification.state_machine.step.calls")
-        _t1 = _time.perf_counter()
-        next_state = self.states_map[self.current_state].step()
-        _t2 = _time.perf_counter()
-        _after_t0 = _time.perf_counter()
-        if next_state and next_state != self.current_state:
-            _cleanup_t0 = _time.perf_counter()
-            prev_state = self.current_state
-            # A state transition is the SM's "forward progress" signal.
-            self._last_progress_at = _time.monotonic()
-            self.logger.info(
-                f"ClassificationChannel: {prev_state.value} -> {next_state.value}"
-            )
-            self.gc.profiler.hit(
-                f"classification.state_machine.transition.{prev_state.value}->{next_state.value}"
-            )
-            self.states_map[prev_state].cleanup()
-            self.current_state = next_state
-            if hasattr(self.gc, "runtime_stats"):
-                self.gc.runtime_stats.observeStateTransition(
-                    "classification", prev_state.value, next_state.value
-                )
-            self.gc.profiler.enterState("classification", self.current_state.value)
-            self.gc.runtime_stats.observePerfMs(
-                "classification.sm.transition_cleanup_ms",
-                (_time.perf_counter() - _cleanup_t0) * 1000.0,
-            )
-        _t3 = _time.perf_counter()
-        self.gc.runtime_stats.observePerfMs(
-            f"classification.sm.state_step_ms.{self.current_state.value}",
-            (_t2 - _t1) * 1000.0,
-        )
-        self.gc.runtime_stats.observePerfMs(
-            "classification.sm.overhead_before_state_ms",
-            (_t1 - _t0) * 1000.0,
-        )
-        self.gc.runtime_stats.observePerfMs(
-            "classification.sm.overhead_after_state_ms",
-            (_t3 - _after_t0) * 1000.0,
-        )
-        self.gc.runtime_stats.observePerfMs(
-            "classification.sm.total_ms",
-            (_t3 - _t0) * 1000.0,
-        )
-        self._checkStall(_time.monotonic())
+        if not stall_hold:
+            self._two_piece.step()
+            phase = self._two_piece.phaseName()
+            if phase != self._phase and hasattr(self.gc, "runtime_stats"):
+                self.gc.runtime_stats.observeStateTransition("classification", self._phase, phase)
+            self._phase = phase
+        self._checkStall(time.monotonic())
 
     def _watchdogStateLabel(self) -> str:
-        if self._two_piece is not None:
-            return self._two_piece.phaseName()
-        return self.current_state.value
+        return self._two_piece.phaseName()
 
     def _progressAt(self) -> float:
-        if self._two_piece is not None:
-            return float(self._two_piece.last_progress_at)
-        return self._last_progress_at
+        return float(self._two_piece.last_progress_at)
 
     def _rearmProgress(self, now: float) -> None:
         self._last_progress_at = now
-        if self._two_piece is not None:
-            self._two_piece.noteProgress()
+        self._two_piece.noteProgress()
 
     def _checkStall(self, now: float) -> None:
-        # Only the supported rev01 paths (simple + two-piece). Legacy/dynamic
-        # paths have their own flow.
-        if self._mode not in (
-            ClassificationChannelMode.SIMPLE_STATE_MACHINE_REV01,
-            ClassificationChannelMode.TWO_PIECE_STATE_MACHINE_REV01,
-        ):
-            return
-
         # If we raised the incident and it's since been resolved (operator
         # cleared it), re-arm from now so we don't instantly re-fire on the next
         # step — give the resumed flow a fresh window to make progress.
@@ -339,20 +202,7 @@ class ClassificationChannelStateMachine(BaseSubsystem):
         (occupancy-checked) until it clears or the budget runs out. Blocking;
         must only run on the coordinator thread. Returns a ChannelClearResult."""
         max_output_deg = _STALL_AUTO_CLEAR_MAX_TURNS * 360.0
-        if self._two_piece is not None:
-            result = self._two_piece.attemptStallAutoClear(max_output_deg=max_output_deg)
-        else:
-            from subsystems.classification_channel.simple_state_machine_rev01.channel_clear import (
-                clearChannelByAdvancing,
-            )
-
-            result = clearChannelByAdvancing(
-                self.gc,
-                self.irl,
-                self.irl_config,
-                vision=self.vision,
-                max_output_deg=max_output_deg,
-            )
+        result = self._two_piece.attemptStallAutoClear(max_output_deg=max_output_deg)
         if result.cleared:
             # Re-arm fresh: the blocking clear consumed real time, so the window
             # restarts from now, not from the pre-clear timestamp.
@@ -413,24 +263,7 @@ class ClassificationChannelStateMachine(BaseSubsystem):
         runtime_stats.setActiveIncident(failed)
 
     def cleanup(self) -> None:
-        self.gc.profiler.exitState("classification")
         # Fresh watchdog window on the next start — a pause/standby stretch must
         # not count toward "stalled".
         self._last_progress_at = time.monotonic()
-        if self._two_piece is not None:
-            self._two_piece.cleanup()
-            return
-        # Tearing down mid-cycle (machine stop / standby): if a piece was
-        # photographed but never classified or distributed, mark it aborted so
-        # the UI drops it instead of leaving it stuck in "capturing" forever.
-        if self._mode == ClassificationChannelMode.SIMPLE_STATE_MACHINE_REV01:
-            current = self.states_map[self.current_state]
-            abandon = getattr(current, "abandonInFlightObject", None)
-            if callable(abandon):
-                abandon("classification channel teardown")
-        self.states_map[self.current_state].cleanup()
-        if self._dynamic_mode and hasattr(self.transport, "resetDynamicState"):
-            self.transport.resetDynamicState()
-        # Reset to IDLE so the next resume / start re-runs the chamber
-        # purge check instead of resuming mid-cycle.
-        self.current_state = ClassificationChannelState.IDLE
+        self._two_piece.cleanup()

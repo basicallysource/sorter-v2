@@ -1,10 +1,23 @@
 <script lang="ts">
 	import { getBackendHttpBase, machineHttpBaseUrlFromWsUrl } from '$lib/backend';
 	import { getMachinesContext } from '$lib/machines/context';
-	import { Alert, Button, Input } from '$lib/components/primitives';
+	import Alert from '$lib/components/ui/Alert.svelte';
+	import Button from '$lib/components/ui/Button.svelte';
+	import Input from '$lib/components/ui/Input.svelte';
+	import Badge from '$lib/components/ui/Badge.svelte';
+	import Field from '$lib/components/ui/Field.svelte';
+	import Panel from '$lib/components/ui/Panel.svelte';
+	import SegmentedControl from '$lib/components/ui/SegmentedControl.svelte';
+	import Stat from '$lib/components/ui/Stat.svelte';
+	import PageHeader from '$lib/components/ui/PageHeader.svelte';
+	import ArrowDown from '@lucide/svelte/icons/arrow-down';
+	import ArrowLeft from '@lucide/svelte/icons/arrow-left';
+	import ArrowRight from '@lucide/svelte/icons/arrow-right';
+	import ArrowUp from '@lucide/svelte/icons/arrow-up';
+	import Check from '@lucide/svelte/icons/check';
 	import BinLayoutViz from './BinLayoutViz.svelte';
 	import ErrorBanner from './ErrorBanner.svelte';
-	import { binCenterAngle, reachInfo } from './geometry';
+	import { binCenterAngle, reachInfo } from '$lib/chute/geometry';
 
 	const manager = getMachinesContext();
 
@@ -359,376 +372,328 @@
 
 </script>
 
-<svelte:head><title>Sorter - Chute Aiming</title></svelte:head>
+<svelte:head><title>Sorter - Chute aiming</title></svelte:head>
 
 <svelte:window onkeydown={handleKey} />
 
-{#snippet jogKey(glyph: string, label: string, delta: number, active: boolean)}
-	<button
-		class="flex flex-col items-center border border-border bg-surface px-3 py-1.5 text-text hover:bg-bg active:bg-primary/10 disabled:cursor-not-allowed disabled:opacity-50"
-		disabled={!active || busy}
-		onclick={() => nudge(delta)}
-	>
-		<span class="text-base leading-none">{glyph}</span>
-		<span class="text-xs text-text-muted">{label}</span>
-	</button>
+{#snippet jogKey(icon: typeof ArrowUp, label: string, delta: number, active: boolean)}
+	<Button variant="secondary" size="sm" {icon} disabled={!active || busy} onclick={() => nudge(delta)}>
+		{label}
+	</Button>
 {/snippet}
 
 {#snippet jogPad(active: boolean, showBins: boolean)}
-	<div class="flex w-fit border border-border bg-bg">
-		<!-- Left: jog the chute -->
-		<div class="flex flex-col gap-2 p-3" class:opacity-40={!active}>
-			<div class="text-sm font-medium text-text">Jog the chute</div>
+	<div class="flex w-fit flex-wrap gap-x-8 gap-y-4 rounded-control bg-well p-3">
+		<div class="flex flex-col gap-2" class:opacity-40={!active}>
+			<span class="label">Jog the chute</span>
 			<div class="grid grid-cols-3 gap-1 select-none">
-				<div></div>
-				{@render jogKey('↑', `+${FINE}°`, FINE, active)}
-				<div></div>
-
-				{@render jogKey('←', `−${COARSE}°`, -COARSE, active)}
-				<div class="flex flex-col items-center justify-center border border-border bg-surface px-2 py-1.5">
-					<span class="text-sm font-semibold text-text">{fmt(currentAngle, 2)}°</span>
-					<span class="text-xs text-text-muted">current</span>
-				</div>
-				{@render jogKey('→', `+${COARSE}°`, COARSE, active)}
-
-				<div></div>
-				{@render jogKey('↓', `−${FINE}°`, -FINE, active)}
-				<div></div>
+				<span></span>
+				{@render jogKey(ArrowUp, `+${FINE}°`, FINE, active)}
+				<span></span>
+				{@render jogKey(ArrowLeft, `−${COARSE}°`, -COARSE, active)}
+				<span class="flex flex-col items-center justify-center rounded-control bg-surface px-2 py-1">
+					<span class="num text-sm font-medium text-ink">{fmt(currentAngle, 2)}°</span>
+					<span class="text-xs text-ink-muted">Now</span>
+				</span>
+				{@render jogKey(ArrowRight, `+${COARSE}°`, COARSE, active)}
+				<span></span>
+				{@render jogKey(ArrowDown, `−${FINE}°`, -FINE, active)}
+				<span></span>
 			</div>
 			{#if active}
-				<p class="max-w-[15rem] text-sm text-text-muted">
-					Arrow keys work too: ↑ ↓ fine {FINE}°, ← → coarse {COARSE}°. Hold to repeat.
+				<p class="max-w-60 text-sm text-ink-muted">
+					The arrow keys work too: up and down move {FINE}°, left and right {COARSE}°. Hold one to
+					repeat.
 				</p>
 			{/if}
 		</div>
-
 		{#if showBins}
-			<!-- Divider down the middle, then: how many bins -->
-			<div class="flex flex-col gap-2 border-l border-border p-3">
-				<div class="text-sm font-medium text-text">Bins in this section</div>
-				<div class="grid grid-cols-3 gap-1">
-					{#each [3, 4, 5, 6] as n}
-						<Button
-							variant={binsInTestSection === n ? 'primary' : 'secondary'}
-							size="sm"
-							onclick={() => (binsInTestSection = n)}
-						>
-							{n}
-						</Button>
-					{/each}
-				</div>
-				<p class="max-w-[13rem] text-sm text-text-muted">
-					How many bins are in the section you're measuring. More bins = more accurate; 3 or 5 is ideal.
+			<div class="flex flex-col gap-2">
+				<span class="label">Bins in this section</span>
+				<SegmentedControl
+					label="Bins in this section"
+					size="sm"
+					value={String(binsInTestSection)}
+					options={['3', '4', '5', '6'].map((n) => ({ value: n, label: n }))}
+					onchange={(n) => (binsInTestSection = Number(n))}
+				/>
+				<p class="max-w-52 text-sm text-ink-muted">
+					How many bins the section you are measuring has. More is more accurate; 3 or 5 is best.
 				</p>
 			</div>
 		{/if}
 	</div>
 {/snippet}
 
-{#snippet stepBadge(n: number, done: boolean)}
-	<span
-		class={`flex h-6 w-6 shrink-0 items-center justify-center text-sm font-semibold ${
-			done
-				? 'bg-success text-primary-contrast'
+{#snippet stepHead(n: number, done: boolean, title: string)}
+	<div class="flex items-center gap-2">
+		<span
+			class="flex size-6 shrink-0 items-center justify-center rounded-badge text-sm font-medium {done
+				? 'bg-success-soft text-success-ink'
 				: activeStep === n
-					? 'bg-primary text-primary-contrast'
-					: 'border border-border bg-surface text-text-muted'
-		}`}
-	>
-		{done ? '✓' : n}
-	</span>
+					? 'bg-primary-soft text-primary-ink'
+					: 'bg-well text-ink-muted'}"
+		>
+			{#if done}<Check size={14} />{:else}{n}{/if}
+		</span>
+		<h3 class="text-sm font-medium text-ink">{title}</h3>
+	</div>
 {/snippet}
 
-<div class="flex max-w-4xl flex-col gap-5">
-	<div class="flex flex-col gap-1">
-		<h1 class="text-lg font-semibold text-text">Chute Aiming</h1>
-		<p class="text-sm text-text-muted">
-			If the chute points at the wrong bin, run the calibration below. If you didn't come here for
-			that, the defaults are already correct — you can leave this page.
-		</p>
-	</div>
+{#snippet editFooter()}
+	<Button
+		variant="ghost"
+		onclick={() => {
+			editingParams = false;
+			void loadSettings();
+		}}
+	>
+		Cancel
+	</Button>
+	<Button variant="primary" loading={busy} onclick={saveParams}>Save</Button>
+{/snippet}
+
+<div class="flex max-w-4xl flex-col gap-(--gap-panels)">
+	<PageHeader
+		title="Chute aiming"
+		description="If the chute points at the wrong bin, run the calibration below. Otherwise the defaults are already right and you can leave this page."
+	/>
 
 	{#if errorMsg}
 		<ErrorBanner message={errorMsg} />
 	{:else if statusMsg}
-		<Alert variant="info">{statusMsg}</Alert>
+		<Alert tone="info">{statusMsg}</Alert>
 	{/if}
 
-	<!-- Active parameters — forefront, edit hidden behind hover -->
-	<section class="group flex flex-col gap-3 border border-border bg-bg px-4 py-3">
-		<div class="flex items-center justify-between">
-			<div class="text-sm font-semibold text-text">Active aiming parameters</div>
+	<!-- The active parameters come first; editing them by hand hides until hovered. -->
+	<Panel
+		title="Active aiming parameters"
+		flush={!editingParams}
+		class="group"
+		footer={editingParams ? editFooter : undefined}
+	>
+		{#snippet actions()}
 			{#if !editingParams}
-				<button
-					class="text-sm text-text-muted underline opacity-0 transition-opacity group-hover:opacity-100 focus:opacity-100 hover:text-text"
+				<Button
+					variant="ghost"
+					size="sm"
+					class="opacity-0 transition-opacity group-hover:opacity-100 focus-visible:opacity-100"
 					onclick={() => (editingParams = true)}
 				>
-					Edit manually
-				</button>
+					Edit by hand
+				</Button>
 			{/if}
-		</div>
-
+		{/snippet}
 		{#if !editingParams}
-			<div class="grid grid-cols-2 gap-3 sm:grid-cols-5">
-				<div>
-					<div class="text-xs font-semibold uppercase tracking-wider text-text-muted">Sections</div>
-					<div class="text-sm font-medium text-text">{numSections}</div>
-				</div>
-				<div>
-					<div class="text-xs font-semibold uppercase tracking-wider text-text-muted">Section width</div>
-					<div class="text-sm font-medium text-text">{fmt(sectionWidthDeg, 2)}°</div>
-				</div>
-				<div>
-					<div class="text-xs font-semibold uppercase tracking-wider text-text-muted">Offset from home</div>
-					<div class="text-sm font-medium text-text">{fmt(firstSectionOffsetDeg, 2)}°</div>
-				</div>
-				<div>
-					<div class="text-xs font-semibold uppercase tracking-wider text-text-muted">Pitch</div>
-					<div class="text-sm font-medium text-text">{fmt(sectionPitchDeg, 2)}°</div>
-				</div>
-				<div>
-					<div class="text-xs font-semibold uppercase tracking-wider text-text-muted">Pillar</div>
-					<div class="text-sm font-medium text-text">{fmt(pillarWidthDeg, 2)}°</div>
-				</div>
+			<div class="grid grid-cols-2 gap-px bg-line sm:grid-cols-5">
+				{#each [['Sections', String(numSections)], ['Section width', `${fmt(sectionWidthDeg, 2)}°`], ['Offset from home', `${fmt(firstSectionOffsetDeg, 2)}°`], ['Pitch', `${fmt(sectionPitchDeg, 2)}°`], ['Pillar', `${fmt(pillarWidthDeg, 2)}°`]] as [label, value] (label)}
+					<div class="bg-surface max-sm:last:col-span-2"><Stat {label} {value} /></div>
+				{/each}
 			</div>
 		{:else}
-			<Alert variant="warning">
-				These are produced by the calibration routine. Only edit by hand if you know exactly what
-				these numbers mean.
-			</Alert>
-			<div class="grid grid-cols-1 gap-3 sm:grid-cols-3">
-				<label class="flex flex-col gap-1 text-sm text-text">
-					Sections (N)
-					<Input type="number" bind:value={numSections} />
-				</label>
-				<label class="flex flex-col gap-1 text-sm text-text">
-					Section width W (°)
-					<Input type="number" bind:value={sectionWidthDeg} />
-				</label>
-				<label class="flex flex-col gap-1 text-sm text-text">
-					Offset θ₀ (°)
-					<Input type="number" bind:value={firstSectionOffsetDeg} />
-				</label>
-			</div>
-			<div class="flex gap-2">
-				<Button variant="primary" loading={busy} onclick={saveParams}>Save manual values</Button>
-				<Button variant="ghost" onclick={() => { editingParams = false; void loadSettings(); }}>
-					Cancel
-				</Button>
+			<div class="flex flex-col gap-4">
+				<Alert tone="warning">
+					The calibration sets these. Only change them by hand if you know exactly what they mean.
+				</Alert>
+				<div class="grid grid-cols-1 gap-4 sm:grid-cols-3">
+					<Field label="Sections (N)" for="aim-sections">
+						<Input id="aim-sections" type="number" bind:value={numSections} />
+					</Field>
+					<Field label="Section width (W)" for="aim-width">
+						<Input id="aim-width" type="number" unit="°" bind:value={sectionWidthDeg} />
+					</Field>
+					<Field label="Offset (θ₀)" for="aim-offset">
+						<Input id="aim-offset" type="number" unit="°" bind:value={firstSectionOffsetDeg} />
+					</Field>
+				</div>
 			</div>
 		{/if}
-	</section>
+	</Panel>
 
-	<!-- Calibration wizard -->
-	<section class="flex flex-col gap-3">
-		<div class="flex items-center justify-between">
-			<h2 class="text-base font-semibold text-text">Run calibration</h2>
+	<Panel
+		title="Run the calibration"
+		description="It finds two numbers: the width of a section in degrees, and the offset of the first section from home. From those the machine works out where every bin sits and which ones each layout can reach."
+		flush
+	>
+		{#snippet actions()}
 			{#if homed || capturedFirst !== null || capturedLast !== null}
-				<button class="text-sm text-text-muted underline hover:text-text" onclick={resetCalibration}>
-					Start over
-				</button>
+				<Button variant="ghost" size="sm" onclick={resetCalibration}>Start over</Button>
 			{/if}
+		{/snippet}
+		<div class="px-(--pad-panel) pb-4">
+			<Alert tone="warning">
+				Every step here moves the chute. It hits a hard stop at home and can never cross it, so it has
+				about {fmt(maxAngleDeg, 0)}° of travel. Always home first.
+			</Alert>
 		</div>
-
-		<p class="text-sm text-text-muted">
-			Calibration finds just two numbers: the <span class="font-medium text-text">width of a section</span>
-			(in degrees) and the <span class="font-medium text-text">offset of the first section from the zero
-			point</span> (home). From those, the machine works out where every bin sits and which ones each
-			layout can reach.
-		</p>
-
-		<Alert variant="warning">
-			Every step here moves the chute. It hits a hard stop at home and can never cross it, so it only has
-			~{fmt(maxAngleDeg, 0)}° of travel — always home first.
-		</Alert>
-
-		<!-- Step 1: Home -->
-		<div class="flex flex-col gap-3 border border-border bg-bg px-4 py-3">
-			<div class="flex items-center gap-2">
-				{@render stepBadge(1, homed)}
-				<div class="text-sm font-medium text-text">Home the chute</div>
-			</div>
-			<p class="text-sm text-text-muted">Establishes the 0° reference at the home switch.</p>
-			<div class="flex flex-wrap items-center gap-x-6 gap-y-1 border border-border bg-surface px-3 py-2">
-				<div class="flex items-baseline gap-2">
-					<span class="text-xs font-semibold uppercase tracking-wider text-text-muted">Chute angle</span>
-					<span class="text-sm font-medium tabular-nums text-text">{fmt(currentAngle, 1)}°</span>
+		<ol class="divide-y divide-line border-t border-line">
+			<li class="flex flex-col gap-3 px-(--pad-panel) py-4">
+				{@render stepHead(1, homed, 'Home the chute')}
+				<p class="text-sm text-ink-muted">Sets 0° at the home switch.</p>
+				<dl class="flex w-fit flex-wrap gap-x-6 gap-y-1 rounded-control bg-well px-3 py-2 text-sm">
+					<div class="flex gap-2">
+						<dt class="text-ink-muted">Chute angle</dt>
+						<dd class="num font-medium text-ink">{fmt(currentAngle, 1)}°</dd>
+					</div>
+					<div class="flex gap-2">
+						<dt class="text-ink-muted">Motor angle</dt>
+						<dd class="num font-medium text-ink">{fmt(stepperPositionDeg, 1)}°</dd>
+					</div>
+					<div class="flex gap-2">
+						<dt class="text-ink-muted">Endstop</dt>
+						<dd class="font-medium {liveEndstopTriggered ? 'text-success-ink' : 'text-ink'}">
+							{liveEndstopTriggered === null ? '–' : liveEndstopTriggered ? 'Triggered' : 'Open'}
+						</dd>
+					</div>
+				</dl>
+				<div class="flex flex-wrap items-center gap-2">
+					<Button variant={homed ? 'secondary' : 'primary'} loading={homingState} onclick={homeChute}>
+						{homed ? 'Home again' : 'Home the chute'}
+					</Button>
+					{#if homingState}<Button variant="danger" onclick={cancelHome}>Cancel</Button>{/if}
+					{#if homed}<span class="text-sm text-success-ink">Homed.</span>{/if}
 				</div>
-				<div class="flex items-baseline gap-2">
-					<span class="text-xs font-semibold uppercase tracking-wider text-text-muted">Motor angle</span>
-					<span class="text-sm font-medium tabular-nums text-text">{fmt(stepperPositionDeg, 1)}°</span>
-				</div>
-				<div class="flex items-baseline gap-2">
-					<span class="text-xs font-semibold uppercase tracking-wider text-text-muted">Endstop</span>
-					<span class={`text-sm font-medium ${liveEndstopTriggered ? 'text-success' : 'text-text'}`}>
-						{liveEndstopTriggered === null ? '--' : liveEndstopTriggered ? 'triggered' : 'open'}
-					</span>
-				</div>
-			</div>
-			<div class="flex flex-wrap items-center gap-2">
-				<Button variant={homed ? 'secondary' : 'primary'} loading={homingState} onclick={homeChute}>
-					{homed ? 'Re-home' : 'Home chute'}
-				</Button>
-				{#if homingState}
-					<Button variant="danger" onclick={cancelHome}>Cancel</Button>
-				{/if}
-				{#if homed}<span class="text-sm text-success">Homed.</span>{/if}
-			</div>
-		</div>
+			</li>
 
-		<!-- Step 2: First bin -->
-		<div
-			class="flex flex-col gap-3 border border-border bg-bg px-4 py-3"
-			class:opacity-50={step2Locked}
-			class:pointer-events-none={step2Locked}
-		>
-			<div class="flex items-center gap-2">
-				{@render stepBadge(2, capturedFirst !== null)}
-				<div class="text-sm font-medium text-text">Aim at the FIRST bin of a section</div>
-			</div>
-			<p class="text-sm text-text-muted">
-				{#if step2Locked}
-					Home the chute first.
+			<li
+				class="flex flex-col gap-3 px-(--pad-panel) py-4"
+				class:opacity-50={step2Locked}
+				class:pointer-events-none={step2Locked}
+			>
+				{@render stepHead(2, capturedFirst !== null, 'Aim at the first bin of a section')}
+				<p class="text-sm text-ink-muted">
+					{#if step2Locked}
+						Home the chute first.
+					{:else}
+						Pick any layer, and a section you can see whole with more than 2 bins; 3 or 5 is best,
+						and more bins is more accurate. Set its bin count, then jog until the chute points
+						straight into the first bin, and capture.
+					{/if}
+				</p>
+				{@render jogPad(activeStep === 2, true)}
+				<div class="flex flex-wrap items-center gap-3">
+					<Button variant="primary" disabled={step2Locked || currentAngle === null} onclick={captureFirst}>
+						Capture the first bin
+					</Button>
+					<span class="num text-sm text-ink-muted">Captured {fmt(capturedFirst, 2)}°</span>
+				</div>
+			</li>
+
+			<li
+				class="flex flex-col gap-3 px-(--pad-panel) py-4"
+				class:opacity-50={step3Locked}
+				class:pointer-events-none={step3Locked}
+			>
+				{@render stepHead(3, capturedLast !== null, 'Aim at the last bin of that section')}
+				<p class="text-sm text-ink-muted">
+					{#if step3Locked}
+						Capture the first bin first.
+					{:else}
+						Jog until the chute points straight into the last bin of the same section, then capture.
+					{/if}
+				</p>
+				{@render jogPad(activeStep === 3, false)}
+				<div class="flex flex-wrap items-center gap-3">
+					<Button variant="primary" disabled={step3Locked || currentAngle === null} onclick={captureLast}>
+						Capture the last bin
+					</Button>
+					<span class="num text-sm text-ink-muted">Captured {fmt(capturedLast, 2)}°</span>
+				</div>
+			</li>
+
+			<li
+				class="flex flex-col gap-3 px-(--pad-panel) py-4"
+				class:opacity-50={step4Locked}
+				class:pointer-events-none={step4Locked}
+			>
+				{@render stepHead(4, false, 'Lock it in')}
+				{#if !step4Locked}
+					{@const slot = (capturedLast! - capturedFirst!) / Math.max(1, binsInTestSection - 1)}
+					{@const w = slot * binsInTestSection}
+					<dl class="flex flex-wrap gap-x-6 gap-y-1 text-sm">
+						<div class="flex gap-2"><dt class="text-ink-muted">Section width</dt><dd class="num text-ink">{fmt(w, 2)}°</dd></div>
+						<div class="flex gap-2"><dt class="text-ink-muted">Offset from home</dt><dd class="num text-ink">{fmt(capturedFirst! - 0.5 * slot, 2)}°</dd></div>
+						<div class="flex gap-2"><dt class="text-ink-muted">Pillar</dt><dd class="num text-ink">{fmt(sectionPitchDeg - w, 2)}°</dd></div>
+					</dl>
+					<Field label="Label" for="aim-label" help="Optional." class="max-w-sm">
+						<Input id="aim-label" bind:value={calibrationLabel} placeholder="After moving the home switch" />
+					</Field>
 				{:else}
-					Pick any layer and a section you can see in full with <span class="font-medium text-text"
-						>more than 2 bins</span
-					> — 3 or 5 is best, more bins means more accuracy. Set its bin count below, then jog until the
-					chute is perfectly centered going into the first bin and capture.
+					<p class="text-sm text-ink-muted">Capture both bins to work out the geometry and lock it in.</p>
 				{/if}
-			</p>
-			{@render jogPad(activeStep === 2, true)}
-			<div class="flex flex-wrap items-center gap-2">
-				<Button variant="primary" disabled={step2Locked || currentAngle === null} onclick={captureFirst}>
-					Capture first bin
-				</Button>
-				<span class="text-sm text-text-muted">Captured: {fmt(capturedFirst, 2)}°</span>
-			</div>
-		</div>
-
-		<!-- Step 3: Last bin -->
-		<div
-			class="flex flex-col gap-3 border border-border bg-bg px-4 py-3"
-			class:opacity-50={step3Locked}
-			class:pointer-events-none={step3Locked}
-		>
-			<div class="flex items-center gap-2">
-				{@render stepBadge(3, capturedLast !== null)}
-				<div class="text-sm font-medium text-text">Aim at the LAST bin of that same section</div>
-			</div>
-			<p class="text-sm text-text-muted">
-				{#if step3Locked}Capture the first bin first.{:else}Jog until the chute is perfectly centered going into the LAST bin of that same section, then capture.{/if}
-			</p>
-			{@render jogPad(activeStep === 3, false)}
-			<div class="flex flex-wrap items-center gap-3">
-				<Button variant="primary" disabled={step3Locked || currentAngle === null} onclick={captureLast}>
-					Capture last bin
-				</Button>
-				<span class="text-sm text-text-muted">Captured: {fmt(capturedLast, 2)}°</span>
-			</div>
-		</div>
-
-		<!-- Step 4: Review + lock in -->
-		<div
-			class="flex flex-col gap-3 border border-border bg-bg px-4 py-3"
-			class:opacity-50={step4Locked}
-			class:pointer-events-none={step4Locked}
-		>
-			<div class="flex items-center gap-2">
-				{@render stepBadge(4, false)}
-				<div class="text-sm font-medium text-text">Lock in</div>
-			</div>
-			{#if !step4Locked}
-				{@const slot = (capturedLast! - capturedFirst!) / Math.max(1, binsInTestSection - 1)}
-				{@const w = slot * binsInTestSection}
-				<div class="grid grid-cols-2 gap-3 text-sm sm:grid-cols-3">
-					<div><span class="text-text-muted">Section width:</span> {fmt(w, 2)}°</div>
-					<div><span class="text-text-muted">Offset from home:</span> {fmt(capturedFirst! - 0.5 * slot, 2)}°</div>
-					<div><span class="text-text-muted">Pillar:</span> {fmt(sectionPitchDeg - w, 2)}°</div>
+				<div>
+					<Button variant="primary" loading={busy} disabled={step4Locked} onclick={deriveAndLockIn}>
+						Work it out and lock it in
+					</Button>
 				</div>
-				<label class="flex max-w-sm flex-col gap-1 text-sm text-text">
-					Label (optional)
-					<Input type="text" bind:value={calibrationLabel} placeholder="e.g. after home-switch move" />
-				</label>
-			{:else}
-				<p class="text-sm text-text-muted">Capture both bins to compute and lock in the geometry.</p>
-			{/if}
-			<div>
-				<Button variant="primary" loading={busy} disabled={step4Locked} onclick={deriveAndLockIn}>
-					Derive &amp; lock in
-				</Button>
-			</div>
-		</div>
-	</section>
+			</li>
+		</ol>
+	</Panel>
 
-	<!-- History -->
-	<section class="flex flex-col gap-3 border border-border bg-bg px-4 py-3">
-		<div class="text-sm font-semibold text-text">Saved calibrations</div>
+	<Panel title="Saved calibrations" flush>
 		{#if calibrations.length === 0}
-			<p class="text-sm text-text-muted">No saved calibrations yet. Run the routine above to create one.</p>
+			<p class="px-(--pad-panel) pb-4 text-sm text-ink-muted">
+				None yet. Run the calibration above to save one.
+			</p>
 		{:else}
-			<div class="flex flex-col">
+			<ul class="divide-y divide-line">
 				{#each calibrations as cal (cal.id)}
-					<div class="flex items-center justify-between gap-3 border-b border-border py-2 last:border-b-0">
-						<div class="min-w-0">
-							<div class="flex items-center gap-2 text-sm text-text">
-								<span class="truncate font-medium">{cal.label ?? 'Calibration'}</span>
-								{#if cal.is_active}
-									<span class="bg-success px-1.5 py-0.5 text-xs font-semibold text-primary-contrast">ACTIVE</span>
-								{/if}
+					<li class="flex items-center justify-between gap-3 px-(--pad-panel) py-(--pad-row)">
+						<div class="min-w-0 text-sm">
+							<div class="flex items-center gap-2">
+								<span class="truncate font-medium text-ink">{cal.label ?? 'Calibration'}</span>
+								{#if cal.is_active}<Badge tone="success">Active</Badge>{/if}
 							</div>
-							<div class="text-sm text-text-muted">
-								{fmtDate(cal.created_at)} · N{cal.num_sections} · W{fmt(cal.section_width_deg, 1)}° · θ₀{fmt(cal.first_section_offset_deg, 1)}°
+							<div class="num text-ink-muted">
+								{fmtDate(cal.created_at)} · N {cal.num_sections} · W {fmt(cal.section_width_deg, 1)}° · θ₀
+								{fmt(cal.first_section_offset_deg, 1)}°
 							</div>
 						</div>
-						<div class="flex shrink-0 items-center gap-2">
-							{#if !cal.is_active}
+						{#if !cal.is_active}
+							<div class="flex shrink-0 items-center gap-2">
 								<Button variant="secondary" size="sm" loading={busy} onclick={() => lockIn(cal.id)}>
 									Lock in
 								</Button>
 								<Button variant="ghost" size="sm" onclick={() => deleteCalibration(cal.id)}>Delete</Button>
-							{/if}
-						</div>
-					</div>
+							</div>
+						{/if}
+					</li>
+				{/each}
+			</ul>
+		{/if}
+	</Panel>
+
+	<Panel
+		title="Reachable bins by layout"
+		description="Chute travel 0 to {fmt(maxAngleDeg, 0)}°, with a {fmt(360 - maxAngleDeg, 0)}° no-go wedge at home."
+	>
+		<div class="flex flex-col gap-4">
+			<p class="text-sm text-ink-muted">
+				Each layout shows where the chute points for that many bins a section. Bins crossed out in red
+				fall in the wedge between the end of travel ({fmt(maxAngleDeg, 0)}°) and home (0°), which is
+				what loses bins whenever home does not land on a pillar. Click a reachable bin to test-aim at
+				it.
+			</p>
+			<div class="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+				{#each VIZ_SIZES as size (size)}
+					<BinLayoutViz
+						{numSections}
+						{sectionWidthDeg}
+						{firstSectionOffsetDeg}
+						{maxAngleDeg}
+						binCount={size}
+						liveAngleDeg={currentAngle}
+						{selected}
+						onSelect={(sel) => (selected = sel)}
+					/>
 				{/each}
 			</div>
-		{/if}
-	</section>
-
-	<!-- Verify — reachable bins per layer size -->
-	<section class="flex flex-col gap-3 border border-border bg-bg px-4 py-3">
-		<div class="flex flex-wrap items-baseline justify-between gap-2">
-			<div class="text-sm font-semibold text-text">Reachable bins by layer size</div>
-			<div class="text-sm text-text-muted">
-				Chute travel 0–{fmt(maxAngleDeg, 0)}° · {fmt(360 - maxAngleDeg, 0)}° no-go wedge at home
-			</div>
-		</div>
-		<p class="text-sm text-text-muted">
-			Each layout shows where the chute points for that many bins per section. Bins crossed out in red
-			can't be reached: they fall in the deadzone wedge between max travel ({fmt(maxAngleDeg, 0)}°) and
-			home (0°) — which is what eats bins whenever home doesn't land on a pillar. Click any reachable
-			bin to test-aim at it.
-		</p>
-		<div class="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
-			{#each VIZ_SIZES as size}
-				<BinLayoutViz
-					{numSections}
-					{sectionWidthDeg}
-					{firstSectionOffsetDeg}
-					{maxAngleDeg}
-					binCount={size}
-					liveAngleDeg={currentAngle}
-					{selected}
-					onSelect={(sel) => (selected = sel)}
-				/>
-			{/each}
-		</div>
-		<div class="flex min-w-0 flex-col gap-2">
 			{#if selected}
-				<div class="text-sm text-text">
-					Selected: {selected.binCount}-bin layout, section {selected.section + 1}, bin {selected.bin + 1}
-					<span class="text-text-muted">→ {fmt(angleFor(selected.section, selected.bin, selected.binCount), 2)}°</span>
-				</div>
-				<div>
+				<div class="flex flex-wrap items-center gap-3">
+					<span class="text-sm text-ink">
+						The {selected.binCount}-bin layout, section {selected.section + 1}, bin {selected.bin + 1}:
+						<span class="num text-ink-muted">{fmt(angleFor(selected.section, selected.bin, selected.binCount), 2)}°</span>
+					</span>
 					<Button
 						variant="primary"
 						loading={busy}
@@ -739,8 +704,8 @@
 					</Button>
 				</div>
 			{:else}
-				<div class="text-sm text-text-muted">Click a bin in any layout to select it, then test-aim.</div>
+				<p class="text-sm text-ink-muted">Click a bin in any layout to choose it, then test-aim.</p>
 			{/if}
 		</div>
-	</section>
+	</Panel>
 </div>

@@ -1,43 +1,35 @@
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect, HTTPException, status
+from fastapi import FastAPI, WebSocket, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel
+from fastapi.responses import JSONResponse
+from pydantic import BaseModel, ConfigDict
 from typing import List, Optional, Dict, Any
 import asyncio
 import json
 import os
 import time
-from pathlib import Path
+
+import db
+import machine_toml
+from sorting_profile import profileSummary
 
 from defs.events import (
     IdentityEvent,
     MachineIdentityData,
 )
-from blob_manager import (
-    getApiKeys,
-    getMachineId,
-    getMachineNickname,
-    getSortingProfileSyncState,
-    setMachineNickname,
+from local_state import (
+    get_api_keys,
+    get_channel_polygons,
+    get_classification_polygons,
+    get_or_create_machine_id,
+    get_sorting_profile_sync_state,
+    set_channel_polygons,
+    set_classification_polygons,
 )
-from runtime_variables import VARIABLE_DEFS
-from server.camera_discovery import shutdownCameraDiscovery
+from toml_config import getMachineNickname, setMachineNickname
 from server.set_progress_sync import getSetProgressSyncWorker
 from server.waveshare_inventory import get_waveshare_inventory_manager
-from server.security import (
-    is_ui_origin_allowed,
-    websocket_connection_allowed,
-)
+from server.security import is_ui_origin_allowed
 
-from server.shared_state import (
-    active_connections,
-    broadcastEvent,
-    setGlobalConfig,
-    setRuntimeVariables,
-    setCommandQueue,
-    setController,
-    setVisionManager,
-    _getRuntimeVariables,
-)
 import server.shared_state as shared_state
 
 # ---------------------------------------------------------------------------
@@ -80,7 +72,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-from starlette.middleware.base import BaseHTTPMiddleware
+from starlette.concurrency import run_in_threadpool
 from starlette.requests import Request
 from starlette.responses import Response
 
@@ -90,27 +82,35 @@ from starlette.responses import Response
 _LOG_ALL_REQUESTS = os.environ.get("SORTER_LOG_REQUESTS", "").lower() in ("1", "true", "yes")
 
 
-class RequestLoggingMiddleware(BaseHTTPMiddleware):
-    async def dispatch(self, request: Request, call_next):
-        gc = shared_state.gc_ref
-        if _LOG_ALL_REQUESTS and gc is not None:
-            client = request.client.host if request.client is not None else None
-            gc.logger.info(
-                f"[req] {request.method} {request.url.path} "
-                f"origin={request.headers.get('origin')!r} client={client!r}"
-            )
-            response: Response = await call_next(request)
-            gc.logger.info(f"[req] <- {response.status_code} {request.method} {request.url.path}")
-            return response
-        if request.method != "GET" and gc is not None:
-            gc.logger.info(f"[API] {request.method} {request.url.path}")
-        return await call_next(request)
+class _LogRequests:
+    """Logs each non-GET request. Plain ASGI: responses, streamed camera frames
+    included, pass straight through instead of being re-queued through a task."""
 
-app.add_middleware(RequestLoggingMiddleware)
+    def __init__(self, app: Any) -> None:
+        self.app = app
+
+    async def __call__(self, scope: Any, receive: Any, send: Any) -> None:
+        gc = shared_state.gc_ref
+        if scope["type"] == "http" and gc is not None:
+            if _LOG_ALL_REQUESTS:
+                origin = dict(scope["headers"]).get(b"origin", b"").decode()
+                client = scope["client"][0] if scope.get("client") else None
+                gc.logger.info(f"[req] {scope['method']} {scope['path']} origin={origin!r} client={client!r}")
+            elif scope["method"] != "GET":
+                gc.logger.info(f"[API] {scope['method']} {scope['path']}")
+        await self.app(scope, receive, send)
+
+
+app.add_middleware(_LogRequests)
+
+
+@app.exception_handler(machine_toml.MachineTomlError)
+async def _machine_toml_error(_request: Request, exc: machine_toml.MachineTomlError) -> JSONResponse:
+    return JSONResponse(status_code=500, content={"detail": str(exc)})
 
 
 def _load_saved_api_keys_into_environment() -> None:
-    saved_api_keys = getApiKeys()
+    saved_api_keys = get_api_keys()
     if saved_api_keys.get("openrouter"):
         os.environ["OPENROUTER_API_KEY"] = saved_api_keys["openrouter"]
 
@@ -120,7 +120,15 @@ def _load_saved_api_keys_into_environment() -> None:
 
 from server.routers.hardware import router as hardware_router
 from server.routers.steppers import router as steppers_router
+from server.routers.stallguard import router as stallguard_router
+from server.routers.servos import router as servos_router
+from server.routers.chute import router as chute_router
+from server.routers.bins import router as bins_router
 from server.routers.cameras import router as cameras_router
+from server.routers.camera_feeds import router as camera_feeds_router
+from server.routers.camera_picture_settings import router as camera_picture_settings_router
+from server.routers.camera_device_settings import router as camera_device_settings_router
+from server.routers.camera_capture_modes import router as camera_capture_modes_router
 from server.routers.detection import router as detection_router
 from server.routers.sorting_profiles import router as sorting_profiles_router
 from server.routers.bsx import router as bsx_router
@@ -146,7 +154,15 @@ from server.routers.leds import router as leds_router
 
 app.include_router(hardware_router)
 app.include_router(steppers_router)
+app.include_router(stallguard_router)
+app.include_router(servos_router)
+app.include_router(chute_router)
+app.include_router(bins_router)
 app.include_router(cameras_router)
+app.include_router(camera_feeds_router)
+app.include_router(camera_picture_settings_router)
+app.include_router(camera_device_settings_router)
+app.include_router(camera_capture_modes_router)
 app.include_router(detection_router)
 app.include_router(sorting_profiles_router)
 app.include_router(bsx_router)
@@ -179,7 +195,7 @@ async def _loop_lag_probe() -> None:
     """Measure how late the uvicorn asyncio loop wakes a fixed-interval sleep.
 
     A high socket.loop_lag_ms means the event loop is blocked/starved (a sync
-    call on the loop, GIL contention, MJPEG streaming) and CAN'T promptly run
+    call on the loop, GIL contention, camera video) and CAN'T promptly run
     the websocket broadcast coroutines — which is the real frontend-latency
     lever. Near-zero lag with high client_send_ms instead means a slow client.
     """
@@ -193,23 +209,35 @@ async def _loop_lag_probe() -> None:
             gc.runtime_stats.observePerfMs("socket.loop_lag_ms", max(0.0, lag_ms))
 
 
+async def _heartbeats() -> None:
+    """The server's ping: a tab that hears nothing for a few seconds reconnects."""
+    while True:
+        await asyncio.sleep(shared_state.WS_HEARTBEAT_INTERVAL_S)
+        heartbeat = {"tag": "heartbeat", "data": {"timestamp": time.time()}}
+        shared_state.fanOut("heartbeat", shared_state.encodeEvent(heartbeat))
+
+
 @app.on_event("startup")
 async def onStartup() -> None:
     _load_saved_api_keys_into_environment()
     shared_state.server_loop = asyncio.get_running_loop()
     asyncio.create_task(_loop_lag_probe())
+    asyncio.create_task(_heartbeats())
     getSetProgressSyncWorker().start()
     get_waveshare_inventory_manager().start()
     keep_tailscale_installed()
     from status_ping import getStatusPinger
 
     getStatusPinger().start()
+    db.watch_realtime_thread()
+    from server.routers.sorting_profiles import start_first_default_profile_if_none
+
+    start_first_default_profile_if_none()
 
 
 @app.on_event("shutdown")
 async def onShutdown() -> None:
     getSetProgressSyncWorker().stop()
-    shutdownCameraDiscovery()
     get_waveshare_inventory_manager().stop()
     from status_ping import getStatusPinger
 
@@ -240,26 +268,16 @@ class MachineIdentityUpdateRequest(BaseModel):
 
 
 def _getMachineIdentityData() -> MachineIdentityData:
-    machine_id = shared_state.gc_ref.machine_id if shared_state.gc_ref is not None else getMachineId()
+    gc = shared_state.gc_ref
     return MachineIdentityData(
-        machine_id=machine_id,
+        machine_id=gc.machine_id if gc is not None else get_or_create_machine_id(),
         nickname=getMachineNickname(),
+        run_id=gc.run_id if gc is not None else None,
     )
 
 
 def _broadcastIdentityUpdate() -> None:
-    if shared_state.server_loop is None:
-        return
-
-    identity_event = IdentityEvent(tag="identity", data=_getMachineIdentityData())
-    future = asyncio.run_coroutine_threadsafe(
-        broadcastEvent(identity_event.model_dump()),
-        shared_state.server_loop,
-    )
-    try:
-        future.result(timeout=1.0)
-    except Exception:
-        pass
+    shared_state.broadcast(IdentityEvent(tag="identity", data=_getMachineIdentityData()).model_dump())
 
 
 @app.get("/api/machine-identity", response_model=MachineIdentityData)
@@ -315,6 +333,10 @@ def save_ui_theme(payload: UiThemeUpdateRequest) -> UiThemeResponse:
 
 
 class SortingProfileCategoryMeta(BaseModel):
+    # Hive describes each bin for people too (picture, conditions in words,
+    # part count, examples); they pass through as they came.
+    model_config = ConfigDict(extra="allow")
+
     name: str
 
 
@@ -332,8 +354,11 @@ class SortingProfileMetadataResponse(BaseModel):
     updated_at: str
     default_category_id: str
     categories: Dict[str, SortingProfileCategoryMeta]
+    category_order: List[str] = []
     rules: List[Dict[str, Any]]
     fallback_mode: SortingProfileFallbackMode
+    stats: Dict[str, Any] | None = None
+    requires: List[str] = []
     sync_state: Dict[str, Any] | None = None
 
 
@@ -377,28 +402,16 @@ class SortingProfileSetViewPartStateResponse(BaseModel):
 
 
 def _loadSortingProfileRaw() -> dict | None:
+    """The active profile without its part map (see sorting_profile.profileSummary)."""
     if shared_state.gc_ref is None:
         return None
     gc = shared_state.gc_ref
     path = gc.sorting_profile_path
     try:
-        with open(path, "r") as f:
-            content = f.read()
-    except FileNotFoundError:
-        gc.logger.warn(f"sorting profile file not found: {path}")
+        return profileSummary(path)
+    except (OSError, ValueError) as e:
+        gc.logger.warn(f"sorting profile unreadable ({e}): {path}")
         return None
-    if not content.strip():
-        gc.logger.warn(f"sorting profile file is empty: {path}")
-        return None
-    try:
-        data = json.loads(content)
-    except json.JSONDecodeError as e:
-        gc.logger.warn(f"sorting profile file is corrupt ({e}): {path}")
-        return None
-    if not isinstance(data, dict):
-        gc.logger.warn(f"sorting profile file is not a JSON object: {path}")
-        return None
-    return data
 
 
 @app.get("/sorting-profile/metadata", response_model=SortingProfileMetadataResponse)
@@ -417,14 +430,17 @@ def getSortingProfileMetadata() -> SortingProfileMetadataResponse:
             k: SortingProfileCategoryMeta(**v)
             for k, v in data.get("categories", {}).items()
         },
+        category_order=[str(item) for item in data.get("category_order") or []],
         rules=data.get("rules", []),
+        stats={k: v for k, v in (data.get("stats") or {}).items() if k != "samples"} or None,
+        requires=[str(item) for item in data.get("requires") or []],
         fallback_mode=SortingProfileFallbackMode(
             **data.get(
                 "fallback_mode",
                 {"rebrickable_categories": False, "bricklink_categories": False, "by_color": False},
             )
         ),
-        sync_state=getSortingProfileSyncState(),
+        sync_state=get_sorting_profile_sync_state(),
     )
 
 
@@ -469,7 +485,7 @@ def getSortingProfileSetView(category_id: str) -> SortingProfileSetViewResponse:
     total_needed = sum(int(part.get("quantity") or 0) for part in parts if isinstance(part, dict))
     pct = (total_found / total_needed * 100) if total_needed > 0 else 0.0
 
-    from local_state import get_checklist_state_for_set
+    from set_checklist import get_checklist_state_for_set
 
     resolved_set_num = str(inventory.get("set_num") or category_id)
     checklist_state = get_checklist_state_for_set(resolved_set_num)
@@ -533,7 +549,7 @@ def updateSortingProfileSetViewPartState(
 
     set_num = str(inventory.get("set_num") or category_id)
 
-    from local_state import set_checklist_part_state
+    from set_checklist import set_checklist_part_state
 
     try:
         result = set_checklist_part_state(
@@ -609,59 +625,6 @@ def get_piece_image(uuid: str, image_id: int) -> Any:
     )
 
 
-@app.get("/api/pieces/{uuid}/possible-crops")
-def get_possible_crops(uuid: str) -> Dict[str, Any]:
-    # 'Possibly the same piece': upstream C2/C3 crops that are plausibly this
-    # classified piece, found by time + channel + distance-to-exit. Returns a
-    # confidence-ranked superset.
-    #
-    # When an experimental piece_link model is enabled it re-ranks that same
-    # candidate set by appearance + the same time/position features and the
-    # response gains prediction_source="model" plus per-candidate model_score.
-    # It can only reorder what the heuristic found, never recover a dropped
-    # crop, so the heuristic stays the recall net.
-    import channel_crop_lookup
-    import link_matcher
-
-    gc = shared_state.gc_ref
-    try:
-        matched = link_matcher.matchForPiece(gc, uuid)
-    except Exception:
-        # Never let the experimental path break the review page.
-        gc.logger.debug("link matcher failed; falling back to heuristic", exc_info=True)
-        matched = None
-    if matched is not None:
-        return {"piece_uuid": uuid, **matched}
-    return {
-        "piece_uuid": uuid,
-        "prediction_source": "heuristic",
-        **channel_crop_lookup.findPossibleCrops(gc, uuid),
-    }
-
-
-@app.get("/api/channel-crops/{crop_id}/image")
-def get_channel_crop_image(crop_id: int) -> Any:
-    from fastapi.responses import FileResponse
-
-    import channel_crop_store
-
-    path = channel_crop_store.getCropFileById(crop_id)
-    if path is None:
-        raise HTTPException(status_code=404, detail="crop not available locally")
-    return FileResponse(
-        path,
-        media_type="image/jpeg",
-        headers={"Cache-Control": "public, max-age=31536000, immutable"},
-    )
-
-
-@app.get("/api/piece-images/stats")
-def get_piece_image_stats() -> Dict[str, Any]:
-    import piece_image_store
-
-    return piece_image_store.getStats()
-
-
 class ClassifyRetryRequest(BaseModel):
     # base64 JPEGs (with or without a data: URI prefix). Order is preserved.
     images: List[str]
@@ -723,115 +686,63 @@ def classify_retry(req: ClassifyRetryRequest) -> Dict[str, Any]:
 
 @app.websocket("/ws")
 async def websocket_endpoint(websocket: WebSocket) -> None:
-    client_host = websocket.client.host if websocket.client is not None else None
-    if not websocket_connection_allowed(
-        websocket.headers.get("Origin"),
-        client_host,
-    ):
-        if shared_state.gc_ref is not None:
-            from server.security import describe_origin_decision
-
-            shared_state.gc_ref.logger.info(
-                f"[WS reject] client_host={client_host!r} {describe_origin_decision(websocket.headers.get('Origin'))}"
-            )
-        await websocket.close(
-            code=status.WS_1008_POLICY_VIOLATION,
-            reason="WebSocket origin not allowed.",
-        )
+    if not await shared_state.acceptWebsocket(websocket):
         return
-
-    await websocket.accept()
-    active_connections.append(websocket)
-
-    identity_event = IdentityEvent(tag="identity", data=_getMachineIdentityData())
-    await websocket.send_json(identity_event.model_dump())
-    # No known_object replay on connect — clients hydrate recent pieces via
-    # GET /api/pieces instead of a sqlite-backed ring of past events.
-    if shared_state.runtime_stats_snapshot is not None:
-        await websocket.send_json(
-            {
-                "tag": "runtime_stats",
-                "data": {"payload": shared_state.runtime_stats_snapshot},
-            }
-        )
-
-    # Always send a fresh system_status snapshot on connect (cheap + always valid).
-    await websocket.send_json(
-        {
-            "tag": "system_status",
-            "data": {
-                "hardware_state": shared_state.hardware_state,
-                "hardware_error": shared_state.hardware_error,
-                "homing_step": shared_state.hardware_homing_step,
-                "no_power_development_mode": bool(
-                    getattr(shared_state.gc_ref, "no_power_development_mode", False)
-                ),
-            },
-        }
-    )
-    # Populate sorter_state snapshot on-demand if missing — broadcasts are only
-    # fired at FSM transitions, so a freshly-connected client would otherwise
-    # default to 'default' camera_layout even when the config says split_feeder.
-    if shared_state.sorter_state_snapshot is None:
-        layout = None
-        if shared_state.vision_manager is not None:
-            layout = getattr(shared_state.vision_manager, "_camera_layout", None)
-        fsm_state = "initializing"
-        if shared_state.controller_ref is not None:
-            fsm_state = getattr(shared_state.controller_ref.state, "value", "initializing")
-        shared_state.sorter_state_snapshot = {
-            "state": fsm_state,
-            "camera_layout": layout,
-        }
-    await websocket.send_json(
-        {
-            "tag": "sorter_state",
-            "data": shared_state.sorter_state_snapshot,
-        }
-    )
-
-    # Populate cameras_config snapshot on-demand from the live config file.
-    if shared_state.cameras_config_snapshot is None:
-        try:
-            from server.routers.cameras import get_camera_config
-            shared_state.cameras_config_snapshot = {"cameras": get_camera_config()}
-        except Exception:
-            shared_state.cameras_config_snapshot = None
-    if shared_state.cameras_config_snapshot is not None:
-        await websocket.send_json(
-            {
-                "tag": "cameras_config",
-                "data": shared_state.cameras_config_snapshot,
-            }
-        )
-    # Always compute fresh sorting profile status on connect — cheap file read,
-    # keeps frontend in sync without depending on mutation-time broadcasts.
+    client = shared_state.WsClient(websocket)
+    # Registered before the snapshot is read, so no change in between is lost.
+    shared_state.ws_clients.add(client)
+    tasks: list[asyncio.Future] = []
     try:
-        from server.routers.sorting_profiles import _current_local_profile_status
-        await websocket.send_json(
-            {
-                "tag": "sorting_profile_status",
-                "data": _current_local_profile_status(),
-            }
-        )
+        snapshot = await run_in_threadpool(_connectSnapshot)
+        # A broadcast that arrived meanwhile is at least as new, so it keeps its
+        # value; the snapshot keeps its place, identity first.
+        client.pending = {**snapshot, **client.pending}
+        tasks = [
+            asyncio.ensure_future(client.send()),
+            asyncio.ensure_future(_readUntilDisconnect(websocket)),
+        ]
+        await asyncio.wait(tasks, return_when=asyncio.FIRST_COMPLETED)
+    finally:
+        shared_state.ws_clients.discard(client)
+        for task in tasks:
+            task.cancel()
+
+
+def _connectSnapshot() -> dict[str, str]:
+    """Everything a new client needs before the live updates, identity first,
+    read fresh. Runs in a worker thread: it reads SQLite and machine.toml.
+    No known_object replay: clients hydrate recent pieces via GET /api/pieces."""
+    from server.routers.cameras import get_camera_config
+    from server.routers.sorting_profiles import _current_local_profile_status
+
+    controller = shared_state.controller_ref
+    events = [
+        {"tag": "identity", "data": _getMachineIdentityData().model_dump()},
+        {"tag": "system_status", "data": shared_state.systemStatusData()},
+        {"tag": "sorter_state", "data": {"state": getattr(getattr(controller, "state", None), "value", "initializing")}},
+    ]
+    if shared_state.runtime_stats_live is not None:
+        events.append({"tag": "runtime_stats", "data": {"payload": shared_state.runtime_stats_live}})
+    optional = {
+        "camera_health": lambda: {"cameras": shared_state.camera_service.get_health_map()},
+        "cameras_config": lambda: {"cameras": get_camera_config()},
+        "sorting_profile_status": _current_local_profile_status,
+    }
+    for tag, read in optional.items():
+        try:
+            events.append({"tag": tag, "data": read()})
+        except Exception:
+            pass  # not available yet; it is broadcast when it is
+    return {event["tag"]: shared_state.encodeEvent(event) for event in events}
+
+
+async def _readUntilDisconnect(websocket: WebSocket) -> None:
+    # Clients send nothing the server acts on; reading is how a disconnect shows.
+    try:
+        while (await websocket.receive())["type"] != "websocket.disconnect":
+            pass
     except Exception:
         pass
-
-    tracker = getattr(shared_state.gc_ref, 'set_progress_tracker', None) if shared_state.gc_ref else None
-    if tracker is not None:
-        await websocket.send_json(
-            {
-                "tag": "set_progress",
-                "data": tracker.get_snapshot(),
-            }
-        )
-
-    try:
-        while True:
-            await websocket.receive_text()
-    except WebSocketDisconnect:
-        if websocket in active_connections:
-            active_connections.remove(websocket)
 
 
 # ---------------------------------------------------------------------------
@@ -856,10 +767,14 @@ class RuntimeStatsRecordsResponse(BaseModel):
 
 
 @app.get("/runtime-stats", response_model=RuntimeStatsResponse)
-def getRuntimeStats() -> RuntimeStatsResponse:
-    if shared_state.runtime_stats_snapshot is None:
-        return RuntimeStatsResponse(payload={})
-    return RuntimeStatsResponse(payload=shared_state.runtime_stats_snapshot)
+def getRuntimeStats() -> Response:
+    """The full snapshot, at most a second old. It is up to several hundred KB,
+    so it is encoded here in the worker thread, not on the event loop."""
+    return _jsonResponse({"payload": shared_state.runtime_stats_snapshot or {}})
+
+
+def _jsonResponse(content: Any) -> Response:
+    return Response(json.dumps(content, separators=(",", ":")), media_type="application/json")
 
 
 class PerfHistoryResponse(BaseModel):
@@ -870,19 +785,23 @@ class PerfHistoryResponse(BaseModel):
 
 
 @app.get("/runtime-stats/perf-history", response_model=PerfHistoryResponse)
-def getPerfHistory(window_s: float = 300.0) -> PerfHistoryResponse:
-    import time as _time
+def getPerfHistory(window_s: float = 300.0) -> Response:
     from server import perf_history
 
-    now = _time.time()
+    now = time.time()
     window_s = max(1.0, min(float(window_s), 3900.0))
     rows = perf_history.window(window_s, now)
-    return PerfHistoryResponse(
-        window_s=window_s,
-        now=now,
-        rows=rows,
-        rates=perf_history.computeRates(rows),
+    return _jsonResponse(
+        {"window_s": window_s, "now": now, "rows": rows, "rates": perf_history.computeRates(rows)}
     )
+
+
+@app.get("/runtime-stats/rates")
+def getRuntimeRates(since: float, bucket_s: float = 60.0) -> Response:
+    """Pieces seen, classified and multi-dropped per bucket since ``since``."""
+    import piece_records
+
+    return _jsonResponse({"bucket_s": bucket_s, "buckets": piece_records.rateBuckets(since, bucket_s)})
 
 
 @app.get("/runtime-stats/records", response_model=RuntimeStatsRecordsResponse)
@@ -923,43 +842,6 @@ def getSetProgress() -> SetProgressResponse:
 
 
 # ---------------------------------------------------------------------------
-# Runtime variables
-# ---------------------------------------------------------------------------
-
-
-class RuntimeVariableDef(BaseModel):
-    type: str
-    min: float
-    max: float
-    unit: str
-
-
-class RuntimeVariablesResponse(BaseModel):
-    definitions: Dict[str, RuntimeVariableDef]
-    values: Dict[str, Any]
-
-
-class RuntimeVariablesUpdateRequest(BaseModel):
-    values: Dict[str, Any]
-
-
-@app.get("/runtime-variables", response_model=RuntimeVariablesResponse)
-def getRuntimeVariables() -> RuntimeVariablesResponse:
-    defs = {k: RuntimeVariableDef(**v) for k, v in VARIABLE_DEFS.items()}
-    return RuntimeVariablesResponse(definitions=defs, values=_getRuntimeVariables().getAll())
-
-
-@app.post("/runtime-variables", response_model=RuntimeVariablesResponse)
-def updateRuntimeVariables(
-    req: RuntimeVariablesUpdateRequest,
-) -> RuntimeVariablesResponse:
-    rv = _getRuntimeVariables()
-    rv.setAll(req.values)
-    defs = {k: RuntimeVariableDef(**v) for k, v in VARIABLE_DEFS.items()}
-    return RuntimeVariablesResponse(definitions=defs, values=rv.getAll())
-
-
-# ---------------------------------------------------------------------------
 # Polygon editor
 # ---------------------------------------------------------------------------
 
@@ -967,12 +849,11 @@ def updateRuntimeVariables(
 @app.get("/api/polygons")
 def get_polygons() -> Dict[str, Any]:
     """Load saved channel and classification polygons."""
-    from blob_manager import getChannelPolygons, getClassificationPolygons
     result: Dict[str, Any] = {}
-    channel = getChannelPolygons()
+    channel = get_channel_polygons()
     if channel:
         result["channel"] = channel
-    classification = getClassificationPolygons()
+    classification = get_classification_polygons()
     if classification:
         result["classification"] = classification
     return result
@@ -981,11 +862,10 @@ def get_polygons() -> Dict[str, Any]:
 @app.post("/api/polygons")
 def save_polygons(body: Dict[str, Any]) -> Dict[str, Any]:
     """Save channel and classification polygons."""
-    from blob_manager import setChannelPolygons, setClassificationPolygons
     if "channel" in body:
-        setChannelPolygons(body["channel"])
+        set_channel_polygons(body["channel"])
     if "classification" in body:
-        setClassificationPolygons(body["classification"])
+        set_classification_polygons(body["classification"])
     if "channel" in body and shared_state.vision_manager is not None:
         shared_state.vision_manager.reloadPolygons()
     # Perception (rev04 mode pair) is driven by these same zones but owns its

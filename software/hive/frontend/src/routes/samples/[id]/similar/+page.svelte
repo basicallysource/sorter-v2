@@ -3,6 +3,15 @@
 	import { api, type PaginatedSamples, type SampleDetail } from '$lib/api';
 	import SampleCard from '$lib/components/SampleCard.svelte';
 	import Spinner from '$lib/components/Spinner.svelte';
+	import Alert from '$lib/components/Alert.svelte';
+	import Button from '$lib/components/Button.svelte';
+	import EmptyState from '$lib/components/EmptyState.svelte';
+	import PageHeader from '$lib/components/PageHeader.svelte';
+	import Panel from '$lib/components/Panel.svelte';
+	import Select from '$lib/components/Select.svelte';
+	import ArrowLeft from '@lucide/svelte/icons/arrow-left';
+	import ImageOff from '@lucide/svelte/icons/image-off';
+	import ScanSearch from '@lucide/svelte/icons/scan-search';
 
 	const sampleId = $derived(page.params.id ?? '');
 
@@ -41,77 +50,70 @@
 	}
 
 	const DISTANCE_OPTIONS = [
-		{ value: 4, label: 'Very strict (≤4)' },
-		{ value: 8, label: 'Strict (≤8)' },
-		{ value: 12, label: 'Default (≤12)' },
-		{ value: 16, label: 'Loose (≤16)' },
-		{ value: 24, label: 'Very loose (≤24)' }
+		{ value: 4, label: 'Very strict, 4' },
+		{ value: 8, label: 'Strict, 8' },
+		{ value: 12, label: 'The default, 12' },
+		{ value: 16, label: 'Loose, 16' },
+		{ value: 24, label: 'Very loose, 24' }
 	];
 
 </script>
 
 <svelte:head>
-	<title>Similar samples · Hive</title>
+	<title>Similar samples - Hive</title>
 </svelte:head>
 
-<div class="space-y-4">
-	<div class="flex flex-wrap items-center justify-between gap-3">
-		<div>
-			<h1 class="text-2xl font-bold text-text">Find Similar</h1>
-			<p class="mt-1 text-sm text-text-muted">
-				Visually-similar samples by perceptual hash (8×8 DCT). Good for spotting bursts of near-identical frames, redundant uploads, or batches shot under the same conditions.
-			</p>
-		</div>
-		<a
-			href={`/samples/${sampleId}`}
-			class="inline-flex items-center gap-1 border border-border bg-surface px-3 py-1.5 text-xs font-medium text-text hover:bg-bg"
-		>
-			← Back to sample
-		</a>
-	</div>
-
-	<div class="flex flex-wrap items-center gap-2 border border-border bg-surface px-3 py-2">
-		<span class="text-[10px] font-semibold uppercase tracking-wider text-text-muted">Max distance</span>
-		<div class="flex flex-wrap border border-border">
-			{#each DISTANCE_OPTIONS as opt}
-				<button
-					type="button"
-					class="border-l border-border px-2.5 py-1 text-xs first:border-l-0 {maxDistance === opt.value ? 'bg-primary text-white' : 'text-text hover:bg-bg'}"
-					onclick={() => void setDistance(opt.value)}
-				>
-					{opt.label}
-				</button>
-			{/each}
-		</div>
-		<span class="text-[11px] text-text-muted">Hamming distance over the 64-bit pHash. Lower = more similar; ≤12 is the typical "looks like a duplicate" threshold.</span>
-	</div>
-
-	{#if loading}
-		<div class="flex justify-center p-8"><Spinner size={32} /></div>
-	{:else if loadError}
-		<div class="border border-danger bg-danger/10 px-3 py-2 text-sm text-danger">{loadError}</div>
-	{:else if target === null}
-		<div class="border border-border bg-surface px-3 py-2 text-sm text-text-muted">Target sample not found.</div>
-	{:else}
-		<div class="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6">
-			<!-- Pin the target as the first card so the comparison is anchored visually. -->
-			<div class="relative">
-				<SampleCard sample={target} href={`/samples/${target.id}`} />
-				<div class="pointer-events-none absolute -top-1 -right-1 border border-primary bg-primary px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wider text-white">
-					Target
-				</div>
-			</div>
-			{#if data}
-				{#each data.items as sample (sample.id)}
-					<SampleCard {sample} href={`/samples/${sample.id}/similar`} />
-				{/each}
-			{/if}
-		</div>
-
-		{#if data && data.items.length === 0}
-			<div class="border border-border bg-surface px-3 py-6 text-center text-sm text-text-muted">
-				No samples within distance ≤{maxDistance}. Try a looser threshold above. If the target sample is older it may not have a pHash yet — the backfill script populates them in batches.
-			</div>
-		{/if}
-	{/if}
+<div>
+	<Button href={`/samples/${sampleId}`} size="sm" variant="ghost" icon={ArrowLeft}>Sample</Button>
 </div>
+
+<PageHeader
+	title="Similar samples"
+	description="Samples that look like this one, by perceptual hash: bursts of near-identical frames, uploads made twice, batches under the same light."
+/>
+
+<Panel flush>
+	<div class="flex flex-wrap items-center gap-x-4 gap-y-2 px-(--pad-panel) py-3">
+		<span class="label">Most distance</span>
+		<Select
+			class="w-44"
+			size="sm"
+			label="Most distance"
+			value={String(maxDistance)}
+			options={DISTANCE_OPTIONS.map((o) => ({ value: String(o.value), label: o.label }))}
+			onchange={(v: string) => void setDistance(Number(v))}
+		/>
+		<span class="min-w-0 flex-[1_1_16rem] text-sm text-ink-muted"
+			>The Hamming distance over the 64-bit hash. Lower is closer; 12 or less usually looks like a duplicate.</span
+		>
+	</div>
+</Panel>
+
+{#if loading}
+	<div class="flex justify-center p-8"><Spinner size={32} /></div>
+{:else if loadError}
+	<Alert tone="danger">{loadError}</Alert>
+{:else if target === null}
+	<Panel><EmptyState icon={ImageOff} title="Sample not found" /></Panel>
+{:else}
+	<div class="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6">
+		<!-- The sample itself comes first, ringed, so the others read against it. -->
+		<div class="rounded-panel outline-2 outline-offset-2 outline-primary" title="This sample">
+			<SampleCard sample={target} href={`/samples/${target.id}`} />
+		</div>
+		{#if data}
+			{#each data.items as sample (sample.id)}
+				<SampleCard {sample} href={`/samples/${sample.id}/similar`} />
+			{/each}
+		{/if}
+	</div>
+
+	{#if data && data.items.length === 0}
+		<Panel>
+			<EmptyState icon={ScanSearch} title="Nothing this close">
+				No samples within {maxDistance}. Try a looser distance. An older sample may not have its hash yet; the backfill adds them in
+				batches.
+			</EmptyState>
+		</Panel>
+	{/if}
+{/if}

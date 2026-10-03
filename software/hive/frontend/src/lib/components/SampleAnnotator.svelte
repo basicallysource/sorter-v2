@@ -12,7 +12,6 @@
 	import '@annotorious/annotorious/annotorious.css';
 	import { api, type SavedSampleAnnotation } from '$lib/api';
 	import { auth } from '$lib/auth.svelte';
-	import { FEATURES } from '$lib/features';
 	import { AnnotatorApi } from './annotator-api.svelte';
 
 	export interface SeedBox {
@@ -71,7 +70,6 @@
 		externalApi
 	}: Props = $props();
 
-	const hasExternalControls = $derived(!!externalApi);
 
 	let imageEl = $state<HTMLImageElement | null>(null);
 	let annotator: AnnotoriousImageAnnotator<ImageAnnotation, ImageAnnotation> | null = null;
@@ -588,94 +586,10 @@
 	}
 </script>
 
-{#if hasExternalControls}
-	<!-- Canvas-only mode: external controls are rendered by the parent -->
-	<!-- svelte-ignore a11y_no_static_element_interactions -->
-	<div
-		class="overflow-hidden border border-border bg-canvas/95"
-		onpointerup={() => { requestAnimationFrame(() => syncAnnotations()); }}
-	>
-		<div class="flex min-h-[50vh] items-center justify-center p-2">
-			<img
-				bind:this={imageEl}
-				src={imageUrl}
-				alt={imageAlt}
-				class="block max-h-[80vh] max-w-full"
-				onload={handleImageLoad}
-			/>
-		</div>
+<!-- The canvas alone: its controls are the page's (SampleAnnotatorPanel, through externalApi). -->
+<!-- svelte-ignore a11y_no_static_element_interactions -->
+<div class="overflow-hidden rounded-panel bg-media" onpointerup={() => requestAnimationFrame(() => syncAnnotations())}>
+	<div class="flex min-h-[50vh] items-center justify-center p-2">
+		<img bind:this={imageEl} src={imageUrl} alt={imageAlt} class="block max-h-[80vh] max-w-full" onload={handleImageLoad} />
 	</div>
-{:else if !FEATURES.ANNOTATION_EDITING}
-	<!-- Annotation editing is gated off (currently buggy). Render the image
-	     without any edit affordances so a stale URL with ?view=annotate still
-	     shows something useful instead of an empty surface. -->
-	<div class="border border-border bg-surface p-4 text-sm text-text-muted">
-		Annotation editing is temporarily disabled while we sort out a save-flow bug.
-		Boxes remain visible on the regular image view.
-	</div>
-{:else}
-	<!-- Self-contained mode: toolbar + canvas -->
-	<div class="space-y-4 border border-border bg-surface p-4">
-		<div class="flex flex-wrap items-center gap-2">
-			<div class="inline-flex border border-border bg-bg p-1">
-				<button type="button" onclick={() => { activeTool = 'rectangle'; }}
-					class="px-3 py-1.5 text-xs font-medium transition-colors {activeTool === 'rectangle' ? 'bg-text text-surface' : 'text-text-muted hover:bg-surface'}"
-				>Rectangle</button>
-				<button type="button" onclick={() => { activeTool = 'polygon'; }}
-					class="px-3 py-1.5 text-xs font-medium transition-colors {activeTool === 'polygon' ? 'bg-text text-surface' : 'text-text-muted hover:bg-surface'}"
-				>Polygon</button>
-			</div>
-			<button type="button" onclick={() => { void saveAnnotations(); }} disabled={saving || !isDirty}
-				class="px-3 py-1.5 text-xs font-medium text-white transition-colors disabled:cursor-not-allowed disabled:bg-primary/40 {saving || !isDirty ? 'bg-primary/40' : 'bg-primary hover:bg-primary-hover'}"
-			>{saving ? 'Saving...' : 'Save'}</button>
-			<button type="button" onclick={deleteSelected} disabled={selectedAnnotationIds.length === 0}
-				class="border border-primary/20 px-3 py-1.5 text-xs font-medium text-primary transition-colors disabled:cursor-not-allowed disabled:border-border disabled:text-text-muted {selectedAnnotationIds.length === 0 ? '' : 'hover:bg-primary-light'}"
-			>Delete Selected</button>
-			<button type="button" onclick={() => annotator?.undo()} class="border border-border px-3 py-1.5 text-xs font-medium text-text hover:bg-bg">Undo</button>
-			<button type="button" onclick={() => annotator?.redo()} class="border border-border px-3 py-1.5 text-xs font-medium text-text hover:bg-bg">Redo</button>
-			<button type="button" onclick={restoreBaseline} class="border border-border px-3 py-1.5 text-xs font-medium text-text hover:bg-bg">Revert</button>
-			{#if seedBoxes.length > 0}
-				<button type="button" onclick={loadSorterBoxes} class="border border-border px-3 py-1.5 text-xs font-medium text-text hover:bg-bg">Load Sorter Boxes</button>
-			{/if}
-			<button type="button" onclick={clearAll} class="border border-warning/30 px-3 py-1.5 text-xs font-medium text-warning-strong hover:bg-warning/[0.1]">Clear</button>
-		</div>
-
-		<div class="flex flex-wrap items-center gap-x-4 gap-y-2 border border-border bg-bg px-3 py-2 text-xs text-text-muted">
-			<span>{annotationStats.total} annotations</span>
-			<span>{annotationStats.seeded} seeded</span>
-			<span>{annotationStats.manual} manual</span>
-			<span>{annotationStats.rectangles} rectangles</span>
-			<span>{annotationStats.polygons} polygons</span>
-			<span>{selectedAnnotationIds.length} selected</span>
-			<span class="ml-auto font-medium {isDirty ? 'text-warning-strong' : 'text-success'}">
-				{#if isDirty}Unsaved changes{:else if hasSavedBaseline}Saved{:else}Not saved yet{/if}
-			</span>
-		</div>
-
-		<div class="border border-info/10 bg-info/[0.06] px-3 py-2 text-xs text-info">
-			Click a box to edit it. Press `Delete` or `Backspace` to remove the selected box, or use `Ctrl/Cmd + S` to save.
-		</div>
-
-		{#if feedback}
-			<p class="px-3 py-2 text-xs {feedbackTone === 'danger' ? 'bg-primary/8 text-primary' : feedbackTone === 'success' ? 'bg-success/10 text-success' : 'bg-bg text-text-muted'}">
-				{feedback}
-			</p>
-		{/if}
-
-		<!-- svelte-ignore a11y_no_static_element_interactions -->
-		<div
-			class="overflow-auto border border-border bg-canvas/95 p-4"
-			onpointerup={() => { requestAnimationFrame(() => syncAnnotations()); }}
-		>
-			<div class="flex min-h-[28rem] items-center justify-center">
-				<img
-					bind:this={imageEl}
-					src={imageUrl}
-					alt={imageAlt}
-					class="block max-h-[72vh] max-w-full"
-					onload={handleImageLoad}
-				/>
-			</div>
-		</div>
-	</div>
-{/if}
+</div>

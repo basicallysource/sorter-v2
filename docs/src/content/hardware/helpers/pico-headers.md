@@ -20,7 +20,7 @@ tools_needed: ["Soldering iron and solder", "Side cutters or pliers, to break th
 ---
 
 <div class="callout">
-  <p><b>This step is optional.</b> The parts catalog buys a Pico with its two rows of 20 pins already fitted, so a standard build skips this page. The bare Pico and the 40 header pins listed above are not counted into a machine's parts list, and the catalog has both flagged for removal, so buy them only if you would rather solder the pins on yourself.</p>
+  <p><b>This step is optional.</b> The parts catalog buys a Pico with its two rows of 20 pins already fitted, so a standard build skips this page. The bare Pico and the 40 header pins listed above are not counted into a machine's parts list, so buy them only if you would rather solder the pins on yourself.</p>
 </div>
 
 A bare Pico will not seat in the [basically Embedded Control Board]({{ '/hardware/electronics/installation/control-board-prep/' | relative_url }}) until 2.54 mm header pins are soldered along both its long edges.

@@ -24,6 +24,12 @@ no fonts or scripts from anywhere else, no `window.open` or `target=_blank`,
 no clipboard API or WebCrypto (both need HTTPS), and nothing that breaks
 when the window is closed and reopened.
 
+How it looks is `software/sorter-design-system` (its `docs/rules.md` first).
+`src/app.css` is the system's, unchanged, with one block after it for what
+this window needs (no web font, light or dark from the phone, 44px controls),
+and the components in `src/lib/components/` that are the system's are copied
+from it unchanged; `docs/apps.md` there says what differs here.
+
 ## API
 
 All JSON. Times are Unix seconds on the Sorter's clock; `clock_ok` says

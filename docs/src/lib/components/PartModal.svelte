@@ -131,10 +131,18 @@
 								<li>
 									<a href={vendor.url} target="_blank" rel="noopener nofollow sponsored"
 										>{vendor.vendor}</a
-									>{#if vendor.region}<span class="part-modal-region"> {vendor.region}</span>{/if}
+									>{#if vendor.region}<span class="part-modal-region"> {vendor.region}</span>{/if}{#if vendor.plain_url}<span class="part-modal-region">
+											· affiliate link ·
+											<a href={vendor.plain_url} target="_blank" rel="noopener nofollow">same listing, no tag</a></span
+										>{/if}{#if vendor.note}<span class="part-modal-vendor-note">{vendor.note}</span>{/if}
 								</li>
 							{/each}
 						</ul>
+						{#if detail.vendors.some((v) => v.plain_url)}
+							<p class="part-modal-note part-modal-disclosure">
+								As an Amazon Associate we earn from qualifying purchases.
+							</p>
+						{/if}
 					</div>
 				{/if}
 

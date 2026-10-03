@@ -1,104 +1,16 @@
-"""Machine config helpers.
+"""Typed getters and setters for machine.toml's sections.
 
-Declarative machine configuration stays in machine.toml (see machine_toml.py).
-Mutable local state such as polygons, sync state, training session state,
-and secrets lives in `local_state.sqlite` via `local_state.py`.
+Declarative machine configuration stays in machine.toml; machine_toml.py reads it
+and owns every write. Mutable local state such as polygons, sync state, training
+session state, and secrets lives in `local_state.sqlite` via `local_state.py`.
 """
 
 from __future__ import annotations
 
-import json
-import os
-import sys
-import tempfile
-import threading
-import tomllib
-from pathlib import Path
+import time
 from typing import Any
-from urllib.parse import urlparse
 
-from machine_toml import machine_toml_path
-from server.config_helpers import write_machine_params_config
-
-
-def loadTomlFile(path: str | Path) -> dict[str, Any]:
-    path_str = str(path)
-    try:
-        with open(path_str, "rb") as f:
-            return tomllib.load(f)
-    except tomllib.TOMLDecodeError as e:
-        print(f"[config] malformed TOML at {path_str}: {e}", file=sys.stderr)
-        sys.exit(1)
-
-_TOML_LOCK = threading.Lock()
-_POLYGONS_LOCK = threading.Lock()
-
-
-# ---------------------------------------------------------------------------
-# Path helpers
-# ---------------------------------------------------------------------------
-
-
-def _polygons_path() -> str:
-    """Legacy helper for the old polygons.json location."""
-    return str(machine_toml_path().parent / "polygons.json")
-
-
-# ---------------------------------------------------------------------------
-# TOML read/write primitives
-# ---------------------------------------------------------------------------
-
-
-def _read_toml() -> dict[str, Any]:
-    """Read and parse the TOML file. Returns {} if missing. Malformed TOML exits the program."""
-    path = machine_toml_path()
-    if not path.exists():
-        return {}
-    return loadTomlFile(path)
-
-
-def _update_toml(updater: Any) -> None:
-    """Read TOML, apply updater(config_dict), write back atomically."""
-    with _TOML_LOCK:
-        config = _read_toml()
-        updater(config)
-        write_machine_params_config(str(machine_toml_path()), config)
-
-
-# ---------------------------------------------------------------------------
-# Polygon JSON read/write primitives
-# ---------------------------------------------------------------------------
-
-
-def _write_json_atomic(path: str, data: dict[str, Any]) -> None:
-    """Write JSON atomically via tempfile + rename."""
-    parent = Path(path).parent
-    parent.mkdir(parents=True, exist_ok=True)
-    fd, tmp_path = tempfile.mkstemp(dir=parent, suffix=".json.tmp")
-    try:
-        with os.fdopen(fd, "w") as f:
-            json.dump(data, f, indent=2)
-            f.flush()
-            os.fsync(f.fileno())
-        os.rename(tmp_path, path)
-    except BaseException:
-        try:
-            os.unlink(tmp_path)
-        except OSError:
-            pass
-        raise
-
-
-def _read_polygons_json() -> dict[str, Any]:
-    """Read the legacy polygons.json file. Returns {} if missing."""
-    path = _polygons_path()
-    if not os.path.exists(path):
-        return {}
-    try:
-        with open(path, "r") as f:
-            return json.load(f)
-    except Exception:
-        return {}
+import machine_toml
 
 
 # ---------------------------------------------------------------------------
@@ -107,10 +19,10 @@ def _read_polygons_json() -> dict[str, Any]:
 
 
 def getClassificationChannelRev01Config() -> dict[str, Any]:
-    from subsystems.classification_channel.simple_state_machine_rev01.rev01_config import (
+    from subsystems.classification_channel.two_piece.rev01_config import (
         Rev01Config, configToDict,
     )
-    config = _read_toml()
+    config = machine_toml.read()
     section = config.get("classification_channel_rev01")
     defaults = configToDict(Rev01Config())
     if isinstance(section, dict):
@@ -120,82 +32,18 @@ def getClassificationChannelRev01Config() -> dict[str, Any]:
 
 
 def setClassificationChannelRev01Config(updates: dict[str, Any]) -> dict[str, Any]:
-    from subsystems.classification_channel.simple_state_machine_rev01.rev01_config import (
+    from subsystems.classification_channel.two_piece.rev01_config import (
         Rev01Config, configToDict, configFromDict,
     )
     defaults = configToDict(Rev01Config())
     valid = {k: v for k, v in updates.items() if k in defaults}
 
-    def updater(config: dict[str, Any]) -> None:
+    with machine_toml.edit() as config:
         existing = config.get("classification_channel_rev01")
         base = dict(existing) if isinstance(existing, dict) else {}
         base.update(valid)
         config["classification_channel_rev01"] = base
-
-    _update_toml(updater)
     return getClassificationChannelRev01Config()
-
-
-# ---------------------------------------------------------------------------
-# Profiler toggle
-# ---------------------------------------------------------------------------
-
-
-def getProfilerConfig() -> dict[str, Any]:
-    """Whether the detailed code profiler is enabled. Defaults to True so a
-    fresh machine collects profiling out of the box."""
-    config = _read_toml()
-    section = config.get("profiler")
-    enabled = True
-    if isinstance(section, dict) and isinstance(section.get("enabled"), bool):
-        enabled = section["enabled"]
-    return {"enabled": enabled}
-
-
-def setProfilerConfig(updates: dict[str, Any]) -> dict[str, Any]:
-    def updater(config: dict[str, Any]) -> None:
-        section = config.get("profiler")
-        base = dict(section) if isinstance(section, dict) else {}
-        if "enabled" in updates:
-            base["enabled"] = bool(updates["enabled"])
-        config["profiler"] = base
-
-    _update_toml(updater)
-    return getProfilerConfig()
-
-
-# ---------------------------------------------------------------------------
-# Feeder go-to-angle tuning config
-# ---------------------------------------------------------------------------
-
-
-def getGoToAngleConfig() -> dict[str, Any]:
-    from subsystems.feeder.go_to_angle.config import (
-        GoToAngleConfig, configToDict,
-    )
-    config = _read_toml()
-    section = config.get("feeder_go_to_angle")
-    defaults = configToDict(GoToAngleConfig())
-    if isinstance(section, dict):
-        return {**defaults, **{k: v for k, v in section.items() if k in defaults}}
-    return defaults
-
-
-def setGoToAngleConfig(updates: dict[str, Any]) -> dict[str, Any]:
-    from subsystems.feeder.go_to_angle.config import (
-        GoToAngleConfig, configToDict,
-    )
-    defaults = configToDict(GoToAngleConfig())
-    valid = {k: v for k, v in updates.items() if k in defaults}
-
-    def updater(config: dict[str, Any]) -> None:
-        existing = config.get("feeder_go_to_angle")
-        base = dict(existing) if isinstance(existing, dict) else {}
-        base.update(valid)
-        config["feeder_go_to_angle"] = base
-
-    _update_toml(updater)
-    return getGoToAngleConfig()
 
 
 # ---------------------------------------------------------------------------
@@ -208,7 +56,7 @@ def setGoToAngleConfig(updates: dict[str, Any]) -> dict[str, Any]:
 
 def getActiveTrackerType() -> str:
     from perception.tracker_config import DEFAULT_TRACKER_TYPE, TRACKER_SPECS
-    config = _read_toml()
+    config = machine_toml.read()
     section = config.get("object_tracker")
     if isinstance(section, dict):
         t = section.get("type")
@@ -221,19 +69,17 @@ def setActiveTrackerType(tracker_type: str) -> str:
     from perception.tracker_config import DEFAULT_TRACKER_TYPE, TRACKER_SPECS
     t = tracker_type if tracker_type in TRACKER_SPECS else DEFAULT_TRACKER_TYPE
 
-    def updater(config: dict[str, Any]) -> None:
+    with machine_toml.edit() as config:
         existing = config.get("object_tracker")
         base = dict(existing) if isinstance(existing, dict) else {}
         base["type"] = t
         config["object_tracker"] = base
-
-    _update_toml(updater)
     return getActiveTrackerType()
 
 
 def getTrackerConfig(tracker_type: str) -> dict[str, Any]:
     from perception.tracker_config import defaultsFor
-    config = _read_toml()
+    config = machine_toml.read()
     section = config.get(f"object_tracker_{tracker_type}")
     defaults = defaultsFor(tracker_type)
     if isinstance(section, dict):
@@ -247,13 +93,11 @@ def setTrackerConfig(tracker_type: str, updates: dict[str, Any]) -> dict[str, An
     valid = {k: v for k, v in updates.items() if k in defaults}
     key = f"object_tracker_{tracker_type}"
 
-    def updater(config: dict[str, Any]) -> None:
+    with machine_toml.edit() as config:
         existing = config.get(key)
         base = dict(existing) if isinstance(existing, dict) else {}
         base.update(valid)
         config[key] = base
-
-    _update_toml(updater)
     return getTrackerConfig(tracker_type)
 
 
@@ -264,7 +108,7 @@ def setTrackerConfig(tracker_type: str, updates: dict[str, Any]) -> dict[str, An
 
 def getClassificationProviders() -> dict[str, str]:
     from classification.providers import normalizeColorProvider, normalizeMoldProvider
-    config = _read_toml()
+    config = machine_toml.read()
     section = config.get("classification_providers")
     section = section if isinstance(section, dict) else {}
     return {
@@ -281,13 +125,11 @@ def setClassificationProviders(updates: dict[str, Any]) -> dict[str, str]:
     if "mold_provider" in updates:
         valid["mold_provider"] = normalizeMoldProvider(updates.get("mold_provider"))
 
-    def updater(config: dict[str, Any]) -> None:
+    with machine_toml.edit() as config:
         existing = config.get("classification_providers")
         base = dict(existing) if isinstance(existing, dict) else {}
         base.update(valid)
         config["classification_providers"] = base
-
-    _update_toml(updater)
     return getClassificationProviders()
 
 
@@ -300,7 +142,7 @@ def getPulsePerceptionConfig() -> dict[str, Any]:
     from subsystems.feeder.pulse_perception.config import (
         PulsePerceptionConfig, configToDict, migrateLegacyKeys,
     )
-    config = _read_toml()
+    config = machine_toml.read()
     section = config.get("feeder_pulse_perception")
     defaults = configToDict(PulsePerceptionConfig())
     if isinstance(section, dict):
@@ -318,48 +160,12 @@ def setPulsePerceptionConfig(updates: dict[str, Any]) -> dict[str, Any]:
     defaults = configToDict(PulsePerceptionConfig())
     valid = {k: v for k, v in updates.items() if k in defaults}
 
-    def updater(config: dict[str, Any]) -> None:
+    with machine_toml.edit() as config:
         existing = config.get("feeder_pulse_perception")
         base = dict(existing) if isinstance(existing, dict) else {}
         base.update(valid)
         config["feeder_pulse_perception"] = base
-
-    _update_toml(updater)
     return getPulsePerceptionConfig()
-
-
-# ---------------------------------------------------------------------------
-# Feeder constant-movement tuning config
-# ---------------------------------------------------------------------------
-
-
-def getConstantMovementConfig() -> dict[str, Any]:
-    from subsystems.feeder.constant_movement.config import (
-        ConstantMovementConfig, configToDict,
-    )
-    config = _read_toml()
-    section = config.get("feeder_constant_movement")
-    defaults = configToDict(ConstantMovementConfig())
-    if isinstance(section, dict):
-        return {**defaults, **{k: v for k, v in section.items() if k in defaults}}
-    return defaults
-
-
-def setConstantMovementConfig(updates: dict[str, Any]) -> dict[str, Any]:
-    from subsystems.feeder.constant_movement.config import (
-        ConstantMovementConfig, configToDict,
-    )
-    defaults = configToDict(ConstantMovementConfig())
-    valid = {k: v for k, v in updates.items() if k in defaults}
-
-    def updater(config: dict[str, Any]) -> None:
-        existing = config.get("feeder_constant_movement")
-        base = dict(existing) if isinstance(existing, dict) else {}
-        base.update(valid)
-        config["feeder_constant_movement"] = base
-
-    _update_toml(updater)
-    return getConstantMovementConfig()
 
 
 # ---------------------------------------------------------------------------
@@ -369,7 +175,7 @@ def setConstantMovementConfig(updates: dict[str, Any]) -> dict[str, Any]:
 
 def getDetectionConfig(scope: str) -> dict[str, Any] | None:
     """Read detection config for a scope (classification/feeder/carousel)."""
-    config = _read_toml()
+    config = machine_toml.read()
     detection = config.get("detection")
     if not isinstance(detection, dict):
         return None
@@ -389,7 +195,7 @@ def getDetectionConfig(scope: str) -> dict[str, Any] | None:
 
 def setDetectionConfig(scope: str, cfg: dict[str, Any]) -> None:
     """Write detection config for a scope."""
-    def updater(config: dict[str, Any]) -> None:
+    with machine_toml.edit() as config:
         if "detection" not in config:
             config["detection"] = {}
         section = dict(cfg)
@@ -402,8 +208,6 @@ def setDetectionConfig(scope: str, cfg: dict[str, Any]) -> None:
         if isinstance(by_role, dict):
             config["detection"][scope]["sample_collection_enabled_by_role"] = by_role
 
-    _update_toml(updater)
-
 
 # ---------------------------------------------------------------------------
 # Machine nickname
@@ -412,7 +216,7 @@ def setDetectionConfig(scope: str, cfg: dict[str, Any]) -> None:
 
 def getMachineNickname() -> str | None:
     """Read machine nickname from TOML [machine] section."""
-    config = _read_toml()
+    config = machine_toml.read()
     machine = config.get("machine")
     if not isinstance(machine, dict):
         return None
@@ -425,7 +229,7 @@ def getMachineNickname() -> str | None:
 
 def setMachineNickname(nickname: str | None) -> None:
     """Write machine nickname to TOML [machine] section."""
-    def updater(config: dict[str, Any]) -> None:
+    with machine_toml.edit() as config:
         if "machine" not in config:
             config["machine"] = {}
         normalized = nickname.strip() if isinstance(nickname, str) else ""
@@ -433,8 +237,6 @@ def setMachineNickname(nickname: str | None) -> None:
             config["machine"]["nickname"] = normalized
         else:
             config["machine"].pop("nickname", None)
-
-    _update_toml(updater)
 
 
 # ---------------------------------------------------------------------------
@@ -445,84 +247,21 @@ def setMachineNickname(nickname: str | None) -> None:
 _INCIDENT_MODE_OFF = "off"
 _INCIDENT_MODE_MANUAL = "manual"
 _INCIDENT_MODE_AUTOMATIC = "automatic"
-_INCIDENT_EXIT_STUCK = "exit_stuck"
-_INCIDENT_KIND_ALIASES: dict[str, str] = {
-    "classification_exit_release": _INCIDENT_EXIT_STUCK,
-    "channel_exit_stuck": _INCIDENT_EXIT_STUCK,
-    "classification_exit_stuck": _INCIDENT_EXIT_STUCK,
-}
-# Only kinds that can actually fire on the default codepath
-# (PULSE_PERCEPTION_REV01 feeder + TWO_PIECE_STATE_MACHINE_REV01 classification
-# + distribution). Legacy-only kinds (dropzone stuck, bulk feeder, DYNAMIC
-# classification fallbacks, ...) get no policy row: their publishers never run
-# on the default setup.
-_INCIDENT_FEEDER_JAM = "feeder_jam"
-_INCIDENT_HANDLING_DEFAULTS: dict[str, str] = {
-    _INCIDENT_EXIT_STUCK: _INCIDENT_MODE_AUTOMATIC,
-    _INCIDENT_FEEDER_JAM: _INCIDENT_MODE_AUTOMATIC,
-    # Off by default: the chute-jam check is a move-budget timeout, and on
-    # deployed machines it has fired on stalls unrelated to the chute
-    # (#594). StallGuard still covers a real mechanical jam.
-    "distribution_chute_jam": _INCIDENT_MODE_OFF,
-    "distribution_servo_bus_offline": _INCIDENT_MODE_MANUAL,
-    "distribution_no_bin_available": _INCIDENT_MODE_MANUAL,
-}
-_INCIDENT_DEFINITIONS: tuple[dict[str, Any], ...] = (
-    {
-        "kind": _INCIDENT_EXIT_STUCK,
-        "label": "Exit Stuck",
-        "scope": "C4",
-        "description": "The classification channel stopped making progress with a piece on it.",
-        "off_label": "Do not raise exit-stuck incidents",
-        "manual_label": "Operator clears the stuck piece",
-        "automatic_label": "Rotate the channel forward until it clears",
-        "automatic_supported": True,
-    },
-    {
-        "kind": _INCIDENT_FEEDER_JAM,
-        "label": "Feeder Jam",
-        "scope": "Feeder",
-        "description": "A feeder channel keeps trying to advance a piece that will not move — it is hung at the previous channel's hand-off.",
-        "off_label": "Do not detect feeder hand-off jams",
-        "manual_label": "Call the operator as soon as a channel is stuck",
-        "automatic_label": "Nudge the upstream channel to free it, then call the operator",
-        "automatic_supported": True,
-    },
-    {
-        "kind": "distribution_chute_jam",
-        "label": "Chute Jam",
-        "scope": "Distribution",
-        "description": "The distribution chute did not finish moving.",
-        "off_label": "Use hardware alert only",
-        "manual_label": "Operator clears the chute",
-        "automatic_label": "Automatic chute recovery",
-        "automatic_supported": False,
-    },
-    {
-        "kind": "distribution_servo_bus_offline",
-        "label": "Servo Bus Offline",
-        "scope": "Distribution",
-        "description": "The distribution servo bus is not responding.",
-        "off_label": "Use hardware alert only",
-        "manual_label": "Operator restores the servo bus",
-        "automatic_label": "Automatic servo bus recovery",
-        "automatic_supported": False,
-    },
-    {
-        "kind": "distribution_no_bin_available",
-        "label": "No Bin Available",
-        "scope": "Distribution",
-        "description": "No matching bin is available for the piece.",
-        "off_label": "Allow bottom-tray passthrough",
-        "manual_label": "Operator assigns capacity or approves passthrough",
-        "automatic_label": "Automatic no-bin passthrough",
-        "automatic_supported": False,
-    },
-)
+# Every incident kind is defined once, in incidents/kinds.py; the ones with a
+# default handling are the ones this settings section offers.
+def _incidentRegistry():
+    from incidents import ALIASES, KINDS
+
+    return KINDS, ALIASES
+
+
+def _incidentHandlingDefaults() -> dict[str, str]:
+    kinds, _aliases = _incidentRegistry()
+    return {k: v.default_handling for k, v in kinds.items() if v.default_handling}
+
 
 _DASHBOARD_DEFAULTS: dict[str, Any] = {
     "show_sample_capture": False,
-    "incident_handling": dict(_INCIDENT_HANDLING_DEFAULTS),
 }
 
 
@@ -532,14 +271,14 @@ def _canonicalIncidentKind(kind: Any) -> str | None:
     normalized = kind.strip()
     if not normalized:
         return None
-    return _INCIDENT_KIND_ALIASES.get(normalized, normalized)
+    return _incidentRegistry()[1].get(normalized, normalized)
 
 
 def _sanitizeIncidentHandling(value: Any) -> dict[str, str]:
     if not isinstance(value, dict):
         return {}
     sanitized: dict[str, str] = {}
-    supported_kinds = set(_INCIDENT_HANDLING_DEFAULTS.keys())
+    supported_kinds = set(_incidentHandlingDefaults().keys())
     for kind, mode in value.items():
         canonical_kind = _canonicalIncidentKind(kind)
         if canonical_kind not in supported_kinds:
@@ -550,17 +289,43 @@ def _sanitizeIncidentHandling(value: Any) -> dict[str, str]:
 
 
 def incidentDefinitions() -> list[dict[str, Any]]:
-    return [dict(entry) for entry in _INCIDENT_DEFINITIONS]
+    kinds, _aliases = _incidentRegistry()
+    return [
+        {
+            "kind": k.kind,
+            "label": k.title,
+            "scope": k.scope,
+            "description": k.description,
+            "off_label": k.off_label,
+            "manual_label": k.manual_label,
+            "automatic_label": k.automatic_label or "",
+            "automatic_supported": k.automatic_label is not None,
+        }
+        for k in kinds.values()
+        if k.default_handling
+    ]
+
+
+# The control loop asks how each incident is handled on every tick, so the map
+# is read from machine.toml at most once a second (and at once after
+# setDashboardConfig): (file, read at, handling).
+_INCIDENT_HANDLING_TTL_S = 1.0
+_incident_handling: tuple[Any, float, dict[str, Any]] | None = None
 
 
 def incidentHandlingMode(kind: str) -> str:
+    global _incident_handling
     canonical_kind = _canonicalIncidentKind(kind) or kind
-    handling = getDashboardConfig().get("incident_handling")
-    if isinstance(handling, dict):
-        mode = handling.get(canonical_kind)
-        if mode in {_INCIDENT_MODE_OFF, _INCIDENT_MODE_MANUAL, _INCIDENT_MODE_AUTOMATIC}:
-            return str(mode)
-    return _INCIDENT_HANDLING_DEFAULTS.get(canonical_kind, _INCIDENT_MODE_MANUAL)
+    path, now = machine_toml.machine_toml_path(), time.monotonic()
+    cached = _incident_handling
+    if cached is None or cached[0] != path or now - cached[1] >= _INCIDENT_HANDLING_TTL_S:
+        handling = getDashboardConfig().get("incident_handling")
+        cached = (path, now, handling if isinstance(handling, dict) else {})
+        _incident_handling = cached
+    mode = cached[2].get(canonical_kind)
+    if mode in {_INCIDENT_MODE_OFF, _INCIDENT_MODE_MANUAL, _INCIDENT_MODE_AUTOMATIC}:
+        return str(mode)
+    return _incidentHandlingDefaults().get(canonical_kind, _INCIDENT_MODE_MANUAL)
 
 
 def incidentHandlingAutomatic(kind: str) -> bool:
@@ -573,18 +338,18 @@ def incidentHandlingOff(kind: str) -> bool:
 
 def getDashboardConfig() -> dict[str, Any]:
     """Return dashboard preferences merged on top of defaults."""
-    config = _read_toml()
+    config = machine_toml.read()
     section = config.get("dashboard")
     merged = {
         "show_sample_capture": bool(_DASHBOARD_DEFAULTS["show_sample_capture"]),
-        "incident_handling": dict(_INCIDENT_HANDLING_DEFAULTS),
+        "incident_handling": _incidentHandlingDefaults(),
         "incident_definitions": incidentDefinitions(),
     }
     if isinstance(section, dict):
         value = section.get("show_sample_capture")
         if isinstance(value, bool):
             merged["show_sample_capture"] = value
-        handling = dict(_INCIDENT_HANDLING_DEFAULTS)
+        handling = _incidentHandlingDefaults()
         handling.update(_sanitizeIncidentHandling(section.get("incident_handling")))
         merged["incident_handling"] = handling
     return merged
@@ -592,6 +357,7 @@ def getDashboardConfig() -> dict[str, Any]:
 
 def setDashboardConfig(updates: dict[str, Any]) -> dict[str, Any]:
     """Persist dashboard preferences; unknown keys are ignored. Returns merged state."""
+    global _incident_handling
     sanitized: dict[str, Any] = {}
     if "show_sample_capture" in updates and isinstance(updates["show_sample_capture"], bool):
         sanitized["show_sample_capture"] = updates["show_sample_capture"]
@@ -604,16 +370,15 @@ def setDashboardConfig(updates: dict[str, Any]) -> dict[str, Any]:
                 if isinstance(existing_config.get("incident_handling"), dict)
                 else {}
             )
-            merged_handling = dict(_INCIDENT_HANDLING_DEFAULTS)
+            merged_handling = _incidentHandlingDefaults()
             merged_handling.update(_sanitizeIncidentHandling(existing))
             merged_handling.update(handling)
             sanitized["incident_handling"] = merged_handling
 
-    def updater(config: dict[str, Any]) -> None:
+    with machine_toml.edit() as config:
         existing = config.get("dashboard") if isinstance(config.get("dashboard"), dict) else {}
         config["dashboard"] = {**existing, **sanitized}
-
-    _update_toml(updater)
+    _incident_handling = None
     return getDashboardConfig()
 
 
@@ -627,7 +392,7 @@ def getBinAssignmentConfig() -> dict[str, Any]:
     once every bin already has an assignment the distributor keeps sorting new
     categories by combining them into existing bins (picking the least-loaded
     one) instead of falling through to the misc/discard passthrough."""
-    config = _read_toml()
+    config = machine_toml.read()
     section = config.get("bins")
     allow_multiple = False
     if isinstance(section, dict) and isinstance(
@@ -638,7 +403,7 @@ def getBinAssignmentConfig() -> dict[str, Any]:
 
 
 def setBinAssignmentConfig(updates: dict[str, Any]) -> dict[str, Any]:
-    def updater(config: dict[str, Any]) -> None:
+    with machine_toml.edit() as config:
         existing = config.get("bins")
         base = dict(existing) if isinstance(existing, dict) else {}
         if "allow_multiple_categories_per_bin" in updates:
@@ -646,215 +411,27 @@ def setBinAssignmentConfig(updates: dict[str, Any]) -> dict[str, Any]:
                 updates["allow_multiple_categories_per_bin"]
             )
         config["bins"] = base
-
-    _update_toml(updater)
     return getBinAssignmentConfig()
 
 
 # ---------------------------------------------------------------------------
-# Classification training config
-# ---------------------------------------------------------------------------
-
-
-def getClassificationTrainingConfig() -> dict[str, Any] | None:
-    """Read classification training state from local SQLite storage."""
-    from local_state import get_classification_training_state
-
-    return get_classification_training_state()
-
-
-def setClassificationTrainingConfig(cfg: dict[str, Any]) -> None:
-    """Write classification training state to local SQLite storage."""
-    from local_state import set_classification_training_state
-
-    set_classification_training_state(cfg)
-
-
-# ---------------------------------------------------------------------------
-# Hive config
-# ---------------------------------------------------------------------------
-
-
-def _default_hive_target_name(url: str, index: int) -> str:
-    hostname = urlparse(url).hostname
-    if isinstance(hostname, str) and hostname.strip():
-        return hostname.strip()
-    return f"Hive {index + 1}"
-
-
-def _normalize_hive_target(raw: Any, index: int) -> dict[str, Any] | None:
-    if not isinstance(raw, dict):
-        return None
-
-    url = raw.get("url")
-    api_token = raw.get("api_token")
-    if not isinstance(url, str) or not url.strip():
-        return None
-    if not isinstance(api_token, str) or not api_token.strip():
-        return None
-
-    target_id = raw.get("id")
-    name = raw.get("name")
-    machine_id = raw.get("machine_id")
-
-    target = {
-        "id": target_id.strip() if isinstance(target_id, str) and target_id.strip() else f"target-{index + 1}",
-        "name": name.strip() if isinstance(name, str) and name.strip() else _default_hive_target_name(url, index),
-        "url": url.strip().rstrip("/"),
-        "api_token": api_token.strip(),
-        "enabled": bool(raw.get("enabled", True)),
-    }
-    if isinstance(machine_id, str) and machine_id.strip():
-        target["machine_id"] = machine_id.strip()
-    return target
-
-
-def getHiveConfig() -> dict[str, Any] | None:
-    """Read Hive connection state from local SQLite storage."""
-    from local_state import get_hive_config
-
-    return get_hive_config()
-
-
-def setHiveConfig(cfg: dict[str, Any]) -> None:
-    """Write Hive connection state to local SQLite storage."""
-    from local_state import set_hive_config
-
-    set_hive_config(cfg)
-
-
-def getSortingProfileSyncState() -> dict[str, Any] | None:
-    """Read persisted sorting-profile sync metadata from local SQLite storage."""
-    from local_state import get_sorting_profile_sync_state
-
-    return get_sorting_profile_sync_state()
-
-
-def setSortingProfileSyncState(state: dict[str, Any]) -> None:
-    """Write persisted sorting-profile sync metadata to local SQLite storage."""
-    from local_state import set_sorting_profile_sync_state
-
-    set_sorting_profile_sync_state(state)
-
-
-# ---------------------------------------------------------------------------
-# API keys
-# ---------------------------------------------------------------------------
-
-
-def getApiKeys() -> dict[str, str]:
-    """Read API keys from local SQLite storage."""
-    from local_state import get_api_keys
-
-    return get_api_keys()
-
-
-def setApiKeys(keys: dict[str, str]) -> None:
-    """Write API keys to local SQLite storage."""
-    from local_state import set_api_keys
-
-    set_api_keys(keys)
-
-
-# ---------------------------------------------------------------------------
-# Chute calibration
-# ---------------------------------------------------------------------------
-
-
-def getChuteCalibration() -> dict[str, float] | None:
-    """Read chute calibration from TOML [chute] section."""
-    config = _read_toml()
-    chute = config.get("chute")
-    if not isinstance(chute, dict):
-        return None
-    return dict(chute)
-
-
-def setChuteCalibration(calibration: dict[str, float]) -> None:
-    """Write chute calibration to TOML [chute] section (merge, not replace)."""
-    def updater(config: dict[str, Any]) -> None:
-        if "chute" not in config:
-            config["chute"] = {}
-        config["chute"].update(calibration)
-
-    _update_toml(updater)
-
-
-# ---------------------------------------------------------------------------
-# Camera setup (for default layout compatibility)
+# Camera setup
 # ---------------------------------------------------------------------------
 
 
 def getCameraSetup() -> dict[str, Any] | None:
     """Read camera setup from TOML [cameras] section."""
-    config = _read_toml()
+    config = machine_toml.read()
     cameras = config.get("cameras")
     if not isinstance(cameras, dict):
         return None
     # Return the roles that have device indices assigned
     result: dict[str, Any] = {}
-    for role in ("feeder", "classification_top", "classification_bottom",
-                 "c_channel_2", "c_channel_3", "carousel"):
+    for role in ("c_channel_2", "c_channel_3", "carousel", "classification_channel"):
         val = cameras.get(role)
         if val is not None:
             result[role] = val
     return result if result else None
-
-
-def setCameraSetup(setup: dict[str, Any]) -> None:
-    """Write camera setup to TOML [cameras] section."""
-    def updater(config: dict[str, Any]) -> None:
-        if "cameras" not in config:
-            config["cameras"] = {}
-        for role, val in setup.items():
-            config["cameras"][role] = val
-
-    _update_toml(updater)
-
-
-# ---------------------------------------------------------------------------
-# Polygons (stored in local SQLite state, not TOML)
-# ---------------------------------------------------------------------------
-
-
-def getChannelPolygons() -> dict[str, Any] | None:
-    """Read channel polygons from local SQLite storage."""
-    from local_state import get_channel_polygons
-
-    return get_channel_polygons()
-
-
-def setChannelPolygons(polygons: dict[str, Any]) -> None:
-    """Write channel polygons to local SQLite storage."""
-    from local_state import set_channel_polygons
-
-    set_channel_polygons(polygons)
-
-
-def getClassificationPolygons() -> dict[str, Any] | None:
-    """Read classification polygons from local SQLite storage."""
-    from local_state import get_classification_polygons
-
-    return get_classification_polygons()
-
-
-def setClassificationPolygons(polygons: dict[str, Any]) -> None:
-    """Write classification polygons to local SQLite storage."""
-    from local_state import set_classification_polygons
-
-    set_classification_polygons(polygons)
-
-
-# ---------------------------------------------------------------------------
-# Legacy migration entry point
-# ---------------------------------------------------------------------------
-
-
-def migrateFromDataJson() -> None:
-    """Compatibility wrapper for the legacy startup migration entry point."""
-    from local_state import initialize_local_state
-
-    initialize_local_state()
 
 
 # ---------------------------------------------------------------------------
@@ -872,7 +449,7 @@ def getLinkMatchingConfig() -> dict[str, Any]:
     # ``min_confidence`` overrides the threshold baked into the model at
     # publish time (0.5 for link-v3) — fused/preselected picks must score at
     # or above it.
-    config = _read_toml()
+    config = machine_toml.read()
     section = config.get("link_matching")
     section = section if isinstance(section, dict) else {}
     raw = section.get("min_confidence")
@@ -898,11 +475,9 @@ def setLinkMatchingConfig(updates: dict[str, Any]) -> dict[str, Any]:
             raise ValueError("min_confidence must be between 0 and 1")
         valid["min_confidence"] = value
 
-    def updater(config: dict[str, Any]) -> None:
+    with machine_toml.edit() as config:
         existing = config.get("link_matching")
         base = dict(existing) if isinstance(existing, dict) else {}
         base.update(valid)
         config["link_matching"] = base
-
-    _update_toml(updater)
     return getLinkMatchingConfig()

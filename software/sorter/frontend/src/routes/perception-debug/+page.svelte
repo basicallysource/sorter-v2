@@ -1,7 +1,11 @@
 <script lang="ts">
 	import { getBackendHttpBase, machineHttpBaseUrlFromWsUrl } from '$lib/backend';
-	import AppHeader from '$lib/components/AppHeader.svelte';
-	import { Button } from '$lib/components/primitives';
+	import AppShell from '$lib/components/AppShell.svelte';
+	import Button from '$lib/components/ui/Button.svelte';
+	import MediaTile from '$lib/components/ui/MediaTile.svelte';
+	import PageHeader from '$lib/components/ui/PageHeader.svelte';
+	import Panel from '$lib/components/ui/Panel.svelte';
+	import SegmentedControl from '$lib/components/ui/SegmentedControl.svelte';
 	import { getMachinesContext } from '$lib/machines/context';
 
 	const manager = getMachinesContext();
@@ -58,78 +62,65 @@
 </script>
 
 <svelte:head>
-	<title>Perception debug</title>
+	<title>Perception debug - Sorter</title>
 </svelte:head>
 
-<AppHeader />
+<AppShell>
+	<div class="mx-auto flex w-full max-w-[1600px] flex-col gap-(--gap-panels) px-4 py-6 sm:px-6">
+		<PageHeader title="Perception debug" description="Annotated frames from perception, one per channel." />
 
-<div class="mx-auto w-full max-w-[1600px] px-4 py-6">
-	<div class="mb-4 flex items-center justify-between gap-4">
-		<div>
-			<h1 class="text-lg font-semibold">Perception debug — annotated frames</h1>
-			{#if mode === 'cropped'}
-				<p class="text-sm text-neutral-500">
-					<span class="font-semibold">Cropped (production)</span> — exactly what perception infers
-					and decides on. <span class="text-success-dark">Green</span> = detections the mask filter
-					kept (these drive the machine); <span style="color:#cc7a00">orange</span> = raw model
-					detections the filter rejected; cyan = channel polygon mask; white rect = the crop region
-					the model actually saw; magenta dot = rotation center. Runtime zones are overlaid from the
-					actual `ChannelDef` section sets the go-to-angle feeder and rev01 classification state machine
-					read: blue = drop, red = exit-only, magenta fill = precise. The panel also shows the live
-					slot state those pipelines are consuming.
-				</p>
-			{:else}
-				<p class="text-sm text-neutral-500">
-					<span class="font-semibold">Full-frame (debug)</span> — the same model run on the WHOLE
-					frame, no polygon crop, as a second inference per cycle. Use it to tell "the crop is
-					excluding pieces" from "the model isn't detecting them."
-					<span class="text-success-dark">Green</span> = full-frame detections whose center lands in
-					the channel mask; <span style="color:#cc7a00">orange</span> = outside it. The same runtime
-					drop / exit / precise zones are rendered here too so the full-frame comparison still lines
-					up with the real machine logic.
-				</p>
-			{/if}
-		</div>
-		<div class="flex items-center gap-2">
-			<div class="flex border border-neutral-400/40">
-				<button
-					class="px-3 py-1.5 text-sm {mode === 'cropped'
-						? 'bg-primary text-white'
-						: 'text-neutral-500'}"
-					onclick={() => setMode('cropped')}>Cropped (production)</button
-				>
-				<button
-					class="px-3 py-1.5 text-sm {mode === 'fullframe'
-						? 'bg-primary text-white'
-						: 'text-neutral-500'}"
-					onclick={() => setMode('fullframe')}>Full-frame (debug)</button
-				>
-			</div>
-			<Button variant="primary" size="md" onclick={refresh}>Refresh</Button>
-		</div>
-	</div>
-
-	<div class="grid grid-cols-1 gap-6 xl:grid-cols-2">
-		{#each channels as channel (channel.id)}
-			<div class="flex flex-col gap-2">
-				<div class="text-xs font-semibold uppercase tracking-wider text-neutral-500">
-					{channel.label}
-				</div>
-				{#if failed[channel.id]}
-					<div
-						class="flex h-48 items-center justify-center border border-neutral-400/40 bg-neutral-500/[0.06] text-sm text-neutral-500"
-					>
-						No frame available (worker not wired or no inference cycle yet).
-					</div>
-				{:else}
-					<img
-						class="w-full border border-neutral-400/40 bg-black"
-						src={srcFor(channel.id)}
-						alt={`Annotated perception frame for ${channel.label}`}
-						onerror={() => (failed = { ...failed, [channel.id]: true })}
+		<Panel>
+			<div class="flex flex-col gap-4">
+				<div class="flex flex-wrap items-center gap-2">
+					<SegmentedControl
+						label="Which inference to view"
+						value={mode}
+						options={[
+							{ value: 'cropped', label: 'Cropped (production)' },
+							{ value: 'fullframe', label: 'Full frame (debug)' }
+						]}
+						onchange={setMode}
 					/>
+					<Button variant="primary" onclick={refresh}>Refresh</Button>
+				</div>
+				{#if mode === 'cropped'}
+					<p class="max-w-4xl text-sm text-ink-muted">
+						Exactly what perception infers and decides on. Green boxes are detections the mask filter kept;
+						they drive the machine. Orange boxes are raw model detections the filter rejected. Cyan is the
+						channel polygon mask, the white rectangle is the crop the model actually saw, and the magenta dot
+						is the rotation center. Runtime zones are overlaid from the active channel zones: blue is drop,
+						red is exit only, and magenta fill is precise. The panel also shows the live slot state those
+						pipelines are consuming.
+					</p>
+				{:else}
+					<p class="max-w-4xl text-sm text-ink-muted">
+						The same model run on the whole frame, with no polygon crop, as a second inference per cycle. Use
+						it to tell "the crop is excluding pieces" from "the model isn't detecting them". Green boxes are
+						full-frame detections whose center lands in the channel mask; orange boxes are outside it. The
+						same runtime drop, exit and precise zones are drawn here, so the full-frame comparison still
+						lines up with the real machine logic.
+					</p>
 				{/if}
 			</div>
-		{/each}
+		</Panel>
+
+		<div class="grid grid-cols-1 gap-(--gap-panels) xl:grid-cols-2">
+			{#each channels as channel (channel.id)}
+				<MediaTile title={channel.label} expandable>
+					{#if failed[channel.id]}
+						<p class="px-6 text-center text-sm text-ink-muted">
+							No frame is available: the worker is not wired, or no inference cycle has run yet.
+						</p>
+					{:else}
+						<img
+							class="absolute inset-0 h-full w-full object-contain"
+							src={srcFor(channel.id)}
+							alt={`Annotated perception frame for ${channel.label}`}
+							onerror={() => (failed = { ...failed, [channel.id]: true })}
+						/>
+					{/if}
+				</MediaTile>
+			{/each}
+		</div>
 	</div>
-</div>
+</AppShell>

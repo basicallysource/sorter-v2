@@ -27,7 +27,7 @@ from datetime import datetime, timezone
 from pathlib import Path, PurePosixPath
 from typing import Any, Callable
 
-from blob_manager import getHiveConfig
+from local_state import get_hive_config
 
 # ---------------------------------------------------------------------------
 # Locate the Hive sorter-client package (hive_client.py)
@@ -105,7 +105,7 @@ def resolve_targets() -> list[dict]:
     should ever call this directly; the HTTP layer must hand out redacted
     copies without ``api_token``.
     """
-    raw = getHiveConfig()
+    raw = get_hive_config()
     if not isinstance(raw, dict):
         return []
     targets = raw.get("targets")
@@ -159,6 +159,16 @@ _HAS_HAILO_CACHE: bool | None = None
 _HAS_RKNN_NPU_CACHE: bool | None = None
 
 
+def _hasAnyPath(*paths: str) -> bool:
+    for path in paths:
+        try:
+            if Path(path).exists():
+                return True
+        except OSError:
+            continue
+    return False
+
+
 def _has_hailo() -> bool:
     """True if a Hailo accelerator appears to be present on this machine.
 
@@ -167,9 +177,7 @@ def _has_hailo() -> bool:
     """
     global _HAS_HAILO_CACHE
     if _HAS_HAILO_CACHE is None:
-        _HAS_HAILO_CACHE = (
-            Path("/dev/hailo0").exists() or Path("/sys/class/misc/hailo0").exists()
-        )
+        _HAS_HAILO_CACHE = _hasAnyPath("/dev/hailo0", "/sys/class/misc/hailo0")
     return _HAS_HAILO_CACHE
 
 
@@ -182,16 +190,10 @@ def _has_rknn_npu() -> bool:
     """
     global _HAS_RKNN_NPU_CACHE
     if _HAS_RKNN_NPU_CACHE is None:
-        _HAS_RKNN_NPU_CACHE = (
-            Path("/sys/kernel/debug/rknpu/version").exists()
-            or Path("/usr/lib/librknnrt.so").exists()
+        _HAS_RKNN_NPU_CACHE = _hasAnyPath(
+            "/sys/kernel/debug/rknpu/version", "/usr/lib/librknnrt.so"
         )
     return _HAS_RKNN_NPU_CACHE
-
-
-def _reset_hailo_cache_for_tests() -> None:
-    global _HAS_HAILO_CACHE
-    _HAS_HAILO_CACHE = None
 
 
 def compatible_runtimes_for_this_machine() -> list[str]:
@@ -211,21 +213,13 @@ def compatible_runtimes_for_this_machine() -> list[str]:
 
 
 def pick_runtime_for_this_machine(variant_runtimes: list[str]) -> str | None:
-    """Pick the best runtime available for the local hardware.
-
-    The first of ``compatible_runtimes_for_this_machine()`` that is offered;
-    otherwise ``hailo``, then ``pytorch``, then whatever was offered first.
-
-    Returns ``None`` when ``variant_runtimes`` is empty.
-    """
-    if not variant_runtimes:
+    runtimes = set(variant_runtimes) & DEPLOYABLE_RUNTIMES
+    if not runtimes:
         return None
-    runtimes = set(variant_runtimes)
-    for candidate in (*compatible_runtimes_for_this_machine(), "hailo", "pytorch"):
+    for candidate in compatible_runtimes_for_this_machine():
         if candidate in runtimes:
             return candidate
-    # variant_runtimes had at least one entry but none matched known runtimes.
-    return variant_runtimes[0]
+    return None
 
 
 # ---------------------------------------------------------------------------

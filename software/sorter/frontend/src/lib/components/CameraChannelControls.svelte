@@ -1,8 +1,9 @@
 <script lang="ts">
 	import { getMachineContext } from '$lib/machines/context';
 	import { getBackendHttpBase, machineHttpBaseUrlFromWsUrl } from '$lib/backend';
-	import { Button, Popover } from '$lib/components/primitives';
-	import { RotateCw } from 'lucide-svelte';
+	import Button from '$lib/components/ui/Button.svelte';
+	import Tooltip from '$lib/components/ui/Tooltip.svelte';
+	import RotateCw from '@lucide/svelte/icons/rotate-cw';
 	import {
 		STEPPER_GEAR_RATIOS,
 		loadStoredStepperPulseSetting
@@ -74,12 +75,13 @@
 </script>
 
 {#if errorMessage}
-	<span class="max-w-44 truncate text-sm text-danger" title={errorMessage}>{errorMessage}</span>
+	<span class="max-w-44 truncate text-sm text-danger-ink" title={errorMessage}>{errorMessage}</span>
 {/if}
-<Popover placement="bottom">
-	{#snippet trigger()}
+<Tooltip text="Turn the channel 1° counterclockwise" placement="bottom">
+	{#snippet children(props)}
 		<Button
-			variant="secondary"
+			{...props}
+			variant="ghost"
 			size="sm"
 			loading={pendingAction === 'nudge_ccw'}
 			disabled={pendingAction !== null}
@@ -88,12 +90,12 @@
 			-1°
 		</Button>
 	{/snippet}
-	Nudge channel 1° counter-clockwise
-</Popover>
-<Popover placement="bottom">
-	{#snippet trigger()}
+</Tooltip>
+<Tooltip text="Turn the channel 1° clockwise" placement="bottom">
+	{#snippet children(props)}
 		<Button
-			variant="secondary"
+			{...props}
+			variant="ghost"
 			size="sm"
 			loading={pendingAction === 'nudge_cw'}
 			disabled={pendingAction !== null}
@@ -102,20 +104,21 @@
 			+1°
 		</Button>
 	{/snippet}
-	Nudge channel 1° clockwise
-</Popover>
-<Popover placement="bottom">
-	{#snippet trigger()}
+</Tooltip>
+<Tooltip text="Turn the channel 180° clockwise" placement="bottom">
+	{#snippet children(props)}
 		<Button
-			variant="secondary"
+			{...props}
+			variant="ghost"
 			size="sm"
+			icon={RotateCw}
 			loading={pendingAction === 'rotate_180'}
 			disabled={pendingAction !== null}
 			onclick={() => void moveOutputDegrees('rotate_180', 180)}
 		>
-			<RotateCw size={12} />
-			180°
+			<!-- In a narrow tile (its own container) the icon stands for it, so the
+			     camera's name keeps its room in the strip. -->
+			<span class="@max-sm:sr-only">180°</span>
 		</Button>
 	{/snippet}
-	Rotate channel 180° clockwise
-</Popover>
+</Tooltip>

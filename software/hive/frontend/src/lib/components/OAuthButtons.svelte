@@ -1,6 +1,8 @@
 <script lang="ts">
 	import { api, type AuthOptions } from '$lib/api';
 	import BrandMark from '$lib/components/BrandMark.svelte';
+	import Badge from '$lib/components/Badge.svelte';
+	import Button from '$lib/components/Button.svelte';
 
 	interface Props {
 		options: AuthOptions | null;
@@ -15,7 +17,7 @@
 		try {
 			localStorage.setItem('hive:last-login-method', method);
 		} catch {
-			/* private mode etc. — cosmetic feature, ignore */
+			/* private mode etc.: cosmetic feature, ignore */
 		}
 	}
 
@@ -31,24 +33,20 @@
 
 {#if providers.length > 0}
 	<div class="my-5 flex items-center gap-3">
-		<div class="h-px flex-1 bg-border"></div>
-		<span class="text-xs font-medium uppercase tracking-wide text-text-muted">or</span>
-		<div class="h-px flex-1 bg-border"></div>
+		<div class="h-px flex-1 bg-line"></div>
+		<span class="text-sm text-ink-muted">or</span>
+		<div class="h-px flex-1 bg-line"></div>
 	</div>
 
 	<div class="flex flex-col gap-2">
 		{#each providers as provider (provider.name)}
-			<a
-				href={api.oauthLoginUrl(provider.name, next)}
-				onclick={() => rememberMethod(provider.name)}
-				class="relative flex w-full items-center justify-center gap-3 border border-border px-4 py-2 text-sm font-medium text-text hover:bg-bg"
-			>
-				<BrandMark brand={provider.name} />
+			<Button href={api.oauthLoginUrl(provider.name, next)} onclick={() => rememberMethod(provider.name)} class="relative w-full">
+				<BrandMark brand={provider.name} size={16} />
 				{provider.label}
 				{#if lastUsed === provider.name}
-					<span class="absolute right-2 rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-primary">Last used</span>
+					<span class="absolute right-2"><Badge tone="primary">Last used</Badge></span>
 				{/if}
-			</a>
+			</Button>
 		{/each}
 	</div>
 {/if}

@@ -6,11 +6,11 @@ audience: operator
 applies_to: Sorter V2 local software
 owner: sorter
 slug: sorter-first-setup
-kicker: Sorter — Operate
+kicker: SorterOS — Operate
 lede: The setup wizard step by step, from opening the machine's UI in a browser to a machine ready for its first sort run.
 permalink: /sorter/first-setup/
 warning: >-
-  **AI-generated first draft.** Written from the Sorter UI's own source and from
+  **AI-generated first draft.** Written from the SorterOS UI's own source and from
   the UI running here, not from setting up a real machine. The screenshots are of
   steps 1 to 3, step 7 and Settings; steps 4 to 6, 8 and 9 need hardware
   attached, so their screenshots are still missing and their wording has not
@@ -23,7 +23,8 @@ The software is installed and the machine has booted. This page takes you from o
 ## Before you start
 
 - The machine is assembled, wired and powered on.
-- The Sorter software is installed and running. See [Installation]({{ '/sorter/installation/' | relative_url }}).
+- SorterOS is installed and running. See [Installation]({{ '/sorter/installation/' | relative_url }}).
+- **The control board is flashed.** Step 3 below only lists boards that already answer on USB serial, so a board with no firmware on it does not appear there at all. [Software setup]({{ '/hardware/software-setup/' | relative_url }}) step 2 has the route, including the one for a board that has never been flashed.
 - Your phone, tablet or computer is on the same network as the machine.
 - The machine is empty: no parts in the C-channels, the carousel, the classification chamber or the chute. The wizard turns the motors.
 - Nothing is resting against the chute or the carousel.
@@ -36,8 +37,9 @@ Type the machine's address into your browser. Which address depends on how you i
 
 | Install | Address |
 |---|---|
-| SorterOS | `http://sorter.local/` |
-| Generic Linux, or by hand | `http://<machine name>:5173/` |
+| SorterOS image | `http://sorter.local/` |
+| Generic Linux as a service (`install.sh --as-service`) | `http://<machine name>/` |
+| Generic Linux with `./dev.sh`, or by hand | `http://<machine name>:5173/` |
 
 If you gave the machine a different hostname during the install, use that name instead of `sorter`. If no `.local` address answers, use the machine's IP address from your router.
 
@@ -49,7 +51,7 @@ The first time you open the UI it opens the setup wizard.
   <figure><img src="https://assets.basically.website/sorter-docs/sorter-first-setup-step1-machine-identity-w1600-08182bfeebd0.jpg" alt="The setup wizard on step 1, with the nine steps along the top and a machine name field below"><figcaption>The wizard on its first step. <cite>UI screenshot. Render: Balloon.</cite></figcaption></figure>
 </div>
 
-If the page does not appear at all, or it appears and every button fails, see [Sorter troubleshooting]({{ '/sorter/troubleshooting/' | relative_url }}).
+If the page does not appear at all, or it appears and every button fails, see [SorterOS troubleshooting]({{ '/sorter/troubleshooting/' | relative_url }}).
 
 ## Tell the machine which build it is
 
@@ -97,13 +99,24 @@ You can change it later under **Settings** → **Connection & Appearance** → *
 
 ## Step 3: Controller discovery
 
-The wizard lists the USB controllers it can see, and uses the ones it recognises. On a standard machine that is three devices:
+The wizard lists the USB controllers it can see, and uses the ones it recognises. On a machine built from these docs that is two devices:
 
-- the feeder control board,
-- the distribution control board,
+- the control board, which drives the chute and all four channel rotors,
 - the Waveshare servo bus.
 
-A recognised device has a green **Controller** or **Servo Bus** badge, its board type, and the port it is on. A device badged red **Unrecognised**, or a missing board, means the machine cannot talk to it: check that the machine is powered and the USB cable is in, then press **Rescan**.
+A recognised device has a green **Controller** or **Servo Bus** badge, its board type, and the port it is on.
+
+**Nothing listed, or the control board missing?** In order:
+
+<ol class="numbered-steps">
+  <li><strong>The board has no firmware on it.</strong> This is the usual cause on a new machine, and an unflashed board cannot appear here. Flash it, then come back. <a href="{{ '/hardware/software-setup/' | relative_url }}">Software setup</a> step 2.</li>
+  <li><strong>The machine is not powered, or the board's USB cable is not in.</strong> The cable runs from the Pico's own socket to a port on the USB hub.</li>
+  <li>Press <strong>Rescan</strong>.</li>
+</ol>
+
+A device badged red **Unrecognised** is one the machine can see but cannot place: it is on the bus, so the cable and the power are fine.
+
+The wizard's own wording, and the screenshot below, still name a feeder and a distribution board, because the software also supports the older machines that had one of each. On this build the single board reports as the distribution one.
 
 **Continue** is blocked with "Waiting for controller boards to be detected" until at least one control board is found.
 
@@ -230,6 +243,12 @@ Hive is the community platform. Connecting the machine to it syncs your samples 
 
 Press **Open Dashboard**. The wizard is done.
 
+## The finished result
+
+The dashboard, with every camera live and the machine in standby.
+
+<div class="img-placeholder">Screenshot of the SorterOS dashboard straight after the wizard finishes: the camera tiles showing live views, the machine named, and no profile loaded yet.</div>
+
 ## Settings worth a look
 
 Open **Settings** from the top of the UI.
@@ -244,9 +263,12 @@ Everything on this list is on the **General** page, which is the one Settings op
 
 ## Before your first sort run
 
-Four things are left, in this order:
+Five things are left, in this order:
 
-1. [Camera calibration]({{ '/sorter/camera-calibration/' | relative_url }}): focus each camera, then run the color calibration.
-2. [Homing and calibrating the chute]({{ '/sorter/chute-calibration/' | relative_url }}): teach the chute where the bins are.
-3. [Before your first sort run]({{ '/sorter/before-first-sort-run/' | relative_url }}): the last five settings to check, including the detection model, which an Orange Pi 5 build has to change.
-4. [Your first sort run]({{ '/sorter/tutorials/first-sort-run/' | relative_url }}): pick a profile, feed a handful of parts, watch them land.
+<ol class="numbered-steps">
+  <li><strong><a href="{{ '/sorter/camera-calibration/' | relative_url }}">Camera calibration</a></strong>: focus each camera against a printed chart.</li>
+  <li><strong><a href="{{ '/sorter/chute-calibration/' | relative_url }}">Homing and calibrating the chute</a></strong>: teach the chute where the bins are.</li>
+  <li><strong><a href="{{ '/sorter/before-first-sort-run/' | relative_url }}">Before your first sort run</a></strong>: the last five settings to check, the detection model among them.</li>
+  <li><strong><a href="{{ '/sorter/preparing-lego/' | relative_url }}">Preparing LEGO for a sort run</a></strong>: what to take out of a tub of bulk LEGO before it goes in.</li>
+  <li><strong><a href="{{ '/sorter/tutorials/first-sort-run/' | relative_url }}">Your first sort run</a></strong>: pick a profile, feed a handful of parts, watch them land.</li>
+</ol>

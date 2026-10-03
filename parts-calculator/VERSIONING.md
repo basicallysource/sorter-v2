@@ -1,4 +1,4 @@
-# Versioning: how parts are identified, revised, and removed
+# Versioning: how parts are identified, revised, and retired
 
 The short version of how this catalog handles change. When someone asks "can
 we delete this part?" or "how do I revise this?", this page is the answer to
@@ -66,9 +66,9 @@ The rules that keep the bit meaningful:
   to break. A replacement design is a *new* part or assembly (new uid, v1),
   not a revision of the thing it replaces — the replaced one is retired from
   the lines that used it, unrevised.
-- **Unused ≠ breaking.** A part whose slot disappeared is removed from
-  lines (see below); its geometry didn't stop fitting anything. Never use
-  `breaking` to express removal.
+- **Unused ≠ breaking.** A part whose slot disappeared is retired (see
+  below); its geometry didn't stop fitting anything. Never use `breaking`
+  to express removal.
 - **Candidates carry no bit.** A candidate is a parallel experiment, not a
   revision; the judgment happens on the version minted if it is adopted.
 
@@ -150,27 +150,46 @@ subtree needs no tag: stamp a version (previous section).
 Tags are appended only by a human decision. No tool, check, or agent ever
 mints one.
 
-## Removing a part from the machine
+## Retiring a part
 
-The entry never leaves `parts.json` — its **usage** does:
+A part, hardware item or assembly the machine stops using is **retired**,
+never deleted. It becomes invisible to the current version and stays whole
+for the older ones that used it:
 
-1. **Remove it from every assembly and section.** With zero references it
-   drops out of the BOM, the buy list, layer counts, and the all-parts bundle.
-   For a builder, it no longer exists.
-2. **Retire the entry in place.** In its `description`/`note`, record that it
-   is unused as of the date, why it was removed, and what replaced it — plus a
+1. **Take it out of every current line** that names it, stamping each
+   assembly you change (above). The superseded versions keep their line
+   snapshots, which name it by uid, so the builds they describe stay intact.
+2. **Set `retired_at`** on the entry to the date it left the machine, and
+   drop any `quantities` or `sheet_qty` it still carries. In its
+   `description`/`note`, say why it went and what replaced it, plus a
    "do not re-add" warning if old docs or photos still show it.
 3. **Update the docs pages** that had steps using it.
 4. **Regenerate and commit** source + generated together.
 5. **Leave the assets alone.** STLs, renders, and stamped downloads stay at
    their hash URLs by design; they cost nothing and old links keep working.
 
-Worked example: `washer-m3-15`, retired in
-[#479](https://github.com/basicallysource/sorter-v2/pull/479).
+What `retired_at` does: every view of the current machine (the parts and
+hardware lists, the totals and buy list, search, the all-parts bundle, the
+assembly tree) leaves the entry out. Its own page, `/u/<uid>`, the History
+panel and the flipped views of the versions that used it still resolve it,
+and its page says it is retired. `scripts/check_versioning.py` (CI) refuses a
+retired entry that a live line, param or `requires` still names, or that
+still carries quantities.
+
+**Retiring is the end of an entry's life here.** Nothing is left to delete,
+so there is no deletion to track, request or approve: no "to be removed"
+notice, no delete issue, no override of the check that keeps entries. If a
+later design needs the same part again, clear `retired_at`; if it is a new
+design, it is a new part with its own uid.
+
+Worked example: the light post, the overhead camera mount and the camera
+extension, retired 2026-09-02 when the Camera lamp replaced them. None of
+them is in today's lists, and the feeder's v0.1 and v0.2 still show them.
 
 ## What never happens
 
-- Deleting an entry from `parts.json` (CI refuses).
+- Deleting an entry from `parts.json`, or asking for one to be deleted
+  (CI refuses the deletion; retiring, above, is the whole job).
 - Reusing a uid, or minting a new uid for unchanged geometry (a re-export of
   the same design is a new hash under the same uid).
 - Deleting or overwriting an asset (the service cannot).

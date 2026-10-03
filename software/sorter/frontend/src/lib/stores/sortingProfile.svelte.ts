@@ -1,6 +1,9 @@
-export interface SortingProfileCategory {
-	name: string;
-}
+import { getBackendHttpBase } from '$lib/backend';
+import type { Bin } from '$lib/components/ui/ProfileBin.svelte';
+
+// A bin as Hive describes it for people (its picture, conditions in words, part
+// count and examples); a profile saved before that has only a name.
+export type SortingProfileCategory = Bin;
 
 export interface SortingProfileSetMeta {
 	name?: string;
@@ -59,8 +62,11 @@ export interface SortingProfileMetadata {
 	updated_at: string;
 	default_category_id: string;
 	categories: Record<string, SortingProfileCategory>;
+	category_order?: string[];
 	rules: SortingProfileRule[];
 	fallback_mode: SortingProfileFallbackMode;
+	stats?: { total_parts?: number; sorted?: number } | null;
+	requires?: string[];
 	sync_state?: SortingProfileSyncState | null;
 }
 
@@ -68,7 +74,7 @@ let cached = $state<SortingProfileMetadata | null>(null);
 let in_flight: Promise<SortingProfileMetadata> | null = null;
 let cachedBaseUrl = '';
 
-async function load(baseUrl = ''): Promise<SortingProfileMetadata> {
+async function load(baseUrl = getBackendHttpBase()): Promise<SortingProfileMetadata> {
 	if (cached && cachedBaseUrl === baseUrl) return cached;
 	if (cachedBaseUrl !== baseUrl) {
 		cached = null;
@@ -93,7 +99,7 @@ async function load(baseUrl = ''): Promise<SortingProfileMetadata> {
 	return in_flight;
 }
 
-async function reload(baseUrl = ''): Promise<SortingProfileMetadata> {
+async function reload(baseUrl = getBackendHttpBase()): Promise<SortingProfileMetadata> {
 	cached = null;
 	in_flight = null;
 	cachedBaseUrl = baseUrl;

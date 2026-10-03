@@ -68,15 +68,12 @@ def _doClassify(
 ) -> None:
     gc.logger.info("Brickognize: classifying piece")
     try:
-        with gc.profiler.timer("classification.brickognize.total_ms"):
-            top_result = None
-            bottom_result = None
-            if top_image is not None:
-                with gc.profiler.timer("classification.brickognize.top_ms"):
-                    top_result = _classifyImage(gc, top_image)
-            if bottom_image is not None:
-                with gc.profiler.timer("classification.brickognize.bottom_ms"):
-                    bottom_result = _classifyImage(gc, bottom_image)
+        top_result = None
+        bottom_result = None
+        if top_image is not None:
+            top_result = _classifyImage(gc, top_image)
+        if bottom_image is not None:
+            bottom_result = _classifyImage(gc, bottom_image)
 
         best_item, best_view = _pickBestItem(top_result, bottom_result)
         best_color = _pickBestColor(top_result, bottom_result)

@@ -3,7 +3,7 @@ from datetime import datetime, timezone
 
 from sqlalchemy import Boolean, Column, DateTime, Float, ForeignKey, Index, Integer, String, Text, UniqueConstraint
 from sqlalchemy.dialects.postgresql import UUID
-from sqlalchemy.orm import relationship
+from sqlalchemy.orm import deferred, relationship
 
 from app.models import Base, JSON_VARIANT
 
@@ -22,16 +22,24 @@ class SortingProfileVersion(Base):
     default_category_id = Column(String, nullable=False, default="misc")
     rules_json = Column(JSON_VARIANT, nullable=False)
     fallback_mode_json = Column(JSON_VARIANT, nullable=False)
-    compiled_artifact_json = Column(JSON_VARIANT, nullable=False)
+    # What a sorter downloads. Loaded only when read: a version compiled before
+    # the program format holds a flat part map of up to tens of MB, and listing
+    # profiles must not pull every one of them in.
+    compiled_artifact_json = deferred(Column(JSON_VARIANT, nullable=False))
     compiled_stats_json = Column(JSON_VARIANT, nullable=True)
     compiled_hash = Column(String, nullable=False)
     compiled_part_count = Column(Integer, nullable=False, default=0)
     coverage_ratio = Column(Float, nullable=True)
     is_published = Column(Boolean, nullable=False, default=False)
+    # Where the version came from: "web" (the editor), "api" (an API key, named
+    # by created_via_key_id), "assistant" (the editor's chat) or "system".
+    created_via = Column(String, nullable=True)
+    created_via_key_id = Column(UUID(as_uuid=True), ForeignKey("user_api_keys.id", ondelete="SET NULL"), nullable=True)
     created_at = Column(DateTime(timezone=True), nullable=False, default=lambda: datetime.now(timezone.utc))
 
     profile = relationship("SortingProfile", back_populates="versions", foreign_keys=[profile_id])
     created_by = relationship("User", foreign_keys=[created_by_id])
+    created_via_key = relationship("UserApiKey", foreign_keys=[created_via_key_id])
     desired_assignments = relationship(
         "MachineProfileAssignment",
         back_populates="desired_version",

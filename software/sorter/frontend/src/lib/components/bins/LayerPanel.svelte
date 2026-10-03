@@ -1,7 +1,11 @@
 <script lang="ts">
-	import { ToggleSwitch } from '$lib/components/primitives';
-	import { ArchiveX, FolderOutput } from 'lucide-svelte';
-	import Spinner from '$lib/components/Spinner.svelte';
+	import ArchiveX from '@lucide/svelte/icons/archive-x';
+	import FolderOutput from '@lucide/svelte/icons/folder-output';
+	import Badge from '$lib/components/ui/Badge.svelte';
+	import Button from '$lib/components/ui/Button.svelte';
+	import Panel from '$lib/components/ui/Panel.svelte';
+	import Spinner from '$lib/components/ui/Spinner.svelte';
+	import Switch from '$lib/components/ui/Switch.svelte';
 	import BinCard from './BinCard.svelte';
 	import SectionGroup from './SectionGroup.svelte';
 	import type { BinContents, BinInfo, LayerInfo, SetMeta, SetProgressSummary } from './types';
@@ -98,106 +102,88 @@
 	});
 </script>
 
-<div class="relative border border-border {!layer.enabled ? 'opacity-60' : ''}">
+<Panel
+	title="Layer {layer.layer_index + 1}"
+	description="{layer.section_count} sections · {layer.bin_count} bins"
+	class="relative"
+>
+	{#snippet actions()}
+		{#if isActive}<Badge tone="success" dot>Active</Badge>{/if}
+		<Switch
+			checked={layer.enabled}
+			label={layer.enabled
+				? `Turn off layer ${layer.layer_index + 1}`
+				: `Turn on layer ${layer.layer_index + 1}`}
+			disabled={controlsDisabled}
+			onchange={() => onToggleEnabled(!layer.enabled)}
+		/>
+	{/snippet}
 	{#if layerBusy}
-		<div class="absolute inset-0 z-20 flex items-center justify-center bg-surface/78 backdrop-blur-[1px]">
-			<div class="flex items-center gap-3 border border-border bg-surface px-4 py-3 shadow-sm">
-				<Spinner size={16} class="text-primary" />
-				<div class="text-sm font-medium text-text">{layerClearingLabel}</div>
-			</div>
+		<div class="absolute inset-0 z-20 flex items-center justify-center gap-3 bg-surface/85">
+			<Spinner size={16} class="text-primary-ink" />
+			<span class="text-sm font-medium text-ink">{layerClearingLabel}</span>
 		</div>
 	{/if}
-	<div class="flex items-center justify-between border-b border-border bg-bg px-4 py-3">
-		<div class="flex items-center gap-3">
-			<h3 class="text-base font-semibold text-text">
-				Layer {layer.layer_index + 1}
-				<span class="ml-2 text-sm font-normal text-text-muted">
-					{layer.section_count} sections · {layer.bin_count} bins
-				</span>
-			</h3>
-		</div>
-		<div class="flex items-center gap-3">
-			{#if isActive}
-				<span class="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-success">
-					<span class="inline-block h-2 w-2 bg-success"></span>
-					Active
-				</span>
-			{/if}
-			<ToggleSwitch
-				checked={layer.enabled}
-				label={layer.enabled ? `Disable layer ${layer.layer_index + 1}` : `Enable layer ${layer.layer_index + 1}`}
-				disabled={controlsDisabled}
-				onToggle={() => onToggleEnabled(!layer.enabled)}
-			/>
-			<button
-				type="button"
-				onclick={onEmptyLayer}
-				disabled={clearDisabled}
-				class="flex items-center gap-2 border border-border bg-surface px-3.5 py-2 text-sm font-medium text-text transition-colors hover:bg-bg disabled:cursor-not-allowed disabled:opacity-50"
-			>
-				<FolderOutput size={14} />
-				{emptyBusy ? 'Emptying…' : 'Empty Layer'}
-			</button>
-			<button
-				type="button"
-				onclick={onResetLayer}
-				disabled={clearDisabled}
-				class="flex items-center gap-2 border border-border bg-surface px-3.5 py-2 text-sm font-medium text-text transition-colors hover:bg-bg disabled:cursor-not-allowed disabled:opacity-50"
-			>
-				<ArchiveX size={14} />
-				{resetBusy ? 'Resetting…' : 'Reset Layer'}
-			</button>
-			<button
-				type="button"
-				onclick={() => onToggleNii(!layerNii)}
+	<div class="flex flex-col gap-4 {layer.enabled ? '' : 'opacity-60'}">
+		<div class="flex flex-wrap items-center gap-2">
+			<Button size="sm" icon={FolderOutput} loading={emptyBusy} disabled={clearDisabled} onclick={onEmptyLayer}>
+				{emptyBusy ? 'Emptying…' : 'Empty the layer'}
+			</Button>
+			<Button size="sm" icon={ArchiveX} loading={resetBusy} disabled={clearDisabled} onclick={onResetLayer}>
+				{resetBusy ? 'Resetting…' : 'Reset the layer'}
+			</Button>
+			<Button
+				size="sm"
+				variant={layerNii ? 'primary' : 'secondary'}
+				loading={niiBusy}
 				disabled={niiDisabled}
-				title="Route pieces not in the active BrickLink inventory (.bsx) into this layer's bins"
-				class="flex items-center gap-2 border px-3.5 py-2 text-sm font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-50 {layerNii
-					? 'border-warning bg-warning/[0.12] text-warning'
-					: 'border-border bg-surface text-text hover:bg-bg'}"
+				onclick={() => onToggleNii(!layerNii)}
 			>
-				{niiBusy ? 'Saving…' : layerNii ? 'Not-in-inventory: ON' : 'Not-in-inventory mode'}
-			</button>
+				{niiBusy ? 'Saving…' : layerNii ? 'Not-in-inventory mode is on' : 'Not-in-inventory mode'}
+			</Button>
+			<span class="text-sm text-ink-muted">
+				Not-in-inventory mode sends pieces missing from the active BrickLink inventory (.bsx) to this layer.
+			</span>
+		</div>
+		<div class="grid grid-cols-1 gap-x-6 gap-y-5 md:grid-cols-2 2xl:grid-cols-3">
+			{#each sections as section (section.sectionIndex)}
+				<SectionGroup
+					layerIndex={layer.layer_index}
+					sectionIndex={section.sectionIndex}
+					bins={section.bins}
+					enabled={sectionEnabled(section.sectionIndex)}
+					toggleDisabled={sectionToggleDisabled}
+					{pointDisabled}
+					pointing={pointingKey === `point-${section.sectionIndex}`}
+					onToggle={(enabled) => onToggleSection(section.sectionIndex, enabled)}
+					onPoint={() => onPointSection(section.sectionIndex)}
+				>
+					{#snippet binCard(bin: BinInfo)}
+						{@const clearing = isClearingBin(bin)}
+						<BinCard
+							{bin}
+							layerEnabled={layer.enabled}
+							maxPiecesPerBin={layer.max_pieces_per_bin}
+							isCurrent={isCurrentBin(bin)}
+							isMoving={isMovingBin(bin)}
+							isClearing={clearing}
+							clearingLabel={binClearingLabel(bin)}
+							sectionOn={sectionEnabled(bin.section_index)}
+							contents={contentsFor(bin)}
+							{contentsLoaded}
+							setMeta={setMetaFor(bin)}
+							setProgress={setProgressFor(bin)}
+							moveDisabled={moveDisabled || !layer.enabled}
+							clearDisabled={clearDisabled || clearing}
+							searchState={searchActive ? (searchMatch(bin) ? 'match' : 'miss') : 'off'}
+							onOpenDetails={() => onOpenDetails(bin)}
+							onMoveTo={() => onMoveTo(bin)}
+							onEmpty={() => onEmptyBin(bin)}
+							onReset={() => onResetBin(bin)}
+						/>
+					{/snippet}
+				</SectionGroup>
+			{/each}
 		</div>
 	</div>
-	<div class="grid grid-cols-1 gap-3 p-3 md:grid-cols-2 2xl:grid-cols-3">
-		{#each sections as section (section.sectionIndex)}
-			<SectionGroup
-				layerIndex={layer.layer_index}
-				sectionIndex={section.sectionIndex}
-				bins={section.bins}
-				enabled={sectionEnabled(section.sectionIndex)}
-				toggleDisabled={sectionToggleDisabled}
-				{pointDisabled}
-				pointing={pointingKey === `point-${section.sectionIndex}`}
-				onToggle={(enabled) => onToggleSection(section.sectionIndex, enabled)}
-				onPoint={() => onPointSection(section.sectionIndex)}
-			>
-				{#snippet binCard(bin: BinInfo)}
-					{@const clearing = isClearingBin(bin)}
-					<BinCard
-						{bin}
-						layerEnabled={layer.enabled}
-						maxPiecesPerBin={layer.max_pieces_per_bin}
-						isCurrent={isCurrentBin(bin)}
-						isMoving={isMovingBin(bin)}
-						isClearing={clearing}
-						clearingLabel={binClearingLabel(bin)}
-						sectionOn={sectionEnabled(bin.section_index)}
-						contents={contentsFor(bin)}
-						{contentsLoaded}
-						setMeta={setMetaFor(bin)}
-						setProgress={setProgressFor(bin)}
-						moveDisabled={moveDisabled || !layer.enabled}
-						clearDisabled={clearDisabled || clearing}
-						searchState={searchActive ? (searchMatch(bin) ? 'match' : 'miss') : 'off'}
-						onOpenDetails={() => onOpenDetails(bin)}
-						onMoveTo={() => onMoveTo(bin)}
-						onEmpty={() => onEmptyBin(bin)}
-						onReset={() => onResetBin(bin)}
-					/>
-				{/snippet}
-			</SectionGroup>
-		{/each}
-	</div>
-</div>
+</Panel>

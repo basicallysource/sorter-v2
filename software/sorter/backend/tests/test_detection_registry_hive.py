@@ -111,7 +111,7 @@ def test_scope_mapping_feeder(tmp_path, monkeypatch):
     feeder = registry.detection_algorithms_for_scope("feeder")
     assert any(a.kind == "hive" for a in feeder)
     classification = registry.detection_algorithms_for_scope("classification")
-    assert all(a.kind == "builtin" for a in classification)
+    assert not classification
 
 
 @pytest.mark.parametrize(
@@ -136,7 +136,7 @@ def test_scope_mapping_c4_sector_model_to_carousel(tmp_path, monkeypatch, scope)
     assert hive_entries[0].model_family == "yolo"
 
     feeder = registry.detection_algorithms_for_scope("feeder")
-    assert all(a.kind == "builtin" for a in feeder)
+    assert not feeder
 
 
 def test_invalidate_after_adding(tmp_path, monkeypatch):
@@ -228,14 +228,13 @@ def test_unusable_local_model_is_skipped(tmp_path, monkeypatch, meta, artifact):
 
 
 def test_installed_models_are_never_the_default(tmp_path, monkeypatch):
-    """With nothing assigned, the built-ins are the fallback — never an
-    arbitrary installed model."""
     monkeypatch.setattr(registry, "MODELS_DIR", tmp_path)
     _seed_hive_model(tmp_path, name="c-chan", model_family="yolo", scopes=["c_channel"])
     _seed_local_model(tmp_path, "local-any", {"model_family": "yolo"})
     registry.invalidate_registry()
 
-    assert registry.default_detection_algorithm("feeder") == "mog2"
-    assert registry.default_detection_algorithm("classification") == "baseline_diff"
-    assert registry.default_detection_algorithm("carousel") == "heatmap_diff"
-    assert registry.normalize_detection_algorithm("feeder", "bundled:gone") == "mog2"
+    assert registry.normalize_detection_algorithm("feeder", None) == ""
+    assert registry.normalize_detection_algorithm("carousel", None) == ""
+    assert registry.normalize_detection_algorithm("feeder", "bundled:gone") == ""
+    assert registry.normalize_detection_algorithm("feeder", "mog2") == ""
+    assert all(a.kind in {"hive", "local"} for a in registry.all_detection_algorithms())

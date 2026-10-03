@@ -3,8 +3,7 @@ from types import SimpleNamespace
 from unittest.mock import patch
 
 from irl.config import mkCameraConfig
-from server import shared_state
-from server.routers import cameras
+from server.routers import camera_device_settings
 from vision.camera import (
     CaptureThread,
     _bool_from_capture_value,
@@ -17,9 +16,6 @@ from vision.camera import (
 
 
 class CameraDeviceControlsTests(unittest.TestCase):
-    def setUp(self) -> None:
-        shared_state.camera_device_preview_overrides.clear()
-
     def test_macos_probe_reports_live_settings_without_applying_saved_values(self) -> None:
         controls = [{"key": "brightness", "kind": "number"}]
         live_settings = {"brightness": 12.0}
@@ -47,7 +43,7 @@ class CameraDeviceControlsTests(unittest.TestCase):
         self.assertEqual({"brightness": 21.0}, current_settings)
 
     def test_capture_thread_describe_uses_safe_probe_when_capture_not_ready(self) -> None:
-        capture = CaptureThread("classification_top", mkCameraConfig(device_index=1))
+        capture = CaptureThread("c_channel_2", mkCameraConfig(device_index=1))
 
         with patch("vision.camera.probe_camera_device_controls", return_value=([], {"brightness": 8.0})) as probe:
             described_controls, current_settings = capture.describeDeviceControls()
@@ -65,16 +61,16 @@ class CameraDeviceControlsTests(unittest.TestCase):
         )
         raw_config = {
             "cameras": {
-                "classification_top": 1,
+                "c_channel_2": 1,
             },
             "camera_device_settings": {
-                "classification_top": {"brightness": 9.0},
+                "c_channel_2": {"brightness": 9.0},
             },
         }
 
-        with patch.object(cameras.shared_state, "camera_service", service):
-            with patch("server.routers.cameras._read_machine_params_config", return_value=(None, raw_config)):
-                response = cameras.get_camera_device_settings("classification_top")
+        with patch.object(camera_device_settings.shared_state, "camera_service", service):
+            with patch.object(camera_device_settings.machine_toml, "read", return_value=raw_config):
+                response = camera_device_settings.get_camera_device_settings("c_channel_2")
 
         self.assertTrue(response["ok"])
         self.assertEqual("usb-opencv", response["provider"])
@@ -85,16 +81,16 @@ class CameraDeviceControlsTests(unittest.TestCase):
     def test_route_returns_saved_usb_settings_when_camera_service_unavailable(self) -> None:
         raw_config = {
             "cameras": {
-                "classification_top": 1,
+                "c_channel_2": 1,
             },
             "camera_device_settings": {
-                "classification_top": {"brightness": 9.0},
+                "c_channel_2": {"brightness": 9.0},
             },
         }
 
-        with patch.object(cameras.shared_state, "camera_service", None):
-            with patch("server.routers.cameras._read_machine_params_config", return_value=(None, raw_config)):
-                response = cameras.get_camera_device_settings("classification_top")
+        with patch.object(camera_device_settings.shared_state, "camera_service", None):
+            with patch.object(camera_device_settings.machine_toml, "read", return_value=raw_config):
+                response = camera_device_settings.get_camera_device_settings("c_channel_2")
 
         self.assertTrue(response["ok"])
         self.assertFalse(response["supported"])
@@ -106,13 +102,13 @@ class CameraDeviceControlsTests(unittest.TestCase):
         )
         raw_config = {
             "cameras": {
-                "classification_top": 1,
+                "c_channel_2": 1,
             },
         }
 
-        with patch.object(cameras.shared_state, "camera_service", service):
-            with patch("server.routers.cameras._read_machine_params_config", return_value=(None, raw_config)):
-                response = cameras.preview_camera_device_settings("classification_top", {"brightness": 30})
+        with patch.object(camera_device_settings.shared_state, "camera_service", service):
+            with patch.object(camera_device_settings.machine_toml, "read", return_value=raw_config):
+                response = camera_device_settings.preview_camera_device_settings("c_channel_2", {"brightness": 30})
 
         self.assertTrue(response["ok"])
         self.assertTrue(response["applied_live"])
@@ -123,10 +119,10 @@ class CameraDeviceControlsTests(unittest.TestCase):
         cleared_roles = []
         raw_config = {
             "cameras": {
-                "classification_top": 1,
+                "c_channel_2": 1,
             },
             "camera_device_settings": {
-                "classification_top": {"exposure": 123.0, "auto_exposure": False},
+                "c_channel_2": {"exposure": 123.0, "auto_exposure": False},
             },
         }
 
@@ -147,98 +143,47 @@ class CameraDeviceControlsTests(unittest.TestCase):
             clear_persisted_device_settings_for_role=lambda role: cleared_roles.append(role),
         )
 
-        with patch.object(cameras.shared_state, "camera_service", service):
-            with patch("server.routers.cameras._read_machine_params_config", return_value=("machine.toml", raw_config)):
-                with patch("server.routers.cameras._write_machine_params_config") as write_config:
-                    response = cameras.reset_camera_device_settings_to_defaults("classification_top")
+        with patch.object(camera_device_settings.shared_state, "camera_service", service):
+            with patch.object(camera_device_settings.machine_toml, "read", return_value=raw_config):
+                with patch.object(camera_device_settings.machine_toml, "_write") as write_config:
+                    response = camera_device_settings.reset_camera_device_settings_to_defaults("c_channel_2")
 
         self.assertTrue(response["ok"])
         self.assertEqual({"auto_exposure": True, "auto_white_balance": True}, response["settings"])
         self.assertEqual(
-            [("classification_top", {"auto_exposure": True, "auto_white_balance": True}, False)],
+            [("c_channel_2", {"auto_exposure": True, "auto_white_balance": True}, False)],
             applied_calls,
         )
-        self.assertEqual(["classification_top"], cleared_roles)
-        self.assertNotIn("classification_top", raw_config["camera_device_settings"])
+        self.assertEqual(["c_channel_2"], cleared_roles)
+        self.assertNotIn("c_channel_2", raw_config["camera_device_settings"])
         write_config.assert_called_once()
 
-    def test_calibration_start_route_defaults_to_target_plate(self) -> None:
-        fake_thread = SimpleNamespace(start=lambda: None)
-
-        with patch.dict("os.environ", {}, clear=False):
-            with patch("server.routers.cameras.get_camera_device_settings", return_value={
-                "source": 1,
-                "provider": "usb-opencv",
-                "supported": True,
-            }):
-                with patch("server.routers.cameras._create_camera_calibration_task", return_value="task-1") as create_task:
-                    with patch("server.routers.cameras._get_camera_calibration_task", return_value={
-                        "status": "queued",
-                        "stage": "queued",
-                        "progress": 0.0,
-                        "message": "Queued",
-                        "method": "target_plate",
-                        "openrouter_model": None,
-                    }):
-                        with patch("server.routers.cameras.threading.Thread", return_value=fake_thread) as thread_cls:
-                            response = cameras.start_camera_device_settings_calibration_from_target(
-                                "classification_top"
-                            )
-
-        create_task.assert_called_once_with(
-            "classification_top",
-            "usb-opencv",
-            1,
-            method="target_plate",
-            openrouter_model=None,
-            apply_color_profile=True,
+    def test_c4_device_preview_save_and_reset_share_one_alias(self) -> None:
+        raw_config = {
+            "cameras": {"carousel": 1},
+            "camera_device_settings": {"carousel": {"brightness": 2.0}},
+        }
+        service = SimpleNamespace(
+            set_device_settings_for_role=lambda role, settings, persist=False: dict(settings),
+            inspect_device_controls_for_role=lambda role, source, settings: (
+                [{"key": "auto_exposure", "kind": "boolean"}], {}
+            ),
+            clear_persisted_device_settings_for_role=lambda role: None,
         )
-        thread_cls.assert_called_once()
-        self.assertEqual("target_plate", response["method"])
-
-    def test_calibration_start_route_accepts_llm_guided_method(self) -> None:
-        fake_thread = SimpleNamespace(start=lambda: None)
-        payload = cameras.CameraCalibrationStartPayload(
-            method="llm_guided",
-            openrouter_model="google/gemini-3.1-pro-preview",
-            max_iterations=5,
-        )
-
-        with patch.dict("os.environ", {"OPENROUTER_API_KEY": "test-key"}, clear=False):
-            with patch("server.routers.cameras.get_camera_device_settings", return_value={
-                "source": 1,
-                "provider": "usb-opencv",
-                "supported": True,
-            }):
-                with patch("server.routers.cameras._create_camera_calibration_task", return_value="task-2") as create_task:
-                    with patch("server.routers.cameras._get_camera_calibration_task", return_value={
-                        "status": "queued",
-                        "stage": "queued",
-                        "progress": 0.0,
-                        "message": "Queued",
-                        "method": "llm_guided",
-                        "openrouter_model": "google/gemini-3.1-pro-preview",
-                    }):
-                        with patch("server.routers.cameras.threading.Thread", return_value=fake_thread) as thread_cls:
-                            response = cameras.start_camera_device_settings_calibration_from_target(
-                                "classification_top",
-                                payload,
-                            )
-
-        create_task.assert_called_once_with(
-            "classification_top",
-            "usb-opencv",
-            1,
-            method="llm_guided",
-            openrouter_model="google/gemini-3.1-pro-preview",
-            apply_color_profile=True,
-        )
-        thread_kwargs = thread_cls.call_args.kwargs
-        self.assertEqual("llm_guided", thread_kwargs["kwargs"]["method"])
-        self.assertEqual("google/gemini-3.1-pro-preview", thread_kwargs["kwargs"]["openrouter_model"])
-        self.assertEqual(5, thread_kwargs["kwargs"]["max_iterations"])
-        self.assertEqual("llm_guided", response["method"])
-        self.assertEqual("google/gemini-3.1-pro-preview", response["openrouter_model"])
+        with (
+            patch.object(camera_device_settings.shared_state, "camera_service", service),
+            patch.object(camera_device_settings.machine_toml, "read", return_value=raw_config),
+            patch.object(camera_device_settings.machine_toml, "_write"),
+        ):
+            camera_device_settings.preview_camera_device_settings("classification_channel", {"brightness": 3})
+            camera_device_settings.preview_camera_device_settings("carousel", {"brightness": 4})
+            camera_device_settings.save_camera_device_settings("carousel", {"brightness": 5})
+            self.assertEqual(
+                {"classification_channel": {"brightness": 5.0}},
+                raw_config["camera_device_settings"],
+            )
+            camera_device_settings.reset_camera_device_settings_to_defaults("carousel")
+            self.assertEqual({}, raw_config["camera_device_settings"])
 
     def test_capture_failure_backoff_caps(self) -> None:
         self.assertEqual(0.0, _capture_failure_backoff_s(0))

@@ -2,7 +2,12 @@
 	import { onMount } from 'svelte';
 	import { getBackendHttpBase, machineHttpBaseUrlFromWsUrl } from '$lib/backend';
 	import { getMachineContext } from '$lib/machines/context';
-	import { Trash2, HardDrive } from 'lucide-svelte';
+	import Trash2 from '@lucide/svelte/icons/trash';
+	import HardDrive from '@lucide/svelte/icons/hard-drive';
+	import Button from '$lib/components/ui/Button.svelte';
+	import Alert from '$lib/components/ui/Alert.svelte';
+	import EmptyState from '$lib/components/ui/EmptyState.svelte';
+	import Spinner from '$lib/components/ui/Spinner.svelte';
 
 	const machine = getMachineContext();
 
@@ -102,100 +107,83 @@
 </script>
 
 {#if loading}
-	<div class="px-1 py-4 text-sm text-text-muted">Loading sample storage…</div>
+	<div class="flex items-center gap-2 px-(--pad-panel) py-4 text-sm text-ink-muted">
+		<Spinner size={14} /> Loading the sample storage
+	</div>
 {:else}
-	<div class="flex flex-col gap-4">
-		<!-- Summary bar -->
-		<div class="flex items-center justify-between border border-border bg-surface px-4 py-3">
-			<div class="flex items-center gap-3">
-				<HardDrive size={16} class="text-text-muted" />
-				<span class="text-sm text-text">
-					<span class="font-semibold">{totalSamples.toLocaleString()}</span> samples across
-					<span class="font-semibold">{sessions.length}</span>
-					{sessions.length === 1 ? 'session' : 'sessions'}
-					<span class="text-text-muted">({formatBytes(totalBytes)})</span>
-				</span>
-			</div>
-			{#if sessions.length > 0}
-				{#if confirmPurge}
-					<div class="flex items-center gap-2">
-						<span class="text-xs text-danger">Delete everything?</span>
-						<button
-							class="border border-danger/30 bg-danger/[0.06] px-3 py-1.5 text-xs font-medium text-danger transition-colors hover:bg-danger/[0.12] disabled:opacity-50"
-							disabled={purging}
-							onclick={purgeAll}
-						>
-							{purging ? 'Purging…' : 'Yes, purge all'}
-						</button>
-						<button
-							class="border border-border px-3 py-1.5 text-xs font-medium text-text-muted transition-colors hover:bg-bg"
-							onclick={() => (confirmPurge = false)}
-						>
-							Cancel
-						</button>
-					</div>
-				{:else}
-					<button
-						class="flex items-center gap-1.5 border border-danger/30 bg-danger/[0.06] px-3 py-1.5 text-xs font-medium text-danger transition-colors hover:bg-danger/[0.12]"
-						onclick={() => (confirmPurge = true)}
-					>
-						<Trash2 size={12} />
-						Purge all
-					</button>
-				{/if}
-			{/if}
-		</div>
-
-		<!-- Session table -->
+	<div class="flex flex-wrap items-center justify-between gap-3 px-(--pad-panel) pb-4">
+		<p class="text-sm text-ink">
+			<span class="num font-medium">{totalSamples.toLocaleString()}</span> samples in
+			<span class="num font-medium">{sessions.length}</span>
+			{sessions.length === 1 ? 'session' : 'sessions'},
+			<span class="num text-ink-muted">{formatBytes(totalBytes)}</span>
+		</p>
 		{#if sessions.length > 0}
-			<div class="overflow-x-auto border border-border">
-				<table class="w-full text-sm">
-					<thead>
-						<tr class="border-b border-border bg-surface text-left text-xs uppercase tracking-wider text-text-muted">
-							<th class="px-4 py-2 font-medium">Session</th>
-							<th class="px-4 py-2 font-medium">Date</th>
-							<th class="px-4 py-2 text-right font-medium">Samples</th>
-							<th class="px-4 py-2 text-right font-medium">Size</th>
-							<th class="px-4 py-2 text-right font-medium">Actions</th>
-						</tr>
-					</thead>
-					<tbody>
-						{#each sessions as session}
-							<tr class="border-b border-border last:border-b-0 hover:bg-surface/50">
-								<td class="px-4 py-2.5">
-									<div class="font-mono text-xs text-text">{session.session_id}</div>
-									{#if session.session_name}
-										<div class="text-xs text-text-muted">{session.session_name}</div>
-									{/if}
-								</td>
-								<td class="px-4 py-2.5 text-xs text-text-muted">{formatDate(session.created_at)}</td>
-								<td class="px-4 py-2.5 text-right tabular-nums">{session.sample_count.toLocaleString()}</td>
-								<td class="px-4 py-2.5 text-right text-text-muted tabular-nums">{formatBytes(session.size_bytes)}</td>
-								<td class="px-4 py-2.5 text-right">
-									<button
-										class="inline-flex items-center gap-1 border border-danger/30 bg-danger/[0.06] px-2 py-1 text-xs text-danger transition-colors hover:bg-danger/[0.12] disabled:opacity-50"
-										disabled={deleting === session.session_id}
-										onclick={() => deleteSession(session.session_id)}
-									>
-										<Trash2 size={11} />
-										{deleting === session.session_id ? 'Deleting…' : 'Delete'}
-									</button>
-								</td>
-							</tr>
-						{/each}
-					</tbody>
-				</table>
-			</div>
-		{:else}
-			<div class="border border-border bg-surface px-4 py-6 text-center text-sm text-text-muted">
-				No sample sessions on disk.
-			</div>
-		{/if}
-
-		{#if errorMsg}
-			<div class="border border-danger/30 bg-danger/[0.06] px-4 py-2.5 text-sm text-danger">
-				{errorMsg}
-			</div>
+			{#if confirmPurge}
+				<div class="flex items-center gap-2">
+					<span class="text-sm text-danger-ink">Delete every session?</span>
+					<Button variant="ghost" size="sm" onclick={() => (confirmPurge = false)}>Cancel</Button>
+					<Button variant="danger" size="sm" loading={purging} onclick={purgeAll}>Delete all</Button>
+				</div>
+			{:else}
+				<Button variant="danger" size="sm" icon={Trash2} onclick={() => (confirmPurge = true)}>
+					Delete all
+				</Button>
+			{/if}
 		{/if}
 	</div>
+
+	{#if sessions.length > 0}
+		<div class="overflow-x-auto">
+			<table class="data-table">
+				<thead>
+					<tr>
+						<th>Session</th>
+						<th>Date</th>
+						<th class="num">Samples</th>
+						<th class="num">Size</th>
+						<th><span class="sr-only">Actions</span></th>
+					</tr>
+				</thead>
+				<tbody>
+					{#each sessions as session}
+						<tr>
+							<td>
+								<div class="font-mono">{session.session_id}</div>
+								{#if session.session_name}
+									<div class="text-ink-muted">{session.session_name}</div>
+								{/if}
+							</td>
+							<td class="text-ink-muted">{formatDate(session.created_at)}</td>
+							<td class="num">{session.sample_count.toLocaleString()}</td>
+							<td class="num text-ink-muted">{formatBytes(session.size_bytes)}</td>
+							<td class="text-right">
+								<Button
+									variant="ghost"
+									size="sm"
+									icon={Trash2}
+									loading={deleting === session.session_id}
+									onclick={() => deleteSession(session.session_id)}
+								>
+									Delete
+								</Button>
+							</td>
+						</tr>
+					{/each}
+				</tbody>
+			</table>
+		</div>
+	{:else}
+		<div class="px-(--pad-panel) pb-(--pad-panel)">
+			<EmptyState icon={HardDrive} title="No sample sessions on disk">
+				Sessions appear here as the machine saves samples.
+			</EmptyState>
+		</div>
+	{/if}
+
+	{#if errorMsg}
+		<div class="px-(--pad-panel) pb-(--pad-panel)">
+			<Alert tone="danger">{errorMsg}</Alert>
+		</div>
+	{/if}
 {/if}

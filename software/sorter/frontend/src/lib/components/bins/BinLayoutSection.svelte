@@ -1,7 +1,11 @@
 <script lang="ts">
-	import { Button, Input } from '$lib/components/primitives';
-	import Modal from '$lib/components/Modal.svelte';
-	import StatusBanner from '$lib/components/StatusBanner.svelte';
+	import Alert from '$lib/components/ui/Alert.svelte';
+	import Badge from '$lib/components/ui/Badge.svelte';
+	import Button from '$lib/components/ui/Button.svelte';
+	import Input from '$lib/components/ui/Input.svelte';
+	import Modal from '$lib/components/ui/Modal.svelte';
+	import Panel from '$lib/components/ui/Panel.svelte';
+	import Popover from '$lib/components/ui/Popover.svelte';
 	import { requestBackendRestart, waitForBackend } from '$lib/backend';
 	import {
 		fetchBinLayouts,
@@ -14,8 +18,10 @@
 		type BinLayoutRecord
 	} from '$lib/api/bin-layouts';
 	import { onMount } from 'svelte';
-	import { Check, ChevronDown, Pencil, Trash2 } from 'lucide-svelte';
-	import Spinner from '$lib/components/Spinner.svelte';
+	import Check from '@lucide/svelte/icons/check';
+	import ChevronDown from '@lucide/svelte/icons/chevron-down';
+	import Pencil from '@lucide/svelte/icons/pencil';
+	import Trash2 from '@lucide/svelte/icons/trash-2';
 
 	let {
 		baseUrl,
@@ -63,11 +69,6 @@
 		const interval = setInterval(() => void reload(), 2000);
 		return () => clearInterval(interval);
 	});
-
-	function handleClickOutside(event: MouseEvent) {
-		const el = event.target as HTMLElement;
-		if (!el.closest('.bin-layout-dropdown')) dropdownOpen = false;
-	}
 
 	function openSwitch(layout: BinLayoutRecord) {
 		dropdownOpen = false;
@@ -164,141 +165,108 @@
 	}
 </script>
 
-<svelte:window onclick={handleClickOutside} />
-
-<div class="mb-4 border border-border bg-surface px-4 py-3">
-	<div class="flex flex-wrap items-center justify-between gap-3">
-		<div class="min-w-0">
-			<div class="text-sm font-medium text-text">Bin layout</div>
-			<div class="mt-0.5 text-sm text-text-muted">
-				Saved bin configurations. Switch between them; bin contents are kept unless you empty the bins.
-			</div>
+<Panel
+	title="Bin layout"
+	description="Saved bin configurations. Switch between them; bin contents are kept unless you empty the bins."
+>
+	<div class="flex flex-col gap-3">
+		<div class="flex flex-wrap items-center gap-2">
+		<Popover label="Bin layouts" bind:open={dropdownOpen} width="22rem" padded={false}>
+			{#snippet trigger(props)}
+				<Button {...props} class="w-64 max-w-full" disabled={layouts.length === 0 && !active}>
+					<span class="flex w-full min-w-0 items-center justify-between gap-2">
+						<span class="flex min-w-0 items-center gap-2">
+							<span class="truncate">{active?.name ?? 'No layout'}</span>
+							{#if isDirty}<Badge tone="warning">Unsaved</Badge>{/if}
+						</span>
+						<ChevronDown size={16} class="shrink-0" />
+					</span>
+				</Button>
+			{/snippet}
+			<p class="px-3 py-2 text-sm text-ink-muted">
+				Each layout belongs to a profile and only works with that profile.
+			</p>
+			{#if layouts.length === 0}
+				<p class="border-t border-line px-3 py-2 text-sm text-ink-muted">No saved layouts yet.</p>
+			{:else}
+				<ul class="divide-y divide-line border-t border-line">
+					{#each layouts as layout (layout.id)}
+						{@const matches = layout.profile_id === profileId}
+						<li class="flex items-center gap-1 py-1 pr-1 pl-1 {matches ? '' : 'opacity-50'}">
+							<button
+								type="button"
+								class="flex min-h-(--size-menu-item) min-w-0 flex-1 items-center gap-2.5 rounded-item px-2 text-left hover:bg-hover disabled:pointer-events-none"
+								disabled={busy || layout.is_active || !matches}
+								title={matches ? undefined : 'Switch to this layout’s profile first'}
+								onclick={() => openSwitch(layout)}
+							>
+								<Check size={16} class="shrink-0 text-success-ink {layout.is_active ? '' : 'invisible'}" />
+								<span class="min-w-0">
+									<span class="block truncate text-sm font-medium text-ink">{layout.name}</span>
+									<span class="block truncate font-mono text-xs text-ink-muted">
+										{profileLabel(layout.profile_id)}
+									</span>
+								</span>
+							</button>
+							<Button size="sm" variant="ghost" icon={Pencil} label="Rename {layout.name}" onclick={() => openRename(layout)} />
+							<Button
+								size="sm"
+								variant="ghost"
+								icon={Trash2}
+								label={layout.is_active ? 'The active layout cannot be deleted' : `Delete ${layout.name}`}
+								disabled={layout.is_active}
+								onclick={() => openDelete(layout)}
+							/>
+						</li>
+					{/each}
+				</ul>
+			{/if}
+		</Popover>
+		<Button disabled={busy} onclick={openSaveAs}>Save as new</Button>
+		<Button variant="primary" disabled={busy || !isDirty} onclick={() => void saveChanges()}>
+			Save changes
+		</Button>
 		</div>
-		<div class="flex items-center gap-2">
-			<div class="bin-layout-dropdown relative">
-				<button
-					type="button"
-					onclick={() => (dropdownOpen = !dropdownOpen)}
-					class="flex max-w-[260px] items-center gap-2 border border-border bg-surface px-3 py-1.5 text-sm text-text transition-colors hover:bg-bg"
-				>
-					{#if restarting}<Spinner size={14} class="shrink-0" />{/if}
-					<span class="truncate font-medium">{active?.name ?? 'No layout'}</span>
-					{#if isDirty}<span class="shrink-0 text-xs text-warning">unsaved</span>{/if}
-					<ChevronDown size={14} class="shrink-0 opacity-60" />
-				</button>
-
-				{#if dropdownOpen}
-					<div
-						class="absolute top-full right-0 z-50 mt-1 w-80 overflow-hidden border border-border bg-surface shadow-[0_12px_28px_rgba(15,23,42,0.14)]"
-					>
-						<div class="border-b border-border bg-bg px-3 py-2 text-xs text-text-muted">
-							Each layout belongs to a profile and only works with that profile.
-						</div>
-						{#if layouts.length === 0}
-							<div class="px-3 py-2 text-sm text-text-muted">No saved layouts yet.</div>
-						{/if}
-						<div class="divide-y divide-border">
-							{#each layouts as layout (layout.id)}
-								{@const matches = layout.profile_id === profileId}
-								<div class="flex items-center justify-between gap-2 px-3 py-2 {matches ? '' : 'opacity-50'}">
-									<button
-										type="button"
-										class="flex min-w-0 flex-1 items-center gap-2 text-left disabled:cursor-not-allowed"
-										disabled={busy || layout.is_active || !matches}
-										title={matches ? '' : 'Switch to this layout’s profile first'}
-										onclick={() => openSwitch(layout)}
-									>
-										{#if layout.is_active}
-											<Check size={14} class="shrink-0 text-success" />
-										{:else}
-											<span class="w-[14px] shrink-0"></span>
-										{/if}
-										<div class="min-w-0">
-											<div class="truncate text-sm font-medium text-text">{layout.name}</div>
-											<div class="truncate font-mono text-xs text-text-muted">{profileLabel(layout.profile_id)}</div>
-										</div>
-									</button>
-									<div class="flex shrink-0 items-center gap-1">
-										<button
-											type="button"
-											class="p-1 text-text-muted transition-colors hover:text-text"
-											title="Rename"
-											onclick={() => openRename(layout)}
-										>
-											<Pencil size={13} />
-										</button>
-										<button
-											type="button"
-											class="p-1 text-text-muted transition-colors hover:text-danger disabled:opacity-40"
-											title={layout.is_active ? 'Cannot delete the active layout' : 'Delete'}
-											disabled={layout.is_active}
-											onclick={() => openDelete(layout)}
-										>
-											<Trash2 size={13} />
-										</button>
-									</div>
-								</div>
-							{/each}
-						</div>
-					</div>
-				{/if}
-			</div>
-			<Button variant="secondary" size="sm" disabled={busy || !isDirty} onclick={() => void saveChanges()}>
-				Save changes
-			</Button>
-			<Button variant="secondary" size="sm" disabled={busy} onclick={openSaveAs}>Save as new</Button>
-		</div>
+		{#if status}<Alert tone="success">{status}</Alert>{/if}
+		{#if error}<Alert tone="danger">{error}</Alert>{/if}
 	</div>
+</Panel>
 
-	{#if status}<div class="mt-2"><StatusBanner message={status} variant="success" /></div>{/if}
-	{#if error}<div class="mt-2"><StatusBanner message={error} variant="error" /></div>{/if}
-</div>
-
-<Modal bind:open={switchOpen} title="Switch bin layout">
-	<div class="space-y-4">
-		<p class="text-sm text-text">
-			Switch to <span class="font-medium">{target?.name}</span>? This restarts the backend
-			(a few seconds). Bin contents are kept.
-		</p>
-		<div class="flex justify-end gap-2">
-			<Button variant="ghost" size="sm" onclick={() => (switchOpen = false)}>Cancel</Button>
-			<Button variant="primary" size="sm" onclick={() => void confirmSwitch()}>Switch</Button>
-		</div>
-	</div>
+<Modal bind:open={switchOpen} title="Switch the bin layout" size="sm">
+	<p>
+		Switch to <span class="font-medium">{target?.name}</span>? This restarts the backend, which takes
+		a few seconds. Bin contents are kept.
+	</p>
+	{#snippet footer()}
+		<Button variant="ghost" onclick={() => (switchOpen = false)}>Cancel</Button>
+		<Button variant="primary" onclick={() => void confirmSwitch()}>Switch</Button>
+	{/snippet}
 </Modal>
 
-<Modal bind:open={saveAsOpen} title="Save as new bin layout">
-	<div class="space-y-4">
-		<Input type="text" placeholder="Layout name" bind:value={draftName} />
-		<div class="flex justify-end gap-2">
-			<Button variant="ghost" size="sm" onclick={() => (saveAsOpen = false)}>Cancel</Button>
-			<Button variant="primary" size="sm" disabled={!draftName.trim()} onclick={() => void confirmSaveAs()}>
-				Save
-			</Button>
-		</div>
-	</div>
+<Modal open={restarting} title="Switching the bin layout" size="sm" dismissible={false} status="Restarting the backend">
+	<p>This page carries on by itself when the backend is back.</p>
 </Modal>
 
-<Modal bind:open={renameOpen} title="Rename bin layout">
-	<div class="space-y-4">
-		<Input type="text" placeholder="Layout name" bind:value={draftName} />
-		<div class="flex justify-end gap-2">
-			<Button variant="ghost" size="sm" onclick={() => (renameOpen = false)}>Cancel</Button>
-			<Button variant="primary" size="sm" disabled={!draftName.trim()} onclick={() => void confirmRename()}>
-				Rename
-			</Button>
-		</div>
-	</div>
+<Modal bind:open={saveAsOpen} title="Save as a new bin layout" size="sm">
+	<Input aria-label="Layout name" placeholder="Layout name" bind:value={draftName} />
+	{#snippet footer()}
+		<Button variant="ghost" onclick={() => (saveAsOpen = false)}>Cancel</Button>
+		<Button variant="primary" disabled={!draftName.trim()} onclick={() => void confirmSaveAs()}>Save</Button>
+	{/snippet}
 </Modal>
 
-<Modal bind:open={deleteOpen} title="Delete bin layout">
-	<div class="space-y-4">
-		<p class="text-sm text-text">
-			Delete <span class="font-medium">{target?.name}</span>? This can't be undone.
-		</p>
-		<div class="flex justify-end gap-2">
-			<Button variant="ghost" size="sm" onclick={() => (deleteOpen = false)}>Cancel</Button>
-			<Button variant="danger" size="sm" onclick={() => void confirmDelete()}>Delete</Button>
-		</div>
-	</div>
+<Modal bind:open={renameOpen} title="Rename the bin layout" size="sm">
+	<Input aria-label="Layout name" placeholder="Layout name" bind:value={draftName} />
+	{#snippet footer()}
+		<Button variant="ghost" onclick={() => (renameOpen = false)}>Cancel</Button>
+		<Button variant="primary" disabled={!draftName.trim()} onclick={() => void confirmRename()}>Rename</Button>
+	{/snippet}
+</Modal>
+
+<Modal bind:open={deleteOpen} title="Delete the bin layout" size="sm">
+	<p>Delete <span class="font-medium">{target?.name}</span>? This cannot be undone.</p>
+	{#snippet footer()}
+		<Button variant="ghost" onclick={() => (deleteOpen = false)}>Cancel</Button>
+		<Button variant="danger" onclick={() => void confirmDelete()}>Delete layout</Button>
+	{/snippet}
 </Modal>

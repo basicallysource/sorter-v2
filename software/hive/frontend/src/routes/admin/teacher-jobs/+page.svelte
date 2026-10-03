@@ -4,7 +4,17 @@
 	import { auth } from '$lib/auth.svelte';
 	import { api, type TeacherJobSummary } from '$lib/api';
 	import Spinner from '$lib/components/Spinner.svelte';
-	import { Button } from '$lib/components/primitives';
+	import { sentence } from '$lib/text';
+	import Alert from '$lib/components/Alert.svelte';
+	import Badge from '$lib/components/Badge.svelte';
+	import EmptyState from '$lib/components/EmptyState.svelte';
+	import PageHeader from '$lib/components/PageHeader.svelte';
+	import Panel from '$lib/components/Panel.svelte';
+	import ProgressBar from '$lib/components/ProgressBar.svelte';
+	import Stat from '$lib/components/Stat.svelte';
+	import ArrowRight from '@lucide/svelte/icons/arrow-right';
+	import Sparkles from '@lucide/svelte/icons/sparkles';
+	import Button from '$lib/components/Button.svelte';
 
 	const REFRESH_MS = 3000;
 
@@ -53,19 +63,19 @@
 		}
 	}
 
-	function statusClass(status: string): string {
-		// Tinted background by status so the eye can skim the list for "what's live now".
+	function statusTone(status: string): 'primary' | 'info' | 'success' | 'warning' | 'neutral' {
 		switch (status) {
 			case 'running':
-				return 'bg-primary text-white';
+				return 'primary';
 			case 'pending':
-				return 'bg-info text-white';
+			case 'queued':
+				return 'info';
 			case 'done':
-				return 'bg-success text-white';
-			case 'cancelled':
-				return 'bg-border text-text';
+				return 'success';
+			case 'error':
+				return 'warning';
 			default:
-				return 'bg-bg text-text';
+				return 'neutral';
 		}
 	}
 
@@ -75,7 +85,7 @@
 	}
 
 	function formatDate(iso: string | null): string {
-		if (!iso) return '—';
+		if (!iso) return '-';
 		return new Date(iso).toLocaleString('en-US', {
 			day: '2-digit',
 			month: '2-digit',
@@ -93,7 +103,7 @@
 	}
 
 	function formatUsd(value: number | null | undefined): string {
-		if (value == null) return '—';
+		if (value == null) return '-';
 		if (value === 0) return '$0.00';
 		// Sub-cent costs are common for single Gemini calls; show 4 decimals so $0.0008
 		// isn't displayed as "$0.00".
@@ -110,169 +120,102 @@
 </script>
 
 <svelte:head>
-	<title>Teacher Jobs - Hive</title>
+	<title>Teacher jobs - Hive</title>
 </svelte:head>
 
-<div class="mb-6 flex items-end justify-between gap-3">
-	<div>
-		<div class="mb-1 text-xs text-text-muted">
-			<a href="/samples" class="hover:underline">Samples</a>
-			<span class="mx-1">/</span>
-			<span>Admin</span>
-			<span class="mx-1">/</span>
-			<span>Teacher Jobs</span>
-		</div>
-		<h1 class="text-2xl font-bold text-text">Teacher Jobs</h1>
-		<p class="mt-1 text-sm text-text-muted">
-			Gemini re-detection jobs queued from the samples list. Refreshes every {REFRESH_MS / 1000}s.
-		</p>
-	</div>
-	<div class="text-xs text-text-muted">
-		{jobs.length} job{jobs.length === 1 ? '' : 's'} (most recent first)
-	</div>
-</div>
+<PageHeader
+	title="Teacher jobs"
+	description={`Re-detection jobs started from the samples list. The page refreshes every ${REFRESH_MS / 1000} seconds.`}
+>
+	{#snippet actions()}
+		<span class="num text-sm text-ink-muted">{jobs.length} job{jobs.length === 1 ? '' : 's'}, newest first</span>
+	{/snippet}
+</PageHeader>
 
 {#if loading && jobs.length === 0}
 	<div class="flex justify-center p-8"><Spinner size={32} /></div>
 {:else if error && jobs.length === 0}
-	<div class="border border-border bg-surface px-6 py-12 text-center text-sm text-text-muted">
-		{error}
-	</div>
+	<Alert tone="danger">{error}</Alert>
 {:else if jobs.length === 0}
-	<div class="border border-border bg-surface px-6 py-12 text-center text-sm text-text-muted">
-		No teacher jobs yet. Start one from the samples page.
-	</div>
+	<Panel><EmptyState icon={Sparkles} title="No teacher jobs yet">Start one from the samples page.</EmptyState></Panel>
 {:else}
-	<!-- ACTIVE section: big cards so an admin opening this page immediately sees the live state. -->
-	<section class="mb-8">
-		<div class="mb-3 flex items-baseline justify-between gap-3">
-			<h2 class="text-lg font-semibold text-text">
-				Active
-				<span class="ml-1 text-sm font-normal text-text-muted">
-					({activeJobs.length} {activeJobs.length === 1 ? 'job' : 'jobs'})
-				</span>
+	<div class="flex flex-col gap-(--gap-panels)">
+		<section class="flex flex-col gap-(--gap-panels)">
+			<h2 class="text-base font-semibold text-ink">
+				Running <span class="num font-normal text-ink-muted">{activeJobs.length}</span>
 			</h2>
-			<span class="text-[11px] text-text-muted">Auto-refresh every {REFRESH_MS / 1000}s</span>
-		</div>
-		{#if activeJobs.length === 0}
-			<div class="border border-border bg-surface px-6 py-10 text-center text-sm text-text-muted">
-				No active jobs. Start one from the samples page.
-			</div>
-		{:else}
-			<div class="space-y-4">
+			{#if activeJobs.length === 0}
+				<Panel><EmptyState title="Nothing running">Start a job from the samples page.</EmptyState></Panel>
+			{:else}
 				{#each activeJobs as job (job.id)}
-					<div class="border-2 border-primary bg-surface">
-						<div class="flex flex-wrap items-center gap-3 border-b border-border px-5 py-3">
-							<span class="px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider {statusClass(job.status)}">
-								{job.status}
-							</span>
-							<a
-								href={`/admin/teacher-jobs/${job.id}`}
-								class="text-lg font-semibold text-text hover:text-primary hover:underline"
+					<Panel flush>
+						<div class="flex flex-wrap items-center gap-3 px-(--pad-panel) py-3">
+							<Badge tone={statusTone(job.status)} dot>{sentence(job.status)}</Badge>
+							<a href={`/admin/teacher-jobs/${job.id}`} class="text-base font-semibold text-ink hover:underline"
+								>Job <span class="font-mono">{job.id.slice(0, 8)}</span></a
 							>
-								Job {job.id.slice(0, 8)}
-							</a>
-							<span class="text-xs text-text-muted">{job.openrouter_model}</span>
+							<span class="font-mono text-sm text-ink-muted">{job.openrouter_model}</span>
 							<div class="ml-auto flex items-center gap-2">
-								<a href={`/admin/teacher-jobs/${job.id}`} class="text-xs text-primary hover:underline">View detail →</a>
-								<Button variant="secondary" size="sm" onclick={() => cancel(job.id)}>Cancel</Button>
+								<Button size="sm" variant="ghost" href={`/admin/teacher-jobs/${job.id}`} icon={ArrowRight}>Details</Button>
+								<Button size="sm" onclick={() => cancel(job.id)}>Cancel</Button>
 							</div>
 						</div>
-						<div class="grid gap-4 px-5 py-4 sm:grid-cols-3 xl:grid-cols-5">
-							<div>
-								<div class="text-[10px] font-semibold uppercase tracking-wider text-text-muted">Processed</div>
-								<div class="tabular-nums text-2xl font-bold text-text">{job.processed}<span class="text-base font-normal text-text-muted"> / {job.total}</span></div>
-								<div class="text-[11px] text-text-muted">{pct(job)}%</div>
-							</div>
-							<div>
-								<div class="text-[10px] font-semibold uppercase tracking-wider text-text-muted">Succeeded</div>
-								<div class="tabular-nums text-2xl font-bold text-success">{job.succeeded}</div>
-							</div>
-							<div>
-								<div class="text-[10px] font-semibold uppercase tracking-wider text-text-muted">Failed</div>
-								<div class="tabular-nums text-2xl font-bold {job.failed > 0 ? 'text-warning-strong' : 'text-text-muted'}">{job.failed}</div>
-							</div>
-							<div>
-								<div class="text-[10px] font-semibold uppercase tracking-wider text-text-muted">Remaining</div>
-								<div class="tabular-nums text-2xl font-bold text-text">{Math.max(0, job.total - job.processed)}</div>
-							</div>
-							<div title="Real billed cost from OpenRouter so far · projected total based on running average per sample.">
-								<div class="text-[10px] font-semibold uppercase tracking-wider text-text-muted">Cost</div>
-								<div class="tabular-nums text-2xl font-bold text-text">{formatUsd(job.cost_usd)}</div>
-								<div class="text-[11px] text-text-muted">
-									{#if job.cost_usd_estimated_total != null}
-										est. total {formatUsd(job.cost_usd_estimated_total)}
-									{:else}
-										est. total —
-									{/if}
-								</div>
+						<div class="-ml-px grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-5">
+							<div class="border-t border-l border-line"><Stat label="Processed" value={job.processed} unit={`of ${job.total}`} hint={`${pct(job)}%`} /></div>
+							<div class="border-t border-l border-line"><Stat label="Succeeded" value={job.succeeded} tone="success" /></div>
+							<div class="border-t border-l border-line"><Stat label="Failed" value={job.failed} tone={job.failed > 0 ? 'warning' : undefined} /></div>
+							<div class="border-t border-l border-line"><Stat label="Left" value={Math.max(0, job.total - job.processed)} /></div>
+							<div class="border-t border-l border-line" title="What OpenRouter has billed so far, and the total at the average cost a sample.">
+								<Stat
+									label="Cost"
+									value={formatUsd(job.cost_usd)}
+									hint={job.cost_usd_estimated_total != null
+										? `About ${formatUsd(job.cost_usd_estimated_total)} in all`
+										: undefined}
+								/>
 							</div>
 						</div>
-						<div class="h-2 bg-bg">
-							<div class="h-full bg-primary transition-[width] duration-300" style="width: {pct(job)}%"></div>
-						</div>
-						<div class="flex flex-wrap items-center gap-2 px-5 py-2 text-[11px]">
-							{#each filterChips(job.filter as Record<string, unknown> | null) as [key, value] (key)}
-								<span class="border border-border bg-bg px-1.5 py-0.5 text-text-muted">
-									{key}=<span class="text-text">{value}</span>
-								</span>
-							{:else}
-								<span class="text-text-muted">no filter (all samples)</span>
-							{/each}
-							<span class="ml-auto text-text-muted">
-								started {formatDate(job.started_at ?? job.created_at)}
-							</span>
+						<div class="border-t border-line px-(--pad-panel) py-3">
+							<ProgressBar label={`Job ${job.id.slice(0, 8)} progress`} value={pct(job)} />
+							<div class="mt-3 flex flex-wrap items-center gap-2 text-sm">
+								{#each filterChips(job.filter as Record<string, unknown> | null) as [key, value] (key)}
+									<Badge>{key} <span class="text-ink">{value}</span></Badge>
+								{:else}
+									<span class="text-ink-muted">Every sample, no filter</span>
+								{/each}
+								<span class="ml-auto text-ink-muted">Started {formatDate(job.started_at ?? job.created_at)}</span>
+							</div>
 						</div>
 						{#if job.last_error}
-							<div class="border-t border-border bg-warning-bg px-5 py-2 text-[11px] text-warning-strong">
-								Last error: {job.last_error}
-							</div>
+							<div class="px-(--pad-panel) pb-3"><Alert tone="warning" title="Last error">{job.last_error}</Alert></div>
 						{/if}
-					</div>
+					</Panel>
 				{/each}
-			</div>
-		{/if}
-	</section>
+			{/if}
+		</section>
 
-	<!-- HISTORY section: compact rows. -->
-	<section>
-		<div class="mb-3 flex items-baseline justify-between gap-3">
-			<h2 class="text-sm font-semibold uppercase tracking-wider text-text-muted">
-				History
-				<span class="ml-1 normal-case text-text-muted">({historyJobs.length})</span>
-			</h2>
-		</div>
-		{#if historyJobs.length === 0}
-			<div class="border border-border bg-surface px-6 py-6 text-center text-xs text-text-muted">
-				No finished jobs yet.
-			</div>
-		{:else}
-			<div class="divide-y divide-border border border-border bg-surface">
-				{#each historyJobs as job (job.id)}
-					<div class="flex flex-wrap items-center gap-3 px-4 py-2.5">
-						<span class="px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider {statusClass(job.status)}">
-							{job.status}
-						</span>
-						<a href={`/admin/teacher-jobs/${job.id}`} class="font-mono text-xs text-text-muted hover:text-primary hover:underline">
-							{job.id.slice(0, 8)}
-						</a>
-						<span class="text-xs text-text-muted">{job.openrouter_model}</span>
-						<span class="tabular-nums text-xs text-text">
-							{job.processed}/{job.total}
-							<span class="text-text-muted">
-								· {job.succeeded} ok{job.failed > 0 ? ` · ${job.failed} failed` : ''}
-							</span>
-						</span>
-						<span class="tabular-nums text-xs text-text-muted" title="Billed by OpenRouter">
-							{formatUsd(job.cost_usd)}
-						</span>
-						<span class="ml-auto text-[11px] text-text-muted">
-							{formatDate(job.finished_at ?? job.created_at)}
-						</span>
-						<a href={`/admin/teacher-jobs/${job.id}`} class="text-xs text-primary hover:underline">Details</a>
-					</div>
-				{/each}
-			</div>
-		{/if}
-	</section>
+		<Panel title="Finished" flush>
+			{#snippet actions()}<span class="num text-sm text-ink-muted">{historyJobs.length}</span>{/snippet}
+			{#if historyJobs.length === 0}
+				<p class="px-(--pad-panel) pb-(--pad-panel) text-sm text-ink-muted">No finished jobs yet.</p>
+			{:else}
+				<ul class="divide-y divide-line border-t border-line">
+					{#each historyJobs as job (job.id)}
+						<li class="flex flex-wrap items-center gap-3 px-(--pad-panel) py-2.5 text-sm">
+							<Badge tone={statusTone(job.status)}>{sentence(job.status)}</Badge>
+							<a href={`/admin/teacher-jobs/${job.id}`} class="font-mono text-ink hover:underline">{job.id.slice(0, 8)}</a>
+							<span class="font-mono text-ink-muted">{job.openrouter_model}</span>
+							<span class="num text-ink"
+								>{job.processed} of {job.total}<span class="text-ink-muted"
+									>, {job.succeeded} succeeded{job.failed > 0 ? `, ${job.failed} failed` : ''}</span
+								></span
+							>
+							<span class="num text-ink-muted" title="Billed by OpenRouter">{formatUsd(job.cost_usd)}</span>
+							<span class="ml-auto text-ink-muted">{formatDate(job.finished_at ?? job.created_at)}</span>
+						</li>
+					{/each}
+				</ul>
+			{/if}
+		</Panel>
+	</div>
 {/if}

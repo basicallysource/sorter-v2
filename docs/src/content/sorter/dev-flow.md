@@ -6,27 +6,20 @@ section: sorter
 slug: sorter-dev-flow
 audience: self-hosting operator
 last_verified: 2026-06-02
-kicker: Sorter — Under the hood
-lede: The two systemd services that run the machine in dev mode, how to enable them, and the difference between a soft restart and a full restart.
+kicker: SorterOS — Under the hood
+lede: The systemd service that runs the machine in dev mode, how to enable it, and the difference between a soft restart and a full restart.
 permalink: /sorter/dev-flow/
 ---
 
-The machine runs as two systemd services: the **Python backend** (hardware,
-vision, state) and the **SvelteKit UI** (the web interface you operate it
-from). Each ships in a **dev** and a **prod** variant; everyone working on the
-machine right now runs the **dev** ones, so those are the only ones this page
-covers.
+The machine runs as one systemd service: the **Python backend** (hardware,
+vision, state). Its supervisor, the small process that keeps the backend
+running, also serves the **UI** (the web interface you operate it from) on port
+80, from the UI's static build in `software/sorter/frontend/build/`. The
+service ships in a **dev** and a **prod** variant; everyone working on the
+machine right now runs the **dev** one, `sorter-backend-dev.service`, so that
+is the only one this page covers.
 
-| Component | Dev service |
-|---|---|
-| Backend | `sorter-backend-dev.service` |
-| UI | `sorter-ui-dev.service` |
-
-The dev services run the UI through Vite with hot-module reload, so a code
-change to a `.svelte` or `.ts` file shows up in the browser within a second
-without a manual restart.
-
-## Enabling the dev services
+## Enabling the dev service
 
 "Enabling" a systemd service does two separate things:
 
@@ -36,15 +29,14 @@ without a manual restart.
 `systemctl enable --now` does both at once:
 
 ```bash
-sudo systemctl enable --now sorter-backend-dev.service sorter-ui-dev.service
+sudo systemctl enable --now sorter-backend-dev.service
 ```
 
 Check what is currently running and watch the logs with:
 
 ```bash
-systemctl status sorter-backend-dev.service sorter-ui-dev.service
+systemctl status sorter-backend-dev.service
 journalctl -u sorter-backend-dev.service -f
-journalctl -u sorter-ui-dev.service -f
 ```
 
 ## Restarting the backend
@@ -55,31 +47,32 @@ There are two ways to do that, and they are not the same thing.
 ### Soft restart (the fast one)
 
 A soft restart bounces only the backend's `main.py` worker, leaving its
-supervisor process and the systemd unit untouched. The supervisor kills the
-worker and immediately launches a fresh one — a clean Python interpreter with
+supervisor process and the systemd unit untouched. The supervisor stops the
+worker and immediately launches a fresh one: a clean Python interpreter with
 every module re-imported from disk. It re-initializes the hardware from
 scratch and is back online in about two seconds.
 
 This is what you want for essentially every code edit. Trigger it by POSTing to
-the supervisor's control endpoint:
+the supervisor, on the machine's port 80:
 
 ```bash
-curl -sS -X POST http://127.0.0.1:8001/api/supervisor/restart \
-  -H "Origin: http://sorter.local:5173"
+curl -sS -X POST http://sorter.local/api/supervisor/restart \
+  -H "Origin: http://sorter.local"
 ```
 
-The `Origin` header is required — the supervisor only accepts requests from an
-allowed UI origin. `http://sorter.local:5173` works from any machine.
+The `Origin` header is required and must name the address the request goes
+to, as a browser's does from the UI this supervisor served. That keeps pages
+from other sites from restarting the machine.
 
 > The **Restart Backend** button in the machine UI (under the power menu in the
-> top-right header) does exactly this — it is the same soft restart as the
-> `curl` call above, just from the browser. It releases the camera handles,
-> bounces `main.py` through the supervisor, then reconnects the UI
-> automatically.
+> top-right header) does exactly this: it is the same soft restart as the
+> `curl` call above, just from the browser. It bounces `main.py` through the
+> supervisor, then reconnects the UI automatically. It works even when the
+> backend has stopped answering, because the supervisor answers instead.
 
 ### Full restart (the heavier one)
 
-A full restart goes through systemd and bounces the **whole service** — the
+A full restart goes through systemd and bounces the **whole service**: the
 supervisor process and its `main.py` worker together:
 
 ```bash
@@ -97,7 +90,17 @@ configured `RestartSec` delay before bringing the service back.
 | A `.py` file in the backend | Soft restart (UI button or `curl`) |
 | The `.env` file or a newly installed package | Full restart (`systemctl restart`) |
 | The systemd unit file | Full restart (`systemctl restart`) |
+| UI code | `pnpm build` in `software/sorter/frontend/`, then reload the page |
 
-For the UI, Vite hot-reloads source edits on its own; you only need
-`systemctl restart sorter-ui-dev.service` if the Vite process itself wedges or
-its unit/environment changed.
+## Working on the UI
+
+The supervisor serves whatever is in `software/sorter/frontend/build/`, so a
+rebuild shows on the next page load with no restart. For hot reload while you
+work, run the Vite dev server instead and open port 5173:
+
+```bash
+cd software/sorter/frontend
+pnpm dev --host
+```
+
+It talks to the same backend on port 8000.

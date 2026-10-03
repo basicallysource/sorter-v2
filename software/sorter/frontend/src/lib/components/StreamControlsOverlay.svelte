@@ -1,43 +1,30 @@
 <script lang="ts">
-	import { Crop, Expand, Palette, SendToBack, Shapes } from 'lucide-svelte';
+	import Crop from '@lucide/svelte/icons/crop';
+	import SendToBack from '@lucide/svelte/icons/send-to-back';
+	import Shapes from '@lucide/svelte/icons/shapes';
 
 	let {
 		annotated = $bindable(true),
-		colorCorrect = $bindable(true),
 		cropped = $bindable(false),
 		zones = $bindable(true),
-		fullscreen = $bindable(false),
 		showAnnotations = true,
-		showColor = false,
 		showCrop = false,
 		showZones = false,
-		showFullscreen = false,
 		disabled = false
 	}: {
 		annotated?: boolean;
-		colorCorrect?: boolean;
 		cropped?: boolean;
 		zones?: boolean;
-		fullscreen?: boolean;
 		showAnnotations?: boolean;
-		showColor?: boolean;
 		showCrop?: boolean;
 		showZones?: boolean;
-		showFullscreen?: boolean;
 		disabled?: boolean;
 	} = $props();
-
-	const hasAny = $derived(
-		showAnnotations || showColor || showCrop || showZones || showFullscreen
-	);
 </script>
 
-{#snippet togglePill(
-	Icon: typeof SendToBack,
-	active: boolean,
-	label: string,
-	onToggle: () => void
-)}
+<!-- Toggles over a camera picture, in its dark subtree: a scrim when off,
+     the primary when on. The caller places them (MediaTile's overlay). -->
+{#snippet toggle(Icon: typeof SendToBack, active: boolean, label: string, onToggle: () => void)}
 	<button
 		type="button"
 		{disabled}
@@ -45,66 +32,33 @@
 		title={label}
 		aria-pressed={active}
 		aria-label={label}
-		class={`pointer-events-auto inline-flex h-7 items-center gap-1.5 rounded-full border px-2.5 text-white shadow-md backdrop-blur-sm transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${
-			active
-				? 'border-primary/70 bg-primary/80 hover:bg-primary'
-				: 'border-white/20 bg-black/55 hover:bg-black/70'
-		}`}
+		class="inline-flex size-(--size-control-sm) items-center justify-center rounded-button transition-colors disabled:pointer-events-none disabled:opacity-45 {active
+			? 'bg-primary text-on-primary hover:bg-primary-hover'
+			: 'bg-scrim text-ink-muted hover:text-ink'}"
 	>
-		<Icon size={13} />
-		<span
-			class={`h-1.5 w-1.5 rounded-full transition-colors ${
-				active ? 'bg-white' : 'bg-white/30'
-			}`}
-			aria-hidden="true"
-		></span>
+		<Icon size={14} />
 	</button>
 {/snippet}
 
-{#if hasAny}
-	<div class="pointer-events-none absolute right-2 top-2 z-10 flex gap-1">
+{#if showAnnotations || showCrop || showZones}
+	<div class="flex gap-1">
 		{#if showAnnotations}
-			{@render togglePill(
+			{@render toggle(
 				SendToBack,
 				annotated,
 				annotated ? 'Hide annotations' : 'Show annotations',
 				() => (annotated = !annotated)
 			)}
 		{/if}
-
 		{#if showZones}
-			{@render togglePill(
-				Shapes,
-				zones,
-				zones ? 'Hide zones' : 'Show zones',
-				() => (zones = !zones)
-			)}
+			{@render toggle(Shapes, zones, zones ? 'Hide zones' : 'Show zones', () => (zones = !zones))}
 		{/if}
-
-		{#if showColor}
-			{@render togglePill(
-				Palette,
-				colorCorrect,
-				colorCorrect ? 'Disable color correction' : 'Enable color correction',
-				() => (colorCorrect = !colorCorrect)
-			)}
-		{/if}
-
 		{#if showCrop}
-			{@render togglePill(
+			{@render toggle(
 				Crop,
 				cropped,
-				cropped ? 'Show full frame' : 'Show cropped view',
+				cropped ? 'Show the full frame' : 'Show the cropped view',
 				() => (cropped = !cropped)
-			)}
-		{/if}
-
-		{#if showFullscreen}
-			{@render togglePill(
-				Expand,
-				fullscreen,
-				fullscreen ? 'Exit fullscreen' : 'Enter fullscreen',
-				() => (fullscreen = !fullscreen)
 			)}
 		{/if}
 	</div>

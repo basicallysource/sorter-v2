@@ -9,7 +9,7 @@ class SharedVariablesBusShimTests(unittest.TestCase):
     def test_flag_updates_publish_bus_facts_when_enabled(self) -> None:
         bus = TickBus()
         shared = SharedVariables(
-            gc=SimpleNamespace(use_channel_bus=True),
+            gc=SimpleNamespace(),
             bus=bus,
         )
         bus.begin_tick(now_mono=1.0)
@@ -33,24 +33,10 @@ class SharedVariablesBusShimTests(unittest.TestCase):
         self.assertTrue(messages[2].in_progress)
         self.assertIsNone(messages[2].target_bin)
 
-    def test_flag_updates_do_not_publish_when_disabled(self) -> None:
-        bus = TickBus()
-        shared = SharedVariables(
-            gc=SimpleNamespace(use_channel_bus=False),
-            bus=bus,
-        )
-        bus.begin_tick(now_mono=1.0)
-
-        shared.classification_ready = True
-        shared.distribution_ready = False
-        shared.chute_move_in_progress = True
-
-        self.assertEqual(tuple(), bus.events())
-
     def test_pending_piece_request_is_exposed_when_bus_is_enabled(self) -> None:
         bus = TickBus()
         shared = SharedVariables(
-            gc=SimpleNamespace(use_channel_bus=True),
+            gc=SimpleNamespace(),
             bus=bus,
         )
         bus.publish(

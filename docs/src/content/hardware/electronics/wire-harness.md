@@ -80,19 +80,19 @@ This page is the wiring. Where the PSU, the control board and the Orange Pi phys
       <text x="262" y="120" font-size="13" fill="var(--muted)">hub for LEDs, sensors,</text>
       <text x="262" y="136" font-size="13" fill="var(--muted)">steppers, servo adapters</text>
       <text x="262" y="184" font-size="12.5" fill="var(--muted)">24V in</text>
-      <g font-size="14" fill="var(--ink)" text-anchor="middle" stroke="var(--surface)" stroke-width="4" paint-order="stroke">
+      <g font-size="16" fill="var(--ink)" text-anchor="middle" stroke="var(--surface)" stroke-width="5" paint-order="stroke">
         <text x="207" y="184">W1</text>
         <text x="207" y="354">W2</text>
         <text x="207" y="404">W3</text>
       </g>
-      <g font-size="14" fill="var(--ink)" text-anchor="middle" stroke="var(--surface)" stroke-width="4" paint-order="stroke">
+      <g font-size="17" fill="var(--ink)" text-anchor="middle" stroke="var(--surface)" stroke-width="5" paint-order="stroke">
         <text x="535" y="48">L1 · 2x1 dupont</text>
         <text x="535" y="93">L2 · 2x1 dupont</text>
-        <text x="535" y="143">L3 · 2x1 dupont</text>
-        <text x="535" y="188">LIM · 2x1 dupont</text>
-        <text x="535" y="233">S1-4 · JST-PH 4-pin</text>
-        <text x="535" y="283">CH · JST-PH 4-pin</text>
-        <text x="535" y="328">RIB1 · 16-pin IDC</text>
+        <text x="535" y="138">L3 · 2x1 dupont</text>
+        <text x="535" y="183">LIM · 2x1 dupont</text>
+        <text x="535" y="228">S1-4 · JST-PH 4-pin</text>
+        <text x="535" y="273">CH · JST-PH 4-pin</text>
+        <text x="535" y="318">RIB1 · 16-pin IDC</text>
       </g>
       <g font-size="14" font-weight="700" fill="var(--ink)">
         <text x="258" y="364">Waveshare USB hub</text>

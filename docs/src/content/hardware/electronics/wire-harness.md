@@ -100,7 +100,7 @@ This page is the wiring. Where the PSU, the control board and the Orange Pi phys
         <text x="535" y="188">limit (LIM) · 2x1 dupont</text>
         <text x="535" y="233">S1-4 · JST-PH 4-pin · 1 m (39 in)</text>
         <text x="535" y="283">CH · 4x1 dupont · flying leads</text>
-        <text x="535" y="315">RIB · 16-pin IDC</text><text x="535" y="328">1.2-1.5 m (47-59 in)</text>
+        <text x="535" y="315">RIB1 · 16-pin IDC</text><text x="535" y="328">1.2-1.5 m (47-59 in)</text>
       </g>
       <g font-size="11" font-weight="700" fill="var(--ink)">
         <text x="258" y="364">Waveshare 4-port USB hub</text>
@@ -117,7 +117,7 @@ This page is the wiring. Where the PSU, the control board and the Orange Pi phys
       </g>
     </svg>
   </div>
-  <figcaption>PSU distributes 24V to basically board v1.3 (W1, through a JST-VH inlet) and the two other direct loads (USB hub W2, Orange Pi buck W3). Cooling fans are not on this bus, they run off the Pi or the board. basically board v1.3 then drives the LED drops (L1-L3), the limit switch (LIM), the steppers (S1-S4, CH), and the first servo adapter board over a 16-pin IDC ribbon (RIB). Wire IDs match the schedule below.</figcaption>
+  <figcaption>PSU distributes 24V to basically board v1.3 (W1, through a JST-VH inlet) and the two other direct loads (USB hub W2, Orange Pi buck W3). Cooling fans are not on this bus, they run off the Pi or the board. basically board v1.3 then drives the LED drops (L1-L3), the limit switch (LIM), the steppers (S1-S4, CH), and the first servo adapter board over a 16-pin IDC ribbon (RIB1). Wire IDs match the schedule below.</figcaption>
 </figure>
 
 ### 2.1 &nbsp; Stepper pinout and polarity
@@ -252,7 +252,7 @@ All three drops now feed an LED strip in a [camera lamp]({{ '/hardware/assembly/
 <table>
   <thead><tr><th>ID</th><th>Segment</th><th>From</th><th>To</th><th>Cond.</th><th>Length</th></tr></thead>
   <tbody>
-    <tr><td class="wire-id">RIB</td><td>Ribbon cable</td><td>basically board v1.3, 16-pin IDC (FC)</td><td>First servo adapter board, 16-pin IDC (FC)</td><td>16</td><td>1.2 to 1.5 m (47 to 59 in)</td></tr>
+    <tr><td class="wire-id">RIB1</td><td>Ribbon cable</td><td>basically board v1.3, 16-pin IDC (FC)</td><td>First servo adapter board, 16-pin IDC (FC)</td><td>16</td><td>1.2 to 1.5 m (47 to 59 in)</td></tr>
   </tbody>
 </table>
 
@@ -267,7 +267,7 @@ All three drops now feed an LED strip in a [camera lamp]({{ '/hardware/assembly/
 - 3Dman fused mains inlet switch, 15A 250V rocker + 10A fuse, 3-pin, 18 AWG (0.82 mm²) &middot; [link](https://www.amazon.com/dp/B07RQV2NPN)
 - DC 12V/24V to 5V USB-C buck converter, 5A 25W, powers Orange Pi 5 &middot; [link](https://www.amazon.com/dp/B0FV3P6KLS)
 - Cooling fan, 40×40×10mm, 24V (WINSINN 4010, catalog `fan-40mm-24v`) &middot; one, in the control board housing cover. It plugs into one of the board's own LED ports (see open items and control board housing).
-- uxcell 16-pin IDC flat ribbon cable (`RIB`), FC/FC, 2.54 mm (0.1 in), 1.2 to 1.5 m (47 to 59 in), gray &middot; [link](https://www.amazon.com/dp/B07S2W4N9T)
+- uxcell 16-pin IDC flat ribbon cable (`RIB1`), FC/FC, 2.54 mm (0.1 in), 1.2 to 1.5 m (47 to 59 in), gray &middot; [link](https://www.amazon.com/dp/B07S2W4N9T)
 - Waveshare 4-port USB hub, 24V model (USB 3.2 version, not the 5V industrial one, which cannot take 24V in)
 - Optional, only if the plug's lead does not reach the hub: DC lead, 5.5 mm (0.217 in) x 2.1 mm (0.083 in) male to male, 22 AWG (0.33 mm²), 610 mm (24 in), centre positive, for `W2` &middot; [link](https://www.l-com.com/dc-power-cable-5.5mm-2.1mm-male-male-2-ft-dc5521mm-2ft)
 - Orange Pi 5
@@ -286,7 +286,7 @@ All three drops now feed an LED strip in a [camera lamp]({{ '/hardware/assembly/
 - JST-PH 4-pin (PHR-4): steppers (`S1` to `S4`, `CH`) at the board, J23, J27, J31, J35, J39. Contacts are SPH-002T-P0.5S &middot; [JST PH series](https://www.jst.com/products/crimp-style-connectors-wire-to-board-type/ph-connector/)
 - JST-PH 6-pin (PHR-6): the NEMA 17 motor socket, cable S (`S1` to `S4`) motor end. Positions 2 and 5 are unpopulated; same contacts as the 4-pin
 - 2.54 mm (0.1 in) pin header, 4-pin: J24, J28, J32, J36, J40, one beside each PH stepper socket and carrying the same four nets. Takes a 4x1 dupont housing, which is the alternative board end for the chute stepper lead (`CH`)
-- 16-pin IDC (FC), 2.54 mm (0.1 in): ribbon (`RIB`) to first servo adapter board
+- 16-pin IDC (FC), 2.54 mm (0.1 in): ribbon (`RIB1`) to first servo adapter board
 
 ## 6 &nbsp; Open items
 

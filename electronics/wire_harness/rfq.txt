@@ -6,77 +6,146 @@ starting production.
 =============================================================
 
 1. WHAT THIS IS
-Custom cable assemblies for one machine.
-3 drawing sets are attached (PDF/PNG/SVG/HTML, generated with
-WireViz), each with its own BOM (TSV):
-  - power     : PSU pigtails PJ1-PJ3, load cables W1-W3
-  - steppers  : channel stepper crossover cable S (x4), chute cable CH
-  - leds      : LED feeds L1-L3, pigtails L1P-L3P, limit switch LIM
+Custom cable assemblies for one machine. 18 cables per set,
+listed in section 3. The drawings are in this package as PDF,
+PNG, SVG and HTML (generated with WireViz), each with its own
+BOM (TSV) and its WireViz YAML source:
+  - power, psu-pigtail, board-power : PSU pigtails PJ1-PJ3,
+        load cables W1-W3. "power" is the overview, the other
+        two are the cables it is made of.
+  - steppers, channel-stepper, chute-stepper : channel stepper
+        crossover cable S1-S4, chute cable CH. "steppers" is
+        the overview.
+  - leds, limit-switch : LED feeds L1-L3, pigtails L1p-L3p,
+        limit switch LIM. "leds" is the overview.
+Quote from the per-cable drawings. The overviews show how the
+cables fit together.
 
 2. QUANTITY
-2 full sets (i.e. every cable in the drawings x2).
-Per set: 3x PJ, 1x W1, 1x W2, 1x W3, 3x LED feed,
-3x LED pigtail, 1x LIM, 4x S, 1x CH  = 18 cables.
+2 full sets (every cable in section 3 x2): 36 cables.
 Quote 2 sets and price breaks at 10 / 50 sets.
 
-3. WIRE SPEC
-- UL1007 stranded tinned copper, 300V, or RoHS equivalent.
-- Gauges per drawing: 18 AWG (PJ, W1), 22 AWG (W2, W3, L, LIM),
-  24 AWG (S, CH).
-- Colors per drawing (red=+24V, black=GND on power pairs;
-  steppers BU/GN/RD/BK as drawn).
-- Cable S is a 4-wire bundle in PVC sleeving.
-- No UL certification / no IPC-A-620 class required. Hobby-grade
-  quality is acceptable; continuity test each cable.
+3. CABLE SCHEDULE
+Per set. End A is the end that gets the label. Lengths are
+finished cable length.
 
-4. CONNECTORS
-- JST VHR-2 + SVH-21T-P1.1 (board 24V in), JST PHR-4 and
-  PHR-6 + SPH-002T-P0.5S (steppers). Clone equivalents
-  acceptable.
-- DC barrel 5.5 x 2.1 mm, center-positive: male moulded plugs,
-  female inline jacks, female panel-mount jacks (>=5A).
-  2.1 mm pin, NOT 2.5 mm. The two do not mate.
-- Dupont = generic 2.54 mm female socket housing + crimps.
-  LIM board end is a 3-position housing with only positions 1
-  and 2 populated, so it cannot be fitted backwards.
+ID           Qty  Length          Wire
+PJ1-PJ3      3    100 mm (4 in)   18 AWG, red and black
+  A: panel-mount DC jack, female, 5.5 x 2.1 mm
+  B: two insulated M3.5 fork terminals
+W1           1    920 mm (36 in)  18 AWG, red and black
+  A: DC plug, male, 5.5 x 2.1 mm
+  B: JST VHR-2 housing, pin 1 = +24 V (red), pin 2 = GND
+W2           1    310 mm (12 in)  22 AWG, red and black
+  A: DC plug, male
+  B: bare, stripped 5 mm and tinned
+W3           1    150 mm (6 in)   22 AWG, red and black
+  A: DC plug, male
+  B: bare, stripped 5 mm and tinned
+L1-L3        3    920 mm (36 in)  22 AWG, red and black
+  A: 2-position Dupont housing, black in the cavity at the
+     moulded arrow, red in the other
+  B: inline DC socket, female
+L1p-L3p      3    150 mm (6 in)   22 AWG, red and black
+  A: DC plug, male
+  B: bare, stripped 5 mm and tinned
+LIM          1    610 mm (24 in)  22 AWG, black and white
+  A: 3-position Dupont housing, position 1 (at the moulded
+     arrow) black = ground, position 2 white = signal,
+     position 3 empty
+  B: two fully insulated #187 female quick-connect
+     receptacles
+S1-S4        4    1 m (39 in)     24 AWG, blue, green, red,
+                                  black, in PVC sleeving
+  A: JST PHR-4
+  B: JST PHR-6, 4 of 6 positions populated (section 5)
+CH           1    300 mm (12 in)  24 AWG
+  A: JST PHR-4
+  B: bare, stripped 5 mm and tinned
+  The far end is spliced onto the chute motor's own flying
+  leads, so no connector goes there.
+
+4. WIRE AND CONNECTORS
+Wire
+- UL1007 stranded tinned copper, 300 V, or RoHS equivalent.
+- Gauges: 18 AWG (PJ, W1), 22 AWG (W2, W3, L, L-p, LIM),
+  24 AWG (S, CH). 24 AWG is the most the JST PH contact takes.
+- Red = +24 V, black = GND on every 2-conductor power cable.
+- No UL certification and no IPC-A-620 class required.
+  Hobby-grade quality is acceptable; continuity test each
+  cable.
+
+Connectors (source to this spec; a part number is the one the
+machine was designed against, and any RoHS clone that mates
+and crimps the same is fine)
+- Board 24 V input: JST VHR-2N housing, JST SVH-21T-P1.1
+  contact (W1).
+- Stepper board end: JST PHR-4 housing, JST SPH-002T-P0.5S
+  contact (S1-S4, CH). Motor end: JST PHR-6 housing, same
+  contact (S1-S4).
+- DC barrel 5.5 x 2.1 mm, centre-positive, 5 A or better:
+  male plugs (W1-W3, L1p-L3p), female inline jacks (L1-L3),
+  female panel-mount jacks (PJ1-PJ3). 2.1 mm pin, NOT 2.5 mm.
+  The two do not mate.
+- Dupont = generic 2.54 mm (0.1 in) female socket housing and
+  female crimp contacts (L1-L3, LIM). No keying.
   The moulded arrow on a Dupont housing always marks the
-  ground wire: black goes in the cavity next to the arrow.
+  ground wire: black goes in the cavity next to the arrow,
+  and positions count away from the arrow.
   L1-L3: black at the arrow, red in the other cavity.
-  LIM: black (ground) in position 1 at the arrow, white
-  (signal) in position 2, position 3 empty.
+  LIM: the board end is a 3-position housing with only
+  positions 1 and 2 populated: black (ground) in position 1
+  at the arrow, white (signal) in position 2, position 3
+  empty. Fitted, the arrow end goes over the pin the board
+  prints GND.
 - LIM switch end: fully insulated female quick-connect
-  receptacle, #187 series (4.75 x 0.5 mm / .187 x .020 in tab),
-  22 AWG. Mates the Omron V-155-1C25 limit switch. No
-  soldering. Fully insulated because the switch is SPDT and one
-  of its three tabs is left unused.
+  receptacle, #187 series (4.75 x 0.5 mm / .187 x .020 in
+  tab), 22 AWG. Mates the Omron V-155-1C25 limit switch. No
+  soldering. Fully insulated because the switch is SPDT and
+  one of its three tabs is left unused.
 - Spade/fork terminals (PSU end): 18 AWG, M3.5 stud, 8 mm wide
   MAX so they fit the MeanWell LRS-350-24 terminal block. That
   block is 9 screws, numbered per the MeanWell spec sheet:
   1 AC/L, 2 AC/N, 3 FG, 4-6 DC OUTPUT -V, 7-9 DC OUTPUT +V.
   Each pigtail takes one +V/-V pair (7 with 4, 8 with 5,
   9 with 6). Screws 1-3 are not part of this harness.
-- Ends marked "bare tinned": strip 5 mm and tin, no connector.
+- Bare ends: strip 5 mm (0.2 in) and tin, no connector.
+  W2, W3, L1p-L3p and CH are ordered with one bare end
+  because the part they join has its own fixed leads or
+  solder pads. They are joined on the machine, not by you.
 
 5. IMPORTANT - CROSSOVER CABLE
-Cable S (steppers drawing) is NOT straight-through. The motor
-end is a 6-position housing with only 4 positions populated:
-board 1 -> motor 1, board 2 -> motor 4, board 3 -> motor 3,
-board 4 -> motor 6. Motor positions 2 and 5 stay empty.
-See the drawing.
+Cable S1-S4 (steppers drawing) is NOT straight-through. The
+motor end is a 6-position housing with only 4 positions
+populated:
+  board 1 -> motor 1  (blue)
+  board 2 -> motor 4  (green)
+  board 3 -> motor 3  (red)
+  board 4 -> motor 6  (black)
+Motor positions 2 and 5 stay empty. The positions are the ones
+on the wire diagram in the StepperOnline 17HE15-1504S
+datasheet: coil A is motor positions 1 and 4, coil B is 3 and
+6. See the channel-stepper drawing.
 All other cables are straight-through, wire for wire. The
 Dupont leads (L1-L3, LIM) are wired by colour as in section 4.
 
 6. TOLERANCES, LABELS, PACKAGING
-- Length tolerance +/-10 mm (+/-25 mm acceptable on >=36 in).
-- Label each cable near end A with its ID (W1, S, CH, ...).
+- Length tolerance +/-10 mm (+/-0.4 in); +/-25 mm (+/-1 in) is
+  fine on anything 920 mm (36 in) or longer.
+- Label each cable near end A with its ID (W1, S1, CH, ...).
   Label S1-S4 at BOTH ends: four identical cables land within
   inches of each other at both the board and the motors, and
   they are unrecoverable once unplugged. Printed wrap-around
   laser labels or printed heat-shrink are both fine.
-- Bag per cable type. No other packaging requirement.
+- Bag per cable type, ID on the bag. No other packaging
+  requirement.
 
 7. QUESTIONS WE EXPECT / PRE-ANSWERED
-- Samples first? Yes - treat the 2 sets as the sample run.
+- Samples first? Yes: treat the 2 sets as the sample run.
 - Brand of wire/connector? Any RoHS clone is fine.
 - Drawings in DWG/PDF? PDF attached; no DWG exists.
-- Test requirement? 100% continuity; no hipot needed.
+- Test requirement? 100% continuity, every conductor end to
+  end, and on S1-S4 against the position map in section 5.
+  No hipot needed.
+- Cables not listed (ribbons, USB cables, mains cord)? Not
+  part of this order; they are bought ready made.

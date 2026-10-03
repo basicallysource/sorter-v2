@@ -78,7 +78,7 @@ Into the two long sockets down the middle, USB end towards the edge of the board
 
 {% include step.html n="3" title="Set the address jumpers" %}
 
-The five drivers share a UART bus, so each needs its own address. You set it by bridging the MS1 and MS2 header pins: 1-2 bridged reads 3V3 (HIGH); 2-3 bridged reads GND (LOW). MS1 is the low bit of the two-bit address. Two pins allow four addresses, one short of five steppers, so the board runs a second bus for the fifth driver. Ten jumpers in total, two per driver; tweezers or needle-nose pliers make placing the small 2.54mm jumper caps much easier.
+The five drivers share a UART bus, so each needs its own address. You set it by bridging the MS1 and MS2 header pins: 1-2 bridged reads 3V3 (HIGH); 2-3 bridged reads GND (LOW). MS1 is the low bit of the two-bit address. Two pins allow four addresses, one short of five steppers, so the board runs a second bus for the fifth driver. Ten jumpers in total, two per driver; tweezers or needle-nose pliers make placing the small 2.54 mm (0.1 in) jumper caps much easier.
 
 <div class="img-row">
   <figure>
@@ -102,7 +102,7 @@ Which driver is which channel is fixed by the board, not by you: each driver soc
   </tbody>
 </table>
 
-The two connectors in each pair are the JST-PH socket and the row of 2.54 mm pins beside it, wired to the same four nets. Nothing plugs into them yet: the motors go on at [connecting the components]({{ '/hardware/electronics/connecting/' | relative_url }}), step 2.
+The two connectors in each pair are the JST-PH socket and the row of 2.54 mm (0.1 in) pins beside it, wired to the same four nets. Nothing plugs into them yet: the motors go on at [connecting the components]({{ '/hardware/electronics/connecting/' | relative_url }}), step 2.
 
 <div class="callout callout-warning">
   <span class="callout-icon" aria-hidden="true">⚠</span>

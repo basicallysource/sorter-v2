@@ -43,11 +43,11 @@ Seat it over the four inserts and fasten it with 4 {% include fastener.html size
   <figcaption>The four inserts the board sits on, all on the panel at the top end of the chute core's rear face. <cite>Render: Balloon.</cite></figcaption>
 </figure>
 
-{% include step.html n="2" title="Connect the ribbon cable and the servo" %}
+{% include step.html n="2" title="Connect the ribbon cables (`RIB`, `RIB2`) and the servo" %}
 
 Do these now, while the chute is still on the bench. Once it is in the frame the three connectors are hard to reach.
 
-The board has two identical 16-pin sockets. **`J3` is the ribbon coming in and `J4` is the ribbon going on down to the next layer.** Nothing but the designator printed on the board tells them apart.
+The board has two identical 16-pin sockets. **`J3` is the ribbon coming in (`RIB` or `RIB2`) and `J4` is the ribbon going on down to the next layer (`RIB2`).** Nothing but the designator printed on the board tells them apart.
 
 <div class="callout callout-warning">
   <span class="callout-icon" aria-hidden="true">⚠</span>
@@ -56,15 +56,15 @@ The board has two identical 16-pin sockets. **`J3` is the ribbon coming in and `
 
 This layer's servo plugs into `J5`, the 3-pin header beside them: pin 1 signal, pin 2 servo power, pin 3 ground.
 
-Put the 30 cm ribbon from the parts list into `J4` now and leave its far end loose. It only reaches the board below once the chutes are in the frame, so it is joined up there, at the same time as the [layer connectors]({{ '/hardware/assembly/distribution/chute/layer-connectors/' | relative_url }}).
+Put the 300 mm (12 in) ribbon (`RIB2`) from the parts list into `J4` now and leave its far end loose. It only reaches the board below once the chutes are in the frame, so it is joined up there, at the same time as the [layer connectors]({{ '/hardware/assembly/distribution/chute/layer-connectors/' | relative_url }}).
 
-`J3` takes the ribbon coming down from the board above. On the topmost chute that is the long ribbon from the control board instead, at [connecting the components]({{ '/hardware/electronics/connecting/' | relative_url }}), step 5.
+`J3` takes the ribbon (`RIB2`) coming down from the board above. On the topmost chute that is the long ribbon from the control board (`RIB`) instead, at [connecting the components]({{ '/hardware/electronics/connecting/' | relative_url }}), step 5.
 
 Full harness routing is covered in the [harness drawings]({{ '/hardware/parts/harness-order/' | relative_url }}).
 
 ## The finished result
 
-The board screwed down on its four inserts, the servo in `J5`, and the 30 cm ribbon in `J4` with its far end loose. `J3` is fed once the chute is in the frame.
+The board screwed down on its four inserts, the servo in `J5`, and the 300 mm (12 in) ribbon (`RIB2`) in `J4` with its far end loose. `J3` is fed once the chute is in the frame.
 
 <div class="img-placeholder">Photo of the layer adapter board screwed to the chute core, with the ribbon cable and the servo lead plugged in.</div>
 

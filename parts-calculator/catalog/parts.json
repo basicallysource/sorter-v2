@@ -6727,9 +6727,9 @@
       "cots": {
         "type": "cable"
       },
-      "name": "Micro USB Data Cable",
+      "name": "Micro USB Data Cable (U2)",
       "category": "Computer",
-      "description": "Connects the Raspberry Pi Pico on the control board to the powered USB hub. Use a micro USB cable that carries data. Charge-only cables do not work.",
+      "description": "Connects the Raspberry Pi Pico (U2) on the control board to the powered USB hub. Use a micro USB cable that carries data. Charge-only cables do not work.",
       "note": "USB Cables totally vary in quality. Ensure it supports data",
       "created_at": "2026-07-18",
       "updated_at": "2026-10-02",
@@ -7011,9 +7011,9 @@
         "length_min_mm": 1200,
         "length_max_mm": 1500
       },
-      "name": "IDC ribbon cable, 16-pin (2×8), 1.2 to 1.5 m",
+      "name": "IDC ribbon cable (RIB), 16-pin (2×8), 1.2 to 1.5 m (47 to 59 in)",
       "category": "Electronics",
-      "description": "Ribbon cable from the distribution board to the chute. One per machine. Any length from 1.2 m to 1.5 m works, with a female socket on both ends.",
+      "description": "Ribbon cable (RIB) from the control board's J17 to J3 on the first layer board. One per machine. Any length from 1.2 m (47 in) to 1.5 m (59 in) works, with a female socket on both ends.",
       "created_at": "2026-07-18",
       "updated_at": "2026-10-02",
       "sheet_qty": {
@@ -7051,11 +7051,11 @@
         },
         {
           "label": "Pitch",
-          "value": "2.54 mm"
+          "value": "2.54 mm (0.1 in)"
         },
         {
           "label": "Length",
-          "value": "1.2 to 1.5 m"
+          "value": "1.2 to 1.5 m (47 to 59 in)"
         }
       ]
     },
@@ -7069,9 +7069,9 @@
         "length_min_mm": null,
         "length_max_mm": null
       },
-      "name": "IDC ribbon cable, 16-pin (2×8), 30 cm",
+      "name": "IDC ribbon cable (RIB2), 16-pin (2×8), 300 mm (12 in)",
       "category": "Electronics",
-      "description": "Ribbon cable that links one distribution layer to the layer below it. A machine uses 2 (3 layers) or 4 (5 layers). 30 cm long, female socket on both ends.",
+      "description": "Ribbon cable (RIB2) that links one distribution layer's J4 to the J3 of the layer below it. A machine uses 2 (3 layers) or 4 (5 layers). 300 mm (12 in) long, female socket on both ends.",
       "created_at": "2026-07-18",
       "updated_at": "2026-10-02",
       "sheet_qty": {
@@ -7108,11 +7108,11 @@
         },
         {
           "label": "Pitch",
-          "value": "2.54 mm"
+          "value": "2.54 mm (0.1 in)"
         },
         {
           "label": "Length",
-          "value": "30 cm"
+          "value": "300 mm (12 in)"
         }
       ],
       "internal_notes": "EU row amazon.de B0DQ4WDF35 (ZDE, pack of 6, 16 pin female-to-female, 30 cm) EUR 9.99 on 2026-10-02. Another ZDE ASIN in the same family (B0DQGQV7RC) is the 6-pin one, so check the pin count."
@@ -7322,7 +7322,7 @@
         },
         {
           "label": "Variants",
-          "value": "SBL-RA2P-8-1 comes with 4 in leads fitted; SBL-RA2P-8-DC ends in a 5.5 x 2.1 mm barrel socket"
+          "value": "SBL-RA2P-8-1 comes with 100 mm (4 in) leads fitted; SBL-RA2P-8-DC ends in a 5.5 x 2.1 mm barrel socket"
         }
       ],
       "sheet_qty": {
@@ -7372,9 +7372,9 @@
       "cots": {
         "type": "cable"
       },
-      "name": "Pre-crimped 2-pin Dupont cable, 1 m",
+      "name": "Pre-crimped 2-pin Dupont cable (L1 to L3), 1 m (39 in)",
       "category": "Wire harness",
-      "description": "A metre of 22 AWG (0.33 mm²) red and black with a 2-pin 2.54 mm Dupont housing crimped on. The board cable of an LED drop: the Dupont end pushes onto an LED header (J8 to J11), and the far end is cut and joined to the inline barrel socket. The pack is male-to-female, so cut the male plug off and discard it.",
+      "description": "1 m (39 in) of 22 AWG (0.33 mm²) red and black with a 2-pin 2.54 mm Dupont housing crimped on. The board cable of an LED drop (L1, L2 or L3): the Dupont end pushes onto an LED header (J8 to J11), and the far end is cut and joined to the inline barrel socket. The pack is male-to-female, so cut the male plug off and discard it.",
       "note": "Sold male-to-female: cut the male plug off and discard it. Any 22 AWG (0.33 mm²) pair plus a 2-pin Dupont housing does the same job if you own a crimp tool.",
       "alternative": "Your own 22 AWG (0.33 mm²) pair plus a 2-pin 2.54 mm Dupont housing and two crimps",
       "created_at": "2026-09-10",
@@ -7383,7 +7383,7 @@
       "attributes": [
         {
           "label": "Pitch",
-          "value": "2.54 mm, 2-pin single row"
+          "value": "2.54 mm (0.1 in), 2-pin single row"
         },
         {
           "label": "Wire",
@@ -7391,7 +7391,7 @@
         },
         {
           "label": "Length",
-          "value": "100 cm"
+          "value": "1 m (39 in)"
         },
         {
           "label": "Pack",
@@ -7565,7 +7565,7 @@
       },
       "name": "DC barrel plug, 5.5 x 2.1 mm male",
       "category": "Wire harness",
-      "description": "The plug on the end of a 24 V lead that goes into a PSU box jack. Tip is +24 V and the sleeve is ground. Buy it as a moulded plug already on a short lead and splice to that; a screw-terminal plug you assemble yourself works but is bulkier and comes loose.",
+      "description": "The plug on the end of a 24 V lead (W1, W2 or W3) that goes into a PSU box jack. Tip is +24 V and the sleeve is ground. Buy it as a moulded plug already on a short lead and splice to that; a screw-terminal plug you assemble yourself works but is bulkier and comes loose.",
       "note": "5.5 x 2.5 mm looks identical and does not mate: the 0.4 mm is on the centre pin. Check the pin size on the listing, not the outside diameter.",
       "created_at": "2026-09-14",
       "updated_at": "2026-10-02",
@@ -7573,7 +7573,7 @@
       "attributes": [
         {
           "label": "Size",
-          "value": "5.5 mm outside, 2.1 mm centre pin"
+          "value": "5.5 mm (0.217 in) outside, 2.1 mm (0.083 in) centre pin"
         },
         {
           "label": "Polarity",
@@ -7643,9 +7643,9 @@
         "type": "cable",
         "optional": true
       },
-      "name": "DC lead, 5.5 x 2.1 mm male to male, 2 ft",
+      "name": "DC lead (W2, bought), 5.5 x 2.1 mm male to male, 610 mm (24 in)",
       "category": "Wire harness",
-      "description": "The alternative for the powered USB hub's 24 V lead, W2, when the Orange Pi housing is mounted too far from the PSU box for a moulded barrel plug's own lead (about 28 cm) to reach the hub's screw terminal: a ready-made lead with a 5.5 x 2.1 mm barrel plug at each end and about 2 ft (600 mm) of 22 AWG (0.33 mm²) between them. One end goes into a PSU box jack and the other into the hub's own jack. It is wired plug to plug, so the centre pin stays positive at both ends. Nothing is made or joined. Buy it only if you take that route; it is not on the machine's parts list otherwise.",
+      "description": "The alternative for the powered USB hub's 24 V lead, W2, when the Orange Pi housing is mounted too far from the PSU box for a moulded barrel plug's own lead (about 280 mm (11 in)) to reach the hub's screw terminal: a ready-made lead with a 5.5 x 2.1 mm barrel plug at each end and 610 mm (24 in) of 22 AWG (0.33 mm²) between them. One end goes into a PSU box jack and the other into the hub's own jack. It is wired plug to plug, so the centre pin stays positive at both ends. Nothing is made or joined. Buy it only if you take that route; it is not on the machine's parts list otherwise.",
       "note": "5.5 x 2.5 mm leads look identical and do not mate: the 0.4 mm is on the centre pin. Check the pin size on the listing, not the outside diameter. Any male to male 5.5 x 2.1 mm lead of 22 AWG or thicker and centre positive does.",
       "created_at": "2026-10-02",
       "updated_at": "2026-10-02",
@@ -7653,7 +7653,7 @@
       "attributes": [
         {
           "label": "Size",
-          "value": "5.5 mm outside, 2.1 mm centre pin, both ends"
+          "value": "5.5 mm (0.217 in) outside, 2.1 mm (0.083 in) centre pin, both ends"
         },
         {
           "label": "Polarity",
@@ -7665,7 +7665,7 @@
         },
         {
           "label": "Length",
-          "value": "About 2 ft (600 mm)"
+          "value": "610 mm (24 in)"
         },
         {
           "label": "Used on",
@@ -7698,7 +7698,7 @@
       },
       "name": "DC barrel plug, 5.5 x 2.1 mm male, for the LED pigtail",
       "category": "Wire harness",
-      "description": "Optional but recommended. The plug on a camera lamp's pigtail. It pushes into the inline barrel socket on the board cable, so the lamp can be unplugged at the lamp. Tip is +24 V and the sleeve is ground. Leave the pair out and the lamp's strip is connected straight to the Dupont cable instead. Buy it as a moulded plug already on a short pair of wires. Those wires go onto the strip. One per lamp.",
+      "description": "Optional but recommended. The plug on a camera lamp's pigtail (L1p, L2p or L3p). It pushes into the inline barrel socket on the board cable, so the lamp can be unplugged at the lamp. Tip is +24 V and the sleeve is ground. Leave the pair out and the lamp's strip is connected straight to the Dupont cable (L1 to L3) instead. Buy it as a moulded plug already on a short pair of wires. Those wires go onto the strip. One per lamp.",
       "note": "5.5 x 2.5 mm looks identical and does not mate: the 0.4 mm is on the centre pin. Check the pin size on the listing, not the outside diameter.",
       "created_at": "2026-09-30",
       "updated_at": "2026-10-02",
@@ -7781,7 +7781,7 @@
       },
       "name": "DC barrel jack, 5.5 x 2.1 mm female, panel-mount",
       "category": "Wire harness",
-      "description": "The three outputs of the PSU box, mounted through its connections plate. Each one is fed by a short 18 AWG (0.82 mm²) pigtail with a spade terminal on each wire, landing on one +V/-V screw pair of the LRS-350-24.",
+      "description": "The three outputs of the PSU box, mounted through its connections plate. Each one is fed by a short 18 AWG (0.82 mm²) pigtail (PJ1, PJ2 or PJ3) with a spade terminal on each wire, landing on one +V/-V screw pair of the LRS-350-24.",
       "note": "Buy the jacks with the pigtail leads already attached. Building one from a bare jack and loose wire is more work for the same part, and the leads are the fiddly bit.",
       "created_at": "2026-09-14",
       "updated_at": "2026-10-02",
@@ -7801,7 +7801,7 @@
         },
         {
           "label": "Lead",
-          "value": "About 4 in of 18 AWG (0.82 mm²), usually supplied on the jack"
+          "value": "About 100 mm (4 in) of 18 AWG (0.82 mm²), usually supplied on the jack"
         },
         {
           "label": "Mounting",
@@ -7848,7 +7848,7 @@
       },
       "name": "DC barrel socket, 5.5 x 2.1 mm female, inline",
       "category": "Wire harness",
-      "description": "Optional but recommended. The unplug point of an LED drop, so a camera lamp can come off without unpicking the board end. Its two wires are joined to the cut end of the Dupont cable, and the lamp pigtail's barrel plug pushes into it. Leave the pair out and the strip is connected straight to the Dupont cable instead. One per lamp.",
+      "description": "Optional but recommended. The unplug point of an LED drop, so a camera lamp can come off without unpicking the board end. Its two wires are joined to the cut end of the Dupont cable (L1 to L3), and the lamp pigtail's (L1p to L3p) barrel plug pushes into it. Leave the pair out and the strip is connected straight to the Dupont cable instead. One per lamp.",
       "note": "Buy it as a moulded socket already on its own short wires and join those to the Dupont cable. The socket goes on the board cable and the plug on the lamp pigtail, because the board end is live at 24 V.",
       "created_at": "2026-09-14",
       "updated_at": "2026-10-02",
@@ -7906,7 +7906,7 @@
       },
       "name": "Insulated butt connector, red, 22-16 AWG",
       "category": "Wire harness",
-      "description": "Joins two wires end to end without soldering: one wire goes in each end and the barrel is crimped onto it. Two per LED drop, one for each of the barrel socket's wires, so six for the three lamps, plus two on the control board's 24 V lead and two on the Orange Pi's 24 V lead, one for each of the moulded barrel plug's leads (or one for each extension of a short converter wire), so ten used per machine, plus two spares for each of those three kinds of lead, six more, sixteen in all.",
+      "description": "Joins two wires end to end without soldering: one wire goes in each end and the barrel is crimped onto it. Two per LED drop (L1 to L3), one for each of the barrel socket's wires, so six for the three lamps, plus two on the control board's 24 V lead (W1) and two on the Orange Pi's 24 V lead (W3), one for each of the moulded barrel plug's leads (or one for each extension of a short converter wire), so ten used per machine, plus two spares for each of those three kinds of lead, six more, sixteen in all.",
       "note": "Crimp it with insulated-terminal crimping pliers, in the die marked for 22 to 16 AWG (0.33 to 1.3 mm²), not picked by colour. A crimp tool for open-barrel Dupont and PH contacts has the wrong die and will not close this connector properly.",
       "alternative": "Solder the two wires together and cover each joint with a 25 mm piece of 3 mm adhesive-lined heat shrink instead",
       "created_at": "2026-10-01",
@@ -8140,7 +8140,7 @@
       },
       "name": "JST PH housing, 4-pin (PHR-4)",
       "category": "Wire harness",
-      "description": "The board end of the stepper cables, into a 4-pin JST-PH stepper output on basically board v1.3. Which socket you plug it into is what decides which motor the software drives, so follow the mapping on the docs page rather than guessing.",
+      "description": "The board end of the stepper cables (S1 to S4 and CH), into a 4-pin JST-PH stepper output on basically board v1.3. Which socket you plug it into is what decides which motor the software drives, so follow the mapping on the docs page rather than guessing.",
       "note": "Buy one or two spare housings.",
       "created_at": "2026-09-14",
       "updated_at": "2026-10-02",
@@ -8257,7 +8257,7 @@
       },
       "name": "JST PH crimp contact (SPH-002T-P0.5S)",
       "category": "Wire harness",
-      "description": "The contacts inside every PH housing on the machine. Crimp one onto each conductor, then push it into the housing until it latches.",
+      "description": "The contacts inside every PH housing on the machine (S1 to S4 and CH). Crimp one onto each conductor, then push it into the housing until it latches.",
       "note": "Wire must be 24 to 30 AWG (0.05 to 0.22 mm²). The 24 AWG chute wire and the motors' own 26 AWG leads both fit. Buy well over the count; these are small and easy to spoil.",
       "created_at": "2026-09-14",
       "updated_at": "2026-10-02",
@@ -8313,7 +8313,7 @@
       },
       "name": "Dupont housing, 1x3 female, 2.54 mm",
       "category": "Wire harness",
-      "description": "The board end of the chute limit switch cable, onto J5. Only two of the three positions hold a contact: ground and signal.",
+      "description": "The board end of the chute limit switch cable (LIM), onto J5. Only two of the three positions hold a contact: ground and signal.",
       "note": "The third position is left empty on purpose: it goes over J5's 3.3 V pin, so no contact can touch it. The housing is not keyed, so it can still be pushed on the wrong way round. The board prints 3.3V beside that pin; put the empty position over it.",
       "alternative": null,
       "created_at": "2026-09-14",
@@ -8395,7 +8395,7 @@
       },
       "name": "Dupont female crimp contact, 2.54 mm",
       "category": "Wire harness",
-      "description": "The contact inside a Dupont housing. Crimp one onto each conductor, then push it into the housing until it latches. Two go in the limit switch lead's board end and two are spares.",
+      "description": "The contact inside a Dupont housing. Crimp one onto each conductor, then push it into the housing until it latches. Two go in the limit switch lead's (LIM) board end and two are spares.",
       "note": "Takes 22 to 28 AWG (0.08 to 0.33 mm²), so the 22 AWG (0.33 mm²) limit switch wire is at the thick end of the range. Crimp it in the die for open-barrel contacts, not the insulated-terminal die. Buy well over the count; they are small and easy to spoil.",
       "alternative": null,
       "created_at": "2026-10-01",
@@ -8473,7 +8473,7 @@
       },
       "name": "Insulated butt splice, clear, 24 to 20 AWG (0.2 to 0.6 mm²) (TE PIDG 323975)",
       "category": "Wire harness",
-      "description": "Joins two wires end to end without soldering: one wire goes in each end and the barrel is crimped onto it. The only common size that holds both the chute stepper cable's 24 AWG (0.20 mm²) wire and the motor's own 20 AWG (0.52 mm²) leads. Four on the chute stepper cable, one per motor lead, plus two spares, six in all.",
+      "description": "Joins two wires end to end without soldering: one wire goes in each end and the barrel is crimped onto it. The only common size that holds both the chute stepper cable's (CH) 24 AWG (0.20 mm²) wire and the motor's own 20 AWG (0.52 mm²) leads. Four on the chute stepper cable, one per motor lead, plus two spares, six in all.",
       "note": "Crimp it with insulated-terminal crimping pliers, in the die marked for 24 to 20 AWG (0.2 to 0.6 mm²), not picked by colour. The insulation sits against the end of the barrel, not inside it, and each wire end goes in until it touches the stop in the middle: look through the clear window to check. A crimp tool for open-barrel Dupont and PH contacts has the wrong die and will not close this splice properly.",
       "alternative": "Solder the two wires together and cover each joint with a piece of adhesive-lined heat shrink instead",
       "created_at": "2026-10-01",
@@ -8529,7 +8529,7 @@
       },
       "name": "Insulated fork terminal, M3.5, 18 AWG (0.82 mm²)",
       "category": "Wire harness",
-      "description": "Crimped onto both wires of each PSU output pigtail, landing under the screws of the LRS-350-24 terminal block. Three pigtails, two terminals each, plus two spares.",
+      "description": "Crimped onto both wires of each PSU output pigtail (PJ1 to PJ3), landing under the screws of the LRS-350-24 terminal block. Three pigtails, two terminals each, plus two spares.",
       "note": "8 mm wide at most. Plenty of fork terminals are wider and simply will not fit between the LRS-350-24's output screws, and the listing rarely gives the width, so go by the stud size: M3.5 or #6.",
       "created_at": "2026-09-14",
       "updated_at": "2026-10-02",
@@ -8595,7 +8595,7 @@
       },
       "name": "Insulated quick-connect receptacle, #187",
       "category": "Wire harness",
-      "description": "The switch end of the chute limit switch cable. It pushes straight onto the Omron V-155-1C25's blade tabs, so there is nothing to solder.",
+      "description": "The switch end of the chute limit switch cable (LIM). It pushes straight onto the Omron V-155-1C25's blade tabs, so there is nothing to solder.",
       "note": "Fully insulated, not the open kind. The switch is SPDT with three tabs and only two are used, so a bare receptacle can touch the spare one.",
       "created_at": "2026-09-14",
       "updated_at": "2026-10-02",
@@ -8603,7 +8603,7 @@
       "attributes": [
         {
           "label": "Tab",
-          "value": "#187, 4.75 x 0.5 mm"
+          "value": "#187, 4.75 x 0.5 mm (0.187 x 0.020 in)"
         },
         {
           "label": "Wire",
@@ -8661,8 +8661,8 @@
       },
       "name": "Hook-up wire, 18 AWG (0.82 mm²), 2-conductor red and black",
       "category": "Wire harness",
-      "description": "The heavy gauge in the machine: the three PSU output pigtails inside the box, and W1, the 24 V feed to the control board. A bonded red and black pair is easiest, since the polarity is then obvious at both ends.",
-      "note": "The panel-mount jacks normally arrive with their 0.102 m (10.2 cm, 4 in) leads attached, which leaves only W1's 0.914 m (91.4 cm, 36 in) to make.",
+      "description": "The heavy gauge in the machine: the three PSU output pigtails (PJ1 to PJ3) inside the box, and W1, the 24 V feed to the control board. A bonded red and black pair is easiest, since the polarity is then obvious at both ends.",
+      "note": "The panel-mount jacks normally arrive with their 100 mm (4 in) leads attached, which leaves only W1's 920 mm (36 in) to make.",
       "created_at": "2026-09-14",
       "updated_at": "2026-10-02",
       "image_url": "https://assets.basically.website/sorter-parts/wire-18awg-2c-full-3e5bb7dfedfa.jpg",
@@ -8677,7 +8677,7 @@
         },
         {
           "label": "Length per machine",
-          "value": "1.22 m (121.9 cm, 48 in) per machine: 3 x 0.102 m (10.2 cm, 4 in) for the PSU pigtails, 0.914 m (91.4 cm, 36 in) for W1"
+          "value": "1.22 m (48 in) per machine: 3 x 100 mm (4 in) for the PSU pigtails (PJ1 to PJ3), 920 mm (36 in) for W1"
         },
         {
           "label": "Buy",
@@ -8686,10 +8686,10 @@
       ],
       "stock": {
         "unit_length_mm": 30480,
-        "cut_length_mm": 1219,
-        "pieces_per_unit": 25,
+        "cut_length_mm": 1220,
+        "pieces_per_unit": 24,
         "unit_label": "30.5 m (100 ft) spool",
-        "piece_label": "one machine's worth (1.22 m / 121.9 cm / 48 in)"
+        "piece_label": "one machine's worth (1.22 m / 48 in)"
       },
       "sheet_qty": {
         "per_machine": 1
@@ -8739,7 +8739,7 @@
       },
       "name": "Hook-up wire, 22 AWG (0.33 mm²), 2-conductor red and black",
       "category": "Wire harness",
-      "description": "The wire for the chute limit switch cable, and for extending the Orange Pi converter's input wires if they are shorter than 100 mm. The USB hub's 24 V lead is a barrel plug on its own short lead (or a bought lead), and the LED drops are bought Dupont cables and barrel plugs on their own leads, so none of those takes this wire. Making your own Dupont cable for a lamp is the one other use.",
+      "description": "The wire for the chute limit switch cable (LIM), and for extending the Orange Pi converter's input wires if they are shorter than 100 mm. The USB hub's 24 V lead (W2) is a barrel plug on its own short lead (or a bought lead), and the LED drops are bought Dupont cables and barrel plugs on their own leads, so none of those takes this wire. Making your own Dupont cable (L1 to L3) for a lamp is the one other use.",
       "created_at": "2026-09-14",
       "updated_at": "2026-10-02",
       "image_url": "https://assets.basically.website/sorter-parts/wire-22awg-2c-full-c5bdc4a8c04e.jpg",
@@ -8754,7 +8754,7 @@
         },
         {
           "label": "Length per machine",
-          "value": "0.76 m (76.2 cm, 30 in) per machine: limit switch 0.610 m (61 cm, 24 in), and up to 0.152 m (15.2 cm, 6 in) to extend W3's converter wires. A home-made Dupont cable for each lamp is 3 x 0.914 m (91.4 cm, 36 in) more"
+          "value": "0.76 m (30 in) per machine: limit switch (LIM) 610 mm (24 in), and up to 150 mm (6 in) to extend W3's converter wires. A home-made Dupont cable (L1 to L3) for each lamp is 3 x 920 mm (36 in) more"
         },
         {
           "label": "Note",
@@ -8763,10 +8763,10 @@
       ],
       "stock": {
         "unit_length_mm": 15240,
-        "cut_length_mm": 762,
+        "cut_length_mm": 760,
         "pieces_per_unit": 20,
         "unit_label": "15.2 m (50 ft) spool",
-        "piece_label": "one machine's worth (0.76 m / 76.2 cm / 30 in)"
+        "piece_label": "one machine's worth (0.76 m / 30 in)"
       },
       "sheet_qty": {
         "per_machine": 1
@@ -8831,7 +8831,7 @@
         },
         {
           "label": "Length per machine",
-          "value": "0.3 m (30 cm, 12 in) of each colour per machine, for CH only: the tail is 100 mm with 500 mm motor leads and 300 mm with 300 mm leads"
+          "value": "300 mm (12 in) of each colour per machine, for CH only: the tail is 100 mm (4 in) with 500 mm (20 in) motor leads and 300 mm (12 in) with 300 mm (12 in) leads"
         },
         {
           "label": "Buy",
@@ -8843,7 +8843,7 @@
         "cut_length_mm": 300,
         "pieces_per_unit": 30,
         "unit_label": "kit with about 9 m (30 ft) of each colour",
-        "piece_label": "one machine's worth (0.3 m / 30 cm / 12 in of each of four colours)"
+        "piece_label": "one machine's worth (300 mm / 12 in of each of four colours)"
       },
       "sheet_qty": {
         "per_machine": 1
@@ -8893,7 +8893,7 @@
       },
       "name": "Braided cable sleeving, 1/4 in",
       "category": "Wire harness",
-      "description": "Optional. Holds the wires of each lead you make together as one bundle, and protects them where they run along the frame, so a metre of loose wire does not end up spread across the machine. Every lead works without it.",
+      "description": "Optional. Holds the wires of each lead you make (W1, W3, LIM, CH, S1 to S4, L1 to L3) together as one bundle, and protects them where they run along the frame, so a metre of loose wire does not end up spread across the machine. Every lead works without it.",
       "note": "Buy PET braid in 1/4 in (6 mm) size, which is what the links are. The harness drawing sleeves only the four S bundles; sleeving the other leads is a choice, as a way of securing the cables.",
       "created_at": "2026-09-14",
       "updated_at": "2026-10-02",
@@ -9224,9 +9224,9 @@
       "cots": {
         "type": "cable"
       },
-      "name": "Mains lead, IEC C13 to wall plug",
+      "name": "Mains lead (AC1), IEC C13 to wall plug",
       "category": "Power supply",
-      "description": "The cable from the wall socket to the machine. The machine end is a C13 socket, which mates with the inlet's C14. The wall end is your local plug: US NEMA 5-15 or EU Schuko CEE 7/7. It is the cord a desktop PC or a monitor comes with.",
+      "description": "The mains lead (AC1) from the wall socket to the machine. The machine end is a C13 socket, which mates with the inlet's C14. The wall end is your local plug: US NEMA 5-15 or EU Schuko CEE 7/7. It is the cord a desktop PC or a monitor comes with.",
       "note": "Three core: the machine earths through this cable. 10 A or better, which matches the inlet's own fuse and is far more than the machine draws. It is listed so it is not forgotten at the end of a build, not because it has to be bought; most people have a spare one already.",
       "created_at": "2026-09-23",
       "updated_at": "2026-10-02",
@@ -16811,7 +16811,7 @@
       "uid": "nno4",
       "version": "7",
       "name": "Electronics",
-      "description": "The PSU, the control board and the Orange Pi, each in its own printed box bolted to the frame, plus the 24 V lead to the powered USB hub, which rides on the Orange Pi housing's roof with the converter that powers the Pi.",
+      "description": "The PSU, the control board and the Orange Pi, each in its own printed box bolted to the frame, plus the 24 V lead to the powered USB hub (W2), which rides on the Orange Pi housing's roof with the converter that powers the Pi.",
       "docs": "/hardware/electronics/installation/",
       "lines": [
         {
@@ -17996,8 +17996,8 @@
       "id": "harness-psu-pigtail",
       "uid": "kog5",
       "version": "1",
-      "name": "PSU output pigtail (PJ)",
-      "description": "One of the PSU box's three 24 V outputs: a panel-mount barrel jack through the connections plate, fed by a 4 in 18 AWG (0.82 mm²) pigtail with a fork terminal crimped onto each wire. The pair lands on one +V/-V screw pair of the LRS-350-24, 7 with 4, 8 with 5, 9 with 6. Buy the jacks with their leads already attached; building one from a bare jack and loose wire is more work for the same part. 3 per machine.",
+      "name": "PSU output pigtail (PJ1 to PJ3)",
+      "description": "One of the PSU box's three 24 V outputs (PJ1, PJ2, PJ3): a panel-mount barrel jack through the connections plate, fed by a 100 mm (4 in) 18 AWG (0.82 mm²) pigtail with a fork terminal crimped onto each wire. The pair lands on one +V/-V screw pair of the LRS-350-24, 7 with 4, 8 with 5, 9 with 6. Buy the jacks with their leads already attached; building one from a bare jack and loose wire is more work for the same part. 3 per machine.",
       "joining": [
         {
           "method": "crimp",
@@ -18020,7 +18020,7 @@
       "uid": "9yz2",
       "version": "2",
       "name": "24 V board feed (W1)",
-      "description": "The control board's 24 V lead, W1 on the power drawing: a barrel plug into one of the PSU box jacks at one end, a 2-pin VHR-2 onto J1 at the board end. 36 in of 18 AWG (0.82 mm²), deliberately long. Pin 1 is +24 V and pin 2 is ground. 1 per machine.",
+      "description": "The control board's 24 V lead, W1 on the power drawing: a barrel plug into one of the PSU box jacks at one end, a 2-pin VHR-2 onto J1 at the board end. 920 mm (36 in) of 18 AWG (0.82 mm²), deliberately long. Pin 1 is +24 V and pin 2 is ground. 1 per machine.",
       "joining": [
         {
           "method": "crimp",
@@ -18086,7 +18086,7 @@
       "uid": "ks7s",
       "version": "2",
       "name": "24 V USB hub lead (W2)",
-      "description": "The powered USB hub's feed, W2 on the power drawing: a moulded barrel plug into a PSU box jack, with its two bare wires screwed into the 2-pin power terminal on the hub's circuit board, matching the + and - printed on the board. The plug's own lead, about 28 cm with the plug, reaches the hub when the Orange Pi housing that carries it is bolted next to the PSU box as the frame drawing shows. If the two are mounted further apart, buy the ready-made male to male lead (the optional DC lead, 5.5 x 2.1 mm male to male, 2 ft) and plug it into the hub's jack instead. It sits at the Electronics level beside the box the lead starts at. 1 per machine.",
+      "description": "The powered USB hub's feed, W2 on the power drawing: a moulded barrel plug into a PSU box jack, with its two bare wires screwed into the 2-pin power terminal on the hub's circuit board, matching the + and - printed on the board. The plug's own lead, about 280 mm (11 in) with the plug, reaches the hub when the Orange Pi housing that carries it is bolted next to the PSU box as the frame drawing shows. If the two are mounted further apart, buy the ready-made male to male lead (the optional DC lead, 5.5 x 2.1 mm male to male, 610 mm (24 in), W2 when bought) and plug it into the hub's jack instead. It sits at the Electronics level beside the box the lead starts at. 1 per machine.",
       "lines": [
         {
           "part": "dc-plug-5521-male",
@@ -18120,7 +18120,7 @@
       "uid": "yd1v",
       "version": "2",
       "name": "24 V buck converter lead (W3)",
-      "description": "The feed to the 24 V to 5 V buck converter that powers the Orange Pi, W3 on the power drawing: a barrel plug into a PSU box jack at one end, the converter's red and black input wires at the other. The converter's own input wires are 100 mm or more and are used as they are; if they are shorter they are extended to about 150 mm (6 in) with 22 AWG (0.33 mm²) wire. The converter itself is not placed in the tree yet, so this sits on the mount its load bolts beside. 1 per machine.",
+      "description": "The feed to the 24 V to 5 V buck converter that powers the Orange Pi, W3 on the power drawing: a barrel plug into a PSU box jack at one end, the converter's red and black input wires at the other. The converter's own input wires are 100 mm (4 in) or more and are used as they are; if they are shorter they are extended to about 150 mm (6 in) with 22 AWG (0.33 mm²) wire. The converter itself is not placed in the tree yet, so this sits on the mount its load bolts beside. 1 per machine.",
       "joining": [
         {
           "method": "crimp",
@@ -18167,8 +18167,8 @@
       "id": "harness-led-drop",
       "uid": "nmlx",
       "version": "2",
-      "name": "LED drop (L, Lp)",
-      "description": "One camera lamp's power: a metre-long Dupont cable from an LED header on the board to the lamp's strip. Optional but recommended: an inline barrel socket on the cable and a 6 in pigtail from the matching plug to the lamp, which is the unplug point, so a lamp comes off next to the lamp without unpicking the board end. The socket's wires are joined to the Dupont cable with two butt connectors or by soldering. Without the pair the cable goes straight to the strip. 1 per camera lamp.",
+      "name": "LED drop (L1 to L3, L1p to L3p)",
+      "description": "One camera lamp's power: a 1 m (39 in) Dupont cable (L1, L2 or L3) from an LED header on the board to the lamp's strip. Optional but recommended: an inline barrel socket on the cable and a 150 mm (6 in) pigtail (L1p, L2p or L3p) from the matching plug to the lamp, which is the unplug point, so a lamp comes off next to the lamp without unpicking the board end. The socket's wires are joined to the Dupont cable with two butt connectors or by soldering. Without the pair the cable goes straight to the strip. 1 per camera lamp.",
       "joining": [
         {
           "method": "crimp",
@@ -18215,8 +18215,8 @@
       "id": "harness-stepper-channel",
       "uid": "5la8",
       "version": "2",
-      "name": "Channel stepper cable (S)",
-      "description": "One C-channel stepper's cable, made from the motor's own lead. The Dupont plug it ships with is cut off and a 4-pin PHR-4 is crimped on in its place, to go into a stepper socket on the board. The motor end is the 6-pin housing the lead already ends in and is left as it is. The board's 1, 2, 3, 4 go to motor positions 1, 4, 3, 6, so this is a crossover and the position order matters; positions 2 and 5 on the motor housing stay empty. Follow the position each wire sits in at the motor, not its colour. 1 per C-channel drive.",
+      "name": "Channel stepper cable (S1 to S4)",
+      "description": "One C-channel stepper's cable (S1, S2, S3 or S4), made from the motor's own lead. The Dupont plug it ships with is cut off and a 4-pin PHR-4 is crimped on in its place, to go into a stepper socket on the board. The motor end is the 6-pin housing the lead already ends in and is left as it is. The board's 1, 2, 3, 4 go to motor positions 1, 4, 3, 6, so this is a crossover and the position order matters; positions 2 and 5 on the motor housing stay empty. Follow the position each wire sits in at the motor, not its colour. 1 per C-channel drive.",
       "joining": [
         {
           "method": "crimp",
@@ -18270,7 +18270,7 @@
       "uid": "1taq",
       "version": "2",
       "name": "Chute stepper cable (CH)",
-      "description": "The chute stepper's cable: a 4-pin PHR-4 into the board at one end, bare labelled leads at the other spliced to the motor's flying leads. Straight through, not a crossover, about 24 in (600 mm) long, of which the last 100 to 300 mm is the 24 AWG (0.20 mm²) tail. Find the coil pairs with a multimeter first. 1 per machine.",
+      "description": "The chute stepper's cable: a 4-pin PHR-4 into the board at one end, bare labelled leads at the other spliced to the motor's flying leads. Straight through, not a crossover, about 610 mm (24 in) long, of which the last 100 to 300 mm (4 to 12 in) is the 24 AWG (0.20 mm²) tail. Find the coil pairs with a multimeter first. 1 per machine.",
       "joining": [
         {
           "method": "crimp",
@@ -18327,7 +18327,7 @@
       "uid": "fxa2",
       "version": "2",
       "name": "Limit switch cable (LIM)",
-      "description": "The chute limit switch's cable: a 3-pin Dupont housing onto J5 with two contacts in it and the third position left empty, over the board's 3.3 V pin, and an insulated #187 quick-connect on each wire pushing onto the switch's blade tabs. 24 in of 22 AWG (0.33 mm²), and nothing on it is soldered. 1 per machine.",
+      "description": "The chute limit switch's cable: a 3-pin Dupont housing onto J5 with two contacts in it and the third position left empty, over the board's 3.3 V pin, and an insulated #187 quick-connect on each wire pushing onto the switch's blade tabs. 610 mm (24 in) of 22 AWG (0.33 mm²), and nothing on it is soldered. 1 per machine.",
       "joining": [
         {
           "method": "crimp",
@@ -18380,7 +18380,7 @@
       "uid": "xo4j",
       "version": "1",
       "name": "Wire and sleeving",
-      "description": "The cut-to-length wire the leads are made from, and the optional braided sleeving over the leads you make. Each is bought as a spool or roll and one machine's worth is one line, so each counts once however many leads are cut from it. Gauge and length per machine are on each part: 18 AWG two-core for the PSU pigtails and W1, 22 AWG two-core for the limit switch cable and the Orange Pi lead's extension, four-colour 24 AWG for the chute stepper cable.",
+      "description": "The cut-to-length wire the leads are made from, and the optional braided sleeving over the leads you make. Each is bought as a spool or roll and one machine's worth is one line, so each counts once however many leads are cut from it. Gauge and length per machine are on each part: 18 AWG (0.82 mm²) two-core for the PSU pigtails (PJ1 to PJ3) and W1, 22 AWG (0.33 mm²) two-core for the limit switch cable (LIM) and the Orange Pi lead's (W3) extension, four-colour 24 AWG (0.20 mm²) for the chute stepper cable (CH).",
       "docs": "/hardware/electronics/wire-harness/",
       "lines": [
         {

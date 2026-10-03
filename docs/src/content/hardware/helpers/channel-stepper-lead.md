@@ -1,11 +1,11 @@
 ---
 layout: default
-title: Make the channel stepper leads
+title: Make the channel stepper leads (S1 to S4)
 type: how-to
 section: hardware
 slug: helper-channel-stepper-lead
-kicker: Helpers — Channel stepper leads
-lede: The four leads from the control board to the c-channel motors. Four per machine, all identical, each made by replacing the Dupont plug on the motor's own lead with a 4-pin JST connector.
+kicker: Helpers — Channel stepper leads (S1 to S4)
+lede: The four leads (S1 to S4) from the control board to the c-channel motors. Four per machine, all identical, each made by replacing the Dupont plug on the motor's own lead with a 4-pin JST connector.
 permalink: /hardware/helpers/channel-stepper-lead/
 author: effreek
 contributors: [daddyosbricksbill, spencer, brickcyclealice, barthel]
@@ -17,15 +17,15 @@ parts_needed:
     qty: 20
   - part: sleeving-braided-6mm
     qty: 1
-    note: Optional. 1 m per lead, 4 m for the four.
+    note: Optional. 1 m (39 in) per lead, 4 m (13 ft) for the four.
 tools_needed: ["Multimeter, to check the finished lead", "Side cutters, to cut the Dupont housing off", "Wire strippers, for 26 AWG (0.13 mm²) wire", "Crimping pliers for open-barrel contacts, with a die for 24 AWG (0.20 mm²) wire", "Optional, for the sleeving: scissors and tape, or a hot knife"]
 ---
 
-These are `S1` to `S4` on the [harness drawings]({{ '/hardware/parts/harness-order/#channel-stepper' | relative_url }}), one for each of the four c-channel motors. **Four per machine**, all identical. The crossover has been built on a motor's own lead by swapping the two middle contacts in its Dupont plug; this page makes the same lead with a PH housing instead of the plug.
+These are the channel stepper leads (`S1` to `S4`) on the [harness drawings]({{ '/hardware/parts/harness-order/#channel-stepper' | relative_url }}), one for each of the four c-channel motors. **Four per machine**, all identical. The crossover has been built on a motor's own lead by swapping the two middle contacts in its Dupont plug; this page makes the same lead with a PH housing instead of the plug.
 
 <div class="callout callout-warning">
   <span class="callout-icon" aria-hidden="true">⚠</span>
-  <p><b>The lead that comes in the box with the motor is not usable as it comes.</b> Two of its four conductors are in the wrong order for this board, so the driver drives half of one coil against half of the other and the motor buzzes and barely turns. It also ends in a Dupont housing, which does fit the 2.54 mm pins beside each stepper socket, so it looks right. Pull a Dupont contact sideways and its spring lifts off the pin: resistance rises, the joint heats, and it gets worse from there. Two have cooked on running machines.</p>
+  <p><b>The lead that comes in the box with the motor is not usable as it comes.</b> Two of its four conductors are in the wrong order for this board, so the driver drives half of one coil against half of the other and the motor buzzes and barely turns. It also ends in a Dupont housing, which does fit the 2.54 mm (0.1 in) pins beside each stepper socket, so it looks right. Pull a Dupont contact sideways and its spring lifts off the pin: resistance rises, the joint heats, and it gets worse from there. Two have cooked on running machines.</p>
 </div>
 
 **Both faults are in that one housing.** So the fix is to replace it: cut the plug off the motor's own lead, crimp a contact onto each of the four wires and load them into a 4-pin PHR-4 in the order below. The motor end of the lead is already right and stays as it is. **Per lead: one `jst-phr-4` and four `jst-sph-002t` contacts**, so sixteen contacts for the machine. The parts list says twenty: four spares, because the first crimps on a contact this small are easy to spoil. You also need a crimp tool for open-barrel contacts. You do not need a ready-made cable or a PHR-6.
@@ -33,9 +33,9 @@ These are `S1` to `S4` on the [harness drawings]({{ '/hardware/parts/harness-ord
 ## The two ends
 
 <dl class="spec-list">
-  <dt>Board end</dt><dd>JST <b>PH</b> housing, 4-pin (PHR-4), 2.0 mm pitch, into <code>J27</code>, <code>J31</code>, <code>J35</code> or <code>J39</code>. Positions 1 to 4 are <code>A2</code>, <code>A1</code>, <code>B1</code>, <code>B2</code>.</dd>
+  <dt>Board end</dt><dd>JST <b>PH</b> housing, 4-pin (PHR-4), 2.0 mm (0.079 in) pitch, into <code>J27</code>, <code>J31</code>, <code>J35</code> or <code>J39</code>. Positions 1 to 4 are <code>A2</code>, <code>A1</code>, <code>B1</code>, <code>B2</code>.</dd>
   <dt>Motor end</dt><dd>The 6-pin JST <b>PH</b> housing the motor's lead already ends in, plugged into the socket on the motor can. Only four of the six positions carry a contact. Leave it alone.</dd>
-  <dt>Wire</dt><dd>The motor's own lead, four conductors of 26 AWG (0.13 mm²). The harness drawing says 1 m; see the note on length below.</dd>
+  <dt>Wire</dt><dd>The motor's own lead, four conductors of 26 AWG (0.13 mm²). The harness drawing says 1 m (39 in); see the note on length below.</dd>
 </dl>
 
 <figure class="single-figure">
@@ -70,8 +70,8 @@ under <b>Re-house the lead</b>, below. Motor positions 2 and 5 stay empty.
 <ol class="numbered-steps">
   <li>Look at the back of the 6-pin housing at the motor end while it is still plugged into the motor, with the shaft towards you: position 1 is the right-hand end and the positions count 1 to 6 from right to left. Four wires sit in positions 1, 3, 4 and 6, and 2 and 5 are empty. Write down which colour is in which position, or tag each wire with a bit of tape marked with its position if two look alike.</li>
   <li>Cut the Dupont housing off, close to it, so the cable keeps its length.</li>
-  <li><b>Optional:</b> if you will sleeve the lead, slide a 1 m length of braided sleeving over the four wires from the cut end now, before you load the 4-pin housing. The 6-pin housing on the other end is too big for it to go over. Leave it bunched up on the cable for now; <a href="#sleeving-optional">Sleeving (optional)</a> says how to cut and finish it.</li>
-  <li>Strip about 2 mm off each conductor and crimp a contact onto it, in the die of the open-barrel crimping pliers marked for 24 AWG (0.20 mm²) wire. The motor's own wire is 26 AWG (0.13 mm²), which a PH contact takes (24 to 28 AWG), and the 24 AWG die is the one to use. Pull on each wire to check it holds. How to crimp a contact, with a picture, is at [Crimping connectors]({{ '/hardware/helpers/crimping/' | relative_url }}). Practise on a scrap first, the contacts are small and easy to spoil.</li>
+  <li><b>Optional:</b> if you will sleeve the lead, slide a 1 m (39 in) length of braided sleeving over the four wires from the cut end now, before you load the 4-pin housing. The 6-pin housing on the other end is too big for it to go over. Leave it bunched up on the cable for now; <a href="#sleeving-optional">Sleeving (optional)</a> says how to cut and finish it.</li>
+  <li>Strip about 2 mm (0.08 in) off each conductor and crimp a contact onto it, in the die of the open-barrel crimping pliers marked for 24 AWG (0.20 mm²) wire. The motor's own wire is 26 AWG (0.13 mm²), which a PH contact takes (24 to 28 AWG), and the 24 AWG die is the one to use. Pull on each wire to check it holds. How to crimp a contact, with a picture, is at [Crimping connectors]({{ '/hardware/helpers/crimping/' | relative_url }}). Practise on a scrap first, the contacts are small and easy to spoil.</li>
   <li>Load the <code>PHR-4</code> from the back, counting from the end that goes over the square pad of the board socket (offer the empty housing to the socket to see which end that is): the wire from motor position 1 into position 1, the wire from motor position 4 into 2, the wire from motor position 3 into 3 and the wire from motor position 6 into 4. Push each contact in until it clicks.</li>
   <li>Pull gently on each wire, then meter across <code>PHR-4</code> positions 1 and 2 and across 3 and 4 with the motor plugged in. Both read a couple of ohms, 2.3 &Omega; on the motor in the parts list, and across the two pairs is open circuit. If either pair reads open, two contacts are in the wrong places.</li>
 </ol>
@@ -82,14 +82,14 @@ under <b>Re-house the lead</b>, below. Motor positions 2 and 5 stay empty.
   <p><b>You can skip this and the lead works the same.</b> The sleeving is on the parts list as optional. It keeps the four wires of each lead together as one tidy cable, and it protects them where the lead runs along the frame and past the moving parts. The parts list sells a braided sleeving for it.</p>
 </div>
 
-**Where:** over the four wires of each lead, from just behind the 6-pin motor housing to just short of where the wires fan out into the PHR-4. One metre per lead, four metres for the machine.
+**Where:** over the four wires of each lead, from just behind the 6-pin motor housing to just short of where the wires fan out into the PHR-4. One metre (39 in) per lead, four metres (13 ft) for the machine.
 
 **How:**
 
 <ol class="numbered-steps">
   <li>Push the braid together lengthwise to open it: it widens as it shortens. Feed the four wires into it together, so none of them is left outside.</li>
   <li>Cut it to length with a hot knife or a soldering iron with a blade tip, so the cut melts shut. Plain scissors leave the braid fraying. With no hot tool, wrap a turn of tape around the braid where you will cut, cut through the middle of the tape with scissors, and leave the tape on.</li>
-  <li>Stop the sleeving 5 to 10 mm short of the PHR-4 and short of the 6-pin housing, so the crimped contacts and the housing can flex and the sleeving never crowds into a housing.</li>
+  <li>Stop the sleeving 5 to 10 mm (0.2 to 0.4 in) short of the PHR-4 and short of the 6-pin housing, so the crimped contacts and the housing can flex and the sleeving never crowds into a housing.</li>
   <li>Hold each end with a small piece of heat shrink or a turn of tape, so that the braid cannot creep back along the wires.</li>
 </ol>
 
@@ -98,14 +98,14 @@ under <b>Re-house the lead</b>, below. Motor positions 2 and 5 stay empty.
 ## How long
 
 <div class="callout">
-  <p><b>The length is not measured.</b> The harness drawing says 1 m, which is also what the motors ship with and the length you keep. It was set while the c-channel positions were still moving, so check the run on your own frame before you cut the plug off.</p>
+  <p><b>The length is not measured.</b> The harness drawing says 1 m (39 in), which is also what the motors ship with and the length you keep. It was set while the c-channel positions were still moving, so check the run on your own frame before you cut the plug off.</p>
 </div>
 
 Whatever the length, **anchor the cable above the connector**. Zip-tie it to the frame a short way back from the plug and leave a service loop, so that nothing hanging off the cable can lever the housing sideways.
 
 ## The finished result
 
-Four leads, each with a 4-pin PHR-4 at the board end and a 6-pin PHR-6 at the motor end with two of its six positions empty.
+Four leads (`S1` to `S4`), each with a 4-pin PHR-4 at the board end and a 6-pin PHR-6 at the motor end with two of its six positions empty.
 
 <div class="img-placeholder">Image coming: one finished lead laid out straight, both housings in the frame, the motor end close enough to show the two empty positions</div>
 
@@ -115,5 +115,5 @@ Onto the four channel stepper sockets at [connecting the components]({{ '/hardwa
 
 ## Reference
 
-The vendor drawing for this cable, its bill of materials and its downloads are on the [WireViz
+The vendor drawing for this cable (`S1` to `S4`), its bill of materials and its downloads are on the [WireViz
 drawings]({{ '/hardware/parts/harness-order/#channel-stepper' | relative_url }}) page. It shows the same lead in the form a cable supplier quotes from.

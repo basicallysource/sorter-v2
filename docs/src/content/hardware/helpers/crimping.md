@@ -17,9 +17,9 @@ The lead pages each say what to crimp onto what. This page is the one place that
 
 ## Two kinds of crimp, two pairs of pliers
 
-**Open-barrel contacts** are bare metal, the size of a grain of rice or smaller. One end is two sets of small wings, the other end is the pin or the socket. They are the **PH** contacts (the 2.0 mm JST housings), the **VH** contacts (the 3.96 mm JST housing on the board's 24 V lead) and the **Dupont** contacts. You crimp them with pliers made for open-barrel contacts.
+**Open-barrel contacts** are bare metal, the size of a grain of rice or smaller. One end is two sets of small wings, the other end is the pin or the socket. They are the **PH** contacts (the 2.0 mm (0.079 in) JST housings), the **VH** contacts (the 3.96 mm (0.156 in) JST housing on the control board's 24 V lead, `W1`) and the **Dupont** contacts. You crimp them with pliers made for open-barrel contacts.
 
-**Insulated terminals** are a metal barrel inside a coloured or clear plastic sleeve: the **butt connectors** (one wire in each end), the **#187 receptacles** on the limit switch, and the **fork terminals** on the PSU pigtails. You crimp them with insulated-terminal pliers.
+**Insulated terminals** are a metal barrel inside a coloured or clear plastic sleeve: the **butt connectors** (one wire in each end), the **#187 receptacles** on the limit switch, and the **fork terminals** on the PSU pigtails (`PJ1` to `PJ3`). You crimp them with insulated-terminal pliers.
 
 **The two pairs are not interchangeable.** An insulated terminal in open-barrel pliers is squashed rather than gripped, and an open-barrel contact in insulated-terminal pliers is not closed properly. Each lead page names which pliers each crimp needs.
 
@@ -40,7 +40,7 @@ The words the pages use, once and for all:
 Do one contact at a time. Practise on a scrap of the same wire first: a mis-crimped contact cannot be reused, and the first ones in a series you have not done before often come out wrong.
 
 <ol class="numbered-steps">
-  <li>Strip the end of the wire: about 2 mm for a PH or Dupont contact, 3 mm for a VH contact. Twist the strands tight.</li>
+  <li>Strip the end of the wire: about 2 mm (0.08 in) for a PH or Dupont contact, 3 mm (0.12 in) for a VH contact. Twist the strands tight.</li>
   <li>Find the two sets of wings on the contact. The inner wings are the short pair next to the pin or socket, the outer wings are the longer pair at the back.</li>
   <li>Place the bare strands in the inner wings and the wire's insulation in the outer wings. No strands may stick out past the inner wings, and the insulation must not be under them.</li>
   <li>Close the die. The inner wings curl onto the strands and the outer wings onto the insulation.</li>
@@ -64,7 +64,7 @@ What each one takes:
 ## Insulated terminals
 
 <ol class="numbered-steps">
-  <li>Strip the wire as long as the metal barrel: about 7 mm for a butt connector, 5 mm for a #187 receptacle, as long as the barrel for a fork terminal. Hold the wire against the terminal to judge it. Twist the strands tight.</li>
+  <li>Strip the wire as long as the metal barrel: about 7 mm (0.28 in) for a butt connector, 5 mm (0.2 in) for a #187 receptacle, as long as the barrel for a fork terminal. Hold the wire against the terminal to judge it. Twist the strands tight.</li>
   <li>Push the bare strands into the barrel until the wire's insulation meets the end of the barrel. On a clear butt connector you can see the strands reach the stop in the middle.</li>
   <li>Put the metal barrel, not the plastic sleeve, in the die marked for your wire size and squeeze. On ratcheting pliers, squeeze until the ratchet releases.</li>
   <li>On a butt connector, crimp each end separately. Do one joint at a time so two joints never touch, and stagger them by a few millimetres along the lead.</li>

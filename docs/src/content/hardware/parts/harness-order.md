@@ -14,7 +14,7 @@ last_verified: 2026-10-03
 
 <div class="callout callout-warning">
   <span class="callout-icon" aria-hidden="true">⚠</span>
-  <p><b>Not validated against a machine, and there are guesses in it.</b> Nothing here has been checked against the physical machine. Gauges, most lengths and several connector part numbers are engineering guesses, not measurements; they are conservative and safe to order against. Values marked <b>GUESS</b> in the drawings are guesses, and each one that still needs checking has a note under its own cable below.</p>
+  <p><b>Not validated against a machine, and there are guesses in it.</b> Nothing here has been checked against the physical machine. Gauges, most lengths and several connector part numbers are engineering guesses, not measurements; they are conservative and safe to order against. Values marked <b>GUESS</b> in the drawings are guesses, so have a small sample run built first (see Order quantity).</p>
 </div>
 
 This is the only page that carries the harness drawings. Everywhere else on the site links here, so a cable is drawn once and a redrawn harness updates in one place.
@@ -52,8 +52,8 @@ Every cable and lead in the machine, one row each, with its ID. The IDs are the 
   <thead><tr><th>ID</th><th>Qty</th><th>End A</th><th>End B</th><th>Length</th><th>Wire</th><th>Route</th></tr></thead>
   <tbody>
     <tr><td class="wire-id">PJ1, PJ2, PJ3</td><td>3</td><td>Panel-mount DC jack, female, on the PSU box plate</td><td>Two insulated M3.5 fork terminals, onto the PSU's paired screws (7+4, 8+5, 9+6)</td><td>100 mm (4 in)</td><td>18 AWG (0.82 mm²), red and black</td><td>Vendor, or <a href="{{ '/hardware/helpers/psu-pigtail/' | relative_url }}">build</a></td></tr>
-    <tr><td class="wire-id">W1</td><td>1</td><td>DC plug, male, into <code>PJ1</code></td><td>JST VHR-2 housing into board <code>J1</code>, pin 1 = +24 V, pin 2 = GND</td><td>920 mm (36 in), longer than it needs to be</td><td>18 AWG (0.82 mm²), red and black</td><td>Vendor, or <a href="{{ '/hardware/helpers/board-24v-lead/' | relative_url }}">build</a></td></tr>
-    <tr><td class="wire-id">W2</td><td>1</td><td>DC plug, male, into <code>PJ2</code></td><td>Bare, tinned, into the USB hub's 2-pin 24 V terminal</td><td>310 mm (12 in) on the drawing; the wire-harness page gives 280 mm (11 in) for the plug's own lead</td><td>22 AWG (0.33 mm²), red and black</td><td>Vendor</td></tr>
+    <tr><td class="wire-id">W1</td><td>1</td><td>DC plug, male, into <code>PJ1</code></td><td>JST VHR-2 housing into board <code>J1</code>, pin 1 = +24 V, pin 2 = GND</td><td>920 mm (36 in)</td><td>18 AWG (0.82 mm²), red and black</td><td>Vendor, or <a href="{{ '/hardware/helpers/board-24v-lead/' | relative_url }}">build</a></td></tr>
+    <tr><td class="wire-id">W2</td><td>1</td><td>DC plug, male, into <code>PJ2</code></td><td>Bare, tinned, into the USB hub's 2-pin 24 V terminal</td><td>310 mm (12 in)</td><td>22 AWG (0.33 mm²), red and black</td><td>Vendor</td></tr>
     <tr><td class="wire-id">W3</td><td>1</td><td>DC plug, male, into <code>PJ3</code></td><td>Bare, tinned, spliced to the buck converter's input leads</td><td>150 mm (6 in)</td><td>22 AWG (0.33 mm²), red and black</td><td>Vendor, or <a href="{{ '/hardware/helpers/pi-24v-lead/' | relative_url }}">build</a></td></tr>
     <tr><td class="wire-id">L1, L2, L3</td><td>3</td><td>2-position Dupont housing, 2.54 mm (0.1 in), into board <code>J8</code>, <code>J9</code>, <code>J10</code>: black wire in the cavity at the moulded arrow, red in the other</td><td>Inline DC socket, female</td><td>920 mm (36 in)</td><td>22 AWG (0.33 mm²), red and black</td><td>Vendor</td></tr>
     <tr><td class="wire-id">L1p, L2p, L3p</td><td>3</td><td>DC plug, male, into the matching <code>L1</code> to <code>L3</code> socket</td><td>Bare, tinned, to the clamp-on connector on the LED strip</td><td>150 mm (6 in)</td><td>22 AWG (0.33 mm²), red and black</td><td>Vendor</td></tr>
@@ -152,21 +152,7 @@ The connectors themselves, with a photo and a per-machine count for each, are in
 {% if d.name == "channel-stepper" %}
 <div class="callout">
   <span class="callout-icon" aria-hidden="true">›</span>
-  <p><b>To check on the built machine.</b> The 1·4·3·6 map and the two empty positions come from the drawing, not from a measurement. Check the coils with a multimeter first.</p>
-</div>
-{% endif %}
-
-{% if d.name == "leds" %}
-<div class="callout">
-  <span class="callout-icon" aria-hidden="true">›</span>
-  <p><b>To check on the built machine.</b> Three feeds and three pigtails, per the wire schedule: re-count against the machine. At the strip, the red wire goes to the pad marked <code>+24V</code> through the clamp-on connector. Meter red from the housing to the strip's <code>+24V</code> pad before first power.</p>
-</div>
-{% endif %}
-
-{% if d.name == "limit-switch" %}
-<div class="callout">
-  <span class="callout-icon" aria-hidden="true">›</span>
-  <p><b>To check on the built machine.</b> The Omron V-155-1C25 is SPDT with three tabs and the harness lands on two. <code>LIM</code> has an identical receptacle on each end of the pair, so the cable is the same whichever tabs are used, and this is not a vendor matter. Which pair, <code>COM</code> + <code>NC</code> or <code>COM</code> + <code>NO</code>, is the builder's check against the board.</p>
+  <p><b>Order a sample first.</b> The motor-end positions 1·4·3·6 and the two empty positions come from the motor's socket drawing and have not yet been confirmed on a motor. Have the first run built as a sample, and order more once one has been tried on a motor.</p>
 </div>
 {% endif %}
 

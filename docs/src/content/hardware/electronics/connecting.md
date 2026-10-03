@@ -10,8 +10,8 @@ permalink: /hardware/electronics/connecting/
 author: daddyosbricksbill
 contributors: [spencer, effreek, brickcyclealice]
 warning: >-
-  **AI-generated first draft.** Written from the basically board v1.3 board files and the [wire
-  harness]({{ '/hardware/electronics/wire-harness/' | relative_url }}) schedule, not from an actual build. The
+  **AI-generated first draft.** Written from the basically board v1.3 board files and the [cable
+  schedule]({{ '/hardware/parts/harness-order/' | relative_url }}), not from an actual build. The
   sockets and the pinouts are read from the board itself and are real. The order of the steps is
   not checked against a machine. One step involves mains voltage: read the page fully before you
   start.
@@ -104,7 +104,7 @@ The [PSU box]({{ '/hardware/electronics/installation/psu-box/' | relative_url }}
   </figure>
 </div>
 
-The PSU output pigtails are already in the PSU box. The USB hub's lead has no page: step 6 below connects it. The [wire harness]({{ '/hardware/electronics/wire-harness/' | relative_url }}) page has the length and gauge of every lead.
+The PSU output pigtails are already in the PSU box. The USB hub's lead has no page: step 6 below connects it. [Ordering the wire harness]({{ '/hardware/parts/harness-order/' | relative_url }}) has the length and gauge of every lead.
 
 <div class="callout callout-warning">
   <span class="callout-icon" aria-hidden="true">⚠</span>
@@ -130,7 +130,7 @@ The PSU output pigtails are already in the PSU box. The USB hub's lead has no pa
   </tbody>
 </table>
 
-The [wire harness]({{ '/hardware/electronics/wire-harness/' | relative_url }}) page calls the first three `W1`, `W2` and `W3`, the steppers `S1` to `S4` and `CH`, the limit switch `LIM`, the lamps `L1` to `L3`, and the ribbon `RIB`. The three USB runs have no label; they are ordinary bought cables.
+[Ordering the wire harness]({{ '/hardware/parts/harness-order/' | relative_url }}) calls the first three `W1`, `W2` and `W3`, the steppers `S1` to `S4` and `CH`, the limit switch `LIM`, the lamps `L1` to `L3`, and the ribbon `RIB`. The three USB runs have no label; they are ordinary bought cables.
 
 ### The three 24 V leads
 
@@ -334,7 +334,7 @@ The solder jumper beside each of these three ports should already be bridged, fr
 
 **The barrel pair is optional but recommended, and it makes maintenance easier.** It is the point where a lamp comes off, so the power to a lamp can be disconnected close to the lamp and the lamp unplugged without unwiring the board end. It is the same 5.5 × 2.1 mm size as a PSU output jack, so check what you are plugging into.
 
-**Then assign the output in software**: Settings, the channel, the LED button, pick which output that lamp is on and set the brightness. **Nothing lights until an output is assigned.** The lamps are `L1` to `L3` in the [wire harness]({{ '/hardware/electronics/wire-harness/' | relative_url }}) schedule, which still draws every drop split at a barrel jack.
+**Then assign the output in software**: Settings, the channel, the LED button, pick which output that lamp is on and set the brightness. **Nothing lights until an output is assigned.** The lamps are `L1` to `L3` in the [cable schedule]({{ '/hardware/parts/harness-order/' | relative_url }}), which still draws every drop split at a barrel jack.
 
 {% include step.html n="5" title="Run the ribbon down to the layers" %}
 

@@ -63,10 +63,12 @@ Every cable and lead in the machine, one row each, with its ID. The IDs are the 
     <tr><td class="wire-id">RIB</td><td>1</td><td>16-pin IDC (2×8), female, into board <code>J17</code></td><td>16-pin IDC (2×8), female, into <code>J3</code> on the first layer board</td><td>1.2 to 1.5 m (47 to 59 in)</td><td>Flat ribbon</td><td>Buy</td></tr>
     <tr><td class="wire-id">U1</td><td>1</td><td>USB-A on the hub</td><td><code>UP USB3.0</code> on the Orange Pi</td><td>0.9 m (3 ft) or shorter</td><td>USB data cable</td><td>Buy</td></tr>
     <tr><td class="wire-id">U2</td><td>1</td><td>Micro USB on the Pico</td><td>USB-A on the hub</td><td>0.9 m (3 ft) or shorter</td><td>USB data cable</td><td>Buy</td></tr>
+    <tr><td class="wire-id">RIB2</td><td>n - 1</td><td>16-pin IDC (2×8), female, into <code>J4</code> on a layer board</td><td>16-pin IDC (2×8), female, into <code>J3</code> on the layer board below</td><td>300 mm (12 in)</td><td>Flat ribbon</td><td>Buy</td></tr>
+    <tr><td class="wire-id">AC1</td><td>1</td><td>IEC C13 socket, onto the PSU box's inlet</td><td>Wall plug for your country (NEMA 5-15 or CEE 7/7)</td><td>As supplied</td><td>Mains cord</td><td>Buy</td></tr>
   </tbody>
 </table>
 
-That is 21 cables per machine, each with its own ID. 18 of them are in the zip, 16 of those are built by a vendor, and the other two (`W1`, `CH`) are built on the bench. `RIB`, `U1` and `U2` are bought. The three cameras use their own USB leads and are not scheduled. `U1` and `U2` are new IDs, given here so every cable in the machine has one; they must be real data cables, because a lot of short USB cables are power-only.
+That is 23 IDs, and 24 cables on a 3-layer machine, because `RIB2` is one per layer joint (2 on 3 layers, 4 on 5). 18 are in the zip, 16 of those are built by a vendor, and the other two (`W1`, `CH`) are built on the bench. `RIB`, `RIB2`, `U1`, `U2` and `AC1` are bought. The three cameras use their own USB leads and are not scheduled. `U1` and `U2` are new IDs, given here so every cable in the machine has one; they must be real data cables, because a lot of short USB cables are power-only.
 
 On `L1` to `L3`, the optional inline socket and the plug on `L1p` to `L3p` can be left out, in which case the feed runs straight to the strip and the pigtail is not needed. The plug and socket are recommended because they let the lamp be unplugged close to where it is.
 

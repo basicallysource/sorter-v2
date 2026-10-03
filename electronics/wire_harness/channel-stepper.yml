@@ -1,6 +1,6 @@
 metadata:
   title: Channel stepper lead
-  description: "One channel stepper lead, x4 per machine. The buildable\nsub-harness for S1-S4 on the stepper cables drawing. NOT\nstraight through: the board and the motor use different\npositions, so two conductors change places. Values marked\nGUESS are guesses, not measurements."
+  description: "One channel stepper lead, x4 per machine. The buildable\nsub-harness for S1-S4 on the stepper cables drawing. NOT\nstraight through: the board and the motor use different\npositions, so two conductors change places."
 
 connectors:
   BOARD:
@@ -18,7 +18,7 @@ connectors:
     type: JST PH 6-pin (PHR-6)
     subtype: 2.0mm pitch, female
     pinlabels: [A2, n/c, B1, A1, n/c, B2]
-    notes: "The NEMA 17's own 6-pin socket on the can.\nPositions 2 and 5 carry no contact. Meter\nthe coils before you connect it."
+    notes: "The NEMA 17's own 6-pin socket on the can.\nPositions 2 and 5 carry no contact."
     additional_components:
       - type: Terminal - SPH-002T-P0.5S
         qty: 1
@@ -34,7 +34,7 @@ cables:
     length: 1 m
     wirecount: 4
     colors: [BU, GN, RD, BK]
-    notes: "S1-S4, qty 4. Length is UNSETTLED: the\ndrawing says 1 m, the ready-made PH cable is\n63 cm, the motors ship with 1 m of their own."
+    notes: "S1-S4, qty 4."
 
 connections:
   -

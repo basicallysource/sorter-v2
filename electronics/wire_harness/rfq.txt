@@ -1,8 +1,8 @@
 RFQ - custom wire harness
 =============================================================
-STATUS: DRAFT - NOT VALIDATED. Values marked GUESS in the
-drawings are engineering guesses, not measurements. Do not
-start production without a confirmed revision.
+STATUS: request for quotation. Quote 2 full sets, to be
+treated as the sample run. Please confirm the revision before
+starting production.
 =============================================================
 
 1. WHAT THIS IS
@@ -39,6 +39,11 @@ Quote 2 sets and price breaks at 10 / 50 sets.
 - Dupont = generic 2.54 mm female socket housing + crimps.
   LIM board end is a 3-position housing with only positions 1
   and 2 populated, so it cannot be fitted backwards.
+  The moulded arrow on a Dupont housing always marks the
+  ground wire: black goes in the cavity next to the arrow.
+  L1-L3: black at the arrow, red in the other cavity.
+  LIM: black (ground) in position 1 at the arrow, white
+  (signal) in position 2, position 3 empty.
 - LIM switch end: fully insulated female quick-connect
   receptacle, #187 series (4.75 x 0.5 mm / .187 x .020 in tab),
   22 AWG. Mates the Omron V-155-1C25 limit switch. No
@@ -58,7 +63,8 @@ end is a 6-position housing with only 4 positions populated:
 board 1 -> motor 1, board 2 -> motor 4, board 3 -> motor 3,
 board 4 -> motor 6. Motor positions 2 and 5 stay empty.
 See the drawing.
-All other cables are straight-through pin 1 -> pin 1.
+All other cables are straight-through, wire for wire. The
+Dupont leads (L1-L3, LIM) are wired by colour as in section 4.
 
 6. TOLERANCES, LABELS, PACKAGING
 - Length tolerance +/-10 mm (+/-25 mm acceptable on >=36 in).

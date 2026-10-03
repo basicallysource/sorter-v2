@@ -43,7 +43,7 @@ What every cable is built to, whoever builds it.
 
 ## Cable schedule
 
-Every cable and lead in the machine, one row each, with its ID. The IDs are the same on the drawings, on the [wire harness]({{ '/hardware/electronics/wire-harness/' | relative_url }}) page and on the labels, so a cable keeps one name everywhere. Socket references (<code>J1</code>, <code>J27</code>…) are the sockets on basically board v1.3, and a socket on a layer board is named as such. <b>End A</b> is the end that gets the label.
+Every cable and lead the harness is made of, one row each, with its ID. Cables that are bought ready made (the ribbons, the USB cables, the mains cord) are not part of the harness and are not listed. The IDs are the same on the drawings, on the [wire harness]({{ '/hardware/electronics/wire-harness/' | relative_url }}) page and on the labels, so a cable keeps one name everywhere. Socket references (<code>J1</code>, <code>J27</code>…) are the sockets on basically board v1.3, and a socket on a layer board is named as such. <b>End A</b> is the end that gets the label.
 
 <table>
   <thead><tr><th>ID</th><th>Qty</th><th>How</th><th>End A</th><th>End B</th><th>Length</th><th>Wire</th></tr></thead>
@@ -57,15 +57,10 @@ Every cable and lead in the machine, one row each, with its ID. The IDs are the 
     <tr><td class="wire-id">LIM</td><td>1</td><td>Vendor, or <a href="{{ '/hardware/helpers/limit-switch-lead/' | relative_url }}">build</a></td><td>3-position Dupont housing into board <code>J5</code>: position 1 (the cavity at the moulded arrow) ground, position 2 signal, position 3 empty. Black for ground, white for signal</td><td>Two insulated #187 quick-connect receptacles, onto the limit switch</td><td>610 mm (24 in)</td><td>22 AWG (0.33 mm²), black and white</td></tr>
     <tr><td class="wire-id">S1, S2, S3, S4</td><td>4</td><td>Vendor</td><td>JST PHR-4 into board <code>J27</code>, <code>J31</code>, <code>J35</code>, <code>J39</code></td><td>JST PHR-6 into the motor's own socket, positions 1·4·3·6 (see the <a href="#channel-stepper">pin map</a>)</td><td>1 m (39 in)</td><td>24 AWG (0.20 mm²), blue, green, red, black</td></tr>
     <tr><td class="wire-id">CH</td><td>1</td><td><a href="{{ '/hardware/helpers/chute-stepper-lead/' | relative_url }}">You build</a></td><td>JST PHR-4 into board <code>J23</code></td><td>The chute motor's flying leads, spliced</td><td>300 mm (12 in) tail, about 600 mm (24 in) overall with the motor's own leads</td><td>24 AWG (0.20 mm²)</td></tr>
-    <tr><td class="wire-id">RIB1</td><td>1</td><td>Buy</td><td>16-pin IDC (2×8), female, into board <code>J17</code></td><td>16-pin IDC (2×8), female, into <code>J3</code> on the first layer board</td><td>1.2 to 1.5 m (47 to 59 in)</td><td>Flat ribbon</td></tr>
-    <tr><td class="wire-id">U1</td><td>1</td><td>Buy</td><td>USB-A on the hub</td><td><code>UP USB3.0</code> on the Orange Pi</td><td>0.9 m (3 ft) or shorter</td><td>USB data cable</td></tr>
-    <tr><td class="wire-id">U2</td><td>1</td><td>Buy</td><td>Micro USB on the Pico</td><td>USB-A on the hub</td><td>0.9 m (3 ft) or shorter</td><td>USB data cable</td></tr>
-    <tr><td class="wire-id">RIB2</td><td>layers - 1</td><td>Buy</td><td>16-pin IDC (2×8), female, into <code>J4</code> on a layer board</td><td>16-pin IDC (2×8), female, into <code>J3</code> on the layer board below</td><td>300 mm (12 in)</td><td>Flat ribbon</td></tr>
-    <tr><td class="wire-id">AC1</td><td>1</td><td>Buy</td><td>IEC C13 socket, onto the PSU box's inlet</td><td>Wall plug for your country (NEMA 5-15 or CEE 7/7)</td><td>As supplied</td><td>Mains cord</td></tr>
   </tbody>
 </table>
 
-`RIB2` is one per joint between two layers, so one fewer than the number of layers: 2 on a 3-layer machine, 4 on 5. `CH` is listed as the tail wire to cut, 300 mm (12 in); the motor's own leads are 300 to 500 mm (12 to 20 in) depending on the batch and are not part of it. `U1` and `U2` must be real data cables, because a lot of short USB cables are power-only. The three cameras use their own USB leads and are not scheduled.
+`CH` is listed as the tail wire to cut, 300 mm (12 in); the motor's own leads are 300 to 500 mm (12 to 20 in) depending on the batch and are not part of it.
 
 On `L1` to `L3`, the optional inline socket and the plug on `L1p` to `L3p` can be left out, in which case the feed runs straight to the strip and the pigtail is not needed. The plug and socket are recommended because they let the lamp be unplugged close to where it is.
 
@@ -84,7 +79,6 @@ What goes on the ends in the schedule. The part numbers are the ones the machine
     <tr><td>DC plug</td><td>Barrel plug, male, 5.5 × 2.1 mm (0.217 × 0.083 in), centre-positive, 5 A or better.</td><td>Soldered or crimped per the vendor's process</td><td><code>W1</code> to <code>W3</code>, <code>L1p</code> to <code>L3p</code></td></tr>
     <tr><td>DC socket</td><td>Barrel socket, female, 5.5 × 2.1 mm (0.217 × 0.083 in), panel-mount on <code>PJ1</code> to <code>PJ3</code>, inline on <code>L1</code> to <code>L3</code>.</td><td>As above</td><td><code>PJ1</code> to <code>PJ3</code>, <code>L1</code> to <code>L3</code></td></tr>
     <tr><td>PSU terminal block</td><td>Insulated fork terminal, M3.5 stud, 8 mm (0.31 in) wide at most, for 18 AWG (0.82 mm²).</td><td>Crimp</td><td><code>PJ1</code> to <code>PJ3</code></td></tr>
-    <tr><td>Ribbon</td><td>16-pin IDC (2×8), 2.54 mm (0.1 in), female, both ends</td><td>Pre-made, bought</td><td><code>RIB1</code></td></tr>
     <tr><td>Bare ends</td><td>Strip 5 mm (0.2 in), tin</td><td>No connector</td><td><code>W2</code>, <code>W3</code>, <code>L1p</code> to <code>L3p</code></td></tr>
   </tbody>
 </table>

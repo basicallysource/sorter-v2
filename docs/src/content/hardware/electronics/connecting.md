@@ -355,7 +355,7 @@ The hub has its own 2-pin screw terminal for power, on its circuit board. The tw
   <li>Tighten both screws, then give each wire a gentle pull. If a wire moves, tighten the screw more.</li>
 </ol>
 
-The plug's own lead (`W2`), about 280 mm (11 in) with the plug, is long enough when the Orange Pi housing, which carries the hub on its roof, is bolted next to the PSU box as in the <a href="{{ '/hardware/electronics/installation/' | relative_url }}#bolting-the-enclosures-to-the-frame">frame drawing</a>.
+The plug's own lead (`W2`), about 310 mm (12 in) with the plug, is long enough when the Orange Pi housing, which carries the hub on its roof, is bolted next to the PSU box as in the <a href="{{ '/hardware/electronics/installation/' | relative_url }}#bolting-the-enclosures-to-the-frame">frame drawing</a>.
 
 <div class="callout">
   <span class="callout-icon" aria-hidden="true">›</span>

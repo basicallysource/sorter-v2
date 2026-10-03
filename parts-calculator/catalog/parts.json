@@ -7645,7 +7645,7 @@
       },
       "name": "DC lead (W2, bought), 5.5 x 2.1 mm male to male, 610 mm (24 in)",
       "category": "Wire harness",
-      "description": "The alternative for the powered USB hub's 24 V lead, W2, when the Orange Pi housing is mounted too far from the PSU box for a moulded barrel plug's own lead (about 280 mm (11 in)) to reach the hub's screw terminal: a ready-made lead with a 5.5 x 2.1 mm barrel plug at each end and 610 mm (24 in) of 22 AWG (0.33 mm²) between them. One end goes into a PSU box jack and the other into the hub's own jack. It is wired plug to plug, so the centre pin stays positive at both ends. Nothing is made or joined. Buy it only if you take that route; it is not on the machine's parts list otherwise.",
+      "description": "The alternative for the powered USB hub's 24 V lead, W2, when the Orange Pi housing is mounted too far from the PSU box for a moulded barrel plug's own lead (about 310 mm (12 in)) to reach the hub's screw terminal: a ready-made lead with a 5.5 x 2.1 mm barrel plug at each end and 610 mm (24 in) of 22 AWG (0.33 mm²) between them. One end goes into a PSU box jack and the other into the hub's own jack. It is wired plug to plug, so the centre pin stays positive at both ends. Nothing is made or joined. Buy it only if you take that route; it is not on the machine's parts list otherwise.",
       "note": "5.5 x 2.5 mm leads look identical and do not mate: the 0.4 mm is on the centre pin. Check the pin size on the listing, not the outside diameter. Any male to male 5.5 x 2.1 mm lead of 22 AWG or thicker and centre positive does.",
       "created_at": "2026-10-02",
       "updated_at": "2026-10-02",
@@ -18086,7 +18086,7 @@
       "uid": "ks7s",
       "version": "2",
       "name": "24 V USB hub lead (W2)",
-      "description": "The powered USB hub's feed, W2 on the power drawing: a moulded barrel plug into a PSU box jack, with its two bare wires screwed into the 2-pin power terminal on the hub's circuit board, matching the + and - printed on the board. The plug's own lead, about 280 mm (11 in) with the plug, reaches the hub when the Orange Pi housing that carries it is bolted next to the PSU box as the frame drawing shows. If the two are mounted further apart, buy the ready-made male to male lead (the optional DC lead, 5.5 x 2.1 mm male to male, 610 mm (24 in), W2 when bought) and plug it into the hub's jack instead. It sits at the Electronics level beside the box the lead starts at. 1 per machine.",
+      "description": "The powered USB hub's feed, W2 on the power drawing: a moulded barrel plug into a PSU box jack, with its two bare wires screwed into the 2-pin power terminal on the hub's circuit board, matching the + and - printed on the board. The plug's own lead, about 310 mm (12 in) with the plug, reaches the hub when the Orange Pi housing that carries it is bolted next to the PSU box as the frame drawing shows. If the two are mounted further apart, buy the ready-made male to male lead (the optional DC lead, 5.5 x 2.1 mm male to male, 610 mm (24 in), W2 when bought) and plug it into the hub's jack instead. It sits at the Electronics level beside the box the lead starts at. 1 per machine.",
       "lines": [
         {
           "part": "dc-plug-5521-male",

@@ -53,9 +53,21 @@ const uint8_t DIGITAL_INPUT_COUNT = 4;
 const int digital_input_pins[] = {4, 3, 25, 16};
 
 const uint8_t DIGITAL_OUTPUT_COUNT = 5;
-const int digital_output_pins[] = {21, 23, 17, 18, 20}; // [0]=neopixel, [1]=HE0, [2]=FAN0, [3]=FAN1, [4]=FAN2
-const int FAN0_OUTPUT_CHANNEL = 2;
-const uint8_t LED_OUTPUT_COUNT = 0;
+// SKR Pico output pins (BTT pinout): GPIO18 = FAN2, GPIO20 = FAN3, GPIO17 = FAN1
+// (the fan header the firmware drives ON at boot), GPIO21 = HB (bed heater
+// terminal), GPIO23 = HE (hotend heater terminal). All are N-FET low-side
+// outputs passing the input supply rail; every pin boots LOW and then
+// FAN0_OUTPUT_CHANNEL is driven HIGH. (The onboard WS2812 sits on GPIO24 and is
+// not exposed as a digital output.)
+const int digital_output_pins[] = {18, 20, 21, 23, 17};
+const int FAN0_OUTPUT_CHANNEL = 4;
+// The first LED_OUTPUT_COUNT digital outputs are the PWM LED drivers this board
+// offers the host. The SKR Pico has no dedicated LED header; the two fan headers
+// that boot LOW (GPIO18/GPIO20, channels 0-1) are the natural lamp ports — the
+// boot-ON fan header (GPIO17) and the heater terminals are deliberately kept
+// outside the LED range. Boards with none declare 0; a board that grows non-LED
+// outputs keeps its LED channels first in digital_output_pins.
+const uint8_t LED_OUTPUT_COUNT = 2;
 
 i2c_inst_t* const I2C_PORT = i2c0;
 const int I2C_SDA_PIN = 0;

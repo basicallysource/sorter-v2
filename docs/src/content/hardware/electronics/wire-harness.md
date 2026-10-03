@@ -85,9 +85,6 @@ This page is the wiring. Where the PSU, the control board and the Orange Pi phys
         <text x="207" y="354">W2</text>
         <text x="207" y="404">W3</text>
       </g>
-      <g font-size="10" fill="var(--primary)" font-style="italic" text-anchor="middle">
-        <text x="207" y="203">too long</text>
-      </g>
       <g font-size="10.5" fill="var(--ink)" text-anchor="middle">
         <text x="535" y="48">L1 · 2x1 dupont</text>
         <text x="535" y="93">L2 · 2x1 dupont</text>
@@ -95,7 +92,7 @@ This page is the wiring. Where the PSU, the control board and the Orange Pi phys
         <text x="535" y="188">LIM · 2x1 dupont</text>
         <text x="535" y="233">S1-4 · JST-PH 4-pin</text>
         <text x="535" y="283">CH · 4x1 dupont · flying leads</text>
-        <text x="535" y="328">RIB · 16-pin IDC</text>
+        <text x="535" y="328">RIB1 · 16-pin IDC</text>
       </g>
       <g font-size="11" font-weight="700" fill="var(--ink)">
         <text x="258" y="364">Waveshare 4-port USB hub</text>

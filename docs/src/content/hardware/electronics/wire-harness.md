@@ -22,11 +22,11 @@ This page is the wiring. Where the PSU, the control board and the Orange Pi phys
   <dt>Model</dt><dd>MEAN WELL LRS-350-24</dd>
   <dt>Output</dt><dd>24V, 14.6A, 350.4W, single output</dd>
   <dt>Enclosure</dt><dd>Custom 3D-printed box, fused AC input</dd>
-  <dt>Terminal block</dt><dd>9-position, MEAN WELL's own numbering: <b>1</b> AC/L, <b>2</b> AC/N, <b>3</b> FG, <b>4-6</b> DC OUTPUT -V, <b>7-9</b> DC OUTPUT +V (LRS-350-SPEC)</dd>
-  <dt>DC outputs</dt><dd>3 × female DC jack, each a 4 in 18 AWG (0.82 mm²) pigtail with 2 × spade/fork terminals (M3.5, 8 mm wide max, Molex 0191310031 or equivalent). One pigtail per +V/-V screw pair: 7 with 4, 8 with 5, 9 with 6</dd>
+  <dt>Terminal block</dt><dd>9 positions, numbered by MEAN WELL: <b>1</b> AC/L, <b>2</b> AC/N, <b>3</b> FG, <b>4-6</b> DC OUTPUT -V, <b>7-9</b> DC OUTPUT +V</dd>
+  <dt>DC outputs</dt><dd>3 female DC jacks, each on a 100 mm (4 in) pigtail of 18 AWG (0.82 mm²) wire with a fork terminal on each of its 2 leads (M3.5 screw, 8 mm (0.31 in) wide at most). One pigtail per +V/-V screw pair: 7 with 4, 8 with 5, 9 with 6. <a href="{{ '/hardware/helpers/psu-pigtail/' | relative_url }}">Make the pigtails</a></dd>
   <dt>AC input</dt><dd>Screws 1, 2, 3. Fed by the fused IEC inlet switch's own pre-terminated leads, so there is no cable to make</dd>
-  <dt>Loads</dt><dd>basically board v1.3, the USB hub, and the Orange Pi buck converter. One jack each, no spare</dd>
-  <dt>Not on this bus, but on the 24V bus indirectly</dt><dd>The cooling fans. Not a direct PSU jack. The control board's own 40mm fan plugs into one of board v1.3's four LED ports instead (24V, GPIO-switched, current-limited unless a bypass jumper is bridged), see <a href="{{ '/hardware/electronics/installation/control-board-housing/' | relative_url }}">control board housing</a> step 5. The Orange Pi needs nothing off this bus: it is cooled by the 5V heatsink fan on its own SoC, which runs off the board's own FAN socket.</dd>
+  <dt>Loads</dt><dd>basically board v1.3, the USB hub and the Orange Pi buck converter. One jack each, no spare</dd>
+  <dt>Cooling fans</dt><dd>Not on the PSU. The control board's 40 mm (1.6 in) fan plugs into one of the board's four LED ports, see <a href="{{ '/hardware/electronics/installation/control-board-housing/' | relative_url }}">control board housing</a> step 5. The Orange Pi's fan plugs into the board's own FAN socket.</dd>
 </dl>
 
 ## 2 &nbsp; Interconnect diagram
@@ -65,40 +65,40 @@ This page is the wiring. Where the PSU, the control board and the Orange Pi phys
         <rect x="640" y="283" width="300" height="34" rx="3" />
         <rect x="640" y="333" width="300" height="34" rx="3" />
       </g>
-      <text x="24" y="66" font-size="13" font-weight="700" fill="var(--ink)">MEAN WELL</text>
-      <text x="24" y="82" font-size="12" font-weight="700" fill="var(--ink)">LRS-350-24</text>
-      <text x="24" y="100" font-size="11" fill="var(--muted)">24V · 14.6A · 350W</text>
+      <text x="24" y="66" font-size="17" font-weight="700" fill="var(--ink)">MEAN WELL</text>
+      <text x="24" y="82" font-size="16" font-weight="700" fill="var(--ink)">LRS-350-24</text>
+      <text x="24" y="102" font-size="13" fill="var(--muted)">24V · 14.6A · 350W</text>
       <line x1="-56" y1="118" x2="14" y2="118" stroke="var(--ink)" stroke-width="1.5" stroke-linecap="round" />
-      <rect x="-96" y="104" width="40" height="28" rx="3" fill="var(--surface)" stroke="var(--ink)" stroke-width="1.2" />
-      <text x="-76" y="122" font-size="10" font-weight="700" text-anchor="middle" fill="var(--ink)">AC in</text>
-      <text x="-76" y="147" font-size="9" fill="var(--muted)" text-anchor="middle">fused inlet switch</text>
-      <g font-size="11" fill="var(--ink)" text-anchor="end" font-weight="700">
+      <rect x="-100" y="104" width="44" height="28" rx="3" fill="var(--surface)" stroke="var(--ink)" stroke-width="1.2" />
+      <text x="-78" y="122" font-size="13" font-weight="700" text-anchor="middle" fill="var(--ink)">AC in</text>
+      <text x="-78" y="150" font-size="12" fill="var(--muted)" text-anchor="middle">fused</text><text x="-78" y="164" font-size="12" fill="var(--muted)" text-anchor="middle">inlet switch</text>
+      <g font-size="14" fill="var(--ink)" text-anchor="end" font-weight="700">
         <text x="154" y="194">PJ1</text><text x="154" y="364">PJ2</text><text x="154" y="414">PJ3</text>
       </g>
-      <text x="262" y="80" font-size="13" font-weight="700" fill="var(--ink)">basically board</text>
-      <text x="262" y="96" font-size="12" font-weight="700" fill="var(--ink)">v1.3</text>
-      <text x="262" y="118" font-size="10.5" fill="var(--muted)">hub for LEDs, sensors,</text>
-      <text x="262" y="132" font-size="10.5" fill="var(--muted)">steppers, servo adapters</text>
-      <text x="262" y="184" font-size="9.5" fill="var(--muted)">24V in: JST-VH female</text>
-      <g font-size="11" fill="var(--ink)" text-anchor="middle">
+      <text x="262" y="80" font-size="17" font-weight="700" fill="var(--ink)">basically board</text>
+      <text x="262" y="96" font-size="16" font-weight="700" fill="var(--ink)">v1.3</text>
+      <text x="262" y="120" font-size="13" fill="var(--muted)">hub for LEDs, sensors,</text>
+      <text x="262" y="136" font-size="13" fill="var(--muted)">steppers, servo adapters</text>
+      <text x="262" y="184" font-size="12.5" fill="var(--muted)">24V in</text>
+      <g font-size="14" fill="var(--ink)" text-anchor="middle" stroke="var(--surface)" stroke-width="4" paint-order="stroke">
         <text x="207" y="184">W1</text>
         <text x="207" y="354">W2</text>
         <text x="207" y="404">W3</text>
       </g>
-      <g font-size="10.5" fill="var(--ink)" text-anchor="middle">
+      <g font-size="14" fill="var(--ink)" text-anchor="middle" stroke="var(--surface)" stroke-width="4" paint-order="stroke">
         <text x="535" y="48">L1 · 2x1 dupont</text>
         <text x="535" y="93">L2 · 2x1 dupont</text>
         <text x="535" y="143">L3 · 2x1 dupont</text>
         <text x="535" y="188">LIM · 2x1 dupont</text>
         <text x="535" y="233">S1-4 · JST-PH 4-pin</text>
-        <text x="535" y="283">CH · 4x1 dupont · flying leads</text>
+        <text x="535" y="283">CH · JST-PH 4-pin</text>
         <text x="535" y="328">RIB1 · 16-pin IDC</text>
       </g>
-      <g font-size="11" font-weight="700" fill="var(--ink)">
-        <text x="258" y="364">Waveshare 4-port USB hub</text>
+      <g font-size="14" font-weight="700" fill="var(--ink)">
+        <text x="258" y="364">Waveshare USB hub</text>
         <text x="258" y="414">Orange Pi 5</text>
       </g>
-      <g font-size="12" font-weight="700" fill="var(--ink)">
+      <g font-size="16" font-weight="700" fill="var(--ink)">
         <text x="652" y="55">LED strip (6000K)</text>
         <text x="652" y="105">LED strip (6000K)</text>
         <text x="652" y="155">LED strip (6000K)</text>
@@ -109,7 +109,7 @@ This page is the wiring. Where the PSU, the control board and the Orange Pi phys
       </g>
     </svg>
   </div>
-  <figcaption>PSU distributes 24V to basically board v1.3 (through a JST-VH inlet) and the two other direct loads (USB hub, Orange Pi buck). Cooling fans are not on this bus, they run off the Pi or the board. basically board v1.3 then drives the LED drops (L1-L3), the limit switch, the steppers, and the first servo adapter board over a 16-pin IDC ribbon. Wire IDs are the cable IDs on the order page.</figcaption>
+  <figcaption>The PSU feeds the control board (W1) and two other loads, the USB hub (W2) and the Orange Pi (W3). The control board then drives the LED strips (L1 to L3), the limit switch (LIM), the steppers (S1 to S4 and CH) and the first servo adapter board over a 16-pin ribbon (RIB1). The cooling fans are not on the PSU. The IDs are the cable IDs on the order page.</figcaption>
 </figure>
 
 ### 2.1 &nbsp; Stepper pinout and polarity
@@ -150,10 +150,10 @@ Every stepper output on **basically board v1.3** has the same pinout, pin 1 to p
   <figcaption>Pin 1 (A2) is the square pad.</figcaption>
 </figure>
 
-- Holds for all five **JST-PH 4-pin** connectors: `J23, J27, J31, J35, J39`.
-- The parallel **2.54 mm headers** next to each are wired identically: `J24, J28, J32, J36, J40`.
-- Pin 1 is the roundrect (square-ish) pad on the footprint.
-- Straight pass-through of the BigTreeTech TMC2209 module output order: module pins 3-6 = A2, A1, B1, B2, mapping to connector pins 1-4.
+<ul class="bulleted-list">
+  <li>This holds for all five <b>JST-PH 4-pin</b> connectors: <code>J23, J27, J31, J35, J39</code>.</li>
+  <li>The parallel <b>2.54 mm (0.1 in) headers</b> next to each are wired identically: <code>J24, J28, J32, J36, J40</code>.</li>
+</ul>
 
 <div class="callout">
   <span class="callout-icon" aria-hidden="true">›</span>
@@ -162,11 +162,8 @@ Every stepper output on **basically board v1.3** has the same pinout, pin 1 to p
 
 The 4 channel motors are NEMA 17 with their own **JST-PH 6-pin** socket, so cable S plugs straight into the motor and the shipped StepperOnline lead is not used. The chute motor ships as bare flying leads instead, and its cable is built: [make the chute stepper lead]({{ '/hardware/helpers/chute-stepper-lead/' | relative_url }}).
 
-<div class="callout callout-warning">
-  <span class="callout-icon" aria-hidden="true">⚠</span>
-  <p>Source of truth is the basically board v1.3 pinout. Cable S plugs into the motor's own 6-position JST-PH socket, so the four board positions <code>1·2·3·4</code> land on motor positions <code>1·4·3·6</code> and motor positions 2 and 5 stay empty. The nets line up, the positions do not. Mark polarity on each of the 4 channel steppers, and <a href="{{ '/hardware/helpers/multimeter/' | relative_url }}#resistance-for-finding-a-steppers-coils">check the coils with a multimeter</a> first.</p>
-</div>
+Cable S plugs into the motor's own 6-position JST-PH socket, so the four board positions <code>1·2·3·4</code> land on motor positions <code>1·4·3·6</code> and motor positions 2 and 5 stay empty. Mark the polarity on each of the 4 channel steppers.
 
 {% include harness/pin-swap.html %}
 
-Which socket drives which motor is on [connecting the components]({{ '/hardware/electronics/connecting/' | relative_url }}), step 2, and the driver beside each socket is addressed in [preparing the control board]({{ '/hardware/electronics/installation/control-board-prep/' | relative_url }}), step 3.
+Which socket drives which motor, and how to check a motor's coils before you plug it in, is on [connecting the components]({{ '/hardware/electronics/connecting/' | relative_url }}), step 2. The driver beside each socket is addressed in [preparing the control board]({{ '/hardware/electronics/installation/control-board-prep/' | relative_url }}), step 3.

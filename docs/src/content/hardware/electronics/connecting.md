@@ -22,12 +22,12 @@ parts_needed:
     qty: 1
     variant_group: hub-24v-lead
     variant_name: "Barrel plug on its own two wires, one of the three plugs, screwed into the hub's terminal"
-    variant_heading: "For the USB hub's 24 V lead, one of these"
+    variant_heading: "For the USB hub's 24 V lead (W2), one of these"
   - part: dc-lead-5521-mm
     qty: 1
     variant_group: hub-24v-lead
     variant_name: "Lead with a barrel plug at each end, into the hub's DC jack (only if the housings are far apart)"
-    variant_heading: "For the USB hub's 24 V lead, one of these"
+    variant_heading: "For the USB hub's 24 V lead (W2), one of these"
   - part: buck-24v-5v-usbc
     qty: 1
   - part: cable-micro-usb
@@ -36,8 +36,8 @@ parts_needed:
     qty: 1
   - part: sleeving-braided-6mm
     qty: 1
-    note: Optional. About 10 m for the machine, over every lead you make.
-tools_needed: [Multimeter, "A small screwdriver, for the hub's power terminal", "Side cutters or wire strippers, only if the plug's two wires do not already have bare ends", "Only if you make your own W1 lead: wire strippers and a crimp tool", "Optional, for the sleeving: scissors and tape, or a hot knife"]
+    note: Optional. About 10 m (33 ft) for the machine, over every lead you make.
+tools_needed: [Multimeter, "A small screwdriver, for the hub's power terminal", "Side cutters or wire strippers, only if the plug's two wires do not already have bare ends", "Only if you make your own control board 24 V lead (W1): wire strippers and a crimp tool", "Optional, for the sleeving: scissors and tape, or a hot knife"]
 ---
 
 The [PSU box]({{ '/hardware/electronics/installation/psu-box/' | relative_url }}), the [control board housing]({{ '/hardware/electronics/installation/control-board-housing/' | relative_url }}) and the [Orange Pi housing]({{ '/hardware/electronics/installation/orange-pi-mount/' | relative_url }}) are all bolted to the frame, and the cables are made or bought. This page plugs them together, and screws the USB hub's power wires into the hub. Nothing here needs a soldering iron.
@@ -46,69 +46,69 @@ The [PSU box]({{ '/hardware/electronics/installation/psu-box/' | relative_url }}
 
 <div class="prep-item">
   <div class="prep-item-body">
-    <p><strong>Make the <a href="{{ '/hardware/helpers/board-24v-lead/' | relative_url }}">control board's 24 V lead</a> before you start.</strong> One barrel plug at the PSU end and a JST-VH housing at the board end, 914 mm of 18 AWG (0.82 mm²) pair between them. Step 1 plugs it in.</p>
+    <p><strong>Make the <a href="{{ '/hardware/helpers/board-24v-lead/' | relative_url }}">control board's 24 V lead</a> (<code>W1</code>) before you start.</strong> One barrel plug at the PSU end and a JST-VH housing at the board end, 920 mm (36 in) of 18 AWG (0.82 mm²) pair between them. Step 1 plugs it in.</p>
   </div>
   <figure class="prep-item-figure">
-    <img class="doc-figure" src="https://assets.basically.website/sorter-docs/w1-24v-lead-pin1-diagram-full-284f502e161c.png" alt="Diagram of the finished lead, left to right: a barrel plug with two short leads, red and black, each joined to the 18 AWG pair by a butt connector, the two connectors staggered; the pair, 914 mm end to end; and two VH contacts in a two-position VHR-2 housing, red in pin 1 for +24 V and black in pin 2 for ground.">
-    <figcaption>The finished lead, with a moulded plug. <cite>Diagram: author not recorded.</cite></figcaption>
+    <img class="doc-figure" src="https://assets.basically.website/sorter-docs/w1-24v-lead-pin1-diagram-full-284f502e161c.png" alt="Diagram of the finished lead, left to right: a barrel plug with two short leads, red and black, each joined to the 18 AWG (0.82 mm²) pair by a butt connector, the two connectors staggered; the pair, 914 mm end to end; and two VH contacts in a two-position VHR-2 housing, red in pin 1 for +24 V and black in pin 2 for ground.">
+    <figcaption>The finished control board 24 V lead (<code>W1</code>), with a moulded plug. <cite>Diagram: author not recorded.</cite></figcaption>
   </figure>
 </div>
 
 <div class="prep-item">
   <div class="prep-item-body">
-    <p><strong>Make the <a href="{{ '/hardware/helpers/pi-24v-lead/' | relative_url }}">Orange Pi's 24 V lead</a> before you start.</strong> A barrel plug on the buck converter's own input wires, with the converter's USB-C lead going on to the Pi. Step 7 plugs it in.</p>
+    <p><strong>Make the <a href="{{ '/hardware/helpers/pi-24v-lead/' | relative_url }}">Orange Pi's 24 V lead</a> (<code>W3</code>) before you start.</strong> A barrel plug on the buck converter's own input wires, with the converter's USB-C lead going on to the Pi. Step 7 plugs it in.</p>
   </div>
   <figure class="prep-item-figure">
-    <img class="doc-figure" src="https://assets.basically.website/sorter-docs/w3-24v-lead-diagram-full-22caf5109dd5.png" alt="Diagram of the finished lead with a moulded plug, left to right: a barrel plug with two short leads, red and black, each joined to one of the converter's red and black input wires by a butt connector, the two connectors staggered; the converter's input wires, 100 mm or more; the buck converter; and its own USB-C lead going to the Pi's PWR IN socket.">
-    <figcaption>The finished lead, with a moulded plug. <cite>Diagram: author not recorded.</cite></figcaption>
+    <img class="doc-figure" src="https://assets.basically.website/sorter-docs/w3-24v-lead-diagram-full-22caf5109dd5.png" alt="Diagram of the finished lead with a moulded plug, left to right: a barrel plug with two short leads, red and black, each joined to one of the converter's red and black input wires by a butt connector, the two connectors staggered; the converter's input wires, 100 mm (4 in) or more; the buck converter; and its own USB-C lead going to the Pi's PWR IN socket.">
+    <figcaption>The finished Orange Pi 24 V lead (<code>W3</code>), with a moulded plug. <cite>Diagram: author not recorded.</cite></figcaption>
   </figure>
 </div>
 
 <div class="prep-item">
   <div class="prep-item-body">
-    <p><strong>Make four <a href="{{ '/hardware/helpers/channel-stepper-lead/' | relative_url }}">channel stepper leads</a> before you start.</strong> Each is the motor's own lead with its Dupont plug replaced by a 4-pin JST-PH housing. Step 2 plugs them into <code>J27</code>, <code>J31</code>, <code>J35</code> and <code>J39</code>.</p>
+    <p><strong>Make four <a href="{{ '/hardware/helpers/channel-stepper-lead/' | relative_url }}">channel stepper leads</a> (<code>S1</code> to <code>S4</code>) before you start.</strong> Each is the motor's own lead with its Dupont plug replaced by a 4-pin JST-PH housing. Step 2 plugs them into <code>J27</code>, <code>J31</code>, <code>J35</code> and <code>J39</code>.</p>
   </div>
   <figure class="prep-item-figure">
     <img class="doc-figure" src="https://assets.basically.website/sorter-docs/channel-stepper-lead-rehouse-plug-shape-both-png-full-afd12ce6e219.png" alt="A line drawing in the style of the StepperOnline cable drawing. On the left the 6-pin PHR-6 housing at the motor end, drawn to the shape in that drawing: a lane down the mating side, two blocks with a rectangular window between them, and a flange on the wire side with chamfered corners. Positions 6 at the top down to 1 at the bottom are labelled RED B-, empty, BLU A-, GRN B+, empty and BLK A+. On the right the 4-pin PHR-4 at the board end, the same outline mirrored and scaled to four positions with its flange on the wire side, positions 4 at the top down to 1 at the bottom, labelled coil B from motor 6, coil B from motor 3, coil A from motor 4 and coil A from motor 1. Four wires join them: motor 6 to PHR-4 position 4, motor 4 to position 2, motor 3 to position 3 and motor 1 to position 1, so the wires from motor positions 4 and 3 cross.">
-    <figcaption>One lead: the motor's 6-pin housing on the left, the 4-pin board housing on the right. <cite>Diagram: author not recorded.</cite></figcaption>
+    <figcaption>One channel stepper lead (<code>S1</code> to <code>S4</code>): the motor's 6-pin housing on the left, the 4-pin board housing on the right. <cite>Diagram: author not recorded.</cite></figcaption>
   </figure>
 </div>
 
 <div class="prep-item">
   <div class="prep-item-body">
-    <p><strong>Make the <a href="{{ '/hardware/helpers/chute-stepper-lead/' | relative_url }}">chute stepper lead</a> before you start.</strong> A 24 AWG (0.20 mm²) tail spliced onto the motor's four leads and ending in a 4-pin JST-PH housing. Step 2 plugs it into <code>J23</code>.</p>
+    <p><strong>Make the <a href="{{ '/hardware/helpers/chute-stepper-lead/' | relative_url }}">chute stepper lead</a> (<code>CH</code>) before you start.</strong> A 24 AWG (0.20 mm²) tail spliced onto the motor's four leads and ending in a 4-pin JST-PH housing. Step 2 plugs it into <code>J23</code>.</p>
   </div>
   <figure class="prep-item-figure">
     <img class="doc-figure" src="https://assets.basically.website/sorter-docs/chute-stepper-lead-butt-splice-diagram-full-03ca94566783.png" alt="Four panels. 1: the stripped end of a motor lead, 20 AWG (0.52 mm²), and of a 24 AWG (0.20 mm²) tail. 2: one wire in each end of a clear butt splice, the insulation against the barrel and the stripped ends reaching the wire stop in the centre. 3: the splice between the two jaws of a crimping die marked 24 to 20 AWG (0.2 to 0.6 mm²), crimped one end and then the other. 4: four wires, black, green, red and blue, each with its splice at a different distance along the cable.">
-    <figcaption>The splices that join the tail to the motor's leads, staggered along the cable. <cite>Diagram: author not recorded.</cite></figcaption>
+    <figcaption>The splices that join the tail to the motor's leads, staggered along the chute stepper lead (<code>CH</code>). <cite>Diagram: author not recorded.</cite></figcaption>
   </figure>
 </div>
 
 <div class="prep-item">
   <div class="prep-item-body">
-    <p><strong>Make the <a href="{{ '/hardware/helpers/limit-switch-lead/' | relative_url }}">chute limit switch lead</a> before you start.</strong> A 610 mm pair with two #187 push-on receptacles at the switch end and a 3-pin Dupont housing at the board end. Step 3 plugs it into <code>J5</code>.</p>
+    <p><strong>Make the <a href="{{ '/hardware/helpers/limit-switch-lead/' | relative_url }}">chute limit switch lead</a> (<code>LIM</code>) before you start.</strong> A 610 mm (24 in) pair with two #187 push-on receptacles at the switch end and a 3-pin Dupont housing at the board end. Step 3 plugs it into <code>J5</code>.</p>
   </div>
   <figure class="prep-item-figure">
     <img class="doc-figure" src="https://assets.basically.website/sorter-docs/harness-limit-switch-parts-w1600-661badd2af06.jpg" alt="Laid out on a bench: the red roller-lever switch with its three bare tabs, two insulated quick-connect receptacles already crimped onto short leads, and the stripped end of a red and black 22 AWG (0.33 mm²) pair">
-    <figcaption>The switch end of the lead: two #187 receptacles on the pair. <cite>Photo: BrickCycleAlice.</cite></figcaption>
+    <figcaption>The switch end of the limit switch lead (<code>LIM</code>): two #187 receptacles on the pair. <cite>Photo: BrickCycleAlice.</cite></figcaption>
   </figure>
 </div>
 
 <div class="prep-item">
   <div class="prep-item-body">
-    <p><strong>Prepare three <a href="{{ '/hardware/helpers/led-strip/' | relative_url }}">LED strips</a> with their cables before you start.</strong> Each lamp has a strip with a short pigtail ending in a barrel plug, and a board cable of about a metre with the matching socket and a 2-pin Dupont housing. Step 4 plugs the board cables into the LED ports.</p>
+    <p><strong>Prepare three <a href="{{ '/hardware/helpers/led-strip/' | relative_url }}">LED strips</a> with their cables before you start.</strong> Each lamp has a strip with a short pigtail (<code>L1p</code> to <code>L3p</code>) ending in a barrel plug, and a board cable (<code>L1</code> to <code>L3</code>) of about 920 mm (36 in) with the matching socket and a 2-pin Dupont housing. Step 4 plugs the board cables into the LED ports.</p>
   </div>
   <figure class="prep-item-figure">
     <img class="doc-figure" src="https://assets.basically.website/sorter-docs/led-two-cable-set-pin1-full-ad3551b6b708.png" alt="Diagram of two cables. Cable 1, the lamp pigtail: an LED strip, a clamp-on connector, and red and black wires ending in a barrel plug. Cable 2, the board cable: a barrel socket, two staggered butt connectors on its red and black wires, and a longer cable ending in a two-pin Dupont plug that goes to the board, red in pin 1 for +V and black in the other for GND.">
-    <figcaption>The two cables of one lamp. <cite>Diagram: author not recorded.</cite></figcaption>
+    <figcaption>The two cables of one lamp: the pigtail (<code>L1p</code>) and the board cable (<code>L1</code>). <cite>Diagram: author not recorded.</cite></figcaption>
   </figure>
 </div>
 
-The PSU output pigtails are already in the PSU box. The USB hub's lead has no page: step 6 below connects it. [Ordering the wire harness]({{ '/hardware/parts/harness-order/' | relative_url }}) has the length and gauge of every lead.
+The PSU output pigtails (`PJ1` to `PJ3`) are already in the PSU box. The USB hub's lead (`W2`) has no page: step 6 below connects it. [Ordering the wire harness]({{ '/hardware/parts/harness-order/' | relative_url }}) has the length and gauge of every lead.
 
 <div class="callout callout-warning">
   <span class="callout-icon" aria-hidden="true">⚠</span>
-  <p><b>Do not plug a cable into the IEC inlet until the last step.</b> The mains wiring inside the PSU box is finished and the box stays closed from here on, so nothing on this page goes near it, but the machine is not to see mains until every cable below is in and checked.</p>
+  <p><b>Do not plug the mains lead (<code>AC1</code>) into the IEC inlet until the last step.</b> The mains wiring inside the PSU box is finished and the box stays closed from here on, so nothing on this page goes near it, but the machine is not to see mains until every cable below is in and checked.</p>
 </div>
 
 ## Every cable on this page
@@ -116,39 +116,39 @@ The PSU output pigtails are already in the PSU box. The USB hub's lead has no pa
 <table>
   <thead><tr><th>Cable</th><th>From, and its connector</th><th>To, and its connector</th></tr></thead>
   <tbody>
-    <tr><td>24 V, control board</td><td>PSU box jack, male DC barrel</td><td>Board <code>J1</code>, JST-VH 2-pin (<a href="{{ '/hardware/helpers/board-24v-lead/' | relative_url }}">make the control board's 24 V lead</a>)</td></tr>
-    <tr><td>24 V, USB hub</td><td>PSU box jack, male DC barrel</td><td>Hub 2-pin power terminal, bare wires (or the hub's DC jack, with a lead that has a barrel plug at each end)</td></tr>
-    <tr><td>24 V, Orange Pi</td><td>PSU box jack, male DC barrel</td><td>Buck converter, then USB-C into <code>PWR IN</code> (<a href="{{ '/hardware/helpers/pi-24v-lead/' | relative_url }}">make the Orange Pi's 24 V lead</a>)</td></tr>
-    <tr><td>Channel steppers (×4)</td><td>Board <code>J27</code> / <code>J31</code> / <code>J35</code> / <code>J39</code>, JST-PH 4-pin</td><td>The motor's own JST-PH 6-pin socket (<a href="{{ '/hardware/helpers/channel-stepper-lead/' | relative_url }}">make the channel stepper leads</a>)</td></tr>
-    <tr><td>Chute stepper</td><td>Board <code>J23</code>, 4-pin JST-PH (or <code>J24</code> beside it, 4-pin Dupont on 2.54 mm pins)</td><td>The motor's flying leads, spliced to a thinner tail and crimped into a PH housing (<a href="{{ '/hardware/helpers/chute-stepper-lead/' | relative_url }}">make the chute stepper lead</a>)</td></tr>
-    <tr><td>Chute limit switch</td><td>Board <code>J5</code>, 3-pin Dupont, 2 positions used</td><td>Two #187 push-on tabs on the switch (<a href="{{ '/hardware/helpers/limit-switch-lead/' | relative_url }}">make the limit switch lead</a>)</td></tr>
-    <tr><td>Camera lamps (×3)</td><td>Board <code>J8</code> / <code>J9</code> / <code>J10</code>, 2-pin Dupont</td><td>Barrel socket, which takes the barrel plug on the lamp's pigtail (optional but recommended; without it the cable runs to the strip) (<a href="{{ '/hardware/helpers/led-strip/' | relative_url }}">prepare the LED strip</a>)</td></tr>
-    <tr><td>Ribbon to the layers</td><td>Board <code>J17</code>, 16-pin IDC</td><td><code>J3</code> on the first layer board, 16-pin IDC</td></tr>
-    <tr><td>Pico to hub</td><td>Micro USB on the Pico</td><td>USB-A on the hub</td></tr>
-    <tr><td>Hub to Orange Pi</td><td>USB-A on the hub</td><td><code>UP USB3.0</code> on the Pi</td></tr>
+    <tr><td>24 V, control board (<code>W1</code>)</td><td>PSU box jack, male DC barrel</td><td>Board <code>J1</code>, JST-VH 2-pin (<a href="{{ '/hardware/helpers/board-24v-lead/' | relative_url }}">make the control board's 24 V lead</a>)</td></tr>
+    <tr><td>24 V, USB hub (<code>W2</code>)</td><td>PSU box jack, male DC barrel</td><td>Hub 2-pin power terminal, bare wires (or the hub's DC jack, with a lead that has a barrel plug at each end)</td></tr>
+    <tr><td>24 V, Orange Pi (<code>W3</code>)</td><td>PSU box jack, male DC barrel</td><td>Buck converter, then USB-C into <code>PWR IN</code> (<a href="{{ '/hardware/helpers/pi-24v-lead/' | relative_url }}">make the Orange Pi's 24 V lead</a>)</td></tr>
+    <tr><td>Channel steppers (×4: <code>S1</code> to <code>S4</code>)</td><td>Board <code>J27</code> / <code>J31</code> / <code>J35</code> / <code>J39</code>, JST-PH 4-pin</td><td>The motor's own JST-PH 6-pin socket (<a href="{{ '/hardware/helpers/channel-stepper-lead/' | relative_url }}">make the channel stepper leads</a>)</td></tr>
+    <tr><td>Chute stepper (<code>CH</code>)</td><td>Board <code>J23</code>, 4-pin JST-PH (or <code>J24</code> beside it, 4-pin Dupont on 2.54 mm (0.1 in) pins)</td><td>The motor's flying leads, spliced to a thinner tail and crimped into a PH housing (<a href="{{ '/hardware/helpers/chute-stepper-lead/' | relative_url }}">make the chute stepper lead</a>)</td></tr>
+    <tr><td>Chute limit switch (<code>LIM</code>)</td><td>Board <code>J5</code>, 3-pin Dupont, 2 positions used</td><td>Two #187 push-on tabs on the switch (<a href="{{ '/hardware/helpers/limit-switch-lead/' | relative_url }}">make the limit switch lead</a>)</td></tr>
+    <tr><td>Camera lamps (×3: <code>L1</code> to <code>L3</code>)</td><td>Board <code>J8</code> / <code>J9</code> / <code>J10</code>, 2-pin Dupont</td><td>Barrel socket, which takes the barrel plug on the lamp's pigtail (<code>L1p</code> to <code>L3p</code>) (optional but recommended; without it the cable runs to the strip) (<a href="{{ '/hardware/helpers/led-strip/' | relative_url }}">prepare the LED strip</a>)</td></tr>
+    <tr><td>Ribbon to the layers (<code>RIB1</code>)</td><td>Board <code>J17</code>, 16-pin IDC</td><td><code>J3</code> on the first layer board, 16-pin IDC</td></tr>
+    <tr><td>Pico to hub (<code>U2</code>)</td><td>Micro USB on the Pico</td><td>USB-A on the hub</td></tr>
+    <tr><td>Hub to Orange Pi (<code>U1</code>)</td><td>USB-A on the hub</td><td><code>UP USB3.0</code> on the Pi</td></tr>
     <tr><td>Cameras (×3)</td><td>The camera's own USB lead, one IMX415 and two OV9732</td><td>USB-A on the hub</td></tr>
   </tbody>
 </table>
 
-[Ordering the wire harness]({{ '/hardware/parts/harness-order/' | relative_url }}) calls the first three `W1`, `W2` and `W3`, the steppers `S1` to `S4` and `CH`, the limit switch `LIM`, the lamps `L1` to `L3`, and the ribbon `RIB1`. The three USB runs have no label; they are ordinary bought cables.
+[Ordering the wire harness]({{ '/hardware/parts/harness-order/' | relative_url }}) calls the first three `W1`, `W2` and `W3`, the steppers `S1` to `S4` and `CH`, the limit switch `LIM`, the lamps `L1` to `L3`, and the ribbon `RIB1`. The two bought USB cables between the Pico, the hub and the Orange Pi are `U2` and `U1`; the cameras' own USB leads have no label.
 
-### The three 24 V leads
+### The three 24 V leads (`W1` to `W3`)
 
 All three plug into the PSU box's three DC jacks, which are the same 24 V, so it does not matter which lead goes in which jack. Push each one fully home. Nothing else runs off the supply, the two cooling fans included, and there is no spare jack.
 
 The buck converter is the only bought part of the three. The leads themselves are:
 
 <dl class="spec-list">
-  <dt><code>W1</code>, control board</dt><dd>18 AWG (0.82 mm²), 36 in. Male DC barrel plug at the PSU end, JST-VH 2-pin (VHR-2) housing at the board end. No supplier sells that pair of ends, so this is one you make: <a href="{{ '/hardware/helpers/board-24v-lead/' | relative_url }}">make the control board's 24 V lead</a>.</dd>
+  <dt><code>W1</code>, control board</dt><dd>18 AWG (0.82 mm²), 920 mm (36 in). Male DC barrel plug at the PSU end, JST-VH 2-pin (VHR-2) housing at the board end. No stock cable has that pair of ends, so a vendor makes it as part of the <a href="{{ '/hardware/parts/harness-order/' | relative_url }}">harness order</a>, or you can <a href="{{ '/hardware/helpers/board-24v-lead/' | relative_url }}">make the control board's 24 V lead</a> yourself.</dd>
   <dt><code>W2</code>, USB hub</dt><dd>22 AWG (0.33 mm²), a moulded male DC barrel plug on its own short lead, with no second plug. Its two bare wires go into the hub, not into the board: <a href="#step-6">step 6</a> shows how.</dd>
-  <dt><code>W3</code>, Orange Pi</dt><dd>22 AWG (0.33 mm²), 6 in, a male DC barrel plug onto the buck converter's input wires. The buck's USB-C lead is the other half of the run.</dd>
+  <dt><code>W3</code>, Orange Pi</dt><dd>22 AWG (0.33 mm²), 150 mm (6 in), a male DC barrel plug onto the buck converter's input wires. The buck's USB-C lead is the other half of the run.</dd>
 </dl>
 
-The machine needs three male barrel plugs for these three, plus, if you fit the optional LED plug and socket, one on each of the three LED pigtails. [Ordering the wire harness]({{ '/hardware/parts/harness-order/' | relative_url }}) has a drawing of every cable in the machine, with the gauge, the length and both end connectors on it.
+The machine needs three male barrel plugs for these three, plus, if you fit the optional LED plug and socket, one on each of the three LED pigtails (`L1p` to `L3p`). [Ordering the wire harness]({{ '/hardware/parts/harness-order/' | relative_url }}) has a drawing of every cable in the machine, with the gauge, the length and both end connectors on it.
 
 <div class="callout callout-warning">
   <span class="callout-icon" aria-hidden="true">⚠</span>
-  <p>Every jack on the PSU box is <b>5.5 x 2.1 mm, centre-positive</b>. A 2.5 mm plug looks the same and does not mate. Check the pin size before you buy a barrel lead.</p>
+  <p>Every jack on the PSU box is <b>5.5 mm (0.217 in) x 2.1 mm (0.083 in), centre-positive</b>. A 2.5 mm (0.098 in) plug looks the same and does not mate. Check the pin size before you buy a barrel lead.</p>
 </div>
 
 ### Sleeving the leads you make (optional)
@@ -160,24 +160,24 @@ The machine needs three male barrel plugs for these three, plus, if you fit the 
 **Where:** over every lead you make yourself. Each helper page has the length and the step where it goes on:
 
 <ul class="bulleted-list">
-  <li>The four <a href="{{ '/hardware/helpers/channel-stepper-lead/#sleeving-optional' | relative_url }}">channel stepper leads</a>, 1 m each.</li>
-  <li>The <a href="{{ '/hardware/helpers/chute-stepper-lead/#sleeving-optional' | relative_url }}">chute stepper lead</a>, about 1 m.</li>
-  <li>The <a href="{{ '/hardware/helpers/board-24v-lead/#sleeving-optional' | relative_url }}">control board's 24 V lead</a>, about 0.9 m.</li>
-  <li>The <a href="{{ '/hardware/helpers/limit-switch-lead/#sleeving-optional' | relative_url }}">limit switch lead</a>, about 0.6 m.</li>
-  <li>The three <a href="{{ '/hardware/helpers/led-strip/#sleeving-optional' | relative_url }}">LED board cables</a>, about 1 m each, and their short lamp pigtails, 0.1 m each.</li>
-  <li>The <a href="{{ '/hardware/helpers/pi-24v-lead/#sleeving-optional' | relative_url }}">Orange Pi's 24 V lead</a>, about 0.1 m.</li>
+  <li>The four <a href="{{ '/hardware/helpers/channel-stepper-lead/#sleeving-optional' | relative_url }}">channel stepper leads</a> (`S1` to `S4`), 1 m (39 in) each.</li>
+  <li>The <a href="{{ '/hardware/helpers/chute-stepper-lead/#sleeving-optional' | relative_url }}">chute stepper lead</a> (`CH`), about 1 m (39 in).</li>
+  <li>The <a href="{{ '/hardware/helpers/board-24v-lead/#sleeving-optional' | relative_url }}">control board's 24 V lead</a> (`W1`), about 920 mm (36 in).</li>
+  <li>The <a href="{{ '/hardware/helpers/limit-switch-lead/#sleeving-optional' | relative_url }}">limit switch lead</a> (`LIM`), about 610 mm (24 in).</li>
+  <li>The three <a href="{{ '/hardware/helpers/led-strip/#sleeving-optional' | relative_url }}">LED board cables</a> (`L1` to `L3`), about 920 mm (36 in) each, and their short lamp pigtails (`L1p` to `L3p`), 150 mm (6 in) each.</li>
+  <li>The <a href="{{ '/hardware/helpers/pi-24v-lead/#sleeving-optional' | relative_url }}">Orange Pi's 24 V lead</a> (`W3`), about 150 mm (6 in).</li>
 </ul>
 
-The `W2` lead to the USB hub, the USB cables and the ribbon are bought parts with no page to make them, and the PSU box pigtails stay inside the box, so none of those is sleeved. In all, about 10 m for the machine: one 15.2 m roll.
+The `W2` lead to the USB hub, the USB cables (`U1`, `U2`) and the ribbon (`RIB1`) are bought parts with no page to make them, and the PSU box pigtails (`PJ1` to `PJ3`) stay inside the box, so none of those is sleeved. In all, about 10 m (33 ft) for the machine: one 15.2 m (50 ft) roll.
 
-**When:** while you make each lead, from the cut end, before you fit the connector that goes on it. A finished plug or housing may not go through the sleeving: the 6-pin housing on a channel stepper lead is too big for it, and a 4-pin PH housing is a tight fit that has not been tried. Do not plan on adding sleeving to a finished lead. The harness drawings sleeve the four channel stepper leads only; sleeving the rest is a choice, not part of the drawing.
+**When:** while you make each lead, from the cut end, before you fit the connector that goes on it. A finished plug or housing may not go through the sleeving: the 6-pin housing on a channel stepper lead is too big for it, and a 4-pin PH housing is a tight fit that has not been tried. Do not plan on adding sleeving to a finished lead. The harness drawings sleeve the four channel stepper leads (`S1` to `S4`) only; sleeving the rest is a choice, not part of the drawing.
 
 **How:** the same on every lead.
 
 <ol class="numbered-steps">
   <li>Push the braid together lengthwise to open it: it widens as it shortens. Feed all the wires of the lead into it together, so none of them is left outside.</li>
   <li>Cut it to length with a hot knife or a soldering iron with a blade tip, so the cut melts shut. Plain scissors leave the braid fraying. With no hot tool, wrap a turn of tape around the braid where you will cut, cut through the middle of the tape with scissors, and leave the tape on.</li>
-  <li>Stop the sleeving 5 to 10 mm short of each housing or plug, so the crimped contacts and the housings can flex and the sleeving never crowds into one.</li>
+  <li>Stop the sleeving 5 to 10 mm (0.2 to 0.4 in) short of each housing or plug, so the crimped contacts and the housings can flex and the sleeving never crowds into one.</li>
   <li>Hold each end with a small piece of heat shrink or a turn of tape, so that the braid cannot creep back along the wires.</li>
 </ol>
 
@@ -234,7 +234,7 @@ Everything in steps 1 to 5 plugs into this board. It is drawn from above, the wa
       <text x="154" y="326.0" font-size="11" font-weight="400" text-anchor="end" fill="var(--muted)">C-channel 2 rotor</text>
       <rect x="246.0" y="550.4" width="85.3" height="21.4" rx="2" fill="var(--surface)" stroke="var(--primary)" stroke-width="2"/>
       <path d="M287.6 571.8 L287.6 605.0" stroke="var(--muted)" stroke-width="1" fill="none"/>
-      <text x="287.6" y="634.4" font-size="12" font-weight="700" text-anchor="middle" fill="var(--ink)">J17 · 16-pin ribbon</text>
+      <text x="287.6" y="634.4" font-size="12" font-weight="700" text-anchor="middle" fill="var(--ink)">J17 · 16-pin ribbon (RIB1)</text>
       <text x="287.6" y="649.4" font-size="11" font-weight="400" text-anchor="middle" fill="var(--muted)">down to the layer boards</text>
       <rect x="317.0" y="490.8" width="63.0" height="10.5" rx="2" fill="var(--bg)" stroke="var(--ink)" stroke-width="1" stroke-dasharray="3 3"/>
       <text x="346.4" y="479.0" font-size="10" text-anchor="middle" fill="var(--muted)">J12 · unused PWM</text>
@@ -262,7 +262,7 @@ Everything in steps 1 to 5 plugs into this board. It is drawn from above, the wa
       <rect x="672.7" y="223.6" width="10.5" height="35.3" rx="2" fill="var(--bg)" stroke="var(--ink)" stroke-width="1" stroke-dasharray="3 3"/>
       <rect x="672.7" y="326.5" width="10.5" height="35.3" rx="2" fill="var(--bg)" stroke="var(--ink)" stroke-width="1" stroke-dasharray="3 3"/>
       <rect x="672.7" y="429.4" width="10.5" height="35.3" rx="2" fill="var(--bg)" stroke="var(--ink)" stroke-width="1" stroke-dasharray="3 3"/>
-      <text x="916" y="613.4" font-size="10" text-anchor="end" fill="var(--muted)">Dashed outlines are parts already on the board. J24 / J28 / J32 / J36 carry the same stepper signals on 2.54 mm pins.</text>
+      <text x="916" y="613.4" font-size="10" text-anchor="end" fill="var(--muted)">Dashed outlines are parts already on the board. J24 / J28 / J32 / J36 carry the same stepper signals on 2.54 mm (0.1 in) pins.</text>
     </svg>
   </div>
   <figcaption>basically board v1.3 from above. Red outlines are the sockets a cable plugs into on this page; the parts already fitted to the board are dashed.</figcaption>
@@ -273,43 +273,43 @@ Everything in steps 1 to 5 plugs into this board. It is drawn from above, the wa
   <p>The housing's openings reach the sockets along the edges of the board. If one of the sockets below will not reach with the cover on, take out the four countersunk screws, lift the cover, plug the cable in, and put the cover back. See <a href="{{ '/hardware/electronics/installation/control-board-housing/' | relative_url }}">Control board housing</a>, step 6.</p>
 </div>
 
-{% include step.html n="1" title="Plug 24 V into the control board" %}
+{% include step.html n="1" title="Plug 24 V into the control board (W1)" %}
 
 The board's power input is `J1`, the big 2-pin socket in one corner of the board. It is the only connector of that size on the board, and the plug only goes in one way up. Pin 1 is +24 V and pin 2 is ground, and both are fused on the board. The board prints `24V` beside pin 1 and `GND` beside pin 2: the red wire goes on the `24V` side.
 
-{% include step.html n="2" title="Plug in the five stepper cables" %}
+{% include step.html n="2" title="Plug in the five stepper cables (S1 to S4, CH)" %}
 
 Each stepper has its own socket, and the socket decides which motor the software is driving. Plug them in as below.
 
 <table>
   <thead><tr><th>Socket</th><th>Printed beside it</th><th>The motor that goes on it</th><th>Cable end</th></tr></thead>
   <tbody>
-    <tr><td><code>J23</code></td><td><code>Stepper_A2</code></td><td>Chute stepper</td><td>JST-PH 4-pin, built on the motor's bare leads (a 4-pin Dupont housing goes on <code>J24</code> beside it instead): <a href="{{ '/hardware/helpers/chute-stepper-lead/' | relative_url }}">make the chute stepper lead</a></td></tr>
-    <tr><td><code>J27</code></td><td><code>Stepper_A3</code></td><td>C-channel 1 rotor</td><td>JST-PH 4-pin</td></tr>
-    <tr><td><code>J31</code></td><td><code>Stepper_A4</code></td><td>C-channel 3 rotor</td><td>JST-PH 4-pin</td></tr>
-    <tr><td><code>J35</code></td><td><code>Stepper_A5</code></td><td>Classification channel rotor (the software calls it the carousel)</td><td>JST-PH 4-pin</td></tr>
-    <tr><td><code>J39</code></td><td><code>Stepper_A6</code></td><td>C-channel 2 rotor</td><td>JST-PH 4-pin</td></tr>
+    <tr><td><code>J23</code></td><td><code>Stepper_A2</code></td><td>Chute stepper</td><td>JST-PH 4-pin (<code>CH</code>), built on the motor's bare leads (a 4-pin Dupont housing goes on <code>J24</code> beside it instead): <a href="{{ '/hardware/helpers/chute-stepper-lead/' | relative_url }}">make the chute stepper lead</a></td></tr>
+    <tr><td><code>J27</code></td><td><code>Stepper_A3</code></td><td>C-channel 1 rotor</td><td>JST-PH 4-pin, one of <code>S1</code> to <code>S4</code></td></tr>
+    <tr><td><code>J31</code></td><td><code>Stepper_A4</code></td><td>C-channel 3 rotor</td><td>JST-PH 4-pin, one of <code>S1</code> to <code>S4</code></td></tr>
+    <tr><td><code>J35</code></td><td><code>Stepper_A5</code></td><td>Classification channel rotor (the software calls it the carousel)</td><td>JST-PH 4-pin, one of <code>S1</code> to <code>S4</code></td></tr>
+    <tr><td><code>J39</code></td><td><code>Stepper_A6</code></td><td>C-channel 2 rotor</td><td>JST-PH 4-pin, one of <code>S1</code> to <code>S4</code></td></tr>
   </tbody>
 </table>
 
-On every stepper socket, pin 1 is the one on the square pad and carries `A2`; the PH sockets and the 2.54 mm pins both put it at the same end. A PH housing is keyed and only plugs in one way round, so its position 1 is the end that goes over the square pad. A Dupont housing has no key, so go by the pad. The [chute stepper lead]({{ '/hardware/helpers/chute-stepper-lead/' | relative_url }}#the-pin-order) page has the drawing.
+On every stepper socket, pin 1 is the one on the square pad and carries `A2`; the PH sockets and the 2.54 mm (0.1 in) pins both put it at the same end. A PH housing is keyed and only plugs in one way round, so its position 1 is the end that goes over the square pad. A Dupont housing has no key, so go by the pad. The [chute stepper lead]({{ '/hardware/helpers/chute-stepper-lead/' | relative_url }}#the-pin-order) (`CH`) page has the drawing.
 
-Every socket has a row of 2.54 mm pins beside it carrying the same signals, so a cable with a Dupont end goes on those instead: `J24` beside `J23`, `J28` beside `J27`, and so on, with each pin's coil name printed beside it so you can read them off the board rather than counting positions. `Stepper_A6` is on the far side of the board on its own; the other four are in a row along one edge. Each socket is wired to the driver printed beside it, so that driver has to carry the address for that stepper. The addresses are set in [preparing the control board]({{ '/hardware/electronics/installation/control-board-prep/' | relative_url }}), step 3.
+Every socket has a row of 2.54 mm (0.1 in) pins beside it carrying the same signals, so a cable with a Dupont end goes on those instead: `J24` beside `J23`, `J28` beside `J27`, and so on, with each pin's coil name printed beside it so you can read them off the board rather than counting positions. `Stepper_A6` is on the far side of the board on its own; the other four are in a row along one edge. Each socket is wired to the driver printed beside it, so that driver has to carry the address for that stepper. The addresses are set in [preparing the control board]({{ '/hardware/electronics/installation/control-board-prep/' | relative_url }}), step 3.
 
 <div class="callout callout-warning">
   <span class="callout-icon" aria-hidden="true">⚠</span>
   <p><b>Check the coils before you plug a motor in.</b> A stepper has two coils, two wires each, and the plug has four holes: holes 1 and 2 feed one coil, 3 and 4 the other. Put a <a href="{{ '/hardware/helpers/multimeter/' | relative_url }}#resistance-for-finding-a-steppers-coils">multimeter</a> across the wires that should be a pair. A pair reads a few ohms; two wires from different coils read open circuit. If holes 2 and 3 are the pair, pull those two contacts out of the housing and swap them, or the motor will buzz and barely turn. Full pinout and the board-side footprint: <a href="{{ '/hardware/electronics/wire-harness/#21--stepper-pinout-and-polarity' | relative_url }}">the wire harness page</a>.</p>
 </div>
 
-{% include step.html n="3" title="Wire the chute limit switch" %}
+{% include step.html n="3" title="Wire the chute limit switch (LIM)" %}
 
-The switch tells the machine where the chute is. Its cable ends in a 3-pin Dupont housing with only two positions filled, and it goes on `J5`, the header the board prints `HALL_SW_0`. The filled positions are ground and signal, and the empty one goes over the pin the board prints `3.3V`. The housing is not keyed and fits either way round, so check that before you push it on: [the limit switch lead]({{ '/hardware/helpers/limit-switch-lead/#putting-the-housing-on-the-board' | relative_url }}) shows it.
+The switch tells the machine where the chute is. Its cable (`LIM`) ends in a 3-pin Dupont housing with only two positions filled, and it goes on `J5`, the header the board prints `HALL_SW_0`. The filled positions are ground and signal, and the empty one goes over the pin the board prints `3.3V`. The housing is not keyed and fits either way round, so check that before you push it on: [the limit switch lead]({{ '/hardware/helpers/limit-switch-lead/#putting-the-housing-on-the-board' | relative_url }}) shows it.
 
 At the switch end, push the two #187 tabs onto the switch's `COM` and `NC` terminals. The switch has three tabs and one stays empty. Wired this way the circuit is closed while the lever is free and opens when the chute presses it, which is what the machine expects. If homing runs the wrong way round later, the setting is in the software, not the wiring.
 
 {% include step.html n="4" title="Plug in the three camera lamps" %}
 
-The board has four LED ports. The fan in the housing lid is already on one of them, so the three [camera lamps]({{ '/hardware/assembly/feeder/camera-lamp/' | relative_url }}) take the other three. Each lamp comes with a [prepared LED strip]({{ '/hardware/helpers/led-strip/' | relative_url }}) and a board cable of about a metre of 22 AWG (0.33 mm²) with the Dupont housing on one end. The barrel plug on the strip and the matching socket on the cable's other end are optional but recommended: they make maintenance easier, because the lamp's power can be disconnected close to the lamp. Without them the cable runs straight to the strip.
+The board has four LED ports. The fan in the housing lid is already on one of them, so the three [camera lamps]({{ '/hardware/assembly/feeder/camera-lamp/' | relative_url }}) take the other three. Each lamp comes with a [prepared LED strip]({{ '/hardware/helpers/led-strip/' | relative_url }}) and a board cable (`L1` to `L3`) of about 920 mm (36 in) of 22 AWG (0.33 mm²) with the Dupont housing on one end. The barrel plug on the strip's pigtail (`L1p` to `L3p`) and the matching socket on the cable's other end are optional but recommended: they make maintenance easier, because the lamp's power can be disconnected close to the lamp. Without them the cable runs straight to the strip.
 
 <table>
   <thead><tr><th>Port</th><th>Printed on the board</th><th>What goes on it</th></tr></thead>
@@ -321,30 +321,30 @@ The board has four LED ports. The fan in the housing lid is already on one of th
   </tbody>
 </table>
 
-The board prints `+V` beside the pin on the square pad of each port and `GND` beside the round one. The red wire goes to `+V`. The Dupont housing has no key and fits either way up, and the arrow moulded on it is not a polarity mark, so look at which pin the red wire is over before you push it on.
+The board prints `+V` beside the pin on the square pad of each port and `GND` beside the round one. The red wire goes to `+V`. The Dupont housing has no key and fits either way up, but the arrow moulded on it always marks the black (ground) wire on every lead here, so push it on with the arrow end over `GND`.
 
 <div class="callout">
   <span class="callout-icon" aria-hidden="true">›</span>
   <p><b>Four ports, two switches.</b> <code>J8</code> and <code>J9</code> turn on and off together, and so do <code>J10</code> and <code>J11</code>. So one lamp always comes on with the fan. Which lamp is on which output is picked in the software later, on the LED button for each channel.</p>
 </div>
 
-The solder jumper beside each of these three ports should already be bridged, from [preparing the control board]({{ '/hardware/electronics/installation/control-board-prep/' | relative_url }}), step 4. If you skipped it, do it before the lamps go on: the 180 Ω resistor in each port is there for a COB LED board and only dims a strip.
+The solder jumper beside each of these three ports should already be bridged, from [preparing the control board]({{ '/hardware/electronics/installation/control-board-prep/' | relative_url }}), step 4. If you skipped it, do it before the lamps go on: the 180 Ω resistor in each port is there for a bare LED board and only dims a strip.
 
-**Plugging one in.** Push the board cable's 2-pin 2.54 mm Dupont housing onto the port, red to `+V`, [metering which pin that is]({{ '/hardware/helpers/multimeter/' | relative_url }}#continuity-for-tracing-a-cable) first. If you fitted the plug and socket, push the lamp's barrel plug into the socket on the other end of that cable. Cable-tie the pair along whatever it runs down so it is not left hanging.
+**Plugging one in.** Push the 2-pin 2.54 mm (0.1 in) Dupont housing on the board cable (`L1` to `L3`) onto the port, red to `+V`, [metering which pin that is]({{ '/hardware/helpers/multimeter/' | relative_url }}#continuity-for-tracing-a-cable) first. If you fitted the plug and socket, push the lamp's barrel plug into the socket on the other end of that cable. Cable-tie the pair along whatever it runs down so it is not left hanging.
 
-**The barrel pair is optional but recommended, and it makes maintenance easier.** It is the point where a lamp comes off, so the power to a lamp can be disconnected close to the lamp and the lamp unplugged without unwiring the board end. It is the same 5.5 × 2.1 mm size as a PSU output jack, so check what you are plugging into.
+**The barrel pair is optional but recommended, and it makes maintenance easier.** It is the point where a lamp comes off, so the power to a lamp can be disconnected close to the lamp and the lamp unplugged without unwiring the board end. It is the same 5.5 mm (0.217 in) × 2.1 mm (0.083 in) size as a PSU output jack, so check what you are plugging into.
 
-**Then assign the output in software**: Settings, the channel, the LED button, pick which output that lamp is on and set the brightness. **Nothing lights until an output is assigned.** The lamps are `L1` to `L3` in the [cable schedule]({{ '/hardware/parts/harness-order/' | relative_url }}), which still draws every drop split at a barrel jack.
+**Then assign the output in software**: Settings, the channel, the LED button, pick which output that lamp is on and set the brightness. **Nothing lights until an output is assigned.** The lamps' board cables are `L1` to `L3`, and their pigtails `L1p` to `L3p`, in the [cable schedule]({{ '/hardware/parts/harness-order/' | relative_url }}), which still draws every drop split at a barrel jack.
 
-{% include step.html n="5" title="Run the ribbon down to the layers" %}
+{% include step.html n="5" title="Run the ribbon down to the layers (RIB1)" %}
 
-One flat 16-pin ribbon, 1.2 to 1.5 m, runs from `J17` on the control board down to `J3` on the first layer board in the chute stack. Both ends are keyed, so it only goes in one way up.
+One flat 16-pin ribbon (`RIB1`), 1.2 to 1.5 m (47 to 59 in), runs from `J17` on the control board down to `J3` on the first layer board in the chute stack. Both ends are keyed, so it only goes in one way up.
 
-The layer boards are already chained to each other with their own 30 cm ribbons, and their servos are already plugged in. Both happen as each [layer adapter board]({{ '/hardware/assembly/distribution/chute/pcb/' | relative_url }}) is built and the chute tower goes together.
+The layer boards are already chained to each other with their own 300 mm (12 in) ribbons (`RIB2`), and their servos are already plugged in. Both happen as each [layer adapter board]({{ '/hardware/assembly/distribution/chute/pcb/' | relative_url }}) is built and the chute tower goes together.
 
-{% include step.html n="6" title="Power the USB hub" %}
+{% include step.html n="6" title="Power the USB hub (W2)" %}
 
-The hub has its own 2-pin screw terminal for power, on its circuit board. The plug's two wires go in there. Do this with the PSU box not plugged in to the mains.
+The hub has its own 2-pin screw terminal for power, on its circuit board. The two wires of the plug's lead (`W2`) go in there. Do this with the PSU box not plugged in to the mains.
 
 <ol class="numbered-steps">
   <li>Plug the barrel plug into a free 24 V jack on the PSU box. Push it fully home.</li>
@@ -355,14 +355,14 @@ The hub has its own 2-pin screw terminal for power, on its circuit board. The pl
   <li>Tighten both screws, then give each wire a gentle pull. If a wire moves, tighten the screw more.</li>
 </ol>
 
-The plug's own lead, about 28 cm with the plug, is long enough when the Orange Pi housing, which carries the hub on its roof, is bolted next to the PSU box as in the <a href="{{ '/hardware/electronics/installation/' | relative_url }}#bolting-the-enclosures-to-the-frame">frame drawing</a>.
+The plug's own lead (`W2`), about 310 mm (12 in) with the plug, is long enough when the Orange Pi housing, which carries the hub on its roof, is bolted next to the PSU box as in the <a href="{{ '/hardware/electronics/installation/' | relative_url }}#bolting-the-enclosures-to-the-frame">frame drawing</a>.
 
 <div class="callout">
   <span class="callout-icon" aria-hidden="true">›</span>
-  <p><b>If you mounted the two housings further apart and the lead does not reach,</b> buy a ready-made lead with a 5.5 x 2.1 mm barrel plug at each end, centre contact +24 V at both ends (it is listed in the parts above as the alternative). Plug one end into the PSU box and the other into the round DC socket on the hub. The terminal stays empty, so skip points 2 to 6 of the list above.</p>
+  <p><b>If you mounted the two housings further apart and the lead does not reach,</b> buy a ready-made lead (`W2`) with a 5.5 mm (0.217 in) x 2.1 mm (0.083 in) barrel plug at each end, centre contact +24 V at both ends (it is listed in the parts above as the alternative). Plug one end into the PSU box and the other into the round DC socket on the hub. The terminal stays empty, so skip points 2 to 6 of the list above.</p>
 </div>
 
-{% include step.html n="7" title="Plug in the USB: the Pico, the hub and the Orange Pi" %}
+{% include step.html n="7" title="Plug in the USB (U1, U2): the Pico, the hub and the Orange Pi" %}
 
 The Orange Pi talks to the control board over USB, through the powered hub. The three cameras are on the same hub.
 
@@ -422,9 +422,9 @@ The Orange Pi talks to the control board over USB, through the powered hub. The 
 </figure>
 
 <ol class="numbered-steps">
-  <li>Plug the buck converter's USB-C lead into the socket the board prints <code>PWR IN</code>. <b>The Pi has two USB-C sockets that look the same</b> and only the one marked <code>PWR IN</code> is a power input. The other is USB 3.1 and DisplayPort, with no power function. Check that the converter is putting out 5 V before it goes anywhere near the Pi, as under <b>Check the lead</b> on <a href="{{ '/hardware/helpers/pi-24v-lead/' | relative_url }}#check-the-lead">Make the Orange Pi's 24 V lead</a>.</li>
-  <li>Run a USB cable from the Pico's micro USB socket to any port on the hub.</li>
-  <li>Run a USB cable from the hub to the port marked <code>UP USB3.0</code> on the Pi, the upper of the two stacked sockets. The hub comes with a USB-A to USB-A lead for this.</li>
+  <li>Plug the buck converter's USB-C lead into the socket the board prints <code>PWR IN</code>. <b>The Pi has two USB-C sockets that look the same</b> and only the one marked <code>PWR IN</code> is a power input. The other is USB 3.1 and DisplayPort, with no power function. Check that the converter is putting out 5 V before it goes anywhere near the Pi, as under <b>Check the lead</b> on <a href="{{ '/hardware/helpers/pi-24v-lead/' | relative_url }}#check-the-lead">Make the Orange Pi's 24 V lead</a> (<code>W3</code>).</li>
+  <li>Run a USB cable (<code>U2</code>) from the Pico's micro USB socket to any port on the hub.</li>
+  <li>Run a USB cable (<code>U1</code>) from the hub to the port marked <code>UP USB3.0</code> on the Pi, the upper of the two stacked sockets. The hub comes with a USB-A to USB-A lead for this.</li>
   <li>Plug the three cameras into the three remaining hub ports. Each one arrives with its own lead: the <b>IMX415 4K</b> module on the <a href="{{ '/hardware/assembly/feeder/camera-lamp/classification-camera-lamp/' | relative_url }}">classification camera lamp</a>, and the two <b>OV9732 720p</b> modules on the C2 and C3 <a href="{{ '/hardware/assembly/feeder/camera-lamp/feeder-camera-lamp/' | relative_url }}">feeder camera lamps</a>.</li>
 </ol>
 
@@ -440,14 +440,14 @@ That fills the hub: three cameras and the Pico, no spare port.
 Before the machine sees mains:
 
 <ol class="numbered-steps">
-  <li>All three DC leads are in their jacks, and the PSU box is closed.</li>
+  <li>All three DC leads (<code>W1</code> to <code>W3</code>) are in their jacks, and the PSU box is closed.</li>
   <li>At the hub's power terminal, the wire from the plug's centre contact is under <code>+</code>, and neither wire pulls out.</li>
   <li>Every stepper plug is fully home, and no plug is hanging on one contact.</li>
-  <li>The ribbon goes from the board to <code>J3</code> of the first layer board, and down the stack <code>J4</code> to <code>J3</code>.</li>
+  <li>The ribbon (<code>RIB1</code>) goes from the board to <code>J3</code> of the first layer board, and down the stack on the layer ribbons (<code>RIB2</code>), <code>J4</code> to <code>J3</code>.</li>
   <li>Nothing is resting on the fan blades.</li>
 </ol>
 
-Then plug the machine in and switch the inlet switch on. The red power light on the Orange Pi comes on. The fan in the housing lid does not run yet, because the software switches it.
+Then plug in the mains lead (`AC1`) and switch the inlet switch on. The red power light on the Orange Pi comes on. The fan in the housing lid does not run yet, because the software switches it.
 
 ## The finished result
 

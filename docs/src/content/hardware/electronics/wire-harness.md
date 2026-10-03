@@ -24,7 +24,7 @@ This page is the wiring. Where the PSU, the control board and the Orange Pi phys
   <dt>Output</dt><dd>24V, 14.6A, 350.4W, single output</dd>
   <dt>Enclosure</dt><dd>Custom 3D-printed box, fused AC input</dd>
   <dt>Terminal block</dt><dd>9 positions, numbered by MEAN WELL: <b>1</b> AC/L, <b>2</b> AC/N, <b>3</b> FG, <b>4-6</b> DC OUTPUT -V, <b>7-9</b> DC OUTPUT +V</dd>
-  <dt>DC outputs</dt><dd>3 female DC jacks, each on a 100 mm (4 in) pigtail of 18 AWG (0.82 mm²) wire with a fork terminal on each of its 2 leads (M3.5 screw, 8 mm (0.31 in) wide at most). One pigtail per +V/-V screw pair: 7 with 4, 8 with 5, 9 with 6. <a href="{{ '/hardware/helpers/psu-pigtail/' | relative_url }}">Make the pigtails</a></dd>
+  <dt>DC outputs</dt><dd>3 female DC jacks, each on a 100 mm (4 in) pigtail (<code>PJ1</code> to <code>PJ3</code>) of 18 AWG (0.82 mm²) wire with a fork terminal on each of its 2 leads (M3.5 screw, 8 mm (0.31 in) wide at most). One pigtail per +V/-V screw pair: 7 with 4, 8 with 5, 9 with 6. <a href="{{ '/hardware/helpers/psu-pigtail/' | relative_url }}">Make the pigtails</a></dd>
   <dt>AC input</dt><dd>Screws 1, 2, 3. Fed by the fused IEC inlet switch's own pre-terminated leads, so there is no cable to make</dd>
   <dt>Loads</dt><dd>basically board v1.3, the USB hub and the Orange Pi buck converter. One jack each, no spare</dd>
   <dt>Cooling fans</dt><dd>Not on the PSU. The control board's 40 mm (1.6 in) fan plugs into one of the board's four LED ports, see <a href="{{ '/hardware/electronics/installation/control-board-housing/' | relative_url }}">control board housing</a> step 5. The Orange Pi's fan plugs into the board's own FAN socket.</dd>
@@ -161,7 +161,7 @@ Every stepper output on **basically board v1.3** has the same pinout, pin 1 to p
   <p><b>Coil rule.</b> Pins 1-2 are one coil (A), pins 3-4 the other (B). Swapping the two wires <i>within</i> a coil only reverses motor direction. Splitting a coil across the 2/3 boundary is what actually breaks operation, so keep each pair together.</p>
 </div>
 
-The 4 channel motors are NEMA 17 with their own **JST-PH 6-pin** socket, so cable S plugs straight into the motor and the shipped StepperOnline lead is not used. The chute motor ships as bare flying leads instead, and its cable is built: [make the chute stepper lead]({{ '/hardware/helpers/chute-stepper-lead/' | relative_url }}).
+The 4 channel motors are NEMA 17 with their own **JST-PH 6-pin** socket, so cable S (`S1` to `S4`) plugs straight into the motor and the shipped StepperOnline lead is not used. The chute motor ships as bare flying leads instead, and its cable (`CH`) is built: [make the chute stepper lead]({{ '/hardware/helpers/chute-stepper-lead/' | relative_url }}).
 
 Cable S plugs into the motor's own 6-position JST-PH socket, so the four board positions <code>1·2·3·4</code> land on motor positions <code>1·4·3·6</code> and motor positions 2 and 5 stay empty. Mark the polarity on each of the 4 channel steppers.
 

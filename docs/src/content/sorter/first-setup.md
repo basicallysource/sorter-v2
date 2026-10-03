@@ -110,7 +110,7 @@ A recognised device has a green **Controller** or **Servo Bus** badge, its board
 
 <ol class="numbered-steps">
   <li><strong>The board has no firmware on it.</strong> This is the usual cause on a new machine, and an unflashed board cannot appear here. Flash it, then come back. <a href="{{ '/hardware/software-setup/' | relative_url }}">Software setup</a> step 2.</li>
-  <li><strong>The machine is not powered, or the board's USB cable is not in.</strong> The cable runs from the Pico's own socket to a port on the USB hub.</li>
+  <li><strong>The machine is not powered, or the board's USB cable (<code>U2</code>) is not in.</strong> The cable runs from the Pico's own socket to a port on the USB hub.</li>
   <li>Press <strong>Rescan</strong>.</li>
 </ol>
 

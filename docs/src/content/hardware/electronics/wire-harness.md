@@ -100,7 +100,7 @@ This page is the wiring. Where the PSU, the control board and the Orange Pi phys
         <text x="535" y="188">limit · 2x1 dupont</text>
         <text x="535" y="233">S1-4 · JST-PH 4-pin · 1 m</text>
         <text x="535" y="283">CH · 4x1 dupont · flying leads</text>
-        <text x="535" y="328">RIB · 16-pin IDC · 1.2-1.5 m</text>
+        <text x="535" y="328">RIB1 · 16-pin IDC · 1.2-1.5 m</text>
       </g>
       <g font-size="11" font-weight="700" fill="var(--ink)">
         <text x="258" y="364">Waveshare 4-port USB hub</text>
@@ -259,7 +259,7 @@ All three drops now feed an LED strip in a [camera lamp]({{ '/hardware/assembly/
 <table>
   <thead><tr><th>ID</th><th>Segment</th><th>From</th><th>To</th><th>Cond.</th><th>Length</th></tr></thead>
   <tbody>
-    <tr><td class="wire-id">RIB</td><td>Ribbon cable</td><td>basically board v1.3, 16-pin IDC (FC)</td><td>First servo adapter board, 16-pin IDC (FC)</td><td>16</td><td>1.2 to 1.5 m</td></tr>
+    <tr><td class="wire-id">RIB1</td><td>Ribbon cable</td><td>basically board v1.3, 16-pin IDC (FC)</td><td>First servo adapter board, 16-pin IDC (FC)</td><td>16</td><td>1.2 to 1.5 m</td></tr>
     <tr><td class="wire-id">U1</td><td>USB, hub to Orange Pi</td><td>USB-A on the hub</td><td><code>UP USB3.0</code> on the Orange Pi</td><td>4</td><td>0.9 m (3 ft) or shorter</td></tr>
     <tr><td class="wire-id">U2</td><td>USB, Pico to hub</td><td>Micro USB on the Pico</td><td>USB-A on the hub</td><td>4</td><td>0.9 m (3 ft) or shorter</td></tr>
   </tbody>

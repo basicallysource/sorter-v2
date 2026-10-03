@@ -1,11 +1,11 @@
 ---
 layout: default
-title: Preparing the LED strip (L1 to L3, L1p to L3p)
+title: Preparing the LED strips (L1 to L3, L1p to L3p)
 type: how-to
 section: hardware
 slug: helper-led-strip
-kicker: Helpers — LED strip (L1 to L3, L1p to L3p)
-lede: Cutting a length of 24 V strip and making the cable that takes it to the control board (L1 to L3, L1p to L3p), with an optional but recommended barrel plug and socket where the lamp comes off. Three of each per machine.
+kicker: Helpers — LED strips (L1 to L3, L1p to L3p)
+lede: One machine needs three LED strips. This page describes how to cut a length of 24 V strip and make the cable that takes it to the control board (L1 to L3, L1p to L3p), with an optional but recommended barrel plug and socket where the lamp comes off.
 permalink: /hardware/helpers/led-strip/
 author: brickcyclealice
 contributors: [effreek, reveryx, spencer, barthel]

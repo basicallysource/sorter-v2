@@ -678,7 +678,7 @@ At this point the chute should still rotate, but you will now feel resistance fr
   <figcaption><cite>Video: zed0.</cite></figcaption>
 </figure>
 
-The cable cage (top, bottom, and clamps) is the channel the ribbon cable (`RIB`) runs in while the chute rotates.
+The cable cage (top, bottom, and clamps) is the channel the ribbon cable (`RIB1`) runs in while the chute rotates.
 
 **Heat inserts first:** the Cable cage bracket (cable mount) takes 1 × M3 insert. Press it in before assembling.
 
@@ -708,13 +708,13 @@ Screw the remaining Cable cage brackets to the other 5 corners of the Cable cage
   </figure>
 </div>
 
-{% include step.html n="11" title="Put the ribbon cable (`RIB`) in the cable cage" %}
+{% include step.html n="11" title="Put the ribbon cable (`RIB1`) in the cable cage" %}
 
 <figure class="video-figure">
   <div class="video-embed video-embed-wide">
     <iframe
       src="https://www.youtube.com/embed/aCNjETS1X9A?mute=1"
-      title="Installing the ribbon cable (RIB) in the cable cage"
+      title="Installing the ribbon cable (RIB1) in the cable cage"
       allow="encrypted-media; picture-in-picture; web-share"
       allowfullscreen
       loading="lazy"></iframe>
@@ -731,7 +731,7 @@ Place an {% include fastener.html size="M3" variant="nut" %} into the bottom of 
 
 Rotate the chute until it hits the limit switch.
 
-Fold your IDC ribbon cable (`RIB`) around the Cable clamp (inner), following the guides on the clamp. Slide the cable and clamp together into the Cable clamp (outer), leaving a tail to connect to the chute above.
+Fold your IDC ribbon cable (`RIB1`) around the Cable clamp (inner), following the guides on the clamp. Slide the cable and clamp together into the Cable clamp (outer), leaving a tail to connect to the chute above.
 
 **Leave about 80 mm (3 in) of tail**, measured from where it leaves the clamp, which is what it takes to reach the layer adapter board on the chute core that sits on top of this assembly.
 
@@ -742,9 +742,9 @@ Fold your IDC ribbon cable (`RIB`) around the Cable clamp (inner), following the
   <figcaption><strong>Placeholder.</strong> This is the view we want, with the plug the other way up so you can see into it. The faded photo behind the marker has it the wrong way round. <cite>Photo: BrickCycleAlice.</cite></figcaption>
 </figure>
 
-Guide the rest of the ribbon cable (`RIB`) around the side of the Top interface chute mount, in the direction the chute can rotate, back to the Cable cage bracket (cable mount).
+Guide the rest of the ribbon cable (`RIB1`) around the side of the Top interface chute mount, in the direction the chute can rotate, back to the Cable cage bracket (cable mount).
 
-Screw the Ribbon cable clamp lightly to the Cable cage bracket (cable mount) with one {% include fastener.html size="M3" variant="socket-button" length="12" %} screw, clamping the ribbon cable (`RIB`) between the two. Leave the clamp standing slightly off the bracket face rather than pulling it down hard, so the ribbon is not crushed.
+Screw the Ribbon cable clamp lightly to the Cable cage bracket (cable mount) with one {% include fastener.html size="M3" variant="socket-button" length="12" %} screw, clamping the ribbon cable (`RIB1`) between the two. Leave the clamp standing slightly off the bracket face rather than pulling it down hard, so the ribbon is not crushed.
 
 <div class="img-row">
   <figure>

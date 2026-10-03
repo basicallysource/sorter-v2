@@ -247,7 +247,7 @@ All three drops now feed an LED strip in a [camera lamp]({{ '/hardware/assembly/
   <p><b>Done, and here is why:</b> the stepper cables (`S1` to `S4`, `CH`) are JST-PH 4-pin at the board, not 4x1 dupont. Dupont contacts do not take side load. The wires leave at an angle, that depresses the spring contact, the connection goes loose, resistance goes up and it heats. Two of these have already burned up on real machines. JST-PH takes the side load without damage.</p>
 </div>
 
-### 3.5 &nbsp; Servo adapter (ribbon)
+### 3.5 &nbsp; Servo adapter (ribbon) and USB
 
 <table>
   <thead><tr><th>ID</th><th>Segment</th><th>From</th><th>To</th><th>Cond.</th><th>Length</th></tr></thead>
@@ -292,7 +292,7 @@ All three drops now feed an LED strip in a [camera lamp]({{ '/hardware/assembly/
 
 1. **How the fans are powered.** An earlier plan (2026-08-22, worked out from the v1.3 KiCad and the Orange Pi 5's own manual) had both boards supplying 5V natively: board v1.3's empty `J16` pin 2 (VSYS) + pin 6 (GND), or the Orange Pi's 26-pin header pins 2/4 (5V) + 6/9/14/20/25 (GND). **That plan did not ship.** The control board housing that was actually built (sorter-v2#387) instead plugs its 40mm fan into one of board v1.3's own LED ports (`LED_0_1`/`LED_0_2` on GPIO1, or `LED_1_1`/`LED_1_2` on GPIO6, silkscreened on the board), 24V switched to ground by a Pico-driven MOSFET, red wire to +V. Each port feeds +V through a 180Ω resistor sized for a bare LED board, so **the port's bypass jumper must be bridged** (`Bypass R21`/`R22`/`R27`/`R28` next to the port used) or the fan barely turns. Catalog part: `fan-40mm-24v` (WINSINN 4010, 24V, 0.04A, XH2.54 2-pin lead). Full steps: [control board housing]({{ '/hardware/electronics/installation/control-board-housing/' | relative_url }}). The Orange Pi's 40mm arm fan was the other half of this open item and it is gone: the bracket and the fan came off the Orange Pi mount on 2026-09-26, leaving the Pi on the 5V heatsink fan on its own SoC. Orient any fan to **blow in** (down onto the board), not exhaust: impingement cools the drivers better and positive pressure keeps dust out except at the filtered intake.
 2. **Lengths.** The control board's 24 V lead (`W1`) is 920 mm (36 in) and longer than necessary. Pick a final length and cut.
-3. **LED feed polarity.** Which dupont pin is +24V on the LED feeds (`L1-L3`). The board's own 24V input is settled: JST-VH (VHR-2), pin 1 = +24V, pin 2 = GND.
+3. **LED feed polarity (settled).** The board's `J8` to `J11` are Dupont headers with no reverse-polarity protection, and the housing is unkeyed. The board prints `GND` beside each one: black wire over `GND`, red wire over the other pin. At the strip, red goes to the pad marked `+24V`. The board's own 24V input is also settled: JST-VH (VHR-2), pin 1 = +24V, pin 2 = GND.
 4. **Missing LED wire(s).** Re-count the LED drops against the actual LEDs.
 5. **Gauge per segment.** Current draw per load is needed to spec gauge.
 6. **SKU reduction.** Once gauges are known, standardize on as few gauges and connector types as possible.

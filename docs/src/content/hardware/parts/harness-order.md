@@ -143,7 +143,7 @@ One per buildable cable, each with the bill of materials for it.
 {% if d.name == "channel-stepper" %}
 <div class="callout">
   <span class="callout-icon" aria-hidden="true">›</span>
-  <p><b>Order a sample first.</b> The motor-end positions 1·4·3·6 and the two empty positions come from the motor's socket drawing and have not yet been confirmed on a motor. Have the first run built as a sample, and order more once one has been tried on a motor.</p>
+  <p><b>Motor end.</b> The positions are the ones on the motor's own wire diagram in the StepperOnline 17HE15-1504S datasheet: position 1 is coil A+, 3 is B+, 4 is A-, 6 is B-, and 2 and 5 are empty. Coil A is positions 1 and 4, coil B is positions 3 and 6.</p>
 </div>
 {% endif %}
 

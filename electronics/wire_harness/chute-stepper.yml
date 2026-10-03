@@ -25,9 +25,9 @@ cables:
     type: 4 wire bundle
     gauge: 24 AWG
     wirecount: 4
-    length: 40 in
+    length: 300 mm
     colors: [BK, GN, RD, BU]
-    notes: "qty 1. Straight through. Gauge is set by the\nPH contact, which takes 24 to 28 AWG.\nLength is a GUESS."
+    notes: "qty 1. Straight through. Gauge is set by the\nPH contact, which takes 24 to 28 AWG.\nLength is the tail only, without the motor's\nown 300 to 500 mm leads: about 600 mm\noverall with 300 mm leads. A GUESS."
 
 connections:
   -

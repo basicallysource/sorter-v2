@@ -50,9 +50,9 @@ cables:
   CH:
     category: cable
     gauge: 24 AWG
-    length: 40 in
+    length: 300 mm
     colors: [BK, GN, RD, BU]
-    notes: "qty 1. Straight-through. Not covered by the\nreference drawing, so unlike S both Gauge and\nLength here are still GUESS."
+    notes: "qty 1. Straight-through. Not covered by the\nreference drawing, so unlike S both Gauge and\nLength here are still GUESS. Length is the\ntail only, without the motor's own 300 to\n500 mm leads: about 600 mm overall."
 
 connections:
   -

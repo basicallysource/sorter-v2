@@ -173,7 +173,7 @@ Lower the roof onto the walls grooved side down. The groove runs all the way rou
 
 The powered USB hub sits on the roof under the hub clamp, the closed rectangular frame, and the 24 V to 5 V buck converter under the buck clamp, the open U. Each clamp takes 4 {% include fastener.html size="M3" variant="countersunk" length="12" %}, self-tapping into the pilots in the roof: take them by hand and stop as soon as the clamp is down.
 
-The hub clamp is drawn around the Waveshare USB3.2-Gen1-HUB-4U. The cables into the hub and the converter are on [connecting the components]({{ '/hardware/electronics/connecting/' | relative_url }}).
+The hub clamp is drawn around the Waveshare USB3.2-Gen1-HUB-4U. The cables into the hub and the converter (`W2`, `W3`, `U1`, `U2`) are on [connecting the components]({{ '/hardware/electronics/connecting/' | relative_url }}).
 
 <div class="img-row">
   <figure>

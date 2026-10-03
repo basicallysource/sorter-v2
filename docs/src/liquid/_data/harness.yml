@@ -19,7 +19,7 @@
 # an entry in the `drawings` list in electronics/wire_harness/build-harness.sh
 # (the supplier zip's member list), then the same paste.
 
-zip: https://assets.basically.website/sorter-harness/sorter-v2-harness-rfq-acef8130c2bc.zip
+zip: https://assets.basically.website/sorter-harness/sorter-v2-harness-rfq-d80626d2b29d.zip
 
 drawings:
   - name: power
@@ -96,12 +96,12 @@ drawings:
       The one stepper lead that is spliced rather than plugged. The NEMA 23's
       own leads are 20 AWG (0.52 mm²), too thick for a PH contact, so a 24 AWG (0.20 mm²) tail
       carries the last stretch to the board.
-    png: https://assets.basically.website/sorter-harness/chute-stepper-full-7806c90eb5d3.png
-    svg: https://assets.basically.website/sorter-harness/chute-stepper-13fe561f04f8.svg
-    pdf: https://assets.basically.website/sorter-harness/chute-stepper-c8c07c9718b8.pdf
-    html: https://assets.basically.website/sorter-harness/chute-stepper-3d469e40ad1d.html
-    bom_tsv: https://assets.basically.website/sorter-harness/chute-stepper-bom-eec618284d6e.tsv
-    yml: https://assets.basically.website/sorter-harness/chute-stepper-7ba3d185a228.yml
+    png: https://assets.basically.website/sorter-harness/chute-stepper-full-b3d1f8d6f543.png
+    svg: https://assets.basically.website/sorter-harness/chute-stepper-09a90332b370.svg
+    pdf: https://assets.basically.website/sorter-harness/chute-stepper-e9734060dfe3.pdf
+    html: https://assets.basically.website/sorter-harness/chute-stepper-aa5c009b927e.html
+    bom_tsv: https://assets.basically.website/sorter-harness/chute-stepper-bom-15521f39a7c4.tsv
+    yml: https://assets.basically.website/sorter-harness/chute-stepper-3a5e3fa46377.yml
   - name: leds
     title: LED drops and limit switch
     caption: >-

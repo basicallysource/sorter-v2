@@ -19,7 +19,7 @@
 # an entry in the `drawings` list in electronics/wire_harness/build-harness.sh
 # (the supplier zip's member list), then the same paste.
 
-zip: https://assets.basically.website/sorter-harness/sorter-v2-harness-rfq-e4eca12ce165.zip
+zip: https://assets.basically.website/sorter-harness/sorter-v2-harness-rfq-d80626d2b29d.zip
 
 drawings:
   - name: power
@@ -29,12 +29,12 @@ drawings:
       board, the USB hub and the Orange Pi buck. Dashed arrows are barrel
       jack/plug mates. This is the overview; the two buildable sub-harnesses
       it is made of are below it.
-    png: https://assets.basically.website/sorter-harness/power-full-accd2693fc83.png
-    svg: https://assets.basically.website/sorter-harness/power-bb0170bcf748.svg
-    pdf: https://assets.basically.website/sorter-harness/power-5a209a1996e1.pdf
-    html: https://assets.basically.website/sorter-harness/power-18ee285018a3.html
-    bom_tsv: https://assets.basically.website/sorter-harness/power-bom-514757618cb2.tsv
-    yml: https://assets.basically.website/sorter-harness/power-a708057c45fd.yml
+    png: https://assets.basically.website/sorter-harness/power-full-8982c7c66ffa.png
+    svg: https://assets.basically.website/sorter-harness/power-082a693fde9f.svg
+    pdf: https://assets.basically.website/sorter-harness/power-a477215c46b6.pdf
+    html: https://assets.basically.website/sorter-harness/power-731954f0c8c6.html
+    bom_tsv: https://assets.basically.website/sorter-harness/power-bom-c6d1933ad762.tsv
+    yml: https://assets.basically.website/sorter-harness/power-06f8a6816a79.yml
   - name: psu-pigtail
     title: PSU output pigtail (PJ1 to PJ3)
     of: power
@@ -68,12 +68,12 @@ drawings:
     caption: >-
       The channel stepper cable (S1 to S4), board PHR-4 to the motor's own PHR-6 with positions 2
       and 5 empty, and the straight-through chute cable (CH) to bare labeled leads.
-    png: https://assets.basically.website/sorter-harness/steppers-full-0fcc56590659.png
-    svg: https://assets.basically.website/sorter-harness/steppers-d436227e6656.svg
-    pdf: https://assets.basically.website/sorter-harness/steppers-f20927486c03.pdf
-    html: https://assets.basically.website/sorter-harness/steppers-0cf3935eb239.html
-    bom_tsv: https://assets.basically.website/sorter-harness/steppers-bom-3ac179ba971c.tsv
-    yml: https://assets.basically.website/sorter-harness/steppers-461df521a0c7.yml
+    png: https://assets.basically.website/sorter-harness/steppers-full-44239f4cd901.png
+    svg: https://assets.basically.website/sorter-harness/steppers-a09014401468.svg
+    pdf: https://assets.basically.website/sorter-harness/steppers-496af82d228f.pdf
+    html: https://assets.basically.website/sorter-harness/steppers-5a392b1ea129.html
+    bom_tsv: https://assets.basically.website/sorter-harness/steppers-bom-de13b02f1681.tsv
+    yml: https://assets.basically.website/sorter-harness/steppers-5e545b417693.yml
   - name: channel-stepper
     title: Channel stepper lead (S1 to S4)
     of: steppers
@@ -82,12 +82,12 @@ drawings:
       One of the four c-channel motor leads (S1 to S4). Board PHR-4 to the motor's own
       PHR-6, and not straight through: two conductors change places, which is
       the crossing pair in the middle of the drawing.
-    png: https://assets.basically.website/sorter-harness/channel-stepper-full-c66a1f4a3f06.png
-    svg: https://assets.basically.website/sorter-harness/channel-stepper-08c0e5a9d3ae.svg
-    pdf: https://assets.basically.website/sorter-harness/channel-stepper-62898f7cee51.pdf
-    html: https://assets.basically.website/sorter-harness/channel-stepper-7049f61472cd.html
+    png: https://assets.basically.website/sorter-harness/channel-stepper-full-ea9de691cb30.png
+    svg: https://assets.basically.website/sorter-harness/channel-stepper-e293225307ca.svg
+    pdf: https://assets.basically.website/sorter-harness/channel-stepper-f60ba342b305.pdf
+    html: https://assets.basically.website/sorter-harness/channel-stepper-e4f8744c72c1.html
     bom_tsv: https://assets.basically.website/sorter-harness/channel-stepper-bom-94bef29aa225.tsv
-    yml: https://assets.basically.website/sorter-harness/channel-stepper-db61c3eb4d19.yml
+    yml: https://assets.basically.website/sorter-harness/channel-stepper-05b4ffdfbd60.yml
   - name: chute-stepper
     title: Chute stepper lead (CH)
     of: steppers
@@ -96,24 +96,24 @@ drawings:
       The one stepper lead (CH) that is spliced rather than plugged. The NEMA 23's
       own leads are 20 AWG (0.52 mm²), too thick for a PH contact, so a 24 AWG (0.20 mm²) tail
       carries the last stretch to the board.
-    png: https://assets.basically.website/sorter-harness/chute-stepper-full-6b5f10e6aded.png
-    svg: https://assets.basically.website/sorter-harness/chute-stepper-def0dee01019.svg
-    pdf: https://assets.basically.website/sorter-harness/chute-stepper-4993170c4eb3.pdf
-    html: https://assets.basically.website/sorter-harness/chute-stepper-fe3dde6c1484.html
-    bom_tsv: https://assets.basically.website/sorter-harness/chute-stepper-bom-c20dce60d587.tsv
-    yml: https://assets.basically.website/sorter-harness/chute-stepper-a357c126c0d9.yml
+    png: https://assets.basically.website/sorter-harness/chute-stepper-full-b3d1f8d6f543.png
+    svg: https://assets.basically.website/sorter-harness/chute-stepper-09a90332b370.svg
+    pdf: https://assets.basically.website/sorter-harness/chute-stepper-e9734060dfe3.pdf
+    html: https://assets.basically.website/sorter-harness/chute-stepper-aa5c009b927e.html
+    bom_tsv: https://assets.basically.website/sorter-harness/chute-stepper-bom-15521f39a7c4.tsv
+    yml: https://assets.basically.website/sorter-harness/chute-stepper-3a5e3fa46377.yml
   - name: leds
     title: LED drops and limit switch (L1 to L3, L1p to L3p, LIM)
     caption: >-
       LED feeds L1 to L3 to their unplug-point jacks, pigtails L1p to L3p to the LED
       strips, and the limit switch cable (LIM, 1x3 dupont at the
       board, push-on blade terminals at the switch).
-    png: https://assets.basically.website/sorter-harness/leds-full-d0732af588cc.png
-    svg: https://assets.basically.website/sorter-harness/leds-6aae09039d68.svg
-    pdf: https://assets.basically.website/sorter-harness/leds-4dc41ff8d350.pdf
-    html: https://assets.basically.website/sorter-harness/leds-0f149bfc3d0e.html
-    bom_tsv: https://assets.basically.website/sorter-harness/leds-bom-8e56b3c7a6d4.tsv
-    yml: https://assets.basically.website/sorter-harness/leds-de4b448b9707.yml
+    png: https://assets.basically.website/sorter-harness/leds-full-4aa4bb0d5733.png
+    svg: https://assets.basically.website/sorter-harness/leds-2644a0964002.svg
+    pdf: https://assets.basically.website/sorter-harness/leds-462feafd8e2c.pdf
+    html: https://assets.basically.website/sorter-harness/leds-d2bcc16974a7.html
+    bom_tsv: https://assets.basically.website/sorter-harness/leds-bom-ca50142862b4.tsv
+    yml: https://assets.basically.website/sorter-harness/leds-e65eb1b4dcfe.yml
   - name: limit-switch
     title: Chute limit switch lead (LIM)
     of: leds
@@ -122,9 +122,9 @@ drawings:
       The switch that tells the machine where the chute is. Nothing on it is
       soldered: two crimps into a 1x3 Dupont at the board, two push-on
       #187 receptacles at the switch.
-    png: https://assets.basically.website/sorter-harness/limit-switch-full-5d6e73282f0d.png
-    svg: https://assets.basically.website/sorter-harness/limit-switch-0993e9e3001d.svg
-    pdf: https://assets.basically.website/sorter-harness/limit-switch-bae995b5a5e4.pdf
-    html: https://assets.basically.website/sorter-harness/limit-switch-e2a554496fa4.html
+    png: https://assets.basically.website/sorter-harness/limit-switch-full-c9083f87d068.png
+    svg: https://assets.basically.website/sorter-harness/limit-switch-65c817f77068.svg
+    pdf: https://assets.basically.website/sorter-harness/limit-switch-48db60fcebb6.pdf
+    html: https://assets.basically.website/sorter-harness/limit-switch-60ab5931e1aa.html
     bom_tsv: https://assets.basically.website/sorter-harness/limit-switch-bom-85b06eb07352.tsv
-    yml: https://assets.basically.website/sorter-harness/limit-switch-f9b9168ef554.yml
+    yml: https://assets.basically.website/sorter-harness/limit-switch-a77e60f1e4a0.yml

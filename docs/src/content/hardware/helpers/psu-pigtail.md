@@ -1,11 +1,11 @@
 ---
 layout: default
-title: Make your own PSU output pigtail
+title: Make your own PSU output pigtail (PJ1 to PJ3)
 type: how-to
 section: hardware
 slug: helper-psu-pigtail
-kicker: Helpers — PSU output pigtail
-lede: Build one of the three DC output pigtails for the PSU box, a panel-mount barrel jack with a crimp fork terminal on each of its two leads.
+kicker: Helpers — PSU output pigtail (PJ1 to PJ3)
+lede: Build one of the three DC output pigtails (PJ1 to PJ3) for the PSU box, a panel-mount barrel jack with a crimp fork terminal on each of its two leads.
 permalink: /hardware/helpers/psu-pigtail/
 author: effreek
 contributors: [brickcyclealice]
@@ -19,13 +19,13 @@ parts_needed:
 tools_needed: ["Wire strippers, for 18 AWG (0.82 mm²) wire", "Ratcheting crimping pliers with a die for 22 to 16 AWG (0.33 to 1.3 mm²) insulated terminals, for the fork terminals", Multimeter]
 ---
 
-The PSU box has three DC outputs. Each one is a short pigtail: a panel-mount barrel jack at one end, a crimp fork terminal on each of its two leads at the other. **Build three**, one for each 24 V load: the basically board, the USB hub and the Orange Pi buck. All three are the same, so it does not matter which one goes to which load. Three need six fork terminals; the list has eight, two for a crimp that goes wrong. More on crimping is at [Crimping connectors]({{ '/hardware/helpers/crimping/' | relative_url }}).
+The PSU box has three DC outputs. Each one is a short pigtail (`PJ1` to `PJ3`): a panel-mount barrel jack at one end, a crimp fork terminal on each of its two leads at the other. **Build three**, one for each 24 V load: the basically board, the USB hub and the Orange Pi buck. All three are the same, so it does not matter which one goes to which load. Three need six fork terminals; the list has eight, two for a crimp that goes wrong. More on crimping is at [Crimping connectors]({{ '/hardware/helpers/crimping/' | relative_url }}).
 
 <div class="callout">
   <p><b>Buy the jacks with their leads already attached.</b> This page assumes that. It crimps the terminals onto leads the jack already has. A bare jack means soldering the leads on, which this page does not cover.</p>
 </div>
 
-The jack's **2.1 mm pin** is the thing to check when you buy: a 2.5 mm one looks identical and does not mate.
+The jack's **2.1 mm (0.083 in) pin** is the thing to check when you buy: a 2.5 mm (0.098 in) one looks identical and does not mate.
 
 ## Build it
 
@@ -72,7 +72,7 @@ The crimp is the part that takes care. Do one lead at a time. The leads are 18 A
 
 ## The finished result
 
-Three pigtails, each a panel-mount jack with a fork terminal crimped on both of its leads.
+Three pigtails (`PJ1` to `PJ3`), each a panel-mount jack with a fork terminal crimped on both of its leads.
 
 <figure class="single-figure">
   <img class="doc-figure" src="https://assets.basically.website/sorter-docs/harness-psu-pigtail-built-w1600-59554dc6b189.jpg" alt="An assembled PSU output pigtail: a panel-mount barrel jack with red and black 18 AWG (0.82 mm²) leads, each ending in an insulated fork terminal">
@@ -85,4 +85,4 @@ Step 1 of the [PSU box]({{ '/hardware/electronics/installation/psu-box/' | relat
 
 ## Reference
 
-The drawing for this pigtail, its bill of materials and its downloads are on the [WireViz drawings]({{ '/hardware/parts/harness-order/#psu-pigtail' | relative_url }}) page.
+The drawing for this pigtail (`PJ1` to `PJ3`), its bill of materials and its downloads are on the [WireViz drawings]({{ '/hardware/parts/harness-order/#psu-pigtail' | relative_url }}) page.

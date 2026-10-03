@@ -8,7 +8,7 @@ import serial.tools.list_ports
 
 from hardware.waveshare_bus_service import get_waveshare_bus_service
 from server import shared_state
-from server.config_helpers import read_machine_params_config, write_machine_params_config
+import machine_toml
 
 _MCU_VIDS = {0x2E8A}  # Raspberry Pi Pico
 _DEFAULT_SCAN_INTERVAL_S = 10.0
@@ -32,7 +32,7 @@ def _active_waveshare_service() -> Any | None:
 
 
 def _configured_waveshare_port() -> str | None:
-    _, config = read_machine_params_config()
+    config = machine_toml.read()
     servo = config.get("servo", {})
     if not isinstance(servo, dict):
         return None
@@ -366,7 +366,7 @@ class WaveshareInventoryManager:
         return normalized
 
     def _read_highest_seen_servo_id(self) -> int:
-        _, config = read_machine_params_config()
+        config = machine_toml.read()
         servo = config.get("servo", {})
         if isinstance(servo, dict):
             value = servo.get("highest_seen_id")
@@ -384,15 +384,14 @@ class WaveshareInventoryManager:
         if next_highest <= current_highest:
             return current_highest
 
-        params_path, config = read_machine_params_config()
-        servo = config.get("servo", {})
-        if not isinstance(servo, dict):
-            servo = {}
-        servo["highest_seen_id"] = next_highest
-        config["servo"] = servo
         try:
-            write_machine_params_config(params_path, config)
-        except Exception as exc:
+            with machine_toml.edit() as config:
+                servo = config.get("servo", {})
+                if not isinstance(servo, dict):
+                    servo = {}
+                servo["highest_seen_id"] = next_highest
+                config["servo"] = servo
+        except machine_toml.MachineTomlError as exc:
             self._log_warning(f"Failed to persist Waveshare highest_seen_id={next_highest}: {exc}")
         return next_highest
 

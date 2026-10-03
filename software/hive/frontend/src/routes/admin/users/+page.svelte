@@ -1,10 +1,17 @@
 <script lang="ts">
+	import { sentence } from '$lib/text';
 	import { auth } from '$lib/auth.svelte';
 	import { api, type User } from '$lib/api';
 	import { goto } from '$app/navigation';
 	import Badge from '$lib/components/Badge.svelte';
 	import Modal from '$lib/components/Modal.svelte';
 	import Spinner from '$lib/components/Spinner.svelte';
+	import Alert from '$lib/components/Alert.svelte';
+	import Button from '$lib/components/Button.svelte';
+	import PageHeader from '$lib/components/PageHeader.svelte';
+	import Panel from '$lib/components/Panel.svelte';
+	import RadioGroup from '$lib/components/RadioGroup.svelte';
+	import Trash2 from '@lucide/svelte/icons/trash-2';
 
 	let users = $state<User[]>([]);
 	let loading = $state(true);
@@ -85,151 +92,100 @@
 </script>
 
 <svelte:head>
-	<title>Manage Users - Hive</title>
+	<title>Users - Hive</title>
 </svelte:head>
 
-<div class="mb-6 flex flex-wrap items-center justify-between gap-x-4 gap-y-1">
-	<h1 class="text-2xl font-bold text-text">Manage Users</h1>
-	<span class="text-sm text-text-muted">{users.length} users total</span>
-</div>
+<PageHeader title="Users">
+	{#snippet actions()}<span class="num text-sm text-ink-muted">{users.length} users</span>{/snippet}
+</PageHeader>
 
-{#if error}
-	<div class="mb-4 bg-primary/8 p-3 text-sm text-primary">{error}</div>
-{/if}
+{#if error}<Alert tone="danger">{error}</Alert>{/if}
 
 {#if loading}
-	<div class="flex justify-center py-12">
-		<Spinner size={32} />
-	</div>
+	<div class="flex justify-center py-12"><Spinner size={32} /></div>
 {:else}
-	<div class="overflow-x-auto border border-border bg-surface">
-		<table class="min-w-full divide-y divide-border">
-			<thead class="bg-bg">
-				<tr>
-					<th class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-text-muted">User</th>
-					<th class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-text-muted">Role</th>
-					<th class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-text-muted">Status</th>
-					<th class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-text-muted">Joined</th>
-					<th class="px-6 py-3 text-right text-xs font-medium uppercase tracking-wider text-text-muted">Actions</th>
-				</tr>
-			</thead>
-			<tbody class="divide-y divide-border">
-				{#each users as user (user.id)}
-					<tr class="hover:bg-bg {!user.is_active ? 'opacity-50' : ''}">
-						<td class="whitespace-nowrap px-6 py-4">
-							<div>
-								<p class="text-sm font-medium text-text">{user.display_name || '—'}</p>
-								<p class="text-xs text-text-muted">{user.email}</p>
-							</div>
-						</td>
-						<td class="whitespace-nowrap px-6 py-4">
-							<button onclick={() => openRoleModal(user)} class="cursor-pointer">
-								<Badge text={user.role} variant={roleVariant[user.role] ?? 'neutral'} />
-							</button>
-						</td>
-						<td class="whitespace-nowrap px-6 py-4">
-							<Badge
-								text={user.is_active ? 'Active' : 'Inactive'}
-								variant={user.is_active ? 'success' : 'danger'}
-							/>
-						</td>
-						<td class="whitespace-nowrap px-6 py-4 text-sm text-text-muted">
-							{new Date(user.created_at).toLocaleDateString()}
-						</td>
-						<td class="whitespace-nowrap px-6 py-4 text-right">
-							<div class="flex items-center justify-end gap-2">
-								<button
-									onclick={() => toggleActive(user)}
-									class="text-xs font-medium {user.is_active ? 'text-warning-strong hover:text-warning-strong' : 'text-success hover:text-success'}"
-									title={user.is_active ? 'Deactivate' : 'Activate'}
-								>
-									{user.is_active ? 'Deactivate' : 'Activate'}
+	<Panel flush>
+		<div class="overflow-x-auto">
+			<table class="data-table">
+				<thead>
+					<tr><th>Person</th><th>Role</th><th>Status</th><th>Joined</th><th aria-label="Actions"></th></tr>
+				</thead>
+				<tbody>
+					{#each users as user (user.id)}
+						<tr class={user.is_active ? '' : 'opacity-50'}>
+							<td>
+								<div class="font-medium">{user.display_name || '-'}</div>
+								<div class="text-ink-muted">{user.email}</div>
+							</td>
+							<td>
+								<button type="button" onclick={() => openRoleModal(user)} title="Change the role">
+									<Badge tone={roleVariant[user.role] ?? 'neutral'}>{sentence(user.role)}</Badge>
 								</button>
-								{#if String(user.id) !== String(auth.user?.id)}
-									<button
-										onclick={() => { deletingUser = user; }}
-										class="text-xs font-medium text-primary hover:text-primary"
+							</td>
+							<td><Badge tone={user.is_active ? 'success' : 'danger'} dot>{user.is_active ? 'Active' : 'Inactive'}</Badge></td>
+							<td class="whitespace-nowrap text-ink-muted">{new Date(user.created_at).toLocaleDateString()}</td>
+							<td>
+								<div class="flex items-center justify-end gap-1">
+									<Button size="sm" variant="ghost" onclick={() => toggleActive(user)}
+										>{user.is_active ? 'Deactivate' : 'Activate'}</Button
 									>
-										Delete
-									</button>
-								{/if}
-							</div>
-						</td>
-					</tr>
-				{/each}
-			</tbody>
-		</table>
-	</div>
+									{#if String(user.id) !== String(auth.user?.id)}
+										<Button size="sm" variant="ghost" icon={Trash2} label="Delete the user" onclick={() => (deletingUser = user)} />
+									{/if}
+								</div>
+							</td>
+						</tr>
+					{/each}
+				</tbody>
+			</table>
+		</div>
+	</Panel>
 {/if}
 
-<!-- Role Edit Modal -->
-<Modal open={editingUser !== null} title="Change Role" onclose={() => { editingUser = null; }}>
+<Modal open={editingUser !== null} title="Change the role" size="sm" onclose={() => (editingUser = null)}>
 	{#if editingUser}
-		<div class="space-y-4">
-			<p class="text-sm text-text-muted">
-				Change role for <strong>{editingUser.display_name || editingUser.email}</strong>
-			</p>
-			<div class="space-y-2">
-				{#each ['member', 'reviewer', 'admin'] as role}
-					<label class="flex items-center gap-3 border border-border p-3 cursor-pointer hover:bg-bg {selectedRole === role ? 'border-primary bg-primary-light' : ''}">
-						<input type="radio" bind:group={selectedRole} value={role} class="text-primary" />
-						<div>
-							<p class="text-sm font-medium text-text capitalize">{role}</p>
-							<p class="text-xs text-text-muted">
-								{#if role === 'member'}
-									Can manage own machines and view samples
-								{:else if role === 'reviewer'}
-									Can review and verify samples
-								{:else}
-									Full access including user management
-								{/if}
-							</p>
-						</div>
-					</label>
-				{/each}
-			</div>
-			<div class="flex justify-end gap-2">
-				<button
-					onclick={() => { editingUser = null; }}
-					class="border border-border px-4 py-2 text-sm font-medium text-text hover:bg-bg"
-				>
-					Cancel
-				</button>
-				<button
-					onclick={saveRole}
-					class="bg-primary px-4 py-2 text-sm font-medium text-white hover:bg-primary-hover"
-				>
-					Save Role
-				</button>
-			</div>
-		</div>
+		<p class="mb-4 text-sm text-ink-muted">For {editingUser.display_name || editingUser.email}.</p>
+		<RadioGroup
+			name="user-role"
+			label="Role"
+			bind:value={selectedRole}
+			options={[
+				{ value: 'member', label: 'Member', help: 'Manages their own machines and sees samples.' },
+				{ value: 'reviewer', label: 'Reviewer', help: 'Reviews and verifies samples too.' },
+				{ value: 'admin', label: 'Admin', help: 'Everything, including managing people.' }
+			]}
+		/>
 	{/if}
+	{#snippet footer()}
+		<Button variant="ghost" onclick={() => (editingUser = null)}>Cancel</Button>
+		<Button variant="primary" onclick={saveRole}>Save role</Button>
+	{/snippet}
 </Modal>
 
-<!-- Delete User Modal -->
-<Modal open={deletingUser !== null} title="Delete User" onclose={() => { deletingUser = null; deleteError = null; }}>
+<Modal
+	open={deletingUser !== null}
+	title="Delete the user"
+	size="sm"
+	onclose={() => {
+		deletingUser = null;
+		deleteError = null;
+	}}
+>
+	{#if deleteError}<Alert tone="danger" class="mb-3">{deleteError}</Alert>{/if}
 	{#if deletingUser}
-		<div class="space-y-4">
-			{#if deleteError}
-				<div class="bg-primary/8 p-3 text-sm text-primary">{deleteError}</div>
-			{/if}
-			<p class="text-sm text-text-muted">
-				This will permanently delete <strong>{deletingUser.display_name || deletingUser.email}</strong> and all their machines, samples, and reviews.
-			</p>
-			<div class="flex justify-end gap-2">
-				<button
-					onclick={() => { deletingUser = null; deleteError = null; }}
-					class="border border-border px-4 py-2 text-sm font-medium text-text hover:bg-bg"
-				>
-					Cancel
-				</button>
-				<button
-					onclick={handleDeleteUser}
-					class="bg-primary px-4 py-2 text-sm font-medium text-white hover:bg-primary-hover"
-				>
-					Delete User
-				</button>
-			</div>
-		</div>
+		<p class="text-sm text-ink-muted">
+			This deletes <strong class="font-medium text-ink">{deletingUser.display_name || deletingUser.email}</strong> and all
+			their machines, samples and reviews, for good.
+		</p>
 	{/if}
+	{#snippet footer()}
+		<Button
+			variant="ghost"
+			onclick={() => {
+				deletingUser = null;
+				deleteError = null;
+			}}>Cancel</Button
+		>
+		<Button variant="danger" onclick={handleDeleteUser}>Delete user</Button>
+	{/snippet}
 </Modal>

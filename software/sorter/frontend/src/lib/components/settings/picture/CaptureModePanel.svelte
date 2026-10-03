@@ -1,6 +1,9 @@
 <script lang="ts">
 	import { getBackendHttpBase } from '$lib/backend';
-	import { Alert } from '$lib/components/primitives';
+	import Alert from '$lib/components/ui/Alert.svelte';
+	import Spinner from '$lib/components/ui/Spinner.svelte';
+	import Field from '$lib/components/ui/Field.svelte';
+	import Select from '$lib/components/ui/Select.svelte';
 	import type { CameraRole } from '$lib/settings/stations';
 
 	type CaptureMode = {
@@ -137,15 +140,13 @@
 		}
 	}
 
-	function onModeChange(ev: Event) {
-		const value = (ev.target as HTMLSelectElement).value;
+	function onModeChange(value: string) {
 		if (!value || value === selectedModeKey) return;
 		const nextFourcc = pickInitialFourcc(value, selectedFourcc);
 		void save(value, nextFourcc);
 	}
 
-	function onFourccChange(ev: Event) {
-		const value = (ev.target as HTMLSelectElement).value;
+	function onFourccChange(value: string) {
 		if (!value || value === selectedFourcc) return;
 		void save(selectedModeKey, value);
 	}
@@ -154,72 +155,58 @@
 		void role;
 		void load();
 	});
+	const modeOptions = $derived(
+		Array.from(new Set((data?.modes ?? []).map((m) => modeKey(m)))).flatMap((key) => {
+			const sample = data?.modes.find((m) => modeKey(m) === key);
+			return sample ? [{ value: key, label: `${sample.width}×${sample.height} at ${sample.fps} fps` }] : [];
+		})
+	);
 </script>
 
-<div class="grid gap-2 border-t border-border pt-3">
-	<div class="flex items-baseline justify-between">
-		<div class="text-xs font-semibold tracking-wider text-text-muted uppercase">Capture Mode</div>
+<section class="flex flex-col gap-3 px-(--pad-panel) py-4">
+	<div class="flex items-baseline justify-between gap-2">
+		<h3 class="label">Capture mode</h3>
 		{#if data?.live?.width && data?.live?.height}
-			<div class="text-xs text-text-muted">
-				Live {data.live.width}×{data.live.height}{#if data.live.fps}
-					 @ {data.live.fps} fps{/if}
-			</div>
+			<span class="num text-sm text-ink-muted">
+				Live {data.live.width}×{data.live.height}{#if data.live.fps}&nbsp;at {data.live.fps} fps{/if}
+			</span>
 		{/if}
 	</div>
-
-	{#if error}
-		<Alert variant="danger">
-			<div class="text-sm text-text">{error}</div>
-		</Alert>
-	{/if}
-
+	{#if error}<Alert tone="danger">{error}</Alert>{/if}
 	{#if loading}
-		<div class="text-sm text-text-muted">Loading capture modes…</div>
+		<p class="flex items-center gap-2 text-sm text-ink-muted">
+			<Spinner size={14} />
+			Loading the capture modes
+		</p>
 	{:else if !data?.supported}
-		<div class="text-sm text-text-muted">
-			{data?.message ?? 'Resolution selection not available for this camera.'}
-		</div>
+		<p class="text-sm text-ink-muted">
+			{data?.message ?? 'This camera does not offer a choice of resolution.'}
+		</p>
 	{:else}
-		<div>
-			<div class="mb-1 text-sm font-medium text-text">Mode</div>
-			<select
-				class="w-full border border-border bg-surface px-2 py-2 text-sm text-text focus:border-primary focus:outline-none disabled:cursor-not-allowed disabled:opacity-50"
+		<Field label="Mode" for="capture-mode-{role}">
+			<Select
+				id="capture-mode-{role}"
 				value={selectedModeKey}
+				options={modeOptions}
+				placeholder="Pick a mode"
 				disabled={saving}
 				onchange={onModeChange}
-			>
-				{#if !selectedModeKey}
-					<option value="" disabled>— pick a mode —</option>
-				{/if}
-				{#each Array.from(new Set(data.modes.map((m) => modeKey(m)))) as key}
-					{@const sample = data.modes.find((m) => modeKey(m) === key)}
-					{#if sample}
-						<option value={key}>{sample.width}×{sample.height} @ {sample.fps} fps</option>
-					{/if}
-				{/each}
-			</select>
-		</div>
-		<div>
-			<div class="mb-1 text-sm font-medium text-text">Pixel Format</div>
-			<select
-				class="w-full border border-border bg-surface px-2 py-2 text-sm text-text focus:border-primary focus:outline-none disabled:cursor-not-allowed disabled:opacity-50"
+			/>
+		</Field>
+		<Field
+			label="Pixel format"
+			for="capture-fourcc-{role}"
+			help="MJPG is the default: compressed, about a tenth of YUYV's USB bandwidth. Pick another only if this camera needs it."
+		>
+			<Select
+				id="capture-fourcc-{role}"
 				value={selectedFourcc}
+				options={fourccOptions.map((fc) => ({ value: fc, label: fc === 'MJPG' ? 'MJPG (default)' : fc }))}
+				placeholder="None"
 				disabled={saving || fourccOptions.length === 0}
 				onchange={onFourccChange}
-			>
-				{#if fourccOptions.length === 0}
-					<option value="">—</option>
-				{/if}
-				{#each fourccOptions as fc}
-					<option value={fc}>{fc}{fc === 'MJPG' ? ' (default)' : ''}</option>
-				{/each}
-			</select>
-			<div class="mt-1 text-sm text-text-muted">
-				MJPG is the default — compressed, ~10× lower USB bandwidth than YUYV. Pick another only if this camera needs it.
-			</div>
-		</div>
-		{#if status}
-			<div class="text-sm text-text-muted">{status}</div>
-		{/if}
+			/>
+		</Field>
+		{#if status}<p class="text-sm text-ink-muted">{status}</p>{/if}
 	{/if}
-</div>
+</section>

@@ -4,34 +4,10 @@ from typing import Any, Optional
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
-import local_state as ls
+import bin_layout_store
+from local_state import get_sorting_profile_sync_state
 
 router = APIRouter()
-
-
-# A saved bin layout is a snapshot of the live state keys (geometry + enabled +
-# layer->channel ref + bin categories + not-in-inventory flags) — NO servo angles
-# (those are per-channel/machine-level). Built from RAW local_state so it matches
-# the migration-seeded record exactly (else the active record reads as dirty).
-def _snapshot_from_state() -> dict[str, Any]:
-    bin_layout = ls.get_bin_layout() or {}
-    layers = []
-    for layer in bin_layout.get("layers", []):
-        if not isinstance(layer, dict):
-            continue
-        layers.append({
-            "sections": layer.get("sections"),
-            "enabled": layer.get("enabled", True),
-            "servo_channel_id": layer.get("servo_channel_id"),
-            "max_pieces_per_bin": layer.get("max_pieces_per_bin"),
-            "max_dimension_mm": layer.get("max_dimension_mm"),
-            "section_enabled": layer.get("section_enabled"),
-        })
-    return {
-        "layers": layers,
-        "bin_categories": ls.get_bin_categories(),
-        "not_in_inventory_bins": ls.get_not_in_inventory_bins(),
-    }
 
 
 def _norm(snapshot: Any) -> str:
@@ -39,7 +15,7 @@ def _norm(snapshot: Any) -> str:
 
 
 def _is_dirty(record: dict[str, Any]) -> bool:
-    return _norm(record.get("layout")) != _norm(_snapshot_from_state())
+    return _norm(record.get("layout")) != _norm(bin_layout_store.current_layout_snapshot())
 
 
 def _record_out(record: dict[str, Any], dirty: Optional[bool] = None) -> dict[str, Any]:
@@ -58,19 +34,19 @@ def _record_out(record: dict[str, Any], dirty: Optional[bool] = None) -> dict[st
 
 
 def _current_profile() -> tuple[Optional[str], Optional[str]]:
-    sync = ls.get_sorting_profile_sync_state() or {}
+    sync = get_sorting_profile_sync_state() or {}
     return (sync.get("profile_id") or sync.get("local_filename"), sync.get("source"))
 
 
 @router.get("/api/bin-layouts")
 def list_bin_layouts(profile_id: Optional[str] = None) -> dict[str, Any]:
-    records = ls.list_bin_layouts(profile_id)
+    records = bin_layout_store.list_bin_layouts(profile_id)
     return {"ok": True, "layouts": [_record_out(r) for r in records]}
 
 
 @router.get("/api/bin-layouts/active")
 def active_bin_layout() -> dict[str, Any]:
-    record = ls.get_active_bin_layout_record()
+    record = bin_layout_store.get_active_bin_layout_record()
     if record is None:
         return {"ok": True, "active": None}
     return {"ok": True, "active": _record_out(record, dirty=_is_dirty(record))}
@@ -91,9 +67,9 @@ def create_bin_layout(payload: CreateBinLayoutPayload) -> dict[str, Any]:
     profile_id, profile_source = payload.profile_id, payload.profile_source
     if profile_id is None:
         profile_id, profile_source = _current_profile()
-    record = ls.create_bin_layout(
+    record = bin_layout_store.create_bin_layout(
         name=name,
-        layout=_snapshot_from_state(),
+        layout=bin_layout_store.current_layout_snapshot(),
         profile_id=profile_id,
         profile_source=profile_source,
         make_active=payload.make_active,
@@ -116,7 +92,7 @@ def import_bin_layout(payload: ImportBinLayoutPayload) -> dict[str, Any]:
         raise HTTPException(status_code=400, detail="name is required.")
     if not isinstance(payload.layout, dict) or not isinstance(payload.layout.get("layers"), list):
         raise HTTPException(status_code=400, detail="layout must contain a layers list.")
-    record = ls.create_bin_layout(
+    record = bin_layout_store.create_bin_layout(
         name=name,
         layout=payload.layout,
         profile_id=payload.profile_id,
@@ -128,9 +104,9 @@ def import_bin_layout(payload: ImportBinLayoutPayload) -> dict[str, Any]:
 
 @router.post("/api/bin-layouts/{layout_id}/save")
 def save_bin_layout(layout_id: str) -> dict[str, Any]:
-    if ls.get_bin_layout_record(layout_id) is None:
+    if bin_layout_store.get_bin_layout_record(layout_id) is None:
         raise HTTPException(status_code=404, detail="Unknown bin layout.")
-    record = ls.update_bin_layout(layout_id, layout=_snapshot_from_state())
+    record = bin_layout_store.update_bin_layout(layout_id, layout=bin_layout_store.current_layout_snapshot())
     return {"ok": True, "layout": _record_out(record)}
 
 
@@ -140,29 +116,29 @@ class RenameBinLayoutPayload(BaseModel):
 
 @router.post("/api/bin-layouts/{layout_id}/rename")
 def rename_bin_layout(layout_id: str, payload: RenameBinLayoutPayload) -> dict[str, Any]:
-    if ls.get_bin_layout_record(layout_id) is None:
+    if bin_layout_store.get_bin_layout_record(layout_id) is None:
         raise HTTPException(status_code=404, detail="Unknown bin layout.")
     name = (payload.name or "").strip()
     if not name:
         raise HTTPException(status_code=400, detail="name is required.")
-    record = ls.update_bin_layout(layout_id, name=name)
+    record = bin_layout_store.update_bin_layout(layout_id, name=name)
     return {"ok": True, "layout": _record_out(record)}
 
 
 @router.delete("/api/bin-layouts/{layout_id}")
 def delete_bin_layout(layout_id: str) -> dict[str, Any]:
-    record = ls.get_bin_layout_record(layout_id)
+    record = bin_layout_store.get_bin_layout_record(layout_id)
     if record is None:
         raise HTTPException(status_code=404, detail="Unknown bin layout.")
     if record["is_active"]:
         raise HTTPException(status_code=400, detail="Cannot delete the active bin layout.")
-    ls.delete_bin_layout(layout_id)
+    bin_layout_store.delete_bin_layout(layout_id)
     return {"ok": True}
 
 
 @router.post("/api/bin-layouts/{layout_id}/apply")
 def apply_bin_layout(layout_id: str) -> dict[str, Any]:
-    record = ls.get_bin_layout_record(layout_id)
+    record = bin_layout_store.get_bin_layout_record(layout_id)
     if record is None:
         raise HTTPException(status_code=404, detail="Unknown bin layout.")
     snapshot = record.get("layout") or {}
@@ -173,15 +149,15 @@ def apply_bin_layout(layout_id: str) -> dict[str, Any]:
     # assignments take full effect on the next backend restart (boot rebuilds the
     # runtime layout and re-applies the saved categories/NII). Servo calibration is
     # per-channel and untouched.
-    ls.set_bin_layout({"layers": layers})
+    bin_layout_store.set_bin_layout({"layers": layers})
     if snapshot.get("bin_categories") is not None:
-        ls.set_bin_categories(snapshot["bin_categories"])
+        bin_layout_store.set_bin_categories(snapshot["bin_categories"])
     if snapshot.get("not_in_inventory_bins") is not None:
-        ls.set_not_in_inventory_bins(snapshot["not_in_inventory_bins"])
-    ls.set_active_bin_layout(layout_id)
+        bin_layout_store.set_not_in_inventory_bins(snapshot["not_in_inventory_bins"])
+    bin_layout_store.set_active_bin_layout(layout_id)
     return {
         "ok": True,
         "restart_required": True,
-        "layout": _record_out(ls.get_bin_layout_record(layout_id), dirty=False),
+        "layout": _record_out(bin_layout_store.get_bin_layout_record(layout_id), dirty=False),
         "message": f"Switched to '{record['name']}'. Restart the backend to apply.",
     }

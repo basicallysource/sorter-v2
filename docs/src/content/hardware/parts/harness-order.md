@@ -32,7 +32,7 @@ What every cable is built to, whoever builds it.
 
 <dl class="spec-list">
   <dt>Wire</dt><dd>UL1007 stranded, 300 V, tinned copper</dd>
-  <dt>Gauges</dt><dd>18 AWG (PSU box internals) · 22 AWG (all barrel-plug 24 V runs, LED feeds, limit switch) · 24 AWG (stepper cables, set by the JST-PH contact limit)</dd>
+  <dt>Gauges</dt><dd>18 AWG, 0.82 mm² (PSU box internals) · 22 AWG, 0.33 mm² (all barrel-plug 24 V runs, LED feeds, limit switch) · 24 AWG, 0.20 mm² (stepper cables, set by the JST-PH contact limit)</dd>
   <dt>Colours</dt><dd>Red = +24 V, black = GND on every 2-conductor power cable. Stepper colours are on the drawings.</dd>
   <dt>Barrel jacks and plugs</dt><dd><b>5.5 mm outside, 2.1 mm inside</b>, centre-positive, rated 5 A or better. Confirmed against the Waveshare hub (their part DC-044). 5.5 × 2.5 mm exists, looks identical and does not mate, so put 2.1 on every line of the order.</dd>
   <dt>Length tolerance</dt><dd>±10 mm, and ±25 mm is fine on anything 36 in or longer</dd>
@@ -45,7 +45,7 @@ What every cable is built to, whoever builds it.
 
 - **A custom harness vendor** (Alibaba "custom cable assembly", or a quick-turn shop): send them the zip. Expect MOQ 50 to 100 pieces per line item from China; small shops and some AliExpress custom-cable storefronts will do 5 to 10.
 - **Low volume instead:** buy pre-crimped PH, XH and Dupont leads plus housings and assemble them. The only labour a vendor saves you is crimping.
-- The reasoning behind the guessed gauges: steppers draw 1.5 A per phase or less, so 24 AWG is fine at these lengths; no single barrel-plug load exceeds about 3 A, so 22 AWG is fine; the PSU box pigtails carry worst-case single-load current, hence 18 AWG.
+- The reasoning behind the guessed gauges: steppers draw 1.5 A per phase or less, so 24 AWG (0.20 mm²) is fine at these lengths; no single barrel-plug load exceeds about 3 A, so 22 AWG (0.33 mm²) is fine; the PSU box pigtails carry worst-case single-load current, hence 18 AWG (0.82 mm²).
 
 **Two things are not part of the order.** The mains inlet wiring comes pre-made on the 3Dman inlet switch, so there is no AC cable to have built. The 16-pin IDC ribbons are an off-the-shelf part: buy them, do not have them made.
 
@@ -112,7 +112,7 @@ The fifth stepper cable, the chute one, is straight through and is built rather 
 
 {% if d.guide %}
 <p class="download-line">
-  <a href="{{ d.guide | n }}"><b>How to make your own →</b></a>
+  <a href="{{ d.guide | relative_url }}"><b>How to make your own →</b></a>
 </p>
 {% endif %}
 
@@ -135,7 +135,7 @@ The fifth stepper cable, the chute one, is straight through and is built rather 
 ## Guesses to verify before sending
 
 1. **LED feed Dupont polarity.** Which pin is +24 V on `L1` to `L3` at the board. The board's own 24 V input is settled (JST-VH, pin 1 is +24 V); these have not been checked.
-2. **Chute stepper cable.** The 40 in is copied from the channel steppers, and no drawing covers that cable at all.
+2. **Chute stepper cable.** No drawing covers that cable. The 24 in is the length of one built lead, so check it on your motor.
 3. **LED drop count.** Three feeds and three pigtails, per the wire schedule. Re-count against the machine.
 4. **Motor coil order.** The 1·4·3·6 map and the two empty positions come from the drawing, not from a measurement. Check the coils with a multimeter first.
 5. **Limit switch contact.** The Omron V-155-1C25 is SPDT with three tabs and the harness lands on two. Confirm which pair, `COM` + `NC` or `COM` + `NO`, against the board.

@@ -4,8 +4,11 @@
 	import { onMount } from 'svelte';
 	import SerialPortPanel from './servo/SerialPortPanel.svelte';
 	import ServoInventoryList from './servo/ServoInventoryList.svelte';
-	import PcaChannelMapping from './servo/PcaChannelMapping.svelte';
 	import ServoLayerCalibrator from '$lib/components/servo/ServoLayerCalibrator.svelte';
+	import Alert from '$lib/components/ui/Alert.svelte';
+	import Button from '$lib/components/ui/Button.svelte';
+	import Panel from '$lib/components/ui/Panel.svelte';
+	import Spinner from '$lib/components/ui/Spinner.svelte';
 
 	type ServoBackend = 'pca9685' | 'waveshare';
 
@@ -79,7 +82,6 @@
 	let openAngle = $state(10);
 	let closedAngle = $state(83);
 	let port = $state('');
-	let availableServoIds = $state<number[]>([]);
 	let availablePorts = $state<WavesharePort[]>([]);
 	let busServos = $state<BusServo[]>([]);
 	let suggestedNextId = $state<number | null>(null);
@@ -97,9 +99,6 @@
 	let openAngleByLayer = $state<Record<number, string>>({});
 	let closedAngleByLayer = $state<Record<number, string>>({});
 
-	// estimated angle after nudge, per layer (1-based) for PCA where no feedback exists
-	let estimatedAngleByLayer = $state<Record<number, number>>({});
-
 	// per-servo UI state
 	let busyByServoId = $state<Record<number, string>>({}); // 'calibrating' | 'moving' | 'promoting'
 	let lastMoveByServoId = $state<Record<number, 'open' | 'close' | 'center'>>({});
@@ -107,7 +106,6 @@
 	let autoPromotedIds = $state<Set<number>>(new Set());
 
 	let selectedServoId = $state<number | null>(null);
-	let selectedLayerIdx = $state<number | null>(null);
 	let nudgeDegrees = $state<number>(5);
 
 	// Effective number of assignable layers. If we have more servos on the bus
@@ -122,12 +120,8 @@
 		);
 	}
 
-	function pcaChoices(): number[] {
-		return availableServoIds.length > 0
-			? availableServoIds
-			: Array.from({ length: Math.max(layerCount, 1) }, (_, index) => index);
-	}
-
+	// `accent` is the colored stripe down the servo's left edge: the one
+	// deliberate side stripe in the app (the design system's docs/apps.md).
 	function servoSetupState(servo: BusServo) {
 		const calibrated =
 			typeof servo.min_limit === 'number' &&
@@ -144,8 +138,8 @@
 				inverted,
 				isFactory,
 				state: 'factory' as const,
-				accent: 'border-l-[var(--color-warning)]',
-				headerTone: 'bg-[#FFF7E0]',
+				tone: 'warning' as const,
+				accent: 'border-l-warning',
 				title: 'Promote ID before continuing',
 				description: `Factory ID 1 detected. Promote it to ID ${suggestedNextId} before connecting the next servo.`
 			};
@@ -158,8 +152,8 @@
 				inverted,
 				isFactory,
 				state: 'needs-calibration' as const,
-				accent: 'border-l-[#C9C7C0]',
-				headerTone: 'bg-bg/40',
+				tone: undefined,
+				accent: 'border-l-line-strong',
 				title: 'Needs calibration',
 				description: 'Run auto-calibration before testing movement or assigning direction.'
 			};
@@ -172,8 +166,8 @@
 				inverted,
 				isFactory,
 				state: 'needs-assignment' as const,
+				tone: 'primary' as const,
 				accent: 'border-l-primary',
-				headerTone: 'bg-primary/[0.06]',
 				title: 'Ready for assignment',
 				description: 'Calibration is done. Assign this servo to a storage layer next.'
 			};
@@ -185,8 +179,8 @@
 			inverted,
 			isFactory,
 			state: 'ready' as const,
-			accent: 'border-l-[var(--color-success)]',
-			headerTone: 'bg-success/[0.06]',
+			tone: 'success' as const,
+			accent: 'border-l-success',
 			title: 'Setup complete',
 			description: `Calibrated and assigned to Layer ${layer}. Test the motion if you want a final check.`
 		};
@@ -202,11 +196,6 @@
 		openAngle = Number(servo.open_angle ?? 10);
 		closedAngle = Number(servo.closed_angle ?? 83);
 		port = typeof servo.port === 'string' ? servo.port : '';
-		availableServoIds = Array.isArray(servo.available_channel_ids)
-			? servo.available_channel_ids.filter(
-					(value: unknown): value is number => typeof value === 'number'
-				)
-			: [];
 		servoIssues = Array.isArray(servo.issues)
 			? servo.issues.filter(
 					(value: unknown): value is HardwareIssue =>
@@ -407,31 +396,6 @@
 		await moveServo(servoId, last === 'open' ? 'close' : 'open');
 	}
 
-	async function nudgeLayer(layerIdx: number, degrees: number) {
-		errorMsg = null;
-		statusMsg = '';
-		try {
-			const res = await fetch(
-				`${currentBackendBaseUrl()}/api/hardware-config/servo/layers/${layerIdx - 1}/nudge`,
-				{
-					method: 'POST',
-					headers: { 'Content-Type': 'application/json' },
-					body: JSON.stringify({ degrees })
-				}
-			);
-			if (!res.ok) {
-				const text = await res.text();
-				throw new Error(text);
-			}
-			const data = await res.json();
-			if (typeof data.new_angle === 'number') {
-				estimatedAngleByLayer = { ...estimatedAngleByLayer, [layerIdx]: Math.round(data.new_angle) };
-			}
-		} catch (e: any) {
-			errorMsg = e.message ?? `Failed to nudge layer ${layerIdx} servo`;
-		}
-	}
-
 	async function nudgeServo(servoId: number, degrees: number) {
 		setBusy(servoId, 'moving');
 		errorMsg = null;
@@ -509,10 +473,6 @@
 			next[servoId] = layerIndex;
 		}
 		layerByAssignment = next;
-	}
-
-	function setInvertForLayer(layerIndex: number, invert: boolean) {
-		invertByLayer = { ...invertByLayer, [layerIndex]: invert };
 	}
 
 	function usedLayersForBusServos(): Set<number> {
@@ -659,19 +619,21 @@
 		}, 4000);
 
 		function handleKeydown(e: KeyboardEvent) {
-			if (selectedServoId === null && selectedLayerIdx === null) return;
-			if (e.target instanceof HTMLInputElement || e.target instanceof HTMLSelectElement) return;
+			if (selectedServoId === null) return;
+			// Arrows in a field or a list (our Select is a button) are the field's, never a nudge.
+			if (
+				e.target instanceof HTMLElement &&
+				e.target.closest('input, select, textarea, [aria-haspopup="listbox"], [role="listbox"]')
+			)
+				return;
 			if (e.key === 'ArrowLeft') {
 				e.preventDefault();
-				if (selectedServoId !== null) void nudgeServo(selectedServoId, -nudgeDegrees);
-				else if (selectedLayerIdx !== null) void nudgeLayer(selectedLayerIdx, -nudgeDegrees);
+				void nudgeServo(selectedServoId, -nudgeDegrees);
 			} else if (e.key === 'ArrowRight') {
 				e.preventDefault();
-				if (selectedServoId !== null) void nudgeServo(selectedServoId, nudgeDegrees);
-				else if (selectedLayerIdx !== null) void nudgeLayer(selectedLayerIdx, nudgeDegrees);
+				void nudgeServo(selectedServoId, nudgeDegrees);
 			} else if (e.key === 'Escape') {
 				selectedServoId = null;
-				selectedLayerIdx = null;
 			}
 		}
 		window.addEventListener('keydown', handleKeydown);
@@ -683,135 +645,93 @@
 	});
 </script>
 
-<div class="flex flex-col gap-4">
-	<div class="setup-panel px-4 py-3 text-sm text-text-muted">
-		Discover the servos on the bus, calibrate each one's open/close range, then assign each to a
-		storage layer. Tip: connect one new servo at a time so its factory ID 1 doesn't clash with the
-		others — promote it to a fresh ID before connecting the next.
-	</div>
-
+<div class="flex flex-col gap-(--gap-panels)">
 	{#if !settingsLoaded}
 		{#if errorMsg}
-			<div class="setup-panel border border-danger bg-primary-light px-4 py-4 text-sm text-[#7A0A0B]">
-				<div class="font-medium">Failed to load servo configuration</div>
-				<div class="mt-1">{errorMsg}</div>
-				<button
-					onclick={() => void loadSettings()}
-					class="mt-3 border border-danger px-3 py-1.5 text-sm font-medium text-[#7A0A0B] transition-colors hover:bg-danger/10"
-				>
-					Retry
-				</button>
-			</div>
+			<Alert tone="danger" title="The servo configuration did not load">
+				{errorMsg}
+				{#snippet actions()}
+					<Button size="sm" onclick={() => void loadSettings()}>Retry</Button>
+				{/snippet}
+			</Alert>
 		{:else}
-			<div class="setup-panel px-4 py-6 text-center text-sm text-text-muted">
-				Loading servo configuration…
-			</div>
+			<Panel>
+				<p class="flex items-center gap-2 text-sm text-ink-muted">
+					<Spinner size={16} />
+					Loading the servo configuration…
+				</p>
+			</Panel>
 		{/if}
 	{:else}
-	<div class="setup-panel p-4">
-		<div class="flex items-start justify-between gap-3">
-			<div class="min-w-0">
-				<div class="text-sm font-semibold text-text">Servo backend</div>
-				{#if servoSource === 'waveshare'}
-					<div class="mt-1 text-sm text-text-muted">
-						{#if discoveredServoSource === 'waveshare'}
-							Waveshare SC serial bus auto-detected from discovery
-							{#if discoveredWaveshareServos > 0}
-								— <span class="text-text">{discoveredWaveshareServos} servo{discoveredWaveshareServos === 1 ? '' : 's'}</span> on the bus.
-							{:else}
-								.
-							{/if}
-						{:else}
-							Using the Waveshare SC serial bus.
-						{/if}
-					</div>
-				{:else}
-					<div class="mt-1 text-sm text-text-muted">
-						No Waveshare servo bus detected — assuming PCA9685 on a control board.
-					</div>
+		<Panel title="Servo backend">
+			{#snippet actions()}
+				{#if discoveredServoSource !== servoSource && onSourceChange}
+					<Button size="sm" onclick={() => onSourceChange(discoveredServoSource)}>
+						Use the detected one ({discoveredServoSource === 'waveshare' ? 'Waveshare' : 'PCA9685'})
+					</Button>
 				{/if}
-			</div>
-			{#if discoveredServoSource !== servoSource && onSourceChange}
-				<button
-					type="button"
-					onclick={() => onSourceChange(discoveredServoSource)}
-					class="setup-button-secondary px-3 py-1.5 text-sm text-text whitespace-nowrap"
-				>
-					Use detected ({discoveredServoSource === 'waveshare' ? 'Waveshare' : 'PCA9685'})
-				</button>
-			{/if}
-		</div>
-	</div>
+			{/snippet}
+			<p class="text-sm text-ink-muted">
+				{#if servoSource !== 'waveshare'}
+					No Waveshare servo bus found, so a PCA9685 on a control board is assumed.
+				{:else if discoveredServoSource === 'waveshare'}
+					The Waveshare SC serial bus was found{#if discoveredWaveshareServos > 0}, with
+						<span class="text-ink">
+							{discoveredWaveshareServos}
+							{discoveredWaveshareServos === 1 ? 'servo' : 'servos'}
+						</span> on it{/if}.
+				{:else}
+					Using the Waveshare SC serial bus.
+				{/if}
+			</p>
+		</Panel>
 
-	{#if servoSource === 'waveshare'}
-		<SerialPortPanel
-			bind:port
-			{availablePorts}
-			{loadingPorts}
-			onLoadPorts={loadPorts}
-			onScan={() => scanBus()}
-		/>
-
-		<ServoInventoryList
-			{busServos}
-			{highestSeenId}
-			{suggestedNextId}
-			bind:selectedServoId
-			{busyByServoId}
-			{lastMoveByServoId}
-			{openAngle}
-			{closedAngle}
-			bind:openAngleByLayer
-			bind:closedAngleByLayer
-			bind:nudgeDegrees
-			{servoSetupState}
-			{unassignedLayers}
-			onAssignLayer={assignLayer}
-			onPromote={(servoId) => promoteServoId(servoId, suggestedNextId!)}
-			onCalibrate={calibrateServo}
-			onToggleOpenClose={toggleOpenClose}
-			onToggleInvert={toggleInvertForLayer}
-			onNudge={(servoId, degrees) => void nudgeServo(servoId, degrees)}
-		/>
-	{:else}
-		<ServoLayerCalibrator showDirections />
-	{/if}
-
-	<div class="flex flex-wrap items-center gap-3">
-		<button
-			onclick={saveServoSetup}
-			disabled={saving}
-			class="border border-success bg-success px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-success/90 disabled:cursor-not-allowed disabled:opacity-60"
-		>
-			{saving ? 'Saving…' : 'Save servo setup'}
-		</button>
-		{#if loading}
-			<div class="text-sm text-text-muted">Loading current servo configuration…</div>
+		{#if servoSource === 'waveshare'}
+			<SerialPortPanel
+				bind:port
+				{availablePorts}
+				{loadingPorts}
+				onLoadPorts={loadPorts}
+				onScan={() => scanBus()}
+			/>
+			<ServoInventoryList
+				{busServos}
+				{highestSeenId}
+				{suggestedNextId}
+				bind:selectedServoId
+				{busyByServoId}
+				{lastMoveByServoId}
+				{openAngle}
+				{closedAngle}
+				bind:openAngleByLayer
+				bind:closedAngleByLayer
+				bind:nudgeDegrees
+				{servoSetupState}
+				{unassignedLayers}
+				onAssignLayer={assignLayer}
+				onPromote={(servoId) => promoteServoId(servoId, suggestedNextId!)}
+				onCalibrate={calibrateServo}
+				onToggleOpenClose={toggleOpenClose}
+				onToggleInvert={toggleInvertForLayer}
+				onNudge={(servoId, degrees) => void nudgeServo(servoId, degrees)}
+			/>
+		{:else}
+			<ServoLayerCalibrator showDirections />
 		{/if}
-	</div>
 
-	{#if servoIssues.length}
-		<div
-			class="border border-danger bg-primary-light px-4 py-3 text-sm text-[#7A0A0B]"
-		>
-			{#each servoIssues as issue}
-				<div>{issue.message}</div>
-			{/each}
+		{#if servoIssues.length}
+			<Alert tone="danger">
+				{#each servoIssues as issue}<p>{issue.message}</p>{/each}
+			</Alert>
+		{/if}
+		{#if errorMsg}
+			<Alert tone="danger">{errorMsg}</Alert>
+		{:else if statusMsg}
+			<Alert tone="success">{statusMsg}</Alert>
+		{/if}
+		<div class="flex flex-wrap items-center gap-3">
+			<Button variant="primary" loading={saving} onclick={saveServoSetup}>Save the servos</Button>
+			{#if loading}<span class="text-sm text-ink-muted">Loading the servo configuration…</span>{/if}
 		</div>
-	{/if}
-
-	{#if errorMsg}
-		<div
-			class="border border-danger bg-primary-light px-4 py-3 text-sm text-[#7A0A0B]"
-		>
-			{errorMsg}
-		</div>
-	{:else if statusMsg}
-		<div
-			class="border border-success bg-[#D4EDDA] px-4 py-3 text-sm font-medium text-success"
-		>
-			{statusMsg}
-		</div>
-	{/if}
 	{/if}
 </div>

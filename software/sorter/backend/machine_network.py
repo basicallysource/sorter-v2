@@ -20,7 +20,6 @@ from __future__ import annotations
 
 import json
 import os
-import re
 import socket
 import subprocess
 import time
@@ -37,11 +36,6 @@ _MAX_FILE_BYTES = 64 * 1024
 _BLOCK_KEYS = ("version", "at", "clock_ok", "hostname", "mdns", "ports", "networks", "setup_network")
 
 SYS_CLASS_NET = Path("/sys/class/net")
-SYSTEMD_DIR = Path("/etc/systemd/system")
-# The units that serve the UI when it runs as a service. SorterOS and
-# `install.sh --as-service` both install them from software/systemd/, and
-# enable one of the two.
-UI_UNITS = ("sorter-ui-dev.service", "sorter-ui.service")
 # Where `pnpm dev` (and ./dev.sh) serve the UI: vite's default port.
 DEV_UI_PORT = 5173
 MAX_NETWORKS = 8
@@ -49,7 +43,6 @@ MAX_NETWORKS = 8
 # Container and VM plumbing: addresses on these are not a way to reach the
 # Sorter from another device.
 _VIRTUAL_PREFIXES = ("docker", "br-", "veth", "virbr", "vnet", "cni", "flannel", "cali", "lxc", "lxd")
-_PORT_ARG = re.compile(r"--port[=\s]+(\d{1,5})\b")
 
 
 def buildNetworkBlock() -> dict[str, Any]:
@@ -96,32 +89,13 @@ def _fromInterfaces() -> dict[str, Any]:
 
 
 def _uiPort() -> int:
-    """The port the UI is served on, as far as this machine says.
-
-    The backend does not serve the UI, so it can only read how the UI is
-    started. SORTER_UI_PORT alone is not enough: SorterOS never sets it, and
-    the CORS check falls back to 5173 for it, while every SorterOS image serves
-    the UI on port 80.
-    """
-    # 1. The enabled systemd unit, when the UI runs as a service.
-    for unit in UI_UNITS:
-        if not (SYSTEMD_DIR / "multi-user.target.wants" / unit).exists():
-            continue
-        try:
-            text = (SYSTEMD_DIR / unit).read_text()
-        except OSError:
-            continue
-        for line in text.splitlines():
-            if line.strip().startswith("ExecStart="):
-                match = _PORT_ARG.search(line)
-                port = _port(match.group(1)) if match else None
-                if port is not None:
-                    return port
-    # 2. The port the operator configured for the UI.
-    configured = _port(os.getenv("SORTER_UI_PORT", ""))
-    if configured is not None:
-        return configured
-    # 3. Otherwise the UI is the dev server.
+    """The port the UI is served on: the supervisor's, when it serves the UI
+    (it tells its backend in SORTER_SUPERVISOR_UI_PORT), else the one the
+    operator configured for the UI, else the dev server's."""
+    for name in ("SORTER_SUPERVISOR_UI_PORT", "SORTER_UI_PORT"):
+        port = _port(os.getenv(name, ""))
+        if port is not None:
+            return port
     return DEV_UI_PORT
 
 

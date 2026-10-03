@@ -1,7 +1,16 @@
 <script lang="ts">
 	import { getBackendHttpBase, machineHttpBaseUrlFromWsUrl } from '$lib/backend';
-	import AppHeader from '$lib/components/AppHeader.svelte';
-	import StatusBanner from '$lib/components/StatusBanner.svelte';
+	import AppShell from '$lib/components/AppShell.svelte';
+	import Alert from '$lib/components/ui/Alert.svelte';
+	import Badge from '$lib/components/ui/Badge.svelte';
+	import Button from '$lib/components/ui/Button.svelte';
+	import EmptyState from '$lib/components/ui/EmptyState.svelte';
+	import Input from '$lib/components/ui/Input.svelte';
+	import PageHeader from '$lib/components/ui/PageHeader.svelte';
+	import Panel from '$lib/components/ui/Panel.svelte';
+	import Select from '$lib/components/ui/Select.svelte';
+	import Spinner from '$lib/components/ui/Spinner.svelte';
+	import Switch from '$lib/components/ui/Switch.svelte';
 	import { getMachinesContext } from '$lib/machines/context';
 	import { onMount } from 'svelte';
 
@@ -205,13 +214,20 @@
 		return parsedEntries.filter((entry) => entry.level === level).length;
 	}
 
-	function levelBadgeClass(level: LogLevel): string {
-		if (level === 'ERROR') return 'border-danger/40 bg-danger/10 text-danger';
-		if (level === 'WARN') return 'border-warning/40 bg-warning/10 text-[#A56D00]';
-		if (level === 'INFO') return 'border-primary/40 bg-primary/10 text-primary';
-		if (level === 'DEBUG') return 'border-border bg-bg text-text-muted';
-		return 'border-border bg-bg text-text-muted';
-	}
+	const LEVEL_LABELS: Record<LogLevel, string> = {
+		ERROR: 'Error',
+		WARN: 'Warning',
+		INFO: 'Info',
+		DEBUG: 'Debug',
+		OTHER: 'Other'
+	};
+	const LEVEL_TONES = {
+		ERROR: 'danger',
+		WARN: 'warning',
+		INFO: 'info',
+		DEBUG: 'neutral',
+		OTHER: 'neutral'
+	} as const;
 
 	async function refreshNow() {
 		await loadSources(true);
@@ -241,159 +257,154 @@
 
 <svelte:head><title>Sorter - Logs</title></svelte:head>
 
-<div class="min-h-screen bg-bg">
-	<AppHeader />
-	<div class="p-4 sm:p-6">
-		<div class="mb-4 flex flex-wrap items-start justify-between gap-3">
-			<div>
-				<h2 class="text-xl font-bold text-text">Logs</h2>
-				<p class="mt-1 text-sm text-text-muted">
-					Curated log sources with search, level filtering, and stable refresh.
-				</p>
-			</div>
-			<div class="flex flex-wrap items-center gap-2 text-sm">
-				<label class="flex items-center gap-2 text-text-muted">
-					<span>Lines</span>
-					<select bind:value={lineLimit} class="border border-border bg-surface px-2 py-1 text-sm text-text">
-						<option value="200">200</option>
-						<option value="400">400</option>
-						<option value="800">800</option>
-						<option value="1500">1500</option>
-					</select>
-				</label>
-				<label class="flex items-center gap-2 text-text-muted">
-					<input type="checkbox" bind:checked={autoRefresh} />
-					Auto refresh
-				</label>
-				<label class="flex items-center gap-2 text-text-muted">
-					<input type="checkbox" bind:checked={wrapLines} />
-					Wrap lines
-				</label>
-				<button
-					type="button"
+<AppShell fit>
+	<div class="mx-auto flex min-h-0 w-full max-w-[1500px] flex-1 flex-col gap-(--gap-panels) px-4 py-6 sm:px-6">
+		<PageHeader title="Logs" description="Curated log sources with search, level filtering and a steady refresh.">
+			{#snippet actions()}
+				<div class="flex items-center gap-2">
+					<span class="text-sm text-ink-muted">Lines</span>
+					<Select
+						label="Lines to show"
+						class="w-24"
+						bind:value={lineLimit}
+						options={['200', '400', '800', '1500'].map((n) => ({ value: n, label: n }))}
+					/>
+				</div>
+				<div class="flex items-center gap-2">
+					<span id="logs-auto-refresh" class="text-sm text-ink-muted">Auto refresh</span>
+					<Switch labelledby="logs-auto-refresh" bind:checked={autoRefresh} />
+				</div>
+				<div class="flex items-center gap-2">
+					<span id="logs-wrap" class="text-sm text-ink-muted">Wrap lines</span>
+					<Switch labelledby="logs-wrap" bind:checked={wrapLines} />
+				</div>
+				<Button
+					loading={refreshingSources || refreshingContent}
 					onclick={() => void refreshNow()}
-					class="border border-border px-3 py-1.5 text-text transition-colors hover:bg-surface disabled:opacity-50"
-					disabled={refreshingSources || refreshingContent}
 				>
 					Refresh
-				</button>
-			</div>
-		</div>
+				</Button>
+			{/snippet}
+		</PageHeader>
 
-		{#if error}
-			<StatusBanner message={error} variant="error" />
-		{/if}
+		{#if error}<Alert tone="danger">{error}</Alert>{/if}
 
-		<div class="mt-4 grid gap-4 xl:grid-cols-[320px_minmax(0,1fr)]">
-			<div class="border border-border bg-surface">
-				<div class="border-b border-border px-4 py-3 text-sm font-medium text-text">Sources</div>
+		<div class="grid grid-cols-1 min-h-0 gap-(--gap-panels) lg:flex-1 xl:grid-cols-[20rem_minmax(0,1fr)]">
+			<Panel title="Sources" flush fill>
 				{#if initialLoading && sources.length === 0}
-					<div class="px-4 py-4 text-sm text-text-muted">Loading log sources…</div>
+					<p class="flex items-center gap-2 px-(--pad-panel) pb-4 text-sm text-ink-muted">
+						<Spinner size={16} />
+						Loading the log sources
+					</p>
 				{:else}
-					<div class="flex flex-col">
+					<ul class="divide-y divide-line">
 						{#each sources as source}
-							<button
-								type="button"
-								onclick={() => {
-									if (source.available) selectedSourceId = source.id;
-								}}
-								disabled={!source.available}
-								class="border-b border-border px-4 py-3 text-left transition-colors disabled:cursor-not-allowed disabled:opacity-50 {selectedSourceId === source.id ? 'bg-bg' : 'hover:bg-bg'}"
-							>
-								<div class="flex items-center justify-between gap-2">
-									<div class="text-sm font-medium text-text">{source.label}</div>
-									{#if source.available}
-										<span class="text-xs text-text-muted">{formatBytes(source.size_bytes)}</span>
-									{:else}
-										<span class="text-xs text-text-muted">Unavailable</span>
-									{/if}
-								</div>
-								<div class="mt-1 text-sm text-text-muted">{source.description}</div>
-								{#if source.available}
-									<div class="mt-2 truncate text-xs text-text-muted">{source.path}</div>
-									<div class="mt-1 text-sm text-text-muted">Updated {formatTimestamp(source.updated_at)}</div>
-								{/if}
-							</button>
-						{/each}
-					</div>
-				{/if}
-			</div>
-
-			<div class="border border-border bg-surface">
-				<div class="border-b border-border px-4 py-3">
-					{#if selectedLog}
-						<div class="flex flex-wrap items-start justify-between gap-3">
-							<div>
-								<div class="text-sm font-medium text-text">{selectedLog.label}</div>
-								<div class="mt-1 text-sm text-text-muted">{selectedLog.description}</div>
-								<div class="mt-2 text-sm text-text-muted">{selectedLog.path}</div>
-							</div>
-							<div class="text-right text-xs text-text-muted">
-								<div>{formatBytes(selectedLog.size_bytes)}</div>
-								<div>Updated {formatTimestamp(selectedLog.updated_at)}</div>
-								{#if refreshingContent || refreshingSources}
-									<div class="mt-1 text-primary">Refreshing…</div>
-								{/if}
-							</div>
-						</div>
-					{:else}
-						<div class="text-sm font-medium text-text">Log Output</div>
-						<div class="mt-1 text-sm text-text-muted">Select an available source to inspect its logs.</div>
-					{/if}
-				</div>
-
-				{#if selectedLog}
-					<div class="border-b border-border px-4 py-3">
-						<div class="grid gap-3 md:grid-cols-[minmax(0,1fr)_180px]">
-							<input
-								type="text"
-								bind:value={searchQuery}
-								placeholder="Search message text, error names, part IDs, camera names…"
-								class="border border-border bg-bg px-3 py-2 text-sm text-text"
-							/>
-							<select bind:value={levelFilter} class="border border-border bg-bg px-3 py-2 text-sm text-text">
-								<option value="all">All levels</option>
-								<option value="ERROR">Errors only</option>
-								<option value="WARN">Warnings only</option>
-								<option value="INFO">Info only</option>
-								<option value="DEBUG">Debug only</option>
-								<option value="OTHER">Other / raw only</option>
-							</select>
-						</div>
-
-						<div class="mt-3 flex flex-wrap items-center gap-2 text-xs text-text-muted">
-							<span class="rounded border border-border bg-bg px-2 py-1">{filteredEntries().length} matching lines</span>
-							<span class="rounded border border-danger/30 bg-danger/10 px-2 py-1 text-danger">Errors: {countByLevel('ERROR')}</span>
-							<span class="rounded border border-warning/30 bg-warning/10 px-2 py-1 text-[#A56D00]">Warnings: {countByLevel('WARN')}</span>
-							<span class="rounded border border-primary/30 bg-primary/10 px-2 py-1 text-primary">Info: {countByLevel('INFO')}</span>
-						</div>
-					</div>
-
-					<div class="max-h-[70vh] overflow-auto bg-bg">
-						{#if filteredEntries().length === 0}
-							<div class="px-4 py-4 text-sm text-text-muted">No log lines match the current filters.</div>
-						{:else}
-							<div class="min-w-full">
-								{#each filteredEntries() as entry (entry.index + ':' + entry.raw)}
-									<div class="grid gap-2 border-b border-border px-4 py-2 text-xs leading-5 {wrapLines ? '' : 'grid-cols-[110px_70px_minmax(0,1fr)]'}">
-										<div class="font-mono text-text-muted">{entry.timestamp ?? ''}</div>
-										<div>
-											<span class={`inline-flex rounded border px-1.5 py-0.5 text-xs font-medium uppercase tracking-wide ${levelBadgeClass(entry.level)}`}>
-												{entry.level}
-											</span>
-										</div>
-										<div class={`font-mono text-text ${wrapLines ? 'whitespace-pre-wrap break-words' : 'overflow-x-auto whitespace-pre'}`}>
-											{entry.message}
-										</div>
+							<li>
+								<button
+									type="button"
+									onclick={() => {
+										if (source.available) selectedSourceId = source.id;
+									}}
+									disabled={!source.available}
+									aria-pressed={selectedSourceId === source.id}
+									class="w-full px-(--pad-panel) py-3 text-left transition-colors disabled:pointer-events-none disabled:opacity-50 {selectedSourceId === source.id
+										? 'bg-primary-soft'
+										: 'hover:bg-hover'}"
+								>
+									<div class="flex items-center justify-between gap-2">
+										<span class="text-sm font-medium text-ink">{source.label}</span>
+										<span class="num text-xs text-ink-muted">
+											{source.available ? formatBytes(source.size_bytes) : 'Unavailable'}
+										</span>
 									</div>
-								{/each}
-							</div>
-						{/if}
-					</div>
-				{:else}
-					<div class="px-4 py-4 text-sm text-text-muted">No log source selected.</div>
+									<div class="mt-1 text-sm text-ink-muted">{source.description}</div>
+									{#if source.available}
+										<div class="mt-2 truncate font-mono text-xs text-ink-muted">{source.path}</div>
+										<div class="mt-1 text-sm text-ink-muted">Updated {formatTimestamp(source.updated_at)}</div>
+									{/if}
+								</button>
+							</li>
+						{/each}
+					</ul>
 				{/if}
-			</div>
+			</Panel>
+
+			<Panel
+				title={selectedLog ? selectedLog.label : 'Log output'}
+				description={selectedLog ? selectedLog.description : 'Select an available source to inspect its logs.'}
+				flush
+				fill
+			>
+				{#snippet actions()}
+					{#if selectedLog}
+						<div class="flex items-center gap-3 text-sm text-ink-muted">
+							{#if refreshingContent || refreshingSources}<Spinner size={14} />{/if}
+							<span class="num">{formatBytes(selectedLog.size_bytes)}</span>
+							<span>Updated {formatTimestamp(selectedLog.updated_at)}</span>
+						</div>
+					{/if}
+				{/snippet}
+				{#if selectedLog}
+					<div class="sticky top-0 z-10 flex flex-col gap-3 bg-surface px-(--pad-panel) pb-3">
+						<p class="truncate font-mono text-xs text-ink-muted">{selectedLog.path}</p>
+						<div class="grid grid-cols-1 gap-2 md:grid-cols-[minmax(0,1fr)_12rem]">
+							<Input
+								aria-label="Search the log"
+								placeholder="Search message text, error names, part IDs, camera names"
+								bind:value={searchQuery}
+							/>
+							<Select
+								label="Level"
+								bind:value={levelFilter}
+								options={[
+									{ value: 'all', label: 'All levels' },
+									{ value: 'ERROR', label: 'Errors only' },
+									{ value: 'WARN', label: 'Warnings only' },
+									{ value: 'INFO', label: 'Info only' },
+									{ value: 'DEBUG', label: 'Debug only' },
+									{ value: 'OTHER', label: 'Other or raw only' }
+								]}
+							/>
+						</div>
+						<div class="flex flex-wrap items-center gap-2">
+							<Badge>{filteredEntries().length} matching lines</Badge>
+							<Badge tone="danger">Errors: {countByLevel('ERROR')}</Badge>
+							<Badge tone="warning">Warnings: {countByLevel('WARN')}</Badge>
+							<Badge tone="info">Info: {countByLevel('INFO')}</Badge>
+						</div>
+					</div>
+
+					{#if filteredEntries().length === 0}
+						<p class="bg-well px-(--pad-panel) py-4 text-sm text-ink-muted">
+							No log lines match the current filters.
+						</p>
+					{:else}
+						<div class="divide-y divide-line bg-well">
+							{#each filteredEntries() as entry (entry.index + ':' + entry.raw)}
+								<div
+									class="grid gap-x-3 gap-y-1 px-(--pad-panel) py-2 text-sm {wrapLines
+										? ''
+										: 'grid-cols-[7rem_5rem_minmax(0,1fr)] items-baseline'}"
+								>
+									<div class="font-mono text-ink-muted">{entry.timestamp ?? ''}</div>
+									<div><Badge tone={LEVEL_TONES[entry.level]}>{LEVEL_LABELS[entry.level]}</Badge></div>
+									<div
+										class="font-mono text-ink {wrapLines
+											? 'break-words whitespace-pre-wrap'
+											: 'overflow-x-auto whitespace-pre'}"
+									>
+										{entry.message}
+									</div>
+								</div>
+							{/each}
+						</div>
+					{/if}
+				{:else}
+					<div class="px-(--pad-panel) pb-(--pad-panel)">
+						<EmptyState title="No log source is selected" />
+					</div>
+				{/if}
+			</Panel>
 		</div>
 	</div>
-</div>
+</AppShell>

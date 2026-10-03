@@ -362,9 +362,6 @@ class C4FiveSectorPlatter:
             self.gear_ratio
         )
 
-    def output_degrees_to_motor_degrees(self, output_degrees: float) -> float:
-        return float(output_degrees) * float(self.gear_ratio)
-
     def sector_position_microsteps(self, unwrapped_sector_index: int) -> int:
         sector_index = int(unwrapped_sector_index)
         turns, sector = divmod(sector_index, self.sector_count)

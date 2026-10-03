@@ -10,7 +10,16 @@
 	} from '$lib/api';
 	import ModelCompareTile from '$lib/components/teacher/ModelCompareTile.svelte';
 	import Spinner from '$lib/components/Spinner.svelte';
-	import { Button } from '$lib/components/primitives';
+	import Button from '$lib/components/Button.svelte';
+	import Alert from '$lib/components/Alert.svelte';
+	import Disclosure from '$lib/components/Disclosure.svelte';
+	import EmptyState from '$lib/components/EmptyState.svelte';
+	import PageHeader from '$lib/components/PageHeader.svelte';
+	import Panel from '$lib/components/Panel.svelte';
+	import Textarea from '$lib/components/Textarea.svelte';
+	import ArrowLeft from '@lucide/svelte/icons/arrow-left';
+	import ImageOff from '@lucide/svelte/icons/image-off';
+	import Play from '@lucide/svelte/icons/play';
 
 	const sampleId = $derived(page.params.id ?? '');
 
@@ -133,88 +142,49 @@
 </script>
 
 <svelte:head>
-	<title>Compare models · Sample · Hive</title>
+	<title>Compare models - Hive</title>
 </svelte:head>
 
-<div class="mb-5 flex flex-wrap items-end justify-between gap-3">
-	<div class="min-w-0">
-		<div class="mb-1 text-xs text-text-muted">
-			<a href="/samples" class="hover:underline">Samples</a>
-			<span class="mx-1">/</span>
-			{#if sample}
-				<a href={`/samples/${sample.id}`} class="hover:underline">{sample.local_sample_id.slice(0, 12)}</a>
-				<span class="mx-1">/</span>
-			{/if}
-			<span>Compare models</span>
-		</div>
-		<h1 class="text-2xl font-bold text-text">Compare teacher models</h1>
-		<p class="mt-1 text-sm text-text-muted">
-			One image tile per model. Non-destructive — the sample's stored detection is not touched.
-		</p>
-	</div>
-	<div class="flex shrink-0 items-center gap-2">
-		<Button variant="primary" size="sm" onclick={runAll}>Run all models</Button>
-	</div>
+<div>
+	<Button href={`/samples/${sampleId}`} size="sm" variant="ghost" icon={ArrowLeft}>Sample</Button>
 </div>
+
+<PageHeader
+	title="Compare teacher models"
+	description="One picture for each model. Nothing is saved: the sample's own detection stays as it is."
+>
+	{#snippet actions()}
+		<Button variant="primary" icon={Play} onclick={runAll}>Run every model</Button>
+	{/snippet}
+</PageHeader>
 
 {#if loading}
 	<div class="flex justify-center p-8"><Spinner size={32} /></div>
 {:else if loadError}
-	<div class="border border-border bg-surface px-6 py-10 text-center text-sm text-text-muted">
-		{loadError}
-	</div>
+	<Alert tone="danger">{loadError}</Alert>
 {:else if !sample}
-	<div class="border border-border bg-surface px-6 py-10 text-center text-sm text-text-muted">
-		Sample not found.
-	</div>
+	<Panel><EmptyState icon={ImageOff} title="Sample not found" /></Panel>
 {:else}
-	<details class="mb-5 border border-border bg-surface" open>
-		<summary class="flex cursor-pointer items-center justify-between gap-2 border-b border-border px-4 py-2.5">
-			<div class="flex items-center gap-2">
-				<span class="text-sm font-semibold text-text">Prompt</span>
-				{#if promptDirty}
-					<span class="bg-warning-bg px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-warning-strong">
-						modified
-					</span>
-				{:else}
-					<span class="text-[11px] text-text-muted">(default)</span>
-				{/if}
-			</div>
-			<div class="flex items-center gap-2 text-[11px] text-text-muted">
-				<span>{promptText.length} chars</span>
-				{#if promptDirty}
-					<button
-						type="button"
-						onclick={(e) => { e.preventDefault(); e.stopPropagation(); resetPrompt(); }}
-						class="text-primary hover:underline"
-					>
-						Reset to default
-					</button>
-				{/if}
-			</div>
-		</summary>
-		<div class="px-4 py-3">
-			{#if promptLoadError}
-				<div class="mb-2 border border-warning-strong bg-warning-bg px-3 py-2 text-[11px] text-warning-strong">
-					{promptLoadError}
+	<Panel flush>
+		<Disclosure title="Prompt" help={promptDirty ? 'Changed' : 'The default'} open>
+			<div class="flex flex-col gap-3 px-(--pad-panel) pb-2">
+				{#if promptLoadError}<Alert tone="warning">{promptLoadError}</Alert>{/if}
+				<Textarea bind:value={promptText} oninput={onPromptInput} rows={12} class="font-mono" />
+				<div class="flex flex-wrap items-start justify-between gap-3">
+					<p class="max-w-3xl text-sm text-ink-muted">
+						A changed prompt goes as it is to every chat-style adapter on the next run. Perceptron Mk1 ignores it: its
+						grounding mode needs a short instruction of its own, and a long chat prompt turns its answer into prose.
+					</p>
+					<div class="flex items-center gap-2">
+						<span class="num text-sm text-ink-muted">{promptText.length} characters</span>
+						{#if promptDirty}<Button size="sm" variant="ghost" onclick={resetPrompt}>Reset to the default</Button>{/if}
+					</div>
 				</div>
-			{/if}
-			<textarea
-				bind:value={promptText}
-				oninput={onPromptInput}
-				rows="12"
-				class="w-full resize-y border border-border bg-surface px-3 py-2 font-mono text-[12px] leading-relaxed text-text focus:border-primary focus:outline-none"
-			></textarea>
-			<p class="mt-2 text-[11px] text-text-muted">
-				Modified prompt is sent verbatim to every <em>chat-style</em> adapter on the next Run.
-				<strong>Perceptron Mk1 ignores this textarea</strong> — its native grounding mode
-				needs a short declarative instruction and breaks into conversational prose when fed
-				a long chat prompt. Perceptron always runs on its own internal instruction.
-			</p>
-		</div>
-	</details>
+			</div>
+		</Disclosure>
+	</Panel>
 
-	<div class="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+	<div class="grid gap-(--gap-panels) md:grid-cols-2 xl:grid-cols-3">
 		{#each rows as row, index (row.model.model_id)}
 			<ModelCompareTile
 				model={row.model}

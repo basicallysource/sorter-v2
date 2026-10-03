@@ -11,29 +11,15 @@ from fastapi import APIRouter
 from pydantic import BaseModel
 
 import server.shared_state as shared_state
-from subsystems.sample_collection_speed import (
-    default_speed_rpm,
-    microsteps_from_stepper_config,
-)
+from hardware.fault import HardwareFault
 
 router = APIRouter()
-
-
-def _system_status_payload() -> Dict[str, Any]:
-    return {
-        "hardware_state": shared_state.hardware_state,
-        "hardware_error": shared_state.hardware_error,
-        "homing_step": shared_state.hardware_homing_step,
-        "no_power_development_mode": bool(
-            getattr(shared_state.gc_ref, "no_power_development_mode", False)
-        ),
-    }
 
 
 @router.get("/api/system/status")
 def get_system_status() -> Dict[str, Any]:
     with shared_state.hardware_lifecycle_lock:
-        return _system_status_payload()
+        return shared_state.systemStatusData()
 
 
 @router.post("/api/system/reset")
@@ -58,7 +44,7 @@ def reset_system() -> Dict[str, Any]:
         except Exception as exc:
             shared_state.setHardwareStatus(
                 state="error",
-                error=f"Reset failed: {exc}",
+                error=HardwareFault("Reset failed", str(exc)),
                 clear_homing_step=True,
             )
             return {
@@ -105,7 +91,7 @@ def _start_hardware_worker(
             with shared_state.hardware_lifecycle_lock:
                 shared_state.setHardwareStatus(
                     state="error",
-                    error=str(exc),
+                    error=HardwareFault.of(exc),
                     clear_homing_step=True,
                 )
         else:
@@ -185,12 +171,6 @@ def initialize_system() -> Dict[str, Any]:
         missing_fn_message="No hardware initialize function registered.",
         started_message="Hardware initialization started.",
     )
-
-
-# Keep the old endpoint as alias for backwards compatibility
-@router.post("/api/system/start")
-def start_system() -> Dict[str, Any]:
-    return home_system()
 
 
 @router.post("/api/system/restart")
@@ -294,154 +274,6 @@ def reboot_machine() -> Dict[str, Any]:
     return {"ok": True, "message": "Machine is restarting..."}
 
 
-def _shared_variables():
-    controller = shared_state.controller_ref
-    coordinator = getattr(controller, "coordinator", None) if controller is not None else None
-    return getattr(coordinator, "shared", None)
-
-
-def _open_all_layer_doors_for_sample_collection() -> Dict[str, Any]:
-    controller = shared_state.controller_ref
-    irl = getattr(controller, "irl", None) if controller is not None else shared_state.getActiveIRL()
-    gc = getattr(controller, "gc", None) if controller is not None else shared_state.gc_ref
-    if irl is None:
-        return {"ok": False, "reason": "hardware_not_initialized", "opened": 0, "errors": []}
-    if bool(getattr(gc, "disable_servos", False)):
-        return {"ok": True, "reason": "servos_disabled", "opened": 0, "errors": []}
-
-    servos = list(getattr(irl, "servos", []) or [])
-    errors: list[dict[str, Any]] = []
-    opened = 0
-    for index, servo in enumerate(servos):
-        if not bool(getattr(servo, "available", True)):
-            errors.append(
-                {
-                    "layer_index": index,
-                    "reason": "servo_unavailable",
-                }
-            )
-            continue
-        try:
-            open_fn = getattr(servo, "open", None)
-            if not callable(open_fn):
-                errors.append(
-                    {
-                        "layer_index": index,
-                        "reason": "open_not_supported",
-                    }
-                )
-                continue
-            open_fn()
-            opened += 1
-        except Exception as exc:
-            errors.append(
-                {
-                    "layer_index": index,
-                    "reason": str(exc),
-                }
-            )
-
-    logger = getattr(gc, "logger", None)
-    if logger is not None:
-        if errors and hasattr(logger, "warning"):
-            logger.warning(
-                "Sample collection mode: opened %d/%d layer doors; errors=%r"
-                % (opened, len(servos), errors)
-            )
-        elif hasattr(logger, "info"):
-            logger.info(
-                "Sample collection mode: opened %d/%d layer doors for discard passthrough"
-                % (opened, len(servos))
-            )
-
-    return {"ok": len(errors) == 0, "opened": opened, "errors": errors}
-
-
-def _irl_config_for_speed_defaults():
-    controller = shared_state.controller_ref
-    coordinator = getattr(controller, "coordinator", None) if controller is not None else None
-    config = getattr(coordinator, "irl_config", None)
-    if config is not None:
-        return config
-    config = getattr(shared_state.vision_manager, "_irl_config", None)
-    if config is not None:
-        return config
-    try:
-        from irl.config import mkIRLConfig
-
-        return mkIRLConfig()
-    except Exception:
-        return None
-
-
-def _sample_collection_default_speeds_rpm() -> Dict[str, float | None]:
-    config = _irl_config_for_speed_defaults()
-    if config is None:
-        return {role: None for role in shared_state.SAMPLE_COLLECTION_SPEED_ROLES}
-    feeder_config = getattr(config, "feeder_config", None)
-    if feeder_config is None:
-        return {role: None for role in shared_state.SAMPLE_COLLECTION_SPEED_ROLES}
-
-    specs = {
-        "c_channel_1": (
-            getattr(feeder_config, "first_rotor", None),
-            getattr(config, "c_channel_1_rotor_stepper", None),
-        ),
-        "c_channel_2": (
-            getattr(feeder_config, "second_rotor_normal", None),
-            getattr(config, "c_channel_2_rotor_stepper", None),
-        ),
-        "c_channel_3": (
-            getattr(feeder_config, "third_rotor_normal", None),
-            getattr(config, "c_channel_3_rotor_stepper", None),
-        ),
-        "classification_channel": (
-            getattr(feeder_config, "classification_channel_eject", None),
-            getattr(config, "c_channel_4_rotor_stepper", None)
-            or getattr(config, "carousel_stepper", None),
-        ),
-    }
-
-    defaults: Dict[str, float | None] = {}
-    for role, (pulse_config, stepper_config) in specs.items():
-        speed = getattr(pulse_config, "microsteps_per_second", None)
-        if not isinstance(speed, int) or isinstance(speed, bool) or speed <= 0:
-            defaults[role] = None
-            continue
-        defaults[role] = default_speed_rpm(
-            speed,
-            microsteps=microsteps_from_stepper_config(stepper_config),
-        )
-    return defaults
-
-
-def _sample_collection_speeds_payload() -> Dict[str, Any]:
-    overrides = shared_state.getSampleCollectionSpeedsRpmByRole()
-    defaults = _sample_collection_default_speeds_rpm()
-    effective = {
-        role: overrides.get(role) if overrides.get(role) is not None else defaults.get(role)
-        for role in shared_state.SAMPLE_COLLECTION_SPEED_ROLES
-    }
-    shared = _shared_variables()
-    return {
-        "ok": True,
-        "roles": list(shared_state.SAMPLE_COLLECTION_SPEED_ROLES),
-        "aliases": dict(shared_state.SAMPLE_COLLECTION_SPEED_ROLE_ALIASES),
-        "min_rpm": shared_state.SAMPLE_COLLECTION_SPEED_MIN_RPM,
-        "max_rpm": shared_state.SAMPLE_COLLECTION_SPEED_MAX_RPM,
-        "max_rpm_by_role": shared_state.getSampleCollectionSpeedMaxRpmByRole(),
-        "speeds_rpm_by_role": overrides,
-        "default_speeds_rpm_by_role": defaults,
-        "effective_speeds_rpm_by_role": effective,
-        "sample_collection_mode": (
-            bool(getattr(shared, "sample_collection_mode", False))
-            if shared is not None
-            else False
-        ),
-        "sample_collection_mode_available": shared is not None,
-    }
-
-
 @router.get("/api/system/dashboard-config")
 def get_dashboard_config() -> Dict[str, Any]:
     from toml_config import getDashboardConfig, incidentDefinitions
@@ -468,30 +300,6 @@ def _active_runtime_incident() -> dict[str, Any] | None:
     return active if isinstance(active, dict) else None
 
 
-def _feeding_runtime_state() -> Any | None:
-    controller = shared_state.controller_ref
-    coordinator = getattr(controller, "coordinator", None) if controller is not None else None
-    feeder = getattr(coordinator, "feeder", None)
-    states_map = getattr(feeder, "states_map", None)
-    if isinstance(states_map, dict):
-        for state in states_map.values():
-            if hasattr(state, "acknowledgeDropzoneStuckIncident"):
-                return state
-    return None
-
-
-def _classification_exit_runtime_state() -> Any | None:
-    controller = shared_state.controller_ref
-    coordinator = getattr(controller, "coordinator", None) if controller is not None else None
-    classification = getattr(coordinator, "classification", None) if coordinator is not None else None
-    states_map = getattr(classification, "states_map", None)
-    if isinstance(states_map, dict):
-        for state in states_map.values():
-            if hasattr(state, "approveExitReleaseIncident"):
-                return state
-    return None
-
-
 def _apply_dashboard_incident_policy(config: dict[str, Any]) -> dict[str, Any] | None:
     handling = config.get("incident_handling")
     if not isinstance(handling, dict):
@@ -507,75 +315,16 @@ def _apply_dashboard_incident_policy(config: dict[str, Any]) -> dict[str, Any] |
         mode = incidentHandlingMode(kind)
     except Exception:
         mode = handling.get(kind)
-    if mode == "off":
-        runtime_stats = (
-            getattr(shared_state.gc_ref, "runtime_stats", None)
-            if shared_state.gc_ref is not None
-            else None
-        )
-        if kind == "channel_dropzone_stuck":
-            feeding = _feeding_runtime_state()
-            try:
-                if feeding is not None:
-                    return feeding.clearDropzoneStuckIncident(
-                        str(active.get("channel") or ""),
-                        int(active.get("global_id", active.get("track_id"))),
-                    )
-            except Exception:
-                pass
-        source_kind = str(active.get("source_kind") or "")
-        classification_exit = kind == "classification_exit_release" or (
-            kind == "exit_stuck"
-            and (source_kind == "classification_exit_release" or active.get("piece_uuid") is not None)
-        )
-        channel_exit = kind == "channel_exit_stuck" or (
-            kind == "exit_stuck"
-            and (source_kind == "channel_exit_stuck" or active.get("channel") in {"c2", "c3"})
-        )
-        if classification_exit:
-            running = _classification_exit_runtime_state()
-            try:
-                if running is not None:
-                    return running.clearExitReleaseIncident(active.get("piece_uuid"))
-            except Exception:
-                pass
-        if channel_exit:
-            if runtime_stats is not None and hasattr(runtime_stats, "clearActiveIncident"):
-                runtime_stats.clearActiveIncident(kind=kind)
-                return {"ok": True, "cleared": True, "kind": kind}
-        if runtime_stats is not None and hasattr(runtime_stats, "clearActiveIncident"):
-            runtime_stats.clearActiveIncident(kind=kind)
-            return {"ok": True, "cleared": True, "kind": kind}
+    if mode != "off":
         return None
-    if mode != "automatic":
-        return None
-
-    if kind == "channel_dropzone_stuck":
-        feeding = _feeding_runtime_state()
-        if feeding is None:
-            return None
-        try:
-            return feeding.acknowledgeDropzoneStuckIncident(
-                str(active.get("channel") or ""),
-                int(active.get("global_id", active.get("track_id"))),
-            )
-        except Exception:
-            return None
-
-    source_kind = str(active.get("source_kind") or "")
-    if kind == "classification_exit_release" or (
-        kind == "exit_stuck"
-        and (source_kind == "classification_exit_release" or active.get("piece_uuid") is not None)
-    ):
-        running = _classification_exit_runtime_state()
-        if running is None:
-            return None
-        try:
-            incident = running.approveExitReleaseIncident(active.get("piece_uuid"))
-            return {"ok": True, "approved": True, "incident": incident}
-        except Exception:
-            return None
-
+    runtime_stats = (
+        getattr(shared_state.gc_ref, "runtime_stats", None)
+        if shared_state.gc_ref is not None
+        else None
+    )
+    if runtime_stats is not None and hasattr(runtime_stats, "clearActiveIncident"):
+        runtime_stats.clearActiveIncident(kind=kind)
+        return {"ok": True, "cleared": True, "kind": kind}
     return None
 
 
@@ -589,87 +338,6 @@ def set_dashboard_config(payload: Dict[str, Any]) -> Dict[str, Any]:
     if applied is not None:
         response["active_incident_policy_applied"] = applied
     return response
-
-
-@router.get("/api/system/profiler-config")
-def get_profiler_config() -> Dict[str, Any]:
-    from toml_config import getProfilerConfig
-
-    return {"ok": True, **getProfilerConfig()}
-
-
-@router.post("/api/system/profiler-config")
-def set_profiler_config(payload: Dict[str, Any]) -> Dict[str, Any]:
-    from toml_config import setProfilerConfig
-    from defs.events import SetProfilerEnabledEvent, SetProfilerEnabledData
-
-    merged = setProfilerConfig(payload or {})
-    # Apply live to the running main loop so the toggle takes effect without a
-    # restart; the toml write makes it survive one.
-    if shared_state.command_queue is not None:
-        shared_state.command_queue.put(
-            SetProfilerEnabledEvent(
-                tag="set_profiler_enabled",
-                data=SetProfilerEnabledData(enabled=bool(merged["enabled"])),
-            )
-        )
-    return {"ok": True, **merged}
-
-
-@router.get("/api/system/sample-collection-mode")
-def get_sample_collection_mode() -> Dict[str, Any]:
-    shared = _shared_variables()
-    if shared is None:
-        return {"ok": False, "enabled": False, "reason": "controller_not_initialized"}
-    return {"ok": True, "enabled": bool(getattr(shared, "sample_collection_mode", False))}
-
-
-@router.post("/api/system/sample-collection-mode")
-def set_sample_collection_mode(payload: Dict[str, Any]) -> Dict[str, Any]:
-    """Toggle the feeder's sample-collection bypass.
-
-    When enabled, C3 advances pieces past the cameras regardless of the
-    classification-channel downstream gate. Use during training-sample
-    drives where the classification pipeline may be clogged by ghost
-    detections we are explicitly trying to record samples to retrain
-    against.
-    """
-    shared = _shared_variables()
-    if shared is None:
-        return {"ok": False, "reason": "controller_not_initialized"}
-    enabled = bool(payload.get("enabled", False))
-    shared.sample_collection_mode = enabled
-    doors = (
-        _open_all_layer_doors_for_sample_collection()
-        if enabled
-        else {"ok": True, "opened": 0, "errors": []}
-    )
-    return {
-        "ok": True,
-        "enabled": shared.sample_collection_mode,
-        "doors": doors,
-    }
-
-
-@router.get("/api/system/sample-collection-speeds")
-def get_sample_collection_speeds() -> Dict[str, Any]:
-    return _sample_collection_speeds_payload()
-
-
-@router.post("/api/system/sample-collection-speeds")
-def set_sample_collection_speeds(payload: Dict[str, Any]) -> Dict[str, Any]:
-    speeds = payload.get("speeds_rpm_by_role")
-    if speeds is None:
-        speeds = payload.get("speeds_rpm")
-    if speeds is None:
-        speeds = payload
-    try:
-        shared_state.setSampleCollectionSpeedsRpm(speeds)
-    except ValueError as exc:
-        result = _sample_collection_speeds_payload()
-        result.update({"ok": False, "reason": "invalid_speed", "message": str(exc)})
-        return result
-    return _sample_collection_speeds_payload()
 
 
 def _sample_collector():
@@ -708,8 +376,7 @@ def get_sample_capture() -> Dict[str, Any]:
 def set_sample_capture(payload: Dict[str, Any]) -> Dict[str, Any]:
     """Standalone training-image capture: one enable toggle + a cadence.
 
-    Independent of machine mode and of the legacy sample_collection_mode
-    feeder bypass. ``enabled`` flips picture-taking on/off. Cadence is either
+    Independent of machine mode. ``enabled`` flips picture-taking on/off. Cadence is either
     the decay schedule (``decay_enabled`` + ``burst_interval_s`` /
     ``floor_interval_s`` / ``ramp_hours`` / ``jitter_frac``, default) or a
     fixed rate (``rate_hz`` / ``interval_s``, default 10s). ``reset_decay``
@@ -755,40 +422,6 @@ def set_sample_capture(payload: Dict[str, Any]) -> Dict[str, Any]:
     result = collector.status()
     result.update(_sample_storage_payload())
     return result
-
-
-@router.post("/api/system/force-teacher-capture")
-def force_teacher_capture(payload: Dict[str, Any]) -> Dict[str, Any]:
-    """Queue a Gemini-labeled teacher capture for a given role on demand.
-
-    Bypasses the YOLO-driven classic trigger so we can still collect
-    Gemini-labeled samples from a channel whose live detector is missing
-    real pieces (typical for C4 carousel until a carousel-trained model
-    exists). Accepts C4 aliases plus C2/C3.
-    """
-    role = str(payload.get("role") or "").strip()
-    role = {
-        "c4": "carousel",
-        "c_channel_4": "carousel",
-        "classification_channel": "carousel",
-    }.get(role, role)
-    if role not in {"carousel", "c_channel_2", "c_channel_3"}:
-        return {
-            "ok": False,
-            "reason": "invalid_role",
-            "valid": [
-                "carousel",
-                "classification_channel",
-                "c4",
-                "c_channel_2",
-                "c_channel_3",
-            ],
-        }
-    vm = shared_state.vision_manager
-    if vm is None or not hasattr(vm, "forceQueueAuxiliaryTeacherCapture"):
-        return {"ok": False, "reason": "vision_not_initialized"}
-    queued = bool(vm.forceQueueAuxiliaryTeacherCapture(role))
-    return {"ok": True, "role": role, "queued": queued}
 
 
 class ClientErrorPayload(BaseModel):

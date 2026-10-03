@@ -4,12 +4,16 @@
 	import { onMount, untrack } from 'svelte';
 	import { getMachineContext } from '$lib/machines/context';
 	import { getBackendHttpBase, machineHttpBaseUrlFromWsUrl } from '$lib/backend';
-	import AppHeader from '$lib/components/AppHeader.svelte';
+	import AppShell from '$lib/components/AppShell.svelte';
 	import SetupPictureSettingsModal from '$lib/components/setup/SetupPictureSettingsModal.svelte';
 	import SetupServoOnboardingSection from '$lib/components/setup/SetupServoOnboardingSection.svelte';
 	import SetupZoneEditorModal from '$lib/components/setup/SetupZoneEditorModal.svelte';
-	import Modal from '$lib/components/Modal.svelte';
-	import SectionCard from '$lib/components/settings/SectionCard.svelte';
+	import Alert from '$lib/components/ui/Alert.svelte';
+	import Button from '$lib/components/ui/Button.svelte';
+	import Modal from '$lib/components/ui/Modal.svelte';
+	import PageHeader from '$lib/components/ui/PageHeader.svelte';
+	import Panel from '$lib/components/ui/Panel.svelte';
+	import Spinner from '$lib/components/ui/Spinner.svelte';
 	import SetupStepperNav from '$lib/components/setup/SetupStepperNav.svelte';
 	import SetupNavFooter from '$lib/components/setup/SetupNavFooter.svelte';
 	import IdentityStep from '$lib/components/setup/steps/IdentityStep.svelte';
@@ -21,7 +25,7 @@
 	import HiveStep from '$lib/components/setup/steps/HiveStep.svelte';
 	import AdvancedStep from '$lib/components/setup/steps/AdvancedStep.svelte';
 	import { beginHiveLink, completeReturnedHiveLink, DEFAULT_HIVE_URL } from '$lib/hive/link-flow';
-	import { RefreshCcw } from 'lucide-svelte';
+	import RefreshCcw from '@lucide/svelte/icons/refresh-ccw';
 	import {
 		loadStoredConfirmations as loadStoredConfirmationsFromStorage,
 		persistConfirmations as persistConfirmationsToStorage,
@@ -36,7 +40,6 @@
 		parseCameraSource,
 		sourceKey,
 		type CameraChoice,
-		type NetworkCamera,
 		type UsbCamera
 	} from '$lib/setup/camera-choices';
 	import type {
@@ -62,7 +65,6 @@
 	type WizardStepDefinition = {
 		id: WizardStepId;
 		title: string;
-		kicker: string;
 		description: string;
 		requiresManualConfirm: boolean;
 	};
@@ -75,101 +77,82 @@
 		'c_channel_2',
 		'c_channel_3',
 		'c_channel_4',
-		'carousel',
 		'chute'
 	];
 	const ROLE_LABELS: Record<string, string> = {
-		c_channel_2: 'C-Channel 2',
-		c_channel_3: 'C-Channel 3',
-		classification_channel: 'Classification C-Channel (C4)',
-		carousel: 'Carousel',
-		classification_top: 'Classification Top',
-		classification_bottom: 'Classification Bottom'
+		c_channel_2: 'C-channel 2',
+		c_channel_3: 'C-channel 3',
+		classification_channel: 'Classification C-channel (C4)'
 	};
 	const ROLE_DESCRIPTIONS: Record<string, string> = {
 		c_channel_2:
-			'Feeder path for the second C-channel. You can reuse the same camera for multiple areas.',
+			'The feeder path of the second C-channel.',
 		c_channel_3:
-			'Feeder path for the third C-channel. You can reuse the same camera for multiple areas.',
-		classification_channel:
-			'Classification C-channel platter. Use the dedicated C4 view when this machine runs the classification-channel setup.',
-		carousel:
-			'Carousel handoff area. This can share a camera with the feeder paths if the view covers it.',
-		classification_top: 'Required top-down classification view.',
-		classification_bottom: 'Optional crop for underside or second-pass classification.'
+			'The feeder path of the third C-channel.',
+		classification_channel: 'The classification C-channel platter, on its own C4 view.'
 	};
-	const OPTIONAL_ROLES = new Set(['classification_bottom']);
+	const CAMERA_ROLES = ['c_channel_2', 'c_channel_3', 'classification_channel'];
 	const WIZARD_STEPS: WizardStepDefinition[] = [
 		{
 			id: 'identity',
-			title: 'Machine Identity',
-			kicker: 'Step 1',
+			title: 'Machine identity',
 			description:
 				'Give the machine a friendly name so operators can identify it without the raw machine UUID.',
 			requiresManualConfirm: false
 		},
 		{
 			id: 'theme',
-			title: 'Your Color',
-			kicker: 'Step 2',
+			title: 'Your color',
 			description:
-				'Pick the LEGO color that should drive the rest of the UI. Buttons, focus rings, and active highlights will all switch to your choice — change it any time from Settings.',
+				'Pick the LEGO color the rest of the UI uses. Buttons, focus and the current page change to it, and Settings changes it again later.',
 			requiresManualConfirm: false
 		},
 		{
 			id: 'discovery',
-			title: 'Controller Discovery',
-			kicker: 'Step 3',
+			title: 'Controller discovery',
 			description:
-				'Review the USB controllers on this machine — we will use the ones identified as feeder, distribution, and Waveshare servo bus.',
+				'Review the USB controllers on this machine. The ones identified as feeder, distribution and Waveshare servo bus are used.',
 			requiresManualConfirm: false
 		},
 		{
 			id: 'motion',
-			title: 'Motion Direction Check',
-			kicker: 'Step 4',
+			title: 'Motion direction check',
 			description:
-				'Jog each axis a tiny amount and say whether it turned clockwise or counter-clockwise, looking down from above. The wizard reverses any motor that runs the wrong way.',
+				'Jog each axis a tiny amount and say whether it turned clockwise or counterclockwise, looking down from above. Any motor that runs the wrong way is reversed.',
 			requiresManualConfirm: true
 		},
 		{
 			id: 'calibration',
-			title: 'Endstops and Geometry',
-			kicker: 'Step 5',
+			title: 'Chute endstop and geometry',
 			description:
-				'Verify each endstop polarity and the chute geometry. Homing itself runs later from the dashboard, right before a sorting run.',
+				'Verify the chute endstop polarity and geometry. Homing itself runs later from the dashboard, right before a sorting run.',
 			requiresManualConfirm: true
 		},
 		{
 			id: 'servos',
-			title: 'Servo Configuration',
-			kicker: 'Step 6',
+			title: 'Servo configuration',
 			description:
-				'Discover the servos on the bus, calibrate and assign each one to a storage layer one-by-one.',
+				'Find the servos on the bus, then calibrate each one and assign it to a storage layer.',
 			requiresManualConfirm: true
 		},
 		{
 			id: 'cameras',
 			title: 'Cameras',
-			kicker: 'Step 7',
 			description:
-				'Choose the camera layout, then assign a source to each machine area that needs coverage. The same camera can be reused for multiple areas.',
+				'Choose a source for each machine area that needs coverage. One camera can cover several areas.',
 			requiresManualConfirm: false
 		},
 		{
 			id: 'hive',
 			title: 'Hive',
-			kicker: 'Step 8',
 			description:
-				'Connect this sorter to the official Hive community platform so your samples and progress sync automatically. You can also skip this and set it up later from Settings.',
+				'Connect this sorter to the official Hive community platform so your samples and progress sync. You can skip this and set it up later in Settings.',
 			requiresManualConfirm: true
 		},
 		{
 			id: 'advanced',
-			title: 'Setup Complete',
-			kicker: 'Step 9',
-			description:
-				'Yay, the core setup is done. Next up: open the dashboard, home the machine if needed, and try a first run.',
+			title: 'Setup complete',
+			description: 'The core setup is done.',
 			requiresManualConfirm: true
 		}
 	];
@@ -188,13 +171,7 @@
 	let nameError = $state<string | null>(null);
 	let nameStatus = $state('');
 
-	let selectedLayout = $state<'default' | 'split_feeder'>('split_feeder');
-	let savingLayout = $state(false);
-	let layoutStatus = $state('');
-	let layoutError = $state<string | null>(null);
-
 	let usbCameras = $state<UsbCamera[]>([]);
-	let networkCameras = $state<NetworkCamera[]>([]);
 	let loadingCameras = $state(false);
 	let cameraError = $state<string | null>(null);
 	let cameraStatus = $state('');
@@ -211,7 +188,6 @@
 	let homingSystem = $state(false);
 
 	let stepperActionError = $state<string | null>(null);
-	let stepperActionStatus = $state('');
 	let stepperBusy = $state<Record<string, boolean>>({});
 	let togglingStepper = $state<string | null>(null);
 	let verifiedSteppers = $state<Record<string, boolean>>({});
@@ -335,16 +311,6 @@
 		return [...entries].sort((a, b) => STEP_ORDER.indexOf(a.name) - STEP_ORDER.indexOf(b.name));
 	}
 
-	function cameraRolesForLayout(): string[] {
-		const setup = wizard?.config.machine_setup;
-		const auxiliaryRole = setup?.uses_classification_channel ? 'classification_channel' : 'carousel';
-		const roles = ['c_channel_2', 'c_channel_3', auxiliaryRole];
-		if (setup?.uses_classification_chamber ?? true) {
-			roles.push('classification_top', 'classification_bottom');
-		}
-		return roles;
-	}
-
 	function parseRouteStep(step: string | null): WizardStepId | null {
 		if (!step || !STEP_IDS.has(step as WizardStepId)) return null;
 		return step as WizardStepId;
@@ -368,7 +334,7 @@
 	}
 
 	function cameraChoices(): CameraChoice[] {
-		return buildCameraChoices(usbCameras, networkCameras, roleSelections, currentBackendBaseUrl());
+		return buildCameraChoices(usbCameras, roleSelections);
 	}
 
 	function selectedCameraLabel(key: string | undefined): string {
@@ -437,10 +403,7 @@
 			case 'discovery':
 				return Boolean(wizard?.readiness.boards_detected);
 			case 'cameras':
-				return (
-					Boolean(wizard?.readiness.camera_layout_selected) &&
-					Boolean(wizard?.readiness.cameras_assigned)
-				);
+				return Boolean(wizard?.readiness.cameras_assigned);
 			case 'motion':
 				return Boolean(stepConfirmations.motion);
 			case 'calibration':
@@ -480,13 +443,13 @@
 			case 'motion':
 				return 'Directions look correct';
 			case 'calibration':
-				return 'Endstops and geometry look correct';
+				return 'Chute endstop and geometry look correct';
 			case 'servos':
 				return 'Servo setup looks correct';
 			case 'hive':
 				return 'Continue';
 			case 'advanced':
-				return 'Open Dashboard';
+				return 'Open the dashboard';
 			default:
 				return 'Continue';
 		}
@@ -545,7 +508,6 @@
 			return null;
 		},
 		cameras: () => {
-			if (!wizard?.readiness.camera_layout_selected) return 'Select a camera layout to continue';
 			if (!wizard?.readiness.cameras_assigned) return 'Assign cameras to all required areas';
 			return null;
 		},
@@ -605,7 +567,7 @@
 			if (seq !== wizardLoadSeq) return;
 			wizard = payload;
 			hardwareState = payload.hardware.state;
-			hardwareError = payload.hardware.error;
+			hardwareError = payload.hardware.error?.message ?? null;
 			homingStep = payload.hardware.homing_step;
 			// The wizard reloads on its own (hardware state changes, machine
 			// switches), and it used to overwrite the name field every time —
@@ -614,14 +576,6 @@
 			const savedNickname = payload.machine.nickname ?? '';
 			if (nicknameDraft === loadedNickname) nicknameDraft = savedNickname;
 			loadedNickname = savedNickname;
-			const configuredLayout = payload.config.camera_assignments.layout;
-			selectedLayout =
-				configuredLayout === 'split_feeder'
-					? 'split_feeder'
-					: configuredLayout === 'default'
-						? 'default'
-						: payload.discovery.recommended_camera_layout;
-
 			const nextSelections: Record<string, string> = {};
 			for (const role of Object.keys(payload.config.camera_assignments)) {
 				if (role === 'layout') continue;
@@ -731,7 +685,6 @@
 			usbCameras = Array.isArray(payload?.usb)
 				? payload.usb.filter((camera: UsbCamera) => camera.index >= 0)
 				: [];
-			networkCameras = Array.isArray(payload?.network) ? payload.network : [];
 		} catch (e: any) {
 			if (seq === cameraLoadSeq) cameraError = e.message ?? 'Failed to load camera inventory';
 		} finally {
@@ -745,7 +698,7 @@
 		const nextState = ws.hardware_state ?? 'standby';
 		const previousState = hardwareState;
 		hardwareState = nextState;
-		hardwareError = ws.hardware_error ?? null;
+		hardwareError = ws.hardware_error?.message ?? null;
 		homingStep = ws.homing_step ?? null;
 		if (nextState !== previousState) {
 			void loadWizard();
@@ -780,13 +733,13 @@
 		cameraError = null;
 		cameraStatus = '';
 		try {
-			const changedRoles = cameraRolesForLayout().filter(
+			const changedRoles = CAMERA_ROLES.filter(
 				(role) =>
 					sourceKey(wizard?.config.camera_assignments[role] ?? null) !==
 					(roleSelections[role] ?? '__none__')
 			);
-			const payload: Record<string, number | string | null> = { layout: selectedLayout };
-			for (const role of cameraRolesForLayout()) {
+			const payload: Record<string, number | string | null> = {};
+			for (const role of CAMERA_ROLES) {
 				payload[role] = parseCameraSource(roleSelections[role] ?? '__none__');
 			}
 
@@ -827,7 +780,6 @@
 		const key = `${stepperName}:${direction}`;
 		stepperBusy = { ...stepperBusy, [key]: true };
 		stepperActionError = null;
-		stepperActionStatus = '';
 		try {
 			const params = new URLSearchParams({
 				stepper: stepperName,
@@ -840,7 +792,6 @@
 			});
 			if (!res.ok) throw new Error(await res.text());
 			stepConfirmations = { ...stepConfirmations, motion: false };
-			stepperActionStatus = `${stepperName} jogged ${direction.toUpperCase()}.`;
 		} catch (e: any) {
 			stepperActionError = e.message ?? `Failed to pulse ${stepperName}`;
 		} finally {
@@ -864,16 +815,11 @@
 		const desiredInverted = observed === 'cw' ? entry.inverted : !entry.inverted;
 		togglingStepper = entry.name;
 		stepperActionError = null;
-		stepperActionStatus = '';
 		try {
 			if (desiredInverted !== entry.inverted) {
 				await setStepperInverted(entry, desiredInverted);
 			}
 			verifiedSteppers = { ...verifiedSteppers, [entry.name]: true };
-			stepperActionStatus =
-				observed === 'cw'
-					? `${entry.label} confirmed clockwise${desiredInverted ? ' (inverted in software)' : ''}.`
-					: `${entry.label} now inverted in software (you saw counterclockwise).`;
 			await loadWizard();
 		} catch (e: any) {
 			stepperActionError = e.message ?? `Failed to update ${entry.label}`;
@@ -933,14 +879,6 @@
 	});
 
 	$effect(() => {
-		if (activeStepId !== 'motion' && activeStepId !== 'calibration') return;
-		if (homingSystem || !wizard?.readiness.boards_detected) return;
-		if (hardwareState === 'standby') {
-			void initializeSteppers();
-		}
-	});
-
-	$effect(() => {
 		if (activeStepId !== 'hive') return;
 		untrack(() => {
 			void loadSorthiveConfig();
@@ -964,208 +902,187 @@
 
 <svelte:head><title>Sorter - Setup</title></svelte:head>
 
-<div class="min-h-screen overflow-x-hidden bg-bg">
-	<AppHeader />
-	<div class="mx-auto flex max-w-[1500px] flex-col gap-6 px-4 py-6 sm:px-6">
+<AppShell>
+	<div class="mx-auto flex w-full max-w-6xl flex-col gap-(--gap-panels) px-4 py-6 sm:px-6">
 		{#if !machine.machine}
-			<section class="setup-card-shell border border-border bg-surface p-6">
-				<h1 class="text-2xl font-semibold text-text">Setup Wizard</h1>
-				<p class="mt-2 max-w-2xl text-sm text-text-muted">
-					Select or connect a machine first. After that, this wizard will walk through the setup one
-					step at a time instead of dropping the whole config surface on one page.
-				</p>
-			</section>
+			<PageHeader
+				title="Setup"
+				description="Choose or connect a machine first. Then this walks through its setup one step at a time."
+			/>
 		{:else}
-			{#if wizardError}
-				<div class="border border-danger bg-danger/10 px-4 py-3 text-sm text-danger">
-					{wizardError}
-				</div>
-			{/if}
-
-			<div class="flex flex-col gap-6">
-				<section class="setup-card-shell overflow-hidden border border-border">
-					<div class="setup-card-body px-6 py-6">
-						<SetupStepperNav
-							steps={WIZARD_STEPS}
-							getStatus={(id) => stepStatus(id as WizardStepId)}
-							onSelect={setActiveStep}
-						/>
-					</div>
-				</section>
-
-				<SectionCard
-					title={currentStep().title}
-					description={currentStep().description}
-					rootClass="setup-card-shell"
-					headerClass="setup-card-header"
-					bodyClass="setup-card-body"
-					on:refresh-cameras={loadCameraInventory}
-				>
-					{#if !wizard && loadingWizard}
-						<div class="setup-panel px-4 py-4 text-sm text-text-muted">
-							Checking the current machine configuration and connected hardware…
-						</div>
-					{:else if !wizard}
-						<div class="border border-danger bg-danger/10 px-4 py-3 text-sm text-danger">
-							{wizardError ?? 'The backend did not return setup data.'}
-						</div>
-						<div class="mt-4 flex flex-wrap gap-3">
-							<button
-								onclick={loadWizard}
-								disabled={loadingWizard}
-								class="setup-button-primary inline-flex items-center gap-2 px-4 py-2 text-sm font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-60"
-							>
-								<RefreshCcw size={14} class={loadingWizard ? 'animate-spin' : ''} />
-								Try Again
-							</button>
-						</div>
-					{:else if activeStepId === 'identity'}
-						<IdentityStep
-							machineId={wizard?.machine.machine_id ?? machine.machine.identity?.machine_id ?? ''}
-							bind:nicknameDraft
-							{nameError}
-							{nameStatus}
-							backendBaseUrl={currentBackendBaseUrl()}
-						/>
-					{:else if activeStepId === 'theme'}
-						<ThemeStep />
-					{:else if activeStepId === 'discovery'}
-						<DiscoveryStep
-							usbDevices={wizard?.discovery.usb_devices ?? []}
-							boardsFound={(wizard?.discovery.boards.length ?? 0) > 0}
-							bootloaderBoard={wizard?.discovery.bootloader_board ?? false}
-							issues={wizard?.discovery.issues ?? []}
-							{loadingWizard}
-							onRescan={loadWizard}
-						/>
-					{:else if activeStepId === 'cameras'}
-						<CamerasStep
-							cameraRoles={cameraRolesForLayout()}
-							roleLabels={ROLE_LABELS}
-							roleDescriptions={ROLE_DESCRIPTIONS}
-							optionalRoles={OPTIONAL_ROLES}
-							{roleSelections}
-							{reviewedZones}
-							{tunedPictures}
-							cameraChoices={cameraChoices()}
-							{selectedCameraLabel}
-							{savingAssignments}
-							{savingLayout}
-							{cameraError}
-							{cameraStatus}
-							onSelect={handleRoleSelection}
-							onOpenPictureSettings={openPictureSettings}
-							onOpenZoneEditor={openZoneEditor}
-							onSave={saveCameraAssignments}
-						/>
-					{:else if activeStepId === 'motion'}
-						<MotionStep
-							{hardwareState}
-							{hardwareError}
-							{homingStep}
-							{homingSystem}
-							stepperEntries={stepperEntries()}
-							{stepperBusy}
-							{togglingStepper}
-							{verifiedSteppers}
-							{stepperActionError}
-							boards={wizard?.discovery.boards ?? []}
-							bind:showStepperWiringHelp
-							onInitialize={initializeSteppers}
-							onPulse={pulseStepper}
-							onRecordObservedDirection={recordObservedDirection}
-						/>
-					{:else if activeStepId === 'calibration'}
-						<CalibrationStep bind:this={calibrationStepRef} />
-					{:else if activeStepId === 'servos'}
-						<SetupServoOnboardingSection
-							servoSource={effectiveServoSource}
-							discoveredServoSource={discoveredServoSource}
-							discoveredWaveshareServos={discoveredWaveshareServos}
-							onSaved={handleServoSaved}
-							onSourceChange={setServoSource}
-						/>
-					{:else if activeStepId === 'hive'}
-						<HiveStep
-							{hiveLoading}
-							officialHiveTarget={officialSorthiveTarget}
-							defaultHiveUrl={DEFAULT_HIVE_URL}
-							bind:hiveUrl
-							{hiveConnecting}
-							{hiveError}
-							{hiveStatus}
-							{machineDisplayName}
-							onConnect={connectToSorthive}
-							onSkip={skipSorthive}
-						/>
-					{:else if activeStepId === 'advanced'}
-						<AdvancedStep />
+			<SetupStepperNav
+				steps={WIZARD_STEPS}
+				getStatus={(id) => stepStatus(id as WizardStepId)}
+				onSelect={setActiveStep}
+			/>
+			<PageHeader title={currentStep().title} description={currentStep().description}>
+				{#snippet actions()}
+					{#if activeStepId === 'cameras'}
+						<Button icon={RefreshCcw} loading={loadingCameras} onclick={loadCameraInventory}>
+							Refresh the cameras
+						</Button>
 					{/if}
+				{/snippet}
+			</PageHeader>
+			{#if wizardError && wizard}
+				<Alert tone="danger">{wizardError}</Alert>
+			{/if}
 
-					{@const isAdvanced = activeStepId === 'advanced'}
-					{@const continueDisabled =
-						!canAdvanceCurrentStep() ||
-						(currentStep().requiresManualConfirm && !manualConfirmEnabled(activeStepId))}
-					{@const continueLabel =
-						activeStepId === 'identity' && savingName
-							? 'Saving...'
-							: currentStep().requiresManualConfirm
-								? manualConfirmLabel(activeStepId)
-								: 'Continue'}
-					<SetupNavFooter
-						blockerReason={stepBlockerReason()}
-						showBack={currentStepNumber() > 1}
-						showFinish={isAdvanced && currentStep().requiresManualConfirm}
-						showContinue={!isAdvanced}
-						{continueDisabled}
-						{continueLabel}
-						finishDisabled={!manualConfirmEnabled(activeStepId) || isStepComplete(activeStepId)}
-						finishLabel={manualConfirmLabel(activeStepId)}
-						onBack={goToPreviousStep}
-						onFinish={finishSetup}
-						onContinue={handleContinue}
-					/>
-				</SectionCard>
-			</div>
-		{/if}
-
-		<Modal
-			open={pictureSettingsRole !== null}
-			title="Picture Settings"
-			wide={true}
-			on:close={closePictureSettings}
-		>
-			{#if pictureSettingsRole}
-				<SetupPictureSettingsModal
-					role={pictureSettingsRole as any}
-					label={ROLE_LABELS[pictureSettingsRole] ?? pictureSettingsRole}
-					hasCamera={roleHasCamera(pictureSettingsRole)}
-					source={parseCameraSource(roleSelections[pictureSettingsRole] ?? '__none__')}
+			<!-- Each step draws its own panels on the canvas. -->
+			{#if !wizard && loadingWizard}
+				<Panel>
+					<p class="flex items-center gap-2 text-sm text-ink-muted">
+						<Spinner size={16} />
+						Checking the machine's configuration and connected hardware…
+					</p>
+				</Panel>
+			{:else if !wizard}
+				<Alert tone="danger" title="No setup data">
+					{wizardError ?? 'The backend did not return setup data.'}
+					{#snippet actions()}
+						<Button size="sm" icon={RefreshCcw} loading={loadingWizard} onclick={loadWizard}>Try again</Button>
+					{/snippet}
+				</Alert>
+			{:else if activeStepId === 'identity'}
+				<IdentityStep
+					machineId={wizard?.machine.machine_id ?? machine.machine.identity?.machine_id ?? ''}
+					bind:nicknameDraft
+					{nameError}
+					{nameStatus}
 					backendBaseUrl={currentBackendBaseUrl()}
-					on:saved={() => {
-						const role = pictureSettingsRole;
-						if (!role) return;
-						markPictureTuned(role);
-						cameraStatus = `${ROLE_LABELS[role] ?? role} picture settings saved.`;
-						closePictureSettings();
-					}}
 				/>
+			{:else if activeStepId === 'theme'}
+				<ThemeStep />
+			{:else if activeStepId === 'discovery'}
+				<DiscoveryStep
+					usbDevices={wizard?.discovery.usb_devices ?? []}
+					boardsFound={(wizard?.discovery.boards.length ?? 0) > 0}
+					bootloaderBoard={wizard?.discovery.bootloader_board ?? false}
+					issues={wizard?.discovery.issues ?? []}
+					{loadingWizard}
+					onRescan={loadWizard}
+				/>
+			{:else if activeStepId === 'cameras'}
+				<CamerasStep
+					cameraRoles={CAMERA_ROLES}
+					roleLabels={ROLE_LABELS}
+					roleDescriptions={ROLE_DESCRIPTIONS}
+					{roleSelections}
+					{reviewedZones}
+					{tunedPictures}
+					cameraChoices={cameraChoices()}
+					{selectedCameraLabel}
+					{savingAssignments}
+					{cameraError}
+					{cameraStatus}
+					onSelect={handleRoleSelection}
+					onOpenPictureSettings={openPictureSettings}
+					onOpenZoneEditor={openZoneEditor}
+					onSave={saveCameraAssignments}
+				/>
+			{:else if activeStepId === 'motion'}
+				<MotionStep
+					{hardwareState}
+					{hardwareError}
+					{homingStep}
+					{homingSystem}
+					stepperEntries={stepperEntries()}
+					{stepperBusy}
+					{togglingStepper}
+					{verifiedSteppers}
+					{stepperActionError}
+					boards={wizard?.discovery.boards ?? []}
+					bind:showStepperWiringHelp
+					onInitialize={initializeSteppers}
+					onPulse={pulseStepper}
+					onRecordObservedDirection={recordObservedDirection}
+				/>
+			{:else if activeStepId === 'calibration'}
+				<CalibrationStep bind:this={calibrationStepRef} onInitialize={initializeSteppers} />
+			{:else if activeStepId === 'servos'}
+				<SetupServoOnboardingSection
+					servoSource={effectiveServoSource}
+					{discoveredServoSource}
+					{discoveredWaveshareServos}
+					onSaved={handleServoSaved}
+					onSourceChange={setServoSource}
+				/>
+			{:else if activeStepId === 'hive'}
+				<HiveStep
+					{hiveLoading}
+					officialHiveTarget={officialSorthiveTarget}
+					defaultHiveUrl={DEFAULT_HIVE_URL}
+					bind:hiveUrl
+					{hiveConnecting}
+					{hiveError}
+					{hiveStatus}
+					{machineDisplayName}
+					onConnect={connectToSorthive}
+					onSkip={skipSorthive}
+				/>
+			{:else if activeStepId === 'advanced'}
+				<AdvancedStep />
 			{/if}
-		</Modal>
 
-		<Modal open={zoneEditorRole !== null} title="Edit Zone" wide={true} on:close={closeZoneEditor}>
-			{#if zoneEditorRole}
-				<SetupZoneEditorModal
-					role={zoneEditorRole as any}
-					on:saved={() => {
-						const role = zoneEditorRole;
-						if (!role) return;
-						markZoneReviewed(role);
-						cameraStatus = `${ROLE_LABELS[role] ?? role} zone saved.`;
-						closeZoneEditor();
-					}}
+			{#if wizard}
+				{@const isAdvanced = activeStepId === 'advanced'}
+				<SetupNavFooter
+					blockerReason={stepBlockerReason()}
+					showBack={currentStepNumber() > 1}
+					showFinish={isAdvanced && currentStep().requiresManualConfirm}
+					showContinue={!isAdvanced}
+					continueDisabled={!canAdvanceCurrentStep() ||
+						(currentStep().requiresManualConfirm && !manualConfirmEnabled(activeStepId))}
+					continueLabel={activeStepId === 'identity' && savingName
+						? 'Saving…'
+						: currentStep().requiresManualConfirm
+							? manualConfirmLabel(activeStepId)
+							: 'Continue'}
+					finishDisabled={!manualConfirmEnabled(activeStepId) || isStepComplete(activeStepId)}
+					finishLabel={manualConfirmLabel(activeStepId)}
+					onBack={goToPreviousStep}
+					onFinish={finishSetup}
+					onContinue={handleContinue}
 				/>
 			{/if}
-		</Modal>
+		{/if}
 	</div>
-</div>
+</AppShell>
+
+<Modal
+	open={pictureSettingsRole !== null}
+	title="Picture settings"
+	size="lg"
+	onclose={closePictureSettings}
+>
+	{#if pictureSettingsRole}
+		<SetupPictureSettingsModal
+			role={pictureSettingsRole as any}
+			label={ROLE_LABELS[pictureSettingsRole] ?? pictureSettingsRole}
+			hasCamera={roleHasCamera(pictureSettingsRole)}
+			source={parseCameraSource(roleSelections[pictureSettingsRole] ?? '__none__')}
+			onsaved={() => {
+				const role = pictureSettingsRole;
+				if (!role) return;
+				markPictureTuned(role);
+				cameraStatus = `${ROLE_LABELS[role] ?? role} picture settings saved.`;
+				closePictureSettings();
+			}}
+		/>
+	{/if}
+</Modal>
+
+<Modal open={zoneEditorRole !== null} title="Edit the zone" size="lg" onclose={closeZoneEditor}>
+	{#if zoneEditorRole}
+		<SetupZoneEditorModal
+			role={zoneEditorRole as any}
+			onsaved={() => {
+				const role = zoneEditorRole;
+				if (!role) return;
+				markZoneReviewed(role);
+				cameraStatus = `${ROLE_LABELS[role] ?? role} zone saved.`;
+				closeZoneEditor();
+			}}
+		/>
+	{/if}
+</Modal>

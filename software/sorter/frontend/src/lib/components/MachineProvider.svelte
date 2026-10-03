@@ -13,9 +13,6 @@
 		},
 		get cameraHealth() {
 			return manager.selectedMachine?.cameraHealth ?? new Map();
-		},
-		sendCommand(command: unknown) {
-			manager.sendCommand(command);
 		}
 	};
 

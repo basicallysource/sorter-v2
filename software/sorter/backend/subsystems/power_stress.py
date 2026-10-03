@@ -8,9 +8,9 @@ from dataclasses import dataclass, field
 from typing import Any, Literal
 
 from global_config import GlobalConfig
-from local_state import (
+from local_state import get_led_state
+from stress_test_runs import (
     finalizePowerStressRun,
-    get_led_state,
     recordPowerStressEvent,
     recordPowerStressRunStart,
     updatePowerStressRunProgress,

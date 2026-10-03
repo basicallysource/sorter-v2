@@ -5,6 +5,7 @@
 # Licensed under the MIT License. See LICENSE file in the project root for full license information.
 
 
+import math
 import os
 import time
 import json
@@ -140,6 +141,11 @@ class DigitalOutputPin:
     def channel(self):
         return self._channel
 
+# What a stepper runs at before anything is configured (Stepper.cpp).
+FIRMWARE_DEFAULT_ACCELERATION = 10000
+FIRMWARE_DEFAULT_MIN_SPEED = 16
+
+
 def _controlDataRecordCommand(payload: dict) -> None:
     # Feeder-dynamics capture: every motor command is half of a (state, action)
     # transition. No-op unless a capture segment is open (machine sorting).
@@ -171,7 +177,7 @@ class StepperMotor:
         self._gc = gc
         self.software_disabled = False
         # StallGuard config, stamped from [stepper_stallguard.*] at init by
-        # applyStepperStallguard. The stall monitor reads these to decide which
+        # _configureStepper (irl/config.py). The stall monitor reads these to decide which
         # steppers to arm and at what threshold. sgthrs is None => unconfigured.
         self.stallguard_sgthrs: int | None = None
         self.stallguard_tcoolthrs: int = 0xFFFFF
@@ -188,6 +194,13 @@ class StepperMotor:
         # Last acceleration we sent to the firmware; lets _ensure_move_acceleration
         # skip the UART write when the value is already correct.
         self._applied_acceleration: int | None = None
+        # Moves the firmware refused because the axis was still running. Callers
+        # that wait for `stopped` never see one; a rising count is a caller bug.
+        self.refused_moves = 0
+        # Last speed limits sent. The firmware keeps them until INIT (which only
+        # discovery sends, to fresh StepperMotor objects) and jitter restores its
+        # own, so an unchanged pair is not sent again before every pulse.
+        self._applied_speed_limits: tuple[int, int] | None = None
 
     def _logical_to_physical_steps(self, value: int) -> int:
         return -value if self._direction_inverted else value
@@ -223,12 +236,17 @@ class StepperMotor:
             f"inverted={self._direction_inverted}"
         )
         payload = struct.pack("<i", physical_steps) # 4 bytes, little-endian signed integer
+        sent_mono = time.monotonic()
         res = self._dev.send_command(InterfaceCommandCode.STEPPER_MOVE_STEPS, self._channel, payload)
         success = len(res.payload) > 0 and bool(res.payload[0])
         if success:
             self._current_position_steps += steps
         else:
-            self._gc.logger.error(f"Stepper '{self._name}' ch{self._channel}: move_steps({steps}) FAILED")
+            self.refused_moves += 1
+            self._gc.logger.warning(
+                f"Stepper '{self._name}' ch{self._channel}: move_steps({steps}) refused "
+                f"(axis busy; {self.refused_moves} refused so far)"
+            )
         _controlDataRecordCommand(
             {
                 "cmd": "move_steps",
@@ -237,6 +255,7 @@ class StepperMotor:
                 "deg": round(self.degrees_for_microsteps(steps), 3),
                 "accel": self._applied_acceleration,
                 "success": success,
+                "sent_mono": sent_mono,
             }
         )
         return success
@@ -326,9 +345,12 @@ class StepperMotor:
 
     def set_speed_limits(self, min_speed: int, max_speed: int) -> None:
         """Set the minimum and maximum speed for the stepper in microsteps per second."""
+        if (min_speed, max_speed) == self._applied_speed_limits:
+            return
         self._gc.logger.debug(f"Stepper '{self._name}' ch{self._channel}: set_speed_limits min={min_speed} max={max_speed} µsteps/s")
         payload = struct.pack("<II", min_speed, max_speed) # 8 bytes, two little-endian unsigned integers
         self._dev.send_command(InterfaceCommandCode.STEPPER_SET_SPEED_LIMITS, self._channel, payload)
+        self._applied_speed_limits = (min_speed, max_speed)
         _controlDataRecordCommand(
             {
                 "cmd": "set_speed_limits",
@@ -588,7 +610,8 @@ class StepperMotor:
         """Move the stepper by a given number of microsteps and wait for completion."""
         if steps == 0:
             return True
-        self.move_steps(steps)
+        if not self.move_steps(steps):
+            return False
         start_time = time.time()
         timeout_sec = timeout_ms / 1000.0
         while time.time() - start_time < timeout_sec:
@@ -603,12 +626,23 @@ class StepperMotor:
         return self.move_steps_blocking(steps, timeout_ms=timeout_ms)
 
     def estimateMoveStepsMs(self, steps: int, max_speed: int = 5000) -> int:
-        """Estimate the time (in milliseconds) it will take to move a given number of steps."""
-        if steps == 0:
+        """How long the firmware takes to move `steps` microsteps: from the minimum
+        speed it accelerates at the stepper's acceleration up to max_speed and
+        brakes the same way (Stepper::moveSteps). Distance over top speed alone was
+        about 130 ms short on a feeder pulse."""
+        distance = abs(steps)
+        if distance == 0:
             return 0
-        steps = abs(steps)
-        estimated_seconds = steps / max_speed
-        return max(1, int(estimated_seconds * 1000))
+        accel = self._applied_acceleration or self._default_acceleration or FIRMWARE_DEFAULT_ACCELERATION
+        v0 = self._applied_speed_limits[0] if self._applied_speed_limits else FIRMWARE_DEFAULT_MIN_SPEED
+        vmax = max(max_speed, v0)
+        ramp = (vmax * vmax - v0 * v0) / (2 * accel)  # microsteps to reach vmax
+        if 2 * ramp >= distance:
+            peak = math.sqrt(v0 * v0 + accel * distance)
+            seconds = 2 * (peak - v0) / accel
+        else:
+            seconds = 2 * (vmax - v0) / accel + (distance - 2 * ramp) / vmax
+        return max(1, int(seconds * 1000))
 
     def estimateMoveDegreesMs(self, degrees: float, max_speed: int = 5000) -> int:
         """Estimate movement time for a move specified in degrees."""
@@ -684,7 +718,8 @@ class ServoMotor:
                 f"Servo '{self._name}' ch{self._channel}: move_to {angle}° REJECTED by firmware "
                 f"(servo busy or disabled) — flap did not move"
             )
-        self._current_angle = angle
+        else:
+            self._current_angle = angle
         return accepted
 
     def move_to_and_release(self, angle: int, max_duration_ms: int = 3500) -> bool:
@@ -724,9 +759,10 @@ class ServoMotor:
                 f"Servo '{self._name}' ch{self._channel}: move_to_and_release {angle}° REJECTED by firmware "
                 f"(servo busy or disabled) — flap did not move"
             )
+            return False
         self._current_angle = angle
         self._enabled = False  # Will be disabled once the move completes (or deadline hits)
-        return accepted
+        return True
 
     @property
     def position(self) -> int:
@@ -754,25 +790,27 @@ class ServoMotor:
     def available(self) -> bool:
         return True
 
-    def open(self, open_angle: int | None = None, max_duration_ms: int = 3500) -> None:
-        """Move servo to open position (with hard release deadline guarantee)."""
+    def open(self, open_angle: int | None = None, max_duration_ms: int = 3500) -> bool:
+        """Move servo to open position (with hard release deadline guarantee).
+        False when it is uncalibrated or the firmware refused the move."""
         target = open_angle if open_angle is not None else self._open_angle
         if target is None:
             self._gc.logger.warning(
                 f"Servo '{self._name}' ch{self._channel}: open() ignored — servo is not calibrated"
             )
-            return
-        self.move_to_and_release(target, max_duration_ms=max_duration_ms)
+            return False
+        return self.move_to_and_release(target, max_duration_ms=max_duration_ms)
 
-    def close(self, closed_angle: int | None = None, max_duration_ms: int = 3500) -> None:
-        """Move servo to closed position (with hard release deadline guarantee)."""
+    def close(self, closed_angle: int | None = None, max_duration_ms: int = 3500) -> bool:
+        """Move servo to closed position (with hard release deadline guarantee).
+        False when it is uncalibrated or the firmware refused the move."""
         target = closed_angle if closed_angle is not None else self._closed_angle
         if target is None:
             self._gc.logger.warning(
                 f"Servo '{self._name}' ch{self._channel}: close() ignored — servo is not calibrated"
             )
-            return
-        self.move_to_and_release(target, max_duration_ms=max_duration_ms)
+            return False
+        return self.move_to_and_release(target, max_duration_ms=max_duration_ms)
 
     def toggle(self) -> None:
         """Toggle between open and closed."""

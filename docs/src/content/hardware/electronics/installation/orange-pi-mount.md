@@ -1,122 +1,196 @@
 ---
 layout: default
-title: Orange Pi mount
+title: Orange Pi housing
 type: how-to
 section: hardware
 slug: electronics-orange-pi-mount
-kicker: Electronics — Orange Pi mount
-lede: The Orange Pi 5 standing off its mount, with the 40 mm fan on its arm above it.
+kicker: Electronics — Orange Pi housing
+lede: The Orange Pi 5 closed into its printed housing, with the USB hub and the buck converter clamped to its roof.
 permalink: /hardware/electronics/installation/orange-pi-mount/
-author: barthel
-contributors: [spencer]
-og_image: https://assets.basically.website/sorter-docs/opi-mount-assembled-w1600-d65b122c4efc.jpg
-last_verified: 2026-09-17
-tools_needed: ["Hex key, 2 mm for a button head or 2.5 mm for a socket head", "Soldering iron or heat-set insert press"]
+author: spencer
+contributors: [barthel]
+og_image: https://assets.basically.website/sorter-parts/orange-pi-housing-with-hub-render-full-7d14589d8944.png
+warning: >-
+  **AI-generated first draft.** Written from the machine assembly tree in the [parts
+  calculator](https://parts-calculator.basically.website/assembly?focus=orange-pi-mount), not from an
+  actual build, so nobody has put this housing together from this page yet. The parts and the screws
+  come from the CAD assembly.
+tools_needed: ["Hex key, 2 mm", "Soldering iron or heat-set insert press"]
 parts_needed:
-  - part: orange-pi-extrusion-mount
+  - part: orange-pi-housing-base
     qty: 1
-  - part: fan-bracket-40mm
+  - part: orange-pi-housing-wall-west
     qty: 1
-  - part: fan-40mm-24v
+  - part: orange-pi-housing-wall-east
     qty: 1
-  - part: standoff-m3-10mm
-    qty: 4
+  - part: orange-pi-housing-wall-north
+    qty: 1
+  - part: orange-pi-housing-wall-south
+    qty: 1
+  - part: orange-pi-housing-roof
+    qty: 1
+  - part: orange-pi-housing-plunger
+    qty: 1
+  - part: orange-pi-housing-plunger-retainer
+    qty: 1
+  - part: orange-pi-housing-plunger-cap
+    qty: 1
+  - part: orange-pi-housing-antenna-clamp
+    qty: 1
+  - part: orange-pi-housing-hub-clamp
+    qty: 1
+  - part: orange-pi-housing-buck-clamp
+    qty: 1
+  - part: usb-hub-powered-24v
+    qty: 1
+  - part: buck-24v-5v-usbc
+    qty: 1
   - part: hsi-m3
-    qty: 6
+    qty: 8
   - part: scr-m3-6-bhcs
     qty: 4
-  - part: scr-m3-16-shcs
-    qty: 6
+  - part: scr-m3-12-cs
+    qty: 15
+  - part: scr-m3-8-cs
+    qty: 1
 ---
+
+<div class="prep-item">
+  <div class="prep-item-body">
+    <p><strong><a href="{{ '/hardware/electronics/installation/orange-pi-prep/' | relative_url }}">Prepare the Orange Pi</a> before you start.</strong> The heatsink fan and the WiFi module both need both faces of the board reachable, and the housing closes around it. Not covered here.</p>
+  </div>
+  <figure class="prep-item-figure">
+    <img class="doc-figure" src="https://assets.basically.website/sorter-docs/orange-pi-5-heatsink-fan-fitted-full-6f0bb3b7ada4.jpg" alt="An Orange Pi 5 v1.3.2 seen from above with the heatsink fan already fitted over the SoC in the middle of the board, a white spring pin clipped through the board at opposite corners of the finned block, and the red and black lead running from the fan to a small white 2-pin socket silkscreened FAN">
+    <figcaption>A prepared Orange Pi: the fan on, and the module on the face you cannot see. <cite>Manufacturer photo (Orange Pi), not a Basically photo; the pale highlights are theirs.</cite></figcaption>
+  </figure>
+</div>
 
 The fasteners and quantities are in the parts list above and are called out inline at each step.
 
 {% include fastener-legend.html %}
 
-One per machine. Which Orange Pi 5 to buy, how much RAM and storage it needs, the WiFi module, the USB hub and cooling are all on the [Orange Pi 5]({{ '/hardware/orange-pi-5/' | relative_url }}) page. This page is the build on the bench, and it is close to the [control board housing]({{ '/hardware/electronics/installation/control-board-housing/' | relative_url }}): 6 inserts, 4 standoffs, 4 M3 screws under the Pi, and a printed arm holding the 40 mm fan over it on 6 more.
-
-<div class="prep-item">
-  <div class="prep-item-body">
-    <p><strong><a href="{{ '/hardware/electronics/installation/orange-pi-prep/' | relative_url }}">Prepare the Orange Pi</a> before you start.</strong> The heatsink fan, the WiFi module and the first boot that sets the network all need both faces of the board reachable, and this mount sits under it. Not covered here.</p>
-  </div>
-  <figure class="prep-item-figure">
-    <img class="doc-figure" src="https://assets.basically.website/sorter-docs/wifi-module-bench-first-boot-w1600-c538b35694b3.jpg" alt="A prepared Orange Pi 5 on a desk, powered with its red LED lit, a USB-C lead in the power socket and two antenna leads running off the WiFi module fitted underneath the board">
-    <figcaption>A prepared Orange Pi, still on the bench. <cite>Photo: BrickCycleAlice.</cite></figcaption>
-  </figure>
-</div>
-
 {% include step.html n="1" title="Preparation" %}
 
-Before assembling anything, press the heat inserts into the parts that take them, while the parts are still loose. See [installing heat inserts]({{ '/hardware/helpers/heat-inserts/' | relative_url }}) for the technique.
+Press 8 M3 inserts into the base while it is loose: four in the low posts the Pi sits on, and four in the tall corner posts the roof screws into. See [installing heat inserts]({{ '/hardware/helpers/heat-inserts/' | relative_url }}). Nothing else takes one.
 
 <div class="prep-item">
   <div class="prep-item-body">
-    <p><strong>Orange Pi extrusion mount:</strong> 6 × M3. Four on the top face, one per standoff, and two more lying on their sides in the front edge of the plate, 32 mm apart, which are what the fan arm bolts back into.</p>
+    <p><strong>Orange Pi Housing base:</strong> 8 × M3</p>
   </div>
   <figure class="prep-item-figure">
-    <img class="doc-figure" src="https://assets.basically.website/sorter-docs/opi-mount-inserts-fitted-w1600-6fef8b0dd716.jpg" alt="The printed Orange Pi extrusion mount lying on the bench with its six brass heat inserts fitted: four on the top face around the rectangular opening, and two in the front edge face between them, with the two M5 frame holes at the near corners left open">
-    <figcaption>All 6 inserts in: four on the top face, two in the front edge for the fan arm. The two open holes at the near corners are the M5 clearance holes for the frame. <cite>Photo: BrickCycleAlice.</cite></figcaption>
+    <img class="doc-figure" src="https://assets.basically.website/sorter-docs/orange-pi-housing-step1-inserts-full-0ede1a56f792.png" alt="Render of the housing base on its own, seen from above and one end, with a red ring round each of the eight heat-insert bores: four in the low posts in the middle of the floor and four in the tops of the tall corner posts">
+    <figcaption>Four in the board posts, four at the corners. <cite>Rendered from the CAD, not from a build.</cite></figcaption>
   </figure>
 </div>
 
-The two in the front edge go in on their sides, so press them with the plate stood on end rather than trying to reach them flat on the bench.
+**Fit the plunger retainer now, while the base is loose.** Its screw goes in from underneath, and once the walls are in you cannot turn the base over without dropping them out.
 
-The Pi, the fan and the fan arm take no inserts.
+Sit the retainer on its landing, at the end of the base with the large opening in its floor, and fix it with 1 {% include fastener.html size="M3" variant="countersunk" length="12" %} up through the base from below. It cuts its own thread in the plastic, so take it by hand.
 
-The Pi's heatsink fan fits under the arm: it stands 13 mm off the board and the arm's underside passes about 38 mm above it.
+<div class="img-row">
+  <figure>
+    <img src="https://assets.basically.website/sorter-docs/orange-pi-housing-step1-plunger-retainer-full-8ab6ba8049dc.png" alt="Render of the west end of the housing base seen from below and to one side, with the plunger retainer lifted above its landing, the countersunk screw below the base's floor, and a dashed line running from the screw up through the floor into the retainer">
+    <figcaption>The retainer on its landing at the west end of the base, and the screw that holds it coming up through the floor from underneath.</figcaption>
+  </figure>
+</div>
 
-{% include step.html n="2" title="Stand the Pi off the mount" %}
+{% include step.html n="2" title="Screw the Pi down" %}
 
 <div class="callout callout-warning">
   <span class="callout-icon" aria-hidden="true">⚠</span>
   <p>Static caution: the Orange Pi is ESD-sensitive like any other bare board. Touch a grounded metal surface before handling it, and avoid doing this on carpet in dry weather.</p>
 </div>
 
-Screw the 4 M3 standoffs into the inserts. Sit the Pi on them and fasten it down with 4 {% include fastener.html size="M3" variant="socket-button" length="6" %} screws. The 10 mm standoffs are used.
-
-<div class="callout callout-warning">
-  <span class="callout-icon" aria-hidden="true">⚠</span>
-  <p><b>The standoff's own thread strips easily.</b> They are a soft plastic, closer to a hard rubber than to metal, so the thread that gives is theirs and not the brass insert's. Start each one by hand, keep it square to the plate, and stop turning the moment it seats. A stripped standoff is scrap: fit a new one rather than trying to persuade it.</p>
-</div>
+Sit the Pi on the four posts with its Ethernet and USB-A ports at the end furthest from the large opening in the base's floor, and fasten it with 4 {% include fastener.html size="M3" variant="socket-button" length="6" %} screws into their inserts. It fits the posts either way round, and only this way puts its ports behind the openings in the walls.
 
 <div class="img-row">
   <figure>
-    <img class="doc-figure" src="https://assets.basically.website/sorter-docs/opi-mount-with-standoffs-loose-w1600-d31e70d2bea2.jpg" alt="The mount plate with its four black M3 standoffs lying loose on the bench beside it">
-    <figcaption>Four standoffs, one per insert on the top face. <cite>Photo: BrickCycleAlice.</cite></figcaption>
-  </figure>
-  <figure>
-    <img class="doc-figure" src="https://assets.basically.website/sorter-docs/opi-mount-standoffs-in-w1600-dd57fc1042ae.jpg" alt="The same plate with all four standoffs screwed into the top face inserts, standing up around the rectangular opening">
-    <figcaption>Screwed in, standing off the plate. <cite>Photo: BrickCycleAlice.</cite></figcaption>
-  </figure>
-  <figure>
-    <img class="doc-figure" src="https://assets.basically.website/sorter-docs/opi-pi-on-standoffs-w1600-b837e6e88b65.jpg" alt="The Orange Pi 5 sitting on the four standoffs over the plate's opening, ports along the far edge and the board's underside clear of the plastic">
-    <figcaption>The Pi on the standoffs, its underside clear of the plate. <cite>Photo: BrickCycleAlice.</cite></figcaption>
+    <img src="https://assets.basically.website/sorter-docs/orange-pi-housing-step2-board-full-4a5746c0fea3.png" alt="Exploded render of the Orange Pi held above the four posts in the base, with four button-head screws above the board again and dashed lines running from each screw down through the board into its post">
+    <figcaption>The board goes down onto the four posts, then the four screws into their inserts. The large floor opening is at the far end from the ports.</figcaption>
   </figure>
 </div>
 
-{% include step.html n="3" title="Fit the fan to the arm" %}
+{% include step.html n="3" title="Drop the walls in" %}
 
-Easier with the arm still loose on the bench. The fan sits on the flat top face of the arm, over the round opening, with its label side down so it blows down through the opening onto the Pi. The four holes take 4 {% include fastener.html size="M3" variant="socket-button" length="16" %} screws, self-tapping straight into the plastic. There are no inserts in the arm.
+Each wall drops into its own groove in the base, and each one only fits one side, because its openings line up with the ports on that side of the Pi:
 
-The fan is the **24 V** WINSINN 4010 on an XH2.54 2-pin lead, the same fan the [control board housing]({{ '/hardware/electronics/installation/control-board-housing/' | relative_url }}) takes. It is not the Pi's own heatsink fan, which is 5 V and went into the board's `FAN` socket back in step 1.
+- **West**, the short wall with a small square window for the power button plunger and a larger window onto the microSD card.
+- **East**, the short wall with the openings for the USB-A and Ethernet ports.
+- **North**, the long wall with the opening for the USB-C and HDMI ports and a block on its outside that carries the WiFi antennas. The two antennas came with the WiFi module and are already plugged into it from [preparing the Orange Pi]({{ '/hardware/electronics/installation/orange-pi-prep/' | relative_url }}); feed them out through the slot at the bottom of the wall, under that block, as it goes in.
+- **South**, the long wall with the hex vent, and an opening at the bottom for a cable off the GPIO header.
 
-Take the lead down through the rectangular 18 × 10 mm slot at the near end of the arm, over the upright, while the arm is still off the machine.
+Nothing screws the walls in. The roof holds them down in step 6.
 
-Leave the lead loose. It has nowhere to plug into yet, and whether this fan is needed at all is still being decided.
+<div class="img-row">
+  <figure>
+    <img src="https://assets.basically.website/sorter-docs/orange-pi-housing-step3-walls-full-b22020fed729.png" alt="Exploded render of the four walls lifted clear of the base, each a different colour, with a dashed line from each one down into its groove: blue with a rounded window, teal with a long slot, orange with two square openings, purple with a hex vent pattern">
+    <figcaption>Each wall drops straight down into its own groove. Blue is west (the microSD window), teal north (USB-C and HDMI), orange east (USB-A and Ethernet), purple south (the hex vent).</figcaption>
+  </figure>
+</div>
 
-{% include step.html n="4" title="Bolt the fan arm to the mount" %}
+{% include step.html n="4" title="Fit the power button plunger" %}
 
-Stand the arm's foot against the front edge of the mount, the arm reaching back over the Pi, and line its two holes up with the two inserts pressed into that edge in step 1. Fasten it with 2 {% include fastener.html size="M3" variant="socket-button" length="16" %} screws.
+The plunger reaches the Pi's power key from outside the west wall, so the Pi can be switched on with the housing shut.
 
-The screws pass through 12 mm of the foot before they reach the insert, so a 16 leaves about 4 mm in it. An {% include fastener.html size="M3" variant="socket-button" length="12" %} does not reach the insert at all, and an M3 × 20 bottoms out in it and jacks the arm off the plate.
+Lay the plunger in its retainer with its square face out through the small window in the west wall, and close the plunger cap over it with 1 {% include fastener.html size="M3" variant="countersunk" length="8" %}. The screw cuts its own thread in the plastic, so take it by hand. Press the face from outside and check that it reaches the power key.
+
+<div class="img-row">
+  <figure>
+    <img src="https://assets.basically.website/sorter-docs/orange-pi-housing-step4-plunger-full-dc18700f2ce1.png" alt="Close-up exploded render of the west end of the base with the retainer already fitted in grey, the plunger held above it with its square face pointing out towards the west wall, and the plunger cap above both">
+    <figcaption>The west bay, with the other three walls left out of the view. The plunger goes into the retainer, then the cap closes over it.</figcaption>
+  </figure>
+</div>
+
+{% include step.html n="5" title="Clamp the antennas" %}
+
+Sit the two WiFi antennas in the two channels in the north wall's block, and screw the antenna clamp over them with 2 {% include fastener.html size="M3" variant="countersunk" length="12" %}, self-tapping into the wall. Skip this step if the Pi has no WiFi module.
+
+<div class="img-row">
+  <figure>
+    <img src="https://assets.basically.website/sorter-docs/orange-pi-housing-step5-antenna-clamp-full-0bd9bc6b48eb.png" alt="Render of the north wall seen from outside the housing, with two antennas standing in the two channels in the block on the wall and the antenna clamp pulled straight out from them">
+    <figcaption>Seen from outside the north wall. The clamp closes over the two channels, so the antennas go in first.</figcaption>
+  </figure>
+</div>
+
+{% include step.html n="6" title="Put the roof on" %}
+
+Lower the roof onto the walls grooved side down. The groove runs all the way round the underside and the tops of the four walls sit in it; on the face that ends up outside, the four corner screw holes are countersunk. Fix it with 4 {% include fastener.html size="M3" variant="countersunk" length="12" %} into the inserts in the corner posts.
+
+**The microSD card stays reachable with the roof on**, through the window in the west wall and the opening in the floor under it.
+
+<div class="img-row">
+  <figure>
+    <img src="https://assets.basically.website/sorter-docs/orange-pi-housing-step6-roof-full-027c3aa73416.png" alt="Exploded render of the roof lifted above the closed walls, grooved side down, with a dashed line running from each corner of the roof to the corner post below it">
+    <figcaption>The roof goes on grooved side down, onto the four corner posts.</figcaption>
+  </figure>
+  <figure>
+    <img src="https://assets.basically.website/sorter-docs/orange-pi-housing-roof-underside-full-0770afc1f53f.png" alt="Render of the roof seen from underneath: a groove runs all the way round the inside of its rim, with four round bosses standing inside it and the hex vent showing through the middle">
+    <figcaption>The underside, and the groove round it that the wall tops sit in. The hex vent goes right through, so it shows on both faces and does not tell them apart.</figcaption>
+  </figure>
+</div>
+
+{% include step.html n="7" title="Clamp the hub and the buck converter to the roof" %}
+
+The powered USB hub sits on the roof under the hub clamp, the closed rectangular frame, and the 24 V to 5 V buck converter under the buck clamp, the open U. Each clamp takes 4 {% include fastener.html size="M3" variant="countersunk" length="12" %}, self-tapping into the pilots in the roof: take them by hand and stop as soon as the clamp is down.
+
+The hub clamp is drawn around the Waveshare USB3.2-Gen1-HUB-4U. The cables into the hub and the converter are on [connecting the components]({{ '/hardware/electronics/connecting/' | relative_url }}).
+
+<div class="img-row">
+  <figure>
+    <img src="https://assets.basically.website/sorter-docs/orange-pi-housing-step7-roof-clamps-full-cccfa381b135.png" alt="Exploded render of the two clamps lifted off the roof of the closed housing, a closed rectangular frame in blue and an open U-shaped one in orange, each with dashed lines down to its pilot holes">
+    <figcaption>Blue is the hub clamp, orange the buck clamp. Each takes four screws into the pilots in the roof.</figcaption>
+  </figure>
+</div>
 
 ## The finished result
 
-Everything on the plate: the Pi on its standoffs over the opening, the arm bolted to the front edge and reaching back over it, and the fan on top of the arm with its lead down through the slot.
+The housing closed on the bench, with the hub and the buck converter clamped to the roof.
 
 <figure class="single-figure">
-  <img class="doc-figure" src="https://assets.basically.website/sorter-docs/opi-mount-assembled-w1600-d65b122c4efc.jpg" alt="The finished mount on the bench: the Orange Pi standing on its standoffs over the plate, the printed fan arm bolted to the front edge and reaching back over the board, a 40 mm fan screwed to the top of the arm with its lead down through the slot">
-  <figcaption>The assembled mount, off the machine. <cite>Photo: BrickCycleAlice.</cite></figcaption>
+  <img class="doc-figure" src="https://assets.basically.website/sorter-parts/orange-pi-housing-with-hub-render-full-7d14589d8944.png" alt="Render of the Orange Pi housing with the USB hub clamped on one side of its roof and the buck converter on the other, their cables and the Pi's USB leads running off the box, and the two WiFi antennas standing in their clamp on the long wall">
+  <figcaption>The assembled housing, off the machine. <cite>Rendered from the CAD, not from a build.</cite></figcaption>
 </figure>
 
-**Bolting it to the frame is on the [installation overview]({{ '/hardware/electronics/installation/' | relative_url }})**, with the other two enclosures. Nothing plugs into the Pi there either: its power comes from a 24 V to 5 V buck converter off the PSU rather than from the control board, and that, the USB hub, the cameras and the arm fan's lead are all on [connecting the components]({{ '/hardware/electronics/connecting/' | relative_url }}), which is the next page.
+**Bolting it to the frame is on the [installation overview]({{ '/hardware/electronics/installation/' | relative_url }})**, with the other two enclosures. Its power comes from the buck converter on its roof, fed 24 V from the PSU box rather than from the control board.
+
+Next: [connecting the components]({{ '/hardware/electronics/connecting/' | relative_url }}).

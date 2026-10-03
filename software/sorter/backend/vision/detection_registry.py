@@ -3,32 +3,18 @@ from __future__ import annotations
 import json
 import logging
 import threading
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Literal
-
-import numpy as np
 
 
 log = logging.getLogger(__name__)
 
 
 DetectionScope = Literal["classification", "feeder", "carousel"]
-BuiltinDetectionAlgorithmId = Literal["baseline_diff", "mog2", "heatmap_diff", "gemini_sam"]
-# Runtime ids may be the built-ins or an installed model (``hive:<dir>`` /
-# ``local:<dir>``); keep the type as ``str`` for everything that crosses module
-# boundaries.
-DetectionAlgorithmId = str
-ClassificationDetectionAlgorithm = str
-FeederDetectionAlgorithm = str
-CarouselDetectionAlgorithm = str
 
 HIVE_ID_PREFIX = "hive:"
 LOCAL_ID_PREFIX = "local:"
-# Installed-model kinds and their id prefixes: Hive downloads and models put in
-# MODELS_DIR by hand. Both run through the same on-device inference path.
-MODEL_KINDS = frozenset({"hive", "local"})
-MODEL_ID_PREFIXES = (HIVE_ID_PREFIX, LOCAL_ID_PREFIX)
 # The one place installed models live (``server.hive_models.LOCAL_MODELS_DIR``).
 MODELS_DIR = Path(__file__).resolve().parent.parent / "blob" / "hive_detection_models"
 
@@ -57,89 +43,17 @@ _SCOPE_BY_HIVE_SCOPE: dict[str, DetectionScope] = {
 
 
 @dataclass(frozen=True)
-class DetectionRequest:
-    scope: DetectionScope
-    role: str
-    frame: np.ndarray | None = None
-    gray_frame: np.ndarray | None = None
-    zone_polygon: np.ndarray | None = None
-    baseline_state: Any | None = None
-    background_state: Any | None = None
-    force: bool = False
-    metadata: dict[str, Any] = field(default_factory=dict)
-
-
-@dataclass(frozen=True)
-class DetectionResult:
-    bbox: tuple[int, int, int, int] | None
-    bboxes: tuple[tuple[int, int, int, int], ...]
-    score: float | None
-    algorithm: str
-    found: bool | None = None
-    message: str | None = None
-    debug: dict[str, Any] = field(default_factory=dict)
-
-
-@dataclass(frozen=True)
 class DetectionAlgorithmDefinition:
     id: str
     label: str
     description: str
     supported_scopes: frozenset[DetectionScope]
-    required_inputs: frozenset[str]
-    default_for_scopes: frozenset[DetectionScope] = frozenset()
-    needs_baseline: bool = False
-    kind: str = "builtin"  # "builtin" | "hive" | "local"
+    kind: str
     model_path: Path | None = None
     model_family: str | None = None
     imgsz: int | None = None
     runtime: str | None = None  # "onnx" | "ncnn" | "hailo" | "rknn" (installed models only)
     hive_metadata: dict[str, Any] | None = None
-
-
-_BUILTIN_ALGORITHMS: tuple[DetectionAlgorithmDefinition, ...] = (
-    DetectionAlgorithmDefinition(
-        id="baseline_diff",
-        label="Baseline Diff",
-        description="Uses an empty-chamber baseline envelope and frame diffing.",
-        supported_scopes=frozenset({"classification"}),
-        required_inputs=frozenset({"frame", "gray_frame", "baseline_state"}),
-        default_for_scopes=frozenset({"classification"}),
-        needs_baseline=True,
-    ),
-    DetectionAlgorithmDefinition(
-        id="mog2",
-        label="MOG2",
-        description="Uses the existing per-channel foreground detector inside the saved C-channel masks.",
-        supported_scopes=frozenset({"feeder"}),
-        required_inputs=frozenset({"gray_frame", "background_state"}),
-        default_for_scopes=frozenset({"feeder"}),
-        needs_baseline=False,
-    ),
-    DetectionAlgorithmDefinition(
-        id="heatmap_diff",
-        label="Heatmap Diff",
-        description="Uses the saved carousel baseline and live diff heatmap to detect a drop event.",
-        supported_scopes=frozenset({"carousel"}),
-        required_inputs=frozenset({"gray_frame", "baseline_state"}),
-        default_for_scopes=frozenset({"carousel"}),
-        needs_baseline=True,
-    ),
-    DetectionAlgorithmDefinition(
-        id="gemini_sam",
-        label="Cloud Vision + SAM",
-        description="Runs the selected OpenRouter vision model asynchronously on the scoped image crop and reuses those detections live.",
-        supported_scopes=frozenset({"classification", "feeder", "carousel"}),
-        required_inputs=frozenset({"frame"}),
-        default_for_scopes=frozenset(),
-        needs_baseline=False,
-    ),
-)
-
-
-# ---------------------------------------------------------------------------
-# Installed models (Hive downloads and local ones)
-# ---------------------------------------------------------------------------
 
 
 _cache_lock = threading.Lock()
@@ -263,8 +177,6 @@ def _model_definition(entry: Path, meta: dict[str, Any]) -> DetectionAlgorithmDe
         label=label,
         description=description,
         supported_scopes=supported,
-        required_inputs=frozenset({"frame"}),
-        needs_baseline=False,
         kind=kind,
         model_path=model_path,
         model_family=model_family,
@@ -305,19 +217,8 @@ def _model_algorithms() -> tuple[DetectionAlgorithmDefinition, ...]:
         return _cached_model_algorithms
 
 
-def _all_algorithms() -> tuple[DetectionAlgorithmDefinition, ...]:
-    # Installed models are never a default: the built-ins are the fallback
-    # until a model is assigned (server.default_model assigns Hive's default).
-    return _model_algorithms() + _BUILTIN_ALGORITHMS
-
-
-# ---------------------------------------------------------------------------
-# Public accessors
-# ---------------------------------------------------------------------------
-
-
 def all_detection_algorithms() -> tuple[DetectionAlgorithmDefinition, ...]:
-    return _all_algorithms()
+    return _model_algorithms()
 
 
 def detection_algorithm_definition(
@@ -325,7 +226,7 @@ def detection_algorithm_definition(
 ) -> DetectionAlgorithmDefinition | None:
     if algorithm_id is None:
         return None
-    for definition in _all_algorithms():
+    for definition in _model_algorithms():
         if definition.id == algorithm_id:
             return definition
     return None
@@ -333,18 +234,8 @@ def detection_algorithm_definition(
 
 def detection_algorithms_for_scope(scope: DetectionScope) -> tuple[DetectionAlgorithmDefinition, ...]:
     return tuple(
-        definition for definition in _all_algorithms() if scope in definition.supported_scopes
+        definition for definition in _model_algorithms() if scope in definition.supported_scopes
     )
-
-
-def default_detection_algorithm(scope: DetectionScope) -> str:
-    for definition in _all_algorithms():
-        if scope in definition.default_for_scopes:
-            return definition.id
-    available = detection_algorithms_for_scope(scope)
-    if not available:
-        raise ValueError(f"No detection algorithms are registered for scope '{scope}'.")
-    return available[0].id
 
 
 def scope_supports_detection_algorithm(scope: DetectionScope, algorithm_id: str | None) -> bool:
@@ -355,7 +246,7 @@ def scope_supports_detection_algorithm(scope: DetectionScope, algorithm_id: str 
 def normalize_detection_algorithm(scope: DetectionScope, value: str | None) -> str:
     if scope_supports_detection_algorithm(scope, value):
         return value  # type: ignore[return-value]
-    return default_detection_algorithm(scope)
+    return ""
 
 
 def detection_algorithm_options(scope: DetectionScope) -> list[dict[str, Any]]:
@@ -363,9 +254,7 @@ def detection_algorithm_options(scope: DetectionScope) -> list[dict[str, Any]]:
         {
             "id": definition.id,
             "label": definition.label,
-            "needs_baseline": definition.needs_baseline,
             "description": definition.description,
-            "required_inputs": sorted(definition.required_inputs),
             "kind": definition.kind,
             "model_family": definition.model_family,
             "imgsz": definition.imgsz,

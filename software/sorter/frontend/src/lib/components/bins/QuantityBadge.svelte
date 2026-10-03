@@ -2,16 +2,11 @@
 	let { count, size = 'lg' }: { count: number; size?: 'sm' | 'lg' } = $props();
 </script>
 
-{#if size === 'sm'}
-	<div
-		class="absolute top-1 right-1 z-10 flex h-5 min-w-5 items-center justify-center bg-primary px-1 text-xs font-semibold tabular-nums text-primary-contrast shadow-sm"
-	>
-		×{count}
-	</div>
-{:else}
-	<div
-		class="absolute top-3 right-3 flex h-10 min-w-10 items-center justify-center bg-primary px-3 text-lg font-semibold tabular-nums text-primary-contrast shadow-sm"
-	>
-		{count}
-	</div>
-{/if}
+<!-- A chip over a piece's picture, so it sits in a dark subtree (docs/surfaces.md, Media). -->
+<span
+	class="dark num absolute rounded-badge bg-scrim font-medium text-ink {size === 'sm'
+		? 'top-1 right-1 px-1 text-xs'
+		: 'top-2 right-2 px-2 py-0.5 text-sm'}"
+>
+	{size === 'sm' ? `×${count}` : count}
+</span>

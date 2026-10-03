@@ -84,7 +84,8 @@ run_backend() {
         log "${GREEN}Starting backend...${RESET}"
         (
             cd "$ROOT/sorter/backend"
-            exec uv run python supervisor.py 2>&1 \
+            # --ui-port 0: here the UI is vite's (run_frontend), not the build's.
+            exec uv run python supervisor.py --ui-port 0 2>&1 \
                 | sed -u "s/^/${GREEN}[backend]${RESET}  /"
         ) &
         BACKEND_PID=$!
@@ -178,15 +179,9 @@ log "Mode: $MODE"
 
 load_env
 
-# ADB port forward for Android camera (IP Webcam) — silently skip if no device
-if command -v adb &>/dev/null && adb devices 2>/dev/null | grep -q "device$"; then
-    adb forward tcp:8080 tcp:8080 2>/dev/null && log "ADB forward: tcp:8080 -> phone:8080"
-fi
-
 case "$MODE" in
     backend)
         kill_port 8000
-        kill_port 8001
         run_backend
         ;;
     api)
@@ -199,7 +194,6 @@ case "$MODE" in
         ;;
     all|*)
         kill_port 8000
-        kill_port 8001
         kill_port 5173
         run_backend &
         run_frontend &

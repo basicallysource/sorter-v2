@@ -332,6 +332,12 @@
 				<p class="p-2 text-sm text-text-muted">No source picked yet.</p>
 			{/each}
 		</div>
+		{#if h.sourcing?.vendors?.some((v) => v.affiliate_url)}
+			<p class="mt-1.5 text-[11px] text-text-muted">
+				Amazon links carry the project's referral tag. As an Amazon Associate we earn from
+				qualifying purchases. “Not affiliate” opens the same listing without it.
+			</p>
+		{/if}
 
 		{#if showCart && bestUsVendor(h)}
 			<label class="mt-4 flex cursor-pointer items-center gap-2 text-sm text-text">

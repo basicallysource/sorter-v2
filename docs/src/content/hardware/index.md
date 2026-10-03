@@ -18,7 +18,7 @@ drafts; each page states its own status.
 
 You can build this on a bench. It does not need a workshop, and nothing in it
 is hard on its own. Hex keys, a screwdriver, side cutters, wire strippers and a
-multimeter cover most of it, plus a soldering iron or a [heat-set insert
+[multimeter]({{ '/hardware/helpers/multimeter/' | relative_url }}) cover most of it, plus a soldering iron or a [heat-set insert
 press]({{ '/hardware/helpers/heat-inserts/' | relative_url }}) for the brass
 inserts. Making your own leads also needs a crimp tool, or you can [order the
 harness ready made]({{ '/hardware/parts/harness-order/' | relative_url }}).
@@ -172,6 +172,6 @@ itself.
 - **[Printing the parts]({{ '/hardware/printing/' | relative_url }})**: what printer the parts need, orientation, supports, and the slicer checks worth doing before a long print.
 - **[Assembly]({{ '/hardware/assembly/' | relative_url }})**: the build order, structured like a set of instructions. Electronics is one of its steps.
 - **[Electronics]({{ '/hardware/electronics/' | relative_url }})**: the [wire harness]({{ '/hardware/electronics/wire-harness/' | relative_url }}) and the stepper pinout, [installing the electronics]({{ '/hardware/electronics/installation/' | relative_url }}), and [connecting the components]({{ '/hardware/electronics/connecting/' | relative_url }}).
-- **[Software setup]({{ '/hardware/software-setup/' | relative_url }})**: the last step of the build, where the finished machine hands off to installing the software and the [Sorter]({{ '/sorter/' | relative_url }}) section.
+- **[Software setup]({{ '/hardware/software-setup/' | relative_url }})**: the last step of the build, where the finished machine hands off to installing the software and the [SorterOS]({{ '/sorter/' | relative_url }}) section.
 - **[Parts]({{ '/hardware/parts/' | relative_url }})**: reference pages for individual parts, like the Lazy Susan bearing, and [ordering the wire harness]({{ '/hardware/parts/harness-order/' | relative_url }}).
 - **[Bill of materials](https://parts-calculator.basically.website/hardware)**: every part, with sources and part numbers.

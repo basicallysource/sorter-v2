@@ -1,7 +1,12 @@
 <script lang="ts">
-	import Modal from '$lib/components/Modal.svelte';
-	import { ArrowLeft, Download } from 'lucide-svelte';
-	import Spinner from '$lib/components/Spinner.svelte';
+	import ArrowLeft from '@lucide/svelte/icons/arrow-left';
+	import Download from '@lucide/svelte/icons/download';
+	import Alert from '$lib/components/ui/Alert.svelte';
+	import Badge from '$lib/components/ui/Badge.svelte';
+	import Button from '$lib/components/ui/Button.svelte';
+	import EmptyState from '$lib/components/ui/EmptyState.svelte';
+	import Modal from '$lib/components/ui/Modal.svelte';
+	import Spinner from '$lib/components/ui/Spinner.svelte';
 	import { formatCategoryName, formatLastSeen } from './pieces';
 	import type { SnapshotDetail, SnapshotLayer, SnapshotSummary } from './types';
 
@@ -60,134 +65,103 @@
 	}
 </script>
 
-<Modal bind:open title={detail ? 'Snapshot Details' : 'Bin Snapshots'} wide={true}>
-	{#if snapshotsError}
-		<div class="mb-3 border border-danger bg-danger/[0.06] px-3 py-2 text-sm text-danger">{snapshotsError}</div>
-	{/if}
+<Modal bind:open title={detail ? 'Snapshot details' : 'Bin snapshots'} size="lg">
+	{#if snapshotsError}<Alert tone="danger" class="mb-4">{snapshotsError}</Alert>{/if}
 	{#if detail}
-		<div class="space-y-4">
+		<div class="flex flex-col gap-5">
 			<div class="flex items-center justify-between gap-3">
-				<button
-					type="button"
-					onclick={() => (detail = null)}
-					class="flex items-center gap-2 border border-[#E2E0DB] bg-white px-3 py-1.5 text-sm font-medium text-[#1A1A1A] transition-colors hover:bg-[#F7F6F3]"
-				>
-					<ArrowLeft size={14} />
-					All snapshots
-				</button>
-				<a
-					href={csvUrl(detail.id)}
-					download
-					class="flex items-center gap-2 border border-[#E2E0DB] bg-white px-3 py-1.5 text-sm font-medium text-[#1A1A1A] transition-colors hover:bg-[#F7F6F3]"
-				>
-					<Download size={14} />
-					Export CSV
-				</a>
+				<Button size="sm" icon={ArrowLeft} onclick={() => (detail = null)}>All snapshots</Button>
+				<Button size="sm" icon={Download} href={csvUrl(detail.id)} download>Export CSV</Button>
 			</div>
-			<div class="grid gap-4 border border-border bg-surface px-4 py-4 text-sm text-text-muted md:grid-cols-4">
+			<dl class="grid grid-cols-1 gap-4 sm:grid-cols-4">
 				<div>
-					<div class="text-xs uppercase tracking-wide">Status</div>
-					<div class="mt-1 text-base font-medium text-text capitalize">{detail.status}</div>
+					<dt class="label">Status</dt>
+					<dd class="mt-1 text-base font-medium text-ink capitalize">{detail.status}</dd>
 				</div>
 				<div>
-					<div class="text-xs uppercase tracking-wide">Started</div>
-					<div class="mt-1 text-base font-medium text-text">{formatLastSeen(detail.created_at)}</div>
+					<dt class="label">Started</dt>
+					<dd class="mt-1 text-base font-medium text-ink">{formatLastSeen(detail.created_at)}</dd>
 				</div>
 				<div>
-					<div class="text-xs uppercase tracking-wide">Closed</div>
-					<div class="mt-1 text-base font-medium text-text">{formatLastSeen(detail.closed_at)}</div>
+					<dt class="label">Closed</dt>
+					<dd class="mt-1 text-base font-medium text-ink">{formatLastSeen(detail.closed_at)}</dd>
 				</div>
 				<div>
-					<div class="text-xs uppercase tracking-wide">Pieces</div>
-					<div class="mt-1 text-base font-medium text-text">{detail.piece_count}</div>
+					<dt class="label">Pieces</dt>
+					<dd class="num mt-1 text-base font-medium text-ink">{detail.piece_count}</dd>
 				</div>
-			</div>
+			</dl>
 			{#each detail.layers as layer (layer.id)}
-				<div class="border border-border bg-bg p-4">
-					<div class="mb-2 flex flex-wrap items-center justify-between gap-2">
-						<div class="text-sm font-semibold text-text">{binLabel(layer)}</div>
-						<div class="flex items-center gap-2 text-xs text-text-muted">
-							<span class="border border-border bg-surface px-2 py-1">{layer.piece_count} {layer.piece_count === 1 ? 'piece' : 'pieces'}</span>
-							<span class="border border-border bg-surface px-2 py-1">emptied {formatLastSeen(layer.flushed_at)}</span>
+				<section class="flex flex-col gap-2">
+					<div class="flex flex-wrap items-center justify-between gap-2">
+						<h3 class="text-base font-semibold text-ink">{binLabel(layer)}</h3>
+						<div class="flex items-center gap-2">
+							<Badge>{layer.piece_count} {layer.piece_count === 1 ? 'piece' : 'pieces'}</Badge>
+							<Badge>emptied {formatLastSeen(layer.flushed_at)}</Badge>
 						</div>
 					</div>
 					{#if layer.category_ids.length > 0}
-						<div class="mb-3 text-sm text-text-muted">
+						<p class="text-sm text-ink-muted">
 							Assigned: {layer.category_ids.map((id) => formatCategoryName(id) || id).join(', ')}
-						</div>
+						</p>
 					{/if}
 					{#if layer.items.length > 0}
-						<div class="overflow-x-auto">
-							<table class="w-full text-left text-sm">
+						<div class="overflow-x-auto rounded-control">
+							<table class="data-table">
 								<thead>
-									<tr class="border-b border-border text-xs uppercase tracking-wide text-text-muted">
-										<th class="py-1.5 pr-4">Part</th>
-										<th class="py-1.5 pr-4">Color</th>
-										<th class="py-1.5 pr-4">Category</th>
-										<th class="py-1.5 pr-4">Count</th>
-										<th class="py-1.5">Last seen</th>
+									<tr>
+										<th>Part</th>
+										<th>Color</th>
+										<th>Category</th>
+										<th class="num">Count</th>
+										<th>Last seen</th>
 									</tr>
 								</thead>
 								<tbody>
 									{#each layer.items as item (item.item_key)}
-										<tr class="border-b border-border/60">
-											<td class="py-1.5 pr-4 font-medium text-text">{item.part_id ?? 'unknown'}</td>
-											<td class="py-1.5 pr-4">{item.color_name ?? item.color_id ?? 'n/a'}</td>
-											<td class="py-1.5 pr-4">{formatCategoryName(item.category_id) || item.category_id || 'n/a'}</td>
-											<td class="py-1.5 pr-4">{item.count}</td>
-											<td class="py-1.5">{formatLastSeen(item.last_distributed_at)}</td>
+										<tr>
+											<td class="font-medium">{item.part_id ?? 'unknown'}</td>
+											<td>{item.color_name ?? item.color_id ?? 'n/a'}</td>
+											<td>{formatCategoryName(item.category_id) || item.category_id || 'n/a'}</td>
+											<td class="num">{item.count}</td>
+											<td>{formatLastSeen(item.last_distributed_at)}</td>
 										</tr>
 									{/each}
 								</tbody>
 							</table>
 						</div>
 					{/if}
-				</div>
+				</section>
 			{/each}
 		</div>
 	{:else if detailLoading || snapshotsLoading}
-		<div class="flex items-center justify-center gap-2 py-10 text-sm text-text-muted">
+		<p class="flex items-center justify-center gap-2 py-10 text-sm text-ink-muted">
 			<Spinner size={16} />
-			Loading…
-		</div>
-	{:else if snapshots.length === 0}
-		<p class="py-8 text-center text-sm text-text-muted">
-			No snapshots yet. Emptying a bin (or all bins) automatically saves a snapshot of what was in it.
+			Loading the snapshots
 		</p>
+	{:else if snapshots.length === 0}
+		<EmptyState title="No snapshots yet">
+			Emptying a bin, or all bins, saves a snapshot of what was in it.
+		</EmptyState>
 	{:else}
-		<div class="space-y-2">
+		<ul class="divide-y divide-line">
 			{#each snapshots as snapshot (snapshot.id)}
-				<div class="flex flex-wrap items-center justify-between gap-3 border border-border bg-bg px-4 py-3">
+				<li class="flex flex-wrap items-center justify-between gap-3 py-3">
 					<div>
-						<div class="text-sm font-medium text-text">
+						<div class="flex items-center gap-2 text-sm font-medium text-ink">
 							{formatLastSeen(snapshot.closed_at ?? snapshot.created_at)}
-							{#if snapshot.status === 'open'}
-								<span class="ml-2 border border-primary bg-primary/[0.08] px-1.5 py-0.5 text-xs text-text">accumulating</span>
-							{/if}
+							{#if snapshot.status === 'open'}<Badge tone="primary">Accumulating</Badge>{/if}
 						</div>
-						<div class="mt-0.5 text-xs text-text-muted">
+						<div class="num mt-0.5 text-sm text-ink-muted">
 							{snapshot.piece_count} {snapshot.piece_count === 1 ? 'piece' : 'pieces'} · {snapshot.bin_count} {snapshot.bin_count === 1 ? 'bin' : 'bins'} · {snapshot.layer_count} {snapshot.layer_count === 1 ? 'wipe' : 'wipes'}
 						</div>
 					</div>
 					<div class="flex items-center gap-2">
-						<button
-							type="button"
-							onclick={() => void openDetail(snapshot.id)}
-							class="border border-[#E2E0DB] bg-white px-3 py-1.5 text-sm font-medium text-[#1A1A1A] transition-colors hover:bg-[#F7F6F3]"
-						>
-							View
-						</button>
-						<a
-							href={csvUrl(snapshot.id)}
-							download
-							class="flex items-center gap-1.5 border border-[#E2E0DB] bg-white px-3 py-1.5 text-sm font-medium text-[#1A1A1A] transition-colors hover:bg-[#F7F6F3]"
-						>
-							<Download size={13} />
-							CSV
-						</a>
+						<Button size="sm" onclick={() => void openDetail(snapshot.id)}>View</Button>
+						<Button size="sm" icon={Download} href={csvUrl(snapshot.id)} download>CSV</Button>
 					</div>
-				</div>
+				</li>
 			{/each}
-		</div>
+		</ul>
 	{/if}
 </Modal>

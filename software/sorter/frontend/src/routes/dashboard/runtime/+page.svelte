@@ -1,10 +1,14 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
-	import { getMachinesContext, getMachineContext } from '$lib/machines/context';
-	import MachineDropdown from '$lib/components/MachineDropdown.svelte';
-	import { getBackendHttpBase, getBackendWsBase } from '$lib/backend';
-	import { settings } from '$lib/stores/settings';
-	import { ArrowLeft } from 'lucide-svelte';
+	import { getMachineContext } from '$lib/machines/context';
+	import { getBackendHttpBase } from '$lib/backend';
+	import AppShell from '$lib/components/AppShell.svelte';
+	import Alert from '$lib/components/ui/Alert.svelte';
+	import Button from '$lib/components/ui/Button.svelte';
+	import EmptyState from '$lib/components/ui/EmptyState.svelte';
+	import PageHeader from '$lib/components/ui/PageHeader.svelte';
+	import Panel from '$lib/components/ui/Panel.svelte';
+	import Select from '$lib/components/ui/Select.svelte';
 
 	type MachineStateStats = {
 		current_state?: string;
@@ -26,121 +30,21 @@
 		total_pieces: number;
 	};
 
-	type ChartCtor = new (
-		ctx: CanvasRenderingContext2D,
-		config: Record<string, unknown>
-	) => {
-		data: Record<string, unknown>;
-		options: Record<string, unknown>;
-		update: (mode?: string) => void;
-		destroy: () => void;
-	};
-
 	const WINDOW_S = 180;
-	const OCCUPANCY_LANE_PREFERRED_ORDER = [
-		'feeder.ch1',
-		'feeder.ch2',
-		'feeder.ch3',
-		'classification.occupancy',
-		'distribution.occupancy'
-	];
+	// The classification channel reports its phase as "classification".
+	const OCCUPANCY_LANE_PREFERRED_ORDER = ['classification', 'distribution.occupancy'];
 
-	const manager = getMachinesContext();
 	const machine_ctx = getMachineContext();
 
 	let loaded_runtime_stats = $state<Record<string, unknown> | null>(null);
+	let live_runtime_stats = $state<Record<string, unknown> | null>(null);
 	let records = $state<RuntimeStatsRecordItem[]>([]);
 	let selected_record_id = $state<string>('live');
 	let selected_group = $state<string>('all');
 	let records_error = $state<string | null>(null);
 
-	let composition_canvas = $state<HTMLCanvasElement | null>(null);
-	let gantt_canvas = $state<HTMLCanvasElement | null>(null);
-	let composition_chart: InstanceType<ChartCtor> | null = null;
-	let gantt_chart: InstanceType<ChartCtor> | null = null;
-	let chart_constructor: ChartCtor | null = null;
-
-	function cssVar(name: string, fallback: string): string {
-		if (typeof document === 'undefined') return fallback;
-		const value = getComputedStyle(document.documentElement).getPropertyValue(name).trim();
-		return value || fallback;
-	}
-
-	function chartPalette() {
-		return {
-			text: cssVar('--color-text', '#1A1A1A'),
-			textMuted: cssVar('--color-text-muted', '#7A7770'),
-			border: cssVar('--color-border', '#E2E0DB'),
-			surface: cssVar('--color-surface', '#FFFFFF'),
-			background: cssVar('--color-bg', '#F7F6F3')
-		};
-	}
-
-	function applyChartTheme() {
-		if (!composition_chart || !gantt_chart) return;
-		const palette = chartPalette();
-		const grid_color = `${palette.border}CC`;
-
-		const composition_options = composition_chart.options as {
-			plugins?: { legend?: { labels?: Record<string, unknown> } };
-			scales?: {
-				x?: { ticks?: Record<string, unknown>; title?: Record<string, unknown>; grid?: Record<string, unknown> };
-				y?: { ticks?: Record<string, unknown>; title?: Record<string, unknown>; grid?: Record<string, unknown> };
-			};
-		};
-		composition_options.plugins ??= {};
-		composition_options.plugins.legend ??= {};
-		composition_options.plugins.legend.labels ??= {};
-		composition_options.plugins.legend.labels.color = palette.text;
-		composition_options.scales ??= {};
-		composition_options.scales.x ??= {};
-		composition_options.scales.y ??= {};
-		composition_options.scales.x.ticks ??= {};
-		composition_options.scales.x.title ??= {};
-		composition_options.scales.x.grid ??= {};
-		composition_options.scales.y.ticks ??= {};
-		composition_options.scales.y.title ??= {};
-		composition_options.scales.y.grid ??= {};
-		composition_options.scales.x.ticks.color = palette.textMuted;
-		composition_options.scales.x.title.color = palette.text;
-		composition_options.scales.x.grid.color = grid_color;
-		composition_options.scales.y.ticks.color = palette.textMuted;
-		composition_options.scales.y.title.color = palette.text;
-		composition_options.scales.y.grid.color = grid_color;
-
-		const gantt_options = gantt_chart.options as {
-			plugins?: { tooltip?: Record<string, unknown> };
-			scales?: {
-				x?: { ticks?: Record<string, unknown>; title?: Record<string, unknown>; grid?: Record<string, unknown> };
-				y?: { ticks?: Record<string, unknown>; title?: Record<string, unknown>; grid?: Record<string, unknown> };
-			};
-		};
-		gantt_options.plugins ??= {};
-		gantt_options.plugins.tooltip ??= {};
-		gantt_options.plugins.tooltip.backgroundColor = palette.surface;
-		gantt_options.plugins.tooltip.titleColor = palette.text;
-		gantt_options.plugins.tooltip.bodyColor = palette.text;
-		gantt_options.plugins.tooltip.borderColor = palette.border;
-		gantt_options.plugins.tooltip.borderWidth = 1;
-		gantt_options.scales ??= {};
-		gantt_options.scales.x ??= {};
-		gantt_options.scales.y ??= {};
-		gantt_options.scales.x.ticks ??= {};
-		gantt_options.scales.x.title ??= {};
-		gantt_options.scales.x.grid ??= {};
-		gantt_options.scales.y.ticks ??= {};
-		gantt_options.scales.y.title ??= {};
-		gantt_options.scales.y.grid ??= {};
-		gantt_options.scales.x.ticks.color = palette.textMuted;
-		gantt_options.scales.x.title.color = palette.text;
-		gantt_options.scales.x.grid.color = grid_color;
-		gantt_options.scales.y.ticks.color = palette.textMuted;
-		gantt_options.scales.y.title.color = palette.text;
-		gantt_options.scales.y.grid.color = grid_color;
-	}
-
 	const runtime_stats = $derived(
-		(loaded_runtime_stats ?? machine_ctx.machine?.runtimeStats ?? {}) as Record<string, unknown>
+		(loaded_runtime_stats ?? live_runtime_stats ?? {}) as Record<string, unknown>
 	);
 	const state_machines = $derived(
 		(runtime_stats.state_machines ?? {}) as Record<string, MachineStateStats>
@@ -148,25 +52,15 @@
 	const timeline_recent = $derived(
 		(runtime_stats.timeline_recent ?? []) as TimelineEvent[]
 	);
-	const now_s = $derived.by(() => Date.now() / 1000.0);
+	const now_s = $derived.by(() => {
+		void runtime_stats; // the window ends at the latest snapshot
+		return Date.now() / 1000.0;
+	});
 	const window_start = $derived.by(() => now_s - WINDOW_S);
 
-	function loadScript(src: string): Promise<void> {
-		return new Promise((resolve, reject) => {
-			const existing = document.querySelector(`script[src="${src}"]`);
-			if (existing) {
-				resolve();
-				return;
-			}
-			const script = document.createElement('script');
-			script.src = src;
-			script.async = true;
-			script.onload = () => resolve();
-			script.onerror = () => reject(new Error(`Failed to load ${src}`));
-			document.head.appendChild(script);
-		});
-	}
-
+	// A state's color is derived from its name (and its subsystem), so the same
+	// state is the same color in both charts. There are too many states for a
+	// fixed palette.
 	function distinctColorForGroupState(group_name: string, state_name: string): string {
 		const group_offsets: Record<string, number> = {
 			feeder: 0,
@@ -187,16 +81,12 @@
 	}
 
 	function machineGroup(machine_name: string): string {
-		if (machine_name.startsWith('feeder.')) return 'feeder';
-		if (machine_name.startsWith('classification.')) return 'classification';
-		if (machine_name.startsWith('distribution.')) return 'distribution';
-		return 'other';
+		const group = machine_name.split('.')[0];
+		return ['feeder', 'classification', 'distribution'].includes(group) ? group : 'other';
 	}
 
 	function isOccupancyMachine(machine_name: string): boolean {
-		if (machine_name.startsWith('feeder.ch')) return true;
-		if (machine_name.endsWith('.occupancy')) return true;
-		return false;
+		return machine_name === 'classification' || machine_name.endsWith('.occupancy');
 	}
 
 	function orderedOccupancyMachines(machine_names: string[]): string[] {
@@ -281,6 +171,18 @@
 		}
 	}
 
+	// The full snapshot (with the state timeline) is not pushed; poll it while
+	// this page shows the live run.
+	async function loadLive() {
+		if (selected_record_id !== 'live' || document.hidden) return;
+		try {
+			const response = await fetch(`${getBackendHttpBase()}/runtime-stats`);
+			if (response.ok) live_runtime_stats = (await response.json()).payload ?? null;
+		} catch {
+			// The next poll retries.
+		}
+	}
+
 	async function selectRecord(record_id: string) {
 		selected_record_id = record_id;
 		if (record_id === 'live') {
@@ -304,240 +206,65 @@
 		}
 	}
 
-	function updateCharts() {
-		if (!composition_chart || !gantt_chart) return;
+	onMount(() => {
+		loadRecords();
+		void loadLive();
+		const live_timer = setInterval(loadLive, 2000);
+		return () => clearInterval(live_timer);
+	});
 
+	// The lanes both charts draw: the occupancy machines, narrowed to the chosen subsystem.
+	const machines_for_chart = $derived.by(() => {
 		const occupancy_machines = orderedOccupancyMachines(Object.keys(state_machines));
 		const chart_machines =
 			occupancy_machines.length > 0 ? occupancy_machines : Object.keys(state_machines).sort();
-		const filtered_chart_machines =
+		const filtered =
 			selected_group === 'all'
 				? chart_machines
 				: chart_machines.filter((machine_name) => machineGroup(machine_name) === selected_group);
-		const machines_for_chart =
-			filtered_chart_machines.length > 0 ? filtered_chart_machines : chart_machines;
+		return filtered.length > 0 ? filtered : chart_machines;
+	});
 
-		const dataset_map = new Map<
-			string,
-			{
-				label: string;
-				backgroundColor: string;
-				data: number[];
-			}
-		>();
-		for (let machine_idx = 0; machine_idx < machines_for_chart.length; machine_idx += 1) {
-			const machine_name = machines_for_chart[machine_idx];
-			const group_name = machineGroup(machine_name);
-			const shares = state_machines[machine_name]?.state_share_pct ?? {};
-			for (const [state_name, share] of Object.entries(shares)) {
-				const key = `${group_name}::${state_name}`;
-				let dataset = dataset_map.get(key);
-				if (!dataset) {
-					dataset = {
-						label: `${group_name}.${state_name}`,
-						backgroundColor: distinctColorForGroupState(group_name, state_name),
-						data: Array.from({ length: machines_for_chart.length }, () => 0)
-					};
-					dataset_map.set(key, dataset);
-				}
-				dataset.data[machine_idx] = share;
-			}
-		}
+	type Slice = { label: string; share: number; color: string };
+	const composition = $derived(
+		machines_for_chart.map((machine) => {
+			const group = machineGroup(machine);
+			const slices: Slice[] = Object.entries(state_machines[machine]?.state_share_pct ?? {})
+				.map(([state, share]) => ({
+					label: `${group}.${state}`,
+					share,
+					color: distinctColorForGroupState(group, state)
+				}))
+				.sort((a, b) => a.label.localeCompare(b.label));
+			return { machine, slices };
+		})
+	);
+	const legend = $derived(
+		[...new Map(composition.flatMap((row) => row.slices).map((slice) => [slice.label, slice])).values()].sort(
+			(a, b) => a.label.localeCompare(b.label)
+		)
+	);
 
-		const composition_datasets = Array.from(dataset_map.values()).sort((a, b) =>
-			a.label.localeCompare(b.label)
-		);
-
-		composition_chart.data = {
-			labels: machines_for_chart,
-			datasets: composition_datasets
-		};
-		composition_chart.update('none');
-
-		const segments: {
-			x: [number, number];
-			y: string;
-			state: string;
-			duration_s: number;
-		}[] = [];
-		for (const machine_name of machines_for_chart) {
-			const current_state = state_machines[machine_name]?.current_state;
-			const machine_segments = buildSegments(
-				machine_name,
+	const gantt = $derived(
+		machines_for_chart.map((machine) => ({
+			machine,
+			segments: buildSegments(
+				machine,
 				timeline_recent,
-				current_state,
+				state_machines[machine]?.current_state,
 				now_s,
 				window_start
-			);
-			for (const seg of machine_segments) {
-				segments.push({
-					x: [seg.start - window_start, seg.end - window_start],
-					y: seg.machine,
-					state: seg.state,
-					duration_s: seg.end - seg.start
-				});
-			}
-		}
-
-		const segment_colors = segments.map((seg) =>
-			distinctColorForGroupState(machineGroup(seg.y), seg.state)
-		);
-		gantt_chart.data = {
-			datasets: [
-				{
-					label: 'occupancy',
-					data: segments,
-					backgroundColor: segment_colors,
-					borderWidth: 0
-				}
-			]
-		};
-		const options = gantt_chart.options as {
-			scales?: {
-				x?: { min?: number; max?: number };
-				y?: { labels?: string[] };
-			};
-		};
-		if (options.scales?.x) {
-			options.scales.x.min = 0;
-			options.scales.x.max = WINDOW_S;
-		}
-		if (options.scales?.y) {
-			options.scales.y.labels = machines_for_chart;
-		}
-		gantt_chart.update('none');
-	}
-
-	onMount(() => {
-		let disposed = false;
-		let initialized = false;
-		if (manager.connectedMachines.length === 0) {
-			manager.connect(`${getBackendWsBase()}/ws`);
-		}
-		loadRecords();
-
-		loadScript('https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js').then(() => {
-			if (disposed) {
-				return;
-			}
-			const chart_global = (window as Window & { Chart?: ChartCtor }).Chart;
-			if (!chart_global || !composition_canvas || !gantt_canvas) {
-				return;
-			}
-			chart_constructor = chart_global;
-
-			const comp_ctx = composition_canvas.getContext('2d');
-			const gantt_ctx = gantt_canvas.getContext('2d');
-			if (!comp_ctx || !gantt_ctx) return;
-
-			composition_chart = new chart_constructor(comp_ctx, {
-				type: 'bar',
-				data: { labels: [], datasets: [] },
-				options: {
-					indexAxis: 'y',
-					responsive: true,
-					maintainAspectRatio: false,
-					animation: false,
-					layout: {
-						padding: {
-							right: 24
-						}
-					},
-					plugins: {
-						legend: {
-							position: 'right',
-							align: 'start',
-							fullSize: true,
-							labels: {
-								usePointStyle: true,
-								pointStyle: 'rect',
-								boxWidth: 10,
-								boxHeight: 10,
-								padding: 10,
-								font: {
-									size: 10
-								}
-							}
-						}
-					},
-					scales: {
-						x: { stacked: true, min: 0, max: 100, title: { display: true, text: '%' } },
-						y: { stacked: true }
-					}
-				}
-			});
-
-			gantt_chart = new chart_constructor(gantt_ctx, {
-				type: 'bar',
-				data: { datasets: [] },
-				options: {
-					indexAxis: 'y',
-					responsive: true,
-					maintainAspectRatio: false,
-					animation: false,
-					parsing: {
-						xAxisKey: 'x',
-						yAxisKey: 'y'
-					},
-					plugins: {
-						legend: { display: false },
-						tooltip: {
-							callbacks: {
-								label: (ctx: { raw?: { duration_s?: number; state?: string } }) => {
-									const state_name = (ctx.raw as { state?: string } | undefined)?.state ?? 'unknown';
-									const duration_s = ctx.raw?.duration_s ?? 0;
-									return `${state_name} ${duration_s.toFixed(2)}s`;
-								}
-							}
-						}
-					},
-					scales: {
-						x: { type: 'linear', min: 0, max: WINDOW_S, title: { display: true, text: 'seconds' } },
-						y: { type: 'category', labels: [] }
-					}
-				}
-			});
-			initialized = true;
-			applyChartTheme();
-			updateCharts();
-		});
-
-		return () => {
-			disposed = true;
-			if (initialized) {
-				composition_chart?.destroy();
-				gantt_chart?.destroy();
-				composition_chart = null;
-				gantt_chart = null;
-			}
-		};
-	});
-
-	$effect(() => {
-		runtime_stats;
-		if (!chart_constructor) return;
-		updateCharts();
-	});
-
-	$effect(() => {
-		$settings.theme;
-		if (!chart_constructor || !composition_chart || !gantt_chart) return;
-		applyChartTheme();
-		composition_chart.update('none');
-		gantt_chart.update('none');
-	});
+			).map((seg) => ({
+				...seg,
+				left: ((seg.start - window_start) / WINDOW_S) * 100,
+				width: ((seg.end - seg.start) / WINDOW_S) * 100,
+				color: distinctColorForGroupState(machineGroup(machine), seg.state)
+			}))
+		}))
+	);
 
 	const top_occupancy_states = $derived.by(() => {
 		const rows: [string, number][] = [];
-		const occupancy_machines = orderedOccupancyMachines(Object.keys(state_machines));
-		const chart_machines =
-			occupancy_machines.length > 0 ? occupancy_machines : Object.keys(state_machines).sort();
-		const filtered_chart_machines =
-			selected_group === 'all'
-				? chart_machines
-				: chart_machines.filter((machine_name) => machineGroup(machine_name) === selected_group);
-		const machines_for_chart =
-			filtered_chart_machines.length > 0 ? filtered_chart_machines : chart_machines;
 		for (const machine_name of machines_for_chart) {
 			const times = state_machines[machine_name]?.state_time_s ?? {};
 			for (const [state_name, seconds] of Object.entries(times)) {
@@ -555,94 +282,117 @@
 
 <svelte:head><title>Sorter - Runtime</title></svelte:head>
 
-<div class="min-h-screen bg-bg p-6">
-	<div class="mb-4 flex items-center justify-between">
-		<div class="flex items-center gap-3">
-			<a
-				href="/"
-				class="p-2 text-text transition-colors hover:bg-surface"
-				title="Back"
-			>
-				<ArrowLeft size={20} />
-			</a>
-			<h1 class="text-xl font-bold text-text">Runtime Dashboard</h1>
-		</div>
-		<div class="flex items-center gap-2">
-			<select
-				class="border border-border bg-surface px-2 py-1 text-xs text-text"
-				value={selected_group}
-				onchange={(event) => (selected_group = (event.currentTarget as HTMLSelectElement).value)}
-			>
-				<option value="all">All Subsystems</option>
-				<option value="feeder">Feeder</option>
-				<option value="classification">Classification</option>
-				<option value="distribution">Distribution</option>
-			</select>
-			<select
-				class="border border-border bg-surface px-2 py-1 text-xs text-text"
-				value={selected_record_id}
-				onchange={(event) => selectRecord((event.currentTarget as HTMLSelectElement).value)}
-			>
-				<option value="live">Live Runtime</option>
-				{#each records as record}
-					<option value={record.record_id}>{fmtRecordLabel(record)}</option>
-				{/each}
-			</select>
-			<button
-				class="border border-border px-2 py-1 text-xs text-text"
-				onclick={loadRecords}
-			>
-				Refresh
-			</button>
-			<MachineDropdown />
-		</div>
-	</div>
+<AppShell>
+	<div class="mx-auto flex w-full max-w-[1500px] flex-col gap-(--gap-panels) px-4 py-6 sm:px-6">
+		<PageHeader title="Runtime" description="How long each part of the machine spent in each state.">
+			{#snippet actions()}
+				<Select
+					label="Subsystem"
+					class="w-full sm:w-44"
+					bind:value={selected_group}
+					options={[
+						{ value: 'all', label: 'All subsystems' },
+						{ value: 'feeder', label: 'Feeder' },
+						{ value: 'classification', label: 'Classification' },
+						{ value: 'distribution', label: 'Distribution' }
+					]}
+				/>
+				<Select
+					label="Run"
+					class="w-full sm:w-72"
+					value={selected_record_id}
+					onchange={selectRecord}
+					options={[
+						{ value: 'live', label: 'Live runtime' },
+						...records.map((record) => ({ value: record.record_id, label: fmtRecordLabel(record) }))
+					]}
+				/>
+				<Button onclick={loadRecords}>Refresh</Button>
+			{/snippet}
+		</PageHeader>
 
-	{#if records_error}
-		<div class="dark:text-red-400 mb-3 text-xs text-danger">Record load error: {records_error}</div>
-	{/if}
+		{#if records_error}<Alert tone="danger">Could not load the records: {records_error}</Alert>{/if}
 
-	{#if !machine_ctx.machine && !loaded_runtime_stats}
-		<div class="py-12 text-center text-text-muted">
-			No machine selected.
-		</div>
-	{:else}
-		<div class="grid grid-cols-1 gap-4 lg:grid-cols-2">
-			<div class="border border-border bg-surface p-3">
-				<div class="mb-2 text-sm font-medium text-text">
-					Occupancy Share By Subsystem
-				</div>
-				<div class="h-[460px]">
-					<canvas bind:this={composition_canvas}></canvas>
-				</div>
-			</div>
-
-			<div class="border border-border bg-surface p-3">
-				<div class="mb-2 text-sm font-medium text-text">
-					Occupancy Gantt (Last {WINDOW_S}s)
-				</div>
-				<div class="h-[380px]">
-					<canvas bind:this={gantt_canvas}></canvas>
-				</div>
-			</div>
-		</div>
-
-		<div class="mt-4 border border-border bg-surface p-3">
-			<div class="mb-2 text-sm font-medium text-text">
-				Top Occupancy Blocks (Run Total)
-			</div>
-			{#if top_occupancy_states.length === 0}
-				<div class="text-xs text-text-muted">No occupancy data yet.</div>
-			{:else}
-				<div class="grid grid-cols-1 gap-1 text-xs md:grid-cols-2">
-					{#each top_occupancy_states as [name, seconds]}
-						<div class="flex items-center justify-between text-text-muted">
-							<span class="truncate pr-2">{name}</span>
-							<span class="tabular-nums">{seconds.toFixed(2)}s</span>
+		{#if !machine_ctx.machine && !loaded_runtime_stats}
+			<EmptyState title="No machine is selected" />
+		{:else}
+			<div class="grid grid-cols-1 gap-(--gap-panels) lg:grid-cols-2">
+				<Panel title="Occupancy share by subsystem" description="Percent of the run spent in each state.">
+					{#if composition.length === 0}
+						<p class="text-sm text-ink-muted">No occupancy data yet.</p>
+					{:else}
+						<div class="flex flex-col gap-4 rounded-control bg-well p-4">
+							<div class="flex flex-col gap-2">
+								{#each composition as row (row.machine)}
+									<div class="flex items-center gap-3 text-sm">
+										<span class="w-40 shrink-0 truncate text-ink" title={row.machine}>{row.machine}</span>
+										<div class="flex h-5 flex-1 overflow-hidden rounded-badge bg-track">
+											{#each row.slices as slice (slice.label)}
+												<div
+													style:width="{slice.share}%"
+													style:background-color={slice.color}
+													title="{slice.label}: {slice.share.toFixed(1)}%"
+												></div>
+											{/each}
+										</div>
+									</div>
+								{/each}
+							</div>
+							<ul class="flex flex-wrap gap-x-4 gap-y-1 text-sm text-ink-muted">
+								{#each legend as slice (slice.label)}
+									<li class="flex items-center gap-1.5">
+										<span class="size-2.5 shrink-0" style:background-color={slice.color}></span>
+										{slice.label}
+									</li>
+								{/each}
+							</ul>
 						</div>
-					{/each}
-				</div>
-			{/if}
-		</div>
-	{/if}
-</div>
+					{/if}
+				</Panel>
+
+				<Panel title="Occupancy over the last {WINDOW_S} seconds" description="Each bar is a state; hover it for its length.">
+					{#if gantt.length === 0}
+						<p class="text-sm text-ink-muted">No occupancy data yet.</p>
+					{:else}
+						<div class="flex flex-col gap-2 rounded-control bg-well p-4">
+							{#each gantt as row (row.machine)}
+								<div class="flex items-center gap-3 text-sm">
+									<span class="w-40 shrink-0 truncate text-ink" title={row.machine}>{row.machine}</span>
+									<div class="relative h-5 flex-1 overflow-hidden bg-track">
+										{#each row.segments as seg, i (i)}
+											<div
+												class="absolute inset-y-0"
+												style:left="{seg.left}%"
+												style:width="{seg.width}%"
+												style:background-color={seg.color}
+												title="{seg.state} {(seg.end - seg.start).toFixed(2)}s"
+											></div>
+										{/each}
+									</div>
+								</div>
+							{/each}
+							<div class="num ml-[10.75rem] flex justify-between text-xs text-ink-muted">
+								<span>{WINDOW_S} s ago</span><span>{WINDOW_S / 2} s</span><span>now</span>
+							</div>
+						</div>
+					{/if}
+				</Panel>
+			</div>
+
+			<Panel title="Top occupancy blocks" description="Run total.">
+				{#if top_occupancy_states.length === 0}
+					<p class="text-sm text-ink-muted">No occupancy data yet.</p>
+				{:else}
+					<ul class="grid grid-cols-1 gap-x-8 gap-y-1 text-sm md:grid-cols-2">
+						{#each top_occupancy_states as [name, seconds]}
+							<li class="flex items-center justify-between gap-3 text-ink-muted">
+								<span class="truncate">{name}</span>
+								<span class="num shrink-0 text-ink">{seconds.toFixed(2)} s</span>
+							</li>
+						{/each}
+					</ul>
+				{/if}
+			</Panel>
+		{/if}
+	</div>
+</AppShell>

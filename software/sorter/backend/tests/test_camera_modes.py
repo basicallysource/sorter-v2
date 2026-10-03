@@ -1,15 +1,14 @@
-import asyncio
 import os
 import tempfile
 import unittest
 from pathlib import Path
+from types import SimpleNamespace
 from unittest.mock import patch
 
-import numpy as np
 import tomllib
 
-from irl.config import mkCameraConfig
-from server.routers import cameras
+from irl.config import IRLConfig, mkCameraConfig
+from server.routers import camera_capture_modes, cameras
 from vision import camera_service
 from vision.camera_modes import default_capture_mode
 
@@ -56,6 +55,22 @@ class CameraServiceDefaultTests(unittest.TestCase):
             self.assertFalse(camera_service._apply_default_capture_mode(config))
         self.assertEqual((1920, 1080, 60), (config.width, config.height, config.fps))
 
+    def test_classification_channel_aliases_share_one_camera_device(self) -> None:
+        for role in ("carousel", "classification_channel"):
+            with self.subTest(role=role), patch.object(camera_service, "list_v4l2_modes", return_value=[]):
+                config = IRLConfig()
+                config.c_channel_2_camera = mkCameraConfig(device_index=0)
+                config.c_channel_3_camera = mkCameraConfig(device_index=1)
+                service = camera_service.CameraService(config, SimpleNamespace())
+                self.assertTrue(service.set_camera_source_for_role(role, 2))
+                self.assertIs(service.get_device("carousel"), service.get_device("classification_channel"))
+                self.assertEqual(3, len(service._unique_devices()))
+                self.assertIsNone(service.get_feed("feeder"))
+                self.assertIsNone(service.get_feed("classification_top"))
+                self.assertIsNone(service.get_feed("classification_bottom"))
+                self.assertFalse(service.set_camera_source_for_role("feeder", 3))
+
+
 
 class CaptureModeRouterTests(unittest.TestCase):
     def setUp(self) -> None:
@@ -91,11 +106,11 @@ class CaptureModeRouterTests(unittest.TestCase):
 
     def test_saving_a_resolution_picks_mjpeg_not_yuyv(self) -> None:
         self.path.write_text('[cameras]\nlayout = "split_feeder"\ncarousel = 2\n', encoding="utf-8")
-        with patch.object(cameras, "_capture_modes_for_source", return_value=(list(reversed(FOUR_K_CAMERA)), "v4l2")), patch.object(
-            cameras.shared_state, "camera_service", None
+        with patch.object(camera_capture_modes, "capture_modes_for_source", return_value=(list(reversed(FOUR_K_CAMERA)), "v4l2")), patch.object(
+            camera_capture_modes.shared_state, "camera_service", None
         ):
-            response = cameras.save_camera_capture_mode(
-                "carousel", cameras.CaptureModePayload(width=1920, height=1080)
+            response = camera_capture_modes.save_camera_capture_mode(
+                "carousel", camera_capture_modes.CaptureModePayload(width=1920, height=1080)
             )
         self.assertEqual({"width": 1920, "height": 1080, "fps": 60, "fourcc": "MJPG"}, response["mode"])
 
@@ -115,33 +130,6 @@ class CameraListTests(unittest.TestCase):
             [(c["index"], c["width"], c["height"]) for c in listed],
         )
 
-
-class PreviewStreamTests(unittest.TestCase):
-    def test_a_preview_lets_go_of_its_camera_once_a_role_claims_it(self) -> None:
-        class FakeCap:
-            released = False
-
-            def isOpened(self) -> bool:
-                return True
-
-            def read(self):
-                return True, np.zeros((480, 640, 3), np.uint8)
-
-            def release(self) -> None:
-                FakeCap.released = True
-
-        claims = iter([None, None, None, object()])
-        with patch.object(cameras, "_device_capturing_index", side_effect=lambda i: next(claims)), patch.object(
-            cameras, "_open_camera_for_preview", return_value=FakeCap()
-        ):
-            response = cameras.camera_stream(2)
-
-            async def drain() -> int:
-                return len([chunk async for chunk in response.body_iterator])
-
-            frames = asyncio.run(drain())
-        self.assertEqual(2, frames)
-        self.assertTrue(FakeCap.released)
 
 if __name__ == "__main__":
     unittest.main()

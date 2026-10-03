@@ -8,12 +8,11 @@ import logging
 import os
 import re
 import time
+from dataclasses import dataclass, field
 from typing import Any
 
 import cv2
 import numpy as np
-
-from .classification_detection import ClassificationDetectionResult
 
 logger = logging.getLogger(__name__)
 
@@ -34,6 +33,17 @@ OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1"
 # connection where a tight timeout turns a slow call into a hard failure. Let the
 # caller's rate-limit retry handle real hangs.
 OPENROUTER_API_TIMEOUT_S = 60.0
+
+
+@dataclass(frozen=True)
+class GeminiDetectionResult:
+    bbox: tuple[int, int, int, int] | None
+    bboxes: tuple[tuple[int, int, int, int], ...]
+    score: float | None
+    algorithm: str
+    found: bool | None = None
+    message: str | None = None
+    debug: dict[str, Any] = field(default_factory=dict)
 
 
 def normalize_openrouter_model(model: str | None) -> str:
@@ -460,17 +470,10 @@ class GeminiSamDetector:
         if not os.getenv("OPENROUTER_API_KEY"):
             raise RuntimeError("OPENROUTER_API_KEY is not set.")
         self._last_call_time: float = 0.0
-        self._last_result: ClassificationDetectionResult | None = None
+        self._last_result: GeminiDetectionResult | None = None
         self._last_error: str | None = None
         self._openrouter_model: str = normalize_openrouter_model(openrouter_model)
         self._zone: str = zone
-
-    def setZone(self, zone: str) -> None:
-        if zone == self._zone:
-            return
-        self._zone = zone
-        self._last_result = None
-        self._last_call_time = 0.0
 
     def setOpenRouterModel(self, model: str) -> None:
         normalized = normalize_openrouter_model(model)
@@ -480,10 +483,7 @@ class GeminiSamDetector:
         self._last_result = None
         self._last_call_time = 0.0
 
-    def getOpenRouterModel(self) -> str:
-        return self._openrouter_model
-
-    def detect(self, frame: np.ndarray, force: bool = False) -> ClassificationDetectionResult | None:
+    def detect(self, frame: np.ndarray, force: bool = False) -> GeminiDetectionResult | None:
         """Detect pieces in a BGR frame. Returns cached result if called too frequently.
         Set force=True to bypass rate limiting (used for snapping and debug test).
         """
@@ -519,7 +519,7 @@ class GeminiSamDetector:
         logger.info(f"Gemini detection: {len(detections)} pieces in {elapsed_ms:.0f}ms")
 
         if not detections:
-            result = ClassificationDetectionResult(
+            result = GeminiDetectionResult(
                 bbox=None, bboxes=(), score=0.0, algorithm="gemini_sam",
             )
             self._last_result = result
@@ -529,7 +529,7 @@ class GeminiSamDetector:
         best = detections[0]
         all_bboxes = tuple(d["bbox"] for d in detections)
 
-        result = ClassificationDetectionResult(
+        result = GeminiDetectionResult(
             bbox=best["bbox"],
             bboxes=all_bboxes,
             score=best["confidence"],

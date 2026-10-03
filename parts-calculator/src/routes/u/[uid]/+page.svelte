@@ -11,13 +11,17 @@
 	const m = $derived(data.match);
 
 	type Summary = { what: string; name: string; status: string; detail?: string; href: string; image?: string };
+	// A retired entry is out of the current machine but never out of the
+	// catalog: the versions that used it still show it, and so does this page.
+	const retired = (x: { retired_at?: string }) =>
+		`Retired ${fmtDate(x.retired_at)}: not in the current machine. Older versions that used it still show it.`;
 	const s = $derived.by((): Summary => {
 		switch (m.kind) {
 			case 'part':
 				return {
 					what: '3D printed part',
 					name: m.part.name,
-					status: `Current version (v${m.part.version}).`,
+					status: m.part.retired_at ? retired(m.part) : `Current version (v${m.part.version}).`,
 					detail: m.part.description,
 					href: `/part/${m.part.id}`,
 					image: m.part.render
@@ -53,7 +57,9 @@
 				return {
 					what: 'assembly',
 					name: m.assembly.name,
-					status: `Current structure${m.assembly.version ? ` (v${m.assembly.version})` : ''}.`,
+					status: m.assembly.retired_at
+						? retired(m.assembly)
+						: `Current structure${m.assembly.version ? ` (v${m.assembly.version})` : ''}.`,
 					detail: m.assembly.description,
 					href: `/assembly?focus=${encodeURIComponent(m.assembly.id)}`
 				};
@@ -77,7 +83,7 @@
 				return {
 					what: 'off-the-shelf hardware',
 					name: m.hardware.name,
-					status: 'Current.',
+					status: m.hardware.retired_at ? retired(m.hardware) : 'Current.',
 					detail: m.hardware.description,
 					href: `/part/${m.hardware.id}`,
 					image: m.hardware.image ?? undefined

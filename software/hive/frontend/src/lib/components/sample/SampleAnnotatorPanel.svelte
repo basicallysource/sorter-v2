@@ -1,5 +1,16 @@
 <script lang="ts">
 	import type { AnnotatorApi } from '$lib/components/annotator-api.svelte';
+	import Alert from '$lib/components/Alert.svelte';
+	import Badge from '$lib/components/Badge.svelte';
+	import Button from '$lib/components/Button.svelte';
+	import Panel from '$lib/components/Panel.svelte';
+	import SegmentedControl from '$lib/components/SegmentedControl.svelte';
+	import Check from '@lucide/svelte/icons/check';
+	import Redo2 from '@lucide/svelte/icons/redo-2';
+	import RotateCcw from '@lucide/svelte/icons/rotate-ccw';
+	import Trash2 from '@lucide/svelte/icons/trash-2';
+	import Undo2 from '@lucide/svelte/icons/undo-2';
+	import X from '@lucide/svelte/icons/x';
 
 	interface Props {
 		annotatorApi: AnnotatorApi;
@@ -8,79 +19,56 @@
 	let { annotatorApi }: Props = $props();
 </script>
 
-<div class="border border-border bg-surface">
-	<div class="flex items-center justify-between border-b border-border px-4 py-2.5">
-		<h2 class="text-xs font-semibold uppercase tracking-wider text-text-muted">Annotator</h2>
-		<span class="text-[11px] font-medium {annotatorApi.isDirty ? 'text-warning-strong' : annotatorApi.hasSavedBaseline ? 'text-success' : 'text-text-muted'}">
-			{#if annotatorApi.isDirty}Unsaved{:else if annotatorApi.hasSavedBaseline}Saved{:else}Not saved{/if}
-		</span>
-	</div>
-	<div class="space-y-3 p-3">
-		<div class="grid grid-cols-4 gap-1.5">
-			<button onclick={() => annotatorApi.undo()} class="flex flex-col items-center gap-1 border border-border px-1 py-2 text-text-muted transition-colors hover:bg-bg" title="Undo">
-				<svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h10a4 4 0 014 4v0a4 4 0 01-4 4H3m0-8l4-4m-4 4l4 4" /></svg>
-				<span class="text-[10px]">Undo</span>
-			</button>
-			<button onclick={() => annotatorApi.redo()} class="flex flex-col items-center gap-1 border border-border px-1 py-2 text-text-muted transition-colors hover:bg-bg" title="Redo">
-				<svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 10H11a4 4 0 00-4 4v0a4 4 0 004 4h10m0-8l-4-4m4 4l-4 4" /></svg>
-				<span class="text-[10px]">Redo</span>
-			</button>
-			<button
-				onclick={() => annotatorApi.deleteSelected()}
-				disabled={annotatorApi.selectedCount === 0}
-				class="flex flex-col items-center gap-1 border px-1 py-2 transition-colors disabled:cursor-not-allowed disabled:border-border disabled:text-border {annotatorApi.selectedCount === 0 ? '' : 'border-primary/20 text-primary hover:bg-primary-light'}"
-				title="Delete selected"
+<Panel title="Annotator" flush>
+	{#snippet actions()}
+		<Badge tone={annotatorApi.isDirty ? 'warning' : annotatorApi.hasSavedBaseline ? 'success' : 'neutral'}>
+			{annotatorApi.isDirty ? 'Unsaved' : annotatorApi.hasSavedBaseline ? 'Saved' : 'Not saved'}
+		</Badge>
+	{/snippet}
+	<div class="flex flex-col gap-3 px-(--pad-panel) pb-(--pad-panel)">
+		<div class="flex flex-wrap gap-1">
+			<Button size="sm" icon={Undo2} onclick={() => annotatorApi.undo()}>Undo</Button>
+			<Button size="sm" icon={Redo2} onclick={() => annotatorApi.redo()}>Redo</Button>
+			<Button size="sm" icon={Trash2} disabled={annotatorApi.selectedCount === 0} onclick={() => annotatorApi.deleteSelected()}
+				>Delete</Button
 			>
-				<svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
-				<span class="text-[10px]">Delete</span>
-			</button>
-			<button onclick={() => annotatorApi.clearAll()} class="flex flex-col items-center gap-1 border border-warning/30 px-1 py-2 text-warning-strong transition-colors hover:bg-warning/[0.1]" title="Clear all">
-				<svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
-				<span class="text-[10px]">Clear</span>
-			</button>
+			<Button size="sm" icon={X} onclick={() => annotatorApi.clearAll()}>Clear all</Button>
 		</div>
-
-		<div class="flex gap-1.5">
-			<button onclick={() => annotatorApi.revert()} class="flex flex-1 items-center justify-center gap-1.5 border border-border px-2 py-1.5 text-[11px] text-text-muted transition-colors hover:bg-bg" title="Discard changes and restore last saved state">
-				<svg class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
-				Cancel
-			</button>
+		<SegmentedControl
+			label="Tool"
+			size="sm"
+			value={annotatorApi.activeTool}
+			options={[
+				{ value: 'rectangle', label: 'Rectangle' },
+				{ value: 'polygon', label: 'Polygon' }
+			]}
+			onchange={(tool) => (annotatorApi.activeTool = tool)}
+		/>
+		<div class="flex flex-wrap gap-1">
+			<Button size="sm" variant="ghost" title="Back to the last saved state" onclick={() => annotatorApi.revert()}>Cancel</Button>
 			{#if annotatorApi.hasSeedBoxes}
-				<button onclick={() => annotatorApi.loadSorterBoxes()} class="flex flex-1 items-center justify-center gap-1.5 border border-border px-2 py-1.5 text-[11px] text-text-muted transition-colors hover:bg-bg" title="Reset to original machine detections">
-					<svg class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h5M20 20v-5h-5M4 9a9 9 0 0115.36-5.36M20 15a9 9 0 01-15.36 5.36" /></svg>
-					Reset
-				</button>
+				<Button size="sm" variant="ghost" icon={RotateCcw} title="Back to the machine's own boxes" onclick={() => annotatorApi.loadSorterBoxes()}
+					>Reset</Button
+				>
 			{/if}
 		</div>
-
 		<div class="grid grid-cols-3 gap-1 text-center">
-			<div class="bg-bg px-1 py-1.5">
-				<div class="text-sm font-semibold text-text">{annotatorApi.totalAnnotations}</div>
-				<div class="text-[10px] text-text-muted">Total</div>
-			</div>
-			<div class="bg-bg px-1 py-1.5">
-				<div class="text-sm font-semibold text-text">{annotatorApi.seededCount}</div>
-				<div class="text-[10px] text-text-muted">Seeded</div>
-			</div>
-			<div class="bg-bg px-1 py-1.5">
-				<div class="text-sm font-semibold text-text">{annotatorApi.manualCount}</div>
-				<div class="text-[10px] text-text-muted">Manual</div>
-			</div>
+			{#each [['Total', annotatorApi.totalAnnotations], ['Seeded', annotatorApi.seededCount], ['Manual', annotatorApi.manualCount]] as [name, count] (name)}
+				<div class="rounded-control bg-well py-1.5">
+					<div class="num text-sm font-semibold text-ink">{count}</div>
+					<div class="text-sm text-ink-muted">{name}</div>
+				</div>
+			{/each}
 		</div>
-
 		{#if annotatorApi.feedback}
-			<p class="px-2 py-1.5 text-[11px] {annotatorApi.feedbackTone === 'danger' ? 'bg-primary/8 text-primary' : annotatorApi.feedbackTone === 'success' ? 'bg-success/10 text-success' : 'bg-bg text-text-muted'}">
-				{annotatorApi.feedback}
-			</p>
+			<Alert tone={annotatorApi.feedbackTone === 'danger' ? 'danger' : annotatorApi.feedbackTone === 'success' ? 'success' : 'info'}
+				>{annotatorApi.feedback}</Alert
+			>
 		{/if}
-
-		<button
-			onclick={() => annotatorApi.save()}
-			disabled={annotatorApi.saving || !annotatorApi.isDirty}
-			class="flex w-full items-center justify-center gap-2 px-3 py-2 text-xs font-medium text-white transition-colors disabled:cursor-not-allowed disabled:bg-primary/40 {annotatorApi.saving || !annotatorApi.isDirty ? 'bg-primary/40' : 'bg-primary hover:bg-primary-hover'}"
-		>
-			<svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" /></svg>
-			{annotatorApi.saving ? 'Saving...' : 'Save Annotations'}
-		</button>
 	</div>
-</div>
+	{#snippet footer()}
+		<Button variant="primary" size="sm" icon={Check} loading={annotatorApi.saving} disabled={!annotatorApi.isDirty} onclick={() => annotatorApi.save()}
+			>Save the annotations</Button
+		>
+	{/snippet}
+</Panel>

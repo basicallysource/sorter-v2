@@ -35,7 +35,8 @@
 	import { scoreEntry } from '$lib/search';
 	import { colorStore } from '$lib/colors.svelte';
 	import {
-		ASSEMBLIES,
+		ALL_ASSEMBLIES,
+		ALL_PARTS,
 		commitUrl,
 		docsUrl,
 		fmtDate,
@@ -48,7 +49,6 @@
 		JOIN_LABELS,
 		concreteLines,
 		lineQty,
-		PARTS,
 		plainDescription,
 		primaryColorId,
 		screwTravel,
@@ -90,25 +90,48 @@
 	const layers = $derived(layerStore.sizes.length);
 
 	// ---- collapsing the tree -------------------------------------------------
+	// A node is a PLACE in the tree, not an assembly: the same assembly (a
+	// C-channel, a rotor unit) is built under several parents, and each of those
+	// is its own row that folds on its own. So every per-row state below is keyed
+	// by the node's path, the assembly ids from the machine down joined with `/`
+	// (`machine/chute/c-channel`). Two lines naming one assembly under the same
+	// parent get `~2`, `~3` on the later ones. The path is also the row's HTML id.
+	const ROOT = 'machine';
+	const idOf = (path: string) => path.slice(path.lastIndexOf('/') + 1).replace(/~\d+$/, '');
+	/** Path segment of each line of one parent: the assembly id, or '' for a
+	 *  member line. */
+	function segmentsOf(list: AssemblyLine[]): string[] {
+		const seen = new Map<string, number>();
+		return list.map((l) => {
+			if (!l.assembly) return '';
+			const n = (seen.get(l.assembly) ?? 0) + 1;
+			seen.set(l.assembly, n);
+			return n === 1 ? l.assembly : `${l.assembly}~${n}`;
+		});
+	}
+	function childPaths(path: string): string[] {
+		const lines = getAssembly(idOf(path))?.lines ?? [];
+		const above = path.split('/').map((seg) => seg.replace(/~\d+$/, ''));
+		return segmentsOf(lines)
+			.filter((seg) => seg && !above.includes(seg.replace(/~\d+$/, '')))
+			.map((seg) => `${path}/${seg}`);
+	}
+
 	// Every node can fold. The record below is also the authored default-open
 	// set: only the machine itself starts open, so the page opens as a one-line
 	// table of contents instead of the whole bill of materials at once.
-	let expanded = $state<Record<string, boolean>>({ machine: true });
-	const isOpen = (id: string) => (filtering ? true : (expanded[id] ?? false));
-	function toggle(id: string) {
-		expanded[id] = !(expanded[id] ?? false);
+	let expanded = $state<Record<string, boolean>>({ [ROOT]: true });
+	const isOpen = (path: string) => (filtering ? true : (expanded[path] ?? false));
+	function toggle(path: string) {
+		expanded[path] = !(expanded[path] ?? false);
 	}
 
 	// The ⋮ menu on a node: expand or collapse its whole subtree, itself
-	// included. One open menu at a time, keyed by assembly id.
+	// included. One open menu at a time, keyed by node path.
 	let menuFor = $state<string | null>(null);
-	function setSubtree(id: string, open: boolean, seen = new Set<string>()) {
-		if (seen.has(id)) return;
-		seen.add(id);
-		expanded[id] = open;
-		for (const line of getAssembly(id)?.lines ?? []) {
-			if (line.assembly) setSubtree(line.assembly, open, seen);
-		}
+	function setSubtree(path: string, open: boolean) {
+		expanded[path] = open;
+		for (const child of childPaths(path)) setSubtree(child, open);
 		menuFor = null;
 	}
 	function onWindowClick(e: MouseEvent) {
@@ -118,32 +141,40 @@
 		if (e.key === 'Escape') menuFor = null;
 	}
 
-	// First parent wins for a subtree shared by two branches — good enough for
-	// walking upward from a focus target. `treeOrder` is the same walk recorded
-	// as a list, so the ids written to the URL come out parents-first instead of
-	// in whatever order they happened to be unfolded.
-	const parentOf = new Map<string, string>();
-	const treeOrder: string[] = ['machine'];
+	// Every node of the tree, parents first, so the paths written to the URL come
+	// out in reading order instead of in whatever order they happened to be
+	// unfolded.
+	const treeOrder: string[] = [];
 	{
-		const walk = (id: string) => {
-			for (const line of getAssembly(id)?.lines ?? []) {
-				if (line.assembly && !parentOf.has(line.assembly)) {
-					parentOf.set(line.assembly, id);
-					treeOrder.push(line.assembly);
-					walk(line.assembly);
-				}
-			}
+		const walk = (path: string) => {
+			treeOrder.push(path);
+			for (const child of childPaths(path)) walk(child);
 		};
-		walk('machine');
+		walk(ROOT);
 	}
+	const knownPaths = new Set(treeOrder);
+	/** The nodes a link means: an exact path, or a bare assembly id, which is how
+	 *  every link made before paths existed spells it. */
+	const nodesNamed = (name: string) =>
+		knownPaths.has(name) ? [name] : name.includes('/') ? [] : treeOrder.filter((p) => idOf(p) === name);
+	/** Unfold a node and everything above it. */
+	function openDownTo(path: string) {
+		let cur = '';
+		for (const seg of path.split('/')) expanded[(cur = cur ? `${cur}/${seg}` : seg)] = true;
+	}
+	/** URLSearchParams escapes what is legal and readable in a query string. */
+	const queryOf = (p: URLSearchParams) =>
+		p.toString().replaceAll('%2C', ',').replaceAll('%40', '@').replaceAll('%2F', '/');
 
 	// ---- the open tree in the URL --------------------------------------------
 	// Which nodes are unfolded IS the view on this page, so it belongs in the
 	// address bar: the link you paste reopens the branch you were talking about.
-	// `open` lists the unfolded assemblies; `open=` with nothing after it means
+	// `open` lists the unfolded nodes by path; `open=` with nothing after it means
 	// everything is folded, which is a different thing from no param at all (that
 	// one means "the authored default"), and `open=all` is the whole tree, spelled
-	// out because the id list for that runs past 500 characters. Query params only
+	// out because the path list for that runs far past 500 characters. A bare
+	// assembly id still works, as it did before paths: it unfolds every node
+	// of that assembly. Query params only
 	// exist in the browser — the site is prerendered — so the URL is read on mount,
 	// once, and written back from an effect afterwards.
 	let focus = $state<string | null>(null);
@@ -154,16 +185,16 @@
 		if (openParam !== null) {
 			expanded = {};
 			const ids = openParam === 'all' ? treeOrder : openParam.split(',');
-			for (const id of ids) if (getAssembly(id)) expanded[id] = true;
+			for (const name of ids) for (const path of nodesNamed(name)) expanded[path] = true;
 		}
 
-		// ?focus=<assembly id> — the hardware page links here to answer "where does
-		// this screw actually go?".
-		const target = sp.get('focus');
-		focus = target;
+		// ?focus=<assembly id or node path> — the hardware page links here to answer
+		// "where does this screw actually go?". An id lands on its first node.
+		const target = nodesNamed(sp.get('focus') ?? '')[0];
+		focus = target ?? null;
 		if (!target) return;
 		// A collapsed ancestor would hide the thing being pointed at.
-		for (let cur: string | undefined = target; cur; cur = parentOf.get(cur)) expanded[cur] = true;
+		openDownTo(target);
 		// Part renders load after first paint and shift everything down, so one
 		// scroll lands short. Re-aim a few times while the layout settles.
 		const aim = () => document.getElementById(`asm-${target}`)?.scrollIntoView({ block: 'center' });
@@ -178,17 +209,15 @@
 
 	$effect(() => {
 		if (!browser || !urlReady) return;
-		const open = treeOrder.filter((id) => expanded[id]);
+		const open = treeOrder.filter((path) => expanded[path]);
 		// location, not page.url: replaceState does not update the page store,
 		// so reading it here would resurrect params another writer removed.
 		const params = new URLSearchParams(location.search);
 		// The default view writes no param, so the bare page keeps a bare URL.
-		if (open.length === 1 && open[0] === 'machine') params.delete('open');
+		if (open.length === 1 && open[0] === ROOT) params.delete('open');
 		else if (open.length === treeOrder.length) params.set('open', 'all');
 		else params.set('open', open.join(','));
-		// A comma is legal in a query string, and a list of ids is worth reading
-		// in the address bar; URLSearchParams escapes it anyway, so undo that.
-		const qs = params.toString().replaceAll('%2C', ',').replaceAll('%40', '@');
+		const qs = queryOf(params);
 		const target = qs ? `${location.pathname}?${qs}` : location.pathname;
 		if (target !== location.pathname + location.search) replaceState(target, {});
 	});
@@ -332,17 +361,9 @@
 		// ?v=feeder@4,c-channel@2 — which nodes are flipped to which version,
 		// so a flipped view is shareable and survives reload. The path down to
 		// each flipped node opens, or the restored view would sit folded away.
-		const openPathTo = (target: string) => {
-			const walk = (id: string, trail: string[]): boolean => {
-				if (id === target) {
-					for (const t of [...trail, id]) expanded[t] = true;
-					return true;
-				}
-				return (getAssembly(id)?.lines ?? []).some(
-					(l) => l.assembly && walk(l.assembly, [...trail, id])
-				);
-			};
-			walk('machine', []);
+		const openPathTo = (aid: string) => {
+			const first = nodesNamed(aid)[0];
+			if (first) openDownTo(first);
 		};
 		for (const pair of (sp.get('v') ?? '').split(',')) {
 			const [aid, ver] = pair.split('@');
@@ -371,7 +392,7 @@
 			if (v) params.set(k, v);
 			else params.delete(k);
 		}
-		const qs = params.toString().replaceAll('%2C', ',').replaceAll('%40', '@');
+		const qs = queryOf(params);
 		replaceState(qs ? `${location.pathname}?${qs}` : location.pathname, {});
 	});
 
@@ -553,7 +574,7 @@
 	const DAY_END = VSEQ * 2;
 	const ALL_EVENTS: HistoryEvent[] = [
 		...(changelog.events as HistoryEvent[]),
-		...[...PARTS, ...ASSEMBLIES].flatMap((item) => {
+		...[...ALL_PARTS, ...ALL_ASSEMBLIES].flatMap((item) => {
 			// A single entry means nothing ever changed (the generator writes a
 			// synthetic "Initial version." for every part) — no history to show.
 			const all = item.versions ?? [];
@@ -879,17 +900,19 @@
 	{/each}
 {/snippet}
 
-{#snippet lines(list: AssemblyLine[], mult: number, depth: number, endpoints: Set<string> | null = null)}
+{#snippet lines(list: AssemblyLine[], mult: number, depth: number, endpoints: Set<string> | null, path: string)}
 	<!-- `list` is already concrete: param slots resolved to part lines, and any
 	     args on sub-assembly lines resolved to literal ids (concreteLines). -->
 	<!-- Keyed by position as well as id: two lines can legitimately name the
 	     same part, and a bare id key makes that a duplicate-key error that
 	     blanks the whole page on hydration. -->
-	{#each order === 'name' ? [...list].sort((a, b) => memberName(a.part ?? a.assembly ?? '').localeCompare(memberName(b.part ?? b.assembly ?? ''))) : list as line, i (`${line.part ?? line.assembly}-${i}`)}
+	{@const rows = order === 'name' ? [...list].sort((a, b) => memberName(a.part ?? a.assembly ?? '').localeCompare(memberName(b.part ?? b.assembly ?? ''))) : list}
+	{@const segs = segmentsOf(rows)}
+	{#each rows as line, i (`${line.part ?? line.assembly}-${i}`)}
 		{#if !lineShown(line)}
 			<!-- filtered out -->
 		{:else if line.assembly}
-			{@render node(line.assembly, line.qty, lineQty(line, layers) * mult, depth + 1, endpoints?.has(line.assembly) ?? false, line.args)}
+			{@render node(`${path}/${segs[i]}`, line.qty, lineQty(line, layers) * mult, depth + 1, endpoints?.has(line.assembly) ?? false, line.args)}
 		{:else if line.part && getLasercut(line.part)}
 			{@const lc = getLasercut(line.part)!}
 			<div data-member={line.part} class="ml-1.5 mt-2 flex items-center gap-3 border border-border bg-surface p-2 sm:ml-4 sm:p-3">
@@ -1158,7 +1181,7 @@
 
 <!-- A node's line rows, routed by the header's version controls: the live
      lines, one version's snapshot, or the diff between two versions. -->
-{#snippet versionSwitch(asm: Assembly, mult: number, depth: number, instArgs: Record<string, string> | undefined = undefined)}
+{#snippet versionSwitch(asm: Assembly, mult: number, depth: number, instArgs: Record<string, string> | undefined, path: string)}
 	{@const cur = currentVersion(asm)}
 	{@const shown = filtering ? cur : (shownVersion[asm.id] ?? cur)}
 	{@const base = filtering ? undefined : diffBase[asm.id]}
@@ -1210,7 +1233,7 @@
 		<!-- assemblies a brace wires into get a box, so the tick lands on a
 		     visible container instead of ending in space -->
 		{@const eps = asm.connections?.length ? new Set(asm.connections.flatMap((c) => [c.from, c.to])) : null}
-		{@render lines(jointOrder(concreteLines(asm, asm.lines ?? [], instArgs), asm.connections ?? []), mult, depth, eps)}
+		{@render lines(jointOrder(concreteLines(asm, asm.lines ?? [], instArgs), asm.connections ?? []), mult, depth, eps, path)}
 	{/if}
 {/snippet}
 
@@ -1219,7 +1242,7 @@
      clicking it renders the tree below at that moment with the change diffed
      in; "vs now" diffs that moment against the current tree. Tags are
      highlighted rows on the same timeline. -->
-{#snippet historyPanel(asm: Assembly)}
+{#snippet historyPanel(asm: Assembly, path: string)}
 	{@const events = historyOf(asm.id)}
 	<div class="ml-1.5 mt-2 border border-border bg-surface sm:ml-4">
 		<div class="flex items-center gap-1.5 border-b border-border px-2.5 py-1.5 text-xs">
@@ -1231,7 +1254,7 @@
 			<button
 				type="button"
 				class="ml-auto flex h-5 w-5 items-center justify-center text-text-muted hover:text-text"
-				onclick={() => delete historyFor[asm.id]}
+				onclick={() => delete historyFor[path]}
 				aria-label="Close history"
 			>
 				<X size={12} />
@@ -1306,14 +1329,15 @@
      at the two keys; an added/removed branch renders plain inside its tint
      (its own window collapses to the side it exists on). Changed branches
      start open, quiet ones folded. -->
-{#snippet timeNode(id: string, row: DiffRow | null, depth: number, a: TKey, b: TKey)}
+{#snippet timeNode(path: string, row: DiffRow | null, depth: number, a: TKey, b: TKey)}
+	{@const id = idOf(path)}
 	{@const kind = row?.kind ?? 'same'}
 	{@const ca = kind === 'added' ? b : a}
 	{@const cb = kind === 'removed' ? a : b}
 	{@const rows = timeRows(id, ca, cb)}
 	{@const nm = memberName(id)}
-	{@const open = rows.length > 0 && (expanded[id] ?? (depth === 0 || subtreeChanged(id, ca, cb)))}
-	<div id="asm-{id}" class="{depth > 0 ? 'ml-1.5 mt-2 sm:ml-4' : ''} py-1">
+	{@const open = rows.length > 0 && (expanded[path] ?? (depth === 0 || subtreeChanged(id, ca, cb)))}
+	<div id="asm-{path}" class="{depth > 0 ? 'ml-1.5 mt-2 sm:ml-4' : ''} py-1">
 		<!-- svelte-ignore a11y_no_noninteractive_tabindex -->
 		<div
 			class="-mx-1 flex flex-wrap items-center gap-x-2 gap-y-0.5 px-1 py-0.5 {rows.length
@@ -1324,13 +1348,13 @@
 			aria-expanded={rows.length ? open : undefined}
 			onclick={(e) => {
 				if (!rows.length || (e.target as Element).closest('a, button')) return;
-				expanded[id] = !open;
+				expanded[path] = !open;
 			}}
 			onkeydown={(e) => {
 				if (!rows.length || e.target !== e.currentTarget) return;
 				if (e.key === 'Enter' || e.key === ' ') {
 					e.preventDefault();
-					expanded[id] = !open;
+					expanded[path] = !open;
 				}
 			}}
 		>
@@ -1350,13 +1374,13 @@
 			{#if kind === 'added'}<span class="border border-success/60 px-1 py-px text-[10px] font-semibold uppercase tracking-wider text-success-dark">added</span>{/if}
 			{#if kind === 'removed'}<span class="border border-danger/50 px-1 py-px text-[10px] font-semibold uppercase tracking-wider text-danger">removed</span>{/if}
 		</div>
-		{#if historyFor[id]}{@render historyPanel(getAssembly(id) ?? ({ id, name: nm } as Assembly))}{/if}
+		{#if historyFor[path]}{@render historyPanel(getAssembly(id) ?? ({ id, name: nm } as Assembly), path)}{/if}
 		{#if open}
 			<div class="tree-branch relative pl-2 sm:pl-4">
-				<button type="button" class="tree-line" onclick={() => (expanded[id] = false)} aria-label="Collapse {nm}"></button>
+				<button type="button" class="tree-line" onclick={() => (expanded[path] = false)} aria-label="Collapse {nm}"></button>
 				{#each rows as r (r.id)}
 					{#if isAsmish(r.id)}
-						{@render timeNode(r.id, r, depth + 1, ca, cb)}
+						{@render timeNode(`${path}/${r.id}`, r, depth + 1, ca, cb)}
 					{:else}
 						{@render timePartRow(r)}
 					{/if}
@@ -1366,8 +1390,8 @@
 	</div>
 {/snippet}
 
-{#snippet node(id: string, qty: AssemblyLine['qty'], mult: number, depth: number, boxed: boolean = false, instArgs: Record<string, string> | undefined = undefined)}
-	{@const asm = getAssembly(id)}
+{#snippet node(path: string, qty: AssemblyLine['qty'], mult: number, depth: number, boxed: boolean = false, instArgs: Record<string, string> | undefined = undefined)}
+	{@const asm = getAssembly(idOf(path))}
 	{#if asm && (!filtering || keep.assemblies.has(asm.id))}
 		{@const hasContent =
 			(asm.lines?.length ?? 0) > 0 ||
@@ -1375,11 +1399,11 @@
 			(asm.versions?.length ?? 1) > 1 ||
 			(asm.joining?.length ?? 0) > 0 ||
 			(asm.images?.length ?? 0) > 0}
-		{@const open = hasContent && isOpen(asm.id)}
+		{@const open = hasContent && isOpen(path)}
 		<div
-			id="asm-{asm.id}"
+			id="asm-{path}"
 			data-member={asm.id}
-			class="{depth > 0 ? 'ml-1.5 mt-2 sm:ml-4' : ''} py-1 {boxed ? 'border border-border px-1.5' : ''} {focus === asm.id ? 'bg-primary/[0.06]' : ''}"
+			class="{depth > 0 ? 'ml-1.5 mt-2 sm:ml-4' : ''} py-1 {boxed ? 'border border-border px-1.5' : ''} {focus === path ? 'bg-primary/[0.06]' : ''}"
 		>
 			<!-- The whole row is the expand/collapse target; anything interactive
 			     inside it (details, guide link, ⋮ menu) is filtered out by the
@@ -1397,13 +1421,13 @@
 				aria-label={hasContent ? `${open ? 'Collapse' : 'Expand'} ${asm.name}` : undefined}
 				onclick={(e) => {
 					if (!hasContent || (e.target as Element).closest('a, button')) return;
-					toggle(asm.id);
+					toggle(path);
 				}}
 				onkeydown={(e) => {
 					if (!hasContent || e.target !== e.currentTarget) return;
 					if (e.key === 'Enter' || e.key === ' ') {
 						e.preventDefault();
-						toggle(asm.id);
+						toggle(path);
 					}
 				}}
 			>
@@ -1426,6 +1450,8 @@
 					{#if qty === 'per-layer'}×{layers} (1 per layer)
 					{:else if qty === 'non-bottom-layers'}×{Math.max(0, layers - 1)} (every bin layer but the lowest)
 					{:else if qty === 'middle-layers'}×{Math.max(0, layers - 2)} (layers between the interfaces)
+					{:else if qty === 'per-half-layer'}×{layerStore.sizes.slice(0, layers).filter((s) => s === 'half').length} (1 per half-size layer)
+					{:else if qty === 'per-third-layer'}×{layers - layerStore.sizes.slice(0, layers).filter((s) => s === 'half').length} (1 per third-size layer)
 					{:else if qty !== 1}×{qty}{/if}
 				</span>
 				{@render tagChips(asm.id)}
@@ -1530,22 +1556,22 @@
 							type="button"
 							class="flex h-5 w-5 items-center justify-center text-text-muted hover:text-text"
 							aria-label="More actions for {asm.name}"
-							aria-expanded={menuFor === asm.id}
-							onclick={() => (menuFor = menuFor === asm.id ? null : asm.id)}
+							aria-expanded={menuFor === path}
+							onclick={() => (menuFor = menuFor === path ? null : path)}
 						>
 							<EllipsisVertical size={14} />
 						</button>
-						{#if menuFor === asm.id}
+						{#if menuFor === path}
 							<div class="setup-panel absolute right-0 top-6 z-30 w-40 py-1 text-xs" role="menu">
-								<button type="button" role="menuitem" class="block w-full px-3 py-1.5 text-left text-text hover:bg-primary/[0.06]" onclick={() => setSubtree(asm.id, true)}>Expand all</button>
-								<button type="button" role="menuitem" class="block w-full px-3 py-1.5 text-left text-text hover:bg-primary/[0.06]" onclick={() => setSubtree(asm.id, false)}>Collapse all</button>
+								<button type="button" role="menuitem" class="block w-full px-3 py-1.5 text-left text-text hover:bg-primary/[0.06]" onclick={() => setSubtree(path, true)}>Expand all</button>
+								<button type="button" role="menuitem" class="block w-full px-3 py-1.5 text-left text-text hover:bg-primary/[0.06]" onclick={() => setSubtree(path, false)}>Collapse all</button>
 								<button
 									type="button"
 									role="menuitem"
 									class="block w-full px-3 py-1.5 text-left text-text hover:bg-primary/[0.06]"
 									onclick={() => {
-										historyFor[asm.id] = true;
-										expanded[asm.id] = true;
+										historyFor[path] = true;
+										expanded[path] = true;
 										menuFor = null;
 									}}>History</button>
 							</div>
@@ -1565,13 +1591,13 @@
 				class="tree-branch relative pl-2 sm:pl-4"
 				style={braceGutter ? `padding-right: ${braceGutter}px` : undefined}
 			>
-				<button type="button" class="tree-line" onclick={() => toggle(asm.id)} aria-label="Collapse {asm.name}"></button>
+				<button type="button" class="tree-line" onclick={() => toggle(path)} aria-label="Collapse {asm.name}"></button>
 				{#if braceGutter && asm.connections}
 					<ConnectionBraces edges={asm.connections} gutter={braceGutter} isAssembly={(mid) => !!getAssembly(mid)} labelOf={(m) => CONN_LABELS[m] ?? m} nameOf={memberName} travelOf={(id) => screwTravel(getHardware(id))} />
 				{/if}
 			{#if asm.images?.length}<div class="mt-2"><ImageStrip images={asm.images} /></div>{/if}
-			{#if historyFor[asm.id] && !filtering}{@render historyPanel(asm)}{/if}
-			{@render versionSwitch(asm, mult, depth, instArgs)}
+			{#if historyFor[path] && !filtering}{@render historyPanel(asm, path)}{/if}
+			{@render versionSwitch(asm, mult, depth, instArgs, path)}
 			<!-- Alternative bills of materials under test, rendered with the same
 			     line rows. -->
 			{#each (filtering ? [] : (asm.candidates ?? [])) as c (c.uid)}
@@ -1588,7 +1614,7 @@
 					{#if c.images?.length}<div class="mt-2"><ImageStrip images={c.images} /></div>{/if}
 					{@render joiningRows(c.joining)}
 					<p class="mt-1 text-xs italic text-text-muted/70">An alternative bill of materials under test — not part of the build and not in the totals.</p>
-					{@render lines(c.lines, mult, depth)}
+					{@render lines(c.lines, mult, depth, null, `${path}/@${c.uid}`)}
 				</div>
 			{/each}
 			</div>
@@ -1730,9 +1756,9 @@
 					{/each}
 					<button type="button" class="ml-auto font-medium underline underline-offset-2" onclick={() => (timeView = null)}>back to now</button>
 				</div>
-				{@render timeNode('machine', null, 0, viewKeys.a, viewKeys.b)}
+				{@render timeNode(ROOT, null, 0, viewKeys.a, viewKeys.b)}
 			{:else}
-				{@render node('machine', 1, 1, 0)}
+				{@render node(ROOT, 1, 1, 0)}
 			{/if}
 	</section>
 </div>
@@ -1756,8 +1782,9 @@
 		box-shadow: 0 0 0 2px var(--color-primary);
 	}
 	/* The guide line under an open node is itself the collapse control: the
-	   whole height is clickable. The visible line stays 1px (see AGENTS.md
-	   § Design rules) — hover recolors it instead of thickening it. */
+	   whole height is clickable. The visible line stays 1px
+	   (software/sorter-design-system/docs/rules.md): hover recolors it
+	   instead of thickening it. */
 	.tree-line {
 		position: absolute;
 		top: 2px;

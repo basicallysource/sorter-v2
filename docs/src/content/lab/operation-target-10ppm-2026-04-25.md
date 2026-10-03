@@ -1,7 +1,7 @@
 ---
 title: Operation Target 10 PPM
 type: working-note
-audience: contributors tuning the live sorter runtime
+audience: contributors tuning the live SorterOS runtime
 applies_to: sorter-v2
 owner: lab
 last_verified: 2026-04-26

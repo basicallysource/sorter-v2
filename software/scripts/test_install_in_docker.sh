@@ -72,11 +72,10 @@ print(\"  backend deps OK\")
         echo
         echo "==> Validating systemd unit files..."
         sudo apt-get install -y -qq systemd >/dev/null 2>&1 || true
-        for unit in lego-sorter-backend.service lego-sorter-ui.service; do
+        for unit in sorter-backend.service sorter-backend-dev.service; do
             sed -e "s|__USER__|sorter|g" \
                 -e "s|__SOFTWARE_DIR__|/home/sorter/sorter-v2/software|g" \
                 -e "s|__UV_BIN__|/home/sorter/.local/bin/uv|g" \
-                -e "s|__PNPM_BIN__|/usr/bin/pnpm|g" \
                 "/home/sorter/sorter-v2/software/systemd/$unit" \
                 > "/tmp/$unit"
             if systemd-analyze verify "/tmp/$unit" 2>&1; then

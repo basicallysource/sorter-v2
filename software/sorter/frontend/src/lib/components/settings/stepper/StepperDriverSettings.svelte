@@ -1,10 +1,13 @@
 <script lang="ts">
-	import { ChevronDown } from 'lucide-svelte';
 	import StepperDrvStatusGrid from './StepperDrvStatusGrid.svelte';
-	import HoverEditNumber from './HoverEditNumber.svelte';
+	import SettingRow from '$lib/components/ui/SettingRow.svelte';
+	import Input from '$lib/components/ui/Input.svelte';
+	import Select from '$lib/components/ui/Select.svelte';
+	import Checkbox from '$lib/components/ui/Checkbox.svelte';
+	import Button from '$lib/components/ui/Button.svelte';
+	import Spinner from '$lib/components/ui/Spinner.svelte';
 
 	let {
-		open = $bindable(),
 		loading,
 		saving,
 		hasEndstop,
@@ -18,10 +21,8 @@
 		sgTcoolthrs = $bindable(),
 		stepperDirectionInverted = $bindable(),
 		tmcDrvStatus,
-		onToggle,
 		onSave
 	}: {
-		open: boolean;
 		loading: boolean;
 		saving: boolean;
 		hasEndstop: boolean;
@@ -35,120 +36,95 @@
 		sgTcoolthrs: number;
 		stepperDirectionInverted: boolean;
 		tmcDrvStatus: Record<string, any> | null;
-		onToggle: () => void;
 		onSave: () => void;
 	} = $props();
 </script>
 
-<div class="border-t border-border pt-4"></div>
+{#snippet current(id: string, label: string, help: string, get: () => number, set: (v: number) => void)}
+	<SettingRow {label} {help} for={id}>
+		<input
+			type="range"
+			min="0"
+			max="31"
+			value={get()}
+			oninput={(e) => set(Number(e.currentTarget.value))}
+			aria-label={label}
+			class="w-32 accent-primary"
+		/>
+		<Input
+			{id}
+			type="number"
+			size="sm"
+			min={0}
+			max={31}
+			value={get()}
+			oninput={(e) => set(Number((e.currentTarget as HTMLInputElement).value))}
+			class="w-20"
+		/>
+	</SettingRow>
+{/snippet}
 
-<button
-	onclick={onToggle}
-	class="flex w-full cursor-pointer items-center justify-between"
->
-	<div class="text-sm font-medium text-text">Driver Settings</div>
-	<ChevronDown
-		size={16}
-		class="text-text-muted transition-transform {open ? 'rotate-180' : ''}"
-	/>
-</button>
-
-{#if open}
-	{#if loading}
-		<div class="text-sm text-text-muted">
-			Loading driver state...
+{#if loading}
+	<div class="flex items-center gap-2 px-(--pad-panel) py-(--pad-row) text-sm text-ink-muted">
+		<Spinner size={14} /> Reading the driver
+	</div>
+{:else}
+	<div class="divide-y divide-line">
+		{@render current('tmc-irun', 'Run current', 'IRUN, 0 to 31.', () => tmcIrun, (v) => (tmcIrun = v))}
+		{@render current('tmc-ihold', 'Hold current', 'IHOLD, 0 to 31.', () => tmcIhold, (v) => (tmcIhold = v))}
+		<SettingRow label="Microstepping" for="tmc-microsteps">
+			<div class="w-28">
+				<Select
+					id="tmc-microsteps"
+					size="sm"
+					value={String(tmcMicrosteps)}
+					onchange={(v) => (tmcMicrosteps = Number(v))}
+					options={[1, 2, 4, 8, 16, 32, 64, 128, 256].map((ms) => ({ value: String(ms), label: `1/${ms}` }))}
+				/>
+			</div>
+		</SettingRow>
+		<div class="flex flex-wrap gap-x-6 gap-y-2 px-(--pad-panel) py-(--pad-row)">
+			<Checkbox bind:checked={tmcStealthchop}>StealthChop</Checkbox>
+			<Checkbox bind:checked={tmcCoolstep}>CoolStep</Checkbox>
+			<Checkbox bind:checked={stepperDirectionInverted}>Invert the direction</Checkbox>
 		</div>
-	{:else}
-		<div class="flex flex-col gap-3">
-			<label class="flex flex-col gap-1 text-xs text-text">
-				<span class="flex items-center gap-1">
-					Run Current (IRUN): <HoverEditNumber bind:value={tmcIrun} min={0} max={31} />
-				</span>
-				<input type="range" min="0" max="31" bind:value={tmcIrun} class="w-full" />
-			</label>
-
-			<label class="flex flex-col gap-1 text-xs text-text">
-				<span class="flex items-center gap-1">
-					Hold Current (IHOLD): <HoverEditNumber bind:value={tmcIhold} min={0} max={31} />
-				</span>
-				<input type="range" min="0" max="31" bind:value={tmcIhold} class="w-full" />
-			</label>
-
-			<label class="flex flex-col gap-1 text-xs text-text">
-				Microstepping
-				<select
-					bind:value={tmcMicrosteps}
-					class="border border-border bg-bg px-2 py-1.5 text-sm text-text"
-				>
-					{#each [1, 2, 4, 8, 16, 32, 64, 128, 256] as ms}
-						<option value={ms}>1/{ms}</option>
-					{/each}
-				</select>
-			</label>
-
-			<label class="flex items-center gap-2 text-sm text-text">
-				<input type="checkbox" bind:checked={tmcStealthchop} />
-				StealthChop
-			</label>
-
-			<label class="flex items-center gap-2 text-sm text-text">
-				<input type="checkbox" bind:checked={tmcCoolstep} />
-				CoolStep
-			</label>
-
-			<div class="border border-border bg-bg px-3 py-3">
-				<label class="flex items-center gap-2 text-sm text-text">
-					<input type="checkbox" bind:checked={sgEnabled} />
-					StallGuard stall detection
-				</label>
-				<div class="mt-1 text-xs text-text-muted">
-					Halts the machine if this motor stalls — on every move while enabled. Tune the
-					threshold on the StallGuard page (Settings → Helpers).
-				</div>
-				{#if sgEnabled}
-					<div class="mt-3 flex flex-col gap-3">
-						<label class="flex flex-col gap-1 text-xs text-text">
-							<span class="flex items-center gap-1">
-								Threshold (SGTHRS): <HoverEditNumber bind:value={sgThrs} min={0} max={255} />
-							</span>
-							<input type="range" min="0" max="255" bind:value={sgThrs} class="w-full" />
-						</label>
-						<label class="flex flex-col gap-1 text-xs text-text">
-							Velocity floor (TCOOLTHRS, TSTEP)
+		<div class="px-(--pad-panel) py-(--pad-row)">
+			<Checkbox bind:checked={sgEnabled}><span class="font-medium">StallGuard stall detection</span></Checkbox>
+			<p class="mt-0.5 ml-6.5 text-sm text-ink-muted">
+				Halts the machine if this motor stalls, on every move while it's on. Tune the threshold on the
+				StallGuard page.
+			</p>
+			{#if sgEnabled}
+				<div class="mt-3 ml-6.5 flex flex-col gap-3 rounded-control bg-well p-3">
+					<div class="flex items-center justify-between gap-3">
+						<label for="tmc-sgthrs" class="text-sm text-ink">Threshold (SGTHRS)</label>
+						<div class="flex items-center gap-2">
 							<input
-								type="number"
+								type="range"
 								min="0"
-								bind:value={sgTcoolthrs}
-								class="border border-border bg-bg px-2 py-1.5 text-sm text-text"
+								max="255"
+								bind:value={sgThrs}
+								aria-label="Threshold"
+								class="w-28 accent-primary"
 							/>
-						</label>
-						<div class="text-xs text-text-muted">
-							Trips when SG_RESULT ≤ {sgThrs * 2}, only at cruise (TSTEP ≤ {sgTcoolthrs}).
+							<Input id="tmc-sgthrs" type="number" size="sm" min={0} max={255} bind:value={sgThrs} class="w-20" />
 						</div>
 					</div>
-				{/if}
-			</div>
-
-			<label class="flex items-center gap-2 text-sm text-text">
-				<input
-					type="checkbox"
-					checked={stepperDirectionInverted}
-					onchange={(event) => (stepperDirectionInverted = event.currentTarget.checked)}
-				/>
-				Invert stepper direction
-			</label>
-
-			<button
-				onclick={onSave}
-				disabled={saving}
-				class="cursor-pointer border border-border bg-bg px-3 py-2 text-sm text-text transition-colors hover:bg-surface disabled:cursor-not-allowed disabled:opacity-50"
-			>
-				{saving ? 'Applying...' : 'Apply Driver Settings'}
-			</button>
-
-			{#if tmcDrvStatus}
-				<StepperDrvStatusGrid drvStatus={tmcDrvStatus} />
+					<div class="flex items-center justify-between gap-3">
+						<label for="tmc-tcoolthrs" class="text-sm text-ink">Speed floor (TCOOLTHRS)</label>
+						<Input id="tmc-tcoolthrs" type="number" size="sm" min={0} bind:value={sgTcoolthrs} unit="TSTEP" class="w-32" />
+					</div>
+					<p class="num text-sm text-ink-muted">
+						Trips when SG_RESULT is {sgThrs * 2} or less, only at cruising speed (TSTEP up to {sgTcoolthrs}).
+					</p>
+				</div>
 			{/if}
 		</div>
-	{/if}
+		<div class="flex justify-end px-(--pad-panel) py-(--pad-row)">
+			<Button variant="primary" loading={saving} onclick={onSave}>Apply the driver settings</Button>
+		</div>
+		{#if tmcDrvStatus}
+			<StepperDrvStatusGrid drvStatus={tmcDrvStatus} />
+		{/if}
+	</div>
 {/if}

@@ -1,5 +1,10 @@
 <script lang="ts">
 	import type { SampleDetail, SampleReview } from '$lib/api';
+	import Disclosure from '$lib/components/Disclosure.svelte';
+	import KeyValue from '$lib/components/KeyValue.svelte';
+	import Panel from '$lib/components/Panel.svelte';
+	import Check from '@lucide/svelte/icons/check';
+	import X from '@lucide/svelte/icons/x';
 
 	interface Props {
 		sample: SampleDetail;
@@ -10,8 +15,6 @@
 		runId: string | undefined;
 		extra: Record<string, unknown>;
 		extraKeys: string[];
-		showExpandedMeta: boolean;
-		onToggleExpandedMeta: () => void;
 		formatValue: (val: unknown) => string;
 		formatDate: (d: string) => string;
 		shortId: (id: string) => string;
@@ -26,158 +29,95 @@
 		runId,
 		extra,
 		extraKeys,
-		showExpandedMeta,
-		onToggleExpandedMeta,
 		formatValue,
 		formatDate,
 		shortId
 	}: Props = $props();
 </script>
 
-<div class="border border-border bg-surface">
-	<div class="border-b border-border px-4 py-2.5">
-		<h2 class="text-xs font-semibold uppercase tracking-wider text-text-muted">Details</h2>
-	</div>
-	<div class="divide-y divide-border">
+<Panel title="Details" flush>
+	<div class="divide-y divide-line px-(--pad-panel) pb-2">
 		{#if sample.machine}
 			{@const machine = sample.machine}
 			{@const owner = machine.owner}
-			{@const machineHref = `/samples?scope=all&machine_id=${machine.id}`}
-			<div class="flex items-center justify-between gap-3 px-4 py-2">
-				<span class="text-xs text-text-muted">Machine</span>
+			<div class="flex items-center justify-between gap-6 py-2.5">
+				<span class="shrink-0 text-sm text-ink-muted">Machine</span>
 				<a
-					href={machineHref}
-					class="flex min-w-0 items-center gap-1.5 text-xs font-medium text-primary hover:underline"
-					title={owner?.display_name ? `${owner.display_name} / ${machine.name}` : machine.name}
+					href={`/samples?scope=all&machine_id=${machine.id}`}
+					class="flex min-w-0 items-center gap-1.5 text-sm font-medium text-primary-ink hover:underline"
+					title={owner?.display_name ? `${owner.display_name}, ${machine.name}` : machine.name}
 				>
-					{#if owner?.avatar_url}
-						<img src={owner.avatar_url} alt="" class="h-4 w-4 shrink-0 rounded-full" />
-					{/if}
-					<span class="min-w-0 truncate">
-						{#if owner?.display_name}<span class="text-text-muted">{owner.display_name} /</span> {/if}{machine.name}
-					</span>
+					{#if owner?.avatar_url}<img src={owner.avatar_url} alt="" class="size-4 shrink-0 rounded-full" />{/if}
+					<span class="min-w-0 truncate">{#if owner?.display_name}<span class="text-ink-muted">{`${owner.display_name}, `}</span>{/if}{machine.name}</span>
 				</a>
 			</div>
 		{/if}
-		{#if sample.source_role}
-			<div class="flex items-center justify-between px-4 py-2">
-				<span class="text-xs text-text-muted">Source</span>
-				<span class="text-xs font-medium text-text">{sample.source_role}</span>
-			</div>
-		{/if}
-		{#if sample.capture_reason}
-			<div class="flex items-center justify-between px-4 py-2">
-				<span class="text-xs text-text-muted">Reason</span>
-				<span class="text-xs font-medium text-text">{sample.capture_reason}</span>
-			</div>
-		{/if}
-		{#if camera}
-			<div class="flex items-center justify-between px-4 py-2">
-				<span class="text-xs text-text-muted">Camera</span>
-				<span class="text-xs font-medium text-text">{camera}</span>
-			</div>
-		{/if}
-		{#if detectionScope}
-			<div class="flex items-center justify-between px-4 py-2">
-				<span class="text-xs text-text-muted">Scope</span>
-				<span class="text-xs font-medium text-text">{detectionScope}</span>
-			</div>
-		{/if}
-		{#if sample.captured_at}
-			<div class="flex items-center justify-between px-4 py-2">
-				<span class="text-xs text-text-muted">Captured</span>
-				<span class="text-xs text-text">{formatDate(sample.captured_at)}</span>
-			</div>
-		{/if}
-		<div class="flex items-center justify-between px-4 py-2">
-			<span class="text-xs text-text-muted">Uploaded</span>
-			<span class="text-xs text-text">{formatDate(sample.uploaded_at)}</span>
-		</div>
-		{#if sample.image_width && sample.image_height}
-			<div class="flex items-center justify-between px-4 py-2">
-				<span class="text-xs text-text-muted">Size</span>
-				<span class="text-xs text-text">{sample.image_width}&times;{sample.image_height}</span>
-			</div>
-		{/if}
+		<KeyValue
+			items={[
+				...(sample.source_role ? [{ label: 'Source', value: sample.source_role, mono: true }] : []),
+				...(sample.capture_reason ? [{ label: 'Reason', value: sample.capture_reason, mono: true }] : []),
+				...(camera ? [{ label: 'Camera', value: camera }] : []),
+				...(detectionScope ? [{ label: 'Scope', value: detectionScope }] : []),
+				...(sample.captured_at ? [{ label: 'Captured', value: formatDate(sample.captured_at) }] : []),
+				{ label: 'Uploaded', value: formatDate(sample.uploaded_at) },
+				...(sample.image_width && sample.image_height ? [{ label: 'Size', value: `${sample.image_width} by ${sample.image_height}` }] : [])
+			]}
+		/>
 	</div>
-</div>
+</Panel>
 
 {#if pieceUuid || runId}
-	<div class="border border-border bg-surface">
-		<div class="border-b border-border px-4 py-2.5">
-			<h2 class="text-xs font-semibold uppercase tracking-wider text-text-muted">IDs</h2>
+	<Panel title="IDs" flush>
+		<div class="px-(--pad-panel) pb-2">
+			<KeyValue
+				items={[
+					{ label: 'Sample', value: sample.local_sample_id, mono: true },
+					...(pieceUuid ? [{ label: 'Piece', value: shortId(pieceUuid), mono: true }] : []),
+					...(runId ? [{ label: 'Run', value: shortId(runId), mono: true }] : [])
+				]}
+			/>
 		</div>
-		<div class="divide-y divide-border">
-			<div class="flex items-center justify-between px-4 py-2">
-				<span class="text-xs text-text-muted">Sample</span>
-				<span class="text-[11px] font-mono text-text-muted truncate ml-3 max-w-[200px]" title={sample.local_sample_id}>{sample.local_sample_id}</span>
-			</div>
-			{#if pieceUuid}
-				<div class="flex items-center justify-between px-4 py-2">
-					<span class="text-xs text-text-muted">Piece</span>
-					<span class="text-[11px] font-mono text-text-muted truncate ml-3 max-w-[200px]" title={pieceUuid}>{shortId(pieceUuid)}</span>
-				</div>
-			{/if}
-			{#if runId}
-				<div class="flex items-center justify-between px-4 py-2">
-					<span class="text-xs text-text-muted">Run</span>
-					<span class="text-[11px] font-mono text-text-muted truncate ml-3 max-w-[200px]" title={runId}>{shortId(runId)}</span>
-				</div>
-			{/if}
-		</div>
-	</div>
+	</Panel>
 {/if}
 
 {#if extraKeys.length > 0}
-	<div class="border border-border bg-surface">
-		<button
-			onclick={onToggleExpandedMeta}
-			class="flex w-full items-center justify-between px-4 py-2.5"
-		>
-			<h2 class="text-xs font-semibold uppercase tracking-wider text-text-muted">Metadata ({extraKeys.length})</h2>
-			<svg class="h-3.5 w-3.5 text-text-muted transition-transform {showExpandedMeta ? 'rotate-180' : ''}" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-				<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
-			</svg>
-		</button>
-		{#if showExpandedMeta}
-			<div class="border-t border-border divide-y divide-border">
-				{#each extraKeys as key}
-					<div class="flex items-start justify-between gap-3 px-4 py-2">
-						<span class="text-[11px] font-mono text-text-muted shrink-0">{key}</span>
-						<span class="text-[11px] text-text text-right break-all">{formatValue(extra[key])}</span>
+	<Panel flush>
+		<Disclosure title="Metadata" help={`${extraKeys.length} fields`}>
+			<dl class="divide-y divide-line px-(--pad-panel)">
+				{#each extraKeys as key (key)}
+					<div class="flex items-start justify-between gap-3 py-2">
+						<dt class="shrink-0 font-mono text-sm text-ink-muted">{key}</dt>
+						<dd class="min-w-0 text-right text-sm break-all text-ink">{formatValue(extra[key])}</dd>
 					</div>
 				{/each}
-			</div>
-		{/if}
-	</div>
+			</dl>
+		</Disclosure>
+	</Panel>
 {/if}
 
-<div class="border border-border bg-surface">
-	<div class="border-b border-border px-4 py-2.5">
-		<h2 class="text-xs font-semibold uppercase tracking-wider text-text-muted">Reviews</h2>
-	</div>
+<Panel title="Reviews" flush>
 	{#if reviews.length === 0}
-		<div class="px-4 py-4 text-center">
-			<p class="text-xs text-text-muted">No reviews yet</p>
-		</div>
+		<p class="px-(--pad-panel) pb-(--pad-panel) text-sm text-ink-muted">No reviews yet.</p>
 	{:else}
-		<div class="divide-y divide-border">
+		<ul class="divide-y divide-line border-t border-line">
 			{#each reviews as review (review.id)}
-				<div class="px-4 py-2.5">
-					<div class="flex items-center justify-between">
-						<div class="flex items-center gap-2">
-							<div class="flex h-5 w-5 items-center justify-center text-[10px] font-bold {review.decision === 'accept' ? 'bg-success/[0.08] text-success' : 'bg-primary-light text-primary'}">
-								{review.decision === 'accept' ? '✓' : '✗'}
-							</div>
-							<span class="text-xs font-medium text-text">{review.reviewer_display_name ?? 'Unknown'}</span>
-						</div>
-						<span class="text-[11px] text-text-muted">{formatDate(review.created_at)}</span>
+				{@const accepted = review.decision === 'accept'}
+				<li class="px-(--pad-panel) py-2.5">
+					<div class="flex items-center gap-2">
+						<span
+							class="flex size-5 shrink-0 items-center justify-center rounded-item {accepted
+								? 'bg-success-soft text-success-ink'
+								: 'bg-danger-soft text-danger-ink'}"
+							title={accepted ? 'Accepted' : 'Rejected'}
+						>
+							{#if accepted}<Check size={14} />{:else}<X size={14} />{/if}
+						</span>
+						<span class="min-w-0 flex-1 truncate text-sm font-medium text-ink">{review.reviewer_display_name ?? 'Unknown'}</span>
+						<span class="num shrink-0 text-sm text-ink-muted">{formatDate(review.created_at)}</span>
 					</div>
-					{#if review.notes}
-						<p class="mt-1 ml-7 text-xs text-text-muted">{review.notes}</p>
-					{/if}
-				</div>
+					{#if review.notes}<p class="mt-1 ml-7 text-sm text-ink-muted">{review.notes}</p>{/if}
+				</li>
 			{/each}
-		</div>
+		</ul>
 	{/if}
-</div>
+</Panel>

@@ -5,14 +5,12 @@ type: how-to
 section: hardware
 slug: electronics-orange-pi-prep
 kicker: Electronics — Preparing the Orange Pi
-lede: The heatsink fan, the WiFi module, and the first boot that sets the network, all done while the board is still loose on the bench.
+lede: The WiFi module and the heatsink fan, both fitted while the board is still loose on the bench.
 permalink: /hardware/electronics/installation/orange-pi-prep/
 og_image: https://assets.basically.website/sorter-docs/orange-pi-5-heatsink-fan-fitted-full-6f0bb3b7ada4.jpg
 last_verified: 2026-09-19
 author: barthel
 contributors: [brickcyclealice, spencer]
-warning: >-
-  The WiFi module seated in its slot is not photographed on a build yet.
 parts_needed:
   - part: sbc-orange-pi-5
     qty: 1
@@ -23,31 +21,13 @@ parts_needed:
 tools_needed: [Small Phillips screwdriver]
 ---
 
-Everything here is done to the board itself, before it goes anywhere near the machine, and that is the point of the page: the heatsink fan clips through the board and the WiFi module lives on its underside, so both want a board you can pick up and turn over. Once the Pi is standing off the [Orange Pi mount]({{ '/hardware/electronics/installation/orange-pi-mount/' | relative_url }}) there is a printed plate directly underneath it.
+Everything here is done to the board itself, before it goes anywhere near the machine, and that is the point of the page: the heatsink fan clips through the board and the WiFi module lives on its underside, so both want a board you can pick up and turn over. Once the Pi is in the [Orange Pi housing]({{ '/hardware/electronics/installation/orange-pi-mount/' | relative_url }}) there is a printed floor directly underneath it.
 
 Which board to buy, how much memory and storage it needs, and which WiFi module fits which variant are all on the [Orange Pi 5]({{ '/hardware/orange-pi-5/' | relative_url }}) page. This page assumes you have the parts.
 
-**The WiFi module is optional.** A machine staying on Ethernet does not need it, and steps 2 to 5 are then only the first boot. The original Orange Pi 5 has no WiFi on the board, so a machine going wireless needs either this M.2 module or a Linux-compatible USB adapter.
+**The WiFi module is optional.** A machine staying on Ethernet does not need it, and steps 1 to 3 are skipped, leaving only the heatsink fan. The original Orange Pi 5 has no WiFi on the board, so a machine going wireless needs either this M.2 module or a Linux-compatible USB adapter.
 
-{% include step.html n="1" title="Fit the heatsink fan" %}
-
-Its two pins clip underneath the board, so you want to be able to reach both faces.
-
-<div class="prep-item">
-  <div class="prep-item-body">
-    <p><strong>Orange Pi 5:</strong> the official heatsink fan sits on the SoC, the large chip in the middle of the board. Check the revision printed on the board before you start: it fits the Orange Pi 5 v1.3.2 and the 5 Plus, and the mounting holes are not in the same place on earlier revisions.</p>
-  </div>
-  <figure class="prep-item-figure">
-    <img class="doc-figure" src="https://assets.basically.website/sorter-docs/orange-pi-5-heatsink-fan-fitted-full-6f0bb3b7ada4.jpg" alt="An Orange Pi 5 v1.3.2 seen from above with the heatsink fan already fitted over the SoC in the middle of the board, a white spring pin clipped through the board at opposite corners of the finned block, and the red and black lead running from the fan to a small white 2-pin socket silkscreened FAN, between the CAM1 connector and the USB 2.0 port">
-    <figcaption>An Orange Pi 5 v1.3.2 with the fan fitted: the heatsink over the SoC, a spring pin through the board at each of two opposite corners, and the lead in the socket marked FAN. <cite>Manufacturer photo (Orange Pi), not a Basically photo; the pale highlights are theirs.</cite></figcaption>
-  </figure>
-</div>
-
-Peel the film off the thermal pad that comes in the box and lay it on the SoC. Sit the heatsink squarely on top with its two tabs over the holes either side, press both spring pins down until they click, and plug the 2-pin lead into the socket marked FAN, which on a v1.3.2 board is between the CAM1 connector and the USB 2.0 port. The pins hold it on, so there are no screws here and nothing to tighten.
-
-This is a second fan, not a replacement for the 40 mm one that ends up on the mount's arm: the heatsink fan sits on the chip, and the arm fan blows down over the whole board from above.
-
-{% include step.html n="2" title="Check the WiFi module matches the board" %}
+{% include step.html n="1" title="Check the WiFi module (optional) matches the board" %}
 
 The M.2 formats used across the Orange Pi family are the same size and differ only in where the keying notch is cut into the row of gold contacts, so a module only seats in the slot it is keyed for. Which module goes with which board, and how to tell the two slots apart by eye, is on the [Orange Pi 5]({{ '/hardware/orange-pi-5/#wifi' | relative_url }}) page.
 
@@ -58,7 +38,7 @@ The M.2 formats used across the Orange Pi family are the same size and differ on
 
 Hold the module against the slot and check the notches line up before pushing. **If it does not want to go in, stop.** A module that will not seat is the wrong one for the board, not one that needs more force.
 
-{% include step.html n="3" title="Seat the module in the slot" %}
+{% include step.html n="2" title="Seat the module (optional) in the slot" %}
 
 With the board unplugged, turn it over and find the M.2 slot on the underside.
 
@@ -68,42 +48,32 @@ Slide the module in at a shallow angle, roughly 30°, gold contacts first, until
 
 Both the washer and the screw come in the box with the module, so there is nothing to buy for this and nothing to substitute.
 
-<div class="img-placeholder">Image coming: the module seated in the M.2 slot on the underside of the board, its free end held down by the retention screw with the washer under it</div>
+<figure class="single-figure">
+  <img class="doc-figure" src="https://assets.basically.website/sorter-docs/wifi-module-opi5-seated-in-slot-full-1f7e6cdeeee3.jpg" alt="The underside of an Orange Pi 5 held at an angle, with the AP6275P module seated in the black M.2 connector and two antenna leads running off the edge of the board; a circle drawn over that part of the board magnifies it, showing the module's shielded can, the gold antenna socket at its near corner with a lead clipped on, and the row of gold contacts disappearing into the slot">
+  <figcaption>The module home in the slot, on the underside of the board. Its far end, the one the screw goes through, is outside the magnified circle. <cite>Manufacturer photo (Orange Pi), not a Basically photo; the magnified circle is theirs.</cite></figcaption>
+</figure>
 
-{% include step.html n="4" title="Connect the antennas" %}
+{% include step.html n="3" title="Connect the antennas" %}
 
 The antenna leads end in small round push-fit connectors. Line one up squarely over its socket on the module and press straight down until it clicks. They seat with very little force and the sockets are delicate, so do not rock or lever them on at an angle.
 
-{% include step.html n="5" title="First boot, and the network" %}
+{% include step.html n="4" title="Fit the heatsink fan" %}
 
-The network is set on a running machine, so the board does its first boot here, on the bench, before it is on anything: the USB-C supply in the socket marked `PWR IN`, Ethernet to a router for that boot alone, and the antennas on. [Install SorterOS]({{ '/sorter/installation/sorter-os/' | relative_url }}) covers flashing the card, how long first boot takes and where the UI is.
+Its two pins clip underneath the board, so you want to be able to reach both faces.
 
-<figure class="single-figure">
-  <img class="doc-figure" src="https://assets.basically.website/sorter-docs/wifi-module-bench-top-w1600-cc4b7edb44fd.jpg" alt="An Orange Pi 5 from above on a desk, the 40 mm fan on its arm covering most of the board, with a blue Ethernet cable and the USB-C power lead plugged in along the top edge and the two antennas lying beside it">
-  <figcaption>Booting on the bench with Ethernet in. <cite>Photo: BrickCycleAlice.</cite></figcaption>
-</figure>
+The official heatsink fan sits on the SoC, the large chip in the middle of the board. Check the revision printed on the board before you start: it fits the Orange Pi 5 v1.3.2 and the 5 Plus, and the mounting holes are not in the same place on earlier revisions.
 
-Nothing needs installing for the module itself: the driver is in the official Orange Pi Ubuntu image that SorterOS is built on, so a SorterOS machine picks it up on its own. Third-party OS images may not have the driver at all.
+Peel the film off the thermal pad that comes in the box and lay it on the SoC. Sit the heatsink squarely on top with its two tabs over the holes either side, press both spring pins down until they click, and plug the 2-pin lead into the socket marked FAN, which on a v1.3.2 board is between the CAM1 connector and the USB 2.0 port. The pins hold it on, so there are no screws here and nothing to tighten.
 
-Once the UI is up, the adapter shows under **Settings → WiFi**, which is where the network and password go in. Over SSH, `nmcli device wifi list` lists what it can see.
-
-**Take the adapter's address before you unplug the Ethernet.** Joining a network gets the machine a second address, different from the one it has been answering on, and once connected the adapter's row on that same WiFi page shows what it is. Write it down, then pull the Ethernet and browse to it. Doing it the other way round leaves you hunting for the machine, because the page you were reading goes with the cable.
-
-{% include step.html n="6" title="Shut it down before it moves" %}
-
-**Never cut the power to a running board.** It writes files continuously, and pulling the plug mid-write can corrupt the card you just flashed.
-
-Press the small black button on the side of the Orange Pi once and leave it alone. Shutdown takes about a minute and a half, and it has finished when the red and green LEDs stop blinking. Only then unplug it. The button is a shutdown button, not a power switch: the board starts again the moment it has power, with no press needed.
-
-[Shutting down the machine]({{ '/sorter/safe-shutdown/' | relative_url }}) covers the same from the UI, which is the route once the board is in the machine and the button is harder to reach.
+This is the Pi's only cooling. Its housing's roof and floor are vented, and nothing else sits over the board inside it.
 
 ## The finished result
 
-A board that has been prepared: fan on, module in, network set, powered down and ready to bolt down.
+A board that has been prepared: fan on, module in if you are using one, and ready to go into its housing.
 
 <figure class="single-figure">
-  <img class="doc-figure" src="https://assets.basically.website/sorter-docs/wifi-module-bench-first-boot-w1600-c538b35694b3.jpg" alt="An Orange Pi 5 standing off its printed extrusion mount with the fan arm above it, powered up on a desk with the red LED lit, a USB-C lead in the power socket and two antenna leads running off the module fitted underneath">
-  <figcaption>Prepared and on the network, still on the bench. This board is running without the heatsink fan from step 1, which is not a reason to leave it off. <cite>Photo: BrickCycleAlice.</cite></figcaption>
+  <img class="doc-figure" src="https://assets.basically.website/sorter-docs/orange-pi-5-heatsink-fan-fitted-full-6f0bb3b7ada4.jpg" alt="An Orange Pi 5 v1.3.2 seen from above with the heatsink fan already fitted over the SoC in the middle of the board, a white spring pin clipped through the board at opposite corners of the finned block, and the red and black lead running from the fan to a small white 2-pin socket silkscreened FAN, between the CAM1 connector and the USB 2.0 port">
+  <figcaption>The prepared board from above: the heatsink over the SoC, a spring pin through the board at each of two opposite corners, and the fan lead in the socket marked FAN. The module and its antenna leads are on the face you cannot see. <cite>Manufacturer photo (Orange Pi), not a Basically photo; the pale highlights are theirs.</cite></figcaption>
 </figure>
 
-Carry on with [Orange Pi mount]({{ '/hardware/electronics/installation/orange-pi-mount/' | relative_url }}), which stands it off its printed plate and puts the fan arm over it.
+Carry on with [Orange Pi housing]({{ '/hardware/electronics/installation/orange-pi-mount/' | relative_url }}), which closes it into its printed box.

@@ -1,8 +1,17 @@
 <script lang="ts">
+	import type { Component } from 'svelte';
+	import ArchiveX from '@lucide/svelte/icons/archive-x';
+	import Crosshair from '@lucide/svelte/icons/crosshair';
+	import Ellipsis from '@lucide/svelte/icons/ellipsis';
+	import FolderOutput from '@lucide/svelte/icons/folder-output';
+	import Tag from '@lucide/svelte/icons/tag';
 	import PieceThumb from '$lib/components/PieceThumb.svelte';
-	import { Skeleton } from '$lib/components/primitives';
-	import { ArchiveX, Crosshair, FolderOutput, Tag } from 'lucide-svelte';
-	import Spinner from '$lib/components/Spinner.svelte';
+	import Badge from '$lib/components/ui/Badge.svelte';
+	import Button from '$lib/components/ui/Button.svelte';
+	import Menu from '$lib/components/ui/Menu.svelte';
+	import ProgressBar from '$lib/components/ui/ProgressBar.svelte';
+	import Skeleton from '$lib/components/ui/Skeleton.svelte';
+	import Spinner from '$lib/components/ui/Spinner.svelte';
 	import { categoryLabel, formatLastSeen, formatRelativeTime, pieceTooltip, previewUrl } from './pieces';
 	import QuantityBadge from './QuantityBadge.svelte';
 	import type { BinContentItem, BinContents, BinInfo, SetMeta, SetProgressSummary } from './types';
@@ -60,130 +69,141 @@
 
 	const lastDropRelative = $derived(formatRelativeTime(contents?.last_distributed_at));
 
+	type MenuEntry =
+		| 'separator'
+		| {
+				label: string;
+				icon: Component<{ size?: number; class?: string }>;
+				onselect: () => void;
+				disabled?: boolean;
+				danger?: boolean;
+		  };
+	// Emptying or resetting a bin is rare, so it lives in a menu; the reset,
+	// which drops the bin's assignment, comes last.
+	const menuItems = $derived.by((): MenuEntry[] => {
+		const items: MenuEntry[] = [{ label: 'Assign categories', icon: Tag, onselect: onOpenDetails }];
+		if (contents && contents.piece_count > 0) {
+			items.push({ label: 'Empty this bin', icon: FolderOutput, onselect: onEmpty, disabled: clearDisabled });
+		}
+		if (bin.category_ids.length > 0) {
+			items.push('separator', {
+				label: 'Reset this bin and clear its assignment',
+				icon: ArchiveX,
+				onselect: onReset,
+				disabled: clearDisabled,
+				danger: true
+			});
+		}
+		return items;
+	});
+
 	function itemTooltip(item: BinContentItem): string {
 		return item.count > 1 ? `${pieceTooltip(item)} ×${item.count}` : pieceTooltip(item);
 	}
 </script>
 
 <div
-	class="group relative flex h-full flex-col border bg-surface {searchState === 'match'
-		? 'border-primary ring-2 ring-primary'
-		: 'border-border'} {searchState === 'miss' ? 'opacity-40' : ''} {sectionOn ? '' : 'opacity-50'}"
+	class="relative flex h-full flex-col gap-2 rounded-control p-2.5 transition-colors {isCurrent
+		? 'bg-success-soft'
+		: searchState === 'match'
+			? 'bg-primary-soft'
+			: 'bg-well'} {searchState === 'miss' ? 'opacity-40' : ''} {sectionOn ? '' : 'opacity-60'}"
 >
-	{#if !sectionOn}
-		<div class="absolute right-1 top-1 z-10 bg-text-muted px-1.5 py-0.5 text-xs font-semibold uppercase tracking-wide text-surface">
-			Section off
-		</div>
-	{/if}
 	{#if isClearing}
-		<div class="absolute inset-0 z-20 flex items-center justify-center bg-surface/82 backdrop-blur-[1px]">
-			<div class="flex items-center gap-2 border border-border bg-surface px-3 py-2 shadow-sm">
-				<Spinner size={14} class="text-primary" />
-				<span class="text-xs font-semibold uppercase tracking-wide text-text">{clearingLabel}</span>
-			</div>
+		<div class="absolute inset-0 z-20 flex items-center justify-center gap-2 rounded-control bg-surface/85">
+			<Spinner size={16} class="text-primary-ink" />
+			<span class="text-sm font-medium text-ink">{clearingLabel}</span>
 		</div>
 	{/if}
-	<div class="flex items-start justify-between gap-2 border-b border-border bg-bg px-3 py-2">
-		<div class="flex min-h-[2.5rem] min-w-0 items-start gap-2 pt-0.5">
+	<div class="flex items-start justify-between gap-2">
+		<div class="flex min-w-0 items-start gap-2 pt-1">
 			<span
-				class="shrink-0 border border-border bg-surface px-1.5 py-0.5 text-xs font-semibold tabular-nums {isCurrent ? 'text-success' : 'text-text-muted'}"
-				title={`Bin ${bin.global_index + 1} — section ${bin.section_index + 1}, slot ${bin.bin_index + 1}`}
+				class="num shrink-0 rounded-badge bg-hover px-1.5 text-xs leading-5 font-medium {isCurrent
+					? 'text-success-ink'
+					: 'text-ink-muted'}"
+				title={`Bin ${bin.global_index + 1}: section ${bin.section_index + 1}, slot ${bin.bin_index + 1}`}
 			>
 				{bin.global_index + 1}
 			</span>
 			<span
-				class="line-clamp-2 min-w-0 text-sm font-semibold leading-5 {catLabel ? (isCurrent ? 'text-success' : 'text-text') : 'font-normal italic text-text-muted'}"
+				class="line-clamp-2 min-w-0 text-sm leading-5 {catLabel
+					? `font-medium ${isCurrent ? 'text-success-ink' : 'text-ink'}`
+					: 'text-ink-muted'}"
 				title={catLabel || 'No category assigned'}
 			>
 				{catLabel || 'Unassigned'}
 			</span>
 		</div>
-		<div class="flex shrink-0 items-center gap-1.5">
-			<button
-				type="button"
-				onclick={onOpenDetails}
-				class="border border-border bg-surface/95 p-1.5 text-text-muted transition-colors hover:bg-bg hover:text-text"
-				title="Assign categories to this bin"
-			>
-				<Tag size={13} />
-			</button>
-			<button
-				type="button"
-				onclick={onMoveTo}
+		<div class="-mr-1 flex shrink-0 items-center">
+			<Button
+				size="sm"
+				variant="ghost"
+				icon={Crosshair}
+				label="Move the chute to bin {bin.global_index + 1}"
+				loading={isMoving}
 				disabled={moveDisabled}
-				class="border border-border bg-surface/95 p-1.5 text-text-muted transition-colors hover:bg-bg hover:text-text disabled:cursor-not-allowed disabled:opacity-50"
-				title="Move chute to this bin"
-			>
-				<Crosshair size={13} />
-			</button>
-			{#if contents && contents.piece_count > 0}
-				<button
-					type="button"
-					onclick={onEmpty}
-					disabled={clearDisabled}
-					class="border border-border bg-surface/95 p-1.5 text-text-muted transition-colors hover:bg-bg hover:text-text disabled:cursor-not-allowed disabled:opacity-50"
-					title="Empty this bin but keep assignment"
-				>
-					<FolderOutput size={13} />
-				</button>
-			{/if}
-			{#if bin.category_ids.length > 0}
-				<button
-					type="button"
-					onclick={onReset}
-					disabled={clearDisabled}
-					class="border border-border bg-surface/95 p-1.5 text-text-muted transition-colors hover:bg-bg hover:text-text disabled:cursor-not-allowed disabled:opacity-50"
-					title="Reset this bin and clear assignment"
-				>
-					<ArchiveX size={13} />
-				</button>
-			{/if}
+				onclick={onMoveTo}
+			/>
+			<Menu label="Bin {bin.global_index + 1} actions" items={menuItems}>
+				{#snippet trigger(props)}
+					<Button
+						{...props}
+						size="sm"
+						variant="ghost"
+						icon={Ellipsis}
+						label="More actions for bin {bin.global_index + 1}"
+					/>
+				{/snippet}
+			</Menu>
 		</div>
 	</div>
 	{#if maxPiecesPerBin && maxPiecesPerBin > 0}
 		{@const fillCount = contents?.piece_count ?? 0}
-		{@const fillPct = Math.min(100, Math.max(0, (fillCount / maxPiecesPerBin) * 100))}
 		{@const isFull = fillCount >= maxPiecesPerBin}
 		{@const isNearFull = fillCount / maxPiecesPerBin >= 0.85 && !isFull}
-		<div
-			class="relative h-4 w-full overflow-hidden border-b border-border bg-bg"
-			title="{fillCount} / {maxPiecesPerBin} pieces"
-		>
-			<div
-				class="absolute inset-y-0 left-0 transition-all {isFull ? 'bg-danger' : isNearFull ? 'bg-warning' : 'bg-success'}"
-				style="width: {fillPct}%"
-			></div>
-			<div class="relative flex h-full items-center justify-center text-xs font-semibold tabular-nums text-text mix-blend-luminosity">
-				{fillCount} / {maxPiecesPerBin}
+		<div class="flex items-center gap-2">
+			<div class="min-w-0 flex-1">
+				<ProgressBar
+					value={fillCount}
+					max={maxPiecesPerBin}
+					label="Pieces in the bin"
+					tone={isFull ? 'danger' : isNearFull ? 'warning' : 'primary'}
+				/>
 			</div>
+			<span class="num shrink-0 text-xs text-ink-muted">{fillCount} / {maxPiecesPerBin}</span>
 		</div>
 	{/if}
 	<button
+		type="button"
 		onclick={onOpenDetails}
-		class="relative flex min-h-[6.25rem] w-full flex-1 flex-col items-start justify-start px-3 py-3 text-left transition-colors {isCurrent ? 'bg-success/8 ring-2 ring-inset ring-success' : layerEnabled ? 'hover:bg-bg' : 'cursor-not-allowed'} {isMoving || isClearing ? 'animate-pulse' : ''}"
-		title={`Bin ${bin.global_index + 1}${catLabel ? ` — ${catLabel}` : ''}`}
+		aria-label="Open bin {bin.global_index + 1}{catLabel ? `, ${catLabel}` : ''}"
+		class="-mx-1 flex min-h-[5rem] flex-1 flex-col items-stretch justify-start rounded-item p-1 text-left transition-colors {layerEnabled
+			? 'hover:bg-hover'
+			: 'cursor-not-allowed'}"
 	>
 		{#if !contentsLoaded}
-			<div class="mt-1 grid w-full grid-cols-4 gap-2">
+			<div class="grid w-full grid-cols-4 gap-2">
 				{#each Array(4) as _unused}
 					<Skeleton class="aspect-square w-full" />
 				{/each}
 			</div>
 		{:else if contents && previewItems.length > 0}
-			<div class="mt-1 flex w-full flex-col gap-3">
+			<div class="flex w-full flex-col gap-2">
 				{#if setMeta}
-					<div class="relative w-full border border-border bg-bg">
+					<div class="relative w-full overflow-hidden rounded-item bg-surface">
 						{#if setMeta.img_url}
-							<img src={setMeta.img_url} alt={setMeta.name} class="block max-h-[400px] w-full bg-surface object-contain" />
+							<img src={setMeta.img_url} alt={setMeta.name} class="block max-h-[400px] w-full object-contain" />
 						{/if}
 						{#if setMeta.set_num}
-							<div class="absolute top-2 right-2 border border-border bg-surface/95 px-2 py-1 text-xs font-medium text-text shadow-sm">{setMeta.set_num}</div>
+							<span class="dark num absolute top-1 right-1 rounded-badge bg-scrim px-1.5 text-xs font-medium text-ink">
+								{setMeta.set_num}
+							</span>
 						{/if}
 					</div>
 				{/if}
 				<div class="grid w-full grid-cols-4 gap-2">
 					{#each previewItems as item}
-						<div class="relative aspect-square w-full border border-border bg-bg" title={itemTooltip(item)}>
+						<div class="relative aspect-square w-full overflow-hidden rounded-item bg-surface" title={itemTooltip(item)}>
 							<PieceThumb src={previewUrl(item)} alt={pieceTooltip(item)} fallbackText={item.part_id ?? '?'} />
 							{#if item.count > 1}
 								<QuantityBadge count={item.count} size="sm" />
@@ -193,35 +213,37 @@
 				</div>
 			</div>
 		{:else}
-			<div class="flex w-full flex-1 items-center justify-center py-4 text-sm text-text-muted">Empty</div>
+			<div class="flex w-full flex-1 items-center justify-center py-4 text-sm text-ink-muted">Empty</div>
 		{/if}
 	</button>
 	{#if setProgress && setProgress.total_needed > 0}
-		{@const clampedPct = Math.min(100, Math.max(0, setProgress.pct))}
 		{@const isDone = setProgress.total_found >= setProgress.total_needed}
-		<div
-			class="relative h-5 w-full overflow-hidden border-t border-border bg-bg"
-			title="{setProgress.total_found} of {setProgress.total_needed} parts found"
-		>
-			<div
-				class="absolute inset-y-0 left-0 transition-all {isDone ? 'bg-success' : 'bg-primary'}"
-				style="width: {clampedPct}%"
-			></div>
-			<div class="relative flex h-full items-center justify-center text-xs font-semibold tabular-nums text-text mix-blend-luminosity">
-				{setProgress.total_found} / {setProgress.total_needed} parts
+		<div class="flex items-center gap-2">
+			<div class="min-w-0 flex-1">
+				<ProgressBar
+					value={setProgress.total_found}
+					max={setProgress.total_needed}
+					label="Parts of the set found"
+					tone={isDone ? 'success' : 'primary'}
+				/>
 			</div>
+			<span class="num shrink-0 text-xs text-ink-muted">
+				{setProgress.total_found} / {setProgress.total_needed} parts
+			</span>
 		</div>
 	{/if}
-	<div class="flex items-center justify-between gap-2 border-t border-border px-3 py-2 text-xs text-text-muted">
+	<div class="flex flex-wrap items-center justify-between gap-x-2 gap-y-1 text-xs text-ink-muted">
 		{#if !contentsLoaded}
 			<Skeleton class="h-4 w-16" />
 			<Skeleton class="h-4 w-12" />
 		{:else}
-			<div>
+			<div class="num">
 				{contents?.unique_item_count ?? 0}
 				{(contents?.unique_item_count ?? 0) === 1 ? 'type' : 'types'} · {contents?.piece_count ?? 0} total
 			</div>
-			{#if lastDropRelative}
+			{#if !sectionOn}
+				<Badge>Section off</Badge>
+			{:else if lastDropRelative}
 				<div title={`Last piece ${formatLastSeen(contents?.last_distributed_at)}`}>{lastDropRelative}</div>
 			{/if}
 		{/if}

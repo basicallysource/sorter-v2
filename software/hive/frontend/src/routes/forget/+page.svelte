@@ -1,6 +1,11 @@
 <script lang="ts">
 	import { getApiBaseUrl } from '$lib/api';
-	import { Button, Alert } from '$lib/components/primitives';
+	import Button from '$lib/components/Button.svelte';
+	import Alert from '$lib/components/Alert.svelte';
+	import Field from '$lib/components/Field.svelte';
+	import Input from '$lib/components/Input.svelte';
+	import PageHeader from '$lib/components/PageHeader.svelte';
+	import Panel from '$lib/components/Panel.svelte';
 
 	let installId = $state('');
 	let submitting = $state(false);
@@ -9,6 +14,7 @@
 
 	async function handleSubmit(e: Event) {
 		e.preventDefault();
+		if (submitting) return;
 		error = null;
 		result = null;
 		submitting = true;
@@ -30,53 +36,41 @@
 </script>
 
 <svelte:head>
-	<title>Delete anonymous data · Hive</title>
+	<title>Delete anonymous data - Hive</title>
 	<meta name="robots" content="noindex" />
 </svelte:head>
 
-<div class="mx-auto flex min-h-screen w-full max-w-xl flex-col justify-center gap-6 px-5 py-10">
-	<div>
-		<h1 class="text-2xl font-bold text-text">Delete anonymous data</h1>
-		<p class="mt-2 text-sm text-text-muted">
-			Sorter machines send an anonymous status ping (existence, software version, and coarse usage
-			counts) tied to a random install ID — never an account. Paste that install ID below to
-			permanently erase everything we hold for it. You can find the ID on your machine at
-			<code class="bg-surface px-1">/telemetry</code>.
-		</p>
-	</div>
-
-	<form onsubmit={handleSubmit} class="space-y-4 border border-border bg-surface p-6">
-		<div>
-			<label for="installId" class="mb-1 block text-sm font-medium text-text">Install ID</label>
-			<input
-				id="installId"
-				type="text"
-				bind:value={installId}
-				placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
-				required
-				disabled={submitting}
-				class="w-full border border-border px-3 py-2 font-mono text-sm text-text focus:border-primary focus:ring-1 focus:ring-primary focus:outline-none disabled:opacity-60"
-			/>
-		</div>
-
-		{#if error}
-			<Alert variant="danger" title="Error">{error}</Alert>
-		{/if}
-
-		{#if result}
-			<Alert variant="success" title="Done">
-				{#if result.deleted > 0}
-					Deleted. Everything for that install ID has been erased. New pings from that machine will
-					start a fresh record — set <code>SORTER_BASE_REPORTING_OFF=1</code> on the machine to stop them.
-				{:else}
-					No data was found for that install ID. It may have already been deleted, or the ID may be
-					mistyped.
-				{/if}
-			</Alert>
-		{/if}
-
-		<Button variant="danger" type="submit" disabled={submitting || !installId.trim()} loading={submitting}>
-			Delete my data
-		</Button>
-	</form>
+<div class="mx-auto flex min-h-[80vh] w-full max-w-xl flex-col justify-center gap-(--gap-panels)">
+	<PageHeader
+		title="Delete anonymous data"
+		description="A Sorter sends an anonymous status ping (that it exists, its software version and rough usage counts) under a random install ID, never an account. Paste the ID here to erase everything held for it, for good."
+	/>
+	<Panel>
+		<form onsubmit={handleSubmit} class="flex flex-col gap-4">
+			<Field label="Install ID" for="installId" help="It is on the machine's telemetry page, at /telemetry.">
+				<Input
+					id="installId"
+					bind:value={installId}
+					placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
+					required
+					disabled={submitting}
+					class="font-mono"
+				/>
+			</Field>
+			{#if error}<Alert tone="danger">{error}</Alert>{/if}
+			{#if result}
+				<Alert tone="success" title="Done">
+					{#if result.deleted > 0}
+						Everything for that install ID is erased. A new ping from the machine starts a new record; set
+						<code class="font-mono">SORTER_BASE_REPORTING_OFF=1</code> on it to stop them.
+					{:else}
+						Nothing was held for that install ID. It may be deleted already, or mistyped.
+					{/if}
+				</Alert>
+			{/if}
+			<div>
+				<Button variant="danger" type="submit" disabled={!installId.trim()} loading={submitting}>Delete the data</Button>
+			</div>
+		</form>
+	</Panel>
 </div>

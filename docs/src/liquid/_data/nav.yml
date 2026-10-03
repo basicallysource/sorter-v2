@@ -98,7 +98,7 @@ sections:
                 url: /hardware/electronics/installation/control-board-housing/
               - title: Preparing the Orange Pi
                 url: /hardware/electronics/installation/orange-pi-prep/
-              - title: Orange Pi mount
+              - title: Orange Pi housing
                 url: /hardware/electronics/installation/orange-pi-mount/
           - title: Connecting the components
             url: /hardware/electronics/connecting/
@@ -109,18 +109,26 @@ sections:
       - title: Helpers
         url: /hardware/helpers/
         children:
-          - title: Preparing Lazy Susan
-            url: /hardware/helpers/lazy-susan/
-          - title: Prepare timing pulley 20 tooth
-            url: /hardware/helpers/pulley-gear-mod/
-          - title: Soldering Pico headers
-            url: /hardware/helpers/pico-headers/
           - title: Installing heat inserts
             url: /hardware/helpers/heat-inserts/
           - title: Fitting T-nuts
             url: /hardware/helpers/t-nuts/
+          - title: Preparing the Lazy Susan
+            url: /hardware/helpers/lazy-susan/
+          - title: Preparing the 20-tooth timing pulley
+            url: /hardware/helpers/pulley-gear-mod/
+          - title: Soldering Pico headers
+            url: /hardware/helpers/pico-headers/
+          - title: Preparing the 3D printed cable cage plates
+            url: /hardware/helpers/cable-cage-plates/
           - title: Preparing the LED strip
             url: /hardware/helpers/led-strip/
+          - title: Using a multimeter
+            url: /hardware/helpers/multimeter/
+          - title: Crimping connectors
+            url: /hardware/helpers/crimping/
+          - title: Make your own PSU output pigtail
+            url: /hardware/helpers/psu-pigtail/
           - title: Make the control board's 24 V lead
             url: /hardware/helpers/board-24v-lead/
           - title: Make the Orange Pi's 24 V lead
@@ -131,8 +139,6 @@ sections:
             url: /hardware/helpers/chute-stepper-lead/
           - title: Make the chute limit switch lead
             url: /hardware/helpers/limit-switch-lead/
-          - title: Make your own PSU pigtail
-            url: /hardware/helpers/psu-pigtail/
       - title: Parts
         url: /hardware/parts/
         children:
@@ -144,7 +150,7 @@ sections:
             url: /hardware/parts/harness-order/
 
   - id: sorter
-    title: Sorter
+    title: SorterOS
     url: /sorter/
     description: The local software running on the machine — Python backend and SvelteKit UI.
     pages:
@@ -155,7 +161,7 @@ sections:
         pages:
           - title: Installation
             url: /sorter/installation/
-          - title: SorterOS
+          - title: SorterOS image
             url: /sorter/installation/sorter-os/
           - title: Linux (generic)
             url: /sorter/installation/linux-generic/
@@ -165,16 +171,16 @@ sections:
         pages:
           - title: First setup in the UI
             url: /sorter/first-setup/
+          - title: Camera calibration
+            url: /sorter/camera-calibration/
+          - title: Chute calibration
+            url: /sorter/chute-calibration/
           - title: Before your first sort run
             url: /sorter/before-first-sort-run/
           - title: Preparing LEGO for a sort run
             url: /sorter/preparing-lego/
           - title: Your first sort run
             url: /sorter/tutorials/first-sort-run/
-          - title: Chute calibration
-            url: /sorter/chute-calibration/
-          - title: Camera calibration
-            url: /sorter/camera-calibration/
           - title: Shutting down the machine
             url: /sorter/safe-shutdown/
           - title: Troubleshooting
@@ -195,6 +201,8 @@ sections:
     pages:
       - title: Overview
         url: /hive/
+      - title: How Hive works
+        url: /hive/how-hive-works/
       - title: Build your first sorting profile
         url: /hive/first-profile/
         children:
@@ -210,6 +218,8 @@ sections:
             url: /hive/first-profile/openrouter-key/
       - title: When the profile chat goes wrong
         url: /hive/chat-errors/
+      - title: Reviewing samples
+        url: /hive/review-samples/
 
   - id: lab
     title: Lab
@@ -229,19 +239,3 @@ sections:
             url: /lab/object-detection/device-benchmarking/
           - title: Hailo HEF Workflow
             url: /lab/object-detection/hailo-hef-workflow/
-      - title: Styleguide
-        pages:
-          - title: Overview
-            url: /lab/styleguide/
-          - title: Design Principles
-            url: /lab/styleguide/#design-principles
-          - title: Colors
-            url: /lab/styleguide/#colors
-          - title: Typography
-            url: /lab/styleguide/#typography
-          - title: Notifications
-            url: /lab/styleguide/#notifications
-          - title: Components
-            url: /lab/styleguide/#components
-          - title: Primary Color
-            url: /lab/styleguide/#primary-color

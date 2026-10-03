@@ -1,6 +1,12 @@
 <script lang="ts">
-	import { page } from '$app/state';
-	import Spinner from '$lib/components/Spinner.svelte';
+	import Spinner from '$lib/components/ui/Spinner.svelte';
+	import TopBar from '$lib/components/ui/TopBar.svelte';
+	import Wordmark from '$lib/components/ui/Wordmark.svelte';
+	import Button from '$lib/components/ui/Button.svelte';
+	import Badge from '$lib/components/ui/Badge.svelte';
+	import Alert from '$lib/components/ui/Alert.svelte';
+	import Menu from '$lib/components/ui/Menu.svelte';
+	import Modal from '$lib/components/ui/Modal.svelte';
 	import {
 		getBackendHttpBase,
 		getBackendWsBase,
@@ -9,33 +15,25 @@
 		requestBackendRestart,
 		waitForBackend
 	} from '$lib/backend';
-	import Modal from '$lib/components/Modal.svelte';
-	import NotificationsIndicator from '$lib/components/NotificationsIndicator.svelte';
 	import SortingProfileDropdown from '$lib/components/SortingProfileDropdown.svelte';
 	import { getMachinesContext } from '$lib/machines/context';
 	import { machineDowntime } from '$lib/stores/machineDowntime.svelte';
 	import { userConfig } from '$lib/stores/userConfig.svelte';
-	import {
-		AlertTriangle,
-		ChevronDown,
-		Home,
-		Pause,
-		Play,
-		Power,
-		PowerOff,
-		RefreshCw,
-		RotateCcw,
-		RotateCw,
-		X
-	} from 'lucide-svelte';
-	import { onMount } from 'svelte';
+	import Ellipsis from '@lucide/svelte/icons/ellipsis';
+	import House from '@lucide/svelte/icons/house';
+	import Pause from '@lucide/svelte/icons/pause';
+	import Play from '@lucide/svelte/icons/play';
+	import Power from '@lucide/svelte/icons/power';
+	import PowerOff from '@lucide/svelte/icons/power-off';
+	import RotateCcw from '@lucide/svelte/icons/rotate-ccw';
+	import RotateCw from '@lucide/svelte/icons/rotate-cw';
+	import X from '@lucide/svelte/icons/x';
 
 	const manager = getMachinesContext();
 
 	let dismissedHardwareError = $state<string | null>(null);
 	let homingDetailsOpen = $state(false);
 	let hardwareAlertOpen = $state(false);
-	let powerMenuOpen = $state(false);
 	let restartingBackend = $state(false);
 	let restartConfirmOpen = $state(false);
 	let powerdownConfirmOpen = $state(false);
@@ -115,14 +113,17 @@
 		Array.from(cameraHealth.values()).filter((status) => status === 'online').length
 	);
 
-	const powerDotColor = $derived(
+	const hardwareTone = $derived(
 		hardwareState === 'ready'
-			? 'var(--color-success)'
+			? 'success'
 			: hardwareState === 'error'
-				? 'var(--color-danger)'
+				? 'danger'
 				: hardwareState === 'homing' || hardwareState === 'initializing'
-					? 'var(--color-info)'
-					: '#FFD500'
+					? 'info'
+					: 'warning'
+	);
+	const camerasTone = $derived(
+		cameraActive === cameraTotal ? 'success' : cameraActive > 0 ? 'warning' : 'danger'
 	);
 
 	const hardwareStateLabel = $derived(
@@ -169,18 +170,6 @@
 		}
 	}
 
-	async function resetHardwareSystem() {
-		const baseUrl = currentBackendBaseUrl();
-		try {
-			const response = await fetch(`${baseUrl}/api/system/reset`, { method: 'POST' });
-			const payload = (await response.json().catch(() => null)) as Record<string, unknown> | null;
-			applySystemActionResponse(payload, 'standby', null);
-			keepSystemStatusFresh(baseUrl);
-		} catch {
-			keepSystemStatusFresh(baseUrl);
-		}
-	}
-
 	async function togglePauseResume() {
 		const resuming = machineState === 'paused' || hardwareState === 'initialized';
 		if (resuming && resumeBlockedByFault) return;
@@ -193,35 +182,28 @@
 	}
 
 	function requestRestartBackend() {
-		powerMenuOpen = false;
 		restartConfirmOpen = true;
 	}
 
+	// Each of these keeps its confirm dialog open and turns it into the
+	// dialog that waits (docs/overlays.md), closed when the wait is over.
 	async function confirmRestartBackend() {
-		restartConfirmOpen = false;
 		restartingBackend = true;
 		const baseUrl = currentBackendBaseUrl();
-		const restart = await requestBackendRestart(baseUrl);
-		if (!restart.ok) {
-			restartingBackend = false;
-			return;
+		if (await requestBackendRestart(baseUrl)) {
+			await waitForBackend(baseUrl, { maxAttempts: 60 });
+			// The new process's identity reopens the camera feeds (see MachineManager).
+			manager.connect(currentBackendWsUrl(), { force: true });
 		}
-		await waitForBackend(baseUrl, { maxAttempts: 60 });
-		const wsUrl = currentBackendWsUrl();
-		manager.connect(wsUrl, { force: true });
-		manager.refreshSelectedCameraFeeds();
 		restartingBackend = false;
-		// Ws will reconnect and push fresh snapshots automatically; the feed
-		// epoch forces existing MJPEG <img> streams to reconnect without a page reload.
+		restartConfirmOpen = false;
 	}
 
 	function requestPowerDown() {
-		powerMenuOpen = false;
 		powerdownConfirmOpen = true;
 	}
 
 	async function confirmPowerDown() {
-		powerdownConfirmOpen = false;
 		powerdownFailed = false;
 		poweringDown = true;
 		machineDowntime.begin();
@@ -230,10 +212,11 @@
 			const response = await fetch(`${baseUrl}/api/system/shutdown`, { method: 'POST' });
 			if (!response.ok) {
 				poweringDown = false;
+				powerdownConfirmOpen = false;
 				machineDowntime.end();
 				powerdownFailed = true;
 			}
-			// On success, leave the progress modal up — the machine is going down and
+			// On success, leave the dialog waiting: the machine is going down and
 			// the UI will stop responding shortly. There's nothing left to wait for.
 		} catch {
 			// The request may not return if the OS starts tearing things down before
@@ -243,7 +226,6 @@
 	}
 
 	function requestReboot() {
-		powerMenuOpen = false;
 		rebootConfirmOpen = true;
 	}
 
@@ -264,7 +246,6 @@
 	}
 
 	async function confirmReboot() {
-		rebootConfirmOpen = false;
 		rebootFailed = false;
 		rebootTimedOut = false;
 		rebooting = true;
@@ -274,6 +255,7 @@
 			const response = await fetch(`${baseUrl}/api/system/reboot`, { method: 'POST' });
 			if (!response.ok) {
 				rebooting = false;
+				rebootConfirmOpen = false;
 				machineDowntime.end();
 				rebootFailed = true;
 				return;
@@ -291,118 +273,32 @@
 			intervalMs: 2000
 		});
 		rebooting = false;
+		rebootConfirmOpen = false;
 		machineDowntime.end();
 		if (!back) {
 			rebootTimedOut = true;
 			return;
 		}
 		manager.connect(currentBackendWsUrl(), { force: true });
-		manager.refreshSelectedCameraFeeds();
-	}
-
-	function handlePowerMenuClickOutside(event: MouseEvent) {
-		const target = event.target as HTMLElement;
-		if (!target.closest('[data-power-menu]')) {
-			powerMenuOpen = false;
-		}
-	}
-
-	async function retryHardwareAction() {
-		if (isControlBoardConnectionError(hardwareError)) {
-			await homeSystem();
-			return;
-		}
-		if (isFeederTransportBlocked(hardwareError)) {
-			// Nothing to refetch — WS pushes new status automatically.
-			return;
-		}
-		if (hardwareState === 'standby' || hardwareState === 'error') {
-			await homeSystem();
-			return;
-		}
 	}
 
 	function dismissHardwareBanner() {
-		dismissedHardwareError = hardwareError;
+		dismissedHardwareError = hardwareError?.message ?? null;
 		hardwareAlertOpen = false;
 	}
 
-	function isFeederTransportBlocked(message: string | null): boolean {
-		return Boolean(
-			message &&
-			(message.startsWith('Feeder transport blocked') ||
-				message.startsWith('Feeder stalled before C-Channel 2'))
-		);
-	}
-
-	function isFeederDetectionUnavailable(message: string | null): boolean {
-		return Boolean(message && message.startsWith('Feeder camera detection unavailable'));
-	}
-
-	function isControlBoardConnectionError(message: string | null): boolean {
-		return Boolean(message && message.startsWith('No SorterInterface devices found on buses'));
-	}
-
-	function isChuteJam(message: string | null): boolean {
-		return Boolean(message && message.startsWith('Chute jam'));
-	}
-
-	function hardwareAlertBody(message: string | null): string {
-		if (!message) return '';
-		if (isFeederTransportBlocked(message)) {
-			const separator = message.indexOf(': ');
-			return separator >= 0 ? message.slice(separator + 2) : message;
-		}
-		if (isFeederDetectionUnavailable(message)) {
-			return 'The feeder cameras are currently not delivering reliable live data. Please check the C-Channel camera connections and make sure the live feeds are updating.';
-		}
-		if (isControlBoardConnectionError(message)) {
-			return 'The machine could not connect to its control boards. Please check that the control boards are powered and the USB cables are connected properly.';
-		}
-		const separator = message.indexOf(': ');
-		return separator >= 0 ? message.slice(separator + 2) : message;
-	}
-
-	function hardwareAlertHelp(message: string | null): string | null {
-		if (!message) return null;
-		if (isFeederTransportBlocked(message)) {
-			return 'After checking the feeder, close this dialog and press play to continue.';
-		}
-		if (isFeederDetectionUnavailable(message)) {
-			return 'After fixing the camera connection, reset the hardware runtime and home the machine again.';
-		}
-		if (isControlBoardConnectionError(message)) {
-			return 'If everything is connected, reset the hardware runtime and try homing again.';
-		}
-		return null;
-	}
-
 	const showHardwareBanner = $derived(
-		Boolean(hardwareError && hardwareError !== dismissedHardwareError && hardwareState !== 'error')
-	);
-	const hardwareBannerActionLabel = $derived(
-		isFeederDetectionUnavailable(hardwareError)
-			? 'Reset Hardware'
-			: isFeederTransportBlocked(hardwareError)
-				? 'Refresh Status'
-				: hardwareState === 'standby' || hardwareState === 'error'
-					? 'Retry Home'
-					: 'Refresh Status'
+		Boolean(
+			hardwareError &&
+				hardwareError.message !== dismissedHardwareError &&
+				hardwareState !== 'error'
+		)
 	);
 	const homingHeadline = $derived(homingStep ?? 'Homing all hardware...');
-	const hardwareAlertTitle = $derived(
-		isFeederTransportBlocked(hardwareError)
-			? 'Feeder Check Required'
-			: isFeederDetectionUnavailable(hardwareError)
-				? 'Feeder Cameras Not Ready'
-				: isControlBoardConnectionError(hardwareError)
-					? 'Control Boards Not Reachable'
-					: isChuteJam(hardwareError)
-						? 'Chute Jammed'
-						: 'Machine Alert'
-	);
 	const blockingHardwareAlert = $derived(
-		Boolean(hardwareState === 'error' && hardwareError && hardwareError !== dismissedHardwareError)
+		Boolean(
+			hardwareState === 'error' && hardwareError && hardwareError.message !== dismissedHardwareError
+		)
 	);
 
 	$effect(() => {
@@ -417,615 +313,251 @@
 			hardwareAlertOpen = true;
 		}
 	});
+	let { sticky = true }: { sticky?: boolean } = $props();
 
-	onMount(() => {
-		if (manager.machines.size === 0) {
-			manager.connect(`${getBackendWsBase()}/ws`);
-		}
-		document.addEventListener('click', handlePowerMenuClickOutside);
-		return () => {
-			document.removeEventListener('click', handlePowerMenuClickOutside);
-		};
-	});
+	type SystemItem =
+		| 'separator'
+		| { label: string; icon: typeof Power; onselect: () => void; danger?: boolean };
+
+	const systemItems = $derived<SystemItem[]>([
+		{ label: needsHoming ? 'Home' : 'Re-home', icon: House, onselect: () => void homeSystem() },
+		...(hardwareState === 'standby' || hardwareState === 'error'
+			? [
+					{
+						label: 'Initialize without homing',
+						icon: Power,
+						onselect: () => void initializeSystem()
+					}
+				]
+			: []),
+		'separator',
+		{ label: 'Restart the backend', icon: RotateCcw, onselect: requestRestartBackend },
+		{ label: 'Restart the machine', icon: RotateCw, onselect: requestReboot, danger: true },
+		{ label: 'Power down the machine', icon: PowerOff, onselect: requestPowerDown, danger: true }
+	]);
 </script>
 
-<nav class="border-b border-border bg-surface">
-	<div class="flex items-center justify-between px-4 py-3 sm:px-6">
-		<div class="flex items-center gap-6">
-			<a
-				href="/"
-				class="flex items-center gap-2.5 font-mono text-xl font-bold tracking-tight text-text uppercase"
-			>
-				<span class="h-5 w-5 shrink-0 bg-primary" aria-hidden="true"></span>
-				Sorter
-			</a>
-			<div class="flex gap-1">
-				<a
-					href="/"
-					class="px-3 py-1.5 text-sm font-medium transition-colors {page.url.pathname === '/'
-						? 'border-b-2 border-primary text-primary'
-						: 'text-text-muted hover:bg-bg hover:text-text'}"
-				>
-					Dashboard
-				</a>
-				<a
-					href="/bins"
-					class="px-3 py-1.5 text-sm font-medium transition-colors {page.url.pathname === '/bins'
-						? 'border-b-2 border-primary text-primary'
-						: 'text-text-muted hover:bg-bg hover:text-text'}"
-				>
-					Bins
-				</a>
-				<a
-					href="/profiles"
-					class="px-3 py-1.5 text-sm font-medium transition-colors {page.url.pathname ===
-					'/profiles'
-						? 'border-b-2 border-primary text-primary'
-						: 'text-text-muted hover:bg-bg hover:text-text'}"
-				>
-					Profiles
-				</a>
-				<a
-					href="/records"
-					class="px-3 py-1.5 text-sm font-medium transition-colors {page.url.pathname.startsWith(
-						'/records'
-					)
-						? 'border-b-2 border-primary text-primary'
-						: 'text-text-muted hover:bg-bg hover:text-text'}"
-				>
-					Records
-				</a>
-				<a
-					href="/settings"
-					class="px-3 py-1.5 text-sm font-medium transition-colors {page.url.pathname.startsWith(
-						'/settings'
-					)
-						? 'border-b-2 border-primary text-primary'
-						: 'text-text-muted hover:bg-bg hover:text-text'}"
-				>
-					Settings
-				</a>
-			</div>
-		</div>
-		<div class="flex items-center gap-2">
-			<NotificationsIndicator />
+<TopBar
+	{sticky}
+	collapse="lg"
+	items={[
+		{ href: '/', label: 'Dashboard' },
+		{ href: '/bins', label: 'Bins' },
+		{ href: '/3d', label: '3D' },
+		{ href: '/profiles', label: 'Profiles' },
+		{ href: '/records', label: 'Records' },
+		{ href: '/settings', label: 'Settings' }
+	]}
+>
+	{#snippet brand()}<Wordmark />{/snippet}
+	{#snippet end()}
+		<div class="hidden items-center gap-2 md:flex">
 			{#if machineName}
-				<span
-					class="flex items-center self-stretch border border-border px-2.5 text-sm font-medium text-text-muted"
-					title="Current machine"
-				>
-					{machineName}
+				<span class="text-sm font-medium text-ink" title="Current machine">{machineName}</span>
+			{/if}
+			<Badge tone={hardwareTone} dot>{hardwareStateLabel}</Badge>
+			{#if cameraTotal > 0 && cameraActive < cameraTotal}
+				<Badge tone={camerasTone}>{cameraActive}/{cameraTotal} cameras</Badge>
+			{/if}
+		</div>
+		<div class="hidden sm:block"><SortingProfileDropdown /></div>
+		{#if hardwareState === 'ready' || hardwareState === 'initialized'}
+			{@const resuming = machineState === 'paused' || hardwareState === 'initialized'}
+			<Button
+				variant="ghost"
+				icon={resuming ? Play : Pause}
+				label={resuming
+					? resumeBlockedByFault
+						? activeIncidentKind === 'chute_needs_homing'
+							? 'Re-home the chute before resuming'
+							: 'Clear the motor stall before resuming'
+						: 'Resume'
+					: 'Pause'}
+				disabled={resuming && resumeBlockedByFault}
+				onclick={togglePauseResume}
+			/>
+		{/if}
+		<Menu label="System" items={systemItems}>
+			{#snippet trigger(props)}
+				<Button {...props} variant="ghost" icon={Ellipsis} label="System menu" />
+			{/snippet}
+		</Menu>
+	{/snippet}
+</TopBar>
+
+{#if showHardwareBanner && hardwareError}
+	<Alert tone="danger" title={hardwareError.title} class="px-4 sm:px-6">
+		<span class="break-words">{hardwareError.message}</span>
+		{#snippet actions()}
+			{#if needsHoming}
+				<Button size="sm" icon={House} onclick={() => void homeSystem()}>Home</Button>
+			{/if}
+			<Button size="sm" variant="ghost" icon={X} onclick={dismissHardwareBanner}>Dismiss</Button>
+		{/snippet}
+	</Alert>
+{/if}
+
+{#if hardwareState === 'homing'}
+	<div
+		class="pointer-events-none fixed top-[calc(var(--size-topbar)+0.75rem)] right-4 z-40 w-[min(22rem,calc(100vw-2rem))] sm:right-6"
+	>
+		<button
+			type="button"
+			onclick={() => (homingDetailsOpen = true)}
+			class="pointer-events-auto flex w-full items-start gap-3 rounded-panel border border-line bg-raised p-3 text-left"
+			title="Show the homing details"
+		>
+			<Spinner size={16} class="mt-0.5 shrink-0 text-info-ink" />
+			<span class="min-w-0 flex-1">
+				<span class="flex items-baseline justify-between gap-3">
+					<span class="text-sm font-medium text-ink">Homing</span>
+					<span class="text-sm text-ink-muted">Details</span>
 				</span>
-			{/if}
-			<SortingProfileDropdown />
+				<span class="mt-0.5 block text-sm text-ink-muted">{homingHeadline}</span>
+			</span>
+		</button>
+	</div>
+{/if}
 
-			{#if hardwareState === 'ready' || hardwareState === 'initialized'}
-				{@const resuming = machineState === 'paused' || hardwareState === 'initialized'}
-				<button
-					onclick={togglePauseResume}
-					disabled={resuming && resumeBlockedByFault}
-					class="p-2 text-text transition-colors hover:bg-bg disabled:cursor-not-allowed disabled:text-text-muted disabled:opacity-50 disabled:hover:bg-transparent"
-					title={resuming
-						? resumeBlockedByFault
-							? activeIncidentKind === 'chute_needs_homing'
-								? 'Re-home the chute before resuming'
-								: 'Clear the motor stall before resuming'
-							: 'Resume'
-						: 'Pause'}
-				>
-					{#if resuming}
-						<Play size={20} />
-					{:else}
-						<Pause size={20} />
-					{/if}
-				</button>
-			{/if}
+<Modal bind:open={hardwareAlertOpen} title={hardwareError?.title ?? 'Machine stopped'} size="sm">
+	<p class="break-words">{hardwareError?.message}</p>
+	{#snippet footer()}
+		<Button variant="ghost" onclick={dismissHardwareBanner}>Close</Button>
+		<Button variant="primary" icon={House} onclick={() => void homeSystem()}>Home again</Button>
+	{/snippet}
+</Modal>
 
-			<div class="relative" data-power-menu>
-				<button
-					onclick={() => (powerMenuOpen = !powerMenuOpen)}
-					class="flex items-center gap-1.5 p-2 text-text-muted transition-colors hover:bg-bg hover:text-text"
-					title="System controls"
-				>
-					<span
-						class="inline-block h-4 w-4 shrink-0"
-						style="background-color: {powerDotColor}; border-radius: 50%;"
-					></span>
-					<ChevronDown
-						size={12}
-						class={`transition-transform duration-150 ${powerMenuOpen ? 'rotate-180' : ''}`}
-					/>
-				</button>
+<Modal
+	bind:open={restartConfirmOpen}
+	title={restartingBackend ? 'Restarting the backend' : 'Restart the backend?'}
+	size="sm"
+	dismissible={!restartingBackend}
+	status={restartingBackend ? 'Waiting for the service to come back' : undefined}
+>
+	{#if restartingBackend}
+		<p class="text-ink-muted">This closes by itself when the backend answers again.</p>
+	{:else}
+		<p>This restarts the sorter's backend service after releasing the cameras.</p>
+		<p class="mt-2 text-ink-muted">
+			A running sort or homing stops, the cameras and the hardware start again, and this page is
+			unavailable for a few seconds.
+		</p>
+	{/if}
+	{#snippet footer()}
+		{#if !restartingBackend}
+			<Button variant="ghost" onclick={() => (restartConfirmOpen = false)}>Cancel</Button>
+			<Button variant="danger" icon={RotateCcw} onclick={() => void confirmRestartBackend()}>
+				Restart the backend
+			</Button>
+		{/if}
+	{/snippet}
+</Modal>
 
-				{#if powerMenuOpen}
-					<div
-						class="absolute top-full right-0 z-50 mt-1 w-[260px] border border-border bg-surface shadow-lg"
-					>
-						<div
-							class="px-3 pt-2.5 pb-1.5 text-xs font-semibold tracking-wider text-text-muted uppercase"
-						>
-							System Status
-						</div>
-						<div class="flex flex-col gap-0.5 px-3 pb-2.5">
-							<div class="flex items-center justify-between py-1">
-								<span class="text-xs text-text-muted">Hardware</span>
-								<span class="flex items-center gap-1.5 text-xs font-medium text-text">
-									<span
-										class="inline-block h-1.5 w-1.5"
-										style="background-color: {powerDotColor}; border-radius: 50%;"
-									></span>
-									{hardwareStateLabel}
-								</span>
-							</div>
-							{#if cameraTotal > 0}
-								<div class="flex items-center justify-between py-1">
-									<span class="text-xs text-text-muted">Cameras</span>
-									<span class="flex items-center gap-1.5 text-xs font-medium text-text">
-										<span
-											class="inline-block h-1.5 w-1.5"
-											style="background-color: {cameraActive === cameraTotal
-												? 'var(--color-success)'
-												: cameraActive > 0
-													? '#FFD500'
-													: 'var(--color-danger)'}; border-radius: 50%;"
-										></span>
-										{cameraActive}/{cameraTotal} active
-									</span>
-								</div>
-							{/if}
-						</div>
-						<div class="border-t border-border">
-							<div
-								class="px-3 pt-2 pb-1 text-xs font-semibold tracking-wider text-text-muted uppercase"
-							>
-								Actions
-							</div>
-							<button
-								onclick={() => {
-									homeSystem();
-									powerMenuOpen = false;
-								}}
-								class="flex w-full items-center gap-2.5 px-3 py-2 text-left text-sm text-text transition-colors hover:bg-bg"
-							>
-								<Home size={14} class="text-text-muted" />
-								{#if needsHoming}
-									Home
-								{:else}
-									Re-Home
-								{/if}
-							</button>
-							{#if hardwareState === 'standby' || hardwareState === 'error'}
-								<button
-									onclick={() => {
-										initializeSystem();
-										powerMenuOpen = false;
-									}}
-									class="flex w-full items-center gap-2.5 px-3 py-2 text-left text-sm text-text transition-colors hover:bg-bg"
-									title="Power on the steppers without homing. Home individual subsystems (e.g. the chute) on demand afterward."
-								>
-									<Power size={14} class="text-text-muted" />
-									Initialize (no homing)
-								</button>
-							{/if}
-							<button
-								onclick={requestRestartBackend}
-								class="flex w-full items-center gap-2.5 px-3 py-2 text-left text-sm text-text transition-colors hover:bg-bg"
-							>
-								<RotateCcw size={14} class="text-text-muted" />
-								Restart Backend
-							</button>
-							<button
-								onclick={requestReboot}
-								class="flex w-full items-center gap-2.5 px-3 py-2 text-left text-sm text-[#B11618] transition-colors hover:bg-danger/[0.08]"
-								title="Reboot the whole Linux computer the sorter runs on."
-							>
-								<RotateCw size={14} />
-								Full Machine Restart
-							</button>
-							<button
-								onclick={requestPowerDown}
-								class="flex w-full items-center gap-2.5 px-3 py-2 text-left text-sm text-[#B11618] transition-colors hover:bg-danger/[0.08]"
-							>
-								<PowerOff size={14} />
-								Full Machine Power Down
-							</button>
-						</div>
-					</div>
-				{/if}
-			</div>
+<Modal
+	bind:open={rebootConfirmOpen}
+	title={rebooting ? 'Restarting the machine' : 'Restart the machine?'}
+	size="sm"
+	dismissible={!rebooting}
+	status={rebooting ? 'Waiting for the machine to come back' : undefined}
+>
+	{#if rebooting}
+		<p class="text-ink-muted">
+			This page stops answering for a while and reconnects by itself once the machine is back,
+			usually in a couple of minutes.
+		</p>
+	{:else}
+		<p>
+			This reboots the whole machine, as running <span class="font-mono">reboot</span> on its computer
+			would. Everything powers back on by itself.
+		</p>
+		<p class="mt-2 text-ink-muted">
+			A running sort stops, and this page is unavailable for a couple of minutes while the machine
+			starts up.
+		</p>
+	{/if}
+	{#snippet footer()}
+		{#if !rebooting}
+			<Button variant="ghost" onclick={() => (rebootConfirmOpen = false)}>Cancel</Button>
+			<Button variant="danger" icon={RotateCw} onclick={() => void confirmReboot()}>
+				Restart the machine
+			</Button>
+		{/if}
+	{/snippet}
+</Modal>
+
+<Modal bind:open={rebootFailed} title="The restart did not start" size="sm">
+	<p>
+		The reboot command could not be started, so the machine is still running. The backend's log
+		says why.
+	</p>
+	{#snippet footer()}
+		<Button onclick={() => (rebootFailed = false)}>Close</Button>
+	{/snippet}
+</Modal>
+
+<Modal bind:open={rebootTimedOut} title="The machine is taking a while" size="sm">
+	<p>
+		The machine rebooted but is not back yet. It may still be starting; reload this page in a minute
+		to check again.
+	</p>
+	{#snippet footer()}
+		<Button onclick={() => (rebootTimedOut = false)}>Close</Button>
+	{/snippet}
+</Modal>
+
+<Modal
+	bind:open={powerdownConfirmOpen}
+	title={poweringDown ? 'Powering down' : 'Power down the machine?'}
+	size="sm"
+	dismissible={!poweringDown}
+	status={poweringDown ? 'Shutting down' : undefined}
+>
+	{#if poweringDown}
+		<p class="text-ink-muted">
+			This page stops answering shortly. Linux can take up to about 2 minutes to power off after
+			that; wait until the machine is completely off before cutting its power.
+		</p>
+	{:else}
+		<p>
+			This shuts the whole machine down, as running <span class="font-mono">shutdown</span> on its
+			computer would. The sorter powers off completely.
+		</p>
+		<p class="mt-2 text-ink-muted">
+			A running sort stops, and turning the machine back on takes someone at the machine.
+		</p>
+	{/if}
+	{#snippet footer()}
+		{#if !poweringDown}
+			<Button variant="ghost" onclick={() => (powerdownConfirmOpen = false)}>Cancel</Button>
+			<Button variant="danger" icon={PowerOff} onclick={() => void confirmPowerDown()}>
+				Power down the machine
+			</Button>
+		{/if}
+	{/snippet}
+</Modal>
+
+<Modal bind:open={powerdownFailed} title="The power down did not start" size="sm">
+	<p>
+		The shutdown command could not be started, so the machine is still running. The backend's log
+		says why.
+	</p>
+	{#snippet footer()}
+		<Button onclick={() => (powerdownFailed = false)}>Close</Button>
+	{/snippet}
+</Modal>
+
+<Modal bind:open={homingDetailsOpen} title="Homing" size="sm">
+	<div class="flex items-start gap-3">
+		<Spinner size={16} class="mt-0.5 text-info-ink" />
+		<div>
+			<p>{homingHeadline}</p>
+			<p class="mt-2 text-ink-muted">
+				The machine is starting its hardware and finding each axis's zero. Let it finish before
+				starting a run.
+			</p>
 		</div>
 	</div>
-
-	{#if hardwareState === 'homing'}
-		<div
-			class="pointer-events-none fixed top-[4.7rem] right-4 z-40 w-[min(360px,calc(100vw-2rem))] sm:right-6"
-		>
-			<button
-				type="button"
-				onclick={() => (homingDetailsOpen = true)}
-				class="pointer-events-auto flex w-full items-start gap-3 border border-border bg-surface px-3 py-3 text-left shadow-[0_12px_28px_rgba(15,23,42,0.12)] transition-colors hover:border-[#C9C7C0] hover:bg-surface"
-				title="Show hardware homing details"
-			>
-				<div
-					class="flex h-9 w-9 shrink-0 items-center justify-center border border-border bg-info/[0.08] text-info"
-				>
-					<Spinner size={16} />
-				</div>
-				<div class="min-w-0 flex-1">
-					<div class="flex items-center justify-between gap-3">
-						<div class="text-xs font-semibold tracking-wider text-info uppercase">
-							Hardware Homing
-						</div>
-						<div class="text-xs text-text-muted">View details</div>
-					</div>
-					<div class="mt-1 text-sm text-text">{homingHeadline}</div>
-					<div class="mt-2 text-sm text-text-muted">
-						The machine is currently initializing and referencing its hardware.
-					</div>
-				</div>
-			</button>
-		</div>
-	{/if}
-
-	{#if showHardwareBanner}
-		<div class="border-t border-danger/30 bg-danger/[0.06] px-4 py-3 sm:px-6">
-			<div class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-				<div class="flex min-w-0 gap-3">
-					<div
-						class="flex h-8 w-8 shrink-0 items-center justify-center border border-danger/30 bg-danger/10 text-[#B11618]"
-					>
-						<AlertTriangle size={16} />
-					</div>
-					<div class="min-w-0">
-						<div class="text-xs font-semibold tracking-wider text-[#B11618] uppercase">
-							Machine Alert
-						</div>
-						<div class="mt-1 text-sm text-text">{hardwareAlertBody(hardwareError)}</div>
-					</div>
-				</div>
-
-				<div class="flex items-center gap-2 sm:shrink-0">
-					<button
-						type="button"
-						onclick={() => void retryHardwareAction()}
-						class="inline-flex items-center gap-1.5 border border-danger/30 bg-white/75 px-3 py-1.5 text-sm font-medium text-text transition-colors hover:bg-white"
-					>
-						{#if hardwareState === 'standby' || hardwareState === 'error'}
-							<Home size={14} />
-						{:else}
-							<RefreshCw size={14} />
-						{/if}
-						{hardwareBannerActionLabel}
-					</button>
-					<button
-						type="button"
-						onclick={dismissHardwareBanner}
-						class="inline-flex items-center gap-1.5 border border-border bg-transparent px-3 py-1.5 text-sm text-text-muted transition-colors hover:bg-white/60 hover:text-text"
-					>
-						<X size={14} />
-						Dismiss
-					</button>
-				</div>
-			</div>
-		</div>
-	{/if}
-
-	<Modal bind:open={hardwareAlertOpen} title={hardwareAlertTitle}>
-		<div class="flex flex-col gap-4">
-			<div class="flex items-start gap-3">
-				<div
-					class="flex h-9 w-9 shrink-0 items-center justify-center border border-danger/25 bg-danger/[0.08] text-[#B11618]"
-				>
-					<AlertTriangle size={18} />
-				</div>
-				<div>
-					<div class="text-sm text-text">{hardwareAlertBody(hardwareError)}</div>
-					{#if hardwareAlertHelp(hardwareError)}
-						<div class="mt-2 text-sm text-text-muted">
-							{hardwareAlertHelp(hardwareError)}
-						</div>
-					{/if}
-					{#if hardwareError && (isControlBoardConnectionError(hardwareError) || isFeederDetectionUnavailable(hardwareError) || (!isFeederTransportBlocked(hardwareError) && hardwareAlertBody(hardwareError) !== hardwareError))}
-						<details class="mt-3 border border-border bg-bg px-3 py-2 text-xs text-text-muted">
-							<summary class="cursor-pointer font-medium text-text select-none"
-								>Technical details</summary
-							>
-							<div class="mt-2 break-words">{hardwareError}</div>
-						</details>
-					{/if}
-				</div>
-			</div>
-
-			<div class="flex items-center justify-end gap-2 border-t border-border pt-3">
-				{#if isControlBoardConnectionError(hardwareError) || isFeederDetectionUnavailable(hardwareError)}
-					<button
-						type="button"
-						onclick={() => void resetHardwareSystem()}
-						class="inline-flex items-center gap-1.5 border border-danger/25 bg-white px-3 py-1.5 text-sm font-medium text-text transition-colors hover:bg-bg"
-					>
-						<RefreshCw size={14} />
-						Reset Hardware
-					</button>
-				{/if}
-				<button
-					type="button"
-					onclick={() => void retryHardwareAction()}
-					class="inline-flex items-center gap-1.5 border border-danger/25 bg-white px-3 py-1.5 text-sm font-medium text-text transition-colors hover:bg-bg"
-				>
-					{#if hardwareBannerActionLabel === 'Retry Home'}
-						<Home size={14} />
-					{:else}
-						<RefreshCw size={14} />
-					{/if}
-					{hardwareBannerActionLabel}
-				</button>
-				<button
-					type="button"
-					onclick={dismissHardwareBanner}
-					class="inline-flex items-center gap-1.5 border border-border bg-bg px-3 py-1.5 text-sm text-text transition-colors hover:bg-surface"
-				>
-					<X size={14} />
-					Close
-				</button>
-			</div>
-		</div>
-	</Modal>
-
-	<Modal bind:open={restartConfirmOpen} title="Restart Backend?">
-		<div class="flex flex-col gap-4">
-			<div class="flex items-start gap-3">
-				<div
-					class="flex h-9 w-9 shrink-0 items-center justify-center border border-danger/25 bg-danger/[0.08] text-[#B11618]"
-				>
-					<AlertTriangle size={18} />
-				</div>
-				<div>
-					<div class="text-sm text-text">
-						This will restart the sorter backend service after releasing camera handles.
-					</div>
-					<div class="mt-2 text-sm text-text-muted">
-						Any running sort or homing operation will be interrupted. Cameras and hardware state
-						will be re-initialized. The UI will be unavailable for a few seconds.
-					</div>
-				</div>
-			</div>
-
-			<div class="flex items-center justify-end gap-2 border-t border-border pt-3">
-				<button
-					type="button"
-					onclick={() => (restartConfirmOpen = false)}
-					class="inline-flex items-center gap-1.5 border border-border bg-bg px-3 py-1.5 text-sm text-text transition-colors hover:bg-surface"
-				>
-					Cancel
-				</button>
-				<button
-					type="button"
-					onclick={() => void confirmRestartBackend()}
-					class="inline-flex items-center gap-1.5 border border-danger/25 bg-danger/[0.08] px-3 py-1.5 text-sm font-medium text-[#B11618] transition-colors hover:bg-danger/[0.14]"
-				>
-					<RotateCcw size={14} />
-					Restart Backend
-				</button>
-			</div>
-		</div>
-	</Modal>
-
-	<Modal open={restartingBackend} title="Restarting backend..." dismissible={false}>
-		<div class="flex flex-col items-center gap-4 py-4">
-			<Spinner size={24} class="text-primary" />
-			<div class="text-sm text-text-muted">Waiting for the service to come back online.</div>
-		</div>
-	</Modal>
-
-	<Modal bind:open={rebootConfirmOpen} title="Restart the machine?">
-		<div class="flex flex-col gap-4">
-			<div class="flex items-start gap-3">
-				<div
-					class="flex h-9 w-9 shrink-0 items-center justify-center border border-danger/25 bg-danger/[0.08] text-[#B11618]"
-				>
-					<AlertTriangle size={18} />
-				</div>
-				<div>
-					<div class="text-sm text-text">
-						This reboots the entire machine — the same as running <span class="font-mono"
-							>reboot</span
-						> on the Linux computer. Everything powers back on by itself.
-					</div>
-					<div class="mt-2 text-sm text-text-muted">
-						Any running sort will be interrupted. The UI will be unavailable for a couple of minutes
-						while the machine boots back up.
-					</div>
-				</div>
-			</div>
-
-			<div class="flex items-center justify-end gap-2 border-t border-border pt-3">
-				<button
-					type="button"
-					onclick={() => (rebootConfirmOpen = false)}
-					class="inline-flex items-center gap-1.5 border border-border bg-bg px-3 py-1.5 text-sm text-text transition-colors hover:bg-surface"
-				>
-					Cancel
-				</button>
-				<button
-					type="button"
-					onclick={() => void confirmReboot()}
-					class="inline-flex items-center gap-1.5 border border-danger/25 bg-danger/[0.08] px-3 py-1.5 text-sm font-medium text-[#B11618] transition-colors hover:bg-danger/[0.14]"
-				>
-					<RotateCw size={14} />
-					Restart Machine
-				</button>
-			</div>
-		</div>
-	</Modal>
-
-	<Modal open={rebooting} title="Restarting machine..." dismissible={false}>
-		<div class="flex flex-col items-center gap-4 py-4 text-center">
-			<Spinner size={24} class="text-primary" />
-			<div class="text-sm text-text">The machine is rebooting.</div>
-			<div class="text-sm text-text-muted">
-				This page will stop responding for a bit. It reconnects on its own once the machine is back
-				up — usually a couple of minutes.
-			</div>
-		</div>
-	</Modal>
-
-	<Modal bind:open={rebootFailed} title="Restart failed">
-		<div class="flex flex-col gap-4">
-			<div class="flex items-start gap-3">
-				<div
-					class="flex h-9 w-9 shrink-0 items-center justify-center border border-danger/25 bg-danger/[0.08] text-[#B11618]"
-				>
-					<AlertTriangle size={18} />
-				</div>
-				<div class="text-sm text-text">
-					The reboot command could not be started. The machine is still running. Check the backend
-					logs for details.
-				</div>
-			</div>
-
-			<div class="flex items-center justify-end gap-2 border-t border-border pt-3">
-				<button
-					type="button"
-					onclick={() => (rebootFailed = false)}
-					class="inline-flex items-center gap-1.5 border border-border bg-bg px-3 py-1.5 text-sm text-text transition-colors hover:bg-surface"
-				>
-					Close
-				</button>
-			</div>
-		</div>
-	</Modal>
-
-	<Modal bind:open={rebootTimedOut} title="Machine is taking a while">
-		<div class="flex flex-col gap-4">
-			<div class="flex items-start gap-3">
-				<div
-					class="flex h-9 w-9 shrink-0 items-center justify-center border border-danger/25 bg-danger/[0.08] text-[#B11618]"
-				>
-					<AlertTriangle size={18} />
-				</div>
-				<div class="text-sm text-text">
-					The machine rebooted but hasn't come back online yet. It may still be booting — reload
-					this page in a minute to check again.
-				</div>
-			</div>
-
-			<div class="flex items-center justify-end gap-2 border-t border-border pt-3">
-				<button
-					type="button"
-					onclick={() => (rebootTimedOut = false)}
-					class="inline-flex items-center gap-1.5 border border-border bg-bg px-3 py-1.5 text-sm text-text transition-colors hover:bg-surface"
-				>
-					Close
-				</button>
-			</div>
-		</div>
-	</Modal>
-
-	<Modal bind:open={powerdownConfirmOpen} title="Power down the machine?">
-		<div class="flex flex-col gap-4">
-			<div class="flex items-start gap-3">
-				<div
-					class="flex h-9 w-9 shrink-0 items-center justify-center border border-danger/25 bg-danger/[0.08] text-[#B11618]"
-				>
-					<AlertTriangle size={18} />
-				</div>
-				<div>
-					<div class="text-sm text-text">
-						This shuts down the entire machine — the same as running <span class="font-mono"
-							>shutdown</span
-						> on the Linux computer. The sorter will fully power off.
-					</div>
-					<div class="mt-2 text-sm text-text-muted">
-						Any running sort will be interrupted. To turn the machine back on you'll need physical
-						access to power it up again.
-					</div>
-				</div>
-			</div>
-
-			<div class="flex items-center justify-end gap-2 border-t border-border pt-3">
-				<button
-					type="button"
-					onclick={() => (powerdownConfirmOpen = false)}
-					class="inline-flex items-center gap-1.5 border border-border bg-bg px-3 py-1.5 text-sm text-text transition-colors hover:bg-surface"
-				>
-					Cancel
-				</button>
-				<button
-					type="button"
-					onclick={() => void confirmPowerDown()}
-					class="inline-flex items-center gap-1.5 border border-danger/25 bg-danger/[0.08] px-3 py-1.5 text-sm font-medium text-[#B11618] transition-colors hover:bg-danger/[0.14]"
-				>
-					<PowerOff size={14} />
-					Power Down Machine
-				</button>
-			</div>
-		</div>
-	</Modal>
-
-	<Modal open={poweringDown} title="Powering down..." dismissible={false}>
-		<div class="flex flex-col items-center gap-4 py-4 text-center">
-			<Spinner size={24} class="text-primary" />
-			<div class="text-sm text-text">The machine is shutting down.</div>
-			<div class="text-sm text-text-muted">
-				This page will stop responding shortly. Linux can take up to about 2 minutes to fully power
-				off after that — wait until the machine is completely off before cutting power.
-			</div>
-		</div>
-	</Modal>
-
-	<Modal bind:open={powerdownFailed} title="Power down failed">
-		<div class="flex flex-col gap-4">
-			<div class="flex items-start gap-3">
-				<div
-					class="flex h-9 w-9 shrink-0 items-center justify-center border border-danger/25 bg-danger/[0.08] text-[#B11618]"
-				>
-					<AlertTriangle size={18} />
-				</div>
-				<div class="text-sm text-text">
-					The shutdown command could not be started. The machine is still running. Check the backend
-					logs for details.
-				</div>
-			</div>
-
-			<div class="flex items-center justify-end gap-2 border-t border-border pt-3">
-				<button
-					type="button"
-					onclick={() => (powerdownFailed = false)}
-					class="inline-flex items-center gap-1.5 border border-border bg-bg px-3 py-1.5 text-sm text-text transition-colors hover:bg-surface"
-				>
-					Close
-				</button>
-			</div>
-		</div>
-	</Modal>
-
-	<Modal bind:open={homingDetailsOpen} title="Hardware Homing">
-		<div class="flex flex-col gap-4">
-			<div class="flex items-start gap-3">
-				<div
-					class="flex h-9 w-9 shrink-0 items-center justify-center border border-border bg-info/[0.08] text-info"
-				>
-					<Spinner size={16} />
-				</div>
-				<div>
-					<div class="text-xs font-semibold tracking-wider text-info uppercase">Current step</div>
-					<div class="mt-1 text-sm text-text">{homingHeadline}</div>
-					<div class="mt-2 text-sm text-text-muted">
-						The machine is currently initializing and referencing its hardware. Let the process
-						finish before starting a run.
-					</div>
-				</div>
-			</div>
-
-			<div class="flex items-center justify-end gap-2 border-t border-border pt-3">
-				<button
-					type="button"
-					onclick={() => (homingDetailsOpen = false)}
-					class="inline-flex items-center gap-1.5 border border-border bg-bg px-3 py-1.5 text-sm text-text transition-colors hover:bg-surface"
-				>
-					Close
-				</button>
-			</div>
-		</div>
-	</Modal>
-</nav>
+	{#snippet footer()}
+		<Button onclick={() => (homingDetailsOpen = false)}>Close</Button>
+	{/snippet}
+</Modal>

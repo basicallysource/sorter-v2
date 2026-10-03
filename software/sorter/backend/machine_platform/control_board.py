@@ -7,6 +7,7 @@ from typing import Mapping, Sequence
 
 from global_config import GlobalConfig
 from hardware.bus import MCUBus
+from hardware.fault import HardwareFault
 from hardware.sorter_interface import DigitalInputPin, ServoMotor, SorterInterface, StepperMotor
 
 
@@ -231,6 +232,13 @@ class SorterInterfaceControlBoard(ControlBoard):
         return self._interface.digital_inputs[channel]
 
 
+BOARDS_NOT_FOUND = "Control boards not found"
+_CHECK_BOARDS = (
+    "Check that the control boards are powered and their USB cables are connected, "
+    "then home again."
+)
+
+
 def discover_control_boards(
     gc: GlobalConfig,
     required_stepper_names: Sequence[str] = (),
@@ -240,7 +248,10 @@ def discover_control_boards(
 ) -> list[SorterInterfaceControlBoard]:
     ports = MCUBus.enumerate_buses()
     if not ports:
-        raise RuntimeError("No MCU buses found.")
+        raise HardwareFault(
+            BOARDS_NOT_FOUND,
+            f"No control board is connected over USB. {_CHECK_BOARDS}",
+        )
 
     discovered_boards: list[SorterInterfaceControlBoard] = []
     last_open_failures: list[str] = []
@@ -304,7 +315,10 @@ def discover_control_boards(
                 if last_open_failures:
                     detail_parts.append("open_failures=" + "; ".join(last_open_failures))
                 detail_suffix = f" ({' | '.join(detail_parts)})" if detail_parts else ""
-                raise RuntimeError(f"No SorterInterface devices found on buses: {ports}{detail_suffix}")
+                raise HardwareFault(
+                    BOARDS_NOT_FOUND,
+                    f"No control board answered on {', '.join(ports)}. {_CHECK_BOARDS}{detail_suffix}",
+                )
             gc.logger.warning(
                 "No SorterInterface devices fully initialized on attempt "
                 f"{attempt}/{attempts}. Retrying in {retry_delay_s:.2f}s..."

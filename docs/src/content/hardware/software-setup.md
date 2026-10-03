@@ -5,23 +5,44 @@ type: how-to
 section: hardware
 slug: hardware-software-setup
 kicker: Hardware — Software setup
-lede: The physical build is finished. Install the software, then carry on in the Sorter section.
+lede: The physical build is finished. Install the software, then carry on in the SorterOS section.
 permalink: /hardware/software-setup/
+og_image: https://assets.basically.website/sorter-docs/sorteros-first-load-sorter-ui-full-c7e8aae4ac07.png
 author: spencer
 ---
 
-The machine is built. Everything is printed, bolted, wired and plugged in, and nothing more is added to it by hand. What is left is software, and all of it lives in the [Sorter]({{ '/sorter/' | relative_url }}) section.
+The machine is built. Everything is printed, bolted, wired and plugged in, and nothing more is added to it by hand. What is left is software, and all of it lives in the [SorterOS]({{ '/sorter/' | relative_url }}) section.
 
-## 1. Install Sorter on the Pi
+## 1. Install SorterOS on the Pi
 
-[Installation]({{ '/sorter/installation/' | relative_url }}) has three routes: **SorterOS**, the pre-built image and the recommended one for the Orange Pi 5; the **one-command installer** for generic Linux; and the **by-hand** sequence for anything else. Each ends the same way, with the Sorter UI open in a browser and the first-boot setup wizard waiting.
+[Installation]({{ '/sorter/installation/' | relative_url }}) has three routes: the **SorterOS image**, pre-built and the recommended one for the Orange Pi 5; the **one-command installer** for generic Linux; and the **by-hand** sequence for anything else. Each ends the same way, with the SorterOS UI open in a browser and the first-boot setup wizard waiting.
 
 ## 2. Flash the control board before the wizard
 
 The board needs its firmware before the wizard can see it. Controller Discovery only lists boards that already answer on USB serial, so a board with nothing on it is invisible there and the step reports `No MCU buses found`.
 
-With Sorter running, flash it from **Settings** &rarr; **Control board**: pick a release (or upload a `.uf2` directly) and flash it over the Pico's USB serial connection. A board that has never been flashed is a special case, because it enumerates as an `RPI-RP2` drive rather than a serial port and needs the **Recovery flash** option instead. [Sorter troubleshooting]({{ '/sorter/troubleshooting/' | relative_url }}) has those steps.
+With SorterOS running, flash it from **Settings** &rarr; **Control board**: pick a release (or upload a `.uf2` directly) and flash it over the Pico's USB serial connection. **The asset you want is the `distribution` one for your board revision**, which is the all-in-one build for a machine with a single control board. A v1.3 board takes the `v1-2` build. A board that has never been flashed is a special case, because it enumerates as an `RPI-RP2` drive rather than a serial port and needs the **Recovery flash** option instead. [SorterOS troubleshooting]({{ '/sorter/troubleshooting/' | relative_url }}) has those steps.
 
-## 3. Carry on in Sorter
+## 3. Carry on in SorterOS
 
-From here the order is [the setup wizard in the UI]({{ '/sorter/first-setup/' | relative_url }}), then [camera calibration]({{ '/sorter/camera-calibration/' | relative_url }}), then [chute calibration]({{ '/sorter/chute-calibration/' | relative_url }}), then [before your first sort run]({{ '/sorter/before-first-sort-run/' | relative_url }}) and [your first sort run]({{ '/sorter/tutorials/first-sort-run/' | relative_url }}).
+From here the order is:
+
+<ol class="numbered-steps">
+  <li><strong><a href="{{ '/sorter/first-setup/' | relative_url }}">First setup in the UI</a></strong>. The setup wizard: name the machine, find the boards, check motion and endstops, assign the servos and the cameras.</li>
+  <li><strong><a href="{{ '/sorter/camera-calibration/' | relative_url }}">Camera calibration</a></strong>. Focus each camera against a printed chart.</li>
+  <li><strong><a href="{{ '/sorter/chute-calibration/' | relative_url }}">Chute calibration</a></strong>. Teach the chute where your bins are.</li>
+  <li><strong><a href="{{ '/sorter/before-first-sort-run/' | relative_url }}">Before your first sort run</a></strong>. The last five settings to check.</li>
+  <li><strong><a href="{{ '/sorter/preparing-lego/' | relative_url }}">Preparing LEGO for a sort run</a></strong>. What to take out of a tub of bulk LEGO before it goes in.</li>
+  <li><strong><a href="{{ '/sorter/tutorials/first-sort-run/' | relative_url }}">Your first sort run</a></strong>. Pick a profile, feed a handful of parts, watch them land.</li>
+</ol>
+
+## The finished result
+
+The SorterOS UI open in a browser on the machine's own address, the board answering on USB serial, and the setup wizard waiting. Everything from here happens in this window.
+
+<div class="img-row">
+  <figure>
+    <img src="https://assets.basically.website/sorter-docs/sorteros-first-load-sorter-ui-full-c7e8aae4ac07.png" alt="The SorterOS UI's dashboard the first time it loads: the Dashboard, Bins, Profiles, Records and Settings tabs along the top, a feeder panel reading No Camera Assigned, the machine in System Standby with a Home button, no pieces yet, and the runtime stats all at zero.">
+    <figcaption>The SorterOS UI, before the wizard has been through it. <cite>Screenshot recorded in a browser.</cite></figcaption>
+  </figure>
+</div>

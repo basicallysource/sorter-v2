@@ -1,8 +1,20 @@
 <script lang="ts">
-	import AppHeader from '$lib/components/AppHeader.svelte';
+	import AppShell from '$lib/components/AppShell.svelte';
+	import Alert from '$lib/components/ui/Alert.svelte';
+	import Badge from '$lib/components/ui/Badge.svelte';
+	import Button from '$lib/components/ui/Button.svelte';
+	import Checkbox from '$lib/components/ui/Checkbox.svelte';
+	import EmptyState from '$lib/components/ui/EmptyState.svelte';
+	import PageHeader from '$lib/components/ui/PageHeader.svelte';
+	import Panel from '$lib/components/ui/Panel.svelte';
+	import ProgressBar from '$lib/components/ui/ProgressBar.svelte';
+	import SegmentedControl from '$lib/components/ui/SegmentedControl.svelte';
+	import Spinner from '$lib/components/ui/Spinner.svelte';
+	import Stat from '$lib/components/ui/Stat.svelte';
 	import { getBackendHttpBase, machineHttpBaseUrlFromWsUrl } from '$lib/backend';
 	import { getMachinesContext } from '$lib/machines/context';
-	import { ArrowLeft, CheckCircle2, Filter, Printer } from 'lucide-svelte';
+	import ArrowLeft from '@lucide/svelte/icons/arrow-left';
+	import Printer from '@lucide/svelte/icons/printer';
 	import { onMount } from 'svelte';
 
 	type SetPart = {
@@ -34,6 +46,8 @@
 	let loading = $state(true);
 	let error = $state<string | null>(null);
 	let missingOnly = $state(true);
+	// Paper is light whatever the page's mode: while printing, the page takes the light tokens.
+	let printing = $state(false);
 
 	function currentBackendBaseUrl(): string {
 		return (
@@ -105,353 +119,171 @@
 		return Math.max(0, set.total_needed - set.total_found);
 	}
 
-	function missingTypesForSet(set: SetProgress): number {
-		return set.parts.filter((p) => p.quantity_found < p.quantity_needed).length;
-	}
 </script>
 
-<svelte:head>
-	<title>Parts Checklist · Sorter</title>
-	<style>
-		@media print {
-			html,
-			body {
-				background: #ffffff !important;
-				color: #000000 !important;
-				font-size: 10pt;
-			}
-			.no-print {
-				display: none !important;
-			}
-			.print-block {
-				break-inside: avoid;
-				page-break-inside: avoid;
-			}
-			.print-break {
-				break-before: page;
-				page-break-before: always;
-			}
-			.print-card {
-				border: 1px solid #000 !important;
-				background: #ffffff !important;
-				box-shadow: none !important;
-			}
-			.print-card-header {
-				background: #f0f0f0 !important;
-				border-bottom: 1px solid #000 !important;
-			}
-			.print-row {
-				border-bottom: 1px solid #c0c0c0 !important;
-			}
-			.print-checkbox {
-				border: 1.5px solid #000 !important;
-				background: #ffffff !important;
-				width: 14pt !important;
-				height: 14pt !important;
-			}
-			.print-muted {
-				color: #444 !important;
-			}
-			.print-strong {
-				color: #000 !important;
-			}
-		}
-	</style>
-</svelte:head>
+<svelte:head><title>Parts checklist - Sorter</title></svelte:head>
 
-<div class="min-h-screen bg-bg text-text">
-	<div class="no-print">
-		<AppHeader />
-	</div>
+<svelte:window onbeforeprint={() => (printing = true)} onafterprint={() => (printing = false)} />
 
-	<main class="mx-auto flex max-w-5xl flex-col gap-5 px-4 py-6 sm:px-6">
-		<header class="no-print flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-			<div class="flex items-start gap-3">
-				<a
-					href="/dashboard/sets"
-					class="setup-button-secondary inline-flex h-9 w-9 items-center justify-center text-text transition-colors"
-					title="Back to set progress"
-				>
-					<ArrowLeft size={16} />
-				</a>
-				<div>
-					<div
-						class="text-xs font-semibold uppercase tracking-wider text-text-muted"
-					>
-						Set tracking
-					</div>
-					<h1 class="text-2xl font-bold text-text">Parts checklist</h1>
-					<p class="mt-1 max-w-xl text-sm text-text-muted">
-						Print this page and walk to your storage to hunt down the parts the sorter
-						hasn&rsquo;t seen yet. Tick off boxes by hand or in the browser.
-					</p>
-				</div>
-			</div>
-
-			<div class="flex flex-shrink-0 items-center gap-2">
-				<button
-					type="button"
-					onclick={() => (missingOnly = !missingOnly)}
-					class="setup-button-secondary inline-flex items-center gap-2 px-3 py-2 text-sm text-text transition-colors"
-					title="Toggle between missing parts only and all parts"
-				>
-					<Filter size={14} />
-					{missingOnly ? 'Missing only' : 'All parts'}
-				</button>
-				<button
-					type="button"
-					onclick={() => window.print()}
-					class="setup-button-primary inline-flex items-center gap-2 px-3 py-2 text-sm font-medium transition-colors"
-					title="Print or export as PDF"
-				>
-					<Printer size={14} />
-					Print / PDF
-				</button>
-			</div>
-		</header>
+<AppShell>
+	<div
+		class="mx-auto flex w-full max-w-5xl flex-col gap-(--gap-panels) px-4 py-6 text-ink sm:px-6 print:max-w-none print:p-0 {printing
+			? 'light'
+			: ''}"
+	>
+		<div class="print:hidden">
+			<PageHeader
+				title="Parts checklist"
+				description="Print this page and walk to your storage to hunt down the parts the sorter hasn't seen yet. Tick off boxes by hand or in the browser."
+			>
+				{#snippet actions()}
+					<Button icon={ArrowLeft} href="/dashboard/sets">Back to set progress</Button>
+					<SegmentedControl
+						label="Which parts to list"
+						value={missingOnly ? 'missing' : 'all'}
+						options={[
+							{ value: 'missing', label: 'Missing only' },
+							{ value: 'all', label: 'All parts' }
+						]}
+						onchange={(v) => (missingOnly = v === 'missing')}
+					/>
+					<Button variant="primary" icon={Printer} onclick={() => window.print()}>Print or save as PDF</Button>
+				{/snippet}
+			</PageHeader>
+		</div>
 
 		{#if loading}
-			<div class="border border-border bg-surface px-4 py-12 text-center text-sm text-text-muted">
-				Loading checklist&hellip;
-			</div>
+			<p class="flex items-center justify-center gap-2 py-12 text-sm text-ink-muted">
+				<Spinner size={16} />
+				Loading the checklist
+			</p>
 		{:else if error}
-			<div
-				class="border border-danger/40 bg-danger/[0.06] px-3 py-2"
-			>
-				<div
-					class="text-xs font-semibold uppercase tracking-wider text-danger-dark"
-				>
-					Could not load checklist
-				</div>
-				<div class="mt-1 text-sm leading-relaxed text-text">{error}</div>
-			</div>
+			<Alert tone="danger" title="The checklist did not load">{error}</Alert>
 		{:else if sets.length === 0}
-			<div class="border border-border bg-surface px-4 py-12 text-center text-sm text-text-muted">
-				No set-based sorting profile is active. Assign one to start tracking parts.
-			</div>
+			<EmptyState title="No set-based sorting profile is active">
+				Assign one to start tracking parts.
+			</EmptyState>
 		{:else}
-			<!-- Summary card (also visible in print) -->
-			<section class="print-block print-card border border-border bg-surface">
-				<div class="print-card-header border-b border-border bg-surface px-4 py-3">
-					<div
-						class="text-xs font-semibold uppercase tracking-wider text-text-muted"
-					>
-						Hunt summary
-					</div>
-					<div class="mt-1 flex flex-wrap items-baseline gap-x-6 gap-y-1">
-						<div class="text-base font-semibold text-text">
-							{totals.missing} <span class="text-text-muted">parts still missing</span>
-						</div>
-						<div class="text-xs text-text-muted">
-							across {totals.missingTypes} unique part / color combos in {visibleSets.length} of {sets.length} sets
-						</div>
-					</div>
+			<!-- The summary also prints -->
+			<Panel
+				title="Hunt summary"
+				description="{totals.missing} parts still missing, across {totals.missingTypes} unique part and color combinations in {visibleSets.length} of {sets.length} sets."
+				flush
+				class="print:break-inside-avoid"
+			>
+				<div class="grid grid-cols-3 divide-x divide-line border-t border-line">
+					<Stat label="Found" value={totals.found} tone="success" />
+					<Stat label="Missing" value={totals.missing} tone="danger" />
+					<Stat label="Needed" value={totals.needed} />
 				</div>
-				<div class="grid grid-cols-3 divide-x divide-border">
-					<div class="px-4 py-3">
-						<div
-							class="text-xs font-semibold uppercase tracking-wider text-text-muted"
-						>
-							Found
-						</div>
-						<div class="mt-1 text-lg font-semibold tabular-nums text-success">
-							{totals.found}
-						</div>
-					</div>
-					<div class="px-4 py-3">
-						<div
-							class="text-xs font-semibold uppercase tracking-wider text-text-muted"
-						>
-							Missing
-						</div>
-						<div class="mt-1 text-lg font-semibold tabular-nums text-danger">
-							{totals.missing}
-						</div>
-					</div>
-					<div class="px-4 py-3">
-						<div
-							class="text-xs font-semibold uppercase tracking-wider text-text-muted"
-						>
-							Needed
-						</div>
-						<div class="mt-1 text-lg font-semibold tabular-nums text-text">
-							{totals.needed}
-						</div>
-					</div>
-				</div>
-			</section>
+			</Panel>
 
 			{#each visibleSets as set_progress, idx (set_progress.id)}
 				{@const parts = visibleParts(set_progress)}
 				{@const setMissing = totalMissing(set_progress)}
-				{@const setMissingTypes = missingTypesForSet(set_progress)}
 				{@const isComplete = setMissing === 0}
 				{@const setPct = Math.min(100, set_progress.pct)}
 
-				<section
-					class="print-block print-card border border-border bg-surface"
-					class:print-break={idx > 0}
-				>
-					<header
-						class="print-card-header flex items-start gap-4 border-b border-border bg-surface px-4 py-3"
-					>
+				<Panel flush class="print:break-inside-avoid {idx > 0 ? 'print:break-before-page' : ''}">
+					<div class="flex items-start gap-4 px-(--pad-panel) py-4">
 						{#if set_progress.img_url}
 							<img
 								src={set_progress.img_url}
 								alt={set_progress.name || set_progress.set_num}
-								class="h-14 w-14 flex-shrink-0 border border-border bg-white object-contain"
+								class="size-14 shrink-0 rounded-item object-contain"
 								loading="lazy"
 							/>
 						{/if}
 						<div class="min-w-0 flex-1">
 							<div class="flex items-baseline justify-between gap-3">
 								<div class="min-w-0">
-									<div
-										class="text-xs font-semibold uppercase tracking-wider text-text-muted print-muted"
-									>
+									<div class="num text-sm text-ink-muted">
 										Set {set_progress.set_num}{#if set_progress.year} &middot; {set_progress.year}{/if}
 									</div>
-									<h2 class="truncate text-base font-bold text-text print-strong">
+									<h2 class="truncate text-base font-semibold text-ink">
 										{set_progress.name || set_progress.set_num}
 									</h2>
 								</div>
 								{#if isComplete}
-									<span
-										class="inline-flex flex-shrink-0 items-center gap-1 border border-success/40 bg-success/[0.08] px-2 py-0.5 text-xs font-semibold uppercase tracking-wider text-success-dark"
-									>
-										<CheckCircle2 size={12} />
-										Complete
-									</span>
+									<Badge tone="success" dot>Complete</Badge>
 								{:else}
-									<span
-										class="inline-flex flex-shrink-0 items-center gap-1 border border-danger/40 bg-danger/[0.06] px-2 py-0.5 text-xs font-semibold uppercase tracking-wider text-danger-dark"
-									>
-										{setMissing}
-										{setMissing === 1 ? 'part' : 'parts'} missing
-									</span>
+									<Badge tone="danger">
+										{setMissing} {setMissing === 1 ? 'part' : 'parts'} missing
+									</Badge>
 								{/if}
 							</div>
 							<div class="mt-2 flex items-center gap-3">
-								<div class="h-1.5 flex-1 bg-bg">
-									<div
-										class="h-full transition-all {isComplete ? 'bg-success' : 'bg-primary'}"
-										style="width: {setPct}%"
-									></div>
+								<div class="flex-1">
+									<ProgressBar
+										value={setPct}
+										label="Progress of {set_progress.name || set_progress.set_num}"
+										tone={isComplete ? 'success' : 'primary'}
+									/>
 								</div>
-								<div
-									class="flex-shrink-0 text-xs font-semibold tabular-nums text-text-muted print-muted"
-								>
+								<span class="num shrink-0 text-xs text-ink-muted">
 									{set_progress.total_found}/{set_progress.total_needed} &middot; {setPct}%
-								</div>
+								</span>
 							</div>
 						</div>
-					</header>
+					</div>
 
 					{#if parts.length === 0}
-						<div class="px-4 py-6 text-center text-xs text-text-muted">
-							{#if missingOnly}
-								All parts of this set have been sorted.
-							{:else}
-								This set has no parts.
-							{/if}
-						</div>
+						<p class="px-(--pad-panel) pb-5 text-center text-sm text-ink-muted">
+							{missingOnly ? 'All parts of this set have been sorted.' : 'This set has no parts.'}
+						</p>
 					{:else}
-						<div class="px-1 py-1">
-							<table class="w-full text-sm">
-								<thead>
-									<tr
-										class="text-xs font-semibold uppercase tracking-wider text-text-muted print-muted"
-									>
-										<th class="px-3 pb-2 pt-2 text-left" style="width: 30px;">
-											<span class="sr-only">Done</span>
-										</th>
-										<th class="px-2 pb-2 pt-2 text-left">Part</th>
-										<th class="px-2 pb-2 pt-2 text-left">Color</th>
-										<th class="px-2 pb-2 pt-2 text-right">Found</th>
-										<th class="px-2 pb-2 pt-2 text-right">Needed</th>
-										<th class="px-3 pb-2 pt-2 text-right">Missing</th>
+						<div class="overflow-x-auto">
+						<table class="data-table">
+							<thead>
+								<tr>
+									<th class="w-10"><span class="sr-only">Done</span></th>
+									<th>Part</th>
+									<th>Color</th>
+									<th class="num">Found</th>
+									<th class="num">Needed</th>
+									<th class="num">Missing</th>
+								</tr>
+							</thead>
+							<tbody>
+								{#each parts as part, partIdx (`${part.part_num}-${part.color_id}-${partIdx}`)}
+									{@const missing = Math.max(0, part.quantity_needed - part.quantity_found)}
+									{@const partComplete = missing === 0}
+									<tr class="print:break-inside-avoid {partComplete && !missingOnly ? 'opacity-60' : ''}">
+										<td>
+											<Checkbox
+												checked={partComplete}
+												disabled={partComplete}
+												aria-label="Mark {part.part_num} as found"
+											/>
+										</td>
+										<td>
+											<div class="num font-medium text-ink">{part.part_num}</div>
+											{#if part.part_name}<div class="text-ink-muted">{part.part_name}</div>{/if}
+										</td>
+										<td>{colorLabel(part)}</td>
+										<td class="num text-ink-muted">{part.quantity_found}</td>
+										<td class="num text-ink-muted">{part.quantity_needed}</td>
+										<td class="num">
+											{#if partComplete}
+												<span class="text-success-ink">OK</span>
+											{:else}
+												<span class="font-semibold text-danger-ink">{missing}</span>
+											{/if}
+										</td>
 									</tr>
-								</thead>
-								<tbody>
-									{#each parts as part, partIdx (`${part.part_num}-${part.color_id}-${partIdx}`)}
-										{@const missing = Math.max(0, part.quantity_needed - part.quantity_found)}
-										{@const partComplete = missing === 0}
-										<tr
-											class="print-row border-t border-border/60 align-top text-text"
-											class:opacity-60={partComplete && !missingOnly}
-										>
-											<td class="px-3 py-2">
-												<input
-													type="checkbox"
-													checked={partComplete}
-													disabled={partComplete}
-													class="setup-toggle print-checkbox h-4 w-4 cursor-pointer border border-border bg-white"
-													aria-label="Mark {part.part_num} as found"
-												/>
-											</td>
-											<td class="px-2 py-2">
-												<div class="font-mono text-xs font-semibold text-text print-strong">
-													{part.part_num}
-												</div>
-												{#if part.part_name}
-													<div class="mt-0.5 text-xs text-text-muted print-muted">
-														{part.part_name}
-													</div>
-												{/if}
-											</td>
-											<td class="px-2 py-2 text-xs text-text print-strong">
-												{colorLabel(part)}
-											</td>
-											<td
-												class="px-2 py-2 text-right text-xs tabular-nums text-text-muted print-muted"
-											>
-												{part.quantity_found}
-											</td>
-											<td
-												class="px-2 py-2 text-right text-xs tabular-nums text-text-muted print-muted"
-											>
-												{part.quantity_needed}
-											</td>
-											<td class="px-3 py-2 text-right">
-												{#if partComplete}
-													<span
-														class="inline-flex items-center gap-1 text-xs font-semibold uppercase tracking-wider text-success-dark"
-													>
-														<CheckCircle2 size={12} />
-														OK
-													</span>
-												{:else}
-													<span
-														class="font-mono text-sm font-bold tabular-nums text-danger print-strong"
-													>
-														{missing}
-													</span>
-												{/if}
-											</td>
-										</tr>
-									{/each}
-								</tbody>
-							</table>
+								{/each}
+							</tbody>
+						</table>
 						</div>
 					{/if}
-				</section>
+				</Panel>
 			{/each}
 
 			{#if visibleSets.length === 0 && missingOnly}
-				<div
-					class="border border-success/40 bg-success/[0.06] px-4 py-8 text-center"
-				>
-					<div
-						class="text-xs font-semibold uppercase tracking-wider text-success-dark"
-					>
-						All clear
-					</div>
-					<div class="mt-1 text-sm text-text">
-						Every tracked set is fully sorted. Toggle &ldquo;All parts&rdquo; to review the
-						completed inventory.
-					</div>
-				</div>
+				<Alert tone="success" title="All clear">
+					Every tracked set is fully sorted. Choose "All parts" to review the completed inventory.
+				</Alert>
 			{/if}
 		{/if}
-	</main>
-</div>
+	</div>
+</AppShell>

@@ -1,5 +1,6 @@
 <script lang="ts">
-	import { Home } from 'lucide-svelte';
+	import House from '@lucide/svelte/icons/house';
+	import Button from '$lib/components/ui/Button.svelte';
 
 	let {
 		loading,
@@ -28,43 +29,29 @@
 	} = $props();
 </script>
 
-<div class="border-t border-border pt-4"></div>
-
-<div class="flex flex-col gap-1">
-	<div class="text-sm font-medium text-text">Homing</div>
-	<div class="text-xs text-text-muted">
-		Find the endstop slowly, or cancel and stop all steppers if the wrong motor moves.
+<div class="flex flex-col gap-3 px-(--pad-panel) py-(--pad-row)">
+	<div>
+		<div class="text-sm font-medium text-ink">Homing</div>
+		<p class="mt-0.5 text-sm text-ink-muted">
+			Find the endstop slowly, or cancel and stop every stepper if the wrong motor moves.
+		</p>
 	</div>
-</div>
-
-<div class="flex flex-col gap-2">
-	<button
-		onclick={onHome}
-		disabled={loading || saving || homing || canceling}
-		class="inline-flex cursor-pointer items-center justify-center gap-1.5 border border-border bg-bg px-3 py-2 text-sm text-text transition-colors hover:bg-surface disabled:cursor-not-allowed disabled:opacity-50"
-	>
-		<Home size={14} />
-		{homing ? 'Homing...' : 'Home to Endstop'}
-	</button>
-	<button
-		onclick={onCancel}
-		disabled={!homing || canceling}
-		class="cursor-pointer border border-danger bg-danger/20 px-3 py-2 text-sm text-danger hover:bg-danger/30 disabled:cursor-not-allowed disabled:opacity-50"
-	>
-		{canceling ? 'Canceling...' : 'Cancel Homing'}
-	</button>
-	{#if hasCalibrateEndpoint}
-		<button
-			onclick={onCalibrate}
-			disabled={endstopTriggered !== true || homing || calibrating || canceling}
-			class="inline-flex cursor-pointer items-center justify-center gap-1.5 border border-border bg-bg px-3 py-2 text-sm text-text transition-colors hover:bg-surface disabled:cursor-not-allowed disabled:opacity-50"
-		>
-			{calibrating ? 'Calibrating...' : 'Calibrate Full Rotation'}
-		</button>
-		{#if calibrateResult}
-			<div class="text-xs text-text-muted">
-				Result: {calibrateResult.steps_per_revolution} steps/rev
-			</div>
+	<div class="flex flex-wrap gap-2">
+		<Button icon={House} loading={homing} disabled={loading || saving || canceling} onclick={onHome}>
+			Home to the endstop
+		</Button>
+		<Button variant="danger" loading={canceling} disabled={!homing} onclick={onCancel}>Cancel</Button>
+		{#if hasCalibrateEndpoint}
+			<Button
+				loading={calibrating}
+				disabled={endstopTriggered !== true || homing || canceling}
+				onclick={onCalibrate}
+			>
+				Calibrate a full turn
+			</Button>
 		{/if}
+	</div>
+	{#if hasCalibrateEndpoint && calibrateResult}
+		<p class="num text-sm text-ink-muted">A full turn is {calibrateResult.steps_per_revolution} steps.</p>
 	{/if}
 </div>

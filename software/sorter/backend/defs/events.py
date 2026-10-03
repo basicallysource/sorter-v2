@@ -4,9 +4,6 @@ from enum import Enum
 
 
 class CameraName(str, Enum):
-    feeder = "feeder"
-    classification_bottom = "classification_bottom"
-    classification_top = "classification_top"
     c_channel_2 = "c_channel_2"
     c_channel_3 = "c_channel_3"
     carousel = "carousel"
@@ -37,29 +34,12 @@ class HeartbeatEvent(BaseModel):
     data: HeartbeatData
 
 
-class FrameResultData(BaseModel):
-    class_id: Optional[int]
-    class_name: Optional[str]
-    confidence: float
-    bbox: Optional[Tuple[int, int, int, int]]
-
-
-class FrameData(BaseModel):
-    camera: CameraName
-    timestamp: float
-    raw: str
-    annotated: Optional[str]
-    results: List[FrameResultData]
-
-
-class FrameEvent(BaseModel):
-    tag: Literal["frame"]
-    data: FrameData
-
-
 class MachineIdentityData(BaseModel):
     machine_id: str
     nickname: Optional[str]
+    # New with every backend process: a tab reopens its camera feeds when it
+    # reconnects to a different one, since the old process's streams are gone.
+    run_id: Optional[str] = None
 
 
 class IdentityEvent(BaseModel):
@@ -226,9 +206,16 @@ class CameraHealthEvent(BaseModel):
     data: CameraHealthData
 
 
+class HardwareErrorData(BaseModel):
+    """What stopped the machine or needs the operator (hardware/fault.py)."""
+
+    title: str
+    message: str
+
+
 class SystemStatusData(BaseModel):
     hardware_state: str
-    hardware_error: Optional[str] = None
+    hardware_error: Optional[HardwareErrorData] = None
     homing_step: Optional[str] = None
     no_power_development_mode: bool = False
 
@@ -240,7 +227,6 @@ class SystemStatusEvent(BaseModel):
 
 class SorterStateData(BaseModel):
     state: str
-    camera_layout: Optional[str] = None
 
 
 class SorterStateEvent(BaseModel):
@@ -267,6 +253,8 @@ class SortingProfileStatusEvent(BaseModel):
     data: SortingProfileStatusData
 
 
+# The live part of the runtime stats (RuntimeStatsCollector.snapshot(live=True)),
+# pushed when it changes. The full snapshot is GET /runtime-stats.
 class RuntimeStatsData(BaseModel):
     payload: dict
 
@@ -294,18 +282,8 @@ class ResumeCommandEvent(BaseModel):
     data: ResumeCommandData
 
 
-class SetProfilerEnabledData(BaseModel):
-    enabled: bool
-
-
-class SetProfilerEnabledEvent(BaseModel):
-    tag: Literal["set_profiler_enabled"]
-    data: SetProfilerEnabledData
-
-
 SocketEvent = Union[
     HeartbeatEvent,
-    FrameEvent,
     IdentityEvent,
     KnownObjectEvent,
     CameraHealthEvent,
@@ -315,17 +293,4 @@ SocketEvent = Union[
     SortingProfileStatusEvent,
     RuntimeStatsEvent,
 ]
-MainThreadToServerCommand = Union[
-    HeartbeatEvent,
-    FrameEvent,
-    KnownObjectEvent,
-    CameraHealthEvent,
-    SystemStatusEvent,
-    SorterStateEvent,
-    CamerasConfigEvent,
-    SortingProfileStatusEvent,
-    RuntimeStatsEvent,
-]
-ServerToMainThreadEvent = Union[
-    HeartbeatEvent, PauseCommandEvent, ResumeCommandEvent, SetProfilerEnabledEvent
-]
+ServerToMainThreadEvent = Union[PauseCommandEvent, ResumeCommandEvent]

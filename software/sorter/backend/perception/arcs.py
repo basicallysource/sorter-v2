@@ -16,7 +16,7 @@ from typing import Iterable, Tuple
 
 import numpy as np
 
-from .channel import ChannelDef, SECTION_COUNT, SECTION_DEG
+from .channel import FEEDER_CHANNELS, ChannelDef, SECTION_COUNT, SECTION_DEG
 
 
 Bbox = Tuple[int, int, int, int]
@@ -128,13 +128,32 @@ def bboxWithinMaskExtent(
     return True
 
 
+def _inMask(mask: np.ndarray, x: float, y: float) -> bool:
+    h, w = mask.shape[:2]
+    ix, iy = int(x), int(y)
+    return 0 <= ix < w and 0 <= iy < h and bool(mask[iy, ix])
+
+
 def bboxInsideChannelMask(bbox: Bbox, channel: ChannelDef) -> bool:
+    """A box is on this channel when its center is inside the channel's mask,
+    or, on a feeder channel, when it straddles the mask's edge at the exit: a
+    piece on the lip, mostly past the rotor's edge, still rides this channel
+    until it falls. A box that crosses from this channel into the next one
+    belongs to this one. (The classification channel's exit drops into the
+    chute: a piece on its lip has been ejected.)"""
     cx, cy = bboxCenter(bbox)
-    h, w = channel.mask.shape[:2]
-    ix, iy = int(cx), int(cy)
-    if not (0 <= ix < w and 0 <= iy < h):
+    if _inMask(channel.mask, cx, cy):
+        return True
+    if channel.channel_id not in FEEDER_CHANNELS or not channel.exit_sections:
         return False
-    return bool(channel.mask[iy, ix])
+    angle = float(np.degrees(np.arctan2(cy - channel.center[1], cx - channel.center[0])))
+    section = int(((angle - channel.radius1_angle_image) % 360.0) / SECTION_DEG) % SECTION_COUNT
+    if section not in channel.exit_sections:
+        return False
+    x1, y1, x2, y2 = bbox
+    mx, my = (x1 + x2) / 2.0, (y1 + y2) / 2.0
+    corners_and_edges = ((x1, y1), (x2, y1), (x1, y2), (x2, y2), (mx, y1), (mx, y2), (x1, my), (x2, my))
+    return any(_inMask(channel.mask, px, py) for px, py in corners_and_edges)
 
 
 def bboxInsideMask(bbox: Bbox, mask: np.ndarray) -> bool:
@@ -255,6 +274,27 @@ def exitOnlySections(channel: ChannelDef) -> frozenset[int]:
     """
     exit_only = channel.exit_sections - channel.precise_sections
     return exit_only if exit_only else channel.exit_sections
+
+
+def forwardGapToExitDeg(bbox: Bbox, channel: ChannelDef) -> float:
+    """How far (output degrees) the channel can turn before the most forward
+    part of this piece's box reaches the REAL exit (``exitOnlySections``); 0
+    when part of it is already there. An exit move sized to the piece behind
+    the lead keeps that piece on the channel."""
+    exit_only = exitOnlySections(channel)
+    ordered = _orderedCircularSections(exit_only)
+    if not ordered:
+        return 0.0
+    reverse = bool(getattr(channel, "reverse", False))
+    entry = ordered[-1] if reverse else ordered[0]
+    best: int | None = None
+    for section in bboxSections(bbox, channel):
+        if section in exit_only:
+            return 0.0
+        gap = (section - entry) % SECTION_COUNT if reverse else (entry - section) % SECTION_COUNT
+        if best is None or gap < best:
+            best = gap
+    return float(best or 0) * SECTION_DEG
 
 
 def exitComForwardDeg(
@@ -535,45 +575,6 @@ def orderedPieceObservations(
         out.append((gap, sec, int(lut[sec]), (int(bbox[0]), int(bbox[1]), int(bbox[2]), int(bbox[3]))))
     out.sort(key=lambda t: t[0])
     return out
-
-
-def holdingSlotSections(
-    channel: ChannelDef, count: int
-) -> list[frozenset[int]]:
-    """Subdivide the drawn precise (holding) band into ``count`` contiguous
-    holding slots, ordered ENTRY-FIRST in the travel direction: slot 0 is the
-    edge a piece reaches FIRST coming from the drop zone; the last slot is the
-    edge adjacent to the fall-off (the piece's final hold before discharge).
-
-    ``count == 1`` returns the whole precise band as one slot — exactly today's
-    single holding region. ``count`` is clamped to ``[1, len(band sections)]`` so
-    a slot is never empty (an empty section-set could never read as occupied and
-    would wedge the scheduler); callers should treat ``len(result)`` as the
-    effective slot count rather than assuming their requested ``count``. Returns
-    ``[]`` when the channel has no precise band.
-
-    The UI exposes ONE draggable precise/holding band (width + position); this is
-    where ``Rev01Config.holding_region_count`` turns that single band into N
-    slots, so adding holding regions needs no UI change.
-    """
-    ordered = _orderedCircularSections(channel.precise_sections)
-    if not ordered:
-        return []
-    # Entry-first: the edge the piece reaches first. _orderedCircularSections
-    # returns rear-edge-first (forward-travel entry); reverse travel (C4) enters
-    # at the far edge, so flip to keep slot 0 == entry in both directions.
-    if bool(getattr(channel, "reverse", False)):
-        ordered = list(reversed(ordered))
-    n = len(ordered)
-    count = max(1, min(int(count), n))
-    base, rem = divmod(n, count)
-    slots: list[frozenset[int]] = []
-    i = 0
-    for s in range(count):
-        size = base + (1 if s < rem else 0)
-        slots.append(frozenset(ordered[i : i + size]))
-        i += size
-    return slots
 
 
 def attributeBboxes(

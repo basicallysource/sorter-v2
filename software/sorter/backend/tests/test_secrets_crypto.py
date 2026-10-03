@@ -1,3 +1,5 @@
+import base64
+import json
 import os
 import sqlite3
 import tempfile
@@ -17,7 +19,6 @@ class SecretsCryptoTests(unittest.TestCase):
         os.environ.pop("MACHINE_SPECIFIC_PARAMS_PATH", None)
         os.environ.pop("SORTER_SECRET_SEED_PATH", None)
         self.db_path = tmp / "local_state.sqlite"
-        self.seed_path = tmp / ".secret_seed"
 
     def tearDown(self) -> None:
         for key, value in self._old_env.items():
@@ -52,12 +53,11 @@ class SecretsCryptoTests(unittest.TestCase):
         self.assertEqual({"openrouter": "secret-key-abc"}, get_api_keys())
 
     def test_legacy_plaintext_api_keys_are_migrated_on_read(self) -> None:
-        from local_state import get_api_keys, initialize_local_state, _connection, _set_json
+        from local_state import get_api_keys, _connection, write_entry
 
-        initialize_local_state()
         # Simulate legacy plaintext entry written by an older build.
         with _connection() as conn:
-            _set_json(conn, "api_keys", {"gemini": "legacy-plaintext-token"})
+            write_entry(conn, "api_keys", {"gemini": "legacy-plaintext-token"})
             conn.commit()
 
         # First read decrypts (no-op for plaintext) and transparently re-encrypts.
@@ -93,16 +93,17 @@ class SecretsCryptoTests(unittest.TestCase):
         assert config is not None
         self.assertEqual("hive-token-xyz", config["targets"][0]["api_token"])
 
-    def test_seed_file_is_created_with_restrictive_mode(self) -> None:
+    def test_seed_is_persisted_in_database_and_reused(self) -> None:
         from local_state import set_api_keys
+        from secrets_crypto import decrypt_str, encrypt_str
 
         set_api_keys({"openrouter": "kick-off"})
-
-        self.assertTrue(self.seed_path.exists())
-        mode = self.seed_path.stat().st_mode & 0o777
-        # chmod may silently no-op on some filesystems; only assert when it stuck.
-        if mode != 0:
-            self.assertEqual(0o600, mode)
+        seed = self._raw_state_value("__secret_seed")
+        self.assertIsNotNone(seed)
+        self.assertEqual(32, len(base64.b64decode(json.loads(seed), validate=True)))
+        ciphertext = encrypt_str("round-trip")
+        self.assertEqual("round-trip", decrypt_str(ciphertext))
+        self.assertEqual(seed, self._raw_state_value("__secret_seed"))
 
     def test_missing_ciphertext_decrypts_to_empty_string(self) -> None:
         from secrets_crypto import decrypt_str

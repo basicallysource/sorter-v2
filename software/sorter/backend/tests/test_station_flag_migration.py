@@ -9,7 +9,7 @@ class StationFlagMigrationTests(unittest.TestCase):
     def test_precise_gate_and_piece_messages_publish_to_bus(self) -> None:
         bus = TickBus()
         shared = SharedVariables(
-            gc=SimpleNamespace(use_channel_bus=True),
+            gc=SimpleNamespace(),
             bus=bus,
         )
         bus.begin_tick(now_mono=1.0)

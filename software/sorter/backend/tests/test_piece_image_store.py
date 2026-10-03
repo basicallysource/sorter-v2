@@ -33,7 +33,6 @@ class PieceImageStoreTests(unittest.TestCase):
         self._old_db = os.environ.get("LOCAL_STATE_DB_PATH")
         self._tmpdir = tempfile.TemporaryDirectory()
         os.environ["LOCAL_STATE_DB_PATH"] = os.path.join(self._tmpdir.name, "state.sqlite")
-        piece_image_store._initialized = False
         # Keep the background worker out of tests: mark it started so enqueue
         # never spawns it, then drain the queue synchronously via drainQueue().
         piece_image_store._worker_started.set()
@@ -47,7 +46,6 @@ class PieceImageStoreTests(unittest.TestCase):
             os.environ.pop("LOCAL_STATE_DB_PATH", None)
         else:
             os.environ["LOCAL_STATE_DB_PATH"] = self._old_db
-        piece_image_store._initialized = False
         self._tmpdir.cleanup()
 
     def drainQueue(self) -> None:
@@ -171,14 +169,6 @@ class PieceImageStoreTests(unittest.TestCase):
         # Flags flush once per piece — a later observation doesn't re-enqueue.
         piece_image_store.enqueueKnownObjectImages(payload)
         self.assertTrue(piece_image_store._queue.empty())
-
-    def test_stats(self) -> None:
-        piece_image_store.enqueueKnownObjectImages(makePayload("piece-s", 2))
-        self.drainQueue()
-        stats = piece_image_store.getStats()
-        self.assertEqual(stats["live_files"], 2)
-        self.assertEqual(stats["live_bytes"], len(FAKE_JPEG) * 2)
-        self.assertEqual(stats["total_rows"], 2)
 
     def test_ignores_malformed_payloads(self) -> None:
         piece_image_store.enqueueKnownObjectImages({})

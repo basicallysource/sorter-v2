@@ -18,69 +18,18 @@ from app.services.openrouter import OpenRouterResponse, run_openrouter_chat
 from app.services.profile_engine import sorting_profile as profile_sorting_profile
 from app.services.profile_catalog import ProfileCatalogService
 from app.services.secrets import decrypt_secret
+from app.services.profile_engine.fields import FIELDS as PROFILE_FIELDS
 
 logger = logging.getLogger("uvicorn.error").getChild("profile_ai")
 
 
-VALID_FIELDS = {
-    "name",
-    "part_num",
-    "category_id",
-    "category_name",
-    "color_id",
-    "year_from",
-    "year_to",
-    "bricklink_id",
-    "bricklink_item_count",
-    "bricklink_primary_item_no",
-    "bl_price_min",
-    "bl_price_max",
-    "bl_price_avg",
-    "bl_price_qty_avg",
-    "bl_price_lots",
-    "bl_price_qty",
-    "bl_catalog_name",
-    "bl_catalog_category_id",
-    "bl_category_id",
-    "bl_category_name",
-    "bl_catalog_year_released",
-    "bl_catalog_weight",
-    "bl_catalog_dim_x",
-    "bl_catalog_dim_y",
-    "bl_catalog_dim_z",
-    "bl_catalog_is_obsolete",
-}
-
-VALID_OPS = {"eq", "neq", "in", "contains", "regex", "gte", "lte"}
-
-FIELD_OPS = {
-    "name": {"contains", "regex"},
-    "part_num": {"eq", "neq", "in"},
-    "category_id": {"eq", "neq", "in"},
-    "category_name": {"contains", "regex"},
-    "color_id": {"eq", "neq", "in"},
-    "year_from": {"eq", "neq", "gte", "lte"},
-    "year_to": {"eq", "neq", "gte", "lte"},
-    "bricklink_id": {"eq", "neq", "in"},
-    "bricklink_item_count": {"eq", "neq", "gte", "lte"},
-    "bricklink_primary_item_no": {"eq", "neq", "contains", "regex"},
-    "bl_price_min": {"eq", "neq", "gte", "lte"},
-    "bl_price_max": {"eq", "neq", "gte", "lte"},
-    "bl_price_avg": {"eq", "neq", "gte", "lte"},
-    "bl_price_qty_avg": {"eq", "neq", "gte", "lte"},
-    "bl_price_lots": {"eq", "neq", "gte", "lte"},
-    "bl_price_qty": {"eq", "neq", "gte", "lte"},
-    "bl_catalog_name": {"contains", "regex"},
-    "bl_catalog_category_id": {"eq", "neq", "in"},
-    "bl_category_id": {"eq", "neq", "in"},
-    "bl_category_name": {"contains", "regex"},
-    "bl_catalog_year_released": {"eq", "neq", "gte", "lte"},
-    "bl_catalog_weight": {"eq", "neq", "gte", "lte"},
-    "bl_catalog_dim_x": {"eq", "neq", "gte", "lte"},
-    "bl_catalog_dim_y": {"eq", "neq", "gte", "lte"},
-    "bl_catalog_dim_z": {"eq", "neq", "gte", "lte"},
-    "bl_catalog_is_obsolete": {"eq", "neq"},
-}
+# The fields and operators the chat may propose: the one list rules are
+# evaluated by (profile_engine.fields), with the operators each field offers,
+# less the price fields for each market section (the six plain price fields
+# cover what people ask for, and the prompt stays short).
+VALID_FIELDS = {key for key in PROFILE_FIELDS if not re.match(r"bl_price_(inv|ord)_", key)}
+FIELD_OPS = {key: set(PROFILE_FIELDS[key].ops) for key in VALID_FIELDS}
+VALID_OPS = {op for ops in FIELD_OPS.values() for op in ops}
 
 MAX_TOOL_ROUNDS = 5
 CUSTOM_SET_INTENT_RE = re.compile(
@@ -1308,6 +1257,8 @@ def apply_profile_ai_proposal(
             )
             if created_rule_id is None:
                 raise APIError(400, "AI proposal references an unknown parent rule", "AI_INVALID_PARENT")
+            if item.get("image_url"):
+                profile_sorting_profile.getRule(profile_like, created_rule_id)["image_url"] = item["image_url"]
             continue
 
         if action == "create_set":
@@ -1329,6 +1280,7 @@ def apply_profile_ai_proposal(
                 "conditions": [],
                 "children": [],
                 "disabled": False,
+                "image_url": item.get("image_url") or None,
             }
             # Set rules must always be top-level (they have no conditions,
             # so nesting them as children would act as always-true subchecks).
@@ -1357,6 +1309,7 @@ def apply_profile_ai_proposal(
                 "conditions": [],
                 "children": [],
                 "disabled": False,
+                "image_url": item.get("image_url") or None,
             }
             if position is not None and 0 <= position <= len(profile_like.rules):
                 profile_like.rules.insert(position, new_rule)
@@ -1387,6 +1340,8 @@ def apply_profile_ai_proposal(
         target_rule["name"] = item.get("name") or target_rule.get("name") or "Unnamed Rule"
         target_rule["match_mode"] = item.get("match_mode", "all")
         target_rule["conditions"] = _normalize_conditions(item.get("conditions", []))
+        if "image_url" in item:
+            target_rule["image_url"] = item.get("image_url") or None
 
         if parent_id is not None or position is not None:
             moved_rule = copy.deepcopy(target_rule)
@@ -1693,7 +1648,8 @@ You MUST always respond with JSON matching this schema:
       "conditions": [{{"field": "name", "op": "contains", "value": "brick"}}],
       "set_num": "10283-1",
       "set_meta": {{"name": "Set Name", "year": 2021, "num_parts": 2354, "img_url": "https://..."}},
-      "custom_parts": [{{"part_num": "2780", "color_id": -1, "color_name": "Any color", "quantity": 20}}]
+      "custom_parts": [{{"part_num": "2780", "color_id": -1, "color_name": "Any color", "quantity": 20}}],
+      "image_url": "optional: the bin's picture"
     }}
   ]
 }}
@@ -1722,6 +1678,7 @@ Guidelines:
 - Keep proposals small and actionable.
 - If the user asks to split a category into multiple child rules, return multiple proposals.
 - Prefer 'contains' over complex regex unless the user explicitly asks for regex.
+- When the user wants a picture on a bin, set image_url to a part's img_url from search_parts results (any action but delete and move). An edit that leaves image_url out keeps the rule's picture.
 - Do NOT include emojis or special characters in rule names. Use plain text only (e.g. "Bricks" not "🧱 Bricks").
 - When the user wants to add a LEGO set, use search_sets to find the correct set_num, then use action "create_set" with set_num and set_meta from the search results. Never use action "create" for sets.
 - When the user asks which parts are inside an official LEGO set, first use search_sets to identify the exact set_num, then use get_set_inventory with that set_num.

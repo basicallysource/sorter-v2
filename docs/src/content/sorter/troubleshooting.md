@@ -1,9 +1,9 @@
 ---
 layout: default
-title: Sorter troubleshooting
+title: SorterOS troubleshooting
 type: troubleshooting
 slug: sorter-troubleshooting
-kicker: Sorter — Operations
+kicker: SorterOS — Operations
 lede: Symptom-led entries for install, first-run, and runtime problems. Search this page (Cmd-F) for the error message you are seeing.
 permalink: /sorter/troubleshooting/
 ---
@@ -12,15 +12,15 @@ Each entry: what you see → cause → fix → how to verify. For the install pr
 
 ## First boot {#first-boot}
 
-These are for [SorterOS]({{ '/sorter/installation/sorter-os/' | relative_url }}). While it sets up, the Pi serves a progress page at `http://sorter.local` that lists every stage, and next to a stage that is stuck, the reason.
+These are for [the SorterOS image]({{ '/sorter/installation/sorter-os/' | relative_url }}). While it sets up, the Pi serves a progress page at `http://sorter.local` that lists every stage, and next to a stage that is stuck, the reason.
 
 ### `sorter.local` doesn't open
 
-**Cause:** mDNS only works on the Pi's own network, older Windows needs Bonjour for it, and a second SorterOS machine on the same network answers at `sorter-2.local`.
+**Cause:** mDNS only works on the Pi's own network, older Windows needs Bonjour for it, and a second machine on the same network running the SorterOS image answers at `sorter-2.local`.
 
 **Fix:** Browse from a device on the same network, or find the Pi in your router's list of connected devices and use its IP address.
 
-**Verify:** The progress page or the Sorter UI loads.
+**Verify:** The progress page or the SorterOS UI loads.
 
 ### A stage says `waiting for internet`
 
@@ -52,7 +52,7 @@ These are for [SorterOS]({{ '/sorter/installation/sorter-os/' | relative_url }})
 
 **Fix:** Use the address the setup page showed when the Pi joined. If you didn't note it, browse to `http://<name>.local` (the name you gave it, `sorter` if you didn't), find the Pi in your router's list of connected devices, or join `SorterOS-Setup-` again if it's in your phone's WiFi list: the page shows where the Pi is.
 
-**Verify:** The Sorter UI or the first-boot progress page loads.
+**Verify:** The SorterOS UI or the first-boot progress page loads.
 
 ### The WiFi entered in SorterOS Setup was wrong
 
@@ -64,7 +64,7 @@ These are for [SorterOS]({{ '/sorter/installation/sorter-os/' | relative_url }})
 
 ### `tailscale-up` shows ✕
 
-**Cause:** The Tailscale key was rejected (expired, already used, or not allowed the `tag:sorter` tag). After ten tries the Pi stops trying. The Sorter UI is not affected.
+**Cause:** The Tailscale key was rejected (expired, already used, or not allowed the `tag:sorter` tag). After ten tries the Pi stops trying. The SorterOS UI is not affected.
 
 **Fix:** Connect Tailscale from the UI's **Settings** later.
 
@@ -100,7 +100,7 @@ These are for [SorterOS]({{ '/sorter/installation/sorter-os/' | relative_url }})
 
 **Fix:** Read the `[backend]` lines in `./dev.sh`. The last line before the silence tells you which import failed. Fix that and restart.
 
-**Verify:** `curl -fsS http://localhost:8000/api/health` returns JSON.
+**Verify:** `curl -fsS http://localhost:8000/health` returns JSON.
 
 ---
 
@@ -123,16 +123,6 @@ The wizard's Controller Discovery step lists no controllers, and the issue banne
 **Fix:** Re-run `install.sh`, or by hand: `sudo cp software/systemd/99-sorter-pico.rules /etc/udev/rules.d/ && sudo usermod -aG plugdev $USER && sudo udevadm control --reload-rules && sudo udevadm trigger`. Unplug and replug. For headless/SSH, log out and back in so the group takes effect.
 
 **Verify:** `ls -l /dev/ttyACM*` shows the device owned by `root:plugdev` with mode `0660`, and `id` lists `plugdev` for your user.
-
----
-
-## Feeder camera sees a part but the MOG2 detector never triggers
-
-**Cause:** Bootstrap window — each channel needs 24 frames of background before reporting detections, and the counter resets on any image-shape change. Or: the channel was rotating when the part landed (motion blur is suppressed on purpose).
-
-**Fix:** Wait ~2 seconds after homing or any camera setting change before dropping a part. If detections come in late but never fire, raise `var_threshold` in `mog2_diff_configs`.
-
-**Verify:** A part landing in the dropzone produces `feeder: idle -> feeding` in the log within ~500 ms.
 
 ---
 
@@ -166,7 +156,7 @@ The wizard's Controller Discovery step lists no controllers, and the issue banne
 
 **Cause:** Wrong URL/token, or Hive is unreachable from this machine. The uploader keeps samples on disk and backs off — nothing is dropped.
 
-**Fix:** Test with `curl -fsS "$HIVE_URL/api/health"`. If that fails, fix the network. If it returns but uploads still 401, the token is wrong. Set both under **Settings → Hive** in the UI (stored via `blob_manager`, not `.env`).
+**Fix:** Test with `curl -fsS "$HIVE_URL/api/health"`. If that fails, fix the network. If it returns but uploads still 401, the token is wrong. Set both under **Settings → Hive** in the UI (stored in the backend's `local_state.sqlite`, not `.env`).
 
 **Verify:** The pending queue drains at roughly one upload per second per worker.
 

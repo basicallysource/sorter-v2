@@ -16,11 +16,6 @@ async function unwrap<T>(res: Response): Promise<T> {
 	return (await res.json()) as T;
 }
 
-export async function fetchLibrary(baseUrl: string): Promise<SortingProfileLibraryResponse> {
-	const res = await fetch(`${baseUrl}/api/sorting-profiles/library`);
-	return unwrap<SortingProfileLibraryResponse>(res);
-}
-
 // Fast tier: local profiles + active sync state + target metadata (no Hive
 // network). Targets come back with empty `profiles` — fill them via
 // fetchTargetLibrary per target.
@@ -84,9 +79,17 @@ export type ApplyProfileResponse = {
 	[key: string]: unknown;
 };
 
+// Puts a Hive profile's version in place. Choosing a different profile empties
+// the bins' categories (they belong to the old profile's rules); a newer
+// version of the profile already running keeps them (`keepBins`), since its
+// rules keep their ids and the bins what is in them.
 export async function applyProfile(
 	baseUrl: string,
-	request: PendingProfileApply
+	request: Pick<
+		PendingProfileApply,
+		'target_id' | 'profile_id' | 'profile_name' | 'version_id' | 'version_number' | 'version_label'
+	>,
+	{ keepBins = false }: { keepBins?: boolean } = {}
 ): Promise<ApplyProfileResponse> {
 	const res = await fetch(`${baseUrl}/api/sorting-profiles/apply`, {
 		method: 'POST',
@@ -98,7 +101,7 @@ export async function applyProfile(
 			version_id: request.version_id,
 			version_number: request.version_number,
 			version_label: request.version_label,
-			reset_bin_categories: true
+			reset_bin_categories: !keepBins
 		})
 	});
 	return unwrap<ApplyProfileResponse>(res);

@@ -24,6 +24,11 @@ class SortingProfile(Base):
     latest_published_version_number = Column(Integer, nullable=True)
     library_count = Column(Integer, nullable=False, default=0)
     fork_count = Column(Integer, nullable=False, default=0)
+    # A profile Hive keeps itself, from a definition in code: every machine
+    # gets it without saving it. system_key names the definition; default_rank
+    # orders the defaults, and a new machine starts on rank 1.
+    system_key = Column(String, nullable=True, unique=True)
+    default_rank = Column(Integer, nullable=True)
     created_at = Column(DateTime(timezone=True), nullable=False, default=lambda: datetime.now(timezone.utc))
     updated_at = Column(
         DateTime(timezone=True),

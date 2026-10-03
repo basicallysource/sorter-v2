@@ -72,10 +72,12 @@ class RateLimiter:
 _limiter = RateLimiter()
 
 
-def rate_limit(bucket: str):
-    """FastAPI dependency factory. Caps the caller on ``bucket`` by their role."""
+def rate_limit(bucket: str, *, user=get_current_user):
+    """FastAPI dependency factory. Caps the caller on ``bucket`` by their role.
+    ``user`` is how the caller is identified: pass the route's own dependency
+    (one that takes API keys, say), or a key the route accepts is refused here."""
 
-    def dependency(current_user: User = Depends(get_current_user)) -> None:
+    def dependency(current_user: User = Depends(user)) -> None:
         role_limits = LIMITS.get(bucket, {})
         # Unknown roles fall back to the tightest configured limit.
         limit = role_limits.get(current_user.role, role_limits.get("member"))

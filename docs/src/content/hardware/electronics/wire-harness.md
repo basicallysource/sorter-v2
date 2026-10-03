@@ -28,10 +28,10 @@ This page is the wiring. Where the PSU, the control board and the Orange Pi phys
   <dt>Output</dt><dd>24V, 14.6A, 350.4W, single output</dd>
   <dt>Enclosure</dt><dd>Custom 3D-printed box, fused AC input</dd>
   <dt>Terminal block</dt><dd>9-position, MEAN WELL's own numbering: <b>1</b> AC/L, <b>2</b> AC/N, <b>3</b> FG, <b>4-6</b> DC OUTPUT -V, <b>7-9</b> DC OUTPUT +V (LRS-350-SPEC)</dd>
-  <dt>DC outputs</dt><dd>3 × female DC jack, each a 4 in 18 AWG pigtail with 2 × spade/fork terminals (M3.5, 8 mm wide max, Molex 0191310031 or equivalent). One pigtail per +V/-V screw pair: 7 with 4, 8 with 5, 9 with 6</dd>
+  <dt>DC outputs</dt><dd>3 × female DC jack, each a 4 in 18 AWG (0.82 mm²) pigtail with 2 × spade/fork terminals (M3.5, 8 mm wide max, Molex 0191310031 or equivalent). One pigtail per +V/-V screw pair: 7 with 4, 8 with 5, 9 with 6</dd>
   <dt>AC input</dt><dd>Screws 1, 2, 3. Fed by the fused IEC inlet switch's own pre-terminated leads, so there is no cable to make</dd>
   <dt>Loads</dt><dd>basically board v1.3, the USB hub, and the Orange Pi buck converter. One jack each, no spare</dd>
-  <dt>Not on this bus, but on the 24V bus indirectly</dt><dd>The cooling fans. Not a direct PSU jack. The control board's own 40mm fan plugs into one of board v1.3's four LED ports instead (24V, GPIO-switched, current-limited unless a bypass jumper is bridged), see <a href="{{ '/hardware/electronics/installation/control-board-housing/' | relative_url }}">control board housing</a> step 5, and <a href="#6--open-items">open items</a> for how this superseded an earlier 5V-native plan. The Orange Pi's arm fan is a 24V part in the catalog too; it is not wired to anything yet, see open items.</dd>
+  <dt>Not on this bus, but on the 24V bus indirectly</dt><dd>The cooling fans. Not a direct PSU jack. The control board's own 40mm fan plugs into one of board v1.3's four LED ports instead (24V, GPIO-switched, current-limited unless a bypass jumper is bridged), see <a href="{{ '/hardware/electronics/installation/control-board-housing/' | relative_url }}">control board housing</a> step 5, and <a href="#6--open-items">open items</a> for how this superseded an earlier 5V-native plan. The Orange Pi needs nothing off this bus: it is cooled by the 5V heatsink fan on its own SoC, which runs off the board's own FAN socket.</dd>
 </dl>
 
 ## 2 &nbsp; Interconnect diagram
@@ -87,7 +87,7 @@ This page is the wiring. Where the PSU, the control board and the Orange Pi phys
       <text x="262" y="184" font-size="9.5" fill="var(--muted)">24V in: JST-VH female</text>
       <g font-size="11" fill="var(--ink)" text-anchor="middle">
         <text x="207" y="184">W1 · 36 in</text>
-        <text x="207" y="354">W2 · 12 in</text>
+        <text x="207" y="354">W2 · 11 in</text>
         <text x="207" y="404">W3 · 6 in</text>
       </g>
       <g font-size="10" fill="var(--primary)" font-style="italic" text-anchor="middle">
@@ -172,7 +172,7 @@ The 4 channel motors are NEMA 17 with their own **JST-PH 6-pin** socket, so cabl
 
 <div class="callout callout-warning">
   <span class="callout-icon" aria-hidden="true">⚠</span>
-  <p>Source of truth is the basically board v1.3 pinout. Cable S plugs into the motor's own 6-position JST-PH socket, so the four board positions <code>1·2·3·4</code> land on motor positions <code>1·4·3·6</code> and motor positions 2 and 5 stay empty. The nets line up, the positions do not. Mark polarity on each of the 4 channel steppers, and check the coils with a multimeter first.</p>
+  <p>Source of truth is the basically board v1.3 pinout. Cable S plugs into the motor's own 6-position JST-PH socket, so the four board positions <code>1·2·3·4</code> land on motor positions <code>1·4·3·6</code> and motor positions 2 and 5 stay empty. The nets line up, the positions do not. Mark polarity on each of the 4 channel steppers, and <a href="{{ '/hardware/helpers/multimeter/' | relative_url }}#resistance-for-finding-a-steppers-coils">check the coils with a multimeter</a> first.</p>
 </div>
 
 {% include harness/pin-swap.html %}
@@ -183,7 +183,7 @@ Which socket drives which motor is on [connecting the components]({{ '/hardware/
 
 ### 3.1 &nbsp; Inside the PSU box
 
-**Nothing in this box is a cable cut to a length.** The three DC output pigtails are built on [Make your own PSU output pigtail]({{ '/hardware/helpers/psu-pigtail/' | relative_url }}): 18 AWG, a panel-mount barrel jack at one end and a fork terminal on each lead at the other. The fused mains inlet switch's three leads come already attached to it, so there is no AC cable to make either.
+**Nothing in this box is a cable cut to a length.** The three DC output pigtails are built on [Make your own PSU output pigtail]({{ '/hardware/helpers/psu-pigtail/' | relative_url }}): 18 AWG (0.82 mm²), a panel-mount barrel jack at one end and a fork terminal on each lead at the other. The fused mains inlet switch's three leads come already attached to it, so there is no AC cable to make either.
 
 Which screw on the terminal block each lead lands on, with a drawing of the whole block, is steps 1 and 2 of the [PSU box]({{ '/hardware/electronics/installation/psu-box/' | relative_url }}) page. Screws 1 to 3 are the mains side and are live whenever the unit is plugged in. Enclosure CAD: [Onshape](https://cad.onshape.com/documents/ff3546ceb03f5fc907e6ed4c/v/f06d891a27f145d952ee5678/e/b9f80b00e4dd34407e23b560).
 
@@ -194,9 +194,9 @@ A male DC barrel plug on each wire mates one of the PSU output jacks (PJ1-PJ3), 
 <table>
   <thead><tr><th>ID</th><th>Load</th><th>From</th><th>To</th><th>Cond.</th><th>Length</th><th>Gauge</th></tr></thead>
   <tbody>
-    <tr><td class="wire-id">W1</td><td>basically board v1.3</td><td>PSU PJ1, male DC</td><td>JST-VH female (board 24V in)</td><td>2</td><td>36 in <span class="flagged">too long</span></td><td>18 AWG</td></tr>
-    <tr><td class="wire-id">W2</td><td>Waveshare 4-port USB hub, 24V</td><td>PSU PJ2, male DC</td><td>Male DC (hub)</td><td>2</td><td>12 in</td><td>22 AWG <span class="flagged">guess</span></td></tr>
-    <tr><td class="wire-id">W3</td><td>Orange Pi 5</td><td>PSU PJ3, male DC</td><td>24V-5V USB-C buck</td><td>2</td><td>6 in</td><td>22 AWG <span class="flagged">guess</span></td></tr>
+    <tr><td class="wire-id">W1</td><td>basically board v1.3</td><td>PSU PJ1, male DC</td><td>JST-VH female (board 24V in)</td><td>2</td><td>36 in <span class="flagged">too long</span></td><td>18 AWG (0.82 mm²)</td></tr>
+    <tr><td class="wire-id">W2</td><td>Waveshare 4-port USB hub, 24V</td><td>PSU PJ2, male DC</td><td>Hub 2-pin power terminal (or male DC, with the bought lead)</td><td>2</td><td>11 in (28 cm), the plug's own lead; 24 in with the bought lead</td><td>22 AWG (0.33 mm²)</td></tr>
+    <tr><td class="wire-id">W3</td><td>Orange Pi 5</td><td>PSU PJ3, male DC</td><td>24V-5V USB-C buck</td><td>2</td><td>6 in</td><td>22 AWG (0.33 mm²) <span class="flagged">guess</span></td></tr>
   </tbody>
 </table>
 
@@ -204,7 +204,7 @@ Three outputs, three loads, no spare. The cooling fans are deliberately not on t
 
 ### 3.3 &nbsp; LEDs (from basically board v1.3)
 
-Each LED drop is drawn as two segments: a 2x1 dupont feed from the board to a female DC jack (the unplug point), then a 6 in male-DC pigtail into the module. On a v1.3 board the barrel pair is optional and the drop can be one continuous 22 AWG pair, dupont at the board and a solderless clamp-on connector at the strip; the drawing has not been redrawn for that yet. Building one is [Preparing the LED strip]({{ '/hardware/helpers/led-strip/' | relative_url }}).
+Each LED drop is drawn as two segments: a 2x1 dupont feed from the board to a female DC jack (the unplug point), then a 6 in male-DC pigtail into the module. The jack and the male plug are optional but recommended, because they make maintenance easier: the lamp's power can be disconnected close to the lamp. Without them the Dupont feed runs straight to the strip. The pigtail ends in a solderless clamp-on connector at the strip. Building the drop is [Preparing the LED strip]({{ '/hardware/helpers/led-strip/' | relative_url }}).
 
 All three drops now feed an LED strip in a [camera lamp]({{ '/hardware/assembly/feeder/camera-lamp/' | relative_url }}), on C-channels 2 and 3 and the classification channel. The 50 mm COB plates that L1 and L2 used to feed went with the light post they were mounted on. The [WireViz drawing]({{ '/hardware/parts/harness-order/#leds' | relative_url }}) still shows them as COB boards and has not been redrawn yet.
 
@@ -245,7 +245,7 @@ All three drops now feed an LED strip in a [camera lamp]({{ '/hardware/assembly/
   <tbody>
     <tr><td class="wire-id">LIM</td><td>Limit switch (Omron V-155-1C25)</td><td>basically board v1.3, 1x3 dupont (position 3 empty)</td><td>#187 quick-connect, push-on</td><td>2</td><td>24 in</td></tr>
     <tr><td class="wire-id">S1-4</td><td>Stepper, channels 1-4 (×4)</td><td>basically board v1.3, JST-PH 4-pin (PHR-4)</td><td>Stepper, JST-PH 6-pin (PHR-6), positions 1·4·3·6</td><td>4</td><td>1 m</td></tr>
-    <tr><td class="wire-id">CH</td><td>Chute stepper</td><td>basically board v1.3, JST-PH 4-pin (PHR-4)</td><td>Chute stepper, flying leads, needs prep</td><td>4</td><td>40 in <span class="flagged">guess</span></td></tr>
+    <tr><td class="wire-id">CH</td><td>Chute stepper</td><td>basically board v1.3, JST-PH 4-pin (PHR-4)</td><td>Chute stepper, flying leads, needs prep</td><td>4</td><td>24 in</td></tr>
   </tbody>
 </table>
 
@@ -271,12 +271,13 @@ All three drops now feed an LED strip in a [camera lamp]({{ '/hardware/assembly/
 ## 4 &nbsp; Parts
 
 - MEAN WELL LRS-350-24, 350.4W 24V 14.6A single output &middot; [link](https://www.amazon.com/dp/B013ETVO12)
-- 3Dman fused mains inlet switch, 15A 250V rocker + 10A fuse, 3-pin, 18 AWG &middot; [link](https://www.amazon.com/dp/B07RQV2NPN)
+- 3Dman fused mains inlet switch, 15A 250V rocker + 10A fuse, 3-pin, 18 AWG (0.82 mm²) &middot; [link](https://www.amazon.com/dp/B07RQV2NPN)
 - DC 12V/24V to 5V USB-C buck converter, 5A 25W, powers Orange Pi 5 &middot; [link](https://www.amazon.com/dp/B0FV3P6KLS)
 - Current-limiting resistor for any COB board not fed through basically board v1.3: 220&#8486;, 1/4 W, one per board. The board's own LED headers already have theirs (see 3.3). The LED strip does not need one
-- Cooling fan, 40×40×10mm, 24V (WINSINN 4010, catalog `fan-40mm-24v`) &middot; two of them, one per box. The control board's plugs into one of the board's own LED ports (see open items and control board housing); the Orange Pi's arm fan is not wired to anything yet.
+- Cooling fan, 40×40×10mm, 24V (WINSINN 4010, catalog `fan-40mm-24v`) &middot; one, in the control board housing cover. It plugs into one of the board's own LED ports (see open items and control board housing).
 - uxcell 16-pin IDC flat ribbon cable, FC/FC, 2.54 mm, 1.2 to 1.5 m, gray &middot; [link](https://www.amazon.com/dp/B07S2W4N9T)
 - Waveshare 4-port USB hub, 24V model (USB 3.2 version, not the 5V industrial one, which cannot take 24V in)
+- Optional, only if the plug's lead does not reach the hub: DC lead, 5.5 x 2.1 mm male to male, 22 AWG, 2 ft, centre positive, for `W2` &middot; [link](https://www.l-com.com/dc-power-cable-5.5mm-2.1mm-male-male-2-ft-dc5521mm-2ft)
 - Orange Pi 5
 - USB cables, Pi to hub and hub to Pico: 3 ft or shorter is plenty, but they must be data cables. A lot of short USB cables are power-only.
 
@@ -284,11 +285,11 @@ All three drops now feed an LED strip in a [camera lamp]({{ '/hardware/assembly/
 
 - Fused IEC inlet switch, 3-pin (L / N / earth): PSU mains inlet
 - Fork / screw terminal: PSU 24V output to the DC jacks
-- DC barrel jack, female: PSU outputs, LED unplug junctions
-- DC barrel jack, male: load pigtails, LED pigtails
+- DC barrel jack, female: PSU outputs, LED unplug junctions (optional)
+- DC barrel jack, male: load pigtails, and the LED pigtails (optional)
 - JST-VH female (VHR-2): basically board v1.3 24V input (W1)
 - 2x1 dupont (2.54 mm): LED drops (L1-L3)
-- 1x3 dupont (2.54 mm), 2 positions populated: limit switch board end, keyed so it cannot go on backwards
+- 1x3 dupont (2.54 mm), 2 positions populated: limit switch board end. The empty position goes over the 3.3 V pin of J5; the housing is not keyed
 - Quick-connect receptacle, #187 (4.75 × 0.5 mm tab), fully insulated: limit switch end. The switch is an Omron V-155-1C25, SPDT, so it has three tabs and the harness uses two
 - JST-PH 4-pin (PHR-4): steppers at the board, J23, J27, J31, J35, J39. Contacts are SPH-002T-P0.5S &middot; [JST PH series](https://www.jst.com/products/crimp-style-connectors-wire-to-board-type/ph-connector/)
 - JST-PH 6-pin (PHR-6): the NEMA 17 motor socket, cable S motor end. Positions 2 and 5 are unpopulated; same contacts as the 4-pin
@@ -297,7 +298,7 @@ All three drops now feed an LED strip in a [camera lamp]({{ '/hardware/assembly/
 
 ## 6 &nbsp; Open items
 
-1. **How the fans are powered.** An earlier plan (2026-08-22, worked out from the v1.3 KiCad and the Orange Pi 5's own manual) had both boards supplying 5V natively: board v1.3's empty `J16` pin 2 (VSYS) + pin 6 (GND), or the Orange Pi's 26-pin header pins 2/4 (5V) + 6/9/14/20/25 (GND). **That plan did not ship.** The control board housing that was actually built (sorter-v2#387) instead plugs its 40mm fan into one of board v1.3's own LED ports (`LED_0_1`/`LED_0_2` on GPIO1, or `LED_1_1`/`LED_1_2` on GPIO6, silkscreened on the board), 24V switched to ground by a Pico-driven MOSFET, red wire to +V. Each port feeds +V through a 180Ω resistor sized for a COB LED board, so **the port's bypass jumper must be bridged** (`Bypass R21`/`R22`/`R27`/`R28` next to the port used) or the fan barely turns. Catalog part: `fan-40mm-24v` (WINSINN 4010, 24V, 0.04A, XH2.54 2-pin lead). Full steps: [control board housing]({{ '/hardware/electronics/installation/control-board-housing/' | relative_url }}). The Orange Pi's arm fan is the same catalog part, and whether it is needed at all is not settled. It has no native 24V rail to run from, and there is no spare LED port for it either: the housing fan takes one and the three camera lamps take the other three, see [connecting the components]({{ '/hardware/electronics/connecting/' | relative_url }}), step 4. Orient any fan to **blow in** (down onto the board), not exhaust: impingement cools the drivers better and positive pressure keeps dust out except at the filtered intake.
+1. **How the fans are powered.** An earlier plan (2026-08-22, worked out from the v1.3 KiCad and the Orange Pi 5's own manual) had both boards supplying 5V natively: board v1.3's empty `J16` pin 2 (VSYS) + pin 6 (GND), or the Orange Pi's 26-pin header pins 2/4 (5V) + 6/9/14/20/25 (GND). **That plan did not ship.** The control board housing that was actually built (sorter-v2#387) instead plugs its 40mm fan into one of board v1.3's own LED ports (`LED_0_1`/`LED_0_2` on GPIO1, or `LED_1_1`/`LED_1_2` on GPIO6, silkscreened on the board), 24V switched to ground by a Pico-driven MOSFET, red wire to +V. Each port feeds +V through a 180Ω resistor sized for a COB LED board, so **the port's bypass jumper must be bridged** (`Bypass R21`/`R22`/`R27`/`R28` next to the port used) or the fan barely turns. Catalog part: `fan-40mm-24v` (WINSINN 4010, 24V, 0.04A, XH2.54 2-pin lead). Full steps: [control board housing]({{ '/hardware/electronics/installation/control-board-housing/' | relative_url }}). The Orange Pi's 40mm arm fan was the other half of this open item and it is gone: the bracket and the fan came off the Orange Pi mount on 2026-09-26, leaving the Pi on the 5V heatsink fan on its own SoC. Orient any fan to **blow in** (down onto the board), not exhaust: impingement cools the drivers better and positive pressure keeps dust out except at the filtered intake.
 2. **Lengths.** W1 is 36 in and longer than necessary. Pick a final length and cut.
 3. **LED feed polarity.** Which dupont pin is +24V on `L1-L3`. The board's own 24V input is settled: JST-VH (VHR-2), pin 1 = +24V, pin 2 = GND.
 4. **Missing LED wire(s).** Re-count the LED drops against the actual LEDs.

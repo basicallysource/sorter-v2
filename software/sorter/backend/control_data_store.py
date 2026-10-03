@@ -24,14 +24,10 @@ import shutil
 import sqlite3
 import threading
 import time
-from contextlib import contextmanager
 from pathlib import Path
-from typing import Any, Iterator, Optional
+from typing import Any, Optional
 
-from local_state import local_state_db_path
-
-_INIT_LOCK = threading.Lock()
-_initialized = False
+import db
 
 _RETENTION_MAX_TOTAL_BYTES = 1024 * 1024 * 1024
 
@@ -70,73 +66,44 @@ def _log(level: str, message: str) -> None:
 
 
 def control_data_dir() -> Path:
-    return local_state_db_path().parent / "control_data"
+    return db.local_state_db_path().parent / "control_data"
 
 
 def _active_dir() -> Path:
     return control_data_dir() / "active"
 
 
-def _connect() -> sqlite3.Connection:
-    db_path = local_state_db_path()
-    db_path.parent.mkdir(parents=True, exist_ok=True)
-    conn = sqlite3.connect(db_path, timeout=5.0)
-    conn.row_factory = sqlite3.Row
-    conn.execute("PRAGMA journal_mode = WAL")
-    conn.execute("PRAGMA synchronous = NORMAL")
-    conn.execute("PRAGMA busy_timeout = 5000")
-    return conn
+def _createTables(conn: sqlite3.Connection) -> None:
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS control_data_segments ("
+        "id INTEGER PRIMARY KEY AUTOINCREMENT, "
+        "created_at REAL NOT NULL, "
+        "started_at REAL, "
+        "ended_at REAL, "
+        "records INTEGER NOT NULL DEFAULT 0, "
+        "bytes INTEGER NOT NULL DEFAULT 0, "
+        # Summary of the context the segment was captured under, so Hive
+        # can filter without opening files (full snapshot is the meta
+        # record inside the file).
+        "machine_setup TEXT, "
+        "feeder_mode TEXT, "
+        "classification_mode TEXT, "
+        "autotune_mode TEXT, "
+        # Path relative to control_data_dir().
+        "file_path TEXT NOT NULL, "
+        "deleted_at REAL, "
+        "synced_at REAL, "
+        "hive_segment_id TEXT"
+        ")"
+    )
+    conn.execute(
+        "CREATE INDEX IF NOT EXISTS idx_control_data_segments_live "
+        "ON control_data_segments(created_at) WHERE deleted_at IS NULL"
+    )
 
 
-@contextmanager
-def _connection() -> Iterator[sqlite3.Connection]:
-    _ensureInitialized()
-    conn = _connect()
-    try:
-        yield conn
-    finally:
-        conn.close()
-
-
-def _ensureInitialized() -> None:
-    global _initialized
-    if _initialized:
-        return
-    with _INIT_LOCK:
-        if _initialized:
-            return
-        conn = _connect()
-        try:
-            conn.execute(
-                "CREATE TABLE IF NOT EXISTS control_data_segments ("
-                "id INTEGER PRIMARY KEY AUTOINCREMENT, "
-                "created_at REAL NOT NULL, "
-                "started_at REAL, "
-                "ended_at REAL, "
-                "records INTEGER NOT NULL DEFAULT 0, "
-                "bytes INTEGER NOT NULL DEFAULT 0, "
-                # Summary of the context the segment was captured under, so Hive
-                # can filter without opening files (full snapshot is the meta
-                # record inside the file).
-                "machine_setup TEXT, "
-                "feeder_mode TEXT, "
-                "classification_mode TEXT, "
-                "autotune_mode TEXT, "
-                # Path relative to control_data_dir().
-                "file_path TEXT NOT NULL, "
-                "deleted_at REAL, "
-                "synced_at REAL, "
-                "hive_segment_id TEXT"
-                ")"
-            )
-            conn.execute(
-                "CREATE INDEX IF NOT EXISTS idx_control_data_segments_live "
-                "ON control_data_segments(created_at) WHERE deleted_at IS NULL"
-            )
-            conn.commit()
-            _initialized = True
-        finally:
-            conn.close()
+def _connection():
+    return db.connect(_createTables)
 
 
 def beginSegment(meta: dict[str, Any]) -> bool:

@@ -95,7 +95,8 @@ export async function patchImageFileHandleInPlace(
 
     try {
         await writable.seek(region.start);
-        await writable.write(paddedToml);
+        // The bytes are a plain ArrayBuffer view; the DOM types allow for a shared one.
+        await writable.write(paddedToml as Uint8Array<ArrayBuffer>);
     } finally {
         await writable.close();
     }

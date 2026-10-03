@@ -1,6 +1,6 @@
 import unittest
 
-from runtime_stats import RuntimeStatsCollector
+from runtime_stats import C4_WAITING_FOR_PIECE, RuntimeStatsCollector, _calcMsSummary, _calcValueSummary
 
 
 class RuntimeStatsCollectorBinClearTests(unittest.TestCase):
@@ -83,73 +83,28 @@ class RuntimeStatsCollectorBinClearTests(unittest.TestCase):
         self.assertNotIn("0:0:0", by_key)
         self.assertEqual(1, by_key["0:0:1"]["piece_count"])
 
-    def test_snapshot_includes_channel_throughput_and_active_ppm(self) -> None:
+    def test_c4_active_ppm_leaves_out_waiting_for_a_piece(self) -> None:
         collector = RuntimeStatsCollector()
         collector.setLifecycleState("running", now_wall=100.0, now_monotonic=10.0)
 
-        collector.observeFeederSignals(
-            {"stepper_busy_ch2": True},
-            now_wall=101.0,
-            now_monotonic=11.0,
-        )
-        collector.observeStateTransition(
-            "classification.occupancy",
-            None,
-            "classification_channel.rotate_pipeline",
-            now_wall=101.0,
-            now_monotonic=11.0,
-        )
-        collector.observeChannelExit("c_channel_2", exited_at=105.0, global_id=101)
-        collector.observeChannelExit(
-            "classification_channel",
-            exited_at=112.0,
-            piece_uuid="piece-classified",
-            global_id=202,
-        )
-        collector.observeKnownObject(
-            {
-                "uuid": "piece-classified",
-                "classification_status": "classified",
-                "classified_at": 111.0,
-                "distributed_at": 114.0,
-            }
-        )
-        collector.observeKnownObject(
-            {
-                "uuid": "piece-unknown",
-                "classification_status": "unknown",
-                "classified_at": 115.0,
-            }
-        )
-        collector.observeFeederSignals(
-            {"stepper_busy_ch2": False},
-            now_wall=111.0,
-            now_monotonic=21.0,
-        )
-        collector.observeStateTransition(
-            "classification.occupancy",
-            "classification_channel.rotate_pipeline",
-            "classification_channel.wait_piece_trigger",
-            now_wall=121.0,
-            now_monotonic=31.0,
-        )
-        collector.setLifecycleState("ready", now_wall=160.0, now_monotonic=70.0)
+        def enter(prev: str | None, state: str, t: float) -> None:
+            collector.observeStateTransition(
+                "classification", prev, state, now_wall=90.0 + t, now_monotonic=t
+            )
 
-        snapshot = collector.snapshot()
-        channels = snapshot["channel_throughput"]
+        enter(None, C4_WAITING_FOR_PIECE, 10.0)
+        enter(C4_WAITING_FOR_PIECE, "waiting", 40.0)
+        enter("waiting", "ejecting", 50.0)
+        collector.observeC4Exit()
+        enter("ejecting", C4_WAITING_FOR_PIECE, 70.0)
+        collector.setLifecycleState("ready", now_wall=190.0, now_monotonic=100.0)
 
-        self.assertEqual(1, channels["c_channel_2"]["exit_count"])
-        self.assertAlmostEqual(1.0, channels["c_channel_2"]["overall_ppm"])
-        self.assertAlmostEqual(6.0, channels["c_channel_2"]["active_ppm"])
-        self.assertAlmostEqual(10.0, channels["c_channel_2"]["active_time_s"])
-
-        c4 = channels["classification_channel"]
+        c4 = collector.snapshot()["channel_throughput"]["classification_channel"]
         self.assertEqual(1, c4["exit_count"])
-        self.assertAlmostEqual(20.0, c4["active_time_s"])
-        self.assertEqual(1, c4["outcomes"]["classified_success"]["count"])
-        self.assertEqual(1, c4["outcomes"]["distributed_success"]["count"])
-        self.assertEqual(1, c4["outcomes"]["unknown"]["count"])
-        self.assertEqual(0, c4["outcomes"]["multi_drop_fail"]["count"])
+        # 10 s waiting on its own pieces and 20 s ejecting; the 60 s waiting for
+        # the feeder is not C4 working.
+        self.assertAlmostEqual(30.0, c4["active_time_s"])
+        self.assertAlmostEqual(2.0, c4["active_ppm"])
 
     def test_snapshot_exposes_and_clears_active_incident(self) -> None:
         collector = RuntimeStatsCollector()
@@ -179,34 +134,20 @@ class RuntimeStatsCollectorBinClearTests(unittest.TestCase):
 
         self.assertIsNone(collector.snapshot()["active_incident"])
 
-
-class RuntimeStatsRecognizerCountersTests(unittest.TestCase):
-    def test_snapshot_exposes_recognizer_counters_under_counts(self) -> None:
+    def test_live_snapshot_is_only_what_the_dashboard_shows(self) -> None:
         collector = RuntimeStatsCollector()
         collector.setLifecycleState("running", now_wall=1.0, now_monotonic=1.0)
+        collector.observeStateTransition("feeder", None, "idle", now_wall=2.0, now_monotonic=2.0)
+        collector.observePerfMs("main.loop.interval_ms", 10.0)
 
-        collector.observeRecognizerCounter("recognize_fired_total")
-        collector.observeRecognizerCounter("recognize_fired_total")
-        collector.observeRecognizerCounter("recognize_skipped_no_crops")
-        collector.observeRecognizerCounter("brickognize_empty_result")
-        collector.observeRecognizerCounter("brickognize_timeout_total")
-        collector.observeRecognizerCounter("unknown_counter_name")  # ignored
+        live = collector.snapshot(live=True)
 
-        counts = collector.snapshot()["counts"]
-        self.assertEqual(2, counts["recognize_fired_total"])
-        self.assertEqual(1, counts["recognize_skipped_no_crops"])
-        self.assertEqual(1, counts["brickognize_empty_result"])
-        self.assertEqual(1, counts["brickognize_timeout_total"])
-
-    def test_classification_zone_lost_counter_bumps_and_surfaces_in_snapshot(self) -> None:
-        collector = RuntimeStatsCollector()
-        collector.setLifecycleState("running", now_wall=1.0, now_monotonic=1.0)
-
-        for _ in range(3):
-            collector.observeClassificationZoneLost()
-
-        feeder = collector.snapshot()["feeder"]
-        self.assertEqual(3, feeder["classification_zone_lost_total"])
+        self.assertEqual(
+            {"counts", "throughput", "channel_throughput", "state_machines", "bus_recent", "active_incident", "incident_card"},
+            set(live),
+        )
+        self.assertEqual({"current_state": "idle", "entered_at": 2.0}, live["state_machines"]["feeder"])
+        self.assertEqual(collector.snapshot()["counts"], live["counts"])
 
 
 class RuntimeStatsReapStuckPiecesTests(unittest.TestCase):
@@ -290,3 +231,16 @@ class RuntimeStatsReapStuckPiecesTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class SummaryTests(unittest.TestCase):
+    def test_summaries_report_mean_median_and_spread(self) -> None:
+        self.assertEqual(
+            {"n": 4, "avg_ms": 2.5, "med_ms": 2.5, "p90_ms": 4.0, "min_ms": 1.0, "max_ms": 4.0, "last_ms": 4.0},
+            _calcMsSummary([3.0, 1.0, 2.0, 4.0]),
+        )
+        self.assertEqual(
+            {"n": 3, "avg": 2.0, "med": 2.0, "p90": 3.0, "min": 1.0, "max": 3.0},
+            _calcValueSummary([3, 1, 2]),
+        )
+        self.assertEqual({"n": 0}, _calcMsSummary([]))

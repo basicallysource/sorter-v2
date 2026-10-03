@@ -4,11 +4,10 @@ import queue
 import sqlite3
 import threading
 import time
-from contextlib import contextmanager
 from pathlib import Path
-from typing import Any, Iterator, Optional
+from typing import Any, Optional
 
-from local_state import local_state_db_path
+import db
 
 # Durable store for UNLABELED channel bbox crops. Unlike piece_image_store
 # (which keys every crop to a known piece_uuid gathered during classification),
@@ -30,9 +29,6 @@ from local_state import local_state_db_path
 # enqueues already-encoded JPEG bytes + metadata (bounded, drop-on-full) and a
 # single daemon worker does the file write, insert, and retention sweep.
 
-_INIT_LOCK = threading.Lock()
-_initialized = False
-
 _QUEUE_MAX_ITEMS = 512
 _RETENTION_SWEEP_INTERVAL_S = 60.0
 # Retention: over the cap, oldest files are deleted first, already-synced files
@@ -41,16 +37,11 @@ _MAX_TOTAL_BYTES = 512 * 1024 * 1024
 
 _queue: "queue.Queue[tuple[bytes, dict[str, Any]]]" = queue.Queue(maxsize=_QUEUE_MAX_ITEMS)
 _worker_started = threading.Event()
+_worker_lock = threading.Lock()
 _logger: Any = None
 
-_stats_lock = threading.Lock()
-_stats = {
-    "enqueued": 0,
-    "dropped_queue_full": 0,
-    "written": 0,
-    "write_errors": 0,
-    "evicted_files": 0,
-}
+# Whether the last enqueue found the queue full: one warning per stretch of drops.
+_dropping = False
 
 
 def configure(logger: Any) -> None:
@@ -69,80 +60,51 @@ def _log(level: str, message: str) -> None:
 
 
 def channel_crops_dir() -> Path:
-    return local_state_db_path().parent / "channel_crops"
+    return db.local_state_db_path().parent / "channel_crops"
 
 
-def _connect() -> sqlite3.Connection:
-    db_path = local_state_db_path()
-    db_path.parent.mkdir(parents=True, exist_ok=True)
-    conn = sqlite3.connect(db_path, timeout=5.0)
-    conn.row_factory = sqlite3.Row
-    conn.execute("PRAGMA journal_mode = WAL")
-    conn.execute("PRAGMA synchronous = NORMAL")
-    conn.execute("PRAGMA busy_timeout = 5000")
-    return conn
+def _createTables(conn: sqlite3.Connection) -> None:
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS channel_crops ("
+        "id INTEGER PRIMARY KEY AUTOINCREMENT, "
+        "channel INTEGER, "
+        # Frame capture time (epoch seconds) and row insert time.
+        "ts REAL, "
+        "created_at REAL NOT NULL, "
+        # Advisory per-pass ByteTrack id — same physical piece keeps one
+        # id across frames on a channel. NULL when tracking unavailable.
+        "track_id INTEGER, "
+        # Signed COM distance to the exit zone in output degrees; the key
+        # field the time/angle same-piece heuristic reads. NULL if unknown.
+        "com_forward_to_exit_deg REAL, "
+        "com_section INTEGER, "
+        # 0=none, 1=drop, 2=exit_only, 3=precise (perception.arcs LUT).
+        "zone_code INTEGER, "
+        "sharpness REAL, "
+        "bbox_x1 INTEGER, bbox_y1 INTEGER, bbox_x2 INTEGER, bbox_y2 INTEGER, "
+        "bytes INTEGER NOT NULL, "
+        # Path relative to channel_crops_dir().
+        "file_path TEXT NOT NULL, "
+        # Set when retention removed the local file; the row (and any hive
+        # pointer) survives so the crop stays addressable.
+        "deleted_at REAL, "
+        # Hive sync markers, written by the shared HiveSyncWorker.
+        "synced_at REAL, "
+        "hive_crop_id TEXT"
+        ")"
+    )
+    conn.execute(
+        "CREATE INDEX IF NOT EXISTS idx_channel_crops_live "
+        "ON channel_crops(created_at) WHERE deleted_at IS NULL"
+    )
+    conn.execute(
+        "CREATE INDEX IF NOT EXISTS idx_channel_crops_channel_ts "
+        "ON channel_crops(channel, ts)"
+    )
 
 
-@contextmanager
-def _connection() -> Iterator[sqlite3.Connection]:
-    _ensureInitialized()
-    conn = _connect()
-    try:
-        yield conn
-    finally:
-        conn.close()
-
-
-def _ensureInitialized() -> None:
-    global _initialized
-    if _initialized:
-        return
-    with _INIT_LOCK:
-        if _initialized:
-            return
-        conn = _connect()
-        try:
-            conn.execute(
-                "CREATE TABLE IF NOT EXISTS channel_crops ("
-                "id INTEGER PRIMARY KEY AUTOINCREMENT, "
-                "channel INTEGER, "
-                # Frame capture time (epoch seconds) and row insert time.
-                "ts REAL, "
-                "created_at REAL NOT NULL, "
-                # Advisory per-pass ByteTrack id — same physical piece keeps one
-                # id across frames on a channel. NULL when tracking unavailable.
-                "track_id INTEGER, "
-                # Signed COM distance to the exit zone in output degrees; the key
-                # field the time/angle same-piece heuristic reads. NULL if unknown.
-                "com_forward_to_exit_deg REAL, "
-                "com_section INTEGER, "
-                # 0=none, 1=drop, 2=exit_only, 3=precise (perception.arcs LUT).
-                "zone_code INTEGER, "
-                "sharpness REAL, "
-                "bbox_x1 INTEGER, bbox_y1 INTEGER, bbox_x2 INTEGER, bbox_y2 INTEGER, "
-                "bytes INTEGER NOT NULL, "
-                # Path relative to channel_crops_dir().
-                "file_path TEXT NOT NULL, "
-                # Set when retention removed the local file; the row (and any hive
-                # pointer) survives so the crop stays addressable.
-                "deleted_at REAL, "
-                # Hive sync markers, written by the shared HiveSyncWorker.
-                "synced_at REAL, "
-                "hive_crop_id TEXT"
-                ")"
-            )
-            conn.execute(
-                "CREATE INDEX IF NOT EXISTS idx_channel_crops_live "
-                "ON channel_crops(created_at) WHERE deleted_at IS NULL"
-            )
-            conn.execute(
-                "CREATE INDEX IF NOT EXISTS idx_channel_crops_channel_ts "
-                "ON channel_crops(channel, ts)"
-            )
-            conn.commit()
-            _initialized = True
-        finally:
-            conn.close()
+def _connection():
+    return db.connect(_createTables)
 
 
 def enqueue(jpeg: bytes, meta: dict[str, Any]) -> None:
@@ -151,20 +113,21 @@ def enqueue(jpeg: bytes, meta: dict[str, Any]) -> None:
     slow disk never stalls capture."""
     if not jpeg:
         return
+    global _dropping
     _ensureWorker()
     try:
         _queue.put_nowait((jpeg, dict(meta)))
-        with _stats_lock:
-            _stats["enqueued"] += 1
+        _dropping = False
     except queue.Full:
-        with _stats_lock:
-            _stats["dropped_queue_full"] += 1
+        if not _dropping:
+            _dropping = True
+            _log("warning", "channel_crop_store: the write queue is full; dropping crops until it drains")
 
 
 def _ensureWorker() -> None:
     if _worker_started.is_set():
         return
-    with _INIT_LOCK:
+    with _worker_lock:
         if _worker_started.is_set():
             return
         thread = threading.Thread(target=_workerLoop, daemon=True, name="channel-crop-store")
@@ -184,11 +147,7 @@ def _workerLoop() -> None:
             jpeg, meta = item
             try:
                 _writeCrop(jpeg, meta)
-                with _stats_lock:
-                    _stats["written"] += 1
             except Exception as exc:
-                with _stats_lock:
-                    _stats["write_errors"] += 1
                 _log("warning", f"channel_crop_store: failed to persist crop: {exc}")
         now = time.monotonic()
         if now - last_sweep >= _RETENTION_SWEEP_INTERVAL_S:
@@ -315,8 +274,6 @@ def _retentionSweep() -> None:
         )
         conn.commit()
     evicted = len(victims)
-    with _stats_lock:
-        _stats["evicted_files"] += evicted
     _log(
         "info",
         f"channel_crop_store: retention evicted {evicted} files ({freed / 1024 / 1024:.1f} MB)",
@@ -401,19 +358,3 @@ def markSyncedUpTo(max_id: int, synced_at: float) -> None:
             (float(synced_at), int(max_id)),
         )
         conn.commit()
-
-
-def getStats() -> dict[str, Any]:
-    with _stats_lock:
-        stats = dict(_stats)
-    stats["queue_depth"] = _queue.qsize()
-    with _connection() as conn:
-        row = conn.execute(
-            "SELECT COUNT(*) AS n, COALESCE(SUM(bytes), 0) AS total FROM channel_crops "
-            "WHERE deleted_at IS NULL"
-        ).fetchone()
-        stats["live_files"] = int(row["n"]) if row is not None else 0
-        stats["live_bytes"] = int(row["total"]) if row is not None else 0
-        row = conn.execute("SELECT COUNT(*) AS n FROM channel_crops").fetchone()
-        stats["total_rows"] = int(row["n"]) if row is not None else 0
-    return stats

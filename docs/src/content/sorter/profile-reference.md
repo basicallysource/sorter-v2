@@ -6,12 +6,12 @@ audience: contributor
 applies_to: sorting_profile.json schema_version 1
 owner: sorter
 slug: sorter-profile-reference
-kicker: Sorter — Configuration reference
+kicker: SorterOS — Configuration reference
 lede: "On-disk shape of `sorting_profile.json` — every field, every condition operator. Accurate for schema_version 1."
 permalink: /sorter/profile-reference/
 ---
 
-The sorting profile is the rulebook telling the Sorter which bin a part belongs in. Stored at `software/sorter/backend/sorting_profile.json`, hot-reloaded by the backend when the UI saves it. There is always exactly one active profile.
+The sorting profile is the rulebook telling SorterOS which bin a part belongs in. Stored at `software/sorter/backend/sorting_profile.json`, hot-reloaded by the backend when the UI saves it. There is always exactly one active profile.
 
 This page documents the on-disk schema. If you are making your first profile rather than reading one, start with [build your first sorting profile]({{ '/hive/first-profile/' | relative_url }}).
 
@@ -177,4 +177,4 @@ Routes everything to a single "Other" bin. Useful as a known-good baseline when 
 
 ## Related
 
-- [Sorter troubleshooting]({{ '/sorter/troubleshooting/' | relative_url }}) — symptoms for profile-related misrouting.
+- [SorterOS troubleshooting]({{ '/sorter/troubleshooting/' | relative_url }}) — symptoms for profile-related misrouting.

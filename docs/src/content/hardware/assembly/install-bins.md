@@ -5,12 +5,12 @@ type: how-to
 section: hardware
 slug: assembly-install-bins
 kicker: Assembly — Install the bins
-lede: The bins that catch what the chutes drop, and the two ways to get them.
+lede: The bins that catch what the chutes drop, and the three ways to get them.
 permalink: /hardware/assembly/install-bins/
 og_image: https://assets.basically.website/sorter-docs/install-bins-printed-bins-from-above-w1600-3edc30bd133f.jpg
 author: spencer
 contributors: [brickcyclealice, daddyosbricksbill]
-tools_needed: ["Hot glue gun, for cardboard bins", "Laser cutter, or a cutting service, for cardboard bins"]
+tools_needed: ["Hot glue gun, for cardboard bins", "Laser cutter, or a cutting service, for cardboard bins", "Sharp knife, metal ruler, A4 printer and paper or thin card stock, if you are cutting cardboard bins by hand"]
 last_verified: 2026-09-25
 parts_needed:
   - part: bin-half-left
@@ -29,7 +29,7 @@ Bins go in last, after the electronics, so the chutes can be connected and their
 
 The list above is per layer, and a layer takes **one** of the two sets, not both. Which set depends on the size of that layer's funnel, which is step 1.
 
-**Step 2 is two ways of getting the same bins**, printed or laser cut. They fit the same frame, so the choice is cost and what you own.
+**Step 2 is three ways of getting the same bins**, printed, laser cut or cut by hand. They fit the same frame, so the choice is cost and what you own.
 
 {% include step.html n="1" title="Check which set each layer takes" %}
 
@@ -77,6 +77,31 @@ What the bins were designed for: cut flat, folded and glued. Cut them with the [
   <img class="doc-figure" src="https://assets.basically.website/sorter-docs/install-bins-cardboard-bins-tower-full-97d68e720775.jpg" alt="A bin tower on castors under its plywood deck, five layers of folded cardboard bins with sorted LEGO in them">
   <figcaption>Laser cut cardboard bins, on the same frame. <cite>Photo: Basically.</cite></figcaption>
 </figure>
+
+{% include step.html n="2c" title="Or: cut them by hand" %}
+
+No laser and no cutting service: print a paper template, tape it together, and cut the cardboard with a knife. Four templates cover all five bins, because the two half bins are mirror images of each other and come off the same one.
+
+[Download the hand cutting templates](https://assets.basically.website/sorter-parts/bin-hand-cutting-templates-1e894705ea20.zip), a zip of four PDFs. Each one opens with a cover sheet: a view down into the finished bin, what you need, and the eight steps. After that it tiles the pattern across A4, four sheets for a half bin, four for third left, three for third centre, two for third right-back.
+
+You need a printer, A4 paper or thin card stock for the template itself, a sharp knife, a metal ruler, something to measure thickness with, tape, a hot glue gun and a pin.
+
+<ol class="numbered-steps">
+  <li>Print every sheet at <strong>100% or Actual size</strong>, never Fit to Page. Thin card stock outlasts paper.</li>
+  <li><strong>Once printed, measure the bar at the foot of each page.</strong> It must be 100 mm. If it is not, the print is scaled: fix the setting and print again.</li>
+  <li>Tape the sheets together on the registration crosses. The same cross is printed on both sheets of every overlap.</li>
+  <li><strong>Measure the thickness of the cardboard</strong> and follow the one outline that matches. Every template carries three, for 4, 5 and 6 mm stock, tagged along their length.</li>
+  <li>Turn the template until the long double-headed <strong>FLUTES</strong> arrow runs the same way as the corrugations. Tape it down, draw round it, then lift it off and cut. Do not cut against the paper: you need the template a dozen times or more.</li>
+  <li>Score the folds on the face that will be inside the bin, cutting the inner liner only, then fold towards the score.</li>
+  <li>Fold the bin up and glue the corners.</li>
+</ol>
+
+<div class="callout callout-warning">
+  <span class="callout-icon" aria-hidden="true">⚠</span>
+  <p>Leave the toothed edge off. Each template draws a dotted straight line across it: cut there instead. The notches that key a bin onto the retainer's teeth are too fine to cut by hand in 4 to 6 mm corrugated. A bin without them still sits in its bay and is held by the same retainers, it just slides along the rail rather than locking to it.</p>
+</div>
+
+**One blank makes either hand.** The face you score becomes the inside of the bin, so scoring the other face gives you the mirror bin and you never need a second template. Dry fold the paper both ways and hold it to an empty bay to see which is which: the toothed edge belongs along the bottom front, against the rail, and the narrow end points at the middle of the machine.
 
 {% include step.html n="3" title="Drop them in" %}
 

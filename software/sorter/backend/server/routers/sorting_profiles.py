@@ -10,14 +10,15 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-import requests
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
-from blob_manager import getHiveConfig, getSortingProfileSyncState, setSortingProfileSyncState
-from local_state import start_new_sorting_session
+from bin_contents import start_new_sorting_session
+from local_state import get_hive_config, get_sorting_profile_sync_state, set_sorting_profile_sync_state
 from server import shared_state
-from server.routers.hardware import (
+from server.hive_models import HiveClient, HiveError
+from sorting_profile import profileSummary
+from server.routers.bins import (
     clear_bin_category_assignments,
     _current_bin_categories,
     _apply_and_persist_bin_categories,
@@ -44,7 +45,7 @@ class ApplySortingProfilePayload(BaseModel):
 
 
 def _load_targets() -> list[dict[str, Any]]:
-    config = getHiveConfig() or {}
+    config = get_hive_config() or {}
     targets = config.get("targets")
     if not isinstance(targets, list):
         return []
@@ -58,32 +59,20 @@ def _get_target_or_404(target_id: str) -> dict[str, Any]:
     raise HTTPException(status_code=404, detail="Hive target not found.")
 
 
-def _target_session(target: dict[str, Any]) -> requests.Session:
+def _target_client(target: dict[str, Any]) -> HiveClient:
     url = target.get("url")
     api_token = target.get("api_token")
     if not isinstance(url, str) or not url.strip():
         raise HTTPException(status_code=400, detail="Hive target URL is missing.")
     if not isinstance(api_token, str) or not api_token.strip():
         raise HTTPException(status_code=400, detail="Hive target token is missing.")
-    session = requests.Session()
-    session.headers["Authorization"] = f"Bearer {api_token.strip()}"
-    session.headers["Content-Type"] = "application/json"
-    return session
+    return HiveClient(url.strip(), api_token.strip())
 
 
-def _target_base_url(target: dict[str, Any]) -> str:
-    url = target.get("url")
-    if not isinstance(url, str) or not url.strip():
-        raise HTTPException(status_code=400, detail="Hive target URL is missing.")
-    return url.strip().rstrip("/")
-
-
-def _safe_json(response: requests.Response) -> dict[str, Any]:
-    try:
-        data = response.json()
-        return data if isinstance(data, dict) else {"data": data}
-    except Exception:
-        return {"error": response.text}
+def _hive_http_error(exc: Exception) -> HTTPException:
+    if isinstance(exc, HiveError):
+        return HTTPException(status_code=exc.status_code, detail=str(exc))
+    return HTTPException(status_code=502, detail=f"Hive could not be reached: {exc}")
 
 
 def _target_meta(target: dict[str, Any]) -> dict[str, Any]:
@@ -107,17 +96,11 @@ def _fetch_target_library(target: dict[str, Any]) -> dict[str, Any]:
     if not payload["enabled"]:
         return payload
     try:
-        session = _target_session(target)
-        response = session.get(f"{_target_base_url(target)}/api/machine/profiles/library", timeout=20)
-        if not response.ok:
-            body = _safe_json(response)
-            message = body.get("error") or body.get("detail") or f"HTTP {response.status_code}"
-            raise RuntimeError(str(message))
-        body = response.json()
+        body = _target_client(target).profile_library()
         payload["profiles"] = body.get("profiles", []) if isinstance(body, dict) else []
         payload["assignment"] = body.get("assignment") if isinstance(body, dict) else None
     except Exception as exc:
-        payload["error"] = str(exc)
+        payload["error"] = exc.detail if isinstance(exc, HTTPException) else str(exc)
     return payload
 
 
@@ -225,24 +208,9 @@ def _unique_local_path(base: str) -> Path:
     return candidate
 
 
-# Sorting-profile JSON files carry the full compiled part map and routinely run
-# tens of MB, so json.load costs ~1-2s (worse under CPU contention). Cache the
-# small metadata we surface, keyed by (mtime, size), so repeated reads — the 10s
-# poll, re-renders, the bundled /library — don't re-parse.
-_profile_meta_cache: dict[str, tuple[float, int, dict[str, Any]]] = {}
-
-
 def _profile_file_meta(path: Path) -> dict[str, Any]:
-    stat = path.stat()
-    key = str(path)
-    cached = _profile_meta_cache.get(key)
-    if cached is not None and cached[0] == stat.st_mtime and cached[1] == stat.st_size:
-        return cached[2]
-    with open(path, "r") as handle:
-        data = json.load(handle)
-    if not isinstance(data, dict):
-        raise ValueError("profile file is not a JSON object")
-    meta: dict[str, Any] = {
+    data = profileSummary(path)
+    return {
         "name": data.get("name"),
         "description": data.get("description"),
         "profile_type": data.get("profile_type"),
@@ -251,10 +219,8 @@ def _profile_file_meta(path: Path) -> dict[str, Any]:
         "updated_at": data.get("updated_at"),
         "rule_count": len(data.get("rules", []) or []),
         "category_count": len(data.get("categories", {}) or {}),
-        "part_count": len(data.get("part_to_category", {}) or {}),
+        "part_count": data["part_count"],
     }
-    _profile_meta_cache[key] = (stat.st_mtime, stat.st_size, meta)
-    return meta
 
 
 def _mtime_iso(path: Path) -> str | None:
@@ -327,7 +293,7 @@ def _local_profile_entry(
 
 
 def _list_local_profiles() -> list[dict[str, Any]]:
-    sync_state = getSortingProfileSyncState() or {}
+    sync_state = get_sorting_profile_sync_state() or {}
     active_filename = (
         sync_state.get("local_filename") if sync_state.get("source") == "local" else None
     )
@@ -343,7 +309,7 @@ def _active_profile_path() -> str | None:
 
 
 def _current_local_profile_status() -> dict[str, Any]:
-    sync_state = getSortingProfileSyncState() or {}
+    sync_state = get_sorting_profile_sync_state() or {}
     path = _active_profile_path()
     metadata: dict[str, Any] = {}
     if path and os.path.exists(path):
@@ -370,7 +336,7 @@ def _current_local_profile_status() -> dict[str, Any]:
 def _current_local_profile_status_light() -> dict[str, Any]:
     # No parse: name comes from sync_state; counts are omitted (the /profiles
     # page only needs the active name here, and even that is a rare fallback).
-    sync_state = getSortingProfileSyncState() or {}
+    sync_state = get_sorting_profile_sync_state() or {}
     path = _active_profile_path()
     metadata: dict[str, Any] = {}
     if path and os.path.exists(path):
@@ -387,7 +353,7 @@ def _current_local_profile_status_light() -> dict[str, Any]:
 
 
 def _list_local_profiles_light() -> list[dict[str, Any]]:
-    sync_state = getSortingProfileSyncState() or {}
+    sync_state = get_sorting_profile_sync_state() or {}
     active_filename = (
         sync_state.get("local_filename") if sync_state.get("source") == "local" else None
     )
@@ -409,11 +375,6 @@ def _reload_runtime_profile() -> bool:
     except Exception:
         pass
     return True
-
-
-@router.get("/api/sorting-profiles/status")
-def get_sorting_profile_status() -> dict[str, Any]:
-    return _current_local_profile_status()
 
 
 @router.get("/api/sorting-profiles/library")
@@ -478,19 +439,42 @@ def get_sorting_profile_detail(
     profile_id: str,
     version_id: str | None = None,
 ) -> dict[str, Any]:
-    target = _get_target_or_404(target_id)
-    session = _target_session(target)
-    response = session.get(
-        f"{_target_base_url(target)}/api/machine/profiles/{profile_id}",
-        params={"version_id": version_id} if version_id else None,
-        timeout=20,
-    )
-    if not response.ok:
-        body = _safe_json(response)
-        message = body.get("error") or body.get("detail") or f"HTTP {response.status_code}"
-        raise HTTPException(status_code=response.status_code, detail=str(message))
-    data = response.json()
+    client = _target_client(_get_target_or_404(target_id))
+    try:
+        data = client.profile_detail(profile_id, version_id)
+    except Exception as exc:
+        raise _hive_http_error(exc) from exc
     return data if isinstance(data, dict) else {"data": data}
+
+
+@router.get("/api/sorting-profiles/route")
+def route_piece(part_id: str, color_id: str | None = None) -> dict[str, Any]:
+    """Where a piece would go under the profile this machine runs now, kit
+    counts included: its bin's category and name. Nothing moves."""
+    controller = shared_state.controller_ref
+    profile = getattr(getattr(controller, "coordinator", None), "sorting_profile", None)
+    path = _active_profile_path()
+    if profile is None:
+        if not path or not os.path.exists(path):
+            raise HTTPException(status_code=404, detail="No sorting profile is active.")
+        from sorting_profile import JsonSortingProfile
+
+        profile = JsonSortingProfile(shared_state.gc_ref)
+    category_id = profile.getCategoryIdForPart(part_id.strip(), (color_id or "").strip() or "any_color")
+    categories: dict[str, Any] = {}
+    if path and os.path.exists(path):
+        try:
+            categories = profileSummary(path).get("categories") or {}
+        except (OSError, ValueError):
+            categories = {}
+    meta = categories.get(category_id) if isinstance(categories.get(category_id), dict) else {}
+    return {
+        "part_id": part_id,
+        "color_id": color_id,
+        "category_id": category_id,
+        "category_name": meta.get("name") or category_id,
+        "bin": meta,
+    }
 
 
 @router.post("/api/sorting-profiles/reload")
@@ -505,8 +489,7 @@ def reload_sorting_profile() -> dict[str, Any]:
 @router.post("/api/sorting-profiles/apply")
 def apply_sorting_profile(payload: ApplySortingProfilePayload) -> dict[str, Any]:
     target = _get_target_or_404(payload.target_id)
-    session = _target_session(target)
-    base_url = _target_base_url(target)
+    client = _target_client(target)
 
     if shared_state.gc_ref is None:
         raise HTTPException(status_code=500, detail="Global config not initialized.")
@@ -520,32 +503,11 @@ def apply_sorting_profile(payload: ApplySortingProfilePayload) -> dict[str, Any]
     if mode in ("empty", "rules"):
         reset_result = clear_bin_category_assignments(scope="all")
 
-    assignment_response = session.put(
-        f"{base_url}/api/machine/profile-assignment",
-        json={
-            "profile_id": payload.profile_id,
-            "version_id": payload.version_id,
-        },
-        timeout=20,
-    )
-    if not assignment_response.ok:
-        body = _safe_json(assignment_response)
-        message = body.get("error") or body.get("detail") or f"HTTP {assignment_response.status_code}"
-        raise HTTPException(status_code=assignment_response.status_code, detail=str(message))
-
-    artifact_response = session.get(
-        f"{base_url}/api/machine/profiles/versions/{payload.version_id}/artifact",
-        timeout=30,
-    )
-    if not artifact_response.ok:
-        body = _safe_json(artifact_response)
-        message = body.get("error") or body.get("detail") or f"HTTP {artifact_response.status_code}"
-        raise HTTPException(status_code=artifact_response.status_code, detail=str(message))
-
-    artifact_body = artifact_response.json()
-    artifact = artifact_body.get("artifact") if isinstance(artifact_body, dict) else None
-    if not isinstance(artifact, dict):
-        raise HTTPException(status_code=502, detail="Hive returned an invalid artifact payload.")
+    try:
+        client.assign_profile(payload.profile_id, payload.version_id)
+        artifact = client.profile_artifact(payload.version_id)
+    except Exception as exc:
+        raise _hive_http_error(exc) from exc
 
     artifact_hash = str(artifact.get("artifact_hash") or "")
     _atomic_write_json(shared_state.gc_ref.sorting_profile_path, artifact)
@@ -560,7 +522,7 @@ def apply_sorting_profile(payload: ApplySortingProfilePayload) -> dict[str, Any]
         "local_filename": None,
         "target_id": payload.target_id,
         "target_name": target.get("name") or target.get("url"),
-        "target_url": base_url,
+        "target_url": client.api_url,
         "profile_id": payload.profile_id,
         "profile_name": payload.profile_name,
         "version_id": payload.version_id,
@@ -573,29 +535,17 @@ def apply_sorting_profile(payload: ApplySortingProfilePayload) -> dict[str, Any]
 
     activation_error: str | None = None
     try:
-        activation_response = session.post(
-            f"{base_url}/api/machine/profile-activation",
-            json={
-                "version_id": payload.version_id,
-                "artifact_hash": artifact_hash or None,
-            },
-            timeout=20,
-        )
-        if activation_response.ok:
-            activation_data = activation_response.json()
-            if isinstance(activation_data, dict):
-                sync_state["activated_at"] = datetime.now(timezone.utc).isoformat()
-                sync_state["assignment"] = activation_data
-        else:
-            body = _safe_json(activation_response)
-            activation_error = str(body.get("error") or body.get("detail") or f"HTTP {activation_response.status_code}")
+        activation_data = client.report_profile_activation(payload.version_id, artifact_hash or None)
+        if isinstance(activation_data, dict):
+            sync_state["activated_at"] = datetime.now(timezone.utc).isoformat()
+            sync_state["assignment"] = activation_data
     except Exception as exc:
         activation_error = str(exc)
 
     if activation_error:
         sync_state["last_error"] = activation_error
 
-    setSortingProfileSyncState(sync_state)
+    set_sorting_profile_sync_state(sync_state)
     start_new_sorting_session(reason="profile_activated")
     try:
         from server.set_progress_sync import getSetProgressSyncWorker
@@ -617,6 +567,59 @@ def apply_sorting_profile(payload: ApplySortingProfilePayload) -> dict[str, Any]
     }
 
 
+def apply_first_default_profile_if_none() -> dict[str, Any] | None:
+    """A sorter with no profile yet starts on its Hive's first default
+    profile (BrickLink categories), so it sorts sensibly as soon as it is set
+    up. Does nothing when a profile is active, or no Hive has defaults."""
+    gc = shared_state.gc_ref
+    if gc is None or os.path.exists(gc.sorting_profile_path):
+        return None
+    for target in _load_targets():
+        if not target.get("enabled"):
+            continue
+        library = _fetch_target_library(target)
+        defaults = sorted(
+            (
+                profile
+                for profile in library.get("profiles") or []
+                if isinstance(profile, dict)
+                and profile.get("is_default")
+                and isinstance(profile.get("latest_published_version"), dict)
+            ),
+            key=lambda profile: profile.get("default_rank") or 1_000_000,
+        )
+        if not defaults:
+            continue
+        profile = defaults[0]
+        version = profile["latest_published_version"]
+        gc.logger.info(f"Sorting profile: none active; starting on {profile.get('name')!r} from {target.get('name')}")
+        return apply_sorting_profile(
+            ApplySortingProfilePayload(
+                target_id=str(target["id"]),
+                profile_id=str(profile["id"]),
+                profile_name=str(profile.get("name") or "Default"),
+                version_id=str(version["id"]),
+                version_number=version.get("version_number"),
+                version_label=version.get("label"),
+            )
+        )
+    return None
+
+
+def start_first_default_profile_if_none() -> None:
+    """The same, off the request path (it downloads from Hive)."""
+    import threading
+
+    def run() -> None:
+        try:
+            apply_first_default_profile_if_none()
+        except Exception as exc:
+            if shared_state.gc_ref is not None:
+                shared_state.gc_ref.logger.warning(f"Sorting profile: could not start on a default: {exc}")
+
+    threading.Thread(target=run, name="default-profile", daemon=True).start()
+
+
 class ApplyLocalSortingProfilePayload(BaseModel):
     filename: str
     reset_bin_categories: bool = False
@@ -628,16 +631,22 @@ class UploadLocalSortingProfilePayload(BaseModel):
     name: str | None = None
 
 
+def _is_profile_artifact(artifact: Any) -> bool:
+    return isinstance(artifact, dict) and (
+        isinstance(artifact.get("program"), dict) or "part_to_category" in artifact
+    )
+
+
 def _load_local_artifact(path: Path) -> dict[str, Any]:
     try:
         with open(path, "r") as handle:
             artifact = json.load(handle)
     except json.JSONDecodeError as exc:
         raise HTTPException(status_code=400, detail=f"Profile file is corrupt: {exc}")
-    if not isinstance(artifact, dict) or "part_to_category" not in artifact:
+    if not _is_profile_artifact(artifact):
         raise HTTPException(
             status_code=400,
-            detail="Profile is not a valid sorting profile (missing part_to_category).",
+            detail="Profile is not a valid sorting profile (it has neither a program nor a part map).",
         )
     return artifact
 
@@ -684,7 +693,7 @@ def apply_local_sorting_profile(payload: ApplyLocalSortingProfilePayload) -> dic
         "activated_at": now,
         "last_error": None,
     }
-    setSortingProfileSyncState(sync_state)
+    set_sorting_profile_sync_state(sync_state)
     start_new_sorting_session(reason="profile_activated")
     try:
         from server.set_progress_sync import getSetProgressSyncWorker
@@ -709,10 +718,10 @@ def apply_local_sorting_profile(payload: ApplyLocalSortingProfilePayload) -> dic
 @router.post("/api/sorting-profiles/local/upload")
 def upload_local_sorting_profile(payload: UploadLocalSortingProfilePayload) -> dict[str, Any]:
     artifact = payload.artifact
-    if not isinstance(artifact, dict) or "part_to_category" not in artifact:
+    if not _is_profile_artifact(artifact):
         raise HTTPException(
             status_code=400,
-            detail="Uploaded JSON is not a valid sorting profile (missing part_to_category).",
+            detail="Uploaded JSON is not a valid sorting profile (it has neither a program nor a part map).",
         )
     name = (payload.name or "").strip()
     if name:
@@ -737,47 +746,3 @@ def delete_local_sorting_profile(filename: str) -> dict[str, Any]:
             raise HTTPException(status_code=500, detail=f"Could not delete profile: {exc}")
     return {"ok": True, "local_profiles": _list_local_profiles()}
 
-
-class RenameLocalSortingProfilePayload(BaseModel):
-    filename: str
-    name: str
-
-
-@router.post("/api/sorting-profiles/local/rename")
-def rename_local_sorting_profile(payload: RenameLocalSortingProfilePayload) -> dict[str, Any]:
-    new_name = (payload.name or "").strip()
-    if not new_name:
-        raise HTTPException(status_code=400, detail="New profile name is required.")
-
-    path = _safe_local_path(payload.filename)
-    if not path.exists():
-        raise HTTPException(status_code=404, detail="Local profile not found.")
-
-    artifact = _load_local_artifact(path)
-    _atomic_write_json(str(path), {**artifact, "name": new_name})
-
-    # Only the display name changes; routing is untouched, so there's no need to
-    # reload the runtime profile. But if this is the active profile, keep the live
-    # artifact copy and the sync-state name in step so the UI doesn't show stale.
-    sync_state = getSortingProfileSyncState() or {}
-    is_active = (
-        sync_state.get("source") == "local"
-        and sync_state.get("local_filename") == path.name
-    )
-    if is_active and shared_state.gc_ref is not None:
-        runtime_path = shared_state.gc_ref.sorting_profile_path
-        if runtime_path and os.path.exists(runtime_path):
-            runtime_artifact = _load_local_artifact(Path(runtime_path))
-            _atomic_write_json(runtime_path, {**runtime_artifact, "name": new_name})
-        setSortingProfileSyncState({**sync_state, "profile_name": new_name})
-
-    status = _current_local_profile_status()
-    shared_state.publishSortingProfileStatus(status)
-    return {
-        "ok": True,
-        "renamed": True,
-        "is_active": is_active,
-        "name": new_name,
-        "local_profiles": _list_local_profiles(),
-        **status,
-    }

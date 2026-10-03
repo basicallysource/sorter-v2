@@ -4,7 +4,7 @@ title: Preparing LEGO for a sort run
 type: how-to
 section: sorter
 slug: sorter-preparing-lego
-kicker: Sorter — Operate
+kicker: SorterOS — Operate
 author: brickcyclealice
 lede: What to take out of a tub of bulk LEGO before it goes in the bulk bucket, and what each thing does to the machine if it stays in.
 permalink: /sorter/preparing-lego/

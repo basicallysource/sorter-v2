@@ -1,38 +1,26 @@
 <script lang="ts">
 	import { FEATURES } from '$lib/features';
+	import Badge from '$lib/components/Badge.svelte';
+	import Panel from '$lib/components/Panel.svelte';
 </script>
 
-<div class="border border-warning/30 bg-warning/10 p-4">
-	<h2 class="text-sm font-semibold text-warning-strong">What Counts As Good Training Data</h2>
-	<div class="mt-3 space-y-3 text-sm text-text">
-		<p>
-			Accept only images where every visible LEGO part is covered by a box or corrected annotation.
-		</p>
-		<div class="border border-success/20 bg-surface px-3 py-3">
-			<div class="text-xs font-semibold tracking-wide text-success uppercase">Accept</div>
-			<p class="mt-1 text-sm text-text">
-				All visible parts are fully accounted for, and the boxes match the actual objects well enough for training.
-			</p>
-		</div>
-		<div class="border border-success/20 bg-surface px-3 py-3">
-			<div class="text-xs font-semibold tracking-wide text-success uppercase">Accept (empty too)</div>
-			<p class="mt-1 text-sm text-text">
-				Empty frames — a clean C-channel, an empty carousel, no parts in view — are valid training signal too. Accept them when there really is nothing to box, so the detector learns what "nothing here" looks like.
-			</p>
-		</div>
-		{#if FEATURES.ANNOTATION_EDITING}
-			<div class="border border-info/20 bg-surface px-3 py-3">
-				<div class="text-xs font-semibold tracking-wide text-info uppercase">Annotate First</div>
-				<p class="mt-1 text-sm text-text">
-					If parts are missing, split incorrectly, or boxed poorly, fix the annotations before accepting.
-				</p>
+<Panel title="Good training data" description="Accept only pictures where every LEGO part in view has a box, or a corrected one." flush>
+	<dl class="divide-y divide-line border-t border-line">
+		{#snippet rule(tone: 'success' | 'info' | 'danger', name: string, text: string)}
+			<div class="flex flex-col gap-1 px-(--pad-panel) py-2.5">
+				<dt><Badge {tone}>{name}</Badge></dt>
+				<dd class="text-sm text-ink">{text}</dd>
 			</div>
+		{/snippet}
+		{@render rule('success', 'Accept', 'Every part in view is boxed, and the boxes fit the pieces well enough to train on.')}
+		{@render rule(
+			'success',
+			'Accept an empty one too',
+			'An empty frame (a clear C-channel, an empty carousel) teaches the detector what nothing looks like; accept it when there really is nothing to box.'
+		)}
+		{#if FEATURES.ANNOTATION_EDITING}
+			{@render rule('info', 'Annotate first', 'If parts are missing, split wrongly or boxed badly, fix the boxes before you accept.')}
 		{/if}
-		<div class="border border-primary/20 bg-surface px-3 py-3">
-			<div class="text-xs font-semibold tracking-wide text-primary uppercase">Reject</div>
-			<p class="mt-1 text-sm text-text">
-				Reject images that stay incomplete or unreliable, for example when visible parts cannot be marked cleanly enough for training.
-			</p>
-		</div>
-	</div>
-</div>
+		{@render rule('danger', 'Reject', 'Anything still incomplete or unreliable: parts in view that cannot be boxed cleanly enough to train on.')}
+	</dl>
+</Panel>

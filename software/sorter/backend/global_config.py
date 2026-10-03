@@ -4,12 +4,10 @@ import sys
 import argparse
 import uuid
 from datetime import datetime
-from enum import Enum
 from pathlib import Path
 from typing import Any, Optional, TYPE_CHECKING
 from logger import Logger
-from profiler import Profiler
-from blob_manager import getMachineId
+from local_state import get_or_create_machine_id
 
 if TYPE_CHECKING:
     from run_recorder import RunRecorder
@@ -17,13 +15,8 @@ if TYPE_CHECKING:
     from lifetime_stats import LifetimeStatsTracker
 
 
-class RegionProviderType(Enum):
-    HANDDRAWN = "handdrawn"
-
-
 class Timeouts:
     main_loop_sleep_ms: float
-    heartbeat_interval_ms: float
     # Cloud recognition (Brickognize) request timeouts, seconds: (connect, read).
     # Deliberately generous — the machine often runs on slow/unreliable internet,
     # where a short connect timeout made recognition fail outright (ConnectTimeout)
@@ -35,7 +28,6 @@ class Timeouts:
     def __init__(self):
         from defs.consts import LOOP_TICK_MS
         self.main_loop_sleep_ms = LOOP_TICK_MS
-        self.heartbeat_interval_ms = 5000
         self.brickognize_connect_s = 60.0
         self.brickognize_read_s = 60.0
 
@@ -57,11 +49,7 @@ class GlobalConfig:
     disable_c_channels: set[int]  # {1, 2, 3, 4} — c-channel rotor steppers to suppress
     disable_carousel: bool         # carousel stepper (same physical motor as c_channel_4)
     no_power_development_mode: bool
-    region_provider: RegionProviderType
-    profiler: Profiler
     rotary_channel_steppers_can_operate_in_parallel: bool
-    use_channel_bus: bool
-    disable_video_streams: list[str]  # "feeder", "classification_bottom", "classification_top"
     run_recorder: "RunRecorder"
     runtime_stats: "RuntimeStatsCollector"
     lifetime_stats: "LifetimeStatsTracker"
@@ -102,8 +90,6 @@ class GlobalConfig:
         self.disable_carousel = False
         self.no_power_development_mode = False
         self.rotary_channel_steppers_can_operate_in_parallel = False
-        self.use_channel_bus = False
-        self.disable_video_streams = ["classification_bottom"]
         self.runtime_stats = RuntimeStatsCollector()
         # Rev04: perception service for the GO_TO_ANGLE_REV01 +
         # SIMPLE_STATE_MACHINE_REV01 mode pair. None when the mode pair is
@@ -151,7 +137,7 @@ def mkGlobalConfig() -> GlobalConfig:
     # Uploaded BrickStore inventory (.bsx) files for "not in inventory" routing.
     gc.bsx_files_dir = str(backend_dir / "bsx_files")
     os.makedirs(gc.bsx_files_dir, exist_ok=True)
-    gc.machine_id = getMachineId()
+    gc.machine_id = get_or_create_machine_id()
     gc.run_id = str(uuid.uuid4())
     # Allow env-var fallback so the launching supervisor can flip these
     # without needing to thread CLI args through to a child main.py — useful
@@ -173,8 +159,6 @@ def mkGlobalConfig() -> GlobalConfig:
     if gc.no_power_development_mode:
         gc.disable_chute = True
         gc.disable_servos = True
-    gc.use_channel_bus = os.getenv("USE_CHANNEL_BUS", "0") == "1"
-    gc.region_provider = RegionProviderType.HANDDRAWN
 
     log_dir = os.path.join(os.path.dirname(__file__), "..", "..", "logs")
     os.makedirs(log_dir, exist_ok=True)
@@ -194,21 +178,9 @@ def mkGlobalConfig() -> GlobalConfig:
     log_file = os.path.join(log_dir, datetime.now().strftime("%Y-%m-%d_%H-%M-%S") + ".log")
     gc.dump_logs_to_file = os.getenv("DUMP_BACKEND_LOGS", "0") == "1"
     gc.logger = Logger(gc.debug_level, log_file=log_file if gc.dump_logs_to_file else None)
-    # Single background pruning system (logs + DB metric snapshots). Prune logs
-    # regardless of the dump flag so previously-accumulated logs still get
-    # cleaned; only protect the live file when we are actually writing one.
+    # Background log pruning, regardless of the dump flag so previously
+    # accumulated logs still get cleaned; only protect the live file when we
+    # are actually writing one.
     from pruner import runPruningAsync
     runPruningAsync(gc, log_dir, log_file if gc.dump_logs_to_file else None)
-    # Profiler enable lives in machine_params.toml ([profiler] enabled), toggled
-    # from the Performance settings page. Defaults OFF: profiling adds per-call
-    # timing overhead across hot loops (notably the frontend camera feed) and
-    # writes telemetry to local_state.sqlite — it's a diagnostic for comparing
-    # systems, not something to leave on during normal sorting. The report
-    # interval stays an env knob.
-    from toml_config import getProfilerConfig
-    gc.profiler = Profiler(
-        enabled=bool(getProfilerConfig().get("enabled", False)),
-        report_interval_s=float(os.getenv("PROFILER_REPORT_INTERVAL_S", "5")),
-    )
-
     return gc

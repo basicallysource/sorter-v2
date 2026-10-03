@@ -32,15 +32,13 @@ Vite's dependency cache is `.vite/` in this directory rather than the default
 inside `node_modules`, so the dev server works when `node_modules` is not
 writable. It is ignored by git.
 
-## Favicon — the docs site color is yellow
+## How it looks
 
-Every web UI in the ecosystem shows the same basically brick on a full-bleed
-colored square, and the color says which site you are looking at: Hive is red, a
-machine is blue, the docs site is **yellow** (`#FFD500`). The convention, the
-asset spec, and the rules for adding a site live in
-`software/hive/frontend/AGENTS.md` § Favicons. Assets are
-`static/assets/favicon.ico`, `favicon-96.png`, `favicon-192.png`,
-`apple-touch-icon.png`.
+How this site looks and is built: `software/sorter-design-system` (read its
+`AGENTS.md` and `docs/rules.md` first, and `docs/apps.md` for what differs
+here, such as this site's yellow favicon). Components are copied from its
+`src/lib/components/` unchanged; a change is made there first. The markdown
+components below are this site's own.
 
 ## Writing conventions
 
@@ -49,11 +47,6 @@ asset spec, and the rules for adding a site live in
 - **No em dashes (`—`) in copy.** Use commas, periods, or parentheses. (The
   kicker breadcrumb is the one place they still appear, site-wide.)
 - Titles are sentence case. Alt text on every image.
-- **Structural lines are hairlines (1px), one weight everywhere** — borders,
-  dividers, table rules. Emphasis comes from color, never thickness. The
-  active-nav underline and the `:focus-visible` outline are state markers,
-  not structure, and stay 2px. (Same rule as `parts-calculator/AGENTS.md`
-  § Design rules.)
 - **No photos of out-of-spec builds.** If a build photo shows a part somebody
   modified, reprinted differently, or otherwise deviated from what the catalog
   and the steps describe, it does not go on the page, however good the photo is

@@ -37,7 +37,10 @@ from app.routers import (
     model_defaults,
     models as models_router,
     piece_color_labels,
+    agent,
+    kits,
     profiles,
+    records,
     public_catalog,
     public_stats,
     review,
@@ -49,6 +52,7 @@ from app.routers import (
 )
 from app.services.profile_catalog import get_existing_profile_catalog_service, get_profile_catalog_service
 from app.services.candidate_matview import get_candidate_matview_worker
+from app.services.default_profiles import start_default_profiles_thread
 from app.services.condition_worker import get_condition_worker
 from app.services.fleet_mass import get_fleet_mass_worker
 from app.services.machine_stats import get_machine_stats_worker
@@ -93,6 +97,8 @@ async def lifespan(_app: FastAPI):
     get_storage_stats_worker().start()
     get_memory_log_worker().start()  # diagnostic, delete with the 2026-08 leak
     get_candidate_matview_worker().start()
+    if settings.ENVIRONMENT != "test":
+        start_default_profiles_thread()
     try:
         yield
     finally:
@@ -136,6 +142,9 @@ app.include_router(installs.router)
 app.include_router(devices.router)
 app.include_router(machine_sync.router)
 app.include_router(profiles.router)
+app.include_router(kits.router)
+app.include_router(records.router)
+app.include_router(agent.router)
 app.include_router(upload.router)
 app.include_router(samples.router)
 app.include_router(review.router)

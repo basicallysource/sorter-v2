@@ -8,9 +8,9 @@
 	let error = $state<string | null>(null);
 
 	const periods: { key: keyof AiUsageSummary; label: string }[] = [
-		{ key: 'week', label: 'Last 7 days' },
-		{ key: 'month', label: 'Last 30 days' },
-		{ key: 'year', label: 'Last year' },
+		{ key: 'week', label: 'The last 7 days' },
+		{ key: 'month', label: 'The last 30 days' },
+		{ key: 'year', label: 'The last year' },
 		{ key: 'all_time', label: 'All time' }
 	];
 
@@ -42,37 +42,30 @@
 	}
 </script>
 
-<div class="border border-border bg-bg p-4">
-	<div class="mb-3 flex items-baseline justify-between gap-2">
-		<h3 class="text-sm font-medium text-text">AI Spend</h3>
-		<span class="text-xs text-text-muted">billed to your OpenRouter key</span>
+<div class="rounded-control bg-well p-4">
+	<div class="mb-3 flex flex-wrap items-baseline justify-between gap-2">
+		<h3 class="text-sm font-medium text-ink">What the assistant has cost</h3>
+		<span class="text-sm text-ink-muted">Billed to your OpenRouter key</span>
 	</div>
-
 	{#if loading}
-		<p class="flex items-center gap-1.5 text-xs text-text-muted"><Spinner size={12} /> Loading…</p>
+		<p class="flex items-center gap-2 text-sm text-ink-muted"><Spinner size={14} />Loading</p>
 	{:else if error}
-		<p class="text-xs text-text-muted">{error}</p>
+		<p class="text-sm text-ink-muted">{error}</p>
 	{:else if summary}
-		<div class="grid grid-cols-2 gap-px bg-border sm:grid-cols-4">
+		<div class="grid grid-cols-2 gap-4 sm:grid-cols-4">
 			{#each periods as period (period.key)}
 				{@const totals = totalsFor(period.key)}
-				<div class="bg-bg p-3">
-					<div class="text-xs text-text-muted">{period.label}</div>
-					<div class="mt-1 text-lg font-semibold text-text">
-						{formatCost(totals?.cost_usd ?? 0)}
-					</div>
-					<div class="mt-1 text-xs text-text-muted">
-						{formatCount(totals?.message_count ?? 0)} requests · {formatCount(totals?.total_tokens ?? 0)} tokens
+				<div>
+					<div class="text-sm text-ink-muted">{period.label}</div>
+					<div class="num mt-1 text-lg font-medium text-ink">{formatCost(totals?.cost_usd ?? 0)}</div>
+					<div class="num mt-0.5 text-sm text-ink-muted">
+						{formatCount(totals?.message_count ?? 0)} requests, {formatCount(totals?.total_tokens ?? 0)} tokens
 					</div>
 				</div>
 			{/each}
 		</div>
-		<p class="mt-2 text-xs text-text-muted">
-			{#if summary.since}
-				Tracked since {new Date(summary.since).toLocaleDateString()}.
-			{:else}
-				No AI requests recorded yet.
-			{/if}
+		<p class="mt-3 text-sm text-ink-muted">
+			{#if summary.since}Counted since {new Date(summary.since).toLocaleDateString()}.{:else}No requests yet.{/if}
 		</p>
 	{/if}
 </div>

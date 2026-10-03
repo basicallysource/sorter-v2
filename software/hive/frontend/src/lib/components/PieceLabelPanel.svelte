@@ -25,19 +25,23 @@
 	import PiecePartPicker from '$lib/components/PiecePartPicker.svelte';
 	import Spinner from '$lib/components/Spinner.svelte';
 	import ZoomImage from '$lib/components/ZoomImage.svelte';
-	import { Alert, Button } from '$lib/components/primitives';
-	import ArrowLeft from 'lucide-svelte/icons/arrow-left';
-	import ArrowRight from 'lucide-svelte/icons/arrow-right';
-	import Ban from 'lucide-svelte/icons/ban';
-	import Check from 'lucide-svelte/icons/check';
-	import ChevronDown from 'lucide-svelte/icons/chevron-down';
-	import Circle from 'lucide-svelte/icons/circle';
-	import CircleCheck from 'lucide-svelte/icons/circle-check';
-	import CircleDot from 'lucide-svelte/icons/circle-dot';
-	import Flag from 'lucide-svelte/icons/flag';
-	import Sparkles from 'lucide-svelte/icons/sparkles';
-	import Star from 'lucide-svelte/icons/star';
-	import X from 'lucide-svelte/icons/x';
+	import Alert from '$lib/components/Alert.svelte';
+	import Badge from '$lib/components/Badge.svelte';
+	import Checkbox from '$lib/components/Checkbox.svelte';
+	import Input from '$lib/components/Input.svelte';
+	import Panel from '$lib/components/Panel.svelte';
+	import EmptyState from '$lib/components/EmptyState.svelte';
+	import Popover from '$lib/components/Popover.svelte';
+	import SegmentedControl from '$lib/components/SegmentedControl.svelte';
+	import Button from '$lib/components/Button.svelte';
+	import ArrowLeft from '@lucide/svelte/icons/arrow-left';
+	import ArrowRight from '@lucide/svelte/icons/arrow-right';
+	import Ban from '@lucide/svelte/icons/ban';
+	import Check from '@lucide/svelte/icons/check';
+	import Flag from '@lucide/svelte/icons/flag';
+	import Sparkles from '@lucide/svelte/icons/sparkles';
+	import Star from '@lucide/svelte/icons/star';
+	import X from '@lucide/svelte/icons/x';
 
 	type CharState = 'empty' | 'progress' | 'ready';
 
@@ -126,8 +130,6 @@
 	// Per-image quality (star + "not good enough" reasons), saved per crop. One
 	// reasons dropdown open at a time, keyed `${kind}:${id}`; positioned fixed so
 	// it escapes the candidate grid's overflow clipping.
-	let qualityMenuOpenFor = $state<string | null>(null);
-	let qualityMenuPos = $state<{ top: number; left: number }>({ top: 0, left: 0 });
 	let qualitySavingFor = $state<string | null>(null);
 
 	// Brickognize part/color correction feedback
@@ -191,14 +193,6 @@
 		if (onlyCantTells) return 'Move on';
 		return 'Accept ' + touched.map((c) => c.label.toLowerCase()).join(' + ');
 	});
-
-	function stateBorder(state: CharState): string {
-		return state === 'ready'
-			? 'border-success/40'
-			: state === 'progress'
-				? 'border-warning/50'
-				: 'border-border';
-	}
 
 	const filteredColors = $derived.by(() => {
 		const q = search.trim().toLowerCase();
@@ -687,20 +681,6 @@
 		});
 	}
 
-	function openQualityMenu(key: string, e: MouseEvent) {
-		if (qualityMenuOpenFor === key) {
-			qualityMenuOpenFor = null;
-			return;
-		}
-		const r = (e.currentTarget as HTMLElement).getBoundingClientRect();
-		// The menu is 14rem wide and position:fixed, so on a phone a trigger past
-		// ~x:166 would hang it off the right edge. Clamp it into the viewport.
-		const MENU_WIDTH = 224;
-		const maxLeft = Math.max(8, window.innerWidth - MENU_WIDTH - 8);
-		qualityMenuPos = { top: r.bottom + 4, left: Math.min(r.left, maxLeft) };
-		qualityMenuOpenFor = key;
-	}
-
 	// Send the PART verdict to Brickognize. (Color feedback is handled
 	// automatically on advance — see autoSubmitColorDisagreement — and its
 	// prediction is never shown here.)
@@ -735,6 +715,8 @@
 
 	function onKey(e: KeyboardEvent) {
 		if (e.target instanceof HTMLInputElement) return;
+		// Keys inside an open popover (the reject and quality menus) are its own.
+		if (e.target instanceof Element && e.target.closest('[popover]')) return;
 		if (e.key === 'Enter') {
 			e.preventDefault();
 			void commitAndAdvance();
@@ -759,358 +741,218 @@
 	});
 </script>
 
-<svelte:window on:keydown={onKey} />
+<svelte:window onkeydown={onKey} />
 
 {#snippet statusBadge(state: CharState)}
 	{#if state === 'ready'}
-		<span class="flex items-center gap-1 text-xs text-success"><CircleCheck size={13} /> Ready</span>
+		<Badge tone="success" dot>Ready</Badge>
 	{:else if state === 'progress'}
-		<span class="flex items-center gap-1 text-xs text-warning"><CircleDot size={13} /> In progress</span>
+		<Badge tone="warning" dot>In progress</Badge>
 	{:else}
-		<span class="flex items-center gap-1 text-xs text-text-muted"><Circle size={13} /> Not started</span>
+		<Badge>Not started</Badge>
 	{/if}
 {/snippet}
 
-<!-- Per-crop quality controls: a high-quality star and a not-good-enough reasons
-     dropdown, saved per image. Rendered as a sibling overlay (not nested in the
-     candidate tile's button) and a fixed-position menu so it isn't clipped. -->
+<!-- Each crop's own quality: a high-quality star, and the reasons it is not good
+     enough, saved per image. Over the tile, beside its button, not inside it. -->
 {#snippet qualityOverlay(obj: ImageQualityFlags, kind: 'piece_image' | 'channel_crop', id: number)}
 	{@const key = `${kind}:${id}`}
 	{@const badCount = IMAGE_QUALITY_REASONS.filter((r) => obj[r.code]).length}
-	<div class="absolute left-0.5 top-0.5 z-10 flex gap-0.5">
+	<div class="absolute top-0.5 left-0.5 z-10 flex gap-0.5">
 		<button
 			type="button"
-			title={obj.high_quality ? 'High quality — click to unset' : 'Mark high quality'}
-			aria-label="Mark high quality"
+			title={obj.high_quality ? 'High quality; click to unset' : 'Mark as high quality'}
+			aria-label="High quality"
 			aria-pressed={obj.high_quality}
 			onclick={() => toggleStar(obj, kind, id)}
 			disabled={qualitySavingFor === key}
-			class="flex items-center bg-surface/90 p-0.5 hover:text-warning disabled:opacity-50 {obj.high_quality
-				? 'text-warning'
-				: 'text-text-muted'}"
+			class="flex rounded-badge bg-scrim p-0.5 disabled:opacity-45 {obj.high_quality ? 'text-warning' : 'text-white'}"
 		>
-			<Star size={13} fill={obj.high_quality ? 'currentColor' : 'none'} />
+			<Star size={14} fill={obj.high_quality ? 'currentColor' : 'none'} />
 		</button>
-		<button
-			type="button"
-			title="Not good enough for classification"
-			aria-label="Not good enough for classification"
-			onclick={(e) => openQualityMenu(key, e)}
-			disabled={qualitySavingFor === key}
-			class="flex items-center gap-0.5 bg-surface/90 p-0.5 hover:text-danger disabled:opacity-50 {badCount >
-			0
-				? 'text-danger'
-				: 'text-text-muted'}"
-		>
-			<Flag size={13} fill={badCount > 0 ? 'currentColor' : 'none'} />
-			{#if badCount > 0}<span class="text-xs leading-none">{badCount}</span>{/if}
-		</button>
-	</div>
-	{#if qualityMenuOpenFor === key}
-		<div
-			class="fixed z-50 w-56 border border-border bg-surface p-2 shadow-lg"
-			style={`top:${qualityMenuPos.top}px;left:${qualityMenuPos.left}px`}
-		>
-			<div class="mb-1 flex items-center justify-between px-1">
-				<span class="text-xs font-semibold uppercase tracking-wider text-text-muted"
-					>Not good enough — why?</span
-				>
+		<Popover label="Why it is not good enough" width="15rem">
+			{#snippet trigger(props)}
 				<button
+					{...props}
 					type="button"
-					class="text-text-muted hover:text-text"
-					aria-label="Close"
-					onclick={() => (qualityMenuOpenFor = null)}
+					title="Not good enough to classify"
+					disabled={qualitySavingFor === key}
+					class="flex items-center gap-0.5 rounded-badge bg-scrim p-0.5 disabled:opacity-45 {badCount > 0 ? 'text-danger' : 'text-white'}"
 				>
-					<X size={13} />
+					<Flag size={14} fill={badCount > 0 ? 'currentColor' : 'none'} />
+					{#if badCount > 0}<span class="num text-xs leading-none">{badCount}</span>{/if}
 				</button>
+			{/snippet}
+			<div class="label mb-2">Not good enough, because</div>
+			<div class="flex flex-col gap-2">
+				{#each IMAGE_QUALITY_REASONS as r (r.code)}
+					<Checkbox checked={obj[r.code]} onchange={() => toggleQualityReason(obj, kind, id, r.code)}>{r.label}</Checkbox>
+				{/each}
 			</div>
-			{#each IMAGE_QUALITY_REASONS as r (r.code)}
-				<label
-					class="flex cursor-pointer items-center gap-2 px-1 py-1 text-sm text-text hover:bg-bg"
-				>
-					<input
-						type="checkbox"
-						checked={obj[r.code]}
-						onchange={() => toggleQualityReason(obj, kind, id, r.code)}
-					/>
-					{r.label}
-				</label>
-			{/each}
-		</div>
-	{/if}
+		</Popover>
+	</div>
 {/snippet}
 
-<!-- Header: back-to-list (page) or close (pane) + position -->
+<!-- Back to the list (the page) or close (the pane), and where this piece is in it -->
 {#snippet header()}
-	<div class="mb-4 flex items-center justify-between gap-3">
+	<div class="flex items-center justify-between gap-3">
 		{#if onClose}
-			<button
-				type="button"
-				onclick={onClose}
-				class="flex items-center gap-1 text-sm text-text-muted hover:text-text"
-			>
-				<X size={14} /> Close
-			</button>
+			<Button size="sm" variant="ghost" icon={X} onclick={onClose}>Close</Button>
 		{:else}
-			<a
-				href={nav.dashboardUrl()}
-				class="flex items-center gap-1 text-sm text-text-muted hover:text-text"
-			>
-				<ArrowLeft size={14} /> All pieces
-			</a>
+			<Button size="sm" variant="ghost" icon={ArrowLeft} href={nav.dashboardUrl()}>All pieces</Button>
 		{/if}
 		{#if position.total > 0 && position.index >= 0}
-			<span class="text-xs text-text-muted tabular-nums"
-				>{position.index + 1} of {position.total}{position.hasMore ? '+' : ''}</span
-			>
+			<span class="num text-sm text-ink-muted">{position.index + 1} of {position.total}{position.hasMore ? '+' : ''}</span>
 		{/if}
 	</div>
 {/snippet}
 
-<!-- Summary + advance bar: reflects what's done across every characteristic -->
+<!-- What is done across every characteristic, and the way on -->
 {#snippet summaryBar()}
-	<div class="mb-4 flex flex-wrap items-center gap-x-4 gap-y-2 border border-border bg-surface p-3">
-		<Button variant="ghost" size="sm" onclick={goPrev}><ArrowLeft size={14} /> Back</Button>
-		<div class="flex flex-wrap items-center gap-x-4 gap-y-1">
-			{#each characteristics as ch (ch.key)}
-				<span class="flex items-center gap-1.5 text-sm text-text-muted">
-					{ch.label}: {@render statusBadge(ch.state)}
-				</span>
-			{/each}
-		</div>
-		<div class="flex flex-wrap items-center gap-2 sm:ml-auto">
-			<span class="hidden text-xs text-text-muted xl:inline">Enter accept · →/Space skip · ← back</span>
-			<!-- Reject this bbox sample (with reason(s)) — left of the skip/continue CTA -->
-			<div class="relative">
-				<Button
-					variant={rejected ? 'danger' : 'secondary'}
-					size="sm"
-					onclick={() => (rejectOpen = !rejectOpen)}
-				>
-					<Ban size={14} /> {rejected ? 'Rejected' : 'Reject'} <ChevronDown size={13} />
-				</Button>
-				{#if rejectOpen}
-					<div class="absolute right-0 z-30 mt-1 w-64 border border-border bg-surface p-2 shadow-lg">
-						<div class="mb-1 px-1 text-xs font-semibold uppercase tracking-wider text-text-muted">
-							Reject sample — why?
-						</div>
+	<Panel flush>
+		<div class="flex flex-wrap items-center gap-x-4 gap-y-2 px-(--pad-panel) py-3">
+			<Button variant="ghost" size="sm" icon={ArrowLeft} onclick={goPrev}>Back</Button>
+			<div class="flex flex-wrap items-center gap-x-4 gap-y-1">
+				{#each characteristics as ch (ch.key)}
+					<span class="flex items-center gap-1.5 text-sm text-ink-muted">{ch.label} {@render statusBadge(ch.state)}</span>
+				{/each}
+			</div>
+			<div class="flex flex-wrap items-center gap-2 sm:ml-auto">
+				<span class="hidden text-sm text-ink-muted xl:inline">Enter accepts, the right arrow or Space skips, the left arrow goes back</span>
+				<Popover label="Why reject this sample" width="17rem" placement="bottom-end" bind:open={rejectOpen}>
+					{#snippet trigger(props)}
+						<Button {...props} size="sm" icon={Ban}>{rejected ? 'Rejected' : 'Reject'}</Button>
+					{/snippet}
+					<div class="label mb-2">Reject this sample, because</div>
+					<div class="flex flex-col gap-2">
 						{#each REJECT_REASONS as r (r.value)}
-							<label class="flex cursor-pointer items-center gap-2 px-1 py-1 text-sm text-text hover:bg-bg">
-								<input
-									type="checkbox"
-									checked={rejectReasons.has(r.value)}
-									onchange={() => toggleReason(r.value)}
-								/>
-								{r.label}
-							</label>
+							<Checkbox checked={rejectReasons.has(r.value)} onchange={() => toggleReason(r.value)}>{r.label}</Checkbox>
 						{/each}
-						<div class="mt-2 flex justify-end">
-							<Button
-								variant="danger"
-								size="sm"
-								loading={rejecting}
-								disabled={rejectReasons.size === 0}
-								onclick={submitReject}
-							>
-								Reject &amp; next
-							</Button>
-						</div>
 					</div>
+					<div class="mt-3 flex justify-end">
+						<Button variant="danger" size="sm" loading={rejecting} disabled={rejectReasons.size === 0} onclick={submitReject}
+							>Reject and go on</Button
+						>
+					</div>
+				</Popover>
+				<!-- Skip is always there, and resets what was recorded for this piece
+				     (skipAndReset); the accept appears once something is entered. -->
+				<Button variant="ghost" size="sm" onclick={skipAndReset}>Skip</Button>
+				{#if touched.length > 0}
+					<Button variant="primary" size="sm" icon={ArrowRight} loading={cropSaving} onclick={commitAndAdvance}>{ctaLabel}</Button>
 				{/if}
 			</div>
-			<!-- Skip is always available; skipping resets whatever was recorded for
-			     this piece (see skipAndReset). Accept/Continue appears once the
-			     labeler has actually entered something. -->
-			<Button variant="ghost" size="sm" onclick={skipAndReset}>Skip</Button>
-			{#if touched.length > 0}
-				<Button variant="primary" size="sm" loading={cropSaving} onclick={commitAndAdvance}>
-					{ctaLabel} <ArrowRight size={14} />
-				</Button>
-			{/if}
 		</div>
-	</div>
+	</Panel>
 {/snippet}
 
-<!-- Piece under review: crops + model/pixel color suggestion -->
+<!-- The piece itself: its crops, and the model's and the pixels' color -->
 {#snippet pieceCard()}
 	{#if detail}
-		<div class="border border-border bg-surface p-4">
-			<div class="mb-3 flex flex-wrap items-center gap-2">
-				<span class="text-sm font-medium text-text">
-					{detail.part.part_name || detail.part.part_id || 'Unidentified'}
-				</span>
-				{#if detail.part.part_id}
-					<span class="text-xs text-text-muted">#{detail.part.part_id}</span>
-				{/if}
-				<span class="text-xs text-text-muted">· {detail.machine_name ?? 'machine'}</span>
-			</div>
-
+		<Panel
+			title={detail.part.part_name || detail.part.part_id || 'Unidentified'}
+			description={`${detail.part.part_id ? `${detail.part.part_id}, ` : ''}${detail.machine_name ?? 'Machine'}`}
+		>
 			<div class="flex flex-wrap gap-2">
 				{#each detail.images as img (img.seq)}
 					<div class="relative">
 						<ZoomImage
 							src={api.colorLabelImageUrl(machineId, pieceUuid, img.seq)}
-							alt={`crop ${img.seq}`}
-							title={`seq ${img.seq}${img.source ? ` · ${img.source}` : ''}`}
-							class="h-28 w-28 border-2 bg-transparent object-contain {img.used
-								? 'border-success'
-								: 'border-border'}"
+							alt={`Crop ${img.seq}`}
+							title={`Crop ${img.seq}${img.source ? `, ${img.source}` : ''}`}
+							class="size-28 rounded-item object-contain"
 						/>
+						{#if img.used}
+							<span class="absolute right-0.5 bottom-0.5 inline-flex h-(--size-badge) items-center rounded-badge bg-success px-1.5 text-xs font-medium text-on-success"
+								>Used</span
+							>
+						{/if}
 						{@render qualityOverlay(img, 'piece_image', img.seq)}
 					</div>
 				{/each}
 			</div>
 
-			<div class="mt-4 flex flex-col gap-3 border-t border-border pt-3">
-				<!-- Model prediction (primary, when a color model is active) -->
+			<div class="mt-4 flex flex-col gap-3 border-t border-line pt-4">
 				{#if detail.model_prediction}
 					{@const mp = detail.model_prediction}
 					<div class="flex items-center gap-3">
-						<span
-							class="h-10 w-10 shrink-0 border border-border"
-							style={`background:#${mp.rgb ?? '888888'}`}
-							title={`model color #${mp.rgb ?? '?'}`}
-						></span>
-						<div class="min-w-0 text-xs text-text-muted">
-							<div class="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider">
-								<Sparkles size={12} class="text-info" /> Model prediction
-								<span class="font-normal normal-case text-text-muted">· {mp.model_name}</span>
+						<span class="size-10 shrink-0 rounded-item border border-line" style={`background:#${mp.rgb ?? '888888'}`} title={`The model's color, #${mp.rgb ?? '?'}`}></span>
+						<div class="min-w-0 text-sm text-ink-muted">
+							<div class="flex items-center gap-1.5 font-medium text-ink">
+								<Sparkles size={14} class="text-info-ink" /> The model's color <span class="font-normal text-ink-muted">{mp.model_name}</span>
 							</div>
-							<div class="mt-0.5 flex items-center gap-1.5">
-								<span class="text-text">{mp.color_name ?? mp.color_id}</span>
-								<span>({mp.color_id})</span>
-								<span class="ml-2"
-									>{Math.round(mp.confidence * 100)}% · {mp.sample_count} crop{mp.sample_count === 1
-										? ''
-										: 's'}</span
-								>
+							<div class="num">
+								<span class="text-ink">{mp.color_name ?? mp.color_id}</span> ({mp.color_id}), {Math.round(mp.confidence * 100)}% from {mp.sample_count}
+								crop{mp.sample_count === 1 ? '' : 's'}
 							</div>
 						</div>
 					</div>
 				{/if}
 
-				<!-- Pixel-average guess (secondary reference when a model is active) -->
 				{#if detail.pixel_guess}
+					{@const pg = detail.pixel_guess}
 					<div class="flex items-center gap-3 {detail.model_prediction ? 'opacity-70' : ''}">
-						<span
-							class="h-10 w-10 shrink-0 border border-border"
-							style={`background:#${detail.pixel_guess.rgb}`}
-							title={`average pixel color #${detail.pixel_guess.rgb}`}
-						></span>
-						<div class="min-w-0 text-xs text-text-muted">
-							<div class="text-xs font-semibold uppercase tracking-wider">Pixel-average guess</div>
-							<div class="mt-0.5 flex items-center gap-1.5">
-								{#if detail.pixel_guess.color_id != null && colorsById.has(detail.pixel_guess.color_id)}
-									{@const pc = colorsById.get(detail.pixel_guess.color_id)}
-									<span
-										class="inline-block h-3.5 w-3.5 border border-border"
-										style={`background:#${pc?.rgb ?? '000'}`}
-									></span>
+						<span class="size-10 shrink-0 rounded-item border border-line" style={`background:#${pg.rgb}`} title={`The pixels' average, #${pg.rgb}`}></span>
+						<div class="min-w-0 text-sm text-ink-muted">
+							<div class="font-medium text-ink">The pixels' average</div>
+							<div class="num flex items-center gap-1.5">
+								{#if pg.color_id != null && colorsById.has(pg.color_id)}
+									<span class="inline-block size-3.5 rounded-check border border-line" style={`background:#${colorsById.get(pg.color_id)?.rgb ?? '000'}`}></span>
 								{/if}
-								<span class="text-text">{detail.pixel_guess.color_name}</span>
-								<span>({detail.pixel_guess.color_id})</span>
-								<span class="ml-2"
-									>nearest of {detail.pixel_guess.sample_count} crop{detail.pixel_guess
-										.sample_count === 1
-										? ''
-										: 's'}</span
-								>
+								<span><span class="text-ink">{pg.color_name}</span> ({pg.color_id}), the nearest over {pg.sample_count} crop{pg.sample_count === 1 ? '' : 's'}</span>
 							</div>
 						</div>
 					</div>
 				{/if}
 
 				{#if !detail.model_prediction && !detail.pixel_guess}
-					<span class="text-xs text-text-muted">No suggestion — crops unavailable.</span>
+					<p class="text-sm text-ink-muted">No suggestion: the crops are not available.</p>
 				{/if}
 			</div>
-		</div>
+		</Panel>
 	{/if}
 {/snippet}
 
-<!-- Same physical piece across the upstream channels -->
+<!-- The same physical piece in the channels before it -->
 {#snippet cropsCard()}
-	<div class="border bg-surface p-4 {stateBorder(piecesState)}">
-		<div class="mb-1 flex flex-wrap items-center justify-between gap-2">
-			<div class="flex items-center gap-2">
-				<span class="text-sm font-medium text-text">Same piece across channels</span>
-				{@render statusBadge(piecesState)}
-			</div>
-			<div class="flex flex-wrap items-center gap-2">
-				<span class="text-xs text-text-muted tabular-nums">
-					{cropSelected.size} of {cropCandidates.length} selected
-				</span>
-				<Button
-					variant="secondary"
-					size="sm"
-					disabled={cropSelected.size === 0 || cropLoading}
-					onclick={selectNoCrops}
-				>
-					Select none
-				</Button>
-				<Button
-					variant="secondary"
-					size="sm"
-					loading={cropSaving}
-					disabled={cropCandidates.length === 0 || cropLoading}
-					onclick={rejectAllCrops}
-				>
-					None of these
-				</Button>
-				{#if canRunAi}
-					<Button
-						variant="secondary"
-						size="sm"
-						loading={aiRunning}
-						disabled={cropCandidates.length === 0 || cropLoading}
-						onclick={runAiPredict}
-					>
-						<span class="flex items-center gap-1"><Sparkles size={13} /> Run AI</span>
-					</Button>
-				{/if}
-				<Button
-					variant={cropDirty ? 'primary' : 'secondary'}
-					size="sm"
-					loading={cropSaving}
-					disabled={cropCandidates.length === 0 || cropLoading}
-					onclick={saveCrops}
-				>
-					Accept
-				</Button>
-			</div>
+	<Panel
+		title="Same piece across channels"
+		description="Our guess at which C2 and C3 crops are this same physical piece. Keep or drop the picks, add any we missed, then accept."
+	>
+		{#snippet actions()}{@render statusBadge(piecesState)}{/snippet}
+		<div class="mb-3 flex flex-wrap items-center gap-2">
+			<span class="num mr-auto text-sm text-ink-muted">{cropSelected.size} of {cropCandidates.length} chosen</span>
+			<Button size="sm" variant="ghost" disabled={cropSelected.size === 0 || cropLoading} onclick={selectNoCrops}>Choose none</Button>
+			<Button size="sm" loading={cropSaving} disabled={cropCandidates.length === 0 || cropLoading} onclick={rejectAllCrops}>None of these</Button>
+			{#if canRunAi}
+				<Button size="sm" icon={Sparkles} loading={aiRunning} disabled={cropCandidates.length === 0 || cropLoading} onclick={runAiPredict}>Run AI</Button>
+			{/if}
+			<Button
+				size="sm"
+				variant={cropDirty ? 'primary' : 'secondary'}
+				loading={cropSaving}
+				disabled={cropCandidates.length === 0 || cropLoading}
+				onclick={saveCrops}>Accept</Button
+			>
 		</div>
-		<p class="mb-2 text-sm text-text-muted">
-			Our guess of which upstream C2/C3 crops are this same physical piece. Keep or drop the picks
-			and add any we missed, then <span class="font-medium">Accept</span>.
-		</p>
-		<p class="mb-3 flex items-center gap-1.5 text-xs">
+		<p class="mb-3 flex items-center gap-1.5 text-sm text-ink-muted">
 			{#if predictionSource === 'ai'}
-				<Sparkles size={12} class="shrink-0 text-info" />
-				<span class="text-text-muted">
-					Picks from a vision model{aiReasoning ? `: ${aiReasoning}` : '.'}
-				</span>
+				<Sparkles size={14} class="shrink-0 text-info-ink" />Picks from a vision model{aiReasoning ? `: ${aiReasoning}` : '.'}
 			{:else if predictionSource === 'model'}
-				<Sparkles size={12} class="shrink-0 text-info" />
-				<span class="text-text-muted">
-					Picks from the link matcher model{linkModel ? ` (${linkModel})` : ''}.{canRunAi
-						? ' Run AI for a vision-model guess.'
-						: ''}
-				</span>
+				<Sparkles size={14} class="shrink-0 text-info-ink" />Picks from the link model{linkModel ? ` (${linkModel})` : ''}.{canRunAi
+					? ' Run AI for a vision model\'s guess.'
+					: ''}
 			{:else}
-				<span class="text-text-muted">
-					Picks from the time-and-angle heuristic.{canRunAi
-						? ' Run AI for a vision-model guess.'
-						: ''}
-				</span>
+				Picks from the time and angle guess.{canRunAi ? ' Run AI for a vision model\'s guess.' : ''}
 			{/if}
 		</p>
 
 		{#if cropLoading}
 			<div class="flex justify-center py-8"><Spinner size={32} /></div>
 		{:else if cropError}
-			<div class="bg-primary/8 p-3 text-sm text-primary">{cropError}</div>
+			<Alert tone="danger">{cropError}</Alert>
 		{:else if cropCandidates.length === 0}
-			<p class="py-4 text-sm text-text-muted">No candidate crops in range for this piece.</p>
+			<p class="py-4 text-sm text-ink-muted">No candidate crops in range for this piece.</p>
 		{:else}
 			<div class="flex max-h-[42vh] flex-wrap gap-2 overflow-y-auto pr-1">
 				{#each cropCandidates as c (c.local_id)}
@@ -1118,56 +960,39 @@
 					{@const isPick = isPredictionPick(c, predictionSource)}
 					<div class="relative">
 						<button
-						type="button"
-						onclick={() => toggleCrop(c.local_id)}
-						title={`C${c.channel} · ${ZONE_LABEL[c.zone_code ?? 0] ?? '?'} · ${c.dt != null ? c.dt + 's before arrival' : 'unknown dt'} · ${c.com_forward_to_exit_deg != null ? Math.round(c.com_forward_to_exit_deg) + '° to exit' : ''} · score ${c.score}${predictionSource === 'model' && c.model_score != null ? ` · model ${c.model_score}` : ''}${isPick ? ` · ${SOURCE_PICK_LABEL[predictionSource]} pick` : ''}`}
-						class="relative flex flex-col items-center gap-1 border-2 p-1 hover:border-primary {selected
-							? 'border-success bg-success/10'
-							: 'border-border opacity-70 hover:opacity-100'}"
-					>
-						{#if c.available}
-							<img
-								src={api.channelCropLabelImageUrl(machineId, c.local_id)}
-								alt={`crop ${c.local_id}`}
-								loading="lazy"
-								class="h-16 w-16 bg-transparent object-contain"
-							/>
-						{:else}
-							<div
-								class="flex h-16 w-16 items-center justify-center border border-dashed border-border text-xs text-text-muted"
-							>
-								evicted
-							</div>
-						{/if}
-						<span class="flex items-center gap-1 text-xs {selected ? 'text-text' : 'text-text-muted'}">
-							{#if selected}<Check size={12} class="text-success" />{/if}
-							C{c.channel}·{c.dt}s
-						</span>
-						{#if isPick}
-							<span
-								class="absolute right-0.5 top-0.5 flex items-center bg-info/80 p-0.5 text-white"
-								title={`${SOURCE_PICK_LABEL[predictionSource]} prediction`}
-							>
-								<Sparkles size={11} />
+							type="button"
+							onclick={() => toggleCrop(c.local_id)}
+							aria-pressed={selected}
+							title={`C${c.channel}, ${ZONE_LABEL[c.zone_code ?? 0] ?? '?'}, ${c.dt != null ? c.dt + ' s before arrival' : 'arrival unknown'}${c.com_forward_to_exit_deg != null ? `, ${Math.round(c.com_forward_to_exit_deg)}° to the exit` : ''}, score ${c.score}${predictionSource === 'model' && c.model_score != null ? `, model ${c.model_score}` : ''}${isPick ? `, the ${SOURCE_PICK_LABEL[predictionSource]} pick` : ''}`}
+							class="flex flex-col items-center gap-1 rounded-item p-1 {selected ? 'bg-primary-soft' : 'bg-well opacity-70 hover:opacity-100'}"
+						>
+							{#if c.available}
+								<img src={api.channelCropLabelImageUrl(machineId, c.local_id)} alt={`Crop ${c.local_id}`} loading="lazy" class="size-16 rounded-item object-contain" />
+							{:else}
+								<div class="flex size-16 items-center justify-center text-sm text-ink-faint">Gone</div>
+							{/if}
+							<span class="num flex items-center gap-1 text-sm {selected ? 'font-medium text-primary-ink' : 'text-ink-muted'}">
+								{#if selected}<Check size={14} />{/if}C{c.channel}, {c.dt} s
 							</span>
-						{/if}
 						</button>
+						{#if isPick}
+							<span class="pointer-events-none absolute top-0.5 right-0.5 flex rounded-badge bg-info p-0.5 text-on-info" title={`The ${SOURCE_PICK_LABEL[predictionSource]} guess`}
+								><Sparkles size={14} /></span
+							>
+						{/if}
 						{@render qualityOverlay(c, 'channel_crop', c.local_id)}
 					</div>
 				{/each}
 			</div>
 		{/if}
-	</div>
+	</Panel>
 {/snippet}
 
-<!-- True part picker -->
+<!-- The true part -->
 {#snippet partPicker()}
 	{#if detail}
-		<div class="flex shrink-0 flex-col border bg-surface p-4 {stateBorder(partState)}">
-			<div class="mb-3 flex items-center justify-between gap-2">
-				<span class="text-sm font-medium text-text">True part</span>
-				{@render statusBadge(partState)}
-			</div>
+		<Panel title="True part" class="shrink-0">
+			{#snippet actions()}{@render statusBadge(partState)}{/snippet}
 			<div class="max-h-[55vh] overflow-y-auto">
 				<PiecePartPicker
 					predictedPart={detail.predicted_part}
@@ -1179,182 +1004,121 @@
 					onClear={() => void clearPartAnswer()}
 				/>
 			</div>
-		</div>
+		</Panel>
 	{/if}
 {/snippet}
 
 {#snippet colorRow(color: BrickLinkColor, isGuess: boolean)}
 	{@const selected = color.id === myColorId}
 	<button
-		class="flex items-center gap-2 border px-2 py-0.5 text-left hover:border-primary disabled:opacity-50 {selected
-			? 'border-success bg-success/10'
+		type="button"
+		aria-pressed={selected}
+		class="flex items-center gap-2 rounded-item px-2 py-1 text-left disabled:opacity-45 {selected
+			? 'bg-primary-soft'
 			: isGuess
-				? 'border-info/60 bg-info/[0.06]'
-				: 'border-border'}"
+				? 'bg-info-soft hover:bg-hover'
+				: 'hover:bg-hover'}"
 		title={`${color.name} (${color.id})`}
 		onclick={() => pickColor(color.id)}
 		disabled={submitting}
 	>
-		<span
-			class="h-5 w-5 shrink-0 border border-border {color.is_trans ? 'opacity-70' : ''}"
-			style={`background:#${color.rgb ?? '000'}`}
-		></span>
-		<span class="min-w-0 flex-1 truncate text-sm {selected ? 'text-text' : 'text-text-muted'}">
-			{color.name}{#if isGuess}<span class="ml-1 text-xs text-info">· guess</span>{/if}
-		</span>
-		{#if selected}<Check size={14} class="shrink-0 text-success" />{/if}
+		<span class="size-5 shrink-0 rounded-check border border-line {color.is_trans ? 'opacity-70' : ''}" style={`background:#${color.rgb ?? '000'}`}></span>
+		<span class="min-w-0 flex-1 truncate text-sm {selected ? 'font-medium text-primary-ink' : 'text-ink'}"
+			>{color.name}{#if isGuess}<span class="ml-1 text-info-ink">(the guess)</span>{/if}</span
+		>
+		{#if selected}<Check size={16} class="shrink-0 text-primary-ink" />{/if}
 	</button>
 {/snippet}
 
-<!-- True color picker. In pane layout the color list is height-capped; on the
-     standalone page it fills the sticky sidebar (flex-1) and scrolls. -->
+<!-- The true color. In the pane the list has a fixed height; on the page it
+     fills the sticky column and scrolls. -->
 {#snippet colorPicker()}
-	<div
-		class="flex min-h-0 flex-col border bg-surface p-4 {layout === 'page'
-			? 'flex-1'
-			: ''} {stateBorder(colorState)}"
-	>
-		<div class="mb-3 flex items-center justify-between gap-2">
-			<span class="text-sm font-medium text-text">True color</span>
-			{@render statusBadge(colorState)}
-		</div>
+	<Panel title="True color" fill={layout === 'page'} class={layout === 'page' ? 'min-h-0 flex-1' : ''}>
+		{#snippet actions()}{@render statusBadge(colorState)}{/snippet}
+		<div class="flex min-h-0 flex-col gap-3 {layout === 'page' ? 'h-full' : ''}">
+			<button
+				type="button"
+				aria-pressed={cantTell}
+				class="flex items-center gap-2 rounded-item px-2 py-1.5 text-left text-sm disabled:opacity-45 {cantTell
+					? 'bg-primary-soft font-medium text-primary-ink'
+					: 'bg-well text-ink-muted hover:bg-hover'}"
+				onclick={pickCantTell}
+				disabled={submitting}
+			>
+				<Ban size={16} class="shrink-0" />
+				<span class="flex-1">I can't tell the color</span>
+				{#if cantTell}<Check size={16} class="shrink-0" />{/if}
+			</button>
 
-		<!-- "I can't tell" — an explicit indeterminate-color answer -->
-		<button
-			class="mb-3 flex items-center gap-2 border px-2 py-1 text-left text-sm hover:border-primary disabled:opacity-50 {cantTell
-				? 'border-success bg-success/10 text-text'
-				: 'border-border text-text-muted'}"
-			onclick={pickCantTell}
-			disabled={submitting}
-		>
-			<Ban size={14} class="shrink-0 {cantTell ? 'text-success' : 'text-text-muted'}" />
-			<span class="flex-1">I can't tell the color</span>
-			{#if cantTell}<Check size={14} class="shrink-0 text-success" />{/if}
-		</button>
-
-		{#if guessColorId != null}
-			{@const gc = colorsById.get(guessColorId)}
-			{#if gc}
-				<div class="mb-3">
-					{@render colorRow(gc, true)}
-				</div>
+			{#if guessColorId != null && colorsById.get(guessColorId)}
+				{@render colorRow(colorsById.get(guessColorId)!, true)}
 			{/if}
-		{/if}
 
-		{#if !search.trim() && similarColors.length > 0}
-			<div class="mb-1.5 text-xs font-semibold uppercase tracking-wider text-text-muted">
-				Closest to guess
-			</div>
-			<div class="mb-3 flex flex-col gap-0.5">
-				{#each similarColors as color (color.id)}
-					{@render colorRow(color, false)}
-				{/each}
-			</div>
-			<div class="mb-1.5 text-xs font-semibold uppercase tracking-wider text-text-muted">
-				All colors
-			</div>
-		{/if}
+			{#if !search.trim() && similarColors.length > 0}
+				<div>
+					<div class="label mb-1.5">Closest to the guess</div>
+					<div class="flex flex-col gap-0.5">
+						{#each similarColors as color (color.id)}{@render colorRow(color, false)}{/each}
+					</div>
+				</div>
+				<div class="label">Every color</div>
+			{/if}
 
-		<input
-			type="text"
-			bind:value={search}
-			placeholder="Search colors…"
-			class="mb-3 w-full border border-border bg-bg px-3 py-1.5 text-sm text-text placeholder:text-text-muted focus:border-primary focus:outline-none"
-		/>
+			<Input type="search" bind:value={search} placeholder="Search the colors" />
 
-		<div
-			class="flex min-h-0 flex-col gap-0.5 overflow-y-auto pr-1 {layout === 'page'
-				? 'flex-1'
-				: 'max-h-[60vh]'}"
-		>
-			{#each filteredColors as color (color.id)}
-				{@render colorRow(color, false)}
-			{/each}
+			<div class="flex min-h-0 flex-col gap-0.5 overflow-y-auto pr-1 {layout === 'page' ? 'flex-1' : 'max-h-[60vh]'}">
+				{#each filteredColors as color (color.id)}{@render colorRow(color, false)}{/each}
+			</div>
+			{#if filteredColors.length === 0}
+				<p class="py-4 text-center text-sm text-ink-muted">No colors match "{search}".</p>
+			{/if}
 		</div>
-		{#if filteredColors.length === 0}
-			<p class="py-4 text-center text-sm text-text-muted">No colors match “{search}”.</p>
-		{/if}
-	</div>
+	</Panel>
 {/snippet}
 
-<!-- Brickognize part correction — only when the piece has a Brickognize listing.
-     Color feedback is sent automatically on advance when the labeler's true
-     color disagrees with Brickognize's (its predicted color is not shown). -->
+<!-- Brickognize's part, to confirm or correct, only when the piece has a
+     Brickognize listing. A color that disagrees with Brickognize's goes to it on
+     its own when the labeler moves on (its color is never shown). -->
 {#snippet brickognizeCard()}
 	{#if detail && correction?.correctable}
 		{@const partSent = correction.part_feedback_submitted}
-		{@const canSendPart = !partSent && partVerdict != null}
-		<div class="flex shrink-0 flex-col border border-border bg-surface p-4">
-			<div class="mb-3 flex items-center justify-between gap-2">
-				<span class="text-sm font-medium text-text">Is this the right part?</span>
-				{#if partSent}
-					<span class="flex items-center gap-1 text-xs text-success"><CircleCheck size={13} /> Sent</span>
-				{/if}
-			</div>
-
-			<!-- Predicted part + verdict -->
-			<div class="mb-2 flex items-center gap-2 text-sm text-text">
-				<span class="truncate">{detail.part.part_name || detail.part.part_id || 'Unidentified'}</span>
-				{#if detail.part.part_id}
-					<span class="text-xs text-text-muted">#{detail.part.part_id}</span>
-				{/if}
-			</div>
-
-			<div class="mb-3 flex items-center gap-2">
-				<Button
-					variant={partVerdict === true ? 'primary' : 'secondary'}
-					size="sm"
-					disabled={partSent}
-					onclick={() => (partVerdict = true)}
-				>
-					<Check size={14} /> Correct
-				</Button>
-				<Button
-					variant={partVerdict === false ? 'danger' : 'secondary'}
-					size="sm"
-					disabled={partSent}
-					onclick={() => (partVerdict = false)}
-				>
-					<Ban size={14} /> Wrong
-				</Button>
-				{#if partSent}
-					<span
-						class="ml-auto flex items-center gap-1 text-xs text-success"
-						title="already sent to Brickognize"
-					>
-						<CircleCheck size={13} /> sent
-					</span>
-				{/if}
-			</div>
-
-			{#if feedback}
-				<div class="mb-2">
-					<Alert variant={feedback.variant}>{feedback.text}</Alert>
+		<Panel title="Is this the right part?" class="shrink-0">
+			{#snippet actions()}{#if partSent}<Badge tone="success" dot>Sent</Badge>{/if}{/snippet}
+			<div class="flex flex-col gap-3">
+				<div class="flex items-center gap-2 text-sm text-ink">
+					<span class="truncate">{detail.part.part_name || detail.part.part_id || 'Unidentified'}</span>
+					{#if detail.part.part_id}<span class="font-mono text-ink-muted">{detail.part.part_id}</span>{/if}
 				</div>
-			{/if}
-
-			<Button
-				variant="primary"
-				size="sm"
-				loading={sendingFeedback}
-				disabled={!canSendPart}
-				onclick={sendBrickognizeFeedback}
-			>
 				{#if partSent}
-					Sent to Brickognize
+					<p class="text-sm text-ink-muted">Your answer went to Brickognize.</p>
 				{:else}
-					Send to Brickognize
+					<SegmentedControl
+						label="Is it the right part"
+						size="sm"
+						value={partVerdict === true ? 'right' : partVerdict === false ? 'wrong' : ''}
+						options={[
+							{ value: 'right', label: 'Right', icon: Check },
+							{ value: 'wrong', label: 'Wrong', icon: Ban }
+						]}
+						onchange={(v: string) => (partVerdict = v === 'right')}
+					/>
 				{/if}
-			</Button>
-		</div>
+				{#if feedback}<Alert tone={feedback.variant}>{feedback.text}</Alert>{/if}
+			</div>
+			{#snippet footer()}
+				<Button variant="primary" size="sm" loading={sendingFeedback} disabled={partSent || partVerdict == null} onclick={sendBrickognizeFeedback}
+					>{partSent ? 'Sent to Brickognize' : 'Send to Brickognize'}</Button
+				>
+			{/snippet}
+		</Panel>
 	{/if}
 {/snippet}
 
-<!-- Reference columns: this machine's already-labeled colors (ground truth) and
-     the part's real-world color mix on BrickLink (marketplace prior). -->
+<!-- For reference: this machine's labeled colors (what is true here) and the
+     part's colors on BrickLink (what exists at all) -->
 {#snippet referenceCols()}
 	{#if detail}
-		<div class="flex flex-col gap-4 {layout === 'page' ? 'sm:flex-row' : ''}">
+		<div class="flex flex-col gap-(--gap-panels) {layout === 'page' ? 'sm:flex-row' : ''}">
 			<div class="min-w-0 flex-1 {layout === 'page' ? 'lg:overflow-y-auto' : ''}">
 				<MachineLabeledPieces {machineId} {pieceUuid} />
 			</div>
@@ -1376,97 +1140,67 @@
 {/snippet}
 
 {#snippet directions()}
-	<div class="mt-8 border border-border bg-surface p-5">
-		<h2 class="mb-3 text-2xl font-bold text-text">Directions</h2>
-		<ul class="flex flex-col gap-2 text-sm text-text">
-			<li class="flex gap-2">
-				<span class="shrink-0 text-primary">→</span>
-				<span
-					>Use the crop images from <span class="font-medium">both channels</span> to judge the piece's
-					true color.</span
-				>
+	<Panel title="How to label a piece">
+		<ol class="flex list-decimal flex-col gap-2 pl-5 text-sm text-ink">
+			<li>Judge the piece's true color from the crops of <span class="font-medium">both channels</span>.</li>
+			<li>Pick the color in the column. If you can tell it, that is enough: you can skip the same-piece step.</li>
+			<li>
+				Under <span class="font-medium">True part</span>, confirm the mold the machine guessed or search the catalog for the right
+				one. If the piece came back unidentified, search for what it is.
 			</li>
-			<li class="flex gap-2">
-				<span class="shrink-0 text-primary">→</span>
-				<span
-					>Pick the correct color from the sidebar. If you can tell it, that's enough — you can skip
-					the same-piece step.</span
-				>
+			<li>
+				Under <span class="font-medium">Same piece across channels</span>, keep or add the earlier crops of this same piece. Skip
+				it if the piece's own box already shows all of it.
 			</li>
-			<li class="flex gap-2">
-				<span class="shrink-0 text-primary">→</span>
-				<span
-					>Under <span class="font-medium">True part</span>, confirm the mold the machine guessed, or
-					search the catalog for the right one. If the piece came back unidentified, search for what
-					it actually is.</span
-				>
+			<li>
+				Try to do both for each piece. If you can't tell the color, or can't find the piece in the earlier pictures, do the half
+				you are sure of and go on.
 			</li>
-			<li class="flex gap-2">
-				<span class="shrink-0 text-primary">→</span>
-				<span
-					>Under <span class="font-medium">Same piece across channels</span>, keep or add the upstream
-					crops that show this same physical piece. Don't bother if you can already see the whole
-					piece in its own bbox.</span
-				>
-			</li>
-			<li class="flex gap-2">
-				<span class="shrink-0 text-primary">→</span>
-				<span
-					>Try to do <span class="font-medium">both</span> for each piece. If one has incomplete
-					info — you can't tell the color, or can't find the piece in the earlier pictures — just do
-					the half you're sure of and hit <span class="font-medium">Continue</span>.</span
-				>
-			</li>
-		</ul>
-	</div>
+		</ol>
+	</Panel>
 {/snippet}
 
-{@render header()}
+<div class="flex flex-col gap-(--gap-panels)">
+	{@render header()}
 
-{#if error}
-	<div class="mb-4 bg-primary/8 p-3 text-sm text-primary">{error}</div>
-{/if}
+	{#if error}<Alert tone="danger">{error}</Alert>{/if}
 
-{#if loading}
-	<div class="flex justify-center py-16"><Spinner size={32} /></div>
-{:else if !detail}
-	<div class="border border-border bg-surface p-10 text-center">
-		<p class="text-sm text-text-muted">Piece not found.</p>
-	</div>
-{:else}
-	{@render summaryBar()}
-
-	{#if layout === 'page'}
-		<!-- Wide standalone layout: reference | main | color/part sidebar -->
-		<div class="flex flex-col gap-6 lg:flex-row lg:items-start">
-			<aside
-				class="flex shrink-0 flex-col gap-4 sm:flex-row lg:sticky lg:top-4 lg:h-[calc(100vh-2rem)] lg:w-[26rem]"
-			>
-				{@render referenceCols()}
-			</aside>
-
-			<div class="flex min-w-0 flex-col gap-6 lg:flex-1">
-				{@render pieceCard()}
-				{@render cropsCard()}
-			</div>
-
-			<div class="flex flex-col gap-6 lg:sticky lg:top-4 lg:max-h-[calc(100vh-2rem)] lg:w-96">
-				{@render partPicker()}
-				{@render colorPicker()}
-				{@render brickognizeCard()}
-			</div>
-		</div>
-
-		{@render directions()}
+	{#if loading}
+		<div class="flex justify-center py-16"><Spinner size={32} /></div>
+	{:else if !detail}
+		<Panel><EmptyState title="Piece not found" /></Panel>
 	{:else}
-		<!-- Compact stacked layout for the split-view pane -->
-		<div class="flex flex-col gap-6">
+		{@render summaryBar()}
+
+		{#if layout === 'page'}
+			<!-- The wide page: reference, then the piece, then the color and part column -->
+			<div class="flex flex-col gap-(--gap-panels) lg:flex-row lg:items-start">
+				<aside
+					class="flex shrink-0 flex-col gap-(--gap-panels) sm:flex-row lg:sticky lg:top-[calc(var(--size-topbar)+1rem)] lg:h-[calc(100dvh-var(--size-topbar)-2rem)] lg:w-[26rem]"
+				>
+					{@render referenceCols()}
+				</aside>
+				<div class="flex min-w-0 flex-col gap-(--gap-panels) lg:flex-1">
+					{@render pieceCard()}
+					{@render cropsCard()}
+				</div>
+				<div
+					class="flex flex-col gap-(--gap-panels) lg:sticky lg:top-[calc(var(--size-topbar)+1rem)] lg:max-h-[calc(100dvh-var(--size-topbar)-2rem)] lg:w-96"
+				>
+					{@render partPicker()}
+					{@render colorPicker()}
+					{@render brickognizeCard()}
+				</div>
+			</div>
+			{@render directions()}
+		{:else}
+			<!-- The pane beside the list: one column -->
 			{@render pieceCard()}
 			{@render colorPicker()}
 			{@render partPicker()}
 			{@render cropsCard()}
 			{@render brickognizeCard()}
 			{@render referenceCols()}
-		</div>
+		{/if}
 	{/if}
-{/if}
+</div>

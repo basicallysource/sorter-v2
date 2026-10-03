@@ -3,39 +3,18 @@
 	import { getMachinesContext } from '$lib/machines/context';
 	import type { MachineState } from '$lib/machines/types';
 	import { settings } from '$lib/stores/settings';
-
-	type MachineSetup = 'standard_carousel' | 'classification_channel' | 'manual_carousel';
-
-	type MachineSetupCard = {
-		key: MachineSetup;
-		title: string;
-		description: string;
-		detail: string;
-	};
-
-	const MACHINE_SETUP_CARDS: MachineSetupCard[] = [
-		{
-			key: 'classification_channel',
-			title: 'Classification Channel',
-			description: 'C-Channels + Classification Channel',
-			detail:
-				'Replaces the carousel/chamber pair with a dedicated classification C-channel on the former carousel motor port.'
-		},
-		{
-			key: 'standard_carousel',
-			title: 'Carousel Setup',
-			description: 'FIDA + Carousel + Classification Chamber',
-			detail:
-				'Uses the current automatic path with C-channel feeding, carousel handoff, and chamber classification.'
-		},
-		{
-			key: 'manual_carousel',
-			title: 'Manual Carousel Feed',
-			description: 'Operator-fed carousel',
-			detail:
-				'Skips automatic feeder orchestration and waits for manual part placement into the carousel dropzone.'
-		}
-	];
+	import { getCurrentThemeColorId, setThemeColor } from '$lib/stores/themeColor.svelte';
+	import Panel from '$lib/components/ui/Panel.svelte';
+	import Field from '$lib/components/ui/Field.svelte';
+	import Input from '$lib/components/ui/Input.svelte';
+	import Button from '$lib/components/ui/Button.svelte';
+	import SettingRow from '$lib/components/ui/SettingRow.svelte';
+	import SegmentedControl from '$lib/components/ui/SegmentedControl.svelte';
+	import ColorPicker from '$lib/components/ui/ColorPicker.svelte';
+	import Plug from '@lucide/svelte/icons/plug';
+	import Sun from '@lucide/svelte/icons/sun';
+	import Moon from '@lucide/svelte/icons/moon';
+	import ArrowRight from '@lucide/svelte/icons/arrow-right';
 
 	const manager = getMachinesContext();
 
@@ -45,23 +24,6 @@
 	let nameSaving = $state(false);
 	let nameError = $state<string | null>(null);
 	let nameStatus = $state('');
-	let machineSetup = $state<MachineSetup>('classification_channel');
-	let loadingMachineSetup = $state(false);
-	let savingMachineSetup = $state(false);
-	let machineSetupError = $state<string | null>(null);
-	let machineSetupStatus = $state('');
-
-	let classificationMode = $state<string | null>(null);
-	let classificationDefault = $state<string | null>(null);
-	let savingClassificationMode = $state(false);
-	let classificationModeError = $state<string | null>(null);
-	let classificationModeStatus = $state('');
-
-	let feederMode = $state<string | null>(null);
-	let feederDefault = $state<string | null>(null);
-	let savingFeederMode = $state(false);
-	let feederModeError = $state<string | null>(null);
-	let feederModeStatus = $state('');
 
 	function handleConnect() {
 		manager.connect(url);
@@ -75,13 +37,6 @@
 		return value.trim();
 	}
 
-	function selectedMachineLabel(): string {
-		return (
-			manager.selectedMachine?.identity?.nickname ??
-			manager.selectedMachine?.identity?.machine_id.slice(0, 8) ??
-			'this machine'
-		);
-	}
 
 	async function saveMachineName() {
 		const machine = manager.selectedMachine;
@@ -113,156 +68,6 @@
 		}
 	}
 
-	function normalizeMachineSetup(value: unknown): MachineSetup {
-		return value === 'standard_carousel' || value === 'manual_carousel'
-			? value
-			: 'classification_channel';
-	}
-
-	function classificationModeLabel(mode: string): string {
-		const labels: Record<string, string> = {
-			simple_state_machine_rev01: 'Simple State Machine',
-			two_piece_state_machine_rev01: 'Two Piece',
-			classic_carousel: 'Classic Carousel',
-			dynamic: 'Dynamic'
-		};
-		return labels[mode] ?? mode;
-	}
-
-	function feederModeLabel(mode: string): string {
-		const labels: Record<string, string> = {
-			go_to_angle_rev01: 'Go to Angle',
-			pulse_perception_rev01: 'Simple Pulse',
-			constant_movement_rev01: 'Constant Movement',
-			drop_zone_reactive_rev01: 'Drop Zone Reactive'
-		};
-		return labels[mode] ?? mode;
-	}
-
-	async function loadMachineSetup() {
-		const machine = manager.selectedMachine;
-		const httpBase = machineHttpBase(machine);
-		if (!machine || !httpBase) {
-			machineSetup = 'standard_carousel';
-			return;
-		}
-
-		loadingMachineSetup = true;
-		machineSetupError = null;
-		machineSetupStatus = '';
-		try {
-			const res = await fetch(`${httpBase}/api/machine-setup`);
-			if (!res.ok) throw new Error(await res.text());
-			const data = await res.json();
-			machineSetup = normalizeMachineSetup(data.setup);
-		} catch (e: any) {
-			machineSetupError = e.message ?? 'Failed to load machine setup';
-		} finally {
-			loadingMachineSetup = false;
-		}
-	}
-
-	async function loadSubsystemModes() {
-		const machine = manager.selectedMachine;
-		const httpBase = machineHttpBase(machine);
-		if (!machine || !httpBase) return;
-		try {
-			const [cRes, fRes] = await Promise.all([
-				fetch(`${httpBase}/api/classification-channel-mode`),
-				fetch(`${httpBase}/api/feeder-subsystem-mode`)
-			]);
-			if (cRes.ok) {
-				const d = await cRes.json();
-				classificationMode = d.mode;
-				classificationDefault = d.default ?? null;
-			}
-			if (fRes.ok) {
-				const d = await fRes.json();
-				feederMode = d.mode;
-				feederDefault = d.default ?? null;
-			}
-		} catch {}
-	}
-
-	async function saveClassificationMode(mode: string) {
-		const machine = manager.selectedMachine;
-		const httpBase = machineHttpBase(machine);
-		if (!machine || !httpBase) return;
-		savingClassificationMode = true;
-		classificationModeError = null;
-		classificationModeStatus = '';
-		try {
-			const res = await fetch(`${httpBase}/api/classification-channel-mode`, {
-				method: 'POST',
-				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({ mode })
-			});
-			if (!res.ok) throw new Error(await res.text());
-			const data = await res.json();
-			classificationMode = data.mode;
-			classificationModeStatus = 'Saved. Restart the backend for changes to take effect.';
-		} catch (e: any) {
-			classificationModeError = e.message ?? 'Failed to save classification mode';
-		} finally {
-			savingClassificationMode = false;
-		}
-	}
-
-	async function saveFeederMode(mode: string) {
-		const machine = manager.selectedMachine;
-		const httpBase = machineHttpBase(machine);
-		if (!machine || !httpBase) return;
-		savingFeederMode = true;
-		feederModeError = null;
-		feederModeStatus = '';
-		try {
-			const res = await fetch(`${httpBase}/api/feeder-subsystem-mode`, {
-				method: 'POST',
-				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({ mode })
-			});
-			if (!res.ok) throw new Error(await res.text());
-			const data = await res.json();
-			feederMode = data.mode;
-			feederModeStatus = 'Saved. Restart the backend for changes to take effect.';
-		} catch (e: any) {
-			feederModeError = e.message ?? 'Failed to save feeder mode';
-		} finally {
-			savingFeederMode = false;
-		}
-	}
-
-	async function saveMachineSetup(nextSetup: MachineSetup) {
-		const machine = manager.selectedMachine;
-		const httpBase = machineHttpBase(machine);
-		if (!machine || !httpBase) {
-			machineSetupError = 'Select a connected machine before changing the machine setup.';
-			return;
-		}
-
-		savingMachineSetup = true;
-		machineSetupError = null;
-		machineSetupStatus = '';
-		try {
-			const res = await fetch(`${httpBase}/api/machine-setup`, {
-				method: 'POST',
-				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({ setup: nextSetup })
-			});
-			if (!res.ok) throw new Error(await res.text());
-			const data = await res.json();
-			machineSetup = normalizeMachineSetup(data.setup);
-			machineSetupStatus =
-				data?.machine_setup?.runtime_supported === false
-					? 'Machine setup saved. Reset and re-home the machine before running. Runtime support for this experimental setup is still in progress.'
-					: 'Machine setup saved. Reset and re-home the machine before running.';
-		} catch (e: any) {
-			machineSetupError = e.message ?? 'Failed to save machine setup';
-		} finally {
-			savingMachineSetup = false;
-		}
-	}
-
 	$effect(() => {
 		const machineId = manager.selectedMachineId ?? '';
 		if (machineId !== loadedMachineId) {
@@ -271,249 +76,125 @@
 			nameSaving = false;
 			nameError = null;
 			nameStatus = '';
-			machineSetup = 'standard_carousel';
-			loadingMachineSetup = false;
-			savingMachineSetup = false;
-			machineSetupError = null;
-			machineSetupStatus = '';
-			if (machineId) {
-				void loadMachineSetup();
-				void loadSubsystemModes();
-			}
 		}
 	});
+
+	let colorId = $state(getCurrentThemeColorId());
 </script>
 
-<div class="flex flex-col gap-6">
-	<div>
-		<h3 class="mb-2 text-sm font-medium text-text">Connection</h3>
-		<div class="mb-3 flex flex-col gap-2 sm:flex-row">
-			<input
-				type="text"
-				bind:value={url}
-				placeholder="ws://host:port/ws"
-				class="flex-1 border border-border bg-bg px-2 py-1.5 text-sm text-text"
-			/>
-			<button
-				onclick={handleConnect}
-				class="cursor-pointer border border-border bg-surface px-3 py-1.5 text-sm text-text hover:bg-bg"
-			>
-				Connect
-			</button>
-		</div>
-
-		{#if manager.machines.size > 0}
-			<div class="mb-2 text-xs text-text-muted">
-				Connected Machines ({manager.machines.size})
-			</div>
-			<div class="flex flex-col gap-1">
-				{#each [...manager.machines.entries()] as [id, m]}
-					<div
-						onclick={() => manager.selectMachine(id)}
-						onkeydown={(event) => {
-							if (event.key === 'Enter' || event.key === ' ') {
-								event.preventDefault();
-								manager.selectMachine(id);
-							}
-						}}
-						role="button"
-						tabindex="0"
-						class={`flex items-center justify-between border px-2 py-1.5 ${
-							manager.selectedMachineId === id
-								? 'border-primary bg-primary/10 dark:bg-primary/10'
-								: 'border-border bg-bg'
-						}`}
-					>
-						<div class="flex items-center gap-2">
-							<span
-								class="h-2 w-2 rounded-full {m.status === 'connected'
-									? 'bg-success'
-									: 'bg-danger'}"
-							></span>
-							<span class="text-sm text-text">
-								{m.identity?.nickname ?? id.slice(0, 8)}
-							</span>
-						</div>
-						<button
-							onclick={(event) => {
-								event.stopPropagation();
-								manager.disconnect(id);
-							}}
-							class="text-xs text-text-muted hover:text-danger dark:hover:text-red-400"
-						>
-							Disconnect
-						</button>
-					</div>
-				{/each}
-			</div>
-		{:else}
-			<div class="text-sm text-text-muted">No machines connected</div>
-		{/if}
-	</div>
-
-	<div>
-		<h3 class="mb-2 text-sm font-medium text-text">Machine Name</h3>
-		{#if manager.selectedMachine}
-			<div class="flex flex-col gap-3">
-				<div class="text-xs text-text-muted">
-					Selected machine:
-					<span class="font-medium text-text">{selectedMachineLabel()}</span>
-				</div>
-				<div class="flex flex-col gap-2 sm:flex-row">
-					<input
-						type="text"
-						bind:value={nicknameDraft}
-						placeholder="e.g. Bench Sorter"
-						class="flex-1 border border-border bg-bg px-2 py-1.5 text-sm text-text"
+<Panel title="Connection" description="The machine this page is talking to." flush>
+	<div class="divide-y divide-line">
+		<div class="px-(--pad-panel) pb-4">
+			<Field label="Address" for="machine-address" help="The machine's backend, as ws://host:8000/ws.">
+				<div class="flex gap-2">
+					<Input
+						id="machine-address"
+						type="url"
+						bind:value={url}
+						placeholder="ws://host:port/ws"
+						class="min-w-0 flex-1 font-mono"
 					/>
-					<button
-						onclick={saveMachineName}
-						disabled={nameSaving ||
-							normalizedNickname(nicknameDraft) ===
-								(manager.selectedMachine.identity?.nickname ?? '')}
-						class="cursor-pointer border border-border bg-surface px-3 py-1.5 text-sm text-text hover:bg-bg disabled:cursor-not-allowed disabled:opacity-50"
-					>
-						{nameSaving ? 'Saving...' : 'Save Name'}
-					</button>
+					<Button icon={Plug} onclick={handleConnect}>Connect</Button>
 				</div>
-				<div class="text-xs text-text-muted">Leave it blank to fall back to the machine ID.</div>
-				{#if nameError}
-					<div class="text-sm text-danger dark:text-red-400">{nameError}</div>
-				{:else if nameStatus}
-					<div class="text-sm text-text-muted">{nameStatus}</div>
-				{/if}
-			</div>
-		{:else}
-			<div class="text-sm text-text-muted">Connect to a machine to give it a friendly name.</div>
-		{/if}
-	</div>
-
-	<div>
-		<h3 class="mb-2 text-sm font-medium text-text">Machine Setup</h3>
-		{#if manager.selectedMachine}
-			<div class="flex flex-col gap-3">
-				<div class="text-xs text-text-muted">
-					Choose which physical sorter topology this machine is currently wired and built for. The
-					selected setup controls which hardware path is expected and which homing rules apply.
-				</div>
-				<div class="grid gap-2 lg:grid-cols-3">
-					{#each MACHINE_SETUP_CARDS as card}
-						<button
-							onclick={() => saveMachineSetup(card.key)}
-							disabled={loadingMachineSetup || savingMachineSetup}
-							class={`flex flex-col items-start gap-2 border px-3 py-3 text-left transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${
-								machineSetup === card.key
-									? 'border-primary bg-primary/10 text-text'
-									: 'border-border bg-bg text-text hover:bg-surface'
-							}`}
-						>
-							<div class="text-sm font-medium">{card.title}</div>
-							<div class="text-xs font-medium text-text">{card.description}</div>
-							<div class="text-xs text-text-muted">
-								{card.detail}
-							</div>
-						</button>
+			</Field>
+		</div>
+		<div class="px-(--pad-panel) py-4">
+			<div class="label">Connected machines</div>
+			{#if manager.machines.size > 0}
+				<ul class="mt-1 divide-y divide-line">
+					{#each [...manager.machines.entries()] as [id, m] (id)}
+						{@const chosen = manager.selectedMachineId === id}
+						<li class="flex items-center gap-3 py-2">
+							<button
+								type="button"
+								onclick={() => manager.selectMachine(id)}
+								aria-pressed={chosen}
+								class="flex min-w-0 flex-1 items-center gap-3 rounded-item px-2 py-1.5 text-left transition-colors {chosen
+									? 'bg-primary-soft'
+									: 'hover:bg-hover'}"
+							>
+								<span
+									class="size-2 shrink-0 rounded-full {m.status === 'connected' ? 'bg-success' : 'bg-danger'}"
+									aria-hidden="true"
+								></span>
+								<span class="min-w-0 flex-1">
+									<span class="block truncate text-sm font-medium {chosen ? 'text-primary-ink' : 'text-ink'}">
+										{m.identity?.nickname ?? id.slice(0, 8)}
+									</span>
+									<span class="block truncate font-mono text-sm text-ink-muted">{m.url}</span>
+								</span>
+							</button>
+							<Button size="sm" variant="ghost" onclick={() => manager.disconnect(id)}>Disconnect</Button>
+						</li>
 					{/each}
-				</div>
-				{#if machineSetupError}
-					<div class="text-sm text-danger dark:text-red-400">{machineSetupError}</div>
-				{:else if machineSetupStatus}
-					<div class="text-sm text-text-muted">{machineSetupStatus}</div>
-				{:else if loadingMachineSetup}
-					<div class="text-sm text-text-muted">Loading current machine setup...</div>
-				{/if}
-
-				<div class="mt-4 flex flex-col gap-4">
-					<div>
-						<div class="mb-1.5 text-xs font-medium text-text">Classification Channel Mode</div>
-						<div class="flex flex-wrap gap-2">
-							{#each ['two_piece_state_machine_rev01', 'simple_state_machine_rev01', 'classic_carousel', 'dynamic'] as mode}
-								<button
-									onclick={() => saveClassificationMode(mode)}
-									disabled={savingClassificationMode}
-									class={`flex items-center gap-1.5 border px-3 py-1.5 text-xs transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${
-										classificationMode === mode
-											? 'border-primary bg-primary/10 text-text'
-											: 'border-border bg-bg text-text hover:bg-surface'
-									}`}
-								>
-									{classificationModeLabel(mode)}
-									{#if mode === classificationDefault}
-										<span class="border border-primary/40 bg-primary/10 px-1.5 py-0.5 text-[9px] font-medium uppercase tracking-[0.14em] text-primary">
-											default
-										</span>
-									{/if}
-								</button>
-							{/each}
-						</div>
-						{#if classificationModeError}
-							<div class="mt-1 text-xs text-danger">{classificationModeError}</div>
-						{:else if classificationModeStatus}
-							<div class="mt-1 text-xs text-text-muted">{classificationModeStatus}</div>
-						{/if}
-					</div>
-
-					<div>
-						<div class="mb-1.5 text-xs font-medium text-text">Feeder Mode</div>
-						<div class="flex flex-wrap gap-2">
-							{#each ['pulse_perception_rev01', 'go_to_angle_rev01', 'constant_movement_rev01'] as mode}
-								<button
-									onclick={() => saveFeederMode(mode)}
-									disabled={savingFeederMode}
-									class={`flex items-center gap-1.5 border px-3 py-1.5 text-xs transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${
-										feederMode === mode
-											? 'border-primary bg-primary/10 text-text'
-											: 'border-border bg-bg text-text hover:bg-surface'
-									}`}
-								>
-									{feederModeLabel(mode)}
-									{#if mode === feederDefault}
-										<span class="border border-primary/40 bg-primary/10 px-1.5 py-0.5 text-[9px] font-medium uppercase tracking-[0.14em] text-primary">
-											default
-										</span>
-									{/if}
-								</button>
-							{/each}
-						</div>
-						{#if feederModeError}
-							<div class="mt-1 text-xs text-danger">{feederModeError}</div>
-						{:else if feederModeStatus}
-							<div class="mt-1 text-xs text-text-muted">{feederModeStatus}</div>
-						{/if}
-					</div>
-
-					<div class="text-xs text-text-muted">
-						Changing the machine setup persists to the machine TOML and takes effect after Reset and
-						Re-Home.
-					</div>
-				</div>
-			</div>
-		{:else}
-			<div class="text-sm text-text-muted">
-				Connect to a machine before changing the machine setup.
-			</div>
-		{/if}
-	</div>
-
-	<div>
-		<h3 class="mb-2 text-sm font-medium text-text">Theme</h3>
-		<div class="grid grid-cols-2 gap-2">
-			<button
-				onclick={() => settings.setTheme('light')}
-				class="flex-1 border px-4 py-2 text-sm transition-colors {$settings.theme === 'light'
-					? 'border-primary bg-primary/20 text-primary'
-					: 'border-border bg-bg text-text hover:bg-surface'}"
-			>
-				Light
-			</button>
-			<button
-				onclick={() => settings.setTheme('dark')}
-				class="flex-1 border px-4 py-2 text-sm transition-colors {$settings.theme === 'dark'
-					? 'border-primary bg-primary/20 text-primary'
-					: 'border-border bg-bg text-text hover:bg-surface'}"
-			>
-				Dark
-			</button>
+				</ul>
+			{:else}
+				<p class="mt-1 text-sm text-ink-muted">No machines connected.</p>
+			{/if}
 		</div>
 	</div>
-</div>
+</Panel>
+
+<Panel title="Machine" flush>
+	<div class="px-(--pad-panel) pb-(--pad-panel)">
+		{#if manager.selectedMachine}
+			<Field
+				label="Name"
+				for="machine-name"
+				help={nameStatus || "Leave it blank to use the machine's ID."}
+				error={nameError ?? undefined}
+			>
+				<div class="flex gap-2">
+					<Input
+						id="machine-name"
+						bind:value={nicknameDraft}
+						placeholder="e.g. Bench sorter"
+						class="min-w-0 flex-1"
+					/>
+					<Button
+						loading={nameSaving}
+						disabled={normalizedNickname(nicknameDraft) ===
+							(manager.selectedMachine.identity?.nickname ?? '')}
+						onclick={saveMachineName}
+					>
+						Save name
+					</Button>
+				</div>
+			</Field>
+		{:else}
+			<p class="text-sm text-ink-muted">Connect to a machine to give it a name.</p>
+		{/if}
+	</div>
+</Panel>
+
+<Panel title="Appearance" flush>
+	<div class="divide-y divide-line">
+		<SettingRow label="Theme" help="Applies at once, on this browser.">
+			<SegmentedControl
+				label="Theme"
+				value={$settings.theme}
+				onchange={(mode) => settings.setTheme(mode)}
+				options={[
+					{ value: 'light', label: 'Light', icon: Sun },
+					{ value: 'dark', label: 'Dark', icon: Moon }
+				]}
+			/>
+		</SettingRow>
+		<div class="px-(--pad-panel) py-(--pad-row)">
+			<div class="text-sm font-medium text-ink">Theme color</div>
+			<p class="mt-0.5 text-sm text-ink-muted">
+				The LEGO color of buttons, focus rings and the current page, on every browser pointed at
+				this machine. Applies at once.
+			</p>
+			<div class="mt-3 rounded-control bg-well p-4">
+				<ColorPicker bind:value={colorId} onchange={(id) => void setThemeColor(id)} />
+			</div>
+		</div>
+		<SettingRow
+			label="Setup wizard"
+			help="Walk through the hardware, the cameras and the first configuration again."
+		>
+			<Button href="/setup" icon={ArrowRight}>Open the setup wizard</Button>
+		</SettingRow>
+	</div>
+</Panel>

@@ -114,10 +114,11 @@ def _ensureStartupRecovery() -> None:
             return
         _recovery_done = True
         try:
+            import feeder_autotune_records
             import local_state
             from toml_config import setPulsePerceptionConfig
 
-            interrupted = local_state.interruptActiveFeederAutotuneRuns()
+            interrupted = feeder_autotune_records.interruptActiveFeederAutotuneRuns()
             for run in interrupted:
                 baseline = run.get("baseline_config")
                 if isinstance(baseline, dict) and baseline:
@@ -312,12 +313,12 @@ class FeederAutoTuner:
     def _startRun(
         self, settings: dict[str, Any], baseline: dict[str, Any], *, mode: str
     ) -> None:
-        import local_state
+        import feeder_autotune_records
 
         with self._lock:
             if self._thread is not None and self._thread.is_alive():
                 raise RuntimeError("auto-tune is already running")
-            run = local_state.createFeederAutotuneRun(baseline, {**settings, "mode": mode})
+            run = feeder_autotune_records.createFeederAutotuneRun(baseline, {**settings, "mode": mode})
             if run is None:
                 raise RuntimeError("failed to create auto-tune run")
             self._run = run
@@ -341,7 +342,7 @@ class FeederAutoTuner:
 
     def status(self) -> dict[str, Any]:
         _ensureStartupRecovery()
-        import local_state
+        import feeder_autotune_records
 
         with self._lock:
             running = self._thread is not None and self._thread.is_alive()
@@ -352,8 +353,8 @@ class FeederAutoTuner:
             mode = self._mode
         trials: list[dict[str, Any]] = []
         if run is not None:
-            trials = local_state.listFeederAutotuneTrials(run["id"], limit=200)
-            fresh = local_state.getFeederAutotuneRun(run["id"])
+            trials = feeder_autotune_records.listFeederAutotuneTrials(run["id"], limit=200)
+            fresh = feeder_autotune_records.getFeederAutotuneRun(run["id"])
             if fresh is not None:
                 run = fresh
         background = _background_state if _background_state else None
@@ -415,7 +416,7 @@ class FeederAutoTuner:
         setPulsePerceptionConfig(params)
 
     def _threadMain(self) -> None:
-        import local_state
+        import feeder_autotune_records
 
         run = self._run
         settings = self._settings
@@ -461,7 +462,7 @@ class FeederAutoTuner:
                     self._applyParams(self._best["params"])
                 elif apply == "baseline" and isinstance(baseline, dict) and baseline:
                     self._applyParams(baseline)
-                local_state.finishFeederAutotuneRun(run_id, final_status)
+                feeder_autotune_records.finishFeederAutotuneRun(run_id, final_status)
             except Exception:
                 pass
             with self._lock:
@@ -475,10 +476,10 @@ class FeederAutoTuner:
         params: dict[str, Any],
         settings: dict[str, Any],
     ) -> None:
-        import local_state
+        import feeder_autotune_records
 
         self._applyParams(params)
-        trial_id = local_state.insertFeederAutotuneTrial(run_id, trial_index, kind, params)
+        trial_id = feeder_autotune_records.insertFeederAutotuneTrial(run_id, trial_index, kind, params)
         self.gc.logger.info(
             f"FeederAutotune: trial {trial_index} ({kind}) started params={params}"
         )
@@ -526,7 +527,7 @@ class FeederAutoTuner:
             max_double_drop_rate=float(settings["max_double_drop_rate"]),
         )
         aborted = measured < 0.5 * duration
-        local_state.finalizeFeederAutotuneTrial(
+        feeder_autotune_records.finalizeFeederAutotuneTrial(
             trial_id,
             status="aborted" if aborted else "done",
             measured_s=measured,
@@ -561,7 +562,7 @@ class FeederAutoTuner:
                         "incidents": incidents,
                         "double_drops": double_drops,
                     }
-                    local_state.setFeederAutotuneBestTrial(run_id, trial_id)
+                    feeder_autotune_records.setFeederAutotuneBestTrial(run_id, trial_id)
 
     def _updateLive(
         self,

@@ -394,16 +394,6 @@ class HiveTelemetryClient:
             **kwargs,
         )
 
-    def updateSample(self, *, source_session_id: str, local_sample_id: str, image_path: Path | None = None, **kwargs: Any) -> dict[str, Any]:
-        return self._sendSample(
-            method="PATCH",
-            path=f"/api/machine/upload/{source_session_id}/{local_sample_id}",
-            source_session_id=source_session_id,
-            local_sample_id=local_sample_id,
-            image_path=image_path,
-            **kwargs,
-        )
-
     def heartbeat(
         self,
         *,

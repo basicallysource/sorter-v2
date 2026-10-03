@@ -45,27 +45,24 @@ def _empty_catalog_service() -> ProfileCatalogService:
 def test_custom_set_rules_compile_into_runtime_inventory_with_any_color() -> None:
     service = _catalog_service_for_custom_sets()
 
-    set_mappings, set_inventories = service._resolve_set_rule_data(
-        [
-            {
-                "id": "custom-rule-1",
-                "rule_type": "set",
-                "set_source": "custom",
-                "name": "Customer Order",
-                "set_num": "custom:customer-order",
-                "custom_parts": [
-                    {"part_num": "2780", "quantity": 20, "color_id": CUSTOM_SET_ANY_COLOR_ID},
-                    {"part_num": "32054", "quantity": 10, "color_id": 5},
-                ],
-                "set_meta": {"name": "Customer Order"},
-            }
-        ]
-    )
+    rules = [
+        {
+            "id": "custom-rule-1",
+            "rule_type": "set",
+            "set_source": "custom",
+            "name": "Customer Order",
+            "set_num": "custom:customer-order",
+            "custom_parts": [
+                {"part_num": "2780", "quantity": 20, "color_id": CUSTOM_SET_ANY_COLOR_ID},
+                {"part_num": "32054", "quantity": 10, "color_id": 5},
+            ],
+            "set_meta": {"name": "Customer Order"},
+        }
+    ]
+    set_inventories = service.resolve_inventories(rules, {})
+    program = service.compile_document({"rules": rules}).artifact["program"]
 
-    assert set_mappings["custom-rule-1"] == {
-        "any_color-2780": "custom-rule-1",
-        "5-32054": "custom-rule-1",
-    }
+    assert program["rules"] == [{"category": "custom-rule-1", "kit": {"2780": [None], "32054": ["5"]}}]
     inventory = set_inventories["custom-rule-1"]
     assert inventory["set_source"] == "custom"
     assert inventory["set_num"] == "custom:customer-order"
@@ -80,7 +77,7 @@ def test_custom_set_rules_reject_unknown_parts() -> None:
     service = _catalog_service_for_custom_sets()
 
     with pytest.raises(APIError, match="Unknown part"):
-        service._resolve_set_rule_data(
+        service.resolve_inventories(
             [
                 {
                     "id": "custom-rule-1",
@@ -89,7 +86,8 @@ def test_custom_set_rules_reject_unknown_parts() -> None:
                     "name": "Broken Order",
                     "custom_parts": [{"part_num": "does-not-exist", "quantity": 1, "color_id": 5}],
                 }
-            ]
+            ],
+            {},
         )
 
 
@@ -168,27 +166,27 @@ def test_import_bricklink_csv_works_without_synced_catalog_by_using_raw_bricklin
 def test_custom_set_rules_compile_bricklink_sourced_parts_without_catalog() -> None:
     service = _empty_catalog_service()
 
-    set_mappings, set_inventories = service._resolve_set_rule_data(
-        [
-            {
-                "id": "custom-rule-1",
-                "rule_type": "set",
-                "set_source": "custom",
-                "name": "BrickLink Order",
-                "custom_parts": [
-                    {
-                        "part_num": "11477",
-                        "part_source": "bricklink",
-                        "quantity": 2,
-                        "color_id": 69,
-                        "color_name": "Dark Tan",
-                    }
-                ],
-            }
-        ]
-    )
+    rules = [
+        {
+            "id": "custom-rule-1",
+            "rule_type": "set",
+            "set_source": "custom",
+            "name": "BrickLink Order",
+            "custom_parts": [
+                {
+                    "part_num": "11477",
+                    "part_source": "bricklink",
+                    "quantity": 2,
+                    "color_id": 69,
+                    "color_name": "Dark Tan",
+                }
+            ],
+        }
+    ]
+    set_inventories = service.resolve_inventories(rules, {})
+    program = service.compile_document({"rules": rules}).artifact["program"]
 
-    assert set_mappings["custom-rule-1"] == {"69-11477": "custom-rule-1"}
+    assert program["rules"] == [{"category": "custom-rule-1", "kit": {"11477": ["69"]}}]
     assert set_inventories["custom-rule-1"]["parts"][0]["part_num"] == "11477"
     assert set_inventories["custom-rule-1"]["parts"][0]["color_id"] == 69
     assert set_inventories["custom-rule-1"]["parts"][0]["rb_part_num"] is None

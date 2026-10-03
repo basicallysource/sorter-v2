@@ -48,9 +48,7 @@ class _TempStateDb(unittest.TestCase):
         self._tmpdir = tempfile.TemporaryDirectory()
         self.db_path = os.path.join(self._tmpdir.name, "state.sqlite")
         os.environ["LOCAL_STATE_DB_PATH"] = self.db_path
-        piece_image_store._initialized = False
         piece_image_store._worker_started.set()
-        channel_crop_store._initialized = False
         channel_crop_store._worker_started.set()
 
     def tearDown(self) -> None:
@@ -58,8 +56,6 @@ class _TempStateDb(unittest.TestCase):
             os.environ.pop("LOCAL_STATE_DB_PATH", None)
         else:
             os.environ["LOCAL_STATE_DB_PATH"] = self._old_db
-        piece_image_store._initialized = False
-        channel_crop_store._initialized = False
         self._tmpdir.cleanup()
 
 

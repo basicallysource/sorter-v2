@@ -1,5 +1,8 @@
 <script lang="ts">
-	import { CheckCircle2, ChevronLeft, ChevronRight } from 'lucide-svelte';
+	import Button from '$lib/components/ui/Button.svelte';
+	import CheckCircle2 from '@lucide/svelte/icons/circle-check';
+	import ChevronLeft from '@lucide/svelte/icons/chevron-left';
+	import ChevronRight from '@lucide/svelte/icons/chevron-right';
 
 	let {
 		blockerReason,
@@ -28,43 +31,22 @@
 	} = $props();
 </script>
 
-<div
-	class="mt-6 flex flex-col gap-3 border-t border-border pt-4 sm:flex-row sm:items-center sm:justify-end"
->
-	{#if blockerReason}
-		<p class="text-xs text-text-muted">{blockerReason}</p>
-	{/if}
+<div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-end">
+	{#if blockerReason}<p class="text-sm text-ink-muted sm:mr-auto">{blockerReason}</p>{/if}
 	<div class="flex flex-wrap items-center gap-2">
 		{#if showBack}
-			<button
-				onclick={onBack}
-				class="setup-button-secondary inline-flex items-center gap-2 px-3 py-2 text-sm text-text transition-colors"
-			>
-				<ChevronLeft size={14} />
-				Back
-			</button>
+			<Button variant="ghost" icon={ChevronLeft} onclick={onBack}>Back</Button>
 		{/if}
-
 		{#if showFinish}
-			<button
-				onclick={onFinish}
-				disabled={finishDisabled}
-				class="inline-flex items-center gap-2 border border-success bg-success px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-success/90 disabled:cursor-not-allowed disabled:opacity-60"
-			>
-				<CheckCircle2 size={14} />
+			<Button variant="primary" icon={CheckCircle2} disabled={finishDisabled} onclick={onFinish}>
 				{finishLabel}
-			</button>
+			</Button>
 		{/if}
-
 		{#if showContinue}
-			<button
-				onclick={onContinue}
-				disabled={continueDisabled}
-				class="setup-button-primary inline-flex items-center gap-2 px-4 py-2 text-sm font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-60"
-			>
+			<Button variant="primary" disabled={continueDisabled} onclick={onContinue}>
 				{continueLabel}
-				<ChevronRight size={14} />
-			</button>
+				<ChevronRight size={16} />
+			</Button>
 		{/if}
 	</div>
 </div>

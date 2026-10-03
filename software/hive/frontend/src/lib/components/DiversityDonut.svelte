@@ -1,5 +1,6 @@
 <script lang="ts">
 	import type { SampleDiversityBucketFills } from '$lib/api';
+	import { coverageColor } from './coverage';
 
 	interface Props {
 		bucketFills: SampleDiversityBucketFills;
@@ -50,16 +51,6 @@
 		return `M ${x1} ${y1} A ${rOuter} ${rOuter} 0 ${large} 1 ${x2} ${y2} L ${x3} ${y3} A ${rInner} ${rInner} 0 ${large} 0 ${x4} ${y4} Z`;
 	}
 
-	// Coverage ramp. The endpoints are theme tokens; the two midpoints are data-viz
-	// ramp stops with no token equivalent and read the same in either theme.
-	function fillColor(fill: number): string {
-		if (fill >= 1) return 'var(--color-success)';
-		if (fill >= 0.6) return '#7AAE3D';
-		if (fill >= 0.3) return '#FFA500';
-		if (fill > 0) return 'var(--color-primary)';
-		return 'var(--color-border)';
-	}
-
 	const coveragePct = $derived(Math.round(coverage * 100));
 </script>
 
@@ -70,12 +61,12 @@
 			<path
 				d={arc(seg.start, seg.end, outerR, innerR)}
 				fill={seg.ignored
-					? 'color-mix(in srgb, var(--color-border) 55%, var(--color-surface))'
-					: 'color-mix(in srgb, var(--color-border) 40%, var(--color-surface))'}
+					? 'color-mix(in srgb, var(--line) 55%, var(--surface))'
+					: 'color-mix(in srgb, var(--line) 40%, var(--surface))'}
 				opacity={seg.ignored ? 0.6 : 1}
 			/>
 			{#if !seg.ignored && seg.fill > 0}
-				<path d={arc(seg.start, seg.end, filledOuter, innerR)} fill={fillColor(seg.fill)} />
+				<path d={arc(seg.start, seg.end, filledOuter, innerR)} fill={coverageColor(seg.fill)} />
 			{/if}
 			{#if showLabels}
 				{@const mid = (seg.start + seg.end) / 2}
@@ -86,7 +77,7 @@
 					y={ly}
 					text-anchor="middle"
 					dominant-baseline="middle"
-					class="text-[10px] fill-text-muted tabular-nums"
+					class="num fill-ink-muted text-xs"
 					opacity={seg.ignored ? 0.4 : 1}
 					text-decoration={seg.ignored ? 'line-through' : 'none'}
 				>
@@ -99,7 +90,7 @@
 			y={cy - 4}
 			text-anchor="middle"
 			dominant-baseline="middle"
-			class="text-xl font-bold tabular-nums fill-text"
+			class="num fill-ink text-xl font-semibold"
 		>
 			{coveragePct}%
 		</text>
@@ -108,9 +99,9 @@
 			y={cy + 12}
 			text-anchor="middle"
 			dominant-baseline="middle"
-			class="text-[10px] fill-text-muted uppercase tracking-wider"
+			class="fill-ink-muted text-xs"
 		>
-			diversity
+			Diversity
 		</text>
 	</svg>
 </div>

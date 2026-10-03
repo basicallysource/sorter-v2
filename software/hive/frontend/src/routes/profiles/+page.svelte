@@ -1,43 +1,114 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
+	import { page } from '$app/state';
 	import { api, type SortingProfileSummary } from '$lib/api';
+	import { plural } from '$lib/profile-display';
+	import { sentence } from '$lib/text';
+	import Alert from '$lib/components/Alert.svelte';
+	import Badge from '$lib/components/Badge.svelte';
+	import Button from '$lib/components/Button.svelte';
+	import Card from '$lib/components/Card.svelte';
+	import EmptyState from '$lib/components/EmptyState.svelte';
+	import Modal from '$lib/components/Modal.svelte';
+	import PageHeader from '$lib/components/PageHeader.svelte';
+	import Panel from '$lib/components/Panel.svelte';
+	import ProfileBin from '$lib/components/ProfileBin.svelte';
 	import Spinner from '$lib/components/Spinner.svelte';
+	import Tabs from '$lib/components/Tabs.svelte';
+	import Funnel from '@lucide/svelte/icons/funnel';
+	import Plus from '@lucide/svelte/icons/plus';
+	import Trash2 from '@lucide/svelte/icons/trash-2';
 
-	let profiles = $state<SortingProfileSummary[]>([]);
-	let loading = $state(true);
+	type Tab = 'mine' | 'library' | 'defaults' | 'discover';
+	const tabNames: Tab[] = ['mine', 'library', 'defaults', 'discover'];
+
+	// How many bins a card lists: the first ones say what the profile is about.
+	const BINS_SHOWN = 5;
+
+	let lists = $state<Partial<Record<Tab, SortingProfileSummary[]>>>({});
+	let loadingTab = $state<Tab | null>(null);
+	let tab = $state<Tab>('mine');
 	let error = $state<string | null>(null);
-	let busyProfileId = $state<string | null>(null);
 	let creating = $state(false);
 	let deleteTarget = $state<SortingProfileSummary | null>(null);
 	let deleting = $state(false);
+	let started = $state(false);
+
+	async function loadTab(which: Tab) {
+		if (lists[which]) return;
+		loadingTab = which;
+		try {
+			lists[which] = await api.getProfiles({ scope: which });
+		} catch (e: any) {
+			error = e.error || 'Failed to load sorting profiles';
+		} finally {
+			if (loadingTab === which) loadingTab = null;
+		}
+	}
+
+	// Yours and Hive's defaults load first: a person with no profiles of
+	// their own opens on the defaults.
+	$effect(() => {
+		void (async () => {
+			loadingTab = 'mine';
+			await Promise.all([loadTab('mine'), loadTab('defaults')]);
+			const asked = page.url.searchParams.get('tab');
+			tab = tabNames.find((name) => name === asked) ?? ((lists.mine?.length ?? 0) > 0 ? 'mine' : 'defaults');
+			started = true;
+			void loadTab(tab);
+		})();
+	});
+
+	function chooseTab(next: Tab) {
+		tab = next;
+		void loadTab(next);
+		const url = new URL(page.url);
+		url.searchParams.set('tab', next);
+		void goto(url, { replaceState: true, noScroll: true, keepFocus: true });
+	}
+
+	// Other people's public profiles: Hive's own and yours are in their tabs.
+	function listed(which: Tab): SortingProfileSummary[] | undefined {
+		const list = lists[which];
+		return which === 'discover' ? list?.filter((p) => !p.is_default && !p.is_owner) : list;
+	}
+
+	const tabItems = $derived([
+		{ value: 'mine' as Tab, label: 'Yours', count: listed('mine')?.length },
+		{ value: 'library' as Tab, label: 'Library', count: listed('library')?.length },
+		{ value: 'defaults' as Tab, label: 'Hive defaults', count: listed('defaults')?.length },
+		{ value: 'discover' as Tab, label: 'Public', count: listed('discover')?.length }
+	]);
+
+	const profiles = $derived(listed(tab) ?? []);
+
+	const empty = $derived(
+		{
+			mine: {
+				title: 'No profiles yet',
+				text: 'A profile is the rules a machine sorts by: which parts go to which bin.'
+			},
+			library: {
+				title: 'Your library is empty',
+				text: "Save one of Hive's defaults or a public profile and it is kept here."
+			},
+			defaults: { title: 'No defaults', text: 'Hive has no default profiles.' },
+			discover: {
+				title: 'No public profiles yet',
+				text: 'Profiles other people make public show up here.'
+			}
+		}[tab]
+	);
 
 	async function createProfile() {
 		creating = true;
 		error = null;
 		try {
-			const profile = await api.createSortingProfile({ name: 'Untitled Profile', visibility: 'private' });
+			const profile = await api.createSortingProfile({ name: 'Untitled profile', visibility: 'private' });
 			goto(`/profiles/${profile.id}/edit?new=1`);
 		} catch (e: any) {
 			error = e.error || 'Failed to create profile';
 			creating = false;
-		}
-	}
-
-	const scope = 'mine' as const;
-
-	$effect(() => {
-		loadProfiles();
-	});
-
-	async function loadProfiles() {
-		loading = true;
-		error = null;
-		try {
-			profiles = await api.getProfiles({ scope });
-		} catch (e: any) {
-			error = e.error || 'Failed to load sorting profiles';
-		} finally {
-			loading = false;
 		}
 	}
 
@@ -47,7 +118,11 @@
 		error = null;
 		try {
 			await api.deleteSortingProfile(deleteTarget.id);
-			profiles = profiles.filter(p => p.id !== deleteTarget!.id);
+			const gone = deleteTarget.id;
+			for (const name of tabNames) {
+				const list = lists[name];
+				if (list) lists[name] = list.filter((p) => p.id !== gone);
+			}
 			deleteTarget = null;
 		} catch (e: any) {
 			error = e.error || 'Failed to delete profile';
@@ -55,177 +130,132 @@
 			deleting = false;
 		}
 	}
+
+	// The bins a card lists, as the bin component reads them. A color bin is
+	// the one with a color, so the others must not carry the key at all. A
+	// version saved before bins were described has only its rules' names.
+	function binsOf(profile: SortingProfileSummary) {
+		const version = profile.latest_version;
+		if (!version) return [];
+		if (version.bins.length > 0) {
+			return version.bins.map((bin) => ({
+				id: bin.id,
+				bin: {
+					name: bin.name ?? 'Unnamed',
+					kind: bin.kind,
+					image_url: bin.image_url,
+					part_count: bin.part_count,
+					...(bin.rgb ? { rgb: bin.rgb } : {})
+				}
+			}));
+		}
+		return version.rules_summary
+			.filter((rule) => !rule.disabled)
+			.map((rule, i) => ({ id: String(i), bin: { name: rule.name } }));
+	}
+
+	function ruleCount(profile: SortingProfileSummary) {
+		return (profile.latest_version?.rules_summary ?? []).filter((rule) => !rule.disabled).length;
+	}
 </script>
 
 <svelte:head>
 	<title>Profiles - Hive</title>
 </svelte:head>
 
-<div class="mb-6 flex flex-wrap items-start justify-between gap-4">
-	<div>
-		<h1 class="text-2xl font-bold text-text">Sorting Profiles</h1>
-		<p class="mt-1 text-sm text-text-muted">
-			Build, share, fork, and assign sorting logic across your machines.
-		</p>
-	</div>
-	<button
-		onclick={createProfile}
-		disabled={creating}
-		class="bg-primary px-4 py-2 text-sm font-medium text-white hover:bg-primary-hover disabled:opacity-50"
-	>
-		{creating ? 'Creating...' : 'New Profile'}
-	</button>
-</div>
+<PageHeader
+	title="Sorting profiles"
+	description="A profile says where each piece goes. Make your own, or start from one of Hive's."
+>
+	{#snippet actions()}
+		<Button variant="primary" icon={Plus} loading={creating} onclick={createProfile}>New profile</Button>
+	{/snippet}
+</PageHeader>
 
-
-{#if error}
-	<div class="mb-4 bg-primary/8 p-3 text-sm text-primary">{error}</div>
+{#if error && !deleteTarget}
+	<Alert tone="danger">{error}</Alert>
 {/if}
 
-{#if loading}
+{#if !started}
 	<div class="flex justify-center p-8"><Spinner size={32} /></div>
-{:else if profiles.length === 0}
-	<div class="border border-border bg-surface p-6 text-sm text-text-muted">You have not created any profiles yet.</div>
 {:else}
-	<div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-		{#each profiles as profile (profile.id)}
-			{@const rules = profile.latest_version?.rules_summary ?? []}
-			{@const activeRules = rules.filter(r => !r.disabled)}
-			<a href={profile.is_owner ? `/profiles/${profile.id}/edit` : `/profiles/${profile.id}`}
-				class="group flex flex-col border border-border bg-surface transition-colors hover:border-text-muted">
-				<!-- Header -->
-				<div class="px-4 pt-4 pb-3">
-					<div class="flex items-start justify-between gap-2">
-						<div class="min-w-0">
-							<h2 class="flex items-center gap-2 truncate text-sm font-semibold {profile.visibility === 'public' ? 'text-info' : 'text-text'}">
-								{#if profile.visibility === 'public'}
-									<span class="inline-block h-2.5 w-2.5 shrink-0 bg-info"></span>
-								{:else}
-									<span class="inline-block h-2.5 w-2.5 shrink-0 bg-text-muted"></span>
-								{/if}
-								{profile.name}
-							</h2>
-							{#if profile.description}
-								<p class="mt-0.5 truncate text-xs text-text-muted">{profile.description}</p>
-							{/if}
+	<Tabs label="Profiles" value={tab} items={tabItems} onchange={chooseTab} />
+
+	{#if !lists[tab] && loadingTab === tab}
+		<div class="flex justify-center p-8"><Spinner size={32} /></div>
+	{:else if profiles.length === 0}
+		<Panel>
+			<EmptyState icon={Funnel} title={empty.title}>
+				{empty.text}
+				{#snippet action()}
+					{#if tab === 'mine'}
+						<Button variant="primary" icon={Plus} loading={creating} onclick={createProfile}>New profile</Button>
+					{:else if tab === 'library'}
+						<Button onclick={() => chooseTab('defaults')}>See Hive's defaults</Button>
+					{/if}
+				{/snippet}
+			</EmptyState>
+		</Panel>
+	{:else}
+		<div class="grid gap-(--gap-panels) sm:grid-cols-2 xl:grid-cols-3">
+			{#each profiles as profile (profile.id)}
+				{@const bins = binsOf(profile)}
+				{@const rules = ruleCount(profile)}
+				<Card href={`/profiles/${profile.id}`} label={profile.name} padded={false} class="overflow-hidden">
+					<div class="flex flex-col gap-1.5 px-(--pad-panel) pt-4 pb-3">
+						<div class="flex items-start justify-between gap-3">
+							<h2 class="min-w-0 truncate text-base font-semibold text-ink">{profile.name}</h2>
+							<Badge><span class="num">v{profile.latest_version_number}</span></Badge>
 						</div>
-						<div class="flex shrink-0 items-center gap-1.5">
-							{#if profile.source}
-								<span class="border border-warning/30 bg-warning/[0.1] px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-warning-strong">Fork</span>
-							{/if}
-							<span class="border border-border bg-bg px-1.5 py-0.5 text-[10px] font-medium text-text-muted">v{profile.latest_version_number}</span>
+						{#if profile.description}
+							<p class="line-clamp-2 text-sm text-ink-muted">{profile.description}</p>
+						{/if}
+						<div class="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-ink-muted">
+							<span class="truncate">By {profile.owner.display_name ?? profile.owner.github_login ?? 'unknown'}</span>
+							{#if profile.is_default}<Badge tone="info">Hive default</Badge>{/if}
+							{#if profile.source}<Badge tone="warning">Fork</Badge>{/if}
+							{#if profile.is_owner && tab !== 'mine'}<Badge>Yours</Badge>{/if}
+							{#if profile.is_owner}<Badge>{sentence(profile.visibility)}</Badge>{/if}
+							<span class="num">{rules === 0 ? 'No rules' : plural(rules, 'rule')}</span>
 						</div>
 					</div>
-				</div>
 
-				<!-- Rules list -->
-				{#if activeRules.length > 0}
-					<div class="border-t border-border px-4 py-2.5">
-						<div class="space-y-1.5">
-							{#each activeRules.slice(0, 6) as rule}
-								<div class="flex items-center gap-2 text-xs">
-									{#if rule.rule_type === 'set' && rule.set_meta?.img_url}
-										<img src={rule.set_meta.img_url} alt="" class="h-5 w-5 shrink-0 object-contain" />
-									{:else}
-										<svg class="h-3.5 w-3.5 shrink-0 text-text-muted" viewBox="0 0 20 20" fill="currentColor">
-											<path fill-rule="evenodd" d="M3.28 2.22a.75.75 0 00-1.06 1.06l14.5 14.5a.75.75 0 101.06-1.06l-1.745-1.745a10.029 10.029 0 003.3-4.38 1.651 1.651 0 000-1.185A10.004 10.004 0 009.999 3a9.956 9.956 0 00-4.744 1.194L3.28 2.22zM7.752 6.69l1.092 1.092a2.5 2.5 0 013.374 3.373l1.092 1.092a4 4 0 00-5.558-5.558z" clip-rule="evenodd" />
-											<path d="M10.748 13.93l2.523 2.523a9.987 9.987 0 01-3.27.547c-4.258 0-7.894-2.66-9.337-6.41a1.651 1.651 0 010-1.186A10.007 10.007 0 012.839 6.02L6.07 9.252a4 4 0 004.678 4.678z" />
-										</svg>
-									{/if}
-									<span class="truncate text-text">{rule.name}</span>
-									{#if rule.rule_type === 'set' && rule.set_num}
-										<span class="shrink-0 font-mono text-[10px] text-text-muted">{rule.set_num}</span>
-									{:else if rule.condition_count > 0}
-										<span class="shrink-0 text-[10px] text-text-muted">{rule.condition_count} cond{rule.condition_count !== 1 ? 's' : ''}</span>
-									{/if}
-									{#if rule.child_count > 0}
-										<span class="shrink-0 text-[10px] text-text-muted">+{rule.child_count} sub</span>
-									{/if}
-								</div>
+					{#if bins.length > 0}
+						<ul class="divide-y divide-line border-t border-line">
+							{#each bins.slice(0, BINS_SHOWN) as item (item.id)}
+								<li><ProfileBin layout="row" bin={item.bin} /></li>
 							{/each}
-							{#if activeRules.length > 6}
-								<div class="text-[10px] text-text-muted">+{activeRules.length - 6} more rules</div>
-							{/if}
-						</div>
-					</div>
-				{:else if rules.length === 0}
-					<div class="border-t border-border px-4 py-2.5">
-						<span class="text-xs text-text-muted">No rules defined</span>
-					</div>
-				{/if}
+						</ul>
+					{:else}
+						<p class="border-t border-line px-(--pad-panel) py-3 text-sm text-ink-muted">No rules yet.</p>
+					{/if}
 
-				<!-- Footer -->
-				<div class="mt-auto border-t border-border bg-bg px-4 py-2">
-					<div class="flex items-center justify-between">
-						<div class="flex items-center gap-2 text-[10px] text-text-muted">
-							<span>{profile.latest_version?.compiled_part_count ?? 0} parts</span>
-							{#if profile.fork_count > 0}
-								<span class="text-border">|</span>
-								<span>{profile.fork_count} forks</span>
-							{/if}
-							{#if !profile.is_owner}
-								<span class="text-border">|</span>
-								<span>by {profile.owner.display_name ?? profile.owner.github_login ?? '?'}</span>
-							{/if}
+					{#if profile.is_owner}
+						<div class="mt-auto flex justify-end border-t border-line px-(--pad-panel) py-2">
+							<Button variant="ghost" size="sm" icon={Trash2} label="Delete profile" onclick={() => (deleteTarget = profile)} />
 						</div>
-						<div class="flex items-center gap-2">
-							{#if profile.tags.length > 0}
-								<div class="flex gap-1">
-									{#each profile.tags.slice(0, 3) as tag}
-										<span class="border border-border bg-bg px-1.5 py-0.5 text-[10px] text-text-muted">{tag}</span>
-									{/each}
-								</div>
-							{/if}
-							{#if profile.is_owner}
-								<button
-									onclick={(e) => { e.preventDefault(); e.stopPropagation(); deleteTarget = profile; }}
-									class="p-1 text-text-muted opacity-0 transition-opacity hover:text-primary group-hover:opacity-100 focus-visible:opacity-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary"
-									title="Delete profile"
-								>
-									<svg class="h-3.5 w-3.5" viewBox="0 0 20 20" fill="currentColor">
-										<path fill-rule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clip-rule="evenodd" />
-									</svg>
-								</button>
-							{/if}
-						</div>
-					</div>
-				</div>
-			</a>
-		{/each}
-	</div>
-{/if}
-
-{#if deleteTarget}
-	<!-- svelte-ignore a11y_no_static_element_interactions -->
-	<div class="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onkeydown={(e) => { if (e.key === 'Escape') deleteTarget = null; }} onclick={() => deleteTarget = null}>
-		<!-- svelte-ignore a11y_no_static_element_interactions -->
-		<div
-			class="mx-4 w-full max-w-md bg-surface p-4 sm:p-6"
-			role="dialog"
-			aria-modal="true"
-			tabindex="-1"
-			onclick={(e) => e.stopPropagation()}
-			onkeydown={(e) => e.stopPropagation()}
-		>
-			<h3 class="text-lg font-semibold text-text">Delete Profile</h3>
-			<p class="mt-2 text-sm text-text-muted">
-				Are you sure you want to delete <span class="font-medium text-text">{deleteTarget.name}</span>? This action cannot be undone.
-			</p>
-			{#if error}
-				<div class="mt-3 bg-primary/8 p-2 text-sm text-primary">{error}</div>
-			{/if}
-			<div class="mt-6 flex justify-end gap-3">
-				<button
-					onclick={() => deleteTarget = null}
-					disabled={deleting}
-					class="border border-border bg-surface px-4 py-2 text-sm font-medium text-text-muted hover:bg-bg disabled:opacity-50"
-				>Cancel</button>
-				<button
-					onclick={confirmDelete}
-					disabled={deleting}
-					class="bg-danger px-4 py-2 text-sm font-medium text-white hover:bg-primary-hover disabled:opacity-50"
-				>{deleting ? 'Deleting...' : 'Delete'}</button>
-			</div>
+					{/if}
+				</Card>
+			{/each}
 		</div>
-	</div>
+	{/if}
 {/if}
+
+<Modal
+	open={deleteTarget !== null}
+	title="Delete profile"
+	size="sm"
+	onclose={() => {
+		deleteTarget = null;
+		error = null;
+	}}
+>
+	<p class="text-sm text-ink-muted">
+		Delete <span class="font-medium text-ink">{deleteTarget?.name}</span>? This cannot be undone.
+	</p>
+	{#if error}<Alert tone="danger" class="mt-3">{error}</Alert>{/if}
+	{#snippet footer()}
+		<Button variant="ghost" disabled={deleting} onclick={() => (deleteTarget = null)}>Cancel</Button>
+		<Button variant="danger" loading={deleting} onclick={confirmDelete}>Delete profile</Button>
+	{/snippet}
+</Modal>

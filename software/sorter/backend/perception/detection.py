@@ -30,3 +30,6 @@ class Detection:
     # detections (only on-channel pieces are tracked) and when tracking is
     # unavailable. The stream overlay labels each box with this id.
     sv_bt_track_id: int | None = None
+    # Wholly in the band just past a feeder channel's exit (ChannelDef
+    # .exit_margin_mask): seen and shown, but off the channel.
+    in_margin: bool = False

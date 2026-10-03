@@ -132,6 +132,20 @@ class SetProgressTracker:
                 self._maybe_save()
                 return
 
+    def isFull(self, category_id: str, part_id: str, color_id: str) -> bool:
+        """Whether a kit already has every piece of this part and color it
+        needs, so the next one should go on to the next rule. A part the kit
+        lists under an ID the tracker does not count never blocks it."""
+        if category_id not in self._set_info:
+            return False
+        entries = [
+            entry
+            for key in (f"{color_id}-{part_id}", f"{ANY_COLOR_ID}-{part_id}")
+            for entry in self._part_lookup.get(key, [])
+            if entry["category_id"] == category_id
+        ]
+        return bool(entries) and all(entry["quantity_found"] >= entry["quantity_needed"] for entry in entries)
+
     def get_progress(self) -> dict[str, Any]:
         """Get per-set progress summary."""
         sets = []
@@ -171,14 +185,6 @@ class SetProgressTracker:
             "overall_found": overall_found,
             "overall_pct": round(overall_pct, 1),
             "sets": sets,
-        }
-
-    def get_snapshot(self) -> dict[str, Any]:
-        """Serializable snapshot for WebSocket broadcast and Hive reporting."""
-        return {
-            "artifact_hash": self._artifact_hash,
-            "updated_at": time.time(),
-            **self.get_progress(),
         }
 
     def get_report_items(self) -> list[dict[str, Any]]:

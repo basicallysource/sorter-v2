@@ -1,6 +1,6 @@
 <script lang="ts">
-	import { Input } from '$lib/components/primitives';
-	import { Search, X } from 'lucide-svelte';
+	import Button from '$lib/components/ui/Button.svelte';
+	import Input from '$lib/components/ui/Input.svelte';
 
 	let {
 		query = $bindable(''),
@@ -13,31 +13,22 @@
 	} = $props();
 </script>
 
-<div class="mb-4 border border-border bg-surface px-4 py-3">
-	<div class="flex items-center gap-3">
-		<Search size={16} class="shrink-0 text-text-muted" />
-		<Input
-			type="search"
-			bind:value={query}
-			placeholder="Find a part, color, or category — matching bins light up"
-		/>
-		{#if query}
-			<button
-				type="button"
-				onclick={() => (query = '')}
-				class="flex shrink-0 items-center gap-1.5 border border-border bg-surface px-2.5 py-2 text-sm text-text-muted transition-colors hover:bg-bg hover:text-text"
-				title="Clear search"
-			>
-				<X size={14} />
-				Clear
-			</button>
-		{/if}
-	</div>
+<div class="flex flex-col gap-2">
+	<Input
+		bind:value={query}
+		aria-label="Find a bin"
+		placeholder="Find a part, color or category"
+		class="max-w-xl"
+	>
+		{#snippet end()}
+			{#if query}<Button size="sm" variant="ghost" onclick={() => (query = '')}>Clear</Button>{/if}
+		{/snippet}
+	</Input>
 	{#if matchCount !== null}
-		<div class="mt-2 text-sm {matchCount === 0 ? 'text-warning-dark' : 'text-text-muted'}">
+		<p class="text-sm {matchCount === 0 ? 'text-warning-ink' : 'text-ink-muted'}">
 			{matchCount === 0
-				? 'No bins match — the part may have gone to the discard passthrough.'
-				: `${matchCount} of ${totalBins} bin${totalBins === 1 ? '' : 's'} match — highlighted below.`}
-		</div>
+				? 'No bins match. The part may have gone to the discard passthrough.'
+				: `${matchCount} of ${totalBins} bin${totalBins === 1 ? '' : 's'} match and are highlighted below.`}
+		</p>
 	{/if}
 </div>

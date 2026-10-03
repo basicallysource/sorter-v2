@@ -30,22 +30,12 @@ flashing, without downloading a Mac app (signing/notarization headache)
 or running a Python script. A web page works on any phone, any laptop,
 any OS.
 
-## Design rules — INHERIT THE SORTER FRONTEND
+## How it looks
 
-The site is brand-consistent with the sorter UI. **Before writing any
-component, read `software/sorter/frontend/AGENTS.md` and apply the same
-rules verbatim:**
-
-- Sharp edges. No `rounded-*` utilities (exception: spinner).
-- No left-accent borders. Flat 1px borders, all four sides, ~40% opacity.
-- `text-sm` minimum for body copy. `text-xs` only for labels.
-- No raw hex. All brand colors via `@theme` CSS variables.
-- Use the Alert primitive for notifications, not hand-rolled borders.
-
-The palette tokens live in
-`software/sorter/frontend/src/routes/layout.css`. Copy them into this
-project's `src/app.css` and keep them in sync (or extract into a shared
-package later — not worth it yet, two sites).
+How this site looks and is built: `software/sorter-design-system` (read its
+`AGENTS.md` and `docs/rules.md` first, and `docs/apps.md` for what differs
+here). Components are copied from its `src/lib/components/` unchanged; a change
+is made there first.
 
 ## Stack
 

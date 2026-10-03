@@ -1,12 +1,16 @@
 <script lang="ts">
+	// The fonts come with the build, so a machine with no internet has them.
+	import '@fontsource-variable/geist';
+	import '@fontsource-variable/geist-mono';
 	import './layout.css';
 	import MachinesProvider from '$lib/components/MachinesProvider.svelte';
 	import MachineProvider from '$lib/components/MachineProvider.svelte';
 	import MachineTitle from '$lib/components/MachineTitle.svelte';
 	import BackendConnectionGuard from '$lib/components/BackendConnectionGuard.svelte';
+	import ConfirmHost from '$lib/components/ConfirmHost.svelte';
 	import { settings } from '$lib/stores/settings';
 	import { loadThemeColor } from '$lib/stores/themeColor.svelte';
-	import { startUpdateChecker } from '$lib/updates/updateChecker';
+	import { applyMode } from '$lib/theme';
 	import { onMount } from 'svelte';
 
 	let { children } = $props();
@@ -24,11 +28,7 @@
 		}
 	});
 
-	$effect(() => {
-		if (typeof document !== 'undefined') {
-			document.documentElement.className = $settings.theme;
-		}
-	});
+	$effect(() => applyMode($settings.theme));
 
 	function reportClientError(payload: Record<string, unknown>) {
 		const base = `${window.location.protocol}//${window.location.hostname}:8000`;
@@ -51,7 +51,6 @@
 			console.error(e);
 		}
 		void loadThemeColor();
-		const stopUpdateChecker = startUpdateChecker();
 
 		window.addEventListener('error', (e) => {
 			reportClientError({
@@ -72,8 +71,6 @@
 				stack: reason instanceof Error ? reason.stack : undefined
 			});
 		});
-
-		return () => stopUpdateChecker();
 	});
 </script>
 
@@ -84,5 +81,6 @@
 	<MachineProvider>
 		<BackendConnectionGuard />
 		{@render children()}
+		<ConfirmHost />
 	</MachineProvider>
 </MachinesProvider>

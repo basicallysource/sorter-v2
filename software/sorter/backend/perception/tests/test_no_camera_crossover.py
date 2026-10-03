@@ -91,7 +91,6 @@ def _build_worker_set(
         role: CaptureWorker(source_id=role, capture_thread=ct)
         for role, ct in captures_thread.items()
     }
-    runtimes = {ch_id: StubRuntime(bb) for ch_id, bb in runtime_bboxes_by_id.items()}
     channels = {
         ch_id: buildChannelDef(
             channel_id=ch_id,
@@ -104,6 +103,15 @@ def _build_worker_set(
         )
         for ch_id in (2, 3, 4)
     }
+    runtimes = {}
+    for channel_id, channel in channels.items():
+        ys, xs = np.nonzero(channel.mask)
+        crop_x, crop_y = int(xs.min()), int(ys.min())
+        # Runtimes return crop coordinates; the worker restores full-frame coordinates.
+        runtimes[channel_id] = StubRuntime(
+            (x1 - crop_x, y1 - crop_y, x2 - crop_x, y2 - crop_y)
+            for x1, y1, x2, y2 in runtime_bboxes_by_id[channel_id]
+        )
     slots = {ch_id: LatestStateSlot() for ch_id in (2, 3, 4)}
     role_for_id = {2: "c_channel_2", 3: "c_channel_3", 4: "carousel"}
     workers = {}
@@ -191,25 +199,25 @@ def test_three_workers_do_not_cross_outputs_when_run_concurrently() -> None:
         cy = 50.0 + 30.0 * math.sin(rad)
         return (int(cx - 5), int(cy - 5), int(cx + 5), int(cy + 5))
 
-    runtimes = {
+    expected_bboxes = {
         2: (bbox_at(90.0),),    # in drop arc
         3: (bbox_at(270.0),),   # in exit arc
         4: (),                  # empty
     }
-    captures_thread, captures, _, _, slots, workers = _build_worker_set(runtimes)
+    captures_thread, captures, _, _, slots, workers = _build_worker_set(expected_bboxes)
 
     for w in workers.values():
         w.start()
     try:
         # Push frames into each capture and let the loops run a few ticks.
-        deadline = time.time() + 2.0
+        deadline = time.monotonic() + 2.0
         ts = 0.0
-        while time.time() < deadline and not all(
+        while time.monotonic() < deadline and not all(
             workers[ch].inferences >= 3 for ch in (2, 3, 4)
         ):
             ts += 0.05
-            for ct in captures_thread.values():
-                ct.push(timestamp=ts)
+            for channel_id, worker in workers.items():
+                captures_thread[worker.source_id].push(timestamp=ts, fill=channel_id * 40)
             time.sleep(0.02)
     finally:
         for w in workers.values():
@@ -219,8 +227,14 @@ def test_three_workers_do_not_cross_outputs_when_run_concurrently() -> None:
     s3 = slots[3].read()
     s4 = slots[4].read()
     # No worker ever rejected a frame.
-    for w in workers.values():
+    for channel_id, w in workers.items():
+        assert w.inferences >= 3, (w.source_id, w.inferences, w.errors)
+        assert w.errors == 0, (w.source_id, w.errors)
         assert w.source_id_assertions == 0, (w.source_id, w.source_id_assertions)
+        bboxes, frame = w.latest_raw
+        assert tuple(bboxes) == expected_bboxes[channel_id]
+        assert frame.source_id == w.source_id
+        assert np.all(frame.bgr == channel_id * 40)
     # Each channel only saw its own runtime's bboxes.
     assert s2.in_drop is True and s2.in_exit is False, s2
     assert s3.in_drop is False and s3.in_exit is True, s3

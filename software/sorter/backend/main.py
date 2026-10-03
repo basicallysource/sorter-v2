@@ -1,29 +1,23 @@
+from environment_sync import retireOldUiUnits, syncEnvironment
+syncEnvironment()
+retireOldUiUnits()
+
 from dotenv import load_dotenv
 import os
 from pathlib import Path
 
 load_dotenv(Path(__file__).resolve().parents[2] / ".env")
 
-from local_state import initialize_local_state
-initialize_local_state()
-
 from local_state import get_api_keys
-from local_metrics import (
-    recordProfilerMetricSnapshot,
-    recordRuntimePerfMetricSnapshot,
-)
 _saved_api_keys = get_api_keys()
 if _saved_api_keys.get("openrouter"):
     os.environ["OPENROUTER_API_KEY"] = _saved_api_keys["openrouter"]
 
 from global_config import mkGlobalConfig, GlobalConfig
-from runtime_variables import mkRuntimeVariables
 from utils.event import slimKnownObjectForSocket
 from server.api import app
 from server.shared_state import (
-    broadcastEvent,
     setGlobalConfig,
-    setRuntimeVariables,
     setCommandQueue,
     setController,
     setCameraService,
@@ -37,26 +31,25 @@ from sorter_controller import SorterController
 from stepper_stall_monitor import StepperStallMonitor
 from run_recorder import RunRecorder
 from lifetime_stats import LifetimeStatsTracker
+import db
 from message_queue.handler import handleServerToMainEvent
 from defs.consts import BACKEND_PORT
-from defs.events import HeartbeatEvent, HeartbeatData, MainThreadToServerCommand
 from defs.events import RuntimeStatsEvent, RuntimeStatsData
 from irl.config import (
-    ClassificationChannelMode,
-    FeederMode,
     mkIRLConfig,
     mkIRLInterface,
 )
-from subsystems.feeder.calibration import calibrateFeederChannels
 from vision import VisionManager
 from process_guard import acquire_backend_process_guard, ProcessGuardError
+from hardware.bus import MCUBusError
+from hardware.fault import HardwareFault
 from hardware.waveshare_bus_service import close_all_waveshare_bus_services
 from server.waveshare_inventory import get_waveshare_inventory_manager
 import uvicorn
+import functools
 import threading
 import queue
 import time
-import asyncio
 import signal
 import sys
 
@@ -67,15 +60,18 @@ def _mkIRLInterfaceStandby(config, gc):
     irl = IRLInterface()
     irl.servos = []
     irl.distribution_layout = mkLayoutFromConfig(config.bin_layout_config)
-    irl.machine_profile = None
     return irl
 
 
 FRAME_RECORD_INTERVAL_MS = 100
-RUNTIME_STATS_BROADCAST_INTERVAL_MS = 1000
 LIFETIME_FLUSH_INTERVAL_MS = 10000
+LOOP_STALL_WARN_MS = 250.0
+# The broadcaster thread builds both views of the runtime stats, never the
+# control loop: the full snapshot behind GET /runtime-stats and the perf
+# history, and the small live part pushed to the dashboard when it changes.
+RUNTIME_STATS_SNAPSHOT_INTERVAL_S = 1.0
+RUNTIME_STATS_LIVE_INTERVAL_S = 0.5
 
-SERVO_BUS_ALERT_PREFIX = "Servo bus offline"
 CAMERA_SHUTDOWN_SETTLE_S = float(os.getenv("SORTER_CAMERA_SHUTDOWN_SETTLE_S", "1.0"))
 
 server_to_main_queue = queue.Queue()
@@ -94,6 +90,7 @@ def _checkServoBusHealth(gc: GlobalConfig, irl) -> None:
     reconnecting the bus recovers without a full restart.
     """
     import server.shared_state as shared_state
+    from subsystems.distribution.positioning import SERVO_BUS_OFFLINE_TITLE
 
     servos = list(getattr(irl, "servos", []) or [])
     if not servos:
@@ -103,58 +100,63 @@ def _checkServoBusHealth(gc: GlobalConfig, irl) -> None:
         return
 
     message = (
-        f"{SERVO_BUS_ALERT_PREFIX} — no layer servos responded at boot. "
-        "Check Waveshare USB + power, then press Resume."
+        "No layer servo responded at boot. "
+        "Check the servo bus's USB cable and power, then press Resume."
     )
-    gc.logger.error(message)
+    gc.logger.error(f"{SERVO_BUS_OFFLINE_TITLE}: {message}")
     try:
         gc.runtime_stats.setServoBusOffline()
     except Exception:
         pass
     try:
         with shared_state.hardware_lifecycle_lock:
-            shared_state.setHardwareStatus(error=message)
+            shared_state.setHardwareStatus(error=HardwareFault(SERVO_BUS_OFFLINE_TITLE, message))
     except Exception:
         pass
+
+
+def _parkAfterLinkFailure(gc: GlobalConfig, controller, exc: MCUBusError) -> None:
+    """A control-board link failure is a hardware fault, not a reason to end the
+    process: pause, and put the machine in error so Safe Home rediscovers the board."""
+    import server.shared_state as shared_state
+
+    gc.logger.error(f"Control board link failed while sorting: {exc}")
+    try:
+        controller.pause()
+    except MCUBusError as pause_exc:
+        gc.logger.error(f"Pausing after the link failure also failed: {pause_exc}")
+    with shared_state.hardware_lifecycle_lock:
+        shared_state.setHardwareStatus(
+            state="error",
+            error=HardwareFault(
+                "Control board link lost", f"{exc}. Home the machine to reconnect."
+            ),
+        )
+
+
+def _warnIfLoopStalled(gc: GlobalConfig, marks: list[tuple[str, float]]) -> None:
+    """One WARN per control-loop iteration slower than LOOP_STALL_WARN_MS,
+    naming the phases that took the time. `marks` are (phase, end time) pairs
+    after a ("start", iteration start) pair."""
+    total_ms = (marks[-1][1] - marks[0][1]) * 1000.0
+    if total_ms < LOOP_STALL_WARN_MS:
+        return
+    phases = sorted(
+        ((name, (end - start) * 1000.0) for (_, start), (name, end) in zip(marks, marks[1:])),
+        key=lambda phase: phase[1],
+        reverse=True,
+    )
+    gc.logger.warning(
+        f"main loop stall {total_ms:.0f}ms: "
+        + ", ".join(f"{name} {ms:.0f}ms" for name, ms in phases if ms >= 1.0)
+    )
 
 
 def _noPowerModeActive(gc: GlobalConfig) -> bool:
     return bool(getattr(gc, "no_power_development_mode", False))
 
 
-def _perceptionModeActive(irl_config) -> bool:
-    """Rev04 perception stack: a perception-native feeder mode
-    (GO_TO_ANGLE_REV01, PULSE_PERCEPTION_REV01 or CONSTANT_MOVEMENT_REV01)
-    paired with the SIMPLE_STATE_MACHINE_REV01 classification channel. The
-    perception package owns detection for these pairs only; every other mode
-    pair keeps using the legacy VisionManager paths."""
-    feeder_mode = getattr(getattr(irl_config, "feeder_config", None), "mode", None)
-    cc_mode = getattr(
-        getattr(irl_config, "classification_channel_config", None), "mode", None
-    )
-    return (
-        feeder_mode
-        in (
-            FeederMode.GO_TO_ANGLE_REV01,
-            FeederMode.PULSE_PERCEPTION_REV01,
-            FeederMode.CONSTANT_MOVEMENT_REV01,
-        )
-        and cc_mode
-        in (
-            ClassificationChannelMode.SIMPLE_STATE_MACHINE_REV01,
-            ClassificationChannelMode.TWO_PIECE_STATE_MACHINE_REV01,
-        )
-    )
-
-
-def _maybeStartPerception(gc: GlobalConfig, irl_config, camera_service) -> None:
-    if not _perceptionModeActive(irl_config):
-        gc.logger.info(
-            "Perception (rev04) inactive: mode pair is not "
-            "(GO_TO_ANGLE_REV01, SIMPLE_STATE_MACHINE_REV01). Legacy vision owns detection."
-        )
-        return
-
+def _startPerception(gc: GlobalConfig, irl_config, camera_service) -> None:
     from perception import service as perception_service_mod
     from vision.detection_registry import detection_algorithm_definition
 
@@ -212,28 +214,35 @@ def runServer(gc: GlobalConfig) -> None:
     # any host that can route to this machine, so only do that on a trusted
     # network. CORS is widened to match in server/api.py.
     host = os.getenv("SORTER_API_HOST", "127.0.0.1") or "127.0.0.1"
+    from local_state import get_tailscale_hostname, set_tailscale_hostname
     from server.security import (
         compute_allowed_ui_origins,
         explicit_allowed_origins,
         allow_any_origin,
-        _this_device_hosts,
+        keep_tailscale_name,
+        refresh_device_identity,
         _ui_port,
     )
 
+    keep_tailscale_name(get_tailscale_hostname(), set_tailscale_hostname)
+    device_hosts = refresh_device_identity()
     gc.logger.info(
         f"[server] binding host={host!r} port={BACKEND_PORT} ui_port={_ui_port()!r} "
         f"allow_any_origin={allow_any_origin()} "
         f"SORTER_API_ALLOWED_ORIGINS_override={explicit_allowed_origins()} "
         f"effective_allowed_origins={compute_allowed_ui_origins()} "
-        f"device_hosts={sorted(_this_device_hosts())}"
+        f"device_hosts={sorted(device_hosts)}"
     )
     # log_config=None disables uvicorn's logging.config.dictConfig() pass. This
     # backend routes everything through its own Logger, so uvicorn's logging
     # setup is unused — and it intermittently crashed the api-server thread at
     # startup ("ValueError: Unknown level: 'INFO'" out of dictConfig), leaving
     # main.py alive but port 8000 unbound so the UI couldn't connect. Skipping
-    # dictConfig removes the failure mode entirely.
-    uvicorn.run(app, host=host, port=BACKEND_PORT, log_level="error", ws="wsproto", log_config=None)
+    # dictConfig removes the failure mode entirely. No per-message deflate:
+    # JPEG video frames do not compress, so deflating them only costs CPU.
+    uvicorn.run(
+        app, host=host, port=BACKEND_PORT, log_level="error", ws="wsproto", ws_per_message_deflate=False, log_config=None
+    )
 
 
 def runBroadcaster(gc: GlobalConfig) -> None:
@@ -257,11 +266,13 @@ def runBroadcaster(gc: GlobalConfig) -> None:
     # second, mark any that have gone silent past the timeout as dead and
     # broadcast a final event so the UI (and the per-piece lookup) drop them.
     from defs.consts import STUCK_PIECE_TIMEOUT_S, STUCK_PIECE_REAP_INTERVAL_S
+    from server import perf_history
 
     last_reap_mono = 0.0
+    last_snapshot_mono = 0.0
+    last_live_mono = 0.0
 
     while True:
-        latest_frame_commands = {}
         pending_commands = []
         ko_latest: dict = {}
 
@@ -276,9 +287,7 @@ def runBroadcaster(gc: GlobalConfig) -> None:
             except queue.Empty:
                 break
 
-            if command.tag == "frame":
-                latest_frame_commands[command.data.camera] = command
-            elif command.tag == "known_object":
+            if command.tag == "known_object":
                 # Coalesce per piece (latest wins) using cheap attribute access;
                 # we only model_dump() the events we actually send below, so a
                 # piece emitting at camera-frame rate with a growing image list
@@ -303,7 +312,22 @@ def runBroadcaster(gc: GlobalConfig) -> None:
             for uuid in [u for u, v in ko_last_broadcast.items() if v[0] < cutoff]:
                 del ko_last_broadcast[uuid]
 
-        pending_commands.extend(latest_frame_commands.values())
+        try:
+            if now_mono - last_snapshot_mono >= RUNTIME_STATS_SNAPSHOT_INTERVAL_S:
+                last_snapshot_mono = now_mono
+                snapshot = gc.runtime_stats.snapshot()
+                shared_state.runtime_stats_snapshot = snapshot
+                perf_history.record(snapshot, time.time())
+            if now_mono - last_live_mono >= RUNTIME_STATS_LIVE_INTERVAL_S:
+                last_live_mono = now_mono
+                live = gc.runtime_stats.snapshot(live=True)
+                if live != shared_state.runtime_stats_live:
+                    shared_state.runtime_stats_live = live
+                    pending_commands.append(
+                        RuntimeStatsEvent(tag="runtime_stats", data=RuntimeStatsData(payload=live))
+                    )
+        except Exception as exc:
+            gc.logger.warning(f"runtime stats snapshot failed: {exc}")
 
         if pending_commands:
             gc.runtime_stats.observePerfMs("socket.queue_depth", float(queue_depth))
@@ -347,23 +371,12 @@ def runBroadcaster(gc: GlobalConfig) -> None:
                         "socket.known_object_send_age_ms",
                         max(0.0, (time.time() - float(updated_at)) * 1000.0),
                     )
-            if (
-                command.tag != "frame"
-                and command.tag != "heartbeat"
-                and command.tag != "runtime_stats"
-            ):
+            if command.tag != "runtime_stats":
                 gc.logger.debug(f"broadcasting {command.tag} event")
+            # Encodes the event once and hands it to the event loop; it never
+            # waits for a client (each has its own sender, see WsClient).
             send_started = time.perf_counter()
-            future = asyncio.run_coroutine_threadsafe(
-                broadcastEvent(payload), shared_state.server_loop
-            )
-            try:
-                future.result(timeout=1.0)
-            except Exception:
-                pass
-            # Time to push ONE event to all clients. Large here (with depth ~0)
-            # points at a slow client or a saturated asyncio loop (e.g. MJPEG),
-            # not a producer backlog.
+            shared_state.broadcast(payload)
             gc.runtime_stats.observePerfMs(
                 "socket.broadcast_event_ms",
                 (time.perf_counter() - send_started) * 1000.0,
@@ -378,14 +391,17 @@ def runBroadcaster(gc: GlobalConfig) -> None:
                 # Persist to the durable history so a stuck piece still shows up
                 # on /records (ordered by created_at) instead of vanishing —
                 # normally only distributed pieces get recorded.
-                try:
-                    import piece_records
+                import piece_records
 
-                    piece_records.recordPiece(
-                        full_payload, run_id=gc.run_id, machine_id=gc.machine_id
-                    )
-                except Exception as exc:
-                    gc.logger.warning(f"failed to record reaped piece: {exc}")
+                db.defer(
+                    "recordPiece (reaped)",
+                    functools.partial(
+                        piece_records.recordPiece,
+                        full_payload,
+                        run_id=gc.run_id,
+                        machine_id=gc.machine_id,
+                    ),
+                )
                 gc.logger.info(
                     "reaping stuck piece "
                     f"{str(full_payload.get('uuid', ''))[:8]} "
@@ -393,14 +409,7 @@ def runBroadcaster(gc: GlobalConfig) -> None:
                     f"status={getattr(full_payload.get('classification_status'), 'value', full_payload.get('classification_status'))}) "
                     "— no progress to distributed before timeout"
                 )
-                future = asyncio.run_coroutine_threadsafe(
-                    broadcastEvent({"tag": "known_object", "data": slim}),
-                    shared_state.server_loop,
-                )
-                try:
-                    future.result(timeout=1.0)
-                except Exception:
-                    pass
+                shared_state.broadcast({"tag": "known_object", "data": slim})
 
         time.sleep(gc.timeouts.main_loop_sleep_ms / 1000.0)
 
@@ -437,37 +446,33 @@ def main() -> None:
         sys.exit(1)
 
     gc = mkGlobalConfig()
+    db.configure(gc.logger)
     gc.run_recorder = RunRecorder(gc)
-    gc.lifetime_stats = LifetimeStatsTracker(gc)
+    gc.lifetime_stats = LifetimeStatsTracker()
     setGlobalConfig(gc)
-    rv = mkRuntimeVariables(gc)
-    setRuntimeVariables(rv)
     setCommandQueue(server_to_main_queue)
     startup_total_start = time.time()
 
-    with gc.profiler.timer("startup.irl_config_ms"):
-        irl_config = mkIRLConfig()
+    irl_config = mkIRLConfig()
 
     # Create a minimal IRL interface (no hardware discovery yet)
     irl = _mkIRLInterfaceStandby(irl_config, gc)
 
-    with gc.profiler.timer("startup.camera_service_init_ms"):
-        from vision.camera_service import CameraService
-        from defs.events import CameraHealthEvent, CameraHealthData
-        camera_service = CameraService(irl_config, gc)
-        setCameraService(camera_service)
+    from vision.camera_service import CameraService
+    from defs.events import CameraHealthEvent, CameraHealthData
+    camera_service = CameraService(irl_config, gc)
+    setCameraService(camera_service)
 
-        def _on_camera_health_change(health_map: dict[str, str]) -> None:
-            event = CameraHealthEvent(
-                tag="camera_health",
-                data=CameraHealthData(cameras=health_map),
-            )
-            main_to_server_queue.put(event)
+    def _on_camera_health_change(health_map: dict[str, str]) -> None:
+        event = CameraHealthEvent(
+            tag="camera_health",
+            data=CameraHealthData(cameras=health_map),
+        )
+        main_to_server_queue.put(event)
 
-        camera_service.set_health_event_callback(_on_camera_health_change)
-    with gc.profiler.timer("startup.vision_init_ms"):
-        vision = VisionManager(irl_config, gc, irl, camera_service)
-        setVisionManager(vision)
+    camera_service.set_health_event_callback(_on_camera_health_change)
+    vision = VisionManager(gc, camera_service)
+    setVisionManager(vision)
     # Controller is deferred until hardware is started
     controller = None
     controller_lock = threading.RLock()
@@ -486,7 +491,7 @@ def main() -> None:
 
     # Broadcast-liveness watchdog. The WS live feed (recent pieces, stall banner)
     # is pushed only by the broadcaster on the single asyncio loop. If that loop
-    # wedges (MJPEG saturation or a blocking call), broadcasts stop silently and
+    # wedges (a blocking call), broadcasts stop silently and
     # the feed freezes until restart — with no error anywhere in the logs. This
     # runs on its own thread (so it survives a wedged loop) and turns that
     # invisible freeze into one loud, timestamped WARN.
@@ -500,7 +505,7 @@ def main() -> None:
             time.sleep(CHECK_INTERVAL_S)
             try:
                 last_ok = ss.last_broadcast_ok_ts
-                n_clients = len(ss.active_connections)
+                n_clients = len(ss.ws_clients)
                 if last_ok <= 0.0 or n_clients == 0:
                     warned = False
                     continue
@@ -509,7 +514,7 @@ def main() -> None:
                     gc.logger.warning(
                         f"[broadcast-watchdog] no websocket broadcast for {stale_s:.1f}s "
                         f"with {n_clients} client(s) connected — asyncio loop likely wedged "
-                        "(MJPEG saturation or a blocking call); live feed frozen until it clears"
+                        "(a blocking call); live feed frozen until it clears"
                     )
                     warned = True
                 elif stale_s <= STALE_WARN_S and warned:
@@ -547,15 +552,8 @@ def main() -> None:
     except Exception:
         pass
 
-    with gc.profiler.timer("startup.camera_service_start_ms"):
-        camera_service.start()
-    # Rev04: build the perception service BEFORE vision.start() so the
-    # VisionManager's start path can see gc.perception_service and skip
-    # legacy detection startup in the new mode pair. The build() helper
-    # waits briefly for camera frames so the channel masks can be sized
-    # against the real camera resolution.
-    with gc.profiler.timer("startup.perception_start_ms"):
-        _maybeStartPerception(gc, irl_config, camera_service)
+    camera_service.start()
+    _startPerception(gc, irl_config, camera_service)
     # Mode-agnostic: the sample collector runs in every config, gated only by
     # its own enable toggle (persisted). Started after cameras so feeds exist.
     from sample_collector import SampleCollector
@@ -568,17 +566,15 @@ def main() -> None:
     hive_sync_worker = HiveSyncWorker(gc)
     hive_sync_worker.start()
     gc.hive_sync_worker = hive_sync_worker
-    with gc.profiler.timer("startup.vision_start_ms"):
-        vision.start()
+    vision.start()
     # A detection slot with no usable model gets Hive's default for this
     # machine's runtime, in the background (nothing happens when every slot
     # has one). See server/default_model.py.
     from server import default_model
     default_model.start(gc.logger)
-    with gc.profiler.timer("startup.waveshare_inventory_ms"):
-        waveshare_inventory = get_waveshare_inventory_manager()
-        waveshare_inventory.start()
-        waveshare_inventory.refresh()
+    waveshare_inventory = get_waveshare_inventory_manager()
+    waveshare_inventory.start()
+    waveshare_inventory.refresh()
 
     startup_total_ms = (time.time() - startup_total_start) * 1000
     gc.logger.info(f"standby startup complete in {startup_total_ms:.0f}ms")
@@ -665,33 +661,10 @@ def main() -> None:
         real_irl = mkIRLInterface(irl_config, gc)
         _replace_irl(real_irl)
         setHardwareRuntimeIRL(irl)
-        machine_setup = getattr(irl_config, "machine_setup", None)
-        manual_feed_mode = bool(
-            getattr(machine_setup, "manual_feed_mode", False)
-            if machine_setup is not None
-            else getattr(irl_config, "feeding_mode", "auto_channels") == "manual_carousel"
-        )
-
-        if machine_setup is not None:
-            gc.logger.info(
-                f"Machine setup selected: {machine_setup.key} "
-                f"(auto_feeder={machine_setup.automatic_feeder}, "
-                f"carousel_transport={machine_setup.uses_carousel_transport})"
-            )
         if _noPowerModeActive(gc):
             gc.logger.warning(
                 "NO_POWER_DEVELOPMENT_MODE=1: safe recovery will initialize runtime "
-                "without feeder calibration, spoke alignment, carousel homing, or chute homing."
-            )
-        if manual_feed_mode:
-            gc.logger.info(
-                "Manual carousel feed mode enabled: automatic C-channel feeding and feeder calibration are disabled."
-            )
-        elif machine_setup is not None and not machine_setup.runtime_supported:
-            gc.logger.warning(
-                "Machine setup %r is experimental. Homing rules are applied, but the "
-                "runtime is not implemented yet."
-                % machine_setup.key
+                "without spoke alignment or chute homing."
             )
 
         if gc.disable_servos:
@@ -721,107 +694,14 @@ def main() -> None:
                     gc.logger.warning(f"Failed to open servo: {e}. Continuing without initialization.")
             _checkServoBusHealth(gc, irl)
 
-        feeder_detection_ready = vision.initFeederDetection(manual_feed_mode=manual_feed_mode)
-        if manual_feed_mode:
-            if not feeder_detection_ready:
-                gc.logger.warning(
-                    "Manual carousel feed mode is enabled, but carousel trigger detection is not fully configured."
-                )
-        elif feeder_detection_ready and not _noPowerModeActive(gc) and bool(
-            getattr(machine_setup, "runs_reverse_pulse_calibration", True)
-        ):
-            # Reverse-pulse calibration seeds background-subtraction models
-            # (MOG2 / heatmap) with an empty-ring view. The feeder may have
-            # moved to Hive/Gemini and no longer need it, but the CAROUSEL
-            # heatmap still relies on this warm-up window unless it's also
-            # been switched to gemini_sam. Run the pulses whenever either
-            # subsystem still uses a baseline.
-            feeder_algorithms = (
-                vision.getFeederDetectionAlgorithms()
-                if hasattr(vision, "getFeederDetectionAlgorithms")
-                else {"feeder": vision.getFeederDetectionAlgorithm()}
-            )
-            feeder_mog2_roles = sorted(
-                role for role, algorithm in feeder_algorithms.items() if algorithm == "mog2"
-            )
-            feeder_needs_baseline = bool(feeder_mog2_roles)
-            carousel_needs_baseline = bool(
-                getattr(machine_setup, "uses_carousel_transport", True)
-            ) and vision.usesCarouselBaseline()
-            if feeder_needs_baseline or carousel_needs_baseline:
-                reason = []
-                if feeder_needs_baseline:
-                    reason.append(f"feeder(mog2)={','.join(feeder_mog2_roles)}")
-                if carousel_needs_baseline:
-                    reason.append("carousel=baseline")
-                shared_state.setHardwareStatus(homing_step="Calibrating feeder channels...")
-                gc.logger.info(
-                    f"Running feeder reverse-pulse calibration ({', '.join(reason)})"
-                )
-                calibrateFeederChannels(gc, irl, irl_config)
-            else:
-                gc.logger.info(
-                    f"Skipping feeder reverse-pulse calibration — "
-                    f"feeder_roles={feeder_algorithms!r}, carousel uses dynamic detection"
-                )
-        elif feeder_detection_ready:
-            gc.logger.info(
-                "Skipping feeder reverse-pulse calibration for machine setup %r."
-                % getattr(machine_setup, "key", "unknown")
-            )
-        else:
-            gc.logger.warning("Feeder channel polygons not found — continuing without feeder detection")
-
-        if irl_config.camera_layout == "split_feeder":
-            has_classification = (
-                vision._classification_top_capture is not None
-                or vision._classification_bottom_capture is not None
-            )
-            if has_classification and vision.usesClassificationBaseline():
-                if not vision.loadClassificationBaseline():
-                    gc.logger.warning("Classification baseline not found — continuing without classification")
-        elif vision.usesClassificationBaseline() and not vision.loadClassificationBaseline():
-            gc.logger.warning("Classification baseline not found — continuing without classification")
-
-        classification_mode = getattr(
-            getattr(irl_config, "classification_channel_config", None),
-            "mode",
-            None,
-        )
-        if (
-            classification_mode
-            in (
-                ClassificationChannelMode.SIMPLE_STATE_MACHINE_REV01,
-                ClassificationChannelMode.TWO_PIECE_STATE_MACHINE_REV01,
-            )
-            and not _noPowerModeActive(gc)
-        ):
-            from subsystems.classification_channel.simple_state_machine_rev01.spoke_home import (
+        if not _noPowerModeActive(gc):
+            from subsystems.classification_channel.two_piece.spoke_home import (
                 maybeRunSpokeHome,
             )
 
             shared_state.setHardwareStatus(homing_step="Aligning classification channel...")
             if not maybeRunSpokeHome(gc, irl, irl_config, vision):
                 gc.logger.warning("Classification-channel rev01 spoke home did not complete")
-
-        if _noPowerModeActive(gc):
-            gc.logger.info("Skipping carousel homing in no-power development mode.")
-        elif bool(getattr(machine_setup, "homes_carousel", True)):
-            shared_state.setHardwareStatus(homing_step="Homing carousel...")
-            carousel_hw = getattr(irl, "carousel_hw", None)
-            if carousel_hw is not None:
-                gc.logger.info("Homing carousel...")
-                if carousel_hw.home():
-                    gc.logger.info("Carousel homed successfully.")
-                else:
-                    raise RuntimeError("Carousel homing failed.")
-            else:
-                raise RuntimeError("Carousel hardware not initialized.")
-        else:
-            gc.logger.info(
-                "Skipping carousel homing for machine setup %r."
-                % getattr(machine_setup, "key", "unknown")
-            )
 
         # Build the coordinator while it is still private. The controller is
         # not published and not started until all homing is finished, so a
@@ -835,7 +715,7 @@ def main() -> None:
             shared_state.setHardwareStatus(homing_step="Homing distributor...")
 
         next_controller = SorterController(
-            irl, irl_config, gc, vision, main_to_server_queue, rv
+            irl, irl_config, gc, vision, main_to_server_queue
         )
 
         chute = getattr(next_controller.coordinator.distribution, "chute", None) if hasattr(next_controller, "coordinator") else None
@@ -917,6 +797,8 @@ def main() -> None:
             gc.run_recorder.save()
         except Exception as exc:
             gc.logger.warning(f"Failed to save run recorder during shutdown: {exc}")
+        if not db.drain(5.0):
+            gc.logger.warning("Shutting down with database writes still queued")
 
         try:
             vision.stop()
@@ -960,19 +842,15 @@ def main() -> None:
     elif DISABLE_STALLGUARD:
         gc.logger.info("StallGuard monitor not started (DISABLE_STALLGUARD=1).")
 
-    last_heartbeat = time.time()
     last_frame_record = time.time()
-    last_runtime_stats_broadcast = time.time()
     last_lifetime_flush = time.time()
-    last_runtime_perf_snapshot = time.time()
-    last_profiler_snapshot = time.time()
     last_main_loop_started = time.perf_counter()
+    db.watch_realtime_thread()
 
     try:
         while not shutdown_requested.is_set():
             loop_started = time.perf_counter()
-            gc.profiler.hit("main.loop.calls")
-            gc.profiler.mark("main.loop.interval_ms")
+            marks = [("start", loop_started)]
             gc.runtime_stats.observePerfMs(
                 "main.loop.interval_ms",
                 (loop_started - last_main_loop_started) * 1000.0,
@@ -988,84 +866,47 @@ def main() -> None:
                 pass
 
             current_time = time.time()
+            marks.append(("events", time.perf_counter()))
 
-            # send periodic heartbeat
-            # can probably remove this later, just helps debug web sockets from time to time
-            if (
-                current_time - last_heartbeat
-                >= gc.timeouts.heartbeat_interval_ms / 1000.0
-            ):
-                heartbeat = HeartbeatEvent(
-                    tag="heartbeat", data=HeartbeatData(timestamp=current_time)
-                )
-                main_to_server_queue.put(heartbeat)
-                last_heartbeat = current_time
-
-            # Video reaches the frontend only through MJPEG camera feeds. Keep
-            # this loop for heatmap/video-recorder frame capture, without
-            # broadcasting Base64 image payloads over the control WebSocket.
+            # Video reaches the frontend only through the video websocket
+            # (/ws/video). Keep this loop for heatmap/video-recorder frame
+            # capture, without sending images over the control WebSocket.
             if (
                 current_time - last_frame_record
                 >= FRAME_RECORD_INTERVAL_MS / 1000.0
             ):
-                with gc.profiler.timer("main.loop.record_frames_ms"):
-                    vision.recordFrames()
+                vision.recordFrames()
                 last_frame_record = current_time
+            marks.append(("frames", time.perf_counter()))
 
-            if (
-                current_time - last_runtime_stats_broadcast
-                >= RUNTIME_STATS_BROADCAST_INTERVAL_MS / 1000.0
-            ):
-                runtime_stats = RuntimeStatsEvent(
-                    tag="runtime_stats",
-                    data=RuntimeStatsData(payload=gc.runtime_stats.snapshot()),
-                )
-                main_to_server_queue.put(runtime_stats)
-                last_runtime_stats_broadcast = current_time
-
-            # Durable lifetime accumulator — periodic flush so powered/sorted
-            # time survives the soft-restart (os._exit) that skips save().
+            # Lifetime powered/sorted time: handed to the database writer every
+            # 10 s, so a crash loses at most that much.
             if current_time - last_lifetime_flush >= LIFETIME_FLUSH_INTERVAL_MS / 1000.0:
                 gc.lifetime_stats.flush()
                 last_lifetime_flush = current_time
-
-            if (
-                current_time - last_runtime_perf_snapshot
-                >= RUNTIME_STATS_BROADCAST_INTERVAL_MS / 1000.0
-            ):
-                recordRuntimePerfMetricSnapshot(
-                    gc.run_id,
-                    current_time,
-                    gc.runtime_stats.perfSnapshotRows(),
-                )
-                last_runtime_perf_snapshot = current_time
-
-            if (
-                gc.profiler.enabled
-                and current_time - last_profiler_snapshot >= gc.profiler.report_interval_s
-            ):
-                recordProfilerMetricSnapshot(
-                    gc.run_id,
-                    current_time,
-                    gc.profiler.snapshotRows(),
-                )
-                last_profiler_snapshot = current_time
+            marks.append(("lifetime", time.perf_counter()))
 
             with controller_lock:
                 current_controller = controller
             if current_controller is not None:
-                with gc.profiler.timer("main.loop.controller_step_ms"):
-                    controller_step_started = time.perf_counter()
+                controller_step_started = time.perf_counter()
+                try:
                     current_controller.step()
-                    gc.runtime_stats.observePerfMs(
-                        "main.loop.controller_step_ms",
-                        (time.perf_counter() - controller_step_started) * 1000.0,
-                    )
+                except MCUBusError as exc:
+                    _parkAfterLinkFailure(gc, current_controller, exc)
+                gc.runtime_stats.observePerfMs(
+                    "main.loop.controller_step_ms",
+                    (time.perf_counter() - controller_step_started) * 1000.0,
+                )
+            marks.append(("step", time.perf_counter()))
 
             time.sleep(gc.timeouts.main_loop_sleep_ms / 1000.0)
+            marks.append(("sleep", time.perf_counter()))
+            _warnIfLoopStalled(gc, marks)
     except KeyboardInterrupt:
         shutdown_reason["value"] = "KeyboardInterrupt"
     finally:
+        db.watch_realtime_thread(False)
         _shutdown_runtime(shutdown_reason["value"])
 
 

@@ -4,10 +4,9 @@ import json
 import sqlite3
 import threading
 import time
-from contextlib import contextmanager
 from typing import Any, Iterator, Optional
 
-from local_state import local_state_db_path
+import db
 
 # Durable per-piece sorting history. Lives in the shared local_state SQLite DB
 # (same file as the rest of the machine's persistent state) but owns its own
@@ -17,176 +16,124 @@ from local_state import local_state_db_path
 # Here each piece is written the instant it commits in distribution, so the
 # history survives any restart. Everything is a typed column — no JSON blobs.
 
-_INIT_LOCK = threading.Lock()
-_initialized = False
+
+def _createTables(conn: sqlite3.Connection) -> None:
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS piece_records ("
+        "id INTEGER PRIMARY KEY AUTOINCREMENT, "
+        "uuid TEXT UNIQUE, "
+        "run_id TEXT, "
+        "machine_id TEXT, "
+        "seen_at REAL, "
+        "recorded_at REAL, "
+        "classification_status TEXT, "
+        "part_id TEXT, "
+        "part_name TEXT, "
+        "color_id TEXT, "
+        "color_name TEXT, "
+        "category_id TEXT, "
+        "confidence REAL, "
+        "bin_x INTEGER, "
+        "bin_y INTEGER, "
+        "bin_z INTEGER, "
+        # 1 when the piece was reaped for going silent without ever
+        # reaching the distributed stage (see reapStuckPieces). Such
+        # rows have no bin; they are recorded so the history still shows
+        # what got stuck instead of silently dropping it.
+        "dead INTEGER NOT NULL DEFAULT 0"
+        ")"
+    )
+    # Columns added after the table first shipped.
+    db.add_columns(conn, "piece_records", {
+        "dead": "INTEGER NOT NULL DEFAULT 0",
+        "brickognize_preview_url": "TEXT",
+        # Brickognize-correction columns. The first four are provenance copied
+        # from the applied classification request (needed to address a
+        # correction to Brickognize's feedback API). The rest hold the user's
+        # correction: part_correct is NULL (unreviewed) / 1 (right) / 0
+        # (wrong); color_corrected_id is the user-picked true BrickLink color;
+        # the *_feedback_submitted flags record whether we sent it to
+        # Brickognize; correction_updated_at is the last correction edit time.
+        "brickognize_listing_id": "TEXT",
+        "brickognize_item_rank": "INTEGER",
+        "brickognize_item_type": "TEXT",
+        "brickognize_color_rank": "INTEGER",
+        "part_correct": "INTEGER",
+        "color_corrected_id": "TEXT",
+        "part_feedback_submitted": "INTEGER NOT NULL DEFAULT 0",
+        "color_feedback_submitted": "INTEGER NOT NULL DEFAULT 0",
+        "correction_updated_at": "REAL",
+        # Which service actually produced this piece's color / mold (see
+        # classification.providers). NULL on rows written before the
+        # providers were selectable.
+        "color_provider": "TEXT",
+        "mold_provider": "TEXT",
+        # The applied color's own score, kept apart from the mold score
+        # in `confidence`. NULL on rows written before the split.
+        "color_confidence": "REAL",
+    })
+    # Operator-flagged capture issues, one row per (piece, reason) so the
+    # flags are queryable — "how many pieces were flagged blurry this
+    # week" is a GROUP BY, not a scan-and-parse over blobs. Reason codes
+    # are free-form slugs; the first three ("no_piece" / "multiple_pieces"
+    # / "not_lego") match Hive's piece_rejections vocabulary so an
+    # operator's verdict and a Hive labeler's verdict mean the same thing.
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS piece_rejection_reasons ("
+        "piece_uuid TEXT NOT NULL, "
+        "reason TEXT NOT NULL, "
+        "updated_at REAL NOT NULL, "
+        "PRIMARY KEY (piece_uuid, reason)"
+        ")"
+    )
+    conn.execute(
+        "CREATE INDEX IF NOT EXISTS idx_piece_rejection_reasons_reason "
+        "ON piece_rejection_reasons(reason)"
+    )
+    # Append-only log of correction edits, drained to Hive by the sync
+    # worker on its own watermark (id). Each edit appends a fresh row so
+    # the monotonic id advances even when the same piece is corrected
+    # twice (e.g. mark, then submit); Hive upserts the latest per piece.
+    #
+    # rejection_reasons is a JSON list HERE and only here: a journal row
+    # is one atomic snapshot of a piece's state at an instant, and the
+    # drain reads by id in batches (CORRECTIONS_BATCH). Splitting one
+    # edit's reasons across several journal rows would let a batch
+    # boundary land mid-edit and sync a partial set to Hive. Both ends
+    # store the reasons as rows; only the message between them is a list.
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS piece_corrections ("
+        "id INTEGER PRIMARY KEY AUTOINCREMENT, "
+        "piece_uuid TEXT NOT NULL, "
+        "part_correct INTEGER, "
+        "color_corrected_id TEXT, "
+        "part_feedback_submitted INTEGER NOT NULL DEFAULT 0, "
+        "color_feedback_submitted INTEGER NOT NULL DEFAULT 0, "
+        "updated_at REAL NOT NULL, "
+        "rejection_reasons TEXT"
+        ")"
+    )
+    db.add_columns(conn, "piece_corrections", {"rejection_reasons": "TEXT"})
+    conn.execute(
+        "CREATE INDEX IF NOT EXISTS idx_piece_corrections_uuid "
+        "ON piece_corrections(piece_uuid)"
+    )
+    conn.execute(
+        "CREATE INDEX IF NOT EXISTS idx_piece_records_seen "
+        "ON piece_records(seen_at)"
+    )
+    conn.execute(
+        "CREATE INDEX IF NOT EXISTS idx_piece_records_part "
+        "ON piece_records(part_id)"
+    )
+    conn.execute(
+        "CREATE INDEX IF NOT EXISTS idx_piece_records_run "
+        "ON piece_records(run_id)"
+    )
 
 
-def _connect() -> sqlite3.Connection:
-    db_path = local_state_db_path()
-    db_path.parent.mkdir(parents=True, exist_ok=True)
-    conn = sqlite3.connect(db_path, timeout=5.0)
-    conn.row_factory = sqlite3.Row
-    conn.execute("PRAGMA journal_mode = WAL")
-    conn.execute("PRAGMA busy_timeout = 5000")
-    return conn
-
-
-@contextmanager
-def _connection() -> Iterator[sqlite3.Connection]:
-    _ensureInitialized()
-    conn = _connect()
-    try:
-        yield conn
-    finally:
-        conn.close()
-
-
-def _ensureInitialized() -> None:
-    global _initialized
-    if _initialized:
-        return
-    with _INIT_LOCK:
-        if _initialized:
-            return
-        conn = _connect()
-        try:
-            conn.execute(
-                "CREATE TABLE IF NOT EXISTS piece_records ("
-                "id INTEGER PRIMARY KEY AUTOINCREMENT, "
-                "uuid TEXT UNIQUE, "
-                "run_id TEXT, "
-                "machine_id TEXT, "
-                "seen_at REAL, "
-                "recorded_at REAL, "
-                "classification_status TEXT, "
-                "part_id TEXT, "
-                "part_name TEXT, "
-                "color_id TEXT, "
-                "color_name TEXT, "
-                "category_id TEXT, "
-                "confidence REAL, "
-                "bin_x INTEGER, "
-                "bin_y INTEGER, "
-                "bin_z INTEGER, "
-                # 1 when the piece was reaped for going silent without ever
-                # reaching the distributed stage (see reapStuckPieces). Such
-                # rows have no bin; they are recorded so the history still shows
-                # what got stuck instead of silently dropping it.
-                "dead INTEGER NOT NULL DEFAULT 0"
-                ")"
-            )
-            # Migrate DBs created before the dead column existed.
-            try:
-                conn.execute("ALTER TABLE piece_records ADD COLUMN dead INTEGER NOT NULL DEFAULT 0")
-            except sqlite3.OperationalError:
-                pass  # column already present
-            existing_columns = {
-                r["name"]
-                for r in conn.execute("PRAGMA table_info(piece_records)").fetchall()
-            }
-            if "brickognize_preview_url" not in existing_columns:
-                conn.execute(
-                    "ALTER TABLE piece_records ADD COLUMN brickognize_preview_url TEXT"
-                )
-            # Brickognize-correction columns. The first four are provenance copied
-            # from the applied classification request (needed to address a
-            # correction to Brickognize's feedback API). The rest hold the user's
-            # correction: part_correct is NULL (unreviewed) / 1 (right) / 0
-            # (wrong); color_corrected_id is the user-picked true BrickLink color;
-            # the *_feedback_submitted flags record whether we sent it to
-            # Brickognize; correction_updated_at is the last correction edit time.
-            for _col, _ddl in (
-                ("brickognize_listing_id", "TEXT"),
-                ("brickognize_item_rank", "INTEGER"),
-                ("brickognize_item_type", "TEXT"),
-                ("brickognize_color_rank", "INTEGER"),
-                ("part_correct", "INTEGER"),
-                ("color_corrected_id", "TEXT"),
-                ("part_feedback_submitted", "INTEGER NOT NULL DEFAULT 0"),
-                ("color_feedback_submitted", "INTEGER NOT NULL DEFAULT 0"),
-                ("correction_updated_at", "REAL"),
-                # Which service actually produced this piece's color / mold (see
-                # classification.providers). NULL on rows written before the
-                # providers were selectable.
-                ("color_provider", "TEXT"),
-                ("mold_provider", "TEXT"),
-                # The applied color's own score, kept apart from the mold score
-                # in `confidence`. NULL on rows written before the split.
-                ("color_confidence", "REAL"),
-            ):
-                if _col not in existing_columns:
-                    conn.execute(
-                        f"ALTER TABLE piece_records ADD COLUMN {_col} {_ddl}"
-                    )
-            # Operator-flagged capture issues, one row per (piece, reason) so the
-            # flags are queryable — "how many pieces were flagged blurry this
-            # week" is a GROUP BY, not a scan-and-parse over blobs. Reason codes
-            # are free-form slugs; the first three ("no_piece" / "multiple_pieces"
-            # / "not_lego") match Hive's piece_rejections vocabulary so an
-            # operator's verdict and a Hive labeler's verdict mean the same thing.
-            conn.execute(
-                "CREATE TABLE IF NOT EXISTS piece_rejection_reasons ("
-                "piece_uuid TEXT NOT NULL, "
-                "reason TEXT NOT NULL, "
-                "updated_at REAL NOT NULL, "
-                "PRIMARY KEY (piece_uuid, reason)"
-                ")"
-            )
-            conn.execute(
-                "CREATE INDEX IF NOT EXISTS idx_piece_rejection_reasons_reason "
-                "ON piece_rejection_reasons(reason)"
-            )
-            # Append-only log of correction edits, drained to Hive by the sync
-            # worker on its own watermark (id). Each edit appends a fresh row so
-            # the monotonic id advances even when the same piece is corrected
-            # twice (e.g. mark, then submit); Hive upserts the latest per piece.
-            #
-            # rejection_reasons is a JSON list HERE and only here: a journal row
-            # is one atomic snapshot of a piece's state at an instant, and the
-            # drain reads by id in batches (CORRECTIONS_BATCH). Splitting one
-            # edit's reasons across several journal rows would let a batch
-            # boundary land mid-edit and sync a partial set to Hive. Both ends
-            # store the reasons as rows; only the message between them is a list.
-            conn.execute(
-                "CREATE TABLE IF NOT EXISTS piece_corrections ("
-                "id INTEGER PRIMARY KEY AUTOINCREMENT, "
-                "piece_uuid TEXT NOT NULL, "
-                "part_correct INTEGER, "
-                "color_corrected_id TEXT, "
-                "part_feedback_submitted INTEGER NOT NULL DEFAULT 0, "
-                "color_feedback_submitted INTEGER NOT NULL DEFAULT 0, "
-                "updated_at REAL NOT NULL, "
-                "rejection_reasons TEXT"
-                ")"
-            )
-            existing_correction_columns = {
-                r["name"]
-                for r in conn.execute("PRAGMA table_info(piece_corrections)").fetchall()
-            }
-            if "rejection_reasons" not in existing_correction_columns:
-                conn.execute(
-                    "ALTER TABLE piece_corrections ADD COLUMN rejection_reasons TEXT"
-                )
-            conn.execute(
-                "CREATE INDEX IF NOT EXISTS idx_piece_corrections_uuid "
-                "ON piece_corrections(piece_uuid)"
-            )
-            conn.execute(
-                "CREATE INDEX IF NOT EXISTS idx_piece_records_seen "
-                "ON piece_records(seen_at)"
-            )
-            conn.execute(
-                "CREATE INDEX IF NOT EXISTS idx_piece_records_part "
-                "ON piece_records(part_id)"
-            )
-            conn.execute(
-                "CREATE INDEX IF NOT EXISTS idx_piece_records_run "
-                "ON piece_records(run_id)"
-            )
-            conn.commit()
-            _initialized = True
-        finally:
-            conn.close()
+def _connection():
+    return db.connect(_createTables)
 
 
 def recordPiece(
@@ -1019,3 +966,22 @@ def getAggregates(gc: Any, *, days: int = 365) -> dict[str, Any]:
     with _AGGREGATES_LOCK:
         _aggregates_memo[days] = (time.time() + _AGGREGATES_TTL_S, guard, result)
     return result
+
+
+def rateBuckets(since: float, bucket_s: float) -> list[dict[str, Any]]:
+    """Pieces seen, classified and multi-dropped per ``bucket_s`` since ``since``
+    (epoch seconds): the dashboard's rate graph. Buckets with no pieces are
+    left out."""
+    bucket_s = max(10.0, float(bucket_s))
+    with _connection() as conn:
+        rows = conn.execute(
+            "SELECT CAST((seen_at - ?) / ? AS INTEGER) AS b, COUNT(*), "
+            "SUM(classification_status = 'classified'), "
+            "SUM(classification_status = 'multi_drop_fail') "
+            "FROM piece_records WHERE dead = 0 AND seen_at >= ? GROUP BY b ORDER BY b",
+            (since, bucket_s, since),
+        ).fetchall()
+    return [
+        {"t": since + b * bucket_s, "seen": seen, "classified": classified or 0, "multi_drop": multi or 0}
+        for b, seen, classified, multi in rows
+    ]

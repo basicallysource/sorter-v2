@@ -111,6 +111,7 @@ for (const [path, raw] of Object.entries(dataFiles)) {
 			length_min_mm: h.cots?.length_min_mm ?? null,
 			length_max_mm: h.cots?.length_max_mm ?? null,
 			alternative: h.alternative,
+			optional: !!h.cots?.optional,
 			conflicts: h.conflicts,
 			detail: {
 				kind: 'cots',
@@ -121,7 +122,11 @@ for (const [path, raw] of Object.entries(dataFiles)) {
 				vendors: (h.sourcing?.vendors ?? []).map((v: any) => ({
 					vendor: v.vendor,
 					region: v.region,
-					url: v.affiliate_url ?? v.url
+					url: v.affiliate_url ?? v.url,
+					// Set only on a row that carries the project's referral tag: the
+					// modal shows the untagged listing next to it.
+					plain_url: v.affiliate_url ? v.url : undefined,
+					note: v.note
 				})),
 				stock_label: h.stock?.unit_label,
 				sheet_qty_text: h.sheet_qty_text,
@@ -172,6 +177,8 @@ for (const [path, raw] of Object.entries(dataFiles)) {
 			image: lc.photo,
 			category: 'Laser-cut parts',
 			caption: lc.caption,
+			variant_group: lc.variant_group,
+			variant_name: lc.variant_name,
 			detail: {
 				kind: 'lasercut',
 				uid: lc.uid,
@@ -394,6 +401,10 @@ export type ResolvedPart = {
 	page?: string;
 	qty?: number;
 	caption?: string;
+	/** This page's own remark on the part, from its parts_needed entry. Shown in place of the caption. */
+	note?: string;
+	/** Used only while building this page's step and taken out again; not a part of the machine. */
+	temporary?: boolean;
 	// Screw length in mm, stamped on the corner of the card image. One photo
 	// stands in for a whole family of screws, so the length is the one thing it
 	// cannot show, the same reason the parts calculator's hardware list carries it.
@@ -405,6 +416,13 @@ export type ResolvedPart = {
 	// Interchangeable alternative (e.g. socket vs button head): true for a bare
 	// tag, or a string naming the alternative. Renders the green "A" badge.
 	alternative?: string | boolean;
+	// Bought item the build works without (the WiFi module).
+	// Straight off the catalog's `cots.optional`, the same flag the parts
+	// calculator badges, so the two sites mark the same parts. Printed parts
+	// carry an `optional` of their own and it is deliberately not read here:
+	// there it marks the bin and funnel variants, and every bin card on a layer
+	// page would wear the badge.
+	optional?: boolean;
 	// Unresolved factual disagreement between the docs and parts-calculator
 	// catalogs, recorded at their 2026-08-21 merge. Renders the amber "?"
 	// badge and the legend below the cards. Resolving one = fixing the field
@@ -421,6 +439,9 @@ export type ResolvedPart = {
 	// foldVariants.
 	variant_group?: string | null;
 	variant_name?: string | null;
+	// Heading over the "or" row, from the page's own parts_needed entry; a family
+	// the page does not title gets VARIANT_HEADINGS or the default.
+	variant_heading?: string | null;
 	/** Everything the part modal shows, taken straight off the calculator's
 	 *  generated catalog so the two never drift. Absent on a missing part. */
 	detail?: PartDetail;
@@ -460,7 +481,7 @@ export type PartDetail = {
 	low_tolerance_note?: string;
 	requires?: { id: string; name: string; qty: number }[];
 	// cots
-	vendors?: { vendor: string; region?: string; url: string }[];
+	vendors?: { vendor: string; region?: string; url: string; plain_url?: string; note?: string }[];
 	stock_label?: string;
 	sheet_qty_text?: string;
 	// laser-cut
@@ -469,12 +490,14 @@ export type PartDetail = {
 /** One alternative within a category: every part a reader takes if they pick
  *  this variant. `label` is the catalog's variant_name ("Half", "Third"). */
 export type PartsChoice = { label: string; parts: ResolvedPart[] };
+/** One family's alternatives, side by side under a heading. */
+export type PartsChoiceSet = { heading: string; options: PartsChoice[] };
 export type PartsGroup = {
 	category: string;
 	parts: ResolvedPart[];
 	// Rendered after `parts` as "one of these per layer", each choice separated
 	// by an "or". Empty on every page that lists at most one variant per group.
-	choices: PartsChoice[];
+	choices: PartsChoiceSet[];
 };
 export type ResolvedPerson = { name: string; url?: string };
 
@@ -486,36 +509,52 @@ function resolvePeople(ids: unknown): ResolvedPerson[] {
 	});
 }
 
-/** Move a category's one-of-these-per-layer families out of its flat card list
- *  and into `choices`, so the panel can show "Half OR Third" instead of every
- *  variant side by side as though a reader needed all of them. A page listing
- *  all five bins was reading as 30 bins where a layer takes 12 or 18.
+/** Move a variant family out of the flat card lists and into a choice, so the
+ *  panel can show "Half OR Third" instead of every variant side by side as
+ *  though a reader needed all of them. A page listing all five bins was
+ *  reading as 30 bins where a layer takes 12 or 18.
  *
- *  Only folds a group the page offers a real choice from: one variant_name is
- *  not a choice, so a page listing just the half bins renders unchanged. Order
- *  within a choice follows the page's own parts_needed, and the choices render
- *  above the category's plain cards: picking a variant is the decision that
- *  comes before shopping the rest, and both affected pages list their variants
- *  first. */
-function foldVariants(group: PartsGroup): void {
-	const byGroup = new Map<string, Map<string, ResolvedPart[]>>();
-	for (const p of group.parts) {
+ *  Only folds a family the page offers a real choice from: one variant_name is
+ *  not a choice, so a page listing just the half bins renders unchanged. A
+ *  family's variants can sit in different categories (laser-cut plates or
+ *  printed pieces for the same plate); the choice renders in the category of
+ *  the family's first listed part. Order within a choice follows the page's own
+ *  parts_needed, and the choices render above the category's plain cards:
+ *  picking a variant is the decision that comes before shopping the rest. */
+const VARIANT_HEADINGS: Record<string, string> = {
+	bin: 'One of these per layer',
+	funnel: 'One of these per layer',
+	'cable-cage-plates': 'Cable cage plates: laser cut or 3D printed'
+};
+
+function foldVariants(groups: PartsGroup[], listed: ResolvedPart[]): void {
+	type Family = { home: PartsGroup; variants: Map<string, ResolvedPart[]> };
+	const byFamily = new Map<string, Family>();
+	for (const p of listed) {
 		if (!p.variant_group || !p.variant_name) continue;
-		let variants = byGroup.get(p.variant_group);
-		if (!variants) byGroup.set(p.variant_group, (variants = new Map()));
-		const bucket = variants.get(p.variant_name);
+		let fam = byFamily.get(p.variant_group);
+		if (!fam) {
+			const home = groups.find((g) => g.parts.includes(p));
+			if (!home) continue;
+			byFamily.set(p.variant_group, (fam = { home, variants: new Map() }));
+		}
+		const bucket = fam.variants.get(p.variant_name);
 		if (bucket) bucket.push(p);
-		else variants.set(p.variant_name, [p]);
+		else fam.variants.set(p.variant_name, [p]);
 	}
 	const folded = new Set<ResolvedPart>();
-	for (const variants of byGroup.values()) {
-		if (variants.size < 2) continue;
-		for (const [label, parts] of variants) {
-			group.choices.push({ label, parts });
+	for (const [group, fam] of byFamily) {
+		if (fam.variants.size < 2) continue;
+		const options: PartsChoice[] = [];
+		let heading: string | null | undefined;
+		for (const [label, parts] of fam.variants) {
+			options.push({ label, parts });
+			heading ??= parts.find((p) => p.variant_heading)?.variant_heading;
 			for (const p of parts) folded.add(p);
 		}
+		fam.home.choices.push({ heading: heading ?? VARIANT_HEADINGS[group] ?? 'One of these per layer', options });
 	}
-	if (folded.size) group.parts = group.parts.filter((p) => !folded.has(p));
+	if (folded.size) for (const g of groups) g.parts = g.parts.filter((p) => !folded.has(p));
 }
 
 function resolveParts(partsNeeded: any[]): { groups: PartsGroup[]; conflicts: ResolvedPart[] } {
@@ -523,8 +562,10 @@ function resolveParts(partsNeeded: any[]): { groups: PartsGroup[]; conflicts: Re
 	const resolved: Array<ResolvedPart & { category: string }> = partsNeeded.map((entry) => {
 		const id = typeof entry === 'string' ? entry : entry.part;
 		const qty = typeof entry === 'object' ? entry.qty : undefined;
+		const note = typeof entry === 'object' ? entry.note : undefined;
+		const temporary = typeof entry === 'object' && entry.temporary === true ? true : undefined;
 		const part = catalog[id];
-		if (!part) return { id, name: id, qty, missing: true, category: 'Other' };
+		if (!part) return { id, name: id, qty, note, temporary, missing: true, category: 'Other' };
 		return {
 			id,
 			name: part.name,
@@ -535,12 +576,18 @@ function resolveParts(partsNeeded: any[]): { groups: PartsGroup[]; conflicts: Re
 			length_min_mm: part.length_min_mm,
 			length_max_mm: part.length_max_mm,
 			alternative: part.alternative,
+			optional: part.optional,
 			conflicts: part.conflicts,
 			detail: part.detail,
 			qty,
+			note,
+			temporary,
 			category: part.category ?? 'Other',
-			variant_group: part.variant_group,
-			variant_name: part.variant_name
+			// A page can group parts that are alternatives for one job on its own
+			// (the hub's 24 V lead); the catalog's tags are for the per-layer families.
+			variant_group: entry.variant_group ?? part.variant_group,
+			variant_name: entry.variant_name ?? part.variant_name,
+			variant_heading: entry.variant_heading
 		};
 	});
 	const groups: PartsGroup[] = [];
@@ -549,7 +596,7 @@ function resolveParts(partsNeeded: any[]): { groups: PartsGroup[]; conflicts: Re
 		if (!g) groups.push((g = { category: p.category, parts: [], choices: [] }));
 		g.parts.push(p);
 	}
-	for (const g of groups) foldVariants(g);
+	foldVariants(groups, resolved);
 	return { groups, conflicts: resolved.filter((p) => p.conflicts?.length) };
 }
 

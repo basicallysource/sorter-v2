@@ -1,290 +1,45 @@
-import queue
 import unittest
 
-from defs.known_object import ClassificationStatus, KnownObject, PieceStage
-from irl.config import ClassificationChannelConfig
+from defs.known_object import KnownObject
 from piece_transport import ClassificationChannelTransport
-from subsystems.classification.carousel import Carousel
-from subsystems.classification_channel.zone_manager import TrackAngularExtent
 from utils.event import knownObjectToEvent
 
 
-class _Logger:
-    def info(self, *args, **kwargs) -> None:
-        pass
-
-
 class ClassificationChannelTransportTests(unittest.TestCase):
-    def test_register_resolve_park_and_drop_piece(self) -> None:
+    def test_placed_piece_moves_to_the_drop_slot_when_flung(self) -> None:
         transport = ClassificationChannelTransport()
+        piece = KnownObject()
 
-        piece = transport.registerIncomingPiece()
-        self.assertIs(piece, transport.getPieceAtClassification())
-        self.assertIsNone(transport.getPieceAtWaitZone())
-        self.assertIsNone(transport.getPieceForDistributionPositioning())
-        self.assertIsNone(transport.getPieceForDistributionDrop())
-
-        transport.markPendingClassification(piece)
-        resolved = transport.resolveClassification(
-            piece.uuid,
-            "3001",
-            "5",
-            "Red",
-            0.97,
-            part_name="Brick 2 x 4",
-            part_category="Brick",
-        )
-
-        self.assertTrue(resolved)
-        self.assertEqual("3001", piece.part_id)
-        self.assertEqual("Brick 2 x 4", piece.part_name)
-        self.assertEqual("Brick", piece.part_category)
-        self.assertEqual("5", piece.color_id)
-        self.assertEqual("Red", piece.color_name)
-        self.assertEqual(ClassificationStatus.classified, piece.classification_status)
-
-        first_advance = transport.advanceTransport()
-        self.assertIsNone(first_advance.piece_at_classification)
-        self.assertIsNone(first_advance.piece_for_distribution_drop)
-        self.assertIs(piece, transport.getPieceAtWaitZone())
+        transport.placePieceForDistribution(piece)
         self.assertIs(piece, transport.getPieceForDistributionPositioning())
         self.assertIsNone(transport.getPieceForDistributionDrop())
 
-        second_advance = transport.advanceTransport()
-        self.assertIsNone(second_advance.piece_at_classification)
-        self.assertIs(piece, second_advance.piece_for_distribution_drop)
-        self.assertIsNone(transport.getPieceAtWaitZone())
-        self.assertIs(piece, transport.getPieceForDistributionDrop())
-        self.assertIsNone(transport.getPieceAtClassification())
-
-    def test_single_pulse_can_drop_wait_piece_and_park_next_piece(self) -> None:
-        transport = ClassificationChannelTransport()
-
-        first = transport.registerIncomingPiece()
-        self.assertEqual(1, transport.getActivePieceCount())
         transport.advanceTransport()
-        self.assertEqual(1, transport.getActivePieceCount())
-        self.assertIs(first, transport.getPieceAtWaitZone())
+        self.assertIsNone(transport.getPieceForDistributionPositioning())
+        self.assertIs(piece, transport.getPieceForDistributionDrop())
 
-        second = transport.registerIncomingPiece()
-        self.assertEqual(2, transport.getActivePieceCount())
-        self.assertIs(second, transport.getPieceAtClassification())
+    def test_next_piece_replaces_the_dropped_one_on_the_next_fling(self) -> None:
+        transport = ClassificationChannelTransport()
+        first, second = KnownObject(), KnownObject()
 
-        advance = transport.advanceTransport()
-        self.assertIs(first, advance.piece_for_distribution_drop)
-        self.assertIs(second, transport.getPieceAtWaitZone())
+        transport.placePieceForDistribution(first)
+        transport.advanceTransport()
+        transport.placePieceForDistribution(second)
         self.assertIs(first, transport.getPieceForDistributionDrop())
-        self.assertIsNone(transport.getPieceAtClassification())
-        # ``first`` has physically dropped into the distribution chute — it
-        # no longer occupies the classification channel for admission
-        # purposes, so only ``second`` (at wait) counts as active.
-        self.assertEqual(1, transport.getActivePieceCount())
 
-    def test_dynamic_mode_tracks_active_pieces_by_track_id(self) -> None:
+        transport.advanceTransport()
+        self.assertIs(second, transport.getPieceForDistributionDrop())
+
+    def test_clear_only_removes_the_named_piece(self) -> None:
         transport = ClassificationChannelTransport()
-        config = ClassificationChannelConfig()
-        transport.configureDynamicMode(config)
+        piece, other = KnownObject(), KnownObject()
+        transport.placePieceForDistribution(piece)
 
-        piece = transport.registerIncomingPiece(tracked_global_id=41)
-        for ts in (1.0, 2.0, 3.0):
-            zones, expired = transport.updateTrackedPieces(
-                [
-                    TrackAngularExtent(
-                        global_id=41,
-                        center_deg=24.0,
-                        half_width_deg=5.0,
-                        last_seen_ts=ts,
-                        hit_count=4,
-                    )
-                ]
-            )
-
-        self.assertEqual([], expired)
-        self.assertEqual(1, len(zones))
-        self.assertEqual(1, transport.getActivePieceCount())
-        self.assertIs(piece, transport.pieceForTrack(41))
-        self.assertEqual("S", piece.classification_channel_size_class)
-        self.assertAlmostEqual(24.0, piece.classification_channel_zone_center_deg)
-        self.assertAlmostEqual(-6.0, piece.classification_channel_exit_offset_deg)
-        self.assertAlmostEqual(24.0, piece.first_carousel_seen_angle_deg)
-        event = knownObjectToEvent(piece)
-        self.assertEqual("tracked", event.data.classification_channel_zone_state)
-        self.assertAlmostEqual(24.0, event.data.classification_channel_zone_center_deg)
-        self.assertAlmostEqual(7.0, event.data.classification_channel_zone_half_width_deg)
-        self.assertAlmostEqual(-6.0, event.data.classification_channel_exit_offset_deg)
-        self.assertAlmostEqual(24.0, event.data.first_carousel_seen_angle_deg)
-
-    def test_dynamic_mode_drop_removes_piece_and_sets_exit_buffer(self) -> None:
-        transport = ClassificationChannelTransport()
-        config = ClassificationChannelConfig()
-        transport.configureDynamicMode(config)
-
-        piece = transport.registerIncomingPiece(tracked_global_id=11)
-        transport.updateTrackedPieces(
-            [
-                TrackAngularExtent(
-                    global_id=11,
-                    center_deg=178.0,
-                    half_width_deg=7.0,
-                    last_seen_ts=1.0,
-                    hit_count=5,
-                )
-            ]
-        )
-        transport.setPositioningPiece(piece.uuid)
-
-        advance = transport.advanceTransport(dropped_uuid=piece.uuid)
-
-        self.assertIs(piece, advance.piece_for_distribution_drop)
-        self.assertIs(piece, transport.getPieceForDistributionDrop())
-        self.assertIsNone(transport.pieceForTrack(11))
-        self.assertEqual(0, transport.getActivePieceCount())
-        self.assertIsNone(transport.getPieceForDistributionPositioning())
-
-    def test_dynamic_mode_exit_piece_clears_on_next_advance(self) -> None:
-        """``_exit_piece`` must survive until the NEXT advanceTransport.
-
-        The distribution Sending state reads
-        ``getPieceForDistributionDrop()`` after the chute-settle timer to
-        commit the drop. That read must keep returning the dropped piece
-        until the next carousel pulse advances the transport — otherwise
-        Sending races against its own commit and loses the reference to
-        the piece it was dropping.
-        """
-        transport = ClassificationChannelTransport()
-        config = ClassificationChannelConfig()
-        transport.configureDynamicMode(config)
-
-        piece = transport.registerIncomingPiece(tracked_global_id=77)
-        transport.updateTrackedPieces(
-            [
-                TrackAngularExtent(
-                    global_id=77,
-                    center_deg=30.0,
-                    half_width_deg=6.0,
-                    last_seen_ts=1.0,
-                    hit_count=4,
-                )
-            ]
-        )
-        transport.setPositioningPiece(piece.uuid)
-
-        advance = transport.advanceTransport(dropped_uuid=piece.uuid)
-        self.assertIs(piece, advance.piece_for_distribution_drop)
-        self.assertIs(piece, transport.getPieceForDistributionDrop())
-
-        # Second advance with no new drop: exit buffer must clear on the
-        # very next pulse so a subsequent piece's getPieceForDistributionDrop
-        # doesn't resurface the already-dropped uuid.
-        next_advance = transport.advanceTransport()
-        self.assertIsNone(next_advance.piece_for_distribution_drop)
-        self.assertIsNone(transport.getPieceForDistributionDrop())
-
-    def test_fallback_classification_clears_previous_distribution_target(self) -> None:
-        transport = ClassificationChannelTransport()
-        config = ClassificationChannelConfig()
-        transport.configureDynamicMode(config)
-
-        piece = transport.registerIncomingPiece(tracked_global_id=21)
-        piece.category_id = "plates"
-        piece.destination_bin = (0, 1, 2)
-        transport.markPendingClassification(piece)
-
-        resolved = transport.resolveFallbackClassification(
-            piece.uuid,
-            status=ClassificationStatus.multi_drop_fail,
-        )
-
-        self.assertTrue(resolved)
-        self.assertIsNone(piece.part_id)
-        self.assertIsNone(piece.category_id)
-        self.assertIsNone(piece.destination_bin)
-        self.assertEqual(ClassificationStatus.multi_drop_fail, piece.classification_status)
-
-    def test_dynamic_mode_expires_untracked_piece_after_zone_timeout(self) -> None:
-        transport = ClassificationChannelTransport()
-        config = ClassificationChannelConfig()
-        config.stale_zone_timeout_s = 0.1
-        transport.configureDynamicMode(config)
-
-        piece = transport.registerIncomingPiece(tracked_global_id=33)
-        transport.updateTrackedPieces(
-            [
-                TrackAngularExtent(
-                    global_id=33,
-                    center_deg=12.0,
-                    half_width_deg=6.0,
-                    last_seen_ts=1.0,
-                    hit_count=4,
-                )
-            ]
-        )
-
-        self.assertEqual(1, transport.getActivePieceCount())
-        _zones, expired = transport.updateTrackedPieces([])
-
-        # Still provisionally alive until the zone timeout elapses.
-        self.assertEqual(1, transport.getActivePieceCount())
-        self.assertEqual([], expired)
-
-        import time
-
-        time.sleep(0.12)
-        _zones, expired = transport.updateTrackedPieces([])
-
-        self.assertEqual(0, transport.getActivePieceCount())
-        self.assertIsNone(transport.pieceForTrack(33))
-        self.assertIsNone(transport.getPieceAtClassification())
-        # The expired piece must be returned so the caller can broadcast a
-        # terminal KnownObject event; ``stage`` + ``distributed_at`` are
-        # already stamped so the frontend drops it from the upcoming list
-        # the moment the re-acquired track spawns a fresh uuid.
-        self.assertEqual(1, len(expired))
-        self.assertIs(piece, expired[0])
-        self.assertEqual(PieceStage.distributed, expired[0].stage)
-        self.assertIsNotNone(expired[0].distributed_at)
-
-    def test_dynamic_mode_reset_clears_virtual_transport_state(self) -> None:
-        transport = ClassificationChannelTransport()
-        config = ClassificationChannelConfig()
-        transport.configureDynamicMode(config)
-
-        piece = transport.registerIncomingPiece(tracked_global_id=55)
-        transport.setPositioningPiece(piece.uuid)
-        transport.advanceTransport(dropped_uuid=piece.uuid)
-
-        self.assertIsNotNone(transport.getPieceForDistributionDrop())
-        transport.resetDynamicState()
-
-        self.assertEqual(0, transport.getActivePieceCount())
-        self.assertIsNone(transport.getPieceForDistributionDrop())
-        self.assertIsNone(transport.getPieceAtClassification())
-        self.assertIsNone(transport.getPieceForDistributionPositioning())
-
-
-class CarouselTransportTests(unittest.TestCase):
-    def test_carousel_transport_interface_maps_existing_positions(self) -> None:
-        transport = Carousel(_Logger(), queue.Queue())
-        self.assertEqual(0, transport.getActivePieceCount())
-
-        piece = transport.registerIncomingPiece()
-        self.assertEqual(1, transport.getActivePieceCount())
-        self.assertIsNone(transport.getPieceAtClassification())
-
-        first_advance = transport.advanceTransport()
-        self.assertIs(piece, first_advance.piece_at_classification)
-        self.assertIs(piece, transport.getPieceAtClassification())
-        self.assertIsNone(transport.getPieceForDistributionPositioning())
-        self.assertIsNone(transport.getPieceForDistributionDrop())
-
-        second_advance = transport.advanceTransport()
-        self.assertIsNone(second_advance.piece_at_classification)
+        self.assertFalse(transport.clearPieceForDistribution(other))
         self.assertIs(piece, transport.getPieceForDistributionPositioning())
-
-        third_advance = transport.advanceTransport()
-        self.assertIs(piece, third_advance.piece_for_distribution_drop)
-        self.assertIs(piece, transport.getPieceForDistributionDrop())
-        self.assertEqual(1, transport.getActivePieceCount())
+        self.assertTrue(transport.clearPieceForDistribution(piece))
+        self.assertIsNone(transport.getPieceForDistributionPositioning())
+        self.assertFalse(transport.clearPieceForDistribution())
 
 
 class KnownObjectDropSnapshotTests(unittest.TestCase):
@@ -304,51 +59,6 @@ class KnownObjectDropSnapshotTests(unittest.TestCase):
         piece = KnownObject()
         event = knownObjectToEvent(piece)
         self.assertIsNone(event.data.drop_snapshot)
-
-
-class ClassificationChannelFallbackTests(unittest.TestCase):
-    def test_multi_drop_fallback_overrides_classified_piece(self) -> None:
-        transport = ClassificationChannelTransport()
-        config = ClassificationChannelConfig()
-        transport.configureDynamicMode(config)
-
-        piece = transport.registerIncomingPiece(tracked_global_id=91)
-        piece.classification_status = ClassificationStatus.classified
-        piece.part_id = "4599b"
-        piece.part_name = "Tap 1 x 1 without Hole in Nozzle End"
-        piece.part_category = "Minifigs and Accessories"
-        piece.color_id = "7"
-        piece.color_name = "Blue"
-        piece.destination_bin = (0, 2, 1)
-        piece.confidence = 0.65
-
-        resolved = transport.resolveFallbackClassification(
-            piece.uuid,
-            status=ClassificationStatus.multi_drop_fail,
-        )
-
-        self.assertTrue(resolved)
-        self.assertEqual(ClassificationStatus.multi_drop_fail, piece.classification_status)
-        self.assertIsNone(piece.part_id)
-        self.assertIsNone(piece.destination_bin)
-
-    def test_unknown_fallback_does_not_override_classified_piece(self) -> None:
-        transport = ClassificationChannelTransport()
-        config = ClassificationChannelConfig()
-        transport.configureDynamicMode(config)
-
-        piece = transport.registerIncomingPiece(tracked_global_id=92)
-        piece.classification_status = ClassificationStatus.classified
-        piece.part_id = "3001"
-
-        resolved = transport.resolveFallbackClassification(
-            piece.uuid,
-            status=ClassificationStatus.unknown,
-        )
-
-        self.assertFalse(resolved)
-        self.assertEqual(ClassificationStatus.classified, piece.classification_status)
-        self.assertEqual("3001", piece.part_id)
 
 
 if __name__ == "__main__":

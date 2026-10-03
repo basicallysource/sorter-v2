@@ -4,6 +4,11 @@
 	import { goto } from '$app/navigation';
 	import Badge from '$lib/components/Badge.svelte';
 	import Spinner from '$lib/components/Spinner.svelte';
+	import Alert from '$lib/components/Alert.svelte';
+	import EmptyState from '$lib/components/EmptyState.svelte';
+	import PageHeader from '$lib/components/PageHeader.svelte';
+	import Panel from '$lib/components/Panel.svelte';
+	import Cpu from '@lucide/svelte/icons/cpu';
 	import AnalyticsDashboard from '$lib/components/charts/AnalyticsDashboard.svelte';
 
 	let machines = $state<FleetMachine[]>([]);
@@ -47,17 +52,17 @@
 		return Math.round(n).toLocaleString();
 	}
 	function ppm(n: number): string {
-		return n > 0 ? n.toFixed(1) : '—';
+		return n > 0 ? n.toFixed(1) : '-';
 	}
 	function pct(n: number): string {
-		return n > 0 ? `${n.toFixed(1)}%` : '—';
+		return n > 0 ? `${n.toFixed(1)}%` : '-';
 	}
 	function hours(seconds: number): string {
-		if (!seconds || seconds <= 0) return '—';
+		if (!seconds || seconds <= 0) return '-';
 		return `${(seconds / 3600).toFixed(1)}h`;
 	}
 	function when(iso: string | null): string {
-		if (!iso) return '—';
+		if (!iso) return '-';
 		return new Date(iso).toLocaleDateString();
 	}
 
@@ -65,86 +70,71 @@
 </script>
 
 <svelte:head>
-	<title>All Machines - Hive</title>
+	<title>All machines - Hive</title>
 </svelte:head>
 
-<div class="mb-6 flex items-center justify-between">
-	<h1 class="text-2xl font-bold text-text">All Machines</h1>
-	<span class="text-sm text-text-muted">
-		{machines.length} machines · {num(fleetPieces)} pieces sorted
-	</span>
+<PageHeader title="All machines">
+	{#snippet actions()}
+		<span class="num text-sm text-ink-muted">{machines.length} machines, {num(fleetPieces)} pieces sorted</span>
+	{/snippet}
+</PageHeader>
+
+<div class="flex flex-col gap-(--gap-panels)">
+	<section class="flex flex-col gap-(--gap-panels)">
+		<h2 class="text-base font-semibold text-ink">Fleet analytics</h2>
+		<AnalyticsDashboard scope="all" />
+	</section>
+
+	{#if error}<Alert tone="danger">{error}</Alert>{/if}
+
+	{#if loading}
+		<div class="flex justify-center py-12"><Spinner size={32} /></div>
+	{:else if machines.length === 0}
+		<Panel><EmptyState icon={Cpu} title="No machines yet">No machine has connected to this Hive.</EmptyState></Panel>
+	{:else}
+		<Panel
+			title="Machines"
+			description="Pieces a minute and on time come from the synced pieces' times, not each machine's own clock."
+			flush
+		>
+			<div class="overflow-x-auto">
+				<table class="data-table">
+					<thead>
+						<tr>
+							<th>Machine</th><th>Owner</th><th class="num">Pieces</th><th class="num">Distributed</th><th class="num"
+								>A minute</th
+							><th class="num">On time</th><th class="num">Sorting</th><th class="num">Parts</th><th class="num">Colors</th><th
+								>Last seen</th
+							>
+						</tr>
+					</thead>
+					<tbody>
+						{#each machines as machine (machine.id)}
+							{@const s = statOf(machine.id)}
+							<tr class={machine.archived_at ? 'opacity-50' : ''}>
+								<td>
+									<div class="flex items-center gap-2 whitespace-nowrap">
+										<a href={`/machines/${machine.id}`} class="font-medium text-ink hover:underline">{machine.name}</a>
+										{#if machine.archived_at}<Badge>Archived</Badge>{:else if !machine.is_active}<Badge tone="danger">Inactive</Badge>{/if}
+									</div>
+								</td>
+								<td class="whitespace-nowrap">
+									<div>{machine.owner_display_name || '-'}</div>
+									<div class="text-ink-muted">{machine.owner_email || ''}</div>
+								</td>
+								<td class="num">{num(s.pieces_seen)}</td>
+								<td class="num text-ink-muted">{num(s.distributed)}</td>
+								<td class="num">{ppm(s.overall_ppm)}</td>
+								<td class="num text-ink-muted">{pct(s.ontime_pct)}</td>
+								<td class="num text-ink-muted">{hours(s.active_seconds)}</td>
+								<td class="num text-ink-muted">{num(s.unique_parts)}</td>
+								<td class="num text-ink-muted">{num(s.unique_colors)}</td>
+								<td class="whitespace-nowrap text-ink-muted">{when(machine.last_seen_at)}</td>
+							</tr>
+						{/each}
+					</tbody>
+				</table>
+			</div>
+		</Panel>
+	{/if}
 </div>
-
-<section class="mb-8">
-	<h2 class="mb-3 text-lg font-semibold text-text">Fleet analytics</h2>
-	<AnalyticsDashboard scope="all" />
-</section>
-
-{#if error}
-	<div class="mb-4 bg-primary/8 p-3 text-sm text-primary">{error}</div>
-{/if}
-
-{#if loading}
-	<div class="flex justify-center py-12">
-		<Spinner size={32} />
-	</div>
-{:else if machines.length === 0}
-	<div class="border border-border bg-surface p-8 text-center text-sm text-text-muted">
-		No machines connected to this Hive yet.
-	</div>
-{:else}
-	<div class="overflow-x-auto border border-border bg-surface">
-		<table class="min-w-full divide-y divide-border">
-			<thead class="bg-bg">
-				<tr>
-					<th class="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-text-muted">Machine</th>
-					<th class="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-text-muted">Owner</th>
-					<th class="px-4 py-3 text-right text-xs font-medium uppercase tracking-wider text-text-muted">Pieces</th>
-					<th class="px-4 py-3 text-right text-xs font-medium uppercase tracking-wider text-text-muted">Distributed</th>
-					<th class="px-4 py-3 text-right text-xs font-medium uppercase tracking-wider text-text-muted">PPM</th>
-					<th class="px-4 py-3 text-right text-xs font-medium uppercase tracking-wider text-text-muted">On-time</th>
-					<th class="px-4 py-3 text-right text-xs font-medium uppercase tracking-wider text-text-muted">Sorted</th>
-					<th class="px-4 py-3 text-right text-xs font-medium uppercase tracking-wider text-text-muted">Parts</th>
-					<th class="px-4 py-3 text-right text-xs font-medium uppercase tracking-wider text-text-muted">Colors</th>
-					<th class="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-text-muted">Last seen</th>
-				</tr>
-			</thead>
-			<tbody class="divide-y divide-border">
-				{#each machines as machine (machine.id)}
-					{@const s = statOf(machine.id)}
-					<tr class="hover:bg-bg {machine.archived_at ? 'opacity-50' : ''}">
-						<td class="whitespace-nowrap px-4 py-3">
-							<div class="flex items-center gap-2">
-								<a
-										href={`/machines/${machine.id}`}
-										class="text-sm font-medium text-primary hover:underline"
-									>{machine.name}</a>
-								{#if machine.archived_at}
-									<Badge text="Archived" variant="neutral" />
-								{:else if !machine.is_active}
-									<Badge text="Inactive" variant="danger" />
-								{/if}
-							</div>
-						</td>
-						<td class="whitespace-nowrap px-4 py-3">
-							<p class="text-sm text-text">{machine.owner_display_name || '—'}</p>
-							<p class="text-xs text-text-muted">{machine.owner_email || ''}</p>
-						</td>
-						<td class="whitespace-nowrap px-4 py-3 text-right text-sm text-text tabular-nums">{num(s.pieces_seen)}</td>
-						<td class="whitespace-nowrap px-4 py-3 text-right text-sm text-text-muted tabular-nums">{num(s.distributed)}</td>
-						<td class="whitespace-nowrap px-4 py-3 text-right text-sm text-text tabular-nums">{ppm(s.overall_ppm)}</td>
-						<td class="whitespace-nowrap px-4 py-3 text-right text-sm text-text-muted tabular-nums">{pct(s.ontime_pct)}</td>
-						<td class="whitespace-nowrap px-4 py-3 text-right text-sm text-text-muted tabular-nums">{hours(s.active_seconds)}</td>
-						<td class="whitespace-nowrap px-4 py-3 text-right text-sm text-text-muted tabular-nums">{num(s.unique_parts)}</td>
-						<td class="whitespace-nowrap px-4 py-3 text-right text-sm text-text-muted tabular-nums">{num(s.unique_colors)}</td>
-						<td class="whitespace-nowrap px-4 py-3 text-sm text-text-muted">{when(machine.last_seen_at)}</td>
-					</tr>
-				{/each}
-			</tbody>
-		</table>
-	</div>
-	<p class="mt-3 text-xs text-text-muted">
-		PPM and on-time % are derived from synced piece timestamps (active sorting inferred from
-		piece density), not the machine's exact powered/sorted clock.
-	</p>
-{/if}

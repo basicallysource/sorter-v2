@@ -95,6 +95,8 @@ function lineQty(line: Line, layers: number): number {
 	if (line.qty === 'per-layer') return layers;
 	if (line.qty === 'non-bottom-layers') return Math.max(0, layers - 1);
 	if (line.qty === 'middle-layers') return Math.max(0, layers - 2);
+	if (line.qty === 'per-third-layer') return layers; // an all-third tower, as variantCount above
+	if (line.qty === 'per-half-layer') return 0;
 	return line.qty as number;
 }
 

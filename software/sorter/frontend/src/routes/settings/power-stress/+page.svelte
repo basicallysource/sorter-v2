@@ -1,8 +1,16 @@
 <script lang="ts">
 	import { onDestroy, onMount } from 'svelte';
 	import { getBackendHttpBase, machineHttpBaseUrlFromWsUrl } from '$lib/backend';
-	import SectionCard from '$lib/components/settings/SectionCard.svelte';
-	import { Alert, Button, Input } from '$lib/components/primitives';
+	import Panel from '$lib/components/ui/Panel.svelte';
+	import EmptyState from '$lib/components/ui/EmptyState.svelte';
+	import Stat from '$lib/components/ui/Stat.svelte';
+	import ProgressBar from '$lib/components/ui/ProgressBar.svelte';
+	import Badge from '$lib/components/ui/Badge.svelte';
+	import Field from '$lib/components/ui/Field.svelte';
+	import PageHeader from '$lib/components/ui/PageHeader.svelte';
+	import Alert from '$lib/components/ui/Alert.svelte';
+	import Button from '$lib/components/ui/Button.svelte';
+	import Input from '$lib/components/ui/Input.svelte';
 	import { getMachinesContext } from '$lib/machines/context';
 
 	const manager = getMachinesContext();
@@ -179,164 +187,138 @@
 	});
 </script>
 
-<svelte:head><title>Sorter - Power Stress Test</title></svelte:head>
+<svelte:head><title>Sorter - Power stress test</title></svelte:head>
 
-<div class="mx-auto flex max-w-4xl flex-col gap-6 p-6">
-	<header class="flex flex-col gap-1">
-		<h1 class="text-xl font-semibold tracking-wide">Power Stress Test</h1>
-		<p class="text-sm text-neutral-400">
-			Maximum-load sequence for wall-power measurement. Safe Home and Pause are required.
-		</p>
-	</header>
+<PageHeader
+	title="Power stress test"
+	description="The heaviest load the machine can make, for measuring its draw at the wall. It needs a safe home and a pause first."
+/>
 
-	<Alert variant="info">
-		The chute homes before motion and stays at or below {chuteMax}°. LEDs remain at 100%, all
-		configured vision workers must be live, C1–C4 use ramped motion, and servo channels exercise
-		their full 0–180° range. Every phase boundary is stored as an epoch timestamp for correlation
-		with the Shelly readings.
-	</Alert>
+<Alert tone="info">
+	The chute homes before anything moves and stays at or below {chuteMax}°. The lights stay at 100%, every
+	configured vision worker must be running, C1 to C4 ramp their moves, and the servos use their whole 0°
+	to 180°. Each phase's start is stored as an epoch time, to line up with the power meter's readings.
+</Alert>
 
-	<SectionCard title="Sequence">
-		<div class="grid gap-3 sm:grid-cols-3">
-			<div class="border border-neutral-700/50 p-3">
-				<div class="font-medium">1. Stable</div>
-				<div class="mt-1 text-sm text-neutral-400">
-					All four channel steppers run continuously, chute sweeps home-to-max, servos sweep
-					min-to-max.
-				</div>
-			</div>
-			<div class="border border-neutral-700/50 p-3">
-				<div class="font-medium">2. Random</div>
-				<div class="mt-1 text-sm text-neutral-400">
-					Steppers brake and burst in either direction, chute uses random targets, servos use random
-					full-range targets.
-				</div>
-			</div>
-			<div class="border border-neutral-700/50 p-3">
-				<div class="font-medium">3. Mixed</div>
-				<div class="mt-1 text-sm text-neutral-400">
-					Short segments mix continuous and burst steppers while alternating chute and servo modes.
-				</div>
-			</div>
-		</div>
-	</SectionCard>
+<Panel title="Sequence" flush>
+	<ol class="grid grid-cols-1 gap-px bg-line sm:grid-cols-3">
+		<li class="bg-surface px-(--pad-panel) py-(--pad-row)">
+			<div class="text-sm font-medium text-ink">1. Steady</div>
+			<p class="mt-0.5 text-sm text-ink-muted">
+				The four channel steppers run without stopping, the chute sweeps from home to its limit, and
+				the servos sweep end to end.
+			</p>
+		</li>
+		<li class="bg-surface px-(--pad-panel) py-(--pad-row)">
+			<div class="text-sm font-medium text-ink">2. Random</div>
+			<p class="mt-0.5 text-sm text-ink-muted">
+				The steppers brake and burst either way, and the chute and the servos go to random targets.
+			</p>
+		</li>
+		<li class="bg-surface px-(--pad-panel) py-(--pad-row)">
+			<div class="text-sm font-medium text-ink">3. Mixed</div>
+			<p class="mt-0.5 text-sm text-ink-muted">
+				Short stretches mix steady and bursting steppers while the chute and the servos alternate.
+			</p>
+		</li>
+	</ol>
+</Panel>
 
-	<SectionCard title="Parameters">
-		<div class="grid gap-4 sm:grid-cols-2">
-			<label class="flex flex-col gap-1">
-				<span class="text-sm font-medium">Total motion time (minutes)</span>
-				<Input type="number" bind:value={durationMinutes} disabled={active} />
-			</label>
-			<label class="flex flex-col gap-1">
-				<span class="text-sm font-medium">C1–C4 maximum speed (µsteps/s)</span>
-				<Input type="number" bind:value={stepperSpeed} disabled={active} />
-			</label>
-			<label class="flex flex-col gap-1">
-				<span class="text-sm font-medium">Chute speed (µsteps/s)</span>
-				<Input type="number" bind:value={chuteSpeed} disabled={active} />
-			</label>
-			<label class="flex flex-col gap-1">
-				<span class="text-sm font-medium">Chute maximum angle</span>
-				<Input type="number" bind:value={chuteMax} disabled={active} />
-			</label>
-		</div>
-		<div class="mt-4 flex gap-3">
-			{#if active}
-				<Button variant="danger" loading={busy} onclick={stopTest}>Stop safely</Button>
-			{:else}
-				<Button variant="primary" loading={busy} onclick={startTest}>Start power stress test</Button
-				>
-			{/if}
-		</div>
-	</SectionCard>
-
-	{#if errorMsg}
-		<Alert variant="danger">{errorMsg}</Alert>
-	{/if}
-
-	{#if run}
-		<SectionCard title="Current run">
-			<div class="flex flex-wrap items-center justify-between gap-3">
-				<div>
-					<div class="text-lg font-semibold capitalize">{run.status}</div>
-					<div class="text-sm text-neutral-400">
-						{run.current_phase ?? 'finished'}{run.current_segment
-							? ` · segment ${run.current_segment}`
-							: ''}
-						· {formatDuration(run.total_time_s)} / {formatDuration(run.duration_target_s)}
-					</div>
-				</div>
-				<Button variant="secondary" size="sm" onclick={() => run && downloadRun(run.id)}
-					>Download JSON</Button
-				>
-			</div>
-			<div class="mt-4 h-2 overflow-hidden bg-neutral-800">
-				<div class="h-full bg-primary transition-all" style={`width: ${progressPercent}%`}></div>
-			</div>
-			{#if run.hardware}
-				<div class="mt-4 grid gap-2 text-sm sm:grid-cols-4">
-					<div>
-						<span class="text-neutral-400">Steppers</span><br />{run.hardware.steppers.length}
-					</div>
-					<div><span class="text-neutral-400">Servos</span><br />{run.hardware.servo_count}</div>
-					<div>
-						<span class="text-neutral-400">LED outputs</span><br />{run.hardware.led_output_count}
-					</div>
-					<div>
-						<span class="text-neutral-400">Vision workers</span><br />{run.hardware
-							.perception_workers_alive}
-					</div>
-				</div>
-			{/if}
-			{#if run.error}
-				<div class="mt-4 text-sm text-red-400">{run.error}</div>
-			{/if}
-			{#if run.events?.length}
-				<div class="mt-5 max-h-72 overflow-auto border border-neutral-700/50">
-					{#each [...run.events].reverse() as event (event.id)}
-						<div
-							class="grid gap-1 border-b border-neutral-700/40 px-3 py-2 text-sm sm:grid-cols-[12rem_10rem_1fr]"
-						>
-							<span class="text-neutral-400">{formatTime(event.created_at)}</span>
-							<span>{event.event_type.replaceAll('_', ' ')}</span>
-							<span class="text-neutral-500">{event.phase ?? ''}</span>
-						</div>
-					{/each}
-				</div>
-			{/if}
-		</SectionCard>
-	{/if}
-
-	<SectionCard title="Recorded runs">
-		{#if runs.length === 0}
-			<div class="text-sm text-neutral-400">No power stress runs recorded yet.</div>
+<Panel title="Settings">
+	<div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+		<Field label="Moving time" for="stress-minutes">
+			<Input id="stress-minutes" type="number" bind:value={durationMinutes} disabled={active} unit="min" />
+		</Field>
+		<Field label="C1 to C4 top speed" for="stress-stepper-speed">
+			<Input id="stress-stepper-speed" type="number" bind:value={stepperSpeed} disabled={active} unit="µsteps/s" />
+		</Field>
+		<Field label="Chute speed" for="stress-chute-speed">
+			<Input id="stress-chute-speed" type="number" bind:value={chuteSpeed} disabled={active} unit="µsteps/s" />
+		</Field>
+		<Field label="Chute limit" for="stress-chute-max">
+			<Input id="stress-chute-max" type="number" bind:value={chuteMax} disabled={active} unit="°" />
+		</Field>
+	</div>
+	{#snippet footer()}
+		{#if active}
+			<Button variant="danger" loading={busy} onclick={stopTest}>Stop safely</Button>
 		{:else}
-			<div class="overflow-x-auto">
-				<table class="w-full text-left text-sm">
-					<thead class="text-neutral-400">
-						<tr>
-							<th class="pr-4 pb-2 font-medium">Started</th>
-							<th class="pr-4 pb-2 font-medium">Status</th>
-							<th class="pr-4 pb-2 font-medium">Duration</th>
-							<th class="pb-2 font-medium"></th>
-						</tr>
-					</thead>
+			<Button variant="primary" loading={busy} onclick={startTest}>Start the power stress test</Button>
+		{/if}
+	{/snippet}
+</Panel>
+
+{#if errorMsg}
+	<Alert tone="danger">{errorMsg}</Alert>
+{/if}
+
+{#if run}
+	<Panel title="This run" flush>
+		{#snippet actions()}
+			<Button size="sm" onclick={() => run && downloadRun(run.id)}>Download the JSON</Button>
+		{/snippet}
+		<div class="flex flex-col gap-3 px-(--pad-panel) pb-4">
+			<div class="flex flex-wrap items-center gap-2">
+				<Badge tone={run.status === 'running' ? 'primary' : 'neutral'} dot>{run.status}</Badge>
+				<span class="num text-sm text-ink-muted">
+					{run.current_phase ?? 'Finished'}{run.current_segment ? `, part ${run.current_segment}` : ''},
+					{formatDuration(run.total_time_s)} of {formatDuration(run.duration_target_s)}
+				</span>
+			</div>
+			<ProgressBar label="Progress" value={progressPercent} />
+			{#if run.error}
+				<Alert tone="danger">{run.error}</Alert>
+			{/if}
+		</div>
+		{#if run.hardware}
+			<div class="grid grid-cols-2 gap-px border-t border-line bg-line sm:grid-cols-4">
+				<div class="bg-surface"><Stat label="Steppers" value={run.hardware.steppers.length} /></div>
+				<div class="bg-surface"><Stat label="Servos" value={run.hardware.servo_count} /></div>
+				<div class="bg-surface"><Stat label="Light outputs" value={run.hardware.led_output_count} /></div>
+				<div class="bg-surface"><Stat label="Vision workers" value={run.hardware.perception_workers_alive} /></div>
+			</div>
+		{/if}
+		{#if run.events?.length}
+			<div class="max-h-72 overflow-auto border-t border-line">
+				<table class="data-table">
+					<thead><tr><th>When</th><th>What</th><th>Phase</th></tr></thead>
 					<tbody>
-						{#each runs as item (item.id)}
-							<tr class="border-t border-neutral-700/40">
-								<td class="py-2 pr-4">{formatTime(item.started_at)}</td>
-								<td class="py-2 pr-4 capitalize">{item.status}</td>
-								<td class="py-2 pr-4">{formatDuration(item.total_time_s)}</td>
-								<td class="py-2 text-right">
-									<Button variant="ghost" size="sm" onclick={() => downloadRun(item.id)}
-										>JSON</Button
-									>
-								</td>
+						{#each [...run.events].reverse() as event (event.id)}
+							<tr>
+								<td class="num text-ink-muted">{formatTime(event.created_at)}</td>
+								<td>{event.event_type.replaceAll('_', ' ')}</td>
+								<td class="text-ink-muted">{event.phase ?? ''}</td>
 							</tr>
 						{/each}
 					</tbody>
 				</table>
 			</div>
 		{/if}
-	</SectionCard>
-</div>
+	</Panel>
+{/if}
+
+<Panel title="Past runs" flush>
+	{#if runs.length === 0}
+		<p class="px-(--pad-panel) pb-(--pad-panel) text-sm text-ink-muted">No power stress runs yet.</p>
+	{:else}
+		<div class="overflow-x-auto">
+			<table class="data-table">
+				<thead>
+					<tr><th>Started</th><th>Status</th><th class="num">Duration</th><th><span class="sr-only">Download</span></th></tr>
+				</thead>
+				<tbody>
+					{#each runs as item (item.id)}
+						<tr>
+							<td>{formatTime(item.started_at)}</td>
+							<td class="capitalize">{item.status}</td>
+							<td class="num">{formatDuration(item.total_time_s)}</td>
+							<td class="text-right">
+								<Button variant="ghost" size="sm" onclick={() => downloadRun(item.id)}>JSON</Button>
+							</td>
+						</tr>
+					{/each}
+				</tbody>
+			</table>
+		</div>
+	{/if}
+</Panel>

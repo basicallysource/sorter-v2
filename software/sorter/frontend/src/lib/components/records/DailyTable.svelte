@@ -1,5 +1,9 @@
 <script lang="ts">
-	import { ChevronLeft, ChevronRight, Download } from 'lucide-svelte';
+	import ChevronLeft from '@lucide/svelte/icons/chevron-left';
+	import ChevronRight from '@lucide/svelte/icons/chevron-right';
+	import Download from '@lucide/svelte/icons/download';
+	import Button from '$lib/components/ui/Button.svelte';
+	import Panel from '$lib/components/ui/Panel.svelte';
 	import type { LifetimeDay } from './RecordsStats.svelte';
 
 	let {
@@ -51,71 +55,56 @@
 	});
 </script>
 
+{#snippet pager()}
+	<div class="flex w-full flex-wrap items-center justify-end gap-2">
+		<span class="num mr-auto text-sm text-ink-muted">{block + 1} of {blockCount}</span>
+		<Button
+			size="sm"
+			icon={ChevronLeft}
+			disabled={block >= blockCount - 1}
+			onclick={() => (block = Math.min(blockCount - 1, block + 1))}
+		>
+			Older two weeks
+		</Button>
+		<Button size="sm" disabled={block <= 0} onclick={() => (block = Math.max(0, block - 1))}>
+			Newer two weeks
+			<ChevronRight size={14} />
+		</Button>
+	</div>
+{/snippet}
+
 {#if daily.length > 0}
-	<div class="flex items-center justify-between gap-3">
-		<h3 class="text-sm font-semibold tracking-wider text-text-muted uppercase">Daily activity</h3>
-		<div class="flex items-center gap-3 text-sm text-text-muted">
-			<span>{rangeLabel}</span>
-			{#if blockCount > 1}
-				<div class="flex border border-border">
-					<button
-						type="button"
-						onclick={() => (block = Math.min(blockCount - 1, block + 1))}
-						disabled={block >= blockCount - 1}
-						aria-label="Older two weeks"
-						class="border-r border-border px-2 py-1 text-text-muted hover:text-text disabled:opacity-40"
-					>
-						<ChevronLeft size={14} />
-					</button>
-					<span class="px-3 py-1 text-text">{block + 1} / {blockCount}</span>
-					<button
-						type="button"
-						onclick={() => (block = Math.max(0, block - 1))}
-						disabled={block <= 0}
-						aria-label="Newer two weeks"
-						class="border-l border-border px-2 py-1 text-text-muted hover:text-text disabled:opacity-40"
-					>
-						<ChevronRight size={14} />
-					</button>
-				</div>
-			{/if}
-			<a
-				href={exportUrl}
-				download
-				class="inline-flex items-center justify-center gap-2 border border-border bg-surface px-2.5 py-1 text-xs font-medium text-text transition-colors hover:bg-bg"
-				title="Download every recorded day as CSV"
-			>
-				<Download size={13} />
-				Export CSV
-			</a>
-		</div>
-	</div>
-	<div class="overflow-x-auto border border-border">
-		<table class="w-full border-collapse text-sm">
-			<thead>
-				<tr class="border-b border-border bg-surface text-left text-text-muted">
-					<th class="px-3 py-2 font-semibold">Day</th>
-					<th class="px-3 py-2 font-semibold">Powered</th>
-					<th class="px-3 py-2 font-semibold">Sorted</th>
-					<th class="px-3 py-2 font-semibold">Pieces</th>
-					<th class="px-3 py-2 font-semibold">Classified</th>
-					<th class="px-3 py-2 font-semibold">PPM</th>
-				</tr>
-			</thead>
-			<tbody>
-				{#each rows as d (d.day)}
-					<tr class="border-b border-border last:border-b-0 hover:bg-surface">
-						<td class="px-3 py-2 text-text">{formatDayLabel(d.day)}</td>
-						<td class="px-3 py-2 text-text-muted">{formatDuration(d.seconds_powered)}</td>
-						<td class="px-3 py-2 text-text">{formatDuration(d.seconds_sorted)}</td>
-						<td class="px-3 py-2 text-text">{d.pieces_distributed.toLocaleString()}</td>
-						<td class="px-3 py-2 text-text-muted">{d.pieces_classified.toLocaleString()}</td>
-						<td class="px-3 py-2 text-text">
-							{formatPpm(d.seconds_sorted > 0 ? (d.pieces_distributed * 60) / d.seconds_sorted : 0)}
-						</td>
+	<Panel title="Daily activity" description={rangeLabel} flush footer={blockCount > 1 ? pager : undefined}>
+		{#snippet actions()}
+			<Button size="sm" icon={Download} href={exportUrl} download>Export CSV</Button>
+		{/snippet}
+		<div class="overflow-x-auto">
+			<table class="data-table">
+				<thead>
+					<tr>
+						<th>Day</th>
+						<th class="num">Powered</th>
+						<th class="num">Sorted</th>
+						<th class="num">Pieces</th>
+						<th class="num">Classified</th>
+						<th class="num">Pieces a minute</th>
 					</tr>
-				{/each}
-			</tbody>
-		</table>
-	</div>
+				</thead>
+				<tbody>
+					{#each rows as d (d.day)}
+						<tr>
+							<td>{formatDayLabel(d.day)}</td>
+							<td class="num text-ink-muted">{formatDuration(d.seconds_powered)}</td>
+							<td class="num">{formatDuration(d.seconds_sorted)}</td>
+							<td class="num">{d.pieces_distributed.toLocaleString()}</td>
+							<td class="num text-ink-muted">{d.pieces_classified.toLocaleString()}</td>
+							<td class="num">
+								{formatPpm(d.seconds_sorted > 0 ? (d.pieces_distributed * 60) / d.seconds_sorted : 0)}
+							</td>
+						</tr>
+					{/each}
+				</tbody>
+			</table>
+		</div>
+	</Panel>
 {/if}

@@ -1,5 +1,10 @@
 <script lang="ts">
-	import { Cpu, RefreshCcw } from 'lucide-svelte';
+	import Check from '@lucide/svelte/icons/check';
+	import RefreshCcw from '@lucide/svelte/icons/refresh-ccw';
+	import Alert from '$lib/components/ui/Alert.svelte';
+	import Badge from '$lib/components/ui/Badge.svelte';
+	import Button from '$lib/components/ui/Button.svelte';
+	import Panel from '$lib/components/ui/Panel.svelte';
 
 	type UsbDeviceCategory = 'controller' | 'servo_bus' | 'unrecognised_controller' | 'unknown';
 
@@ -36,28 +41,19 @@
 
 	const inUseCount = $derived(usbDevices.filter((device) => device.use_by_default).length);
 
-	function usbCategoryBadge(category: UsbDeviceCategory): { label: string; className: string } {
+	function usbCategoryBadge(category: UsbDeviceCategory): {
+		label: string;
+		tone?: 'success' | 'danger';
+	} {
 		switch (category) {
 			case 'controller':
-				return {
-					label: 'Controller',
-					className: 'bg-success/10 text-success'
-				};
+				return { label: 'Controller', tone: 'success' };
 			case 'servo_bus':
-				return {
-					label: 'Servo Bus',
-					className: 'bg-success/10 text-success'
-				};
+				return { label: 'Servo bus', tone: 'success' };
 			case 'unrecognised_controller':
-				return {
-					label: 'Unrecognised',
-					className: 'bg-danger/10 text-danger'
-				};
+				return { label: 'Unrecognised', tone: 'danger' };
 			default:
-				return {
-					label: 'Unknown',
-					className: 'bg-border/60 text-text-muted'
-				};
+				return { label: 'Unknown' };
 		}
 	}
 
@@ -88,99 +84,78 @@
 	}
 </script>
 
-<div class="flex flex-col gap-4">
-	<div class="flex flex-wrap items-center gap-3 text-sm">
-		<div class="setup-panel inline-flex items-center gap-2 px-3 py-2 text-text">
-			<Cpu size={14} />
-			<span>{inUseCount} controller{inUseCount === 1 ? '' : 's'} in use</span>
-		</div>
-		<button
-			onclick={onRescan}
-			disabled={loadingWizard}
-			class="setup-button-secondary inline-flex items-center gap-2 px-3 py-2 text-sm text-text transition-colors disabled:cursor-not-allowed disabled:opacity-60"
-		>
-			<RefreshCcw size={14} class={loadingWizard ? 'animate-spin' : ''} />
-			Rescan
-		</button>
-	</div>
-
+<div class="flex flex-col gap-(--gap-panels)">
 	{#if issues.length}
-		<div class="border border-danger bg-danger/10 px-4 py-3 text-sm text-danger">
-			{#each issues as issue}
-				<div>{issue}</div>
-			{/each}
-		</div>
+		<Alert tone="danger">
+			{#each issues as issue}<p>{issue}</p>{/each}
+		</Alert>
 	{/if}
 
 	{#if !boardsFound && !loadingWizard}
-		<div class="setup-panel flex flex-col gap-2 px-4 py-3 text-sm text-text">
+		<Alert
+			tone="warning"
+			title={bootloaderBoard
+				? 'The control board is waiting for its firmware.'
+				: 'No control board answered.'}
+		>
 			{#if bootloaderBoard}
-				<div class="font-medium">The control board is waiting for its firmware.</div>
-				<div class="text-text-muted">
-					It shows up as a drive called RPI-RP2, which is what a Pico does before it has ever been
-					flashed. Open <a href="/settings/control-board" class="underline">Settings → Control board</a>,
-					tick <strong>Recovery flash</strong>, pick the newest firmware release (the file for the
-					kit's board is <strong>basically-v1-2-distribution</strong>) and flash it. Then come back here
-					and rescan.
-				</div>
+				It shows up as a drive called RPI-RP2, which is what a Pico does before it has ever been
+				flashed. Open <a href="/settings/control-board" class="underline">Settings > Control board</a>,
+				tick <strong>Recovery flash</strong>, pick the newest firmware release (the file for the kit's
+				board is <strong>basically-v1-2-distribution</strong>) and flash it. Then come back and rescan.
 			{:else}
-				<div class="font-medium">No control board answered.</div>
-				<div class="text-text-muted">
-					On a new machine this usually means the Pico has no firmware yet. Unplug the Pico's USB
-					cable, hold down the BOOTSEL button (the white button on top of the Pico), plug the cable back in and let go.
-					Then open <a href="/settings/control-board" class="underline">Settings → Control board</a>,
-					tick <strong>Recovery flash</strong>, pick the newest firmware release (the file for the
-					kit's board is <strong>basically-v1-2-distribution</strong>) and flash it, and come back here
-					to rescan. If the board has been flashed before, check its power and USB
-					cable instead.
-				</div>
+				On a new machine this usually means the Pico has no firmware yet. Unplug the Pico's USB cable,
+				hold down the BOOTSEL button (the white button on top of the Pico), plug the cable back in and
+				let go. Then open <a href="/settings/control-board" class="underline">Settings > Control board</a>,
+				tick <strong>Recovery flash</strong>, pick the newest firmware release (the file for the kit's
+				board is <strong>basically-v1-2-distribution</strong>), flash it, and come back to rescan. If
+				the board has been flashed before, check its power and USB cable instead.
 			{/if}
-		</div>
+		</Alert>
 	{/if}
 
-	{#if usbDevices.length}
-		<div class="flex flex-col gap-2">
-			{#each usbDevices as device}
-				{@const badge = usbCategoryBadge(device.category)}
-				{@const familyLabel = boardFamilyLabel(device.family)}
-				<label
-					class={`setup-panel flex items-start gap-3 px-4 py-3 transition-colors ${
-						device.use_by_default ? 'border-success/40 bg-success/[0.08]' : ''
-					}`}
-				>
-					<input
-						type="checkbox"
-						checked={device.use_by_default}
-						disabled
-						class="mt-1 h-4 w-4 accent-success"
-					/>
-					<div class="min-w-0 flex-1">
-						<div class="flex flex-wrap items-center gap-2">
-							<span class="text-sm font-medium text-text">
-								{usbDeviceDisplayName(device)}
-							</span>
-							<span
-								class={`px-2 py-0.5 text-xs font-semibold tracking-wide uppercase ${badge.className}`}
-							>
-								{badge.label}
-							</span>
-							{#if familyLabel}
-								<span
-									class="bg-border/40 px-2 py-0.5 text-xs font-semibold tracking-wide text-text-muted uppercase"
-								>
-									{familyLabel}
-								</span>
-							{/if}
+	<Panel
+		title="USB devices"
+		description="{inUseCount} {inUseCount === 1 ? 'controller' : 'controllers'} in use."
+		flush
+	>
+		{#snippet actions()}
+			<Button size="sm" icon={RefreshCcw} loading={loadingWizard} onclick={onRescan}>Rescan</Button>
+		{/snippet}
+		{#if usbDevices.length}
+			<ul class="divide-y divide-line">
+				{#each usbDevices as device}
+					{@const badge = usbCategoryBadge(device.category)}
+					{@const familyLabel = boardFamilyLabel(device.family)}
+					<li
+						class="flex items-start gap-3 px-(--pad-panel) py-(--pad-row) {device.use_by_default
+							? 'bg-success-soft'
+							: ''}"
+					>
+						<span
+							class="mt-0.5 flex size-4 shrink-0 items-center justify-center rounded-check {device.use_by_default
+								? 'bg-success text-on-success'
+								: 'border border-line-strong'}"
+							title={device.use_by_default ? 'In use' : 'Not used'}
+						>
+							{#if device.use_by_default}<Check size={12} strokeWidth={3} />{/if}
+						</span>
+						<div class="min-w-0 flex-1 text-sm">
+							<div class="flex flex-wrap items-center gap-2">
+								<span class="font-medium text-ink">{usbDeviceDisplayName(device)}</span>
+								<Badge tone={badge.tone}>{badge.label}</Badge>
+								{#if familyLabel}<Badge>{familyLabel}</Badge>{/if}
+							</div>
+							<div class="mt-0.5 font-mono text-xs text-ink-muted">
+								{device.device}{device.vid_pid ? ` · ${device.vid_pid}` : ''}
+							</div>
+							{#if device.detail}<p class="mt-1 text-ink-muted">{device.detail}</p>{/if}
 						</div>
-						<div class="mt-1 font-mono text-xs text-text-muted">
-							{device.device}{device.vid_pid ? ` · ${device.vid_pid}` : ''}
-						</div>
-						{#if device.detail}
-							<div class="mt-1 text-sm text-text-muted">{device.detail}</div>
-						{/if}
-					</div>
-				</label>
-			{/each}
-		</div>
-	{/if}
+					</li>
+				{/each}
+			</ul>
+		{:else}
+			<p class="px-(--pad-panel) pb-4 text-sm text-ink-muted">No USB devices found.</p>
+		{/if}
+	</Panel>
 </div>

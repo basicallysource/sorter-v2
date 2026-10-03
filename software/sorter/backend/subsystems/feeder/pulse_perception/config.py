@@ -39,6 +39,20 @@ class PulsePerceptionConfig:
     # push again. When downstream is NOT ready the channel holds still.
     exit_pulse_output_deg: float = 2.0
     exit_pulse_pause_ms: int = 100
+    # With room behind the lead piece, one exit move goes further, up to this
+    # much, so the piece drops in one go instead of pulse by pulse; it stops
+    # exit_move_margin_deg short of letting the next piece reach the exit.
+    # Equal to exit_pulse_output_deg: always the small pulse.
+    exit_move_max_deg: float = 10.0
+    exit_move_margin_deg: float = 4.0
+    # The arc of each channel's ring that its camera cannot see (sections,
+    # start -> end in the travel direction; equal = none). A piece that
+    # vanishes where it starts is expected where it ends, and the channel keeps
+    # advancing meanwhile (blind_arc.py).
+    ch2_blind_arc_start_deg: float = 0.0
+    ch2_blind_arc_end_deg: float = 0.0
+    ch3_blind_arc_start_deg: float = 0.0
+    ch3_blind_arc_end_deg: float = 0.0
     # C1 (bulk feeder) has no vision zones: pulse it forward a fixed amount
     # whenever C2's drop zone is clear.
     ch1_pulse_output_deg: float = 1.0
@@ -46,6 +60,12 @@ class PulsePerceptionConfig:
     # Gate C3 forward motion on the downstream classification channel being
     # ready to accept a piece (avoids double-drops into the same sector).
     gate_ch3_on_classification_ready: bool = True
+    # Hand-off: once the piece a channel is pushing off has fallen (its track id
+    # stays gone this long), the exit pushes nothing for the hold. Stops a second
+    # exit pulse from pushing the piece behind it off before the next channel's
+    # camera has seen the first one.
+    dispense_vanish_confirm_ms: int = 150
+    dispense_hold_ms: int = 1500
     enable_ch1: bool = True
     enable_ch2: bool = True
     enable_ch3: bool = True
@@ -74,26 +94,14 @@ class PulsePerceptionConfig:
     # drop-zone values so greedy mode behaves identically until tuned apart.
     greedy_pulse_output_deg: float = 30.0
     greedy_pulse_pause_ms: int = 250
-    # Inter-channel jam watchdog. A downstream feeder channel (C2/C3) can keep
-    # pulsing a piece it sees in its drop zone that never advances, because the
-    # piece is physically hung at the UPSTREAM channel's exit lip (its camera
-    # read it as "arrived" while it is still on the upstream rotor). When a
-    # channel makes no forward progress for the timeout while actively pulsing,
-    # nudge the upstream rotor to free/seat the piece; after the max attempts,
-    # raise the operator "Feeder Jam" incident.
-    stuck_watchdog_enabled: bool = True
-    # A channel must go this long with a piece on it, actively pulsing, and no
-    # forward progress before the watchdog acts.
-    stuck_no_progress_ms: int = 30000
-    # The leading piece's travel position (channel-output degrees toward the
-    # exit) must improve by at least this much to count as "moving." Smaller =
-    # more sensitive to a truly stuck piece; larger tolerates detector jitter.
-    stuck_progress_epsilon_deg: float = 3.0
-    # How far to nudge the upstream rotor forward per recovery attempt.
+    # A piece that does not move when its channel turns (stuck.py): after the
+    # channel has turned this far under it, try the remedies (a nudge of the
+    # channel above where it drops, shakes of this one), at most this many,
+    # then call the operator.
+    stuck_after_deg: float = 15.0
+    stuck_max_attempts: int = 3
+    # How far a nudge turns the channel above.
     stuck_nudge_output_deg: float = 4.0
-    # Upstream nudges to try before declaring a jam and calling the operator.
-    stuck_max_nudge_attempts: int = 3
-
 
 _DEFAULTS = PulsePerceptionConfig()
 
@@ -111,10 +119,21 @@ FIELD_META: list[dict] = [
     {"section": "Drop-zone pulse", "key": "drop_pulse_output_deg", "label": "Drop-zone pulse distance (output deg)", "type": "float", "default": _DEFAULTS.drop_pulse_output_deg, "description": "How far a piece is nudged per pulse while it is still back in the drop zone (not yet at the exit edge)."},
     {"section": "Drop-zone pulse", "key": "drop_pulse_pause_ms", "label": "Drop-zone pause between pulses (ms)", "type": "int", "default": _DEFAULTS.drop_pulse_pause_ms, "description": "Pause after each drop-zone pulse so vision can re-read the piece before the next nudge."},
     {"section": "Exit pulse", "key": "exit_pulse_output_deg", "label": "Exit pulse distance (output deg)", "type": "float", "default": _DEFAULTS.exit_pulse_output_deg, "description": "How far a piece is nudged per pulse once it reaches the exit edge and is being metered into the next channel. Smaller is gentler and less likely to push two pieces through at once. Use the speed presets above to set this."},
+    {"section": "Exit pulse", "key": "exit_move_max_deg", "label": "Longest exit move (output deg)", "type": "float", "default": _DEFAULTS.exit_move_max_deg, "description": "When nothing is close behind the piece at the exit, one move pushes it this far so it drops in one go. The move always stops short of letting the next piece reach the exit. Set it equal to the exit pulse distance to always pulse."},
+    {"section": "Exit pulse", "key": "exit_move_margin_deg", "label": "Room kept for the next piece (output deg)", "type": "float", "default": _DEFAULTS.exit_move_margin_deg, "description": "A longer exit move stops this far before the next piece's front edge would reach the exit."},
+    {"section": "Out of view", "key": "ch2_blind_arc_start_deg", "label": "C2 unseen arc start (deg)", "type": "float", "default": _DEFAULTS.ch2_blind_arc_start_deg, "description": "Where pieces on C2 go out of the camera's picture, in the channel's zone angles. Equal start and end: C2's camera sees its whole ring."},
+    {"section": "Out of view", "key": "ch2_blind_arc_end_deg", "label": "C2 unseen arc end (deg)", "type": "float", "default": _DEFAULTS.ch2_blind_arc_end_deg, "description": "Where pieces on C2 come back into the picture. While a piece is out of view between the two, C2 keeps advancing, never so far it could pass the staging zone unseen."},
+    {"section": "Out of view", "key": "ch3_blind_arc_start_deg", "label": "C3 unseen arc start (deg)", "type": "float", "default": _DEFAULTS.ch3_blind_arc_start_deg, "description": "Where pieces on C3 go out of the camera's picture, in the channel's zone angles. Equal start and end: C3's camera sees its whole ring."},
+    {"section": "Out of view", "key": "ch3_blind_arc_end_deg", "label": "C3 unseen arc end (deg)", "type": "float", "default": _DEFAULTS.ch3_blind_arc_end_deg, "description": "Where pieces on C3 come back into the picture. While a piece is out of view between the two, C3 keeps advancing, never so far it could pass the staging zone unseen."},
     {"section": "Exit pulse", "key": "exit_pulse_pause_ms", "label": "Exit pause between pulses (ms)", "type": "int", "default": _DEFAULTS.exit_pulse_pause_ms, "description": "Pause after each exit pulse so the downstream channel registers the piece before another nudge."},
     {"section": "C1 (bulk)", "key": "ch1_pulse_output_deg", "label": "C1 bulk pulse distance (output deg)", "type": "float", "default": _DEFAULTS.ch1_pulse_output_deg, "description": "C1 (bulk) has no camera — it just pulses forward this far whenever C2's drop zone is clear."},
     {"section": "C1 (bulk)", "key": "ch1_pulse_pause_ms", "label": "C1 pause between pulses (ms)", "type": "int", "default": _DEFAULTS.ch1_pulse_pause_ms, "description": "Pause between C1 bulk pulses."},
     {"section": "Channels", "key": "gate_ch3_on_classification_ready", "label": "Gate C3 on classification ready", "type": "bool", "default": _DEFAULTS.gate_ch3_on_classification_ready, "description": "Hold C3 from pushing a piece into the classification channel (C4) until C4 reports it is ready to accept one. Prevents two pieces landing in the same spot."},
+    {"section": "Hand-off", "key": "dispense_vanish_confirm_ms", "label": "Fallen after gone for (ms)", "type": "int", "default": _DEFAULTS.dispense_vanish_confirm_ms, "description": "The piece being pushed off the exit counts as fallen once the camera has not seen it for this long. Longer ignores detector blinks; shorter reacts sooner."},
+    {"section": "Hand-off", "key": "dispense_hold_ms", "label": "Hold after a piece falls (ms)", "type": "int", "default": _DEFAULTS.dispense_hold_ms, "description": "After the piece being pushed off falls, the exit pushes nothing for this long, so the next channel sees it before another piece can follow."},
+    {"section": "Stuck pieces", "key": "stuck_after_deg", "label": "Stuck after the channel turns (deg)", "type": "float", "default": _DEFAULTS.stuck_after_deg, "description": "A piece that has not moved while its channel turned this far under it is stuck: it straddles the rim, hangs on the channel above, or sticks at the exit."},
+    {"section": "Stuck pieces", "key": "stuck_max_attempts", "label": "Tries before calling you", "type": "int", "default": _DEFAULTS.stuck_max_attempts, "description": "How many remedies to try on a stuck piece (a nudge of the channel above where it drops, short shakes of this channel) before the Feeder jam card. Set the Feeder jam incident to Manual on the Incidents page to be called at once."},
+    {"section": "Stuck pieces", "key": "stuck_nudge_output_deg", "label": "Nudge of the channel above (output deg)", "type": "float", "default": _DEFAULTS.stuck_nudge_output_deg, "description": "How far the channel above turns to drop a piece hanging on its lip."},
     {"section": "Channels", "key": "enable_ch1", "label": "Enable C1 (bulk)", "type": "bool", "default": _DEFAULTS.enable_ch1, "description": "Run the C1 (bulk) channel. Off = this channel never moves."},
     {"section": "Channels", "key": "enable_ch2", "label": "Enable C2", "type": "bool", "default": _DEFAULTS.enable_ch2, "description": "Run the C2 channel. Off = this channel never moves."},
     {"section": "Channels", "key": "enable_ch3", "label": "Enable C3", "type": "bool", "default": _DEFAULTS.enable_ch3, "description": "Run the C3 channel. Off = this channel never moves."},
@@ -123,11 +142,6 @@ FIELD_META: list[dict] = [
     {"section": "Greedy mode", "key": "ch3_greedy_enabled", "label": "C3 greedy (advance piece anywhere on channel)", "type": "bool", "default": _DEFAULTS.ch3_greedy_enabled, "description": "Greedy: start pushing a piece toward the exit as soon as it is seen anywhere on C3, instead of waiting for it to settle in the drop zone — clears the channel for the next piece sooner."},
     {"section": "Greedy mode", "key": "greedy_pulse_output_deg", "label": "Greedy advance pulse distance (output deg)", "type": "float", "default": _DEFAULTS.greedy_pulse_output_deg, "description": "Pulse distance used while greedily advancing a piece that has left the drop zone but not yet reached the exit edge."},
     {"section": "Greedy mode", "key": "greedy_pulse_pause_ms", "label": "Greedy advance pause between pulses (ms)", "type": "int", "default": _DEFAULTS.greedy_pulse_pause_ms, "description": "Pause between greedy advance pulses."},
-    {"section": "Jam watchdog", "key": "stuck_watchdog_enabled", "label": "Enable inter-channel jam watchdog", "type": "bool", "default": _DEFAULTS.stuck_watchdog_enabled, "description": "Detect a downstream channel (C2/C3) that keeps pulsing a piece that never moves — because it is hung at the previous channel's exit — and nudge the upstream channel to free it. If nudging fails, raise the Feeder Jam incident. (The 'Feeder Jam' entry on the Incidents page also gates this: set it to Off to disable entirely, Manual to skip the nudges and call the operator straight away.)"},
-    {"section": "Jam watchdog", "key": "stuck_no_progress_ms", "label": "No-progress timeout (ms)", "type": "int", "default": _DEFAULTS.stuck_no_progress_ms, "description": "How long a channel must keep pulsing with the piece not advancing before the watchdog nudges the upstream channel."},
-    {"section": "Jam watchdog", "key": "stuck_progress_epsilon_deg", "label": "Progress threshold (output deg)", "type": "float", "default": _DEFAULTS.stuck_progress_epsilon_deg, "description": "How far the leading piece must travel toward the exit to count as moving. Below this over the timeout window is treated as stuck. Larger tolerates detector jitter; smaller reacts to a truly stuck piece sooner."},
-    {"section": "Jam watchdog", "key": "stuck_nudge_output_deg", "label": "Upstream nudge distance (output deg)", "type": "float", "default": _DEFAULTS.stuck_nudge_output_deg, "description": "How far the upstream channel is nudged forward each recovery attempt to push the hung piece the rest of the way onto this channel."},
-    {"section": "Jam watchdog", "key": "stuck_max_nudge_attempts", "label": "Max nudge attempts before jam", "type": "int", "default": _DEFAULTS.stuck_max_nudge_attempts, "description": "How many upstream nudges to try before giving up and raising the Feeder Jam incident for the operator."},
 ]
 
 

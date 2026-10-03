@@ -4,7 +4,7 @@ from types import SimpleNamespace
 from unittest.mock import patch
 
 from irl.bin_layout import BinLayoutConfig, LayerConfig, mkLayoutFromConfig
-from server.routers import hardware
+from server.routers import bins
 
 
 class BinResetActionTests(unittest.TestCase):
@@ -14,15 +14,15 @@ class BinResetActionTests(unittest.TestCase):
         gc_ref = SimpleNamespace(runtime_stats=runtime_stats)
 
         with (
-            patch("server.routers.hardware._current_bin_categories", return_value=copy.deepcopy(categories)),
-            patch("server.routers.hardware._apply_and_persist_bin_categories") as persist_mock,
+            patch("server.routers.bins._current_bin_categories", return_value=copy.deepcopy(categories)),
+            patch("server.routers.bins._apply_and_persist_bin_categories") as persist_mock,
             patch(
-                "server.routers.hardware.clear_current_session_bins",
+                "server.routers.bins.clear_current_session_bins",
                 return_value={"ok": True, "cleared_bins": 1},
             ) as clear_mock,
-            patch.object(hardware.shared_state, "gc_ref", gc_ref),
+            patch.object(bins.shared_state, "gc_ref", gc_ref),
         ):
-            result = hardware.clear_bin_contents(
+            result = bins.clear_bin_contents(
                 scope="bin",
                 layer_index=0,
                 section_index=0,
@@ -35,6 +35,7 @@ class BinResetActionTests(unittest.TestCase):
             layer_index=0,
             section_index=0,
             bin_index=0,
+            bin_categories=categories,
         )
         runtime_stats.clearBinContents.assert_called_once_with(
             scope="bin",
@@ -51,15 +52,15 @@ class BinResetActionTests(unittest.TestCase):
         gc_ref = SimpleNamespace(runtime_stats=runtime_stats)
 
         with (
-            patch("server.routers.hardware._current_bin_categories", return_value=copy.deepcopy(categories)),
-            patch("server.routers.hardware._apply_and_persist_bin_categories") as persist_mock,
+            patch("server.routers.bins._current_bin_categories", return_value=copy.deepcopy(categories)),
+            patch("server.routers.bins._apply_and_persist_bin_categories") as persist_mock,
             patch(
-                "server.routers.hardware.clear_current_session_bins",
+                "server.routers.bins.clear_current_session_bins",
                 return_value={"ok": True, "cleared_bins": 2},
             ) as clear_mock,
-            patch.object(hardware.shared_state, "gc_ref", gc_ref),
+            patch.object(bins.shared_state, "gc_ref", gc_ref),
         ):
-            result = hardware.clear_bin_category_assignments(scope="layer", layer_index=0)
+            result = bins.clear_bin_category_assignments(scope="layer", layer_index=0)
 
         persist_mock.assert_called_once()
         persisted_categories = persist_mock.call_args.args[0]
@@ -71,7 +72,7 @@ class BinResetActionTests(unittest.TestCase):
             section_index=None,
             bin_index=None,
         )
-        clear_mock.assert_called_once_with(scope="layer", layer_index=0)
+        clear_mock.assert_called_once_with(scope="layer", layer_index=0, bin_categories=categories)
         self.assertEqual(
             "Reset all bins on layer 1 and cleared their assignments.",
             result["message"],
@@ -84,16 +85,16 @@ class BinResetActionTests(unittest.TestCase):
         layout = BinLayoutConfig(layers=[LayerConfig(sections=[["medium", "medium"]])])
 
         with (
-            patch("server.routers.hardware._runtime_distribution_layout", return_value=None),
-            patch("server.routers.hardware.getBinCategories", return_value=None),
-            patch("server.routers.hardware.getBinLayout", return_value=layout),
+            patch("server.routers.bins._runtime_distribution_layout", return_value=None),
+            patch("server.routers.bins.get_bin_categories", return_value=None),
+            patch("server.routers.bins.getBinLayout", return_value=layout),
             patch(
-                "server.routers.hardware.clear_current_session_bins",
+                "server.routers.bins.clear_current_session_bins",
                 return_value={"ok": True, "cleared_bins": 0},
             ) as clear_mock,
-            patch.object(hardware.shared_state, "gc_ref", gc_ref),
+            patch.object(bins.shared_state, "gc_ref", gc_ref),
         ):
-            result = hardware.clear_bin_contents(
+            result = bins.clear_bin_contents(
                 scope="bin",
                 layer_index=0,
                 section_index=0,
@@ -105,6 +106,7 @@ class BinResetActionTests(unittest.TestCase):
             layer_index=0,
             section_index=0,
             bin_index=1,
+            bin_categories=[[[[], []]]],
         )
         runtime_stats.clearBinContents.assert_called_once_with(
             scope="bin",
@@ -126,20 +128,20 @@ class BinResetActionTests(unittest.TestCase):
         layout.layers[0].sections[0].bins[1].category_ids[:] = ["rule-2"]
 
         with (
-            patch("server.routers.hardware._runtime_distribution_layout", return_value=layout),
-            patch("server.routers.hardware.setBinCategories") as set_categories_mock,
+            patch("server.routers.bins._runtime_distribution_layout", return_value=layout),
+            patch("server.routers.bins.set_bin_categories") as set_categories_mock,
             patch(
-                "server.routers.hardware.clear_current_session_bins",
+                "server.routers.bins.clear_current_session_bins",
                 return_value={"ok": True, "cleared_bins": 2},
             ) as clear_mock,
-            patch.object(hardware.shared_state, "gc_ref", gc_ref),
+            patch.object(bins.shared_state, "gc_ref", gc_ref),
         ):
-            result = hardware.clear_bin_category_assignments(scope="all")
+            result = bins.clear_bin_category_assignments(scope="all")
 
         self.assertEqual([], layout.layers[0].sections[0].bins[0].category_ids)
         self.assertEqual([], layout.layers[0].sections[0].bins[1].category_ids)
         set_categories_mock.assert_called_once_with([[[[], []]]])
-        clear_mock.assert_called_once_with(scope="all")
+        clear_mock.assert_called_once_with(scope="all", bin_categories=[[[["rule-1"], ["rule-2"]]]])
         runtime_stats.clearBinContents.assert_called_once_with(
             scope="all",
             layer_index=None,

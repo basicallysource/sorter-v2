@@ -207,31 +207,6 @@ def _probe_rknn() -> dict:
     }
 
 
-def _probe_torch() -> dict:
-    try:
-        import torch  # type: ignore
-    except Exception as exc:
-        return {"available": False, "reason": f"torch not installed: {exc}"}
-    info: dict[str, Any] = {
-        "available": True,
-        "version": getattr(torch, "__version__", "?"),
-        "mps": False,
-        "cuda": False,
-    }
-    try:
-        if hasattr(torch.backends, "mps") and torch.backends.mps.is_available():
-            info["mps"] = True
-    except Exception:
-        pass
-    try:
-        if torch.cuda.is_available():
-            info["cuda"] = True
-            info["cuda_devices"] = torch.cuda.device_count()
-    except Exception:
-        pass
-    return info
-
-
 @functools.lru_cache(maxsize=1)
 def _cached_capabilities() -> dict:
     return {
@@ -242,7 +217,6 @@ def _cached_capabilities() -> dict:
         "ncnn": _probe_ncnn(),
         "hailo": _probe_hailo(),
         "rknn": _probe_rknn(),
-        "torch": _probe_torch(),
     }
 
 
@@ -703,16 +677,12 @@ def run_benchmark(req: BenchmarkRequest) -> dict:
 def get_formats() -> dict:
     """Structured view grouped by model artifact format.
 
-    For each shipping format (ONNX, NCNN, Hailo HEF, PyTorch) we list the
+    For each shipping format (ONNX, NCNN, Hailo HEF, RKNN) we list the
     execution options the host can physically perform, whether they're
     actually usable right now, and a rough speed rank so the UI can
     recommend the fastest viable option per model.
     """
     caps = _cached_capabilities()
-    # PyTorch is intentionally excluded from the deployable-format list —
-    # we never ship .pt to the sorter, only ONNX/NCNN/HEF exports. The
-    # torch probe stays in ``/capabilities`` so other code paths (BoxMOT
-    # ReID etc.) can still see it.
     formats = [
         _format_hailo(caps),
         _format_rknn(caps),

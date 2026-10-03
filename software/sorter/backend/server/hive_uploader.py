@@ -13,8 +13,8 @@ from typing import Any
 
 import requests
 
-from blob_manager import getHiveConfig
 from hive_telemetry import HiveTelemetryClient, TelemetryBlocked, telemetryAllows
+from local_state import get_hive_config
 from machine_network import buildNetworkBlock
 from server.sample_payloads import build_sample_payload
 
@@ -137,7 +137,7 @@ class HiveUploader:
         self._heartbeat_thread.start()
 
     def _reload_config(self) -> None:
-        config = getHiveConfig()
+        config = get_hive_config()
         targets = config.get("targets") if isinstance(config, dict) else None
         previous = self._targets
         self._targets = {}
@@ -268,44 +268,6 @@ class HiveUploader:
         for target_id in resolved_target_ids:
             self._queue.put(
                 {
-                    "operation": "upload",
-                    "target_id": target_id,
-                    "session_id": session_id,
-                    "session_name": session_name,
-                    "sample_id": sample_id,
-                    "metadata": metadata,
-                    "image_path": image_path,
-                    "full_frame_path": full_frame_path,
-                    "overlay_path": overlay_path,
-                    "queued_at": time.time(),
-                }
-            )
-
-    def enqueue_update(
-        self,
-        *,
-        session_id: str,
-        session_name: str | None,
-        sample_id: str,
-        metadata: dict[str, Any],
-        image_path: str | None = None,
-        full_frame_path: str | None = None,
-        overlay_path: str | None = None,
-        target_ids: list[str] | None = None,
-    ) -> None:
-        resolved_target_ids = self._resolve_upload_target_ids(target_ids)
-        if not resolved_target_ids:
-            return
-        with self._lock:
-            for target_id in resolved_target_ids:
-                target = self._targets.get(target_id)
-                if target is not None:
-                    target["queued"] = int(target.get("queued", 0)) + 1
-
-        for target_id in resolved_target_ids:
-            self._queue.put(
-                {
-                    "operation": "update",
                     "target_id": target_id,
                     "session_id": session_id,
                     "session_name": session_name,
@@ -570,19 +532,17 @@ class HiveUploader:
         target_id = job.get("target_id")
         if not isinstance(target_id, str) or not target_id:
             return
-        operation = job.get("operation") if isinstance(job.get("operation"), str) else "upload"
-
         image_path = None
         if job.get("image_path"):
             candidate = Path(job["image_path"])
             if candidate.exists():
                 image_path = candidate
-            elif operation == "upload":
+            else:
                 log.warning("Hive upload skipped: image not found %s", candidate)
                 with self._lock:
                     self._decrement_queue_locked(target_id)
                 return
-        elif operation == "upload":
+        else:
             log.warning("Hive upload skipped: missing image path for %s/%s", job.get("session_id"), job.get("sample_id"))
             with self._lock:
                 self._decrement_queue_locked(target_id)
@@ -680,12 +640,7 @@ class HiveUploader:
                     "extra_metadata": extra_metadata or None,
                     "channel_geometry": channel_geometry,
                 }
-                if operation == "update":
-                    client.updateSample(**request_kwargs)
-                else:
-                    if image_path is None:
-                        raise FileNotFoundError("Upload job is missing the primary image path.")
-                    client.uploadSample(**request_kwargs)  # type: ignore[arg-type]
+                client.uploadSample(**request_kwargs)  # type: ignore[arg-type]
                 with self._lock:
                     target = self._targets.get(target_id)
                     if target is not None:
@@ -704,17 +659,11 @@ class HiveUploader:
                 log.debug("Hive upload dropped for %s/%s: %s", job["session_id"], job["sample_id"], exc)
                 return
             except Exception as exc:
-                retry_missing_sample = (
-                    operation == "update"
-                    and isinstance(exc, requests.HTTPError)
-                    and exc.response is not None
-                    and exc.response.status_code == 404
-                )
-                if _is_transient(exc) or retry_missing_sample:
+                if _is_transient(exc):
                     with self._lock:
                         target = self._targets.get(target_id)
                         if target is not None:
-                            target["server_reachable"] = not retry_missing_sample
+                            target["server_reachable"] = True
                             target["requeued"] = int(target.get("requeued", 0)) + 1
                             target["last_error"] = f"Retrying sample sync: {exc}"
                             backoff_s = min(

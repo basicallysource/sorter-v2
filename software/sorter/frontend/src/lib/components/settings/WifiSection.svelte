@@ -2,8 +2,15 @@
 	import { onMount } from 'svelte';
 	import { machineHttpBaseUrlFromWsUrl, getBackendHttpBase } from '$lib/backend';
 	import { getMachineContext } from '$lib/machines/context';
-	import { Button, Input, Alert } from '$lib/components/primitives';
-	import { Wifi, Lock, RefreshCw, Check } from 'lucide-svelte';
+	import Button from '$lib/components/ui/Button.svelte';
+	import Input from '$lib/components/ui/Input.svelte';
+	import Alert from '$lib/components/ui/Alert.svelte';
+	import Select from '$lib/components/ui/Select.svelte';
+	import Spinner from '$lib/components/ui/Spinner.svelte';
+	import Wifi from '@lucide/svelte/icons/wifi';
+	import Lock from '@lucide/svelte/icons/lock';
+	import RefreshCw from '@lucide/svelte/icons/refresh-cw';
+	import Check from '@lucide/svelte/icons/check';
 
 	const machine = getMachineContext();
 
@@ -129,122 +136,120 @@
 
 <div class="flex flex-col gap-4">
 	{#if loadError}
-		<Alert variant="danger">{loadError}</Alert>
+		<Alert tone="danger">{loadError}</Alert>
 	{/if}
 
 	{#if status && !status.available}
-		<Alert variant="warning">
-			NetworkManager (nmcli) isn't available on this machine, so WiFi can't be managed here.
+		<Alert tone="warning">
+			NetworkManager (nmcli) isn't available on this machine, so its Wi-Fi can't be managed here.
 		</Alert>
 	{:else if status}
-		<!-- Adapters -->
-		<div class="border border-border bg-bg px-4 py-3">
-			<div class="text-sm font-semibold text-text">Adapters</div>
-			<div class="mt-2 flex flex-col gap-1.5">
-				{#each status.adapters as a (a.device)}
-					<div class="flex items-center gap-2 text-sm">
-						<Wifi class="h-4 w-4 {a.connected ? 'text-success' : 'text-text-muted'}" />
-						<span class="font-mono text-text">{a.device}</span>
-						<span class="text-text-muted">
-							{a.connected ? `connected · ${a.active_ssid}` : a.state}
-						</span>
-						{#if a.ip}
-							<span class="ml-auto font-mono text-text-muted">{a.ip}</span>
-						{/if}
-					</div>
-				{/each}
-				{#if status.adapters.length === 0}
-					<div class="text-sm text-text-muted">No WiFi adapters detected.</div>
-				{/if}
-			</div>
-
+		<div>
+			<div class="label">Adapters</div>
+			{#if status.adapters.length === 0}
+				<p class="mt-1 text-sm text-ink-muted">No Wi-Fi adapters found.</p>
+			{:else}
+				<ul class="mt-1 divide-y divide-line">
+					{#each status.adapters as a (a.device)}
+						<li class="flex items-center gap-2 py-2 text-sm">
+							<Wifi size={16} class={a.connected ? 'text-success-ink' : 'text-ink-faint'} />
+							<span class="font-mono text-ink">{a.device}</span>
+							<span class="text-ink-muted">
+								{a.connected ? `Connected to ${a.active_ssid}` : a.state}
+							</span>
+							{#if a.ip}
+								<span class="ml-auto font-mono text-ink-muted">{a.ip}</span>
+							{/if}
+						</li>
+					{/each}
+				</ul>
+			{/if}
 			{#if status.adapters.length > 1}
-				<label class="mt-3 flex items-center gap-2 text-sm text-text-muted">
-					Connect using
-					<select
+				<div class="mt-3 flex items-center gap-3">
+					<label for="wifi-adapter" class="text-sm text-ink-muted">Connect using</label>
+					<Select
+						id="wifi-adapter"
+						size="sm"
 						bind:value={selectedDevice}
-						class="setup-control border border-border bg-surface px-2 py-1 text-sm text-text"
-					>
-						{#each status.adapters as a (a.device)}
-							<option value={a.device}>{a.device}</option>
-						{/each}
-					</select>
-				</label>
+						options={status.adapters.map((a) => ({ value: a.device, label: a.device }))}
+						class="w-40"
+					/>
+				</div>
 			{/if}
 		</div>
 
 		{#if connectError}
-			<Alert variant="danger">{connectError}</Alert>
+			<Alert tone="danger">{connectError}</Alert>
 		{/if}
 		{#if connectSuccess}
-			<Alert variant="success">{connectSuccess}</Alert>
+			<Alert tone="success">{connectSuccess}</Alert>
 		{/if}
 
-		<!-- Networks -->
-		<div class="flex items-center justify-between">
-			<div class="text-sm font-semibold text-text">Networks</div>
-			<Button variant="secondary" size="sm" loading={scanning} onclick={rescan}>
-				<RefreshCw class="mr-1 h-4 w-4" /> Scan
-			</Button>
-		</div>
-
-		<div class="flex flex-col border border-border">
-			{#each status.networks as net (net.ssid)}
-				<div class="border-b border-border last:border-b-0">
-					<button
-						type="button"
-						class="flex w-full items-center gap-3 px-3 py-2 text-left hover:bg-surface"
-						onclick={() => toggleExpand(net)}
-					>
-						<span class="w-10 font-mono text-sm tabular-nums text-text-muted">{signalBars(net.signal)}</span>
-						<span class="flex-1 truncate text-sm font-medium text-text">{net.ssid}</span>
-						{#if net.active}
-							<span class="inline-flex items-center gap-1 text-sm text-success">
-								<Check class="h-4 w-4" /> Connected
-							</span>
-						{/if}
-						{#if net.secured}
-							<Lock class="h-4 w-4 text-text-muted" />
-						{/if}
-						<span class="w-10 text-right text-sm tabular-nums text-text-muted">{net.signal}%</span>
-					</button>
-
-					{#if expandedSsid === net.ssid}
-						<div class="flex flex-col gap-2 border-t border-border bg-bg px-3 py-3">
-							{#if net.secured}
-								<Input
-									type="password"
-									bind:value={passwordDraft}
-									placeholder="Password for {net.ssid}"
-								/>
-							{:else}
-								<div class="text-sm text-text-muted">Open network — no password required.</div>
-							{/if}
-							<div>
-								<Button
-									variant="primary"
-									size="sm"
-									loading={connecting}
-									disabled={net.secured && passwordDraft.length === 0}
-									onclick={() => connect(net)}
-								>
-									Connect{selectedDevice ? ` (${selectedDevice})` : ''}
-								</Button>
-							</div>
-						</div>
-					{/if}
-				</div>
-			{/each}
+		<div>
+			<div class="flex items-center justify-between gap-3">
+				<div class="label">Networks</div>
+				<Button variant="ghost" size="sm" icon={RefreshCw} loading={scanning} onclick={rescan}>
+					Scan
+				</Button>
+			</div>
 			{#if status.networks.length === 0}
-				<div class="px-3 py-3 text-sm text-text-muted">No networks found. Try scanning.</div>
+				<p class="mt-1 text-sm text-ink-muted">No networks found. Try scanning.</p>
+			{:else}
+				<ul class="mt-1 divide-y divide-line">
+					{#each status.networks as net (net.ssid)}
+						<li>
+							<button
+								type="button"
+								class="flex w-full items-center gap-3 rounded-item px-2 py-2 text-left text-sm transition-colors hover:bg-hover"
+								aria-expanded={expandedSsid === net.ssid}
+								onclick={() => toggleExpand(net)}
+							>
+								<span class="num w-10 font-mono text-ink-muted">{signalBars(net.signal)}</span>
+								<span class="flex-1 truncate font-medium text-ink">{net.ssid}</span>
+								{#if net.active}
+									<span class="inline-flex items-center gap-1 text-success-ink">
+										<Check size={16} /> Connected
+									</span>
+								{/if}
+								{#if net.secured}
+									<Lock size={16} class="text-ink-muted" />
+								{/if}
+								<span class="num w-10 text-right text-ink-muted">{net.signal}%</span>
+							</button>
+							{#if expandedSsid === net.ssid}
+								<div class="mb-2 flex flex-col gap-3 rounded-control bg-well p-3">
+									{#if net.secured}
+										<Input
+											type="password"
+											bind:value={passwordDraft}
+											placeholder="Password for {net.ssid}"
+										/>
+									{:else}
+										<p class="text-sm text-ink-muted">An open network: no password.</p>
+									{/if}
+									<div>
+										<Button
+											variant="primary"
+											loading={connecting}
+											disabled={net.secured && passwordDraft.length === 0}
+											onclick={() => connect(net)}
+										>
+											Connect{selectedDevice ? ` with ${selectedDevice}` : ''}
+										</Button>
+									</div>
+								</div>
+							{/if}
+						</li>
+					{/each}
+				</ul>
 			{/if}
 		</div>
 
-		<div class="text-sm text-text-muted">
-			Switching the network an adapter is using can drop any UI session reaching this machine
-			over that adapter. If you're connected over Ethernet or Tailscale, you'll stay connected.
-		</div>
+		<p class="text-sm text-ink-muted">
+			Switching the network an adapter uses can drop any page reaching this machine through that
+			adapter. Over Ethernet or Tailscale, you stay connected.
+		</p>
 	{:else}
-		<div class="text-sm text-text-muted">Loading WiFi…</div>
+		<div class="flex items-center gap-2 text-sm text-ink-muted"><Spinner size={14} /> Loading Wi-Fi</div>
 	{/if}
 </div>

@@ -1,7 +1,9 @@
 <script lang="ts">
-	import { Check, FlaskConical } from 'lucide-svelte';
-	import { Button } from '$lib/components/primitives';
-	import Spinner from '$lib/components/Spinner.svelte';
+	import Check from '@lucide/svelte/icons/check';
+	import FlaskConical from '@lucide/svelte/icons/flask-conical';
+	import Alert from '$lib/components/ui/Alert.svelte';
+	import Badge from '$lib/components/ui/Badge.svelte';
+	import Button from '$lib/components/ui/Button.svelte';
 
 	// Scratch / ephemeral Brickognize re-classification. Pick a subset of a
 	// piece's crops and run them back through Brickognize purely for testing —
@@ -83,19 +85,19 @@
 	}
 </script>
 
-<div class="border border-warning/40 bg-warning/[0.06]">
-	<div class="flex flex-wrap items-center gap-2 border-b border-warning/40 px-3 py-2">
-		<FlaskConical size={14} class="text-warning" />
-		<span class="text-sm font-semibold text-text">Scratch reclassify</span>
-		<span class="text-xs text-text-muted">
-			testing only — not recorded, no effect on sorting
-		</span>
-		<span class="ml-auto flex items-center gap-2">
-			<span class="text-xs tabular-nums {overLimit ? 'text-danger' : 'text-text-muted'}">
-				{selectedCount}/{MAX_IMAGES} selected
+<section class="rounded-control bg-well p-3">
+	<div class="flex flex-wrap items-center gap-x-3 gap-y-2">
+		<h3 class="flex items-center gap-2 text-sm font-semibold text-ink">
+			<FlaskConical size={16} />
+			Scratch reclassify
+		</h3>
+		<Badge tone="warning">Testing only</Badge>
+		<span class="text-sm text-ink-muted">Not recorded, and no effect on sorting.</span>
+		<span class="ml-auto flex items-center gap-3">
+			<span class="num text-sm {overLimit ? 'text-danger-ink' : 'text-ink-muted'}">
+				{selectedCount} of {MAX_IMAGES} selected
 			</span>
 			<Button
-				variant="secondary"
 				size="sm"
 				onclick={run}
 				disabled={running || selectedCount === 0 || overLimit}
@@ -106,88 +108,79 @@
 		</span>
 	</div>
 
-	<div class="p-3">
-		{#if images.length === 0}
-			<div class="text-sm text-text-muted">No images available to test.</div>
-		{:else}
-			<div class="flex flex-wrap gap-2">
-				{#each images as img, i (i)}
-					{@const isSel = selected.has(i)}
-					<button
-						type="button"
-						onclick={() => toggle(i)}
-						class="relative flex flex-col bg-white text-left {isSel
-							? 'border-2 border-primary'
-							: 'border border-border opacity-70 hover:opacity-100'}"
-						title={img.label}
-					>
-						<div class="h-24 w-24 bg-white">
-							<img src={srcOf(img)} alt={img.label} class="h-full w-full object-contain" loading="lazy" />
-						</div>
-						{#if isSel}
-							<span class="absolute right-1 top-1 flex items-center justify-center bg-primary p-0.5 text-white">
-								<Check size={12} />
-							</span>
-						{/if}
-						<div class="border-t border-border px-1.5 py-1 text-xs text-text-muted">
-							<span class="block truncate">{img.label}</span>
-						</div>
-					</button>
-				{/each}
-			</div>
-			{#if overLimit}
-				<div class="mt-2 text-xs text-danger">
-					Brickognize accepts at most {MAX_IMAGES} images — deselect {selectedCount - MAX_IMAGES}.
-				</div>
-			{/if}
-		{/if}
-
-		{#if error}
-			<div class="mt-3 border border-danger/40 bg-danger/[0.06] px-3 py-2 text-sm text-danger">
-				{error}
-			</div>
-		{/if}
-
-		{#if result}
-			<div class="mt-3 border border-border bg-surface p-3">
-				<div class="mb-2 text-xs font-semibold uppercase tracking-wider text-text-muted">
-					Result · {result.n_images} image{result.n_images === 1 ? '' : 's'} sent
-				</div>
-				{#if result.best_item}
-					<div class="flex items-start gap-3">
-						{#if result.best_item.img_url}
-							<img
-								src={result.best_item.img_url.startsWith('http')
-									? result.best_item.img_url
-									: `https:${result.best_item.img_url}`}
-								alt={result.best_item.name}
-								class="h-16 w-16 flex-shrink-0 border border-border bg-white object-contain"
-								loading="lazy"
-							/>
-						{/if}
-						<div class="flex min-w-0 flex-col gap-0.5 text-sm">
-							<span class="font-mono font-semibold text-text">{result.best_item.id}</span>
-							<span class="text-text">{result.best_item.name}</span>
-							<span class="tabular-nums text-text-muted">
-								{(result.best_item.score * 100).toFixed(0)}% match{#if result.best_color}
-									· {result.best_color.name}{/if}
-							</span>
-						</div>
-					</div>
-					{#if result.items.length > 1}
-						<div class="mt-2 flex flex-col gap-0.5 text-xs text-text-muted">
-							{#each result.items.slice(1, 5) as it (it.id)}
-								<span class="tabular-nums">
-									{(it.score * 100).toFixed(0)}% · <span class="font-mono">{it.id}</span>
-									{it.name}
-								</span>
-							{/each}
-						</div>
+	{#if images.length === 0}
+		<p class="mt-3 text-sm text-ink-muted">No images are available to test.</p>
+	{:else}
+		<div class="mt-3 flex flex-wrap gap-2">
+			{#each images as img, i (i)}
+				{@const isSel = selected.has(i)}
+				<button
+					type="button"
+					onclick={() => toggle(i)}
+					aria-pressed={isSel}
+					class="relative flex flex-col gap-1 rounded-control p-1 text-left transition-colors {isSel
+						? 'bg-primary-soft'
+						: 'opacity-70 hover:bg-hover hover:opacity-100'}"
+					title={img.label}
+				>
+					<img src={srcOf(img)} alt={img.label} class="size-24 rounded-item object-contain" loading="lazy" />
+					{#if isSel}
+						<span class="absolute top-2 right-2 rounded-badge bg-primary p-0.5 text-on-primary">
+							<Check size={12} />
+						</span>
 					{/if}
-				{:else}
-					<div class="text-sm text-text-muted">No items returned (not recognized).</div>
-				{/if}
-			</div>
+					<span class="block max-w-24 truncate text-xs text-ink-muted">{img.label}</span>
+				</button>
+			{/each}
+		</div>
+		{#if overLimit}
+			<p class="mt-2 text-sm text-danger-ink">
+				Brickognize accepts at most {MAX_IMAGES} images. Deselect {selectedCount - MAX_IMAGES}.
+			</p>
 		{/if}
-	</div>
-</div>
+	{/if}
+
+	{#if error}<Alert tone="danger" class="mt-3">{error}</Alert>{/if}
+
+	{#if result}
+		<div class="mt-3 border-t border-line pt-3">
+			<div class="label mb-2">
+				Result · {result.n_images} image{result.n_images === 1 ? '' : 's'} sent
+			</div>
+			{#if result.best_item}
+				<div class="flex items-start gap-3">
+					{#if result.best_item.img_url}
+						<img
+							src={result.best_item.img_url.startsWith('http')
+								? result.best_item.img_url
+								: `https:${result.best_item.img_url}`}
+							alt={result.best_item.name}
+							class="size-16 shrink-0 rounded-item object-contain"
+							loading="lazy"
+						/>
+					{/if}
+					<div class="flex min-w-0 flex-col gap-0.5 text-sm">
+						<span class="font-mono font-semibold text-ink">{result.best_item.id}</span>
+						<span class="text-ink">{result.best_item.name}</span>
+						<span class="num text-ink-muted">
+							{(result.best_item.score * 100).toFixed(0)}% match{#if result.best_color}
+								· {result.best_color.name}{/if}
+						</span>
+					</div>
+				</div>
+				{#if result.items.length > 1}
+					<ul class="mt-2 flex flex-col gap-0.5 text-sm text-ink-muted">
+						{#each result.items.slice(1, 5) as it (it.id)}
+							<li class="num">
+								{(it.score * 100).toFixed(0)}% · <span class="font-mono">{it.id}</span>
+								{it.name}
+							</li>
+						{/each}
+					</ul>
+				{/if}
+			{:else}
+				<p class="text-sm text-ink-muted">No items were returned: the piece was not recognized.</p>
+			{/if}
+		</div>
+	{/if}
+</section>

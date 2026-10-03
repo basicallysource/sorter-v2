@@ -1,4 +1,9 @@
 <script lang="ts">
+	import ChevronLeft from '@lucide/svelte/icons/chevron-left';
+	import ChevronRight from '@lucide/svelte/icons/chevron-right';
+	import Button from '$lib/components/ui/Button.svelte';
+	import Select from '$lib/components/ui/Select.svelte';
+
 	type Props = {
 		pageSize: number;
 		pageSizeOptions: readonly number[];
@@ -13,48 +18,47 @@
 	const props: Props = $props();
 </script>
 
-<div
-	class="mt-4 grid items-center gap-3 border border-border bg-surface px-4 py-3 text-sm text-text-muted md:grid-cols-[auto_1fr_auto]"
->
-	<label class="flex items-center gap-2 text-sm text-text-muted">
+<div class="flex flex-wrap items-center justify-between gap-x-6 gap-y-3 text-sm text-ink-muted">
+	<div class="flex items-center gap-2">
 		<span>Per page</span>
-		<select
+		<Select
+			label="Profiles per page"
+			size="sm"
+			class="w-20"
 			value={String(props.pageSize)}
-			onchange={(event) =>
-				props.onPageSizeChange(Number((event.currentTarget as HTMLSelectElement).value))}
-			class="border border-border bg-bg px-2 py-1.5 text-sm text-text"
-		>
-			{#each props.pageSizeOptions as option}
-				<option value={option}>{option}</option>
-			{/each}
-		</select>
-	</label>
-	<div class="text-center">{props.summary}</div>
-	<div class="flex items-center justify-end gap-1">
-		<button
-			type="button"
-			onclick={() => props.onPageChange(props.currentPage - 1)}
+			options={props.pageSizeOptions.map((option) => ({ value: String(option), label: String(option) }))}
+			onchange={(value) => props.onPageSizeChange(Number(value))}
+		/>
+	</div>
+	<p>{props.summary}</p>
+	<nav aria-label="Pages" class="flex items-center gap-1">
+		<Button
+			size="sm"
+			variant="ghost"
+			icon={ChevronLeft}
 			disabled={props.currentPage <= 1}
-			class="border border-border px-3 py-1.5 text-text transition-colors hover:bg-bg disabled:opacity-50"
-			>Previous</button
+			onclick={() => props.onPageChange(props.currentPage - 1)}
 		>
+			Previous
+		</Button>
 		{#each props.visiblePageNumbers as pageNumber}
-			<button
-				type="button"
+			<Button
+				size="sm"
+				variant={pageNumber === props.currentPage ? 'primary' : 'ghost'}
+				aria-current={pageNumber === props.currentPage ? 'page' : undefined}
 				onclick={() => props.onPageChange(pageNumber)}
-				class="border px-3 py-1.5 transition-colors {pageNumber === props.currentPage
-					? 'border-primary bg-primary text-primary-contrast'
-					: 'border-border text-text hover:bg-bg'}"
 			>
 				{pageNumber}
-			</button>
+			</Button>
 		{/each}
-		<button
-			type="button"
-			onclick={() => props.onPageChange(props.currentPage + 1)}
+		<Button
+			size="sm"
+			variant="ghost"
 			disabled={props.currentPage >= props.totalPages}
-			class="border border-border px-3 py-1.5 text-text transition-colors hover:bg-bg disabled:opacity-50"
-			>Next</button
+			onclick={() => props.onPageChange(props.currentPage + 1)}
 		>
-	</div>
+			Next
+			<ChevronRight size={14} />
+		</Button>
+	</nav>
 </div>

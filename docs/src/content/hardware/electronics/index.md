@@ -16,7 +16,7 @@ The machine's electronics are one 24 V supply, two boards and the cables between
 
 <ol class="numbered-steps">
   <li><strong><a href="{{ '/hardware/electronics/wire-harness/' | relative_url }}">Wire harness</a></strong>. The reference: the supply's spec, the interconnect diagram, every cable with its ends, lengths and gauges, the stepper pinout, and what is still undecided. Read it to know what a cable is; you do not build anything from this page.</li>
-  <li><strong><a href="{{ '/hardware/electronics/installation/' | relative_url }}">Installing the electronics</a></strong>. The build: the PSU box, the control board and its housing, the Orange Pi and its mount, and the step that bolts all three onto the hex frame. Five pages, in order.</li>
+  <li><strong><a href="{{ '/hardware/electronics/installation/' | relative_url }}">Installing the electronics</a></strong>. The build: the PSU box, the control board and its housing, the Orange Pi and its housing, and the step that bolts all three onto the hex frame. Five pages, in order.</li>
   <li><strong><a href="{{ '/hardware/electronics/connecting/' | relative_url }}">Connecting the components</a></strong>. Every cable plugged in, and the socket each end goes into. Assumes the boxes are on the frame and the cables exist.</li>
 </ol>
 

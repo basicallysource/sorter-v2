@@ -94,16 +94,12 @@ OrcaSlicer's own output. Do not compute weight from volume/density.
 installed. The versions there are pinned because the stamped STL bytes, and so
 their URLs, depend on them.
 
-## Design rules
+## How it looks
 
-**Structural lines are hairlines — one weight, everywhere.** Any line that
-draws structure (a card border, a divider, a tree guide, a table rule) is 1px:
-Tailwind `border`/`border-l`, never a `border-2`/`border-l-2` variant, never a
-`2px solid` in CSS. Emphasis on a structural line comes from color (the tree's
-`?focus=` highlight recolors its 1px guide), never from thickness. The only
-2px lines allowed are non-structural state markers: the active-tab/nav
-underline, the `:focus-visible` outline, and drawing-legend swatches that
-mimic a diagram's stroke. This applies to the docs site the same as here.
+How this site looks and is built: `software/sorter-design-system` (read its
+`AGENTS.md` and `docs/rules.md` first, and `docs/apps.md` for what differs
+here). Components are copied from its `src/lib/components/` unchanged; a change
+is made there first.
 
 ## One detail view per thing
 

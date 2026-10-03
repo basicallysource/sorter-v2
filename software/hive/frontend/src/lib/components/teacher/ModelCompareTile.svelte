@@ -1,6 +1,9 @@
 <script lang="ts">
 	import type { TeacherModelInfo, TeacherPreviewResponse } from '$lib/api';
-	import { Button } from '$lib/components/primitives';
+	import Alert from '$lib/components/Alert.svelte';
+	import Button from '$lib/components/Button.svelte';
+	import Disclosure from '$lib/components/Disclosure.svelte';
+	import Spinner from '$lib/components/Spinner.svelte';
 
 	type RunStatus = 'idle' | 'running' | 'done' | 'error';
 
@@ -40,16 +43,16 @@
 	}
 
 	function formatUsd(value: number | null | undefined): string {
-		if (value == null) return '—';
+		if (value == null) return '-';
 		if (value === 0) return '$0.00';
 		if (Math.abs(value) < 0.01) return `$${value.toFixed(4)}`;
 		return `$${value.toFixed(2)}`;
 	}
 
 	function formatMs(ms: number | null | undefined): string {
-		if (ms == null) return '—';
-		if (ms < 1000) return `${ms}ms`;
-		return `${(ms / 1000).toFixed(1)}s`;
+		if (ms == null) return '-';
+		if (ms < 1000) return `${ms} ms`;
+		return `${(ms / 1000).toFixed(1)} s`;
 	}
 
 	function scaledBox(
@@ -73,34 +76,23 @@
 
 <svelte:window onresize={onWindowResize} />
 
-<div class="border border-border bg-surface">
-	<div class="flex items-center gap-2 border-b border-border px-3 py-2">
-		<span class="h-4 w-4 shrink-0 border border-border" style="background: {color};"></span>
+<section class="overflow-hidden rounded-panel bg-surface">
+	<header class="flex items-center gap-2.5 px-(--pad-panel) py-3">
+		<span class="size-3.5 shrink-0 rounded-item" style="background: {color};"></span>
 		<div class="min-w-0 flex-1">
-			<div class="truncate text-sm font-semibold text-text">{model.display_name}</div>
-			<div class="truncate font-mono text-[10px] text-text-muted">
-				{model.model_id}
-				<span class="ml-1">[{model.adapter_kind}]</span>
-			</div>
+			<div class="truncate text-sm font-semibold text-ink">{model.display_name}</div>
+			<div class="truncate font-mono text-sm text-ink-muted">{model.model_id}, {model.adapter_kind}</div>
 		</div>
-		<Button variant="secondary" size="sm" loading={status === 'running'} onclick={onRun}>
-			{status === 'idle' ? 'Run' : status === 'running' ? 'Running…' : 'Re-run'}
-		</Button>
-	</div>
+		<Button size="sm" loading={status === 'running'} onclick={onRun}
+			>{status === 'idle' ? 'Run' : status === 'running' ? 'Running' : 'Run again'}</Button
+		>
+	</header>
 
-	<div class="relative bg-bg">
-		<img
-			bind:this={imgEl}
-			src={imageUrl}
-			alt={model.display_name}
-			class="block w-full"
-			onload={onImgLoad}
-		/>
+	<div class="relative bg-media">
+		<img bind:this={imgEl} src={imageUrl} alt={model.display_name} class="block w-full" onload={onImgLoad} />
 		{#if status === 'done' && result && renderedWidth > 0}
-			{@const refW = result.image_width}
-			{@const refH = result.image_height}
 			{#each result.bboxes as bbox, bi (bi)}
-				{@const box = scaledBox(bbox, refW, refH)}
+				{@const box = scaledBox(bbox, result.image_width, result.image_height)}
 				{#if box}
 					<div
 						class="pointer-events-none absolute border-2"
@@ -110,53 +102,41 @@
 			{/each}
 		{/if}
 		{#if status === 'running'}
-			<div class="absolute inset-0 flex items-center justify-center bg-surface/60">
-				<div class="text-xs text-text-muted">Running…</div>
-			</div>
+			<div class="absolute inset-0 flex items-center justify-center bg-scrim text-white"><Spinner /></div>
 		{/if}
 	</div>
 
 	{#if status === 'done' && result}
-		<div class="grid grid-cols-4 gap-2 border-t border-border px-3 py-2 text-[11px]">
-			<div>
-				<div class="text-text-muted">Boxes</div>
-				<div class="tabular-nums font-semibold text-text">{result.count}</div>
-			</div>
-			<div>
-				<div class="text-text-muted">Top score</div>
-				<div class="tabular-nums font-semibold text-text">
-					{result.score > 0 ? result.score.toFixed(2) : '—'}
+		<dl class="grid grid-cols-4 gap-2 border-t border-line px-(--pad-panel) py-2.5">
+			{#each [
+				['Boxes', String(result.count)],
+				['Top score', result.score > 0 ? result.score.toFixed(2) : '-'],
+				['Cost', formatUsd(result.cost_usd)],
+				['Time', formatMs(result.elapsed_ms)]
+			] as [name, value] (name)}
+				<div class="min-w-0">
+					<dt class="truncate text-sm text-ink-muted">{name}</dt>
+					<dd class="num truncate text-sm font-semibold text-ink">{value}</dd>
 				</div>
-			</div>
-			<div>
-				<div class="text-text-muted">Cost</div>
-				<div class="tabular-nums font-semibold text-text">{formatUsd(result.cost_usd)}</div>
-			</div>
-			<div>
-				<div class="text-text-muted">Latency</div>
-				<div class="tabular-nums font-semibold text-text">{formatMs(result.elapsed_ms)}</div>
-			</div>
-		</div>
+			{/each}
+		</dl>
 		{#if result.raw_text || result.raw_annotations}
-			<details class="border-t border-border">
-				<summary class="cursor-pointer px-3 py-1.5 text-[11px] text-text-muted hover:text-text">
-					Show raw response
-				</summary>
-				{#if result.raw_text}
-					<pre class="max-h-64 overflow-auto border-t border-border bg-bg px-3 py-2 font-mono text-[10px] leading-relaxed text-text whitespace-pre-wrap break-all">{result.raw_text}</pre>
-				{/if}
-				{#if result.raw_annotations}
-					<pre class="max-h-64 overflow-auto border-t border-border bg-bg px-3 py-2 font-mono text-[10px] leading-relaxed text-text whitespace-pre-wrap break-all">{JSON.stringify(result.raw_annotations, null, 2)}</pre>
-				{/if}
-			</details>
+			<div class="border-t border-line">
+				<Disclosure title="The raw response">
+					<div class="flex flex-col gap-2 px-(--pad-panel)">
+						{#if result.raw_text}
+							<pre class="max-h-64 overflow-auto rounded-control bg-well p-3 font-mono text-sm break-all whitespace-pre-wrap text-ink">{result.raw_text}</pre>
+						{/if}
+						{#if result.raw_annotations}
+							<pre class="max-h-64 overflow-auto rounded-control bg-well p-3 font-mono text-sm break-all whitespace-pre-wrap text-ink">{JSON.stringify(result.raw_annotations, null, 2)}</pre>
+						{/if}
+					</div>
+				</Disclosure>
+			</div>
 		{/if}
 	{:else if status === 'error'}
-		<div class="border-t border-border bg-warning-bg px-3 py-2 text-[11px] text-warning-strong">
-			{error}
-		</div>
+		<div class="border-t border-line p-3"><Alert tone="warning">{error}</Alert></div>
 	{:else if model.notes}
-		<div class="border-t border-border px-3 py-2 text-[11px] text-text-muted">
-			{model.notes}
-		</div>
+		<p class="border-t border-line px-(--pad-panel) py-2.5 text-sm text-ink-muted">{model.notes}</p>
 	{/if}
-</div>
+</section>

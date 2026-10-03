@@ -106,18 +106,6 @@ def _observe(
         pass
 
 
-def _hit(counter: Optional[Any], key: str) -> None:
-    if counter is None:
-        return
-    fn = getattr(counter, "hit", None)
-    if fn is None:
-        return
-    try:
-        fn(key)
-    except Exception:
-        pass
-
-
 class InferenceWorker:
     """One thread per channel. Capture → infer → attribute → slot.write."""
 
@@ -131,7 +119,6 @@ class InferenceWorker:
         conf_threshold: Optional[float] = None,
         on_exit_edge: Optional[OnExitEdge] = None,
         runtime_stats: Optional[Any] = None,
-        profiler: Optional[Any] = None,
         logger: Optional[Any] = None,
         log_attribution: bool = False,
     ) -> None:
@@ -171,7 +158,6 @@ class InferenceWorker:
         self._conf_threshold = conf_threshold
         self._on_exit_edge = on_exit_edge
         self._runtime_stats = runtime_stats
-        self._profiler = profiler
         self._logger = logger
         self._log_attribution = log_attribution
 
@@ -316,6 +302,11 @@ class InferenceWorker:
                 Detection(
                     bbox=bbox,
                     in_primary=in_primary,
+                    in_margin=(
+                        not in_primary
+                        and ch.exit_margin_mask is not None
+                        and bboxInsideMask(bbox, ch.exit_margin_mask)
+                    ),
                     secondary_zone_ids=sids,
                     sv_bt_track_id=tids.get(bbox),
                 )
@@ -358,7 +349,6 @@ class InferenceWorker:
         ):
             return True
         self.source_id_assertions += 1
-        _hit(self._profiler, f"perception.{self.source_id}.source_id_assertion")
         if self._logger is not None:
             try:
                 self._logger.error(
@@ -518,7 +508,6 @@ class InferenceWorker:
     def _loop(self) -> None:
         while not self._stop.is_set():
             self.iterations += 1
-            _hit(self._profiler, f"perception.{self.source_id}.iterations")
             try:
                 frame = self._capture.latest_frame()
                 if frame is None:
@@ -672,10 +661,17 @@ class InferenceWorker:
                 )
                 attribute_ms = _now_ms() - attribute_t0
 
+                margin = self._channel_def.exit_margin_mask
+                on_channel = {tuple(int(v) for v in b[:4]) for b in bboxes}
+                in_margin = margin is not None and any(
+                    box not in on_channel and bboxInsideMask(box, margin)
+                    for box in (tuple(int(v) for v in b[:4]) for b in raw_bboxes_full)
+                )
                 state = ChannelState(
                     ts=frame.timestamp,
                     in_drop=in_drop,
                     in_exit=in_exit,
+                    in_margin=in_margin,
                     n_pieces=n_pieces,
                     in_precise=in_precise,
                     in_exit_majority=in_exit_majority,
@@ -772,11 +768,9 @@ class InferenceWorker:
                     f"perception.{self.source_id}.frame_age_ms",
                     max(0.0, (time.time() - frame.timestamp) * 1000.0),
                 )
-                _hit(self._profiler, f"perception.{self.source_id}.inferred")
 
             except Exception as exc:
                 self.errors += 1
-                _hit(self._profiler, f"perception.{self.source_id}.errors")
                 if self._logger is not None:
                     try:
                         self._logger.warning(

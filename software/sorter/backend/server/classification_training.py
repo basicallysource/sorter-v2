@@ -6,27 +6,18 @@ import shutil
 import threading
 import time
 from pathlib import Path
-from typing import TYPE_CHECKING, Any
+from typing import Any
 from uuid import uuid4
 
 import cv2
 import numpy as np
 
-from blob_manager import BLOB_DIR, getClassificationTrainingConfig, setClassificationTrainingConfig
-from server.condition_collector import (
-    CONDITION_CAPTURE_REASON,
-    CONDITION_SOURCE,
-    ConditionCropPick,
-    build_condition_metadata,
-)
+from local_state import get_classification_training_state, set_classification_training_state
 from server.hive_uploader import HiveUploader
 from server.sample_payloads import build_sample_payload
 
-if TYPE_CHECKING:
-    from vision import VisionManager
 
-
-TRAINING_ROOT = BLOB_DIR / "classification_training"
+TRAINING_ROOT = Path(__file__).parent.parent / "blob" / "classification_training"
 DEFAULT_PROCESSOR = "local_archive"
 LEGACY_PROCESSORS = {"gemini_sam"}
 SUPPORTED_PROCESSORS = {DEFAULT_PROCESSOR, *LEGACY_PROCESSORS}
@@ -72,7 +63,6 @@ class ClassificationTrainingManager:
 
     def __init__(self) -> None:
         self._lock = threading.Lock()
-        self._vision_manager: VisionManager | None = None
         self._processor = DEFAULT_PROCESSOR
         self._session_id: str | None = None
         self._session_name: str | None = None
@@ -84,7 +74,7 @@ class ClassificationTrainingManager:
         self._loadPersistedConfig()
 
     def _loadPersistedConfig(self) -> None:
-        saved = getClassificationTrainingConfig()
+        saved = get_classification_training_state()
         if not isinstance(saved, dict):
             return
 
@@ -120,7 +110,7 @@ class ClassificationTrainingManager:
         self._writeSessionManifest(path)
 
     def _persistConfig(self) -> None:
-        setClassificationTrainingConfig(
+        set_classification_training_state(
             {
                 "processor": self._processor,
                 "session_id": self._session_id,
@@ -130,36 +120,6 @@ class ClassificationTrainingManager:
                 "local_storage_cap_bytes": self._storage_cap_bytes,
             }
         )
-
-    def setVisionManager(self, manager: VisionManager | None) -> None:
-        with self._lock:
-            self._vision_manager = manager
-
-    def startSession(self, session_name: str | None = None) -> dict[str, Any]:
-        with self._lock:
-            self._createSessionLocked(session_name)
-            self._persistConfig()
-            return {
-                "ok": True,
-                "session_id": self._session_id,
-                "session_name": self._session_name,
-                "session_dir": str(self._session_dir) if self._session_dir is not None else None,
-                "created_at": self._created_at,
-            }
-
-    def setProcessor(self, processor: str) -> dict[str, Any]:
-        normalized = processor.strip() if isinstance(processor, str) else ""
-        if normalized not in SUPPORTED_PROCESSORS:
-            raise ValueError(f"Unsupported sample processor '{processor}'.")
-        with self._lock:
-            self._processor = normalized
-            self._persistConfig()
-            return {
-                "ok": True,
-                "processor": self._processor,
-                "session_id": self._session_id,
-                "session_name": self._session_name,
-            }
 
     def getStorageStatus(self) -> dict[str, Any]:
         with self._lock:
@@ -186,334 +146,6 @@ class ClassificationTrainingManager:
                 "storage_cap_bytes": self._storage_cap_bytes,
                 "storage_used_bytes": self._last_usage_bytes,
             }
-
-    def captureCurrentFrame(self, camera: str) -> dict[str, Any]:
-        with self._lock:
-            vision = self._vision_manager
-            if self._ensureSessionLocked():
-                self._persistConfig()
-            session_dir = self._requireSessionDirLocked()
-            processor = self._processor
-
-        if vision is None:
-            raise ValueError("Vision manager is not initialized.")
-
-        capture = vision.captureClassificationSample(camera)
-        zone_key = f"{camera}_zone"
-        zone = capture.get(zone_key)
-        if not isinstance(zone, np.ndarray) or zone.size == 0:
-            raise ValueError("No live classification tray crop is available for this view.")
-
-        metadata = {
-            "source": "manual_capture",
-            "source_role": "classification_chamber",
-            "capture_reason": "manual_capture",
-            "detection_scope": "classification",
-            "camera": camera,
-            "captured_at": time.time(),
-        }
-        return self._archiveSample(
-            session_dir=session_dir,
-            processor=processor,
-            preferred_camera=camera,
-            top_zone=capture.get("top_zone"),
-            bottom_zone=capture.get("bottom_zone"),
-            top_frame=capture.get("top_frame"),
-            bottom_frame=capture.get("bottom_frame"),
-            metadata=metadata,
-        )
-
-    def saveDetectionDebugCapture(
-        self,
-        *,
-        camera: str,
-        algorithm: str,
-        openrouter_model: str | None,
-        debug_result: dict[str, Any] | None,
-        top_zone: np.ndarray | None,
-        bottom_zone: np.ndarray | None,
-        top_frame: np.ndarray | None,
-        bottom_frame: np.ndarray | None,
-    ) -> dict[str, Any]:
-        with self._lock:
-            if self._ensureSessionLocked():
-                self._persistConfig()
-            session_dir = self._requireSessionDirLocked()
-            processor = self._processor
-
-        metadata: dict[str, Any] = {
-            "source": "settings_detection_test",
-            "source_role": "classification_chamber",
-            "capture_reason": "settings_detection_test",
-            "detection_scope": "classification",
-            "camera": camera,
-            "captured_at": time.time(),
-            "detection_algorithm": algorithm if isinstance(algorithm, str) and algorithm else None,
-            "detection_openrouter_model": (
-                openrouter_model
-                if isinstance(openrouter_model, str) and openrouter_model and algorithm == "gemini_sam"
-                else None
-            ),
-        }
-        if isinstance(debug_result, dict):
-            metadata.update(
-                {
-                    "detection_found": bool(debug_result.get("found")),
-                    "detection_bbox": _coerce_bbox(debug_result.get("bbox")),
-                    "detection_candidate_bboxes": [
-                        candidate
-                        for candidate in (_coerce_bbox(value) for value in debug_result.get("candidate_bboxes", []))
-                        if candidate is not None
-                    ],
-                    "detection_bbox_count": int(debug_result.get("bbox_count", 0)),
-                    "detection_score": _safe_float(debug_result.get("score")),
-                    "detection_message": (
-                        debug_result.get("message")
-                        if isinstance(debug_result.get("message"), str)
-                        else None
-                    ),
-                }
-            )
-
-        return self._archiveSample(
-            session_dir=session_dir,
-            processor=processor,
-            preferred_camera=camera,
-            top_zone=top_zone,
-            bottom_zone=bottom_zone,
-            top_frame=top_frame,
-            bottom_frame=bottom_frame,
-            metadata=metadata,
-        )
-
-    def saveLiveClassificationCapture(
-        self,
-        *,
-        piece_uuid: str,
-        machine_id: str,
-        run_id: str,
-        source_role: str = "classification_chamber",
-        preferred_camera: str | None = None,
-        detection_found: bool,
-        detection_algorithm: str | None,
-        detection_openrouter_model: str | None,
-        detection_bbox: list[int] | tuple[int, int, int, int] | None = None,
-        detection_candidate_bboxes: list[list[int]] | list[tuple[int, int, int, int]] | None = None,
-        detection_bbox_count: int | None = None,
-        top_detection_bbox_count: int | None = None,
-        bottom_detection_bbox_count: int | None = None,
-        detection_message: str | None = None,
-        top_zone: np.ndarray | None,
-        bottom_zone: np.ndarray | None,
-        top_frame: np.ndarray | None,
-        bottom_frame: np.ndarray | None,
-    ) -> dict[str, Any]:
-        with self._lock:
-            if self._ensureSessionLocked():
-                self._persistConfig()
-            session_dir = self._requireSessionDirLocked()
-            processor = self._processor
-
-        metadata = {
-            "source": "live_classification",
-            "source_role": source_role if isinstance(source_role, str) and source_role else "classification_chamber",
-            "capture_reason": "live_classification",
-            "detection_scope": "classification",
-            "piece_uuid": piece_uuid,
-            "machine_id": machine_id,
-            "run_id": run_id,
-            "captured_at": time.time(),
-            "detection_found": bool(detection_found),
-            "detection_algorithm": (
-                detection_algorithm
-                if isinstance(detection_algorithm, str) and detection_algorithm
-                else None
-            ),
-            "detection_openrouter_model": (
-                detection_openrouter_model
-                if (
-                    isinstance(detection_openrouter_model, str)
-                    and detection_openrouter_model
-                    and detection_algorithm == "gemini_sam"
-                )
-                else None
-            ),
-            "detection_bbox": _coerce_bbox(detection_bbox),
-            "detection_candidate_bboxes": [
-                candidate
-                for candidate in (_coerce_bbox(value) for value in (detection_candidate_bboxes or []))
-                if candidate is not None
-            ],
-            "detection_bbox_count": int(detection_bbox_count or 0),
-            "top_detection_bbox_count": int(top_detection_bbox_count or 0),
-            "bottom_detection_bbox_count": int(bottom_detection_bbox_count or 0),
-            "detection_message": detection_message if isinstance(detection_message, str) else None,
-        }
-
-        return self._archiveSample(
-            session_dir=session_dir,
-            processor=processor,
-            preferred_camera=(
-                preferred_camera
-                if isinstance(preferred_camera, str) and preferred_camera
-                else ("top" if top_zone is not None else "bottom")
-            ),
-            top_zone=top_zone,
-            bottom_zone=bottom_zone,
-            top_frame=top_frame,
-            bottom_frame=bottom_frame,
-            metadata=metadata,
-        )
-
-    def attachLiveClassificationResult(
-        self,
-        session_id: str,
-        sample_id: str,
-        *,
-        status: str,
-        part_id: str | None,
-        color_id: str | None,
-        color_name: str | None,
-        confidence: float | None,
-        preview_url: str | None,
-        source_view: str | None,
-        top_crop: np.ndarray | None,
-        bottom_crop: np.ndarray | None,
-        result_payload: dict[str, Any] | None = None,
-    ) -> dict[str, Any]:
-        session_dir = self.resolveSessionDir(session_id)
-        metadata_path = session_dir / "metadata" / f"{sample_id}.json"
-        classification_dir = session_dir / "classification"
-        classification_json_dir = classification_dir / "json"
-        classification_json_dir.mkdir(parents=True, exist_ok=True)
-        session_name: str | None = None
-
-        with self._lock:
-            metadata = self._readJsonFile(metadata_path)
-            if metadata is None:
-                raise ValueError("Unknown sample.")
-
-            top_crop_path = session_dir / "captures" / f"{sample_id}_brickognize_top_crop.jpg"
-            bottom_crop_path = session_dir / "captures" / f"{sample_id}_brickognize_bottom_crop.jpg"
-            result_json_path = classification_json_dir / f"{sample_id}_brickognize.json"
-
-            self._writeImage(top_crop_path, top_crop)
-            self._writeImage(bottom_crop_path, bottom_crop)
-
-            selected_crop_path: Path | None = None
-            if source_view == "top" and top_crop is not None:
-                selected_crop_path = top_crop_path
-            elif source_view == "bottom" and bottom_crop is not None:
-                selected_crop_path = bottom_crop_path
-            elif top_crop is not None:
-                selected_crop_path = top_crop_path
-            elif bottom_crop is not None:
-                selected_crop_path = bottom_crop_path
-
-            if isinstance(result_payload, dict):
-                result_json_path.write_text(json.dumps(result_payload, indent=2))
-            else:
-                result_json_path.unlink(missing_ok=True)
-
-            best_item = result_payload.get("best_item") if isinstance(result_payload, dict) else None
-            best_color = result_payload.get("best_color") if isinstance(result_payload, dict) else None
-            top_result = result_payload.get("top_result") if isinstance(result_payload, dict) else None
-            bottom_result = result_payload.get("bottom_result") if isinstance(result_payload, dict) else None
-            provider = (
-                result_payload.get("provider")
-                if isinstance(result_payload, dict) and isinstance(result_payload.get("provider"), str)
-                else "brickognize"
-            )
-            error = (
-                result_payload.get("error")
-                if isinstance(result_payload, dict) and isinstance(result_payload.get("error"), str)
-                else None
-            )
-
-            metadata["classification_result"] = {
-                "provider": provider,
-                "status": status if isinstance(status, str) and status else "unknown",
-                "completed_at": time.time(),
-                "part_id": part_id if isinstance(part_id, str) and part_id else None,
-                "item_name": (
-                    best_item.get("name")
-                    if isinstance(best_item, dict) and isinstance(best_item.get("name"), str)
-                    else None
-                ),
-                "item_category": (
-                    best_item.get("category")
-                    if isinstance(best_item, dict) and isinstance(best_item.get("category"), str)
-                    else None
-                ),
-                "color_id": color_id if isinstance(color_id, str) and color_id else None,
-                "color_name": (
-                    color_name
-                    if isinstance(color_name, str) and color_name
-                    else (
-                        best_color.get("name")
-                        if isinstance(best_color, dict) and isinstance(best_color.get("name"), str)
-                        else None
-                    )
-                ),
-                "confidence": _safe_float(confidence),
-                "preview_url": preview_url if isinstance(preview_url, str) and preview_url else None,
-                "source_view": source_view if isinstance(source_view, str) and source_view else None,
-                "top_crop_path": str(top_crop_path) if top_crop is not None else None,
-                "bottom_crop_path": str(bottom_crop_path) if bottom_crop is not None else None,
-                "selected_crop_path": str(selected_crop_path) if selected_crop_path is not None else None,
-                "result_json": str(result_json_path) if isinstance(result_payload, dict) else None,
-                "top_items_count": (
-                    len(top_result.get("items", []))
-                    if isinstance(top_result, dict) and isinstance(top_result.get("items"), list)
-                    else 0
-                ),
-                "bottom_items_count": (
-                    len(bottom_result.get("items", []))
-                    if isinstance(bottom_result, dict) and isinstance(bottom_result.get("items"), list)
-                    else 0
-                ),
-                "top_colors_count": (
-                    len(top_result.get("colors", []))
-                    if isinstance(top_result, dict) and isinstance(top_result.get("colors"), list)
-                    else 0
-                ),
-                "bottom_colors_count": (
-                    len(bottom_result.get("colors", []))
-                    if isinstance(bottom_result, dict) and isinstance(bottom_result.get("colors"), list)
-                    else 0
-                ),
-                "error": error,
-            }
-            manifest = self._readJsonFile(session_dir / "manifest.json") or {}
-            session_name = (
-                manifest.get("session_name")
-                if isinstance(manifest.get("session_name"), str) and manifest.get("session_name")
-                else session_id
-            )
-            metadata["sample_payload"] = build_sample_payload(
-                session_id=session_id,
-                sample_id=sample_id,
-                session_name=session_name,
-                metadata=metadata,
-                include_primary_asset=True,
-                include_full_frame=bool(metadata.get("top_frame_path") or metadata.get("bottom_frame_path")),
-                include_overlay=False,
-            )
-            metadata_path.write_text(json.dumps(metadata, indent=2))
-
-        self._hive.enqueue_update(
-            session_id=session_id,
-            session_name=session_name,
-            sample_id=sample_id,
-            metadata=metadata,
-        )
-
-        return {
-            "ok": True,
-            "session_id": session_id,
-            "sample_id": sample_id,
-            "classification_result": metadata.get("classification_result"),
-        }
 
     def saveAuxiliaryDetectionCapture(
         self,
@@ -586,65 +218,8 @@ class ClassificationTrainingManager:
             metadata=metadata,
         )
 
-    def saveConditionCropCapture(
-        self,
-        *,
-        pick: ConditionCropPick,
-        source_role: str,
-        piece_global_id: int,
-        track_first_seen_ts: float,
-        track_last_seen_ts: float,
-        sector_snapshots_total: int,
-        handoff_from: str | None = None,
-    ) -> dict[str, Any]:
-        """Archive one picked piece crop as a Hive-bound condition sample.
-
-        No labeling happens here — the sample lands on Hive as a
-        capture_scope=condition record, and Hive (auto or human) decides
-        composition/condition flags later.
-        """
-
-        with self._lock:
-            if self._ensureSessionLocked():
-                self._persistConfig()
-            session_dir = self._requireSessionDirLocked()
-            processor = self._processor
-
-        condition_metadata = build_condition_metadata(
-            pick=pick,
-            piece_global_id=piece_global_id,
-            source_role=source_role,
-            track_first_seen_ts=track_first_seen_ts,
-            track_last_seen_ts=track_last_seen_ts,
-            sector_snapshots_total=sector_snapshots_total,
-            handoff_from=handoff_from,
-        )
-        metadata: dict[str, Any] = {
-            "source": CONDITION_SOURCE,
-            "source_role": source_role,
-            "camera": source_role,
-            "capture_reason": CONDITION_CAPTURE_REASON,
-            "detection_scope": "condition",
-            "captured_at": time.time(),
-            **condition_metadata,
-        }
-
-        return self._archiveSample(
-            session_dir=session_dir,
-            processor=processor,
-            preferred_camera="top",
-            top_zone=pick.image_bgr,
-            bottom_zone=None,
-            top_frame=None,
-            bottom_frame=None,
-            metadata=metadata,
-        )
-
     def getHiveUploaderStatus(self) -> dict[str, Any]:
         return self._hive.status()
-
-    def hasEnabledHiveTargets(self) -> bool:
-        return self._hive.has_enabled_targets()
 
     def reloadHiveUploader(self) -> dict[str, Any]:
         return self._hive.reload()
@@ -661,17 +236,6 @@ class ClassificationTrainingManager:
         target_ids: list[str] | None = None,
     ) -> dict[str, Any]:
         return self._hive.purge(target_ids=target_ids)
-
-    def resolveSessionDir(self, session_id: str) -> Path:
-        session_dir = (TRAINING_ROOT / session_id).resolve()
-        root = TRAINING_ROOT.resolve()
-        try:
-            session_dir.relative_to(root)
-        except ValueError as exc:
-            raise ValueError("Unknown sample session.") from exc
-        if not session_dir.exists() or not session_dir.is_dir():
-            raise ValueError("Unknown sample session.")
-        return session_dir
 
     def _ensureSessionLocked(self) -> bool:
         if self._session_dir is None or not self._session_dir.is_dir():
@@ -722,16 +286,6 @@ class ClassificationTrainingManager:
             "mode": "runtime_archive_only",
         }
         (session_dir / "manifest.json").write_text(json.dumps(manifest, indent=2))
-
-    @staticmethod
-    def _readJsonFile(path: Path) -> dict[str, Any] | None:
-        if not path.exists():
-            return None
-        try:
-            payload = json.loads(path.read_text())
-        except Exception:
-            return None
-        return payload if isinstance(payload, dict) else None
 
     def _writeImage(self, path: Path, image: np.ndarray | None) -> None:
         if image is None:

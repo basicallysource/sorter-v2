@@ -5,7 +5,7 @@ type: landing
 section: lab
 slug: lab
 kicker: Research & Contributor References
-lede: The lab is where we keep durable findings from hands-on research and the shared contributor references the rest of the project builds on. Right now it holds two areas — the object detection model research, and the shared styleguide used by the Sorter UI, Hive, and these docs.
+lede: The lab is where we keep durable findings from hands-on research and the contributor references the rest of the project builds on.
 permalink: /lab/
 ---
 
@@ -33,8 +33,8 @@ permalink: /lab/
     <p>Why the project uses a dumb-firmware / smart-host split, what alternatives were evaluated, and the design principles behind the stack.</p>
   </div>
   <div class="callout">
-    <strong><a href="{{ '/lab/styleguide/' | relative_url }}">Styleguide</a></strong>
-    <p>The shared visual language used by the Sorter UI, Hive, and this documentation site. Contributor reference only — not useful for end users.</p>
+    <strong><a href="https://github.com/basicallysource/sorter-v2/tree/main/software/sorter-design-system">Design system</a></strong>
+    <p>How the SorterOS UI, Hive, and this documentation site look and are built: the rules, and the components to copy. A contributor reference, run from the repository.</p>
   </div>
 </div>
 
@@ -42,10 +42,10 @@ permalink: /lab/
 
 The lab sits one level below the end-user-facing sections. Content lands here when:
 
-- it's a **contributor reference** the rest of the project builds on but that an operator would never need to read (the styleguide);
-- it's an **active research thread** where we're still validating conclusions, and the findings aren't ready to be promoted into a stable hardware or Sorter docs page (the object detection work).
+- it's a **contributor reference** the rest of the project builds on but that an operator would never need to read (the software architecture decisions);
+- it's an **active research thread** where we're still validating conclusions, and the findings aren't ready to be promoted into a stable hardware or SorterOS docs page (the object detection work).
 
-Once a finding stabilizes enough to be promoted — for example, when we settle on a single accelerated deployment path and it belongs in the Sorter setup docs — it graduates out of the lab into the appropriate top-level section.
+Once a finding stabilizes enough to be promoted — for example, when we settle on a single accelerated deployment path and it belongs in the SorterOS setup docs — it graduates out of the lab into the appropriate top-level section.
 
 ## Artifact policy
 

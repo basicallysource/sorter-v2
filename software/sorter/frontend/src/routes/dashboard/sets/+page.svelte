@@ -1,9 +1,18 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import { getMachinesContext, getMachineContext } from '$lib/machines/context';
-	import { getBackendHttpBase, getBackendWsBase, machineHttpBaseUrlFromWsUrl } from '$lib/backend';
-	import MachineDropdown from '$lib/components/MachineDropdown.svelte';
-	import { ArrowLeft, Printer, ChevronDown, ChevronRight } from 'lucide-svelte';
+	import { getBackendHttpBase, machineHttpBaseUrlFromWsUrl } from '$lib/backend';
+	import ChevronDown from '@lucide/svelte/icons/chevron-down';
+	import ChevronRight from '@lucide/svelte/icons/chevron-right';
+	import Printer from '@lucide/svelte/icons/printer';
+	import AppShell from '$lib/components/AppShell.svelte';
+	import Alert from '$lib/components/ui/Alert.svelte';
+	import Button from '$lib/components/ui/Button.svelte';
+	import EmptyState from '$lib/components/ui/EmptyState.svelte';
+	import PageHeader from '$lib/components/ui/PageHeader.svelte';
+	import Panel from '$lib/components/ui/Panel.svelte';
+	import ProgressBar from '$lib/components/ui/ProgressBar.svelte';
+	import Spinner from '$lib/components/ui/Spinner.svelte';
 
 	type SetPart = {
 		part_num: string;
@@ -69,9 +78,6 @@
 	}
 
 	onMount(() => {
-		if (manager.machines.size === 0) {
-			manager.connect(`${getBackendWsBase()}/ws`);
-		}
 		fetchProgress();
 		const interval = setInterval(fetchProgress, 3000);
 		return () => clearInterval(interval);
@@ -94,131 +100,106 @@
 	}
 </script>
 
-<svelte:head><title>Sorter - Sets</title></svelte:head>
+<svelte:head><title>Sorter - Set progress</title></svelte:head>
 
-<div class="min-h-screen bg-bg p-6">
-	<div class="mb-4 flex items-center justify-between">
-		<div class="flex items-center gap-3">
-			<a href="/" class="p-2 text-text transition-colors hover:bg-surface" title="Back">
-				<ArrowLeft size={20} />
-			</a>
-			<h1 class="text-xl font-bold text-text">Set Progress</h1>
-		</div>
-		<div class="flex items-center gap-2">
-			<a
-				href="/dashboard/sets/checklist"
-				class="flex items-center gap-1 border border-border px-3 py-1 text-xs text-text hover:bg-surface"
+<AppShell>
+	<div class="mx-auto flex w-full max-w-[1500px] flex-col gap-(--gap-panels) px-4 py-6 sm:px-6">
+		<PageHeader title="Set progress" description="How many of each set's parts the sorter has found so far.">
+			{#snippet actions()}
+				<Button icon={Printer} href="/dashboard/sets/checklist">Checklist</Button>
+			{/snippet}
+		</PageHeader>
+
+		{#if error}<Alert tone="danger">{error}</Alert>{/if}
+
+		{#if !is_set_based}
+			<EmptyState title="The active sorting profile is not set-based">
+				Assign a set-based profile to track progress.
+			</EmptyState>
+		{:else if progress}
+			<Panel
+				title="Overall progress"
+				description="{progress.overall_found} / {progress.overall_needed} parts ({progress.overall_pct}%)"
 			>
-				<Printer size={14} />
-				Checklist
-			</a>
-			<MachineDropdown />
-		</div>
-	</div>
+				<ProgressBar value={progress.overall_pct} label="Overall progress" />
+			</Panel>
 
-	{#if error}
-		<div class="mb-3 text-xs text-danger">{error}</div>
-	{/if}
-
-	{#if !is_set_based}
-		<div class="py-12 text-center text-text-muted">
-			The active sorting profile is not set-based. Assign a set-based profile to track progress.
-		</div>
-	{:else if progress}
-		<!-- Overall progress -->
-		<div class="mb-6 border border-border bg-surface p-4">
-			<div class="mb-2 flex items-baseline justify-between">
-				<span class="text-sm font-medium text-text">Overall Progress</span>
-				<span class="text-xs tabular-nums text-text-muted">
-					{progress.overall_found} / {progress.overall_needed} parts ({progress.overall_pct}%)
-				</span>
-			</div>
-			<div class="h-3 w-full bg-bg">
-				<div
-					class="h-full bg-primary transition-all"
-					style="width: {progress.overall_pct}%"
-				></div>
-			</div>
-		</div>
-
-		<!-- Per-set cards -->
-		<div class="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
-			{#each progress.sets as set_progress (set_progress.id)}
-				{@const is_expanded = expanded_sets.has(set_progress.id)}
-				{@const missing_parts = set_progress.parts.filter(p => p.quantity_found < p.quantity_needed)}
-				<div class="border border-border bg-surface">
-					<button
-						class="flex w-full items-center gap-3 p-4 text-left hover:bg-bg/50"
-						onclick={() => toggleExpand(set_progress.id)}
-					>
-						<div class="flex-shrink-0 text-text-muted">
-							{#if is_expanded}
-								<ChevronDown size={16} />
-							{:else}
-								<ChevronRight size={16} />
-							{/if}
-						</div>
-						<div class="min-w-0 flex-1">
-							<div class="flex items-baseline justify-between gap-2">
-								<div class="min-w-0">
-									<div class="truncate text-sm font-medium text-text">
-										{set_progress.name || set_progress.set_num}
-									</div>
-									{#if set_progress.name && set_progress.name !== set_progress.set_num}
-										<div class="truncate text-xs text-text-muted">{set_progress.set_num}</div>
-									{/if}
-								</div>
-								<span class="flex-shrink-0 text-xs tabular-nums text-text-muted">
-									{set_progress.total_found}/{set_progress.total_needed} ({set_progress.pct}%)
+			<div class="grid grid-cols-1 gap-(--gap-panels) md:grid-cols-2 xl:grid-cols-3">
+				{#each progress.sets as set_progress (set_progress.id)}
+					{@const is_expanded = expanded_sets.has(set_progress.id)}
+					{@const missing_parts = set_progress.parts.filter((p) => p.quantity_found < p.quantity_needed)}
+					<Panel flush class="h-full">
+						<button
+							type="button"
+							aria-expanded={is_expanded}
+							class="flex w-full items-start gap-3 px-(--pad-panel) py-4 text-left transition-colors hover:bg-hover"
+							onclick={() => toggleExpand(set_progress.id)}
+						>
+							<span class="mt-0.5 shrink-0 text-ink-muted">
+								{#if is_expanded}<ChevronDown size={16} />{:else}<ChevronRight size={16} />{/if}
+							</span>
+							<span class="min-w-0 flex-1">
+								<span class="flex items-baseline justify-between gap-2">
+									<span class="min-w-0">
+										<span class="block truncate text-sm font-medium text-ink">
+											{set_progress.name || set_progress.set_num}
+										</span>
+										{#if set_progress.name && set_progress.name !== set_progress.set_num}
+											<span class="num block truncate text-xs text-ink-muted">{set_progress.set_num}</span>
+										{/if}
+									</span>
+									<span class="num shrink-0 text-xs text-ink-muted">
+										{set_progress.total_found}/{set_progress.total_needed} ({set_progress.pct}%)
+									</span>
 								</span>
-							</div>
-							<div class="mt-1.5 h-2 w-full bg-bg">
-								<div
-									class="h-full transition-all {set_progress.pct >= 100 ? 'bg-success' : 'bg-primary'}"
-									style="width: {Math.min(set_progress.pct, 100)}%"
-								></div>
-							</div>
-							{#if missing_parts.length > 0}
-								<div class="mt-1 text-sm text-text-muted">{missing_parts.length} parts still missing</div>
-							{:else}
-								<div class="mt-1 text-xs text-success">Complete!</div>
-							{/if}
-						</div>
-					</button>
+								<span class="mt-2 block">
+									<ProgressBar
+										value={Math.min(set_progress.pct, 100)}
+										label="Progress of {set_progress.name || set_progress.set_num}"
+										tone={set_progress.pct >= 100 ? 'success' : 'primary'}
+									/>
+								</span>
+								<span class="mt-2 block text-sm {missing_parts.length > 0 ? 'text-ink-muted' : 'text-success-ink'}">
+									{missing_parts.length > 0 ? `${missing_parts.length} parts still missing` : 'Complete'}
+								</span>
+							</span>
+						</button>
 
-					{#if is_expanded && missing_parts.length > 0}
-						<div class="border-t border-border px-4 pb-3 pt-2">
-							<table class="w-full text-xs">
-								<thead>
-									<tr class="text-text-muted">
-										<th class="pb-1 text-left font-medium">Part</th>
-										<th class="pb-1 text-left font-medium">Color</th>
-										<th class="pb-1 text-right font-medium">Found</th>
-										<th class="pb-1 text-right font-medium">Needed</th>
-									</tr>
-								</thead>
-								<tbody>
-									{#each missing_parts as part}
-										<tr class="border-t border-border/50 text-text">
-											<td class="py-0.5">
-												<div>{part.part_num}</div>
-												{#if part.part_name}
-													<div class="text-xs text-text-muted">{part.part_name}</div>
-												{/if}
-											</td>
-											<td class="py-0.5">{colorLabel(part)}</td>
-											<td class="py-0.5 text-right tabular-nums">{part.quantity_found}</td>
-											<td class="py-0.5 text-right tabular-nums">{part.quantity_needed}</td>
+						{#if is_expanded && missing_parts.length > 0}
+							<div class="overflow-x-auto">
+								<table class="data-table">
+									<thead>
+										<tr>
+											<th>Part</th>
+											<th>Color</th>
+											<th class="num">Found</th>
+											<th class="num">Needed</th>
 										</tr>
-									{/each}
-								</tbody>
-							</table>
-						</div>
-					{/if}
-				</div>
-			{/each}
-		</div>
-	{:else}
-		<div class="py-12 text-center text-text-muted">Loading...</div>
-	{/if}
-</div>
+									</thead>
+									<tbody>
+										{#each missing_parts as part}
+											<tr>
+												<td>
+													<div class="num">{part.part_num}</div>
+													{#if part.part_name}<div class="text-ink-muted">{part.part_name}</div>{/if}
+												</td>
+												<td>{colorLabel(part)}</td>
+												<td class="num">{part.quantity_found}</td>
+												<td class="num">{part.quantity_needed}</td>
+											</tr>
+										{/each}
+									</tbody>
+								</table>
+							</div>
+						{/if}
+					</Panel>
+				{/each}
+			</div>
+		{:else}
+			<p class="flex items-center justify-center gap-2 py-12 text-sm text-ink-muted">
+				<Spinner size={16} />
+				Loading the set progress
+			</p>
+		{/if}
+	</div>
+</AppShell>

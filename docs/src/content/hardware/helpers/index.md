@@ -36,7 +36,7 @@ USB hub's 24 V lead (`W2`), is a barrel plug screwed into the hub's own power te
 
 - **[Preparing the LED strip (L1 to L3, L1p to L3p)]({{ '/hardware/helpers/led-strip/' | relative_url }})**. Cutting a lamp's length of strip and getting its cable on the end, clamped or soldered. Three per machine.
 - **[Make your own PSU output pigtail (PJ1 to PJ3)]({{ '/hardware/helpers/psu-pigtail/' | relative_url }})**. The barrel jack and its two fork terminals, for each of the PSU box's three outputs. Three per machine.
-- **[Make the control board's 24 V lead (W1)]({{ '/hardware/helpers/board-24v-lead/' | relative_url }})**. Barrel plug at the PSU, JST-VH at the board. The one lead no supplier sells.
+- **[Make the control board's 24 V lead (W1)]({{ '/hardware/helpers/board-24v-lead/' | relative_url }})**. Barrel plug at the PSU, JST-VH at the board. The one lead nobody sells ready made, so the harness order has it made, or you do.
 - **[Make the Orange Pi's 24 V lead (W3)]({{ '/hardware/helpers/pi-24v-lead/' | relative_url }})**. A barrel plug onto the buck converter's own input wires. The shortest of the three 24 V leads (`W1`, `W2`, `W3`).
 - **[Make the channel stepper leads (S1 to S4)]({{ '/hardware/helpers/channel-stepper-lead/' | relative_url }})**. The four c-channel motor leads. The lead in the motor's box cannot be used as it comes. Four per machine.
 - **[Make the chute stepper lead (CH)]({{ '/hardware/helpers/chute-stepper-lead/' | relative_url }})**. The chute motor has bare flying leads, so this one gets a tail and a housing.

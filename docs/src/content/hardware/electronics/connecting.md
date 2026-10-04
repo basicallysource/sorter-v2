@@ -183,6 +183,13 @@ The `W2` lead to the USB hub, the USB cables (`U1`, `U2`) and the ribbon (`RIB1`
 
 Leave the sleeving loose enough to bend. A cable tie that anchors a lead goes on over the sleeving: pull it tight enough to hold, but not so tight that it crushes the braid.
 
+### Securing the cables
+
+Fasten the leads to the frame with **hook-and-loop (Velcro) straps rather than zip ties**, wherever a lead may have to come undone. You will take the machine apart again, from the electronics layer up, and a zip tie has to be cut each time, which is slow when the bucket is loaded and the feeder is bolted down.
+
+- **Leave a little slack** at every connector and splice, so that nothing pulls on the thin wire when a part moves or you lift a box.
+- **Do not make it neat yet.** Run the machine for a good while first, and tidy once you know where the leads sit. The chute sweeps all the way round the machine, so check that no lead is in a spot where something that moves can catch on it.
+
 ## The control board, socket by socket
 
 Everything in steps 1 to 5 plugs into this board. It is drawn from above, the way you look at it once the housing is open.

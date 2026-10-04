@@ -853,7 +853,7 @@
 
 <!-- One off-the-shelf line of an assembly: the screws, nuts and bought components
      that belong to the joint rather than to either part it holds together. -->
-{#snippet hardwareRow(hw: Hardware, each: number, total: number)}
+{#snippet hardwareRow(hw: Hardware, each: number, total: number, lineOptional = false)}
 	{@const img = hardwareImage(hw)}
 	<div data-member={hw.id} class="ml-1.5 mt-2 flex items-center gap-3 border border-border bg-[var(--color-bg)] p-2 sm:ml-4">
 		{#if img}
@@ -864,7 +864,7 @@
 		<div class="flex min-w-0 flex-1 items-center gap-1.5 text-xs font-semibold text-text">
 			<HardwareIcon {hw} size={14} /><span class="truncate">{hw.name}</span>
 			<AlternativeBadge value={hw.alternative} size={14} />
-						<OptionalBadge value={hardwareOptional(hw)} />
+						<OptionalBadge value={hardwareOptional(hw) || lineOptional} />
 						<ConflictBadge conflicts={hw.conflicts} size={14} />
 			{@render tagChips(hw.id)}
 		</div>
@@ -932,8 +932,9 @@
 		{:else if line.part && getHardware(line.part)}
 			{@render hardwareRow(
 				getHardware(line.part)!,
-				lineQty(line, layers),
-				lineQty(line, layers) * mult
+				line.optional ? Number(line.qty) : lineQty(line, layers),
+				lineQty(line, layers) * mult,
+				!!line.optional
 			)}
 		{:else if line.part}
 			{@const part = getPart(line.part)}

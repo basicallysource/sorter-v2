@@ -211,8 +211,8 @@ Everything in steps 1 to 5 plugs into this board. It is drawn from above, the wa
       <text x="275.0" y="289.8" font-size="10" text-anchor="middle" fill="var(--muted)">TMC2209</text>
       <rect x="376.6" y="81.7" width="88.2" height="222.6" rx="3" fill="var(--bg)" stroke="var(--ink)" stroke-width="1" stroke-dasharray="3 3"/>
       <text x="420.7" y="185.0" font-size="11" text-anchor="middle" fill="var(--muted)">Pico</text>
-      <rect x="403.9" y="302.6" width="33.6" height="14.7" rx="1" fill="var(--surface)" stroke="var(--ink)" stroke-width="1"/>
-      <text x="420.7" y="336.2" font-size="10" text-anchor="middle" fill="var(--ink)">micro USB</text>
+      <rect x="403.9" y="76.5" width="33.6" height="14.7" rx="1" fill="var(--surface)" stroke="var(--ink)" stroke-width="1"/>
+      <text x="420.7" y="108.0" font-size="10" text-anchor="middle" fill="var(--ink)">micro USB</text>
       <rect x="236.8" y="92.2" width="11.3" height="32.3" rx="2" fill="var(--surface)" stroke="var(--primary)" stroke-width="2"/>
       <rect x="299.8" y="92.2" width="11.3" height="32.3" rx="2" fill="var(--surface)" stroke="var(--primary)" stroke-width="2"/>
       <path d="M242.2 92.2 L242.2 46" stroke="var(--muted)" stroke-width="1" fill="none"/>

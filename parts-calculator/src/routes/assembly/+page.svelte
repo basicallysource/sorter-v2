@@ -838,7 +838,7 @@
 					<div class="flex items-center gap-1.5 text-xs font-semibold text-text">
 						<HardwareIcon {hw} size={14} /><span class="truncate">{hw.name}</span>
 						<AlternativeBadge value={hw.alternative} size={14} />
-						<OptionalBadge value={hardwareOptional(hw) || lineOptional} />
+						<OptionalBadge value={hardwareOptional(hw)} />
 						<ConflictBadge conflicts={hw.conflicts} size={14} />
 					</div>
 				</div>
@@ -864,7 +864,7 @@
 		<div class="flex min-w-0 flex-1 items-center gap-1.5 text-xs font-semibold text-text">
 			<HardwareIcon {hw} size={14} /><span class="truncate">{hw.name}</span>
 			<AlternativeBadge value={hw.alternative} size={14} />
-						<OptionalBadge value={hardwareOptional(hw)} />
+						<OptionalBadge value={hardwareOptional(hw) || lineOptional} />
 						<ConflictBadge conflicts={hw.conflicts} size={14} />
 			{@render tagChips(hw.id)}
 		</div>

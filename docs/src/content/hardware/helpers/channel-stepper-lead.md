@@ -93,7 +93,7 @@ under <b>Re-house the lead</b>, below. Motor positions 2 and 5 stay empty.
   <li>Hold each end with a small piece of heat shrink or a turn of tape, so that the braid cannot creep back along the wires.</li>
 </ol>
 
-**Leave the sleeving loose enough to bend.** The anchor under <b>How long</b>, below, goes on over the sleeving: pull the tie tight enough to hold, but not so tight that it crushes the braid.
+**Leave the sleeving loose enough to bend.** The anchor under <b>How long</b>, below, goes on over the sleeving: pull the strap tight enough to hold, but not so tight that it crushes the braid.
 
 ## How long
 
@@ -101,7 +101,7 @@ under <b>Re-house the lead</b>, below. Motor positions 2 and 5 stay empty.
   <p><b>The length is not measured.</b> The harness drawing says 1 m (39 in), which is also what the motors ship with and the length you keep. It was set while the c-channel positions were still moving, so check the run on your own frame before you cut the plug off.</p>
 </div>
 
-Whatever the length, **anchor the cable above the connector**. Zip-tie it to the frame a short way back from the plug and leave a service loop, so that nothing hanging off the cable can lever the housing sideways.
+Whatever the length, **anchor the cable above the connector**. Strap it to the frame a short way back from the plug with a hook-and-loop strap rather than a zip tie ([why]({{ '/hardware/electronics/connecting/' | relative_url }}#securing-the-cables)), and leave a service loop, so that nothing hanging off the cable can lever the housing sideways.
 
 ## The finished result
 

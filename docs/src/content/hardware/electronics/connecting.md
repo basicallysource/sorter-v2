@@ -181,7 +181,15 @@ The `W2` lead to the USB hub, the USB cables (`U1`, `U2`) and the ribbon (`RIB1`
   <li>Hold each end with a small piece of heat shrink or a turn of tape, so that the braid cannot creep back along the wires.</li>
 </ol>
 
-Leave the sleeving loose enough to bend. A cable tie that anchors a lead goes on over the sleeving: pull it tight enough to hold, but not so tight that it crushes the braid.
+Leave the sleeving loose enough to bend. A strap that anchors a lead goes on over the sleeving: pull it tight enough to hold, but not so tight that it crushes the braid.
+
+### Securing the cables
+
+Fasten the leads to the frame with **hook-and-loop (Velcro) straps rather than zip ties**, wherever a lead may have to come undone. You will take the machine apart again, from the electronics layer up, and a zip tie has to be cut each time, which is slow when the bucket is loaded and the feeder is bolted down.
+
+- **This covers the motor leads too.** Strap the four channel stepper leads (`S1` to `S4`) and the chute stepper lead (`CH`) to the frame, and the same for the camera, LED, limit switch, USB and ribbon cables and the 24 V leads, anything that runs along the frame and may need to come loose.
+- **Leave a little slack** at every connector and splice, so that nothing pulls on the thin wire when a part moves or you lift a box.
+- **Do not make it neat yet.** Run the machine for a good while first, and tidy once you know where the leads sit. The chute sweeps all the way round the machine, so check that no lead is in a spot where something that moves can catch on it.
 
 ## The control board, socket by socket
 

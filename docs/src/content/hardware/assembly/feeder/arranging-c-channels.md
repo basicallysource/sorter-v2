@@ -22,12 +22,6 @@ parts_needed:
     qty: 3
   - part: support-dovetail-adapter
     qty: 9
-  - part: scr-m5-16-shcs
-    qty: 18
-    note: Optional. Pins a stand's joints, 6 per stand. Self-taps into a printed leg.
-  - part: tnut-m5-2020
-    qty: 6
-    note: Optional. Only to pin C1's extrusion legs, 2 per leg.
 ---
 
 **Four finished channels go on this page. It does not build any of them.**
@@ -95,8 +89,8 @@ The channel itself goes on later, in step 6, once all three stands are laid out 
 </div>
 
 <div class="callout">
-  <p><strong>Nothing in the stand has to be fastened.</strong> Every joint is gravity or friction, so no screw is required and nothing takes a heat insert.</p>
-  <p><strong>Pinning a stand is optional.</strong> Each leg joint has a cross hole for it, at the foot where the leg stands in the layout guide and at the top where the adapter caps it. Line the holes up and put an {% include fastener.html size="M5" variant="socket-button" length="16" %} through the wall of the guide's socket, or of the adapter, into the leg: it cuts its own thread in a printed leg. That is one screw per leg end, 6 for a stand. <strong>C1's legs are extrusion, not printed</strong>, so each of those needs an {% include fastener.html size="M5" variant="t-nut" %} in the slot for the screw to pull against, 2 per leg. C1 is the one worth pinning, because it carries the bulk bin. The screws and T-nuts are in the parts list above, marked optional.</p>
+  <p><strong>The stands are designed to be screwless.</strong> Every joint is gravity or friction, so no screw is required, none is in the parts list or the count, and nothing takes a heat insert.</p>
+  <p><strong>Pinning a stand is optional.</strong> Each leg joint has a cross hole for it, at the foot where the leg stands in the layout guide and at the top where the adapter caps it. Line the holes up and put an {% include fastener.html size="M5" variant="socket-button" length="16" %} through the wall of the guide's socket, or of the adapter, into the leg: it cuts its own thread in a printed leg. That is one screw per leg end, 6 for a stand. <strong>C1's legs are extrusion, not printed</strong>, so each of those needs an {% include fastener.html size="M5" variant="t-nut" %} in the slot for the screw to pull against, 2 per leg. C1 is the one worth pinning, because it carries the bulk bin. They are on the assembly tree in the <a href="https://parts-calculator.basically.website/assembly">parts calculator</a>, marked optional and left out of every total.</p>
 </div>
 
 <figure class="single-figure">

@@ -90,7 +90,7 @@
 <!-- One BOM line. Which of the four kinds it is comes from where the id
      resolves, the same lookup order the tree uses. -->
 {#snippet lineRow(line: AssemblyLine)}
-	{@const each = lineQty(line, layers)}
+	{@const each = line.optional ? Number(line.qty) : lineQty(line, layers)}
 	{#if line.assembly}
 		{@const sub = getAssembly(line.assembly)}
 		{#if sub}
@@ -137,7 +137,7 @@
 				<span class="ad-name">
 					<HardwareIcon {hw} size={14} />{hw.name}
 					<AlternativeBadge value={hw.alternative} size={14} />
-					<OptionalBadge value={hardwareOptional(hw)} />
+					<OptionalBadge value={hardwareOptional(hw) || !!line.optional} />
 					<ConflictBadge conflicts={hw.conflicts} size={14} />
 				</span>
 				<span class="ad-meta">Off the shelf</span>

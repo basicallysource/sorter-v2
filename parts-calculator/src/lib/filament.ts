@@ -66,6 +66,10 @@ export type AssemblyLine = {
 		| 'middle-layers'
 		| 'per-half-layer'
 		| 'per-third-layer';
+	// Fit it if you want it; the build works without. The line states its own
+	// quantity so a joint can name it, but lineQty() resolves it to 0, so no
+	// total, order list or bundle counts it.
+	optional?: boolean;
 };
 
 /** A parameterized slot an assembly declares: instantiations may pass a
@@ -736,6 +740,7 @@ export function concreteLines(
  *  and bottom interface levels; 'non-bottom-layers' is every bin layer but the
  *  lowest one, and 'middle-layers' is the n−2 between them. */
 export function lineQty(line: AssemblyLine, layers: number): number {
+	if (line.optional) return 0;
 	if (line.qty === 'per-layer') return layers;
 	if (line.qty === 'non-bottom-layers') return Math.max(0, layers - 1);
 	if (line.qty === 'middle-layers') return Math.max(0, layers - 2);

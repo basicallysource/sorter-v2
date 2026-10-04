@@ -17,6 +17,7 @@
 		detached: boolean;
 		describe: string;
 		dirty: boolean;
+		release_version: string | null;
 		sha?: string;
 		commit_unix?: number;
 		subject?: string;
@@ -26,11 +27,14 @@
 		kind: 'branch' | 'tag';
 		channel?: string;
 		name: string;
+		version: string | null;
 		sha: string;
 		commit_unix: number;
 		subject: string;
 		is_current: boolean;
 		up_to_date: boolean;
+		// Older than what the machine runs, which it never moves back to.
+		behind: boolean;
 	};
 
 	type VersionsPayload = {
@@ -52,7 +56,7 @@
 	// The ref this machine is on (branch or tag) that has moved on origin —
 	// i.e. an update is available for whatever variant you're currently running.
 	const currentUpdate = $derived(
-		payload?.available.find((e) => e.is_current && !e.up_to_date) ?? null
+		payload?.available.find((e) => e.is_current && !e.up_to_date && !e.behind) ?? null
 	);
 	// Which release channel (if any) the machine is currently sitting on.
 	const currentChannel = $derived(
@@ -102,9 +106,20 @@
 			if (Array.isArray(data.deps_changed) && data.deps_changed.length > 0) {
 				depsWarning = `Dependency files changed (${data.deps_changed.join(', ')}). A manual dependency install and service restart may be needed.`;
 			}
-			updateNotice = data.changed
-				? `Updated ${data.old_sha} → ${data.new_sha}. Restarting backend...`
-				: 'Already at this version. Restarting backend...';
+			if (data.changed) {
+				// A release from the other channel can rebuild the UI and move it to
+				// another service before its backend answers: wait for that, then
+				// load the UI it serves.
+				updateNotice = `Installing ${entry.name}. This can take a few minutes while the machine rebuilds its interface. The page reloads when it is ready.`;
+				if (await waitForSha(data.new_sha)) {
+					location.reload();
+					return;
+				}
+				updateNotice = null;
+				updateError = `${entry.name} is installed but the machine has not come back yet. Reload this page in a minute.`;
+				return;
+			}
+			updateNotice = 'Already at this version. Restarting backend...';
 			await waitForBackend(httpBase());
 			updateNotice = updateNotice.replace('Restarting backend...', 'Backend is back up.');
 			await load(false);
@@ -113,6 +128,22 @@
 		} finally {
 			updatingRef = null;
 		}
+	}
+
+	async function waitForSha(sha: string): Promise<boolean> {
+		const deadline = Date.now() + 20 * 60 * 1000;
+		while (Date.now() < deadline) {
+			await new Promise((resolve) => setTimeout(resolve, 3000));
+			try {
+				const res = await fetch(`${httpBase()}/api/system/versions`);
+				const current: string | undefined = res.ok ? (await res.json()).current?.sha : undefined;
+				// Short shas: either side may be abbreviated a character longer.
+				if (current && (current.startsWith(sha) || sha.startsWith(current))) return true;
+			} catch {
+				// The backend is restarting.
+			}
+		}
+		return false;
 	}
 
 	onMount(() => {
@@ -226,8 +257,20 @@
 								<span class="font-mono">{entry.sha}</span>
 								— {entry.subject} · {formatDate(entry.commit_unix)}
 							</div>
+							{#if !entry.is_current && entry.behind}
+								<div class="text-xs text-text-muted">
+									Older than the software on this machine{payload.current.release_version
+										? ` (v${payload.current.release_version})`
+										: ''}. It can switch once {entry.channel ?? 'this'} has a newer release.
+								</div>
+							{:else if !entry.is_current && entry.channel === 'canary'}
+								<div class="text-xs text-text-muted">
+									Newer and less tested. Once on canary, coming back to stable waits until stable
+									reaches v{entry.version}.
+								</div>
+							{/if}
 						</div>
-						{#if !entry.is_current}
+						{#if !entry.is_current && !entry.behind}
 							<Button
 								variant="secondary"
 								size="sm"

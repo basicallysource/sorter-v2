@@ -7,6 +7,6 @@
 
 <PageHeader
 	title="Storage layers"
-	description="Each layer's servo: its channel, its open and closed angles, and its bins."
+	description="Each layer's flap, where it opens and closes, and its bins."
 />
 <ServoLayerCalibrator />

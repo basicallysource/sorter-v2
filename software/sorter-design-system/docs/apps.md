@@ -50,7 +50,10 @@ it takes the components.
 - One drawing of the machine: the chute flap
   (`src/lib/components/servo/ChuteFlapDiagram.svelte`), a cross-section of a
   layer's flap open and closed, on the storage layers page. Like a chart it is
-  drawn in the component from the tokens, and it is a figure, not an icon.
+  drawn in the component from the tokens. Its small form is the icon on the
+  Lock open and Lock closed buttons (`FlapOpenIcon.svelte`,
+  `FlapClosedIcon.svelte`, drawn like a Lucide icon): the only icons that are
+  not Lucide's, because Lucide has no picture of this machine's flap.
 - Fonts: IBM Plex Sans (variable) and IBM Plex Mono, self-hosted with
   `@fontsource`, because a machine may have no internet.
 - Favicon: blue, from `static/`, linked in `src/app.html`.

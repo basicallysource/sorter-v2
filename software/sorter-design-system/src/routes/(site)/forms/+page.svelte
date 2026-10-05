@@ -86,7 +86,11 @@
 					]}
 				/>
 			</Field>
-			<Field label="Speed" for="f-speed" help="Steps a second at the motor.">
+			<Field
+				label="Speed"
+				for="f-speed"
+				info="Steps a second at the motor. Faster feeds more pieces, and past the motor's limit it skips steps."
+			>
 				<Input id="f-speed" type="number" value={800} unit="steps/s" />
 			</Field>
 			<Field

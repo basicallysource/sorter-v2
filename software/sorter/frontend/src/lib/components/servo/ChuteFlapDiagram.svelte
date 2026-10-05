@@ -4,20 +4,17 @@
 	hinged at the bottom of the funnel's mouth. Open, the flap lies flat in the
 	tube wall and pieces fall on to the layers below; closed, it crosses the
 	tube and turns pieces down the funnel. The flap is drawn in the primary,
-	everything else in the neutrals. A drawing of the machine, like a chart: it
-	is not an icon.
+	everything else in the neutrals. A drawing of the machine, like a chart: its
+	small form for buttons is FlapOpenIcon and FlapClosedIcon.
 -->
 <script lang="ts">
 	let {
 		state,
 		size = 96,
-		path = true,
 		class: className = ''
 	}: {
 		state: 'open' | 'closed';
 		size?: number;
-		// Draw where a piece goes.
-		path?: boolean;
 		class?: string;
 	} = $props();
 
@@ -86,12 +83,11 @@
 		<line x1={RIGHT} y1={HINGE_Y} x2={OUT} y2={HINGE_Y + (OUT - RIGHT) * FUNNEL_DROP} />
 	</g>
 
-	{#if path}
-		<g class="stroke-ink-muted" stroke-width="2" fill="none" stroke-linejoin="round" stroke-linecap="round">
-			<path d={pieceRoute} stroke-dasharray="4 4" />
-			<path d={arrowHead} />
-		</g>
-	{/if}
+	<!-- Where a piece goes. -->
+	<g class="stroke-ink-muted" stroke-width="2" fill="none" stroke-linejoin="round" stroke-linecap="round">
+		<path d={pieceRoute} stroke-dasharray="4 4" />
+		<path d={arrowHead} />
+	</g>
 
 	<!-- The flap, and its hinge. -->
 	<polygon points={flapOutline} class="fill-primary stroke-primary" stroke-width="1.5" stroke-linejoin="round" />

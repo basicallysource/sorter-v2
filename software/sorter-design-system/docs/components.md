@@ -50,7 +50,9 @@ the example app shows them together.
   `<textarea>`.
 - **`Field`**: a label over a control, and one sentence under it: help, or
   the error in its place, in danger ink. Give the control the same `id` as
-  `for`.
+  `for`. `info` explains a setting whose name cannot say it all, where a
+  sentence under every field would crowd a dense row: an ⓘ beside the label
+  opens it in a Popover.
 - **`CopyField`**: something to copy, shown whole: a key, a token, a message
   with one in it. It is laid out like a `Field`, with no control for a
   `Field` to point at: `label` above, the text in a well with one Copy button

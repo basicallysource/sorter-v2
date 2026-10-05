@@ -10,6 +10,8 @@
 	import Eraser from '@lucide/svelte/icons/eraser';
 	import ServoSpeedSettings from './ServoSpeedSettings.svelte';
 	import ChuteFlapDiagram from './ChuteFlapDiagram.svelte';
+	import FlapOpenIcon from './FlapOpenIcon.svelte';
+	import FlapClosedIcon from './FlapClosedIcon.svelte';
 	import { userConfig } from '$lib/stores/userConfig.svelte';
 	import { onMount } from 'svelte';
 	import { getBackendHttpBase, machineHttpBaseUrlFromWsUrl } from '$lib/backend';
@@ -308,7 +310,7 @@
 				if (trimmed.length > 0) {
 					const parsed = Number(trimmed);
 					if (!Number.isInteger(parsed) || parsed <= 0) {
-						throw new Error(`${layer.label} max pieces per bin must be a positive integer.`);
+						throw new Error(`${layer.label}'s bin limit must be a whole number above 0.`);
 					}
 					maxPieces = parsed;
 				}
@@ -446,36 +448,32 @@
 {#snippet flapStep(layer: LayerDraft, which: 'open' | 'closed', canMove: boolean, idle: boolean)}
 	{@const angle = which === 'open' ? layer.openAngle : layer.closedAngle}
 	{@const next = nextStep(layer) === which}
-	<div class="flex items-center gap-3">
-		<ChuteFlapDiagram state={which} size={72} />
-		<div class="flex min-w-0 flex-col gap-1.5">
-			<span class="text-sm text-ink">
-				<span class="font-medium">{which === 'open' ? 'Open' : 'Closed'}</span>
-				{#if angle === null}
-					<span class="text-ink-muted">· not set</span>
-				{:else}
-					<span class="num text-ink-muted">· {angle}°</span>
-				{/if}
-			</span>
-			<div class="flex flex-wrap items-center gap-1.5">
-				<Button
-					size="sm"
-					variant={next && canMove ? 'primary' : 'secondary'}
-					icon={which === 'open' ? LockOpen : Lock}
-					disabled={idle || !canMove}
-					onclick={() => lockAngle(layer.layerIndex, which)}
-				>
-					{which === 'open' ? 'Lock open' : 'Lock closed'}
-				</Button>
-				<Button
-					variant="ghost"
-					size="sm"
-					disabled={idle || !canMove || angle === null}
-					onclick={() => moveTo(layer.layerIndex, angle)}
-				>
-					{which === 'open' ? 'Go to open' : 'Go to closed'}
-				</Button>
-			</div>
+	<div class="flex min-w-0 flex-col gap-1.5">
+		<span class="text-sm text-ink">
+			<span class="font-medium">{which === 'open' ? 'Open' : 'Closed'}</span>
+			{#if angle === null}
+				<span class="text-ink-muted">· not set</span>
+			{:else}
+				<span class="num text-ink-muted">· {angle}°</span>
+			{/if}
+		</span>
+		<div class="flex flex-wrap items-center gap-1.5">
+			<Button
+				size="sm"
+				variant={next && canMove ? 'primary' : 'secondary'}
+				icon={which === 'open' ? FlapOpenIcon : FlapClosedIcon}
+				disabled={idle || !canMove}
+				onclick={() => lockAngle(layer.layerIndex, which)}
+			>
+				{which === 'open' ? 'Lock open' : 'Lock closed'}
+			</Button>
+			<Button
+				size="sm"
+				disabled={idle || !canMove || angle === null}
+				onclick={() => moveTo(layer.layerIndex, angle)}
+			>
+				{which === 'open' ? 'Go to open' : 'Go to closed'}
+			</Button>
 		</div>
 	</div>
 {/snippet}
@@ -589,7 +587,11 @@
 					</div>
 
 					<div class="flex flex-wrap items-end gap-x-5 gap-y-3">
-						<Field label="Bins" for="layer-{layer.layerIndex}-bins">
+						<Field
+							label="Bins"
+							for="layer-{layer.layerIndex}-bins"
+							info="How many bins sit around the chute on this layer. Match the bins fitted on it: {allowedCounts.join(', ')}."
+						>
 							<div class="w-20">
 								<Select
 									id="layer-{layer.layerIndex}-bins"
@@ -601,7 +603,11 @@
 								/>
 							</div>
 						</Field>
-						<Field label="Most a bin" for="layer-{layer.layerIndex}-max">
+						<Field
+							label="Bin limit"
+							for="layer-{layer.layerIndex}-max"
+							info="The most pieces one bin on this layer takes. When a bin reaches it, the machine counts that bin full and sends the category's next pieces to another bin. Leave it empty for no limit."
+						>
 							<Input
 								id="layer-{layer.layerIndex}-max"
 								type="number"
@@ -619,7 +625,11 @@
 							/>
 						</Field>
 						{#if advanced}
-							<Field label="Channel" for="layer-{layer.layerIndex}-channel">
+							<Field
+								label="Channel"
+								for="layer-{layer.layerIndex}-channel"
+								info="The servo output on the control board that this layer's flap servo is plugged into."
+							>
 								<div class="w-24">
 									<Select
 										id="layer-{layer.layerIndex}-channel"

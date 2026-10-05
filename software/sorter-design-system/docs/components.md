@@ -281,5 +281,5 @@ a UUID. The site's Profiles page shows each one on real catalog data.
 
 ## Overlays and loading
 
-`Popover`, `Menu`, `Tooltip` and `Modal` are in [overlays.md](overlays.md);
+`Popover`, `Menu`, `Tooltip`, `Modal`, `Sheet` and `Lightbox` are in [overlays.md](overlays.md);
 `Spinner` and `Skeleton` are in [loading.md](loading.md).

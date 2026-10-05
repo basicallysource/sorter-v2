@@ -38,6 +38,9 @@
 		openAngle: number | null;
 		closedAngle: number | null;
 		currentAngle: number | null;
+		// Channel of the servo the running hardware drives for this layer; null
+		// when it has none (a layer added since the last home).
+		liveChannel: number | null;
 		busy: boolean;
 		lockStatus: 'idle' | 'saving' | 'saved' | 'error';
 		lockError: string;
@@ -103,6 +106,20 @@
 		return layer.channel.trim().length > 0;
 	}
 
+	// The live servos are built when the machine homes, so a layer added or
+	// rewired since then can't move until it is saved and the machine homed.
+	function layerCanMove(layer: LayerDraft): boolean {
+		return layer.liveChannel !== null && layer.channel === String(layer.liveChannel);
+	}
+
+	function servoHint(layer: LayerDraft): string | null {
+		if (layerCanMove(layer)) return null;
+		if (!layerHasChannel(layer)) {
+			return "Choose the channel this layer's servo is wired to, save the layers, then home the machine to move it.";
+		}
+		return 'Save the layers, then home the machine to move this servo.';
+	}
+
 	async function loadSettings() {
 		loading = true;
 		errorMsg = null;
@@ -156,6 +173,8 @@
 					closedAngle: typeof sl.servo_closed_angle === 'number' ? sl.servo_closed_angle : null,
 					currentAngle:
 						typeof sl.servo_current_angle === 'number' ? sl.servo_current_angle : null,
+					liveChannel:
+						typeof sl.servo_live_channel === 'number' ? sl.servo_live_channel : null,
 					busy: false,
 					lockStatus: 'idle',
 					lockError: ''
@@ -361,6 +380,7 @@
 				openAngle: null,
 				closedAngle: null,
 				currentAngle: null,
+				liveChannel: null,
 				busy: false,
 				lockStatus: 'idle',
 				lockError: ''
@@ -371,7 +391,14 @@
 	function removeLayer(layerIndex: number) {
 		layers = layers
 			.filter((l) => l.layerIndex !== layerIndex)
-			.map((l, i) => ({ ...l, layerIndex: i, label: `Layer ${i + 1}` }));
+			// A layer that shifts down no longer lines up with the live servo at its
+			// new index.
+			.map((l, i) => ({
+				...l,
+				layerIndex: i,
+				label: `Layer ${i + 1}`,
+				liveChannel: i === l.layerIndex ? l.liveChannel : null
+			}));
 		if (selectedIndex === layerIndex) selectedIndex = null;
 	}
 
@@ -388,6 +415,8 @@
 	onMount(() => {
 		function handleKeydown(event: KeyboardEvent) {
 			if (selectedIndex === null) return;
+			const layer = layers.find((l) => l.layerIndex === selectedIndex);
+			if (!layer || !layerCanMove(layer)) return;
 			if (event.target instanceof HTMLInputElement || event.target instanceof HTMLSelectElement)
 				return;
 			if (event.key === 'ArrowLeft') {
@@ -465,6 +494,8 @@
 				{@const calibrated = layerIsCalibrated(layer)}
 				{@const selected = selectedIndex === layer.layerIndex}
 				{@const idle = loading || saving || layer.busy}
+				{@const canMove = layerCanMove(layer)}
+				{@const hint = servoHint(layer)}
 				<div
 					role="button"
 					tabindex="0"
@@ -487,7 +518,7 @@
 						{:else}
 							<Badge tone="warning"><LockOpen size={12} /> Needs calibrating</Badge>
 						{/if}
-						{#if selected}
+						{#if selected && canMove}
 							<Badge tone="primary">The arrow keys jog it; Escape lets go</Badge>
 						{/if}
 						<span class="num ml-auto text-sm text-ink-muted">
@@ -581,7 +612,7 @@
 								<button
 									type="button"
 									aria-label="Jog toward a lower angle"
-									disabled={idle || !layerHasChannel(layer)}
+									disabled={idle || !canMove}
 									onclick={() => jog(layer.layerIndex, -jogStep)}
 									class="flex w-(--size-control-sm) items-center justify-center text-ink transition-colors hover:bg-hover focus-visible:-outline-offset-2 disabled:pointer-events-none disabled:opacity-45"
 								>
@@ -593,7 +624,7 @@
 								<button
 									type="button"
 									aria-label="Jog toward a higher angle"
-									disabled={idle || !layerHasChannel(layer)}
+									disabled={idle || !canMove}
 									onclick={() => jog(layer.layerIndex, jogStep)}
 									class="flex w-(--size-control-sm) items-center justify-center text-ink transition-colors hover:bg-hover focus-visible:-outline-offset-2 disabled:pointer-events-none disabled:opacity-45"
 								>
@@ -603,7 +634,7 @@
 							<Button
 								size="sm"
 								icon={LockOpen}
-								disabled={idle || !layerHasChannel(layer)}
+								disabled={idle || !canMove}
 								onclick={() => lockAngle(layer.layerIndex, 'open')}
 							>
 								Lock open
@@ -611,7 +642,7 @@
 							<Button
 								size="sm"
 								icon={Lock}
-								disabled={idle || !layerHasChannel(layer)}
+								disabled={idle || !canMove}
 								onclick={() => lockAngle(layer.layerIndex, 'closed')}
 							>
 								Lock closed
@@ -620,7 +651,7 @@
 								variant="ghost"
 								size="sm"
 								icon={Eraser}
-								disabled={idle || !layerIsCalibrated(layer)}
+								disabled={idle || !canMove || !layerIsCalibrated(layer)}
 								onclick={() => clearAngles(layer.layerIndex)}
 							>
 								Clear the angles
@@ -632,7 +663,7 @@
 								variant="ghost"
 								size="sm"
 								icon={DoorOpen}
-								disabled={idle || layer.openAngle === null}
+								disabled={idle || !canMove || layer.openAngle === null}
 								onclick={() => moveTo(layer.layerIndex, layer.openAngle)}
 							>
 								Open
@@ -641,7 +672,7 @@
 								variant="ghost"
 								size="sm"
 								icon={DoorClosed}
-								disabled={idle || layer.closedAngle === null}
+								disabled={idle || !canMove || layer.closedAngle === null}
 								onclick={() => moveTo(layer.layerIndex, layer.closedAngle)}
 							>
 								Close
@@ -656,6 +687,9 @@
 						</div>
 					</div>
 
+					{#if hint}
+						<p class="text-sm text-ink-muted">{hint}</p>
+					{/if}
 					{#if layer.enabled && !calibrated}
 						<p class="text-sm text-warning-ink">
 							Lock both the open and the closed angle before this layer can sort.

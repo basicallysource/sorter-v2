@@ -124,31 +124,42 @@ actions go, the status comes.
 
 ## Sheet
 
-`Sheet.svelte`. A side panel the full height of the window at its right
-edge, for one thing picked from a list (a set, a part, a record) to be read
-beside the list it came from. Opening an item from a long list must never
-take the person away from the list: leaving and coming back loses the place
-they had scrolled to, and makes the list load again. There is no scrim and
-the page under the sheet keeps working, so the list still scrolls and a
-click on another item swaps what the sheet shows. A head with the title, a
-line under it, the item's actions and a close button; a body that scrolls on
-its own. Escape and the close button always close it (a menu or select open
-inside it takes Escape first). Focus goes into it on opening and back to the
-item on closing. It is `min(width, 100vw)` wide: on a phone, the whole
-window.
+`Sheet.svelte`. A column beside the page for one thing picked from a list (a
+set, a part, a record), read beside the list it came from. Opening an item
+from a long list must never take the person away from the list, and must not
+cover it either: the content narrows and reflows to the sheet's left, so
+every item stays in view and clickable, and a click on another swaps what the
+sheet shows. The item clicked is brought back into view when the sheet first
+opens, since the reflow moves it. The sheet sits under the top bar, which
+stays usable, and stays in place while the page scrolls; its body scrolls on
+its own. A head with the title, a line under it, the item's actions and a
+close button. Escape and the close button always close it (a menu or select
+open inside it takes Escape first). Focus goes into it on opening and back to
+the item on closing. It is 40rem wide by default and at most half the window;
+on a narrow window there is no room beside the list, and it covers the page
+under the top bar.
+
+It is not an overlay in the top layer: the app puts it in its layout, a
+sibling of the content in a row whose items start at the top (so it can stick).
 
 When the open item is a place worth linking to, the app keeps it in the URL
 (`?set=10252-1`) and opens the sheet from there: a reload or a link opens it
-again, Back closes it, and the list under it keeps its scroll. The first
-item opened adds a history entry; opening another while it is open replaces
-it, so one Back always returns to the list. The close button goes back too
-when the sheet was opened from the list, so the entry is not left behind.
+again, Back closes it, and the list beside it is back at its scroll. The
+first item opened adds a history entry; opening another while it is open
+replaces it, so one Back always returns to the list. The close button goes
+back too when the sheet was opened from the list, so the entry is not left
+behind.
 
 ```svelte
-<Sheet open={!!picked} title={picked?.name ?? ''} description="10252-1 · 2008" onclose={close}>
-	{#snippet actions()}<Button href={picked.url} variant="ghost" icon={ExternalLink}>Rebrickable</Button>{/snippet}
-	...
-</Sheet>
+<div class="flex items-start">
+	<main class="min-w-0 flex-1">...</main>
+	{#if picked}
+		<Sheet title={picked.name} description="10252-1 · 2008" onclose={close}>
+			{#snippet actions()}<Button href={picked.url} variant="ghost" icon={ExternalLink}>Rebrickable</Button>{/snippet}
+			...
+		</Sheet>
+	{/if}
+</div>
 ```
 
 A sheet holds sections, not panels: a heading and its content on the

@@ -1,21 +1,28 @@
 <!--
-	docs/overlays.md#sheet. A side panel: the full height of the window at
-	its right edge, for one thing picked from a list (a set, a part, a
-	record) to be read beside the list it came from. There is no scrim and
-	the page under it keeps working: it scrolls, and a click on another item
-	swaps what the sheet shows. A head with the title, the item's actions and
-	a close button, and a body that scrolls on its own. Escape and the close
-	button close it; focus goes into it when it opens and back to what had
-	it when it closes.
+	docs/overlays.md#sheet. A side column: one thing picked from a list (a
+	set, a part, a record) read beside the list it came from. It is not over
+	the page but part of it: the app puts it in its layout beside the
+	content, which narrows and reflows to its left, so every item in the list
+	stays in view and a click on another swaps what the sheet shows. It stays
+	in place under the top bar while the page scrolls, and its body scrolls on
+	its own. A head with the title, the item's actions and a close button.
+	Escape and the close button close it; focus goes into it when it opens and
+	back to what had it when it closes. On a narrow window there is no room
+	beside the list, and it covers the page under the top bar.
 
 	When the open item is a place worth linking to, the app keeps it in the
 	URL and opens the sheet from there, so a reload or a link opens it again
 	and Back closes it.
 
-	<Sheet open={!!picked} title={picked?.name ?? ''} onclose={() => (picked = null)}>
-		{#snippet actions()}<Button href={picked.url} variant="ghost">Open</Button>{/snippet}
-		...
-	</Sheet>
+	<div class="flex items-start">
+		<main class="min-w-0 flex-1">...</main>
+		{#if picked}
+			<Sheet title={picked.name} onclose={() => (picked = null)}>
+				{#snippet actions()}<Button href={picked.url} variant="ghost">Open</Button>{/snippet}
+				...
+			</Sheet>
+		{/if}
+	</div>
 -->
 <script lang="ts">
 	import type { Snippet } from 'svelte';
@@ -23,7 +30,6 @@
 	import Button from './Button.svelte';
 
 	let {
-		open,
 		title,
 		description,
 		width = '40rem',
@@ -31,11 +37,10 @@
 		actions,
 		children
 	}: {
-		open: boolean;
 		title: string;
 		// One line under the title: what it is, in small type.
 		description?: string;
-		// Any CSS width; on a narrow window the sheet takes all of it.
+		// Any CSS width, beside the content from md up.
 		width?: string;
 		// The app closes it: Escape and the close button ask through this.
 		onclose: () => void;
@@ -45,41 +50,32 @@
 
 	const uid = $props.id();
 	let sheet: HTMLElement;
-	let opener: Element | null = null;
 
 	$effect(() => {
-		const showing = sheet.matches(':popover-open');
-		if (open && !showing) {
-			opener = document.activeElement;
-			sheet.showPopover();
-			sheet.focus({ preventScroll: true });
-		}
-		if (!open && showing) {
-			sheet.hidePopover();
+		const opener = document.activeElement;
+		sheet.focus({ preventScroll: true });
+		return () => {
 			if (opener instanceof HTMLElement && opener.isConnected) opener.focus({ preventScroll: true });
-			opener = null;
-		}
+		};
 	});
 
-	// Escape closes the sheet unless something on top of it takes the key
-	// first: a menu, a select's list, a popover or a modal.
+	// Escape closes the sheet unless something over it takes the key first:
+	// a menu, a select's list, a popover or a modal.
 	function onkeydown(event: KeyboardEvent) {
-		if (!open || event.key !== 'Escape' || event.defaultPrevented) return;
-		const above = [...document.querySelectorAll(':popover-open, dialog[open]')].some((el) => el !== sheet);
-		if (!above) onclose();
+		if (event.key !== 'Escape' || event.defaultPrevented) return;
+		if (document.querySelector(':popover-open, dialog[open]')) return;
+		onclose();
 	}
 </script>
 
 <svelte:window {onkeydown} />
 
-<div
+<section
 	bind:this={sheet}
-	popover="manual"
-	role="dialog"
 	tabindex="-1"
 	aria-labelledby="{uid}-title"
-	style:width="min({width}, 100vw)"
-	class="fixed inset-y-0 right-0 left-auto m-0 h-dvh max-h-none flex-col overflow-hidden border-0 border-l border-line bg-raised p-0 text-ink outline-none [&:popover-open]:flex"
+	style:--sheet-width={width}
+	class="flex flex-col overflow-hidden bg-raised text-ink outline-none max-md:fixed max-md:inset-x-0 max-md:bottom-0 max-md:top-[calc(var(--size-topbar)+1px)] max-md:z-20 md:sticky md:top-[calc(var(--size-topbar)+1px)] md:h-[calc(100dvh-var(--size-topbar)-1px)] md:w-(--sheet-width) md:max-w-[50vw] md:shrink-0 md:border-l md:border-line"
 >
 	<header class="flex shrink-0 items-start justify-between gap-4 border-b border-line py-3 pr-3 pl-5">
 		<div class="flex min-h-(--size-control-sm) min-w-0 flex-col justify-center">
@@ -94,4 +90,4 @@
 	<div class="min-h-0 flex-1 overflow-y-auto">
 		{@render children()}
 	</div>
-</div>
+</section>

@@ -7,10 +7,11 @@ and a dated entry goes here; the history is git.
 
 - **An item picked from a long list opens in a `Sheet` beside it.** Opening a
   set from a grid of hundreds went to the set's own page, and Back loaded the
-  list again from the top, losing the place scrolled to. Now the item opens
-  in a full-height side panel over the right of the page, with no scrim, kept
-  in the URL so a reload or a link opens it again; Back and Escape close it
-  and the list never moves.
+  list again from the top, losing the place scrolled to. A panel over the
+  right of the page was tried and dropped: it hid half the list and the top
+  bar's controls. Now the item opens in a column beside the content, which
+  narrows and reflows, kept in the URL so a reload or a link opens it again;
+  Back and Escape close it and the list is back where it was.
 - **Every part and set picture can be seen up close.** A part's render at
   tile size hides its studs and its color's shade. `PartImage` takes
   `onzoom`, shows a magnifier over the picture, and the app opens the

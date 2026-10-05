@@ -691,33 +691,12 @@
 							</div>
 							{@render flapStep(layer, 'open', canMove, idle)}
 							{@render flapStep(layer, 'closed', canMove, idle)}
-						</div>
-
-						<div class="flex flex-wrap items-center gap-x-3 gap-y-1.5">
-							{#if hint}
-								<p class="text-sm text-ink-muted">{hint}</p>
-							{:else if step === 'open'}
-								<p class="text-sm text-ink">
-									Move the flap until it lies flat in the chute wall, then lock it open.
-								</p>
-							{:else if step === 'closed'}
-								<p class="text-sm text-ink">
-									Now move the flap until it crosses the chute, then lock it closed.
-								</p>
-							{/if}
-							{#if layer.lockStatus === 'saving'}
-								<span class="flex items-center gap-1.5 text-sm text-ink-muted"><Spinner size={12} /> Saving</span>
-							{:else if layer.lockStatus === 'saved'}
-								<span class="text-sm text-success-ink">Saved</span>
-							{:else if layer.lockStatus === 'error'}
-								<span class="text-sm text-danger-ink" title={layer.lockError}>Not saved</span>
-							{/if}
 							{#if layer.openAngle !== null || layer.closedAngle !== null}
 								<Button
 									variant="ghost"
 									size="sm"
 									icon={Eraser}
-									class="ml-auto"
+									class="ml-auto self-end"
 									disabled={idle || !canMove}
 									onclick={() => clearAngles(layer.layerIndex)}
 								>
@@ -725,6 +704,29 @@
 								</Button>
 							{/if}
 						</div>
+
+						{#if hint || step || layer.lockStatus !== 'idle'}
+							<div class="flex flex-wrap items-center gap-x-3 gap-y-1.5">
+								{#if hint}
+									<p class="text-sm text-ink-muted">{hint}</p>
+								{:else if step === 'open'}
+									<p class="text-sm text-ink">
+										Move the flap until it lies flat in the chute wall, then lock it open.
+									</p>
+								{:else if step === 'closed'}
+									<p class="text-sm text-ink">
+										Now move the flap until it crosses the chute, then lock it closed.
+									</p>
+								{/if}
+								{#if layer.lockStatus === 'saving'}
+									<span class="flex items-center gap-1.5 text-sm text-ink-muted"><Spinner size={12} /> Saving</span>
+								{:else if layer.lockStatus === 'saved'}
+									<span class="text-sm text-success-ink">Saved</span>
+								{:else if layer.lockStatus === 'error'}
+									<span class="text-sm text-danger-ink" title={layer.lockError}>Not saved</span>
+								{/if}
+							</div>
+						{/if}
 					</div>
 				</div>
 			{/each}

@@ -16,7 +16,9 @@
 	turns green when it is complete.
 
 	With `href` or `onclick` the whole part is the target, named by its name;
-	controls inside `children` still work (as in Card).
+	controls inside `children` still work (as in Card). `onzoom` makes its
+	picture open up close (PartImage), the picture's own target over the
+	part's.
 
 	<PartTile name="Brick 2 x 4" bricklinkId="3001" imgUrl={url} color={{ name: 'Red', rgb: 'C91A09' }} quantity={6} found={3} />
 -->
@@ -40,6 +42,7 @@
 		padded = true,
 		href,
 		onclick,
+		onzoom,
 		class: className = '',
 		children
 	}: {
@@ -61,6 +64,8 @@
 		padded?: boolean;
 		href?: string;
 		onclick?: () => void;
+		// See the picture up close: the app opens it in a Lightbox.
+		onzoom?: (src: string) => void;
 		class?: string;
 		// Controls at its end, such as a quantity field.
 		children?: Snippet;
@@ -121,7 +126,7 @@
 	<div class="relative isolate w-full min-w-0 {className}">
 		{@render hit()}
 		<div class="{content} flex flex-col gap-2">
-			<PartImage src={imgUrl} fallback={fallbackImgUrl} class="aspect-square w-full" />
+			<PartImage src={imgUrl} fallback={fallbackImgUrl} {onzoom} class="aspect-square w-full" />
 			<div class="min-w-0">
 				<div class="line-clamp-2 h-10 text-sm font-medium break-words text-ink" title={name}>
 					{name}
@@ -158,7 +163,7 @@
 				: ''}"
 		>
 			<div class="flex min-w-0 flex-1 items-center gap-3">
-				<PartImage src={imgUrl} fallback={fallbackImgUrl} class="size-12 shrink-0" />
+				<PartImage src={imgUrl} fallback={fallbackImgUrl} {onzoom} class="size-12 shrink-0" />
 				<div class="min-w-0 flex-1">
 					<div class="truncate text-sm font-medium text-ink" title={name}>{name}</div>
 					{#if bricklinkId || rebrickable || color}

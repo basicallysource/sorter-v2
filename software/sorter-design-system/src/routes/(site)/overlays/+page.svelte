@@ -23,6 +23,10 @@
 	import Field from '$lib/components/Field.svelte';
 	import Input from '$lib/components/Input.svelte';
 	import Badge from '$lib/components/Badge.svelte';
+	import Sheet from '$lib/components/Sheet.svelte';
+	import Lightbox from '$lib/components/Lightbox.svelte';
+	import PartTile from '$lib/components/PartTile.svelte';
+	import ExternalLink from '@lucide/svelte/icons/external-link';
 
 	let profile = $state('september');
 	let contextMenu: Menu | undefined = $state();
@@ -31,6 +35,16 @@
 	let restarting = $state(false);
 	let renameOpen = $state(false);
 	let profileName = $state('September');
+
+	const sheetParts = [
+		{ partNum: '3001', name: 'Brick 2 x 4', color: { name: 'Red', rgb: 'C91A09' }, ldraw: 4, quantity: 12 },
+		{ partNum: '3004', name: 'Brick 1 x 2', color: { name: 'White', rgb: 'FFFFFF' }, ldraw: 15, quantity: 30 },
+		{ partNum: '3022', name: 'Plate 2 x 2', color: { name: 'Black', rgb: '05131D' }, ldraw: 0, quantity: 24 },
+		{ partNum: '3069b', name: 'Tile 1 x 2', color: { name: 'Light Bluish Gray', rgb: 'A0A5A9' }, ldraw: 71, quantity: 8 }
+	];
+	let picked = $state<(typeof sheetParts)[number] | null>(null);
+	let zoomed = $state<{ src: string; alt: string } | null>(null);
+	const render = (num: string, color: number) => `https://cdn.rebrickable.com/media/parts/ldraw/${color}/${num}.png`;
 
 	function restart() {
 		restarting = true;
@@ -52,7 +66,7 @@
 
 <PageHeader
 	title="Overlays"
-	lead="What floats over the page: the popover, the menu, the select's list, the tooltip and the modal. All of them are the raised plane: a fill and one line, and no shadow."
+	lead="What floats over the page: the popover, the menu, the select's list, the tooltip, the modal and the sheet. All of them are the raised plane: a fill and one line, and no shadow."
 	doc="overlays"
 />
 
@@ -249,6 +263,54 @@
 	</Specimen>
 </SiteSection>
 
+<SiteSection
+	title="Sheet"
+	lead="One thing picked from a list, read beside the list: full height at the window's right edge, no scrim, the page under it still working. Another item swaps what it shows; Escape and the close button close it. In an app the open item lives in the URL, so Back closes it and the list keeps its scroll."
+>
+	<Specimen
+		code={`<Sheet open={!!picked} title={picked?.name ?? ''} description="3001 · Red" onclose={() => (picked = null)}>
+	{#snippet actions()}<Button variant="ghost" icon={ExternalLink}>Rebrickable</Button>{/snippet}
+	...
+</Sheet>`}
+	>
+		<div class="grid grid-cols-[repeat(auto-fill,minmax(7.5rem,1fr))] gap-1">
+			{#each sheetParts as p (p.partNum)}
+				<PartTile
+					layout="tile"
+					name={p.name}
+					bricklinkId={p.partNum}
+					imgUrl={render(p.partNum, p.ldraw)}
+					color={p.color}
+					onclick={() => (picked = p)}
+				/>
+			{/each}
+		</div>
+	</Specimen>
+</SiteSection>
+
+<SiteSection
+	title="Lightbox"
+	lead="A picture as big as the window, to see a part up close. A part's picture opens it when given onzoom: the pointer turns to a magnifier and a magnifier shows in its corner. Escape, the close button, a click off the picture and, in an app, Back close it."
+>
+	<Specimen
+		code={`<PartTile ... onzoom={(src) => (zoomed = { src, alt: 'Brick 2 x 4, Red' })} />
+<Lightbox src={zoomed?.src} alt={zoomed?.alt} onclose={() => (zoomed = null)} />`}
+	>
+		<div class="grid grid-cols-[repeat(auto-fill,minmax(7.5rem,1fr))] gap-3">
+			{#each sheetParts as p (p.partNum)}
+				<PartTile
+					layout="tile"
+					name={p.name}
+					bricklinkId={p.partNum}
+					imgUrl={render(p.partNum, p.ldraw)}
+					color={p.color}
+					onzoom={(src) => (zoomed = { src, alt: `${p.name}, ${p.color.name}` })}
+				/>
+			{/each}
+		</div>
+	</Specimen>
+</SiteSection>
+
 <SiteSection title="What there is not">
 	<ul class="divide-y divide-line overflow-hidden rounded-panel bg-surface text-sm">
 		<li class="px-5 py-3">
@@ -265,7 +327,9 @@
 		<li class="px-5 py-3">
 			<span class="font-medium text-ink">One overlay at a time.</span>
 			<span class="text-ink-muted"
-				>A menu item that needs a dialog closes the menu first; a dialog never opens another.</span
+				>A menu item that needs a dialog closes the menu first; a dialog never opens another. A
+				select in a popover or a sheet, and a picture seen up close from a sheet, are the
+				exceptions.</span
 			>
 		</li>
 	</ul>
@@ -309,3 +373,40 @@
 		>
 	{/snippet}
 </Modal>
+
+<Sheet
+	open={!!picked}
+	title={picked?.name ?? ''}
+	description={picked ? `${picked.partNum} · ${picked.color.name}` : undefined}
+	onclose={() => (picked = null)}
+>
+	{#snippet actions()}
+		<Button variant="ghost" size="sm" icon={ExternalLink}>Rebrickable</Button>
+	{/snippet}
+	{#if picked}
+		<section class="flex flex-col gap-3 border-b border-line p-5">
+			<h3 class="text-sm font-semibold">In this profile</h3>
+			<p class="text-sm text-ink-muted">
+				{picked.quantity} of these went to the {picked.color.name.toLowerCase()} bin this week.
+			</p>
+		</section>
+		<section class="flex flex-col gap-3 p-5">
+			<h3 class="text-sm font-semibold">Every color</h3>
+			<div class="grid grid-cols-[repeat(auto-fill,minmax(7.5rem,1fr))] gap-3">
+				{#each sheetParts as p (p.partNum)}
+					<PartTile
+						layout="tile"
+						name={p.name}
+						bricklinkId={p.partNum}
+						imgUrl={render(p.partNum, p.ldraw)}
+						color={p.color}
+						quantity={p.quantity}
+						onzoom={(src) => (zoomed = { src, alt: `${p.name}, ${p.color.name}` })}
+					/>
+				{/each}
+			</div>
+		</section>
+	{/if}
+</Sheet>
+
+<Lightbox src={zoomed?.src} alt={zoomed?.alt} onclose={() => (zoomed = null)} />

@@ -47,6 +47,10 @@ it takes the components.
   (`src/lib/components/setup/servo/ServoInventoryCard.svelte`, colors set in
   `SetupServoOnboardingSection.svelte`) marks each servo's hardware state with
   a colored stripe down its left edge. It is the only one.
+- One drawing of the machine: the chute flap
+  (`src/lib/components/servo/ChuteFlapDiagram.svelte`), a cross-section of a
+  layer's flap open and closed, on the storage layers page. Like a chart it is
+  drawn in the component from the tokens, and it is a figure, not an icon.
 - Fonts: IBM Plex Sans (variable) and IBM Plex Mono, self-hosted with
   `@fontsource`, because a machine may have no internet.
 - Favicon: blue, from `static/`, linked in `src/app.html`.

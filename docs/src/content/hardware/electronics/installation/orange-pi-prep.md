@@ -8,7 +8,7 @@ kicker: Electronics — Preparing the Orange Pi
 lede: The WiFi module and the heatsink fan, both fitted while the board is still loose on the bench.
 permalink: /hardware/electronics/installation/orange-pi-prep/
 og_image: https://assets.basically.website/sorter-docs/orange-pi-5-heatsink-fan-fitted-bench-full-de5a6f92b341.jpg
-last_verified: 2026-09-19
+last_verified: 2026-10-06
 author: barthel
 contributors: [brickcyclealice, reveryx, spencer]
 parts_needed:

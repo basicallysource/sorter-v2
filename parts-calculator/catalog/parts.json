@@ -6585,9 +6585,10 @@
       "name": "Orange Pi 5 WiFi 6 + Bluetooth module",
       "category": "Computer",
       "description": "WiFi and Bluetooth for the Orange Pi. Optional.",
+      "note": "Check the position of the notch when buying. The green modules have two notches at different positions, and they do not fit.",
       "docs_page": "/hardware/electronics/installation/orange-pi-prep/",
       "created_at": "2026-07-18",
-      "updated_at": "2026-09-18",
+      "updated_at": "2026-10-06",
       "sheet_qty": {
         "per_machine": 1
       },

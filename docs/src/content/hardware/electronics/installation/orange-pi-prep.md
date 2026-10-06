@@ -67,7 +67,7 @@ Slide the module in at a shallow angle, roughly 30°, gold contacts first, until
 
 **The washer goes between the board and the module**, under the free end, not on top of it. The slot holds the contact end of the module up off the board, so the washer is what keeps the other end at the same height. Without it the nut pulls that end down and the module ends up bent and unevenly tensioned rather than sitting flat.
 
-The screw and the washer come in the box with the module.
+The screw, washer and nut come in the box with the Orange Pi 5, two sets of each, so there is nothing to buy for this.
 
 {% include step.html n="3" title="Connect the antennas" %}
 

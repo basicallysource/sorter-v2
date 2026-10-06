@@ -25,7 +25,7 @@ Everything here is done to the board itself, before it goes anywhere near the ma
 
 Which board to buy, how much memory and storage it needs, and which WiFi module fits which variant are all on the [Orange Pi 5]({{ '/hardware/orange-pi-5/' | relative_url }}) page. This page assumes you have the parts.
 
-**The WiFi module is optional.** A machine staying on Ethernet does not need it, and steps 1 to 3 are skipped, leaving only the heatsink fan. The original Orange Pi 5 has no WiFi on the board, so a machine going wireless needs either this M.2 module or a Linux-compatible USB adapter.
+**The WiFi module is optional.** A machine staying on Ethernet does not need it, and steps 1 and 2 are skipped, leaving only the heatsink fan. The original Orange Pi 5 has no WiFi on the board, so a machine going wireless needs either this M.2 module or a Linux-compatible USB adapter.
 
 {% include step.html n="1" title="Check the WiFi module (optional) matches the board" %}
 
@@ -40,6 +40,8 @@ Hold the module against the slot and check the notches line up before pushing. *
 
 When buying, check the position of the notch: the green modules have two notches at different positions, and they do not fit.
 
+The two antennas are already connected to the module when it arrives. If they are not, attach them now, before the module is mounted, which is easier than doing it afterwards. Line one up squarely over its socket on the module and press straight down until it clicks. They seat with very little force and the sockets are delicate, so do not rock or lever them on at an angle.
+
 {% include step.html n="2" title="Seat the module (optional) in the slot" %}
 
 With the board unplugged, turn it over and find the M.2 slot on the underside.
@@ -48,7 +50,7 @@ Slide the module in at a shallow angle, roughly 30°, gold contacts first, until
 
 <figure class="single-figure">
   <img class="doc-figure" src="https://assets.basically.website/sorter-docs/orange-pi-5-wifi-module-screw-washer-nut-full-593bcc1ed0ac.jpg" alt="The underside of an Orange Pi 5 with the AP6275P module seated in the M.2 slot and its two antenna leads clipped on, a round hole through the module's free end, and below the board three loose parts in a row: a black dome nut, a black plastic washer and a short black screw">
-  <figcaption>The module in its slot, and the three loose parts below: the nut, the plastic washer and the screw. The antennas are already clipped on in this photo; they are step 3. <cite>Photo: ReveryX.</cite></figcaption>
+  <figcaption>The module in its slot, and the three loose parts below: the nut, the plastic washer and the screw. The antennas are already clipped on. <cite>Photo: ReveryX.</cite></figcaption>
 </figure>
 
 **The screw goes in from the other side of the board.** Push it through the hole from the top face, the one with the SoC, so its thread comes out on the module side. Then:
@@ -61,7 +63,7 @@ Slide the module in at a shallow angle, roughly 30°, gold contacts first, until
 
 <figure class="single-figure">
   <img class="doc-figure" src="https://assets.basically.website/sorter-docs/orange-pi-5-wifi-module-screw-from-top-full-855673dffe4c.jpg" alt="An Orange Pi 5 seen from its top face, with the heatsink fan not yet fitted and lying below the board, and the head of a screw with a cross slot sitting in the board beside the SoC, which is the screw holding the WiFi module on the other face">
-  <figcaption>The top face, where the screw head sits. The heatsink fan is still off in this photo because it will cover the screw when it is mounted; it is step 4. <cite>Photo: ReveryX.</cite></figcaption>
+  <figcaption>The top face, where the screw head sits. The heatsink fan is still off in this photo because it will cover the screw when it is mounted; it is step 3. <cite>Photo: ReveryX.</cite></figcaption>
 </figure>
 
 <figure class="single-figure">
@@ -73,17 +75,13 @@ Slide the module in at a shallow angle, roughly 30°, gold contacts first, until
 
 The screw, washer and nut come in the box with the Orange Pi 5, two sets of each, so there is nothing to buy for this.
 
-{% include step.html n="3" title="Connect the antennas" %}
-
-The antenna leads end in small round push-fit connectors. Line one up squarely over its socket on the module and press straight down until it clicks. They seat with very little force and the sockets are delicate, so do not rock or lever them on at an angle.
-
-{% include step.html n="4" title="Fit the heatsink fan" %}
+{% include step.html n="3" title="Fit the heatsink fan" %}
 
 Its two pins clip underneath the board, so you want to be able to reach both faces.
 
 The official heatsink fan sits on the SoC, the large chip in the middle of the board. Check the revision printed on the board before you start: it fits the Orange Pi 5 v1.3.2 and the 5 Plus, and the mounting holes are not in the same place on earlier revisions.
 
-Peel the film off the thermal pad that comes in the box and lay it on the SoC.
+Peel the films off from both sides of the thermal pad that comes in the box and lay it on the SoC.
 
 <figure class="single-figure">
   <img class="doc-figure" src="https://assets.basically.website/sorter-docs/orange-pi-5-heatsink-thermal-pad-laid-full-de92db3b6a7f.jpg" alt="An Orange Pi 5 seen from above with a square blue thermal pad laid on the SoC in the middle of the board, the two peeled-off films above it, and the fan heatsink waiting upside down below the board with its lead already in the FAN socket">

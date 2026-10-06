@@ -38,6 +38,8 @@ The M.2 formats used across the Orange Pi family are the same size and differ on
 
 Hold the module against the slot and check the notches line up before pushing. **If it does not want to go in, stop.** A module that will not seat is the wrong one for the board, not one that needs more force.
 
+When buying, check the position of the notch: the green modules have two notches at different positions, and they do not fit.
+
 {% include step.html n="2" title="Seat the module (optional) in the slot" %}
 
 With the board unplugged, turn it over and find the M.2 slot on the underside.

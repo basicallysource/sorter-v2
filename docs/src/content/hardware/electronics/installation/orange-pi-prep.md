@@ -7,10 +7,10 @@ slug: electronics-orange-pi-prep
 kicker: Electronics — Preparing the Orange Pi
 lede: The WiFi module and the heatsink fan, both fitted while the board is still loose on the bench.
 permalink: /hardware/electronics/installation/orange-pi-prep/
-og_image: https://assets.basically.website/sorter-docs/orange-pi-5-heatsink-fan-fitted-full-6f0bb3b7ada4.jpg
+og_image: https://assets.basically.website/sorter-docs/orange-pi-5-heatsink-fan-fitted-bench-full-de5a6f92b341.jpg
 last_verified: 2026-09-19
 author: barthel
-contributors: [brickcyclealice, spencer]
+contributors: [brickcyclealice, reveryx, spencer]
 parts_needed:
   - part: sbc-orange-pi-5
     qty: 1
@@ -42,16 +42,32 @@ Hold the module against the slot and check the notches line up before pushing. *
 
 With the board unplugged, turn it over and find the M.2 slot on the underside.
 
-Slide the module in at a shallow angle, roughly 30°, gold contacts first, until it is fully home. Press the free end down and secure it with the small retention screw.
-
-**The washer goes between the board and the module**, under the free end, not on top of it. The slot holds the contact end of the module up off the board, so the washer is what keeps the other end at the same height. Without it the screw pulls that end down and the module ends up bent and unevenly tensioned rather than sitting flat.
-
-Both the washer and the screw come in the box with the module, so there is nothing to buy for this and nothing to substitute.
+Slide the module in at a shallow angle, roughly 30°, gold contacts first, until the contacts are home and the far end is still raised. The free end is held down by a screw, a plastic washer and a nut, which are the three loose parts in the photo below.
 
 <figure class="single-figure">
-  <img class="doc-figure" src="https://assets.basically.website/sorter-docs/wifi-module-opi5-seated-in-slot-full-1f7e6cdeeee3.jpg" alt="The underside of an Orange Pi 5 held at an angle, with the AP6275P module seated in the black M.2 connector and two antenna leads running off the edge of the board; a circle drawn over that part of the board magnifies it, showing the module's shielded can, the gold antenna socket at its near corner with a lead clipped on, and the row of gold contacts disappearing into the slot">
-  <figcaption>The module home in the slot, on the underside of the board. Its far end, the one the screw goes through, is outside the magnified circle. <cite>Manufacturer photo (Orange Pi), not a Basically photo; the magnified circle is theirs.</cite></figcaption>
+  <img class="doc-figure" src="https://assets.basically.website/sorter-docs/orange-pi-5-wifi-module-screw-washer-nut-full-593bcc1ed0ac.jpg" alt="The underside of an Orange Pi 5 with the AP6275P module seated in the M.2 slot and its two antenna leads clipped on, a round hole through the module's free end, and below the board three loose parts in a row: a black dome nut, a black plastic washer and a short black screw">
+  <figcaption>The module in its slot, and the three loose parts below: the nut, the plastic washer and the screw. The antennas are already clipped on in this photo; they are step 3. <cite>Photo: ReveryX.</cite></figcaption>
 </figure>
+
+**The screw goes in from the other side of the board.** Push it through the hole from the top face, the one with the SoC, so its thread comes out on the module side. Then:
+
+1. Put the plastic washer on the screw, **between the board and the module**.
+2. Lower the free end of the module onto the screw.
+3. Put the nut on the screw, **over the module**, and tighten it.
+
+<figure class="single-figure">
+  <img class="doc-figure" src="https://assets.basically.website/sorter-docs/orange-pi-5-wifi-module-screw-from-top-full-855673dffe4c.jpg" alt="An Orange Pi 5 seen from its top face, with the heatsink fan not yet fitted and lying below the board, and the head of a screw with a cross slot sitting in the board beside the SoC, which is the screw holding the WiFi module on the other face">
+  <figcaption>The top face, where the screw head sits. The heatsink fan is still off in this photo; it is step 4. <cite>Photo: ReveryX.</cite></figcaption>
+</figure>
+
+<figure class="single-figure">
+  <img class="doc-figure" src="https://assets.basically.website/sorter-docs/orange-pi-5-wifi-module-nut-fitted-full-cdfcdcd1601d.jpg" alt="A close-up of the module's face on the underside of the board: the shielded can marked AP6275P, a black dome nut standing on the module just below it, and a gold antenna socket with a lead clipped on at each side">
+  <figcaption>The nut over the module, with the washer under it. <cite>Photo: ReveryX.</cite></figcaption>
+</figure>
+
+**The washer goes between the board and the module**, under the free end, not on top of it. The slot holds the contact end of the module up off the board, so the washer is what keeps the other end at the same height. Without it the nut pulls that end down and the module ends up bent and unevenly tensioned rather than sitting flat.
+
+The screw and the washer come in the box with the module.
 
 {% include step.html n="3" title="Connect the antennas" %}
 
@@ -63,7 +79,14 @@ Its two pins clip underneath the board, so you want to be able to reach both fac
 
 The official heatsink fan sits on the SoC, the large chip in the middle of the board. Check the revision printed on the board before you start: it fits the Orange Pi 5 v1.3.2 and the 5 Plus, and the mounting holes are not in the same place on earlier revisions.
 
-Peel the film off the thermal pad that comes in the box and lay it on the SoC. Sit the heatsink squarely on top with its two tabs over the holes either side, press both spring pins down until they click, and plug the 2-pin lead into the socket marked FAN, which on a v1.3.2 board is between the CAM1 connector and the USB 2.0 port. The pins hold it on, so there are no screws here and nothing to tighten.
+Peel the film off the thermal pad that comes in the box and lay it on the SoC.
+
+<figure class="single-figure">
+  <img class="doc-figure" src="https://assets.basically.website/sorter-docs/orange-pi-5-heatsink-thermal-pad-laid-full-de92db3b6a7f.jpg" alt="An Orange Pi 5 seen from above with a square blue thermal pad laid on the SoC in the middle of the board, the two peeled-off films above it, and the fan heatsink waiting upside down below the board with its lead already in the FAN socket">
+  <figcaption>The pad on the SoC, with the two films it came between peeled off above. <cite>Photo: ReveryX.</cite></figcaption>
+</figure>
+
+Sit the heatsink squarely on top with its two tabs over the holes either side, press both spring pins down until they click, and plug the 2-pin lead into the socket marked FAN, which on a v1.3.2 board is between the CAM1 connector and the USB 2.0 port. The pins hold it on, so there are no screws here and nothing to tighten.
 
 This is the Pi's only cooling. Its housing's roof and floor are vented, and nothing else sits over the board inside it.
 
@@ -72,8 +95,8 @@ This is the Pi's only cooling. Its housing's roof and floor are vented, and noth
 A board that has been prepared: fan on, module in if you are using one, and ready to go into its housing.
 
 <figure class="single-figure">
-  <img class="doc-figure" src="https://assets.basically.website/sorter-docs/orange-pi-5-heatsink-fan-fitted-full-6f0bb3b7ada4.jpg" alt="An Orange Pi 5 v1.3.2 seen from above with the heatsink fan already fitted over the SoC in the middle of the board, a white spring pin clipped through the board at opposite corners of the finned block, and the red and black lead running from the fan to a small white 2-pin socket silkscreened FAN, between the CAM1 connector and the USB 2.0 port">
-  <figcaption>The prepared board from above: the heatsink over the SoC, a spring pin through the board at each of two opposite corners, and the fan lead in the socket marked FAN. The module and its antenna leads are on the face you cannot see. <cite>Manufacturer photo (Orange Pi), not a Basically photo; the pale highlights are theirs.</cite></figcaption>
+  <img class="doc-figure" src="https://assets.basically.website/sorter-docs/orange-pi-5-heatsink-fan-fitted-bench-full-de5a6f92b341.jpg" alt="An Orange Pi 5 seen from above with the finned heatsink fan fitted over the SoC in the middle of the board, a white spring pin clipped through the board at opposite corners of the heatsink, the red and black fan lead running to the small white FAN socket below it, and two antenna leads trailing off the right-hand edge of the board">
+  <figcaption>The prepared board from above: the heatsink over the SoC, a spring pin through the board at each of two opposite corners, and the fan lead in the socket marked FAN. The module is on the face you cannot see, its antenna leads running out past the edge. <cite>Photo: ReveryX.</cite></figcaption>
 </figure>
 
 Carry on with [Orange Pi housing]({{ '/hardware/electronics/installation/orange-pi-mount/' | relative_url }}), which closes it into its printed box.

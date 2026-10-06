@@ -21,7 +21,7 @@ parts_needed:
 tools_needed: [Small Phillips screwdriver]
 ---
 
-Everything here is done to the board itself, before it goes anywhere near the machine, and that is the point of the page: the heatsink fan clips through the board and the WiFi module lives on its underside, so both want a board you can pick up and turn over. Once the Pi is in the [Orange Pi housing]({{ '/hardware/electronics/installation/orange-pi-mount/' | relative_url }}) there is a printed floor directly underneath it.
+Everything here is done to the board itself, before it goes anywhere near the machine, and that is the point of the page: the WiFi module lives on its underside and the heatsink fan clips through the board, so both want a board you can pick up and turn over. Once the Pi is in the [Orange Pi housing]({{ '/hardware/electronics/installation/orange-pi-mount/' | relative_url }}) there is a printed floor directly underneath it.
 
 Which board to buy, how much memory and storage it needs, and which WiFi module fits which variant are all on the [Orange Pi 5]({{ '/hardware/orange-pi-5/' | relative_url }}) page. This page assumes you have the parts.
 
@@ -59,7 +59,7 @@ Slide the module in at a shallow angle, roughly 30°, gold contacts first, until
 
 <figure class="single-figure">
   <img class="doc-figure" src="https://assets.basically.website/sorter-docs/orange-pi-5-wifi-module-screw-from-top-full-855673dffe4c.jpg" alt="An Orange Pi 5 seen from its top face, with the heatsink fan not yet fitted and lying below the board, and the head of a screw with a cross slot sitting in the board beside the SoC, which is the screw holding the WiFi module on the other face">
-  <figcaption>The top face, where the screw head sits. The heatsink fan is still off in this photo; it is step 4. <cite>Photo: ReveryX.</cite></figcaption>
+  <figcaption>The top face, where the screw head sits. The heatsink fan is still off in this photo because it will cover the screw when it is mounted; it is step 4. <cite>Photo: ReveryX.</cite></figcaption>
 </figure>
 
 <figure class="single-figure">

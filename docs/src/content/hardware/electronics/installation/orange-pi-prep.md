@@ -51,9 +51,11 @@ Slide the module in at a shallow angle, roughly 30°, gold contacts first, until
 
 **The screw goes in from the other side of the board.** Push it through the hole from the top face, the one with the SoC, so its thread comes out on the module side. Then:
 
-1. Put the plastic washer on the screw, **between the board and the module**.
-2. Lower the free end of the module onto the screw.
-3. Put the nut on the screw, **over the module**, and tighten it.
+<ol class="numbered-steps">
+  <li>Put the plastic washer on the screw, <strong>between the board and the module</strong>.</li>
+  <li>Lower the free end of the module onto the screw.</li>
+  <li>Put the nut on the screw, <strong>over the module</strong>, and tighten it.</li>
+</ol>
 
 <figure class="single-figure">
   <img class="doc-figure" src="https://assets.basically.website/sorter-docs/orange-pi-5-wifi-module-screw-from-top-full-855673dffe4c.jpg" alt="An Orange Pi 5 seen from its top face, with the heatsink fan not yet fitted and lying below the board, and the head of a screw with a cross slot sitting in the board beside the SoC, which is the screw holding the WiFi module on the other face">

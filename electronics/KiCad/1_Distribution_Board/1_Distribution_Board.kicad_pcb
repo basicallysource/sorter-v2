@@ -24551,9 +24551,8 @@
 		(uuid "56e8419c-864e-4b2c-9c3a-525e638e05ed")
 		(at 102.25 52.75 180)
 		(property "Reference" "S1"
-			(at 0.425 -2.635 0)
+			(at 5.45 0 0)
 			(layer "F.SilkS")
-			(hide yes)
 			(uuid "09dd1a55-aa1f-4eda-bcea-65108d643bd1")
 			(effects
 				(font

@@ -58,16 +58,6 @@ KINDS: dict[str, IncidentKind] = {
             automatic_label="Turn the channel forward until it clears",
         ),
         IncidentKind(
-            "feeder_jam",
-            title="Feeder jam",
-            todo="A piece on {channel} does not move when {channel} turns. Free it, then press Done.",
-            actions=("done",),
-            scope="Feeder",
-            description="A piece does not move when its feeder channel turns: it straddles the rim, hangs on the channel above, or sticks at the exit.",
-            default_handling=OFF,
-            automatic_label="Shake the channel (and nudge the one above) to free it, then call the operator",
-        ),
-        IncidentKind(
             "stepper_stall",
             title="Motor stalled",
             todo="{motor} stalled. Check it can turn freely, then press Done.",
@@ -78,16 +68,6 @@ KINDS: dict[str, IncidentKind] = {
             title="Chute needs homing",
             todo="The chute lost its position after a stall. Press Home chute.",
             actions=("rehome_chute",),
-        ),
-        IncidentKind(
-            "distribution_chute_jam",
-            title="Chute jammed",
-            todo="The chute did not reach its bin. Clear what blocks it, then press Done.",
-            actions=("done",),
-            scope="Distribution",
-            description="The chute did not finish a move in time.",
-            default_handling=OFF,
-            off_label="Leave it to the motor's stall detection",
         ),
         IncidentKind(
             "distribution_servo_bus_offline",

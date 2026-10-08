@@ -101,7 +101,13 @@ the example app shows them together.
   default back through `onreset`. The button sits on the name's line at the
   name's height, so the row never jumps while a value is typed. No outline,
   no icon without words, and no amber: a changed value is a choice, not a
-  warning.
+  warning. Pointing at the button shows a tooltip saying what the default
+  is: "Default: 6 /min", or `defaultHelp` when a choice's name alone does not
+  say what it does ("Automatic: turn the channel forward until it clears.").
+  Every setting with a default that can be changed works this way, a
+  segmented control as much as a number.
+- **`tags`** puts a `Badge` or two beside a setting's name: where it acts,
+  that it is happening now.
 - **A setting that applies at once** (a switch, a segmented control) needs no
   Save.
 - **Settings saved together** save with one primary in the panel's footer,

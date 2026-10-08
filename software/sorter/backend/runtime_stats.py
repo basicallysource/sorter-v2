@@ -373,7 +373,7 @@ class RuntimeStatsCollector:
 
         The active-incident slot is the one operator-facing hold blocking flow
         right now; auto-recovered incidents (a C4 stall the watchdog rotated
-        clear, a feeder jam an upstream nudge freed) come and go without ever
+        clear) come and go without ever
         landing there, so the slot-coupled openIncident path never saw them.
         This opens and immediately resolves a row in the same durable log the
         dashboard reads — recording that the incident happened and how it

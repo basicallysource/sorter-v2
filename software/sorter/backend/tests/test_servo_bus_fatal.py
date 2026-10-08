@@ -16,7 +16,6 @@ discard bucket. These tests verify the new fail-fast path:
 from __future__ import annotations
 
 import queue
-import time
 import unittest
 from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
@@ -27,9 +26,8 @@ from irl.bin_layout import Bin, BinSection, BinSize, DistributionLayout, Layer
 from runtime_stats import RuntimeStatsCollector
 from server import shared_state
 from sorting_profile import MISC_CATEGORY, SortingProfile
-from subsystems.distribution.chute import BinAddress, Chute
+from subsystems.distribution.chute import Chute
 from subsystems.distribution.positioning import (
-    CHUTE_JAM_TITLE,
     DISTRIBUTION_NO_BIN_AVAILABLE_INCIDENT_KIND,
     DOORS_STOP_WAIT_S,
     Positioning,
@@ -166,7 +164,7 @@ class ServoBusFatalTests(unittest.TestCase):
         )
         positioning.step()
 
-        # Fatal banner set + distinct from chute-jam prefix.
+        # Fatal banner set.
         self.assertIsNotNone(shared_state.hardware_error)
         assert shared_state.hardware_error is not None
         self.assertEqual(SERVO_BUS_OFFLINE_TITLE, shared_state.hardware_error["title"])
@@ -364,52 +362,6 @@ class ServoBusFatalTests(unittest.TestCase):
         self.assertIsNone(shared_state.hardware_error)
         self.assertIsNone(self.runtime_stats.servo_bus_offline_since_ts)
         self.assertIsNone(self.runtime_stats.snapshot().get("active_incident"))
-
-    def _mk_timed_out_chute_move(self) -> Positioning:
-        positioning = self._mk_positioning(servos=[_mk_healthy_servo()])
-        positioning._phase = "moving"
-        positioning._target_address = BinAddress(0, 0, 0)
-        positioning._moving_started_at = time.monotonic() - 10.0
-        positioning._chute_move_estimated_ms = 100
-        positioning.chute.stepper.stopped = False
-        return positioning
-
-    def test_chute_timeout_publishes_distribution_incident(self) -> None:
-        # The Chute Jam incident defaults to Off; this is the Manual path.
-        positioning = self._mk_timed_out_chute_move()
-
-        with patch(
-            "subsystems.distribution.positioning._incidentHandlingOff", return_value=False
-        ):
-            positioning.step()
-
-        self.assertIsNotNone(shared_state.hardware_error)
-        assert shared_state.hardware_error is not None
-        self.assertEqual(CHUTE_JAM_TITLE, shared_state.hardware_error["title"])
-        snap = self.runtime_stats.snapshot()
-        self.assertIsNotNone(snap.get("active_incident"))
-        self.assertEqual("distribution_chute_jam", snap["active_incident"]["kind"])
-        self.assertGreaterEqual(snap["active_incident"]["elapsed_ms"], 10000)
-
-    def test_chute_timeout_is_ignored_when_incident_handling_is_off(self) -> None:
-        # Off means ignore the condition: no incident, no red banner, no pause.
-        # Positioning keeps waiting for the motion, logging the trip once.
-        positioning = self._mk_timed_out_chute_move()
-
-        with patch(
-            "subsystems.distribution.positioning._incidentHandlingOff", return_value=True
-        ):
-            self.assertIsNone(positioning.step())
-            self.assertIsNone(positioning.step())
-
-        self.assertIsNone(shared_state.hardware_error)
-        self.assertTrue(self.cmd_queue.empty())
-        self.assertIsNone(self.runtime_stats.snapshot().get("active_incident"))
-        warnings = [
-            m for level, m in positioning.logger.messages
-            if level == "warning" and "Chute Jam handling is Off" in m
-        ]
-        self.assertEqual(1, len(warnings))
 
 
 class MainBootServoHealthCheckTests(unittest.TestCase):

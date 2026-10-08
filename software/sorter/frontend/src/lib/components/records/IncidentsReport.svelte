@@ -116,7 +116,7 @@
 	<div>
 		<h2 class="text-base font-semibold text-ink">Incidents</h2>
 		<p class="mt-0.5 text-sm text-ink-muted">
-			Classification-channel clears, chute jams, stepper stalls and every other operator-facing hold this
+			Classification-channel clears, stepper stalls and every other operator-facing hold this
 			machine has recorded.
 		</p>
 	</div>

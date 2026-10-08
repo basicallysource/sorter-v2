@@ -300,6 +300,7 @@ def incidentDefinitions() -> list[dict[str, Any]]:
             "manual_label": k.manual_label,
             "automatic_label": k.automatic_label or "",
             "automatic_supported": k.automatic_label is not None,
+            "default": k.default_handling,
         }
         for k in kinds.values()
         if k.default_handling

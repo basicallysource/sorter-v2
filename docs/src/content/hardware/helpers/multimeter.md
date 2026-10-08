@@ -151,7 +151,7 @@ Work through the combinations until you have both pairs, and write down which co
   <p><b>Continuity mode finds the pairs too</b>, since a coil is close enough to a short to beep. The reason to read the number instead is that it also tells you the coil is healthy: a pair you are confident about that reads tens of ohms, or nothing at all, is a broken winding or a bad joint rather than a pairing you got wrong.</p>
 </div>
 
-### No meter: the shaft finds the coils too
+### How to find the wires for a motor coil without a multimeter
 
 <div class="callout">
   <p><b>Join two of the motor's wires and turn the shaft by hand.</b> With nothing connected the shaft turns freely. Join the two ends of one coil and the shaft gets noticeably harder to turn, because turning it drives current round the closed coil, which pushes back. Two wires from different coils do nothing, and the shaft stays free.</p>

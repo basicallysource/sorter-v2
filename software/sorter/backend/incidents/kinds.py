@@ -64,7 +64,7 @@ KINDS: dict[str, IncidentKind] = {
             actions=("done",),
             scope="Feeder",
             description="A piece does not move when its feeder channel turns: it straddles the rim, hangs on the channel above, or sticks at the exit.",
-            default_handling=AUTOMATIC,
+            default_handling=OFF,
             automatic_label="Shake the channel (and nudge the one above) to free it, then call the operator",
         ),
         IncidentKind(
@@ -96,7 +96,7 @@ KINDS: dict[str, IncidentKind] = {
             actions=("done",),
             scope="Distribution",
             description="The bin door servos stopped answering.",
-            default_handling=MANUAL,
+            default_handling=OFF,
             off_label="Leave it to the hardware alert",
         ),
         IncidentKind(
@@ -106,7 +106,7 @@ KINDS: dict[str, IncidentKind] = {
             actions=("pass_through",),
             scope="Distribution",
             description="No bin is assigned for a piece, or every one that fits is full.",
-            default_handling=MANUAL,
+            default_handling=OFF,
             off_label="Send such pieces to the bucket",
         ),
     )

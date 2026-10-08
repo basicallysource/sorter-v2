@@ -99,6 +99,13 @@ def _mk_piece() -> KnownObject:
 
 class ServoBusFatalTests(unittest.TestCase):
     def setUp(self) -> None:
+        # Distribution incidents default to Off; these tests exercise the
+        # Manual path unless they patch it themselves.
+        handling_off = patch(
+            "subsystems.distribution.positioning._incidentHandlingOff", return_value=False
+        )
+        handling_off.start()
+        self.addCleanup(handling_off.stop)
         self._saved_error = shared_state.hardware_error
         self._saved_state = shared_state.hardware_state
         self._saved_queue = shared_state.command_queue

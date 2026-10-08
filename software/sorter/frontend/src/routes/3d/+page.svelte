@@ -59,6 +59,22 @@
 	let view = $state.raw<MachineView | null>(null);
 	let manifest = $state<Manifest | null>(null);
 	let loadError = $state<string | null>(null);
+
+	// A tab left open across an update asks for the three.js chunk by a name the
+	// update deleted. One reload brings the new page; the flag stops a loop if
+	// the chunk is truly missing, and a good load clears it for the next update.
+	const STALE_RELOAD_KEY = 'machine3d-stale-reload';
+	function reloadIfStale(message: string): boolean {
+		if (!/dynamically imported module|importing a module script failed/i.test(message)) return false;
+		try {
+			if (sessionStorage.getItem(STALE_RELOAD_KEY)) return false;
+			sessionStorage.setItem(STALE_RELOAD_KEY, '1');
+		} catch {
+			return false;
+		}
+		location.reload();
+		return true;
+	}
 	let layers = $state<LayoutLayer[]>([]);
 	let geo = $state<Geometry | null>(null);
 	let doors = $state<DoorState[]>([]);
@@ -362,13 +378,19 @@
 				view.setCardLayer(cardLayer, cardCamera);
 				view.setTheme(readTheme());
 				manifest = loaded.manifest;
+				try {
+					sessionStorage.removeItem(STALE_RELOAD_KEY);
+				} catch {
+					// Storage blocked: nothing to clear.
+				}
 				if (import.meta.env.DEV) {
 					(window as unknown as { machine3d: MachineView }).machine3d = view;
 					if (new URLSearchParams(location.search).has('bench'))
 						setTimeout(() => (bench = runBench()), 2500);
 				}
 			} catch (e) {
-				loadError = e instanceof Error ? e.message : String(e);
+				const message = e instanceof Error ? e.message : String(e);
+				if (!reloadIfStale(message)) loadError = message;
 			}
 		})();
 

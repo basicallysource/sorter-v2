@@ -8,7 +8,7 @@ kicker: Helpers — Multimeter
 lede: Two settings on the dial cover every check this build asks for, continuity and resistance. What each one tells you, and how to read it.
 permalink: /hardware/helpers/multimeter/
 author: barthel
-contributors: [effreek]
+contributors: [effreek, reveryx]
 last_verified: 2026-09-26
 tools_needed: ["Multimeter, with a continuity buzzer"]
 ---
@@ -150,6 +150,26 @@ Work through the combinations until you have both pairs, and write down which co
 <div class="callout">
   <p><b>Continuity mode finds the pairs too</b>, since a coil is close enough to a short to beep. The reason to read the number instead is that it also tells you the coil is healthy: a pair you are confident about that reads tens of ohms, or nothing at all, is a broken winding or a bad joint rather than a pairing you got wrong.</p>
 </div>
+
+### No meter: the shaft finds the coils too
+
+<div class="callout">
+  <p><b>Join two of the motor's wires and turn the shaft by hand.</b> With nothing connected the shaft turns freely. Join the two ends of one coil and the shaft gets noticeably harder to turn, because turning it drives current round the closed coil, which pushes back. Two wires from different coils do nothing, and the shaft stays free.</p>
+</div>
+
+<figure class="single-figure">
+  <img class="doc-figure" src="https://assets.basically.website/sorter-docs/stepper-coil-short-test-w1600-0aa26f798074.jpg" alt="A NEMA 17 stepper motor lying face up with its own lead coiled beside it. The lead ends in a 4-pin Dupont plug, and a short red and black jumper wire loops between two of the plug's contacts, joining those two wires.">
+  <figcaption>A jumper across two contacts of the motor's own Dupont plug. The shaft is hard to turn, so those two wires are one coil. <cite>Photo: ReveryX.</cite></figcaption>
+</figure>
+
+<ol class="numbered-steps">
+  <li>Unplug the motor from the board, so the four wires are loose. Turn the shaft with your fingers once to learn how free it is.</li>
+  <li>Join two of the four wires: push a jumper wire with a pin at each end into two sockets of the Dupont plug, or twist two bare ends together. Turn the shaft again.</li>
+  <li><b>Hard to turn</b> means those two wires are one coil. <b>Still free</b> means they are from different coils: move the jumper to another pair. The two wires left over are the other coil, and joining them makes the shaft hard to turn in the same way.</li>
+  <li>Write down which colour went with which, as for the meter.</li>
+</ol>
+
+This is a feel, not a number, so it does not tell you the coil is healthy. A meter reading does, as in the box above.
 
 ## Volts, when the machine is on
 

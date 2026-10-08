@@ -72,6 +72,8 @@ The motor's four leads are coloured, and the colours do not tell you which pair 
   <li>Work through the leads until you have both pairs. Write down which colour goes with which.</li>
 </ol>
 
+No multimeter? [Join two of the leads and turn the shaft by hand]({{ '/hardware/helpers/multimeter/' | relative_url }}#no-meter-the-shaft-finds-the-coils-too): if it gets hard to turn, those two are one coil.
+
 ## Build it
 
 <ol class="numbered-steps">

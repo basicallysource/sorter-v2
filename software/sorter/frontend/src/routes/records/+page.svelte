@@ -14,6 +14,7 @@
 	import RecordsCharts from '$lib/components/records/RecordsCharts.svelte';
 	import IncidentsReport from '$lib/components/records/IncidentsReport.svelte';
 	import DailyTable from '$lib/components/records/DailyTable.svelte';
+	import RunsAndLots from '$lib/components/records/RunsAndLots.svelte';
 	import PieceCard from '$lib/components/records/PieceCard.svelte';
 	import Button from '$lib/components/ui/Button.svelte';
 	import EmptyState from '$lib/components/ui/EmptyState.svelte';
@@ -321,6 +322,8 @@
 		</PageHeader>
 
 		<RecordsStats {overview} {lifetime} {value} />
+
+		<RunsAndLots endpointBase={effectiveBase()} />
 
 		<RecordsCharts endpointBase={effectiveBase()} />
 

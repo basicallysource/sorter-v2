@@ -8,8 +8,7 @@ from typing import Any, Optional
 import db
 
 # Durable log of operator-facing incidents (classification-channel stalls,
-# chute jams, feeder dropzone stuck pieces, distribution faults, stepper
-# stalls, ...). RuntimeStatsCollector.setActiveIncident/clearActiveIncident is
+# distribution faults, stepper stalls, ...). RuntimeStatsCollector.setActiveIncident/clearActiveIncident is
 # the single in-memory choke point every incident publisher and clearer goes
 # through (see runtime_stats.py) — it is the sole caller of openIncident /
 # updateIncident / resolveIncident below, so every incident kind is captured

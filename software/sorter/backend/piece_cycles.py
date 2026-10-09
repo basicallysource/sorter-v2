@@ -31,10 +31,10 @@ KEEP_DAYS = 60.0
 WAIT_CASES = (
     ("edge", "C3's next piece within 20° of its edge"),
     ("near", "20° to 80° from the edge"),
-    ("far", "more than 80° from the edge"),
-    ("hidden", "only out of view on C3"),
-    ("c2", "none on C3, some on C2"),
-    ("starved", "none on C3 or C2: the hopper or C1"),
+    ("far", "More than 80° from the edge"),
+    ("hidden", "Only out of view on C3"),
+    ("c2", "None on C3, some on C2"),
+    ("starved", "None on C3 or C2: the hopper or C1"),
 )
 
 _COLUMNS = {

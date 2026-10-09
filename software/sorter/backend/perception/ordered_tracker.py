@@ -91,6 +91,16 @@ def _color_dist(a: Optional[tuple], b: Optional[tuple]) -> float:
     return min(1.0, math.sqrt(dx * dx + dy * dy + dv * dv))
 
 
+def _containment(a: Bbox, b: Bbox) -> float:
+    """The share of the smaller of two boxes that lies inside the larger."""
+    ix = min(a[2], b[2]) - max(a[0], b[0])
+    iy = min(a[3], b[3]) - max(a[1], b[1])
+    if ix <= 0 or iy <= 0:
+        return 0.0
+    smaller = min((a[2] - a[0]) * (a[3] - a[1]), (b[2] - b[0]) * (b[3] - b[1]))
+    return (ix * iy) / smaller if smaller > 0 else 0.0
+
+
 @dataclass
 class _Det:
     bbox: Bbox
@@ -129,6 +139,9 @@ class OrderedChannelTracker:
         self._cfg = cfg
         self._tracks: dict[int, _Track] = {}
         self._next_id = 1
+        # The colour descriptor measured for each box in the last frame, for the
+        # control-data log (so a replay of the log matches as this tracker did).
+        self.colors: dict[Bbox, tuple[float, float, float]] = {}
 
     def reset(self) -> None:
         self._tracks = {}
@@ -167,6 +180,7 @@ class OrderedChannelTracker:
                 )
             )
 
+        self.colors = {d.bbox: d.color for d in dets if d.color is not None}
         tracks = sorted(self._tracks.values(), key=lambda t: t.gap)  # leading-first
         align = self._align(tracks, dets)
 
@@ -181,8 +195,18 @@ class OrderedChannelTracker:
             self._updateTrack(tr, det, now)
             if tr.hits >= cfg.min_hits:
                 out[det.bbox] = tr.track_id
+        unmatched_tracks = [tracks[ti] for ti in align.unmatched_tracks]
         for di in align.unmatched_dets:
             det = dets[di]
+            # The same piece boxed differently (its whole outline in one frame,
+            # a part of it in the next): keep its id.
+            same = self._containingTrack(det, unmatched_tracks, now)
+            if same is not None:
+                unmatched_tracks.remove(same)
+                self._updateTrack(same, det, now)
+                if same.hits >= cfg.min_hits:
+                    out[det.bbox] = same.track_id
+                continue
             if det.score >= cfg.new_track_min_score:
                 tr = self._newTrack(det, now)
                 if tr.hits >= cfg.min_hits:
@@ -263,6 +287,25 @@ class OrderedChannelTracker:
         if appearance > cfg.match_max_cost:
             return _INF
         return appearance
+
+    def _containingTrack(self, det: _Det, tracks: list[_Track], now: float) -> Optional[_Track]:
+        """The track, left unmatched in this frame and seen within
+        contain_recent_s, whose last box holds this detection's box or sits
+        inside it; the most overlapping one."""
+        cfg = self._cfg
+        if cfg.contain_overlap <= 0.0:
+            return None
+        best, best_overlap = None, cfg.contain_overlap
+        for tr in tracks:
+            if now - tr.last_match_t > cfg.contain_recent_s:
+                continue
+            landing = tr.zone == _DROP_ZONE and det.zone == _DROP_ZONE
+            if det.gap - tr.gap > (cfg.drop_back_tol_deg if landing else cfg.back_tol_deg):
+                continue
+            overlap = _containment(tr.bbox, det.bbox)
+            if overlap >= best_overlap:
+                best, best_overlap = tr, overlap
+        return best
 
     def _missCost(self, track_idx: int) -> float:
         # Leaving a track unmatched (coast/exit). The head (leading, idx 0) is the

@@ -63,11 +63,8 @@ worth more than any profile you copy from somebody else.
 
 ## Check how each part sits on the plate
 
-**Not every STL is oriented for printing yet.** Many are
-exported the way they were designed, not the way they print. This is a known
-problem and the fix is tracked in
-[issue #855](https://github.com/basicallysource/sorter-v2/issues/855). Until it is
-fixed, check each part before you slice it.
+**Not every STL is oriented for printing.** Many are exported the way they were
+designed, not the way they print. Check each part before you slice it.
 
 <ol class="numbered-steps">
   <li><strong>Drop the part on the plate and look at what touches it.</strong> If it rests on a flat face, print it as it is.</li>

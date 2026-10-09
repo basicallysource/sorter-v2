@@ -5,6 +5,10 @@ few such turns do not free it."""
 import logging
 from types import SimpleNamespace
 
+import pytest
+
+import db
+import held_piece_records
 from subsystems.feeder.pulse_perception import held
 from subsystems.feeder.pulse_perception.held import HeldPieces
 
@@ -23,6 +27,11 @@ class _Stats:
 
     def clearActiveIncident(self, kind=None, resolved_by=None):
         self.active = None
+
+
+@pytest.fixture(autouse=True)
+def _scratch_db(tmp_path, monkeypatch):
+    monkeypatch.setenv("LOCAL_STATE_DB_PATH", str(tmp_path / "state.sqlite"))
 
 
 def _gc():
@@ -52,9 +61,12 @@ def test_a_piece_held_in_the_landing_area_turns_the_channel_above(monkeypatch):
         watch.turned(turn, 3.5 + 1.5 * i)
     assert watch.check(3, still, 80.0, 8.0) is None
     assert gc.runtime_stats.active["kind"] == "piece_held"
-    # It moves after all: the incident closes.
+    # It moves after all: the incident closes, and the held piece is recorded.
     watch.check(3, _on((5, 190.0, _DROP)), 90.0, 9.0)
     assert gc.runtime_stats.active is None
+    assert db.drain(5.0)
+    (row,) = held_piece_records.listHeld(0.0, 1e12)
+    assert (row["channel"], row["zone"], row["turns"], row["reported"], row["outcome"]) == (3, "landing", 3, 1, "freed")
 
 
 def test_a_piece_held_at_the_exit_turns_the_channel_below():

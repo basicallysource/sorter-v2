@@ -21,6 +21,7 @@
 		pieces: number;
 		held: number;
 		per_minute: number | null;
+		per_minute_fed: number | null;
 		multi_drop: number;
 		c4: { confirm: Q; photos: Q; head_ready: Q; turn: Q; total: Q };
 		wait: Q;
@@ -41,10 +42,22 @@
 		chute_s: number | null;
 	};
 
+	type Held = {
+		id: number;
+		channel: number;
+		zone: string;
+		started_at: number;
+		ended_at: number;
+		turns: number;
+		reported: number;
+		outcome: string;
+	};
+
 	const ctx = getMachineContext();
 	let span = $state<RuntimeSpan>('1h');
 	let summary = $state<Summary | null>(null);
 	let waits = $state<Wait[]>([]);
+	let held = $state<Held[]>([]);
 
 	function since(s: RuntimeSpan): number {
 		const now = Date.now() / 1000;
@@ -59,12 +72,14 @@
 		const base = machineHttpBaseUrlFromWsUrl(ctx.machine?.url) ?? getBackendHttpBase();
 		const from = since(span);
 		try {
-			const [s, w] = await Promise.all([
+			const [s, w, h] = await Promise.all([
 				fetch(`${base}/runtime-stats/cycles?since=${from}`),
-				fetch(`${base}/runtime-stats/cycles/waits?since=${from}&min_s=4&limit=40`)
+				fetch(`${base}/runtime-stats/cycles/waits?since=${from}&min_s=4&limit=40`),
+				fetch(`${base}/runtime-stats/held-pieces?since=${from}`)
 			]);
 			if (s.ok) summary = await s.json();
 			if (w.ok) waits = (await w.json()).waits ?? [];
+			if (h.ok) held = (await h.json()).held ?? [];
 		} catch {
 			// The next poll tries again.
 		}
@@ -83,8 +98,19 @@
 	const clock = (t: number) =>
 		new Date(t * 1000).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit', second: '2-digit' }).toLowerCase();
 	function where(w: Wait): string {
-		if (w.c3_head_deg == null) return 'No piece seen on C3';
-		return `${Math.max(0, Math.round(w.c3_head_deg))}° from C3's edge`;
+		if (w.c3_head_deg != null) return `${Math.max(0, Math.round(w.c3_head_deg))}° from C3's edge`;
+		if (w.c3_hidden) return 'Only out of view on C3';
+		return w.c2_pieces ? 'None on C3, some on C2' : 'None on C3 or C2';
+	}
+	const OUTCOME: Record<string, string> = {
+		freed: 'Moved again',
+		gone: 'Left the channel',
+		stopped: 'Sorting stopped first'
+	};
+	function fedHint(s: Summary): string {
+		const pieces = `${s.pieces} pieces${s.held ? `, ${s.held} during stops` : ''}`;
+		if (s.per_minute_fed == null || s.per_minute == null || s.per_minute_fed - s.per_minute < 0.2) return pieces;
+		return `${s.per_minute_fed.toFixed(1)} while the hopper kept up`;
 	}
 
 	const phases = $derived(
@@ -118,7 +144,7 @@
 				<Stat
 					label="Pieces a minute"
 					value={summary?.per_minute != null ? summary.per_minute.toFixed(1) : '—'}
-					hint={summary ? `${summary.pieces} pieces${summary.held ? `, ${summary.held} during stops` : ''}` : undefined}
+					hint={summary ? fedHint(summary) : undefined}
 				/>
 			</div>
 			<div class="bg-surface">
@@ -220,11 +246,46 @@
 							<tr>
 								<td class="whitespace-nowrap text-ink-muted">{clock(w.asked_at)}</td>
 								<td class="num">{secs(wait)}</td>
-								<td>{where(w)}{w.c3_hidden ? `, ${w.c3_hidden} out of view` : ''}</td>
+								<td>{where(w)}</td>
 								<td class="num">{w.c3_pieces ?? '—'}</td>
 								<td class="num">{w.c2_pieces ?? '—'}</td>
 								<td class="num text-ink-muted">{pct((w.c3_moving_s ?? 0) / wait)}</td>
 								<td class="num text-ink-muted">{pct((w.chute_s ?? 0) / wait)}</td>
+							</tr>
+						{/each}
+					{/if}
+				</tbody>
+			</table>
+		</div>
+	</Panel>
+
+	<Panel
+		title="Pieces C2 or C3 could not move"
+		description="Its channel turned under it and it stayed put, so the channel next to it was turned. After three turns the operator is called."
+		flush
+	>
+		<div class="overflow-x-auto">
+			<table class="data-table">
+				<thead>
+					<tr>
+						<th>When</th>
+						<th>Where</th>
+						<th class="num">Held for</th>
+						<th class="num">Turns</th>
+						<th>How it ended</th>
+					</tr>
+				</thead>
+				<tbody>
+					{#if held.length === 0}
+						<tr><td class="text-center text-ink-muted" colspan="5">None.</td></tr>
+					{:else}
+						{#each held as h (h.id)}
+							<tr>
+								<td class="whitespace-nowrap text-ink-muted">{clock(h.started_at)}</td>
+								<td>C{h.channel}, {h.zone === 'landing' ? 'landing area' : 'exit'}</td>
+								<td class="num">{secs(h.ended_at - h.started_at)}</td>
+								<td class="num">{h.turns}</td>
+								<td>{OUTCOME[h.outcome] ?? h.outcome}{h.reported ? ', after calling the operator' : ''}</td>
 							</tr>
 						{/each}
 					{/if}

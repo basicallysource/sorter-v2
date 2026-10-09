@@ -43,14 +43,28 @@ def test_single_piece_survives_big_forward_jumps():
     tr = ot.OrderedChannelTracker(_cfg(min_hits=1))
     out = _run(tr, [(300, _DROP, (100, 100, 140, 140))], 0.0)
     pid = out[(100, 100, 140, 140)]
-    # Gap leaps 300 -> 180 -> 60 -> 10 (the platter flinging it forward). The id
-    # must hold — this is exactly where IoU / angular-velocity trackers fail.
-    out = _run(tr, [(180, _FWD, (130, 130, 170, 170))], 0.1)
+    # Gap leaps 300 -> 180 -> 60 -> 10 as the platter turns (about 240 deg/s,
+    # the fast end of what it does). The id must hold — this is exactly where
+    # IoU / angular-velocity trackers fail.
+    out = _run(tr, [(180, _FWD, (130, 130, 170, 170))], 0.5)
     assert out[(130, 130, 170, 170)] == pid
-    out = _run(tr, [(60, _FWD, (150, 150, 190, 190))], 0.2)
+    out = _run(tr, [(60, _FWD, (150, 150, 190, 190))], 1.0)
     assert out[(150, 150, 190, 190)] == pid
-    out = _run(tr, [(10, _FWD, (160, 160, 200, 200))], 0.3)
+    out = _run(tr, [(10, _FWD, (160, 160, 200, 200))], 1.3)
     assert out[(160, 160, 200, 200)] == pid
+
+
+def test_a_box_further_ahead_than_the_platter_can_carry_does_not_take_the_id():
+    # During a turn a one-frame false box on the platter appears 170 deg ahead
+    # of a piece while the piece itself is still in view, 30 deg on. The piece
+    # keeps its id; the false box does not get it (seen on a machine at 7:04 pm
+    # on 2026-10-09: the classified piece lost its id and went out as a stray).
+    tr = ot.OrderedChannelTracker(_cfg(min_hits=1))
+    piece = (2742, 430, 2819, 535)
+    pid = _run(tr, [(266, _DROP, piece)], 0.0)[piece]
+    false_box, moved = (1143, 1770, 1246, 1828), (2875, 890, 2957, 971)
+    out = _run(tr, [(96, 0, false_box), (239, _DROP, moved)], 0.05)
+    assert out[moved] == pid and out.get(false_box) != pid
 
 
 def test_two_pieces_keep_distinct_ids_no_swap():
@@ -59,7 +73,7 @@ def test_two_pieces_keep_distinct_ids_no_swap():
     out = _run(tr, [(80, _FWD, b), (260, _DROP, a)], 0.0)  # b leads (smaller gap)
     ida, idb = out[a], out[b]
     assert ida != idb
-    out = _run(tr, [(20, _FWD, b), (140, _FWD, a)], 0.1)  # both advance, order kept
+    out = _run(tr, [(20, _FWD, b), (140, _FWD, a)], 0.5)  # both advance, order kept
     assert out[b] == idb and out[a] == ida
 
 
@@ -77,7 +91,7 @@ def test_new_piece_at_drop_gets_fresh_id():
     a = (200, 200, 240, 240)
     ida = _run(tr, [(100, _FWD, a)], 0.0)[a]
     b = (60, 60, 100, 100)  # arrives in the drop zone behind a
-    out = _run(tr, [(40, _FWD, a), (300, _DROP, b)], 0.1)
+    out = _run(tr, [(40, _FWD, a), (300, _DROP, b)], 0.5)
     assert out[a] == ida
     assert out[b] != ida
 
@@ -123,10 +137,10 @@ def test_head_exit_retires_only_head():
     ida, idb = out[a], out[b]
     # a falls off the exit (gone); b advances. b can't match a's old slot (that
     # would be backward), so a is dropped and b keeps its id.
-    out = _run(tr, [(110, _FWD, b)], 0.1)
+    out = _run(tr, [(110, _FWD, b)], 0.5)
     assert out[b] == idb
     # After the coast window, a's id is fully retired; b persists.
-    out = _run(tr, [(80, _FWD, b)], 0.1 + cfg.max_coast_s + 0.5)
+    out = _run(tr, [(80, _FWD, b)], 0.5 + cfg.max_coast_s + 0.5)
     live = {t.track_id for t in tr._tracks.values()}
     assert ida not in live and idb in live
 
@@ -148,7 +162,7 @@ def test_simultaneous_exit_and_entry_disambiguated_by_color():
     frame1 = np.full((130, 130, 3), 40, np.uint8)
     frame1[50:70, 50:70] = (0, 255, 0)   # b still green
     frame1[90:110, 90:110] = (255, 0, 0)  # c = blue
-    out = _run(tr, [(20, _FWD, b_box), (300, _DROP, c_box)], 0.1, frame1)
+    out = _run(tr, [(20, _FWD, b_box), (300, _DROP, c_box)], 0.5, frame1)
     assert out[b_box] == idb       # b kept its identity (no id shift)
     assert out[c_box] not in (ida, idb)  # c is genuinely new
 

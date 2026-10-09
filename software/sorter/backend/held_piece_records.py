@@ -1,10 +1,10 @@
 """Every piece C2 or C3 could not move, one row each, for the Cycle time page.
 
 The feeder's held-piece watch (subsystems/feeder/pulse_perception/held.py)
-writes a row when a piece it turned the next channel for, or reported, is done
+writes a row when a piece it turned the next channel for, or gave up on, is done
 with: freed (it moved again), gone (it left the channel), or the sorting
 stopped first. The row says how long it was held, how many turns of the next
-channel it took, and whether the operator was called.
+channel it took, and whether the feeder gave up on it.
 """
 
 from __future__ import annotations
@@ -19,6 +19,10 @@ KEEP_DAYS = 60.0
 
 
 def _createTables(conn: sqlite3.Connection) -> None:
+    # The first version (one day on one machine) called the operator instead of
+    # giving up; its rows go.
+    if "reported" in {r[1] for r in conn.execute("PRAGMA table_info(held_pieces)")}:
+        conn.execute("DROP TABLE held_pieces")
     conn.execute(
         "CREATE TABLE IF NOT EXISTS held_pieces ("
         "id INTEGER PRIMARY KEY AUTOINCREMENT, "
@@ -28,7 +32,7 @@ def _createTables(conn: sqlite3.Connection) -> None:
         "started_at REAL NOT NULL, "
         "ended_at REAL NOT NULL, "
         "turns INTEGER NOT NULL, "
-        "reported INTEGER NOT NULL, "
+        "gave_up INTEGER NOT NULL, "
         "outcome TEXT NOT NULL"
         ")"
     )

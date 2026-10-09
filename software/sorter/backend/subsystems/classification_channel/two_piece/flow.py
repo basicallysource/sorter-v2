@@ -8,6 +8,7 @@ from defs.known_object import (
     PieceStage,
     RecognitionImage,
 )
+from piece_cycles import CycleRecorder
 from runtime_stats import C4_WAITING_FOR_PIECE
 
 from .. import crop_quality
@@ -190,6 +191,9 @@ class TwoPieceClassificationChannel(Rev01BaseState):
         # will fall the next time the channel turns, and we cannot see where it
         # is, so nothing may claim a bin until it is out. See _holdBucket().
         self._bucket_hold_cycles = 0
+        # Each piece's trip through the channel, for "where the time goes".
+        self._cycles = CycleRecorder()
+        self._was_ready = False
         self.ctx.reset()
         self.ctx.known_object = None
 
@@ -293,6 +297,7 @@ class TwoPieceClassificationChannel(Rev01BaseState):
             self._stage_target = None
             self._multi_drop_streak = 0
             self._multi_drop_last_ts = -1.0
+            self._cycles.drop()
             # The sweep ran with every door open and emptied the channel, so no
             # loose piece is left to protect the bins from.
             self._releaseBucket("stall auto-clear emptied the channel")
@@ -317,6 +322,7 @@ class TwoPieceClassificationChannel(Rev01BaseState):
         # clear AND the platter has settled — i.e. "rotation complete, drop empty".
         ready = self._phase == _Phase.WAITING and (not state.in_drop) and stopped
         self.setClassificationReady(ready, "waiting + drop clear + stopped")
+        self._recordCycle(perception_service, state, ready)
 
         # An empty channel proves nothing is left riding the platter, so any
         # loose-piece hold can end early rather than costing more sorted pieces.
@@ -338,6 +344,38 @@ class TwoPieceClassificationChannel(Rev01BaseState):
             self._ejecting(state, stopped, now)
         elif self._phase == _Phase.STAGING:
             self._staging(state, stopped, now)
+
+    def _recordCycle(self, perception_service, state, ready: bool) -> None:
+        # Bookkeeping for "where the time goes": it must never stop the channel.
+        try:
+            self._recordCycleStep(perception_service, state, ready)
+        except Exception as exc:
+            if not getattr(self, "_cycle_error_logged", False):
+                self._cycle_error_logged = True
+                self.logger.warning(f"{LOG_TAG} cycle record failed (not recording cycles): {exc}")
+
+    def _recordCycleStep(self, perception_service, state, ready: bool) -> None:
+        wall = time.time()
+        if ready and not self._was_ready:
+            states = perception_service.read_states()
+            self._cycles.asked(
+                wall,
+                states.get(3),
+                states.get(2),
+                self.shared.feeder_hidden_pieces.get(3, 0),
+            )
+        self._was_ready = ready
+        if self._cycles.waiting:
+            mono = time.monotonic()
+            moving_until = self.shared.feeder_moving_until
+            self._cycles.tick(
+                wall,
+                c3_moving=mono < moving_until.get(3, 0.0),
+                c2_moving=mono < moving_until.get(2, 0.0),
+                chute_moving=bool(self.shared.chute_move_in_progress),
+            )
+            if self._phase == _Phase.WAITING and state.in_drop:
+                self._cycles.landed(wall)
 
     # ------------------------------------------------- perception reconciliation
 
@@ -469,6 +507,7 @@ class TwoPieceClassificationChannel(Rev01BaseState):
         tp.double_feed = True
         tp.multi_drop_group = group
         tp.capture_done = True
+        self._cycles.multiDrop()
         tp.result_applied = True
         self.noteProgress()
         self._ensureKnownObject(tp)
@@ -538,10 +577,13 @@ class TwoPieceClassificationChannel(Rev01BaseState):
             ctx = tp.worker.ctx
             if ctx.capturing_started_at == 0.0:
                 ctx.capturing_started_at = now
+                obj = tp.known_object
+                self._cycles.confirmed(time.time(), tp.track_id, obj.uuid if obj is not None else None)
             self._cropBurstFrame(tp.worker, tp.bbox, perc_frame)
             done, reason = tp.worker.burstCaptureComplete(ctx, now)
             if done:
                 tp.capture_done = True
+                self._cycles.captured(time.time(), tp.track_id)
                 self.noteProgress()
                 ctx.classify_started_at = now
                 caps = list(ctx.captured_crops)
@@ -648,11 +690,13 @@ class TwoPieceClassificationChannel(Rev01BaseState):
             self._stage_target = drop
             self._eject_target = None
             self._enterPhase(_Phase.STAGING)
+            self._cycles.rotated(time.time(), ejecting=False)
             self.logger.info(f"{LOG_TAG} ROTATE: stage track={drop.track_id} (no head)")
         elif self._headReady(head):
             self._stage_target = drop
             self._eject_target = head
             self._enterPhase(_Phase.EJECTING)
+            self._cycles.rotated(time.time(), ejecting=True)
             self.logger.info(
                 f"{LOG_TAG} ROTATE: eject track={head.track_id} + stage track={drop.track_id}"
             )
@@ -668,6 +712,7 @@ class TwoPieceClassificationChannel(Rev01BaseState):
             # Track id gone (debounced) == the piece dropped off the fall-off ==
             # ejected. Commit it to distribution; the chute was already aimed.
             self._commitToDistribution(target)
+            self._cycles.ejected(time.time())
             if self._bucket_hold_cycles > 0:
                 self._bucket_hold_cycles -= 1
                 if self._bucket_hold_cycles == 0:
@@ -718,6 +763,7 @@ class TwoPieceClassificationChannel(Rev01BaseState):
         # trailing piece.
         if (now - self._phase_started_at) > _STAGE_TIMEOUT_S:
             self.logger.warning(f"{LOG_TAG} STAGE timeout — giving up")
+            self._cycles.staged(time.time(), note="stage timeout")
             self._stage_target = None
             self._enterPhase(_Phase.WAITING)
             return
@@ -728,6 +774,7 @@ class TwoPieceClassificationChannel(Rev01BaseState):
         )
         if drop_clear:
             self.logger.info(f"{LOG_TAG} staged -> holding (drop clear)")
+            self._cycles.staged(time.time())
             self._stage_target = None
             self._enterPhase(_Phase.WAITING)
             return
@@ -821,6 +868,8 @@ class TwoPieceClassificationChannel(Rev01BaseState):
         self._stage_target = None
         self._multi_drop_streak = 0
         self._multi_drop_last_ts = -1.0
+        self._cycles.drop()
+        self._was_ready = False
         # The hold lives in the counter on this object, which a teardown resets;
         # leaving the shared flag set would strand distribution in bucket mode
         # with nothing left to decrement it. Release it with the rest of the state.

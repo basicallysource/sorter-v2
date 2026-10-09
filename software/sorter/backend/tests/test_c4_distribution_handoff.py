@@ -21,6 +21,7 @@ from defs.known_object import ClassificationStatus, KnownObject, PieceStage
 from piece_transport import ClassificationChannelTransport
 from runtime_stats import C4_WAITING_FOR_PIECE, RuntimeStatsCollector
 from subsystems.classification_channel.two_piece import flow as two_piece
+from piece_cycles import CycleRecorder
 from subsystems.classification_channel.two_piece.flow import (
     TwoPieceClassificationChannel,
     _Phase,
@@ -101,6 +102,8 @@ def _mkChannel(transport, shared) -> TwoPieceClassificationChannel:
     ch._multi_drop_last_ts = -1.0
     ch._multi_drop_seq = 0
     ch._bucket_hold_cycles = 0
+    ch._cycles = CycleRecorder()
+    ch._was_ready = False
     return ch
 
 

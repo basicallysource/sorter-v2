@@ -18,6 +18,11 @@ Every printed part, its STL, its filament weight and its print time are on the
 [parts calculator](https://parts-calculator.basically.website/). Set your layer count
 there first, because that is what decides how many of each part you need.
 
+<div class="notice notice-warn">
+  <strong>STL orientation (as of 9 October 2026)</strong>
+  <p>Not every STL is oriented for printing yet. Many are exported the way they were designed, not the way they should print. Before you slice a part, look at what is touching the plate. If it is balanced on an edge or a corner, turn it onto its largest flat face ("Lay on face" in Bambu Studio and Orca) instead of printing it as it comes. This takes priority over "Print each part the way the file comes" below. The fix is tracked in <a href="https://github.com/basicallysource/sorter-v2/issues/855">issue #855</a>.</p>
+</div>
+
 ## Filament
 
 **Print the parts in PETG or ASA rather than PLA if the machine will stand anywhere

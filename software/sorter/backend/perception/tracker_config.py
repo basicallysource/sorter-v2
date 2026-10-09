@@ -245,6 +245,15 @@ class OrderedTrackerConfig:
     # rides the platter. While a track and its detection are both in the drop
     # zone, the detection may be this much further back.
     drop_back_tol_deg: float = 60.0
+    # The detector can box one piece two ways from frame to frame: an antenna
+    # base with its lever is the whole thing in one frame and only the base in
+    # the next. A box left unmatched in a frame is the track whose last box it
+    # sits inside (or around), when that track was also left unmatched in the
+    # same frame and seen this recently (s). Inside means this share of the
+    # smaller box overlaps the larger. Two boxes seen together in one frame are
+    # never merged this way. 0 turns it off.
+    contain_overlap: float = 0.8
+    contain_recent_s: float = 0.5
     # How long (s) to keep coasting a track with no matching detection before
     # giving up its id. Long enough to ride out a detector blink; a piece that
     # truly left (off the exit) ages out and its disappearance reads as ejected.
@@ -306,6 +315,21 @@ ORDERED_FIELD_META: list[dict] = [
             "it rides the platter. In the drop zone a detection may be this many "
             "degrees further back and still be the same piece, so the piece keeps "
             "the id it was photographed and classified under."
+        ),
+    },
+    {
+        "section": "Matching",
+        "key": "contain_overlap",
+        "label": "Same piece when one box holds the other",
+        "type": "float",
+        "default": OrderedTrackerConfig().contain_overlap,
+        "description": (
+            "The detector can box one piece two ways from frame to frame: a part "
+            "with a lever is the whole thing in one frame and only its base in the "
+            "next. A box that would start a new piece is instead the piece whose "
+            "last box it sits inside (or around), when that piece went unseen in "
+            "the same frame: this share of the smaller box must overlap the larger. "
+            "Two boxes seen in the same frame are always two pieces. 0 turns it off."
         ),
     },
     {

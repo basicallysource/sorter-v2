@@ -96,6 +96,25 @@ def test_landing_bounce_keeps_its_id():
     assert _run(tr, [(138, _FWD, box)], 0.05)[box] != pid
 
 
+def test_one_piece_boxed_two_ways_keeps_its_id():
+    # An antenna base with its lever: the detector boxes the whole thing in one
+    # frame and only the base (inside that box) in the next. One piece, one id.
+    tr = ot.OrderedChannelTracker(_cfg(min_hits=1))
+    whole, base = (2831, 1182, 2916, 1398), (2831, 1322, 2911, 1398)
+    pid = _run(tr, [(217, _DROP, whole)], 0.0)[whole]
+    for k in range(1, 7):
+        box, gap = (base, 213) if k % 2 else (whole, 217)
+        assert _run(tr, [(gap, _DROP, box)], 0.05 * k)[box] == pid
+
+
+def test_a_box_inside_another_in_the_same_frame_is_another_piece():
+    tr = ot.OrderedChannelTracker(_cfg(min_hits=1))
+    big, small = (100, 100, 300, 300), (150, 150, 190, 190)
+    big_id = _run(tr, [(200, _DROP, big)], 0.0)[big]
+    out = _run(tr, [(195, _DROP, small), (200, _DROP, big)], 0.05)
+    assert out[big] == big_id and out[small] != big_id
+
+
 def test_head_exit_retires_only_head():
     cfg = _cfg(min_hits=1)
     tr = ot.OrderedChannelTracker(cfg)

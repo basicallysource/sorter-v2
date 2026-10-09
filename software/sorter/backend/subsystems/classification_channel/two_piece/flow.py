@@ -58,6 +58,12 @@ _STAGE_STEP_DEG = 25.0
 # very next turn of the platter; two cycles covers the one after it as well.
 _BUCKET_HOLD_EJECTS = 2
 
+# The head goes out with the turn that stages the next piece. When no next
+# piece has come for this long (the feeder ran dry, or stalled), it goes out on
+# its own, to its bin, instead of waiting for the stall watchdog to sweep the
+# channel into the bucket.
+_HEAD_ALONE_AFTER_S = 12.0
+
 # Safety ceilings so a move that never resolves can't wedge the machine forever.
 _EJECT_TIMEOUT_S = 15.0
 _STAGE_TIMEOUT_S = 15.0
@@ -194,6 +200,8 @@ class TwoPieceClassificationChannel(Rev01BaseState):
         # Each piece's trip through the channel, for "where the time goes".
         self._cycles = CycleRecorder()
         self._was_ready = False
+        # When the channel last became ready for a piece (None while not ready).
+        self._ready_since: Optional[float] = None
         self.ctx.reset()
         self.ctx.known_object = None
 
@@ -322,6 +330,10 @@ class TwoPieceClassificationChannel(Rev01BaseState):
         # clear AND the platter has settled — i.e. "rotation complete, drop empty".
         ready = self._phase == _Phase.WAITING and (not state.in_drop) and stopped
         self.setClassificationReady(ready, "waiting + drop clear + stopped")
+        if not ready:
+            self._ready_since = None
+        elif self._ready_since is None:
+            self._ready_since = now
         self._recordCycle(perception_service, state, ready)
 
         # An empty channel proves nothing is left riding the platter, so any
@@ -688,6 +700,7 @@ class TwoPieceClassificationChannel(Rev01BaseState):
         # piece toward the fall-off).
         drop = self._dropPiece()
         if drop is None or not drop.capture_done:
+            self._maybeEjectHeadAlone()
             return
         head = self._headPiece()
         if head is None:
@@ -704,6 +717,20 @@ class TwoPieceClassificationChannel(Rev01BaseState):
             self.logger.info(
                 f"{LOG_TAG} ROTATE: eject track={head.track_id} + stage track={drop.track_id}"
             )
+
+    def _maybeEjectHeadAlone(self) -> None:
+        if self._ready_since is None or time.monotonic() - self._ready_since < _HEAD_ALONE_AFTER_S:
+            return
+        head = self._headPiece()
+        if head is None or not self._headReady(head):
+            return
+        self._stage_target = None
+        self._eject_target = head
+        self._enterPhase(_Phase.EJECTING)
+        self.logger.info(
+            f"{LOG_TAG} ROTATE: eject track={head.track_id} alone "
+            f"(no next piece for {_HEAD_ALONE_AFTER_S:.0f} s)"
+        )
 
     def _ejecting(self, state, stopped: bool, now: float) -> None:
         target = self._eject_target
@@ -778,7 +805,10 @@ class TwoPieceClassificationChannel(Rev01BaseState):
         )
         if drop_clear:
             self.logger.info(f"{LOG_TAG} staged -> holding (drop clear)")
-            self._cycles.staged(time.time())
+            if self._stage_target is not None:
+                # A head ejected alone staged nothing: the wait for the next
+                # piece goes on in the same cycle record.
+                self._cycles.staged(time.time())
             self._stage_target = None
             self._enterPhase(_Phase.WAITING)
             return

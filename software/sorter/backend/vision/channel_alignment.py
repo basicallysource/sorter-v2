@@ -24,10 +24,7 @@ currently at ``drop_start_angle`` onto 12 o'clock we need to rotate by
 
 from __future__ import annotations
 
-from typing import Any, Dict, Tuple
-
-import cv2
-import numpy as np
+from typing import Any, Dict
 
 
 _POLYGON_KEY_TO_ANGLE_KEY: dict[str, str] = {
@@ -123,61 +120,10 @@ def alignmentRotationDeg(drop_start_angle: float | None) -> float:
     return rotation
 
 
-def rotationMatrixForImage(
-    width: int,
-    height: int,
-    rotation_deg: float,
-) -> tuple[np.ndarray, tuple[int, int]]:
-    """Build an affine matrix that rotates an ``(width, height)`` image
-    around its center, expanding the canvas so no pixels are clipped.
-
-    Returns ``(matrix, (new_width, new_height))``.
-    """
-    cx, cy = width / 2.0, height / 2.0
-    matrix = cv2.getRotationMatrix2D((cx, cy), rotation_deg, 1.0)
-    cos_a = abs(matrix[0, 0])
-    sin_a = abs(matrix[0, 1])
-    new_w = max(1, int(np.ceil(height * sin_a + width * cos_a)))
-    new_h = max(1, int(np.ceil(height * cos_a + width * sin_a)))
-    matrix[0, 2] += (new_w / 2.0) - cx
-    matrix[1, 2] += (new_h / 2.0) - cy
-    return matrix, (new_w, new_h)
-
-
-def rotateImageBgr(
-    image: np.ndarray,
-    rotation_deg: float,
-    *,
-    fill: Tuple[int, int, int] = (230, 230, 230),
-) -> np.ndarray:
-    """Rotate a BGR (or grayscale) image and return the expanded canvas.
-
-    A rotation magnitude below ~0.01° is returned unchanged so we don't pay
-    an interpolation pass for the common "no calibration yet" case.
-    """
-    if image is None or image.size == 0:
-        return image
-    if abs(rotation_deg) < 1e-2:
-        return image
-
-    h, w = image.shape[:2]
-    matrix, (new_w, new_h) = rotationMatrixForImage(w, h, rotation_deg)
-    return cv2.warpAffine(
-        image,
-        matrix,
-        (new_w, new_h),
-        flags=cv2.INTER_LINEAR,
-        borderMode=cv2.BORDER_CONSTANT,
-        borderValue=fill,
-    )
-
-
 __all__ = [
     "polygonKeyForRole",
     "angleKeyForPolygonKey",
     "dropStartAngleFromArcParams",
     "dropStartAngleForRole",
     "alignmentRotationDeg",
-    "rotationMatrixForImage",
-    "rotateImageBgr",
 ]

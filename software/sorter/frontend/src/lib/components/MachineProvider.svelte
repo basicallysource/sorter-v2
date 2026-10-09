@@ -3,7 +3,7 @@
 	import { getMachinesContext, setMachineContext } from '$lib/machines/context';
 	import type { MachineContext } from '$lib/machines/types';
 	import { sortingProfileStore } from '$lib/stores/sortingProfile.svelte';
-	import type { Snippet } from 'svelte';
+	import { untrack, type Snippet } from 'svelte';
 
 	let { children }: { children: Snippet } = $props();
 
@@ -30,10 +30,9 @@
 			(value): value is string => typeof value === 'string' && value.length > 0
 		);
 		if (!key) return;
-		sortingProfileStore.follow(
-			key,
-			machineHttpBaseUrlFromWsUrl(manager.selectedMachine?.url) ?? getBackendHttpBase()
-		);
+		const baseUrl =
+			machineHttpBaseUrlFromWsUrl(manager.selectedMachine?.url) ?? getBackendHttpBase();
+		untrack(() => sortingProfileStore.follow(key, baseUrl));
 	});
 </script>
 

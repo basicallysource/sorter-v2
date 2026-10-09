@@ -191,6 +191,7 @@ def _mkChannel(transport, shared) -> TwoPieceClassificationChannel:
     ch._bucket_hold_cycles = 0
     ch._cycles = CycleRecorder()
     ch._was_ready = False
+    ch._ready_since = None
     return ch
 
 

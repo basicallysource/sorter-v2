@@ -104,6 +104,7 @@ def _mkChannel(transport, shared) -> TwoPieceClassificationChannel:
     ch._bucket_hold_cycles = 0
     ch._cycles = CycleRecorder()
     ch._was_ready = False
+    ch._ready_since = None
     return ch
 
 
@@ -428,3 +429,19 @@ def test_waiting_with_the_drop_zone_clear_reads_as_waiting_for_a_piece() -> None
     assert ch.phaseName() == C4_WAITING_FOR_PIECE
     ch._phase = _Phase.EJECTING
     assert ch.phaseName() == "ejecting"
+
+
+
+def test_a_ready_head_goes_out_alone_when_no_next_piece_comes() -> None:
+    transport = ClassificationChannelTransport()
+    shared = _mkShared(transport)
+    ch = _mkChannel(transport, shared)
+    obj = _positioned(transport, shared)
+    shared.set_distribution_gate(True, reason=None)
+    head = _addPiece(ch, 7, gap_to_exit=40.0, obj=obj, placed=True)
+    ch._ready_since = time.monotonic() - 5.0
+    ch._maybeStartRotation()
+    assert ch._phase == _Phase.WAITING  # a next piece may still come
+    ch._ready_since = time.monotonic() - two_piece._HEAD_ALONE_AFTER_S - 1.0
+    ch._maybeStartRotation()
+    assert ch._phase == _Phase.EJECTING and ch._eject_target is head and ch._stage_target is None

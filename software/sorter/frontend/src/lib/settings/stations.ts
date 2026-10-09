@@ -4,6 +4,7 @@ import CircuitBoard from '@lucide/svelte/icons/circuit-board';
 import Cloud from '@lucide/svelte/icons/cloud';
 import Cpu from '@lucide/svelte/icons/cpu';
 import Gauge from '@lucide/svelte/icons/gauge';
+import Timer from '@lucide/svelte/icons/timer';
 import GitBranch from '@lucide/svelte/icons/git-branch';
 import Layers3 from '@lucide/svelte/icons/layers';
 import Network from '@lucide/svelte/icons/network';
@@ -140,6 +141,12 @@ export const performanceNavItem: SettingsNavItem = {
 	icon: Gauge
 };
 
+export const cycleTimeNavItem: SettingsNavItem = {
+	href: '/settings/cycle-time',
+	label: 'Cycle time',
+	icon: Timer
+};
+
 export const incidentsNavItem: SettingsNavItem = {
 	href: '/settings/incidents',
 	label: 'Incidents',
@@ -245,6 +252,7 @@ export const settingsNavItems: SettingsNavEntry[] = [
 	controlBoardNavItem,
 	{ type: 'heading', label: 'Helpers' },
 	incidentsNavItem,
+	cycleTimeNavItem,
 	powerStressNavItem,
 	chuteAimingNavItem,
 	stallguardNavItem,

@@ -42,6 +42,12 @@ class SharedVariables:
         self.bucket_passthrough_hold: bool = False
         self._chute_move_in_progress: bool = False
         self._ignored_classification_dropzone_track_ids: set[int] = set()
+        # Per feeder channel, the monotonic time its last move ends. Written by
+        # the feeder, read by the classification channel's cycle record.
+        self.feeder_moving_until: dict[int, float] = {}
+        # Per feeder channel, how many pieces it is carrying out of its
+        # camera's sight (the feeder's unseen arc). Written by the feeder.
+        self.feeder_hidden_pieces: dict[int, int] = {}
 
     @property
     def classification_ready(self) -> bool:

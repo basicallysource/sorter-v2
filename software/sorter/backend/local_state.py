@@ -223,8 +223,19 @@ def get_channel_polygons() -> dict[str, Any] | None:
     return _read_dict(_STATE_KEY_CHANNEL_POLYGONS)
 
 
+# Counts the saves of the channel zones in this process, so whatever is built
+# from them can tell cheaply that it is out of date.
+_channel_polygons_revision = 0
+
+
+def channel_polygons_revision() -> int:
+    return _channel_polygons_revision
+
+
 def set_channel_polygons(polygons: dict[str, Any]) -> None:
+    global _channel_polygons_revision
     _write_state(_STATE_KEY_CHANNEL_POLYGONS, dict(polygons))
+    _channel_polygons_revision += 1
 
 
 def get_classification_polygons() -> dict[str, Any] | None:

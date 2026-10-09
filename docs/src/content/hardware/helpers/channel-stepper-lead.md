@@ -57,7 +57,7 @@ under <b>Re-house the lead</b>, below. Motor positions 2 and 5 stay empty.
 
 <div class="callout callout-warning">
   <span class="callout-icon" aria-hidden="true">⚠</span>
-  <p><b>Check the wire diagram that came with your motor before you cut anything.</b> StepperOnline supplies a small wire diagram with the motor that names the wire in every position of the 6-pin housing, with its colour and its coil (A+, A-, B+, B-). Lay the motor's own drawing next to the figure below: positions 1 and 4 must be the same coil, and positions 3 and 6 the other. If your drawing differs, follow it.</p>
+  <p><b>Check the wire diagram that came with your motor before you cut anything.</b> StepperOnline supplies a small wire diagram with the motor that names the wire in every position of the 6-pin housing, with its colour and its coil (A+, A-, B+, B-). Lay the motor's own drawing next to the figure below: positions 1 and 4 must be the same coil, and positions 3 and 6 the other. If your drawing differs, follow it. With no drawing, or no meter, you can <a href="{{ '/hardware/helpers/multimeter/' | relative_url }}#how-to-find-the-wires-for-a-motor-coil-without-a-multimeter">find which wires are one coil by joining two and turning the shaft</a>.</p>
 </div>
 
 <figure class="single-figure">

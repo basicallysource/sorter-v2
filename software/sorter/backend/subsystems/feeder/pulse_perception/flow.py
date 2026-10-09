@@ -126,9 +126,10 @@ class PulsePerceptionFeeding(BaseState):
         except Exception as exc:
             self.gc.logger.warning(f"PulsePerception: {label} speed set failed: {exc}")
         success = stepper.move_degrees(motor_deg)
+        exec_ms = stepper.estimateMoveDegreesMs(abs(motor_deg), max_speed=speed or 5000)
         if success:
             self._odometer[channel] = self._odometer.get(channel, 0.0) + output_deg
-        exec_ms = stepper.estimateMoveDegreesMs(abs(motor_deg), max_speed=speed or 5000)
+            self.shared.feeder_moving_until[channel] = time.monotonic() + max(0, exec_ms) / 1000.0
         cooldown_ms = (max(0, exec_ms) + max(0, pause_ms)) if success else 500
         self._busy_until[stepper._name] = time.monotonic() + cooldown_ms / 1000.0
         self.gc.logger.debug(
@@ -341,6 +342,7 @@ class PulsePerceptionFeeding(BaseState):
         odometer = self._odometer.get(channel, 0.0)
         blind.update(state, now, odometer)
         expected = blind.expected(odometer)
+        self.shared.feeder_hidden_pieces[channel] = len(expected)
         if not expected:
             return action, None
         perception_service = getattr(self.gc, "perception_service", None)

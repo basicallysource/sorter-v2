@@ -9,6 +9,7 @@ from types import SimpleNamespace
 
 from defs.known_object import ClassificationStatus
 from perception.state import ChannelState, PieceObservation
+from piece_cycles import CycleRecorder
 from subsystems.classification_channel.two_piece.flow import (
     TwoPieceClassificationChannel,
     _TrackedPiece,
@@ -34,6 +35,7 @@ def _channel() -> TwoPieceClassificationChannel:
     ch._multi_drop_last_ts = -1.0
     ch._multi_drop_seq = 0
     ch.last_progress_at = time.monotonic()
+    ch._cycles = CycleRecorder()
     return ch
 
 

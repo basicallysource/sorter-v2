@@ -356,6 +356,10 @@ class TwoPieceClassificationChannel(Rev01BaseState):
 
     def _recordCycleStep(self, perception_service, state, ready: bool) -> None:
         wall = time.time()
+        runtime_stats = getattr(self.gc, "runtime_stats", None)
+        self._cycles.step(
+            wall, held=runtime_stats is not None and runtime_stats.activeIncident() is not None
+        )
         if ready and not self._was_ready:
             states = perception_service.read_states()
             self._cycles.asked(

@@ -58,6 +58,16 @@ KINDS: dict[str, IncidentKind] = {
             automatic_label="Turn the channel forward until it clears",
         ),
         IncidentKind(
+            "piece_held",
+            title="A piece won't move",
+            todo="A piece on {subject} stays put while the channel turns, and turning the channel next to it did not free it. Free it and press Done.",
+            actions=("done",),
+            scope="Feeder",
+            description="A piece on C2 or C3 does not move with its channel, and turning the channel it hangs onto did not free it.",
+            default_handling=MANUAL,
+            off_label="Keep sorting around it",
+        ),
+        IncidentKind(
             "stepper_stall",
             title="Motor stalled",
             todo="{motor} stalled. Check it can turn freely, then press Done.",

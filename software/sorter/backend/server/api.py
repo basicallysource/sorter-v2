@@ -804,6 +804,32 @@ def getRuntimeRates(since: float, bucket_s: float = 60.0) -> Response:
     return _jsonResponse({"bucket_s": bucket_s, "buckets": piece_records.rateBuckets(since, bucket_s)})
 
 
+@app.get("/runtime-stats/cycles")
+def getPieceCycles(since: float, until: Optional[float] = None) -> Response:
+    """Where each piece's seconds went on the classification channel since
+    ``since``: C4's own phases, and its waits for the feeder by where C3's
+    next piece was when it asked."""
+    import piece_cycles
+
+    return _jsonResponse(piece_cycles.summary(since, until))
+
+
+@app.get("/runtime-stats/cycles/waits")
+def getPieceCycleWaits(
+    since: float, until: Optional[float] = None, min_s: float = 4.0, limit: int = 200
+) -> Response:
+    """C4's longest waits for the feeder since ``since``, longest first."""
+    import piece_cycles
+
+    rows = [
+        r
+        for r in piece_cycles.listCycles(since, until)
+        if r.get("landed_at") is not None and r["landed_at"] - r["asked_at"] >= min_s
+    ]
+    rows.sort(key=lambda r: r["asked_at"] - r["landed_at"])
+    return _jsonResponse({"waits": rows[: max(1, min(int(limit), 1000))]})
+
+
 @app.get("/runtime-stats/records", response_model=RuntimeStatsRecordsResponse)
 def listRuntimeStatsRecords() -> RuntimeStatsRecordsResponse:
     import runtime_stat_records

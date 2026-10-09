@@ -1,5 +1,4 @@
 <script lang="ts">
-	import { onMount } from 'svelte';
 	import { goto } from '$app/navigation';
 	import Spinner from '$lib/components/ui/Spinner.svelte';
 	import Button from '$lib/components/ui/Button.svelte';
@@ -20,15 +19,13 @@
 	import RecentObjects from '$lib/components/RecentObjects.svelte';
 	import RuntimeStats, { RUNTIME_SPANS, type RuntimeSpan } from '$lib/components/RuntimeStats.svelte';
 	import SegmentedControl from '$lib/components/ui/SegmentedControl.svelte';
-	import { buildDashboardFeedCrops, type DashboardFeedCrop } from '$lib/dashboard/crops';
 	import House from '@lucide/svelte/icons/house';
 	import Plug from '@lucide/svelte/icons/plug';
 
 	const machine = getMachineContext();
 	const manager = getMachinesContext();
 
-	let dashboardCrops = $state<Record<string, DashboardFeedCrop | null>>({});
-	let cropBaseUrl = $state<string | null>(null);
+	let setupCheckedFor = $state<string | null>(null);
 	let startSystemError = $state<string | null>(null);
 	let startSystemPending = $state(false);
 	let runtimeSpan = $state<RuntimeSpan>('1h');
@@ -81,26 +78,6 @@
 		}
 	}
 
-	function cropFor(role: string): DashboardFeedCrop | null {
-		if (role === 'classification_channel' || role === 'carousel') {
-			return dashboardCrops.classification_channel ?? dashboardCrops.carousel ?? null;
-		}
-		return dashboardCrops[role] ?? null;
-	}
-
-	async function fetchDashboardCrops(baseUrl: string) {
-		try {
-			const res = await fetch(`${baseUrl}/api/polygons`);
-			if (!res.ok) {
-				dashboardCrops = {};
-				return;
-			}
-			dashboardCrops = buildDashboardFeedCrops(await res.json());
-		} catch {
-			dashboardCrops = {};
-		}
-	}
-
 	// A brand-new machine should open on the setup wizard, not an empty Dashboard.
 	// Once per browser session, so Dashboard stays reachable while setting up.
 	async function openSetupIfNew(baseUrl: string) {
@@ -116,15 +93,13 @@
 
 	$effect(() => {
 		if (!machine.machine) {
-			dashboardCrops = {};
-			cropBaseUrl = null;
+			setupCheckedFor = null;
 			return;
 		}
 
 		const baseUrl = currentBackendBaseUrl();
-		if (cropBaseUrl === baseUrl) return;
-		cropBaseUrl = baseUrl;
-		void fetchDashboardCrops(baseUrl);
+		if (setupCheckedFor === baseUrl) return;
+		setupCheckedFor = baseUrl;
 		void openSetupIfNew(baseUrl);
 	});
 
@@ -139,13 +114,6 @@
 	function cameraLabel(role: string): string {
 		return CAMERA_LABELS[role] ?? role;
 	}
-
-	onMount(() => {
-		if (machine.machine) {
-			const baseUrl = currentBackendBaseUrl();
-			void fetchDashboardCrops(baseUrl);
-		}
-	});
 </script>
 
 <svelte:head><title>Sorter - Dashboard</title></svelte:head>
@@ -169,7 +137,6 @@
 				<CameraFeed
 					camera="c_channel_2"
 					label={cameraLabel('c_channel_2')}
-					crop={cropFor('c_channel_2')}
 					controls={['annotations', 'crop', 'fullscreen']}
 					class="@container"
 				>
@@ -180,7 +147,6 @@
 				<CameraFeed
 					camera="c_channel_3"
 					label={cameraLabel('c_channel_3')}
-					crop={cropFor('c_channel_3')}
 					controls={['annotations', 'crop', 'fullscreen']}
 					class="@container"
 				>
@@ -191,7 +157,6 @@
 				<CameraFeed
 					camera="classification_channel"
 					label={cameraLabel('classification_channel')}
-					crop={cropFor('classification_channel')}
 					controls={['annotations', 'crop', 'fullscreen']}
 					class="@container md:col-span-2"
 				>

@@ -30,7 +30,6 @@ from .arcs import bboxInsideChannelMask
 from .capture import CaptureWorker
 from .channel import CHANNEL_REGISTRY, ChannelDef, channelDefFromBlob
 from .inference import InferenceWorker, OnExitEdge
-from .overlay import renderFeedOverlay
 from .runtime import InferenceRuntime, RknnYoloRuntime
 from .state import ChannelState, EMPTY_STATE, LatestStateSlot
 
@@ -107,12 +106,6 @@ class PerceptionService:
         self._workers = workers
         self._started = False
         self._start_lock = threading.RLock()
-
-        # Live-feed preview cache. The overlay is composited at most ONCE per
-        # inference frame (keyed by frame timestamp + preview width) and shared
-        # across every streaming client, instead of re-rendering on every poll.
-        self._preview_lock = threading.Lock()
-        self._preview_cache: Dict[int, tuple[float, int, np.ndarray]] = {}
 
         # Reconcile machinery. ``context`` carries everything needed to
         # (re)build a single channel stack from disk at runtime; ``None`` (test
@@ -415,7 +408,7 @@ class PerceptionService:
         return self._channels.get(channel_id)
 
     def debug_snapshot(self, channel_id: int) -> Optional[dict]:
-        """The worker's last inference cycle (the dict behind ``preview_frame``),
+        """The worker's last inference cycle (the dict behind ``feed_cycle``),
         or None until it has completed one. Read-only; the recording events
         stream serialises it."""
         worker = self._workers.get(channel_id)
@@ -457,45 +450,18 @@ class PerceptionService:
                 return channel_id
         return None
 
-    def preview_frame(self, channel_id: int, max_width: int = 0):
-        """``(annotated_bgr, frame_timestamp)`` for the live feed — the clean
-        operating overlay (zones + on-channel boxes the machine acts on) drawn
-        on the exact frame the model inferred against, so boxes never drift off
-        the pixels. Reuses the last inference cycle; runs NO new inference.
-
-        Rendered at ``max_width`` (preview resolution) and cached per inference
-        frame: no matter how many clients stream or how fast they poll, the
-        overlay is composited at most once per inference cycle. ``None`` until
-        the worker has completed a cycle."""
+    def feed_cycle(self, channel_id: int) -> Optional[tuple[dict, ChannelDef]]:
+        """The live feed's view of a channel: its worker's last inference cycle
+        (the frame the model saw and what it found there) and the zones that
+        worker ran with, read from the same worker so they always belong
+        together. ``None`` until the worker has completed a cycle."""
         worker = self._workers.get(channel_id)
-        channel = self._channels.get(channel_id)
-        if worker is None or channel is None:
+        if worker is None:
             return None
         debug = worker.latest_debug
-        if debug is None:
+        if debug is None or debug.get("frame") is None:
             return None
-        frame = debug.get("frame")
-        if frame is None:
-            return None
-        ts = float(frame.timestamp)
-        with self._preview_lock:
-            cached = self._preview_cache.get(channel_id)
-            if cached is not None and cached[0] == ts and cached[1] == max_width:
-                return cached[2], ts
-        annotated = renderFeedOverlay(
-            frame.bgr,
-            channel,
-            # Originals (what the model drew) in green; on C4 the merged boxes we
-            # actually act on are overlaid distinctly via merged_bboxes.
-            debug.get("pre_merge_bboxes") or debug.get("on_channel_bboxes") or [],
-            detections=debug.get("detections"),
-            max_width=max_width,
-            merged_bboxes=debug.get("merged_bboxes"),
-            merged_track_ids=debug.get("merged_track_ids"),
-        )
-        with self._preview_lock:
-            self._preview_cache[channel_id] = (ts, max_width, annotated)
-        return annotated, ts
+        return debug, worker.channel_def
 
     def request_full_frame_debug(self, channel_id: int, ttl_s: float = 10.0) -> bool:
         """Turn on the worker's on-demand full-frame (uncropped) inference for a

@@ -24,14 +24,17 @@ import db
 
 KEEP_DAYS = 60.0
 
-# Where C3's nearest piece was when C4 asked, in degrees still to go to C3's
-# exit edge. The bands are what the wait depends on: a piece at the edge drops
-# in about a second, one still in C3's landing area is most of a lap away.
+# What the feeder had when C4 asked: how far C3's nearest piece was from C3's
+# exit edge (a piece at the edge drops in about a second, one still in C3's
+# landing area is most of a lap away), or, with none in view on C3, whether one
+# was out of the camera's view, on C2, or nowhere (the hopper ran low, or C1).
 WAIT_CASES = (
-    ("edge", "C3's next piece within 20° of its edge", 0.0, 20.0),
-    ("near", "20° to 80° from the edge", 20.0, 80.0),
-    ("far", "more than 80° from the edge", 80.0, 1e9),
-    ("empty", "no piece seen on C3", None, None),
+    ("edge", "C3's next piece within 20° of its edge"),
+    ("near", "20° to 80° from the edge"),
+    ("far", "more than 80° from the edge"),
+    ("hidden", "only out of view on C3"),
+    ("c2", "none on C3, some on C2"),
+    ("starved", "none on C3 or C2: the hopper or C1"),
 )
 
 _COLUMNS = {
@@ -225,14 +228,14 @@ def _quantiles(values: list[float]) -> dict[str, Any]:
     }
 
 
-def _case(head_deg: Optional[float]) -> str:
-    if head_deg is None:
-        return "empty"
-    deg = max(0.0, head_deg)
-    for key, _, lo, hi in WAIT_CASES:
-        if lo is not None and hi is not None and lo <= deg < hi:
-            return key
-    return "far"
+def _case(row: dict[str, Any]) -> str:
+    head = row.get("c3_head_deg")
+    if head is None:
+        if (row.get("c3_hidden") or 0) > 0:
+            return "hidden"
+        return "c2" if (row.get("c2_pieces") or 0) > 0 else "starved"
+    deg = max(0.0, float(head))
+    return "edge" if deg < 20.0 else "near" if deg < 80.0 else "far"
 
 
 def listCycles(since: float, until: Optional[float] = None) -> list[dict[str, Any]]:
@@ -282,8 +285,8 @@ def summary(since: float, until: Optional[float] = None) -> dict[str, Any]:
     cycle_s = [w + c for w, c in zip(waits, c4)] if len(waits) == len(c4) else []
     total_s = sum(r["staged_at"] - r["asked_at"] for r in normal if r.get("staged_at"))
     cases = []
-    for key, label, _, _ in WAIT_CASES:
-        sel = [r for r in normal if r.get("landed_at") is not None and _case(r.get("c3_head_deg")) == key]
+    for key, label in WAIT_CASES:
+        sel = [r for r in normal if r.get("landed_at") is not None and _case(r) == key]
         w = [r["landed_at"] - r["asked_at"] for r in sel]
         stats = _quantiles(w)
         stats.update(
@@ -295,6 +298,7 @@ def summary(since: float, until: Optional[float] = None) -> dict[str, Any]:
         )
         cases.append(stats)
     long_waits = [w for w in waits if w > 4.0]
+    starved = [r["landed_at"] - r["asked_at"] for r in normal if r.get("landed_at") is not None and _case(r) == "starved"]
     return {
         "since": since,
         "until": until,
@@ -312,5 +316,8 @@ def summary(since: float, until: Optional[float] = None) -> dict[str, Any]:
         "wait": _quantiles(waits),
         "cycle": _quantiles(cycle_s),
         "wait_cases": cases,
+        # Waiting with nothing on C2 or C3 is the hopper running low, not the
+        # feeder: the pieces a minute it would have been without that wait.
+        "per_minute_fed": (60.0 * len(normal) / (total_s - sum(starved))) if total_s - sum(starved) > 0 else None,
         "long_waits": {"n": len(long_waits), "seconds": sum(long_waits), "share": (sum(long_waits) / sum(waits)) if waits else 0.0},
     }

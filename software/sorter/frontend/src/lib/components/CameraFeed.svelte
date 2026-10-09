@@ -1,7 +1,6 @@
 <script lang="ts">
 	import { getMachineContext } from '$lib/machines/context';
-	import type { DashboardFeedCrop } from '$lib/dashboard/crops';
-	import LiveImage from '$lib/components/LiveImage.svelte';
+	import CameraPicture from '$lib/components/CameraPicture.svelte';
 	import StreamControlsOverlay from '$lib/components/StreamControlsOverlay.svelte';
 	import WifiOff from '@lucide/svelte/icons/wifi-off';
 	import VideoOff from '@lucide/svelte/icons/video-off';
@@ -16,7 +15,6 @@
 		camera,
 		label = '',
 		header = true,
-		crop = null,
 		controls = ['annotations'],
 		actions,
 		class: className = ''
@@ -25,7 +23,6 @@
 		label?: string;
 		// False for a picture that is the whole tile (MediaTile's `header`).
 		header?: boolean;
-		crop?: DashboardFeedCrop | null;
 		controls?: ControlKey[];
 		actions?: Snippet;
 		class?: string;
@@ -59,9 +56,12 @@
 	}
 
 	let annotated = $state(readPersisted('annotated', true));
-	// A feed given a crop starts cropped.
+	// A feed that can be cropped starts cropped; one whose camera has no zone
+	// shows the whole frame either way.
 	/* svelte-ignore state_referenced_locally */
-	let cropped = $state(readPersisted('cropped', crop !== null));
+	let cropped = $state(readPersisted('cropped', controls.includes('crop')));
+	// The size of what the picture shows, which the tile takes the shape of.
+	let shape = $state<{ width: number; height: number } | null>(null);
 
 	// Write-back side: every toggle change writes to localStorage.
 	$effect(() => {
@@ -99,13 +99,18 @@
 	{actions}
 	class={className}
 	expandable={controls.includes('fullscreen')}
+	aspect={shape ? `${shape.width} / ${shape.height}` : '16 / 9'}
 >
 	{#if is_configured}
-		<LiveImage
-			view={roleView(camera, annotated, cropped)}
+		<CameraPicture
+			view={roleView(camera)}
+			boxes={annotated}
+			zones={annotated}
+			{cropped}
 			alt={display_label}
-			class="absolute inset-0 h-full w-full object-contain {is_healthy ? '' : 'opacity-30'}"
+			class="absolute inset-0 h-full w-full {is_healthy ? '' : 'opacity-30'}"
 			bind:stale
+			bind:shape
 		/>
 	{/if}
 	{#if !is_healthy}

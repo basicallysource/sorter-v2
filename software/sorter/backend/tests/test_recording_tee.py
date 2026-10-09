@@ -84,7 +84,7 @@ def test_serialize_debug_matches_what_the_feed_overlay_draws() -> None:
     out = serialize_debug(debug)
     assert out is not None
     assert out["type"] == "infer" and out["frame_ts"] == 12.5
-    assert out["on_bboxes"] == [[1.0, 2.0, 3.0, 4.0]]  # pre-merge wins, as in preview_frame
+    assert out["on_bboxes"] == [[1.0, 2.0, 3.0, 4.0]]  # pre-merge wins, as on the live feed
     assert out["detections"] == [
         {"bbox": [1.0, 2.0, 3.0, 4.0], "in_primary": True, "secondary_zone_ids": ["z"], "track_id": 9}
     ]

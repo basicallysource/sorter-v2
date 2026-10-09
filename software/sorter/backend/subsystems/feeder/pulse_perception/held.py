@@ -21,6 +21,7 @@ import time
 from dataclasses import dataclass
 from typing import Any, Optional
 
+import held_piece_records
 import incidents
 
 KIND = "piece_held"
@@ -48,6 +49,7 @@ class _Watch:
     turned_at: Optional[float] = None
     reported: bool = False
     given_up: bool = False
+    zone: str = ""
 
 
 @dataclass(frozen=True)
@@ -68,6 +70,9 @@ class HeldPieces:
         self._watch: dict[tuple[int, int], _Watch] = {}
 
     def reset(self) -> None:
+        now = time.monotonic()
+        for (channel, track_id), watch in self._watch.items():
+            self._end(channel, track_id, watch, "stopped", now)
         self._watch.clear()
 
     def check(self, channel: int, state: Any, odometer: float, now: float) -> Optional[FreeTurn]:
@@ -104,6 +109,7 @@ class HeldPieces:
                 other = channel + 1
             else:
                 continue
+            watch.zone = "landing" if zone == _DROP_ZONE else "exit"
             if other not in FREE_TURN_DEG:
                 # C3's channel below is the classification channel, which turns
                 # on its own schedule and takes a piece that lands on it. Only
@@ -143,6 +149,17 @@ class HeldPieces:
     def _end(self, channel: int, track_id: int, watch: _Watch, how: str, now: float) -> None:
         if watch.turns or watch.given_up:
             self._log(how, channel, track_id, watch, now)
+            wall = time.time()
+            held_piece_records.record(
+                channel=channel,
+                track_id=track_id,
+                zone=watch.zone,
+                started_at=wall - (now - watch.since),
+                ended_at=wall,
+                turns=watch.turns,
+                reported=int(watch.reported),
+                outcome=how,
+            )
         if watch.reported:
             incidents.clear(self.gc, KIND, subject=_label(channel))
 

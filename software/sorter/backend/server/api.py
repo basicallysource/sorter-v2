@@ -830,6 +830,14 @@ def getPieceCycleWaits(
     return _jsonResponse({"waits": rows[: max(1, min(int(limit), 1000))]})
 
 
+@app.get("/runtime-stats/held-pieces")
+def getHeldPieces(since: float, until: Optional[float] = None) -> Response:
+    """Pieces C2 or C3 could not move since ``since``, newest first."""
+    import held_piece_records
+
+    return _jsonResponse({"held": held_piece_records.listHeld(since, until)})
+
+
 @app.get("/runtime-stats/records", response_model=RuntimeStatsRecordsResponse)
 def listRuntimeStatsRecords() -> RuntimeStatsRecordsResponse:
     import runtime_stat_records

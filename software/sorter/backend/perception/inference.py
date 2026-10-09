@@ -617,12 +617,16 @@ class InferenceWorker:
                 # source), drawn distinctly. C2/C3 are left untouched.
                 pre_merge_bboxes = list(bboxes)
                 merged_multi: list = []
+                merged_groups: tuple = ()
                 if self._channel_def.channel_id == _CLASSIFICATION_CHANNEL_ID:
                     clusters = mergeNearbyBboxes(bboxes, _C4_BBOX_MERGE_GAP_PX)
                     bboxes = [merged for merged, _members in clusters]
                     merged_multi = [
                         merged for merged, members in clusters if len(members) > 1
                     ]
+                    merged_groups = tuple(
+                        (merged, tuple(members)) for merged, members in clusters if len(members) > 1
+                    )
 
                 # Assign each final on-channel piece a stable ``sv_bt_track_id``.
                 # Called every cycle — including empty ones — so the tracker ages
@@ -637,6 +641,7 @@ class InferenceWorker:
                     timestamp=frame.timestamp,
                 )
 
+                piece_colors = self._tracker.colors
                 attribute_t0 = _now_ms()
                 in_drop, in_exit, in_precise, in_exit_majority, n_pieces, per_bbox_counts = attributeBboxes(
                     bboxes, self._channel_def
@@ -659,6 +664,7 @@ class InferenceWorker:
                         zone_code=zone_code,
                         bbox=bbox,
                         sv_bt_track_id=track_id_by_bbox.get(bbox),
+                        color=piece_colors.get(bbox),
                     )
                     for gap, sec, zone_code, bbox in orderedPieceObservations(
                         bboxes, self._channel_def
@@ -686,6 +692,7 @@ class InferenceWorker:
                     exit_com_forward_to_precise_deg=exit_com_forward_to_precise_deg,
                     exit_com_in_precise=exit_com_in_precise,
                     pieces=pieces,
+                    merged=merged_groups,
                 )
                 self._slot.write(state)
                 self._latest_raw = (list(bboxes), frame)

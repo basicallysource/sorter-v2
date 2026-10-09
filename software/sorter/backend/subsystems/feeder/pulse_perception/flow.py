@@ -16,6 +16,7 @@ from .config import (
 )
 from .blind_arc import BlindArc, forward
 from .dispense_gate import DispenseGate
+from .held import FreeTurn, HeldPieces
 
 # A deliberately simple pulsing state machine on the new perception stack.
 #
@@ -77,6 +78,8 @@ class PulsePerceptionFeeding(BaseState):
         # it carries through the part of its ring its camera cannot see.
         self._odometer: dict[int, float] = {1: 0.0, 2: 0.0, 3: 0.0}
         self._blind: dict[int, BlindArc] = {2: BlindArc(), 3: BlindArc()}
+        # Pieces their own channel cannot move (held.py).
+        self._held = HeldPieces(gc)
         # Per-channel monotonic timestamp of the last frame that reported a piece
         # in the drop zone. Drives the C2/C3 drop-zone occupancy latch.
         self._drop_seen_at: dict[int, float] = {}
@@ -212,6 +215,22 @@ class PulsePerceptionFeeding(BaseState):
         c2 = self._latch_drop(2, c2, now_mono, cfg)
         c3 = self._latch_drop(3, c3, now_mono, cfg)
 
+        # A piece its own channel cannot move rests on the channel next to it:
+        # turn that one a little.
+        for channel, state in ((3, c3), (2, c2)):
+            turn = self._held.check(channel, state, self._odometer.get(channel, 0.0), now_mono)
+            if turn is not None and self._canFreeTurn(turn, c3, cfg):
+                if self._move(
+                    f"ch{turn.channel}_free",
+                    turn.channel,
+                    self._rotor(turn.channel),
+                    turn.degrees,
+                    cfg.drop_pulse_pause_ms,
+                    cfg,
+                    enforce_min=False,
+                ):
+                    self._held.turned(turn, now_mono)
+
         if cfg.enable_ch3:
             # C3's downstream is the classification channel (C4). The feeder does
             # NOT define "ready" itself — that determination is owned and exposed
@@ -262,6 +281,20 @@ class PulsePerceptionFeeding(BaseState):
                     cfg.ch1_pulse_pause_ms,
                     cfg,
                 )
+
+    def _rotor(self, channel: int) -> "StepperMotor":
+        return {
+            1: self.irl.c_channel_1_rotor_stepper,
+            2: self.irl.c_channel_2_rotor_stepper,
+            3: self.irl.c_channel_3_rotor_stepper,
+        }[channel]
+
+    def _canFreeTurn(self, turn: FreeTurn, c3, cfg: PulsePerceptionConfig) -> bool:
+        if not getattr(cfg, f"enable_ch{turn.channel}", True):
+            return False
+        # Turning C3 with a piece at its own edge would drop that piece on the
+        # classification channel out of turn: wait until C3's edge is clear.
+        return not (turn.channel == 3 and c3.in_exit)
 
     def _apply_action(
         self,
@@ -378,4 +411,5 @@ class PulsePerceptionFeeding(BaseState):
     def cleanup(self) -> None:
         for blind in self._blind.values():
             blind.clear()
+        self._held.reset()
         super().cleanup()

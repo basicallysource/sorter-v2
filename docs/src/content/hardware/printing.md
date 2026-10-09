@@ -63,7 +63,7 @@ worth more than any profile you copy from somebody else.
 
 ## Check how each part sits on the plate
 
-**Not every STL is oriented for printing yet (as of 9 October 2026).** Many are
+**Not every STL is oriented for printing yet.** Many are
 exported the way they were designed, not the way they print. This is a known
 problem and the fix is tracked in
 [issue #855](https://github.com/basicallysource/sorter-v2/issues/855). Until it is

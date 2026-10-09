@@ -18,11 +18,6 @@ Every printed part, its STL, its filament weight and its print time are on the
 [parts calculator](https://parts-calculator.basically.website/). Set your layer count
 there first, because that is what decides how many of each part you need.
 
-<div class="notice notice-warn">
-  <strong>STL orientation (as of 9 October 2026)</strong>
-  <p>Not every STL is oriented for printing yet. Many are exported the way they were designed, not the way they should print. Before you slice a part, look at what is touching the plate. If it is balanced on an edge or a corner, turn it onto its largest flat face ("Lay on face" in Bambu Studio and Orca) instead of printing it as it comes. This takes priority over "Print each part the way the file comes" below. The fix is tracked in <a href="https://github.com/basicallysource/sorter-v2/issues/855">issue #855</a>.</p>
-</div>
-
 ## Filament
 
 **Print the parts in PETG or ASA rather than PLA if the machine will stand anywhere
@@ -66,38 +61,28 @@ settings that move a printed dimension, and both Bambu Studio and Orca can test 
 and pressure advance for one filament in a few minutes. Dialling those in once is
 worth more than any profile you copy from somebody else.
 
-## Print each part the way the file comes
+## Check how each part sits on the plate
 
-**Almost every STL is already sitting the way it should print.** Drop it on the plate
-as it is and slice it. The few parts that have to be turned say so on their card in
-the parts calculator, under **Print orientation**, and that line is the only reason to
-turn one.
+**Not every STL is oriented for printing yet (as of 9 October 2026).** Many are
+exported the way they were designed, not the way they print. This is a known
+problem and the fix is tracked in
+[issue #855](https://github.com/basicallysource/sorter-v2/issues/855). Until it is
+fixed, check each part before you slice it.
 
-- **Do not use auto orient.** "Optimize orientation", "auto rotate" and the orient
-  tools in Bambu Studio, Orca and PrusaSlicer will lay parts down on a different
-  face. The face a part prints on is a design decision that is already made, and
-  changing it is how a gear tooth or a bracket arm ends up printing across the layer
-  lines and snapping in use.
-- **Moving a part is fine. Turning it over is not, unless its card says so.** Sliding
-  it around the plate, dropping it onto the plate and spinning it flat (around Z) all
-  leave the printing face alone. Anything that tips it onto another face does not, so
-  only do it where the part's **Print orientation** line tells you which face goes
-  down. The Orange Pi housing's four walls and its roof are the parts that carry one
-  today.
-- **Parts import off centre, and some import below or above the plate.** They are
-  exported in the coordinates they occupy in the machine, so the slicer puts them
-  where the assembly puts them. Move it onto the plate and carry on. That is normal
-  and it is not a broken file.
-- **The NEMA bracket needs a spin.** It is 255.9 mm across as it comes and an A1 bed
-  is 256 mm, so it slices with no room for a brim. Rotate it about 25 degrees flat on
-  the plate and it clears with about 28 mm to spare.
-- **Auto arrange is fine** for packing several parts onto one plate, as long as it
-  only slides and spins them. Check the plate afterwards and make sure nothing has
-  been turned over.
+<ol class="numbered-steps">
+  <li><strong>Drop the part on the plate and look at what touches it.</strong> If it rests on a flat face, print it as it is.</li>
+  <li><strong>If it balances on an edge or a corner, turn it.</strong> Use <strong>Place on face</strong> in Bambu Studio or Orca and pick the largest flat face. The bins are the clearest case. The ready made <a href="https://parts-calculator.basically.website/?tab=plates">bins plate</a> has them turned already.</li>
+  <li><strong>If the part's card on the parts calculator has a Print orientation line, follow it.</strong> That line wins over everything above.</li>
+  <li><strong>Not sure which face goes down?</strong> Ask on <a href="https://discord.gg/6PZtqkwtaS">Discord</a> with the part name.</li>
+</ol>
 
-If a part looks like it wants turning and its card says nothing, do not turn it. Ask
-on [Discord](https://discord.gg/6PZtqkwtaS) first, because a part sitting wrong in the
-file with nothing on its card is a fault worth fixing for everybody.
+<ul class="bulleted-list">
+  <li><strong>Do not use auto orient.</strong> "Optimize orientation" and "auto rotate" in Bambu Studio, Orca and PrusaSlicer pick their own face. That can put a gear tooth or a bracket arm across the layer lines, where it snaps in use. Choose the face yourself with Place on face.</li>
+  <li><strong>Moving a part is always fine.</strong> Slide it around the plate, or spin it flat (around Z). That does not change which face is down.</li>
+  <li><strong>Parts import off centre, and some import below or above the plate.</strong> They are exported where they sit in the machine. Move the part onto the plate and carry on. That is normal and it is not a broken file.</li>
+  <li><strong>The NEMA bracket needs a spin.</strong> It is 255.9 mm across as it comes and an A1 bed is 256 mm, so it slices with no room for a brim. Rotate it about 25 degrees flat on the plate and it clears with about 28 mm to spare.</li>
+  <li><strong>Auto arrange is fine</strong> for packing several parts onto one plate. Check the plate afterwards and make sure nothing has been turned onto a different face.</li>
+</ul>
 
 ## Supports
 

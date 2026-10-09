@@ -169,6 +169,12 @@ class TrackerManager:
     def enabled(self) -> bool:
         return self._tracker is not None
 
+    @property
+    def colors(self) -> dict[Bbox, tuple[float, float, float]]:
+        """The colour the active tracker measured for each box in the last
+        frame (empty for trackers that do not use colour)."""
+        return getattr(self._tracker, "colors", None) or {}
+
     def update(
         self,
         bboxes: list[Bbox],

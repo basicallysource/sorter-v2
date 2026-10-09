@@ -57,6 +57,10 @@ def _gitSha() -> str | None:
     return _git_sha_cache or None
 
 
+def _rounded(color):
+    return None if color is None else [round(float(c), 3) for c in color]
+
+
 def _captureEnabled() -> bool:
     return os.getenv("CONTROL_DATA_CAPTURE", "1").strip() not in ("0", "false", "no")
 
@@ -201,9 +205,15 @@ class ControlDataCollector:
                             piece.bbox[2],
                             piece.bbox[3],
                             piece.sv_bt_track_id,
+                            _rounded(getattr(piece, "color", None)),
                         ]
                         for piece in pieces
                     ],
+                    **(
+                        {"merged": [[list(m), [list(b) for b in members]] for m, members in state.merged]}
+                        if getattr(state, "merged", ())
+                        else {}
+                    ),
                 }
             )
 

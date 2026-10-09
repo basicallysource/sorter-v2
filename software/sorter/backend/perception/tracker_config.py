@@ -239,7 +239,7 @@ ANGULAR_FIELD_META: list[dict] = [
 class OrderedTrackerConfig:
     # Pieces only move toward the exit; a detection whose travel-gap GREW by more
     # than this (deg) moved backward, so it can't be that track. Small — just
-    # absorbs COM jitter. Large forward jumps are always allowed.
+    # absorbs COM jitter. Forward jumps are allowed up to max_forward_deg_per_s.
     back_tol_deg: float = 8.0
     # Except while a piece lands: it bounces, back as well as forward, before it
     # rides the platter. While a track and its detection are both in the drop
@@ -254,6 +254,14 @@ class OrderedTrackerConfig:
     # never merged this way. 0 turns it off.
     contain_overlap: float = 0.8
     contain_recent_s: float = 0.5
+    # Nor can a piece move forward faster than the platter carries it: a
+    # detection further ahead than this speed (deg/s) over the time since the
+    # track was last seen, plus the slack (deg), is another box taking its id
+    # (a one-frame false box on the platter, while the real piece is still in
+    # view behind it). Pieces on the classification channel move at most
+    # ~300 deg/s between frames.
+    max_forward_deg_per_s: float = 400.0
+    forward_slack_deg: float = 20.0
     # How long (s) to keep coasting a track with no matching detection before
     # giving up its id. Long enough to ride out a detector blink; a piece that
     # truly left (off the exit) ages out and its disappearance reads as ejected.
@@ -300,8 +308,9 @@ ORDERED_FIELD_META: list[dict] = [
         "description": (
             "Pieces only travel toward the exit. A detection whose travel position "
             "moved backward by more than this many degrees can't be the same piece "
-            "(just absorbs detection jitter). Forward jumps of any size are always "
-            "allowed — that's what makes this robust to the platter's fast moves."
+            "(just absorbs detection jitter). Forward jumps are allowed up to the "
+            "fastest a piece moves — that's what makes this robust to the platter's "
+            "fast moves."
         ),
     },
     {
@@ -330,6 +339,19 @@ ORDERED_FIELD_META: list[dict] = [
             "last box it sits inside (or around), when that piece went unseen in "
             "the same frame: this share of the smaller box must overlap the larger. "
             "Two boxes seen in the same frame are always two pieces. 0 turns it off."
+        ),
+    },
+    {
+        "section": "Matching",
+        "key": "max_forward_deg_per_s",
+        "label": "Fastest a piece moves forward (°/s)",
+        "type": "float",
+        "default": OrderedTrackerConfig().max_forward_deg_per_s,
+        "description": (
+            "A detection further ahead than this speed over the time since the "
+            "piece was last seen (plus 20°) is another box, not this piece: a "
+            "one-frame false box on the platter would otherwise take the id of a "
+            "piece still in view behind it. Pieces move at most ~300°/s."
         ),
     },
     {

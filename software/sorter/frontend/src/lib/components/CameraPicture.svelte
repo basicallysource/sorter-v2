@@ -303,8 +303,10 @@
 		if (canvas.height !== backingHeight) canvas.height = backingHeight;
 		const g = canvas.getContext('2d');
 		if (!g) return;
-		g.setTransform(1, 0, 0, 1, 0, 0);
 		g.clearRect(0, 0, backingWidth, backingHeight);
+		// Each draw starts from a clean state and puts it back, so the crop's
+		// clip and turn never carry over to the next.
+		g.save();
 		g.setTransform(backingWidth / shown.width, 0, 0, backingHeight / shown.height, 0, 0);
 		// One CSS pixel, in frame pixels.
 		const px = 1 / cssScale;
@@ -320,6 +322,7 @@
 		g.drawImage(bitmap, 0, 0, width, height);
 		if (zones && layout?.zones) drawZones(g, layout.zones, width, height, px);
 		if (boxes && found) drawBoxes(g, found, width, height, px);
+		g.restore();
 	}
 </script>
 

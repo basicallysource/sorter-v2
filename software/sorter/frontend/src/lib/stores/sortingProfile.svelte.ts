@@ -73,6 +73,11 @@ export interface SortingProfileMetadata {
 let cached = $state<SortingProfileMetadata | null>(null);
 let in_flight: Promise<SortingProfileMetadata> | null = null;
 let cachedBaseUrl = '';
+// Bumped by every fetch, so a slow answer for the profile before a switch can
+// never land on top of the one after it.
+let generation = 0;
+// The active profile's identity, as the machine last reported it.
+let followedKey: string | null = null;
 
 async function load(baseUrl = getBackendHttpBase()): Promise<SortingProfileMetadata> {
 	if (cached && cachedBaseUrl === baseUrl) return cached;
@@ -82,21 +87,25 @@ async function load(baseUrl = getBackendHttpBase()): Promise<SortingProfileMetad
 	}
 	if (in_flight) return in_flight;
 	cachedBaseUrl = baseUrl;
-	in_flight = fetch(`${baseUrl}/sorting-profile/metadata`)
+	const gen = ++generation;
+	const request: Promise<SortingProfileMetadata> = fetch(`${baseUrl}/sorting-profile/metadata`)
 		.then((res) => {
 			if (!res.ok) throw new Error(`Failed to load sorting profile metadata: ${res.status}`);
 			return res.json();
 		})
 		.then((data: SortingProfileMetadata) => {
-			cached = data;
-			in_flight = null;
+			if (gen === generation) {
+				cached = data;
+				in_flight = null;
+			}
 			return data;
 		})
 		.catch((err) => {
-			in_flight = null;
+			if (gen === generation) in_flight = null;
 			throw err;
-	});
-	return in_flight;
+		});
+	in_flight = request;
+	return request;
 }
 
 async function reload(baseUrl = getBackendHttpBase()): Promise<SortingProfileMetadata> {
@@ -104,6 +113,16 @@ async function reload(baseUrl = getBackendHttpBase()): Promise<SortingProfileMet
 	in_flight = null;
 	cachedBaseUrl = baseUrl;
 	return load(baseUrl);
+}
+
+// Keep the cached profile the one the machine is sorting with. The machine
+// reports its active profile live; whoever switched it (this tab, another
+// tab, the API, a Hive sync), a new identity means fetch it again.
+function follow(key: string, baseUrl = getBackendHttpBase()): void {
+	if (key === followedKey) return;
+	const switched = followedKey !== null;
+	followedKey = key;
+	void (switched ? reload(baseUrl) : load(baseUrl)).catch(() => {});
 }
 
 function getCategoryName(category_id: string): string | null {
@@ -128,6 +147,7 @@ export const sortingProfileStore = {
 	},
 	load,
 	reload,
+	follow,
 	getCategoryName,
 	getSetCategoryMeta
 };

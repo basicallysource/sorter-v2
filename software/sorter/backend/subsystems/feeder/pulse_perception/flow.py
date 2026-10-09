@@ -191,12 +191,9 @@ class PulsePerceptionFeeding(BaseState):
     def step(self) -> None:
         cfg = self._cfg()
 
-        can_run = self.gc.rotary_channel_steppers_can_operate_in_parallel or (
-            not self.shared.chute_move_in_progress
-        )
-        if not can_run:
-            return
-
+        # The feeder runs while the chute moves: nothing it does puts a piece
+        # in the chute. The classification channel ejects only once the chute
+        # is aimed.
         perception_service = getattr(self.gc, "perception_service", None)
         if perception_service is None:
             return

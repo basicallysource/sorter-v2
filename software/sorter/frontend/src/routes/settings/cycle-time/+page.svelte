@@ -49,7 +49,7 @@
 		started_at: number;
 		ended_at: number;
 		turns: number;
-		reported: number;
+		gave_up: number;
 		outcome: string;
 	};
 
@@ -261,7 +261,7 @@
 
 	<Panel
 		title="Pieces C2 or C3 could not move"
-		description="Its channel turned under it and it stayed put, so the channel next to it was turned. After three turns the operator is called."
+		description="Its channel turned under it and it stayed put, so the channel next to it was turned. After three turns the feeder gives up and sorts around it."
 		flush
 	>
 		<div class="overflow-x-auto">
@@ -285,7 +285,7 @@
 								<td>C{h.channel}, {h.zone === 'landing' ? 'landing area' : 'exit'}</td>
 								<td class="num">{secs(h.ended_at - h.started_at)}</td>
 								<td class="num">{h.turns}</td>
-								<td>{OUTCOME[h.outcome] ?? h.outcome}{h.reported ? ', after calling the operator' : ''}</td>
+								<td>{OUTCOME[h.outcome] ?? h.outcome}{h.gave_up ? ', after the feeder gave up on it' : ''}</td>
 							</tr>
 						{/each}
 					{/if}

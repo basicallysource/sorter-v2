@@ -480,14 +480,12 @@ class ClassificationChannelConfig:
         # "both fail" behavior for pending/classifying leaders where the
         # carousel pulse would otherwise burn through an unrecognized piece.
         self.leader_wins_requires_classified = False
-        # Minimum cooldown (seconds) the distribution Sending state waits
-        # *after* the chute-settle timer before it reopens the downstream
-        # distribution gate. Used as the fallback when the live carousel
-        # tracker can't confirm that the dropped piece has physically
-        # left the classification channel. Physical transit measures at
-        # ~400-600ms; 0.8s adds margin while keeping throughput impact
-        # below ~5%.
-        self.post_distribute_cooldown_s = 0.8
+        # Extra time (seconds) the distribution Sending state waits after the
+        # chute-settle timer (CHUTE_SETTLE_MS, 1.5 s from the drop) before the
+        # chute may aim for the next piece. A piece clears the chute in about
+        # 0.4-0.6 s, so the settle alone covers it; every tenth of a second
+        # here is a tenth on every piece.
+        self.post_distribute_cooldown_s = 0.0
         self.size_classes = (
             ClassificationChannelSizeClassConfig(
                 name="S",

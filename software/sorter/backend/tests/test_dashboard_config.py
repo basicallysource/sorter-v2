@@ -35,12 +35,10 @@ class DashboardConfigTests(unittest.TestCase):
         self.assertEqual("automatic", config["incident_handling"]["exit_stuck"])
         self.assertEqual("off", config["incident_handling"]["distribution_servo_bus_offline"])
         self.assertEqual("off", config["incident_handling"]["distribution_no_bin_available"])
-        self.assertEqual("manual", config["incident_handling"]["piece_held"])
         definition_kinds = [item["kind"] for item in config["incident_definitions"]]
         self.assertEqual(
             [
                 "exit_stuck",
-                "piece_held",
                 "distribution_servo_bus_offline",
                 "distribution_no_bin_available",
             ],

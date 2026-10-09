@@ -4,8 +4,8 @@ A piece rides its rotor, so when a channel has turned well under a piece and
 the piece has not moved, it rests on something else. In this channel's landing
 area it still hangs off the channel above; at this channel's exit it hangs onto
 the channel below. So the feeder turns that other channel a little. If a few
-such turns do not move it either, the operator is called (incident
-``piece_held``), and the machine holds until they press Done.
+such turns do not move it either, it gives up on that piece and sorting goes on
+around it; the piece is listed on the Cycle time page.
 
 A held piece blocks the channel above by itself (a channel only drops into a
 clear landing area), which is why turning the channel above is the one move
@@ -22,9 +22,7 @@ from dataclasses import dataclass
 from typing import Any, Optional
 
 import held_piece_records
-import incidents
 
-KIND = "piece_held"
 # The piece moved at least this much (degrees): it rides its rotor.
 MOVED_DEG = 3.0
 # Its channel turned this much under it while it did not move: it is held.
@@ -47,7 +45,6 @@ class _Watch:
     since: float
     turns: int = 0
     turned_at: Optional[float] = None
-    reported: bool = False
     given_up: bool = False
     zone: str = ""
 
@@ -58,10 +55,6 @@ class FreeTurn:
     held_on: int  # the channel the piece is on
     track_id: int
     degrees: float
-
-
-def _label(channel: int) -> str:
-    return f"C{channel}"
 
 
 class HeldPieces:
@@ -93,11 +86,6 @@ class HeldPieces:
                     self._end(channel, int(tid), watch, "freed", now)
                 self._watch[key] = _Watch(float(gap), odometer, now)
                 continue
-            if watch.reported:
-                if incidents.openIncident(self.gc, KIND, _label(channel)) is None:
-                    # The operator pressed Done: watch it afresh from here.
-                    self._watch[key] = _Watch(float(gap), odometer, now)
-                continue
             if odometer - watch.odometer < HELD_AFTER_DEG:
                 continue
             if watch.turned_at is not None and now - watch.turned_at < FREE_SETTLE_S:
@@ -112,9 +100,9 @@ class HeldPieces:
             watch.zone = "landing" if zone == _DROP_ZONE else "exit"
             if other not in FREE_TURN_DEG:
                 # C3's channel below is the classification channel, which turns
-                # on its own schedule and takes a piece that lands on it. Only
-                # one that stays put through as much turning as the free turns
-                # would have taken is reported.
+                # on its own schedule and takes a piece that lands on it: give up
+                # on one that stays put through as much turning as the free turns
+                # would have taken.
                 if odometer - watch.odometer < HELD_AFTER_DEG * (FREE_TURNS + 1):
                     continue
             elif watch.turns < FREE_TURNS:
@@ -123,16 +111,7 @@ class HeldPieces:
                 continue
             if not watch.given_up:
                 watch.given_up = True
-                watch.reported = incidents.report(
-                    self.gc,
-                    KIND,
-                    subject=_label(channel),
-                    channel=_label(channel),
-                    track_id=int(tid),
-                    turns=watch.turns,
-                    held_s=round(now - watch.since, 1),
-                )
-                self._log("reported" if watch.reported else "gave up", channel, int(tid), watch, now)
+                self._log("gave up", channel, int(tid), watch, now)
         for key in [k for k in self._watch if k[0] == channel and k not in seen]:
             self._end(channel, key[1], self._watch.pop(key), "gone", now)
         return wanted
@@ -157,11 +136,9 @@ class HeldPieces:
                 started_at=wall - (now - watch.since),
                 ended_at=wall,
                 turns=watch.turns,
-                reported=int(watch.reported),
+                gave_up=int(watch.given_up),
                 outcome=how,
             )
-        if watch.reported:
-            incidents.clear(self.gc, KIND, subject=_label(channel))
 
     def _log(self, what: str, channel: int, track_id: int, watch: _Watch, now: float) -> None:
         held_s = now - watch.since

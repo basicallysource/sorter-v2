@@ -57,6 +57,7 @@ _COLUMNS = {
     "track_id": "INTEGER",
     "piece_uuid": "TEXT",
     "multi_drop": "INTEGER",
+    "stopped_s": "REAL",
     "note": "TEXT",
 }
 
@@ -94,6 +95,9 @@ class Cycle:
     track_id: Optional[int] = None
     piece_uuid: Optional[str] = None
     multi_drop: int = 0
+    # Time in this cycle the machine was stopped: an incident held it, or the
+    # control loop did not step the channel for a while.
+    stopped_s: float = 0.0
     note: Optional[str] = None
 
 
@@ -126,6 +130,7 @@ class CycleRecorder:
     def __init__(self) -> None:
         self._open: Optional[Cycle] = None
         self._last_tick: Optional[float] = None
+        self._last_step: Optional[float] = None
 
     @property
     def waiting(self) -> bool:
@@ -149,6 +154,19 @@ class CycleRecorder:
             c3_hidden=int(c3_hidden),
         )
         self._last_tick = now
+
+    def step(self, now: float, *, held: bool) -> None:
+        """Every classification-channel step. Stepped while an incident held
+        the machine, or not stepped for over half a second (a hold, a stalled
+        control loop), is time stopped, not time a piece took."""
+        last = self._last_step
+        self._last_step = now
+        cycle = self._open
+        if cycle is None or last is None:
+            return
+        dt = now - last
+        if held or dt > 0.5:
+            cycle.stopped_s += dt
 
     def tick(self, now: float, *, c3_moving: bool, c2_moving: bool, chute_moving: bool) -> None:
         """While C4 waits, add up how long C3, C2 and the chute were moving."""
@@ -209,6 +227,7 @@ class CycleRecorder:
     def drop(self) -> None:
         self._open = None
         self._last_tick = None
+        self._last_step = None
 
 
 # ------------------------------------------------------------------ reading
@@ -248,34 +267,13 @@ def listCycles(since: float, until: Optional[float] = None) -> list[dict[str, An
     return [dict(r) for r in rows]
 
 
-def _incidentSpans(since: float, until: float) -> list[tuple[float, float]]:
-    try:
-        import incident_records  # noqa: F401  (creates the table)
-
-        with db.connect(incident_records._createTables) as conn:
-            rows = conn.execute(
-                "SELECT triggered_at, COALESCE(resolved_at, ?) FROM incidents "
-                "WHERE triggered_at < ? AND COALESCE(resolved_at, ?) > ?",
-                (until, until, until, since),
-            ).fetchall()
-        return [(float(a), float(b)) for a, b in rows]
-    except Exception:
-        return []
-
-
 def summary(since: float, until: Optional[float] = None) -> dict[str, Any]:
     """Where the seconds went for every piece C4 took between since and until.
-    Cycles that overlap an incident are left out and counted apart: they are
-    stops, not the normal flow."""
+    Cycles in which the machine stopped (an incident, a stalled control loop)
+    are left out and counted apart: they are stops, not the normal flow."""
     until = time.time() if until is None else until
     rows = listCycles(since, until)
-    spans = _incidentSpans(since, until)
-
-    def held(r: dict[str, Any]) -> bool:
-        a, b = r["asked_at"], r["staged_at"] or r["asked_at"]
-        return any(lo < b and hi > a for lo, hi in spans)
-
-    normal = [r for r in rows if not held(r)]
+    normal = [r for r in rows if (r.get("stopped_s") or 0.0) <= 0.5]
 
     def span(a: str, b: str) -> list[float]:
         return [r[b] - r[a] for r in normal if r.get(a) is not None and r.get(b) is not None and r[b] >= r[a]]

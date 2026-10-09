@@ -38,3 +38,20 @@ def test_cycle_is_written_and_summarized(tmp_path, monkeypatch):
     cases = {c["key"]: c for c in out["wait_cases"]}
     assert cases["edge"]["n"] == 1 and abs(cases["edge"]["median"] - 1.0) < 1e-6
     assert cases["far"]["n"] == 1 and abs(cases["far"]["median"] - 5.2) < 1e-6
+
+
+def test_a_cycle_the_machine_stopped_in_is_counted_apart(tmp_path, monkeypatch):
+    monkeypatch.setenv("LOCAL_STATE_DB_PATH", str(tmp_path / "state.sqlite"))
+    rec = piece_cycles.CycleRecorder()
+    rec.step(0.0, held=False)
+    rec.asked(0.0, _c3(10.0), _c3())
+    rec.step(0.1, held=False)
+    rec.step(5.0, held=False)  # the control loop did not step the channel for 4.9 s
+    rec.landed(5.0)
+    rec.confirmed(5.1, 1, "u")
+    rec.captured(5.5, 1)
+    rec.rotated(6.0, ejecting=False)
+    rec.staged(8.0)
+    assert db.drain(5.0)
+    out = piece_cycles.summary(-1.0, 1e12)
+    assert out["pieces"] == 0 and out["held"] == 1

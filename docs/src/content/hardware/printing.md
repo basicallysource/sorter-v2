@@ -65,8 +65,8 @@ worth more than any profile you copy from somebody else.
 
 **Almost every STL is already sitting the way it should print.** Drop it on the plate
 as it is and slice it. The few parts that have to be turned say so on their card in
-the parts calculator, under **Print orientation**, and that line is the only reason to
-turn one.
+the parts calculator, under **Print orientation**. That line, or a part that touches
+the plate on nothing but an edge or a corner, is the only reason to turn one.
 
 - **Do not use auto orient.** "Optimize orientation", "auto rotate" and the orient
   tools in Bambu Studio, Orca and PrusaSlicer will lay parts down on a different
@@ -83,6 +83,10 @@ turn one.
   exported in the coordinates they occupy in the machine, so the slicer puts them
   where the assembly puts them. Move it onto the plate and carry on. That is normal
   and it is not a broken file.
+- **A part that balances on an edge or a corner goes down on its largest flat face.**
+  Some parts, the bins among them, come out the way they sit in the machine and have
+  no face on the plate at all. Use your slicer's "lay on face" or "place on face" tool
+  and pick the biggest flat face. Do not use auto orient for it.
 - **The NEMA bracket needs a spin.** It is 255.9 mm across as it comes and an A1 bed
   is 256 mm, so it slices with no room for a brim. Rotate it about 25 degrees flat on
   the plate and it clears with about 28 mm to spare.
@@ -90,9 +94,10 @@ turn one.
   only slides and spins them. Check the plate afterwards and make sure nothing has
   been turned over.
 
-If a part looks like it wants turning and its card says nothing, do not turn it. Ask
-on [Discord](https://discord.gg/6PZtqkwtaS) first, because a part sitting wrong in the
-file with nothing on its card is a fault worth fixing for everybody.
+If a part already sits flat on the plate, looks like it wants turning and its card
+says nothing, do not turn it. Ask on [Discord](https://discord.gg/6PZtqkwtaS) first,
+because a part sitting wrong in the file with nothing on its card is a fault worth
+fixing for everybody.
 
 ## Supports
 

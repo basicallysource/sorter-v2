@@ -73,19 +73,3 @@ def test_dashboard_crop_uses_c4_classification_channel_resolution_metadata() -> 
         spec["polygons"][0],
         np.array([[200, 200], [600, 200], [600, 600], [200, 600]], dtype=np.float32),
     )
-
-
-def test_dashboard_masked_crop_paints_pixels_outside_polygon_light_gray() -> None:
-    frame = np.full((8, 8, 3), 100, dtype=np.uint8)
-    spec = {
-        "kind": "bbox_masked",
-        "polygons": [
-            np.array([[2, 2], [6, 2], [2, 6]], dtype=np.float32),
-        ],
-    }
-
-    cropped = dashboard_crop.apply_dashboard_crop(frame, spec)
-
-    assert cropped.shape == (4, 4, 3)
-    assert cropped[0, 0].tolist() == [100, 100, 100]
-    assert cropped[3, 3].tolist() == [230, 230, 230]

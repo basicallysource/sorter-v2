@@ -1,12 +1,49 @@
 // Live camera video: one websocket per backend at /ws/video, whatever the page
-// shows. A view is "role/<role>?layer=annotated|raw&dashboard=0|1" (a role's
-// preview) or "index/<n>" (a picker's thumbnail of camera n). The page sends
-// the whole set of views it wants whenever that set changes; the backend sends
-// each frame as one binary message, u16 LE key length | key | f64 LE capture
-// time | JPEG, a note {"view", "error"} for a view it cannot serve, and "{}"
-// when it has had nothing to send for 2 s.
+// shows. A view is "role/<role>" (a camera role's picture) or "index/<n>" (a
+// picker's thumbnail of camera n). The page sends the whole set of views it
+// wants whenever that set changes; the backend sends each frame as one binary
+// message, u16 LE key length | key | f64 LE capture time | JPEG, a note
+// {"view", "error"} for a view it cannot serve, and "{}" when it has had
+// nothing to send for 2 s.
+//
+// The JPEG is only pixels. What is drawn over it comes beside it as data
+// (backend server/routers/camera_feeds.py): {"layout"} with a role view's
+// zones and crop before its first frame and whenever they change, and
+// {"detections"} with the boxes of a frame perception inferred on, just
+// before that frame. CameraPicture draws them.
 
-type FrameListener = (jpeg: Blob) => void;
+/** A ring of points as a flat [x0, y0, x1, y1, ...], 0..1 across and down. */
+export type Ring = number[];
+
+export type FeedZones = {
+	drop: Ring[];
+	exit: Ring[];
+	precise: Ring[];
+	outline: Ring[];
+	margin: Ring[];
+	secondary: { type: string; rings: Ring[] }[];
+};
+
+/** How the dashboard crops a camera to its channel: the zone's polygons, and
+ * the turn (degrees, counter-clockwise) that puts its drop zone at the top. */
+export type FeedCrop = { polygons: Ring[]; rotation: number };
+
+export type FeedLayout = { zones: FeedZones | null; crop: FeedCrop | null };
+
+export type FeedBox = {
+	kind: 'piece' | 'merged' | 'seen' | 'margin';
+	box: [number, number, number, number];
+	id?: number;
+};
+
+/** A frame: its JPEG, its capture time, and what perception found on it,
+ * or null when it is the camera's own. */
+export type FeedFrame = { jpeg: Blob; ts: number; boxes: FeedBox[] | null };
+
+export type FeedListener = {
+	frame: (frame: FeedFrame) => void;
+	layout?: (layout: FeedLayout) => void;
+};
 
 const RETRY_MIN_MS = 250;
 const RETRY_MAX_MS = 3000;
@@ -15,8 +52,8 @@ const IDLE_CLOSE_MS = 2000;
 // Nothing heard for this long: the socket is dead, however open it looks.
 const SILENT_MS = 6000;
 
-export function roleView(role: string, annotated: boolean, dashboard: boolean): string {
-	return `role/${role}?layer=${annotated ? 'annotated' : 'raw'}&dashboard=${dashboard ? 1 : 0}`;
+export function roleView(role: string): string {
+	return `role/${role}`;
 }
 
 export function indexView(index: number): string {
@@ -25,14 +62,15 @@ export function indexView(index: number): string {
 
 const sockets = new Map<string, VideoSocket>();
 
-/** Calls onFrame with each new JPEG of a view until the returned stop is called. */
-export function watchVideo(baseUrl: string, view: string, onFrame: FrameListener): () => void {
+/** Gives the listener each new frame of a view, and its layout now and
+ * whenever it changes, until the returned stop is called. */
+export function watchVideo(baseUrl: string, view: string, listener: FeedListener): () => void {
 	let socket = sockets.get(baseUrl);
 	if (!socket) {
 		socket = new VideoSocket(baseUrl);
 		sockets.set(baseUrl, socket);
 	}
-	return socket.watch(view, onFrame);
+	return socket.watch(view, listener);
 }
 
 const decoder = new TextDecoder();
@@ -40,7 +78,11 @@ const decoder = new TextDecoder();
 class VideoSocket {
 	private url: string;
 	private ws: WebSocket | null = null;
-	private views = new Map<string, Set<FrameListener>>();
+	private views = new Map<string, Set<FeedListener>>();
+	// The newest layout of each view, for a listener that comes after it.
+	private layouts = new Map<string, FeedLayout>();
+	// Detections waiting for their frame, which comes next.
+	private detections = new Map<string, { ts: number; boxes: FeedBox[] }>();
 	private retryMs = RETRY_MIN_MS;
 	private reconnectTimer: ReturnType<typeof setTimeout> | null = null;
 	private closeTimer: ReturnType<typeof setTimeout> | null = null;
@@ -54,16 +96,18 @@ class VideoSocket {
 		document.addEventListener('visibilitychange', () => this.send());
 	}
 
-	watch(view: string, onFrame: FrameListener): () => void {
+	watch(view: string, listener: FeedListener): () => void {
 		let listeners = this.views.get(view);
 		if (!listeners) this.views.set(view, (listeners = new Set()));
-		listeners.add(onFrame);
+		listeners.add(listener);
+		const layout = this.layouts.get(view);
+		if (layout) queueMicrotask(() => listeners.has(listener) && listener.layout?.(layout));
 		if (this.closeTimer) clearTimeout(this.closeTimer);
 		this.closeTimer = null;
 		if (!this.ws && !this.reconnectTimer) this.open();
 		queueMicrotask(() => this.send());
 		return () => {
-			listeners.delete(onFrame);
+			listeners.delete(listener);
 			if (listeners.size === 0 && this.views.get(view) === listeners) this.views.delete(view);
 			queueMicrotask(() => this.send());
 			if (this.views.size > 0 || this.closeTimer) return;
@@ -93,6 +137,7 @@ class VideoSocket {
 		ws.onclose = () => {
 			clearInterval(silence);
 			this.ws = null;
+			this.detections.clear();
 			if (this.views.size === 0) return;
 			this.reconnectTimer = setTimeout(() => {
 				this.reconnectTimer = null;
@@ -111,7 +156,26 @@ class VideoSocket {
 
 	private receive(data: ArrayBuffer | string): void {
 		if (typeof data === 'string') {
-			const note = JSON.parse(data) as { view?: string; error?: string };
+			const note = JSON.parse(data) as {
+				view?: string;
+				error?: string;
+				layout?: string;
+				detections?: string;
+				ts?: number;
+				boxes?: FeedBox[];
+				zones?: FeedZones | null;
+				crop?: FeedCrop | null;
+			};
+			if (note.layout) {
+				const layout = { zones: note.zones ?? null, crop: note.crop ?? null };
+				this.layouts.set(note.layout, layout);
+				for (const listener of this.views.get(note.layout) ?? []) listener.layout?.(layout);
+				return;
+			}
+			if (note.detections) {
+				this.detections.set(note.detections, { ts: note.ts ?? 0, boxes: note.boxes ?? [] });
+				return;
+			}
 			if (!note.view) return;
 			console.warn(`[video] ${note.view}: ${note.error}`);
 			// The backend keeps no view it could not serve, so sending the same
@@ -122,10 +186,19 @@ class VideoSocket {
 			}, RETRY_MAX_MS);
 			return;
 		}
-		const keyLength = new DataView(data).getUint16(0, true);
-		const listeners = this.views.get(decoder.decode(new Uint8Array(data, 2, keyLength)));
+		const header = new DataView(data);
+		const keyLength = header.getUint16(0, true);
+		const view = decoder.decode(new Uint8Array(data, 2, keyLength));
+		const ts = header.getFloat64(2 + keyLength, true);
+		const found = this.detections.get(view);
+		this.detections.delete(view);
+		const listeners = this.views.get(view);
 		if (!listeners) return;
-		const jpeg = new Blob([new Uint8Array(data, 10 + keyLength)], { type: 'image/jpeg' });
-		for (const onFrame of listeners) onFrame(jpeg);
+		const frame = {
+			jpeg: new Blob([new Uint8Array(data, 10 + keyLength)], { type: 'image/jpeg' }),
+			ts,
+			boxes: found && found.ts === ts ? found.boxes : null
+		};
+		for (const listener of listeners) listener.frame(frame);
 	}
 }

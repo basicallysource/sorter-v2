@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { getBackendHttpBase } from '$lib/backend';
 	import CameraSourcePreview from '$lib/components/CameraSourcePreview.svelte';
-	import LiveImage from '$lib/components/LiveImage.svelte';
+	import CameraPicture from '$lib/components/CameraPicture.svelte';
 	import Badge from '$lib/components/ui/Badge.svelte';
 	import Alert from '$lib/components/ui/Alert.svelte';
 	import Button from '$lib/components/ui/Button.svelte';
@@ -437,6 +437,8 @@
 	});
 	let picturePreviewByRole = $state<Partial<Record<CameraRole, PicturePreviewState>>>({});
 	let previewImageSizeByRole = $state<Partial<Record<CameraRole, PreviewImageSize>>>({});
+	// The size of what the picture shows: the frame, or the channel cropped.
+	let previewShape = $state<PreviewImageSize | null>(null);
 	let detectionHighlightByRole = $state<Partial<Record<CameraRole, DetectionHighlight[]>>>({});
 	let reassignConfirm = $state<{
 		source: CameraSource;
@@ -868,10 +870,7 @@
 		return detectionHighlightByRole[role] ?? [];
 	}
 
-	function rememberPreviewImageSize(role: CameraRole, target: EventTarget | null) {
-		if (!(target instanceof HTMLImageElement)) return;
-		const width = target.naturalWidth;
-		const height = target.naturalHeight;
+	function rememberPreviewImageSize(role: CameraRole, { width, height }: PreviewImageSize) {
 		if (width <= 0 || height <= 0) return;
 		const current = previewImageSizeByRole[role];
 		if (current?.width === width && current.height === height) return;
@@ -984,10 +983,9 @@
 		return transformStyle;
 	}
 
-	function previewViewportStyle(channel: Channel): string {
-		const imageSize = previewImageSizeByRole[currentRole(channel)];
-		if (!wizardMode && !editingZone && previewCropped && imageSize) {
-			return `aspect-ratio:${imageSize.width}/${imageSize.height};`;
+	function previewViewportStyle(): string {
+		if (!wizardMode && !editingZone && previewCropped && previewShape) {
+			return `aspect-ratio:${previewShape.width}/${previewShape.height};`;
 		}
 		return '';
 	}
@@ -3846,7 +3844,7 @@
 					class="relative {wizardMode
 						? 'min-h-[26rem] sm:min-h-[32rem] lg:min-h-[38rem] xl:min-h-[44rem]'
 						: 'aspect-video'}"
-					style={previewViewportStyle(currentChannel)}
+					style={previewViewportStyle()}
 					bind:this={previewViewportEl}
 				>
 					{#if !cameraConfigLoaded}
@@ -3855,13 +3853,20 @@
 							Loading the camera for {CHANNEL_LABELS[currentChannel]}
 						</div>
 					{:else if currentAssignment() !== null}
-						<LiveImage
-							view={roleView(currentRole(currentChannel), previewAnnotated, previewCropped)}
+						<!-- The zones on the whole frame are the editor's own, drawn on the
+						     canvas below as they are edited and saved; the feed brings only
+						     the boxes. Cropped, the picture is the dashboard's, zones and all. -->
+						<CameraPicture
+							view={roleView(currentRole(currentChannel))}
 							baseUrl={getBackendHttpBase()}
 							alt={CHANNEL_LABELS[currentChannel]}
-							class="absolute inset-0 h-full w-full object-contain"
+							boxes={previewAnnotated}
+							zones={previewZones && previewCropped && !editingZone}
+							cropped={previewCropped && !editingZone}
+							class="absolute inset-0 h-full w-full"
 							style={feedImageStyle(currentChannel)}
-							onframe={(img) => rememberPreviewImageSize(currentRole(currentChannel), img)}
+							bind:shape={previewShape}
+							onframe={(size) => rememberPreviewImageSize(currentRole(currentChannel), size)}
 						/>
 						<div class="pointer-events-none absolute" style={previewOverlayStyle(currentChannel)}>
 							{#each getDetectionHighlights(currentRole()) as highlight, index}

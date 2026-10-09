@@ -1,5 +1,5 @@
 <script lang="ts">
-	import LiveImage from '$lib/components/LiveImage.svelte';
+	import CameraPicture from '$lib/components/CameraPicture.svelte';
 	import { indexView } from '$lib/video';
 
 	let {
@@ -26,11 +26,12 @@
 </script>
 
 {#if typeof source === 'number'}
-	<LiveImage
+	<CameraPicture
 		view={indexView(source)}
 		{baseUrl}
 		alt={label}
-		class={`${layoutClass} ${fitClass}`}
+		{fit}
+		class={layoutClass}
 		bind:stale
 	/>
 	{#if stale}

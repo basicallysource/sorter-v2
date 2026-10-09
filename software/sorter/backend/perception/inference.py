@@ -259,6 +259,11 @@ class InferenceWorker:
         return self._latest_pieces_frame
 
     @property
+    def channel_def(self) -> ChannelDef:
+        """The zones this worker infers with; a zone edit builds a new worker."""
+        return self._channel_def
+
+    @property
     def latest_debug(self) -> Optional[dict]:
         """Latest debug record (raw + on-channel bboxes, crop rect, frame,
         timing) for the perception-debug overlay. GIL-atomic read."""

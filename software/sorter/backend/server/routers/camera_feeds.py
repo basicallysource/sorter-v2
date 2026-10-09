@@ -1,18 +1,30 @@
 """The UI's live camera video: one websocket per browser tab, ``/ws/video``.
 
 The page sends the whole set of views it shows whenever that set changes, as
-text: ``{"views": ["role/c_channel_2?layer=annotated&dashboard=1", "index/3"]}``.
-A role view is that camera role's preview, annotated or raw, whole or cropped
-to its channel as the dashboard shows it; an index view is a thumbnail of a
-camera by device index, for the camera pickers. Each frame goes out as one
-binary message, ``u16 LE key length | key (UTF-8) | f64 LE capture time (s) |
-JPEG``. A view that cannot be served gets one text message, ``{"view": key,
-"error": "..."}``, and a socket with nothing to send for a while sends ``{}``.
+text: ``{"views": ["role/c_channel_2", "index/3"]}``. A role view is that camera
+role's picture; an index view is a thumbnail of a camera by device index, for
+the camera pickers.
 
-Each view has one producer while anyone watches it, which renders and encodes
-each new frame once for all of them. Each socket has one writer, which sends a
-view's newest frame once the previous send has finished: a slow page skips
-frames instead of queueing them.
+Each frame goes out as one binary message, ``u16 LE key length | key (UTF-8) |
+f64 LE capture time (s) | JPEG``. The picture is only pixels. What is drawn over
+it travels as data beside it, and the page draws it, so a layer can be shown or
+hidden without a new stream and is never out of date in the picture itself:
+
+- ``{"layout": key, "zones": {...} | null, "crop": {...} | null}`` comes before
+  a role view's first frame and again before the first frame after its zones
+  change: the zones perception worked with, as shapes, and how the dashboard
+  crops the camera to its channel. Coordinates are 0..1 across and down.
+- ``{"detections": key, "ts": t, "boxes": [...]}`` comes just before a frame
+  perception inferred on, with what it found there. A frame with none is the
+  camera's own, from before perception started or while it is behind.
+
+A view that cannot be served gets one text message, ``{"view": key, "error":
+"..."}``, and a socket with nothing to send for a while sends ``{}``.
+
+Each view has one producer while anyone watches it, which encodes each new
+frame once for all of them. Each socket has one writer, which sends a view's
+newest frame once the previous send has finished: a slow page skips frames
+instead of queueing them.
 """
 
 from __future__ import annotations
@@ -24,8 +36,8 @@ import os
 import platform
 import struct
 import time
+from dataclasses import dataclass
 from typing import Any, Dict
-from urllib.parse import parse_qsl
 
 import cv2
 import numpy as np
@@ -33,18 +45,19 @@ from fastapi import APIRouter, HTTPException, WebSocket
 from starlette.concurrency import run_in_threadpool
 
 import machine_toml
+from local_state import channel_polygons_revision
+from perception.overlay import feedZoneShapes
 from server import shared_state
 from server.routers.cameras import _camera_source_for_role, _open_camera_for_probe
 from vision.camera_modes import list_v4l2_modes, preview_capture_mode
-from vision.dashboard_crop import apply_dashboard_crop, dashboard_crop_spec
+from vision.dashboard_crop import dashboard_crop_spec
 
 router = APIRouter()
 
 logger = logging.getLogger(__name__)
 
-# Max width of a role preview (annotated frame is downscaled to this before
-# JPEG encoding). Annotation still runs at full capture resolution; this only
-# shrinks the encoded-and-transmitted frame. 0 disables the resize.
+# Max width of a role's picture: frames are downscaled to this before JPEG
+# encoding, and its zones are traced at this size. 0 disables the resize.
 PREVIEW_MAX_WIDTH = int(os.environ.get("SORTER_PREVIEW_MAX_WIDTH", "960"))
 
 # At most this many frames a second per view, however fast perception runs:
@@ -55,11 +68,40 @@ PREVIEW_MAX_FPS = 10.0
 # tell a quiet socket from a dead one.
 KEEPALIVE_S = 2.0
 
+# A role shows the frames perception inferred on, with what it found, unless
+# its newest is this far behind the camera's: then the camera's own, so a
+# stalled perception never freezes the picture.
+PERCEPTION_BEHIND_S = 1.0
+
+
+@dataclass(frozen=True)
+class _Shot:
+    """A source frame and what goes with it. ``channel`` is the perception
+    channel whose zones belong to it; ``cycle`` is perception's inference on
+    this very frame, when it came from perception."""
+
+    image: np.ndarray
+    ts: float
+    channel: Any = None
+    cycle: dict | None = None
+
+
+@dataclass(frozen=True)
+class _Frame:
+    """An encoded frame as the writers send it: ``boxes`` when perception
+    inferred on it, and the layout it is drawn with, as ``(seq, layout)``."""
+
+    seq: int
+    ts: float
+    jpeg: bytes
+    boxes: list | None
+    layout: tuple[int, dict] | None
+
 
 class _Feed:
     """One view, shared by everyone watching it. While anyone watches, a
-    producer on the event loop renders and JPEG-encodes each new frame once, in
-    a worker thread, and wakes each watching socket's writer."""
+    producer on the event loop encodes each new frame once, in a worker
+    thread, and wakes each watching socket's writer."""
 
     quality = 55
 
@@ -67,7 +109,7 @@ class _Feed:
         self.name = name  # in the preview.<name>.* counters
         self.watchers: list[asyncio.Event] = []
         self.seq = 0
-        self.latest: tuple[int, float, bytes] | None = None  # seq, capture time, JPEG
+        self.latest: _Frame | None = None
         self.last_ts: float | None = None
         self.producer: asyncio.Future | None = None
 
@@ -79,32 +121,39 @@ class _Feed:
     def unwatch(self, wake: asyncio.Event) -> None:
         self.watchers.remove(wake)
 
-    def _newest(self) -> tuple[np.ndarray, float] | None:
-        """The newest source frame and its capture time. Worker thread."""
+    def _newest(self) -> _Shot | None:
+        """The newest source frame. Worker thread."""
         raise NotImplementedError
 
     def _fit(self, frame: np.ndarray) -> np.ndarray:
         return frame
 
+    def _boxes(self, shot: _Shot) -> list | None:
+        return None
+
+    def _layout(self, shot: _Shot) -> tuple[int, dict] | None:
+        return None
+
     def _release(self) -> None:
         """Let go of whatever the stopped producer held. Worker thread."""
 
-    def _render(self) -> tuple[float, bytes] | None:
-        """The newest frame's capture time and JPEG, or None when nothing is
-        new. Worker thread."""
-        newest = self._newest()
-        if newest is None or newest[1] == self.last_ts:
+    def _render(self) -> tuple[float, bytes, list | None, tuple[int, dict] | None] | None:
+        """The newest frame encoded, with what is drawn over it, or None when
+        nothing is new. Worker thread."""
+        shot = self._newest()
+        # Never back in time, as when perception catches up with the camera
+        # frames shown meanwhile; a clock set back resets.
+        if shot is None or (self.last_ts is not None and 0.0 <= self.last_ts - shot.ts < 5.0):
             return None
-        frame, ts = newest
-        self.last_ts = ts
+        self.last_ts = shot.ts
         started = time.perf_counter()
-        ok, jpeg = cv2.imencode(".jpg", self._fit(frame), [cv2.IMWRITE_JPEG_QUALITY, self.quality])
+        ok, jpeg = cv2.imencode(".jpg", self._fit(shot.image), [cv2.IMWRITE_JPEG_QUALITY, self.quality])
         if not ok:
             return None
-        shared_state.observePerfMs(f"preview.{self.name}.frame_age_ms", (time.time() - ts) * 1000.0)
+        shared_state.observePerfMs(f"preview.{self.name}.frame_age_ms", (time.time() - shot.ts) * 1000.0)
         shared_state.observePerfMs(f"preview.{self.name}.encode_ms", (time.perf_counter() - started) * 1000.0)
         shared_state.observePerfMs(f"preview.{self.name}.viewers", float(len(self.watchers)))
-        return ts, jpeg.tobytes()
+        return shot.ts, jpeg.tobytes(), self._boxes(shot), self._layout(shot)
 
     async def _produce(self) -> None:
         loop = asyncio.get_running_loop()
@@ -118,7 +167,7 @@ class _Feed:
                 rendered, pause = None, 1.0
             if rendered is not None:
                 self.seq += 1
-                self.latest = (self.seq, *rendered)
+                self.latest = _Frame(self.seq, *rendered)
                 for wake in self.watchers:
                     wake.set()
                 pause = started + 1.0 / PREVIEW_MAX_FPS - loop.time()
@@ -129,47 +178,111 @@ class _Feed:
                 await loop.run_in_executor(None, self._release)
 
 
-class _RoleFeed(_Feed):
-    """A camera role's preview: annotated or raw, whole or cropped to its
-    channel as the dashboard shows it."""
+def _flat(points: Any, width: float, height: float) -> list[float]:
+    """Points in frame pixels as a flat ``[x0, y0, x1, y1, ...]`` in 0..1."""
+    out: list[float] = []
+    for x, y in np.asarray(points, dtype=np.float64).reshape(-1, 2):
+        out += [round(float(x) / width, 4), round(float(y) / height, 4)]
+    return out
 
-    def __init__(self, role: str, annotated: bool, dashboard: bool) -> None:
+
+class _RoleFeed(_Feed):
+    """A camera role's picture: the frames perception inferred on, with what
+    it found and the zones it worked with, or the camera's own frames while
+    perception has none."""
+
+    def __init__(self, role: str) -> None:
         super().__init__(role)
         self.role = role
-        self.annotated = annotated
-        self.dashboard = dashboard
-        # (frame size, crop spec, when computed): recomputed now and then so
-        # zone edits show up in views that stay open.
-        self.crop: tuple[tuple[int, int], Dict[str, Any] | None, float] | None = None
+        # What the current layout was built from: (channel, zones revision,
+        # frame size), and the layout.
+        self.layout_for: tuple | None = None
+        self.layout: tuple[int, dict] | None = None
 
-    def _newest(self) -> tuple[np.ndarray, float] | None:
+    def _newest(self) -> _Shot | None:
         gc = shared_state.gc_ref
         ps = getattr(gc, "perception_service", None) if gc is not None else None
         channel_id = ps.channel_id_for_role(self.role) if ps is not None else None
-        if self.annotated and channel_id is not None:
-            # Rendered at preview width once per inference frame, shared.
-            result = ps.preview_frame(channel_id, PREVIEW_MAX_WIDTH)
-            if result is not None:
-                return result
-        # Annotations off, or perception not ready yet: raw pixels from the
-        # same shared capture thread, never a VisionManager overlay.
         feed = shared_state.camera_service.get_feed(self.role) if shared_state.camera_service else None
-        frame_obj = feed.get_frame(annotated=False) if feed is not None else None
-        return (frame_obj.raw, frame_obj.timestamp) if frame_obj is not None else None
+        camera = feed.get_frame(annotated=False) if feed is not None else None
+        cycle = ps.feed_cycle(channel_id) if channel_id is not None else None
+        if cycle is not None:
+            debug, channel = cycle
+            frame = debug["frame"]
+            if camera is None or camera.timestamp - float(frame.timestamp) < PERCEPTION_BEHIND_S:
+                return _Shot(frame.bgr, float(frame.timestamp), channel, debug)
+        if camera is None:
+            return None
+        channel = ps.channel_def(channel_id) if channel_id is not None else None
+        return _Shot(camera.raw, camera.timestamp, channel)
 
     def _fit(self, frame: np.ndarray) -> np.ndarray:
         if 0 < PREVIEW_MAX_WIDTH < frame.shape[1]:
             height = int(round(frame.shape[0] * PREVIEW_MAX_WIDTH / frame.shape[1]))
             frame = cv2.resize(frame, (PREVIEW_MAX_WIDTH, height), interpolation=cv2.INTER_AREA)
-        if self.dashboard:
-            frame_h, frame_w = frame.shape[:2]
-            if self.crop is None or self.crop[0] != (frame_w, frame_h) or time.monotonic() - self.crop[2] > 5.0:
-                self.crop = ((frame_w, frame_h), dashboard_crop_spec(self.role, frame_w, frame_h), time.monotonic())
-            frame = apply_dashboard_crop(frame, self.crop[1])
         return frame
 
+    def _boxes(self, shot: _Shot) -> list | None:
+        """What perception found on this frame, as the operating feed shows it:
+        the pieces on the channel (with their track ids), on C4 the merged
+        boxes it acts on, and pieces seen in a foreign zone or past the exit."""
+        cycle = shot.cycle
+        if cycle is None:
+            return None
+        height, width = shot.image.shape[:2]
+
+        def box(kind: str, bbox: Any, track_id: Any = None) -> dict:
+            out: dict[str, Any] = {"kind": kind, "box": _flat(np.asarray(bbox[:4]), width, height)}
+            if track_id is not None:
+                out["id"] = int(track_id)
+            return out
+
+        detections = cycle.get("detections") or []
+        track_ids = {
+            tuple(int(v) for v in d.bbox[:4]): d.sv_bt_track_id
+            for d in detections
+            if d.sv_bt_track_id is not None
+        }
+        boxes = []
+        for d in detections:
+            if d.in_primary:
+                continue
+            if d.secondary_zone_ids:
+                boxes.append(box("seen", d.bbox))
+            if getattr(d, "in_margin", False):
+                boxes.append(box("margin", d.bbox))
+        # Originals (what the model drew); on C4 the merged boxes go over them.
+        for b in cycle.get("pre_merge_bboxes") or cycle.get("on_channel_bboxes") or []:
+            boxes.append(box("piece", b, track_ids.get(tuple(int(v) for v in b[:4]))))
+        merged_ids = cycle.get("merged_track_ids") or []
+        for i, b in enumerate(cycle.get("merged_bboxes") or []):
+            boxes.append(box("merged", b, merged_ids[i] if i < len(merged_ids) else None))
+        return boxes
+
+    def _layout(self, shot: _Shot) -> tuple[int, dict] | None:
+        """The layout this frame is drawn with, built again only when the
+        channel perception works with, the saved zones or the frame size
+        change."""
+        height, width = shot.image.shape[:2]
+        built_for = (shot.channel, channel_polygons_revision(), (width, height))
+        last = self.layout_for
+        if last is None or last[0] is not built_for[0] or last[1:] != built_for[1:]:
+            crop = dashboard_crop_spec(self.role, width, height)
+            layout = {
+                "zones": feedZoneShapes(shot.channel, PREVIEW_MAX_WIDTH) if shot.channel is not None else None,
+                "crop": {
+                    "polygons": [_flat(polygon, width, height) for polygon in crop["polygons"]],
+                    "rotation": float(crop["rotation_deg"]),
+                }
+                if crop
+                else None,
+            }
+            self.layout = ((self.layout[0] + 1) if self.layout else 1, layout)
+            self.layout_for = built_for
+        return self.layout
+
     def _release(self) -> None:
-        self.crop = None
+        self.layout_for = None
 
 
 def _open_camera_for_preview(index: int) -> cv2.VideoCapture:
@@ -220,7 +333,7 @@ class _IndexFeed(_Feed):
         self.cap: cv2.VideoCapture | None = None
         self.retry_at = 0.0
 
-    def _newest(self) -> tuple[np.ndarray, float] | None:
+    def _newest(self) -> _Shot | None:
         device = _device_capturing_index(self.index)
         if device is not None:
             # A role that claims this camera needs it more than a thumbnail does.
@@ -228,7 +341,7 @@ class _IndexFeed(_Feed):
             frame_obj = device.latest_frame
             if frame_obj is None or frame_obj.raw is None:
                 return None
-            return frame_obj.raw, frame_obj.timestamp
+            return _Shot(frame_obj.raw, frame_obj.timestamp)
         if self.cap is None:
             if time.monotonic() < self.retry_at:
                 return None
@@ -238,7 +351,7 @@ class _IndexFeed(_Feed):
             self._release()
             self.retry_at = time.monotonic() + 2.0
             return None
-        return frame, time.time()
+        return _Shot(frame, time.time())
 
     def _fit(self, frame: np.ndarray) -> np.ndarray:
         return cv2.resize(frame, (426, 240))
@@ -255,10 +368,10 @@ _feeds: Dict[tuple, _Feed] = {}
 def _feed_for(key: str) -> _Feed:
     """The shared feed behind a view key. Raises ValueError saying why there
     is none. Reads machine.toml, so it runs in a worker thread."""
-    path, _, query = key.partition("?")
+    path, _, _query = key.partition("?")  # a tab from before layouts asks with ?layer=…
     kind, _, name = path.partition("/")
     if kind == "index" and name.isdecimal():
-        feed_key: tuple = (int(name),)
+        feed_key: tuple = ("index", int(name))
     elif kind == "role":
         try:
             source = _camera_source_for_role(machine_toml.read(), name)
@@ -268,11 +381,13 @@ def _feed_for(key: str) -> _Feed:
             raise ValueError(str(exc)) from None
         if source is None:
             raise ValueError(f"Camera role '{name}' not configured")
-        params = dict(parse_qsl(query))
-        feed_key = (name, params.get("layer", "annotated") == "annotated", params.get("dashboard") == "1")
+        feed_key = ("role", name)
     else:
         raise ValueError(f"Unknown view '{key}'")
-    return _feeds.setdefault(feed_key, _IndexFeed(*feed_key) if kind == "index" else _RoleFeed(*feed_key))
+    feed = _feeds.get(feed_key)
+    if feed is None:
+        feed = _feeds[feed_key] = _IndexFeed(feed_key[1]) if kind == "index" else _RoleFeed(feed_key[1])
+    return feed
 
 
 def _frame_message(key: str, ts: float, jpeg: bytes) -> bytes:
@@ -288,6 +403,7 @@ class _Viewer:
         self.websocket = websocket
         self.views: dict[str, _Feed] = {}
         self.sent: dict[str, int] = {}  # view -> seq of the frame last sent
+        self.sent_layout: dict[str, int] = {}  # view -> seq of the layout last sent
         self.notes: list[str] = []  # text messages waiting for the writer
         self.wake = asyncio.Event()
 
@@ -311,6 +427,7 @@ class _Viewer:
         for key in [key for key in self.views if key not in wanted]:
             self.views.pop(key).unwatch(self.wake)
             self.sent.pop(key, None)
+            self.sent_layout.pop(key, None)
         for key in dict.fromkeys(wanted):
             if key in self.views:
                 continue
@@ -333,14 +450,18 @@ class _Viewer:
                 while self.notes:
                     await self._send(self.notes.pop(0))
                 for key, feed in list(self.views.items()):
-                    latest = feed.latest
-                    if latest is None or self.sent.get(key) == latest[0] or self.views.get(key) is not feed:
+                    frame = feed.latest
+                    if frame is None or self.sent.get(key) == frame.seq or self.views.get(key) is not feed:
                         continue
-                    seq, ts, jpeg = latest
-                    skipped = seq - self.sent[key] - 1 if key in self.sent else 0
-                    self.sent[key] = seq
+                    skipped = frame.seq - self.sent[key] - 1 if key in self.sent else 0
+                    self.sent[key] = frame.seq
                     started = time.perf_counter()
-                    await self._send(_frame_message(key, ts, jpeg))
+                    if frame.layout is not None and self.sent_layout.get(key) != frame.layout[0]:
+                        self.sent_layout[key] = frame.layout[0]
+                        await self._send(json.dumps({"layout": key, **frame.layout[1]}))
+                    if frame.boxes is not None:
+                        await self._send(json.dumps({"detections": key, "ts": frame.ts, "boxes": frame.boxes}))
+                    await self._send(_frame_message(key, frame.ts, frame.jpeg))
                     shared_state.observePerfMs(f"preview.{feed.name}.send_ms", (time.perf_counter() - started) * 1000.0)
                     shared_state.observePerfMs(f"preview.{feed.name}.skipped", float(skipped))
                 try:

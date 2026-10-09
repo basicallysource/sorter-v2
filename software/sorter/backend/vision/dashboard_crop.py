@@ -1,15 +1,15 @@
-"""A camera frame cropped to its channel's zone, the way the dashboard shows it.
+"""How the dashboard crops a camera to its channel's zone.
 
 The crop is the zone's bounding box with everything outside the zone painted
 light gray, turned so the drop zone starts in the same place for every channel
-(see vision/channel_alignment.py). The camera feeds serve it.
+(see vision/channel_alignment.py). The camera feeds send this shape with each
+camera's layout; the page cuts the picture to it.
 """
 
 from __future__ import annotations
 
 from typing import Any, Dict
 
-import cv2
 import numpy as np
 
 from local_state import get_channel_polygons
@@ -18,11 +18,7 @@ from vision.channel_alignment import (
     angleKeyForPolygonKey,
     dropStartAngleForRole,
     polygonKeyForRole,
-    rotateImageBgr,
 )
-
-_DASHBOARD_MASK_BACKGROUND_BGR = (230, 230, 230)
-
 
 def _as_number(value: Any) -> float | None:
     if isinstance(value, bool) or not isinstance(value, (int, float)):
@@ -145,35 +141,6 @@ def _dashboard_channel_crop_polygon(
     )
 
 
-def _dashboard_masked_polygons_crop(
-    frame: np.ndarray,
-    polygons: list[np.ndarray],
-) -> np.ndarray | None:
-    valid = [polygon for polygon in polygons if len(polygon) >= 3]
-    if not valid:
-        return None
-
-    frame_h, frame_w = frame.shape[:2]
-    merged = np.concatenate(valid, axis=0)
-    x1 = max(0, int(np.floor(float(np.min(merged[:, 0])))))
-    y1 = max(0, int(np.floor(float(np.min(merged[:, 1])))))
-    x2 = min(frame_w, int(np.ceil(float(np.max(merged[:, 0])))))
-    y2 = min(frame_h, int(np.ceil(float(np.max(merged[:, 1])))))
-    if x2 <= x1 or y2 <= y1:
-        return None
-
-    crop = np.ascontiguousarray(frame[y1:y2, x1:x2])
-    mask = np.zeros(crop.shape[:2], dtype=np.uint8)
-    for polygon in valid:
-        points = np.round(polygon).astype(np.int32).copy()
-        points[:, 0] -= x1
-        points[:, 1] -= y1
-        cv2.fillPoly(mask, [points], 255)
-    masked = np.full_like(crop, _DASHBOARD_MASK_BACKGROUND_BGR)
-    masked[mask == 255] = crop[mask == 255]
-    return np.ascontiguousarray(masked)
-
-
 def dashboard_crop_spec(role: str, frame_w: int, frame_h: int) -> Dict[str, Any] | None:
     """How to crop a ``frame_w`` x ``frame_h`` frame of ``role``'s camera, or
     None when the role has no channel zone."""
@@ -190,27 +157,3 @@ def dashboard_crop_spec(role: str, frame_w: int, frame_h: int) -> Dict[str, Any]
         "polygons": [scaled_polygon],
         "rotation_deg": alignmentRotationDeg(dropStartAngleForRole(role, saved)),
     }
-
-
-def apply_dashboard_crop(frame: np.ndarray, spec: Dict[str, Any] | None) -> np.ndarray:
-    if not spec:
-        return frame
-
-    polygons = spec.get("polygons")
-    if not isinstance(polygons, list):
-        return frame
-    processed = _dashboard_masked_polygons_crop(frame, polygons)
-    if processed is None:
-        return frame
-
-    rotation_deg = float(spec.get("rotation_deg") or 0.0)
-    if abs(rotation_deg) >= 1e-2:
-        processed = rotateImageBgr(processed, rotation_deg)
-    return processed
-
-
-def crop_to_dashboard(role: str, frame: np.ndarray) -> np.ndarray:
-    """``frame`` cropped as the dashboard shows ``role``'s camera; unchanged
-    when the role has no zone."""
-    frame_h, frame_w = frame.shape[:2]
-    return apply_dashboard_crop(frame, dashboard_crop_spec(role, frame_w, frame_h))

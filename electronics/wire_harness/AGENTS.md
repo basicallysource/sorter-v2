@@ -166,7 +166,7 @@ Two pages, after the 2026-09-19 consolidation:
 `electronics/order.md`, `electronics/wireviz.md` and `electronics/steppers.md`
 are all gone, merged into those two, with 301s in `docs/static/_redirects`.
 
-The wire IDs (`W1`, `L3p`, `S1-S4`, `CH`, `RIB`) are the join key across the
+The wire IDs (`PWR1`, `LED3`, `STP1-STP4`, `CHU1`, `RIB`) are the join key across the
 schedule, the order spec, and the drawings. Renaming one means renaming it
 everywhere.
 
@@ -180,7 +180,7 @@ them as cleanup, and do not take them as precedent for committing new renders.
 
 ## Status
 
-Nothing here has been validated against the physical machine. Guessed values
-are marked `GUESS` in the drawings, the order spec lists what to verify before
-sending, and the harness page carries the open items. Treat it as Spencer's
-July 12th 2026 notes plus engineering guesses, not measured truth.
+Nothing here has been validated against the physical machine. The harness
+page carries the open items. Treat it as Spencer's July 12th 2026 notes plus
+engineering estimates, not measured truth. Drawings carry no "guess" marks:
+anything still unproven is said on the ordering page, once.

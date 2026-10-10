@@ -1,6 +1,6 @@
 metadata:
   title: 24V to controller board v1.3
-  description: "The board's 24V feed. The buildable sub-harness for W1 on\nthe 24V power distribution drawing. From the\ncontroller-board reference drawing (2026-08-08)."
+  description: "The board's 24V feed. The buildable sub-harness for PWR1 on\nthe 24V power distribution drawing. From the\ncontroller-board reference drawing (2026-08-08)."
 
 connectors:
   P1:
@@ -20,7 +20,7 @@ connectors:
         mpn: SVH-21T-P1.1
 
 cables:
-  W1:
+  PWR1:
     gauge: 18 AWG
     length: 36 in
     colors: [RD, BK]
@@ -29,5 +29,5 @@ cables:
 connections:
   -
     - P1: [1-2]
-    - W1: [1-2]
+    - PWR1: [1-2]
     - BOARD_PWR: [1-2]

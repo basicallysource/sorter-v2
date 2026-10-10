@@ -10,18 +10,20 @@ permalink: /design/printed-parts/
 last_verified: 2026-10-10
 ---
 
-Almost every structural part of the machine is printed, and the frame they hang on is standard 2020 aluminium extrusion. The design asks three things of a printer: a 256 x 256 mm bed, a filament that survives a warm room, and settings accurate enough to hold a few tenths of a millimetre. Most of the rest follows from those and from a wish to need as little hardware as possible.
+Optional background: you do not need this page to build the sorter.
 
-This page is the why. The how is on <a href="{{ '/hardware/printing/' | relative_url }}">Printing the parts</a> and on the assembly pages it links to.
+Almost every structural part of the machine is printed, and the frame they hang on is standard 2020 aluminium extrusion. The design asks three things of a printer: a 256 x 256 mm bed, a filament that survives a warm room, and a printer set up accurately enough to hold a few tenths of a millimetre. Most of the other design choices follow from these three and from the wish to need as few screws and nuts as possible.
+
+This page explains why the parts are designed this way. How to print and assemble them is on <a href="{{ '/hardware/printing/' | relative_url }}">Printing the parts</a> and on the assembly pages it links to.
 
 ## What a printed part is designed around
 
 <ul class="bulleted-list">
-  <li><strong>The bed.</strong> The parts are designed to a 256 x 256 mm bed, and nothing in the catalog is larger. The machine needs 107 different printed designs, not counting the bins.</li>
-  <li><strong>The filament.</strong> PETG or ASA, because PLA softens from around 55 C and the printed gears the steppers drive through go first.</li>
-  <li><strong>The clearances.</strong> Parts that slide, snap or press together are designed with 0.21 to 0.24 mm of clearance in the distribution parts. The catalog's print profile is 0.2 mm layers on a 0.4 mm nozzle, and the published settings for the distribution parts are valid up to a 0.28 mm layer height.</li>
-  <li><strong>Tight fits are flagged.</strong> The External bracket (side) clamps around the 2020 extrusion with little room, so the parts calculator badges it <strong>Tight fit</strong> and asks for one test print before the full set.</li>
-  <li><strong>Orientation and supports are per part.</strong> Not every STL is exported in its print orientation, and supports are off for almost everything. The part's card on the calculator is where an exception is stated.</li>
+  <li><strong>The bed.</strong> The parts are designed for a 256 x 256 mm print bed, and no part in the parts catalog is larger. The machine needs 107 different printed designs, not counting the bins.</li>
+  <li><strong>The filament.</strong> PETG or ASA, because PLA softens from around 55 C, and the printed gears that the stepper motors turn would soften first.</li>
+  <li><strong>The clearances.</strong> In the distribution parts, the parts that slide, snap or press together leave 0.21 to 0.24 mm of clearance. The print profile in the parts catalog uses 0.2 mm layers and a 0.4 mm nozzle. The published settings for the distribution parts are valid up to a 0.28 mm layer height.</li>
+  <li><strong>Tight fits are flagged.</strong> The External bracket (side) clamps around the 2020 extrusion with very little room. The parts calculator marks it <strong>Tight fit</strong> and asks you to print one test part before you print the full set.</li>
+  <li><strong>Orientation and supports are per part.</strong> Not every STL file is saved in the orientation you print it in, and supports are off for almost every part. The part's card in the parts calculator states any exception.</li>
 </ul>
 
 <ul class="bulleted-list">
@@ -37,11 +39,11 @@ The frame is 2020 extrusion because it is a standard size everywhere in the worl
 Printed brackets join the extrusion at every corner, and there are two ways to hold a bracket on:
 
 <ul class="bulleted-list">
-  <li><strong>Standard:</strong> an M5 x 16 screw taps straight through the bracket wall and braces its tip against the extrusion.</li>
+  <li><strong>Standard:</strong> an M5 x 16 screw cuts its own thread through the bracket wall and presses its tip against the extrusion.</li>
   <li><strong>Option:</strong> a roll-in T-nut in the slot, with the larger hole of the pair. It costs 12 more T-nuts per hex frame.</li>
 </ul>
 
-Inside the ring, the hex frame is designed to need no hardware. The Frame 90° brackets and the Frame crossbeams hold the six spokes by fit alone, and the aim was to avoid more nuts and screws. The brackets, covers and extrusion pieces of the frame are tagged as golden in the catalog, meaning future revisions must stay compatible with them.
+Inside the ring, the hex frame is designed to need no hardware. The Frame 90° brackets and the Frame crossbeams hold the six spokes by fit alone, and the aim was to avoid more nuts and screws. In the parts catalog, the brackets, covers and extrusion pieces of the frame are tagged as golden. This means that future versions of these parts must stay compatible with the ones you print now.
 
 <ul class="bulleted-list">
   <li>The ring, the standard screw and the T-nut option: <a href="{{ '/hardware/assembly/distribution/bin-frame/hex-frame/' | relative_url }}">Hex frame</a></li>
@@ -71,9 +73,9 @@ A joint uses the lightest thing that will hold it. In rough order from lightest 
 ## Shapes that do a job
 
 <ul class="bulleted-list">
-  <li><strong>The faceted rotor.</strong> A round rotor touches a long piece at one point against two on the stator wall, and larger pieces do not move along. The facets turn that point into a line of contact so large pieces move along. Three of the four channels use it.</li>
+  <li><strong>The faceted rotor.</strong> A round rotor touches a long piece at only one point, while the stator wall touches it at two points, so larger pieces do not move along. The facets turn that single point into a line of contact, so large pieces do move along. Three of the four channels use it.</li>
   <li><strong>The finned rotor.</strong> The classification channel, the last of the four, uses fins instead of facets to keep pieces moving on that stage.</li>
-  <li><strong>The two funnel sizes.</strong> The third-size funnel is designed to pass a piece at least 48 mm (6 studs) wide, and the half-size funnel at least 64 mm (8 studs) with some breathing room. The size you choose for a layer sets that layer's bin set.</li>
+  <li><strong>The two funnel sizes.</strong> A layer has either a third-size funnel or a half-size funnel, named after the size of the bins under them. The third-size funnel is designed to pass a piece at least 48 mm (6 studs) wide, and the half-size funnel one at least 64 mm (8 studs) wide, with some room to spare. The size you choose for a layer sets that layer's set of bins.</li>
 </ul>
 
 <ul class="bulleted-list">

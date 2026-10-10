@@ -10,11 +10,13 @@ permalink: /design/sorter/
 last_verified: 2026-10-10
 ---
 
+Optional background: you do not need this page to build the sorter.
+
 Sorter V2 is two machines stacked on top of each other. The **feeder** is a column of four rotating channels that turns a heap of loose LEGO into a single file of pieces and photographs them. The **distribution** system sits underneath: a rotating chute that aims at one of many bins, one layer at a time. A piece goes in at the top of the feeder and leaves through the chute into a bin. The electronics that connect the two have their own page, <a href="{{ '/design/electronics/' | relative_url }}">How the electronics talk to each other</a>.
 
 ## The feeder, from the top down
 
-Every channel is a **C-channel**: a rotor turning inside a stator, driven by a NEMA 17 stepper through a gear train. One shared channel core is built four times, and the four stages are numbered C1 to C4 from the top.
+Every channel is a **C-channel**: a rotor (the spinning part) turning inside a stator (the fixed housing around it). A NEMA 17 stepper motor, which turns in small exact steps, drives the rotor through gears. One shared channel core is built four times, and the four stages are numbered C1 to C4 from the top.
 
 <table>
 <thead><tr><th>Stage</th><th>Job</th></tr></thead>
@@ -25,9 +27,9 @@ Every channel is a **C-channel**: a rotor turning inside a stator, driven by a N
 </tbody>
 </table>
 
-The drops between the channels do the separating, not vibration. Each stand sets an 80 mm step down to the next channel. Each channel only acts when the one in front of it has room, so the stack never pushes a piece onto a busy channel.
+The drops between the channels do the separating, not vibration. Each stand sets an 80 mm step down to the next channel. Each channel only moves when the channel after it has room, so a piece is never pushed onto a busy channel.
 
-Cameras sit on C2, C3 and C4, each in a **camera lamp**: an LED strip ring in a white reflector under a grey cover, with the camera in the middle. C2 and C3 use a 720p camera for detection, C4 uses a 4K camera. Detection runs on all three, and identification uses the C4 crops.
+Cameras sit on C2, C3 and C4, each in a **camera lamp**: an LED strip ring in a white reflector under a grey cover, with the camera in the middle. C2 and C3 use a 720p camera for detection, C4 uses a 4K camera. Detection runs on all three. Identification only uses the C4 crops, which are close-up images cut out around each piece.
 
 ### What was tried before
 
@@ -41,7 +43,7 @@ Cameras sit on C2, C3 and C4, each in a **camera lamp**: an LED strip ring in a 
 <li><strong>Printed foot, leg and leg-extension stands.</strong> C1 now stands on 2020 extrusion legs and C2 and C3 on single printed legs. C4 sits flat on the top plate.</li>
 </ul>
 
-The feeder can run in three modes, Simple Pulse (the default), go-to-angle and constant movement. Which one is active is a software choice, and the lab page on <a href="{{ '/lab/software-architecture-decisions/' | relative_url }}">software architecture decisions</a> covers how the software is split.
+The software can move a channel's motor in three ways: Simple Pulse (the default), go-to-angle and constant movement. Which one is used is a software setting. The lab page on <a href="{{ '/lab/software-architecture-decisions/' | relative_url }}">software architecture decisions</a> covers how the software is split.
 
 ### Where to find it
 
@@ -54,16 +56,16 @@ The feeder can run in three modes, Simple Pulse (the default), go-to-angle and c
 
 ## Classification at C4
 
-C4 is a small state machine called Two Piece. It turns one way, holds up to two pieces, and cycles through waiting, ejecting and staging. A piece is only released when the distribution system reports that its chute is ready. The chute and the layer door move at the same time, so the piece is never waiting for a door that has not started opening.
+C4 is controlled by a small program called Two Piece. It is always in one of a few states, and it moves from one to the next as pieces arrive and leave. It turns one way, holds up to two pieces, and cycles through waiting, ejecting and staging. A piece is only released when the distribution system reports that its chute is ready. The chute and the layer door move at the same time, so the piece is never waiting for a door that has not started opening.
 
-Pieces are identified from the C4 crops. Colour is read against a calibration card rather than by a learned model.
+Pieces are identified from the C4 crops. Colour is read by comparing the piece with a calibration card, not by an AI model.
 
 ### What was tried before
 
 <ul class="bulleted-list">
 <li><strong>A carousel with an identification chamber.</strong> C4 replaced it. The reasons on record are that identification from several images of one piece was wanted, the chamber jammed, the bottom camera gave poor pictures and misread often, and C4 has fewer parts.</li>
 <li><strong>Imaging a piece from several channels.</strong> It was built and then switched off, and the C4 crops are used on their own.</li>
-<li><strong>Embeddings and then a classifier for recognition.</strong> These are covered on the <a href="{{ '/lab/classification-research/' | relative_url }}">classification research</a> page.</li>
+<li><strong>Two machine-learning methods for recognising pieces: embeddings, and then a classifier.</strong> These are covered on the <a href="{{ '/lab/classification-research/' | relative_url }}">classification research</a> page.</li>
 </ul>
 
 ### Where to find it
@@ -79,7 +81,7 @@ Pieces are identified from the C4 crops. Colour is read against a calibration ca
 Distribution is a tower of layers. Each layer holds bins and has its own **chute**: a chute core with heat-set inserts, a door module with a servo, a layer adapter board, and funnel brackets that carry a funnel. The chutes of every layer are linked, and the whole stack rotates as one unit under a single NEMA 23 stepper. The bins never move. Once the stack points at a column of bins, the door of the right layer opens and the piece drops into the bin below it.
 
 <ul class="bulleted-list">
-<li><strong>Top interface.</strong> The interface between the feeder and the bin tower, where the rotating chute starts. It carries the stepper that turns the stack. A 120 to 25 gear ratio turns it, with a 350 degree hard stop and six sections by default.</li>
+<li><strong>Top interface.</strong> The interface between the feeder and the bin tower, where the rotating chute starts. It carries the stepper that turns the stack. Gears with a ratio of 120 to 25 turn it. It can turn up to 350 degrees, where a hard stop ends the movement. The software divides the turn into six sections by default.</li>
 <li><strong>Bin tower.</strong> A hex frame with the layers stacked in it, 160 mm per layer. A layer holds 18 bins with a third funnel or 12 with a half funnel, chosen per layer. Three and five layers are the common builds, and the firmware can drive up to 16.</li>
 <li><strong>Bottom interface.</strong> A Lazy Susan bearing the stack rests on, so it turns freely at the base. The top interface uses the same stock 8 inch bearing.</li>
 <li><strong>Bins.</strong> One per sorting target, held in place by retainers.</li>
@@ -91,7 +93,7 @@ Distribution is a tower of layers. Each layer holds bins and has its own **chute
 <li><strong>A linear layout.</strong> The first design carried pieces on a conveyor to tipping bins. It is more expandable and suits a wall, and it was compared with the circular design. The circular stack was chosen as the machine for this version.</li>
 <li><strong>Idler wheels on bearing races at the foot of the stack.</strong> The wheels wore and tore at the races and came unscrewed. The bottom Lazy Susan replaced them, and a double Lazy Susan ran a week without problems.</li>
 <li><strong>Early chute drops.</strong> About 78 per cent of test drops landed in the right place. A later test with taller bin walls and a soft flap landed 20 of 20. No figure exists yet for the current geometry.</li>
-<li><strong>Wiring the rotating stack.</strong> Slip rings and a static servo were discussed. Nothing was adopted, and the layer boards are chained together by ribbon cable.</li>
+<li><strong>Wiring the rotating stack.</strong> Slip rings (parts that pass power to something that turns) and a static servo were discussed. Nothing was adopted, and the layer boards are chained together by ribbon cable.</li>
 </ul>
 
 ### Where to find it
@@ -105,7 +107,7 @@ Distribution is a tower of layers. Each layer holds bins and has its own **chute
 
 ## How the software drives it
 
-A host computer runs the vision, the flow logic and the web interface, and a Pico runs a deliberately simple firmware that moves motors and servos on command. The split was chosen after Klipper, ROS2, Marlin and Firmata were considered, and the reasons are on the <a href="{{ '/lab/software-architecture-decisions/' | relative_url }}">software architecture decisions</a> page. Which pin does what, and how the two talk, is covered in <a href="{{ '/design/electronics/' | relative_url }}">How the electronics talk to each other</a>. Which cable goes in which socket is on <a href="{{ '/hardware/electronics/connecting/' | relative_url }}">Connecting the components</a>.
+A computer (the Orange Pi) runs the camera vision, the logic that decides what happens next, and the web interface. A small Raspberry Pi Pico board runs deliberately simple firmware, the program stored inside it, which only moves motors and servos when told to. This split was chosen after four existing control projects were considered (Klipper, ROS2, Marlin and Firmata), and the reasons are on the <a href="{{ '/lab/software-architecture-decisions/' | relative_url }}">software architecture decisions</a> page. Which pin does what, and how the Orange Pi and the Pico talk, is covered in <a href="{{ '/design/electronics/' | relative_url }}">How the electronics talk to each other</a>. Which cable goes in which socket is on <a href="{{ '/hardware/electronics/connecting/' | relative_url }}">Connecting the components</a>.
 
 ### Where to find it
 

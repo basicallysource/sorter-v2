@@ -8,10 +8,12 @@ import Timer from '@lucide/svelte/icons/timer';
 import GitBranch from '@lucide/svelte/icons/git-branch';
 import Layers3 from '@lucide/svelte/icons/layers';
 import Network from '@lucide/svelte/icons/network';
+import Palette from '@lucide/svelte/icons/palette';
 import Settings from '@lucide/svelte/icons/settings';
 import Shapes from '@lucide/svelte/icons/shapes';
 import ShieldAlert from '@lucide/svelte/icons/shield-alert';
 import SlidersHorizontal from '@lucide/svelte/icons/sliders-horizontal';
+import Wifi from '@lucide/svelte/icons/wifi';
 import Wrench from '@lucide/svelte/icons/wrench';
 import Zap from '@lucide/svelte/icons/zap';
 import {
@@ -97,6 +99,24 @@ export const classificationProvidersNavItem: SettingsNavItem = {
 	href: '/settings/providers',
 	label: 'Providers',
 	icon: Network
+};
+
+export const networkingNavItem: SettingsNavItem = {
+	href: '/settings/networking',
+	label: 'Networking',
+	icon: Wifi
+};
+
+export const appearanceNavItem: SettingsNavItem = {
+	href: '/settings/appearance',
+	label: 'Appearance',
+	icon: Palette
+};
+
+export const sampleCaptureNavItem: SettingsNavItem = {
+	href: '/settings/sample-capture',
+	label: 'Sample capture',
+	icon: Camera
 };
 
 export const versionsNavItem: SettingsNavItem = {
@@ -241,6 +261,8 @@ export type SettingsNavEntry = SettingsNavItem | SettingsNavHeading;
 
 export const settingsNavItems: SettingsNavEntry[] = [
 	generalNavItem,
+	networkingNavItem,
+	appearanceNavItem,
 	hiveNavItem,
 	hiveModelsNavItem,
 	classificationProvidersNavItem,
@@ -250,6 +272,8 @@ export const settingsNavItems: SettingsNavEntry[] = [
 	chuteNavItem,
 	storageLayersNavItem,
 	controlBoardNavItem,
+	{ type: 'heading', label: 'Data' },
+	sampleCaptureNavItem,
 	{ type: 'heading', label: 'Helpers' },
 	incidentsNavItem,
 	cycleTimeNavItem,

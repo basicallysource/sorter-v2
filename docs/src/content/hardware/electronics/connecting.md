@@ -130,11 +130,11 @@ The PSU output pigtails (`PJ1` to `PJ3`) are already in the PSU box. The USB hub
     <tr><td>Ribbon to the layers (<code>RIB1</code>)</td><td>Board <code>J17</code>, 16-pin IDC</td><td><code>J3</code> on the first layer board, 16-pin IDC</td></tr>
     <tr><td>Pico to hub (<code>U2</code>)</td><td>Micro USB on the Pico</td><td>USB-A on the hub</td></tr>
     <tr><td>Hub to Orange Pi (<code>U1</code>)</td><td>USB-A on the hub</td><td><code>UP USB3.0</code> on the Pi</td></tr>
-    <tr><td>Cameras (×3)</td><td>The camera's own USB lead, one IMX415 and two OV9732</td><td>USB-A on the hub</td></tr>
+    <tr><td>Cameras (×3: <code>U3</code> to <code>U5</code>)</td><td>The camera's own USB lead: <code>U3</code> on the IMX415, <code>U4</code> and <code>U5</code> on the two OV9732</td><td>USB-A on the hub</td></tr>
   </tbody>
 </table>
 
-[Ordering the wire harness]({{ '/hardware/parts/harness-order/' | relative_url }}) calls the first three `W1`, `W2` and `W3`, the steppers `S1` to `S4` and `CH`, the limit switch `LIM`, the lamps `L1` to `L3`, and the ribbon `RIB1`. The two bought USB cables between the Pico, the hub and the Orange Pi are `U2` and `U1`; the cameras' own USB leads have no label.
+[Ordering the wire harness]({{ '/hardware/parts/harness-order/' | relative_url }}) calls the first three `W1`, `W2` and `W3`, the steppers `S1` to `S4` and `CH`, the limit switch `LIM`, the lamps `L1` to `L3`, and the ribbon `RIB1`. The two bought USB cables between the Pico, the hub and the Orange Pi are `U2` and `U1`, and the cameras' own USB leads are `U3` to `U5`.
 
 ### The three 24 V leads (`W1` to `W3`)
 
@@ -172,7 +172,7 @@ The machine needs three male barrel plugs for these three, plus, if you fit the 
   <li>The <a href="{{ '/hardware/helpers/pi-24v-lead/#sleeving-optional' | relative_url }}">Orange Pi's 24 V lead</a> (`W3`), about 150 mm (6 in).</li>
 </ul>
 
-The `W2` lead to the USB hub, the USB cables (`U1`, `U2`) and the ribbon (`RIB1`) are bought parts with no page to make them, and the PSU box pigtails (`PJ1` to `PJ3`) stay inside the box, so none of those is sleeved. In all, about 10 m (33 ft) for the machine: one 15.2 m (50 ft) roll.
+The `W2` lead to the USB hub, the USB cables (`U1` to `U5`) and the ribbon (`RIB1`) are bought parts with no page to make them, and the PSU box pigtails (`PJ1` to `PJ3`) stay inside the box, so none of those is sleeved. In all, about 10 m (33 ft) for the machine: one 15.2 m (50 ft) roll.
 
 **When:** while you make each lead, from the cut end, before you fit the connector that goes on it. A finished plug or housing may not go through the sleeving: the 6-pin housing on a channel stepper lead is too big for it, and a 4-pin PH housing is a tight fit that has not been tried. Do not plan on adding sleeving to a finished lead. The harness drawings sleeve the four channel stepper leads (`S1` to `S4`) only; sleeving the rest is a choice, not part of the drawing.
 
@@ -199,7 +199,7 @@ Fasten the leads to the frame with **hook-and-loop (Velcro) straps rather than z
 
 Put a label with the cable's ID (`S1`, `W2`, `RIB1` and so on) on **both ends** of every cable, close to the connector, before you route it. Do it as you finish each lead, while both ends are still in reach. The one exception is the chute stepper (`CH`): its cable is fixed to the motor, so only its board end needs a label. Once a cable is behind a housing or strapped along the frame you cannot trace it by eye, and the four channel stepper leads (`S1` to `S4`) look identical.
 
-**On paper.** Download the labels for [A4](https://assets.basically.website/sorter-parts/sorter-v2-cable-labels-f748b83b9383.pdf) or for [US Letter](https://assets.basically.website/sorter-parts/sorter-v2-cable-labels-letter-7d4fbbc3a6d9.pdf). The sheet has one section for each kind of cable: the wire pairs, the stepper leads, and the USB cables and ribbons. Each ID has two strips, one for each end, except `CH`, which has one. Use the strips for your cable's ID.
+**On paper.** Download the labels for [A4](https://assets.basically.website/sorter-parts/sorter-v2-cable-labels-2bd86ac2f2de.pdf) or for [US Letter](https://assets.basically.website/sorter-parts/sorter-v2-cable-labels-letter-0e7a0b7384bc.pdf). The sheet has one section for each kind of cable: the wire pairs, the stepper leads, and the USB cables and ribbons. Each ID has two strips, one for each end, except `CH`, which has one. Use the strips for your cable's ID.
 
 <ol class="numbered-steps">
   <li>Print the sheet at <strong>100% or Actual size</strong>, never Fit to Page. Measure the bar at the top to check: it is 100 mm (3.9 in) long, with a second mark at 3 in.</li>
@@ -210,7 +210,7 @@ Put a label with the cable's ID (`S1`, `W2`, `RIB1` and so on) on **both ends** 
   <li>Press the two IDs together and hold them with a small piece of tape.</li>
 </ol>
 
-**With a Brother label printer** (PT-P710BT, or another model that takes 12 mm tape), [download the cable flags](https://assets.basically.website/sorter-parts/sorter-v2-cable-flags-brother-55f3f24f93f0.zip). The zip has six P-touch Editor (`.lbx`) files. Each is short enough for the printer's 500 mm limit: the wire pairs in three files (`PJ1` to `W2`, `W3` to `L1p`, and `L2p` to `LIM`), the stepper leads, the USB cables, and the ribbons. Every file already has a flag for each end of each cable, and `CH` has one flag. Open the file for your cable, turn on Auto Cut in the print dialog and print it once. Fold each flag round the cable as in the last three steps above, with the dashed line as the fold. If a flag is too tight or too loose, move the second ID along the flag in P-touch Editor.
+**With a Brother label printer** (PT-P710BT, or another model that takes 12 mm tape), [download the cable flags](https://assets.basically.website/sorter-parts/sorter-v2-cable-flags-brother-18aed7d8d02b.zip). The zip has six P-touch Editor (`.lbx`) files. Each is short enough for the printer's 500 mm limit: the wire pairs in three files (`PJ1` to `W2`, `W3` to `L1p`, and `L2p` to `LIM`), the stepper leads, the USB cables, and the ribbons. Every file already has a flag for each end of each cable, and `CH` has one flag. Open the file for your cable, turn on Auto Cut in the print dialog and print it once. Fold each flag round the cable as in the last three steps above, with the dashed line as the fold. If a flag is too tight or too loose, move the second ID along the flag in P-touch Editor.
 
 With a label printer of another make, or self-laminating wrap-around cable labels, use those instead and print the same IDs.
 
@@ -393,7 +393,7 @@ The plug's own lead (`W2`), about 310 mm (12 in) with the plug, is long enough w
   <p><b>If you mounted the two housings further apart and the lead does not reach,</b> buy a ready-made lead (`W2`) with a 5.5 mm (0.217 in) x 2.1 mm (0.083 in) barrel plug at each end, centre contact +24 V at both ends (it is listed in the parts above as the alternative). Plug one end into the PSU box and the other into the round DC socket on the hub. The terminal stays empty, so skip points 2 to 6 of the list above.</p>
 </div>
 
-{% include step.html n="7" title="Plug in the USB (U1, U2): the Pico, the hub and the Orange Pi" %}
+{% include step.html n="7" title="Plug in the USB (U1 to U5): the Pico, the hub, the Orange Pi and the cameras" %}
 
 The Orange Pi talks to the control board over USB, through the powered hub. The three cameras are on the same hub.
 
@@ -456,7 +456,7 @@ The Orange Pi talks to the control board over USB, through the powered hub. The 
   <li>Plug the buck converter's USB-C lead into the socket the board prints <code>PWR IN</code>. <b>The Pi has two USB-C sockets that look the same</b> and only the one marked <code>PWR IN</code> is a power input. The other is USB 3.1 and DisplayPort, with no power function. Check that the converter is putting out 5 V before it goes anywhere near the Pi, as under <b>Check the lead</b> on <a href="{{ '/hardware/helpers/pi-24v-lead/' | relative_url }}#check-the-lead">Make the Orange Pi's 24 V lead</a> (<code>W3</code>).</li>
   <li>Run a USB cable (<code>U2</code>) from the Pico's micro USB socket to any port on the hub.</li>
   <li>Run a USB cable (<code>U1</code>) from the hub to the port marked <code>UP USB3.0</code> on the Pi, the upper of the two stacked sockets. The hub comes with a USB-A to USB-A lead for this.</li>
-  <li>Plug the three cameras into the three remaining hub ports. Each one arrives with its own lead: the <b>IMX415 4K</b> module on the <a href="{{ '/hardware/assembly/feeder/camera-lamp/classification-camera-lamp/' | relative_url }}">classification camera lamp</a>, and the two <b>OV9732 720p</b> modules on the C2 and C3 <a href="{{ '/hardware/assembly/feeder/camera-lamp/feeder-camera-lamp/' | relative_url }}">feeder camera lamps</a>.</li>
+  <li>Plug the three cameras into the three remaining hub ports. Each one arrives with its own lead: the <b>IMX415 4K</b> module on the <a href="{{ '/hardware/assembly/feeder/camera-lamp/classification-camera-lamp/' | relative_url }}">classification camera lamp</a> (<code>U3</code>), and the two <b>OV9732 720p</b> modules on the C2 (<code>U4</code>) and C3 (<code>U5</code>) <a href="{{ '/hardware/assembly/feeder/camera-lamp/feeder-camera-lamp/' | relative_url }}">feeder camera lamps</a>.</li>
 </ol>
 
 That fills the hub: three cameras and the Pico, no spare port.

@@ -29,12 +29,12 @@
 
 <Panel
 	title="Sample capture"
-	description="Camera frames collected for training. Runs in any machine mode and changes nothing about sorting."
+	description="Camera frames taken for training while the machine sorts, uploaded to Hive in the background. Changes nothing about sorting."
 	flush
 >
 	<SampleCaptureSection />
 </Panel>
 
-<Panel title="Local samples" description="The sample sessions stored on this machine." flush>
+<Panel title="Local samples" description="The training samples stored on this machine until Hive has them." flush>
 	<SampleStorageSection />
 </Panel>

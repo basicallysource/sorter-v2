@@ -17,7 +17,6 @@
 	import Shield from '@lucide/svelte/icons/shield';
 	import Star from '@lucide/svelte/icons/star';
 	import Trash2 from '@lucide/svelte/icons/trash';
-	import Upload from '@lucide/svelte/icons/upload';
 	import MachineNameField from '$lib/components/MachineNameField.svelte';
 	import Modal from '$lib/components/ui/Modal.svelte';
 	import Panel from '$lib/components/ui/Panel.svelte';
@@ -36,14 +35,34 @@
 
 	const machine = getMachineContext();
 
-	type UploaderStatus = {
+	// What each Hive sends back in its heartbeat reply, and what this machine
+	// may send it in return.
+	type HiveLimits = {
+		sample_burst_interval_s: number;
+		sample_floor_interval_s: number;
+		sample_ramp_hours: number;
+		sample_store_max_bytes: number;
+		upload_bytes_per_minute: number;
+		upload_files_per_minute: number;
+	};
+
+	type SyncStatus = {
 		enabled: boolean;
-		server_reachable: boolean;
-		queue_size: number;
-		uploaded: number;
-		failed: number;
-		requeued: number;
+		// null until the first heartbeat has been answered or failed.
+		server_reachable: boolean | null;
+		last_beat_at: number | null;
+		// Rows or files still to upload per data type; null = not known yet.
+		waiting: Record<string, number | null>;
+		// Data types this Hive does not accept yet.
+		unsupported: string[];
+		upload_budget: {
+			bytes_per_minute: number;
+			files_per_minute: number;
+			bytes_available: number;
+			files_available: number;
+		} | null;
 		last_error: string | null;
+		limits: HiveLimits | null;
 	};
 
 	type HiveTarget = {
@@ -55,7 +74,7 @@
 		enabled: boolean;
 		is_primary: boolean;
 		telemetry: Record<string, boolean>;
-		uploader: UploaderStatus;
+		sync: SyncStatus;
 	};
 
 	type HiveConfig = {
@@ -71,7 +90,6 @@
 		machine_id?: string | null;
 		api_token_masked?: string | null;
 		enabled?: boolean;
-		uploader?: UploaderStatus | null;
 	};
 
 	type TelemetryField = {
@@ -87,18 +105,12 @@
 	let loading = $state(true);
 	let statusMsg = $state<string | null>(null);
 	let errorMsg = $state<string | null>(null);
-	let backfillResult = $state<string | null>(null);
-	let backfillTargetId = $state<string | null>(null);
-	let purgeResult = $state<string | null>(null);
-	let purgeTargetId = $state<string | null>(null);
 
 	let editingTargetId = $state<string | null>(null);
 	let showRegisterForm = $state(false);
 	let savingTarget = $state(false);
 	let removingTargetId = $state<string | null>(null);
 	let registering = $state(false);
-	let backfillingTargetId = $state<string | null>(null);
-	let purgingTargetId = $state<string | null>(null);
 
 	let targetName = $state('');
 	let targetUrl = $state('');
@@ -129,15 +141,16 @@
 		) as Record<string, boolean>;
 	}
 
-	function emptyUploaderStatus(enabled: boolean): UploaderStatus {
+	function emptySyncStatus(enabled: boolean): SyncStatus {
 		return {
 			enabled,
-			server_reachable: false,
-			queue_size: 0,
-			uploaded: 0,
-			failed: 0,
-			requeued: 0,
-			last_error: null
+			server_reachable: null,
+			last_beat_at: null,
+			waiting: {},
+			unsupported: [],
+			upload_budget: null,
+			last_error: null,
+			limits: null
 		};
 	}
 
@@ -154,9 +167,9 @@
 				if (!entry || typeof entry !== 'object') return [];
 				const target = entry as Record<string, unknown>;
 				const enabled = Boolean(target.enabled);
-				const uploaderRaw =
-					target.uploader && typeof target.uploader === 'object'
-						? (target.uploader as Partial<UploaderStatus>)
+				const syncRaw =
+					target.sync && typeof target.sync === 'object'
+						? (target.sync as Partial<SyncStatus>)
 						: null;
 				return [
 					{
@@ -175,9 +188,9 @@
 						enabled,
 						is_primary: Boolean(target.is_primary),
 						telemetry: normalizeTelemetry(target.telemetry),
-						uploader: {
-							...emptyUploaderStatus(enabled),
-							...(uploaderRaw ?? {})
+						sync: {
+							...emptySyncStatus(enabled),
+							...(syncRaw ?? {})
 						}
 					} satisfies HiveTarget
 				];
@@ -223,10 +236,7 @@
 					enabled,
 					is_primary: true,
 					telemetry: {},
-					uploader: {
-						...emptyUploaderStatus(enabled),
-						...(legacy.uploader ?? {})
-					}
+					sync: emptySyncStatus(enabled)
 				}
 			]
 		};
@@ -244,10 +254,6 @@
 	function clearMessages() {
 		statusMsg = null;
 		errorMsg = null;
-		backfillResult = null;
-		backfillTargetId = null;
-		purgeResult = null;
-		purgeTargetId = null;
 	}
 
 	function resetTargetForm(target: HiveTarget | null = null) {
@@ -534,96 +540,57 @@
 		}
 	}
 
-	async function handleBackfill(target: HiveTarget) {
-		backfillingTargetId = target.id;
-		clearMessages();
-		try {
-			const res = await fetch(`${currentBackendBaseUrl()}/api/settings/hive/backfill`, {
-				method: 'POST',
-				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({
-					target_ids: [target.id]
-				})
-			});
-			if (!res.ok) throw new Error(await res.text());
-			const data = await res.json();
-			if (!data.ok) throw new Error(data.error ?? 'Backfill failed.');
-			backfillTargetId = target.id;
-			backfillResult = `Queued ${data.queued} archived samples for "${target.name}" (${data.skipped} skipped${data.errors ? `, ${data.errors} errors` : ''}).`;
-			await loadConfig();
-		} catch (e: any) {
-			errorMsg = e.message ?? 'Backfill failed.';
-		} finally {
-			backfillingTargetId = null;
-		}
-	}
-
-	async function handlePurge(target: HiveTarget) {
-		const queueHint =
-			target.uploader.queue_size > 0
-				? `This will remove ${target.uploader.queue_size} queued sync job${target.uploader.queue_size === 1 ? '' : 's'} for "${target.name}".`
-				: `This will clear any queued or retrying sync jobs for "${target.name}".`;
-		if (
-			!(await confirmDialog({
-				title: 'Clear the sync jobs?',
-				message: `${queueHint} An upload that is already in flight may still finish.`,
-				action: 'Clear the jobs',
-				danger: true
-			}))
-		)
-			return;
-
-		purgingTargetId = target.id;
-		clearMessages();
-		try {
-			const res = await fetch(`${currentBackendBaseUrl()}/api/settings/hive/purge`, {
-				method: 'POST',
-				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({
-					target_ids: [target.id]
-				})
-			});
-			if (!res.ok) throw new Error(await res.text());
-			const data = await res.json();
-			if (!data.ok) throw new Error(data.error ?? 'Queue purge failed.');
-			purgeTargetId = target.id;
-			purgeResult =
-				data.purged > 0
-					? `Purged ${data.purged} queued sample sync job${data.purged === 1 ? '' : 's'} for "${target.name}".`
-					: `No queued sample sync jobs were waiting for "${target.name}".`;
-			await loadConfig();
-		} catch (e: any) {
-			errorMsg = e.message ?? 'Queue purge failed.';
-		} finally {
-			purgingTargetId = null;
-		}
-	}
-
 	function statusLabel(target: HiveTarget): string {
 		if (!target.enabled) return 'Connected, live samples off';
-		if (target.uploader.server_reachable) return 'Receiving live samples';
+		if (target.sync.server_reachable) return 'Receiving live samples';
 		return 'Connected, waiting for server';
 	}
 
 	function statusTone(target: HiveTarget): 'success' | 'warning' {
-		return target.enabled && target.uploader.server_reachable ? 'success' : 'warning';
+		return target.enabled && target.sync.server_reachable ? 'success' : 'warning';
+	}
+
+	const DATA_TYPES: [key: string, label: string][] = [
+		['piece_records', 'Piece records'],
+		['piece_corrections', 'Corrections'],
+		['piece_images', 'Piece images'],
+		['channel_crops', 'Channel crops'],
+		['control_data_segments', 'Control data'],
+		['samples', 'Training samples']
+	];
+
+	function unsupportedText(target: HiveTarget): string {
+		return target.sync.unsupported
+			.map((key) => (DATA_TYPES.find(([k]) => k === key)?.[1] ?? key).toLowerCase())
+			.join(' or ');
+	}
+
+	// Only the types this machine knows the count for.
+	function waitingStats(target: HiveTarget): { label: string; count: number }[] {
+		return DATA_TYPES.flatMap(([key, label]) => {
+			const count = target.sync.waiting[key];
+			return typeof count === 'number' ? [{ label, count }] : [];
+		});
+	}
+
+	function limitItems(target: HiveTarget) {
+		const limits = target.sync.limits;
+		if (!limits) return [];
+		const megabytes = Math.round(limits.upload_bytes_per_minute / 1e5) / 10;
+		return [
+			{
+				label: 'Upload budget',
+				value: `${megabytes} MB and ${limits.upload_files_per_minute} files a minute`
+			},
+			{
+				label: 'Fastest sampling',
+				value: `Every ${Math.round(limits.sample_burst_interval_s * 10) / 10} s`
+			}
+		];
 	}
 
 	function targetMenu(target: HiveTarget) {
 		return [
-			{
-				label: backfillingTargetId === target.id ? 'Queueing the backfill' : 'Queue a backfill',
-				icon: Upload,
-				disabled: backfillingTargetId === target.id || !target.enabled,
-				onselect: () => void handleBackfill(target)
-			},
-			{
-				label: purgingTargetId === target.id ? 'Purging the queue' : 'Purge the queue',
-				icon: Trash2,
-				disabled: purgingTargetId === target.id,
-				onselect: () => void handlePurge(target)
-			},
-			'separator' as const,
 			{
 				label: removingTargetId === target.id ? 'Removing' : 'Remove this Hive',
 				icon: Trash2,
@@ -757,43 +724,36 @@
 							items={[
 								{ label: 'Server', value: target.url, mono: true },
 								{ label: 'Machine ID', value: target.machine_id ?? 'None', mono: true },
-								{ label: 'Token', value: target.api_token_masked ?? 'None', mono: true }
+								{ label: 'Token', value: target.api_token_masked ?? 'None', mono: true },
+								...limitItems(target)
 							]}
 						/>
 					</div>
 
-					{#if (backfillTargetId === target.id && backfillResult) || (purgeTargetId === target.id && purgeResult)}
-						<div class="flex flex-col gap-2 px-(--pad-panel) pb-3">
-							{#if backfillTargetId === target.id && backfillResult}
-								<Alert tone="success">{backfillResult}</Alert>
-							{/if}
-							{#if purgeTargetId === target.id && purgeResult}
-								<Alert tone="warning">{purgeResult}</Alert>
-							{/if}
-						</div>
-					{/if}
-
-					<div class="grid grid-cols-2 gap-px border-t border-line bg-line sm:grid-cols-4">
-						<div class="bg-surface"><Stat label="Uploaded" value={target.uploader.uploaded} /></div>
-						<div class="bg-surface"><Stat label="Queued" value={target.uploader.queue_size} /></div>
-						<div class="bg-surface">
-							<Stat
-								label="Requeued"
-								value={target.uploader.requeued}
-								tone={target.uploader.requeued > 0 ? 'warning' : undefined}
-							/>
-						</div>
-						<div class="bg-surface">
-							<Stat
-								label="Failed"
-								value={target.uploader.failed}
-								tone={target.uploader.failed > 0 ? 'danger' : undefined}
-							/>
-						</div>
+					<div class="border-t border-line">
+						<div class="label px-(--pad-panel) pt-3 pb-2">Waiting to upload</div>
+						{#if waitingStats(target).length > 0}
+							<div class="flex flex-wrap gap-px border-t border-line bg-line">
+								{#each waitingStats(target) as stat (stat.label)}
+									<div class="grow basis-36 bg-surface">
+										<Stat label={stat.label} value={stat.count.toLocaleString()} />
+									</div>
+								{/each}
+							</div>
+						{:else}
+							<p class="border-t border-line px-(--pad-panel) py-3 text-sm text-ink-muted">
+								The counts appear once this Hive has answered.
+							</p>
+						{/if}
 					</div>
-					{#if target.uploader.last_error}
+					{#if target.sync.unsupported.length > 0}
+						<p class="border-t border-line px-(--pad-panel) py-3 text-sm text-ink-muted">
+							This Hive does not accept {unsupportedText(target)} yet.
+						</p>
+					{/if}
+					{#if target.sync.last_error}
 						<p class="border-t border-line px-(--pad-panel) py-3 text-sm break-words text-warning-ink">
-							{target.uploader.last_error}
+							{target.sync.last_error}
 						</p>
 					{/if}
 				</Panel>

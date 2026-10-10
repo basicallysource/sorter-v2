@@ -481,10 +481,9 @@ class ClassificationChannelConfig:
         # carousel pulse would otherwise burn through an unrecognized piece.
         self.leader_wins_requires_classified = False
         # Extra time (seconds) the distribution Sending state waits after the
-        # chute-settle timer (CHUTE_SETTLE_MS, 1.5 s from the drop) before the
-        # chute may aim for the next piece. A piece clears the chute in about
-        # 0.4-0.6 s, so the settle alone covers it; every tenth of a second
-        # here is a tenth on every piece.
+        # chute-settle timer (CHUTE_SETTLE_MS, 2 s from the drop) before the
+        # chute may aim for the next piece. Every tenth of a second here is a
+        # tenth on every piece.
         self.post_distribute_cooldown_s = 0.0
         self.size_classes = (
             ClassificationChannelSizeClassConfig(

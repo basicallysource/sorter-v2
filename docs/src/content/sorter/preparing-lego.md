@@ -30,7 +30,7 @@ A LEGO stud is 8 mm across, so 80 mm is ten studs. Count studs instead of measur
 
 - A 2x10 brick fits.
 - A 2x12 brick does not.
-- A Technic beam with ten holes fits. A longer one does not.
+- A Technic beam with 9 holes (10 studs long) fits. A longer one does not.
 - A 10L axle fits. A longer one does not.
 
 A piece over the limit does not fall through a channel cleanly. It bridges the channel, or it wedges on the way into the chute, and everything behind it stops.

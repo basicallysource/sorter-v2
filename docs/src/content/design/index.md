@@ -44,6 +44,10 @@ Each page gives the overall picture in a few lines, then links to the files that
     <strong><a href="{{ '/design/power/' | relative_url }}">Power distribution</a></strong>
     <p>How power gets from the supply to every board and motor, with the ratings of the cables, connectors and devices.</p>
   </div>
+  <div class="callout">
+    <strong><a href="{{ '/design/contribute/' | relative_url }}">How to contribute</a></strong>
+    <p>Where the project lives, how to help, when the team meets each week, and what Balloon, the assistant in the Discord, can do for you.</p>
+  </div>
 </div>
 
 For why the software is split between a simple firmware and a smart host, see [Software architecture decisions]({{ '/lab/software-architecture-decisions/' | relative_url }}).

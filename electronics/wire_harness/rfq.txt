@@ -62,11 +62,13 @@ All other cables are straight-through pin 1 -> pin 1.
 
 6. TOLERANCES, LABELS, PACKAGING
 - Length tolerance +/-10 mm (+/-25 mm acceptable on >=36 in).
-- Label each cable near end A with its ID (PWR1, STP1, CHU1, ...).
-  Label STP1-STP4 at BOTH ends: four identical cables land within
-  inches of each other at both the board and the motors, and
-  they are unrecoverable once unplugged. Printed wrap-around
-  laser labels or printed heat-shrink are both fine.
+- Label each cable with its ID (PWR1, STP1, ...) at BOTH ends,
+  except CHU1, which is labelled once at its board end (its
+  other end is spliced to the motor). Every other cable unplugs
+  at both ends, and identical cables land within inches of each
+  other at the board and at the motors, so they are
+  unrecoverable once unplugged. Printed wrap-around laser
+  labels or printed heat-shrink are both fine.
 - Bag per cable type. No other packaging requirement.
 
 7. QUESTIONS WE EXPECT / PRE-ANSWERED

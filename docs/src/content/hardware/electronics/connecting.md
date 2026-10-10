@@ -199,11 +199,11 @@ Fasten the leads to the frame with **hook-and-loop (Velcro) straps rather than z
 
 Put a label with the cable's ID (`S1`, `W2`, `RIB1` and so on) on **both ends** of every cable, close to the connector, before you route it. Do it as you finish each lead, while both ends are still in reach. Once a cable is behind a housing or strapped along the frame you cannot trace it by eye, and the four channel stepper leads (`S1` to `S4`) are identical, so they cannot be told apart once unplugged.
 
-Download the cable labels as a PDF for [A4](https://assets.basically.website/sorter-parts/sorter-v2-cable-labels-362ab416632d.pdf) or for [US Letter](https://assets.basically.website/sorter-parts/sorter-v2-cable-labels-letter-fa6441719335.pdf). Each is one page of 60 x 12 mm (2.4 x 0.5 in) strips, two for each ID in this machine, one for each end, plus blank ones for spares. The ID is printed twice on each strip, so it can be read from either side once wrapped, and a dashed line marks the centre, where you fold it. The IDs are `PJ1` to `PJ3`, `W1` to `W3`, `L1` to `L3`, `L1p` to `L3p`, `LIM`, `S1` to `S4`, `CH`, `U1`, `U2`, `RIB1` and `RIB2`.
+Download the cable labels as a PDF for [A4](https://assets.basically.website/sorter-parts/sorter-v2-cable-labels-5d4e44453d99.pdf) or for [US Letter](https://assets.basically.website/sorter-parts/sorter-v2-cable-labels-letter-bee343158f99.pdf). Each has one page per cable type (the wire pairs, the stepper leads bare and under sleeving, and the USB cables and ribbons), with 12 mm (0.5 in) tall strips, two for each ID, one for each end. A strip is the ID, a blank section that wraps round the cable, and the ID again, and its length is sized to the cable, so use the page for your cable type. A dashed line marks the centre, where you fold it. The IDs are `PJ1` to `PJ3`, `W1` to `W3`, `L1` to `L3`, `L1p` to `L3p`, `LIM`, `S1` to `S4`, `CH`, `U1`, `U2`, `RIB1` and `RIB2`.
 
 <ol class="numbered-steps">
   <li>Print the sheet for your paper size at <strong>100% or Actual size</strong>, never Fit to Page. The bar at the top is 100 mm (3.9 in) long: measure it to check the scale.</li>
-  <li>Cut out two strips for each cable, one per end. Trim a strip shorter for a thin lead, so that it does not wrap round more than twice.</li>
+  <li>Cut out two strips for each cable, one per end.</li>
   <li>Fold each strip on the dashed centre line, then wrap it round the cable close to the connector, with the ID facing out.</li>
   <li>Cover it with clear tape, one full turn that overlaps itself, so that the print is sealed. A laser print holds up under tape better than inkjet ink, which can smear.</li>
 </ol>

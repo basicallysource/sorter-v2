@@ -1,6 +1,6 @@
 metadata:
   title: Chute limit switch lead
-  description: "The chute limit switch lead, x1 per machine. The buildable\nsub-harness for LIM on the LED drops and limit switch\ndrawing. Nothing on it is soldered: two crimps at the\nboard, two push-on tabs at the switch."
+  description: "The chute limit switch lead, x1 per machine. The buildable\nsub-harness for LIM1 on the LED drops and limit switch\ndrawing. Nothing on it is soldered: two crimps at the\nboard, two push-on tabs at the switch."
 
 connectors:
   BOARD:
@@ -19,7 +19,7 @@ connectors:
     notes: "Omron V-155-1C25. The switch is SPDT and its\nthird tab stays bare."
 
 cables:
-  LIM:
+  LIM1:
     gauge: 22 AWG
     length: 24 in
     colors: [BK, WH]
@@ -28,5 +28,5 @@ cables:
 connections:
   -
     - BOARD: [1-2]
-    - LIM: [1-2]
+    - LIM1: [1-2]
     - SW: [1-2]

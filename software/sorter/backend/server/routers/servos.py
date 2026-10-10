@@ -147,8 +147,15 @@ def _live_servo_for_layer(layer_index: int) -> Any:
         raise HTTPException(status_code=503, detail="Servo controller not initialized.")
 
     servos = list(getattr(active_irl, "servos", []))
-    if layer_index < 0 or layer_index >= len(servos):
+    if layer_index < 0:
         raise HTTPException(status_code=404, detail=f"Unknown storage layer {layer_index + 1}.")
+    if layer_index >= len(servos):
+        # The live servos are built when the machine homes, so a layer added
+        # since then has none yet.
+        raise HTTPException(
+            status_code=409,
+            detail=f"Layer {layer_index + 1} has no servo running yet. Save the layers, then home the machine.",
+        )
     return servos[layer_index]
 
 

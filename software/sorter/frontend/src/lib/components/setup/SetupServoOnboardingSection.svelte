@@ -716,7 +716,7 @@
 				onNudge={(servoId, degrees) => void nudgeServo(servoId, degrees)}
 			/>
 		{:else}
-			<ServoLayerCalibrator showDirections />
+			<ServoLayerCalibrator />
 		{/if}
 
 		{#if servoIssues.length}

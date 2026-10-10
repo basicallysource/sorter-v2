@@ -318,12 +318,12 @@ def test_request_auto_resolve_rejected_without_incident(machine_params_env) -> N
 def test_does_not_stomp_other_active_incident(machine_params_env) -> None:
     setExitStuckMode("manual")
     sm = mkWatchdogSm(n_pieces=1)
-    sm.gc.runtime_stats.setActiveIncident({"kind": "distribution_chute_jam"})
+    sm.gc.runtime_stats.setActiveIncident({"kind": "distribution_no_bin_available"})
     stallOut(sm)
 
     sm._checkStall(time.monotonic())
 
     active = sm.gc.runtime_stats.activeIncident()
     assert active is not None
-    assert active["kind"] == "distribution_chute_jam"
+    assert active["kind"] == "distribution_no_bin_available"
     assert not sm._stall_incident_raised

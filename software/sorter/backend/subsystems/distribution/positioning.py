@@ -19,16 +19,9 @@ from hardware.fault import HardwareFault
 from utils.event import knownObjectToEvent
 
 
-CHUTE_JAM_TITLE = "Chute jammed"
 SERVO_BUS_OFFLINE_TITLE = "Servo bus offline"
-DISTRIBUTION_CHUTE_JAM_INCIDENT_KIND = "distribution_chute_jam"
 DISTRIBUTION_SERVO_BUS_OFFLINE_INCIDENT_KIND = "distribution_servo_bus_offline"
 DISTRIBUTION_NO_BIN_AVAILABLE_INCIDENT_KIND = "distribution_no_bin_available"
-# Beyond how many ms after the estimated move time do we conclude the
-# chute / servo is stuck? 3× the expected move is generous but catches
-# a real jam reliably.
-CHUTE_MOVE_TIMEOUT_MS = 6000
-CHUTE_MOVE_TIMEOUT_MULTIPLIER = 3.0
 # A door still moving refuses a new command, so the doors for the next piece
 # are set only once every flap has stopped; after this long, set them anyway.
 DOORS_STOP_WAIT_S = 2.0
@@ -89,10 +82,7 @@ class Positioning(BaseState):
         self._occupancy_state: str | None = None
         self._blocked_layers: set[int] = set()
         self._servo_offline_layers: set[int] = set()
-        self._jam_pause_enqueued: bool = False
-        self._jam_ignored_logged: bool = False
         self._servo_bus_pause_enqueued: bool = False
-        self._chute_move_estimated_ms: int = 0
 
     def _setOccupancyState(self, state_name: str) -> None:
         if self._occupancy_state == state_name:
@@ -139,7 +129,6 @@ class Positioning(BaseState):
                     f"Positioning: piece {piece.uuid} is too big "
                     f"({piece.max_dimension_mm}mm) — passthrough to misc bottom bin"
                 )
-                self._clearChuteJamAlertIfOwned()
                 self._openAllDoorsForPassthrough()
                 piece.stage = PieceStage.distributing
                 piece.distributing_at = time.time()
@@ -189,7 +178,6 @@ class Positioning(BaseState):
                     f"Positioning: unrouted piece loose on the classification channel — "
                     f"piece {piece.uuid} passes through to the bucket instead of claiming a bin"
                 )
-                self._clearChuteJamAlertIfOwned()
                 self._openAllDoorsForPassthrough()
                 piece.stage = PieceStage.distributing
                 piece.distributing_at = time.time()
@@ -252,7 +240,6 @@ class Positioning(BaseState):
                     f"Positioning: piece {piece.uuid} ({piece.max_dimension_mm}mm) exceeds "
                     f"layer {address.layer_index} limit ({layer_max}mm) — passthrough to misc bottom bin"
                 )
-                self._clearChuteJamAlertIfOwned()
                 self._openAllDoorsForPassthrough()
                 piece.stage = PieceStage.distributing
                 piece.distributing_at = time.time()
@@ -267,7 +254,6 @@ class Positioning(BaseState):
                 self._setOccupancyState("positioning.passthrough_too_big_for_layer")
                 return DistributionState.READY
 
-            self._clearChuteJamAlertIfOwned()
             self.logger.info(
                 f"Positioning: moving to bin at layer={address.layer_index}, section={address.section_index}, bin={address.bin_index}"
             )
@@ -278,23 +264,16 @@ class Positioning(BaseState):
                 # If every layer is now blocked AND the root cause is that
                 # every configured servo is offline, this is the fatal
                 # servo-bus case: the controller can no longer dispense
-                # anything. Pause + red banner. Fall back to the generic
-                # chute-jam alert only if blocks came from other causes
-                # (e.g. transient close-timeouts on a live bus).
+                # anything. Pause + red banner.
                 usable_count = sum(
                     1
                     for li, layer in enumerate(self.layout.layers)
                     if getattr(layer, "enabled", True) and li not in self._blocked_layers
                 )
-                if usable_count == 0:
-                    if self._allEnabledLayersServoOffline():
-                        self._raiseServoBusOfflineAlert(
-                            "no layer servo responded during door selection"
-                        )
-                    else:
-                        self._raiseChuteJamAlert(
-                            "all layer servos are offline"
-                        )
+                if usable_count == 0 and self._allEnabledLayersServoOffline():
+                    self._raiseServoBusOfflineAlert(
+                        "no layer servo responded during door selection"
+                    )
                 return DistributionState.IDLE
 
             piece.stage = PieceStage.distributing
@@ -316,9 +295,8 @@ class Positioning(BaseState):
             self._startChuteMove()
             # Re-read the clock: `now` was taken at the top of step(), and the
             # init phase above (bin lookup, servo selection, the move command
-            # itself) can block for seconds on the serial bus or a disk stall.
-            # Charging that time to the move budget produced a false
-            # "chute stepper did not stop" jam one second into a 2.8 s move.
+            # itself) can block for seconds on the serial bus or a disk stall,
+            # which is not part of the move.
             now = time.monotonic()
             self._moving_started_at = now
             init_ms = (now - self._state_entered_at) * 1000
@@ -339,28 +317,6 @@ class Positioning(BaseState):
             chute_stopped = self.chute.stepper.stopped
             servo_stopped = self._isDoorServoStopped()
             if not chute_stopped or not servo_stopped:
-                # Jam detection: if we've been "waiting for movement" for
-                # way longer than the estimated move time, something is
-                # physically stuck. Raise hard alert + pause.
-                elapsed_ms = (now - self._moving_started_at) * 1000
-                budget_ms = max(
-                    CHUTE_MOVE_TIMEOUT_MS,
-                    int(self._chute_move_estimated_ms * CHUTE_MOVE_TIMEOUT_MULTIPLIER),
-                )
-                if elapsed_ms > budget_ms:
-                    stuck = []
-                    if not chute_stopped:
-                        stuck.append("chute stepper did not stop")
-                    if not servo_stopped:
-                        stuck.append(f"layer-{self._door_servo_index} servo flap did not close")
-                    self._raiseChuteJamAlert(
-                        f"{' and '.join(stuck)} after {elapsed_ms:.0f}ms (budget {budget_ms}ms)"
-                    )
-                    # Abort this sortation; remain in POSITIONING so the
-                    # pause event handled by the coordinator can take
-                    # over. Returning IDLE here would let the next piece
-                    # start a new move on top of the stuck one.
-                    return None
                 return None
             self.shared.set_chute_motion(False, target_bin=self._target_address)
             if self._piece is not None and self._piece.distribution_positioned_at is None:
@@ -388,7 +344,6 @@ class Positioning(BaseState):
             self.logger.warning("Positioning: chute refused the move; resending once it stops")
             self._phase = "start_chute"
             return
-        self._chute_move_estimated_ms = int(estimated_ms)
         self.logger.info(
             f"Positioning: chute move started (est_ms={estimated_ms})"
         )
@@ -503,8 +458,8 @@ class Positioning(BaseState):
         try:
             return self.irl.servos[self._door_servo_index].stopped
         except Exception as exc:
-            # Unknown is not stopped: keep waiting, and let the move budget raise
-            # the jam instead of dropping the piece behind a flap in an unknown place.
+            # Unknown is not stopped: keep waiting instead of dropping the piece
+            # behind a flap in an unknown place.
             self._markLayerUnavailable(
                 self._door_servo_index,
                 f"servo stop check failed: {exc}",
@@ -550,7 +505,7 @@ class Positioning(BaseState):
     def _allEnabledLayersServoOffline(self) -> bool:
         """True iff every enabled layer's servo is currently flagged as
         offline. Used to separate the fatal servo-bus case from a soft
-        "one layer jammed" case.
+        one-layer failure.
         """
         if self.gc.disable_servos:
             return False
@@ -693,72 +648,6 @@ class Positioning(BaseState):
             self.gc.runtime_stats.clearServoBusOffline()
         except Exception:
             pass
-
-    def _raiseChuteJamAlert(self, detail: str) -> None:
-        """Hard alert: chute / servo can't physically move. Raises the red
-        banner *and* enqueues a pause so the operator has to intervene.
-
-        Honors the Chute Jam incident policy: when it is Off, the condition
-        is logged once per move and otherwise ignored - no incident, no
-        banner, no pause - and positioning keeps waiting for the motion to
-        finish. The policy used to gate only the incident card, so a machine
-        set to Off still paused on a red banner.
-        """
-        elapsed_ms = int(max(0.0, time.monotonic() - self._moving_started_at) * 1000.0)
-        if _incidentHandlingOff(DISTRIBUTION_CHUTE_JAM_INCIDENT_KIND):
-            if not self._jam_ignored_logged:
-                self._jam_ignored_logged = True
-                self.logger.warning(
-                    f"Chute jam check tripped ({detail}) but Chute Jam "
-                    "handling is Off - ignoring and waiting for the motion to finish"
-                )
-            return
-        self._publishDistributionIncident(
-            DISTRIBUTION_CHUTE_JAM_INCIDENT_KIND,
-            detail=detail,
-            severity="critical",
-            role="distribution_chute",
-            channel_label="Distribution Chute",
-            elapsed_ms=elapsed_ms,
-            estimated_ms=int(self._chute_move_estimated_ms),
-            target_address=self._targetAddressPayload(),
-        )
-        if self._jam_pause_enqueued:
-            return
-        self._jam_pause_enqueued = True
-        message = (
-            f"{detail[:1].upper()}{detail[1:]}. Clear any piece stuck in the chute or on the distribution tray, "
-            "make sure the servo flap can move freely, then press play."
-        )
-        self.logger.error(f"{CHUTE_JAM_TITLE}: {message}")
-        try:
-            self.gc.runtime_stats.observeBlockedReason("distribution", "chute_jam")
-        except Exception:
-            pass
-        try:
-            with shared_state.hardware_lifecycle_lock:
-                shared_state.setHardwareStatus(error=HardwareFault(CHUTE_JAM_TITLE, message))
-        except Exception:
-            pass
-        try:
-            if shared_state.command_queue is not None:
-                shared_state.command_queue.put(
-                    PauseCommandEvent(tag="pause", data=PauseCommandData())
-                )
-        except Exception:
-            pass
-
-    def _clearChuteJamAlertIfOwned(self) -> None:
-        try:
-            with shared_state.hardware_lifecycle_lock:
-                err = shared_state.hardware_error
-                if err is not None and err["title"] == CHUTE_JAM_TITLE:
-                    shared_state.setHardwareStatus(clear_error=True)
-        except Exception:
-            pass
-        self._jam_pause_enqueued = False
-        self._jam_ignored_logged = False
-        self._clearDistributionIncident(DISTRIBUTION_CHUTE_JAM_INCIDENT_KIND)
 
     def _openAllDoorsForPassthrough(self) -> None:
         """Open every usable layer door so a piece with no assigned bin

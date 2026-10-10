@@ -997,15 +997,14 @@
       "uid": "xgzj",
       "name": "External bracket — bottom vertical",
       "description": "Part of the external distribution-frame bracket (3-part assembly).",
-      "internal_notes": "External distribution-frame bracket assembly member. 6 per distribution frame (per layer). Not used at the top interface: that joint has no bottom vertical or flange (top-interface.md step 14, confirmed 2026-08-25). The earlier 'interface: 6' assumption here was wrong, removed. Frame color.",
+      "internal_notes": "External distribution-frame bracket assembly member. 6 per distribution frame (per layer), including the bottom layer (bottom-layer.md step 4 caps each piece D with one). Not used at the top interface: that joint has no bottom vertical or flange (top-interface.md step 14, confirmed 2026-08-25). The earlier 'interface: 6' assumption here was wrong, removed. Frame color.",
       "version": "1",
       "created_at": "2026-06-27",
       "updated_at": "2026-06-27",
       "stl_hash": "313397afb08fc1943f045905b96131f73f1dc70c05d59fd2583c77da38318c36",
       "source": "1_printed_crossbeams - bottom_vertical_bracket.stl",
       "quantities": {
-        "layer": 6,
-        "interface": 6
+        "layer": 6
       },
       "assembly": "external-bracket",
       "color": {
@@ -1013,7 +1012,7 @@
       },
       "optional": false,
       "support": false,
-      "layer_scope": "non-bottom",
+      "layer_scope": null,
       "onshape_version": "https://cad.onshape.com/documents/a4a1965bbaf3a15aff2b13ed/v/7279a42b05833c7b828efb0d/e/b0ee2e787191265cba1c1a31"
     },
     {
@@ -6586,9 +6585,10 @@
       "name": "Orange Pi 5 WiFi 6 + Bluetooth module",
       "category": "Computer",
       "description": "WiFi and Bluetooth for the Orange Pi. Optional.",
+      "note": "Check the position of the notch when buying. The green modules have two notches at different positions, and they do not fit.",
       "docs_page": "/hardware/electronics/installation/orange-pi-prep/",
       "created_at": "2026-07-18",
-      "updated_at": "2026-09-18",
+      "updated_at": "2026-10-06",
       "sheet_qty": {
         "per_machine": 1
       },
@@ -17880,8 +17880,8 @@
     },
     {
       "id": "channel-one-support-structure",
-      "uid": "z6fs",
-      "version": "1",
+      "uid": "kirs",
+      "version": "2",
       "name": "Channel 1 support structure",
       "description": "Channel 1 support: the layout guide its three legs stand in, and a dovetail adapter on each leg.",
       "docs": "/hardware/assembly/feeder/arranging-c-channels/",
@@ -17897,6 +17897,16 @@
         {
           "part": "support-dovetail-adapter",
           "qty": 3
+        },
+        {
+          "part": "scr-m5-16-shcs",
+          "qty": 6,
+          "optional": true
+        },
+        {
+          "part": "tnut-m5-2020",
+          "qty": 6,
+          "optional": true
         }
       ],
       "connections": [
@@ -17913,13 +17923,62 @@
           "qty": 3,
           "method": "gravity",
           "note": "An adapter sits on top of each leg under its own weight."
+        },
+        {
+          "from": "layout-guide",
+          "to": "ext-2020-c1",
+          "via": "scr-m5-16-shcs",
+          "qty": 3,
+          "method": "tnut",
+          "draft": true,
+          "note": "Optional pin, one per leg: through the wall of the guide's socket (Ø5.5 cross hole) into an M5 T-nut in the extrusion slot."
+        },
+        {
+          "from": "support-dovetail-adapter",
+          "to": "ext-2020-c1",
+          "via": "scr-m5-16-shcs",
+          "qty": 3,
+          "method": "tnut",
+          "draft": true,
+          "note": "Optional pin, one per leg: through the adapter's Ø5.5 cross hole into an M5 T-nut in the extrusion slot."
+        }
+      ],
+      "versions": [
+        {
+          "version": "1",
+          "uid": "z6fs",
+          "message": "As recorded before the first stamped change.",
+          "lines": [
+            {
+              "part": "layout-guide",
+              "qty": 1,
+              "uid": "wwbb"
+            },
+            {
+              "part": "ext-2020-c1",
+              "qty": 3,
+              "uid": "n11o"
+            },
+            {
+              "part": "support-dovetail-adapter",
+              "qty": 3,
+              "uid": "2ikc"
+            }
+          ]
+        },
+        {
+          "version": "2",
+          "date": "2026-10-04",
+          "message": "The optional pins are on the tree, uncounted. The design is meant to be screwless and nothing here is required, but each leg end has a cross hole in the layout guide's socket, the printed leg and the adapter, so a builder who wants to pin a stand can: one M5 x 16 per leg end, into an M5 T-nut in the extrusion slot (6 screws, 6 T-nuts). The lines are marked optional, so no total, order list or bundle counts them. Hole sizes measured off the published STLs; the screw length is the machine's standard M5, not a measured seating, so the joints are still drafts.",
+          "breaking": false,
+          "commit": null
         }
       ]
     },
     {
       "id": "channel-two-support-structure",
-      "uid": "bwvu",
-      "version": "1",
+      "uid": "cqnj",
+      "version": "2",
       "name": "Channel 2 support structure",
       "description": "Channel 2 support: the layout guide its three legs stand in, and a dovetail adapter on each leg.",
       "docs": "/hardware/assembly/feeder/arranging-c-channels/",
@@ -17935,6 +17994,11 @@
         {
           "part": "support-dovetail-adapter",
           "qty": 3
+        },
+        {
+          "part": "scr-m5-16-shcs",
+          "qty": 6,
+          "optional": true
         }
       ],
       "connections": [
@@ -17951,13 +18015,62 @@
           "qty": 3,
           "method": "gravity",
           "note": "An adapter sits on top of each leg under its own weight."
+        },
+        {
+          "from": "layout-guide",
+          "to": "channel-two-support-leg",
+          "via": "scr-m5-16-shcs",
+          "qty": 3,
+          "method": "self-tap",
+          "draft": true,
+          "note": "Optional pin, one per leg: through the wall of the guide's socket (Ø5.5 cross hole) into the printed leg, cutting its own thread."
+        },
+        {
+          "from": "support-dovetail-adapter",
+          "to": "channel-two-support-leg",
+          "via": "scr-m5-16-shcs",
+          "qty": 3,
+          "method": "self-tap",
+          "draft": true,
+          "note": "Optional pin, one per leg: through the adapter's Ø5.5 cross hole into the printed leg, cutting its own thread."
+        }
+      ],
+      "versions": [
+        {
+          "version": "1",
+          "uid": "bwvu",
+          "message": "As recorded before the first stamped change.",
+          "lines": [
+            {
+              "part": "layout-guide",
+              "qty": 1,
+              "uid": "wwbb"
+            },
+            {
+              "part": "channel-two-support-leg",
+              "qty": 3,
+              "uid": "bk8x"
+            },
+            {
+              "part": "support-dovetail-adapter",
+              "qty": 3,
+              "uid": "2ikc"
+            }
+          ]
+        },
+        {
+          "version": "2",
+          "date": "2026-10-04",
+          "message": "The optional pins are on the tree, uncounted. The design is meant to be screwless and nothing here is required, but each leg end has a cross hole in the layout guide's socket, the printed leg and the adapter, so a builder who wants to pin a stand can: one M5 x 16 per leg end (6 screws), self-tapping into the printed leg. The lines are marked optional, so no total, order list or bundle counts them. Hole sizes measured off the published STLs; the screw length is the machine's standard M5, not a measured seating, so the joints are still drafts.",
+          "breaking": false,
+          "commit": null
         }
       ]
     },
     {
       "id": "channel-three-support-structure",
-      "uid": "nwst",
-      "version": "1",
+      "uid": "fliu",
+      "version": "2",
       "name": "Channel 3 support structure",
       "description": "Channel 3 support: the layout guide its three legs stand in, and a dovetail adapter on each leg.",
       "docs": "/hardware/assembly/feeder/arranging-c-channels/",
@@ -17973,6 +18086,11 @@
         {
           "part": "support-dovetail-adapter",
           "qty": 3
+        },
+        {
+          "part": "scr-m5-16-shcs",
+          "qty": 6,
+          "optional": true
         }
       ],
       "connections": [
@@ -17989,6 +18107,55 @@
           "qty": 3,
           "method": "gravity",
           "note": "An adapter sits on top of each leg under its own weight."
+        },
+        {
+          "from": "layout-guide",
+          "to": "channel-three-support-leg",
+          "via": "scr-m5-16-shcs",
+          "qty": 3,
+          "method": "self-tap",
+          "draft": true,
+          "note": "Optional pin, one per leg: through the wall of the guide's socket (Ø5.5 cross hole) into the printed leg, cutting its own thread."
+        },
+        {
+          "from": "support-dovetail-adapter",
+          "to": "channel-three-support-leg",
+          "via": "scr-m5-16-shcs",
+          "qty": 3,
+          "method": "self-tap",
+          "draft": true,
+          "note": "Optional pin, one per leg: through the adapter's Ø5.5 cross hole into the printed leg, cutting its own thread."
+        }
+      ],
+      "versions": [
+        {
+          "version": "1",
+          "uid": "nwst",
+          "message": "As recorded before the first stamped change.",
+          "lines": [
+            {
+              "part": "layout-guide",
+              "qty": 1,
+              "uid": "wwbb"
+            },
+            {
+              "part": "channel-three-support-leg",
+              "qty": 3,
+              "uid": "q5p4"
+            },
+            {
+              "part": "support-dovetail-adapter",
+              "qty": 3,
+              "uid": "2ikc"
+            }
+          ]
+        },
+        {
+          "version": "2",
+          "date": "2026-10-04",
+          "message": "The optional pins are on the tree, uncounted. The design is meant to be screwless and nothing here is required, but each leg end has a cross hole in the layout guide's socket, the printed leg and the adapter, so a builder who wants to pin a stand can: one M5 x 16 per leg end (6 screws), self-tapping into the printed leg. The lines are marked optional, so no total, order list or bundle counts them. Hole sizes measured off the published STLs; the screw length is the machine's standard M5, not a measured seating, so the joints are still drafts.",
+          "breaking": false,
+          "commit": null
         }
       ]
     },

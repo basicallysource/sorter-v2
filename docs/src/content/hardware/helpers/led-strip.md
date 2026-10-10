@@ -1,11 +1,11 @@
 ---
 layout: default
-title: Preparing the LED strip (L1 to L3, L1p to L3p)
+title: Preparing the LED strips (L1 to L3, L1p to L3p)
 type: how-to
 section: hardware
 slug: helper-led-strip
-kicker: Helpers — LED strip (L1 to L3, L1p to L3p)
-lede: Cutting a length of 24 V strip and making the cable that takes it to the control board (L1 to L3, L1p to L3p), with an optional but recommended barrel plug and socket where the lamp comes off. Three of each per machine.
+kicker: Helpers — LED strips (L1 to L3, L1p to L3p)
+lede: One machine needs three LED strips. This page describes how to cut a length of 24 V strip and make the cable that takes it to the control board (L1 to L3, L1p to L3p), with an optional but recommended barrel plug and socket where the lamp comes off.
 permalink: /hardware/helpers/led-strip/
 author: brickcyclealice
 contributors: [effreek, reveryx, spencer, barthel]
@@ -33,7 +33,7 @@ tools_needed: [Side cutters, Wire strippers, "Multimeter (only if you fit the pl
 Each camera lamp needs a cable that takes 24 V from the control board to its strip. The best way to build it is **two cables that meet at a barrel plug and socket**: the board cable (`L1` to `L3`) and the lamp pigtail (`L1p` to `L3p`). The plug and socket are **optional but recommended**. **They make maintenance easier:** the power supply to a lamp can be disconnected right next to the lamp, so you can take a lamp down, swap it or work on it without touching the board end of its cable or the cables of the other lamps. **A machine takes three of each.** The quantities above are a whole machine's worth: one 5 m (16 ft) roll cuts into five lengths, and the Dupont cables come five to a pack.
 
 <figure class="single-figure">
-  <img class="doc-figure" src="https://assets.basically.website/sorter-docs/led-two-cable-set-pin1-full-ad3551b6b708.png" alt="Diagram of two cables. Cable 1, the lamp pigtail: an LED strip, a clamp-on connector, and red and black wires ending in a barrel plug. Cable 2, the board cable: a barrel socket, two staggered butt connectors on its red and black wires, and a longer cable ending in a two-pin Dupont plug that goes to the board, red in pin 1 for +V and black in the other for GND.">
+  <img class="doc-figure" style="max-width: min(100%, 800px)" src="https://assets.basically.website/sorter-docs/led-two-cable-set-pin1-full-9bd42a94a5c9.png" alt="Diagram of two cables. Cable 1, the lamp pigtail: an LED strip, a clamp-on connector, and red and black wires ending in a barrel plug. Cable 2, the board cable: a barrel socket, two staggered butt connectors on its red and black wires, and a longer cable ending in a two-pin Dupont plug that goes to the board, red in pin 1 for +V and black in the other for GND.">
   <figcaption>The two cables: the lamp pigtail (<code>L1p</code> to <code>L3p</code>) stays with the lamp, the board cable (<code>L1</code> to <code>L3</code>) stays with the machine.</figcaption>
 </figure>
 
@@ -80,10 +80,10 @@ The cable comes from the pack with a plug on both ends: the **male** one has two
 
 If you own a crimp tool for open-barrel contacts, you can make this cable instead: about 920 mm (36 in) of 22 AWG (0.33 mm²), one red and one black, with a 2-pin 2.54 mm (0.1 in) Dupont female housing crimped on (how is at [Crimping connectors]({{ '/hardware/helpers/crimping/' | relative_url }})). Put the black wire's contact in the cavity next to the moulded arrow, so the arrow marks ground on the cables you make.
 
-**The housing has no key, so it pushes onto the board's two pins either way up. The arrow moulded into it always marks the black (ground) wire.** Fit the housing with the arrow end over the pin the board prints `GND`, the round pad, and the red wire is then over `+V` on the square pad. The ready-made cables in the listing photo have the arrow beside the black wire's contact too, so one rule covers both. Meter before first power anyway: the board cannot stop you pushing it on the wrong way round.
+**The housing has no key, so it pushes onto the board's two pins either way up. The arrow moulded into it always marks the black (ground) wire.** Fit the housing with the arrow end over the pin the board prints `GND`, the round pad, and the red wire is then over `+V` on the square pad. The ready-made cables in the listing photo have the arrow beside the black wire's contact too, so one rule covers both. If you do get it the wrong way round, nothing is damaged: the LEDs simply will not light, so turn the housing half a turn.
 
 <figure class="single-figure">
-  <img class="doc-figure" src="https://assets.basically.website/sorter-docs/led-dupont-orientation-full-d7b88c61fe57.png" alt="Two views of the Dupont housing from above on an LED port. Left, right: the red wire's cavity is over the pin on the square pad printed +V and the black wire's is over the round GND pin, with the moulded arrow beside the black one. Right, wrong: the housing turned half a turn, so red is over GND and the arrow has moved to the other side.">
+  <img class="doc-figure" style="max-width: min(100%, 800px)" src="https://assets.basically.website/sorter-docs/led-dupont-orientation-full-2ee564a2f488.png" alt="Two views of the Dupont housing from above on an LED port. Left, right: the red wire's cavity is over the pin on the square pad printed +V and the black wire's is over the round GND pin, with the moulded arrow beside the black one. Right, wrong: the housing turned half a turn, so red is over GND and the arrow has moved to the other side.">
   <figcaption>The same housing both ways round. Right: the arrow end is over the pin printed <code>GND</code>. Wrong: turned half a turn, with the arrow end over <code>+V</code>.</figcaption>
 </figure>
 

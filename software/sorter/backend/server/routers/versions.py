@@ -15,8 +15,13 @@ from pydantic import BaseModel
 
 router = APIRouter()
 
+# Release channels are tag namespaces: a machine is on a channel when it sits on
+# one of the channel's tags, and each channel offers its newest release. Never a
+# branch: an "update" to main is exactly what an operator must not be offered.
 STABLE_TAG_PREFIX = "sorter/stable/v"
-RELEASE_CHANNELS = (("stable", STABLE_TAG_PREFIX),)
+CANARY_TAG_PREFIX = "sorter/canary/v"
+RELEASE_CHANNELS = (("stable", STABLE_TAG_PREFIX), ("canary", CANARY_TAG_PREFIX))
+VERSION_PATTERN = re.compile(r"^\d+(\.\d+)*$")
 MAX_TAGS_LISTED = 20
 GIT_TIMEOUT_S = 30.0
 GIT_FETCH_TIMEOUT_S = 90.0
@@ -126,8 +131,49 @@ def _tagsForPrefix(prefix: str) -> List[Dict[str, Any]]:
     return tags
 
 
+def _releaseVersion(name: str) -> Optional[tuple[int, ...]]:
+    """(0, 4, 1) for sorter/canary/v0.4.1, None for anything else."""
+    for _channel, prefix in RELEASE_CHANNELS:
+        if name.startswith(prefix):
+            number = name[len(prefix):]
+            if VERSION_PATTERN.match(number):
+                return tuple(int(part) for part in number.split("."))
+    return None
+
+
+def _installedVersion() -> Optional[tuple[int, ...]]:
+    """The version of the release the machine runs: the newest release tagged on
+    HEAD, or, off a tag, the newest release the checked-out code contains."""
+    patterns = [f"{prefix}*" for _channel, prefix in RELEASE_CHANNELS]
+    for selector in ("--points-at", "--merged"):
+        result = _git("tag", "-l", *patterns, selector, "HEAD")
+        if result.returncode != 0:
+            return None
+        versions = [v for v in (_releaseVersion(name) for name in result.stdout.split()) if v is not None]
+        if versions:
+            return max(versions)
+    return None
+
+
+def _isBehind(full_sha: str, version: Optional[tuple[int, ...]], installed: Optional[tuple[int, ...]]) -> bool:
+    """Whether a release is older than what the machine runs. A machine never
+    moves back: newer code may have changed the machine's services or data in
+    ways older code can't run on (main serves the UI from the supervisor and
+    removes the Vite unit v0.3 needs). Coming back from canary to stable waits
+    until stable catches up."""
+    if installed is not None and version is not None and version < installed:
+        return True
+    head = _gitLine("rev-parse", "HEAD")
+    return full_sha != head and _git("merge-base", "--is-ancestor", full_sha, "HEAD").returncode == 0
+
+
+def _formatVersion(version: Optional[tuple[int, ...]]) -> Optional[str]:
+    return ".".join(str(part) for part in version) if version is not None else None
+
+
 def _channelEntries(current: Dict[str, Any]) -> List[Dict[str, Any]]:
     head_full = current.get("full_sha")
+    installed = _installedVersion()
     entries: List[Dict[str, Any]] = []
     for channel, prefix in RELEASE_CHANNELS:
         tags = _tagsForPrefix(prefix)
@@ -135,16 +181,19 @@ def _channelEntries(current: Dict[str, Any]) -> List[Dict[str, Any]]:
             continue
         latest = tags[0]
         on_channel = any(tag["full_sha"] == head_full for tag in tags)
+        version = _releaseVersion(latest["name"])
         entries.append(
             {
                 "kind": "tag",
                 "channel": channel,
                 "name": latest["name"],
+                "version": _formatVersion(version),
                 "sha": latest["sha"],
                 "commit_unix": latest["commit_unix"],
                 "subject": latest["subject"],
                 "is_current": on_channel,
                 "up_to_date": on_channel and latest["full_sha"] == head_full,
+                "behind": _isBehind(latest["full_sha"], version, installed),
             }
         )
     return entries
@@ -198,6 +247,7 @@ def get_versions(refresh: bool = False) -> Dict[str, Any]:
             fetch_error = result.stderr.strip() or "git fetch failed"
 
     current = _currentInfo()
+    current["release_version"] = _formatVersion(_installedVersion())
     return {
         "ok": True,
         "current": current,
@@ -210,8 +260,10 @@ def get_versions(refresh: bool = False) -> Dict[str, Any]:
 @router.post("/api/system/update")
 def update_version(req: UpdateRequest) -> Dict[str, Any]:
     global _update_target
-    if req.kind != "tag" or not req.name.startswith(STABLE_TAG_PREFIX):
-        return {"ok": False, "message": f"Only stable releases ({STABLE_TAG_PREFIX}*) can be installed on this machine."}
+    target_version = _releaseVersion(req.name) if req.kind == "tag" else None
+    if target_version is None:
+        prefixes = ", ".join(f"{prefix}*" for _channel, prefix in RELEASE_CHANNELS)
+        return {"ok": False, "message": f"Only releases ({prefixes}) can be installed on this machine."}
     if not REF_NAME_PATTERN.match(req.name) or ".." in req.name:
         return {"ok": False, "message": f"Invalid ref name: {req.name}"}
 
@@ -231,6 +283,14 @@ def update_version(req: UpdateRequest) -> Dict[str, Any]:
         target = _commitInfo(target_ref)
         if target is None:
             return {"ok": False, "message": f"Ref not found on origin: {target_ref}"}
+        if _isBehind(target["full_sha"], target_version, _installedVersion()):
+            return {
+                "ok": False,
+                "message": (
+                    f"{req.name} is older than the software on this machine, which may not run on it "
+                    "any more. It can switch once that channel has a newer release."
+                ),
+            }
 
         old = _commitInfo("HEAD") or {}
         old_sha = old.get("full_sha", "")

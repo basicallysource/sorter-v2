@@ -72,6 +72,8 @@ The motor's four leads are coloured, and the colours do not tell you which pair 
   <li>Work through the leads until you have both pairs. Write down which colour goes with which.</li>
 </ol>
 
+No multimeter? [Join two of the leads and turn the shaft by hand]({{ '/hardware/helpers/multimeter/' | relative_url }}#how-to-find-the-wires-for-a-motor-coil-without-a-multimeter): if it gets hard to turn, those two are one coil.
+
 ## Build it
 
 <ol class="numbered-steps">
@@ -174,7 +176,11 @@ Both carry `A2`, `A1`, `B1`, `B2` on positions 1 to 4, and the board prints the 
   <li>Hold each end with a small piece of heat shrink or a turn of tape, so that the braid cannot creep back along the wires.</li>
 </ol>
 
-Leave the sleeving loose enough to bend, and do not tie it down so tightly that it crushes the braid.
+Leave the sleeving loose enough to bend, and do not strap it down so tightly that it crushes the braid.
+
+## Securing the lead
+
+When the lead is on the machine, strap it to the frame a short way back from the plug and from the motor, and leave a little slack at the plug and at the splices. Use hook-and-loop straps rather than zip ties, so the lead can come loose when you take the machine apart: see [securing the cables]({{ '/hardware/electronics/connecting/' | relative_url }}#securing-the-cables).
 
 
 ## The finished result

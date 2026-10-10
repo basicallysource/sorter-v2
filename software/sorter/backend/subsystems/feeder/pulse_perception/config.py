@@ -94,14 +94,6 @@ class PulsePerceptionConfig:
     # drop-zone values so greedy mode behaves identically until tuned apart.
     greedy_pulse_output_deg: float = 30.0
     greedy_pulse_pause_ms: int = 250
-    # A piece that does not move when its channel turns (stuck.py): after the
-    # channel has turned this far under it, try the remedies (a nudge of the
-    # channel above where it drops, shakes of this one), at most this many,
-    # then call the operator.
-    stuck_after_deg: float = 15.0
-    stuck_max_attempts: int = 3
-    # How far a nudge turns the channel above.
-    stuck_nudge_output_deg: float = 4.0
 
 _DEFAULTS = PulsePerceptionConfig()
 
@@ -131,9 +123,6 @@ FIELD_META: list[dict] = [
     {"section": "Channels", "key": "gate_ch3_on_classification_ready", "label": "Gate C3 on classification ready", "type": "bool", "default": _DEFAULTS.gate_ch3_on_classification_ready, "description": "Hold C3 from pushing a piece into the classification channel (C4) until C4 reports it is ready to accept one. Prevents two pieces landing in the same spot."},
     {"section": "Hand-off", "key": "dispense_vanish_confirm_ms", "label": "Fallen after gone for (ms)", "type": "int", "default": _DEFAULTS.dispense_vanish_confirm_ms, "description": "The piece being pushed off the exit counts as fallen once the camera has not seen it for this long. Longer ignores detector blinks; shorter reacts sooner."},
     {"section": "Hand-off", "key": "dispense_hold_ms", "label": "Hold after a piece falls (ms)", "type": "int", "default": _DEFAULTS.dispense_hold_ms, "description": "After the piece being pushed off falls, the exit pushes nothing for this long, so the next channel sees it before another piece can follow."},
-    {"section": "Stuck pieces", "key": "stuck_after_deg", "label": "Stuck after the channel turns (deg)", "type": "float", "default": _DEFAULTS.stuck_after_deg, "description": "A piece that has not moved while its channel turned this far under it is stuck: it straddles the rim, hangs on the channel above, or sticks at the exit."},
-    {"section": "Stuck pieces", "key": "stuck_max_attempts", "label": "Tries before calling you", "type": "int", "default": _DEFAULTS.stuck_max_attempts, "description": "How many remedies to try on a stuck piece (a nudge of the channel above where it drops, short shakes of this channel) before the Feeder jam card. Set the Feeder jam incident to Manual on the Incidents page to be called at once."},
-    {"section": "Stuck pieces", "key": "stuck_nudge_output_deg", "label": "Nudge of the channel above (output deg)", "type": "float", "default": _DEFAULTS.stuck_nudge_output_deg, "description": "How far the channel above turns to drop a piece hanging on its lip."},
     {"section": "Channels", "key": "enable_ch1", "label": "Enable C1 (bulk)", "type": "bool", "default": _DEFAULTS.enable_ch1, "description": "Run the C1 (bulk) channel. Off = this channel never moves."},
     {"section": "Channels", "key": "enable_ch2", "label": "Enable C2", "type": "bool", "default": _DEFAULTS.enable_ch2, "description": "Run the C2 channel. Off = this channel never moves."},
     {"section": "Channels", "key": "enable_ch3", "label": "Enable C3", "type": "bool", "default": _DEFAULTS.enable_ch3, "description": "Run the C3 channel. Off = this channel never moves."},

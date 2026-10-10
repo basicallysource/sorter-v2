@@ -9,17 +9,12 @@ lede: The pack you send a cable vendor. Every drawing on the machine with its bi
 permalink: /hardware/parts/harness-order/
 author: spencer
 contributors: [effreek]
-last_verified: 2026-07-12
+last_verified: 2026-10-03
 ---
-
-<div class="callout callout-warning">
-  <span class="callout-icon" aria-hidden="true">⚠</span>
-  <p><b>Not validated against a machine, and there are guesses in it.</b> Nothing here has been checked against the physical machine. Gauges, connector part numbers and the chute stepper length are engineering guesses, not measurements; they are conservative and safe to order against. Values marked <b>GUESS</b> in the drawings are guesses, and the ones that matter are listed at the bottom of this page.</p>
-</div>
 
 This is the only page that carries the harness drawings. Everywhere else on the site links here, so a cable is drawn once and a redrawn harness updates in one place.
 
-**You do not have to order the harness.** Every cable can be bought ready made or built on the bench, and the four you build have their own pages under [Helpers]({{ '/hardware/helpers/' | relative_url }}). This page is for having the set made in one go.
+**You do not have to order the harness.** Every cable can be bought ready made or built on the bench. To build them yourself, use the [Helpers]({{ '/hardware/helpers/' | relative_url }}) pages and the bill of materials under each drawing, and skip to [the drawings](#the-drawings). Everything above the drawings is the specification for a vendor, and this page is for having the set made in one go.
 
 <p class="download-line">
   <a href="{{ site.data.harness.zip }}" download><b>↓ sorter-v2-harness-rfq.zip</b></a>
@@ -32,32 +27,71 @@ What every cable is built to, whoever builds it.
 
 <dl class="spec-list">
   <dt>Wire</dt><dd>UL1007 stranded, 300 V, tinned copper</dd>
-  <dt>Gauges</dt><dd>18 AWG, 0.82 mm² (PSU box internals) · 22 AWG, 0.33 mm² (all barrel-plug 24 V runs, LED feeds, limit switch) · 24 AWG, 0.20 mm² (stepper cables, set by the JST-PH contact limit)</dd>
+  <dt>Gauges</dt><dd>18 AWG (0.82 mm²) (PSU box internals) · 22 AWG (0.33 mm²) (all barrel-plug 24 V runs, LED feeds, limit switch) · 24 AWG (0.20 mm²) (stepper cables, set by the JST-PH contact limit)</dd>
   <dt>Colours</dt><dd>Red = +24 V, black = GND on every 2-conductor power cable. Stepper colours are on the drawings.</dd>
-  <dt>Barrel jacks and plugs</dt><dd><b>5.5 mm outside, 2.1 mm inside</b>, centre-positive, rated 5 A or better. Confirmed against the Waveshare hub (their part DC-044). 5.5 × 2.5 mm exists, looks identical and does not mate, so put 2.1 on every line of the order.</dd>
-  <dt>Length tolerance</dt><dd>±10 mm, and ±25 mm is fine on anything 36 in or longer</dd>
-  <dt>Bare ends</dt><dd>Strip 5 mm, tin</dd>
-  <dt>Labelling</dt><dd>Each cable labelled with its ID (`W1`, `S1`…) on a flag label near end A</dd>
-  <dt>Order quantity</dt><dd>2 full sets, because the lengths are guesses and spares are cheap</dd>
+  <dt>Barrel jacks and plugs</dt><dd><b>5.5 mm (0.217 in) outside, 2.1 mm (0.083 in) inside</b>, centre-positive, rated 5 A or better. Confirmed against the Waveshare hub (their part DC-044). 5.5 × 2.5 mm (0.217 × 0.098 in) exists, looks identical and does not mate, so put 2.1 on every line of the order.</dd>
+  <dt>Length tolerance</dt><dd>±10 mm (±0.4 in), and ±25 mm (±1 in) is fine on anything 920 mm (36 in) or longer</dd>
+  <dt>Bare ends</dt><dd>Strip 5 mm (0.2 in), tin</dd>
+  <dt>Labelling</dt><dd>Each cable labelled with its ID from the schedule below (<code>W2</code>, <code>S1</code>…) on a wrap-around label near end A, which is the left-hand end in the schedule. <b>S1 to S4 are labelled at both ends</b>: four identical cables land within inches of each other at the board and at the motors, and they cannot be told apart once unplugged. Printed laser labels or printed heat shrink are both fine.</dd>
+  <dt>Acceptance test</dt><dd>100% continuity, every conductor, end to end. On <code>S1</code> to <code>S4</code> that means checking the position map under <a href="#channel-stepper">Channel stepper lead</a>, not just that each wire arrives. No hipot. No UL listing or IPC class is asked for at this stage.</dd>
+  <dt>Packaging</dt><dd>One bag per cable type, ID on the bag</dd>
+  <dt>Parts and brands</dt><dd>The vendor sources the connectors to the spec in the connector table. Where a row gives a part number it is the one the machine was designed against, and any RoHS-compliant equivalent that mates and crimps the same is fine.</dd>
+  <dt>Order quantity</dt><dd>2 full sets, because spares are cheap. Treat them as the sample run.</dd>
 </dl>
 
-## How to order it
+## Cable schedule
 
-- **A custom harness vendor** (Alibaba "custom cable assembly", or a quick-turn shop): send them the zip. Expect MOQ 50 to 100 pieces per line item from China; small shops and some AliExpress custom-cable storefronts will do 5 to 10.
-- **Low volume instead:** buy pre-crimped PH, XH and Dupont leads plus housings and assemble them. The only labour a vendor saves you is crimping.
-- The reasoning behind the guessed gauges: steppers draw 1.5 A per phase or less, so 24 AWG (0.20 mm²) is fine at these lengths; no single barrel-plug load exceeds about 3 A, so 22 AWG (0.33 mm²) is fine; the PSU box pigtails carry worst-case single-load current, hence 18 AWG (0.82 mm²).
+Every cable and lead the harness is made of, one row each, with its ID. Cables that are bought ready made (the ribbons, the USB cables, the mains cord) are not part of the harness and are not listed. The IDs are the same on the drawings, on the [wire harness]({{ '/hardware/electronics/wire-harness/' | relative_url }}) page and on the labels, so a cable keeps one name everywhere. Socket references (<code>J1</code>, <code>J27</code>…) are the sockets on basically board v1.3, and a socket on a layer board is named as such. <b>End A</b> is the end that gets the label.
 
-**Two things are not part of the order.** The mains inlet wiring comes pre-made on the 3Dman inlet switch, so there is no AC cable to have built. The 16-pin IDC ribbons are an off-the-shelf part: buy them, do not have them made.
+<table>
+  <thead><tr><th>ID</th><th>Qty</th><th>End A</th><th>End B</th><th>Length</th><th>Wire</th></tr></thead>
+  <tbody>
+    <tr><td class="wire-id">PJ1, PJ2, PJ3</td><td>3</td><td>Panel-mount DC jack, female, on the PSU box plate</td><td>Two insulated M3.5 fork terminals, onto the PSU's paired screws (7+4, 8+5, 9+6)</td><td>100 mm (4 in)</td><td>18 AWG (0.82 mm²), red and black</td></tr>
+    <tr><td class="wire-id">W1</td><td>1</td><td>DC plug, male, into <code>PJ1</code></td><td>JST VHR-2 housing into board <code>J1</code>, pin 1 = +24 V, pin 2 = GND</td><td>920 mm (36 in)</td><td>18 AWG (0.82 mm²), red and black</td></tr>
+    <tr><td class="wire-id">W2</td><td>1</td><td>DC plug, male, into <code>PJ2</code></td><td>Bare, tinned, into the USB hub's 2-pin 24 V terminal</td><td>310 mm (12 in)</td><td>22 AWG (0.33 mm²), red and black</td></tr>
+    <tr><td class="wire-id">W3</td><td>1</td><td>DC plug, male, into <code>PJ3</code></td><td>Bare, tinned, spliced to the buck converter's input leads</td><td>150 mm (6 in)</td><td>22 AWG (0.33 mm²), red and black</td></tr>
+    <tr><td class="wire-id">L1, L2, L3</td><td>3</td><td>2-position Dupont housing, 2.54 mm (0.1 in), into board <code>J8</code>, <code>J9</code>, <code>J10</code>: black wire in the cavity at the moulded arrow, red in the other</td><td>Inline DC socket, female</td><td>920 mm (36 in)</td><td>22 AWG (0.33 mm²), red and black</td></tr>
+    <tr><td class="wire-id">L1p, L2p, L3p</td><td>3</td><td>DC plug, male, into the matching <code>L1</code> to <code>L3</code> socket</td><td>Bare, tinned, to the clamp-on connector on the LED strip</td><td>150 mm (6 in)</td><td>22 AWG (0.33 mm²), red and black</td></tr>
+    <tr><td class="wire-id">LIM</td><td>1</td><td>3-position Dupont housing into board <code>J5</code>: position 1 (the cavity at the moulded arrow) ground, position 2 signal, position 3 empty. Black for ground, white for signal</td><td>Two insulated #187 quick-connect receptacles, onto the limit switch</td><td>610 mm (24 in)</td><td>22 AWG (0.33 mm²), black and white</td></tr>
+    <tr><td class="wire-id">S1, S2, S3, S4</td><td>4</td><td>JST PHR-4 into board <code>J27</code>, <code>J31</code>, <code>J35</code>, <code>J39</code></td><td>JST PHR-6 into the motor's own socket, positions 1·4·3·6 (see the <a href="#channel-stepper">pin map</a>)</td><td>1 m (39 in)</td><td>24 AWG (0.20 mm²), blue, green, red, black</td></tr>
+    <tr><td class="wire-id">CH</td><td>1</td><td>JST PHR-4 into board <code>J23</code></td><td>Bare, tinned, spliced to the chute motor's flying leads</td><td>300 mm (12 in) tail, about 600 mm (24 in) overall with the motor's own leads</td><td>24 AWG (0.20 mm²)</td></tr>
+  </tbody>
+</table>
+
+`CH` is listed as the tail wire to cut, 300 mm (12 in); the motor's own leads are 300 to 500 mm (12 to 20 in) depending on the batch and are not part of it.
+
+On `L1` to `L3`, the optional inline socket and the plug on `L1p` to `L3p` can be left out, in which case the feed runs straight to the strip and the pigtail is not needed. The plug and socket are recommended because they let the lamp be unplugged close to where it is.
+
+## Connectors and terminals
+
+What goes on the ends in the schedule. The part numbers are the ones the machine was designed against; where there is none, the spec is what to order to.
+
+<table>
+  <thead><tr><th>Where</th><th>Housing or part</th><th>Contact or crimp</th><th>Used on</th></tr></thead>
+  <tbody>
+    <tr><td>Board 24 V input</td><td>JST VHR-2N, 2-position</td><td>JST SVH-21T-P1.1</td><td><code>W1</code></td></tr>
+    <tr><td>Stepper, board end</td><td>JST PHR-4, 4-position</td><td>JST SPH-002T-P0.5S</td><td><code>S1</code> to <code>S4</code>, <code>CH</code></td></tr>
+    <tr><td>Stepper, motor end</td><td>JST PHR-6, 6-position, 4 populated</td><td>JST SPH-002T-P0.5S</td><td><code>S1</code> to <code>S4</code></td></tr>
+    <tr><td>LED feeds, limit switch</td><td>Dupont housing, female, 2.54 mm (0.1 in): 2-position, and 3-position with 2 populated</td><td>Dupont female crimp contact, 2.54 mm (0.1 in).</td><td><code>L1</code> to <code>L3</code>, <code>LIM</code></td></tr>
+    <tr><td>Limit switch</td><td>Fully insulated female quick-connect receptacle, #187 (4.75 × 0.5 mm, 0.187 × 0.020 in, tab), for 22 AWG (0.33 mm²).</td><td>Mates the Omron V-155-1C25</td><td><code>LIM</code></td></tr>
+    <tr><td>DC plug</td><td>Barrel plug, male, 5.5 × 2.1 mm (0.217 × 0.083 in), centre-positive, 5 A or better.</td><td>Soldered or crimped per the vendor's process</td><td><code>W1</code> to <code>W3</code>, <code>L1p</code> to <code>L3p</code></td></tr>
+    <tr><td>DC socket</td><td>Barrel socket, female, 5.5 × 2.1 mm (0.217 × 0.083 in), panel-mount on <code>PJ1</code> to <code>PJ3</code>, inline on <code>L1</code> to <code>L3</code>.</td><td>As above</td><td><code>PJ1</code> to <code>PJ3</code>, <code>L1</code> to <code>L3</code></td></tr>
+    <tr><td>PSU terminal block</td><td>Insulated fork terminal, M3.5 stud, 8 mm (0.31 in) wide at most, for 18 AWG (0.82 mm²).</td><td>Crimp</td><td><code>PJ1</code> to <code>PJ3</code></td></tr>
+    <tr><td>Bare ends</td><td>Strip 5 mm (0.2 in), tin</td><td>No connector</td><td><code>W2</code>, <code>W3</code>, <code>L1p</code> to <code>L3p</code></td></tr>
+  </tbody>
+</table>
+
+**Dupont housings: the moulded arrow always marks the ground wire.** The black wire goes in the cavity next to the arrow, and positions count away from the arrow. The housing has no key and the board's `J8` to `J11` have no reverse-polarity protection, so fit the lead with the arrow end over the pin the board prints `GND` (the round pad on `J8` to `J11`; on `J5` the pin on the square pad, with the empty position over `3.3V`). Black is always ground and red is always +24 V. The self-builder pages ([LED strip lead]({{ '/hardware/helpers/led-strip/' | relative_url }}), [limit switch lead]({{ '/hardware/helpers/limit-switch-lead/' | relative_url }})) say the same.
+
+Rows without a part number are specified by type and size, and the vendor sources them. The [parts catalog](https://parts-calculator.basically.website/hardware) carries each one with its per-machine count.
 
 ## Ends the vendor cannot terminate
 
 Some parts come with their own fixed leads or solder pads, so the harness cannot fully land on them. Those cables are ordered with one end bare and tinned, and joined on the machine.
 
 - **24 V to 5 V USB-C buck** (`W3`): the converter has fixed input leads, so splice.
-- **Control board feed** (`W1`): no supplier sells a barrel plug to JST-VH, so it is built rather than ordered. [Make the control board's 24 V lead]({{ '/hardware/helpers/board-24v-lead/' | relative_url }}).
 - **Chute stepper** (`CH`): flying leads out of the motor, so splice. [Make the chute stepper lead]({{ '/hardware/helpers/chute-stepper-lead/' | relative_url }}).
-- **COB boards** (`L1p`, `L2p`): solder pads, so solder direct. Each COB board also needs a **220 Ω, 1/4 W current-limiting resistor in series**, one per board, unless it is fed from a basically board v1.3 LED header, which has its own. Without one the plate pulls about 0.5 A and melts its mount. See [LEDs]({{ '/hardware/electronics/wire-harness/#33--leds-from-basically-board-v13' | relative_url }}).
-- **LED strip** (`L3p`): a solderless clamp-on connector bites onto the cut strip, so nothing is soldered. Pick the variant with IDC crimp points on both sides and it takes the pigtail wire too.
+- **LED strips** (`L1p`, `L2p`, `L3p`): a solderless clamp-on connector bites onto the cut strip, so nothing is soldered. Pick the variant with IDC crimp points on both sides and it takes the pigtail wire too.
 
 <div class="callout">
   <span class="callout-icon" aria-hidden="true">›</span>
@@ -66,29 +100,9 @@ Some parts come with their own fixed leads or solder pads, so the harness cannot
 
 The connectors themselves, with a photo and a per-machine count for each, are in the [parts catalog](https://parts-calculator.basically.website/hardware) under **Wire harness**.
 
-## Stepper cable pin map
+<h2 id="the-drawings">The drawings</h2>
 
-The four channel stepper cables are the only crossover in the harness, so they are the ones to spell out. The motor end is a 6-position housing with four positions populated, so the four board positions land on motor positions 1, 4, 3 and 6. The nets match end to end; the positions do not.
-
-<table style="max-width:520px">
-  <thead><tr><th>Board PHR-4 position</th><th>Net</th><th>Motor PHR-6 position</th><th>Colour</th></tr></thead>
-  <tbody>
-    <tr><td>1</td><td><code>A2</code></td><td>1</td><td>blue</td></tr>
-    <tr><td>2</td><td><code>A1</code></td><td>4</td><td>green</td></tr>
-    <tr><td>3</td><td><code>B1</code></td><td>3</td><td>red</td></tr>
-    <tr><td>4</td><td><code>B2</code></td><td>6</td><td>black</td></tr>
-    <tr><td>—</td><td>—</td><td>2 and 5</td><td>unpopulated</td></tr>
-  </tbody>
-</table>
-
-<div class="callout callout-warning">
-  <span class="callout-icon" aria-hidden="true">⚠</span>
-  <p><b>For the vendor, explicitly:</b> this is <b>not</b> a straight-through cable, and the two ends have a different number of positions. Board 1 to motor 1, board 2 to motor 4, board 3 to motor 3, board 4 to motor 6. Motor positions 2 and 5 are left empty.</p>
-</div>
-
-The fifth stepper cable, the chute one, is straight through and is built rather than ordered: [make the chute stepper lead]({{ '/hardware/helpers/chute-stepper-lead/' | relative_url }}).
-
-**The drawings.** One per buildable cable, each with the bill of materials for it.
+One per buildable cable, each with the bill of materials for it.
 
 <ul class="harness-contents">{% for d in site.data.harness.drawings %}{% unless d.of %}<li><a href="#{{ d.name }}">{{ d.title }}</a>{% assign parts = site.data.harness.drawings | where: "of", d.name %}{% if parts.size > 0 %}<ul>{% for p in parts %}<li><a href="#{{ p.name }}">{{ p.title }}</a></li>{% endfor %}</ul>{% endif %}</li>{% endunless %}{% endfor %}</ul>
 
@@ -116,6 +130,15 @@ The fifth stepper cable, the chute one, is straight through and is built rather 
 </p>
 {% endif %}
 
+{% if d.name == "channel-stepper" %}{% include harness/stepper-pin-map.html %}{% endif %}
+
+{% if d.name == "channel-stepper" %}
+<div class="callout">
+  <span class="callout-icon" aria-hidden="true">›</span>
+  <p><b>Motor end.</b> The positions are the ones on the motor's own wire diagram in the StepperOnline 17HE15-1504S datasheet: position 1 is coil A+, 3 is B+, 4 is A-, 6 is B-, and 2 and 5 are empty. Coil A is positions 1 and 4, coil B is positions 3 and 6.</p>
+</div>
+{% endif %}
+
 <p class="download-line">
   <span>Download:</span>
   <a href="{{ d.pdf }}">PDF</a> ·
@@ -131,11 +154,3 @@ The fifth stepper cable, the chute one, is straight through and is built rather 
 </div>
 
 {% endfor %}
-
-## Guesses to verify before sending
-
-1. **LED feed Dupont polarity.** Which pin is +24 V on `L1` to `L3` at the board. The board's own 24 V input is settled (JST-VH, pin 1 is +24 V); these have not been checked.
-2. **Chute stepper cable.** No drawing covers that cable. The 24 in is the length of one built lead, so check it on your motor.
-3. **LED drop count.** Three feeds and three pigtails, per the wire schedule. Re-count against the machine.
-4. **Motor coil order.** The 1·4·3·6 map and the two empty positions come from the drawing, not from a measurement. Check the coils with a multimeter first.
-5. **Limit switch contact.** The Omron V-155-1C25 is SPDT with three tabs and the harness lands on two. Confirm which pair, `COM` + `NC` or `COM` + `NO`, against the board.

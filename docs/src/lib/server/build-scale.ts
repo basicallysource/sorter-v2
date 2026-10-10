@@ -42,7 +42,7 @@ const ELECTRICAL = new Set([
 const SCREWS = 'Screws';
 const EXTRUSION = 'Aluminum extrusion (2020)';
 
-type Line = { part?: string; assembly?: string; param?: string; args?: Record<string, string>; qty: number | string };
+type Line = { part?: string; assembly?: string; param?: string; args?: Record<string, string>; qty: number | string; optional?: boolean };
 
 const sectionScales = new Map<string, boolean>(
 	(gen.sections ?? []).map((s: any) => [s.id, !!s.scales_with_layers])
@@ -92,6 +92,7 @@ function partQty(part: any, layers: number): number {
 
 /** Port of the calculator's `lineQty`. */
 function lineQty(line: Line, layers: number): number {
+	if (line.optional) return 0;
 	if (line.qty === 'per-layer') return layers;
 	if (line.qty === 'non-bottom-layers') return Math.max(0, layers - 1);
 	if (line.qty === 'middle-layers') return Math.max(0, layers - 2);

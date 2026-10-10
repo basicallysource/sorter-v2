@@ -8,8 +8,8 @@ kicker: Feeder — Classification channel
 lede: The lowest channel, where the part is imaged. The finned rotor and its cap.
 permalink: /hardware/assembly/feeder/c-channels/classification-channel/
 author: spencer
-og_image: https://assets.basically.website/sorter-docs/render-classification-channel-finished-full-683c6f99f962.png
-contributors: [barthel, brickcyclealice, danny, daddyosbricksbill]
+og_image: https://assets.basically.website/sorter-docs/classification-channel-finished-capped-rotor-w1600-c4033d1a23b0.jpg
+contributors: [barthel, brickcyclealice, danny, reveryx, daddyosbricksbill]
 last_verified: 2026-09-25
 tools_needed: ["Hex key, 2 mm"]
 parts_needed:
@@ -95,8 +95,10 @@ Turn the rotor by hand. It should go all the way round without a tight spot.
 A channel core with the finned rotor capped and dropped in. It goes onto the machine first of the four, before the three above it, and its camera lamp hangs on there too: see [arranging C-channels]({{ '/hardware/assembly/feeder/arranging-c-channels/' | relative_url }}).
 
 <figure class="single-figure">
-  <img class="doc-figure" src="https://assets.basically.website/sorter-docs/render-classification-channel-finished-full-683c6f99f962.png" alt="Render of the finished classification channel: the finned rotor sitting down in the stator ring with its cap seated in the middle of it, its fins running out to the rim">
-  <figcaption>A finished classification channel, the capped rotor down in the core. The stepper is a bought part with no model, so it is not in the render. <cite>Rendered from the part geometry, not from a build.</cite></figcaption>
+  <img class="doc-figure" src="https://assets.basically.website/sorter-docs/classification-channel-finished-capped-rotor-w1600-c4033d1a23b0.jpg" alt="A finished classification channel on a wooden bench: the white finned rotor sitting down in the black stator ring with a small grey cap at its centre, the stepper motor at the left and the orange output gear showing at the gap in the ring">
+  <figcaption>A finished classification channel, the capped rotor down in the core. <cite>Photo: ReveryX.</cite></figcaption>
 </figure>
+
+The photo shows a white rotor and a black stator. Grey is now the recommended colour for both.
 
 Back to [C-channels]({{ '/hardware/assembly/feeder/c-channels/' | relative_url }}).

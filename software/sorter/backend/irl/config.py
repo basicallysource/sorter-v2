@@ -615,7 +615,6 @@ class IRLInterface:
     c_channel_1_rotor_stepper: "StepperMotor"
     c_channel_2_rotor_stepper: "StepperMotor"
     c_channel_3_rotor_stepper: "StepperMotor"
-    fifth_stepper: "StepperMotor"
     servos: "list[ServoMotor]"
     chute: "Chute"
     distribution_layout: DistributionLayout
@@ -638,7 +637,6 @@ class IRLInterface:
             "c_channel_4_rotor",
             "carousel",
             "chute",
-            "fifth",
         ]:
             attr = f"{stepper_name}_stepper"
             if hasattr(self, attr):
@@ -653,7 +651,6 @@ class IRLInterface:
             "c_channel_4_rotor",
             "carousel",
             "chute",
-            "fifth",
         ]:
             attr = f"{stepper_name}_stepper"
             if hasattr(self, attr):
@@ -1092,7 +1089,16 @@ def _bindHardware(irl_interface: IRLInterface, config: IRLConfig, gc: GlobalConf
     # Bind steppers by canonical physical name, then remap to logical attrs if configured.
     for canonical_name, physical_name, stepper, board in stepper_entries:
         identity = board.identity
-        attr_base = logical_attr_base_for_physical.get(canonical_name, canonical_name)
+        attr_base = logical_attr_base_for_physical.get(canonical_name)
+        if attr_base is None:
+            # A channel no part of the machine drives, like the aux channels of a
+            # four-channel distribution board. Its socket is often empty, so init
+            # leaves it alone instead of waiting for a driver that is not there.
+            gc.logger.info(
+                f"Stepper '{physical_name}' at {identity.device_name} ({identity.port}:{identity.address}) "
+                "is not used by this machine; leaving it unconfigured."
+            )
+            continue
         attr = attr_base if attr_base.endswith("_stepper") else f"{attr_base}_stepper"
         if attr in bound_attrs:
             gc.logger.warning(
@@ -1112,9 +1118,8 @@ def _bindHardware(irl_interface: IRLInterface, config: IRLConfig, gc: GlobalConf
             stepper_config,
             machine_config,
         )
-        logical_name = logical_name_for_attr_base.get(attr_base)
         stepper.set_direction_inverted(
-            stepper_direction_inverts.get(logical_name, False) if logical_name is not None else False
+            stepper_direction_inverts.get(logical_name_for_attr_base[attr_base], False)
         )
 
         setattr(irl_interface, attr, stepper)

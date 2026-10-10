@@ -16,8 +16,6 @@ from .config import (
 )
 from .blind_arc import BlindArc, forward
 from .dispense_gate import DispenseGate
-from .stuck import JITTER_PRESETS, StuckPieces, jitterSeconds
-import incidents
 
 # A deliberately simple pulsing state machine on the new perception stack.
 #
@@ -71,7 +69,6 @@ class PulsePerceptionFeeding(BaseState):
         self.shared = shared
         self.vision = vision
         self._busy_until: dict[str, float] = {}
-        self._stuck = StuckPieces(gc)
         self._config: PulsePerceptionConfig = PulsePerceptionConfig()
         self._config_loaded_at: float = 0.0
         # One piece per hand-off: C2 into C3, C3 into the classification channel.
@@ -231,11 +228,9 @@ class PulsePerceptionFeeding(BaseState):
                 greedy=cfg.ch3_greedy_enabled,
             )
             action, hidden_cap = self._withHiddenPieces(3, c3, action, now_mono, cfg)
-            if incidents.openIncident(self.gc, "feeder_jam", subject="C3") is None:
-                self._unstick(3, "C2", c3, now_mono, cfg)
-                self._apply_action(
-                    "ch3", 3, action, self.irl.c_channel_3_rotor_stepper, c3, cfg, hidden_cap
-                )
+            self._apply_action(
+                "ch3", 3, action, self.irl.c_channel_3_rotor_stepper, c3, cfg, hidden_cap
+            )
 
         if cfg.enable_ch2:
             # C2's downstream is C3. "Clear" = C3's drop zone is not occupied,
@@ -249,11 +244,9 @@ class PulsePerceptionFeeding(BaseState):
                 greedy=cfg.ch2_greedy_enabled,
             )
             action, hidden_cap = self._withHiddenPieces(2, c2, action, now_mono, cfg)
-            if incidents.openIncident(self.gc, "feeder_jam", subject="C2") is None:
-                self._unstick(2, "C1", c2, now_mono, cfg)
-                self._apply_action(
-                    "ch2", 2, action, self.irl.c_channel_2_rotor_stepper, c2, cfg, hidden_cap
-                )
+            self._apply_action(
+                "ch2", 2, action, self.irl.c_channel_2_rotor_stepper, c2, cfg, hidden_cap
+            )
 
         if cfg.enable_ch1:
             # C1 has no exit zone of its own; it just advances unless C2's drop
@@ -335,42 +328,6 @@ class PulsePerceptionFeeding(BaseState):
                 self._gates[channel].notePush(pieces[0] if pieces else None)
         # IDLE / FREEZE: no move.
 
-    def _unstick(self, channel: int, upstream_label: str, state, now: float, cfg) -> None:
-        """Watch for a piece that does not ride its channel, and run the remedy
-        the watch calls for (stuck.py)."""
-        stepper = self._stepperFor(channel)
-        if self._busy(stepper) or not stepper.stopped:
-            return
-        remedy = self._stuck.observe(
-            channel=channel,
-            label=f"C{channel}",
-            upstream_label=upstream_label,
-            state=state,
-            odometer=self._odometer.get(channel, 0.0),
-            now=now,
-            cfg=cfg,
-            can_nudge=bool(getattr(cfg, f"enable_ch{channel - 1}", False)),
-        )
-        if remedy is None:
-            return
-        if remedy.kind == "nudge_upstream":
-            upstream = channel - 1
-            self._move(f"nudge_c{upstream}", upstream, self._stepperFor(upstream), cfg.stuck_nudge_output_deg, 0, cfg)
-            return
-        amplitude, cycles, speed, accel = JITTER_PRESETS[remedy.preset]
-        if stepper.jitter_degrees(amplitude, cycles, speed, accel):
-            steps = stepper.microsteps_for_degrees(amplitude)
-            self._busy_until[stepper._name] = (
-                time.monotonic() + jitterSeconds(steps, cycles, speed, accel) + 0.3
-            )
-
-    def _stepperFor(self, channel: int):
-        return {
-            1: self.irl.c_channel_1_rotor_stepper,
-            2: self.irl.c_channel_2_rotor_stepper,
-            3: self.irl.c_channel_3_rotor_stepper,
-        }[channel]
-
     def _withHiddenPieces(self, channel: int, state, action, now: float, cfg: PulsePerceptionConfig):
         """Keep advancing while a piece rides the part of the ring the camera
         cannot see, and cap the advance so it cannot come out of there and run
@@ -419,5 +376,4 @@ class PulsePerceptionFeeding(BaseState):
     def cleanup(self) -> None:
         for blind in self._blind.values():
             blind.clear()
-        self._stuck.reset()
         super().cleanup()

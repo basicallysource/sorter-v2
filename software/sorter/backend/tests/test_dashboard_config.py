@@ -33,21 +33,20 @@ class DashboardConfigTests(unittest.TestCase):
 
         self.assertFalse(config["show_sample_capture"])
         self.assertEqual("automatic", config["incident_handling"]["exit_stuck"])
-        self.assertEqual("automatic", config["incident_handling"]["feeder_jam"])
-        self.assertEqual("off", config["incident_handling"]["distribution_chute_jam"])
-        self.assertEqual("manual", config["incident_handling"]["distribution_servo_bus_offline"])
-        self.assertEqual("manual", config["incident_handling"]["distribution_no_bin_available"])
+        self.assertEqual("off", config["incident_handling"]["distribution_servo_bus_offline"])
+        self.assertEqual("off", config["incident_handling"]["distribution_no_bin_available"])
         definition_kinds = [item["kind"] for item in config["incident_definitions"]]
         self.assertEqual(
             [
                 "exit_stuck",
-                "feeder_jam",
-                "distribution_chute_jam",
                 "distribution_servo_bus_offline",
                 "distribution_no_bin_available",
             ],
             definition_kinds,
         )
+        defaults = {item["kind"]: item["default"] for item in config["incident_definitions"]}
+        self.assertEqual("automatic", defaults["exit_stuck"])
+        self.assertEqual("off", defaults["distribution_no_bin_available"])
 
     def test_dashboard_config_only_lists_default_codepath_kinds(self) -> None:
         config = getDashboardConfig()
@@ -65,6 +64,8 @@ class DashboardConfigTests(unittest.TestCase):
             "classification_exit_stuck",
             "classification_exit_release",
             "channel_exit_stuck",
+            "feeder_jam",
+            "distribution_chute_jam",
         ):
             self.assertNotIn(legacy_kind, config["incident_handling"])
             self.assertFalse(
@@ -76,7 +77,6 @@ class DashboardConfigTests(unittest.TestCase):
             {
                 "incident_handling": {
                     "classification_exit_release": "manual",
-                    "distribution_chute_jam": "off",
                     "distribution_servo_bus_offline": "manual",
                     "distribution_no_bin_available": "off",
                     "bulk_feeder_stalled": "off",
@@ -87,14 +87,12 @@ class DashboardConfigTests(unittest.TestCase):
         )
 
         self.assertEqual("manual", config["incident_handling"]["exit_stuck"])
-        self.assertEqual("off", config["incident_handling"]["distribution_chute_jam"])
         self.assertEqual("manual", config["incident_handling"]["distribution_servo_bus_offline"])
         self.assertEqual("off", config["incident_handling"]["distribution_no_bin_available"])
         self.assertNotIn("bulk_feeder_stalled", config["incident_handling"])
         self.assertNotIn("c2_separation_needed", config["incident_handling"])
         self.assertNotIn("unknown_incident", config["incident_handling"])
         self.assertNotIn("classification_exit_release", config["incident_handling"])
-        self.assertTrue(incidentHandlingOff("distribution_chute_jam"))
         self.assertTrue(incidentHandlingOff("distribution_no_bin_available"))
         self.assertFalse(incidentHandlingAutomatic("exit_stuck"))
 
@@ -114,7 +112,7 @@ class DashboardConfigTests(unittest.TestCase):
     def test_asking_every_tick_reads_the_file_at_most_once_a_second(self) -> None:
         with mock.patch.object(toml_config, "getDashboardConfig", wraps=toml_config.getDashboardConfig) as read:
             for _ in range(100):
-                incidentHandlingOff("feeder_jam")
+                incidentHandlingOff("exit_stuck")
         self.assertEqual(1, read.call_count)
 
 

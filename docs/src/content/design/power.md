@@ -10,8 +10,6 @@ permalink: /design/power/
 last_verified: 2026-10-10
 ---
 
-Optional background: you do not need this page to build the sorter.
-
 The whole machine runs from one 24 V power supply. The other voltages (12 V, 6.5 V, 5 V and 3.3 V) are made from the 24 V further down, mostly on the control board. Each of these voltages is called a rail, a wire inside the board that carries one voltage. There is no separate power board in this version, so the protection is light: two fuses on the control board and a fused inlet on the mains side (the wall-socket side).
 
 This page describes the **basically board v1.3** and the cables as the [Wire harness]({{ '/hardware/electronics/wire-harness/' | relative_url }}) page draws them. Which plug goes in which socket is on [Connecting the components]({{ '/hardware/electronics/connecting/' | relative_url }}) and is not repeated here. **This page is not wiring instructions.** Mains voltage is lethal, and the mains side is built on [the PSU box page]({{ '/hardware/electronics/installation/psu-box/' | relative_url }}).
@@ -36,9 +34,12 @@ Each jack feeds one load through its own lead, and nothing else runs from the su
   <li><strong><code>PWR3</code>, the Orange Pi:</strong> a 150 mm (6 in) lead to a 24 V to 5 V buck converter, whose USB-C lead (sealed in resin) then plugs into the Orange Pi. The converter takes 8 to 32 V in and gives 5 V at up to 5 A. It protects itself against reversed connection, too high a voltage, too high a current, overheating and short circuits. The Orange Pi asks for 5 V at 4 A over USB-C.</li>
 </ul>
 
+The board has two USB-C sockets that look the same, and only the one marked <code>PWR IN</code> takes power. The other is for data and for a screen, and the machine does not use it. The hub has its own 24 V feed (<code>PWR2</code>), so the Orange Pi does not power the hub, and it does not power the cameras or the Pico through it.
+
 <ul class="bulleted-list">
   <li>The three leads and their drawings: <a href="{{ '/hardware/parts/harness-order/' | relative_url }}">Ordering the wire harness</a></li>
   <li>Making them: <a href="{{ '/hardware/helpers/psu-pigtail/' | relative_url }}">PSU pigtail</a>, <a href="{{ '/hardware/helpers/board-24v-lead/' | relative_url }}">board 24 V lead</a>, <a href="{{ '/hardware/helpers/pi-24v-lead/' | relative_url }}">Orange Pi 24 V lead</a></li>
+  <li>The converter and the board in the catalog: <a href="https://github.com/basicallysource/sorter-v2/blob/main/parts-calculator/catalog/parts.json"><code>parts-calculator/catalog/parts.json</code></a> (<code>buck-24v-5v-usbc</code>, <code>sbc-orange-pi-5</code>)</li>
   <li>The harness data the drawings are generated from: <a href="https://github.com/basicallysource/sorter-v2/blob/main/electronics/wire_harness/power.yml"><code>electronics/wire_harness/power.yml</code></a></li>
 </ul>
 

@@ -10,8 +10,6 @@ permalink: /design/electronics/
 last_verified: 2026-10-10
 ---
 
-Optional background: you do not need this page to build the sorter.
-
 The Pico is a small control board on the machine. The program stored inside it (the firmware) is deliberately simple. It makes the pulses that move the stepper motors (one pulse is one small step), switches outputs on and off, and reads inputs such as switches. Everything that decides what to do runs on the Orange Pi, the machine's computer, which sends the Pico short commands.
 
 This page describes the **basically board v1.3**. How the cables are wired is in [Wire harness]({{ '/hardware/electronics/wire-harness/' | relative_url }}) and [Connecting the components]({{ '/hardware/electronics/connecting/' | relative_url }}).

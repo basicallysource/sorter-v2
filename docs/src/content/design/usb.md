@@ -10,16 +10,14 @@ permalink: /design/usb/
 last_verified: 2026-10-10
 ---
 
-Optional background: you do not need this page to build the sorter.
-
-Everything the Orange Pi talks to over USB goes through one powered hub. The Orange Pi has a single cable to the hub, and the Pico and the three cameras plug into the hub. This page describes that tree and how the software finds each device on it. What else the Orange Pi is connected to is on [What is connected to the Orange Pi]({{ '/design/orange-pi/' | relative_url }}). Which cable goes in which socket is on [Connecting the components]({{ '/hardware/electronics/connecting/' | relative_url }}).
+Everything the Orange Pi talks to over USB goes through one powered hub. The Orange Pi has a single cable to the hub, and the Pico and the three cameras plug into the hub. The Pico control board drives the stepper motors, servos, lamps and switches, and the Orange Pi sees it as a serial port (a connection that sends one byte after another) and sends it short commands. This page describes that tree and how the software finds each device on it: the Pico by its USB ID (a number every USB device reports about itself), and the cameras by their video device number (the number the operating system gives each camera). What else the Orange Pi is connected to is on [What is connected to the Orange Pi]({{ '/design/orange-pi/' | relative_url }}). Which cable goes in which socket is on [Connecting the components]({{ '/hardware/electronics/connecting/' | relative_url }}).
 
 ## The USB tree
 
 <ul class="bulleted-list">
   <li><strong>Orange Pi:</strong> the blue <code>UP USB3.0</code> port goes to the hub. It is the only thing on the Orange Pi's USB.</li>
   <li><strong>The hub:</strong> a Waveshare USB3.2-Gen1-HUB-4U, four USB-A ports, powered from the machine's 24 V supply. It sits on the roof of the Orange Pi housing.</li>
-  <li><strong>On the hub:</strong> the Pico control board (micro-USB cable), the 4K IMX415 camera for classification, and the two OV9732 720p cameras. That is all four ports.</li>
+  <li><strong>On the hub:</strong> the Pico control board (micro-USB cable), the 4K IMX415 camera for classification, and the two OV9732 720p cameras, for detecting pieces in the C-channels and on the carousel drop plate. That is all four ports.</li>
   <li><strong>Spare:</strong> the Orange Pi's other two USB ports (one USB 2.0 Type-A under the blue one, and one on the board's edge) carry nothing in the machine.</li>
 </ul>
 

@@ -13,6 +13,7 @@
 	import RadioGroup from '$lib/components/RadioGroup.svelte';
 	import Switch from '$lib/components/Switch.svelte';
 	import SegmentedControl from '$lib/components/SegmentedControl.svelte';
+	import Badge from '$lib/components/Badge.svelte';
 	import SettingRow from '$lib/components/SettingRow.svelte';
 	import Button from '$lib/components/Button.svelte';
 	import Alert from '$lib/components/Alert.svelte';
@@ -35,6 +36,7 @@
 	let justSaved = $state(false);
 	const defaults = { burst: 6, floor: 1, jitter: 30 };
 	let rates = $state({ burst: 9, floor: 1, jitter: 45 });
+	let stuck = $state<'off' | 'manual' | 'automatic'>('manual');
 
 	const portError = $derived(
 		port === null || port < 1 || port > 65535 ? 'A port is a number from 1 to 65535.' : undefined
@@ -86,7 +88,11 @@
 					]}
 				/>
 			</Field>
-			<Field label="Speed" for="f-speed" help="Steps a second at the motor.">
+			<Field
+				label="Speed"
+				for="f-speed"
+				info="Steps a second at the motor. Faster feeds more pieces, and past the motor's limit it skips steps."
+			>
 				<Input id="f-speed" type="number" value={800} unit="steps/s" />
 			</Field>
 			<Field
@@ -216,7 +222,7 @@
 
 <SiteSection
 	title="A setting changed from its default"
-	lead="A row whose value is not the default takes the primary's tint, and one button beside its name puts the default back. The button sits on the name's line, so the row does not jump as the value changes."
+	lead="A row whose value is not the default takes the primary's tint, and one button beside its name puts the default back. The button sits on the name's line, so the row does not jump as the value changes, and pointing at it says what the default is."
 >
 	<Specimen
 		on="canvas"
@@ -256,6 +262,26 @@
 					onreset={() => (rates.jitter = defaults.jitter)}
 				>
 					<Input id="f-jitter" type="number" bind:value={rates.jitter} unit="%" class="w-28" />
+				</SettingRow>
+				<SettingRow
+					label="Stuck on the classification channel"
+					help="The channel stopped making progress with a piece on it."
+					changed={stuck !== 'automatic'}
+					defaultText="Automatic"
+					defaultHelp="Automatic: turn the channel forward until it clears."
+					onreset={() => (stuck = 'automatic')}
+				>
+					{#snippet tags()}<Badge>Classification</Badge>{/snippet}
+					<SegmentedControl
+						label="When a piece is stuck"
+						size="sm"
+						bind:value={stuck}
+						options={[
+							{ value: 'off', label: 'Off' },
+							{ value: 'manual', label: 'Manual' },
+							{ value: 'automatic', label: 'Automatic' }
+						]}
+					/>
 				</SettingRow>
 			</div>
 		</Panel>

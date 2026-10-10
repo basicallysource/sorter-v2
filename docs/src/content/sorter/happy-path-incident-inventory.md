@@ -21,7 +21,6 @@ Anything that requires recovery motion, operator judgement, hardware repair, or 
 | `c2_separation_needed` | C2 | C2 would have started slip-stick separation. | Manual review; automatic motion intentionally disabled for now. |
 | `bulk_feeder_stalled` | C1 | C1 has pulsed enough times for long enough without new C2 activity. | Operator checks the bulk feeder or clears the incident. |
 | `feeder_detection_unavailable` | C2/C3/C4 | Feeder camera detections are unavailable past the grace window. | Operator restores detection or clears the incident. |
-| `distribution_chute_jam` | Distribution | Chute/servo motion exceeds the move-time budget. | Operator clears the chute/servo path and clears the incident. |
 | `distribution_servo_bus_offline` | Distribution | Every configured distribution layer servo is offline. | Operator restores the bus; incident clears when a servo reports healthy or can be manually cleared. |
 | `distribution_no_bin_available` | Distribution | No matching bin/capacity is available for the piece. | Operator assigns capacity, frees a bin, or clears the incident to approve one-shot bottom-tray passthrough for that piece. |
 | `classification_unresolved` | C4 | C4 reaches the drop deadline or Brickognize timeout before the piece is resolved. | Operator reviews the fallback-to-unknown and clears the incident. |

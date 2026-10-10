@@ -39,6 +39,17 @@ A box can be one of three things, and the chat can make any of them.
 
 Choose by what you are asking. Sorting a pile into boxes is rules. "Do I have everything for this model" is a set or a custom set.
 
+## Everything else, and one bin per part
+
+Whatever no box takes goes to **Everything else**. In the editor you choose how that last box is split:
+
+- **All together**: one box for everything left over.
+- **By BrickLink category**: one bin for each category, such as Brick, Plate or Tile, whatever the color.
+- **By Rebrickable category**: the same, using Rebrickable's categories.
+- **By color**: one bin for each color, whatever the part.
+
+There is no choice that gives every part number its own bin. A category is the finest split the last box can make, so a pile of nothing but plates still lands in one bin. To separate individual parts, make a box for each one. In the **Chat** tab, ask for `One box for each of these parts: 3020, 3021, 3022` and list the part numbers. A box that names only a part takes it in any color. Ask for no more boxes than you have bins.
+
 Next: [ask for it in plain words]({{ '/hive/first-profile/ask-in-plain-words/' | relative_url }}).
 
 Back to [Build your first sorting profile]({{ '/hive/first-profile/' | relative_url }}).

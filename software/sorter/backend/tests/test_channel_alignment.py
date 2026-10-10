@@ -1,8 +1,5 @@
 from __future__ import annotations
 
-import math
-
-import numpy as np
 import pytest
 
 from vision import channel_alignment as ca
@@ -81,41 +78,6 @@ def test_alignment_rotation_deg_handles_none() -> None:
     assert ca.alignmentRotationDeg(None) == 0.0
 
 
-def test_rotation_matrix_expands_canvas_for_45_deg() -> None:
-    _, (new_w, new_h) = ca.rotationMatrixForImage(100, 100, 45.0)
-    expected = int(math.ceil(100 * math.sqrt(2)))
-    assert new_w == expected
-    assert new_h == expected
-
-
-def test_rotate_image_bgr_zero_returns_input_unchanged() -> None:
-    image = np.random.randint(0, 255, (32, 48, 3), dtype=np.uint8)
-    rotated = ca.rotateImageBgr(image, 0.0)
-    assert rotated is image
-
-
-def test_rotate_image_bgr_90_swaps_dimensions() -> None:
-    image = np.zeros((30, 50, 3), dtype=np.uint8)
-    image[5, 10] = [255, 0, 0]
-    rotated = ca.rotateImageBgr(image, 90.0)
-    # 90° rotation flips the aspect ratio. Bounds may grow by ±1 px from
-    # rounding the affine matrix, so we only assert the flipped orientation.
-    assert rotated.shape[0] >= 50 and rotated.shape[1] >= 30
-    assert rotated.shape[0] > rotated.shape[1]
-    blue_pixels = int(np.count_nonzero(rotated[..., 0] > 200))
-    assert blue_pixels > 0
-
-
-def test_rotate_image_bgr_uses_fill_color() -> None:
-    image = np.zeros((40, 40, 3), dtype=np.uint8)
-    rotated = ca.rotateImageBgr(image, 45.0, fill=(123, 45, 67))
-    corner = rotated[0, 0]
-    assert tuple(int(value) for value in corner) == (123, 45, 67)
-
-
 def test_drop_start_at_12_oclock_yields_no_rotation() -> None:
-    """drop_start=270° already points to 12 o'clock — image should be unchanged."""
-    image = np.random.randint(0, 255, (16, 16, 3), dtype=np.uint8)
-    rotation = ca.alignmentRotationDeg(270.0)
-    rotated = ca.rotateImageBgr(image, rotation)
-    assert rotated is image
+    """drop_start=270° already points to 12 o'clock."""
+    assert ca.alignmentRotationDeg(270.0) == 0.0

@@ -10,8 +10,8 @@ permalink: /hardware/electronics/connecting/
 author: daddyosbricksbill
 contributors: [spencer, effreek, brickcyclealice]
 warning: >-
-  **AI-generated first draft.** Written from the basically board v1.3 board files and the [wire
-  harness]({{ '/hardware/electronics/wire-harness/' | relative_url }}) schedule, not from an actual build. The
+  **AI-generated first draft.** Written from the basically board v1.3 board files and the [cable
+  schedule]({{ '/hardware/parts/harness-order/' | relative_url }}), not from an actual build. The
   sockets and the pinouts are read from the board itself and are real. The order of the steps is
   not checked against a machine. One step involves mains voltage: read the page fully before you
   start.
@@ -104,7 +104,7 @@ The [PSU box]({{ '/hardware/electronics/installation/psu-box/' | relative_url }}
   </figure>
 </div>
 
-The PSU output pigtails (`PJ1` to `PJ3`) are already in the PSU box. The USB hub's lead (`W2`) has no page: step 6 below connects it. The [wire harness]({{ '/hardware/electronics/wire-harness/' | relative_url }}) page has the length and gauge of every lead.
+The PSU output pigtails (`PJ1` to `PJ3`) are already in the PSU box. The USB hub's lead (`W2`) has no page: step 6 below connects it. [Ordering the wire harness]({{ '/hardware/parts/harness-order/' | relative_url }}) has the length and gauge of every lead.
 
 <div class="callout callout-warning">
   <span class="callout-icon" aria-hidden="true">⚠</span>
@@ -130,7 +130,7 @@ The PSU output pigtails (`PJ1` to `PJ3`) are already in the PSU box. The USB hub
   </tbody>
 </table>
 
-The [wire harness]({{ '/hardware/electronics/wire-harness/' | relative_url }}) page calls the first three `W1`, `W2` and `W3`, the steppers `S1` to `S4` and `CH`, the limit switch `LIM`, the lamps `L1` to `L3`, and the ribbon `RIB1`. The two bought USB cables between the Pico, the hub and the Orange Pi are `U2` and `U1`; the cameras' own USB leads have no label.
+[Ordering the wire harness]({{ '/hardware/parts/harness-order/' | relative_url }}) calls the first three `W1`, `W2` and `W3`, the steppers `S1` to `S4` and `CH`, the limit switch `LIM`, the lamps `L1` to `L3`, and the ribbon `RIB1`. The two bought USB cables between the Pico, the hub and the Orange Pi are `U2` and `U1`; the cameras' own USB leads have no label.
 
 ### The three 24 V leads (`W1` to `W3`)
 
@@ -181,7 +181,15 @@ The `W2` lead to the USB hub, the USB cables (`U1`, `U2`) and the ribbon (`RIB1`
   <li>Hold each end with a small piece of heat shrink or a turn of tape, so that the braid cannot creep back along the wires.</li>
 </ol>
 
-Leave the sleeving loose enough to bend. A cable tie that anchors a lead goes on over the sleeving: pull it tight enough to hold, but not so tight that it crushes the braid.
+Leave the sleeving loose enough to bend. A strap that anchors a lead goes on over the sleeving: pull it tight enough to hold, but not so tight that it crushes the braid.
+
+### Securing the cables
+
+Fasten the leads to the frame with **hook-and-loop (Velcro) straps rather than zip ties**, wherever a lead may have to come undone. You will take the machine apart again, from the electronics layer up, and a zip tie has to be cut each time, which is slow when the bucket is loaded and the feeder is bolted down.
+
+- **This covers the motor leads too.** Strap the four channel stepper leads (`S1` to `S4`) and the chute stepper lead (`CH`) to the frame, and the same for the camera, LED, limit switch, USB and ribbon cables and the 24 V leads, anything that runs along the frame and may need to come loose.
+- **Leave a little slack** at every connector and splice, so that nothing pulls on the thin wire when a part moves or you lift a box.
+- **Do not make it neat yet.** Run the machine for a good while first, and tidy once you know where the leads sit. The chute sweeps all the way round the machine, so check that no lead is in a spot where something that moves can catch on it.
 
 ## The control board, socket by socket
 
@@ -203,8 +211,8 @@ Everything in steps 1 to 5 plugs into this board. It is drawn from above, the wa
       <text x="275.0" y="289.8" font-size="10" text-anchor="middle" fill="var(--muted)">TMC2209</text>
       <rect x="376.6" y="81.7" width="88.2" height="222.6" rx="3" fill="var(--bg)" stroke="var(--ink)" stroke-width="1" stroke-dasharray="3 3"/>
       <text x="420.7" y="185.0" font-size="11" text-anchor="middle" fill="var(--muted)">Pico</text>
-      <rect x="403.9" y="302.6" width="33.6" height="14.7" rx="1" fill="var(--surface)" stroke="var(--ink)" stroke-width="1"/>
-      <text x="420.7" y="336.2" font-size="10" text-anchor="middle" fill="var(--ink)">micro USB</text>
+      <rect x="403.9" y="76.5" width="33.6" height="14.7" rx="1" fill="var(--surface)" stroke="var(--ink)" stroke-width="1"/>
+      <text x="420.7" y="108.0" font-size="10" text-anchor="middle" fill="var(--ink)">micro USB</text>
       <rect x="236.8" y="92.2" width="11.3" height="32.3" rx="2" fill="var(--surface)" stroke="var(--primary)" stroke-width="2"/>
       <rect x="299.8" y="92.2" width="11.3" height="32.3" rx="2" fill="var(--surface)" stroke="var(--primary)" stroke-width="2"/>
       <path d="M242.2 92.2 L242.2 46" stroke="var(--muted)" stroke-width="1" fill="none"/>
@@ -334,7 +342,7 @@ The solder jumper beside each of these three ports should already be bridged, fr
 
 **The barrel pair is optional but recommended, and it makes maintenance easier.** It is the point where a lamp comes off, so the power to a lamp can be disconnected close to the lamp and the lamp unplugged without unwiring the board end. It is the same 5.5 mm (0.217 in) × 2.1 mm (0.083 in) size as a PSU output jack, so check what you are plugging into.
 
-**Then assign the output in software**: Settings, the channel, the LED button, pick which output that lamp is on and set the brightness. **Nothing lights until an output is assigned.** The lamps' board cables are `L1` to `L3`, and their pigtails `L1p` to `L3p`, in the [wire harness]({{ '/hardware/electronics/wire-harness/' | relative_url }}) schedule, which still draws every drop split at a barrel jack.
+**Then assign the output in software**: Settings, the channel, the LED button, pick which output that lamp is on and set the brightness. **Nothing lights until an output is assigned.** The lamps' board cables are `L1` to `L3`, and their pigtails `L1p` to `L3p`, in the [cable schedule]({{ '/hardware/parts/harness-order/' | relative_url }}), which still draws every drop split at a barrel jack.
 
 {% include step.html n="5" title="Run the ribbon down to the layers (RIB1)" %}
 

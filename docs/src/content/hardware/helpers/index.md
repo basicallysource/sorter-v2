@@ -34,7 +34,7 @@ So read these when a page sends you, not in order.
 Seven of the machine's cables are made by hand, one page each. The eighth, the
 USB hub's 24 V lead (`W2`), is a barrel plug screwed into the hub's own power terminal, so it needs no page.
 
-- **[Preparing the LED strip (L1 to L3, L1p to L3p)]({{ '/hardware/helpers/led-strip/' | relative_url }})**. Cutting a lamp's length of strip and getting its cable on the end, clamped or soldered. Three per machine.
+- **[Preparing the LED strips (L1 to L3, L1p to L3p)]({{ '/hardware/helpers/led-strip/' | relative_url }})**. Cutting a lamp's length of strip and getting its cable on the end, clamped or soldered. Three per machine.
 - **[Make your own PSU output pigtail (PJ1 to PJ3)]({{ '/hardware/helpers/psu-pigtail/' | relative_url }})**. The barrel jack and its two fork terminals, for each of the PSU box's three outputs. Three per machine.
 - **[Make the control board's 24 V lead (W1)]({{ '/hardware/helpers/board-24v-lead/' | relative_url }})**. Barrel plug at the PSU, JST-VH at the board. The one lead nobody sells ready made, so the harness order has it made, or you do.
 - **[Make the Orange Pi's 24 V lead (W3)]({{ '/hardware/helpers/pi-24v-lead/' | relative_url }})**. A barrel plug onto the buck converter's own input wires. The shortest of the three 24 V leads (`W1`, `W2`, `W3`).

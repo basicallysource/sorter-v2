@@ -89,8 +89,8 @@ The channel itself goes on later, in step 6, once all three stands are laid out 
 </div>
 
 <div class="callout">
-  <p><strong>Nothing in the stand is fastened.</strong> Every joint is gravity or friction, so there are no screws in the parts list and nothing takes a heat insert. Don't go looking for them.</p>
-  <p><strong>Pinning a stand is optional, and none of it is counted anywhere.</strong> If you want to, the legs and adapters have holes for it: an {% include fastener.html size="M5" variant="socket-button" length="16" %} goes through the adapter and cuts its own thread in a printed leg. <strong>C1's legs are extrusion, not printed</strong>, so those need an {% include fastener.html size="M5" variant="t-nut" %} in the slot for the screw to pull against. C1 is the one worth pinning, because it carries the bulk bin.</p>
+  <p><strong>The stands are designed to be screwless.</strong> Every joint is gravity or friction, so no screw is required, none is in the parts list or the count, and nothing takes a heat insert.</p>
+  <p><strong>Pinning a stand is optional.</strong> Each leg joint has a cross hole for it, at the foot where the leg stands in the layout guide and at the top where the adapter caps it. Line the holes up and put an {% include fastener.html size="M5" variant="socket-button" length="16" %} through the wall of the guide's socket, or of the adapter, into the leg: it cuts its own thread in a printed leg. That is one screw per leg end, 6 for a stand. <strong>C1's legs are extrusion, not printed</strong>, so each of those needs an {% include fastener.html size="M5" variant="t-nut" %} in the slot for the screw to pull against, 2 per leg. C1 is the one worth pinning, because it carries the bulk bin. They are on the assembly tree in the <a href="https://parts-calculator.basically.website/assembly">parts calculator</a>, marked optional and left out of every total.</p>
 </div>
 
 <figure class="single-figure">

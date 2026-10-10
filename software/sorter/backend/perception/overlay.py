@@ -1,10 +1,8 @@
-"""Rendering for perception detections.
+"""Perception's zones, as pictures and as shapes.
 
-Perception owns the drawing of its own results so the live camera feed and
-the perception-debug page share one renderer fed by ONE inference. The frame
-handed in here is the exact frame the model inferred against (from
-``InferenceWorker.latest_debug``), so boxes are glued to their own pixels —
-no last-detection-on-latest-frame drift.
+The perception-debug page and recordings draw the zones into pixels here. The
+live feed does not: it sends the zones as shapes (``feedZoneShapes``) and the
+page draws them, with the boxes, over each frame.
 """
 
 from __future__ import annotations
@@ -42,9 +40,8 @@ EXIT_MARGIN_COLOR = (160, 160, 160)
 
 _ZONE_OVERLAY_CACHE: dict[tuple, tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]] = {}
 # The zone overlay is static per channel config, so we cache the full-res build
-# AND its downscaled copies. The live feed renders at preview resolution (see
-# ``renderFeedOverlay(max_width=...)``); resizing the cached arrays to the feed
-# size once is far cheaper than compositing the overlay on a 4K frame per frame.
+# AND its downscaled copies: resizing the cached arrays to a picture's size once
+# is far cheaper than compositing the overlay on a 4K frame each time.
 _SCALED_ZONE_CACHE: dict[tuple, tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]] = {}
 _SCALED_MASK_CACHE: dict[tuple, np.ndarray] = {}
 
@@ -92,12 +89,6 @@ def _scaledMask(mask: np.ndarray, target_h: int, target_w: int, cache_key: tuple
     res = cv2.resize(mask, (target_w, target_h), interpolation=cv2.INTER_NEAREST)
     _SCALED_MASK_CACHE[key] = res
     return res
-
-
-def _scaleBbox(b: Any, scale: float) -> tuple[float, float, float, float]:
-    if scale == 1.0:
-        return b
-    return (b[0] * scale, b[1] * scale, b[2] * scale, b[3] * scale)
 
 
 def channelZoneOverlay(
@@ -161,9 +152,7 @@ def channelZoneOverlay(
 
 def drawChannelZones(img: np.ndarray, channel: Any, thick: int) -> None:
     # Render to whatever resolution ``img`` is. The static zone arrays are built
-    # full-res once and cached, then resized to match (also cached) — so the feed
-    # can composite at preview res while the debug page stays full-res, both off
-    # the same source build.
+    # full-res once and cached, then resized to match (also cached).
     th, tw = img.shape[:2]
     zone_overlay = _scaledZoneArrays(channel, th, tw)
     if zone_overlay is not None:
@@ -189,154 +178,81 @@ def drawChannelZones(img: np.ndarray, channel: Any, thick: int) -> None:
             cv2.drawContours(img, contours, -1, EXIT_MARGIN_COLOR, thick, cv2.LINE_AA)
 
 
-def drawDetectionBoxes(
-    img: np.ndarray, bboxes: list, color: tuple[int, int, int], thick: int
-) -> None:
-    for b in bboxes:
-        x1, y1, x2, y2 = (int(b[0]), int(b[1]), int(b[2]), int(b[3]))
-        cv2.rectangle(img, (x1, y1), (x2, y2), color, thick, cv2.LINE_AA)
-
-
-def drawTrackIds(
-    img: np.ndarray, detections: list | None, scale: float, thick: int
-) -> None:
-    """Label each tracked detection with its ``sv_bt_track_id`` (e.g. ``#7``) at
-    the box's top-left. Detections without an id (off-channel, or not yet a
-    confirmed track) are skipped — so labels land exactly on the green on-channel
-    boxes. A dark pad behind the text keeps it legible over any background."""
-    if not detections:
-        return
-    font = cv2.FONT_HERSHEY_SIMPLEX
-    font_scale = 0.4
-    text_thick = max(1, thick)
-    for d in detections:
-        tid = getattr(d, "sv_bt_track_id", None)
-        if tid is None:
+def _rings(mask: np.ndarray, mode: int, width: int, height: int) -> list[list[float]]:
+    """The contours of ``mask`` as flat ``[x0, y0, x1, y1, ...]`` lists in 0..1
+    frame coordinates, simplified to within a pixel at this size."""
+    contours, _ = cv2.findContours(mask, mode, cv2.CHAIN_APPROX_SIMPLE)
+    rings = []
+    for contour in contours:
+        if len(contour) < 3:
             continue
-        b = _scaleBbox(d.bbox, scale)
-        x1, y1 = int(b[0]), int(b[1])
-        label = f"#{int(tid)}"
-        (tw, th), _ = cv2.getTextSize(label, font, font_scale, text_thick)
-        ty = max(th + 2, y1 - 2)
-        cv2.rectangle(img, (x1, ty - th - 2), (x1 + tw + 2, ty + 2), (0, 0, 0), -1)
-        cv2.putText(
-            img, label, (x1 + 1, ty), font, font_scale,
-            ON_CHANNEL_COLOR, text_thick, cv2.LINE_AA,
-        )
-
-
-def drawMergedBoxes(
-    img: np.ndarray, bboxes: list, track_ids: list | None, scale: float, thick: int
-) -> None:
-    """Draw the fused (merged) boxes the machine actually acts on, distinctly and
-    thicker over the green originals, each labelled with its track id below the
-    box (the green per-detection id sits above). Shows model-output vs. acted-on."""
-    if not bboxes:
-        return
-    font = cv2.FONT_HERSHEY_SIMPLEX
-    font_scale = 0.4
-    text_thick = max(1, thick)
-    line_thick = max(2, thick + 1)
-    ids = track_ids or []
-    for i, b in enumerate(bboxes):
-        sb = _scaleBbox(b, scale)
-        x1, y1, x2, y2 = int(sb[0]), int(sb[1]), int(sb[2]), int(sb[3])
-        cv2.rectangle(img, (x1, y1), (x2, y2), MERGED_COLOR, line_thick, cv2.LINE_AA)
-        tid = ids[i] if i < len(ids) else None
-        label = f"merged #{int(tid)}" if tid is not None else "merged"
-        (tw, th), _ = cv2.getTextSize(label, font, font_scale, text_thick)
-        ty = min(img.shape[0] - 2, y2 + th + 3)
-        cv2.rectangle(img, (x1, ty - th - 2), (x1 + tw + 2, ty + 2), (0, 0, 0), -1)
-        cv2.putText(
-            img, label, (x1 + 1, ty), font, font_scale, MERGED_COLOR, text_thick, cv2.LINE_AA
-        )
-
-
-def drawSecondaryZones(img: np.ndarray, channel: Any, thick: int) -> None:
-    """Outline each foreign (secondary) zone the camera observes. Outline only —
-    no fill, no text label — so it's visually distinct from the channel's own
-    acted-on zones without cluttering the operating feed."""
-    zones = getattr(channel, "secondary_zones", None)
-    if not zones:
-        return
-    th, tw = img.shape[:2]
-    line_thick = max(1, thick - 1)
-    for zone in zones:
-        color = SECONDARY_ZONE_COLORS.get(zone.zone_type, SECONDARY_ZONE_DEFAULT_COLOR)
-        mask = np.asarray(zone.mask)
-        if mask.ndim != 2 or mask.size == 0:
+        points = cv2.approxPolyDP(contour, 0.75, True).reshape(-1, 2).astype(np.float64)
+        if len(points) < 3:
             continue
-        mask = _scaledMask(mask, th, tw, (int(channel.channel_id), "secondary", str(zone.id)))
-        contours, _ = cv2.findContours(
-            mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE
+        points[:, 0] = (points[:, 0] + 0.5) / width
+        points[:, 1] = (points[:, 1] + 0.5) / height
+        rings.append([round(float(v), 4) for v in points.reshape(-1)])
+    return rings
+
+
+def feedZoneShapes(channel: Any, width: int) -> dict[str, Any] | None:
+    """The live feed's zones as shapes: each zone's area (``drop``, ``exit``,
+    ``precise``, filled even-odd so a hole stays a hole), the channel's
+    ``outline``, the exit ``margin`` and the ``secondary`` (foreign) zones'
+    outlines. Traced at ``width`` pixels across, the size the feed is sent at;
+    the same sections as ``channelZoneOverlay``, without its full-resolution
+    pass."""
+    mask = np.asarray(channel.mask)
+    if mask.ndim != 2 or mask.size == 0:
+        return None
+    src_h, src_w = mask.shape[:2]
+    scale = min(1.0, width / float(src_w)) if width > 0 else 1.0
+    w, h = max(1, int(round(src_w * scale))), max(1, int(round(src_h * scale)))
+
+    def small(m: np.ndarray) -> np.ndarray:
+        m = (np.asarray(m) > 0).astype(np.uint8) * 255
+        return cv2.resize(m, (w, h), interpolation=cv2.INTER_NEAREST) if (w, h) != (src_w, src_h) else m
+
+    on_channel = small(mask)
+    ys, xs = np.nonzero(on_channel)
+    rel = (
+        np.degrees(
+            np.arctan2(
+                ys.astype(np.float64) / scale - float(channel.center[1]),
+                xs.astype(np.float64) / scale - float(channel.center[0]),
+            )
         )
-        if not contours:
+        - float(channel.radius1_angle_image)
+    ) % 360.0
+    sections = np.floor(rel).astype(np.int32) % 360
+
+    # Where zones overlap, the drop zone shows, then the exit zone, then the
+    # precise zone: each pixel belongs to one, as in channelZoneOverlay.
+    taken = np.zeros(len(xs), dtype=bool)
+    areas: dict[str, list[list[float]]] = {}
+    for name, picked in (
+        ("drop", channel.drop_sections),
+        ("exit", channel.exit_sections - channel.precise_sections),
+        ("precise", channel.precise_sections),
+    ):
+        hit = np.isin(sections, [int(v) for v in picked]) & ~taken
+        taken |= hit
+        area = np.zeros((h, w), dtype=np.uint8)
+        area[ys[hit], xs[hit]] = 255
+        areas[name] = _rings(area, cv2.RETR_CCOMP, w, h)
+
+    margin_mask = getattr(channel, "exit_margin_mask", None)
+    secondary = []
+    for zone in getattr(channel, "secondary_zones", None) or ():
+        zone_mask = np.asarray(zone.mask)
+        if zone_mask.ndim != 2 or zone_mask.size == 0:
             continue
-        # Outline only on the video stream — no text label (the zone identity is
-        # shown in the editor UI, not on the operating feed).
-        cv2.drawContours(img, contours, -1, color, line_thick, cv2.LINE_AA)
-
-
-def renderFeedOverlay(
-    frame_bgr: np.ndarray,
-    channel: Any,
-    on_bboxes: list,
-    detections: list | None = None,
-    max_width: int = 0,
-    merged_bboxes: list | None = None,
-    merged_track_ids: list | None = None,
-) -> np.ndarray:
-    """The clean operating-feed look: zone outlines plus the green on-channel
-    boxes the machine acts on. No spec panel, no rejected (orange) boxes — that
-    diagnostic detail stays on the perception-debug page.
-
-    ``detections`` (tagged ``Detection`` objects) is optional; when present, any
-    detection that fell in a secondary zone is boxed in cyan to show "seen but
-    not acted on." Primary on-channel boxes stay green.
-
-    ``max_width`` downscales the frame BEFORE compositing (boxes and zones are
-    scaled to match). The whole overlay is therefore drawn at preview resolution
-    — never on the full 4K frame — which is the difference between a smooth feed
-    and ~1 fps. Detection-to-pixel coupling is unchanged: the boxes still belong
-    to this exact frame, just rendered smaller."""
-    src_h, src_w = frame_bgr.shape[:2]
-    if max_width and src_w > max_width:
-        scale = max_width / float(src_w)
-        img = cv2.resize(
-            frame_bgr,
-            (max_width, int(round(src_h * scale))),
-            interpolation=cv2.INTER_AREA,
+        secondary.append(
+            {"type": str(zone.zone_type), "rings": _rings(small(zone_mask), cv2.RETR_EXTERNAL, w, h)}
         )
-    else:
-        scale = 1.0
-        img = frame_bgr.copy()
-    # Thin lines. The overlay is composited at preview width, so a 1px AA line
-    # reads like the old full-res overlay did once downscaled. Zone outlines,
-    # the channel outline, and the detection boxes all share this thinness.
-    thick = 1
-    drawChannelZones(img, channel, thick)
-    drawSecondaryZones(img, channel, thick)
-    if detections:
-        secondary_hits = [
-            _scaleBbox(d.bbox, scale)
-            for d in detections
-            if not d.in_primary and d.secondary_zone_ids
-        ]
-        drawDetectionBoxes(img, secondary_hits, SECONDARY_DETECTION_COLOR, thick)
-        margin_hits = [
-            _scaleBbox(d.bbox, scale)
-            for d in detections
-            if not d.in_primary and getattr(d, "in_margin", False)
-        ]
-        drawDetectionBoxes(img, margin_hits, EXIT_MARGIN_COLOR, thick)
-    drawDetectionBoxes(
-        img, [_scaleBbox(b, scale) for b in on_bboxes], ON_CHANNEL_COLOR, thick
-    )
-    # Label the on-channel boxes with their sv_bt_track_id. Detections carry the
-    # id; only on-channel (tracked) ones have a non-None value, so these land on
-    # the green boxes drawn just above.
-    drawTrackIds(img, detections, scale, thick)
-    # On C4, draw the merged boxes (the fused output we actually track/act on) in
-    # MERGED_COLOR over their green originals, each tagged with its track id.
-    drawMergedBoxes(img, merged_bboxes or [], merged_track_ids, scale, thick)
-    return img
+    return {
+        **areas,
+        "outline": _rings(on_channel, cv2.RETR_EXTERNAL, w, h),
+        "margin": _rings(small(margin_mask), cv2.RETR_EXTERNAL, w, h) if margin_mask is not None else [],
+        "secondary": secondary,
+    }

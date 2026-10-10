@@ -3,10 +3,9 @@
 	import { getMachineContext } from '$lib/machines/context';
 	import { getBackendHttpBase, machineHttpBaseUrlFromWsUrl } from '$lib/backend';
 	import SegmentedControl from '$lib/components/ui/SegmentedControl.svelte';
+	import SettingRow from '$lib/components/ui/SettingRow.svelte';
 	import Badge from '$lib/components/ui/Badge.svelte';
 	import Alert from '$lib/components/ui/Alert.svelte';
-
-	const EXIT_STUCK_INCIDENT_KIND = 'exit_stuck';
 
 	type IncidentHandlingMode = 'off' | 'manual' | 'automatic';
 	type IncidentDefinition = {
@@ -18,65 +17,18 @@
 		manual_label: string;
 		automatic_label: string;
 		automatic_supported: boolean;
+		default: IncidentHandlingMode;
 	};
 
-	const INCIDENT_FALLBACK_DEFINITIONS: IncidentDefinition[] = [
-		{
-			kind: EXIT_STUCK_INCIDENT_KIND,
-			label: 'Exit stuck',
-			scope: 'C4',
-			description: 'The classification channel stopped making progress with a piece on it.',
-			off_label: 'Do not raise exit-stuck incidents',
-			manual_label: 'Operator clears the stuck piece',
-			automatic_label: 'Rotate the channel forward until it clears',
-			automatic_supported: true
-		},
-		{
-			kind: 'feeder_jam',
-			label: 'Feeder jam',
-			scope: 'Feeder',
-			description:
-				"A feeder channel keeps trying to advance a piece that will not move, because it is hung at the previous channel's hand-off.",
-			off_label: 'Do not detect feeder hand-off jams',
-			manual_label: 'Call the operator as soon as a channel is stuck',
-			automatic_label: 'Nudge the upstream channel to free it, then call the operator',
-			automatic_supported: true
-		},
-		{
-			kind: 'distribution_chute_jam',
-			label: 'Chute jam',
-			scope: 'Distribution',
-			description: 'The distribution chute did not finish moving.',
-			off_label: 'Use hardware alert only',
-			manual_label: 'Operator clears the chute',
-			automatic_label: 'Automatic chute recovery',
-			automatic_supported: false
-		},
-		{
-			kind: 'distribution_servo_bus_offline',
-			label: 'Servo bus offline',
-			scope: 'Distribution',
-			description: 'The distribution servo bus is not responding.',
-			off_label: 'Use hardware alert only',
-			manual_label: 'Operator restores the servo bus',
-			automatic_label: 'Automatic servo bus recovery',
-			automatic_supported: false
-		},
-		{
-			kind: 'distribution_no_bin_available',
-			label: 'No bin available',
-			scope: 'Distribution',
-			description: 'No matching bin is available for the piece.',
-			off_label: 'Allow bottom-tray passthrough',
-			manual_label: 'Operator assigns capacity or approves passthrough',
-			automatic_label: 'Automatic no-bin passthrough',
-			automatic_supported: false
-		}
-	];
+	const MODE_NAMES: Record<IncidentHandlingMode, string> = {
+		off: 'Off',
+		manual: 'Manual',
+		automatic: 'Automatic'
+	};
 
 	const machine = getMachineContext();
 
-	let incidentDefinitions = $state<IncidentDefinition[]>(INCIDENT_FALLBACK_DEFINITIONS);
+	let incidentDefinitions = $state<IncidentDefinition[]>([]);
 	let incidentHandling = $state<Record<string, IncidentHandlingMode>>({});
 	let incidentPolicySaving = $state<string | null>(null);
 	let incidentPolicyError = $state<string | null>(null);
@@ -97,7 +49,7 @@
 		text.replace(/(\s)([A-Z])(?=[a-z])/g, (_, space: string, letter: string) => space + letter.toLowerCase());
 
 	function normalizeIncidentDefinitions(value: unknown): IncidentDefinition[] {
-		if (!Array.isArray(value)) return INCIDENT_FALLBACK_DEFINITIONS;
+		if (!Array.isArray(value)) return [];
 		const normalized = value
 			.map((entry) => {
 				if (!entry || typeof entry !== 'object') return null;
@@ -114,17 +66,17 @@
 						typeof raw.manual_label === 'string' ? raw.manual_label : 'Operator reviews',
 					automatic_label:
 						typeof raw.automatic_label === 'string' ? raw.automatic_label : 'Automatic',
-					automatic_supported: raw.automatic_supported === true
+					automatic_supported: raw.automatic_supported === true,
+					default: normalizeIncidentMode(raw.default)
 				} satisfies IncidentDefinition;
 			})
 			.filter((entry): entry is IncidentDefinition => entry !== null);
 		const seen = new Set<string>();
-		const deduped = normalized.filter((entry) => {
+		return normalized.filter((entry) => {
 			if (seen.has(entry.kind)) return false;
 			seen.add(entry.kind);
 			return true;
 		});
-		return deduped.length > 0 ? deduped : INCIDENT_FALLBACK_DEFINITIONS;
 	}
 
 	function incidentMode(kind: string): IncidentHandlingMode {
@@ -143,6 +95,17 @@
 		return activeIncidentKind === definition.kind;
 	}
 
+	// What the default does, for the reset button's tooltip: "Automatic: turn
+	// the channel forward until it clears."
+	function defaultHelp(definition: IncidentDefinition): string {
+		const label = {
+			off: definition.off_label,
+			manual: definition.manual_label,
+			automatic: definition.automatic_label
+		}[definition.default];
+		const sentence = label.charAt(0).toLowerCase() + label.slice(1);
+		return `${MODE_NAMES[definition.default]}: ${sentence}.`;
+	}
 
 	async function saveIncidentMode(kind: string, mode: IncidentHandlingMode) {
 		if (incidentPolicySaving) return;
@@ -220,33 +183,36 @@
 	});
 </script>
 
-<ul class="divide-y divide-line">
+<div class="divide-y divide-line">
 	{#each incidentDefinitions as definition (definition.kind)}
-		<li class="flex flex-col gap-3 px-(--pad-panel) py-(--pad-row) sm:flex-row sm:items-center sm:justify-between">
-			<div class="min-w-0">
-				<div class="flex flex-wrap items-center gap-2">
-					<span class="text-sm font-medium text-ink">{definition.label}</span>
-					{#if definition.scope}<Badge>{definition.scope}</Badge>{/if}
-					{#if incidentDefinitionActive(definition)}<Badge tone="warning" dot>Active</Badge>{/if}
-				</div>
-				<p class="mt-0.5 max-w-prose text-sm text-ink-muted">{definition.description}</p>
-			</div>
-			<div class="shrink-0" title={definition.automatic_supported ? definition.automatic_label : 'Manual only'}>
-				<SegmentedControl
-					label="When {definition.label} happens"
-					size="sm"
-					value={incidentMode(definition.kind)}
-					onchange={(mode) => void saveIncidentMode(definition.kind, mode)}
-					options={[
-						{ value: 'off' as const, label: 'Off' },
-						{ value: 'manual' as const, label: 'Manual' },
-						...(definition.automatic_supported ? [{ value: 'automatic' as const, label: 'Automatic' }] : [])
-					]}
-				/>
-			</div>
-		</li>
+		<SettingRow
+			label={definition.label}
+			help={definition.description}
+			changed={incidentMode(definition.kind) !== definition.default}
+			defaultText={MODE_NAMES[definition.default]}
+			defaultHelp={defaultHelp(definition)}
+			onreset={() => void saveIncidentMode(definition.kind, definition.default)}
+		>
+			{#snippet tags()}
+				{#if definition.scope}<Badge>{definition.scope}</Badge>{/if}
+				{#if incidentDefinitionActive(definition)}<Badge tone="warning" dot>Active</Badge>{/if}
+			{/snippet}
+			<SegmentedControl
+				label="When {definition.label} happens"
+				size="sm"
+				value={incidentMode(definition.kind)}
+				onchange={(mode) => void saveIncidentMode(definition.kind, mode)}
+				options={[
+					{ value: 'off' as const, label: MODE_NAMES.off },
+					{ value: 'manual' as const, label: MODE_NAMES.manual },
+					...(definition.automatic_supported
+						? [{ value: 'automatic' as const, label: MODE_NAMES.automatic }]
+						: [])
+				]}
+			/>
+		</SettingRow>
 	{/each}
-</ul>
+</div>
 {#if incidentPolicyError}
 	<div class="px-(--pad-panel) pb-(--pad-panel)"><Alert tone="danger">{incidentPolicyError}</Alert></div>
 {/if}

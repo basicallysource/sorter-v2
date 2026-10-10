@@ -94,12 +94,15 @@ def _storage_layer_settings_from_layout(layout: Any) -> Dict[str, Any]:
     }
 
 
-def _attach_live_servo_current_angles(layers: List[Dict[str, Any]]) -> None:
+def _attach_live_servo_state(layers: List[Dict[str, Any]]) -> None:
     """Fill in each layer's ``servo_current_angle`` from the live servo's
-    internally-tracked angle (PCA path). None when there is no live hardware
-    or the servo has not been moved since boot."""
+    internally-tracked angle (PCA path), and ``servo_live_channel`` with the
+    channel of the servo the running hardware drives for that layer. Both are
+    None when there is no live hardware or no live servo at that index: a
+    layer added or rewired since the last home has none until the next one."""
     for layer in layers:
         layer.setdefault("servo_current_angle", None)
+        layer.setdefault("servo_live_channel", None)
     active_irl = shared_state.getActiveIRL()
     if active_irl is None:
         return
@@ -109,6 +112,10 @@ def _attach_live_servo_current_angles(layers: List[Dict[str, Any]]) -> None:
             continue
         angle = getattr(servos[index], "angle", None)
         layer["servo_current_angle"] = angle if isinstance(angle, int) else None
+        channel = getattr(servos[index], "channel", None)
+        layer["servo_live_channel"] = (
+            channel if isinstance(channel, int) and not isinstance(channel, bool) else None
+        )
 
 
 def _apply_live_storage_layer_enabled(layers: List[Dict[str, Any]]) -> bool:
@@ -145,7 +152,7 @@ def get_hardware_config() -> Dict[str, Any]:
     config = machine_toml.read()
     layout = getBinLayout()
     storage_layers = _storage_layer_settings_from_layout(layout)
-    _attach_live_servo_current_angles(storage_layers["layers"])
+    _attach_live_servo_state(storage_layers["layers"])
     return {
         "storage_layers": storage_layers,
         "servo": _servo_settings_from_config(config),

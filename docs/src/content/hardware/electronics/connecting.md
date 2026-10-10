@@ -104,8 +104,6 @@ The [PSU box]({{ '/hardware/electronics/installation/psu-box/' | relative_url }}
   </figure>
 </div>
 
-The PSU output pigtails (`PJ1` to `PJ3`) are already in the PSU box. The USB hub's lead (`W2`) has no page: step 6 below connects it. [Ordering the wire harness]({{ '/hardware/parts/harness-order/' | relative_url }}) has the length and gauge of every lead.
-
 <div class="prep-item">
   <div class="prep-item-body">
     <p><strong>Print and cut the <a href="#labelling-the-cables">cable labels</a> before you start.</strong> One label strip for each end of every cable, on the sheet for your paper size, or as flags on a Brother label printer. Put the two labels for each cable on as you plug it in, so a repair later can tell which cable is which.</p>
@@ -115,6 +113,8 @@ The PSU output pigtails (`PJ1` to `PJ3`) are already in the PSU box. The USB hub
     <figcaption>One cable label, flat and folded round a cable. Every ID on the sheet looks like this. <cite>Drawn from the label sheet, not from a build, by Balloon.</cite></figcaption>
   </figure>
 </div>
+
+The PSU output pigtails (`PJ1` to `PJ3`) are already in the PSU box. The USB hub's lead (`W2`) has no page: step 6 below connects it. [Ordering the wire harness]({{ '/hardware/parts/harness-order/' | relative_url }}) has the length and gauge of every lead.
 
 <div class="callout callout-warning">
   <span class="callout-icon" aria-hidden="true">⚠</span>

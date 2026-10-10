@@ -16,7 +16,7 @@ Start with [rules.md](rules.md).
 | [icons.md](icons.md)             | Lucide, the sizes, the caps, and one icon per meaning                                                      |
 | [layout.md](layout.md)           | The app shell, screens that fit the window, the settings and dashboard layouts, spacing and the size scale |
 | [components.md](components.md)   | Every component: what it is for, how to use it, and the patterns built from them                           |
-| [overlays.md](overlays.md)       | The popover, the menu, the select's list, the tooltip and the modal, and what there is not                 |
+| [overlays.md](overlays.md)       | The popover, the menu, the select's list, the tooltip, the modal, the sheet and the lightbox, and what there is not |
 | [loading.md](loading.md)         | The Spinner, skeletons and progress                                                                        |
 | [engineering.md](engineering.md) | The stack, how an app copies a component, and the check after every visual change                          |
 | [apps.md](apps.md)               | Which sites follow this system, what differs in each, and the favicons                                     |

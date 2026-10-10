@@ -197,9 +197,9 @@ Fasten the leads to the frame with **hook-and-loop (Velcro) straps rather than z
 
 ### Labelling the cables
 
-Put a label with the cable's ID (`S1`, `W2`, `RIB1` and so on) on **both ends** of every cable, close to the connector, before you route it. Do it as you finish each lead, while both ends are still in reach. Once a cable is behind a housing or strapped along the frame you cannot trace it by eye, and the four channel stepper leads (`S1` to `S4`) look identical.
+Put a label with the cable's ID (`S1`, `W2`, `RIB1` and so on) on **both ends** of every cable, close to the connector, before you route it. Do it as you finish each lead, while both ends are still in reach. The one exception is the chute stepper (`CH`): its cable is fixed to the motor, so only its board end needs a label. Once a cable is behind a housing or strapped along the frame you cannot trace it by eye, and the four channel stepper leads (`S1` to `S4`) look identical.
 
-**On paper.** Download the labels for [A4](https://assets.basically.website/sorter-parts/sorter-v2-cable-labels-e5d50cdc46c6.pdf) or for [US Letter](https://assets.basically.website/sorter-parts/sorter-v2-cable-labels-letter-6883026c7467.pdf). The sheet has one section for each kind of cable: the wire pairs, the stepper leads, and the USB cables and ribbons. Each ID has two strips, one for each end. Use the strips for your cable's ID.
+**On paper.** Download the labels for [A4](https://assets.basically.website/sorter-parts/sorter-v2-cable-labels-f748b83b9383.pdf) or for [US Letter](https://assets.basically.website/sorter-parts/sorter-v2-cable-labels-letter-7d4fbbc3a6d9.pdf). The sheet has one section for each kind of cable: the wire pairs, the stepper leads, and the USB cables and ribbons. Each ID has two strips, one for each end, except `CH`, which has one. Use the strips for your cable's ID.
 
 <ol class="numbered-steps">
   <li>Print the sheet at <strong>100% or Actual size</strong>, never Fit to Page. Measure the bar at the top to check: it is 100 mm (3.9 in) long, with a second mark at 3 in.</li>
@@ -210,7 +210,7 @@ Put a label with the cable's ID (`S1`, `W2`, `RIB1` and so on) on **both ends** 
   <li>Press the two IDs together and hold them with a small piece of tape.</li>
 </ol>
 
-**With a Brother label printer** (PT-P710BT, or another model that takes 12 mm tape), [download the cable flags](https://assets.basically.website/sorter-parts/sorter-v2-cable-flags-brother-1e427744c4df.zip). The zip has three P-touch Editor (`.lbx`) files: the wire pairs (18 AWG and 22 AWG), the stepper leads, and the USB cables and ribbons. Open the file for your cable, turn on Auto Cut in the print dialog and print two copies, one flag for each end. Fold each flag round the cable as in the last three steps above, with the dashed line as the fold. If a flag is too tight or too loose, move the second ID along the flag in P-touch Editor.
+**With a Brother label printer** (PT-P710BT, or another model that takes 12 mm tape), [download the cable flags](https://assets.basically.website/sorter-parts/sorter-v2-cable-flags-brother-1e427744c4df.zip). The zip has three P-touch Editor (`.lbx`) files: the wire pairs (18 AWG and 22 AWG), the stepper leads, and the USB cables and ribbons. Open the file for your cable, turn on Auto Cut in the print dialog and print two copies, one flag for each end. `CH` needs only one flag, so keep the second one as a spare. Fold each flag round the cable as in the last three steps above, with the dashed line as the fold. If a flag is too tight or too loose, move the second ID along the flag in P-touch Editor.
 
 With a label printer of another make, or self-laminating wrap-around cable labels, use those instead and print the same IDs.
 

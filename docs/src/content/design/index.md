@@ -15,7 +15,7 @@ last_verified: 2026-10-10
   <p>These pages give more detail about how the sorter works and why it is designed the way it is. The build instructions in <a href="{{ '/hardware/' | relative_url }}">Hardware</a> do not depend on them. Read them if you are curious, want to repair or change something, or want to know what was tried before.</p>
 </div>
 
-Each page gives the overall picture in a few lines, then links to the files that hold the detail. Some of the pages use electronics and software words that you may not know. Where a word first appears, it is explained in the same sentence.
+Each page gives the overall picture in a few lines, then links to the files that hold the detail. Links to the relevant parts are provided on every page, for people who want to dig deeper: the source code, the parts catalog, and the matching build and lab pages. You can ignore them if you only want the overview. Some of the pages use electronics and software words that you may not know. Where a word first appears, it is explained in the same sentence.
 
 ## Pages
 
@@ -26,7 +26,7 @@ Each page gives the overall picture in a few lines, then links to the files that
   </div>
   <div class="callout">
     <strong><a href="{{ '/design/printed-parts/' | relative_url }}">Design intentions for the printed parts</a></strong>
-    <p>What the printed parts are designed to do, and the thinking behind how they fit together and are printed.</p>
+    <p>What the printed parts are designed to do, the thinking behind how they fit together and are printed, and which screws and other hardware they use.</p>
   </div>
   <div class="callout">
     <strong><a href="{{ '/design/electronics/' | relative_url }}">How the electronics talk to each other</a></strong>

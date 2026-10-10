@@ -70,6 +70,26 @@ A joint uses the lightest thing that will hold it. In rough order from lightest 
   <li>The bearing the chute turns on: <a href="{{ '/hardware/parts/lazy-susan/' | relative_url }}">Lazy Susan</a></li>
 </ul>
 
+## Screws and other hardware
+
+The intention is to use as few different types of screws and similar hardware as possible. The list below is where the machine stands now, taken from the parts catalog, so it is a direction the design is heading in and not a promise about every part.
+
+<ul class="bulleted-list">
+  <li><strong>Screws.</strong> The catalog lists 18 types, in three thread sizes: M3 (9 types), M4 (2 types) and M5 (7 types). The number after the M is the thread diameter in millimetres, so M5 is the larger screw. The lengths run from 6 mm to 40 mm.</li>
+  <li><strong>Heads.</strong> Nine of the types are countersunk, so the head sits flush with the surface. Seven are socket/button head, which has a round head turned with a hex key. Two are flat head, used for the long screws that hold stacks of parts together.</li>
+  <li><strong>The common ones.</strong> The M5 x 16 socket/button head is the most used M5 in the machine: the external brackets, bin brackets, interface ribs and Lazy Susan extrusion mounts all use it. The M3 x 8 and M3 x 12 countersunk are the most used M3 screws, wherever a flush head is wanted.</li>
+  <li><strong>Heat-set inserts.</strong> Three types, M3, M4 and M5, for parts that need a thread in the plastic.</li>
+  <li><strong>Nuts.</strong> Two types, M3 and M5.</li>
+  <li><strong>Washers.</strong> One type, a plain M5 washer.</li>
+  <li><strong>T-nuts.</strong> One type, a roll-in M5 T-nut for 2020 extrusion.</li>
+</ul>
+
+<ul class="bulleted-list">
+  <li>Every screw, nut, washer and insert, with where to buy it and how many a machine needs: <a href="https://parts-calculator.basically.website/hardware">Bill of materials</a></li>
+  <li>Fitting inserts and T-nuts: <a href="{{ '/hardware/helpers/heat-inserts/' | relative_url }}">Heat inserts</a> and <a href="{{ '/hardware/helpers/t-nuts/' | relative_url }}">T-nuts</a></li>
+  <li>The hardware entries and what each is used for: <a href="https://github.com/basicallysource/sorter-v2/blob/main/parts-calculator/catalog/parts.json"><code>parts-calculator/catalog/parts.json</code></a> (the entries whose <code>category</code> is <code>Screws</code>, <code>Nuts</code>, <code>Washers</code> or <code>Heat inserts</code>)</li>
+</ul>
+
 ## Shapes that do a job
 
 <ul class="bulleted-list">

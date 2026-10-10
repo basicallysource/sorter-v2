@@ -107,7 +107,7 @@ The [PSU box]({{ '/hardware/electronics/installation/psu-box/' | relative_url }}
 The PSU output pigtails (`PJ1` to `PJ3`) are already in the PSU box. The USB hub's lead (`W2`) has no page: step 6 below connects it. [Ordering the wire harness]({{ '/hardware/parts/harness-order/' | relative_url }}) has the length and gauge of every lead.
 
 <div class="callout">
-  <p><b>Label every cable at both ends as you finish it.</b> Best practice, and it pays off later: when a cable has to come out for maintenance or a repair, a label tells you which one it is and where it goes without tracing it through the frame. <a href="#labelling-the-cables">Labelling the cables</a> has a printable sheet of labels.</p>
+  <p><b>Label every cable at both ends as you finish it.</b> When a cable has to come out for a repair, the label tells you which one it is. <a href="#labelling-the-cables">Labelling the cables</a> has labels you can print.</p>
 </div>
 
 <div class="callout callout-warning">
@@ -197,19 +197,20 @@ Fasten the leads to the frame with **hook-and-loop (Velcro) straps rather than z
 
 ### Labelling the cables
 
-Put a label with the cable's ID (`S1`, `W2`, `RIB1` and so on) on **both ends** of every cable, close to the connector, before you route it. Do it as you finish each lead, while both ends are still in reach. Once a cable is behind a housing or strapped along the frame you cannot trace it by eye, and the four channel stepper leads (`S1` to `S4`) are identical, so they cannot be told apart once unplugged.
+Put a label with the cable's ID (`S1`, `W2`, `RIB1` and so on) on **both ends** of every cable, close to the connector, before you route it. Do it as you finish each lead, while both ends are still in reach. Once a cable is behind a housing or strapped along the frame you cannot trace it by eye, and the four channel stepper leads (`S1` to `S4`) look identical.
 
-Download the cable labels as a PDF for [A4](https://assets.basically.website/sorter-parts/sorter-v2-cable-labels-1596ecf0dd17.pdf) or for [US Letter](https://assets.basically.website/sorter-parts/sorter-v2-cable-labels-letter-0144e84984c4.pdf). Each has a section for each cable type (the wire pairs, the stepper leads bare and under sleeving, and the USB cables and ribbons), with 12 mm (0.47 in) tall strips, two for each ID, one for each end. Strips of the same length share a row. A strip is the ID, a blank section that wraps round the cable, and the ID again, and its length is sized to the cable, so use the page for your cable type. The first page has a drawing of a strip on a cable and a legend: solid lines are cut lines, and the dashed line in the centre is the fold line. The IDs are `PJ1` to `PJ3`, `W1` to `W3`, `L1` to `L3`, `L1p` to `L3p`, `LIM`, `S1` to `S4`, `CH`, `U1`, `U2`, `RIB1` and `RIB2`.
+**On paper.** Download the labels for [A4](https://assets.basically.website/sorter-parts/sorter-v2-cable-labels-e27d8cba8f4b.pdf) or for [US Letter](https://assets.basically.website/sorter-parts/sorter-v2-cable-labels-letter-9edc6cb035b7.pdf). The sheet has one section for each kind of cable: the wire pairs, the stepper leads bare, the stepper leads under sleeving, and the USB cables and ribbons. Each ID has two strips, one for each end. Use the strips for your cable's ID.
 
 <ol class="numbered-steps">
-  <li>Print the sheet for your paper size at <strong>100% or Actual size</strong>, never Fit to Page. The bar at the top is 100 mm (3.9 in) long, with a second mark at 3 in: measure either to check the scale.</li>
-  <li>Cover the printed side of the sheet with clear tape (Scotch tape or similar), strips overlapping by a few millimetres, <strong>before you cut</strong>. Plain paper does not last long on a cable, and tape makes the label much more like the laminated labels of a label printer. Let inkjet ink dry fully first, because it can smear under tape; a laser print holds up better.</li>
-  <li>Cut the sheet into rows, then cut each row into strips, two for each cable, one per end.</li>
-  <li>Fold each strip on the dashed centre line, then wrap it round the cable close to the connector, with the ID facing out.</li>
-  <li>Stick the two IDs together back to back with a small piece of tape, so that the strip stays wrapped.</li>
+  <li>Print the sheet at <strong>100% or Actual size</strong>, never Fit to Page. Measure the bar at the top to check: it is 100 mm (3.9 in) long, with a second mark at 3 in.</li>
+  <li>Cover the printed side of the sheet with clear tape, such as Scotch tape. Overlap the pieces of tape by a few millimetres. Do this <strong>before you cut</strong>: plain paper does not last long on a cable, and tape makes the label like the laminated labels of a label printer. Let inkjet ink dry fully first, because it can smear under tape.</li>
+  <li>Cut along the solid lines. Cut the sheet into rows first, then cut each row into strips.</li>
+  <li>Lay the cable across the dashed line in the middle of a strip, close to the connector.</li>
+  <li>Fold the strip round the cable until the two IDs meet. They stick out like a flag, so the ID reads from either side.</li>
+  <li>Press the two IDs together and hold them with a small piece of tape.</li>
 </ol>
 
-**With a Brother label printer** (PT-P710BT, or another model that takes 12 mm tape), [download the cable flags](https://assets.basically.website/sorter-parts/sorter-v2-cable-flags-brother-6548f9705a56.zip), a zip of four P-touch Editor (`.lbx`) files. A flag is the ID printed twice with a blank section between the two, and a dashed line down the centre of the blank section marks the fold. Wrap the blank section round the cable and stick the two IDs back to back, so the ID reads from either side. Each file groups the cables of one kind, with the blank section sized to them: the 18 AWG (0.82 mm²) and 22 AWG (0.33 mm²) wire pairs together, the stepper leads bare or under 6 mm braided sleeving, and the USB cables and ribbons. Turn on Auto Cut in the print dialog and print two copies of a file, one flag for each end. Each file also has a cut position between its flags. If a flag is too tight or too loose on your cable, move the second ID in P-touch Editor to change the blank section.
+**With a Brother label printer** (PT-P710BT, or another model that takes 12 mm tape), [download the cable flags](https://assets.basically.website/sorter-parts/sorter-v2-cable-flags-brother-a8c7d004c2b9.zip). The zip has four P-touch Editor (`.lbx`) files: the wire pairs (18 AWG and 22 AWG), the stepper leads bare, the stepper leads under 6 mm braided sleeving, and the USB cables and ribbons. Open the file for your cable, turn on Auto Cut in the print dialog and print two copies, one flag for each end. Fold each flag round the cable as in the last three steps above, with the dashed line as the fold. If a flag is too tight or too loose, move the second ID along the flag in P-touch Editor.
 
 With a label printer of another make, or self-laminating wrap-around cable labels, use those instead and print the same IDs.
 

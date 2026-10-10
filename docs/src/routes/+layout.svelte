@@ -46,7 +46,7 @@
 			<span class="construction-banner-icon" aria-hidden="true">⚠</span>
 			<span class="construction-banner-text">
 				<strong>Under heavy construction</strong>
-				<small>Docs are incomplete &amp; may be inaccurate — don't build Sorter yet.</small>
+				<small>Docs are incomplete &amp; may be inaccurate<br />don't build Sorter yet.</small>
 			</span>
 			<span class="construction-banner-chevron" aria-hidden="true">▾</span>
 		</button>

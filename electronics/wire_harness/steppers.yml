@@ -3,7 +3,7 @@ metadata:
   description: "Channel stepper cable STP (x4) and chute stepper cable CHU1. STP\nfollows the stepper reference drawing (2026-08-08),\nwhich is the source of truth for the channel cable. Values\nmarked GUESS are guesses, not measurements."
 
 connectors:
-  BOARD_S:
+  BOARD_STP:
     type: JST PH 4-pin (PHR-4)
     subtype: 2.0mm pitch, female
     pinlabels: [A2, A1, B1, B2]
@@ -14,7 +14,7 @@ connectors:
         qty_multiplier: populated
         manufacturer: JST
         mpn: SPH-002T-P0.5S
-  MOTOR_S:
+  MOTOR_STP:
     type: JST PH 6-pin (PHR-6)
     subtype: 2.0mm pitch, female
     pinlabels: [A2, C1, B1, A1, C2, B2]
@@ -25,12 +25,12 @@ connectors:
         qty_multiplier: populated
         manufacturer: JST
         mpn: SPH-002T-P0.5S
-  BOARD_CH:
+  BOARD_CHU1:
     type: JST PH 4-pin (PHR-4)
     subtype: female
     pinlabels: [A2, A1, B1, B2]
     notes: controller board v1.3 J39
-  CH_LEADS:
+  CHU1_LEADS:
     type: Bare tinned leads, labeled 1-4
     pinlabels: [A2, A1, B1, B2]
     notes: "Splice to the chute stepper flying leads. Find\nthe coil pairs with a multimeter first."
@@ -56,10 +56,10 @@ cables:
 
 connections:
   -
-    - BOARD_S: [1-4]
+    - BOARD_STP: [1-4]
     - STP: [1-4]
-    - MOTOR_S: [1, 4, 3, 6]
+    - MOTOR_STP: [1, 4, 3, 6]
   -
-    - BOARD_CH: [1-4]
+    - BOARD_CHU1: [1-4]
     - CHU1: [1-4]
-    - CH_LEADS: [1-4]
+    - CHU1_LEADS: [1-4]

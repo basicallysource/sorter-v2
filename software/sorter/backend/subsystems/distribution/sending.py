@@ -10,7 +10,7 @@ from utils.event import knownObjectToEvent
 from defs.known_object import PieceStage
 
 
-CHUTE_SETTLE_MS = 1500
+CHUTE_SETTLE_MS = 2000
 MISSING_DROP_PIECE_GRACE_MS = 1500
 
 

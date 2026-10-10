@@ -241,3 +241,26 @@ sections:
             url: /lab/object-detection/device-benchmarking/
           - title: Hailo HEF Workflow
             url: /lab/object-detection/hailo-hef-workflow/
+
+  - id: design
+    title: Design
+    url: /design/
+    description: How the machine is designed, from a bird's-eye view. What talks to what, with links to where the details live.
+    pages:
+      - title: Overview
+        url: /design/
+      - title: How the sorter is put together
+        url: /design/sorter/
+      - title: Design intentions for the printed parts
+        url: /design/printed-parts/
+    groups:
+      - title: Electronics
+        pages:
+          - title: How the electronics talk to each other
+            url: /design/electronics/
+          - title: What is connected to the Orange Pi
+            url: /design/orange-pi/
+          - title: The USB connections and the hub
+            url: /design/usb/
+          - title: Power distribution
+            url: /design/power/

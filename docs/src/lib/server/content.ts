@@ -290,6 +290,10 @@ const FM_DEFAULTS: Array<{ prefix: string; values: Frontmatter }> = [
 	{
 		prefix: 'lab',
 		values: { section: 'lab', owner: 'lab', audience: 'contributor', applies_to: '2026-04-06 measurement set' }
+	},
+	{
+		prefix: 'design',
+		values: { section: 'design', owner: 'docs', audience: 'curious builder or contributor', applies_to: 'hardware-v2' }
 	}
 ];
 

@@ -59,3 +59,4 @@ from app.models.color_model import ColorModel  # noqa: E402, F401
 from app.models.link_model import LinkModel  # noqa: E402, F401
 from app.models.access_window import AccessWindow  # noqa: E402, F401
 from app.models.ai_usage_event import AiUsageEvent  # noqa: E402, F401
+from app.models.telemetry_limits import TelemetryLimits  # noqa: E402, F401

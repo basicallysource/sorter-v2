@@ -1,3 +1,4 @@
+import io
 import json
 import math
 from datetime import datetime, timezone
@@ -5,12 +6,12 @@ from typing import Any
 from uuid import UUID, uuid4
 
 from fastapi import APIRouter, Depends, File, Form, Request, UploadFile
-from pydantic import BaseModel
-from slowapi import Limiter
-from slowapi.util import get_remote_address
+from PIL import Image
+from pydantic import BaseModel, field_validator
 from sqlalchemy import or_, update
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.dialects.sqlite import insert as sqlite_insert
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.deps import get_current_machine, get_db
@@ -22,22 +23,41 @@ from app.models.machine_piece_rejection_reason import MachinePieceRejectionReaso
 from app.models.machine_channel_crop import MachineChannelCrop
 from app.models.machine_control_data_segment import MachineControlDataSegment
 from app.models.machine_sync_state import MachineSyncState
+from app.models.sample import Sample
+from app.rate_limiting import machine_limiter
+from app.routers.upload import (
+    _apply_payload_to_sample,
+    _attach_uploaded_assets,
+    _build_channel_geometry,
+    _build_payload_from_meta,
+    _count_sample_in_session,
+    _find_sample,
+    _find_upload_session,
+    _get_or_create_upload_session,
+)
+from app.schemas.upload import UploadMetadata
+from app.services.image_hashing import compute_phash_bytes
+from app.services.image_stats import compute_exposure_stats_bytes
+from app.services.machine_presence import mark_machine_seen
 from app.services.storage import (
     save_channel_crop_file,
     save_piece_image_file,
     save_control_data_file,
+    save_sample_frame_file,
     validate_gzip,
     validate_image,
 )
 
 router = APIRouter(prefix="/api/machine/sync", tags=["machine-sync"])
-limiter = Limiter(key_func=get_remote_address)
+# Keyed per machine token, not per address; shared with the upload routes.
+limiter = machine_limiter
 
 DATA_TYPE_PIECE_RECORDS = "piece_records"
 DATA_TYPE_PIECE_IMAGES = "piece_images"
 DATA_TYPE_CHANNEL_CROPS = "channel_crops"
 DATA_TYPE_PIECE_CORRECTIONS = "piece_corrections"
 DATA_TYPE_CONTROL_DATA = "control_data_segments"
+DATA_TYPE_SAMPLES = "samples"
 
 # Columns updated on conflict — everything except the identity/immutable set
 # (id, machine_id, piece_uuid[, seq], created_at). The correction columns
@@ -203,6 +223,44 @@ class ChannelCropMeta(BaseModel):
     bytes: int | None = None
 
 
+class SampleMeta(BaseModel):
+    """One training sample: a full camera frame plus what the machine knew
+    about it when it was captured."""
+
+    local_id: int
+    source_session_id: str
+    local_sample_id: str
+    source_role: str
+    # Epoch seconds, or an ISO 8601 string.
+    captured_at: float | str
+    capture_reason: str
+    session_name: str | None = None
+    detection_algorithm: str | None = None
+    detection_bboxes: list | None = None
+    detection_count: int | None = None
+    detection_score: float | None = None
+    # The channel-region geometry for this frame, in the same shape the upload
+    # route accepts (see routers.upload._build_channel_geometry).
+    channel_geometry: dict | None = None
+    # Free-form: camera settings, lamp state, and software versions at capture
+    # time. Each lands in the sample's extra_metadata under its own key.
+    camera: dict | None = None
+    lamp: dict | None = None
+    software: dict | None = None
+    extra_metadata: dict | None = None
+
+    @field_validator("source_session_id", "local_sample_id")
+    @classmethod
+    def _single_path_segment(cls, value: str) -> str:
+        # Both name the stored file, so neither may climb out of its folder.
+        normalized = value.strip()
+        if not normalized:
+            raise ValueError("must not be empty")
+        if normalized in {".", ".."} or "/" in normalized or "\\" in normalized:
+            raise ValueError("must be a single path segment")
+        return normalized
+
+
 @router.get("/state")
 def get_sync_state(
     db: Session = Depends(get_db),
@@ -216,6 +274,7 @@ def get_sync_state(
         DATA_TYPE_CHANNEL_CROPS: {"max_local_id": by_type.get(DATA_TYPE_CHANNEL_CROPS, 0)},
         DATA_TYPE_PIECE_CORRECTIONS: {"max_local_id": by_type.get(DATA_TYPE_PIECE_CORRECTIONS, 0)},
         DATA_TYPE_CONTROL_DATA: {"max_local_id": by_type.get(DATA_TYPE_CONTROL_DATA, 0)},
+        DATA_TYPE_SAMPLES: {"max_local_id": by_type.get(DATA_TYPE_SAMPLES, 0)},
     }
 
 
@@ -508,3 +567,159 @@ def sync_control_data_segment(
     machine.last_seen_at = now
     db.commit()
     return {"max_local_id": new_max, "data_stored": data is not None}
+
+
+def _captured_at_iso(value: float | str) -> str | None:
+    if isinstance(value, str):
+        return value.strip() or None
+    moment = _ts(value)
+    return moment.isoformat() if moment else None
+
+
+def _sample_extra_metadata(meta: SampleMeta) -> dict[str, Any]:
+    extra = dict(meta.extra_metadata or {})
+    for key in ("camera", "lamp", "software"):
+        value = getattr(meta, key)
+        if value is None:
+            continue
+        current = extra.get(key)
+        extra[key] = {**current, **value} if isinstance(current, dict) else dict(value)
+    return extra
+
+
+def _image_size(image_bytes: bytes) -> tuple[int | None, int | None]:
+    # Reads the header only; the pixels are not decoded.
+    try:
+        with Image.open(io.BytesIO(image_bytes)) as img:
+            width, height = img.size
+    except Exception:
+        return None, None
+    return int(width), int(height)
+
+
+@router.post("/sample")
+@limiter.limit("120/minute")
+def sync_sample(
+    request: Request,
+    metadata: str = Form(...),
+    image: UploadFile = File(...),
+    db: Session = Depends(get_db),
+    machine: Machine = Depends(get_current_machine),
+) -> dict[str, Any]:
+    """A training sample: one full camera frame (JPEG) and its metadata.
+
+    Stored as a sample the review and teacher pipelines read like any other.
+    The one image is the full frame, so it is both the sample's image and its
+    full frame, which is what lets Hive cut the channel crop out of it with the
+    sample's channel geometry. A re-send of a stored sample (same session and
+    local_sample_id) changes nothing and still advances the watermark.
+    """
+    try:
+        meta = SampleMeta.model_validate(json.loads(metadata))
+    except (json.JSONDecodeError, ValueError) as exc:
+        raise APIError(400, f"Invalid metadata: {exc}", "INVALID_METADATA") from exc
+
+    if validate_image(image) != ".jpg":
+        raise APIError(400, "A sample image must be a JPEG.", "INVALID_IMAGE_FORMAT")
+    image.file.seek(0)
+    image_bytes = image.file.read()
+    image.file.seek(0)
+    phash = compute_phash_bytes(image_bytes)
+    exposure = compute_exposure_stats_bytes(image_bytes)
+    width, height = _image_size(image_bytes)
+
+    # No transaction may stay open while the frame travels to storage: end the
+    # read the machine-token lookup began, then write the file under a key that
+    # needs nothing from the database.
+    machine_id = machine.id
+    db.commit()
+    image_path = save_sample_frame_file(str(machine_id), meta.source_session_id, meta.local_sample_id, image)
+
+    extra = _sample_extra_metadata(meta)
+    upload_meta = UploadMetadata(
+        source_session_id=meta.source_session_id,
+        local_sample_id=meta.local_sample_id,
+        source_role=meta.source_role,
+        capture_reason=meta.capture_reason,
+        captured_at=_captured_at_iso(meta.captured_at),
+        session_name=meta.session_name,
+        detection_algorithm=meta.detection_algorithm,
+        detection_bboxes=meta.detection_bboxes,
+        detection_count=meta.detection_count,
+        detection_score=meta.detection_score,
+        extra_metadata=extra or None,
+        channel_geometry=meta.channel_geometry,
+    )
+    payload = _build_payload_from_meta(upload_meta, extra)
+    payload = _attach_uploaded_assets(
+        payload,
+        image_path=image_path,
+        image_content_type="image/jpeg",
+        full_frame_path=image_path,
+        full_frame_content_type="image/jpeg",
+        primary_kind="full_frame",
+    )
+
+    # The one short transaction: session, sample, count, watermark.
+    now = _now()
+    session = _get_or_create_upload_session(db, machine, upload_meta)
+    session_id = session.id
+    existing = _find_sample(db, session_id, meta.local_sample_id)
+    created = existing is None
+    if existing is None:
+        sample = Sample(
+            id=uuid4(),
+            machine_id=machine_id,
+            upload_session_id=session_id,
+            local_sample_id=meta.local_sample_id,
+            image_path=image_path,
+            full_frame_path=image_path,
+            phash=phash,
+            luminance_mean=exposure.luminance_mean if exposure else None,
+            luminance_p05=exposure.luminance_p05 if exposure else None,
+            luminance_p95=exposure.luminance_p95 if exposure else None,
+            clipped_low_ratio=exposure.clipped_low_ratio if exposure else None,
+            clipped_high_ratio=exposure.clipped_high_ratio if exposure else None,
+        )
+        _apply_payload_to_sample(
+            sample,
+            payload=payload,
+            extra_metadata=extra or None,
+            image_path=image_path,
+            full_frame_path=image_path,
+            overlay_path=None,
+            fallback={
+                "source_role": upload_meta.source_role,
+                "capture_reason": upload_meta.capture_reason,
+                "captured_at": upload_meta.captured_at,
+                "detection_algorithm": upload_meta.detection_algorithm,
+                "detection_bboxes": upload_meta.detection_bboxes,
+                "detection_count": upload_meta.detection_count,
+                "detection_score": upload_meta.detection_score,
+            },
+        )
+        sample.image_width = width
+        sample.image_height = height
+        sample.channel_geometry = _build_channel_geometry(upload_meta)
+        db.add(sample)
+        _count_sample_in_session(db, session_id, now)
+        sample_id = sample.id
+    else:
+        sample_id = existing.id
+    new_max = _advance_watermark(db, machine_id, DATA_TYPE_SAMPLES, meta.local_id)
+    mark_machine_seen(machine, now)
+    try:
+        db.commit()
+    except IntegrityError:
+        # The same sample arrived twice at once and the other request stored
+        # it first: answer like a re-send.
+        db.rollback()
+        session = _find_upload_session(db, machine_id, meta.source_session_id)
+        existing = _find_sample(db, session.id, meta.local_sample_id) if session else None
+        if existing is None:
+            raise
+        sample_id = existing.id
+        new_max = _advance_watermark(db, machine_id, DATA_TYPE_SAMPLES, meta.local_id)
+        db.commit()
+        created = False
+    return {"max_local_id": new_max, "sample_id": str(sample_id), "created": created}

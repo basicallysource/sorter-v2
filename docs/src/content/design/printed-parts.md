@@ -10,8 +10,6 @@ permalink: /design/printed-parts/
 last_verified: 2026-10-10
 ---
 
-Optional background: you do not need this page to build the sorter.
-
 Almost every structural part of the machine is printed, and the frame they hang on is standard 2020 aluminium extrusion. The design asks three things of a printer: a 256 x 256 mm bed, a filament that survives a warm room, and a printer set up accurately enough to hold a few tenths of a millimetre. Most of the other design choices follow from these three and from the wish to need as few screws and nuts as possible.
 
 This page explains why the parts are designed this way. How to print and assemble them is on <a href="{{ '/hardware/printing/' | relative_url }}">Printing the parts</a> and on the assembly pages it links to.

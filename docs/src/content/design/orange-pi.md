@@ -10,52 +10,19 @@ permalink: /design/orange-pi/
 last_verified: 2026-10-10
 ---
 
-Optional background: you do not need this page to build the sorter.
-
 The Orange Pi 5 is the machine's computer. It runs the machine's software: the control program (the backend), the web page you use to operate the machine, the camera processing, and the AI models that find and identify pieces. It has no screen or keyboard in the machine: you reach it from a browser on another device. Almost everything it talks to arrives over one USB cable, because the cameras and the Pico all sit behind a powered USB hub.
 
-This page is the whole list of what connects to the Orange Pi and why. Which socket each cable goes into is on [Connecting the components]({{ '/hardware/electronics/connecting/' | relative_url }}). The USB side in detail is on [The USB connections and the hub]({{ '/design/usb/' | relative_url }}).
+This page is the list of what connects to the Orange Pi and why. Power and USB each have their own page, linked below. Which socket each cable goes into is on [Connecting the components]({{ '/hardware/electronics/connecting/' | relative_url }}).
 
 ## The big picture
 
 <ul class="bulleted-list">
-  <li><strong>Power in:</strong> 5 V into the board's power USB-C socket. A small buck converter (a module that lowers a voltage) makes it from the machine's 24 V supply.</li>
-  <li><strong>USB:</strong> one cable to a powered 4-port hub. On the hub: the Pico control board and three cameras.</li>
+  <li><strong>Power in:</strong> 5 V into the board's power USB-C socket, from a buck converter on the machine's 24 V supply. Details: <a href="{{ '/design/power/' | relative_url }}">Power distribution</a>.</li>
+  <li><strong>USB:</strong> one cable to a powered 4-port hub, with the Pico control board and three cameras on it. Details: <a href="{{ '/design/usb/' | relative_url }}">The USB connections and the hub</a>.</li>
   <li><strong>Network:</strong> Ethernet, or WiFi from an M.2 module or a USB adapter. This is how you reach the UI.</li>
   <li><strong>Storage:</strong> a microSD card that holds SorterOS and everything the machine saves.</li>
   <li><strong>Cooling:</strong> the board needs a fan on its processor (its main chip).</li>
   <li><strong>Not used:</strong> the video outputs, the camera ribbon connectors and the 26-pin header. The cameras are USB and the Pico is on USB, so nothing in the machine needs them.</li>
-</ul>
-
-## Power in
-
-The machine has one 24 V power supply. The Orange Pi cannot run from 24 V, so a 24 V to 5 V buck converter sits between them, and its USB-C lead goes into the board's `PWR IN` socket. The board has two USB-C sockets that look the same, and only `PWR IN` takes power. The other one is for data and for a screen, and the machine does not use it.
-
-The hub has its own 24 V feed from the same supply. The Orange Pi does not power the hub, and it does not power the cameras or the Pico through it.
-
-<ul class="bulleted-list">
-  <li>Where the three 24 V leads go: <a href="{{ '/hardware/electronics/connecting/' | relative_url }}">Connecting the components</a></li>
-  <li>The Orange Pi's lead: <a href="{{ '/hardware/helpers/pi-24v-lead/' | relative_url }}">Make the Orange Pi's 24 V lead</a></li>
-  <li>The converter and the board in the catalog: <a href="https://github.com/basicallysource/sorter-v2/blob/main/parts-calculator/catalog/parts.json"><code>parts-calculator/catalog/parts.json</code></a> (<code>buck-24v-5v-usbc</code>, <code>sbc-orange-pi-5</code>)</li>
-</ul>
-
-## USB: the Pico and the cameras
-
-The Orange Pi's blue `UP USB3.0` port is cabled to the hub, and the hub is the only thing on the Orange Pi's USB. Four devices hang off the hub, which fills it:
-
-<ul class="bulleted-list">
-  <li><strong>The Pico</strong> on the control board. It drives the stepper motors, servos, lamps and switches. The Orange Pi sees it as a serial port (a connection that sends one byte after another) and sends it short commands. The set of commands is described on <a href="{{ '/design/electronics/' | relative_url }}">How the electronics talk to each other</a>.</li>
-  <li><strong>The 4K camera</strong> (IMX415), for classification.</li>
-  <li><strong>Two 720p cameras</strong> (OV9732), for the C-channel and carousel drop plate detection.</li>
-</ul>
-
-The software finds the Pico by its USB ID (a number that every USB device reports about itself) and the cameras by their video device number (the number the operating system gives each camera). The USB page explains this difference and what happens when a cable is pulled. The other two USB 2.0 ports on the board are free.
-
-<ul class="bulleted-list">
-  <li>The USB tree and how each device is found: <a href="{{ '/design/usb/' | relative_url }}">The USB connections and the hub</a></li>
-  <li>Finding the Pico and opening its serial port: <a href="https://github.com/basicallysource/sorter-v2/blob/main/software/sorter/backend/hardware/bus.py"><code>hardware/bus.py</code></a> and <a href="https://github.com/basicallysource/sorter-v2/blob/main/software/sorter/backend/machine_platform/control_board.py"><code>machine_platform/control_board.py</code></a></li>
-  <li>Opening and reading the cameras: <a href="https://github.com/basicallysource/sorter-v2/blob/main/software/sorter/backend/vision/camera.py"><code>vision/camera.py</code></a></li>
-  <li>Listing and assigning cameras from the UI: <a href="https://github.com/basicallysource/sorter-v2/blob/main/software/sorter/backend/server/routers/cameras.py"><code>server/routers/cameras.py</code></a></li>
 </ul>
 
 ## Network

@@ -10,8 +10,6 @@ permalink: /design/sorter/
 last_verified: 2026-10-10
 ---
 
-Optional background: you do not need this page to build the sorter.
-
 Sorter V2 is two machines stacked on top of each other. The **feeder** is a column of four rotating channels that turns a heap of loose LEGO into a single file of pieces and photographs them. The **distribution** system sits underneath: a rotating chute that aims at one of many bins, one layer at a time. A piece goes in at the top of the feeder and leaves through the chute into a bin. The electronics that connect the two have their own page, <a href="{{ '/design/electronics/' | relative_url }}">How the electronics talk to each other</a>.
 
 ## The feeder, from the top down

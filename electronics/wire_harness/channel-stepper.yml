@@ -1,6 +1,6 @@
 metadata:
   title: Channel stepper lead
-  description: "One channel stepper lead, x4 per machine. The buildable\nsub-harness for S1-S4 on the stepper cables drawing. NOT\nstraight through: the board and the motor use different\npositions, so two conductors change places."
+  description: "One channel stepper lead, x4 per machine. The buildable\nsub-harness for STP1-STP4 on the stepper cables drawing. NOT\nstraight through: the board and the motor use different\npositions, so two conductors change places."
 
 connectors:
   BOARD:
@@ -27,17 +27,17 @@ connectors:
         mpn: SPH-002T-P0.5S
 
 cables:
-  S:
+  STP:
     category: bundle
     type: 4 wire bundle
     gauge: 24 AWG
     length: 1 m
     wirecount: 4
     colors: [BU, GN, RD, BK]
-    notes: "S1-S4, qty 4."
+    notes: "STP1-STP4, qty 4."
 
 connections:
   -
     - BOARD: [1-4]
-    - S: [1-4]
+    - STP: [1-4]
     - MOTOR: [1, 4, 3, 6]

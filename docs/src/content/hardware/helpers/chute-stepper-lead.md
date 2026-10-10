@@ -1,11 +1,11 @@
 ---
 layout: default
-title: Make the chute stepper lead (CH)
+title: Make the chute stepper lead (CHU1)
 type: how-to
 section: hardware
 slug: helper-chute-stepper-lead
-kicker: Helpers — Chute stepper lead (CH)
-lede: The only stepper cable you build (CH). A 24 AWG (0.20 mm²) tail onto the motor's four bare leads, then a 4-pin housing in the right coil order. One per machine.
+kicker: Helpers — Chute stepper lead (CHU1)
+lede: The only stepper cable you build (CHU1). A 24 AWG (0.20 mm²) tail onto the motor's four bare leads, then a 4-pin housing in the right coil order. One per machine.
 permalink: /hardware/helpers/chute-stepper-lead/
 author: effreek
 contributors: [spencer, brickcyclealice, barthel]
@@ -25,7 +25,7 @@ parts_needed:
 tools_needed: ["Multimeter, to find the coils and to check the finished lead", "Side cutters, to cut the tail wire to length", "Wire strippers that take both 24 AWG (0.20 mm²) and 20 AWG (0.52 mm²) wire", "Insulated-terminal crimping pliers with a die marked for 24 to 20 AWG (0.2 to 0.6 mm²), for the four butt splices", "Crimping pliers for open-barrel contacts, with a die for 24 AWG (0.20 mm²) wire, for the four PH contacts", "A ruler or tape measure, to cut the tail to length", "Only if you solder the splices instead: soldering iron and solder, adhesive-lined heat shrink, and a heat gun to shrink it", "Optional, for the sleeving: scissors and tape, or a hot knife"]
 ---
 
-The chute stepper is the NEMA 23 that drives the chute. It is the only motor on the machine with bare flying leads: the four channel steppers have their own 6-pin socket, and their own lead (`S1` to `S4`) that you [re-house]({{ '/hardware/helpers/channel-stepper-lead/' | relative_url }}) with a PHR-4. So this one lead (`CH`) gets built from the motor's bare leads. **One per machine.** The parts list has six butt splices and six PH contacts, two more of each than the lead uses: the first crimps on a new part are easy to spoil. General help with crimping is at [Crimping connectors]({{ '/hardware/helpers/crimping/' | relative_url }}).
+The chute stepper is the NEMA 23 that drives the chute. It is the only motor on the machine with bare flying leads: the four channel steppers have their own 6-pin socket, and their own lead (`STP1` to `STP4`) that you [re-house]({{ '/hardware/helpers/channel-stepper-lead/' | relative_url }}) with a PHR-4. So this one lead (`CHU1`) gets built from the motor's bare leads. **One per machine.** The parts list has six butt splices and six PH contacts, two more of each than the lead uses: the first crimps on a new part are easy to spoil. General help with crimping is at [Crimping connectors]({{ '/hardware/helpers/crimping/' | relative_url }}).
 
 <div class="callout callout-warning">
   <span class="callout-icon" aria-hidden="true">⚠</span>
@@ -57,7 +57,7 @@ All five stepper outputs on the board have the same pinout, pin 1 to pin 4:
 
 <figure class="single-figure">
   <img class="doc-figure" src="https://assets.basically.website/sorter-docs/chute-stepper-lead-plug-shape-full-e59f2acad5e2.png" alt="A line drawing in the style of the channel stepper lead drawing. On the left the motor's four bare leads, from the top RED, BLU, GRN and BLK, the top two marked coil B and the bottom two coil A, drawn thick. Each runs into a butt splice for 24 to 20 AWG wire and on as a thinner tail. On the right a 4-pin PHR-4 housing drawn in the plug shape, a lane at each end, a window between and a flange on the wire side, with positions 4 at the top down to 1 at the bottom, labelled coil B net B2, coil B net B1, coil A net A1 and coil A net A2. The four wires run straight across with no crossing.">
-  <figcaption>One lead (<code>CH</code>) end to end: each of the motor's leads is spliced onto a thin tail, and the tails go into the PHR-4. Each coil stays in its own pair of positions.</figcaption>
+  <figcaption>One lead (<code>CHU1</code>) end to end: each of the motor's leads is spliced onto a thin tail, and the tails go into the PHR-4. Each coil stays in its own pair of positions.</figcaption>
 </figure>
 
 The full pinout and the board-side footprint are on the [wire harness]({{ '/hardware/electronics/wire-harness/#21--stepper-pinout-and-polarity' | relative_url }}) page.
@@ -77,7 +77,7 @@ No multimeter? [Join two of the leads and turn the shaft by hand]({{ '/hardware/
 ## Build it
 
 <ol class="numbered-steps">
-  <li>Decide the tail length. The harness schedule lists <code>CH</code> as a <b>300 mm (12 in)</b> tail: that is the wire you cut, and it is enough for any motor, because the motor's own leads come out at 300 to 500 mm (12 to 20 in) depending on the batch. Overall the finished lead is then about 600 mm (24 in) with 300 mm leads, and up to about 800 mm (31 in) with 500 mm leads. If you would rather not have the extra, hold the motor where it will sit, and cut the tail to about 600 mm (24 in) minus the length of the motor's own leads: 100 mm (4 in) for 500 mm (20 in) leads, 300 mm (12 in) for 300 mm (12 in) leads.</li>
+  <li>Decide the tail length. The harness schedule lists <code>CHU1</code> as a <b>300 mm (12 in)</b> tail: that is the wire you cut, and it is enough for any motor, because the motor's own leads come out at 300 to 500 mm (12 to 20 in) depending on the batch. Overall the finished lead is then about 600 mm (24 in) with 300 mm leads, and up to about 800 mm (31 in) with 500 mm leads. If you would rather not have the extra, hold the motor where it will sit, and cut the tail to about 600 mm (24 in) minus the length of the motor's own leads: 100 mm (4 in) for 500 mm (20 in) leads, 300 mm (12 in) for 300 mm (12 in) leads.</li>
   <li>Cut four pieces of 24 AWG (0.20 mm²) wire, one in each colour of the motor's four leads, the length you worked out in step 1 and <b>never under 100 mm (4 in)</b>, even when the motor's own leads already reach.</li>
   <li>Splice each one onto the motor lead of the same colour with a 24 to 20 AWG (0.2 to 0.6 mm²) butt splice, as under <b>Splicing a tail onto a motor lead</b>, below. Or solder them, as under <b>Or solder the splices</b>.</li>
   <li><b>Optional:</b> if you will sleeve the lead, slide a 1 m (39 in) length of braided sleeving over the four tails from their free ends now, before you crimp the contacts, and push it along over the splices. The 4-pin housing may not go through it, so it goes on first. Leave it bunched up on the cable for now; <a href="#sleeving-optional">Sleeving (optional)</a> says how to cut and finish it.</li>
@@ -185,13 +185,13 @@ When the lead is on the machine, strap it to the frame a short way back from the
 
 ## The finished result
 
-One lead (`CH`): the motor with a 24 AWG (0.20 mm²) tail spliced onto its four thick leads, ending in a 4-pin PHR-4 with each coil on one pair of positions.
+One lead (`CHU1`): the motor with a 24 AWG (0.20 mm²) tail spliced onto its four thick leads, ending in a 4-pin PHR-4 with each coil on one pair of positions.
 
 <div class="img-placeholder">Image coming: the finished lead, the four splices staggered along the cable and the PHR-4 at the end of the thin tail, with the motor in frame at the other end</div>
 
 ## Reference
 
-No supplier drawing covers this lead (`CH`) yet. The other leads, and the rest of the harness, are on the [WireViz
+No supplier drawing covers this lead (`CHU1`) yet. The other leads, and the rest of the harness, are on the [WireViz
 drawings]({{ '/hardware/parts/harness-order/#chute-stepper' | relative_url }}) page.
 
 ## Where it goes

@@ -1,11 +1,11 @@
 ---
 layout: default
-title: Make the channel stepper leads (S1 to S4)
+title: Make the channel stepper leads (STP1 to STP4)
 type: how-to
 section: hardware
 slug: helper-channel-stepper-lead
-kicker: Helpers — Channel stepper leads (S1 to S4)
-lede: The four leads (S1 to S4) from the control board to the c-channel motors. Four per machine, all identical, each made by replacing the Dupont plug on the motor's own lead with a 4-pin JST connector.
+kicker: Helpers — Channel stepper leads (STP1 to STP4)
+lede: The four leads (STP1 to STP4) from the control board to the c-channel motors. Four per machine, all identical, each made by replacing the Dupont plug on the motor's own lead with a 4-pin JST connector.
 permalink: /hardware/helpers/channel-stepper-lead/
 author: effreek
 contributors: [daddyosbricksbill, spencer, brickcyclealice, barthel]
@@ -21,7 +21,7 @@ parts_needed:
 tools_needed: ["Multimeter, to check the finished lead", "Side cutters, to cut the Dupont housing off", "Wire strippers, for 26 AWG (0.13 mm²) wire", "Crimping pliers for open-barrel contacts, with a die for 24 AWG (0.20 mm²) wire", "Optional, for the sleeving: scissors and tape, or a hot knife"]
 ---
 
-These are the channel stepper leads (`S1` to `S4`) on the [harness drawings]({{ '/hardware/parts/harness-order/#channel-stepper' | relative_url }}), one for each of the four c-channel motors. **Four per machine**, all identical. The crossover has been built on a motor's own lead by swapping the two middle contacts in its Dupont plug; this page makes the same lead with a PH housing instead of the plug.
+These are the channel stepper leads (`STP1` to `STP4`) on the [harness drawings]({{ '/hardware/parts/harness-order/#channel-stepper' | relative_url }}), one for each of the four c-channel motors. **Four per machine**, all identical. The crossover has been built on a motor's own lead by swapping the two middle contacts in its Dupont plug; this page makes the same lead with a PH housing instead of the plug.
 
 <div class="callout callout-warning">
   <span class="callout-icon" aria-hidden="true">⚠</span>
@@ -105,7 +105,7 @@ Whatever the length, **anchor the cable above the connector**. Strap it to the f
 
 ## The finished result
 
-Four leads (`S1` to `S4`), each with a 4-pin PHR-4 at the board end and a 6-pin PHR-6 at the motor end with two of its six positions empty.
+Four leads (`STP1` to `STP4`), each with a 4-pin PHR-4 at the board end and a 6-pin PHR-6 at the motor end with two of its six positions empty.
 
 <div class="img-placeholder">Image coming: one finished lead laid out straight, both housings in the frame, the motor end close enough to show the two empty positions</div>
 
@@ -115,5 +115,5 @@ Onto the four channel stepper sockets at [connecting the components]({{ '/hardwa
 
 ## Reference
 
-The vendor drawing for this cable (`S1` to `S4`), its bill of materials and its downloads are on the [WireViz
+The vendor drawing for this cable (`STP1` to `STP4`), its bill of materials and its downloads are on the [WireViz
 drawings]({{ '/hardware/parts/harness-order/#channel-stepper' | relative_url }}) page. It shows the same lead in the form a cable supplier quotes from.

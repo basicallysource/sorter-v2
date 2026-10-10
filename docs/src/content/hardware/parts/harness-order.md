@@ -32,8 +32,8 @@ What every cable is built to, whoever builds it.
   <dt>Barrel jacks and plugs</dt><dd><b>5.5 mm (0.217 in) outside, 2.1 mm (0.083 in) inside</b>, centre-positive, rated 5 A or better. Confirmed against the Waveshare hub (their part DC-044). 5.5 × 2.5 mm (0.217 × 0.098 in) exists, looks identical and does not mate, so put 2.1 on every line of the order.</dd>
   <dt>Length tolerance</dt><dd>±10 mm (±0.4 in), and ±25 mm (±1 in) is fine on anything 920 mm (36 in) or longer</dd>
   <dt>Bare ends</dt><dd>Strip 5 mm (0.2 in), tin</dd>
-  <dt>Labelling</dt><dd>Each cable labelled with its ID from the schedule below (<code>W2</code>, <code>S1</code>…) on a wrap-around label near end A, which is the left-hand end in the schedule. <b>S1 to S4 are labelled at both ends</b>: four identical cables land within inches of each other at the board and at the motors, and they cannot be told apart once unplugged. Printed laser labels or printed heat shrink are both fine.</dd>
-  <dt>Acceptance test</dt><dd>100% continuity, every conductor, end to end. On <code>S1</code> to <code>S4</code> that means checking the position map under <a href="#channel-stepper">Channel stepper lead</a>, not just that each wire arrives. No hipot. No UL listing or IPC class is asked for at this stage.</dd>
+  <dt>Labelling</dt><dd>Each cable labelled with its ID from the schedule below (<code>PWR2</code>, <code>STP1</code>…) on a wrap-around label <b>at both ends</b>, because every cable but <code>CHU1</code> unplugs at both ends and cannot be told from its neighbours once it is out (the four stepper cables land within inches of each other at the board and at the motors). <code>CHU1</code> is labelled once, at its board end, as the other end is spliced to the motor. Printed laser labels or printed heat shrink are both fine. The USB cables (<code>USB1</code> to <code>USB5</code>) and the ribbons (<code>RIB1</code>, <code>RIB2</code>) are not part of the harness; their labels are on <a href="{{ '/hardware/electronics/connecting/' | relative_url }}#labelling-the-cables">Connecting the components</a>.</dd>
+  <dt>Acceptance test</dt><dd>100% continuity, every conductor, end to end. On <code>STP1</code> to <code>STP4</code> that means checking the position map under <a href="#channel-stepper">Channel stepper lead</a>, not just that each wire arrives. No hipot. No UL listing or IPC class is asked for at this stage.</dd>
   <dt>Packaging</dt><dd>One bag per cable type, ID on the bag</dd>
   <dt>Parts and brands</dt><dd>The vendor sources the connectors to the spec in the connector table. Where a row gives a part number it is the one the machine was designed against, and any RoHS-compliant equivalent that mates and crimps the same is fine.</dd>
   <dt>Order quantity</dt><dd>2 full sets, because spares are cheap. Treat them as the sample run.</dd>
@@ -41,26 +41,26 @@ What every cable is built to, whoever builds it.
 
 ## Cable schedule
 
-Every cable and lead the harness is made of, one row each, with its ID. Cables that are bought ready made (the ribbons, the USB cables, the mains cord) are not part of the harness and are not listed. The IDs are the same on the drawings, on the [wire harness]({{ '/hardware/electronics/wire-harness/' | relative_url }}) page and on the labels, so a cable keeps one name everywhere. Socket references (<code>J1</code>, <code>J27</code>…) are the sockets on basically board v1.3, and a socket on a layer board is named as such. <b>End A</b> is the end that gets the label.
+Every cable and lead the harness is made of, one row each, with its ID. Cables that are bought ready made (the ribbons, the USB cables, the mains cord) are not part of the harness and are not listed. The IDs are the same on the drawings, on the [wire harness]({{ '/hardware/electronics/wire-harness/' | relative_url }}) page and on the labels, so a cable keeps one name everywhere. Socket references (<code>J1</code>, <code>J27</code>…) are the sockets on basically board v1.3, and a socket on a layer board is named as such. <b>End A</b> is the left-hand end in the table.
 
 <table>
   <thead><tr><th>ID</th><th>Qty</th><th>End A</th><th>End B</th><th>Length</th><th>Wire</th></tr></thead>
   <tbody>
-    <tr><td class="wire-id">PJ1, PJ2, PJ3</td><td>3</td><td>Panel-mount DC jack, female, on the PSU box plate</td><td>Two insulated M3.5 fork terminals, onto the PSU's paired screws (7+4, 8+5, 9+6)</td><td>100 mm (4 in)</td><td>18 AWG (0.82 mm²), red and black</td></tr>
-    <tr><td class="wire-id">W1</td><td>1</td><td>DC plug, male, into <code>PJ1</code></td><td>JST VHR-2 housing into board <code>J1</code>, pin 1 = +24 V, pin 2 = GND</td><td>920 mm (36 in)</td><td>18 AWG (0.82 mm²), red and black</td></tr>
-    <tr><td class="wire-id">W2</td><td>1</td><td>DC plug, male, into <code>PJ2</code></td><td>Bare, tinned, into the USB hub's 2-pin 24 V terminal</td><td>310 mm (12 in)</td><td>22 AWG (0.33 mm²), red and black</td></tr>
-    <tr><td class="wire-id">W3</td><td>1</td><td>DC plug, male, into <code>PJ3</code></td><td>Bare, tinned, spliced to the buck converter's input leads</td><td>150 mm (6 in)</td><td>22 AWG (0.33 mm²), red and black</td></tr>
-    <tr><td class="wire-id">L1, L2, L3</td><td>3</td><td>2-position Dupont housing, 2.54 mm (0.1 in), into board <code>J8</code>, <code>J9</code>, <code>J10</code>: black wire in the cavity at the moulded arrow, red in the other</td><td>Inline DC socket, female</td><td>920 mm (36 in)</td><td>22 AWG (0.33 mm²), red and black</td></tr>
-    <tr><td class="wire-id">L1p, L2p, L3p</td><td>3</td><td>DC plug, male, into the matching <code>L1</code> to <code>L3</code> socket</td><td>Bare, tinned, to the clamp-on connector on the LED strip</td><td>150 mm (6 in)</td><td>22 AWG (0.33 mm²), red and black</td></tr>
-    <tr><td class="wire-id">LIM</td><td>1</td><td>3-position Dupont housing into board <code>J5</code>: position 1 (the cavity at the moulded arrow) ground, position 2 signal, position 3 empty. Black for ground, white for signal</td><td>Two insulated #187 quick-connect receptacles, onto the limit switch</td><td>610 mm (24 in)</td><td>22 AWG (0.33 mm²), black and white</td></tr>
-    <tr><td class="wire-id">S1, S2, S3, S4</td><td>4</td><td>JST PHR-4 into board <code>J27</code>, <code>J31</code>, <code>J35</code>, <code>J39</code></td><td>JST PHR-6 into the motor's own socket, positions 1·4·3·6 (see the <a href="#channel-stepper">pin map</a>)</td><td>1 m (39 in)</td><td>24 AWG (0.20 mm²), blue, green, red, black</td></tr>
-    <tr><td class="wire-id">CH</td><td>1</td><td>JST PHR-4 into board <code>J23</code></td><td>Bare, tinned, spliced to the chute motor's flying leads</td><td>300 mm (12 in) tail, about 600 mm (24 in) overall with the motor's own leads</td><td>24 AWG (0.20 mm²)</td></tr>
+    <tr><td class="wire-id">PSU1, PSU2, PSU3</td><td>3</td><td>Panel-mount DC jack, female, on the PSU box plate</td><td>Two insulated M3.5 fork terminals, onto the PSU's paired screws (7+4, 8+5, 9+6)</td><td>100 mm (4 in)</td><td>18 AWG (0.82 mm²), red and black</td></tr>
+    <tr><td class="wire-id">PWR1</td><td>1</td><td>DC plug, male, into <code>PSU1</code></td><td>JST VHR-2 housing into board <code>J1</code>, pin 1 = +24 V, pin 2 = GND</td><td>920 mm (36 in)</td><td>18 AWG (0.82 mm²), red and black</td></tr>
+    <tr><td class="wire-id">PWR2</td><td>1</td><td>DC plug, male, into <code>PSU2</code></td><td>Bare, tinned, into the USB hub's 2-pin 24 V terminal</td><td>310 mm (12 in)</td><td>22 AWG (0.33 mm²), red and black</td></tr>
+    <tr><td class="wire-id">PWR3</td><td>1</td><td>DC plug, male, into <code>PSU3</code></td><td>Bare, tinned, spliced to the buck converter's input leads</td><td>150 mm (6 in)</td><td>22 AWG (0.33 mm²), red and black</td></tr>
+    <tr><td class="wire-id">LED1a, LED2a, LED3a</td><td>3</td><td>2-position Dupont housing, 2.54 mm (0.1 in), into board <code>J8</code>, <code>J9</code>, <code>J10</code>: black wire in the cavity at the moulded arrow, red in the other</td><td>Inline DC socket, female</td><td>920 mm (36 in)</td><td>22 AWG (0.33 mm²), red and black</td></tr>
+    <tr><td class="wire-id">LED1, LED2, LED3</td><td>3</td><td>DC plug, male, into the matching <code>LED1a</code> to <code>LED3a</code> socket</td><td>Bare, tinned, to the clamp-on connector on the LED strip</td><td>150 mm (6 in)</td><td>22 AWG (0.33 mm²), red and black</td></tr>
+    <tr><td class="wire-id">LIM1</td><td>1</td><td>3-position Dupont housing into board <code>J5</code>: position 1 (the cavity at the moulded arrow) ground, position 2 signal, position 3 empty. Black for ground, white for signal</td><td>Two insulated #187 quick-connect receptacles, onto the limit switch</td><td>610 mm (24 in)</td><td>22 AWG (0.33 mm²), black and white</td></tr>
+    <tr><td class="wire-id">STP1, STP2, STP3, STP4</td><td>4</td><td>JST PHR-4 into board <code>J27</code>, <code>J31</code>, <code>J35</code>, <code>J39</code></td><td>JST PHR-6 into the motor's own socket, positions 1·4·3·6 (see the <a href="#channel-stepper">pin map</a>)</td><td>1 m (39 in)</td><td>24 AWG (0.20 mm²), blue, green, red, black</td></tr>
+    <tr><td class="wire-id">CHU1</td><td>1</td><td>JST PHR-4 into board <code>J23</code></td><td>Bare, tinned, spliced to the chute motor's flying leads</td><td>300 mm (12 in) tail, about 600 mm (24 in) overall with the motor's own leads</td><td>24 AWG (0.20 mm²)</td></tr>
   </tbody>
 </table>
 
-`CH` is listed as the tail wire to cut, 300 mm (12 in); the motor's own leads are 300 to 500 mm (12 to 20 in) depending on the batch and are not part of it.
+`CHU1` is listed as the tail wire to cut, 300 mm (12 in); the motor's own leads are 300 to 500 mm (12 to 20 in) depending on the batch and are not part of it.
 
-On `L1` to `L3`, the optional inline socket and the plug on `L1p` to `L3p` can be left out, in which case the feed runs straight to the strip and the pigtail is not needed. The plug and socket are recommended because they let the lamp be unplugged close to where it is.
+`LED1` to `LED3` are the leads attached to the LED strips. `LED1a` to `LED3a` are the optional board leads: they carry the inline socket, and the plug on `LED1` to `LED3` fits it. Both can be left out, in which case `LED1` to `LED3` is the only cable, a Dupont cable that runs straight to the strip. The plug and socket are recommended because they let the lamp be unplugged close to where it is.
 
 ## Connectors and terminals
 
@@ -69,15 +69,15 @@ What goes on the ends in the schedule. The part numbers are the ones the machine
 <table>
   <thead><tr><th>Where</th><th>Housing or part</th><th>Contact or crimp</th><th>Used on</th></tr></thead>
   <tbody>
-    <tr><td>Board 24 V input</td><td>JST VHR-2N, 2-position</td><td>JST SVH-21T-P1.1</td><td><code>W1</code></td></tr>
-    <tr><td>Stepper, board end</td><td>JST PHR-4, 4-position</td><td>JST SPH-002T-P0.5S</td><td><code>S1</code> to <code>S4</code>, <code>CH</code></td></tr>
-    <tr><td>Stepper, motor end</td><td>JST PHR-6, 6-position, 4 populated</td><td>JST SPH-002T-P0.5S</td><td><code>S1</code> to <code>S4</code></td></tr>
-    <tr><td>LED feeds, limit switch</td><td>Dupont housing, female, 2.54 mm (0.1 in): 2-position, and 3-position with 2 populated</td><td>Dupont female crimp contact, 2.54 mm (0.1 in).</td><td><code>L1</code> to <code>L3</code>, <code>LIM</code></td></tr>
-    <tr><td>Limit switch</td><td>Fully insulated female quick-connect receptacle, #187 (4.75 × 0.5 mm, 0.187 × 0.020 in, tab), for 22 AWG (0.33 mm²).</td><td>Mates the Omron V-155-1C25</td><td><code>LIM</code></td></tr>
-    <tr><td>DC plug</td><td>Barrel plug, male, 5.5 × 2.1 mm (0.217 × 0.083 in), centre-positive, 5 A or better.</td><td>Soldered or crimped per the vendor's process</td><td><code>W1</code> to <code>W3</code>, <code>L1p</code> to <code>L3p</code></td></tr>
-    <tr><td>DC socket</td><td>Barrel socket, female, 5.5 × 2.1 mm (0.217 × 0.083 in), panel-mount on <code>PJ1</code> to <code>PJ3</code>, inline on <code>L1</code> to <code>L3</code>.</td><td>As above</td><td><code>PJ1</code> to <code>PJ3</code>, <code>L1</code> to <code>L3</code></td></tr>
-    <tr><td>PSU terminal block</td><td>Insulated fork terminal, M3.5 stud, 8 mm (0.31 in) wide at most, for 18 AWG (0.82 mm²).</td><td>Crimp</td><td><code>PJ1</code> to <code>PJ3</code></td></tr>
-    <tr><td>Bare ends</td><td>Strip 5 mm (0.2 in), tin</td><td>No connector</td><td><code>W2</code>, <code>W3</code>, <code>L1p</code> to <code>L3p</code></td></tr>
+    <tr><td>Board 24 V input</td><td>JST VHR-2N, 2-position</td><td>JST SVH-21T-P1.1</td><td><code>PWR1</code></td></tr>
+    <tr><td>Stepper, board end</td><td>JST PHR-4, 4-position</td><td>JST SPH-002T-P0.5S</td><td><code>STP1</code> to <code>STP4</code>, <code>CHU1</code></td></tr>
+    <tr><td>Stepper, motor end</td><td>JST PHR-6, 6-position, 4 populated</td><td>JST SPH-002T-P0.5S</td><td><code>STP1</code> to <code>STP4</code></td></tr>
+    <tr><td>LED feeds, limit switch</td><td>Dupont housing, female, 2.54 mm (0.1 in): 2-position, and 3-position with 2 populated</td><td>Dupont female crimp contact, 2.54 mm (0.1 in).</td><td><code>LED1a</code> to <code>LED3a</code>, <code>LIM1</code></td></tr>
+    <tr><td>Limit switch</td><td>Fully insulated female quick-connect receptacle, #187 (4.75 × 0.5 mm, 0.187 × 0.020 in, tab), for 22 AWG (0.33 mm²).</td><td>Mates the Omron V-155-1C25</td><td><code>LIM1</code></td></tr>
+    <tr><td>DC plug</td><td>Barrel plug, male, 5.5 × 2.1 mm (0.217 × 0.083 in), centre-positive, 5 A or better.</td><td>Soldered or crimped per the vendor's process</td><td><code>PWR1</code> to <code>PWR3</code>, <code>LED1</code> to <code>LED3</code></td></tr>
+    <tr><td>DC socket</td><td>Barrel socket, female, 5.5 × 2.1 mm (0.217 × 0.083 in), panel-mount on <code>PSU1</code> to <code>PSU3</code>, inline on <code>LED1a</code> to <code>LED3a</code>.</td><td>As above</td><td><code>PSU1</code> to <code>PSU3</code>, <code>LED1a</code> to <code>LED3a</code></td></tr>
+    <tr><td>PSU terminal block</td><td>Insulated fork terminal, M3.5 stud, 8 mm (0.31 in) wide at most, for 18 AWG (0.82 mm²).</td><td>Crimp</td><td><code>PSU1</code> to <code>PSU3</code></td></tr>
+    <tr><td>Bare ends</td><td>Strip 5 mm (0.2 in), tin</td><td>No connector</td><td><code>PWR2</code>, <code>PWR3</code>, <code>LED1</code> to <code>LED3</code></td></tr>
   </tbody>
 </table>
 
@@ -89,9 +89,9 @@ Rows without a part number are specified by type and size, and the vendor source
 
 Some parts come with their own fixed leads or solder pads, so the harness cannot fully land on them. Those cables are ordered with one end bare and tinned, and joined on the machine.
 
-- **24 V to 5 V USB-C buck** (`W3`): the converter has fixed input leads, so splice.
-- **Chute stepper** (`CH`): flying leads out of the motor, so splice. [Make the chute stepper lead]({{ '/hardware/helpers/chute-stepper-lead/' | relative_url }}).
-- **LED strips** (`L1p`, `L2p`, `L3p`): a solderless clamp-on connector bites onto the cut strip, so nothing is soldered. Pick the variant with IDC crimp points on both sides and it takes the pigtail wire too.
+- **24 V to 5 V USB-C buck** (`PWR3`): the converter has fixed input leads, so splice.
+- **Chute stepper** (`CHU1`): flying leads out of the motor, so splice. [Make the chute stepper lead]({{ '/hardware/helpers/chute-stepper-lead/' | relative_url }}).
+- **LED strips** (`LED1`, `LED2`, `LED3`): a solderless clamp-on connector bites onto the cut strip, so nothing is soldered. Pick the variant with IDC crimp points on both sides and it takes the pigtail wire too.
 
 <div class="callout">
   <span class="callout-icon" aria-hidden="true">›</span>

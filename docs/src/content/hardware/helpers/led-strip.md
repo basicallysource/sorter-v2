@@ -1,11 +1,11 @@
 ---
 layout: default
-title: Preparing the LED strips (L1 to L3, L1p to L3p)
+title: Preparing the LED strips (LED1a to LED3a, LED1 to LED3)
 type: how-to
 section: hardware
 slug: helper-led-strip
-kicker: Helpers — LED strips (L1 to L3, L1p to L3p)
-lede: One machine needs three LED strips. This page describes how to cut a length of 24 V strip and make the cable that takes it to the control board (L1 to L3, L1p to L3p), with an optional but recommended barrel plug and socket where the lamp comes off.
+kicker: Helpers — LED strips (LED1a to LED3a, LED1 to LED3)
+lede: One machine needs three LED strips. This page describes how to cut a length of 24 V strip and make the cable that takes it to the control board (LED1a to LED3a, LED1 to LED3), with an optional but recommended barrel plug and socket where the lamp comes off.
 permalink: /hardware/helpers/led-strip/
 author: brickcyclealice
 contributors: [effreek, reveryx, spencer, barthel]
@@ -26,15 +26,15 @@ parts_needed:
     qty: 3
   - part: sleeving-braided-6mm
     qty: 1
-    note: Optional. About 1 m (39 in) over each of the three board cables (L1 to L3) and 100 mm (4 in) over each of the three lamp pigtails (L1p to L3p).
+    note: Optional. About 1 m (39 in) over each of the three board cables (LED1a to LED3a) and 100 mm (4 in) over each of the three lamp pigtails (LED1 to LED3).
 tools_needed: [Side cutters, Wire strippers, "Multimeter (only if you fit the plug and socket)", "Insulated-terminal crimping pliers with a die for 22 to 16 AWG (0.33 to 1.3 mm²) wire, for the butt connectors", "Only if you solder instead of crimping or clamping: a soldering iron, solder and 3 mm (0.12 in) adhesive-lined heat shrink (see Getting started)", "Only if you make your own Dupont cable: a crimp tool for open-barrel contacts", "Optional, for the sleeving: scissors and tape, or a hot knife"]
 ---
 
-Each camera lamp needs a cable that takes 24 V from the control board to its strip. The best way to build it is **two cables that meet at a barrel plug and socket**: the board cable (`L1` to `L3`) and the lamp pigtail (`L1p` to `L3p`). The plug and socket are **optional but recommended**. **They make maintenance easier:** the power supply to a lamp can be disconnected right next to the lamp, so you can take a lamp down, swap it or work on it without touching the board end of its cable or the cables of the other lamps. **A machine takes three of each.** The quantities above are a whole machine's worth: one 5 m (16 ft) roll cuts into five lengths, and the Dupont cables come five to a pack.
+Each camera lamp needs a cable that takes 24 V from the control board to its strip. The best way to build it is **two cables that meet at a barrel plug and socket**: the board cable (`LED1a` to `LED3a`) and the lamp pigtail (`LED1` to `LED3`). The plug and socket are **optional but recommended**. **They make maintenance easier:** the power supply to a lamp can be disconnected right next to the lamp, so you can take a lamp down, swap it or work on it without touching the board end of its cable or the cables of the other lamps. **A machine takes three of each.** The quantities above are a whole machine's worth: one 5 m (16 ft) roll cuts into five lengths, and the Dupont cables come five to a pack.
 
 <figure class="single-figure">
   <img class="doc-figure" style="max-width: min(100%, 800px)" src="https://assets.basically.website/sorter-docs/led-two-cable-set-pin1-full-9bd42a94a5c9.png" alt="Diagram of two cables. Cable 1, the lamp pigtail: an LED strip, a clamp-on connector, and red and black wires ending in a barrel plug. Cable 2, the board cable: a barrel socket, two staggered butt connectors on its red and black wires, and a longer cable ending in a two-pin Dupont plug that goes to the board, red in pin 1 for +V and black in the other for GND.">
-  <figcaption>The two cables: the lamp pigtail (<code>L1p</code> to <code>L3p</code>) stays with the lamp, the board cable (<code>L1</code> to <code>L3</code>) stays with the machine.</figcaption>
+  <figcaption>The two cables: the lamp pigtail (<code>LED1</code> to <code>LED3</code>) stays with the lamp, the board cable (<code>LED1a</code> to <code>LED3a</code>) stays with the machine.</figcaption>
 </figure>
 
 **Pick your build:**
@@ -54,7 +54,7 @@ Nothing here needs soldering. If you would rather solder a joint, the connector 
 
 <div class="callout callout-warning">
   <span class="callout-icon" aria-hidden="true">⚠</span>
-  <p><b>The socket goes on the board cable (<code>L1</code> to <code>L3</code>) and the plug goes on the lamp pigtail (<code>L1p</code> to <code>L3p</code>), never the other way round.</b> The board end is live at 24 V whenever the power supply is on, and a socket has its contacts recessed where a plug's are not. Both are <b>5.5 x 2.1 mm (0.217 x 0.083 in), centre-positive</b>: the tip is +24 V and the sleeve is ground.</p>
+  <p><b>The socket goes on the board cable (<code>LED1a</code> to <code>LED3a</code>) and the plug goes on the lamp pigtail (<code>LED1</code> to <code>LED3</code>), never the other way round.</b> The board end is live at 24 V whenever the power supply is on, and a socket has its contacts recessed where a plug's are not. Both are <b>5.5 x 2.1 mm (0.217 x 0.083 in), centre-positive</b>: the tip is +24 V and the sleeve is ground.</p>
 </div>
 
 {% include step.html n="1" title="Cut the strip to length, on a mark" %}
@@ -74,7 +74,7 @@ Leave the blue protective film on until the strip is going where it lives. It is
   <figcaption>The cut points, with the pads that sit either side of them. Each cut leaves you half of a pad, printed <code>+24V</code> on one side. <cite>Manufacturer diagram (VOEWT).</cite></figcaption>
 </figure>
 
-{% include step.html n="2" title="Cut the male plug off the Dupont cable (<code>L1</code> to <code>L3</code>)" %}
+{% include step.html n="2" title="Cut the male plug off the Dupont cable (<code>LED1a</code> to <code>LED3a</code>)" %}
 
 The cable comes from the pack with a plug on both ends: the **male** one has two pins sticking out of it, the **female** one has two holes. **Cut the male plug off.** The female end stays on: that is what pushes onto the board later. With the plug and socket, the socket joins here in step 5. Without them, this cut end goes straight onto the strip in step 4, and you skip steps 3 and 5.
 
@@ -87,15 +87,15 @@ If you own a crimp tool for open-barrel contacts, you can make this cable instea
   <figcaption>The same housing both ways round. Right: the arrow end is over the pin printed <code>GND</code>. Wrong: turned half a turn, with the arrow end over <code>+V</code>.</figcaption>
 </figure>
 
-**Optional:** if you will sleeve the board cable (`L1` to `L3`), slide a 1 m (39 in) length of braided sleeving over its two wires from the cut end now, before you join the socket in step 5 or clamp the wires onto the strip in step 4. A finished socket or clamp may not go through it, so it goes on first. If you make your own cable, slide it on before you crimp the housing. [Sleeving (optional)](#sleeving-optional) says how to cut and finish it.
+**Optional:** if you will sleeve the board cable (`LED1a` to `LED3a`), slide a 1 m (39 in) length of braided sleeving over its two wires from the cut end now, before you join the socket in step 5 or clamp the wires onto the strip in step 4. A finished socket or clamp may not go through it, so it goes on first. If you make your own cable, slide it on before you crimp the housing. [Sleeving (optional)](#sleeving-optional) says how to cut and finish it.
 
 {% include step.html n="3" title="Find the tip of the plug and of the socket" %}
 
 Only if you are fitting the plug and socket. Set the <a href="{{ '/hardware/helpers/multimeter/' | relative_url }}#continuity-for-tracing-a-cable">multimeter to continuity</a> and hold one probe on the centre pin. The wire that beeps is the tip, which is **+24 V**. The other is ground. Do this for the plug and for the socket, and **do not go by wire colour**, because moulded plugs are not consistent about it.
 
-Then cut the plug's wires, which make the lamp pigtail (`L1p` to `L3p`), to about 150 mm (6 in).
+Then cut the plug's wires, which make the lamp pigtail (`LED1` to `LED3`), to about 150 mm (6 in).
 
-**Optional:** if you will sleeve the lamp pigtail (`L1p` to `L3p`), slide a 100 mm (4 in) length of braided sleeving over its two wires from the cut end now, before you clamp them onto the strip in step 4.
+**Optional:** if you will sleeve the lamp pigtail (`LED1` to `LED3`), slide a 100 mm (4 in) length of braided sleeving over its two wires from the cut end now, before you clamp them onto the strip in step 4.
 
 {% include step.html n="4" title="Clamp the wires onto the strip" %}
 
@@ -106,14 +106,14 @@ The solderless connector is a hinged body with sprung contacts at each end: the 
   <li>Clamp the plug's two wires into the other end (or, without the plug, the Dupont cable's two wires). The tip wire (or the red wire) goes on the <code>+24V</code> side. It bites through the insulation, so the wires do not need stripping either. The connector is made for 22 AWG (0.33 mm²) wire, so check your plug's leads are about that size, and tug each wire once the lid is shut.</li>
 </ol>
 
-**Match the width.** These are 8 mm (0.31 in) COB connectors and nothing else will grip: a 10 mm (0.39 in) body, or one meant for SMD strip, will not hold the pads against the contacts. Buy <code>SBL-RA2P-8</code>: the <code>-DC</code> variant ends in a barrel socket, which is the wrong way round on the lamp pigtail (<code>L1p</code> to <code>L3p</code>).
+**Match the width.** These are 8 mm (0.31 in) COB connectors and nothing else will grip: a 10 mm (0.39 in) body, or one meant for SMD strip, will not hold the pads against the contacts. Buy <code>SBL-RA2P-8</code>: the <code>-DC</code> variant ends in a barrel socket, which is the wrong way round on the lamp pigtail (<code>LED1</code> to <code>LED3</code>).
 
 <figure class="single-figure">
   <img class="doc-figure" src="https://assets.basically.website/sorter-docs/led-strip-clamp-sequence-black-full-3e4b2ec3e816.png" alt="Two stages of clamping: above, the cut end of a COB strip lined up with the open connector, an arrow showing it going in, with red and black wire already in the far end; below, the connector pressed shut on the strip with the pair leaving it">
   <figcaption>The strip into the open connector, then the connector pressed shut on it. <cite>Manufacturer photos (LED strip connector product listing; seller not recorded).</cite></figcaption>
 </figure>
 
-{% include step.html n="5" title="Crimp the socket's wires to the cable (<code>L1</code> to <code>L3</code>)" %}
+{% include step.html n="5" title="Crimp the socket's wires to the cable (<code>LED1a</code> to <code>LED3a</code>)" %}
 
 Only if you are fitting the plug and socket. The socket's wires and the Dupont cable's wires are joined end to end, one joint per wire, so there are two. **The socket's tip wire joins the cable's red wire**, and the socket's ground wire joins the black one. Red is the wire that goes to <code>+V</code> on the board, so this is the joint that keeps the polarity right. Do one joint at a time so the two never touch.
 
@@ -154,7 +154,7 @@ If the first test does not beep, or the second does, the two joints have crossed
   <p><b>You can skip this and the lamp works the same.</b> The sleeving is on the parts list as optional. It keeps the two wires together as one tidy cable and protects them where the cable runs along the frame, and it is another way of securing the cables.</p>
 </div>
 
-**Where:** over the two wires of each board cable (`L1` to `L3`), from just short of the barrel socket (or of its butt connectors) to just short of the Dupont housing, about 1 m (39 in). The short lamp pigtail (`L1p` to `L3p`) can have a 100 mm (4 in) length as well, from just short of the clamp to just short of the plug. Three of each per machine.
+**Where:** over the two wires of each board cable (`LED1a` to `LED3a`), from just short of the barrel socket (or of its butt connectors) to just short of the Dupont housing, about 1 m (39 in). The short lamp pigtail (`LED1` to `LED3`) can have a 100 mm (4 in) length as well, from just short of the clamp to just short of the plug. Three of each per machine.
 
 **How:**
 
@@ -167,7 +167,7 @@ If the first test does not beep, or the second does, the two joints have crossed
 
 ## The finished result
 
-With the pair fitted, two cables that plug together. A two-turn length of strip, about 920 mm (36 in), with its male barrel plug on the end of a short pair of wires (the lamp pigtail, `L1p` to `L3p`), and 1 m (39 in) of red and black wire with a female barrel socket at one end and a 2-pin Dupont plug at the other (the board cable, `L1` to `L3`). Three of each make a machine. Without the pair it is one cable, the Dupont cable running straight to the strip. Nothing is joined end to end along the strip, so its far end stays dead.
+With the pair fitted, two cables that plug together. A two-turn length of strip, about 920 mm (36 in), with its male barrel plug on the end of a short pair of wires (the lamp pigtail, `LED1` to `LED3`), and 1 m (39 in) of red and black wire with a female barrel socket at one end and a 2-pin Dupont plug at the other (the board cable, `LED1a` to `LED3a`). Three of each make a machine. Without the pair it is one cable, `LED1` to `LED3`, the Dupont cable running straight to the strip, and `LED1a` to `LED3a` are not needed. Nothing is joined end to end along the strip, so its far end stays dead.
 
 <figure class="single-figure">
   <img class="doc-figure" src="https://assets.basically.website/sorter-parts/led-strip-connector-8mm-full-915e0ed03fdc.jpg" alt="A length of 8 mm COB LED strip with a clear clamp-on connector on its cut end, a red and a black wire leaving the other side of the connector in a white sheath">

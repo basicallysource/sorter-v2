@@ -41,11 +41,11 @@ This page builds the part of a camera lamp that is the same on every channel: th
 
 <div class="prep-item">
   <div class="prep-item-body">
-    <p><strong>Prepare an <a href="{{ '/hardware/helpers/led-strip/' | relative_url }}">LED strip</a> before you start.</strong> One per lamp: a two-turn length cut off the roll, about 920 mm (36 in), with a short pigtail (<code>L1p</code>, <code>L2p</code> or <code>L3p</code>) on the end (ending in a male barrel plug, optional but recommended), either clamped on or soldered. That page has the strip, the connector, the plug and the board cable (<code>L1</code>, <code>L2</code> or <code>L3</code>); step 4 here only hooks it on.</p>
+    <p><strong>Prepare an <a href="{{ '/hardware/helpers/led-strip/' | relative_url }}">LED strip</a> before you start.</strong> One per lamp: a two-turn length cut off the roll, about 920 mm (36 in), with a short pigtail (<code>LED1</code>, <code>LED2</code> or <code>LED3</code>) on the end (ending in a male barrel plug, optional but recommended), either clamped on or soldered. That page has the strip, the connector, the plug and the board cable (<code>LED1a</code>, <code>LED2a</code> or <code>LED3a</code>); step 4 here only hooks it on.</p>
   </div>
   <figure class="prep-item-figure">
     <img class="doc-figure" src="https://assets.basically.website/sorter-parts/led-strip-connector-8mm-full-915e0ed03fdc.jpg" alt="A length of 8 mm COB LED strip with a clear clamp-on connector on its cut end, a red and a black wire leaving the other side of the connector in a white sheath">
-    <figcaption>A prepared strip: the cut end, the joint, and the pigtail (<code>L1p</code> to <code>L3p</code>) that leaves it. <cite>Manufacturer photo (SuperBrightLEDs).</cite></figcaption>
+    <figcaption>A prepared strip: the cut end, the joint, and the pigtail (<code>LED1</code> to <code>LED3</code>) that leaves it. <cite>Manufacturer photo (SuperBrightLEDs).</cite></figcaption>
   </figure>
 </div>
 
@@ -121,7 +121,7 @@ That is **12 M3 × 12 per arm**: 8 at the mount joint, 4 here. Six holes, a scre
 
 Push the six **Inner reflector LED hooks** into the sockets around the rim of the **Lamp inner reflector**, evenly spaced. They are a friction fit and there are no screws. Each hook holds the LED strip against the reflector.
 
-The strip itself is cut and wired on [Preparing the LED strip]({{ '/hardware/helpers/led-strip/' | relative_url }}): two turns of the skirt, about 920 mm (36 in), cut on a printed mark, with a short pigtail (`L1p` to `L3p`) on the cut end, which ends in a barrel plug if you fit the optional but recommended plug and socket. Have one ready before you start this step.
+The strip itself is cut and wired on [Preparing the LED strip]({{ '/hardware/helpers/led-strip/' | relative_url }}): two turns of the skirt, about 920 mm (36 in), cut on a printed mark, with a short pigtail (`LED1` to `LED3`) on the cut end, which ends in a barrel plug if you fit the optional but recommended plug and socket. Have one ready before you start this step.
 
 **Fitting it.** Two turns, LEDs facing inwards.
 
@@ -144,7 +144,7 @@ The strip itself is cut and wired on [Preparing the LED strip]({{ '/hardware/hel
 
 **Nothing fastens the reflector to the arm.** The arm's ring pushes up into the middle of the reflector from underneath and is held by the fit alone. That happens on the camera page for your channel, with the camera already clasped in the ring, so the arm and the lamp stay separate until then.
 
-The strip comes with its pigtail (`L1p` to `L3p`) already on it from [Preparing the LED strip]({{ '/hardware/helpers/led-strip/' | relative_url }}); strap that lead down the arm so it is not hanging in the channel (hook-and-loop straps rather than zip ties, see [securing the cables]({{ '/hardware/electronics/connecting/' | relative_url }}#securing-the-cables)). It can leave the lamp two ways, and machines have been built both: straight out of the bottom of the shade, or up through the slot in the cover and down the outside alongside the camera lead. Whichever you pick, keep the run clear of where the strip's own joint sits inside the shade. Plugging it into the board is step 4 of [connecting the components]({{ '/hardware/electronics/connecting/' | relative_url }}). Nothing is joined end to end here, so the far end of the strip stays dead. The strip runs at 24 V off the basically board.
+The strip comes with its pigtail (`LED1` to `LED3`) already on it from [Preparing the LED strip]({{ '/hardware/helpers/led-strip/' | relative_url }}); strap that lead down the arm so it is not hanging in the channel (hook-and-loop straps rather than zip ties, see [securing the cables]({{ '/hardware/electronics/connecting/' | relative_url }}#securing-the-cables)). It can leave the lamp two ways, and machines have been built both: straight out of the bottom of the shade, or up through the slot in the cover and down the outside alongside the camera lead. Whichever you pick, keep the run clear of where the strip's own joint sits inside the shade. Plugging it into the board is step 4 of [connecting the components]({{ '/hardware/electronics/connecting/' | relative_url }}). Nothing is joined end to end here, so the far end of the strip stays dead. The strip runs at 24 V off the basically board.
 
 {% include step.html n="5" title="Press the outer cover onto the reflector" %}
 

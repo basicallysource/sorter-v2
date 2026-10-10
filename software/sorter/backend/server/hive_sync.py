@@ -463,10 +463,12 @@ class _TargetSyncer:
         # records/images: piece-image capture is continuous during a run, so an
         # `or` chain would starve crops behind that backlog.
         records_or_images = self._drainRecords() or self._drainImages()
+        # Samples (a few a minute) go before crops, which can hold a backlog of
+        # tens of thousands: behind it they would wait on the budget for hours.
+        samples = self._drainSamples()
         crops = self._drainChannelCrops()
         corrections = self._drainCorrections()
         control_data = self._drainControlData()
-        samples = self._drainSamples()
         self._state_ok = True
         progressed = records_or_images or crops or corrections or control_data or samples
         if progressed:

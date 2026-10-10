@@ -42,7 +42,7 @@ This is the Orange Pi's 24 V lead (`PWR3`) on the [harness drawings]({{ '/hardwa
 The converter takes 8 to 32 V in and gives 5 V out at up to 5 A. It is potted, so there is nothing to open and nothing to adjust, and its output is a captive USB-C lead.
 
 <figure class="single-figure">
-  <img class="doc-figure" src="https://assets.basically.website/sorter-docs/w3-24v-lead-diagram-full-22caf5109dd5.png" alt="Diagram of the finished lead with a moulded plug, left to right: a barrel plug with two short leads, red and black, each joined to one of the converter's red and black input wires by a butt connector, the two connectors staggered; the converter's input wires, 100 mm or more; the buck converter; and its own USB-C lead going to the Pi's PWR IN socket.">
+  <img class="doc-figure" src="https://assets.basically.website/sorter-docs/pwr3-24v-lead-diagram-full-03af27eaa7dd.png" alt="Diagram of the finished lead with a moulded plug, left to right: a barrel plug with two short leads, red and black, each joined to one of the converter's red and black input wires by a butt connector, the two connectors staggered; the converter's input wires, 100 mm or more; the buck converter; and its own USB-C lead going to the Pi's PWR IN socket.">
   <figcaption>The finished lead with a moulded plug. With a screw-terminal plug there are no butt connectors: the converter's wires go straight under the plug's screws.</figcaption>
 </figure>
 

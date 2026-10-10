@@ -49,7 +49,7 @@ The [PSU box]({{ '/hardware/electronics/installation/psu-box/' | relative_url }}
     <p><strong>Make the <a href="{{ '/hardware/helpers/board-24v-lead/' | relative_url }}">control board's 24 V lead</a> (<code>PWR1</code>) before you start.</strong> One barrel plug at the PSU end and a JST-VH housing at the board end, 920 mm (36 in) of 18 AWG (0.82 mm²) pair between them. Step 1 plugs it in.</p>
   </div>
   <figure class="prep-item-figure">
-    <img class="doc-figure" src="https://assets.basically.website/sorter-docs/w1-24v-lead-pin1-diagram-full-284f502e161c.png" alt="Diagram of the finished lead, left to right: a barrel plug with two short leads, red and black, each joined to the 18 AWG (0.82 mm²) pair by a butt connector, the two connectors staggered; the pair, 914 mm end to end; and two VH contacts in a two-position VHR-2 housing, red in pin 1 for +24 V and black in pin 2 for ground.">
+    <img class="doc-figure" src="https://assets.basically.website/sorter-docs/pwr1-24v-lead-pin1-diagram-full-652292fec346.png" alt="Diagram of the finished lead, left to right: a barrel plug with two short leads, red and black, each joined to the 18 AWG (0.82 mm²) pair by a butt connector, the two connectors staggered; the pair, 914 mm end to end; and two VH contacts in a two-position VHR-2 housing, red in pin 1 for +24 V and black in pin 2 for ground.">
     <figcaption>The finished control board 24 V lead (<code>PWR1</code>), with a moulded plug. <cite>Diagram: author not recorded.</cite></figcaption>
   </figure>
 </div>
@@ -59,7 +59,7 @@ The [PSU box]({{ '/hardware/electronics/installation/psu-box/' | relative_url }}
     <p><strong>Make the <a href="{{ '/hardware/helpers/pi-24v-lead/' | relative_url }}">Orange Pi's 24 V lead</a> (<code>PWR3</code>) before you start.</strong> A barrel plug on the buck converter's own input wires, with the converter's USB-C lead going on to the Pi. Step 7 plugs it in.</p>
   </div>
   <figure class="prep-item-figure">
-    <img class="doc-figure" src="https://assets.basically.website/sorter-docs/w3-24v-lead-diagram-full-22caf5109dd5.png" alt="Diagram of the finished lead with a moulded plug, left to right: a barrel plug with two short leads, red and black, each joined to one of the converter's red and black input wires by a butt connector, the two connectors staggered; the converter's input wires, 100 mm (4 in) or more; the buck converter; and its own USB-C lead going to the Pi's PWR IN socket.">
+    <img class="doc-figure" src="https://assets.basically.website/sorter-docs/pwr3-24v-lead-diagram-full-03af27eaa7dd.png" alt="Diagram of the finished lead with a moulded plug, left to right: a barrel plug with two short leads, red and black, each joined to one of the converter's red and black input wires by a butt connector, the two connectors staggered; the converter's input wires, 100 mm (4 in) or more; the buck converter; and its own USB-C lead going to the Pi's PWR IN socket.">
     <figcaption>The finished Orange Pi 24 V lead (<code>PWR3</code>), with a moulded plug. <cite>Diagram: author not recorded.</cite></figcaption>
   </figure>
 </div>

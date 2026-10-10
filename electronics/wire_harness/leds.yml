@@ -47,13 +47,13 @@ cables:
     notes: "LED feed. Gauge = GUESS, not covered by the\nreference drawings."
   LED2: *feed
   LED3: *feed
-  LED1P: &pig
+  LED1p: &pig
     gauge: 22 AWG
     length: 6 in
     colors: [RD, BK]
     notes: "LED pigtail. Gauge = GUESS, not covered by\nthe reference drawings."
-  LED2P: *pig
-  LED3P: *pig
+  LED2p: *pig
+  LED3p: *pig
   LIM1:
     gauge: 22 AWG
     length: 24 in
@@ -75,15 +75,15 @@ connections:
     - LJ3: [1-2]
   -
     - LP1: [1-2]
-    - LED1P: [1-2]
+    - LED1p: [1-2]
     - COB1: [1-2]
   -
     - LP2: [1-2]
-    - LED2P: [1-2]
+    - LED2p: [1-2]
     - COB2: [1-2]
   -
     - LP3: [1-2]
-    - LED3P: [1-2]
+    - LED3p: [1-2]
     - STRIP: [1-2]
   -
     - BOARD_LIM: [1-2]

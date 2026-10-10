@@ -234,7 +234,7 @@ Press **Save Camera Setup** when every required area has a camera.
 
 ## Step 8: Hive
 
-Hive is the community platform. Connecting the machine to it syncs your samples and progress.
+Hive is the community platform. Connecting the machine to it syncs your samples and progress, and it is where the machine gets its sorting profiles: a linked machine with no profile starts on Hive's first default.
 
 - **Continue on Hive** opens Hive in the browser. Sign in there, or create an account, and confirm the machine name. Hive brings you back to the wizard and finishes the link. No password is stored on the machine.
 - **Skip for now** moves on without it. You can connect later under **Settings** → **Hive**.

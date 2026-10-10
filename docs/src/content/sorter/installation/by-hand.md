@@ -94,7 +94,7 @@ $EDITOR .env
 cp machine.example.toml machine.toml
 ```
 
-This is the step that bites people manually: `.env.example` ships with a placeholder path, `SORTING_PROFILE_PATH="/home/user/sorter-v2/software/..."`, which you must replace with the absolute path of your own clone.
+`.env.example` still lists a `SORTING_PROFILE_PATH` with a placeholder path. The backend no longer reads it: the active sorting profile is always `software/sorter/backend/active_sorting_profile.json`, and a profile gets there from Hive or from the Profiles page ([before your first sort run]({{ '/sorter/before-first-sort-run/' | relative_url }}) covers it). Leave the line as it is.
 
 `machine.toml` is the machine's own config, and settings you save in the UI are written to it. Copy it rather than pointing SorterOS at the example, or those settings land in a file git tracks. The [machine.toml reference]({{ '/sorter/machine-toml-reference/' | relative_url }}) describes every field, and the setup wizard fills most of them in for you.
 

@@ -26,14 +26,14 @@ permalink: /sorter/
 
 ## Operate
 
-- **[Build your first sorting profile]({{ '/hive/first-profile/' | relative_url }})** — decide your boxes, have Hive's assistant write the rules, and assign the result to the machine.
+- **[Build your first sorting profile]({{ '/hive/first-profile/' | relative_url }})**: decide your boxes, have Hive's assistant write the rules, and activate the result on the machine.
 - **[Shutting down the machine]({{ '/sorter/safe-shutdown/' | relative_url }})** — the two proper ways to power it down, and why pulling the plug is a last resort.
 - **[SorterOS troubleshooting]({{ '/sorter/troubleshooting/' | relative_url }})** — symptom-led entries for install, first-run, and runtime problems.
 
 ## Under the hood
 
 - **[Dev flow]({{ '/sorter/dev-flow/' | relative_url }})** — the dev backend and UI services, how to enable them, and the difference between a soft restart and a full restart.
-- **[Sorting profile reference]({{ '/sorter/profile-reference/' | relative_url }})** — the on-disk shape of `sorting_profile.json` — rules, conditions, `part_to_category`, set inventories. Accurate for `schema_version: 1`.
+- **[Sorting profile reference]({{ '/sorter/profile-reference/' | relative_url }})**: what a sorting profile is made of and what the machine's file looks like: rules, conditions, groups, kits, the fallback, and the compiled program. Accurate for `schema_version: 2`.
 - **[machine.toml reference]({{ '/sorter/machine-toml-reference/' | relative_url }})** — every field in the machine-specific config file: servo, chute, carousel, stepper bindings and overrides, cameras, and GPIO LEDs. This lives in the docs site, not the SorterOS UI.
 
 ## Coming soon

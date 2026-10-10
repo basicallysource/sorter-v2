@@ -199,16 +199,18 @@ Fasten the leads to the frame with **hook-and-loop (Velcro) straps rather than z
 
 Put a label with the cable's ID (`S1`, `W2`, `RIB1` and so on) on **both ends** of every cable, close to the connector, before you route it. Do it as you finish each lead, while both ends are still in reach. Once a cable is behind a housing or strapped along the frame you cannot trace it by eye, and the four channel stepper leads (`S1` to `S4`) are identical, so they cannot be told apart once unplugged.
 
-[Download the cable labels (PDF)](https://assets.basically.website/sorter-parts/sorter-v2-cable-labels-397f566b3ef0.pdf). It is one A4 page of 60 x 12 mm (2.4 x 0.5 in) strips, two for each ID in this machine, one for each end, plus blank ones for spares. The ID is printed twice on each strip, so it can be read from either side once wrapped. The IDs are `PJ1` to `PJ3`, `W1` to `W3`, `L1` to `L3`, `L1p` to `L3p`, `LIM`, `S1` to `S4`, `CH`, `U1`, `U2`, `RIB1` and `RIB2`.
+Download the cable labels as a PDF for [A4](https://assets.basically.website/sorter-parts/sorter-v2-cable-labels-397f566b3ef0.pdf) or for [US Letter](https://assets.basically.website/sorter-parts/sorter-v2-cable-labels-letter-d6072b475dfb.pdf). Each is one page of 60 x 12 mm (2.4 x 0.5 in) strips, two for each ID in this machine, one for each end, plus blank ones for spares. The ID is printed twice on each strip, so it can be read from either side once wrapped. The IDs are `PJ1` to `PJ3`, `W1` to `W3`, `L1` to `L3`, `L1p` to `L3p`, `LIM`, `S1` to `S4`, `CH`, `U1`, `U2`, `RIB1` and `RIB2`.
 
 <ol class="numbered-steps">
-  <li>Print the sheet at <strong>100% or Actual size</strong>, never Fit to Page. It prints the same on A4 and US Letter. The bar at the top is 100 mm (3.9 in) long: measure it to check the scale.</li>
+  <li>Print the sheet for your paper size at <strong>100% or Actual size</strong>, never Fit to Page. The bar at the top is 100 mm (3.9 in) long: measure it to check the scale.</li>
   <li>Cut out two strips for each cable, one per end. Trim a strip shorter for a thin lead, so that it does not wrap round more than twice.</li>
   <li>Wrap each strip round the cable close to the connector, with the ID facing out.</li>
   <li>Cover it with clear tape, one full turn that overlaps itself, so that the print is sealed. A laser print holds up under tape better than inkjet ink, which can smear.</li>
 </ol>
 
-If you have a label printer, or self-laminating wrap-around cable labels, use those instead and print the same IDs.
+**With a Brother label printer** (PT-P710BT, or another model that takes 12 mm tape), [download the cable flags](https://assets.basically.website/sorter-parts/sorter-v2-cable-flags-brother-47dd317e9a66.zip), a zip of five P-touch Editor (`.lbx`) files. A flag is the ID printed twice with a blank section between the two. Wrap the blank section round the cable and stick the two IDs back to back, so the ID reads from either side. Each file groups the cables of one kind, with the blank section sized to them: the 18 AWG (0.82 mm²) pairs, the 22 AWG (0.33 mm²) pairs, the stepper leads bare or under 6 mm braided sleeving, and the USB cables and ribbons. Print two copies of a file, one flag for each end, and cut the flags apart between the IDs. If a flag is too tight or too loose on your cable, move the second ID in P-touch Editor to change the blank section.
+
+With a label printer of another make, or self-laminating wrap-around cable labels, use those instead and print the same IDs.
 
 ## The control board, socket by socket
 

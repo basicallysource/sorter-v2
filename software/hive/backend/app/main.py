@@ -55,6 +55,7 @@ from app.services.candidate_matview import get_candidate_matview_worker
 from app.services.default_profiles import start_default_profiles_thread
 from app.services.condition_worker import get_condition_worker
 from app.services.fleet_mass import get_fleet_mass_worker
+from app.services.fleet_records import get_fleet_records_worker
 from app.services.machine_stats import get_machine_stats_worker
 from app.services.server_health import get_memory_log_worker, get_storage_stats_worker
 from app.services.teacher_worker import get_teacher_worker
@@ -94,6 +95,7 @@ async def lifespan(_app: FastAPI):
     get_condition_worker().start()
     get_machine_stats_worker().start()
     get_fleet_mass_worker().start()
+    get_fleet_records_worker().start()
     get_storage_stats_worker().start()
     get_memory_log_worker().start()  # diagnostic, delete with the 2026-08 leak
     get_candidate_matview_worker().start()
@@ -107,6 +109,7 @@ async def lifespan(_app: FastAPI):
         get_condition_worker().stop()
         get_machine_stats_worker().stop()
         get_fleet_mass_worker().stop()
+        get_fleet_records_worker().stop()
         get_storage_stats_worker().stop()
         get_memory_log_worker().stop()
         service = get_existing_profile_catalog_service()

@@ -59,7 +59,7 @@ Design philosophy: **a key grants exactly what its scopes say, nothing more.**
   | Scope | Grants | Withheld because |
   |---|---|---|
   | `stats:read` | `/stats`, `/fleet/mass` — fleet-wide aggregates, no machine and no person | — (this is the tier safe for a public consumer) |
-  | `fleet:read` | `/fleet` — the roster with owner Discord where linked | names machine owners |
+  | `fleet:read` | `/fleet` — the roster with owner Discord where linked; `/fleet/records` — per-machine speed, milestones and newest finds, keyed by machine id | names machine owners |
   | `fleet:anon` | `/fleet/anon` — the same machines and counts, de-identified | — (safe to repeat aloud; see below) |
   | `contributors:read` | `/contributors` — who has been labelling | names contributors |
   | `parts:read` | the parts catalog: identity, category, geometry, weight, colors | — |

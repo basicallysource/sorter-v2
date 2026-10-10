@@ -52,6 +52,7 @@ SECTION_DEFAULTS: list[tuple[str, dict[str, str]]] = [
     ("sorter", {"section": "sorter", "owner": "sorter", "audience": "self-hosting operator", "applies_to": "sorter 2.x"}),
     ("hive", {"section": "hive", "owner": "hive", "audience": "operator linking a Sorter to Hive", "applies_to": "hive 0.x"}),
     ("lab", {"section": "lab", "owner": "lab", "audience": "contributor", "applies_to": "2026-04-06 measurement set"}),
+    ("design", {"section": "design", "owner": "docs", "audience": "curious builder or contributor", "applies_to": "hardware-v2"}),
 ]
 
 FRONT_MATTER_RE = re.compile(r"^---\s*\n(.*?)\n---\s*\n", re.DOTALL)

@@ -49,7 +49,7 @@ This is the control board's 24 V lead (`PWR1`) on the [harness drawings]({{ '/ha
 ## Build it
 
 <figure class="single-figure">
-  <img class="doc-figure" src="https://assets.basically.website/sorter-docs/w1-24v-lead-pin1-diagram-full-284f502e161c.png" alt="Diagram of the finished lead, left to right: a barrel plug with two short leads, red and black, each joined to the 18 AWG pair by a butt connector, the two connectors staggered; the pair, 914 mm end to end; and two VH contacts in a two-position VHR-2 housing, red in pin 1 for +24 V and black in pin 2 for ground.">
+  <img class="doc-figure" src="https://assets.basically.website/sorter-docs/pwr1-24v-lead-pin1-diagram-full-652292fec346.png" alt="Diagram of the finished lead, left to right: a barrel plug with two short leads, red and black, each joined to the 18 AWG pair by a butt connector, the two connectors staggered; the pair, 914 mm end to end; and two VH contacts in a two-position VHR-2 housing, red in pin 1 for +24 V and black in pin 2 for ground.">
   <figcaption>The finished lead (<code>PWR1</code>), with a moulded plug. A screw-terminal plug has no butt connectors: the pair's wires go straight under its screws.</figcaption>
 </figure>
 

@@ -10,7 +10,7 @@ permalink: /hardware/electronics/wire-harness/
 author: spencer
 contributors: [effreek]
 last_verified: 2026-10-03
-og_image: https://assets.basically.website/sorter-docs/wire-harness-interconnect-diagram-ids-full-e411ff0d19d1.png
+og_image: https://assets.basically.website/sorter-docs/wire-harness-interconnect-diagram-ids-full-full-278c9b6a23fe.png
 ---
 
 This page is the wiring. Where the PSU, the control board and the Orange Pi physically mount is [Installing the electronics]({{ '/hardware/electronics/installation/' | relative_url }}), and the render of where each one sits is on that page. Plugging them together afterwards is [connecting the components]({{ '/hardware/electronics/connecting/' | relative_url }}).
@@ -87,9 +87,9 @@ This page is the wiring. Where the PSU, the control board and the Orange Pi phys
         <text x="207" y="404">PWR3</text>
       </g>
       <g font-size="17" fill="var(--ink)" text-anchor="middle" stroke="var(--surface)" stroke-width="5" paint-order="stroke">
-        <text x="535" y="48">LED1 · 2x1 dupont</text>
-        <text x="535" y="93">LED2 · 2x1 dupont</text>
-        <text x="535" y="138">LED3 · 2x1 dupont</text>
+        <text x="535" y="48">LED1a · 2x1 dupont</text>
+        <text x="535" y="93">LED2a · 2x1 dupont</text>
+        <text x="535" y="138">LED3a · 2x1 dupont</text>
         <text x="535" y="183">LIM1 · 2x1 dupont</text>
         <text x="535" y="228">STP1-4 · JST-PH 4-pin</text>
         <text x="535" y="273">CHU1 · JST-PH 4-pin</text>
@@ -110,7 +110,7 @@ This page is the wiring. Where the PSU, the control board and the Orange Pi phys
       </g>
     </svg>
   </div>
-  <figcaption>The PSU feeds the control board (PWR1) and two other loads, the USB hub (PWR2) and the Orange Pi (PWR3). The control board then drives the LED strips (LED1 to LED3), the limit switch (LIM1), the steppers (STP1 to STP4 and CHU1) and the first servo adapter board over a 16-pin ribbon (RIB1). The cooling fans are not on the PSU. The IDs are the cable IDs on the order page.</figcaption>
+  <figcaption>The PSU feeds the control board (PWR1) and two other loads, the USB hub (PWR2) and the Orange Pi (PWR3). The control board then drives the LED strips (LED1a to LED3a), the limit switch (LIM1), the steppers (STP1 to STP4 and CHU1) and the first servo adapter board over a 16-pin ribbon (RIB1). The cooling fans are not on the PSU. The IDs are the cable IDs on the order page.</figcaption>
 </figure>
 
 ### 2.1 &nbsp; Stepper pinout and polarity

@@ -96,11 +96,11 @@ The [PSU box]({{ '/hardware/electronics/installation/psu-box/' | relative_url }}
 
 <div class="prep-item">
   <div class="prep-item-body">
-    <p><strong>Prepare three <a href="{{ '/hardware/helpers/led-strip/' | relative_url }}">LED strips</a> with their cables before you start.</strong> Each lamp has a strip with a short pigtail (<code>LED1p</code> to <code>LED3p</code>) ending in a barrel plug, and a board cable (<code>LED1</code> to <code>LED3</code>) of about 920 mm (36 in) with the matching socket and a 2-pin Dupont housing. Step 4 plugs the board cables into the LED ports.</p>
+    <p><strong>Prepare three <a href="{{ '/hardware/helpers/led-strip/' | relative_url }}">LED strips</a> with their cables before you start.</strong> Each lamp has a strip with a short pigtail (<code>LED1</code> to <code>LED3</code>) ending in a barrel plug, and a board cable (<code>LED1a</code> to <code>LED3a</code>) of about 920 mm (36 in) with the matching socket and a 2-pin Dupont housing. Step 4 plugs the board cables into the LED ports.</p>
   </div>
   <figure class="prep-item-figure">
     <img class="doc-figure" src="https://assets.basically.website/sorter-docs/led-two-cable-set-pin1-full-ad3551b6b708.png" alt="Diagram of two cables. Cable 1, the lamp pigtail: an LED strip, a clamp-on connector, and red and black wires ending in a barrel plug. Cable 2, the board cable: a barrel socket, two staggered butt connectors on its red and black wires, and a longer cable ending in a two-pin Dupont plug that goes to the board, red in pin 1 for +V and black in the other for GND.">
-    <figcaption>The two cables of one lamp: the pigtail (<code>LED1p</code>) and the board cable (<code>LED1</code>). <cite>Diagram: author not recorded.</cite></figcaption>
+    <figcaption>The two cables of one lamp: the pigtail (<code>LED1</code>) and the board cable (<code>LED1a</code>). <cite>Diagram: author not recorded.</cite></figcaption>
   </figure>
 </div>
 
@@ -132,7 +132,7 @@ The PSU output pigtails (`PSU1` to `PSU3`) are already in the PSU box. The USB h
     <tr><td>Channel steppers (×4: <code>STP1</code> to <code>STP4</code>)</td><td>Board <code>J27</code> / <code>J31</code> / <code>J35</code> / <code>J39</code>, JST-PH 4-pin</td><td>The motor's own JST-PH 6-pin socket (<a href="{{ '/hardware/helpers/channel-stepper-lead/' | relative_url }}">make the channel stepper leads</a>)</td></tr>
     <tr><td>Chute stepper (<code>CHU1</code>)</td><td>Board <code>J23</code>, 4-pin JST-PH (or <code>J24</code> beside it, 4-pin Dupont on 2.54 mm (0.1 in) pins)</td><td>The motor's flying leads, spliced to a thinner tail and crimped into a PH housing (<a href="{{ '/hardware/helpers/chute-stepper-lead/' | relative_url }}">make the chute stepper lead</a>)</td></tr>
     <tr><td>Chute limit switch (<code>LIM1</code>)</td><td>Board <code>J5</code>, 3-pin Dupont, 2 positions used</td><td>Two #187 push-on tabs on the switch (<a href="{{ '/hardware/helpers/limit-switch-lead/' | relative_url }}">make the limit switch lead</a>)</td></tr>
-    <tr><td>Camera lamps (×3: <code>LED1</code> to <code>LED3</code>)</td><td>Board <code>J8</code> / <code>J9</code> / <code>J10</code>, 2-pin Dupont</td><td>Barrel socket, which takes the barrel plug on the lamp's pigtail (<code>LED1p</code> to <code>LED3p</code>) (optional but recommended; without it the cable runs to the strip) (<a href="{{ '/hardware/helpers/led-strip/' | relative_url }}">prepare the LED strip</a>)</td></tr>
+    <tr><td>Camera lamps (×3: <code>LED1a</code> to <code>LED3a</code>)</td><td>Board <code>J8</code> / <code>J9</code> / <code>J10</code>, 2-pin Dupont</td><td>Barrel socket, which takes the barrel plug on the lamp's pigtail (<code>LED1</code> to <code>LED3</code>) (optional but recommended; without it the cable runs to the strip) (<a href="{{ '/hardware/helpers/led-strip/' | relative_url }}">prepare the LED strip</a>)</td></tr>
     <tr><td>Ribbon to the layers (<code>RIB1</code>)</td><td>Board <code>J17</code>, 16-pin IDC</td><td><code>J3</code> on the first layer board, 16-pin IDC</td></tr>
     <tr><td>Pico to hub (<code>USB2</code>)</td><td>Micro USB on the Pico</td><td>USB-A on the hub</td></tr>
     <tr><td>Hub to Orange Pi (<code>USB1</code>)</td><td>USB-A on the hub</td><td><code>UP USB3.0</code> on the Pi</td></tr>
@@ -140,7 +140,7 @@ The PSU output pigtails (`PSU1` to `PSU3`) are already in the PSU box. The USB h
   </tbody>
 </table>
 
-[Ordering the wire harness]({{ '/hardware/parts/harness-order/' | relative_url }}) calls the first three `PWR1`, `PWR2` and `PWR3`, the steppers `STP1` to `STP4` and `CHU1`, the limit switch `LIM1`, the lamps `LED1` to `LED3`, and the ribbon `RIB1`. The two bought USB cables between the Pico, the hub and the Orange Pi are `USB2` and `USB1`, and the cameras' own detachable USB leads are `USB3` to `USB5`, each labelled at both ends.
+[Ordering the wire harness]({{ '/hardware/parts/harness-order/' | relative_url }}) calls the first three `PWR1`, `PWR2` and `PWR3`, the steppers `STP1` to `STP4` and `CHU1`, the limit switch `LIM1`, the lamps `LED1a` to `LED3a`, and the ribbon `RIB1`. The two bought USB cables between the Pico, the hub and the Orange Pi are `USB2` and `USB1`, and the cameras' own detachable USB leads are `USB3` to `USB5`, each labelled at both ends.
 
 ### The three 24 V leads (`PWR1` to `PWR3`)
 
@@ -154,7 +154,7 @@ The buck converter is the only bought part of the three. The leads themselves ar
   <dt><code>PWR3</code>, Orange Pi</dt><dd>22 AWG (0.33 mm²), 150 mm (6 in), a male DC barrel plug onto the buck converter's input wires. The buck's USB-C lead is the other half of the run.</dd>
 </dl>
 
-The machine needs three male barrel plugs for these three, plus, if you fit the optional LED plug and socket, one on each of the three LED pigtails (`LED1p` to `LED3p`). [Ordering the wire harness]({{ '/hardware/parts/harness-order/' | relative_url }}) has a drawing of every cable in the machine, with the gauge, the length and both end connectors on it.
+The machine needs three male barrel plugs for these three, plus, if you fit the optional LED plug and socket, one on each of the three LED pigtails (`LED1` to `LED3`). [Ordering the wire harness]({{ '/hardware/parts/harness-order/' | relative_url }}) has a drawing of every cable in the machine, with the gauge, the length and both end connectors on it.
 
 <div class="callout callout-warning">
   <span class="callout-icon" aria-hidden="true">⚠</span>
@@ -174,7 +174,7 @@ The machine needs three male barrel plugs for these three, plus, if you fit the 
   <li>The <a href="{{ '/hardware/helpers/chute-stepper-lead/#sleeving-optional' | relative_url }}">chute stepper lead</a> (`CHU1`), about 1 m (39 in).</li>
   <li>The <a href="{{ '/hardware/helpers/board-24v-lead/#sleeving-optional' | relative_url }}">control board's 24 V lead</a> (`PWR1`), about 920 mm (36 in).</li>
   <li>The <a href="{{ '/hardware/helpers/limit-switch-lead/#sleeving-optional' | relative_url }}">limit switch lead</a> (`LIM1`), about 610 mm (24 in).</li>
-  <li>The three <a href="{{ '/hardware/helpers/led-strip/#sleeving-optional' | relative_url }}">LED board cables</a> (`LED1` to `LED3`), about 920 mm (36 in) each, and their short lamp pigtails (`LED1p` to `LED3p`), 150 mm (6 in) each.</li>
+  <li>The three <a href="{{ '/hardware/helpers/led-strip/#sleeving-optional' | relative_url }}">LED board cables</a> (`LED1a` to `LED3a`), about 920 mm (36 in) each, and their short lamp pigtails (`LED1` to `LED3`), 150 mm (6 in) each.</li>
   <li>The <a href="{{ '/hardware/helpers/pi-24v-lead/#sleeving-optional' | relative_url }}">Orange Pi's 24 V lead</a> (`PWR3`), about 150 mm (6 in).</li>
 </ul>
 
@@ -205,7 +205,7 @@ Fasten the leads to the frame with **hook-and-loop (Velcro) straps rather than z
 
 Put a label with the cable's ID (`STP1`, `PWR2`, `RIB1` and so on) on **both ends** of every cable, close to the connector, before you route it. Print and cut all the labels before you start, then put each pair on as you plug that cable in, while both ends are still in reach. The one exception is the chute stepper (`CHU1`): its cable is fixed to the motor, so only its board end needs a label. Once a cable is behind a housing or strapped along the frame you cannot trace it by eye, and the four channel stepper leads (`STP1` to `STP4`) look identical.
 
-**On paper.** Download the labels for [A4](https://assets.basically.website/sorter-parts/sorter-v2-cable-labels-a4-3c831c018c05.pdf) or for [US Letter](https://assets.basically.website/sorter-parts/sorter-v2-cable-labels-letter-4a9ac610acf3.pdf). The sheet has one section for each kind of cable: the wire pairs, the stepper leads, and the USB cables and ribbons. Each ID has two strips, one for each end, except `CHU1`, which has one. Use the strips for your cable's ID.
+**On paper.** Download the labels for [A4](https://assets.basically.website/sorter-parts/sorter-v2-cable-labels-a4-011b68df1823.pdf) or for [US Letter](https://assets.basically.website/sorter-parts/sorter-v2-cable-labels-letter-631a07d07ac4.pdf). The sheet has one section for each kind of cable: the wire pairs, the stepper leads, and the USB cables and ribbons. Each ID has two strips, one for each end, except `CHU1`, which has one. Use the strips for your cable's ID.
 
 **Before you start**
 
@@ -223,7 +223,7 @@ Put a label with the cable's ID (`STP1`, `PWR2`, `RIB1` and so on) on **both end
   <li>Press the two IDs together and hold them with a small piece of tape.</li>
 </ol>
 
-**With a Brother label printer** (PT-P710BT, or another model that takes 12 mm tape), print the flags before you start. [Download the cable flags](https://assets.basically.website/sorter-parts/sorter-v2-cable-flags-brother-4ab39d988069.zip). The zip has nine P-touch Editor (`.lbx`) files. Each is short enough for the printer's 500 mm limit: the wire pairs in four files (`PSU1` to `PWR1`, `PWR2` to `LED2`, `LED3` to `LED2p`, and `LED3p` to `LIM1`), the stepper leads in two (`STP1` to `STP3`, and `STP4` to `CHU1`), the USB cables in two (`USB1` to `USB4`, and `USB5`), and the ribbons. Every file already has a flag for each end of each cable, and `CHU1` has one flag. Open the file for your cable, turn on Auto Cut in the print dialog and print it once. Fold each flag round the cable as in the three steps for each cable above, with the dashed line as the fold. If a flag is too tight or too loose, move the second ID along the flag in P-touch Editor.
+**With a Brother label printer** (PT-P710BT, or another model that takes 12 mm tape), print the flags before you start. [Download the cable flags](https://assets.basically.website/sorter-parts/sorter-v2-cable-flags-brother-1e2d51c4f88f.zip). The zip has nine P-touch Editor (`.lbx`) files. Each is short enough for the printer's 500 mm limit: the wire pairs in four files (`PSU1` to `PWR1`, `PWR2` to `LED1a`, `LED2a` to `LED1`, and `LED2` to `LIM1`), the stepper leads in two (`STP1` to `STP3`, and `STP4` to `CHU1`), the USB cables in two (`USB1` to `USB4`, and `USB5`), and the ribbons. Every file already has a flag for each end of each cable, and `CHU1` has one flag. Open the file for your cable, turn on Auto Cut in the print dialog and print it once. Fold each flag round the cable as in the three steps for each cable above, with the dashed line as the fold. If a flag is too tight or too loose, move the second ID along the flag in P-touch Editor.
 
 With a label printer of another make, or self-laminating wrap-around cable labels, use those instead and print the same IDs.
 
@@ -353,7 +353,7 @@ At the switch end, push the two #187 tabs onto the switch's `COM` and `NC` termi
 
 {% include step.html n="4" title="Plug in the three camera lamps" %}
 
-The board has four LED ports. The fan in the housing lid is already on one of them, so the three [camera lamps]({{ '/hardware/assembly/feeder/camera-lamp/' | relative_url }}) take the other three. Each lamp comes with a [prepared LED strip]({{ '/hardware/helpers/led-strip/' | relative_url }}) and a board cable (`LED1` to `LED3`) of about 920 mm (36 in) of 22 AWG (0.33 mm²) with the Dupont housing on one end. The barrel plug on the strip's pigtail (`LED1p` to `LED3p`) and the matching socket on the cable's other end are optional but recommended: they make maintenance easier, because the lamp's power can be disconnected close to the lamp. Without them the cable runs straight to the strip.
+The board has four LED ports. The fan in the housing lid is already on one of them, so the three [camera lamps]({{ '/hardware/assembly/feeder/camera-lamp/' | relative_url }}) take the other three. Each lamp comes with a [prepared LED strip]({{ '/hardware/helpers/led-strip/' | relative_url }}) and a board cable (`LED1a` to `LED3a`) of about 920 mm (36 in) of 22 AWG (0.33 mm²) with the Dupont housing on one end. The barrel plug on the strip's pigtail (`LED1` to `LED3`) and the matching socket on the cable's other end are optional but recommended: they make maintenance easier, because the lamp's power can be disconnected close to the lamp. Without them the cable runs straight to the strip.
 
 <table>
   <thead><tr><th>Port</th><th>Printed on the board</th><th>What goes on it</th></tr></thead>
@@ -374,11 +374,11 @@ The board prints `+V` beside the pin on the square pad of each port and `GND` be
 
 The solder jumper beside each of these three ports should already be bridged, from [preparing the control board]({{ '/hardware/electronics/installation/control-board-prep/' | relative_url }}), step 4. If you skipped it, do it before the lamps go on: the 180 Ω resistor in each port is there for a bare LED board and only dims a strip.
 
-**Plugging one in.** Push the 2-pin 2.54 mm (0.1 in) Dupont housing on the board cable (`LED1` to `LED3`) onto the port, red to `+V`, [metering which pin that is]({{ '/hardware/helpers/multimeter/' | relative_url }}#continuity-for-tracing-a-cable) first. If you fitted the plug and socket, push the lamp's barrel plug into the socket on the other end of that cable. Cable-tie the pair along whatever it runs down so it is not left hanging.
+**Plugging one in.** Push the 2-pin 2.54 mm (0.1 in) Dupont housing on the board cable (`LED1a` to `LED3a`) onto the port, red to `+V`, [metering which pin that is]({{ '/hardware/helpers/multimeter/' | relative_url }}#continuity-for-tracing-a-cable) first. If you fitted the plug and socket, push the lamp's barrel plug into the socket on the other end of that cable. Cable-tie the pair along whatever it runs down so it is not left hanging.
 
 **The barrel pair is optional but recommended, and it makes maintenance easier.** It is the point where a lamp comes off, so the power to a lamp can be disconnected close to the lamp and the lamp unplugged without unwiring the board end. It is the same 5.5 mm (0.217 in) × 2.1 mm (0.083 in) size as a PSU output jack, so check what you are plugging into.
 
-**Then assign the output in software**: Settings, the channel, the LED button, pick which output that lamp is on and set the brightness. **Nothing lights until an output is assigned.** The lamps' board cables are `LED1` to `LED3`, and their pigtails `LED1p` to `LED3p`, in the [cable schedule]({{ '/hardware/parts/harness-order/' | relative_url }}), which still draws every drop split at a barrel jack.
+**Then assign the output in software**: Settings, the channel, the LED button, pick which output that lamp is on and set the brightness. **Nothing lights until an output is assigned.** The lamps' board cables are `LED1a` to `LED3a`, and their pigtails `LED1` to `LED3`, in the [cable schedule]({{ '/hardware/parts/harness-order/' | relative_url }}), which still draws every drop split at a barrel jack.
 
 {% include step.html n="5" title="Run the ribbon down to the layers (RIB1)" %}
 

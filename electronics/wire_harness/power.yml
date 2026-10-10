@@ -1,6 +1,6 @@
 metadata:
   title: 24V power distribution
-  description: "PSU box pigtails PSU1-PSU3 and load cables PWR1-PWR3. The PSU end\nand the board end follow the DC_PSU_Harness and\ncontroller-board reference drawings (2026-08-08),\nwhich are the source of truth for those. Values marked GUESS\nare guesses, not measurements."
+  description: "PSU box pigtails PJ1-PJ3 and load cables W1-W3. The PSU end\nand the board end follow the DC_PSU_Harness and\ncontroller-board reference drawings (2026-08-08),\nwhich are the source of truth for those. Values marked GUESS\nare guesses, not measurements."
 
 connectors:
   PSU:
@@ -39,24 +39,24 @@ connectors:
     notes: "splice to the 24V-5V USB-C\nbuck input leads"
 
 cables:
-  PSU1: &pigtail
+  PJ1: &pigtail
     gauge: 18 AWG
     length: 4 in
     colors: [RD, BK]
     notes: "PSU-J pigtail, inside the PSU box\nComes attached to the jack already, so buy\nthe jacks with leads rather than have these made"
-  PSU2: *pigtail
-  PSU3: *pigtail
-  PWR1:
+  PJ2: *pigtail
+  PJ3: *pigtail
+  W1:
     gauge: 18 AWG
     length: 36 in
     colors: [RD, BK]
     notes: "board 24V in\nLength deliberately long"
-  PWR2:
+  W2:
     gauge: 22 AWG
     length: 12 in
     colors: [RD, BK]
     notes: "USB hub, double-male. Gauge = GUESS, not\ncovered by the reference drawings."
-  PWR3:
+  W3:
     gauge: 22 AWG
     length: 6 in
     colors: [RD, BK]
@@ -65,27 +65,27 @@ cables:
 connections:
   -
     - PSU: [7, 4]
-    - PSU1: [1-2]
+    - PJ1: [1-2]
     - J1: [1-2]
   -
     - PSU: [8, 5]
-    - PSU2: [1-2]
+    - PJ2: [1-2]
     - J2: [1-2]
   -
     - PSU: [9, 6]
-    - PSU3: [1-2]
+    - PJ3: [1-2]
     - J3: [1-2]
   -
     - P1: [1-2]
-    - PWR1: [1-2]
+    - W1: [1-2]
     - BOARD_PWR: [1-2]
   -
     - P2: [1-2]
-    - PWR2: [1-2]
+    - W2: [1-2]
     - HUB: [1-2]
   -
     - P3: [1-2]
-    - PWR3: [1-2]
+    - W3: [1-2]
     - BUCK: [1-2]
   -
     - J1

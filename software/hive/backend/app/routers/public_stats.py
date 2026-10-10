@@ -72,7 +72,7 @@ from app.models.machine import Machine
 from app.models.machine_piece import MachinePiece
 from app.models.user import User
 from app.models.user_identity import UserIdentity
-from app.services import analytics, fleet_mass, leaderboard, machine_stats
+from app.services import analytics, fleet_mass, fleet_records, leaderboard, machine_stats
 
 router = APIRouter(prefix="/api/public", tags=["public-stats"])
 
@@ -238,6 +238,10 @@ def _roster(db: Session) -> dict:
                 "pieces_seen": pieces_seen,
                 "distributed": int(stats_row.get("distributed") or 0),
                 "overall_ppm": float(stats_row.get("overall_ppm") or 0.0),
+                # Distinct parts and colours this machine has identified, from
+                # the same hourly cache as pieces_seen.
+                "unique_parts": int(stats_row.get("unique_parts") or 0),
+                "unique_colors": int(stats_row.get("unique_colors") or 0),
                 "last_24h_pieces": recent.get(mid, 0),
                 "last_hour_pieces": this_hour.get(mid, 0),
                 "last_30d_pieces": this_month.get(mid, 0),
@@ -363,6 +367,22 @@ def get_public_fleet_mass(db: Session = Depends(get_db)):
     asks, and it costs it nothing to ask.
     """
     return fleet_mass.latest()
+
+
+@router.get("/fleet/records", dependencies=[Depends(require_fleet_key)])
+def get_public_fleet_records():
+    """What a leaderboard needs beyond the roster's counters: each machine's
+    speed over the last day and month (and the day's double feeds), which
+    machine processed each of the fleet's milestone pieces, the first machine
+    to reach each milestone on its own, and the newest parts and colours the
+    fleet had never seen before.
+
+    In the identified tier because every answer is keyed by machine id, which
+    `/fleet` turns into a name and an owner. Served from the worker's last pass
+    and never computed here — see `services/fleet_records.py`, which also says
+    why a milestone, once answered, does not change.
+    """
+    return fleet_records.latest()
 
 
 def _pieces_by_machine_since(db: Session, ids: list, *, hours: int) -> dict[str, int]:

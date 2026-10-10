@@ -18,7 +18,7 @@ This page describes the **basically board v1.3**. How the cables are wired is in
 
 <ul class="bulleted-list">
   <li><strong>Orange Pi to Pico:</strong> one micro-USB cable, through the USB hub. The Pico appears to the Orange Pi as a serial port.</li>
-  <li><strong>Pico to the stepper drivers:</strong> a STEP and a DIR pin per driver for movement, plus a serial (UART) line to configure each TMC2209.</li>
+  <li><strong>Pico to the stepper drivers:</strong> a STEP and a DIR pin per driver for movement, plus a serial (UART) line to configure each TMC2209 and a DIAG pin per driver that goes high when the driver detects a stall.</li>
   <li><strong>Pico to the servo chip:</strong> a PCA9685 on the control board, over I²C. The layer adapter boards take its signals down the ribbon cable.</li>
   <li><strong>Pico to the lamps and the switches:</strong> two PWM outputs for the camera lamps and two switch inputs, one of them the chute limit switch.</li>
 </ul>
@@ -26,6 +26,8 @@ This page describes the **basically board v1.3**. How the cables are wired is in
 ## Orange Pi to Pico
 
 The Pico plugs into the USB hub (`USB2`), and the hub plugs into the Orange Pi (`USB1`). The Orange Pi finds the Pico by its USB ID and opens it as a serial port.
+
+The rest of the USB tree is on [The USB connections and the hub]({{ '/design/usb/' | relative_url }}), and everything else the Orange Pi connects to is on [What is connected to the Orange Pi]({{ '/design/orange-pi/' | relative_url }}).
 
 Every message, in either direction, has the same frame: a 4-byte header (device address, command, channel, payload length), the payload, and a CRC32 checksum. The frame is wrapped in COBS so a zero byte marks the end of each message, and it is at most 254 bytes. The host sends a command, the Pico answers it.
 
@@ -39,6 +41,11 @@ The commands are grouped by what they act on: the board itself (`INIT`, `PING`, 
 </ul>
 
 ## What the Pico pins do
+
+<figure class="single-figure">
+  <img class="doc-figure" src="https://assets.basically.website/sorter-docs/pico-pinout-board-v1-3-w1600-637c7f51cee8.jpg" alt="Pinout of the Raspberry Pi Pico on basically board v1.3. All 40 pins are drawn in physical order, with the GP number and the job of each pin colour coded: STEP and DIR for the five steppers, a DIAG pin per driver, the two driver UART buses, the driver enable, two lamp outputs, two switch inputs and the servo chip I2C pins">
+  <figcaption>The Pico's pins as the v1.3 board uses them. <a href="https://assets.basically.website/sorter-docs/pico-pinout-board-v1-3-full-85e97bfc49da.png">Full size</a>. <cite>Drawn from the firmware pin map, not from a build. Diagram: Balloon.</cite></figcaption>
+</figure>
 
 <table>
   <thead><tr><th>Purpose</th><th>Pico pins</th></tr></thead>
@@ -58,11 +65,15 @@ The commands are grouped by what they act on: the board itself (`INIT`, `PING`, 
   </tbody>
 </table>
 
+The full circuit is the board's schematic: <a href="https://assets.basically.website/sorter-docs/basically-board-v1-3-schematic-1a2945526770.pdf">basically board v1.3 schematic (PDF)</a>, drawn from <a href="https://github.com/basicallysource/sorter-v2/tree/main/electronics/KiCad/1_Distribution_Board">the KiCad project</a>, which is the file to open if you want to edit or export it yourself.
+
 The pin map is the file [`hwcfg_basically_v1_2.h`](https://github.com/basicallysource/sorter-v2/blob/main/software/firmware/sorter_interface_firmware/hwcfg_basically_v1_2.h), and that file is the one to trust if this table and the firmware ever disagree. The v1.3 board uses the file named `v1_2`. Other boards have their own file next to it: [`hwcfg_skr_pico.h`](https://github.com/basicallysource/sorter-v2/blob/main/software/firmware/sorter_interface_firmware/hwcfg_skr_pico.h) for the BigTreeTech SKR Pico and [`hwcfg_basically_v1_1.h`](https://github.com/basicallysource/sorter-v2/blob/main/software/firmware/sorter_interface_firmware/hwcfg_basically_v1_1.h) for the earlier board.
 
 ## Steppers and the chute
 
 Movement and configuration use two separate paths. The Pico makes the step pulses and sets the direction on each driver's STEP and DIR pins, with acceleration handled in the firmware. The TMC2209 itself is set up over its UART: motor current, microstepping and stall detection. The five drivers share two UART buses, and each driver answers to an address set by the jumpers on the board ([Preparing the control board]({{ '/hardware/electronics/installation/control-board-prep/' | relative_url }})).
+
+Each driver's **DIAG** pin is the third path, and it only carries one thing: stall detection (StallGuard). The TMC2209 drives DIAG high when it reads a stall while the motor turns. The firmware watches the pin on every motion tick, and when it is high it stops that stepper at once and latches the stall. The host polls the latches over USB, raises a blocking "stepper stall" incident and does not clear it on its own, because a stall needs hands. A stalled chute also loses its home position, so it has to be homed again before sorting resumes. The five DIAG pins are GP12 (chute), GP13 (C1 rotor), GP14 (C3 rotor), GP15 (carousel, the classification channel) and GP9 (C2 rotor). The earlier v1.1 board has no DIAG routing, so a setting on the host turns the whole stall path off.
 
 The chute stepper is channel 0. The host homes it against the limit switch, then turns it to a bin angle. Its steps are counted in the firmware, and the host works in degrees.
 
@@ -94,7 +105,12 @@ A PCA9685 chip on the control board generates the servo signals. The Pico talks 
 
 ## Switches and stall detection
 
-The two switch inputs are plain digital inputs that the host reads with a `READ` command; the chute limit switch plugs into the one the board prints `HALL_SW_0`. Each TMC2209 can also signal a stall on its DIAG pin, and the host can read the same information from the driver over UART.
+The two switch inputs are plain digital inputs that the host reads with a `READ` command; the chute limit switch plugs into the one the board prints `HALL_SW_0`. Stall detection is the DIAG pins described under steppers above.
+
+<ul class="bulleted-list">
+  <li>Firmware side of stall detection: the stall check in <a href="https://github.com/basicallysource/sorter-v2/blob/main/software/firmware/sorter_interface_firmware/Stepper.cpp"><code>Stepper.cpp</code></a>, with the DIAG pin numbers in <a href="https://github.com/basicallysource/sorter-v2/blob/main/software/firmware/sorter_interface_firmware/hwcfg_basically_v1_2.h"><code>hwcfg_basically_v1_2.h</code></a></li>
+  <li>Host side: <a href="https://github.com/basicallysource/sorter-v2/blob/main/software/sorter/backend/stepper_stall_monitor.py"><code>stepper_stall_monitor.py</code></a></li>
+</ul>
 
 ## Where to look in the firmware
 

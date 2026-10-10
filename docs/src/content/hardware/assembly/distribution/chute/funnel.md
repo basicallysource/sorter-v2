@@ -54,7 +54,7 @@ Each bracket takes 2 {% include fastener.html size="M3" variant="countersunk" le
 
 {% include step.html n="2" title="Pick the funnel size for the layer" %}
 
-**This is a builder's decision, taken once per layer.** What you are choosing is how finely that layer divides its ring: into 12 bins or into 18. The funnel and the bin set are a matched pair, so the size you pick decides both at once, and a machine can mix sizes from layer to layer. Decide before you print either part.
+**This is a builder's decision, taken once per layer.** What you are choosing is how finely that layer divides its ring: into 12 bins or into 18. The funnel and the bin set are a matched pair, so the size you pick decides both at once. A layer has one funnel, so every bin on it is the same size and you cannot mix 12 and 18 within a layer, but a machine can mix sizes from layer to layer. Decide before you print either part.
 
 **Half size: 12 bins on that layer**, six Bin (half, left) and six Bin (half, right).
 

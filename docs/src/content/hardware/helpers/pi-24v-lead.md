@@ -1,10 +1,10 @@
 ---
 layout: default
-title: Make the Orange Pi's 24 V lead (W3)
+title: Make the Orange Pi's 24 V lead (PWR3)
 type: how-to
 section: hardware
 slug: helper-pi-24v-lead
-kicker: Helpers — Orange Pi 24 V lead (W3)
+kicker: Helpers — Orange Pi 24 V lead (PWR3)
 lede: A barrel plug onto the buck converter's own input wires, so the Pi runs off the same 24 V supply as everything else. One per machine.
 permalink: /hardware/helpers/pi-24v-lead/
 author: effreek
@@ -25,10 +25,10 @@ parts_needed:
 tools_needed: ["A ruler or tape measure, to measure the converter's input wires", "Side cutters, only if you have to extend the wires", "Wire strippers, for 22 AWG (0.33 mm²) wire, only for a moulded plug or extended wires", "Insulated-terminal crimping pliers with a die for 22 to 16 AWG (0.33 to 1.3 mm²) wire, for the butt connectors on a moulded plug or extended wires", "A small screwdriver, only for a screw-terminal plug", "Multimeter, to find the tip and to check the finished lead", "Only if you solder the joints instead of crimping them: a soldering iron, solder and adhesive-lined heat shrink (see Getting started)", "Optional, for the sleeving: scissors and tape, or a hot knife"]
 ---
 
-This is the Orange Pi's 24 V lead (`W3`) on the [harness drawings]({{ '/hardware/parts/harness-order/#power' | relative_url }}). It runs from one of the three jacks on the [PSU box]({{ '/hardware/electronics/installation/psu-box/' | relative_url }}) to the buck converter, and the converter's own USB-C lead is the rest of the run to the Pi. **One per machine.**
+This is the Orange Pi's 24 V lead (`PWR3`) on the [harness drawings]({{ '/hardware/parts/harness-order/#power' | relative_url }}). It runs from one of the three jacks on the [PSU box]({{ '/hardware/electronics/installation/psu-box/' | relative_url }}) to the buck converter, and the converter's own USB-C lead is the rest of the run to the Pi. **One per machine.**
 
 <div class="callout">
-  <p><b>This is the shortest of the three 24 V leads and the only one with no connector at its far end.</b> The converter arrives with bare input wires, so the whole job is putting a barrel plug on them, and usually without adding any wire. The <a href="{{ '/hardware/helpers/board-24v-lead/' | relative_url }}">lead to the board (<code>W1</code>)</a> is the other one you make; the one to the USB hub (<code>W2</code>) is just a barrel plug screwed into the hub's own power terminal, with no page.</p>
+  <p><b>This is the shortest of the three 24 V leads and the only one with no connector at its far end.</b> The converter arrives with bare input wires, so the whole job is putting a barrel plug on them, and usually without adding any wire. The <a href="{{ '/hardware/helpers/board-24v-lead/' | relative_url }}">lead to the board (<code>PWR1</code>)</a> is the other one you make; the one to the USB hub (<code>PWR2</code>) is just a barrel plug screwed into the hub's own power terminal, with no page.</p>
 </div>
 
 ## The two ends
@@ -115,12 +115,12 @@ Choose the die by the size marked on it, not by its colour. To solder instead of
 
 ## The finished result
 
-The converter with a barrel plug on its input wires and its USB-C lead free. One per machine (`W3`), and that is the whole lead.
+The converter with a barrel plug on its input wires and its USB-C lead free. One per machine (`PWR3`), and that is the whole lead.
 
-<div class="img-placeholder">Image coming: the finished W3 lead with a moulded barrel plug, the plug at one end and the converter in the frame</div>
+<div class="img-placeholder">Image coming: the finished PWR3 lead with a moulded barrel plug, the plug at one end and the converter in the frame</div>
 
 The plug goes into any of the three jacks on the PSU box, all three the same 24 V. Where the USB-C end goes is at [connecting the components]({{ '/hardware/electronics/connecting/' | relative_url }}), step 6.
 
 ## Reference
 
-The drawing for this lead (`W3`), its bill of materials and its downloads are on the [WireViz drawings]({{ '/hardware/parts/harness-order/#power' | relative_url }}) page.
+The drawing for this lead (`PWR3`), its bill of materials and its downloads are on the [WireViz drawings]({{ '/hardware/parts/harness-order/#power' | relative_url }}) page.

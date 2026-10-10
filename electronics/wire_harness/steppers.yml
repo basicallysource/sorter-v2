@@ -1,6 +1,6 @@
 metadata:
   title: Stepper cables
-  description: "Channel stepper cable S (x4) and chute stepper cable CH. S\nfollows the stepper reference drawing (2026-08-08),\nwhich is the source of truth for the channel cable. Values\nmarked GUESS are guesses, not measurements."
+  description: "Channel stepper cable STP (x4) and chute stepper cable CHU1. STP\nfollows the stepper reference drawing (2026-08-08),\nwhich is the source of truth for the channel cable. Values\nmarked GUESS are guesses, not measurements."
 
 connectors:
   BOARD_S:
@@ -36,30 +36,30 @@ connectors:
     notes: "Splice to the chute stepper flying leads. Find\nthe coil pairs with a multimeter first."
 
 cables:
-  S:
+  STP:
     category: bundle
     type: 4 wire bundle
     gauge: 24 AWG
     length: 1 m
     wirecount: 4
     colors: [BU, GN, RD, BK]
-    notes: "S1-S4, qty 4. NOT straight-through, see\ncrossover."
+    notes: "STP1-STP4, qty 4. NOT straight-through, see\ncrossover."
     additional_components:
       - type: PVC Sleeving
         qty: 1
-  CH:
+  CHU1:
     category: cable
     gauge: 24 AWG
     length: 40 in
     colors: [BK, GN, RD, BU]
-    notes: "qty 1. Straight-through. Not covered by the\nreference drawing, so unlike S both Gauge and\nLength here are still GUESS."
+    notes: "qty 1. Straight-through. Not covered by the\nreference drawing, so unlike STP both Gauge and\nLength here are still GUESS."
 
 connections:
   -
     - BOARD_S: [1-4]
-    - S: [1-4]
+    - STP: [1-4]
     - MOTOR_S: [1, 4, 3, 6]
   -
     - BOARD_CH: [1-4]
-    - CH: [1-4]
+    - CHU1: [1-4]
     - CH_LEADS: [1-4]

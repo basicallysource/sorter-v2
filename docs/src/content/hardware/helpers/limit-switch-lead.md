@@ -1,11 +1,11 @@
 ---
 layout: default
-title: Make the chute limit switch lead (LIM)
+title: Make the chute limit switch lead (LIM1)
 type: how-to
 section: hardware
 slug: helper-limit-switch-lead
-kicker: Helpers — Chute limit switch lead (LIM)
-lede: The lead (LIM) from the control board to the switch that tells the machine where the chute is. Push-on receptacles at the switch, a 3-pin housing with two contacts at the board. One per machine.
+kicker: Helpers — Chute limit switch lead (LIM1)
+lede: The lead (LIM1) from the control board to the switch that tells the machine where the chute is. Push-on receptacles at the switch, a 3-pin housing with two contacts at the board. One per machine.
 permalink: /hardware/helpers/limit-switch-lead/
 author: effreek
 contributors: [daddyosbricksbill, brickcyclealice]
@@ -30,7 +30,7 @@ parts_needed:
 tools_needed: ["Side cutters, to cut the wire to length", "A ruler or tape measure, to measure 610 mm (24 in)", "Wire strippers that take 22 AWG (0.33 mm²) wire", "Insulated-terminal crimping pliers with a die marked for 22 to 18 AWG (0.33 to 0.82 mm²), for the two #187 receptacles", "Crimping pliers for open-barrel contacts, with a die for 22 AWG (0.33 mm²) wire, for the two Dupont contacts", "Multimeter, to check the finished lead and the switch", "Optional, for the sleeving: scissors and tape, or a hot knife"]
 ---
 
-This is the chute limit switch lead (`LIM`) on the [harness drawings]({{ '/hardware/parts/harness-order/#limit-switch' | relative_url }}). It runs from `J5` on the control board to the roller-lever switch on the chute. **One per machine.**
+This is the chute limit switch lead (`LIM1`) on the [harness drawings]({{ '/hardware/parts/harness-order/#limit-switch' | relative_url }}). It runs from `J5` on the control board to the roller-lever switch on the chute. **One per machine.**
 
 Nothing on this lead is soldered. The switch end pushes on, and the board end is two crimps into a housing. The parts list has four receptacles and four contacts, two more of each than the lead uses: the first crimps on a new part are easy to spoil. General help with crimping is at [Crimping connectors]({{ '/hardware/helpers/crimping/' | relative_url }}).
 
@@ -44,8 +44,8 @@ Nothing on this lead is soldered. The switch end pushes on, and the board end is
 
 <figure class="harness-figure">
   <div class="diagram diagram-wide">
-    <svg viewBox="0 0 930 352" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="The chute limit switch lead (LIM): a 3-pin board housing on the left with position 1 ground, position 2 signal and position 3 empty over the 3.3 V pin, two wires running to the switch on the right where they land on the COM and NC tabs, the third tab NO left bare">
-      <text x="0" y="20" font-size="17" font-weight="700" fill="var(--ink)">The chute limit switch lead (LIM)</text>
+    <svg viewBox="0 0 930 352" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="The chute limit switch lead (LIM1): a 3-pin board housing on the left with position 1 ground, position 2 signal and position 3 empty over the 3.3 V pin, two wires running to the switch on the right where they land on the COM and NC tabs, the third tab NO left bare">
+      <text x="0" y="20" font-size="17" font-weight="700" fill="var(--ink)">The chute limit switch lead (LIM1)</text>
       <text x="0" y="41" font-size="12" fill="var(--muted)">basically board v1.3 to the switch on the chute. One per machine. Nothing on it is soldered.</text>
       <rect x="0" y="92" width="265" height="186" rx="5" fill="var(--bg)" stroke="var(--ink)" stroke-width="1.5"/>
       <text x="14" y="116" font-size="13" font-weight="700" fill="var(--ink)">basically board v1.3</text>
@@ -82,7 +82,7 @@ Nothing on this lead is soldered. The switch end pushes on, and the board end is
       <text x="465" y="308" font-size="12" font-weight="600" fill="var(--ink)" text-anchor="middle">Position 3 is empty and sits over the board's 3.3 V pin. The board prints 3.3V beside that pin.</text>
       <text x="465" y="334" font-size="12" fill="var(--muted)" text-anchor="middle">The switch only closes the circuit between the two, so it does not matter which conductor takes which tab. Colours are only a guide.</text>
     </svg>
-  </div>  <figcaption>One lead (<code>LIM</code>) end to end. The empty third position goes over the board's 3.3 V pin.</figcaption>
+  </div>  <figcaption>One lead (<code>LIM1</code>) end to end. The empty third position goes over the board's 3.3 V pin.</figcaption>
 </figure>
 
 <div class="callout">
@@ -228,7 +228,7 @@ Leave the sleeving loose enough to bend, and do not tie it down so tightly that 
 
 ## The finished result
 
-One lead (`LIM`), 610 mm (24 in), with a #187 receptacle on each conductor at the switch end and a 3-pin Dupont housing at the board end whose third position is empty.
+One lead (`LIM1`), 610 mm (24 in), with a #187 receptacle on each conductor at the switch end and a 3-pin Dupont housing at the board end whose third position is empty.
 
 <div class="img-placeholder">Image coming: the finished lead laid out straight, the two receptacles at one end and the 3-pin housing at the other, close enough to see the empty position</div>
 
@@ -238,5 +238,5 @@ Onto `J5` at [connecting the components]({{ '/hardware/electronics/connecting/' 
 
 ## Reference
 
-The vendor drawing for this lead (`LIM`), its bill of materials and its downloads are on the [WireViz
+The vendor drawing for this lead (`LIM1`), its bill of materials and its downloads are on the [WireViz
 drawings]({{ '/hardware/parts/harness-order/#limit-switch' | relative_url }}) page. It shows the same lead in the form a cable supplier quotes from.

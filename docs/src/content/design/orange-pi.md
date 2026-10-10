@@ -10,24 +10,26 @@ permalink: /design/orange-pi/
 last_verified: 2026-10-10
 ---
 
-The Orange Pi 5 is the machine's computer. It runs the backend, the web UI, the camera pipeline and the detection models. It has no screen or keyboard in the machine: you reach it from a browser. Almost everything it talks to arrives over one USB cable, because the cameras and the Pico all sit behind a powered USB hub.
+Optional background: you do not need this page to build the sorter.
+
+The Orange Pi 5 is the machine's computer. It runs the machine's software: the control program (the backend), the web page you use to operate the machine, the camera processing, and the AI models that find and identify pieces. It has no screen or keyboard in the machine: you reach it from a browser on another device. Almost everything it talks to arrives over one USB cable, because the cameras and the Pico all sit behind a powered USB hub.
 
 This page is the whole list of what connects to the Orange Pi and why. Which socket each cable goes into is on [Connecting the components]({{ '/hardware/electronics/connecting/' | relative_url }}). The USB side in detail is on [The USB connections and the hub]({{ '/design/usb/' | relative_url }}).
 
 ## The big picture
 
 <ul class="bulleted-list">
-  <li><strong>Power in:</strong> 5 V into the board's power USB-C socket, made from the machine's 24 V supply by a small buck converter.</li>
+  <li><strong>Power in:</strong> 5 V into the board's power USB-C socket. A small buck converter (a module that lowers a voltage) makes it from the machine's 24 V supply.</li>
   <li><strong>USB:</strong> one cable to a powered 4-port hub. On the hub: the Pico control board and three cameras.</li>
   <li><strong>Network:</strong> Ethernet, or WiFi from an M.2 module or a USB adapter. This is how you reach the UI.</li>
   <li><strong>Storage:</strong> a microSD card that holds SorterOS and everything the machine saves.</li>
-  <li><strong>Cooling:</strong> the board needs a fan on the processor.</li>
+  <li><strong>Cooling:</strong> the board needs a fan on its processor (its main chip).</li>
   <li><strong>Not used:</strong> the video outputs, the camera ribbon connectors and the 26-pin header. The cameras are USB and the Pico is on USB, so nothing in the machine needs them.</li>
 </ul>
 
 ## Power in
 
-The machine has one 24 V power supply. The Orange Pi cannot run from 24 V, so a 24 V to 5 V buck converter sits between them, and its USB-C lead goes into the board's `PWR IN` socket. The board has two USB-C sockets that look the same, and only `PWR IN` takes power. The other one is a data and display port that the machine does not use.
+The machine has one 24 V power supply. The Orange Pi cannot run from 24 V, so a 24 V to 5 V buck converter sits between them, and its USB-C lead goes into the board's `PWR IN` socket. The board has two USB-C sockets that look the same, and only `PWR IN` takes power. The other one is for data and for a screen, and the machine does not use it.
 
 The hub has its own 24 V feed from the same supply. The Orange Pi does not power the hub, and it does not power the cameras or the Pico through it.
 
@@ -42,12 +44,12 @@ The hub has its own 24 V feed from the same supply. The Orange Pi does not power
 The Orange Pi's blue `UP USB3.0` port is cabled to the hub, and the hub is the only thing on the Orange Pi's USB. Four devices hang off the hub, which fills it:
 
 <ul class="bulleted-list">
-  <li><strong>The Pico</strong> on the control board. It drives the steppers, servos, lamps and switches. The Orange Pi sees it as a serial port and sends it short commands. The protocol is on <a href="{{ '/design/electronics/' | relative_url }}">How the electronics talk to each other</a>.</li>
+  <li><strong>The Pico</strong> on the control board. It drives the stepper motors, servos, lamps and switches. The Orange Pi sees it as a serial port (a connection that sends one byte after another) and sends it short commands. The set of commands is described on <a href="{{ '/design/electronics/' | relative_url }}">How the electronics talk to each other</a>.</li>
   <li><strong>The 4K camera</strong> (IMX415), for classification.</li>
   <li><strong>Two 720p cameras</strong> (OV9732), for the C-channel and carousel drop plate detection.</li>
 </ul>
 
-The software finds the Pico by its USB ID and the cameras by their video device number. That difference, and what happens when a cable is pulled, is on the USB page. The other two USB 2.0 ports on the board are free.
+The software finds the Pico by its USB ID (a number that every USB device reports about itself) and the cameras by their video device number (the number the operating system gives each camera). The USB page explains this difference and what happens when a cable is pulled. The other two USB 2.0 ports on the board are free.
 
 <ul class="bulleted-list">
   <li>The USB tree and how each device is found: <a href="{{ '/design/usb/' | relative_url }}">The USB connections and the hub</a></li>
@@ -58,9 +60,9 @@ The software finds the Pico by its USB ID and the cameras by their video device 
 
 ## Network
 
-The Orange Pi has a gigabit Ethernet port and no WiFi of its own. The machine works with a cable alone. For WiFi you fit the optional M.2 WiFi module, or plug in a Linux-compatible USB WiFi adapter.
+The Orange Pi has a fast (gigabit) Ethernet port and no WiFi of its own. The machine works with a network cable alone. For WiFi you fit the optional M.2 WiFi module, or plug in a Linux-compatible USB WiFi adapter.
 
-The network is how you use the machine at all. On first boot SorterOS opens a setup network called `SorterOS-Setup` plus six characters, you join it from a phone and pick your WiFi, and from then on the UI is at `sorter.local` on that network. SorterOS keeps a small file describing the current network state, and the backend reads it so the machine's Hive page can link to it where it is now.
+The network is how you use the machine at all. On first boot SorterOS opens a setup network called `SorterOS-Setup` plus six characters, you join it from a phone and pick your WiFi, and from then on the UI is at `sorter.local` on that network. SorterOS keeps a small file that describes the current network state. The control program reads it, so that the machine's page on Hive (the online service the machines can connect to) can link to the machine wherever it is on the network now.
 
 <ul class="bulleted-list">
   <li>WiFi options and the two kinds of M.2 slot: <a href="{{ '/hardware/orange-pi-5/' | relative_url }}">Orange Pi 5</a></li>
@@ -70,9 +72,9 @@ The network is how you use the machine at all. On first boot SorterOS opens a se
 
 ## Storage
 
-Storage is the microSD card. SorterOS is flashed to it, and the machine runs from it. The card should be 32 GB or larger and high-endurance, because the software writes to it all day.
+Storage is the microSD card. SorterOS is written to it (this is called flashing), and the machine runs from it. The card should be 32 GB or larger and high-endurance, because the software writes to it all day.
 
-The board has one M.2 socket, and that socket takes either an NVMe drive or the WiFi module, not both. The machine's documentation covers only the microSD card.
+The board has one M.2 socket, a slot for small add-on cards. It takes either an NVMe drive (a fast storage card) or the WiFi module, not both. The machine's documentation covers only the microSD card.
 
 <ul class="bulleted-list">
   <li>Card requirements: <a href="{{ '/hardware/orange-pi-5/' | relative_url }}">Orange Pi 5</a></li>
@@ -82,7 +84,7 @@ The board has one M.2 socket, and that socket takes either an NVMe drive or the 
 
 ## Display, keyboard and debugging
 
-None is needed. The machine is headless: you set it up and run it from a browser on another device, and you can log in over SSH if you need a shell. The board has HDMI and a 3-pin debug serial header, but nothing in the machine's design uses them.
+None is needed. The machine is headless: you set it up and run it from a browser on another device, and you can log in over SSH (a secure remote text login) if you need a command line. The board has an HDMI socket for a screen and a 3-pin header for debugging, but nothing in the machine's design uses them.
 
 <ul class="bulleted-list">
   <li>Setting up from a browser: <a href="{{ '/sorter/first-setup/' | relative_url }}">First setup</a></li>
@@ -92,9 +94,9 @@ None is needed. The machine is headless: you set it up and run it from a browser
 
 ## The NPU
 
-The detection models run on the RK3588S processor's built-in neural processing unit (NPU), which is the reason the Orange Pi 5 is the specified board. The NPU has three cores. The perception service pins each of the three camera channels to its own core, in a fixed order, so a channel always lands on the same core after a restart. The backend can also report which AI runtimes the computer offers, and the RKNN runtime is the one the Orange Pi uses.
+The AI models that find pieces run on a part of the processor built for that job, the neural processing unit (NPU). This is the reason the Orange Pi 5 is the specified board. The NPU has three cores (three parts that work at the same time). The software that analyses the pictures gives each of the three camera channels its own core, always in the same order, so a channel uses the same core after every restart. The control program can also report which AI runtimes (the software that runs a model) the computer offers. The Orange Pi uses one called RKNN.
 
-There is a Hailo probe in the same file, for computers that carry a Hailo accelerator. No Hailo accelerator is part of the Orange Pi build.
+The same file can also check for a Hailo accelerator, an add-on AI chip that some other computers carry. No Hailo accelerator is part of the Orange Pi build.
 
 <ul class="bulleted-list">
   <li>Channels and cores: <a href="https://github.com/basicallysource/sorter-v2/blob/main/software/sorter/backend/perception/service.py"><code>perception/service.py</code></a></li>
@@ -104,7 +106,7 @@ There is a Hailo probe in the same file, for computers that carry a Hailo accele
 
 ## Cooling
 
-The board gets hot when it is pinned hard, especially if a model ends up running on the CPU rather than the NPU, and it can reach thermal shutdown at about 105 °C. The catalog lists the official heatsink fan, which plugs into the board's 5 V fan socket.
+The board gets hot when it is working hard, especially if a model ends up running on the CPU (the general-purpose part of the processor) instead of the NPU. At about 105 °C it shuts itself down to protect itself. The catalog lists the official heatsink fan, which plugs into the board's 5 V fan socket.
 
 <ul class="bulleted-list">
   <li>Cooling notes: <a href="{{ '/hardware/orange-pi-5/' | relative_url }}">Orange Pi 5</a></li>
@@ -112,7 +114,7 @@ The board gets hot when it is pinned hard, especially if a model ends up running
 
 ## Other computers
 
-The Orange Pi 5 is the board SorterOS is built for. The software can also be installed on other Linux computers (Debian 12 or Ubuntu 24.04, and Raspberry Pi OS on a Pi 5) with the Linux installer.
+The Orange Pi 5 is the board SorterOS is built for. The software can also be installed on other Linux computers (Debian 12, Ubuntu 24.04, or Raspberry Pi OS on a Raspberry Pi 5) with the Linux installer.
 
 <ul class="bulleted-list">
   <li><a href="{{ '/sorter/installation/linux-generic/' | relative_url }}">Install on Linux (generic)</a> and <a href="{{ '/sorter/installation/by-hand/' | relative_url }}">install by hand</a></li>

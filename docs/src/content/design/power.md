@@ -10,28 +10,30 @@ permalink: /design/power/
 last_verified: 2026-10-10
 ---
 
-The whole machine runs from one 24 V supply. Everything else, the 12 V, 6.5 V, 5 V and 3.3 V rails, is made from that 24 V further down, mostly on the control board. There is no separate power board in this version, so the protection is light: two fuses on the control board and a fused inlet on the mains side.
+Optional background: you do not need this page to build the sorter.
+
+The whole machine runs from one 24 V power supply. The other voltages (12 V, 6.5 V, 5 V and 3.3 V) are made from the 24 V further down, mostly on the control board. Each of these voltages is called a rail, a wire inside the board that carries one voltage. There is no separate power board in this version, so the protection is light: two fuses on the control board and a fused inlet on the mains side (the wall-socket side).
 
 This page describes the **basically board v1.3** and the cables as the [Wire harness]({{ '/hardware/electronics/wire-harness/' | relative_url }}) page draws them. Which plug goes in which socket is on [Connecting the components]({{ '/hardware/electronics/connecting/' | relative_url }}) and is not repeated here. **This page is not wiring instructions.** Mains voltage is lethal, and the mains side is built on [the PSU box page]({{ '/hardware/electronics/installation/psu-box/' | relative_url }}).
 
 ## From the wall to 24 V
 
 <ul class="bulleted-list">
-  <li><strong>Inlet:</strong> an IEC C14 inlet with an illuminated rocker switch (15 A, 250 V) and a 10 A fuse (5 × 20 mm). It is the machine's main switch and its mains fuse.</li>
-  <li><strong>Supply:</strong> a Mean Well LRS-350-24, 24 V at up to 14.6 A (350 W), with no minimum load. It is <strong>not universal input</strong>: a slide switch on the side of its case selects 115 V or 230 V, and it has to match the wall before the first power-up.</li>
-  <li><strong>Behaviour:</strong> the datasheet gives a typical inrush of 60 A at either mains voltage. The output trips into a self-recovering hiccup mode at 110 to 140% of rated power, and the output voltage can be trimmed from 21.6 to 28.8 V with a pot beside the terminal block.</li>
+  <li><strong>Inlet:</strong> an IEC C14 inlet with an illuminated rocker switch (15 A, 250 V) and a 10 A fuse (5 × 20 mm). It is the machine's main switch and also its mains fuse.</li>
+  <li><strong>Supply:</strong> a Mean Well LRS-350-24, 24 V at up to 14.6 A (350 W), with no minimum load. It is <strong>not universal input</strong>: a slide switch on the side of its case selects 115 V or 230 V, and the setting has to match your wall socket before you switch on for the first time.</li>
+  <li><strong>Behaviour:</strong> the datasheet gives a typical inrush of 60 A at either mains voltage (a short surge of current at the moment you switch on). If the load is 110 to 140% of the rated power, the output switches itself off and on again repeatedly (hiccup mode) and recovers by itself when the load drops. The output voltage can be adjusted from 21.6 to 28.8 V with a small adjustable pot (a trimmer) beside the terminal block.</li>
 </ul>
 
-The supply has three +V and three -V screw terminals. Each +V/-V pair is wired to one panel-mount barrel jack on the front of the PSU box, so the supply has **three 24 V outputs, all the same**.
+The supply has three +V and three -V screw terminals. Each +V/-V pair is wired to one panel-mount barrel jack (a round DC power socket) on the front of the PSU box, so the supply has **three 24 V outputs, all the same**.
 
 ## Three jacks, three loads
 
 Each jack feeds one load through its own lead, and nothing else runs from the supply. The cooling fans are not on it either.
 
 <ul class="bulleted-list">
-  <li><strong><code>PWR1</code>, the control board:</strong> a 920 mm (36 in) lead from a barrel plug to the JST VH header <code>J1</code>.</li>
+  <li><strong><code>PWR1</code>, the control board:</strong> a 920 mm (36 in) lead from a barrel plug to <code>J1</code>, a JST VH header (a two-pin power connector on the board).</li>
   <li><strong><code>PWR2</code>, the USB hub:</strong> a 310 mm (12 in) lead to the hub's own DC input, which takes 7 to 36 V.</li>
-  <li><strong><code>PWR3</code>, the Orange Pi:</strong> a 150 mm (6 in) lead to a 24 V to 5 V buck converter, whose potted USB-C lead then plugs into the Orange Pi. The converter takes 8 to 32 V in and gives 5 V at up to 5 A, with reverse, over-voltage, over-current, over-temperature and short-circuit protection of its own. The Orange Pi asks for 5 V at 4 A over USB-C.</li>
+  <li><strong><code>PWR3</code>, the Orange Pi:</strong> a 150 mm (6 in) lead to a 24 V to 5 V buck converter, whose USB-C lead (sealed in resin) then plugs into the Orange Pi. The converter takes 8 to 32 V in and gives 5 V at up to 5 A. It protects itself against reversed connection, too high a voltage, too high a current, overheating and short circuits. The Orange Pi asks for 5 V at 4 A over USB-C.</li>
 </ul>
 
 <ul class="bulleted-list">
@@ -42,17 +44,17 @@ Each jack feeds one load through its own lead, and nothing else runs from the su
 
 ## Inside the control board
 
-24 V comes in at `J1`, through a fuse in each leg (`F1` on +24 V, `F2` on the return), and a reverse-polarity diode (`D2`) sits across the rail. From there:
+24 V comes in at `J1`, through a fuse in each wire (`F1` on the +24 V wire, `F2` on the return wire). A diode, `D2`, sits across the supply to protect the board if the supply is connected the wrong way round. From there:
 
 <ul class="bulleted-list">
-  <li><strong>24 V</strong> goes straight to the five stepper driver sockets as the motor supply, to the four LED ports, and to the three converters below.</li>
-  <li><strong>5 V:</strong> a RECOM R-78 module (<code>U3</code>, 1 A) from 24 V. It feeds the Pico through its VSYS pin, the servo controller chip and the level shifters.</li>
-  <li><strong>12 V:</strong> a RECOM R-78 module (<code>U4</code>, 2 A) from 24 V, brought out on header <code>J2</code> and also the input of the next stage.</li>
-  <li><strong>6.5 V, "ServoV":</strong> a RECOM R-78 module (<code>U5</code>, 1.5 A) from the 12 V. It powers the servos, and runs down the ribbon cable to every layer's adapter board.</li>
-  <li><strong>3.3 V</strong> comes from the Pico's own 3V3 output, not from a regulator on the board. It goes to the driver sockets.</li>
+  <li><strong>24 V</strong> goes straight to the five stepper driver sockets to power the motors, to the four LED ports, and to the converters below.</li>
+  <li><strong>5 V:</strong> a RECOM R-78 converter module (<code>U3</code>, 1 A) makes it from the 24 V. It feeds the Pico through its VSYS pin, the servo controller chip and the level shifters (small chips that translate between voltages).</li>
+  <li><strong>12 V:</strong> a RECOM R-78 converter module (<code>U4</code>, 2 A) makes it from the 24 V. It is available on header <code>J2</code> and is also the input of the next stage.</li>
+  <li><strong>6.5 V, "ServoV":</strong> a RECOM R-78 converter module (<code>U5</code>, 1.5 A) makes it from the 12 V. It powers the servos and runs down the ribbon cable to every layer's adapter board.</li>
+  <li><strong>3.3 V</strong> comes from the Pico's own 3V3 output, not from a separate voltage regulator on the board. It goes to the driver sockets.</li>
 </ul>
 
-All three converters are switching modules that replace a linear 78xx in the same three-pin footprint. A linear regulator dropping 24 V to 5 V at 1 A would burn about 19 W, which is why they are not used.
+All three converters are switching modules that fit where a simple linear 78xx regulator would go (the same three pins). A linear regulator that lowers 24 V to 5 V at 1 A would turn about 19 W into heat, which is why one is not used.
 
 <ul class="bulleted-list">
   <li>The schematic: <a href="https://github.com/basicallysource/sorter-v2/blob/main/electronics/KiCad/1_Distribution_Board/Power.kicad_sch"><code>Power.kicad_sch</code></a>, with the LED ports on <a href="https://github.com/basicallysource/sorter-v2/blob/main/electronics/KiCad/1_Distribution_Board/Level_Shifters.kicad_sch"><code>Level_Shifters.kicad_sch</code></a></li>
@@ -61,11 +63,11 @@ All three converters are switching modules that replace a linear 78xx in the sam
 
 ## The motors and their drivers
 
-There are five TMC2209 drivers, one per stepper: four NEMA 17 (the three feeder channels and the carousel) and one NEMA 23 (the chute). The motor supply is the 24 V rail.
+There are five TMC2209 stepper drivers, one per stepper motor: four NEMA 17 motors (the three feeder channels and the carousel) and one larger NEMA 23 motor (the chute). The motors run on the 24 V rail.
 
-A stepper's rated current is a ceiling, not what it draws. A chopper driver sets the coil current and does not pull more from the supply than the motor needs, so a 4 A NEMA 23 on a 2 A driver is normal: it simply makes a fraction of its rated torque, and the chute is geared down 4.8:1.
+A stepper motor's rated current is a limit, not what it always draws. The driver controls the current in the motor's coils and does not take more from the supply than the motor needs. So a 4 A NEMA 23 motor on a 2 A driver is normal: it just produces a smaller share of its rated torque (turning force). The chute is also geared down 4.8 to 1.
 
-**Two places set the real current, and they multiply.** The trim pot on each driver module sets a maximum, and the software then sets run and hold current (IRUN and IHOLD, 0 to 31) as fractions of that maximum. Leaving a pot high and also raising IRUN in software pushes the current up twice, so the two together can run a motor much hotter than either setting alone suggests. The defaults live in the backend:
+**Two places set the real current, and they multiply.** The small adjustable pot (trimmer) on each driver module sets a maximum. The software then sets the run current and the hold current, called IRUN and IHOLD, each a number from 0 to 31, as fractions of that maximum. If you leave the pot high and also raise IRUN in the software, the current goes up twice, so the motor can get much hotter than either setting alone suggests. The defaults are set in the control program:
 
 <ul class="bulleted-list">
   <li>Feeder channel rotors: IRUN 4, IHOLD 1</li>
@@ -73,7 +75,7 @@ A stepper's rated current is a ceiling, not what it draws. A chopper driver sets
   <li>Chute, and any stepper without its own entry: IRUN 16, IHOLD 4</li>
 </ul>
 
-Each can be overridden per stepper in the machine's TOML file.
+Each can be changed for one stepper in the machine's settings file (a TOML file).
 
 <ul class="bulleted-list">
   <li>Defaults and the validation of overrides: <a href="https://github.com/basicallysource/sorter-v2/blob/main/software/sorter/backend/irl/parse_user_toml.py"><code>irl/parse_user_toml.py</code></a></li>
@@ -83,9 +85,9 @@ Each can be overridden per stepper in the machine's TOML file.
 
 ## The lamps and the fan
 
-The board has four LED ports, `J8` to `J11`. Each is the 24 V rail through a 180 Ω resistor on its +24 V pin, and an N-channel MOSFET (AO3400A) on its ground pin that the Pico switches. So a lamp or fan is always at 24 V on one side and the board **switches the ground side**, with PWM for brightness. Two ports share each of the Pico's two PWM outputs, `J8` with `J9` and `J10` with `J11`, so dimming one dims its partner.
+The board has four LED ports, `J8` to `J11`. Each is the 24 V rail through a 180 Ω resistor on its +24 V pin, and a MOSFET (AO3400A, an electronic switch) on its ground pin that the Pico controls. So a lamp or fan always has 24 V on one side, and the board **switches the ground side** on and off. For brightness it does this very fast (PWM), and the share of time it is on sets how bright the lamp is. Two ports share each of the Pico's two PWM outputs, `J8` with `J9` and `J10` with `J11`, so dimming one dims its partner.
 
-The 180 Ω resistor is there for a bare LED board with no current limiting of its own. The camera lamps use an LED strip that limits its own current, so the resistor would only cost brightness. Each port has a solder jumper across its resistor, and the build bridges all four. The same bridge is what lets the 24 V fan run at full voltage from a port.
+The 180 Ω resistor is there for a bare LED board that does not limit its own current. The camera lamps use an LED strip that does limit its own current, so the resistor would only make them dimmer. Each port has a solder jumper (a spot you can bridge with solder) across its resistor, and the build bridges all four. The same bridge is what lets the 24 V fan run at full voltage from a port.
 
 The three lamps each use about 920 mm of strip at roughly 10 W per metre, so about 9 W each. The housing fan is a 40 mm, 24 V fan on the fourth port. The Orange Pi's own heatsink fan is 5 V and plugs into the Orange Pi's FAN socket instead.
 
@@ -98,9 +100,9 @@ The three lamps each use about 920 mm of strip at roughly 10 W per metre, so abo
 ## What is fused where
 
 <ul class="bulleted-list">
-  <li><strong>Mains side:</strong> the 10 A fuse in the inlet. It is ahead of the supply, so it does not protect anything on the 24 V side.</li>
+  <li><strong>Mains side:</strong> the 10 A fuse in the inlet. It comes before the power supply, so it does not protect anything on the 24 V side.</li>
   <li><strong>24 V side:</strong> the PSU jacks and their leads are not fused.</li>
-  <li><strong>Control board:</strong> <code>F1</code> and <code>F2</code>, 1206 slow-blow fuses rated 10 A and 32 V DC, one in each leg of <code>J1</code>. Nothing after them is fused: not the LED ports, the driver sockets, or the 12 V, 6.5 V and 5 V outputs. The reverse-polarity diode <code>D2</code> is rated 8 A, so it is the weaker part in a reversed-supply event.</li>
+  <li><strong>Control board:</strong> <code>F1</code> and <code>F2</code>, 1206 (a small surface-mount size) slow-blow fuses rated 10 A and 32 V DC, one in each wire of <code>J1</code>. Nothing after them is fused: not the LED ports, the driver sockets, or the 12 V, 6.5 V and 5 V outputs. The diode <code>D2</code>, which protects against a reversed supply, is rated 8 A, so it is the weaker part if the supply is ever connected the wrong way round.</li>
   <li><strong>Orange Pi branch:</strong> only the buck converter's own protection.</li>
 </ul>
 
@@ -112,7 +114,7 @@ A 10 A fuse opens on a dead short, not on a modest overload. The supply's own ov
 
 ## Ratings: cables and connectors
 
-The harness uses tinned, stranded UL1007 wire rated 300 V. It gives gauge and colour for each cable but no ampere rating for the wire itself. Red is +24 V and black is ground on every two-conductor power cable.
+The wire harness (the set of cables) uses tinned, stranded UL1007 wire rated 300 V. Wire sizes are given in AWG, where a smaller number means a thicker wire. The harness lists the size and colour of each cable, but not an ampere rating for the wire itself. On every two-wire power cable, red is +24 V and black is ground (the return wire). In the table, names such as `PSU1`, `PWR1` and `STP1` are the cable labels used on the wire harness page.
 
 <table>
   <thead><tr><th>Part</th><th>Rating or spec</th><th>Where it is used</th></tr></thead>
@@ -129,7 +131,7 @@ The harness uses tinned, stranded UL1007 wire rated 300 V. It gives gauge and co
   </tbody>
 </table>
 
-The weakest rated link in the board's 24 V path is the barrel jack at 5 A, then the VH header at 7 A, then the 10 A fuses. The order page asks for "5 A or better" on every barrel line.
+In the board's 24 V path, the part with the lowest rating is the barrel jack at 5 A, then the VH header at 7 A, then the 10 A fuses. The order page asks for "5 A or better" on every barrel connector.
 
 <ul class="bulleted-list">
   <li>Gauges, lengths and connectors for every cable: <a href="{{ '/hardware/parts/harness-order/' | relative_url }}">Ordering the wire harness</a></li>

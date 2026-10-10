@@ -10,6 +10,8 @@ permalink: /design/usb/
 last_verified: 2026-10-10
 ---
 
+Optional background: you do not need this page to build the sorter.
+
 Everything the Orange Pi talks to over USB goes through one powered hub. The Orange Pi has a single cable to the hub, and the Pico and the three cameras plug into the hub. This page describes that tree and how the software finds each device on it. What else the Orange Pi is connected to is on [What is connected to the Orange Pi]({{ '/design/orange-pi/' | relative_url }}). Which cable goes in which socket is on [Connecting the components]({{ '/hardware/electronics/connecting/' | relative_url }}).
 
 ## The USB tree
@@ -31,7 +33,7 @@ The IMX415 is a USB 3.0 camera and the OV9732 modules are USB 2.0. The two cable
 
 ## Why the hub has its own power
 
-The hub runs from the machine's 24 V supply (its input takes 7 to 36 V), not from the Orange Pi. A hub that draws its power from the Orange Pi can let the devices on it brown out the board under load, and that shows up as a severe system crash rather than a clean USB disconnect. So the hub in the design is always a powered one, and the model matters: the Waveshare hub is the one that takes 24 V directly.
+The hub runs from the machine's 24 V supply (its input takes 7 to 36 V), not from the Orange Pi. A hub that takes its power from the Orange Pi can let the devices on it pull the board's voltage too low when they draw a lot of current (a brownout). This shows up as a severe system crash, not as a clean USB disconnect. So the hub in the design is always a powered one, and the model matters: the Waveshare hub is the one that takes 24 V directly.
 
 The cables between the Pico, the hub and the Orange Pi must carry data. A charge-only micro-USB cable powers the Pico and never shows it to the software.
 
@@ -42,13 +44,13 @@ The cables between the Pico, the hub and the Orange Pi must carry data. A charge
 
 ## How the software finds the Pico
 
-The Pico is found by its USB ID. The backend lists the computer's serial ports and keeps only those whose vendor and product ID are `2e8a:000a`, which is the Pico running the machine's firmware. On Linux it shows up as a `/dev/ttyACM` device.
+The Pico is found by its USB ID. The control program lists the computer's serial ports and keeps only those whose vendor and product ID are `2e8a:000a`, which is the Pico running the machine's firmware. On Linux it shows up as a `/dev/ttyACM` device.
 
-It then opens the port at 576000 baud, exclusively, so a second program (the UI's flasher, a probe) cannot talk over the backend. Each control board is asked who it is, and the answer, including the names of the steppers it reports, selects the board profile. Discovery retries up to 8 times, 0.75 seconds apart, so a Pico that is still starting does not fail the boot.
+It then opens the port at 576000 baud (the speed of the connection), exclusively, so that no second program (the UI's flasher, a probe) can talk over the control program. Each control board is asked who it is. The answer, including the names of the stepper motors it reports, selects the board profile, the stored settings for that kind of board. The search is repeated up to 8 times, 0.75 seconds apart, so a Pico that is still starting does not make the start-up fail.
 
-A Pico that has never been flashed has empty flash, so it appears as an `RPI-RP2` storage drive instead of a serial port. Discovery cannot see it until the firmware is on it. This is normal on a new build.
+A Pico that has never been flashed (loaded with the machine's firmware) is empty, so it appears as an `RPI-RP2` storage drive instead of a serial port. The software cannot find it until the firmware is on it. This is normal on a new build.
 
-Opening the port needs permission. The repository ships a udev rule for Raspberry Pi vendor `2e8a` that gives the `plugdev` group (and the logged-in desktop user) access, and the Linux installer installs it.
+Opening the port needs permission. The software ships with a udev rule (a Linux rule that sets who may use a device) for Raspberry Pi devices, vendor `2e8a`. It gives the `plugdev` group, and the logged-in desktop user, access. The Linux installer installs it.
 
 <ul class="bulleted-list">
   <li>The serial port, exclusive open and enumeration by USB ID: <a href="https://github.com/basicallysource/sorter-v2/blob/main/software/sorter/backend/hardware/bus.py"><code>hardware/bus.py</code></a></li>
@@ -60,11 +62,11 @@ Opening the port needs permission. The repository ships a udev rule for Raspberr
 
 ## How the software finds the cameras
 
-The cameras are plain UVC video devices, and the software finds them differently from the Pico: by their video device number, not by a USB ID. On Linux the backend lists the video devices from 0 to 15 and keeps those that offer capture formats. Asking for the formats does not open a stream, so a camera that is already streaming still shows up in the list.
+The cameras are plain UVC video devices (the standard kind that needs no special driver), and the software finds them differently from the Pico: by their video device number, not by a USB ID. On Linux the control program lists the video devices numbered 0 to 15 and keeps those that offer capture formats (the picture sizes and types a camera can send). Asking for the formats does not open a stream, so a camera that is already streaming still shows up in the list.
 
 Each camera has a role: C-channel 2, C-channel 3, and the carousel and classification cameras. The role is tied to a device number in the machine's configuration, and you choose which camera is which in the UI (**Settings → Cameras**). Nothing in the code looks at a camera's USB ID or at which hub port it is in.
 
-If a camera stops delivering frames, or is unplugged, the capture thread closes it, waits, and tries to open it again, with a pause that grows from a quarter of a second up to five seconds. The backend reports each camera as online, reconnecting, offline or unassigned.
+If a camera stops delivering pictures, or is unplugged, the software closes it, waits, and tries to open it again. The wait grows from a quarter of a second up to five seconds. The control program reports each camera as online, reconnecting, offline or unassigned.
 
 <ul class="bulleted-list">
   <li>Listing and assigning cameras: <a href="https://github.com/basicallysource/sorter-v2/blob/main/software/sorter/backend/server/routers/cameras.py"><code>server/routers/cameras.py</code></a></li>
@@ -75,7 +77,7 @@ If a camera stops delivering frames, or is unplugged, the capture thread closes 
 
 ## Bandwidth
 
-The camera code is written on the assumption that the three cameras share one USB 2.0 bus on the Orange Pi. Uncompressed video (YUYV) at any real resolution would fill that bus on its own, so the default capture mode is MJPEG at the camera's own resolution: 4K on the 4K camera and 720p on the others. The same reasoning is why the configuration reference recommends forcing MJPG on Linux with several cameras.
+The camera code is written on the assumption that the three cameras share one USB 2.0 bus on the Orange Pi. Uncompressed video (YUYV) at any real resolution would fill that bus on its own. So the default capture mode is MJPEG, which compresses each picture, at the camera's own resolution: 4K on the 4K camera and 720p on the others. The same reasoning is why the configuration reference recommends forcing MJPG on Linux with several cameras.
 
 <ul class="bulleted-list">
   <li>The default mode and why: <a href="https://github.com/basicallysource/sorter-v2/blob/main/software/sorter/backend/vision/camera_modes.py"><code>vision/camera_modes.py</code></a></li>
@@ -86,8 +88,8 @@ The camera code is written on the assumption that the three cameras share one US
 
 <ul class="bulleted-list">
   <li><strong>No Pico found:</strong> the machine is not powered, the Pico's cable is not in the hub, the cable is charge-only, or the Pico has never been flashed.</li>
-  <li><strong>Permission denied on the Pico (Linux installs):</strong> the user is not in <code>plugdev</code>, or has not logged out and in since the installer added it.</li>
-  <li><strong>Occasional "MCU bus transient error" lines in the log:</strong> the backend retries each command up to 3 times; a line followed by nothing else means the command got through.</li>
+  <li><strong>Permission denied on the Pico (Linux installs):</strong> the user is not in the <code>plugdev</code> group, or has not logged out and in again since the installer added it.</li>
+  <li><strong>Occasional "MCU bus transient error" lines in the log:</strong> a message to the Pico was briefly damaged on the way. The control program tries each command up to 3 times, and a line followed by nothing else means the command got through.</li>
   <li><strong>A camera is missing from the list:</strong> the list only shows video devices that offer capture formats, so check its cable and the hub, then assign the role again in <strong>Settings → Cameras</strong>.</li>
 </ul>
 

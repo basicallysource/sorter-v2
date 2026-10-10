@@ -5,12 +5,17 @@ type: landing
 section: design
 slug: design
 kicker: How It Works
-lede: A bird's-eye view of how the machine is designed. What talks to what, and where in the repository to read the details.
+lede: A bird's-eye view of how the machine is designed: what talks to what, and where to read the details.
 permalink: /design/
 last_verified: 2026-10-10
 ---
 
-These pages explain the design from a distance. Each one gives the overall picture in a few lines, then links to the files that hold the detail. They do not repeat the build instructions: to build something, use [Hardware]({{ '/hardware/' | relative_url }}).
+<div class="notice">
+  <strong>You do not need to read this section to build a sorter</strong>
+  <p>These pages give more detail about how the sorter works and why it is designed the way it is. The build instructions in <a href="{{ '/hardware/' | relative_url }}">Hardware</a> do not depend on them. Read them if you are curious, want to repair or change something, or want to know what was tried before.</p>
+</div>
+
+Each page gives the overall picture in a few lines, then links to the files that hold the detail. Some of the pages use electronics and software words that you may not know. Where a word first appears, it is explained in the same sentence.
 
 ## Pages
 

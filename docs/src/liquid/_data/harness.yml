@@ -19,7 +19,7 @@
 # an entry in the `drawings` list in electronics/wire_harness/build-harness.sh
 # (the supplier zip's member list), then the same paste.
 
-zip: https://assets.basically.website/sorter-harness/sorter-v2-harness-rfq-b96327a1af7d.zip
+zip: https://assets.basically.website/sorter-harness/sorter-v2-harness-rfq-89fb34f124e2.zip
 
 drawings:
   - name: power
@@ -108,12 +108,12 @@ drawings:
       LED feeds LED1 to LED3 to their unplug-point jacks, pigtails LED1p to LED3p to the LED
       strips, and the limit switch cable (LIM1, 1x3 dupont at the
       board, push-on blade terminals at the switch).
-    png: https://assets.basically.website/sorter-harness/leds-full-ccc34ad6ffa2.png
-    svg: https://assets.basically.website/sorter-harness/leds-43bdcd8d56f8.svg
-    pdf: https://assets.basically.website/sorter-harness/leds-8556f7dcb776.pdf
-    html: https://assets.basically.website/sorter-harness/leds-87ab8e6e617e.html
-    bom_tsv: https://assets.basically.website/sorter-harness/leds-bom-48d3c1d9d013.tsv
-    yml: https://assets.basically.website/sorter-harness/leds-f57c1dbb4dd1.yml
+    png: https://assets.basically.website/sorter-harness/leds-full-a7709c678e4d.png
+    svg: https://assets.basically.website/sorter-harness/leds-19869e557ed4.svg
+    pdf: https://assets.basically.website/sorter-harness/leds-b2e217699d9c.pdf
+    html: https://assets.basically.website/sorter-harness/leds-47b2c49f7b5d.html
+    bom_tsv: https://assets.basically.website/sorter-harness/leds-bom-cad3898e665c.tsv
+    yml: https://assets.basically.website/sorter-harness/leds-59160d8a2be4.yml
   - name: limit-switch
     title: Chute limit switch lead (LIM1)
     of: leds

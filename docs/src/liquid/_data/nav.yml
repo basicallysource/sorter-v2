@@ -175,6 +175,8 @@ sections:
             url: /sorter/camera-calibration/
           - title: Chute calibration
             url: /sorter/chute-calibration/
+          - title: Running without the chute and layers
+            url: /sorter/run-without-distribution/
           - title: Before your first sort run
             url: /sorter/before-first-sort-run/
           - title: Preparing LEGO for a sort run

@@ -106,6 +106,10 @@ The [PSU box]({{ '/hardware/electronics/installation/psu-box/' | relative_url }}
 
 The PSU output pigtails (`PJ1` to `PJ3`) are already in the PSU box. The USB hub's lead (`W2`) has no page: step 6 below connects it. [Ordering the wire harness]({{ '/hardware/parts/harness-order/' | relative_url }}) has the length and gauge of every lead.
 
+<div class="callout">
+  <p><b>Label every cable at both ends as you finish it.</b> Best practice, and it pays off later: when a cable has to come out for maintenance or a repair, a label tells you which one it is and where it goes without tracing it through the frame. <a href="#labelling-the-cables">Labelling the cables</a> has a printable sheet of labels.</p>
+</div>
+
 <div class="callout callout-warning">
   <span class="callout-icon" aria-hidden="true">⚠</span>
   <p><b>Do not plug the mains lead (<code>AC1</code>) into the IEC inlet until the last step.</b> The mains wiring inside the PSU box is finished and the box stays closed from here on, so nothing on this page goes near it, but the machine is not to see mains until every cable below is in and checked.</p>
@@ -190,6 +194,21 @@ Fasten the leads to the frame with **hook-and-loop (Velcro) straps rather than z
 - **This covers the motor leads too.** Strap the four channel stepper leads (`S1` to `S4`) and the chute stepper lead (`CH`) to the frame, and the same for the camera, LED, limit switch, USB and ribbon cables and the 24 V leads, anything that runs along the frame and may need to come loose.
 - **Leave a little slack** at every connector and splice, so that nothing pulls on the thin wire when a part moves or you lift a box.
 - **Do not make it neat yet.** Run the machine for a good while first, and tidy once you know where the leads sit. The chute sweeps all the way round the machine, so check that no lead is in a spot where something that moves can catch on it.
+
+### Labelling the cables
+
+Put a label with the cable's ID (`S1`, `W2`, `RIB1` and so on) on **both ends** of every cable, close to the connector, before you route it. Do it as you finish each lead, while both ends are still in reach. Once a cable is behind a housing or strapped along the frame you cannot trace it by eye, and the four channel stepper leads (`S1` to `S4`) are identical, so they cannot be told apart once unplugged.
+
+[Download the cable labels (PDF)](https://assets.basically.website/sorter-parts/sorter-v2-cable-labels-397f566b3ef0.pdf). It is one A4 page of 60 x 12 mm (2.4 x 0.5 in) strips, two for each ID in this machine, one for each end, plus blank ones for spares. The ID is printed twice on each strip, so it can be read from either side once wrapped. The IDs are `PJ1` to `PJ3`, `W1` to `W3`, `L1` to `L3`, `L1p` to `L3p`, `LIM`, `S1` to `S4`, `CH`, `U1`, `U2`, `RIB1` and `RIB2`.
+
+<ol class="numbered-steps">
+  <li>Print the sheet at <strong>100% or Actual size</strong>, never Fit to Page. It prints the same on A4 and US Letter. The bar at the top is 100 mm (3.9 in) long: measure it to check the scale.</li>
+  <li>Cut out two strips for each cable, one per end. Trim a strip shorter for a thin lead, so that it does not wrap round more than twice.</li>
+  <li>Wrap each strip round the cable close to the connector, with the ID facing out.</li>
+  <li>Cover it with clear tape, one full turn that overlaps itself, so that the print is sealed. A laser print holds up under tape better than inkjet ink, which can smear.</li>
+</ol>
+
+If you have a label printer, or self-laminating wrap-around cable labels, use those instead and print the same IDs.
 
 ## The control board, socket by socket
 

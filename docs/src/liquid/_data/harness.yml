@@ -23,9 +23,9 @@ zip: https://assets.basically.website/sorter-harness/sorter-v2-harness-rfq-d8062
 
 drawings:
   - name: power
-    title: 24V power distribution (PJ1 to PJ3, W1 to W3)
+    title: 24V power distribution (PSU1 to PSU3, PWR1 to PWR3)
     caption: >-
-      PSU box pigtails PJ1 to PJ3 and load cables W1 to W3, one per 24V load: the
+      PSU box pigtails PSU1 to PSU3 and load cables PWR1 to PWR3, one per 24V load: the
       board, the USB hub and the Orange Pi buck. Dashed arrows are barrel
       jack/plug mates. This is the overview; the two buildable sub-harnesses
       it is made of are below it.
@@ -36,7 +36,7 @@ drawings:
     bom_tsv: https://assets.basically.website/sorter-harness/power-bom-c6d1933ad762.tsv
     yml: https://assets.basically.website/sorter-harness/power-06f8a6816a79.yml
   - name: psu-pigtail
-    title: PSU output pigtail (PJ1 to PJ3)
+    title: PSU output pigtail (PSU1 to PSU3)
     of: power
     caption: >-
       One output pigtail, x3 per PSU build. Spade terminals onto a +V/-V screw
@@ -52,10 +52,10 @@ drawings:
     bom_tsv: https://assets.basically.website/sorter-harness/psu-pigtail-bom-dc2ee3359b91.tsv
     yml: https://assets.basically.website/sorter-harness/psu-pigtail-78398a1b408a.yml
   - name: board-power
-    title: 24V to basically board v1.3 (W1)
+    title: 24V to basically board v1.3 (PWR1)
     of: power
     caption: >-
-      The board's own feed, W1 on the overview: barrel plug to JST VHR-2.
+      The board's own feed, PWR1 on the overview: barrel plug to JST VHR-2.
     guide: /hardware/helpers/board-24v-lead/
     png: https://assets.basically.website/sorter-harness/board-power-full-2077cc9520d9.png
     svg: https://assets.basically.website/sorter-harness/board-power-c95037653768.svg
@@ -64,10 +64,10 @@ drawings:
     bom_tsv: https://assets.basically.website/sorter-harness/board-power-bom-8a0dcbe9b9db.tsv
     yml: https://assets.basically.website/sorter-harness/board-power-4a748454026a.yml
   - name: steppers
-    title: Stepper cables (S1 to S4, CH)
+    title: Stepper cables (STP1 to STP4, CHU1)
     caption: >-
-      The channel stepper cable (S1 to S4), board PHR-4 to the motor's own PHR-6 with positions 2
-      and 5 empty, and the straight-through chute cable (CH) to bare labeled leads.
+      The channel stepper cable (STP1 to STP4), board PHR-4 to the motor's own PHR-6 with positions 2
+      and 5 empty, and the straight-through chute cable (CHU1) to bare labeled leads.
     png: https://assets.basically.website/sorter-harness/steppers-full-44239f4cd901.png
     svg: https://assets.basically.website/sorter-harness/steppers-a09014401468.svg
     pdf: https://assets.basically.website/sorter-harness/steppers-496af82d228f.pdf
@@ -75,11 +75,11 @@ drawings:
     bom_tsv: https://assets.basically.website/sorter-harness/steppers-bom-de13b02f1681.tsv
     yml: https://assets.basically.website/sorter-harness/steppers-5e545b417693.yml
   - name: channel-stepper
-    title: Channel stepper lead (S1 to S4)
+    title: Channel stepper lead (STP1 to STP4)
     of: steppers
     guide: /hardware/helpers/channel-stepper-lead/
     caption: >-
-      One of the four c-channel motor leads (S1 to S4). Board PHR-4 to the motor's own
+      One of the four c-channel motor leads (STP1 to STP4). Board PHR-4 to the motor's own
       PHR-6, and not straight through: two conductors change places, which is
       the crossing pair in the middle of the drawing.
     png: https://assets.basically.website/sorter-harness/channel-stepper-full-ea9de691cb30.png
@@ -89,11 +89,11 @@ drawings:
     bom_tsv: https://assets.basically.website/sorter-harness/channel-stepper-bom-94bef29aa225.tsv
     yml: https://assets.basically.website/sorter-harness/channel-stepper-05b4ffdfbd60.yml
   - name: chute-stepper
-    title: Chute stepper lead (CH)
+    title: Chute stepper lead (CHU1)
     of: steppers
     guide: /hardware/helpers/chute-stepper-lead/
     caption: >-
-      The one stepper lead (CH) that is spliced rather than plugged. The NEMA 23's
+      The one stepper lead (CHU1) that is spliced rather than plugged. The NEMA 23's
       own leads are 20 AWG (0.52 mm²), too thick for a PH contact, so a 24 AWG (0.20 mm²) tail
       carries the last stretch to the board.
     png: https://assets.basically.website/sorter-harness/chute-stepper-full-b3d1f8d6f543.png
@@ -103,10 +103,10 @@ drawings:
     bom_tsv: https://assets.basically.website/sorter-harness/chute-stepper-bom-15521f39a7c4.tsv
     yml: https://assets.basically.website/sorter-harness/chute-stepper-3a5e3fa46377.yml
   - name: leds
-    title: LED drops and limit switch (L1 to L3, L1p to L3p, LIM)
+    title: LED drops and limit switch (LED1 to LED3, LED1p to LED3p, LIM1)
     caption: >-
-      LED feeds L1 to L3 to their unplug-point jacks, pigtails L1p to L3p to the LED
-      strips, and the limit switch cable (LIM, 1x3 dupont at the
+      LED feeds LED1 to LED3 to their unplug-point jacks, pigtails LED1p to LED3p to the LED
+      strips, and the limit switch cable (LIM1, 1x3 dupont at the
       board, push-on blade terminals at the switch).
     png: https://assets.basically.website/sorter-harness/leds-full-4aa4bb0d5733.png
     svg: https://assets.basically.website/sorter-harness/leds-2644a0964002.svg
@@ -115,7 +115,7 @@ drawings:
     bom_tsv: https://assets.basically.website/sorter-harness/leds-bom-ca50142862b4.tsv
     yml: https://assets.basically.website/sorter-harness/leds-e65eb1b4dcfe.yml
   - name: limit-switch
-    title: Chute limit switch lead (LIM)
+    title: Chute limit switch lead (LIM1)
     of: leds
     guide: /hardware/helpers/limit-switch-lead/
     caption: >-

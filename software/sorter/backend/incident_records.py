@@ -245,9 +245,11 @@ def incidentSummary(
             f"FROM incidents{where} GROUP BY day ORDER BY day",
             params,
         ).fetchall()
+        # GROUP BY 1, the name shown: "GROUP BY channel" means the raw column,
+        # which the alias shadows, and splits one channel into several rows.
         by_channel_rows = conn.execute(
             f"SELECT COALESCE(channel_label, channel, 'unknown') AS channel, COUNT(*) AS count "
-            f"FROM incidents{where} GROUP BY channel ORDER BY count DESC LIMIT 20",
+            f"FROM incidents{where} GROUP BY 1 ORDER BY count DESC LIMIT 20",
             params,
         ).fetchall()
     return {

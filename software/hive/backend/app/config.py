@@ -92,7 +92,7 @@ class Settings(BaseSettings):
     # stale differs from a live one in a digit nobody reads. 60s floor.
     FLEET_MASS_REFRESH_INTERVAL_MINUTES: int = 30
     # How often the fleet records are recomputed: per-machine speed, who reached
-    # each milestone first, the newest parts and colours found. Two grouped scans
+    # each milestone first, the newest parts and colors found. Two grouped scans
     # of machine_pieces, so a clock and never a request. 60s floor.
     FLEET_RECORDS_REFRESH_INTERVAL_MINUTES: int = 15
     # Newest full-size GLM as of 2026-09: ~$1.4/M in, ~$4.4/M out, roughly half

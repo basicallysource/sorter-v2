@@ -93,9 +93,14 @@ def test_records(client, db, two_machines, monkeypatch):
     assert [(p["part_id"], p["machine_id"], p["ordinal"]) for p in body["newest_parts"]] == [
         ("3004", b, 4), ("3002", a, 3), ("3003", b, 2), ("3001", a, 1)]
     assert body["distinct_parts"] == 4
-    # "any_color" is not a colour; colour 11 was B's find even though A saw it later.
+    # "any_color" is not a color; color 11 was B's find even though A saw it later.
     assert [(c["color_id"], c["machine_id"]) for c in body["newest_colors"]] == [("11", b), ("5", a)]
     assert body["distinct_colors"] == 2
+    # A part in a color: 3001 in 5 (a1), 3002 in 11 (a3), 3003 in 11 (b1).
+    # 3004 came in "any_color", which is no color, so it makes no pair.
+    assert [(c["part_id"], c["color_id"], c["machine_id"]) for c in body["newest_combos"]] == [
+        ("3002", "11", a), ("3003", "11", b), ("3001", "5", a)]
+    assert body["distinct_combos"] == 3
 
     roster = client.get("/api/public/fleet", headers=_bearer(token)).json()
     mine = next(m for m in roster["machines"] if m["id"] == a)

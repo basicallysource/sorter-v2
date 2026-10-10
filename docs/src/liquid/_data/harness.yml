@@ -19,7 +19,7 @@
 # an entry in the `drawings` list in electronics/wire_harness/build-harness.sh
 # (the supplier zip's member list), then the same paste.
 
-zip: https://assets.basically.website/sorter-harness/sorter-v2-harness-rfq-89fb34f124e2.zip
+zip: https://assets.basically.website/sorter-harness/sorter-v2-harness-rfq-c4c34efc7407.zip
 
 drawings:
   - name: power
@@ -68,12 +68,12 @@ drawings:
     caption: >-
       The channel stepper cable (STP1 to STP4), board PHR-4 to the motor's own PHR-6 with positions 2
       and 5 empty, and the straight-through chute cable (CHU1) to bare labeled leads.
-    png: https://assets.basically.website/sorter-harness/steppers-full-d1c18932bfdc.png
-    svg: https://assets.basically.website/sorter-harness/steppers-90f10e1451d4.svg
-    pdf: https://assets.basically.website/sorter-harness/steppers-30a081431895.pdf
-    html: https://assets.basically.website/sorter-harness/steppers-865f64dbf1e8.html
-    bom_tsv: https://assets.basically.website/sorter-harness/steppers-bom-2d7d41eebe43.tsv
-    yml: https://assets.basically.website/sorter-harness/steppers-06147a4cafca.yml
+    png: https://assets.basically.website/sorter-harness/steppers-full-a89181262091.png
+    svg: https://assets.basically.website/sorter-harness/steppers-6b18a7de6a00.svg
+    pdf: https://assets.basically.website/sorter-harness/steppers-5c42f2bc61db.pdf
+    html: https://assets.basically.website/sorter-harness/steppers-abf867428201.html
+    bom_tsv: https://assets.basically.website/sorter-harness/steppers-bom-a115573c25c8.tsv
+    yml: https://assets.basically.website/sorter-harness/steppers-31c06876e336.yml
   - name: channel-stepper
     title: Channel stepper lead (STP1 to STP4)
     of: steppers
@@ -108,12 +108,12 @@ drawings:
       LED feeds LED1 to LED3 to their unplug-point jacks, pigtails LED1p to LED3p to the LED
       strips, and the limit switch cable (LIM1, 1x3 dupont at the
       board, push-on blade terminals at the switch).
-    png: https://assets.basically.website/sorter-harness/leds-full-a7709c678e4d.png
-    svg: https://assets.basically.website/sorter-harness/leds-19869e557ed4.svg
-    pdf: https://assets.basically.website/sorter-harness/leds-b2e217699d9c.pdf
-    html: https://assets.basically.website/sorter-harness/leds-47b2c49f7b5d.html
-    bom_tsv: https://assets.basically.website/sorter-harness/leds-bom-cad3898e665c.tsv
-    yml: https://assets.basically.website/sorter-harness/leds-59160d8a2be4.yml
+    png: https://assets.basically.website/sorter-harness/leds-full-be9ce67bd91a.png
+    svg: https://assets.basically.website/sorter-harness/leds-ea5227ae5da6.svg
+    pdf: https://assets.basically.website/sorter-harness/leds-45e6e253fca0.pdf
+    html: https://assets.basically.website/sorter-harness/leds-50ec0b7683e5.html
+    bom_tsv: https://assets.basically.website/sorter-harness/leds-bom-5197668c6df1.tsv
+    yml: https://assets.basically.website/sorter-harness/leds-90271d48415a.yml
   - name: limit-switch
     title: Chute limit switch lead (LIM1)
     of: leds

@@ -241,3 +241,13 @@ sections:
             url: /lab/object-detection/device-benchmarking/
           - title: Hailo HEF Workflow
             url: /lab/object-detection/hailo-hef-workflow/
+
+  - id: design
+    title: Design
+    url: /design/
+    description: How the machine is designed, from a bird's-eye view. What talks to what, with links to where the details live.
+    pages:
+      - title: Overview
+        url: /design/
+      - title: How the electronics talk to each other
+        url: /design/electronics/

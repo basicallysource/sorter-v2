@@ -59,7 +59,7 @@ Design philosophy: **a key grants exactly what its scopes say, nothing more.**
   | Scope | Grants | Withheld because |
   |---|---|---|
   | `stats:read` | `/stats`, `/fleet/mass` — fleet-wide aggregates, no machine and no person | — (this is the tier safe for a public consumer) |
-  | `fleet:read` | `/fleet` — the roster with owner Discord where linked | names machine owners |
+  | `fleet:read` | `/fleet` — the roster with owner Discord where linked, and each owner's live-activity opt-in | names machine owners |
   | `fleet:anon` | `/fleet/anon` — the same machines and counts, de-identified | — (safe to repeat aloud; see below) |
   | `contributors:read` | `/contributors` — who has been labelling | names contributors |
   | `parts:read` | the parts catalog: identity, category, geometry, weight, colors | — |
@@ -78,6 +78,14 @@ Design philosophy: **a key grants exactly what its scopes say, nothing more.**
   machine id, a date rather than a timestamp) rather than in a promise about
   how the payload gets used. The reasoning for each dropped field is on
   `get_public_fleet_anon`; the timestamp one is the non-obvious one.
+- **Each `/fleet` row carries its owner's live-activity opt-in.**
+  `owner_shares_activity` mirrors `users.share_activity`, which a signed-in
+  user reads and sets on their own profile (`GET`/`PATCH /api/auth/me`, the
+  settings page, deep link `/settings?share=activity`). It is off by default,
+  and off means a consumer must leave that machine out of any live activity
+  listing ("who is sorting right now"). The roster still lists every machine, so
+  its counts do not move with the opt-in; applying the flag is the consumer's
+  job. `/fleet/anon` does not carry it.
 - **`parts:prices` shapes a payload rather than gating an endpoint.** A key
   with `parts:read` alone gets every catalog row in full with the price block
   absent — nothing 403s halfway through a batch. The stripping is by field-name

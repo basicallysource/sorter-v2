@@ -264,3 +264,7 @@ sections:
             url: /design/usb/
           - title: Power distribution
             url: /design/power/
+      - title: Get involved
+        pages:
+          - title: How to contribute
+            url: /design/contribute/

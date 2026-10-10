@@ -27,7 +27,7 @@ Two layers, strict separation:
 | Layer | Hardware | Responsibility | Language |
 |-------|----------|---------------|----------|
 | **Firmware** | RP2040 (Raspberry Pi Pico) | Real-time: 10kHz step generation, 1kHz motion control, sensor reads, PWM | C++ |
-| **Host** | Raspberry Pi 5 | Everything else: vision, classification, coordination, UI, sorting logic | Python + SvelteKit |
+| **Host** | Orange Pi 5 | Everything else: vision, classification, coordination, UI, sorting logic | Python + SvelteKit |
 
 Communication: USB serial. The firmware sends a JSON config on startup describing its capabilities. The host sends commands; the firmware executes them. All actuators are addressable by name.
 
@@ -55,7 +55,7 @@ Communication: USB serial. The firmware sends a JSON config on startup describin
 |-------------|-------------|
 | **Klipper** | Designed for 3D printers. Over-abstracted for sorting — carries assumptions about toolheads, bed geometry, and print-move semantics that do not map to sorting. |
 | **ROS2** | Modularity is appealing, but the runtime weight and complexity are disproportionate for a single-machine sorting system. Too cumbersome for rapid iteration. |
-| **Marlin** | Firmware-heavy — all logic lives on the MCU. Constrains feature development to C++ on resource-limited hardware. Cannot leverage Pi's compute for vision. |
+| **Marlin** | Firmware-heavy — all logic lives on the MCU. Constrains feature development to C++ on resource-limited hardware. Cannot leverage the host's compute for vision. |
 | **Firmata** | V1 used Firmata. 7-bit encoding causes data mangling, the project is effectively dead, and threading behavior was unreliable. Abandoned after V1 experience. |
 | **WiFi for MCU comms** | Non-deterministic latency. USB serial provides the consistent <10ms response time that real-time motion control requires. |
 | **RS485 for multi-MCU** | Planned for future multi-machine setups (passing buckets between sorters for multi-phase sorts), but USB serial suffices for single-machine V2. |

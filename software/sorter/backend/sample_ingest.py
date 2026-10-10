@@ -1,27 +1,27 @@
 from __future__ import annotations
 
 import os
-import time
+import threading
 from typing import Any
 
+import cv2
 import numpy as np
 
 from global_config import GlobalConfig
 
-# Source-agnostic bridge: hand a raw camera frame to the EXISTING classification
-# pipeline (save -> archive -> enqueue -> Hive upload) used by the legacy vision
-# system's teacher captures, without going through VisionManager. Any capture
-# source (the standalone collector, a future loop, etc.) calls ingestSampleFrame
-# and the same downstream machinery handles it.
+# Builds one training sample from a camera's latest frame for sample_store:
+# the frame as the camera sent it, with everything needed to make sense of it
+# later — the camera's settings and live readout, the lamp lighting it, the
+# channel outline the frame is cut by, and (when annotation is on) what a
+# detector saw in it.
 
 _FEEDER_ROLES = {"c_channel_2", "c_channel_3"}
 
 # Hive only runs its teacher pass on samples whose source_role maps to a teacher
 # zone (mirror of hive teacher_detector.SOURCE_ROLE_TO_ZONE). A frame from a
 # camera with no teacher zone (e.g. the wide "feeder" overview cam) can never be
-# promoted past "raw", so we don't ship it — matching the legacy teacher-capture
-# flow, which only captured these roles.
-_TEACHER_ZONE_ROLES = {
+# promoted past "raw", so it is not sampled.
+TEACHER_ZONE_ROLES = {
     "classification_chamber",
     "carousel",
     "classification_channel",
@@ -40,9 +40,16 @@ _ZONE_FOR_SCOPE = {
     "feeder": "classification_chamber",
 }
 
+# Quality for the frames that must be re-encoded (a camera with rotation or
+# flips set, or no JPEG of its own): high, so the copy is close to the original.
+_REENCODE_QUALITY = 95
+
 # One detector per scope, reused across frames (detect(force=True) is stateless
 # per call, so sharing is safe and avoids re-init churn).
 _detectors: dict[str, Any] = {}
+
+_software_lock = threading.Lock()
+_software: dict[str, Any] | None = None
 
 
 def scopeForRole(role: str) -> str:
@@ -67,7 +74,7 @@ def _openRouterModelForScope(scope: str) -> str:
 
 def _annotate(gc: GlobalConfig, scope: str, frame_bgr: np.ndarray) -> tuple[Any | None, str | None]:
     # Best-effort: a missing key or any failure returns (None, model) so the
-    # frame still uploads as a raw sample rather than being lost.
+    # frame is still kept as a raw sample.
     if not os.getenv("OPENROUTER_API_KEY"):
         return None, None
     model = _openRouterModelForScope(scope)
@@ -82,70 +89,156 @@ def _annotate(gc: GlobalConfig, scope: str, frame_bgr: np.ndarray) -> tuple[Any 
             detector.setOpenRouterModel(model)
         return detector.detect(frame_bgr, force=True), model
     except Exception as exc:
-        gc.logger.warning("sample ingest annotation failed (%s): %s" % (scope, exc))
+        gc.logger.warning("sample annotation failed (%s): %s" % (scope, exc))
         return None, model
 
 
-def ingestSampleFrame(
-    gc: GlobalConfig,
-    role: str,
-    frame_bgr: np.ndarray,
-    *,
-    annotate: bool,
-    source: str = "standalone_sample_collector",
-    capture_reason: str = "standalone_sample_collection",
-) -> dict[str, Any] | None:
+def _detection(gc: GlobalConfig, scope: str, frame_bgr: np.ndarray, annotate: bool) -> dict[str, Any]:
+    detection, model = _annotate(gc, scope, frame_bgr) if annotate else (None, None)
+    if detection is None:
+        return {"algorithm": "raw_capture", "found": False, "bbox": None, "candidate_bboxes": [], "count": 0, "score": None}
+    found = getattr(detection, "bbox", None) is not None
+    score = getattr(detection, "score", None)
+    return {
+        "algorithm": "gemini_sam",
+        "openrouter_model": model,
+        "found": bool(found),
+        "bbox": [int(v) for v in detection.bbox] if found else None,
+        "candidate_bboxes": [[int(v) for v in b] for b in detection.bboxes],
+        "count": len(detection.bboxes),
+        "score": float(score) if score is not None else None,
+    }
+
+
+def _pictureSettings(capture: Any) -> dict[str, Any]:
+    try:
+        ps = capture.getPictureSettings()
+        return {
+            "rotation": int(ps.rotation),
+            "flip_horizontal": bool(ps.flip_horizontal),
+            "flip_vertical": bool(ps.flip_vertical),
+        }
+    except Exception:
+        return {"rotation": 0, "flip_horizontal": False, "flip_vertical": False}
+
+
+def _jsonable(value: Any) -> Any:
+    if isinstance(value, dict):
+        return {str(k): _jsonable(v) for k, v in value.items()}
+    if isinstance(value, (list, tuple)):
+        return [_jsonable(v) for v in value]
+    if isinstance(value, (str, int, float, bool)) or value is None:
+        return value
+    return str(value)
+
+
+def _cameraInfo(capture: Any, picture: dict[str, Any], image_source: str) -> dict[str, Any]:
+    """The camera's state when the frame was taken: the device settings the
+    sorter applied, the values the driver reports now (which, with auto
+    exposure or white balance on, may differ), its readout (resolution, frame
+    rate) and the picture settings the sorter applies after capture."""
+    info: dict[str, Any] = {"picture_settings": picture, "image": image_source}
+    for key, read in (
+        ("applied_settings", lambda: capture.getDeviceSettings()),
+        ("readout", lambda: capture.getTelemetrySnapshot()),
+        ("reported_settings", lambda: capture.describeDeviceControls()[1]),
+    ):
+        try:
+            info[key] = _jsonable(read())
+        except Exception:
+            info[key] = None
+    return info
+
+
+def _lampInfo(role: str) -> dict[str, Any] | None:
+    """The light this camera's channel is assigned and its brightness. Outputs
+    can be shared, so the channels on the same output are listed too."""
+    try:
+        from local_state import get_led_state
+
+        state = get_led_state()
+    except Exception:
+        return None
+    output = state["assignments"].get(role)
+    if output is None:
+        return {"output": None}
+    return {
+        "output": output,
+        "brightness_percent": state["brightness"].get(output),
+        "channels_on_output": sorted(k for k, v in state["assignments"].items() if v == output),
+    }
+
+
+def _softwareInfo() -> dict[str, Any]:
+    # Read once per process: the version only changes with a restart.
+    global _software
+    with _software_lock:
+        if _software is None:
+            try:
+                from status_ping import _softwareInfo as read
+
+                _software = read()
+            except Exception:
+                _software = {}
+        return dict(_software)
+
+
+def buildSample(gc: GlobalConfig, role: str, capture: Any, frame: Any, *, annotate: bool) -> tuple[bytes, dict[str, Any]] | None:
+    """The JPEG and the metadata for one sample from `frame` (a CameraFrame from
+    `capture`), or None when there is nothing to keep."""
+    if role not in TEACHER_ZONE_ROLES:
+        return None
+    frame_bgr = getattr(frame, "raw", None)
     if frame_bgr is None or getattr(frame_bgr, "size", 0) == 0:
         return None
-    if role not in _TEACHER_ZONE_ROLES:
-        return None
+    picture = _pictureSettings(capture)
+    identity = picture["rotation"] % 360 == 0 and not picture["flip_horizontal"] and not picture["flip_vertical"]
+    raw_jpeg = getattr(frame, "raw_jpeg", None)
+    if identity and raw_jpeg:
+        # The camera's own JPEG: no decode/encode loss, and it is the same frame
+        # (same orientation and size) the channel outline is drawn on.
+        jpeg = bytes(raw_jpeg)
+        image_source = "camera_jpeg"
+    else:
+        # The outline is drawn on the frame after rotation and flips, so a
+        # camera with those set sends that frame, re-encoded.
+        ok, encoded = cv2.imencode(".jpg", frame_bgr, [cv2.IMWRITE_JPEG_QUALITY, _REENCODE_QUALITY])
+        if not ok:
+            return None
+        jpeg = encoded.tobytes()
+        image_source = "reencoded_after_picture_settings" if not identity else "reencoded"
+    height, width = frame_bgr.shape[:2]
 
     scope = scopeForRole(role)
-    detection = None
-    model: str | None = None
-    if annotate:
-        detection, model = _annotate(gc, scope, frame_bgr)
+    geometry = None
+    try:
+        from channel_geometry_payload import buildChannelGeometryForRole
 
-    found = bool(detection is not None and getattr(detection, "bbox", None) is not None)
-    if detection is not None:
-        algorithm = "gemini_sam"
-        message = (
-            "Standalone capture: Gemini found candidate pieces."
-            if found
-            else "Standalone capture: Gemini found no piece."
-        )
-        bbox = list(detection.bbox) if found else None
-        candidate_bboxes = [list(b) for b in detection.bboxes]
-        bbox_count = len(detection.bboxes)
-        score = float(detection.score) if getattr(detection, "score", None) is not None else None
-    else:
-        algorithm = "raw_capture"
-        message = "Standalone raw capture (no on-device annotation)."
-        bbox = None
-        candidate_bboxes = []
-        bbox_count = 0
-        score = None
+        geometry = buildChannelGeometryForRole(role)
+    except Exception as exc:
+        gc.logger.warning("sample: no channel outline for %s: %s" % (role, exc))
+    geometry_matches = None
+    if isinstance(geometry, dict) and geometry.get("frame_width") and geometry.get("frame_height"):
+        geometry_matches = int(geometry["frame_width"]) == int(width) and int(geometry["frame_height"]) == int(height)
 
-    from server.classification_training import getClassificationTrainingManager
-
-    return getClassificationTrainingManager().saveAuxiliaryDetectionCapture(
-        source=source,
-        source_role=role,
-        detection_scope=scope,
-        capture_reason=capture_reason,
-        detection_algorithm=algorithm,
-        detection_openrouter_model=model if algorithm == "gemini_sam" else None,
-        detection_found=found,
-        detection_bbox=bbox,
-        detection_candidate_bboxes=candidate_bboxes,
-        detection_bbox_count=bbox_count,
-        detection_score=score,
-        detection_message=message,
-        input_image=frame_bgr,
-        source_frame=frame_bgr,
-        extra_metadata={
-            "standalone_capture": True,
-            "capture_source_role": role,
-            "ingested_at": time.time(),
-        },
-    )
+    captured_at = getattr(frame, "timestamp", None)
+    meta = {
+        "source_role": role,
+        "capture_reason": "standalone_sample_collection",
+        "detection_scope": scope,
+        "detection": _detection(gc, scope, frame_bgr, annotate),
+        "camera": _cameraInfo(capture, picture, image_source),
+        "lamp": _lampInfo(role),
+        "channel_geometry": geometry,
+        # False when the outline was calibrated for a different frame size than
+        # this frame: Hive should not trust the outline on this sample.
+        "channel_geometry_matches_frame": geometry_matches,
+        "software": _softwareInfo(),
+    }
+    return jpeg, {
+        "camera": role,
+        "captured_at": float(captured_at) if isinstance(captured_at, (int, float)) else None,
+        "width": int(width),
+        "height": int(height),
+        "meta": meta,
+    }

@@ -177,59 +177,37 @@ class TelemetryClientGatingTests(unittest.TestCase):
                 client.pushSetProgress({"version_id": "v"})
         self.assertEqual([], session.calls)
 
-    def test_upload_sample_blocked_without_detection_images(self) -> None:
+    def test_push_sample_blocked_without_full_frames(self) -> None:
         client, session = _client_with_session()
         with tempfile.TemporaryDirectory() as tmp:
-            image = Path(tmp) / "crop.jpg"
-            image.write_bytes(b"jpg")
-            with patch.object(hive_telemetry, "getTargetTelemetrySettings", return_value=_settings(detection_images=False)):
-                with self.assertRaises(TelemetryBlocked):
-                    client.uploadSample(
-                        source_session_id="s",
-                        local_sample_id="a",
-                        image_path=image,
-                    )
+            image = Path(tmp) / "1.jpg"
+            image.write_bytes(b"\xff\xd8\xff" + b"jpg")
+            with patch.object(hive_telemetry, "getTargetTelemetrySettings", return_value=_settings(full_frames=False)):
+                with self.assertRaises(TelemetryBlocked) as ctx:
+                    client.pushSample({"local_id": 1}, image)
+        self.assertEqual("full_frames", ctx.exception.field)
         self.assertEqual([], session.calls)
 
-    def test_upload_sample_strips_full_frames_when_disabled(self) -> None:
-        client, session = _client_with_session(payload={"ok": True})
+    def test_push_sample_sends_its_image(self) -> None:
+        client, session = _client_with_session(payload={"max_local_id": 7})
         with tempfile.TemporaryDirectory() as tmp:
-            image = Path(tmp) / "crop.jpg"
-            frame = Path(tmp) / "frame.jpg"
-            overlay = Path(tmp) / "overlay.jpg"
-            for path in (image, frame, overlay):
-                path.write_bytes(b"jpg")
-            with patch.object(hive_telemetry, "getTargetTelemetrySettings", return_value=_settings(full_frames=False)):
-                client.uploadSample(
-                    source_session_id="s",
-                    local_sample_id="a",
-                    image_path=image,
-                    full_frame_path=frame,
-                    overlay_path=overlay,
-                )
-        self.assertEqual(1, len(session.calls))
-        files = session.calls[0]["files"]
-        self.assertIn("image", files)
-        self.assertNotIn("full_frame", files)
-        self.assertNotIn("overlay", files)
-
-    def test_upload_sample_includes_full_frames_when_enabled(self) -> None:
-        client, session = _client_with_session(payload={"ok": True})
-        with tempfile.TemporaryDirectory() as tmp:
-            image = Path(tmp) / "crop.jpg"
-            frame = Path(tmp) / "frame.jpg"
-            for path in (image, frame):
-                path.write_bytes(b"jpg")
+            image = Path(tmp) / "7.jpg"
+            image.write_bytes(b"\xff\xd8\xff" + b"jpg")
             with patch.object(hive_telemetry, "getTargetTelemetrySettings", return_value=_settings()):
-                client.uploadSample(
-                    source_session_id="s",
-                    local_sample_id="a",
-                    image_path=image,
-                    full_frame_path=frame,
-                )
-        files = session.calls[0]["files"]
-        self.assertIn("image", files)
-        self.assertIn("full_frame", files)
+                self.assertEqual(7, client.pushSample({"local_id": 7, "bytes": 6}, image))
+        call = session.calls[0]
+        self.assertTrue(call["url"].endswith("/api/machine/sync/sample"))
+        self.assertIn("image", call["files"])
+
+    def test_push_sample_without_a_readable_image_sends_nothing(self) -> None:
+        client, session = _client_with_session(payload={"max_local_id": 7})
+        with tempfile.TemporaryDirectory() as tmp:
+            image = Path(tmp) / "7.jpg"
+            image.write_bytes(b"not a jpeg")
+            with patch.object(hive_telemetry, "getTargetTelemetrySettings", return_value=_settings()):
+                with self.assertRaises(FileNotFoundError):
+                    client.pushSample({"local_id": 7}, image)
+        self.assertEqual([], session.calls)
 
     def test_get_sync_state_is_not_gated(self) -> None:
         client, session = _client_with_session(payload={"piece_records": {"max_local_id": 0}})
@@ -386,13 +364,16 @@ class SyncFileGuardTests(unittest.TestCase):
 
 
 class _PostRecordingSession:
-    def __init__(self) -> None:
+    def __init__(self, reply: dict | None = None) -> None:
         self.posts: list[dict] = []
         self.headers: dict = {}
+        self.reply = reply if reply is not None else {"ok": True}
 
     def post(self, url: str, **kwargs) -> _FakeResponse:
         self.posts.append({"url": url, **kwargs})
-        return _FakeResponse({"ok": True})
+        response = _FakeResponse(self.reply)
+        response.ok = True  # type: ignore[attr-defined]
+        return response
 
 
 class HeartbeatBodyTests(unittest.TestCase):
@@ -404,7 +385,8 @@ class HeartbeatBodyTests(unittest.TestCase):
         session = _PostRecordingSession()
         client._session = session  # type: ignore[assignment]
         with patch.object(hive_telemetry, "getTargetTelemetrySettings", return_value=settings):
-            self.assertTrue(client.heartbeat(**kwargs))
+            reachable, _reply = client.heartbeat(**kwargs)
+        self.assertTrue(reachable)
         return session.posts[0]["json"]
 
     def test_network_rides_a_beat_without_specs(self) -> None:
@@ -421,3 +403,11 @@ class HeartbeatBodyTests(unittest.TestCase):
 
     def test_nothing_to_carry_sends_no_body(self) -> None:
         self.assertIsNone(self._beat(_settings(machine_specs=False), machine_specs=self.SPECS))
+
+    def test_reply_is_returned(self) -> None:
+        client = HiveTelemetryClient("https://hive.example", "token", "target-a")
+        client._session = _PostRecordingSession({"ok": True, "limits": {"upload_files_per_minute": 30}})  # type: ignore[assignment]
+        with patch.object(hive_telemetry, "getTargetTelemetrySettings", return_value=_settings()):
+            reachable, reply = client.heartbeat(network=self.NETWORK)
+        self.assertTrue(reachable)
+        self.assertEqual({"upload_files_per_minute": 30}, reply["limits"])

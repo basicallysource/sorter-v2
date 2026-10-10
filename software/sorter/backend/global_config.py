@@ -100,9 +100,13 @@ class GlobalConfig:
         # set in main.py after camera startup. See sample_collector.py.
         self.sample_collector: "Any" = None
 
-        # Reconciles local piece history (records + crops) up to every enabled
-        # Hive. Set in main.py after startup. See server/hive_sync.py.
+        # Sends everything kept for Hive up to every enabled Hive. Set in
+        # main.py after startup. See server/hive_sync.py.
         self.hive_sync_worker: "Any" = None
+
+        # Keep-alive to every enabled Hive (reachability, limits). Set in
+        # main.py after startup. See server/hive_heartbeat.py.
+        self.hive_heartbeat: "Any" = None
 
 
 def mkTimeouts() -> Timeouts:

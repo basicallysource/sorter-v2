@@ -140,7 +140,7 @@ The PSU output pigtails (`PJ1` to `PJ3`) are already in the PSU box. The USB hub
   </tbody>
 </table>
 
-[Ordering the wire harness]({{ '/hardware/parts/harness-order/' | relative_url }}) calls the first three `W1`, `W2` and `W3`, the steppers `S1` to `S4` and `CH`, the limit switch `LIM`, the lamps `L1` to `L3`, and the ribbon `RIB1`. The two bought USB cables between the Pico, the hub and the Orange Pi are `U2` and `U1`, and the cameras' own USB leads are `U3` to `U5`.
+[Ordering the wire harness]({{ '/hardware/parts/harness-order/' | relative_url }}) calls the first three `W1`, `W2` and `W3`, the steppers `S1` to `S4` and `CH`, the limit switch `LIM`, the lamps `L1` to `L3`, and the ribbon `RIB1`. The two bought USB cables between the Pico, the hub and the Orange Pi are `U2` and `U1`, and the cameras' own detachable USB leads are `U3` to `U5`, each labelled at both ends.
 
 ### The three 24 V leads (`W1` to `W3`)
 
@@ -469,7 +469,7 @@ The Orange Pi talks to the control board over USB, through the powered hub. The 
   <li>Plug the buck converter's USB-C lead into the socket the board prints <code>PWR IN</code>. <b>The Pi has two USB-C sockets that look the same</b> and only the one marked <code>PWR IN</code> is a power input. The other is USB 3.1 and DisplayPort, with no power function. Check that the converter is putting out 5 V before it goes anywhere near the Pi, as under <b>Check the lead</b> on <a href="{{ '/hardware/helpers/pi-24v-lead/' | relative_url }}#check-the-lead">Make the Orange Pi's 24 V lead</a> (<code>W3</code>).</li>
   <li>Run a USB cable (<code>U2</code>) from the Pico's micro USB socket to any port on the hub.</li>
   <li>Run a USB cable (<code>U1</code>) from the hub to the port marked <code>UP USB3.0</code> on the Pi, the upper of the two stacked sockets. The hub comes with a USB-A to USB-A lead for this.</li>
-  <li>Plug the three cameras into the three remaining hub ports. Each one arrives with its own lead: the <b>IMX415 4K</b> module on the <a href="{{ '/hardware/assembly/feeder/camera-lamp/classification-camera-lamp/' | relative_url }}">classification camera lamp</a> (<code>U3</code>), and the two <b>OV9732 720p</b> modules on the C2 (<code>U4</code>) and C3 (<code>U5</code>) <a href="{{ '/hardware/assembly/feeder/camera-lamp/feeder-camera-lamp/' | relative_url }}">feeder camera lamps</a>.</li>
+  <li>Plug the three cameras into the three remaining hub ports. Each one arrives with its own detachable USB lead, separate from the cable of the lamp it sits on: the <b>IMX415 4K</b> module on the <a href="{{ '/hardware/assembly/feeder/camera-lamp/classification-camera-lamp/' | relative_url }}">classification camera lamp</a> (<code>U3</code>), and the two <b>OV9732 720p</b> modules on the C2 (<code>U4</code>) and C3 (<code>U5</code>) <a href="{{ '/hardware/assembly/feeder/camera-lamp/feeder-camera-lamp/' | relative_url }}">feeder camera lamps</a>.</li>
 </ol>
 
 That fills the hub: three cameras and the Pico, no spare port.

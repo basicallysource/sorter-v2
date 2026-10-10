@@ -347,17 +347,15 @@ def _sample_collector():
 
 
 def _sample_storage_payload() -> Dict[str, Any]:
-    from server.classification_training import getClassificationTrainingManager
+    import sample_store
 
-    info = getClassificationTrainingManager().getStorageStatus()
-    cap = info.get("storage_cap_bytes")
-    used = info.get("storage_used_bytes")
+    info = sample_store.stats()
     mb = 1024 * 1024
     return {
-        "storage_cap_bytes": cap if isinstance(cap, int) else None,
-        "storage_cap_mb": round(cap / mb) if isinstance(cap, int) else None,
-        "storage_used_bytes": used if isinstance(used, int) else None,
-        "storage_used_mb": round(used / mb) if isinstance(used, int) else None,
+        "storage_cap_bytes": info["cap_bytes"],
+        "storage_cap_mb": round(info["cap_bytes"] / mb),
+        "storage_used_bytes": info["stored_bytes"],
+        "storage_used_mb": round(info["stored_bytes"] / mb),
     }
 
 
@@ -379,16 +377,11 @@ def set_sample_capture(payload: Dict[str, Any]) -> Dict[str, Any]:
     Independent of machine mode. ``enabled`` flips picture-taking on/off. Cadence is either
     the decay schedule (``decay_enabled`` + ``burst_interval_s`` /
     ``floor_interval_s`` / ``ramp_hours`` / ``jitter_frac``, default) or a
-    fixed rate (``rate_hz`` / ``interval_s``, default 10s). ``reset_decay``
+    fixed rate (``rate_hz`` / ``interval_s``, default 10s). Burst, floor, ramp
+    and ``storage_cap_mb`` follow the limits Hive sets unless given here (null
+    or 0 goes back to following Hive), and never go past them. ``reset_decay``
     re-arms the burst. All persist.
     """
-    if "storage_cap_mb" in payload and payload.get("storage_cap_mb") is not None:
-        from server.classification_training import getClassificationTrainingManager
-
-        cap_mb = float(payload["storage_cap_mb"])
-        cap_bytes = int(cap_mb * 1024 * 1024) if cap_mb > 0 else None
-        getClassificationTrainingManager().setStorageCapBytes(cap_bytes)
-
     collector = _sample_collector()
     if collector is None:
         result: Dict[str, Any] = {"ok": False, "enabled": False, "reason": "collector_not_initialized"}
@@ -404,14 +397,16 @@ def set_sample_capture(payload: Dict[str, Any]) -> Dict[str, Any]:
             result.update({"ok": False, "reason": "invalid_rate", "message": str(exc)})
             result.update(_sample_storage_payload())
             return result
+    if "storage_cap_mb" in payload:
+        collector.setStoreMaxMb(payload.get("storage_cap_mb"))
     decay_keys = ("decay_enabled", "burst_interval_s", "floor_interval_s", "ramp_hours", "jitter_frac")
     if any(key in payload for key in decay_keys):
+        # Only the keys sent change; a sent null clears that setting.
+        followable = {key: payload[key] for key in ("burst_interval_s", "floor_interval_s", "ramp_hours") if key in payload}
         collector.setDecayConfig(
             decay_enabled=bool(payload["decay_enabled"]) if "decay_enabled" in payload else None,
-            burst_interval_s=float(payload["burst_interval_s"]) if payload.get("burst_interval_s") is not None else None,
-            floor_interval_s=float(payload["floor_interval_s"]) if payload.get("floor_interval_s") is not None else None,
-            ramp_hours=float(payload["ramp_hours"]) if payload.get("ramp_hours") is not None else None,
             jitter_frac=float(payload["jitter_frac"]) if payload.get("jitter_frac") is not None else None,
+            **followable,
         )
     if payload.get("reset_decay"):
         collector.resetDecay()

@@ -5511,7 +5511,7 @@
       "name": "IMX415 4K camera module",
       "category": "Cameras",
       "alternative": "Any UVC USB camera that matches the specs listed here and covers the whole 205 mm rotor (the printed clasp holds this one's lens 123.9 mm above the rotor apex). The clasp fits this board, so another module needs its own mount.",
-      "description": "Classification top camera. The innomaker IMX415 4K USB module.",
+      "description": "Classification top camera. The innomaker IMX415 4K USB module. Its own USB lead is USB3.",
       "created_at": "2026-07-18",
       "updated_at": "2026-10-02",
       "sheet_qty": {
@@ -5590,7 +5590,7 @@
       "name": "OV9732 720p Camera Module",
       "category": "Cameras",
       "alternative": "Any UVC USB camera that matches the specs listed here and covers the whole 205 mm rotor (the printed clasp holds this one's lens 123.9 mm above the rotor apex). The clasp fits this board, so another module needs its own mount.",
-      "description": "C-channel and carousel drop plate detection cameras",
+      "description": "C-channel and carousel drop plate detection cameras. Their own USB leads are USB4 and USB5.",
       "created_at": "2026-07-18",
       "updated_at": "2026-10-02",
       "sheet_qty": {
@@ -6729,7 +6729,7 @@
       },
       "name": "Micro USB Data Cable (USB2)",
       "category": "Computer",
-      "description": "Connects the Raspberry Pi Pico (USB2) on the control board to the powered USB hub. Use a micro USB cable that carries data. Charge-only cables do not work.",
+      "description": "Cable USB2: connects the Raspberry Pi Pico on the control board to the powered USB hub. Use a micro USB cable that carries data. Charge-only cables do not work.",
       "note": "USB Cables totally vary in quality. Ensure it supports data",
       "created_at": "2026-07-18",
       "updated_at": "2026-10-02",

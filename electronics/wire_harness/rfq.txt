@@ -11,7 +11,7 @@ Custom cable assemblies for one machine.
 WireViz), each with its own BOM (TSV):
   - power     : PSU pigtails PSU1-PSU3, load cables PWR1-PWR3
   - steppers  : channel stepper crossover cable STP (x4), chute cable CHU1
-  - leds      : LED feeds LED1-LED3, pigtails LED1P-LED3P, limit switch LIM1
+  - leds      : LED feeds LED1-LED3, pigtails LED1p-LED3p, limit switch LIM1
 
 2. QUANTITY
 2 full sets (i.e. every cable in the drawings x2).

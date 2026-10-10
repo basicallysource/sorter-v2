@@ -29134,7 +29134,7 @@
 			"description": "Connects the Raspberry Pi Pico (U2) on the control board to the powered USB hub. Use a micro USB cable that carries data. Charge-only cables do not work.",
 			"note": "USB Cables totally vary in quality. Ensure it supports data",
 			"created_at": "2026-07-18",
-			"updated_at": "2026-10-02",
+			"updated_at": "2026-10-10",
 			"attributes": [
 				{
 					"label": "Connector",
@@ -29155,19 +29155,29 @@
 					{
 						"region": "US",
 						"vendor": "Amazon",
-						"url": "https://www.amazon.com/dp/B072J1BSV6",
-						"price": 9.44,
-						"pack_qty": 3,
-						"as_of": "2026-04-16",
-						"affiliate_url": "https://www.amazon.com/dp/B072J1BSV6?tag=sorterv2-20"
+						"url": "https://www.amazon.com/dp/B07232M876",
+						"price": 8.82,
+						"pack_qty": 1,
+						"as_of": "2026-10-10",
+						"affiliate_url": "https://www.amazon.com/dp/B07232M876?tag=sorterv2-20"
 					},
 					{
 						"region": "EU",
 						"vendor": "Amazon FR",
-						"url": "https://www.amazon.fr/Chargeur-Charge-Rapide-Android-Samsung/dp/B0C6HYYTMM",
-						"price": 7.0,
+						"url": "https://www.amazon.fr/dp/B0711PVX6Z",
+						"price": 7.75,
+						"pack_qty": 1,
 						"currency": "EUR",
-						"as_of": "2026-04-16"
+						"as_of": "2026-10-10"
+					},
+					{
+						"region": "EU",
+						"vendor": "Amazon DE",
+						"url": "https://www.amazon.de/dp/B0711PVX6Z",
+						"price": 7.19,
+						"pack_qty": 1,
+						"currency": "EUR",
+						"as_of": "2026-10-10"
 					}
 				]
 			},
@@ -29175,7 +29185,7 @@
 			"caption": null,
 			"docs_page": null,
 			"conflicts": null,
-			"image": "https://assets.basically.website/sorter-parts/cable-micro-usb-full-f1f7e32a349d.jpg"
+			"image": "https://assets.basically.website/sorter-parts/cable-micro-usb-single-full-a4e3e0a12ea5.jpg"
 		},
 		{
 			"id": "drv-tmc2209",

@@ -101,6 +101,108 @@ class TestKits:
         assert profile.getCategoryIdForPart("3001", "5") == "kit"
 
 
+class TestKitCountsAcrossVersions:
+    """Counts belong to a kit rule (its bin) and its lines, not to one version
+    of the profile, and start again only when reset."""
+
+    def test_a_new_version_keeps_what_a_kit_has_collected(self, no_saved_progress):
+        tracker = SetProgressTracker(INVENTORIES, artifact_hash="v1")
+        tracker.record("3001", "5", "kit")
+        tracker.record("3001", "5", "kit")
+        tracker.save()
+        # the next version: the 3001 line now wants one, and a line was added
+        changed = {
+            "kit": {
+                **INVENTORIES["kit"],
+                "parts": [
+                    {"part_num": "3001", "color_id": 5, "quantity": 1},
+                    {"part_num": "3003", "color_id": 5, "quantity": 3},
+                ],
+            }
+        }
+        progress = SetProgressTracker(changed, artifact_hash="v2").get_progress()["sets"][0]
+        found = {(line["part_num"], str(line["color_id"])): line["quantity_found"] for line in progress["parts"]}
+        assert found == {("3001", "5"): 1, ("3003", "5"): 0}
+        assert progress["total_found"] == 1
+
+    def test_another_profiles_kits_wait_for_it(self, no_saved_progress):
+        first = SetProgressTracker(INVENTORIES, artifact_hash="a")
+        first.record("3001", "5", "kit")
+        first.save()
+        other = {"other-kit": {"set_num": "x", "parts": [{"part_num": "3022", "color_id": 7, "quantity": 2}]}}
+        second = SetProgressTracker(other, artifact_hash="b")
+        second.record("3022", "7", "other-kit")
+        second.save()
+        back = SetProgressTracker(INVENTORIES, artifact_hash="a2").get_progress()
+        assert back["overall_found"] == 1
+
+    def test_a_reset_counts_from_zero(self, no_saved_progress):
+        tracker = SetProgressTracker(INVENTORIES, artifact_hash="v1")
+        tracker.record("3001", "5", "kit")
+        assert tracker.reset("no-such-kit") is False
+        assert tracker.reset("kit") is True
+        assert tracker.get_progress()["overall_found"] == 0
+        assert SetProgressTracker(INVENTORIES, artifact_hash="v1").get_progress()["overall_found"] == 0
+
+
+PIECE_PROGRAM = {
+    "format": 1,
+    "rules": [
+        {"category": "unknown", "parts": None, "colors": None, "when": [{"field": "identified", "op": "eq", "value": 0, "is": True}]},
+        {"category": "review", "parts": None, "colors": None, "when": [{"field": "confidence", "op": "lte", "value": 60, "is": True}]},
+        {"category": "valuable", "parts": ["3001"], "colors": None, "when": [{"field": "piece_price", "op": "gte", "value": 2, "is": True}]},
+        {"category": "bricks", "parts": ["3001", "3003"], "colors": None},
+        {"category": "red", "parts": None, "colors": ["5"]},
+    ],
+    "fallback": None,
+    "default": "misc",
+    "no_bin": "misc",
+}
+
+
+class TestPieceConditions:
+    def test_a_rule_on_recognition_confidence(self):
+        router = ProfileRouter(PIECE_PROGRAM)
+        assert router.route("3003", "5", piece={"confidence": 53.0}) == "review"
+        assert router.route("3003", "5", piece={"confidence": 99.0}) == "bricks"
+        # an unknown confidence never meets a threshold
+        assert router.route("3003", "5") == "bricks"
+
+    def test_the_price_of_this_piece_in_its_color(self):
+        router = ProfileRouter(PIECE_PROGRAM)
+        assert router.route("3001", "5", piece={"confidence": 99.0, "piece_price": 2.5}) == "valuable"
+        assert router.route("3001", "5", piece={"confidence": 99.0, "piece_price": 0.5}) == "bricks"
+
+    def test_a_piece_it_could_not_identify(self):
+        router = ProfileRouter(PIECE_PROGRAM)
+        assert router.route(None, "5") == "unknown"
+        # without a rule for them they go to the default bin, never to a color's
+        plain = ProfileRouter({**PROGRAM, "fallback": {"by": "color"}})
+        assert plain.route(None, "12") == "misc"
+
+    def test_an_unidentified_piece_counts_as_zero_percent_sure(self):
+        program = {**PIECE_PROGRAM, "rules": PIECE_PROGRAM["rules"][1:]}
+        assert ProfileRouter(program).route(None, None) == "review"
+
+    def test_what_the_machine_observed_in_percent(self):
+        from sorting_profile import observedPieceFacts
+
+        piece = SimpleNamespace(confidence=0.53, color_confidence=None, moving_avg_price=1.25)
+        assert observedPieceFacts(piece) == {"confidence": 53.0, "color_confidence": None, "piece_price": 1.25}
+
+    def test_the_profile_routes_unidentified_pieces_and_says_its_bin_policy(self, tmp_path):
+        profile = _profile(tmp_path, {"program": PIECE_PROGRAM})
+        assert profile.getCategoryIdForPart(None, "any_color") == "unknown"
+        assert profile.getCategoryIdForPart("3003", "7", piece={"confidence": 20.0}) == "review"
+        assert profile.noBinPolicy() == "misc"
+        assert _profile(tmp_path, {"program": PROGRAM}).noBinPolicy() is None
+        assert _profile(tmp_path, {"program": {**PROGRAM, "no_bin": "explode"}}).noBinPolicy() is None
+
+    def test_a_flat_map_sends_unidentified_pieces_to_its_default(self, tmp_path):
+        profile = _profile(tmp_path, {"part_to_category": {"any_color-3001": "b"}, "default_category_id": "misc"})
+        assert profile.getCategoryIdForPart(None, "any_color") == "misc"
+
+
 class TestFlatMap:
     def test_a_profile_from_before_the_program(self, tmp_path):
         profile = _profile(

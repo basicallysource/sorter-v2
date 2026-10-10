@@ -47,7 +47,10 @@ applies the profile on that machine.
    piece lands in and why (`rule`, `kit`, `fallback`, `default`). Kits start
    empty and fill in the order the pieces are listed, so listing five red
    2 x 4s shows where the fifth goes once a kit has its four (`kit_left` is
-   what the kit still takes). Check every piece the person named.
+   what the kit still takes). For rules on the piece itself, a piece can say
+   `confidence` and `color_confidence` (0 to 100; 100 when left out) and
+   `price`; a piece with no `part` is one recognition could not identify.
+   Check every piece the person named.
 4. **Look inside one rule**: `POST /api/profiles/preview-rule?rule_id=…`
    (the body is the document; `q`, `offset` and `limit`, 50 by default, page
    through) lists the parts it matches, most sold first. A throwaway rule
@@ -105,9 +108,20 @@ applies the profile on that machine.
   keep a rule's `id` when you change it, and give new rules new IDs (any
   short unique text).
 - `match_mode` is `all` (every condition) or `any` (at least one). A rule's
-  `children` are groups inside it, each with its own `match_mode`; they
-  combine with the rule's own conditions by the rule's mode. A rule without
-  conditions takes nothing.
+  `children` are groups inside it, each with its own `match_mode` and
+  `children`, to any depth; they combine with the rule's own conditions by
+  the rule's mode. A rule without conditions takes nothing.
+- `negate: true` on a rule or a group takes the opposite: with `any`, **none
+  of** its conditions and groups hold; with `all`, **not all of** them do.
+  With groups, that is any Boolean formula. "Plates that are not printed":
+
+  ```json
+  {"id": "plain-plates", "name": "Plain plates", "match_mode": "all",
+   "conditions": [{"field": "bl_category_id", "op": "in", "value": [26, 27, 28]}],
+   "children": [{"id": "printed", "name": "Printed", "match_mode": "any", "negate": true,
+                 "conditions": [{"field": "name", "op": "contains", "value": "print"},
+                                {"field": "name", "op": "contains", "value": "pattern"}]}]}
+  ```
 - `disabled: true` keeps a rule in the document without using it.
 - `image_url` on a rule gives its bin a picture: a URL from
   `POST /api/profile-images` (a JPEG or PNG as the form field `file`), or
@@ -115,6 +129,13 @@ applies the profile on that machine.
 - `fallback_mode` sets one of `bricklink_categories`, `rebrickable_categories`
   or `by_color` to true, or none. Sorting by color needs current sorter
   software; the preview's `requires` says so.
+- `fallback_mode.no_bin` says what a machine does when a piece's category
+  has no bin and none is free: `"misc"` (it goes to Everything else and the
+  run keeps going), `"share"` (the least filled bin takes the category too),
+  or left out (the machine's own setting, which by default stops and asks
+  the operator). A profile with more categories than the machine has bins
+  (a fallback by category or color usually is) should say one; Hive's
+  default profiles say `"misc"`.
 
 ## Conditions
 
@@ -134,6 +155,21 @@ kind of value is listed) and, where the label does not say it all, a
 | `bl_price_avg` | average used price, last 6 months, US$ | `1.5` |
 | `bl_catalog_weight` | weight in grams | `2.3` |
 | `year_from` | first year the part was made | `2020` |
+| `confidence` | how sure recognition was of the part, 0 to 100 (`gte`, `lte`) | `60` |
+| `color_confidence` | how sure it was of the color, 0 to 100 | `80` |
+| `identified` | whether recognition named a part at all (`eq`) | `false` |
+| `piece_price` | BrickLink's average price for this part **in this piece's color**, US$ | `2` |
+
+The last four are fields of group `Piece` (`"piece": true` in the field
+list): what the machine observes about each piece as it sorts, not catalog
+facts, so the machine decides them itself. "Pieces it is not sure about go
+to a review bin" is a rule at the top with `confidence` `lte` 60; "pieces it
+could not identify get their own bin" is `identified` `eq` `false` (such a
+piece has no part and no color, counts as 0% confident, and without a rule
+for it goes to the default bin). An unknown confidence or price never meets
+a threshold. The catalog price fields (`bl_price_*`) read the part's most
+traded color; `piece_price` reads the piece's own. Rules on these fields need
+current sorter software; the preview's `requires` says `piece_conditions`.
 
 Operators: `eq`, `neq`, `in`, `not_in` (a list), `contains`, `regex`
 (text, ignoring case; `regex` is Python's, so `^Plate Round 1 x 1\b`
@@ -174,6 +210,12 @@ them. Put kit rules **above** broader rules, or those take the parts first
 - In a profile: `{"id": "…", "rule_type": "kit", "kit_id": "<kit id>", "name": "…"}`.
   A profile version keeps the kit's lines as they were when it was saved;
   after changing a kit, save a new version of each profile that uses it.
+- A machine counts what each kit rule has collected, line by line. The
+  counts belong to the rule (keep its `id`) and its lines, so they carry
+  over to a new version: a line the kit still lists keeps its count, up to
+  its quantity now. They start again from zero only when the operator resets
+  the kit on the machine (Set progress), or when the rule is made anew with a
+  new `id`.
 
 ## Endpoints
 

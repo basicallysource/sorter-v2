@@ -841,6 +841,27 @@ def getSetProgress() -> SetProgressResponse:
     return SetProgressResponse(is_set_based=True, progress=tracker.get_progress())
 
 
+class SetProgressResetPayload(BaseModel):
+    # One kit rule's category; every kit when left out.
+    category_id: str | None = None
+
+
+@app.post("/api/set-progress/reset", response_model=SetProgressResponse)
+def resetSetProgress(payload: SetProgressResetPayload) -> SetProgressResponse:
+    """Count a kit (or every kit) from zero. Kit counts otherwise carry over
+    from one version of a profile to the next."""
+    tracker = getattr(shared_state.gc_ref, 'set_progress_tracker', None) if shared_state.gc_ref else None
+    if tracker is None:
+        raise HTTPException(status_code=404, detail="The active sorting profile has no kits.")
+    if not tracker.reset(payload.category_id):
+        raise HTTPException(status_code=404, detail="No such kit in the active sorting profile.")
+    try:
+        getSetProgressSyncWorker().notify()
+    except Exception:
+        pass
+    return SetProgressResponse(is_set_based=True, progress=tracker.get_progress())
+
+
 # ---------------------------------------------------------------------------
 # Polygon editor
 # ---------------------------------------------------------------------------

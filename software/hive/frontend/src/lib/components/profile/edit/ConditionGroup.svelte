@@ -2,6 +2,9 @@
 	A set of conditions joined by "all of" or "any of", and the groups inside
 	it, which are the same thing again with their own "all of" or "any of". A
 	rule is one of these at its top; "red or blue" inside "all of" is a group.
+	Either can be turned around: "none of" is not any of them, "not all of" is
+	not every one of them, which with groups is any Boolean formula ("plates,
+	and none of: printed, patterned").
 	Every edit hands back the whole group, changed, for the parent to swap in.
 -->
 <script lang="ts">
@@ -40,13 +43,27 @@
 		onremove?: () => void;
 	} = $props();
 
-	// Groups in groups in groups are a puzzle, not a rule.
-	const MAX_DEPTH = 2;
+	// Deep enough for any formula a person writes; the API takes any depth.
+	const MAX_DEPTH = 4;
 
+	// How the conditions combine, and whether the group is turned around: one
+	// choice, stored as match_mode and negate.
 	const modes = [
 		{ value: 'all', label: 'all of' },
-		{ value: 'any', label: 'any of' }
+		{ value: 'any', label: 'any of' },
+		{ value: 'none', label: 'none of' },
+		{ value: 'not_all', label: 'not all of' }
 	];
+
+	function modeOf(next: Rule): string {
+		if (!next.negate) return next.match_mode === 'any' ? 'any' : 'all';
+		return next.match_mode === 'any' ? 'none' : 'not_all';
+	}
+
+	function withMode(next: Rule, mode: string): Rule {
+		const negate = mode === 'none' || mode === 'not_all';
+		return { ...next, match_mode: mode === 'any' || mode === 'none' ? 'any' : 'all', negate };
+	}
 
 	// The condition just added, whose field is ready to be chosen: a new rule's
 	// first one is too.
@@ -71,12 +88,12 @@
 			<span class="text-sm text-ink">This rule takes a piece when it matches</span>
 		{/if}
 		<Select
-			class="w-28"
+			class="w-32"
 			size="sm"
 			label="How the conditions combine"
-			value={group.match_mode}
+			value={modeOf(group)}
 			options={modes}
-			onchange={(mode) => onchange({ ...group, match_mode: mode })}
+			onchange={(mode) => onchange(withMode(group, mode))}
 		/>
 		<span class="text-sm text-ink">these{depth === 0 ? ':' : ''}</span>
 		{#if onremove}

@@ -360,8 +360,9 @@ def _mkPositioning(shared, servos, log):
         stepper=SimpleNamespace(stopped=True),
     )
     sorting_profile = SimpleNamespace(
-        getCategoryIdForPart=lambda part_id, color_id: "cat_a",
+        getCategoryIdForPart=lambda part_id, color_id, piece=None: "cat_a",
         highValueCategoryId=lambda price: None,
+        noBinPolicy=lambda: None,
     )
     positioning = Positioning(
         SimpleNamespace(servos=servos),  # type: ignore[arg-type]
@@ -372,7 +373,7 @@ def _mkPositioning(shared, servos, log):
         sorting_profile,  # type: ignore[arg-type]
         queue.Queue(),
     )
-    positioning._findOrAssignBinForCategory = lambda category_id, not_in_inventory=False: (
+    positioning._findOrAssignBinForCategory = lambda category_id, not_in_inventory=False, share=False: (
         BinAddress(1, 0, 0),
         False,
     )

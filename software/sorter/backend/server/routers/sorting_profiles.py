@@ -448,9 +448,17 @@ def get_sorting_profile_detail(
 
 
 @router.get("/api/sorting-profiles/route")
-def route_piece(part_id: str, color_id: str | None = None) -> dict[str, Any]:
+def route_piece(
+    part_id: str,
+    color_id: str | None = None,
+    confidence: float | None = None,
+    color_confidence: float | None = None,
+    price: float | None = None,
+) -> dict[str, Any]:
     """Where a piece would go under the profile this machine runs now, kit
-    counts included: its bin's category and name. Nothing moves."""
+    counts included: its bin's category and name. Nothing moves. Rules on the
+    piece itself read `confidence` and `color_confidence` (0 to 100, 100 when
+    left out) and `price` (unknown when left out)."""
     controller = shared_state.controller_ref
     profile = getattr(getattr(controller, "coordinator", None), "sorting_profile", None)
     path = _active_profile_path()
@@ -460,7 +468,14 @@ def route_piece(part_id: str, color_id: str | None = None) -> dict[str, Any]:
         from sorting_profile import JsonSortingProfile
 
         profile = JsonSortingProfile(shared_state.gc_ref)
-    category_id = profile.getCategoryIdForPart(part_id.strip(), (color_id or "").strip() or "any_color")
+    observed = {
+        "confidence": 100.0 if confidence is None else confidence,
+        "color_confidence": 100.0 if color_confidence is None else color_confidence,
+        "piece_price": price,
+    }
+    category_id = profile.getCategoryIdForPart(
+        part_id.strip(), (color_id or "").strip() or "any_color", piece=observed
+    )
     categories: dict[str, Any] = {}
     if path and os.path.exists(path):
         try:

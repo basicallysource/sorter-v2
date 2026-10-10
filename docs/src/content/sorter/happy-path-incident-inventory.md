@@ -22,7 +22,7 @@ Anything that requires recovery motion, operator judgement, hardware repair, or 
 | `bulk_feeder_stalled` | C1 | C1 has pulsed enough times for long enough without new C2 activity. | Operator checks the bulk feeder or clears the incident. |
 | `feeder_detection_unavailable` | C2/C3/C4 | Feeder camera detections are unavailable past the grace window. | Operator restores detection or clears the incident. |
 | `distribution_servo_bus_offline` | Distribution | Every configured distribution layer servo is offline. | Operator restores the bus; incident clears when a servo reports healthy or can be manually cleared. |
-| `distribution_no_bin_available` | Distribution | No matching bin/capacity is available for the piece. | Operator assigns capacity, frees a bin, or clears the incident to approve one-shot bottom-tray passthrough for that piece. |
+| `distribution_no_bin_available` | Distribution | No matching bin/capacity is available for the piece, and the sorting profile does not say what to do when the bins run out (Hive's default profiles send such pieces to Everything else). | Operator assigns capacity, frees a bin, or clears the incident to approve one-shot bottom-tray passthrough for that piece. |
 | `classification_unresolved` | C4 | C4 reaches the drop deadline or Brickognize timeout before the piece is resolved. | Operator reviews the fallback-to-unknown and clears the incident. |
 | `classification_multi_drop_collision` | C4 | Multiple pieces reach the C4 drop window together. | Operator inspects the collision/fallback and clears the incident. |
 | `classification_intake_request_timeout` | C4 | C4 requested a piece from C3, but no intake track arrived before timeout. | Operator checks the C3→C4 handoff and clears the incident to retry. |

@@ -249,5 +249,18 @@ sections:
     pages:
       - title: Overview
         url: /design/
-      - title: How the electronics talk to each other
-        url: /design/electronics/
+      - title: How the sorter is put together
+        url: /design/sorter/
+      - title: Design intentions for the printed parts
+        url: /design/printed-parts/
+    groups:
+      - title: Electronics
+        pages:
+          - title: How the electronics talk to each other
+            url: /design/electronics/
+          - title: What is connected to the Orange Pi
+            url: /design/orange-pi/
+          - title: The USB connections and the hub
+            url: /design/usb/
+          - title: Power distribution
+            url: /design/power/

@@ -16,8 +16,8 @@ than that, and every extra answer here costs a scan the roster cannot afford:
   as `pieces_seen` — ordered by when the machine saw it.
 * **Machine milestones**: the first machine to reach each of
   `MACHINE_MILESTONES` on its own, and when.
-* **Newest finds**: the most recent parts and colours the fleet had never
-  seen before, with the machine that saw each one first.
+* **Newest finds**: the most recent parts, colors, and parts in a color the
+  fleet had never seen before, with the machine that saw each one first.
 
 **Nothing here runs on a request path.** The finds are a grouped scan of
 machine_pieces and a milestone is a sort over it; a worker computes and
@@ -64,11 +64,11 @@ MACHINE_MILESTONES = (100_000, 250_000, 500_000, 1_000_000)
 # down at once and it could not tell them apart.
 DOUBLE_FEED_STATUS = "multi_drop_fail"
 
-# How many newest parts and colours are served.
+# How many newest parts and colors are served.
 NEWEST = 5
 
-# A colour id that is not a colour: the bucket a profile sorts into when it
-# does not care about colour.
+# A color id that is not a color: the bucket a profile sorts into when it
+# does not care about color.
 _NOT_A_COLOR = ("", "any_color")
 
 _latest: dict[str, Any] | None = None
@@ -114,8 +114,10 @@ def _empty() -> dict[str, Any]:
         "machine_milestones": [],
         "newest_parts": [],
         "newest_colors": [],
+        "newest_combos": [],
         "distinct_parts": 0,
         "distinct_colors": 0,
+        "distinct_combos": 0,
     }
 
 
@@ -136,6 +138,7 @@ def _compute(db: Session, machine_ids: list, now: datetime) -> dict[str, Any]:
     passed, upcoming = _fleet_rungs(total)
     parts, distinct_parts = _newest(db, machine_ids, MachinePiece.part_id)
     colors, distinct_colors = _newest(db, machine_ids, MachinePiece.color_id)
+    combos, distinct_combos = _newest(db, machine_ids, MachinePiece.part_id, MachinePiece.color_id)
     return {
         "speed": _speed(db, machine_ids, now),
         "fleet_milestones": _fleet_milestones(db, machine_ids, passed),
@@ -144,8 +147,10 @@ def _compute(db: Session, machine_ids: list, now: datetime) -> dict[str, Any]:
         "machine_milestones": _machine_milestones(db, counts),
         "newest_parts": _with_part_images(parts),
         "newest_colors": _with_swatches(colors),
+        "newest_combos": _with_swatches(_with_part_images(combos)),
         "distinct_parts": distinct_parts,
         "distinct_colors": distinct_colors,
+        "distinct_combos": distinct_combos,
     }
 
 
@@ -299,38 +304,42 @@ def _machine_milestones(db: Session, counts: dict) -> list[dict[str, Any]]:
     return out
 
 
-def _newest(db: Session, machine_ids: list, column) -> tuple[list[dict[str, Any]], int]:
-    """The NEWEST values of `column` the fleet ever saw for the first time,
-    newest first, each with the piece that first showed it; and how many
-    distinct values there are.
+def _newest(db: Session, machine_ids: list, *columns) -> tuple[list[dict[str, Any]], int]:
+    """The NEWEST values of `columns` (one column, or a combination such as a
+    part in a color) the fleet ever saw for the first time, newest first, each
+    with the piece that first showed it; and how many distinct values there are.
 
     Classified pieces only: an unidentified piece has no part to be new, and a
     guess the machine itself would not stand behind is not a find.
     """
-    firsts = (
-        db.query(column.label("value"), func.min(MachinePiece.seen_at).label("first_seen"))
-        .filter(MachinePiece.machine_id.in_(machine_ids))
+    labels = [f"v{i}" for i in range(len(columns))]
+    query = db.query(
+        *(c.label(name) for c, name in zip(columns, labels)),
+        func.min(MachinePiece.seen_at).label("first_seen"),
+    )
+    query = (
+        query.filter(MachinePiece.machine_id.in_(machine_ids))
         .filter(MachinePiece.classification_status == "classified")
         .filter(MachinePiece.seen_at.isnot(None))
-        .filter(column.isnot(None))
-        .filter(column.notin_(_NOT_A_COLOR))
-        .group_by(column)
-        .subquery()
     )
+    for c in columns:
+        query = query.filter(c.isnot(None)).filter(c.notin_(_NOT_A_COLOR))
+    firsts = query.group_by(*columns).subquery()
     distinct = int(db.query(func.count()).select_from(firsts).scalar() or 0)
     newest = (
-        db.query(firsts.c.value, firsts.c.first_seen)
-        .order_by(firsts.c.first_seen.desc(), firsts.c.value)
+        db.query(*(firsts.c[name] for name in labels), firsts.c.first_seen)
+        .order_by(firsts.c.first_seen.desc(), *(firsts.c[name] for name in labels))
         .limit(NEWEST)
         .all()
     )
     out = []
-    for i, (value, first_seen) in enumerate(newest):
+    for i, row in enumerate(newest):
+        *values, first_seen = row
         piece = (
             db.query(MachinePiece)
             .filter(MachinePiece.machine_id.in_(machine_ids))
             .filter(MachinePiece.classification_status == "classified")
-            .filter(column == value)
+            .filter(*(c == v for c, v in zip(columns, values)))
             .filter(MachinePiece.seen_at == first_seen)
             .order_by(MachinePiece.machine_id, MachinePiece.local_id)
             .first()
@@ -374,7 +383,7 @@ def _with_part_images(parts: list[dict[str, Any]]) -> list[dict[str, Any]]:
 
 
 def _with_swatches(colors: list[dict[str, Any]]) -> list[dict[str, Any]]:
-    """Attach each colour's BrickLink swatch hex, the same lookup /stats uses."""
+    """Attach each color's BrickLink swatch hex, the same lookup /stats uses."""
     from app.services.analytics import bricklink_rgb
 
     rgb = bricklink_rgb()

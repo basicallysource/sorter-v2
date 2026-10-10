@@ -246,7 +246,7 @@ def _roster(db: Session) -> dict:
                 "pieces_seen": pieces_seen,
                 "distributed": int(stats_row.get("distributed") or 0),
                 "overall_ppm": float(stats_row.get("overall_ppm") or 0.0),
-                # Distinct parts and colours this machine has identified, from
+                # Distinct parts and colors this machine has identified, from
                 # the same hourly cache as pieces_seen.
                 "unique_parts": int(stats_row.get("unique_parts") or 0),
                 "unique_colors": int(stats_row.get("unique_colors") or 0),
@@ -389,7 +389,7 @@ def get_public_fleet_records():
     """What a leaderboard needs beyond the roster's counters: each machine's
     speed over the last day and month (and the day's double feeds), which
     machine processed each of the fleet's milestone pieces, the first machine
-    to reach each milestone on its own, and the newest parts and colours the
+    to reach each milestone on its own, and the newest parts and colors the
     fleet had never seen before.
 
     In the identified tier because every answer is keyed by machine id, which

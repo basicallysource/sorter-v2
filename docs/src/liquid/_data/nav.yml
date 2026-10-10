@@ -121,7 +121,7 @@ sections:
             url: /hardware/helpers/pico-headers/
           - title: Preparing the 3D printed cable cage plates
             url: /hardware/helpers/cable-cage-plates/
-          - title: Preparing the LED strip and its drop (LED1 to LED3, LED1p to LED3p)
+          - title: Preparing the LED strip and its drop (LED1a to LED3a, LED1 to LED3)
             url: /hardware/helpers/led-strip/
           - title: Using a multimeter
             url: /hardware/helpers/multimeter/

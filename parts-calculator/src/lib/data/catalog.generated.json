@@ -8609,8 +8609,8 @@
 			"id": "harness-led-drop",
 			"uid": "nmlx",
 			"version": "2",
-			"name": "LED drop (LED1 to LED3, LED1p to LED3p)",
-			"description": "One camera lamp's power: a 1 m (39 in) Dupont cable (LED1, LED2 or LED3) from an LED header on the board to the lamp's strip. Optional but recommended: an inline barrel socket on the cable and a 150 mm (6 in) pigtail (LED1p, LED2p or LED3p) from the matching plug to the lamp, which is the unplug point, so a lamp comes off next to the lamp without unpicking the board end. The socket's wires are joined to the Dupont cable with two butt connectors or by soldering. Without the pair the cable goes straight to the strip. 1 per camera lamp.",
+			"name": "LED drop (LED1a to LED3a, LED1 to LED3)",
+			"description": "One camera lamp's power: a 1 m (39 in) Dupont cable (LED1a, LED2a or LED3a) from an LED header on the board to the lamp's strip. Optional but recommended: an inline barrel socket on the cable and a 150 mm (6 in) pigtail (LED1, LED2 or LED3) from the matching plug to the lamp, which is the unplug point, so a lamp comes off next to the lamp without unpicking the board end. The socket's wires are joined to the Dupont cable with two butt connectors or by soldering. Without the pair the cable goes straight to the strip. 1 per camera lamp.",
 			"joining": [
 				{
 					"method": "crimp",
@@ -29857,9 +29857,9 @@
 			"cots": {
 				"type": "cable"
 			},
-			"name": "Pre-crimped 2-pin Dupont cable (LED1 to LED3), 1 m (39 in)",
+			"name": "Pre-crimped 2-pin Dupont cable (LED1a to LED3a), 1 m (39 in)",
 			"category": "Wire harness",
-			"description": "1 m (39 in) of 22 AWG (0.33 mm\u00b2) red and black with a 2-pin 2.54 mm Dupont housing crimped on. The board cable of an LED drop (LED1, LED2 or LED3): the Dupont end pushes onto an LED header (J8 to J11), and the far end is cut and joined to the inline barrel socket. The pack is male-to-female, so cut the male plug off and discard it.",
+			"description": "1 m (39 in) of 22 AWG (0.33 mm\u00b2) red and black with a 2-pin 2.54 mm Dupont housing crimped on. The board cable of an LED drop (LED1a, LED2a or LED3a): the Dupont end pushes onto an LED header (J8 to J11), and the far end is cut and joined to the inline barrel socket. The pack is male-to-female, so cut the male plug off and discard it.",
 			"note": "Sold male-to-female: cut the male plug off and discard it. Any 22 AWG (0.33 mm\u00b2) pair plus a 2-pin Dupont housing does the same job if you own a crimp tool.",
 			"created_at": "2026-09-10",
 			"updated_at": "2026-09-12",
@@ -30206,7 +30206,7 @@
 			},
 			"name": "DC barrel plug, 5.5 x 2.1 mm male, for the LED pigtail",
 			"category": "Wire harness",
-			"description": "Optional but recommended. The plug on a camera lamp's pigtail (LED1p, LED2p or LED3p). It pushes into the inline barrel socket on the board cable, so the lamp can be unplugged at the lamp. Tip is +24 V and the sleeve is ground. Leave the pair out and the lamp's strip is connected straight to the Dupont cable (LED1 to LED3) instead. Buy it as a moulded plug already on a short pair of wires. Those wires go onto the strip. One per lamp.",
+			"description": "Optional but recommended. The plug on a camera lamp's pigtail (LED1, LED2 or LED3). It pushes into the inline barrel socket on the board cable, so the lamp can be unplugged at the lamp. Tip is +24 V and the sleeve is ground. Leave the pair out and the lamp's strip is connected straight to the Dupont cable instead, which is then the lamp's only cable (LED1 to LED3). Buy it as a moulded plug already on a short pair of wires. Those wires go onto the strip. One per lamp.",
 			"note": "5.5 x 2.5 mm looks identical and does not mate: the 0.4 mm is on the centre pin. Check the pin size on the listing, not the outside diameter.",
 			"created_at": "2026-09-30",
 			"updated_at": "2026-10-02",
@@ -30225,7 +30225,7 @@
 				},
 				{
 					"label": "Used on",
-					"value": "The three LED pigtails, LED1p to LED3p"
+					"value": "The three LED pigtails, LED1 to LED3"
 				},
 				{
 					"label": "Per machine",
@@ -30364,7 +30364,7 @@
 			},
 			"name": "DC barrel socket, 5.5 x 2.1 mm female, inline",
 			"category": "Wire harness",
-			"description": "Optional but recommended. The unplug point of an LED drop, so a camera lamp can come off without unpicking the board end. Its two wires are joined to the cut end of the Dupont cable (LED1 to LED3), and the lamp pigtail's (LED1p to LED3p) barrel plug pushes into it. Leave the pair out and the strip is connected straight to the Dupont cable instead. One per lamp.",
+			"description": "Optional but recommended. The unplug point of an LED drop, so a camera lamp can come off without unpicking the board end. Its two wires are joined to the cut end of the Dupont cable (LED1a to LED3a), and the lamp pigtail's (LED1 to LED3) barrel plug pushes into it. Leave the pair out and the strip is connected straight to the Dupont cable instead. One per lamp.",
 			"note": "Buy it as a moulded socket already on its own short wires and join those to the Dupont cable. The socket goes on the board cable and the plug on the lamp pigtail, because the board end is live at 24 V.",
 			"created_at": "2026-09-14",
 			"updated_at": "2026-10-02",
@@ -30379,7 +30379,7 @@
 				},
 				{
 					"label": "Used on",
-					"value": "LJ1 to LJ3, the LED feeds LED1 to LED3"
+					"value": "LJ1 to LJ3, the LED feeds LED1a to LED3a"
 				}
 			],
 			"sheet_qty": {
@@ -30426,7 +30426,7 @@
 			},
 			"name": "Insulated butt connector, red, 22-16 AWG",
 			"category": "Wire harness",
-			"description": "Joins two wires end to end without soldering: one wire goes in each end and the barrel is crimped onto it. Two per LED drop (LED1 to LED3), one for each of the barrel socket's wires, so six for the three lamps, plus two on the control board's 24 V lead (PWR1) and two on the Orange Pi's 24 V lead (PWR3), one for each of the moulded barrel plug's leads (or one for each extension of a short converter wire), so ten used per machine, plus two spares for each of those three kinds of lead, six more, sixteen in all.",
+			"description": "Joins two wires end to end without soldering: one wire goes in each end and the barrel is crimped onto it. Two per LED drop (LED1a to LED3a), one for each of the barrel socket's wires, so six for the three lamps, plus two on the control board's 24 V lead (PWR1) and two on the Orange Pi's 24 V lead (PWR3), one for each of the moulded barrel plug's leads (or one for each extension of a short converter wire), so ten used per machine, plus two spares for each of those three kinds of lead, six more, sixteen in all.",
 			"note": "Crimp it with insulated-terminal crimping pliers, in the die marked for 22 to 16 AWG (0.33 to 1.3 mm\u00b2), not picked by colour. A crimp tool for open-barrel Dupont and PH contacts has the wrong die and will not close this connector properly.",
 			"created_at": "2026-10-01",
 			"updated_at": "2026-10-02",
@@ -31302,7 +31302,7 @@
 			},
 			"name": "Hook-up wire, 22 AWG (0.33 mm\u00b2), 2-conductor red and black",
 			"category": "Wire harness",
-			"description": "The wire for the chute limit switch cable (LIM1), and for extending the Orange Pi converter's input wires if they are shorter than 100 mm. The USB hub's 24 V lead (PWR2) is a barrel plug on its own short lead (or a bought lead), and the LED drops are bought Dupont cables and barrel plugs on their own leads, so none of those takes this wire. Making your own Dupont cable (LED1 to LED3) for a lamp is the one other use.",
+			"description": "The wire for the chute limit switch cable (LIM1), and for extending the Orange Pi converter's input wires if they are shorter than 100 mm. The USB hub's 24 V lead (PWR2) is a barrel plug on its own short lead (or a bought lead), and the LED drops are bought Dupont cables and barrel plugs on their own leads, so none of those takes this wire. Making your own Dupont cable (LED1a to LED3a) for a lamp is the one other use.",
 			"note": null,
 			"created_at": "2026-09-14",
 			"updated_at": "2026-10-02",
@@ -31317,7 +31317,7 @@
 				},
 				{
 					"label": "Length per machine",
-					"value": "0.76 m (30 in) per machine: limit switch (LIM1) 610 mm (24 in), and up to 150 mm (6 in) to extend PWR3's converter wires. A home-made Dupont cable (LED1 to LED3) for each lamp is 3 x 920 mm (36 in) more"
+					"value": "0.76 m (30 in) per machine: limit switch (LIM1) 610 mm (24 in), and up to 150 mm (6 in) to extend PWR3's converter wires. A home-made Dupont cable (LED1a to LED3a) for each lamp is 3 x 920 mm (36 in) more"
 				},
 				{
 					"label": "Note",
@@ -31463,7 +31463,7 @@
 			},
 			"name": "Braided cable sleeving, 1/4 in",
 			"category": "Wire harness",
-			"description": "Optional. Holds the wires of each lead you make (PWR1, PWR3, LIM1, CHU1, STP1 to STP4, LED1 to LED3) together as one bundle, and protects them where they run along the frame, so a metre of loose wire does not end up spread across the machine. Every lead works without it.",
+			"description": "Optional. Holds the wires of each lead you make (PWR1, PWR3, LIM1, CHU1, STP1 to STP4, LED1a to LED3a) together as one bundle, and protects them where they run along the frame, so a metre of loose wire does not end up spread across the machine. Every lead works without it.",
 			"note": "Buy PET braid in 1/4 in (6 mm) size, which is what the links are. The harness drawing sleeves only the four S bundles; sleeving the other leads is a choice, as a way of securing the cables.",
 			"created_at": "2026-09-14",
 			"updated_at": "2026-10-02",

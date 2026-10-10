@@ -1,14 +1,14 @@
 metadata:
   title: LED drops and limit switch
-  description: "LED feeds LED1-LED3 (board to unplug point), pigtails LED1p-LED3p,\nand the limit switch cable. The 2026-08-08 reference drawings\ndo not cover the LED drops, so apart from the limit switch\nterminals everything here is still from earlier engineering\nnotes. Values marked GUESS are guesses, not measurements."
+  description: "LED feeds LED1a-LED3a (board to unplug point), pigtails LED1-LED3,\nand the limit switch cable. The 2026-08-08 reference drawings\ndo not cover the LED drops, so apart from the limit switch\nterminals everything here is still from earlier engineering\nnotes. Values marked GUESS are guesses, not measurements."
 
 connectors:
-  BOARD_LED1: &dupont
+  BOARD_LED1a: &dupont
     type: Dupont 1x2 female, 2.54 mm
     pinlabels: [+24V, GND]
     notes: "On controller board v1.3. GUESS - verify which\npin is +."
-  BOARD_LED2: *dupont
-  BOARD_LED3: *dupont
+  BOARD_LED2a: *dupont
+  BOARD_LED3a: *dupont
   LJ1: &ledjack
     type: DC jack 5.5x2.1 female, inline
     pinlabels: [+24V (tip), GND (sleeve)]
@@ -40,20 +40,20 @@ connectors:
     notes: "Omron V-155-1C25, quick-connect (#187) tabs.\nThese push on, no soldering. Fully insulated:\nthe switch is SPDT and the third tab is\nunused. GUESS - which of COM/NC/NO the two\nconductors land on."
 
 cables:
-  LED1: &feed
+  LED1a: &feed
     gauge: 22 AWG
     length: 36 in
     colors: [RD, BK]
     notes: "LED feed. Gauge = GUESS, not covered by the\nreference drawings."
-  LED2: *feed
-  LED3: *feed
-  LED1p: &pig
+  LED2a: *feed
+  LED3a: *feed
+  LED1: &pig
     gauge: 22 AWG
     length: 6 in
     colors: [RD, BK]
     notes: "LED pigtail. Gauge = GUESS, not covered by\nthe reference drawings."
-  LED2p: *pig
-  LED3p: *pig
+  LED2: *pig
+  LED3: *pig
   LIM1:
     gauge: 22 AWG
     length: 24 in
@@ -62,28 +62,28 @@ cables:
 
 connections:
   -
-    - BOARD_LED1: [1-2]
-    - LED1: [1-2]
+    - BOARD_LED1a: [1-2]
+    - LED1a: [1-2]
     - LJ1: [1-2]
   -
-    - BOARD_LED2: [1-2]
-    - LED2: [1-2]
+    - BOARD_LED2a: [1-2]
+    - LED2a: [1-2]
     - LJ2: [1-2]
   -
-    - BOARD_LED3: [1-2]
-    - LED3: [1-2]
+    - BOARD_LED3a: [1-2]
+    - LED3a: [1-2]
     - LJ3: [1-2]
   -
     - LP1: [1-2]
-    - LED1p: [1-2]
+    - LED1: [1-2]
     - COB1: [1-2]
   -
     - LP2: [1-2]
-    - LED2p: [1-2]
+    - LED2: [1-2]
     - COB2: [1-2]
   -
     - LP3: [1-2]
-    - LED3p: [1-2]
+    - LED3: [1-2]
     - STRIP: [1-2]
   -
     - BOARD_LIM1: [1-2]

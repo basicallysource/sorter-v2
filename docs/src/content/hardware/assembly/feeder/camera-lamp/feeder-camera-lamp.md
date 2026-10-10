@@ -113,6 +113,6 @@ A finished lamp: the arm, the shaded lamp and the 720p camera trapped under the 
   <figcaption>The finished lamp, on C3 with the LED leads tied down the arm. <cite>Photo: Daddy-O's Bricks - Bill.</cite></figcaption>
 </figure>
 
-Wiring is [Preparing the LED strip and its drop (`LED1` to `LED3`, `LED1p` to `LED3p`)]({{ '/hardware/helpers/led-strip/' | relative_url }}) for the strip, and the [electronics]({{ '/hardware/electronics/' | relative_url }}) page for the camera.
+Wiring is [Preparing the LED strip and its drop (`LED1a` to `LED3a`, `LED1` to `LED3`)]({{ '/hardware/helpers/led-strip/' | relative_url }}) for the strip, and the [electronics]({{ '/hardware/electronics/' | relative_url }}) page for the camera.
 
 Back to [Camera lamps]({{ '/hardware/assembly/feeder/camera-lamp/' | relative_url }}).

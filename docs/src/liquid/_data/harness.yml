@@ -103,9 +103,9 @@ drawings:
     bom_tsv: https://assets.basically.website/sorter-harness/chute-stepper-bom-b711f030c3e0.tsv
     yml: https://assets.basically.website/sorter-harness/chute-stepper-843f0ea22c81.yml
   - name: leds
-    title: LED drops and limit switch (LED1 to LED3, LED1p to LED3p, LIM1)
+    title: LED drops and limit switch (LED1a to LED3a, LED1 to LED3, LIM1)
     caption: >-
-      LED feeds LED1 to LED3 to their unplug-point jacks, pigtails LED1p to LED3p to the LED
+      LED feeds LED1a to LED3a to their unplug-point jacks, pigtails LED1 to LED3 to the LED
       strips, and the limit switch cable (LIM1, 1x3 dupont at the
       board, push-on blade terminals at the switch).
     png: https://assets.basically.website/sorter-harness/leds-full-be9ce67bd91a.png

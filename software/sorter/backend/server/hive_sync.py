@@ -103,6 +103,10 @@ SAMPLES_BACKLOG_MAX = 200
 IDLE_THROTTLE_S = 0.0
 
 IDLE_POLL_S = 10.0
+# A Hive that refuses a newer endpoint (404/405: not updated yet) is asked again
+# after this long, so a sorter updated before its Hive starts sending once the
+# Hive catches up, without a restart.
+UNSUPPORTED_RETRY_S = 1800.0
 SERVER_DOWN_BACKOFF_S = 10.0
 SERVER_DOWN_MAX_BACKOFF_S = 120.0
 
@@ -373,11 +377,11 @@ class _TargetSyncer:
         self._mark_retention = mark_retention
         self._client = HiveTelemetryClient(self._url, target["token"], self._id)
         self._wm: dict[str, int | None] = {data_type: None for data_type in DATA_TYPES}
-        # Set when the target 404s the control-data or sample endpoint (hive
-        # not yet migrated); disables that leg for this process so one
-        # un-upgraded target never backoffs the whole sync loop.
-        self._control_data_unsupported = False
-        self._samples_unsupported = False
+        # Until when a leg is off because the target 404s its endpoint (hive
+        # not yet updated), so one un-upgraded target never backs off the
+        # whole sync loop; the leg is tried again after UNSUPPORTED_RETRY_S.
+        self._control_data_unsupported_until = 0.0
+        self._samples_unsupported_until = 0.0
         self._budget = _UploadBudget()
         self._last_error: str | None = None
         self._state_ok = False
@@ -429,11 +433,11 @@ class _TargetSyncer:
             },
             "unsupported": [
                 data_type
-                for data_type, off in (
-                    (DATA_TYPE_CONTROL_DATA, self._control_data_unsupported),
-                    (DATA_TYPE_SAMPLES, self._samples_unsupported),
+                for data_type, until in (
+                    (DATA_TYPE_CONTROL_DATA, self._control_data_unsupported_until),
+                    (DATA_TYPE_SAMPLES, self._samples_unsupported_until),
                 )
-                if off
+                if until > time.monotonic()
             ],
             "upload_budget": self._budget.status(),
         }
@@ -566,7 +570,7 @@ class _TargetSyncer:
         # it off the watermark freezes here and the backlog drains if enabled
         # later. Evicted segments ride up metadata-only so counts stay
         # complete.
-        if self._control_data_unsupported or not telemetryAllows(self._id, "feeder_dynamics"):
+        if self._control_data_unsupported_until > time.monotonic() or not telemetryAllows(self._id, "feeder_dynamics"):
             return False
         wm = int(self._wm[DATA_TYPE_CONTROL_DATA] or 0)
         if control_data_store.getMaxSegmentId() <= wm:
@@ -586,11 +590,11 @@ class _TargetSyncer:
                     new_max = self._client.pushControlDataSegment(_controlSegmentToMeta(row), file_path)
             except requests.HTTPError as exc:
                 if exc.response is not None and exc.response.status_code in (404, 405):
-                    self._control_data_unsupported = True
+                    self._control_data_unsupported_until = time.monotonic() + UNSUPPORTED_RETRY_S
                     log.warning(
                         "hive_sync: %s does not accept control-data segments yet "
-                        "(HTTP %s) — leg disabled until restart",
-                        self._name, exc.response.status_code,
+                        "(HTTP %s) — trying again in %.0f min",
+                        self._name, exc.response.status_code, UNSUPPORTED_RETRY_S / 60,
                     )
                     return False
                 raise
@@ -602,7 +606,7 @@ class _TargetSyncer:
         # Training samples ride full_frames. With it off the watermark freezes
         # here and the backlog drains if it is enabled later (retention keeps
         # the store under its cap meanwhile).
-        if self._samples_unsupported or not telemetryAllows(self._id, "full_frames"):
+        if self._samples_unsupported_until > time.monotonic() or not telemetryAllows(self._id, "full_frames"):
             return False
         wm = int(self._wm[DATA_TYPE_SAMPLES] or 0)
         newest = sample_store.getMaxSampleId()
@@ -637,10 +641,10 @@ class _TargetSyncer:
                 continue
             except requests.HTTPError as exc:
                 if exc.response is not None and exc.response.status_code in (404, 405):
-                    self._samples_unsupported = True
+                    self._samples_unsupported_until = time.monotonic() + UNSUPPORTED_RETRY_S
                     log.warning(
-                        "hive_sync: %s does not accept training samples yet (HTTP %s) — leg disabled until restart",
-                        self._name, exc.response.status_code,
+                        "hive_sync: %s does not accept training samples yet (HTTP %s) — trying again in %.0f min",
+                        self._name, exc.response.status_code, UNSUPPORTED_RETRY_S / 60,
                     )
                     return pushed
                 raise

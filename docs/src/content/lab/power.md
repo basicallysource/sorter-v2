@@ -35,9 +35,9 @@ The supply has three +V and three -V screw terminals. Each +V/-V pair is wired t
 Each jack feeds one load through its own lead, and nothing else runs from the supply. The cooling fans are not on it either.
 
 <ul class="bulleted-list">
-  <li><strong><code>PWR1</code>, the control board:</strong> a 920 mm (36 in) lead from a barrel plug to <code>J1</code>, a JST VH header (a two-pin power connector on the board).</li>
-  <li><strong><code>PWR2</code>, the USB hub:</strong> a 310 mm (12 in) lead to the hub's own DC input, which takes 7 to 36 V.</li>
-  <li><strong><code>PWR3</code>, the Orange Pi:</strong> a 150 mm (6 in) lead to a 24 V to 5 V buck converter, whose USB-C lead (sealed in resin) then plugs into the Orange Pi. The converter takes 8 to 32 V in and gives 5 V at up to 5 A. It protects itself against reversed connection, too high a voltage, too high a current, overheating and short circuits. The Orange Pi asks for 5 V at 4 A over USB-C.</li>
+  <li><strong><code>PWR1</code>, the control board:</strong> a lead from a barrel plug to <code>J1</code>, a JST VH header (a two-pin power connector on the board).</li>
+  <li><strong><code>PWR2</code>, the USB hub:</strong> a lead to the hub's own DC input, which takes 7 to 36 V.</li>
+  <li><strong><code>PWR3</code>, the Orange Pi:</strong> a lead to a 24 V to 5 V buck converter, whose USB-C lead (sealed in resin) then plugs into the Orange Pi. The converter takes 8 to 32 V in and gives 5 V at up to 5 A. It protects itself against reversed connection, too high a voltage, too high a current, overheating and short circuits. The Orange Pi asks for 5 V at 4 A over USB-C.</li>
 </ul>
 
 The board has two USB-C sockets that look the same, and only the one marked <code>PWR IN</code> takes power. The other is for data and for a screen, and the machine does not use it. The hub has its own 24 V feed (<code>PWR2</code>), so the Orange Pi does not power the hub, and it does not power the cameras or the Pico through it.
@@ -47,6 +47,15 @@ The board has two USB-C sockets that look the same, and only the one marked <cod
   <li>Making them: <a href="{{ '/hardware/helpers/psu-pigtail/' | relative_url }}">PSU pigtail</a>, <a href="{{ '/hardware/helpers/board-24v-lead/' | relative_url }}">board 24 V lead</a>, <a href="{{ '/hardware/helpers/pi-24v-lead/' | relative_url }}">Orange Pi 24 V lead</a></li>
   <li>The converter and the board in the catalog: <a href="https://github.com/basicallysource/sorter-v2/blob/main/parts-calculator/catalog/parts.json"><code>parts-calculator/catalog/parts.json</code></a> (<code>buck-24v-5v-usbc</code>, <code>sbc-orange-pi-5</code>)</li>
   <li>The harness data the drawings are generated from: <a href="https://github.com/basicallysource/sorter-v2/blob/main/electronics/wire_harness/power.yml"><code>electronics/wire_harness/power.yml</code></a></li>
+</ul>
+
+## Why 24 V and these converters
+
+<ul class="bulleted-list">
+  <li><strong>One 24 V rail.</strong> The plan stated in <a href="https://discord.com/channels/1430279849171222682/1442165893290266707/1442175938283573329">November 2025</a> was a 24 V main rail, with converters from it to whatever voltages are needed. No reason for the specific supply model is on record, and the supply was later described as oversized, pending a measurement of a real setup (<a href="https://discord.com/channels/1430279849171222682/1437436041685631129/1511015065229201479">June 2026</a>).</li>
+  <li><strong>A boxed supply.</strong> An open-frame supply was ruled out because people should not be required to work with mains voltage (<a href="https://discord.com/channels/1430279849171222682/1437436041685631129/1440779058198745210">November 2025</a>).</li>
+  <li><strong>The 6.5 V converter takes 12 V, not 24 V.</strong> The converter module cannot take 24 V directly (<a href="https://discord.com/channels/1430279849171222682/1509730904413569174/1509761538490372178">May 2026</a>). The modules were chosen because they were the easiest to be sure would just work, even though they are expensive singly (<a href="https://discord.com/channels/1430279849171222682/1437436041685631129/1525984596750110740">July 2026</a>).</li>
+  <li><strong>Fuse guidance.</strong> The guidance given in the design discussion was that the main fuses can be cheap ordinary ones, meant only as protection against a disaster, with resettable fuses on the individual loads (<a href="https://discord.com/channels/1430279849171222682/1457600314197672056/1458980998816727132">January 2026</a>).</li>
 </ul>
 
 ## Inside the control board
@@ -108,9 +117,9 @@ The wire harness (the set of cables) uses tinned, stranded UL1007 wire rated 300
 <table>
   <thead><tr><th>Part</th><th>Rating or spec</th><th>Where it is used</th></tr></thead>
   <tbody>
-    <tr><td>18 AWG (0.82 mm²), red and black</td><td>UL1007, 300 V</td><td><code>PSU1</code> to <code>PSU3</code> (100 mm), <code>PWR1</code> (920 mm)</td></tr>
-    <tr><td>22 AWG (0.33 mm²), red and black</td><td>UL1007, 300 V</td><td><code>PWR2</code> (310 mm), <code>PWR3</code> (150 mm), <code>LED2a</code> to <code>LED4a</code> (920 mm), <code>LED2</code> to <code>LED4</code> (150 mm)</td></tr>
-    <tr><td>24 AWG (0.20 mm²), blue, green, red, black</td><td>UL1007, 300 V. Set by the JST-PH contact limit</td><td><code>STP1</code> to <code>STP4</code> (1 m), <code>CHU1</code> (300 mm tail)</td></tr>
+    <tr><td>18 AWG (0.82 mm²), red and black</td><td>UL1007, 300 V</td><td><code>PSU1</code> to <code>PSU3</code>, <code>PWR1</code></td></tr>
+    <tr><td>22 AWG (0.33 mm²), red and black</td><td>UL1007, 300 V</td><td><code>PWR2</code>, <code>PWR3</code>, <code>LED2a</code> to <code>LED4a</code>, <code>LED2</code> to <code>LED4</code></td></tr>
+    <tr><td>24 AWG (0.20 mm²), blue, green, red, black</td><td>UL1007, 300 V. Set by the JST-PH contact limit</td><td><code>STP1</code> to <code>STP4</code>, <code>CHU1</code></td></tr>
     <tr><td>IEC C14 inlet with switch and fuse</td><td>Switch 15 A 250 V, fuse 10 A</td><td>Mains side of the supply</td></tr>
     <tr><td>Insulated fork terminal, M3.5</td><td>18 AWG wire, 8 mm wide at most</td><td>Both leads of <code>PSU1</code> to <code>PSU3</code>, onto the supply's terminal block</td></tr>
     <tr><td>Barrel jack and plug, 5.5 × 2.1 mm</td><td>5 A or better, centre positive</td><td><code>PSU1</code> to <code>PSU3</code>, <code>PWR1</code> to <code>PWR3</code>, <code>LED2</code> to <code>LED4</code>, <code>LED2a</code> to <code>LED4a</code></td></tr>
@@ -123,7 +132,7 @@ The wire harness (the set of cables) uses tinned, stranded UL1007 wire rated 300
 In the board's 24 V path, the part with the lowest rating is the barrel jack at 5 A, then the VH header at 7 A, then the 10 A fuses. The order page asks for "5 A or better" on every barrel connector.
 
 <ul class="bulleted-list">
-  <li>Gauges, lengths and connectors for every cable: <a href="{{ '/hardware/parts/harness-order/' | relative_url }}">Ordering the wire harness</a></li>
+  <li>The length, gauge and connectors of every cable: <a href="{{ '/hardware/parts/harness-order/' | relative_url }}">Ordering the wire harness</a></li>
   <li>The RFQ text with the wire spec: <a href="https://github.com/basicallysource/sorter-v2/blob/main/electronics/wire_harness/rfq.txt"><code>electronics/wire_harness/rfq.txt</code></a></li>
 </ul>
 

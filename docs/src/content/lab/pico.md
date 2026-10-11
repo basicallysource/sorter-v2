@@ -16,14 +16,14 @@ warning: >-
   have not been checked against a built machine.
 ---
 
-The Pico is a Raspberry Pi Pico, a small board with a microcontroller on it (a tiny computer that runs one program and nothing else). It plugs into headers on the control board, which is the **basically board v1.3** this page describes. The program stored inside the Pico (the firmware) is deliberately simple. It makes the pulses that move the stepper motors, switches outputs on and off, and reads inputs. Everything that decides what to do runs on the Orange Pi, the machine's computer, which sends the Pico short commands.
+The Pico is a Raspberry Pi Pico, a small board with a microcontroller on it (a tiny computer that runs one program and nothing else). It plugs into headers on the control board, which is the **basically board v1.3** this page describes. The program stored inside the Pico (the firmware) only makes the pulses that move the stepper motors, switches outputs on and off, and reads inputs. The Orange Pi decides what to do and sends it commands, which is described on [How the electronics talk to each other]({{ '/lab/electronics/' | relative_url }}).
 
 This page is the list of what connects to the Pico and which pin each connection uses. Which socket each cable goes into is on [Connecting the components]({{ '/hardware/electronics/connecting/' | relative_url }}), and how the cables are wired is on [Wire harness]({{ '/hardware/electronics/wire-harness/' | relative_url }}).
 
 ## The big picture
 
 <ul class="bulleted-list">
-  <li><strong>The Orange Pi:</strong> one micro-USB cable, through the USB hub. Details: <a href="{{ '/lab/usb/' | relative_url }}">The USB connections and the hub</a>. The messages that travel over it are on <a href="{{ '/lab/electronics/' | relative_url }}">How the electronics talk to each other</a>.</li>
+  <li><strong>The Orange Pi:</strong> over USB. See <a href="{{ '/lab/usb/' | relative_url }}">The USB connections and the hub</a> and <a href="{{ '/lab/electronics/' | relative_url }}">How the electronics talk to each other</a>.</li>
   <li><strong>Power:</strong> 5 V into the Pico's <code>VSYS</code> pin, from a converter on the control board. Details: <a href="{{ '/lab/power/' | relative_url }}">Power distribution</a>.</li>
   <li><strong>The stepper drivers:</strong> five driver chips, one per stepper motor. The Pico gives each a STEP pin and a DIR pin, shares one enable pin and two serial lines between them, and reads a DIAG pin from each. Details: <a href="{{ '/lab/motors/' | relative_url }}">The motors</a>.</li>
   <li><strong>The servo chip:</strong> a PCA9685 chip that makes the servo signals, reached over two wires (I²C, a two-wire connection between chips). Details: <a href="{{ '/lab/servos/' | relative_url }}">The servos and the layer adapter boards</a>.</li>
@@ -64,6 +64,14 @@ The pin map is the file [`hwcfg_basically_v1_2.h`](https://github.com/basicallys
 <ul class="bulleted-list">
   <li>Fitting the Pico's headers: <a href="{{ '/hardware/helpers/pico-headers/' | relative_url }}">Pico headers</a></li>
   <li>Flashing the firmware: <a href="{{ '/hardware/software-setup/' | relative_url }}">Software setup</a></li>
+</ul>
+
+## Why one board
+
+<ul class="bulleted-list">
+  <li><strong>The first machines used two boards.</strong> A Pico runs four steppers and the machine needs five, so the early setup used two SKR Pico boards (<a href="https://discord.com/channels/1430279849171222682/1460692585881534579/1481604115480969269">March 2026</a>).</li>
+  <li><strong>The plan to merge them.</strong> Putting everything on one board was raised at the <a href="https://www.youtube.com/watch?v=Jl2zgY1sGUw">8 March 2026 meeting</a>, as a more unified system. At the <a href="https://www.youtube.com/watch?v=PBEk7i_vIVY">29 March 2026 meeting</a> the design change was to add one more driver socket on the second serial port that the Pico has.</li>
+  <li><strong>The result.</strong> The fifth stepper worked, the servo chip add-on module was no longer needed, and a machine needs one board where the first revision needed two (<a href="https://discord.com/channels/1430279849171222682/1437436041685631129/1494941858143404103">April 2026</a>).</li>
 </ul>
 
 ## The camera lamps

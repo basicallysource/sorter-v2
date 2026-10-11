@@ -20,7 +20,7 @@ This page explains why the parts are designed this way. How to print and assembl
 ## What a printed part is designed around
 
 <ul class="bulleted-list">
-  <li><strong>The bed.</strong> The parts are designed for a 256 x 256 mm print bed, and no part in the parts catalog is larger. The machine needs 107 different printed designs, not counting the bins.</li>
+  <li><strong>The bed.</strong> The parts are designed for a 256 x 256 mm print bed, and no part in the parts catalog is larger.</li>
   <li><strong>The filament.</strong> PETG or ASA, because PLA softens from around 55 C, and the printed gears that the stepper motors turn would soften first.</li>
   <li><strong>The clearances.</strong> In the distribution parts, the parts that slide, snap or press together leave 0.21 to 0.24 mm of clearance. The print profile in the parts catalog uses 0.2 mm layers and a 0.4 mm nozzle. The published settings for the distribution parts are valid up to a 0.28 mm layer height.</li>
   <li><strong>Tight fits are flagged.</strong> The External bracket (side) clamps around the 2020 extrusion with very little room. The parts calculator marks it <strong>Tight fit</strong> and asks you to print one test part before you print the full set.</li>
@@ -35,7 +35,7 @@ This page explains why the parts are designed this way. How to print and assembl
 
 ## How parts attach to the 2020 extrusion
 
-The frame is 2020 extrusion because it is a standard size everywhere in the world, which makes the design and the shopping easier. The first frames were plywood, which was dropped to avoid warping and non-standard sizes.
+The frame is 2020 extrusion because it is a standard size everywhere in the world, which makes the design and the shopping easier. The first frames were plywood, which was dropped because plywood varies and is hard to source, it is weaker, it needs a big CNC machine to make and it can warp (<a href="https://discord.com/channels/1430279849171222682/1437144782819426537/1444456887054761989">the message that proposed the change</a>).
 
 Printed brackets join the extrusion at every corner, and there are two ways to hold a bracket on:
 
@@ -73,22 +73,11 @@ A joint uses the lightest thing that will hold it. In rough order from lightest 
 
 ## Screws and other hardware
 
-The intention is to use as few different types of screws and similar hardware as possible. The list below is where the machine stands now, taken from the parts catalog, so it is a direction the design is heading in and not a promise about every part.
-
-<ul class="bulleted-list">
-  <li><strong>Screws.</strong> The catalog lists 18 types, in three thread sizes: M3 (9 types), M4 (2 types) and M5 (7 types). The number after the M is the thread diameter in millimetres, so M5 is the larger screw. The lengths run from 6 mm to 40 mm.</li>
-  <li><strong>Heads.</strong> Nine of the types are countersunk, so the head sits flush with the surface. Seven are socket/button head, which has a round head turned with a hex key. Two are flat head, used for the long screws that hold stacks of parts together.</li>
-  <li><strong>The common ones.</strong> The M5 x 16 socket/button head is the most used M5 in the machine: the external brackets, bin brackets, interface ribs and Lazy Susan extrusion mounts all use it. The M3 x 8 and M3 x 12 countersunk are the most used M3 screws, wherever a flush head is wanted.</li>
-  <li><strong>Heat-set inserts.</strong> Three types, M3, M4 and M5, for parts that need a thread in the plastic.</li>
-  <li><strong>Nuts.</strong> Two types, M3 and M5.</li>
-  <li><strong>Washers.</strong> One type, a plain M5 washer.</li>
-  <li><strong>T-nuts.</strong> One type, a roll-in M5 T-nut for 2020 extrusion.</li>
-</ul>
+The intention is to use as few different types of screws and similar hardware as possible. The machine mostly uses M3 and M5 screws, with a few M4. The M5 x 16 socket/button head screw is the one used most for brackets, and the M3 x 8 and M3 x 12 countersunk screws wherever a flush head is wanted. Parts that need a thread in plastic take heat-set inserts, and the 2020 frame takes roll-in T-nuts. This is the direction the design is heading in, not a promise about every part. The exact types and quantities change, so the bill of materials is the only list to trust.
 
 <ul class="bulleted-list">
   <li>Every screw, nut, washer and insert, with where to buy it and how many a machine needs: <a href="https://parts-calculator.basically.website/hardware">Bill of materials</a></li>
   <li>Fitting inserts and T-nuts: <a href="{{ '/hardware/helpers/heat-inserts/' | relative_url }}">Heat inserts</a> and <a href="{{ '/hardware/helpers/t-nuts/' | relative_url }}">T-nuts</a></li>
-  <li>The hardware entries and what each is used for: <a href="https://github.com/basicallysource/sorter-v2/blob/main/parts-calculator/catalog/parts.json"><code>parts-calculator/catalog/parts.json</code></a> (the entries whose <code>category</code> is <code>Screws</code>, <code>Nuts</code>, <code>Washers</code> or <code>Heat inserts</code>)</li>
 </ul>
 
 ## Shapes that do a job
@@ -108,9 +97,7 @@ The intention is to use as few different types of screws and similar hardware as
 ## How the design repeats
 
 <ul class="bulleted-list">
-  <li><strong>Layers.</strong> An N-layer machine has N + 1 hex frames (one per layer plus the top interface) and N + 1 pairs of layer connectors. Layers sit 160 mm apart, and each joint between frames is the same 12 screws, so the whole stack takes 12 x N.</li>
-  <li><strong>Channels.</strong> The four C-channels are all built on the same core. Only the rotor that drops in and what hangs off it differ.</li>
-  <li><strong>Funnels and bins.</strong> Each layer takes one funnel, in either size, which sets that layer to 18 or 12 bins.</li>
+  <li><strong>Layers.</strong> Every layer is the same set of parts, 160 mm apart. The counts for an N-layer machine are on the stacking page.</li>
   <li><strong>Bins are optional.</strong> They are left out of the printed totals. Each drops into its bay and is held by the bin retainers, so cardboard or boxes you already own work as well as printed ones.</li>
 </ul>
 

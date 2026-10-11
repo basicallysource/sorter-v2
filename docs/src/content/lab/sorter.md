@@ -30,7 +30,7 @@ Every channel is a **C-channel**: a rotor (the spinning part) turning inside a s
 
 The drops between the channels do the separating, not vibration. Each stand sets an 80 mm step down to the next channel. Each channel only moves when the channel after it has room, so a piece is never pushed onto a busy channel.
 
-Cameras sit on C2, C3 and C4, each in a **camera lamp**: an LED strip ring in a white reflector under a grey cover, with the camera in the middle. C2 and C3 use a 720p camera for detection, C4 uses a 4K camera. Detection runs on all three. Identification only uses the C4 crops, which are close-up images cut out around each piece.
+Cameras sit on C2, C3 and C4, each in a **camera lamp**: an LED strip ring in a white reflector under a grey cover, with the camera in the middle. The lamp was designed to do away with soldering, to lock the camera position so nothing needs adjusting, and, as a side effect, to remove the big white dome and make the camera arm, lights and bracket identical on all three channels (the <a href="https://www.youtube.com/watch?v=fnBvE-yFbLc">30 August 2026 meeting</a>). C2 and C3 use a 720p camera for detection, C4 uses a 4K camera. Detection runs on all three. Identification only uses the C4 crops, which are close-up images cut out around each piece.
 
 ### What was tried before
 
@@ -45,6 +45,13 @@ Cameras sit on C2, C3 and C4, each in a **camera lamp**: an LED strip ring in a 
 </ul>
 
 The software can move a channel's motor in three ways: Simple Pulse (the default), go-to-angle and constant movement. Which one is used is a software setting. The page on <a href="{{ '/lab/software-architecture-decisions/' | relative_url }}">software architecture decisions</a> covers how the software is split.
+
+### Why it is built this way
+
+<ul class="bulleted-list">
+<li><strong>Several channels in a row.</strong> The drop from one channel to the next has some chance of untangling a clump, so the more channels are stacked in series, the closer the separation gets to complete (<a href="https://discord.com/channels/1430279849171222682/1460692585881534579/1483959968620216392">March 2026</a>). The 80 mm size of each step has no reason on record.</li>
+<li><strong>The shape of the rotors.</strong> The faceted rotor, and why a round rotor fails on long pieces, is explained on <a href="{{ '/lab/printed-parts/' | relative_url }}">Design intentions for the printed parts</a>, with the <a href="https://discord.com/channels/1430279849171222682/1460692585881534579/1475959145181216789">original explanation</a>. The finned rotor on C4 has small walls on the facets that force pieces to move, so that they end up separated and can be classified and ejected cleanly into the distribution (the <a href="https://www.youtube.com/watch?v=MJMTEVCeBLs">26 April 2026 meeting</a>).</li>
+</ul>
 
 ### Where to find it
 
@@ -83,7 +90,7 @@ Distribution is a tower of layers. Each layer holds bins and has its own **chute
 
 <ul class="bulleted-list">
 <li><strong>Top interface.</strong> The interface between the feeder and the bin tower, where the rotating chute starts. It carries the stepper that turns the stack. Gears with a ratio of 120 to 25 turn it. It can turn up to 350 degrees, where a hard stop ends the movement. The software divides the turn into six sections by default.</li>
-<li><strong>Bin tower.</strong> A hex frame with the layers stacked in it, 160 mm per layer. A layer holds 18 bins with a third funnel or 12 with a half funnel, chosen per layer. Three and five layers are the common builds, and the firmware can drive up to 16.</li>
+<li><strong>Bin tower.</strong> A hex frame with the layers stacked in it, 160 mm per layer. A layer holds 18 bins with a third funnel or 12 with a half funnel, chosen per layer. Three and five layers are the common builds. One ribbon chain reaches up to ten layers, see <a href="{{ '/lab/servos/' | relative_url }}">The servos and the layer adapter boards</a>.</li>
 <li><strong>Bottom interface.</strong> A Lazy Susan bearing the stack rests on, so it turns freely at the base. The top interface uses the same stock 8 inch bearing.</li>
 <li><strong>Bins.</strong> One per sorting target, held in place by retainers.</li>
 </ul>
@@ -97,6 +104,19 @@ Distribution is a tower of layers. Each layer holds bins and has its own **chute
 <li><strong>Wiring the rotating stack.</strong> Slip rings (parts that pass power to something that turns) and a static servo were discussed. Nothing was adopted, and the layer boards are chained together by ribbon cable.</li>
 </ul>
 
+### Why it is built this way
+
+<ul class="bulleted-list">
+<li><strong>A circular stack.</strong> Reasons given when it was proposed (the <a href="https://www.youtube.com/watch?v=mVQgnf22BZg">11 November 2025 meeting</a>): one stepper can serve every slot, there are no belts to assemble, tune and maintain, a position is just an angle and a layer number, and a change of bin size changes the footprint of the machine less than it would in a linear layout. Later in the Discord (<a href="https://discord.com/channels/1430279849171222682/1437144782819426537/1458078883747332202">January 2026</a>): a machine is made bigger or smaller by stacking more layers, there are no belts or gantries to calibrate, and modularity was a key requirement that a gantry cannot give (<a href="https://discord.com/channels/1430279849171222682/1437144782819426537/1458084887449043036">same thread</a>). The linear layout was kept in mind as a more expandable option that suits a wall, and the meeting agreed to go ahead with the circle.</li>
+<li><strong>One stepper and a gear.</strong> A printed gear was chosen over a belt because there is no belt of the right size to source (the <a href="https://www.youtube.com/watch?v=7Z1wlY-plNo">5 December 2025 meeting</a>). The 120 to 25 ratio itself has no reason on record.</li>
+<li><strong>Almost a full turn, with a hard stop.</strong> The chute cannot turn all the way round, because a continuous spin would destroy the cable that runs to the layers (<a href="https://www.youtube.com/watch?v=7Z1wlY-plNo">same meeting</a>). The 351 degrees come from the printed stop (<a href="https://discord.com/channels/1430279849171222682/1437144782819426537/1480830210889879613">March 2026</a>).</li>
+<li><strong>Six sections.</strong> A layer has six structural dividers (<a href="https://discord.com/channels/1430279849171222682/1437144782819426537/1440614728081608774">November 2025</a>), and one slot is a sixth of a layer (<a href="https://discord.com/channels/1430279849171222682/1448367089399365683/1450792587727208458">December 2025</a>). A slot holds three third-size bins or two half-size bins (<a href="https://discord.com/channels/1430279849171222682/1437144782819426537/1514357594100334714">June 2026</a>), which is where 18 and 12 per layer come from. No reason is on record for dropping the large size.</li>
+<li><strong>A closed funnel.</strong> Pieces bounce and lose energy, and can still get stuck in a shallow funnel, so the funnel should be covered to stop them jumping out (<a href="https://discord.com/channels/1430279849171222682/1437144782819426537/1457463288328622232">January 2026</a>, <a href="https://discord.com/channels/1430279849171222682/1437144782819426537/1457463873019052163">same thread</a>). The 11 November 2025 meeting made the same point about the chute. Nobody proposed an open profile instead.</li>
+<li><strong>The height of a layer.</strong> The exact 160 mm has no reason on record. What is on record is that the height is governed by the angle of the chute and the flap and the usable height of the bin (the <a href="https://www.youtube.com/watch?v=TOuqbUtFj0I">10 January 2026 meeting</a>), and that a steeper chute leaves less height for the bins, so the funnel needs an internal height of 65 mm and the layer has to get taller (<a href="https://discord.com/channels/1430279849171222682/1437144782819426537/1457456940434067660">January 2026</a>).</li>
+<li><strong>The hexagon.</strong> The frame has six dividers that are structural (<a href="https://discord.com/channels/1430279849171222682/1437144782819426537/1440614728081608774">November 2025</a>). One suggestion was to straighten the ring into a many-sided shape so cardboard boxes could be folded flat (<a href="https://discord.com/channels/1430279849171222682/1437144782819426537/1438187241355608136">November 2025</a>). No message says why the frame is a hexagon.</li>
+<li><strong>The Lazy Susan bearings.</strong> The bottom bearing replaced wheels that tore into their bearing races and could come unscrewed, and it was judged more stable (the <a href="https://www.youtube.com/watch?v=MJcjmxJ-uq8">7 June 2026 meeting</a>). The top one is only for aligning the driving gear (the <a href="https://www.youtube.com/watch?v=w-2Jn6bx13Q">1 March 2026 meeting</a>). No reason is on record for the 8 inch size.</li>
+</ul>
+
 ### Where to find it
 
 <ul class="bulleted-list">
@@ -108,13 +128,4 @@ Distribution is a tower of layers. Each layer holds bins and has its own **chute
 
 ## How the software drives it
 
-A computer (the Orange Pi) runs the camera vision, the logic that decides what happens next, and the web interface. A small Raspberry Pi Pico board runs deliberately simple firmware, the program stored inside it, which only moves motors and servos when told to. This split was chosen after four existing control projects were considered (Klipper, ROS2, Marlin and Firmata), and the reasons are on the <a href="{{ '/lab/software-architecture-decisions/' | relative_url }}">software architecture decisions</a> page. How the Orange Pi and the Pico talk is covered in <a href="{{ '/lab/electronics/' | relative_url }}">How the electronics talk to each other</a>, which pin does what is on <a href="{{ '/lab/pico/' | relative_url }}">What is connected to the Pico</a>, and the motors and servos have a page each: <a href="{{ '/lab/motors/' | relative_url }}">The motors</a> and <a href="{{ '/lab/servos/' | relative_url }}">The servos and the layer adapter boards</a>. Which cable goes in which socket is on <a href="{{ '/hardware/electronics/connecting/' | relative_url }}">Connecting the components</a>.
-
-### Where to find it
-
-<ul class="bulleted-list">
-<li><a href="{{ '/lab/electronics/' | relative_url }}">How the electronics talk to each other</a></li>
-<li><a href="{{ '/lab/pico/' | relative_url }}">What is connected to the Pico</a></li>
-<li><a href="{{ '/lab/software-architecture-decisions/' | relative_url }}">Software architecture decisions</a></li>
-<li>Firmware: <a href="https://github.com/basicallysource/sorter-v2/blob/main/software/firmware/sorter_interface_firmware/sorter_interface_firmware.cpp">sorter_interface_firmware.cpp</a></li>
-</ul>
+A computer, the Orange Pi, runs the camera vision, decides what happens next and serves the web interface. A small Pico board only moves motors and servos when told to. The reasons for that split, and the alternatives that were rejected, are on <a href="{{ '/lab/software-architecture-decisions/' | relative_url }}">Software architecture decisions</a>. The rest is on <a href="{{ '/lab/electronics/' | relative_url }}">How the electronics talk to each other</a>, which links on to the pin list, the motors and the servos.

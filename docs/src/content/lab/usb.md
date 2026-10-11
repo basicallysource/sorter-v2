@@ -79,6 +79,14 @@ If a camera stops delivering pictures, or is unplugged, the software closes it, 
   <li>Choosing cameras and checking the picture: <a href="{{ '/sorter/camera-calibration/' | relative_url }}">Camera calibration</a></li>
 </ul>
 
+## Why USB cameras
+
+<ul class="bulleted-list">
+  <li><strong>USB instead of a ribbon-cable camera.</strong> Cameras with a ribbon cable to the board (CSI) were <a href="https://discord.com/channels/1430279849171222682/1442147744000249917/1442169762892484800">called annoying</a> in November 2025, and a USB cable is easier to route along the machine.</li>
+  <li><strong>Camera modules, not webcams.</strong> The advice in <a href="https://discord.com/channels/1430279849171222682/1437436041685631129/1440316430519373824">November 2025</a> was to use camera modules, because <a href="https://discord.com/channels/1430279849171222682/1437436041685631129/1440316663856889896">they have serial numbers</a>, so the software does not depend on which USB port a camera is plugged into. On Linux that serial number gives each camera a <a href="https://discord.com/channels/1430279849171222682/1437436041685631129/1440590794124955648">stable device name</a>.</li>
+  <li><strong>720p on C2 and C3, 4K on C4.</strong> After tests in <a href="https://discord.com/channels/1430279849171222682/1494842348360695898/1495129153786089512">April 2026</a> a 720p camera was judged not enough for classification, so C2 and C3 kept the 720p cameras and the classification channel got a better one. It was also noted that all three channels on 720p cameras would get some way, with the classification quality varying (<a href="https://discord.com/channels/1430279849171222682/1460692585881534579/1497326303391781054">April 2026</a>).</li>
+</ul>
+
 ## Bandwidth
 
 The camera code is written on the assumption that the three cameras share one USB 2.0 bus on the Orange Pi. Uncompressed video (YUYV) at any real resolution would fill that bus on its own. So the default capture mode is MJPEG, which compresses each picture, at the camera's own resolution: 4K on the 4K camera and 720p on the others. The same reasoning is why the configuration reference recommends forcing MJPG on Linux with several cameras.

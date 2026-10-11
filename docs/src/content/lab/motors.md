@@ -86,6 +86,17 @@ The earlier v1.1 board has no DIAG routing, so a setting on the Orange Pi turns 
   <li>Orange Pi side: <a href="https://github.com/basicallysource/sorter-v2/blob/main/software/sorter/backend/stepper_stall_monitor.py"><code>stepper_stall_monitor.py</code></a></li>
 </ul>
 
+## Why these motors and drivers
+
+The reasons below are what was written down in the Discord and the engineering meetings. Where there is no reason on record, the page says so.
+
+<ul class="bulleted-list">
+  <li><strong>A NEMA 23 for the chute.</strong> A NEMA 17 prototype of the chute was undersized and did badly at low speeds. At the <a href="https://www.youtube.com/watch?v=TOuqbUtFj0I">10 January 2026 meeting</a> the decision was to go to a NEMA 23, with the remark that it is easier to go down in size later than up. The feeder channels stayed on NEMA 17. No reason is on record for the particular 4 A, 2.4 Nm model.</li>
+  <li><strong>TMC2209 drivers.</strong> They were proposed in <a href="https://discord.com/channels/1430279849171222682/1437436041685631129/1442957384895955119">November 2025</a> because Klipper supports Trinamic drivers, and another builder replied that for NEMA 17 motors the Trinamic drivers are hard to beat. Another point was that the drivers are standard 3D printer parts, so they are easy to source. One designer noted that separate enclosed drivers would mean extra wiring and harnesses, and suggested socketed driver modules instead.</li>
+  <li><strong>The same driver on the chute.</strong> The chute's NEMA 23 also runs on a TMC2209 "for now", because no limit had been hit on the chute yet (<a href="https://discord.com/channels/1430279849171222682/1437436041685631129/1539252532402987088">August 2026</a>).</li>
+  <li><strong>Stall detection with the driver's own DIAG pin.</strong> The purpose, from the <a href="https://www.youtube.com/watch?v=PBEk7i_vIVY">29 March 2026 meeting</a>: if a motor stalls, the software knows it has lost its position, and can try to home it again or ask the user to come and look. For catching a jammed chute it was called <a href="https://discord.com/channels/1430279849171222682/1437144782819426537/1494035284977778820">"our only strategy"</a>, because the alternatives would be cameras or other sensors on every layer. No written decision compares it with an encoder. An encoder on the chute motor is being tried as a variant, on <a href="{{ '/lab/variants/' | relative_url }}">Tested variants</a>.</li>
+</ul>
+
 ## The chute stepper and its home position
 
 The Orange Pi homes the chute stepper, meaning it turns the chute back to the limit switch (on [What is connected to the Pico]({{ '/lab/pico/' | relative_url }})) to find the known starting angle, and then turns it to the angle of a bin. The firmware counts the steps, and the Orange Pi works in degrees. A stalled chute loses its home position, so it has to be homed again before sorting continues.

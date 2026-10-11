@@ -79,6 +79,14 @@ The same file can also check for a Hailo accelerator, an add-on AI chip that som
   <li>The detection models: <a href="{{ '/lab/object-detection/' | relative_url }}">Object detection</a></li>
 </ul>
 
+## Why the Orange Pi 5
+
+<ul class="bulleted-list">
+  <li><strong>The NPU is usable.</strong> Tests in <a href="https://discord.com/channels/1430279849171222682/1440488123279736912/1488654626264715395">March 2026</a> found the Orange Pi's NPU to be in the usable range, and concluded that the roughly 150 dollar Orange Pi is the platform because those NPUs can actually be used.</li>
+  <li><strong>One board that can be recommended to everyone.</strong> At the <a href="https://www.youtube.com/watch?v=GRrVtKUC9TI">5 April 2026 meeting</a> the point was that a machine should have very few settings when somebody deploys it, so that an inexperienced builder does not run into problems nobody has seen. Once the Orange Pi was shown to be a stable way to run the detection models, it became the board the project could recommend across the board.</li>
+  <li><strong>Why not a Raspberry Pi.</strong> At the same meeting the toolchain for the Raspberry Pi's AI add-on was called substantially difficult, and another attendee had not managed to compile and quantize a model for a Google Coral USB stick. A Raspberry Pi with the AI add-on was to be put online for benchmarking. No result of that comparison is on record.</li>
+</ul>
+
 ## Cooling
 
 The board gets hot when it is working hard, especially if a model ends up running on the CPU (the general-purpose part of the processor) instead of the NPU. At about 105 °C it shuts itself down to protect itself. The catalog lists the official heatsink fan, which plugs into the board's 5 V fan socket.

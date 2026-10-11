@@ -32,6 +32,7 @@ from app.services.auth import generate_machine_token, verify_password
 from app.services.machine_set_progress import build_set_progress_inventory_index, summarize_machine_set_progress
 from app.services.machine_stats import get_machine_stats_worker
 from app.services.storage import delete_machine_files, serve_stored_file
+from app.services.telemetry_limits import effective_limits
 
 router = APIRouter(prefix="/api", tags=["machines"])
 limiter = Limiter(key_func=get_remote_address)
@@ -632,7 +633,9 @@ def heartbeat(
                     machine.network_info = network
                     machine.network_reported_at = now
     db.commit()
-    return {"ok": True, "machine_id": str(machine.id)}
+    # The limits ride on the heartbeat so Hive can change them without a
+    # release; a machine that predates them ignores the key.
+    return {"ok": True, "machine_id": str(machine.id), "limits": effective_limits(db, machine)}
 
 
 @router.post("/machine/register", response_model=MachineWithTokenResponse)

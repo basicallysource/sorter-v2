@@ -46,4 +46,4 @@ Each page ends in one of these.
   </figure>
 </div>
 
-Each lamp's strip drop (`L1` to `L3`, `L1p` to `L3p`) is plugged into the board on [connecting the components]({{ '/hardware/electronics/connecting/' | relative_url }}), and the camera is on the [electronics]({{ '/hardware/electronics/' | relative_url }}) page. See [arranging C-channels]({{ '/hardware/assembly/feeder/arranging-c-channels/' | relative_url }}) for how the channels themselves sit together.
+Each lamp's strip drop (`LED1a` to `LED3a`, `LED1` to `LED3`) is plugged into the board on [connecting the components]({{ '/hardware/electronics/connecting/' | relative_url }}), and the camera is on the [electronics]({{ '/hardware/electronics/' | relative_url }}) page. See [arranging C-channels]({{ '/hardware/assembly/feeder/arranging-c-channels/' | relative_url }}) for how the channels themselves sit together.

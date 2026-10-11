@@ -44,6 +44,24 @@ def save_upload_file(
     return key
 
 
+def save_sample_frame_file(
+    machine_id: str, source_session_id: str, local_sample_id: str, file: UploadFile
+) -> str:
+    # Deterministic key built only from the machine's own sample identity, so
+    # the frame can be written before Hive looks up (or creates) the upload
+    # session, and a re-sent sample overwrites its file instead of leaving a
+    # second copy behind. The caller has already checked that it is a JPEG.
+    key = _join_key(
+        _safe_path_component(machine_id, "machine id"),
+        "samples",
+        _safe_path_component(source_session_id, "session id"),
+        f"{_safe_path_component(local_sample_id, 'sample id')}.jpg",
+    )
+    file.file.seek(0)
+    get_backend().write_stream(key, file.file, content_type="image/jpeg")
+    return key
+
+
 def save_piece_image_file(
     machine_id: str, piece_uuid: str, seq: int, source: str | None, file: UploadFile, suffix: str
 ) -> str:

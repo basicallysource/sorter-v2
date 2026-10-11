@@ -36,7 +36,8 @@ def _categorize(key: str) -> str:
     if parts and parts[0] == "models":
         return "model_files"
     # Piece crops live at {machine_id}/pieces/{piece_uuid}/... ; sample images
-    # at {machine_id}/{session_id}/{sample_id}/...
+    # at {machine_id}/{session_id}/{sample_id}/... or, sent through the sample
+    # sync route, {machine_id}/samples/{source_session_id}/{local_sample_id}.jpg
     if len(parts) >= 2 and parts[1] == "pieces":
         return "piece_images"
     return "sample_images"

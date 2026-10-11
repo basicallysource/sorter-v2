@@ -113,7 +113,7 @@ In continuity mode the meter beeps when the two probe tips are joined by anythin
 
 That answers three questions that come up while making the leads and plugging them in.
 
-**Which wire is the positive one.** A barrel plug or a panel-mount jack is centre-positive on this machine, and the lead hanging off it is usually red and black, but it came from somebody else and a few are wired the other way round. Hold one probe against the centre pin down inside the barrel and touch the other to each conductor in turn. The one that beeps is the tip, which is +24 V. You do this on [the PSU output pigtail]({{ '/hardware/helpers/psu-pigtail/' | relative_url }}) (`PJ1` to `PJ3`), [the control board's 24 V lead]({{ '/hardware/helpers/board-24v-lead/' | relative_url }}) (`W1`) and [the Orange Pi's 24 V lead]({{ '/hardware/helpers/pi-24v-lead/' | relative_url }}) (`W3`).
+**Which wire is the positive one.** A barrel plug or a panel-mount jack is centre-positive on this machine, and the lead hanging off it is usually red and black, but it came from somebody else and a few are wired the other way round. Hold one probe against the centre pin down inside the barrel and touch the other to each conductor in turn. The one that beeps is the tip, which is +24 V. You do this on [the PSU output pigtail]({{ '/hardware/helpers/psu-pigtail/' | relative_url }}) (`PSU1` to `PSU3`), [the control board's 24 V lead]({{ '/hardware/helpers/board-24v-lead/' | relative_url }}) (`PWR1`) and [the Orange Pi's 24 V lead]({{ '/hardware/helpers/pi-24v-lead/' | relative_url }}) (`PWR3`).
 
 **Which pin of a housing a wire ended up in.** Probe from the bare wire, or from a contact you can still see, through to the pin at the far end. The camera lamps need this: each one plugs on red to `+V`, and the red wire is not always in the pin you would expect. See [connecting the components]({{ '/hardware/electronics/connecting/' | relative_url }}).
 
@@ -134,7 +134,7 @@ Probe two tabs at a time and work the lever:
 - **Lever free**, `COM` to `NC` beeps and `COM` to `NO` does not.
 - **Lever pressed**, that swaps over.
 
-That tells you the printing on the switch is honest, which is worth knowing before you crimp anything onto it. It does not tell you which pair the machine expects. The chute limit switch lead (`LIM`) is built onto `COM` and `NC`, and that choice has not been confirmed on a running machine yet, which the [lead page]({{ '/hardware/helpers/limit-switch-lead/' | relative_url }}) says on itself.
+That tells you the printing on the switch is honest, which is worth knowing before you crimp anything onto it. It does not tell you which pair the machine expects. The chute limit switch lead (`LIM1`) is built onto `COM` and `NC`, and that choice has not been confirmed on a running machine yet, which the [lead page]({{ '/hardware/helpers/limit-switch-lead/' | relative_url }}) says on itself.
 
 The same check on the finished lead, at the housing rather than at the switch, is the last step of that page.
 
@@ -145,7 +145,7 @@ A stepper motor's four leads are two coils, two leads to each, and the wire colo
 - **Two leads from the same coil read well under an ohm.** 0.65 &Omega; on the chute's NEMA 23 and 2.3 &Omega; on the channel NEMA 17s, plus whatever your test leads add.
 - **Two leads from different coils read open circuit**, shown as `OL` or a lone `1`.
 
-Work through the combinations until you have both pairs, and write down which colour went with which before you start crimping. It is [the chute stepper lead]({{ '/hardware/helpers/chute-stepper-lead/' | relative_url }}) (`CH`) that is built from bare motor leads, and [the channel stepper leads]({{ '/hardware/helpers/channel-stepper-lead/' | relative_url }}) (`S1` to `S4`) where the pairs decide which housing positions the wires go into if you cannot tell them apart by position.
+Work through the combinations until you have both pairs, and write down which colour went with which before you start crimping. It is [the chute stepper lead]({{ '/hardware/helpers/chute-stepper-lead/' | relative_url }}) (`CHU1`) that is built from bare motor leads, and [the channel stepper leads]({{ '/hardware/helpers/channel-stepper-lead/' | relative_url }}) (`STP1` to `STP4`) where the pairs decide which housing positions the wires go into if you cannot tell them apart by position.
 
 <div class="callout">
   <p><b>Continuity mode finds the pairs too</b>, since a coil is close enough to a short to beep. The reason to read the number instead is that it also tells you the coil is healthy: a pair you are confident about that reads tens of ohms, or nothing at all, is a broken winding or a bad joint rather than a pairing you got wrong.</p>

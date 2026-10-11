@@ -15,7 +15,7 @@ from app.deps import (
 from app.errors import APIError
 from app.models.user import User
 from app.schemas.auth import AdminUpdateUserRequest, UserResponse
-from app.services import access_window
+from app.services import access_window, telemetry_limits
 from app.services.server_health import get_server_health, get_storage_stats_worker
 from app.services.storage import delete_machine_files
 
@@ -141,3 +141,42 @@ def put_access_window(
 
     access_window.set_window(db, role, entity, data.anchor, data.size, data.offset)
     return access_window.list_effective_windows(db)
+
+
+class TelemetryLimitsUpdate(BaseModel):
+    """A partial update: fields left out keep their current value."""
+
+    model_config = {"extra": "forbid"}
+
+    sample_burst_interval_s: float | None = Field(default=None, gt=0, allow_inf_nan=False)
+    sample_floor_interval_s: float | None = Field(default=None, gt=0, allow_inf_nan=False)
+    sample_ramp_hours: float | None = Field(default=None, gt=0, allow_inf_nan=False)
+    sample_store_max_bytes: int | None = Field(default=None, gt=0)
+    upload_bytes_per_minute: int | None = Field(default=None, gt=0)
+    upload_files_per_minute: int | None = Field(default=None, gt=0)
+
+
+@router.get("/telemetry-limits")
+def get_telemetry_limits(
+    db: Session = Depends(get_db),
+    _admin: User = Depends(require_role("admin")),
+):
+    """The limits every machine gets on its heartbeat: how fast it may capture
+    training samples, how big its local sample store may grow, and its upload
+    budget. ``updated_at`` is null while the built-in defaults apply."""
+    return telemetry_limits.global_limits(db)
+
+
+@router.put("/telemetry-limits")
+def put_telemetry_limits(
+    data: TelemetryLimitsUpdate,
+    db: Session = Depends(get_db),
+    _admin: User = Depends(require_role("admin")),
+    _csrf: None = Depends(verify_csrf),
+):
+    """Change some of the limits. Machines pick the new values up on their next
+    heartbeat."""
+    try:
+        return telemetry_limits.update_global_limits(db, data.model_dump(exclude_none=True))
+    except telemetry_limits.TelemetryLimitsError as exc:
+        raise APIError(400, str(exc), "INVALID_TELEMETRY_LIMITS") from exc

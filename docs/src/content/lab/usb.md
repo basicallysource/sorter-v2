@@ -24,7 +24,7 @@ Everything the Orange Pi talks to over USB goes through one powered hub. The Ora
   <li><strong>Spare:</strong> the Orange Pi's other two USB ports (one USB 2.0 Type-A under the blue one, and one on the board's edge) carry nothing in the machine.</li>
 </ul>
 
-The IMX415 is a USB 3.0 camera and the OV9732 modules are USB 2.0. The two cables between the Pico, the hub and the Orange Pi, and the three camera leads, are labelled `USB1` to `USB5` at both ends, so you can tell them apart once they are routed.
+The IMX415 is a USB 3.0 camera and the OV9732 modules are USB 2.0. The two cables between the Pico, the hub and the Orange Pi, and the three camera leads, are labelled `USB2` to `USB6` at both ends, so you can tell them apart once they are routed.
 
 <ul class="bulleted-list">
   <li>Every cable and its two ends: <a href="{{ '/hardware/electronics/connecting/' | relative_url }}">Connecting the components</a></li>

@@ -76,6 +76,13 @@ Pieces are identified from the C4 crops. Colour is read by comparing the piece w
 <li><strong>Two machine-learning methods for recognising pieces: embeddings, and then a classifier.</strong> These are covered on the <a href="{{ '/lab/classification-research/' | relative_url }}">classification research</a> page.</li>
 </ul>
 
+### Why it is built this way
+
+<ul class="bulleted-list">
+<li><strong>Two pieces at a time.</strong> C4 tries to keep two pieces in it. It takes the pictures right after a piece falls in, then starts classifying and preparing the distribution while the feeder delivers the next piece (<a href="https://discord.com/channels/1430279849171222682/1437920132893511740/1521215494869221587">June 2026</a>). An alternative was suggested, turning C4 at a constant speed and feeding whenever there is room, but it was not adopted (<a href="https://discord.com/channels/1430279849171222682/1437920132893511740/1521219063324344360">same thread</a>). The designer said little time had gone into optimising the hardware of this section and was open to change (<a href="https://discord.com/channels/1430279849171222682/1437920132893511740/1521219592930721882">same thread</a>). Nothing else on why two rather than one or three is on record.</li>
+<li><strong>Identification by an online service.</strong> The plan for now is to stay with Brickognize, because telling apart the 20 or more blue shades reliably would need a model that knows the exact camera settings and lighting (<a href="https://discord.com/channels/1430279849171222682/1437511568194666596/1486065747682656368">March 2026</a>). It is free, and the models that find where pieces are run locally for free (<a href="https://discord.com/channels/1430279849171222682/1430279852015091804/1520811400878886913">June 2026</a>). Others argued for the project's own models, since a picture good enough for a person to recognise should be good enough for the software too (<a href="https://discord.com/channels/1430279849171222682/1480683231555617020/1480689801777905664">March 2026</a>). A local model for offline use is planned, with no date.</li>
+</ul>
+
 ### Where to find it
 
 <ul class="bulleted-list">

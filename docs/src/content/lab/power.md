@@ -106,14 +106,14 @@ The wire harness (the set of cables) uses tinned, stranded UL1007 wire rated 300
   <thead><tr><th>Part</th><th>Rating or spec</th><th>Where it is used</th></tr></thead>
   <tbody>
     <tr><td>18 AWG (0.82 mm²), red and black</td><td>UL1007, 300 V</td><td><code>PSU1</code> to <code>PSU3</code> (100 mm), <code>PWR1</code> (920 mm)</td></tr>
-    <tr><td>22 AWG (0.33 mm²), red and black</td><td>UL1007, 300 V</td><td><code>PWR2</code> (310 mm), <code>PWR3</code> (150 mm), <code>LED1a</code> to <code>LED3a</code> (920 mm), <code>LED1</code> to <code>LED3</code> (150 mm)</td></tr>
+    <tr><td>22 AWG (0.33 mm²), red and black</td><td>UL1007, 300 V</td><td><code>PWR2</code> (310 mm), <code>PWR3</code> (150 mm), <code>LED2a</code> to <code>LED4a</code> (920 mm), <code>LED2</code> to <code>LED4</code> (150 mm)</td></tr>
     <tr><td>24 AWG (0.20 mm²), blue, green, red, black</td><td>UL1007, 300 V. Set by the JST-PH contact limit</td><td><code>STP1</code> to <code>STP4</code> (1 m), <code>CHU1</code> (300 mm tail)</td></tr>
     <tr><td>IEC C14 inlet with switch and fuse</td><td>Switch 15 A 250 V, fuse 10 A</td><td>Mains side of the supply</td></tr>
     <tr><td>Insulated fork terminal, M3.5</td><td>18 AWG wire, 8 mm wide at most</td><td>Both leads of <code>PSU1</code> to <code>PSU3</code>, onto the supply's terminal block</td></tr>
-    <tr><td>Barrel jack and plug, 5.5 × 2.1 mm</td><td>5 A or better, centre positive</td><td><code>PSU1</code> to <code>PSU3</code>, <code>PWR1</code> to <code>PWR3</code>, <code>LED1</code> to <code>LED3</code>, <code>LED1a</code> to <code>LED3a</code></td></tr>
+    <tr><td>Barrel jack and plug, 5.5 × 2.1 mm</td><td>5 A or better, centre positive</td><td><code>PSU1</code> to <code>PSU3</code>, <code>PWR1</code> to <code>PWR3</code>, <code>LED2</code> to <code>LED4</code>, <code>LED2a</code> to <code>LED4a</code></td></tr>
     <tr><td>JST VH header <code>J1</code>, housing VHR-2N, contact SVH-21T-P1.1</td><td>7 A with 18 AWG wire in the shrouded header</td><td><code>PWR1</code> into the board</td></tr>
     <tr><td>Clamp-on LED strip connector, 8 mm</td><td>3 A maximum</td><td>One per camera lamp</td></tr>
-    <tr><td>Dupont, JST-PH, #187 quick-connect</td><td>No current rating given</td><td>Dupont on <code>LED1a</code> to <code>LED3a</code> and <code>LIM1</code>, JST-PH on <code>STP1</code> to <code>STP4</code> and <code>CHU1</code>, #187 on the limit switch</td></tr>
+    <tr><td>Dupont, JST-PH, #187 quick-connect</td><td>No current rating given</td><td>Dupont on <code>LED2a</code> to <code>LED4a</code> and <code>LIM1</code>, JST-PH on <code>STP1</code> to <code>STP4</code> and <code>CHU1</code>, #187 on the limit switch</td></tr>
   </tbody>
 </table>
 

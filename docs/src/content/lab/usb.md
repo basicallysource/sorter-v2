@@ -13,7 +13,7 @@ owner: docs
 last_verified: 2026-10-10
 ---
 
-Everything the Orange Pi talks to over USB goes through one powered hub. The Orange Pi has a single cable to the hub, and the Pico and the three cameras plug into the hub. The Pico control board drives the stepper motors, servos, lamps and switches, and the Orange Pi sees it as a serial port (a connection that sends one byte after another) and sends it short commands. This page describes that tree and how the software finds each device on it: the Pico by its USB ID (a number every USB device reports about itself), and the cameras by their video device number (the number the operating system gives each camera). What else the Orange Pi is connected to is on [What is connected to the Orange Pi]({{ '/lab/orange-pi/' | relative_url }}). Which cable goes in which socket is on [Connecting the components]({{ '/hardware/electronics/connecting/' | relative_url }}).
+Everything the Orange Pi talks to over USB goes through one powered hub. The Orange Pi has a single cable to the hub, and the Pico and the three cameras plug into the hub. This page describes that tree and how the software finds each device on it. What else the Orange Pi is connected to is on [What is connected to the Orange Pi]({{ '/lab/orange-pi/' | relative_url }}), and what the Pico is connected to is on [What is connected to the Pico]({{ '/lab/pico/' | relative_url }}). Which cable goes in which socket is on [Connecting the components]({{ '/hardware/electronics/connecting/' | relative_url }}).
 
 ## The USB tree
 
@@ -45,7 +45,7 @@ The cables between the Pico, the hub and the Orange Pi must carry data. A charge
 
 ## How the software finds the Pico
 
-The Pico is found by its USB ID. The control program lists the computer's serial ports and keeps only those whose vendor and product ID are `2e8a:000a`, which is the Pico running the machine's firmware. On Linux it shows up as a `/dev/ttyACM` device.
+The Pico is found by its USB ID (a number every USB device reports about itself). The control program lists the computer's serial ports and keeps only those whose vendor and product ID are `2e8a:000a`, which is the Pico running the machine's firmware. On Linux it shows up as a `/dev/ttyACM` device.
 
 It then opens the port at 576000 baud (the speed of the connection), exclusively, so that no second program (the UI's flasher, a probe) can talk over the control program. Each control board is asked who it is. The answer, including the names of the stepper motors it reports, selects the board profile, the stored settings for that kind of board. The search is repeated up to 8 times, 0.75 seconds apart, so a Pico that is still starting does not make the start-up fail.
 

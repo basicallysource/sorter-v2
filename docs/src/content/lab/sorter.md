@@ -17,7 +17,7 @@ Sorter V2 is two machines stacked on top of each other. The **feeder** is a colu
 
 ## The feeder, from the top down
 
-Every channel is a **C-channel**: a rotor (the spinning part) turning inside a stator (the fixed housing around it). A NEMA 17 stepper motor, which turns in small exact steps, drives the rotor through gears. One shared channel core is built four times, and the four stages are numbered C1 to C4 from the top.
+Every channel is a **C-channel**: a rotor (the spinning part) turning inside a stator (the fixed housing around it). A NEMA 17 stepper motor, which turns in small exact steps, drives the rotor through gears (the motors have their own page, <a href="{{ '/lab/motors/' | relative_url }}">The motors</a>). One shared channel core is built four times, and the four stages are numbered C1 to C4 from the top.
 
 <table>
 <thead><tr><th>Stage</th><th>Job</th></tr></thead>
@@ -108,12 +108,13 @@ Distribution is a tower of layers. Each layer holds bins and has its own **chute
 
 ## How the software drives it
 
-A computer (the Orange Pi) runs the camera vision, the logic that decides what happens next, and the web interface. A small Raspberry Pi Pico board runs deliberately simple firmware, the program stored inside it, which only moves motors and servos when told to. This split was chosen after four existing control projects were considered (Klipper, ROS2, Marlin and Firmata), and the reasons are on the <a href="{{ '/lab/software-architecture-decisions/' | relative_url }}">software architecture decisions</a> page. Which pin does what, and how the Orange Pi and the Pico talk, is covered in <a href="{{ '/lab/electronics/' | relative_url }}">How the electronics talk to each other</a>. Which cable goes in which socket is on <a href="{{ '/hardware/electronics/connecting/' | relative_url }}">Connecting the components</a>.
+A computer (the Orange Pi) runs the camera vision, the logic that decides what happens next, and the web interface. A small Raspberry Pi Pico board runs deliberately simple firmware, the program stored inside it, which only moves motors and servos when told to. This split was chosen after four existing control projects were considered (Klipper, ROS2, Marlin and Firmata), and the reasons are on the <a href="{{ '/lab/software-architecture-decisions/' | relative_url }}">software architecture decisions</a> page. How the Orange Pi and the Pico talk is covered in <a href="{{ '/lab/electronics/' | relative_url }}">How the electronics talk to each other</a>, which pin does what is on <a href="{{ '/lab/pico/' | relative_url }}">What is connected to the Pico</a>, and the motors and servos have a page each: <a href="{{ '/lab/motors/' | relative_url }}">The motors</a> and <a href="{{ '/lab/servos/' | relative_url }}">The servos and the layer adapter boards</a>. Which cable goes in which socket is on <a href="{{ '/hardware/electronics/connecting/' | relative_url }}">Connecting the components</a>.
 
 ### Where to find it
 
 <ul class="bulleted-list">
 <li><a href="{{ '/lab/electronics/' | relative_url }}">How the electronics talk to each other</a></li>
+<li><a href="{{ '/lab/pico/' | relative_url }}">What is connected to the Pico</a></li>
 <li><a href="{{ '/lab/software-architecture-decisions/' | relative_url }}">Lab: software architecture decisions</a></li>
 <li>Firmware: <a href="https://github.com/basicallysource/sorter-v2/blob/main/software/firmware/sorter_interface_firmware/sorter_interface_firmware.cpp">sorter_interface_firmware.cpp</a></li>
 </ul>

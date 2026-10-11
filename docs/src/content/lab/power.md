@@ -10,7 +10,7 @@ permalink: /lab/power/
 audience: curious builder or contributor
 applies_to: hardware-v2
 owner: docs
-last_verified: 2026-10-10
+last_verified: 2026-10-11
 ---
 
 The whole machine runs from one 24 V power supply. The other voltages (12 V, 6.5 V, 5 V and 3.3 V) are made from the 24 V further down, mostly on the control board. Each of these voltages is called a rail, a wire inside the board that carries one voltage. There is no separate power board in this version, so the protection is light: two fuses on the control board and a fused inlet on the mains side (the wall-socket side).
@@ -54,7 +54,7 @@ The board has two USB-C sockets that look the same, and only the one marked <cod
   <li><strong>24 V</strong> goes straight to the five stepper driver sockets to power the motors, to the four LED ports, and to the converters below.</li>
   <li><strong>5 V:</strong> a RECOM R-78 converter module (<code>U3</code>, 1 A) makes it from the 24 V. It feeds the Pico through its VSYS pin, the servo controller chip and the level shifters (small chips that translate between voltages).</li>
   <li><strong>12 V:</strong> a RECOM R-78 converter module (<code>U4</code>, 2 A) makes it from the 24 V. It is available on header <code>J2</code> and is also the input of the next stage.</li>
-  <li><strong>6.5 V, "ServoV":</strong> a RECOM R-78 converter module (<code>U5</code>, 1.5 A) makes it from the 12 V. It powers the servos and runs down the ribbon cable to every layer's adapter board.</li>
+  <li><strong>6.5 V, "ServoV":</strong> a RECOM R-78 converter module (<code>U5</code>, 1.5 A) makes it from the 12 V. It powers the servos and runs down the ribbon cable to every layer's adapter board (see <a href="{{ '/lab/servos/' | relative_url }}">The servos and the layer adapter boards</a>).</li>
   <li><strong>3.3 V</strong> comes from the Pico's own 3V3 output, not from a separate voltage regulator on the board. It goes to the driver sockets.</li>
 </ul>
 
@@ -65,27 +65,9 @@ All three converters are switching modules that fit where a simple linear 78xx r
   <li>Preparing the board before it is installed: <a href="{{ '/hardware/electronics/installation/control-board-prep/' | relative_url }}">Preparing the control board</a></li>
 </ul>
 
-## The motors and their drivers
+## The motors
 
-There are five TMC2209 stepper drivers, one per stepper motor: four NEMA 17 motors (the three feeder channels and the carousel) and one larger NEMA 23 motor (the chute). The motors run on the 24 V rail.
-
-A stepper motor's rated current is a limit, not what it always draws. The driver controls the current in the motor's coils and does not take more from the supply than the motor needs. So a 4 A NEMA 23 motor on a 2 A driver is normal: it just produces a smaller share of its rated torque (turning force). The chute is also geared down 4.8 to 1.
-
-**Two places set the real current, and they multiply.** The small adjustable pot (trimmer) on each driver module sets a maximum. The software then sets the run current and the hold current, called IRUN and IHOLD, each a number from 0 to 31, as fractions of that maximum. If you leave the pot high and also raise IRUN in the software, the current goes up twice, so the motor can get much hotter than either setting alone suggests. The defaults are set in the control program:
-
-<ul class="bulleted-list">
-  <li>Feeder channel rotors: IRUN 4, IHOLD 1</li>
-  <li>Carousel: IRUN 8, IHOLD 1</li>
-  <li>Chute, and any stepper without its own entry: IRUN 16, IHOLD 4</li>
-</ul>
-
-Each can be changed for one stepper in the machine's settings file (a TOML file).
-
-<ul class="bulleted-list">
-  <li>Defaults and the validation of overrides: <a href="https://github.com/basicallysource/sorter-v2/blob/main/software/sorter/backend/irl/parse_user_toml.py"><code>irl/parse_user_toml.py</code></a></li>
-  <li>The commented override example: <a href="https://github.com/basicallysource/sorter-v2/blob/main/software/machine.example.toml"><code>software/machine.example.toml</code></a></li>
-  <li>Stepper cables and coil order: <a href="{{ '/hardware/electronics/wire-harness/' | relative_url }}">Wire harness</a></li>
-</ul>
+The five stepper motors run on the 24 V rail, each through its own TMC2209 driver on the control board. Their sizes, how the drivers are set up and how much current each motor gets are on [The motors]({{ '/lab/motors/' | relative_url }}). Their electrical ratings are in the device table below.
 
 ## The lamps and the fan
 
@@ -148,8 +130,8 @@ In the board's 24 V path, the part with the lowest rating is the barrel jack at 
   <thead><tr><th>Device</th><th>Rating</th><th>Where it is in the machine</th></tr></thead>
   <tbody>
     <tr><td>Mean Well LRS-350-24</td><td>24 V, 14.6 A, 350 W. Mains draw 6.8 A at 115 V or 3.4 A at 230 V</td><td>The only supply; three outputs</td></tr>
-    <tr><td>NEMA 17 stepper, StepperOnline 17HE15-1504S</td><td>1.5 A per phase, 2.3 Ω per phase. Default IRUN 4 (channels) and 8 (carousel)</td><td>Three feeder channels and the carousel, on <code>STP1</code> to <code>STP4</code></td></tr>
-    <tr><td>NEMA 23 stepper, StepperOnline 23HS32-4004S</td><td>4.0 A per phase, 0.65 Ω per phase. Default IRUN 16</td><td>The chute, on <code>CHU1</code></td></tr>
+    <tr><td>NEMA 17 stepper, StepperOnline 17HE15-1504S</td><td>1.5 A per phase, 2.3 Ω per phase</td><td>Three feeder channels and the carousel, on <code>STP1</code> to <code>STP4</code></td></tr>
+    <tr><td>NEMA 23 stepper, StepperOnline 23HS32-4004S</td><td>4.0 A per phase, 0.65 Ω per phase</td><td>The chute, on <code>CHU1</code></td></tr>
     <tr><td>TMC2209 driver module</td><td>2 A RMS continuous, 2.8 A peak, 5 per machine</td><td>One per stepper, on the control board</td></tr>
     <tr><td>Camera lamp, 24 V COB LED strip</td><td>About 10 W per metre, so about 9 W per lamp</td><td>Three lamps, on three LED ports</td></tr>
     <tr><td>Housing fan, WINSINN 4010</td><td>24 V, 0.04 A</td><td>Fourth LED port</td></tr>
@@ -161,7 +143,7 @@ In the board's 24 V path, the part with the lowest rating is the barrel jack at 
   </tbody>
 </table>
 
-The one place a motor can ask for more than its supply gives is the 6.5 V ServoV rail. A stalled MG995 takes about 1.2 A against the converter's 1.5 A, so two flaps stalling together are over it.
+The one place a motor can ask for more than its supply gives is the 6.5 V ServoV rail. A stalled MG995 takes about 1.2 A against the converter's 1.5 A, so two flaps stalling together are over it. How the servos and their boards use that rail is on [The servos and the layer adapter boards]({{ '/lab/servos/' | relative_url }}).
 
 <ul class="bulleted-list">
   <li>Every part's attributes: <a href="https://github.com/basicallysource/sorter-v2/blob/main/parts-calculator/catalog/parts.json"><code>parts-calculator/catalog/parts.json</code></a></li>
@@ -169,4 +151,4 @@ The one place a motor can ask for more than its supply gives is the 6.5 V ServoV
 
 ## Load against supply
 
-The supply can give 350 W. The three camera lamps are about 28 W of that, or about 1.2 A at 24 V. The motors draw what their drivers are set to give (see above), and the Orange Pi branch tops out at the buck converter's 25 W. The supply, the jacks and the cables are well inside their ratings in normal use.
+The supply can give 350 W. The three camera lamps are about 28 W of that, or about 1.2 A at 24 V. The motors draw what their drivers are set to give (see [The motors]({{ '/lab/motors/' | relative_url }})), and the Orange Pi branch tops out at the buck converter's 25 W. The supply, the jacks and the cables are well inside their ratings in normal use.

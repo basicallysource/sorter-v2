@@ -50,7 +50,7 @@ A second builder runs a belt that feeds C3, and reports about 4 parts a minute w
   <figcaption>The printed legs for C1, C2 and C3, drawn to the same scale. <cite>Rendered from the part geometry, not from a build. Render: Balloon.</cite></figcaption>
 </figure>
 
-**What was tested.** Two builders have printed a set. Both report that the legs are stable. One found that, without any screws, they hold up better than the aluminium legs, and the other sees no reason to use extrusion instead. One of those machines was not running yet, so how the legs behave under vibration has not been reported.
+**What was tested.** The printed legs were tested by two builders, who each printed a set. Both report that the legs are stable. One found that, without any screws, they hold up better than the aluminium legs, and the other sees no reason to use extrusion instead. One of those machines was not running yet, so how the legs behave under vibration has not been reported.
 
 **Why the standard stand uses extrusion.** The bulk channel carries a full bin of LEGO, and extrusion was chosen at C1 because printed legs wobbled under that load and took long to print. The standard stand therefore uses extrusion at C1, while C2 and C3 use printed legs. Whether the printed legs will replace the extrusion in the standard stand has not been announced.
 
@@ -69,6 +69,8 @@ The legs are not in the parts calculator. The file is an STL in the Discord thre
   <img class="doc-figure" src="https://assets.basically.website/sorter-docs/variant-orange-pi-base-direct-thread-full-f306c49a0b7f.png" alt="The Orange Pi housing base seen from above and one end, with four low posts for the board and four tall corner posts, each with a small hole">
   <figcaption>The variant base. The eight screw holes are the small ones in the posts. <cite>Rendered from the part geometry, not from a build. Render: Balloon.</cite></figcaption>
 </figure>
+
+**Why it was made.** It is quite hard to insert the heat-set insert for the board's post near the corner of the housing, because there is very little space to work there. Leaving the inserts out removes that step.
 
 **Screws.** The same M3 x 6 screws hold the Orange Pi, and the same M3 x 12 screws hold the roof. They bite less deeply than into an insert: after the circuit board only about 4.4 mm of an M3 x 6 screw is in the post. If that feels loose, an M3 x 8 screw still fits.
 

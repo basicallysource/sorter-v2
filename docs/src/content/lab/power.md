@@ -10,7 +10,10 @@ permalink: /lab/power/
 audience: curious builder or contributor
 applies_to: hardware-v2
 owner: docs
-last_verified: 2026-10-11
+warning: >-
+  **AI-generated first draft.** Written from the Pico firmware, the control program and the board's
+  KiCad files, not from an actual build. The part names, pins and numbers are read from those files and
+  have not been checked against a built machine.
 ---
 
 The whole machine runs from one 24 V power supply. The other voltages (12 V, 6.5 V, 5 V and 3.3 V) are made from the 24 V further down, mostly on the control board. Each of these voltages is called a rail, a wire inside the board that carries one voltage. There is no separate power board in this version, so the protection is light: two fuses on the control board and a fused inlet on the mains side (the wall-socket side).

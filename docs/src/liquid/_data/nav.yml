@@ -241,8 +241,14 @@ sections:
             url: /lab/electronics/
           - title: What is connected to the Orange Pi
             url: /lab/orange-pi/
+          - title: What is connected to the Pico
+            url: /lab/pico/
           - title: The USB connections and the hub
             url: /lab/usb/
+          - title: The motors
+            url: /lab/motors/
+          - title: The servos and the layer adapter boards
+            url: /lab/servos/
           - title: Power distribution
             url: /lab/power/
       - title: Get involved

@@ -14,41 +14,6 @@ permalink: /lab/
   <p>This section is optional background. These pages give more detail about how the sorter works and why it is designed the way it is, and keep the research behind it. The build instructions in <a href="{{ '/hardware/' | relative_url }}">Hardware</a> do not depend on them. Read them if you are curious, want to repair or change something, or want to know what was tried before.</p>
 </div>
 
-The design pages give the overall picture in a few lines, then link to the files that hold the detail. Links to the relevant parts are provided on every page, for people who want to dig deeper: the source code, the parts catalog, and the matching build and lab pages. You can ignore them if you only want the overview. Some of the pages use electronics and software words that you may not know. Where a word first appears, it is explained in the same sentence.
-
-## How the machine is designed
-
-<div class="callout-grid">
-  <div class="callout">
-    <strong><a href="{{ '/lab/sorter/' | relative_url }}">How the sorter is put together</a></strong>
-    <p>The feeder and the distribution system, what each part does, and the alternatives that were tried before the current design.</p>
-  </div>
-  <div class="callout">
-    <strong><a href="{{ '/lab/printed-parts/' | relative_url }}">Design intentions for the printed parts</a></strong>
-    <p>What the printed parts are designed to do, the thinking behind how they fit together and are printed, and which screws and other hardware they use.</p>
-  </div>
-  <div class="callout">
-    <strong><a href="{{ '/lab/electronics/' | relative_url }}">How the electronics talk to each other</a></strong>
-    <p>How the Orange Pi and the Pico on the control board communicate, which Pico pins drive the steppers, lamps, servos and switches, and where each of those lives in the firmware.</p>
-  </div>
-  <div class="callout">
-    <strong><a href="{{ '/lab/orange-pi/' | relative_url }}">What is connected to the Orange Pi</a></strong>
-    <p>Everything the Orange Pi talks to, and what the software does with each.</p>
-  </div>
-  <div class="callout">
-    <strong><a href="{{ '/lab/usb/' | relative_url }}">The USB connections and the hub</a></strong>
-    <p>The USB hub, what hangs on it, and how the software finds each device.</p>
-  </div>
-  <div class="callout">
-    <strong><a href="{{ '/lab/power/' | relative_url }}">Power distribution</a></strong>
-    <p>How power gets from the supply to every board and motor, with the ratings of the cables, connectors and devices.</p>
-  </div>
-  <div class="callout">
-    <strong><a href="{{ '/lab/contribute/' | relative_url }}">How to contribute</a></strong>
-    <p>Where the project lives, how to help, when the team meets each week, and what Balloon, the assistant in the Discord, can do for you.</p>
-  </div>
-</div>
-
 ## Research areas
 
 <div class="callout-grid">
@@ -75,6 +40,53 @@ The design pages give the overall picture in a few lines, then link to the files
   <div class="callout">
     <strong><a href="https://github.com/basicallysource/sorter-v2/tree/main/software/sorter-design-system">Design system</a></strong>
     <p>How the SorterOS UI, Hive, and this documentation site look and are built: the rules, and the components to copy. A contributor reference, run from the repository.</p>
+  </div>
+</div>
+
+## How the machine is designed
+
+The design pages give the overall picture in a few lines, then link to the files that hold the detail. Links to the relevant parts are provided on every page, for people who want to dig deeper: the source code, the parts catalog, and the matching build and lab pages. You can ignore them if you only want the overview. Some of the pages use electronics and software words that you may not know. Where a word first appears, it is explained in the same sentence.
+
+<div class="callout-grid">
+  <div class="callout">
+    <strong><a href="{{ '/lab/sorter/' | relative_url }}">How the sorter is put together</a></strong>
+    <p>The feeder and the distribution system, what each part does, and the alternatives that were tried before the current design.</p>
+  </div>
+  <div class="callout">
+    <strong><a href="{{ '/lab/printed-parts/' | relative_url }}">Design intentions for the printed parts</a></strong>
+    <p>What the printed parts are designed to do, the thinking behind how they fit together and are printed, and which screws and other hardware they use.</p>
+  </div>
+  <div class="callout">
+    <strong><a href="{{ '/lab/electronics/' | relative_url }}">How the electronics talk to each other</a></strong>
+    <p>How the Orange Pi and the Pico on the control board communicate: the cable, the messages, and where each part lives in the firmware.</p>
+  </div>
+  <div class="callout">
+    <strong><a href="{{ '/lab/orange-pi/' | relative_url }}">What is connected to the Orange Pi</a></strong>
+    <p>Everything the Orange Pi talks to, and what the software does with each.</p>
+  </div>
+  <div class="callout">
+    <strong><a href="{{ '/lab/pico/' | relative_url }}">What is connected to the Pico</a></strong>
+    <p>Everything the Pico on the control board is connected to, with a pin diagram and a table of what each pin does.</p>
+  </div>
+  <div class="callout">
+    <strong><a href="{{ '/lab/usb/' | relative_url }}">The USB connections and the hub</a></strong>
+    <p>The USB hub, what hangs on it, and how the software finds each device.</p>
+  </div>
+  <div class="callout">
+    <strong><a href="{{ '/lab/motors/' | relative_url }}">The motors</a></strong>
+    <p>The five stepper motors, what each one turns, how their drivers are set up, and how the machine notices a blocked motor.</p>
+  </div>
+  <div class="callout">
+    <strong><a href="{{ '/lab/servos/' | relative_url }}">The servos and the layer adapter boards</a></strong>
+    <p>How the chute doors are moved: the servo chip, the ribbon cable down the stack, and what each layer's adapter board does.</p>
+  </div>
+  <div class="callout">
+    <strong><a href="{{ '/lab/power/' | relative_url }}">Power distribution</a></strong>
+    <p>How power gets from the supply to every board and motor, with the ratings of the cables, connectors and devices.</p>
+  </div>
+  <div class="callout">
+    <strong><a href="{{ '/lab/contribute/' | relative_url }}">How to contribute</a></strong>
+    <p>Where the project lives, how to help, when the team meets each week, and what Balloon, the assistant in the Discord, can do for you.</p>
   </div>
 </div>
 

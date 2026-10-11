@@ -1739,6 +1739,61 @@ blockquote {
 	border-bottom: 0;
 }
 
+/* A reference table with too many columns for a phone: each row becomes a card,
+   every cell carrying its column heading from data-label. */
+@media (max-width: 740px) {
+	.md-content table.stack-table {
+		display: table;
+		overflow: visible;
+		border: 0;
+		background: transparent;
+	}
+
+	.md-content table.stack-table thead {
+		display: none;
+	}
+
+	.md-content table.stack-table tbody,
+	.md-content table.stack-table tr,
+	.md-content table.stack-table td {
+		display: block;
+	}
+
+	.md-content table.stack-table tr {
+		margin-bottom: 12px;
+		background: var(--surface);
+		border: 1px solid var(--line);
+	}
+
+	.md-content table.stack-table td {
+		display: flex;
+		justify-content: space-between;
+		gap: 16px;
+		min-width: 0;
+		padding: 8px 14px;
+		text-align: right;
+	}
+
+	.md-content table.stack-table td::before {
+		content: attr(data-label);
+		flex: none;
+		text-align: left;
+		font-size: 0.76rem;
+		font-weight: 600;
+		letter-spacing: 0.06em;
+		text-transform: uppercase;
+		color: var(--muted);
+	}
+
+	.md-content table.stack-table tr:last-child td {
+		border-bottom: 1px solid var(--line);
+	}
+
+	.md-content table.stack-table tr td:last-child {
+		border-bottom: 0;
+	}
+}
+
 /* ── Footer ────────────────────────────────────────────────────────────── */
 
 .site-footer {

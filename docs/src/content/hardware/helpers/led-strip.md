@@ -165,6 +165,10 @@ If the first test does not beep, or the second does, the two joints have crossed
   <li>Hold each end with a small piece of heat shrink or a turn of tape, so that the braid cannot creep back along the wires.</li>
 </ol>
 
+## Label the cable
+
+Put a label with the ID (`LED2` to `LED4` on the pigtails and `LED2a` to `LED4a` on the board cables) on both ends, close to the connector. The printable labels and the Brother label printer files are on [Labelling the cables]({{ '/hardware/helpers/cable-labels/' | relative_url }}).
+
 ## The finished result
 
 With the pair fitted, two cables that plug together. A two-turn length of strip, about 920 mm (36 in), with its male barrel plug on the end of a short pair of wires (the lamp pigtail, `LED2` to `LED4`), and 1 m (39 in) of red and black wire with a female barrel socket at one end and a 2-pin Dupont plug at the other (the board cable, `LED2a` to `LED4a`). Three of each make a machine. Without the pair it is one cable, `LED2` to `LED4`, the Dupont cable running straight to the strip, and `LED2a` to `LED4a` are not needed. Nothing is joined end to end along the strip, so its far end stays dead.

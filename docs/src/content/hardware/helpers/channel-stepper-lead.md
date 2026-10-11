@@ -103,6 +103,10 @@ under <b>Re-house the lead</b>, below. Motor positions 2 and 5 stay empty.
 
 Whatever the length, **anchor the cable above the connector**. Strap it to the frame a short way back from the plug with a hook-and-loop strap rather than a zip tie ([why]({{ '/hardware/electronics/connecting/' | relative_url }}#securing-the-cables)), and leave a service loop, so that nothing hanging off the cable can lever the housing sideways.
 
+## Label the cable
+
+Put a label with the ID (`STP1` to `STP4`) on both ends, close to the connector. The four leads look identical, so label each one before you start the next. The printable labels and the Brother label printer files are on [Labelling the cables]({{ '/hardware/helpers/cable-labels/' | relative_url }}).
+
 ## The finished result
 
 Four leads (`STP1` to `STP4`), each with a 4-pin PHR-4 at the board end and a 6-pin PHR-6 at the motor end with two of its six positions empty.

@@ -2,11 +2,14 @@
 layout: default
 title: What is connected to the Orange Pi
 type: explanation
-section: design
-slug: design-orange-pi
-kicker: Design — Electronics
+section: lab
+slug: lab-orange-pi
+kicker: Lab — Electronics
 lede: Everything the Orange Pi 5 talks to, what each connection is for, and which part of the software handles it.
-permalink: /design/orange-pi/
+permalink: /lab/orange-pi/
+audience: curious builder or contributor
+applies_to: hardware-v2
+owner: docs
 last_verified: 2026-10-10
 ---
 
@@ -17,8 +20,8 @@ This page is the list of what connects to the Orange Pi and why. Power and USB e
 ## The big picture
 
 <ul class="bulleted-list">
-  <li><strong>Power in:</strong> 5 V into the board's power USB-C socket, from a buck converter on the machine's 24 V supply. Details: <a href="{{ '/design/power/' | relative_url }}">Power distribution</a>.</li>
-  <li><strong>USB:</strong> one cable to a powered 4-port hub, with the Pico control board and three cameras on it. Details: <a href="{{ '/design/usb/' | relative_url }}">The USB connections and the hub</a>.</li>
+  <li><strong>Power in:</strong> 5 V into the board's power USB-C socket, from a buck converter on the machine's 24 V supply. Details: <a href="{{ '/lab/power/' | relative_url }}">Power distribution</a>.</li>
+  <li><strong>USB:</strong> one cable to a powered 4-port hub, with the Pico control board and three cameras on it. Details: <a href="{{ '/lab/usb/' | relative_url }}">The USB connections and the hub</a>.</li>
   <li><strong>Network:</strong> Ethernet, or WiFi from an M.2 module or a USB adapter. This is how you reach the UI.</li>
   <li><strong>Storage:</strong> a microSD card that holds SorterOS and everything the machine saves.</li>
   <li><strong>Cooling:</strong> the board needs a fan on its processor (its main chip).</li>

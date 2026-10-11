@@ -2,15 +2,18 @@
 layout: default
 title: The USB connections and the hub
 type: explanation
-section: design
-slug: design-usb
-kicker: Design — Electronics
+section: lab
+slug: lab-usb
+kicker: Lab — Electronics
 lede: How the Pico and the three cameras reach the Orange Pi through one powered hub, and how the software finds each of them.
-permalink: /design/usb/
+permalink: /lab/usb/
+audience: curious builder or contributor
+applies_to: hardware-v2
+owner: docs
 last_verified: 2026-10-10
 ---
 
-Everything the Orange Pi talks to over USB goes through one powered hub. The Orange Pi has a single cable to the hub, and the Pico and the three cameras plug into the hub. The Pico control board drives the stepper motors, servos, lamps and switches, and the Orange Pi sees it as a serial port (a connection that sends one byte after another) and sends it short commands. This page describes that tree and how the software finds each device on it: the Pico by its USB ID (a number every USB device reports about itself), and the cameras by their video device number (the number the operating system gives each camera). What else the Orange Pi is connected to is on [What is connected to the Orange Pi]({{ '/design/orange-pi/' | relative_url }}). Which cable goes in which socket is on [Connecting the components]({{ '/hardware/electronics/connecting/' | relative_url }}).
+Everything the Orange Pi talks to over USB goes through one powered hub. The Orange Pi has a single cable to the hub, and the Pico and the three cameras plug into the hub. The Pico control board drives the stepper motors, servos, lamps and switches, and the Orange Pi sees it as a serial port (a connection that sends one byte after another) and sends it short commands. This page describes that tree and how the software finds each device on it: the Pico by its USB ID (a number every USB device reports about itself), and the cameras by their video device number (the number the operating system gives each camera). What else the Orange Pi is connected to is on [What is connected to the Orange Pi]({{ '/lab/orange-pi/' | relative_url }}). Which cable goes in which socket is on [Connecting the components]({{ '/hardware/electronics/connecting/' | relative_url }}).
 
 ## The USB tree
 
@@ -55,7 +58,7 @@ Opening the port needs permission. The software ships with a udev rule (a Linux 
   <li>Discovery, retries and board profiles: <a href="https://github.com/basicallysource/sorter-v2/blob/main/software/sorter/backend/machine_platform/control_board.py"><code>machine_platform/control_board.py</code></a></li>
   <li>Flashing, including the blank-board drive: <a href="https://github.com/basicallysource/sorter-v2/blob/main/software/sorter/backend/hardware/firmware_flash.py"><code>hardware/firmware_flash.py</code></a></li>
   <li>The udev rule: <a href="https://github.com/basicallysource/sorter-v2/blob/main/software/systemd/99-sorter-pico.rules"><code>software/systemd/99-sorter-pico.rules</code></a></li>
-  <li>What the Pico says over the cable: <a href="{{ '/design/electronics/' | relative_url }}">How the electronics talk to each other</a></li>
+  <li>What the Pico says over the cable: <a href="{{ '/lab/electronics/' | relative_url }}">How the electronics talk to each other</a></li>
 </ul>
 
 ## How the software finds the cameras

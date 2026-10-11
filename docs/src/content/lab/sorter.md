@@ -2,15 +2,18 @@
 layout: default
 title: How the sorter is put together
 type: explanation
-section: design
-slug: design-sorter
-kicker: Design — The machine
+section: lab
+slug: lab-sorter
+kicker: Lab — The machine
 lede: The sorter is a feeder that spreads a pile of bricks into single pieces, and a distribution system that drops each piece into the right bin. This page covers what each part does and what was tried before it.
-permalink: /design/sorter/
+permalink: /lab/sorter/
+audience: curious builder or contributor
+applies_to: hardware-v2
+owner: docs
 last_verified: 2026-10-10
 ---
 
-Sorter V2 is two machines stacked on top of each other. The **feeder** is a column of four rotating channels that turns a heap of loose LEGO into a single file of pieces and photographs them. The **distribution** system sits underneath: a rotating chute that aims at one of many bins, one layer at a time. A piece goes in at the top of the feeder and leaves through the chute into a bin. The electronics that connect the two have their own page, <a href="{{ '/design/electronics/' | relative_url }}">How the electronics talk to each other</a>.
+Sorter V2 is two machines stacked on top of each other. The **feeder** is a column of four rotating channels that turns a heap of loose LEGO into a single file of pieces and photographs them. The **distribution** system sits underneath: a rotating chute that aims at one of many bins, one layer at a time. A piece goes in at the top of the feeder and leaves through the chute into a bin. The electronics that connect the two have their own page, <a href="{{ '/lab/electronics/' | relative_url }}">How the electronics talk to each other</a>.
 
 ## The feeder, from the top down
 
@@ -105,12 +108,12 @@ Distribution is a tower of layers. Each layer holds bins and has its own **chute
 
 ## How the software drives it
 
-A computer (the Orange Pi) runs the camera vision, the logic that decides what happens next, and the web interface. A small Raspberry Pi Pico board runs deliberately simple firmware, the program stored inside it, which only moves motors and servos when told to. This split was chosen after four existing control projects were considered (Klipper, ROS2, Marlin and Firmata), and the reasons are on the <a href="{{ '/lab/software-architecture-decisions/' | relative_url }}">software architecture decisions</a> page. Which pin does what, and how the Orange Pi and the Pico talk, is covered in <a href="{{ '/design/electronics/' | relative_url }}">How the electronics talk to each other</a>. Which cable goes in which socket is on <a href="{{ '/hardware/electronics/connecting/' | relative_url }}">Connecting the components</a>.
+A computer (the Orange Pi) runs the camera vision, the logic that decides what happens next, and the web interface. A small Raspberry Pi Pico board runs deliberately simple firmware, the program stored inside it, which only moves motors and servos when told to. This split was chosen after four existing control projects were considered (Klipper, ROS2, Marlin and Firmata), and the reasons are on the <a href="{{ '/lab/software-architecture-decisions/' | relative_url }}">software architecture decisions</a> page. Which pin does what, and how the Orange Pi and the Pico talk, is covered in <a href="{{ '/lab/electronics/' | relative_url }}">How the electronics talk to each other</a>. Which cable goes in which socket is on <a href="{{ '/hardware/electronics/connecting/' | relative_url }}">Connecting the components</a>.
 
 ### Where to find it
 
 <ul class="bulleted-list">
-<li><a href="{{ '/design/electronics/' | relative_url }}">How the electronics talk to each other</a></li>
+<li><a href="{{ '/lab/electronics/' | relative_url }}">How the electronics talk to each other</a></li>
 <li><a href="{{ '/lab/software-architecture-decisions/' | relative_url }}">Lab: software architecture decisions</a></li>
 <li>Firmware: <a href="https://github.com/basicallysource/sorter-v2/blob/main/software/firmware/sorter_interface_firmware/sorter_interface_firmware.cpp">sorter_interface_firmware.cpp</a></li>
 </ul>

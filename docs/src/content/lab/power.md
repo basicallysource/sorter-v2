@@ -2,11 +2,14 @@
 layout: default
 title: Power distribution
 type: explanation
-section: design
-slug: design-power
-kicker: Design — Electronics
+section: lab
+slug: lab-power
+kicker: Lab — Electronics
 lede: How 24 V gets from the wall to every part of the machine, what is fused where, and the ratings of the cables, connectors and devices on the way.
-permalink: /design/power/
+permalink: /lab/power/
+audience: curious builder or contributor
+applies_to: hardware-v2
+owner: docs
 last_verified: 2026-10-10
 ---
 

@@ -82,9 +82,11 @@ The design pages give the overall picture in a few lines, then link to the files
 
 The lab sits one level below the end-user-facing sections. Content lands here when:
 
-- it's a **contributor reference** the rest of the project builds on but that an operator would never need to read (the software architecture decisions);
-- it **explains how the machine is designed**, in a bird's-eye view, for someone who is curious about it and not building from it (the design pages above);
-- it's an **active research thread** where we're still validating conclusions, and the findings aren't ready to be promoted into a stable hardware or SorterOS docs page (the object detection work).
+<ul class="bulleted-list">
+  <li>it's a <strong>contributor reference</strong> the rest of the project builds on but that an operator would never need to read (the software architecture decisions);</li>
+  <li>it <strong>explains how the machine is designed</strong>, in a bird's-eye view, for someone who is curious about it and not building from it (the design pages above);</li>
+  <li>it's an <strong>active research thread</strong> where we're still validating conclusions, and the findings aren't ready to be promoted into a stable hardware or SorterOS docs page (the object detection work).</li>
+</ul>
 
 Once a finding stabilizes enough to be promoted — for example, when we settle on a single accelerated deployment path and it belongs in the SorterOS setup docs — it graduates out of the lab into the appropriate top-level section.
 
@@ -92,7 +94,9 @@ Once a finding stabilizes enough to be promoted — for example, when we settle 
 
 The durable rule across all lab work:
 
-1. Keep decisions and workflows in checked-in Markdown on these pages.
-2. Keep only the latest canonical benchmark and compile artifacts under `software/sorter/backend/blob/`.
-3. Regenerate reports from benchmark JSONs instead of treating every HTML file as permanent.
-4. Promote a finding out of the lab only after it has both a quality comparison against a reference and a sustained-throughput measurement.
+<ol class="numbered-steps">
+  <li>Keep decisions and workflows in checked-in Markdown on these pages.</li>
+  <li>Keep only the latest canonical benchmark and compile artifacts under <code>software/sorter/backend/blob/</code>.</li>
+  <li>Regenerate reports from benchmark JSONs instead of treating every HTML file as permanent.</li>
+  <li>Promote a finding out of the lab only after it has both a quality comparison against a reference and a sustained-throughput measurement.</li>
+</ol>

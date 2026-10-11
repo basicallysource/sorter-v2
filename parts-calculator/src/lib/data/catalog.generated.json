@@ -30379,7 +30379,7 @@
 				},
 				{
 					"label": "Used on",
-					"value": "LJ1 to LJ3, the LED feeds LED2a to LED4a"
+					"value": "LJ2 to LJ4, the LED feeds LED2a to LED4a"
 				}
 			],
 			"sheet_qty": {
@@ -30445,7 +30445,7 @@
 				},
 				{
 					"label": "Used on",
-					"value": "The two joints between the barrel socket's wires and the Dupont cable, LJ1 to LJ3, the two between the moulded barrel plug's leads and the wire of the board's 24 V lead, PWR1, and the two between the moulded barrel plug's leads and the buck converter's input wires, PWR3"
+					"value": "The two joints between the barrel socket's wires and the Dupont cable, LJ2 to LJ4, the two between the moulded barrel plug's leads and the wire of the board's 24 V lead, PWR1, and the two between the moulded barrel plug's leads and the buck converter's input wires, PWR3"
 				}
 			],
 			"sheet_qty": {

@@ -139,6 +139,8 @@ sections:
             url: /hardware/helpers/chute-stepper-lead/
           - title: Make the chute limit switch lead (LIM1)
             url: /hardware/helpers/limit-switch-lead/
+          - title: Labelling the cables
+            url: /hardware/helpers/cable-labels/
       - title: Parts
         url: /hardware/parts/
         children:

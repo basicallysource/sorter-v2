@@ -183,6 +183,10 @@ Leave the sleeving loose enough to bend, and do not strap it down so tightly tha
 When the lead is on the machine, strap it to the frame a short way back from the plug and from the motor, and leave a little slack at the plug and at the splices. Use hook-and-loop straps rather than zip ties, so the lead can come loose when you take the machine apart: see [securing the cables]({{ '/hardware/electronics/connecting/' | relative_url }}#securing-the-cables).
 
 
+## Label the cable
+
+Put a label with the ID (`CHU1`) at the board end only, close to the housing. The other end is spliced to the motor. The printable labels and the Brother label printer files are on [Labelling the cables]({{ '/hardware/helpers/cable-labels/' | relative_url }}).
+
 ## The finished result
 
 One lead (`CHU1`): the motor with a 24 AWG (0.20 mm²) tail spliced onto its four thick leads, ending in a 4-pin PHR-4 with each coil on one pair of positions.

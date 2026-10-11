@@ -70,6 +70,10 @@ The crimp is the part that takes care. Do one lead at a time. The leads are 18 A
   </figure>
 </div>
 
+## Label the cable
+
+Put a label with the ID (`PSU1` to `PSU3`) on both ends, close to the connector. Do it before the pigtails go into the PSU box, while both ends are in reach. The printable labels and the Brother label printer files are on [Labelling the cables]({{ '/hardware/helpers/cable-labels/' | relative_url }}).
+
 ## The finished result
 
 Three pigtails (`PSU1` to `PSU3`), each a panel-mount jack with a fork terminal crimped on both of its leads.

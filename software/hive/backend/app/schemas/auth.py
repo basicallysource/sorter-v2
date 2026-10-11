@@ -28,6 +28,7 @@ class UserResponse(BaseModel):
     preferred_teacher_model: str | None = None
     role: str
     is_active: bool
+    share_activity: bool = False
     created_at: datetime
 
     model_config = {"from_attributes": True}
@@ -48,6 +49,7 @@ class UpdateProfileRequest(BaseModel):
     clear_perceptron_api_key: bool = False
     preferred_ai_model: str | None = None
     preferred_teacher_model: str | None = None
+    share_activity: bool | None = None
 
 
 class AdminUpdateUserRequest(BaseModel):

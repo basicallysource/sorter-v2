@@ -39,7 +39,7 @@ parts_needed:
 
 <div class="prep-item">
   <div class="prep-item-body">
-    <p><strong>Make three <a href="{{ '/hardware/helpers/psu-pigtail/' | relative_url }}">PSU output pigtails</a> (<code>PJ1</code> to <code>PJ3</code>) before you start.</strong> Each is a panel-mount barrel jack with a fork terminal crimped onto each of its two leads, and they are commonly sold with the leads already on. That page builds them; step 1 here fits and wires them.</p>
+    <p><strong>Make three <a href="{{ '/hardware/helpers/psu-pigtail/' | relative_url }}">PSU output pigtails</a> (<code>PSU1</code> to <code>PSU3</code>) before you start.</strong> Each is a panel-mount barrel jack with a fork terminal crimped onto each of its two leads, and they are commonly sold with the leads already on. That page builds them; step 1 here fits and wires them.</p>
   </div>
   <figure class="prep-item-figure">
     <img class="doc-figure" src="https://assets.basically.website/sorter-docs/harness-psu-pigtail-built-w1600-59554dc6b189.jpg" alt="An assembled PSU output pigtail: a panel-mount barrel jack with red and black 18 AWG (0.82 mm²) leads, each ending in an insulated fork terminal">
@@ -142,7 +142,7 @@ If you have been testing the inlet module on the bench, screw it into the panel 
 Hold the front panel up to the open end of the tray, close enough that its leads reach, and land them all:
 
 <ol class="numbered-steps">
-  <li><b>The three pigtails (<code>PJ1</code> to <code>PJ3</code>)</b>, one per <b>+V/-V</b> pair: <b>7 with 4, 8 with 5, 9 with 6</b>, the red terminal on the +V screw and the black on the -V screw of the same pair. Each pigtail must keep to one pair.</li>
+  <li><b>The three pigtails (<code>PSU1</code> to <code>PSU3</code>)</b>, one per <b>+V/-V</b> pair: <b>7 with 4, 8 with 5, 9 with 6</b>, the red terminal on the +V screw and the black on the -V screw of the same pair. Each pigtail must keep to one pair.</li>
   <li><b>The inlet's three leads</b>: <b>live on 1</b> (AC/L), <b>neutral on 2</b> (AC/N), <b>earth on 3</b>. The earth lead is the green-yellow one.</li>
 </ol>
 
@@ -158,7 +158,7 @@ Hold the front panel up to the open end of the tray, close enough that its leads
 For each one: back the screw off a few turns, slide the fork terminal in under it, and tighten it down. Mean Well's figure for these M3.5 screws is 8 to 10 kgf&middot;cm, about 0.8 to 1.0 N&middot;m, which is firm rather than hard. Tug-test each terminal once it is down.
 
 <figure class="harness-figure">
-  <img src="https://assets.basically.website/sorter-docs/psu-box-terminal-map-full-81629ce6a8e1.png" alt="Diagram of the Mean Well LRS-350-24 seen from above, its nine-way terminal block down the left edge numbered 1 at the bottom to 9 at the top, the numbers being Mean Well's own and printed on the supply. Red leads run from screws 9, 8 and 7 and black leads from 6, 5 and 4, pairing 9 with 6, 8 with 5 and 7 with 4 into three barrel jacks labelled PJ3 to the Orange Pi buck, PJ2 to the powered USB hub, and PJ1 to the basically board. Below them the IEC C14 inlet switch module is drawn upright with its illuminated rocker, fuse drawer and C14 socket, and its three factory leads run to screws 1, 2 and 3, labelled AC/L, AC/N and earth: red to screw 1 as the live, blue to screw 2 as the neutral, and yellow to screw 3 as the earth. A warning band says not to plug a cable into the IEC inlet until the assembly is complete, the wiring is verified and the cap is on.">
+  <img src="https://assets.basically.website/sorter-docs/psu-box-terminal-map-full-81629ce6a8e1.png" alt="Diagram of the Mean Well LRS-350-24 seen from above, its nine-way terminal block down the left edge numbered 1 at the bottom to 9 at the top, the numbers being Mean Well's own and printed on the supply. Red leads run from screws 9, 8 and 7 and black leads from 6, 5 and 4, pairing 9 with 6, 8 with 5 and 7 with 4 into three barrel jacks labelled PSU3 to the Orange Pi buck, PSU2 to the powered USB hub, and PSU1 to the basically board. Below them the IEC C14 inlet switch module is drawn upright with its illuminated rocker, fuse drawer and C14 socket, and its three factory leads run to screws 1, 2 and 3, labelled AC/L, AC/N and earth: red to screw 1 as the live, blue to screw 2 as the neutral, and yellow to screw 3 as the earth. A warning band says not to plug a cable into the IEC inlet until the assembly is complete, the wiring is verified and the cap is on.">
   <figcaption>Every lead that lands on the block, and the screw it lands on. The red and blue drawn at the bottom are one module's: check which of yours is live rather than copying the colours. <cite>Drawn from the Mean Well LRS-350 spec sheet, the inlet's catalog entry and the harness drawings.</cite></figcaption>
 </figure>
 

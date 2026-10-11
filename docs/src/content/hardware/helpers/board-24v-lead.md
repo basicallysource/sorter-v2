@@ -1,11 +1,11 @@
 ---
 layout: default
-title: Make the control board's 24 V lead (W1)
+title: Make the control board's 24 V lead (PWR1)
 type: how-to
 section: hardware
 slug: helper-board-24v-lead
-kicker: Helpers — Control board 24 V lead (W1)
-lede: The lead (W1) that powers basically board v1.3, a barrel plug at the PSU end and a JST-VH housing crimped on at the board end. One per machine.
+kicker: Helpers — Control board 24 V lead (PWR1)
+lede: The lead (PWR1) that powers basically board v1.3, a barrel plug at the PSU end and a JST-VH housing crimped on at the board end. One per machine.
 permalink: /hardware/helpers/board-24v-lead/
 author: effreek
 contributors: [spencer, brickcyclealice, barthel]
@@ -27,10 +27,10 @@ parts_needed:
 tools_needed: ["Side cutters, to cut the pair to length", "Wire strippers, for 18 AWG (0.82 mm²) wire", "Crimping pliers for open-barrel contacts, with a die for 22 to 16 AWG (0.33 to 1.3 mm²), for the VH contacts", "Insulated-terminal crimping pliers with a die for 22 to 16 AWG (0.33 to 1.3 mm²) wire, for the butt connectors on a moulded plug", "Multimeter, to find the tip and to check the finished lead", "A small screwdriver, only for a screw-terminal plug", "Only if you solder a moulded plug's leads instead of crimping them: a soldering iron, solder and adhesive-lined heat shrink (see Getting started)", "Optional, for the sleeving: scissors and tape, or a hot knife"]
 ---
 
-This is the control board's 24 V lead (`W1`) on the [harness drawings]({{ '/hardware/parts/harness-order/#board-power' | relative_url }}). It runs from one of the three jacks on the [PSU box]({{ '/hardware/electronics/installation/psu-box/' | relative_url }}) to `J1`, the 24 V input on the control board. **One per machine.**
+This is the control board's 24 V lead (`PWR1`) on the [harness drawings]({{ '/hardware/parts/harness-order/#board-power' | relative_url }}). It runs from one of the three jacks on the [PSU box]({{ '/hardware/electronics/installation/psu-box/' | relative_url }}) to `J1`, the 24 V input on the control board. **One per machine.**
 
 <div class="callout">
-  <p><b>This is the one 24 V lead nobody sells ready made.</b> No stock cable has a barrel plug with a JST-VH housing on the other end, so either have a cable assembly vendor make it as part of the <a href="{{ '/hardware/parts/harness-order/' | relative_url }}">harness order</a>, or make it yourself with this page. The other two 24 V leads need no JST housing: one is a barrel plug on the buck converter's wires (<code>W3</code>), the other a barrel plug screwed into the USB hub (<code>W2</code>).</p>
+  <p><b>This is the one 24 V lead nobody sells ready made.</b> No stock cable has a barrel plug with a JST-VH housing on the other end, so either have a cable assembly vendor make it as part of the <a href="{{ '/hardware/parts/harness-order/' | relative_url }}">harness order</a>, or make it yourself with this page. The other two 24 V leads need no JST housing: one is a barrel plug on the buck converter's wires (<code>PWR3</code>), the other a barrel plug screwed into the USB hub (<code>PWR2</code>).</p>
 </div>
 
 ## The two ends
@@ -49,8 +49,8 @@ This is the control board's 24 V lead (`W1`) on the [harness drawings]({{ '/hard
 ## Build it
 
 <figure class="single-figure">
-  <img class="doc-figure" src="https://assets.basically.website/sorter-docs/w1-24v-lead-pin1-diagram-full-284f502e161c.png" alt="Diagram of the finished lead, left to right: a barrel plug with two short leads, red and black, each joined to the 18 AWG pair by a butt connector, the two connectors staggered; the pair, 914 mm end to end; and two VH contacts in a two-position VHR-2 housing, red in pin 1 for +24 V and black in pin 2 for ground.">
-  <figcaption>The finished lead (<code>W1</code>), with a moulded plug. A screw-terminal plug has no butt connectors: the pair's wires go straight under its screws.</figcaption>
+  <img class="doc-figure" src="https://assets.basically.website/sorter-docs/pwr1-24v-lead-pin1-diagram-full-652292fec346.png" alt="Diagram of the finished lead, left to right: a barrel plug with two short leads, red and black, each joined to the 18 AWG pair by a butt connector, the two connectors staggered; the pair, 914 mm end to end; and two VH contacts in a two-position VHR-2 housing, red in pin 1 for +24 V and black in pin 2 for ground.">
+  <figcaption>The finished lead (<code>PWR1</code>), with a moulded plug. A screw-terminal plug has no butt connectors: the pair's wires go straight under its screws.</figcaption>
 </figure>
 
 <ol class="numbered-steps">
@@ -123,9 +123,9 @@ Leave the sleeving loose enough to bend, and do not tie it down so tightly that 
 
 ## The finished result
 
-One lead (`W1`), 920 mm (36 in), with a barrel plug at one end and a 2-pin JST-VH housing at the other.
+One lead (`PWR1`), 920 mm (36 in), with a barrel plug at one end and a 2-pin JST-VH housing at the other.
 
-<div class="img-placeholder">Image coming: the finished W1 lead laid out straight, the barrel plug at one end and the VHR-2 at the other, both ends in the frame</div>
+<div class="img-placeholder">Image coming: the finished PWR1 lead laid out straight, the barrel plug at one end and the VHR-2 at the other, both ends in the frame</div>
 
 ## Where it goes
 
@@ -133,4 +133,4 @@ Onto `J1` at [connecting the components]({{ '/hardware/electronics/connecting/' 
 
 ## Reference
 
-The drawing for this lead (`W1`), its bill of materials and its downloads are on the [WireViz drawings]({{ '/hardware/parts/harness-order/#board-power' | relative_url }}) page.
+The drawing for this lead (`PWR1`), its bill of materials and its downloads are on the [WireViz drawings]({{ '/hardware/parts/harness-order/#board-power' | relative_url }}) page.

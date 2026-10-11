@@ -437,6 +437,9 @@ def update_profile(
         normalized_teacher = data.preferred_teacher_model.strip()
         current_user.preferred_teacher_model = normalized_teacher or None
 
+    if data.share_activity is not None:
+        current_user.share_activity = data.share_activity
+
     if data.new_password is not None:
         if len(data.new_password) < 8:
             raise APIError(400, "New password must be at least 8 characters", "PASSWORD_TOO_SHORT")

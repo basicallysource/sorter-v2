@@ -3,7 +3,7 @@ from contextlib import asynccontextmanager
 
 from fastapi import Depends, FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from slowapi import Limiter, _rate_limit_exceeded_handler
+from slowapi import Limiter
 from slowapi.errors import RateLimitExceeded
 from slowapi.util import get_remote_address
 
@@ -13,6 +13,7 @@ from sqlalchemy.orm import Session
 from app.config import settings
 from app.deps import get_db
 from app.errors import APIError, api_error_handler, http_exception_handler, unhandled_exception_handler
+from app.rate_limiting import rate_limit_exceeded_handler
 from app.routers import (
     admin,
     admin_parts,
@@ -55,6 +56,7 @@ from app.services.candidate_matview import get_candidate_matview_worker
 from app.services.default_profiles import start_default_profiles_thread
 from app.services.condition_worker import get_condition_worker
 from app.services.fleet_mass import get_fleet_mass_worker
+from app.services.fleet_records import get_fleet_records_worker
 from app.services.machine_stats import get_machine_stats_worker
 from app.services.server_health import get_memory_log_worker, get_storage_stats_worker
 from app.services.teacher_worker import get_teacher_worker
@@ -94,6 +96,7 @@ async def lifespan(_app: FastAPI):
     get_condition_worker().start()
     get_machine_stats_worker().start()
     get_fleet_mass_worker().start()
+    get_fleet_records_worker().start()
     get_storage_stats_worker().start()
     get_memory_log_worker().start()  # diagnostic, delete with the 2026-08 leak
     get_candidate_matview_worker().start()
@@ -107,6 +110,7 @@ async def lifespan(_app: FastAPI):
         get_condition_worker().stop()
         get_machine_stats_worker().stop()
         get_fleet_mass_worker().stop()
+        get_fleet_records_worker().stop()
         get_storage_stats_worker().stop()
         get_memory_log_worker().stop()
         service = get_existing_profile_catalog_service()
@@ -128,7 +132,7 @@ app.add_middleware(
 app.add_exception_handler(APIError, api_error_handler)
 app.add_exception_handler(HTTPException, http_exception_handler)
 app.add_exception_handler(Exception, unhandled_exception_handler)
-app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+app.add_exception_handler(RateLimitExceeded, rate_limit_exceeded_handler)
 
 app.include_router(auth.router)
 app.include_router(admin.router)

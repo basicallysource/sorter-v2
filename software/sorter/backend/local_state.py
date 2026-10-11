@@ -18,7 +18,6 @@ STATE_KEY_MACHINE_ID = "machine_id"
 STATE_KEY_SORTING_PROFILE_SYNC = "sorting_profile_sync"
 _STATE_KEY_CHANNEL_POLYGONS = "channel_polygons"
 _STATE_KEY_CLASSIFICATION_POLYGONS = "classification_polygons"
-_STATE_KEY_CLASSIFICATION_TRAINING = "classification_training"
 _STATE_KEY_HIVE = "hive"
 _STATE_KEY_API_KEYS = "api_keys"
 _STATE_KEY_SERVO_STATES = "servo_states"
@@ -26,6 +25,7 @@ _STATE_KEY_SET_PROGRESS = "set_progress"
 _STATE_KEY_UI_THEME_COLOR_ID = "ui_theme_color_id"
 _STATE_KEY_TAILSCALE_HOSTNAME = "tailscale_hostname"
 _STATE_KEY_SAMPLE_COLLECTION = "sample_collection"
+_STATE_KEY_HIVE_LIMITS = "hive_limits"
 _STATE_KEY_TELEMETRY_INSTALL = "telemetry_install"
 _STATE_KEY_LEDS = "leds"
 _STATE_KEY_BASICALLY_SERVICES = "basically_services"
@@ -246,20 +246,21 @@ def set_classification_polygons(polygons: dict[str, Any]) -> None:
     _write_state(_STATE_KEY_CLASSIFICATION_POLYGONS, dict(polygons))
 
 
-def get_classification_training_state() -> dict[str, Any] | None:
-    return _read_dict(_STATE_KEY_CLASSIFICATION_TRAINING)
-
-
-def set_classification_training_state(state: dict[str, Any] | None) -> None:
-    _write_state(_STATE_KEY_CLASSIFICATION_TRAINING, _without_none_values(state))
-
-
 def get_sample_collection_state() -> dict[str, Any] | None:
     return _read_dict(_STATE_KEY_SAMPLE_COLLECTION)
 
 
 def set_sample_collection_state(state: dict[str, Any] | None) -> None:
     _write_state(_STATE_KEY_SAMPLE_COLLECTION, _without_none_values(state))
+
+
+def get_hive_limits_state() -> dict[str, Any] | None:
+    # {target_id: {"limits": {...}, "received_at": epoch}}; see hive_limits.py.
+    return _read_dict(_STATE_KEY_HIVE_LIMITS)
+
+
+def set_hive_limits_state(state: dict[str, Any] | None) -> None:
+    _write_state(_STATE_KEY_HIVE_LIMITS, state or None)
 
 
 def get_hive_config() -> dict[str, Any] | None:

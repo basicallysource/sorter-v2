@@ -72,7 +72,7 @@ from app.models.machine import Machine
 from app.models.machine_piece import MachinePiece
 from app.models.user import User
 from app.models.user_identity import UserIdentity
-from app.services import analytics, fleet_mass, leaderboard, machine_stats
+from app.services import analytics, fleet_mass, fleet_records, leaderboard, machine_stats
 
 router = APIRouter(prefix="/api/public", tags=["public-stats"])
 
@@ -199,9 +199,16 @@ def _roster(db: Session) -> dict:
     assembled by its own query would eventually disagree with this one about
     how many machines exist, and two endpoints disagreeing about the size of
     the fleet is worse than either being slightly wrong.
+
+    Each row carries `owner_shares_activity`, the owner's opt-in to a live
+    activity listing. It is the owner's own setting and not something the
+    roster infers, it is off unless they turned it on, and off means a consumer
+    must leave that machine out of any "who is sorting right now" view. The
+    roster itself still lists every machine, so the counts do not move with the
+    opt-in; `/fleet/anon` projects its fields by name, so the opt-in is not in it.
     """
     rows = (
-        db.query(Machine, UserIdentity)
+        db.query(Machine, UserIdentity, User.share_activity)
         .outerjoin(
             UserIdentity,
             and_(
@@ -209,17 +216,18 @@ def _roster(db: Session) -> dict:
                 UserIdentity.provider == "discord",
             ),
         )
+        .outerjoin(User, User.id == Machine.owner_id)
         .filter(Machine.archived_at.is_(None))
         .order_by(Machine.created_at)
         .all()
     )
-    ids = [machine.id for machine, _ in rows]
+    ids = [machine.id for machine, _, _ in rows]
     lifetime = machine_stats.get_fleet_stats(db)
     recent = _pieces_by_machine_since(db, ids, hours=24)
     this_hour = _pieces_by_machine_since(db, ids, hours=1)
     this_month = _pieces_by_machine_since(db, ids, hours=24 * 30)
     machines = []
-    for machine, identity in rows:
+    for machine, identity, shares_activity in rows:
         mid = str(machine.id)
         stats_row = lifetime.get(mid, {})
         pieces_seen = int(stats_row.get("pieces_seen") or 0)
@@ -238,9 +246,20 @@ def _roster(db: Session) -> dict:
                 "pieces_seen": pieces_seen,
                 "distributed": int(stats_row.get("distributed") or 0),
                 "overall_ppm": float(stats_row.get("overall_ppm") or 0.0),
+                # Distinct parts and colors this machine has identified, from
+                # the same hourly cache as pieces_seen.
+                "unique_parts": int(stats_row.get("unique_parts") or 0),
+                "unique_colors": int(stats_row.get("unique_colors") or 0),
                 "last_24h_pieces": recent.get(mid, 0),
                 "last_hour_pieces": this_hour.get(mid, 0),
                 "last_30d_pieces": this_month.get(mid, 0),
+                # The owner's opt-in to a live activity listing (users.share_activity).
+                # Off is the default, and it means "leave this machine out of any
+                # live activity listing": a consumer that shows which machines are
+                # sorting right now must skip every row where this is false. It is
+                # the owner's choice, set on their Hive account settings, and false
+                # when the machine has no owner row to ask.
+                "owner_shares_activity": bool(shares_activity),
                 "owner_discord": None
                 if identity is None
                 else {
@@ -363,6 +382,22 @@ def get_public_fleet_mass(db: Session = Depends(get_db)):
     asks, and it costs it nothing to ask.
     """
     return fleet_mass.latest()
+
+
+@router.get("/fleet/records", dependencies=[Depends(require_fleet_key)])
+def get_public_fleet_records():
+    """What a leaderboard needs beyond the roster's counters: each machine's
+    speed over the last day and month (and the day's double feeds), which
+    machine processed each of the fleet's milestone pieces, the first machine
+    to reach each milestone on its own, and the newest parts and colors the
+    fleet had never seen before.
+
+    In the identified tier because every answer is keyed by machine id, which
+    `/fleet` turns into a name and an owner. Served from the worker's last pass
+    and never computed here — see `services/fleet_records.py`, which also says
+    why a milestone, once answered, does not change.
+    """
+    return fleet_records.latest()
 
 
 def _pieces_by_machine_since(db: Session, ids: list, *, hours: int) -> dict[str, int]:

@@ -82,10 +82,10 @@ There are two kinds. The long one (1.2 to 1.5 m, called `RIB1`) runs from the co
 The layer adapter board is the in-house board with one servo on it. It has two identical ribbon sockets, `J3` for the cable coming in and `J4` for the cable going on to the next layer, and a 3-pin header `J5` for the layer's servo. Its job is to give this layer's servo its own signal, and to pass everything else on.
 
 <ul class="bulleted-list">
-  <li><strong>Power and ground pass straight through.</strong> The three power wires and the three ground wires on `J3` are connected to the same ones on `J4`, so every layer gets the 6.5 V.</li>
-  <li><strong>The first signal goes to the servo.</strong> Of the ten signals on `J3`, the first one is joined to the servo header `J5`, through a 0 Ω resistor, which is only a link that can be removed or swapped. A 10 kΩ resistor to ground keeps that wire at 0 V whenever nothing is driving it.</li>
-  <li><strong>The other nine signals move up one place.</strong> They pass to `J4`, each one position earlier than it came in. So the second signal on the cable arrives at the next board as its first signal, and that board sends it to its own servo.</li>
-  <li><strong>The end of the chain is held low.</strong> That shift leaves one empty place at the end of `J4`. A solder jumper, `JP1`, which is bridged, ties it to ground.</li>
+  <li><strong>Power and ground pass straight through.</strong> The three power wires and the three ground wires on <code>J3</code> are connected to the same ones on <code>J4</code>, so every layer gets the 6.5 V.</li>
+  <li><strong>The first signal goes to the servo.</strong> Of the ten signals on <code>J3</code>, the first one is joined to the servo header <code>J5</code>, through a 0 Ω resistor, which is only a link that can be removed or swapped. A 10 kΩ resistor to ground keeps that wire at 0 V whenever nothing is driving it.</li>
+  <li><strong>The other nine signals move up one place.</strong> They pass to <code>J4</code>, each one position earlier than it came in. So the second signal on the cable arrives at the next board as its first signal, and that board sends it to its own servo.</li>
+  <li><strong>The end of the chain is held low.</strong> That shift leaves one empty place at the end of <code>J4</code>. A solder jumper, <code>JP1</code>, which is bridged, ties it to ground.</li>
   <li><strong>Capacitors smooth the power.</strong> A 100 µF, a 1 µF and a 100 nF capacitor sit across the 6.5 V, to smooth that supply.</li>
 </ul>
 

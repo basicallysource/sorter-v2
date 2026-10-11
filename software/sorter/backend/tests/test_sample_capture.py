@@ -238,7 +238,7 @@ class SyncSamplesTests(_StateTestCase):
         syncer._client = client
         syncer._gate = hs._ConcurrencyGate(1, 1, lambda: False)
         syncer._stop = threading.Event()
-        syncer._samples_unsupported = False
+        syncer._samples_unsupported_until = 0.0
         syncer._budget = hs._UploadBudget()
         syncer._budget.setLimits(10_000_000, 1000)
         syncer._wm = {data_type: 0 for data_type in hs.DATA_TYPES}
@@ -287,11 +287,17 @@ class SyncSamplesTests(_StateTestCase):
             pass
         self.assertEqual(2, len(client.pushed))
 
-    def test_hive_without_the_route_turns_the_leg_off(self) -> None:
+    def test_hive_without_the_route_turns_the_leg_off_for_a_while(self) -> None:
         self._write(1)
-        syncer = self._syncer(_FakeClient(error=_http_error(404)))
+        client = _FakeClient(error=_http_error(404))
+        syncer = self._syncer(client)
         self.assertFalse(self._drain(syncer))
-        self.assertTrue(syncer._samples_unsupported)
+        self.assertGreater(syncer._samples_unsupported_until, time.monotonic())
+        client.error = None
+        self.assertFalse(self._drain(syncer))  # still off
+        syncer._samples_unsupported_until = time.monotonic() - 1  # the retry time has come
+        self.assertTrue(self._drain(syncer))
+        self.assertEqual([1], [meta["local_id"] for meta in client.pushed])
 
     def test_retry_after_sets_the_backoff(self) -> None:
         syncer = self._syncer(_FakeClient())

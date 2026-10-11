@@ -100,7 +100,7 @@ The lab sits one level below the end-user-facing sections. Content lands here wh
 
 <ul class="bulleted-list">
   <li>it's a <strong>contributor reference</strong> the rest of the project builds on but that an operator would never need to read (the software architecture decisions);</li>
-  <li>it <strong>explains how the machine is designed</strong>, in a bird's-eye view, for someone who is curious about it and not building from it (the design pages above);</li>
+  <li>it <strong>explains how the machine is designed</strong>, as an overview, for someone who is curious about it and not building from it (the design pages above);</li>
   <li>it records a <strong>variant</strong> that somebody has built or is trying, and that is not part of the standard build (the tested variants page);</li>
   <li>it's an <strong>active research thread</strong> where we're still validating conclusions, and the findings aren't ready to be promoted into a stable hardware or SorterOS docs page (the object detection work).</li>
 </ul>

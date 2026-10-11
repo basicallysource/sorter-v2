@@ -10,7 +10,10 @@ permalink: /lab/orange-pi/
 audience: curious builder or contributor
 applies_to: hardware-v2
 owner: docs
-last_verified: 2026-10-11
+warning: >-
+  **AI-generated first draft.** Written from the Pico firmware, the control program and the board's
+  KiCad files, not from an actual build. The part names, pins and numbers are read from those files and
+  have not been checked against a built machine.
 ---
 
 The Orange Pi 5 is the machine's computer. It runs the machine's software: the control program (the backend), the web page you use to operate the machine, the camera processing, and the AI models that find and identify pieces. It has no screen or keyboard in the machine: you reach it from a browser on another device. Almost everything it talks to arrives over one USB cable, because the cameras and the Pico all sit behind a powered USB hub.

@@ -5,12 +5,15 @@ type: explanation
 section: lab
 slug: lab-servos
 kicker: Lab — Electronics
-lede: How the chute doors are moved: the servo chip on the control board, the ribbon cable down the stack, and what each layer's adapter board does.
+lede: "How the chute doors are moved: the servo chip on the control board, the ribbon cable down the stack, and what each layer's adapter board does."
 permalink: /lab/servos/
 audience: curious builder or contributor
 applies_to: hardware-v2
 owner: docs
-last_verified: 2026-10-11
+warning: >-
+  **AI-generated first draft.** Written from the Pico firmware, the control program and the board's
+  KiCad files, not from an actual build. The part names, pins and numbers are read from those files and
+  have not been checked against a built machine.
 ---
 
 Every distribution layer has a door. When the chute has turned to the right column of bins, the door of the right layer opens and the piece drops into the bin below it. One **servo** opens and closes each door. A servo is a motor that turns to an angle you tell it, and holds there, instead of turning round and round like the [stepper motors]({{ '/lab/motors/' | relative_url }}). It is told the angle by a signal, a stream of pulses, where the length of each pulse sets the angle.

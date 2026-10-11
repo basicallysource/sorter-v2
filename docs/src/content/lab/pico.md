@@ -10,7 +10,10 @@ permalink: /lab/pico/
 audience: curious builder or contributor
 applies_to: hardware-v2
 owner: docs
-last_verified: 2026-10-11
+warning: >-
+  **AI-generated first draft.** Written from the Pico firmware, the control program and the board's
+  KiCad files, not from an actual build. The part names, pins and numbers are read from those files and
+  have not been checked against a built machine.
 ---
 
 The Pico is a Raspberry Pi Pico, a small board with a microcontroller on it (a tiny computer that runs one program and nothing else). It plugs into headers on the control board, which is the **basically board v1.3** this page describes. The program stored inside the Pico (the firmware) is deliberately simple. It makes the pulses that move the stepper motors, switches outputs on and off, and reads inputs. Everything that decides what to do runs on the Orange Pi, the machine's computer, which sends the Pico short commands.
@@ -40,9 +43,9 @@ This page is the list of what connects to the Pico and which pin each connection
   <tbody>
     <tr><td>Chute stepper: STEP / DIR / DIAG</td><td>GP28 / GP27 / GP12</td></tr>
     <tr><td>C1 rotor stepper: STEP / DIR / DIAG</td><td>GP26 / GP22 / GP13</td></tr>
+    <tr><td>C2 rotor stepper: STEP / DIR / DIAG</td><td>GP8 / GP7 / GP9</td></tr>
     <tr><td>C3 rotor stepper: STEP / DIR / DIAG</td><td>GP21 / GP20 / GP14</td></tr>
     <tr><td>Carousel (classification channel) stepper: STEP / DIR / DIAG</td><td>GP19 / GP18 / GP15</td></tr>
-    <tr><td>C2 rotor stepper: STEP / DIR / DIAG</td><td>GP8 / GP7 / GP9</td></tr>
     <tr><td>Driver enable, shared by all five</td><td>GP0</td></tr>
     <tr><td>Driver UART, drivers 1 to 4 (chute, C1, C3, carousel)</td><td>GP16 (TX), GP17 (RX)</td></tr>
     <tr><td>Driver UART, driver 5 (C2)</td><td>GP4 (TX), GP5 (RX)</td></tr>
@@ -56,7 +59,7 @@ In this table, GP and a number (for example GP28) name one pin on the Pico. STEP
 
 The full circuit is the board's schematic: <a href="https://assets.basically.website/sorter-docs/basically-board-v1-3-schematic-1a2945526770.pdf">basically board v1.3 schematic (PDF)</a>, drawn from <a href="https://github.com/basicallysource/sorter-v2/tree/main/electronics/KiCad/1_Distribution_Board">the KiCad project</a>, which is the file to open if you want to edit or export it yourself.
 
-The pin map is the file [`hwcfg_basically_v1_2.h`](https://github.com/basicallysource/sorter-v2/blob/main/software/firmware/sorter_interface_firmware/hwcfg_basically_v1_2.h), and that file is the one to trust if this table and the firmware ever disagree. The v1.3 board uses the file named `v1_2`. Other boards have their own file next to it: [`hwcfg_skr_pico.h`](https://github.com/basicallysource/sorter-v2/blob/main/software/firmware/sorter_interface_firmware/hwcfg_skr_pico.h) for the BigTreeTech SKR Pico and [`hwcfg_basically_v1_1.h`](https://github.com/basicallysource/sorter-v2/blob/main/software/firmware/sorter_interface_firmware/hwcfg_basically_v1_1.h) for the earlier board.
+The pin map is the file [`hwcfg_basically_v1_2.h`](https://github.com/basicallysource/sorter-v2/blob/main/software/firmware/sorter_interface_firmware/hwcfg_basically_v1_2.h), and that file is the one to trust if this table and the firmware ever disagree. The v1.3 board uses the file named `v1_2`; that is correct, not a mistake. Other boards have their own file next to it: [`hwcfg_skr_pico.h`](https://github.com/basicallysource/sorter-v2/blob/main/software/firmware/sorter_interface_firmware/hwcfg_skr_pico.h) for the BigTreeTech SKR Pico and [`hwcfg_basically_v1_1.h`](https://github.com/basicallysource/sorter-v2/blob/main/software/firmware/sorter_interface_firmware/hwcfg_basically_v1_1.h) for the earlier board.
 
 <ul class="bulleted-list">
   <li>Fitting the Pico's headers: <a href="{{ '/hardware/helpers/pico-headers/' | relative_url }}">Pico headers</a></li>

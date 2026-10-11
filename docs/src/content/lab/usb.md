@@ -10,7 +10,10 @@ permalink: /lab/usb/
 audience: curious builder or contributor
 applies_to: hardware-v2
 owner: docs
-last_verified: 2026-10-10
+warning: >-
+  **AI-generated first draft.** Written from the Pico firmware, the control program and the board's
+  KiCad files, not from an actual build. The part names, pins and numbers are read from those files and
+  have not been checked against a built machine.
 ---
 
 Everything the Orange Pi talks to over USB goes through one powered hub. The Orange Pi has a single cable to the hub, and the Pico and the three cameras plug into the hub. This page describes that tree and how the software finds each device on it. What else the Orange Pi is connected to is on [What is connected to the Orange Pi]({{ '/lab/orange-pi/' | relative_url }}), and what the Pico is connected to is on [What is connected to the Pico]({{ '/lab/pico/' | relative_url }}). Which cable goes in which socket is on [Connecting the components]({{ '/hardware/electronics/connecting/' | relative_url }}).

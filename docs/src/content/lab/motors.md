@@ -10,7 +10,10 @@ permalink: /lab/motors/
 audience: curious builder or contributor
 applies_to: hardware-v2
 owner: docs
-last_verified: 2026-10-11
+warning: >-
+  **AI-generated first draft.** Written from the Pico firmware, the control program and the board's
+  KiCad files, not from an actual build. The part names, pins and numbers are read from those files and
+  have not been checked against a built machine.
 ---
 
 A stepper motor turns in small, fixed steps, one for each pulse it is sent. The machine has five. They turn the feeder rotors and the chute. The servos that open the chute doors are a different kind of motor, covered on [The servos and the layer adapter boards]({{ '/lab/servos/' | relative_url }}). The Orange Pi decides what to do, the Pico makes the pulses, and a driver chip next to each motor turns the pulses into current in the motor's coils (the wire windings that make it turn).
@@ -85,7 +88,7 @@ The earlier v1.1 board has no DIAG routing, so a setting on the Orange Pi turns 
 
 ## The chute stepper and its home position
 
-The chute stepper is channel 0. The Orange Pi homes it, meaning it turns the chute back to the limit switch (on [What is connected to the Pico]({{ '/lab/pico/' | relative_url }})) to find the known starting angle, and then turns it to the angle of a bin. The firmware counts the steps, and the Orange Pi works in degrees. A stalled chute loses its home position, so it has to be homed again before sorting continues.
+The Orange Pi homes the chute stepper, meaning it turns the chute back to the limit switch (on [What is connected to the Pico]({{ '/lab/pico/' | relative_url }})) to find the known starting angle, and then turns it to the angle of a bin. The firmware counts the steps, and the Orange Pi works in degrees. A stalled chute loses its home position, so it has to be homed again before sorting continues.
 
 <ul class="bulleted-list">
   <li>Chute homing and aiming, Orange Pi side: <a href="https://github.com/basicallysource/sorter-v2/blob/main/software/sorter/backend/subsystems/distribution/chute.py"><code>subsystems/distribution/chute.py</code></a></li>

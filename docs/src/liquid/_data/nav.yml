@@ -269,5 +269,8 @@ sections:
         pages:
           - title: Tested variants
             url: /lab/variants/
-          - title: Floating chute stack (concept)
-            url: /lab/floating-chute-stack/
+          - title: Concepts
+            url: /lab/concepts/
+            children:
+              - title: Floating chute stack
+                url: /lab/concepts/floating-chute-stack/

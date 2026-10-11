@@ -10,7 +10,7 @@ permalink: /lab/orange-pi/
 audience: curious builder or contributor
 applies_to: hardware-v2
 owner: docs
-last_verified: 2026-10-10
+last_verified: 2026-10-11
 ---
 
 The Orange Pi 5 is the machine's computer. It runs the machine's software: the control program (the backend), the web page you use to operate the machine, the camera processing, and the AI models that find and identify pieces. It has no screen or keyboard in the machine: you reach it from a browser on another device. Almost everything it talks to arrives over one USB cable, because the cameras and the Pico all sit behind a powered USB hub.
@@ -31,6 +31,8 @@ This page is the list of what connects to the Orange Pi and why. Power and USB e
 ## Network
 
 The Orange Pi has a fast (gigabit) Ethernet port and no WiFi of its own. The machine works with a network cable alone. For WiFi you fit the optional M.2 WiFi module, or plug in a Linux-compatible USB WiFi adapter.
+
+**The machine needs an internet connection to sort.** A cropped photo of each piece is sent to an online service, Brickognize, which identifies the part and its colour, and there is currently no way to sort without it. The photo is sent with no account and no machine identifier. The machine also sends a small status report to Basically once an hour. Every connection the machine can make, what each one carries and which ones can be turned off is listed on [What leaves the machine]({{ '/sorter/what-leaves-the-machine/' | relative_url }}).
 
 The network is how you use the machine at all. On first boot SorterOS opens a setup network called `SorterOS-Setup` plus six characters, you join it from a phone and pick your WiFi, and from then on the UI is at `sorter.local` on that network. SorterOS keeps a small file that describes the current network state. The control program reads it, so that the machine's page on Hive (the online service the machines can connect to) can link to the machine wherever it is on the network now.
 

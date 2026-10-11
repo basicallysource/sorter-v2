@@ -14,35 +14,6 @@ permalink: /lab/
   <p>This section is optional background. These pages give more detail about how the sorter works and why it is designed the way it is, and keep the research behind it. The build instructions in <a href="{{ '/hardware/' | relative_url }}">Hardware</a> do not depend on them. Read them if you are curious, want to repair or change something, or want to know what was tried before.</p>
 </div>
 
-## Research areas
-
-<div class="callout-grid">
-  <div class="callout">
-    <strong><a href="{{ '/lab/object-detection/' | relative_url }}">Object detection research</a></strong>
-    <p>Which detector runtimes we validated, where the canonical artifacts live, the cross-device benchmark workflow, and the Raspberry Pi 5 Hailo HEF compile path.</p>
-  </div>
-  <div class="callout">
-    <strong><a href="{{ '/lab/c-channel-singulation/' | relative_url }}">C-channel singulation</a></strong>
-    <p>How the sorter separates tangled LEGO into single pieces using rotating C-shaped channels — a novel approach with no known published precedent.</p>
-  </div>
-  <div class="callout">
-    <strong><a href="{{ '/lab/classification-research/' | relative_url }}">Classification research</a></strong>
-    <p>Embeddings vs classifiers, the Brickognize API, training data strategy, and why color detection avoids ML entirely.</p>
-  </div>
-  <div class="callout">
-    <strong><a href="{{ '/lab/feeder-experiments/' | relative_url }}">Feeder experiments</a></strong>
-    <p>Turntable, vibration, and chute experiments that preceded the C-channel design — what was tested, what failed, and what the data showed.</p>
-  </div>
-  <div class="callout">
-    <strong><a href="{{ '/lab/software-architecture-decisions/' | relative_url }}">Software architecture decisions</a></strong>
-    <p>Why the project uses a dumb-firmware / smart-host split, what alternatives were evaluated, and the design principles behind the stack.</p>
-  </div>
-  <div class="callout">
-    <strong><a href="https://github.com/basicallysource/sorter-v2/tree/main/software/sorter-design-system">Design system</a></strong>
-    <p>How the SorterOS UI, Hive, and this documentation site look and are built: the rules, and the components to copy. A contributor reference, run from the repository.</p>
-  </div>
-</div>
-
 ## How the machine is designed
 
 The design pages give the overall picture in a few lines, then link to the files that hold the detail. Links to the relevant parts are provided on every page, for people who want to dig deeper: the source code, the parts catalog, and the matching build and lab pages. You can ignore them if you only want the overview. Some of the pages use electronics and software words that you may not know. Where a word first appears, it is explained in the same sentence.
@@ -91,6 +62,35 @@ The design pages give the overall picture in a few lines, then link to the files
   <div class="callout">
     <strong><a href="{{ '/lab/variants/' | relative_url }}">Tested variants</a></strong>
     <p>Alternatives to the standard design that people have built or are trying, such as a belt feeder, printed C1 legs and an Orange Pi base without heat-set inserts.</p>
+  </div>
+</div>
+
+## Research areas
+
+<div class="callout-grid">
+  <div class="callout">
+    <strong><a href="{{ '/lab/object-detection/' | relative_url }}">Object detection research</a></strong>
+    <p>Which detector runtimes we validated, where the canonical artifacts live, the cross-device benchmark workflow, and the Raspberry Pi 5 Hailo HEF compile path.</p>
+  </div>
+  <div class="callout">
+    <strong><a href="{{ '/lab/c-channel-singulation/' | relative_url }}">C-channel singulation</a></strong>
+    <p>How the sorter separates tangled LEGO into single pieces using rotating C-shaped channels — a novel approach with no known published precedent.</p>
+  </div>
+  <div class="callout">
+    <strong><a href="{{ '/lab/classification-research/' | relative_url }}">Classification research</a></strong>
+    <p>Embeddings vs classifiers, the Brickognize API, training data strategy, and why color detection avoids ML entirely.</p>
+  </div>
+  <div class="callout">
+    <strong><a href="{{ '/lab/feeder-experiments/' | relative_url }}">Feeder experiments</a></strong>
+    <p>Turntable, vibration, and chute experiments that preceded the C-channel design — what was tested, what failed, and what the data showed.</p>
+  </div>
+  <div class="callout">
+    <strong><a href="{{ '/lab/software-architecture-decisions/' | relative_url }}">Software architecture decisions</a></strong>
+    <p>Why the project uses a dumb-firmware / smart-host split, what alternatives were evaluated, and the design principles behind the stack.</p>
+  </div>
+  <div class="callout">
+    <strong><a href="https://github.com/basicallysource/sorter-v2/tree/main/software/sorter-design-system">Design system</a></strong>
+    <p>How the SorterOS UI, Hive, and this documentation site look and are built: the rules, and the components to copy. A contributor reference, run from the repository.</p>
   </div>
 </div>
 

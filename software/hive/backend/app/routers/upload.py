@@ -2,8 +2,7 @@ import json
 from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, File, Form, Request, UploadFile
-from slowapi import Limiter
-from slowapi.util import get_remote_address
+from sqlalchemy import update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
@@ -13,6 +12,7 @@ from app.models.machine import Machine
 from app.models.sample import Sample
 from app.models.sample_channel_geometry import SampleChannelGeometry
 from app.models.upload_session import UploadSession
+from app.rate_limiting import machine_limiter
 from app.schemas.sample import SampleResponse
 from app.schemas.upload import UploadMetadata
 from app.services.sample_payloads import (
@@ -27,10 +27,12 @@ from app.services.sample_payloads import (
 )
 from app.services.image_hashing import compute_phash_bytes
 from app.services.image_stats import compute_exposure_stats_bytes
+from app.services.machine_presence import mark_machine_seen
 from app.services.storage import save_upload_file, validate_image
 
 router = APIRouter(prefix="/api/machine", tags=["upload"])
-limiter = Limiter(key_func=get_remote_address)
+# Keyed per machine token, not per address; shared with the sync routes.
+limiter = machine_limiter
 
 
 def _parse_upload_metadata(metadata: str) -> UploadMetadata:
@@ -124,15 +126,42 @@ def _build_channel_geometry(meta: UploadMetadata) -> SampleChannelGeometry | Non
     return row
 
 
-def _get_or_create_upload_session(db: Session, machine: Machine, meta: UploadMetadata) -> UploadSession:
-    session = (
+def _find_upload_session(db: Session, machine_id, source_session_id: str) -> UploadSession | None:
+    return (
         db.query(UploadSession)
         .filter(
-            UploadSession.machine_id == machine.id,
-            UploadSession.source_session_id == meta.source_session_id,
+            UploadSession.machine_id == machine_id,
+            UploadSession.source_session_id == source_session_id,
         )
         .first()
     )
+
+
+def _find_sample(db: Session, upload_session_id, local_sample_id: str) -> Sample | None:
+    return (
+        db.query(Sample)
+        .filter(
+            Sample.upload_session_id == upload_session_id,
+            Sample.local_sample_id == local_sample_id,
+        )
+        .first()
+    )
+
+
+def _count_sample_in_session(db: Session, upload_session_id, now: datetime) -> None:
+    """Add one to the session's sample count in SQL rather than in Python, so
+    two uploads into the same session at once cannot both read the old count
+    and lose one of the increments."""
+    db.execute(
+        update(UploadSession)
+        .where(UploadSession.id == upload_session_id)
+        .values(sample_count=UploadSession.sample_count + 1, last_upload_at=now)
+        .execution_options(synchronize_session=False)
+    )
+
+
+def _get_or_create_upload_session(db: Session, machine: Machine, meta: UploadMetadata) -> UploadSession:
+    session = _find_upload_session(db, machine.id, meta.source_session_id)
     if session:
         return session
 
@@ -146,14 +175,7 @@ def _get_or_create_upload_session(db: Session, machine: Machine, meta: UploadMet
         db.flush()
     except IntegrityError:
         db.rollback()
-        session = (
-            db.query(UploadSession)
-            .filter(
-                UploadSession.machine_id == machine.id,
-                UploadSession.source_session_id == meta.source_session_id,
-            )
-            .first()
-        )
+        session = _find_upload_session(db, machine.id, meta.source_session_id)
         if session is None:
             raise
     return session
@@ -220,13 +242,14 @@ def _attach_uploaded_assets(
     full_frame_content_type: str | None = None,
     overlay_path: str | None = None,
     overlay_content_type: str | None = None,
+    primary_kind: str = "crop",
 ) -> dict:
     preferred_view = payload.get("sample", {}).get("preferred_view")
     payload = upsert_asset(
         payload,
         asset_id=PRIMARY_IMAGE_ASSET_ID,
         stored_path=image_path,
-        kind="crop",
+        kind=primary_kind,
         role="primary",
         mime_type=image_content_type,
         view=preferred_view if isinstance(preferred_view, str) else None,
@@ -294,22 +317,23 @@ def upload_sample(
     machine: Machine = Depends(get_current_machine),
 ):
     meta = _parse_upload_metadata(metadata)
-    session = _get_or_create_upload_session(db, machine, meta)
 
-    # Idempotency check
-    existing = (
-        db.query(Sample)
-        .filter(
-            Sample.upload_session_id == session.id,
-            Sample.local_sample_id == meta.local_sample_id,
-        )
-        .first()
-    )
-    if existing:
-        db.commit()
-        return existing
+    # Idempotency check. Read-only, so a re-send is answered without writing
+    # anything.
+    session = _find_upload_session(db, machine.id, meta.source_session_id)
+    if session is not None:
+        existing = _find_sample(db, session.id, meta.local_sample_id)
+        if existing:
+            db.commit()
+            return existing
 
+    # Every file is checked before anything is written, and written before the
+    # transaction that records the sample, so no row stays locked while files
+    # travel to storage.
     ext = validate_image(image)
+    for optional_file in (full_frame, overlay):
+        if optional_file is not None and optional_file.filename:
+            validate_image(optional_file)
     # Read the upload bytes once, compute pHash + exposure stats from the
     # same buffer, then hand the rewound stream to save_upload_file. Saves
     # one decode pass vs. running each helper independently.
@@ -318,6 +342,14 @@ def upload_sample(
     image.file.seek(0)
     phash = compute_phash_bytes(image_bytes)
     exposure = compute_exposure_stats_bytes(image_bytes)
+
+    # The file keys hold the session id, so a new session is created first and
+    # committed on its own, a moment's transaction rather than one held open
+    # across the uploads below.
+    if session is None:
+        session = _get_or_create_upload_session(db, machine, meta)
+    db.commit()
+
     image_path = save_upload_file(
         str(machine.id), str(session.id), meta.local_sample_id, image, ext
     )
@@ -384,22 +416,16 @@ def upload_sample(
     sample.channel_geometry = _build_channel_geometry(meta)
     db.add(sample)
 
-    session.sample_count += 1
-    session.last_upload_at = datetime.now(timezone.utc)
-    machine.last_seen_at = datetime.now(timezone.utc)
+    now = datetime.now(timezone.utc)
+    session_id = session.id
+    _count_sample_in_session(db, session_id, now)
+    mark_machine_seen(machine, now)
 
     try:
         db.commit()
     except IntegrityError:
         db.rollback()
-        existing = (
-            db.query(Sample)
-            .filter(
-                Sample.upload_session_id == session.id,
-                Sample.local_sample_id == meta.local_sample_id,
-            )
-            .first()
-        )
+        existing = _find_sample(db, session_id, meta.local_sample_id)
         if existing:
             return existing
         raise

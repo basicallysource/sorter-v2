@@ -113,6 +113,10 @@ Choose the die by the size marked on it, not by its colour. To solder instead of
 </ol>
 
 
+## Label the cable
+
+Put a label with the ID (`PWR3`) on both ends, close to the connector. The printable labels and the Brother label printer files are on [Labelling the cables]({{ '/hardware/helpers/cable-labels/' | relative_url }}).
+
 ## The finished result
 
 The converter with a barrel plug on its input wires and its USB-C lead free. One per machine (`PWR3`), and that is the whole lead.

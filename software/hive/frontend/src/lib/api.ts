@@ -19,6 +19,8 @@ export interface User {
 	preferred_teacher_model: string | null;
 	role: 'member' | 'reviewer' | 'admin';
 	is_active: boolean;
+	/** Whether the community may list this user's machines in a live activity view. */
+	share_activity: boolean;
 	created_at: string;
 }
 
@@ -2310,6 +2312,7 @@ export const api = {
 		clear_perceptron_api_key?: boolean;
 		preferred_ai_model?: string | null;
 		preferred_teacher_model?: string | null;
+		share_activity?: boolean;
 	}) {
 		return request<User>('PATCH', '/api/auth/me', data);
 	},

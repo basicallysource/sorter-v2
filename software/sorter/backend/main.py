@@ -560,12 +560,20 @@ def main() -> None:
     sample_collector = SampleCollector(gc, camera_service)
     sample_collector.start()
     gc.sample_collector = sample_collector
-    # Reconciles local piece history (records + crops) up to every enabled Hive,
-    # watermark-based so months of backlog sync without redundant re-uploads.
+    # Sends everything kept for Hive (piece history, crops, control data,
+    # training samples) to every enabled Hive, watermark-based so months of
+    # backlog sync without redundant re-uploads.
     from server.hive_sync import HiveSyncWorker
     hive_sync_worker = HiveSyncWorker(gc)
     hive_sync_worker.start()
     gc.hive_sync_worker = hive_sync_worker
+    # Keep-alive to every enabled Hive; its replies carry the limits each sets.
+    from server.hive_heartbeat import HiveHeartbeat
+    hive_heartbeat = HiveHeartbeat()
+    hive_heartbeat.start()
+    gc.hive_heartbeat = hive_heartbeat
+    import sample_store
+    sample_store.removeLegacyArchive()
     vision.start()
     # A detection slot with no usable model gets Hive's default for this
     # machine's runtime, in the background (nothing happens when every slot

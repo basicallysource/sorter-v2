@@ -7,7 +7,7 @@ owner: lab
 last_verified: 2026-04-14
 section: lab
 slug: lab-software-architecture-decisions
-kicker: Lab — Research Area
+kicker: Design and research — Research Area
 lede: Why Sorter V2 uses a dumb-firmware / smart-host split, what alternatives were evaluated, and the design principles that guide the stack.
 permalink: /lab/software-architecture-decisions/
 ---

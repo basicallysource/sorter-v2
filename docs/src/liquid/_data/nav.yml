@@ -226,9 +226,9 @@ sections:
         url: /hive/review-samples/
 
   - id: lab
-    title: Lab
+    title: Design and research
     url: /lab/
-    description: Research, experiments, and contributor references — model performance, deployment paths, hardware benchmarks, shared visual language.
+    description: How the machine is designed and why, what is connected to what, tested variants, and the research behind it.
     pages:
       - title: Overview
         url: /lab/

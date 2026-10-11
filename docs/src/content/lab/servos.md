@@ -4,7 +4,7 @@ title: The servos and the layer adapter boards
 type: explanation
 section: lab
 slug: lab-servos
-kicker: Lab — Electronics
+kicker: Design and research — Electronics
 lede: "How the chute doors are moved: the servo chip on the control board, the ribbon cable down the stack, and what each layer's adapter board does."
 permalink: /lab/servos/
 audience: curious builder or contributor

@@ -4,7 +4,7 @@ title: What is connected to the Pico
 type: explanation
 section: lab
 slug: lab-pico
-kicker: Lab — Electronics
+kicker: Design and research — Electronics
 lede: Everything the Raspberry Pi Pico on the control board is connected to, which pin each connection uses, and which part of the firmware handles it.
 permalink: /lab/pico/
 audience: curious builder or contributor

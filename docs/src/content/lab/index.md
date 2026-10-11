@@ -1,11 +1,11 @@
 ---
 layout: default
-title: Lab
+title: Design and research
 type: landing
 section: lab
 slug: lab
-kicker: Research & Contributor References
-lede: The lab holds how the machine is designed and why, the durable findings from hands-on research, and the contributor references the rest of the project builds on.
+kicker: Design, Research & Contributor References
+lede: This section holds how the machine is designed and why, the durable findings from hands-on research, and the contributor references the rest of the project builds on.
 permalink: /lab/
 ---
 
@@ -16,7 +16,7 @@ permalink: /lab/
 
 ## How the machine is designed
 
-The design pages give the overall picture in a few lines, then link to the files that hold the detail. Links to the relevant parts are provided on every page, for people who want to dig deeper: the source code, the parts catalog, and the matching build and lab pages. You can ignore them if you only want the overview. Some of the pages use electronics and software words that you may not know. Where a word first appears, it is explained in the same sentence.
+The design pages give the overall picture in a few lines, then link to the files that hold the detail. Links to the relevant parts are provided on every page, for people who want to dig deeper: the source code, the parts catalog, and the matching build pages and the other pages in this section. You can ignore them if you only want the overview. Some of the pages use electronics and software words that you may not know. Where a word first appears, it is explained in the same sentence.
 
 <div class="callout-grid">
   <div class="callout">
@@ -94,9 +94,9 @@ The design pages give the overall picture in a few lines, then link to the files
   </div>
 </div>
 
-## What counts as lab content
+## What belongs in this section
 
-The lab sits one level below the end-user-facing sections. Content lands here when:
+This section sits one level below the end-user-facing sections. Content lands here when:
 
 <ul class="bulleted-list">
   <li>it's a <strong>contributor reference</strong> the rest of the project builds on but that an operator would never need to read (the software architecture decisions);</li>
@@ -105,15 +105,15 @@ The lab sits one level below the end-user-facing sections. Content lands here wh
   <li>it's an <strong>active research thread</strong> where we're still validating conclusions, and the findings aren't ready to be promoted into a stable hardware or SorterOS docs page (the object detection work).</li>
 </ul>
 
-Once a finding stabilizes enough to be promoted — for example, when we settle on a single accelerated deployment path and it belongs in the SorterOS setup docs — it graduates out of the lab into the appropriate top-level section.
+Once a finding stabilizes enough to be promoted — for example, when we settle on a single accelerated deployment path and it belongs in the SorterOS setup docs — it graduates out of this section into the appropriate top-level section.
 
 ## Artifact policy
 
-The durable rule across all lab work:
+The durable rule across all the research here:
 
 <ol class="numbered-steps">
   <li>Keep decisions and workflows in checked-in Markdown on these pages.</li>
   <li>Keep only the latest canonical benchmark and compile artifacts under <code>software/sorter/backend/blob/</code>.</li>
   <li>Regenerate reports from benchmark JSONs instead of treating every HTML file as permanent.</li>
-  <li>Promote a finding out of the lab only after it has both a quality comparison against a reference and a sustained-throughput measurement.</li>
+  <li>Promote a finding out of this section only after it has both a quality comparison against a reference and a sustained-throughput measurement.</li>
 </ol>

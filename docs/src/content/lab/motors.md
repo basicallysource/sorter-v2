@@ -4,7 +4,7 @@ title: The motors
 type: explanation
 section: lab
 slug: lab-motors
-kicker: Lab — Electronics
+kicker: Design and research — Electronics
 lede: The five stepper motors, what each one turns, how their driver chips are set up, and how the machine notices that one is blocked.
 permalink: /lab/motors/
 audience: curious builder or contributor

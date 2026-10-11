@@ -4,7 +4,7 @@ title: How the sorter is put together
 type: explanation
 section: lab
 slug: lab-sorter
-kicker: Lab — The machine
+kicker: Design and research — The machine
 lede: The sorter is a feeder that spreads a pile of bricks into single pieces, and a distribution system that drops each piece into the right bin. This page covers what each part does and what was tried before it.
 permalink: /lab/sorter/
 audience: curious builder or contributor
@@ -44,13 +44,13 @@ Cameras sit on C2, C3 and C4, each in a **camera lamp**: an LED strip ring in a 
 <li><strong>Printed foot, leg and leg-extension stands.</strong> C1 now stands on 2020 extrusion legs and C2 and C3 on single printed legs. C4 sits flat on the top plate.</li>
 </ul>
 
-The software can move a channel's motor in three ways: Simple Pulse (the default), go-to-angle and constant movement. Which one is used is a software setting. The lab page on <a href="{{ '/lab/software-architecture-decisions/' | relative_url }}">software architecture decisions</a> covers how the software is split.
+The software can move a channel's motor in three ways: Simple Pulse (the default), go-to-angle and constant movement. Which one is used is a software setting. The page on <a href="{{ '/lab/software-architecture-decisions/' | relative_url }}">software architecture decisions</a> covers how the software is split.
 
 ### Where to find it
 
 <ul class="bulleted-list">
 <li><a href="{{ '/hardware/assembly/feeder/' | relative_url }}">Assembling the feeder</a>, with the <a href="{{ '/hardware/assembly/feeder/c-channels/' | relative_url }}">C-channels</a>, the <a href="{{ '/hardware/assembly/feeder/camera-lamp/' | relative_url }}">camera lamps</a> and <a href="{{ '/hardware/assembly/feeder/arranging-c-channels/' | relative_url }}">arranging the channels</a></li>
-<li>Lab: <a href="{{ '/lab/c-channel-singulation/' | relative_url }}">C-channel singulation</a> and <a href="{{ '/lab/feeder-experiments/' | relative_url }}">feeder experiments</a></li>
+<li>Research: <a href="{{ '/lab/c-channel-singulation/' | relative_url }}">C-channel singulation</a> and <a href="{{ '/lab/feeder-experiments/' | relative_url }}">feeder experiments</a></li>
 <li>Feeder logic: <a href="https://github.com/basicallysource/sorter-v2/blob/main/software/sorter/backend/subsystems/feeder/pulse_perception/flow.py">subsystems/feeder/pulse_perception/flow.py</a></li>
 <li>Camera and detection: <a href="https://github.com/basicallysource/sorter-v2/blob/main/software/sorter/backend/perception/channel.py">perception/channel.py</a></li>
 </ul>
@@ -73,7 +73,7 @@ Pieces are identified from the C4 crops. Colour is read by comparing the piece w
 
 <ul class="bulleted-list">
 <li><a href="{{ '/hardware/assembly/feeder/c-channels/classification-channel/' | relative_url }}">Classification channel assembly</a></li>
-<li>Lab: <a href="{{ '/lab/classification-research/' | relative_url }}">Classification research</a></li>
+<li>Research: <a href="{{ '/lab/classification-research/' | relative_url }}">Classification research</a></li>
 <li>Code: <a href="https://github.com/basicallysource/sorter-v2/tree/main/software/sorter/backend/subsystems/classification_channel/two_piece">subsystems/classification_channel/two_piece</a></li>
 </ul>
 
@@ -115,6 +115,6 @@ A computer (the Orange Pi) runs the camera vision, the logic that decides what h
 <ul class="bulleted-list">
 <li><a href="{{ '/lab/electronics/' | relative_url }}">How the electronics talk to each other</a></li>
 <li><a href="{{ '/lab/pico/' | relative_url }}">What is connected to the Pico</a></li>
-<li><a href="{{ '/lab/software-architecture-decisions/' | relative_url }}">Lab: software architecture decisions</a></li>
+<li><a href="{{ '/lab/software-architecture-decisions/' | relative_url }}">Software architecture decisions</a></li>
 <li>Firmware: <a href="https://github.com/basicallysource/sorter-v2/blob/main/software/firmware/sorter_interface_firmware/sorter_interface_firmware.cpp">sorter_interface_firmware.cpp</a></li>
 </ul>

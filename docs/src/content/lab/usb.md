@@ -4,7 +4,7 @@ title: The USB connections and the hub
 type: explanation
 section: lab
 slug: lab-usb
-kicker: Lab — Electronics
+kicker: Design and research — Electronics
 lede: How the Pico and the three cameras reach the Orange Pi through one powered hub, and how the software finds each of them.
 permalink: /lab/usb/
 audience: curious builder or contributor

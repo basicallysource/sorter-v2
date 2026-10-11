@@ -4,7 +4,7 @@ title: How the electronics talk to each other
 type: explanation
 section: lab
 slug: lab-electronics
-kicker: Lab — Electronics
+kicker: Design and research — Electronics
 lede: "How the Orange Pi talks to the Pico: the cable, the messages, and where to find each part in the firmware."
 permalink: /lab/electronics/
 audience: curious builder or contributor

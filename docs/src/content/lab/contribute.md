@@ -4,7 +4,7 @@ title: How to contribute
 type: how-to
 section: lab
 slug: lab-contribute
-kicker: Lab — Contribute
+kicker: Design and research — Contribute
 lede: Where the project lives, how to help, when the team meets, and what the assistant in the Discord can do for you.
 permalink: /lab/contribute/
 audience: curious builder or contributor

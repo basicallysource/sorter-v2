@@ -7,7 +7,7 @@ owner: lab
 last_verified: 2026-04-14
 section: lab
 slug: lab-classification-research
-kicker: Lab — Research Area
+kicker: Design and research — Research Area
 lede: How the sorter identifies which LEGO part it sees — the path from embeddings to classifiers, the training data strategy, and why color detection avoids ML entirely.
 permalink: /lab/classification-research/
 ---

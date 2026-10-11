@@ -1,31 +1,31 @@
 metadata:
   title: LED drops and limit switch
-  description: "LED feeds LED1a-LED3a (board to unplug point), pigtails LED1-LED3\nto the three lamp strips, and the limit switch cable."
+  description: "LED feeds LED2a-LED4a (board to unplug point), pigtails LED2-LED4\nto the three lamp strips, and the limit switch cable."
 
 connectors:
-  BOARD_LED1a: &dupont
+  BOARD_LED2a: &dupont
     type: Dupont 1x2 female, 2.54 mm
     pinlabels: [GND, +24V]
     notes: "On basically board v1.3, J8, J9 or J10. Black\ngoes in the cavity at the moulded arrow: that end\ngoes over the pin printed GND."
-  BOARD_LED2a: *dupont
   BOARD_LED3a: *dupont
-  LJ1: &ledjack
+  BOARD_LED4a: *dupont
+  LJ2: &ledjack
     type: DC jack 5.5x2.1 female, inline
     pinlabels: [+24V (tip), GND (sleeve)]
     notes: "Unplug point."
-  LJ2: *ledjack
   LJ3: *ledjack
-  LP1: &ledplug
+  LJ4: *ledjack
+  LP2: &ledplug
     type: DC plug 5.5x2.1 male
     pinlabels: [+24V (tip), GND (sleeve)]
-  LP2: *ledplug
   LP3: *ledplug
-  STRIP1: &strip
+  LP4: *ledplug
+  STRIP2: &strip
     type: Solderless clamp-on strip connector
     pinlabels: [+24V, GND]
     notes: "LED strip, 6000K. Clamp-on connector instead\nof soldering. Pick the variant with IDC crimp\npoints on both sides so it takes the pigtail\nwire as well as the strip."
-  STRIP2: *strip
   STRIP3: *strip
+  STRIP4: *strip
   BOARD_LIM1:
     type: Dupont 1x3 female, 2.54 mm
     pincount: 3
@@ -37,20 +37,20 @@ connectors:
     notes: "Omron V-155-1C25, quick-connect (#187) tabs.\nThese push on, no soldering. Fully insulated:\nthe switch is SPDT and the third tab is\nunused."
 
 cables:
-  LED1a: &feed
+  LED2a: &feed
     gauge: 22 AWG
     length: 36 in
     colors: [BK, RD]
     notes: "LED feed. Black at the board end arrow."
-  LED2a: *feed
   LED3a: *feed
-  LED1: &pig
+  LED4a: *feed
+  LED2: &pig
     gauge: 22 AWG
     length: 6 in
     colors: [RD, BK]
     notes: "LED pigtail."
-  LED2: *pig
   LED3: *pig
+  LED4: *pig
   LIM1:
     gauge: 22 AWG
     length: 24 in
@@ -58,10 +58,6 @@ cables:
     notes: "Limit switch. Black ground, white signal."
 
 connections:
-  -
-    - BOARD_LED1a: [1-2]
-    - LED1a: [1-2]
-    - LJ1: [2, 1]
   -
     - BOARD_LED2a: [1-2]
     - LED2a: [1-2]
@@ -71,9 +67,9 @@ connections:
     - LED3a: [1-2]
     - LJ3: [2, 1]
   -
-    - LP1: [1-2]
-    - LED1: [1-2]
-    - STRIP1: [1-2]
+    - BOARD_LED4a: [1-2]
+    - LED4a: [1-2]
+    - LJ4: [2, 1]
   -
     - LP2: [1-2]
     - LED2: [1-2]
@@ -83,13 +79,13 @@ connections:
     - LED3: [1-2]
     - STRIP3: [1-2]
   -
+    - LP4: [1-2]
+    - LED4: [1-2]
+    - STRIP4: [1-2]
+  -
     - BOARD_LIM1: [1-2]
     - LIM1: [1-2]
     - SW: [1-2]
-  -
-    - LJ1
-    - <==>
-    - LP1
   -
     - LJ2
     - <==>
@@ -98,3 +94,7 @@ connections:
     - LJ3
     - <==>
     - LP3
+  -
+    - LJ4
+    - <==>
+    - LP4

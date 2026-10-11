@@ -134,13 +134,15 @@ The PSU output pigtails (`PSU1` to `PSU3`) are already in the PSU box. The USB h
     <tr><td data-label="Cable">Chute limit switch (<code>LIM1</code>)</td><td data-label="From, and its connector">Board <code>J5</code>, 3-pin Dupont, 2 positions used</td><td data-label="To, and its connector">Two #187 push-on tabs on the switch (<a href="{{ '/hardware/helpers/limit-switch-lead/' | relative_url }}">make the limit switch lead</a>)</td></tr>
     <tr><td data-label="Cable">Camera lamps (×3: <code>LED2a</code> to <code>LED4a</code>)</td><td data-label="From, and its connector">Board <code>J8</code> / <code>J9</code> / <code>J10</code>, 2-pin Dupont</td><td data-label="To, and its connector">Barrel socket, which takes the barrel plug on the lamp's pigtail (<code>LED2</code> to <code>LED4</code>) (optional but recommended; without it the cable runs to the strip) (<a href="{{ '/hardware/helpers/led-strip/' | relative_url }}">prepare the LED strip</a>)</td></tr>
     <tr><td data-label="Cable">Ribbon to the layers (<code>RIB1</code>)</td><td data-label="From, and its connector">Board <code>J17</code>, 16-pin IDC</td><td data-label="To, and its connector"><code>J3</code> on the first layer board, 16-pin IDC</td></tr>
+    <tr><td data-label="Cable">Ribbons between the layer boards (<code>RIB2</code>, one fewer than the layers)</td><td data-label="From, and its connector"><code>J4</code> on a layer board, 16-pin IDC</td><td data-label="To, and its connector"><code>J3</code> on the next layer board down, 16-pin IDC</td></tr>
+    <tr><td data-label="Cable">Door servos (one per layer)</td><td data-label="From, and its connector"><code>J5</code> on that layer's board, 3 pins on 2.54 mm (0.1 in) spacing</td><td data-label="To, and its connector">The servo's own lead, fixed to the servo, with a 3-pin plug</td></tr>
     <tr><td data-label="Cable">Pico to hub (<code>USB6</code>)</td><td data-label="From, and its connector">Micro USB on the Pico</td><td data-label="To, and its connector">USB-A on the hub</td></tr>
     <tr><td data-label="Cable">Hub to Orange Pi (<code>USB5</code>)</td><td data-label="From, and its connector">USB-A on the hub</td><td data-label="To, and its connector"><code>UP USB3.0</code> on the Pi</td></tr>
     <tr><td data-label="Cable">Cameras (×3: <code>USB2</code> to <code>USB4</code>)</td><td data-label="From, and its connector">The camera's own USB lead: <code>USB2</code> on C2, <code>USB3</code> on C3 (the two OV9732) and <code>USB4</code> on C4 (the IMX415)</td><td data-label="To, and its connector">USB-A on the hub</td></tr>
   </tbody>
 </table>
 
-[Ordering the wire harness]({{ '/hardware/parts/harness-order/' | relative_url }}) calls the first three `PWR1`, `PWR2` and `PWR3`, the steppers `STP1` to `STP4` and `CHU1`, the limit switch `LIM1`, the lamps `LED2a` to `LED4a`, and the ribbon `RIB1`. The two bought USB cables between the Pico, the hub and the Orange Pi are `USB6` and `USB5`, and the cameras' own detachable USB leads are `USB2` to `USB4`, each labelled at both ends.
+[Ordering the wire harness]({{ '/hardware/parts/harness-order/' | relative_url }}) calls the first three `PWR1`, `PWR2` and `PWR3`, the steppers `STP1` to `STP4` and `CHU1`, the limit switch `LIM1`, the lamps `LED2a` to `LED4a`, the long ribbon `RIB1` and the short ribbons between the layer boards `RIB2`. The door servos' own leads have no ID in the schedule. The two bought USB cables between the Pico, the hub and the Orange Pi are `USB6` and `USB5`, and the cameras' own detachable USB leads are `USB2` to `USB4`, each labelled at both ends.
 
 ### The three 24 V leads (`PWR1` to `PWR3`)
 
@@ -178,7 +180,7 @@ The machine needs three male barrel plugs for these three, plus, if you fit the 
   <li>The <a href="{{ '/hardware/helpers/pi-24v-lead/#sleeving-optional' | relative_url }}">Orange Pi's 24 V lead</a> (`PWR3`), about 150 mm (6 in).</li>
 </ul>
 
-The `PWR2` lead to the USB hub, the USB cables (`USB2` to `USB6`) and the ribbon (`RIB1`) are bought parts with no page to make them, and the PSU box pigtails (`PSU1` to `PSU3`) stay inside the box, so none of those is sleeved. In all, about 10 m (33 ft) for the machine: one 15.2 m (50 ft) roll.
+The `PWR2` lead to the USB hub, the USB cables (`USB2` to `USB6`), the ribbons (`RIB1`, `RIB2`) and the servos' own leads are bought parts with no page to make them, and the PSU box pigtails (`PSU1` to `PSU3`) stay inside the box, so none of those is sleeved. In all, about 10 m (33 ft) for the machine: one 15.2 m (50 ft) roll.
 
 **When:** while you make each lead, from the cut end, before you fit the connector that goes on it. A finished plug or housing may not go through the sleeving: the 6-pin housing on a channel stepper lead is too big for it, and a 4-pin PH housing is a tight fit that has not been tried. Do not plan on adding sleeving to a finished lead. The harness drawings sleeve the four channel stepper leads (`STP1` to `STP4`) only; sleeving the rest is a choice, not part of the drawing.
 
@@ -207,7 +209,7 @@ Put a label with the cable's ID (`STP1`, `PWR2`, `RIB1` and so on) on **both end
 
 ## The control board, socket by socket
 
-Everything in steps 1 to 5 plugs into this board. It is drawn from above, the way you look at it once the housing is open.
+Steps 1 to 5 plug into this board, and step 5 goes on from it to the layer boards, which have their own drawing there. It is drawn from above, the way you look at it once the housing is open.
 
 <figure class="harness-figure">
   <div class="diagram diagram-wide">
@@ -358,11 +360,188 @@ The solder jumper beside each of these three ports should already be bridged, fr
 
 **Then assign the output in software**: Settings, the channel, the LED button, pick which output that lamp is on and set the brightness. **Nothing lights until an output is assigned.** The lamps' board cables are `LED2a` to `LED4a`, and their pigtails `LED2` to `LED4`, in the [cable schedule]({{ '/hardware/parts/harness-order/' | relative_url }}), which still draws every drop split at a barrel jack.
 
-{% include step.html n="5" title="Run the ribbon down to the layers (RIB1)" %}
+{% include step.html n="5" title="Connect the layer boards: the ribbons (RIB1, RIB2) and the door servos" %}
 
-One flat 16-pin ribbon (`RIB1`), 1.2 to 1.5 m (47 to 59 in), runs from `J17` on the control board down to `J3` on the first layer board in the chute stack. Both ends are keyed, so it only goes in one way up.
+Every layer has a [layer adapter board]({{ '/hardware/assembly/distribution/chute/pcb/' | relative_url }}), and the boards are chained one after another. A long ribbon (`RIB1`) runs from the control board to the first board, a short ribbon (`RIB2`) joins each board to the one below it, and each board has its own layer's door servo plugged into it.
 
-The layer boards are already chained to each other with their own 300 mm (12 in) ribbons (`RIB2`), and their servos are already plugged in. Both happen as each [layer adapter board]({{ '/hardware/assembly/distribution/chute/pcb/' | relative_url }}) is built and the chute tower goes together.
+The ribbons between the boards and the servos are plugged in while the chute tower is built, because the sockets are hard to reach once it is in the frame. This step shows every connection, so you can plug in whatever is still loose and check the rest. What is left to do here is `RIB1`.
+
+<figure class="harness-figure">
+  <div class="diagram diagram-wide">
+    <svg viewBox="0 0 930 600" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Cabling of a three-layer machine: a long ribbon RIB1 from J17 on the control board to J3 of the layer 1 board, a short ribbon RIB2 from J4 of each board to J3 of the next, J4 on the last board left empty, and a servo lead from each door servo into J5 of its own layer's board">
+      <rect x="80" y="20" width="260" height="70" rx="6" fill="var(--surface)" stroke="var(--ink)" stroke-width="1.5"/>
+      <text x="210.0" y="52.0" font-size="12" font-weight="700" text-anchor="middle" fill="var(--ink)">Control board</text>
+      <text x="210.0" y="70.0" font-size="11" font-weight="400" text-anchor="middle" fill="var(--muted)">basically board v1.3</text>
+      <rect x="170.0" y="90.0" width="80.0" height="12.0" rx="2" fill="var(--surface)" stroke="var(--primary)" stroke-width="2"/>
+      <text x="160.0" y="100.0" font-size="12" font-weight="700" text-anchor="end" fill="var(--ink)">J17</text>
+      <rect x="190" y="102" width="40" height="58" fill="var(--bg)" stroke="var(--ink)" stroke-width="1"/>
+      <path d="M203 102 L203 160" stroke="var(--muted)" stroke-width="1"/>
+      <path d="M210 102 L210 160" stroke="var(--muted)" stroke-width="1"/>
+      <path d="M217 102 L217 160" stroke="var(--muted)" stroke-width="1"/>
+      <text x="246.0" y="129.0" font-size="12" font-weight="700" text-anchor="start" fill="var(--ink)">RIB1</text>
+      <text x="246.0" y="144.0" font-size="11" font-weight="400" text-anchor="start" fill="var(--muted)">long ribbon, J17 to J3 of layer 1</text>
+      <rect x="80" y="172" width="260" height="70" rx="6" fill="var(--surface)" stroke="var(--ink)" stroke-width="1.5"/>
+      <text x="210.0" y="202.0" font-size="12" font-weight="700" text-anchor="middle" fill="var(--ink)">Layer adapter board, layer 1</text>
+      <text x="210.0" y="220.0" font-size="11" font-weight="400" text-anchor="middle" fill="var(--muted)">top of the stack</text>
+      <rect x="170.0" y="160.0" width="80.0" height="12.0" rx="2" fill="var(--surface)" stroke="var(--primary)" stroke-width="2"/>
+      <text x="160.0" y="170.0" font-size="12" font-weight="700" text-anchor="end" fill="var(--ink)">J3 · in</text>
+      <rect x="170.0" y="242.0" width="80.0" height="12.0" rx="2" fill="var(--surface)" stroke="var(--primary)" stroke-width="2"/>
+      <text x="160.0" y="252.0" font-size="12" font-weight="700" text-anchor="end" fill="var(--ink)">J4 · out</text>
+      <rect x="190" y="254" width="40" height="56" fill="var(--bg)" stroke="var(--ink)" stroke-width="1"/>
+      <path d="M203 254 L203 310" stroke="var(--muted)" stroke-width="1"/>
+      <path d="M210 254 L210 310" stroke="var(--muted)" stroke-width="1"/>
+      <path d="M217 254 L217 310" stroke="var(--muted)" stroke-width="1"/>
+      <text x="246.0" y="280.0" font-size="12" font-weight="700" text-anchor="start" fill="var(--ink)">RIB2</text>
+      <text x="246.0" y="295.0" font-size="11" font-weight="400" text-anchor="start" fill="var(--muted)">short ribbon, J4 to J3 of the next board</text>
+      <rect x="340.0" y="197.0" width="14.0" height="20.0" rx="2" fill="var(--surface)" stroke="var(--primary)" stroke-width="2"/>
+      <path d="M354 207 L640 207" stroke="var(--muted)" stroke-width="1" fill="none"/>
+      <text x="366.0" y="185.0" font-size="12" font-weight="700" text-anchor="start" fill="var(--ink)">J5 · servo lead, fixed to the servo</text>
+      <text x="366.0" y="200.0" font-size="11" font-weight="400" text-anchor="start" fill="var(--muted)">orange to PWM, red to V+, brown to GND</text>
+      <rect x="640" y="183" width="190" height="48" rx="6" fill="var(--surface)" stroke="var(--ink)" stroke-width="1.5"/>
+      <text x="735.0" y="203.0" font-size="12" font-weight="700" text-anchor="middle" fill="var(--ink)">Door servo, layer 1</text>
+      <text x="735.0" y="220.0" font-size="11" font-weight="400" text-anchor="middle" fill="var(--muted)">MG995</text>
+      <rect x="80" y="322" width="260" height="70" rx="6" fill="var(--surface)" stroke="var(--ink)" stroke-width="1.5"/>
+      <text x="210.0" y="352.0" font-size="12" font-weight="700" text-anchor="middle" fill="var(--ink)">Layer adapter board, layer 2</text>
+      <text x="210.0" y="370.0" font-size="11" font-weight="400" text-anchor="middle" fill="var(--muted)"></text>
+      <rect x="170.0" y="310.0" width="80.0" height="12.0" rx="2" fill="var(--surface)" stroke="var(--primary)" stroke-width="2"/>
+      <text x="160.0" y="320.0" font-size="12" font-weight="700" text-anchor="end" fill="var(--ink)">J3 · in</text>
+      <rect x="170.0" y="392.0" width="80.0" height="12.0" rx="2" fill="var(--surface)" stroke="var(--primary)" stroke-width="2"/>
+      <text x="160.0" y="402.0" font-size="12" font-weight="700" text-anchor="end" fill="var(--ink)">J4 · out</text>
+      <rect x="190" y="404" width="40" height="56" fill="var(--bg)" stroke="var(--ink)" stroke-width="1"/>
+      <path d="M203 404 L203 460" stroke="var(--muted)" stroke-width="1"/>
+      <path d="M210 404 L210 460" stroke="var(--muted)" stroke-width="1"/>
+      <path d="M217 404 L217 460" stroke="var(--muted)" stroke-width="1"/>
+      <text x="246.0" y="430.0" font-size="12" font-weight="700" text-anchor="start" fill="var(--ink)">RIB2</text>
+      <text x="246.0" y="445.0" font-size="11" font-weight="400" text-anchor="start" fill="var(--muted)">short ribbon, J4 to J3 of the next board</text>
+      <rect x="340.0" y="347.0" width="14.0" height="20.0" rx="2" fill="var(--surface)" stroke="var(--primary)" stroke-width="2"/>
+      <path d="M354 357 L640 357" stroke="var(--muted)" stroke-width="1" fill="none"/>
+      <text x="366.0" y="335.0" font-size="12" font-weight="700" text-anchor="start" fill="var(--ink)">J5 · servo lead, fixed to the servo</text>
+      <text x="366.0" y="350.0" font-size="11" font-weight="400" text-anchor="start" fill="var(--muted)">orange to PWM, red to V+, brown to GND</text>
+      <rect x="640" y="333" width="190" height="48" rx="6" fill="var(--surface)" stroke="var(--ink)" stroke-width="1.5"/>
+      <text x="735.0" y="353.0" font-size="12" font-weight="700" text-anchor="middle" fill="var(--ink)">Door servo, layer 2</text>
+      <text x="735.0" y="370.0" font-size="11" font-weight="400" text-anchor="middle" fill="var(--muted)">MG995</text>
+      <rect x="80" y="472" width="260" height="70" rx="6" fill="var(--surface)" stroke="var(--ink)" stroke-width="1.5"/>
+      <text x="210.0" y="502.0" font-size="12" font-weight="700" text-anchor="middle" fill="var(--ink)">Layer adapter board, layer 3</text>
+      <text x="210.0" y="520.0" font-size="11" font-weight="400" text-anchor="middle" fill="var(--muted)">bottom of the stack</text>
+      <rect x="170.0" y="460.0" width="80.0" height="12.0" rx="2" fill="var(--surface)" stroke="var(--primary)" stroke-width="2"/>
+      <text x="160.0" y="470.0" font-size="12" font-weight="700" text-anchor="end" fill="var(--ink)">J3 · in</text>
+      <rect x="170.0" y="542.0" width="80.0" height="12.0" rx="2" fill="var(--bg)" stroke="var(--ink)" stroke-width="1" stroke-dasharray="3 3"/>
+      <text x="160.0" y="552.0" font-size="12" font-weight="700" text-anchor="end" fill="var(--ink)">J4 · nothing plugged in</text>
+      <rect x="340.0" y="497.0" width="14.0" height="20.0" rx="2" fill="var(--surface)" stroke="var(--primary)" stroke-width="2"/>
+      <path d="M354 507 L640 507" stroke="var(--muted)" stroke-width="1" fill="none"/>
+      <text x="366.0" y="485.0" font-size="12" font-weight="700" text-anchor="start" fill="var(--ink)">J5 · servo lead, fixed to the servo</text>
+      <text x="366.0" y="500.0" font-size="11" font-weight="400" text-anchor="start" fill="var(--muted)">orange to PWM, red to V+, brown to GND</text>
+      <rect x="640" y="483" width="190" height="48" rx="6" fill="var(--surface)" stroke="var(--ink)" stroke-width="1.5"/>
+      <text x="735.0" y="503.0" font-size="12" font-weight="700" text-anchor="middle" fill="var(--ink)">Door servo, layer 3</text>
+      <text x="735.0" y="520.0" font-size="11" font-weight="400" text-anchor="middle" fill="var(--muted)">MG995</text>
+      <text x="916.0" y="590.0" font-size="10" font-weight="400" text-anchor="end" fill="var(--muted)">A three-layer machine, not to scale. Each further layer adds one board, one servo and one RIB2 ribbon.</text>
+    </svg>
+  </div>
+  <figcaption>The ribbons and the servo leads of a three-layer machine. Red outlines are the sockets a cable plugs into.</figcaption>
+</figure>
+
+Each board has the same three sockets. They are drawn from above, the way you look at the board on the chute.
+
+<figure class="harness-figure">
+  <div class="diagram diagram-wide">
+    <svg viewBox="0 0 930 450.0" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Top view of the layer adapter board with the three sockets a cable plugs into labelled: the 16-pin ribbon sockets J3 for the ribbon coming in and J4 for the ribbon going on, and the 3-pin servo header J5 printed GND, V+ and PWM">
+      <rect x="190.0" y="40.0" width="490.0" height="350.0" rx="49.0" fill="var(--surface)" stroke="var(--ink)" stroke-width="1.5"/>
+      <circle cx="239.0" cy="89.0" r="11.9" fill="var(--bg)" stroke="var(--ink)" stroke-width="1"/>
+      <circle cx="631.0" cy="89.0" r="11.9" fill="var(--bg)" stroke="var(--ink)" stroke-width="1"/>
+      <circle cx="239.0" cy="341.0" r="11.9" fill="var(--bg)" stroke="var(--ink)" stroke-width="1"/>
+      <circle cx="631.0" cy="341.0" r="11.9" fill="var(--bg)" stroke="var(--ink)" stroke-width="1"/>
+      <rect x="388.8" y="65.2" width="195.3" height="42.0" rx="2" fill="var(--bg)" stroke="var(--ink)" stroke-width="1" stroke-dasharray="3 3"/>
+      <text x="486.4" y="90.2" font-size="10" font-weight="400" text-anchor="middle" fill="var(--muted)">J1</text>
+      <rect x="287.3" y="65.2" width="89.6" height="42.0" rx="2" fill="var(--bg)" stroke="var(--ink)" stroke-width="1" stroke-dasharray="3 3"/>
+      <text x="332.1" y="90.2" font-size="10" font-weight="400" text-anchor="middle" fill="var(--muted)">J6</text>
+      <rect x="388.8" y="317.2" width="195.3" height="47.6" rx="2" fill="var(--bg)" stroke="var(--ink)" stroke-width="1" stroke-dasharray="3 3"/>
+      <text x="486.4" y="345.0" font-size="10" font-weight="400" text-anchor="middle" fill="var(--muted)">J2</text>
+      <rect x="287.3" y="317.2" width="89.6" height="47.6" rx="2" fill="var(--bg)" stroke="var(--ink)" stroke-width="1" stroke-dasharray="3 3"/>
+      <text x="332.1" y="345.0" font-size="10" font-weight="400" text-anchor="middle" fill="var(--muted)">J7</text>
+      <rect x="387.4" y="125.4" width="198.1" height="65.1" rx="2" fill="var(--surface)" stroke="var(--primary)" stroke-width="2"/>
+      <circle cx="424.2" cy="149.1" r="2" fill="var(--bg)" stroke="var(--ink)" stroke-width="0.8"/>
+      <circle cx="442.0" cy="149.1" r="2" fill="var(--bg)" stroke="var(--ink)" stroke-width="0.8"/>
+      <circle cx="459.8" cy="149.1" r="2" fill="var(--bg)" stroke="var(--ink)" stroke-width="0.8"/>
+      <circle cx="477.6" cy="149.1" r="2" fill="var(--bg)" stroke="var(--ink)" stroke-width="0.8"/>
+      <circle cx="495.3" cy="149.1" r="2" fill="var(--bg)" stroke="var(--ink)" stroke-width="0.8"/>
+      <circle cx="513.1" cy="149.1" r="2" fill="var(--bg)" stroke="var(--ink)" stroke-width="0.8"/>
+      <circle cx="530.9" cy="149.1" r="2" fill="var(--bg)" stroke="var(--ink)" stroke-width="0.8"/>
+      <circle cx="548.7" cy="149.1" r="2" fill="var(--bg)" stroke="var(--ink)" stroke-width="0.8"/>
+      <circle cx="424.2" cy="166.8" r="2" fill="var(--bg)" stroke="var(--ink)" stroke-width="0.8"/>
+      <circle cx="442.0" cy="166.8" r="2" fill="var(--bg)" stroke="var(--ink)" stroke-width="0.8"/>
+      <circle cx="459.8" cy="166.8" r="2" fill="var(--bg)" stroke="var(--ink)" stroke-width="0.8"/>
+      <circle cx="477.6" cy="166.8" r="2" fill="var(--bg)" stroke="var(--ink)" stroke-width="0.8"/>
+      <circle cx="495.3" cy="166.8" r="2" fill="var(--bg)" stroke="var(--ink)" stroke-width="0.8"/>
+      <circle cx="513.1" cy="166.8" r="2" fill="var(--bg)" stroke="var(--ink)" stroke-width="0.8"/>
+      <circle cx="530.9" cy="166.8" r="2" fill="var(--bg)" stroke="var(--ink)" stroke-width="0.8"/>
+      <circle cx="548.7" cy="166.8" r="2" fill="var(--bg)" stroke="var(--ink)" stroke-width="0.8"/>
+      <text x="381.4" y="161.9" font-size="11" font-weight="700" text-anchor="end" fill="var(--ink)">J3</text>
+      <rect x="387.4" y="238.1" width="198.1" height="63.7" rx="2" fill="var(--surface)" stroke="var(--primary)" stroke-width="2"/>
+      <circle cx="424.2" cy="261.1" r="2" fill="var(--bg)" stroke="var(--ink)" stroke-width="0.8"/>
+      <circle cx="442.0" cy="261.1" r="2" fill="var(--bg)" stroke="var(--ink)" stroke-width="0.8"/>
+      <circle cx="459.8" cy="261.1" r="2" fill="var(--bg)" stroke="var(--ink)" stroke-width="0.8"/>
+      <circle cx="477.6" cy="261.1" r="2" fill="var(--bg)" stroke="var(--ink)" stroke-width="0.8"/>
+      <circle cx="495.3" cy="261.1" r="2" fill="var(--bg)" stroke="var(--ink)" stroke-width="0.8"/>
+      <circle cx="513.1" cy="261.1" r="2" fill="var(--bg)" stroke="var(--ink)" stroke-width="0.8"/>
+      <circle cx="530.9" cy="261.1" r="2" fill="var(--bg)" stroke="var(--ink)" stroke-width="0.8"/>
+      <circle cx="548.7" cy="261.1" r="2" fill="var(--bg)" stroke="var(--ink)" stroke-width="0.8"/>
+      <circle cx="424.2" cy="278.8" r="2" fill="var(--bg)" stroke="var(--ink)" stroke-width="0.8"/>
+      <circle cx="442.0" cy="278.8" r="2" fill="var(--bg)" stroke="var(--ink)" stroke-width="0.8"/>
+      <circle cx="459.8" cy="278.8" r="2" fill="var(--bg)" stroke="var(--ink)" stroke-width="0.8"/>
+      <circle cx="477.6" cy="278.8" r="2" fill="var(--bg)" stroke="var(--ink)" stroke-width="0.8"/>
+      <circle cx="495.3" cy="278.8" r="2" fill="var(--bg)" stroke="var(--ink)" stroke-width="0.8"/>
+      <circle cx="513.1" cy="278.8" r="2" fill="var(--bg)" stroke="var(--ink)" stroke-width="0.8"/>
+      <circle cx="530.9" cy="278.8" r="2" fill="var(--bg)" stroke="var(--ink)" stroke-width="0.8"/>
+      <circle cx="548.7" cy="278.8" r="2" fill="var(--bg)" stroke="var(--ink)" stroke-width="0.8"/>
+      <text x="381.4" y="273.9" font-size="11" font-weight="700" text-anchor="end" fill="var(--ink)">J4</text>
+      <rect x="265.6" y="228.3" width="82.6" height="53.9" rx="2" fill="var(--surface)" stroke="var(--primary)" stroke-width="2"/>
+      <circle cx="338.8" cy="238.1" r="2.2" fill="var(--bg)" stroke="var(--ink)" stroke-width="0.8"/>
+      <path d="M269.8 238.1 L330.0 238.1" stroke="var(--ink)" stroke-width="1"/>
+      <text x="262.8" y="242.1" font-size="10" font-weight="400" text-anchor="end" fill="var(--muted)">GND</text>
+      <circle cx="338.8" cy="255.6" r="2.2" fill="var(--bg)" stroke="var(--ink)" stroke-width="0.8"/>
+      <path d="M269.8 255.6 L330.0 255.6" stroke="var(--ink)" stroke-width="1"/>
+      <text x="262.8" y="259.6" font-size="10" font-weight="400" text-anchor="end" fill="var(--muted)">V+</text>
+      <circle cx="338.8" cy="273.1" r="2.2" fill="var(--bg)" stroke="var(--ink)" stroke-width="0.8"/>
+      <path d="M269.8 273.1 L330.0 273.1" stroke="var(--ink)" stroke-width="1"/>
+      <text x="262.8" y="277.1" font-size="10" font-weight="400" text-anchor="end" fill="var(--muted)">PWM</text>
+      <path d="M585.5 157.9 L702.0 157.9" stroke="var(--muted)" stroke-width="1" fill="none"/>
+      <text x="708.0" y="143.9" font-size="12" font-weight="700" text-anchor="start" fill="var(--ink)">J3 · 16-pin ribbon, in</text>
+      <text x="708.0" y="158.9" font-size="11" font-weight="400" text-anchor="start" fill="var(--muted)">RIB1 from the control board on the first</text>
+      <text x="708.0" y="173.9" font-size="11" font-weight="400" text-anchor="start" fill="var(--muted)">layer, RIB2 from the board above on the rest</text>
+      <path d="M585.5 269.2 L702.0 269.2" stroke="var(--muted)" stroke-width="1" fill="none"/>
+      <text x="708.0" y="255.2" font-size="12" font-weight="700" text-anchor="start" fill="var(--ink)">J4 · 16-pin ribbon, out</text>
+      <text x="708.0" y="270.2" font-size="11" font-weight="400" text-anchor="start" fill="var(--muted)">RIB2 on to J3 of the board below,</text>
+      <text x="708.0" y="285.2" font-size="11" font-weight="400" text-anchor="start" fill="var(--muted)">nothing on the last layer</text>
+      <path d="M275.4 228.3 L275.4 152.0 L168.0 152.0" stroke="var(--muted)" stroke-width="1" fill="none"/>
+      <text x="162.0" y="138.0" font-size="12" font-weight="700" text-anchor="end" fill="var(--ink)">J5 · servo header</text>
+      <text x="162.0" y="153.0" font-size="11" font-weight="400" text-anchor="end" fill="var(--muted)">the door servo's own</text>
+      <text x="162.0" y="168.0" font-size="11" font-weight="400" text-anchor="end" fill="var(--muted)">3-pin plug, slid on</text>
+      <text x="162.0" y="183.0" font-size="11" font-weight="400" text-anchor="end" fill="var(--muted)">from the left</text>
+      <text x="916.0" y="434.0" font-size="10" font-weight="400" text-anchor="end" fill="var(--muted)">Dashed outlines are unused footprints with no connector fitted. Nothing plugs into them.</text>
+    </svg>
+  </div>
+  <figcaption>The layer adapter board from above. Red outlines are the sockets a cable plugs into.</figcaption>
+</figure>
+
+<table class="stack-table">
+  <thead><tr><th>Socket</th><th>Printed beside it</th><th>What goes on it</th><th>Cable end</th></tr></thead>
+  <tbody>
+    <tr><td data-label="Socket"><code>J3</code></td><td data-label="Printed beside it"><code>J3</code></td><td data-label="What goes on it">The ribbon coming in: <code>RIB1</code> on the first layer's board, <code>RIB2</code> from the board above on every other</td><td data-label="Cable end">16-pin IDC, keyed</td></tr>
+    <tr><td data-label="Socket"><code>J4</code></td><td data-label="Printed beside it"><code>J4</code></td><td data-label="What goes on it">The ribbon going on: <code>RIB2</code> to <code>J3</code> of the board below. Empty on the last layer's board</td><td data-label="Cable end">16-pin IDC, keyed</td></tr>
+    <tr><td data-label="Socket"><code>J5</code></td><td data-label="Printed beside it"><code>GND</code>, <code>V+</code>, <code>PWM</code></td><td data-label="What goes on it">This layer's door servo</td><td data-label="Cable end">3 pins, plug on the servo's own lead</td></tr>
+  </tbody>
+</table>
+
+**`RIB1`.** One flat 16-pin ribbon, 1.2 to 1.5 m (47 to 59 in), runs from `J17` on the control board down to `J3` on the first layer board in the chute stack. Both ends are keyed, so it only goes in one way up.
+
+**`RIB2`.** One 300 mm (12 in) ribbon runs from `J4` of each board to `J3` of the board below it, so a machine with three layers has two of them. Both ends are keyed. `J4` of the last board stays empty.
+
+<div class="callout callout-warning">
+  <span class="callout-icon" aria-hidden="true">⚠</span>
+  <p><b><code>J3</code> is the way in and <code>J4</code> the way out, and the board prints nothing but the two names.</b> A board fed on <code>J4</code> gets no signal at all, and every layer below it moves the wrong door.</p>
+</div>
+
+**The door servo.** The servo's own lead (300 mm, 12 in) is fixed to the servo and ends in a 3-pin plug. It goes on `J5`, the three pins that lie flat along the board, so the plug slides on from the side away from the ribbon sockets. The board prints `GND`, `V+` and `PWM` beside the pins, and the pin on the square pad is `PWM`. The brown wire goes to `GND`, the red wire to `V+` and the orange wire to `PWM`. The pins have no key, so a plug fits either way round: go by the print and the wire colours. The control board has a `J5` too, the limit switch header in step 3. This one is on the layer board.
 
 {% include step.html n="6" title="Power the USB hub (PWR2)" %}
 
@@ -466,6 +645,7 @@ Before the machine sees mains:
   <li>At the hub's power terminal, the wire from the plug's centre contact is under <code>+</code>, and neither wire pulls out.</li>
   <li>Every stepper plug is fully home, and no plug is hanging on one contact.</li>
   <li>The ribbon (<code>RIB1</code>) goes from the board to <code>J3</code> of the first layer board, and down the stack on the layer ribbons (<code>RIB2</code>), <code>J4</code> to <code>J3</code>.</li>
+  <li>Each layer's door servo is on <code>J5</code> of its own board, the brown wire at the <code>GND</code> end.</li>
   <li>Nothing is resting on the fan blades.</li>
 </ol>
 

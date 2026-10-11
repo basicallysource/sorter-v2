@@ -29134,7 +29134,7 @@
 			"description": "Connects the Raspberry Pi Pico (U2) on the control board to the powered USB hub. Use a micro USB cable that carries data. Charge-only cables do not work.",
 			"note": "USB Cables totally vary in quality. Ensure it supports data",
 			"created_at": "2026-07-18",
-			"updated_at": "2026-10-10",
+			"updated_at": "2026-10-11",
 			"attributes": [
 				{
 					"label": "Connector",
@@ -29155,11 +29155,11 @@
 					{
 						"region": "US",
 						"vendor": "Amazon",
-						"url": "https://www.amazon.com/dp/B00MTZUX7O",
-						"price": 9.59,
+						"url": "https://www.amazon.com/dp/B0BLL6BPGC",
+						"price": 5.99,
 						"pack_qty": 1,
-						"as_of": "2026-10-10",
-						"affiliate_url": "https://www.amazon.com/dp/B00MTZUX7O?tag=sorterv2-20"
+						"as_of": "2026-10-11",
+						"affiliate_url": "https://www.amazon.com/dp/B0BLL6BPGC?tag=sorterv2-20"
 					},
 					{
 						"region": "EU",

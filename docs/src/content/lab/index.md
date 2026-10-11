@@ -63,6 +63,10 @@ The design pages give the overall picture in a few lines, then link to the files
     <strong><a href="{{ '/lab/variants/' | relative_url }}">Tested variants</a></strong>
     <p>Alternatives to the standard design that people have built or are trying, such as a belt feeder, printed C1 legs and an Orange Pi base without heat-set inserts.</p>
   </div>
+  <div class="callout">
+    <strong><a href="{{ '/lab/variants/abandoned/' | relative_url }}">Abandoned ideas</a></strong>
+    <p>Designs that were built, tried or proposed and then dropped, such as the carousel and the vibrating feeder, and why each one went.</p>
+  </div>
 </div>
 
 ## Research areas
@@ -101,7 +105,7 @@ This section sits one level below the end-user-facing sections. Content lands he
 <ul class="bulleted-list">
   <li>it's a <strong>contributor reference</strong> the rest of the project builds on but that an operator would never need to read (the software architecture decisions);</li>
   <li>it <strong>explains how the machine is designed</strong>, as an overview, for someone who is curious about it and not building from it (the design pages above);</li>
-  <li>it records a <strong>variant</strong> that somebody has built or is trying, and that is not part of the standard build (the tested variants page);</li>
+  <li>it records a <strong>variant</strong> that somebody has built or is trying, and that is not part of the standard build (the tested variants page), or an idea that was <strong>dropped</strong> and the reason why (the abandoned ideas page);</li>
   <li>it's an <strong>active research thread</strong> where we're still validating conclusions, and the findings aren't ready to be promoted into a stable hardware or SorterOS docs page (the object detection work).</li>
 </ul>
 

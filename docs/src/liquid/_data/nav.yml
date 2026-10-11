@@ -269,3 +269,5 @@ sections:
         pages:
           - title: Tested variants
             url: /lab/variants/
+          - title: Abandoned ideas
+            url: /lab/variants/abandoned/

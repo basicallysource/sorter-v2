@@ -36,7 +36,7 @@ The chute stepper is the NEMA 23 that drives the chute. It is the only motor on 
 
 All five stepper outputs on the board have the same pinout, pin 1 to pin 4:
 
-<table style="max-width:420px">
+<table class="compact-table" style="max-width:420px">
   <thead><tr><th>Position</th><th>Net</th><th>Coil</th></tr></thead>
   <tbody>
     <tr><td>1</td><td><code>A2</code></td><td rowspan="2">coil A</td></tr>

@@ -123,20 +123,20 @@ The PSU output pigtails (`PSU1` to `PSU3`) are already in the PSU box. The USB h
 
 ## Every cable on this page
 
-<table>
+<table class="stack-table stack-table-long">
   <thead><tr><th>Cable</th><th>From, and its connector</th><th>To, and its connector</th></tr></thead>
   <tbody>
-    <tr><td>24 V, control board (<code>PWR1</code>)</td><td>PSU box jack, male DC barrel</td><td>Board <code>J1</code>, JST-VH 2-pin (<a href="{{ '/hardware/helpers/board-24v-lead/' | relative_url }}">make the control board's 24 V lead</a>)</td></tr>
-    <tr><td>24 V, USB hub (<code>PWR2</code>)</td><td>PSU box jack, male DC barrel</td><td>Hub 2-pin power terminal, bare wires (or the hub's DC jack, with a lead that has a barrel plug at each end)</td></tr>
-    <tr><td>24 V, Orange Pi (<code>PWR3</code>)</td><td>PSU box jack, male DC barrel</td><td>Buck converter, then USB-C into <code>PWR IN</code> (<a href="{{ '/hardware/helpers/pi-24v-lead/' | relative_url }}">make the Orange Pi's 24 V lead</a>)</td></tr>
-    <tr><td>Channel steppers (×4: <code>STP1</code> to <code>STP4</code>)</td><td>Board <code>J27</code> (<code>STP1</code>, C1), <code>J39</code> (<code>STP2</code>, C2), <code>J31</code> (<code>STP3</code>, C3), <code>J35</code> (<code>STP4</code>, C4), JST-PH 4-pin</td><td>The motor's own JST-PH 6-pin socket (<a href="{{ '/hardware/helpers/channel-stepper-lead/' | relative_url }}">make the channel stepper leads</a>)</td></tr>
-    <tr><td>Chute stepper (<code>CHU1</code>)</td><td>Board <code>J23</code>, 4-pin JST-PH (or <code>J24</code> beside it, 4-pin Dupont on 2.54 mm (0.1 in) pins)</td><td>The motor's flying leads, spliced to a thinner tail and crimped into a PH housing (<a href="{{ '/hardware/helpers/chute-stepper-lead/' | relative_url }}">make the chute stepper lead</a>)</td></tr>
-    <tr><td>Chute limit switch (<code>LIM1</code>)</td><td>Board <code>J5</code>, 3-pin Dupont, 2 positions used</td><td>Two #187 push-on tabs on the switch (<a href="{{ '/hardware/helpers/limit-switch-lead/' | relative_url }}">make the limit switch lead</a>)</td></tr>
-    <tr><td>Camera lamps (×3: <code>LED2a</code> to <code>LED4a</code>)</td><td>Board <code>J8</code> / <code>J9</code> / <code>J10</code>, 2-pin Dupont</td><td>Barrel socket, which takes the barrel plug on the lamp's pigtail (<code>LED2</code> to <code>LED4</code>) (optional but recommended; without it the cable runs to the strip) (<a href="{{ '/hardware/helpers/led-strip/' | relative_url }}">prepare the LED strip</a>)</td></tr>
-    <tr><td>Ribbon to the layers (<code>RIB1</code>)</td><td>Board <code>J17</code>, 16-pin IDC</td><td><code>J3</code> on the first layer board, 16-pin IDC</td></tr>
-    <tr><td>Pico to hub (<code>USB6</code>)</td><td>Micro USB on the Pico</td><td>USB-A on the hub</td></tr>
-    <tr><td>Hub to Orange Pi (<code>USB5</code>)</td><td>USB-A on the hub</td><td><code>UP USB3.0</code> on the Pi</td></tr>
-    <tr><td>Cameras (×3: <code>USB2</code> to <code>USB4</code>)</td><td>The camera's own USB lead: <code>USB2</code> on C2, <code>USB3</code> on C3 (the two OV9732) and <code>USB4</code> on C4 (the IMX415)</td><td>USB-A on the hub</td></tr>
+    <tr><td data-label="Cable">24 V, control board (<code>PWR1</code>)</td><td data-label="From, and its connector">PSU box jack, male DC barrel</td><td data-label="To, and its connector">Board <code>J1</code>, JST-VH 2-pin (<a href="{{ '/hardware/helpers/board-24v-lead/' | relative_url }}">make the control board's 24 V lead</a>)</td></tr>
+    <tr><td data-label="Cable">24 V, USB hub (<code>PWR2</code>)</td><td data-label="From, and its connector">PSU box jack, male DC barrel</td><td data-label="To, and its connector">Hub 2-pin power terminal, bare wires (or the hub's DC jack, with a lead that has a barrel plug at each end)</td></tr>
+    <tr><td data-label="Cable">24 V, Orange Pi (<code>PWR3</code>)</td><td data-label="From, and its connector">PSU box jack, male DC barrel</td><td data-label="To, and its connector">Buck converter, then USB-C into <code>PWR IN</code> (<a href="{{ '/hardware/helpers/pi-24v-lead/' | relative_url }}">make the Orange Pi's 24 V lead</a>)</td></tr>
+    <tr><td data-label="Cable">Channel steppers (×4: <code>STP1</code> to <code>STP4</code>)</td><td data-label="From, and its connector">Board <code>J27</code> (<code>STP1</code>, C1), <code>J39</code> (<code>STP2</code>, C2), <code>J31</code> (<code>STP3</code>, C3), <code>J35</code> (<code>STP4</code>, C4), JST-PH 4-pin</td><td data-label="To, and its connector">The motor's own JST-PH 6-pin socket (<a href="{{ '/hardware/helpers/channel-stepper-lead/' | relative_url }}">make the channel stepper leads</a>)</td></tr>
+    <tr><td data-label="Cable">Chute stepper (<code>CHU1</code>)</td><td data-label="From, and its connector">Board <code>J23</code>, 4-pin JST-PH (or <code>J24</code> beside it, 4-pin Dupont on 2.54 mm (0.1 in) pins)</td><td data-label="To, and its connector">The motor's flying leads, spliced to a thinner tail and crimped into a PH housing (<a href="{{ '/hardware/helpers/chute-stepper-lead/' | relative_url }}">make the chute stepper lead</a>)</td></tr>
+    <tr><td data-label="Cable">Chute limit switch (<code>LIM1</code>)</td><td data-label="From, and its connector">Board <code>J5</code>, 3-pin Dupont, 2 positions used</td><td data-label="To, and its connector">Two #187 push-on tabs on the switch (<a href="{{ '/hardware/helpers/limit-switch-lead/' | relative_url }}">make the limit switch lead</a>)</td></tr>
+    <tr><td data-label="Cable">Camera lamps (×3: <code>LED2a</code> to <code>LED4a</code>)</td><td data-label="From, and its connector">Board <code>J8</code> / <code>J9</code> / <code>J10</code>, 2-pin Dupont</td><td data-label="To, and its connector">Barrel socket, which takes the barrel plug on the lamp's pigtail (<code>LED2</code> to <code>LED4</code>) (optional but recommended; without it the cable runs to the strip) (<a href="{{ '/hardware/helpers/led-strip/' | relative_url }}">prepare the LED strip</a>)</td></tr>
+    <tr><td data-label="Cable">Ribbon to the layers (<code>RIB1</code>)</td><td data-label="From, and its connector">Board <code>J17</code>, 16-pin IDC</td><td data-label="To, and its connector"><code>J3</code> on the first layer board, 16-pin IDC</td></tr>
+    <tr><td data-label="Cable">Pico to hub (<code>USB6</code>)</td><td data-label="From, and its connector">Micro USB on the Pico</td><td data-label="To, and its connector">USB-A on the hub</td></tr>
+    <tr><td data-label="Cable">Hub to Orange Pi (<code>USB5</code>)</td><td data-label="From, and its connector">USB-A on the hub</td><td data-label="To, and its connector"><code>UP USB3.0</code> on the Pi</td></tr>
+    <tr><td data-label="Cable">Cameras (×3: <code>USB2</code> to <code>USB4</code>)</td><td data-label="From, and its connector">The camera's own USB lead: <code>USB2</code> on C2, <code>USB3</code> on C3 (the two OV9732) and <code>USB4</code> on C4 (the IMX415)</td><td data-label="To, and its connector">USB-A on the hub</td></tr>
   </tbody>
 </table>
 
@@ -303,14 +303,14 @@ The board's power input is `J1`, the big 2-pin socket in one corner of the board
 
 Each stepper has its own socket, and the socket decides which motor the software is driving. Plug them in as below.
 
-<table>
+<table class="stack-table stack-table-long">
   <thead><tr><th>Socket</th><th>Printed beside it</th><th>The motor that goes on it</th><th>Cable end</th></tr></thead>
   <tbody>
-    <tr><td><code>J23</code></td><td><code>Stepper_A2</code></td><td>Chute stepper</td><td>JST-PH 4-pin (<code>CHU1</code>), built on the motor's bare leads (a 4-pin Dupont housing goes on <code>J24</code> beside it instead): <a href="{{ '/hardware/helpers/chute-stepper-lead/' | relative_url }}">make the chute stepper lead</a></td></tr>
-    <tr><td><code>J27</code></td><td><code>Stepper_A3</code></td><td>C-channel 1 rotor</td><td>JST-PH 4-pin, <code>STP1</code></td></tr>
-    <tr><td><code>J31</code></td><td><code>Stepper_A4</code></td><td>C-channel 3 rotor</td><td>JST-PH 4-pin, <code>STP3</code></td></tr>
-    <tr><td><code>J35</code></td><td><code>Stepper_A5</code></td><td>Classification channel rotor (the software calls it the carousel)</td><td>JST-PH 4-pin, <code>STP4</code></td></tr>
-    <tr><td><code>J39</code></td><td><code>Stepper_A6</code></td><td>C-channel 2 rotor</td><td>JST-PH 4-pin, <code>STP2</code></td></tr>
+    <tr><td data-label="Socket"><code>J23</code></td><td data-label="Printed beside it"><code>Stepper_A2</code></td><td data-label="The motor that goes on it">Chute stepper</td><td data-label="Cable end">JST-PH 4-pin (<code>CHU1</code>), built on the motor's bare leads (a 4-pin Dupont housing goes on <code>J24</code> beside it instead): <a href="{{ '/hardware/helpers/chute-stepper-lead/' | relative_url }}">make the chute stepper lead</a></td></tr>
+    <tr><td data-label="Socket"><code>J27</code></td><td data-label="Printed beside it"><code>Stepper_A3</code></td><td data-label="The motor that goes on it">C-channel 1 rotor</td><td data-label="Cable end">JST-PH 4-pin, <code>STP1</code></td></tr>
+    <tr><td data-label="Socket"><code>J31</code></td><td data-label="Printed beside it"><code>Stepper_A4</code></td><td data-label="The motor that goes on it">C-channel 3 rotor</td><td data-label="Cable end">JST-PH 4-pin, <code>STP3</code></td></tr>
+    <tr><td data-label="Socket"><code>J35</code></td><td data-label="Printed beside it"><code>Stepper_A5</code></td><td data-label="The motor that goes on it">Classification channel rotor (the software calls it the carousel)</td><td data-label="Cable end">JST-PH 4-pin, <code>STP4</code></td></tr>
+    <tr><td data-label="Socket"><code>J39</code></td><td data-label="Printed beside it"><code>Stepper_A6</code></td><td data-label="The motor that goes on it">C-channel 2 rotor</td><td data-label="Cable end">JST-PH 4-pin, <code>STP2</code></td></tr>
   </tbody>
 </table>
 
@@ -333,13 +333,13 @@ At the switch end, push the two #187 tabs onto the switch's `COM` and `NC` termi
 
 The board has four LED ports. The fan in the housing lid is already on one of them, so the three [camera lamps]({{ '/hardware/assembly/feeder/camera-lamp/' | relative_url }}) take the other three: `LED2` and `LED2a` on C2, `LED3` and `LED3a` on C3, and `LED4` and `LED4a` on the classification channel (C4). Any lamp can go on any of the three ports. Each lamp comes with a [prepared LED strip]({{ '/hardware/helpers/led-strip/' | relative_url }}) and a board cable (`LED2a` to `LED4a`) of about 920 mm (36 in) of 22 AWG (0.33 mm²) with the Dupont housing on one end. The barrel plug on the strip's pigtail (`LED2` to `LED4`) and the matching socket on the cable's other end are optional but recommended: they make maintenance easier, because the lamp's power can be disconnected close to the lamp. Without them the cable runs straight to the strip.
 
-<table>
+<table class="stack-table">
   <thead><tr><th>Port</th><th>Printed on the board</th><th>What goes on it</th></tr></thead>
   <tbody>
-    <tr><td><code>J8</code></td><td><code>LED_0_1</code></td><td>Camera lamp</td></tr>
-    <tr><td><code>J9</code></td><td><code>LED_0_2</code></td><td>Camera lamp</td></tr>
-    <tr><td><code>J10</code></td><td><code>LED_1_1</code></td><td>Camera lamp</td></tr>
-    <tr><td><code>J11</code></td><td><code>LED_1_2</code></td><td>The housing fan, fitted on the housing page</td></tr>
+    <tr><td data-label="Port"><code>J8</code></td><td data-label="Printed on the board"><code>LED_0_1</code></td><td data-label="What goes on it">Camera lamp</td></tr>
+    <tr><td data-label="Port"><code>J9</code></td><td data-label="Printed on the board"><code>LED_0_2</code></td><td data-label="What goes on it">Camera lamp</td></tr>
+    <tr><td data-label="Port"><code>J10</code></td><td data-label="Printed on the board"><code>LED_1_1</code></td><td data-label="What goes on it">Camera lamp</td></tr>
+    <tr><td data-label="Port"><code>J11</code></td><td data-label="Printed on the board"><code>LED_1_2</code></td><td data-label="What goes on it">The housing fan, fitted on the housing page</td></tr>
   </tbody>
 </table>
 

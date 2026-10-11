@@ -117,7 +117,7 @@ This page is the wiring. Where the PSU, the control board and the Orange Pi phys
 
 Every stepper output on **basically board v1.3** has the same pinout, pin 1 to pin 4:
 
-<table style="max-width:360px">
+<table class="compact-table" style="max-width:360px">
   <thead><tr><th>Pin</th><th>Net</th><th>Coil</th></tr></thead>
   <tbody>
     <tr><td>1</td><td>A2</td><td>coil A</td></tr>

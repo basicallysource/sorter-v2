@@ -33,7 +33,7 @@ These are the channel stepper leads (`STP1` to `STP4`) on the [harness drawings]
 ## The two ends
 
 <dl class="spec-list">
-  <dt>Board end</dt><dd>JST <b>PH</b> housing, 4-pin (PHR-4), 2.0 mm (0.079 in) pitch, into <code>J27</code>, <code>J31</code>, <code>J35</code> or <code>J39</code>. Positions 1 to 4 are <code>A2</code>, <code>A1</code>, <code>B1</code>, <code>B2</code>.</dd>
+  <dt>Board end</dt><dd>JST <b>PH</b> housing, 4-pin (PHR-4), 2.0 mm (0.079 in) pitch, into <code>J27</code> (<code>STP1</code>, C1), <code>J39</code> (<code>STP2</code>, C2), <code>J31</code> (<code>STP3</code>, C3) or <code>J35</code> (<code>STP4</code>, C4). Positions 1 to 4 are <code>A2</code>, <code>A1</code>, <code>B1</code>, <code>B2</code>.</dd>
   <dt>Motor end</dt><dd>The 6-pin JST <b>PH</b> housing the motor's lead already ends in, plugged into the socket on the motor can. Only four of the six positions carry a contact. Leave it alone.</dd>
   <dt>Wire</dt><dd>The motor's own lead, four conductors of 26 AWG (0.13 mm²). The harness drawing says 1 m (39 in); see the note on length below.</dd>
 </dl>

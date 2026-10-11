@@ -26,7 +26,7 @@ This page describes the **basically board v1.3**. How the cables are wired is in
 
 ## Orange Pi to Pico
 
-The Pico plugs into the USB hub (`USB2`), and the hub plugs into the Orange Pi (`USB1`). The Orange Pi finds the Pico by its USB ID and opens it as a serial port (a connection that sends one byte after another).
+The Pico plugs into the USB hub (`USB6`), and the hub plugs into the Orange Pi (`USB5`). The Orange Pi finds the Pico by its USB ID and opens it as a serial port (a connection that sends one byte after another).
 
 The rest of the USB tree is on [The USB connections and the hub]({{ '/lab/usb/' | relative_url }}), and everything else the Orange Pi connects to is on [What is connected to the Orange Pi]({{ '/lab/orange-pi/' | relative_url }}).
 

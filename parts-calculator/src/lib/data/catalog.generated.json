@@ -12,8 +12,8 @@
 		"cost_per_kg": 24.99,
 		"commit_base_url": "https://github.com/basicallysource/sorter-v2/commit/",
 		"engrave": "33d9fa246b1a",
-		"all_parts_zip": "https://assets.basically.website/sorter-parts/all-parts-69d66299a712.zip",
-		"all_parts_plain_zip": "https://assets.basically.website/sorter-parts/all-parts-plain-6a316937f807.zip"
+		"all_parts_zip": "https://assets.basically.website/sorter-parts/all-parts-5bf0e4989dee.zip",
+		"all_parts_plain_zip": "https://assets.basically.website/sorter-parts/all-parts-plain-ae75416ed93c.zip"
 	},
 	"sections": [
 		{
@@ -10412,7 +10412,7 @@
 					"stl_hash": "fccd4907faf05e295c070b5a5c2a41b6f89a5109bc7e368cb7632f26a2c19590",
 					"render": "https://assets.basically.website/sorter-parts/chute-core-full-f35d44e4b870.png",
 					"stl": "https://assets.basically.website/sorter-parts/chute-core-fccd4907faf0.stl",
-					"grams": null
+					"grams": 223.63
 				},
 				{
 					"version": "2",
@@ -10421,17 +10421,17 @@
 					"message": "Inverted chute: replaced with the inverted chute design.",
 					"breaking": true,
 					"commit": null,
-					"stl": "https://assets.basically.website/sorter-parts/chute-core-07fe334b625f.stl",
-					"render": "https://assets.basically.website/sorter-parts/chute-core-full-3bf6400401ca.png",
-					"grams": 217.08
+					"stl": "https://assets.basically.website/sorter-parts/chute-core-97283b2c3e8c.stl",
+					"render": "https://assets.basically.website/sorter-parts/chute-core-full-fca0209f8bc3.png",
+					"grams": 234.63
 				}
 			],
 			"attributes": [],
-			"grams": 217.08,
-			"support_grams": 18.26,
+			"grams": 234.63,
+			"support_grams": 27.33,
 			"support_used": true,
-			"support_intentional": false,
-			"print_seconds": 23063,
+			"support_intentional": true,
+			"print_seconds": 22326,
 			"color": {
 				"role": "chute-core"
 			},
@@ -10450,21 +10450,21 @@
 			"caption": null,
 			"docs_page": null,
 			"conflicts": null,
-			"stl": "https://assets.basically.website/sorter-parts/chute-core-07fe334b625f.stl",
-			"render": "https://assets.basically.website/sorter-parts/chute-core-full-3bf6400401ca.png",
+			"stl": "https://assets.basically.website/sorter-parts/chute-core-97283b2c3e8c.stl",
+			"render": "https://assets.basically.website/sorter-parts/chute-core-full-fca0209f8bc3.png",
 			"stamped": [
 				{
-					"face": "-x side",
-					"stl": "https://assets.basically.website/sorter-parts/chute-core-omak-stamped-minus-x-side-41a81260637a.stl",
+					"face": "angled face",
+					"stl": "https://assets.basically.website/sorter-parts/chute-core-omak-stamped-angled-face-92df076f41d9.stl",
 					"normal": [
-						-1.0,
-						0.0,
-						0.0
+						-0.0,
+						0.866,
+						0.5
 					],
 					"center": [
-						-60.0,
-						52.3,
-						69.98
+						525.37,
+						102.61,
+						115.26
 					],
 					"size": [
 						12.65,
@@ -10475,16 +10475,16 @@
 				},
 				{
 					"face": "+x side",
-					"stl": "https://assets.basically.website/sorter-parts/chute-core-omak-stamped-plus-x-side-413f8c1ec4f8.stl",
+					"stl": "https://assets.basically.website/sorter-parts/chute-core-omak-stamped-plus-x-side-6583f6494006.stl",
 					"normal": [
 						1.0,
 						0.0,
-						0.0
+						-0.0
 					],
 					"center": [
-						-55.0,
-						-47.3,
-						67.43
+						423.07,
+						127.33,
+						181.24
 					],
 					"size": [
 						12.65,
@@ -10494,37 +10494,37 @@
 					"depth": 0.6
 				},
 				{
-					"face": "+y side",
-					"stl": "https://assets.basically.website/sorter-parts/chute-core-omak-stamped-plus-y-side-c6aba5fff8e0.stl",
+					"face": "-x side",
+					"stl": "https://assets.basically.website/sorter-parts/chute-core-omak-stamped-minus-x-side-cd644e885c97.stl",
 					"normal": [
-						-0.0,
-						1.0,
-						0.0
-					],
-					"center": [
-						2.5,
-						-55.0,
-						112.2
-					],
-					"size": [
-						12.65,
-						3.63
-					],
-					"cap": 3.5,
-					"depth": 0.6
-				},
-				{
-					"face": "-y side",
-					"stl": "https://assets.basically.website/sorter-parts/chute-core-omak-stamped-minus-y-side-b998336c7ccf.stl",
-					"normal": [
-						0.0,
 						-1.0,
+						0.0,
 						0.0
 					],
 					"center": [
-						2.5,
-						55.0,
-						112.2
+						533.07,
+						127.33,
+						181.24
+					],
+					"size": [
+						12.65,
+						3.63
+					],
+					"cap": 3.5,
+					"depth": 0.6
+				},
+				{
+					"face": "+x side 2",
+					"stl": "https://assets.basically.website/sorter-parts/chute-core-omak-stamped-plus-x-side-2-8e65f9ba825c.stl",
+					"normal": [
+						1.0,
+						0.0,
+						-0.0
+					],
+					"center": [
+						538.07,
+						107.45,
+						181.03
 					],
 					"size": [
 						12.65,
@@ -15546,17 +15546,17 @@
 					"message": "Inverted chute: replaced with the inverted chute design.",
 					"breaking": true,
 					"commit": null,
-					"stl": "https://assets.basically.website/sorter-parts/funnel-bracket-left-4667acafb004.stl",
-					"render": "https://assets.basically.website/sorter-parts/funnel-bracket-left-full-a9776e5849b2.png",
-					"grams": 29.04
+					"stl": "https://assets.basically.website/sorter-parts/funnel-bracket-left-af431974414d.stl",
+					"render": "https://assets.basically.website/sorter-parts/funnel-bracket-left-full-4e236ba4ca4a.png",
+					"grams": 26.56
 				}
 			],
 			"attributes": [],
-			"grams": 29.04,
-			"support_grams": 2.68,
-			"support_used": true,
+			"grams": 26.56,
+			"support_grams": 0.0,
+			"support_used": false,
 			"support_intentional": false,
-			"print_seconds": 5688,
+			"print_seconds": 2839,
 			"color": {
 				"role": "chute-core"
 			},
@@ -15570,81 +15570,81 @@
 			"caption": null,
 			"docs_page": null,
 			"conflicts": null,
-			"stl": "https://assets.basically.website/sorter-parts/funnel-bracket-left-4667acafb004.stl",
-			"render": "https://assets.basically.website/sorter-parts/funnel-bracket-left-full-a9776e5849b2.png",
+			"stl": "https://assets.basically.website/sorter-parts/funnel-bracket-left-af431974414d.stl",
+			"render": "https://assets.basically.website/sorter-parts/funnel-bracket-left-full-4e236ba4ca4a.png",
 			"stamped": [
 				{
-					"face": "-y side",
-					"stl": "https://assets.basically.website/sorter-parts/funnel-bracket-left-smht-stamped-minus-y-side-86e811841202.stl",
+					"face": "bottom",
+					"stl": "https://assets.basically.website/sorter-parts/funnel-bracket-left-smht-stamped-bottom-61a2f0f80b13.stl",
+					"normal": [
+						0.0,
+						-0.0,
+						-1.0
+					],
+					"center": [
+						140.48,
+						0.64,
+						69.08
+					],
+					"size": [
+						12.45,
+						3.63
+					],
+					"cap": 3.5,
+					"depth": 0.6
+				},
+				{
+					"face": "top",
+					"stl": "https://assets.basically.website/sorter-parts/funnel-bracket-left-smht-stamped-top-cc4fe3e84bd2.stl",
+					"normal": [
+						0.0,
+						-0.0,
+						1.0
+					],
+					"center": [
+						127.08,
+						-60.84,
+						85.08
+					],
+					"size": [
+						12.45,
+						3.63
+					],
+					"cap": 3.5,
+					"depth": 0.6
+				},
+				{
+					"face": "top 2",
+					"stl": "https://assets.basically.website/sorter-parts/funnel-bracket-left-smht-stamped-top-2-2767f0f9bd9b.stl",
 					"normal": [
 						-0.0,
+						0.0,
+						1.0
+					],
+					"center": [
+						129.88,
+						3.84,
+						72.86
+					],
+					"size": [
+						12.45,
+						3.63
+					],
+					"cap": 3.5,
+					"depth": 0.6
+				},
+				{
+					"face": "-x side",
+					"stl": "https://assets.basically.website/sorter-parts/funnel-bracket-left-smht-stamped-minus-x-side-e70463fc878f.stl",
+					"normal": [
 						-1.0,
+						-0.0,
 						0.0
 					],
 					"center": [
-						63.53,
-						-76.0,
-						69.61
-					],
-					"size": [
-						12.45,
-						3.63
-					],
-					"cap": 3.5,
-					"depth": 0.6
-				},
-				{
-					"face": "+y side",
-					"stl": "https://assets.basically.website/sorter-parts/funnel-bracket-left-smht-stamped-plus-y-side-858177a68fba.stl",
-					"normal": [
-						0.0,
-						1.0,
-						-0.0
-					],
-					"center": [
-						91.55,
-						-72.22,
-						56.99
-					],
-					"size": [
-						12.45,
-						3.63
-					],
-					"cap": 3.5,
-					"depth": 0.6
-				},
-				{
-					"face": "angled face",
-					"stl": "https://assets.basically.website/sorter-parts/funnel-bracket-left-smht-stamped-angled-face-a305749c982c.stl",
-					"normal": [
-						0.5,
-						-0.0,
-						0.866
-					],
-					"center": [
-						123.48,
-						-71.39,
-						62.81
-					],
-					"size": [
-						3.63,
-						12.45
-					],
-					"cap": 3.5,
-					"depth": 0.6
-				},
-				{
-					"face": "+y side 2",
-					"stl": "https://assets.basically.website/sorter-parts/funnel-bracket-left-smht-stamped-plus-y-side-2-83e5fbbdb894.stl",
-					"normal": [
-						-0.0,
-						1.0,
-						-0.0
-					],
-					"center": [
-						35.39,
-						-65.0,
-						89.41
+						119.48,
+						57.74,
+						73.69
 					],
 					"size": [
 						12.45,
@@ -15687,17 +15687,17 @@
 					"message": "Inverted chute: replaced with the inverted chute design.",
 					"breaking": true,
 					"commit": null,
-					"stl": "https://assets.basically.website/sorter-parts/funnel-bracket-right-ae0169777133.stl",
-					"render": "https://assets.basically.website/sorter-parts/funnel-bracket-right-full-f9be352ad508.png",
-					"grams": 28.98
+					"stl": "https://assets.basically.website/sorter-parts/funnel-bracket-right-d7c880e57bcf.stl",
+					"render": "https://assets.basically.website/sorter-parts/funnel-bracket-right-full-d9153cb0e589.png",
+					"grams": 26.57
 				}
 			],
 			"attributes": [],
-			"grams": 28.98,
-			"support_grams": 2.99,
-			"support_used": true,
+			"grams": 26.57,
+			"support_grams": 0.0,
+			"support_used": false,
 			"support_intentional": false,
-			"print_seconds": 5688,
+			"print_seconds": 2821,
 			"color": {
 				"role": "chute-core"
 			},
@@ -15711,81 +15711,81 @@
 			"caption": null,
 			"docs_page": null,
 			"conflicts": null,
-			"stl": "https://assets.basically.website/sorter-parts/funnel-bracket-right-ae0169777133.stl",
-			"render": "https://assets.basically.website/sorter-parts/funnel-bracket-right-full-f9be352ad508.png",
+			"stl": "https://assets.basically.website/sorter-parts/funnel-bracket-right-d7c880e57bcf.stl",
+			"render": "https://assets.basically.website/sorter-parts/funnel-bracket-right-full-d9153cb0e589.png",
 			"stamped": [
 				{
-					"face": "+y side",
-					"stl": "https://assets.basically.website/sorter-parts/funnel-bracket-right-ep34-stamped-plus-y-side-5bd18a1938b2.stl",
+					"face": "bottom",
+					"stl": "https://assets.basically.website/sorter-parts/funnel-bracket-right-ep34-stamped-bottom-e41a932041af.stl",
 					"normal": [
 						0.0,
+						0.0,
+						-1.0
+					],
+					"center": [
+						199.06,
+						74.75,
+						69.08
+					],
+					"size": [
+						12.16,
+						3.56
+					],
+					"cap": 3.5,
+					"depth": 0.6
+				},
+				{
+					"face": "top",
+					"stl": "https://assets.basically.website/sorter-parts/funnel-bracket-right-ep34-stamped-top-d9cfb1950b36.stl",
+					"normal": [
+						0.0,
+						0.0,
+						1.0
+					],
+					"center": [
+						200.48,
+						73.35,
+						85.08
+					],
+					"size": [
+						12.16,
+						3.56
+					],
+					"cap": 3.5,
+					"depth": 0.6
+				},
+				{
+					"face": "top 2",
+					"stl": "https://assets.basically.website/sorter-parts/funnel-bracket-right-ep34-stamped-top-2-9d94ba90e09a.stl",
+					"normal": [
+						0.0,
+						0.0,
+						1.0
+					],
+					"center": [
+						176.19,
+						138.04,
+						72.86
+					],
+					"size": [
+						12.16,
+						3.56
+					],
+					"cap": 3.5,
+					"depth": 0.6
+				},
+				{
+					"face": "+x side",
+					"stl": "https://assets.basically.website/sorter-parts/funnel-bracket-right-ep34-stamped-plus-x-side-1b87a0f44139.stl",
+					"normal": [
 						1.0,
-						0.0
-					],
-					"center": [
-						63.53,
-						76.0,
-						69.61
-					],
-					"size": [
-						12.16,
-						3.56
-					],
-					"cap": 3.5,
-					"depth": 0.6
-				},
-				{
-					"face": "-y side",
-					"stl": "https://assets.basically.website/sorter-parts/funnel-bracket-right-ep34-stamped-minus-y-side-865be75cf47b.stl",
-					"normal": [
 						0.0,
-						-1.0,
 						0.0
 					],
 					"center": [
-						91.55,
-						72.22,
-						56.99
-					],
-					"size": [
-						12.16,
-						3.56
-					],
-					"cap": 3.5,
-					"depth": 0.6
-				},
-				{
-					"face": "angled face",
-					"stl": "https://assets.basically.website/sorter-parts/funnel-bracket-right-ep34-stamped-angled-face-9f262050e6f0.stl",
-					"normal": [
-						0.5,
-						-0.0,
-						0.866
-					],
-					"center": [
-						123.6,
-						63.16,
-						62.73
-					],
-					"size": [
-						3.56,
-						12.16
-					],
-					"cap": 3.5,
-					"depth": 0.6
-				},
-				{
-					"face": "-y side 2",
-					"stl": "https://assets.basically.website/sorter-parts/funnel-bracket-right-ep34-stamped-minus-y-side-2-3577554cd443.stl",
-					"normal": [
-						0.0,
-						-1.0,
-						0.0
-					],
-					"center": [
-						35.39,
-						65.0,
-						89.41
+						207.94,
+						77.65,
+						73.66
 					],
 					"size": [
 						12.16,
@@ -15798,7 +15798,7 @@
 		},
 		{
 			"id": "bearing-race",
-			"uid": "yo10",
+			"uid": "081k",
 			"name": "Bearing race",
 			"quantities": {
 				"chute": 1
@@ -15808,27 +15808,37 @@
 			"variant_group": null,
 			"variant_name": null,
 			"description": "The race between the two chute bearing holders.",
-			"version": "1",
+			"version": "2",
 			"created_at": "2026-06-27",
-			"updated_at": "2026-06-27",
+			"updated_at": "2026-10-11",
 			"versions": [
 				{
 					"version": "1",
 					"uid": "yo10",
-					"date": "2026-06-27",
-					"message": "Initial version.",
-					"commit": null,
-					"stl": "https://assets.basically.website/sorter-parts/bearing-race-b832b7eab72a.stl",
+					"message": "As recorded before the first stamped change.",
+					"stl_hash": "b832b7eab72a8392c80d35ebd67bb7cb6326bbc5c82a8592688ccda82fe315b3",
 					"render": "https://assets.basically.website/sorter-parts/bearing-race-full-2e7cdf870d3d.png",
+					"stl": "https://assets.basically.website/sorter-parts/bearing-race-b832b7eab72a.stl",
 					"grams": 20.13
+				},
+				{
+					"version": "2",
+					"uid": "081k",
+					"date": "2026-10-11",
+					"message": "Inverted chute: replaced with the inverted chute design.",
+					"breaking": true,
+					"commit": null,
+					"stl": "https://assets.basically.website/sorter-parts/bearing-race-eaa7d3867e2b.stl",
+					"render": "https://assets.basically.website/sorter-parts/bearing-race-full-4743967f9254.png",
+					"grams": 22.08
 				}
 			],
 			"attributes": [],
-			"grams": 20.13,
+			"grams": 22.08,
 			"support_grams": 0.0,
 			"support_used": false,
 			"support_intentional": false,
-			"print_seconds": 2948,
+			"print_seconds": 2431,
 			"color": {
 				"role": "chute-core"
 			},
@@ -15847,85 +15857,85 @@
 			"caption": null,
 			"docs_page": null,
 			"conflicts": null,
-			"stl": "https://assets.basically.website/sorter-parts/bearing-race-b832b7eab72a.stl",
-			"render": "https://assets.basically.website/sorter-parts/bearing-race-full-2e7cdf870d3d.png",
+			"stl": "https://assets.basically.website/sorter-parts/bearing-race-eaa7d3867e2b.stl",
+			"render": "https://assets.basically.website/sorter-parts/bearing-race-full-4743967f9254.png",
 			"stamped": [
 				{
-					"face": "-y side",
-					"stl": "https://assets.basically.website/sorter-parts/bearing-race-yo10-stamped-minus-y-side-a768887da809.stl",
+					"face": "bottom",
+					"stl": "https://assets.basically.website/sorter-parts/bearing-race-081k-stamped-bottom-dae08589a858.stl",
 					"normal": [
 						0.0,
-						-1.0,
-						0.0
+						0.0,
+						-1.0
 					],
 					"center": [
-						0.0,
-						55.0,
-						141.95
+						-29.43,
+						7.05,
+						140.3
 					],
 					"size": [
-						12.5,
-						3.63
+						12.55,
+						3.56
 					],
 					"cap": 3.5,
 					"depth": 0.6
 				},
 				{
-					"face": "angled face",
-					"stl": "https://assets.basically.website/sorter-parts/bearing-race-yo10-stamped-angled-face-147943a7e886.stl",
+					"face": "top",
+					"stl": "https://assets.basically.website/sorter-parts/bearing-race-081k-stamped-top-2306f8a5ef25.stl",
 					"normal": [
 						0.0,
-						0.9063,
-						0.4226
+						0.0,
+						1.0
 					],
 					"center": [
-						11.38,
-						64.84,
-						149.34
+						-54.28,
+						37.05,
+						152.26
 					],
 					"size": [
-						12.5,
-						3.63
+						12.55,
+						3.56
 					],
 					"cap": 3.5,
 					"depth": 0.6
 				},
 				{
-					"face": "angled face 2",
-					"stl": "https://assets.basically.website/sorter-parts/bearing-race-yo10-stamped-angled-face-2-438849b166f2.stl",
+					"face": "top 2",
+					"stl": "https://assets.basically.website/sorter-parts/bearing-race-081k-stamped-top-2-eaa255491953.stl",
 					"normal": [
 						0.0,
-						-0.4226,
-						0.9063
+						0.0,
+						1.0
 					],
 					"center": [
-						-47.38,
-						55.87,
-						169.62
+						-29.88,
+						11.54,
+						157.46
 					],
 					"size": [
-						12.5,
-						3.63
+						3.56,
+						12.55
 					],
 					"cap": 3.5,
 					"depth": 0.6
 				},
 				{
-					"face": "-y side 2",
-					"stl": "https://assets.basically.website/sorter-parts/bearing-race-yo10-stamped-minus-y-side-2-eb83d3ec9dd0.stl",
+					"face": "top 3",
+					"stl": "https://assets.basically.website/sorter-parts/bearing-race-081k-stamped-top-3-b45dee26ac27.stl",
 					"normal": [
 						0.0,
-						-0.9761,
-						0.2173
+						0.0,
+						1.0
 					],
 					"center": [
-						-47.16,
-						50.63,
-						156.52
+						-48.98,
+						18.89,
+						145.28
 					],
 					"size": [
-						12.5,
-						3.63
+						12.55,
+						3.56
 					],
 					"cap": 3.5,
 					"depth": 0.6
@@ -15964,17 +15974,17 @@
 					"message": "Inverted chute: replaced with the inverted chute design.",
 					"breaking": true,
 					"commit": null,
-					"stl": "https://assets.basically.website/sorter-parts/bearing-holder-left-6681ef4ffc3b.stl",
-					"render": "https://assets.basically.website/sorter-parts/bearing-holder-left-full-55d9d4642dd5.png",
-					"grams": 10.7
+					"stl": "https://assets.basically.website/sorter-parts/bearing-holder-left-e39e941f4d71.stl",
+					"render": "https://assets.basically.website/sorter-parts/bearing-holder-left-full-3eeb5a0bb65c.png",
+					"grams": 10.24
 				}
 			],
 			"attributes": [],
-			"grams": 10.7,
+			"grams": 10.24,
 			"support_grams": 0.0,
 			"support_used": false,
 			"support_intentional": false,
-			"print_seconds": 3162,
+			"print_seconds": 2526,
 			"color": {
 				"role": "chute-core"
 			},
@@ -15993,81 +16003,81 @@
 			"caption": null,
 			"docs_page": null,
 			"conflicts": null,
-			"stl": "https://assets.basically.website/sorter-parts/bearing-holder-left-6681ef4ffc3b.stl",
-			"render": "https://assets.basically.website/sorter-parts/bearing-holder-left-full-55d9d4642dd5.png",
+			"stl": "https://assets.basically.website/sorter-parts/bearing-holder-left-e39e941f4d71.stl",
+			"render": "https://assets.basically.website/sorter-parts/bearing-holder-left-full-3eeb5a0bb65c.png",
 			"stamped": [
 				{
-					"face": "+x side",
-					"stl": "https://assets.basically.website/sorter-parts/bearing-holder-left-eal7-stamped-plus-x-side-a7b8447cc951.stl",
-					"normal": [
-						1.0,
-						0.0,
-						0.0
-					],
-					"center": [
-						-61.45,
-						-60.59,
-						140.82
-					],
-					"size": [
-						12.06,
-						3.5
-					],
-					"cap": 3.5,
-					"depth": 0.6
-				},
-				{
-					"face": "+y side",
-					"stl": "https://assets.basically.website/sorter-parts/bearing-holder-left-eal7-stamped-plus-y-side-2c197f6b7ee2.stl",
-					"normal": [
-						0.0,
-						1.0,
-						0.0
-					],
-					"center": [
-						-65.93,
-						-55.16,
-						125.36
-					],
-					"size": [
-						12.06,
-						3.5
-					],
-					"cap": 3.5,
-					"depth": 0.6
-				},
-				{
-					"face": "-y side",
-					"stl": "https://assets.basically.website/sorter-parts/bearing-holder-left-eal7-stamped-minus-y-side-6f474c984af6.stl",
+					"face": "bottom",
+					"stl": "https://assets.basically.website/sorter-parts/bearing-holder-left-eal7-stamped-bottom-88abc42fab02.stl",
 					"normal": [
 						-0.0,
-						-1.0,
-						-0.0
+						-0.0,
+						-1.0
 					],
 					"center": [
-						-70.28,
-						-68.0,
-						119.2
+						99.64,
+						95.27,
+						130.91
 					],
 					"size": [
-						3.5,
-						12.06
+						12.06,
+						3.5
 					],
 					"cap": 3.5,
 					"depth": 0.6
 				},
 				{
-					"face": "-x side",
-					"stl": "https://assets.basically.website/sorter-parts/bearing-holder-left-eal7-stamped-minus-x-side-fce9d5eb4b8f.stl",
+					"face": "angled face",
+					"stl": "https://assets.basically.website/sorter-parts/bearing-holder-left-eal7-stamped-angled-face-aaf76d180027.stl",
 					"normal": [
-						-1.0,
-						0.0,
+						0.8764,
+						0.4816,
 						0.0
 					],
 					"center": [
-						-68.43,
-						-32.57,
-						140.82
+						117.47,
+						71.83,
+						134.04
+					],
+					"size": [
+						12.06,
+						3.5
+					],
+					"cap": 3.5,
+					"depth": 0.6
+				},
+				{
+					"face": "top",
+					"stl": "https://assets.basically.website/sorter-parts/bearing-holder-left-eal7-stamped-top-56311f03d502.stl",
+					"normal": [
+						0.0,
+						0.0,
+						1.0
+					],
+					"center": [
+						102.49,
+						94.78,
+						143.75
+					],
+					"size": [
+						12.06,
+						3.5
+					],
+					"cap": 3.5,
+					"depth": 0.6
+				},
+				{
+					"face": "angled face 2",
+					"stl": "https://assets.basically.website/sorter-parts/bearing-holder-left-eal7-stamped-angled-face-2-0c8594cf772b.stl",
+					"normal": [
+						-0.8764,
+						-0.4816,
+						0.0
+					],
+					"center": [
+						108.69,
+						73.32,
+						158.75
 					],
 					"size": [
 						12.06,
@@ -16110,17 +16120,17 @@
 					"message": "Inverted chute: replaced with the inverted chute design.",
 					"breaking": true,
 					"commit": null,
-					"stl": "https://assets.basically.website/sorter-parts/bearing-holder-right-a04276161fb2.stl",
-					"render": "https://assets.basically.website/sorter-parts/bearing-holder-right-full-4d1d64c0fb9d.png",
-					"grams": 10.66
+					"stl": "https://assets.basically.website/sorter-parts/bearing-holder-right-a9e3ccabd9ff.stl",
+					"render": "https://assets.basically.website/sorter-parts/bearing-holder-right-full-2203e38a4b95.png",
+					"grams": 10.25
 				}
 			],
 			"attributes": [],
-			"grams": 10.66,
+			"grams": 10.25,
 			"support_grams": 0.0,
 			"support_used": false,
 			"support_intentional": false,
-			"print_seconds": 3165,
+			"print_seconds": 2534,
 			"color": {
 				"role": "chute-core"
 			},
@@ -16139,61 +16149,21 @@
 			"caption": null,
 			"docs_page": null,
 			"conflicts": null,
-			"stl": "https://assets.basically.website/sorter-parts/bearing-holder-right-a04276161fb2.stl",
-			"render": "https://assets.basically.website/sorter-parts/bearing-holder-right-full-4d1d64c0fb9d.png",
+			"stl": "https://assets.basically.website/sorter-parts/bearing-holder-right-a9e3ccabd9ff.stl",
+			"render": "https://assets.basically.website/sorter-parts/bearing-holder-right-full-2203e38a4b95.png",
 			"stamped": [
 				{
-					"face": "+x side",
-					"stl": "https://assets.basically.website/sorter-parts/bearing-holder-right-qsv6-stamped-plus-x-side-694b7a078736.stl",
-					"normal": [
-						1.0,
-						0.0,
-						0.0
-					],
-					"center": [
-						-61.45,
-						32.73,
-						141.33
-					],
-					"size": [
-						12.38,
-						4.52
-					],
-					"cap": 3.5,
-					"depth": 0.6
-				},
-				{
-					"face": "-y side",
-					"stl": "https://assets.basically.website/sorter-parts/bearing-holder-right-qsv6-stamped-minus-y-side-0791dcfab724.stl",
+					"face": "bottom",
+					"stl": "https://assets.basically.website/sorter-parts/bearing-holder-right-qsv6-stamped-bottom-0465f181e0e2.stl",
 					"normal": [
 						0.0,
-						-1.0,
-						0.0
-					],
-					"center": [
-						-65.84,
-						55.16,
-						125.87
-					],
-					"size": [
-						12.38,
-						4.52
-					],
-					"cap": 3.5,
-					"depth": 0.6
-				},
-				{
-					"face": "+y side",
-					"stl": "https://assets.basically.website/sorter-parts/bearing-holder-right-qsv6-stamped-plus-y-side-c17175b5ddda.stl",
-					"normal": [
 						0.0,
-						1.0,
-						0.0
+						-1.0
 					],
 					"center": [
-						-69.66,
-						68.0,
-						119.36
+						108.22,
+						270.39,
+						130.91
 					],
 					"size": [
 						4.52,
@@ -16203,17 +16173,57 @@
 					"depth": 0.6
 				},
 				{
-					"face": "-x side",
-					"stl": "https://assets.basically.website/sorter-parts/bearing-holder-right-qsv6-stamped-minus-x-side-47c18ceb4c82.stl",
+					"face": "angled face",
+					"stl": "https://assets.basically.website/sorter-parts/bearing-holder-right-qsv6-stamped-angled-face-eea300aa19f4.stl",
 					"normal": [
-						-1.0,
-						0.0,
+						0.8764,
+						-0.4816,
 						0.0
 					],
 					"center": [
-						-68.43,
-						47.59,
-						141.33
+						117.02,
+						280.71,
+						134.55
+					],
+					"size": [
+						12.38,
+						4.52
+					],
+					"cap": 3.5,
+					"depth": 0.6
+				},
+				{
+					"face": "top",
+					"stl": "https://assets.basically.website/sorter-parts/bearing-holder-right-qsv6-stamped-top-7269d55f522f.stl",
+					"normal": [
+						0.0,
+						0.0,
+						1.0
+					],
+					"center": [
+						107.3,
+						267.32,
+						143.75
+					],
+					"size": [
+						12.38,
+						4.52
+					],
+					"cap": 3.5,
+					"depth": 0.6
+				},
+				{
+					"face": "angled face 2",
+					"stl": "https://assets.basically.website/sorter-parts/bearing-holder-right-qsv6-stamped-angled-face-2-05507135e460.stl",
+					"normal": [
+						-0.8764,
+						0.4816,
+						0.0
+					],
+					"center": [
+						113.5,
+						288.78,
+						158.75
 					],
 					"size": [
 						12.38,
@@ -16256,17 +16266,17 @@
 					"message": "Inverted chute: replaced with the inverted chute design.",
 					"breaking": true,
 					"commit": null,
-					"stl": "https://assets.basically.website/sorter-parts/servo-adapter-servo-side-d50837ed0c7e.stl",
-					"render": "https://assets.basically.website/sorter-parts/servo-adapter-servo-side-full-46a8b8de9952.png",
-					"grams": 4.94
+					"stl": "https://assets.basically.website/sorter-parts/servo-adapter-servo-side-c6193fcc59f7.stl",
+					"render": "https://assets.basically.website/sorter-parts/servo-adapter-servo-side-full-c2a9e0f80002.png",
+					"grams": 4.87
 				}
 			],
 			"attributes": [],
-			"grams": 4.94,
+			"grams": 4.87,
 			"support_grams": 0.0,
 			"support_used": false,
 			"support_intentional": false,
-			"print_seconds": 2051,
+			"print_seconds": 1065,
 			"color": {
 				"role": "chute-core"
 			},
@@ -16280,21 +16290,21 @@
 			"caption": null,
 			"docs_page": null,
 			"conflicts": null,
-			"stl": "https://assets.basically.website/sorter-parts/servo-adapter-servo-side-d50837ed0c7e.stl",
-			"render": "https://assets.basically.website/sorter-parts/servo-adapter-servo-side-full-46a8b8de9952.png",
+			"stl": "https://assets.basically.website/sorter-parts/servo-adapter-servo-side-c6193fcc59f7.stl",
+			"render": "https://assets.basically.website/sorter-parts/servo-adapter-servo-side-full-c2a9e0f80002.png",
 			"stamped": [
 				{
-					"face": "+x side",
-					"stl": "https://assets.basically.website/sorter-parts/servo-adapter-servo-side-o4vg-stamped-plus-x-side-6d1908b28f08.stl",
+					"face": "bottom",
+					"stl": "https://assets.basically.website/sorter-parts/servo-adapter-servo-side-o4vg-stamped-bottom-fa506318d170.stl",
 					"normal": [
-						1.0,
 						0.0,
-						0.0
+						0.0,
+						-1.0
 					],
 					"center": [
-						91.09,
-						51.36,
-						98.13
+						257.94,
+						58.28,
+						114.41
 					],
 					"size": [
 						12.39,
@@ -16304,17 +16314,17 @@
 					"depth": 0.6
 				},
 				{
-					"face": "-x side",
-					"stl": "https://assets.basically.website/sorter-parts/servo-adapter-servo-side-o4vg-stamped-minus-x-side-cc66e3ebf4ce.stl",
+					"face": "top",
+					"stl": "https://assets.basically.website/sorter-parts/servo-adapter-servo-side-o4vg-stamped-top-3ca35083c12a.stl",
 					"normal": [
-						-1.0,
 						0.0,
-						0.0
+						0.0,
+						1.0
 					],
 					"center": [
-						84.84,
-						68.09,
-						113.33
+						269.72,
+						69.16,
+						120.66
 					],
 					"size": [
 						3.63,
@@ -16325,16 +16335,16 @@
 				},
 				{
 					"face": "outer wall",
-					"stl": "https://assets.basically.website/sorter-parts/servo-adapter-servo-side-o4vg-stamped-outer-wall-837c200f4a05.stl",
+					"stl": "https://assets.basically.website/sorter-parts/servo-adapter-servo-side-o4vg-stamped-outer-wall-6e1fd9683b4e.stl",
 					"normal": [
-						0.0,
-						0.9985,
-						0.0541
+						-0.0271,
+						0.9996,
+						0.0
 					],
 					"center": [
-						88.22,
-						73.25,
-						115.55
+						256.45,
+						95.52,
+						117.29
 					],
 					"size": [
 						8.85,
@@ -16345,40 +16355,19 @@
 					"note": "smaller text",
 					"surface": {
 						"axis": [
-							-1.0,
 							0.0,
-							0.0
+							0.0,
+							1.0
 						],
 						"point": [
-							88.215,
-							52.281,
-							114.41
+							257.022,
+							74.582,
+							117.285
 						],
-						"r0": 20.995,
+						"r0": 20.944,
 						"slope": 0.0,
 						"sign": 1
 					}
-				},
-				{
-					"face": "-x side 2",
-					"stl": "https://assets.basically.website/sorter-parts/servo-adapter-servo-side-o4vg-stamped-minus-x-side-2-a7def613f324.stl",
-					"normal": [
-						-1.0,
-						0.0,
-						0.0
-					],
-					"center": [
-						87.24,
-						52.17,
-						101.68
-					],
-					"size": [
-						2.59,
-						8.85
-					],
-					"cap": 2.5,
-					"depth": 0.6,
-					"note": "smaller text"
 				}
 			]
 		},
@@ -16414,17 +16403,17 @@
 					"message": "Inverted chute: replaced with the inverted chute design.",
 					"breaking": true,
 					"commit": null,
-					"stl": "https://assets.basically.website/sorter-parts/servo-adapter-flap-side-c8d5bbe98c82.stl",
-					"render": "https://assets.basically.website/sorter-parts/servo-adapter-flap-side-full-ded534174e06.png",
-					"grams": 5.21
+					"stl": "https://assets.basically.website/sorter-parts/servo-adapter-flap-side-4d422a101583.stl",
+					"render": "https://assets.basically.website/sorter-parts/servo-adapter-flap-side-full-69efee8f99ee.png",
+					"grams": 4.99
 				}
 			],
 			"attributes": [],
-			"grams": 5.21,
+			"grams": 4.99,
 			"support_grams": 0.0,
 			"support_used": false,
 			"support_intentional": false,
-			"print_seconds": 2098,
+			"print_seconds": 1213,
 			"color": {
 				"role": "chute-core"
 			},
@@ -16438,21 +16427,21 @@
 			"caption": null,
 			"docs_page": null,
 			"conflicts": null,
-			"stl": "https://assets.basically.website/sorter-parts/servo-adapter-flap-side-c8d5bbe98c82.stl",
-			"render": "https://assets.basically.website/sorter-parts/servo-adapter-flap-side-full-ded534174e06.png",
+			"stl": "https://assets.basically.website/sorter-parts/servo-adapter-flap-side-4d422a101583.stl",
+			"render": "https://assets.basically.website/sorter-parts/servo-adapter-flap-side-full-69efee8f99ee.png",
 			"stamped": [
 				{
-					"face": "+x side",
-					"stl": "https://assets.basically.website/sorter-parts/servo-adapter-flap-side-8ee1-stamped-plus-x-side-65e47c7778c6.stl",
+					"face": "bottom",
+					"stl": "https://assets.basically.website/sorter-parts/servo-adapter-flap-side-8ee1-stamped-bottom-3fa974daad5e.stl",
 					"normal": [
-						1.0,
+						-0.0,
 						0.0,
-						0.0
+						-1.0
 					],
 					"center": [
-						51.54,
-						52.28,
-						97.6
+						259.05,
+						57.71,
+						114.41
 					],
 					"size": [
 						12.24,
@@ -16462,17 +16451,17 @@
 					"depth": 0.6
 				},
 				{
-					"face": "-x side",
-					"stl": "https://assets.basically.website/sorter-parts/servo-adapter-flap-side-8ee1-stamped-minus-x-side-4d120b95aeef.stl",
+					"face": "top",
+					"stl": "https://assets.basically.website/sorter-parts/servo-adapter-flap-side-8ee1-stamped-top-1ade9931c5da.stl",
 					"normal": [
-						-1.0,
 						0.0,
-						0.0
+						0.0,
+						1.0
 					],
 					"center": [
-						46.54,
-						53.28,
-						98.57
+						259.07,
+						90.71,
+						119.41
 					],
 					"size": [
 						12.24,
@@ -16515,17 +16504,17 @@
 					"message": "Inverted chute: replaced with the inverted chute design.",
 					"breaking": true,
 					"commit": null,
-					"stl": "https://assets.basically.website/sorter-parts/servo-bracket-lower-arm-9ac1a6307858.stl",
-					"render": "https://assets.basically.website/sorter-parts/servo-bracket-lower-arm-full-0c05be073506.png",
-					"grams": 8.6
+					"stl": "https://assets.basically.website/sorter-parts/servo-bracket-lower-arm-8553d5aa2fd2.stl",
+					"render": "https://assets.basically.website/sorter-parts/servo-bracket-lower-arm-full-0c78535c8a17.png",
+					"grams": 8.91
 				}
 			],
 			"attributes": [],
-			"grams": 8.6,
+			"grams": 8.91,
 			"support_grams": 0.0,
 			"support_used": false,
 			"support_intentional": false,
-			"print_seconds": 1952,
+			"print_seconds": 2186,
 			"color": {
 				"role": "chute-core"
 			},
@@ -16539,62 +16528,41 @@
 			"caption": null,
 			"docs_page": null,
 			"conflicts": null,
-			"stl": "https://assets.basically.website/sorter-parts/servo-bracket-lower-arm-9ac1a6307858.stl",
-			"render": "https://assets.basically.website/sorter-parts/servo-bracket-lower-arm-full-0c05be073506.png",
+			"stl": "https://assets.basically.website/sorter-parts/servo-bracket-lower-arm-8553d5aa2fd2.stl",
+			"render": "https://assets.basically.website/sorter-parts/servo-bracket-lower-arm-full-0c78535c8a17.png",
 			"stamped": [
 				{
 					"face": "bottom",
-					"stl": "https://assets.basically.website/sorter-parts/servo-bracket-lower-arm-cdy5-stamped-bottom-9ddf63cad681.stl",
+					"stl": "https://assets.basically.website/sorter-parts/servo-bracket-lower-arm-cdy5-stamped-bottom-2cadc3e77887.stl",
 					"normal": [
 						0.0,
 						0.0,
 						-1.0
 					],
 					"center": [
-						76.92,
-						21.22,
-						68.07
+						310.89,
+						267.17,
+						83.12
 					],
 					"size": [
-						2.59,
-						8.73
-					],
-					"cap": 2.5,
-					"depth": 0.6,
-					"note": "smaller text"
-				},
-				{
-					"face": "top",
-					"stl": "https://assets.basically.website/sorter-parts/servo-bracket-lower-arm-cdy5-stamped-top-0d16197f56b7.stl",
-					"normal": [
-						0.0,
-						0.0,
-						1.0
-					],
-					"center": [
-						110.33,
-						35.8,
-						98.18
-					],
-					"size": [
-						12.23,
-						3.63
+						3.63,
+						12.23
 					],
 					"cap": 3.5,
 					"depth": 0.6
 				},
 				{
 					"face": "angled face",
-					"stl": "https://assets.basically.website/sorter-parts/servo-bracket-lower-arm-cdy5-stamped-angled-face-7b0862447612.stl",
+					"stl": "https://assets.basically.website/sorter-parts/servo-bracket-lower-arm-cdy5-stamped-angled-face-55b574aceb6c.stl",
 					"normal": [
-						-0.0,
-						-0.866,
+						0.7801,
+						0.376,
 						0.5
 					],
 					"center": [
-						123.35,
-						31.02,
-						95.42
+						301.64,
+						242.88,
+						109.67
 					],
 					"size": [
 						12.23,
@@ -16604,21 +16572,41 @@
 					"depth": 0.6
 				},
 				{
-					"face": "top 2",
-					"stl": "https://assets.basically.website/sorter-parts/servo-bracket-lower-arm-cdy5-stamped-top-2-b00725c55ea0.stl",
+					"face": "angled face 2",
+					"stl": "https://assets.basically.website/sorter-parts/servo-bracket-lower-arm-cdy5-stamped-angled-face-2-829ea88bc18c.stl",
 					"normal": [
-						-0.2353,
-						0.0,
-						0.9719
+						0.8604,
+						0.1535,
+						0.486
 					],
 					"center": [
-						87.99,
-						34.96,
-						91.5
+						314.84,
+						262.01,
+						89.15
 					],
 					"size": [
 						12.23,
 						3.63
+					],
+					"cap": 3.5,
+					"depth": 0.6
+				},
+				{
+					"face": "top",
+					"stl": "https://assets.basically.website/sorter-parts/servo-bracket-lower-arm-cdy5-stamped-top-f383e416ace0.stl",
+					"normal": [
+						-0.0,
+						-0.0,
+						1.0
+					],
+					"center": [
+						303.16,
+						267.09,
+						95.18
+					],
+					"size": [
+						3.63,
+						12.23
 					],
 					"cap": 3.5,
 					"depth": 0.6
@@ -16657,17 +16645,17 @@
 					"message": "Inverted chute: replaced with the inverted chute design.",
 					"breaking": true,
 					"commit": null,
-					"stl": "https://assets.basically.website/sorter-parts/servo-bracket-side-arm-46fab5d0d9da.stl",
-					"render": "https://assets.basically.website/sorter-parts/servo-bracket-side-arm-full-fc035d0f3fb5.png",
-					"grams": 8.69
+					"stl": "https://assets.basically.website/sorter-parts/servo-bracket-side-arm-c54b1fce8749.stl",
+					"render": "https://assets.basically.website/sorter-parts/servo-bracket-side-arm-full-8eece009e559.png",
+					"grams": 8.98
 				}
 			],
 			"attributes": [],
-			"grams": 8.69,
+			"grams": 8.98,
 			"support_grams": 0.0,
 			"support_used": false,
 			"support_intentional": false,
-			"print_seconds": 1931,
+			"print_seconds": 2740,
 			"color": {
 				"role": "chute-core"
 			},
@@ -16681,42 +16669,21 @@
 			"caption": null,
 			"docs_page": null,
 			"conflicts": null,
-			"stl": "https://assets.basically.website/sorter-parts/servo-bracket-side-arm-46fab5d0d9da.stl",
-			"render": "https://assets.basically.website/sorter-parts/servo-bracket-side-arm-full-fc035d0f3fb5.png",
+			"stl": "https://assets.basically.website/sorter-parts/servo-bracket-side-arm-c54b1fce8749.stl",
+			"render": "https://assets.basically.website/sorter-parts/servo-bracket-side-arm-full-8eece009e559.png",
 			"stamped": [
 				{
 					"face": "bottom",
-					"stl": "https://assets.basically.website/sorter-parts/servo-bracket-side-arm-i4cz-stamped-bottom-ac91bef00332.stl",
+					"stl": "https://assets.basically.website/sorter-parts/servo-bracket-side-arm-i4cz-stamped-bottom-38284d04b3f6.stl",
 					"normal": [
-						0.0,
+						-0.0,
 						0.0,
 						-1.0
 					],
 					"center": [
-						125.86,
-						81.75,
-						98.18
-					],
-					"size": [
-						8.71,
-						2.59
-					],
-					"cap": 2.5,
-					"depth": 0.6,
-					"note": "smaller text"
-				},
-				{
-					"face": "-y side",
-					"stl": "https://assets.basically.website/sorter-parts/servo-bracket-side-arm-i4cz-stamped-minus-y-side-14c40b6899f9.stl",
-					"normal": [
-						0.0,
-						-1.0,
-						0.0
-					],
-					"center": [
-						102.41,
-						79.33,
-						101.37
+						346.98,
+						331.72,
+						114.41
 					],
 					"size": [
 						12.2,
@@ -16727,16 +16694,16 @@
 				},
 				{
 					"face": "angled face",
-					"stl": "https://assets.basically.website/sorter-parts/servo-bracket-side-arm-i4cz-stamped-angled-face-d1f9ed9e62d6.stl",
+					"stl": "https://assets.basically.website/sorter-parts/servo-bracket-side-arm-i4cz-stamped-angled-face-0df152318902.stl",
 					"normal": [
+						0.0,
 						-0.7071,
-						-0.7071,
-						0.0
+						0.7071
 					],
 					"center": [
-						89.65,
-						84.62,
-						127.45
+						329.98,
+						329.72,
+						123.12
 					],
 					"size": [
 						12.2,
@@ -16746,21 +16713,41 @@
 					"depth": 0.6
 				},
 				{
-					"face": "angled face 2",
-					"stl": "https://assets.basically.website/sorter-parts/servo-bracket-side-arm-i4cz-stamped-angled-face-2-44213547c73d.stl",
+					"face": "top",
+					"stl": "https://assets.basically.website/sorter-parts/servo-bracket-side-arm-i4cz-stamped-top-796a0c715266.stl",
 					"normal": [
-						0.7071,
-						0.7071,
-						0.0
+						-0.0,
+						0.0,
+						1.0
 					],
 					"center": [
-						97.09,
-						91.07,
-						111.08
+						329.98,
+						322.86,
+						120.28
 					],
 					"size": [
 						12.2,
 						3.63
+					],
+					"cap": 3.5,
+					"depth": 0.6
+				},
+				{
+					"face": "-x side",
+					"stl": "https://assets.basically.website/sorter-parts/servo-bracket-side-arm-i4cz-stamped-minus-x-side-ce838c9d7ba4.stl",
+					"normal": [
+						-1.0,
+						-0.0,
+						-0.0
+					],
+					"center": [
+						325.84,
+						359.08,
+						162.31
+					],
+					"size": [
+						3.63,
+						12.2
 					],
 					"cap": 3.5,
 					"depth": 0.6
@@ -16799,17 +16786,17 @@
 					"message": "Inverted chute: replaced with the inverted chute design.",
 					"breaking": true,
 					"commit": null,
-					"stl": "https://assets.basically.website/sorter-parts/servo-bracket-cover-7d2dcd863ce3.stl",
-					"render": "https://assets.basically.website/sorter-parts/servo-bracket-cover-full-2a5919510eb9.png",
-					"grams": 5.94
+					"stl": "https://assets.basically.website/sorter-parts/servo-bracket-cover-1bc27a4bda6f.stl",
+					"render": "https://assets.basically.website/sorter-parts/servo-bracket-cover-full-1abd814dec1c.png",
+					"grams": 5.92
 				}
 			],
 			"attributes": [],
-			"grams": 5.94,
+			"grams": 5.92,
 			"support_grams": 0.0,
 			"support_used": false,
 			"support_intentional": false,
-			"print_seconds": 2179,
+			"print_seconds": 1204,
 			"color": {
 				"role": "chute-core"
 			},
@@ -16823,41 +16810,21 @@
 			"caption": null,
 			"docs_page": null,
 			"conflicts": null,
-			"stl": "https://assets.basically.website/sorter-parts/servo-bracket-cover-7d2dcd863ce3.stl",
-			"render": "https://assets.basically.website/sorter-parts/servo-bracket-cover-full-2a5919510eb9.png",
+			"stl": "https://assets.basically.website/sorter-parts/servo-bracket-cover-1bc27a4bda6f.stl",
+			"render": "https://assets.basically.website/sorter-parts/servo-bracket-cover-full-1abd814dec1c.png",
 			"stamped": [
 				{
-					"face": "-x side",
-					"stl": "https://assets.basically.website/sorter-parts/servo-bracket-cover-bp83-stamped-minus-x-side-a37c2b51c2be.stl",
+					"face": "bottom",
+					"stl": "https://assets.basically.website/sorter-parts/servo-bracket-cover-bp83-stamped-bottom-10fca887e7d6.stl",
 					"normal": [
-						-1.0,
 						0.0,
-						0.0
+						0.0,
+						-1.0
 					],
 					"center": [
-						96.19,
-						73.07,
-						106.12
-					],
-					"size": [
-						3.56,
-						12.11
-					],
-					"cap": 3.5,
-					"depth": 0.6
-				},
-				{
-					"face": "+x side",
-					"stl": "https://assets.basically.website/sorter-parts/servo-bracket-cover-bp83-stamped-plus-x-side-220baad52c48.stl",
-					"normal": [
-						1.0,
-						0.0,
-						0.0
-					],
-					"center": [
-						102.84,
-						69.13,
-						101.34
+						345.4,
+						210.16,
+						114.41
 					],
 					"size": [
 						12.11,
@@ -16868,44 +16835,63 @@
 				},
 				{
 					"face": "top",
-					"stl": "https://assets.basically.website/sorter-parts/servo-bracket-cover-bp83-stamped-top-a9c332c5abbf.stl",
+					"stl": "https://assets.basically.website/sorter-parts/servo-bracket-cover-bp83-stamped-top-d6eb38e033ef.stl",
 					"normal": [
 						0.0,
 						0.0,
 						1.0
 					],
 					"center": [
-						99.35,
-						29.09,
-						104.47
+						329.04,
+						213.61,
+						121.06
 					],
 					"size": [
-						3.56,
-						12.11
+						12.11,
+						3.56
 					],
 					"cap": 3.5,
 					"depth": 0.6
 				},
 				{
-					"face": "+y side",
-					"stl": "https://assets.basically.website/sorter-parts/servo-bracket-cover-bp83-stamped-plus-y-side-3d97ff4acf3c.stl",
+					"face": "+x side",
+					"stl": "https://assets.basically.website/sorter-parts/servo-bracket-cover-bp83-stamped-plus-x-side-4c2a83bea253.stl",
 					"normal": [
-						0.0,
-						1.0,
+						0.9957,
+						-0.0924,
 						0.0
 					],
 					"center": [
-						100.44,
-						76.73,
-						103.63
+						323.54,
+						170.06,
+						117.57
 					],
 					"size": [
-						2.55,
-						8.65
+						12.11,
+						3.56
 					],
-					"cap": 2.5,
-					"depth": 0.6,
-					"note": "smaller text"
+					"cap": 3.5,
+					"depth": 0.6
+				},
+				{
+					"face": "-x side",
+					"stl": "https://assets.basically.website/sorter-parts/servo-bracket-cover-bp83-stamped-minus-x-side-d00b1188ea22.stl",
+					"normal": [
+						-0.9957,
+						0.0924,
+						0.0
+					],
+					"center": [
+						345.76,
+						194.33,
+						117.57
+					],
+					"size": [
+						12.11,
+						3.56
+					],
+					"cap": 3.5,
+					"depth": 0.6
 				}
 			]
 		},
@@ -16941,17 +16927,17 @@
 					"message": "Inverted chute: replaced with the inverted chute design.",
 					"breaking": true,
 					"commit": null,
-					"stl": "https://assets.basically.website/sorter-parts/servo-bracket-housing-d0d2aacd887e.stl",
-					"render": "https://assets.basically.website/sorter-parts/servo-bracket-housing-full-f8a2d863b3dc.png",
-					"grams": 17.33
+					"stl": "https://assets.basically.website/sorter-parts/servo-bracket-housing-b96520a80f8f.stl",
+					"render": "https://assets.basically.website/sorter-parts/servo-bracket-housing-full-8e54ecf95e38.png",
+					"grams": 17.56
 				}
 			],
 			"attributes": [],
-			"grams": 17.33,
+			"grams": 17.56,
 			"support_grams": 0.0,
 			"support_used": false,
 			"support_intentional": false,
-			"print_seconds": 2891,
+			"print_seconds": 2582,
 			"color": {
 				"role": "chute-core"
 			},
@@ -16970,21 +16956,21 @@
 			"caption": null,
 			"docs_page": null,
 			"conflicts": null,
-			"stl": "https://assets.basically.website/sorter-parts/servo-bracket-housing-d0d2aacd887e.stl",
-			"render": "https://assets.basically.website/sorter-parts/servo-bracket-housing-full-f8a2d863b3dc.png",
+			"stl": "https://assets.basically.website/sorter-parts/servo-bracket-housing-b96520a80f8f.stl",
+			"render": "https://assets.basically.website/sorter-parts/servo-bracket-housing-full-8e54ecf95e38.png",
 			"stamped": [
 				{
-					"face": "top",
-					"stl": "https://assets.basically.website/sorter-parts/servo-bracket-housing-gu62-stamped-top-7e8546c3127e.stl",
+					"face": "bottom",
+					"stl": "https://assets.basically.website/sorter-parts/servo-bracket-housing-gu62-stamped-bottom-1320fe01e43b.stl",
 					"normal": [
 						0.0,
-						-0.0,
-						1.0
+						0.0,
+						-1.0
 					],
 					"center": [
-						110.36,
-						13.39,
-						130.64
+						306.39,
+						209.0,
+						114.41
 					],
 					"size": [
 						12.3,
@@ -16995,56 +16981,56 @@
 				},
 				{
 					"face": "-x side",
-					"stl": "https://assets.basically.website/sorter-parts/servo-bracket-housing-gu62-stamped-minus-x-side-a9d10680ac7b.stl",
+					"stl": "https://assets.basically.website/sorter-parts/servo-bracket-housing-gu62-stamped-minus-x-side-8fd962749fb6.stl",
 					"normal": [
-						-1.0,
-						0.0,
+						-0.9957,
+						-0.0925,
 						-0.0
 					],
 					"center": [
-						102.84,
-						17.54,
-						105.71
+						293.25,
+						207.94,
+						117.6
 					],
 					"size": [
-						3.63,
-						12.3
+						12.3,
+						3.63
 					],
 					"cap": 3.5,
 					"depth": 0.6
 				},
 				{
 					"face": "+x side",
-					"stl": "https://assets.basically.website/sorter-parts/servo-bracket-housing-gu62-stamped-plus-x-side-054c0de01310.stl",
+					"stl": "https://assets.basically.website/sorter-parts/servo-bracket-housing-gu62-stamped-plus-x-side-4a34604d0e03.stl",
 					"normal": [
-						1.0,
-						0.0,
-						0.0
+						0.9957,
+						0.0925,
+						-0.0
 					],
 					"center": [
-						131.34,
-						13.39,
-						105.7
+						325.57,
+						210.95,
+						117.6
 					],
 					"size": [
-						3.63,
-						12.3
+						12.3,
+						3.63
 					],
 					"cap": 3.5,
 					"depth": 0.6
 				},
 				{
-					"face": "top 2",
-					"stl": "https://assets.basically.website/sorter-parts/servo-bracket-housing-gu62-stamped-top-2-9f39bf1702cd.stl",
+					"face": "top",
+					"stl": "https://assets.basically.website/sorter-parts/servo-bracket-housing-gu62-stamped-top-e65ea4eca33c.stl",
 					"normal": [
-						0.0,
+						-0.0,
 						0.0,
 						1.0
 					],
 					"center": [
-						110.36,
-						25.59,
-						104.18
+						301.16,
+						208.5,
+						142.91
 					],
 					"size": [
 						12.3,
@@ -17347,17 +17333,17 @@
 					"message": "Inverted chute: replaced with the inverted chute design.",
 					"breaking": true,
 					"commit": null,
-					"stl": "https://assets.basically.website/sorter-parts/chute-door-0e5cc4e2fa7b.stl",
-					"render": "https://assets.basically.website/sorter-parts/chute-door-full-ab113ad6984b.png",
-					"grams": 53.95
+					"stl": "https://assets.basically.website/sorter-parts/chute-door-494e3638bb66.stl",
+					"render": "https://assets.basically.website/sorter-parts/chute-door-full-f944cc4c8923.png",
+					"grams": 54.16
 				}
 			],
 			"attributes": [],
-			"grams": 53.95,
-			"support_grams": 3.94,
-			"support_used": true,
+			"grams": 54.16,
+			"support_grams": 0.0,
+			"support_used": false,
 			"support_intentional": false,
-			"print_seconds": 5792,
+			"print_seconds": 6034,
 			"color": {
 				"role": "chute-core"
 			},
@@ -17371,21 +17357,21 @@
 			"caption": null,
 			"docs_page": null,
 			"conflicts": null,
-			"stl": "https://assets.basically.website/sorter-parts/chute-door-0e5cc4e2fa7b.stl",
-			"render": "https://assets.basically.website/sorter-parts/chute-door-full-ab113ad6984b.png",
+			"stl": "https://assets.basically.website/sorter-parts/chute-door-494e3638bb66.stl",
+			"render": "https://assets.basically.website/sorter-parts/chute-door-full-f944cc4c8923.png",
 			"stamped": [
 				{
-					"face": "angled face",
-					"stl": "https://assets.basically.website/sorter-parts/chute-door-p88p-stamped-angled-face-cedeba049b30.stl",
+					"face": "bottom",
+					"stl": "https://assets.basically.website/sorter-parts/chute-door-p88p-stamped-bottom-f3a23bb9af81.stl",
 					"normal": [
 						0.0,
-						-0.4995,
-						0.8663
+						-0.0,
+						-1.0
 					],
 					"center": [
-						-46.02,
-						-53.83,
-						100.64
+						129.77,
+						143.38,
+						128.56
 					],
 					"size": [
 						12.27,
@@ -17395,80 +17381,64 @@
 					"depth": 0.6
 				},
 				{
-					"face": "outer wall",
-					"stl": "https://assets.basically.website/sorter-parts/chute-door-p88p-stamped-outer-wall-7e47d4dd579c.stl",
+					"face": "top",
+					"stl": "https://assets.basically.website/sorter-parts/chute-door-p88p-stamped-top-ff7e6cd60461.stl",
+					"normal": [
+						0.0866,
+						-0.0,
+						0.9962
+					],
+					"center": [
+						15.5,
+						141.91,
+						141.12
+					],
+					"size": [
+						12.27,
+						3.56
+					],
+					"cap": 3.5,
+					"depth": 0.6
+				},
+				{
+					"face": "-y side",
+					"stl": "https://assets.basically.website/sorter-parts/chute-door-p88p-stamped-minus-y-side-9b8dfe29073a.stl",
 					"normal": [
 						-0.0,
-						-0.675,
-						0.7378
-					],
-					"center": [
-						21.49,
-						-18.72,
-						118.01
-					],
-					"size": [
-						3.56,
-						12.27
-					],
-					"cap": 3.5,
-					"depth": 0.6,
-					"surface": {
-						"axis": [
-							1.0,
-							-0.0,
-							0.0
-						],
-						"point": [
-							1.625,
-							52.45,
-							40.216
-						],
-						"r0": 105.442,
-						"slope": 0.0,
-						"sign": 1
-					}
-				},
-				{
-					"face": "-x side",
-					"stl": "https://assets.basically.website/sorter-parts/chute-door-p88p-stamped-minus-x-side-5ef0e0169ee1.stl",
-					"normal": [
 						-1.0,
-						0.0,
-						0.0
-					],
-					"center": [
-						-62.84,
-						52.29,
-						150.41
-					],
-					"size": [
-						12.27,
-						3.56
-					],
-					"cap": 3.5,
-					"depth": 0.6
-				},
-				{
-					"face": "+x side",
-					"stl": "https://assets.basically.website/sorter-parts/chute-door-p88p-stamped-plus-x-side-b3f01b87e966.stl",
-					"normal": [
-						1.0,
-						0.0,
 						-0.0
 					],
 					"center": [
-						53.53,
-						13.19,
-						133.98
+						33.82,
+						140.23,
+						131.72
 					],
 					"size": [
-						8.76,
-						2.55
+						12.27,
+						3.56
 					],
-					"cap": 2.5,
-					"depth": 0.6,
-					"note": "smaller text"
+					"cap": 3.5,
+					"depth": 0.6
+				},
+				{
+					"face": "+y side",
+					"stl": "https://assets.basically.website/sorter-parts/chute-door-p88p-stamped-plus-y-side-bc04f3878426.stl",
+					"normal": [
+						-0.0,
+						1.0,
+						-0.0
+					],
+					"center": [
+						80.64,
+						247.29,
+						131.72
+					],
+					"size": [
+						12.27,
+						3.56
+					],
+					"cap": 3.5,
+					"depth": 0.6
 				}
 			]
 		},
@@ -18484,17 +18454,17 @@
 					"message": "Inverted chute: replaced with the inverted chute design.",
 					"breaking": true,
 					"commit": null,
-					"stl": "https://assets.basically.website/sorter-parts/layer-connector-1-fafac82582ea.stl",
-					"render": "https://assets.basically.website/sorter-parts/layer-connector-1-full-fb102818a3f4.png",
-					"grams": 11.79
+					"stl": "https://assets.basically.website/sorter-parts/layer-connector-1-cf24e7a4867d.stl",
+					"render": "https://assets.basically.website/sorter-parts/layer-connector-1-full-6c1814ce6cf5.png",
+					"grams": 11.57
 				}
 			],
 			"attributes": [],
-			"grams": 11.79,
+			"grams": 11.57,
 			"support_grams": 0.0,
 			"support_used": false,
 			"support_intentional": false,
-			"print_seconds": 2836,
+			"print_seconds": 1671,
 			"color": {
 				"role": "chute-core"
 			},
@@ -18508,21 +18478,21 @@
 			"caption": null,
 			"docs_page": null,
 			"conflicts": null,
-			"stl": "https://assets.basically.website/sorter-parts/layer-connector-1-fafac82582ea.stl",
-			"render": "https://assets.basically.website/sorter-parts/layer-connector-1-full-fb102818a3f4.png",
+			"stl": "https://assets.basically.website/sorter-parts/layer-connector-1-cf24e7a4867d.stl",
+			"render": "https://assets.basically.website/sorter-parts/layer-connector-1-full-6c1814ce6cf5.png",
 			"stamped": [
 				{
-					"face": "+y side",
-					"stl": "https://assets.basically.website/sorter-parts/layer-connector-1-okr2-stamped-plus-y-side-4b046059c351.stl",
+					"face": "bottom",
+					"stl": "https://assets.basically.website/sorter-parts/layer-connector-1-okr2-stamped-bottom-5e6103229ee6.stl",
 					"normal": [
 						0.0,
-						1.0,
-						0.0
+						0.0,
+						-1.0
 					],
 					"center": [
-						-56.49,
-						-66.36,
-						-128.98
+						147.61,
+						-298.09,
+						-104.52
 					],
 					"size": [
 						12.33,
@@ -18532,17 +18502,37 @@
 					"depth": 0.6
 				},
 				{
-					"face": "-y side",
-					"stl": "https://assets.basically.website/sorter-parts/layer-connector-1-okr2-stamped-minus-y-side-a5f8b6e96cd5.stl",
+					"face": "top",
+					"stl": "https://assets.basically.website/sorter-parts/layer-connector-1-okr2-stamped-top-91eec711a2ed.stl",
 					"normal": [
 						-0.0,
+						0.0,
+						1.0
+					],
+					"center": [
+						126.9,
+						-348.43,
+						-100.74
+					],
+					"size": [
+						12.33,
+						3.63
+					],
+					"cap": 3.5,
+					"depth": 0.6
+				},
+				{
+					"face": "-x side",
+					"stl": "https://assets.basically.website/sorter-parts/layer-connector-1-okr2-stamped-minus-x-side-902b93b424c2.stl",
+					"normal": [
 						-1.0,
+						-0.0,
 						0.0
 					],
 					"center": [
-						-77.19,
-						-70.14,
-						-130.4
+						114.57,
+						-302.44,
+						-99.91
 					],
 					"size": [
 						12.33,
@@ -18553,40 +18543,20 @@
 				},
 				{
 					"face": "+x side",
-					"stl": "https://assets.basically.website/sorter-parts/layer-connector-1-okr2-stamped-plus-x-side-0e8e455bf52a.stl",
+					"stl": "https://assets.basically.website/sorter-parts/layer-connector-1-okr2-stamped-plus-x-side-5777eb16e41e.stl",
 					"normal": [
 						1.0,
-						-0.0,
+						0.0,
 						0.0
 					],
 					"center": [
-						-47.53,
-						-79.17,
-						-124.63
+						156.57,
+						-330.47,
+						-99.91
 					],
 					"size": [
-						3.63,
-						12.33
-					],
-					"cap": 3.5,
-					"depth": 0.6
-				},
-				{
-					"face": "angled face",
-					"stl": "https://assets.basically.website/sorter-parts/layer-connector-1-okr2-stamped-angled-face-9738282b3ab5.stl",
-					"normal": [
-						-0.8988,
-						0.4384,
-						0.0
-					],
-					"center": [
-						-53.72,
-						-73.01,
-						-126.05
-					],
-					"size": [
-						3.63,
-						12.33
+						12.33,
+						3.63
 					],
 					"cap": 3.5,
 					"depth": 0.6
@@ -18626,17 +18596,17 @@
 					"message": "Inverted chute: replaced with the inverted chute design.",
 					"breaking": true,
 					"commit": null,
-					"stl": "https://assets.basically.website/sorter-parts/layer-connector-2-1aaecb2e921a.stl",
-					"render": "https://assets.basically.website/sorter-parts/layer-connector-2-full-f0201213bbfc.png",
-					"grams": 11.71
+					"stl": "https://assets.basically.website/sorter-parts/layer-connector-2-c0cd09ef085f.stl",
+					"render": "https://assets.basically.website/sorter-parts/layer-connector-2-full-e9f90c26aeeb.png",
+					"grams": 11.62
 				}
 			],
 			"attributes": [],
-			"grams": 11.71,
+			"grams": 11.62,
 			"support_grams": 0.0,
 			"support_used": false,
 			"support_intentional": false,
-			"print_seconds": 2835,
+			"print_seconds": 1691,
 			"color": {
 				"role": "chute-core"
 			},
@@ -18650,21 +18620,21 @@
 			"caption": null,
 			"docs_page": null,
 			"conflicts": null,
-			"stl": "https://assets.basically.website/sorter-parts/layer-connector-2-1aaecb2e921a.stl",
-			"render": "https://assets.basically.website/sorter-parts/layer-connector-2-full-f0201213bbfc.png",
+			"stl": "https://assets.basically.website/sorter-parts/layer-connector-2-c0cd09ef085f.stl",
+			"render": "https://assets.basically.website/sorter-parts/layer-connector-2-full-e9f90c26aeeb.png",
 			"stamped": [
 				{
-					"face": "-y side",
-					"stl": "https://assets.basically.website/sorter-parts/layer-connector-2-7pll-stamped-minus-y-side-bd91d7e39567.stl",
+					"face": "bottom",
+					"stl": "https://assets.basically.website/sorter-parts/layer-connector-2-7pll-stamped-bottom-1b062960c125.stl",
 					"normal": [
 						0.0,
-						-1.0,
-						-0.0
+						0.0,
+						-1.0
 					],
 					"center": [
-						-80.61,
-						-218.78,
-						-129.04
+						103.65,
+						-434.45,
+						-104.52
 					],
 					"size": [
 						12.25,
@@ -18674,17 +18644,17 @@
 					"depth": 0.6
 				},
 				{
-					"face": "+y side",
-					"stl": "https://assets.basically.website/sorter-parts/layer-connector-2-7pll-stamped-plus-y-side-c9504c8aee41.stl",
+					"face": "top",
+					"stl": "https://assets.basically.website/sorter-parts/layer-connector-2-7pll-stamped-top-5723223aab24.stl",
 					"normal": [
 						0.0,
-						1.0,
-						-0.0
+						0.0,
+						1.0
 					],
 					"center": [
-						-59.82,
-						-215.0,
-						-130.46
+						100.27,
+						-484.92,
+						-100.74
 					],
 					"size": [
 						12.25,
@@ -18695,40 +18665,40 @@
 				},
 				{
 					"face": "+x side",
-					"stl": "https://assets.basically.website/sorter-parts/layer-connector-2-7pll-stamped-plus-x-side-db29bb54c469.stl",
+					"stl": "https://assets.basically.website/sorter-parts/layer-connector-2-7pll-stamped-plus-x-side-030fd9e42b86.stl",
 					"normal": [
 						1.0,
 						0.0,
 						0.0
 					],
 					"center": [
-						-47.53,
-						-214.23,
-						-124.67
+						112.57,
+						-479.12,
+						-99.97
 					],
 					"size": [
-						3.5,
-						12.25
+						12.25,
+						3.5
 					],
 					"cap": 3.5,
 					"depth": 0.6
 				},
 				{
-					"face": "angled face",
-					"stl": "https://assets.basically.website/sorter-parts/layer-connector-2-7pll-stamped-angled-face-8a1ef661b7ff.stl",
+					"face": "-x side",
+					"stl": "https://assets.basically.website/sorter-parts/layer-connector-2-7pll-stamped-minus-x-side-3b55e6b2d3e0.stl",
 					"normal": [
-						-0.8988,
-						-0.4384,
+						-1.0,
+						-0.0,
 						-0.0
 					],
 					"center": [
-						-56.91,
-						-205.59,
-						-126.09
+						70.57,
+						-438.82,
+						-99.97
 					],
 					"size": [
-						3.5,
-						12.25
+						12.25,
+						3.5
 					],
 					"cap": 3.5,
 					"depth": 0.6
@@ -18889,7 +18859,7 @@
 					"stl_hash": "287f8f9936b958f15dc9acd832f6320cbc4fcfb9ee0f7cd73ea67d9953d16961",
 					"render": "https://assets.basically.website/sorter-parts/funnel-third-full-bc2861a71f9f.png",
 					"stl": "https://assets.basically.website/sorter-parts/funnel-third-287f8f9936b9.stl",
-					"grams": 216.27
+					"grams": 225.2
 				},
 				{
 					"version": "2",
@@ -18898,17 +18868,17 @@
 					"message": "Inverted chute: replaced with the inverted chute design.",
 					"breaking": true,
 					"commit": null,
-					"stl": "https://assets.basically.website/sorter-parts/funnel-third-0a900c03fc64.stl",
-					"render": "https://assets.basically.website/sorter-parts/funnel-third-full-2aed8edea8f7.png",
-					"grams": 210.28
+					"stl": "https://assets.basically.website/sorter-parts/funnel-third-9733b8ff4e69.stl",
+					"render": "https://assets.basically.website/sorter-parts/funnel-third-full-185bd96b3e8f.png",
+					"grams": 218.2
 				}
 			],
 			"attributes": [],
-			"grams": 210.28,
-			"support_grams": 0.0,
-			"support_used": false,
-			"support_intentional": false,
-			"print_seconds": 19413,
+			"grams": 218.2,
+			"support_grams": 7.3,
+			"support_used": true,
+			"support_intentional": true,
+			"print_seconds": 19293,
 			"color": {
 				"role": "funnel"
 			},
@@ -18922,21 +18892,21 @@
 			"caption": "For a layer of 18 third bins.",
 			"docs_page": null,
 			"conflicts": null,
-			"stl": "https://assets.basically.website/sorter-parts/funnel-third-0a900c03fc64.stl",
-			"render": "https://assets.basically.website/sorter-parts/funnel-third-full-2aed8edea8f7.png",
+			"stl": "https://assets.basically.website/sorter-parts/funnel-third-9733b8ff4e69.stl",
+			"render": "https://assets.basically.website/sorter-parts/funnel-third-full-185bd96b3e8f.png",
 			"stamped": [
 				{
 					"face": "angled face",
-					"stl": "https://assets.basically.website/sorter-parts/funnel-third-xpu6-stamped-angled-face-337dcc77edae.stl",
+					"stl": "https://assets.basically.website/sorter-parts/funnel-third-xpu6-stamped-angled-face-cd1eab50cda7.stl",
 					"normal": [
-						0.5,
-						0.0,
-						0.866
+						-0.6124,
+						-0.6124,
+						0.5
 					],
 					"center": [
-						62.73,
-						-52.38,
-						142.31
+						529.14,
+						-155.16,
+						68.18
 					],
 					"size": [
 						12.49,
@@ -18947,16 +18917,16 @@
 				},
 				{
 					"face": "angled face 2",
-					"stl": "https://assets.basically.website/sorter-parts/funnel-third-xpu6-stamped-angled-face-2-003776ffce36.stl",
+					"stl": "https://assets.basically.website/sorter-parts/funnel-third-xpu6-stamped-angled-face-2-0e512f622596.stl",
 					"normal": [
-						0.3871,
-						0.0,
-						0.922
+						-0.652,
+						-0.652,
+						0.3871
 					],
 					"center": [
-						137.69,
-						-0.19,
-						18.88
+						653.6,
+						-105.06,
+						143.14
 					],
 					"size": [
 						12.49,
@@ -18966,17 +18936,17 @@
 					"depth": 0.6
 				},
 				{
-					"face": "-y side",
-					"stl": "https://assets.basically.website/sorter-parts/funnel-third-xpu6-stamped-minus-y-side-5582822c505d.stl",
+					"face": "angled face 3",
+					"stl": "https://assets.basically.website/sorter-parts/funnel-third-xpu6-stamped-angled-face-3-be17b266a30a.stl",
 					"normal": [
-						-0.1384,
-						-0.9871,
-						0.0799
+						0.6415,
+						-0.7545,
+						-0.1384
 					],
 					"center": [
-						146.1,
-						43.13,
-						54.6
+						597.72,
+						-99.66,
+						151.53
 					],
 					"size": [
 						12.49,
@@ -18986,17 +18956,17 @@
 					"depth": 0.6
 				},
 				{
-					"face": "+y side",
-					"stl": "https://assets.basically.website/sorter-parts/funnel-third-xpu6-stamped-plus-y-side-ceca2acf8be0.stl",
+					"face": "angled face 4",
+					"stl": "https://assets.basically.website/sorter-parts/funnel-third-xpu6-stamped-angled-face-4-d4fb23a5f3ca.stl",
 					"normal": [
-						-0.1384,
-						0.9871,
-						0.0799
+						-0.7545,
+						0.6415,
+						-0.1384
 					],
 					"center": [
-						146.1,
-						-43.13,
-						54.61
+						658.71,
+						-160.65,
+						151.53
 					],
 					"size": [
 						12.49,
@@ -19030,7 +19000,7 @@
 					"stl_hash": "533487b3dadbdf8ec33af0d9d5185c2d978325e03b13c56a2121135a16c69a53",
 					"render": "https://assets.basically.website/sorter-parts/funnel-half-full-e4458a252271.png",
 					"stl": "https://assets.basically.website/sorter-parts/funnel-half-533487b3dadb.stl",
-					"grams": 158.23
+					"grams": 169.9
 				},
 				{
 					"version": "2",
@@ -19039,17 +19009,17 @@
 					"message": "Inverted chute: replaced with the inverted chute design.",
 					"breaking": true,
 					"commit": null,
-					"stl": "https://assets.basically.website/sorter-parts/funnel-half-fa084bb76e73.stl",
-					"render": "https://assets.basically.website/sorter-parts/funnel-half-full-18402b0163b3.png",
-					"grams": 151.25
+					"stl": "https://assets.basically.website/sorter-parts/funnel-half-c3d5ac377ccd.stl",
+					"render": "https://assets.basically.website/sorter-parts/funnel-half-full-5420bfc004c3.png",
+					"grams": 162.01
 				}
 			],
 			"attributes": [],
-			"grams": 151.25,
-			"support_grams": 0.0,
-			"support_used": false,
-			"support_intentional": false,
-			"print_seconds": 13865,
+			"grams": 162.01,
+			"support_grams": 5.81,
+			"support_used": true,
+			"support_intentional": true,
+			"print_seconds": 14479,
 			"color": {
 				"role": "funnel"
 			},
@@ -19063,21 +19033,21 @@
 			"caption": "For a layer of 12 half bins.",
 			"docs_page": null,
 			"conflicts": null,
-			"stl": "https://assets.basically.website/sorter-parts/funnel-half-fa084bb76e73.stl",
-			"render": "https://assets.basically.website/sorter-parts/funnel-half-full-18402b0163b3.png",
+			"stl": "https://assets.basically.website/sorter-parts/funnel-half-c3d5ac377ccd.stl",
+			"render": "https://assets.basically.website/sorter-parts/funnel-half-full-5420bfc004c3.png",
 			"stamped": [
 				{
 					"face": "angled face",
-					"stl": "https://assets.basically.website/sorter-parts/funnel-half-xrw5-stamped-angled-face-0db2bde4af30.stl",
+					"stl": "https://assets.basically.website/sorter-parts/funnel-half-xrw5-stamped-angled-face-85d04b6d8234.stl",
 					"normal": [
-						0.5,
-						0.0,
-						0.866
+						-0.6075,
+						-0.6172,
+						0.5
 					],
 					"center": [
-						62.73,
-						-52.41,
-						142.31
+						436.66,
+						-226.06,
+						79.72
 					],
 					"size": [
 						12.42,
@@ -19088,16 +19058,16 @@
 				},
 				{
 					"face": "angled face 2",
-					"stl": "https://assets.basically.website/sorter-parts/funnel-half-xrw5-stamped-angled-face-2-b39fe18756f3.stl",
+					"stl": "https://assets.basically.website/sorter-parts/funnel-half-xrw5-stamped-angled-face-2-cc0d2093c38d.stl",
 					"normal": [
-						0.3297,
-						0.0,
-						0.9441
+						-0.6623,
+						-0.6728,
+						0.3297
 					],
 					"center": [
-						115.36,
-						0.0,
-						31.33
+						551.87,
+						-183.74,
+						132.35
 					],
 					"size": [
 						12.42,
@@ -19107,17 +19077,17 @@
 					"depth": 0.6
 				},
 				{
-					"face": "-y side",
-					"stl": "https://assets.basically.website/sorter-parts/funnel-half-xrw5-stamped-minus-y-side-4e3cc78a63cd.stl",
+					"face": "angled face 3",
+					"stl": "https://assets.basically.website/sorter-parts/funnel-half-xrw5-stamped-angled-face-3-2affb5fbb75b.stl",
 					"normal": [
-						-0.1397,
-						-0.9869,
-						0.0807
+						-0.7599,
+						0.6348,
+						-0.1397
 					],
 					"center": [
-						122.47,
-						47.44,
-						67.77
+						560.13,
+						-242.96,
+						139.46
 					],
 					"size": [
 						12.42,
@@ -19127,17 +19097,17 @@
 					"depth": 0.6
 				},
 				{
-					"face": "+y side",
-					"stl": "https://assets.basically.website/sorter-parts/funnel-half-xrw5-stamped-plus-y-side-b6eb860c34a0.stl",
+					"face": "angled face 4",
+					"stl": "https://assets.basically.website/sorter-parts/funnel-half-xrw5-stamped-angled-face-4-6fb00f91e688.stl",
 					"normal": [
-						-0.1397,
-						0.9869,
-						0.0807
+						0.6467,
+						-0.7498,
+						-0.1397
 					],
 					"center": [
-						122.47,
-						-47.44,
-						67.77
+						492.52,
+						-176.41,
+						139.46
 					],
 					"size": [
 						12.42,
@@ -19835,17 +19805,17 @@
 					"message": "Inverted chute: replaced with the inverted chute design.",
 					"breaking": true,
 					"commit": null,
-					"stl": "https://assets.basically.website/sorter-parts/bearing-cover-covered-275a5eb53047.stl",
-					"render": "https://assets.basically.website/sorter-parts/bearing-cover-covered-full-5249305f18c2.png",
-					"grams": 6.93
+					"stl": "https://assets.basically.website/sorter-parts/bearing-cover-covered-d325993235af.stl",
+					"render": "https://assets.basically.website/sorter-parts/bearing-cover-covered-full-4cca79da8a2e.png",
+					"grams": 6.98
 				}
 			],
 			"attributes": [],
-			"grams": 6.93,
+			"grams": 6.98,
 			"support_grams": 0.0,
 			"support_used": false,
 			"support_intentional": false,
-			"print_seconds": 2546,
+			"print_seconds": 1304,
 			"color": {
 				"role": "chute-core"
 			},
@@ -19859,21 +19829,41 @@
 			"caption": null,
 			"docs_page": null,
 			"conflicts": null,
-			"stl": "https://assets.basically.website/sorter-parts/bearing-cover-covered-275a5eb53047.stl",
-			"render": "https://assets.basically.website/sorter-parts/bearing-cover-covered-full-5249305f18c2.png",
+			"stl": "https://assets.basically.website/sorter-parts/bearing-cover-covered-d325993235af.stl",
+			"render": "https://assets.basically.website/sorter-parts/bearing-cover-covered-full-4cca79da8a2e.png",
 			"stamped": [
 				{
-					"face": "-y side",
-					"stl": "https://assets.basically.website/sorter-parts/bearing-cover-covered-5qyq-stamped-minus-y-side-c1319db93666.stl",
+					"face": "bottom",
+					"stl": "https://assets.basically.website/sorter-parts/bearing-cover-covered-5qyq-stamped-bottom-7d1380a3e68e.stl",
 					"normal": [
+						0.0,
+						0.0,
+						-1.0
+					],
+					"center": [
+						263.12,
+						4.04,
+						55.78
+					],
+					"size": [
+						12.54,
+						4.52
+					],
+					"cap": 3.5,
+					"depth": 0.6
+				},
+				{
+					"face": "top",
+					"stl": "https://assets.basically.website/sorter-parts/bearing-cover-covered-5qyq-stamped-top-c5bccb0e2f0a.stl",
+					"normal": [
+						0.0,
 						-0.0,
-						-1.0,
-						0.0
+						1.0
 					],
 					"center": [
-						50.45,
-						-73.16,
-						55.74
+						261.89,
+						-18.26,
+						60.78
 					],
 					"size": [
 						12.54,
@@ -19883,37 +19873,17 @@
 					"depth": 0.6
 				},
 				{
-					"face": "+y side",
-					"stl": "https://assets.basically.website/sorter-parts/bearing-cover-covered-5qyq-stamped-plus-y-side-f1a80571f760.stl",
+					"face": "top 2",
+					"stl": "https://assets.basically.website/sorter-parts/bearing-cover-covered-5qyq-stamped-top-2-0beeb4b04585.stl",
 					"normal": [
 						0.0,
-						1.0,
-						-0.0
-					],
-					"center": [
-						51.68,
-						-68.16,
-						33.44
-					],
-					"size": [
-						12.54,
-						4.52
-					],
-					"cap": 3.5,
-					"depth": 0.6
-				},
-				{
-					"face": "+y side 2",
-					"stl": "https://assets.basically.website/sorter-parts/bearing-cover-covered-5qyq-stamped-plus-y-side-2-ba3239994e10.stl",
-					"normal": [
 						0.0,
-						1.0,
-						-0.0
+						1.0
 					],
 					"center": [
-						51.0,
-						-63.16,
-						55.77
+						262.57,
+						4.07,
+						65.78
 					],
 					"size": [
 						12.54,
@@ -19956,17 +19926,17 @@
 					"message": "Inverted chute: replaced with the inverted chute design.",
 					"breaking": true,
 					"commit": null,
-					"stl": "https://assets.basically.website/sorter-parts/bearing-cover-servo-b9d417f1a9e8.stl",
-					"render": "https://assets.basically.website/sorter-parts/bearing-cover-servo-full-d3490e2ba07a.png",
-					"grams": 6.23
+					"stl": "https://assets.basically.website/sorter-parts/bearing-cover-servo-e663d8654522.stl",
+					"render": "https://assets.basically.website/sorter-parts/bearing-cover-servo-full-9635f37f024c.png",
+					"grams": 6.21
 				}
 			],
 			"attributes": [],
-			"grams": 6.23,
+			"grams": 6.21,
 			"support_grams": 0.0,
 			"support_used": false,
 			"support_intentional": false,
-			"print_seconds": 2575,
+			"print_seconds": 1280,
 			"color": {
 				"role": "chute-core"
 			},
@@ -19980,21 +19950,21 @@
 			"caption": null,
 			"docs_page": null,
 			"conflicts": null,
-			"stl": "https://assets.basically.website/sorter-parts/bearing-cover-servo-b9d417f1a9e8.stl",
-			"render": "https://assets.basically.website/sorter-parts/bearing-cover-servo-full-d3490e2ba07a.png",
+			"stl": "https://assets.basically.website/sorter-parts/bearing-cover-servo-e663d8654522.stl",
+			"render": "https://assets.basically.website/sorter-parts/bearing-cover-servo-full-9635f37f024c.png",
 			"stamped": [
 				{
-					"face": "+y side",
-					"stl": "https://assets.basically.website/sorter-parts/bearing-cover-servo-0iil-stamped-plus-y-side-0c6aadc03e1c.stl",
+					"face": "bottom",
+					"stl": "https://assets.basically.website/sorter-parts/bearing-cover-servo-0iil-stamped-bottom-375c15bfaa47.stl",
 					"normal": [
-						0.0,
-						1.0,
-						0.0
+						-0.0,
+						-0.0,
+						-1.0
 					],
 					"center": [
-						64.31,
-						73.16,
-						67.47
+						228.73,
+						123.16,
+						55.78
 					],
 					"size": [
 						12.28,
@@ -20004,41 +19974,41 @@
 					"depth": 0.6
 				},
 				{
-					"face": "-y side",
-					"stl": "https://assets.basically.website/sorter-parts/bearing-cover-servo-0iil-stamped-minus-y-side-3b017b10268f.stl",
+					"face": "top",
+					"stl": "https://assets.basically.website/sorter-parts/bearing-cover-servo-0iil-stamped-top-e40ddbd9a3f0.stl",
 					"normal": [
 						0.0,
+						-0.0,
+						1.0
+					],
+					"center": [
+						227.02,
+						122.08,
+						60.78
+					],
+					"size": [
+						12.28,
+						3.56
+					],
+					"cap": 3.5,
+					"depth": 0.6
+				},
+				{
+					"face": "-x side",
+					"stl": "https://assets.basically.website/sorter-parts/bearing-cover-servo-0iil-stamped-minus-x-side-034b32fa93d5.stl",
+					"normal": [
 						-1.0,
+						0.0,
 						0.0
 					],
 					"center": [
-						50.1,
-						68.16,
-						32.97
+						197.0,
+						152.07,
+						58.18
 					],
 					"size": [
-						12.28,
-						3.56
-					],
-					"cap": 3.5,
-					"depth": 0.6
-				},
-				{
-					"face": "+x side",
-					"stl": "https://assets.basically.website/sorter-parts/bearing-cover-servo-0iil-stamped-plus-x-side-0ffd4301fe56.stl",
-					"normal": [
-						1.0,
-						0.0,
-						-0.0
-					],
-					"center": [
-						71.83,
-						70.56,
-						44.1
-					],
-					"size": [
-						2.55,
-						8.77
+						8.77,
+						2.55
 					],
 					"cap": 2.5,
 					"depth": 0.6,
@@ -20046,20 +20016,20 @@
 				},
 				{
 					"face": "angled face",
-					"stl": "https://assets.basically.website/sorter-parts/bearing-cover-servo-0iil-stamped-angled-face-f1726f2b15c4.stl",
+					"stl": "https://assets.basically.website/sorter-parts/bearing-cover-servo-0iil-stamped-angled-face-f691b17bd718.stl",
 					"normal": [
-						0.4953,
-						-0.0,
-						0.8687
+						-0.4953,
+						-0.8687,
+						0.0
 					],
 					"center": [
-						67.04,
-						70.56,
-						75.69
+						201.79,
+						120.49,
+						58.18
 					],
 					"size": [
-						2.55,
-						8.77
+						8.77,
+						2.55
 					],
 					"cap": 2.5,
 					"depth": 0.6,

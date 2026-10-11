@@ -45,6 +45,10 @@ class PieceObservation:
     # the box is not yet a confirmed track. Not used by control logic (see class
     # docstring) — diagnostics / overlay / future identity-aware consumers only.
     sv_bt_track_id: int | None = None
+    # The tracker's colour descriptor for this box (saturation-weighted hue
+    # vector and brightness), when its tracker uses colour. Logged so a replay
+    # of the control data matches pieces the way the tracker did.
+    color: tuple[float, float, float] | None = None
 
 
 @dataclass(frozen=True)
@@ -118,6 +122,11 @@ class ChannelState:
     # (ChannelDef.exit_margin_mask): a piece that left the channel, or one
     # hanging off its lip. Not one of ``pieces``.
     in_margin: bool = False
+    # Classification channel: each piece box that was merged from several of the
+    # detector's boxes this frame, with those boxes: ((merged, (box, ...)), ...).
+    # One object drawn in parts (an assembly, a two-colour brick) and two pieces
+    # touching both end up here.
+    merged: tuple = ()
 
 
 EMPTY_STATE = ChannelState(ts=EMPTY_STATE_TS, in_drop=False, in_exit=False, n_pieces=0)

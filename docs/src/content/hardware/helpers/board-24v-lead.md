@@ -121,6 +121,10 @@ If a check gives the wrong answer, do not plug the lead in. Find the wire that i
 Leave the sleeving loose enough to bend, and do not tie it down so tightly that it crushes the braid.
 
 
+## Label the cable
+
+Put a label with the ID (`PWR1`) on both ends, close to the connector. The printable labels and the Brother label printer files are on [Labelling the cables]({{ '/hardware/helpers/cable-labels/' | relative_url }}).
+
 ## The finished result
 
 One lead (`PWR1`), 920 mm (36 in), with a barrel plug at one end and a 2-pin JST-VH housing at the other.

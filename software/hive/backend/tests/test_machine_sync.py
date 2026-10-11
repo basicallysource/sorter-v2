@@ -23,6 +23,7 @@ def test_sync_state_starts_empty(client, machine_token):
         "channel_crops": {"max_local_id": 0},
         "piece_corrections": {"max_local_id": 0},
         "control_data_segments": {"max_local_id": 0},
+        "samples": {"max_local_id": 0},
     }
 
 

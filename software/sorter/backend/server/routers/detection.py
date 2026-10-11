@@ -3,8 +3,6 @@
 from __future__ import annotations
 
 import os
-import shutil
-from pathlib import Path
 from typing import Any, Dict, List
 from uuid import uuid4
 
@@ -23,7 +21,7 @@ from hive_telemetry import (
 )
 from perception.overlay import drawChannelZones
 from server import shared_state
-from server.classification_training import TRAINING_ROOT, getClassificationTrainingManager
+import sample_store
 from server.machine_naming import display_name_from_hostname, random_display_name
 from server.routers.sorting_profiles import start_first_default_profile_if_none
 from server.routers.tailscale import current_hostname
@@ -314,15 +312,6 @@ class HiveLinkPayload(BaseModel):
     enabled: bool = True
 
 
-class HiveBackfillPayload(BaseModel):
-    session_ids: list[str] | None = None
-    target_ids: list[str] | None = None
-
-
-class HivePurgePayload(BaseModel):
-    target_ids: list[str] | None = None
-
-
 # API keys endpoints
 
 
@@ -367,14 +356,14 @@ def _save_hive_targets(targets: list[dict[str, Any]], primary_target_id: str | N
     local_state.set_hive_config({"targets": targets, "primary_target_id": primary_target_id})
 
 
-def _reloadHiveConsumers() -> dict[str, Any]:
-    # Reload both the sample uploader and the piece-history sync worker so a
-    # target add/remove/enable takes effect without a backend restart.
-    status = getClassificationTrainingManager().reloadHiveUploader()
+def _reloadHiveConsumers() -> None:
+    # Reload the heartbeat and the sync worker so a target add/remove/enable
+    # takes effect without a backend restart.
     gc = shared_state.gc_ref
-    if gc is not None and getattr(gc, "hive_sync_worker", None) is not None:
-        gc.hive_sync_worker.reload()
-    return status
+    for name in ("hive_heartbeat", "hive_sync_worker"):
+        consumer = getattr(gc, name, None) if gc is not None else None
+        if consumer is not None:
+            consumer.reload()
 
 
 def _load_hive_primary_id() -> str | None:
@@ -389,27 +378,31 @@ def _mask_hive_token(token: str | None) -> str | None:
     return token[:8] + "..." + token[-4:] if len(token) > 12 else "***"
 
 
-def _empty_hive_uploader_status(enabled: bool) -> Dict[str, Any]:
+def _hive_sync_status(target: dict[str, Any]) -> Dict[str, Any]:
+    """What the Hive page shows per target: reachability from the heartbeat,
+    and from the sync worker how much of each kind of data is still waiting,
+    the upload budget and the last error."""
+    import hive_limits
+
+    gc = shared_state.gc_ref
+    heartbeat = getattr(gc, "hive_heartbeat", None) if gc is not None else None
+    worker = getattr(gc, "hive_sync_worker", None) if gc is not None else None
+    beat = heartbeat.status(target["id"]) if heartbeat is not None else {}
+    sync = worker.status(target["id"]) if worker is not None else None
     return {
-        "enabled": enabled,
-        "server_reachable": False,
-        "queue_size": 0,
-        "uploaded": 0,
-        "failed": 0,
-        "requeued": 0,
-        "last_error": None,
+        "enabled": bool(target.get("enabled", False)),
+        "server_reachable": beat.get("server_reachable"),
+        "last_beat_at": beat.get("last_beat_at"),
+        "waiting": (sync or {}).get("waiting") or {},
+        "unsupported": (sync or {}).get("unsupported") or [],
+        "upload_budget": (sync or {}).get("upload_budget"),
+        "last_error": (sync or {}).get("last_error"),
+        "limits": hive_limits.targetLimits(target["id"]),
     }
 
 
 @router.get("/api/settings/hive")
 def get_hive_config() -> Dict[str, Any]:
-    uploader_status = getClassificationTrainingManager().getHiveUploaderStatus()
-    uploader_targets = uploader_status.get("targets") if isinstance(uploader_status, dict) else []
-    uploader_by_id = {
-        item.get("id"): item
-        for item in uploader_targets
-        if isinstance(item, dict) and isinstance(item.get("id"), str)
-    }
     targets = _load_hive_targets()
     primary_target_id = _load_hive_primary_id()
 
@@ -429,11 +422,7 @@ def get_hive_config() -> Dict[str, Any]:
                 "enabled": bool(target.get("enabled", False)),
                 "is_primary": target["id"] == primary_target_id,
                 "telemetry": getTargetTelemetrySettings(target["id"]),
-                "uploader": (
-                    dict(uploader_by_id[target["id"]])
-                    if target["id"] in uploader_by_id
-                    else _empty_hive_uploader_status(bool(target.get("enabled", False)))
-                ),
+                "sync": _hive_sync_status(target),
             }
             for target in targets
         ],
@@ -656,19 +645,6 @@ def hive_suggested_machine_name(roll: bool = False) -> Dict[str, Any]:
         return {"ok": True, "name": from_hostname, "source": "tailscale"}
 
     return {"ok": True, "name": random_display_name(), "source": "generated"}
-
-
-@router.post("/api/settings/hive/backfill")
-def hive_backfill(payload: HiveBackfillPayload = HiveBackfillPayload()) -> Dict[str, Any]:
-    return getClassificationTrainingManager().backfillToHive(
-        session_ids=payload.session_ids,
-        target_ids=payload.target_ids,
-    )
-
-
-@router.post("/api/settings/hive/purge")
-def hive_purge(payload: HivePurgePayload = HivePurgePayload()) -> Dict[str, Any]:
-    return getClassificationTrainingManager().purgeHiveQueue(target_ids=payload.target_ids)
 
 
 # Feeder detection config
@@ -897,72 +873,14 @@ def _classification_channel_role_sectors(
 # Sample storage management
 
 
-def _session_stats(session_dir: Path) -> Dict[str, Any]:
-    """Compute sample count and disk size for a single session directory."""
-    metadata_dir = session_dir / "metadata"
-    sample_count = sum(1 for f in metadata_dir.glob("*.json")) if metadata_dir.is_dir() else 0
-    total_bytes = 0
-    for f in session_dir.rglob("*"):
-        if f.is_file():
-            total_bytes += f.stat().st_size
-    manifest_path = session_dir / "manifest.json"
-    session_name = None
-    created_at = None
-    if manifest_path.is_file():
-        try:
-            import json as _json
-            manifest = _json.loads(manifest_path.read_text())
-            session_name = manifest.get("session_name")
-            created_at = manifest.get("created_at")
-        except Exception:
-            pass
-    return {
-        "session_id": session_dir.name,
-        "session_name": session_name,
-        "created_at": created_at,
-        "sample_count": sample_count,
-        "size_bytes": total_bytes,
-    }
-
-
 @router.get("/api/samples/storage")
 def get_sample_storage() -> Dict[str, Any]:
-    """List all local sample sessions with stats."""
-    sessions: List[Dict[str, Any]] = []
-    if TRAINING_ROOT.is_dir():
-        for child in sorted(TRAINING_ROOT.iterdir()):
-            if child.is_dir():
-                sessions.append(_session_stats(child))
-    total_samples = sum(s["sample_count"] for s in sessions)
-    total_bytes = sum(s["size_bytes"] for s in sessions)
-    return {
-        "sessions": sessions,
-        "total_samples": total_samples,
-        "total_bytes": total_bytes,
-    }
-
-
-@router.delete("/api/samples/storage/{session_id}")
-def delete_sample_session(session_id: str) -> Dict[str, Any]:
-    """Delete a single sample session."""
-    session_dir = TRAINING_ROOT / session_id
-    if not session_dir.is_dir() or not session_dir.resolve().is_relative_to(TRAINING_ROOT.resolve()):
-        raise HTTPException(status_code=404, detail=f"Session '{session_id}' not found.")
-    sample_count = sum(1 for f in (session_dir / "metadata").glob("*.json")) if (session_dir / "metadata").is_dir() else 0
-    shutil.rmtree(session_dir)
-    return {"ok": True, "message": f"Deleted session '{session_id}' ({sample_count} samples)."}
+    """What the training-sample store on this machine holds (see sample_store.py)."""
+    return {"ok": True, **sample_store.stats()}
 
 
 @router.delete("/api/samples/storage")
 def purge_all_samples() -> Dict[str, Any]:
-    """Delete all sample sessions."""
-    deleted = 0
-    total_samples = 0
-    if TRAINING_ROOT.is_dir():
-        for child in sorted(TRAINING_ROOT.iterdir()):
-            if child.is_dir():
-                metadata_dir = child / "metadata"
-                total_samples += sum(1 for f in metadata_dir.glob("*.json")) if metadata_dir.is_dir() else 0
-                shutil.rmtree(child)
-                deleted += 1
-    return {"ok": True, "message": f"Purged {deleted} sessions ({total_samples} samples)."}
+    """Delete every training sample stored on this machine, sent or not."""
+    result = sample_store.purgeAll()
+    return {"ok": True, **result, "message": f"Deleted {result['deleted']} samples."}

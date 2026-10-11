@@ -34,12 +34,13 @@ So read these when a page sends you, not in order.
 Seven of the machine's cables are made by hand, one page each. The eighth, the
 USB hub's 24 V lead (`PWR2`), is a barrel plug screwed into the hub's own power terminal, so it needs no page.
 
-- **[Preparing the LED strips (LED1a to LED3a, LED1 to LED3)]({{ '/hardware/helpers/led-strip/' | relative_url }})**. Cutting a lamp's length of strip and getting its cable on the end, clamped or soldered. Three per machine.
+- **[Preparing the LED strips (LED2a to LED4a, LED2 to LED4)]({{ '/hardware/helpers/led-strip/' | relative_url }})**. Cutting a lamp's length of strip and getting its cable on the end, clamped or soldered. Three per machine.
 - **[Make your own PSU output pigtail (PSU1 to PSU3)]({{ '/hardware/helpers/psu-pigtail/' | relative_url }})**. The barrel jack and its two fork terminals, for each of the PSU box's three outputs. Three per machine.
 - **[Make the control board's 24 V lead (PWR1)]({{ '/hardware/helpers/board-24v-lead/' | relative_url }})**. Barrel plug at the PSU, JST-VH at the board. The one lead nobody sells ready made, so the harness order has it made, or you do.
 - **[Make the Orange Pi's 24 V lead (PWR3)]({{ '/hardware/helpers/pi-24v-lead/' | relative_url }})**. A barrel plug onto the buck converter's own input wires. The shortest of the three 24 V leads (`PWR1`, `PWR2`, `PWR3`).
 - **[Make the channel stepper leads (STP1 to STP4)]({{ '/hardware/helpers/channel-stepper-lead/' | relative_url }})**. The four c-channel motor leads. The lead in the motor's box cannot be used as it comes. Four per machine.
 - **[Make the chute stepper lead (CHU1)]({{ '/hardware/helpers/chute-stepper-lead/' | relative_url }})**. The chute motor has bare flying leads, so this one gets a tail and a housing.
 - **[Make the chute limit switch lead (LIM1)]({{ '/hardware/helpers/limit-switch-lead/' | relative_url }})**. Push-on tabs at the switch, a 3-pin housing at the board. Nothing soldered.
+- **[Labelling the cables]({{ '/hardware/helpers/cable-labels/' | relative_url }})**. The ID label for both ends of every cable, on paper in A4 or US Letter, or as flags for a Brother label printer. Each lead page above ends by sending you here.
 
 Every socket these leads plug into is on [connecting the components]({{ '/hardware/electronics/connecting/' | relative_url }}), and the drawings and lengths are on [ordering the wire harness]({{ '/hardware/parts/harness-order/' | relative_url }}).

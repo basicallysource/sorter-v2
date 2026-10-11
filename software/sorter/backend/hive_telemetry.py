@@ -27,13 +27,13 @@ TELEMETRY_FIELDS: tuple[dict[str, Any], ...] = (
     {
         "key": "detection_images",
         "label": "Detection images",
-        "description": "Cropped pictures of individual pieces: live training samples and the per-piece image history.",
+        "description": "Cropped pictures of individual pieces: the per-piece image history.",
         "default": True,
     },
     {
         "key": "full_frames",
         "label": "Full camera frames",
-        "description": "Uncropped camera captures and detection overlay images attached to training samples.",
+        "description": "Training samples: whole camera frames taken while sorting, with the camera's settings, the lamp's brightness and the channel outline at the time.",
         "default": True,
     },
     {
@@ -302,110 +302,36 @@ class HiveTelemetryClient:
             timeout=15,
         )
 
-    def _sendSample(
-        self,
-        *,
-        method: str,
-        path: str,
-        source_session_id: str,
-        local_sample_id: str,
-        image_path: Path | None = None,
-        full_frame_path: Path | None = None,
-        overlay_path: Path | None = None,
-        source_role: str | None = None,
-        capture_reason: str | None = None,
-        captured_at: str | None = None,
-        session_name: str | None = None,
-        detection_algorithm: str | None = None,
-        detection_bboxes: Any = None,
-        detection_count: int | None = None,
-        detection_score: float | None = None,
-        sample_payload: dict[str, Any] | None = None,
-        extra_metadata: dict[str, Any] | None = None,
-        channel_geometry: dict[str, Any] | None = None,
-    ) -> dict[str, Any]:
-        # A sample IS a detection image plus its detection metadata, so the
-        # whole request rides on detection_images; full-frame attachments are
-        # stripped (not blocked) when full_frames is off.
-        settings = getTargetTelemetrySettings(self._target_id)
-        if not settings.get("detection_images", False):
-            raise TelemetryBlocked("detection_images")
-        if not settings.get("full_frames", False):
-            full_frame_path = None
-            overlay_path = None
-
-        metadata: dict[str, Any] = {
-            "source_session_id": source_session_id,
-            "local_sample_id": local_sample_id,
-        }
-        for key, value in [
-            ("source_role", source_role),
-            ("capture_reason", capture_reason),
-            ("captured_at", captured_at),
-            ("session_name", session_name),
-            ("detection_algorithm", detection_algorithm),
-            ("detection_bboxes", detection_bboxes),
-            ("detection_count", detection_count),
-            ("detection_score", detection_score),
-            ("sample_payload", sample_payload),
-            ("channel_geometry", channel_geometry),
-        ]:
-            if value is not None:
-                metadata[key] = value
-        if extra_metadata:
-            metadata["extra_metadata"] = extra_metadata
-
-        handles: list[Any] = []
-        try:
-            files: dict[str, Any] = {}
-            if image_path is not None:
-                image_fh = open(image_path, "rb")
-                handles.append(image_fh)
-                files["image"] = (image_path.name, image_fh, "image/jpeg")
-            if full_frame_path and full_frame_path.exists():
-                full_frame_fh = open(full_frame_path, "rb")
-                handles.append(full_frame_fh)
-                files["full_frame"] = (full_frame_path.name, full_frame_fh, "image/jpeg")
-            if overlay_path and overlay_path.exists():
-                overlay_fh = open(overlay_path, "rb")
-                handles.append(overlay_fh)
-                files["overlay"] = (overlay_path.name, overlay_fh, "image/jpeg")
-
-            response = self._request(
-                method,
-                path,
-                fields=("detection_images",),
-                data={"metadata": json.dumps(metadata)},
-                files=files or None,
-                timeout=30,
-            )
-            return response.json()
-        finally:
-            for handle in handles:
-                handle.close()
-
-    def uploadSample(self, *, source_session_id: str, local_sample_id: str, image_path: Path, **kwargs: Any) -> dict[str, Any]:
-        return self._sendSample(
-            method="POST",
-            path="/api/machine/upload",
-            source_session_id=source_session_id,
-            local_sample_id=local_sample_id,
-            image_path=image_path,
-            **kwargs,
+    def pushSample(self, meta: dict[str, Any], file_path: Path) -> int:
+        # A sample is a whole camera frame, so it rides on full_frames. Unlike
+        # the other sync rows it is never sent without its image: Hive keeps no
+        # sample without one.
+        image = _readSyncFile(file_path, meta.get("bytes"), _JPEG_MAGIC, MAX_SYNC_IMAGE_BYTES)
+        if image is None:
+            raise FileNotFoundError(f"sample image unreadable: {file_path}")
+        response = self._request(
+            "POST",
+            "/api/machine/sync/sample",
+            fields=("full_frames",),
+            data={"metadata": json.dumps(meta)},
+            files={"image": (file_path.name, image, "image/jpeg")},
+            timeout=60,
         )
+        return int(response.json()["max_local_id"])
 
     def heartbeat(
         self,
         *,
         network: dict[str, Any] | None = None,
         machine_specs: dict[str, Any] | None = None,
-    ) -> bool:
+    ) -> tuple[bool, dict[str, Any] | None]:
         # Keep-alive so target reachability shows in the UI. It also carries
         # where to find the Sorter on its networks (every beat; it is small)
         # and, when one is supplied, the machine-specs snapshot, each only
         # while its field is enabled for this target. Reachability never
         # depends on either, so turning them off never makes the machine look
-        # offline.
+        # offline. Returns (reachable, Hive's reply), the reply carrying the
+        # limits Hive sets for this machine (see hive_limits.py).
         settings = getTargetTelemetrySettings(self._target_id)
         body: dict[str, Any] = {}
         if network is not None:
@@ -416,6 +342,13 @@ class HiveTelemetryClient:
             body["hardware_info"] = machine_specs
         try:
             response = self._session.post(f"{self._url}/api/machine/heartbeat", json=body or None, timeout=10)
-            return response.status_code < 500
         except requests.RequestException:
-            return False
+            return False, None
+        reply: dict[str, Any] | None = None
+        if response.ok:
+            try:
+                parsed = response.json()
+                reply = parsed if isinstance(parsed, dict) else None
+            except ValueError:
+                reply = None
+        return response.status_code < 500, reply

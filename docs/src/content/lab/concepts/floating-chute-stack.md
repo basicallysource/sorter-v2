@@ -1,12 +1,12 @@
 ---
 layout: default
-title: Floating chute stack (concept)
+title: Floating chute stack
 type: explanation
 section: lab
 slug: lab-floating-chute-stack
-kicker: Design and research — Variants
+kicker: Design and research — Variants — Concepts
 lede: "A proposal to take everything electrical off the rotating chute stack, build each bin layer as a self-contained module, and replace the stiff chute stack with a column of tapered-hex-coupled chutes held at two points."
-permalink: /lab/floating-chute-stack/
+permalink: /lab/concepts/floating-chute-stack/
 audience: contributor or builder interested in changing the distribution section
 applies_to: hardware-v2
 owner: docs

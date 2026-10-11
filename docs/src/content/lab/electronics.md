@@ -29,9 +29,7 @@ This page describes the **basically board v1.3**. How the cables are wired is in
 
 ## Orange Pi to Pico
 
-The Pico plugs into the USB hub (`USB6`), and the hub plugs into the Orange Pi (`USB5`). The Orange Pi finds the Pico by its USB ID and opens it as a serial port (a connection that sends one byte after another).
-
-The rest of the USB tree is on [The USB connections and the hub]({{ '/lab/usb/' | relative_url }}), and everything else the Orange Pi connects to is on [What is connected to the Orange Pi]({{ '/lab/orange-pi/' | relative_url }}).
+The Pico reaches the Orange Pi through the USB hub, as described on [The USB connections and the hub]({{ '/lab/usb/' | relative_url }}). The Orange Pi finds the Pico by its USB ID and opens it as a serial port (a connection that sends one byte after another).
 
 Every message, in either direction, has the same layout, called a frame. It is a 4-byte header (device address, command, channel, payload length), then the payload, which is the data itself, then a CRC32 checksum, a number the receiver uses to check that nothing was damaged on the way. The frame is wrapped in COBS, an encoding that makes a zero byte appear only at the end of a message, so the receiver always knows where one message stops. A frame is at most 254 bytes. The Orange Pi sends a command, and the Pico answers it.
 

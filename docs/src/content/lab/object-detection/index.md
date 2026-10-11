@@ -4,7 +4,7 @@ title: Object Detection Research
 type: explanation
 section: lab
 slug: lab-object-detection
-kicker: Lab — Research Area
+kicker: Design and research — Research Area
 lede: The Sorter needs to know where each LEGO piece sits inside the chamber so it can decide what to do next. This page records what we have measured so far — which detector models we trained and what kind of throughput each piece of hardware actually delivers.
 permalink: /lab/object-detection/
 ---

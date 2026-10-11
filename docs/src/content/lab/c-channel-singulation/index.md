@@ -7,7 +7,7 @@ owner: lab
 last_verified: 2026-04-14
 section: lab
 slug: lab-c-channel-singulation
-kicker: Lab — Research Area
+kicker: Design and research — Research Area
 lede: How the Sorter V2 separates tangled LEGO into single pieces using rotating C-shaped channels — a novel approach with no known published precedent.
 permalink: /lab/c-channel-singulation/
 ---

@@ -4,7 +4,7 @@ title: What is connected to the Orange Pi
 type: explanation
 section: lab
 slug: lab-orange-pi
-kicker: Lab — Electronics
+kicker: Design and research — Electronics
 lede: Everything the Orange Pi 5 talks to, what each connection is for, and which part of the software handles it.
 permalink: /lab/orange-pi/
 audience: curious builder or contributor

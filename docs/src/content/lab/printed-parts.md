@@ -4,7 +4,7 @@ title: Design intentions for the printed parts
 type: explanation
 section: lab
 slug: lab-printed-parts
-kicker: Lab — Printed parts
+kicker: Design and research — Printed parts
 lede: What the printed parts are designed around, how they attach to the extrusion and to each other, and how the design repeats as you add layers.
 permalink: /lab/printed-parts/
 audience: curious builder or contributor

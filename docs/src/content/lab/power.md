@@ -4,7 +4,7 @@ title: Power distribution
 type: explanation
 section: lab
 slug: lab-power
-kicker: Lab — Electronics
+kicker: Design and research — Electronics
 lede: How 24 V gets from the wall to every part of the machine, what is fused where, and the ratings of the cables, connectors and devices on the way.
 permalink: /lab/power/
 audience: curious builder or contributor

@@ -4,7 +4,7 @@ title: Tested variants
 type: explanation
 section: lab
 slug: lab-variants
-kicker: Lab — Variants
+kicker: Design and research — Variants
 lede: Alternatives to the standard design that people have built or are trying, and where each one stands.
 permalink: /lab/variants/
 audience: curious builder or contributor

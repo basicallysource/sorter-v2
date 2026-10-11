@@ -54,7 +54,7 @@ Machines are built and running, and they sort every day. It is not a product yet
     <p>The community space in the cloud: sorting profiles shared by other builders, the samples behind them, and the community review that checks those samples.</p>
   </div>
   <div class="callout">
-    <strong><a href="{{ '/lab/' | relative_url }}">Lab</a></strong>
-    <p>Research and contributor references: detector runtime findings, model artifacts, and benchmarks.</p>
+    <strong><a href="{{ '/lab/' | relative_url }}">Design and research</a></strong>
+    <p>How the machine is designed, what is connected to what, tested variants, and the research behind it.</p>
   </div>
 </div>

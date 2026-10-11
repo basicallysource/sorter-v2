@@ -113,11 +113,7 @@
 					<NavTree items={currentSection.pages} {currentUrl} />
 					{#each currentSection.groups ?? [] as group (group.title)}
 						<p class="section-sidebar-group">{group.title}</p>
-						{#each group.pages as item (item.url)}
-							<a href={item.url} aria-current={item.url === currentUrl ? 'page' : undefined}>
-								{item.title}
-							</a>
-						{/each}
+						<NavTree items={group.pages} {currentUrl} />
 					{/each}
 				</nav>
 			</aside>

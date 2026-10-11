@@ -234,6 +234,8 @@ sections:
         url: /lab/sorter/
       - title: Design intentions for the printed parts
         url: /lab/printed-parts/
+      - title: How to contribute
+        url: /lab/contribute/
     groups:
       - title: Electronics
         pages:
@@ -251,10 +253,6 @@ sections:
             url: /lab/servos/
           - title: Power distribution
             url: /lab/power/
-      - title: Get involved
-        pages:
-          - title: How to contribute
-            url: /lab/contribute/
       - title: Object Detection Research
         pages:
           - title: Overview
@@ -265,3 +263,7 @@ sections:
             url: /lab/object-detection/device-benchmarking/
           - title: Hailo HEF Workflow
             url: /lab/object-detection/hailo-hef-workflow/
+      - title: Variants
+        pages:
+          - title: Tested variants
+            url: /lab/variants/

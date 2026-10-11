@@ -740,12 +740,12 @@
         "chute": 1
       },
       "assembly": null,
-      "stl_hash": "07fe334b625fdde22198ea2973f46238ec21b8e1f5bb2e16155a73eb1860dcd3",
+      "stl_hash": "97283b2c3e8c048b24d4d14a091e0162e1334854ab4734cdfb3bb88a4114c8a9",
       "color": {
         "role": "chute-core"
       },
       "optional": false,
-      "support": false,
+      "support": true,
       "source": "gen4_core.stl",
       "requires": [
         {
@@ -1835,7 +1835,7 @@
       },
       "assembly": null,
       "folder": "funnel-brackets",
-      "stl_hash": "4667acafb0043f9ae6d6d220fa2818e098baff8f8566c6afa8b1bcc5c9f6cd63",
+      "stl_hash": "af431974414d8d318b83d6004047b8013f8b8536f001b8bcc524f7f651c05a6d",
       "color": {
         "role": "chute-core"
       },
@@ -1873,7 +1873,7 @@
       },
       "assembly": null,
       "folder": "funnel-brackets",
-      "stl_hash": "ae016977713394289b0a134b936d2b5cb3c1874f4554a62d91ddde114554c40d",
+      "stl_hash": "d7c880e57bcfe472bc861ccfb80741702ce86f1ec2b558e174e4caf958ec5f51",
       "color": {
         "role": "chute-core"
       },
@@ -1899,18 +1899,18 @@
     },
     {
       "id": "bearing-race",
-      "uid": "yo10",
+      "uid": "081k",
       "name": "Bearing race",
       "description": "The race between the two chute bearing holders.",
       "internal_notes": "Renamed from 'door-module' (2026-07-18): the old name collided with the flap module assembly and, as its own notes said, mislabeled it as the door. File: part_door_module.",
-      "version": "1",
+      "version": "2",
       "created_at": "2026-06-27",
-      "updated_at": "2026-06-27",
+      "updated_at": "2026-10-11",
       "quantities": {
         "chute": 1
       },
       "assembly": "chute-bearing",
-      "stl_hash": "b832b7eab72a8392c80d35ebd67bb7cb6326bbc5c82a8592688ccda82fe315b3",
+      "stl_hash": "eaa7d3867e2b26ce0f3b50704e471987383ce5add8c9dce3759649ca5d2ddc45",
       "color": {
         "role": "chute-core"
       },
@@ -1920,6 +1920,22 @@
         {
           "part": "hsi-m3",
           "qty": 4
+        }
+      ],
+      "onshape_version": "https://cad.onshape.com/documents/9137894c36f07dfc4dea695d/w/dde194facf5a22be951251c3/e/aaf844292d9a564824a5fe8b",
+      "versions": [
+        {
+          "version": "1",
+          "uid": "yo10",
+          "message": "As recorded before the first stamped change.",
+          "stl_hash": "b832b7eab72a8392c80d35ebd67bb7cb6326bbc5c82a8592688ccda82fe315b3"
+        },
+        {
+          "version": "2",
+          "date": "2026-10-11",
+          "message": "Inverted chute: replaced with the inverted chute design.",
+          "breaking": true,
+          "commit": null
         }
       ]
     },
@@ -1936,7 +1952,7 @@
         "chute": 1
       },
       "assembly": "chute-bearing",
-      "stl_hash": "6681ef4ffc3b23f2691bd34e732e9f605501ed0d30c72cfcf9c573773542958d",
+      "stl_hash": "e39e941f4d7176601d9f5a3d3f91efcb463bf52c62feaeb768e68d562be68f1d",
       "color": {
         "role": "chute-core"
       },
@@ -1978,7 +1994,7 @@
         "chute": 1
       },
       "assembly": "chute-bearing",
-      "stl_hash": "a04276161fb23c0ee6b01f6f47a8dfd09aa670257661cdfa0dd0647ac9347c5b",
+      "stl_hash": "a9e3ccabd9ff5ccf7ed83128bf01b63b800fee67605cb61b3b64254fef2eb5a8",
       "color": {
         "role": "chute-core"
       },
@@ -2020,7 +2036,7 @@
         "chute": 1
       },
       "assembly": "servo-adapter",
-      "stl_hash": "d50837ed0c7ea7d2a5af0da98ad4d686799b6a85c892949007236d7e1402d70c",
+      "stl_hash": "c6193fcc59f72fb9b304cc6478153da54edd252add6ac6b2b1cf0b73797916e9",
       "color": {
         "role": "chute-core"
       },
@@ -2056,7 +2072,7 @@
         "chute": 1
       },
       "assembly": "servo-adapter",
-      "stl_hash": "c8d5bbe98c821650abdf18f7565173ffb263b505fd2ea6547fce5d024c5a09b6",
+      "stl_hash": "4d422a10158364ebb65d93a351c7e10f80c0f553f7351cf63ef421d5003203a6",
       "color": {
         "role": "chute-core"
       },
@@ -2092,7 +2108,7 @@
         "chute": 1
       },
       "assembly": "servo-bracket",
-      "stl_hash": "9ac1a630785821894ce5e3a92580c221c766d9943750047b17823dcc34006c5f",
+      "stl_hash": "8553d5aa2fd2a04b18d684866dee76d9db1d1277356dd5ac0f9abaee267076a8",
       "color": {
         "role": "chute-core"
       },
@@ -2128,7 +2144,7 @@
         "chute": 1
       },
       "assembly": "servo-bracket",
-      "stl_hash": "46fab5d0d9da7304396930db4e5e133d9140bf02799324207e23f79a0949119f",
+      "stl_hash": "c54b1fce87492a58247adec4a383b41c6c184c62705cf5023fbb1f6ec5e9fcbd",
       "color": {
         "role": "chute-core"
       },
@@ -2164,7 +2180,7 @@
         "chute": 1
       },
       "assembly": "servo-bracket",
-      "stl_hash": "7d2dcd863ce34441fca15bed4f00b741c312f2ddd71865e4c0ba553305fa0e2c",
+      "stl_hash": "1bc27a4bda6ff4d2f2902e63c7f56732f48cab94fcc2d303f8bcdb3a22f6dbb6",
       "color": {
         "role": "chute-core"
       },
@@ -2200,7 +2216,7 @@
         "chute": 1
       },
       "assembly": "servo-bracket",
-      "stl_hash": "d0d2aacd887e4ee4c1a5ceacd50d5261b871e2489996ffa00242a0404807c106",
+      "stl_hash": "b96520a80f8f89149904b02e3d3804586a7c0563ce66151b0846d4e8c952aa59",
       "requires": [
         {
           "part": "hsi-m3",
@@ -2280,7 +2296,7 @@
         "chute": 1
       },
       "assembly": null,
-      "stl_hash": "0e5cc4e2fa7be391353ee61a49085d052c14711f27544e801d91ad4120d06702",
+      "stl_hash": "494e3638bb668a441c3b8ae77a049cce813866cfc9b20c69309eb57fa6be2052",
       "color": {
         "role": "chute-core"
       },
@@ -2517,7 +2533,7 @@
       },
       "assembly": null,
       "folder": "layer-connectors",
-      "stl_hash": "fafac82582ead51c49b51b6a006abb75df225d43ca20cf134f16e160fa5f6ca0",
+      "stl_hash": "cf24e7a4867da304a98b26b5a3532f91251305d1035f96bdf7c2058c874d561f",
       "color": {
         "role": "chute-core"
       },
@@ -2554,7 +2570,7 @@
       },
       "assembly": null,
       "folder": "layer-connectors",
-      "stl_hash": "1aaecb2e921a7b17225f3a227d19489b534661cd7af1272ca0e7bb4b940caba1",
+      "stl_hash": "c0cd09ef085fc2b321806a5a7e0dadaa5e221648d0e9b86b654850732e7165fb",
       "color": {
         "role": "chute-core"
       },
@@ -2613,7 +2629,7 @@
       "assembly": null,
       "variant_group": "funnel",
       "variant_name": "Third size",
-      "stl_hash": "0a900c03fc64f32f1483084580fdc4104f68983441956d45b1c8ceb19bd43be6",
+      "stl_hash": "9733b8ff4e69032633ba1f6e7cc78b9bfaddffdb90954e8f9e142a4f85f7a0f4",
       "color": {
         "role": "funnel"
       },
@@ -2634,7 +2650,8 @@
           "breaking": true,
           "commit": null
         }
-      ]
+      ],
+      "support": true
     },
     {
       "id": "funnel-half",
@@ -2651,7 +2668,7 @@
       "assembly": null,
       "variant_group": "funnel",
       "variant_name": "Half size",
-      "stl_hash": "fa084bb76e73f281d989b996aae6a3dcafc8bb2ec2e2e91068588e36caf7b4b1",
+      "stl_hash": "c3d5ac377ccd0bc0ffe60271bdfdd7fa7a6cade40c3d50d0c83518311b3a7d7d",
       "color": {
         "role": "funnel"
       },
@@ -2672,7 +2689,8 @@
           "breaking": true,
           "commit": null
         }
-      ]
+      ],
+      "support": true
     },
     {
       "id": "bin-half-left",
@@ -2806,7 +2824,7 @@
       },
       "assembly": null,
       "folder": "bearing-covers",
-      "stl_hash": "275a5eb530472173dfa3c77bdbeae29f4b86979a8de026de3d0faa39848dc934",
+      "stl_hash": "d325993235afbb5c94ae10630be62835ec3381337445fef818ef6a498a8226cd",
       "color": {
         "role": "chute-core"
       },
@@ -2842,7 +2860,7 @@
       },
       "assembly": null,
       "folder": "bearing-covers",
-      "stl_hash": "b9d417f1a9e81f339344bd5c324725d9f7cd65c583053cb7122d8ca5c894d86f",
+      "stl_hash": "e663d8654522b27949ae81f0799aa852bc20ea0cefbcda25d0b47df7b04f4722",
       "color": {
         "role": "chute-core"
       },

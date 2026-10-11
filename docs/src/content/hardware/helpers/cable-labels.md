@@ -19,9 +19,11 @@ Put a label with the cable's ID (`STP1`, `PWR2`, `RIB1` and so on) on **both end
   <figcaption>One cable label, flat and folded round a cable. Every ID on the sheet looks like this. <cite>Drawn from the label sheet, not from a build, by Balloon.</cite></figcaption>
 </figure>
 
+The numbers follow the channels. The steppers are `STP1` to `STP4` for C1 to C4, and the camera lamps and cameras are `LED2` to `LED4` and `USB2` to `USB4` for C2 to C4. C1 has no lamp and no camera, so there is no `LED1` and no `USB1`.
+
 ## On paper
 
-Download the labels for [A4](https://assets.basically.website/sorter-parts/sorter-v2-cable-labels-a4-011b68df1823.pdf) or for [US Letter](https://assets.basically.website/sorter-parts/sorter-v2-cable-labels-letter-631a07d07ac4.pdf). The sheet has one section for each kind of cable: the wire pairs, the stepper leads, and the USB cables and ribbons. Each ID has two strips, one for each end, except `CHU1`, which has one. Use the strips for your cable's ID.
+Download the labels for [A4](https://assets.basically.website/sorter-parts/sorter-v2-cable-labels-a4-6548b9ec1064.pdf) or for [US Letter](https://assets.basically.website/sorter-parts/sorter-v2-cable-labels-letter-7a4cf79aa057.pdf). The sheet has one section for each kind of cable: the wire pairs, the stepper leads, and the USB cables and ribbons. Each ID has two strips, one for each end, except `CHU1`, which has one. Use the strips for your cable's ID.
 
 ### Before you start
 
@@ -41,7 +43,7 @@ Download the labels for [A4](https://assets.basically.website/sorter-parts/sorte
 
 ## With a Brother label printer
 
-For the PT-P710BT, or another model that takes 12 mm tape, print the flags before you start. [Download the cable flags](https://assets.basically.website/sorter-parts/sorter-v2-cable-flags-brother-1e2d51c4f88f.zip). The zip has nine P-touch Editor (`.lbx`) files. Each is short enough for the printer's 500 mm limit: the wire pairs in four files (`PSU1` to `PWR1`, `PWR2` to `LED1a`, `LED2a` to `LED1`, and `LED2` to `LIM1`), the stepper leads in two (`STP1` to `STP3`, and `STP4` to `CHU1`), the USB cables in two (`USB1` to `USB4`, and `USB5`), and the ribbons. Every file already has a flag for each end of each cable, and `CHU1` has one flag. Open the file for your cable, turn on Auto Cut in the print dialog and print it once. Fold each flag round the cable as in the three steps above, with the dashed line as the fold. If a flag is too tight or too loose, move the second ID along the flag in P-touch Editor.
+For the PT-P710BT, or another model that takes 12 mm tape, print the flags before you start. [Download the cable flags](https://assets.basically.website/sorter-parts/sorter-v2-cable-flags-brother-742f1dfce9c6.zip). The zip has nine P-touch Editor (`.lbx`) files. Each is short enough for the printer's 500 mm limit: the wire pairs in four files (`PSU1` to `PWR1`, `PWR2` to `LED2a`, `LED3a` to `LED2`, and `LED3` to `LIM1`), the stepper leads in two (`STP1` to `STP3`, and `STP4` to `CHU1`), the USB cables in two (`USB2` to `USB5`, and `USB6`), and the ribbons. Every file already has a flag for each end of each cable, and `CHU1` has one flag. Open the file for your cable, turn on Auto Cut in the print dialog and print it once. Fold each flag round the cable as in the three steps above, with the dashed line as the fold. If a flag is too tight or too loose, move the second ID along the flag in P-touch Editor.
 
 ## Another make of label printer
 

@@ -16,7 +16,7 @@ permalink: /lab/
 
 ## How the machine is designed
 
-The design pages give the overall picture in a few lines, then link to the files that hold the detail. Links to the relevant parts are provided on every page, for people who want to dig deeper: the source code, the parts catalog, and the matching build pages and the other pages in this section. You can ignore them if you only want the overview. Some of the pages use electronics and software words that you may not know. Where a word first appears, it is explained in the same sentence.
+The design pages give the overall picture in a few lines, then link to the files that hold the detail. Links to the relevant parts are provided on every page, for people who want to dig deeper: the source code, the parts catalog, and the matching build pages and the other pages in this section. You can ignore them if you only want the overview. Where a page says that we are still finding out why something was decided, the reason was not written down and we are asking around. We will add it when we have it. Some of the pages use electronics and software words that you may not know. Where a word first appears, it is explained in the same sentence.
 
 <div class="callout-grid">
   <div class="callout">

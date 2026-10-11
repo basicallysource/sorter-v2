@@ -2,11 +2,14 @@
 layout: default
 title: Design intentions for the printed parts
 type: explanation
-section: design
-slug: design-printed-parts
-kicker: Design — Printed parts
+section: lab
+slug: lab-printed-parts
+kicker: Lab — Printed parts
 lede: What the printed parts are designed around, how they attach to the extrusion and to each other, and how the design repeats as you add layers.
-permalink: /design/printed-parts/
+permalink: /lab/printed-parts/
+audience: curious builder or contributor
+applies_to: hardware-v2
+owner: docs
 last_verified: 2026-10-10
 ---
 

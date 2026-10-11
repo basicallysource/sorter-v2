@@ -2,11 +2,14 @@
 layout: default
 title: How the electronics talk to each other
 type: explanation
-section: design
-slug: design-electronics
-kicker: Design — Electronics
+section: lab
+slug: lab-electronics
+kicker: Lab — Electronics
 lede: How the Orange Pi talks to the Pico, which Pico pins do what, and where to find each part in the firmware.
-permalink: /design/electronics/
+permalink: /lab/electronics/
+audience: curious builder or contributor
+applies_to: hardware-v2
+owner: docs
 last_verified: 2026-10-10
 ---
 
@@ -27,7 +30,7 @@ This page describes the **basically board v1.3**. How the cables are wired is in
 
 The Pico plugs into the USB hub (`USB2`), and the hub plugs into the Orange Pi (`USB1`). The Orange Pi finds the Pico by its USB ID and opens it as a serial port.
 
-The rest of the USB tree is on [The USB connections and the hub]({{ '/design/usb/' | relative_url }}), and everything else the Orange Pi connects to is on [What is connected to the Orange Pi]({{ '/design/orange-pi/' | relative_url }}).
+The rest of the USB tree is on [The USB connections and the hub]({{ '/lab/usb/' | relative_url }}), and everything else the Orange Pi connects to is on [What is connected to the Orange Pi]({{ '/lab/orange-pi/' | relative_url }}).
 
 Every message, in either direction, has the same layout, called a frame. It is a 4-byte header (device address, command, channel, payload length), then the payload, which is the data itself, then a CRC32 checksum, a number the receiver uses to check that nothing was damaged on the way. The frame is wrapped in COBS, an encoding that makes a zero byte appear only at the end of a message, so the receiver always knows where one message stops. A frame is at most 254 bytes. The Orange Pi sends a command, and the Pico answers it.
 

@@ -41,5 +41,6 @@ USB hub's 24 V lead (`PWR2`), is a barrel plug screwed into the hub's own power 
 - **[Make the channel stepper leads (STP1 to STP4)]({{ '/hardware/helpers/channel-stepper-lead/' | relative_url }})**. The four c-channel motor leads. The lead in the motor's box cannot be used as it comes. Four per machine.
 - **[Make the chute stepper lead (CHU1)]({{ '/hardware/helpers/chute-stepper-lead/' | relative_url }})**. The chute motor has bare flying leads, so this one gets a tail and a housing.
 - **[Make the chute limit switch lead (LIM1)]({{ '/hardware/helpers/limit-switch-lead/' | relative_url }})**. Push-on tabs at the switch, a 3-pin housing at the board. Nothing soldered.
+- **[Labelling the cables]({{ '/hardware/helpers/cable-labels/' | relative_url }})**. The ID label for both ends of every cable, on paper in A4 or US Letter, or as flags for a Brother label printer. Each lead page above ends by sending you here.
 
 Every socket these leads plug into is on [connecting the components]({{ '/hardware/electronics/connecting/' | relative_url }}), and the drawings and lengths are on [ordering the wire harness]({{ '/hardware/parts/harness-order/' | relative_url }}).

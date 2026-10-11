@@ -226,6 +226,10 @@ The board prints `3.3V` and `SIG` beside `J5`. Push the housing on with the empt
 Leave the sleeving loose enough to bend, and do not tie it down so tightly that it crushes the braid.
 
 
+## Label the cable
+
+Put a label with the ID (`LIM1`) on both ends, close to the connector. The printable labels and the Brother label printer files are on [Labelling the cables]({{ '/hardware/helpers/cable-labels/' | relative_url }}).
+
 ## The finished result
 
 One lead (`LIM1`), 610 mm (24 in), with a #187 receptacle on each conductor at the switch end and a 3-pin Dupont housing at the board end whose third position is empty.

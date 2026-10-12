@@ -326,7 +326,21 @@ def reset_backend_for_tests() -> None:
     _backend_instance = None
 
 
+# One pool for the whole process, so concurrent requests share these threads
+# instead of each starting its own.
 READ_MANY_WORKERS = 16
+_read_pool = None
+_read_pool_lock = threading.Lock()
+
+
+def _pool():
+    global _read_pool
+    with _read_pool_lock:
+        if _read_pool is None:
+            from concurrent.futures import ThreadPoolExecutor
+
+            _read_pool = ThreadPoolExecutor(max_workers=READ_MANY_WORKERS, thread_name_prefix="storage-read")
+        return _read_pool
 
 
 def read_many(keys: list[str]) -> dict[str, bytes | None]:
@@ -350,7 +364,4 @@ def read_many(keys: list[str]) -> dict[str, bytes | None]:
 
     if len(unique) == 1:
         return {unique[0]: _read(unique[0])}
-    from concurrent.futures import ThreadPoolExecutor
-
-    with ThreadPoolExecutor(max_workers=min(READ_MANY_WORKERS, len(unique))) as pool:
-        return dict(zip(unique, pool.map(_read, unique)))
+    return dict(zip(unique, _pool().map(_read, unique)))

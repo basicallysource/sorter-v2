@@ -22,8 +22,9 @@ batches, which catches what ``created_at`` cannot see: a record re-sent as
 dead or re-classified, a crop whose file arrived on a later re-send. The first
 pass after a deploy is such a full evaluation, and it is what fills the table.
 
-Requests only read. A piece that died since it was last evaluated is dropped
-at read time by the join to machine_pieces, so the queue never shows one.
+Requests only read, through ``services.review_queue``. A piece that died since
+it was last evaluated is dropped at read time by the join to machine_pieces, so
+the queue never shows one.
 """
 
 from __future__ import annotations
@@ -31,7 +32,6 @@ from __future__ import annotations
 import bisect
 import logging
 import threading
-import uuid as uuid_mod
 from collections import defaultdict
 from datetime import datetime, timedelta, timezone
 from typing import Any, Iterable
@@ -47,8 +47,6 @@ from app.models.machine import Machine
 from app.models.machine_channel_crop import MachineChannelCrop
 from app.models.machine_piece import MachinePiece
 from app.models.machine_piece_image import MachinePieceImage
-from app.models.user import User
-from app.services.access_window import piece_scope
 from app.services.channel_crop_lookup_params import DEFAULT_PARAMS
 from app.services.periodic import PeriodicWorker
 
@@ -404,40 +402,6 @@ def run_pass(db: Session, now: datetime | None = None) -> dict[str, Any]:
     _recount(db, datetime.now(timezone.utc))
     db.commit()
     return detail
-
-
-# --- Reading -----------------------------------------------------------------------
-
-
-def labelable_count(db: Session, user: User, machine_id: uuid_mod.UUID | None) -> int:
-    """How many pieces this user may label: a sum over the per-machine counts
-    the worker keeps. A reviewer's window adds the window's queued pieces on
-    machines they do not own, a count bounded by the window size."""
-    scope = piece_scope(db, user)
-
-    def _restrict(q, col):
-        if machine_id is not None:
-            q = q.filter(col == machine_id)
-        if scope.machine_ids is not None:
-            q = q.filter(col.in_(scope.machine_ids))
-        return q
-
-    counts = _restrict(db.query(func.coalesce(func.sum(LabelingQueueCount.labelable), 0)), LabelingQueueCount.machine_id)
-    if scope.unrestricted:
-        return int(counts.scalar() or 0)
-    owned_total = int(counts.filter(LabelingQueueCount.machine_id.in_(scope.owned)).scalar() or 0)
-    if scope.window_keys is None:
-        return owned_total
-    window_extra = (
-        _restrict(db.query(func.count()).select_from(LabelingQueueEntry), LabelingQueueEntry.machine_id)
-        .filter(
-            tuple_(LabelingQueueEntry.machine_id, LabelingQueueEntry.piece_uuid).in_(scope.window_keys),
-            ~LabelingQueueEntry.machine_id.in_(scope.owned),
-            LabelingQueueEntry.arrival_at <= datetime.now(timezone.utc) - MIN_PIECE_AGE,
-        )
-        .scalar()
-    )
-    return owned_total + int(window_extra or 0)
 
 
 def _pass() -> dict[str, Any]:

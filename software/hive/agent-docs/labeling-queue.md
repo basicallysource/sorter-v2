@@ -1,14 +1,41 @@
-# The labeling queue, and why no request scans the fleet
+# The review queues, and why no request scans the fleet
 
-The piece labeling page (`/piece-bboxes`) reads from tables that background
-workers keep, never from a join or count over all of `machine_pieces`,
-`machine_piece_images` or `samples`. At a million pieces those took 11 to 48 s
+The two review pages, Piece samples (`/piece-bboxes`) and Channel samples
+(`/samples`, its sample pages and `/review`), read from tables that background
+workers keep and from indexes walked in order, never from a join or count over
+all of `machine_pieces`, `machine_piece_images` or `samples`. At a million pieces those took 11 to 48 s
 per request and spilled hundreds of MB to temp files; every request now reads a
 handful of rows. Keep it that way: **no HTTP request aggregates, sorts or counts
 history.** If a page needs a number over the fleet, a worker computes it per
 machine and the request sums the rows.
 
 ## What lives where
+
+## One queue module, one machine filter
+
+`services/review_queue.py` is "the filtered, sorted, keyset-paged queue of
+things to review" for both pages: `piece_page` / `piece_cards` / `piece_count`
+for pieces, `sample_page` / `sample_counts` for samples. What a sample filter
+means lives in `services/sample_filters.py` (`SampleFilters`,
+`apply_sample_filters`); the samples list, the review queue (`needs_review`),
+the batch archive and delete, and a teacher re-run all go through it, so an
+action never reaches a sample the page did not show.
+
+**The machine filter is one machine or several** (`machine_id` repeated in a
+query, `machine_ids` in a body, `machine=<id>,<id>` in the page URL) and is
+applied by `restrict_to_machines` inside the one query every page of a list is
+read from: every sort, every tier of a sort, every "load more". The tests
+(`test_labeling_queue.py`, `test_review_queue.py`) walk every sort with one
+machine and with several and fail on any other machine's row.
+
+On the frontend, `lib/reviewQueue.svelte.ts` is the list both pages share: a
+`ReviewQueue` per set of filters (`queueFor`), loaded a page at a time; the
+grid (`ReviewGrid.svelte`), the Piece samples pane, the sample page and the
+review page all step through it. A filter change makes a new queue and drops
+the old one, so a response still on its way for the old filter can never land
+in the new list (that is how one machine's pieces once showed up in another
+machine's grid: a "load more" for the previous filter was appended after the
+filter changed). `MachineFilter.svelte` is the machine picker on both pages.
 
 | table | written by | read by |
 |---|---|---|
@@ -48,7 +75,7 @@ a time.
 
 ## The grid
 
-`services/labeling_grid.py`. Every sort is a few segments read in order until
+`services/review_queue.py` (`piece_page`). Every sort is a few segments read in order until
 the page is full: a **walk** of the queue in arrival order through an index
 (for a sort about a label count, only pieces with no label of that kind, which
 is nearly all of them), the **labeled** pieces ordered by how many labels (a

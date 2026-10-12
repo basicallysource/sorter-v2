@@ -836,7 +836,7 @@
 		{#if onClose}
 			<Button size="sm" variant="ghost" icon={X} onclick={onClose}>Close</Button>
 		{:else}
-			<Button size="sm" variant="ghost" icon={ArrowLeft} href={nav.dashboardUrl()}>All pieces</Button>
+			<Button size="sm" variant="ghost" icon={ArrowLeft} href="/piece-bboxes">All pieces</Button>
 		{/if}
 		{#if position.total > 0 && position.index >= 0}
 			<span class="num text-sm text-ink-muted">{position.index + 1} of {position.total}{position.hasMore ? '+' : ''}</span>

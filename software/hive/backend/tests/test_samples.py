@@ -12,6 +12,7 @@ from tests.conftest import (
     _login_user,
     _register_user,
     make_test_image,
+    refresh_stats,
 )
 
 
@@ -152,6 +153,8 @@ class TestListSamples:
             capture_reason="channel_move_complete",
         )
 
+        # The options are counted by the stats worker, not per request.
+        refresh_stats()
         resp = client.get("/api/samples/filter-options", headers=auth_headers)
         assert resp.status_code == 200
         data = resp.json()

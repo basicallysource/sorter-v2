@@ -49,7 +49,8 @@ from app.schemas.likely_colors import LikelyColorsResponse
 from app.services import color_rank, likely_colors
 from app.services.brickognize_feedback import submit_color_feedback, submit_part_feedback
 from app.services.channel_crop_lookup import find_possible_crops
-from app.services import labeling_grid, labeling_queue
+from app.services import review_queue
+from app.services.review_queue import restrict_to_machines
 from app.services.piece_color_guess import CropRef, color_guesses
 from app.services.piece_link_scores import link_scores
 from app.services.piece_crop_ai_matcher import (
@@ -117,7 +118,7 @@ def labeling_likely_colors(
 
 @router.get("/stats")
 def label_stats(
-    machine_id: UUID | None = Query(None),
+    machine_id: list[UUID] | None = Query(None),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
     _rl: None = Depends(rate_limit("labeling_list")),
@@ -126,27 +127,22 @@ def label_stats(
     labelers have color-labeled each piece (drives the coverage chart). Scoped to
     one machine when machine_id is given, matching the grid's machine filter, and
     to the caller's visibility window (so a member's dashboard reflects only their
-    slice, not global fleet totals; admins see everything)."""
+    slice, not global fleet totals; admins see everything). machine_id may be
+    given several times, for several machines."""
     tune_for_aggregates(db)
     # Kept per machine by the labeling-queue worker; this only sums.
-    total_labelable = labeling_queue.labelable_count(db, current_user, machine_id)
+    total_labelable = review_queue.piece_count(db, current_user, machine_id)
 
     def _color_q():
-        q = db.query(PieceColorLabel)
-        if machine_id is not None:
-            q = q.filter(PieceColorLabel.machine_id == machine_id)
+        q = restrict_to_machines(db.query(PieceColorLabel), PieceColorLabel.machine_id, machine_id)
         return scope_to_piece_access(db, q, current_user, PieceColorLabel.machine_id, PieceColorLabel.piece_uuid)
 
     def _crop_q():
-        q = db.query(PieceCropLink)
-        if machine_id is not None:
-            q = q.filter(PieceCropLink.machine_id == machine_id)
+        q = restrict_to_machines(db.query(PieceCropLink), PieceCropLink.machine_id, machine_id)
         return scope_to_piece_access(db, q, current_user, PieceCropLink.machine_id, PieceCropLink.piece_uuid)
 
     def _part_q():
-        q = db.query(PiecePartLabel)
-        if machine_id is not None:
-            q = q.filter(PiecePartLabel.machine_id == machine_id)
+        q = restrict_to_machines(db.query(PiecePartLabel), PiecePartLabel.machine_id, machine_id)
         return scope_to_piece_access(db, q, current_user, PiecePartLabel.machine_id, PiecePartLabel.piece_uuid)
 
     labeled_by_me = _color_q().filter(PieceColorLabel.labeler_id == current_user.id).count()
@@ -216,7 +212,7 @@ def label_stats(
 
 @router.get("/color-coverage")
 def color_coverage(
-    machine_id: UUID | None = Query(None),
+    machine_id: list[UUID] | None = Query(None),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
     _rl: None = Depends(rate_limit("labeling_list")),
@@ -229,8 +225,7 @@ def color_coverage(
     scoped = scope_to_piece_access(
         db, db.query(PieceColorLabel), current_user, PieceColorLabel.machine_id, PieceColorLabel.piece_uuid
     ).filter(PieceColorLabel.color_id.isnot(None))  # exclude "I can't tell" answers
-    if machine_id is not None:
-        scoped = scoped.filter(PieceColorLabel.machine_id == machine_id)
+    scoped = restrict_to_machines(scoped, PieceColorLabel.machine_id, machine_id)
 
     # Distinct (machine, piece) per color — a piece labeled by three people counts
     # once toward that color's coverage.
@@ -284,7 +279,7 @@ _RARE_PIECE_THRESHOLD = 3
 _RARE_LAB_NEAR = 22.0
 
 
-def _rare_candidate_color_ids(db: Session, user: User, machine_id: UUID | None) -> set[str]:
+def _rare_candidate_color_ids(db: Session, user: User, machine_ids: list[UUID] | None) -> set[str]:
     """BrickLink color ids (as stored on the piece — strings) that are worth
     surfacing when hunting rare colors: every under-covered color, plus any color
     close to one in Lab space. Pieces whose Brickognize color prediction is one of
@@ -292,8 +287,7 @@ def _rare_candidate_color_ids(db: Session, user: User, machine_id: UUID | None) 
     scoped = scope_to_piece_access(
         db, db.query(PieceColorLabel), user, PieceColorLabel.machine_id, PieceColorLabel.piece_uuid
     ).filter(PieceColorLabel.color_id.isnot(None))  # "I can't tell" answers aren't a color
-    if machine_id is not None:
-        scoped = scoped.filter(PieceColorLabel.machine_id == machine_id)
+    scoped = restrict_to_machines(scoped, PieceColorLabel.machine_id, machine_ids)
     per_piece = (
         scoped.with_entities(
             PieceColorLabel.color_id, PieceColorLabel.machine_id, PieceColorLabel.piece_uuid
@@ -336,7 +330,7 @@ def list_pieces(
     sort: str = Query("priority"),
     limit: int = Query(60, ge=1, le=200),
     cursor: str | None = Query(None),
-    machine_id: UUID | None = Query(None),
+    machine_id: list[UUID] | None = Query(None),
     with_candidates: bool = Query(False),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
@@ -347,114 +341,33 @@ def list_pieces(
     first, then fewest color labels — spreads effort where it's useful), recent,
     oldest, least/most_color, least/most_crop, least/most_part, rare_color,
     unidentified (pieces the machine couldn't name — the part-correction queue),
-    needs_me (this user's unlabeled first). Optional machine_id filter and
-    with_candidates (only pieces that have same-piece candidate crops).
+    needs_me (this user's unlabeled first). machine_id (one or several) keeps
+    only those machines' pieces; with_candidates only pieces that have same-piece
+    candidate crops.
 
     Pages by keyset: pass the previous page's next_cursor to get the one after
-    it (null at the end). Served from the labeling queue (see
-    services.labeling_grid), so every page costs the same."""
-    if sort not in labeling_grid.SORTS:
+    it (null at the end). Served from the labeling queue through
+    services.review_queue, so every page costs the same."""
+    if sort not in review_queue.PIECE_SORTS:
         sort = "priority"
     tune_for_aggregates(db)
     rare_ids = _rare_candidate_color_ids(db, current_user, machine_id) if sort == "rare_color" else None
-    rows, next_cursor = labeling_grid.read_page(
-        db, current_user, sort, limit, cursor, machine_id, with_candidates, rare_ids
+    rows, next_cursor = review_queue.piece_page(
+        db,
+        current_user,
+        sort=sort,
+        limit=limit,
+        cursor=cursor,
+        machine_ids=machine_id,
+        with_candidates=with_candidates,
+        rare_color_ids=rare_ids,
     )
     return {
-        "items": _piece_cards(db, current_user, rows),
+        "items": review_queue.piece_cards(db, current_user, rows),
         "has_more": next_cursor is not None,
         "next_cursor": next_cursor,
         "sort": sort,
     }
-
-
-def _piece_cards(db: Session, user: User, rows: list[labeling_grid.PageRow]) -> list[dict]:
-    """The grid cards for one page of queue rows: a few keyed reads, never a scan."""
-    if not rows:
-        return []
-    keys = {(r.machine_id, r.piece_uuid) for r in rows}
-    machine_ids = list({r.machine_id for r in rows})
-    piece_uuids = list({r.piece_uuid for r in rows})
-
-    def _page_filter(q, model):
-        # Both columns as IN lists, so the (machine_id, piece_uuid) indexes serve
-        # it; the pairs are matched exactly below.
-        return q.filter(model.machine_id.in_(machine_ids), model.piece_uuid.in_(piece_uuids))
-
-    pieces = {
-        (p.machine_id, p.piece_uuid): p
-        for p in _page_filter(
-            db.query(
-                MachinePiece.machine_id,
-                MachinePiece.piece_uuid,
-                MachinePiece.part_id,
-                MachinePiece.part_name,
-                MachinePiece.recorded_at,
-                MachinePiece.seen_at,
-            ),
-            MachinePiece,
-        )
-    }
-    machine_names = dict(db.query(Machine.id, Machine.name).filter(Machine.id.in_(machine_ids)).all())
-
-    def _counts(model) -> dict[tuple, tuple[int, bool]]:
-        q = db.query(
-            model.machine_id,
-            model.piece_uuid,
-            func.count(),
-            func.max(case((model.labeler_id == user.id, 1), else_=0)),
-        )
-        return {
-            (mid, puid): (int(n), bool(mine))
-            for mid, puid, n, mine in _page_filter(q, model).group_by(model.machine_id, model.piece_uuid)
-        }
-
-    color_counts = _counts(PieceColorLabel)
-    crop_counts = _counts(PieceCropLink)
-    part_counts = _counts(PiecePartLabel)
-
-    # Lowest available seq per piece is the card's thumbnail.
-    thumbs: dict[tuple, tuple[int, str]] = {}
-    for mid, puid, seq, key in _page_filter(
-        db.query(MachinePieceImage.machine_id, MachinePieceImage.piece_uuid, MachinePieceImage.seq, MachinePieceImage.image_key),
-        MachinePieceImage,
-    ).filter(MachinePieceImage.image_key.isnot(None)).order_by(MachinePieceImage.seq.asc()):
-        if (mid, puid) in keys:
-            thumbs.setdefault((mid, puid), (seq, key))
-
-    backend = get_backend()
-    items = []
-    for r in rows:
-        k = (r.machine_id, r.piece_uuid)
-        p = pieces.get(k)
-        if p is None:
-            continue
-        ccnt, mc = color_counts.get(k, (0, False))
-        xcnt, mx = crop_counts.get(k, (0, False))
-        pcnt, mp = part_counts.get(k, (0, False))
-        thumb = thumbs.get(k)
-        items.append(
-            {
-                "machine_id": str(r.machine_id),
-                "machine_name": machine_names.get(r.machine_id),
-                "piece_uuid": r.piece_uuid,
-                "part": {"part_id": p.part_id, "part_name": p.part_name},
-                "recorded_at": p.recorded_at.isoformat() if p.recorded_at else None,
-                "seen_at": p.seen_at.isoformat() if p.seen_at else None,
-                "color_label_count": ccnt,
-                "crop_link_count": xcnt,
-                "part_label_count": pcnt,
-                "my_color": mc,
-                "my_crop": mx,
-                "my_part": mp,
-                "has_candidates": r.has_candidates,
-                "thumb_seq": thumb[0] if thumb else None,
-                # Straight from storage when it can sign one; else the card falls
-                # back to the image route by thumb_seq.
-                "thumb_url": backend.presigned_get_url(thumb[1]) if thumb else None,
-            }
-        )
-    return items
 
 
 @router.get("/piece/{machine_id}/{piece_uuid}")

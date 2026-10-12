@@ -104,7 +104,7 @@ class TeacherJobFilter(BaseModel):
     """Same shape as the samples list filters so the admin can re-run on what they see."""
 
     scope: str | None = None
-    machine_id: UUID | None = None
+    machine_ids: list[UUID] | None = None
     upload_session_id: UUID | None = None
     source_role: str | None = None
     capture_reason: str | None = None
@@ -211,12 +211,7 @@ def create_teacher_job(
 
     filt = payload.filter
     from app.models.machine import Machine as _Machine
-    from app.routers.samples import (
-        apply_annotated_filter as _apply_annotated,
-        apply_exposure_filter as _apply_exposure,
-        apply_kind_filter as _apply_kind,
-        apply_my_review_filter as _apply_my_review,
-    )
+    from app.services.sample_filters import SampleFilters, apply_sample_filters
 
     # Never enqueue archived rows (per-sample or per-machine) — admins
     # already pulled those out of circulation. Same guard the list +
@@ -228,31 +223,24 @@ def create_teacher_job(
     )
     if filt.scope == "mine":
         query = query.filter(Sample.machine.has(owner_id=admin.id))
-    if filt.machine_id is not None:
-        query = query.filter(Sample.machine_id == filt.machine_id)
-    if filt.upload_session_id is not None:
-        query = query.filter(Sample.upload_session_id == filt.upload_session_id)
-    if filt.source_role:
-        query = query.filter(Sample.source_role == filt.source_role)
-    if filt.capture_reason:
-        query = query.filter(Sample.capture_reason == filt.capture_reason)
-    if filt.review_status:
-        query = query.filter(Sample.review_status == filt.review_status)
-    if filt.max_age_hours is not None and filt.max_age_hours > 0:
-        from datetime import timedelta
-        cutoff = datetime.now(timezone.utc) - timedelta(hours=filt.max_age_hours)
-        query = query.filter(Sample.uploaded_at >= cutoff)
-    # Honor the same kind/my_review/annotated filters as the list view so
-    # "Re-run teacher" on a filtered list operates on exactly what the
-    # admin sees. Bug fix: previously these were silently dropped, so a
-    # job built from e.g. ?annotated=raw would still pick up everything.
-    query = _apply_kind(query, filt.kind)
-    if filt.my_review:
-        query = _apply_my_review(query, filt.my_review, admin.id)
-    if filt.annotated:
-        query = _apply_annotated(query, filt.annotated)
-    if filt.exposure:
-        query = _apply_exposure(query, filt.exposure)
+    # The same filters as the samples list, through the same function, so a
+    # re-run on a filtered list covers exactly what the admin sees.
+    query = apply_sample_filters(
+        query,
+        SampleFilters(
+            machine_ids=tuple(filt.machine_ids) if filt.machine_ids else None,
+            upload_session_id=filt.upload_session_id,
+            source_role=filt.source_role,
+            capture_reason=filt.capture_reason,
+            review_status=filt.review_status,
+            kind=filt.kind,
+            my_review=filt.my_review,
+            annotated=filt.annotated,
+            exposure=filt.exposure,
+            max_age_hours=filt.max_age_hours,
+        ),
+        admin.id,
+    )
 
     # Only enqueue samples whose source_role has a teacher zone — otherwise we'd just burn
     # Gemini credits on the wrong prompt. We also skip rows missing image_path defensively.

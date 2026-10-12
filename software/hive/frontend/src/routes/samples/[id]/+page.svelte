@@ -2,7 +2,6 @@
 	import { sentence } from '$lib/text';
 	import { page } from '$app/state';
 	import { goto } from '$app/navigation';
-	import { SvelteMap } from 'svelte/reactivity';
 	import {
 		api,
 		type SampleClassificationPayload,
@@ -43,12 +42,9 @@
 	import Trash2 from '@lucide/svelte/icons/trash-2';
 	import X from '@lucide/svelte/icons/x';
 	import { extractLegacyReviewBboxes, extractPrimaryBboxes, mergeUniqueBboxes, parseBboxCollection, proposalColor } from '$lib/components/sample/bbox-helpers';
-	import {
-		readSampleListContext,
-		sampleListContextKey,
-		sampleListContextQuery,
-		sampleListFilterParams
-	} from '$lib/sampleListContext';
+	import { readSampleFilters, sampleFiltersQuery, sampleQueue } from '$lib/sampleListContext';
+	import { queueFor, queueKeydown, type QueueSteps, type ReviewQueue } from '$lib/reviewQueue.svelte';
+	import { formatDateTime, relativeTime } from '$lib/time';
 
 	const annotatorApi = new AnnotatorApi();
 
@@ -99,170 +95,71 @@
 
 	const sampleId = $derived(page.params.id);
 
-	// List context (filters + page size) carried in the URL so reload preserves the
-	// browsing context. Lets us walk to prev/next neighbours without losing filters.
-	const listContext = $derived(readSampleListContext(page.url.searchParams));
-	const listContextKey = $derived(sampleListContextKey(listContext));
+	// The list this sample was opened from: the filters in the URL, and the queue
+	// the grid already loaded for them (lib/sampleListContext). Previous / next
+	// and the arrow keys step through that same list.
+	const listContext = $derived(readSampleFilters(page.url.searchParams));
 
-	// Alternative navigation source: when the URL carries ?teacher_job=<id>, prev/next
-	// walks through that job's items (paginated 50/page) instead of the global samples
-	// roster. Lets the admin step through a backfill from inside the sample detail view.
+	// Or, with ?teacher_job=<id>, the items of that teacher job, so an admin can
+	// step through a backfill from here.
 	const teacherJobId = $derived(page.url.searchParams.get('teacher_job'));
-	const teacherJobItemsStatus = $derived(
-		page.url.searchParams.get('teacher_job_items_status') ?? 'all'
-	);
-	const teacherJobNavKey = $derived(
-		teacherJobId ? `job:${teacherJobId}:${teacherJobItemsStatus}` : null
-	);
+	const teacherJobItemsStatus = $derived(page.url.searchParams.get('teacher_job_items_status') ?? 'all');
 
-	const listBackHref = $derived(
-		teacherJobId
-			? `/admin/teacher-jobs/${teacherJobId}`
-			: `/samples${sampleListContextQuery(page.url.searchParams)}`
-	);
-
-	// Single key that flushes the neighbor cache when the source changes (filter on
-	// samples list, OR switch to a different teacher job).
-	const navSourceKey = $derived(teacherJobNavKey ?? listContextKey);
-	const navPageSize = $derived(teacherJobId ? 50 : listContext.page_size);
-
-	let neighborPages = $state(new SvelteMap<number, string[]>());
-	let neighborMeta = $state<{ pages: number; total: number } | null>(null);
-	let lastNeighborKey = $state('');
-
-	const sampleLocation = $derived.by(() => {
-		if (!sampleId) return null;
-		for (const [pageNum, ids] of neighborPages.entries()) {
-			const idx = ids.indexOf(sampleId);
-			if (idx >= 0) return { pageNum, idx, ids };
-		}
-		return null;
-	});
-
-	const prevSampleId = $derived.by(() => {
-		const loc = sampleLocation;
-		if (!loc) return null;
-		if (loc.idx > 0) return loc.ids[loc.idx - 1];
-		const prevIds = neighborPages.get(loc.pageNum - 1);
-		if (prevIds && prevIds.length > 0) return prevIds[prevIds.length - 1];
-		return null;
-	});
-
-	const nextSampleId = $derived.by(() => {
-		const loc = sampleLocation;
-		if (!loc) return null;
-		if (loc.idx < loc.ids.length - 1) return loc.ids[loc.idx + 1];
-		const nextIds = neighborPages.get(loc.pageNum + 1);
-		if (nextIds && nextIds.length > 0) return nextIds[0];
-		return null;
-	});
-
-	const positionLabel = $derived.by(() => {
-		const loc = sampleLocation;
-		if (!loc || !neighborMeta) return null;
-		const absoluteIndex = (loc.pageNum - 1) * navPageSize + loc.idx + 1;
-		return `${absoluteIndex} of ${neighborMeta.total}`;
-	});
-
-	$effect(() => {
-		if (navSourceKey !== lastNeighborKey) {
-			lastNeighborKey = navSourceKey;
-			neighborPages = new SvelteMap();
-			neighborMeta = null;
-		}
-	});
-
-	$effect(() => {
-		if (!sampleId) return;
-		if (teacherJobId) {
-			const start = Number(page.url.searchParams.get('teacher_job_items_page') ?? '1');
-			void ensureNeighborPage(Math.max(1, start));
-		} else {
-			void ensureNeighborPage(listContext.page);
-		}
-	});
-
-	$effect(() => {
-		const loc = sampleLocation;
-		if (!loc) return;
-		if (loc.idx === 0 && loc.pageNum > 1) {
-			void ensureNeighborPage(loc.pageNum - 1);
-		}
-		if (loc.idx === loc.ids.length - 1) {
-			const totalPages = neighborMeta?.pages ?? Number.POSITIVE_INFINITY;
-			if (loc.pageNum < totalPages) void ensureNeighborPage(loc.pageNum + 1);
-		}
-	});
-
-	async function ensureNeighborPage(pageNum: number) {
-		if (pageNum < 1) return;
-		if (neighborPages.has(pageNum)) return;
-		const sourceAtRequest = navSourceKey;
-		try {
-			if (teacherJobId) {
-				const result = await api.getTeacherJob(teacherJobId, {
+	function teacherJobQueue(jobId: string, status: string): ReviewQueue<{ id: string }> {
+		return queueFor<{ id: string }>('teacher-job', `${jobId}:${status}`, {
+			key: (it) => it.id,
+			fetch: async (cursor) => {
+				const pageNum = cursor ? Number(cursor) : 1;
+				const job = await api.getTeacherJob(jobId, {
 					items_page: pageNum,
-					items_page_size: navPageSize,
-					items_status: teacherJobItemsStatus === 'all' ? undefined : teacherJobItemsStatus
+					items_page_size: 50,
+					items_status: status === 'all' ? undefined : status
 				});
-				if (navSourceKey !== sourceAtRequest) return;
-				neighborPages.set(pageNum, result.items.map((i) => i.sample_id));
-				neighborMeta = { pages: result.items_pages, total: result.items_total };
-			} else {
-				const result = await api.getSamples({
-					...sampleListFilterParams(listContext),
-					page: pageNum,
-					page_size: listContext.page_size
-				});
-				if (navSourceKey !== sourceAtRequest) return;
-				neighborPages.set(pageNum, result.items.map((s) => s.id));
-				neighborMeta = { pages: result.pages, total: result.total };
+				return {
+					items: job.items.map((i) => ({ id: i.sample_id })),
+					next_cursor: pageNum < job.items_pages ? String(pageNum + 1) : null
+				};
 			}
-		} catch {
-			// ignore — neighbor info is best-effort
-		}
-	}
-
-	function navigateToNeighbor(targetId: string | null) {
-		if (!targetId) return;
-		// Default page based on source: when navigating via teacher_job, use the
-		// teacher_job_items_page param so the back-link lands on the right job page.
-		const defaultPage = teacherJobId
-			? Number(page.url.searchParams.get('teacher_job_items_page') ?? '1')
-			: listContext.page;
-		let targetPage = defaultPage;
-		for (const [pageNum, ids] of neighborPages.entries()) {
-			if (ids.includes(targetId)) {
-				targetPage = pageNum;
-				break;
-			}
-		}
-		const sp = new URLSearchParams(page.url.searchParams);
-		const pageKey = teacherJobId ? 'teacher_job_items_page' : 'page';
-		if (targetPage <= 1) sp.delete(pageKey);
-		else sp.set(pageKey, String(targetPage));
-		const search = sp.toString();
-		void goto(`/samples/${targetId}${search ? `?${search}` : ''}`, {
-			noScroll: true,
-			keepFocus: true
 		});
 	}
 
+	const navQueue = $derived<QueueSteps>(
+		teacherJobId ? teacherJobQueue(teacherJobId, teacherJobItemsStatus) : sampleQueue(listContext)
+	);
+
+	const listBackHref = $derived(
+		teacherJobId ? `/admin/teacher-jobs/${teacherJobId}` : `/samples${sampleFiltersQuery(page.url.searchParams)}`
+	);
+
+	// Make sure this sample is in the loaded list (a link opened on its own
+	// loads pages until it finds it).
+	$effect(() => {
+		if (sampleId) void navQueue.find(sampleId);
+	});
+
+	const navIndex = $derived(sampleId ? navQueue.indexOf(sampleId) : -1);
+	const prevSampleId = $derived(navIndex > 0 ? navQueue.items[navIndex - 1].id : null);
+	const hasNext = $derived(navIndex >= 0 && (navIndex + 1 < navQueue.items.length || navQueue.hasMore));
+	const positionLabel = $derived(
+		navIndex < 0 ? null : `${navIndex + 1} of ${navQueue.items.length.toLocaleString()}${navQueue.hasMore ? '+' : ''}`
+	);
+
+	function navigateTo(targetId: string | null) {
+		if (!targetId) return;
+		// The filters (or the teacher job) and the view stay in the URL.
+		void goto(`/samples/${targetId}${page.url.search}`, { noScroll: true, keepFocus: true });
+	}
+
+	async function navigateNext() {
+		if (!sampleId) return;
+		const next = await navQueue.after(sampleId);
+		if (next) navigateTo(next.id);
+	}
+
 	function onWindowKeyDown(e: KeyboardEvent) {
-		if (e.metaKey || e.ctrlKey || e.altKey) return;
-		if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return;
 		if (showDeleteModal) return;
 		if (activeView === 'annotate') return;
-		const target = e.target as HTMLElement | null;
-		if (target) {
-			const tag = target.tagName;
-			if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
-			if (target.isContentEditable) return;
-		}
-		const targetId = e.key === 'ArrowLeft' ? prevSampleId : nextSampleId;
-		if (!targetId) return;
-		e.preventDefault();
-		navigateToNeighbor(targetId);
+		queueKeydown(e, { prev: () => navigateTo(prevSampleId), next: () => void navigateNext() });
 	}
 
 	const statusVariant: Record<string, 'success' | 'warning' | 'danger' | 'info' | 'neutral'> = {
@@ -540,12 +437,18 @@
 			{#if sample.review_count > 0}
 				<span class="num text-sm text-ink-muted">{sample.review_count} review{sample.review_count !== 1 ? 's' : ''}</span>
 			{/if}
+			{#if sample.captured_at ?? sample.uploaded_at}
+				{@const at = (sample.captured_at ?? sample.uploaded_at)!}
+				<span class="num text-sm text-ink-muted" title={at}
+					>{sample.captured_at ? 'captured' : 'uploaded'} {formatDateTime(at)} ({relativeTime(at)})</span
+				>
+			{/if}
 		</div>
 		{#snippet actions()}
 			<div class="flex items-center gap-1" title="The arrow keys step through the samples too">
-				<Button icon={ChevronLeft} label="Previous sample" disabled={!prevSampleId} onclick={() => navigateToNeighbor(prevSampleId)} />
+				<Button icon={ChevronLeft} label="Previous sample" disabled={!prevSampleId} onclick={() => navigateTo(prevSampleId)} />
 				{#if positionLabel}<span class="num px-1 text-sm text-ink-muted">{positionLabel}</span>{/if}
-				<Button icon={ChevronRight} label="Next sample" disabled={!nextSampleId} onclick={() => navigateToNeighbor(nextSampleId)} />
+				<Button icon={ChevronRight} label="Next sample" disabled={!hasNext} onclick={() => void navigateNext()} />
 			</div>
 			<Button
 				href={`/samples/${sample!.id}/similar`}

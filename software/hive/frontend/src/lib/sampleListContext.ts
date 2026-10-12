@@ -1,11 +1,17 @@
-export const SAMPLE_LIST_DEFAULT_PAGE_SIZE = 30;
+// The Channel samples list: its filters in the URL, and the queue the grid, the
+// sample detail page and the review page step through (lib/reviewQueue).
+//
+// The filters travel in the URL from the list to a sample and to the review
+// page, so a reload or a shared link shows the same slice, and next / previous
+// walk the same list the grid showed.
 
-// 'scope' is included so the URL ?scope=mine survives reloads and is carried back to the list
-// from sample detail. Default scope (omitted) is "all samples". 'max_age_hours' carries the
-// Age sidebar filter (24/168/720) so reload preserves it.
+import { api, type Sample, type SampleFilterParams } from '$lib/api';
+import { queueFor, readMachines, writeMachines, type ReviewQueue } from '$lib/reviewQueue.svelte';
+
+// Filter keys carried in the URL besides the machine filter (lib/reviewQueue's
+// `machine`). 'scope' is "mine" or absent (all samples).
 export const SAMPLE_LIST_FILTER_KEYS = [
 	'scope',
-	'machine_id',
 	'review_status',
 	'source_role',
 	'capture_reason',
@@ -19,97 +25,61 @@ export const SAMPLE_LIST_FILTER_KEYS = [
 
 export type SampleListFilterKey = (typeof SAMPLE_LIST_FILTER_KEYS)[number];
 
-const SAMPLE_LIST_CONTEXT_KEYS = [
-	...SAMPLE_LIST_FILTER_KEYS,
-	'page',
-	'page_size'
-] as const;
+export type SampleListFilters = Partial<Record<SampleListFilterKey, string>> & { machine_ids: string[] };
 
-export interface SampleListFilters {
-	scope?: string;
-	machine_id?: string;
-	review_status?: string;
-	source_role?: string;
-	capture_reason?: string;
-	// 'regular' | 'condition' | undefined (= all). Coarser than capture_reason
-	// — splits the queue between detection samples and condition-collector
-	// crops so reviewers / browsers can drain one bucket at a time.
-	kind?: string;
-	// Per-user review filter: 'unreviewed' (viewer hasn't reviewed yet),
-	// 'reviewed' (viewer reviewed either way), 'accepted', 'rejected'.
-	// Independent of the global review_status — that's the consensus state
-	// across all reviewers, this is "what did *I* do".
-	my_review?: string;
-	// Filter by whether a Hive teacher (Gemini/Perceptron) has already
-	// processed the sample. 'teacher' = re-run done (training-ready);
-	// 'raw' = still raw sorter detections, often incomplete.
-	annotated?: string;
-	// Histogram-based exposure bucket: 'under' / 'normal' / 'over' / 'all'.
-	// Useful for catching lights-off batches or sensor saturation. Null/''
-	// means no filter (sees both clean and broken-exposure samples).
-	exposure?: string;
-	// Admin-only: 'active' (default), 'archived' (only archived), 'all'. Members
-	// always see 'active' regardless of what they pass — server enforces.
-	archived?: string;
-	max_age_hours?: string;
-}
-
-export interface SampleListContext extends SampleListFilters {
-	page: number;
-	page_size: number;
-}
-
-function parsePositiveInt(raw: string | null, fallback: number): number {
-	if (raw == null) return fallback;
-	const value = Number(raw);
-	if (!Number.isFinite(value) || value < 1) return fallback;
-	return Math.floor(value);
-}
-
-export function readSampleListContext(searchParams: URLSearchParams): SampleListContext {
-	const ctx: SampleListContext = {
-		page: parsePositiveInt(searchParams.get('page'), 1),
-		page_size: parsePositiveInt(searchParams.get('page_size'), SAMPLE_LIST_DEFAULT_PAGE_SIZE)
-	};
+export function readSampleFilters(sp: URLSearchParams): SampleListFilters {
+	const out: SampleListFilters = { machine_ids: readMachines(sp) };
 	for (const key of SAMPLE_LIST_FILTER_KEYS) {
-		const value = searchParams.get(key);
-		if (value) ctx[key] = value;
-	}
-	return ctx;
-}
-
-export function sampleListContextQuery(searchParams: URLSearchParams): string {
-	const sp = new URLSearchParams();
-	for (const key of SAMPLE_LIST_CONTEXT_KEYS) {
-		const value = searchParams.get(key);
-		if (value) sp.set(key, value);
-	}
-	const search = sp.toString();
-	return search ? `?${search}` : '';
-}
-
-export function sampleListFilterParams(ctx: SampleListContext): SampleListFilters {
-	const out: SampleListFilters = {};
-	for (const key of SAMPLE_LIST_FILTER_KEYS) {
-		const value = ctx[key];
+		const value = sp.get(key);
 		if (value) out[key] = value;
 	}
 	return out;
 }
 
-export function sampleListContextKey(ctx: SampleListContext): string {
-	return JSON.stringify({
-		scope: ctx.scope ?? '',
-		machine_id: ctx.machine_id ?? '',
-		review_status: ctx.review_status ?? '',
-		source_role: ctx.source_role ?? '',
-		capture_reason: ctx.capture_reason ?? '',
-		kind: ctx.kind ?? '',
-		my_review: ctx.my_review ?? '',
-		annotated: ctx.annotated ?? '',
-		exposure: ctx.exposure ?? '',
-		archived: ctx.archived ?? '',
-		max_age_hours: ctx.max_age_hours ?? '',
-		page_size: ctx.page_size
+// Just the filters of a URL, as a query string (with its "?"), for a link that
+// carries the slice along: the list to a sample, the list to the review page.
+export function sampleFiltersQuery(sp: URLSearchParams): string {
+	const out = new URLSearchParams();
+	for (const key of SAMPLE_LIST_FILTER_KEYS) {
+		const value = sp.get(key);
+		if (value) out.set(key, value);
+	}
+	writeMachines(out, readMachines(sp));
+	const qs = out.toString();
+	return qs ? `?${qs}` : '';
+}
+
+export function sampleFiltersKey(f: SampleListFilters): string {
+	const parts = SAMPLE_LIST_FILTER_KEYS.map((k) => `${k}=${f[k] ?? ''}`);
+	return [...parts, `machine=${[...f.machine_ids].sort().join(',')}`].join('&');
+}
+
+export function sampleFilterParams(f: SampleListFilters): SampleFilterParams {
+	const { machine_ids, ...rest } = f;
+	return { ...rest, machine_ids };
+}
+
+// The review queue's slice: with no review state chosen it is the fresh work,
+// samples I have not reviewed that still need reviews. Choosing a review state
+// (say, conflicts, or what I accepted) revisits that state instead.
+export function reviewFilterParams(f: SampleListFilters): SampleFilterParams {
+	const params = sampleFilterParams(f);
+	return f.review_status || f.my_review ? params : { ...params, needs_review: true };
+}
+
+function queue(list: string, key: string, params: SampleFilterParams): ReviewQueue<Sample> {
+	return queueFor<Sample>(list, key, {
+		key: (s) => s.id,
+		fetch: (cursor) => api.getSamples({ ...params, cursor, limit: 60 })
 	});
+}
+
+// The list the grid and the sample detail page share.
+export function sampleQueue(f: SampleListFilters): ReviewQueue<Sample> {
+	return queue('samples', sampleFiltersKey(f), sampleFilterParams(f));
+}
+
+// The list the review page steps through.
+export function reviewQueue(f: SampleListFilters): ReviewQueue<Sample> {
+	return queue('review', sampleFiltersKey(f), reviewFilterParams(f));
 }

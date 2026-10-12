@@ -9,7 +9,7 @@ lede: The printed core of the chute, with its heat inserts. Build one per layer.
 permalink: /hardware/assembly/distribution/chute/chute-core/
 author: spencer
 contributors: [barthel, zed0]
-og_image: https://assets.basically.website/sorter-docs/chute-v3-core-with-inserts-opening-side-full-fc9f9a8e2abf.png
+og_image: https://assets.basically.website/sorter-docs/chute-v3-core-with-inserts-opening-side-full-1961b4bfcb14.png
 tools_needed: [Soldering iron or heat-set insert press]
 parts_needed:
   - part: chute-core
@@ -48,19 +48,19 @@ Press all the heat inserts into the chute core before anything is mounted on it.
   </div>
   <div class="prep-item-figure prep-item-figure-split">
     <figure>
-      <img class="doc-figure" src="https://assets.basically.website/sorter-docs/chute-v3-core-pockets-plus-y-full-659b8037b993.png" alt="Render of the servo side wall of the chute core with nine pockets ringed in red and lettered: two A beside the bracket pad in the middle, two B near the round bearing notch, two C on the connector pads, two D on a small pad and one D low on the wall">
+      <img class="doc-figure" src="https://assets.basically.website/sorter-docs/chute-v3-core-pockets-plus-y-full-7570976946a6.png" alt="Render of the servo side wall of the chute core with nine pockets ringed in red and lettered: two A beside the bracket pad in the middle, two B near the round bearing notch, two C on the connector pads, two D on a small pad and one D low on the wall">
       <figcaption>The servo side: 9. A, B, C and D. <cite>Rendered from the part geometry, not from a build. Render: Balloon.</cite></figcaption>
     </figure>
     <figure>
-      <img class="doc-figure" src="https://assets.basically.website/sorter-docs/chute-v3-core-pockets-minus-y-full-f530a6859a83.png" alt="Render of the plain side wall of the chute core with six pockets ringed in red and lettered: two A, two B and two C">
+      <img class="doc-figure" src="https://assets.basically.website/sorter-docs/chute-v3-core-pockets-minus-y-full-e874612f7034.png" alt="Render of the plain side wall of the chute core with six pockets ringed in red and lettered: two A, two B and two C">
       <figcaption>The plain side: 6. A, B and C, in the same places as on the other wall, without the three D pockets. <cite>Rendered from the part geometry, not from a build. Render: Balloon.</cite></figcaption>
     </figure>
     <figure>
-      <img class="doc-figure" src="https://assets.basically.website/sorter-docs/chute-v3-core-pockets-rear-full-02f30fdb074c.png" alt="Render of the rear wall of the chute core with four pockets ringed in red, each lettered F, in a square">
+      <img class="doc-figure" src="https://assets.basically.website/sorter-docs/chute-v3-core-pockets-rear-full-1ca6422e7957.png" alt="Render of the rear wall of the chute core with four pockets ringed in red, each lettered F, in a square">
       <figcaption>The rear: the last 4, the F pockets, in a square on the wall. <cite>Rendered from the part geometry, not from a build. Render: Balloon.</cite></figcaption>
     </figure>
     <figure>
-      <img class="doc-figure" src="https://assets.basically.website/sorter-docs/chute-v3-core-pockets-race-face-full-8229aefed6ad.png" alt="Render of the opening side of the chute core seen through the top, with two pockets ringed in red and lettered E on the low wall under the opening">
+      <img class="doc-figure" src="https://assets.basically.website/sorter-docs/chute-v3-core-pockets-race-face-full-325406e2ba66.png" alt="Render of the opening side of the chute core seen through the top, with two pockets ringed in red and lettered E on the low wall under the opening">
       <figcaption>The opening side: 2, the E pockets, on the low wall under the opening. <cite>Rendered from the part geometry, not from a build. Render: Balloon.</cite></figcaption>
     </figure>
   </div>
@@ -72,22 +72,22 @@ The chute core is finished when all 21 heat inserts are pressed in. Nothing is b
 
 <div class="img-row">
   <figure>
-    <img class="doc-figure" src="https://assets.basically.website/sorter-docs/chute-v3-core-with-inserts-servo-side-full-dd14c8086615.png" alt="Render of the servo side wall of the chute core with brass heat inserts pressed into all nine pockets on it">
+    <img class="doc-figure" src="https://assets.basically.website/sorter-docs/chute-v3-core-with-inserts-servo-side-full-f298d942db50.png" alt="Render of the servo side wall of the chute core with brass heat inserts pressed into all nine pockets on it">
     <figcaption>The servo side: 9 inserts in. <cite>Rendered from the part geometry, not from a build. Render: Balloon.</cite></figcaption>
   </figure>
   <figure>
-    <img class="doc-figure" src="https://assets.basically.website/sorter-docs/chute-v3-core-with-inserts-plain-side-full-e65ad07e460e.png" alt="Render of the plain side wall of the chute core with brass heat inserts pressed into all six pockets on it">
+    <img class="doc-figure" src="https://assets.basically.website/sorter-docs/chute-v3-core-with-inserts-plain-side-full-a78d9ea26a29.png" alt="Render of the plain side wall of the chute core with brass heat inserts pressed into all six pockets on it">
     <figcaption>The plain side: 6 inserts in. <cite>Rendered from the part geometry, not from a build. Render: Balloon.</cite></figcaption>
   </figure>
 </div>
 
 <div class="img-row">
   <figure>
-    <img class="doc-figure" src="https://assets.basically.website/sorter-docs/chute-v3-core-with-inserts-rear-full-0e0abd56197b.png" alt="Render of the rear wall of the chute core with a brass heat insert in each of the four pockets in a square">
+    <img class="doc-figure" src="https://assets.basically.website/sorter-docs/chute-v3-core-with-inserts-rear-full-4810c88f889e.png" alt="Render of the rear wall of the chute core with a brass heat insert in each of the four pockets in a square">
     <figcaption>The rear: 4 inserts in. <cite>Rendered from the part geometry, not from a build. Render: Balloon.</cite></figcaption>
   </figure>
   <figure>
-    <img class="doc-figure" src="https://assets.basically.website/sorter-docs/chute-v3-core-with-inserts-opening-side-full-fc9f9a8e2abf.png" alt="Render of the opening side of the chute core seen from above, with a brass heat insert in each of the two pockets on the low wall under the opening">
+    <img class="doc-figure" src="https://assets.basically.website/sorter-docs/chute-v3-core-with-inserts-opening-side-full-1961b4bfcb14.png" alt="Render of the opening side of the chute core seen from above, with a brass heat insert in each of the two pockets on the low wall under the opening">
     <figcaption>The opening side: 2 inserts in. <cite>Rendered from the part geometry, not from a build. Render: Balloon.</cite></figcaption>
   </figure>
 </div>

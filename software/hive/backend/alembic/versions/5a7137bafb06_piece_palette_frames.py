@@ -1,7 +1,7 @@
 """Which pieces had the colour reference palette in view, read by index
 
 Revision ID: 5a7137bafb06
-Revises: c548fb8d227c
+Revises: 3bce507e67fc
 
 The piece labeling page shows, for each piece, whether a classification frame
 of its machine near the piece's arrival had the colour reference palette in
@@ -30,7 +30,7 @@ from alembic import op
 from sqlalchemy.dialects import postgresql
 
 revision = "5a7137bafb06"
-down_revision = "c548fb8d227c"
+down_revision = "3bce507e67fc"
 branch_labels = None
 depends_on = None
 

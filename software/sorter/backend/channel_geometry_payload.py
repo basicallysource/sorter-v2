@@ -17,6 +17,12 @@ _ROLE_TO_KEYS.setdefault("classification_channel", ("classification_channel", "c
 _ZONE_WIRE = (("drop", "drop_zone"), ("exit", "exit_zone"), ("precise", "precise_zone"))
 
 
+def channelIdForRole(role: str) -> int | None:
+    # The channel number (2, 3, 4) a camera role films; None for any other role.
+    keys = _ROLE_TO_KEYS.get(role)
+    return keys[2] if keys is not None else None
+
+
 def _num(value: Any) -> float | None:
     if isinstance(value, bool):
         return None

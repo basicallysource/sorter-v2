@@ -45,12 +45,15 @@ def test_glibc_stats_track_large_allocations():
     baseline = stats["mmapped_bytes"]
 
     # Big blocks bypass the arenas and are mmapped individually, which is the
-    # path mallinfo2 misses entirely — the reason this uses malloc_info.
-    held = [bytearray(1024 * 1024) for _ in range(64)]
+    # path mallinfo2 misses entirely — the reason this uses malloc_info. Each
+    # block is above glibc's largest dynamic mmap threshold (32 MB): freeing a
+    # big block earlier in the process raises the threshold, and 1 MB blocks
+    # would then come from the heap instead, depending on which tests ran first.
+    held = [bytearray(40 * 1024 * 1024) for _ in range(2)]
     during = _glibc_malloc_stats()
     assert during is not None
     assert during["mmapped_bytes"] > baseline + 32 * 1024 * 1024, (
-        "64 MB of live buffers should be visible in the allocator's own accounting"
+        "80 MB of live buffers should be visible in the allocator's own accounting"
     )
 
     del held

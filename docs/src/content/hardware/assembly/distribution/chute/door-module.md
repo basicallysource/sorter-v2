@@ -6,7 +6,7 @@ section: hardware
 slug: assembly-door-module
 kicker: Chute — Door module
 lede: The per-layer door mechanism that releases parts into a bin.
-og_image: https://assets.basically.website/sorter-docs/chute-v3-door-module-on-core-servo-side-full-de0647322942.png
+og_image: https://assets.basically.website/sorter-docs/chute-v3-door-module-on-core-servo-side-full-57b16ba1789b.png
 permalink: /hardware/assembly/distribution/chute/door-module/
 author: spencer
 contributors: [barthel, brickcyclealice, extremetaz, zed0]
@@ -180,18 +180,18 @@ The shaft is captured at both ends once this is together, so there is only one o
 
 <div class="img-row">
   <figure>
-    <img class="doc-figure" src="https://assets.basically.website/sorter-docs/chute-v3-door-holders-race-exploded-full-01811214b571.png" alt="Render of the orange door lying on its shaft with a green bearing holder pulled out beyond each end of the shaft, each holding a blue bearing, and the purple bearing race with its row of six holes pulled out to one side">
+    <img class="doc-figure" src="https://assets.basically.website/sorter-docs/chute-v3-door-holders-race-exploded-full-0fe701bb7a53.png" alt="Render of the orange door lying on its shaft with a green bearing holder pulled out beyond each end of the shaft, each holding a blue bearing, and the purple bearing race with its row of six holes pulled out to one side">
     <figcaption>The three groups before they go together: the door, the two holders with their bearings, and the race. <cite>Rendered from the part geometry, not from a build. Render: Balloon.</cite></figcaption>
   </figure>
   <figure>
-    <img class="doc-figure" src="https://assets.basically.website/sorter-docs/chute-v3-door-holders-race-assembled-full-8485433ebd91.png" alt="Render of the door, both holders and the race put together, the race running between the two holders with its row of six holes facing away from the door">
+    <img class="doc-figure" src="https://assets.basically.website/sorter-docs/chute-v3-door-holders-race-assembled-full-b1527c2a67c7.png" alt="Render of the door, both holders and the race put together, the race running between the two holders with its row of six holes facing away from the door">
     <figcaption>Put together. The door can swing on its shaft, and it is drawn in one position of that swing. <cite>Rendered from the part geometry, not from a build. Render: Balloon.</cite></figcaption>
   </figure>
 </div>
 
 {% include step.html n="5" title="Fit the bearing covers" %}
 
-**The two covers are not the same part.** The Bearing cover (servo) has an open centre and goes on the hex end of the shaft. The Bearing cover (covered) is closed and goes on the plain end.
+**The two covers are not the same part.** The **Bearing cover (servo side)** has an open centre and goes on the hex end of the shaft. The **Bearing cover (covered side)** is closed and goes on the plain end.
 
 Put one on each holder, on the face with the three inserts, with 3 {% include fastener.html size="M3" variant="countersunk" length="8" %} each, 6 in total. The cover's raised rim drops into the bore on top of the bearing and clamps it: if a bearing has not gone fully home, its cover will not pull flat. The covers are thin at the rim, so snug the three screws down evenly rather than tightening one fully first.
 
@@ -199,11 +199,11 @@ Each cover has **two further holes that stay empty here**. They take the screws 
 
 <div class="img-row">
   <figure>
-    <img class="doc-figure" src="https://assets.basically.website/sorter-docs/chute-v3-covers-exploded-full-7a2d1da06124.png" alt="Render of the door, holders and race with a tan bearing cover held out beyond each holder, the nearer one closed and the farther one open in the middle">
+    <img class="doc-figure" src="https://assets.basically.website/sorter-docs/chute-v3-covers-exploded-full-3eab52f1ee8e.png" alt="Render of the door, holders and race with a tan bearing cover held out beyond each holder, the nearer one closed and the farther one open in the middle">
     <figcaption>The covers going on, one at each end. <cite>Rendered from the part geometry, not from a build. Render: Balloon.</cite></figcaption>
   </figure>
   <figure>
-    <img class="doc-figure" src="https://assets.basically.website/sorter-docs/chute-v3-covers-assembled-full-080d6e60fdff.png" alt="Render of the same assembly with both covers screwed to their holders">
+    <img class="doc-figure" src="https://assets.basically.website/sorter-docs/chute-v3-covers-assembled-full-4dc55b903029.png" alt="Render of the same assembly with both covers screwed to their holders">
     <figcaption>Both on. This is the flap assembly. <cite>Rendered from the part geometry, not from a build. Render: Balloon.</cite></figcaption>
   </figure>
 </div>
@@ -212,7 +212,7 @@ Each cover has **two further holes that stay empty here**. They take the screws 
 
 Six of the core's 21 inserts belong to this step: 4 for the covers (the two beside the round notch on each long wall) and 2 for the race (low on the opening side, under the opening). The three on the servo side wall wait for step 8.
 
-Offer the flap assembly up to the opening in the core's side, race first, so that the race lands against the low wall under the opening and a cover lands on each long wall of the core. Then:
+Slide the flap assembly into the opening in the core's side, race first, so that the race lands against the low wall under the opening and a cover lands on each long wall of the core. **It goes in at a slant, not straight**: line it up with the sloping pad on the long wall, the pad the funnel brackets bolt to, and push it in along that slope. Straight in, the holders catch on the core. Then:
 
 - **The race**, 2 {% include fastener.html size="M3" variant="countersunk" length="16" %} through the two middle holes into the two inserts under the opening. Use the 16 mm here, not a shorter screw.
 - **The covers**, 2 {% include fastener.html size="M3" variant="countersunk" length="8" %} per cover, 4 in total, into the inserts beside the round notch. These are the two holes left empty in each cover in step 5.
@@ -221,11 +221,11 @@ Snug all six down before tightening any of them, then swing the door by hand thr
 
 <div class="img-row">
   <figure>
-    <img class="doc-figure" src="https://assets.basically.website/sorter-docs/chute-v3-flap-assembly-slide-in-full-ecc89d917cfb.png" alt="Render of the grey chute core with the flap assembly held out in front of its opening, the race at the front and a round cover at each side">
+    <img class="doc-figure" src="https://assets.basically.website/sorter-docs/chute-v3-flap-assembly-slide-in-full-6ff8b5643296.png" alt="Render of the grey chute core with the flap assembly held out in front of its opening, the race at the front and a round cover at each side">
     <figcaption>How it goes in: from the opening side, race first. <cite>Rendered from the part geometry, not from a build. Render: Balloon.</cite></figcaption>
   </figure>
   <figure>
-    <img class="doc-figure" src="https://assets.basically.website/sorter-docs/chute-v3-flap-assembly-seated-full-58aca92c23ff.png" alt="Render of the flap assembly seated in the core, the race lying against the wall under the opening and a cover on each long wall">
+    <img class="doc-figure" src="https://assets.basically.website/sorter-docs/chute-v3-flap-assembly-seated-full-b87a283ec0f2.png" alt="Render of the flap assembly seated in the core, the race lying against the wall under the opening and a cover on each long wall">
     <figcaption>Seated. <cite>Rendered from the part geometry, not from a build. Render: Balloon.</cite></figcaption>
   </figure>
 </div>
@@ -264,7 +264,7 @@ Then couple the servo to the door through the two-piece adapter you built in the
 Clock it before you commit: centre the servo (or let it settle at its power-on default), fit the adapter at roughly the middle of the door's swing, then fine-tune once you can check both open and closed by eye.
 
 <figure class="single-figure">
-  <img class="doc-figure" src="https://assets.basically.website/sorter-docs/chute-v3-door-module-on-core-window-side-full-714fa4fe5edc.png" alt="Render of the chute core with the servo bracket bolted to its long wall, the side arm running up to the core and the lower arm underneath, the servo adapter discs between the bracket and the bearing cover, and the door inside the opening">
+  <img class="doc-figure" src="https://assets.basically.website/sorter-docs/chute-v3-door-module-on-core-window-side-full-a3fa21b3d986.png" alt="Render of the chute core with the servo bracket bolted to its long wall, the side arm running up to the core and the lower arm underneath, the servo adapter discs between the bracket and the bearing cover, and the door inside the opening">
   <figcaption>The bracket bolted on and the adapter in place, seen from the opening side. <cite>Rendered from the part geometry, not from a build. Render: Balloon.</cite></figcaption>
 </figure>
 
@@ -278,7 +278,7 @@ Clock it before you commit: centre the servo (or let it settle at its power-on d
 The module is finished when the bracket is on the core and the adapter couples the servo to the door, and the door swings freely through its whole travel. One of these per layer.
 
 <figure class="single-figure">
-  <img class="doc-figure" src="https://assets.basically.website/sorter-docs/chute-v3-door-module-on-core-servo-side-full-de0647322942.png" alt="Render of the door module on the chute core seen from the servo side: the blue servo bracket on the long wall with the side arm running up and the lower arm underneath, the servo adapter discs between the bracket and the bearing cover, the purple race under the opening and the orange door resting inside it">
+  <img class="doc-figure" src="https://assets.basically.website/sorter-docs/chute-v3-door-module-on-core-servo-side-full-57b16ba1789b.png" alt="Render of the door module on the chute core seen from the servo side: the blue servo bracket on the long wall with the side arm running up and the lower arm underneath, the servo adapter discs between the bracket and the bearing cover, the purple race under the opening and the orange door resting inside it">
   <figcaption>A finished module on its core, from the servo side. The servo itself has no model, so the bracket shows empty. <cite>Rendered from the part geometry, not from a build. Render: Balloon.</cite></figcaption>
 </figure>
 

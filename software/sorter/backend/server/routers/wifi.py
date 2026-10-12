@@ -92,11 +92,18 @@ def _wifi_devices() -> List[Dict[str, Any]]:
     return devices
 
 
-def _scan_networks() -> List[Dict[str, Any]]:
+def _scan_networks(rescan: bool = False) -> List[Dict[str, Any]]:
     # IN-USE,SSID,SIGNAL,SECURITY across all wifi radios. Dedupe by SSID, keeping
     # the strongest signal and any in-use flag (a network can appear once per BSSID
-    # and per adapter). Hidden networks (empty SSID) are dropped.
-    proc = _run("-t", "-f", "IN-USE,SSID,SIGNAL,SECURITY", "device", "wifi", "list", timeout=8.0)
+    # and per adapter). Hidden networks (empty SSID) are dropped. Without
+    # --rescan no, nmcli scans whenever its list is 30 s old: five seconds
+    # every time the page opens.
+    proc = _run(
+        "-t", "-f", "IN-USE,SSID,SIGNAL,SECURITY", "device", "wifi", "list", "--rescan", "yes" if rescan else "no",
+        timeout=15.0,
+    )
+    if proc.returncode != 0 and rescan:
+        return _scan_networks()
     by_ssid: Dict[str, Dict[str, Any]] = {}
     if proc.returncode != 0:
         return []
@@ -145,16 +152,14 @@ def wifi_status() -> Dict[str, Any]:
 def wifi_scan() -> Dict[str, Any]:
     if not _have_nmcli():
         return {"available": False, "adapters": [], "networks": [], "error": "nmcli not found"}
-    # Best-effort rescan; nmcli errors if asked to rescan too frequently, which is
-    # harmless — we return the freshest cached list either way.
     try:
-        _run("device", "wifi", "rescan", timeout=12.0)
+        networks = _scan_networks(rescan=True)
     except subprocess.TimeoutExpired:
-        pass
+        networks = _scan_networks()
     return {
         "available": True,
         "adapters": _wifi_devices(),
-        "networks": _scan_networks(),
+        "networks": networks,
     }
 
 

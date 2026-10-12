@@ -29,6 +29,7 @@ def machine(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> dict[str, Any]:
     monkeypatch.setattr(tailscale, "_busy", lambda: state["busy"].pop(0) if state["busy"] else False)
     monkeypatch.setattr(tailscale, "SETUP_KEY_FILE", tmp_path / "tailscale.env")
     monkeypatch.setattr(tailscale, "_get_status", lambda: {"installed": state["installed"], "connected": False})
+    monkeypatch.setattr(tailscale, "known_tailscale_name", lambda: None)
     monkeypatch.setattr(tailscale, "_install_error", None)
     return state
 
@@ -112,19 +113,31 @@ def test_a_key_switches_a_machine_already_on_a_tailnet(machine, monkeypatch):
         return subprocess.CompletedProcess(cmd, 0, "", "")
 
     monkeypatch.setattr(tailscale.subprocess, "run", run)
-    monkeypatch.setattr(
-        tailscale, "_get_status", lambda: {"installed": True, "connected": True, "hostname": "sorter-old-name-000000"}
-    )
+    # The name it has now, or the one it had before the daemon forgot it.
+    monkeypatch.setattr(tailscale, "known_tailscale_name", lambda: "sorter-old-name-000000")
     monkeypatch.setattr(tailscale, "refresh_device_identity", lambda: None)
 
     assert tailscale._join("tskey-auth-test")["ok"] is True
     assert "--force-reauth" in runs[0]
+    # Otherwise run from an SSH session over Tailscale, `up` aborts and changes nothing.
+    assert "--accept-risk=lose-ssh" in runs[0]
     assert "--hostname=sorter-old-name-000000" in runs[0]
+
+
+def test_a_backend_not_running_as_root_says_how_to_let_it_join(machine, monkeypatch):
+    machine["installed"] = True
+    monkeypatch.setattr(
+        tailscale.subprocess, "run",
+        lambda cmd, **kwargs: subprocess.CompletedProcess(cmd, 1, "", "Access denied: prefs write access denied"),
+    )
+    monkeypatch.setattr(tailscale.getpass, "getuser", lambda: "orangepi")
+
+    assert "sudo tailscale set --operator=orangepi" in tailscale._join("tskey-auth-test")["error"]
 
 
 @pytest.mark.parametrize("connected", [False, True])
 def test_status_reports_active_repair_even_when_installed(monkeypatch, connected):
-    monkeypatch.setattr(tailscale, "_readStatus", lambda: {"installed": True, "connected": connected})
+    monkeypatch.setattr(tailscale.tailscale_status, "read", lambda: {"installed": True, "connected": connected})
     monkeypatch.setattr(tailscale, "_canRepair", lambda: True)
     monkeypatch.setattr(tailscale, "_installing", True)
     monkeypatch.setattr(tailscale, "_install_error", "Try again")
@@ -141,7 +154,7 @@ def test_status_reports_active_repair_even_when_installed(monkeypatch, connected
 def test_older_linux_installations_can_repair_without_sorteros_stamp(monkeypatch, tmp_path, missing):
     monkeypatch.setattr(tailscale, "SORTEROS_STAMP", tmp_path / "missing")
     monkeypatch.setattr(tailscale, "SYSTEMD_RUNTIME", tmp_path)
-    monkeypatch.setattr(tailscale, "_TAILSCALE_SOCKET", "")
+    monkeypatch.setattr(tailscale.tailscale_status, "SOCKET", "")
     monkeypatch.setattr(tailscale.sys, "platform", "linux")
     monkeypatch.setattr(tailscale.os, "geteuid", lambda: 0)
     monkeypatch.setattr(tailscale.shutil, "which", lambda command: None if command == missing else f"/bin/{command}")
@@ -151,7 +164,7 @@ def test_older_linux_installations_can_repair_without_sorteros_stamp(monkeypatch
 
 def test_custom_socket_cannot_restart_unrelated_system_daemon(monkeypatch, tmp_path):
     monkeypatch.setattr(tailscale, "SYSTEMD_RUNTIME", tmp_path)
-    monkeypatch.setattr(tailscale, "_TAILSCALE_SOCKET", "/tmp/test-tailscale.sock")
+    monkeypatch.setattr(tailscale.tailscale_status, "SOCKET", "/tmp/test-tailscale.sock")
     monkeypatch.setattr(tailscale.sys, "platform", "linux")
     monkeypatch.setattr(tailscale.os, "geteuid", lambda: 0)
     monkeypatch.setattr(tailscale.shutil, "which", lambda command: f"/bin/{command}")
@@ -322,7 +335,7 @@ def test_clear_sign_in_removes_pending_setup_key_before_logout(machine, monkeypa
 
     assert tailscale.tailscale_logout()["ok"] is True
     assert not tailscale.SETUP_KEY_FILE.exists()
-    assert calls == ([tailscale._cli("logout")] if installed else [])
+    assert calls == ([tailscale.tailscale_status.cli("logout")] if installed else [])
     assert tailscale._operation_lock.locked() is False
 
 

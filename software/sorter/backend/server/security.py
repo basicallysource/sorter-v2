@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import ipaddress
-import json
 import os
 import socket
 import subprocess
@@ -11,6 +10,7 @@ from typing import Callable
 from urllib.parse import urlsplit
 
 import db
+from server import tailscale_status
 
 # How long a computed snapshot of this device's own addresses/names is reused
 # before we look them up again. Keeps a wifi/IP/Tailscale change visible within
@@ -226,6 +226,11 @@ def keep_tailscale_name(saved: str | None, save: Callable[[str], None]) -> None:
     _save_tailscale_name = save
 
 
+def known_tailscale_name() -> str | None:
+    """The machine's Tailscale device name now, or the last one it had."""
+    return _tailscale_hostname()
+
+
 def _tailscale_hostname() -> str | None:
     global _tailscale_name, _saved_tailscale_name
     name = _query_tailscale_hostname()
@@ -241,29 +246,7 @@ def _tailscale_hostname() -> str | None:
 
 
 def _query_tailscale_hostname() -> str | None:
-    # `tailscale status --json` reads the local daemon's state (no network
-    # needed). Self.DNSName is the authoritative name MagicDNS resolves; its
-    # first label is the device name.
-    try:
-        result = subprocess.run(
-            ["tailscale", "status", "--json"],
-            capture_output=True,
-            text=True,
-            timeout=2.0,
-            check=False,
-        )
-    except (FileNotFoundError, subprocess.TimeoutExpired, OSError):
-        return None
-    if result.returncode != 0 or not result.stdout:
-        return None
-    try:
-        self_node = (json.loads(result.stdout).get("Self") or {})
-    except json.JSONDecodeError:
-        return None
-    dns_name = (self_node.get("DNSName") or "").rstrip(".")
-    if dns_name:
-        return dns_name.split(".")[0]
-    return self_node.get("HostName") or None
+    return tailscale_status.read(timeout=2.0).get("hostname")
 
 
 def _dedupe_origins(origins: list[str]) -> list[str]:

@@ -1280,11 +1280,11 @@
 	.pl-settings-v { font-size: 0.9375rem; color: var(--color-text); }
 
 	.pl-buy th {
-		padding: 1rem 1.25rem 0.625rem; text-align: left;
+		padding: 1rem 0.75rem 0.625rem; text-align: left;
 		font-size: 0.8125rem; font-weight: 400;
 		color: color-mix(in oklab, var(--color-text-muted) 70%, transparent);
 	}
-	.pl-buy td { padding: 0.75rem 1.25rem; font-size: 0.9375rem; color: var(--color-text); }
+	.pl-buy td { padding: 0.75rem; font-size: 0.9375rem; color: var(--color-text); }
 	.pl-buy .pl-num { text-align: right; font-variant-numeric: tabular-nums; }
 	.pl-buy .pl-num-strong { font-weight: 500; }
 	.pl-buy-sub { font-size: 0.8125rem; color: color-mix(in oklab, var(--color-text-muted) 85%, transparent); }

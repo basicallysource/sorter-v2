@@ -100,23 +100,6 @@ The legs are not in the parts calculator. The file is an STL in the Discord thre
   <li>The discussion of how it works and what it can do: <a href="https://discord.com/channels/1430279849171222682/1547347895563591761/1551312803716006041">the message in the Discord</a></li>
 </ul>
 
-## Inverted door flap
-
-**What is different.** The flap on each layer's door is on the opposite side. It was changed because pieces dropped out of the wrong layers when the C-channel was not centred over the drop. Its designer found that it seemed to put less strain on the servo.
-
-<figure class="single-figure">
-  <img class="doc-figure" src="https://assets.basically.website/sorter-docs/variant-inverted-flap-chute-w1600-53bd044dbd6f.jpg" alt="A printed chute with the door flap on the inverted side, mounted on a turntable base on a desk">
-  <figcaption>A chute with the inverted flap. <cite>Photo: Marc.</cite></figcaption>
-</figure>
-
-**What is known.** It is built on at least two machines. One builder moved to it on 8 September 2026 and printed new brackets at the same time for a different servo, the SC15, because the SC09 servos tended to bind up and overload. Another reported that the funnels they found for it are a few centimetres short of the bins, so pieces fall out through the gap. It is not in the parts calculator.
-
-<ul class="bulleted-list">
-  <li>The change and its reason: <a href="https://discord.com/channels/1430279849171222682/1437144782819426537/1546967674339463250">the message in the Discord</a></li>
-  <li>The servo swap: the <a href="https://www.youtube.com/watch?v=8MJjpO3ikgU">6 September meeting</a></li>
-  <li>The standard door: <a href="{{ '/hardware/assembly/distribution/chute/door-module/' | relative_url }}">Door module</a></li>
-</ul>
-
 ## A position encoder on the chute motor
 
 **What is different.** A small magnetic position sensor (an AS5600 encoder) is fitted to the back of the chute's NEMA 23 motor. The control board reads it over I²C and so knows whether the chute is really turning. The standard machine instead relies on the driver's stall detection (see [The motors]({{ '/lab/motors/' | relative_url }})), which was not catching jams on that machine and needs tuning. The encoder needs no calibration. It fits under the sticker on the motor's rear shaft hole, with no drilling. A small converter board steps the 5 V down to the 3.3 V it needs.

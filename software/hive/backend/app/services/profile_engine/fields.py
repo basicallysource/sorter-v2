@@ -5,6 +5,12 @@ A condition is {"field", "op", "value"}. Every field has one type, and a
 condition's value is coerced to that type before it is compared: a BrickLink
 ID typed as the number 3001 still matches the part whose ID is the text
 "3001". Comparing the raw JSON value is how such a rule used to match nothing.
+
+Most fields are looked up in the catalog by the part's identity. A few
+(`piece`) are what the machine observes about one piece as it sorts it: how
+sure recognition was, whether it named a part at all, what that part costs in
+that color. Those cannot be known when a profile is compiled, so the sorter
+tests them itself (compiler.py, `when`).
 """
 
 from __future__ import annotations
@@ -27,6 +33,8 @@ TEXT_OPS = ("contains", "regex", "eq", "neq", "in", "not_in")
 ID_OPS = ("eq", "neq", "in", "not_in")
 NUMBER_OPS = ("eq", "neq", "gte", "lte")
 YES_NO_OPS = ("eq", "neq")
+# What the machine observes is a measurement, not an ID: compared by threshold.
+PIECE_NUMBER_OPS = ("gte", "lte")
 
 # What each type of field can be compared by. A field's own `ops` are the ones
 # worth offering; a saved condition may use any its type allows.
@@ -65,6 +73,8 @@ class FieldSpec:
     description: str | None = None
     # An older name for another field: evaluated, not offered.
     alias_of: str | None = None
+    # Observed by the machine for each piece, not read from the catalog.
+    piece: bool = False
 
 
 _USED_PRICE = (
@@ -111,6 +121,52 @@ FIELDS: dict[str, FieldSpec] = {
         FieldSpec("bl_price_qty_avg", FLOAT, "Average price per lot, used", "Price", NUMBER_OPS, unit="$", description=_USED_PRICE),
         FieldSpec("bl_price_lots", FLOAT, "Lots, used", "Price", NUMBER_OPS, description=_USED_PRICE),
         FieldSpec("bl_price_qty", FLOAT, "Pieces, used", "Price", NUMBER_OPS, description=_USED_PRICE),
+        FieldSpec(
+            "identified",
+            BOOL,
+            "Identified",
+            "Piece",
+            YES_NO_OPS,
+            piece=True,
+            description=(
+                "Whether recognition named a part for this piece. One it could not identify (no match, the request "
+                "failed, two pieces at once) has no part and no color, so only rules that test nothing about the part "
+                "can take it; without one it goes to the default bin."
+            ),
+        ),
+        FieldSpec(
+            "confidence",
+            FLOAT,
+            "Recognition confidence",
+            "Piece",
+            PIECE_NUMBER_OPS,
+            unit="%",
+            piece=True,
+            description="How sure recognition was of the part, 0 to 100. A piece it could not identify counts as 0.",
+        ),
+        FieldSpec(
+            "color_confidence",
+            FLOAT,
+            "Color confidence",
+            "Piece",
+            PIECE_NUMBER_OPS,
+            unit="%",
+            piece=True,
+            description="How sure recognition was of the color, 0 to 100. Unknown never matches.",
+        ),
+        FieldSpec(
+            "piece_price",
+            FLOAT,
+            "Price of this piece",
+            "Piece",
+            PIECE_NUMBER_OPS,
+            unit="$",
+            piece=True,
+            description=(
+                "BrickLink's average price for this part in this piece's color, as the machine looks it up while it "
+                "sorts (the catalog's price fields read the part's most traded color). Unknown never matches."
+            ),
+        ),
     )
 }
 
@@ -141,6 +197,13 @@ FIELD_ALIASES = {
     "bl_price_unit_quantity": "bl_price_lots",
     "bl_price_total_quantity": "bl_price_qty",
 }
+
+
+PIECE_FIELDS = frozenset(key for key, spec in FIELDS.items() if spec.piece)
+
+
+def is_piece_field(field: str) -> bool:
+    return canonical_field(field) in PIECE_FIELDS
 
 
 def field_spec(field: str) -> FieldSpec | None:
@@ -207,7 +270,7 @@ def normalize_condition(condition: dict[str, Any]) -> dict[str, Any]:
     if field is None:
         raise ConditionError(f"Unknown field {condition.get('field')!r}")
     op = str(condition.get("op") or "")
-    if op not in TYPE_OPS[field.type]:
+    if op not in (field.ops if field.piece else TYPE_OPS[field.type]):
         raise ConditionError(f"{field.label} does not take {op!r}; use one of {', '.join(field.ops)}")
     raw = condition.get("value")
     if op in ("in", "not_in"):

@@ -55,11 +55,17 @@ class _Logger:
 
 
 class _AllCategoriesProfile(SortingProfile):
-    def __init__(self, category_id: str = "cat_a") -> None:
+    def __init__(self, category_id: str = "cat_a", no_bin: str | None = None) -> None:
         self._category_id = category_id
+        self._no_bin = no_bin
+        self.asked: list[tuple] = []
 
-    def getCategoryIdForPart(self, part_id: str, color_id: str = "any_color") -> str:
+    def getCategoryIdForPart(self, part_id, color_id: str = "any_color", piece=None) -> str:
+        self.asked.append((part_id, color_id, piece))
         return self._category_id
+
+    def noBinPolicy(self) -> str | None:
+        return self._no_bin
 
 
 def _mk_offline_servo() -> SimpleNamespace:
@@ -280,6 +286,53 @@ class ServoBusFatalTests(unittest.TestCase):
         self.assertIsNone(self.runtime_stats.snapshot().get("active_incident"))
         self.assertEqual("positioning.passthrough_no_bin", positioning._occupancy_state)
         self.assertEqual(set(), shared_state.distribution_no_bin_passthrough_approvals)
+
+    def test_a_profile_that_sends_the_rest_to_misc_never_stops_for_a_bin(self) -> None:
+        servo = _mk_healthy_servo()
+        positioning = self._mk_positioning(
+            servos=[servo],
+            sorting_profile=_AllCategoriesProfile("cat_missing", no_bin="misc"),
+        )
+
+        next_state = positioning.step()
+
+        self.assertEqual(DistributionState.READY, next_state)
+        self.assertIsNone(self.runtime_stats.snapshot().get("active_incident"))
+        self.assertEqual("positioning.passthrough_no_bin", positioning._occupancy_state)
+        self.assertIsNone(positioning._piece.destination_bin)
+        servo.open.assert_called_once()
+
+    def test_a_profile_that_shares_bins_puts_the_category_in_one(self) -> None:
+        positioning = self._mk_positioning(
+            servos=[_mk_healthy_servo(), _mk_healthy_servo()],
+            sorting_profile=_AllCategoriesProfile("cat_missing", no_bin="share"),
+        )
+
+        with patch("subsystems.distribution.positioning._persistBinCategories"):
+            positioning.step()
+
+        self.assertIsNone(self.runtime_stats.snapshot().get("active_incident"))
+        shared_bins = [
+            bin_.category_ids
+            for layer in positioning.layout.layers
+            for section in layer.sections
+            for bin_ in section.bins
+            if "cat_missing" in bin_.category_ids
+        ]
+        self.assertEqual([["cat_a", "cat_missing"]], shared_bins)
+        positioning.chute.moveToBin.assert_called_once()
+
+    def test_a_piece_it_could_not_identify_is_routed_by_the_profile(self) -> None:
+        piece = KnownObject(part_id=None)
+        piece.confidence = None
+        profile = _AllCategoriesProfile("cat_a")
+        positioning = self._mk_positioning(servos=[_mk_healthy_servo()], sorting_profile=profile, piece=piece)
+
+        positioning.step()
+
+        self.assertEqual(None, profile.asked[0][0])
+        self.assertEqual({"confidence": None, "color_confidence": None, "piece_price": None}, profile.asked[0][2])
+        self.assertEqual("cat_a", piece.category_id)
 
     def test_misc_without_assigned_bin_passes_through_without_incident(self) -> None:
         servo = _mk_healthy_servo()

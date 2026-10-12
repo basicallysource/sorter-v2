@@ -247,6 +247,10 @@ class TestDefaultProfiles:
         )
         assert program.status_code == 200
         assert program.json()["artifact"]["program"]["fallback"] == {"by": "color"}
+        # every default keeps a run going when the bins run out, and that asks
+        # nothing new of a sorter: an old one is still offered BrickLink categories
+        assert program.json()["artifact"]["program"]["no_bin"] == "misc"
+        assert all(definition["fallback_mode"]["no_bin"] == "misc" for definition in default_profiles.DEFINITIONS)
 
         bricklink = old_sorter[0]["latest_published_version"]["id"]
         gzipped = client.get(f"/api/machine/profiles/versions/{bricklink}/artifact", headers={**machine, "Accept-Encoding": "gzip"})
@@ -403,3 +407,151 @@ def test_routing_fills_a_kit_then_passes_pieces_on(client: TestClient, auth_head
         "/api/profiles/route", json={"document": document, "pieces": pieces, "fill_kits": False}, headers=auth_headers
     ).json()["results"]
     assert [r["category_id"] for r in unfilled] == ["kit", "kit", "kit"]
+
+
+class TestEverythingTheFormatSays:
+    """What a profile can say, the editor's chat and the API can say too:
+    not over a group, rules on the piece itself, the fallback, and what to do
+    when the bins run out."""
+
+    def test_fields_say_which_are_observed_on_the_machine(self, client: TestClient, auth_headers: dict[str, str]) -> None:
+        body = client.get("/api/profile-catalog/fields", headers=auth_headers).json()
+        offered = {field["field"]: field for field in body["fields"]}
+        assert offered["confidence"]["piece"] is True
+        assert offered["confidence"]["ops"] == ["gte", "lte"]
+        assert offered["identified"]["type"] == "bool"
+        assert offered["name"]["piece"] is False
+
+    def test_route_takes_what_the_machine_would_observe(self, client: TestClient, auth_headers: dict[str, str], catalog) -> None:
+        document = {
+            "rules": [
+                {"id": "unknown", "name": "Unknown", "conditions": [{"field": "identified", "op": "eq", "value": False}]},
+                {"id": "review", "name": "Review", "conditions": [{"field": "confidence", "op": "lte", "value": 60}]},
+                _rule("bricks", "Bricks", ("category_id", "eq", 11)),
+            ],
+            "fallback_mode": {"no_bin": "misc"},
+        }
+        response = client.post(
+            "/api/profiles/route",
+            json={
+                "document": document,
+                "pieces": [{"part": "3001", "color_id": 5}, {"part": "3001", "confidence": 41}, {}],
+            },
+            headers=auth_headers,
+        )
+        assert response.status_code == 200, response.text
+        results = response.json()["results"]
+        assert [(r["category_id"], r["why"]) for r in results] == [("bricks", "rule"), ("review", "rule"), ("unknown", "rule")]
+        assert results[2]["identified"] is False
+
+    def test_a_saved_version_keeps_negation_and_the_bin_policy(self, client: TestClient, auth_headers: dict[str, str], catalog) -> None:
+        rule = _rule("not-red", "Not red", ("color_id", "eq", 5))
+        rule["negate"] = True
+        response = client.post(
+            "/api/profiles",
+            json={"name": "Negated", "rules": [rule], "fallback_mode": {"by_color": True, "no_bin": "share"}},
+            headers=auth_headers,
+        )
+        assert response.status_code == 200, response.text
+        version = response.json()["current_version"]
+        assert version["rules"][0]["negate"] is True
+        assert version["fallback_mode"]["no_bin"] == "share"
+        assert version["fallback_mode"]["by_color"] is True
+
+    def test_the_chat_applies_groups_negation_and_settings(
+        self, client: TestClient, auth_headers: dict[str, str], db: Session, catalog
+    ) -> None:
+        from app.models.sorting_profile_ai_message import SortingProfileAiMessage
+        from app.models.user import User
+
+        created = client.post("/api/profiles", json={"name": "Chat"}, headers=auth_headers).json()
+        user = db.query(User).filter(User.email == "member@test.com").first()
+        message = SortingProfileAiMessage(
+            profile_id=UUID(created["id"]),
+            user_id=user.id,
+            version_id=UUID(created["current_version"]["id"]),
+            role="assistant",
+            content="Bricks that are not red, the rest by color, and never stop for a bin.",
+            proposal_json={
+                "summary": "",
+                "proposals": [
+                    {
+                        "action": "create",
+                        "name": "Bricks, not red",
+                        "match_mode": "all",
+                        "conditions": [{"field": "category_id", "op": "eq", "value": 11}],
+                        "children": [
+                            {"name": "Red", "match_mode": "any", "negate": True,
+                             "conditions": [{"field": "color_id", "op": "eq", "value": 5}]}
+                        ],
+                    },
+                    {"action": "settings", "fallback": "color", "no_bin": "misc"},
+                ],
+            },
+        )
+        db.add(message)
+        db.commit()
+
+        response = client.post(
+            f"/api/profiles/{created['id']}/ai/messages/{message.id}/apply",
+            json={"change_note": "From the chat"},
+            headers=auth_headers,
+        )
+        assert response.status_code == 200, response.text
+        version = response.json()
+        assert version["fallback_mode"]["by_color"] is True
+        assert version["fallback_mode"]["no_bin"] == "misc"
+        group = version["rules"][0]["children"][0]
+        assert group["negate"] is True
+        routed = client.post(
+            "/api/profiles/route",
+            json={"profile_id": created["id"], "pieces": [{"part": "3001", "color_id": 5}, {"part": "3001", "color_id": 7}]},
+            headers=auth_headers,
+        ).json()["results"]
+        assert [r["category_id"] for r in routed] == ["color_5", version["rules"][0]["id"]]
+
+
+def test_the_chat_refuses_a_setting_or_group_it_cannot_express() -> None:
+    from app.errors import APIError
+    from app.services.profile_ai import _validate_proposal
+
+    with pytest.raises(APIError):
+        _validate_proposal({"proposals": [{"action": "settings", "fallback": "by_size"}]})
+    with pytest.raises(APIError):
+        _validate_proposal({"proposals": [{"action": "settings", "no_bin": "explode"}]})
+    with pytest.raises(APIError):
+        _validate_proposal(
+            {"proposals": [{"action": "create", "name": "x", "match_mode": "all", "conditions": [],
+                            "children": [{"match_mode": "any", "conditions": [{"field": "nope", "op": "eq", "value": 1}]}]}]}
+        )
+    _validate_proposal({"proposals": [{"action": "settings", "fallback": "none", "no_bin": "machine"}]})
+
+
+def test_the_chat_settings_keep_what_they_leave_out() -> None:
+    from app.services.profile_ai import apply_profile_ai_settings
+
+    before = {"bricklink_categories": True, "no_bin": "share"}
+    assert apply_profile_ai_settings(fallback_mode=before, proposal={"proposals": []}) == {
+        "rebrickable_categories": False, "bricklink_categories": True, "by_color": False, "no_bin": "share",
+    }
+    after = apply_profile_ai_settings(fallback_mode=before, proposal={"proposals": [{"action": "settings", "no_bin": "machine"}]})
+    assert after == {"rebrickable_categories": False, "bricklink_categories": True, "by_color": False}
+    after = apply_profile_ai_settings(fallback_mode=before, proposal={"proposals": [{"action": "settings", "fallback": "none"}]})
+    assert after == {"rebrickable_categories": False, "bricklink_categories": False, "by_color": False, "no_bin": "share"}
+
+
+def test_the_chat_is_told_the_fallback_and_what_a_rule_can_say() -> None:
+    from types import SimpleNamespace
+
+    from app.services import profile_ai
+
+    catalog = SimpleNamespace(parts_data=SimpleNamespace(categories={}, colors={}, bricklink_categories={}, parts={}))
+    document = {
+        "rules": [{"id": "r", "name": "R", "negate": True, "conditions": [{"field": "color_id", "op": "eq", "value": 5}]}],
+        "fallback_mode": {"by_color": True, "no_bin": "share"},
+    }
+    prompt = profile_ai._build_system_prompt(catalog, document, None)
+    assert "Current fallback: color" in prompt
+    assert "Current no_bin policy: share" in prompt
+    assert '"negate": true' in prompt
+    assert "confidence" in prompt

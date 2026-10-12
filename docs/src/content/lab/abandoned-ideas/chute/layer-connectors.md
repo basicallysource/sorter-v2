@@ -1,0 +1,64 @@
+---
+layout: default
+title: Layer connectors
+type: explanation
+section: lab
+slug: lab-abandoned-chute-assembly-layer-connectors
+kicker: Design and research — Abandoned ideas — Chute
+lede: The connectors that chain layers together.
+permalink: /lab/variants/abandoned/chute/layer-connectors/
+og_image: https://assets.basically.website/sorter-docs/assembly-layer-connector-on-chute-core-top-w1600-5d5d958ba719.jpg
+author: spencer
+contributors: [barthel]
+tools_needed: ["Hex key, 2 mm"]
+---
+
+<div class="notice">This page describes the earlier chute, which is no longer built. It is kept so that an old photo or message still makes sense. The current chute is on <a href="{{ '/hardware/assembly/distribution/chute/' | relative_url }}">Chute</a>, and <a href="{{ '/lab/variants/abandoned/chute/' | relative_url }}">The earlier chute</a> says what changed.</div>
+
+## Parts, as they were
+
+<ul class="bulleted-list">
+  <li>1 × Layer connector A</li>
+  <li>1 × Layer connector B</li>
+  <li>4 × M3 × 8 mm countersunk</li>
+</ul>
+
+The layer connectors are a pair of printed parts, Layer connector A and Layer connector B, that join one layer's chute to the next one down so parts pass from chute to chute without a gap.
+
+The fasteners and quantities are in the parts list above and are called out inline at each step.
+
+{% include fastener-legend.html %}
+
+- **How many:** 1 of each per distribution layer, plus 1 of each for the [bottom interface]({{ '/hardware/assembly/distribution/bin-frame/bottom-interface/' | relative_url }}). For an N-layer machine, that's N + 1 pairs total. **The [top interface]({{ '/hardware/assembly/distribution/top-interface/' | relative_url }}) carries none of its own**: it lands on the pair already standing on the topmost chute.
+- **Screws:** 2 {% include fastener.html size="M3" variant="countersunk" length="8" %} per connector, 4 for the pair, in the list above. They go into the inserts of the parts at each end of the joint, not into anything on this page.
+- Both connectors go into M3 heat inserts: one screw into the part they are mounted on, one into the part that slots on above.
+
+{% include step.html n="1" title="Fit the connectors to the chute core" %}
+
+Both connectors fasten to the [chute core]({{ '/lab/variants/abandoned/chute/chute-core/' | relative_url }}), into its M3 heat inserts.
+
+**Fit one pair to the top of each chute core, and one pair to the top of the bottom interface.** Nothing goes on the underside of anything. As the tower goes up, the part above slots down onto the pair already standing on the part below.
+
+Each connector has 2 holes in its strap, one at each end, and takes 2 {% include fastener.html size="M3" variant="countersunk" length="8" %} screws. **Only the lower one goes in now**, into the core's own insert; the upper hole stays empty until the part above slots on and is screwed down into it. Don't fully tighten either: step 2 covers checking the alignment first.
+
+The strap is countersunk on its outer face, so the head sits flush. Use the 8 mm, not the 12 mm.
+
+<figure>
+  <img class="doc-figure" src="https://assets.basically.website/sorter-docs/chute-core-layer-connectors-full-2092b04f9864.png" alt="Render of one long side of the chute core with the two heat inserts a layer connector screws into circled in red">
+  <figcaption>The two inserts one layer connector screws into, one near each end of a long side of the chute core. The other long side carries the mirror pair for the second connector. <cite>Render: Balloon.</cite></figcaption>
+</figure>
+
+{% include step.html n="2" title="Check the alignment against the layer below" %}
+
+Build the layers up first and check that A on one layer sits flush against B on the layer below, with no visible gap or twist between the two straps, before tightening either one down. Nothing here is adjustable once the tower is stacked.
+
+## The finished result
+
+Both connectors on the top of the core, each held by its lower screw, each upper hole left empty for the part that slots on above.
+
+<figure class="single-figure">
+  <img class="doc-figure" src="https://assets.basically.website/sorter-docs/assembly-layer-connector-on-chute-core-top-w1600-5d5d958ba719.jpg" alt="A light grey layer connector standing proud of the top edge of a chute core, screwed to the core through the lower of its two countersunk holes with the upper hole empty, other sub-assemblies on the core around it">
+  <figcaption>One of the pair, standing on the top of a chute core. The lower screw holds it to the core; the empty hole above it is what the part above screws down into. <cite>Photo: BrickCycleAlice.</cite></figcaption>
+</figure>
+
+The [Chute core]({{ '/lab/variants/abandoned/chute/chute-core/' | relative_url }}) page carries the other three sub-assemblies that go on the same core, and is where you should return once you're done here.

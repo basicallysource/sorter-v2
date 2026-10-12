@@ -31,6 +31,10 @@ Each entry says what the idea was and why it went, as far as the reasons are wri
     <p>The linear layout, and the idler wheels at the foot of the stack.</p>
   </div>
   <div class="callout">
+    <strong><a href="{{ '/lab/variants/abandoned/chute/' | relative_url }}">The earlier chute</a></strong>
+    <p>The chute before the inverted door: its build pages as they were, and what changed.</p>
+  </div>
+  <div class="callout">
     <strong><a href="{{ '/lab/variants/abandoned/electronics-and-software/' | relative_url }}">Electronics and software</a></strong>
     <p>Boards on plates screwed to the extrusion, the three-plate power supply box, and Firmata.</p>
   </div>

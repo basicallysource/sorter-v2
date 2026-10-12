@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
+	import { untrack } from 'svelte';
 	import { auth } from '$lib/auth.svelte';
 	import {
 		api,
@@ -57,7 +58,9 @@
 			goto('/');
 			return;
 		}
-		void load();
+		// Once, when the page opens: load reads the state it sets, and tracked
+		// here that would load again every time it finished.
+		untrack(() => void load());
 	});
 
 	function message(e: unknown, fallback: string): string {
@@ -177,7 +180,7 @@
 			{
 				label: 'Requests',
 				value: num(totals?.count),
-				hint: totals ? `${totals.per_minute.toLocaleString('en-US')} a minute, last ${span(requests?.window_s)}` : undefined
+				hint: totals ? `${totals.per_minute >= 10 ? num(totals.per_minute) : totals.per_minute.toFixed(1)} a minute` : undefined
 			},
 			{
 				label: 'p90',
@@ -199,11 +202,11 @@
 			{
 				label: 'CPU, this process',
 				value: cpu?.recent_cores != null ? percent(cpu.recent_cores) : '-',
-				hint: cpu?.recent_s != null ? `of one core, last ${span(cpu.recent_s)}` : undefined,
+				hint: cpu?.recent_s != null ? `of a core, last ${duration(cpu.recent_s * 1000)}` : undefined,
 				tone: cpu?.recent_cores != null && cpu.recent_cores >= 0.8 ? 'warning' : undefined
 			},
 			{
-				label: 'Database connections',
+				label: 'Connections',
 				value: postgres ? num(postgres.connections.all_databases) : '-',
 				unit: postgres ? `of ${postgres.connections.max}` : undefined,
 				hint: postgres
@@ -414,7 +417,7 @@
 		<Panel
 			title="Job queue"
 			description={jobs
-				? `As the database has it, whichever process runs the jobs. The last job finished ${when(jobs.last_done_at)}.`
+				? `As the database has it, whichever process runs the jobs.${jobs.last_done_at ? ` The last job finished ${when(jobs.last_done_at)}.` : ''}`
 				: undefined}
 			flush
 		>

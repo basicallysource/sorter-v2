@@ -1540,6 +1540,9 @@ export interface ColorModelPrediction {
 	sample_count: number;
 }
 
+// The Brickognize card's state for the signed-in labeler: their own verdict
+// (from their label rows) and whether Brickognize already has a verdict on the
+// piece from anyone (the machine's operator or a Hive labeler).
 export interface ColorLabelCorrection {
 	correctable: boolean;
 	part_correct: boolean | null;
@@ -1593,7 +1596,23 @@ export interface ColorLabelPieceDetail {
 	my_part_label: PiecePartLabel | null;
 	predicted_part: PartSummary | null;
 	prediction: ColorLabelPrediction;
+	// Every ranked part and colour answer the machine got for the piece, each
+	// request's, applied or not; ordered by kind, request, rank. Empty for
+	// pieces from sorters that predate it.
+	machine_predictions: MachinePiecePrediction[];
 	correction: ColorLabelCorrection;
+}
+
+export interface MachinePiecePrediction {
+	request: string; // combined | single_burst | hosted
+	provider: string; // brickognize | hive_basically
+	model: string | null; // the hosted model's sha256
+	kind: 'color' | 'part';
+	rank: number; // 0-based, in the provider's own order
+	value_id: string; // a BrickLink colour id as text, or a part number
+	value_name: string | null;
+	score: number | null; // 0..1
+	applied: boolean; // the one part and the one colour the piece took
 }
 
 export type RejectReason =

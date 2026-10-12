@@ -1,5 +1,6 @@
 import io
 import json
+import logging
 import math
 from datetime import datetime, timezone
 from typing import Any
@@ -7,11 +8,11 @@ from uuid import UUID, uuid4
 
 from fastapi import APIRouter, Depends, File, Form, Request, UploadFile
 from PIL import Image
-from pydantic import BaseModel, field_validator
-from sqlalchemy import or_, update
+from pydantic import BaseModel, ValidationError, field_validator
+from sqlalchemy import case, or_
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.dialects.sqlite import insert as sqlite_insert
-from sqlalchemy.exc import IntegrityError
+from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 from sqlalchemy.orm import Session
 
 from app.deps import get_current_machine, get_db
@@ -19,6 +20,7 @@ from app.errors import APIError
 from app.models.machine import Machine
 from app.models.machine_piece import MachinePiece
 from app.models.machine_piece_image import MachinePieceImage
+from app.models.machine_piece_prediction import MachinePiecePrediction
 from app.models.machine_piece_rejection_reason import MachinePieceRejectionReason
 from app.models.machine_channel_crop import MachineChannelCrop
 from app.models.machine_control_data_segment import MachineControlDataSegment
@@ -49,6 +51,8 @@ from app.services.storage import (
     validate_image,
 )
 
+log = logging.getLogger(__name__)
+
 router = APIRouter(prefix="/api/machine/sync", tags=["machine-sync"])
 # Keyed per machine token, not per address; shared with the upload routes.
 limiter = machine_limiter
@@ -57,20 +61,41 @@ DATA_TYPE_PIECE_RECORDS = "piece_records"
 DATA_TYPE_PIECE_IMAGES = "piece_images"
 DATA_TYPE_CHANNEL_CROPS = "channel_crops"
 DATA_TYPE_PIECE_CORRECTIONS = "piece_corrections"
+DATA_TYPE_PIECE_PREDICTIONS = "piece_predictions"
 DATA_TYPE_CONTROL_DATA = "control_data_segments"
 DATA_TYPE_SAMPLES = "samples"
+DATA_TYPES = (
+    DATA_TYPE_PIECE_RECORDS,
+    DATA_TYPE_PIECE_IMAGES,
+    DATA_TYPE_CHANNEL_CROPS,
+    DATA_TYPE_PIECE_CORRECTIONS,
+    DATA_TYPE_PIECE_PREDICTIONS,
+    DATA_TYPE_CONTROL_DATA,
+    DATA_TYPE_SAMPLES,
+)
+
+# The watermark rule (the sorter's sync_seq.py): a row that changes on the
+# machine carries sync_seq, a value from one machine-wide counter taken each
+# time the row changes, and the data type's watermark advances by it; a row
+# from an older sorter, or one that never changes, advances it by local_id.
+# Either way the watermark is the highest value accepted, kept in
+# machine_sync_state.max_local_id.
 
 # Columns updated on conflict — everything except the identity/immutable set
-# (id, machine_id, piece_uuid[, seq], created_at). The correction columns
-# (part_correct, color_corrected_id, *_feedback_submitted, correction_updated_at)
-# are intentionally NOT here: they arrive on the separate piece_corrections
-# stream, so a plain piece_records re-sync must not clobber them.
+# (id, machine_id, piece_uuid[, seq], created_at) and the machine operator's
+# verdict, which only a record carrying sync_seq updates (_VERDICT_COLS): an
+# older sorter sends the verdict on its piece_corrections stream instead.
 _PIECE_UPDATE_COLS = (
     "local_id", "run_id", "seen_at", "recorded_at", "classification_status",
     "part_id", "part_name", "color_id", "color_name", "category_id", "confidence",
     "color_confidence", "bin_x", "bin_y", "bin_z", "dead", "brickognize_preview_url",
     "brickognize_listing_id", "brickognize_item_rank", "brickognize_item_type",
     "brickognize_color_rank", "color_provider", "mold_provider",
+)
+_VERDICT_COLS = ("part_correct", "color_corrected_id", "correction_updated_at")
+_FEEDBACK_FLAG_COLS = ("part_feedback_submitted", "color_feedback_submitted")
+_PREDICTION_UPDATE_COLS = (
+    "local_id", "provider", "model", "value_id", "value_name", "score", "applied", "predicted_at",
 )
 _IMAGE_UPDATE_COLS = (
     "local_id", "source", "channel", "ts", "captured_at", "sharpness", "bytes",
@@ -104,16 +129,131 @@ def _ts(value: float | int | None) -> datetime | None:
     return datetime.fromtimestamp(f, tz=timezone.utc)
 
 
-def _upsert(db: Session, model, rows: list[dict[str, Any]], index_elements: list[str], update_cols) -> None:
+def _insert(db: Session):
+    return pg_insert if db.bind.dialect.name == "postgresql" else sqlite_insert
+
+
+def _upsert(
+    db: Session,
+    model,
+    rows: list[dict[str, Any]],
+    index_elements: list[str],
+    update_cols,
+    or_cols: tuple[str, ...] = (),
+    extra_set=None,
+) -> None:
+    """Insert rows, updating update_cols on a natural-key conflict; or_cols are
+    flags that only ever turn on (the stored value OR the new one); extra_set
+    (the insert statement -> {column: expression}) adds more."""
     if not rows:
         return
-    ins = pg_insert if db.bind.dialect.name == "postgresql" else sqlite_insert
-    stmt = ins(model).values(rows)
-    stmt = stmt.on_conflict_do_update(
-        index_elements=index_elements,
-        set_={col: getattr(stmt.excluded, col) for col in update_cols},
-    )
+    stmt = _insert(db)(model).values(rows)
+    set_ = {col: getattr(stmt.excluded, col) for col in update_cols}
+    for col in or_cols:
+        set_[col] = or_(getattr(model, col), getattr(stmt.excluded, col))
+    if extra_set is not None:
+        set_.update(extra_set(stmt))
+    stmt = stmt.on_conflict_do_update(index_elements=index_elements, set_=set_)
     db.execute(stmt)
+
+
+# local_id of a machine_pieces row a correction created before its record
+# arrived (older sorters; see sync_piece_corrections). Sorter ids start at 1.
+_STUB_LOCAL_ID = 0
+
+
+def _stub_takes_record_time(stmt) -> dict:
+    # Hive learns of the piece when its record lands, not when the stub was
+    # made: created_at is what workers count new pieces forward from.
+    return {
+        "created_at": case(
+            (MachinePiece.local_id == _STUB_LOCAL_ID, stmt.excluded.created_at),
+            else_=MachinePiece.created_at,
+        )
+    }
+
+
+def _row_key(raw: Any) -> int | None:
+    """A batch row's cursor value (sync_seq, else local_id), read before
+    validation so a row that fails it still moves the watermark past it."""
+    if not isinstance(raw, dict):
+        return None
+    for field in ("sync_seq", "local_id"):
+        value = raw.get(field)
+        if isinstance(value, int) and not isinstance(value, bool):
+            return value
+    return None
+
+
+def _validate_rows(model, raw_rows: list[Any], machine: Machine, data_type: str) -> tuple[list[Any], int, int]:
+    """Validate a batch row by row: (the valid rows, how many were skipped, the
+    highest cursor value seen). A bad row is logged and skipped, never allowed
+    to stall the machine's sync."""
+    valid: list[Any] = []
+    skipped = 0
+    key_max = 0
+    for raw in raw_rows:
+        key = _row_key(raw)
+        if key is not None:
+            key_max = max(key_max, key)
+        try:
+            valid.append(model.model_validate(raw))
+        except ValidationError as exc:
+            skipped += 1
+            log.warning(
+                "machine %s: skipped a bad %s row (key %s): %s",
+                machine.id, data_type, key, exc.errors(include_url=False)[:3],
+            )
+    return valid, skipped, key_max
+
+
+def _write_rows(db: Session, write, rows: list[Any], machine: Machine, data_type: str) -> int:
+    """Run write(rows) in a savepoint; if the database refuses the batch, run
+    it row by row and skip the rows it refuses (logged). Returns how many
+    rows were skipped."""
+    if not rows:
+        return 0
+    try:
+        with db.begin_nested():
+            write(rows)
+        return 0
+    except SQLAlchemyError:
+        pass
+    skipped = 0
+    for row in rows:
+        try:
+            with db.begin_nested():
+                write([row])
+        except SQLAlchemyError as exc:
+            skipped += 1
+            log.warning("machine %s: skipped a %s row the database refused: %s", machine.id, data_type, exc)
+    return skipped
+
+
+def _replace_rejection_reasons(
+    db: Session, machine_id: UUID, reasons_by_piece: dict[str, list[str]], now: datetime
+) -> None:
+    """Set each piece's operator-flagged reasons to exactly the given set.
+    Idempotent: a re-send, or the same piece twice in one batch, never trips
+    the unique constraint (the pieces' rows are deleted first, the inserts are
+    de-duplicated and skip any row already there)."""
+    if not reasons_by_piece:
+        return
+    db.query(MachinePieceRejectionReason).filter(
+        MachinePieceRejectionReason.machine_id == machine_id,
+        MachinePieceRejectionReason.piece_uuid.in_(list(reasons_by_piece)),
+    ).delete(synchronize_session=False)
+    rows = [
+        {"id": uuid4(), "machine_id": machine_id, "piece_uuid": piece_uuid, "reason": reason, "created_at": now}
+        for piece_uuid, reasons in reasons_by_piece.items()
+        for reason in dict.fromkeys(str(r) for r in reasons)
+    ]
+    if rows:
+        db.execute(
+            _insert(db)(MachinePieceRejectionReason)
+            .values(rows)
+            .on_conflict_do_nothing(index_elements=["machine_id", "piece_uuid", "reason"])
+        )
 
 
 def _advance_watermark(db: Session, machine_id: UUID, data_type: str, new_max: int) -> int:
@@ -135,6 +275,9 @@ def _advance_watermark(db: Session, machine_id: UUID, data_type: str, new_max: i
 class PieceRecordIn(BaseModel):
     piece_uuid: str
     local_id: int
+    # Present from sorters that sync records by sync_seq; such a record carries
+    # the machine operator's whole verdict (below).
+    sync_seq: int | None = None
     run_id: str | None = None
     seen_at: float | None = None
     recorded_at: float | None = None
@@ -159,10 +302,20 @@ class PieceRecordIn(BaseModel):
     brickognize_color_rank: int | None = None
     color_provider: str | None = None
     mold_provider: str | None = None
+    part_correct: bool | None = None
+    color_corrected_id: str | None = None
+    part_feedback_submitted: bool = False
+    color_feedback_submitted: bool = False
+    correction_updated_at: float | None = None
+    # Operator-flagged capture issues (no_piece / multiple_pieces / not_lego /
+    # assembly / pieces_entangled / blurry), the complete set.
+    rejection_reasons: list[str] | None = None
 
 
-class PieceRecordsBatch(BaseModel):
-    records: list[PieceRecordIn]
+class SyncBatch(BaseModel):
+    # Validated row by row (see _validate_rows), so one bad row is skipped
+    # instead of failing the batch.
+    records: list[Any]
 
 
 class PieceCorrectionIn(BaseModel):
@@ -178,14 +331,28 @@ class PieceCorrectionIn(BaseModel):
     rejection_reasons: list[str] | None = None
 
 
-class PieceCorrectionsBatch(BaseModel):
-    records: list[PieceCorrectionIn]
+class PiecePredictionIn(BaseModel):
+    local_id: int
+    piece_uuid: str
+    request: str
+    provider: str
+    model: str | None = None
+    kind: str
+    rank: int
+    value_id: str
+    value_name: str | None = None
+    score: float | None = None
+    applied: bool = False
+    created_at: float | None = None
 
 
 class PieceImageMeta(BaseModel):
     piece_uuid: str
     seq: int
     local_id: int
+    # Present from sorters that sync images by sync_seq (an image goes once
+    # its piece's record exists, with its final flags).
+    sync_seq: int | None = None
     source: str | None = None
     channel: int | None = None
     ts: float | None = None
@@ -269,13 +436,63 @@ def get_sync_state(
 ) -> dict[str, dict[str, int]]:
     rows = db.query(MachineSyncState).filter(MachineSyncState.machine_id == machine.id).all()
     by_type = {r.data_type: r.max_local_id for r in rows}
+    return {data_type: {"max_local_id": by_type.get(data_type, 0)} for data_type in DATA_TYPES}
+
+
+def _watermark(db: Session, machine_id: UUID, data_type: str) -> int:
+    row = (
+        db.query(MachineSyncState)
+        .filter(MachineSyncState.machine_id == machine_id, MachineSyncState.data_type == data_type)
+        .first()
+    )
+    return row.max_local_id if row else 0
+
+
+def _latest_per_key(rows: list[Any], key, order) -> list[Any]:
+    """One row per natural key, the latest by `order` (a batch may carry the
+    same piece twice; one upsert statement must not touch a row twice)."""
+    latest: dict[Any, Any] = {}
+    for row in rows:
+        k = key(row)
+        if k not in latest or order(row) >= order(latest[k]):
+            latest[k] = row
+    return list(latest.values())
+
+
+def _piece_row(machine_id: UUID, rec: PieceRecordIn, now: datetime) -> dict[str, Any]:
     return {
-        DATA_TYPE_PIECE_RECORDS: {"max_local_id": by_type.get(DATA_TYPE_PIECE_RECORDS, 0)},
-        DATA_TYPE_PIECE_IMAGES: {"max_local_id": by_type.get(DATA_TYPE_PIECE_IMAGES, 0)},
-        DATA_TYPE_CHANNEL_CROPS: {"max_local_id": by_type.get(DATA_TYPE_CHANNEL_CROPS, 0)},
-        DATA_TYPE_PIECE_CORRECTIONS: {"max_local_id": by_type.get(DATA_TYPE_PIECE_CORRECTIONS, 0)},
-        DATA_TYPE_CONTROL_DATA: {"max_local_id": by_type.get(DATA_TYPE_CONTROL_DATA, 0)},
-        DATA_TYPE_SAMPLES: {"max_local_id": by_type.get(DATA_TYPE_SAMPLES, 0)},
+        "id": uuid4(),
+        "machine_id": machine_id,
+        "piece_uuid": rec.piece_uuid,
+        "local_id": rec.local_id,
+        "run_id": rec.run_id,
+        "seen_at": _ts(rec.seen_at),
+        "recorded_at": _ts(rec.recorded_at),
+        "classification_status": rec.classification_status,
+        "part_id": rec.part_id,
+        "part_name": rec.part_name,
+        "color_id": rec.color_id,
+        "color_name": rec.color_name,
+        "category_id": rec.category_id,
+        "confidence": rec.confidence,
+        "color_confidence": rec.color_confidence,
+        "bin_x": rec.bin_x,
+        "bin_y": rec.bin_y,
+        "bin_z": rec.bin_z,
+        "dead": rec.dead,
+        "brickognize_preview_url": rec.brickognize_preview_url,
+        "brickognize_listing_id": rec.brickognize_listing_id,
+        "brickognize_item_rank": rec.brickognize_item_rank,
+        "brickognize_item_type": rec.brickognize_item_type,
+        "brickognize_color_rank": rec.brickognize_color_rank,
+        "color_provider": rec.color_provider,
+        "mold_provider": rec.mold_provider,
+        "part_correct": rec.part_correct,
+        "color_corrected_id": rec.color_corrected_id,
+        "part_feedback_submitted": rec.part_feedback_submitted,
+        "color_feedback_submitted": rec.color_feedback_submitted,
+        "correction_updated_at": _ts(rec.correction_updated_at),
+        "created_at": now,
     }
 
 
@@ -283,133 +500,164 @@ def get_sync_state(
 @limiter.limit("300/minute")
 def sync_piece_records(
     request: Request,
-    payload: PieceRecordsBatch,
+    payload: SyncBatch,
     db: Session = Depends(get_db),
     machine: Machine = Depends(get_current_machine),
 ) -> dict[str, int]:
+    """Upsert piece records by (machine, piece_uuid). A record with sync_seq is
+    the machine's whole state for the piece, the operator's verdict and
+    rejection reasons included; an older sorter's record leaves the verdict to
+    its piece_corrections stream."""
+    records, skipped, key_max = _validate_rows(PieceRecordIn, payload.records, machine, DATA_TYPE_PIECE_RECORDS)
     if not payload.records:
-        row = (
-            db.query(MachineSyncState)
-            .filter(MachineSyncState.machine_id == machine.id, MachineSyncState.data_type == DATA_TYPE_PIECE_RECORDS)
-            .first()
-        )
-        return {"max_local_id": row.max_local_id if row else 0, "upserted": 0}
+        return {"max_local_id": _watermark(db, machine.id, DATA_TYPE_PIECE_RECORDS), "upserted": 0, "skipped": 0}
 
     now = _now()
-    rows: list[dict[str, Any]] = []
-    batch_max = 0
-    for rec in payload.records:
-        batch_max = max(batch_max, rec.local_id)
-        rows.append(
-            {
-                "id": uuid4(),
-                "machine_id": machine.id,
-                "piece_uuid": rec.piece_uuid,
-                "local_id": rec.local_id,
-                "run_id": rec.run_id,
-                "seen_at": _ts(rec.seen_at),
-                "recorded_at": _ts(rec.recorded_at),
-                "classification_status": rec.classification_status,
-                "part_id": rec.part_id,
-                "part_name": rec.part_name,
-                "color_id": rec.color_id,
-                "color_name": rec.color_name,
-                "category_id": rec.category_id,
-                "confidence": rec.confidence,
-                "color_confidence": rec.color_confidence,
-                "bin_x": rec.bin_x,
-                "bin_y": rec.bin_y,
-                "bin_z": rec.bin_z,
-                "dead": rec.dead,
-                "brickognize_preview_url": rec.brickognize_preview_url,
-                "brickognize_listing_id": rec.brickognize_listing_id,
-                "brickognize_item_rank": rec.brickognize_item_rank,
-                "brickognize_item_type": rec.brickognize_item_type,
-                "brickognize_color_rank": rec.brickognize_color_rank,
-                "color_provider": rec.color_provider,
-                "mold_provider": rec.mold_provider,
-                "created_at": now,
-            }
+    machine_id = machine.id
+    records = _latest_per_key(
+        records, key=lambda r: r.piece_uuid, order=lambda r: r.sync_seq if r.sync_seq is not None else r.local_id
+    )
+
+    def write(batch: list[PieceRecordIn]) -> None:
+        current = [r for r in batch if r.sync_seq is not None]
+        older = [r for r in batch if r.sync_seq is None]
+        _upsert(
+            db, MachinePiece, [_piece_row(machine_id, r, now) for r in current],
+            ["machine_id", "piece_uuid"], _PIECE_UPDATE_COLS + _VERDICT_COLS, or_cols=_FEEDBACK_FLAG_COLS,
+            extra_set=_stub_takes_record_time,
+        )
+        _upsert(
+            db, MachinePiece,
+            [{k: v for k, v in _piece_row(machine_id, r, now).items() if k not in _VERDICT_COLS + _FEEDBACK_FLAG_COLS}
+             for r in older],
+            ["machine_id", "piece_uuid"], _PIECE_UPDATE_COLS, extra_set=_stub_takes_record_time,
+        )
+        _replace_rejection_reasons(
+            db, machine_id,
+            {r.piece_uuid: r.rejection_reasons for r in current if r.rejection_reasons is not None},
+            now,
         )
 
-    _upsert(db, MachinePiece, rows, ["machine_id", "piece_uuid"], _PIECE_UPDATE_COLS)
-    new_max = _advance_watermark(db, machine.id, DATA_TYPE_PIECE_RECORDS, batch_max)
-    machine.last_seen_at = now
+    skipped += _write_rows(db, write, records, machine, DATA_TYPE_PIECE_RECORDS)
+    new_max = _advance_watermark(db, machine_id, DATA_TYPE_PIECE_RECORDS, key_max)
+    mark_machine_seen(machine, now)
     db.commit()
-    return {"max_local_id": new_max, "upserted": len(rows)}
+    return {"max_local_id": new_max, "upserted": len(payload.records) - skipped, "skipped": skipped}
 
 
 @router.post("/piece-corrections")
 @limiter.limit("300/minute")
 def sync_piece_corrections(
     request: Request,
-    payload: PieceCorrectionsBatch,
+    payload: SyncBatch,
     db: Session = Depends(get_db),
     machine: Machine = Depends(get_current_machine),
 ) -> dict[str, int]:
+    """The machine operator's verdict from sorters older than the sync_seq
+    protocol (newer ones send it with the record). A correction for a piece
+    whose record has not arrived yet creates the piece's row, which the record
+    fills in when it comes. The submitted flags are OR'd, never cleared."""
+    corrections, skipped, key_max = _validate_rows(
+        PieceCorrectionIn, payload.records, machine, DATA_TYPE_PIECE_CORRECTIONS
+    )
     if not payload.records:
-        row = (
-            db.query(MachineSyncState)
-            .filter(
-                MachineSyncState.machine_id == machine.id,
-                MachineSyncState.data_type == DATA_TYPE_PIECE_CORRECTIONS,
-            )
-            .first()
-        )
-        return {"max_local_id": row.max_local_id if row else 0, "upserted": 0}
+        return {"max_local_id": _watermark(db, machine.id, DATA_TYPE_PIECE_CORRECTIONS), "upserted": 0, "skipped": 0}
 
     now = _now()
-    batch_max = 0
-    upserted = 0
-    # Update-only onto the existing machine_pieces row (the correction stream
-    # carries no piece identity beyond the uuid). The piece is always classified
-    # and synced before it can be corrected, so the row exists. The submitted
-    # flags are OR'd, never overwritten, so a correction already submitted on Hive
-    # is not un-marked by a later machine re-sync (one-way sync, no flag regress).
-    for rec in payload.records:
-        batch_max = max(batch_max, rec.local_id)
-        result = db.execute(
-            update(MachinePiece)
-            .where(
-                MachinePiece.machine_id == machine.id,
-                MachinePiece.piece_uuid == rec.piece_uuid,
-            )
-            .values(
-                part_correct=rec.part_correct,
-                color_corrected_id=rec.color_corrected_id,
-                part_feedback_submitted=or_(
-                    MachinePiece.part_feedback_submitted, rec.part_feedback_submitted
-                ),
-                color_feedback_submitted=or_(
-                    MachinePiece.color_feedback_submitted, rec.color_feedback_submitted
-                ),
-                correction_updated_at=_ts(rec.updated_at) or now,
-            )
-        )
-        upserted += int(result.rowcount or 0)
-        # Capture-issue flags: replace-all per piece, since the machine sends the
-        # complete set it wants on every edit. None means the machine predates the
-        # field and isn't reporting flags — leave whatever is already there rather
-        # than reading "not reported" as "operator cleared them".
-        if result.rowcount and rec.rejection_reasons is not None:
-            db.query(MachinePieceRejectionReason).filter(
-                MachinePieceRejectionReason.machine_id == machine.id,
-                MachinePieceRejectionReason.piece_uuid == rec.piece_uuid,
-            ).delete(synchronize_session=False)
-            for reason in dict.fromkeys(rec.rejection_reasons):
-                db.add(
-                    MachinePieceRejectionReason(
-                        machine_id=machine.id,
-                        piece_uuid=rec.piece_uuid,
-                        reason=reason,
-                        created_at=now,
-                    )
-                )
+    machine_id = machine.id
+    # The journal holds a full snapshot per edit; the latest one per piece wins.
+    corrections = _latest_per_key(corrections, key=lambda r: r.piece_uuid, order=lambda r: r.local_id)
 
-    new_max = _advance_watermark(db, machine.id, DATA_TYPE_PIECE_CORRECTIONS, batch_max)
-    machine.last_seen_at = now
+    def write(batch: list[PieceCorrectionIn]) -> None:
+        _upsert(
+            db, MachinePiece,
+            [
+                {
+                    "id": uuid4(),
+                    "machine_id": machine_id,
+                    "piece_uuid": r.piece_uuid,
+                    # A placeholder until the piece's record arrives.
+                    "local_id": _STUB_LOCAL_ID,
+                    "dead": False,
+                    "part_correct": r.part_correct,
+                    "color_corrected_id": r.color_corrected_id,
+                    "part_feedback_submitted": r.part_feedback_submitted,
+                    "color_feedback_submitted": r.color_feedback_submitted,
+                    "correction_updated_at": _ts(r.updated_at) or now,
+                    "created_at": now,
+                }
+                for r in batch
+            ],
+            ["machine_id", "piece_uuid"], _VERDICT_COLS, or_cols=_FEEDBACK_FLAG_COLS,
+        )
+        # None means the machine predates the field and isn't reporting flags:
+        # leave what is there rather than reading it as "operator cleared them".
+        _replace_rejection_reasons(
+            db, machine_id,
+            {r.piece_uuid: r.rejection_reasons for r in batch if r.rejection_reasons is not None},
+            now,
+        )
+
+    skipped += _write_rows(db, write, corrections, machine, DATA_TYPE_PIECE_CORRECTIONS)
+    new_max = _advance_watermark(db, machine_id, DATA_TYPE_PIECE_CORRECTIONS, key_max)
+    mark_machine_seen(machine, now)
     db.commit()
-    return {"max_local_id": new_max, "upserted": upserted}
+    return {"max_local_id": new_max, "upserted": len(payload.records) - skipped, "skipped": skipped}
+
+
+@router.post("/piece-predictions")
+@limiter.limit("300/minute")
+def sync_piece_predictions(
+    request: Request,
+    payload: SyncBatch,
+    db: Session = Depends(get_db),
+    machine: Machine = Depends(get_current_machine),
+) -> dict[str, int]:
+    """Every ranked part and colour answer the machine got for its pieces
+    (MachinePiecePrediction), upserted by (machine, piece, request, kind, rank)."""
+    predictions, skipped, key_max = _validate_rows(
+        PiecePredictionIn, payload.records, machine, DATA_TYPE_PIECE_PREDICTIONS
+    )
+    if not payload.records:
+        return {"max_local_id": _watermark(db, machine.id, DATA_TYPE_PIECE_PREDICTIONS), "upserted": 0, "skipped": 0}
+
+    now = _now()
+    machine_id = machine.id
+    predictions = _latest_per_key(
+        predictions, key=lambda r: (r.piece_uuid, r.request, r.kind, r.rank), order=lambda r: r.local_id
+    )
+
+    def write(batch: list[PiecePredictionIn]) -> None:
+        _upsert(
+            db, MachinePiecePrediction,
+            [
+                {
+                    "id": uuid4(),
+                    "machine_id": machine_id,
+                    "piece_uuid": r.piece_uuid,
+                    "local_id": r.local_id,
+                    "request": r.request,
+                    "provider": r.provider,
+                    "model": r.model,
+                    "kind": r.kind,
+                    "rank": r.rank,
+                    "value_id": r.value_id,
+                    "value_name": r.value_name,
+                    "score": r.score if r.score is None or math.isfinite(r.score) else None,
+                    "applied": r.applied,
+                    "predicted_at": _ts(r.created_at),
+                    "created_at": now,
+                }
+                for r in batch
+            ],
+            ["machine_id", "piece_uuid", "request", "kind", "rank"], _PREDICTION_UPDATE_COLS,
+        )
+
+    skipped += _write_rows(db, write, predictions, machine, DATA_TYPE_PIECE_PREDICTIONS)
+    new_max = _advance_watermark(db, machine_id, DATA_TYPE_PIECE_PREDICTIONS, key_max)
+    mark_machine_seen(machine, now)
+    db.commit()
+    return {"max_local_id": new_max, "upserted": len(payload.records) - skipped, "skipped": skipped}
 
 
 @router.post("/piece-image")
@@ -431,8 +679,9 @@ def sync_piece_image(
     # never enter that pipeline — refuse them here regardless of what the
     # machine's software version sends, but ack with an advanced watermark so an
     # un-updated sorter drains past them instead of retrying forever.
+    key = meta.sync_seq if meta.sync_seq is not None else meta.local_id
     if meta.source == "link_match":
-        new_max = _advance_watermark(db, machine.id, DATA_TYPE_PIECE_IMAGES, meta.local_id)
+        new_max = _advance_watermark(db, machine.id, DATA_TYPE_PIECE_IMAGES, key)
         machine.last_seen_at = _now()
         db.commit()
         return {"max_local_id": new_max, "image_stored": False, "rejected_source": "link_match"}
@@ -466,7 +715,7 @@ def sync_piece_image(
     # Metadata-only re-sends must not wipe a previously stored image_key.
     update_cols = _IMAGE_UPDATE_COLS if image is not None else tuple(c for c in _IMAGE_UPDATE_COLS if c != "image_key")
     _upsert(db, MachinePieceImage, [row], ["machine_id", "piece_uuid", "seq"], update_cols)
-    new_max = _advance_watermark(db, machine.id, DATA_TYPE_PIECE_IMAGES, meta.local_id)
+    new_max = _advance_watermark(db, machine.id, DATA_TYPE_PIECE_IMAGES, key)
     machine.last_seen_at = now
     db.commit()
     return {"max_local_id": new_max, "image_stored": image is not None}

@@ -12,8 +12,9 @@ class MachinePieceRejectionReason(Base):
     (machine, piece, reason) so the flags are queryable — "how many pieces were
     flagged blurry this week" is a GROUP BY, not a scan over JSON.
 
-    Synced from the machine's piece_corrections stream, which carries the whole
-    reason set per edit and is applied replace-all here. Reason codes are
+    Synced with the machine's piece record (or, from older sorters, its
+    piece_corrections stream), which carries the whole reason set and is
+    applied replace-all here. Reason codes are
     free-form slugs; most ("no_piece" / "multiple_pieces" / "not_lego" /
     "assembly" / "pieces_entangled") match the piece_rejections vocabulary, so an
     operator's verdict and a Hive labeler's verdict mean the same thing

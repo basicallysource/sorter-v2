@@ -24,4 +24,8 @@ None of these is part of the build instructions in [Hardware]({{ '/hardware/' | 
     <strong><a href="{{ '/lab/concepts/floating-chute-stack/' | relative_url }}">Floating chute stack</a></strong>
     <p>Take every electrical part off the rotating chute stack, build each bin layer as its own module, and hold a column of chutes at two points.</p>
   </div>
+  <div class="callout">
+    <strong><a href="{{ '/lab/concepts/funnel-split-hood-and-floor-tray/' | relative_url }}">Funnel split into hood and floor tray</a></strong>
+    <p>Print the third-size funnel as two parts so the sliding floor lies flat on the bed and can be ironed smooth.</p>
+  </div>
 </div>

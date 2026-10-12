@@ -25389,33 +25389,6 @@
 			]
 		},
 		{
-			"id": "chute-core-and-funnel-brackets",
-			"name": "chute-core-and-funnel-brackets",
-			"download": "https://assets.basically.website/sorter-parts/chute-core-and-funnel-brackets-3605074a7ee5.3mf",
-			"thumbs": [
-				"https://assets.basically.website/sorter-parts/chute-core-and-funnel-brackets-1-full-16ca235ae431.png",
-				"https://assets.basically.website/sorter-parts/chute-core-and-funnel-brackets-2-full-e63bbb31714f.png",
-				"https://assets.basically.website/sorter-parts/chute-core-and-funnel-brackets-3-full-4f64ada06852.png"
-			],
-			"parts": [
-				{
-					"name": "left funnel slide",
-					"count": 5,
-					"part_id": null
-				},
-				{
-					"name": "right funnel slide",
-					"count": 3,
-					"part_id": null
-				},
-				{
-					"name": "core (2)",
-					"count": 1,
-					"part_id": null
-				}
-			]
-		},
-		{
 			"id": "external-brackets-6",
 			"name": "external-brackets-6",
 			"download": "https://assets.basically.website/sorter-parts/external-brackets-6-64e17ce00e1f.3mf",

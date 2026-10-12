@@ -8,7 +8,7 @@
 //
 // The JPEG is only pixels. What is drawn over it comes beside it as data
 // (backend server/routers/camera_feeds.py): {"layout"} with a role view's
-// zones and crop before its first frame and whenever they change, and
+// zones before its first frame and whenever they change, and
 // {"detections"} with the boxes of a frame perception inferred on, just
 // before that frame. CameraPicture draws them.
 
@@ -24,11 +24,7 @@ export type FeedZones = {
 	secondary: { type: string; rings: Ring[] }[];
 };
 
-/** How the dashboard crops a camera to its channel: the zone's polygons, and
- * the turn (degrees, counter-clockwise) that puts its drop zone at the top. */
-export type FeedCrop = { polygons: Ring[]; rotation: number };
-
-export type FeedLayout = { zones: FeedZones | null; crop: FeedCrop | null };
+export type FeedLayout = { zones: FeedZones | null };
 
 export type FeedBox = {
 	kind: 'piece' | 'merged' | 'seen' | 'margin';
@@ -164,10 +160,9 @@ class VideoSocket {
 				ts?: number;
 				boxes?: FeedBox[];
 				zones?: FeedZones | null;
-				crop?: FeedCrop | null;
 			};
 			if (note.layout) {
-				const layout = { zones: note.zones ?? null, crop: note.crop ?? null };
+				const layout = { zones: note.zones ?? null };
 				this.layouts.set(note.layout, layout);
 				for (const listener of this.views.get(note.layout) ?? []) listener.layout?.(layout);
 				return;

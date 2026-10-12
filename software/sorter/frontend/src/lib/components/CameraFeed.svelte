@@ -9,7 +9,7 @@
 	import type { Snippet } from 'svelte';
 	import { roleView } from '$lib/video';
 
-	type ControlKey = 'annotations' | 'crop' | 'fullscreen';
+	type ControlKey = 'annotations' | 'fullscreen';
 
 	let {
 		camera,
@@ -31,7 +31,7 @@
 	const ctx = getMachineContext();
 
 	// Persistent per-camera toggle state, kept across reloads in localStorage
-	// and keyed by camera, so one camera's crop toggle does not leak into
+	// and keyed by camera, so one camera's toggle does not leak into
 	// another's.
 	const storageKey = (key: string) => `camera-feed:${camera}:${key}`;
 
@@ -56,19 +56,12 @@
 	}
 
 	let annotated = $state(readPersisted('annotated', true));
-	// A feed that can be cropped starts cropped; one whose camera has no zone
-	// shows the whole frame either way.
-	/* svelte-ignore state_referenced_locally */
-	let cropped = $state(readPersisted('cropped', controls.includes('crop')));
-	// The size of what the picture shows, which the tile takes the shape of.
+	// The size of the picture, which the tile takes the shape of.
 	let shape = $state<{ width: number; height: number } | null>(null);
 
 	// Write-back side: every toggle change writes to localStorage.
 	$effect(() => {
 		writePersisted('annotated', annotated);
-	});
-	$effect(() => {
-		writePersisted('cropped', cropped);
 	});
 
 	let stale = $state(false);
@@ -106,7 +99,6 @@
 			view={roleView(camera)}
 			boxes={annotated}
 			zones={annotated}
-			{cropped}
 			alt={display_label}
 			class="absolute inset-0 h-full w-full {is_healthy ? '' : 'opacity-30'}"
 			bind:stale
@@ -128,11 +120,6 @@
 		</div>
 	{/if}
 	{#snippet overlay()}
-		<StreamControlsOverlay
-			bind:annotated
-			bind:cropped
-			showAnnotations={controls.includes('annotations')}
-			showCrop={controls.includes('crop')}
-		/>
+		<StreamControlsOverlay bind:annotated showAnnotations={controls.includes('annotations')} />
 	{/snippet}
 </MediaTile>

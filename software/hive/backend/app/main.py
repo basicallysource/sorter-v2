@@ -27,6 +27,7 @@ from app.routers import (
     control_data,
     devices,
     installs,
+    jobs,
     leaderboard,
     link_models,
     machine_config_backups,
@@ -48,6 +49,7 @@ from app.routers import (
     samples,
     sets,
     stats,
+    swatch_models,
     teacher,
     upload,
 )
@@ -57,6 +59,8 @@ from app.services.default_profiles import start_default_profiles_thread
 from app.services.condition_worker import get_condition_worker
 from app.services.fleet_mass import get_fleet_mass_worker
 from app.services.fleet_records import get_fleet_records_worker
+from app.services.job_queue import get_job_worker
+from app.services import swatch_jobs  # noqa: F401  (registers the swatch_find job kind)
 from app.services.machine_stats import get_machine_stats_worker
 from app.services.server_health import get_memory_log_worker, get_storage_stats_worker
 from app.services.teacher_worker import get_teacher_worker
@@ -100,11 +104,13 @@ async def lifespan(_app: FastAPI):
     get_storage_stats_worker().start()
     get_memory_log_worker().start()  # diagnostic, delete with the 2026-08 leak
     get_candidate_matview_worker().start()
+    get_job_worker().start()
     if settings.ENVIRONMENT != "test":
         start_default_profiles_thread()
     try:
         yield
     finally:
+        get_job_worker().stop()
         get_candidate_matview_worker().stop()
         get_teacher_worker().stop()
         get_condition_worker().stop()
@@ -165,6 +171,9 @@ app.include_router(color_predict.router)
 app.include_router(public_stats.router)
 app.include_router(public_catalog.router)
 app.include_router(link_models.router)
+app.include_router(swatch_models.router)
+app.include_router(swatch_models.sample_router)
+app.include_router(jobs.router)
 app.include_router(api_keys.router)
 app.include_router(teacher.router)
 app.include_router(leaderboard.router)

@@ -137,7 +137,7 @@
 				<CameraFeed
 					camera="c_channel_2"
 					label={cameraLabel('c_channel_2')}
-					controls={['annotations', 'crop', 'fullscreen']}
+					controls={['annotations', 'fullscreen']}
 					class="@container"
 				>
 					{#snippet actions()}
@@ -147,7 +147,7 @@
 				<CameraFeed
 					camera="c_channel_3"
 					label={cameraLabel('c_channel_3')}
-					controls={['annotations', 'crop', 'fullscreen']}
+					controls={['annotations', 'fullscreen']}
 					class="@container"
 				>
 					{#snippet actions()}
@@ -157,7 +157,7 @@
 				<CameraFeed
 					camera="classification_channel"
 					label={cameraLabel('classification_channel')}
-					controls={['annotations', 'crop', 'fullscreen']}
+					controls={['annotations', 'fullscreen']}
 					class="@container md:col-span-2"
 				>
 					{#snippet actions()}

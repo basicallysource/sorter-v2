@@ -34,7 +34,7 @@ BOOT_ID = str(uuid.uuid4())
 _BOOTED_AT = datetime.now(timezone.utc).isoformat()
 
 
-def _v4l2CameraModel(index: int) -> str | None:
+def v4l2CameraModel(index: int) -> str | None:
     try:
         with open(f"/sys/class/video4linux/video{index}/name") as handle:
             name = handle.read().strip()
@@ -73,7 +73,7 @@ def _cameraEntry(role_value: Any) -> dict[str, Any]:
         entry["device_index"] = role_value
 
     if entry["url"] is None and isinstance(entry["device_index"], int) and entry["device_index"] >= 0:
-        entry["model"] = _v4l2CameraModel(entry["device_index"])
+        entry["model"] = v4l2CameraModel(entry["device_index"])
     return entry
 
 
@@ -108,7 +108,7 @@ def _liveCameras() -> dict[str, Any]:
             "model": None,
         }
         if url is None and index is not None and index >= 0:
-            entry["model"] = _v4l2CameraModel(index)
+            entry["model"] = v4l2CameraModel(index)
         cameras[str(role)] = entry
     return cameras
 

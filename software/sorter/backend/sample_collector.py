@@ -332,13 +332,14 @@ class SampleCollector:
     def _captureOnce(self) -> None:
         if self._camera_service is None:
             return
-        feeds = self._camera_service.feeds or {}
         with self._lock:
             annotate = self._annotate
         now = time.time()
         saved = 0
         last_error: str | None = None
-        for role in sorted(feeds.keys()):
+        # Once per physical camera: the classification camera is registered
+        # under two roles but is one device and one stream of frames.
+        for role in self._camera_service.physical_camera_roles():
             capture = self._camera_service.get_capture_thread_for_role(role)
             frame = getattr(capture, "latest_frame", None) if capture is not None else None
             if frame is None:

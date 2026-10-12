@@ -40,6 +40,7 @@ import logging
 import os
 import random
 import socket
+import sys
 import threading
 import time
 import uuid
@@ -441,9 +442,9 @@ def serialize(job: Job) -> dict[str, Any]:
 
 def _lower_thread_priority(nice: int) -> None:
     """Raise this thread's nice value. On Linux the nice value belongs to the
-    thread, so the API's threads keep theirs. Anywhere else, or without leave,
-    it stays as it is."""
-    if nice <= 0 or not hasattr(os, "setpriority"):
+    thread, so the API's threads keep theirs. Anywhere else (where a thread id
+    is not something setpriority takes), or without leave, it stays as it is."""
+    if nice <= 0 or not sys.platform.startswith("linux"):
         return
     try:
         os.setpriority(os.PRIO_PROCESS, threading.get_native_id(), nice)

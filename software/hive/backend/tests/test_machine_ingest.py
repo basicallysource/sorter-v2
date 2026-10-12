@@ -15,6 +15,7 @@ from types import SimpleNamespace
 import pytest
 from PIL import Image
 from sqlalchemy import event
+from sqlalchemy.engine.interfaces import CacheStats
 
 from app.database import SessionLocal
 from app.models.machine import Machine
@@ -45,10 +46,12 @@ def _crop(client, token: str, local_id: int, image: bool = True):
 
 
 class Statements:
-    """The SQL the test database runs inside the block."""
+    """The SQL the test database runs inside the block, and whether each was
+    compiled again or came from SQLAlchemy's statement cache."""
 
     def __init__(self) -> None:
         self.sql: list[str] = []
+        self.cached: list[bool] = []
 
     def __enter__(self) -> "Statements":
         event.listen(engine, "before_cursor_execute", self._note)
@@ -58,7 +61,8 @@ class Statements:
         event.remove(engine, "before_cursor_execute", self._note)
 
     def _note(self, conn, cursor, statement, parameters, context, executemany) -> None:
-        self.sql.append(" ".join(statement.split()))
+        self.sql.append(" ".join(statement.replace('"', "").split()))
+        self.cached.append(getattr(context, "cache_hit", None) is CacheStats.CACHE_HIT)
 
     def count(self, prefix: str) -> int:
         return sum(1 for s in self.sql if s.upper().startswith(prefix.upper()))
@@ -186,7 +190,7 @@ def test_requests_that_load_the_same_old_value_write_it_once(clock):
     assert fresh.last_seen_at == now - timedelta(seconds=10)
 
 
-def test_a_crop_is_three_statements(client, db, machine_token, upload_dir):
+def test_a_crop_is_three_cached_statements(client, db, machine_token, upload_dir):
     # Production sessions keep what they loaded across a commit; the test
     # session would read the machine again after the one before the upload.
     assert SessionLocal.kw["expire_on_commit"] is False
@@ -194,11 +198,12 @@ def test_a_crop_is_three_statements(client, db, machine_token, upload_dir):
     assert _crop(client, machine_token, 1).status_code == 200
     with Statements() as sql:
         assert _crop(client, machine_token, 2).status_code == 200
-    # The machine's token, the crop, the watermark.
+    # The machine's token, the crop, the watermark, none compiled again.
     assert len(sql.sql) == 3, sql.sql
     assert sql.count("SELECT") == 1
     assert sql.count("INSERT INTO machine_channel_crops") == 1
     assert sql.count("INSERT INTO machine_sync_state") == 1
+    assert sql.cached == [True, True, True], list(zip(sql.sql, sql.cached))
 
 
 def test_s3_puts_a_small_file_in_one_request():

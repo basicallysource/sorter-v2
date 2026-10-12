@@ -9,6 +9,7 @@ from __future__ import annotations
 import re
 import shutil
 import subprocess
+import time
 from typing import Any, Dict, List, Optional
 
 from fastapi import APIRouter
@@ -137,29 +138,48 @@ def _scan_networks(rescan: bool = False) -> List[Dict[str, Any]]:
     return networks
 
 
+# The last full scan. NetworkManager soon forgets networks it hasn't seen,
+# so its own list is often just the one in use; the page opens on this one
+# instead and scans again behind it when it's old.
+_last_scan: Dict[str, Any] = {"at": None, "networks": []}
+
+
+def _scan_age(scan: Dict[str, Any]) -> Optional[float]:
+    return None if scan["at"] is None else round(time.monotonic() - scan["at"], 1)
+
+
 @router.get("/api/wifi/status")
 def wifi_status() -> Dict[str, Any]:
     if not _have_nmcli():
         return {"available": False, "adapters": [], "networks": [], "error": "nmcli not found"}
-    return {
-        "available": True,
-        "adapters": _wifi_devices(),
-        "networks": _scan_networks(),
-    }
+    adapters = _wifi_devices()
+    scan = _last_scan
+    if scan["at"] is None:
+        networks = _scan_networks()
+    else:
+        in_use = {a["active_ssid"] for a in adapters if a["connected"]}
+        networks = sorted(
+            ({**n, "active": n["ssid"] in in_use} for n in scan["networks"]),
+            key=lambda n: (not n["active"], -n["signal"]),
+        )
+    return {"available": True, "adapters": adapters, "networks": networks, "scan_age_s": _scan_age(scan)}
 
 
 @router.post("/api/wifi/scan")
 def wifi_scan() -> Dict[str, Any]:
     if not _have_nmcli():
         return {"available": False, "adapters": [], "networks": [], "error": "nmcli not found"}
+    global _last_scan
     try:
         networks = _scan_networks(rescan=True)
     except subprocess.TimeoutExpired:
         networks = _scan_networks()
+    _last_scan = {"at": time.monotonic(), "networks": networks}
     return {
         "available": True,
         "adapters": _wifi_devices(),
         "networks": networks,
+        "scan_age_s": 0.0,
     }
 
 

@@ -303,13 +303,14 @@ page shows both components on sample data.
   it reached the recognizer. The app does the saving through callbacks and
   fetches the ranking when `onpicking` says the colors opened.
 - **`ColorChoice`**: the likely colors as a grid of swatches with their
-  names, best first (twelve by default), then every color behind a search by
-  name or number. Under each name, how near it is to the prediction (very
-  close, close, near, far) and its share of the part's pieces for sale on
-  BrickLink ("18% for sale", "None for sale"); the tooltip has every number
-  behind its place. A predicted color is marked (`sparkles` and the mark's
+  names, best first (twelve by default, at least two to a row however
+  narrow), then every color behind a search by name or number. Under each
+  name, its share of the part's pieces for sale on BrickLink ("18% for
+  sale", "None for sale"); how near it is to the prediction shows in the
+  swatch, and in words (very close, close, near, far) only when there are no
+  sale numbers. The tooltip has every number behind its place. A predicted color is marked (`sparkles` and the mark's
   words, "Predicted 82%", "The guess") and always in the grid. The chosen
-  color takes the primary's tint with a check. While the ranking loads the
+  color takes the primary's tint, with a check in the list. While the ranking loads the
   grid holds its place with skeletons; `note` says, under the heading, when
   it was ranked another way ("By color alone: the machine cannot reach
   Hive."). `fill` lets the list of every color take the height left in a

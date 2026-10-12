@@ -76,7 +76,7 @@
 
 <SiteSection
 	title="Likely colors"
-	lead="The best twelve as swatches with their names, then every color behind a search by name or number. Under each name, how near it is to the prediction and its share of the part's pieces for sale; the tooltip has every number. A predicted color is marked and always in the grid. Hive's labeling page uses this on its own, as its True color."
+	lead="The best twelve as swatches with their names, then every color behind a search by name or number. Under each name, its share of the part's pieces for sale (how near it is shows in the swatch); the tooltip has every number. A predicted color is marked and always in the grid. Hive's labeling page uses this on its own, as its True color."
 >
 	<Specimen
 		code={`<ColorChoice {palette} likely={ranked} value={chosen} marks={{ 4: 'The guess' }} onpick={pick} />`}

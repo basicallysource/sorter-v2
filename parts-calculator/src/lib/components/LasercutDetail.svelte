@@ -6,7 +6,6 @@
 	import ChangeStatus from '$lib/components/ChangeStatus.svelte';
 	import { fmtDate } from '$lib/filament';
 	import type { LaserCutPart } from '$lib/lasercut';
-	import { ExternalLink } from 'lucide-svelte';
 
 	// The laser-cut part detail view: the solid model (or the DXF outline when
 	// none is published), then the facts, the downloads and the source link —
@@ -57,7 +56,7 @@
 				target="_blank"
 				rel="noopener"
 				class="inline-flex items-center gap-0.5 text-xs text-primary hover:text-primary-hover"
-				use:tip={'Open the pinned OnShape version'}>OnShape <ExternalLink size={11} /></a>
+				use:tip={'Open the pinned OnShape version'}>OnShape</a>
 		</div>
 	</div>
 

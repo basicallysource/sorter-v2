@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { tip } from '$lib/popover';
-	import { ArrowRight, BookOpen, Boxes, ExternalLink, FlaskConical, History, Zap } from 'lucide-svelte';
+	import { ArrowRight, BookOpen, Boxes, FlaskConical, History, Zap } from 'lucide-svelte';
 	import AlternativeBadge from '$lib/components/AlternativeBadge.svelte';
 	import OptionalBadge from '$lib/components/OptionalBadge.svelte';
 	import CatalogText from '$lib/components/CatalogText.svelte';
@@ -192,7 +192,7 @@
 				rel="noopener"
 				class="mt-1.5 inline-flex items-center gap-1 text-xs font-medium text-primary hover:text-primary-hover"
 			>
-				<BookOpen size={12} /> Assembly guide <ExternalLink size={10} />
+				<BookOpen size={12} /> Assembly guide
 			</a>
 		{/if}
 	</header>

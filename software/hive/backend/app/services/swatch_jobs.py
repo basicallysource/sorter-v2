@@ -220,6 +220,11 @@ def handle_swatch_find(job: JobContext) -> dict[str, Any]:
     }
 
 
+def frame_time(captured_at: datetime | None, uploaded_at: datetime | None) -> datetime | None:
+    """When a sample's frame was taken: its capture time, else its upload."""
+    return captured_at or uploaded_at
+
+
 def store_run(
     db: Session,
     *,
@@ -232,7 +237,10 @@ def store_run(
     seconds: float,
 ) -> SampleSwatchRun:
     """Write one run and its tiles, replacing an earlier run of the same model
-    file on this sample. Does not commit."""
+    file on this sample. Does not commit. The run carries the sample's machine
+    and frame time, which is how the labeling pages find the palette frames
+    near a piece (services/piece_palette.py)."""
+    sample = db.get(Sample, sample_id)
     previous = (
         db.query(SampleSwatchRun)
         .filter(SampleSwatchRun.sample_id == sample_id, SampleSwatchRun.model_sha256 == model_sha256)
@@ -255,6 +263,8 @@ def store_run(
         palette_swatches=len(in_palette),
         flags=list(found.flags),
         seconds=float(seconds),
+        machine_id=sample.machine_id if sample is not None else None,
+        frame_at=frame_time(sample.captured_at, sample.uploaded_at) if sample is not None else None,
     )
     for position, s in enumerate(found.swatches):
         run.swatches.append(

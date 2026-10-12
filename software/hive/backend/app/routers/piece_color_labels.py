@@ -46,7 +46,7 @@ from app.models.piece_part_label import PiecePartLabel
 from app.models.piece_rejection import PieceRejection
 from app.models.user import User
 from app.schemas.likely_colors import LikelyColorsResponse
-from app.services import color_rank, likely_colors
+from app.services import color_rank, likely_colors, piece_palette
 from app.services.brickognize_feedback import submit_color_feedback, submit_part_feedback
 from app.services.channel_crop_lookup import find_possible_crops
 from app.services import review_queue
@@ -332,6 +332,7 @@ def list_pieces(
     cursor: str | None = Query(None),
     machine_id: list[UUID] | None = Query(None),
     with_candidates: bool = Query(False),
+    with_palette: bool = Query(False),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
     _rl: None = Depends(rate_limit("labeling_list")),
@@ -343,7 +344,8 @@ def list_pieces(
     unidentified (pieces the machine couldn't name — the part-correction queue),
     needs_me (this user's unlabeled first). machine_id (one or several) keeps
     only those machines' pieces; with_candidates only pieces that have same-piece
-    candidate crops.
+    candidate crops; with_palette only pieces with the colour reference palette
+    in view in a classification frame near them (services.piece_palette).
 
     Pages by keyset: pass the previous page's next_cursor to get the one after
     it (null at the end). Served from the labeling queue through
@@ -361,6 +363,7 @@ def list_pieces(
         machine_ids=machine_id,
         with_candidates=with_candidates,
         rare_color_ids=rare_ids,
+        with_palette=with_palette,
     )
     return {
         "items": review_queue.piece_cards(db, current_user, rows),
@@ -379,8 +382,9 @@ def piece_detail(
     _rl: None = Depends(rate_limit("labeling_list")),
 ) -> dict:
     """Everything the single-piece labeling view needs: the piece, its crops, the
-    pixel-average guess, and THIS user's saved color label (so revisiting a piece
-    by URL restores what they'd set, rather than a fresh unlabeled view)."""
+    pixel-average guess, THIS user's saved color label (so revisiting a piece
+    by URL restores what they'd set, rather than a fresh unlabeled view), and
+    the colour reference palette's frame nearest the piece with its swatches."""
     piece = (
         db.query(MachinePiece)
         .filter(MachinePiece.machine_id == machine_id, MachinePiece.piece_uuid == piece_uuid)
@@ -456,6 +460,9 @@ def piece_detail(
             ImageQualityLabel.labeler_id == current_user.id,
         )
     }
+    # The machine's classification frame with the colour reference palette in
+    # view nearest the piece (two index probes), and its swatches.
+    palette = piece_palette.frame_for_piece(db, current_user, piece)
     backend = get_backend()
     # Last of the reads: when the guesses are not stored yet this commits and
     # reads the crops from storage.
@@ -544,6 +551,7 @@ def piece_detail(
             }
             for p in machine_predictions
         ],
+        "palette": palette,
         "correction": {
             **_my_brickognize_correction(db, piece, part_label, label),
             # Capture issues the machine operator flagged (no_piece /

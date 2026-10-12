@@ -40,6 +40,7 @@ filter changed). `MachineFilter.svelte` is the machine picker on both pages.
 | table | written by | read by |
 |---|---|---|
 | `labeling_queue` | `services/labeling_queue.py` (worker) | the piece grid (`GET /api/labeling/pieces`) |
+| `labeling_queue.has_palette` | same worker, from `services/piece_palette.py` | the grid's palette badge and filter (`with_palette`) |
 | `labeling_queue_counts` | same worker, every pass | `GET /api/labeling/stats` (`total_labelable`) |
 | `labeling_queue_state` | same worker | the worker (its progress) |
 | `piece_link_scores` | `services/piece_link_scores.py`, on the first open of a piece | `GET /api/labeling/possible-crops/...` |
@@ -61,8 +62,12 @@ The worker (`labeling-queue-worker`, every 5 minutes):
 - marks queued pieces whose arrival window holds a newly synced channel crop as
   having same-piece candidates,
 - recounts each machine's labelable pieces,
+- works out `has_palette` again for the queued pieces near the swatch runs
+  stored since its last pass (see the palette, below),
 - once a day re-evaluates every piece in batches of 5,000, which catches rows
-  that changed after they arrived (a record re-sent as dead or re-classified).
+  that changed after they arrived (a record re-sent as dead or re-classified,
+  a palette frame whose sample was deleted); and so does the first pass after
+  the swatch model the palette filter reads changes.
 
 The first pass after a deploy is that full evaluation; it fills an empty queue
 in a couple of minutes, and the grid shows what is done so far. A piece that
@@ -87,6 +92,11 @@ Paging is a keyset cursor (`next_cursor`, passed back as `cursor`): the segment
 and the sort key of the last piece served. Page 50 costs what page 1 does, and
 a label made while someone scrolls shifts nothing under them.
 
+`with_palette` keeps the pieces with the colour reference palette in view near
+them; it is `has_palette IS true`, the predicate of two partial indexes that
+are the arrival walks over only those pieces, so the filter is an index walk in
+every sort.
+
 Thumbnails come as presigned storage URLs (`thumb_url`) when the storage
 backend can sign them, so a page of 60 cards is not 60 more API requests. The
 image routes remain for local storage and as the fallback.
@@ -103,6 +113,27 @@ image routes remain for local storage and as the fallback.
 - **Colour guesses** (pixel average and colour model) are made from one
   concurrent read of the piece's crops and kept per `(machine, piece, colour
   model sha256)`, remade when the piece's usable crops change.
+
+## The palette near a piece
+
+Some machines carry a colour reference palette at the edge of the
+classification camera's view (`jobs.md`, `swatch_find`). A piece has it in view
+when a classification frame of its machine within two hours of its arrival
+(`piece_palette.WINDOW`; a sorting machine takes one at least hourly) was called
+palette-in-view by the swatch model the samples filter reads (the active one,
+else the one changed last). Each swatch run carries its sample's machine and
+frame time (`machine_id`, `frame_at`: captured, else uploaded), and
+`ix_sample_swatch_runs_palette_frames` (model, machine, frame time; palette
+calls only) makes "this machine's palette frames near this time" one range:
+
+- the worker reads the frame times near a stretch of a machine's pieces in one
+  query (pieces grouped into runs, the runs' ranges OR'd, as for candidates)
+  and sets `has_palette`; a run stored since its last pass makes it work out
+  the pieces within two hours of that frame again; a run stored without a
+  machine and time (by a release that did not set them) is given them first;
+- the piece panel (`GET /api/labeling/piece/...`, `palette`) shows the latest
+  palette frame at or before the piece within the window, else the first one
+  after it, and that run's swatches: two LIMIT 1 probes on the same index.
 
 ## Postgres
 

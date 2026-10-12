@@ -247,6 +247,13 @@
 					<FilterOption label="Has candidate crops" on={filters.withCandidates} onclick={() => setFilters({ withCandidates: true })} />
 				</ul>
 			</FilterGroup>
+			<!-- A classification frame of the piece's machine within two hours of it had the reference palette in view. -->
+			<FilterGroup title="Color palette" storageKey="pb-palette" active={filters.withPalette} activeLabel={filters.withPalette ? 'In view' : null}>
+				<ul class="flex flex-col gap-px">
+					<FilterOption label="Any" on={!filters.withPalette} onclick={() => setFilters({ withPalette: false })} />
+					<FilterOption label="In view" on={filters.withPalette} onclick={() => setFilters({ withPalette: true })} />
+				</ul>
+			</FilterGroup>
 		</div>
 	</aside>
 
@@ -289,7 +296,6 @@
 					<PieceLabelPanel
 						machineId={selectedKey.machine_id}
 						pieceUuid={selectedKey.piece_uuid}
-						layout="pane"
 						position={panePosition}
 						onNext={paneNext}
 						onPrev={panePrev}

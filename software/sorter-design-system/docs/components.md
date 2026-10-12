@@ -255,8 +255,7 @@ a UUID. The site's Profiles page shows each one on real catalog data.
   or "any of" say so once above them, and a group inside a rule is indented
   under its own. `limit` is how many chips a condition shows before "+N
   more", which opens the rest in place. A condition that cannot be
-  evaluated yet is in the warning tone. A rule for one part (BrickLink ID
-  3001) is one phrase with one chip.
+  evaluated yet is in the warning tone. A rule for one part (BrickLink ID 3001) is one phrase with one chip.
 - **`ProfileBin`**: one of a profile's rules or categories (never called a
   "bin" on a page: bins are the machine's), as a card or a row. The card shows
   what a person needs to know about where pieces go: the picture (a color
@@ -284,6 +283,44 @@ a UUID. The site's Profiles page shows each one on real catalog data.
   piece; what they need is to find the ID, the name and the color in the
   same place every time. The old views gave each part its own arrangement of
   words, or a table of field names, and could only be read by decoding them.
+
+## Color review
+
+How a person checks a classified piece, on a machine (the correction dialog
+and the records) and on Hive (the labeling page). The site's Color review
+page shows both components on sample data.
+
+- **`PieceReview`**: three questions, each a row with its name on the left
+  and its answer on the right, divided by lines; where the block is narrower
+  than 36rem the name sits above the answer. "Part correct?" is Yes or No,
+  about the part type only. "Color correct?" shows the predicted color with
+  Yes and "No, pick the color" (`pipette`); No opens the likely colors right
+  under the row, a pick is staged, Confirm saves it and Cancel closes them.
+  Once a different color is saved, the No button names it. With no predicted
+  color there is no Yes, only "Pick the color". "Report an issue" is a row of
+  toggles, any number at once. A warning or a failure shows as an `Alert`
+  under the rows; a saved answer shows as the filled button, and "Sent" when
+  it reached the recognizer. The app does the saving through callbacks and
+  fetches the ranking when `onpicking` says the colors opened.
+- **`ColorChoice`**: the likely colors as a grid of swatches with their
+  names, best first (twelve by default), then every color behind a search by
+  name or number. Under each name, how near it is to the prediction (very
+  close, close, near, far) and its share of the part's pieces for sale on
+  BrickLink ("18% for sale", "None for sale"); the tooltip has every number
+  behind its place. A predicted color is marked (`sparkles` and the mark's
+  words, "Predicted 82%", "The guess") and always in the grid. The chosen
+  color takes the primary's tint with a check. While the ranking loads the
+  grid holds its place with skeletons; `note` says, under the heading, when
+  it was ranked another way ("By color alone: the machine cannot reach
+  Hive."). `fill` lets the list of every color take the height left in a
+  column.
+- **Where the order comes from.** One ranking, Hive's
+  `services/color_rank.py` (the sorter keeps the same file for when Hive is
+  unreachable): how near each color is to the predicted ones, in CIELAB with
+  a term for hue between colors that have one and a term for a different
+  finish, times how likely the part exists in that color, from its pieces
+  for sale, square-rooted so popularity informs the order without drowning
+  the match, with a floor so no color is ruled out.
 
 ## Overlays and loading
 

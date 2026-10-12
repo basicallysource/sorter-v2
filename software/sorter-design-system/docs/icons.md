@@ -83,6 +83,7 @@ Lucide, and each lives in one component.
 | Leaves the app, or opens a new tab     | `arrow-up-right`                                          |
 | A button that opens a menu             | `ellipsis`, three dots                                    |
 | Chosen, done, yes                      | `check`                                                   |
+| Pick a color                           | `pipette`                                                 |
 | Light mode, dark mode                  | `sun`, `moon`                                             |
 | Info, success, warning, danger notices | `info`, `circle-check`, `triangle-alert`, `octagon-alert` |
 

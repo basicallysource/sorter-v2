@@ -274,3 +274,14 @@ sections:
             children:
               - title: Floating chute stack
                 url: /lab/concepts/floating-chute-stack/
+          - title: Abandoned ideas
+            url: /lab/variants/abandoned/
+            children:
+              - title: Classification
+                url: /lab/variants/abandoned/classification/
+              - title: Feeder
+                url: /lab/variants/abandoned/feeder/
+              - title: Distribution
+                url: /lab/variants/abandoned/distribution/
+              - title: Electronics and software
+                url: /lab/variants/abandoned/electronics-and-software/

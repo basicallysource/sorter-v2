@@ -51,7 +51,7 @@ The fasteners and quantities are in the parts list above and are called out inli
   <p>Static caution: this is a bare board. Touch a grounded metal surface before handling it, and handle it by its edges, avoiding the connectors and components.</p>
 </div>
 
-Seat it over the four inserts and fasten it with 4 {% include fastener.html size="M3" variant="socket-button" length="6" %} screws. Do not overtighten.
+Seat it over the four inserts with the `J5` servo header, the three pins, towards the servo side of the core, the side the servo is on. Fasten it with 4 {% include fastener.html size="M3" variant="socket-button" length="6" %} screws. Do not overtighten.
 
 <figure>
   <img class="doc-figure" src="https://assets.basically.website/sorter-docs/chute-v3-core-pockets-rear-full-1ca6422e7957.png" alt="Render of the rear wall of the chute core with the four heat inserts the layer adapter board screws into ringed in red">

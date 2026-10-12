@@ -45,7 +45,7 @@
 			</div>
 			<div class="lightbox-caption">
 				{#if image.alt}<p title={image.alt}>{image.alt}</p>{/if}
-				<a href={image.src} target="_blank" rel="noopener">Open original&nbsp;↗</a>
+				<a href={image.src} target="_blank" rel="noopener">Open original</a>
 			</div>
 		</div>
 	{/if}

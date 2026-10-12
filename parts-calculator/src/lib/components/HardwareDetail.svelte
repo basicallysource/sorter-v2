@@ -30,7 +30,7 @@
 		type Assembly,
 		type Hardware
 	} from '$lib/filament';
-	import { ArrowUpRight, BookOpen, Check, ExternalLink, Share2, Zap } from 'lucide-svelte';
+	import { ArrowUpRight, BookOpen, Check, Share2, Zap } from 'lucide-svelte';
 
 	// The off-the-shelf hardware detail view: photo, specs, where it goes on the
 	// machine, what it's joined to, and where to buy it. Rendered two ways off the
@@ -136,7 +136,7 @@
 						rel="noopener"
 						class="mt-2 inline-flex items-center gap-1 text-xs font-medium text-primary hover:text-primary-hover"
 					>
-						<BookOpen size={12} /> Docs page <ExternalLink size={10} />
+						<BookOpen size={12} /> Docs page
 					</a>
 				{/if}
 				{#if h.note}
@@ -300,7 +300,7 @@
 								rel="noopener"
 								class="inline-flex items-center gap-1 font-medium text-primary hover:text-primary-hover"
 							>
-								{v.vendor ?? v.region} <ExternalLink size={12} />
+								{v.vendor ?? v.region}
 							</a>
 							<span class="text-xs text-text-muted">{v.region}</span>
 							{#if v.affiliate_url}

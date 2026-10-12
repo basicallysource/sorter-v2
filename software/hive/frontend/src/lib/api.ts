@@ -1700,6 +1700,117 @@ export interface LinkModelsResponse {
 	model_dir: string;
 }
 
+// A colour-reference palette finder: an ONNX network that finds the palette's
+// tiles in a classification-camera frame. While one is active, every such
+// sample gets a swatch_find job.
+export interface SwatchModel {
+	id: string;
+	filename: string;
+	name: string;
+	description: string | null;
+	kind: string;
+	sha256: string;
+	colour_count: number;
+	net_long_side: number;
+	file_size: number;
+	is_active: boolean;
+	updated_at: string | null;
+}
+
+export interface SwatchModelsResponse {
+	models: SwatchModel[];
+	model_dir: string;
+	source_roles: string[];
+}
+
+/** One palette tile found in a frame. Pixels are in the full-resolution frame. */
+export interface SampleSwatch {
+	position: number;
+	colour: string;
+	bricklink_color_id: number | null;
+	colour_score: number;
+	surface_score: number;
+	pixels: number;
+	/** Median sRGB of the tile's top face, 0..255. */
+	rgb: [number, number, number];
+	rgb_std: [number, number, number];
+	clipped: number;
+	centre: [number, number];
+	box: [number, number, number, number];
+	length: number;
+	width: number;
+	flags: string[];
+}
+
+export interface SampleSwatchRun {
+	id: string;
+	model_id: string | null;
+	model_name: string;
+	model_sha256: string;
+	frame_width: number;
+	frame_height: number;
+	swatch_count: number;
+	flags: string[];
+	seconds: number;
+	created_at: string | null;
+	swatches: SampleSwatch[];
+}
+
+export interface SwatchBackfillResult {
+	model: string;
+	matched: number;
+	queued: number;
+	already_queued: number;
+	truncated: boolean;
+}
+
+// The background job queue (admin).
+export interface JobKindCounts {
+	kind: string;
+	queued: number;
+	running: number;
+	done: number;
+	failed: number;
+	/** Whether this server has a handler for the kind; jobs of other kinds wait. */
+	registered: boolean;
+	oldest_queued_at: string | null;
+}
+
+export interface JobRow {
+	id: string;
+	kind: string;
+	subject: string | null;
+	status: 'queued' | 'running' | 'done' | 'failed';
+	priority: number;
+	attempts: number;
+	max_attempts: number;
+	error: string | null;
+	result: Record<string, unknown> | null;
+	run_after: string | null;
+	created_at: string | null;
+	started_at: string | null;
+	finished_at: string | null;
+}
+
+export interface JobWorkerStatus {
+	enabled: boolean;
+	running: boolean;
+	threads: number;
+	processed: number;
+	succeeded: number;
+	failed: number;
+	last_job_at: string | null;
+	last_error: string | null;
+	current: { id: string; kind: string; subject: string | null } | null;
+	kinds: string[];
+}
+
+export interface JobsSummary {
+	worker: JobWorkerStatus;
+	kinds: JobKindCounts[];
+	recent_failures: JobRow[];
+}
+
 // A "possibly the same piece" upstream C2/C3 crop candidate. `score` +
 // `predicted` are the shared time/angle heuristic's confidence and default
 // selection (kept untouched — they feed the was_predicted training signal).
@@ -2091,6 +2202,32 @@ export const api = {
 			'POST',
 			`/api/link-models/${modelId}/deactivate`
 		);
+	},
+
+	// Swatch models (admin): the colour-reference palette finders on disk, the
+	// active one, and queueing existing samples for it.
+	listSwatchModels() {
+		return request<SwatchModelsResponse>('GET', '/api/swatch-models');
+	},
+	activateSwatchModel(modelId: string) {
+		return request<{ ok: boolean; model: SwatchModel }>('POST', `/api/swatch-models/${modelId}/activate`);
+	},
+	deactivateSwatchModel(modelId: string) {
+		return request<{ ok: boolean; model: SwatchModel }>('POST', `/api/swatch-models/${modelId}/deactivate`);
+	},
+	backfillSwatches(body: { machine_id: string; since?: string | null; until?: string | null; rerun?: boolean }) {
+		return request<SwatchBackfillResult>('POST', '/api/swatch-models/backfill', body);
+	},
+	getSampleSwatchRuns(sampleId: string) {
+		return request<{ runs: SampleSwatchRun[] }>('GET', `/api/samples/${sampleId}/swatch-runs`);
+	},
+
+	// The background job queue (admin).
+	getJobsSummary() {
+		return request<JobsSummary>('GET', '/api/admin/jobs');
+	},
+	retryJob(jobId: string) {
+		return request<{ ok: boolean; job: JobRow }>('POST', `/api/admin/jobs/${jobId}/retry`);
 	},
 	createMachine(name: string, description?: string) {
 		return request<MachineWithToken>('POST', '/api/machines', { name, description });

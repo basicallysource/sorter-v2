@@ -44,6 +44,8 @@ parts_needed:
     qty: 2
   - part: hsi-m3
     qty: 16
+  - part: hsi-m3s
+    qty: 4
   - part: scr-m3-8-cs
     qty: 20
   - part: scr-m3-12-cs
@@ -54,9 +56,9 @@ warning: >-
   **AI-generated first draft.** Written from the 3D parts of the inverted chute, not from an actual
   build. Which hole takes which screw is read off the part geometry, so the counts and lengths are
   measured, but the order of the steps is not checked against a machine, and the door is shown in
-  one position of its swing that is only a guess at where it rests. Two things are open and marked in
-  the steps: what the four holes in the servo adapter's servo-side half take, and whether the side
-  arm wants an M3 x 10 (the parts list has none). The servo has no model, so it is not in any picture.
+  one position of its swing that is only a guess at where it rests. One thing is open and marked in
+  the steps: whether the side arm wants an M3 x 10 (the parts list has none). The servo has no model,
+  so it is not in any picture.
 ---
 
 The door module is the moving half of the chute. Build it on the bench as one unit, then bolt it to the [chute core]({{ '/hardware/assembly/distribution/chute/chute-core/' | relative_url }}). One per chute, so one per layer.
@@ -76,9 +78,9 @@ Four things make it up:
 
 {% include step.html n="1" title="Preparation" %}
 
-Three of the module's parts take heat inserts, 16 between them. Press them all in while the parts are still bare, before anything is screwed together. See [installing heat inserts]({{ '/hardware/helpers/heat-inserts/' | relative_url }}) for the technique.
+Four of the module's parts take heat inserts: 16 standard M3 inserts across three of them, and 4 short ones (M3S) in the fourth. Press them all in while the parts are still bare, before anything is screwed together. See [installing heat inserts]({{ '/hardware/helpers/heat-inserts/' | relative_url }}) for the technique.
 
-The bearing race, the chute door, the two bearing covers and the two servo adapter halves take none.
+The bearing race, the chute door, the two bearing covers and the servo adapter's flap-side half take none.
 
 <div class="prep-item">
   <div class="prep-item-body">
@@ -119,6 +121,19 @@ The bearing race, the chute door, the two bearing covers and the two servo adapt
 </div>
 
 The renders show the pockets without a brass insert in them, so count the rings, not the brass.
+
+<div class="prep-item">
+  <div class="prep-item-body">
+    <p><strong>Servo adapter (servo side):</strong> 4 × <strong>short</strong> M3 insert (M3S, <code>hsi-m3s</code>), one in each of the four round pockets on the face that goes against the flap-side half, the one with the slot for the horn. These are not the standard M3 inserts used everywhere else: the pockets are too shallow for those.</p>
+  </div>
+</div>
+
+<div class="img-row">
+  <figure>
+    <img class="doc-figure" src="https://assets.basically.website/sorter-docs/chute-v3-servo-adapter-pockets-full-e7df9c7db967.png" alt="Render of the servo-side half of the servo adapter, a round disc with a slot cut across its centre hole for the horn and four small round pockets ringed in red, evenly spaced around the edge">
+    <figcaption>The four pockets for the short inserts, on the slotted face. <cite>Rendered from the part geometry, not from a build. Render: Balloon.</cite></figcaption>
+  </figure>
+</div>
 
 One more sub-assembly goes together here, before the step that uses it, and it takes no inserts.
 
@@ -232,7 +247,7 @@ Snug all six down before tightening any of them, then swing the door by hand thr
 
 {% include step.html n="7" title="Build the servo adapter" %}
 
-The servo-side and flap-side plates clamp the MG995 Servo Horn between them. The horn ships with the servo, it isn't printed. Drop the horn into the servo-side half **splined sleeve first**: the sleeve sits in the hole in the middle of that half and the two arms lie in the slot around it. It does not fit any other way. Bring the flap-side half down over it and drive 4 {% include fastener.html size="M3" variant="countersunk" length="8" %} screws through the flap side (it's the half with the hexagonal socket and the countersunk holes) into the servo side. <span class="fastener-todo">The four holes in the servo-side half are larger than a screw would cut its own thread in, so what they take is not recorded yet.</span>
+The servo-side and flap-side plates clamp the MG995 Servo Horn between them. The horn ships with the servo, it isn't printed. Drop the horn into the servo-side half **splined sleeve first**: the sleeve sits in the hole in the middle of that half and the two arms lie in the slot around it. It does not fit any other way. Bring the flap-side half down over it and drive 4 {% include fastener.html size="M3" variant="countersunk" length="8" %} screws through the flap side (it's the half with the hexagonal socket and the countersunk holes) into the four short inserts in the servo side.
 
 The flap-side half has a raised hub with a hexagonal socket. The hub points at the door, and the socket is what takes the door's hexagonal spigot in the next step.
 

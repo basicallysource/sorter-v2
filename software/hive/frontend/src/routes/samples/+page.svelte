@@ -4,7 +4,6 @@
 	import {
 		api,
 		type Machine,
-		type PaginatedSamples,
 		type SampleFilterOptions,
 		type StatsOverview,
 		type TeacherJobFilter,
@@ -15,17 +14,17 @@
 	import Button from '$lib/components/Button.svelte';
 	import FilterGroup from '$lib/components/FilterGroup.svelte';
 	import FilterOption from '$lib/components/FilterOption.svelte';
+	import MachineFilter from '$lib/components/MachineFilter.svelte';
+	import ReviewGrid from '$lib/components/ReviewGrid.svelte';
 	import SampleCard from '$lib/components/SampleCard.svelte';
 	import Spinner from '$lib/components/Spinner.svelte';
 	import { sentence } from '$lib/text';
 	import Alert from '$lib/components/Alert.svelte';
 	import Badge from '$lib/components/Badge.svelte';
-	import EmptyState from '$lib/components/EmptyState.svelte';
 	import Menu from '$lib/components/Menu.svelte';
 	import PageHeader from '$lib/components/PageHeader.svelte';
 	import Panel from '$lib/components/Panel.svelte';
 	import ProgressBar from '$lib/components/ProgressBar.svelte';
-	import Select from '$lib/components/Select.svelte';
 	import Archive from '@lucide/svelte/icons/archive';
 	import ArrowRight from '@lucide/svelte/icons/arrow-right';
 	import ChartColumn from '@lucide/svelte/icons/chart-column';
@@ -36,25 +35,28 @@
 	import Sparkles from '@lucide/svelte/icons/sparkles';
 	import Trash2 from '@lucide/svelte/icons/trash-2';
 	import X from '@lucide/svelte/icons/x';
-	import {
-		readSampleListContext,
-		sampleListContextQuery,
-		SAMPLE_LIST_DEFAULT_PAGE_SIZE
-	} from '$lib/sampleListContext';
+	import { readSampleFilters, sampleFiltersQuery, sampleQueue } from '$lib/sampleListContext';
+	import { writeMachines } from '$lib/reviewQueue.svelte';
 
-	let data = $state<PaginatedSamples | null>(null);
 	let machines = $state<Machine[]>([]);
 	let filterOptions = $state<SampleFilterOptions>({ source_roles: [], capture_reasons: [] });
 	let stats = $state<StatsOverview | null>(null);
-	let loading = $state(true);
 
 	// Filters are derived from the URL so reload / share preserves them.
-	const listContext = $derived(readSampleListContext(page.url.searchParams));
+	const listContext = $derived(readSampleFilters(page.url.searchParams));
+	// One queue per set of filters, shared with the sample detail page: a new
+	// filter is a new queue, and nothing still on its way for the old one can
+	// reach this grid.
+	const queue = $derived(sampleQueue(listContext));
 	// Default scope is "all" — the URL value is only honored when it is the explicit opt-in to
 	// "mine". Anything else (missing/empty/other) collapses to all, so a stray query param can't
 	// accidentally limit the view.
 	const filterScope = $derived(listContext.scope === 'mine' ? 'mine' : 'all');
-	const filterMachine = $derived(listContext.machine_id ?? '');
+	// One machine or several; none means every machine.
+	const filterMachines = $derived(listContext.machine_ids);
+	const machineNames = $derived(
+		filterMachines.map((id) => machines.find((m) => String(m.id) === id)?.name ?? id).join(', ')
+	);
 	const filterStatus = $derived(listContext.review_status ?? '');
 	const filterSourceRole = $derived(listContext.source_role ?? '');
 	const filterCaptureReason = $derived(listContext.capture_reason ?? '');
@@ -92,8 +94,6 @@
 	// non-admins always see active regardless of what they send.
 	const filterArchived = $derived(listContext.archived ?? '');
 	const filterMaxAgeHours = $derived(listContext.max_age_hours ?? '');
-	const currentPage = $derived(listContext.page);
-	const pageSize = $derived(listContext.page_size);
 
 	const AGE_OPTIONS: { value: string; label: string }[] = [
 		{ value: '', label: 'All' },
@@ -102,7 +102,7 @@
 		{ value: '720', label: 'Last 30 days' }
 	];
 
-	const filterContextQuery = $derived(sampleListContextQuery(page.url.searchParams));
+	const filterContextQuery = $derived(sampleFiltersQuery(page.url.searchParams));
 
 	const sourceRoleLabels: Record<string, string> = {
 		c_channel_1: 'C1',
@@ -117,29 +117,18 @@
 	};
 
 	const hasActiveFilters = $derived(
-		filterMachine || filterStatus || filterSourceRole || filterCaptureReason || filterKind || filterMyReview || filterAnnotated || filterExposure || filterArchived || filterMaxAgeHours
+		filterMachines.length > 0 || filterStatus || filterSourceRole || filterCaptureReason || filterKind || filterMyReview || filterAnnotated || filterExposure || filterArchived || filterMaxAgeHours
 	);
 
+	const machinesKey = $derived(filterMachines.join(','));
 	$effect(() => {
-		void filterScope;
-		void loadFilters();
+		void loadFilters(filterScope, machinesKey ? machinesKey.split(',') : []);
 	});
 
+	// Load the list for the current filters (a queue already loaded for them,
+	// say on coming back from a sample, is kept as it is).
 	$effect(() => {
-		void filterScope;
-		void filterMachine;
-		void filterStatus;
-		void filterSourceRole;
-		void filterCaptureReason;
-		void filterKind;
-		void filterMyReview;
-		void filterAnnotated;
-		void filterExposure;
-		void filterArchived;
-		void filterMaxAgeHours;
-		void currentPage;
-		void pageSize;
-		loadSamples();
+		void queue.start();
 	});
 
 	function pushFilterUrl(mutate: (sp: URLSearchParams) => void) {
@@ -153,22 +142,25 @@
 		});
 	}
 
-	function setFilterValue(key: string, value: string, resetPage = true) {
+	function setFilterValue(key: string, value: string) {
 		pushFilterUrl((sp) => {
 			if (value) sp.set(key, value);
 			else sp.delete(key);
-			if (resetPage) sp.delete('page');
 		});
 	}
 
-	async function loadFilters() {
+	// Machines, filter options and the status counts (worker-kept, so cheap);
+	// only the newest answer is shown.
+	let filtersToken = 0;
+	async function loadFilters(scope: 'mine' | 'all', machineIds: string[]) {
+		const token = ++filtersToken;
 		try {
-			const scope = filterScope;
 			const [nextMachines, nextOptions, nextStats] = await Promise.all([
 				api.getMachines({ scope }),
 				api.getSampleFilterOptions({ scope }),
-				api.getOverview({ scope })
+				api.getOverview({ scope, machineIds })
 			]);
+			if (token !== filtersToken) return;
 			machines = nextMachines;
 			filterOptions = nextOptions;
 			stats = nextStats;
@@ -197,61 +189,6 @@
 		void restoreActiveTeacherJob();
 	});
 
-	async function loadSamples() {
-		loading = true;
-		try {
-			data = await api.getSamples({
-				page: currentPage,
-				page_size: pageSize,
-				scope: filterScope,
-				machine_id: filterMachine || undefined,
-				review_status: filterStatus || undefined,
-				source_role: filterSourceRole || undefined,
-				capture_reason: filterCaptureReason || undefined,
-				kind: filterKind || undefined,
-				my_review: filterMyReview || undefined,
-				annotated: filterAnnotated || undefined,
-				exposure: filterExposure || undefined,
-				archived: filterArchived || undefined,
-				max_age_hours: filterMaxAgeHours || undefined
-			});
-		} catch {
-			data = null;
-		} finally {
-			loading = false;
-		}
-	}
-
-	// Group machines under their owner when looking at all samples so the sidebar reads as a
-	// roster of contributors instead of an undifferentiated machine list.
-	type MachineGroup = { ownerKey: string; ownerLabel: string; machines: Machine[] };
-	const machineGroups = $derived.by<MachineGroup[]>(() => {
-		if (filterScope === 'mine') {
-			return [{ ownerKey: '__self', ownerLabel: 'My machines', machines }];
-		}
-		const buckets = new Map<string, MachineGroup>();
-		const myId = auth.user?.id ?? null;
-		for (const machine of machines) {
-			const ownerId = machine.owner?.id ?? machine.owner_id ?? 'unknown';
-			const isSelf = myId !== null && ownerId === myId;
-			const label = isSelf
-				? 'Me'
-				: machine.owner?.display_name?.trim() || 'Unknown user';
-			const key = isSelf ? '__self' : ownerId;
-			let bucket = buckets.get(key);
-			if (!bucket) {
-				bucket = { ownerKey: key, ownerLabel: label, machines: [] };
-				buckets.set(key, bucket);
-			}
-			bucket.machines.push(machine);
-		}
-		return Array.from(buckets.values()).sort((a, b) => {
-			if (a.ownerKey === '__self') return -1;
-			if (b.ownerKey === '__self') return 1;
-			return a.ownerLabel.localeCompare(b.ownerLabel);
-		});
-	});
-
 	function prettifyToken(value: string): string {
 		return value
 			.split('_')
@@ -274,21 +211,6 @@
 		}, 0);
 	}
 
-	function goToPage(target: number) {
-		pushFilterUrl((sp) => {
-			if (target <= 1) sp.delete('page');
-			else sp.set('page', String(target));
-		});
-	}
-
-	function changePageSize(size: number) {
-		pushFilterUrl((sp) => {
-			if (size === SAMPLE_LIST_DEFAULT_PAGE_SIZE) sp.delete('page_size');
-			else sp.set('page_size', String(size));
-			sp.delete('page');
-		});
-	}
-
 	function setStatusFilter(status: string) {
 		const next = filterStatus === status ? '' : status;
 		setFilterValue('review_status', next);
@@ -302,13 +224,12 @@
 		pushFilterUrl((sp) => {
 			if (next === 'mine') sp.set('scope', 'mine');
 			else sp.delete('scope');
-			sp.delete('machine_id');
-			sp.delete('page');
+			writeMachines(sp, []);
 		});
 	}
 
-	function updateMachineFilter(value: string) {
-		setFilterValue('machine_id', value);
+	function updateMachineFilter(ids: string[]) {
+		pushFilterUrl((sp) => writeMachines(sp, ids));
 	}
 
 	function updateSourceRoleFilter(value: string) {
@@ -322,7 +243,7 @@
 	function clearFilters() {
 		// 'scope' is a viewing context, not a per-search filter — keep it across "Clear all".
 		pushFilterUrl((sp) => {
-			sp.delete('machine_id');
+			writeMachines(sp, []);
 			sp.delete('review_status');
 			sp.delete('source_role');
 			sp.delete('capture_reason');
@@ -332,7 +253,6 @@
 			sp.delete('exposure');
 			sp.delete('archived');
 			sp.delete('max_age_hours');
-			sp.delete('page');
 		});
 	}
 
@@ -368,7 +288,7 @@
 	let deleteResult = $state<{ deleted: number; matched: number } | null>(null);
 
 	const currentBatchDeletePayload = $derived(() => ({
-		machine_id: filterMachine || undefined,
+		machine_ids: filterMachines,
 		source_role: filterSourceRole || undefined,
 		capture_reason: filterCaptureReason || undefined,
 		review_status: filterStatus || undefined,
@@ -418,8 +338,8 @@
 			const res = await api.batchDeleteSamples(currentBatchDeletePayload());
 			deleteResult = { deleted: res.deleted, matched: res.matched };
 			// Refresh the visible page + filter facets.
-			await loadSamples();
-			await loadFilters();
+			await queue.reload();
+			await loadFilters(filterScope, filterMachines);
 		} catch (e) {
 			deleteError = e instanceof Error ? e.message : 'Delete failed.';
 		} finally {
@@ -438,7 +358,7 @@
 	let archiveResult = $state<{ archived: number; matched: number; mode: 'archive' | 'unarchive' } | null>(null);
 
 	const currentBatchArchivePayload = $derived(() => ({
-		machine_id: filterMachine || undefined,
+		machine_ids: filterMachines,
 		source_role: filterSourceRole || undefined,
 		capture_reason: filterCaptureReason || undefined,
 		review_status: filterStatus || undefined,
@@ -488,8 +408,8 @@
 		try {
 			const res = await api.batchArchiveSamples(currentBatchArchivePayload(), archiveMode);
 			archiveResult = { archived: res.archived, matched: res.matched, mode: archiveMode };
-			await loadSamples();
-			await loadFilters();
+			await queue.reload();
+			await loadFilters(filterScope, filterMachines);
 		} catch (e) {
 			archiveError = e instanceof Error ? e.message : 'Archive failed.';
 		} finally {
@@ -499,7 +419,7 @@
 
 	const currentTeacherFilter = $derived<TeacherJobFilter>({
 		scope: filterScope,
-		machine_id: filterMachine || undefined,
+		machine_ids: filterMachines,
 		review_status: filterStatus || undefined,
 		source_role: filterSourceRole || undefined,
 		capture_reason: filterCaptureReason || undefined,
@@ -515,19 +435,6 @@
 		// Age filter must travel with the job filter — otherwise the modal counts a 24h
 		// slice but the job picks up the full table.
 		max_age_hours: filterMaxAgeHours ? Number(filterMaxAgeHours) : undefined
-	});
-
-	const teacherEligibleCount = $derived.by(() => {
-		if (!data) return null;
-		// Approximate using what we have in the current page when no source_role filter is
-		// applied; if a source_role filter narrows the set, the server count == the visible
-		// total so we just return stats.total_samples shaped accordingly.
-		if (filterSourceRole) {
-			return TEACHER_SUPPORTED_ROLES.has(filterSourceRole) ? data.total : 0;
-		}
-		// Otherwise we don't know without a roundtrip — present the page-wide total and let
-		// the server reject unsupported roles silently.
-		return data.total;
 	});
 
 	async function openTeacherModal() {
@@ -563,7 +470,7 @@
 				if (teacherJob.status === 'done' || teacherJob.status === 'cancelled') {
 					stopTeacherPolling();
 					// Refresh the samples list now that detections may have been overwritten.
-					await loadSamples();
+					await queue.reload();
 				}
 			} catch {
 				// transient errors are fine — keep polling
@@ -658,7 +565,7 @@
 			<div class="flex flex-wrap gap-1.5">
 				{#each [
 					withScope && filterScope === 'mine' ? ['Scope', 'mine'] : null,
-					filterMachine ? ['Machine', filterMachine] : null,
+					filterMachines.length > 0 ? ['Machine', machineNames] : null,
 					filterSourceRole ? ['Source', filterSourceRole] : null,
 					filterCaptureReason ? ['Capture reason', filterCaptureReason] : null,
 					filterStatus ? ['Status', filterStatus] : null,
@@ -712,28 +619,8 @@
 			</Menu>
 		{/if}
 		{#if auth.isReviewer}
-			{@const reviewHref = (() => {
-				// Forward the same sidebar filters to the review queue so the reviewer drains
-				// only the slice they have selected (e.g. "C-Channel 4, last 24h"). Empty
-				// values are omitted so a plain click with no filter behaves as before.
-				const sp = new URLSearchParams();
-				if (filterScope === 'mine') sp.set('scope', 'mine');
-				if (filterMachine) sp.set('machine_id', filterMachine);
-				if (filterSourceRole) sp.set('source_role', filterSourceRole);
-				if (filterCaptureReason) sp.set('capture_reason', filterCaptureReason);
-				if (filterKind) sp.set('kind', filterKind);
-				if (filterAnnotated) sp.set('annotated', filterAnnotated);
-				if (filterExposure) sp.set('exposure', filterExposure);
-				if (filterMaxAgeHours) sp.set('max_age_hours', filterMaxAgeHours);
-				// Forward review_status + my_review so e.g. "show me conflict
-				// samples" or "show me what I already accepted" carries into
-				// the queue. The queue treats either as 'revisit mode' and
-				// drops its default "fresh work" gates.
-				if (filterStatus) sp.set('review_status', filterStatus);
-				if (filterMyReview) sp.set('my_review', filterMyReview);
-				const qs = sp.toString();
-				return qs ? `/review?${qs}` : '/review';
-			})()}
+			<!-- The review queue gets the same filters, so it drains the slice shown here. -->
+			{@const reviewHref = `/review${filterContextQuery}`}
 			<Button
 				href={reviewHref}
 				variant="primary"
@@ -929,29 +816,8 @@
 					</ul>
 				</FilterGroup>
 
-				{#if auth.user?.role === 'admin' && machines.length > 0}
-					{@const activeMachine = filterMachine ? machines.find((m) => String(m.id) === filterMachine) : null}
-					<FilterGroup
-						title="Machine"
-						storageKey="machine"
-						active={!!filterMachine}
-						activeLabel={activeMachine?.name ?? (filterMachine ? 'Chosen' : null)}
-					>
-						<ul class="flex flex-col gap-px">
-							<FilterOption label="All" on={filterMachine === ''} onclick={() => updateMachineFilter('')} />
-							{#each machineGroups as group (group.ownerKey)}
-								{#if filterScope === 'all'}<li class="label px-2.5 pt-2 pb-1">{group.ownerLabel}</li>{/if}
-								{#each group.machines as machine (machine.id)}
-									<FilterOption
-										label={machine.name}
-										on={filterMachine === String(machine.id)}
-										onclick={() => updateMachineFilter(String(machine.id))}
-										title={machine.owner?.display_name ? `${machine.owner.display_name}, ${machine.name}` : machine.name}
-									/>
-								{/each}
-							{/each}
-						</ul>
-					</FilterGroup>
+				{#if machines.length > 1}
+					<MachineFilter {machines} selected={filterMachines} onchange={updateMachineFilter} />
 				{/if}
 
 				{#if filterOptions.source_roles.length > 0}
@@ -1005,61 +871,25 @@
 		</div>
 	</aside>
 
-	<div class="min-w-0 flex-1">
-		{#if loading}
-			<div class="flex justify-center p-8"><Spinner size={32} /></div>
-		{:else if !data || data.items.length === 0}
-			<Panel>
-				<EmptyState icon={Images} title={hasActiveFilters ? 'No samples match' : 'No samples to show'}>
-					{hasActiveFilters
-						? 'Nothing matches the filters.'
-						: 'Samples show here once the teacher has looked at them; the ones still waiting are under Annotation.'}
-					{#snippet action()}
-						{#if hasActiveFilters}<Button size="sm" onclick={clearFilters}>Clear the filters</Button>{/if}
-					{/snippet}
-				</EmptyState>
-			</Panel>
-		{:else}
-			<div class="grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
-				{#each data.items as sample (sample.id)}
-					<SampleCard {sample} href={`/samples/${sample.id}${filterContextQuery}`} />
-				{/each}
-			</div>
-
-			{#if data.pages > 1}
-				<div class="mt-(--gap-panels) flex flex-wrap items-center justify-between gap-x-3 gap-y-2 rounded-panel bg-surface px-(--pad-panel) py-2.5">
-					<div class="flex flex-wrap items-center gap-3">
-						<span class="num text-sm text-ink-muted"
-							>{(data.page - 1) * pageSize + 1} to {Math.min(data.page * pageSize, data.total)} of {data.total.toLocaleString()}</span
-						>
-						<Select
-							class="w-32"
-							size="sm"
-							label="Samples a page"
-							value={String(pageSize)}
-							onchange={(v: string) => changePageSize(Number(v))}
-							options={[10, 20, 30, 50, 100].map((n) => ({ value: String(n), label: `${n} a page` }))}
-						/>
-					</div>
-					<div class="flex flex-wrap items-center gap-2">
-						<Button size="sm" disabled={currentPage <= 1} onclick={() => goToPage(currentPage - 1)}>Previous</Button>
-						{#each Array.from({ length: data.pages }, (_, i) => i + 1) as p (p)}
-							{#if data.pages <= 7 || p === 1 || p === data.pages || (p >= currentPage - 1 && p <= currentPage + 1)}
-								<Button
-									size="sm"
-									variant={p === currentPage ? 'primary' : 'ghost'}
-									aria-current={p === currentPage ? 'page' : undefined}
-									onclick={() => goToPage(p)}>{p}</Button
-								>
-							{:else if p === 2 || p === data.pages - 1}
-								<span class="px-1 text-ink-muted">...</span>
-							{/if}
-						{/each}
-						<Button size="sm" disabled={currentPage >= data.pages} onclick={() => goToPage(currentPage + 1)}>Next</Button>
-					</div>
-				</div>
-			{/if}
-		{/if}
+	<div class="flex min-w-0 flex-1 flex-col gap-3">
+		<ReviewGrid
+			{queue}
+			gridClass="grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5"
+			emptyIcon={Images}
+			emptyTitle={hasActiveFilters ? 'No samples match' : 'No samples to show'}
+		>
+			{#snippet empty()}
+				{hasActiveFilters
+					? 'Nothing matches the filters.'
+					: 'Samples show here once the teacher has looked at them; the ones still waiting are under Annotation.'}
+			{/snippet}
+			{#snippet emptyAction()}
+				{#if hasActiveFilters}<Button size="sm" onclick={clearFilters}>Clear the filters</Button>{/if}
+			{/snippet}
+			{#snippet item(sample)}
+				<SampleCard {sample} href={`/samples/${sample.id}${filterContextQuery}`} />
+			{/snippet}
+		</ReviewGrid>
 	</div>
 </div>
 
@@ -1176,9 +1006,7 @@
 <Modal open={teacherModalOpen} title="Re-run the teacher" onclose={() => (teacherModalOpen = false)}>
 	<div class="flex flex-col gap-4 text-sm">
 		<p class="text-ink">
-			Run the teacher over <span class="num font-medium">{teacherEligibleCount ?? '...'}</span> sample{teacherEligibleCount === 1
-				? ''
-				: 's'} that match the filter. Samples from a source with no prompt are skipped.
+			Run the teacher over the samples that match the filter. Samples from a source with no prompt are skipped.
 		</p>
 		<ul class="list-disc pl-5 text-ink-muted">
 			<li>It replaces <code class="font-mono">detection_bboxes</code>, <code class="font-mono">detection_count</code> and <code class="font-mono">detection_score</code>.</li>

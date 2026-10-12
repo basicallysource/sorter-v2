@@ -133,6 +133,7 @@ def fleet(client: TestClient, db: Session, test_user: dict) -> dict:
     third = _user(db, "third@test.com")
     m1 = _machine(db, me.id, "mine-one")
     m2 = _machine(db, me.id, "mine-two")
+    m3 = _machine(db, me.id, "mine-three")
     foreign = _machine(db, other.id, "theirs")
 
     base = NOW - timedelta(hours=6)
@@ -193,11 +194,45 @@ def fleet(client: TestClient, db: Session, test_user: dict) -> dict:
     db.add(PieceRejection(machine_id=by["p09"], piece_uuid="p09", labeler_id=me.id, reasons=["no_piece"]))
     db.commit()
 
+    # A third machine of mine, interleaved in time with the others, labeled
+    # and unlabeled, with and without candidates: a machine filter that leaked
+    # in any sort, tier or page would show one of these.
+    for j in range(6):
+        arrival = base + timedelta(minutes=2 * j + 1)
+        puid = f"q{j:02d}"
+        _piece(
+            db,
+            m3,
+            puid,
+            arrival,
+            candidate=j % 2 == 0,
+            part_id=None if j % 3 == 0 else "3001",
+            color_id=["11", "5", "86"][j % 3],
+            color_confidence=None if j == 5 else round(0.2 + 0.05 * j, 3),
+        )
+        spec.append(
+            dict(
+                puid=puid,
+                machine=m3,
+                arrival=arrival,
+                candidate=j % 2 == 0,
+                part_id=None if j % 3 == 0 else "3001",
+                color_id=["11", "5", "86"][j % 3],
+                color_confidence=None if j == 5 else round(0.2 + 0.05 * j, 3),
+            )
+        )
+    db.add(PieceColorLabel(machine_id=m3, piece_uuid="q01", labeler_id=other.id, color_id=5))
+    db.add(PieceColorLabel(machine_id=m3, piece_uuid="q02", labeler_id=me.id, color_id=5))
+    db.add(PieceCropLink(machine_id=m3, piece_uuid="q03", labeler_id=other.id))
+    db.add(PiecePartLabel(machine_id=m3, piece_uuid="q03", labeler_id=other.id, part_num="3001"))
+    db.commit()
+
     labeling_queue.run_pass(db)
-    return {"spec": spec, "m1": m1, "m2": m2, "foreign": foreign, "me": me, "other": other}
+    return {"spec": spec, "m1": m1, "m2": m2, "m3": m3, "foreign": foreign, "me": me, "other": other}
 
 
 def _expected(db: Session, fleet: dict, sort: str, *, machine_id=None, with_candidates=False, rare=None) -> list[str]:
+    machines = None if machine_id is None else ({machine_id} if isinstance(machine_id, UUID) else set(machine_id))
     """The grid's order computed the slow, obvious way, for comparison."""
     me = fleet["me"]
     entries = {(e.machine_id, e.piece_uuid): e for e in db.query(LabelingQueueEntry)}
@@ -206,7 +241,7 @@ def _expected(db: Session, fleet: dict, sort: str, *, machine_id=None, with_cand
         key = (s["machine"], s["puid"])
         if s["puid"] == "p09":  # rejected by me
             continue
-        if machine_id is not None and s["machine"] != machine_id:
+        if machines is not None and s["machine"] not in machines:
             continue
         has_c = entries[key].has_candidates
         if with_candidates and not has_c:
@@ -254,17 +289,22 @@ def _expected(db: Session, fleet: dict, sort: str, *, machine_id=None, with_cand
     return [r["puid"] for r in rows]
 
 
-def _walk(client: TestClient, sort: str, limit: int, **params) -> list[str]:
+def _walk(client: TestClient, sort: str, limit: int, machines=None, **params) -> list[str]:
     seen: list[str] = []
     cursor = None
     for _ in range(100):
         query = {"sort": sort, "limit": limit, **params}
+        if machines is not None:
+            query["machine_id"] = [str(m) for m in machines]
         if cursor:
             query["cursor"] = cursor
         resp = client.get("/api/labeling/pieces", params=query)
         assert resp.status_code == 200, resp.text
         body = resp.json()
         assert len(body["items"]) <= limit
+        if machines is not None:
+            allowed = {str(m) for m in machines}
+            assert all(it["machine_id"] in allowed for it in body["items"]), body["items"]
         seen.extend(it["piece_uuid"] for it in body["items"])
         assert body["has_more"] == (body["next_cursor"] is not None)
         if not body["has_more"]:
@@ -352,11 +392,37 @@ def test_every_sort_pages_through_the_same_order(client, db, fleet, sort, limit)
     assert _walk(client, sort, limit) == _expected(db, fleet, sort)
 
 
-@pytest.mark.parametrize("sort", ["priority", "recent", "most_color", "needs_me"])
-def test_filters_with_paging(client, db, fleet, sort):
-    m2 = fleet["m2"]
-    assert _walk(client, sort, 3, machine_id=str(m2)) == _expected(db, fleet, sort, machine_id=m2)
-    assert _walk(client, sort, 3, with_candidates="true") == _expected(db, fleet, sort, with_candidates=True)
+@pytest.mark.parametrize("sort", SORTS + ["rare_color"])
+@pytest.mark.parametrize("which", ["one", "two"])
+@pytest.mark.parametrize("candidates", [False, True])
+def test_a_machine_filter_never_returns_another_machines_piece(client, db, fleet, monkeypatch, sort, which, candidates):
+    """Every sort, every tier of it, every page: one machine or several, with
+    and without the candidates filter, only the chosen machines' pieces."""
+    rare = {"5", "86"}
+    monkeypatch.setattr(labeling_router, "_rare_candidate_color_ids", lambda *a: rare)
+    machines = [fleet["m2"]] if which == "one" else [fleet["m1"], fleet["m3"]]
+    params = {"with_candidates": "true"} if candidates else {}
+    got = _walk(client, sort, 3, machines=machines, **params)
+    expected = _expected(db, fleet, sort, machine_id=machines, with_candidates=candidates, rare=rare)
+    assert got == expected
+    if which == "two":
+        assert got  # the fixture gives the two-machine case something in every sort
+
+
+def test_admin_machine_filter_keeps_out_the_rest_of_the_fleet(client, db, fleet):
+    me = _me(db)
+    me.role = "admin"
+    db.commit()
+    got = _walk(client, "recent", 4, machines=[fleet["m1"]])
+    assert "foreign" not in got and not any(p.startswith("q") for p in got)
+
+
+def test_counts_follow_the_machine_filter(client, db, fleet):
+    one = client.get("/api/labeling/stats", params={"machine_id": [str(fleet["m3"])]}).json()
+    assert one["total_labelable"] == 6
+    two = client.get("/api/labeling/stats", params={"machine_id": [str(fleet["m1"]), str(fleet["m3"])]}).json()
+    assert two["total_labelable"] == 9 + 6
+    assert two["color_labeled_pieces"] == 3  # p02 on mine-one; q01 and q02 on mine-three
 
 
 def test_rare_color_sort(client, db, fleet, monkeypatch):
@@ -410,7 +476,9 @@ def test_cards_use_a_direct_storage_url_when_there_is_one(client, db, fleet, mon
         def presigned_get_url(self, key):
             return f"https://store.example/{key}?sig=1"
 
-    monkeypatch.setattr(labeling_router, "get_backend", lambda: _Signing())
+    from app.services import review_queue
+
+    monkeypatch.setattr(review_queue, "get_backend", lambda: _Signing())
     item = client.get("/api/labeling/pieces", params={"sort": "recent", "limit": 1}).json()["items"][0]
     assert item["thumb_url"].startswith("https://store.example/") and item["piece_uuid"] in item["thumb_url"]
 
@@ -428,22 +496,22 @@ def test_a_bad_cursor_is_a_400(client, fleet):
 
 def test_labelable_count_is_a_sum_of_the_worker_counts(client, db, fleet):
     stats = client.get("/api/labeling/stats").json()
-    # The member's 18 pieces, rejected one included; not the foreign or young ones.
-    assert stats["total_labelable"] == 18
+    # The member's 24 pieces, rejected one included; not the foreign or young ones.
+    assert stats["total_labelable"] == 24
     one = client.get("/api/labeling/stats", params={"machine_id": str(fleet["m1"])}).json()
     assert one["total_labelable"] == 9
     # The count is the worker's: a new piece shows up after a pass, not before.
     _piece(db, fleet["m1"], "new", NOW - timedelta(hours=1), created_at=_now())
-    assert client.get("/api/labeling/stats").json()["total_labelable"] == 18
+    assert client.get("/api/labeling/stats").json()["total_labelable"] == 24
     labeling_queue.run_pass(db)
-    assert client.get("/api/labeling/stats").json()["total_labelable"] == 19
+    assert client.get("/api/labeling/stats").json()["total_labelable"] == 25
 
 
 def test_admin_count_covers_the_fleet(client, db, fleet):
     me = _me(db)
     me.role = "admin"
     db.commit()
-    assert client.get("/api/labeling/stats").json()["total_labelable"] == 19
+    assert client.get("/api/labeling/stats").json()["total_labelable"] == 25
 
 
 # --- Dashboard overview ----------------------------------------------------------------

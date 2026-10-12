@@ -1,6 +1,5 @@
 <script lang="ts">
 	import { sentence } from '$lib/text';
-	import { onMount } from 'svelte';
 	import { page } from '$app/state';
 	import { goto } from '$app/navigation';
 	import {
@@ -34,6 +33,8 @@
 	import Panel from '$lib/components/Panel.svelte';
 	import SegmentedControl from '$lib/components/SegmentedControl.svelte';
 	import CircleCheck from '@lucide/svelte/icons/circle-check';
+	import { readSampleFilters, reviewQueue } from '$lib/sampleListContext';
+	import { formatDateTime, relativeTime } from '$lib/time';
 	import { extractLegacyReviewBboxes, extractPrimaryBboxes, mergeUniqueBboxes, parseBboxCollection, proposalColor } from '$lib/components/sample/bbox-helpers';
 
 	type ReviewDecision = 'accept' | 'reject';
@@ -54,12 +55,6 @@
 	let showBboxOverlay = $state(true);
 	let imageNaturalWidth = $state(0);
 	let imageNaturalHeight = $state(0);
-	let reviewHistory = $state<string[]>([]);
-	// Session-local list of samples the reviewer pressed → on. Without
-	// this the backend's deterministic per-user order serves the same top
-	// candidate again and the queue gets stuck on a single sample. Reset
-	// when filters change so changing the slice gives a fresh queue.
-	let skippedIds = $state<string[]>([]);
 	let lastLoadedReviewKey = $state<string | null>(null);
 	let lastSampleId = $state<string | null>(null);
 	let reviewImageAsset = $state<ReviewImageAsset>('image');
@@ -181,8 +176,19 @@
 	// (see TeacherRerunButtons) — turned out faster than a dropdown + Run for the
 	// click-through review flow. Preferred-model still highlights the user's saved
 	// default so the eye lands there first.
-	onMount(() => {
-		void loadNext();
+	// The queue this page steps through: the samples list's filters from the
+	// URL (lib/sampleListContext), and with no review state chosen, the fresh
+	// work: samples I have not reviewed that still need reviews.
+	const filters = $derived(readSampleFilters(page.url.searchParams));
+	const queue = $derived(reviewQueue(filters));
+	const position = $derived(sample ? queue.indexOf(sample.id) : -1);
+
+	// A new filter is a new queue: start at its first sample.
+	$effect(() => {
+		const q = queue;
+		void q.start().then(() => {
+			if (q === queue) void showAt(q, 0);
+		});
 	});
 
 	function handleTeacherRerunResult(updated: SampleDetail) {
@@ -220,35 +226,14 @@
 		}
 	}
 
-	// Carry the samples-list sidebar filter through the review session so the queue only
-	// serves the slice the reviewer chose (e.g. "C-Channel 4, last 24h"). The params live
-	// in the URL — a refresh keeps the filter, navigating directly to /review without
-	// query string opens the full queue as before.
-	const queueFilters = $derived.by(() => {
-		const sp = page.url.searchParams;
-		const params: Record<string, string> = {};
-		for (const key of ['scope', 'machine_id', 'source_role', 'capture_reason', 'kind', 'review_status', 'my_review', 'max_age_hours']) {
-			const value = sp.get(key);
-			if (value) params[key] = value;
-		}
-		return params;
-	});
-	const activeFilterChips = $derived(Object.entries(queueFilters));
+	const activeFilterChips = $derived(
+		[
+			...Object.entries(filters).filter(([k, v]) => k !== 'machine_ids' && typeof v === 'string' && v),
+			...(filters.machine_ids.length > 0 ? [['machine', `${filters.machine_ids.length}`]] : [])
+		] as [string, string][]
+	);
 
-	// Re-slicing the queue invalidates the skip set — a sample I skipped
-	// inside "kind=regular" might be exactly what I want to see in
-	// "kind=condition". Compare by string so the effect only fires when
-	// the filter shape actually changes.
-	let lastQueueFiltersKey = $state<string | null>(null);
-	$effect(() => {
-		const key = JSON.stringify(queueFilters);
-		if (lastQueueFiltersKey !== null && key !== lastQueueFiltersKey) {
-			skippedIds = [];
-		}
-		lastQueueFiltersKey = key;
-	});
-
-	const currentKind = $derived(queueFilters.kind ?? '');
+	const currentKind = $derived(filters.kind ?? '');
 
 	function setKind(next: '' | 'regular' | 'condition') {
 		const url = new URL(page.url);
@@ -261,42 +246,39 @@
 		});
 	}
 
-	async function loadNext() {
-		loading = true;
-		error = null;
-		feedback = null;
-		try {
-			const next = await api.getNextReview(queueFilters, skippedIds);
-			if (!next) {
-				sample = null;
-				reviews = [];
-				currentDecision = null;
-				annotateMode = false;
-				empty = true;
-				return;
-			}
-			annotateMode = false;
-			await loadSample(next.id);
-		} catch (e) {
+	// Show the queue's i-th sample, loading the next page when it is past the
+	// end of what is loaded; the empty state at the end of the queue.
+	async function showAt(q: typeof queue, i: number) {
+		while (i >= q.items.length && q.hasMore) {
+			if (!(await q.loadMore()) && (q.error || !q.hasMore)) break;
+		}
+		if (q !== queue) return; // the filters changed meanwhile
+		const target = q.items[i];
+		annotateMode = false;
+		if (!target) {
 			sample = null;
 			reviews = [];
+			currentDecision = null;
 			empty = true;
-			error = (e as { error?: string }).error || 'Failed to load review queue.';
-		} finally {
+			error = q.error;
 			loading = false;
+			return;
 		}
+		await loadSample(target.id);
 	}
 
+	// Back to the sample before this one in the queue.
 	async function goBack() {
-		if (reviewHistory.length === 0 || submitting || loading) return;
+		if (!sample || submitting || loading || position <= 0) return;
 		const classificationOk = await savePendingClassificationIfNeeded();
 		if (!classificationOk) return;
 		const annotationsOk = await savePendingAnnotationsIfNeeded();
 		if (!annotationsOk) return;
-		const previousId = reviewHistory[reviewHistory.length - 1];
-		reviewHistory = reviewHistory.slice(0, -1);
-		annotateMode = false;
-		await loadSample(previousId);
+		await showAt(queue, position - 1);
+	}
+
+	async function goNext() {
+		await showAt(queue, position + 1);
 	}
 
 	async function savePendingClassificationIfNeeded() {
@@ -330,26 +312,13 @@
 
 		submitting = true;
 		try {
-			const submittedId = sample.id;
-			const review = await api.submitReview(submittedId, decision);
-			// In override mode (?review_status=conflict, ?my_review=...) the backend
-			// drops the "already reviewed" gate, so without this push the same sample
-			// would come back top-of-queue after the vote (md5 order is deterministic
-			// per viewer) and arrow keys would feel like a no-op. In default mode the
-			// backend already excludes own reviews — pushing here is redundant but
-			// harmless and keeps the two paths symmetrical.
-			if (!skippedIds.includes(submittedId)) {
-				skippedIds = [...skippedIds, submittedId];
-			}
-			if (reviewHistory[reviewHistory.length - 1] !== submittedId) {
-				reviewHistory = [...reviewHistory, submittedId];
-			}
+			const review = await api.submitReview(sample.id, decision);
 			currentDecision = review.decision;
 			feedback =
 				review.decision === 'accept'
 					? 'Accepted. Loading the next sample...'
 					: 'Rejected. Loading the next sample...';
-			await loadNext();
+			await goNext();
 		} catch (e) {
 			error = (e as { error?: string }).error || 'Failed to submit review.';
 		} finally {
@@ -363,17 +332,7 @@
 		if (!classificationOk) return;
 		const annotationsOk = await savePendingAnnotationsIfNeeded();
 		if (!annotationsOk) return;
-		// Record the skip so the backend doesn't immediately hand it back
-		// (its order is md5-deterministic per viewer), and so ← lets the
-		// reviewer return to the skipped sample if they change their mind.
-		if (sample) {
-			const id = sample.id;
-			if (!skippedIds.includes(id)) skippedIds = [...skippedIds, id];
-			if (reviewHistory[reviewHistory.length - 1] !== id) {
-				reviewHistory = [...reviewHistory, id];
-			}
-		}
-		await loadNext();
+		await goNext();
 	}
 
 	function handleClassificationSaved(payload: SampleClassificationPayload | null) {
@@ -593,7 +552,10 @@
 					<KeyValue
 						items={[
 							{ label: 'Sample', value: shortId(sample.local_sample_id), mono: true },
-							{ label: 'Captured', value: formatDate(sample.captured_at) },
+							{
+								label: 'Captured',
+								value: sample.captured_at ? `${formatDateTime(sample.captured_at)} (${relativeTime(sample.captured_at)})` : '-'
+							},
 							{ label: 'Uploaded', value: formatDate(sample.uploaded_at) },
 							...(sample.capture_reason ? [{ label: 'Reason', value: sample.capture_reason, mono: true }] : []),
 							...(camera ? [{ label: 'Camera', value: camera }] : []),
@@ -639,7 +601,7 @@
 				{annotateMode}
 				{loading}
 				{submitting}
-				reviewHistoryLength={reviewHistory.length}
+				reviewHistoryLength={Math.max(0, position)}
 				onToggleAnnotate={toggleAnnotateMode}
 				onExitAnnotate={() => (annotateMode = false)}
 				onAccept={() => void submitReview('accept')}

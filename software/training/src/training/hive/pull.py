@@ -67,25 +67,24 @@ def _iter_samples(
     source_role: str,
     review_status: str | None,
 ):
-    page = 1
+    # Keyset paging: each response names the cursor for the page after it.
+    cursor: str | None = None
     while True:
         params: dict[str, Any] = {
-            "page": page,
-            "page_size": _PAGE_SIZE,
+            "limit": _PAGE_SIZE,
             "source_role": source_role,
         }
         if review_status:
             params["review_status"] = review_status
+        if cursor:
+            params["cursor"] = cursor
         resp = _request(session, f"{hive_url}/api/samples", params=params)
         payload = resp.json()
-        items = payload.get("items") or []
-        if not items:
-            return
-        for item in items:
+        for item in payload.get("items") or []:
             yield item
-        if page >= int(payload.get("pages") or 1):
+        cursor = payload.get("next_cursor")
+        if not cursor:
             return
-        page += 1
 
 
 def _download_asset(

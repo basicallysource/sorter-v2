@@ -1,4 +1,3 @@
-import math
 from datetime import datetime, timezone
 from uuid import UUID
 
@@ -26,6 +25,7 @@ from app.schemas.sample import (
     BatchDeleteSamplesResponse,
     SampleDetailResponse,
     SampleListResponse,
+    SamplePageResponse,
     SampleResponse,
     SampleAnnotationsPayload,
     SampleClassificationPayload,
@@ -35,6 +35,8 @@ from app.schemas.sample import (
     SaveSampleClassificationResponse,
 )
 from app.services.access_window import apply_sample_access, sample_access_visible
+from app.services.review_queue import sample_counts, sample_page, thumb_url, visible_samples
+from app.services.sample_filters import SampleFilters, apply_sample_filters, attach_my_reviews
 from app.services.channel_crop_render import render_channel_crop
 from app.services.storage import delete_sample_files, serve_stored_file
 from app.services.storage_backend import get_backend
@@ -62,197 +64,6 @@ def _normalized_optional_string(value: str | None) -> str | None:
         return None
     normalized = value.strip()
     return normalized or None
-
-
-def _visible_sample_query(
-    db: Session,
-    current_user: User,
-    scope: str | None,
-    *,
-    include_archived: bool = False,
-):
-    """Read-side query.
-
-    Default scope is 'all' — samples are public to any logged-in user. ``scope='mine'``
-    restricts to the caller's machines.
-
-    Always hides samples whose machine is archived. Archived rigs (old hardware,
-    decommissioned setups) shouldn't show up in browse/diversity/training pulls; their
-    samples stay in the DB so an admin can un-archive without data loss.
-
-    Per-sample archive flag (``Sample.archived_at``) is also filtered out by default.
-    Admins can opt in to seeing them with ``include_archived=True`` so they have a
-    surface to un-archive from.
-    """
-    query = db.query(Sample).filter(Sample.machine.has(Machine.archived_at.is_(None)))
-    if not include_archived:
-        query = query.filter(Sample.archived_at.is_(None))
-    if scope == "mine":
-        query = query.filter(Sample.machine.has(owner_id=current_user.id))
-    # Access rule: members only ever see their own machines' samples (regardless
-    # of scope=all); reviewers and admins see everything. Prevents a random
-    # registrant from enumerating the whole corpus.
-    query = apply_sample_access(db, query, current_user)
-    return query
-
-
-# Capture reasons that mark a sample as a piece-condition crop (collected by
-# the sorter's condition_collector or the archived condition_teacher). Kept as
-# a single source of truth so the kind filter on /samples and the queue filter
-# on /review can't drift.
-CONDITION_CAPTURE_REASONS: tuple[str, ...] = (
-    "piece_condition_collector",
-    "piece_condition_teacher",
-)
-
-
-def apply_kind_filter(query, kind: str | None):
-    """Filter a Sample query down to 'regular' or 'condition' samples.
-
-    `kind=condition` keeps only condition-collector / condition-teacher rows.
-    `kind=regular` keeps everything *but* those. Anything else (None / 'all')
-    is a no-op so the filter is safe to call unconditionally.
-    """
-
-    if kind == "condition":
-        return query.filter(Sample.capture_reason.in_(CONDITION_CAPTURE_REASONS))
-    if kind == "regular":
-        return query.filter(
-            (Sample.capture_reason.is_(None))
-            | (Sample.capture_reason.notin_(CONDITION_CAPTURE_REASONS))
-        )
-    return query
-
-
-def apply_exposure_filter(query, exposure: str | None):
-    """Filter to a single exposure bucket — underexposed / good / overexposed.
-
-    Thresholds mirror ``ExposureStats.classify`` so the server-side filter
-    and the per-sample badge stay in sync.
-
-    Values (exclusive):
-      - 'under'  → only samples we *know* are underexposed (lights off)
-      - 'over'   → only samples we *know* are overexposed (saturation)
-      - 'normal' → samples we know are good-light, PLUS rows that don't have
-                   stats yet (un-backfilled). The benefit-of-the-doubt makes
-                   'normal' a safe default during/after migration windows.
-      - None / unknown → no filter (operator opts out entirely)
-    """
-
-    if exposure not in {"under", "normal", "over"}:
-        return query
-    from app.services.image_stats import (
-        OVEREXPOSED_CLIPPED_HIGH,
-        OVEREXPOSED_MEAN_MIN,
-        UNDEREXPOSED_CLIPPED_LOW,
-        UNDEREXPOSED_MEAN_MAX,
-    )
-
-    is_under = (Sample.luminance_mean <= UNDEREXPOSED_MEAN_MAX) | (
-        Sample.clipped_low_ratio >= UNDEREXPOSED_CLIPPED_LOW
-    )
-    is_over = (Sample.luminance_mean >= OVEREXPOSED_MEAN_MIN) | (
-        Sample.clipped_high_ratio >= OVEREXPOSED_CLIPPED_HIGH
-    )
-
-    if exposure == "under":
-        return query.filter(is_under)
-    if exposure == "over":
-        return query.filter(is_over)
-    # 'normal' = neither under nor over, OR no stats yet (assume normal so
-    # un-backfilled rows aren't silently hidden during the backfill window).
-    return query.filter(Sample.luminance_mean.is_(None) | (~is_under & ~is_over))
-
-
-def apply_annotated_filter(query, annotated: str | None):
-    """Filter by whether the Hive teacher (Gemini/Perceptron) has already
-    re-run on the sample.
-
-    The signal is ``extra_metadata.teacher_rerun`` — that key is set only
-    by ``apply_teacher_result_to_sample`` after a successful teacher pass.
-    Raw sorter-side detections (the boxes that arrive with the upload)
-    are often incomplete or off, so reviewers usually want to wait until
-    a teacher has validated them.
-
-    Values:
-      - 'teacher' — has a teacher_rerun audit entry (training-ready)
-      - 'raw'     — no teacher_rerun yet (likely still needs a pass)
-      - anything else / None — no filter
-    """
-
-    if annotated not in {"teacher", "raw"}:
-        return query
-    # `col["teacher_rerun"] IS NOT NULL` is the portable key-exists check: it
-    # renders `->` on Postgres JSONB and `json_extract` on SQLite. (The raw JSONB
-    # `?` operator would be tighter but collides with the SQLite bind-parameter
-    # placeholder, breaking the test dialect.) teacher_rerun's value is always a
-    # non-null audit dict, so key-exists and value-not-null coincide here.
-    has_teacher = Sample.extra_metadata["teacher_rerun"].isnot(None)
-    if annotated == "teacher":
-        return query.filter(has_teacher)
-    return query.filter(~has_teacher | Sample.extra_metadata.is_(None))
-
-
-def apply_my_review_filter(query, my_review: str | None, viewer_id):
-    """Filter samples by the viewer's own review decision.
-
-    Values:
-      - 'unreviewed' — viewer hasn't reviewed yet
-      - 'reviewed'   — viewer reviewed (either decision)
-      - 'accepted'   — viewer accepted
-      - 'rejected'   — viewer rejected
-      - anything else / None — no filter
-
-    Uses a subquery against sample_reviews so the existing
-    (sample_id, reviewer_id) unique index does the work.
-    """
-
-    if my_review not in {"unreviewed", "reviewed", "accepted", "rejected"}:
-        return query
-
-    from sqlalchemy import select as sa_select
-    from app.models.sample_review import SampleReview
-
-    base = sa_select(SampleReview.sample_id).where(
-        SampleReview.reviewer_id == viewer_id
-    )
-    if my_review == "accepted":
-        ids = base.where(SampleReview.decision == "accept")
-    elif my_review == "rejected":
-        ids = base.where(SampleReview.decision == "reject")
-    else:
-        ids = base  # reviewed or unreviewed both key off the existence subquery
-
-    if my_review == "unreviewed":
-        return query.filter(Sample.id.notin_(ids))
-    return query.filter(Sample.id.in_(ids))
-
-
-def attach_my_reviews(items: list, db: Session, viewer_id) -> None:
-    """Populate ``my_review_decision`` on each Sample row via one batch lookup.
-
-    Mutates the ORM instances in place so the from-attributes pydantic
-    validation picks the value up without a second pass.
-    """
-
-    if not items or viewer_id is None:
-        for sample in items:
-            sample.my_review_decision = None
-        return
-    from app.models.sample_review import SampleReview
-
-    sample_ids = [s.id for s in items]
-    rows = (
-        db.query(SampleReview.sample_id, SampleReview.decision)
-        .filter(
-            SampleReview.reviewer_id == viewer_id,
-            SampleReview.sample_id.in_(sample_ids),
-        )
-        .all()
-    )
-    by_id = {sample_id: decision for sample_id, decision in rows}
-    for sample in items:
-        sample.my_review_decision = by_id.get(sample.id)
 
 
 def _get_sample_for_read(db: Session, sample_id: UUID) -> Sample:
@@ -289,43 +100,16 @@ def get_sample_filter_options(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_api_key_scopes(API_KEY_SCOPE_SAMPLES_READ)),
 ):
-    query = _visible_sample_query(db, current_user, scope)
-    source_roles = [
-        value
-        for (value,) in (
-            query.with_entities(Sample.source_role)
-            .filter(Sample.source_role.isnot(None))
-            .distinct()
-            .order_by(Sample.source_role.asc())
-            .all()
-        )
-        if isinstance(value, str) and value
-    ]
-    source_role_counts = {
-        value: int(count or 0)
-        for value, count in (
-            query.with_entities(Sample.source_role, func.count(Sample.id))
-            .filter(Sample.source_role.isnot(None))
-            .group_by(Sample.source_role)
-            .all()
-        )
-        if isinstance(value, str) and value
-    }
-    capture_reasons = [
-        value
-        for (value,) in (
-            query.with_entities(Sample.capture_reason)
-            .filter(Sample.capture_reason.isnot(None))
-            .distinct()
-            .order_by(Sample.capture_reason.asc())
-            .all()
-        )
-        if isinstance(value, str) and value
-    ]
+    """The sources and capture reasons the filters offer, with counts: summed
+    from the per-machine counts the stats worker keeps (hourly), not counted
+    over the samples table on every page load."""
+    counts = sample_counts(db, current_user, mine_only=scope == "mine", machine_ids=None)
+    sources = counts["source_role_counts"]
+    reasons = counts["capture_reason_counts"]
     return {
-        "source_roles": source_roles,
-        "source_role_counts": source_role_counts,
-        "capture_reasons": capture_reasons,
+        "source_roles": sorted(sources),
+        "source_role_counts": sources,
+        "capture_reasons": sorted(reasons),
     }
 
 
@@ -504,7 +288,7 @@ def get_sample_diversity(
     bucketed reason that comes from a single rig still scores below 1.0. The frontend renders
     each donut filling toward target with the machine factor surfaced separately.
     """
-    base = _visible_sample_query(db, current_user, scope).filter(Sample.capture_reason.isnot(None))
+    base = visible_samples(db, current_user, mine_only=scope == "mine").filter(Sample.capture_reason.isnot(None))
     if capture_reason:
         base = base.filter(Sample.capture_reason == capture_reason)
 
@@ -709,11 +493,11 @@ def get_sample_diversity(
     }
 
 
-@router.get("", response_model=SampleListResponse)
+@router.get("", response_model=SamplePageResponse)
 def list_samples(
-    page: int = Query(1, ge=1),
-    page_size: int = Query(36, ge=1, le=100),
-    machine_id: UUID | None = None,
+    cursor: str | None = None,
+    limit: int = Query(36, ge=1, le=100),
+    machine_id: list[UUID] | None = Query(None),
     upload_session_id: UUID | None = None,
     source_role: str | None = None,
     capture_reason: str | None = None,
@@ -725,57 +509,47 @@ def list_samples(
     archived: str | None = Query(None, pattern="^(active|archived|all)$"),
     max_age_hours: int | None = Query(None, ge=1, le=24 * 365),
     scope: str | None = Query(None, pattern="^(mine|all)$"),
+    needs_review: bool = False,
     db: Session = Depends(get_db),
     current_user: User = Depends(require_api_key_scopes(API_KEY_SCOPE_SAMPLES_READ)),
 ):
+    """One page of the samples the filters show, newest first, keyset-paged
+    (pass next_cursor back as cursor). machine_id may be given several times.
+    needs_review keeps the review queue's fresh work: samples the caller has
+    not reviewed that still need reviews to reach consensus.
+
+    Unless asked otherwise this shows teacher-validated samples in good light:
+    raw sorter boxes are usually incomplete, and under- or overexposed frames
+    are rarely worth reviewing (annotated=all and exposure=under|over opt in)."""
     # `archived` is admin-only — members never see archived samples regardless
     # of what they pass. Default ('active' or unset) hides them.
     is_admin = current_user.role == "admin"
-    include_archived = is_admin and archived in ("archived", "all")
-    only_archived = is_admin and archived == "archived"
-
-    query = _visible_sample_query(db, current_user, scope, include_archived=include_archived)
-    if only_archived:
-        query = query.filter(Sample.archived_at.isnot(None))
-    query = apply_kind_filter(query, kind)
-    query = apply_my_review_filter(query, my_review, current_user.id)
-    # Default-hide raw samples — reviewers shouldn't waste time on boxes
-    # the teacher hasn't validated yet. Explicit ?annotated=all opts back
-    # in to seeing everything.
-    query = apply_annotated_filter(query, annotated or "teacher")
-    # Default to the 'normal' (good light) bucket — under/over frames are
-    # rarely worth reviewing. Operator can opt into either of the bad
-    # buckets explicitly to find + bulk-archive them.
-    query = apply_exposure_filter(query, exposure or "normal")
-
-    if machine_id:
-        query = query.filter(Sample.machine_id == machine_id)
-    if upload_session_id:
-        query = query.filter(Sample.upload_session_id == upload_session_id)
-    if source_role:
-        query = query.filter(Sample.source_role == source_role)
-    if capture_reason:
-        query = query.filter(Sample.capture_reason == capture_reason)
-    if review_status:
-        query = query.filter(Sample.review_status == review_status)
-    if max_age_hours is not None:
-        from datetime import timedelta
-        cutoff = datetime.now(timezone.utc) - timedelta(hours=max_age_hours)
-        query = query.filter(Sample.uploaded_at >= cutoff)
-
-    query = query.order_by(Sample.uploaded_at.desc())
-
-    total = query.count()
-    pages = math.ceil(total / page_size) if total > 0 else 1
-    items = query.offset((page - 1) * page_size).limit(page_size).all()
+    base = visible_samples(
+        db, current_user, mine_only=scope == "mine", include_archived=is_admin and archived in ("archived", "all")
+    )
+    if is_admin and archived == "archived":
+        base = base.filter(Sample.archived_at.isnot(None))
+    filters = SampleFilters(
+        machine_ids=tuple(machine_id) if machine_id else None,
+        upload_session_id=upload_session_id,
+        source_role=source_role,
+        capture_reason=capture_reason,
+        review_status=review_status,
+        kind=kind,
+        my_review=my_review,
+        annotated=annotated or "teacher",
+        exposure=exposure or "normal",
+        max_age_hours=max_age_hours,
+        needs_review=needs_review,
+    )
+    items, next_cursor = sample_page(db, base, filters, current_user, limit=limit, cursor=cursor)
     attach_my_reviews(items, db, current_user.id)
-
-    return SampleListResponse(
+    for sample in items:
+        sample.thumb_url = thumb_url(sample.image_path)
+    return SamplePageResponse(
         items=[SampleResponse.model_validate(s) for s in items],
-        total=total,
-        page=page,
-        page_size=page_size,
-        pages=pages,
+        next_cursor=next_cursor,
+        has_more=next_cursor is not None,
     )
 
 
@@ -939,36 +713,6 @@ def save_sample_classification(
     )
 
 
-def _apply_archive_filters(query, payload: BatchArchiveSamplesRequest, viewer_id):
-    """Shared filter assembly for archive + unarchive endpoints.
-
-    Mirrors the /api/samples list filters 1:1 — anything the operator sees
-    on the page must be what the destructive action operates on.
-    """
-
-    query = apply_kind_filter(query, payload.kind)
-    query = apply_my_review_filter(query, payload.my_review, viewer_id)
-    query = apply_annotated_filter(query, payload.annotated)
-    query = apply_exposure_filter(query, payload.exposure)
-    if payload.machine_id:
-        try:
-            machine_uuid = UUID(payload.machine_id)
-        except ValueError:
-            raise APIError(400, "machine_id must be a UUID", "INVALID_MACHINE_ID")
-        query = query.filter(Sample.machine_id == machine_uuid)
-    if payload.source_role:
-        query = query.filter(Sample.source_role == payload.source_role)
-    if payload.capture_reason:
-        query = query.filter(Sample.capture_reason == payload.capture_reason)
-    if payload.review_status:
-        query = query.filter(Sample.review_status == payload.review_status)
-    if payload.max_age_hours is not None:
-        from datetime import timedelta
-        cutoff = datetime.now(timezone.utc) - timedelta(hours=payload.max_age_hours)
-        query = query.filter(Sample.uploaded_at >= cutoff)
-    return query
-
-
 @router.post("/batch-archive", response_model=BatchArchiveSamplesResponse)
 def batch_archive_samples(
     payload: BatchArchiveSamplesRequest,
@@ -989,7 +733,7 @@ def batch_archive_samples(
         .filter(Sample.machine.has(Machine.archived_at.is_(None)))
         .filter(Sample.archived_at.is_(None))
     )
-    query = _apply_archive_filters(query, payload, admin.id)
+    query = apply_sample_filters(query, payload.to_filters(), admin.id)
 
     matched = query.count()
 
@@ -1037,7 +781,7 @@ def batch_unarchive_samples(
         .filter(Sample.machine.has(Machine.archived_at.is_(None)))
         .filter(Sample.archived_at.isnot(None))
     )
-    query = _apply_archive_filters(query, payload, admin.id)
+    query = apply_sample_filters(query, payload.to_filters(), admin.id)
 
     matched = query.count()
 
@@ -1087,28 +831,9 @@ def batch_delete_samples(
 
     query = db.query(Sample).filter(Sample.machine.has(owner_id=current_user.id))
 
-    # Mirror the /api/samples list filters 1:1 — anything the operator sees
-    # on the page must be what the destructive action operates on.
-    query = apply_kind_filter(query, payload.kind)
-    query = apply_my_review_filter(query, payload.my_review, current_user.id)
-    query = apply_annotated_filter(query, payload.annotated)
-    query = apply_exposure_filter(query, payload.exposure)
-    if payload.machine_id:
-        try:
-            machine_uuid = UUID(payload.machine_id)
-        except ValueError:
-            raise APIError(400, "machine_id must be a UUID", "INVALID_MACHINE_ID")
-        query = query.filter(Sample.machine_id == machine_uuid)
-    if payload.source_role:
-        query = query.filter(Sample.source_role == payload.source_role)
-    if payload.capture_reason:
-        query = query.filter(Sample.capture_reason == payload.capture_reason)
-    if payload.review_status:
-        query = query.filter(Sample.review_status == payload.review_status)
-    if payload.max_age_hours is not None:
-        from datetime import timedelta
-        cutoff = datetime.now(timezone.utc) - timedelta(hours=payload.max_age_hours)
-        query = query.filter(Sample.uploaded_at >= cutoff)
+    # The same filters as the list, through the same function: what the
+    # operator sees on the page is what the destructive action operates on.
+    query = apply_sample_filters(query, payload.to_filters(), current_user.id)
 
     matched = query.count()
 

@@ -220,8 +220,8 @@ def _build_payload_from_meta(meta: UploadMetadata, extra_metadata: dict) -> dict
 
 def _upload_optional_file(
     *,
-    machine: Machine,
-    session: UploadSession,
+    machine_id: str,
+    session_id: str,
     sample_id: str,
     file: UploadFile | None,
     suffix: str,
@@ -229,7 +229,7 @@ def _upload_optional_file(
     if file is None or not file.filename:
         return None, None
     ext = validate_image(file)
-    stored_path = save_upload_file(str(machine.id), str(session.id), sample_id, file, f"{suffix}{ext}")
+    stored_path = save_upload_file(machine_id, session_id, sample_id, file, f"{suffix}{ext}")
     return stored_path, file.content_type or None
 
 
@@ -348,23 +348,22 @@ def upload_sample(
     # across the uploads below.
     if session is None:
         session = _get_or_create_upload_session(db, machine, meta)
+    machine_id, session_id = str(machine.id), str(session.id)
     db.commit()
 
-    image_path = save_upload_file(
-        str(machine.id), str(session.id), meta.local_sample_id, image, ext
-    )
+    image_path = save_upload_file(machine_id, session_id, meta.local_sample_id, image, ext)
     image_content_type = image.content_type or None
 
     full_frame_path, full_frame_content_type = _upload_optional_file(
-        machine=machine,
-        session=session,
+        machine_id=machine_id,
+        session_id=session_id,
         sample_id=meta.local_sample_id,
         file=full_frame,
         suffix="_full",
     )
     overlay_path, overlay_content_type = _upload_optional_file(
-        machine=machine,
-        session=session,
+        machine_id=machine_id,
+        session_id=session_id,
         sample_id=meta.local_sample_id,
         file=overlay,
         suffix="_overlay",
@@ -473,40 +472,53 @@ def patch_sample(
     full_frame_path = sample.full_frame_path
     overlay_path = sample.overlay_path
 
-    image_content_type = None
-    if image and image.filename:
-        ext = validate_image(image)
+    # Every file is checked before anything is written, and the files are
+    # written with no transaction open, so no connection or row waits on the
+    # storage. The commit keeps the upload session if this request made it.
+    new_image = image is not None and bool(image.filename)
+    image_ext = validate_image(image) if new_image else None
+    for optional_file in (full_frame, overlay):
+        if optional_file is not None and optional_file.filename:
+            validate_image(optional_file)
+    new_hash = new_exposure = None
+    if new_image:
         image.file.seek(0)
         new_image_bytes = image.file.read()
         image.file.seek(0)
-        sample.phash = compute_phash_bytes(new_image_bytes)
+        new_hash = compute_phash_bytes(new_image_bytes)
         new_exposure = compute_exposure_stats_bytes(new_image_bytes)
+    machine_id, session_id = str(machine.id), str(session.id)
+    db.commit()
+
+    image_content_type = None
+    if new_image:
+        image_path = save_upload_file(machine_id, session_id, local_sample_id, image, image_ext)
+        image_content_type = image.content_type or None
+    uploaded_full_frame_path, full_frame_content_type = _upload_optional_file(
+        machine_id=machine_id,
+        session_id=session_id,
+        sample_id=local_sample_id,
+        file=full_frame,
+        suffix="_full",
+    )
+    uploaded_overlay_path, overlay_content_type = _upload_optional_file(
+        machine_id=machine_id,
+        session_id=session_id,
+        sample_id=local_sample_id,
+        file=overlay,
+        suffix="_overlay",
+    )
+
+    if new_image:
+        sample.phash = new_hash
         if new_exposure is not None:
             sample.luminance_mean = new_exposure.luminance_mean
             sample.luminance_p05 = new_exposure.luminance_p05
             sample.luminance_p95 = new_exposure.luminance_p95
             sample.clipped_low_ratio = new_exposure.clipped_low_ratio
             sample.clipped_high_ratio = new_exposure.clipped_high_ratio
-        image_path = save_upload_file(str(machine.id), str(session.id), local_sample_id, image, ext)
-        image_content_type = image.content_type or None
-
-    uploaded_full_frame_path, full_frame_content_type = _upload_optional_file(
-        machine=machine,
-        session=session,
-        sample_id=local_sample_id,
-        file=full_frame,
-        suffix="_full",
-    )
     if uploaded_full_frame_path:
         full_frame_path = uploaded_full_frame_path
-
-    uploaded_overlay_path, overlay_content_type = _upload_optional_file(
-        machine=machine,
-        session=session,
-        sample_id=local_sample_id,
-        file=overlay,
-        suffix="_overlay",
-    )
     if uploaded_overlay_path:
         overlay_path = uploaded_overlay_path
 
@@ -538,8 +550,9 @@ def patch_sample(
         },
     )
     db.add(sample)
-    session.last_upload_at = datetime.now(timezone.utc)
-    machine.last_seen_at = datetime.now(timezone.utc)
+    now = datetime.now(timezone.utc)
+    session.last_upload_at = now
+    mark_machine_seen(machine, now)
 
     db.commit()
     db.refresh(sample)

@@ -129,6 +129,15 @@ def _ts(value: float | int | None) -> datetime | None:
     return datetime.fromtimestamp(f, tz=timezone.utc)
 
 
+def _end_read_before_storage(db: Session) -> None:
+    """End the transaction the machine-token lookup began, so no connection
+    sits idle in it while a file travels to storage (a round trip to the
+    object store, or a large segment). The writes that follow make a short
+    transaction of their own. A commit, not a rollback: a rollback expires
+    the machine loaded with the token, and reading it again is a query."""
+    db.commit()
+
+
 def _insert(db: Session):
     return pg_insert if db.bind.dialect.name == "postgresql" else sqlite_insert
 
@@ -257,19 +266,24 @@ def _replace_rejection_reasons(
 
 
 def _advance_watermark(db: Session, machine_id: UUID, data_type: str, new_max: int) -> int:
-    row = (
-        db.query(MachineSyncState)
-        .filter(MachineSyncState.machine_id == machine_id, MachineSyncState.data_type == data_type)
-        .first()
+    """Raise the (machine, data type) watermark to new_max if that is higher,
+    and return it: one statement, where reading the row and writing it back
+    took two."""
+    table = MachineSyncState.__table__
+    stmt = _insert(db)(table).values(
+        machine_id=machine_id, data_type=data_type, max_local_id=new_max, updated_at=_now()
     )
-    if row is None:
-        row = MachineSyncState(machine_id=machine_id, data_type=data_type, max_local_id=new_max, updated_at=_now())
-        db.add(row)
-    else:
-        if new_max > row.max_local_id:
-            row.max_local_id = new_max
-        row.updated_at = _now()
-    return row.max_local_id
+    stmt = stmt.on_conflict_do_update(
+        index_elements=["machine_id", "data_type"],
+        set_={
+            "max_local_id": case(
+                (stmt.excluded.max_local_id > table.c.max_local_id, stmt.excluded.max_local_id),
+                else_=table.c.max_local_id,
+            ),
+            "updated_at": stmt.excluded.updated_at,
+        },
+    ).returning(table.c.max_local_id)
+    return int(db.execute(stmt).scalar_one())
 
 
 class PieceRecordIn(BaseModel):
@@ -680,9 +694,10 @@ def sync_piece_image(
     # machine's software version sends, but ack with an advanced watermark so an
     # un-updated sorter drains past them instead of retrying forever.
     key = meta.sync_seq if meta.sync_seq is not None else meta.local_id
+    machine_id = machine.id
     if meta.source == "link_match":
-        new_max = _advance_watermark(db, machine.id, DATA_TYPE_PIECE_IMAGES, key)
-        machine.last_seen_at = _now()
+        new_max = _advance_watermark(db, machine_id, DATA_TYPE_PIECE_IMAGES, key)
+        mark_machine_seen(machine, _now())
         db.commit()
         return {"max_local_id": new_max, "image_stored": False, "rejected_source": "link_match"}
 
@@ -690,12 +705,13 @@ def sync_piece_image(
     evicted_locally = image is None
     if image is not None:
         suffix = validate_image(image)
-        image_key = save_piece_image_file(str(machine.id), meta.piece_uuid, meta.seq, meta.source, image, suffix)
+        _end_read_before_storage(db)
+        image_key = save_piece_image_file(str(machine_id), meta.piece_uuid, meta.seq, meta.source, image, suffix)
 
     now = _now()
     row = {
         "id": uuid4(),
-        "machine_id": machine.id,
+        "machine_id": machine_id,
         "piece_uuid": meta.piece_uuid,
         "seq": meta.seq,
         "local_id": meta.local_id,
@@ -715,8 +731,8 @@ def sync_piece_image(
     # Metadata-only re-sends must not wipe a previously stored image_key.
     update_cols = _IMAGE_UPDATE_COLS if image is not None else tuple(c for c in _IMAGE_UPDATE_COLS if c != "image_key")
     _upsert(db, MachinePieceImage, [row], ["machine_id", "piece_uuid", "seq"], update_cols)
-    new_max = _advance_watermark(db, machine.id, DATA_TYPE_PIECE_IMAGES, key)
-    machine.last_seen_at = now
+    new_max = _advance_watermark(db, machine_id, DATA_TYPE_PIECE_IMAGES, key)
+    mark_machine_seen(machine, now)
     db.commit()
     return {"max_local_id": new_max, "image_stored": image is not None}
 
@@ -735,17 +751,19 @@ def sync_channel_crop(
     except (json.JSONDecodeError, ValueError) as exc:
         raise APIError(400, f"Invalid metadata: {exc}", "INVALID_METADATA") from exc
 
+    machine_id = machine.id
     image_key: str | None = None
     evicted_locally = image is None
     if image is not None:
         suffix = validate_image(image)
-        image_key = save_channel_crop_file(str(machine.id), meta.local_id, meta.channel, image, suffix)
+        _end_read_before_storage(db)
+        image_key = save_channel_crop_file(str(machine_id), meta.local_id, meta.channel, image, suffix)
 
     bbox = meta.bbox if (meta.bbox and len(meta.bbox) == 4) else [None, None, None, None]
     now = _now()
     row = {
         "id": uuid4(),
-        "machine_id": machine.id,
+        "machine_id": machine_id,
         "local_id": meta.local_id,
         "channel": meta.channel,
         "ts": _ts(meta.ts),
@@ -767,8 +785,8 @@ def sync_channel_crop(
     # Metadata-only re-sends must not wipe a previously stored image_key.
     update_cols = _CHANNEL_CROP_UPDATE_COLS if image is not None else tuple(c for c in _CHANNEL_CROP_UPDATE_COLS if c != "image_key")
     _upsert(db, MachineChannelCrop, [row], ["machine_id", "local_id"], update_cols)
-    new_max = _advance_watermark(db, machine.id, DATA_TYPE_CHANNEL_CROPS, meta.local_id)
-    machine.last_seen_at = now
+    new_max = _advance_watermark(db, machine_id, DATA_TYPE_CHANNEL_CROPS, meta.local_id)
+    mark_machine_seen(machine, now)
     db.commit()
     return {"max_local_id": new_max, "image_stored": image is not None}
 
@@ -787,16 +805,18 @@ def sync_control_data_segment(
     except (json.JSONDecodeError, ValueError) as exc:
         raise APIError(400, f"Invalid metadata: {exc}", "INVALID_METADATA") from exc
 
+    machine_id = machine.id
     data_key: str | None = None
     evicted_locally = data is None
     if data is not None:
         validate_gzip(data)
-        data_key = save_control_data_file(str(machine.id), meta.local_id, data)
+        _end_read_before_storage(db)
+        data_key = save_control_data_file(str(machine_id), meta.local_id, data)
 
     now = _now()
     row = {
         "id": uuid4(),
-        "machine_id": machine.id,
+        "machine_id": machine_id,
         "local_id": meta.local_id,
         "started_at": _ts(meta.started_at),
         "ended_at": _ts(meta.ended_at),
@@ -813,8 +833,8 @@ def sync_control_data_segment(
     # Metadata-only re-sends must not wipe a previously stored data_key.
     update_cols = _CONTROL_DATA_UPDATE_COLS if data is not None else tuple(c for c in _CONTROL_DATA_UPDATE_COLS if c != "data_key")
     _upsert(db, MachineControlDataSegment, [row], ["machine_id", "local_id"], update_cols)
-    new_max = _advance_watermark(db, machine.id, DATA_TYPE_CONTROL_DATA, meta.local_id)
-    machine.last_seen_at = now
+    new_max = _advance_watermark(db, machine_id, DATA_TYPE_CONTROL_DATA, meta.local_id)
+    mark_machine_seen(machine, now)
     db.commit()
     return {"max_local_id": new_max, "data_stored": data is not None}
 
@@ -878,11 +898,10 @@ def sync_sample(
     exposure = compute_exposure_stats_bytes(image_bytes)
     width, height = _image_size(image_bytes)
 
-    # No transaction may stay open while the frame travels to storage: end the
-    # read the machine-token lookup began, then write the file under a key that
-    # needs nothing from the database.
+    # The frame's key needs nothing from the database, so it is written
+    # before the one transaction below.
     machine_id = machine.id
-    db.commit()
+    _end_read_before_storage(db)
     image_path = save_sample_frame_file(str(machine_id), meta.source_session_id, meta.local_sample_id, image)
 
     extra = _sample_extra_metadata(meta)

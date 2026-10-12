@@ -5,14 +5,16 @@
 
 	`likely` is the ranking, each color with the numbers behind its place
 	(how near it is to what was predicted, its share of the part's pieces for
-	sale on BrickLink). A tile's second line says those two in words, and its
-	tooltip has every number. `marks` names the predicted colors ("Predicted
-	82%", "The guess"): a marked color is always in the grid, with the mark in
-	place of its numbers. `value` is the chosen color, in the primary's tint
-	with a check. `likely` is null while the ranking loads (the grid holds its
-	place), and `note` is one line under the heading that says how the grid
-	was ranked when that is not the usual way. `fill` lets the list of every
-	color take the height left in a column instead of its own.
+	sale on BrickLink). A tile's second line is the share for sale (how near
+	it is shows in the swatch itself), or how near it is in words when there
+	are no sale numbers; its tooltip has every number. `marks` names the
+	predicted colors ("Predicted 82%", "The guess"): a marked color is always
+	in the grid, with the mark in place of its numbers. `value` is the chosen
+	color, in the primary's tint (and a check in the list). `likely` is null
+	while the ranking loads (the grid holds its place), and `note` is one line
+	under the heading that says how the grid was ranked when that is not the
+	usual way. `fill` lets the list of every color take the height left in a
+	column instead of its own.
 
 	<ColorChoice {palette} likely={ranked} value={chosen}
 		marks={{ 4: 'Predicted 82%' }} onpick={(id) => (chosen = id)} />
@@ -112,6 +114,10 @@
 		onpick: (id: number) => void;
 	} = $props();
 
+	// Tiles of 10.5rem or more, and at least two to a row however narrow, so a
+	// phone shows six rows of likely colors rather than twelve.
+	const GRID = 'repeat(auto-fill, minmax(min(10.5rem, calc(50% - 0.125rem)), 1fr))';
+
 	let query = $state('');
 
 	const byId = $derived(new Map(palette.map((c) => [c.id, c])));
@@ -146,7 +152,7 @@
 			<h3 class="label">Likely colors</h3>
 			{#if note}<p class="text-sm text-ink-muted">{note}</p>{/if}
 		</div>
-		<div class="grid gap-1" style:grid-template-columns="repeat(auto-fill, minmax(9.5rem, 1fr))">
+		<div class="grid gap-1" style:grid-template-columns={GRID}>
 			{#if likely == null}
 				{#each Array(Math.min(count, 6)) as _, i (i)}
 					<div class="flex items-center gap-3 px-2 py-2">
@@ -161,7 +167,7 @@
 					{@const color = byId.get(c.color_id)!}
 					{@const on = c.color_id === value}
 					{@const mark = marks[c.color_id]}
-					{@const facts = [nearText(c.distance), saleText(c)].filter(Boolean).join(' · ')}
+					{@const facts = saleText(c) ?? nearText(c.distance)}
 					<button
 						type="button"
 						aria-pressed={on}
@@ -177,18 +183,19 @@
 							style:background-color={swatchColor(color.rgb)}
 						></span>
 						<span class="flex min-w-0 flex-1 flex-col">
-							<span class="truncate text-sm {on ? 'font-medium text-primary-ink' : 'text-ink'}"
-								>{color.name}</span
+							<span
+								class="line-clamp-2 text-sm leading-snug {on
+									? 'font-medium text-primary-ink'
+									: 'text-ink'}">{color.name}</span
 							>
 							{#if mark}
-								<span class="flex min-w-0 items-center gap-1 text-xs text-info-ink"
-									><Sparkles size={12} class="shrink-0" /><span class="truncate">{mark}</span></span
+								<span class="flex min-w-0 items-start gap-1 text-xs text-info-ink"
+									><Sparkles size={12} class="mt-px shrink-0" /><span>{mark}</span></span
 								>
 							{:else}
 								<span class="num truncate text-xs text-ink-muted">{facts || '\u00a0'}</span>
 							{/if}
 						</span>
-						{#if on}<Check size={16} class="shrink-0 text-primary-ink" />{/if}
 					</button>
 				{:else}
 					<p class="col-span-full py-2 text-sm text-ink-muted">No ranking for this piece.</p>

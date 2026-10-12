@@ -4,19 +4,13 @@
  * refreshes them behind the scenes instead of opening on a spinner.
  */
 
-const last = new Map<string, { value: unknown; at: number }>();
+const last = new Map<string, unknown>();
 
 export function remembered<T>(key: string): T | null {
-	return (last.get(key)?.value as T | undefined) ?? null;
-}
-
-/** How long ago `key` was remembered, in milliseconds; Infinity if never. */
-export function age(key: string): number {
-	const entry = last.get(key);
-	return entry ? Date.now() - entry.at : Infinity;
+	return (last.get(key) as T | undefined) ?? null;
 }
 
 export function remember<T>(key: string, value: T): T {
-	last.set(key, { value, at: Date.now() });
+	last.set(key, value);
 	return value;
 }

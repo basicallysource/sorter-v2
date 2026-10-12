@@ -40,6 +40,16 @@ The fasteners and quantities are in the parts list above and are called out inli
 - The 4 {% include fastener.html size="M3" variant="countersunk" length="12" %} they take are in the list above, and they go into the core's inserts rather than into anything on this page.
 - **The funnel itself takes no screws.** It slides into the brackets, which is step 3.
 
+<div class="prep-item">
+  <div class="prep-item-body">
+    <p><strong>Build a <a href="{{ '/hardware/assembly/distribution/chute/chute-core/' | relative_url }}">chute core</a> before you start.</strong> It must have all 21 heat inserts pressed in, because everything on this page bolts into them.</p>
+  </div>
+  <figure class="prep-item-figure">
+    <img class="doc-figure" src="https://assets.basically.website/sorter-docs/chute-v3-core-with-inserts-opening-side-full-fc9f9a8e2abf.png" alt="Render of the finished chute core, an upright box open at the top with an opening in one side and brass heat inserts in its walls">
+    <figcaption>The prepared chute core, with its heat inserts in. <cite>Rendered from the part geometry, not from a build. Render: Balloon.</cite></figcaption>
+  </figure>
+</div>
+
 {% include step.html n="1" title="Fit the funnel brackets to the chute core" %}
 
 Every chute carries a Funnel bracket (left) and a Funnel bracket (right), one of each. The left one goes on the plain side wall of the core and the right one on the servo side wall. They screw into the core's four A inserts, two on each wall.

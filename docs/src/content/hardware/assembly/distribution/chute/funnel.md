@@ -24,9 +24,7 @@ parts_needed:
     qty: 4
 warning: >-
   **AI-generated first draft.** Written from the 3D parts of the inverted chute, not from an actual
-  build. Positions, hole counts and the dovetail joint are read off the part geometry, and the
-  screw and how the funnel is held were confirmed by the part's designer, but the order of the steps
-  is not checked against a machine and nobody has built this chute yet.
+  build, so the order of the steps is not checked against a machine.
 ---
 
 The funnel catches what the door releases and guides it into the bin below. It slides onto two printed brackets that are bolted to the chute core.
@@ -36,13 +34,14 @@ The fasteners and quantities are in the parts list above and are called out inli
 {% include fastener-legend.html %}
 
 - **One funnel per layer**, in one of two sizes, and it is your choice which. Step 2 is that decision; the brackets are the same either way, so they go on before you have made it.
-- The brackets screw into the [chute core]({{ '/hardware/assembly/distribution/chute/chute-core/' | relative_url }})'s M3 heat inserts (the A pockets on that page), so there is nothing to tap.
+- The brackets screw into the [chute core]({{ '/hardware/assembly/distribution/chute/chute-core/' | relative_url }})'s M3 heat inserts, so there is nothing to tap.
 - The 4 {% include fastener.html size="M3" variant="countersunk" length="12" %} they take are in the list above, and they go into the core's inserts rather than into anything on this page.
 - **The funnel itself takes no screws.** It slides into the brackets, which is step 3.
 
 <div class="prep-item">
   <div class="prep-item-body">
-    <p><strong>Build a <a href="{{ '/hardware/assembly/distribution/chute/chute-core/' | relative_url }}">chute core</a> before you start.</strong> It must have all 21 heat inserts pressed in, because everything on this page bolts into them.</p>
+    <p><strong>Build a <a href="{{ '/hardware/assembly/distribution/chute/chute-core/' | relative_url }}">chute core</a> before you start.</strong> Press all its heat inserts in first.</p>
+    <p>Which wall is which: the <strong>opening side</strong> has the big opening, the <strong>rear</strong> is opposite it, and of the two long walls the <strong>servo side</strong> is the one with nine inserts and the <strong>plain side</strong> the one with six.</p>
   </div>
   <figure class="prep-item-figure">
     <img class="doc-figure" src="https://assets.basically.website/sorter-docs/chute-v3-core-with-inserts-opening-side-full-1961b4bfcb14.png" alt="Render of the finished chute core, an upright box open at the top with an opening in one side and brass heat inserts in its walls">
@@ -52,17 +51,17 @@ The fasteners and quantities are in the parts list above and are called out inli
 
 {% include step.html n="1" title="Fit the funnel brackets to the chute core" %}
 
-Every chute carries a Funnel bracket (left) and a Funnel bracket (right), one of each. The left one goes on the plain side wall of the core and the right one on the servo side wall. They screw into the core's four A inserts, two on each wall.
+Every chute carries a Funnel bracket (left) and a Funnel bracket (right), one of each. The left one goes on the plain side wall of the core and the right one on the servo side wall. They screw into the four inserts on the sloping pad in the middle of the long walls, two on each wall.
 
 Each bracket is a long bar. **The end with the two round recesses goes against the core**: that is where the screws go, with the heads sitting in the recesses. The other end, with the two long slits cut along it, runs out past the core's opening to carry the funnel. Each bracket takes 2 {% include fastener.html size="M3" variant="countersunk" length="12" %} screws, 4 for the pair. Use the 12 mm.
 
 <div class="img-row">
   <figure>
-    <img class="doc-figure" src="https://assets.basically.website/sorter-docs/chute-v3-funnel-brackets-pockets-plus-y-full-590a1688fb86.png" alt="Render of the servo side wall of the chute core with two inserts ringed in red and lettered A on the sloping pad in the middle of the wall, where the right funnel bracket's two recessed holes line up">
-    <figcaption>The servo side wall: the two inserts the right bracket screws into (A). <cite>Rendered from the part geometry, not from a build. Render: Balloon.</cite></figcaption>
+    <img class="doc-figure" src="https://assets.basically.website/sorter-docs/chute-v3-funnel-brackets-pockets-plus-y-full-fbbae19e229b.png" alt="Render of the servo side wall of the chute core with two inserts ringed in red and on the sloping pad in the middle of the wall, where the right funnel bracket's two recessed holes line up">
+    <figcaption>The servo side wall: the two inserts the right bracket screws into. <cite>Rendered from the part geometry, not from a build. Render: Balloon.</cite></figcaption>
   </figure>
   <figure>
-    <img class="doc-figure" src="https://assets.basically.website/sorter-docs/chute-v3-funnel-brackets-pockets-minus-y-full-c366011fd47e.png" alt="Render of the plain side wall of the chute core with two inserts ringed in red and lettered A on the sloping pad in the middle of the wall">
+    <img class="doc-figure" src="https://assets.basically.website/sorter-docs/chute-v3-funnel-brackets-pockets-minus-y-full-ed693b706c8e.png" alt="Render of the plain side wall of the chute core with two inserts ringed in red and on the sloping pad in the middle of the wall">
     <figcaption>The plain side wall: the same two inserts for the left bracket. <cite>Rendered from the part geometry, not from a build. Render: Balloon.</cite></figcaption>
   </figure>
 </div>
@@ -118,7 +117,7 @@ Both brackets are on the core from step 1, so there is nothing to fit first.
 
 <div class="callout">
   <span class="callout-icon" aria-hidden="true">💡</span>
-  <p>Each funnel has one small round pocket in the middle of each rail, two in all. They are the size of an M3 heat insert pocket, but the brackets have no holes over them, so nothing uses them and they stay empty.</p>
+  <p>Each funnel has one small round pocket in the middle of each rail, two in all. Leave them empty: nothing uses them.</p>
 </div>
 
 <figure class="single-figure">

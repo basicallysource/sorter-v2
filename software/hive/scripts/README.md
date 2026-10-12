@@ -52,7 +52,18 @@ the old one still serves → recreate backend+frontend → confirm both containe
 actually restarted → health-check containers *and* the public URL → record
 state. Any failure rolls back to the previously installed digests.
 
-`hive-postgres` is never recreated by a deploy (`--no-deps`).
+`hive-postgres` is never recreated by a deploy (`--no-deps`). So a release that
+changes the postgres service in `docker-compose.prod.yml` (its `command:`
+settings, `shm_size`) needs one manual step on the box once it is installed:
+recreate postgres from the installed release's compose file, which restarts the
+database (a few seconds; the backend reconnects on its own):
+
+```bash
+# on the prod host
+python3 /usr/local/lib/hive/hive_release_agent.py status   # the compose file in use
+docker compose --env-file <.env.prod> -f <that compose file> up -d --no-deps postgres
+docker exec hive-postgres sh -c 'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -c "SHOW shared_buffers"'   # 1GB
+```
 
 **Old images are pruned after a successful install.** A backend image is
 1.36 GB and every release pulls a new one *by digest*, which leaves the old

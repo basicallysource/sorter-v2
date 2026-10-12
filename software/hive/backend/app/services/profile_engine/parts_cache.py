@@ -35,18 +35,25 @@ def _interruptibleSleep(seconds: float, should_stop=None) -> None:
         slept += chunk
 
 
-def _requestJson(url, params, throttle_fn, should_stop=None, on_retry=None):
+def rebrickableHeaders(api_key):
+    # The key goes in a header, never the query string: a URL is what an
+    # HTTPError message and a traceback print, and logs are kept.
+    return {"Authorization": f"key {api_key}"}
+
+
+def _requestJson(url, params, throttle_fn, should_stop=None, on_retry=None, api_key=None):
     # Retries transient failures (rate limits, 5xx, network blips) with backoff so
     # a single hiccup doesn't kill a multi-minute paginated sync. The throttle keeps
     # us under Rebrickable's steady-state rate; this handles the spikes.
     attempt = 0
+    headers = rebrickableHeaders(api_key) if api_key else None
     while True:
         throttle_fn()
         resp = None
         retryable = True
         error: Exception | None = None
         try:
-            resp = requests.get(url, params=params, timeout=REQUEST_TIMEOUT_SECONDS)
+            resp = requests.get(url, params=params, headers=headers, timeout=REQUEST_TIMEOUT_SECONDS)
         except requests.RequestException as exc:
             error = exc
         else:
@@ -494,8 +501,8 @@ class SyncManager:
 def _syncCategories(gc, conn, throttle_fn, should_stop=None, on_retry=None):
     url = f"{REBRICKABLE_BASE_URL}/part_categories/"
     data = _requestJson(
-        url, {"key": gc.rebrickable_api_key, "page_size": 1000},
-        throttle_fn, should_stop=should_stop, on_retry=on_retry,
+        url, {"page_size": 1000},
+        throttle_fn, should_stop=should_stop, on_retry=on_retry, api_key=gc.rebrickable_api_key,
     )
     cat_list = []
     for cat_data in data.get("results", []):
@@ -511,8 +518,8 @@ def _syncCategories(gc, conn, throttle_fn, should_stop=None, on_retry=None):
 def _syncColors(gc, conn, throttle_fn, should_stop=None, on_retry=None):
     url = f"{REBRICKABLE_BASE_URL}/colors/"
     data = _requestJson(
-        url, {"key": gc.rebrickable_api_key, "page_size": 1000},
-        throttle_fn, should_stop=should_stop, on_retry=on_retry,
+        url, {"page_size": 1000},
+        throttle_fn, should_stop=should_stop, on_retry=on_retry, api_key=gc.rebrickable_api_key,
     )
     color_list = []
     for color_data in data.get("results", []):
@@ -532,12 +539,11 @@ def _syncPartsPage(gc, conn, parts_data, throttle_fn, should_stop=None, on_retry
     data = _requestJson(
         url,
         {
-            "key": gc.rebrickable_api_key,
             "page_size": REBRICKABLE_PAGE_SIZE,
             "inc_part_details": 1,
             "page": page_num,
         },
-        throttle_fn, should_stop=should_stop, on_retry=on_retry,
+        throttle_fn, should_stop=should_stop, on_retry=on_retry, api_key=gc.rebrickable_api_key,
     )
     total = data["count"]
     parts_list = []

@@ -7,6 +7,29 @@ services:
     # scans (psycopg2 DiskFull: "could not resize shared memory segment") —
     # took the labeling endpoints down on 2026-07-16.
     shm_size: 1gb
+    # Sized for a 4 GB box that also runs the backend (capped at 1.8 GB) and
+    # other services. The stock settings (128 MB shared_buffers, 4 MB work_mem)
+    # left a database of several GB reading cold from disk and spilling every
+    # big sort to temp files. random_page_cost and effective_io_concurrency are
+    # for SSD storage; JIT added 0.3–0.7 s of compiling to queries that run in
+    # milliseconds. A release does not recreate this container: after one that
+    # changes these, run `docker compose ... up -d postgres` (scripts/README.md).
+    command:
+      - postgres
+      - -c
+      - shared_buffers=1GB
+      - -c
+      - effective_cache_size=2GB
+      - -c
+      - work_mem=16MB
+      - -c
+      - maintenance_work_mem=128MB
+      - -c
+      - random_page_cost=1.1
+      - -c
+      - effective_io_concurrency=200
+      - -c
+      - jit=off
     environment:
       POSTGRES_DB: ${POSTGRES_DB}
       POSTGRES_USER: ${POSTGRES_USER}

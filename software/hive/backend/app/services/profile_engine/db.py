@@ -7,6 +7,8 @@ import time
 
 import requests
 
+from app.services.redact import redact_secrets
+
 from .brickstore_db import parseDatabase
 
 
@@ -871,12 +873,14 @@ def syncBricklinkPrices(conn, api_key, should_stop_fn=None, progress_fn=None, on
                 break
             except requests.exceptions.RequestException as exc:
                 if attempt == 4:
-                    raise
+                    # The request URL carries the API key; the error must not.
+                    raise RuntimeError(f"BrickLink price request failed: {redact_secrets(str(exc))}") from None
                 wait_s = 2 ** attempt
                 if progress_fn:
                     progress_fn(batch_start, total, f"network error ({exc.__class__.__name__}), retry {attempt + 1}/4 in {wait_s}s")
                 time.sleep(wait_s)
-        resp.raise_for_status()
+        if not resp.ok:
+            raise RuntimeError(f"BrickLink price request failed: {resp.status_code} {resp.reason}")
         result = resp.json()
         batches_sent += 1
 

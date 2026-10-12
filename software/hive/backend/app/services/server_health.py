@@ -14,6 +14,7 @@ import logging
 import re
 import sys
 import threading
+import time
 from datetime import datetime, timezone
 from typing import Any
 
@@ -43,12 +44,21 @@ def _categorize(key: str) -> str:
     return "sample_images"
 
 
+# The walk runs in the API process, and parsing listing pages holds the GIL.
+# A short sleep every page (1,000 keys on S3) leaves request threads the CPU;
+# at ~12k pages it adds a few minutes to a walk that runs once a day.
+_WALK_PAUSE_EVERY = 1000
+_WALK_PAUSE_S = 0.02
+
+
 def _walk_storage() -> dict[str, Any]:
     buckets = {name: {"bytes": 0, "files": 0} for name in _BUCKETS}
-    for key, size in get_backend().iter_sizes():
+    for n, (key, size) in enumerate(get_backend().iter_sizes(), start=1):
         b = buckets[_categorize(key)]
         b["bytes"] += int(size or 0)
         b["files"] += 1
+        if n % _WALK_PAUSE_EVERY == 0:
+            time.sleep(_WALK_PAUSE_S)
     total_bytes = sum(v["bytes"] for v in buckets.values())
     total_files = sum(v["files"] for v in buckets.values())
     return {
@@ -314,8 +324,8 @@ def _log_memory_once() -> None:
     for them, but reading that needs a login and a leak is measured in days. A
     log line is what is still there tomorrow, survives a restart in the
     journal, and costs nothing to collect. Deliberately its own worker rather
-    than folded into the storage walk: that ticks every three hours and only
-    after walking the whole object store, far too coarse to sample on.
+    than folded into the storage walk: that ticks once a day and only after
+    walking the whole object store, far too coarse to sample on.
     """
     stats = get_memory_stats()
     glibc = stats.get("glibc") or {}

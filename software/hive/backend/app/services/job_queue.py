@@ -26,10 +26,12 @@ How it behaves (``agent-docs/jobs.md`` has the longer version):
 - **Pruning.** Done jobs are deleted after ``JOB_KEEP_DONE_HOURS``, failed ones
   after ``JOB_KEEP_FAILED_DAYS``, in small batches.
 
-The worker runs in the API process, so it is built never to take the API with
-it: daemon threads, off unless ``JOB_WORKER_ENABLED``, one thread by default,
-lowered priority, a rest after every job, no database session held while a
-handler runs (handlers open their own short ones), and every exception caught.
+The worker runs where the background workers run (the worker process in
+production, ``HIVE_ROLE``; never a web process), on a small box it shares with
+the API, so it is built to stay light: daemon threads, off unless
+``JOB_WORKER_ENABLED``, one thread by default, lowered priority, a rest after
+every job, no database session held while a handler runs (handlers open their
+own short ones), and every exception caught.
 A handler is responsible for its own weight: one subject at a time, nothing
 kept between jobs but what it caches on purpose.
 """
@@ -389,7 +391,8 @@ def retry(db: Session, job_id: UUID) -> Job | None:
 
 def summary(db: Session, *, failures: int = 20) -> dict[str, Any]:
     """Counts by kind and status, the oldest due job of each kind, and the
-    latest failures: what the admin page shows."""
+    latest failures: what the admin page shows, beside the worker's state
+    (which the router adds: the worker runs in another process)."""
     kinds: dict[str, dict[str, Any]] = {}
     for kind, status, count in db.execute(select(Job.kind, Job.status, func.count()).group_by(Job.kind, Job.status)):
         row = kinds.setdefault(kind, {"kind": kind, "queued": 0, "running": 0, "done": 0, "failed": 0})
@@ -407,7 +410,6 @@ def summary(db: Session, *, failures: int = 20) -> dict[str, Any]:
         .all()
     )
     return {
-        "worker": get_job_worker().status(),
         "kinds": [
             {**row, "registered": row["kind"] in _handlers, "oldest_queued_at": row.get("oldest_queued_at")}
             for row in sorted(kinds.values(), key=lambda r: r["kind"])

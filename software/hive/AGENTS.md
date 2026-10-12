@@ -17,12 +17,20 @@ in [`agent-docs/`](agent-docs/):
   profiles: the document people and assistants edit, how it compiles into the
   program a sorter runs, the flat map older sorters get, kits, Hive's default
   profiles, and the API and skill for assistants.
+- [`agent-docs/process-roles.md`](agent-docs/process-roles.md) — the web
+  process and the worker process (`HIVE_ROLE`): what runs where, how they talk
+  (`worker_state`), the catalog in two processes, and the statement timeout
+  every request carries, with the endpoints allowed longer.
 - [`agent-docs/jobs.md`](agent-docs/jobs.md) — the background job queue: how
   to add a kind of job, how it claims, leases, retries and stays light, and
   its first kind, `swatch_find` (the colour reference palette's readings).
 - [`agent-docs/piece-data.md`](agent-docs/piece-data.md) — piece data from
   sorters: the sync endpoints and their cursor rule, where each kind lands,
   whose verdict lives where, and the views and tables to train from.
+- [`agent-docs/server-page.md`](agent-docs/server-page.md) — the admin Server
+  page and the request-timing middleware behind it: each route's latency over
+  the last hour in fixed memory, the slow-request log line, and the job queue,
+  workers, database and disk figures beside it.
 - [`agent-docs/labeling-queue.md`](agent-docs/labeling-queue.md) — the review
   queues of Piece samples and Channel samples: one queue module and one machine
   filter for both, the labeling queue and its worker, sort segments and cursor

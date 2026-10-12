@@ -281,7 +281,6 @@ class TestFleetMass:
 
         from app.services import fleet_mass
 
-        fleet_mass.reset_cache()
         self._sync(client, machine_token, [
             {"piece_uuid": f"p{i}", "local_id": i + 1, "seen_at": time.time() - 60,
              "classification_status": "classified", **rec}

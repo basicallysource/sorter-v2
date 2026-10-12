@@ -34,7 +34,13 @@ export async function getMachinesCached(): Promise<Machine[]> {
 	return machinesCache;
 }
 
-export type PieceFilters = { sort: ColorLabelSort; machineIds: string[]; withCandidates: boolean };
+export type PieceFilters = {
+	sort: ColorLabelSort;
+	machineIds: string[];
+	withCandidates: boolean;
+	// Only pieces with the colour reference palette in view near them.
+	withPalette: boolean;
+};
 
 const SORT_VALUES: ColorLabelSort[] = [
 	'priority',
@@ -49,13 +55,15 @@ const SORT_VALUES: ColorLabelSort[] = [
 ];
 
 // Filters ↔ URL query params, so a shared or reloaded link shows the same list.
-// Defaults (priority, every machine, has-candidates) are left out of the URL.
+// Defaults (priority, every machine, has-candidates, any palette) are left out of the URL.
 export function filtersToSearch(f: PieceFilters, sp = new URLSearchParams()): URLSearchParams {
 	sp.delete('sort');
 	sp.delete('candidates');
+	sp.delete('palette');
 	if (f.sort !== 'priority') sp.set('sort', f.sort);
 	writeMachines(sp, f.machineIds);
 	if (!f.withCandidates) sp.set('candidates', '0');
+	if (f.withPalette) sp.set('palette', '1');
 	return sp;
 }
 
@@ -64,12 +72,13 @@ export function filtersFromSearch(sp: URLSearchParams): PieceFilters {
 	return {
 		sort: SORT_VALUES.includes(rawSort as ColorLabelSort) ? (rawSort as ColorLabelSort) : 'priority',
 		machineIds: readMachines(sp),
-		withCandidates: sp.get('candidates') !== '0'
+		withCandidates: sp.get('candidates') !== '0',
+		withPalette: sp.get('palette') === '1'
 	};
 }
 
 export function filtersKey(f: PieceFilters): string {
-	return `${f.sort}|${[...f.machineIds].sort().join(',')}|${f.withCandidates ? 1 : 0}`;
+	return `${f.sort}|${[...f.machineIds].sort().join(',')}|${f.withCandidates ? 1 : 0}|${f.withPalette ? 1 : 0}`;
 }
 
 // The queue for these filters, shared by the grid and the pane for the session.
@@ -81,6 +90,7 @@ export function pieceQueue(f: PieceFilters): ReviewQueue<ColorLabelPieceCard> {
 				sort: f.sort,
 				machineIds: f.machineIds,
 				withCandidates: f.withCandidates,
+				withPalette: f.withPalette,
 				limit: 60,
 				cursor
 			})

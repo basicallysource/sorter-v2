@@ -15,12 +15,16 @@ Every pass (``REFRESH_INTERVAL_S``):
     when the last pass read is not missed;
   * channel crops that reached Hive since the last pass mark the pieces whose
     arrival window they fall in as having same-piece candidates;
+  * palette frames called since the last pass (swatch runs stored since) work
+    out ``has_palette`` again for the queued pieces near them;
   * each machine's labelable count is recounted into ``labeling_queue_counts``.
 
 Once a day (``RECONCILE_INTERVAL_S``) it evaluates every piece again, in small
 batches, which catches what ``created_at`` cannot see: a record re-sent as
-dead or re-classified, a crop whose file arrived on a later re-send. The first
-pass after a deploy is such a full evaluation, and it is what fills the table.
+dead or re-classified, a crop whose file arrived on a later re-send, a palette
+frame whose sample was deleted. The first pass after a deploy is such a full
+evaluation, and it is what fills the table; so is the first pass after the
+swatch model the palette filter reads changes.
 
 Requests only read, through ``services.review_queue``. A piece that died since
 it was last evaluated is dropped at read time by the join to machine_pieces, so
@@ -47,6 +51,8 @@ from app.models.machine import Machine
 from app.models.machine_channel_crop import MachineChannelCrop
 from app.models.machine_piece import MachinePiece
 from app.models.machine_piece_image import MachinePieceImage
+from app.models.sample_swatch import SampleSwatchRun
+from app.services import piece_palette
 from app.services.channel_crop_lookup_params import DEFAULT_PARAMS
 from app.services.periodic import PeriodicWorker
 
@@ -170,7 +176,7 @@ def _with_candidates(db: Session, machine_id: Any, arrivals: dict[str, datetime]
     return found
 
 
-_QUEUE_FIELDS = ("arrival_at", "has_candidates", "unidentified", "color_id", "color_confidence")
+_QUEUE_FIELDS = ("arrival_at", "has_candidates", "unidentified", "color_id", "color_confidence", "has_palette")
 
 
 def _comparable(row: Any) -> tuple:
@@ -188,10 +194,11 @@ def _queued(db: Session, machine_id: Any, piece_uuids: list[str]) -> dict[str, t
     return current
 
 
-def evaluate(db: Session, pieces: list[Any]) -> dict[str, int]:
+def evaluate(db: Session, pieces: list[Any], palette_sha: str | None) -> dict[str, int]:
     """Bring the queue rows of these pieces up to date: insert or update the
-    labelable ones, remove the rest. ``pieces`` are rows with _PIECE_COLUMNS.
-    The caller commits."""
+    labelable ones, remove the rest. ``pieces`` are rows with _PIECE_COLUMNS;
+    ``palette_sha`` is the swatch model whose palette calls ``has_palette``
+    follows. The caller commits."""
     by_machine: dict[Any, list[Any]] = defaultdict(list)
     for p in pieces:
         by_machine[p.machine_id].append(p)
@@ -215,6 +222,7 @@ def evaluate(db: Session, pieces: list[Any]) -> dict[str, int]:
         candidates = known | _with_candidates(
             db, machine_id, {p.piece_uuid: _arrival(p) for p in eligible if p.piece_uuid not in known}
         )
+        palette = piece_palette.with_palette(db, palette_sha, machine_id, {p.piece_uuid: _arrival(p) for p in eligible})
         eligible_ids = {p.piece_uuid for p in eligible}
         removes.extend(
             (machine_id, p.piece_uuid) for p in rows if p.piece_uuid not in eligible_ids and p.piece_uuid in current
@@ -228,6 +236,7 @@ def evaluate(db: Session, pieces: list[Any]) -> dict[str, int]:
                 "unidentified": not p.part_id,
                 "color_id": p.color_id,
                 "color_confidence": p.color_confidence,
+                "has_palette": p.piece_uuid in palette,
             }
             # Only write what changed: the daily reconcile touches every piece,
             # and rewriting unchanged rows would double the table until vacuum.
@@ -326,6 +335,55 @@ def _mark_candidates(db: Session, since: datetime) -> int:
     return marked
 
 
+def _refresh_palette(db: Session, since: datetime, sha: str | None) -> int:
+    """Work out ``has_palette`` again for the queued pieces near the palette
+    calls stored since ``since`` (a run made or re-made then, of the model the
+    filter reads). A frame at t can change the answer for pieces that arrived
+    in [t - WINDOW, t + WINDOW]; overlapping ranges are merged per machine, so
+    a backfill of a machine's frames costs a few range reads a pass. Returns
+    how many queue rows changed."""
+    if sha is None:
+        return 0
+    times: dict[Any, list[datetime]] = defaultdict(list)
+    for machine_id, at in db.query(SampleSwatchRun.machine_id, SampleSwatchRun.frame_at).filter(
+        SampleSwatchRun.created_at >= since,
+        SampleSwatchRun.model_sha256 == sha,
+        SampleSwatchRun.frame_at.isnot(None),
+    ):
+        times[machine_id].append(_utc(at))
+    changed = 0
+    for machine_id, stamps in times.items():
+        spans: list[tuple[datetime, datetime]] = []
+        for at in sorted(stamps):
+            lo, hi = at - piece_palette.WINDOW, at + piece_palette.WINDOW
+            if spans and lo <= spans[-1][1]:
+                spans[-1] = (spans[-1][0], hi)
+            else:
+                spans.append((lo, hi))
+        for lo, hi in spans:
+            rows = (
+                db.query(LabelingQueueEntry.piece_uuid, LabelingQueueEntry.arrival_at, LabelingQueueEntry.has_palette)
+                .filter(
+                    LabelingQueueEntry.machine_id == machine_id,
+                    LabelingQueueEntry.arrival_at >= lo,
+                    LabelingQueueEntry.arrival_at <= hi,
+                )
+                .all()
+            )
+            if not rows:
+                continue
+            palette = piece_palette.with_palette(db, sha, machine_id, {r.piece_uuid: r.arrival_at for r in rows})
+            for value in (True, False):
+                flip = [r.piece_uuid for r in rows if (r.piece_uuid in palette) == value and r.has_palette != value]
+                for chunk in _chunks(flip):
+                    changed += (
+                        db.query(LabelingQueueEntry)
+                        .filter(LabelingQueueEntry.machine_id == machine_id, LabelingQueueEntry.piece_uuid.in_(chunk))
+                        .update({LabelingQueueEntry.has_palette: value}, synchronize_session=False)
+                    )
+    return changed
+
+
 def _recount(db: Session, now: datetime) -> None:
     counts = dict(
         db.query(LabelingQueueEntry.machine_id, func.count())
@@ -338,7 +396,7 @@ def _recount(db: Session, now: datetime) -> None:
         db.add(LabelingQueueCount(machine_id=machine_id, labelable=int(n), computed_at=now))
 
 
-def reconcile(db: Session) -> int:
+def reconcile(db: Session, palette_sha: str | None) -> int:
     """Evaluate every piece, one machine and one batch of local ids at a time,
     each batch its own short transaction. Returns pieces evaluated."""
     total = 0
@@ -351,7 +409,7 @@ def reconcile(db: Session) -> int:
             batch = q.order_by(MachinePiece.local_id, MachinePiece.piece_uuid).limit(RECONCILE_BATCH).all()
             if not batch:
                 break
-            evaluate(db, batch)
+            evaluate(db, batch, palette_sha)
             db.commit()
             total += len(batch)
             after = (batch[-1].local_id, batch[-1].piece_uuid)
@@ -388,16 +446,32 @@ def run_pass(db: Session, now: datetime | None = None) -> dict[str, Any]:
 
     detail: dict[str, Any]
     reconciled_at = _utc(state.reconciled_at) if state.reconciled_at else None
-    if reconciled_at is None or (started - reconciled_at).total_seconds() >= RECONCILE_INTERVAL_S:
-        detail = {"mode": "reconcile", "evaluated": reconcile(db)}
+    palette_sha = piece_palette.model_sha256(db)
+    last = _utc(state.last_pass_at) if state.last_pass_at else reconciled_at
+    since = last - OVERLAP if last is not None else None
+    if since is not None:
+        # Runs a release that did not record their machine and frame time
+        # stored during a deploy: give them both before reading frames.
+        piece_palette.place_runs(db, since)
+    if (
+        reconciled_at is None
+        or (started - reconciled_at).total_seconds() >= RECONCILE_INTERVAL_S
+        or state.palette_model_sha256 != palette_sha
+    ):
+        detail = {"mode": "reconcile", "evaluated": reconcile(db, palette_sha)}
         state = db.get(LabelingQueueState, 1)
         state.reconciled_at = started
+        state.palette_model_sha256 = palette_sha
     else:
-        last = _utc(state.last_pass_at) if state.last_pass_at else reconciled_at
-        since = last - OVERLAP
         pieces = _changed_pieces(db, since)
-        result = evaluate(db, pieces)
-        detail = {"mode": "incremental", "evaluated": len(pieces), **result, "marked": _mark_candidates(db, since)}
+        result = evaluate(db, pieces, palette_sha)
+        detail = {
+            "mode": "incremental",
+            "evaluated": len(pieces),
+            **result,
+            "marked": _mark_candidates(db, since),
+            "palette_changed": _refresh_palette(db, since, palette_sha),
+        }
     state.last_pass_at = started
     _recount(db, datetime.now(timezone.utc))
     db.commit()

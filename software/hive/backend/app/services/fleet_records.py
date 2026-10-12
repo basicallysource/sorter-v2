@@ -48,6 +48,7 @@ from app.models.machine import Machine
 from app.models.machine_daily_stats import MachineDailyStats
 from app.models.machine_piece import MachinePiece
 from app.services.machine_stats import ACTIVE_GAP_IDLE_S
+from app.services import worker_state
 from app.services.periodic import PeriodicWorker
 
 logger = logging.getLogger(__name__)
@@ -71,37 +72,33 @@ NEWEST = 5
 # does not care about color.
 _NOT_A_COLOR = ("", "any_color")
 
-_latest: dict[str, Any] | None = None
+# Published to the database (worker_state): the worker that computes runs in
+# another process than the requests that serve it (agent-docs/process-roles.md).
+_PUBLISHED_AS = "fleet_records"
 _lock = threading.Lock()
 
 # Milestones already answered, by (kind, rung). See the module docstring.
 _memo: dict[tuple[str, int], dict[str, Any]] = {}
 
 
-def latest() -> dict[str, Any]:
+def latest(db: Session) -> dict[str, Any]:
     """The last published answer. Never computes; empty with a null
     `computed_at` until the first pass lands."""
-    with _lock:
-        if _latest is None:
-            return {**_empty(), "computed_at": None}
-        return _latest
+    return worker_state.published(db, _PUBLISHED_AS) or {**_empty(), "computed_at": None}
 
 
 def refresh(db: Session, machine_ids: list) -> dict[str, Any]:
     """Recompute and publish. The worker's job, and what a test drives directly."""
-    computed = _compute(db, machine_ids, datetime.now(timezone.utc))
-    computed["computed_at"] = datetime.now(timezone.utc).isoformat()
     with _lock:
-        global _latest
-        _latest = computed
+        computed = _compute(db, machine_ids, datetime.now(timezone.utc))
+    computed["computed_at"] = datetime.now(timezone.utc).isoformat()
+    worker_state.publish(db, _PUBLISHED_AS, computed)
     return computed
 
 
 def reset_cache() -> None:
-    """Forget what was published and every memoised milestone. For tests."""
-    global _latest
+    """Forget every memoised milestone. For tests."""
     with _lock:
-        _latest = None
         _memo.clear()
 
 
@@ -364,9 +361,11 @@ def _newest(db: Session, machine_ids: list, *columns) -> tuple[list[dict[str, An
 def _with_part_images(parts: list[dict[str, Any]]) -> list[dict[str, Any]]:
     """Attach the catalog's picture of each part, where it has one."""
     try:
-        from app.services.profile_catalog import get_profile_catalog_service
+        # A lookup per part: in the worker process it reads parts.db and never
+        # loads the catalog (profile_catalog.catalog_lookup).
+        from app.services.profile_catalog import catalog_lookup
 
-        catalog = get_profile_catalog_service()
+        catalog = catalog_lookup()
     except Exception:
         catalog = None
     for p in parts:

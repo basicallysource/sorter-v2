@@ -4,6 +4,7 @@ from fastapi import APIRouter, Depends, Query
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
+from app import background
 from app.deps import (
     API_KEY_SCOPE_SERVER_HEALTH_READ,
     get_db,
@@ -17,6 +18,7 @@ from app.models.user import User
 from app.schemas.auth import AdminUpdateUserRequest, UserResponse
 from app.services import access_window, telemetry_limits
 from app.services.server_health import get_server_health, get_storage_stats_worker
+from app.services.server_status import server_status
 from app.services.storage import delete_machine_files
 
 router = APIRouter(prefix="/api/admin", tags=["admin"])
@@ -33,8 +35,9 @@ def server_health(
 
     Storage figures come from a cache a background worker walks on a slow
     cadence — reading them is instant. refresh_storage=true just nudges that
-    worker to walk again soon and returns the current cache immediately (the
-    walk itself is far too slow to run inside the request).
+    worker (in the worker process) to walk again soon and returns the current
+    cache immediately (the walk itself is far too slow to run inside the
+    request). Memory is this process's own: the web process's.
 
     The only admin route reachable by API key, so that monitoring can watch the
     box over days without a human holding a browser session open. Still
@@ -42,8 +45,22 @@ def server_health(
     is what actually authorizes it, and a key needs both the role and
     `server_health:read`."""
     if refresh_storage:
-        get_storage_stats_worker().wake()
+        background.request_pass(db, get_storage_stats_worker().name)
     return get_server_health(db)
+
+
+@router.get("/server")
+def server(
+    db: Session = Depends(get_db),
+    _admin: User = Depends(require_role("admin")),
+):
+    """Everything the admin Server page shows (``services/server_status.py``):
+    each route's request timings over the last hour, this process, the job
+    queue, the background workers, the database's health, the disk, memory
+    and the stored files. Read when the page asks; nothing here is kept.
+
+    A signed-in admin only. Monitoring by API key reads ``/server-health``."""
+    return server_status(db)
 
 
 @router.get("/users", response_model=list[UserResponse])

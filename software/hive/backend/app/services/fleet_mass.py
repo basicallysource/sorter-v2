@@ -47,6 +47,7 @@ from app.config import settings
 from app.database import SessionLocal
 from app.models.machine import Machine
 from app.models.machine_piece import MachinePiece
+from app.services import worker_state
 from app.services.periodic import PeriodicWorker
 
 logger = logging.getLogger(__name__)
@@ -61,39 +62,29 @@ logger = logging.getLogger(__name__)
 #
 # So a worker computes and PUBLISHES; `latest()` reads what was published and
 # never computes. A lifetime total that is half an hour stale differs from a
-# live one in a digit nobody reads, which is what makes this trade free.
-_latest: dict[str, Any] | None = None
-_lock = threading.Lock()
+# live one in a digit nobody reads, which is what makes this trade free. The
+# worker runs in another process than the requests (agent-docs/
+# process-roles.md), so the answer is published to the database
+# (worker_state), where it also outlives a restart of either.
+_PUBLISHED_AS = "fleet_mass"
 
 
-def latest() -> dict[str, Any]:
+def latest(db: Session) -> dict[str, Any]:
     """The last published answer. Never computes.
 
     Before the first pass finishes this is the empty shape with a null
     `computed_at`, which is the honest thing to serve: zeroes that are labelled
     as not-yet-computed rather than a number a caller would quote.
     """
-    with _lock:
-        if _latest is None:
-            return {**_empty(), "computed_at": None}
-        return _latest
+    return worker_state.published(db, _PUBLISHED_AS) or {**_empty(), "computed_at": None}
 
 
 def refresh(db: Session, machine_ids: list) -> dict[str, Any]:
     """Recompute and publish. The worker's job, and what a test drives directly."""
     computed = _compute(db, machine_ids)
     computed["computed_at"] = datetime.now(timezone.utc).isoformat()
-    with _lock:
-        global _latest
-        _latest = computed
+    worker_state.publish(db, _PUBLISHED_AS, computed)
     return computed
-
-
-def reset_cache() -> None:
-    """Drop what was published, so the next pass starts clean. For tests."""
-    global _latest
-    with _lock:
-        _latest = None
 
 
 def _refresh_pass() -> dict[str, Any]:
@@ -166,9 +157,11 @@ def _compute(db: Session, machine_ids: list) -> dict[str, Any]:
         return _empty(total_pieces=total_pieces)
 
     try:
-        from app.services.profile_catalog import get_profile_catalog_service
+        # A lookup: in the worker process this reads parts.db and never loads
+        # the catalog (profile_catalog.catalog_lookup).
+        from app.services.profile_catalog import catalog_lookup
 
-        weights = get_profile_catalog_service().batch_part_weights(list(by_part))
+        weights = catalog_lookup().batch_part_weights(list(by_part))
     except Exception:
         # A box without the catalog loaded should still answer the piece
         # question rather than 500 — mass comes back as unknown coverage.
@@ -228,6 +221,5 @@ def _empty(total_pieces: int = 0) -> dict[str, Any]:
 __all__ = [
     "latest",
     "refresh",
-    "reset_cache",
     "get_fleet_mass_worker",
 ]

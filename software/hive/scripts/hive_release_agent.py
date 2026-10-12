@@ -47,7 +47,14 @@ HEALTH_URL = os.environ.get("HIVE_HEALTH_URL", "https://hive.basically.website/a
 PG_CONTAINER = os.environ.get("HIVE_PG_CONTAINER", "hive-postgres")
 COMPOSE_PROJECT = os.environ.get("HIVE_COMPOSE_PROJECT", "hive")
 GITHUB_TOKEN = os.environ.get("HIVE_GITHUB_TOKEN", "")
-SERVICES = ("backend", "frontend")
+# The compose services a release deploys, in the order they come up, and the
+# images a release pins. `worker` is the backend image in its other role (the
+# background workers; agent-docs/process-roles.md), so it has no image of its
+# own. A release's compose file may define fewer services than this (one from
+# before the worker existed): only the ones it defines are deployed, and the
+# others are stopped (see applyRelease).
+SERVICES = ("backend", "worker", "frontend")
+IMAGES = ("backend", "frontend")
 
 # Telling status.basically.website when a deploy starts and ends. Without this a
 # deploy is indistinguishable from an outage: hive stops answering for about a
@@ -387,6 +394,11 @@ def containerStartedAt(name: str) -> float:
         return 0.0
 
 
+def containerExists(name: str) -> bool:
+    result = subprocess.run(["docker", "inspect", name, "--format", "{{.Id}}"], capture_output=True, text=True)
+    return result.returncode == 0
+
+
 def containerHealth(name: str) -> str:
     result = subprocess.run(
         ["docker", "inspect", name, "--format", "{{.State.Health.Status}}"],
@@ -411,48 +423,84 @@ def requirePostgres() -> None:
         raise RuntimeError(f"{PG_CONTAINER} is '{health}', refusing to deploy against it")
 
 
+def composeServices(cfg: AgentConfig, compose_file: Path, env: dict[str, str]) -> tuple[str, ...]:
+    """The services of SERVICES that this compose file defines, in SERVICES' order."""
+    result = subprocess.run(
+        composeArgs(cfg, compose_file) + ["config", "--services"],
+        env={**os.environ, **env}, capture_output=True, text=True,
+    )
+    if result.returncode != 0:
+        raise RuntimeError(f"could not read the services of {compose_file}: {result.stderr.strip()}")
+    defined = set(result.stdout.split())
+    services = tuple(s for s in SERVICES if s in defined)
+    if "backend" not in services:
+        raise RuntimeError(f"{compose_file} defines no backend service")
+    return services
+
+
+def retireService(service: str) -> None:
+    """Stop and remove a service's container that the release being installed
+    does not have. Rolling back past the release that added the worker is the
+    case: the older backend runs every background worker itself, so a worker
+    left running beside it would run each of them twice."""
+    name = f"hive-{service}"
+    if not containerExists(name):
+        return
+    log(f"stopping {name}: this release has no {service} service")
+    run(["docker", "stop", "--time", "30", name])
+    run(["docker", "rm", name])
+
+
 def applyRelease(cfg: AgentConfig, manifest: dict[str, Any], compose_file: Path) -> None:
     requirePostgres()
     env = imageEnv(manifest)
+    services = composeServices(cfg, compose_file, env)
     deploy_epoch = time.time()
 
     log("pulling images by digest")
-    run(composeArgs(cfg, compose_file) + ["pull", *SERVICES], env=env)
+    run(composeArgs(cfg, compose_file) + ["pull", *services], env=env)
 
     # Migrate with the NEW image before any running container is touched, so a
     # bad migration fails while the old stack is still serving traffic.
     log("alembic upgrade head")
     run(composeArgs(cfg, compose_file) + ["run", "--rm", "-T", "--no-deps", "backend", "alembic", "upgrade", "head"], env=env)
 
+    # A service this release does not define goes before the others come up
+    # (rolling back past the release that added the worker: that release's
+    # backend runs every background worker itself).
+    for service in SERVICES:
+        if service not in services:
+            retireService(service)
+
     # --no-deps is load-bearing, not tidiness: postgres is in this compose
     # project, and without it `--force-recreate` would recreate the customer's
     # database container on every routine deploy. The agent never touches
     # postgres; `restart: unless-stopped` is what keeps it up.
     log("recreating services")
-    run(composeArgs(cfg, compose_file) + ["up", "-d", "--no-build", "--no-deps", "--force-recreate", *SERVICES], env=env)
+    run(composeArgs(cfg, compose_file) + ["up", "-d", "--no-build", "--no-deps", "--force-recreate", *services], env=env)
 
     # A digest change makes `up` recreate, but this check is what caught the
     # 2026-06-10 silent no-op where a rebuilt :latest tag left old containers
     # running. A start timestamp cannot lie about whether a container is new.
-    for service in SERVICES:
+    for service in services:
         name = f"hive-{service}"
         if containerStartedAt(name) < deploy_epoch:
             raise RuntimeError(f"{name} is still the pre-deploy container")
         log(f"  ✓ {name} recreated")
 
-    waitHealthy(cfg)
+    waitHealthy(cfg, services)
 
 
-def waitHealthy(cfg: AgentConfig) -> None:
+def waitHealthy(cfg: AgentConfig, services: tuple[str, ...]) -> None:
     log("health check")
     deadline = time.time() + 180
     while time.time() < deadline:
-        states = {f"hive-{s}": containerHealth(f"hive-{s}") for s in SERVICES}
+        states = {f"hive-{s}": containerHealth(f"hive-{s}") for s in services}
         if all(v == "healthy" for v in states.values()) and httpHealthy(HEALTH_URL):
             log(f"  ✓ healthy ({HEALTH_URL})")
             return
         time.sleep(5)
-    states = {f"hive-{s}": containerHealth(f"hive-{s}") for s in SERVICES}
+    states = {f"hive-{s}": containerHealth(f"hive-{s}") for s in services}
     raise RuntimeError(f"health check timed out: containers={states} url={HEALTH_URL}")
 
 
@@ -470,10 +518,10 @@ def stageRelease(cfg: AgentConfig, release: dict[str, Any]) -> tuple[dict[str, A
     for key in ("version", "commit", "images"):
         if key not in manifest:
             raise RuntimeError(f"manifest for {version} is missing '{key}'")
-    for service in SERVICES:
-        reference = manifest["images"].get(service, "")
+    for image in IMAGES:
+        reference = manifest["images"].get(image, "")
         if "@sha256:" not in reference:
-            raise RuntimeError(f"manifest image for {service} is not digest-pinned: {reference!r}")
+            raise RuntimeError(f"manifest image for {image} is not digest-pinned: {reference!r}")
     return manifest, compose_path
 
 

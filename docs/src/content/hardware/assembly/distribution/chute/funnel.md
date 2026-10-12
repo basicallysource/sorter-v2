@@ -87,6 +87,8 @@ Each bracket is a long bar. **The end with the two round recesses goes against t
 
 Neither is cheaper to build, and neither holds more.
 
+**The two funnels are not the same length.** The third-size funnel is the longer one, and the half-size funnel is shorter and wider. That is intended and not a printing error. Each funnel is made to go with its own bin set, so fit every layer with the funnel for the bins it carries, and do not swap funnels between layers of different sizes.
+
 <div class="img-row">
   <figure>
     <img class="doc-figure" src="https://assets.basically.website/sorter-docs/chute-v3-funnel-seated-full-e9e667c167c1.png" alt="Render of a chute core with the third-size funnel in place, a long funnel running away from the core's opening between the two green brackets">

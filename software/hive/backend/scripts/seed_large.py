@@ -704,13 +704,14 @@ class Seeder:
             "sample_swatch_runs",
             """
             INSERT INTO sample_swatch_runs (id, sample_id, model_id, model_name, model_sha256, frame_width,
-                frame_height, swatch_count, flags, seconds, created_at, palette_present, palette_swatches)
+                frame_height, swatch_count, flags, seconds, created_at, palette_present, palette_swatches,
+                machine_id, frame_at)
             SELECT md5('swatch-run:' || s.id || ':' || v.n)::uuid, s.id, md5('swatch-model:' || v.n)::uuid,
                    'swatch v' || v.n, v.sha, 3840, 2160, 10 + (s.g %% 12), '[]'::jsonb, 1.5,
                    least(now(), s.uploaded_at + interval '10 minutes'),
                    CASE WHEN pg_temp.rnd(s.g, 140 + v.n) < 0.05 THEN NULL ELSE pg_temp.rnd(s.g, 142 + v.n) < 0.58 END,
-                   8 + (s.g %% 6)
-            FROM (SELECT id, uploaded_at, substr(local_sample_id, 2)::bigint AS g FROM samples
+                   8 + (s.g %% 6), s.machine_id, coalesce(s.captured_at, s.uploaded_at)
+            FROM (SELECT id, machine_id, captured_at, uploaded_at, substr(local_sample_id, 2)::bigint AS g FROM samples
                   WHERE source_role = ANY(%(roles)s) AND full_frame_path IS NOT NULL) s
             CROSS JOIN (VALUES (2, %(active)s), (1, %(old)s)) v(n, sha)
             WHERE (v.n = 2 AND (s.uploaded_at > now() - interval '1 day' OR pg_temp.rnd(s.g, 143) < 0.005))

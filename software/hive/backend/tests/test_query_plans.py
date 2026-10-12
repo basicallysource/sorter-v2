@@ -211,6 +211,8 @@ CASES: list[Case] = [
     Case("pieces: priority, one machine", P + "&sort=priority&machine_id={busy}"),
     Case("pieces: newest, a small machine", P + "&sort=recent&machine_id={small}"),
     Case("pieces: priority, with or without candidates", "/api/labeling/pieces?limit=60&sort=priority"),
+    Case("pieces: palette in view near them", P + "&sort=priority&with_palette=true"),
+    Case("pieces: newest, palette in view, one machine", P + "&sort=recent&with_palette=true&machine_id={busy}"),
     Case(
         "pieces: priority, a reviewer",
         P + "&sort=priority",
@@ -285,6 +287,7 @@ CASES: list[Case] = [
     Case("public: fleet", "/api/public/fleet", budget=25_000, max_sorted=25_000, why=DAY_OF_PIECES),
     Case("public: fleet, anonymous", "/api/public/fleet/anon", budget=25_000, max_sorted=25_000, why=DAY_OF_PIECES),
     Case("public: contributors", "/api/public/contributors"),
+    Case("public: fleet records", "/api/public/fleet/records"),
     # --- Admin -------------------------------------------------------------------
     Case("admin: background jobs", "/api/admin/jobs"),
     Case("admin: teacher jobs", "/api/admin/teacher/jobs"),
@@ -297,6 +300,7 @@ CASES: list[Case] = [
     ),
     Case("admin: control data", "/api/admin/control-data/summary"),
     Case("admin: server health", "/api/admin/server-health"),
+    Case("admin: the Server page", "/api/admin/server"),
     Case("models: list", "/api/models"),
     Case("model: its dataset's machines", "/api/models/{model}/dataset-machines"),
     # --- Records API (an assistant building a profile) -----------------------------

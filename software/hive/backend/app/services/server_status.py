@@ -72,7 +72,10 @@ def _part(read: Callable[[], Any], db: Session | None = None) -> Any:
     except Exception as exc:
         log.exception("server page: a part could not be read")
         if db is not None:
-            db.rollback()
+            try:
+                db.rollback()
+            except Exception:
+                log.exception("server page: could not roll back after a part failed")
         return {"error": f"{type(exc).__name__}: {exc}"[:300]}
 
 

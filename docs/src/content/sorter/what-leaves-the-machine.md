@@ -118,7 +118,7 @@ jobs already queued.
 |---|---|---|
 | Detection images | on | Cropped pictures of individual pieces: live training samples and the per-piece image history. |
 | Full camera frames | on | Uncropped camera captures and detection overlay images attached to training samples. |
-| Piece metadata | on | Classification results per piece (part, color, confidence, bin, timestamps) and set sorting progress. |
+| Piece metadata | on | Classification results per piece (part, color, confidence, bin, timestamps), every part and color prediction the recognizers returned with its score, your corrections of a piece, and set sorting progress. |
 | Channel crops (C2/C3) | off | Unlabeled bbox crops of pieces on the upstream feeder channels, tagged with position for same-piece lookup. Experimental, high volume. |
 | Machine specs | on | Camera, controller board, platform and OS details, plus each camera's saved device, orientation and capture settings. Also the machine's hostname, MAC addresses and CPU serial. No image data. |
 | Network addresses | on | Where to find the machine: its hostname and `.local` name, the ports of its UI and API, and each network it is on (the Wi-Fi name, Ethernet or Tailscale) with its address there and whether that network reaches the internet. On SorterOS, also the name of its setup network while it broadcasts one. Shown on the machine's Hive page, to you and to Hive admins only. Turning it off makes the next heartbeat tell Hive to forget the addresses it has. |

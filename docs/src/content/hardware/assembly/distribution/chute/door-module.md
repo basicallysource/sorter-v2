@@ -96,20 +96,9 @@ The bearing race, the chute door, the two bearing covers and the servo adapter's
   <div class="prep-item-body">
     <p><strong>Servo bracket (housing):</strong> 6 × M3, two on each of three faces. 2 take the cover, 2 take the side arm and 2 take the lower arm. The servo does not screw to the housing at all, so none of these is for it.</p>
   </div>
-</div>
-
-<div class="img-row">
-  <figure>
-    <img class="doc-figure" src="https://assets.basically.website/sorter-docs/chute-v3-housing-pockets-cover-full-b658facd25a6.png" alt="Render of the servo bracket housing seen from the open side with two pockets ringed in red, one on each small lug beside the big opening">
-    <figcaption>The face the cover goes on: 2, one in each lug. <cite>Rendered from the part geometry, not from a build. Render: Balloon.</cite></figcaption>
-  </figure>
-  <figure>
-    <img class="doc-figure" src="https://assets.basically.website/sorter-docs/chute-v3-housing-pockets-side-arm-full-87bc8572637a.png" alt="Render of the servo bracket housing seen from the side with a slot cut across it and two pockets ringed in red, one on each of the two prongs either side of the slot">
-    <figcaption>The face the side arm goes on: 2, one on each prong beside the slot. <cite>Rendered from the part geometry, not from a build. Render: Balloon.</cite></figcaption>
-  </figure>
-  <figure>
-    <img class="doc-figure" src="https://assets.basically.website/sorter-docs/chute-v3-housing-pockets-lower-arm-full-b8b8c620082f.png" alt="Render of the underside of the servo bracket housing with two pockets ringed in red near one end">
-    <figcaption>The face the lower arm goes on: 2, near one end. <cite>Rendered from the part geometry, not from a build. Render: Balloon.</cite></figcaption>
+  <figure class="prep-item-figure">
+    <img class="doc-figure" src="https://assets.basically.website/sorter-docs/chute-v3-housing-pockets-all-full-40b0ed372c80.png" alt="Render of the servo bracket housing seen from a corner, with all six pockets ringed in red: two on the lugs beside the big opening, two on the prongs either side of the slot, and two near one end of the underside">
+    <figcaption>All six, seen from the corner. That is the only angle that catches all three faces at once. <cite>Rendered from the part geometry, not from a build. Render: Balloon.</cite></figcaption>
   </figure>
 </div>
 
@@ -117,33 +106,23 @@ The bearing race, the chute door, the two bearing covers and the servo adapter's
   <div class="prep-item-body">
     <p><strong>Bearing holder (left) and bearing holder (right):</strong> 5 × M3 each, 10 between them, on two faces. 3 are around the bearing bore on the outboard face and take the bearing cover. 2 are in the foot, on the face that takes the bearing race. The picture shows the right holder; the left is its mirror, with the same five.</p>
   </div>
-</div>
-
-<div class="img-row">
-  <figure>
-    <img class="doc-figure" src="https://assets.basically.website/sorter-docs/chute-v3-holder-pockets-cover-face-full-7bec5df24e70.png" alt="Render of a bearing holder from the outboard face, a large round bore with three pockets ringed in red around it, two on the ears beside the bore and one below it">
-    <figcaption>The cover face: 3 around the bore. <cite>Rendered from the part geometry, not from a build. Render: Balloon.</cite></figcaption>
-  </figure>
-  <figure>
-    <img class="doc-figure" src="https://assets.basically.website/sorter-docs/chute-v3-holder-pockets-race-face-full-43b01b984876.png" alt="Render of the foot of a bearing holder seen from the side, with two pockets ringed in red side by side">
-    <figcaption>The race face: 2 in the foot. <cite>Rendered from the part geometry, not from a build. Render: Balloon.</cite></figcaption>
+  <figure class="prep-item-figure">
+    <img class="doc-figure" src="https://assets.basically.website/sorter-docs/chute-v3-holder-pockets-all-full-8fd7b894ad12.png" alt="Render of a bearing holder seen from a corner, with all five pockets ringed in red: three around the round bore and two side by side in the foot">
+    <figcaption>All five on one holder: three around the bore, two in the foot. <cite>Rendered from the part geometry, not from a build. Render: Balloon.</cite></figcaption>
   </figure>
 </div>
-
-The renders show the pockets without a brass insert in them, so count the rings, not the brass.
 
 <div class="prep-item">
   <div class="prep-item-body">
     <p><strong>Servo adapter (servo side):</strong> 4 × <strong>short</strong> M3 insert (M3S, <code>hsi-m3s</code>), one in each of the four round pockets on the face that goes against the flap-side half, the one with the slot for the horn. These are not the standard M3 inserts used everywhere else: the pockets are too shallow for those.</p>
   </div>
-</div>
-
-<div class="img-row">
-  <figure>
+  <figure class="prep-item-figure">
     <img class="doc-figure" src="https://assets.basically.website/sorter-docs/chute-v3-servo-adapter-pockets-full-31467fbc322d.png" alt="Render of the servo-side half of the servo adapter, a round disc with a slot cut across its centre hole for the horn and four small round pockets ringed in red, evenly spaced around the edge">
     <figcaption>The four pockets for the short inserts, on the slotted face. <cite>Rendered from the part geometry, not from a build. Render: Balloon.</cite></figcaption>
   </figure>
 </div>
+
+The renders show the pockets without a brass insert in them, so count the rings, not the brass.
 
 One more sub-assembly goes together here, before the step that uses it, and it takes no inserts.
 
@@ -151,16 +130,9 @@ One more sub-assembly goes together here, before the step that uses it, and it t
   <div class="prep-item-body">
     <p><strong>The two 6704-2RS bearings:</strong> one into the <strong>bearing holder (left)</strong>, one into the <strong>bearing holder (right)</strong>, from the outboard face, the one with the three inserts around the bore. There is no wrong way round. Push each one square into the bore until it stops against the step inside it. The bearing sits in the outer, wider part of the bore and leaves the rest of that part empty: the cover's raised rim fills it in step 5.</p>
   </div>
-</div>
-
-<div class="img-row">
-  <figure>
-    <img class="doc-figure" src="https://assets.basically.website/sorter-docs/chute-v3-bearing-exploded-full-ffff26ab2919.png" alt="Render of a bearing holder with a blue 6704 bearing held in front of its round bore, ready to push in">
-    <figcaption>The bearing (blue) in front of the bore. <cite>Rendered from the part geometry, not from a build. Render: Balloon.</cite></figcaption>
-  </figure>
-  <figure>
-    <img class="doc-figure" src="https://assets.basically.website/sorter-docs/chute-v3-bearing-seated-full-7304eb4b10b3.png" alt="Render of the same bearing holder with the blue bearing pushed home in its bore">
-    <figcaption>Pushed home. <cite>Rendered from the part geometry, not from a build. Render: Balloon.</cite></figcaption>
+  <figure class="prep-item-figure">
+    <img class="doc-figure" src="https://assets.basically.website/sorter-docs/chute-v3-bearing-seated-full-7304eb4b10b3.png" alt="Render of a bearing holder with a blue 6704 bearing pushed home in its round bore">
+    <figcaption>The bearing (blue) pushed home in its holder. <cite>Rendered from the part geometry, not from a build. Render: Balloon.</cite></figcaption>
   </figure>
 </div>
 
@@ -169,6 +141,11 @@ One more sub-assembly goes together here, before the step that uses it, and it t
 **The servo is not screwed down.** Slide the MG995 into the housing's pocket, then lay the cover over the open face and drive its 2 {% include fastener.html size="M3" variant="countersunk" length="12" %} screws into the housing's inserts. Tightening those two is what holds the servo: the cover traps the servo's mounting tabs between itself and the housing.
 
 Snug both down evenly rather than pulling one home first, so the cover seats flat on the tabs.
+
+<figure class="single-figure">
+  <img class="doc-figure" src="https://assets.basically.website/sorter-docs/chute-v3-housing-cover-off-full-654a0bb135db.png" alt="Render of the servo bracket housing with its open-frame cover held off the face that takes it, showing the pocket the servo slides into and the two lugs the cover screws through">
+  <figcaption>The cover held off the housing. The servo goes into the open pocket, and the two lugs the cover screws through are the only fasteners holding it. The servo itself has no model and is not drawn. <cite>Rendered from the part geometry, not from a build. Render: Balloon.</cite></figcaption>
+</figure>
 
 {% include step.html n="3" title="Add the bracket arms" %}
 
@@ -287,6 +264,11 @@ The bracket goes on the same long wall as the servo-side bearing cover, into the
 Then couple the servo to the door through the two-piece adapter you built in the step above. Its servo side goes onto the servo's splined output, through the horn clasped inside it, and its flap side has a hexagonal socket that takes **the hex end of the door's shaft**, the end step 4 told you to point at the servo. It is a slip fit, so it pushes on without force.
 
 Clock it before you commit: centre the servo (or let it settle at its power-on default), fit the adapter at roughly the middle of the door's swing, then fine-tune once you can check both open and closed by eye.
+
+<figure class="single-figure">
+  <img class="doc-figure" src="https://assets.basically.website/sorter-docs/chute-v3-door-module-on-core-window-side-full-714fa4fe5edc.png" alt="Render of the chute core with the servo bracket bolted to its long wall, the side arm running up to the core and the lower arm underneath, the servo adapter discs between the bracket and the bearing cover, and the door inside the opening">
+  <figcaption>The bracket bolted on and the adapter in place, seen from the opening side. <cite>Rendered from the part geometry, not from a build. Render: Balloon.</cite></figcaption>
+</figure>
 
 <div class="callout callout-warning">
   <span class="callout-icon" aria-hidden="true">⚠</span>

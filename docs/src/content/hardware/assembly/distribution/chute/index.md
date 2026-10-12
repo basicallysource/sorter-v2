@@ -9,7 +9,7 @@ lede: The rotating chute that aims parts at the correct bin.
 permalink: /hardware/assembly/distribution/chute/
 author: spencer
 contributors: [alex, brickcyclealice, barthel, zed0]
-og_image: https://assets.basically.website/sorter-docs/chute-v3-assembled-window-full-40d660d47d8e.png
+og_image: https://assets.basically.website/sorter-docs/chute-v3-assembled-window-full-d628d6d4a1bc.png
 warning: >-
   **AI-generated first draft.** Written from the 3D parts of the inverted chute, not from an actual
   build. Where a page says which hole takes which screw, that is read off the part geometry and is
@@ -19,7 +19,7 @@ warning: >-
 ---
 
 <figure class="figure-float-right">
-  <img src="https://assets.basically.website/sorter-docs/chute-v3-assembled-window-full-40d660d47d8e.png" alt="Render of one assembled chute seen from the opening side: the grey core standing upright, the yellow layer connectors on its top, the green funnel brackets running down to a tan funnel, and the door module low on the core">
+  <img src="https://assets.basically.website/sorter-docs/chute-v3-assembled-window-full-d628d6d4a1bc.png" alt="Render of one assembled chute seen from the opening side: the grey core standing upright, the yellow layer connectors on its top, the green funnel brackets running down to a tan funnel, and the door module low on the core">
   <figcaption>One finished chute, with the third-size funnel. <cite>Rendered from the part geometry, not from a build. Render: Balloon.</cite></figcaption>
 </figure>
 
@@ -62,7 +62,7 @@ The [bottom interface]({{ '/hardware/assembly/distribution/bin-frame/bottom-inte
 ## The finished result
 
 <figure class="single-figure">
-  <img class="doc-figure" src="https://assets.basically.website/sorter-docs/chute-v3-assembled-servo-side-full-d8915194a743.png" alt="Render of one assembled chute seen from the servo side: the MG995 in its blue bracket on the side of the core next to the bearing cover, the green funnel bracket above it running to the tan funnel, and the yellow layer connectors on top of the core">
+  <img class="doc-figure" src="https://assets.basically.website/sorter-docs/chute-v3-assembled-servo-side-full-e6bd1123b593.png" alt="Render of one assembled chute seen from the servo side: the MG995 in its blue bracket on the side of the core next to the bearing cover, the green funnel bracket above it running to the tan funnel, and the yellow layer connectors on top of the core">
   <figcaption>A finished chute from the servo side. The servo itself has no model, so its bracket shows empty. <cite>Rendered from the part geometry, not from a build. Render: Balloon.</cite></figcaption>
 </figure>
 

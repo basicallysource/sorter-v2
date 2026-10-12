@@ -2,7 +2,7 @@
 	import { onMount } from 'svelte';
 	import { machineHttpBaseUrlFromWsUrl, getBackendHttpBase } from '$lib/backend';
 	import { getMachineContext } from '$lib/machines/context';
-	import { age, remember, remembered } from '$lib/settings/networkingCache';
+	import { remember, remembered } from '$lib/settings/networkingCache';
 	import Button from '$lib/components/ui/Button.svelte';
 	import Input from '$lib/components/ui/Input.svelte';
 	import Alert from '$lib/components/ui/Alert.svelte';
@@ -33,6 +33,8 @@
 		available: boolean;
 		adapters: Adapter[];
 		networks: Network[];
+		/** Seconds since the machine last scanned; null if it hasn't since it started. */
+		scan_age_s?: number | null;
 		error?: string;
 	};
 
@@ -76,7 +78,6 @@
 	}
 
 	async function rescan() {
-		remember(`${httpBase()}/wifi-scan`, true);
 		scanning = true;
 		loadError = null;
 		try {
@@ -142,7 +143,8 @@
 
 	onMount(async () => {
 		await loadStatus();
-		if (status?.available && age(`${httpBase()}/wifi-scan`) > SCAN_EVERY_MS) void rescan();
+		const age = status?.scan_age_s;
+		if (status?.available && (age == null || age * 1000 > SCAN_EVERY_MS)) void rescan();
 	});
 </script>
 

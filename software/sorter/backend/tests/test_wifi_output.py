@@ -43,9 +43,26 @@ def test_connect_uses_the_real_adapter_never_the_setup_networks(monkeypatch):
 def test_opening_the_page_lists_networks_without_waiting_for_a_scan(monkeypatch):
     calls = []
     _fake_nmcli(monkeypatch, calls)
+    monkeypatch.setattr(wifi, "_last_scan", {"at": None, "networks": []})
     wifi.wifi_status()
     lists = [c for c in calls if "list" in c]
     assert lists and all(c[-2:] == ["--rescan", "no"] for c in lists)
+
+
+def test_after_a_scan_the_page_opens_on_it_with_the_network_in_use_now(monkeypatch):
+    calls = []
+    _fake_nmcli(monkeypatch, calls)
+    old = [{"ssid": "HomeNet", "signal": 80, "security": "WPA2", "secured": True, "active": True},
+           {"ssid": "sorteros-ap", "signal": 99, "security": "", "secured": False, "active": False}]
+    monkeypatch.setattr(wifi, "_last_scan", {"at": 1000.0, "networks": old})
+    monkeypatch.setattr(wifi.time, "monotonic", lambda: 1090.0)
+
+    status = wifi.wifi_status()
+
+    assert not [c for c in calls if "list" in c]
+    assert status["scan_age_s"] == 90.0
+    # wlan0 is disconnected in the fake, so nothing is in use any more.
+    assert [(n["ssid"], n["active"]) for n in status["networks"]] == [("sorteros-ap", False), ("HomeNet", False)]
 
 
 def test_scan_waits_for_a_fresh_scan_and_falls_back_to_the_last_one(monkeypatch):

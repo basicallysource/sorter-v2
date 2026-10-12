@@ -132,13 +132,38 @@ def _jsonable(value: Any) -> Any:
     return str(value)
 
 
-def _cameraInfo(capture: Any, picture: dict[str, Any], image_source: str) -> dict[str, Any]:
-    """The camera's state when the frame was taken: the device settings the
-    sorter applied, the values the driver reports now (which, with auto
-    exposure or white balance on, may differ), its readout (resolution, frame
-    rate) and the picture settings the sorter applies after capture."""
-    info: dict[str, Any] = {"picture_settings": picture, "image": image_source}
+def _deviceIdentity(capture: Any) -> dict[str, Any]:
+    """Which physical camera this is: its device index and the model name the
+    kernel reports for it. Both are None for a network camera, whose address can
+    carry a login and is never recorded."""
+    identity: dict[str, Any] = {"device_index": None, "model": None}
+    try:
+        source = capture.getCameraSource()
+        if isinstance(source, int) and not isinstance(source, bool) and source >= 0:
+            from machine_specs import v4l2CameraModel
+
+            identity["device_index"] = source
+            identity["model"] = v4l2CameraModel(source)
+    except Exception:
+        pass
+    return identity
+
+
+def _cameraInfo(role: str, capture: Any, picture: dict[str, Any], image_source: str) -> dict[str, Any]:
+    """The camera's state when the frame was taken: which channel and physical
+    camera it is, the device settings the sorter applied, the values the driver
+    reports now (which, with auto exposure or white balance on, may differ), its
+    readout (resolution, frame rate), the capture mode it was asked for and the
+    picture settings the sorter applies after capture."""
+    try:
+        from channel_geometry_payload import channelIdForRole
+
+        channel = channelIdForRole(role)
+    except Exception:
+        channel = None
+    info: dict[str, Any] = {"channel": channel, **_deviceIdentity(capture), "picture_settings": picture, "image": image_source}
     for key, read in (
+        ("capture_mode", lambda: capture.getCaptureMode()),
         ("applied_settings", lambda: capture.getDeviceSettings()),
         ("readout", lambda: capture.getTelemetrySnapshot()),
         ("reported_settings", lambda: capture.describeDeviceControls()[1]),
@@ -227,7 +252,7 @@ def buildSample(gc: GlobalConfig, role: str, capture: Any, frame: Any, *, annota
         "capture_reason": "standalone_sample_collection",
         "detection_scope": scope,
         "detection": _detection(gc, scope, frame_bgr, annotate),
-        "camera": _cameraInfo(capture, picture, image_source),
+        "camera": _cameraInfo(role, capture, picture, image_source),
         "lamp": _lampInfo(role),
         "channel_geometry": geometry,
         # False when the outline was calibrated for a different frame size than

@@ -7,6 +7,7 @@ import time
 from typing import Any
 
 import db
+import piece_records
 
 # Durable, machine-lifetime cumulative stats — survives the dev soft-restart
 # (os._exit) the same way piece_records does, because it never relies on a
@@ -22,6 +23,8 @@ SECONDS_PER_HOUR = 3600
 
 
 def _createTables(conn: sqlite3.Connection) -> None:
+    # Piece counts per day come from piece_records' piece_history view.
+    piece_records._createTables(conn)
     conn.execute(
         "CREATE TABLE IF NOT EXISTS lifetime_hourly ("
         "hour_start INTEGER PRIMARY KEY, "
@@ -103,11 +106,11 @@ def _piecesByDay(conn: sqlite3.Connection, since: float) -> dict[str, dict[str, 
     # Scoped to >= since (the moment time-tracking began) so piece counts cover
     # the same window as the accumulated hours — legacy pieces are excluded.
     rows = conn.execute(
-        "SELECT date(seen_at, 'unixepoch', 'localtime') AS day, "
-        "COUNT(*) AS pieces_seen, "
-        "SUM(CASE WHEN classification_status = 'classified' THEN 1 ELSE 0 END) AS pieces_classified, "
-        "SUM(CASE WHEN bin_x IS NOT NULL THEN 1 ELSE 0 END) AS pieces_distributed "
-        "FROM piece_records WHERE seen_at IS NOT NULL AND seen_at >= ? "
+        "SELECT day, "
+        "SUM(pieces) AS pieces_seen, "
+        "SUM(CASE WHEN classification_status = 'classified' THEN pieces ELSE 0 END) AS pieces_classified, "
+        "SUM(CASE WHEN distributed THEN pieces ELSE 0 END) AS pieces_distributed "
+        "FROM piece_history WHERE seen_at IS NOT NULL AND seen_at >= ? "
         "GROUP BY day",
         (since,),
     ).fetchall()
@@ -161,26 +164,30 @@ def getOverview(*, daily_days: int = 30) -> dict[str, Any]:
         else:
             pieces = conn.execute(
                 "SELECT "
-                "COUNT(*) AS pieces_seen, "
-                "SUM(CASE WHEN classification_status = 'classified' THEN 1 ELSE 0 END) AS pieces_classified, "
-                "SUM(CASE WHEN bin_x IS NOT NULL THEN 1 ELSE 0 END) AS pieces_distributed "
-                "FROM piece_records WHERE seen_at >= ?",
+                "SUM(pieces) AS pieces_seen, "
+                "SUM(CASE WHEN classification_status = 'classified' THEN pieces ELSE 0 END) AS pieces_classified, "
+                "SUM(CASE WHEN distributed THEN pieces ELSE 0 END) AS pieces_distributed "
+                "FROM piece_history WHERE seen_at >= ?",
                 (tracking_start,),
             ).fetchone()
         # Best sustained throughput: the busiest single hour by distributed PPM,
         # ignoring hours with under a minute of sorting so a stray piece in an
         # almost-idle hour can't masquerade as a record rate. Piece counts are
-        # grouped per hour bucket in ONE pass over piece_records and joined to
-        # the hour rows — the old correlated per-bucket COUNT subquery re-scanned
-        # the index once per lifetime hour and dominated this endpoint's latency.
+        # grouped per hour bucket in ONE pass over piece_records (plus the hours
+        # retention folded) and joined to the hour rows — the old correlated
+        # per-bucket COUNT subquery re-scanned the index once per lifetime hour
+        # and dominated this endpoint's latency.
         best = conn.execute(
             "SELECT MAX(pc.cnt * 60.0 / h.seconds_sorted) AS best_ppm "
             "FROM lifetime_hourly h "
             "JOIN ("
+            "SELECT hour_start, SUM(cnt) AS cnt FROM ("
             "SELECT CAST(seen_at / ? AS INTEGER) * ? AS hour_start, COUNT(*) AS cnt "
             "FROM piece_records "
             "WHERE bin_x IS NOT NULL AND seen_at IS NOT NULL AND seen_at >= 0 "
-            "GROUP BY 1"
+            "GROUP BY 1 "
+            "UNION ALL SELECT hour_start, distributed AS cnt FROM piece_history_hours"
+            ") GROUP BY hour_start"
             ") pc ON pc.hour_start = h.hour_start "
             "WHERE h.seconds_sorted >= 60",
             (SECONDS_PER_HOUR, SECONDS_PER_HOUR),

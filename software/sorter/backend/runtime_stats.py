@@ -592,9 +592,6 @@ class RuntimeStatsCollector:
                     "classification_status": classification_status,
                     "count": 0,
                     "last_distributed_at": None,
-                    "thumbnail": piece.get("thumbnail"),
-                    "top_image": piece.get("top_image"),
-                    "bottom_image": piece.get("bottom_image"),
                     "brickognize_preview_url": piece.get("brickognize_preview_url"),
                 }
                 bucket["items"].append(item)
@@ -604,12 +601,6 @@ class RuntimeStatsCollector:
                 item_last = item.get("last_distributed_at")
                 if not isinstance(item_last, (int, float)) or distributed_at > item_last:
                     item["last_distributed_at"] = float(distributed_at)
-                    if piece.get("thumbnail"):
-                        item["thumbnail"] = piece.get("thumbnail")
-                    if piece.get("top_image"):
-                        item["top_image"] = piece.get("top_image")
-                    if piece.get("bottom_image"):
-                        item["bottom_image"] = piece.get("bottom_image")
                     if piece.get("brickognize_preview_url"):
                         item["brickognize_preview_url"] = piece.get("brickognize_preview_url")
 
@@ -622,9 +613,6 @@ class RuntimeStatsCollector:
                     "category_id": category_id,
                     "classification_status": classification_status,
                     "distributed_at": float(distributed_at) if isinstance(distributed_at, (int, float)) else None,
-                    "thumbnail": piece.get("thumbnail"),
-                    "top_image": piece.get("top_image"),
-                    "bottom_image": piece.get("bottom_image"),
                     "brickognize_preview_url": piece.get("brickognize_preview_url"),
                 }
             )

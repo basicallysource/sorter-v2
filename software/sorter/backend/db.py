@@ -182,9 +182,30 @@ def _warn(message: str) -> None:
         _logger.warning(message)
 
 
+def note(message: str) -> None:
+    """Log a notable database event (a one-time migration, a vacuum)."""
+    if _logger is not None:
+        _logger.info(message)
+
+
 def add_columns(conn: sqlite3.Connection, table: str, columns: dict[str, str]) -> None:
     """ALTER TABLE ... ADD COLUMN for each column a database made by an older version lacks."""
     existing = {row[1] for row in conn.execute(f"PRAGMA table_info({table})")}
     for column, decl in columns.items():
         if column not in existing:
             conn.execute(f"ALTER TABLE {table} ADD COLUMN {column} {decl}")
+
+
+# A file takes whole filesystem blocks on the card: a 2 KB crop uses 4 KB. The
+# file stores' caps count what files take on the card, not their lengths.
+DISK_BLOCK_BYTES = 4096
+
+
+def on_disk_bytes(nbytes: int | None) -> int:
+    n = max(0, int(nbytes or 0))
+    return -(-n // DISK_BLOCK_BYTES) * DISK_BLOCK_BYTES
+
+
+def on_disk_bytes_sql(column: str = "bytes") -> str:
+    """SQL for on_disk_bytes(column), to SUM in a query."""
+    return f"((COALESCE({column}, 0) + {DISK_BLOCK_BYTES - 1}) / {DISK_BLOCK_BYTES} * {DISK_BLOCK_BYTES})"

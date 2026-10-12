@@ -39,7 +39,7 @@ TELEMETRY_FIELDS: tuple[dict[str, Any], ...] = (
     {
         "key": "piece_metadata",
         "label": "Piece metadata",
-        "description": "Classification results per piece (part, color, confidence, bin, timestamps) and set sorting progress.",
+        "description": "Classification results per piece (part, color, confidence, bin, timestamps), every part and color prediction with its score, your corrections, and set sorting progress.",
         "default": True,
     },
     {
@@ -250,10 +250,10 @@ class HiveTelemetryClient:
         )
         return int(response.json()["max_local_id"])
 
-    def pushPieceCorrections(self, records: list[dict[str, Any]]) -> int:
+    def pushPiecePredictions(self, records: list[dict[str, Any]]) -> int:
         response = self._request(
             "POST",
-            "/api/machine/sync/piece-corrections",
+            "/api/machine/sync/piece-predictions",
             fields=("piece_metadata",),
             json={"records": records},
             timeout=60,

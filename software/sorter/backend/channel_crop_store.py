@@ -20,10 +20,9 @@ import db
 # per-pass ByteTrack id (crops sharing one (channel, track_id) over a short
 # window are the same physical piece).
 #
-# Rows carry an autoincrement id (the sync cursor) plus hive sync markers
-# (synced_at / hive_crop_id) mirroring piece_image_store, so the shared
-# HiveSyncWorker can drain them to the Hive and retention prefers evicting
-# already-synced files. The cap bounds disk at ~512 MB even if sync is absent.
+# Rows carry an autoincrement id (the sync cursor) plus a synced_at marker
+# (every enabled Hive has the crop), so the shared HiveSyncWorker can drain
+# them to the Hive and retention prefers evicting already-synced files. The cap bounds disk at ~512 MB even if sync is absent.
 #
 # Writes never happen on the perception hot path: the capture collector
 # enqueues already-encoded JPEG bytes + metadata (bounded, drop-on-full) and a
@@ -85,12 +84,11 @@ def _createTables(conn: sqlite3.Connection) -> None:
         "bytes INTEGER NOT NULL, "
         # Path relative to channel_crops_dir().
         "file_path TEXT NOT NULL, "
-        # Set when retention removed the local file; the row (and any hive
-        # pointer) survives so the crop stays addressable.
+        # Set when retention removed the local file; the row survives so
+        # the crop stays addressable.
         "deleted_at REAL, "
-        # Hive sync markers, written by the shared HiveSyncWorker.
-        "synced_at REAL, "
-        "hive_crop_id TEXT"
+        # Set once every enabled Hive has the crop (a retention hint).
+        "synced_at REAL"
         ")"
     )
     conn.execute(
@@ -244,7 +242,7 @@ def _retentionSweep() -> None:
     # lands then - so nothing on disk is ever orphaned.
     with _connection() as conn:
         row = conn.execute(
-            "SELECT COALESCE(SUM(bytes), 0) AS total FROM channel_crops WHERE deleted_at IS NULL"
+            f"SELECT COALESCE(SUM({db.on_disk_bytes_sql()}), 0) AS total FROM channel_crops WHERE deleted_at IS NULL"
         ).fetchone()
         total = int(row["total"]) if row is not None else 0
         if total <= _MAX_TOTAL_BYTES:
@@ -262,7 +260,7 @@ def _retentionSweep() -> None:
         if freed >= overage:
             break
         victims.append((int(r["id"]), str(r["file_path"])))
-        freed += int(r["bytes"] or 0)
+        freed += db.on_disk_bytes(r["bytes"])
     if not victims:
         return
     _unlinkEvictedFiles([rel_path for _, rel_path in victims], channel_crops_dir())

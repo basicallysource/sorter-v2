@@ -7,7 +7,9 @@ from typing import Optional
 import cv2
 import numpy as np
 
-from classification.brickognize import MAX_QUERY_IMAGES, _classifyImages
+import db
+import piece_predictions
+from classification.brickognize import MAX_QUERY_IMAGES, _classifyImages, rankedColors, rankedItems
 from classification.providers import (
     COLOR_PROVIDER_BRICKOGNIZE,
     COLOR_PROVIDER_HIVE_BASICALLY,
@@ -320,19 +322,6 @@ class Rev01BaseState(BaseState):
                 )
         return requests
 
-    @staticmethod
-    def _topItem(result: object) -> Optional[dict]:
-        items = result.get("items", []) if isinstance(result, dict) else []
-        return items[0] if items else None
-
-    @staticmethod
-    def _topColor(result: object) -> Optional[dict]:
-        colors = result.get("colors", []) if isinstance(result, dict) else []
-        valid = [c for c in colors if isinstance(c, dict)]
-        if not valid:
-            return None
-        return max(valid, key=lambda c: c.get("score", 0))
-
     def _runRequestsParallel(
         self, requests: list[_ClassifyRequest], piece_uuid: Optional[str]
     ) -> list[tuple[_ClassifyRequest, Optional[dict], Optional[str], float]]:
@@ -422,6 +411,7 @@ class Rev01BaseState(BaseState):
         # payload is not an error: the piece keeps Brickognize's color and is
         # recorded as brickognize-sourced, so the stored provenance always
         # reflects what really produced the color rather than what was configured.
+        self.ctx.hosted_prediction = None
         if hosted_color is None:
             self.ctx.color_provider = COLOR_PROVIDER_BRICKOGNIZE
             self.ctx.hosted_color = None
@@ -447,6 +437,7 @@ class Rev01BaseState(BaseState):
             return
         # Hive returns BrickLink color ids as ints; the sorting profile (and
         # Brickognize) key on the same ids as strings.
+        self.ctx.hosted_prediction = result
         self.ctx.color_provider = COLOR_PROVIDER_HIVE_BASICALLY
         self.ctx.hosted_color = (str(color_id), str(color_name))
         self.ctx.hosted_color_confidence = (
@@ -490,8 +481,10 @@ class Rev01BaseState(BaseState):
         errors: list[str] = []
 
         for req, result, error, dur in results:
-            top = self._topItem(result)
-            top_color = self._topColor(result)
+            items = rankedItems(result, piece_predictions.PREDICTIONS_PER_REQUEST)
+            colors = rankedColors(result, piece_predictions.PREDICTIONS_PER_REQUEST)
+            top = items[0] if items else None
+            top_color = colors[0] if colors else None
             attempts.append(
                 ClassificationAttempt(
                     strategy=req.strategy,
@@ -512,6 +505,15 @@ class Rev01BaseState(BaseState):
                         if isinstance(top_color, dict) and top_color.get("name") is not None
                         else None
                     ),
+                    color_score=(
+                        top_color.get("score") if isinstance(top_color, dict) else None
+                    ),
+                    items=[
+                        {k: item.get(k) for k in ("id", "name", "score", "rank")} for item in items
+                    ],
+                    colors=[
+                        {k: color.get(k) for k in ("id", "name", "score", "rank")} for color in colors
+                    ],
                     error=error,
                     duration_s=dur,
                     image_ts=[
@@ -717,7 +719,32 @@ class Rev01BaseState(BaseState):
             obj.classification_attempts = list(self.ctx.classification_attempts)
             obj.classification_strategy = self.ctx.classification_strategy
 
+        self._recordPredictions(obj)
         self.emitKnownObject()
+
+    def _recordPredictions(self, obj) -> None:
+        # Every ranked answer this piece got, applied or not, kept and sent to
+        # Hive. Runs on the control loop, so the write goes to the writer thread.
+        rows = piece_predictions.fromClassification(
+            attempts=obj.classification_attempts,
+            hosted=self.ctx.hosted_prediction,
+            applied_part=(
+                (str(obj.part_id), obj.brickognize_item_rank) if obj.part_id is not None else None
+            ),
+            applied_color=(
+                (obj.color_provider, obj.color_id, obj.brickognize_color_rank)
+                if obj.color_id is not None
+                else None
+            ),
+            created_at=obj.classified_at,
+        )
+        if not rows:
+            return
+        piece_predictions.remember(obj.uuid, rows)
+        db.defer(
+            f"piece predictions {obj.uuid[:8]}",
+            lambda: piece_predictions.recordPredictions(obj.uuid, rows),
+        )
 
     def _gatherLinkMatches(
         self,

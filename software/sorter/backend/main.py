@@ -567,6 +567,11 @@ def main() -> None:
     hive_sync_worker = HiveSyncWorker(gc)
     hive_sync_worker.start()
     gc.hive_sync_worker = hive_sync_worker
+    # Keeps the database and the file stores bounded: piece history past its
+    # window once every Hive has it, old cycles and held pieces, tombstones,
+    # and the database's free pages.
+    from storage_maintenance import StorageMaintenance
+    StorageMaintenance(gc, hive_sync_worker).start()
     # Keep-alive to every enabled Hive; its replies carry the limits each sets.
     from server.hive_heartbeat import HiveHeartbeat
     hive_heartbeat = HiveHeartbeat()

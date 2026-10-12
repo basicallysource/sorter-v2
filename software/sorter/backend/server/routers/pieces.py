@@ -96,11 +96,28 @@ class PiecesListResponse(BaseModel):
     total: int
 
 
+class PiecePrediction(BaseModel):
+    # One ranked answer a classification request gave (see piece_predictions).
+    request: str
+    provider: str
+    model: Optional[str] = None
+    kind: str
+    rank: int
+    value_id: str
+    value_name: Optional[str] = None
+    score: Optional[float] = None
+    applied: bool = False
+
+
 class PieceDetailResponse(BaseModel):
     origin: str
     summary: PieceSummary
     detail: Optional[Dict[str, Any]]
     detail_available: bool
+    # Every part and colour prediction the machine made for the piece, ordered
+    # by kind, request and rank; empty for pieces classified before they were
+    # kept.
+    predictions: List[PiecePrediction] = []
 
 
 class PiecesOverviewResponse(BaseModel):
@@ -614,6 +631,7 @@ def _summaryFromMemory(gc: Any, payload: Dict[str, Any]) -> PieceSummary:
 @router.get("/api/pieces/{uuid}", response_model=PieceDetailResponse)
 def getPiece(uuid: str) -> PieceDetailResponse:
     import piece_image_store
+    import piece_predictions
     import piece_records
 
     gc = shared_state.gc_ref
@@ -630,6 +648,7 @@ def getPiece(uuid: str) -> PieceDetailResponse:
                     summary=_summaryFromMemory(gc, payload),
                     detail=detail,
                     detail_available=True,
+                    predictions=[PiecePrediction(**p) for p in piece_predictions.recent(uuid)],
                 )
 
     summary = piece_records.getPieceSummaryByUuid(gc, uuid)
@@ -644,4 +663,5 @@ def getPiece(uuid: str) -> PieceDetailResponse:
         summary=PieceSummary(**summary),
         detail=None,
         detail_available=False,
+        predictions=[PiecePrediction(**p) for p in piece_predictions.listForPiece(uuid)],
     )

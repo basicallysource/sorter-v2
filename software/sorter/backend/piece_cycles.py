@@ -67,11 +67,19 @@ def _createTables(conn: sqlite3.Connection) -> None:
     conn.execute(f"CREATE TABLE IF NOT EXISTS piece_cycles (id INTEGER PRIMARY KEY AUTOINCREMENT, {cols})")
     db.add_columns(conn, "piece_cycles", {k: v for k, v in _COLUMNS.items() if "NOT NULL" not in v})
     conn.execute("CREATE INDEX IF NOT EXISTS idx_piece_cycles_asked ON piece_cycles(asked_at)")
-    conn.execute("DELETE FROM piece_cycles WHERE asked_at < ?", (time.time() - KEEP_DAYS * 86400.0,))
 
 
 def _connection():
     return db.connect(_createTables)
+
+
+def prune(now: Optional[float] = None) -> int:
+    """Delete cycles older than KEEP_DAYS (storage maintenance runs this)."""
+    cutoff = (time.time() if now is None else now) - KEEP_DAYS * 86400.0
+    with _connection() as conn:
+        deleted = conn.execute("DELETE FROM piece_cycles WHERE asked_at < ?", (cutoff,)).rowcount
+        conn.commit()
+    return int(deleted or 0)
 
 
 @dataclass

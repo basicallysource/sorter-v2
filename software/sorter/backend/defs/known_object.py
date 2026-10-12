@@ -84,9 +84,17 @@ class ClassificationAttempt:
     part_name: Optional[str] = None
     preview_url: Optional[str] = None
     confidence: Optional[float] = None
-    # Top color this request returned (Brickognize reports colors per request).
+    # Top color this request returned (Brickognize reports colors per request)
+    # and its score.
     color_id: Optional[str] = None
     color_name: Optional[str] = None
+    color_score: Optional[float] = None
+    # This request's ranked answers, kept as the piece's predictions
+    # (piece_predictions): its first items and its highest-scoring colors, each
+    # a dict with id, name, score and rank (the position in Brickognize's
+    # response). Not sent to the UI over the socket.
+    items: List[dict] = field(default_factory=list)
+    colors: List[dict] = field(default_factory=list)
     error: Optional[str] = None
     duration_s: Optional[float] = None
     # Capture timestamps of the exact images submitted in this request. The UI

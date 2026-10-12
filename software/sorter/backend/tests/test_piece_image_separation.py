@@ -98,4 +98,4 @@ class TestGroundTruthGuard:
         _drain(store)
         assert store.listPieceLinkImages("piece-3")
         assert store.listImagesAfter(0, 100) == []
-        assert store.getMaxImageId() == 0
+        assert store.countImagesAfter(0) == 0

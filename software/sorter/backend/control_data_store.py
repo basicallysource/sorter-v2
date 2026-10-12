@@ -7,8 +7,8 @@ snapshot of everything needed to interpret it (machine id, code version,
 machine setup, feeder/classification modes, live tuning configs, channel
 polygons), so a segment is self-describing even once it leaves the machine.
 
-Rows carry an autoincrement id (the Hive sync cursor) plus sync markers
-(synced_at / hive_segment_id) mirroring channel_crop_store, so the shared
+Rows carry an autoincrement id (the Hive sync cursor) plus a synced_at
+marker mirroring channel_crop_store, so the shared
 HiveSyncWorker drains segments to every Hive target and retention prefers
 evicting already-synced files. The byte cap bounds disk even if sync is absent.
 
@@ -92,8 +92,7 @@ def _createTables(conn: sqlite3.Connection) -> None:
         # Path relative to control_data_dir().
         "file_path TEXT NOT NULL, "
         "deleted_at REAL, "
-        "synced_at REAL, "
-        "hive_segment_id TEXT"
+        "synced_at REAL"
         ")"
     )
     conn.execute(
@@ -310,7 +309,7 @@ def recoverOrphanedSegments() -> int:
 def _retentionSweep() -> None:
     with _connection() as conn:
         row = conn.execute(
-            "SELECT COALESCE(SUM(bytes), 0) AS total FROM control_data_segments WHERE deleted_at IS NULL"
+            f"SELECT COALESCE(SUM({db.on_disk_bytes_sql()}), 0) AS total FROM control_data_segments WHERE deleted_at IS NULL"
         ).fetchone()
         total = int(row["total"]) if row is not None else 0
         if total <= _RETENTION_MAX_TOTAL_BYTES:
@@ -335,7 +334,7 @@ def _retentionSweep() -> None:
                 "UPDATE control_data_segments SET deleted_at = ? WHERE id = ?",
                 (now, int(r["id"])),
             )
-            freed += int(r["bytes"] or 0)
+            freed += db.on_disk_bytes(r["bytes"])
             evicted += 1
         conn.commit()
     if evicted:

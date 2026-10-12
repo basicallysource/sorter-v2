@@ -31,7 +31,7 @@ from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from app.config import settings
-from app.database import SessionLocal
+from app.database import SessionLocal, tune_for_aggregates
 from app.models.machine import Machine
 from app.models.machine_piece import MachinePiece
 from app.models.machine_stats_cache import MachineStatsCache
@@ -57,6 +57,10 @@ _NUMERIC_FIELDS = (
     "ontime_pct",
     "total_samples",
     "accepted_samples",
+    "unreviewed_samples",
+    "in_review_samples",
+    "rejected_samples",
+    "conflict_samples",
     "total_sessions",
     "parts_found",
     "parts_needed",
@@ -224,6 +228,10 @@ def _compute_sample_stats(db: Session, machine_ids: list[Any] | None = None) -> 
             Sample.machine_id,
             func.count(Sample.id).label("total_samples"),
             func.count(Sample.id).filter(Sample.review_status == "accepted").label("accepted_samples"),
+            func.count(Sample.id).filter(Sample.review_status == "unreviewed").label("unreviewed_samples"),
+            func.count(Sample.id).filter(Sample.review_status == "in_review").label("in_review_samples"),
+            func.count(Sample.id).filter(Sample.review_status == "rejected").label("rejected_samples"),
+            func.count(Sample.id).filter(Sample.review_status == "conflict").label("conflict_samples"),
             func.min(Sample.captured_at).label("first_capture"),
             func.max(Sample.captured_at).label("last_capture"),
         ),
@@ -255,6 +263,10 @@ def _compute_sample_stats(db: Session, machine_ids: list[Any] | None = None) -> 
         result[mid] = {
             "total_samples": sr.total_samples if sr else 0,
             "accepted_samples": sr.accepted_samples if sr else 0,
+            "unreviewed_samples": sr.unreviewed_samples if sr else 0,
+            "in_review_samples": sr.in_review_samples if sr else 0,
+            "rejected_samples": sr.rejected_samples if sr else 0,
+            "conflict_samples": sr.conflict_samples if sr else 0,
             "first_capture": sr.first_capture if sr else None,
             "last_capture": sr.last_capture if sr else None,
             "total_sessions": session_map.get(mid, 0),
@@ -388,6 +400,9 @@ def refresh_all(db: Session) -> int:
 def _refresh_pass() -> dict[str, Any]:
     db = SessionLocal()
     try:
+        # Grouped passes over every piece and sample: give them room to sort in
+        # memory rather than spill to temp files.
+        tune_for_aggregates(db, work_mem="64MB")
         return {"last_run_machines": refresh_all(db)}
     except Exception:
         db.rollback()

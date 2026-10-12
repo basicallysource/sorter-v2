@@ -585,6 +585,8 @@ export interface StatsOverview {
 	rejected_samples: number;
 	conflict_samples: number;
 	total_machines: number;
+	// When the oldest of the cached per-machine counts behind these was made.
+	computed_at: string | null;
 }
 
 export type OAuthProviderName = 'github' | 'discord';
@@ -1476,22 +1478,28 @@ export interface ColorLabelPieceCard {
 	seen_at: string | null;
 	color_label_count: number;
 	crop_link_count: number;
+	part_label_count: number;
 	my_color: boolean;
 	my_crop: boolean;
+	my_part: boolean;
 	has_candidates: boolean;
 	thumb_seq: number | null;
+	// Straight from storage when Hive can sign one; else load the thumbnail by thumb_seq.
+	thumb_url: string | null;
 }
 
 export interface ColorLabelPiecesPage {
 	items: ColorLabelPieceCard[];
 	has_more: boolean;
-	offset: number;
+	// Pass as `cursor` for the page after this one; null at the end of the list.
+	next_cursor: string | null;
 	sort: ColorLabelSort;
 }
 
 export interface MachineLabeledPiece {
 	piece_uuid: string;
 	thumb_seq: number | null;
+	thumb_url: string | null;
 	color_id: number;
 	color_name: string;
 	rgb: string | null;
@@ -1667,26 +1675,11 @@ export const IMAGE_QUALITY_REASONS: { code: ImageQualityReason; label: string }[
 
 export interface ColorLabelQueueImage extends ImageQualityFlags {
 	seq: number;
+	// Straight from storage when Hive can sign one; else load colorLabelImageUrl.
+	url: string | null;
 	source: string | null;
 	used: boolean;
 	score: number | null;
-}
-
-export interface ColorLabelQueueItem {
-	machine_id: string;
-	machine_name: string | null;
-	piece_uuid: string;
-	recorded_at: string | null;
-	seen_at: string | null;
-	part: { part_id: string | null; part_name: string | null };
-	pixel_guess: ColorLabelPixelGuess | null;
-	images: ColorLabelQueueImage[];
-	my_label: { color_id: number | null; notes: string | null } | null;
-}
-
-export interface ColorLabelQueue {
-	items: ColorLabelQueueItem[];
-	has_more: boolean;
 }
 
 export interface ColorModel {
@@ -1863,6 +1856,8 @@ export interface PossibleCropCandidate extends ImageQualityFlags {
 	model_same: boolean | null;
 	model_score: number | null;
 	available: boolean;
+	// Straight from storage when Hive can sign one; else load channelCropLabelImageUrl.
+	thumb_url: string | null;
 }
 
 export interface PieceCropLinkMember {
@@ -1880,6 +1875,8 @@ export interface PossibleCropsResult {
 	ai_reasoning: string | null;
 	// Name of the active link matcher model when prediction_source === 'model'.
 	link_model: string | null;
+	// The score at or above which the link model counts a crop as the same piece.
+	link_threshold: number | null;
 	// Present only on the ai-predict POST response.
 	ai_cost_usd?: number | null;
 	ai_elapsed_ms?: number | null;
@@ -2016,19 +2013,11 @@ export const api = {
 		const qs = opts.machineId ? `?machine_id=${opts.machineId}` : '';
 		return request<ColorCoverageResponse>('GET', `/api/labeling/color-coverage${qs}`);
 	},
-	colorLabelQueue(opts: { onlyUnlabeled?: boolean; limit?: number; offset?: number } = {}) {
-		const params = new URLSearchParams();
-		if (opts.onlyUnlabeled === false) params.set('only_unlabeled', 'false');
-		if (opts.limit) params.set('limit', String(opts.limit));
-		if (opts.offset) params.set('offset', String(opts.offset));
-		const qs = params.toString();
-		return request<ColorLabelQueue>('GET', `/api/labeling/queue${qs ? `?${qs}` : ''}`);
-	},
 	colorLabelPieces(
 		opts: {
 			sort?: ColorLabelSort;
 			limit?: number;
-			offset?: number;
+			cursor?: string | null;
 			machineId?: string | null;
 			withCandidates?: boolean;
 		} = {}
@@ -2036,7 +2025,7 @@ export const api = {
 		const params = new URLSearchParams();
 		if (opts.sort) params.set('sort', opts.sort);
 		if (opts.limit) params.set('limit', String(opts.limit));
-		if (opts.offset) params.set('offset', String(opts.offset));
+		if (opts.cursor) params.set('cursor', opts.cursor);
 		if (opts.machineId) params.set('machine_id', opts.machineId);
 		if (opts.withCandidates) params.set('with_candidates', 'true');
 		const qs = params.toString();

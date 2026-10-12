@@ -2,7 +2,10 @@ from __future__ import annotations
 
 import os
 import shutil
+import threading
+import time
 from abc import ABC, abstractmethod
+from collections import OrderedDict
 from pathlib import Path
 from typing import BinaryIO, Iterator
 
@@ -42,6 +45,13 @@ class StorageBackend(ABC):
         filename: str | None = None,
         media_type: str | None = None,
     ) -> Response: ...
+
+    def presigned_get_url(self, key: str) -> str | None:
+        """A URL the browser can load the object from directly, or None when the
+        backend has none (local disk, or S3 in proxy mode) and the image has to
+        come through the API. Lets a list response hand out its thumbnails
+        instead of costing one API round trip each."""
+        return None
 
 
 class LocalStorageBackend(StorageBackend):
@@ -139,6 +149,11 @@ class S3StorageBackend(StorageBackend):
         self.bucket = bucket
         self.serve_mode = serve_mode
         self.presigned_expiry = presigned_expiry
+        # Recently minted URLs, reused for half their life: a URL minted each
+        # time is a new URL each time, and the browser would download the same
+        # thumbnail again on every list load. Bounded, so it cannot grow.
+        self._presigned: OrderedDict[str, tuple[float, str]] = OrderedDict()
+        self._presigned_lock = threading.Lock()
         self.client = boto3.client(
             "s3",
             endpoint_url=endpoint_url or None,
@@ -182,6 +197,28 @@ class S3StorageBackend(StorageBackend):
         except self.client.exceptions.NoSuchKey as exc:
             raise FileNotFoundError(key) from exc
         return obj["Body"].read()
+
+    _PRESIGNED_CACHE_MAX = 20_000
+
+    def presigned_get_url(self, key: str) -> str | None:
+        if self.serve_mode != "redirect":
+            return None
+        now = time.monotonic()
+        with self._presigned_lock:
+            hit = self._presigned.get(key)
+            if hit is not None and now - hit[0] < self.presigned_expiry / 2:
+                self._presigned.move_to_end(key)
+                return hit[1]
+        # Signing is a local HMAC; no request goes to the store.
+        url = self.client.generate_presigned_url(
+            "get_object", Params={"Bucket": self.bucket, "Key": key}, ExpiresIn=self.presigned_expiry
+        )
+        with self._presigned_lock:
+            self._presigned[key] = (now, url)
+            self._presigned.move_to_end(key)
+            while len(self._presigned) > self._PRESIGNED_CACHE_MAX:
+                self._presigned.popitem(last=False)
+        return url
 
     def iter_sizes(self) -> Iterator[tuple[str, int]]:
         paginator = self.client.get_paginator("list_objects_v2")
@@ -287,3 +324,33 @@ def get_backend() -> StorageBackend:
 def reset_backend_for_tests() -> None:
     global _backend_instance
     _backend_instance = None
+
+
+READ_MANY_WORKERS = 16
+
+
+def read_many(keys: list[str]) -> dict[str, bytes | None]:
+    """Read several objects at once. Each read on S3 is a network round trip
+    (tens of ms) that releases the GIL, so a piece's 40 crops cost about as long
+    as the slowest few rather than all of them in a row. A key that cannot be
+    read maps to None.
+
+    Call it with no database transaction open: a connection held idle in a
+    transaction while this waits pins a pool slot and an old snapshot."""
+    unique = list(dict.fromkeys(k for k in keys if k))
+    if not unique:
+        return {}
+    backend = get_backend()
+
+    def _read(key: str) -> bytes | None:
+        try:
+            return backend.read_bytes(key)
+        except Exception:
+            return None
+
+    if len(unique) == 1:
+        return {unique[0]: _read(unique[0])}
+    from concurrent.futures import ThreadPoolExecutor
+
+    with ThreadPoolExecutor(max_workers=min(READ_MANY_WORKERS, len(unique))) as pool:
+        return dict(zip(unique, pool.map(_read, unique)))

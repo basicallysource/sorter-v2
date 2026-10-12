@@ -1,8 +1,8 @@
 """Traditional pixel-average color guess for a synced piece.
 
 Independent of any external model: it averages the actual crop pixels the machine
-already stored and matches that to the nearest BrickLink catalog color. Nothing is
-persisted — the guess is recomputed on demand (cheap, and cached per crop).
+already stored and matches that to the nearest BrickLink catalog color. The caller
+reads the crops (services.piece_color_guess, which also keeps the result).
 
 Algorithm ("pixel average"): for up to N crops of a piece (preferring the ones the
 machine marked `used`), take the mean RGB of each crop's central region (trims the
@@ -20,7 +20,6 @@ import numpy as np
 from PIL import Image
 
 from app.services.likely_colors import labelable_palette
-from app.services.storage_backend import get_backend
 
 METHOD = "pixel_average"
 MAX_SAMPLES = 5
@@ -71,10 +70,8 @@ def _nearest_color(avg_rgb: tuple[float, float, float]) -> dict[str, Any] | None
     return {"color_id": c["id"], "color_name": c["name"], "match_rgb": c.get("rgb")}
 
 
-@lru_cache(maxsize=8192)
-def _crop_average(image_key: str) -> tuple[float, float, float] | None:
+def _crop_average(data: bytes) -> tuple[float, float, float] | None:
     try:
-        data = get_backend().read_bytes(image_key)
         with Image.open(io.BytesIO(data)) as im:
             im = im.convert("RGB")
             w, h = im.size
@@ -90,13 +87,10 @@ def _crop_average(image_key: str) -> tuple[float, float, float] | None:
     return (float(r), float(g), float(b))
 
 
-def guess_piece_color(images: list) -> dict[str, Any] | None:
-    """images: MachinePieceImage rows for one piece. Returns the pixel-average
-    guess, or None if no crop was readable."""
-    with_key = [im for im in images if im.image_key]
-    used = [im for im in with_key if im.used]
-    chosen = (used or with_key)[:MAX_SAMPLES]
-    samples = [avg for im in chosen if (avg := _crop_average(im.image_key)) is not None]
+def guess_from_bytes(crops: list[bytes]) -> dict[str, Any] | None:
+    """The pixel-average guess over these crops' bytes (the caller picks the
+    crops and reads them), or None if none decodes."""
+    samples = [avg for data in crops[:MAX_SAMPLES] if (avg := _crop_average(data)) is not None]
     if not samples:
         return None
     r = sum(s[0] for s in samples) / len(samples)

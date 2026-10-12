@@ -79,7 +79,7 @@ export type GridSnapshot = {
 	key: string;
 	items: ColorLabelPieceCard[];
 	stats: ColorLabelStats | null;
-	offset: number;
+	cursor: string | null;
 	hasMore: boolean;
 	scrollY: number;
 };
@@ -107,7 +107,7 @@ export async function getMachinesCached(): Promise<Machine[]> {
 
 let queue: PieceKey[] = [];
 let filters: NavFilters = { sort: 'priority', withCandidates: true };
-let nextOffset = 0;
+let nextCursor: string | null = null;
 let hasMore = true;
 let loading = false;
 
@@ -119,10 +119,10 @@ function indexOf(k: PieceKey): number {
 	return queue.findIndex((q) => sameKey(q, k));
 }
 
-export function seed(items: PieceKey[], f: NavFilters, offsetAfter: number, more: boolean): void {
+export function seed(items: PieceKey[], f: NavFilters, cursorAfter: string | null, more: boolean): void {
 	queue = items.map((k) => ({ machine_id: k.machine_id, piece_uuid: k.piece_uuid }));
 	filters = f;
-	nextOffset = offsetAfter;
+	nextCursor = cursorAfter;
 	hasMore = more;
 }
 
@@ -135,9 +135,9 @@ async function fetchMore(): Promise<boolean> {
 			machineId: filters.machineId,
 			withCandidates: filters.withCandidates,
 			limit: 60,
-			offset: nextOffset
+			cursor: nextCursor
 		});
-		nextOffset += page.items.length;
+		nextCursor = page.next_cursor;
 		hasMore = page.has_more;
 		for (const it of page.items) {
 			if (indexOf(it) < 0) queue.push({ machine_id: it.machine_id, piece_uuid: it.piece_uuid });
@@ -150,7 +150,7 @@ async function fetchMore(): Promise<boolean> {
 
 async function ensureSeeded(): Promise<void> {
 	if (queue.length === 0) {
-		nextOffset = 0;
+		nextCursor = null;
 		hasMore = true;
 		await fetchMore();
 	}

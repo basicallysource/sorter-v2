@@ -14,6 +14,15 @@ every candidate crop, build each candidate's meta feature vector, and run the
 head to get a same-piece probability per candidate. ``candidateMeta`` is copied
 byte-for-byte from the training repo (color-model/piece_link/dataset.py) — the
 model's meta inputs must match training exactly, so keep the two in sync.
+
+This module only scores bytes it is given. Reading the crops from storage, and
+keeping the scores so a piece is scored once per model, is
+``services.piece_link_scores``.
+
+A candidate is a pick when its score reaches the model's published threshold:
+``predict_threshold`` in the training metadata of the published piece_link
+model of the same name (the one machines download), else ``hive.predict_threshold``
+in the files' own metadata, else DEFAULT_PREDICT_THRESHOLD.
 """
 
 from __future__ import annotations
@@ -34,18 +43,16 @@ from PIL import Image
 from sqlalchemy.orm import Session
 
 from app.config import settings
+from app.models.detection_model import PURPOSE_PIECE_LINK, DetectionModel
 from app.models.link_model import LinkModel
-from app.models.machine_channel_crop import MachineChannelCrop
 from app.models.machine_piece_image import MachinePieceImage
 from app.services.channel_crop_lookup_params import DEFAULT_PARAMS
-from app.services.storage_backend import get_backend
 
 log = logging.getLogger(__name__)
 
 _HIVE_KIND = "piece_link_matcher"
-# sigmoid prob at/above which a candidate is the model's "same piece" pick.
-PREDICT_THRESHOLD = 0.5
-MAX_ANCHOR_VIEWS = 3
+# Only when neither the published model nor the files state a threshold.
+DEFAULT_PREDICT_THRESHOLD = 0.5
 
 
 def model_dir() -> Path:
@@ -283,9 +290,61 @@ def _candidate_meta(dt: float, channel: Optional[int], zone_code: Optional[int],
     )
 
 
-def _anchor_keys(db: Session, machine_id: UUID, piece_uuid: str) -> list[str]:
+@dataclass
+class ActiveLinkModel:
+    row: LinkModel
+    threshold: float
+    # Where the threshold came from: "published", "model file" or "default".
+    threshold_source: str
+
+    @property
+    def name(self) -> str:
+        return self.row.name
+
+    @property
+    def sha256(self) -> str:
+        return self.row.sha256
+
+
+def _as_threshold(value: Any) -> float | None:
+    try:
+        f = float(value)
+    except (TypeError, ValueError):
+        return None
+    return f if 0.0 < f <= 1.0 else None
+
+
+def _threshold(db: Session, row: LinkModel) -> tuple[float, str]:
+    published = (
+        db.query(DetectionModel.training_metadata)
+        .filter(DetectionModel.purpose == PURPOSE_PIECE_LINK, DetectionModel.slug == row.name)
+        .order_by(DetectionModel.version.desc())
+        .first()
+    )
+    if published is not None:
+        value = _as_threshold((published[0] or {}).get("predict_threshold"))
+        if value is not None:
+            return value, "published"
+    value = _as_threshold((row.meta or {}).get("hive.predict_threshold"))
+    if value is not None:
+        return value, "model file"
+    return DEFAULT_PREDICT_THRESHOLD, "default"
+
+
+def active_model(db: Session) -> ActiveLinkModel | None:
+    """The active link model and its pick threshold (database only)."""
+    row = get_active(db)
+    if row is None:
+        return None
+    threshold, source = _threshold(db, row)
+    return ActiveLinkModel(row=row, threshold=threshold, threshold_source=source)
+
+
+def anchor_key(db: Session, machine_id: UUID, piece_uuid: str) -> str | None:
+    """The piece crop the candidates are compared against: the first C4 burst
+    frame by seq (any channel if the piece has no C4 crop), as training scored."""
     rows = (
-        db.query(MachinePieceImage.channel, MachinePieceImage.seq, MachinePieceImage.image_key)
+        db.query(MachinePieceImage.channel, MachinePieceImage.image_key)
         .filter(
             MachinePieceImage.machine_id == machine_id,
             MachinePieceImage.piece_uuid == piece_uuid,
@@ -295,23 +354,8 @@ def _anchor_keys(db: Session, machine_id: UUID, piece_uuid: str) -> list[str]:
         .all()
     )
     c4 = [r.image_key for r in rows if r.channel == DEFAULT_PARAMS.classification_channel_id]
-    keys = c4 if c4 else [r.image_key for r in rows]
-    return keys[:MAX_ANCHOR_VIEWS]
-
-
-def _crop_keys(db: Session, machine_id: UUID, local_ids: list[int]) -> dict[int, str]:
-    if not local_ids:
-        return {}
-    rows = (
-        db.query(MachineChannelCrop.local_id, MachineChannelCrop.image_key)
-        .filter(
-            MachineChannelCrop.machine_id == machine_id,
-            MachineChannelCrop.local_id.in_(local_ids),
-            MachineChannelCrop.image_key.isnot(None),
-        )
-        .all()
-    )
-    return {r.local_id: r.image_key for r in rows}
+    keys = c4 or [r.image_key for r in rows]
+    return keys[0] if keys else None
 
 
 def _embed(loaded: _Loaded, images: list[np.ndarray]) -> np.ndarray:
@@ -319,56 +363,32 @@ def _embed(loaded: _Loaded, images: list[np.ndarray]) -> np.ndarray:
     return loaded.encoder.run(None, {loaded.enc_input: x})[0]
 
 
-def predict(db: Session, machine_id: UUID, piece_uuid: str, candidates: list[dict[str, Any]]) -> dict[str, Any] | None:
-    """Score the heuristic's candidate set with the active link model.
-
-    ``candidates`` are the dicts from ``find_possible_crops`` (need: local_id,
-    channel, dt, zone_code, com_forward_to_exit_deg). Returns
-    ``{model_name, threshold, scores: {local_id: prob}}`` or None when no model
-    is active / the model can't be loaded / no anchor or crop is readable.
-    """
-    row = get_active(db)
-    if row is None:
-        return None
-    loaded = _load(row)
+def score_crops(model: ActiveLinkModel, anchor: bytes, crops: list[tuple[dict[str, Any], bytes | None]]) -> dict[int, float]:
+    """Same-piece probability per candidate crop. ``crops`` pairs each candidate
+    dict from ``find_possible_crops`` (local_id, channel, dt, zone_code,
+    com_forward_to_exit_deg) with its image bytes. Unreadable crops are left
+    out; an unloadable model or unreadable anchor gives {}."""
+    loaded = _load(model.row)
     if loaded is None:
-        return None
-
-    anchor_imgs: list[np.ndarray] = []
-    for key in _anchor_keys(db, machine_id, piece_uuid):
-        try:
-            arr = _preprocess(get_backend().read_bytes(key), loaded.input_size)
-        except Exception:
-            arr = None
-        if arr is not None:
-            anchor_imgs.append(arr)
-            break  # training eval scores against a single anchor
-    if not anchor_imgs:
-        return None
-
-    local_ids = [c["local_id"] for c in candidates]
-    key_by_id = _crop_keys(db, machine_id, local_ids)
+        return {}
+    anchor_img = _preprocess(anchor, loaded.input_size)
+    if anchor_img is None:
+        return {}
 
     crop_imgs: list[np.ndarray] = []
     metas: list[np.ndarray] = []
     scored_ids: list[int] = []
-    for c in candidates:
-        key = key_by_id.get(c["local_id"])
-        if key is None:
-            continue
-        try:
-            arr = _preprocess(get_backend().read_bytes(key), loaded.input_size)
-        except Exception:
-            arr = None
+    for c, data in crops:
+        arr = _preprocess(data, loaded.input_size) if data else None
         if arr is None:
             continue
         crop_imgs.append(arr)
         metas.append(_candidate_meta(c.get("dt") or 0.0, c.get("channel"), c.get("zone_code"), c.get("com_forward_to_exit_deg")))
-        scored_ids.append(c["local_id"])
+        scored_ids.append(int(c["local_id"]))
     if not crop_imgs:
-        return None
+        return {}
 
-    emb_a = _embed(loaded, anchor_imgs)[:1]  # (1, embed_dim)
+    emb_a = _embed(loaded, [anchor_img])[:1]  # (1, embed_dim)
     emb_c = _embed(loaded, crop_imgs)  # (n, embed_dim)
     meta = np.stack(metas, axis=0)  # (n, meta_dim)
     emb_a_tiled = np.repeat(emb_a, len(crop_imgs), axis=0)
@@ -377,9 +397,4 @@ def predict(db: Session, machine_id: UUID, piece_uuid: str, candidates: list[dic
         {"emb_anchor": emb_a_tiled.astype(np.float32), "emb_candidate": emb_c.astype(np.float32), "meta": meta},
     )[0]
     probs = np.asarray(probs).reshape(-1)
-
-    return {
-        "model_name": row.name,
-        "threshold": PREDICT_THRESHOLD,
-        "scores": {lid: float(p) for lid, p in zip(scored_ids, probs)},
-    }
+    return {lid: float(p) for lid, p in zip(scored_ids, probs)}

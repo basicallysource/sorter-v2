@@ -72,21 +72,21 @@ class Segment:
     oldest: bool = False  # walk oldest first
     most: bool = False  # labeled: most labels first
     mine: bool | None = None  # labeled: only pieces this user did (True) or did not (False) label
+    candidates: bool | None = None  # only pieces with (True) or without (False) same-piece candidates
     filters: tuple = field(default_factory=tuple)
 
 
 def segments_for(sort: str) -> list[Segment]:
-    has_c, no_c = (Q.has_candidates.is_(True),), (Q.has_candidates.is_(False),)
     if sort == "recent":
         return [Segment("walk")]
     if sort == "oldest":
         return [Segment("walk", oldest=True)]
     if sort == "priority":
         return [
-            Segment("walk", "color", filters=has_c),
-            Segment("labeled", "color", filters=has_c),
-            Segment("walk", "color", filters=no_c),
-            Segment("labeled", "color", filters=no_c),
+            Segment("walk", "color", candidates=True),
+            Segment("labeled", "color", candidates=True),
+            Segment("walk", "color", candidates=False),
+            Segment("labeled", "color", candidates=False),
         ]
     if sort == "needs_me":
         return [
@@ -222,13 +222,19 @@ def read_page(
     for index, seg in enumerate(segments):
         if index < start_segment:
             continue
+        if with_candidates and seg.candidates is False:
+            continue  # empty by definition; walking it would read the whole index
         key = start_key if index == start_segment else None
         remaining = want - len(out)
         if remaining <= 0:
             break
 
+        seg_filters = list(seg.filters)
+        if seg.candidates is not None:
+            seg_filters.append(Q.has_candidates.is_(seg.candidates))
+
         if seg.kind == "walk":
-            q = base().filter(*seg.filters)
+            q = base().filter(*seg_filters)
             if seg.label is not None:
                 table = _LABEL_TABLES[seg.label]
                 q = q.filter(
@@ -251,7 +257,7 @@ def read_page(
                 .group_by(table.machine_id, table.piece_uuid)
                 .subquery()
             )
-            q = base(agg).filter(*seg.filters)
+            q = base(agg).filter(*seg_filters)
             if seg.mine is not None:
                 q = q.filter(agg.c.mine == (1 if seg.mine else 0))
             if key is not None:

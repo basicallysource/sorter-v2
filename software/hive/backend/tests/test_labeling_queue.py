@@ -603,3 +603,16 @@ def test_redaction_blanks_keys_in_urls():
     out = redact_secrets(text)
     assert "SECRET123" not in out and "abc" not in out and "t0k" not in out
     assert "currency=USD" in out and "page=2" in out
+
+
+def test_read_many_reads_concurrently_and_maps_missing_to_none(tmp_path, monkeypatch):
+    from app.services import storage_backend
+
+    for i in range(20):
+        (tmp_path / f"{i}.jpg").write_bytes(bytes([i]))
+    monkeypatch.setattr(storage_backend, "get_backend", lambda: storage_backend.LocalStorageBackend(str(tmp_path)))
+    keys = [f"{i}.jpg" for i in range(20)] + ["missing.jpg", "0.jpg"]
+    got = storage_backend.read_many(keys)
+    assert got["missing.jpg"] is None
+    assert all(got[f"{i}.jpg"] == bytes([i]) for i in range(20))
+    assert len(got) == 21

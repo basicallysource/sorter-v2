@@ -750,7 +750,7 @@
       "requires": [
         {
           "part": "hsi-m3",
-          "qty": 18
+          "qty": 21
         }
       ]
     },
@@ -1869,13 +1869,7 @@
         "role": "chute-core"
       },
       "optional": false,
-      "support": false,
-      "requires": [
-        {
-          "part": "hsi-m3",
-          "qty": 4
-        }
-      ]
+      "support": false
     },
     {
       "id": "bearing-holder-left",
@@ -1899,7 +1893,7 @@
       "requires": [
         {
           "part": "hsi-m3",
-          "qty": 3
+          "qty": 5
         }
       ],
       "attributes": [
@@ -1931,7 +1925,7 @@
       "requires": [
         {
           "part": "hsi-m3",
-          "qty": 3
+          "qty": 5
         }
       ],
       "attributes": [
@@ -10727,7 +10721,7 @@
       "uid": "okza",
       "version": "1",
       "name": "Servo assembly (MG995)",
-      "description": "The MG995 servo in its bracket: lower arm, side arm, cover, housing. Bolts to the chute core's two arm inserts as a unit.",
+      "description": "The MG995 servo in its bracket: lower arm, side arm, cover, housing. Bolts to the chute core's three arm inserts as a unit (two for the side arm, one for the lower arm).",
       "docs": "/hardware/assembly/distribution/chute/door-module/",
       "lines": [
         {
@@ -14660,8 +14654,8 @@
     },
     {
       "id": "chute",
-      "uid": "re1n",
-      "version": "2",
+      "uid": "euzt",
+      "version": "3",
       "versions": [
         {
           "version": "1",
@@ -14712,14 +14706,64 @@
         },
         {
           "version": "2",
+          "uid": "re1n",
           "date": "2026-09-05",
           "message": "The screw through the servo bracket's side arm into the chute core is an M3 × 8, not an M3 × 12. Measured off the STL: that ear is 5.00 mm thick, the same as the bearing covers', so an 8 reaches 3.00 mm into the core's blind 5.70 mm insert and a 12 bottoms out in it. The lower arm's ear is 8.40 mm and keeps its 12. One screw moves from the 12 column to the 8; no part changed.",
           "breaking": false,
-          "commit": "18236142"
+          "commit": "18236142",
+          "lines": [
+            {
+              "part": "chute-core",
+              "qty": 1,
+              "uid": "mu36"
+            },
+            {
+              "assembly": "flap-module",
+              "qty": 1,
+              "uid": "9tm6"
+            },
+            {
+              "part": "funnel-bracket-left",
+              "qty": 1,
+              "uid": "4oyp"
+            },
+            {
+              "part": "funnel-bracket-right",
+              "qty": 1,
+              "uid": "b9vt"
+            },
+            {
+              "assembly": "layer-connector",
+              "qty": 1,
+              "uid": "6m38"
+            },
+            {
+              "assembly": "chute-pcb",
+              "qty": 1,
+              "uid": "f3s0"
+            },
+            {
+              "part": "scr-m3-12-cs",
+              "qty": 5,
+              "uid": "0a9x"
+            },
+            {
+              "part": "scr-m3-8-cs",
+              "qty": 9,
+              "uid": "l6br"
+            }
+          ]
+        },
+        {
+          "version": "3",
+          "date": "2026-10-12",
+          "message": "The inverted chute's screws. Read off the new parts' own geometry: the bearing race now bolts to the chute core as well as to the holders, with 2 M3 x 16 (the race is 12 mm thick, so a 12 only reaches the insert mouth); the servo bracket's arms take 3 screws into the core, all M3 x 12 (side arm 2, lower arm 1) where the old bracket took one 12 and one 8. The funnel brackets keep their M3 x 12 countersunk screws; their holes now have a round recess for the head. The core now carries 21 inserts (funnel brackets 4, bearing covers 4, connectors 4, layer board 4, servo bracket 3, race 2). The covers (4 x M3 x 8) and connectors (4 x M3 x 8) are unchanged.",
+          "breaking": true,
+          "commit": null
         }
       ],
       "name": "Chute",
-      "description": "One chute: the core plus its door module, funnel brackets, connectors, and PCB. Every screw here lands in one of the chute core's 18 M3 inserts.",
+      "description": "One chute: the core plus its door module, funnel brackets, connectors, and PCB. Every screw here lands in one of the chute core's 21 M3 inserts.",
       "docs": "/hardware/assembly/distribution/chute/chute-core/",
       "lines": [
         {
@@ -14748,11 +14792,15 @@
         },
         {
           "part": "scr-m3-12-cs",
-          "qty": 5
+          "qty": 7
         },
         {
           "part": "scr-m3-8-cs",
-          "qty": 9
+          "qty": 8
+        },
+        {
+          "part": "scr-m3-16-cs",
+          "qty": 2
         }
       ]
     },

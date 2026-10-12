@@ -1504,30 +1504,42 @@ export interface MachineLabeledPiecesResponse {
 	total: number;
 }
 
-export interface PartBrickLinkColor {
+// One color in a likely-colors ranking: how near it is to the predictions,
+// how likely the part exists in it (BrickLink sales), and the product. Drawn
+// by the design system's ColorChoice (its LikelyColor type is the same shape).
+export interface LikelyColor {
 	color_id: number;
-	color_name: string;
+	color_name: string | null;
 	rgb: string | null;
 	is_trans: boolean;
-	qty: number;
-	qty_new: number;
-	qty_used: number;
-	lots: number;
-	share: number;
+	rank: number;
+	score: number;
+	closeness: number;
+	likelihood: number;
+	distance: number | null;
+	hue_diff: number | null;
+	predicted: boolean;
+	predicted_score: number | null;
+	qty: number | null;
+	lots: number | null;
+	share: number | null;
+	known_in: boolean;
 }
 
-export interface PartBrickLinkColorsResponse {
-	part_id: string;
+export interface LikelyColorsResponse {
+	part_id: string | null;
 	item_no: string | null;
+	source: 'live' | 'cache' | 'none';
 	updated_at: string | null;
-	source: 'live' | 'cache';
 	total_qty: number;
-	items: PartBrickLinkColor[];
+	predictions: { color_id: number; score: number | null }[];
+	colors: LikelyColor[];
 }
 
 export interface ColorLabelPrediction {
 	color_id: string | null;
 	color_name: string | null;
+	color_confidence: number | null;
 }
 
 export interface ColorModelPrediction {
@@ -2127,12 +2139,13 @@ export const api = {
 		);
 	},
 	// BrickLink for-sale color mix for a part (labeling prior column)
-	partBrickLinkColors(partId: string, limit?: number) {
-		const qs = limit ? `?limit=${limit}` : '';
-		return request<PartBrickLinkColorsResponse>(
-			'GET',
-			`/api/labeling/part/${encodeURIComponent(partId)}/bricklink-colors${qs}`
-		);
+	// predictions: "<BrickLink color id>:<score>,..."; partId null for a piece
+	// that was not identified (ranked by color alone).
+	likelyColors(partId: string | null, predictions: string) {
+		const qs = new URLSearchParams();
+		if (partId) qs.set('part_id', partId);
+		if (predictions) qs.set('predictions', predictions);
+		return request<LikelyColorsResponse>('GET', `/api/labeling/likely-colors?${qs}`);
 	},
 	machineLabeledPieceImageUrl(machineId: string, pieceUuid: string, seq: number) {
 		return resolveImagePath(

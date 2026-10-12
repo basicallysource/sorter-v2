@@ -1,6 +1,5 @@
 <script lang="ts">
-	import type { BrickLinkColor, PartBrickLinkColor } from '$lib/api';
-	import { similarColors } from '$lib/colorLab';
+	import type { BrickLinkColor, LikelyColor } from '$lib/api';
 	import Spinner from '$lib/components/Spinner.svelte';
 	import Alert from '$lib/components/Alert.svelte';
 	import Input from '$lib/components/Input.svelte';
@@ -10,11 +9,14 @@
 	// shown — an earlier version filtered the list to solid colors near the guess
 	// and so hid that 98347 is sold almost exclusively in Flat Silver and Pearl
 	// Dark Gray. Never hide a color here: the whole point is to reveal the ones
-	// you wouldn't have thought of.
+	// you wouldn't have thought of. The rows are the likely-colors ranking's sale
+	// numbers, so this column and the True color column read one answer; the
+	// colors that ranking puts first (`likelyIds`) are in bold.
 	let {
 		palette,
 		items,
 		guessColorId,
+		likelyIds = new Set<number>(),
 		partName,
 		itemNo,
 		updatedAt,
@@ -23,12 +25,14 @@
 		error = null
 	}: {
 		palette: BrickLinkColor[];
-		items: PartBrickLinkColor[];
+		// Colors with pieces for sale, most first.
+		items: LikelyColor[];
 		guessColorId: number | null;
+		likelyIds?: Set<number>;
 		partName?: string | null;
 		itemNo?: string | null;
 		updatedAt?: string | null;
-		source?: 'live' | 'cache';
+		source?: 'live' | 'cache' | 'none';
 		loading?: boolean;
 		error?: string | null;
 	} = $props();
@@ -36,19 +40,17 @@
 	let search = $state('');
 
 	const guess = $derived(palette.find((c) => c.id === guessColorId) ?? null);
-	// Marked, never filtered — a nudge toward the colors worth a second look.
-	const similarIds = $derived(new Set(similarColors(palette, guess).map((c) => c.id)));
 	const guessItem = $derived(items.find((it) => it.color_id === guessColorId) ?? null);
 
 	const rows = $derived.by(() => {
 		const q = search.trim().toLowerCase();
 		if (!q) return items;
 		return items.filter(
-			(it) => it.color_name.toLowerCase().includes(q) || String(it.color_id) === q
+			(it) => (it.color_name ?? '').toLowerCase().includes(q) || String(it.color_id) === q
 		);
 	});
 
-	const maxQty = $derived(Math.max(1, ...items.map((it) => it.qty)));
+	const maxQty = $derived(Math.max(1, ...items.map((it) => it.qty ?? 0)));
 
 	function fmtQty(n: number): string {
 		if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
@@ -86,18 +88,18 @@
 				{@const isGuess = it.color_id === guessColorId}
 				<li
 					class="relative flex items-center gap-2 px-(--pad-panel) py-1.5 {isGuess ? 'bg-info-soft' : ''}"
-					title={`${it.color_name} (${it.color_id}): ${it.qty.toLocaleString()} pieces in ${it.lots.toLocaleString()} lots, ${it.qty_new.toLocaleString()} new and ${it.qty_used.toLocaleString()} used`}
+					title={`${it.color_name} (${it.color_id}): ${(it.qty ?? 0).toLocaleString()} pieces in ${(it.lots ?? 0).toLocaleString()} lots`}
 				>
-					<div class="pointer-events-none absolute inset-y-0 left-0 bg-primary-soft" style={`width:${((it.qty / maxQty) * 100).toFixed(1)}%`}></div>
+					<div class="pointer-events-none absolute inset-y-0 left-0 bg-primary-soft" style={`width:${(((it.qty ?? 0) / maxQty) * 100).toFixed(1)}%`}></div>
 					<span
 						class="relative size-4 shrink-0 rounded-check border border-line {it.is_trans ? 'opacity-70' : ''}"
 						style={`background:#${it.rgb ?? '000'}`}
 					></span>
 					<span
-						class="relative min-w-0 flex-1 truncate text-sm {isGuess || similarIds.has(it.color_id) ? 'font-medium text-ink' : 'text-ink-muted'}"
+						class="relative min-w-0 flex-1 truncate text-sm {isGuess || likelyIds.has(it.color_id) ? 'font-medium text-ink' : 'text-ink-muted'}"
 						>{it.color_name}{#if isGuess}<span class="ml-1 text-info-ink">(the guess)</span>{/if}</span
 					>
-					<span class="num relative shrink-0 text-sm text-ink-muted">{fmtQty(it.qty)}</span>
+					<span class="num relative shrink-0 text-sm text-ink-muted">{fmtQty(it.qty ?? 0)}</span>
 				</li>
 			{/each}
 		</ul>

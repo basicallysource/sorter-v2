@@ -3,6 +3,16 @@
 What was decided, and when. When a rule changes, the rule's own file changes
 and a dated entry goes here; the history is git.
 
+## 2026-10-12
+
+- **One color review, and the likely colors right under "No".** The
+  sorter's correction block was its own markup, its color list a popover of
+  the whole palette in catalog order, and Hive's labeling page ranked its
+  "Closest to the guess" list with a rule of its own. Both now use
+  `PieceReview` and `ColorChoice`: the questions as rows with consistent
+  spacing, and the likely colors (near the prediction, and sold in that
+  color) as swatches right under the question, every color behind a search.
+
 ## 2026-09-30
 
 - **A profile's rules are a stack of cards, each with its own picture, and no

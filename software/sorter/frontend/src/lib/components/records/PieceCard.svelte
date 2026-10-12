@@ -325,7 +325,7 @@
 		{/if}
 
 		{#if piece.correctable}
-			<div class="rounded-control bg-well p-3">
+			<div class="rounded-control bg-well p-5">
 				<PieceCorrection {piece} {endpointBase} onUpdated={onPieceCorrected} />
 			</div>
 		{/if}

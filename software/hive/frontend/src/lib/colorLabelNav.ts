@@ -21,9 +21,7 @@ let colorsCache: BrickLinkColor[] | null = null;
 
 export async function getColors(): Promise<BrickLinkColor[]> {
 	if (colorsCache == null) {
-		const res = await api.colorLabelColors();
-		// Drop non-answers: id<=0 is "(Not Applicable)"; "Mx …" is Modulex.
-		colorsCache = res.results.filter((c) => c.id > 0 && !c.name.startsWith('Mx '));
+		colorsCache = (await api.colorLabelColors()).results;
 	}
 	return colorsCache;
 }

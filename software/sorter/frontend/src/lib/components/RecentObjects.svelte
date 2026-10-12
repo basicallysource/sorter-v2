@@ -7,12 +7,13 @@
 	import Modal from '$lib/components/ui/Modal.svelte';
 	import Badge from '$lib/components/ui/Badge.svelte';
 	import Button from '$lib/components/ui/Button.svelte';
+	import ColorChip from '$lib/components/ui/ColorChip.svelte';
 	import PieceCorrection from './PieceCorrection.svelte';
 	import PieceStatusBadge from './PieceStatusBadge.svelte';
 	import { fetchPieceImageState, type DisplayImage } from './records/piece-images';
 	import { sortingProfileStore } from '$lib/stores/sortingProfile.svelte';
 	import { getBackendHttpBase, machineHttpBaseUrlFromWsUrl } from '$lib/backend';
-	import { findLegoColor } from '$lib/pieces/colors';
+	import { fetchLegoColors, findLegoColor } from '$lib/pieces/colors';
 	import { onColor } from '$lib/theme';
 	import {
 		pieceStore,
@@ -82,6 +83,12 @@
 		event.stopPropagation();
 		correctingUuid = uuid;
 	}
+
+	// The machine's BrickLink palette, so every card's color swatch is drawn
+	// from its color id (Pearl and Trans colors too), not matched by name.
+	$effect(() => {
+		void fetchLegoColors(effectiveBase()).catch(() => {});
+	});
 
 	function onCorrectionUpdated(summary: PieceSummary) {
 		if (machineId) pieceStore.upsertFromRest(machineId, [summary]);
@@ -934,7 +941,12 @@
 	{/if}
 </div>
 
-<Modal open={correctionOpen} title="Correct the prediction" onclose={() => (correctingUuid = null)}>
+<Modal
+	open={correctionOpen}
+	size="lg"
+	title="Correct the prediction"
+	onclose={() => (correctingUuid = null)}
+>
 	{#if correctingSummary}
 		{@const capturedSrc =
 			dataImageUrl(
@@ -944,69 +956,68 @@
 			correctingSummary.color_id,
 			correctingSummary.color_name
 		)}
-		<div class="mb-4 flex items-center gap-3">
-			{#if capturedSrc}
-				<img
-					src={capturedSrc}
-					alt=""
-					class="size-16 shrink-0 object-contain"
-				/>
-			{/if}
-			<div class="flex min-w-0 flex-col gap-1">
-				<span class="truncate text-sm font-medium text-ink">
-					{correctingSummary.part_name ?? correctingSummary.part_id ?? 'Unknown part'}
-				</span>
-				{#if correctingSummary.part_id && correctingSummary.part_name}
-					<span class="num text-sm text-ink-muted">{correctingSummary.part_id}</span>
-				{/if}
-				<span class="inline-flex items-center gap-1.5 text-sm text-ink">
-					{#if legoColor}
-						<span
-							class="inline-block size-3.5 shrink-0 rounded-check border border-line"
-							style:background-color={legoColor.hex}
-						></span>
+		<div class="flex flex-col gap-8">
+			<!-- The piece: what it was taken for, and the photos it was judged from -->
+			<section class="flex flex-col gap-5">
+				<div class="flex items-center gap-4">
+					{#if capturedSrc}
+						<img src={capturedSrc} alt="" class="size-20 shrink-0 object-contain" />
 					{/if}
-					<span>{correctingSummary.color_name ?? '—'}</span>
-				</span>
-			</div>
-			{#if correctingSummary.preview_url}
-				<img
-					src={correctingSummary.preview_url}
-					alt="Brickognize reference"
-					title="Brickognize reference image"
-					class="ml-auto size-16 shrink-0 object-contain"
-				/>
-			{/if}
-		</div>
-
-		<!-- The C4 burst crops we captured — never cropped (object-contain), square
-		     boxes letterboxed with a transparent bar rather than a solid fill. -->
-		{#if modalImagesLoading}
-			<div class="mb-4 flex items-center gap-2 text-sm text-ink-muted">
-				<Spinner size={14} /> Loading the captured photos
-			</div>
-		{:else if modalBurstImages.length > 0}
-			<div class="mb-4 flex flex-col gap-1.5">
-				<span class="label">Captured photos</span>
-				<div class="flex flex-wrap gap-1.5">
-					{#each modalBurstImages as img (img.src)}
-						<div class="size-16 shrink-0 overflow-hidden">
+					<div class="flex min-w-0 flex-1 flex-col gap-1">
+						<span class="truncate text-base font-medium text-ink">
+							{correctingSummary.part_name ?? correctingSummary.part_id ?? 'Unknown part'}
+						</span>
+						{#if correctingSummary.part_id && correctingSummary.part_name}
+							<span class="num text-sm text-ink-muted">{correctingSummary.part_id}</span>
+						{/if}
+						<ColorChip
+							class="text-sm text-ink"
+							name={legoColor?.name ?? correctingSummary.color_name ?? 'No color'}
+							rgb={legoColor?.hex ?? null}
+						/>
+					</div>
+					{#if correctingSummary.preview_url}
+						<figure class="flex shrink-0 flex-col items-center gap-1">
 							<img
-								src={img.src}
-								alt="captured crop"
-								class="h-full w-full object-contain"
-								loading="lazy"
+								src={correctingSummary.preview_url}
+								alt="Brickognize reference"
+								class="size-20 object-contain"
 							/>
-						</div>
-					{/each}
+							<figcaption class="text-xs text-ink-muted">Brickognize</figcaption>
+						</figure>
+					{/if}
 				</div>
-			</div>
-		{/if}
 
-		<PieceCorrection
-			piece={correctingSummary}
-			endpointBase={effectiveBase()}
-			onUpdated={onCorrectionUpdated}
-		/>
+				<!-- The C4 burst crops we captured, never cropped (object-contain). -->
+				<div class="flex flex-col gap-2">
+					<span class="label">Captured photos</span>
+					{#if modalImagesLoading}
+						<div class="flex items-center gap-2 text-sm text-ink-muted">
+							<Spinner size={14} /> Loading the captured photos
+						</div>
+					{:else if modalBurstImages.length > 0}
+						<div class="flex flex-wrap gap-2">
+							{#each modalBurstImages as img (img.src)}
+								<img
+									src={img.src}
+									alt="captured crop"
+									class="size-20 shrink-0 object-contain"
+									loading="lazy"
+								/>
+							{/each}
+						</div>
+					{:else}
+						<p class="text-sm text-ink-muted">No photos were kept for this piece.</p>
+					{/if}
+				</div>
+			</section>
+
+			<PieceCorrection
+				piece={correctingSummary}
+				endpointBase={effectiveBase()}
+				onUpdated={onCorrectionUpdated}
+				prefetch
+			/>
+		</div>
 	{/if}
 </Modal>

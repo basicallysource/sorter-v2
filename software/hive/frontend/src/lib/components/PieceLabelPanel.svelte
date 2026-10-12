@@ -13,11 +13,10 @@
 		type ColorLabelPieceDetail,
 		type ImageQualityFlags,
 		type ImageQualityReason,
-		type PartBrickLinkColor,
+		type LikelyColorsResponse,
 		type PartSummary,
 		type PossibleCropCandidate
 	} from '$lib/api';
-	import { hexToLab, isExoticFinish, labDistance } from '$lib/colorLab';
 	import { auth } from '$lib/auth.svelte';
 	import * as nav from '$lib/colorLabelNav';
 	import MachineLabeledPieces from '$lib/components/MachineLabeledPieces.svelte';
@@ -28,7 +27,7 @@
 	import Alert from '$lib/components/Alert.svelte';
 	import Badge from '$lib/components/Badge.svelte';
 	import Checkbox from '$lib/components/Checkbox.svelte';
-	import Input from '$lib/components/Input.svelte';
+	import ColorChoice from '$lib/components/ColorChoice.svelte';
 	import Panel from '$lib/components/Panel.svelte';
 	import EmptyState from '$lib/components/EmptyState.svelte';
 	import Popover from '$lib/components/Popover.svelte';
@@ -82,7 +81,8 @@
 		{ value: 'pieces_entangled', label: 'Pieces entangled' }
 	];
 
-	const SIMILAR_COUNT = 8;
+	// How many likely colors the True color column shows as swatches.
+	const LIKELY_COUNT = 8;
 	const ZONE_LABEL: Record<number, string> = { 0: 'mid', 1: 'drop', 2: 'exit', 3: 'precise' };
 
 	const pieceKey = $derived(`${machineId}|${pieceUuid}`);
@@ -96,7 +96,6 @@
 	let loading = $state(true);
 	let error = $state<string | null>(null);
 	let submitting = $state(false);
-	let search = $state('');
 
 	// Same-piece crops
 	let cropCandidates = $state<PossibleCropCandidate[]>([]);
@@ -194,71 +193,78 @@
 		return 'Accept ' + touched.map((c) => c.label.toLowerCase()).join(' + ');
 	});
 
-	const filteredColors = $derived.by(() => {
-		const q = search.trim().toLowerCase();
-		if (!q) return colors;
-		return colors.filter((c) => c.name.toLowerCase().includes(q) || String(c.id) === q);
+	// The colors this piece was predicted to be, for the likely-colors ranking:
+	// the machine's (every request's colors when the machine sent them, else
+	// the color it applied, with its confidence) and Hive's own guess.
+	type MachineColorPrediction = { kind: string; value_id: string; score: number | null };
+	const likelyPredictions = $derived.by(() => {
+		if (!detail) return '';
+		const scores = new Map<number, number | null>();
+		const add = (id: number, score: number | null) => {
+			const before = scores.get(id);
+			scores.set(id, before == null ? score : score == null ? before : Math.max(before, score));
+		};
+		const rows = (detail as { machine_predictions?: MachineColorPrediction[] }).machine_predictions ?? [];
+		const machine = rows.filter((r) => r.kind === 'color' && /^\d+$/.test(r.value_id));
+		for (const r of machine) add(Number(r.value_id), r.score);
+		const applied = detail.prediction.color_id;
+		if (machine.length === 0 && applied && /^\d+$/.test(applied)) {
+			add(Number(applied), detail.prediction.color_confidence ?? null);
+		}
+		if (detail.model_prediction) add(detail.model_prediction.color_id, detail.model_prediction.confidence);
+		else if (detail.pixel_guess?.color_id != null) add(detail.pixel_guess.color_id, null);
+		return [...scores]
+			.map(([id, score]) => (score == null ? `${id}` : `${id}:${score.toFixed(4)}`))
+			.join(',');
 	});
 
-	const labById = $derived(new Map(colors.map((c) => [c.id, hexToLab(c.rgb)] as const)));
+	// What marks a predicted color among the likely ones.
+	const likelyMarks = $derived.by(() => {
+		const marks: Record<number, string> = {};
+		const applied = detail?.prediction.color_id;
+		if (applied && /^\d+$/.test(applied)) marks[Number(applied)] = "The machine's";
+		if (guessColorId != null) marks[guessColorId] = 'The guess';
+		return marks;
+	});
 
-	// BrickLink for-sale mix for this part. Owned here rather than in the sidebar
-	// because the numbers matter most next to the colors you're choosing between.
-	let blItems = $state<PartBrickLinkColor[]>([]);
-	let blItemNo = $state<string | null>(null);
-	let blUpdatedAt = $state<string | null>(null);
-	let blLoading = $state(false);
-	let blError = $state<string | null>(null);
-	let blSource = $state<'live' | 'cache'>('cache');
+	// The ranking, and the part's BrickLink sales it was made from. Owned here
+	// so the True color column and the "Sold on BrickLink" column read one
+	// answer. A human part correction wins over the machine's part: it is
+	// better ground truth, and the only part an unidentified piece has.
+	let likely = $state<LikelyColorsResponse | null>(null);
+	let likelyError = $state<string | null>(null);
+	let likelyRequest = 0;
 
-	async function loadBrickLink(partId: string) {
-		blLoading = true;
-		blError = null;
+	async function loadLikely(partId: string | null, predictions: string) {
+		const request = ++likelyRequest;
+		likely = null;
+		likelyError = null;
 		try {
-			const res = await api.partBrickLinkColors(partId, 250);
-			blItems = res.items;
-			blItemNo = res.item_no;
-			blUpdatedAt = res.updated_at;
-			blSource = res.source;
+			const res = await api.likelyColors(partId, predictions);
+			if (request === likelyRequest) likely = res;
 		} catch {
-			blError = 'Failed to load';
-		} finally {
-			blLoading = false;
+			if (request === likelyRequest) likelyError = 'Could not load the BrickLink numbers';
 		}
 	}
 
 	$effect(() => {
-		// A human part correction wins over the machine's guess — it's better
-		// ground truth, and for an unidentified piece it's the only thing that can
-		// populate this column at all. Re-runs when the correction changes.
-		const partId = myPart?.part_num ?? detail?.part.part_id ?? null;
-		if (!partId) {
-			blItems = [];
-			blItemNo = null;
-			return;
-		}
-		void loadBrickLink(partId);
+		if (!detail) return;
+		void loadLikely(myPart?.part_num ?? detail.part.part_id ?? null, likelyPredictions);
 	});
 
-	function isExotic(c: BrickLinkColor): boolean {
-		return isExoticFinish(c.name, c.is_trans);
-	}
-
-	// Rank the palette against the guess, but push exotic finishes way down so the
-	// shortlist is dominated by plain solid colors (a piece is rarely pearl/metal).
-	const similarColors = $derived.by(() => {
-		const target = hexToLab(suggestion?.rgb ?? null);
-		if (!target) return [] as BrickLinkColor[];
-		return colors
-			.filter((c) => c.id !== guessColorId && labById.get(c.id) != null)
-			.map((c) => {
-				const lab = labById.get(c.id)!;
-				return { color: c, d: labDistance(lab, target) + (isExotic(c) ? 55 : 0) };
-			})
-			.sort((a, b) => a.d - b.d)
-			.slice(0, SIMILAR_COUNT)
-			.map((x) => x.color);
-	});
+	const soldItems = $derived(
+		(likely?.colors ?? [])
+			.filter((c) => (c.qty ?? 0) > 0)
+			.sort((a, b) => (b.qty ?? 0) - (a.qty ?? 0))
+	);
+	const likelyIds = $derived(new Set((likely?.colors ?? []).slice(0, LIKELY_COUNT).map((c) => c.color_id)));
+	const likelyNote = $derived(
+		likelyError
+			? 'By color alone: the BrickLink numbers did not load.'
+			: likely?.source === 'none'
+				? 'By color alone: no BrickLink numbers for this part.'
+				: null
+	);
 
 	function errMsg(e: unknown, fallback: string): string {
 		return e && typeof e === 'object' && 'error' in e
@@ -350,12 +356,10 @@
 	}
 
 	async function goNext() {
-		search = '';
 		await onNext();
 	}
 
 	async function goPrev() {
-		search = '';
 		await onPrev();
 	}
 
@@ -1008,34 +1012,13 @@
 	{/if}
 {/snippet}
 
-{#snippet colorRow(color: BrickLinkColor, isGuess: boolean)}
-	{@const selected = color.id === myColorId}
-	<button
-		type="button"
-		aria-pressed={selected}
-		class="flex items-center gap-2 rounded-item px-2 py-1 text-left disabled:opacity-45 {selected
-			? 'bg-primary-soft'
-			: isGuess
-				? 'bg-info-soft hover:bg-hover'
-				: 'hover:bg-hover'}"
-		title={`${color.name} (${color.id})`}
-		onclick={() => pickColor(color.id)}
-		disabled={submitting}
-	>
-		<span class="size-5 shrink-0 rounded-check border border-line {color.is_trans ? 'opacity-70' : ''}" style={`background:#${color.rgb ?? '000'}`}></span>
-		<span class="min-w-0 flex-1 truncate text-sm {selected ? 'font-medium text-primary-ink' : 'text-ink'}"
-			>{color.name}{#if isGuess}<span class="ml-1 text-info-ink">(the guess)</span>{/if}</span
-		>
-		{#if selected}<Check size={16} class="shrink-0 text-primary-ink" />{/if}
-	</button>
-{/snippet}
-
-<!-- The true color. In the pane the list has a fixed height; on the page it
-     fills the sticky column and scrolls. -->
+<!-- The true color: the likely colors as swatches (near the predictions, and
+     sold in that color), then every color. In the pane the list has a fixed
+     height; on the page it fills the sticky column and scrolls. -->
 {#snippet colorPicker()}
 	<Panel title="True color" fill={layout === 'page'} class={layout === 'page' ? 'min-h-0 flex-1' : ''}>
 		{#snippet actions()}{@render statusBadge(colorState)}{/snippet}
-		<div class="flex min-h-0 flex-col gap-3 {layout === 'page' ? 'h-full' : ''}">
+		<div class="flex min-h-0 flex-col gap-4 {layout === 'page' ? 'h-full' : ''}">
 			<button
 				type="button"
 				aria-pressed={cantTell}
@@ -1050,28 +1033,19 @@
 				{#if cantTell}<Check size={16} class="shrink-0" />{/if}
 			</button>
 
-			{#if guessColorId != null && colorsById.get(guessColorId)}
-				{@render colorRow(colorsById.get(guessColorId)!, true)}
-			{/if}
-
-			{#if !search.trim() && similarColors.length > 0}
-				<div>
-					<div class="label mb-1.5">Closest to the guess</div>
-					<div class="flex flex-col gap-0.5">
-						{#each similarColors as color (color.id)}{@render colorRow(color, false)}{/each}
-					</div>
-				</div>
-				<div class="label">Every color</div>
-			{/if}
-
-			<Input type="search" bind:value={search} placeholder="Search the colors" />
-
-			<div class="flex min-h-0 flex-col gap-0.5 overflow-y-auto pr-1 {layout === 'page' ? 'flex-1' : 'max-h-[60vh]'}">
-				{#each filteredColors as color (color.id)}{@render colorRow(color, false)}{/each}
-			</div>
-			{#if filteredColors.length === 0}
-				<p class="py-4 text-center text-sm text-ink-muted">No colors match "{search}".</p>
-			{/if}
+			{#key pieceKey}
+				<ColorChoice
+					palette={colors}
+					likely={likely?.colors ?? (likelyError ? [] : null)}
+					value={myColorId}
+					marks={likelyMarks}
+					count={LIKELY_COUNT}
+					note={likelyNote}
+					disabled={submitting}
+					fill={layout === 'page'}
+					onpick={(id) => void pickColor(id)}
+				/>
+			{/key}
 		</div>
 	</Panel>
 {/snippet}
@@ -1125,14 +1099,15 @@
 			<div class="min-w-0 flex-1 {layout === 'page' ? 'lg:overflow-y-auto' : ''}">
 				<PartBrickLinkColors
 					palette={colors}
-					items={blItems}
+					items={soldItems}
 					{guessColorId}
+					{likelyIds}
 					partName={myPart?.name ?? detail.part.part_name}
-					itemNo={blItemNo}
-					updatedAt={blUpdatedAt}
-					source={blSource}
-					loading={blLoading}
-					error={blError}
+					itemNo={likely?.item_no ?? null}
+					updatedAt={likely?.updated_at ?? null}
+					source={likely?.source ?? 'none'}
+					loading={likely == null && likelyError == null}
+					error={likelyError}
 				/>
 			</div>
 		</div>

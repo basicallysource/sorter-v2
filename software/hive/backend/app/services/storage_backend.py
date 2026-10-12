@@ -15,6 +15,18 @@ from fastapi.responses import FileResponse, RedirectResponse, StreamingResponse
 from app.config import settings
 
 
+def _remaining_bytes(source: BinaryIO) -> int | None:
+    """How many bytes are left to read from ``source``, or None when it cannot seek."""
+    try:
+        position = source.tell()
+        source.seek(0, os.SEEK_END)
+        end = source.tell()
+        source.seek(position)
+    except (AttributeError, OSError, ValueError):
+        return None
+    return max(0, end - position)
+
+
 class StorageBackend(ABC):
     @abstractmethod
     def write_stream(self, key: str, source: BinaryIO, content_type: str | None = None) -> None: ...
@@ -162,10 +174,21 @@ class S3StorageBackend(StorageBackend):
             aws_secret_access_key=secret_access_key,
         )
 
+    # Up to boto3's own multipart threshold a file goes in one PUT.
+    SINGLE_PUT_MAX_BYTES = 8 * 1024 * 1024
+
     def write_stream(self, key: str, source: BinaryIO, content_type: str | None = None) -> None:
         extra: dict = {}
         if content_type:
             extra["ContentType"] = content_type
+        size = _remaining_bytes(source)
+        if size is not None and size <= self.SINGLE_PUT_MAX_BYTES:
+            # A crop or a frame (tens to hundreds of KB, several a second)
+            # goes as one put_object. upload_fileobj starts a transfer manager
+            # and its threads on every call, and sends a file body with
+            # "Expect: 100-continue", a round trip of its own before the bytes.
+            self.client.put_object(Bucket=self.bucket, Key=key, Body=source.read(), **extra)
+            return
         self.client.upload_fileobj(source, self.bucket, key, ExtraArgs=extra or None)
 
     def delete(self, key: str) -> None:

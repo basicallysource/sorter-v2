@@ -136,6 +136,19 @@ def test_hive_down_ranks_by_color_alone_over_the_saved_palette(monkeypatch, _sta
     assert down.likely_calls == [("3003", "4:0.9")]
 
 
+def test_a_hive_without_the_ranking_says_so(monkeypatch):
+    class _OldHive(_Hive):
+        def likely_colors(self, part_num, predictions=None):
+            raise HiveError(404, "Not Found")
+
+    _use(monkeypatch, _OldHive())
+    _record("p5", "4", 0.9)
+    with _client() as client:
+        body = client.get("/api/pieces/p5/likely-colors").json()
+    assert body["fallback"] == "hive_too_old"
+    assert body["colors"][0]["color_id"] == 4
+
+
 def test_no_hive_and_no_saved_palette_is_empty_not_an_error(monkeypatch):
     _use(monkeypatch, None)
     _record("p3", "4")

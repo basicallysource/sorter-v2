@@ -8,6 +8,8 @@ from uuid import UUID
 
 from fastapi import APIRouter, Depends, Query
 from pydantic import BaseModel, Field
+
+from app.services.sample_filters import SampleFilters
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
@@ -100,20 +102,11 @@ def _resolve_adapter_secret(user: User, adapter: TeacherAdapter) -> str:
     return key
 
 
-class TeacherJobFilter(BaseModel):
-    """Same shape as the samples list filters so the admin can re-run on what they see."""
+class TeacherJobFilter(SampleFilters):
+    """The samples list filters, so the admin re-runs the teacher on what they
+    see, plus the scope."""
 
     scope: str | None = None
-    machine_ids: list[UUID] | None = None
-    upload_session_id: UUID | None = None
-    source_role: str | None = None
-    capture_reason: str | None = None
-    review_status: str | None = None
-    kind: str | None = None
-    my_review: str | None = None
-    annotated: str | None = None
-    exposure: str | None = None
-    max_age_hours: int | None = None
 
 
 class CreateTeacherJobRequest(BaseModel):
@@ -211,7 +204,7 @@ def create_teacher_job(
 
     filt = payload.filter
     from app.models.machine import Machine as _Machine
-    from app.services.sample_filters import SampleFilters, apply_sample_filters
+    from app.services.sample_filters import apply_sample_filters
 
     # Never enqueue archived rows (per-sample or per-machine) — admins
     # already pulled those out of circulation. Same guard the list +
@@ -225,22 +218,7 @@ def create_teacher_job(
         query = query.filter(Sample.machine.has(owner_id=admin.id))
     # The same filters as the samples list, through the same function, so a
     # re-run on a filtered list covers exactly what the admin sees.
-    query = apply_sample_filters(
-        query,
-        SampleFilters(
-            machine_ids=tuple(filt.machine_ids) if filt.machine_ids else None,
-            upload_session_id=filt.upload_session_id,
-            source_role=filt.source_role,
-            capture_reason=filt.capture_reason,
-            review_status=filt.review_status,
-            kind=filt.kind,
-            my_review=filt.my_review,
-            annotated=filt.annotated,
-            exposure=filt.exposure,
-            max_age_hours=filt.max_age_hours,
-        ),
-        admin.id,
-    )
+    query = apply_sample_filters(query, filt, admin.id)
 
     # Only enqueue samples whose source_role has a teacher zone — otherwise we'd just burn
     # Gemini credits on the wrong prompt. We also skip rows missing image_path defensively.

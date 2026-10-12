@@ -36,7 +36,7 @@ from app.schemas.sample import (
 )
 from app.services.access_window import apply_sample_access, sample_access_visible
 from app.services.review_queue import sample_counts, sample_page, thumb_url, visible_samples
-from app.services.sample_filters import SampleFilters, apply_sample_filters, attach_my_reviews
+from app.services.sample_filters import SampleFilters, apply_sample_filters, attach_my_reviews, sample_filters_query
 from app.services.channel_crop_render import render_channel_crop
 from app.services.storage import delete_sample_files, serve_stored_file
 from app.services.storage_backend import get_backend
@@ -497,19 +497,9 @@ def get_sample_diversity(
 def list_samples(
     cursor: str | None = None,
     limit: int = Query(36, ge=1, le=100),
-    machine_id: list[UUID] | None = Query(None),
-    upload_session_id: UUID | None = None,
-    source_role: str | None = None,
-    capture_reason: str | None = None,
-    review_status: str | None = None,
-    kind: str | None = Query(None, pattern="^(regular|condition|all)$"),
-    my_review: str | None = Query(None, pattern="^(unreviewed|reviewed|accepted|rejected)$"),
-    annotated: str | None = Query(None, pattern="^(teacher|raw|all)$"),
-    exposure: str | None = Query(None, pattern="^(under|normal|over)$"),
+    filters: SampleFilters = Depends(sample_filters_query),
     archived: str | None = Query(None, pattern="^(active|archived|all)$"),
-    max_age_hours: int | None = Query(None, ge=1, le=24 * 365),
     scope: str | None = Query(None, pattern="^(mine|all)$"),
-    needs_review: bool = False,
     db: Session = Depends(get_db),
     current_user: User = Depends(require_api_key_scopes(API_KEY_SCOPE_SAMPLES_READ)),
 ):
@@ -529,18 +519,8 @@ def list_samples(
     )
     if is_admin and archived == "archived":
         base = base.filter(Sample.archived_at.isnot(None))
-    filters = SampleFilters(
-        machine_ids=tuple(machine_id) if machine_id else None,
-        upload_session_id=upload_session_id,
-        source_role=source_role,
-        capture_reason=capture_reason,
-        review_status=review_status,
-        kind=kind,
-        my_review=my_review,
-        annotated=annotated or "teacher",
-        exposure=exposure or "normal",
-        max_age_hours=max_age_hours,
-        needs_review=needs_review,
+    filters = filters.model_copy(
+        update={"annotated": filters.annotated or "teacher", "exposure": filters.exposure or "normal"}
     )
     items, next_cursor = sample_page(db, base, filters, current_user, limit=limit, cursor=cursor)
     attach_my_reviews(items, db, current_user.id)
@@ -733,7 +713,7 @@ def batch_archive_samples(
         .filter(Sample.machine.has(Machine.archived_at.is_(None)))
         .filter(Sample.archived_at.is_(None))
     )
-    query = apply_sample_filters(query, payload.to_filters(), admin.id)
+    query = apply_sample_filters(query, payload, admin.id)
 
     matched = query.count()
 
@@ -781,7 +761,7 @@ def batch_unarchive_samples(
         .filter(Sample.machine.has(Machine.archived_at.is_(None)))
         .filter(Sample.archived_at.isnot(None))
     )
-    query = apply_sample_filters(query, payload.to_filters(), admin.id)
+    query = apply_sample_filters(query, payload, admin.id)
 
     matched = query.count()
 
@@ -833,7 +813,7 @@ def batch_delete_samples(
 
     # The same filters as the list, through the same function: what the
     # operator sees on the page is what the destructive action operates on.
-    query = apply_sample_filters(query, payload.to_filters(), current_user.id)
+    query = apply_sample_filters(query, payload, current_user.id)
 
     matched = query.count()
 

@@ -1,19 +1,25 @@
 """What the Channel samples filters mean, in one place.
 
-The samples list, the review queue, the batch archive and delete, and a
-teacher re-run all act on "the samples the filters show". They used to each
-assemble the filters themselves, and the copies drifted (one dropped the kind
-filter, another took one machine where the page could show several). Now every
-one of them builds a ``SampleFilters`` and calls ``apply_sample_filters`` on its
-own base query, so an action can never reach a sample the page did not show.
+The samples list, the review queue, the counts, the batch archive and delete,
+and a teacher re-run all act on "the samples the filters show". They used to
+each assemble the filters themselves, and the copies drifted (one dropped the
+kind filter, another took one machine where the page could show several). Now
+every one of them takes a ``SampleFilters`` and calls ``apply_sample_filters``
+on its own base query, so an action can never reach a sample the page did not
+show.
+
+To add a filter: a field on ``SampleFilters`` (request bodies and the teacher
+job filter inherit it), its meaning in ``apply_sample_filters``, and its query
+parameter in ``sample_filters_query`` (the list's GET). All three are here.
 """
 
 from __future__ import annotations
 
-from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from uuid import UUID
 
+from fastapi import Query
+from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -28,26 +34,58 @@ CONDITION_CAPTURE_REASONS: tuple[str, ...] = (
 )
 
 
-@dataclass(frozen=True)
-class SampleFilters:
+class SampleFilters(BaseModel):
     """The Channel samples filters. None means "no filter" for every field.
 
-    ``machine_ids``: only these machines (one or several).
-    ``needs_review``: the review queue's fresh work for ``viewer``: samples
-    they have not reviewed that still need reviews to reach consensus.
+    The same model is the body of the batch actions and the teacher job filter
+    (they subclass it), and ``sample_filters_query`` builds it from the list's
+    query parameters.
     """
 
-    machine_ids: tuple[UUID, ...] | None = None
+    # Only these machines (one or several).
+    machine_ids: list[UUID] | None = None
     upload_session_id: UUID | None = None
     source_role: str | None = None
     capture_reason: str | None = None
     review_status: str | None = None
-    kind: str | None = None
-    my_review: str | None = None
-    annotated: str | None = None
-    exposure: str | None = None
+    kind: str | None = None  # 'regular' | 'condition'
+    my_review: str | None = None  # 'unreviewed' | 'reviewed' | 'accepted' | 'rejected'
+    annotated: str | None = None  # 'teacher' | 'raw'
+    exposure: str | None = None  # 'under' | 'normal' | 'over'
     max_age_hours: int | None = None
+    # The review queue's fresh work for the viewer: samples they have not
+    # reviewed that still need reviews to reach consensus.
     needs_review: bool = False
+
+
+def sample_filters_query(
+    machine_id: list[UUID] | None = Query(None),
+    upload_session_id: UUID | None = None,
+    source_role: str | None = None,
+    capture_reason: str | None = None,
+    review_status: str | None = None,
+    kind: str | None = Query(None, pattern="^(regular|condition|all)$"),
+    my_review: str | None = Query(None, pattern="^(unreviewed|reviewed|accepted|rejected)$"),
+    annotated: str | None = Query(None, pattern="^(teacher|raw|all)$"),
+    exposure: str | None = Query(None, pattern="^(under|normal|over)$"),
+    max_age_hours: int | None = Query(None, ge=1, le=24 * 365),
+    needs_review: bool = False,
+) -> SampleFilters:
+    """``SampleFilters`` from query parameters (a FastAPI dependency).
+    machine_id may be given several times."""
+    return SampleFilters(
+        machine_ids=machine_id or None,
+        upload_session_id=upload_session_id,
+        source_role=source_role,
+        capture_reason=capture_reason,
+        review_status=review_status,
+        kind=kind,
+        my_review=my_review,
+        annotated=annotated,
+        exposure=exposure,
+        max_age_hours=max_age_hours,
+        needs_review=needs_review,
+    )
 
 
 def restrict_to_machines(query, column, machine_ids):

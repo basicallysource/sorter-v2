@@ -1,12 +1,14 @@
 import hashlib
 from datetime import datetime, timezone
 from uuid import UUID
-from typing import Generator
+from typing import Callable, Generator, TypeVar
 
 from fastapi import Cookie, Depends, Header, HTTPException, Request
 from sqlalchemy.orm import Session
 
-from app.database import SessionLocal
+from app import roles
+from app.config import settings
+from app.database import STATEMENT_TIMEOUT_KEY, SessionLocal
 from app.models.device import Device
 from app.models.machine import Machine
 from app.models.user import User
@@ -93,8 +95,54 @@ VALID_API_KEY_SCOPES = frozenset(
 )
 
 
-def get_db() -> Generator[Session, None, None]:
+# Paths of machine traffic: the sorters' own API (machine tokens) and the
+# hosted services they enroll in (device tokens). Everything else is a person
+# or an integration, on the shorter budget.
+MACHINE_PATH_PREFIXES = ("/api/machine/", "/api/devices/")
+
+_TIMEOUT_ATTR = "__hive_statement_timeout_ms__"
+_Endpoint = TypeVar("_Endpoint", bound=Callable)
+
+
+def statement_timeout(seconds: float) -> Callable[[_Endpoint], _Endpoint]:
+    """Give one endpoint its own statement timeout instead of its path's.
+
+    For the few that legitimately run longer than a request should (an admin
+    bulk action over a filter, a cascading delete): put it under the route
+    decorator, and say in the endpoint why. Each one is listed in
+    agent-docs/process-roles.md. Anything that needs longer than this is a job.
+    """
+
+    def mark(endpoint: _Endpoint) -> _Endpoint:
+        setattr(endpoint, _TIMEOUT_ATTR, int(seconds * 1000))
+        return endpoint
+
+    return mark
+
+
+def request_statement_timeout_ms(request: Request) -> int | None:
+    """How long one SQL statement of this request may run, or None for the
+    engine's default (a process that answers no requests)."""
+    if not roles.serves_requests():
+        return None
+    route = request.scope.get("route")
+    override = getattr(getattr(route, "endpoint", None), _TIMEOUT_ATTR, None)
+    if override is not None:
+        return override
+    if request.url.path.startswith(MACHINE_PATH_PREFIXES):
+        return settings.MACHINE_STATEMENT_TIMEOUT_MS or None
+    return settings.REQUEST_STATEMENT_TIMEOUT_MS or None
+
+
+def get_db(request: Request) -> Generator[Session, None, None]:
+    """The request's session. Its statements are bounded
+    (``request_statement_timeout_ms``), per transaction: see
+    ``app.database.STATEMENT_TIMEOUT_KEY``."""
     db = SessionLocal()
+    timeout_ms = request_statement_timeout_ms(request)
+    if timeout_ms:
+        db.info[STATEMENT_TIMEOUT_KEY] = timeout_ms
+        request.state.statement_timeout_ms = timeout_ms
     try:
         yield db
     finally:

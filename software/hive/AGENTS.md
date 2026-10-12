@@ -17,6 +17,10 @@ in [`agent-docs/`](agent-docs/):
   profiles: the document people and assistants edit, how it compiles into the
   program a sorter runs, the flat map older sorters get, kits, Hive's default
   profiles, and the API and skill for assistants.
+- [`agent-docs/process-roles.md`](agent-docs/process-roles.md) — the web
+  process and the worker process (`HIVE_ROLE`): what runs where, how they talk
+  (`worker_state`), the catalog in two processes, and the statement timeout
+  every request carries, with the endpoints allowed longer.
 - [`agent-docs/jobs.md`](agent-docs/jobs.md) — the background job queue: how
   to add a kind of job, how it claims, leases, retries and stays light, and
   its first kind, `swatch_find` (the colour reference palette's readings).

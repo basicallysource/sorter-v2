@@ -18,7 +18,14 @@ from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
 from app.config import settings
-from app.deps import API_KEY_SCOPE_SAMPLES_READ, get_db, require_api_key_scopes, require_role, verify_csrf
+from app.deps import (
+    API_KEY_SCOPE_SAMPLES_READ,
+    get_db,
+    require_api_key_scopes,
+    require_role,
+    statement_timeout,
+    verify_csrf,
+)
 from app.errors import APIError
 from app.models.machine import Machine
 from app.models.sample import Sample
@@ -104,6 +111,8 @@ class SwatchBackfillRequest(BaseModel):
 
 
 @router.post("/backfill")
+# Selects up to BACKFILL_MAX samples of one machine and queues a job for each.
+@statement_timeout(seconds=60)
 def backfill_swatches(
     payload: SwatchBackfillRequest,
     db: Session = Depends(get_db),

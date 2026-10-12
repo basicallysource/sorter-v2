@@ -165,7 +165,7 @@ def _migratePriceGuidesFromJson(conn):
     print(f"[db] migrated {migrated} price guides from JSON to structured table")
 
 
-def reloadPartsData(conn, parts_data):
+def reloadPartsData(conn, parts_data, rebuild_search=True):
     parts_data.categories = _loadCategories(conn)
     parts_data.bricklink_categories = _loadBricklinkCategories(conn)
     parts_data.colors = _loadColors(conn)
@@ -173,8 +173,11 @@ def reloadPartsData(conn, parts_data):
     parts_data.rb_to_bl_color = _buildRbToBlColorMap(parts_data.colors)
     parts_data.bl_to_rb_part = _buildBlToRbPartMap(parts_data.parts)
     # This is the one "catalog changed" hook every sync already goes through, so
-    # rebuilding here is what keeps the search index from ever going stale.
-    rebuildPartSearch(conn)
+    # rebuilding here is what keeps the search index from ever going stale. A
+    # process that does not run the syncs (Hive's web process: they run in the
+    # worker process) leaves the index to the one that does.
+    if rebuild_search:
+        rebuildPartSearch(conn)
     row = conn.execute("SELECT value FROM meta WHERE key='api_total_parts'").fetchone()
     parts_data.api_total_parts = int(row[0]) if row else None
     parts_data.generation += 1

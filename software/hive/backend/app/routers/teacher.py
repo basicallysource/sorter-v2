@@ -13,7 +13,8 @@ from app.services.sample_filters import SampleFilters
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
-from app.deps import get_db, require_role, verify_csrf
+from app import background
+from app.deps import get_db, require_role, statement_timeout, verify_csrf
 from app.errors import APIError
 from app.models.sample import Sample
 from app.models.teacher_job import TeacherJob, TeacherJobItem
@@ -44,21 +45,23 @@ from app.services.teacher_prompts import (
 
 from app.config import settings
 from app.schemas.sample import SampleDetailResponse
-from app.services.condition_worker import get_condition_worker
-from app.services.teacher_worker import get_teacher_worker
 
 
 router = APIRouter(prefix="/api/admin/teacher", tags=["teacher"])
 
 
 @router.get("/condition/status")
-def condition_worker_status(_admin: User = Depends(require_role("admin"))) -> dict[str, Any]:
-    """Live status of the condition auto-labeler loop. Admin-only."""
-    return get_condition_worker().status()
+def condition_worker_status(
+    db: Session = Depends(get_db),
+    _admin: User = Depends(require_role("admin")),
+) -> dict[str, Any]:
+    """Status of the condition auto-labeler loop, from the process it runs in. Admin-only."""
+    return background.worker_status(db, background.CONDITION)
 
 
 @router.post("/condition/wake")
 def condition_worker_wake(
+    db: Session = Depends(get_db),
     _admin: User = Depends(require_role("admin")),
     _csrf: None = Depends(verify_csrf),
 ) -> dict[str, Any]:
@@ -67,9 +70,8 @@ def condition_worker_wake(
     Useful after toggling the enabled flag or just uploading a batch of
     condition crops — saves waiting out the poll interval.
     """
-    worker = get_condition_worker()
-    worker.wake()
-    return worker.status()
+    background.request_pass(db, background.CONDITION)
+    return background.worker_status(db, background.CONDITION)
 
 
 SUPPORTED_SOURCE_ROLES: tuple[str, ...] = tuple(sorted(SOURCE_ROLE_TO_ZONE))
@@ -186,6 +188,8 @@ def _job_to_summary(job: TeacherJob) -> TeacherJobSummary:
 
 
 @router.post("/jobs", response_model=TeacherJobSummary)
+# Selects every sample the filter matches and inserts one item per sample.
+@statement_timeout(seconds=60)
 def create_teacher_job(
     payload: CreateTeacherJobRequest,
     db: Session = Depends(get_db),
@@ -258,7 +262,7 @@ def create_teacher_job(
     )
     db.commit()
     db.refresh(job)
-    get_teacher_worker().notify()
+    background.request_pass(db, background.TEACHER)
     return _job_to_summary(job)
 
 

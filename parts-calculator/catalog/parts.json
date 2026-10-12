@@ -2044,7 +2044,13 @@
           "commit": null
         }
       ],
-      "source": "servo-adapter-servo-side.stl"
+      "source": "servo-adapter-servo-side.stl",
+      "requires": [
+        {
+          "part": "hsi-m3s",
+          "qty": 4
+        }
+      ]
     },
     {
       "id": "servo-adapter-flap-side",
@@ -5457,7 +5463,6 @@
     {
       "id": "hsi-m3s",
       "uid": "5nkl",
-      "retired_at": "2026-09-11",
       "kind": "cots",
       "cots": {
         "type": "heat-insert",
@@ -5466,9 +5471,9 @@
       },
       "name": "Ruthex M3S heat insert (short)",
       "category": "Heat inserts",
-      "description": "Retired, no longer used anywhere. ruthex RX-M3Sx4.0 brass heat-set threaded insert, the short M3. It was carried over from the BOM sheet for the servo adapter, but that joint's screws thread straight into the printed plastic: neither adapter half has an insert pocket.",
-      "internal_notes": "Added 2026-08-21 (barthel asked for it after the ruthex naming pass). BOM sheet, Screws tab: 'M3 | Small | 4 per layer | 20 per machine | Ruthex M3x4 | Servo adapter only'. NOT placed as a requires yet, because the current servo-adapter STLs do not have an insert pocket: servo-adapter-flap-side (v1, fu2t/lv7n pins) has four 4.0 mm bores through a 5.0 mm wall with a 90-degree countersink on the back face, and servo-adapter-servo-side has four blind 2.8 mm holes 4.0 mm deep on the same bolt circle with 2.25 mm of material behind them, which reads as a countersunk screw self-tapping into plastic. 4.0 mm is ruthex's recommended hole for an M3 insert, so the flap-side bore could be an insert pocket, but then nothing on the servo side would receive the screw. Needs confirming against current CAD or a physical adapter; if it is self-tapping now, delete this part and the BOM row with it. RETIRED 2026-09-11 (barthel: \"Mark 'hsi-m3s' for removal. The documentation for the servo adapter mentions self-tapping screws; M3S heat-shrink sleeves are not used. M3S is not used anywhere else either.\"). The adapter STLs were still v1 (2026-06-27) and unrevised at that point, so the self-tapping reading stands and the insert is not part of the machine. sheet_qty {per_layer: 4} dropped with it, since that hand count was the only thing giving this row a quantity on the Hardware tab. The P2 unconfirmed-servo-adapter-heat-insert change entry is replaced by delete-unused-m3s-heat-insert; deletion of the part object itself is sorter-v2 issue #636, and the BOM sheet's own 'M3 | Small' row should go with it.",
-      "note": "Unused as of 2026-09-11. Do not add a new joint to this insert; every insert joint in the machine takes the standard 5.7 mm M3 (hsi-m3).",
+      "description": "ruthex RX-M3Sx4.0 brass heat-set threaded insert, the short M3, 4.0 mm long. Melt it into a printed part with a soldering iron to make an M3 thread. It goes in the servo adapter's servo side, four per adapter; do not use the standard 5.7 mm M3 insert there, it will not fit the pockets.",
+      "internal_notes": "Added 2026-08-21 (barthel asked for it after the ruthex naming pass). BOM sheet, Screws tab: 'M3 | Small | 4 per layer | 20 per machine | Ruthex M3x4 | Servo adapter only'. NOT placed as a requires yet, because the current servo-adapter STLs do not have an insert pocket: servo-adapter-flap-side (v1, fu2t/lv7n pins) has four 4.0 mm bores through a 5.0 mm wall with a 90-degree countersink on the back face, and servo-adapter-servo-side has four blind 2.8 mm holes 4.0 mm deep on the same bolt circle with 2.25 mm of material behind them, which reads as a countersunk screw self-tapping into plastic. 4.0 mm is ruthex's recommended hole for an M3 insert, so the flap-side bore could be an insert pocket, but then nothing on the servo side would receive the screw. Needs confirming against current CAD or a physical adapter; if it is self-tapping now, delete this part and the BOM row with it. RETIRED 2026-09-11 (barthel: \"Mark 'hsi-m3s' for removal. The documentation for the servo adapter mentions self-tapping screws; M3S heat-shrink sleeves are not used. M3S is not used anywhere else either.\"). The adapter STLs were still v1 (2026-06-27) and unrevised at that point, so the self-tapping reading stands and the insert is not part of the machine. sheet_qty {per_layer: 4} dropped with it, since that hand count was the only thing giving this row a quantity on the Hardware tab. The P2 unconfirmed-servo-adapter-heat-insert change entry is replaced by delete-unused-m3s-heat-insert; deletion of the part object itself is sorter-v2 issue #636, and the BOM sheet's own 'M3 | Small' row should go with it. UN-RETIRED 2026-10-12: the inverted-chute servo-adapter-servo-side has four blind O4.0 x 4.2 mm pockets with 2.05 mm of floor behind them, which only fits this 4.0 mm insert, and zed0 confirmed the adapter now takes 4 heat inserts.",
+      "note": "In use again as of 2026-10-12: the servo adapter's servo side, 4 per machine. Every other insert joint in the machine takes the standard 5.7 mm M3 (hsi-m3).",
       "created_at": "2026-08-21",
       "updated_at": "2026-09-11",
       "image_url": "https://assets.basically.website/sorter-parts/hsi-m3s-full-bdb4c6b1b9b8.jpg",
@@ -10986,7 +10991,7 @@
       "uid": "irue",
       "version": "1",
       "name": "Servo adapter (MG995)",
-      "description": "MG995 servo adapter: servo side + flap side, clamping the MG995 Servo Horn (comes with the servo) between them. 4 M3 x 8 countersunk hold the two halves together, no heat inserts.",
+      "description": "MG995 servo adapter: servo side + flap side, clamping the MG995 Servo Horn (comes with the servo) between them. 4 M3 x 8 countersunk hold the two halves together, into four M3S heat inserts in the servo side.",
       "docs": "/hardware/assembly/distribution/chute/door-module/",
       "lines": [
         {

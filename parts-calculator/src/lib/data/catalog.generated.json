@@ -917,7 +917,7 @@
 			"uid": "irue",
 			"version": "1",
 			"name": "Servo adapter (MG995)",
-			"description": "MG995 servo adapter: servo side + flap side, clamping the MG995 Servo Horn (comes with the servo) between them. 4 M3 x 8 countersunk hold the two halves together, no heat inserts.",
+			"description": "MG995 servo adapter: servo side + flap side, clamping the MG995 Servo Horn (comes with the servo) between them. 4 M3 x 8 countersunk hold the two halves together, into four M3S heat inserts in the servo side.",
 			"docs": "/hardware/assembly/distribution/chute/door-module/",
 			"lines": [
 				{
@@ -16277,7 +16277,12 @@
 			"low_tolerance": false,
 			"low_tolerance_note": null,
 			"layer_scope": "all",
-			"requires": [],
+			"requires": [
+				{
+					"part": "hsi-m3s",
+					"qty": 4
+				}
+			],
 			"caption": null,
 			"docs_page": null,
 			"conflicts": null,
@@ -27653,7 +27658,6 @@
 		{
 			"id": "hsi-m3s",
 			"uid": "5nkl",
-			"retired_at": "2026-09-11",
 			"kind": "cots",
 			"cots": {
 				"type": "heat-insert",
@@ -27662,8 +27666,8 @@
 			},
 			"name": "Ruthex M3S heat insert (short)",
 			"category": "Heat inserts",
-			"description": "Retired, no longer used anywhere. ruthex RX-M3Sx4.0 brass heat-set threaded insert, the short M3. It was carried over from the BOM sheet for the servo adapter, but that joint's screws thread straight into the printed plastic: neither adapter half has an insert pocket.",
-			"note": "Unused as of 2026-09-11. Do not add a new joint to this insert; every insert joint in the machine takes the standard 5.7 mm M3 (hsi-m3).",
+			"description": "ruthex RX-M3Sx4.0 brass heat-set threaded insert, the short M3, 4.0 mm long. Melt it into a printed part with a soldering iron to make an M3 thread. It goes in the servo adapter's servo side, four per adapter; do not use the standard 5.7 mm M3 insert there, it will not fit the pockets.",
+			"note": "In use again as of 2026-10-12: the servo adapter's servo side, 4 per machine. Every other insert joint in the machine takes the standard 5.7 mm M3 (hsi-m3).",
 			"created_at": "2026-08-21",
 			"updated_at": "2026-09-11",
 			"attributes": [

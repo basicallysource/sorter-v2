@@ -302,19 +302,26 @@ page shows both components on sample data.
   under the rows; a saved answer shows as the filled button, and "Sent" when
   it reached the recognizer. The app does the saving through callbacks and
   fetches the ranking when `onpicking` says the colors opened.
-- **`ColorChoice`**: the likely colors as a grid of swatches with their
-  names, best first (twelve by default, at least two to a row however
-  narrow), then every color behind a search by name or number. Under each
-  name, its share of the part's pieces for sale on BrickLink ("18% for
-  sale", "None for sale"); how near it is to the prediction shows in the
-  swatch, and in words (very close, close, near, far) only when there are no
-  sale numbers. The tooltip has every number behind its place. A predicted color is marked (`sparkles` and the mark's
-  words, "Predicted 82%", "The guess") and always in the grid. The chosen
-  color takes the primary's tint, with a check in the list. While the ranking loads the
-  grid holds its place with skeletons; `note` says, under the heading, when
-  it was ranked another way ("By color alone: the machine cannot reach
-  Hive."). `fill` lets the list of every color take the height left in a
-  column.
+- **`ColorChoice`**: the likely colors as a compact grid of swatches with
+  their names, best first (twelve by default, at least two to a row however
+  narrow), then a search of every color by name or number. The search lists
+  its matches as they are typed, and Enter picks the first; "All colors"
+  (`chevron-down`) lists the whole palette; otherwise nothing is listed
+  under it, so the long list never stands between someone and the rest of
+  the page. Nothing in it scrolls on its own: what it lists is part of the
+  page. Under each name, its share of the part's pieces for sale on
+  BrickLink ("18% for sale", "None for sale"); how near it is to the
+  prediction shows in the swatch, and in words (very close, close, near,
+  far) only when there are no sale numbers. The tooltip has every number
+  behind its place. A predicted color is marked (`sparkles` and the mark's
+  words, "Predicted 82%", "The guess"); a marked color and the chosen one
+  are always in the grid. The chosen color takes the primary's tint, with a
+  check in the list. While the ranking loads the grid holds its place with
+  skeletons; `note` says, under the heading, when it was ranked another way
+  ("By color alone: the machine cannot reach Hive."). `aside` sits beside
+  the likely colors and the search, or under them where the block is
+  narrower than 36rem: Hive's labeling page puts the part's top colors sold
+  on BrickLink there.
 - **Where the order comes from.** One ranking, Hive's
   `services/color_rank.py` (the sorter keeps the same file for when Hive is
   unreachable): how near each color is to the predicted ones, in CIELAB with

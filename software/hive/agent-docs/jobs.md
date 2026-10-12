@@ -116,7 +116,9 @@ frame, and its colour is read from the full-resolution pixels
   commit); keep the logic the same so readings compare.
 - **Stored** in `sample_swatch_runs` (one per pass: sample, model name and
   sha256, frame size, swatches found, the call `palette_present` and
-  `palette_swatches`, palette flags, seconds, when) and `sample_swatches` (one
+  `palette_swatches`, palette flags, seconds, when, and the sample's machine
+  and frame time, `machine_id` and `frame_at`, by which the labeling pages
+  find the palette frames near a piece) and `sample_swatches` (one
   per swatch: position along the palette, colour, BrickLink id, colour and
   surface scores, pixels read, median RGB, RGB standard deviation, clipped
   share, centre, box, length, width, flags, `in_palette`). The call is null on
@@ -125,7 +127,10 @@ frame, and its colour is read from the full-resolution pixels
   own.
 - **Served** at `GET /api/samples/{id}/swatch-runs` (whoever can see the
   sample), and drawn over the frame on the sample page (the palette's swatches
-  in green or yellow, others dashed), with the call above the list.
+  in green or yellow, others dashed), with the call above the list. The piece
+  labeling panel shows the palette frame nearest a piece and its swatches, and
+  the piece grid badges and filters the pieces with one near them
+  (`labeling-queue.md`, the palette near a piece).
 - **Filtered**: the Channel samples filter `palette` (a field of
   `SampleFilters` in `services/sample_filters.py`, so the list, the review
   queue, the batch actions and teacher re-runs all honour it): `in_view`,

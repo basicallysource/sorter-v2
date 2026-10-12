@@ -1,6 +1,6 @@
 from datetime import datetime, timezone
 
-from sqlalchemy import BigInteger, Boolean, Column, DateTime, Float, ForeignKey, ForeignKeyConstraint, Index, Integer, String
+from sqlalchemy import BigInteger, Boolean, Column, DateTime, Float, ForeignKey, ForeignKeyConstraint, Index, Integer, String, false
 from sqlalchemy.dialects.postgresql import UUID
 
 from app.models import Base
@@ -22,6 +22,9 @@ class LabelingQueueEntry(Base):
     and the same-piece window all use it. ``unidentified``, ``color_id`` and
     ``color_confidence`` are copies of the piece's prediction for the
     "unidentified" and "rare color" sorts; the daily reconcile refreshes them.
+    ``has_palette``: a classification frame of the machine near the piece's
+    arrival showed the colour reference palette (``app.services.piece_palette``),
+    for the grid's palette badge and filter.
     """
 
     __tablename__ = "labeling_queue"
@@ -35,6 +38,7 @@ class LabelingQueueEntry(Base):
     unidentified = Column(Boolean, nullable=False, default=False)
     color_id = Column(String, nullable=True)
     color_confidence = Column(Float, nullable=True)
+    has_palette = Column(Boolean, nullable=False, default=False, server_default=false())
 
     __table_args__ = (
         ForeignKeyConstraint(
@@ -60,6 +64,27 @@ Index(
     sqlite_where=LabelingQueueEntry.color_confidence.isnot(None),
 )
 
+# The palette filter: the walks of the two arrival indexes over only the pieces
+# with the palette in view near them. The predicate is written the way
+# services/review_queue.py filters (has_palette IS true), so the planner can
+# match it.
+Index(
+    "ix_labeling_queue_palette_arrival",
+    LabelingQueueEntry.arrival_at,
+    LabelingQueueEntry.machine_id,
+    LabelingQueueEntry.piece_uuid,
+    postgresql_where=LabelingQueueEntry.has_palette.is_(True),
+    sqlite_where=LabelingQueueEntry.has_palette.is_(True),
+)
+Index(
+    "ix_labeling_queue_palette_machine_arrival",
+    LabelingQueueEntry.machine_id,
+    LabelingQueueEntry.arrival_at,
+    LabelingQueueEntry.piece_uuid,
+    postgresql_where=LabelingQueueEntry.has_palette.is_(True),
+    sqlite_where=LabelingQueueEntry.has_palette.is_(True),
+)
+
 
 class LabelingQueueCount(Base):
     """How many queue pieces each machine has that are old enough to label.
@@ -81,7 +106,9 @@ class LabelingQueueState(Base):
     ``last_pass_at`` is when the last pass STARTED; the next pass looks at rows
     that reached Hive since then (less an overlap). ``reconciled_at`` is when
     the last full re-evaluation started; null until the first one, which is
-    what fills the queue after a fresh deploy.
+    what fills the queue after a fresh deploy. ``palette_model_sha256`` is the
+    swatch model whose calls ``has_palette`` was worked out from; when the
+    model the palette filter reads changes, the next pass re-evaluates all.
     """
 
     __tablename__ = "labeling_queue_state"
@@ -89,3 +116,4 @@ class LabelingQueueState(Base):
     id = Column(Integer, primary_key=True, default=1)
     last_pass_at = Column(DateTime(timezone=True), nullable=True)
     reconciled_at = Column(DateTime(timezone=True), nullable=True)
+    palette_model_sha256 = Column(String(64), nullable=True)

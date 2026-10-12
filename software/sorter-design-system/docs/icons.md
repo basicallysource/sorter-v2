@@ -84,6 +84,8 @@ Lucide, and each lives in one component.
 | A button that opens a menu             | `ellipsis`, three dots                                    |
 | Chosen, done, yes                      | `check`                                                   |
 | Pick a color                           | `pipette`                                                 |
+| The color reference palette in view    | `swatch-book`                                             |
+| More about it: details behind a button | `info`                                                    |
 | Light mode, dark mode                  | `sun`, `moon`                                             |
 | Info, success, warning, danger notices | `info`, `circle-check`, `triangle-alert`, `octagon-alert` |
 

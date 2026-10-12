@@ -1533,6 +1533,8 @@ export interface ColorLabelPieceCard {
 	my_crop: boolean;
 	my_part: boolean;
 	has_candidates: boolean;
+	// A classification frame of the machine near the piece showed the colour reference palette.
+	has_palette: boolean;
 	thumb_seq: number | null;
 	// Straight from storage when Hive can sign one; else load the thumbnail by thumb_seq.
 	thumb_url: string | null;
@@ -1670,7 +1672,24 @@ export interface ColorLabelPieceDetail {
 	// request's, applied or not; ordered by kind, request, rank. Empty for
 	// pieces from sorters that predate it.
 	machine_predictions: MachinePiecePrediction[];
+	palette: PiecePalette;
 	correction: ColorLabelCorrection;
+}
+
+// The colour reference palette for a piece: the machine's classification frame
+// with the palette in view nearest the piece (the latest within `window_s`
+// before it, else the first after), and the swatches read in it.
+export interface PiecePalette {
+	window_s: number;
+	frame: {
+		sample_id: string;
+		frame_at: string;
+		// Seconds from the piece's arrival to the frame; negative when before.
+		offset_s: number;
+		// Straight from storage when Hive can sign one; else api.sampleFullFrameUrl.
+		full_frame_url: string | null;
+		run: SampleSwatchRun;
+	} | null;
 }
 
 export interface MachinePiecePrediction {
@@ -2074,6 +2093,7 @@ export const api = {
 			cursor?: string | null;
 			machineIds?: string[];
 			withCandidates?: boolean;
+			withPalette?: boolean;
 		} = {}
 	) {
 		const params = new URLSearchParams();
@@ -2082,6 +2102,7 @@ export const api = {
 		if (opts.cursor) params.set('cursor', opts.cursor);
 		for (const id of opts.machineIds ?? []) params.append('machine_id', id);
 		if (opts.withCandidates) params.set('with_candidates', 'true');
+		if (opts.withPalette) params.set('with_palette', 'true');
 		const qs = params.toString();
 		return request<ColorLabelPiecesPage>('GET', `/api/labeling/pieces${qs ? `?${qs}` : ''}`);
 	},

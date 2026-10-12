@@ -5,6 +5,7 @@
 	import Link2 from '@lucide/svelte/icons/link-2';
 	import Palette from '@lucide/svelte/icons/palette';
 	import Sparkles from '@lucide/svelte/icons/sparkles';
+	import SwatchBook from '@lucide/svelte/icons/swatch-book';
 
 	type Props = {
 		card: ColorLabelPieceCard;
@@ -30,10 +31,18 @@
 			{:else}
 				<span class="text-sm text-ink-muted">No picture</span>
 			{/if}
-			{#if card.has_candidates}
-				<span class="absolute top-1 left-1 flex rounded-badge bg-info p-0.5 text-on-info" title="Has same-piece candidate crops"
-					><Sparkles size={14} /></span
-				>
+			{#if card.has_candidates || card.has_palette}
+				<span class="absolute top-1 left-1 flex gap-1">
+					{#if card.has_candidates}
+						<span class="flex rounded-badge bg-info p-0.5 text-on-info" title="Has same-piece candidate crops"><Sparkles size={14} /></span>
+					{/if}
+					{#if card.has_palette}
+						<span
+							class="flex items-center gap-1 rounded-badge bg-scrim px-1 py-0.5 text-xs leading-none font-medium text-white"
+							title="The color reference palette was in view near this piece"><SwatchBook size={12} />Palette</span
+						>
+					{/if}
+				</span>
 			{/if}
 			{#if card.my_color}
 				<span class="absolute top-1 right-1 flex rounded-badge bg-success p-0.5 text-on-success" title="You labeled this"

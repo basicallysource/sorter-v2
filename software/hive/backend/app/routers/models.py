@@ -18,7 +18,7 @@ from app.deps import (
 from app.errors import APIError
 from app.models.detection_model import MODEL_PURPOSES, DetectionModel, DetectionModelVariant
 from app.models.machine import Machine
-from app.models.model_dataset_sample import ModelDatasetSample
+from app.models.model_dataset_sample import ModelDatasetMachineCount, ModelDatasetSample
 from app.models.sample import Sample
 from app.models.user import User
 from app.schemas.model import (
@@ -35,6 +35,7 @@ from app.schemas.model import (
     ModelDatasetSamplesAttachRequest,
     ModelDatasetSamplesAttachResponse,
 )
+from app.services import model_datasets
 from app.services.storage import (
     build_download_filename,
     delete_model_files,
@@ -250,12 +251,11 @@ def attach_dataset_samples(
 
     if payload.replace:
         db.query(ModelDatasetSample).filter(ModelDatasetSample.model_id == model_id).delete()
+        model_datasets.reset(db, model_id)
 
     requested = {ref.sample_id: ref.split for ref in payload.samples}
-    known_ids = {
-        row[0]
-        for row in db.query(Sample.id).filter(Sample.id.in_(requested.keys())).all()
-    }
+    machine_of = dict(db.query(Sample.id, Sample.machine_id).filter(Sample.id.in_(requested.keys())).all())
+    known_ids = set(machine_of)
     existing_ids = {
         row[0]
         for row in db.query(ModelDatasetSample.sample_id)
@@ -272,17 +272,13 @@ def attach_dataset_samples(
             for sid in to_insert
         ]
     )
+    model_datasets.count_in(db, model_id, [(machine_of[sid], requested[sid]) for sid in to_insert])
     db.commit()
 
-    total = (
-        db.query(func.count(ModelDatasetSample.sample_id))
-        .filter(ModelDatasetSample.model_id == model_id)
-        .scalar()
-    )
     return ModelDatasetSamplesAttachResponse(
         attached=len(to_insert),
         skipped_unknown=len(requested) - len(known_ids),
-        total_recorded=total or 0,
+        total_recorded=model_datasets.total(db, model_id),
     )
 
 
@@ -294,9 +290,9 @@ def get_dataset_machines(
 ):
     """Per-machine composition of a model's recorded dataset.
 
-    Aggregated live from the model_dataset_samples join, so it reflects the
-    machines as they are named now. Empty when the model predates sample
-    recording — the UI falls back to the training_metadata blob then.
+    Read from the counts kept as samples are recorded (services.model_datasets),
+    with the machines as they are named now. Empty when the model predates
+    sample recording — the UI falls back to the training_metadata blob then.
     """
     model = (
         _apply_visibility(db.query(DetectionModel), current_user)
@@ -306,20 +302,13 @@ def get_dataset_machines(
     if model is None:
         raise APIError(404, "Model not found", "MODEL_NOT_FOUND")
 
+    counts = ModelDatasetMachineCount
     rows = (
-        db.query(
-            Machine.id,
-            Machine.name,
-            func.count(ModelDatasetSample.sample_id).filter(ModelDatasetSample.split == "train"),
-            func.count(ModelDatasetSample.sample_id).filter(ModelDatasetSample.split == "val"),
-            func.count(ModelDatasetSample.sample_id),
-        )
-        .select_from(ModelDatasetSample)
-        .join(Sample, Sample.id == ModelDatasetSample.sample_id)
-        .join(Machine, Machine.id == Sample.machine_id)
-        .filter(ModelDatasetSample.model_id == model_id)
-        .group_by(Machine.id, Machine.name)
-        .order_by(func.count(ModelDatasetSample.sample_id).desc())
+        db.query(Machine.id, Machine.name, counts.train, counts.val, counts.train + counts.val)
+        .select_from(counts)
+        .join(Machine, Machine.id == counts.machine_id)
+        .filter(counts.model_id == model_id)
+        .order_by((counts.train + counts.val).desc(), Machine.name)
         .all()
     )
     total = sum(r[4] for r in rows)

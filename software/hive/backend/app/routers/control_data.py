@@ -1,6 +1,6 @@
 from collections import defaultdict
-from datetime import datetime
 from typing import Any
+from uuid import UUID
 
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
@@ -8,23 +8,15 @@ from sqlalchemy.orm import Session
 from app.deps import get_db, require_role
 from app.models.machine import Machine
 from app.models.machine_control_data_segment import MachineControlDataSegment
+from app.models.machine_stats_cache import MachineStatsCache
 from app.models.user import User
+from app.services.control_data import DIMENSION_COLUMNS
+from app.services.control_data import duration_s as _duration_s
+from app.services.control_data import iso as _iso
 
 router = APIRouter(prefix="/api/admin/control-data", tags=["admin"])
 
-DIMENSION_COLUMNS = ("machine_setup", "feeder_mode", "classification_mode", "autotune_mode")
 RECENT_LIMIT = 30
-
-
-def _iso(value: datetime | None) -> str | None:
-    return value.isoformat() if value else None
-
-
-def _duration_s(started_at: datetime | None, ended_at: datetime | None) -> float:
-    if started_at is None or ended_at is None:
-        return 0.0
-    delta = (ended_at - started_at).total_seconds()
-    return delta if delta > 0 else 0.0
 
 
 @router.get("/summary")
@@ -34,11 +26,17 @@ def control_data_summary(
 ):
     """Fleet-wide inventory of synced control-data (feeder dynamics) segments.
 
-    Aggregated in Python from the segments' summary columns — one lightweight
-    row per segment, no file contents. Fine for admin-page traffic at the
-    volumes a fleet produces (segments rotate at ~30 min of sorting each).
+    Added up from each machine's segments per combination of modes, which the
+    stats worker keeps (machine_stats_cache.control_data, hourly), plus the
+    newest RECENT_LIMIT segments read through their created_at index: no
+    request reads every segment.
     """
-    rows = (
+    cached = {
+        str(machine_id): data
+        for machine_id, data in db.query(MachineStatsCache.machine_id, MachineStatsCache.control_data)
+        if data and data.get("groups")
+    }
+    recent = (
         db.query(
             MachineControlDataSegment.machine_id,
             MachineControlDataSegment.local_id,
@@ -48,20 +46,19 @@ def control_data_summary(
             MachineControlDataSegment.bytes,
             MachineControlDataSegment.machine_setup,
             MachineControlDataSegment.feeder_mode,
-            MachineControlDataSegment.classification_mode,
             MachineControlDataSegment.autotune_mode,
             MachineControlDataSegment.data_key.isnot(None).label("has_file"),
-            MachineControlDataSegment.evicted_locally,
             MachineControlDataSegment.created_at,
         )
         .order_by(MachineControlDataSegment.created_at.desc())
+        .limit(RECENT_LIMIT)
         .all()
     )
 
     machine_names: dict[str, dict[str, Any]] = {}
-    if rows:
-        machine_ids = {row.machine_id for row in rows}
-        for machine in db.query(Machine).filter(Machine.id.in_(machine_ids)).all():
+    machine_ids = {UUID(mid) for mid in cached} | {row.machine_id for row in recent}
+    if machine_ids:
+        for machine in db.query(Machine).filter(Machine.id.in_(list(machine_ids))).all():
             machine_names[str(machine.id)] = {
                 "name": machine.name,
                 "owner_email": machine.owner.email if machine.owner else None,
@@ -92,41 +89,42 @@ def control_data_summary(
         for col in DIMENSION_COLUMNS
     }
 
-    def _accumulate(bucket: dict[str, Any], row: Any, duration_s: float) -> None:
-        bucket["segments"] += 1
-        bucket["records"] += row.records or 0
-        bucket["bytes"] += row.bytes or 0
-        bucket["hours"] += duration_s / 3600.0
-        bucket["with_file"] += 1 if row.has_file else 0
-        bucket["evicted"] += 1 if row.evicted_locally else 0
-        if row.autotune_mode == "session":
-            bucket["autotune_session"] += 1
-        elif row.autotune_mode == "background":
-            bucket["autotune_background"] += 1
+    def _accumulate(bucket: dict[str, Any], group: dict[str, Any]) -> None:
+        bucket["segments"] += group["segments"]
+        bucket["records"] += group["records"]
+        bucket["bytes"] += group["bytes"]
+        bucket["hours"] += group["seconds"] / 3600.0
+        bucket["with_file"] += group["with_file"]
+        bucket["evicted"] += group["evicted"]
+        if group["autotune_mode"] == "session":
+            bucket["autotune_session"] += group["segments"]
+        elif group["autotune_mode"] == "background":
+            bucket["autotune_background"] += group["segments"]
         else:
-            bucket["plain"] += 1
-        if row.started_at and (bucket["first_started_at"] is None or row.started_at < bucket["first_started_at"]):
-            bucket["first_started_at"] = row.started_at
-        if row.ended_at and (bucket["last_ended_at"] is None or row.ended_at > bucket["last_ended_at"]):
-            bucket["last_ended_at"] = row.ended_at
-        if row.machine_setup:
-            bucket["machine_setups"].add(row.machine_setup)
-        if row.feeder_mode:
-            bucket["feeder_modes"].add(row.feeder_mode)
-        if row.classification_mode:
-            bucket["classification_modes"].add(row.classification_mode)
+            bucket["plain"] += group["segments"]
+        first, last = group["first_started_at"], group["last_ended_at"]
+        if first and (bucket["first_started_at"] is None or first < bucket["first_started_at"]):
+            bucket["first_started_at"] = first
+        if last and (bucket["last_ended_at"] is None or last > bucket["last_ended_at"]):
+            bucket["last_ended_at"] = last
+        if group["machine_setup"]:
+            bucket["machine_setups"].add(group["machine_setup"])
+        if group["feeder_mode"]:
+            bucket["feeder_modes"].add(group["feeder_mode"])
+        if group["classification_mode"]:
+            bucket["classification_modes"].add(group["classification_mode"])
 
-    for row in rows:
-        duration_s = _duration_s(row.started_at, row.ended_at)
-        _accumulate(totals, row, duration_s)
-        _accumulate(per_machine[str(row.machine_id)], row, duration_s)
-        for col in DIMENSION_COLUMNS:
-            slot = dimensions[col][getattr(row, col)]
-            slot["segments"] += 1
-            slot["records"] += row.records or 0
-            slot["bytes"] += row.bytes or 0
-            slot["hours"] += duration_s / 3600.0
-            slot["machine_ids"].add(str(row.machine_id))
+    for machine_id, data in cached.items():
+        for group in data["groups"]:
+            _accumulate(totals, group)
+            _accumulate(per_machine[machine_id], group)
+            for col in DIMENSION_COLUMNS:
+                slot = dimensions[col][group[col]]
+                slot["segments"] += group["segments"]
+                slot["records"] += group["records"]
+                slot["bytes"] += group["bytes"]
+                slot["hours"] += group["seconds"] / 3600.0
+                slot["machine_ids"].add(machine_id)
 
     def _finish_bucket(bucket: dict[str, Any]) -> dict[str, Any]:
         return {
@@ -139,8 +137,9 @@ def control_data_summary(
             "autotune_session": bucket["autotune_session"],
             "autotune_background": bucket["autotune_background"],
             "plain": bucket["plain"],
-            "first_started_at": _iso(bucket["first_started_at"]),
-            "last_ended_at": _iso(bucket["last_ended_at"]),
+            # Kept as ISO strings, which sort as the times do.
+            "first_started_at": bucket["first_started_at"],
+            "last_ended_at": bucket["last_ended_at"],
             "machine_setups": sorted(bucket["machine_setups"]),
             "feeder_modes": sorted(bucket["feeder_modes"]),
             "classification_modes": sorted(bucket["classification_modes"]),
@@ -190,7 +189,7 @@ def control_data_summary(
             "has_file": bool(row.has_file),
             "created_at": _iso(row.created_at),
         }
-        for row in rows[:RECENT_LIMIT]
+        for row in recent
     ]
 
     totals_out = _finish_bucket(totals)

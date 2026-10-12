@@ -69,7 +69,9 @@ from app.deps import (
     resolve_public_scopes,
 )
 from app.models.machine import Machine
+from app.models.machine_daily_stats import MachineDailyStats
 from app.models.machine_piece import MachinePiece
+from app.models.machine_stats_cache import MachineStatsCache
 from app.models.user import User
 from app.models.user_identity import UserIdentity
 from app.services import analytics, fleet_mass, fleet_records, leaderboard, machine_stats
@@ -181,7 +183,9 @@ def get_public_fleet(db: Session = Depends(get_db)):
     are what a consumer uses to say whether a machine is working RIGHT NOW and
     an hour-stale answer to that is a wrong one. The 30-day count is the one a
     leaderboard should rank on: a day is too short to mean much and a lifetime
-    total is the same order forever.
+    total is the same order forever. It is the last 30 UTC days, today
+    included, summed from the worker's daily table plus the pieces seen since
+    its last pass, so a month costs what an hour does.
 
     Every non-archived machine is listed, each flagged `is_active` against
     ACTIVE_MACHINE_MIN_PIECES, and both counts are returned. Filtering here
@@ -225,7 +229,7 @@ def _roster(db: Session) -> dict:
     lifetime = machine_stats.get_fleet_stats(db)
     recent = _pieces_by_machine_since(db, ids, hours=24)
     this_hour = _pieces_by_machine_since(db, ids, hours=1)
-    this_month = _pieces_by_machine_since(db, ids, hours=24 * 30)
+    this_month = _pieces_by_machine_last_days(db, ids, days=30)
     machines = []
     for machine, identity, shares_activity in rows:
         mid = str(machine.id)
@@ -418,6 +422,46 @@ def _pieces_by_machine_since(db: Session, ids: list, *, hours: int) -> dict[str,
         .all()
     )
     return {str(mid): int(n) for mid, n in rows}
+
+
+def _pieces_by_machine_last_days(db: Session, ids: list, *, days: int) -> dict[str, int]:
+    """Piece count per machine over the last ``days`` UTC days, today included.
+
+    The days up to the stats worker's last pass come from machine_daily_stats
+    (hourly); only the pieces seen since that pass are counted live, off the
+    (machine_id, seen_at) index, so this reads an hour of pieces rather than a
+    month. A machine the worker has not seen yet is counted live, whole.
+    """
+    if not ids:
+        return {}
+    today = datetime.now(timezone.utc).date()
+    first_day = today - timedelta(days=days - 1)
+    window_start = datetime(first_day.year, first_day.month, first_day.day, tzinfo=timezone.utc)
+    passes = dict(
+        db.query(MachineStatsCache.machine_id, MachineStatsCache.computed_at).filter(
+            MachineStatsCache.machine_id.in_(ids)
+        )
+    )
+    counts = {
+        str(mid): int(n)
+        for mid, n in db.query(MachineDailyStats.machine_id, func.sum(MachineDailyStats.pieces_seen))
+        .filter(MachineDailyStats.machine_id.in_(list(passes)), MachineDailyStats.day >= first_day)
+        .group_by(MachineDailyStats.machine_id)
+    }
+    since: dict[datetime, list] = {}
+    for mid in ids:
+        last_pass = passes.get(mid)
+        if last_pass is not None and last_pass.tzinfo is None:
+            last_pass = last_pass.replace(tzinfo=timezone.utc)
+        since.setdefault(max(last_pass or window_start, window_start), []).append(mid)
+    for start, mids in since.items():
+        for mid, n in (
+            db.query(MachinePiece.machine_id, func.count())
+            .filter(MachinePiece.machine_id.in_(mids), MachinePiece.seen_at >= start)
+            .group_by(MachinePiece.machine_id)
+        ):
+            counts[str(mid)] = counts.get(str(mid), 0) + int(n)
+    return counts
 
 
 def _rolling_24h_pieces(db: Session, ids: list) -> int:

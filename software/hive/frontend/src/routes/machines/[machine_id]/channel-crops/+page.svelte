@@ -12,6 +12,10 @@
 	import Crop from '@lucide/svelte/icons/crop';
 
 	const PAGE_SIZE = 120;
+	// With a filter the server looks at a bounded stretch of crops per request,
+	// so a page can come back short with a cursor; a load asks again, up to this
+	// many times, until it has something.
+	const MAX_ROUNDS = 10;
 
 	const machineId = $derived(page.params.machine_id ?? '');
 
@@ -38,6 +42,9 @@
 
 	$effect(() => {
 		const el = sentinel;
+		// Observed again after every load, so a short page that leaves the end
+		// in view pulls the next one.
+		void crops.length;
 		if (!el) return;
 		const observer = new IntersectionObserver((entries) => {
 			if (entries.some((e) => e.isIntersecting)) void loadMore();
@@ -62,6 +69,16 @@
 			crops = res.items;
 			total = res.total;
 			nextCursor = res.next_cursor;
+			for (let round = 1; crops.length === 0 && nextCursor != null && round < MAX_ROUNDS; round++) {
+				const more = await api.getMachineChannelCrops(machineId, {
+					limit: PAGE_SIZE,
+					cursor: nextCursor,
+					channel,
+					zoneCode
+				});
+				crops = [...crops, ...more.items];
+				nextCursor = more.next_cursor;
+			}
 		} catch (e: unknown) {
 			error = errMsg(e, 'Failed to load channel crops');
 		} finally {
@@ -73,14 +90,17 @@
 		if (loadingMore || loading || nextCursor == null) return;
 		loadingMore = true;
 		try {
-			const res = await api.getMachineChannelCrops(machineId, {
-				limit: PAGE_SIZE,
-				cursor: nextCursor,
-				channel,
-				zoneCode
-			});
-			crops = [...crops, ...res.items];
-			nextCursor = res.next_cursor;
+			for (let round = 0; nextCursor != null && round < MAX_ROUNDS; round++) {
+				const res = await api.getMachineChannelCrops(machineId, {
+					limit: PAGE_SIZE,
+					cursor: nextCursor,
+					channel,
+					zoneCode
+				});
+				crops = [...crops, ...res.items];
+				nextCursor = res.next_cursor;
+				if (res.items.length > 0) break;
+			}
 		} catch (e: unknown) {
 			error = errMsg(e, 'Failed to load more crops');
 		} finally {
@@ -180,6 +200,13 @@
 
 {#if loading}
 	<div class="flex justify-center py-12"><Spinner size={32} /></div>
+{:else if crops.length === 0 && nextCursor != null}
+	<Panel>
+		<div class="flex flex-col items-center gap-3 py-8 text-center">
+			<span class="text-sm text-ink-muted">None among the newest crops looked at.</span>
+			<Button size="sm" loading={loadingMore} onclick={() => void loadMore()}>Look further back</Button>
+		</div>
+	</Panel>
 {:else if crops.length === 0}
 	<Panel>
 		<EmptyState icon={Crop} title="No channel crops yet">No channel crops have synced from this machine yet.</EmptyState>
@@ -227,7 +254,7 @@
 		{:else if nextCursor != null}
 			<Button size="sm" onclick={loadMore}>Load more</Button>
 		{:else}
-			<span class="text-sm text-ink-muted">End of the list, {total.toLocaleString()} crops.</span>
+			<span class="text-sm text-ink-muted">End of the list, {crops.length.toLocaleString()} crops.</span>
 		{/if}
 	</div>
 {/if}

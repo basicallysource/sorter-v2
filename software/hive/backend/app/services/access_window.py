@@ -27,7 +27,7 @@ from __future__ import annotations
 import uuid
 from dataclasses import dataclass
 
-from sqlalchemy import and_, func, or_, select, tuple_
+from sqlalchemy import and_, or_, select, text, tuple_
 from sqlalchemy.orm import Session
 
 from app.models.access_window import AccessWindow
@@ -97,6 +97,13 @@ def _constraint_uuids(constraint: frozenset[str]) -> list[uuid.UUID]:
     return out
 
 
+def api_key_machine_ids(user: User) -> list[uuid.UUID] | None:
+    """The machines an API key is limited to; None for a session or a key
+    without a machine list."""
+    constraint = _key_machine_constraint(user)
+    return None if constraint is None else _constraint_uuids(constraint)
+
+
 def resolve_window(db: Session, role: str, entity: str) -> Window | None:
     """The effective window for a (role, entity), or None if unrestricted."""
     if is_unrestricted(role):
@@ -135,25 +142,39 @@ def _window_id_select(entity: str, win: Window):
     return stmt.order_by(*order).offset(win.offset).limit(win.size)
 
 
+# The bare range on created_at is implied by the rest; it is there so the
+# planner reads only that side of the table, through a btree or a BRIN index.
 def _strictly_before(model, created_at, pk):
-    return or_(model.created_at < created_at, and_(model.created_at == created_at, model.id < pk))
+    return and_(model.created_at <= created_at, or_(model.created_at < created_at, model.id < pk))
 
 
 def _strictly_after(model, created_at, pk):
-    return or_(model.created_at > created_at, and_(model.created_at == created_at, model.id > pk))
+    return and_(model.created_at >= created_at, or_(model.created_at > created_at, model.id > pk))
 
 
 def _rank_visible(db: Session, entity: str, obj, win: Window) -> bool:
     """True iff ``obj`` falls inside the window, computed from its rank in the
-    canonical ordering — an O(count) index scan, no need to materialize the slice."""
+    canonical ordering. The rank is counted only as far as the window's end
+    (offset + size rows), so an object far outside it costs what one at its
+    edge does, never a count over everything newer."""
     if win.size <= 0:
         return False
     model = _model_for(entity)
     cmp = _strictly_after if win.anchor == ANCHOR_NEWEST else _strictly_before
-    q = db.query(func.count()).select_from(model)
+    q = db.query(model.id)
     for f in _base_filters(entity):
         q = q.filter(f)
-    rank = q.filter(cmp(model, obj.created_at, obj.id)).scalar() or 0
+    q = q.filter(cmp(model, obj.created_at, obj.id)).limit(win.offset + win.size)
+    if entity == ENTITY_CHANNEL_CROP and db.get_bind().dialect.name == "postgresql":
+        # Crops have only a BRIN index on created_at. A table scan taken for
+        # it reads the older rows first, which never match: for a crop from
+        # mid-history that is millions of rows before the count can stop. The
+        # BRIN index skips straight to the crops on the right side.
+        db.execute(text("SET LOCAL enable_seqscan = off"))
+        rank = q.count()
+        db.execute(text("SET LOCAL enable_seqscan = on"))
+    else:
+        rank = q.count()
     return win.offset <= rank < win.offset + win.size
 
 

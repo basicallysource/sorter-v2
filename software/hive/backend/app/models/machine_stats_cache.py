@@ -62,6 +62,8 @@ class MachineStatsCache(Base):
     total_sessions = Column(Integer, nullable=False, default=0)
     parts_found = Column(Integer, nullable=False, default=0)
     parts_needed = Column(Integer, nullable=False, default=0)
+    # The machine's upstream channel crops, for the crops page's count.
+    channel_crops = Column(BigInteger, nullable=False, default=0)
 
     # Whole distribution maps for this machine, the input the analytics fold
     # sums over. Shape:
@@ -71,6 +73,9 @@ class MachineStatsCache(Base):
     # Names ride along because a caller ranking parts wants to print one, and
     # re-joining a catalog per request is the cost this cache exists to avoid.
     distributions = Column(JSON, nullable=False, default=dict)
+    # The machine's control-data segments summed per combination of modes, for
+    # the admin inventory (routers/control_data.py).
+    control_data = Column(JSON, nullable=False, default=dict)
 
     computed_at = Column(
         DateTime(timezone=True),

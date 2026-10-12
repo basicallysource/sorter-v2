@@ -1,7 +1,7 @@
 import uuid
 from datetime import datetime, timezone
 
-from sqlalchemy import BigInteger, CheckConstraint, Column, DateTime, Float, ForeignKey, Index, Integer, String, UniqueConstraint
+from sqlalchemy import BigInteger, CheckConstraint, Column, DateTime, Float, ForeignKey, Index, Integer, String, UniqueConstraint, text
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship
 
@@ -73,5 +73,33 @@ class Sample(Base):
         Index("ix_samples_machine_id", "machine_id"),
         Index("ix_samples_upload_session_id", "upload_session_id"),
         Index("ix_samples_source_role", "source_role"),
-        Index("ix_samples_uploaded_at", "uploaded_at"),
     )
+
+
+# The samples list walks one of these newest first (review_queue.sample_page):
+# all samples, the archived ones, the teacher-checked ones (the list's default
+# view), and per filter that narrows the list, with a teacher-checked twin each.
+# The predicates are written as the queries write them, so the planner matches
+# them. Descending columns, so they are declared outside the class.
+_ACTIVE = "archived_at IS NULL"
+_TEACHER = "archived_at IS NULL AND (extra_metadata -> 'teacher_rerun') IS NOT NULL"
+_NEWEST = (Sample.uploaded_at.desc(), Sample.id.desc())
+Index("ix_samples_uploaded_at_id", *_NEWEST)
+Index("ix_samples_archived_uploaded_at", *_NEWEST, postgresql_where=text("archived_at IS NOT NULL"))
+Index("ix_samples_teacher_uploaded_at", *_NEWEST, postgresql_where=text(_TEACHER))
+for _name, _column in (("machine", Sample.machine_id), ("role", Sample.source_role), ("reason", Sample.capture_reason)):
+    Index(f"ix_samples_{_name}_uploaded_at", _column, *_NEWEST, postgresql_where=text(_ACTIVE))
+    Index(f"ix_samples_{_name}_teacher_uploaded_at", _column, *_NEWEST, postgresql_where=text(_TEACHER))
+# Similar samples compare one hash with every active sample's: from this index alone.
+Index(
+    "ix_samples_phash_active",
+    Sample.phash,
+    postgresql_include=["id", "machine_id"],
+    postgresql_where=text("phash IS NOT NULL AND archived_at IS NULL"),
+)
+Index(
+    "ix_samples_reviewed_uploaded_at",
+    Sample.review_status,
+    *_NEWEST,
+    postgresql_where=text(f"{_ACTIVE} AND review_status <> 'unreviewed'"),
+)

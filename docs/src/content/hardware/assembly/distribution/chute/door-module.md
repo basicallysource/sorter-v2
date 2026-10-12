@@ -136,7 +136,7 @@ One more sub-assembly goes together here, before the step that uses it, and it t
 
 {% include step.html n="2" title="Slide the servo into the housing and close it with the cover" %}
 
-**The servo is not screwed down.** Slide the MG995 into the housing's pocket with its splined output towards the cover, then lay the cover over the open face and drive its 2 {% include fastener.html size="M3" variant="countersunk" length="12" %} screws into the housing's inserts. Tightening those two is what holds the servo: the cover traps the servo's mounting tabs between itself and the housing.
+**The servo is not screwed down.** Slide the MG995 into the housing's pocket with its splined output towards the cover and its wires pointing out of the small open end of the housing, the end with the slot between the two prongs. Then lay the cover over the open face and drive its 2 {% include fastener.html size="M3" variant="countersunk" length="12" %} screws into the housing's inserts. Tightening those two is what holds the servo: the cover traps the servo's mounting tabs between itself and the housing.
 
 Snug both down evenly rather than pulling one home first, so the cover seats flat on the tabs.
 

@@ -361,9 +361,11 @@ def _newest(db: Session, machine_ids: list, *columns) -> tuple[list[dict[str, An
 def _with_part_images(parts: list[dict[str, Any]]) -> list[dict[str, Any]]:
     """Attach the catalog's picture of each part, where it has one."""
     try:
-        from app.services.profile_catalog import get_profile_catalog_service
+        # A lookup per part: in the worker process it reads parts.db and never
+        # loads the catalog (profile_catalog.catalog_lookup).
+        from app.services.profile_catalog import catalog_lookup
 
-        catalog = get_profile_catalog_service()
+        catalog = catalog_lookup()
     except Exception:
         catalog = None
     for p in parts:

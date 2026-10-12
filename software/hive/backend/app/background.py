@@ -3,7 +3,11 @@
 Which of them start in a process is its role's business (``app.roles``,
 ``agent-docs/process-roles.md``):
 
-- ``worker`` and ``all``: every worker in ``workers()``.
+- ``worker`` and ``all``: every worker in ``workers()``. The parts catalog's
+  own work differs: an ``all`` process holds the catalog and syncs it and
+  publishes the default profiles itself, as it always did; the worker process
+  never loads it, and runs that work in child processes instead
+  (``catalog-tasks``, app.services.catalog_tasks).
 - ``web``: none of them. A web process looks after itself only: the memory
   line in the log (each process reports its own memory) and loading the parts
   catalog it answers requests from, off the startup path.
@@ -32,6 +36,7 @@ from app.config import settings
 from app.services import swatch_jobs  # noqa: F401  (registers the swatch_find job kind)
 from app.services import worker_state
 from app.services.condition_worker import get_condition_worker
+from app.services.catalog_tasks import get_catalog_task_runner
 from app.services.default_profiles import start_default_profiles_thread
 from app.services.fleet_mass import get_fleet_mass_worker
 from app.services.fleet_records import get_fleet_records_worker
@@ -48,6 +53,7 @@ logger = logging.getLogger(__name__)
 _STARTED_AT = datetime.now(timezone.utc).isoformat()
 
 # The names the workers below go by (the periodic ones carry their own).
+CATALOG_TASKS = "catalog-tasks"
 CATALOG_AUTO_SYNC = "catalog-auto-sync"
 TEACHER = "teacher-worker"
 CONDITION = "condition-worker"
@@ -75,7 +81,12 @@ def _periodic(get: Callable[[], PeriodicWorker]) -> Worker:
     )
 
 
-# --------------------------------------------------------------- the catalog's own two
+# --------------------------------------------------------------- the catalog's own work
+#
+# In an all-in-one process: the auto-sync loop and the default profiles, on
+# threads, against the catalog the process holds anyway. In the worker process:
+# the catalog-tasks runner, which does both (and the syncs an admin asks for)
+# in child processes, so the worker never holds the catalog.
 
 
 def _catalog_auto_sync_enabled() -> bool:
@@ -118,15 +129,22 @@ def _default_profiles_status() -> dict[str, Any]:
     return {"running": bool(thread is not None and thread.is_alive()), "started": thread is not None}
 
 
+def _catalog_workers() -> tuple[list[Worker], list[Worker]]:
+    """The catalog's workers: the ones that start first, and the ones last."""
+    if roles.role() == "worker":
+        runner = get_catalog_task_runner()
+        return [Worker(CATALOG_TASKS, start=runner.start, stop=runner.stop, status=runner.status, wake=runner.wake)], []
+    return (
+        [Worker(CATALOG_AUTO_SYNC, start=_start_catalog_auto_sync, stop=_stop_catalog_auto_sync, status=_catalog_auto_sync_status)],
+        [Worker(DEFAULT_PROFILES, start=_start_default_profiles, stop=lambda: None, status=_default_profiles_status)],
+    )
+
+
 def workers() -> list[Worker]:
     """The background workers, in the order they start."""
+    first, last = _catalog_workers()
     return [
-        Worker(
-            CATALOG_AUTO_SYNC,
-            start=_start_catalog_auto_sync,
-            stop=_stop_catalog_auto_sync,
-            status=_catalog_auto_sync_status,
-        ),
+        *first,
         Worker(
             TEACHER,
             start=lambda: get_teacher_worker().start(),
@@ -153,12 +171,7 @@ def workers() -> list[Worker]:
             status=lambda: get_job_worker().status(),
             wake=lambda: get_job_worker().notify(),
         ),
-        Worker(
-            DEFAULT_PROFILES,
-            start=_start_default_profiles,
-            stop=lambda: None,
-            status=_default_profiles_status,
-        ),
+        *last,
     ]
 
 
@@ -186,8 +199,9 @@ def _upkeep() -> list[Worker]:
         # process that answers requests, so it must not move to the worker.
         Worker(memory_log.name, start=memory_log.start, stop=memory_log.stop, status=memory_log.status),
     ]
-    if not roles.runs_workers():
-        # Where workers run, the default profiles load the catalog anyway.
+    if roles.role() == "web":
+        # An all-in-one process's default profiles load the catalog anyway, and
+        # the worker process never loads it.
         upkeep.append(Worker("catalog-warmup", start=_warm_catalog, stop=lambda: None, status=lambda: {}))
     return upkeep
 
@@ -280,7 +294,6 @@ def ask_catalog_stop(db: Session) -> None:
 
 
 def heartbeat_payload() -> dict[str, Any]:
-    catalog = get_existing_profile_catalog_service()
     return {
         "process": {
             "role": roles.role(),
@@ -289,8 +302,22 @@ def heartbeat_payload() -> dict[str, Any]:
             "started_at": _STARTED_AT,
         },
         "workers": {w.name: _safe_status(w) for w in workers()},
-        "catalog": catalog.status() if catalog is not None else None,
+        "catalog": _catalog_status(),
     }
+
+
+def _catalog_status() -> dict[str, Any] | None:
+    """The catalog page's status, as the process that syncs the catalog sees it."""
+    try:
+        if roles.role() == "worker":
+            return get_catalog_task_runner().catalog_status()
+        catalog = get_existing_profile_catalog_service()
+        return catalog.status() if catalog is not None else None
+    except FileNotFoundError:
+        return None  # no parts.db yet: a new install, before its first sync
+    except Exception:
+        logger.exception("could not read the catalog's status for the heartbeat")
+        return None
 
 
 def _safe_status(worker: Worker) -> dict[str, Any]:
@@ -313,10 +340,9 @@ def serve_requests(db: Session) -> list[str]:
                     continue
                 worker.wake()
             elif kind == "catalog-sync":
-                if not get_profile_catalog_service().start_sync(arg):
-                    logger.warning("catalog sync %s was asked for but did not start (one is running?)", arg)
+                get_catalog_task_runner().request("sync", arg)
             elif kind == "catalog-stop":
-                get_profile_catalog_service().stop_sync()
+                get_catalog_task_runner().request_stop()
             else:
                 logger.warning("unknown request %r from the web process", what)
                 continue

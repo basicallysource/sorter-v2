@@ -28,7 +28,8 @@ that starts them (both entrypoints call `background.start()`):
 
 | Worker | What it does |
 |---|---|
-| `catalog-auto-sync` | Re-syncs the parts catalog from Rebrickable when it is stale (only with `REBRICKABLE_API_KEY`) |
+| `catalog-tasks` (worker) | The parts catalog's own work, each piece in a child process: the default profiles at start, an auto-sync when the catalog is stale, the syncs an admin starts (below) |
+| `catalog-auto-sync`, `default-profiles` (all) | The same, on threads of an all-in-one process, which holds the catalog anyway |
 | `teacher-worker` | Runs teacher jobs (OpenRouter / Perceptron) |
 | `condition-worker` | The condition auto-labeler (off unless `CONDITION_WORKER_ENABLED`) |
 | `machine-stats-worker` | Per-machine stats cache and the daily analytics table |
@@ -36,7 +37,6 @@ that starts them (both entrypoints call `background.start()`):
 | `storage-stats-worker` | Walks the object store for the admin server-health page |
 | `labeling-queue-worker` | The labeling queue (`agent-docs/labeling-queue.md`) |
 | `job-worker` | The job queue (`agent-docs/jobs.md`; off unless `JOB_WORKER_ENABLED`) |
-| `default-profiles` | Publishes Hive's default sorting profiles once at start |
 
 A new background worker goes in that list, and in no other process. Whatever
 role, a process also logs its own memory every five minutes
@@ -70,17 +70,44 @@ Asking for a fleet-wide recompute on a request is how a request ends up
 holding the interpreter: `POST /api/admin/machines/stats/refresh` used to run
 the pass itself and now asks the worker for one.
 
-## The parts catalog in two processes
+## The parts catalog: one copy, in the web process
 
-`parts.db` is a SQLite file both processes open (WAL mode; the bind mount is
-shared). The worker process owns the syncs: the auto-sync, the syncs an admin
-starts, the search-index rebuild, and marking a sync a previous process left
-`running` as interrupted (`ProfileCatalogService(runs_syncs=...)`). A web
-process does none of that. It follows the syncs instead: at most once a minute
-(on any use of the catalog) it compares the sync times recorded in `parts.db`
-with the ones it loaded, and reloads its in-memory catalog on a thread of its
-own when they changed (`follow_syncs`). The catalog endpoints that start, stop
-and report syncs go to the worker process in a web process.
+The catalog service holds every part, color and category in memory, ~390 MB
+of a process. The web process needs that for its requests. The worker process
+never loads it (`get_profile_catalog_service()` raises there):
+
+- **Lookups** its passes make (a part's weight for the fleet mass, its picture
+  and name for the fleet records, the color palette) go through
+  `catalog_lookup()`, which in the worker is a `CatalogLookup`: SQL against
+  `parts.db` on a connection that never writes, nothing loaded. Anywhere else
+  it is the process's own catalog service. Code that runs in the worker uses
+  `catalog_lookup()`, never `get_profile_catalog_service()`.
+- **Work that needs the whole catalog** runs as a catalog task, a child
+  process (`python -m app.catalog_task default-profiles | auto-sync | sync
+  <type>`, started by `app/services/catalog_tasks.py`): it loads the catalog,
+  does the one thing, writes what an all-in-one process would (`parts.db`, the
+  default profiles in Postgres), logs its peak memory and exits, and its memory
+  goes back to the box. One child at a time, each stopped after
+  `CATALOG_TASK_TIMEOUT_MINUTES` (120). The default profiles run once at the
+  worker's start. Every `PROFILE_CATALOG_AUTO_SYNC_CHECK_INTERVAL_MINUTES` the
+  runner counts rows and reads the sync times (no catalog loaded) and starts an
+  `auto-sync` child when something is stale; a sync that failed or was cut
+  short is planned again at the next check, as before (a parts sync resumes
+  from the rows it has). An admin's start and stop arrive as requests; stop
+  sends the child SIGTERM, which stops its sync the way the stop button always
+  has. A child drops its old copy before reloading after a sync, so it never
+  holds two.
+
+The child owns the syncs' side effects: the search-index rebuild and marking a
+sync a dead process left `running` as interrupted
+(`ProfileCatalogService(runs_syncs=...)`). The web process does neither. It
+follows the syncs: at most once a minute (on any use of the catalog) it compares
+the sync times recorded in `parts.db` with the ones it loaded, and reloads its
+in-memory catalog on a thread of its own when they changed (`follow_syncs`).
+The catalog page's status comes from the worker's heartbeat
+(`CatalogTaskRunner.catalog_status`: the same shape as the service's, counted
+from the tables and the progress rows a running sync keeps in `parts.db`), and
+its start and stop go to the worker as requests.
 
 ## Every request is bounded: statement timeouts
 
@@ -132,20 +159,25 @@ why. These are all of them; each should become a job when it next matters:
 ## Memory
 
 Measured 2026-10-12 with the full parts catalog (81k parts) and a copy of a
-development database (33k pieces, 5.5k samples, 540k channel crops), resident
-set in MB:
+development database (33k pieces, 5.5k samples, 540k channel crops), in MB of
+resident plus swapped memory. "Load" is 66 page views, 74 machine requests, two
+passes asked for from the admin pages and 20 swatch_find jobs on 4K frames.
 
-| | Idle | After 66 page views, 74 machine requests, two passes and 20 swatch_find jobs |
-|---|---|---|
-| `web` | 536–560 | 565–585 |
-| `worker` | 542–544 | ~670–750, peak 895 during the jobs |
-| `all` (one process, as before) | 594 | 709, peak 938 |
+| | Idle | After the load | Peak |
+|---|---|---|---|
+| `web` | 561 | 578 | 587; 926 while it reloads after a sync |
+| `worker` | 142 | 260 | 417, running the swatch jobs |
+| a catalog task child | | | 482–511, for 19–35 s |
+| `all` (one process, as before) | 579 | 762 | 941 |
 
-The split costs about one more parts catalog: the in-memory catalog is
-~390 MB of each process (68 MB for the interpreter and imports, 456 MB once
-it is loaded), and both processes hold one. A catalog reload, which follows
-every sync (in the worker, and in the web process a minute later), holds the
-old and the new catalog for a few seconds: 802 MB at its peak, 591 MB after.
-The worker holds its copy for the default profiles at start and for its
-syncs; a worker that loaded it only for those would bring the split close to
-one process's memory.
+The in-memory parts catalog is ~390 MB (a process is 68 MB with its imports,
+456 MB once the catalog is loaded), and only the web process holds it. The
+split itself costs a second interpreter, about 100 MB. A catalog task loads the
+catalog for its one job and gives it all back when it exits; it drops its old
+copy before reloading after a sync, so it never holds two. The web process,
+which must keep answering while it reloads, holds both copies for the few
+seconds a reload takes and keeps ~150–180 MB of it afterwards (allocator
+fragmentation), as an all-in-one process always did after its own syncs. A
+reload also forgets the compiler's shared index (`compiler.forget_index`):
+kept, the index held the old copy alive beside the new one until the next
+compile, ~365 MB.

@@ -91,6 +91,11 @@ class Settings(BaseSettings):
     PROFILE_CATALOG_AUTO_SYNC_PARTS_MAX_AGE_HOURS: int = 24
     PROFILE_CATALOG_AUTO_SYNC_COLORS_MAX_AGE_HOURS: int = 24
     PROFILE_CATALOG_AUTO_SYNC_CATEGORIES_MAX_AGE_HOURS: int = 168
+    # The worker process never loads the parts catalog; a sync or the default
+    # profiles run in a child process (app.services.catalog_tasks), one at a
+    # time, stopped after this long. A parts sync resumes from the rows it has,
+    # so one cut short goes on at the next auto-sync check.
+    CATALOG_TASK_TIMEOUT_MINUTES: float = 120
     OPENROUTER_BASE_URL: str = "https://openrouter.ai/api/v1"
     # Perceptron exposes an OpenAI-compatible /v1/chat/completions endpoint.
     PERCEPTRON_BASE_URL: str = "https://api.perceptron.inc/v1"

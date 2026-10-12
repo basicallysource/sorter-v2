@@ -27,6 +27,10 @@ in [`agent-docs/`](agent-docs/):
 - [`agent-docs/piece-data.md`](agent-docs/piece-data.md) — piece data from
   sorters: the sync endpoints and their cursor rule, where each kind lands,
   whose verdict lives where, and the views and tables to train from.
+- [`agent-docs/server-page.md`](agent-docs/server-page.md) — the admin Server
+  page and the request-timing middleware behind it: each route's latency over
+  the last hour in fixed memory, the slow-request log line, and the job queue,
+  workers, database and disk figures beside it.
 - [`agent-docs/labeling-queue.md`](agent-docs/labeling-queue.md) — the review
   queues of Piece samples and Channel samples: one queue module and one machine
   filter for both, the labeling queue and its worker, sort segments and cursor

@@ -68,7 +68,10 @@ The worker shares a small box with the API, so:
 `/admin/jobs` (admin) shows the worker's state (as the worker process last
 reported it), counts by kind and status, the oldest waiting job of each kind
 and the latest failures, with a retry button.
-API: `GET /api/admin/jobs`, `POST /api/admin/jobs/{id}/retry`.
+API: `GET /api/admin/jobs`, `POST /api/admin/jobs/{id}/retry`. The Server page
+(`server-page.md`) shows the queue beside the requests and the database, with
+what each kind finished and failed in the last hour and which process holds
+each running job.
 
 ## Settings
 

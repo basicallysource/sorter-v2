@@ -311,7 +311,9 @@ def getLikelyColors(
     """Every color ranked for a piece: Hive's ranking (how near each color is
     to the predictions, times how likely the part exists in it on BrickLink),
     or, when Hive cannot answer, the same ranking by color alone over the
-    saved palette. `fallback` says which ("hive_unreachable", "no_hive")."""
+    saved palette. `fallback` says why: "no_hive" (none configured),
+    "hive_unreachable", "hive_too_old" (a Hive without the ranking) or
+    "no_part" (nothing to look up)."""
     import color_rank
 
     key = (part_id or "", color_rank.format_predictions(predictions))
@@ -324,8 +326,14 @@ def getLikelyColors(
     client = _client()
     fallback = "no_hive" if client is None else None
     if client is not None and part_id:
+        fallback = "hive_unreachable"
         try:
             payload = client.likely_colors(part_id, key[1] or None)
+        except HiveError as exc:
+            if exc.status_code == 404:
+                fallback = "hive_too_old"
+            gc.logger.warn(f"hive likely colors failed for {part_id}: {exc}")
+            payload = None
         except Exception as exc:
             gc.logger.warn(f"hive likely colors failed for {part_id}: {exc}")
             payload = None
@@ -337,7 +345,6 @@ def getLikelyColors(
                         del _likely_cache[stale]
                 _likely_cache[key] = (now, result)
             return result
-        fallback = "hive_unreachable"
     elif client is not None:
         fallback = "no_part"
 

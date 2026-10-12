@@ -34,7 +34,7 @@
 	type LikelyResponse = {
 		source: 'live' | 'cache' | 'none';
 		colors: LikelyColor[];
-		fallback: 'hive_unreachable' | 'no_hive' | 'no_part' | null;
+		fallback: 'hive_unreachable' | 'hive_too_old' | 'no_hive' | 'no_part' | null;
 	};
 
 	// Operator-flagged attributes of the sample. Most codes match Hive's
@@ -112,9 +112,11 @@
 			likelyNote =
 				body.fallback === 'hive_unreachable' || body.fallback === 'no_hive'
 					? 'By color alone: the machine cannot reach Hive.'
-					: body.source === 'none'
-						? 'By color alone: no BrickLink numbers for this part.'
-						: null;
+					: body.fallback === 'hive_too_old'
+						? 'By color alone: this Hive does not rank colors yet.'
+						: body.source === 'none'
+							? 'By color alone: no BrickLink numbers for this part.'
+							: null;
 		} catch {
 			if (likelyFor !== key) return;
 			likely = [];

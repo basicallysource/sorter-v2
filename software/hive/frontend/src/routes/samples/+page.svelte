@@ -90,6 +90,14 @@
 	};
 	// Histogram bucket — 'under' / 'normal' / 'over' / 'all'. Empty = no filter.
 	const filterExposure = $derived(listContext.exposure ?? '');
+	// Is the colour reference palette in view, as the swatch model called it:
+	// 'in_view' / 'not_in_view' / 'unchecked' (not called yet). Empty = any.
+	const filterPalette = $derived(listContext.palette ?? '');
+	const PALETTE_LABELS: Record<string, string> = {
+		in_view: 'In view',
+		not_in_view: 'Not in view',
+		unchecked: 'Not checked yet'
+	};
 	// Admin-only: 'active' (default), 'archived', 'all'. Server enforces:
 	// non-admins always see active regardless of what they send.
 	const filterArchived = $derived(listContext.archived ?? '');
@@ -117,7 +125,7 @@
 	};
 
 	const hasActiveFilters = $derived(
-		filterMachines.length > 0 || filterStatus || filterSourceRole || filterCaptureReason || filterKind || filterMyReview || filterAnnotated || filterExposure || filterArchived || filterMaxAgeHours
+		filterMachines.length > 0 || filterStatus || filterSourceRole || filterCaptureReason || filterKind || filterMyReview || filterAnnotated || filterExposure || filterPalette || filterArchived || filterMaxAgeHours
 	);
 
 	const machinesKey = $derived(filterMachines.join(','));
@@ -251,6 +259,7 @@
 			sp.delete('my_review');
 			sp.delete('annotated');
 			sp.delete('exposure');
+			sp.delete('palette');
 			sp.delete('archived');
 			sp.delete('max_age_hours');
 		});
@@ -300,6 +309,7 @@
 		// exactly the samples the operator can see — not on under/over
 		// frames that are hidden by default.
 		exposure: filterExposure || 'normal',
+		palette: filterPalette || undefined,
 		max_age_hours: filterMaxAgeHours ? Number(filterMaxAgeHours) : undefined
 	}));
 
@@ -370,6 +380,7 @@
 		// exactly the samples the operator can see — not on under/over
 		// frames that are hidden by default.
 		exposure: filterExposure || 'normal',
+		palette: filterPalette || undefined,
 		max_age_hours: filterMaxAgeHours ? Number(filterMaxAgeHours) : undefined
 	}));
 
@@ -432,6 +443,7 @@
 		// teacher'd" which is what mirroring the server default would imply.
 		annotated: filterAnnotated || undefined,
 		exposure: filterExposure || undefined,
+		palette: filterPalette || undefined,
 		// Age filter must travel with the job filter — otherwise the modal counts a 24h
 		// slice but the job picks up the full table.
 		max_age_hours: filterMaxAgeHours ? Number(filterMaxAgeHours) : undefined
@@ -772,6 +784,25 @@
 						<FilterOption label="Good light" on={filterExposure === '' || filterExposure === 'normal'} onclick={() => setFilterValue('exposure', '')} />
 						<FilterOption label="Underexposed" on={filterExposure === 'under'} onclick={() => setFilterValue('exposure', 'under')} />
 						<FilterOption label="Overexposed" on={filterExposure === 'over'} onclick={() => setFilterValue('exposure', 'over')} />
+					</ul>
+				</FilterGroup>
+
+				<FilterGroup
+					title="Color palette"
+					storageKey="palette"
+					active={!!filterPalette}
+					activeLabel={filterPalette ? (PALETTE_LABELS[filterPalette] ?? filterPalette) : null}
+				>
+					<!-- The reference palette's tiles at the edge of a classification frame, as the swatch model called it. -->
+					<ul class="flex flex-col gap-px">
+						{#each [
+							{ key: '', label: 'Any' },
+							{ key: 'in_view', label: 'In view' },
+							{ key: 'not_in_view', label: 'Not in view' },
+							{ key: 'unchecked', label: 'Not checked yet' }
+						] as item (item.key)}
+							<FilterOption label={item.label} on={filterPalette === item.key} onclick={() => setFilterValue('palette', item.key)} />
+						{/each}
 					</ul>
 				</FilterGroup>
 

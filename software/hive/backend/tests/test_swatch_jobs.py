@@ -330,6 +330,34 @@ def test_a_model_file_that_will_not_load_is_retried(client, db, machine_token, m
     assert job.status == "queued" and job.attempts == 1 and "does not load" in job.error
 
 
+def test_the_samples_list_review_queue_and_batch_actions_filter_on_the_palette(client, db, machine_token, fake_finder):
+    _model(db)
+    strip = list(zip(TILES, [p[0] for p in PALETTE[1:]]))
+    in_view = _read(client, db, machine_token, 1, strip)["sample_id"]
+    not_in_view = _read(client, db, machine_token, 2, strip[:2])["sample_id"]
+    unchecked = _sync(client, machine_token, 3)
+    headers = _auth_headers(client)
+    # The synthetic frames are dark by Hive's exposure buckets; the list hides those by default.
+    shown = {"annotated": "all", "exposure": "under"}
+
+    def listed(**params) -> set[str]:
+        r = client.get("/api/samples", params={**shown, "limit": 50, **params}, headers=headers)
+        assert r.status_code == 200, r.text
+        return {item["id"] for item in r.json()["items"]}
+
+    assert listed() == listed(palette="any") == {in_view, not_in_view, unchecked}
+    assert listed(palette="in_view") == {in_view}
+    assert listed(palette="not_in_view") == {not_in_view}
+    assert listed(palette="unchecked") == {unchecked}
+    assert listed(palette="in_view", needs_review="true") == {in_view}  # the review queue
+    assert client.get("/api/samples", params={"palette": "sometimes"}, headers=headers).status_code == 422
+
+    body = {**shown, "palette": "not_in_view", "dry_run": True}
+    r = client.post("/api/samples/batch-delete", json=body, headers=headers)
+    assert r.status_code == 200, r.text
+    assert r.json()["matched"] == 1
+
+
 def _make_admin(db, email: str = "member@test.com") -> None:
     user = db.query(User).filter(User.email == email).first()
     user.role = "admin"

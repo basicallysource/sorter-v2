@@ -52,6 +52,9 @@ class SampleFilters(BaseModel):
     my_review: str | None = None  # 'unreviewed' | 'reviewed' | 'accepted' | 'rejected'
     annotated: str | None = None  # 'teacher' | 'raw'
     exposure: str | None = None  # 'under' | 'normal' | 'over'
+    # Is the colour reference palette in view, as the swatch model called it:
+    # 'in_view' | 'not_in_view' | 'unchecked' (swatch_jobs.palette_filter).
+    palette: str | None = None
     max_age_hours: int | None = None
     # The review queue's fresh work for the viewer: samples they have not
     # reviewed that still need reviews to reach consensus.
@@ -68,6 +71,7 @@ def sample_filters_query(
     my_review: str | None = Query(None, pattern="^(unreviewed|reviewed|accepted|rejected)$"),
     annotated: str | None = Query(None, pattern="^(teacher|raw|all)$"),
     exposure: str | None = Query(None, pattern="^(under|normal|over)$"),
+    palette: str | None = Query(None, pattern="^(in_view|not_in_view|unchecked|any)$"),
     max_age_hours: int | None = Query(None, ge=1, le=24 * 365),
     needs_review: bool = False,
 ) -> SampleFilters:
@@ -83,6 +87,7 @@ def sample_filters_query(
         my_review=my_review,
         annotated=annotated,
         exposure=exposure,
+        palette=palette,
         max_age_hours=max_age_hours,
         needs_review=needs_review,
     )
@@ -161,6 +166,17 @@ def apply_my_review_filter(query, my_review: str | None, viewer_id):
     return query.filter(Sample.id.in_(ids))
 
 
+def apply_palette_filter(query, palette: str | None):
+    """Whether the colour reference palette is in view in the sample's frame,
+    as one swatch model called it ('in_view', 'not_in_view', or 'unchecked':
+    not called yet). Anything else is no filter. One EXISTS on the swatch
+    runs, nothing per row: ``swatch_jobs.palette_filter``."""
+    from app.services.swatch_jobs import palette_filter
+
+    clause = palette_filter(query.session, palette)
+    return query if clause is None else query.filter(clause)
+
+
 def apply_needs_review(query, viewer_id):
     """The review queue's fresh work: not reviewed by the viewer, and short of
     the reviews it takes to reach consensus."""
@@ -187,6 +203,7 @@ def apply_sample_filters(query, f: SampleFilters, viewer_id):
     query = apply_my_review_filter(query, f.my_review, viewer_id)
     query = apply_annotated_filter(query, f.annotated)
     query = apply_exposure_filter(query, f.exposure)
+    query = apply_palette_filter(query, f.palette)
     if f.max_age_hours is not None and f.max_age_hours > 0:
         query = query.filter(Sample.uploaded_at >= datetime.now(timezone.utc) - timedelta(hours=f.max_age_hours))
     if f.needs_review:

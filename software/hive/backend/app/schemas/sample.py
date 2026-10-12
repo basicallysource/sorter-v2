@@ -4,6 +4,8 @@ from uuid import UUID
 
 from pydantic import BaseModel, field_validator
 
+from app.services.sample_filters import SampleFilters
+
 
 class SampleResponse(BaseModel):
     id: UUID
@@ -161,37 +163,7 @@ class SaveSampleClassificationResponse(BaseModel):
     data: SampleClassificationPayload | None = None
 
 
-class SampleFilterFields(BaseModel):
-    """The Channel samples filters, as a request body: the same meaning as the
-    /api/samples query parameters (services.sample_filters)."""
-
-    machine_ids: list[UUID] | None = None
-    source_role: str | None = None
-    capture_reason: str | None = None
-    review_status: str | None = None
-    kind: str | None = None  # 'regular' | 'condition' | None
-    my_review: str | None = None  # 'unreviewed' | 'reviewed' | 'accepted' | 'rejected'
-    annotated: str | None = None  # 'teacher' | 'raw'
-    exposure: str | None = None  # 'under' | 'normal' | 'over'
-    max_age_hours: int | None = None
-
-    def to_filters(self):
-        from app.services.sample_filters import SampleFilters
-
-        return SampleFilters(
-            machine_ids=tuple(self.machine_ids) if self.machine_ids else None,
-            source_role=self.source_role,
-            capture_reason=self.capture_reason,
-            review_status=self.review_status,
-            kind=self.kind,
-            my_review=self.my_review,
-            annotated=self.annotated,
-            exposure=self.exposure,
-            max_age_hours=self.max_age_hours,
-        )
-
-
-class BatchDeleteSamplesRequest(SampleFilterFields):
+class BatchDeleteSamplesRequest(SampleFilters):
     """Filter spec mirroring the /api/samples query params.
 
     Always interpreted as 'samples I own' on the server side — the client
@@ -215,7 +187,7 @@ class BatchDeleteSamplesResponse(BaseModel):
     capped: bool = False
 
 
-class BatchArchiveSamplesRequest(SampleFilterFields):
+class BatchArchiveSamplesRequest(SampleFilters):
     """Admin-only soft-delete. Same filter spec as BatchDeleteSamplesRequest
     but the target set is the *full library* (no ownership constraint) —
     admins manage the global content surface.

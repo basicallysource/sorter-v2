@@ -158,3 +158,26 @@ def test_list_items_carry_a_thumbnail_url_when_storage_signs_them(client, sample
     monkeypatch.setattr(review_queue, "get_backend", lambda: _Signing())
     item = _walk(client, limit=1)[0]
     assert item["thumb_url"].startswith("https://store.example/")
+
+
+def test_batch_delete_dry_run_counts_only_the_chosen_machines(client, samples):
+    a = samples["machines"]["a"][0]
+    shown = _walk(client, limit=50, machine_id=[str(a)])
+    resp = client.post(
+        "/api/samples/batch-delete",
+        json={"machine_ids": [str(a)], "dry_run": True, "exposure": "normal"},
+        headers=_auth_headers(client),
+    )
+    assert resp.status_code == 200, resp.text
+    assert resp.json()["matched"] == len(shown)
+
+
+def test_a_teacher_job_filter_is_the_samples_filter(client, db, samples):
+    from app.routers.teacher import TeacherJobFilter
+    from app.services.sample_filters import apply_sample_filters
+
+    a, c = samples["machines"]["a"][0], samples["machines"]["c"][0]
+    filt = TeacherJobFilter(machine_ids=[a, c], exposure="normal")
+    picked = apply_sample_filters(db.query(Sample), filt, samples["me"].id).all()
+    assert {s.machine_id for s in picked} == {a, c}
+    assert len(picked) == len(_walk(client, limit=50, machine_id=[str(a), str(c)]))

@@ -137,6 +137,22 @@ def _threadpool() -> dict[str, Any] | None:
 # ---------------------------------------------------------------- the workers
 
 
+# What the page calls each background worker (``app.background``).
+_WORKER_LABELS = {
+    "machine-stats-worker": "Machine stats",
+    "fleet-mass-worker": "Fleet mass",
+    "fleet-records-worker": "Fleet records",
+    "labeling-queue-worker": "Labeling queue",
+    "storage-stats-worker": "Storage walk",
+    background.TEACHER: "Teacher",
+    background.CONDITION: "Condition",
+    background.JOBS: "Job queue",
+    background.CATALOG_TASKS: "Catalog tasks",
+    background.CATALOG_AUTO_SYNC: "Catalog auto-sync",
+    background.DEFAULT_PROFILES: "Default profiles",
+}
+
+
 def _workers(db: Session) -> list[dict[str, Any]]:
     """Every background worker, wherever it runs: this process's own state when it
     runs them, else what the worker process last reported (``background.worker_status``),
@@ -146,7 +162,7 @@ def _workers(db: Session) -> list[dict[str, Any]]:
         s = background.worker_status(db, worker.name)
         rows.append(
             {
-                "name": worker.name,
+                "name": _WORKER_LABELS.get(worker.name, worker.name),
                 "running": bool(s.get("running")),
                 "last_run_at": s.get("last_run_at") or s.get("last_job_at"),
                 "last_run_s": s.get("last_run_duration_s"),

@@ -5,6 +5,14 @@ and a dated entry goes here; the history is git.
 
 ## 2026-10-12
 
+- **Every color only when it is asked for.** The list of every color under
+  the likely ones was always open, a long scroll of its own that caught the
+  wheel, so the rest of a labeling pane could not be scrolled past it. Now
+  the search lists its matches only as they are typed (Enter picks the
+  first), "All colors" lists the whole palette on request, and no list
+  scrolls inside the page. The likely colors' tiles are smaller, and a
+  block beside them (`aside`) holds what an app ranks them against: on
+  Hive, the part's top colors sold on BrickLink.
 - **One color review, and the likely colors right under "No".** The
   sorter's correction block was its own markup, its color list a popover of
   the whole palette in catalog order, and Hive's labeling page ranked its

@@ -384,12 +384,57 @@ function expandHeadingIds(body: string): string {
 
 // ── Markdown ─────────────────────────────────────────────────────────────────
 
+// Links that leave the docs open in a new tab. The arrow-out icon is drawn by
+// layout.css on `a[target='_blank'][href^='http']`, so the two have to agree:
+// anything this marks gets the icon. On the asset host only what a browser
+// displays (a PDF, a full-size image, an HTML drawing) counts as leaving;
+// STLs, zips and spreadsheets are downloads and stay put.
+const SELF_HOSTS = new Set(['docs.basically.website']);
+const ASSET_HOSTS = new Set(['assets.basically.website', 'img.basically.website']);
+const VIEWABLE = /\.(pdf|png|jpe?g|gif|webp|svg|html?|mp4|webm)$/i;
+
+function isExternalHref(href: string, download: boolean): boolean {
+	if (!/^(https?:)?\/\//i.test(href)) return false;
+	let url: URL;
+	try {
+		url = new URL(href, 'https://docs.basically.website');
+	} catch {
+		return false;
+	}
+	if (SELF_HOSTS.has(url.hostname)) return false;
+	if (ASSET_HOSTS.has(url.hostname)) return !download && VIEWABLE.test(url.pathname);
+	return true;
+}
+
+type HastNode = {
+	type: string;
+	tagName?: string;
+	properties?: Record<string, unknown>;
+	children?: HastNode[];
+};
+
+function openExternalLinksInNewTab(node: HastNode): void {
+	if (node.type === 'element' && node.tagName === 'a') {
+		const href = node.properties?.href;
+		if (typeof href === 'string' && isExternalHref(href, node.properties?.download !== undefined)) {
+			node.properties!.target = '_blank';
+			const rel = new Set(String(node.properties!.rel ?? '').split(/\s+/).filter(Boolean));
+			rel.add('noopener');
+			node.properties!.rel = [...rel].join(' ');
+		}
+	}
+	for (const child of node.children ?? []) openExternalLinksInNewTab(child);
+}
+
+const rehypeExternalLinks = () => openExternalLinksInNewTab;
+
 const markdown = unified()
 	.use(remarkParse)
 	.use(remarkGfm)
 	.use(remarkRehype, { allowDangerousHtml: true })
 	.use(rehypeRaw)
 	.use(rehypeSlug)
+	.use(rehypeExternalLinks)
 	.use(rehypeStringify, { allowDangerousHtml: true });
 
 // ── Parts / credits resolution (page-requirements.html, page-author.html) ────

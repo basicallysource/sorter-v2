@@ -1,3 +1,69 @@
+# The backend image runs as two services (agent-docs/process-roles.md):
+# `backend` answers requests (HIVE_ROLE=web) and `worker` runs every background
+# worker (HIVE_ROLE=worker), so a pass over the whole fleet, a catalog sync or a
+# backlog of jobs never holds the interpreter a request is waiting for. They
+# share every setting and file, defined once here.
+x-hive-backend-environment: &hive-backend-environment
+  # Half the resident set is glibc, not Python. When one process ran
+  # everything, ~15 threads (uvicorn plus five background daemons and the
+  # teacher pool) on a 2-core box, glibc let it open 8 arenas per core, so it
+  # had spread 625 MB across 14 per-thread arenas — memory Python has
+  # already freed but glibc will not hand back, because a single live
+  # allocation anywhere in a 64 MB arena pins the whole arena. Both
+  # processes are still threaded, so both keep the cap.
+  #
+  # Two arenas means allocation contends a little and stays compact instead.
+  # Measured on prod 2026-08-20: 14 arenas, 625 MB of a 1288 MB anon total.
+  # This bounds fragmentation, which is not the same thing as fixing the
+  # leak — whatever keeps allocating is still doing it. Expect a lower
+  # floor and a slower climb, not a flat line.
+  MALLOC_ARENA_MAX: "2"
+  ENVIRONMENT: ${ENVIRONMENT}
+  DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
+  JWT_SECRET: ${JWT_SECRET}
+  SECRET_ENCRYPTION_KEY: ${SECRET_ENCRYPTION_KEY}
+  UPLOAD_DIR: ${UPLOAD_DIR}
+  STORAGE_BACKEND: ${STORAGE_BACKEND}
+  S3_BUCKET: ${S3_BUCKET}
+  S3_ENDPOINT_URL: ${S3_ENDPOINT_URL}
+  S3_REGION: ${S3_REGION}
+  S3_ACCESS_KEY_ID: ${S3_ACCESS_KEY_ID}
+  S3_SECRET_ACCESS_KEY: ${S3_SECRET_ACCESS_KEY}
+  S3_SERVE_MODE: ${S3_SERVE_MODE}
+  S3_PRESIGNED_EXPIRY_SECONDS: ${S3_PRESIGNED_EXPIRY_SECONDS}
+  CORS_ORIGIN: ${CORS_ORIGIN}
+  APP_BASE_URL: ${APP_BASE_URL}
+  COOKIE_SECURE: ${COOKIE_SECURE}
+  ADMIN_EMAIL: ${ADMIN_EMAIL}
+  ADMIN_PASSWORD: ${ADMIN_PASSWORD}
+  ADMIN_DISPLAY_NAME: ${ADMIN_DISPLAY_NAME}
+  GITHUB_CLIENT_ID: ${GITHUB_CLIENT_ID}
+  GITHUB_CLIENT_SECRET: ${GITHUB_CLIENT_SECRET}
+  GITHUB_REDIRECT_URI: ${GITHUB_REDIRECT_URI}
+  DISCORD_CLIENT_ID: ${DISCORD_CLIENT_ID}
+  DISCORD_CLIENT_SECRET: ${DISCORD_CLIENT_SECRET}
+  DISCORD_REDIRECT_URI: ${DISCORD_REDIRECT_URI}
+  REBRICKABLE_API_KEY: ${REBRICKABLE_API_KEY}
+  PUBLIC_STATS_API_KEY: ${PUBLIC_STATS_API_KEY}
+  BLA_API_KEY: ${BLA_API_KEY}
+
+x-hive-backend-volumes: &hive-backend-volumes
+  - ${HIVE_DATA_DIR:?see scripts/CUTOVER.md}/uploads:${UPLOAD_DIR}
+  # Rebrickable parts catalog SQLite db (parts/categories/colors). Persisted
+  # so it survives container recreates — otherwise every redeploy wipes it
+  # and forces a full multi-hour re-sync from Rebrickable. Shared: the worker
+  # syncs it, the web process reads it and follows the syncs.
+  - ${HIVE_DATA_DIR:?see scripts/CUTOVER.md}/profile_builder:/app/data/profile_builder
+  # Color-classifier ONNX models, uploaded out of band (scp) and scanned
+  # into the color_models table. Bind-mounted so they survive recreates.
+  - ${HIVE_DATA_DIR:?see scripts/CUTOVER.md}/color_models:/app/data/color_models
+  # piece_link matcher models (encoder+head ONNX pairs), uploaded out of band
+  # (scp) and scanned into the link_models table. Bind-mounted to survive recreates.
+  - ${HIVE_DATA_DIR:?see scripts/CUTOVER.md}/link_models:/app/data/link_models
+  # Colour-reference palette finders (swatch_finder ONNX), uploaded out of
+  # band and scanned into the swatch_models table. Bind-mounted to survive recreates.
+  - ${HIVE_DATA_DIR:?see scripts/CUTOVER.md}/swatch_models:/app/data/swatch_models
+
 services:
   postgres:
     image: postgres:16-alpine
@@ -53,11 +119,13 @@ services:
     image: ${HIVE_BACKEND_IMAGE:?HIVE_BACKEND_IMAGE not set - deploy via hive_release_agent.py}
     container_name: hive-backend
     restart: unless-stopped
-    # This process leaks. On 2026-08-20 it reached 2.2 GB, pushed the 3.9 GB box
+    # This process leaked. On 2026-08-20 it reached 2.2 GB, pushed the 3.9 GB box
     # 2 GB into swap, and served 502/524s for six hours until someone restarted
-    # it by hand. Nothing self-healed because the healthcheck answered normally
-    # the entire time — a thrashing process is still a live one, so there was no
-    # unhealthy state for Docker to act on. The ceiling is the backstop.
+    # it by hand (it then also ran every background worker; they have their
+    # own service and ceiling now, below). Nothing self-healed because the
+    # healthcheck answered normally the entire time — a thrashing process is
+    # still a live one, so there was no unhealthy state for Docker to act on.
+    # The ceiling is the backstop.
     #
     # memswap_limit is the half that actually matters, and it only works pinned
     # to the same value as mem_limit (that is how Docker spells "no swap for
@@ -78,64 +146,12 @@ services:
       postgres:
         condition: service_healthy
     environment:
-      # Half the resident set is glibc, not Python. This process runs ~15
-      # threads (uvicorn plus five background daemons and the teacher pool) on a
-      # 2-core box, and glibc lets a threaded program open 8 arenas per core, so
-      # it had spread 625 MB across 14 per-thread arenas — memory Python has
-      # already freed but glibc will not hand back, because a single live
-      # allocation anywhere in a 64 MB arena pins the whole arena.
-      #
-      # Two arenas means allocation contends a little and stays compact instead.
-      # Measured on prod 2026-08-20: 14 arenas, 625 MB of a 1288 MB anon total.
-      # This bounds fragmentation, which is not the same thing as fixing the
-      # leak — whatever keeps allocating is still doing it. Expect a lower
-      # floor and a slower climb, not a flat line.
-      MALLOC_ARENA_MAX: "2"
-      ENVIRONMENT: ${ENVIRONMENT}
-      DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
-      JWT_SECRET: ${JWT_SECRET}
-      SECRET_ENCRYPTION_KEY: ${SECRET_ENCRYPTION_KEY}
-      UPLOAD_DIR: ${UPLOAD_DIR}
-      STORAGE_BACKEND: ${STORAGE_BACKEND}
-      S3_BUCKET: ${S3_BUCKET}
-      S3_ENDPOINT_URL: ${S3_ENDPOINT_URL}
-      S3_REGION: ${S3_REGION}
-      S3_ACCESS_KEY_ID: ${S3_ACCESS_KEY_ID}
-      S3_SECRET_ACCESS_KEY: ${S3_SECRET_ACCESS_KEY}
-      S3_SERVE_MODE: ${S3_SERVE_MODE}
-      S3_PRESIGNED_EXPIRY_SECONDS: ${S3_PRESIGNED_EXPIRY_SECONDS}
-      CORS_ORIGIN: ${CORS_ORIGIN}
-      APP_BASE_URL: ${APP_BASE_URL}
-      COOKIE_SECURE: ${COOKIE_SECURE}
-      ADMIN_EMAIL: ${ADMIN_EMAIL}
-      ADMIN_PASSWORD: ${ADMIN_PASSWORD}
-      ADMIN_DISPLAY_NAME: ${ADMIN_DISPLAY_NAME}
-      GITHUB_CLIENT_ID: ${GITHUB_CLIENT_ID}
-      GITHUB_CLIENT_SECRET: ${GITHUB_CLIENT_SECRET}
-      GITHUB_REDIRECT_URI: ${GITHUB_REDIRECT_URI}
-      DISCORD_CLIENT_ID: ${DISCORD_CLIENT_ID}
-      DISCORD_CLIENT_SECRET: ${DISCORD_CLIENT_SECRET}
-      DISCORD_REDIRECT_URI: ${DISCORD_REDIRECT_URI}
-      REBRICKABLE_API_KEY: ${REBRICKABLE_API_KEY}
-      PUBLIC_STATS_API_KEY: ${PUBLIC_STATS_API_KEY}
-      BLA_API_KEY: ${BLA_API_KEY}
-      # The background job queue (agent-docs/jobs.md): off unless set to true.
-      JOB_WORKER_ENABLED: ${JOB_WORKER_ENABLED:-false}
-    volumes:
-      - ${HIVE_DATA_DIR:?see scripts/CUTOVER.md}/uploads:${UPLOAD_DIR}
-      # Rebrickable parts catalog SQLite db (parts/categories/colors). Persisted
-      # so it survives container recreates — otherwise every redeploy wipes it
-      # and forces a full multi-hour re-sync from Rebrickable.
-      - ${HIVE_DATA_DIR:?see scripts/CUTOVER.md}/profile_builder:/app/data/profile_builder
-      # Color-classifier ONNX models, uploaded out of band (scp) and scanned
-      # into the color_models table. Bind-mounted so they survive recreates.
-      - ${HIVE_DATA_DIR:?see scripts/CUTOVER.md}/color_models:/app/data/color_models
-      # piece_link matcher models (encoder+head ONNX pairs), uploaded out of band
-      # (scp) and scanned into the link_models table. Bind-mounted to survive recreates.
-      - ${HIVE_DATA_DIR:?see scripts/CUTOVER.md}/link_models:/app/data/link_models
-      # Colour-reference palette finders (swatch_finder ONNX), uploaded out of
-      # band and scanned into the swatch_models table. Bind-mounted to survive recreates.
-      - ${HIVE_DATA_DIR:?see scripts/CUTOVER.md}/swatch_models:/app/data/swatch_models
+      <<: *hive-backend-environment
+      # Requests only: no background worker starts in this process (the
+      # `worker` service runs them). Its own statement timeouts bound every
+      # request (REQUEST_/MACHINE_STATEMENT_TIMEOUT_MS, app/config.py).
+      HIVE_ROLE: web
+    volumes: *hive-backend-volumes
     networks:
       - default
       - web
@@ -153,6 +169,61 @@ services:
       interval: 15s
       timeout: 5s
       retries: 5
+
+  worker:
+    # The backend image again, running every background worker and nothing
+    # else (app/worker.py): the teacher and condition labelers, the stats,
+    # fleet, storage and labeling-queue passes, the job queue. It serves no
+    # HTTP and traefik never routes to it. It runs no migrations: it starts
+    # once the backend, whose start applies them, is healthy. It never loads
+    # the parts catalog (~390 MB in memory; the backend holds the one copy):
+    # a catalog sync and the default profiles run in a short-lived child
+    # process inside this container, one at a time (app/catalog_task.py).
+    image: ${HIVE_BACKEND_IMAGE:?HIVE_BACKEND_IMAGE not set - deploy via hive_release_agent.py}
+    container_name: hive-worker
+    restart: unless-stopped
+    command: ["python", "-m", "app.worker"]
+    # Its own ceiling, for the same reason as the backend's: a worker that
+    # grows is OOM-killed and restarted rather than pushing the box into swap
+    # (memswap_limit pinned to mem_limit is "no swap"). A killed job is not
+    # lost: the job queue's lease gives it back.
+    #
+    # The ceiling covers the worker and its catalog child together (one cgroup).
+    # Measured 2026-10-12 with the full parts catalog and a copy of a
+    # development database: the worker ~140 MB idle, ~420 MB at its peak
+    # running swatch_find jobs on 4K frames; a catalog child up to ~510 MB for
+    # under a minute. 1200m holds both at their peaks with room for prod's
+    # bigger passes. Override HIVE_WORKER_MEM_LIMIT in .env.prod; that is a
+    # container recreate, not a release.
+    mem_limit: ${HIVE_WORKER_MEM_LIMIT:-1200m}
+    memswap_limit: ${HIVE_WORKER_MEM_LIMIT:-1200m}
+    # A quarter of the backend's CPU weight (Docker's default is 1024): when
+    # both want the two cores, requests win. Idle cores are still the
+    # worker's to use; shares only matter under contention.
+    cpu_shares: 256
+    # Room for the workers to finish their current item and stop on SIGTERM.
+    stop_grace_period: 30s
+    depends_on:
+      backend:
+        condition: service_healthy
+    environment:
+      <<: *hive-backend-environment
+      HIVE_ROLE: worker
+      # The background job queue (agent-docs/jobs.md): off unless set to true.
+      # Only this service reads it; the web process never runs jobs.
+      JOB_WORKER_ENABLED: ${JOB_WORKER_ENABLED:-false}
+    volumes: *hive-backend-volumes
+    networks:
+      - default
+    healthcheck:
+      # The worker touches this file after each report to the database (every
+      # 15 s), so its age says the process is alive and can reach Postgres.
+      test: ["CMD", "python", "-c", "import os, sys, time; sys.exit(0 if time.time() - os.path.getmtime('/tmp/hive-worker-heartbeat') < 90 else 1)"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      # Loading the parts catalog comes before the first report.
+      start_period: 120s
 
   frontend:
     image: ${HIVE_FRONTEND_IMAGE:?HIVE_FRONTEND_IMAGE not set - deploy via hive_release_agent.py}

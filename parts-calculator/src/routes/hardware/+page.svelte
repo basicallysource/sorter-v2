@@ -4,7 +4,6 @@
 		Blocks,
 		ChevronDown,
 		ChevronRight,
-		ExternalLink,
 		ImageOff,
 		ShoppingCart,
 		Zap
@@ -456,7 +455,6 @@
 								>
 									{v.vendor ?? v.region}
 									<span class="font-normal text-text-muted">({v.region})</span>
-									<ExternalLink size={11} />
 								</a>
 								<!-- the untagged link lives on the detail modal, to keep rows terse -->
 								<span class="tabular-nums text-text-muted">

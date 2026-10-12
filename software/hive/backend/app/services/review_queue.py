@@ -214,9 +214,12 @@ def piece_page(
     machine_ids: Sequence[UUID] | None,
     with_candidates: bool,
     rare_color_ids: set[str] | None,
+    with_palette: bool = False,
 ) -> tuple[list[Any], str | None]:
     """The next page of queue rows (machine_id, piece_uuid, arrival_at,
-    has_candidates, color_confidence) in ``sort`` order, and the next cursor.
+    has_candidates, color_confidence, has_palette) in ``sort`` order, and the
+    next cursor. ``with_palette`` keeps the pieces with the colour reference
+    palette in view near them, read through the queue's palette indexes.
 
     A member's grid is their own machines' pieces: given as the machine filter,
     so a member with one machine walks that machine's index rather than the
@@ -238,7 +241,7 @@ def piece_page(
     def base(agg=None):
         # Every segment of every piece sort is read from this query, so the
         # machine filter and the access scope cannot be missed by any of them.
-        columns = [Q.machine_id, Q.piece_uuid, Q.arrival_at, Q.has_candidates, Q.color_confidence]
+        columns = [Q.machine_id, Q.piece_uuid, Q.arrival_at, Q.has_candidates, Q.color_confidence, Q.has_palette]
         if agg is not None:
             columns.append(agg.c.n)
         q = (
@@ -253,6 +256,9 @@ def piece_page(
         q = restrict_to_machines(q, Q.machine_id, machine_ids)
         if with_candidates:
             q = q.filter(Q.has_candidates.is_(True))
+        if with_palette:
+            # As the partial indexes' predicate is written, so they serve the walks.
+            q = q.filter(Q.has_palette.is_(True))
         if rare_color_ids is not None:
             q = q.filter(Q.color_id.in_(rare_color_ids)) if rare_color_ids else q.filter(false())
         return scope_to_piece_access(db, q, user, Q.machine_id, Q.piece_uuid)
@@ -411,6 +417,7 @@ def piece_cards(db: Session, user: User, rows: list[Any]) -> list[dict]:
                 "my_crop": mx,
                 "my_part": mp,
                 "has_candidates": bool(r.has_candidates),
+                "has_palette": bool(r.has_palette),
                 "thumb_seq": thumb[0] if thumb else None,
                 "thumb_url": thumb_url(thumb[1]) if thumb else None,
             }

@@ -16,7 +16,7 @@
 	import { SITE_URL } from '$lib/seo';
 	import { copyText } from '$lib/clipboard';
 	import { duration, fmtDate, noteUrl, partOnshape, platesForPart, type Part, type PartCandidate, type PartVersion } from '$lib/filament';
-	import { ExternalLink, FileText, FlaskConical, History, Image, Layers3, Share2, Check } from 'lucide-svelte';
+	import { FileText, FlaskConical, History, Image, Layers3, Share2, Check } from 'lucide-svelte';
 
 	// The 3D-printed part detail view: the preview with the id-stamp controls laid
 	// over it, then the facts, the download, and the history. Rendered two ways off
@@ -152,7 +152,7 @@
 						<button type="button" onclick={share} class="inline-flex items-center gap-1 {copied ? 'text-success' : 'text-primary hover:text-primary-hover'}" use:tip={'Copy a shareable link to this part\'s page'}>
 							{#if copied}<Check size={13} /> Copied{:else}<Share2 size={13} /> Share{/if}
 						</button>
-						{#if onshapeHref}<a href={onshapeHref} target="_blank" rel="noopener" class="inline-flex items-center gap-0.5 text-primary hover:text-primary-hover">OnShape <ExternalLink size={11} /></a>{/if}
+						{#if onshapeHref}<a href={onshapeHref} target="_blank" rel="noopener" class="inline-flex items-center gap-0.5 text-primary hover:text-primary-hover">OnShape</a>{/if}
 					</div>
 				</div>
 			</div>

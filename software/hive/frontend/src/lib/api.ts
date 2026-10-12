@@ -1533,6 +1533,8 @@ export interface ColorLabelPieceCard {
 	my_crop: boolean;
 	my_part: boolean;
 	has_candidates: boolean;
+	// A classification frame of the machine near the piece showed the colour reference palette.
+	has_palette: boolean;
 	thumb_seq: number | null;
 	// Straight from storage when Hive can sign one; else load the thumbnail by thumb_seq.
 	thumb_url: string | null;
@@ -1670,7 +1672,24 @@ export interface ColorLabelPieceDetail {
 	// request's, applied or not; ordered by kind, request, rank. Empty for
 	// pieces from sorters that predate it.
 	machine_predictions: MachinePiecePrediction[];
+	palette: PiecePalette;
 	correction: ColorLabelCorrection;
+}
+
+// The colour reference palette for a piece: the machine's classification frame
+// with the palette in view nearest the piece (the latest within `window_s`
+// before it, else the first after), and the swatches read in it.
+export interface PiecePalette {
+	window_s: number;
+	frame: {
+		sample_id: string;
+		frame_at: string;
+		// Seconds from the piece's arrival to the frame; negative when before.
+		offset_s: number;
+		// Straight from storage when Hive can sign one; else api.sampleFullFrameUrl.
+		full_frame_url: string | null;
+		run: SampleSwatchRun;
+	} | null;
 }
 
 export interface MachinePiecePrediction {
@@ -1891,6 +1910,138 @@ export interface JobsSummary {
 	recent_failures: JobRow[];
 }
 
+// The admin Server page (GET /api/admin/server). Each part is read on its
+// own; one the server could not read comes back as { error }.
+export interface ServerPartError {
+	error: string;
+}
+
+export interface RequestTiming {
+	count: number;
+	per_minute: number;
+	errors: number;
+	/** Requests that took the slow threshold (ServerRequests.slow_s) or longer. */
+	slow: number;
+	p50_ms: number;
+	p90_ms: number;
+	p99_ms: number;
+	max_ms: number;
+	mean_ms: number;
+	total_s: number;
+	/** Time the requests spent in database queries. */
+	db_s: number;
+}
+
+export interface RouteTiming extends RequestTiming {
+	method: string;
+	/** The route's template, e.g. /api/samples/{sample_id}. */
+	route: string;
+}
+
+export interface ServerRequests {
+	window_s: number;
+	since: string;
+	slow_s: number;
+	totals: RequestTiming;
+	routes: RouteTiming[];
+	in_flight: { count: number; oldest: { method: string; path: string; running_s: number }[] };
+	/** Cores this process kept busy, over the window and over the last few minutes. */
+	cpu: { window_cores: number | null; recent_cores: number | null; recent_s: number | null };
+}
+
+export interface ServerProcess {
+	pid: number;
+	role: string | null;
+	started_at: string;
+	uptime_s: number;
+	threads: number;
+	cpus: number | null;
+	load: number[] | null;
+	db_pool: { checked_out: number | null; limit: number | null };
+	threadpool: { busy: number; size: number; waiting: number } | null;
+}
+
+export interface ServerWorker {
+	name: string;
+	running: boolean;
+	last_run_at: string | null;
+	last_run_s: number | null;
+	last_error: string | null;
+	every_s: number | null;
+	runs: number | null;
+}
+
+export interface ServerJobKind extends JobKindCounts {
+	done_last_hour: number;
+	failed_last_hour: number;
+}
+
+export interface ServerJobs {
+	kinds: ServerJobKind[];
+	last_done_at: string | null;
+	running: { kind: string; subject: string | null; worker: string | null; running_s: number | null }[];
+	recent_failures: JobRow[];
+	worker_here: JobWorkerStatus;
+}
+
+export interface ServerPostgres {
+	dialect: string;
+	version: string;
+	size_bytes: number;
+	started_at: string | null;
+	stats_since: string | null;
+	shared_buffers: string;
+	cache_hit_ratio: number | null;
+	temp_files: number;
+	temp_bytes: number;
+	deadlocks: number;
+	commits: number;
+	rollbacks: number;
+	connections: { max: number; all_databases: number; by_state: { state: string; count: number }[] };
+	longest: {
+		pid: number;
+		state: string;
+		application: string | null;
+		client: string | null;
+		waiting_on: string | null;
+		query_s: number | null;
+		transaction_s: number | null;
+		query: string;
+	}[];
+	tables: {
+		name: string;
+		total_bytes: number;
+		index_bytes: number;
+		rows: number;
+		dead_rows: number | null;
+		seq_scans: number | null;
+		seq_rows_read: number | null;
+		index_scans: number | null;
+		last_vacuum: string | null;
+	}[];
+	indexes: { name: string; table: string; bytes: number; scans: number }[];
+}
+
+export interface ServerDisk {
+	label: string;
+	path: string;
+	total_bytes: number;
+	free_bytes: number;
+}
+
+export interface ServerStatus {
+	generated_at: string;
+	process: ServerProcess | ServerPartError;
+	requests: ServerRequests | ServerPartError;
+	workers: ServerWorker[] | ServerPartError;
+	jobs: ServerJobs | ServerPartError;
+	/** Only { dialect } off PostgreSQL. */
+	database: ServerPostgres | { dialect: string } | ServerPartError;
+	disk: ServerDisk[] | ServerPartError;
+	memory: ServerHealth['memory'] | ServerPartError;
+	storage: ServerHealth['storage'] | ServerPartError;
+}
+
 // A "possibly the same piece" upstream C2/C3 crop candidate. `score` +
 // `predicted` are the shared time/angle heuristic's confidence and default
 // selection (kept untouched — they feed the was_predicted training signal).
@@ -2014,6 +2165,9 @@ export const api = {
 		const qs = opts.refreshStorage ? '?refresh_storage=true' : '';
 		return request<ServerHealth>('GET', `/api/admin/server-health${qs}`);
 	},
+	getServerStatus() {
+		return request<ServerStatus>('GET', '/api/admin/server');
+	},
 	getAllMachines() {
 		return request<FleetMachine[]>('GET', '/api/admin/machines');
 	},
@@ -2074,6 +2228,7 @@ export const api = {
 			cursor?: string | null;
 			machineIds?: string[];
 			withCandidates?: boolean;
+			withPalette?: boolean;
 		} = {}
 	) {
 		const params = new URLSearchParams();
@@ -2082,6 +2237,7 @@ export const api = {
 		if (opts.cursor) params.set('cursor', opts.cursor);
 		for (const id of opts.machineIds ?? []) params.append('machine_id', id);
 		if (opts.withCandidates) params.set('with_candidates', 'true');
+		if (opts.withPalette) params.set('with_palette', 'true');
 		const qs = params.toString();
 		return request<ColorLabelPiecesPage>('GET', `/api/labeling/pieces${qs ? `?${qs}` : ''}`);
 	},

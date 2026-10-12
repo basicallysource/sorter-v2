@@ -3,6 +3,7 @@
 	import SiteSection from '$lib/site/SiteSection.svelte';
 	import Specimen from '$lib/site/Specimen.svelte';
 	import ColorChoice from '$lib/components/ColorChoice.svelte';
+	import { swatchColor } from '$lib/components/ColorChip.svelte';
 	import PieceReview from '$lib/components/PieceReview.svelte';
 	import { palette, ranked, rankedByColor } from '$lib/site/review-samples';
 
@@ -23,6 +24,13 @@
 
 	let labeled = $state<number | null>(4);
 	let alone = $state<number | null>(null);
+
+	// What Hive puts beside the grid: the colors the part sells in, most first.
+	const sold = ranked
+		.filter((c) => (c.qty ?? 0) > 0)
+		.sort((a, b) => (b.qty ?? 0) - (a.qty ?? 0))
+		.slice(0, 6);
+	const byId = new Map(palette.map((c) => [c.id, c]));
 
 	function toggleIssue(code: string) {
 		issues = issues.includes(code) ? issues.filter((c) => c !== code) : [...issues, code];
@@ -76,19 +84,41 @@
 
 <SiteSection
 	title="Likely colors"
-	lead="The best twelve as swatches with their names, then every color behind a search by name or number. Under each name, its share of the part's pieces for sale (how near it is shows in the swatch); the tooltip has every number. A predicted color is marked and always in the grid. Hive's labeling page uses this on its own, as its True color."
+	lead="The best twelve as compact swatches with their names, then a search of every color: its matches list as they are typed and Enter picks the first, All colors lists the whole palette, and otherwise nothing is listed. Under each name, its share of the part's pieces for sale (how near it is shows in the swatch); the tooltip has every number. A predicted color and the chosen one are always in the grid. Hive's labeling page uses this on its own, as its True color, with the part's sales on BrickLink beside the grid."
 >
 	<Specimen
-		code={`<ColorChoice {palette} likely={ranked} value={chosen} marks={{ 4: 'The guess' }} onpick={pick} />`}
+		code={`<ColorChoice {palette} likely={ranked} value={chosen} marks={{ 4: 'The guess' }} onpick={pick}>
+	{#snippet aside()}...the part's sales on BrickLink...{/snippet}
+</ColorChoice>`}
 	>
-		<div class="max-w-xl">
+		<div class="max-w-3xl">
 			<ColorChoice
 				{palette}
 				likely={ranked}
 				value={labeled}
+				count={8}
 				marks={{ 4: 'The guess' }}
 				onpick={(id) => (labeled = id)}
-			/>
+			>
+				{#snippet aside()}
+					<section class="flex flex-col gap-1.5">
+						<h3 class="label">Sold on BrickLink</h3>
+						<ul class="flex flex-col">
+							{#each sold as c (c.color_id)}
+								<li class="flex items-center gap-2 px-1.5 py-0.5 text-sm text-ink">
+									<span
+										aria-hidden="true"
+										class="size-4 shrink-0 rounded-check border border-line-strong"
+										style:background-color={swatchColor(byId.get(c.color_id)?.rgb)}
+									></span>
+									<span class="min-w-0 flex-1 truncate">{byId.get(c.color_id)?.name}</span>
+									<span class="num text-xs text-ink-muted">{(c.qty ?? 0).toLocaleString()}</span>
+								</li>
+							{/each}
+						</ul>
+					</section>
+				{/snippet}
+			</ColorChoice>
 		</div>
 	</Specimen>
 </SiteSection>

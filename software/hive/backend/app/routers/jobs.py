@@ -9,6 +9,7 @@ from fastapi import APIRouter, Depends
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
+from app import background
 from app.deps import get_db, require_role, verify_csrf
 from app.errors import APIError
 from app.models.user import User
@@ -22,8 +23,9 @@ def jobs_summary(
     db: Session = Depends(get_db),
     _admin: User = Depends(require_role("admin")),
 ) -> dict[str, Any]:
-    """Counts by kind and status, the worker's state, and the latest failures."""
-    return job_queue.summary(db)
+    """Counts by kind and status, the worker's state (from the process that
+    runs the jobs), and the latest failures."""
+    return {**job_queue.summary(db), "worker": background.worker_status(db, background.JOBS)}
 
 
 @router.post("/{job_id}/retry")

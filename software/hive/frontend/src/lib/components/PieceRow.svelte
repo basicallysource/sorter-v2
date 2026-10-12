@@ -4,6 +4,7 @@
 	import Link2 from '@lucide/svelte/icons/link-2';
 	import Palette from '@lucide/svelte/icons/palette';
 	import Sparkles from '@lucide/svelte/icons/sparkles';
+	import SwatchBook from '@lucide/svelte/icons/swatch-book';
 
 	type Props = {
 		card: ColorLabelPieceCard;
@@ -41,6 +42,9 @@
 		<div class="truncate text-sm text-ink-muted">{card.machine_name ?? 'Machine'}</div>
 	</div>
 	<div class="num flex shrink-0 items-center gap-3 text-sm text-ink-muted">
+		{#if card.has_palette}
+			<span class="flex text-info-ink" title="The color reference palette was in view near this piece"><SwatchBook size={14} /></span>
+		{/if}
 		{#if card.has_candidates}
 			<span class="flex text-info-ink" title="Has same-piece candidate crops"><Sparkles size={14} /></span>
 		{/if}

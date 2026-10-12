@@ -3,8 +3,10 @@
 Hive has one general job queue for work that follows from something arriving
 (a sample to analyse, a file to index) and should not happen inside the
 request that brought it. It is a table, `jobs`, and a worker that runs in the
-backend process: `app/services/job_queue.py`, `app/models/job.py`. New async
-work goes here rather than into another worker thread of its own.
+worker process, beside the other background workers and never in the process
+that answers requests (`agent-docs/process-roles.md`):
+`app/services/job_queue.py`, `app/models/job.py`. New async work goes here
+rather than into another worker thread of its own.
 
 The older workers (`teacher_worker.py`, `condition_worker.py`, and the
 periodic ones in `periodic.py`) predate it and still run their own loops.
@@ -28,8 +30,9 @@ job_queue.enqueue_many(db, "my_kind", ids, priority=-10)           # how many we
 ```
 
 Register at import time in the handler's module and import that module from
-`app/main.py`, so the kind exists before the worker starts. A worker only
-claims kinds it has a handler for; jobs of an unknown kind wait.
+`app/background.py` (which both entrypoints import), so the kind exists
+before the worker starts. A worker only claims kinds it has a handler for;
+jobs of an unknown kind wait.
 
 ## How it behaves
 
@@ -45,8 +48,9 @@ claims kinds it has a handler for; jobs of an unknown kind wait.
 
 The worker shares a small box with the API, so:
 
-- It is off unless `JOB_WORKER_ENABLED=true`. Jobs can be queued while it is
-  off; they wait.
+- It is off unless `JOB_WORKER_ENABLED=true`, which only the process that
+  runs the background workers reads (`HIVE_ROLE` `worker` or `all`; a web
+  process never runs jobs). Jobs can be queued while it is off; they wait.
 - `JOB_WORKER_CONCURRENCY` threads, 1 by default: background work uses at
   most one core whatever is queued.
 - Each thread lowers its own priority (`JOB_WORKER_NICE`, 10; Linux keeps nice
@@ -54,23 +58,28 @@ The worker shares a small box with the API, so:
   long backlog never runs back to back.
 - No database session is held while a handler runs.
 - Every exception is caught and logged; a failing database makes the worker
-  back off, not die. The threads are daemons, stopped in the app's lifespan.
+  back off, not die. The threads are daemons, stopped when the process stops
+  (`app/background.py`).
 - A handler keeps its own weight down: one subject in memory at a time,
   onnxruntime on one thread, nothing cached but what it means to.
 
 ## Seeing it
 
-`/admin/jobs` (admin) shows the worker's state, counts by kind and status, the
-oldest waiting job of each kind and the latest failures, with a retry button.
-API: `GET /api/admin/jobs`, `POST /api/admin/jobs/{id}/retry`.
+`/admin/jobs` (admin) shows the worker's state (as the worker process last
+reported it), counts by kind and status, the oldest waiting job of each kind
+and the latest failures, with a retry button.
+API: `GET /api/admin/jobs`, `POST /api/admin/jobs/{id}/retry`. The Server page
+(`server-page.md`) shows the queue beside the requests and the database, with
+what each kind finished and failed in the last hour and which process holds
+each running job.
 
 ## Settings
 
 | Setting | Default | |
 |---|---|---|
-| `JOB_WORKER_ENABLED` | `false` | Start the worker in this process. |
+| `JOB_WORKER_ENABLED` | `false` | Run jobs in the process that runs the background workers. |
 | `JOB_WORKER_CONCURRENCY` | `1` | Worker threads. |
-| `JOB_WORKER_POLL_INTERVAL_S` | `5` | Idle wait between looks (an enqueue in this process wakes it at once). |
+| `JOB_WORKER_POLL_INTERVAL_S` | `5` | Idle wait between looks (an enqueue in the same process wakes it at once; one from the web process waits for the next look). |
 | `JOB_WORKER_PAUSE_S` | `0.5` | Rest after each job. |
 | `JOB_WORKER_NICE` | `10` | Nice value of the worker threads (Linux), 0 to leave it. |
 | `JOB_KEEP_DONE_HOURS` | `72` | How long done jobs are kept. |
@@ -110,7 +119,9 @@ frame, and its colour is read from the full-resolution pixels
   commit); keep the logic the same so readings compare.
 - **Stored** in `sample_swatch_runs` (one per pass: sample, model name and
   sha256, frame size, swatches found, the call `palette_present` and
-  `palette_swatches`, palette flags, seconds, when) and `sample_swatches` (one
+  `palette_swatches`, palette flags, seconds, when, and the sample's machine
+  and frame time, `machine_id` and `frame_at`, by which the labeling pages
+  find the palette frames near a piece) and `sample_swatches` (one
   per swatch: position along the palette, colour, BrickLink id, colour and
   surface scores, pixels read, median RGB, RGB standard deviation, clipped
   share, centre, box, length, width, flags, `in_palette`). The call is null on
@@ -119,7 +130,10 @@ frame, and its colour is read from the full-resolution pixels
   own.
 - **Served** at `GET /api/samples/{id}/swatch-runs` (whoever can see the
   sample), and drawn over the frame on the sample page (the palette's swatches
-  in green or yellow, others dashed), with the call above the list.
+  in green or yellow, others dashed), with the call above the list. The piece
+  labeling panel shows the palette frame nearest a piece and its swatches, and
+  the piece grid badges and filters the pieces with one near them
+  (`labeling-queue.md`, the palette near a piece).
 - **Filtered**: the Channel samples filter `palette` (a field of
   `SampleFilters` in `services/sample_filters.py`, so the list, the review
   queue, the batch actions and teacher re-runs all honour it): `in_view`,

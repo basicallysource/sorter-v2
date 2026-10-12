@@ -324,9 +324,9 @@ def bricklink_rgb() -> dict[int, str | None]:
     is heavy, and a box without it loaded should still serve distributions —
     just with no rgb, which a client treats as "no swatch"."""
     try:
-        from app.services.profile_catalog import get_profile_catalog_service
+        from app.services.profile_catalog import catalog_lookup
 
-        return {c["id"]: c.get("rgb") for c in get_profile_catalog_service().list_bricklink_colors()}
+        return {c["id"]: c.get("rgb") for c in catalog_lookup().list_bricklink_colors()}
     except Exception:
         return {}
 

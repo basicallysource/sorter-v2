@@ -38,7 +38,7 @@ The fasteners and quantities are in the parts list above and are called out inli
     <p><strong>Build a <a href="{{ '/hardware/assembly/distribution/chute/chute-core/' | relative_url }}">chute core</a> before you start.</strong> It must have all 21 heat inserts pressed in, because everything on this page bolts into them.</p>
   </div>
   <figure class="prep-item-figure">
-    <img class="doc-figure" src="https://assets.basically.website/sorter-docs/chute-v3-core-with-inserts-opening-side-full-fc9f9a8e2abf.png" alt="Render of the finished chute core, an upright box open at the top with an opening in one side and brass heat inserts in its walls">
+    <img class="doc-figure" src="https://assets.basically.website/sorter-docs/chute-v3-core-with-inserts-opening-side-full-1961b4bfcb14.png" alt="Render of the finished chute core, an upright box open at the top with an opening in one side and brass heat inserts in its walls">
     <figcaption>The prepared chute core, with its heat inserts in. <cite>Rendered from the part geometry, not from a build. Render: Balloon.</cite></figcaption>
   </figure>
 </div>
@@ -53,7 +53,7 @@ The fasteners and quantities are in the parts list above and are called out inli
 Seat it over the four inserts and fasten it with 4 {% include fastener.html size="M3" variant="socket-button" length="6" %} screws. Do not overtighten.
 
 <figure>
-  <img class="doc-figure" src="https://assets.basically.website/sorter-docs/chute-v3-core-pockets-rear-full-02f30fdb074c.png" alt="Render of the rear wall of the chute core with the four heat inserts the layer adapter board screws into ringed in red">
+  <img class="doc-figure" src="https://assets.basically.website/sorter-docs/chute-v3-core-pockets-rear-full-1ca6422e7957.png" alt="Render of the rear wall of the chute core with the four heat inserts the layer adapter board screws into ringed in red">
   <figcaption>The four inserts the board sits on, in a square on the chute core's rear wall, the one opposite the opening. <cite>Rendered from the part geometry, not from a build. Render: Balloon.</cite></figcaption>
 </figure>
 

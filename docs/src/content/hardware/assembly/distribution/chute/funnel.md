@@ -45,7 +45,7 @@ The fasteners and quantities are in the parts list above and are called out inli
     <p><strong>Build a <a href="{{ '/hardware/assembly/distribution/chute/chute-core/' | relative_url }}">chute core</a> before you start.</strong> It must have all 21 heat inserts pressed in, because everything on this page bolts into them.</p>
   </div>
   <figure class="prep-item-figure">
-    <img class="doc-figure" src="https://assets.basically.website/sorter-docs/chute-v3-core-with-inserts-opening-side-full-fc9f9a8e2abf.png" alt="Render of the finished chute core, an upright box open at the top with an opening in one side and brass heat inserts in its walls">
+    <img class="doc-figure" src="https://assets.basically.website/sorter-docs/chute-v3-core-with-inserts-opening-side-full-1961b4bfcb14.png" alt="Render of the finished chute core, an upright box open at the top with an opening in one side and brass heat inserts in its walls">
     <figcaption>The prepared chute core, with its heat inserts in. <cite>Rendered from the part geometry, not from a build. Render: Balloon.</cite></figcaption>
   </figure>
 </div>
@@ -58,11 +58,11 @@ Each bracket is a long bar. **The end with the two round recesses goes against t
 
 <div class="img-row">
   <figure>
-    <img class="doc-figure" src="https://assets.basically.website/sorter-docs/chute-v3-funnel-brackets-pockets-plus-y-full-b9602116c08f.png" alt="Render of the servo side wall of the chute core with two inserts ringed in red and lettered A on the sloping pad in the middle of the wall, where the right funnel bracket's two recessed holes line up">
+    <img class="doc-figure" src="https://assets.basically.website/sorter-docs/chute-v3-funnel-brackets-pockets-plus-y-full-590a1688fb86.png" alt="Render of the servo side wall of the chute core with two inserts ringed in red and lettered A on the sloping pad in the middle of the wall, where the right funnel bracket's two recessed holes line up">
     <figcaption>The servo side wall: the two inserts the right bracket screws into (A). <cite>Rendered from the part geometry, not from a build. Render: Balloon.</cite></figcaption>
   </figure>
   <figure>
-    <img class="doc-figure" src="https://assets.basically.website/sorter-docs/chute-v3-funnel-brackets-pockets-minus-y-full-15da095df9c3.png" alt="Render of the plain side wall of the chute core with two inserts ringed in red and lettered A on the sloping pad in the middle of the wall">
+    <img class="doc-figure" src="https://assets.basically.website/sorter-docs/chute-v3-funnel-brackets-pockets-minus-y-full-c366011fd47e.png" alt="Render of the plain side wall of the chute core with two inserts ringed in red and lettered A on the sloping pad in the middle of the wall">
     <figcaption>The plain side wall: the same two inserts for the left bracket. <cite>Rendered from the part geometry, not from a build. Render: Balloon.</cite></figcaption>
   </figure>
 </div>

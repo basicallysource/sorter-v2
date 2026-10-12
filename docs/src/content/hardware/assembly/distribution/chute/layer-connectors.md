@@ -40,7 +40,7 @@ The fasteners and quantities are in the parts list above and are called out inli
     <p><strong>Build a <a href="{{ '/hardware/assembly/distribution/chute/chute-core/' | relative_url }}">chute core</a> before you start.</strong> It must have all 21 heat inserts pressed in, because everything on this page bolts into them.</p>
   </div>
   <figure class="prep-item-figure">
-    <img class="doc-figure" src="https://assets.basically.website/sorter-docs/chute-v3-core-with-inserts-opening-side-full-fc9f9a8e2abf.png" alt="Render of the finished chute core, an upright box open at the top with an opening in one side and brass heat inserts in its walls">
+    <img class="doc-figure" src="https://assets.basically.website/sorter-docs/chute-v3-core-with-inserts-opening-side-full-1961b4bfcb14.png" alt="Render of the finished chute core, an upright box open at the top with an opening in one side and brass heat inserts in its walls">
     <figcaption>The prepared chute core, with its heat inserts in. <cite>Rendered from the part geometry, not from a build. Render: Balloon.</cite></figcaption>
   </figure>
 </div>
@@ -59,11 +59,11 @@ The strap is countersunk on its outer face, so the head sits flush. Use the 8 mm
 
 <div class="img-row">
   <figure>
-    <img class="doc-figure" src="https://assets.basically.website/sorter-docs/chute-v3-connector-pockets-plus-y-full-8f0cebe2d3d7.png" alt="Render of the servo side wall of the chute core with two inserts ringed in red and lettered C, one near the top of the wall and one near the bottom, each on a raised pad">
+    <img class="doc-figure" src="https://assets.basically.website/sorter-docs/chute-v3-connector-pockets-plus-y-full-c4d844ff32aa.png" alt="Render of the servo side wall of the chute core with two inserts ringed in red and lettered C, one near the top of the wall and one near the bottom, each on a raised pad">
     <figcaption>The servo side wall. The upper ring takes this chute's connector; the lower ring is for the connector standing on the chute below. <cite>Rendered from the part geometry, not from a build. Render: Balloon.</cite></figcaption>
   </figure>
   <figure>
-    <img class="doc-figure" src="https://assets.basically.website/sorter-docs/chute-v3-connector-pockets-minus-y-full-ae7a77abd946.png" alt="Render of the plain side wall of the chute core with two inserts ringed in red and lettered C, one near the top of the wall and one near the bottom">
+    <img class="doc-figure" src="https://assets.basically.website/sorter-docs/chute-v3-connector-pockets-minus-y-full-14209331d9ff.png" alt="Render of the plain side wall of the chute core with two inserts ringed in red and lettered C, one near the top of the wall and one near the bottom">
     <figcaption>The plain side wall, the same two inserts. <cite>Rendered from the part geometry, not from a build. Render: Balloon.</cite></figcaption>
   </figure>
 </div>
@@ -73,7 +73,7 @@ The strap is countersunk on its outer face, so the head sits flush. Use the 8 mm
 Build the layers up first and check that A on one layer sits flush against B on the layer below, with no visible gap or twist between the two straps, before tightening either one down. Nothing here is adjustable once the tower is stacked.
 
 <figure class="single-figure">
-  <img class="doc-figure" src="https://assets.basically.website/sorter-docs/chute-v3-two-layers-joined-zoom-full-5674a38dc0b9.png" alt="Close render of the joint between two stacked chute cores, a yellow layer connector with its flat face outward fixed across the joint on the servo side wall">
+  <img class="doc-figure" src="https://assets.basically.website/sorter-docs/chute-v3-two-layers-joined-zoom-full-b11163d3ec5a.png" alt="Close render of the joint between two stacked chute cores, a yellow layer connector with its flat face outward fixed across the joint on the servo side wall">
   <figcaption>Two chutes joined: the connector is screwed to the lower core's top insert and to the upper core's bottom insert. <cite>Rendered from the part geometry, not from a build. Render: Balloon.</cite></figcaption>
 </figure>
 

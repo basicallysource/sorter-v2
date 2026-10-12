@@ -31,3 +31,21 @@ export function formatDate(iso: string): string {
 		day: 'numeric'
 	});
 }
+
+/** "Sun Oct 11, 9:38 pm", with the year when it is not this year: when a
+ * piece was seen, in the viewer's own time zone. */
+export function formatDateTime(iso: string): string {
+	const d = new Date(iso);
+	if (!Number.isFinite(d.getTime())) return '';
+	const day = d.toLocaleDateString('en-US', {
+		weekday: 'short',
+		month: 'short',
+		day: 'numeric',
+		...(d.getFullYear() === new Date().getFullYear() ? {} : { year: 'numeric' })
+	});
+	const time = d
+		.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })
+		.replace(' AM', ' am')
+		.replace(' PM', ' pm');
+	return `${day.replace(',', '')}, ${time}`;
+}

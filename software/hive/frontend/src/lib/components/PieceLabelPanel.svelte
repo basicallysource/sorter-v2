@@ -19,6 +19,7 @@
 	} from '$lib/api';
 	import { auth } from '$lib/auth.svelte';
 	import * as nav from '$lib/colorLabelNav';
+	import { formatDateTime, relativeTime } from '$lib/time';
 	import MachineLabeledPieces from '$lib/components/MachineLabeledPieces.svelte';
 	import PartBrickLinkColors from '$lib/components/PartBrickLinkColors.svelte';
 	import PiecePartPicker from '$lib/components/PiecePartPicker.svelte';
@@ -196,7 +197,15 @@
 	// The colors this piece was predicted to be, for the likely-colors ranking:
 	// the machine's (every request's colors when the machine sent them, else
 	// the color it applied, with its confidence) and Hive's own guess.
-	type MachineColorPrediction = { kind: string; value_id: string; score: number | null };
+	// Under the part's name: its number, the machine, and when the machine saw
+	// it ("Sun Oct 11, 9:38 pm, 15 hours ago").
+	const pieceDescription = $derived.by(() => {
+		if (!detail) return '';
+		const parts = [detail.part.part_id, detail.machine_name ?? 'Machine'].filter(Boolean);
+		const seen = detail.seen_at ?? detail.recorded_at;
+		if (seen) parts.push(`seen ${formatDateTime(seen)} (${relativeTime(seen)})`);
+		return parts.join(', ');
+	});
 	const likelyPredictions = $derived.by(() => {
 		if (!detail) return '';
 		const scores = new Map<number, number | null>();
@@ -204,7 +213,7 @@
 			const before = scores.get(id);
 			scores.set(id, before == null ? score : score == null ? before : Math.max(before, score));
 		};
-		const rows = (detail as { machine_predictions?: MachineColorPrediction[] }).machine_predictions ?? [];
+		const rows = detail.machine_predictions ?? [];
 		const machine = rows.filter((r) => r.kind === 'color' && /^\d+$/.test(r.value_id));
 		for (const r of machine) add(Number(r.value_id), r.score);
 		const applied = detail.prediction.color_id;
@@ -855,7 +864,7 @@
 	{#if detail}
 		<Panel
 			title={detail.part.part_name || detail.part.part_id || 'Unidentified'}
-			description={`${detail.part.part_id ? `${detail.part.part_id}, ` : ''}${detail.machine_name ?? 'Machine'}`}
+			description={pieceDescription}
 		>
 			<div class="flex flex-wrap gap-2">
 				{#each detail.images as img (img.seq)}

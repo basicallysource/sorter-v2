@@ -423,9 +423,11 @@ def _isColorId(value: Any) -> bool:
 
 
 def _colorPredictionsForPiece(gc: Any, uuid: str) -> tuple[Optional[str], List[tuple[int, Optional[float]]]]:
-    """(part id, [(BrickLink color id, score)]) for a piece: the color it was
-    given and that color's confidence, from memory while it is live, else from
-    its record. None when the piece is unknown."""
+    """(part id, [(BrickLink color id, score)]) for a piece: every color its
+    classification requests ranked (see piece_predictions), else the color it
+    was given and that color's confidence. From memory while the piece
+    is live, else from disk. 404 when the piece is unknown."""
+    import piece_predictions
     import piece_records
 
     payload = None
@@ -434,14 +436,30 @@ def _colorPredictionsForPiece(gc: Any, uuid: str) -> tuple[Optional[str], List[t
     source = payload if payload is not None else piece_records.getPieceSummaryByUuid(gc, uuid)
     if source is None:
         raise HTTPException(status_code=404, detail="not found")
+    part_id = source.get("part_id")
+    part_id = part_id if isinstance(part_id, str) and part_id else None
+
+    # Every request's colors, each color at its best score, as Hive's piece
+    # panel reads the same rows.
+    rows = piece_predictions.recent(uuid) or piece_predictions.listForPiece(uuid)
+    best: Dict[int, Optional[float]] = {}
+    for r in rows:
+        if r["kind"] != piece_predictions.KIND_COLOR or not _isColorId(r["value_id"]):
+            continue
+        score = float(r["score"]) if isinstance(r["score"], (int, float)) else None
+        color = int(r["value_id"])
+        before = best.get(color)
+        best[color] = score if before is None else before if score is None else max(before, score)
+    if best:
+        return part_id, sorted(best.items(), key=lambda item: -(item[1] or 0.0))
+
     color_id = source.get("color_id")
     confidence = source.get("color_confidence")
     predictions: List[tuple[int, Optional[float]]] = []
     if _isColorId(color_id):
         score = float(confidence) if isinstance(confidence, (int, float)) else None
         predictions.append((int(color_id), score))
-    part_id = source.get("part_id")
-    return (part_id if isinstance(part_id, str) and part_id else None), predictions
+    return part_id, predictions
 
 
 @router.get("/api/pieces/{uuid}/likely-colors")

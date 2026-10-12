@@ -114,6 +114,31 @@ def test_hive_ranks_the_piece_and_the_answer_is_kept(monkeypatch):
     assert hive.likely_calls == [("3003", "4:0.8")]
 
 
+def test_every_requests_colors_are_the_predictions_at_their_best_score(monkeypatch):
+    import piece_predictions
+
+    hive = _Hive()
+    _use(monkeypatch, hive)
+    _record("p2", "4", 0.6)
+    piece_predictions.recordPredictions("p2", [
+        {"request": "single_burst", "provider": "brickognize", "kind": "color", "rank": 0,
+         "value_id": "5", "value_name": "Red", "score": 0.9, "applied": False},
+        {"request": "combined", "provider": "brickognize", "kind": "color", "rank": 1,
+         "value_id": "68", "value_name": "Dark Orange", "score": 0.3, "applied": False},
+        {"request": "combined", "provider": "brickognize", "kind": "color", "rank": 0,
+         "value_id": "4", "value_name": "Orange", "score": 0.6, "applied": True},
+        {"request": "single_burst", "provider": "brickognize", "kind": "color", "rank": 1,
+         "value_id": "4", "value_name": "Orange", "score": 0.05, "applied": False},
+        {"request": "combined", "provider": "brickognize", "kind": "part", "rank": 0,
+         "value_id": "3003", "value_name": "Brick 2 x 2", "score": 0.8, "applied": True},
+    ])
+    with _client() as client:
+        response = client.get("/api/pieces/p2/likely-colors")
+    assert response.status_code == 200, response.text
+    # Every request's colors, each at its best score, best first; no parts.
+    assert hive.likely_calls == [("3003", "5:0.9,4:0.6,68:0.3")]
+
+
 def test_hive_down_ranks_by_color_alone_over_the_saved_palette(monkeypatch, _state):
     _use(monkeypatch, _Hive(up=True))
     assert hive_metadata.listBrickLinkColors(_state) == PALETTE

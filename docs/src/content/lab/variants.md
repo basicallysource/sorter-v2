@@ -15,7 +15,7 @@ last_verified: 2026-10-11
 
 Everything on this page is a variant: a change to the standard Sorter V2 that somebody has made on their own machine. None of them is part of the build instructions in [Hardware]({{ '/hardware/' | relative_url }}), and none is in the parts calculator. The results are what the people who built them reported, and the project has not measured them. Where a file exists it is in the Discord, and the link goes to the message that has it.
 
-The status of each variant is as of 11 October 2026.
+Designs that were tried and dropped are on <a href="{{ '/lab/variants/abandoned/' | relative_url }}">Abandoned ideas</a>. The status of each variant is as of 11 October 2026.
 
 ## Belt feeder
 

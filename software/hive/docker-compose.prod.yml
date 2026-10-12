@@ -173,10 +173,12 @@ services:
   worker:
     # The backend image again, running every background worker and nothing
     # else (app/worker.py): the teacher and condition labelers, the stats,
-    # fleet, storage and labeling-queue passes, the job queue, the parts
-    # catalog syncs. It serves no HTTP and traefik never routes to it. It runs
-    # no migrations: it starts once the backend, whose start applies them,
-    # is healthy.
+    # fleet, storage and labeling-queue passes, the job queue. It serves no
+    # HTTP and traefik never routes to it. It runs no migrations: it starts
+    # once the backend, whose start applies them, is healthy. It never loads
+    # the parts catalog (~390 MB in memory; the backend holds the one copy):
+    # a catalog sync and the default profiles run in a short-lived child
+    # process inside this container, one at a time (app/catalog_task.py).
     image: ${HIVE_BACKEND_IMAGE:?HIVE_BACKEND_IMAGE not set - deploy via hive_release_agent.py}
     container_name: hive-worker
     restart: unless-stopped
@@ -186,13 +188,13 @@ services:
     # (memswap_limit pinned to mem_limit is "no swap"). A killed job is not
     # lost: the job queue's lease gives it back.
     #
-    # Sized from measurements (2026-10-12, the full parts catalog and a copy of
-    # a development database): ~545 MB idle, of which the parts catalog is
-    # ~390 MB; up to ~900 MB while it runs swatch_find jobs on 4K frames; and
-    # a catalog sync's reload holds the old and the new catalog for a moment,
-    # ~350 MB more. 1200m lets that reload land during a job. Override
-    # HIVE_WORKER_MEM_LIMIT in .env.prod; that is a container recreate, not a
-    # release.
+    # The ceiling covers the worker and its catalog child together (one cgroup).
+    # Measured 2026-10-12 with the full parts catalog and a copy of a
+    # development database: the worker ~140 MB idle, ~420 MB at its peak
+    # running swatch_find jobs on 4K frames; a catalog child up to ~510 MB for
+    # under a minute. 1200m holds both at their peaks with room for prod's
+    # bigger passes. Override HIVE_WORKER_MEM_LIMIT in .env.prod; that is a
+    # container recreate, not a release.
     mem_limit: ${HIVE_WORKER_MEM_LIMIT:-1200m}
     memswap_limit: ${HIVE_WORKER_MEM_LIMIT:-1200m}
     # A quarter of the backend's CPU weight (Docker's default is 1024): when

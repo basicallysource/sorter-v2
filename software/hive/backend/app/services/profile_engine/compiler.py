@@ -268,6 +268,15 @@ _index_lock = threading.Lock()
 _index: CatalogIndex | None = None
 
 
+def forget_index() -> None:
+    """Drop the shared index. It holds the catalog it was built from, so after
+    a reload it would keep the old copy alive (~365 MB) until the next compile
+    built a new one."""
+    global _index
+    with _index_lock:
+        _index = None
+
+
 def catalog_index(parts_data: Any) -> CatalogIndex:
     """The index for this catalog generation, built once and shared."""
     global _index

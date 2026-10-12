@@ -53,8 +53,7 @@ def started(monkeypatch):
     background.stop()
 
 
-WORKER_NAMES = {
-    "catalog-auto-sync",
+COMMON_WORKERS = {
     "teacher-worker",
     "condition-worker",
     "machine-stats-worker",
@@ -63,25 +62,33 @@ WORKER_NAMES = {
     "storage-stats-worker",
     "labeling-queue-worker",
     "job-worker",
-    "default-profiles",
 }
+# The catalog's own work: in-process where the process holds the catalog
+# anyway, child processes in the worker process, which never holds it.
+WORKER_NAMES = {
+    "all": COMMON_WORKERS | {"catalog-auto-sync", "default-profiles"},
+    "worker": COMMON_WORKERS | {"catalog-tasks"},
+}
+EVERY_WORKER = WORKER_NAMES["all"] | WORKER_NAMES["worker"]
 
 
-def test_the_registry_is_every_background_worker():
-    assert {w.name for w in background.workers()} == WORKER_NAMES
+@pytest.mark.parametrize("role", ["worker", "all"])
+def test_the_registry_is_every_background_worker(monkeypatch, role):
+    monkeypatch.setattr(settings, "HIVE_ROLE", role)
+    assert {w.name for w in background.workers()} == WORKER_NAMES[role]
 
 
 def test_web_starts_no_background_worker(monkeypatch, started):
     monkeypatch.setattr(settings, "HIVE_ROLE", "web")
     assert background.start() == started == ["memory-log-worker", "catalog-warmup"]
-    assert not WORKER_NAMES & set(started)
+    assert not EVERY_WORKER & set(started)
 
 
 @pytest.mark.parametrize("role", ["worker", "all"])
 def test_worker_and_all_start_every_background_worker(monkeypatch, started, role):
     monkeypatch.setattr(settings, "HIVE_ROLE", role)
     background.start()
-    assert set(started) == WORKER_NAMES | {"memory-log-worker"}
+    assert set(started) == WORKER_NAMES[role] | {"memory-log-worker"}
 
 
 def test_the_web_app_starts_no_background_worker(monkeypatch, started):
@@ -89,7 +96,7 @@ def test_the_web_app_starts_no_background_worker(monkeypatch, started):
     monkeypatch.setattr(settings, "HIVE_ROLE", "web")
     with TestClient(app):
         pass
-    assert not WORKER_NAMES & set(started)
+    assert not EVERY_WORKER & set(started)
 
 
 def test_the_web_app_refuses_the_worker_role(monkeypatch, started):
@@ -130,12 +137,12 @@ def test_worker_process_reports_and_takes_requests(monkeypatch, started, tmp_pat
         while not beat_file.exists() and time.monotonic() < deadline:
             time.sleep(0.05)
         assert beat_file.exists(), "the healthcheck file is touched after the first report"
-        assert set(started) == WORKER_NAMES | {"memory-log-worker"}
+        assert set(started) == WORKER_NAMES["worker"] | {"memory-log-worker"}
 
         beat = worker_state.read_heartbeat(db)
         assert beat is not None and beat.fresh
         assert beat.payload["process"]["role"] == "worker"
-        assert set(beat.payload["workers"]) == WORKER_NAMES
+        assert set(beat.payload["workers"]) == WORKER_NAMES["worker"]
 
         # What a web process leaves when an admin asks for a pass now.
         worker_state.ask(db, "wake:machine-stats-worker")

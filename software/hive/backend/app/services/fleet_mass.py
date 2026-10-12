@@ -157,9 +157,11 @@ def _compute(db: Session, machine_ids: list) -> dict[str, Any]:
         return _empty(total_pieces=total_pieces)
 
     try:
-        from app.services.profile_catalog import get_profile_catalog_service
+        # A lookup: in the worker process this reads parts.db and never loads
+        # the catalog (profile_catalog.catalog_lookup).
+        from app.services.profile_catalog import catalog_lookup
 
-        weights = get_profile_catalog_service().batch_part_weights(list(by_part))
+        weights = catalog_lookup().batch_part_weights(list(by_part))
     except Exception:
         # A box without the catalog loaded should still answer the piece
         # question rather than 500 — mass comes back as unknown coverage.

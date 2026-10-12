@@ -55,9 +55,11 @@ Any failure rolls back to the previously installed digests.
 
 **Two services run the backend image** (`agent-docs/process-roles.md`):
 `hive-backend` answers requests (`HIVE_ROLE=web`) and `hive-worker` runs every
-background worker (`python -m app.worker`). The worker has its own memory
-ceiling (`HIVE_WORKER_MEM_LIMIT` in `.env.prod`, default 1200m, beside the
-backend's `HIVE_BACKEND_MEM_LIMIT`) and runs no migrations. The agent deploys
+background worker (`python -m app.worker`). The worker never loads the parts
+catalog (its syncs and the default profiles run in a short-lived child process
+in the same container), has its own memory ceiling (`HIVE_WORKER_MEM_LIMIT` in
+`.env.prod`, default 1200m, beside the backend's `HIVE_BACKEND_MEM_LIMIT`) and
+runs no migrations. The agent deploys
 the services the release's own compose file defines: rolling back to a release
 from before the worker existed stops and removes `hive-worker` first, because
 that release's backend runs every worker itself.

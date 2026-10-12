@@ -28,6 +28,23 @@ import sync_seq
 # piece_history view (live records plus the rollup).
 
 
+# Every piece ever recorded, for totals: one row per live record (pieces = 1)
+# and the rollup's groups. seen_at/last_seen bound each row; day is the local
+# day seen; value_day the local day recorded.
+_PIECE_HISTORY_VIEW = (
+    "CREATE VIEW piece_history AS "
+    "SELECT date(seen_at, 'unixepoch', 'localtime') AS day, "
+    "date(COALESCE(recorded_at, seen_at), 'unixepoch', 'localtime') AS value_day, "
+    "seen_at, seen_at AS last_seen, recorded_at, run_id, part_id, part_name, color_id, color_name, "
+    "classification_status, dead, (bin_x IS NOT NULL) AS distributed, 1 AS pieces "
+    "FROM piece_records "
+    "UNION ALL "
+    "SELECT day, day AS value_day, first_seen AS seen_at, last_seen, NULL AS recorded_at, run_id, "
+    "part_id, part_name, color_id, color_name, classification_status, dead, distributed, pieces "
+    "FROM piece_history_rollup"
+)
+
+
 def _createTables(conn: sqlite3.Connection) -> None:
     conn.execute(
         "CREATE TABLE IF NOT EXISTS piece_records ("
@@ -145,22 +162,14 @@ def _createTables(conn: sqlite3.Connection) -> None:
         "distributed INTEGER NOT NULL"
         ")"
     )
-    # Every piece ever recorded, for totals: one row per live record (pieces
-    # = 1) and the rollup's groups. seen_at/last_seen bound each row; day is
-    # the local day seen; value_day the local day recorded.
-    conn.execute("DROP VIEW IF EXISTS piece_history")
-    conn.execute(
-        "CREATE VIEW piece_history AS "
-        "SELECT date(seen_at, 'unixepoch', 'localtime') AS day, "
-        "date(COALESCE(recorded_at, seen_at), 'unixepoch', 'localtime') AS value_day, "
-        "seen_at, seen_at AS last_seen, recorded_at, run_id, part_id, part_name, color_id, color_name, "
-        "classification_status, dead, (bin_x IS NOT NULL) AS distributed, 1 AS pieces "
-        "FROM piece_records "
-        "UNION ALL "
-        "SELECT day, day AS value_day, first_seen AS seen_at, last_seen, NULL AS recorded_at, run_id, "
-        "part_id, part_name, color_id, color_name, classification_status, dead, distributed, pieces "
-        "FROM piece_history_rollup"
-    )
+    current = conn.execute(
+        "SELECT sql FROM sqlite_master WHERE type = 'view' AND name = 'piece_history'"
+    ).fetchone()
+    # Replaced only when its definition changed (an upgrade), so a reader
+    # never finds it missing while another module prepares this schema.
+    if current is None or current[0] != _PIECE_HISTORY_VIEW:
+        conn.execute("DROP VIEW IF EXISTS piece_history")
+        conn.execute(_PIECE_HISTORY_VIEW)
     conn.execute(
         "CREATE INDEX IF NOT EXISTS idx_piece_records_seen "
         "ON piece_records(seen_at)"

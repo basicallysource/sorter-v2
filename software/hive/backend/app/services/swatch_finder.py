@@ -12,13 +12,19 @@ full-resolution frame. Needs numpy, scipy, Pillow and onnxruntime.
 
 One pass of the network over the whole frame shrunk to NET pixels on its long side (a 3840 x 2160 frame runs at
 960 x 544, the scale it was trained at): every pixel's chance of being on a tile's flat top face, well inside its
-edges, and that tile's colour. Each connected region called top face is a swatch: its colour is the one the network
-gives it on average, and its reading is the colour of its pixels in the full-resolution frame (the region shrunk by
-one network pixel first, so no edge, gap or side face gets in). A reading is reported with what might make it
-untrustworthy (flags), never dropped: the caller decides.
+edges, and that tile's colour. Each connected region called top face and one colour is a swatch (two neighbouring
+tiles of different colours are two swatches even where blur has closed the gap between them); its reading is the
+colour of its pixels in the full-resolution frame (the region shrunk by one network pixel first, so no edge, gap or
+side face gets in). A reading is reported with what might make it untrustworthy (flags), never dropped: the caller
+decides.
+
+The frame as a whole gets a call: ``found.palette``, the swatches that make up the palette (a chain of neighbouring
+swatches, at least PALETTE_SWATCHES of them in at least PALETTE_COLOURS colours), empty when there is none in view.
+``found.flags`` are about those swatches only.
 
 Written to be shared as it is between the places frames are (Hive, a sorter, research); the copy here leaves out
 the training-side parts (a torch checkpoint, drawing an overlay) and takes the colour names from the model alone.
+Apart from that it matches the research finder at commit c45bd29: keep the two the same, so readings compare.
 """
 
 import io
@@ -32,12 +38,18 @@ from PIL import Image
 from scipy import ndimage
 
 NET = 960  # the long side the network runs at
-MIN_AREA = 40  # network pixels a region needs to be a swatch (a 1x1 tile's top face is about 250 on C4)
+MIN_AREA = 150  # network pixels a region needs to be a swatch: on C4 a tile's readable top face is 450 to 1,500
+# (cut off by the frame's edge too), a patch between a loose piece's studs 20 to 400 (2026-10-12, v1a)
 MAX_AREA = 0.04  # share of the frame past which a region is not one tile (a 1x8's top face is under 1%)
 CLIP = 230  # a channel this bright piled up at one value is the camera saturating (C4's white tops out at 239, not 255)
 UNEVEN = 12.0  # standard deviation of lightness (0..255) inside a swatch past which it is flagged uneven
 # The neutrals from light to dark: a palette's readings of these must come out in this order of lightness.
 NEUTRALS = ["White", "Light Bluish Gray", "Dark Bluish Gray", "Black"]
+# A palette is a chain of neighbouring swatches: each within REACH times the larger one's length of the next, at
+# least PALETTE_SWATCHES of them in at least PALETTE_COLOURS colours. A loose piece or two is not one.
+REACH = 2.5
+PALETTE_SWATCHES = 4
+PALETTE_COLOURS = 4
 
 
 @dataclass
@@ -63,6 +75,7 @@ class Found:
     height: int
     swatches: list
     flags: list  # about the palette as a whole: "neutrals_out_of_order", "repeated_colour"
+    palette: list  # indices of the swatches that make up the palette, in order; empty when there is none
     seconds: dict
     model: str
     masks: list = None  # with find(..., masks=True): each swatch's read pixels, a bool array over its box
@@ -152,17 +165,23 @@ class SwatchFinder:
         surface, colours = self.net(small)
         t2 = time.perf_counter()
         sx, sy = w / nw, h / nh
-        regions, n = ndimage.label(surface > 0.5)
+        called = surface > 0.5
+        best = colours.argmax(0)
         read = []
-        for k, sl in enumerate(ndimage.find_objects(regions), start=1):
-            region = regions[sl] == k
-            if not MIN_AREA <= region.sum() <= MAX_AREA * surface.size:
-                continue
-            read.append(self._read(full, region, sl, surface, colours, sx, sy))
+        for c in np.unique(best[called]):
+            regions, _ = ndimage.label(called & (best == c))
+            for k, sl in enumerate(ndimage.find_objects(regions), start=1):
+                if sl is None:
+                    continue
+                region = regions[sl] == k
+                if MIN_AREA <= region.sum() <= MAX_AREA * surface.size:
+                    read.append(self._read(full, region, sl, surface, colours, sx, sy))
         order = _in_order([s for s, _ in read])
         swatches = [read[i][0] for i in order]
         t3 = time.perf_counter()
-        return Found(width=w, height=h, swatches=swatches, flags=_palette_flags(swatches), model=Path(self.net.path).name,
+        palette = _palette(swatches)
+        return Found(width=w, height=h, swatches=swatches, flags=_palette_flags([swatches[i] for i in palette]),
+                     palette=palette, model=Path(self.net.path).name,
                      seconds=dict(decode=round(t1 - t0, 4), network=round(t2 - t1, 4), read=round(t3 - t2, 4)),
                      masks=[read[i][1] for i in order] if masks else None)
 
@@ -230,6 +249,33 @@ def _in_order(swatches):
     else:
         axis = axis * np.sign(axis[0])  # left to right
     return [int(i) for i in np.argsort((c - c.mean(0)) @ axis)]
+
+
+def _palette(swatches):
+    """The largest chain of neighbouring swatches, if it is a palette (REACH, PALETTE_SWATCHES, PALETTE_COLOURS):
+    its swatches' indices in order, else []. Swatches the network is unsure of the colour of don't count."""
+    sure = [i for i, s in enumerate(swatches) if "unsure_colour" not in s.flags]
+    group = {i: i for i in sure}
+
+    def root(i):
+        while group[i] != i:
+            group[i] = group[group[i]]
+            i = group[i]
+        return i
+
+    for a in sure:
+        for b in sure:
+            if a < b:
+                sa, sb = swatches[a], swatches[b]
+                if np.hypot(sa.centre[0] - sb.centre[0], sa.centre[1] - sb.centre[1]) <= REACH * max(sa.length, sb.length):
+                    group[root(a)] = root(b)
+    chains = {}
+    for i in sure:
+        chains.setdefault(root(i), []).append(i)
+    best = max(chains.values(), key=len, default=[])
+    if len(best) < PALETTE_SWATCHES or len({swatches[i].colour for i in best}) < PALETTE_COLOURS:
+        return []
+    return sorted(best)
 
 
 def _palette_flags(swatches):

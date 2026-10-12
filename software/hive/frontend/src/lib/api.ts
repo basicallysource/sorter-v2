@@ -1812,6 +1812,8 @@ export interface SampleSwatch {
 	length: number;
 	width: number;
 	flags: string[];
+	/** One of the tiles that make up the palette, not a loose piece's top. Null on a run made before the call. */
+	in_palette: boolean | null;
 }
 
 export interface SampleSwatchRun {
@@ -1822,6 +1824,10 @@ export interface SampleSwatchRun {
 	frame_width: number;
 	frame_height: number;
 	swatch_count: number;
+	/** The frame's call: is the palette in view, and how many swatches make it up. Null on a run made before the call. */
+	palette_present: boolean | null;
+	palette_swatches: number | null;
+	/** About the palette's swatches as a whole. */
 	flags: string[];
 	seconds: number;
 	created_at: string | null;

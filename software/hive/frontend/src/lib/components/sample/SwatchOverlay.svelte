@@ -25,15 +25,18 @@
 		{@const label = `${s.position} ${s.colour}`}
 		{@const labelWidth = size * (label.length * 0.62 + 2.4)}
 		{@const lx = left ? x0 - size * 0.5 - labelWidth : x1 + size * 0.5}
-		<!-- Flagged readings in yellow, clean ones in green, from the boxes' palette over photos (bbox-helpers.ts). -->
+		{@const loose = s.in_palette === false}
+		<!-- The palette's swatches: flagged readings in yellow, clean ones in green, from the boxes' palette over
+		     photos (bbox-helpers.ts). A swatch that is not part of the palette (a loose piece's top): dashed white. -->
 		<rect
 			x={x0}
 			y={y0}
 			width={x1 - x0}
 			height={y1 - y0}
 			fill="none"
-			stroke={s.flags.length ? '#eab308' : '#22c55e'}
+			stroke={loose ? 'white' : s.flags.length ? '#eab308' : '#22c55e'}
 			stroke-width="2"
+			stroke-dasharray={loose ? '6 4' : undefined}
 			vector-effect="non-scaling-stroke"
 		/>
 		<rect x={lx} y={y0} width={labelWidth} height={size * 1.5} class="fill-(--scrim)" />

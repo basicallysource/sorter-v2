@@ -1,12 +1,13 @@
 """The swatch_find job: queued on ingest and by the backfill, run through the
-job queue, stored as runs and tiles, served per sample; and the swatch model
-registry.
+job queue, stored as runs and tiles with the frame's palette call, served per
+sample; the samples filter on that call; and the swatch model registry.
 
 The network is stubbed with one that marks the drawn tiles of a synthetic
 3840x2160 frame, so everything around it (decoding, reading the tiles at full
 resolution, ordering, storing) runs for real. A real model on a real frame
-runs when HIVE_TEST_SWATCH_MODEL and HIVE_TEST_SWATCH_FRAME name the files
-(neither is in the repository).
+runs when HIVE_TEST_SWATCH_MODEL and HIVE_TEST_SWATCH_FRAME (a frame with the
+palette in view) name the files, and HIVE_TEST_SWATCH_FRAME_WITHOUT_PALETTE
+(one without) if set (none is in the repository).
 """
 
 from __future__ import annotations
@@ -51,11 +52,18 @@ TILES = [(3560, 400 + i * 170) for i in range(len(PALETTE) - 1)]  # top-left cor
 CAPTURED = datetime(2026, 10, 10, 12, 0, tzinfo=timezone.utc)
 
 
-def _frame(width: int = 3840, height: int = 2160) -> bytes:
+RGB = {name: rgb for name, _bl, rgb in PALETTE}
+
+
+def _frame(width: int = 3840, height: int = 2160, tiles: list | None = None) -> bytes:
+    """A frame with tiles drawn on it: ((x, y), colour name) top-left corners,
+    the palette strip down the right edge by default."""
+    if tiles is None:
+        tiles = list(zip(TILES, [p[0] for p in PALETTE[1:]]))
     im = Image.new("RGB", (width, height), BACKGROUND)
     draw = ImageDraw.Draw(im)
-    for (x, y), (_name, _bl, rgb) in zip(TILES, PALETTE[1:]):
-        draw.rectangle([x, y, x + TILE - 1, y + TILE - 1], fill=rgb)
+    for (x, y), name in tiles:
+        draw.rectangle([x, y, x + TILE - 1, y + TILE - 1], fill=RGB[name])
     buf = io.BytesIO()
     im.save(buf, format="JPEG", quality=92)
     return buf.getvalue()
@@ -157,12 +165,13 @@ def test_a_classification_sample_is_read_and_its_swatches_stored(client, db, mac
     assert _run_all() == 1
     [job] = _swatch_jobs(db)
     assert job.status == "done", job.error
-    assert job.result["swatches"] == 7 and job.result["flags"] == []
+    assert job.result["swatches"] == 7 and job.result["palette"] == 7 and job.result["flags"] == []
 
     r = client.get(f"/api/samples/{sample_id}/swatch-runs")
     assert r.status_code == 200, r.text
     [run] = r.json()["runs"]
     assert run["model_name"] == "swatch-test" and run["swatch_count"] == 7
+    assert run["palette_present"] is True and run["palette_swatches"] == 7
     assert (run["frame_width"], run["frame_height"]) == (3840, 2160)
     assert run["seconds"] > 0
     swatches = run["swatches"]
@@ -179,6 +188,85 @@ def test_a_classification_sample_is_read_and_its_swatches_stored(client, db, mac
         assert s["colour_score"] > 0.6 and s["surface_score"] > 0.9
     flags = {s["colour"]: s["flags"] for s in swatches}
     assert flags["Black"] == [] and flags["Blue"] == [] and flags["Dark Bluish Gray"] == []
+    assert all(s["in_palette"] is True for s in swatches)
+
+
+def _read(client, db, token: str, local_id: int, tiles: list, *, role: str = "classification_channel") -> dict:
+    """Sync a frame with these tiles, run its job, and return the stored run."""
+    sample_id = _sync(client, token, local_id, role=role, image=_frame(tiles=tiles))
+    assert _run_all() == 1
+    [run] = client.get(f"/api/samples/{sample_id}/swatch-runs").json()["runs"]
+    return {"sample_id": sample_id, **run}
+
+
+def test_the_frame_is_called_palette_or_not(client, db, machine_token, fake_finder):
+    _model(db)
+    strip = list(zip(TILES, [p[0] for p in PALETTE[1:]]))
+
+    # The palette and a loose red piece's top far from it: the piece is a
+    # swatch but not the palette's, and the palette's flags leave it out
+    # (it would make "repeated_colour").
+    run = _read(client, db, machine_token, 1, strip + [((1200, 900), "Red")])
+    assert run["swatch_count"] == 8 and run["palette_present"] is True and run["palette_swatches"] == 7
+    assert run["flags"] == []
+    loose = [s for s in run["swatches"] if not s["in_palette"]]
+    assert [(s["colour"], round(s["centre"][0])) for s in loose] == [("Red", 1260)]
+
+    # Tiles touching, no gap between them: one swatch each, not one region.
+    touching = [((2000, 600 + i * TILE), name) for i, name in enumerate(["White", "Black", "Red", "Blue"])]
+    run = _read(client, db, machine_token, 2, touching)
+    assert [s["colour"] for s in run["swatches"]] == ["White", "Black", "Red", "Blue"]
+    assert run["palette_present"] is True and run["palette_swatches"] == 4
+
+    # Three tiles, or four in three colours, are not a palette.
+    for local_id, names in ((3, ["White", "Black", "Red"]), (4, ["White", "Black", "Red", "Red"])):
+        run = _read(client, db, machine_token, local_id, [((3560, 400 + i * 170), n) for i, n in enumerate(names)])
+        assert run["swatch_count"] == len(names)
+        assert run["palette_present"] is False and run["palette_swatches"] == 0, names
+        assert run["flags"] == [] and all(s["in_palette"] is False for s in run["swatches"])
+
+
+def _filtered(db, value: str | None) -> set[str]:
+    db.expire_all()
+    query = db.query(Sample.id)
+    clause = swatch_jobs.palette_filter(db, value)
+    if clause is not None:
+        query = query.filter(clause)
+    return {str(row[0]) for row in query}
+
+
+def test_the_palette_filter_keys_on_the_models_call(client, db, test_machine, machine_token, fake_finder):
+    first = _model(db, sha="aa" * 32, name="swatch-v1")
+    strip = list(zip(TILES, [p[0] for p in PALETTE[1:]]))
+    in_view = _read(client, db, machine_token, 1, strip)["sample_id"]
+    not_in_view = _read(client, db, machine_token, 2, strip[:2])["sample_id"]
+    before_the_call = _read(client, db, machine_token, 3, strip)["sample_id"]
+    db.query(SampleSwatchRun).filter(SampleSwatchRun.sample_id == UUID(before_the_call)).update(
+        {SampleSwatchRun.palette_present: None, SampleSwatchRun.palette_swatches: None}
+    )
+    db.commit()
+    queued = _sync(client, machine_token, 4)  # queued, not read yet
+    other_camera = _sync(client, machine_token, 5, role="c_channel_2")
+    everything = {in_view, not_in_view, before_the_call, queued, other_camera}
+
+    assert _filtered(db, None) == _filtered(db, "any") == everything
+    assert _filtered(db, "in_view") == {in_view}
+    assert _filtered(db, "not_in_view") == {not_in_view}
+    # Never the other camera's samples: the job does not read them.
+    assert _filtered(db, "unchecked") == {before_the_call, queued}
+
+    # A paused model still answers; a new model has called nothing yet.
+    swatch_models.set_active(db, first.id, False)
+    assert _filtered(db, "in_view") == {in_view}
+    second = _model(db, sha="bb" * 32, name="swatch-v2")
+    assert _filtered(db, "in_view") == _filtered(db, "not_in_view") == set()
+    assert _filtered(db, "unchecked") == everything - {other_camera}
+
+    # A run made before the call is read again by a plain backfill.
+    swatch_models.set_active(db, second.id, False)
+    swatch_models.set_active(db, first.id, True)
+    result = swatch_jobs.backfill(db, machine_id=UUID(test_machine["id"]))
+    assert (result["matched"], result["queued"], result["already_queued"]) == (2, 1, 1)
 
 
 def test_only_classification_samples_are_queued_and_only_with_a_model_active(client, db, machine_token, fake_finder):
@@ -335,7 +423,7 @@ def test_a_members_sample_runs_are_not_served_to_other_members(client, db, machi
 
 @pytest.mark.skipif(
     not (os.environ.get("HIVE_TEST_SWATCH_MODEL") and os.environ.get("HIVE_TEST_SWATCH_FRAME")),
-    reason="set HIVE_TEST_SWATCH_MODEL (an exported swatch_finder .onnx) and HIVE_TEST_SWATCH_FRAME (a classification-camera JPEG)",
+    reason="set HIVE_TEST_SWATCH_MODEL (an exported swatch_finder .onnx) and HIVE_TEST_SWATCH_FRAME (a classification-camera JPEG with the palette in view)",
 )
 def test_a_real_model_on_a_real_frame(client, db, machine_token):
     folder = Path(settings.SWATCH_MODEL_DIR)
@@ -357,4 +445,14 @@ def test_a_real_model_on_a_real_frame(client, db, machine_token):
     with Image.open(io.BytesIO(frame)) as im:
         assert (run["frame_width"], run["frame_height"]) == im.size
     assert run["swatch_count"] == len(run["swatches"]) == job.result["swatches"]
-    print(f"\nreal frame: {run['swatch_count']} swatches in {run['seconds']:.2f}s, flags {run['flags']}")
+    print(f"\nreal frame: {run['swatch_count']} swatches, palette {run['palette_swatches']}, in {run['seconds']:.2f}s, flags {run['flags']}")
+    assert run["palette_present"] is True and run["palette_swatches"] >= 4
+    assert sum(1 for s in run["swatches"] if s["in_palette"]) == run["palette_swatches"]
+
+    without = os.environ.get("HIVE_TEST_SWATCH_FRAME_WITHOUT_PALETTE")
+    if without:
+        other = _sync(client, machine_token, 2, image=Path(without).read_bytes())
+        assert job_queue.get_job_worker().run_once("t")
+        [run] = client.get(f"/api/samples/{other}/swatch-runs").json()["runs"]
+        print(f"frame without a palette: {run['swatch_count']} swatches, palette {run['palette_swatches']}")
+        assert run["palette_present"] is False and run["palette_swatches"] == 0

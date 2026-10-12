@@ -100,12 +100,32 @@ frame, and its colour is read from the full-resolution pixels
 - **Run**: reads the sample's full frame from storage, runs the active model
   (onnxruntime on `SWATCH_FINDER_THREADS`, 1, without its memory arena so the
   process's footprint stays flat), and stores the readings.
+- **Called**: a swatch is one connected region of top face in one colour (so
+  blur cannot merge neighbouring tiles), at least `MIN_AREA` network pixels.
+  The frame as a whole is called: the palette is in view when the largest
+  chain of neighbouring swatches (each within 2.5 lengths of the next) has at
+  least 4 swatches in at least 4 colours. A loose piece's top is a swatch but
+  not the palette's. The palette flags are about the palette's swatches only.
+  `swatch_finder.py` is a copy of the research finder (its docstring names the
+  commit); keep the logic the same so readings compare.
 - **Stored** in `sample_swatch_runs` (one per pass: sample, model name and
-  sha256, frame size, tiles found, palette flags, seconds, when) and
-  `sample_swatches` (one per tile: position along the palette, colour,
-  BrickLink id, colour and surface scores, pixels read, median RGB, RGB
-  standard deviation, clipped share, centre, box, length, width, flags). A
-  newer model adds a run beside the old; the same model file run again
-  replaces its own.
+  sha256, frame size, swatches found, the call `palette_present` and
+  `palette_swatches`, palette flags, seconds, when) and `sample_swatches` (one
+  per swatch: position along the palette, colour, BrickLink id, colour and
+  surface scores, pixels read, median RGB, RGB standard deviation, clipped
+  share, centre, box, length, width, flags, `in_palette`). The call is null on
+  runs made before the finder made it; a backfill reads those again. A newer
+  model adds a run beside the old; the same model file run again replaces its
+  own.
 - **Served** at `GET /api/samples/{id}/swatch-runs` (whoever can see the
-  sample), and drawn over the frame on the sample page.
+  sample), and drawn over the frame on the sample page (the palette's swatches
+  in green or yellow, others dashed), with the call above the list.
+- **Filtered**: `swatch_jobs.palette_filter(db, value)` is the where-clause
+  behind the samples filter `palette`: `in_view`, `not_in_view`, `unchecked`
+  (a classification-camera sample with a full frame the model has not called
+  yet). It reads one model's runs: the active one, else the one changed last.
+  One EXISTS on `ix_sample_swatch_runs_model_palette` (model, call, sample).
+- **Tests**: `tests/test_swatch_jobs.py` stubs the network. A real model runs
+  when `HIVE_TEST_SWATCH_MODEL` names an exported finder and
+  `HIVE_TEST_SWATCH_FRAME` a classification-camera JPEG with the palette in
+  view (and `HIVE_TEST_SWATCH_FRAME_WITHOUT_PALETTE` one without).

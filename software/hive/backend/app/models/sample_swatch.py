@@ -1,7 +1,7 @@
 import uuid
 from datetime import datetime, timezone
 
-from sqlalchemy import Boolean, Column, DateTime, Float, ForeignKey, Index, Integer, String, UniqueConstraint
+from sqlalchemy import Boolean, Column, DateTime, Float, ForeignKey, Index, Integer, String, UniqueConstraint, true
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship
 
@@ -43,6 +43,13 @@ class SampleSwatchRun(Base):
     # Wall time of the pass: decoding the frame, the network, reading the tiles.
     seconds = Column(Float, nullable=False, default=0.0)
     created_at = Column(DateTime(timezone=True), nullable=False, default=lambda: datetime.now(timezone.utc))
+    # The sample's machine and when its frame was taken (captured_at, else
+    # uploaded_at), copied here so "the palette frames of this machine near
+    # this time" is one index range (services/piece_palette.py). Null only on
+    # a run stored by a release that did not set them; the labeling-queue
+    # worker fills those in.
+    machine_id = Column(UUID(as_uuid=True), nullable=True)
+    frame_at = Column(DateTime(timezone=True), nullable=True)
 
     swatches = relationship(
         "SampleSwatch",
@@ -57,6 +64,18 @@ class SampleSwatchRun(Base):
         # A model's runs; with the call and the sample, what the samples filter
         # reads ("this model saw the palette in these samples") from the index alone.
         Index("ix_sample_swatch_runs_model_palette", "model_sha256", "palette_present", "sample_id"),
+        # A model's palette frames on one machine in time order: the frame
+        # nearest a piece, and which pieces had one near them.
+        Index(
+            "ix_sample_swatch_runs_palette_frames",
+            "model_sha256",
+            "machine_id",
+            "frame_at",
+            postgresql_where=palette_present == true(),
+            sqlite_where=palette_present == true(),
+        ),
+        # Runs stored since the labeling-queue worker's last pass.
+        Index("ix_sample_swatch_runs_created_at", "created_at"),
     )
 
 

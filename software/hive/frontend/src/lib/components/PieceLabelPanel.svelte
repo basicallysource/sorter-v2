@@ -22,6 +22,7 @@
 	import * as nav from '$lib/colorLabelNav';
 	import { formatDateTime, relativeTime } from '$lib/time';
 	import MachineLabeledPieces from '$lib/components/MachineLabeledPieces.svelte';
+	import PaletteFrame from '$lib/components/PaletteFrame.svelte';
 	import PartBrickLinkColors from '$lib/components/PartBrickLinkColors.svelte';
 	import PiecePartPicker from '$lib/components/PiecePartPicker.svelte';
 	import Spinner from '$lib/components/Spinner.svelte';
@@ -40,30 +41,28 @@
 	import Ban from '@lucide/svelte/icons/ban';
 	import Check from '@lucide/svelte/icons/check';
 	import Flag from '@lucide/svelte/icons/flag';
+	import Info from '@lucide/svelte/icons/info';
 	import Sparkles from '@lucide/svelte/icons/sparkles';
 	import Star from '@lucide/svelte/icons/star';
 	import X from '@lucide/svelte/icons/x';
 
 	type CharState = 'empty' | 'progress' | 'ready';
 
+	// The labeling pane beside the Piece samples list: one piece, stepped
+	// through the list's queue.
 	type Props = {
 		machineId: string;
 		pieceUuid: string;
-		// 'page' is the standalone full-width labeling route; 'pane' is the compact
-		// stacked layout used inside the list page's split view.
-		layout?: 'page' | 'pane';
 		position?: { index: number; total: number; hasMore: boolean };
 		onNext: () => void | Promise<void>;
 		onPrev: () => void | Promise<void>;
-		// Present in pane mode — renders a close control instead of the back-to-list link.
-		onClose?: () => void;
+		onClose: () => void;
 		onChange?: (key: nav.PieceKey, patch: PieceLabelPatch) => void;
 	};
 
 	let {
 		machineId,
 		pieceUuid,
-		layout = 'page',
 		position = { index: -1, total: 0, hasMore: true },
 		onNext,
 		onPrev,
@@ -83,8 +82,10 @@
 		{ value: 'pieces_entangled', label: 'Pieces entangled' }
 	];
 
-	// How many likely colors the True color column shows as swatches.
+	// How many likely colors the True color panel shows as swatches.
 	const LIKELY_COUNT = 8;
+	const STATE_DOT = { empty: 'bg-ink-faint', progress: 'bg-warning', ready: 'bg-success' } as const;
+	const STATE_WORDS = { empty: 'not started', progress: 'in progress', ready: 'ready' } as const;
 	const ZONE_LABEL: Record<number, string> = { 0: 'mid', 1: 'drop', 2: 'exit', 3: 'precise' };
 
 	const pieceKey = $derived(`${machineId}|${pieceUuid}`);
@@ -191,12 +192,17 @@
 					(c.key === 'color' && cantTell) || (c.key === 'part' && partCantTell && myPart == null)
 			)
 	);
+	// Short, so the bar stays one row; its tooltip says what it accepts (the
+	// bar's status dots show it too).
 	const ctaLabel = $derived.by(() => {
 		if (touched.length === 0) return 'Skip';
 		if (touched.length === characteristics.length) return 'Continue';
 		if (onlyCantTells) return 'Move on';
-		return 'Accept ' + touched.map((c) => c.label.toLowerCase()).join(' + ');
+		return 'Accept';
 	});
+	const ctaTitle = $derived(
+		`${onlyCantTells ? 'Move on' : 'Accept ' + touched.map((c) => c.label.toLowerCase()).join(' + ')} (Enter)`
+	);
 
 	// The colors this piece was predicted to be, for the likely-colors ranking:
 	// the machine's (every request's colors when the machine sent them, else
@@ -750,8 +756,11 @@
 
 	function onKey(e: KeyboardEvent) {
 		if (e.target instanceof HTMLInputElement) return;
-		// Keys inside an open popover (the reject and quality menus) are its own.
+		// Keys inside an open popover (the reject and quality menus) are its own,
+		// and so are they while one is open from its button (Escape closes it,
+		// not the pane).
 		if (e.target instanceof Element && e.target.closest('[popover]')) return;
+		if (document.querySelector(':popover-open')) return;
 		if (e.key === 'Enter') {
 			e.preventDefault();
 			void commitAndAdvance();
@@ -761,7 +770,7 @@
 		} else if (e.key === 'ArrowLeft') {
 			e.preventDefault();
 			void goPrev();
-		} else if (e.key === 'Escape' && onClose) {
+		} else if (e.key === 'Escape') {
 			e.preventDefault();
 			onClose();
 		}
@@ -830,135 +839,200 @@
 	</div>
 {/snippet}
 
-<!-- Back to the list (the page) or close (the pane), and where this piece is in it -->
-{#snippet header()}
-	<div class="flex items-center justify-between gap-3">
-		{#if onClose}
-			<Button size="sm" variant="ghost" icon={X} onclick={onClose}>Close</Button>
-		{:else}
-			<Button size="sm" variant="ghost" icon={ArrowLeft} href="/piece-bboxes">All pieces</Button>
-		{/if}
-		{#if position.total > 0 && position.index >= 0}
-			<span class="num text-sm text-ink-muted">{position.index + 1} of {position.total}{position.hasMore ? '+' : ''}</span>
-		{/if}
-	</div>
-{/snippet}
-
-<!-- What is done across every characteristic, and the way on -->
-{#snippet summaryBar()}
+<!-- One row: close, the piece before, where this piece is in the list, what is
+     done of each answer, then the keys and directions, reject, skip, and the
+     way on. -->
+{#snippet bar()}
 	<Panel flush>
-		<div class="flex flex-wrap items-center gap-x-4 gap-y-2 px-(--pad-panel) py-3">
-			<Button variant="ghost" size="sm" icon={ArrowLeft} onclick={goPrev}>Back</Button>
-			<div class="flex flex-wrap items-center gap-x-4 gap-y-1">
-				{#each characteristics as ch (ch.key)}
-					<span class="flex items-center gap-1.5 text-sm text-ink-muted">{ch.label} {@render statusBadge(ch.state)}</span>
-				{/each}
-			</div>
-			<div class="flex flex-wrap items-center gap-2 sm:ml-auto">
-				<span class="hidden text-sm text-ink-muted xl:inline">Enter accepts, the right arrow or Space skips, the left arrow goes back</span>
-				<Popover label="Why reject this sample" width="17rem" placement="bottom-end" bind:open={rejectOpen}>
-					{#snippet trigger(props)}
-						<Button {...props} size="sm" icon={Ban}>{rejected ? 'Rejected' : 'Reject'}</Button>
-					{/snippet}
-					<div class="label mb-2">Reject this sample, because</div>
-					<div class="flex flex-col gap-2">
-						{#each REJECT_REASONS as r (r.value)}
-							<Checkbox checked={rejectReasons.has(r.value)} onchange={() => toggleReason(r.value)}>{r.label}</Checkbox>
-						{/each}
-					</div>
-					<div class="mt-3 flex justify-end">
-						<Button variant="danger" size="sm" loading={rejecting} disabled={rejectReasons.size === 0} onclick={submitReject}
-							>Reject and go on</Button
+		<div class="flex flex-wrap items-center gap-x-2 gap-y-1.5 px-3 py-2">
+			<Button size="sm" variant="ghost" icon={X} label="Close (Escape)" onclick={onClose} />
+			<Button size="sm" variant="ghost" icon={ArrowLeft} label="The piece before (left arrow)" onclick={goPrev} />
+			{#if position.total > 0 && position.index >= 0}
+				<span class="num mr-1 text-sm text-ink-muted">{position.index + 1} of {position.total}{position.hasMore ? '+' : ''}</span>
+			{/if}
+			{#if detail}
+				<!-- What is done of each answer: a status dot and its name -->
+				<span class="flex items-center gap-2.5">
+					{#each characteristics as ch (ch.key)}
+						<span class="flex items-center gap-1 text-xs text-ink-muted" title={`${ch.label}: ${STATE_WORDS[ch.state]}`}
+							><span class="size-1.5 shrink-0 rounded-full {STATE_DOT[ch.state]}"></span>{ch.label}</span
 						>
-					</div>
-				</Popover>
-				<!-- Skip is always there, and resets what was recorded for this piece
-				     (skipAndReset); the accept appears once something is entered. -->
-				<Button variant="ghost" size="sm" onclick={skipAndReset}>Skip</Button>
-				{#if touched.length > 0}
-					<Button variant="primary" size="sm" icon={ArrowRight} loading={cropSaving} onclick={commitAndAdvance}>{ctaLabel}</Button>
-				{/if}
-			</div>
+					{/each}
+				</span>
+				<div class="ml-auto flex items-center gap-1.5">
+					<Popover label="Keys, and how to label a piece" width="24rem" placement="bottom-end">
+						{#snippet trigger(props)}
+							<Button {...props} size="sm" variant="ghost" icon={Info} label="Keys, and how to label a piece" />
+						{/snippet}
+						{@render directions()}
+					</Popover>
+					<Popover label="Why reject this sample" width="17rem" placement="bottom-end" bind:open={rejectOpen}>
+						{#snippet trigger(props)}
+							<Button {...props} size="sm" icon={Ban} label={rejected ? 'Rejected: change why' : 'Reject this sample'} />
+						{/snippet}
+						<div class="label mb-2">Reject this sample, because</div>
+						<div class="flex flex-col gap-2">
+							{#each REJECT_REASONS as r (r.value)}
+								<Checkbox checked={rejectReasons.has(r.value)} onchange={() => toggleReason(r.value)}>{r.label}</Checkbox>
+							{/each}
+						</div>
+						<div class="mt-3 flex justify-end">
+							<Button variant="danger" size="sm" loading={rejecting} disabled={rejectReasons.size === 0} onclick={submitReject}
+								>Reject and go on</Button
+							>
+						</div>
+					</Popover>
+					<!-- Skip is always there, and resets what was recorded for this piece
+					     (skipAndReset); the accept appears once something is entered. -->
+					<Button variant="ghost" size="sm" title="Skip, and clear what you entered (right arrow or Space)" onclick={skipAndReset}>Skip</Button>
+					{#if touched.length > 0}
+						<Button variant="primary" size="sm" icon={ArrowRight} loading={cropSaving} title={ctaTitle} onclick={commitAndAdvance}>{ctaLabel}</Button>
+					{/if}
+				</div>
+			{/if}
 		</div>
 	</Panel>
 {/snippet}
 
-<!-- The piece itself: its crops, and the model's and the pixels' color -->
+<!-- The keys, and the directions, behind the bar's info button -->
+{#snippet directions()}
+	<div class="label mb-2">Keys</div>
+	<dl class="grid grid-cols-[auto_minmax(0,1fr)] gap-x-3 gap-y-1 text-sm">
+		<dt class="font-mono text-ink">Enter</dt>
+		<dd class="text-ink-muted">Accept what you entered and go on</dd>
+		<dt class="font-mono text-ink">&rarr; or Space</dt>
+		<dd class="text-ink-muted">Skip, and clear what you entered</dd>
+		<dt class="font-mono text-ink">&larr;</dt>
+		<dd class="text-ink-muted">The piece before</dd>
+		<dt class="font-mono text-ink">Escape</dt>
+		<dd class="text-ink-muted">Close the piece</dd>
+	</dl>
+	<div class="label mt-4 mb-2">How to label a piece</div>
+	<ol class="flex list-decimal flex-col gap-1.5 pl-5 text-sm text-ink">
+		<li>Judge the piece's true color from the crops of both channels, and the palette's swatches when it was in view.</li>
+		<li>Pick the color. If you can tell it, that is enough: you can skip the same-piece step.</li>
+		<li>Under True part, confirm the mold the machine guessed or search for the right one.</li>
+		<li>Under Same piece across channels, keep or add the earlier crops of this same piece.</li>
+		<li>If you can't tell the color, or can't find the piece earlier, do the half you are sure of and go on.</li>
+	</ol>
+{/snippet}
+
+<!-- What the model and the pixels make of the color, in one line; the numbers
+     behind the info button -->
+{#snippet guesses()}
+	{#if detail}
+		{@const mp = detail.model_prediction}
+		{@const pg = detail.pixel_guess}
+		<div class="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm">
+			{#if mp}
+				<span class="flex min-w-0 items-center gap-1.5" title={`The model's color (${mp.model_name}): ${mp.color_name ?? mp.color_id} (${mp.color_id}), ${Math.round(mp.confidence * 100)}% from ${mp.sample_count} crop${mp.sample_count === 1 ? '' : 's'}`}>
+					<Sparkles size={14} class="shrink-0 text-info-ink" /><span class="text-ink-muted">Model</span>
+					<span aria-hidden="true" class="size-4 shrink-0 rounded-check border border-line-strong" style:background-color={`#${mp.rgb ?? '888888'}`}></span>
+					<span class="truncate text-ink">{mp.color_name ?? mp.color_id}</span>
+					<span class="num text-ink-muted">{Math.round(mp.confidence * 100)}%</span>
+				</span>
+			{/if}
+			{#if pg}
+				<span class="flex min-w-0 items-center gap-1.5" title={`The pixels' average, #${pg.rgb}: nearest ${pg.color_name} (${pg.color_id}) over ${pg.sample_count} crop${pg.sample_count === 1 ? '' : 's'}`}>
+					<span class="text-ink-muted">Pixels</span>
+					<span aria-hidden="true" class="size-4 shrink-0 rounded-check border border-line-strong" style:background-color={`#${pg.rgb}`}></span>
+					<span class="truncate text-ink">{pg.color_name}</span>
+				</span>
+			{/if}
+			{#if mp || pg}
+				<Popover label="The color guesses" width="20rem">
+					{#snippet trigger(props)}
+						<Button {...props} size="sm" variant="ghost" icon={Info} label="The color guesses" />
+					{/snippet}
+					<div class="flex flex-col gap-3 text-sm">
+						{#if mp}
+							<div>
+								<div class="font-medium text-ink">The model's color</div>
+								<div class="num text-ink-muted">
+									<span class="text-ink">{mp.color_name ?? mp.color_id}</span> ({mp.color_id}), {Math.round(mp.confidence * 100)}% from
+									{mp.sample_count} crop{mp.sample_count === 1 ? '' : 's'}, by {mp.model_name}
+								</div>
+							</div>
+						{/if}
+						{#if pg}
+							<div>
+								<div class="font-medium text-ink">The pixels' average</div>
+								<div class="num flex items-center gap-1.5 text-ink-muted">
+									{#if pg.color_id != null && colorsById.has(pg.color_id)}
+										<span aria-hidden="true" class="inline-block size-3.5 shrink-0 rounded-check border border-line-strong" style:background-color={`#${colorsById.get(pg.color_id)?.rgb ?? '000'}`}></span>
+									{/if}
+									<span>#{pg.rgb}, nearest <span class="text-ink">{pg.color_name}</span> ({pg.color_id}) over {pg.sample_count} crop{pg.sample_count === 1 ? '' : 's'}</span>
+								</div>
+							</div>
+						{/if}
+					</div>
+				</Popover>
+			{:else}
+				<span class="text-ink-muted">No suggestion: the crops are not available.</span>
+			{/if}
+		</div>
+	{/if}
+{/snippet}
+
+<!-- The piece itself: its crops, what the model and the pixels make of its
+     color, and the color reference palette near it -->
 {#snippet pieceCard()}
 	{#if detail}
-		<Panel
-			title={detail.part.part_name || detail.part.part_id || 'Unidentified'}
-			description={pieceDescription}
-		>
-			<div class="flex flex-wrap gap-2">
-				{#each detail.images as img (img.seq)}
-					<div class="relative">
-						<ZoomImage
-							src={img.url ?? api.colorLabelImageUrl(machineId, pieceUuid, img.seq)}
-							alt={`Crop ${img.seq}`}
-							title={`Crop ${img.seq}${img.source ? `, ${img.source}` : ''}`}
-							class="size-28 rounded-item object-contain"
-						/>
-						{#if img.used}
-							<span class="absolute right-0.5 bottom-0.5 inline-flex h-(--size-badge) items-center rounded-badge bg-success px-1.5 text-xs font-medium text-on-success"
-								>Used</span
-							>
-						{/if}
-						{@render qualityOverlay(img, 'piece_image', img.seq)}
-					</div>
-				{/each}
-			</div>
-
-			<div class="mt-4 flex flex-col gap-3 border-t border-line pt-4">
-				{#if detail.model_prediction}
-					{@const mp = detail.model_prediction}
-					<div class="flex items-center gap-3">
-						<span class="size-10 shrink-0 rounded-item border border-line" style={`background:#${mp.rgb ?? '888888'}`} title={`The model's color, #${mp.rgb ?? '?'}`}></span>
-						<div class="min-w-0 text-sm text-ink-muted">
-							<div class="flex items-center gap-1.5 font-medium text-ink">
-								<Sparkles size={14} class="text-info-ink" /> The model's color <span class="font-normal text-ink-muted">{mp.model_name}</span>
-							</div>
-							<div class="num">
-								<span class="text-ink">{mp.color_name ?? mp.color_id}</span> ({mp.color_id}), {Math.round(mp.confidence * 100)}% from {mp.sample_count}
-								crop{mp.sample_count === 1 ? '' : 's'}
-							</div>
+		<Panel title={detail.part.part_name || detail.part.part_id || 'Unidentified'} description={pieceDescription}>
+			<div class="flex flex-col gap-3">
+				<div class="flex flex-wrap gap-2">
+					{#each detail.images as img (img.seq)}
+						<div class="relative">
+							<ZoomImage
+								src={img.url ?? api.colorLabelImageUrl(machineId, pieceUuid, img.seq)}
+								alt={`Crop ${img.seq}`}
+								title={`Crop ${img.seq}${img.source ? `, ${img.source}` : ''}`}
+								class="size-28 rounded-item object-contain"
+							/>
+							{#if img.used}
+								<span class="absolute right-0.5 bottom-0.5 inline-flex h-(--size-badge) items-center rounded-badge bg-success px-1.5 text-xs font-medium text-on-success"
+									>Used</span
+								>
+							{/if}
+							{@render qualityOverlay(img, 'piece_image', img.seq)}
 						</div>
-					</div>
-				{/if}
-
-				{#if detail.pixel_guess}
-					{@const pg = detail.pixel_guess}
-					<div class="flex items-center gap-3 {detail.model_prediction ? 'opacity-70' : ''}">
-						<span class="size-10 shrink-0 rounded-item border border-line" style={`background:#${pg.rgb}`} title={`The pixels' average, #${pg.rgb}`}></span>
-						<div class="min-w-0 text-sm text-ink-muted">
-							<div class="font-medium text-ink">The pixels' average</div>
-							<div class="num flex items-center gap-1.5">
-								{#if pg.color_id != null && colorsById.has(pg.color_id)}
-									<span class="inline-block size-3.5 rounded-check border border-line" style={`background:#${colorsById.get(pg.color_id)?.rgb ?? '000'}`}></span>
-								{/if}
-								<span><span class="text-ink">{pg.color_name}</span> ({pg.color_id}), the nearest over {pg.sample_count} crop{pg.sample_count === 1 ? '' : 's'}</span>
-							</div>
-						</div>
-					</div>
-				{/if}
-
-				{#if !detail.model_prediction && !detail.pixel_guess}
-					<p class="text-sm text-ink-muted">No suggestion: the crops are not available.</p>
-				{/if}
+					{/each}
+				</div>
+				{@render guesses()}
+				<PaletteFrame palette={detail.palette} colors={colorsById} />
 			</div>
 		</Panel>
 	{/if}
 {/snippet}
 
-<!-- The same physical piece in the channels before it -->
+<!-- The same physical piece in the channels before it. What the picks come
+     from is behind the info button. -->
 {#snippet cropsCard()}
-	<Panel
-		title="Same piece across channels"
-		description="Our guess at which C2 and C3 crops are this same physical piece. Keep or drop the picks, add any we missed, then accept."
-	>
+	<Panel title="Same piece across channels">
 		{#snippet actions()}{@render statusBadge(piecesState)}{/snippet}
 		<div class="mb-3 flex flex-wrap items-center gap-2">
-			<span class="num mr-auto text-sm text-ink-muted">{cropSelected.size} of {cropCandidates.length} chosen</span>
+			<div class="mr-auto flex items-center gap-1">
+				<span class="num text-sm text-ink-muted">{cropSelected.size} of {cropCandidates.length} chosen{ticksAreSaved ? ', as you saved' : ''}</span>
+				<Popover label="About these picks" width="20rem">
+					{#snippet trigger(props)}
+						<Button {...props} size="sm" variant="ghost" icon={Info} label="About these picks" />
+					{/snippet}
+					<div class="flex flex-col gap-2 text-sm text-ink-muted">
+						<p>Our guess at which C2 and C3 crops are this same physical piece. Keep or drop the picks, add any we missed, then accept.</p>
+						<p class="flex items-start gap-1.5">
+							{#if ticksAreSaved}
+								<Check size={14} class="mt-0.5 shrink-0" /><span>Your saved choice is ticked. Sparkles show the picks from {pickSourceText}.</span>
+							{:else if predictionSource === 'ai'}
+								<Sparkles size={14} class="mt-0.5 shrink-0 text-info-ink" /><span>Picks from a vision model{aiReasoning ? `: ${aiReasoning}` : '.'}</span>
+							{:else if predictionSource === 'model'}
+								<Sparkles size={14} class="mt-0.5 shrink-0 text-info-ink" /><span>Picks from {pickSourceText}.{canRunAi ? " Run AI for a vision model's guess." : ''}</span>
+							{:else}
+								<span>Picks from the time and angle guess.{canRunAi ? " Run AI for a vision model's guess." : ''}</span>
+							{/if}
+						</p>
+					</div>
+				</Popover>
+			</div>
 			<Button size="sm" variant="ghost" disabled={cropSelected.size === 0 || cropLoading} onclick={selectNoCrops}>Choose none</Button>
 			<Button size="sm" loading={cropSaving} disabled={cropCandidates.length === 0 || cropLoading} onclick={rejectAllCrops}>None of these</Button>
 			{#if canRunAi}
@@ -972,20 +1046,6 @@
 				onclick={saveCrops}>Accept</Button
 			>
 		</div>
-		<p class="mb-3 flex items-center gap-1.5 text-sm text-ink-muted">
-			{#if ticksAreSaved}
-				<Check size={14} class="shrink-0" />Your saved choice is ticked. Sparkles show the picks from {pickSourceText}.
-			{:else if predictionSource === 'ai'}
-				<Sparkles size={14} class="shrink-0 text-info-ink" />Picks from a vision model{aiReasoning ? `: ${aiReasoning}` : '.'}
-			{:else if predictionSource === 'model'}
-				<Sparkles size={14} class="shrink-0 text-info-ink" />Picks from {pickSourceText}.{canRunAi
-					? ' Run AI for a vision model\'s guess.'
-					: ''}
-			{:else}
-				Picks from the time and angle guess.{canRunAi ? ' Run AI for a vision model\'s guess.' : ''}
-			{/if}
-		</p>
-
 		{#if cropLoading}
 			<div class="flex justify-center py-8"><Spinner size={32} /></div>
 		{:else if cropError}
@@ -993,7 +1053,7 @@
 		{:else if cropCandidates.length === 0}
 			<p class="py-4 text-sm text-ink-muted">No candidate crops in range for this piece.</p>
 		{:else}
-			<div class="flex max-h-[42vh] flex-wrap gap-2 overflow-y-auto pr-1">
+			<div class="flex flex-wrap gap-2">
 				{#each cropCandidates as c (c.local_id)}
 					{@const selected = cropSelected.has(c.local_id)}
 					{@const isPick = isPredictionPick(c, predictionSource)}
@@ -1047,17 +1107,17 @@
 	{/if}
 {/snippet}
 
-<!-- The true color: the likely colors as swatches (near the predictions, and
-     sold in that color), then every color. In the pane the list has a fixed
-     height; on the page it fills the sticky column and scrolls. -->
+<!-- The true color: the likely colors (near the predictions, and sold in that
+     color) beside the part's top colors sold on BrickLink, then a search of
+     every color that lists only what is typed, or all of them on request -->
 {#snippet colorPicker()}
-	<Panel title="True color" fill={layout === 'page'} class={layout === 'page' ? 'min-h-0 flex-1' : ''}>
+	<Panel title="True color">
 		{#snippet actions()}{@render statusBadge(colorState)}{/snippet}
-		<div class="flex min-h-0 flex-col gap-4 {layout === 'page' ? 'h-full' : ''}">
+		<div class="flex flex-col gap-3">
 			<button
 				type="button"
 				aria-pressed={cantTell}
-				class="flex items-center gap-2 rounded-item px-2 py-1.5 text-left text-sm disabled:opacity-45 {cantTell
+				class="flex items-center gap-2 rounded-item px-2 py-1 text-left text-sm disabled:opacity-45 {cantTell
 					? 'bg-primary-soft font-medium text-primary-ink'
 					: 'bg-well text-ink-muted hover:bg-hover'}"
 				onclick={pickCantTell}
@@ -1077,9 +1137,24 @@
 					count={LIKELY_COUNT}
 					note={likelyNote}
 					disabled={submitting}
-					fill={layout === 'page'}
 					onpick={(id) => void pickColor(id)}
-				/>
+				>
+					{#snippet aside()}
+						<PartBrickLinkColors
+							palette={colors}
+							items={soldItems}
+							{guessColorId}
+							{likelyIds}
+							value={myColorId}
+							updatedAt={likely?.updated_at ?? null}
+							source={likely?.source ?? 'none'}
+							loading={likely == null && likelyError == null}
+							error={likelyError}
+							disabled={submitting}
+							onpick={(id) => void pickColor(id)}
+						/>
+					{/snippet}
+				</ColorChoice>
 			{/key}
 		</div>
 	</Panel>
@@ -1123,55 +1198,8 @@
 	{/if}
 {/snippet}
 
-<!-- For reference: this machine's labeled colors (what is true here) and the
-     part's colors on BrickLink (what exists at all) -->
-{#snippet referenceCols()}
-	{#if detail}
-		<div class="flex flex-col gap-(--gap-panels) {layout === 'page' ? 'sm:flex-row' : ''}">
-			<div class="min-w-0 flex-1 {layout === 'page' ? 'lg:overflow-y-auto' : ''}">
-				<MachineLabeledPieces {machineId} {pieceUuid} />
-			</div>
-			<div class="min-w-0 flex-1 {layout === 'page' ? 'lg:overflow-y-auto' : ''}">
-				<PartBrickLinkColors
-					palette={colors}
-					items={soldItems}
-					{guessColorId}
-					{likelyIds}
-					partName={myPart?.name ?? detail.part.part_name}
-					itemNo={likely?.item_no ?? null}
-					updatedAt={likely?.updated_at ?? null}
-					source={likely?.source ?? 'none'}
-					loading={likely == null && likelyError == null}
-					error={likelyError}
-				/>
-			</div>
-		</div>
-	{/if}
-{/snippet}
-
-{#snippet directions()}
-	<Panel title="How to label a piece">
-		<ol class="flex list-decimal flex-col gap-2 pl-5 text-sm text-ink">
-			<li>Judge the piece's true color from the crops of <span class="font-medium">both channels</span>.</li>
-			<li>Pick the color in the column. If you can tell it, that is enough: you can skip the same-piece step.</li>
-			<li>
-				Under <span class="font-medium">True part</span>, confirm the mold the machine guessed or search the catalog for the right
-				one. If the piece came back unidentified, search for what it is.
-			</li>
-			<li>
-				Under <span class="font-medium">Same piece across channels</span>, keep or add the earlier crops of this same piece. Skip
-				it if the piece's own box already shows all of it.
-			</li>
-			<li>
-				Try to do both for each piece. If you can't tell the color, or can't find the piece in the earlier pictures, do the half
-				you are sure of and go on.
-			</li>
-		</ol>
-	</Panel>
-{/snippet}
-
 <div class="flex flex-col gap-(--gap-panels)">
-	{@render header()}
+	{@render bar()}
 
 	{#if error}<Alert tone="danger">{error}</Alert>{/if}
 
@@ -1180,37 +1208,12 @@
 	{:else if !detail}
 		<Panel><EmptyState title="Piece not found" /></Panel>
 	{:else}
-		{@render summaryBar()}
-
-		{#if layout === 'page'}
-			<!-- The wide page: reference, then the piece, then the color and part column -->
-			<div class="flex flex-col gap-(--gap-panels) lg:flex-row lg:items-start">
-				<aside
-					class="flex shrink-0 flex-col gap-(--gap-panels) sm:flex-row lg:sticky lg:top-[calc(var(--size-topbar)+1rem)] lg:h-[calc(100dvh-var(--size-topbar)-2rem)] lg:w-[26rem]"
-				>
-					{@render referenceCols()}
-				</aside>
-				<div class="flex min-w-0 flex-col gap-(--gap-panels) lg:flex-1">
-					{@render pieceCard()}
-					{@render cropsCard()}
-				</div>
-				<div
-					class="flex flex-col gap-(--gap-panels) lg:sticky lg:top-[calc(var(--size-topbar)+1rem)] lg:max-h-[calc(100dvh-var(--size-topbar)-2rem)] lg:w-96"
-				>
-					{@render partPicker()}
-					{@render colorPicker()}
-					{@render brickognizeCard()}
-				</div>
-			</div>
-			{@render directions()}
-		{:else}
-			<!-- The pane beside the list: one column -->
-			{@render pieceCard()}
-			{@render colorPicker()}
-			{@render partPicker()}
-			{@render cropsCard()}
-			{@render brickognizeCard()}
-			{@render referenceCols()}
-		{/if}
+		{@render pieceCard()}
+		{@render colorPicker()}
+		{@render partPicker()}
+		{@render cropsCard()}
+		{@render brickognizeCard()}
+		<!-- For reference: this machine's labeled colors, what is true here -->
+		<MachineLabeledPieces {machineId} {pieceUuid} />
 	{/if}
 </div>

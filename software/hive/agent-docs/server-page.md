@@ -22,8 +22,9 @@ outermost middleware and its time is the whole of the request.
   took 2 s or longer, the total and longest time, the time in database
   queries, and a latency histogram of 68 bins, each 20% wider than the one
   before, from 1 ms to about three minutes. Memory stays the same however many
-  requests arrive. p50, p90 and p99 are read off the merged histogram, within
-  about 10% of the exact values.
+  requests arrive: about 40 KB for a route seen every minute of the hour.
+  p50, p90 and p99 are read off the merged histogram, within about 10% of the
+  exact values.
 - **Database time** comes from SQLAlchemy's cursor events on every engine: each
   query adds its time to a timer the middleware keeps in a context variable.
   The threadpool copies the context, so a sync endpoint's queries count, and a

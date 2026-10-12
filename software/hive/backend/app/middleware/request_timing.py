@@ -307,14 +307,17 @@ _current: ContextVar[_RequestTimer | None] = ContextVar("request_timer", default
 
 def _before_cursor_execute(conn, cursor, statement, parameters, context, executemany) -> None:
     if context is not None and _current.get() is not None:
-        context._request_timing_started = time.perf_counter()
+        try:
+            context._request_timing_started = time.perf_counter()
+        except AttributeError:  # a context that takes no attributes goes untimed
+            pass
 
 
 def _query_ended(context) -> None:
     started = getattr(context, "_request_timing_started", None) if context is not None else None
     if started is None:
         return
-    context._request_timing_started = None
+    context._request_timing_started = None  # counted once, even if an error follows
     timer = _current.get()
     if timer is not None:
         timer.db_s += time.perf_counter() - started
@@ -386,17 +389,24 @@ class RequestTimingMiddleware:
         finally:
             total_ms = (time.perf_counter() - started) * 1000.0
             _current.reset(reset)
-            # FastAPI leaves the route it matched in the scope.
-            route = getattr(scope.get("route"), "path", None) or NO_ROUTE
-            db_ms = timer.db_s * 1000.0
-            self.stats.end(token, method, route, status, total_ms, db_ms)
-            if total_ms >= self.stats.slow_ms:
-                log.warning(
-                    "slow request: %s %s answered %d in %.0f ms, %.0f ms of it in %d database queries",
-                    method,
-                    route,
-                    status,
-                    total_ms,
-                    db_ms,
-                    timer.queries,
-                )
+            try:
+                self._note(scope, token, method, status, total_ms, timer)
+            except Exception:
+                # Measuring must never be why a request fails.
+                log.exception("request timing: could not record a request")
+
+    def _note(self, scope, token: int, method: str, status: int, total_ms: float, timer: _RequestTimer) -> None:
+        # FastAPI leaves the route it matched in the scope.
+        route = getattr(scope.get("route"), "path", None) or NO_ROUTE
+        db_ms = timer.db_s * 1000.0
+        self.stats.end(token, method, route, status, total_ms, db_ms)
+        if total_ms >= self.stats.slow_ms:
+            log.warning(
+                "slow request: %s %s answered %d in %.0f ms, %.0f ms of it in %d database queries",
+                method,
+                route,
+                status,
+                total_ms,
+                db_ms,
+                timer.queries,
+            )

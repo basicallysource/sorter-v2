@@ -1,20 +1,17 @@
 <script lang="ts">
 	// One live camera, drawn on a canvas: its newest frame and, when asked,
-	// what perception found on it (`boxes`), the zones perception works with
-	// (`zones`), and the dashboard's crop to the channel (`cropped`). The
-	// backend sends the pixels and these as data apart (lib/video.ts), so a
-	// layer shown or hidden is only a redraw, and the zones drawn are the ones
-	// perception used for that very frame. The caller gives the canvas its
-	// size; `shape` is the size of what it shows, in frame pixels, for a box
-	// that should hug it. `stale` turns true when no frame has come for
-	// STALE_MS.
+	// what perception found on it (`boxes`) and the zones perception works
+	// with (`zones`). The backend sends the pixels and these as data apart
+	// (lib/video.ts), so a layer shown or hidden is only a redraw, and the
+	// zones drawn are the ones perception used for that very frame. The caller
+	// gives the canvas its size; `shape` is the frame's size, for a box that
+	// should hug it. `stale` turns true when no frame has come for STALE_MS.
 	import { onDestroy, untrack } from 'svelte';
 	import { getBackendHttpBase, machineHttpBaseUrlFromWsUrl } from '$lib/backend';
 	import { getMachineContext } from '$lib/machines/context';
 	import {
 		watchVideo,
 		type FeedBox,
-		type FeedCrop,
 		type FeedFrame,
 		type FeedLayout,
 		type FeedZones,
@@ -43,8 +40,6 @@
 		seen: 'rgb(0 255 255)',
 		margin: 'rgb(160 160 160)'
 	};
-	// Around a cropped channel, where the camera is not.
-	const CROP_BACKDROP = 'rgb(230 230 230)';
 	const LABEL_PX = 11;
 
 	type Size = { width: number; height: number };
@@ -55,7 +50,6 @@
 		alt,
 		boxes = false,
 		zones = false,
-		cropped = false,
 		fit = 'contain',
 		class: className = '',
 		style = '',
@@ -68,7 +62,6 @@
 		alt: string;
 		boxes?: boolean;
 		zones?: boolean;
-		cropped?: boolean;
 		fit?: 'contain' | 'cover';
 		class?: string;
 		style?: string;
@@ -150,7 +143,7 @@
 	});
 
 	$effect(() => {
-		void [boxes, zones, cropped, fit];
+		void [boxes, zones, fit];
 		untrack(draw);
 	});
 
@@ -165,37 +158,6 @@
 		bitmap?.close();
 		bitmap = null;
 	});
-
-	/** The crop's box in frame pixels, as the backend's crop was: the
-	 * polygons' bounding box, turned about its middle into a box that holds
-	 * all of it. */
-	function cropBox(crop: FeedCrop, width: number, height: number) {
-		let [left, top, right, bottom] = [Infinity, Infinity, -Infinity, -Infinity];
-		for (const ring of crop.polygons) {
-			for (let i = 0; i + 1 < ring.length; i += 2) {
-				left = Math.min(left, ring[i] * width);
-				right = Math.max(right, ring[i] * width);
-				top = Math.min(top, ring[i + 1] * height);
-				bottom = Math.max(bottom, ring[i + 1] * height);
-			}
-		}
-		const x1 = Math.max(0, Math.floor(left));
-		const y1 = Math.max(0, Math.floor(top));
-		const x2 = Math.min(width, Math.ceil(right));
-		const y2 = Math.min(height, Math.ceil(bottom));
-		if (!(x2 > x1 && y2 > y1)) return null;
-		const [w, h] = [x2 - x1, y2 - y1];
-		const rotation = Math.abs(crop.rotation) >= 0.01 ? crop.rotation : 0;
-		const cos = Math.abs(Math.cos((rotation * Math.PI) / 180));
-		const sin = Math.abs(Math.sin((rotation * Math.PI) / 180));
-		return {
-			centerX: x1 + w / 2,
-			centerY: y1 + h / 2,
-			width: rotation ? Math.ceil(h * sin + w * cos) : w,
-			height: rotation ? Math.ceil(h * cos + w * sin) : h,
-			rotation
-		};
-	}
 
 	function trace(g: CanvasRenderingContext2D, rings: Ring[], width: number, height: number) {
 		g.beginPath();
@@ -282,47 +244,30 @@
 	function draw() {
 		if (!canvas || !bitmap) return;
 		const [width, height] = [bitmap.width, bitmap.height];
-		const crop = cropped && layout?.crop ? cropBox(layout.crop, width, height) : null;
-		const shown = crop ?? { width, height };
-		if (shape?.width !== shown.width || shape?.height !== shown.height) {
-			shape = { width: shown.width, height: shown.height };
-		}
+		if (shape?.width !== width || shape?.height !== height) shape = { width, height };
 		// The canvas holds what it shows at the size it is shown, in device
 		// pixels, so lines and labels stay sharp; object-fit places it.
 		const [boxWidth, boxHeight] = [canvas.clientWidth, canvas.clientHeight];
 		if (!boxWidth || !boxHeight) return;
 		const pick = fit === 'cover' ? Math.max : Math.min;
-		const cssScale = pick(boxWidth / shown.width, boxHeight / shown.height);
+		const cssScale = pick(boxWidth / width, boxHeight / height);
 		const scale = Math.min(
 			cssScale * (window.devicePixelRatio || 1),
-			4096 / Math.max(shown.width, shown.height)
+			4096 / Math.max(width, height)
 		);
-		const backingWidth = Math.max(1, Math.round(shown.width * scale));
-		const backingHeight = Math.max(1, Math.round(shown.height * scale));
+		const backingWidth = Math.max(1, Math.round(width * scale));
+		const backingHeight = Math.max(1, Math.round(height * scale));
 		if (canvas.width !== backingWidth) canvas.width = backingWidth;
 		if (canvas.height !== backingHeight) canvas.height = backingHeight;
 		const g = canvas.getContext('2d');
 		if (!g) return;
-		g.clearRect(0, 0, backingWidth, backingHeight);
-		// Each draw starts from a clean state and puts it back, so the crop's
-		// clip and turn never carry over to the next.
-		g.save();
-		g.setTransform(backingWidth / shown.width, 0, 0, backingHeight / shown.height, 0, 0);
+		g.setTransform(backingWidth / width, 0, 0, backingHeight / height, 0, 0);
+		g.clearRect(0, 0, width, height);
 		// One CSS pixel, in frame pixels.
 		const px = 1 / cssScale;
-		if (crop && layout?.crop) {
-			g.fillStyle = CROP_BACKDROP;
-			g.fillRect(0, 0, shown.width, shown.height);
-			g.translate(shown.width / 2, shown.height / 2);
-			g.rotate((-crop.rotation * Math.PI) / 180);
-			g.translate(-crop.centerX, -crop.centerY);
-			trace(g, layout.crop.polygons, width, height);
-			g.clip();
-		}
 		g.drawImage(bitmap, 0, 0, width, height);
 		if (zones && layout?.zones) drawZones(g, layout.zones, width, height, px);
 		if (boxes && found) drawBoxes(g, found, width, height, px);
-		g.restore();
 	}
 </script>
 

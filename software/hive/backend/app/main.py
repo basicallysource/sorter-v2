@@ -21,6 +21,7 @@ from app.errors import (
     unhandled_exception_handler,
 )
 from app.logging_config import configure_app_logging
+from app.middleware.request_timing import RequestTimingMiddleware
 from app.rate_limiting import rate_limit_exceeded_handler
 from app.routers import (
     admin,
@@ -93,6 +94,7 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+app.add_middleware(RequestTimingMiddleware)  # added last, so outermost: app/middleware/request_timing.py
 
 app.add_exception_handler(APIError, api_error_handler)
 app.add_exception_handler(HTTPException, http_exception_handler)

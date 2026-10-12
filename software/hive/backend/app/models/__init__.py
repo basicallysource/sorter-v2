@@ -64,3 +64,5 @@ from app.models.telemetry_limits import TelemetryLimits  # noqa: E402, F401
 from app.models.job import Job  # noqa: E402, F401
 from app.models.swatch_model import SwatchModel  # noqa: E402, F401
 from app.models.sample_swatch import SampleSwatch, SampleSwatchRun  # noqa: E402, F401
+from app.models.labeling_queue import LabelingQueueCount, LabelingQueueEntry, LabelingQueueState  # noqa: E402, F401
+from app.models.piece_model_output import PieceColorGuess, PieceLinkScore  # noqa: E402, F401

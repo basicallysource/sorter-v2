@@ -60,9 +60,10 @@
 	let view = $state<ViewMode>(initialView);
 	let items = $state<ColorLabelPieceCard[]>([]);
 	let hasMore = $state(true);
-	let offset = 0;
-	// Guards against duplicate keys — offset paging over a shifting/ties-heavy
-	// order can re-return a piece, which would crash the keyed {#each}.
+	// Where the next page starts: the server's cursor after the last page.
+	let cursor: string | null = null;
+	// Guards the keyed {#each} against a piece served twice (a page fetched
+	// again after a reload of the list).
 	let seenKeys = new Set<string>();
 
 	// The piece open in the right-hand labeling pane (a key, so a shared URL can
@@ -147,15 +148,15 @@
 		error = null;
 		items = [];
 		seenKeys = new Set();
-		offset = 0;
+		cursor = null;
 		hasMore = true;
 		try {
 			const [s, res] = await Promise.all([
 				api.colorLabelStats({ machineId }),
-				api.colorLabelPieces({ sort, machineId, withCandidates, limit: BATCH, offset: 0 })
+				api.colorLabelPieces({ sort, machineId, withCandidates, limit: BATCH })
 			]);
 			stats = s;
-			offset = res.items.length;
+			cursor = res.next_cursor;
 			hasMore = res.has_more;
 			for (const c of res.items) {
 				if (!seenKeys.has(cardKey(c))) {
@@ -179,9 +180,9 @@
 				machineId,
 				withCandidates,
 				limit: BATCH,
-				offset
+				cursor
 			});
-			offset += res.items.length;
+			cursor = res.next_cursor;
 			hasMore = res.has_more;
 			const fresh = res.items.filter((c) => !seenKeys.has(cardKey(c)));
 			for (const c of fresh) seenKeys.add(cardKey(c));

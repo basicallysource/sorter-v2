@@ -223,6 +223,38 @@ def scope_to_piece_access(db: Session, query, user: User, machine_col, piece_uui
     return query.filter(owned)
 
 
+@dataclass(frozen=True)
+class PieceScope:
+    """The same rules as ``scope_to_piece_access``, as parts, for a caller that
+    sums per-machine numbers instead of filtering rows.
+
+    ``machine_ids`` is an API key's whitelist (None when there is none),
+    ``unrestricted`` is an admin, ``owned`` selects the user's machine ids and
+    ``window_keys`` selects the (machine_id, piece_uuid) of a reviewer's window
+    (None for everyone else)."""
+
+    machine_ids: list[uuid.UUID] | None
+    unrestricted: bool
+    owned: object
+    window_keys: object | None
+
+
+def piece_scope(db: Session, user: User) -> PieceScope:
+    constraint = _key_machine_constraint(user)
+    machine_ids = _constraint_uuids(constraint) if constraint is not None else None
+    window_keys = None
+    if user.role == "reviewer":
+        win = resolve_window(db, "reviewer", ENTITY_PIECE)
+        if win is not None and win.size > 0:
+            window_keys = _piece_window_key_select(win)
+    return PieceScope(
+        machine_ids=machine_ids,
+        unrestricted=is_unrestricted(user.role),
+        owned=_owned_machine_ids(user),
+        window_keys=window_keys,
+    )
+
+
 def piece_access_visible(db: Session, user: User, piece: MachinePiece) -> bool:
     constraint = _key_machine_constraint(user)
     if constraint is not None and str(piece.machine_id) not in constraint:

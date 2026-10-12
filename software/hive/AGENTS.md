@@ -23,6 +23,10 @@ in [`agent-docs/`](agent-docs/):
 - [`agent-docs/piece-data.md`](agent-docs/piece-data.md) — piece data from
   sorters: the sync endpoints and their cursor rule, where each kind lands,
   whose verdict lives where, and the views and tables to train from.
+- [`agent-docs/labeling-queue.md`](agent-docs/labeling-queue.md) — how the
+  labeling page stays fast: the labeling queue and its worker, the grid's sort
+  segments and cursor paging, the per-piece results kept instead of recomputed,
+  and the rule that no request scans the fleet.
 
 > **⚠️ These docs are only useful if they match the code.**
 > If you change anything the docs describe — auth flows, credential types,

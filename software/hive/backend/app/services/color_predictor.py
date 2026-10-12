@@ -6,7 +6,7 @@ is self-describing: a ``hive.*`` metadata block (baked in at export time) carrie
 the display name, input size, preprocess recipe, and the class-index → BrickLink
 color-id map, so a dir scan needs no sidecar files.
 
-Prediction path (per piece): read up to N crops from storage, resize to the model's
+Prediction path (per piece): take up to N crops' bytes, resize to the model's
 input size, scale to [0,1] (mean/std normalization is baked into the graph), run the
 session, average the per-crop softmax, and map argmax → BrickLink color. Cheap: one
 indexed DB lookup for the active row plus a cached session; no dir scan.
@@ -31,11 +31,9 @@ from sqlalchemy.orm import Session
 from app.config import settings
 from app.models.color_model import ColorModel
 from app.services.profile_catalog import get_profile_catalog_service
-from app.services.storage_backend import get_backend
 
 log = logging.getLogger(__name__)
 
-MAX_SAMPLES = 5
 MAX_PREDICT_IMAGES = 8
 _HIVE_KIND = "color_classifier"
 # camera channel number -> embedding index the multiview models were trained with
@@ -269,51 +267,6 @@ def _run_model(loaded: _Loaded, batch: list[np.ndarray], channels: list[int]) ->
     probs = np.exp(logits)
     probs /= probs.sum(axis=1, keepdims=True)
     return probs.mean(axis=0)
-
-
-def predict(db: Session, images: list) -> dict[str, Any] | None:
-    """Model color prediction for one piece's crops, or None when no model is
-    active / the model can't be loaded / no crop is readable."""
-    row = get_active(db)
-    if row is None:
-        return None
-    loaded = _load(row)
-    if loaded is None:
-        return None
-
-    with_key = [im for im in images if getattr(im, "image_key", None)]
-    used = [im for im in with_key if getattr(im, "used", False)]
-    chosen = (used or with_key)[:MAX_SAMPLES]
-
-    batch: list[np.ndarray] = []
-    channels: list[int] = []
-    for im in chosen:
-        try:
-            data = get_backend().read_bytes(im.image_key)
-        except Exception:
-            continue
-        arr = _preprocess(data, loaded.input_size)
-        if arr is not None:
-            batch.append(arr)
-            channels.append(getattr(im, "channel", None) or 4)
-    if not batch:
-        return None
-
-    mean_probs = _run_model(loaded, batch, channels)
-    idx = int(np.argmax(mean_probs))
-    if idx >= len(loaded.class_ids):
-        return None
-    color_id = loaded.class_ids[idx]
-    color = _palette().get(color_id)
-    return {
-        "method": "color_model",
-        "model_name": row.name,
-        "color_id": color_id,
-        "color_name": color["name"] if color else None,
-        "rgb": (color.get("rgb") or "").replace("#", "") if color else None,
-        "confidence": float(mean_probs[idx]),
-        "sample_count": len(batch),
-    }
 
 
 def predict_bytes(db: Session, images: list[bytes], channels: list[int]) -> dict[str, Any] | None:

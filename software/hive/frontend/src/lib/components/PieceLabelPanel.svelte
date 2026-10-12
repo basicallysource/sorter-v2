@@ -5,6 +5,7 @@
 </script>
 
 <script lang="ts">
+	import { untrack } from 'svelte';
 	import {
 		api,
 		IMAGE_QUALITY_REASONS,
@@ -112,6 +113,9 @@
 	// action is open to admins or anyone with their own OpenRouter key on file.
 	let predictionSource = $state<'ai' | 'model' | 'heuristic'>('heuristic');
 	let linkModel = $state<string | null>(null); // active link model name when source === 'model'
+	let linkThreshold = $state<number | null>(null); // the score the link model picks at
+	// The ticks are this labeler's saved selection, not the prediction's picks.
+	let ticksAreSaved = $state(false);
 	let aiReasoning = $state<string | null>(null);
 	let aiRunning = $state(false);
 	const canRunAi = $derived(auth.isAdmin || auth.user?.openrouter_configured === true);
@@ -281,7 +285,14 @@
 			: fallback;
 	}
 
+	// Only the newest load may write the panel's state: an answer that arrives
+	// after another load started (another piece, or this one again) is dropped,
+	// so it can never overwrite what the labeler has done since.
+	let loadToken = 0;
+
 	async function load(mid: string, puid: string, k: string) {
+		const token = ++loadToken;
+		const current = () => token === loadToken && pieceKey === k;
 		loading = true;
 		error = null;
 		try {
@@ -290,7 +301,7 @@
 				api.colorLabelPieceDetail(mid, puid),
 				api.possibleCrops(mid, puid)
 			]);
-			if (pieceKey !== k) return; // props changed mid-load
+			if (!current()) return;
 			detail = d;
 			myColorId = d.my_label?.color_id ?? null;
 			cantTell = d.my_label?.cant_tell ?? false;
@@ -304,9 +315,9 @@
 			feedback = null;
 			applyCrops(crops);
 		} catch (e: unknown) {
-			if (pieceKey === k) error = errMsg(e, 'Failed to load piece');
+			if (current()) error = errMsg(e, 'Failed to load piece');
 		} finally {
-			if (pieceKey === k) loading = false;
+			if (current()) loading = false;
 		}
 	}
 
@@ -323,6 +334,14 @@
 
 	const SOURCE_PICK_LABEL = { ai: 'AI', model: 'model', heuristic: 'heuristic' } as const;
 
+	// What the pre-selection came from, with the number the link model picks at.
+	const pickSourceText = $derived.by(() => {
+		if (predictionSource === 'ai') return 'a vision model';
+		if (predictionSource === 'heuristic') return 'the time and angle guess';
+		const name = linkModel ? `the link model (${linkModel})` : 'the link model';
+		return linkThreshold != null ? `${name}, at a score of ${linkThreshold.toFixed(2)} or more` : name;
+	});
+
 	// Load a possible-crops result into state. If the user already saved a
 	// selection, restore it; otherwise pre-select the active source's picks — the
 	// AI's stored prediction, else the link model's scores, else the heuristic.
@@ -332,6 +351,7 @@
 		cropDirty = false;
 		predictionSource = crops.prediction_source;
 		linkModel = crops.link_model;
+		linkThreshold = crops.link_threshold;
 		aiReasoning = crops.ai_reasoning;
 		const savedPos = crops.my_link.filter((m) => m.is_same).map((m) => m.local_id);
 		// A just-run AI prediction overrides the saved selection in the UI so the
@@ -340,12 +360,14 @@
 			const present = new Set(crops.candidates.map((c) => c.local_id));
 			cropSelected = new Set(savedPos.filter((id) => present.has(id)));
 			cropSaved = true;
+			ticksAreSaved = true;
 		} else {
 			const source = preferAi ? 'ai' : crops.prediction_source;
 			cropSelected = new Set(
 				crops.candidates.filter((c) => isPredictionPick(c, source)).map((c) => c.local_id)
 			);
 			cropSaved = crops.my_link.length > 0;
+			ticksAreSaved = false;
 		}
 	}
 
@@ -745,12 +767,14 @@
 		}
 	}
 
-	// Reload whenever the target piece changes.
+	// Reload whenever the target piece changes, and only then: load() reads
+	// state (colors) that it also writes, and an effect tracking that state would
+	// run it a second time for the same piece.
 	$effect(() => {
 		const mid = machineId;
 		const puid = pieceUuid;
 		if (!mid || !puid) return;
-		void load(mid, puid, `${mid}|${puid}`);
+		untrack(() => void load(mid, puid, `${mid}|${puid}`));
 	});
 </script>
 
@@ -870,7 +894,7 @@
 				{#each detail.images as img (img.seq)}
 					<div class="relative">
 						<ZoomImage
-							src={api.colorLabelImageUrl(machineId, pieceUuid, img.seq)}
+							src={img.url ?? api.colorLabelImageUrl(machineId, pieceUuid, img.seq)}
 							alt={`Crop ${img.seq}`}
 							title={`Crop ${img.seq}${img.source ? `, ${img.source}` : ''}`}
 							class="size-28 rounded-item object-contain"
@@ -949,10 +973,12 @@
 			>
 		</div>
 		<p class="mb-3 flex items-center gap-1.5 text-sm text-ink-muted">
-			{#if predictionSource === 'ai'}
+			{#if ticksAreSaved}
+				<Check size={14} class="shrink-0" />Your saved choice is ticked. Sparkles show the picks from {pickSourceText}.
+			{:else if predictionSource === 'ai'}
 				<Sparkles size={14} class="shrink-0 text-info-ink" />Picks from a vision model{aiReasoning ? `: ${aiReasoning}` : '.'}
 			{:else if predictionSource === 'model'}
-				<Sparkles size={14} class="shrink-0 text-info-ink" />Picks from the link model{linkModel ? ` (${linkModel})` : ''}.{canRunAi
+				<Sparkles size={14} class="shrink-0 text-info-ink" />Picks from {pickSourceText}.{canRunAi
 					? ' Run AI for a vision model\'s guess.'
 					: ''}
 			{:else}
@@ -980,7 +1006,7 @@
 							class="flex flex-col items-center gap-1 rounded-item p-1 {selected ? 'bg-primary-soft' : 'bg-well opacity-70 hover:opacity-100'}"
 						>
 							{#if c.available}
-								<img src={api.channelCropLabelImageUrl(machineId, c.local_id)} alt={`Crop ${c.local_id}`} loading="lazy" class="size-16 rounded-item object-contain" />
+								<img src={c.thumb_url ?? api.channelCropLabelImageUrl(machineId, c.local_id)} alt={`Crop ${c.local_id}`} loading="lazy" class="size-16 rounded-item object-contain" />
 							{:else}
 								<div class="flex size-16 items-center justify-center text-sm text-ink-faint">Gone</div>
 							{/if}

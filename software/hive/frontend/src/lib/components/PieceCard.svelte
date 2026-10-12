@@ -22,7 +22,7 @@
 		<div class="relative flex aspect-square items-center justify-center {card.thumb_seq != null ? '' : 'bg-well'}">
 			{#if card.thumb_seq != null}
 				<img
-					src={api.colorLabelImageUrl(card.machine_id, card.piece_uuid, card.thumb_seq)}
+					src={card.thumb_url ?? api.colorLabelImageUrl(card.machine_id, card.piece_uuid, card.thumb_seq)}
 					alt={card.part.part_name ?? 'piece'}
 					loading="lazy"
 					class="absolute inset-0 size-full object-contain"

@@ -17,7 +17,25 @@ engine = create_engine(
     # the browser retries, so without this a pathological query keeps executing
     # per retry and they pile up until Postgres starves (2026-07-16). Workers
     # that legitimately run longer must opt out per-connection
-    # (SET statement_timeout = 0 — see candidate_matview).
+    # (SET statement_timeout = 0).
     connect_args={"options": "-c statement_timeout=60000"},
 )
 SessionLocal = sessionmaker(bind=engine, autoflush=False, expire_on_commit=False)
+
+
+def tune_for_aggregates(db, work_mem: str = "32MB") -> None:
+    """Planner settings for the current transaction of a handler or worker pass
+    that still sorts or aggregates.
+
+    The server default work_mem (4 MB) makes a sort of a few hundred thousand
+    rows spill to temp files on disk, and JIT compiles every plan whose cost
+    estimate is high, which adds a fraction of a second to queries that finish
+    in milliseconds. SET LOCAL ends with the transaction, so nothing leaks into
+    the pooled connection's next user. A no-op off Postgres (the tests).
+    """
+    if db.get_bind().dialect.name != "postgresql":
+        return
+    from sqlalchemy import text
+
+    db.execute(text(f"SET LOCAL work_mem = '{work_mem}'"))
+    db.execute(text("SET LOCAL jit = off"))

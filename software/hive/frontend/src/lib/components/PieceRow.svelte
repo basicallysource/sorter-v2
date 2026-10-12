@@ -24,7 +24,7 @@
 	<div class="flex size-10 shrink-0 items-center justify-center rounded-item {card.thumb_seq != null ? '' : 'bg-well'}">
 		{#if card.thumb_seq != null}
 			<img
-				src={api.colorLabelImageUrl(card.machine_id, card.piece_uuid, card.thumb_seq)}
+				src={card.thumb_url ?? api.colorLabelImageUrl(card.machine_id, card.piece_uuid, card.thumb_seq)}
 				alt={card.part.part_name ?? 'piece'}
 				loading="lazy"
 				class="size-10 object-contain"

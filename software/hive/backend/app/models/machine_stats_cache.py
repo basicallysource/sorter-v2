@@ -51,6 +51,12 @@ class MachineStatsCache(Base):
     # Sample-derived (see samples / upload_sessions / machine_set_progress).
     total_samples = Column(Integer, nullable=False, default=0)
     accepted_samples = Column(Integer, nullable=False, default=0)
+    # The other review states, so the dashboard's sample tiles are a sum over
+    # these rows instead of a count over the samples table per request.
+    unreviewed_samples = Column(Integer, nullable=False, default=0)
+    in_review_samples = Column(Integer, nullable=False, default=0)
+    rejected_samples = Column(Integer, nullable=False, default=0)
+    conflict_samples = Column(Integer, nullable=False, default=0)
     first_capture = Column(DateTime(timezone=True), nullable=True)
     last_capture = Column(DateTime(timezone=True), nullable=True)
     total_sessions = Column(Integer, nullable=False, default=0)

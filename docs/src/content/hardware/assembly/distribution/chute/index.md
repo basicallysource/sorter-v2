@@ -9,7 +9,7 @@ lede: The rotating chute that aims parts at the correct bin.
 permalink: /hardware/assembly/distribution/chute/
 author: spencer
 contributors: [alex, brickcyclealice, barthel, zed0]
-og_image: https://assets.basically.website/sorter-docs/chute-v3-assembled-window-full-d628d6d4a1bc.png
+og_image: https://assets.basically.website/sorter-docs/chute-v3-assembled-window-full-405b3627325a.png
 warning: >-
   **AI-generated first draft.** Written from the 3D parts of the inverted chute, not from an actual
   build. Where a page says which hole takes which screw, that is read off the part geometry and is
@@ -18,10 +18,16 @@ warning: >-
   are not the parts you print any more, so every picture is a render.
 ---
 
-<figure class="figure-float-right">
-  <img src="https://assets.basically.website/sorter-docs/chute-v3-assembled-window-full-d628d6d4a1bc.png" alt="Render of one assembled chute seen from the opening side: the grey core standing upright, the yellow layer connectors on its top, the green funnel brackets running down to a tan funnel, and the door module low on the core">
-  <figcaption>One finished chute, with the third-size funnel. <cite>Rendered from the part geometry, not from a build. Render: Balloon.</cite></figcaption>
-</figure>
+<div class="img-row">
+  <figure>
+    <img class="doc-figure" src="https://assets.basically.website/sorter-docs/chute-v3-assembled-window-full-405b3627325a.png" alt="Render of one assembled chute seen from the opening side: the grey core standing upright, the yellow layer connectors on its walls near the top, the green funnel brackets running down to a tan funnel, and the door module low on the core">
+    <figcaption>One finished chute with the third-size funnel, seen from the opening side. <cite>Rendered from the part geometry, not from a build. Render: Balloon.</cite></figcaption>
+  </figure>
+  <figure>
+    <img class="doc-figure" src="https://assets.basically.website/sorter-docs/chute-v3-assembled-servo-side-full-0e51cf1d8d57.png" alt="Render of the same assembled chute seen from the servo side: the MG995 in its blue bracket on the side of the core next to the bearing cover, the green funnel bracket above it running to the tan funnel, and the yellow layer connectors on the core">
+    <figcaption>The same chute from the servo side. The servo itself has no model, so its bracket shows empty. <cite>Rendered from the part geometry, not from a build. Render: Balloon.</cite></figcaption>
+  </figure>
+</div>
 
 The chute is one per layer. Build the core first, since everything else bolts into its heat inserts.
 
@@ -61,9 +67,6 @@ The [bottom interface]({{ '/hardware/assembly/distribution/bin-frame/bottom-inte
 
 ## The finished result
 
-<figure class="single-figure">
-  <img class="doc-figure" src="https://assets.basically.website/sorter-docs/chute-v3-assembled-servo-side-full-e6bd1123b593.png" alt="Render of one assembled chute seen from the servo side: the MG995 in its blue bracket on the side of the core next to the bearing cover, the green funnel bracket above it running to the tan funnel, and the yellow layer connectors on top of the core">
-  <figcaption>A finished chute from the servo side. The servo itself has no model, so its bracket shows empty. <cite>Rendered from the part geometry, not from a build. Render: Balloon.</cite></figcaption>
-</figure>
+The chute is finished when every part above is on the core, as in the two pictures at the top of the page. Repeat for every layer.
 
 <div class="img-placeholder">Photo of a standing frame with the top interface on and a chute in every layer, no bins in it, so the chute stack is visible.</div>

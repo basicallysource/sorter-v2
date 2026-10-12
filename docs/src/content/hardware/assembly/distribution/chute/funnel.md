@@ -6,7 +6,7 @@ section: hardware
 slug: assembly-funnel
 kicker: Chute — Funnel brackets
 lede: The two brackets that bolt to the chute core, and the funnel that slides into them.
-og_image: https://assets.basically.website/sorter-docs/chute-v3-funnel-seated-full-20b636c77729.png
+og_image: https://assets.basically.website/sorter-docs/chute-v3-funnel-seated-full-6c3cbbf31069.png
 permalink: /hardware/assembly/distribution/chute/funnel/
 author: spencer
 contributors: [barthel, brickcyclealice, zed0]
@@ -48,14 +48,19 @@ Each bracket is a long bar. **The end with the two round recesses goes against t
 
 <div class="img-row">
   <figure>
-    <img class="doc-figure" src="https://assets.basically.website/sorter-docs/chute-v3-funnel-brackets-exploded-plus-y-full-b9b9c6fc0f25.png" alt="Render of the servo side wall of the chute core with the right funnel bracket held away from it, two inserts ringed in red and lettered A on the wall where the bracket's two recessed holes line up">
-    <figcaption>The servo side: the two inserts the right bracket screws into (A), and the bracket held off the wall. <cite>Rendered from the part geometry, not from a build. Render: Balloon.</cite></figcaption>
+    <img class="doc-figure" src="https://assets.basically.website/sorter-docs/chute-v3-funnel-brackets-pockets-plus-y-full-b9602116c08f.png" alt="Render of the servo side wall of the chute core with two inserts ringed in red and lettered A on the sloping pad in the middle of the wall, where the right funnel bracket's two recessed holes line up">
+    <figcaption>The servo side wall: the two inserts the right bracket screws into (A). <cite>Rendered from the part geometry, not from a build. Render: Balloon.</cite></figcaption>
   </figure>
   <figure>
-    <img class="doc-figure" src="https://assets.basically.website/sorter-docs/chute-v3-funnel-brackets-exploded-minus-y-full-ec07a9e61982.png" alt="Render of the plain side wall of the chute core with the left funnel bracket held away from it, two inserts ringed in red and lettered A on the wall">
-    <figcaption>The plain side: the same two inserts for the left bracket. <cite>Rendered from the part geometry, not from a build. Render: Balloon.</cite></figcaption>
+    <img class="doc-figure" src="https://assets.basically.website/sorter-docs/chute-v3-funnel-brackets-pockets-minus-y-full-15da095df9c3.png" alt="Render of the plain side wall of the chute core with two inserts ringed in red and lettered A on the sloping pad in the middle of the wall">
+    <figcaption>The plain side wall: the same two inserts for the left bracket. <cite>Rendered from the part geometry, not from a build. Render: Balloon.</cite></figcaption>
   </figure>
 </div>
+
+<figure class="single-figure">
+  <img class="doc-figure" src="https://assets.basically.website/sorter-docs/chute-v3-funnel-brackets-seated-full-e09ba025e695.png" alt="Render of the chute core with both green funnel brackets bolted to its long walls, each running from the core's opening side down and out along the slope">
+  <figcaption>Both brackets on. The end with the round recesses is against the core. <cite>Rendered from the part geometry, not from a build. Render: Balloon.</cite></figcaption>
+</figure>
 
 {% include step.html n="2" title="Pick the funnel size for the layer" %}
 
@@ -75,11 +80,11 @@ Neither is cheaper to build, and neither holds more.
 
 <div class="img-row">
   <figure>
-    <img class="doc-figure" src="https://assets.basically.website/sorter-docs/chute-v3-funnel-seated-full-20b636c77729.png" alt="Render of a chute core with the third-size funnel in place, a long funnel running away from the core's opening between the two green brackets">
+    <img class="doc-figure" src="https://assets.basically.website/sorter-docs/chute-v3-funnel-seated-full-6c3cbbf31069.png" alt="Render of a chute core with the third-size funnel in place, a long funnel running away from the core's opening between the two green brackets">
     <figcaption>Third size: 18 bins. <cite>Rendered from the part geometry, not from a build. Render: Balloon.</cite></figcaption>
   </figure>
   <figure>
-    <img class="doc-figure" src="https://assets.basically.website/sorter-docs/chute-v3-funnel-half-seated-full-d56c031fc6f0.png" alt="Render of a chute core with the half-size funnel in place, a shorter and wider funnel between the two green brackets">
+    <img class="doc-figure" src="https://assets.basically.website/sorter-docs/chute-v3-funnel-half-seated-full-2b4d99e22b7f.png" alt="Render of a chute core with the half-size funnel in place, a shorter and wider funnel between the two green brackets">
     <figcaption>Half size: 12 bins. <cite>Rendered from the part geometry, not from a build. Render: Balloon.</cite></figcaption>
   </figure>
 </div>
@@ -95,7 +100,7 @@ The calculator takes a size per layer and totals the print for whatever mix you 
 Both brackets are on the core from step 1, so there is nothing to fit first.
 
 <figure class="single-figure">
-  <img class="doc-figure" src="https://assets.basically.website/sorter-docs/chute-v3-funnel-exploded-full-cf88dcd54ef7.png" alt="Render of the chute core with the two green brackets on it and the tan funnel held out along the line of the brackets, ready to slide in towards the core">
+  <img class="doc-figure" src="https://assets.basically.website/sorter-docs/chute-v3-funnel-exploded-full-4d00b65a7664.png" alt="Render of the chute core with the two green brackets on it and the tan funnel held out along the line of the brackets, ready to slide in towards the core">
   <figcaption>The funnel, held out along the line of the brackets. It slides in from the free end of the brackets, towards the core. <cite>Rendered from the part geometry, not from a build. Render: Balloon.</cite></figcaption>
 </figure>
 
@@ -107,7 +112,7 @@ Both brackets are on the core from step 1, so there is nothing to fit first.
 </div>
 
 <figure class="single-figure">
-  <img class="doc-figure" src="https://assets.basically.website/sorter-docs/chute-v3-funnel-pocket-plus-y-full-40653619db12.png" alt="Render of the side of a funnel with its raised dovetail rail and one small round pocket ringed in red in the middle of the rail">
+  <img class="doc-figure" src="https://assets.basically.website/sorter-docs/chute-v3-funnel-pocket-plus-y-full-fc260a00ec9b.png" alt="Render of the side of a funnel with its raised dovetail rail and one small round pocket ringed in red in the middle of the rail">
   <figcaption>The pocket on one side of the funnel, inside the rail. The other side has the same. <cite>Rendered from the part geometry, not from a build. Render: Balloon.</cite></figcaption>
 </figure>
 
@@ -116,7 +121,7 @@ Both brackets are on the core from step 1, so there is nothing to fit first.
 Both brackets are bolted to the core, one on each long wall, and the funnel is slid in along them with its mouth against the core's opening.
 
 <figure class="single-figure">
-  <img class="doc-figure" src="https://assets.basically.website/sorter-docs/chute-v3-funnel-seated-full-20b636c77729.png" alt="Render of a chute core with both green funnel brackets bolted to its long walls and the tan funnel slid in along them, its mouth against the core's opening">
+  <img class="doc-figure" src="https://assets.basically.website/sorter-docs/chute-v3-funnel-seated-full-6c3cbbf31069.png" alt="Render of a chute core with both green funnel brackets bolted to its long walls and the tan funnel slid in along them, its mouth against the core's opening">
   <figcaption>Brackets bolted on and funnel home. <cite>Rendered from the part geometry, not from a build. Render: Balloon.</cite></figcaption>
 </figure>
 

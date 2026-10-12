@@ -9,7 +9,7 @@ lede: The rotating chute that aims parts at the correct bin.
 permalink: /hardware/assembly/distribution/chute/
 author: spencer
 contributors: [alex, brickcyclealice, barthel, zed0]
-og_image: https://assets.basically.website/sorter-docs/chute-v3-assembled-window-full-405b3627325a.png
+og_image: https://assets.basically.website/sorter-docs/chute-v3-stack-of-four-cad-full-fd5936d88689.png
 warning: >-
   **AI-generated first draft.** Written from the 3D parts of the inverted chute, not from an actual
   build. Where a page says which hole takes which screw, that is read off the part geometry and is
@@ -67,6 +67,9 @@ The [bottom interface]({{ '/hardware/assembly/distribution/bin-frame/bottom-inte
 
 ## The finished result
 
-The chute is finished when every part above is on the core, as in the two pictures at the top of the page. Repeat for every layer.
+<figure class="single-figure">
+  <img class="doc-figure" src="https://assets.basically.website/sorter-docs/chute-v3-stack-of-four-cad-full-fd5936d88689.png" alt="Side view of four chutes stacked in the CAD assembly: the layer adapter boards on the left with their black ribbon cables looping from one board to the next, the door module with its round bearing cover and the dark funnel brackets in the middle of each layer, and a funnel running down and out to the right from each">
+  <figcaption>Four chutes stacked, from the CAD assembly: the layer adapter boards and their ribbon loops on the left, the door modules and funnel brackets in the middle, a funnel to the right of each layer. <cite>Rendered from the part geometry, not from a build. Render: zed0.</cite></figcaption>
+</figure>
 
-<div class="img-placeholder">Photo of a standing frame with the top interface on and a chute in every layer, no bins in it, so the chute stack is visible.</div>
+The chute is finished when every part above is on the core, as in the pictures at the top of the page. Repeat for every layer.

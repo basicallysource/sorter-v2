@@ -514,6 +514,15 @@ class ProfileCatalogService:
             item["is_trans"] = bool(color.get("is_trans", False)) if color else False
         return result
 
+    def bricklink_known_colors(self, item_no: str) -> set[int]:
+        """The BrickLink colors the catalog lists this item in (BrickStore's
+        known colors; presence only, and sparse for modern colors)."""
+        with self._lock:
+            rows = self._conn.execute(
+                "SELECT bl_color_id FROM bricklink_item_colors WHERE item_no = ?", (item_no,)
+            ).fetchall()
+        return {int(row[0]) for row in rows}
+
     def import_bricklink_csv(self, csv_content: str, filename: str | None = None) -> dict[str, Any]:
         if not isinstance(csv_content, str) or not csv_content.strip():
             raise APIError(400, "CSV content is required", "PROFILE_CATALOG_CSV_EMPTY")

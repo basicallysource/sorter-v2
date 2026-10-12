@@ -64,6 +64,7 @@ _NUMERIC_FIELDS = (
     "total_sessions",
     "parts_found",
     "parts_needed",
+    "channel_crops",
 )
 _DATE_FIELDS = ("first_seen", "last_seen", "first_capture", "last_capture")
 
@@ -299,6 +300,31 @@ def _compute_sample_stats(db: Session, machine_ids: list[Any] | None = None) -> 
     return result
 
 
+def _compute_crop_counts(db: Session, machine_ids: list[Any]) -> dict[str, int]:
+    """Each machine's upstream channel crops, for the crops page's count: an
+    index-only count per machine, here so no request counts millions of rows."""
+    from app.models.machine_channel_crop import MachineChannelCrop
+
+    rows = (
+        db.query(MachineChannelCrop.machine_id, func.count())
+        .filter(MachineChannelCrop.machine_id.in_(machine_ids))
+        .group_by(MachineChannelCrop.machine_id)
+        .all()
+    )
+    return {str(mid): int(n) for mid, n in rows}
+
+
+def _compute_control_data(db: Session, machine_ids: list[Any]) -> dict[str, dict[str, Any]]:
+    """Each machine's control-data segments summed per combination of modes,
+    for the admin inventory to add up instead of reading every segment."""
+    from app.services.control_data import segment_rows, summarize_segments
+
+    by_machine: dict[str, list] = {}
+    for row in segment_rows(db, machine_ids):
+        by_machine.setdefault(str(row.machine_id), []).append(row)
+    return {mid: summarize_segments(rows) for mid, rows in by_machine.items()}
+
+
 def compute_stats(db: Session, machine_ids: list[Any] | None = None) -> dict[str, dict[str, Any]]:
     """Merged piece + sample stats, one entry per machine.
 
@@ -313,6 +339,8 @@ def compute_stats(db: Session, machine_ids: list[Any] | None = None) -> dict[str
     piece_stats = _compute_piece_stats(db, ids)
     sample_stats = _compute_sample_stats(db, ids)
     distributions = _compute_distributions(db, ids)
+    crops = _compute_crop_counts(db, ids) if ids else {}
+    control_data = _compute_control_data(db, ids) if ids else {}
 
     merged: dict[str, dict[str, Any]] = {}
     for mid in ids:
@@ -320,6 +348,8 @@ def compute_stats(db: Session, machine_ids: list[Any] | None = None) -> dict[str
         stats = _empty_stats()
         stats.update(piece_stats.get(mid_str, {}))
         stats.update(sample_stats.get(mid_str, {}))
+        stats["channel_crops"] = crops.get(mid_str, 0)
+        stats["control_data"] = control_data.get(mid_str, {})
         stats["distributions"] = {
             **distributions.get(mid_str, _empty_distributions()),
             # Kept beside the piece maps; the analytics fold reads only those.
@@ -350,6 +380,7 @@ def refresh_cache(db: Session, machine_ids: list[Any] | None = None) -> int:
         for field in _NUMERIC_FIELDS + _DATE_FIELDS:
             setattr(row, field, values[field])
         row.distributions = values.get("distributions") or _empty_distributions()
+        row.control_data = values.get("control_data") or {}
         row.computed_at = now
     db.commit()
     return len(stats)
@@ -409,6 +440,30 @@ def get_machine_stats(db: Session, machine_id: Any) -> dict[str, Any]:
     return _serialize(_empty_stats(), None)
 
 
+def piece_total(db: Session, machine_id: Any) -> int:
+    """How many pieces a machine has synced: the cached count plus the pieces
+    that reached Hive since it was computed (an index range on (machine_id,
+    created_at) over the last hour or so). A machine not cached yet is counted
+    whole, which is cheap because it is new."""
+    row = (
+        db.query(MachineStatsCache.pieces_seen, MachineStatsCache.computed_at)
+        .filter(MachineStatsCache.machine_id == machine_id)
+        .first()
+    )
+    newer = db.query(func.count()).select_from(MachinePiece).filter(MachinePiece.machine_id == machine_id)
+    if row is None:
+        return int(newer.scalar() or 0)
+    return int(row.pieces_seen or 0) + int(newer.filter(MachinePiece.created_at >= row.computed_at).scalar() or 0)
+
+
+def channel_crop_total(db: Session, machine_id: Any) -> int:
+    """How many upstream channel crops a machine had at the stats worker's
+    last pass (hourly)."""
+    return int(
+        db.query(MachineStatsCache.channel_crops).filter(MachineStatsCache.machine_id == machine_id).scalar() or 0
+    )
+
+
 def refresh_all(db: Session) -> int:
     """One full pass over a session: per-machine cache, then the daily table.
 
@@ -418,10 +473,14 @@ def refresh_all(db: Session) -> int:
     forcing a rebuild — calls this rather than growing its own copy.
     """
     count = refresh_cache(db)
-    # Same pass also maintains the per-day analytics substrate.
-    from app.services import analytics
+    # Same pass also maintains the per-day analytics substrate, the weekly
+    # sample counts the diversity overview adds up, and the datasets' counts
+    # per machine (recounted, for samples deleted since they were recorded).
+    from app.services import analytics, model_datasets, sample_diversity
 
     analytics.refresh_daily_stats(db)
+    sample_diversity.refresh(db)
+    model_datasets.recount(db)
     return count
 
 
@@ -467,4 +526,6 @@ __all__ = [
     "get_fleet_stats",
     "get_machine_stats",
     "get_machine_stats_worker",
+    "piece_total",
+    "channel_crop_total",
 ]

@@ -181,3 +181,47 @@ def test_a_teacher_job_filter_is_the_samples_filter(client, db, samples):
     picked = apply_sample_filters(db.query(Sample), filt, samples["me"].id).all()
     assert {s.machine_id for s in picked} == {a, c}
     assert len(picked) == len(_walk(client, limit=50, machine_id=[str(a), str(c)]))
+
+
+def _pages(client, limit=2, **params) -> list[tuple[list[dict], str | None]]:
+    pages, cursor = [], None
+    for _ in range(100):
+        query = {"limit": limit, "annotated": "all", **params}
+        if cursor:
+            query["cursor"] = cursor
+        resp = client.get("/api/samples", params=query, headers=_auth_headers(client))
+        assert resp.status_code == 200, resp.text
+        body = resp.json()
+        pages.append((body["items"], body["next_cursor"]))
+        cursor = body["next_cursor"]
+        if not cursor:
+            return pages
+    raise AssertionError("paging never ended")
+
+
+@pytest.mark.parametrize(
+    "params, keep, rare",
+    [
+        ({}, lambda i, name: name != "theirs", False),
+        ({"machine_id": ["a"]}, lambda i, name: name == "a", False),
+        ({"machine_id": ["a", "c"]}, lambda i, name: name in {"a", "c"}, False),
+        ({"source_role": "classification_chamber"}, lambda i, name: name != "theirs" and i % 3 == 0, True),
+        ({"review_status": "accepted"}, lambda i, name: name != "theirs" and i % 7 == 0, False),
+        ({"machine_id": ["b"], "review_status": "accepted"}, lambda i, name: name == "b" and i % 7 == 0, True),
+    ],
+)
+def test_a_page_looks_at_a_bounded_stretch_and_the_walk_misses_nothing(client, samples, monkeypatch, params, keep, rare):
+    """A page reads at most SAMPLE_WINDOW samples of the index it walks: with
+    a window of three, the pages of a filter that is rare along that index
+    come back short or empty with a cursor, and walking them gives exactly the
+    list, newest first, each sample once."""
+    from app.services import review_queue
+
+    monkeypatch.setattr(review_queue, "SAMPLE_WINDOW", 3)
+    machines = samples["machines"]
+    query = {k: ([str(machines[n][0]) for n in v] if k == "machine_id" else v) for k, v in params.items()}
+    pages = _pages(client, limit=2, **query)
+    rows = [(uploaded, str(sid)) for i, (name, sid, uploaded) in enumerate(samples["order"]) if keep(i, name)]
+    assert [s["id"] for items, _ in pages for s in items] == [sid for _, sid in sorted(rows, reverse=True)]
+    if rare:
+        assert any(len(items) < 2 and cursor for items, cursor in pages)

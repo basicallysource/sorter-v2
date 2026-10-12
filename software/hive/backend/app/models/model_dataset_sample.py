@@ -1,4 +1,4 @@
-from sqlalchemy import CheckConstraint, Column, ForeignKey, Index, String
+from sqlalchemy import CheckConstraint, Column, ForeignKey, Index, Integer, String
 from sqlalchemy.dialects.postgresql import UUID
 
 from app.models import Base
@@ -37,3 +37,25 @@ class ModelDatasetSample(Base):
         CheckConstraint("split IN ('train', 'val')", name="ck_model_dataset_samples_split"),
         Index("ix_model_dataset_samples_sample_id", "sample_id"),
     )
+
+
+class ModelDatasetMachineCount(Base):
+    """How many of a model's recorded dataset samples came from each machine,
+    per split: the dataset's composition, kept as samples are recorded (and
+    recounted by the stats worker, which also sees samples deleted since), so
+    showing it does not join the whole dataset to the samples table."""
+
+    __tablename__ = "model_dataset_machines"
+
+    model_id = Column(
+        UUID(as_uuid=True),
+        ForeignKey("detection_models.id", ondelete="CASCADE"),
+        primary_key=True,
+    )
+    machine_id = Column(
+        UUID(as_uuid=True),
+        ForeignKey("machines.id", ondelete="CASCADE"),
+        primary_key=True,
+    )
+    train = Column(Integer, nullable=False, default=0)
+    val = Column(Integer, nullable=False, default=0)

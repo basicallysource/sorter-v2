@@ -17,6 +17,12 @@ export type QueueSource<T> = {
 	fetch: (cursor: string | null) => Promise<QueuePage<T>>;
 };
 
+// The server looks at a bounded stretch of the list per request, so with rare
+// filters a page can come back short, even empty, and still have a next cursor.
+// A load keeps asking until something arrives or the list ends, up to this
+// many requests; then "Load more" goes on.
+const MAX_ROUNDS = 20;
+
 function message(e: unknown): string {
 	return e && typeof e === 'object' && 'error' in e ? String((e as { error: unknown }).error) : 'Failed to load the list';
 }
@@ -66,8 +72,7 @@ export class ReviewQueue<T> {
 		this.loading = true;
 		this.loadingMore = false;
 		try {
-			const page = await this.#source.fetch(null);
-			if (generation === this.#generation) this.#take(page);
+			await this.#fetchSome(null, generation);
 		} catch (e) {
 			if (generation === this.#generation) this.error = message(e);
 		} finally {
@@ -88,9 +93,7 @@ export class ReviewQueue<T> {
 		this.loadingMore = true;
 		const run = (async () => {
 			try {
-				const page = await this.#source.fetch(this.#cursor);
-				if (generation !== this.#generation) return false;
-				return this.#take(page) > 0;
+				return (await this.#fetchSome(this.#cursor, generation)) > 0;
 			} catch (e) {
 				if (generation === this.#generation) {
 					this.error = message(e);
@@ -106,6 +109,18 @@ export class ReviewQueue<T> {
 		})();
 		this.#inflight = run;
 		return run;
+	}
+
+	// Pages from `cursor` until one adds items, the list ends, or MAX_ROUNDS.
+	async #fetchSome(cursor: string | null, generation: number): Promise<number> {
+		for (let round = 0; round < MAX_ROUNDS; round++) {
+			const page = await this.#source.fetch(cursor);
+			if (generation !== this.#generation) return 0;
+			const added = this.#take(page);
+			if (added > 0 || !this.hasMore) return added;
+			cursor = this.#cursor;
+		}
+		return 0;
 	}
 
 	#take(page: QueuePage<T>): number {

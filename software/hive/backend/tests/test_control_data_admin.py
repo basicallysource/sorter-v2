@@ -7,6 +7,7 @@ from datetime import datetime, timedelta, timezone
 
 from app.models.machine_control_data_segment import MachineControlDataSegment
 from app.models.user import User
+from tests.conftest import refresh_stats
 
 
 def _seed_segments(db, machine_id: str) -> None:
@@ -39,6 +40,8 @@ def test_summary_aggregates(client, db, test_machine):
     user = db.query(User).filter(User.email == "member@test.com").first()
     user.role = "admin"
     db.commit()
+    # Summed per machine by the stats worker, not per request.
+    refresh_stats()
 
     r = client.get("/api/admin/control-data/summary")
     assert r.status_code == 200, r.text

@@ -20,14 +20,13 @@ parts_needed:
     qty: 1
   - part: funnel-bracket-right
     qty: 1
-  - part: scr-m3-12-bhcs
+  - part: scr-m3-12-cs
     qty: 4
 warning: >-
   **AI-generated first draft.** Written from the 3D parts of the inverted chute, not from an actual
-  build. Positions, hole counts and the dovetail joint are read off the part geometry. Two things
-  are open and marked on the page: the screw head (the brackets have a round recess for the head, so
-  the list has a socket or button head, where the parts calculator still has a countersunk one), and
-  what holds the funnel in once it is slid home.
+  build. Positions, hole counts and the dovetail joint are read off the part geometry, and the
+  screw and how the funnel is held were confirmed by the part's designer, but the order of the steps
+  is not checked against a machine and nobody has built this chute yet.
 ---
 
 The funnel catches what the door releases and guides it into the bin below. It slides onto two printed brackets that are bolted to the chute core.
@@ -38,14 +37,14 @@ The fasteners and quantities are in the parts list above and are called out inli
 
 - **One funnel per layer**, in one of two sizes, and it is your choice which. Step 2 is that decision; the brackets are the same either way, so they go on before you have made it.
 - The brackets screw into the [chute core]({{ '/hardware/assembly/distribution/chute/chute-core/' | relative_url }})'s M3 heat inserts (the A pockets on that page), so there is nothing to tap.
-- The 4 {% include fastener.html size="M3" variant="socket-button" length="12" %} they take are in the list above, and they go into the core's inserts rather than into anything on this page. <span class="fastener-todo">Each bracket hole has a round recess for the head, which a countersunk screw would not sit in properly, so a socket or button head is listed; the parts calculator still lists a countersunk one.</span>
+- The 4 {% include fastener.html size="M3" variant="countersunk" length="12" %} they take are in the list above, and they go into the core's inserts rather than into anything on this page.
 - **The funnel itself takes no screws.** It slides into the brackets, which is step 3.
 
 {% include step.html n="1" title="Fit the funnel brackets to the chute core" %}
 
 Every chute carries a Funnel bracket (left) and a Funnel bracket (right), one of each. The left one goes on the plain side wall of the core and the right one on the servo side wall. They screw into the core's four A inserts, two on each wall.
 
-Each bracket is a long bar. **The end with the two round recesses goes against the core**: that is where the screws go, with the heads sunk into the recesses. The other end, with the two long slits cut along it, runs out past the core's opening to carry the funnel. Each bracket takes 2 {% include fastener.html size="M3" variant="socket-button" length="12" %} screws, 4 for the pair. Use the 12 mm.
+Each bracket is a long bar. **The end with the two round recesses goes against the core**: that is where the screws go, with the heads sitting in the recesses. The other end, with the two long slits cut along it, runs out past the core's opening to carry the funnel. Each bracket takes 2 {% include fastener.html size="M3" variant="countersunk" length="12" %} screws, 4 for the pair. Use the 12 mm.
 
 <div class="img-row">
   <figure>
@@ -100,7 +99,7 @@ Both brackets are on the core from step 1, so there is nothing to fit first.
   <figcaption>The funnel, held out along the line of the brackets. It slides in from the free end of the brackets, towards the core. <cite>Rendered from the part geometry, not from a build. Render: Balloon.</cite></figcaption>
 </figure>
 
-Each bracket has two slits along its free end, which leave a thin tongue over the middle of the rail. <span class="fastener-todo">Nothing in the parts says what holds the funnel in once it is home, or what the tongue does.</span>
+**The funnel is held in by the spring force of the brackets.** Each bracket has two slits along its free end, which let it flex, and there is no screw to fit.
 
 <div class="callout">
   <span class="callout-icon" aria-hidden="true">💡</span>

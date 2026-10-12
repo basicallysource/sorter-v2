@@ -9,7 +9,7 @@ lede: The chute assembly. Build one per layer.
 permalink: /hardware/assembly/distribution/chute/chute-core/
 author: spencer
 contributors: [barthel, zed0]
-og_image: https://assets.basically.website/sorter-docs/chute-v3-assembled-window-full-40d660d47d8e.png
+og_image: https://assets.basically.website/sorter-docs/chute-v3-assembled-window-full-d628d6d4a1bc.png
 tools_needed: [Soldering iron or heat-set insert press]
 parts_needed:
   - part: chute-core
@@ -95,7 +95,7 @@ Every insert you pressed in at step 1 takes a screw from one of those four pages
 The chute is complete when all four are on. Repeat for every layer.
 
 <figure class="single-figure">
-  <img class="doc-figure" src="https://assets.basically.website/sorter-docs/chute-v3-assembled-window-full-40d660d47d8e.png" alt="Render of a finished chute seen from the opening side: the grey core upright, the door module low on it with its round bearing cover, the green funnel bracket running down to the tan funnel, and the yellow layer connectors on top">
+  <img class="doc-figure" src="https://assets.basically.website/sorter-docs/chute-v3-assembled-window-full-d628d6d4a1bc.png" alt="Render of a finished chute seen from the opening side: the grey core upright, the door module low on it with its round bearing cover, the green funnel bracket running down to the tan funnel, and the yellow layer connectors on top">
   <figcaption>A core with the door module, the funnel brackets and funnel and the layer connectors on. The layer adapter board is not modelled and is not in this picture. <cite>Rendered from the part geometry, not from a build. Render: Balloon.</cite></figcaption>
 </figure>
 

@@ -7,7 +7,7 @@ slug: assembly-layer-connectors
 kicker: Chute — Layer connectors
 lede: The connectors that chain layers together.
 permalink: /hardware/assembly/distribution/chute/layer-connectors/
-og_image: https://assets.basically.website/sorter-docs/chute-v3-connectors-seated-full-24dacbab43e9.png
+og_image: https://assets.basically.website/sorter-docs/chute-v3-connectors-seated-full-81172bf2c98f.png
 author: spencer
 contributors: [barthel, zed0]
 tools_needed: ["Hex key, 2 mm"]
@@ -45,13 +45,15 @@ Each connector has 2 holes in its strap, one at each end, and takes 2 {% include
 
 The strap is countersunk on its outer face, so the head sits flush. Use the 8 mm, not the 12 mm.
 
+**Fit each connector with its flat face, the one with the two countersunk holes, facing out, away from the core.** The other side is open, with a wall along each long edge, and faces the core and fits over the raised pad the insert sits on.
+
 <div class="img-row">
   <figure>
-    <img class="doc-figure" src="https://assets.basically.website/sorter-docs/chute-v3-connectors-exploded-plus-y-full-ad0f19088bc0.png" alt="Render of the servo side wall of the chute core with the two layer connectors held above it, and the two inserts they use on this wall ringed in red and lettered C, one near the top of the wall and one near the bottom">
+    <img class="doc-figure" src="https://assets.basically.website/sorter-docs/chute-v3-connectors-exploded-plus-y-full-2a3fa56a0924.png" alt="Render of the servo side wall of the chute core with the two layer connectors held above it, and the two inserts they use on this wall ringed in red and lettered C, one near the top of the wall and one near the bottom">
     <figcaption>The servo side wall. The upper ring takes this chute's connector; the lower ring is for the connector standing on the chute below. <cite>Rendered from the part geometry, not from a build. Render: Balloon.</cite></figcaption>
   </figure>
   <figure>
-    <img class="doc-figure" src="https://assets.basically.website/sorter-docs/chute-v3-connectors-exploded-minus-y-full-0ef66d6ee998.png" alt="Render of the plain side wall of the chute core with the two layer connectors held above it and two inserts ringed in red and lettered C">
+    <img class="doc-figure" src="https://assets.basically.website/sorter-docs/chute-v3-connectors-exploded-minus-y-full-30d3dfe343c0.png" alt="Render of the plain side wall of the chute core with the two layer connectors held above it and two inserts ringed in red and lettered C">
     <figcaption>The plain side wall, the same two inserts. <cite>Rendered from the part geometry, not from a build. Render: Balloon.</cite></figcaption>
   </figure>
 </div>
@@ -61,7 +63,7 @@ The strap is countersunk on its outer face, so the head sits flush. Use the 8 mm
 Build the layers up first and check that A on one layer sits flush against B on the layer below, with no visible gap or twist between the two straps, before tightening either one down. Nothing here is adjustable once the tower is stacked.
 
 <figure class="single-figure">
-  <img class="doc-figure" src="https://assets.basically.website/sorter-docs/chute-v3-two-layers-joined-plus-y-full-7f43ab59a8d9.png" alt="Render of two chute cores stacked one above the other, a yellow layer connector strapped across the joint between them on the servo side wall">
+  <img class="doc-figure" src="https://assets.basically.website/sorter-docs/chute-v3-two-layers-joined-plus-y-full-6f245a0ccee3.png" alt="Render of two chute cores stacked one above the other, a yellow layer connector strapped across the joint between them on the servo side wall">
   <figcaption>Two chutes joined: the connector is screwed to the lower core's top insert and to the upper core's bottom insert. <cite>Rendered from the part geometry, not from a build. Render: Balloon.</cite></figcaption>
 </figure>
 
@@ -70,7 +72,7 @@ Build the layers up first and check that A on one layer sits flush against B on 
 Both connectors on the top of the core, each held by its lower screw, each upper hole left empty for the part that slots on above.
 
 <figure class="single-figure">
-  <img class="doc-figure" src="https://assets.basically.website/sorter-docs/chute-v3-connectors-seated-full-24dacbab43e9.png" alt="Render of a chute core with a yellow layer connector standing on each long wall near the top, the upper hole of each free for the chute above">
+  <img class="doc-figure" src="https://assets.basically.website/sorter-docs/chute-v3-connectors-seated-full-81172bf2c98f.png" alt="Render of a chute core with a yellow layer connector standing on each long wall near the top, the upper hole of each free for the chute above">
   <figcaption>The pair on a chute core. The lower screw holds each one; the empty hole above it is what the part above screws down into. <cite>Rendered from the part geometry, not from a build. Render: Balloon.</cite></figcaption>
 </figure>
 

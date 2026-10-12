@@ -536,15 +536,29 @@ def _syncPartsPage(gc, conn, parts_data, throttle_fn, should_stop=None, on_retry
     cached_before = conn.execute("SELECT COUNT(*) FROM parts").fetchone()[0]
     page_num = (cached_before // REBRICKABLE_PAGE_SIZE) + 1
     url = f"{REBRICKABLE_BASE_URL}/parts/"
-    data = _requestJson(
-        url,
-        {
-            "page_size": REBRICKABLE_PAGE_SIZE,
-            "inc_part_details": 1,
-            "page": page_num,
-        },
-        throttle_fn, should_stop=should_stop, on_retry=on_retry, api_key=gc.rebrickable_api_key,
-    )
+    try:
+        data = _requestJson(
+            url,
+            {
+                "page_size": REBRICKABLE_PAGE_SIZE,
+                "inc_part_details": 1,
+                "page": page_num,
+            },
+            throttle_fn, should_stop=should_stop, on_retry=on_retry, api_key=gc.rebrickable_api_key,
+        )
+    except requests.HTTPError as exc:
+        # Rebrickable answers 404 for a page past the last one. The page comes
+        # from how many parts are here already, so once the catalog holds as many
+        # as Rebrickable lists (parts merged or removed there stay here), the next
+        # page is past the end and nothing is left to fetch: the sync is done.
+        # Without this it failed on that page forever and never recorded a
+        # finish. A 404 for the first page is a real failure (a wrong address,
+        # a changed API), as is every other error.
+        response = getattr(exc, "response", None)
+        if page_num > 1 and response is not None and response.status_code == 404:
+            total = parts_data.api_total_parts or cached_before
+            return {"fetched": 0, "total": total, "cached": cached_before, "done": True}
+        raise
     total = data["count"]
     parts_list = []
     for part_data in data.get("results", []):

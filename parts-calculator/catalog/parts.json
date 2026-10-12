@@ -742,7 +742,6 @@
           "qty": 21
         }
       ],
-      "onshape_version": "https://cad.onshape.com/documents/9137894c36f07dfc4dea695d/w/dde194facf5a22be951251c3/e/aaf844292d9a564824a5fe8b",
       "versions": [
         {
           "version": "1",
@@ -755,6 +754,7 @@
           "date": "2026-10-11",
           "message": "Inverted chute: replaced with the inverted chute design.",
           "breaking": true,
+          "onshape_version": "https://cad.onshape.com/documents/9137894c36f07dfc4dea695d/w/dde194facf5a22be951251c3/e/aaf844292d9a564824a5fe8b",
           "commit": null
         }
       ]
@@ -1831,7 +1831,6 @@
       "optional": false,
       "support": false,
       "source": "funnel-bracket-left.stl",
-      "onshape_version": "https://cad.onshape.com/documents/9137894c36f07dfc4dea695d/w/dde194facf5a22be951251c3/e/aaf844292d9a564824a5fe8b",
       "versions": [
         {
           "version": "1",
@@ -1844,6 +1843,7 @@
           "date": "2026-10-11",
           "message": "Inverted chute: replaced with the inverted chute design.",
           "breaking": true,
+          "onshape_version": "https://cad.onshape.com/documents/9137894c36f07dfc4dea695d/w/dde194facf5a22be951251c3/e/aaf844292d9a564824a5fe8b",
           "commit": null
         }
       ]
@@ -1869,7 +1869,6 @@
       "optional": false,
       "support": false,
       "source": "funnel-bracket-right.stl",
-      "onshape_version": "https://cad.onshape.com/documents/9137894c36f07dfc4dea695d/w/dde194facf5a22be951251c3/e/aaf844292d9a564824a5fe8b",
       "versions": [
         {
           "version": "1",
@@ -1882,6 +1881,7 @@
           "date": "2026-10-11",
           "message": "Inverted chute: replaced with the inverted chute design.",
           "breaking": true,
+          "onshape_version": "https://cad.onshape.com/documents/9137894c36f07dfc4dea695d/w/dde194facf5a22be951251c3/e/aaf844292d9a564824a5fe8b",
           "commit": null
         }
       ]
@@ -1905,7 +1905,6 @@
       },
       "optional": false,
       "support": false,
-      "onshape_version": "https://cad.onshape.com/documents/9137894c36f07dfc4dea695d/w/dde194facf5a22be951251c3/e/aaf844292d9a564824a5fe8b",
       "versions": [
         {
           "version": "1",
@@ -1918,6 +1917,7 @@
           "date": "2026-10-11",
           "message": "Inverted chute: replaced with the inverted chute design.",
           "breaking": true,
+          "onshape_version": "https://cad.onshape.com/documents/9137894c36f07dfc4dea695d/w/dde194facf5a22be951251c3/e/aaf844292d9a564824a5fe8b",
           "commit": null
         }
       ],
@@ -1948,7 +1948,6 @@
           "qty": 5
         }
       ],
-      "onshape_version": "https://cad.onshape.com/documents/9137894c36f07dfc4dea695d/w/dde194facf5a22be951251c3/e/aaf844292d9a564824a5fe8b",
       "versions": [
         {
           "version": "1",
@@ -1961,6 +1960,7 @@
           "date": "2026-10-11",
           "message": "Inverted chute: replaced with the inverted chute design.",
           "breaking": true,
+          "onshape_version": "https://cad.onshape.com/documents/9137894c36f07dfc4dea695d/w/dde194facf5a22be951251c3/e/aaf844292d9a564824a5fe8b",
           "commit": null
         }
       ],
@@ -1991,7 +1991,6 @@
           "qty": 5
         }
       ],
-      "onshape_version": "https://cad.onshape.com/documents/9137894c36f07dfc4dea695d/w/dde194facf5a22be951251c3/e/aaf844292d9a564824a5fe8b",
       "versions": [
         {
           "version": "1",
@@ -2004,6 +2003,7 @@
           "date": "2026-10-11",
           "message": "Inverted chute: replaced with the inverted chute design.",
           "breaking": true,
+          "onshape_version": "https://cad.onshape.com/documents/9137894c36f07dfc4dea695d/w/dde194facf5a22be951251c3/e/aaf844292d9a564824a5fe8b",
           "commit": null
         }
       ],
@@ -2028,7 +2028,6 @@
       },
       "optional": false,
       "support": false,
-      "onshape_version": "https://cad.onshape.com/documents/9137894c36f07dfc4dea695d/w/dde194facf5a22be951251c3/e/aaf844292d9a564824a5fe8b",
       "versions": [
         {
           "version": "1",
@@ -2041,6 +2040,7 @@
           "date": "2026-10-11",
           "message": "Inverted chute: replaced with the inverted chute design.",
           "breaking": true,
+          "onshape_version": "https://cad.onshape.com/documents/9137894c36f07dfc4dea695d/w/dde194facf5a22be951251c3/e/aaf844292d9a564824a5fe8b",
           "commit": null
         }
       ],
@@ -2065,7 +2065,6 @@
       },
       "optional": false,
       "support": false,
-      "onshape_version": "https://cad.onshape.com/documents/9137894c36f07dfc4dea695d/w/dde194facf5a22be951251c3/e/aaf844292d9a564824a5fe8b",
       "versions": [
         {
           "version": "1",
@@ -2078,6 +2077,7 @@
           "date": "2026-10-11",
           "message": "Inverted chute: replaced with the inverted chute design.",
           "breaking": true,
+          "onshape_version": "https://cad.onshape.com/documents/9137894c36f07dfc4dea695d/w/dde194facf5a22be951251c3/e/aaf844292d9a564824a5fe8b",
           "commit": null
         }
       ],
@@ -2102,7 +2102,6 @@
       },
       "optional": false,
       "support": false,
-      "onshape_version": "https://cad.onshape.com/documents/9137894c36f07dfc4dea695d/w/dde194facf5a22be951251c3/e/aaf844292d9a564824a5fe8b",
       "versions": [
         {
           "version": "1",
@@ -2115,6 +2114,7 @@
           "date": "2026-10-11",
           "message": "Inverted chute: replaced with the inverted chute design.",
           "breaking": true,
+          "onshape_version": "https://cad.onshape.com/documents/9137894c36f07dfc4dea695d/w/dde194facf5a22be951251c3/e/aaf844292d9a564824a5fe8b",
           "commit": null
         }
       ],
@@ -2139,7 +2139,6 @@
       },
       "optional": false,
       "support": false,
-      "onshape_version": "https://cad.onshape.com/documents/9137894c36f07dfc4dea695d/w/dde194facf5a22be951251c3/e/aaf844292d9a564824a5fe8b",
       "versions": [
         {
           "version": "1",
@@ -2152,6 +2151,7 @@
           "date": "2026-10-11",
           "message": "Inverted chute: replaced with the inverted chute design.",
           "breaking": true,
+          "onshape_version": "https://cad.onshape.com/documents/9137894c36f07dfc4dea695d/w/dde194facf5a22be951251c3/e/aaf844292d9a564824a5fe8b",
           "commit": null
         }
       ],
@@ -2176,7 +2176,6 @@
       },
       "optional": false,
       "support": false,
-      "onshape_version": "https://cad.onshape.com/documents/9137894c36f07dfc4dea695d/w/dde194facf5a22be951251c3/e/aaf844292d9a564824a5fe8b",
       "versions": [
         {
           "version": "1",
@@ -2189,6 +2188,7 @@
           "date": "2026-10-11",
           "message": "Inverted chute: replaced with the inverted chute design.",
           "breaking": true,
+          "onshape_version": "https://cad.onshape.com/documents/9137894c36f07dfc4dea695d/w/dde194facf5a22be951251c3/e/aaf844292d9a564824a5fe8b",
           "commit": null
         }
       ],
@@ -2219,7 +2219,6 @@
       },
       "optional": false,
       "support": false,
-      "onshape_version": "https://cad.onshape.com/documents/9137894c36f07dfc4dea695d/w/dde194facf5a22be951251c3/e/aaf844292d9a564824a5fe8b",
       "versions": [
         {
           "version": "1",
@@ -2232,6 +2231,7 @@
           "date": "2026-10-11",
           "message": "Inverted chute: replaced with the inverted chute design.",
           "breaking": true,
+          "onshape_version": "https://cad.onshape.com/documents/9137894c36f07dfc4dea695d/w/dde194facf5a22be951251c3/e/aaf844292d9a564824a5fe8b",
           "commit": null
         }
       ],
@@ -2294,7 +2294,6 @@
       },
       "optional": false,
       "support": false,
-      "onshape_version": "https://cad.onshape.com/documents/9137894c36f07dfc4dea695d/w/dde194facf5a22be951251c3/e/aaf844292d9a564824a5fe8b",
       "versions": [
         {
           "version": "1",
@@ -2307,6 +2306,7 @@
           "date": "2026-10-11",
           "message": "Inverted chute: replaced with the inverted chute design.",
           "breaking": true,
+          "onshape_version": "https://cad.onshape.com/documents/9137894c36f07dfc4dea695d/w/dde194facf5a22be951251c3/e/aaf844292d9a564824a5fe8b",
           "commit": null
         }
       ],
@@ -2531,7 +2531,6 @@
         "role": "chute-core"
       },
       "optional": false,
-      "onshape_version": "https://cad.onshape.com/documents/9137894c36f07dfc4dea695d/w/dde194facf5a22be951251c3/e/aaf844292d9a564824a5fe8b",
       "versions": [
         {
           "version": "1",
@@ -2544,6 +2543,7 @@
           "date": "2026-10-11",
           "message": "Inverted chute: replaced with the inverted chute design.",
           "breaking": true,
+          "onshape_version": "https://cad.onshape.com/documents/9137894c36f07dfc4dea695d/w/dde194facf5a22be951251c3/e/aaf844292d9a564824a5fe8b",
           "commit": null
         }
       ],
@@ -2569,7 +2569,6 @@
         "role": "chute-core"
       },
       "optional": false,
-      "onshape_version": "https://cad.onshape.com/documents/9137894c36f07dfc4dea695d/w/dde194facf5a22be951251c3/e/aaf844292d9a564824a5fe8b",
       "versions": [
         {
           "version": "1",
@@ -2582,6 +2581,7 @@
           "date": "2026-10-11",
           "message": "Inverted chute: replaced with the inverted chute design.",
           "breaking": true,
+          "onshape_version": "https://cad.onshape.com/documents/9137894c36f07dfc4dea695d/w/dde194facf5a22be951251c3/e/aaf844292d9a564824a5fe8b",
           "commit": null
         }
       ],
@@ -2629,7 +2629,6 @@
         "role": "funnel"
       },
       "optional": false,
-      "onshape_version": "https://cad.onshape.com/documents/9137894c36f07dfc4dea695d/w/dde194facf5a22be951251c3/e/aaf844292d9a564824a5fe8b",
       "caption": "For a layer of 18 third bins.",
       "versions": [
         {
@@ -2643,6 +2642,7 @@
           "date": "2026-10-11",
           "message": "Inverted chute: replaced with the inverted chute design.",
           "breaking": true,
+          "onshape_version": "https://cad.onshape.com/documents/9137894c36f07dfc4dea695d/w/dde194facf5a22be951251c3/e/aaf844292d9a564824a5fe8b",
           "commit": null
         }
       ],
@@ -2668,7 +2668,6 @@
         "role": "funnel"
       },
       "optional": false,
-      "onshape_version": "https://cad.onshape.com/documents/9137894c36f07dfc4dea695d/w/dde194facf5a22be951251c3/e/aaf844292d9a564824a5fe8b",
       "caption": "For a layer of 12 half bins.",
       "versions": [
         {
@@ -2682,6 +2681,7 @@
           "date": "2026-10-11",
           "message": "Inverted chute: replaced with the inverted chute design.",
           "breaking": true,
+          "onshape_version": "https://cad.onshape.com/documents/9137894c36f07dfc4dea695d/w/dde194facf5a22be951251c3/e/aaf844292d9a564824a5fe8b",
           "commit": null
         }
       ],
@@ -2824,7 +2824,6 @@
         "role": "chute-core"
       },
       "optional": false,
-      "onshape_version": "https://cad.onshape.com/documents/9137894c36f07dfc4dea695d/w/dde194facf5a22be951251c3/e/aaf844292d9a564824a5fe8b",
       "versions": [
         {
           "version": "1",
@@ -2837,6 +2836,7 @@
           "date": "2026-10-11",
           "message": "Inverted chute: replaced with the inverted chute design.",
           "breaking": true,
+          "onshape_version": "https://cad.onshape.com/documents/9137894c36f07dfc4dea695d/w/dde194facf5a22be951251c3/e/aaf844292d9a564824a5fe8b",
           "commit": null
         }
       ],
@@ -2861,7 +2861,6 @@
         "role": "chute-core"
       },
       "optional": false,
-      "onshape_version": "https://cad.onshape.com/documents/9137894c36f07dfc4dea695d/w/dde194facf5a22be951251c3/e/aaf844292d9a564824a5fe8b",
       "versions": [
         {
           "version": "1",
@@ -2874,6 +2873,7 @@
           "date": "2026-10-11",
           "message": "Inverted chute: replaced with the inverted chute design.",
           "breaking": true,
+          "onshape_version": "https://cad.onshape.com/documents/9137894c36f07dfc4dea695d/w/dde194facf5a22be951251c3/e/aaf844292d9a564824a5fe8b",
           "commit": null
         }
       ],

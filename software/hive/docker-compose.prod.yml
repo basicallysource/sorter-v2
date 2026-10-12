@@ -96,6 +96,8 @@ services:
       REBRICKABLE_API_KEY: ${REBRICKABLE_API_KEY}
       PUBLIC_STATS_API_KEY: ${PUBLIC_STATS_API_KEY}
       BLA_API_KEY: ${BLA_API_KEY}
+      # The background job queue (agent-docs/jobs.md): off unless set to true.
+      JOB_WORKER_ENABLED: ${JOB_WORKER_ENABLED:-false}
     volumes:
       - ${HIVE_DATA_DIR:?see scripts/CUTOVER.md}/uploads:${UPLOAD_DIR}
       # Rebrickable parts catalog SQLite db (parts/categories/colors). Persisted
@@ -108,6 +110,9 @@ services:
       # piece_link matcher models (encoder+head ONNX pairs), uploaded out of band
       # (scp) and scanned into the link_models table. Bind-mounted to survive recreates.
       - ${HIVE_DATA_DIR:?see scripts/CUTOVER.md}/link_models:/app/data/link_models
+      # Colour-reference palette finders (swatch_finder ONNX), uploaded out of
+      # band and scanned into the swatch_models table. Bind-mounted to survive recreates.
+      - ${HIVE_DATA_DIR:?see scripts/CUTOVER.md}/swatch_models:/app/data/swatch_models
     networks:
       - default
       - web

@@ -12,10 +12,7 @@ contributors: [alex, brickcyclealice, barthel, zed0]
 og_image: https://assets.basically.website/sorter-docs/chute-v3-stack-of-four-cad-full-fd5936d88689.png
 warning: >-
   **AI-generated first draft.** Written from the 3D parts of the inverted chute, not from an actual
-  build. Where a page says which hole takes which screw, that is read off the part geometry and is
-  measured, but the order of the steps is not checked against a machine, and nobody has built this
-  chute yet. The photos of the earlier chute are gone from these pages because the parts they show
-  are not the parts you print any more, so every picture is a render.
+  build, so nobody has built this chute from these pages yet. Every picture here is a render.
 ---
 
 <div class="img-row">
@@ -32,6 +29,8 @@ warning: >-
 The chute is one per layer. Build the core first, since everything else bolts into its heat inserts.
 
 The whole chute stack rotates as one unit, on the [top interface]({{ '/hardware/assembly/distribution/top-interface/' | relative_url }})'s Lazy Susan, driven by the stepper motor and gear train described there. The bins themselves don't move. Each chute has a flat door that hinges along the bottom edge of an opening in the side of its core, with the bearing race as the sill under it. Once the stack has rotated a chute's opening over the correct bin, the door lets the part out and the funnel guides it down. See [Door module]({{ '/hardware/assembly/distribution/chute/door-module/' | relative_url }}) and [Layer adapter board]({{ '/hardware/assembly/distribution/chute/pcb/' | relative_url }}) for how that opening is driven and timed.
+
+Build the chute in this order. Each page after the first starts from the finished core.
 
 <ol class="numbered-steps">
   <li><strong><a href="{{ '/hardware/assembly/distribution/chute/chute-core/' | relative_url }}">Chute core</a></strong>. The printed body everything else mounts to, and the 21 heat inserts that hold it all together.</li>

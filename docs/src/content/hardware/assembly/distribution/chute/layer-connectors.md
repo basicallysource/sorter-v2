@@ -20,9 +20,8 @@ parts_needed:
     qty: 4
 warning: >-
   **AI-generated first draft.** Written from the 3D parts of the inverted chute, not from an actual
-  build. Which insert takes which end of a connector is read off the part geometry. The connectors
-  are the same job as before on a new core, and the steps are carried over from the earlier build
-  without being checked against the new parts.
+  build. The connectors do the same job as before on a new core, and the steps are carried over from
+  the earlier build without being checked against the new parts.
 ---
 
 The layer connectors are a pair of printed parts, Layer connector A and Layer connector B, that tie one layer's chute to the next one in the stack so parts pass from chute to chute without a gap.
@@ -37,7 +36,8 @@ The fasteners and quantities are in the parts list above and are called out inli
 
 <div class="prep-item">
   <div class="prep-item-body">
-    <p><strong>Build a <a href="{{ '/hardware/assembly/distribution/chute/chute-core/' | relative_url }}">chute core</a> before you start.</strong> It must have all 21 heat inserts pressed in, because everything on this page bolts into them.</p>
+    <p><strong>Build a <a href="{{ '/hardware/assembly/distribution/chute/chute-core/' | relative_url }}">chute core</a> before you start.</strong> Press all its heat inserts in first.</p>
+    <p>Which wall is which: the <strong>opening side</strong> has the big opening, the <strong>rear</strong> is opposite it, and of the two long walls the <strong>servo side</strong> is the one with nine inserts and the <strong>plain side</strong> the one with six.</p>
   </div>
   <figure class="prep-item-figure">
     <img class="doc-figure" src="https://assets.basically.website/sorter-docs/chute-v3-core-with-inserts-opening-side-full-1961b4bfcb14.png" alt="Render of the finished chute core, an upright box open at the top with an opening in one side and brass heat inserts in its walls">
@@ -47,23 +47,23 @@ The fasteners and quantities are in the parts list above and are called out inli
 
 {% include step.html n="1" title="Fit the connectors to the chute core" %}
 
-Both connectors fasten to the [chute core]({{ '/hardware/assembly/distribution/chute/chute-core/' | relative_url }}), into its M3 heat inserts, the C pockets on that page. Each long wall of the core has two of them, one near the top and one near the bottom.
+Both connectors fasten to the [chute core]({{ '/hardware/assembly/distribution/chute/chute-core/' | relative_url }}), into its M3 heat inserts. Each long wall of the core has two of them on raised pads, one near the top and one near the bottom.
 
-**Fit one pair to the top of each chute core, and one pair to the top of the bottom interface.** Nothing goes on the underside of anything. As the tower goes up, the part above slots down onto the pair already standing on the part below, and the part above takes the pair's upper holes in its own lower C inserts.
+**Fit one pair to the top of each chute core, and one pair to the top of the bottom interface.** Nothing goes on the underside of anything. As the tower goes up, the part above slots down onto the pair already standing on the part below, and the part above takes the pair's upper holes in its own lower inserts.
 
 Each connector has 2 holes in its strap, one at each end, and takes 2 {% include fastener.html size="M3" variant="countersunk" length="8" %} screws. **Only the lower one goes in now**, into the core's upper insert on that wall; the upper hole stays empty until the part above slots on and is screwed down into it. Don't fully tighten either: step 2 covers checking the alignment first.
 
 The strap is countersunk on its outer face, so the head sits flush. Use the 8 mm, not the 12 mm.
 
-**Fit each connector with its flat face, the one with the two countersunk holes, facing out, away from the core.** The other side is open, with a wall along each long edge, and faces the core and fits over the raised pad the insert sits on.
+**Fit each connector with its flat face, the one with the two countersunk holes, facing out, away from the core.** The other side is open, with a wall along each long edge, and faces the core and fits over the raised pad the insert sits on. The two connectors are mirror images, one for each long wall: if one will not sit flat over its pad, swap them.
 
 <div class="img-row">
   <figure>
-    <img class="doc-figure" src="https://assets.basically.website/sorter-docs/chute-v3-connector-pockets-plus-y-full-c4d844ff32aa.png" alt="Render of the servo side wall of the chute core with two inserts ringed in red and lettered C, one near the top of the wall and one near the bottom, each on a raised pad">
+    <img class="doc-figure" src="https://assets.basically.website/sorter-docs/chute-v3-connector-pockets-plus-y-full-3ac83c9fbb57.png" alt="Render of the servo side wall of the chute core with two inserts ringed in red, one near the top of the wall and one near the bottom, each on a raised pad">
     <figcaption>The servo side wall. The upper ring takes this chute's connector; the lower ring is for the connector standing on the chute below. <cite>Rendered from the part geometry, not from a build. Render: Balloon.</cite></figcaption>
   </figure>
   <figure>
-    <img class="doc-figure" src="https://assets.basically.website/sorter-docs/chute-v3-connector-pockets-minus-y-full-14209331d9ff.png" alt="Render of the plain side wall of the chute core with two inserts ringed in red and lettered C, one near the top of the wall and one near the bottom">
+    <img class="doc-figure" src="https://assets.basically.website/sorter-docs/chute-v3-connector-pockets-minus-y-full-133b717364e2.png" alt="Render of the plain side wall of the chute core with two inserts ringed in red, one near the top of the wall and one near the bottom">
     <figcaption>The plain side wall, the same two inserts. <cite>Rendered from the part geometry, not from a build. Render: Balloon.</cite></figcaption>
   </figure>
 </div>

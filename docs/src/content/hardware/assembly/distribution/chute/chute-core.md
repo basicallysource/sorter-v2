@@ -18,14 +18,12 @@ parts_needed:
     qty: 21
 warning: >-
   **AI-generated first draft.** Written from the 3D parts of the inverted chute, not from an actual
-  build. The insert count and positions on this page are counted off the chute core's own geometry:
-  21 pockets, three more than the earlier core, so the parts calculator's count of 18 is out of date
-  until the catalog follows. The order of the steps is not checked against a machine.
+  build. The insert positions are read off the core itself.
 ---
 
 The chute is what steers a part into the right bin. Build one per layer, N for an N-layer machine. The [bottom interface]({{ '/hardware/assembly/distribution/bin-frame/bottom-interface/' | relative_url }}) doesn't add any extra chutes of its own, it's a mounting stage the bottommost chute sits on, bridged to it by a [layer connector]({{ '/hardware/assembly/distribution/chute/layer-connectors/' | relative_url }}).
 
-The core is an upright box, open at the top, with a large opening in one side. The opening is where the door lets a part out; the funnel hangs off it. In this page that is the **opening side**. The side opposite it is the **rear**, and the two long walls are the **servo side** and the **plain side**, after what bolts to them.
+The core is an upright box, open at the top, with a large opening in one side. The opening is where the door lets a part out; the funnel hangs off it. In this page that is the **opening side**. The side opposite it is the **rear**. Of the two long walls, the **servo side** is the one that takes the servo bracket and has nine inserts, and the **plain side** is the one with six.
 
 The heat inserts are in the parts list above. The screws that hold the sub-assemblies on are on their own pages, listed where they are driven.
 

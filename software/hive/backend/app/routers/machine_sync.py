@@ -9,7 +9,7 @@ from uuid import UUID, uuid4
 from fastapi import APIRouter, Depends, File, Form, Request, UploadFile
 from PIL import Image
 from pydantic import BaseModel, ValidationError, field_validator
-from sqlalchemy import case, or_
+from sqlalchemy import bindparam, case, or_, text
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.dialects.sqlite import insert as sqlite_insert
 from sqlalchemy.exc import IntegrityError, SQLAlchemyError
@@ -166,6 +166,33 @@ def _upsert(
     db.execute(stmt)
 
 
+# The upsert of one row (a crop, a piece image, a segment: several a second)
+# as plain SQL, built once per table and set of columns and then cached by
+# SQLAlchemy like any text(). Its own upsert constructs are never cached, and
+# for one crop, compiling the statement and building its "excluded" columns
+# took about a fifth of the request's time.
+_ONE_ROW_UPSERTS: dict[tuple, Any] = {}
+
+
+def _upsert_one(
+    db: Session, model, row: dict[str, Any], index_elements: tuple[str, ...], update_cols: tuple[str, ...]
+) -> None:
+    """Insert one row, updating update_cols on a natural-key conflict."""
+    shape = (model.__tablename__, tuple(row), index_elements, update_cols)
+    stmt = _ONE_ROW_UPSERTS.get(shape)
+    if stmt is None:
+        table = model.__table__
+        quoted = '"{}"'.format
+        stmt = text(
+            f"INSERT INTO {quoted(table.name)} ({', '.join(map(quoted, row))}) "
+            f"VALUES ({', '.join(':' + name for name in row)}) "
+            f"ON CONFLICT ({', '.join(map(quoted, index_elements))}) DO UPDATE SET "
+            + ", ".join(f"{quoted(name)} = excluded.{quoted(name)}" for name in update_cols)
+        ).bindparams(*(bindparam(name, type_=table.c[name].type) for name in row))
+        _ONE_ROW_UPSERTS[shape] = stmt
+    db.execute(stmt, row)
+
+
 # local_id of a machine_pieces row a correction created before its record
 # arrived (older sorters; see sync_piece_corrections). Sorter ids start at 1.
 _STUB_LOCAL_ID = 0
@@ -265,25 +292,27 @@ def _replace_rejection_reasons(
         )
 
 
+# Raise a (machine, data type) watermark to a new value if that is higher, and
+# return it: one statement, where reading the row and writing it back took
+# two. Plain SQL both Postgres and SQLite run, so SQLAlchemy compiles it once:
+# its own upsert constructs are never cached and compile on every request.
+_ADVANCE_WATERMARK = text(
+    "INSERT INTO machine_sync_state (machine_id, data_type, max_local_id, updated_at) "
+    "VALUES (:machine_id, :data_type, :max_local_id, :updated_at) "
+    "ON CONFLICT (machine_id, data_type) DO UPDATE SET "
+    "max_local_id = CASE WHEN excluded.max_local_id > machine_sync_state.max_local_id "
+    "THEN excluded.max_local_id ELSE machine_sync_state.max_local_id END, "
+    "updated_at = excluded.updated_at "
+    "RETURNING max_local_id"
+).bindparams(
+    bindparam("machine_id", type_=MachineSyncState.__table__.c.machine_id.type),
+    bindparam("updated_at", type_=MachineSyncState.__table__.c.updated_at.type),
+)
+
+
 def _advance_watermark(db: Session, machine_id: UUID, data_type: str, new_max: int) -> int:
-    """Raise the (machine, data type) watermark to new_max if that is higher,
-    and return it: one statement, where reading the row and writing it back
-    took two."""
-    table = MachineSyncState.__table__
-    stmt = _insert(db)(table).values(
-        machine_id=machine_id, data_type=data_type, max_local_id=new_max, updated_at=_now()
-    )
-    stmt = stmt.on_conflict_do_update(
-        index_elements=["machine_id", "data_type"],
-        set_={
-            "max_local_id": case(
-                (stmt.excluded.max_local_id > table.c.max_local_id, stmt.excluded.max_local_id),
-                else_=table.c.max_local_id,
-            ),
-            "updated_at": stmt.excluded.updated_at,
-        },
-    ).returning(table.c.max_local_id)
-    return int(db.execute(stmt).scalar_one())
+    params = {"machine_id": machine_id, "data_type": data_type, "max_local_id": new_max, "updated_at": _now()}
+    return int(db.execute(_ADVANCE_WATERMARK, params).scalar_one())
 
 
 class PieceRecordIn(BaseModel):
@@ -730,7 +759,7 @@ def sync_piece_image(
     }
     # Metadata-only re-sends must not wipe a previously stored image_key.
     update_cols = _IMAGE_UPDATE_COLS if image is not None else tuple(c for c in _IMAGE_UPDATE_COLS if c != "image_key")
-    _upsert(db, MachinePieceImage, [row], ["machine_id", "piece_uuid", "seq"], update_cols)
+    _upsert_one(db, MachinePieceImage, row, ("machine_id", "piece_uuid", "seq"), update_cols)
     new_max = _advance_watermark(db, machine_id, DATA_TYPE_PIECE_IMAGES, key)
     mark_machine_seen(machine, now)
     db.commit()
@@ -784,7 +813,7 @@ def sync_channel_crop(
     }
     # Metadata-only re-sends must not wipe a previously stored image_key.
     update_cols = _CHANNEL_CROP_UPDATE_COLS if image is not None else tuple(c for c in _CHANNEL_CROP_UPDATE_COLS if c != "image_key")
-    _upsert(db, MachineChannelCrop, [row], ["machine_id", "local_id"], update_cols)
+    _upsert_one(db, MachineChannelCrop, row, ("machine_id", "local_id"), update_cols)
     new_max = _advance_watermark(db, machine_id, DATA_TYPE_CHANNEL_CROPS, meta.local_id)
     mark_machine_seen(machine, now)
     db.commit()
@@ -832,7 +861,7 @@ def sync_control_data_segment(
     }
     # Metadata-only re-sends must not wipe a previously stored data_key.
     update_cols = _CONTROL_DATA_UPDATE_COLS if data is not None else tuple(c for c in _CONTROL_DATA_UPDATE_COLS if c != "data_key")
-    _upsert(db, MachineControlDataSegment, [row], ["machine_id", "local_id"], update_cols)
+    _upsert_one(db, MachineControlDataSegment, row, ("machine_id", "local_id"), update_cols)
     new_max = _advance_watermark(db, machine_id, DATA_TYPE_CONTROL_DATA, meta.local_id)
     mark_machine_seen(machine, now)
     db.commit()

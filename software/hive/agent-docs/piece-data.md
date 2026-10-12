@@ -45,6 +45,10 @@ file endpoints (crops, piece images, control data, samples, and the older
   travel. The rows follow in one short transaction.
 - The watermark advances in one statement (an upsert that keeps the larger
   value and returns it).
+- The one-row upserts (a crop, a piece image, a segment) and the watermark
+  are plain SQL (`text()`) that SQLAlchemy compiles once. Its own
+  `insert().on_conflict_do_update()` is never cached: compiling it and its
+  `excluded` columns again on every crop was about a fifth of the request.
 - `machines.last_seen_at` is written at most once a minute per machine
   (`services/machine_presence.py`): only when the value loaded with the
   machine is a minute old, and only by the first of the requests in this
@@ -52,8 +56,9 @@ file endpoints (crops, piece images, control data, samples, and the older
 - On S3 a file up to 8 MB goes in one `put_object`, not through a transfer
   manager.
 
-A crop with its file is three statements (token, crop, watermark) around the
-storage write; `tests/test_machine_ingest.py` holds the line.
+A crop with its file is three statements (token, crop, watermark), none
+compiled again, around the storage write; `tests/test_machine_ingest.py`
+holds the line.
 
 **What a sorter sends when.** A piece's record goes when the piece is
 distributed (or reaped, or corrected before it distributes), and again each

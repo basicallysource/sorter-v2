@@ -5,11 +5,11 @@ type: how-to
 section: hardware
 slug: assembly-chute-core
 kicker: Chute — Chute core
-lede: The chute assembly. Build one per layer.
+lede: The printed core of the chute, with its heat inserts. Build one per layer.
 permalink: /hardware/assembly/distribution/chute/chute-core/
 author: spencer
 contributors: [barthel, zed0]
-og_image: https://assets.basically.website/sorter-docs/chute-v3-assembled-window-full-405b3627325a.png
+og_image: https://assets.basically.website/sorter-docs/chute-v3-core-with-inserts-opening-side-full-fc9f9a8e2abf.png
 tools_needed: [Soldering iron or heat-set insert press]
 parts_needed:
   - part: chute-core
@@ -29,18 +29,9 @@ The core is an upright box, open at the top, with a large opening in one side. T
 
 The heat inserts are in the parts list above. The screws that hold the sub-assemblies on are on their own pages, listed where they are driven.
 
-{% include fastener-legend.html %}
-
-One chute is the chute core plus four things that bolt onto it:
-
-- **Door module**, one per chute: the door, the bearing assembly, the servo adapter and the servo in its bracket, built as a unit. See [Door module]({{ '/hardware/assembly/distribution/chute/door-module/' | relative_url }}).
-- **Layer adapter board**, one per chute. See [Layer adapter board]({{ '/hardware/assembly/distribution/chute/pcb/' | relative_url }}).
-- **Funnel bracket (left)** and **Funnel bracket (right)**, one of each, and the funnel they carry. See [Funnel brackets]({{ '/hardware/assembly/distribution/chute/funnel/' | relative_url }}).
-- **Layer connector A** and **Layer connector B**, one of each. See [Layer connectors]({{ '/hardware/assembly/distribution/chute/layer-connectors/' | relative_url }}).
-
 {% include step.html n="1" title="Preparation" %}
 
-Press the heat inserts into the chute core before you mount anything else onto it. See [installing heat inserts]({{ '/hardware/helpers/heat-inserts/' | relative_url }}) for the technique.
+Press all the heat inserts into the chute core before anything is mounted on it. See [installing heat inserts]({{ '/hardware/helpers/heat-inserts/' | relative_url }}) for the technique.
 
 <div class="prep-item">
   <div class="prep-item-body">
@@ -79,24 +70,37 @@ Press the heat inserts into the chute core before you mount anything else onto i
   </figure>
 </div>
 
-{% include step.html n="2" title="Bolt the four sub-assemblies on" %}
-
-Fit them in this order, each on its own page, and each with its own screws in its own parts list:
-
-- **[Door module]({{ '/hardware/assembly/distribution/chute/door-module/' | relative_url }})**, bolted on as a unit
-- **[Layer adapter board]({{ '/hardware/assembly/distribution/chute/pcb/' | relative_url }})**
-- **[Funnel brackets]({{ '/hardware/assembly/distribution/chute/funnel/' | relative_url }})**, left and right
-- **[Layer connectors]({{ '/hardware/assembly/distribution/chute/layer-connectors/' | relative_url }})** A and B
-
-Every insert you pressed in at step 1 takes a screw from one of those four pages. That is why the inserts are listed here and the screws are not.
-
 ## The finished result
 
-The chute is complete when all four are on. Repeat for every layer.
+The chute core is finished when all 21 heat inserts are pressed in. Nothing is bolted to it on this page; the parts that go on it are built on their own pages, and each of those starts from this finished core.
 
-<figure class="single-figure">
-  <img class="doc-figure" src="https://assets.basically.website/sorter-docs/chute-v3-assembled-window-full-405b3627325a.png" alt="Render of a finished chute seen from the opening side: the grey core upright, the door module low on it with its round bearing cover, the green funnel bracket running down to the tan funnel, and the yellow layer connectors on top">
-  <figcaption>A core with the door module, the funnel brackets and funnel and the layer connectors on. The layer adapter board is not modelled and is not in this picture. <cite>Rendered from the part geometry, not from a build. Render: Balloon.</cite></figcaption>
-</figure>
+<div class="img-row">
+  <figure>
+    <img class="doc-figure" src="https://assets.basically.website/sorter-docs/chute-v3-core-with-inserts-servo-side-full-dd14c8086615.png" alt="Render of the servo side wall of the chute core with brass heat inserts pressed into all nine pockets on it">
+    <figcaption>The servo side: 9 inserts in. <cite>Rendered from the part geometry, not from a build. Render: Balloon.</cite></figcaption>
+  </figure>
+  <figure>
+    <img class="doc-figure" src="https://assets.basically.website/sorter-docs/chute-v3-core-with-inserts-plain-side-full-e65ad07e460e.png" alt="Render of the plain side wall of the chute core with brass heat inserts pressed into all six pockets on it">
+    <figcaption>The plain side: 6 inserts in. <cite>Rendered from the part geometry, not from a build. Render: Balloon.</cite></figcaption>
+  </figure>
+</div>
+
+<div class="img-row">
+  <figure>
+    <img class="doc-figure" src="https://assets.basically.website/sorter-docs/chute-v3-core-with-inserts-rear-full-0e0abd56197b.png" alt="Render of the rear wall of the chute core with a brass heat insert in each of the four pockets in a square">
+    <figcaption>The rear: 4 inserts in. <cite>Rendered from the part geometry, not from a build. Render: Balloon.</cite></figcaption>
+  </figure>
+  <figure>
+    <img class="doc-figure" src="https://assets.basically.website/sorter-docs/chute-v3-core-with-inserts-opening-side-full-fc9f9a8e2abf.png" alt="Render of the opening side of the chute core seen from above, with a brass heat insert in each of the two pockets on the low wall under the opening">
+    <figcaption>The opening side: 2 inserts in. <cite>Rendered from the part geometry, not from a build. Render: Balloon.</cite></figcaption>
+  </figure>
+</div>
+
+What goes on the core, one page each:
+
+- **[Door module]({{ '/hardware/assembly/distribution/chute/door-module/' | relative_url }})**: the B, D and E inserts
+- **[Layer adapter board]({{ '/hardware/assembly/distribution/chute/pcb/' | relative_url }})**: the F inserts
+- **[Funnel brackets]({{ '/hardware/assembly/distribution/chute/funnel/' | relative_url }})**: the A inserts
+- **[Layer connectors]({{ '/hardware/assembly/distribution/chute/layer-connectors/' | relative_url }})**: the C inserts
 
 The [Chute]({{ '/hardware/assembly/distribution/chute/' | relative_url }}) page contains the instructions for the whole chute, and is where you should return once you're done here.

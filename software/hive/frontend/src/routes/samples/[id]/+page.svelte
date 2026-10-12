@@ -8,6 +8,7 @@
 		type SampleClassificationPayload,
 		type SampleDetail,
 		type SampleReview,
+		type SampleSwatchRun,
 		type SavedSampleAnnotation
 	} from '$lib/api';
 	import Badge from '$lib/components/Badge.svelte';
@@ -24,6 +25,7 @@
 	import SampleAnnotatorPanel from '$lib/components/sample/SampleAnnotatorPanel.svelte';
 	import SampleConditionCard from '$lib/components/sample/SampleConditionCard.svelte';
 	import SampleDetailsSidebar from '$lib/components/sample/SampleDetailsSidebar.svelte';
+	import SampleSwatchesCard from '$lib/components/sample/SampleSwatchesCard.svelte';
 	import Button from '$lib/components/Button.svelte';
 	import Alert from '$lib/components/Alert.svelte';
 	import Checkbox from '$lib/components/Checkbox.svelte';
@@ -53,6 +55,11 @@
 	let sample = $state<SampleDetail | null>(null);
 	let reviews = $state<SampleReview[]>([]);
 	let loading = $state(true);
+	// The colour reference palette's readings on this frame, newest run first.
+	let swatchRuns = $state<SampleSwatchRun[]>([]);
+	let swatchRunId = $state<string | undefined>(undefined);
+	let showSwatches = $state(true);
+	const swatchRun = $derived(swatchRuns.find((r) => r.id === swatchRunId) ?? swatchRuns[0] ?? null);
 	let showDeleteModal = $state(false);
 
 	// Image view toggle — persisted via ?view= query param
@@ -390,6 +397,7 @@
 			]);
 			sample = s;
 			reviews = r.reviews;
+			void loadSwatchRuns(s);
 			const urlView = readViewFromUrl();
 			activeView = urlView;
 			annotatorMounted = urlView === 'annotate';
@@ -397,6 +405,18 @@
 			sample = null;
 		} finally {
 			loading = false;
+		}
+	}
+
+	async function loadSwatchRuns(s: SampleDetail) {
+		swatchRuns = [];
+		swatchRunId = undefined;
+		if (!s.has_full_frame) return;
+		try {
+			const { runs } = await api.getSampleSwatchRuns(s.id);
+			if (sample?.id === s.id) swatchRuns = runs;
+		} catch {
+			// Readings are extra: the page works without them.
 		}
 	}
 
@@ -548,9 +568,14 @@
 				{#if viewOptions.length > 1}
 					<SegmentedControl label="View" size="sm" value={activeView} options={viewOptions} onchange={setView} />
 				{/if}
-				{#if activeView === 'image' && proposalBoxes.length > 0}
-					<Checkbox bind:checked={showBboxOverlay}>Boxes</Checkbox>
-				{/if}
+				<div class="flex items-center gap-4">
+					{#if activeView === 'image' && proposalBoxes.length > 0}
+						<Checkbox bind:checked={showBboxOverlay}>Boxes</Checkbox>
+					{/if}
+					{#if swatchRun && (activeView === 'image' || activeView === 'full_frame')}
+						<Checkbox bind:checked={showSwatches}>Swatches</Checkbox>
+					{/if}
+				</div>
 			</div>
 
 			{#if activeView !== 'annotate'}
@@ -564,6 +589,7 @@
 					{imageNaturalHeight}
 					{proposalColor}
 					onload={onImageLoad}
+					swatchRun={showSwatches ? swatchRun : null}
 				/>
 			{/if}
 
@@ -650,6 +676,10 @@
 						/>
 					</div>
 				</Panel>
+			{/if}
+
+			{#if swatchRuns.length > 0}
+				<SampleSwatchesCard runs={swatchRuns} selectedId={swatchRun?.id} onselect={(id) => (swatchRunId = id)} />
 			{/if}
 
 			{#if auth.isAdmin}

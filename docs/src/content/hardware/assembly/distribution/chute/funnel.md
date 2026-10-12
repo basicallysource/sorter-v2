@@ -24,10 +24,10 @@ parts_needed:
     qty: 4
 warning: >-
   **AI-generated first draft.** Written from the 3D parts of the inverted chute, not from an actual
-  build. Positions, hole counts and the dovetail joint are read off the part geometry. Three things
+  build. Positions, hole counts and the dovetail joint are read off the part geometry. Two things
   are open and marked on the page: the screw head (the brackets have a round recess for the head, so
-  the list has a socket or button head, where the parts calculator still has a countersunk one), what
-  the two small pockets in each funnel are for, and what holds the funnel in once it is slid home.
+  the list has a socket or button head, where the parts calculator still has a countersunk one), and
+  what holds the funnel in once it is slid home.
 ---
 
 The funnel catches what the door releases and guides it into the bin below. It slides onto two printed brackets that are bolted to the chute core.
@@ -104,7 +104,7 @@ Each bracket has two slits along its free end, which leave a thin tongue over th
 
 <div class="callout">
   <span class="callout-icon" aria-hidden="true">💡</span>
-  <p>Each funnel has one small round pocket in the middle of each rail, two in all. They are the size of a M3 heat insert pocket, but nothing in the brackets lines up with them, so they are left empty for now.</p>
+  <p>Each funnel has one small round pocket in the middle of each rail, two in all. They are the size of an M3 heat insert pocket, but the brackets have no holes over them, so nothing uses them and they stay empty.</p>
 </div>
 
 <figure class="single-figure">

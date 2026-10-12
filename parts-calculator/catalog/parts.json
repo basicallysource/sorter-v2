@@ -1830,7 +1830,7 @@
       },
       "optional": false,
       "support": false,
-      "source": "gen3_left_funnel_slide - M3x12 recessed seats.stl",
+      "source": "funnel-bracket-left.stl",
       "onshape_version": "https://cad.onshape.com/documents/9137894c36f07dfc4dea695d/w/dde194facf5a22be951251c3/e/aaf844292d9a564824a5fe8b",
       "versions": [
         {
@@ -1868,7 +1868,7 @@
       },
       "optional": false,
       "support": false,
-      "source": "gen3_right_funnel_slide - M3x12 recessed seats.stl",
+      "source": "funnel-bracket-right.stl",
       "onshape_version": "https://cad.onshape.com/documents/9137894c36f07dfc4dea695d/w/dde194facf5a22be951251c3/e/aaf844292d9a564824a5fe8b",
       "versions": [
         {
@@ -1926,7 +1926,8 @@
           "breaking": true,
           "commit": null
         }
-      ]
+      ],
+      "source": "bearing-race.stl"
     },
     {
       "id": "bearing-holder-left",
@@ -1968,7 +1969,8 @@
           "breaking": true,
           "commit": null
         }
-      ]
+      ],
+      "source": "bearing-holder-left.stl"
     },
     {
       "id": "bearing-holder-right",
@@ -2010,7 +2012,8 @@
           "breaking": true,
           "commit": null
         }
-      ]
+      ],
+      "source": "bearing-holder-right.stl"
     },
     {
       "id": "servo-adapter-servo-side",
@@ -2046,7 +2049,8 @@
           "breaking": true,
           "commit": null
         }
-      ]
+      ],
+      "source": "servo-adapter-servo-side.stl"
     },
     {
       "id": "servo-adapter-flap-side",
@@ -2082,7 +2086,8 @@
           "breaking": true,
           "commit": null
         }
-      ]
+      ],
+      "source": "servo-adapter-flap-side.stl"
     },
     {
       "id": "servo-bracket-lower-arm",
@@ -2118,7 +2123,8 @@
           "breaking": true,
           "commit": null
         }
-      ]
+      ],
+      "source": "servo-bracket-lower-arm.stl"
     },
     {
       "id": "servo-bracket-side-arm",
@@ -2154,7 +2160,8 @@
           "breaking": true,
           "commit": null
         }
-      ]
+      ],
+      "source": "servo-bracket-side-arm.stl"
     },
     {
       "id": "servo-bracket-cover",
@@ -2190,7 +2197,8 @@
           "breaking": true,
           "commit": null
         }
-      ]
+      ],
+      "source": "servo-bracket-cover.stl"
     },
     {
       "id": "servo-bracket-housing",
@@ -2232,7 +2240,8 @@
           "breaking": true,
           "commit": null
         }
-      ]
+      ],
+      "source": "servo-bracket-housing.stl"
     },
     {
       "id": "leg",
@@ -2306,7 +2315,8 @@
           "breaking": true,
           "commit": null
         }
-      ]
+      ],
+      "source": "chute-door.stl"
     },
     {
       "id": "leg-extension",
@@ -2542,7 +2552,8 @@
           "breaking": true,
           "commit": null
         }
-      ]
+      ],
+      "source": "layer-connector-1.stl"
     },
     {
       "id": "layer-connector-2",
@@ -2579,7 +2590,8 @@
           "breaking": true,
           "commit": null
         }
-      ]
+      ],
+      "source": "layer-connector-2.stl"
     },
     {
       "id": "chute-stepper-support-block",
@@ -2833,7 +2845,8 @@
           "breaking": true,
           "commit": null
         }
-      ]
+      ],
+      "source": "bearing-cover-covered.stl"
     },
     {
       "id": "bearing-cover-servo",
@@ -2869,7 +2882,8 @@
           "breaking": true,
           "commit": null
         }
-      ]
+      ],
+      "source": "bearing-cover-servo.stl"
     },
     {
       "id": "meanwell-psu-back-mount",

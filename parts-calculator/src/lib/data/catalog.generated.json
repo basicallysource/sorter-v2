@@ -25389,6 +25389,96 @@
 			]
 		},
 		{
+			"id": "chute-without-core",
+			"name": "chute-without-core",
+			"download": "https://assets.basically.website/sorter-parts/chute-without-core-4baaada4d5ef.3mf",
+			"thumbs": [
+				"https://assets.basically.website/sorter-parts/chute-without-core-1-full-493fb70bc54e.png"
+			],
+			"parts": [
+				{
+					"name": "bearing-cover-covered",
+					"count": 1,
+					"part_id": "bearing-cover-covered"
+				},
+				{
+					"name": "layer-connector-2",
+					"count": 1,
+					"part_id": "layer-connector-2"
+				},
+				{
+					"name": "bearing-cover-servo",
+					"count": 1,
+					"part_id": "bearing-cover-servo"
+				},
+				{
+					"name": "bearing-race",
+					"count": 1,
+					"part_id": "bearing-race"
+				},
+				{
+					"name": "bearing-holder-right",
+					"count": 1,
+					"part_id": "bearing-holder-right"
+				},
+				{
+					"name": "layer-connector-1",
+					"count": 1,
+					"part_id": "layer-connector-1"
+				},
+				{
+					"name": "servo-bracket-side-arm",
+					"count": 1,
+					"part_id": "servo-bracket-side-arm"
+				},
+				{
+					"name": "servo-bracket-cover",
+					"count": 1,
+					"part_id": "servo-bracket-cover"
+				},
+				{
+					"name": "funnel-bracket-right",
+					"count": 1,
+					"part_id": "funnel-bracket-right"
+				},
+				{
+					"name": "servo-bracket-housing",
+					"count": 1,
+					"part_id": "servo-bracket-housing"
+				},
+				{
+					"name": "servo-adapter-servo-side",
+					"count": 1,
+					"part_id": "servo-adapter-servo-side"
+				},
+				{
+					"name": "bearing-holder-left",
+					"count": 1,
+					"part_id": "bearing-holder-left"
+				},
+				{
+					"name": "chute-door",
+					"count": 1,
+					"part_id": "chute-door"
+				},
+				{
+					"name": "servo-adapter-flap-side",
+					"count": 1,
+					"part_id": "servo-adapter-flap-side"
+				},
+				{
+					"name": "funnel-bracket-left",
+					"count": 1,
+					"part_id": "funnel-bracket-left"
+				},
+				{
+					"name": "servo-bracket-lower-arm",
+					"count": 1,
+					"part_id": "servo-bracket-lower-arm"
+				}
+			]
+		},
+		{
 			"id": "external-brackets-6",
 			"name": "external-brackets-6",
 			"download": "https://assets.basically.website/sorter-parts/external-brackets-6-64e17ce00e1f.3mf",

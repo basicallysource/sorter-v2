@@ -21,7 +21,7 @@ from uuid import UUID
 import numpy as np
 from fastapi import APIRouter, Depends, Query
 from pydantic import BaseModel, Field
-from sqlalchemy import and_, case, func
+from sqlalchemy import and_, case, exists, func
 from sqlalchemy.orm import Session
 
 from app.database import tune_for_aggregates

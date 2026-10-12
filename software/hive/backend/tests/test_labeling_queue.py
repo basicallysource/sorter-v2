@@ -170,7 +170,9 @@ def fleet(client: TestClient, db: Session, test_user: dict) -> dict:
     # Not labelable: dead, no crop in storage, too young; and a foreign machine.
     _piece(db, m1, "dead", base, dead=True)
     _piece(db, m1, "no-image", base, image=False)
-    _piece(db, m1, "young", NOW - timedelta(minutes=2))
+    # Stamped when the test runs: two minutes old at module load becomes
+    # labelable in a suite that takes over 13 minutes to reach these tests.
+    _piece(db, m1, "young", _now() - timedelta(minutes=2))
     _piece(db, foreign, "foreign", base)
 
     # Labels: colour counts 1..3 on a few, some by me; crop links; part labels.

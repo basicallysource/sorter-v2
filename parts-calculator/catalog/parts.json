@@ -166,6 +166,8 @@
       "id": "reverse-chute-door",
       "name": "Reverse chute door",
       "priority": "P3",
+      "status": "complete",
+      "completed_at": "2026-10-12",
       "description": "Move the chute door to the other side so the flap closes the open funnel hole. This affects the chute as a whole and all of its parts.",
       "targets": {
         "sections": [
@@ -308,19 +310,6 @@
         ],
         "hardware": [
           "scr-m5-12-shcs"
-        ]
-      }
-    },
-    {
-      "id": "merge-bearing-holders",
-      "name": "Merge the two chute bearing holders into one part",
-      "priority": "P1",
-      "condition": "broken",
-      "description": "The chute door module asks for two different printed parts, a left bearing holder and a right one, where one part printed twice does the whole job. They are the same geometry. Measured off the two master STLs: a proper rotation of exactly 180.000 degrees about the flange face normal (0, 0.906, 0.423) maps one onto the other with a maximum deviation of 0.065 mm and a mean of 0.004 mm, and the transform's determinant is +1, so no handedness is involved. The only asymmetry in either part is 0.05 mm, between two of the three M3 insert pockets, at 17.35 mm and 17.40 mm from the bore centre. The machine should carry one holder and print it twice, which drops the printed part count by one. Nothing about the assembly changes: the two bearing seats face outward either way. The two ids are interchangeable as they stand. Which id survives, and what a single holder should be called, are open questions. Tracked as sorter-v2 issue #569, with the catalog side in #570.",
-      "targets": {
-        "parts": [
-          "bearing-holder-left",
-          "bearing-holder-right"
         ]
       }
     },
@@ -729,28 +718,44 @@
     },
     {
       "id": "chute-core",
-      "uid": "mu36",
+      "uid": "omak",
       "name": "Chute core",
       "description": "The chute core. 1 per machine.",
       "internal_notes": "1 per machine. Its own color selector (chute core).",
-      "version": "1",
+      "version": "2",
       "created_at": "2026-06-27",
-      "updated_at": "2026-06-27",
+      "updated_at": "2026-10-11",
       "quantities": {
         "chute": 1
       },
       "assembly": null,
-      "stl_hash": "fccd4907faf05e295c070b5a5c2a41b6f89a5109bc7e368cb7632f26a2c19590",
+      "stl_hash": "97283b2c3e8c048b24d4d14a091e0162e1334854ab4734cdfb3bb88a4114c8a9",
       "color": {
         "role": "chute-core"
       },
       "optional": false,
-      "support": false,
-      "source": "1_chute_core - core (2).stl",
+      "support": true,
+      "source": "gen4_core.stl",
       "requires": [
         {
           "part": "hsi-m3",
           "qty": 21
+        }
+      ],
+      "versions": [
+        {
+          "version": "1",
+          "uid": "mu36",
+          "message": "As recorded before the first stamped change.",
+          "stl_hash": "fccd4907faf05e295c070b5a5c2a41b6f89a5109bc7e368cb7632f26a2c19590"
+        },
+        {
+          "version": "2",
+          "date": "2026-10-11",
+          "message": "Inverted chute: replaced with the inverted chute design.",
+          "breaking": true,
+          "onshape_version": "https://cad.onshape.com/documents/9137894c36f07dfc4dea695d/w/dde194facf5a22be951251c3/e/aaf844292d9a564824a5fe8b",
+          "commit": null
         }
       ]
     },
@@ -1807,84 +1812,131 @@
     },
     {
       "id": "funnel-bracket-left",
-      "uid": "4oyp",
+      "uid": "smht",
       "name": "Funnel bracket (left)",
       "description": "Funnel bracket, left. 2 funnel brackets total.",
       "internal_notes": "Snap-in funnel bracket (left/right). Chute-core color.",
-      "version": "1",
+      "version": "2",
       "created_at": "2026-06-27",
-      "updated_at": "2026-06-27",
+      "updated_at": "2026-10-11",
       "quantities": {
         "chute": 1
       },
       "assembly": null,
       "folder": "funnel-brackets",
-      "stl_hash": "ced3172731e0c2a64920edb072501efadf3c57325bf200fcb14bba0048dabff9",
+      "stl_hash": "af431974414d8d318b83d6004047b8013f8b8536f001b8bcc524f7f651c05a6d",
       "color": {
         "role": "chute-core"
       },
       "optional": false,
       "support": false,
-      "source": "snap_in_funnel_bracket - left_funnel_slide.stl",
-      "onshape_version": "https://cad.onshape.com/documents/a4a1965bbaf3a15aff2b13ed/v/353adf90e6a8a99bed6f90a5/e/f48c6c2ac5f2133685e12202"
+      "source": "funnel-bracket-left.stl",
+      "versions": [
+        {
+          "version": "1",
+          "uid": "4oyp",
+          "message": "As recorded before the first stamped change.",
+          "stl_hash": "ced3172731e0c2a64920edb072501efadf3c57325bf200fcb14bba0048dabff9"
+        },
+        {
+          "version": "2",
+          "date": "2026-10-11",
+          "message": "Inverted chute: replaced with the inverted chute design.",
+          "breaking": true,
+          "onshape_version": "https://cad.onshape.com/documents/9137894c36f07dfc4dea695d/w/dde194facf5a22be951251c3/e/aaf844292d9a564824a5fe8b",
+          "commit": null
+        }
+      ]
     },
     {
       "id": "funnel-bracket-right",
-      "uid": "b9vt",
+      "uid": "ep34",
       "name": "Funnel bracket (right)",
       "description": "Funnel bracket, right. 2 funnel brackets total.",
       "internal_notes": "Snap-in funnel bracket (left/right). Chute-core color.",
-      "version": "1",
+      "version": "2",
       "created_at": "2026-06-27",
-      "updated_at": "2026-06-27",
+      "updated_at": "2026-10-11",
       "quantities": {
         "chute": 1
       },
       "assembly": null,
       "folder": "funnel-brackets",
-      "stl_hash": "f7932bce6ef7eddb1be6c64a738b41b6573d67bdadb40d6febf131e0a21ccb31",
+      "stl_hash": "d7c880e57bcfe472bc861ccfb80741702ce86f1ec2b558e174e4caf958ec5f51",
       "color": {
         "role": "chute-core"
       },
       "optional": false,
       "support": false,
-      "source": "snap_in_funnel_bracket - right_funnel_slide.stl",
-      "onshape_version": "https://cad.onshape.com/documents/a4a1965bbaf3a15aff2b13ed/v/353adf90e6a8a99bed6f90a5/e/f48c6c2ac5f2133685e12202"
+      "source": "funnel-bracket-right.stl",
+      "versions": [
+        {
+          "version": "1",
+          "uid": "b9vt",
+          "message": "As recorded before the first stamped change.",
+          "stl_hash": "f7932bce6ef7eddb1be6c64a738b41b6573d67bdadb40d6febf131e0a21ccb31"
+        },
+        {
+          "version": "2",
+          "date": "2026-10-11",
+          "message": "Inverted chute: replaced with the inverted chute design.",
+          "breaking": true,
+          "onshape_version": "https://cad.onshape.com/documents/9137894c36f07dfc4dea695d/w/dde194facf5a22be951251c3/e/aaf844292d9a564824a5fe8b",
+          "commit": null
+        }
+      ]
     },
     {
       "id": "bearing-race",
-      "uid": "yo10",
+      "uid": "081k",
       "name": "Bearing race",
       "description": "The race between the two chute bearing holders.",
       "internal_notes": "Renamed from 'door-module' (2026-07-18): the old name collided with the flap module assembly and, as its own notes said, mislabeled it as the door. File: part_door_module.",
-      "version": "1",
+      "version": "2",
       "created_at": "2026-06-27",
-      "updated_at": "2026-06-27",
+      "updated_at": "2026-10-11",
       "quantities": {
         "chute": 1
       },
       "assembly": "chute-bearing",
-      "stl_hash": "b832b7eab72a8392c80d35ebd67bb7cb6326bbc5c82a8592688ccda82fe315b3",
+      "stl_hash": "eaa7d3867e2b26ce0f3b50704e471987383ce5add8c9dce3759649ca5d2ddc45",
       "color": {
         "role": "chute-core"
       },
       "optional": false,
-      "support": false
+      "support": false,
+      "versions": [
+        {
+          "version": "1",
+          "uid": "yo10",
+          "message": "As recorded before the first stamped change.",
+          "stl_hash": "b832b7eab72a8392c80d35ebd67bb7cb6326bbc5c82a8592688ccda82fe315b3"
+        },
+        {
+          "version": "2",
+          "date": "2026-10-11",
+          "message": "Inverted chute: replaced with the inverted chute design.",
+          "breaking": true,
+          "onshape_version": "https://cad.onshape.com/documents/9137894c36f07dfc4dea695d/w/dde194facf5a22be951251c3/e/aaf844292d9a564824a5fe8b",
+          "commit": null
+        }
+      ],
+      "source": "bearing-race.stl"
     },
     {
       "id": "bearing-holder-left",
-      "uid": "gybh",
+      "uid": "eal7",
       "name": "Bearing holder (left)",
-      "description": "Bearing holder, left. The same part as the right holder, turned 180 degrees about its flange face.",
-      "internal_notes": "Chute-core assembly part. COLOR UNSPECIFIED by Spencer - defaulted to the chute-core role (ivory white); confirm. Same geometry as bearing-holder-right: a proper rotation of exactly 180.000 degrees about the flange face normal (0, 0.906, 0.423) maps one onto the other, max deviation 0.065 mm, mean 0.004 mm, determinant +1 rather than -1, so it is a rotation and not a reflection. NOT a handed pair; earlier notes that said so came from testing only axis-aligned rotations, which cannot answer the question. See sorter-v2#569.",
-      "version": "1",
+      "description": "Bearing holder, left. The mirror image of the right holder.",
+      "internal_notes": "Chute-core assembly part. COLOR UNSPECIFIED by Spencer - defaulted to the chute-core role (ivory white); confirm. A handed pair with bearing-holder-right, no longer the same part turned over.",
+      "version": "2",
       "created_at": "2026-06-27",
-      "updated_at": "2026-06-27",
+      "updated_at": "2026-10-11",
       "quantities": {
         "chute": 1
       },
       "assembly": "chute-bearing",
-      "stl_hash": "f0cc0eb5d575fc3d79cdea59caa0fcc6f7732c336a6830a186ffce51ef267a68",
+      "stl_hash": "e39e941f4d7176601d9f5a3d3f91efcb463bf52c62feaeb768e68d562be68f1d",
       "color": {
         "role": "chute-core"
       },
@@ -1896,27 +1948,38 @@
           "qty": 5
         }
       ],
-      "attributes": [
+      "versions": [
         {
-          "label": "Interchangeable with",
-          "value": "Bearing holder (right)"
+          "version": "1",
+          "uid": "gybh",
+          "message": "As recorded before the first stamped change.",
+          "stl_hash": "f0cc0eb5d575fc3d79cdea59caa0fcc6f7732c336a6830a186ffce51ef267a68"
+        },
+        {
+          "version": "2",
+          "date": "2026-10-11",
+          "message": "Inverted chute: replaced with the inverted chute design.",
+          "breaking": true,
+          "onshape_version": "https://cad.onshape.com/documents/9137894c36f07dfc4dea695d/w/dde194facf5a22be951251c3/e/aaf844292d9a564824a5fe8b",
+          "commit": null
         }
-      ]
+      ],
+      "source": "bearing-holder-left.stl"
     },
     {
       "id": "bearing-holder-right",
-      "uid": "rnog",
+      "uid": "qsv6",
       "name": "Bearing holder (right)",
-      "description": "Bearing holder, right. The same part as the left holder, turned 180 degrees about its flange face.",
-      "internal_notes": "Chute-core assembly part. COLOR UNSPECIFIED by Spencer - defaulted to the chute-core role (ivory white); confirm. Same geometry as bearing-holder-left: a proper rotation of exactly 180.000 degrees about the flange face normal (0, 0.906, 0.423) maps one onto the other, max deviation 0.065 mm, mean 0.004 mm, determinant +1 rather than -1, so it is a rotation and not a reflection. NOT a handed pair; earlier notes that said so came from testing only axis-aligned rotations, which cannot answer the question. See sorter-v2#569.",
-      "version": "1",
+      "description": "Bearing holder, right. The mirror image of the left holder.",
+      "internal_notes": "Chute-core assembly part. COLOR UNSPECIFIED by Spencer - defaulted to the chute-core role (ivory white); confirm. A handed pair with bearing-holder-left, no longer the same part turned over.",
+      "version": "2",
       "created_at": "2026-06-27",
-      "updated_at": "2026-06-27",
+      "updated_at": "2026-10-11",
       "quantities": {
         "chute": 1
       },
       "assembly": "chute-bearing",
-      "stl_hash": "9577bfc4f70bca72fe7c45d1c88a82df0ef14d712c67a395003c0deb9c89895b",
+      "stl_hash": "a9e3ccabd9ff5ccf7ed83128bf01b63b800fee67605cb61b3b64254fef2eb5a8",
       "color": {
         "role": "chute-core"
       },
@@ -1928,127 +1991,229 @@
           "qty": 5
         }
       ],
-      "attributes": [
+      "versions": [
         {
-          "label": "Interchangeable with",
-          "value": "Bearing holder (left)"
+          "version": "1",
+          "uid": "rnog",
+          "message": "As recorded before the first stamped change.",
+          "stl_hash": "9577bfc4f70bca72fe7c45d1c88a82df0ef14d712c67a395003c0deb9c89895b"
+        },
+        {
+          "version": "2",
+          "date": "2026-10-11",
+          "message": "Inverted chute: replaced with the inverted chute design.",
+          "breaking": true,
+          "onshape_version": "https://cad.onshape.com/documents/9137894c36f07dfc4dea695d/w/dde194facf5a22be951251c3/e/aaf844292d9a564824a5fe8b",
+          "commit": null
+        }
+      ],
+      "source": "bearing-holder-right.stl"
+    },
+    {
+      "id": "servo-adapter-servo-side",
+      "uid": "o4vg",
+      "name": "Servo adapter — servo side",
+      "description": "MG995 servo adapter, servo side.",
+      "internal_notes": "Chute-core assembly part. COLOR UNSPECIFIED by Spencer - defaulted to the chute-core role (ivory white); confirm.",
+      "version": "2",
+      "created_at": "2026-06-27",
+      "updated_at": "2026-10-11",
+      "quantities": {
+        "chute": 1
+      },
+      "assembly": "servo-adapter",
+      "stl_hash": "c6193fcc59f72fb9b304cc6478153da54edd252add6ac6b2b1cf0b73797916e9",
+      "color": {
+        "role": "chute-core"
+      },
+      "optional": false,
+      "support": false,
+      "versions": [
+        {
+          "version": "1",
+          "uid": "fu2t",
+          "message": "As recorded before the first stamped change.",
+          "stl_hash": "a82b26f1d352e337ba3b14bf1440dcb163dae4c53e405dd82ae24d98ef5ac55c"
+        },
+        {
+          "version": "2",
+          "date": "2026-10-11",
+          "message": "Inverted chute: replaced with the inverted chute design.",
+          "breaking": true,
+          "onshape_version": "https://cad.onshape.com/documents/9137894c36f07dfc4dea695d/w/dde194facf5a22be951251c3/e/aaf844292d9a564824a5fe8b",
+          "commit": null
+        }
+      ],
+      "source": "servo-adapter-servo-side.stl",
+      "requires": [
+        {
+          "part": "hsi-m3s",
+          "qty": 4
         }
       ]
     },
     {
-      "id": "servo-adapter-servo-side",
-      "uid": "fu2t",
-      "name": "Servo adapter — servo side",
-      "description": "MG995 servo adapter, servo side.",
-      "internal_notes": "Chute-core assembly part. COLOR UNSPECIFIED by Spencer - defaulted to the chute-core role (ivory white); confirm.",
-      "version": "1",
-      "created_at": "2026-06-27",
-      "updated_at": "2026-06-27",
-      "quantities": {
-        "chute": 1
-      },
-      "assembly": "servo-adapter",
-      "stl_hash": "a82b26f1d352e337ba3b14bf1440dcb163dae4c53e405dd82ae24d98ef5ac55c",
-      "color": {
-        "role": "chute-core"
-      },
-      "optional": false,
-      "support": false
-    },
-    {
       "id": "servo-adapter-flap-side",
-      "uid": "lv7n",
+      "uid": "8ee1",
       "name": "Servo adapter — flap side",
       "description": "MG995 servo adapter, flap side.",
       "internal_notes": "Chute-core assembly part. COLOR UNSPECIFIED by Spencer - defaulted to the chute-core role (ivory white); confirm.",
-      "version": "1",
+      "version": "2",
       "created_at": "2026-06-27",
-      "updated_at": "2026-06-27",
+      "updated_at": "2026-10-11",
       "quantities": {
         "chute": 1
       },
       "assembly": "servo-adapter",
-      "stl_hash": "546231d66be39ade1f502e53375608447228ced0e81bfa9211fd0fa938a02f05",
+      "stl_hash": "4d422a10158364ebb65d93a351c7e10f80c0f553f7351cf63ef421d5003203a6",
       "color": {
         "role": "chute-core"
       },
       "optional": false,
-      "support": false
+      "support": false,
+      "versions": [
+        {
+          "version": "1",
+          "uid": "lv7n",
+          "message": "As recorded before the first stamped change.",
+          "stl_hash": "546231d66be39ade1f502e53375608447228ced0e81bfa9211fd0fa938a02f05"
+        },
+        {
+          "version": "2",
+          "date": "2026-10-11",
+          "message": "Inverted chute: replaced with the inverted chute design.",
+          "breaking": true,
+          "onshape_version": "https://cad.onshape.com/documents/9137894c36f07dfc4dea695d/w/dde194facf5a22be951251c3/e/aaf844292d9a564824a5fe8b",
+          "commit": null
+        }
+      ],
+      "source": "servo-adapter-flap-side.stl"
     },
     {
       "id": "servo-bracket-lower-arm",
-      "uid": "yqz1",
+      "uid": "cdy5",
       "name": "Servo bracket — lower arm",
       "description": "MG995 servo bracket, lower arm.",
       "internal_notes": "Chute-core assembly part. COLOR UNSPECIFIED by Spencer - defaulted to the chute-core role (ivory white); confirm.",
-      "version": "1",
+      "version": "2",
       "created_at": "2026-06-27",
-      "updated_at": "2026-06-27",
+      "updated_at": "2026-10-11",
       "quantities": {
         "chute": 1
       },
       "assembly": "servo-bracket",
-      "stl_hash": "9d6c82450ddd4a21fd0b832f6085298c00414a4d530765651b355c7043754203",
+      "stl_hash": "8553d5aa2fd2a04b18d684866dee76d9db1d1277356dd5ac0f9abaee267076a8",
       "color": {
         "role": "chute-core"
       },
       "optional": false,
-      "support": false
+      "support": false,
+      "versions": [
+        {
+          "version": "1",
+          "uid": "yqz1",
+          "message": "As recorded before the first stamped change.",
+          "stl_hash": "9d6c82450ddd4a21fd0b832f6085298c00414a4d530765651b355c7043754203"
+        },
+        {
+          "version": "2",
+          "date": "2026-10-11",
+          "message": "Inverted chute: replaced with the inverted chute design.",
+          "breaking": true,
+          "onshape_version": "https://cad.onshape.com/documents/9137894c36f07dfc4dea695d/w/dde194facf5a22be951251c3/e/aaf844292d9a564824a5fe8b",
+          "commit": null
+        }
+      ],
+      "source": "servo-bracket-lower-arm.stl"
     },
     {
       "id": "servo-bracket-side-arm",
-      "uid": "75na",
+      "uid": "i4cz",
       "name": "Servo bracket — side arm",
       "description": "MG995 servo bracket, side arm.",
       "internal_notes": "Chute-core assembly part. COLOR UNSPECIFIED by Spencer - defaulted to the chute-core role (ivory white); confirm.",
-      "version": "1",
+      "version": "2",
       "created_at": "2026-06-27",
-      "updated_at": "2026-06-27",
+      "updated_at": "2026-10-11",
       "quantities": {
         "chute": 1
       },
       "assembly": "servo-bracket",
-      "stl_hash": "b37a2c6b9864744415a50c02da10425ac79d6d8f44c6938c941c36e60357464f",
+      "stl_hash": "c54b1fce87492a58247adec4a383b41c6c184c62705cf5023fbb1f6ec5e9fcbd",
       "color": {
         "role": "chute-core"
       },
       "optional": false,
-      "support": false
+      "support": false,
+      "versions": [
+        {
+          "version": "1",
+          "uid": "75na",
+          "message": "As recorded before the first stamped change.",
+          "stl_hash": "b37a2c6b9864744415a50c02da10425ac79d6d8f44c6938c941c36e60357464f"
+        },
+        {
+          "version": "2",
+          "date": "2026-10-11",
+          "message": "Inverted chute: replaced with the inverted chute design.",
+          "breaking": true,
+          "onshape_version": "https://cad.onshape.com/documents/9137894c36f07dfc4dea695d/w/dde194facf5a22be951251c3/e/aaf844292d9a564824a5fe8b",
+          "commit": null
+        }
+      ],
+      "source": "servo-bracket-side-arm.stl"
     },
     {
       "id": "servo-bracket-cover",
-      "uid": "rqor",
+      "uid": "bp83",
       "name": "Servo bracket — cover",
       "description": "MG995 servo bracket, cover.",
       "internal_notes": "Chute-core assembly part. COLOR UNSPECIFIED by Spencer - defaulted to the chute-core role (ivory white); confirm.",
-      "version": "1",
+      "version": "2",
       "created_at": "2026-06-27",
-      "updated_at": "2026-06-27",
+      "updated_at": "2026-10-11",
       "quantities": {
         "chute": 1
       },
       "assembly": "servo-bracket",
-      "stl_hash": "1ebad4ab6770ccf750f33c219e0815f106d44c1d0dce55cacef42b9fdc84c8d2",
+      "stl_hash": "1bc27a4bda6ff4d2f2902e63c7f56732f48cab94fcc2d303f8bcdb3a22f6dbb6",
       "color": {
         "role": "chute-core"
       },
       "optional": false,
-      "support": false
+      "support": false,
+      "versions": [
+        {
+          "version": "1",
+          "uid": "rqor",
+          "message": "As recorded before the first stamped change.",
+          "stl_hash": "1ebad4ab6770ccf750f33c219e0815f106d44c1d0dce55cacef42b9fdc84c8d2"
+        },
+        {
+          "version": "2",
+          "date": "2026-10-11",
+          "message": "Inverted chute: replaced with the inverted chute design.",
+          "breaking": true,
+          "onshape_version": "https://cad.onshape.com/documents/9137894c36f07dfc4dea695d/w/dde194facf5a22be951251c3/e/aaf844292d9a564824a5fe8b",
+          "commit": null
+        }
+      ],
+      "source": "servo-bracket-cover.stl"
     },
     {
       "id": "servo-bracket-housing",
-      "uid": "tr15",
+      "uid": "gu62",
       "name": "Servo bracket — housing",
       "description": "MG995 servo bracket, housing.",
       "internal_notes": "Chute-core assembly part. COLOR UNSPECIFIED by Spencer - defaulted to the chute-core role (ivory white); confirm.",
-      "version": "1",
+      "version": "2",
       "created_at": "2026-06-27",
-      "updated_at": "2026-06-27",
+      "updated_at": "2026-10-11",
       "quantities": {
         "chute": 1
       },
       "assembly": "servo-bracket",
-      "stl_hash": "e03d031e35f6aeed0303564b228866ca783be596e98f0d52fc0aff8bf41d6bd9",
+      "stl_hash": "b96520a80f8f89149904b02e3d3804586a7c0563ce66151b0846d4e8c952aa59",
       "requires": [
         {
           "part": "hsi-m3",
@@ -2059,7 +2224,24 @@
         "role": "chute-core"
       },
       "optional": false,
-      "support": false
+      "support": false,
+      "versions": [
+        {
+          "version": "1",
+          "uid": "tr15",
+          "message": "As recorded before the first stamped change.",
+          "stl_hash": "e03d031e35f6aeed0303564b228866ca783be596e98f0d52fc0aff8bf41d6bd9"
+        },
+        {
+          "version": "2",
+          "date": "2026-10-11",
+          "message": "Inverted chute: replaced with the inverted chute design.",
+          "breaking": true,
+          "onshape_version": "https://cad.onshape.com/documents/9137894c36f07dfc4dea695d/w/dde194facf5a22be951251c3/e/aaf844292d9a564824a5fe8b",
+          "commit": null
+        }
+      ],
+      "source": "servo-bracket-housing.stl"
     },
     {
       "id": "leg",
@@ -2101,23 +2283,40 @@
     },
     {
       "id": "chute-door",
-      "uid": "7oxs",
+      "uid": "p88p",
       "name": "Chute door",
       "description": "The chute door / flap. 1 per machine.",
-      "internal_notes": "Correct door file: 'DOOR 3_chute_flap_mg995_and_sc09 - left_axle (2)'. Chute-core color.",
-      "version": "1",
+      "internal_notes": "Door file: gen3_chute_flap_print_side (inverted chute). Chute-core color.",
+      "version": "2",
       "created_at": "2026-06-27",
-      "updated_at": "2026-06-27",
+      "updated_at": "2026-10-11",
       "quantities": {
         "chute": 1
       },
       "assembly": null,
-      "stl_hash": "9291f5d03edcf10dc1b5f74df681ea1c33f89cacc680aa416f9031bddd1096ff",
+      "stl_hash": "494e3638bb668a441c3b8ae77a049cce813866cfc9b20c69309eb57fa6be2052",
       "color": {
         "role": "chute-core"
       },
       "optional": false,
-      "support": false
+      "support": false,
+      "versions": [
+        {
+          "version": "1",
+          "uid": "7oxs",
+          "message": "As recorded before the first stamped change.",
+          "stl_hash": "9291f5d03edcf10dc1b5f74df681ea1c33f89cacc680aa416f9031bddd1096ff"
+        },
+        {
+          "version": "2",
+          "date": "2026-10-11",
+          "message": "Inverted chute: replaced with the inverted chute design.",
+          "breaking": true,
+          "onshape_version": "https://cad.onshape.com/documents/9137894c36f07dfc4dea695d/w/dde194facf5a22be951251c3/e/aaf844292d9a564824a5fe8b",
+          "commit": null
+        }
+      ],
+      "source": "chute-door.stl"
     },
     {
       "id": "leg-extension",
@@ -2320,47 +2519,79 @@
     },
     {
       "id": "layer-connector-1",
-      "uid": "iwzg",
+      "uid": "okr2",
       "name": "Layer connector A",
       "description": "Layer connector. 1 per layer + 1 for the top interface, which slides onto the external bracket on that hex ring.",
       "internal_notes": "Chute-core concept: A and B go on the chute core (1 each) + one set on the bottom interface (interface category). Chute-core color. NOT per-layer.",
-      "version": "1",
+      "version": "2",
       "created_at": "2026-06-27",
-      "updated_at": "2026-06-27",
+      "updated_at": "2026-10-11",
       "quantities": {
         "chute": 1,
         "interface": 1
       },
       "assembly": null,
       "folder": "layer-connectors",
-      "stl_hash": "c85e30f35445117061a4c7871f7823171bd503fbcd94ea77b53f405a5626ee1c",
+      "stl_hash": "cf24e7a4867da304a98b26b5a3532f91251305d1035f96bdf7c2058c874d561f",
       "color": {
         "role": "chute-core"
       },
       "optional": false,
-      "onshape_version": "https://cad.onshape.com/documents/a4a1965bbaf3a15aff2b13ed/v/765c27a61823977392947be1/e/c56e3247bb7cfbe93ba7ad08"
+      "versions": [
+        {
+          "version": "1",
+          "uid": "iwzg",
+          "message": "As recorded before the first stamped change.",
+          "stl_hash": "c85e30f35445117061a4c7871f7823171bd503fbcd94ea77b53f405a5626ee1c"
+        },
+        {
+          "version": "2",
+          "date": "2026-10-11",
+          "message": "Inverted chute: replaced with the inverted chute design.",
+          "breaking": true,
+          "onshape_version": "https://cad.onshape.com/documents/9137894c36f07dfc4dea695d/w/dde194facf5a22be951251c3/e/aaf844292d9a564824a5fe8b",
+          "commit": null
+        }
+      ],
+      "source": "layer-connector-1.stl"
     },
     {
       "id": "layer-connector-2",
-      "uid": "3wrh",
+      "uid": "7pll",
       "name": "Layer connector B",
       "description": "Layer connector. 1 per layer + 1 for the top interface, which slides onto the external bracket on that hex ring.",
       "internal_notes": "Chute-core concept: A and B go on the chute core (1 each) + one set on the bottom interface (interface category). Chute-core color. NOT per-layer.",
-      "version": "1",
+      "version": "2",
       "created_at": "2026-06-27",
-      "updated_at": "2026-06-27",
+      "updated_at": "2026-10-11",
       "quantities": {
         "chute": 1,
         "interface": 1
       },
       "assembly": null,
       "folder": "layer-connectors",
-      "stl_hash": "1df17cf7ff0fe530545b45dd107822db2a796f870de67aaa8769663a4eb941f2",
+      "stl_hash": "c0cd09ef085fc2b321806a5a7e0dadaa5e221648d0e9b86b654850732e7165fb",
       "color": {
         "role": "chute-core"
       },
       "optional": false,
-      "onshape_version": "https://cad.onshape.com/documents/a4a1965bbaf3a15aff2b13ed/v/765c27a61823977392947be1/e/c56e3247bb7cfbe93ba7ad08"
+      "versions": [
+        {
+          "version": "1",
+          "uid": "3wrh",
+          "message": "As recorded before the first stamped change.",
+          "stl_hash": "1df17cf7ff0fe530545b45dd107822db2a796f870de67aaa8769663a4eb941f2"
+        },
+        {
+          "version": "2",
+          "date": "2026-10-11",
+          "message": "Inverted chute: replaced with the inverted chute design.",
+          "breaking": true,
+          "onshape_version": "https://cad.onshape.com/documents/9137894c36f07dfc4dea695d/w/dde194facf5a22be951251c3/e/aaf844292d9a564824a5fe8b",
+          "commit": null
+        }
+      ],
+      "source": "layer-connector-2.stl"
     },
     {
       "id": "chute-stepper-support-block",
@@ -2386,49 +2617,81 @@
     },
     {
       "id": "funnel-third",
-      "uid": "2cww",
+      "uid": "xpu6",
       "name": "Funnel (third size)",
       "description": "Third size funnel. Per layer (choose size per layer).",
       "internal_notes": "Funnel size variant (Third size). One funnel per layer; size chosen per layer. Funnel color role.",
-      "version": "1",
+      "version": "2",
       "created_at": "2026-06-29",
-      "updated_at": "2026-06-29",
+      "updated_at": "2026-10-11",
       "quantities": {
         "funnel": 1
       },
       "assembly": null,
       "variant_group": "funnel",
       "variant_name": "Third size",
-      "stl_hash": "287f8f9936b958f15dc9acd832f6320cbc4fcfb9ee0f7cd73ea67d9953d16961",
+      "stl_hash": "9733b8ff4e69032633ba1f6e7cc78b9bfaddffdb90954e8f9e142a4f85f7a0f4",
       "color": {
         "role": "funnel"
       },
       "optional": false,
-      "onshape_version": "https://cad.onshape.com/documents/a4a1965bbaf3a15aff2b13ed/v/353adf90e6a8a99bed6f90a5/e/8f720225506283b24c872672",
-      "caption": "For a layer of 18 third bins."
+      "caption": "For a layer of 18 third bins.",
+      "versions": [
+        {
+          "version": "1",
+          "uid": "2cww",
+          "message": "As recorded before the first stamped change.",
+          "stl_hash": "287f8f9936b958f15dc9acd832f6320cbc4fcfb9ee0f7cd73ea67d9953d16961"
+        },
+        {
+          "version": "2",
+          "date": "2026-10-11",
+          "message": "Inverted chute: replaced with the inverted chute design.",
+          "breaking": true,
+          "onshape_version": "https://cad.onshape.com/documents/9137894c36f07dfc4dea695d/w/dde194facf5a22be951251c3/e/aaf844292d9a564824a5fe8b",
+          "commit": null
+        }
+      ],
+      "support": true
     },
     {
       "id": "funnel-half",
-      "uid": "t9lf",
+      "uid": "xrw5",
       "name": "Funnel (half size)",
       "description": "Half size funnel. Per layer (choose size per layer).",
       "internal_notes": "Funnel size variant (Half size). One funnel per layer; size chosen per layer. Funnel color role.",
-      "version": "1",
+      "version": "2",
       "created_at": "2026-06-29",
-      "updated_at": "2026-06-29",
+      "updated_at": "2026-10-11",
       "quantities": {
         "funnel": 1
       },
       "assembly": null,
       "variant_group": "funnel",
       "variant_name": "Half size",
-      "stl_hash": "533487b3dadbdf8ec33af0d9d5185c2d978325e03b13c56a2121135a16c69a53",
+      "stl_hash": "c3d5ac377ccd0bc0ffe60271bdfdd7fa7a6cade40c3d50d0c83518311b3a7d7d",
       "color": {
         "role": "funnel"
       },
       "optional": false,
-      "onshape_version": "https://cad.onshape.com/documents/a4a1965bbaf3a15aff2b13ed/v/353adf90e6a8a99bed6f90a5/e/8f720225506283b24c872672",
-      "caption": "For a layer of 12 half bins."
+      "caption": "For a layer of 12 half bins.",
+      "versions": [
+        {
+          "version": "1",
+          "uid": "t9lf",
+          "message": "As recorded before the first stamped change.",
+          "stl_hash": "533487b3dadbdf8ec33af0d9d5185c2d978325e03b13c56a2121135a16c69a53"
+        },
+        {
+          "version": "2",
+          "date": "2026-10-11",
+          "message": "Inverted chute: replaced with the inverted chute design.",
+          "breaking": true,
+          "onshape_version": "https://cad.onshape.com/documents/9137894c36f07dfc4dea695d/w/dde194facf5a22be951251c3/e/aaf844292d9a564824a5fe8b",
+          "commit": null
+        }
+      ],
+      "support": true
     },
     {
       "id": "bin-half-left",
@@ -2550,43 +2813,77 @@
     },
     {
       "id": "bearing-cover-covered",
-      "uid": "75fh",
+      "uid": "5qyq",
       "name": "Bearing cover (covered side)",
       "description": "Chute bearing cover. 1 per machine.",
       "internal_notes": "Left/right bearing cover for the chute. Chute-core color. Chute bearing assembly.",
-      "version": "1",
+      "version": "2",
       "created_at": "2026-06-29",
-      "updated_at": "2026-06-29",
+      "updated_at": "2026-10-11",
       "quantities": {
         "chute": 1
       },
       "assembly": null,
       "folder": "bearing-covers",
-      "stl_hash": "1a177913356c66c6667093d333d457c0b8fedc3e4379ffe023e92670e58b7d1d",
+      "stl_hash": "d325993235afbb5c94ae10630be62835ec3381337445fef818ef6a498a8226cd",
       "color": {
         "role": "chute-core"
       },
-      "optional": false
+      "optional": false,
+      "versions": [
+        {
+          "version": "1",
+          "uid": "75fh",
+          "message": "As recorded before the first stamped change.",
+          "stl_hash": "1a177913356c66c6667093d333d457c0b8fedc3e4379ffe023e92670e58b7d1d"
+        },
+        {
+          "version": "2",
+          "date": "2026-10-11",
+          "message": "Inverted chute: replaced with the inverted chute design.",
+          "breaking": true,
+          "onshape_version": "https://cad.onshape.com/documents/9137894c36f07dfc4dea695d/w/dde194facf5a22be951251c3/e/aaf844292d9a564824a5fe8b",
+          "commit": null
+        }
+      ],
+      "source": "bearing-cover-covered.stl"
     },
     {
       "id": "bearing-cover-servo",
-      "uid": "g7s2",
+      "uid": "0iil",
       "name": "Bearing cover (servo side)",
       "description": "Chute bearing cover. 1 per machine.",
       "internal_notes": "Left/right bearing cover for the chute. Chute-core color. Chute bearing assembly.",
-      "version": "1",
+      "version": "2",
       "created_at": "2026-06-29",
-      "updated_at": "2026-06-29",
+      "updated_at": "2026-10-11",
       "quantities": {
         "chute": 1
       },
       "assembly": null,
       "folder": "bearing-covers",
-      "stl_hash": "4573bb40f91390f1dcbe7c87eb187fa3a68e7c6ea5de17fc0f9e083e7506242b",
+      "stl_hash": "e663d8654522b27949ae81f0799aa852bc20ea0cefbcda25d0b47df7b04f4722",
       "color": {
         "role": "chute-core"
       },
-      "optional": false
+      "optional": false,
+      "versions": [
+        {
+          "version": "1",
+          "uid": "g7s2",
+          "message": "As recorded before the first stamped change.",
+          "stl_hash": "4573bb40f91390f1dcbe7c87eb187fa3a68e7c6ea5de17fc0f9e083e7506242b"
+        },
+        {
+          "version": "2",
+          "date": "2026-10-11",
+          "message": "Inverted chute: replaced with the inverted chute design.",
+          "breaking": true,
+          "onshape_version": "https://cad.onshape.com/documents/9137894c36f07dfc4dea695d/w/dde194facf5a22be951251c3/e/aaf844292d9a564824a5fe8b",
+          "commit": null
+        }
+      ],
+      "source": "bearing-cover-servo.stl"
     },
     {
       "id": "meanwell-psu-back-mount",
@@ -5166,7 +5463,6 @@
     {
       "id": "hsi-m3s",
       "uid": "5nkl",
-      "retired_at": "2026-09-11",
       "kind": "cots",
       "cots": {
         "type": "heat-insert",
@@ -5175,9 +5471,9 @@
       },
       "name": "Ruthex M3S heat insert (short)",
       "category": "Heat inserts",
-      "description": "Retired, no longer used anywhere. ruthex RX-M3Sx4.0 brass heat-set threaded insert, the short M3. It was carried over from the BOM sheet for the servo adapter, but that joint's screws thread straight into the printed plastic: neither adapter half has an insert pocket.",
-      "internal_notes": "Added 2026-08-21 (barthel asked for it after the ruthex naming pass). BOM sheet, Screws tab: 'M3 | Small | 4 per layer | 20 per machine | Ruthex M3x4 | Servo adapter only'. NOT placed as a requires yet, because the current servo-adapter STLs do not have an insert pocket: servo-adapter-flap-side (v1, fu2t/lv7n pins) has four 4.0 mm bores through a 5.0 mm wall with a 90-degree countersink on the back face, and servo-adapter-servo-side has four blind 2.8 mm holes 4.0 mm deep on the same bolt circle with 2.25 mm of material behind them, which reads as a countersunk screw self-tapping into plastic. 4.0 mm is ruthex's recommended hole for an M3 insert, so the flap-side bore could be an insert pocket, but then nothing on the servo side would receive the screw. Needs confirming against current CAD or a physical adapter; if it is self-tapping now, delete this part and the BOM row with it. RETIRED 2026-09-11 (barthel: \"Mark 'hsi-m3s' for removal. The documentation for the servo adapter mentions self-tapping screws; M3S heat-shrink sleeves are not used. M3S is not used anywhere else either.\"). The adapter STLs were still v1 (2026-06-27) and unrevised at that point, so the self-tapping reading stands and the insert is not part of the machine. sheet_qty {per_layer: 4} dropped with it, since that hand count was the only thing giving this row a quantity on the Hardware tab. The P2 unconfirmed-servo-adapter-heat-insert change entry is replaced by delete-unused-m3s-heat-insert; deletion of the part object itself is sorter-v2 issue #636, and the BOM sheet's own 'M3 | Small' row should go with it.",
-      "note": "Unused as of 2026-09-11. Do not add a new joint to this insert; every insert joint in the machine takes the standard 5.7 mm M3 (hsi-m3).",
+      "description": "ruthex RX-M3Sx4.0 brass heat-set threaded insert, the short M3, 4.0 mm long. Melt it into a printed part with a soldering iron to make an M3 thread. It goes in the servo adapter's servo side, four per adapter; do not use the standard 5.7 mm M3 insert there, it will not fit the pockets.",
+      "internal_notes": "Added 2026-08-21 (barthel asked for it after the ruthex naming pass). BOM sheet, Screws tab: 'M3 | Small | 4 per layer | 20 per machine | Ruthex M3x4 | Servo adapter only'. NOT placed as a requires yet, because the current servo-adapter STLs do not have an insert pocket: servo-adapter-flap-side (v1, fu2t/lv7n pins) has four 4.0 mm bores through a 5.0 mm wall with a 90-degree countersink on the back face, and servo-adapter-servo-side has four blind 2.8 mm holes 4.0 mm deep on the same bolt circle with 2.25 mm of material behind them, which reads as a countersunk screw self-tapping into plastic. 4.0 mm is ruthex's recommended hole for an M3 insert, so the flap-side bore could be an insert pocket, but then nothing on the servo side would receive the screw. Needs confirming against current CAD or a physical adapter; if it is self-tapping now, delete this part and the BOM row with it. RETIRED 2026-09-11 (barthel: \"Mark 'hsi-m3s' for removal. The documentation for the servo adapter mentions self-tapping screws; M3S heat-shrink sleeves are not used. M3S is not used anywhere else either.\"). The adapter STLs were still v1 (2026-06-27) and unrevised at that point, so the self-tapping reading stands and the insert is not part of the machine. sheet_qty {per_layer: 4} dropped with it, since that hand count was the only thing giving this row a quantity on the Hardware tab. The P2 unconfirmed-servo-adapter-heat-insert change entry is replaced by delete-unused-m3s-heat-insert; deletion of the part object itself is sorter-v2 issue #636, and the BOM sheet's own 'M3 | Small' row should go with it. UN-RETIRED 2026-10-12: the inverted-chute servo-adapter-servo-side has four blind O4.0 x 4.2 mm pockets with 2.05 mm of floor behind them, which only fits this 4.0 mm insert, and zed0 confirmed the adapter now takes 4 heat inserts.",
+      "note": "In use again as of 2026-10-12: the servo adapter's servo side, 4 per machine. Every other insert joint in the machine takes the standard 5.7 mm M3 (hsi-m3).",
       "created_at": "2026-08-21",
       "updated_at": "2026-09-11",
       "image_url": "https://assets.basically.website/sorter-parts/hsi-m3s-full-bdb4c6b1b9b8.jpg",
@@ -10657,7 +10953,7 @@
       "uid": "jqhp",
       "version": "1",
       "name": "Chute bearing assembly",
-      "description": "The flap's bearing assembly: left + right bearing holders, the race between them, and the covers. Carries 10 M3 inserts and the two flap bearings, one screw per insert: 6 M3 × 8 hold the covers to the holders (3 each), 4 hold the holders to the race (2 each).",
+      "description": "The flap's bearing assembly: left + right bearing holders, the race between them, and the covers. Carries 10 M3 inserts, all in the holders (5 each), and the two flap bearings, one screw per insert: 6 M3 × 8 hold the covers to the holders (3 each), 4 go through the race into the holders (2 each).",
       "docs": "/hardware/assembly/distribution/chute/door-module/",
       "lines": [
         {
@@ -10695,7 +10991,7 @@
       "uid": "irue",
       "version": "1",
       "name": "Servo adapter (MG995)",
-      "description": "MG995 servo adapter: servo side + flap side, clamping the MG995 Servo Horn (comes with the servo) between them. 4 M3 x 8 countersunk hold the two halves together, no heat inserts.",
+      "description": "MG995 servo adapter: servo side + flap side, clamping the MG995 Servo Horn (comes with the servo) between them. 4 M3 x 8 countersunk hold the two halves together, into four M3S heat inserts in the servo side.",
       "docs": "/hardware/assembly/distribution/chute/door-module/",
       "lines": [
         {

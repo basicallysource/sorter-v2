@@ -10,10 +10,9 @@ f64 LE capture time (s) | JPEG``. The picture is only pixels. What is drawn over
 it travels as data beside it, and the page draws it, so a layer can be shown or
 hidden without a new stream and is never out of date in the picture itself:
 
-- ``{"layout": key, "zones": {...} | null, "crop": {...} | null}`` comes before
-  a role view's first frame and again before the first frame after its zones
-  change: the zones perception worked with, as shapes, and how the dashboard
-  crops the camera to its channel. Coordinates are 0..1 across and down.
+- ``{"layout": key, "zones": {...} | null}`` comes before a role view's first
+  frame and again before the first frame after its zones change: the zones
+  perception worked with, as shapes. Coordinates are 0..1 across and down.
 - ``{"detections": key, "ts": t, "boxes": [...]}`` comes just before a frame
   perception inferred on, with what it found there. A frame with none is the
   camera's own, from before perception started or while it is behind.
@@ -50,7 +49,6 @@ from perception.overlay import feedZoneShapes
 from server import shared_state
 from server.routers.cameras import _camera_source_for_role, _open_camera_for_probe
 from vision.camera_modes import list_v4l2_modes, preview_capture_mode
-from vision.dashboard_crop import dashboard_crop_spec
 
 router = APIRouter()
 
@@ -261,21 +259,12 @@ class _RoleFeed(_Feed):
 
     def _layout(self, shot: _Shot) -> tuple[int, dict] | None:
         """The layout this frame is drawn with, built again only when the
-        channel perception works with, the saved zones or the frame size
-        change."""
-        height, width = shot.image.shape[:2]
-        built_for = (shot.channel, channel_polygons_revision(), (width, height))
+        channel perception works with or the saved zones change."""
+        built_for = (shot.channel, channel_polygons_revision())
         last = self.layout_for
-        if last is None or last[0] is not built_for[0] or last[1:] != built_for[1:]:
-            crop = dashboard_crop_spec(self.role, width, height)
+        if last is None or last[0] is not built_for[0] or last[1] != built_for[1]:
             layout = {
                 "zones": feedZoneShapes(shot.channel, PREVIEW_MAX_WIDTH) if shot.channel is not None else None,
-                "crop": {
-                    "polygons": [_flat(polygon, width, height) for polygon in crop["polygons"]],
-                    "rotation": float(crop["rotation_deg"]),
-                }
-                if crop
-                else None,
             }
             self.layout = ((self.layout[0] + 1) if self.layout else 1, layout)
             self.layout_for = built_for

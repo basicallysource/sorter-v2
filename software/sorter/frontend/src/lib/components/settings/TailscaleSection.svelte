@@ -2,6 +2,7 @@
 	import { onMount } from 'svelte';
 	import { machineHttpBaseUrlFromWsUrl, getBackendHttpBase } from '$lib/backend';
 	import { getMachineContext } from '$lib/machines/context';
+	import { remember, remembered } from '$lib/settings/networkingCache';
 	import Modal from '$lib/components/ui/Modal.svelte';
 	import Button from '$lib/components/ui/Button.svelte';
 	import Input from '$lib/components/ui/Input.svelte';
@@ -24,21 +25,46 @@
 	type TailscaleStatus = {
 		installed: boolean;
 		connected: boolean;
+		state:
+			| 'not_installed'
+			| 'installing'
+			| 'stopped'
+			| 'logged_out'
+			| 'needs_approval'
+			| 'connected'
+			| 'error';
 		can_repair?: boolean;
-		hostname?: string;
-		ipv4?: string;
-		tailnet?: string;
+		hostname?: string | null;
+		ipv4?: string | null;
+		/** The MagicDNS domain, e.g. tail1234ab.ts.net. */
+		tailnet?: string | null;
+		/** The network's own name, e.g. example.github. */
+		network?: string | null;
+		/** Tags the machine joined with; empty when it belongs to a person. */
+		tags?: string[];
+		owner?: string | null;
+		warnings?: string[];
 		error?: string;
 		installing?: boolean;
 		install_error?: string | null;
 	};
 
-	let status = $state<TailscaleStatus | null>(null);
+	const HEADLINES: Record<TailscaleStatus['state'], string> = {
+		not_installed: 'Tailscale is not installed',
+		installing: 'Installing Tailscale',
+		stopped: "The Tailscale service isn't running",
+		logged_out: 'Not connected',
+		needs_approval: 'Waiting for approval',
+		connected: 'Connected',
+		error: 'Not connected'
+	};
+
+	let status = $state<TailscaleStatus | null>(remembered<TailscaleStatus>(`${httpBase()}/tailscale`));
 	let loadError = $state<string | null>(null);
 	let authKeyDraft = $state('');
 	let applying = $state(false);
 	let applyError = $state<string | null>(null);
-	let applySuccess = $state(false);
+	let applySuccess = $state<string | null>(null);
 	let repair_action = $state<RepairAction | null>(null);
 	let repair_error = $state<string | null>(null);
 	let repair_message = $state('');
@@ -49,13 +75,25 @@
 		return machineHttpBaseUrlFromWsUrl(machine.machine?.url) ?? getBackendHttpBase();
 	}
 
+	function setStatus(next: TailscaleStatus) {
+		status = remember(`${httpBase()}/tailscale`, next);
+	}
+
+	/** Which network the machine joined, and as what. */
+	function joinedAs(s: TailscaleStatus): string {
+		const network = s.network ?? s.tailnet ?? 'the network';
+		if (s.tags?.length) return `Joined ${network} as ${s.tags.join(', ')}.`;
+		if (s.owner) return `Joined ${network} as ${s.owner}.`;
+		return `Joined ${network}.`;
+	}
+
 	async function loadStatus() {
 		loadError = null;
 		try {
 			const res = await fetch(`${httpBase()}/api/tailscale/status`);
 			if (!res.ok) throw new Error(await res.text());
 			const was_installing = status?.installing;
-			status = await res.json();
+			setStatus(await res.json());
 			if (was_installing && !status?.installing) {
 				repair_message = status?.install_error ? '' : 'Tailscale installation repair completed.';
 			}
@@ -69,7 +107,7 @@
 		if (!key || busy) return;
 		applying = true;
 		applyError = null;
-		applySuccess = false;
+		applySuccess = null;
 		repair_error = null;
 		repair_message = '';
 		try {
@@ -80,12 +118,12 @@
 			});
 			if (!res.ok) throw new Error(await res.text());
 			const data = await res.json();
+			if (data.status) setStatus(data.status);
 			if (!data.ok) {
 				applyError = data.error ?? 'Failed to apply auth key';
 			} else {
-				applySuccess = true;
+				applySuccess = data.status ? joinedAs(data.status) : 'The machine joined the network.';
 				authKeyDraft = '';
-				if (data.status) status = data.status;
 			}
 		} catch (e: any) {
 			applyError = e.message ?? 'Failed to apply auth key';
@@ -93,7 +131,6 @@
 			applying = false;
 		}
 	}
-
 
 
 
@@ -109,11 +146,11 @@
 		repair_error = null;
 		repair_message = '';
 		applyError = null;
-		applySuccess = false;
+		applySuccess = null;
 		try {
 			const res = await fetch(`${httpBase()}/api/tailscale/${action}`, { method: 'POST' });
 			const data = await res.json();
-			if (data.status) status = data.status;
+			if (data.status) setStatus(data.status);
 			if (!res.ok || !data.ok) {
 				throw new Error(data.error ?? data.detail ?? 'Tailscale repair failed');
 			}
@@ -171,13 +208,7 @@
 				<span class="ml-auto font-mono text-sm text-ink-muted">{status.ipv4}</span>
 			{:else if status !== null}
 				<WifiOff size={16} class="text-ink-faint" />
-				<span class="text-sm font-medium text-ink">
-					{status.installed
-						? 'Not connected'
-						: status.installing
-							? 'Installing Tailscale'
-							: 'Tailscale is not installed'}
-				</span>
+				<span class="text-sm font-medium text-ink">{HEADLINES[status.state] ?? 'Not connected'}</span>
 			{:else}
 				<span class="flex items-center gap-2 text-sm text-ink-muted"><Spinner size={14} /> Loading</span>
 			{/if}
@@ -193,14 +224,56 @@
 			<dl class="mt-2 grid grid-cols-[auto_1fr] gap-x-4 gap-y-1 text-sm">
 				<dt class="text-ink-muted">Hostname</dt>
 				<dd class="font-mono text-ink">{status.hostname}</dd>
-				{#if status.tailnet}
-					<dt class="text-ink-muted">Tailnet</dt>
-					<dd class="font-mono text-ink">{status.tailnet}</dd>
+				{#if status.network || status.tailnet}
+					<dt class="text-ink-muted">Network</dt>
+					<dd class="text-ink">
+						<span class="font-mono">{status.network ?? status.tailnet}</span>
+						{#if status.network && status.tailnet}
+							<span class="ml-2 font-mono text-ink-muted">{status.tailnet}</span>
+						{/if}
+					</dd>
+				{/if}
+				{#if status.tags?.length || status.owner}
+					<dt class="text-ink-muted">Joined as</dt>
+					<dd class="font-mono text-ink">{status.tags?.length ? status.tags.join(', ') : status.owner}</dd>
 				{/if}
 			</dl>
-		{/if}
-		{#if status && !status.connected && status.error}
+			<p class="mt-2 text-sm text-ink-muted">
+				{#if status.tags?.length}
+					A tagged device: it belongs to the {status.network ?? 'Tailscale'} network rather than to a
+					person, and its key doesn't expire. That network's admins can open this page and SSH into
+					the machine.
+				{:else if status.owner}
+					Signed in as {status.owner}. Its key expires unless key expiry is turned off for this machine
+					in Tailscale's admin console.
+				{/if}
+			</p>
+			{#each status.warnings ?? [] as warning (warning)}
+				<p class="mt-1 text-sm text-ink-muted">Tailscale reports: {warning}</p>
+			{/each}
+		{:else if status?.state === 'not_installed'}
+			{#if status.can_repair}
+				<div class="mt-2">
+					<Button variant="secondary" size="sm" disabled={busy} onclick={() => void runRepair('install')}>
+						Install Tailscale
+					</Button>
+				</div>
+			{:else}
+				<p class="mt-1 text-sm text-ink-muted">
+					This machine can't install it from here. On the machine, run
+					<code class="font-mono text-ink">curl -fsSL https://tailscale.com/install.sh | sh</code>, then
+					reload this page.
+				</p>
+			{/if}
+		{:else if status && status.error}
 			<p class="mt-1 text-sm text-ink-muted">{status.error}</p>
+			{#if status.state === 'stopped' && status.can_repair}
+				<div class="mt-2">
+					<Button variant="secondary" size="sm" disabled={busy} onclick={() => void runRepair('restart')}>
+						Start the service
+					</Button>
+				</div>
+			{/if}
 		{/if}
 		<p class="mt-2 text-sm text-ink-muted">
 			Restarting or repairing Tailscale can briefly interrupt this connection.{status?.can_repair ===
@@ -243,7 +316,7 @@
 		<Alert tone="danger">{applyError}</Alert>
 	{/if}
 	{#if applySuccess}
-		<Alert tone="success">The auth key is applied and the machine is connected.</Alert>
+		<Alert tone="success">{applySuccess}</Alert>
 	{/if}
 	{#if repair_action || status?.installing}
 		<Alert tone="info">

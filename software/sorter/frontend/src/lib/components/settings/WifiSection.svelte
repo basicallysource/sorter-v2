@@ -2,6 +2,7 @@
 	import { onMount } from 'svelte';
 	import { machineHttpBaseUrlFromWsUrl, getBackendHttpBase } from '$lib/backend';
 	import { getMachineContext } from '$lib/machines/context';
+	import { remember, remembered } from '$lib/settings/networkingCache';
 	import Button from '$lib/components/ui/Button.svelte';
 	import Input from '$lib/components/ui/Input.svelte';
 	import Alert from '$lib/components/ui/Alert.svelte';
@@ -32,8 +33,14 @@
 		available: boolean;
 		adapters: Adapter[];
 		networks: Network[];
+		/** Seconds since the machine last scanned; null if it hasn't since it started. */
+		scan_age_s?: number | null;
 		error?: string;
 	};
+
+	// A fresh scan takes about five seconds, so the page opens on the last list
+	// and scans behind it at most once a minute.
+	const SCAN_EVERY_MS = 60_000;
 
 	let status = $state<WifiStatus | null>(null);
 	let loadError = $state<string | null>(null);
@@ -53,7 +60,7 @@
 	}
 
 	function applyStatus(s: WifiStatus) {
-		status = s;
+		status = remember(`${httpBase()}/wifi`, s);
 		if (!selectedDevice && s.adapters.length > 0) {
 			selectedDevice = (s.adapters.find((a) => a.connected) ?? s.adapters[0]).device;
 		}
@@ -131,7 +138,14 @@
 		return '▂▄▆█'.slice(0, filled).padEnd(4, '·');
 	}
 
-	onMount(loadStatus);
+	const cached = remembered<WifiStatus>(`${httpBase()}/wifi`);
+	if (cached) applyStatus(cached);
+
+	onMount(async () => {
+		await loadStatus();
+		const age = status?.scan_age_s;
+		if (status?.available && (age == null || age * 1000 > SCAN_EVERY_MS)) void rescan();
+	});
 </script>
 
 <div class="flex flex-col gap-4">

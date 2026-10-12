@@ -2,6 +2,7 @@
 limits Hive sets, and how the sync worker sends them."""
 
 import importlib
+import json
 import os
 import tempfile
 import threading
@@ -13,6 +14,10 @@ from unittest.mock import patch
 
 import numpy as np
 import requests
+
+from irl.config import IRLConfig, mkCameraConfig
+from vision import camera_service
+from vision.camera import CaptureThread
 
 JPEG = b"\xff\xd8\xff" + b"\x00" * 64
 
@@ -172,6 +177,65 @@ class BuildSampleTests(_StateTestCase):
 
     def test_camera_without_a_teacher_zone_is_not_sampled(self) -> None:
         self.assertIsNone(self.sample_ingest.buildSample(self.gc, "feeder", _Capture(), self.frame, annotate=False))
+
+
+class CollectorCaptureTests(_StateTestCase):
+    """A cycle saves one sample per physical camera, under the role the lamp
+    state and channel geometry know it by."""
+
+    def setUp(self) -> None:
+        super().setUp()
+        self.sample_ingest, self.sample_collector = _reload("sample_ingest", "sample_collector")
+        self.local_state.set_led_state({"assignments": {"classification_channel": "out:6"}, "brightness": {"out:6": 80}})
+        self.saved: list[tuple[bytes, dict]] = []
+        for patcher in (
+            patch.object(self.sample_collector.sample_store, "enqueue", side_effect=lambda jpeg, meta: self.saved.append((jpeg, meta)) or True),
+            patch("channel_geometry_payload.buildChannelGeometryForRole", return_value=None),
+            patch.object(self.sample_ingest, "_softwareInfo", return_value={}),
+            patch.object(CaptureThread, "describeDeviceControls", return_value=([], {})),
+            patch("machine_specs.v4l2CameraModel", side_effect=lambda index: f"model-{index}"),
+        ):
+            patcher.start()
+            self.addCleanup(patcher.stop)
+
+    def _cycle(self, c_channel_3=None) -> dict[str, dict]:
+        config = IRLConfig()
+        config.c_channel_2_camera = mkCameraConfig(device_index=0)
+        config.c_channel_3_camera = c_channel_3 or mkCameraConfig(device_index=1)
+        config.carousel_camera = mkCameraConfig(device_index=2, width=1280, height=720)
+        gc = SimpleNamespace(logger=SimpleNamespace(info=lambda *a: None, warning=lambda *a: None))
+        with patch.object(camera_service, "list_v4l2_modes", return_value=[]):
+            service = camera_service.CameraService(config, gc)
+        frame = SimpleNamespace(raw=np.zeros((4, 6, 3), np.uint8), raw_jpeg=JPEG, timestamp=12.5)
+        for device in service._unique_devices():
+            device.capture_thread.latest_frame = frame
+        # The classification camera is registered under both of its names.
+        self.assertEqual(4, len(service.feeds))
+        self.sample_collector.SampleCollector(gc, service)._captureOnce()
+        return {meta["camera"]: meta for _, meta in self.saved}
+
+    def test_each_physical_camera_is_sampled_once_under_its_canonical_role(self) -> None:
+        by_role = self._cycle()
+        self.assertEqual(3, len(self.saved))
+        self.assertEqual({"c_channel_2", "c_channel_3", "classification_channel"}, set(by_role))
+        self.assertEqual({"c_channel_2": 2, "c_channel_3": 3, "classification_channel": 4}, {role: meta["meta"]["camera"]["channel"] for role, meta in by_role.items()})
+
+    def test_the_classification_sample_has_its_lamp_and_its_camera(self) -> None:
+        info = self._cycle()["classification_channel"]["meta"]
+        self.assertEqual("out:6", info["lamp"]["output"])
+        self.assertEqual(80, info["lamp"]["brightness_percent"])
+        self.assertEqual(2, info["camera"]["device_index"])
+        self.assertEqual("model-2", info["camera"]["model"])
+        self.assertEqual((1280, 720), (info["camera"]["capture_mode"]["width"], info["camera"]["capture_mode"]["height"]))
+
+    def test_a_network_camera_is_never_identified_by_its_address(self) -> None:
+        by_role = self._cycle(mkCameraConfig(url="rtsp://operator:hunter2@192.0.2.9/stream"))
+        camera = by_role["c_channel_3"]["meta"]["camera"]
+        self.assertEqual(3, camera["channel"])
+        self.assertIsNone(camera["device_index"])
+        self.assertIsNone(camera["model"])
+        self.assertNotIn("hunter2", json.dumps(by_role))
+        self.assertNotIn("192.0.2.9", json.dumps(by_role))
 
 
 class CollectorScheduleTests(_StateTestCase):

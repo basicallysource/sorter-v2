@@ -19,12 +19,14 @@
 	import KeyRound from '@lucide/svelte/icons/key-round';
 	import Link from '@lucide/svelte/icons/link';
 	import List from '@lucide/svelte/icons/list';
+	import ListChecks from '@lucide/svelte/icons/list-checks';
 	import Lock from '@lucide/svelte/icons/lock';
 	import LogOut from '@lucide/svelte/icons/log-out';
 	import Palette from '@lucide/svelte/icons/palette';
 	import RefreshCw from '@lucide/svelte/icons/refresh-cw';
 	import Server from '@lucide/svelte/icons/server';
 	import Sparkles from '@lucide/svelte/icons/sparkles';
+	import SwatchBook from '@lucide/svelte/icons/swatch-book';
 	import User from '@lucide/svelte/icons/user';
 	import Users from '@lucide/svelte/icons/users';
 
@@ -53,6 +55,8 @@
 		{ label: 'Teacher jobs', icon: Sparkles, href: '/admin/teacher-jobs' },
 		{ label: 'Color models', icon: Palette, href: '/admin/color-models' },
 		{ label: 'Link models', icon: Link, href: '/admin/link-models' },
+		{ label: 'Swatch models', icon: SwatchBook, href: '/admin/swatch-models' },
+		{ label: 'Background jobs', icon: ListChecks, href: '/admin/jobs' },
 		{ label: 'Parts database', icon: List, href: '/admin/parts' },
 		{ label: 'Access windows', icon: Lock, href: '/admin/access-windows' },
 		{ label: 'Catalog sync', icon: RefreshCw, href: '/settings/catalog-sync' }

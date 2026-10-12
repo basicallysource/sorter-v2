@@ -39,6 +39,7 @@ from app.schemas.upload import UploadMetadata
 from app.services.image_hashing import compute_phash_bytes
 from app.services.image_stats import compute_exposure_stats_bytes
 from app.services.machine_presence import mark_machine_seen
+from app.services import swatch_jobs
 from app.services.storage import (
     save_channel_crop_file,
     save_piece_image_file,
@@ -722,4 +723,6 @@ def sync_sample(
         new_max = _advance_watermark(db, machine_id, DATA_TYPE_SAMPLES, meta.local_id)
         db.commit()
         created = False
+    if created:
+        swatch_jobs.enqueue_for_new_sample(db, sample_id, upload_meta.source_role)
     return {"max_local_id": new_max, "sample_id": str(sample_id), "created": created}

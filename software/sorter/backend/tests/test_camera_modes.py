@@ -65,6 +65,7 @@ class CameraServiceDefaultTests(unittest.TestCase):
                 self.assertTrue(service.set_camera_source_for_role(role, 2))
                 self.assertIs(service.get_device("carousel"), service.get_device("classification_channel"))
                 self.assertEqual(3, len(service._unique_devices()))
+                self.assertEqual(["c_channel_2", "c_channel_3", "classification_channel"], service.physical_camera_roles())
                 self.assertIsNone(service.get_feed("feeder"))
                 self.assertIsNone(service.get_feed("classification_top"))
                 self.assertIsNone(service.get_feed("classification_bottom"))

@@ -17,6 +17,9 @@ in [`agent-docs/`](agent-docs/):
   profiles: the document people and assistants edit, how it compiles into the
   program a sorter runs, the flat map older sorters get, kits, Hive's default
   profiles, and the API and skill for assistants.
+- [`agent-docs/jobs.md`](agent-docs/jobs.md) — the background job queue: how
+  to add a kind of job, how it claims, leases, retries and stays light, and
+  its first kind, `swatch_find` (the colour reference palette's readings).
 
 > **⚠️ These docs are only useful if they match the code.**
 > If you change anything the docs describe — auth flows, credential types,

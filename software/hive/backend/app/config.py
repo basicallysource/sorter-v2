@@ -95,6 +95,35 @@ class Settings(BaseSettings):
     # each milestone first, the newest parts and colors found. Two grouped scans
     # of machine_pieces, so a clock and never a request. 60s floor.
     FLEET_RECORDS_REFRESH_INTERVAL_MINUTES: int = 15
+    # The general job queue (app.services.job_queue): rows in `jobs`, run by
+    # worker threads in this process. Off by default: jobs can still be queued
+    # while it is off, and they wait until a process with it on picks them up.
+    JOB_WORKER_ENABLED: bool = False
+    # Worker threads. One keeps background work to at most one core of the
+    # box, whatever is queued.
+    JOB_WORKER_CONCURRENCY: int = 1
+    # How long an idle worker waits before looking for due jobs again (it is
+    # also woken at once when this process queues one).
+    JOB_WORKER_POLL_INTERVAL_S: float = 5.0
+    # Rest after each job, so a long backlog never keeps a core busy back to
+    # back and the API always gets a turn.
+    JOB_WORKER_PAUSE_S: float = 0.5
+    # Nice value for the worker threads on Linux (per thread there): 0 leaves
+    # them at the API's priority, higher lets every request go first.
+    JOB_WORKER_NICE: int = 10
+    # How long finished jobs are kept before the worker deletes them.
+    JOB_KEEP_DONE_HOURS: float = 72.0
+    JOB_KEEP_FAILED_DAYS: float = 30.0
+    # Local dir scanned for colour-reference palette finders (`.onnx` with
+    # hive.kind = swatch_finder). One row per file is reconciled into the
+    # swatch_models table; while one is active, every classification-camera
+    # sample gets a swatch_find job. Uploaded here out of band.
+    SWATCH_MODEL_DIR: str = "data/swatch_models"
+    # The sample source roles that are the classification camera's raw frames.
+    SWATCH_FIND_SOURCE_ROLES: tuple[str, ...] = ("classification_channel",)
+    # onnxruntime threads for one swatch_find pass (a 3840x2160 frame runs
+    # its network at 960x544).
+    SWATCH_FINDER_THREADS: int = 1
     # Newest full-size GLM as of 2026-09: ~$1.4/M in, ~$4.4/M out, roughly half
     # of Sonnet 5 on the blended cost factor. The settings page reads this from
     # GET /api/ai/models rather than hardcoding it.

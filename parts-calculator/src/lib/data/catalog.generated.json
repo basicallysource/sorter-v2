@@ -12,8 +12,8 @@
 		"cost_per_kg": 24.99,
 		"commit_base_url": "https://github.com/basicallysource/sorter-v2/commit/",
 		"engrave": "33d9fa246b1a",
-		"all_parts_zip": "https://assets.basically.website/sorter-parts/all-parts-5a23b105cd62.zip",
-		"all_parts_plain_zip": "https://assets.basically.website/sorter-parts/all-parts-plain-e3eacf75a1c5.zip"
+		"all_parts_zip": "https://assets.basically.website/sorter-parts/all-parts-5bf0e4989dee.zip",
+		"all_parts_plain_zip": "https://assets.basically.website/sorter-parts/all-parts-plain-ae75416ed93c.zip"
 	},
 	"sections": [
 		{
@@ -181,6 +181,8 @@
 			"id": "reverse-chute-door",
 			"name": "Reverse chute door",
 			"priority": "P3",
+			"status": "complete",
+			"completed_at": "2026-10-12",
 			"description": "Move the chute door to the other side so the flap closes the open funnel hole. This affects the chute as a whole and all of its parts.",
 			"targets": {
 				"sections": [
@@ -323,19 +325,6 @@
 				],
 				"hardware": [
 					"scr-m5-12-shcs"
-				]
-			}
-		},
-		{
-			"id": "merge-bearing-holders",
-			"name": "Merge the two chute bearing holders into one part",
-			"priority": "P1",
-			"condition": "broken",
-			"description": "The chute door module asks for two different printed parts, a left bearing holder and a right one, where one part printed twice does the whole job. They are the same geometry. Measured off the two master STLs: a proper rotation of exactly 180.000 degrees about the flange face normal (0, 0.906, 0.423) maps one onto the other with a maximum deviation of 0.065 mm and a mean of 0.004 mm, and the transform's determinant is +1, so no handedness is involved. The only asymmetry in either part is 0.05 mm, between two of the three M3 insert pockets, at 17.35 mm and 17.40 mm from the bore centre. The machine should carry one holder and print it twice, which drops the printed part count by one. Nothing about the assembly changes: the two bearing seats face outward either way. The two ids are interchangeable as they stand. Which id survives, and what a single holder should be called, are open questions. Tracked as sorter-v2 issue #569, with the catalog side in #570.",
-			"targets": {
-				"parts": [
-					"bearing-holder-left",
-					"bearing-holder-right"
 				]
 			}
 		},
@@ -890,7 +879,7 @@
 			"uid": "jqhp",
 			"version": "1",
 			"name": "Chute bearing assembly",
-			"description": "The flap's bearing assembly: left + right bearing holders, the race between them, and the covers. Carries 10 M3 inserts and the two flap bearings, one screw per insert: 6 M3 \u00d7 8 hold the covers to the holders (3 each), 4 hold the holders to the race (2 each).",
+			"description": "The flap's bearing assembly: left + right bearing holders, the race between them, and the covers. Carries 10 M3 inserts, all in the holders (5 each), and the two flap bearings, one screw per insert: 6 M3 \u00d7 8 hold the covers to the holders (3 each), 4 go through the race into the holders (2 each).",
 			"docs": "/hardware/assembly/distribution/chute/door-module/",
 			"lines": [
 				{
@@ -928,7 +917,7 @@
 			"uid": "irue",
 			"version": "1",
 			"name": "Servo adapter (MG995)",
-			"description": "MG995 servo adapter: servo side + flap side, clamping the MG995 Servo Horn (comes with the servo) between them. 4 M3 x 8 countersunk hold the two halves together, no heat inserts.",
+			"description": "MG995 servo adapter: servo side + flap side, clamping the MG995 Servo Horn (comes with the servo) between them. 4 M3 x 8 countersunk hold the two halves together, into four M3S heat inserts in the servo side.",
 			"docs": "/hardware/assembly/distribution/chute/door-module/",
 			"lines": [
 				{
@@ -10445,7 +10434,7 @@
 		},
 		{
 			"id": "chute-core",
-			"uid": "mu36",
+			"uid": "omak",
 			"name": "Chute core",
 			"quantities": {
 				"chute": 1
@@ -10455,27 +10444,38 @@
 			"variant_group": null,
 			"variant_name": null,
 			"description": "The chute core. 1 per machine.",
-			"version": "1",
+			"version": "2",
 			"created_at": "2026-06-27",
-			"updated_at": "2026-06-27",
+			"updated_at": "2026-10-11",
 			"versions": [
 				{
 					"version": "1",
 					"uid": "mu36",
-					"date": "2026-06-27",
-					"message": "Initial version.",
-					"commit": null,
-					"stl": "https://assets.basically.website/sorter-parts/chute-core-fccd4907faf0.stl",
+					"message": "As recorded before the first stamped change.",
+					"stl_hash": "fccd4907faf05e295c070b5a5c2a41b6f89a5109bc7e368cb7632f26a2c19590",
 					"render": "https://assets.basically.website/sorter-parts/chute-core-full-f35d44e4b870.png",
+					"stl": "https://assets.basically.website/sorter-parts/chute-core-fccd4907faf0.stl",
 					"grams": 223.63
+				},
+				{
+					"version": "2",
+					"uid": "omak",
+					"date": "2026-10-11",
+					"message": "Inverted chute: replaced with the inverted chute design.",
+					"breaking": true,
+					"onshape_version": "https://cad.onshape.com/documents/9137894c36f07dfc4dea695d/w/dde194facf5a22be951251c3/e/aaf844292d9a564824a5fe8b",
+					"commit": null,
+					"stl": "https://assets.basically.website/sorter-parts/chute-core-97283b2c3e8c.stl",
+					"render": "https://assets.basically.website/sorter-parts/chute-core-full-fca0209f8bc3.png",
+					"grams": 234.63
 				}
 			],
 			"attributes": [],
-			"grams": 223.63,
-			"support_grams": 9.29,
+			"grams": 234.63,
+			"support_grams": 27.33,
 			"support_used": true,
-			"support_intentional": false,
-			"print_seconds": 23661,
+			"support_intentional": true,
+			"print_seconds": 22326,
 			"color": {
 				"role": "chute-core"
 			},
@@ -10494,85 +10494,85 @@
 			"caption": null,
 			"docs_page": null,
 			"conflicts": null,
-			"stl": "https://assets.basically.website/sorter-parts/chute-core-fccd4907faf0.stl",
-			"render": "https://assets.basically.website/sorter-parts/chute-core-full-f35d44e4b870.png",
+			"stl": "https://assets.basically.website/sorter-parts/chute-core-97283b2c3e8c.stl",
+			"render": "https://assets.basically.website/sorter-parts/chute-core-full-fca0209f8bc3.png",
 			"stamped": [
 				{
-					"face": "-y side",
-					"stl": "https://assets.basically.website/sorter-parts/chute-core-mu36-stamped-minus-y-side-a51595101757.stl",
-					"normal": [
-						0.0,
-						-1.0,
-						0.0
-					],
-					"center": [
-						2.5,
-						55.0,
-						111.86
-					],
-					"size": [
-						12.28,
-						3.56
-					],
-					"cap": 3.5,
-					"depth": 0.6
-				},
-				{
-					"face": "+y side",
-					"stl": "https://assets.basically.website/sorter-parts/chute-core-mu36-stamped-plus-y-side-69eff5c09ad4.stl",
+					"face": "angled face",
+					"stl": "https://assets.basically.website/sorter-parts/chute-core-omak-stamped-angled-face-92df076f41d9.stl",
 					"normal": [
 						-0.0,
-						1.0,
-						-0.0
+						0.866,
+						0.5
 					],
 					"center": [
-						2.5,
-						-55.0,
-						111.86
+						525.37,
+						102.61,
+						115.26
 					],
 					"size": [
-						12.28,
-						3.56
+						12.65,
+						3.63
 					],
 					"cap": 3.5,
 					"depth": 0.6
 				},
 				{
 					"face": "+x side",
-					"stl": "https://assets.basically.website/sorter-parts/chute-core-mu36-stamped-plus-x-side-c45686f824d8.stl",
+					"stl": "https://assets.basically.website/sorter-parts/chute-core-omak-stamped-plus-x-side-6583f6494006.stl",
 					"normal": [
 						1.0,
 						0.0,
 						-0.0
 					],
 					"center": [
-						60.0,
-						-60.33,
-						1.0
+						423.07,
+						127.33,
+						181.24
 					],
 					"size": [
-						12.28,
-						3.56
+						12.65,
+						3.63
 					],
 					"cap": 3.5,
 					"depth": 0.6
 				},
 				{
 					"face": "-x side",
-					"stl": "https://assets.basically.website/sorter-parts/chute-core-mu36-stamped-minus-x-side-af0c85807d73.stl",
+					"stl": "https://assets.basically.website/sorter-parts/chute-core-omak-stamped-minus-x-side-cd644e885c97.stl",
 					"normal": [
 						-1.0,
 						0.0,
 						0.0
 					],
 					"center": [
-						-60.0,
-						60.33,
-						140.6
+						533.07,
+						127.33,
+						181.24
 					],
 					"size": [
-						12.28,
-						3.56
+						12.65,
+						3.63
+					],
+					"cap": 3.5,
+					"depth": 0.6
+				},
+				{
+					"face": "+x side 2",
+					"stl": "https://assets.basically.website/sorter-parts/chute-core-omak-stamped-plus-x-side-2-8e65f9ba825c.stl",
+					"normal": [
+						1.0,
+						0.0,
+						-0.0
+					],
+					"center": [
+						538.07,
+						107.45,
+						181.03
+					],
+					"size": [
+						12.65,
+						3.63
 					],
 					"cap": 3.5,
 					"depth": 0.6
@@ -15560,7 +15560,7 @@
 		},
 		{
 			"id": "funnel-bracket-left",
-			"uid": "4oyp",
+			"uid": "smht",
 			"name": "Funnel bracket (left)",
 			"quantities": {
 				"chute": 1
@@ -15570,28 +15570,38 @@
 			"variant_group": null,
 			"variant_name": null,
 			"description": "Funnel bracket, left. 2 funnel brackets total.",
-			"version": "1",
+			"version": "2",
 			"created_at": "2026-06-27",
-			"updated_at": "2026-06-27",
+			"updated_at": "2026-10-11",
 			"versions": [
 				{
 					"version": "1",
 					"uid": "4oyp",
-					"date": "2026-06-27",
-					"message": "Initial version.",
-					"commit": null,
-					"onshape_version": "https://cad.onshape.com/documents/a4a1965bbaf3a15aff2b13ed/v/353adf90e6a8a99bed6f90a5/e/f48c6c2ac5f2133685e12202",
-					"stl": "https://assets.basically.website/sorter-parts/funnel-bracket-left-ced3172731e0.stl",
+					"message": "As recorded before the first stamped change.",
+					"stl_hash": "ced3172731e0c2a64920edb072501efadf3c57325bf200fcb14bba0048dabff9",
 					"render": "https://assets.basically.website/sorter-parts/funnel-bracket-left-full-4e3a3344c93c.png",
-					"grams": 28.75
+					"stl": "https://assets.basically.website/sorter-parts/funnel-bracket-left-ced3172731e0.stl",
+					"grams": null
+				},
+				{
+					"version": "2",
+					"uid": "smht",
+					"date": "2026-10-11",
+					"message": "Inverted chute: replaced with the inverted chute design.",
+					"breaking": true,
+					"onshape_version": "https://cad.onshape.com/documents/9137894c36f07dfc4dea695d/w/dde194facf5a22be951251c3/e/aaf844292d9a564824a5fe8b",
+					"commit": null,
+					"stl": "https://assets.basically.website/sorter-parts/funnel-bracket-left-af431974414d.stl",
+					"render": "https://assets.basically.website/sorter-parts/funnel-bracket-left-full-4e236ba4ca4a.png",
+					"grams": 26.56
 				}
 			],
 			"attributes": [],
-			"grams": 28.75,
-			"support_grams": 4.9,
-			"support_used": true,
+			"grams": 26.56,
+			"support_grams": 0.0,
+			"support_used": false,
 			"support_intentional": false,
-			"print_seconds": 6219,
+			"print_seconds": 2839,
 			"color": {
 				"role": "chute-core"
 			},
@@ -15605,85 +15615,85 @@
 			"caption": null,
 			"docs_page": null,
 			"conflicts": null,
-			"stl": "https://assets.basically.website/sorter-parts/funnel-bracket-left-ced3172731e0.stl",
-			"render": "https://assets.basically.website/sorter-parts/funnel-bracket-left-full-4e3a3344c93c.png",
+			"stl": "https://assets.basically.website/sorter-parts/funnel-bracket-left-af431974414d.stl",
+			"render": "https://assets.basically.website/sorter-parts/funnel-bracket-left-full-4e236ba4ca4a.png",
 			"stamped": [
 				{
-					"face": "-y side",
-					"stl": "https://assets.basically.website/sorter-parts/funnel-bracket-left-4oyp-stamped-minus-y-side-4978c066b8b0.stl",
+					"face": "bottom",
+					"stl": "https://assets.basically.website/sorter-parts/funnel-bracket-left-smht-stamped-bottom-61a2f0f80b13.stl",
 					"normal": [
 						0.0,
+						-0.0,
+						-1.0
+					],
+					"center": [
+						140.48,
+						0.64,
+						69.08
+					],
+					"size": [
+						12.45,
+						3.63
+					],
+					"cap": 3.5,
+					"depth": 0.6
+				},
+				{
+					"face": "top",
+					"stl": "https://assets.basically.website/sorter-parts/funnel-bracket-left-smht-stamped-top-cc4fe3e84bd2.stl",
+					"normal": [
+						0.0,
+						-0.0,
+						1.0
+					],
+					"center": [
+						127.08,
+						-60.84,
+						85.08
+					],
+					"size": [
+						12.45,
+						3.63
+					],
+					"cap": 3.5,
+					"depth": 0.6
+				},
+				{
+					"face": "top 2",
+					"stl": "https://assets.basically.website/sorter-parts/funnel-bracket-left-smht-stamped-top-2-2767f0f9bd9b.stl",
+					"normal": [
+						-0.0,
+						0.0,
+						1.0
+					],
+					"center": [
+						129.88,
+						3.84,
+						72.86
+					],
+					"size": [
+						12.45,
+						3.63
+					],
+					"cap": 3.5,
+					"depth": 0.6
+				},
+				{
+					"face": "-x side",
+					"stl": "https://assets.basically.website/sorter-parts/funnel-bracket-left-smht-stamped-minus-x-side-e70463fc878f.stl",
+					"normal": [
 						-1.0,
-						0.0
-					],
-					"center": [
-						45.04,
-						-76.0,
-						98.68
-					],
-					"size": [
-						12.49,
-						3.63
-					],
-					"cap": 3.5,
-					"depth": 0.6
-				},
-				{
-					"face": "+y side",
-					"stl": "https://assets.basically.website/sorter-parts/funnel-bracket-left-4oyp-stamped-plus-y-side-8d626cb9cb68.stl",
-					"normal": [
 						-0.0,
-						1.0,
 						0.0
 					],
 					"center": [
-						103.54,
-						-72.22,
-						47.25
+						119.48,
+						57.74,
+						73.69
 					],
 					"size": [
-						12.49,
+						12.45,
 						3.63
-					],
-					"cap": 3.5,
-					"depth": 0.6
-				},
-				{
-					"face": "+y side 2",
-					"stl": "https://assets.basically.website/sorter-parts/funnel-bracket-left-4oyp-stamped-plus-y-side-2-47560b9e3ea8.stl",
-					"normal": [
-						0.0,
-						1.0,
-						0.0
-					],
-					"center": [
-						43.62,
-						-67.84,
-						70.31
-					],
-					"size": [
-						12.49,
-						3.63
-					],
-					"cap": 3.5,
-					"depth": 0.6
-				},
-				{
-					"face": "angled face",
-					"stl": "https://assets.basically.website/sorter-parts/funnel-bracket-left-4oyp-stamped-angled-face-3ad379bfbdb2.stl",
-					"normal": [
-						0.5,
-						-0.0,
-						0.866
-					],
-					"center": [
-						123.46,
-						-71.39,
-						62.82
-					],
-					"size": [
-						3.63,
-						12.49
 					],
 					"cap": 3.5,
 					"depth": 0.6
@@ -15692,7 +15702,7 @@
 		},
 		{
 			"id": "funnel-bracket-right",
-			"uid": "b9vt",
+			"uid": "ep34",
 			"name": "Funnel bracket (right)",
 			"quantities": {
 				"chute": 1
@@ -15702,28 +15712,38 @@
 			"variant_group": null,
 			"variant_name": null,
 			"description": "Funnel bracket, right. 2 funnel brackets total.",
-			"version": "1",
+			"version": "2",
 			"created_at": "2026-06-27",
-			"updated_at": "2026-06-27",
+			"updated_at": "2026-10-11",
 			"versions": [
 				{
 					"version": "1",
 					"uid": "b9vt",
-					"date": "2026-06-27",
-					"message": "Initial version.",
-					"commit": null,
-					"onshape_version": "https://cad.onshape.com/documents/a4a1965bbaf3a15aff2b13ed/v/353adf90e6a8a99bed6f90a5/e/f48c6c2ac5f2133685e12202",
-					"stl": "https://assets.basically.website/sorter-parts/funnel-bracket-right-f7932bce6ef7.stl",
+					"message": "As recorded before the first stamped change.",
+					"stl_hash": "f7932bce6ef7eddb1be6c64a738b41b6573d67bdadb40d6febf131e0a21ccb31",
 					"render": "https://assets.basically.website/sorter-parts/funnel-bracket-right-full-c8cc37849280.png",
-					"grams": 28.75
+					"stl": "https://assets.basically.website/sorter-parts/funnel-bracket-right-f7932bce6ef7.stl",
+					"grams": null
+				},
+				{
+					"version": "2",
+					"uid": "ep34",
+					"date": "2026-10-11",
+					"message": "Inverted chute: replaced with the inverted chute design.",
+					"breaking": true,
+					"onshape_version": "https://cad.onshape.com/documents/9137894c36f07dfc4dea695d/w/dde194facf5a22be951251c3/e/aaf844292d9a564824a5fe8b",
+					"commit": null,
+					"stl": "https://assets.basically.website/sorter-parts/funnel-bracket-right-d7c880e57bcf.stl",
+					"render": "https://assets.basically.website/sorter-parts/funnel-bracket-right-full-d9153cb0e589.png",
+					"grams": 26.57
 				}
 			],
 			"attributes": [],
-			"grams": 28.75,
-			"support_grams": 5.63,
-			"support_used": true,
+			"grams": 26.57,
+			"support_grams": 0.0,
+			"support_used": false,
 			"support_intentional": false,
-			"print_seconds": 6291,
+			"print_seconds": 2821,
 			"color": {
 				"role": "chute-core"
 			},
@@ -15737,85 +15757,85 @@
 			"caption": null,
 			"docs_page": null,
 			"conflicts": null,
-			"stl": "https://assets.basically.website/sorter-parts/funnel-bracket-right-f7932bce6ef7.stl",
-			"render": "https://assets.basically.website/sorter-parts/funnel-bracket-right-full-c8cc37849280.png",
+			"stl": "https://assets.basically.website/sorter-parts/funnel-bracket-right-d7c880e57bcf.stl",
+			"render": "https://assets.basically.website/sorter-parts/funnel-bracket-right-full-d9153cb0e589.png",
 			"stamped": [
 				{
-					"face": "+y side",
-					"stl": "https://assets.basically.website/sorter-parts/funnel-bracket-right-b9vt-stamped-plus-y-side-38c66fb84805.stl",
+					"face": "bottom",
+					"stl": "https://assets.basically.website/sorter-parts/funnel-bracket-right-ep34-stamped-bottom-e41a932041af.stl",
 					"normal": [
 						0.0,
+						0.0,
+						-1.0
+					],
+					"center": [
+						199.06,
+						74.75,
+						69.08
+					],
+					"size": [
+						12.16,
+						3.56
+					],
+					"cap": 3.5,
+					"depth": 0.6
+				},
+				{
+					"face": "top",
+					"stl": "https://assets.basically.website/sorter-parts/funnel-bracket-right-ep34-stamped-top-d9cfb1950b36.stl",
+					"normal": [
+						0.0,
+						0.0,
+						1.0
+					],
+					"center": [
+						200.48,
+						73.35,
+						85.08
+					],
+					"size": [
+						12.16,
+						3.56
+					],
+					"cap": 3.5,
+					"depth": 0.6
+				},
+				{
+					"face": "top 2",
+					"stl": "https://assets.basically.website/sorter-parts/funnel-bracket-right-ep34-stamped-top-2-9d94ba90e09a.stl",
+					"normal": [
+						0.0,
+						0.0,
+						1.0
+					],
+					"center": [
+						176.19,
+						138.04,
+						72.86
+					],
+					"size": [
+						12.16,
+						3.56
+					],
+					"cap": 3.5,
+					"depth": 0.6
+				},
+				{
+					"face": "+x side",
+					"stl": "https://assets.basically.website/sorter-parts/funnel-bracket-right-ep34-stamped-plus-x-side-1b87a0f44139.stl",
+					"normal": [
 						1.0,
-						-0.0
-					],
-					"center": [
-						44.95,
-						76.0,
-						98.71
-					],
-					"size": [
-						12.32,
-						3.56
-					],
-					"cap": 3.5,
-					"depth": 0.6
-				},
-				{
-					"face": "-y side",
-					"stl": "https://assets.basically.website/sorter-parts/funnel-bracket-right-b9vt-stamped-minus-y-side-0e84507b8125.stl",
-					"normal": [
-						-0.0,
-						-1.0,
-						0.0
-					],
-					"center": [
-						103.53,
-						72.22,
-						47.22
-					],
-					"size": [
-						12.32,
-						3.56
-					],
-					"cap": 3.5,
-					"depth": 0.6
-				},
-				{
-					"face": "-y side 2",
-					"stl": "https://assets.basically.website/sorter-parts/funnel-bracket-right-b9vt-stamped-minus-y-side-2-78f43dfa14ec.stl",
-					"normal": [
 						0.0,
-						-1.0,
 						0.0
 					],
 					"center": [
-						43.53,
-						67.84,
-						70.34
+						207.94,
+						77.65,
+						73.66
 					],
 					"size": [
-						12.32,
+						12.16,
 						3.56
-					],
-					"cap": 3.5,
-					"depth": 0.6
-				},
-				{
-					"face": "angled face",
-					"stl": "https://assets.basically.website/sorter-parts/funnel-bracket-right-b9vt-stamped-angled-face-c4d88ad26d95.stl",
-					"normal": [
-						0.5,
-						-0.0,
-						0.866
-					],
-					"center": [
-						123.53,
-						63.16,
-						62.77
-					],
-					"size": [
-						3.56,
-						12.32
 					],
 					"cap": 3.5,
 					"depth": 0.6
@@ -15824,7 +15844,7 @@
 		},
 		{
 			"id": "bearing-race",
-			"uid": "yo10",
+			"uid": "081k",
 			"name": "Bearing race",
 			"quantities": {
 				"chute": 1
@@ -15834,27 +15854,38 @@
 			"variant_group": null,
 			"variant_name": null,
 			"description": "The race between the two chute bearing holders.",
-			"version": "1",
+			"version": "2",
 			"created_at": "2026-06-27",
-			"updated_at": "2026-06-27",
+			"updated_at": "2026-10-11",
 			"versions": [
 				{
 					"version": "1",
 					"uid": "yo10",
-					"date": "2026-06-27",
-					"message": "Initial version.",
-					"commit": null,
-					"stl": "https://assets.basically.website/sorter-parts/bearing-race-b832b7eab72a.stl",
+					"message": "As recorded before the first stamped change.",
+					"stl_hash": "b832b7eab72a8392c80d35ebd67bb7cb6326bbc5c82a8592688ccda82fe315b3",
 					"render": "https://assets.basically.website/sorter-parts/bearing-race-full-2e7cdf870d3d.png",
+					"stl": "https://assets.basically.website/sorter-parts/bearing-race-b832b7eab72a.stl",
 					"grams": 20.13
+				},
+				{
+					"version": "2",
+					"uid": "081k",
+					"date": "2026-10-11",
+					"message": "Inverted chute: replaced with the inverted chute design.",
+					"breaking": true,
+					"onshape_version": "https://cad.onshape.com/documents/9137894c36f07dfc4dea695d/w/dde194facf5a22be951251c3/e/aaf844292d9a564824a5fe8b",
+					"commit": null,
+					"stl": "https://assets.basically.website/sorter-parts/bearing-race-eaa7d3867e2b.stl",
+					"render": "https://assets.basically.website/sorter-parts/bearing-race-full-4743967f9254.png",
+					"grams": 22.08
 				}
 			],
 			"attributes": [],
-			"grams": 20.13,
+			"grams": 22.08,
 			"support_grams": 0.0,
 			"support_used": false,
 			"support_intentional": false,
-			"print_seconds": 2948,
+			"print_seconds": 2431,
 			"color": {
 				"role": "chute-core"
 			},
@@ -15868,85 +15899,85 @@
 			"caption": null,
 			"docs_page": null,
 			"conflicts": null,
-			"stl": "https://assets.basically.website/sorter-parts/bearing-race-b832b7eab72a.stl",
-			"render": "https://assets.basically.website/sorter-parts/bearing-race-full-2e7cdf870d3d.png",
+			"stl": "https://assets.basically.website/sorter-parts/bearing-race-eaa7d3867e2b.stl",
+			"render": "https://assets.basically.website/sorter-parts/bearing-race-full-4743967f9254.png",
 			"stamped": [
 				{
-					"face": "-y side",
-					"stl": "https://assets.basically.website/sorter-parts/bearing-race-yo10-stamped-minus-y-side-a768887da809.stl",
+					"face": "bottom",
+					"stl": "https://assets.basically.website/sorter-parts/bearing-race-081k-stamped-bottom-dae08589a858.stl",
 					"normal": [
 						0.0,
-						-1.0,
-						0.0
+						0.0,
+						-1.0
 					],
 					"center": [
-						0.0,
-						55.0,
-						141.95
+						-29.43,
+						7.05,
+						140.3
 					],
 					"size": [
-						12.5,
-						3.63
+						12.55,
+						3.56
 					],
 					"cap": 3.5,
 					"depth": 0.6
 				},
 				{
-					"face": "angled face",
-					"stl": "https://assets.basically.website/sorter-parts/bearing-race-yo10-stamped-angled-face-147943a7e886.stl",
+					"face": "top",
+					"stl": "https://assets.basically.website/sorter-parts/bearing-race-081k-stamped-top-2306f8a5ef25.stl",
 					"normal": [
 						0.0,
-						0.9063,
-						0.4226
+						0.0,
+						1.0
 					],
 					"center": [
-						11.38,
-						64.84,
-						149.34
+						-54.28,
+						37.05,
+						152.26
 					],
 					"size": [
-						12.5,
-						3.63
+						12.55,
+						3.56
 					],
 					"cap": 3.5,
 					"depth": 0.6
 				},
 				{
-					"face": "angled face 2",
-					"stl": "https://assets.basically.website/sorter-parts/bearing-race-yo10-stamped-angled-face-2-438849b166f2.stl",
+					"face": "top 2",
+					"stl": "https://assets.basically.website/sorter-parts/bearing-race-081k-stamped-top-2-eaa255491953.stl",
 					"normal": [
 						0.0,
-						-0.4226,
-						0.9063
+						0.0,
+						1.0
 					],
 					"center": [
-						-47.38,
-						55.87,
-						169.62
+						-29.88,
+						11.54,
+						157.46
 					],
 					"size": [
-						12.5,
-						3.63
+						3.56,
+						12.55
 					],
 					"cap": 3.5,
 					"depth": 0.6
 				},
 				{
-					"face": "-y side 2",
-					"stl": "https://assets.basically.website/sorter-parts/bearing-race-yo10-stamped-minus-y-side-2-eb83d3ec9dd0.stl",
+					"face": "top 3",
+					"stl": "https://assets.basically.website/sorter-parts/bearing-race-081k-stamped-top-3-b45dee26ac27.stl",
 					"normal": [
 						0.0,
-						-0.9761,
-						0.2173
+						0.0,
+						1.0
 					],
 					"center": [
-						-47.16,
-						50.63,
-						156.52
+						-48.98,
+						18.89,
+						145.28
 					],
 					"size": [
-						12.5,
-						3.63
+						12.55,
+						3.56
 					],
 					"cap": 3.5,
 					"depth": 0.6
@@ -15955,7 +15986,7 @@
 		},
 		{
 			"id": "bearing-holder-left",
-			"uid": "gybh",
+			"uid": "eal7",
 			"name": "Bearing holder (left)",
 			"quantities": {
 				"chute": 1
@@ -15964,33 +15995,39 @@
 			"folder": null,
 			"variant_group": null,
 			"variant_name": null,
-			"description": "Bearing holder, left. The same part as the right holder, turned 180 degrees about its flange face.",
-			"version": "1",
+			"description": "Bearing holder, left. The mirror image of the right holder.",
+			"version": "2",
 			"created_at": "2026-06-27",
-			"updated_at": "2026-06-27",
+			"updated_at": "2026-10-11",
 			"versions": [
 				{
 					"version": "1",
 					"uid": "gybh",
-					"date": "2026-06-27",
-					"message": "Initial version.",
-					"commit": null,
-					"stl": "https://assets.basically.website/sorter-parts/bearing-holder-left-f0cc0eb5d575.stl",
+					"message": "As recorded before the first stamped change.",
+					"stl_hash": "f0cc0eb5d575fc3d79cdea59caa0fcc6f7732c336a6830a186ffce51ef267a68",
 					"render": "https://assets.basically.website/sorter-parts/bearing-holder-left-full-5dff3021158c.png",
+					"stl": "https://assets.basically.website/sorter-parts/bearing-holder-left-f0cc0eb5d575.stl",
 					"grams": 7.9
-				}
-			],
-			"attributes": [
+				},
 				{
-					"label": "Interchangeable with",
-					"value": "Bearing holder (right)"
+					"version": "2",
+					"uid": "eal7",
+					"date": "2026-10-11",
+					"message": "Inverted chute: replaced with the inverted chute design.",
+					"breaking": true,
+					"onshape_version": "https://cad.onshape.com/documents/9137894c36f07dfc4dea695d/w/dde194facf5a22be951251c3/e/aaf844292d9a564824a5fe8b",
+					"commit": null,
+					"stl": "https://assets.basically.website/sorter-parts/bearing-holder-left-e39e941f4d71.stl",
+					"render": "https://assets.basically.website/sorter-parts/bearing-holder-left-full-3eeb5a0bb65c.png",
+					"grams": 10.24
 				}
 			],
-			"grams": 7.9,
+			"attributes": [],
+			"grams": 10.24,
 			"support_grams": 0.0,
 			"support_used": false,
 			"support_intentional": false,
-			"print_seconds": 2226,
+			"print_seconds": 2526,
 			"color": {
 				"role": "chute-core"
 			},
@@ -16009,96 +16046,94 @@
 			"caption": null,
 			"docs_page": null,
 			"conflicts": null,
-			"stl": "https://assets.basically.website/sorter-parts/bearing-holder-left-f0cc0eb5d575.stl",
-			"render": "https://assets.basically.website/sorter-parts/bearing-holder-left-full-5dff3021158c.png",
+			"stl": "https://assets.basically.website/sorter-parts/bearing-holder-left-e39e941f4d71.stl",
+			"render": "https://assets.basically.website/sorter-parts/bearing-holder-left-full-3eeb5a0bb65c.png",
 			"stamped": [
 				{
-					"face": "angled face",
-					"stl": "https://assets.basically.website/sorter-parts/bearing-holder-left-gybh-stamped-angled-face-ae9fb541df48.stl",
+					"face": "bottom",
+					"stl": "https://assets.basically.website/sorter-parts/bearing-holder-left-eal7-stamped-bottom-88abc42fab02.stl",
 					"normal": [
 						-0.0,
-						0.9063,
-						0.4226
+						-0.0,
+						-1.0
 					],
 					"center": [
-						-60.31,
-						76.61,
-						147.74
+						99.64,
+						95.27,
+						130.91
 					],
 					"size": [
-						12.3,
-						3.63
+						12.06,
+						3.5
+					],
+					"cap": 3.5,
+					"depth": 0.6
+				},
+				{
+					"face": "angled face",
+					"stl": "https://assets.basically.website/sorter-parts/bearing-holder-left-eal7-stamped-angled-face-aaf76d180027.stl",
+					"normal": [
+						0.8764,
+						0.4816,
+						0.0
+					],
+					"center": [
+						117.47,
+						71.83,
+						134.04
+					],
+					"size": [
+						12.06,
+						3.5
+					],
+					"cap": 3.5,
+					"depth": 0.6
+				},
+				{
+					"face": "top",
+					"stl": "https://assets.basically.website/sorter-parts/bearing-holder-left-eal7-stamped-top-56311f03d502.stl",
+					"normal": [
+						0.0,
+						0.0,
+						1.0
+					],
+					"center": [
+						102.49,
+						94.78,
+						143.75
+					],
+					"size": [
+						12.06,
+						3.5
 					],
 					"cap": 3.5,
 					"depth": 0.6
 				},
 				{
 					"face": "angled face 2",
-					"stl": "https://assets.basically.website/sorter-parts/bearing-holder-left-gybh-stamped-angled-face-2-93985c1b5aa2.stl",
+					"stl": "https://assets.basically.website/sorter-parts/bearing-holder-left-eal7-stamped-angled-face-2-0c8594cf772b.stl",
 					"normal": [
-						0.0,
-						-0.4226,
-						0.9063
+						-0.8764,
+						-0.4816,
+						0.0
 					],
 					"center": [
-						-64.65,
-						52.39,
-						167.99
+						108.69,
+						73.32,
+						158.75
 					],
 					"size": [
-						3.63,
-						12.3
+						12.06,
+						3.5
 					],
 					"cap": 3.5,
 					"depth": 0.6
-				},
-				{
-					"face": "+x side",
-					"stl": "https://assets.basically.website/sorter-parts/bearing-holder-left-gybh-stamped-plus-x-side-c2ca1abf7ce4.stl",
-					"normal": [
-						1.0,
-						0.0,
-						0.0
-					],
-					"center": [
-						-55.0,
-						52.91,
-						163.44
-					],
-					"size": [
-						8.79,
-						2.59
-					],
-					"cap": 2.5,
-					"depth": 0.6,
-					"note": "smaller text"
-				},
-				{
-					"face": "-x side",
-					"stl": "https://assets.basically.website/sorter-parts/bearing-holder-left-gybh-stamped-minus-x-side-9ba114814ca1.stl",
-					"normal": [
-						-1.0,
-						0.0,
-						0.0
-					],
-					"center": [
-						-67.84,
-						69.67,
-						152.54
-					],
-					"size": [
-						2.59,
-						8.79
-					],
-					"cap": 2.5,
-					"depth": 0.6,
-					"note": "smaller text"
 				}
 			]
 		},
 		{
 			"id": "bearing-holder-right",
-			"uid": "rnog",
+			"uid": "qsv6",
 			"name": "Bearing holder (right)",
 			"quantities": {
 				"chute": 1
@@ -16107,33 +16142,39 @@
 			"folder": null,
 			"variant_group": null,
 			"variant_name": null,
-			"description": "Bearing holder, right. The same part as the left holder, turned 180 degrees about its flange face.",
-			"version": "1",
+			"description": "Bearing holder, right. The mirror image of the left holder.",
+			"version": "2",
 			"created_at": "2026-06-27",
-			"updated_at": "2026-06-27",
+			"updated_at": "2026-10-11",
 			"versions": [
 				{
 					"version": "1",
 					"uid": "rnog",
-					"date": "2026-06-27",
-					"message": "Initial version.",
-					"commit": null,
-					"stl": "https://assets.basically.website/sorter-parts/bearing-holder-right-9577bfc4f70b.stl",
+					"message": "As recorded before the first stamped change.",
+					"stl_hash": "9577bfc4f70bca72fe7c45d1c88a82df0ef14d712c67a395003c0deb9c89895b",
 					"render": "https://assets.basically.website/sorter-parts/bearing-holder-right-full-0cb8f97cd7a9.png",
+					"stl": "https://assets.basically.website/sorter-parts/bearing-holder-right-9577bfc4f70b.stl",
 					"grams": 7.98
-				}
-			],
-			"attributes": [
+				},
 				{
-					"label": "Interchangeable with",
-					"value": "Bearing holder (left)"
+					"version": "2",
+					"uid": "qsv6",
+					"date": "2026-10-11",
+					"message": "Inverted chute: replaced with the inverted chute design.",
+					"breaking": true,
+					"onshape_version": "https://cad.onshape.com/documents/9137894c36f07dfc4dea695d/w/dde194facf5a22be951251c3/e/aaf844292d9a564824a5fe8b",
+					"commit": null,
+					"stl": "https://assets.basically.website/sorter-parts/bearing-holder-right-a9e3ccabd9ff.stl",
+					"render": "https://assets.basically.website/sorter-parts/bearing-holder-right-full-2203e38a4b95.png",
+					"grams": 10.25
 				}
 			],
-			"grams": 7.98,
+			"attributes": [],
+			"grams": 10.25,
 			"support_grams": 0.0,
 			"support_used": false,
 			"support_intentional": false,
-			"print_seconds": 2249,
+			"print_seconds": 2534,
 			"color": {
 				"role": "chute-core"
 			},
@@ -16152,96 +16193,94 @@
 			"caption": null,
 			"docs_page": null,
 			"conflicts": null,
-			"stl": "https://assets.basically.website/sorter-parts/bearing-holder-right-9577bfc4f70b.stl",
-			"render": "https://assets.basically.website/sorter-parts/bearing-holder-right-full-0cb8f97cd7a9.png",
+			"stl": "https://assets.basically.website/sorter-parts/bearing-holder-right-a9e3ccabd9ff.stl",
+			"render": "https://assets.basically.website/sorter-parts/bearing-holder-right-full-2203e38a4b95.png",
 			"stamped": [
 				{
-					"face": "angled face",
-					"stl": "https://assets.basically.website/sorter-parts/bearing-holder-right-rnog-stamped-angled-face-5026ea872525.stl",
+					"face": "bottom",
+					"stl": "https://assets.basically.website/sorter-parts/bearing-holder-right-qsv6-stamped-bottom-0465f181e0e2.stl",
 					"normal": [
 						0.0,
-						0.9063,
-						0.4226
+						0.0,
+						-1.0
 					],
 					"center": [
-						60.35,
-						76.61,
-						147.74
+						108.22,
+						270.39,
+						130.91
 					],
 					"size": [
-						12.22,
-						3.63
+						4.52,
+						12.38
+					],
+					"cap": 3.5,
+					"depth": 0.6
+				},
+				{
+					"face": "angled face",
+					"stl": "https://assets.basically.website/sorter-parts/bearing-holder-right-qsv6-stamped-angled-face-eea300aa19f4.stl",
+					"normal": [
+						0.8764,
+						-0.4816,
+						0.0
+					],
+					"center": [
+						117.02,
+						280.71,
+						134.55
+					],
+					"size": [
+						12.38,
+						4.52
+					],
+					"cap": 3.5,
+					"depth": 0.6
+				},
+				{
+					"face": "top",
+					"stl": "https://assets.basically.website/sorter-parts/bearing-holder-right-qsv6-stamped-top-7269d55f522f.stl",
+					"normal": [
+						0.0,
+						0.0,
+						1.0
+					],
+					"center": [
+						107.3,
+						267.32,
+						143.75
+					],
+					"size": [
+						12.38,
+						4.52
 					],
 					"cap": 3.5,
 					"depth": 0.6
 				},
 				{
 					"face": "angled face 2",
-					"stl": "https://assets.basically.website/sorter-parts/bearing-holder-right-rnog-stamped-angled-face-2-8504611ac2b1.stl",
+					"stl": "https://assets.basically.website/sorter-parts/bearing-holder-right-qsv6-stamped-angled-face-2-05507135e460.stl",
 					"normal": [
-						0.0,
-						-0.4226,
-						0.9063
+						-0.8764,
+						0.4816,
+						0.0
 					],
 					"center": [
-						64.65,
-						52.35,
-						167.98
+						113.5,
+						288.78,
+						158.75
 					],
 					"size": [
-						3.63,
-						12.22
+						12.38,
+						4.52
 					],
 					"cap": 3.5,
 					"depth": 0.6
-				},
-				{
-					"face": "-x side",
-					"stl": "https://assets.basically.website/sorter-parts/bearing-holder-right-rnog-stamped-minus-x-side-c5c41a2d65db.stl",
-					"normal": [
-						-1.0,
-						0.0,
-						0.0
-					],
-					"center": [
-						55.0,
-						57.68,
-						163.44
-					],
-					"size": [
-						8.73,
-						2.59
-					],
-					"cap": 2.5,
-					"depth": 0.6,
-					"note": "smaller text"
-				},
-				{
-					"face": "+x side",
-					"stl": "https://assets.basically.website/sorter-parts/bearing-holder-right-rnog-stamped-plus-x-side-943589a5d357.stl",
-					"normal": [
-						1.0,
-						0.0,
-						0.0
-					],
-					"center": [
-						67.84,
-						68.5,
-						152.51
-					],
-					"size": [
-						2.59,
-						8.73
-					],
-					"cap": 2.5,
-					"depth": 0.6,
-					"note": "smaller text"
 				}
 			]
 		},
 		{
 			"id": "servo-adapter-servo-side",
-			"uid": "fu2t",
+			"uid": "o4vg",
 			"name": "Servo adapter \u2014 servo side",
 			"quantities": {
 				"chute": 1
@@ -16251,27 +16290,38 @@
 			"variant_group": null,
 			"variant_name": null,
 			"description": "MG995 servo adapter, servo side.",
-			"version": "1",
+			"version": "2",
 			"created_at": "2026-06-27",
-			"updated_at": "2026-06-27",
+			"updated_at": "2026-10-11",
 			"versions": [
 				{
 					"version": "1",
 					"uid": "fu2t",
-					"date": "2026-06-27",
-					"message": "Initial version.",
-					"commit": null,
-					"stl": "https://assets.basically.website/sorter-parts/servo-adapter-servo-side-a82b26f1d352.stl",
+					"message": "As recorded before the first stamped change.",
+					"stl_hash": "a82b26f1d352e337ba3b14bf1440dcb163dae4c53e405dd82ae24d98ef5ac55c",
 					"render": "https://assets.basically.website/sorter-parts/servo-adapter-servo-side-full-1f175bce4317.png",
+					"stl": "https://assets.basically.website/sorter-parts/servo-adapter-servo-side-a82b26f1d352.stl",
 					"grams": 4.85
+				},
+				{
+					"version": "2",
+					"uid": "o4vg",
+					"date": "2026-10-11",
+					"message": "Inverted chute: replaced with the inverted chute design.",
+					"breaking": true,
+					"onshape_version": "https://cad.onshape.com/documents/9137894c36f07dfc4dea695d/w/dde194facf5a22be951251c3/e/aaf844292d9a564824a5fe8b",
+					"commit": null,
+					"stl": "https://assets.basically.website/sorter-parts/servo-adapter-servo-side-c6193fcc59f7.stl",
+					"render": "https://assets.basically.website/sorter-parts/servo-adapter-servo-side-full-c2a9e0f80002.png",
+					"grams": 4.87
 				}
 			],
 			"attributes": [],
-			"grams": 4.85,
+			"grams": 4.87,
 			"support_grams": 0.0,
 			"support_used": false,
 			"support_intentional": false,
-			"print_seconds": 2035,
+			"print_seconds": 1065,
 			"color": {
 				"role": "chute-core"
 			},
@@ -16281,115 +16331,99 @@
 			"low_tolerance": false,
 			"low_tolerance_note": null,
 			"layer_scope": "all",
-			"requires": [],
+			"requires": [
+				{
+					"part": "hsi-m3s",
+					"qty": 4
+				}
+			],
 			"caption": null,
 			"docs_page": null,
 			"conflicts": null,
-			"stl": "https://assets.basically.website/sorter-parts/servo-adapter-servo-side-a82b26f1d352.stl",
-			"render": "https://assets.basically.website/sorter-parts/servo-adapter-servo-side-full-1f175bce4317.png",
+			"stl": "https://assets.basically.website/sorter-parts/servo-adapter-servo-side-c6193fcc59f7.stl",
+			"render": "https://assets.basically.website/sorter-parts/servo-adapter-servo-side-full-c2a9e0f80002.png",
 			"stamped": [
 				{
-					"face": "+x side",
-					"stl": "https://assets.basically.website/sorter-parts/servo-adapter-servo-side-fu2t-stamped-plus-x-side-c23f9b1b8a20.stl",
+					"face": "bottom",
+					"stl": "https://assets.basically.website/sorter-parts/servo-adapter-servo-side-o4vg-stamped-bottom-fa506318d170.stl",
 					"normal": [
-						1.0,
 						0.0,
-						0.0
+						0.0,
+						-1.0
 					],
 					"center": [
-						91.09,
-						52.23,
-						97.57
+						257.94,
+						58.28,
+						114.41
 					],
 					"size": [
-						12.15,
-						3.56
+						12.39,
+						3.63
 					],
 					"cap": 3.5,
 					"depth": 0.6
 				},
 				{
-					"face": "-x side",
-					"stl": "https://assets.basically.website/sorter-parts/servo-adapter-servo-side-fu2t-stamped-minus-x-side-a2d601793268.stl",
+					"face": "top",
+					"stl": "https://assets.basically.website/sorter-parts/servo-adapter-servo-side-o4vg-stamped-top-3ca35083c12a.stl",
 					"normal": [
-						-1.0,
 						0.0,
-						0.0
+						0.0,
+						1.0
 					],
 					"center": [
-						84.84,
-						36.62,
-						111.61
+						269.72,
+						69.16,
+						120.66
 					],
 					"size": [
-						3.56,
-						12.15
+						3.63,
+						12.39
 					],
 					"cap": 3.5,
 					"depth": 0.6
 				},
 				{
 					"face": "outer wall",
-					"stl": "https://assets.basically.website/sorter-parts/servo-adapter-servo-side-fu2t-stamped-outer-wall-31ea8eafb594.stl",
+					"stl": "https://assets.basically.website/sorter-parts/servo-adapter-servo-side-o4vg-stamped-outer-wall-6e1fd9683b4e.stl",
 					"normal": [
-						-0.0,
-						-0.9998,
-						0.0218
+						-0.0271,
+						0.9996,
+						0.0
 					],
 					"center": [
-						87.96,
-						31.29,
-						114.87
+						256.45,
+						95.52,
+						117.29
 					],
 					"size": [
-						8.68,
-						2.55
+						8.85,
+						2.59
 					],
 					"cap": 2.5,
 					"depth": 0.6,
 					"note": "smaller text",
 					"surface": {
 						"axis": [
-							1.0,
-							-0.0,
-							0.0
+							0.0,
+							0.0,
+							1.0
 						],
 						"point": [
-							87.965,
-							52.281,
-							114.41
+							257.022,
+							74.582,
+							117.285
 						],
-						"r0": 20.996,
+						"r0": 20.944,
 						"slope": 0.0,
 						"sign": 1
 					}
-				},
-				{
-					"face": "-x side 2",
-					"stl": "https://assets.basically.website/sorter-parts/servo-adapter-servo-side-fu2t-stamped-minus-x-side-2-9fdff4aec989.stl",
-					"normal": [
-						-1.0,
-						-0.0,
-						0.0
-					],
-					"center": [
-						87.09,
-						52.43,
-						101.55
-					],
-					"size": [
-						2.55,
-						8.68
-					],
-					"cap": 2.5,
-					"depth": 0.6,
-					"note": "smaller text"
 				}
 			]
 		},
 		{
 			"id": "servo-adapter-flap-side",
-			"uid": "lv7n",
+			"uid": "8ee1",
 			"name": "Servo adapter \u2014 flap side",
 			"quantities": {
 				"chute": 1
@@ -16399,27 +16433,38 @@
 			"variant_group": null,
 			"variant_name": null,
 			"description": "MG995 servo adapter, flap side.",
-			"version": "1",
+			"version": "2",
 			"created_at": "2026-06-27",
-			"updated_at": "2026-06-27",
+			"updated_at": "2026-10-11",
 			"versions": [
 				{
 					"version": "1",
 					"uid": "lv7n",
-					"date": "2026-06-27",
-					"message": "Initial version.",
-					"commit": null,
-					"stl": "https://assets.basically.website/sorter-parts/servo-adapter-flap-side-546231d66be3.stl",
+					"message": "As recorded before the first stamped change.",
+					"stl_hash": "546231d66be39ade1f502e53375608447228ced0e81bfa9211fd0fa938a02f05",
 					"render": "https://assets.basically.website/sorter-parts/servo-adapter-flap-side-full-56b9bf69049b.png",
+					"stl": "https://assets.basically.website/sorter-parts/servo-adapter-flap-side-546231d66be3.stl",
 					"grams": 5.25
+				},
+				{
+					"version": "2",
+					"uid": "8ee1",
+					"date": "2026-10-11",
+					"message": "Inverted chute: replaced with the inverted chute design.",
+					"breaking": true,
+					"onshape_version": "https://cad.onshape.com/documents/9137894c36f07dfc4dea695d/w/dde194facf5a22be951251c3/e/aaf844292d9a564824a5fe8b",
+					"commit": null,
+					"stl": "https://assets.basically.website/sorter-parts/servo-adapter-flap-side-4d422a101583.stl",
+					"render": "https://assets.basically.website/sorter-parts/servo-adapter-flap-side-full-69efee8f99ee.png",
+					"grams": 4.99
 				}
 			],
 			"attributes": [],
-			"grams": 5.25,
+			"grams": 4.99,
 			"support_grams": 0.0,
 			"support_used": false,
 			"support_intentional": false,
-			"print_seconds": 2095,
+			"print_seconds": 1213,
 			"color": {
 				"role": "chute-core"
 			},
@@ -16433,90 +16478,54 @@
 			"caption": null,
 			"docs_page": null,
 			"conflicts": null,
-			"stl": "https://assets.basically.website/sorter-parts/servo-adapter-flap-side-546231d66be3.stl",
-			"render": "https://assets.basically.website/sorter-parts/servo-adapter-flap-side-full-56b9bf69049b.png",
+			"stl": "https://assets.basically.website/sorter-parts/servo-adapter-flap-side-4d422a101583.stl",
+			"render": "https://assets.basically.website/sorter-parts/servo-adapter-flap-side-full-69efee8f99ee.png",
 			"stamped": [
 				{
-					"face": "+x side",
-					"stl": "https://assets.basically.website/sorter-parts/servo-adapter-flap-side-lv7n-stamped-plus-x-side-fd4bc5831983.stl",
+					"face": "bottom",
+					"stl": "https://assets.basically.website/sorter-parts/servo-adapter-flap-side-8ee1-stamped-bottom-3fa974daad5e.stl",
 					"normal": [
-						1.0,
+						-0.0,
 						0.0,
-						0.0
+						-1.0
 					],
 					"center": [
-						84.84,
-						52.13,
-						97.54
+						259.05,
+						57.71,
+						114.41
 					],
 					"size": [
-						11.95,
-						3.5
+						12.24,
+						3.56
 					],
 					"cap": 3.5,
 					"depth": 0.6
 				},
 				{
-					"face": "-x side",
-					"stl": "https://assets.basically.website/sorter-parts/servo-adapter-flap-side-lv7n-stamped-minus-x-side-5fe7582cbeb0.stl",
+					"face": "top",
+					"stl": "https://assets.basically.website/sorter-parts/servo-adapter-flap-side-8ee1-stamped-top-1ade9931c5da.stl",
 					"normal": [
-						-1.0,
 						0.0,
-						-0.0
+						0.0,
+						1.0
 					],
 					"center": [
-						79.84,
-						52.43,
-						97.54
+						259.07,
+						90.71,
+						119.41
 					],
 					"size": [
-						11.95,
-						3.5
+						12.24,
+						3.56
 					],
 					"cap": 3.5,
 					"depth": 0.6
-				},
-				{
-					"face": "outer wall",
-					"stl": "https://assets.basically.website/sorter-parts/servo-adapter-flap-side-lv7n-stamped-outer-wall-d3fc253f5356.stl",
-					"normal": [
-						0.0,
-						-0.9672,
-						0.2541
-					],
-					"center": [
-						82.21,
-						31.98,
-						119.75
-					],
-					"size": [
-						8.54,
-						2.5
-					],
-					"cap": 2.5,
-					"depth": 0.6,
-					"note": "smaller text",
-					"surface": {
-						"axis": [
-							-1.0,
-							-0.0,
-							0.0
-						],
-						"point": [
-							82.34,
-							52.281,
-							114.41
-						],
-						"r0": 20.994,
-						"slope": 0.0,
-						"sign": 1
-					}
 				}
 			]
 		},
 		{
 			"id": "servo-bracket-lower-arm",
-			"uid": "yqz1",
+			"uid": "cdy5",
 			"name": "Servo bracket \u2014 lower arm",
 			"quantities": {
 				"chute": 1
@@ -16526,27 +16535,38 @@
 			"variant_group": null,
 			"variant_name": null,
 			"description": "MG995 servo bracket, lower arm.",
-			"version": "1",
+			"version": "2",
 			"created_at": "2026-06-27",
-			"updated_at": "2026-06-27",
+			"updated_at": "2026-10-11",
 			"versions": [
 				{
 					"version": "1",
 					"uid": "yqz1",
-					"date": "2026-06-27",
-					"message": "Initial version.",
-					"commit": null,
-					"stl": "https://assets.basically.website/sorter-parts/servo-bracket-lower-arm-9d6c82450ddd.stl",
+					"message": "As recorded before the first stamped change.",
+					"stl_hash": "9d6c82450ddd4a21fd0b832f6085298c00414a4d530765651b355c7043754203",
 					"render": "https://assets.basically.website/sorter-parts/servo-bracket-lower-arm-full-9a87821ff481.png",
-					"grams": 13.96
+					"stl": "https://assets.basically.website/sorter-parts/servo-bracket-lower-arm-9d6c82450ddd.stl",
+					"grams": null
+				},
+				{
+					"version": "2",
+					"uid": "cdy5",
+					"date": "2026-10-11",
+					"message": "Inverted chute: replaced with the inverted chute design.",
+					"breaking": true,
+					"onshape_version": "https://cad.onshape.com/documents/9137894c36f07dfc4dea695d/w/dde194facf5a22be951251c3/e/aaf844292d9a564824a5fe8b",
+					"commit": null,
+					"stl": "https://assets.basically.website/sorter-parts/servo-bracket-lower-arm-8553d5aa2fd2.stl",
+					"render": "https://assets.basically.website/sorter-parts/servo-bracket-lower-arm-full-0c78535c8a17.png",
+					"grams": 8.91
 				}
 			],
 			"attributes": [],
-			"grams": 13.96,
-			"support_grams": 5.52,
-			"support_used": true,
+			"grams": 8.91,
+			"support_grams": 0.0,
+			"support_used": false,
 			"support_intentional": false,
-			"print_seconds": 2724,
+			"print_seconds": 2186,
 			"color": {
 				"role": "chute-core"
 			},
@@ -16560,85 +16580,85 @@
 			"caption": null,
 			"docs_page": null,
 			"conflicts": null,
-			"stl": "https://assets.basically.website/sorter-parts/servo-bracket-lower-arm-9d6c82450ddd.stl",
-			"render": "https://assets.basically.website/sorter-parts/servo-bracket-lower-arm-full-9a87821ff481.png",
+			"stl": "https://assets.basically.website/sorter-parts/servo-bracket-lower-arm-8553d5aa2fd2.stl",
+			"render": "https://assets.basically.website/sorter-parts/servo-bracket-lower-arm-full-0c78535c8a17.png",
 			"stamped": [
 				{
-					"face": "top",
-					"stl": "https://assets.basically.website/sorter-parts/servo-bracket-lower-arm-yqz1-stamped-top-d1c024de96e9.stl",
+					"face": "bottom",
+					"stl": "https://assets.basically.website/sorter-parts/servo-bracket-lower-arm-cdy5-stamped-bottom-2cadc3e77887.stl",
 					"normal": [
 						0.0,
 						0.0,
-						1.0
+						-1.0
 					],
 					"center": [
-						110.46,
-						38.79,
-						98.18
+						310.89,
+						267.17,
+						83.12
 					],
 					"size": [
-						12.48,
-						4.52
-					],
-					"cap": 3.5,
-					"depth": 0.6
-				},
-				{
-					"face": "-y side",
-					"stl": "https://assets.basically.website/sorter-parts/servo-bracket-lower-arm-yqz1-stamped-minus-y-side-133d28a00f81.stl",
-					"normal": [
-						-0.0,
-						-1.0,
-						0.0
-					],
-					"center": [
-						80.46,
-						35.16,
-						76.55
-					],
-					"size": [
-						12.48,
-						4.52
-					],
-					"cap": 3.5,
-					"depth": 0.6
-				},
-				{
-					"face": "-x side",
-					"stl": "https://assets.basically.website/sorter-parts/servo-bracket-lower-arm-yqz1-stamped-minus-x-side-41ee9f71298b.stl",
-					"normal": [
-						-1.0,
-						0.0,
-						-0.0
-					],
-					"center": [
-						72.84,
-						42.78,
-						68.04
-					],
-					"size": [
-						12.48,
-						4.52
+						3.63,
+						12.23
 					],
 					"cap": 3.5,
 					"depth": 0.6
 				},
 				{
 					"face": "angled face",
-					"stl": "https://assets.basically.website/sorter-parts/servo-bracket-lower-arm-yqz1-stamped-angled-face-47b039129152.stl",
+					"stl": "https://assets.basically.website/sorter-parts/servo-bracket-lower-arm-cdy5-stamped-angled-face-55b574aceb6c.stl",
 					"normal": [
-						-0.5,
-						0.0,
-						0.866
+						0.7801,
+						0.376,
+						0.5
 					],
 					"center": [
-						86.76,
-						38.79,
-						88.9
+						301.64,
+						242.88,
+						109.67
 					],
 					"size": [
-						4.52,
-						12.48
+						12.23,
+						3.63
+					],
+					"cap": 3.5,
+					"depth": 0.6
+				},
+				{
+					"face": "angled face 2",
+					"stl": "https://assets.basically.website/sorter-parts/servo-bracket-lower-arm-cdy5-stamped-angled-face-2-829ea88bc18c.stl",
+					"normal": [
+						0.8604,
+						0.1535,
+						0.486
+					],
+					"center": [
+						314.84,
+						262.01,
+						89.15
+					],
+					"size": [
+						12.23,
+						3.63
+					],
+					"cap": 3.5,
+					"depth": 0.6
+				},
+				{
+					"face": "top",
+					"stl": "https://assets.basically.website/sorter-parts/servo-bracket-lower-arm-cdy5-stamped-top-f383e416ace0.stl",
+					"normal": [
+						-0.0,
+						-0.0,
+						1.0
+					],
+					"center": [
+						303.16,
+						267.09,
+						95.18
+					],
+					"size": [
+						3.63,
+						12.23
 					],
 					"cap": 3.5,
 					"depth": 0.6
@@ -16647,7 +16667,7 @@
 		},
 		{
 			"id": "servo-bracket-side-arm",
-			"uid": "75na",
+			"uid": "i4cz",
 			"name": "Servo bracket \u2014 side arm",
 			"quantities": {
 				"chute": 1
@@ -16657,27 +16677,38 @@
 			"variant_group": null,
 			"variant_name": null,
 			"description": "MG995 servo bracket, side arm.",
-			"version": "1",
+			"version": "2",
 			"created_at": "2026-06-27",
-			"updated_at": "2026-06-27",
+			"updated_at": "2026-10-11",
 			"versions": [
 				{
 					"version": "1",
 					"uid": "75na",
-					"date": "2026-06-27",
-					"message": "Initial version.",
-					"commit": null,
-					"stl": "https://assets.basically.website/sorter-parts/servo-bracket-side-arm-b37a2c6b9864.stl",
+					"message": "As recorded before the first stamped change.",
+					"stl_hash": "b37a2c6b9864744415a50c02da10425ac79d6d8f44c6938c941c36e60357464f",
 					"render": "https://assets.basically.website/sorter-parts/servo-bracket-side-arm-full-592d33e0c5a3.png",
+					"stl": "https://assets.basically.website/sorter-parts/servo-bracket-side-arm-b37a2c6b9864.stl",
 					"grams": 9.58
+				},
+				{
+					"version": "2",
+					"uid": "i4cz",
+					"date": "2026-10-11",
+					"message": "Inverted chute: replaced with the inverted chute design.",
+					"breaking": true,
+					"onshape_version": "https://cad.onshape.com/documents/9137894c36f07dfc4dea695d/w/dde194facf5a22be951251c3/e/aaf844292d9a564824a5fe8b",
+					"commit": null,
+					"stl": "https://assets.basically.website/sorter-parts/servo-bracket-side-arm-c54b1fce8749.stl",
+					"render": "https://assets.basically.website/sorter-parts/servo-bracket-side-arm-full-8eece009e559.png",
+					"grams": 8.98
 				}
 			],
 			"attributes": [],
-			"grams": 9.58,
+			"grams": 8.98,
 			"support_grams": 0.0,
 			"support_used": false,
 			"support_intentional": false,
-			"print_seconds": 2330,
+			"print_seconds": 2740,
 			"color": {
 				"role": "chute-core"
 			},
@@ -16691,85 +16722,85 @@
 			"caption": null,
 			"docs_page": null,
 			"conflicts": null,
-			"stl": "https://assets.basically.website/sorter-parts/servo-bracket-side-arm-b37a2c6b9864.stl",
-			"render": "https://assets.basically.website/sorter-parts/servo-bracket-side-arm-full-592d33e0c5a3.png",
+			"stl": "https://assets.basically.website/sorter-parts/servo-bracket-side-arm-c54b1fce8749.stl",
+			"render": "https://assets.basically.website/sorter-parts/servo-bracket-side-arm-full-8eece009e559.png",
 			"stamped": [
 				{
 					"face": "bottom",
-					"stl": "https://assets.basically.website/sorter-parts/servo-bracket-side-arm-75na-stamped-bottom-208746e8e277.stl",
+					"stl": "https://assets.basically.website/sorter-parts/servo-bracket-side-arm-i4cz-stamped-bottom-38284d04b3f6.stl",
 					"normal": [
-						0.0,
+						-0.0,
 						0.0,
 						-1.0
 					],
 					"center": [
-						100.34,
-						4.94,
-						84.68
+						346.98,
+						331.72,
+						114.41
 					],
 					"size": [
-						12.5,
-						3.56
+						12.2,
+						3.63
 					],
 					"cap": 3.5,
 					"depth": 0.6
 				},
 				{
-					"face": "-y side",
-					"stl": "https://assets.basically.website/sorter-parts/servo-bracket-side-arm-75na-stamped-minus-y-side-442e0ec3a77b.stl",
+					"face": "angled face",
+					"stl": "https://assets.basically.website/sorter-parts/servo-bracket-side-arm-i4cz-stamped-angled-face-0df152318902.stl",
 					"normal": [
 						0.0,
-						-1.0,
-						0.0
+						-0.7071,
+						0.7071
 					],
 					"center": [
-						76.83,
-						1.78,
-						87.84
+						329.98,
+						329.72,
+						123.12
 					],
 					"size": [
-						12.5,
-						3.56
+						12.2,
+						3.63
 					],
 					"cap": 3.5,
 					"depth": 0.6
 				},
 				{
-					"face": "+y side",
-					"stl": "https://assets.basically.website/sorter-parts/servo-bracket-side-arm-75na-stamped-plus-y-side-129d99cdc8f7.stl",
+					"face": "top",
+					"stl": "https://assets.basically.website/sorter-parts/servo-bracket-side-arm-i4cz-stamped-top-796a0c715266.stl",
 					"normal": [
+						-0.0,
 						0.0,
-						1.0,
-						0.0
+						1.0
 					],
 					"center": [
-						81.83,
-						10.2,
-						87.84
+						329.98,
+						322.86,
+						120.28
 					],
 					"size": [
-						12.5,
-						3.56
+						12.2,
+						3.63
 					],
 					"cap": 3.5,
 					"depth": 0.6
 				},
 				{
 					"face": "-x side",
-					"stl": "https://assets.basically.website/sorter-parts/servo-bracket-side-arm-75na-stamped-minus-x-side-9affa2e32cb3.stl",
+					"stl": "https://assets.basically.website/sorter-parts/servo-bracket-side-arm-i4cz-stamped-minus-x-side-ce838c9d7ba4.stl",
 					"normal": [
 						-1.0,
-						0.0,
+						-0.0,
 						-0.0
 					],
 					"center": [
-						69.2,
-						9.41,
-						103.25
+						325.84,
+						359.08,
+						162.31
 					],
 					"size": [
-						12.5,
-						3.56
+						3.63,
+						12.2
 					],
 					"cap": 3.5,
 					"depth": 0.6
@@ -16778,7 +16809,7 @@
 		},
 		{
 			"id": "servo-bracket-cover",
-			"uid": "rqor",
+			"uid": "bp83",
 			"name": "Servo bracket \u2014 cover",
 			"quantities": {
 				"chute": 1
@@ -16788,27 +16819,38 @@
 			"variant_group": null,
 			"variant_name": null,
 			"description": "MG995 servo bracket, cover.",
-			"version": "1",
+			"version": "2",
 			"created_at": "2026-06-27",
-			"updated_at": "2026-06-27",
+			"updated_at": "2026-10-11",
 			"versions": [
 				{
 					"version": "1",
 					"uid": "rqor",
-					"date": "2026-06-27",
-					"message": "Initial version.",
-					"commit": null,
-					"stl": "https://assets.basically.website/sorter-parts/servo-bracket-cover-1ebad4ab6770.stl",
+					"message": "As recorded before the first stamped change.",
+					"stl_hash": "1ebad4ab6770ccf750f33c219e0815f106d44c1d0dce55cacef42b9fdc84c8d2",
 					"render": "https://assets.basically.website/sorter-parts/servo-bracket-cover-full-0a9c4cf064c4.png",
+					"stl": "https://assets.basically.website/sorter-parts/servo-bracket-cover-1ebad4ab6770.stl",
 					"grams": 6.0
+				},
+				{
+					"version": "2",
+					"uid": "bp83",
+					"date": "2026-10-11",
+					"message": "Inverted chute: replaced with the inverted chute design.",
+					"breaking": true,
+					"onshape_version": "https://cad.onshape.com/documents/9137894c36f07dfc4dea695d/w/dde194facf5a22be951251c3/e/aaf844292d9a564824a5fe8b",
+					"commit": null,
+					"stl": "https://assets.basically.website/sorter-parts/servo-bracket-cover-1bc27a4bda6f.stl",
+					"render": "https://assets.basically.website/sorter-parts/servo-bracket-cover-full-1abd814dec1c.png",
+					"grams": 5.92
 				}
 			],
 			"attributes": [],
-			"grams": 6.0,
+			"grams": 5.92,
 			"support_grams": 0.0,
 			"support_used": false,
 			"support_intentional": false,
-			"print_seconds": 2183,
+			"print_seconds": 1204,
 			"color": {
 				"role": "chute-core"
 			},
@@ -16822,97 +16864,94 @@
 			"caption": null,
 			"docs_page": null,
 			"conflicts": null,
-			"stl": "https://assets.basically.website/sorter-parts/servo-bracket-cover-1ebad4ab6770.stl",
-			"render": "https://assets.basically.website/sorter-parts/servo-bracket-cover-full-0a9c4cf064c4.png",
+			"stl": "https://assets.basically.website/sorter-parts/servo-bracket-cover-1bc27a4bda6f.stl",
+			"render": "https://assets.basically.website/sorter-parts/servo-bracket-cover-full-1abd814dec1c.png",
 			"stamped": [
 				{
-					"face": "-x side",
-					"stl": "https://assets.basically.website/sorter-parts/servo-bracket-cover-rqor-stamped-minus-x-side-2f1136e540f9.stl",
+					"face": "bottom",
+					"stl": "https://assets.basically.website/sorter-parts/servo-bracket-cover-bp83-stamped-bottom-10fca887e7d6.stl",
 					"normal": [
-						-1.0,
 						0.0,
-						0.0
+						0.0,
+						-1.0
 					],
 					"center": [
-						96.19,
-						73.1,
-						106.22
+						345.4,
+						210.16,
+						114.41
 					],
 					"size": [
-						4.52,
-						12.42
+						12.11,
+						3.56
+					],
+					"cap": 3.5,
+					"depth": 0.6
+				},
+				{
+					"face": "top",
+					"stl": "https://assets.basically.website/sorter-parts/servo-bracket-cover-bp83-stamped-top-d6eb38e033ef.stl",
+					"normal": [
+						0.0,
+						0.0,
+						1.0
+					],
+					"center": [
+						329.04,
+						213.61,
+						121.06
+					],
+					"size": [
+						12.11,
+						3.56
 					],
 					"cap": 3.5,
 					"depth": 0.6
 				},
 				{
 					"face": "+x side",
-					"stl": "https://assets.basically.website/sorter-parts/servo-bracket-cover-rqor-stamped-plus-x-side-622c661ae182.stl",
+					"stl": "https://assets.basically.website/sorter-parts/servo-bracket-cover-bp83-stamped-plus-x-side-4c2a83bea253.stl",
 					"normal": [
-						1.0,
-						0.0,
+						0.9957,
+						-0.0924,
 						0.0
 					],
 					"center": [
-						102.84,
-						29.76,
-						100.92
+						323.54,
+						170.06,
+						117.57
 					],
 					"size": [
-						8.87,
-						3.23
+						12.11,
+						3.56
 					],
-					"cap": 2.5,
-					"depth": 0.6,
-					"note": "smaller text"
+					"cap": 3.5,
+					"depth": 0.6
 				},
 				{
-					"face": "top",
-					"stl": "https://assets.basically.website/sorter-parts/servo-bracket-cover-rqor-stamped-top-ce9dd0df245e.stl",
+					"face": "-x side",
+					"stl": "https://assets.basically.website/sorter-parts/servo-bracket-cover-bp83-stamped-minus-x-side-d00b1188ea22.stl",
 					"normal": [
-						-0.0,
-						0.0,
-						1.0
+						-0.9957,
+						0.0924,
+						0.0
 					],
 					"center": [
-						98.93,
-						27.22,
-						104.47
+						345.76,
+						194.33,
+						117.57
 					],
 					"size": [
-						3.23,
-						8.87
+						12.11,
+						3.56
 					],
-					"cap": 2.5,
-					"depth": 0.6,
-					"note": "smaller text"
-				},
-				{
-					"face": "-y side",
-					"stl": "https://assets.basically.website/sorter-parts/servo-bracket-cover-rqor-stamped-minus-y-side-02a95b6137b9.stl",
-					"normal": [
-						-0.0,
-						-1.0,
-						-0.0
-					],
-					"center": [
-						98.93,
-						10.2,
-						103.74
-					],
-					"size": [
-						3.23,
-						8.87
-					],
-					"cap": 2.5,
-					"depth": 0.6,
-					"note": "smaller text"
+					"cap": 3.5,
+					"depth": 0.6
 				}
 			]
 		},
 		{
 			"id": "servo-bracket-housing",
-			"uid": "tr15",
+			"uid": "gu62",
 			"name": "Servo bracket \u2014 housing",
 			"quantities": {
 				"chute": 1
@@ -16922,27 +16961,38 @@
 			"variant_group": null,
 			"variant_name": null,
 			"description": "MG995 servo bracket, housing.",
-			"version": "1",
+			"version": "2",
 			"created_at": "2026-06-27",
-			"updated_at": "2026-06-27",
+			"updated_at": "2026-10-11",
 			"versions": [
 				{
 					"version": "1",
 					"uid": "tr15",
-					"date": "2026-06-27",
-					"message": "Initial version.",
-					"commit": null,
-					"stl": "https://assets.basically.website/sorter-parts/servo-bracket-housing-e03d031e35f6.stl",
+					"message": "As recorded before the first stamped change.",
+					"stl_hash": "e03d031e35f6aeed0303564b228866ca783be596e98f0d52fc0aff8bf41d6bd9",
 					"render": "https://assets.basically.website/sorter-parts/servo-bracket-housing-full-534dac0c0fb2.png",
+					"stl": "https://assets.basically.website/sorter-parts/servo-bracket-housing-e03d031e35f6.stl",
 					"grams": 17.31
+				},
+				{
+					"version": "2",
+					"uid": "gu62",
+					"date": "2026-10-11",
+					"message": "Inverted chute: replaced with the inverted chute design.",
+					"breaking": true,
+					"onshape_version": "https://cad.onshape.com/documents/9137894c36f07dfc4dea695d/w/dde194facf5a22be951251c3/e/aaf844292d9a564824a5fe8b",
+					"commit": null,
+					"stl": "https://assets.basically.website/sorter-parts/servo-bracket-housing-b96520a80f8f.stl",
+					"render": "https://assets.basically.website/sorter-parts/servo-bracket-housing-full-8e54ecf95e38.png",
+					"grams": 17.56
 				}
 			],
 			"attributes": [],
-			"grams": 17.31,
+			"grams": 17.56,
 			"support_grams": 0.0,
 			"support_used": false,
 			"support_intentional": false,
-			"print_seconds": 2881,
+			"print_seconds": 2582,
 			"color": {
 				"role": "chute-core"
 			},
@@ -16961,85 +17011,85 @@
 			"caption": null,
 			"docs_page": null,
 			"conflicts": null,
-			"stl": "https://assets.basically.website/sorter-parts/servo-bracket-housing-e03d031e35f6.stl",
-			"render": "https://assets.basically.website/sorter-parts/servo-bracket-housing-full-534dac0c0fb2.png",
+			"stl": "https://assets.basically.website/sorter-parts/servo-bracket-housing-b96520a80f8f.stl",
+			"render": "https://assets.basically.website/sorter-parts/servo-bracket-housing-full-8e54ecf95e38.png",
 			"stamped": [
 				{
-					"face": "top",
-					"stl": "https://assets.basically.website/sorter-parts/servo-bracket-housing-tr15-stamped-top-380ccdb8e539.stl",
+					"face": "bottom",
+					"stl": "https://assets.basically.website/sorter-parts/servo-bracket-housing-gu62-stamped-bottom-1320fe01e43b.stl",
 					"normal": [
 						0.0,
-						-0.0,
-						1.0
+						0.0,
+						-1.0
 					],
 					"center": [
-						110.39,
-						13.36,
-						130.64
+						306.39,
+						209.0,
+						114.41
 					],
 					"size": [
-						12.35,
-						3.56
+						12.3,
+						3.63
 					],
 					"cap": 3.5,
 					"depth": 0.6
 				},
 				{
 					"face": "-x side",
-					"stl": "https://assets.basically.website/sorter-parts/servo-bracket-housing-tr15-stamped-minus-x-side-c129fdfade93.stl",
+					"stl": "https://assets.basically.website/sorter-parts/servo-bracket-housing-gu62-stamped-minus-x-side-8fd962749fb6.stl",
 					"normal": [
-						-1.0,
-						0.0,
+						-0.9957,
+						-0.0925,
 						-0.0
 					],
 					"center": [
-						102.84,
-						17.57,
-						105.73
+						293.25,
+						207.94,
+						117.6
 					],
 					"size": [
-						3.56,
-						12.35
+						12.3,
+						3.63
 					],
 					"cap": 3.5,
 					"depth": 0.6
 				},
 				{
 					"face": "+x side",
-					"stl": "https://assets.basically.website/sorter-parts/servo-bracket-housing-tr15-stamped-plus-x-side-1da3692213e5.stl",
+					"stl": "https://assets.basically.website/sorter-parts/servo-bracket-housing-gu62-stamped-plus-x-side-4a34604d0e03.stl",
 					"normal": [
-						1.0,
-						0.0,
-						0.0
+						0.9957,
+						0.0925,
+						-0.0
 					],
 					"center": [
-						131.34,
-						13.36,
-						105.73
+						325.57,
+						210.95,
+						117.6
 					],
 					"size": [
-						3.56,
-						12.35
+						12.3,
+						3.63
 					],
 					"cap": 3.5,
 					"depth": 0.6
 				},
 				{
-					"face": "top 2",
-					"stl": "https://assets.basically.website/sorter-parts/servo-bracket-housing-tr15-stamped-top-2-8e56ca939822.stl",
+					"face": "top",
+					"stl": "https://assets.basically.website/sorter-parts/servo-bracket-housing-gu62-stamped-top-e65ea4eca33c.stl",
 					"normal": [
-						0.0,
+						-0.0,
 						0.0,
 						1.0
 					],
 					"center": [
-						110.39,
-						25.56,
-						104.18
+						301.16,
+						208.5,
+						142.91
 					],
 					"size": [
-						12.35,
-						3.56
+						12.3,
+						3.63
 					],
 					"cap": 3.5,
 					"depth": 0.6
@@ -17308,7 +17358,7 @@
 		},
 		{
 			"id": "chute-door",
-			"uid": "7oxs",
+			"uid": "p88p",
 			"name": "Chute door",
 			"quantities": {
 				"chute": 1
@@ -17318,27 +17368,38 @@
 			"variant_group": null,
 			"variant_name": null,
 			"description": "The chute door / flap. 1 per machine.",
-			"version": "1",
+			"version": "2",
 			"created_at": "2026-06-27",
-			"updated_at": "2026-06-27",
+			"updated_at": "2026-10-11",
 			"versions": [
 				{
 					"version": "1",
 					"uid": "7oxs",
-					"date": "2026-06-27",
-					"message": "Initial version.",
-					"commit": null,
-					"stl": "https://assets.basically.website/sorter-parts/chute-door-9291f5d03edc.stl",
+					"message": "As recorded before the first stamped change.",
+					"stl_hash": "9291f5d03edcf10dc1b5f74df681ea1c33f89cacc680aa416f9031bddd1096ff",
 					"render": "https://assets.basically.website/sorter-parts/chute-door-full-63318ff14ef1.png",
-					"grams": 46.85
+					"stl": "https://assets.basically.website/sorter-parts/chute-door-9291f5d03edc.stl",
+					"grams": null
+				},
+				{
+					"version": "2",
+					"uid": "p88p",
+					"date": "2026-10-11",
+					"message": "Inverted chute: replaced with the inverted chute design.",
+					"breaking": true,
+					"onshape_version": "https://cad.onshape.com/documents/9137894c36f07dfc4dea695d/w/dde194facf5a22be951251c3/e/aaf844292d9a564824a5fe8b",
+					"commit": null,
+					"stl": "https://assets.basically.website/sorter-parts/chute-door-494e3638bb66.stl",
+					"render": "https://assets.basically.website/sorter-parts/chute-door-full-f944cc4c8923.png",
+					"grams": 54.16
 				}
 			],
 			"attributes": [],
-			"grams": 46.85,
-			"support_grams": 3.53,
-			"support_used": true,
+			"grams": 54.16,
+			"support_grams": 0.0,
+			"support_used": false,
 			"support_intentional": false,
-			"print_seconds": 5504,
+			"print_seconds": 6034,
 			"color": {
 				"role": "chute-core"
 			},
@@ -17352,90 +17413,88 @@
 			"caption": null,
 			"docs_page": null,
 			"conflicts": null,
-			"stl": "https://assets.basically.website/sorter-parts/chute-door-9291f5d03edc.stl",
-			"render": "https://assets.basically.website/sorter-parts/chute-door-full-63318ff14ef1.png",
+			"stl": "https://assets.basically.website/sorter-parts/chute-door-494e3638bb66.stl",
+			"render": "https://assets.basically.website/sorter-parts/chute-door-full-f944cc4c8923.png",
 			"stamped": [
 				{
-					"face": "angled face",
-					"stl": "https://assets.basically.website/sorter-parts/chute-door-7oxs-stamped-angled-face-d62034fe4d5e.stl",
+					"face": "bottom",
+					"stl": "https://assets.basically.website/sorter-parts/chute-door-p88p-stamped-bottom-f3a23bb9af81.stl",
 					"normal": [
 						0.0,
-						-0.4226,
-						0.9063
+						-0.0,
+						-1.0
 					],
 					"center": [
-						-46.01,
-						-56.18,
-						102.59
+						129.77,
+						143.38,
+						128.56
 					],
 					"size": [
-						12.29,
-						3.63
+						12.27,
+						3.56
 					],
 					"cap": 3.5,
 					"depth": 0.6
 				},
 				{
-					"face": "-x side",
-					"stl": "https://assets.basically.website/sorter-parts/chute-door-7oxs-stamped-minus-x-side-3f26c3f86ea8.stl",
+					"face": "top",
+					"stl": "https://assets.basically.website/sorter-parts/chute-door-p88p-stamped-top-ff7e6cd60461.stl",
 					"normal": [
-						-1.0,
-						0.0,
-						0.0
+						0.0866,
+						-0.0,
+						0.9962
 					],
 					"center": [
-						-62.84,
-						52.28,
-						150.41
+						15.5,
+						141.91,
+						141.12
 					],
 					"size": [
-						12.29,
-						3.63
+						12.27,
+						3.56
 					],
 					"cap": 3.5,
 					"depth": 0.6
 				},
 				{
 					"face": "-y side",
-					"stl": "https://assets.basically.website/sorter-parts/chute-door-7oxs-stamped-minus-y-side-d80418a35eb7.stl",
+					"stl": "https://assets.basically.website/sorter-parts/chute-door-p88p-stamped-minus-y-side-9b8dfe29073a.stl",
 					"normal": [
-						0.0,
+						-0.0,
 						-1.0,
-						0.0
+						-0.0
 					],
 					"center": [
-						-48.02,
-						-59.07,
-						98.15
+						33.82,
+						140.23,
+						131.72
 					],
 					"size": [
-						8.78,
-						2.59
+						12.27,
+						3.56
 					],
-					"cap": 2.5,
-					"depth": 0.6,
-					"note": "smaller text"
+					"cap": 3.5,
+					"depth": 0.6
 				},
 				{
-					"face": "+x side",
-					"stl": "https://assets.basically.website/sorter-parts/chute-door-7oxs-stamped-plus-x-side-ee978154bbed.stl",
+					"face": "+y side",
+					"stl": "https://assets.basically.website/sorter-parts/chute-door-p88p-stamped-plus-y-side-bc04f3878426.stl",
 					"normal": [
+						-0.0,
 						1.0,
-						0.0,
-						0.0
+						-0.0
 					],
 					"center": [
-						-55.0,
-						53.16,
-						155.44
+						80.64,
+						247.29,
+						131.72
 					],
 					"size": [
-						8.78,
-						2.59
+						12.27,
+						3.56
 					],
-					"cap": 2.5,
-					"depth": 0.6,
-					"note": "smaller text"
+					"cap": 3.5,
+					"depth": 0.6
 				}
 			]
 		},
@@ -18420,7 +18479,7 @@
 		},
 		{
 			"id": "layer-connector-1",
-			"uid": "iwzg",
+			"uid": "okr2",
 			"name": "Layer connector A",
 			"quantities": {
 				"chute": 1,
@@ -18431,28 +18490,38 @@
 			"variant_group": null,
 			"variant_name": null,
 			"description": "Layer connector. 1 per layer + 1 for the top interface, which slides onto the external bracket on that hex ring.",
-			"version": "1",
+			"version": "2",
 			"created_at": "2026-06-27",
-			"updated_at": "2026-06-27",
+			"updated_at": "2026-10-11",
 			"versions": [
 				{
 					"version": "1",
 					"uid": "iwzg",
-					"date": "2026-06-27",
-					"message": "Initial version.",
-					"commit": null,
-					"onshape_version": "https://cad.onshape.com/documents/a4a1965bbaf3a15aff2b13ed/v/765c27a61823977392947be1/e/c56e3247bb7cfbe93ba7ad08",
-					"stl": "https://assets.basically.website/sorter-parts/layer-connector-1-c85e30f35445.stl",
+					"message": "As recorded before the first stamped change.",
+					"stl_hash": "c85e30f35445117061a4c7871f7823171bd503fbcd94ea77b53f405a5626ee1c",
 					"render": "https://assets.basically.website/sorter-parts/layer-connector-1-full-e079e99d0710.png",
+					"stl": "https://assets.basically.website/sorter-parts/layer-connector-1-c85e30f35445.stl",
 					"grams": 12.31
+				},
+				{
+					"version": "2",
+					"uid": "okr2",
+					"date": "2026-10-11",
+					"message": "Inverted chute: replaced with the inverted chute design.",
+					"breaking": true,
+					"onshape_version": "https://cad.onshape.com/documents/9137894c36f07dfc4dea695d/w/dde194facf5a22be951251c3/e/aaf844292d9a564824a5fe8b",
+					"commit": null,
+					"stl": "https://assets.basically.website/sorter-parts/layer-connector-1-cf24e7a4867d.stl",
+					"render": "https://assets.basically.website/sorter-parts/layer-connector-1-full-6c1814ce6cf5.png",
+					"grams": 11.57
 				}
 			],
 			"attributes": [],
-			"grams": 12.31,
+			"grams": 11.57,
 			"support_grams": 0.0,
 			"support_used": false,
 			"support_intentional": false,
-			"print_seconds": 2842,
+			"print_seconds": 1671,
 			"color": {
 				"role": "chute-core"
 			},
@@ -18466,44 +18535,64 @@
 			"caption": null,
 			"docs_page": null,
 			"conflicts": null,
-			"stl": "https://assets.basically.website/sorter-parts/layer-connector-1-c85e30f35445.stl",
-			"render": "https://assets.basically.website/sorter-parts/layer-connector-1-full-e079e99d0710.png",
+			"stl": "https://assets.basically.website/sorter-parts/layer-connector-1-cf24e7a4867d.stl",
+			"render": "https://assets.basically.website/sorter-parts/layer-connector-1-full-6c1814ce6cf5.png",
 			"stamped": [
 				{
-					"face": "-y side",
-					"stl": "https://assets.basically.website/sorter-parts/layer-connector-1-iwzg-stamped-minus-y-side-865f4117cf2e.stl",
+					"face": "bottom",
+					"stl": "https://assets.basically.website/sorter-parts/layer-connector-1-okr2-stamped-bottom-5e6103229ee6.stl",
 					"normal": [
 						0.0,
-						-1.0,
-						0.0
+						0.0,
+						-1.0
 					],
 					"center": [
-						-80.63,
-						-218.78,
-						-128.98
+						147.61,
+						-298.09,
+						-104.52
 					],
 					"size": [
-						12.2,
+						12.33,
 						3.63
 					],
 					"cap": 3.5,
 					"depth": 0.6
 				},
 				{
-					"face": "+y side",
-					"stl": "https://assets.basically.website/sorter-parts/layer-connector-1-iwzg-stamped-plus-y-side-1be4a2372822.stl",
+					"face": "top",
+					"stl": "https://assets.basically.website/sorter-parts/layer-connector-1-okr2-stamped-top-91eec711a2ed.stl",
 					"normal": [
+						-0.0,
 						0.0,
-						1.0,
+						1.0
+					],
+					"center": [
+						126.9,
+						-348.43,
+						-100.74
+					],
+					"size": [
+						12.33,
+						3.63
+					],
+					"cap": 3.5,
+					"depth": 0.6
+				},
+				{
+					"face": "-x side",
+					"stl": "https://assets.basically.website/sorter-parts/layer-connector-1-okr2-stamped-minus-x-side-902b93b424c2.stl",
+					"normal": [
+						-1.0,
+						-0.0,
 						0.0
 					],
 					"center": [
-						-59.8,
-						-215.0,
-						-130.4
+						114.57,
+						-302.44,
+						-99.91
 					],
 					"size": [
-						12.2,
+						12.33,
 						3.63
 					],
 					"cap": 3.5,
@@ -18511,40 +18600,20 @@
 				},
 				{
 					"face": "+x side",
-					"stl": "https://assets.basically.website/sorter-parts/layer-connector-1-iwzg-stamped-plus-x-side-842ef9e737ba.stl",
+					"stl": "https://assets.basically.website/sorter-parts/layer-connector-1-okr2-stamped-plus-x-side-5777eb16e41e.stl",
 					"normal": [
 						1.0,
-						0.0,
-						-0.0
-					],
-					"center": [
-						-47.53,
-						-214.17,
-						-124.69
-					],
-					"size": [
-						3.63,
-						12.2
-					],
-					"cap": 3.5,
-					"depth": 0.6
-				},
-				{
-					"face": "-x side",
-					"stl": "https://assets.basically.website/sorter-parts/layer-connector-1-iwzg-stamped-minus-x-side-c63a0759143f.stl",
-					"normal": [
-						-1.0,
 						0.0,
 						0.0
 					],
 					"center": [
-						-89.53,
-						-205.97,
-						-124.69
+						156.57,
+						-330.47,
+						-99.91
 					],
 					"size": [
-						3.63,
-						12.2
+						12.33,
+						3.63
 					],
 					"cap": 3.5,
 					"depth": 0.6
@@ -18553,7 +18622,7 @@
 		},
 		{
 			"id": "layer-connector-2",
-			"uid": "3wrh",
+			"uid": "7pll",
 			"name": "Layer connector B",
 			"quantities": {
 				"chute": 1,
@@ -18564,28 +18633,38 @@
 			"variant_group": null,
 			"variant_name": null,
 			"description": "Layer connector. 1 per layer + 1 for the top interface, which slides onto the external bracket on that hex ring.",
-			"version": "1",
+			"version": "2",
 			"created_at": "2026-06-27",
-			"updated_at": "2026-06-27",
+			"updated_at": "2026-10-11",
 			"versions": [
 				{
 					"version": "1",
 					"uid": "3wrh",
-					"date": "2026-06-27",
-					"message": "Initial version.",
-					"commit": null,
-					"onshape_version": "https://cad.onshape.com/documents/a4a1965bbaf3a15aff2b13ed/v/765c27a61823977392947be1/e/c56e3247bb7cfbe93ba7ad08",
-					"stl": "https://assets.basically.website/sorter-parts/layer-connector-2-1df17cf7ff0f.stl",
+					"message": "As recorded before the first stamped change.",
+					"stl_hash": "1df17cf7ff0fe530545b45dd107822db2a796f870de67aaa8769663a4eb941f2",
 					"render": "https://assets.basically.website/sorter-parts/layer-connector-2-full-3f4871a78d47.png",
+					"stl": "https://assets.basically.website/sorter-parts/layer-connector-2-1df17cf7ff0f.stl",
 					"grams": 12.3
+				},
+				{
+					"version": "2",
+					"uid": "7pll",
+					"date": "2026-10-11",
+					"message": "Inverted chute: replaced with the inverted chute design.",
+					"breaking": true,
+					"onshape_version": "https://cad.onshape.com/documents/9137894c36f07dfc4dea695d/w/dde194facf5a22be951251c3/e/aaf844292d9a564824a5fe8b",
+					"commit": null,
+					"stl": "https://assets.basically.website/sorter-parts/layer-connector-2-c0cd09ef085f.stl",
+					"render": "https://assets.basically.website/sorter-parts/layer-connector-2-full-e9f90c26aeeb.png",
+					"grams": 11.62
 				}
 			],
 			"attributes": [],
-			"grams": 12.3,
+			"grams": 11.62,
 			"support_grams": 0.0,
 			"support_used": false,
 			"support_intentional": false,
-			"print_seconds": 2840,
+			"print_seconds": 1691,
 			"color": {
 				"role": "chute-core"
 			},
@@ -18599,85 +18678,85 @@
 			"caption": null,
 			"docs_page": null,
 			"conflicts": null,
-			"stl": "https://assets.basically.website/sorter-parts/layer-connector-2-1df17cf7ff0f.stl",
-			"render": "https://assets.basically.website/sorter-parts/layer-connector-2-full-3f4871a78d47.png",
+			"stl": "https://assets.basically.website/sorter-parts/layer-connector-2-c0cd09ef085f.stl",
+			"render": "https://assets.basically.website/sorter-parts/layer-connector-2-full-e9f90c26aeeb.png",
 			"stamped": [
 				{
-					"face": "+y side",
-					"stl": "https://assets.basically.website/sorter-parts/layer-connector-2-3wrh-stamped-plus-y-side-4db8ff70fa53.stl",
+					"face": "bottom",
+					"stl": "https://assets.basically.website/sorter-parts/layer-connector-2-7pll-stamped-bottom-1b062960c125.stl",
 					"normal": [
 						0.0,
-						1.0,
-						0.0
+						0.0,
+						-1.0
 					],
 					"center": [
-						-56.48,
-						-66.36,
-						-129.01
+						103.65,
+						-434.45,
+						-104.52
 					],
 					"size": [
-						12.31,
-						3.56
+						12.25,
+						3.5
 					],
 					"cap": 3.5,
 					"depth": 0.6
 				},
 				{
-					"face": "-y side",
-					"stl": "https://assets.basically.website/sorter-parts/layer-connector-2-3wrh-stamped-minus-y-side-49f286376669.stl",
+					"face": "top",
+					"stl": "https://assets.basically.website/sorter-parts/layer-connector-2-7pll-stamped-top-5723223aab24.stl",
 					"normal": [
 						0.0,
-						-1.0,
-						0.0
+						0.0,
+						1.0
 					],
 					"center": [
-						-77.2,
-						-70.14,
-						-130.43
+						100.27,
+						-484.92,
+						-100.74
 					],
 					"size": [
-						12.31,
-						3.56
-					],
-					"cap": 3.5,
-					"depth": 0.6
-				},
-				{
-					"face": "-x side",
-					"stl": "https://assets.basically.website/sorter-parts/layer-connector-2-3wrh-stamped-minus-x-side-ae00dbf0bea2.stl",
-					"normal": [
-						-1.0,
-						-0.0,
-						-0.0
-					],
-					"center": [
-						-89.53,
-						-70.94,
-						-124.63
-					],
-					"size": [
-						3.56,
-						12.31
+						12.25,
+						3.5
 					],
 					"cap": 3.5,
 					"depth": 0.6
 				},
 				{
 					"face": "+x side",
-					"stl": "https://assets.basically.website/sorter-parts/layer-connector-2-3wrh-stamped-plus-x-side-9fa0626dc921.stl",
+					"stl": "https://assets.basically.website/sorter-parts/layer-connector-2-7pll-stamped-plus-x-side-030fd9e42b86.stl",
 					"normal": [
 						1.0,
 						0.0,
 						0.0
 					],
 					"center": [
-						-47.53,
-						-79.2,
-						-124.63
+						112.57,
+						-479.12,
+						-99.97
 					],
 					"size": [
-						3.56,
-						12.31
+						12.25,
+						3.5
+					],
+					"cap": 3.5,
+					"depth": 0.6
+				},
+				{
+					"face": "-x side",
+					"stl": "https://assets.basically.website/sorter-parts/layer-connector-2-7pll-stamped-minus-x-side-3b55e6b2d3e0.stl",
+					"normal": [
+						-1.0,
+						-0.0,
+						-0.0
+					],
+					"center": [
+						70.57,
+						-438.82,
+						-99.97
+					],
+					"size": [
+						12.25,
+						3.5
 					],
 					"cap": 3.5,
 					"depth": 0.6
@@ -18817,7 +18896,7 @@
 		},
 		{
 			"id": "funnel-third",
-			"uid": "2cww",
+			"uid": "xpu6",
 			"name": "Funnel (third size)",
 			"quantities": {
 				"funnel": 1
@@ -18827,28 +18906,38 @@
 			"variant_group": "funnel",
 			"variant_name": "Third size",
 			"description": "Third size funnel. Per layer (choose size per layer).",
-			"version": "1",
+			"version": "2",
 			"created_at": "2026-06-29",
-			"updated_at": "2026-06-29",
+			"updated_at": "2026-10-11",
 			"versions": [
 				{
 					"version": "1",
 					"uid": "2cww",
-					"date": "2026-06-29",
-					"message": "Initial version.",
-					"commit": null,
-					"onshape_version": "https://cad.onshape.com/documents/a4a1965bbaf3a15aff2b13ed/v/353adf90e6a8a99bed6f90a5/e/8f720225506283b24c872672",
-					"stl": "https://assets.basically.website/sorter-parts/funnel-third-287f8f9936b9.stl",
+					"message": "As recorded before the first stamped change.",
+					"stl_hash": "287f8f9936b958f15dc9acd832f6320cbc4fcfb9ee0f7cd73ea67d9953d16961",
 					"render": "https://assets.basically.website/sorter-parts/funnel-third-full-bc2861a71f9f.png",
-					"grams": 216.27
+					"stl": "https://assets.basically.website/sorter-parts/funnel-third-287f8f9936b9.stl",
+					"grams": 225.2
+				},
+				{
+					"version": "2",
+					"uid": "xpu6",
+					"date": "2026-10-11",
+					"message": "Inverted chute: replaced with the inverted chute design.",
+					"breaking": true,
+					"onshape_version": "https://cad.onshape.com/documents/9137894c36f07dfc4dea695d/w/dde194facf5a22be951251c3/e/aaf844292d9a564824a5fe8b",
+					"commit": null,
+					"stl": "https://assets.basically.website/sorter-parts/funnel-third-9733b8ff4e69.stl",
+					"render": "https://assets.basically.website/sorter-parts/funnel-third-full-185bd96b3e8f.png",
+					"grams": 218.2
 				}
 			],
 			"attributes": [],
-			"grams": 216.27,
-			"support_grams": 0.0,
-			"support_used": false,
-			"support_intentional": false,
-			"print_seconds": 19064,
+			"grams": 218.2,
+			"support_grams": 7.3,
+			"support_used": true,
+			"support_intentional": true,
+			"print_seconds": 19293,
 			"color": {
 				"role": "funnel"
 			},
@@ -18862,85 +18951,85 @@
 			"caption": "For a layer of 18 third bins.",
 			"docs_page": null,
 			"conflicts": null,
-			"stl": "https://assets.basically.website/sorter-parts/funnel-third-287f8f9936b9.stl",
-			"render": "https://assets.basically.website/sorter-parts/funnel-third-full-bc2861a71f9f.png",
+			"stl": "https://assets.basically.website/sorter-parts/funnel-third-9733b8ff4e69.stl",
+			"render": "https://assets.basically.website/sorter-parts/funnel-third-full-185bd96b3e8f.png",
 			"stamped": [
 				{
 					"face": "angled face",
-					"stl": "https://assets.basically.website/sorter-parts/funnel-third-2cww-stamped-angled-face-5769b9c8c166.stl",
+					"stl": "https://assets.basically.website/sorter-parts/funnel-third-xpu6-stamped-angled-face-cd1eab50cda7.stl",
 					"normal": [
-						0.5,
-						0.0,
-						0.866
+						-0.6124,
+						-0.6124,
+						0.5
 					],
 					"center": [
-						62.76,
-						-52.33,
-						142.29
+						529.14,
+						-155.16,
+						68.18
 					],
 					"size": [
-						12.59,
-						3.63
+						12.49,
+						3.56
 					],
 					"cap": 3.5,
 					"depth": 0.6
 				},
 				{
 					"face": "angled face 2",
-					"stl": "https://assets.basically.website/sorter-parts/funnel-third-2cww-stamped-angled-face-2-e44b1ccd1406.stl",
+					"stl": "https://assets.basically.website/sorter-parts/funnel-third-xpu6-stamped-angled-face-2-0e512f622596.stl",
 					"normal": [
-						0.3907,
-						0.0,
-						0.9205
+						-0.652,
+						-0.652,
+						0.3871
 					],
 					"center": [
-						131.6,
-						0.0,
-						21.72
+						653.6,
+						-105.06,
+						143.14
 					],
 					"size": [
-						12.59,
-						3.63
+						12.49,
+						3.56
 					],
 					"cap": 3.5,
 					"depth": 0.6
 				},
 				{
-					"face": "-y side",
-					"stl": "https://assets.basically.website/sorter-parts/funnel-third-2cww-stamped-minus-y-side-0dcca785d28c.stl",
+					"face": "angled face 3",
+					"stl": "https://assets.basically.website/sorter-parts/funnel-third-xpu6-stamped-angled-face-3-be17b266a30a.stl",
 					"normal": [
-						-0.1384,
-						-0.9871,
-						0.0799
+						0.6415,
+						-0.7545,
+						-0.1384
 					],
 					"center": [
-						142.59,
-						43.6,
-						54.33
+						597.72,
+						-99.66,
+						151.53
 					],
 					"size": [
-						12.59,
-						3.63
+						12.49,
+						3.56
 					],
 					"cap": 3.5,
 					"depth": 0.6
 				},
 				{
-					"face": "+y side",
-					"stl": "https://assets.basically.website/sorter-parts/funnel-third-2cww-stamped-plus-y-side-ca7a11cffe75.stl",
+					"face": "angled face 4",
+					"stl": "https://assets.basically.website/sorter-parts/funnel-third-xpu6-stamped-angled-face-4-d4fb23a5f3ca.stl",
 					"normal": [
-						-0.1384,
-						0.9871,
-						0.0799
+						-0.7545,
+						0.6415,
+						-0.1384
 					],
 					"center": [
-						142.59,
-						-43.6,
-						54.33
+						658.71,
+						-160.65,
+						151.53
 					],
 					"size": [
-						12.59,
-						3.63
+						12.49,
+						3.56
 					],
 					"cap": 3.5,
 					"depth": 0.6
@@ -18949,7 +19038,7 @@
 		},
 		{
 			"id": "funnel-half",
-			"uid": "t9lf",
+			"uid": "xrw5",
 			"name": "Funnel (half size)",
 			"quantities": {
 				"funnel": 1
@@ -18959,28 +19048,38 @@
 			"variant_group": "funnel",
 			"variant_name": "Half size",
 			"description": "Half size funnel. Per layer (choose size per layer).",
-			"version": "1",
+			"version": "2",
 			"created_at": "2026-06-29",
-			"updated_at": "2026-06-29",
+			"updated_at": "2026-10-11",
 			"versions": [
 				{
 					"version": "1",
 					"uid": "t9lf",
-					"date": "2026-06-29",
-					"message": "Initial version.",
-					"commit": null,
-					"onshape_version": "https://cad.onshape.com/documents/a4a1965bbaf3a15aff2b13ed/v/353adf90e6a8a99bed6f90a5/e/8f720225506283b24c872672",
-					"stl": "https://assets.basically.website/sorter-parts/funnel-half-533487b3dadb.stl",
+					"message": "As recorded before the first stamped change.",
+					"stl_hash": "533487b3dadbdf8ec33af0d9d5185c2d978325e03b13c56a2121135a16c69a53",
 					"render": "https://assets.basically.website/sorter-parts/funnel-half-full-e4458a252271.png",
-					"grams": 158.23
+					"stl": "https://assets.basically.website/sorter-parts/funnel-half-533487b3dadb.stl",
+					"grams": 169.9
+				},
+				{
+					"version": "2",
+					"uid": "xrw5",
+					"date": "2026-10-11",
+					"message": "Inverted chute: replaced with the inverted chute design.",
+					"breaking": true,
+					"onshape_version": "https://cad.onshape.com/documents/9137894c36f07dfc4dea695d/w/dde194facf5a22be951251c3/e/aaf844292d9a564824a5fe8b",
+					"commit": null,
+					"stl": "https://assets.basically.website/sorter-parts/funnel-half-c3d5ac377ccd.stl",
+					"render": "https://assets.basically.website/sorter-parts/funnel-half-full-5420bfc004c3.png",
+					"grams": 162.01
 				}
 			],
 			"attributes": [],
-			"grams": 158.23,
-			"support_grams": 0.0,
-			"support_used": false,
-			"support_intentional": false,
-			"print_seconds": 14385,
+			"grams": 162.01,
+			"support_grams": 5.81,
+			"support_used": true,
+			"support_intentional": true,
+			"print_seconds": 14479,
 			"color": {
 				"role": "funnel"
 			},
@@ -18994,24 +19093,24 @@
 			"caption": "For a layer of 12 half bins.",
 			"docs_page": null,
 			"conflicts": null,
-			"stl": "https://assets.basically.website/sorter-parts/funnel-half-533487b3dadb.stl",
-			"render": "https://assets.basically.website/sorter-parts/funnel-half-full-e4458a252271.png",
+			"stl": "https://assets.basically.website/sorter-parts/funnel-half-c3d5ac377ccd.stl",
+			"render": "https://assets.basically.website/sorter-parts/funnel-half-full-5420bfc004c3.png",
 			"stamped": [
 				{
 					"face": "angled face",
-					"stl": "https://assets.basically.website/sorter-parts/funnel-half-t9lf-stamped-angled-face-90d537b8df89.stl",
+					"stl": "https://assets.basically.website/sorter-parts/funnel-half-xrw5-stamped-angled-face-85d04b6d8234.stl",
 					"normal": [
-						0.5,
-						0.0,
-						0.866
+						-0.6075,
+						-0.6172,
+						0.5
 					],
 					"center": [
-						62.73,
-						-52.43,
-						142.31
+						436.66,
+						-226.06,
+						79.72
 					],
 					"size": [
-						12.38,
+						12.42,
 						3.56
 					],
 					"cap": 3.5,
@@ -19019,59 +19118,59 @@
 				},
 				{
 					"face": "angled face 2",
-					"stl": "https://assets.basically.website/sorter-parts/funnel-half-t9lf-stamped-angled-face-2-6dd3b530b39f.stl",
+					"stl": "https://assets.basically.website/sorter-parts/funnel-half-xrw5-stamped-angled-face-2-cc0d2093c38d.stl",
 					"normal": [
-						0.342,
-						0.0,
-						0.9397
+						-0.6623,
+						-0.6728,
+						0.3297
 					],
 					"center": [
-						109.28,
-						0.0,
-						34.18
+						551.87,
+						-183.74,
+						132.35
 					],
 					"size": [
-						12.38,
+						12.42,
 						3.56
 					],
 					"cap": 3.5,
 					"depth": 0.6
 				},
 				{
-					"face": "+y side",
-					"stl": "https://assets.basically.website/sorter-parts/funnel-half-t9lf-stamped-plus-y-side-ccc55de2a528.stl",
+					"face": "angled face 3",
+					"stl": "https://assets.basically.website/sorter-parts/funnel-half-xrw5-stamped-angled-face-3-2affb5fbb75b.stl",
 					"normal": [
-						-0.1397,
-						0.9869,
-						0.0807
+						-0.7599,
+						0.6348,
+						-0.1397
 					],
 					"center": [
-						118.98,
-						-47.89,
-						67.26
+						560.13,
+						-242.96,
+						139.46
 					],
 					"size": [
-						12.38,
+						12.42,
 						3.56
 					],
 					"cap": 3.5,
 					"depth": 0.6
 				},
 				{
-					"face": "-y side",
-					"stl": "https://assets.basically.website/sorter-parts/funnel-half-t9lf-stamped-minus-y-side-1fce6302b32f.stl",
+					"face": "angled face 4",
+					"stl": "https://assets.basically.website/sorter-parts/funnel-half-xrw5-stamped-angled-face-4-6fb00f91e688.stl",
 					"normal": [
-						-0.1397,
-						-0.9869,
-						0.0807
+						0.6467,
+						-0.7498,
+						-0.1397
 					],
 					"center": [
-						118.98,
-						47.89,
-						67.26
+						492.52,
+						-176.41,
+						139.46
 					],
 					"size": [
-						12.38,
+						12.42,
 						3.56
 					],
 					"cap": 3.5,
@@ -19736,7 +19835,7 @@
 		},
 		{
 			"id": "bearing-cover-covered",
-			"uid": "75fh",
+			"uid": "5qyq",
 			"name": "Bearing cover (covered side)",
 			"quantities": {
 				"chute": 1
@@ -19746,27 +19845,38 @@
 			"variant_group": null,
 			"variant_name": null,
 			"description": "Chute bearing cover. 1 per machine.",
-			"version": "1",
+			"version": "2",
 			"created_at": "2026-06-29",
-			"updated_at": "2026-06-29",
+			"updated_at": "2026-10-11",
 			"versions": [
 				{
 					"version": "1",
 					"uid": "75fh",
-					"date": "2026-06-29",
-					"message": "Initial version.",
-					"commit": null,
-					"stl": "https://assets.basically.website/sorter-parts/bearing-cover-covered-1a177913356c.stl",
+					"message": "As recorded before the first stamped change.",
+					"stl_hash": "1a177913356c66c6667093d333d457c0b8fedc3e4379ffe023e92670e58b7d1d",
 					"render": "https://assets.basically.website/sorter-parts/bearing-cover-covered-full-8ceae82c7a6e.png",
+					"stl": "https://assets.basically.website/sorter-parts/bearing-cover-covered-1a177913356c.stl",
 					"grams": 6.47
+				},
+				{
+					"version": "2",
+					"uid": "5qyq",
+					"date": "2026-10-11",
+					"message": "Inverted chute: replaced with the inverted chute design.",
+					"breaking": true,
+					"onshape_version": "https://cad.onshape.com/documents/9137894c36f07dfc4dea695d/w/dde194facf5a22be951251c3/e/aaf844292d9a564824a5fe8b",
+					"commit": null,
+					"stl": "https://assets.basically.website/sorter-parts/bearing-cover-covered-d325993235af.stl",
+					"render": "https://assets.basically.website/sorter-parts/bearing-cover-covered-full-4cca79da8a2e.png",
+					"grams": 6.98
 				}
 			],
 			"attributes": [],
-			"grams": 6.47,
+			"grams": 6.98,
 			"support_grams": 0.0,
 			"support_used": false,
 			"support_intentional": false,
-			"print_seconds": 2417,
+			"print_seconds": 1304,
 			"color": {
 				"role": "chute-core"
 			},
@@ -19780,65 +19890,65 @@
 			"caption": null,
 			"docs_page": null,
 			"conflicts": null,
-			"stl": "https://assets.basically.website/sorter-parts/bearing-cover-covered-1a177913356c.stl",
-			"render": "https://assets.basically.website/sorter-parts/bearing-cover-covered-full-8ceae82c7a6e.png",
+			"stl": "https://assets.basically.website/sorter-parts/bearing-cover-covered-d325993235af.stl",
+			"render": "https://assets.basically.website/sorter-parts/bearing-cover-covered-full-4cca79da8a2e.png",
 			"stamped": [
 				{
-					"face": "-y side",
-					"stl": "https://assets.basically.website/sorter-parts/bearing-cover-covered-75fh-stamped-minus-y-side-1d4f7e573bd5.stl",
+					"face": "bottom",
+					"stl": "https://assets.basically.website/sorter-parts/bearing-cover-covered-5qyq-stamped-bottom-7d1380a3e68e.stl",
 					"normal": [
+						0.0,
+						0.0,
+						-1.0
+					],
+					"center": [
+						263.12,
+						4.04,
+						55.78
+					],
+					"size": [
+						12.54,
+						4.52
+					],
+					"cap": 3.5,
+					"depth": 0.6
+				},
+				{
+					"face": "top",
+					"stl": "https://assets.basically.website/sorter-parts/bearing-cover-covered-5qyq-stamped-top-c5bccb0e2f0a.stl",
+					"normal": [
+						0.0,
 						-0.0,
-						-1.0,
-						0.0
+						1.0
 					],
 					"center": [
-						-52.65,
-						-72.84,
-						114.33
+						261.89,
+						-18.26,
+						60.78
 					],
 					"size": [
-						12.21,
-						3.56
+						12.54,
+						4.52
 					],
 					"cap": 3.5,
 					"depth": 0.6
 				},
 				{
-					"face": "+y side",
-					"stl": "https://assets.basically.website/sorter-parts/bearing-cover-covered-75fh-stamped-plus-y-side-fa7122e91b25.stl",
+					"face": "top 2",
+					"stl": "https://assets.basically.website/sorter-parts/bearing-cover-covered-5qyq-stamped-top-2-0beeb4b04585.stl",
 					"normal": [
 						0.0,
-						1.0,
-						0.0
-					],
-					"center": [
-						-43.88,
-						-67.84,
-						97.37
-					],
-					"size": [
-						12.21,
-						3.56
-					],
-					"cap": 3.5,
-					"depth": 0.6
-				},
-				{
-					"face": "+y side 2",
-					"stl": "https://assets.basically.website/sorter-parts/bearing-cover-covered-75fh-stamped-plus-y-side-2-24aaa31244a3.stl",
-					"normal": [
 						0.0,
-						1.0,
-						0.0
+						1.0
 					],
 					"center": [
-						-52.4,
-						-67.84,
-						114.12
+						262.57,
+						4.07,
+						65.78
 					],
 					"size": [
-						12.21,
-						3.56
+						12.54,
+						4.52
 					],
 					"cap": 3.5,
 					"depth": 0.6
@@ -19847,7 +19957,7 @@
 		},
 		{
 			"id": "bearing-cover-servo",
-			"uid": "g7s2",
+			"uid": "0iil",
 			"name": "Bearing cover (servo side)",
 			"quantities": {
 				"chute": 1
@@ -19857,27 +19967,38 @@
 			"variant_group": null,
 			"variant_name": null,
 			"description": "Chute bearing cover. 1 per machine.",
-			"version": "1",
+			"version": "2",
 			"created_at": "2026-06-29",
-			"updated_at": "2026-06-29",
+			"updated_at": "2026-10-11",
 			"versions": [
 				{
 					"version": "1",
 					"uid": "g7s2",
-					"date": "2026-06-29",
-					"message": "Initial version.",
-					"commit": null,
-					"stl": "https://assets.basically.website/sorter-parts/bearing-cover-servo-4573bb40f913.stl",
+					"message": "As recorded before the first stamped change.",
+					"stl_hash": "4573bb40f91390f1dcbe7c87eb187fa3a68e7c6ea5de17fc0f9e083e7506242b",
 					"render": "https://assets.basically.website/sorter-parts/bearing-cover-servo-full-2ce8972b9c95.png",
+					"stl": "https://assets.basically.website/sorter-parts/bearing-cover-servo-4573bb40f913.stl",
 					"grams": 5.9
+				},
+				{
+					"version": "2",
+					"uid": "0iil",
+					"date": "2026-10-11",
+					"message": "Inverted chute: replaced with the inverted chute design.",
+					"breaking": true,
+					"onshape_version": "https://cad.onshape.com/documents/9137894c36f07dfc4dea695d/w/dde194facf5a22be951251c3/e/aaf844292d9a564824a5fe8b",
+					"commit": null,
+					"stl": "https://assets.basically.website/sorter-parts/bearing-cover-servo-e663d8654522.stl",
+					"render": "https://assets.basically.website/sorter-parts/bearing-cover-servo-full-9635f37f024c.png",
+					"grams": 6.21
 				}
 			],
 			"attributes": [],
-			"grams": 5.9,
+			"grams": 6.21,
 			"support_grams": 0.0,
 			"support_used": false,
 			"support_intentional": false,
-			"print_seconds": 2427,
+			"print_seconds": 1280,
 			"color": {
 				"role": "chute-core"
 			},
@@ -19891,48 +20012,90 @@
 			"caption": null,
 			"docs_page": null,
 			"conflicts": null,
-			"stl": "https://assets.basically.website/sorter-parts/bearing-cover-servo-4573bb40f913.stl",
-			"render": "https://assets.basically.website/sorter-parts/bearing-cover-servo-full-2ce8972b9c95.png",
+			"stl": "https://assets.basically.website/sorter-parts/bearing-cover-servo-e663d8654522.stl",
+			"render": "https://assets.basically.website/sorter-parts/bearing-cover-servo-full-9635f37f024c.png",
 			"stamped": [
 				{
-					"face": "+y side",
-					"stl": "https://assets.basically.website/sorter-parts/bearing-cover-servo-g7s2-stamped-plus-y-side-91b7617e32b7.stl",
+					"face": "bottom",
+					"stl": "https://assets.basically.website/sorter-parts/bearing-cover-servo-0iil-stamped-bottom-375c15bfaa47.stl",
 					"normal": [
-						0.0,
-						1.0,
-						0.0
+						-0.0,
+						-0.0,
+						-1.0
 					],
 					"center": [
-						-60.93,
-						72.84,
-						98.73
+						228.73,
+						123.16,
+						55.78
 					],
 					"size": [
-						12.3,
-						3.63
+						12.28,
+						3.56
 					],
 					"cap": 3.5,
 					"depth": 0.6
 				},
 				{
-					"face": "-y side",
-					"stl": "https://assets.basically.website/sorter-parts/bearing-cover-servo-g7s2-stamped-minus-y-side-4a93fb00d1f4.stl",
+					"face": "top",
+					"stl": "https://assets.basically.website/sorter-parts/bearing-cover-servo-0iil-stamped-top-e40ddbd9a3f0.stl",
 					"normal": [
 						0.0,
-						-1.0,
-						0.0
+						-0.0,
+						1.0
 					],
 					"center": [
-						-60.46,
-						67.84,
-						97.41
+						227.02,
+						122.08,
+						60.78
 					],
 					"size": [
-						12.3,
-						3.63
+						12.28,
+						3.56
 					],
 					"cap": 3.5,
 					"depth": 0.6
+				},
+				{
+					"face": "-x side",
+					"stl": "https://assets.basically.website/sorter-parts/bearing-cover-servo-0iil-stamped-minus-x-side-034b32fa93d5.stl",
+					"normal": [
+						-1.0,
+						0.0,
+						0.0
+					],
+					"center": [
+						197.0,
+						152.07,
+						58.18
+					],
+					"size": [
+						8.77,
+						2.55
+					],
+					"cap": 2.5,
+					"depth": 0.6,
+					"note": "smaller text"
+				},
+				{
+					"face": "angled face",
+					"stl": "https://assets.basically.website/sorter-parts/bearing-cover-servo-0iil-stamped-angled-face-f691b17bd718.stl",
+					"normal": [
+						-0.4953,
+						-0.8687,
+						0.0
+					],
+					"center": [
+						201.79,
+						120.49,
+						58.18
+					],
+					"size": [
+						8.77,
+						2.55
+					],
+					"cap": 2.5,
+					"depth": 0.6,
+					"note": "smaller text"
 				}
 			]
 		},
@@ -25299,29 +25462,92 @@
 			]
 		},
 		{
-			"id": "chute-core-and-funnel-brackets",
-			"name": "chute-core-and-funnel-brackets",
-			"download": "https://assets.basically.website/sorter-parts/chute-core-and-funnel-brackets-3605074a7ee5.3mf",
+			"id": "chute-without-core",
+			"name": "chute-without-core",
+			"download": "https://assets.basically.website/sorter-parts/chute-without-core-4baaada4d5ef.3mf",
 			"thumbs": [
-				"https://assets.basically.website/sorter-parts/chute-core-and-funnel-brackets-1-full-16ca235ae431.png",
-				"https://assets.basically.website/sorter-parts/chute-core-and-funnel-brackets-2-full-e63bbb31714f.png",
-				"https://assets.basically.website/sorter-parts/chute-core-and-funnel-brackets-3-full-4f64ada06852.png"
+				"https://assets.basically.website/sorter-parts/chute-without-core-1-full-493fb70bc54e.png"
 			],
 			"parts": [
 				{
-					"name": "left funnel slide",
-					"count": 5,
-					"part_id": "funnel-bracket-left"
+					"name": "bearing-cover-covered",
+					"count": 1,
+					"part_id": "bearing-cover-covered"
 				},
 				{
-					"name": "right funnel slide",
-					"count": 3,
+					"name": "layer-connector-2",
+					"count": 1,
+					"part_id": "layer-connector-2"
+				},
+				{
+					"name": "bearing-cover-servo",
+					"count": 1,
+					"part_id": "bearing-cover-servo"
+				},
+				{
+					"name": "bearing-race",
+					"count": 1,
+					"part_id": "bearing-race"
+				},
+				{
+					"name": "bearing-holder-right",
+					"count": 1,
+					"part_id": "bearing-holder-right"
+				},
+				{
+					"name": "layer-connector-1",
+					"count": 1,
+					"part_id": "layer-connector-1"
+				},
+				{
+					"name": "servo-bracket-side-arm",
+					"count": 1,
+					"part_id": "servo-bracket-side-arm"
+				},
+				{
+					"name": "servo-bracket-cover",
+					"count": 1,
+					"part_id": "servo-bracket-cover"
+				},
+				{
+					"name": "funnel-bracket-right",
+					"count": 1,
 					"part_id": "funnel-bracket-right"
 				},
 				{
-					"name": "core (2)",
+					"name": "servo-bracket-housing",
 					"count": 1,
-					"part_id": "chute-core"
+					"part_id": "servo-bracket-housing"
+				},
+				{
+					"name": "servo-adapter-servo-side",
+					"count": 1,
+					"part_id": "servo-adapter-servo-side"
+				},
+				{
+					"name": "bearing-holder-left",
+					"count": 1,
+					"part_id": "bearing-holder-left"
+				},
+				{
+					"name": "chute-door",
+					"count": 1,
+					"part_id": "chute-door"
+				},
+				{
+					"name": "servo-adapter-flap-side",
+					"count": 1,
+					"part_id": "servo-adapter-flap-side"
+				},
+				{
+					"name": "funnel-bracket-left",
+					"count": 1,
+					"part_id": "funnel-bracket-left"
+				},
+				{
+					"name": "servo-bracket-lower-arm",
+					"count": 1,
+					"part_id": "servo-bracket-lower-arm"
 				}
 			]
 		},
@@ -27486,7 +27712,6 @@
 		{
 			"id": "hsi-m3s",
 			"uid": "5nkl",
-			"retired_at": "2026-09-11",
 			"kind": "cots",
 			"cots": {
 				"type": "heat-insert",
@@ -27495,8 +27720,8 @@
 			},
 			"name": "Ruthex M3S heat insert (short)",
 			"category": "Heat inserts",
-			"description": "Retired, no longer used anywhere. ruthex RX-M3Sx4.0 brass heat-set threaded insert, the short M3. It was carried over from the BOM sheet for the servo adapter, but that joint's screws thread straight into the printed plastic: neither adapter half has an insert pocket.",
-			"note": "Unused as of 2026-09-11. Do not add a new joint to this insert; every insert joint in the machine takes the standard 5.7 mm M3 (hsi-m3).",
+			"description": "ruthex RX-M3Sx4.0 brass heat-set threaded insert, the short M3, 4.0 mm long. Melt it into a printed part with a soldering iron to make an M3 thread. It goes in the servo adapter's servo side, four per adapter; do not use the standard 5.7 mm M3 insert there, it will not fit the pockets.",
+			"note": "In use again as of 2026-10-12: the servo adapter's servo side, 4 per machine. Every other insert joint in the machine takes the standard 5.7 mm M3 (hsi-m3).",
 			"created_at": "2026-08-21",
 			"updated_at": "2026-09-11",
 			"attributes": [

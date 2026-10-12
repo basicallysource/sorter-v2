@@ -36,7 +36,7 @@ from collections import defaultdict
 from datetime import datetime, timedelta, timezone
 from typing import Any, Iterable
 
-from sqlalchemy import and_, func, select, tuple_
+from sqlalchemy import and_, func, or_, select, tuple_
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.dialects.sqlite import insert as sqlite_insert
 from sqlalchemy.orm import Session
@@ -125,12 +125,17 @@ def _with_images(db: Session, machine_id: Any, piece_uuids: list[str]) -> set[st
     return found
 
 
+_RANGES_PER_READ = 100
+
+
 def _with_candidates(db: Session, machine_id: Any, arrivals: dict[str, datetime]) -> set[str]:
     """Pieces with at least one channel crop in their arrival window.
 
-    Pieces are grouped into runs whose windows touch, and each run reads the
-    crop timestamps it spans once (an index-only range on (machine_id, ts)), so
-    a batch of a sorting session costs a few range reads, not one per piece."""
+    Pieces are grouped into runs whose windows touch (a sorting session is one
+    run), and the crop timestamps of up to _RANGES_PER_READ runs are read in one
+    query, each run an index-only range on (machine_id, ts). So a busy machine
+    costs a range read per session and a quiet one, whose pieces are minutes
+    apart, a query per hundred pieces rather than one each."""
     if not arrivals:
         return set()
     ordered = sorted(arrivals.items(), key=lambda kv: kv[1])
@@ -142,24 +147,28 @@ def _with_candidates(db: Session, machine_id: Any, arrivals: dict[str, datetime]
             runs[-1].append(item)
 
     found: set[str] = set()
-    for run in runs:
-        lo = run[0][1] - timedelta(seconds=LOOKBACK_S)
-        hi = run[-1][1] + timedelta(seconds=SLOP_S)
+    for chunk in _chunks(runs, _RANGES_PER_READ):
+        spans = [
+            and_(
+                MachineChannelCrop.ts >= run[0][1] - timedelta(seconds=LOOKBACK_S),
+                MachineChannelCrop.ts <= run[-1][1] + timedelta(seconds=SLOP_S),
+            )
+            for run in chunk
+        ]
         stamps = [
             _epoch(ts)
             for (ts,) in db.query(MachineChannelCrop.ts)
-            .filter(
-                MachineChannelCrop.machine_id == machine_id,
-                MachineChannelCrop.ts >= lo,
-                MachineChannelCrop.ts <= hi,
-            )
+            .filter(MachineChannelCrop.machine_id == machine_id, or_(*spans))
             .order_by(MachineChannelCrop.ts)
         ]
-        for puid, arrival in run:
-            a = _epoch(arrival)
-            i = bisect.bisect_left(stamps, a - LOOKBACK_S)
-            if i < len(stamps) and stamps[i] <= a + SLOP_S:
-                found.add(puid)
+        # Every crop in a piece's window lies in its run's span, so the
+        # combined list answers each piece exactly.
+        for run in chunk:
+            for puid, arrival in run:
+                a = _epoch(arrival)
+                i = bisect.bisect_left(stamps, a - LOOKBACK_S)
+                if i < len(stamps) and stamps[i] <= a + SLOP_S:
+                    found.add(puid)
     return found
 
 
@@ -194,9 +203,20 @@ def evaluate(db: Session, pieces: list[Any]) -> dict[str, int]:
     for machine_id, rows in by_machine.items():
         current = _queued(db, machine_id, [p.piece_uuid for p in rows])
         live = [p for p in rows if not p.dead]
-        with_image = _with_images(db, machine_id, [p.piece_uuid for p in live])
+        # What a queued row already knows is not asked again: a stored crop
+        # never loses its key, and a crop in the arrival window never leaves it
+        # (unless the arrival itself moved).
+        with_image = {p.piece_uuid for p in live if p.piece_uuid in current}
+        with_image |= _with_images(db, machine_id, [p.piece_uuid for p in live if p.piece_uuid not in current])
         eligible = [p for p in live if p.piece_uuid in with_image]
-        candidates = _with_candidates(db, machine_id, {p.piece_uuid: _arrival(p) for p in eligible})
+        known = {
+            p.piece_uuid
+            for p in eligible
+            if p.piece_uuid in current and current[p.piece_uuid][1] and current[p.piece_uuid][0] == _arrival(p)
+        }
+        candidates = known | _with_candidates(
+            db, machine_id, {p.piece_uuid: _arrival(p) for p in eligible if p.piece_uuid not in known}
+        )
         eligible_ids = {p.piece_uuid for p in eligible}
         removes.extend(
             (machine_id, p.piece_uuid) for p in rows if p.piece_uuid not in eligible_ids and p.piece_uuid in current

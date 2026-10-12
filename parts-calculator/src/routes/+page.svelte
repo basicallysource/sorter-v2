@@ -1279,17 +1279,22 @@
 	}
 	.pl-settings-v { font-size: 0.9375rem; color: var(--color-text); }
 
+	/* The aside is a fixed 340px: fixed layout keeps the table inside it, the
+	   colour column takes what the number columns leave and wraps. */
+	.pl-buy { table-layout: fixed; }
+	.pl-buy th:nth-child(2), .pl-buy td:nth-child(2) { width: 3.75rem; }
+	.pl-buy th:nth-child(3), .pl-buy td:nth-child(3) { width: 5rem; }
 	.pl-buy th {
-		padding: 1rem 1.25rem 0.625rem; text-align: left;
+		padding: 1rem 0.75rem 0.625rem; text-align: left;
 		font-size: 0.8125rem; font-weight: 400;
 		color: color-mix(in oklab, var(--color-text-muted) 70%, transparent);
 	}
-	.pl-buy td { padding: 0.75rem 1.25rem; font-size: 0.9375rem; color: var(--color-text); }
+	.pl-buy td { padding: 0.75rem; font-size: 0.9375rem; color: var(--color-text); }
 	.pl-buy .pl-num { text-align: right; font-variant-numeric: tabular-nums; }
 	.pl-buy .pl-num-strong { font-weight: 500; }
 	.pl-buy-sub { font-size: 0.8125rem; color: color-mix(in oklab, var(--color-text-muted) 85%, transparent); }
 	/* the LEGO colour this filament matches, for people who shop in brick colours */
-	.pl-buy-lego { font-size: 0.6875rem; white-space: nowrap; color: color-mix(in oklab, var(--color-text-muted) 75%, transparent); }
+	.pl-buy-lego { font-size: 0.6875rem; color: color-mix(in oklab, var(--color-text-muted) 75%, transparent); }
 	.pl-buy-empty { text-align: center; color: var(--color-text-muted); padding: 1.25rem; }
 	.pl-buy tfoot td {
 		border-top: 1px solid var(--color-border);

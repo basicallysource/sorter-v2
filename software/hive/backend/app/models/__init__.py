@@ -60,3 +60,6 @@ from app.models.link_model import LinkModel  # noqa: E402, F401
 from app.models.access_window import AccessWindow  # noqa: E402, F401
 from app.models.ai_usage_event import AiUsageEvent  # noqa: E402, F401
 from app.models.telemetry_limits import TelemetryLimits  # noqa: E402, F401
+from app.models.job import Job  # noqa: E402, F401
+from app.models.swatch_model import SwatchModel  # noqa: E402, F401
+from app.models.sample_swatch import SampleSwatch, SampleSwatchRun  # noqa: E402, F401

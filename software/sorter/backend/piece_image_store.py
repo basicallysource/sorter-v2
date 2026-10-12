@@ -9,16 +9,19 @@ from pathlib import Path
 from typing import Any, Optional
 
 import db
+import sync_seq
 
 # Durable per-piece image store. Every crop gathered for a piece (the C4 burst
 # plus upstream C2/C3 match crops) is written to disk as a plain JPEG and
 # indexed in the shared local_state SQLite DB, so piece images survive
 # restarts and LRU eviction instead of living only in the runtime-stats
-# in-memory lookup. Rows keep a hive sync marker (synced_at / hive_image_id)
-# so a background uploader can push them to the Hive and retention can prefer
-# wiping already-synced files. Rows outlive their files (deleted_at is set,
-# the row stays) — an evicted-but-synced image remains addressable and can be
-# re-fetched from the Hive later.
+# in-memory lookup. An image is ready for Hive once its piece's record exists:
+# by then its used / excluded_from_result flags are final, so it takes a
+# sync_seq (see sync_seq.py) and goes once, with the right flags. Images of a
+# piece that never gets a record never sync. synced_at marks rows every Hive
+# has, so retention can prefer wiping those files. Rows outlive their files
+# (deleted_at is set, the row stays) until piece history retention removes
+# the whole piece.
 #
 # Writes never happen on the capture / state-machine threads: the broadcaster
 # enqueues (bounded, drop-on-full) and a single daemon worker does base64
@@ -40,10 +43,10 @@ _queue: "queue.Queue[tuple[str, str, Any]]" = queue.Queue(maxsize=_QUEUE_MAX_ITE
 _seen_lock = threading.Lock()
 _seen_counts: dict[str, int] = {}
 _seen_order: list[str] = []
-# Pieces whose used/excluded_from_result/score flags were already flushed.
-# Those flags only settle once classification applies, well after the images
-# themselves were written, so they land as one late UPDATE pass per piece.
-_flags_done: set[str] = set()
+# Pieces whose used/excluded_from_result/score flags were already flushed, oldest
+# first. Those flags only settle once classification applies, well after the
+# images themselves were written, so they land as one late UPDATE pass per piece.
+_flags_done: dict[str, None] = {}
 _worker_started = threading.Event()
 _worker_lock = threading.Lock()
 _logger: Any = None
@@ -90,7 +93,9 @@ def piece_link_images_dir() -> Path:
     return db.local_state_db_path().parent / "piece_link_images"
 
 
-def _createTables(conn: sqlite3.Connection) -> None:
+def createTables(conn: sqlite3.Connection) -> None:
+    """The image tables. Run as part of piece_records' schema: whether an image
+    is ready to sync depends on its piece's record."""
     conn.execute(
         "CREATE TABLE IF NOT EXISTS piece_images ("
         "id INTEGER PRIMARY KEY AUTOINCREMENT, "
@@ -104,12 +109,11 @@ def _createTables(conn: sqlite3.Connection) -> None:
         "bytes INTEGER NOT NULL, "
         # Path relative to piece_images_dir(); NULL only for legacy rows.
         "file_path TEXT NOT NULL, "
-        # Set when the local file was removed by retention. The row (and
-        # any hive pointer) survives so the image stays addressable.
+        # Set when the local file was removed by retention. The row
+        # survives so the image stays addressable.
         "deleted_at REAL, "
-        # Hive sync markers, written by the uploader once it exists.
+        # Set once every enabled Hive has the image (a retention hint).
         "synced_at REAL, "
-        "hive_image_id TEXT, "
         # Classification outcome flags, updated once per piece after
         # the applied Brickognize result settles (see enqueue path).
         "used INTEGER NOT NULL DEFAULT 0, "
@@ -125,8 +129,8 @@ def _createTables(conn: sqlite3.Connection) -> None:
     })
     conn.execute(
         # Piece-link model guesses. A separate table on purpose: no
-        # synced_at / hive_image_id columns exist here because these
-        # rows are never uploaded as piece images.
+        # synced_at / sync_seq columns exist here because these rows are
+        # never uploaded as piece images.
         "CREATE TABLE IF NOT EXISTS piece_link_images ("
         "id INTEGER PRIMARY KEY AUTOINCREMENT, "
         "piece_uuid TEXT NOT NULL, "
@@ -154,14 +158,29 @@ def _createTables(conn: sqlite3.Connection) -> None:
         "CREATE INDEX IF NOT EXISTS idx_piece_images_live "
         "ON piece_images(created_at) WHERE deleted_at IS NULL"
     )
-    conn.execute(
-        "CREATE INDEX IF NOT EXISTS idx_piece_images_unsynced "
-        "ON piece_images(created_at) WHERE synced_at IS NULL AND deleted_at IS NULL"
-    )
+    conn.execute("DROP INDEX IF EXISTS idx_piece_images_unsynced")
+    sync_seq.addColumn(conn, "piece_images")
 
 
 def _connection():
-    return db.connect(_createTables)
+    import piece_records  # its schema includes these tables (see createTables)
+
+    return db.connect(piece_records._createTables)
+
+
+def sequenceImages(conn: sqlite3.Connection, piece_uuid: str) -> None:
+    """Make a piece's waiting images ready to sync, each with its own seq (a
+    batch of the sync cursor must never split rows sharing one). Called in the
+    transaction that writes the piece's record."""
+    rows = conn.execute(
+        "SELECT id FROM piece_images WHERE piece_uuid = ? AND sync_seq IS NULL ORDER BY seq",
+        (piece_uuid,),
+    ).fetchall()
+    for row in rows:
+        conn.execute(
+            "UPDATE piece_images SET sync_seq = ? WHERE id = ?",
+            (sync_seq.nextSeq(conn), int(row[0])),
+        )
 
 
 def _noteNewImages(piece_uuid: str, total_images: int) -> int:
@@ -239,9 +258,9 @@ def _maybeEnqueueFlags(piece_uuid: str, images: list[Any]) -> None:
     if not _enqueue(("flags", piece_uuid, flags)):
         return
     with _seen_lock:
-        _flags_done.add(piece_uuid)
+        _flags_done[piece_uuid] = None
         while len(_flags_done) > _MAX_SEEN_UUIDS:
-            _flags_done.pop()
+            del _flags_done[next(iter(_flags_done))]
 
 
 def _ensureWorker() -> None:
@@ -298,7 +317,7 @@ def _writeImage(piece_uuid: str, seq: int, item: dict[str, Any]) -> None:
     if not isinstance(created_at, (int, float)):
         created_at = time.time()
     with _connection() as conn:
-        conn.execute(
+        cur = conn.execute(
             "INSERT OR IGNORE INTO piece_images "
             "(piece_uuid, seq, source, channel, ts, created_at, sharpness, bytes, file_path) "
             "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
@@ -314,6 +333,14 @@ def _writeImage(piece_uuid: str, seq: int, item: dict[str, Any]) -> None:
                 rel_path,
             ),
         )
+        # Written after its piece's record (a late frame): ready now.
+        if cur.rowcount and conn.execute(
+            "SELECT 1 FROM piece_records WHERE uuid = ?", (piece_uuid,)
+        ).fetchone() is not None:
+            conn.execute(
+                "UPDATE piece_images SET sync_seq = ? WHERE id = ?",
+                (sync_seq.nextSeq(conn), int(cur.lastrowid)),
+            )
         conn.commit()
 
 
@@ -433,14 +460,32 @@ def getLinkImageFileById(image_id: int) -> Optional[Path]:
 
 
 def _updateImageFlags(piece_uuid: str, flags: list[tuple[int, int, int, Any]]) -> None:
+    # Normally this lands before the piece's record (classification settles
+    # before distribution), so the images are not yet sequenced. An image that
+    # already was (its record came first) changed, so it takes a new seq and
+    # goes again with the final flags.
     if not flags:
         return
     with _connection() as conn:
-        conn.executemany(
-            "UPDATE piece_images SET used = ?, excluded_from_result = ?, score = ? "
-            "WHERE piece_uuid = ? AND seq = ?",
-            [(used, excluded, score, piece_uuid, seq) for seq, used, excluded, score in flags],
-        )
+        for seq, used, excluded, score in flags:
+            row = conn.execute(
+                "SELECT id, used, excluded_from_result, score, sync_seq FROM piece_images "
+                "WHERE piece_uuid = ? AND seq = ?",
+                (piece_uuid, seq),
+            ).fetchone()
+            if row is None or (row["used"], row["excluded_from_result"], row["score"]) == (used, excluded, score):
+                continue
+            conn.execute(
+                "UPDATE piece_images SET used = ?, excluded_from_result = ?, score = ?, sync_seq = ? "
+                "WHERE id = ?",
+                (
+                    used,
+                    excluded,
+                    score,
+                    sync_seq.nextSeq(conn) if row["sync_seq"] is not None else None,
+                    int(row["id"]),
+                ),
+            )
         conn.commit()
 
 
@@ -483,7 +528,7 @@ def _sweepTable(
     # harmless: the next sweep re-selects the rows and tombstones them.
     with _connection() as conn:
         row = conn.execute(
-            f"SELECT COALESCE(SUM(bytes), 0) AS total FROM {table} WHERE deleted_at IS NULL"
+            f"SELECT COALESCE(SUM({db.on_disk_bytes_sql()}), 0) AS total FROM {table} WHERE deleted_at IS NULL"
         ).fetchone()
         total = int(row["total"]) if row is not None else 0
         if total <= max_total_bytes:
@@ -499,7 +544,7 @@ def _sweepTable(
         if freed >= overage:
             break
         victims.append((int(r["id"]), str(r["file_path"])))
-        freed += int(r["bytes"] or 0)
+        freed += db.on_disk_bytes(r["bytes"])
     if not victims:
         return
     _unlinkEvictedFiles([rel_path for _, rel_path in victims], base_dir)
@@ -551,7 +596,7 @@ def listPieceImages(piece_uuid: str) -> list[dict[str, Any]]:
     with _connection() as conn:
         rows = conn.execute(
             "SELECT id, piece_uuid, seq, source, channel, ts, created_at, sharpness, "
-            "bytes, deleted_at, synced_at, hive_image_id, used, excluded_from_result, score "
+            "bytes, deleted_at, synced_at, used, excluded_from_result, score "
             "FROM piece_images WHERE piece_uuid = ? ORDER BY seq ASC",
             (piece_uuid,),
         ).fetchall()
@@ -568,7 +613,6 @@ def listPieceImages(piece_uuid: str) -> list[dict[str, Any]]:
             "bytes": int(r["bytes"] or 0),
             "available_locally": r["deleted_at"] is None,
             "synced": r["synced_at"] is not None,
-            "hive_image_id": r["hive_image_id"],
             "used": bool(r["used"]),
             "excluded_from_result": bool(r["excluded_from_result"]),
             "score": r["score"],
@@ -589,22 +633,21 @@ def getImageFile(piece_uuid: str, image_id: int) -> Optional[Path]:
     return abs_path if abs_path.is_file() else None
 
 
-def listImagesAfter(after_id: int, limit: int) -> list[dict[str, Any]]:
-    # Full rows ASC by id for the Hive sync worker. Includes deleted_at so the
-    # worker knows file-present (upload pixels) vs evicted (metadata-only). The
-    # cursor is id > after_id (a per-target watermark), NOT synced_at — syncing
-    # to more than one hive means a row already sent to one target must still be
-    # visible to the others.
+def listImagesAfter(after_seq: int, limit: int) -> list[dict[str, Any]]:
+    # Ready rows in sync_seq order for the Hive sync worker (cursor: sync_seq >
+    # a per-target watermark, see sync_seq.py). Includes deleted_at so the
+    # worker knows file-present (upload pixels) vs evicted (metadata-only).
     with _connection() as conn:
         rows = conn.execute(
-            "SELECT id, piece_uuid, seq, source, channel, ts, created_at, sharpness, "
+            "SELECT id, sync_seq, piece_uuid, seq, source, channel, ts, created_at, sharpness, "
             "bytes, deleted_at, used, excluded_from_result, score "
-            "FROM piece_images WHERE id > ? ORDER BY id ASC LIMIT ?",
-            (int(after_id), int(limit)),
+            "FROM piece_images WHERE sync_seq > ? ORDER BY sync_seq ASC LIMIT ?",
+            (int(after_seq), int(limit)),
         ).fetchall()
     return [
         {
             "id": int(r["id"]),
+            "sync_seq": int(r["sync_seq"]),
             "piece_uuid": r["piece_uuid"],
             "seq": int(r["seq"]),
             "source": r["source"],
@@ -634,21 +677,24 @@ def getImageFileById(image_id: int) -> Optional[Path]:
     return abs_path if abs_path.is_file() else None
 
 
-def getMaxImageId() -> int:
+def countImagesAfter(after_seq: int) -> int:
+    """Ready images a target with this watermark has yet to receive."""
     with _connection() as conn:
-        row = conn.execute("SELECT COALESCE(MAX(id), 0) AS m FROM piece_images").fetchone()
-    return int(row["m"] or 0)
+        row = conn.execute(
+            "SELECT COUNT(*) AS n FROM piece_images WHERE sync_seq > ?", (int(after_seq),)
+        ).fetchone()
+    return int(row["n"] or 0)
 
 
-def markImagesSyncedUpTo(max_id: int, synced_at: float) -> None:
+def markImagesSyncedUpTo(max_seq: int, synced_at: float) -> None:
     # Retention hint only: stamp synced_at on rows at/below the min watermark
     # across all enabled hive targets, so retention only evicts a crop once
     # EVERY hive has it (retention prefers synced files). Not the sync cursor.
-    if max_id <= 0:
+    if max_seq <= 0:
         return
     with _connection() as conn:
         conn.execute(
-            "UPDATE piece_images SET synced_at = ? WHERE id <= ? AND synced_at IS NULL",
-            (float(synced_at), int(max_id)),
+            "UPDATE piece_images SET synced_at = ? WHERE sync_seq <= ? AND synced_at IS NULL",
+            (float(synced_at), int(max_seq)),
         )
         conn.commit()

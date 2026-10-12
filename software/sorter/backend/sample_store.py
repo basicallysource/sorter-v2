@@ -213,7 +213,7 @@ def _retentionSweep() -> None:
     cap = capBytes()
     with _connection() as conn:
         row = conn.execute(
-            "SELECT COALESCE(SUM(bytes), 0) AS total FROM sample_frames WHERE deleted_at IS NULL"
+            f"SELECT COALESCE(SUM({db.on_disk_bytes_sql()}), 0) AS total FROM sample_frames WHERE deleted_at IS NULL"
         ).fetchone()
         total = int(row["total"]) if row is not None else 0
         if total <= cap:
@@ -229,7 +229,7 @@ def _retentionSweep() -> None:
         if freed >= overage:
             break
         victims.append((int(r["id"]), str(r["file_path"])))
-        freed += int(r["bytes"] or 0)
+        freed += db.on_disk_bytes(r["bytes"])
     if not victims:
         return
     base = samplesDir()
@@ -339,6 +339,16 @@ def countAfter(after_id: int) -> int:
     return int(row["n"] or 0)
 
 
+def countWaitingByCamera(after_id: int) -> dict[str, int]:
+    """Stored samples above a sync watermark, per camera."""
+    with _connection() as conn:
+        rows = conn.execute(
+            "SELECT camera, COUNT(*) AS n FROM sample_frames WHERE id > ? AND deleted_at IS NULL GROUP BY camera",
+            (int(after_id),),
+        ).fetchall()
+    return {str(r["camera"]): int(r["n"]) for r in rows}
+
+
 def markSyncedUpTo(max_id: int, synced_at: float) -> None:
     # Retention hint: rows at or below the lowest watermark across the enabled
     # Hive targets are on every Hive, so retention may evict them first.
@@ -355,7 +365,7 @@ def markSyncedUpTo(max_id: int, synced_at: float) -> None:
 def stats() -> dict[str, Any]:
     with _connection() as conn:
         row = conn.execute(
-            "SELECT COUNT(*) AS n, COALESCE(SUM(bytes), 0) AS b, "
+            f"SELECT COUNT(*) AS n, COALESCE(SUM({db.on_disk_bytes_sql()}), 0) AS b, "
             "COALESCE(SUM(CASE WHEN synced_at IS NULL THEN 1 ELSE 0 END), 0) AS unsynced "
             "FROM sample_frames WHERE deleted_at IS NULL"
         ).fetchone()

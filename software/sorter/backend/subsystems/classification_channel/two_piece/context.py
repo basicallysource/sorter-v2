@@ -66,6 +66,9 @@ class SimpleStateMachineRev01Context:
         self.mold_provider: str = DEFAULT_MOLD_PROVIDER
         self.hosted_color: Optional[tuple[str, str]] = None
         self.hosted_color_confidence: Optional[float] = None
+        # The hosted colour model's whole answer (its top three and the model's
+        # sha256) when it answered in time, kept as the piece's predictions.
+        self.hosted_prediction: Optional[dict] = None
         self.classify_thread: Optional[threading.Thread] = None
         self.classify_lock = threading.Lock()
         self.known_object: Optional[KnownObject] = None
@@ -118,6 +121,7 @@ class SimpleStateMachineRev01Context:
         self.mold_provider = DEFAULT_MOLD_PROVIDER
         self.hosted_color = None
         self.hosted_color_confidence = None
+        self.hosted_prediction = None
         self.classify_thread = None
         self.known_object = None
         self.multi_feed_detected = False

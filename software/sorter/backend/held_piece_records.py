@@ -37,7 +37,15 @@ def _createTables(conn: sqlite3.Connection) -> None:
         ")"
     )
     conn.execute("CREATE INDEX IF NOT EXISTS idx_held_pieces_started ON held_pieces(started_at)")
-    conn.execute("DELETE FROM held_pieces WHERE started_at < ?", (time.time() - KEEP_DAYS * 86400.0,))
+
+
+def prune(now: Optional[float] = None) -> int:
+    """Delete held pieces older than KEEP_DAYS (storage maintenance runs this)."""
+    cutoff = (time.time() if now is None else now) - KEEP_DAYS * 86400.0
+    with db.connect(_createTables) as conn:
+        deleted = conn.execute("DELETE FROM held_pieces WHERE started_at < ?", (cutoff,)).rowcount
+        conn.commit()
+    return int(deleted or 0)
 
 
 def record(**row: Any) -> None:

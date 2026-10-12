@@ -12,6 +12,7 @@ from pathlib import Path
 from unittest import mock
 
 import channel_crop_store
+import db
 import piece_image_store
 
 
@@ -70,7 +71,7 @@ class ChannelCropSweepTests(_TempStateDb):
 
     def _sweepWithCap(self, cap_files: int, probe: list[bool] | None = None) -> None:
         old_cap = channel_crop_store._MAX_TOTAL_BYTES
-        channel_crop_store._MAX_TOTAL_BYTES = len(FAKE_JPEG) * cap_files
+        channel_crop_store._MAX_TOTAL_BYTES = db.on_disk_bytes(len(FAKE_JPEG)) * cap_files
         try:
             if probe is None:
                 channel_crop_store._retentionSweep()
@@ -110,7 +111,7 @@ class PieceImageSweepTests(_TempStateDb):
 
     def _sweepWithCap(self, cap_files: int, probe: list[bool] | None = None) -> None:
         old_cap = piece_image_store._MAX_TOTAL_BYTES
-        piece_image_store._MAX_TOTAL_BYTES = len(FAKE_JPEG) * cap_files
+        piece_image_store._MAX_TOTAL_BYTES = db.on_disk_bytes(len(FAKE_JPEG)) * cap_files
         try:
             if probe is None:
                 piece_image_store._retentionSweep()

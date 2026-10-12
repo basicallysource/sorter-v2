@@ -101,15 +101,16 @@ class SampleStoreTests(_StateTestCase):
         self.assertEqual(1, self.sample_store.stats()["skipped_low_disk"])
 
     def test_retention_keeps_the_store_under_its_cap_evicting_sent_samples_first(self) -> None:
+        # The cap counts what files take on the card: whole 4 KB blocks.
         self._write(4, nbytes=1000)
         self.sample_store.markSyncedUpTo(2, time.time())
-        self.sample_store.setLocalCapBytes(2500)
+        self.sample_store.setLocalCapBytes(2 * 4096 + 500)
         self.sample_store._retentionSweep()
         rows = {row["id"]: row for row in self.sample_store.listSamplesAfter(0, 10)}
         self.assertTrue(rows[1]["evicted_locally"])
         self.assertTrue(rows[2]["evicted_locally"])
         self.assertFalse(rows[3]["evicted_locally"])
-        self.assertLessEqual(self.sample_store.stats()["stored_bytes"], 2500)
+        self.assertEqual(2 * 4096, self.sample_store.stats()["stored_bytes"])
 
     def test_hive_limit_caps_the_store_below_the_local_setting(self) -> None:
         self._targets("a")
@@ -302,7 +303,12 @@ class SyncSamplesTests(_StateTestCase):
         syncer._client = client
         syncer._gate = hs._ConcurrencyGate(1, 1, lambda: False)
         syncer._stop = threading.Event()
-        syncer._samples_unsupported_until = 0.0
+        syncer._paused_until = {data_type: 0.0 for data_type in hs.DATA_TYPES}
+        syncer._paused_why = {}
+        syncer._budget_wait_s = None
+        syncer._state_ok = True
+        syncer._backoff_s = hs.SERVER_DOWN_BACKOFF_S
+        syncer._last_error = None
         syncer._budget = hs._UploadBudget()
         syncer._budget.setLimits(10_000_000, 1000)
         syncer._wm = {data_type: 0 for data_type in hs.DATA_TYPES}
@@ -341,7 +347,26 @@ class SyncSamplesTests(_StateTestCase):
                 pass
         self.assertEqual([6, 7, 8], [meta["local_id"] for meta in client.pushed])
 
-    def test_spent_budget_waits(self) -> None:
+    def test_backlog_is_cut_evenly_across_cameras(self) -> None:
+        # The carousel camera takes most samples; a backlog cut keeps an even
+        # share of each camera instead of starving the others.
+        with patch.object(self.hive_sync, "SAMPLES_BACKLOG_MAX", 4):
+            self._write(6, camera="classification_channel")  # ids 1-6
+            self._write(1, camera="c_channel_2")  # id 7
+            self._write(2, camera="c_channel_3")  # ids 8-9
+            client = _FakeClient()
+            syncer = self._syncer(client)
+            while self._drain(syncer):
+                pass
+        self.assertEqual([5, 6, 7, 9], [meta["local_id"] for meta in client.pushed])
+        self.assertEqual(9, syncer._wm[self.hive_sync.DATA_TYPE_SAMPLES])
+
+    def test_even_drops_give_a_small_cameras_leftover_share_to_the_others(self) -> None:
+        drops = self.hive_sync._evenDrops({"c4": 100, "c2": 3, "c3": 10}, 30)
+        self.assertEqual({"c4": 83}, drops)
+        self.assertEqual({}, self.hive_sync._evenDrops({"c4": 10, "c2": 3}, 30))
+
+    def test_spent_budget_waits_for_the_refill(self) -> None:
         self._write(3, nbytes=1000)
         client = _FakeClient()
         syncer = self._syncer(client)
@@ -350,18 +375,22 @@ class SyncSamplesTests(_StateTestCase):
         while self._drain(syncer):
             pass
         self.assertEqual(2, len(client.pushed))
+        # The loop learns how long until the next file can go (one file at
+        # two a minute: 30 s) instead of spinning.
+        self.assertAlmostEqual(30.0, syncer._budget_wait_s, delta=1.0)
 
     def test_hive_without_the_route_turns_the_leg_off_for_a_while(self) -> None:
+        hs = self.hive_sync
         self._write(1)
-        client = _FakeClient(error=_http_error(404))
-        syncer = self._syncer(client)
-        self.assertFalse(self._drain(syncer))
-        self.assertGreater(syncer._samples_unsupported_until, time.monotonic())
-        client.error = None
-        self.assertFalse(self._drain(syncer))  # still off
-        syncer._samples_unsupported_until = time.monotonic() - 1  # the retry time has come
-        self.assertTrue(self._drain(syncer))
-        self.assertEqual([1], [meta["local_id"] for meta in client.pushed])
+        syncer = self._syncer(_FakeClient(error=_http_error(404)))
+        with self.assertRaises(requests.HTTPError) as caught:
+            self._drain(syncer)
+        self.assertTrue(syncer._pauseLeg(hs.DATA_TYPE_SAMPLES, caught.exception))
+        self.assertGreater(syncer._paused_until[hs.DATA_TYPE_SAMPLES], time.monotonic() + hs.UNSUPPORTED_RETRY_S - 5)
+        self.assertEqual([hs.DATA_TYPE_SAMPLES], syncer.status()["unsupported"])
+        # A 5xx or a 429 is about the whole target: it backs off instead.
+        self.assertFalse(syncer._pauseLeg(hs.DATA_TYPE_SAMPLES, _http_error(503)))
+        self.assertFalse(syncer._pauseLeg(hs.DATA_TYPE_SAMPLES, _http_error(429)))
 
     def test_retry_after_sets_the_backoff(self) -> None:
         syncer = self._syncer(_FakeClient())

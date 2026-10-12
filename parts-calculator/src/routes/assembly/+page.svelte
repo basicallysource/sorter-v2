@@ -6,7 +6,6 @@
 		ChevronRight,
 		Download,
 		EllipsisVertical,
-		ExternalLink,
 		FlaskConical,
 		History,
 		Info,
@@ -1466,7 +1465,7 @@
 							rel="noopener"
 							class="inline-flex items-center gap-1 text-xs font-medium text-primary hover:text-primary-hover"
 						>
-							In Docs <ExternalLink size={10} />
+							In Docs
 						</a>
 					{/if}
 					{#if !filtering && (asm.versions?.length ?? 0) > 1}

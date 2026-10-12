@@ -9,7 +9,6 @@ lede: The board that drives the servo.
 permalink: /hardware/assembly/distribution/chute/pcb/
 author: spencer
 contributors: [barthel]
-last_verified: 2026-09-07
 tools_needed: ["Hex key, 2 mm for a button head or 2.5 mm for a socket head"]
 parts_needed:
   - part: layer-adapter-board-basically
@@ -18,6 +17,11 @@ parts_needed:
     qty: 1
   - part: scr-m3-6-bhcs
     qty: 4
+warning: >-
+  **AI-generated first draft, step 1 only.** The board now sits on the new core, and where its four
+  inserts are comes from the 3D part of the inverted chute, not from a build. Steps 2 and 3, the
+  ribbon sockets and the servo header, are carried over from the earlier chute, where they were built
+  and checked.
 ---
 
 Each layer carries one basically Layer Adapter Board, the in-house board that breaks out the control board's ribbon connectors for that distribution layer and drives the layer's servo. One per layer.
@@ -26,7 +30,7 @@ The fasteners and quantities are in the parts list above and are called out inli
 
 {% include fastener-legend.html %}
 
-- The 4 M3 inserts the board sits on are part of the [chute core]({{ '/hardware/assembly/distribution/chute/chute-core/' | relative_url }})'s 18, not extra ones.
+- The 4 M3 inserts the board sits on are part of the [chute core]({{ '/hardware/assembly/distribution/chute/chute-core/' | relative_url }})'s 21, not extra ones (the F pockets on that page).
 - The board is the only thing on the chute that uses a {% include fastener.html size="M3" variant="socket-button" length="6" %} screw.
 
 {% include step.html n="1" title="Screw the board onto the chute core" %}
@@ -39,8 +43,8 @@ The fasteners and quantities are in the parts list above and are called out inli
 Seat it over the four inserts and fasten it with 4 {% include fastener.html size="M3" variant="socket-button" length="6" %} screws. Do not overtighten.
 
 <figure>
-  <img class="doc-figure" src="https://assets.basically.website/sorter-parts/chute-core-inserts-v3-rear-full-ad4c2cc7869c.png" alt="Close render of the rear end of the chute core with the four heat inserts the layer adapter board screws into circled in red">
-  <figcaption>The four inserts the board sits on, all on the panel at the top end of the chute core's rear face. <cite>Render: Balloon.</cite></figcaption>
+  <img class="doc-figure" src="https://assets.basically.website/sorter-docs/chute-v3-core-pockets-rear-full-3dc15f55ab6c.png" alt="Render of the rear wall of the chute core with the four heat inserts the layer adapter board screws into ringed in red">
+  <figcaption>The four inserts the board sits on, in a square on the chute core's rear wall, the one opposite the opening. <cite>Rendered from the part geometry, not from a build. Render: Balloon.</cite></figcaption>
 </figure>
 
 {% include step.html n="2" title="Connect the ribbon cables (RIB1, RIB2)" %}

@@ -58,15 +58,15 @@ A joint uses the lightest thing that will hold it. In rough order from lightest 
 
 <ul class="bulleted-list">
   <li><strong>Gravity and friction.</strong> The C-channel stands are designed to be screwless: every joint is gravity or friction, and pinning a stand is optional. The camera lamp covers and hooks are friction fits with no screw hole anywhere.</li>
-  <li><strong>Snaps.</strong> A funnel takes no fasteners. It snaps into its two brackets.</li>
+  <li><strong>Slides.</strong> A funnel takes no fasteners. It slides into its two brackets on dovetail rails.</li>
   <li><strong>Screws that cut their own thread.</strong> Some small housings and clamps take M3 screws straight into the plastic.</li>
-  <li><strong>Heat-set inserts.</strong> Brass inserts carry the thread in several parts. The funnel brackets screw into the chute core's inserts, so there is nothing to tap, and the core alone takes 18 M3 inserts. The Lazy Susan bearing bolts into inserts in the printed parts on both sides.</li>
+  <li><strong>Heat-set inserts.</strong> Brass inserts carry the thread in several parts. The funnel brackets screw into the chute core's inserts, so there is nothing to tap, and the core alone takes 21 M3 inserts. The Lazy Susan bearing bolts into inserts in the printed parts on both sides.</li>
   <li><strong>Press fits.</strong> Bearings press into printed seats, which is why the printer needs calibrating before those parts.</li>
 </ul>
 
 <ul class="bulleted-list">
   <li>Screwless stands: <a href="{{ '/hardware/assembly/feeder/arranging-c-channels/' | relative_url }}">Arranging C-channels</a></li>
-  <li>Snap fit: <a href="{{ '/hardware/assembly/distribution/chute/funnel/' | relative_url }}">Funnel brackets</a></li>
+  <li>Sliding joint: <a href="{{ '/hardware/assembly/distribution/chute/funnel/' | relative_url }}">Funnel brackets</a></li>
   <li>Inserts: <a href="{{ '/hardware/helpers/heat-inserts/' | relative_url }}">Heat inserts</a> and <a href="{{ '/hardware/assembly/distribution/chute/chute-core/' | relative_url }}">Chute core</a></li>
   <li>The bearing the chute turns on: <a href="{{ '/hardware/parts/lazy-susan/' | relative_url }}">Lazy Susan</a></li>
 </ul>

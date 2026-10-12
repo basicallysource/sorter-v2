@@ -21,6 +21,10 @@ from typing import Any, Callable, Iterator
 
 SLOW_MS = 250.0
 REALTIME_LOG_INTERVAL_S = 60.0
+# The WAL is cut back to this after a checkpoint. Without a limit it keeps the
+# size of the largest transaction ever written (a one-time migration, a
+# vacuum) on the card for good.
+WAL_SIZE_LIMIT_BYTES = 64 * 1024 * 1024
 
 Schema = Callable[[sqlite3.Connection], None]
 
@@ -128,6 +132,7 @@ def _open(path: Path) -> sqlite3.Connection:
     # which on an SD card costs more than the write itself.
     conn.execute("PRAGMA synchronous = NORMAL")
     conn.execute("PRAGMA foreign_keys = ON")
+    conn.execute(f"PRAGMA journal_size_limit = {WAL_SIZE_LIMIT_BYTES}")
     return conn
 
 
@@ -138,6 +143,7 @@ def _prepare(path: Path, schema: Schema | None) -> None:
             path.parent.mkdir(parents=True, exist_ok=True)
             keeper = sqlite3.connect(path, timeout=5.0, check_same_thread=False)
             keeper.execute("PRAGMA journal_mode = WAL")
+            keeper.execute(f"PRAGMA journal_size_limit = {WAL_SIZE_LIMIT_BYTES}")
             keeper.execute("SELECT 1 FROM sqlite_master").fetchall()
             os.chmod(path, 0o600)
             if _keeper is not None:

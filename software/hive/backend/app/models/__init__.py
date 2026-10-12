@@ -40,6 +40,7 @@ from app.models.teacher_prompt import TeacherPrompt  # noqa: E402, F401
 from app.models.machine_piece import MachinePiece  # noqa: E402, F401
 from app.models.machine_piece_image import MachinePieceImage  # noqa: E402, F401
 from app.models.machine_piece_rejection_reason import MachinePieceRejectionReason  # noqa: E402, F401
+from app.models.machine_piece_prediction import MachinePiecePrediction  # noqa: E402, F401
 from app.models.machine_channel_crop import MachineChannelCrop  # noqa: E402, F401
 from app.models.machine_control_data_segment import MachineControlDataSegment  # noqa: E402, F401
 from app.models.machine_sync_state import MachineSyncState  # noqa: E402, F401

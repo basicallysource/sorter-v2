@@ -51,10 +51,13 @@ class MachinePiece(Base):
     # corrections below. NULL on rows synced before providers were selectable.
     color_provider = Column(String, nullable=True)
     mold_provider = Column(String, nullable=True)
-    # User correction, synced from the machine (piece_corrections stream) and/or
-    # set here on Hive. part_correct is NULL (unreviewed) / true / false;
-    # color_corrected_id is the picked true BrickLink color id; the *_submitted
-    # flags record whether the correction was sent to Brickognize.
+    # The machine operator's verdict, synced from the machine (with the piece
+    # record, or the piece_corrections stream of older sorters) and never
+    # written by Hive: a Hive labeler's verdict lives on their own
+    # piece_color_labels / piece_part_labels row. part_correct is NULL
+    # (unreviewed) / true / false; color_corrected_id is the picked true
+    # BrickLink color id; the *_submitted flags record whether the machine sent
+    # the correction to Brickognize.
     part_correct = Column(Boolean, nullable=True)
     color_corrected_id = Column(String, nullable=True)
     part_feedback_submitted = Column(Boolean, nullable=False, default=False)

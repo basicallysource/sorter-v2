@@ -40,6 +40,7 @@ from app.models.machine import Machine
 from app.models.machine_channel_crop import MachineChannelCrop
 from app.models.machine_piece import MachinePiece
 from app.models.machine_piece_image import MachinePieceImage
+from app.models.machine_piece_prediction import MachinePiecePrediction
 from app.models.machine_piece_rejection_reason import MachinePieceRejectionReason
 from app.models.piece_color_label import PieceColorLabel
 from app.models.piece_crop_ai_prediction import PieceCropAiPrediction
@@ -759,6 +760,15 @@ def piece_detail(
         .order_by(MachinePieceRejectionReason.reason)
         .all()
     ]
+    machine_predictions = (
+        db.query(MachinePiecePrediction)
+        .filter(
+            MachinePiecePrediction.machine_id == machine_id,
+            MachinePiecePrediction.piece_uuid == piece_uuid,
+        )
+        .order_by(MachinePiecePrediction.kind, MachinePiecePrediction.request, MachinePiecePrediction.rank)
+        .all()
+    )
     # This user's per-image quality flags for these crops, keyed by seq.
     image_quality = {
         lbl.seq: lbl
@@ -830,12 +840,24 @@ def piece_detail(
             "color_id": piece.color_id,
             "color_name": piece.color_name,
         },
+        # Every ranked part and colour answer the machine got for the piece
+        # (each request's, applied or not), ordered by kind, request, rank.
+        "machine_predictions": [
+            {
+                "request": p.request,
+                "provider": p.provider,
+                "model": p.model,
+                "kind": p.kind,
+                "rank": p.rank,
+                "value_id": p.value_id,
+                "value_name": p.value_name,
+                "score": p.score,
+                "applied": bool(p.applied),
+            }
+            for p in machine_predictions
+        ],
         "correction": {
-            "correctable": piece.brickognize_listing_id is not None,
-            "part_correct": piece.part_correct,
-            "color_corrected_id": piece.color_corrected_id,
-            "part_feedback_submitted": bool(piece.part_feedback_submitted),
-            "color_feedback_submitted": bool(piece.color_feedback_submitted),
+            **_my_brickognize_correction(db, piece, part_label, label),
             # Capture issues the machine operator flagged (no_piece /
             # multiple_pieces / not_lego / blurry) — same vocabulary as
             # my_rejection.reasons, but this is the machine's own verdict, not a
@@ -854,6 +876,59 @@ class BrickognizeFeedbackPayload(BaseModel):
     color_corrected_id: int | None = None
 
 
+def _part_feedback_sent(db: Session, piece: MachinePiece) -> bool:
+    """Brickognize already has a part verdict on this piece: the machine's
+    operator sent one, or a Hive labeler did."""
+    if piece.part_feedback_submitted:
+        return True
+    return db.query(
+        exists().where(
+            PiecePartLabel.machine_id == piece.machine_id,
+            PiecePartLabel.piece_uuid == piece.piece_uuid,
+            PiecePartLabel.brickognize_feedback_at.isnot(None),
+        )
+    ).scalar()
+
+
+def _color_feedback_sent(db: Session, piece: MachinePiece) -> bool:
+    if piece.color_feedback_submitted:
+        return True
+    return db.query(
+        exists().where(
+            PieceColorLabel.machine_id == piece.machine_id,
+            PieceColorLabel.piece_uuid == piece.piece_uuid,
+            PieceColorLabel.brickognize_feedback_at.isnot(None),
+        )
+    ).scalar()
+
+
+def _my_brickognize_correction(
+    db: Session,
+    piece: MachinePiece,
+    part_label: PiecePartLabel | None,
+    color_label: PieceColorLabel | None,
+) -> dict:
+    """The Brickognize card's state for one labeler: their own verdict (from
+    their label rows, never the machine operator's columns) and whether
+    Brickognize already has a verdict on the piece from anyone, so it is sent
+    at most once."""
+    part_correct = None
+    if part_label is not None:
+        if part_label.part_correct is not None:
+            part_correct = bool(part_label.part_correct)
+        elif part_label.part_num is not None and piece.part_id is not None:
+            part_correct = part_label.part_num == piece.part_id
+    return {
+        "correctable": piece.brickognize_listing_id is not None,
+        "part_correct": part_correct,
+        "color_corrected_id": (
+            str(color_label.color_id) if color_label is not None and color_label.color_id is not None else None
+        ),
+        "part_feedback_submitted": _part_feedback_sent(db, piece),
+        "color_feedback_submitted": _color_feedback_sent(db, piece),
+    }
+
+
 @router.post("/piece/{machine_id}/{piece_uuid}/brickognize-feedback")
 def submit_brickognize_feedback(
     machine_id: UUID,
@@ -862,10 +937,16 @@ def submit_brickognize_feedback(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ) -> dict:
-    """Send a piece's part and/or color correction back to Brickognize's feedback
-    API and record that it was submitted. Gated on a captured listing id; each
-    channel is sent at most once (the *_feedback_submitted flags). The verdict is
-    written onto the piece regardless of whether the network call succeeds."""
+    """Record this labeler's part and/or color verdict on a piece and send it on
+    to Brickognize's feedback API. Gated on a captured listing id; each channel
+    goes to Brickognize at most once per piece, from the machine or from Hive.
+
+    The verdict is the labeler's own, on their label rows: a part answer on
+    their piece_part_labels row (part_correct; "right" also names the machine's
+    part as theirs), a color on their piece_color_labels row; brickognize_
+    feedback_at on that row records the send. machine_pieces' verdict columns
+    belong to the machine operator and are never written here. The verdict is
+    saved whether or not the network call succeeds."""
     piece = (
         db.query(MachinePiece)
         .filter(MachinePiece.machine_id == machine_id, MachinePiece.piece_uuid == piece_uuid)
@@ -876,15 +957,39 @@ def submit_brickognize_feedback(
     if not piece.brickognize_listing_id:
         raise APIError(400, "Piece has no Brickognize listing to correct", "NOT_CORRECTABLE")
 
+    now = datetime.now(timezone.utc)
     part_submitted = False
     color_submitted = False
     submit_error: str | None = None
 
-    # Part feedback: a recorded verdict, not yet sent, with the applied item rank.
+    def my_row(model):
+        return (
+            db.query(model)
+            .filter(model.machine_id == machine_id, model.piece_uuid == piece_uuid, model.labeler_id == current_user.id)
+            .first()
+        )
+
+    part_label = my_row(PiecePartLabel)
     if payload.part_correct is not None:
-        piece.part_correct = payload.part_correct
+        if part_label is None:
+            part_label = PiecePartLabel(
+                machine_id=machine_id,
+                piece_uuid=piece_uuid,
+                labeler_id=current_user.id,
+                part_num=piece.part_id if payload.part_correct else None,
+                cant_tell=False,
+                predicted_part_num=piece.part_id,
+            )
+            db.add(part_label)
+        elif payload.part_correct:
+            part_label.part_num = piece.part_id
+            part_label.cant_tell = False
+        elif part_label.part_num is not None and part_label.part_num == piece.part_id:
+            part_label.part_num = None
+        part_label.part_correct = payload.part_correct
+        part_label.updated_at = now
         if (
-            not piece.part_feedback_submitted
+            not _part_feedback_sent(db, piece)
             and piece.brickognize_item_rank is not None
             and piece.part_id
         ):
@@ -894,64 +999,58 @@ def submit_brickognize_feedback(
                     item_id=piece.part_id,
                     item_rank=piece.brickognize_item_rank,
                     item_type=piece.brickognize_item_type,
-                    is_correct=bool(piece.part_correct),
+                    is_correct=bool(payload.part_correct),
                 )
-                piece.part_feedback_submitted = True
+                part_label.brickognize_feedback_at = now
                 part_submitted = True
             except Exception as exc:
                 submit_error = f"part: {exc}"
                 log.warning("Brickognize part feedback failed for %s: %s", piece_uuid, exc)
 
-    # Color feedback: use the passed corrected color, else this user's saved true
-    # color. Equal to the prediction confirms it; different rejects it.
+    # Color: the passed true color, else this user's saved one. Equal to the
+    # prediction confirms it; different rejects it.
+    color_label = my_row(PieceColorLabel)
     corrected = payload.color_corrected_id
-    if corrected is None:
-        my_label = (
-            db.query(PieceColorLabel)
-            .filter(
-                PieceColorLabel.machine_id == machine_id,
-                PieceColorLabel.piece_uuid == piece_uuid,
-                PieceColorLabel.labeler_id == current_user.id,
-            )
-            .first()
-        )
-        corrected = my_label.color_id if my_label is not None else None
+    if corrected is None and color_label is not None:
+        corrected = color_label.color_id
     if corrected is not None:
-        piece.color_corrected_id = str(corrected)
+        if color_label is None:
+            color_label = PieceColorLabel(
+                machine_id=machine_id,
+                piece_uuid=piece_uuid,
+                labeler_id=current_user.id,
+                color_id=corrected,
+                cant_tell=False,
+            )
+            db.add(color_label)
         if (
-            not piece.color_feedback_submitted
+            not _color_feedback_sent(db, piece)
             and piece.brickognize_color_rank is not None
             and piece.color_id
         ):
             try:
-                is_correct = str(corrected) == str(piece.color_id)
                 submit_color_feedback(
                     listing_id=piece.brickognize_listing_id,
                     color_id=piece.color_id,
                     color_rank=piece.brickognize_color_rank,
-                    is_correct=is_correct,
+                    is_correct=str(corrected) == str(piece.color_id),
                 )
-                piece.color_feedback_submitted = True
+                color_label.brickognize_feedback_at = now
                 color_submitted = True
             except Exception as exc:
                 prev = f"{submit_error}; " if submit_error else ""
                 submit_error = f"{prev}color: {exc}"
                 log.warning("Brickognize color feedback failed for %s: %s", piece_uuid, exc)
 
-    piece.correction_updated_at = datetime.now(timezone.utc)
+    db.flush()
+    correction = _my_brickognize_correction(db, piece, part_label, color_label)
     db.commit()
     return {
         "ok": True,
         "part_submitted": part_submitted,
         "color_submitted": color_submitted,
         "submit_error": submit_error,
-        "correction": {
-            "correctable": True,
-            "part_correct": piece.part_correct,
-            "color_corrected_id": piece.color_corrected_id,
-            "part_feedback_submitted": bool(piece.part_feedback_submitted),
-            "color_feedback_submitted": bool(piece.color_feedback_submitted),
-        },
+        "correction": correction,
     }
 
 

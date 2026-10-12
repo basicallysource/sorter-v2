@@ -35,6 +35,10 @@ class PieceColorLabel(Base):
     color_id = Column(Integer, nullable=True)
     cant_tell = Column(Boolean, nullable=False, default=False)
     notes = Column(String, nullable=True)
+    # When this labeler's colour verdict went to Brickognize's feedback API
+    # (POST .../brickognize-feedback); null = not sent. Hive's own feedback
+    # state: the machine operator's lives on machine_pieces.
+    brickognize_feedback_at = Column(DateTime(timezone=True), nullable=True)
     created_at = Column(DateTime(timezone=True), nullable=False, default=lambda: datetime.now(timezone.utc))
     updated_at = Column(
         DateTime(timezone=True),

@@ -20,6 +20,9 @@ in [`agent-docs/`](agent-docs/):
 - [`agent-docs/jobs.md`](agent-docs/jobs.md) — the background job queue: how
   to add a kind of job, how it claims, leases, retries and stays light, and
   its first kind, `swatch_find` (the colour reference palette's readings).
+- [`agent-docs/piece-data.md`](agent-docs/piece-data.md) — piece data from
+  sorters: the sync endpoints and their cursor rule, where each kind lands,
+  whose verdict lives where, and the views and tables to train from.
 
 > **⚠️ These docs are only useful if they match the code.**
 > If you change anything the docs describe — auth flows, credential types,

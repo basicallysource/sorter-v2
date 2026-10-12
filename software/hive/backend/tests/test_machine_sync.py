@@ -22,6 +22,7 @@ def test_sync_state_starts_empty(client, machine_token):
         "piece_images": {"max_local_id": 0},
         "channel_crops": {"max_local_id": 0},
         "piece_corrections": {"max_local_id": 0},
+        "piece_predictions": {"max_local_id": 0},
         "control_data_segments": {"max_local_id": 0},
         "samples": {"max_local_id": 0},
     }
@@ -39,7 +40,7 @@ def test_piece_records_upsert_is_idempotent(client, machine_token):
     ]
     r1 = client.post("/api/machine/sync/piece-records", headers=_bearer(machine_token), json={"records": records})
     assert r1.status_code == 200, r1.text
-    assert r1.json() == {"max_local_id": 11, "upserted": 2}
+    assert r1.json() == {"max_local_id": 11, "upserted": 2, "skipped": 0}
 
     # Re-send the same batch: idempotent, watermark unchanged, no duplicate rows.
     r2 = client.post("/api/machine/sync/piece-records", headers=_bearer(machine_token), json={"records": records})
@@ -72,7 +73,7 @@ def test_piece_corrections_update_machine_piece(client, machine_token):
         }]},
     )
     assert r.status_code == 200, r.text
-    assert r.json() == {"max_local_id": 1, "upserted": 1}
+    assert r.json() == {"max_local_id": 1, "upserted": 1, "skipped": 0}
 
     from app.models.machine_piece import MachinePiece
     from tests.conftest import TestingSessionLocal

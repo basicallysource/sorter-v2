@@ -739,7 +739,7 @@
       "requires": [
         {
           "part": "hsi-m3",
-          "qty": 18
+          "qty": 21
         }
       ],
       "onshape_version": "https://cad.onshape.com/documents/9137894c36f07dfc4dea695d/w/dde194facf5a22be951251c3/e/aaf844292d9a564824a5fe8b",
@@ -1905,12 +1905,6 @@
       },
       "optional": false,
       "support": false,
-      "requires": [
-        {
-          "part": "hsi-m3",
-          "qty": 4
-        }
-      ],
       "onshape_version": "https://cad.onshape.com/documents/9137894c36f07dfc4dea695d/w/dde194facf5a22be951251c3/e/aaf844292d9a564824a5fe8b",
       "versions": [
         {
@@ -1951,7 +1945,7 @@
       "requires": [
         {
           "part": "hsi-m3",
-          "qty": 3
+          "qty": 5
         }
       ],
       "onshape_version": "https://cad.onshape.com/documents/9137894c36f07dfc4dea695d/w/dde194facf5a22be951251c3/e/aaf844292d9a564824a5fe8b",
@@ -1994,7 +1988,7 @@
       "requires": [
         {
           "part": "hsi-m3",
-          "qty": 3
+          "qty": 5
         }
       ],
       "onshape_version": "https://cad.onshape.com/documents/9137894c36f07dfc4dea695d/w/dde194facf5a22be951251c3/e/aaf844292d9a564824a5fe8b",
@@ -10954,7 +10948,7 @@
       "uid": "jqhp",
       "version": "1",
       "name": "Chute bearing assembly",
-      "description": "The flap's bearing assembly: left + right bearing holders, the race between them, and the covers. Carries 10 M3 inserts and the two flap bearings, one screw per insert: 6 M3 × 8 hold the covers to the holders (3 each), 4 hold the holders to the race (2 each).",
+      "description": "The flap's bearing assembly: left + right bearing holders, the race between them, and the covers. Carries 10 M3 inserts, all in the holders (5 each), and the two flap bearings, one screw per insert: 6 M3 × 8 hold the covers to the holders (3 each), 4 go through the race into the holders (2 each).",
       "docs": "/hardware/assembly/distribution/chute/door-module/",
       "lines": [
         {
@@ -15010,7 +15004,7 @@
         }
       ],
       "name": "Chute",
-      "description": "One chute: the core plus its door module, funnel brackets, connectors, and PCB. Every screw here lands in one of the chute core's 18 M3 inserts.",
+      "description": "One chute: the core plus its door module, funnel brackets, connectors, and PCB. Every screw here lands in one of the chute core's M3 inserts.",
       "docs": "/hardware/assembly/distribution/chute/chute-core/",
       "lines": [
         {

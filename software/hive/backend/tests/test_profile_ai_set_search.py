@@ -29,7 +29,10 @@ def test_search_sets_extracts_year_and_matches_theme_prefix(monkeypatch: pytest.
     set_inventory._theme_match_cache.clear()
     set_inventory._theme_children_cache.clear()
 
-    def fake_get(url: str, params: dict | None = None, timeout: int = 15) -> _FakeResponse:
+    def fake_get(url: str, params: dict | None = None, headers: dict | None = None, timeout: int = 15) -> _FakeResponse:
+        # The key travels in a header, so it never shows up in a logged URL.
+        assert headers == {"Authorization": "key rb-key"}
+        assert "key" not in (params or {})
         assert params is not None
         if url.endswith("/themes/"):
             return _FakeResponse(

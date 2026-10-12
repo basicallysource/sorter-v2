@@ -6,6 +6,8 @@ from typing import Any, Sequence
 
 import requests
 
+from app.services.redact import redact_secrets
+
 # BLA is the only BrickLink API we hold a credential for (a single `api_key`
 # query param — no OAuth consumer/token pair), so everything here goes through
 # it. Docs are not public; the request/response shapes below were derived from
@@ -77,7 +79,8 @@ def fetch_price_guide_batch(
             if attempt == PRICE_GUIDE_RETRIES - 1:
                 break
             time.sleep(2**attempt)
-    raise BrickLinkError(f"price_guide_batch failed: {last_exc}")
+    # The request URL carries the API key; the message must not.
+    raise BrickLinkError(f"price_guide_batch failed: {redact_secrets(str(last_exc))}") from None
 
 
 _live_cache: dict[tuple[str, int], tuple[float, dict[str, int]]] = {}

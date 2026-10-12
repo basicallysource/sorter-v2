@@ -83,9 +83,10 @@ class Settings(BaseSettings):
     # (machine_stats_cache). Clamped to a 60s floor in the worker.
     MACHINE_STATS_REFRESH_INTERVAL_MINUTES: int = 60
     # How often the background worker walks the object store for the admin
-    # server-health page (server_storage_cache). The walk lists every S3 key so
-    # it's slow; a few hours is plenty. Clamped to a 5min floor in the worker.
-    SERVER_STORAGE_REFRESH_INTERVAL_MINUTES: int = 180
+    # server-health page (server_storage_cache). The walk lists every S3 key (over
+    # an hour at ~12M objects) in the API process, so once a day is plenty for a
+    # number on an admin page. Clamped to a 5min floor in the worker.
+    SERVER_STORAGE_REFRESH_INTERVAL_MINUTES: int = 1440
     # How often the background worker recomputes what the fleet has sorted by
     # weight. One sequential scan of machine_pieces plus a catalog lookup, so it
     # belongs on a clock and never on a request. A lifetime total half an hour

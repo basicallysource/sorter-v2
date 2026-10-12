@@ -10,6 +10,8 @@ from typing import Any
 
 import requests
 
+from app.services.profile_engine.parts_cache import rebrickableHeaders
+
 
 _SETS_TABLE_DDL = """
 CREATE TABLE IF NOT EXISTS rebrickable_sets (
@@ -74,7 +76,8 @@ def _load_themes(api_key: str) -> list[dict[str, Any]]:
     while True:
         resp = requests.get(
             "https://rebrickable.com/api/v3/lego/themes/",
-            params={"key": api_key, "page_size": 1000, "page": page},
+            params={"page_size": 1000, "page": page},
+            headers=rebrickableHeaders(api_key),
             timeout=15,
         )
         resp.raise_for_status()
@@ -191,7 +194,7 @@ def _fetch_sets(api_key: str, *, params: dict[str, Any]) -> list[dict[str, Any]]
     page = 1
     results: list[dict[str, Any]] = []
     while True:
-        resp = requests.get(url, params={**params, "key": api_key, "page": page}, timeout=15)
+        resp = requests.get(url, params={**params, "page": page}, headers=rebrickableHeaders(api_key), timeout=15)
         resp.raise_for_status()
         payload = resp.json()
         results.extend(_normalize_set_entry(raw_set) for raw_set in payload.get("results", []))
@@ -266,7 +269,7 @@ def fetch_set_inventory(conn: sqlite3.Connection, api_key: str, set_num: str) ->
 
     # Fetch set metadata
     url = f"https://rebrickable.com/api/v3/lego/sets/{set_num}/"
-    resp = requests.get(url, params={"key": api_key}, timeout=15)
+    resp = requests.get(url, headers=rebrickableHeaders(api_key), timeout=15)
     resp.raise_for_status()
     data = resp.json()
 
@@ -292,7 +295,9 @@ def fetch_set_inventory(conn: sqlite3.Connection, api_key: str, set_num: str) ->
     inv_url = f"https://rebrickable.com/api/v3/lego/sets/{set_num}/parts/"
     page = 1
     while True:
-        r = requests.get(inv_url, params={"key": api_key, "page": page, "page_size": 500}, timeout=15)
+        r = requests.get(
+            inv_url, params={"page": page, "page_size": 500}, headers=rebrickableHeaders(api_key), timeout=15
+        )
         r.raise_for_status()
         body = r.json()
         for item in body.get("results", []):

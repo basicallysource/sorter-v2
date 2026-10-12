@@ -27,6 +27,7 @@ from sqlalchemy import or_
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session, object_session
 
+from app import background, roles
 from app.config import settings
 from app.deps import (
     API_KEY_SCOPE_PROFILES_READ,
@@ -144,21 +145,38 @@ def _record_chat_usage(
     )
 
 
+# The catalog syncs run where the background workers run (app.roles). In a web
+# process these three go to the worker process: its last report for the status,
+# a request for a start or a stop, which it takes within a couple of seconds.
+
+
 @router.get("/profile-catalog/status")
 def get_profile_catalog_status(
+    db: Session = Depends(get_db),
     _current_user: User = Depends(require_role("admin")),
 ):
+    if not roles.runs_workers():
+        reported = background.reported_catalog_status(db)
+        if reported is not None:
+            return reported
     return get_profile_catalog_service().status()
 
 
 @router.post("/profile-catalog/sync/{sync_type}")
 def start_profile_catalog_sync(
     sync_type: str,
+    db: Session = Depends(get_db),
     _current_user: User = Depends(require_role("admin")),
     _csrf: None = Depends(verify_csrf),
 ):
     if sync_type not in CATALOG_SYNC_TYPES:
         raise APIError(400, f"Unsupported sync type '{sync_type}'", "PROFILE_CATALOG_SYNC_INVALID")
+    if not roles.runs_workers():
+        reported = background.reported_catalog_status(db)
+        if reported is not None and reported.get("running"):
+            raise APIError(409, "A catalog sync is already running", "PROFILE_CATALOG_SYNC_RUNNING")
+        background.ask_catalog_sync(db, sync_type)
+        return {"started": True}
     started = get_profile_catalog_service().start_sync(sync_type)
     if not started:
         status = get_profile_catalog_service().status()
@@ -171,9 +189,13 @@ def start_profile_catalog_sync(
 
 @router.post("/profile-catalog/stop")
 def stop_profile_catalog_sync(
+    db: Session = Depends(get_db),
     _current_user: User = Depends(require_role("admin")),
     _csrf: None = Depends(verify_csrf),
 ):
+    if not roles.runs_workers():
+        background.ask_catalog_stop(db)
+        return {"stopped": True}
     get_profile_catalog_service().stop_sync()
     return {"stopped": True}
 

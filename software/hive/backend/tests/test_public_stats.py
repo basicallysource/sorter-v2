@@ -510,9 +510,6 @@ class TestMassOnStats:
     def test_absent_until_a_pass_has_run(self, client, monkeypatch, machine_token):
         """Zeroes labelled as not-yet-computed, rather than a number to quote."""
         monkeypatch.setattr(settings, "PUBLIC_STATS_API_KEY", STATS_KEY)
-        from app.services import fleet_mass
-
-        fleet_mass.reset_cache()
         body = client.get("/api/public/stats", headers={"X-Stats-Key": STATS_KEY}).json()
         assert body["mass"]["computed_at"] is None
         assert body["mass"]["known_grams"] == 0.0

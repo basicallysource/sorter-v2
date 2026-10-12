@@ -2,13 +2,16 @@ from __future__ import annotations
 
 import csv
 import io
+import logging
 import os
+import time
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from threading import Event, Lock, Thread
 from typing import Any
 
+from app import roles
 from app.config import settings
 from app.errors import APIError
 from app.services import bricklink
@@ -17,10 +20,15 @@ from app.services.profile_engine import parts_cache as profile_parts_cache
 from app.services.profile_engine.compiler import CatalogIndex, Compiled, catalog_index, compile_document, rule_matches
 from app.services.set_inventory import get_cached_inventory, get_cached_set, fetch_set_inventory, search_sets as _search_sets
 
+logger = logging.getLogger(__name__)
+
 CUSTOM_SET_ANY_COLOR_ID = -1
 PROFILE_CATALOG_SYNC_TYPES = ("categories", "colors", "parts", "brickstore", "prices", "geometry")
 PROFILE_CATALOG_AUTO_SYNC_TYPES = ("categories", "colors", "parts")
 PROFILE_CATALOG_LAST_SYNC_META_PREFIX = "profile_catalog.last_sync."
+# How often a process that does not run the syncs looks for one that finished
+# in the process that does (see ProfileCatalogService.follow_syncs).
+FOLLOW_SYNCS_INTERVAL_S = 60.0
 
 
 def _ensure_parent_dir(path: str) -> None:
@@ -37,7 +45,11 @@ class CatalogConfig:
 
 
 class ProfileCatalogService:
-    def __init__(self) -> None:
+    def __init__(self, *, runs_syncs: bool = True) -> None:
+        """``runs_syncs``: this process is the one that syncs the catalog (and
+        rebuilds its search index). Hive's web process is not: the syncs run in
+        the worker process, which shares parts.db with it, and the web process
+        follows them (``follow_syncs``)."""
         db_path = os.path.expanduser(settings.SORTING_PROFILE_PARTS_DB_PATH)
         _ensure_parent_dir(db_path)
         self._config = CatalogConfig(
@@ -47,13 +59,21 @@ class ProfileCatalogService:
             brickstore_db_path=os.path.expanduser(settings.SORTING_PROFILE_BRICKSTORE_DB_PATH),
             ldraw_library_dir=os.path.expanduser(settings.SORTING_PROFILE_LDRAW_LIBRARY_DIR),
         )
+        self.runs_syncs = runs_syncs
         self._lock = Lock()
         self._conn = profile_db.initDb(self._config.db_path)
         self._parts_data = profile_db.PartsData()
-        profile_db.reloadPartsData(self._conn, self._parts_data)
-        # A sync row still marked 'running' means a prior process died mid-sync;
-        # flag it 'interrupted' so the UI offers a resume instead of a dead bar.
-        profile_db.markRunningSyncsInterrupted(self._conn)
+        self._loaded_sync_version = self._sync_version()
+        profile_db.reloadPartsData(self._conn, self._parts_data, rebuild_search=runs_syncs)
+        if runs_syncs:
+            # A sync row still marked 'running' means a prior process died
+            # mid-sync; flag it 'interrupted' so the UI offers a resume instead
+            # of a dead bar. Only where syncs run: anywhere else, a 'running'
+            # row is the worker process's sync, alive.
+            profile_db.markRunningSyncsInterrupted(self._conn)
+        self._follow_lock = Lock()
+        self._followed_at = time.monotonic()
+        self._following = False
         self._sync = profile_parts_cache.SyncManager()
         self._auto_sync_state_lock = Lock()
         self._auto_sync_stop_event = Event()
@@ -71,6 +91,57 @@ class ProfileCatalogService:
     @property
     def auto_sync_enabled(self) -> bool:
         return bool(settings.PROFILE_CATALOG_AUTO_SYNC_ENABLED and self._config.rebrickable_api_key)
+
+    @property
+    def auto_sync_loop_running(self) -> bool:
+        with self._auto_sync_state_lock:
+            return bool(self._auto_sync_loop_thread and self._auto_sync_loop_thread.is_alive())
+
+    def _sync_version(self) -> tuple[tuple[str, str], ...]:
+        """When each kind of sync last finished: changes exactly when a sync
+        has changed the catalog."""
+        return tuple(
+            self._conn.execute(
+                "SELECT key, value FROM meta WHERE key LIKE ? ORDER BY key",
+                (f"{PROFILE_CATALOG_LAST_SYNC_META_PREFIX}%",),
+            ).fetchall()
+        )
+
+    def follow_syncs(self) -> None:
+        """Pick up a sync another process finished: in a process that does not
+        run the syncs (the web process), reload the in-memory catalog once the
+        worker process has synced parts.db. Looks at most once a minute, and
+        reloads on a thread of its own, so no request waits for it."""
+        if self.runs_syncs:
+            return
+        now = time.monotonic()
+        if now - self._followed_at < FOLLOW_SYNCS_INTERVAL_S:
+            return
+        with self._follow_lock:
+            if self._following or now - self._followed_at < FOLLOW_SYNCS_INTERVAL_S:
+                return
+            self._followed_at = now
+            try:
+                version = self._sync_version()
+            except Exception:
+                logger.exception("catalog: could not read the sync times")
+                return
+            if version == self._loaded_sync_version:
+                return
+            self._following = True
+        Thread(target=self._reload_followed, args=(version,), name="catalog-follow", daemon=True).start()
+
+    def _reload_followed(self, version: tuple[tuple[str, str], ...]) -> None:
+        try:
+            started = time.monotonic()
+            profile_db.reloadPartsData(self._conn, self._parts_data, rebuild_search=False)
+            self._loaded_sync_version = version
+            logger.info("catalog: reloaded after a sync in the worker process (%.1fs)", time.monotonic() - started)
+        except Exception:
+            logger.exception("catalog: reload after a sync failed; the next look tries again")
+        finally:
+            with self._follow_lock:
+                self._following = False
 
     def status(self) -> dict[str, Any]:
         status = self._sync.getStatus(self._parts_data)
@@ -1048,7 +1119,8 @@ def get_profile_catalog_service() -> ProfileCatalogService:
     if _catalog_service is None:
         with _catalog_service_lock:
             if _catalog_service is None:
-                _catalog_service = ProfileCatalogService()
+                _catalog_service = ProfileCatalogService(runs_syncs=roles.runs_workers())
+    _catalog_service.follow_syncs()
     return _catalog_service
 
 

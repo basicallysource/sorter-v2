@@ -6,7 +6,8 @@ active (``enqueue_for_new_sample``, called by the sample ingest route), and for
 existing samples by an admin backfill (``backfill``). The handler reads the
 sample's full frame from storage, runs the active model's finder on it (one
 frame in memory, onnxruntime on ``SWATCH_FINDER_THREADS``), and writes one
-``sample_swatch_runs`` row and a ``sample_swatches`` row per tile.
+``sample_swatch_runs`` row (with the frame's call: is the palette in view) and
+a ``sample_swatches`` row per tile.
 """
 
 from __future__ import annotations
@@ -17,13 +18,15 @@ from datetime import datetime
 from typing import Any
 from uuid import UUID
 
-from sqlalchemy import exists, func, select
+from sqlalchemy import exists, false, func, select
 from sqlalchemy.orm import Session
+from sqlalchemy.sql.elements import ColumnElement
 
 from app.config import settings
 from app.database import SessionLocal
 from app.models.sample import Sample
 from app.models.sample_swatch import SampleSwatch, SampleSwatchRun
+from app.models.swatch_model import SwatchModel
 from app.services import job_queue, swatch_models
 from app.services.job_queue import JobContext, PermanentJobError
 from app.services.storage_backend import get_backend
@@ -62,7 +65,8 @@ def backfill(
 ) -> dict[str, Any]:
     """Queue swatch_find for a machine's existing classification-camera samples
     captured in [since, until), newest first. Samples the active model has
-    already read are left out unless ``rerun``; ones already queued are not
+    already read are left out unless ``rerun`` (a run made before the finder
+    called the palette does not count as read); ones already queued are not
     queued twice. Call with a model active."""
     active = swatch_models.get_active(db)
     if active is None:
@@ -84,6 +88,7 @@ def backfill(
             ~exists().where(
                 SampleSwatchRun.sample_id == Sample.id,
                 SampleSwatchRun.model_sha256 == active.sha256,
+                SampleSwatchRun.palette_present.isnot(None),
             )
         )
     limit = max(1, min(int(limit), BACKFILL_MAX))
@@ -96,6 +101,59 @@ def backfill(
         "already_queued": len(sample_ids) - queued,
         "truncated": len(sample_ids) >= limit,
     }
+
+
+# The samples filter "palette": is the colour reference palette in view in a
+# sample's frame, as one swatch model called it.
+PALETTE_FILTER_VALUES = ("in_view", "not_in_view", "unchecked")
+
+
+def palette_filter_model_sha256(db: Session) -> str | None:
+    """The swatch model the palette filter reads: the active one, else the one
+    changed last, so a paused model's calls still filter. None with no models."""
+    row = (
+        db.query(SwatchModel.sha256)
+        .order_by(SwatchModel.is_active.desc(), SwatchModel.updated_at.desc())
+        .first()
+    )
+    return row[0] if row else None
+
+
+def palette_filter(db: Session, value: str | None) -> ColumnElement[bool] | None:
+    """A where-clause on ``Sample`` for the palette filter; None for any (or a
+    value it does not know).
+
+    - ``in_view`` / ``not_in_view``: the filter model's run on the sample
+      called the palette in view, or not.
+    - ``unchecked``: a sample the swatch_find job reads (classification camera,
+      with a full frame) that the model has not called yet, a run made before
+      the finder made the call included. What a backfill would queue.
+
+    One correlated EXISTS against sample_swatch_runs, which Postgres runs as a
+    semi- or anti-join on ``ix_sample_swatch_runs_model_palette`` (model,
+    call, sample) or the (sample, model) unique index: nothing per row.
+    """
+    if value not in PALETTE_FILTER_VALUES:
+        return None
+    sha = palette_filter_model_sha256(db)
+    if value == "unchecked":
+        eligible = Sample.source_role.in_(list(settings.SWATCH_FIND_SOURCE_ROLES)) & Sample.full_frame_path.isnot(None)
+        if sha is None:
+            return eligible
+        called = exists().where(
+            SampleSwatchRun.sample_id == Sample.id,
+            SampleSwatchRun.model_sha256 == sha,
+            SampleSwatchRun.palette_present.isnot(None),
+        )
+        return eligible & ~called
+    if sha is None:
+        return false()
+    return exists().where(
+        SampleSwatchRun.sample_id == Sample.id,
+        SampleSwatchRun.model_sha256 == sha,
+        # "= true", not "IS TRUE": only an equality can use the index.
+        SampleSwatchRun.palette_present == (value == "in_view"),
+    )
 
 
 def handle_swatch_find(job: JobContext) -> dict[str, Any]:
@@ -156,6 +214,7 @@ def handle_swatch_find(job: JobContext) -> dict[str, Any]:
         "run_id": str(run_id),
         "model": model_name,
         "swatches": len(found.swatches),
+        "palette": len(found.palette),
         "flags": list(found.flags),
         "seconds": seconds,
     }
@@ -183,6 +242,7 @@ def store_run(
         db.delete(row)
     if previous:
         db.flush()
+    in_palette = set(found.palette)
     run = SampleSwatchRun(
         sample_id=sample_id,
         model_id=model_id,
@@ -191,6 +251,8 @@ def store_run(
         frame_width=int(found.width),
         frame_height=int(found.height),
         swatch_count=len(found.swatches),
+        palette_present=bool(in_palette),
+        palette_swatches=len(in_palette),
         flags=list(found.flags),
         seconds=float(seconds),
     )
@@ -219,6 +281,7 @@ def store_run(
                 length=float(s.length),
                 width=float(s.width),
                 flags=list(s.flags),
+                in_palette=position in in_palette,
             )
         )
     db.add(run)
@@ -235,6 +298,8 @@ def serialize_run(run: SampleSwatchRun) -> dict[str, Any]:
         "frame_width": run.frame_width,
         "frame_height": run.frame_height,
         "swatch_count": run.swatch_count,
+        "palette_present": run.palette_present,
+        "palette_swatches": run.palette_swatches,
         "flags": list(run.flags or []),
         "seconds": run.seconds,
         "created_at": run.created_at.isoformat() if run.created_at else None,
@@ -254,6 +319,7 @@ def serialize_run(run: SampleSwatchRun) -> dict[str, Any]:
                 "length": s.length,
                 "width": s.width,
                 "flags": list(s.flags or []),
+                "in_palette": s.in_palette,
             }
             for s in run.swatches
         ],

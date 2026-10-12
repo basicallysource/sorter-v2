@@ -1,7 +1,7 @@
 import uuid
 from datetime import datetime, timezone
 
-from sqlalchemy import Column, DateTime, Float, ForeignKey, Index, Integer, String, UniqueConstraint
+from sqlalchemy import Boolean, Column, DateTime, Float, ForeignKey, Index, Integer, String, UniqueConstraint
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship
 
@@ -10,8 +10,10 @@ from app.models import JSON_VARIANT, Base
 
 class SampleSwatchRun(Base):
     """One pass of a swatch finder over a sample's full frame: which model,
-    how many palette tiles it found, what looked wrong with the palette as a
-    whole, and how long it took. The tiles are ``SampleSwatch`` rows.
+    how many palette tiles it found, whether they make up the palette (the
+    frame's call, what the samples filter keys on), what looked wrong with the
+    palette as a whole, and how long it took. The tiles are ``SampleSwatch``
+    rows.
 
     A newer model adds a run beside the old ones, so readings from two models
     can be compared on the same frame. The same model file (by sha256) run
@@ -31,7 +33,12 @@ class SampleSwatchRun(Base):
     frame_width = Column(Integer, nullable=False)
     frame_height = Column(Integer, nullable=False)
     swatch_count = Column(Integer, nullable=False, default=0)
-    # About the palette as a whole: "neutrals_out_of_order", "repeated_colour".
+    # The frame's call: is the colour reference palette in view (a chain of at
+    # least four neighbouring swatches in at least four colours), and how many
+    # swatches make it up. Null on a run made before the finder made the call.
+    palette_present = Column(Boolean, nullable=True)
+    palette_swatches = Column(Integer, nullable=True)
+    # About the palette's swatches as a whole: "neutrals_out_of_order", "repeated_colour".
     flags = Column(JSON_VARIANT, nullable=False, default=list)
     # Wall time of the pass: decoding the frame, the network, reading the tiles.
     seconds = Column(Float, nullable=False, default=0.0)
@@ -47,7 +54,9 @@ class SampleSwatchRun(Base):
     __table_args__ = (
         UniqueConstraint("sample_id", "model_sha256", name="uq_sample_swatch_runs_sample_model"),
         Index("ix_sample_swatch_runs_sample_id", "sample_id"),
-        Index("ix_sample_swatch_runs_model_sha256", "model_sha256"),
+        # A model's runs; with the call and the sample, what the samples filter
+        # reads ("this model saw the palette in these samples") from the index alone.
+        Index("ix_sample_swatch_runs_model_palette", "model_sha256", "palette_present", "sample_id"),
     )
 
 
@@ -89,6 +98,9 @@ class SampleSwatch(Base):
     length = Column(Float, nullable=False)
     width = Column(Float, nullable=False)
     flags = Column(JSON_VARIANT, nullable=False, default=list)
+    # One of the swatches that make up the palette (a tile of it), not a loose
+    # piece's top. Null on a run made before the finder made the call.
+    in_palette = Column(Boolean, nullable=True)
 
     run = relationship("SampleSwatchRun", back_populates="swatches")
 

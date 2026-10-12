@@ -11,7 +11,7 @@ from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.dialects.sqlite import insert as sqlite_insert
 from sqlalchemy.orm import Session, joinedload
 
-from app.deps import get_current_machine, get_current_user, get_db, require_role, verify_csrf
+from app.deps import get_current_machine, get_current_user, get_db, require_role, statement_timeout, verify_csrf
 from app.errors import APIError
 from app.machine_network import normalize_network_block
 from app.models.machine import Machine
@@ -27,6 +27,7 @@ from app.schemas.machine import (
     MachineUpdate,
     MachineWithTokenResponse,
 )
+from app import background
 from app.services import machine_stats
 from app.services.auth import generate_machine_token, verify_password
 from app.services.machine_set_progress import build_set_progress_inventory_index, summarize_machine_set_progress
@@ -199,9 +200,13 @@ def admin_refresh_machine_stats(
     admin: User = Depends(require_role("admin")),
     _csrf: None = Depends(verify_csrf),
 ):
-    """Force an immediate recompute of every machine's cached stats."""
-    count = machine_stats.refresh_all(db)
-    return {"ok": True, "refreshed": count, "worker": get_machine_stats_worker().status()}
+    """Have the machine-stats worker recompute every machine's cached stats
+    now instead of at its next pass. A pass is the fleet-wide aggregates over
+    every piece, so it never runs on a request: this returns at once, and the
+    numbers change when the pass is done (``worker.last_run_at``)."""
+    name = get_machine_stats_worker().name
+    background.request_pass(db, name)
+    return {"ok": True, "requested": True, "worker": background.worker_status(db, name)}
 
 
 def _may_view(machine: Machine, user: User) -> bool:
@@ -533,6 +538,8 @@ def update_machine(
 
 
 @router.delete("/machines/{machine_id}")
+# One DELETE that cascades to every piece, image and crop the machine sent.
+@statement_timeout(seconds=60)
 def delete_machine(
     machine_id: UUID,
     db: Session = Depends(get_db),
@@ -550,6 +557,8 @@ def delete_machine(
 
 
 @router.post("/machines/{machine_id}/purge")
+# Deletes every upload session, cascading to its samples and reviews.
+@statement_timeout(seconds=60)
 def purge_machine_data(
     machine_id: UUID,
     db: Session = Depends(get_db),

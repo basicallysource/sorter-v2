@@ -173,30 +173,39 @@ def ensure_default_profiles(db: Session) -> list[str]:
     return done
 
 
+def run_default_profiles() -> bool:
+    """Ensure the defaults, then describe older versions' bins for their cards.
+    What a process does once at its start: on a thread of an all-in-one
+    process (start_default_profiles_thread), or as a catalog task in a child
+    of the worker process, which never loads the catalog itself
+    (app.catalog_task). True when both went through."""
+    ok = True
+    db = SessionLocal()
+    try:
+        for line in ensure_default_profiles(db):
+            logger.info("default profiles: %s", line)
+    except Exception:
+        logger.exception("default profiles: could not be ensured")
+        db.rollback()
+        ok = False
+    try:
+        from app.services.profile_display import backfill_card_bins
+
+        count = backfill_card_bins(db)
+        if count:
+            logger.info("profile display: described the bins of %d older versions for their cards", count)
+    except Exception:
+        logger.exception("profile display: could not describe older versions")
+        db.rollback()
+        ok = False
+    finally:
+        db.close()
+    return ok
+
+
 def start_default_profiles_thread() -> threading.Thread:
     """Ensure the defaults off the request path: loading the catalog and
     compiling take seconds, and startup must not wait for them."""
-
-    def run() -> None:
-        db = SessionLocal()
-        try:
-            for line in ensure_default_profiles(db):
-                logger.info("default profiles: %s", line)
-        except Exception:
-            logger.exception("default profiles: could not be ensured")
-            db.rollback()
-        try:
-            from app.services.profile_display import backfill_card_bins
-
-            count = backfill_card_bins(db)
-            if count:
-                logger.info("profile display: described the bins of %d older versions for their cards", count)
-        except Exception:
-            logger.exception("profile display: could not describe older versions")
-            db.rollback()
-        finally:
-            db.close()
-
-    thread = threading.Thread(target=run, name="default-profiles", daemon=True)
+    thread = threading.Thread(target=run_default_profiles, name="default-profiles", daemon=True)
     thread.start()
     return thread

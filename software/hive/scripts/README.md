@@ -1,8 +1,8 @@
 # Hive ops: release & backup
 
 Prod host: `root@100.116.70.1` (tailscale, hostname `balloon`) · deploy root
-`/basically/hive` · stack traefik + hive-backend + hive-frontend +
-hive-postgres. Sample **images live in S3**; the **DB** (sample metadata,
+`/basically/hive` · stack traefik + hive-backend + hive-worker +
+hive-frontend + hive-postgres. Sample **images live in S3**; the **DB** (sample metadata,
 models, users, reviews) and **parts.db** live on the droplet.
 
 **SSH is tailnet-only** — there is no inbound tcp/22 at all, and 80/443 accept
@@ -47,10 +47,29 @@ ssh root@100.116.70.1 'python3 /usr/local/lib/hive/hive_release_agent.py status'
 ```
 
 Each install, in order: verify `hive-postgres` healthy → **verified `pg_dump`**
-→ pull both images by digest → `alembic upgrade head` with the new image while
-the old one still serves → recreate backend+frontend → confirm both containers
-actually restarted → health-check containers *and* the public URL → record
-state. Any failure rolls back to the previously installed digests.
+(when the migrations changed) → pull both images by digest → `alembic upgrade
+head` once, with the new backend image, while the old stack still serves →
+recreate backend, worker and frontend → confirm each container actually
+restarted → health-check the containers *and* the public URL → record state.
+Any failure rolls back to the previously installed digests.
+
+**Two services run the backend image** (`agent-docs/process-roles.md`):
+`hive-backend` answers requests (`HIVE_ROLE=web`) and `hive-worker` runs every
+background worker (`python -m app.worker`). The worker never loads the parts
+catalog (its syncs and the default profiles run in a short-lived child process
+in the same container), has its own memory ceiling (`HIVE_WORKER_MEM_LIMIT` in
+`.env.prod`, default 1200m, beside the backend's `HIVE_BACKEND_MEM_LIMIT`) and
+runs no migrations. The agent deploys
+the services the release's own compose file defines: rolling back to a release
+from before the worker existed stops and removes `hive-worker` first, because
+that release's backend runs every worker itself.
+
+**The agent on the box is a copy** (`/usr/local/lib/hive/hive_release_agent.py`;
+it never updates itself, see CUTOVER.md → "Updating the agent itself"). When a
+change to the agent comes with a change the agent must know about, the copy is
+updated *before* that release is cut. The worker is one: an agent from before
+it recreates only backend and frontend, so a release with a worker would come
+up with its backend serving and no background work running anywhere.
 
 `hive-postgres` is never recreated by a deploy (`--no-deps`). So a release that
 changes the postgres service in `docker-compose.prod.yml` (its `command:`

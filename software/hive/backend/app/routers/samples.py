@@ -12,6 +12,7 @@ from app.deps import (
     get_db,
     require_api_key_scopes,
     require_role,
+    statement_timeout,
     verify_csrf,
 )
 from app.errors import APIError
@@ -694,6 +695,8 @@ def save_sample_classification(
 
 
 @router.post("/batch-archive", response_model=BatchArchiveSamplesResponse)
+# Counts and then updates every sample a filter matches, up to max_archive.
+@statement_timeout(seconds=60)
 def batch_archive_samples(
     payload: BatchArchiveSamplesRequest,
     db: Session = Depends(get_db),
@@ -748,6 +751,8 @@ def batch_archive_samples(
 
 
 @router.post("/batch-unarchive", response_model=BatchArchiveSamplesResponse)
+# The same walk as batch-archive, over the archived ones.
+@statement_timeout(seconds=60)
 def batch_unarchive_samples(
     payload: BatchArchiveSamplesRequest,
     db: Session = Depends(get_db),
@@ -793,6 +798,8 @@ def batch_unarchive_samples(
 
 
 @router.post("/batch-delete", response_model=BatchDeleteSamplesResponse)
+# Counts, loads and deletes every sample a filter matches, up to max_delete.
+@statement_timeout(seconds=60)
 def batch_delete_samples(
     payload: BatchDeleteSamplesRequest,
     db: Session = Depends(get_db),

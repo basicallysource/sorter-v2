@@ -160,8 +160,8 @@ def get_public_stats(db: Session = Depends(get_db)):
         # Weight, from the fleet-mass worker's last pass. Read and not computed:
         # this endpoint is polled continuously and the scan behind mass belongs
         # on a clock. `computed_at` is null until the first pass lands, which is
-        # about a second after boot.
-        "mass": fleet_mass.latest(),
+        # about a second after the worker process first starts.
+        "mass": fleet_mass.latest(db),
     }
 
 
@@ -381,11 +381,11 @@ def get_public_fleet_mass(db: Session = Depends(get_db)):
     one remains because it is the surface a consumer that wants only weight
     asks, and it costs it nothing to ask.
     """
-    return fleet_mass.latest()
+    return fleet_mass.latest(db)
 
 
 @router.get("/fleet/records", dependencies=[Depends(require_fleet_key)])
-def get_public_fleet_records():
+def get_public_fleet_records(db: Session = Depends(get_db)):
     """What a leaderboard needs beyond the roster's counters: each machine's
     speed over the last day and month (and the day's double feeds), which
     machine processed each of the fleet's milestone pieces, the first machine
@@ -397,7 +397,7 @@ def get_public_fleet_records():
     and never computed here — see `services/fleet_records.py`, which also says
     why a milestone, once answered, does not change.
     """
-    return fleet_records.latest()
+    return fleet_records.latest(db)
 
 
 def _pieces_by_machine_since(db: Session, ids: list, *, hours: int) -> dict[str, int]:

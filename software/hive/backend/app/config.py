@@ -1,7 +1,7 @@
 import base64
 import secrets
 from pathlib import Path
-from typing import Callable
+from typing import Callable, Literal
 
 from cryptography.fernet import Fernet
 from pydantic_settings import BaseSettings
@@ -11,6 +11,32 @@ _INSECURE_SECRET_VALUES = frozenset({"", "change-me-in-production"})
 
 class Settings(BaseSettings):
     ENVIRONMENT: str = "development"
+    # Which part of Hive this process is (agent-docs/process-roles.md):
+    #   all    everything in one process: requests and every background worker.
+    #          The default, so a dev server and the tests need nothing else.
+    #   web    answers requests and starts no background work at all.
+    #   worker the background workers and nothing else (`python -m app.worker`).
+    # Production runs one `web` and one `worker` from the same image, so a slow
+    # pass over the fleet can never take the interpreter from a request.
+    HIVE_ROLE: Literal["all", "web", "worker"] = "all"
+    # How long one SQL statement of a request may run before Postgres cancels
+    # it, set per transaction (SET LOCAL) in every process that answers
+    # requests. A page fails in seconds instead of holding a connection for a
+    # minute; anything that needs longer is a job. Machine traffic
+    # (/api/machine/..., /api/devices/...) has its own budget. An endpoint that
+    # legitimately runs longer says so with `@statement_timeout(...)` (app.deps).
+    # 0 turns it off. The engine's own 60 s (database.py) still applies to
+    # everything else: workers, startup, scripts.
+    REQUEST_STATEMENT_TIMEOUT_MS: int = 15_000
+    MACHINE_STATEMENT_TIMEOUT_MS: int = 20_000
+    # The worker process reports its workers' state to the database this often
+    # (what the web process shows on the admin pages) and touches
+    # WORKER_HEARTBEAT_FILE after each report, which is its container's
+    # healthcheck. It looks for requests from the web process (run a pass now,
+    # start a catalog sync) every WORKER_POLL_INTERVAL_S.
+    WORKER_HEARTBEAT_INTERVAL_S: float = 15.0
+    WORKER_POLL_INTERVAL_S: float = 2.0
+    WORKER_HEARTBEAT_FILE: str = "/tmp/hive-worker-heartbeat"
     DATABASE_URL: str = "postgresql://hive:hive_dev@localhost:5432/hive"
     JWT_SECRET: str | None = None
     UPLOAD_DIR: str = "data/uploads"
@@ -65,6 +91,11 @@ class Settings(BaseSettings):
     PROFILE_CATALOG_AUTO_SYNC_PARTS_MAX_AGE_HOURS: int = 24
     PROFILE_CATALOG_AUTO_SYNC_COLORS_MAX_AGE_HOURS: int = 24
     PROFILE_CATALOG_AUTO_SYNC_CATEGORIES_MAX_AGE_HOURS: int = 168
+    # The worker process never loads the parts catalog; a sync or the default
+    # profiles run in a child process (app.services.catalog_tasks), one at a
+    # time, stopped after this long. A parts sync resumes from the rows it has,
+    # so one cut short goes on at the next auto-sync check.
+    CATALOG_TASK_TIMEOUT_MINUTES: float = 120
     OPENROUTER_BASE_URL: str = "https://openrouter.ai/api/v1"
     # Perceptron exposes an OpenAI-compatible /v1/chat/completions endpoint.
     PERCEPTRON_BASE_URL: str = "https://api.perceptron.inc/v1"
@@ -84,8 +115,8 @@ class Settings(BaseSettings):
     MACHINE_STATS_REFRESH_INTERVAL_MINUTES: int = 60
     # How often the background worker walks the object store for the admin
     # server-health page (server_storage_cache). The walk lists every S3 key (over
-    # an hour at ~12M objects) in the API process, so once a day is plenty for a
-    # number on an admin page. Clamped to a 5min floor in the worker.
+    # an hour at ~12M objects), so once a day is plenty for a number on an
+    # admin page. Clamped to a 5min floor in the worker.
     SERVER_STORAGE_REFRESH_INTERVAL_MINUTES: int = 1440
     # How often the background worker recomputes what the fleet has sorted by
     # weight. One sequential scan of machine_pieces plus a catalog lookup, so it
@@ -97,8 +128,10 @@ class Settings(BaseSettings):
     # of machine_pieces, so a clock and never a request. 60s floor.
     FLEET_RECORDS_REFRESH_INTERVAL_MINUTES: int = 15
     # The general job queue (app.services.job_queue): rows in `jobs`, run by
-    # worker threads in this process. Off by default: jobs can still be queued
-    # while it is off, and they wait until a process with it on picks them up.
+    # worker threads in the process that runs background work (HIVE_ROLE
+    # worker or all; a web process never runs jobs, whatever this says). Off
+    # by default: jobs can still be queued while it is off, and they wait until
+    # a process with it on picks them up.
     JOB_WORKER_ENABLED: bool = False
     # Worker threads. One keeps background work to at most one core of the
     # box, whatever is queued.

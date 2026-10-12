@@ -1,4 +1,3 @@
-import logging
 from contextlib import asynccontextmanager
 
 from fastapi import Depends, FastAPI, HTTPException
@@ -8,13 +7,21 @@ from slowapi.errors import RateLimitExceeded
 from slowapi.util import get_remote_address
 
 from sqlalchemy import text
+from sqlalchemy.exc import OperationalError
 from sqlalchemy.orm import Session
 
+from app import background, roles
 from app.config import settings
 from app.deps import get_db
-from app.errors import APIError, api_error_handler, http_exception_handler, unhandled_exception_handler
+from app.errors import (
+    APIError,
+    api_error_handler,
+    http_exception_handler,
+    operational_error_handler,
+    unhandled_exception_handler,
+)
+from app.logging_config import configure_app_logging
 from app.rate_limiting import rate_limit_exceeded_handler
-from app.services.redact import redact_secrets
 from app.routers import (
     admin,
     admin_parts,
@@ -54,83 +61,26 @@ from app.routers import (
     teacher,
     upload,
 )
-from app.services.profile_catalog import get_existing_profile_catalog_service, get_profile_catalog_service
-from app.services.default_profiles import start_default_profiles_thread
-from app.services.condition_worker import get_condition_worker
-from app.services.fleet_mass import get_fleet_mass_worker
-from app.services.fleet_records import get_fleet_records_worker
-from app.services.job_queue import get_job_worker
-from app.services import swatch_jobs  # noqa: F401  (registers the swatch_find job kind)
-from app.services.labeling_queue import get_labeling_queue_worker
-from app.services.machine_stats import get_machine_stats_worker
-from app.services.server_health import get_memory_log_worker, get_storage_stats_worker
-from app.services.teacher_worker import get_teacher_worker
 
-def _configure_app_logging() -> None:
-    """Give the ``app`` logger somewhere to write.
-
-    uvicorn configures its own loggers and deliberately leaves the root logger
-    alone, so nothing in this package had a handler and all 50-odd logger calls
-    under app/ went nowhere — including the background workers announcing
-    themselves at startup, and warnings like "color model has no usable classes"
-    that were meant to be the first sign something was wrong. None of it has
-    ever appeared in `docker logs`.
-
-    Configured on the ``app`` logger rather than the root on purpose: root would
-    also unmute botocore and friends, and this box does not need that volume.
-    uvicorn's own loggers do not propagate, so its access lines are unaffected.
-    """
-    app_logger = logging.getLogger("app")
-    app_logger.setLevel(logging.INFO)
-    if not app_logger.handlers:
-        handler = logging.StreamHandler()
-        handler.setFormatter(_RedactingFormatter("%(asctime)s %(levelname)s [%(name)s] %(message)s"))
-        app_logger.addHandler(handler)
-
-
-class _RedactingFormatter(logging.Formatter):
-    """Blanks key=/token= values in every line, tracebacks included: an HTTP
-    error from an API that takes its key in the URL prints that URL."""
-
-    def format(self, record: logging.LogRecord) -> str:
-        return redact_secrets(super().format(record))
-
-
-_configure_app_logging()
+configure_app_logging()
 
 limiter = Limiter(key_func=get_remote_address)
 
 
 @asynccontextmanager
 async def lifespan(_app: FastAPI):
-    if settings.PROFILE_CATALOG_AUTO_SYNC_ENABLED and settings.REBRICKABLE_API_KEY:
-        get_profile_catalog_service().start_auto_sync_loop()
-    get_teacher_worker().start()
-    get_condition_worker().start()
-    get_machine_stats_worker().start()
-    get_fleet_mass_worker().start()
-    get_fleet_records_worker().start()
-    get_storage_stats_worker().start()
-    get_memory_log_worker().start()  # diagnostic, delete with the 2026-08 leak
-    get_labeling_queue_worker().start()
-    get_job_worker().start()
-    if settings.ENVIRONMENT != "test":
-        start_default_profiles_thread()
+    # The background workers start here only in HIVE_ROLE=all; a web process
+    # starts none (app.background, agent-docs/process-roles.md).
+    if not roles.serves_requests():
+        raise RuntimeError(
+            "HIVE_ROLE=worker is the background worker process: run `python -m app.worker`, "
+            "not the web app."
+        )
+    background.start()
     try:
         yield
     finally:
-        get_job_worker().stop()
-        get_labeling_queue_worker().stop()
-        get_teacher_worker().stop()
-        get_condition_worker().stop()
-        get_machine_stats_worker().stop()
-        get_fleet_mass_worker().stop()
-        get_fleet_records_worker().stop()
-        get_storage_stats_worker().stop()
-        get_memory_log_worker().stop()
-        service = get_existing_profile_catalog_service()
-        if service is not None:
-            service.stop_auto_sync_loop()
+        background.stop()
 
 
 app = FastAPI(title="Hive API", version="0.1.0", lifespan=lifespan)
@@ -146,6 +96,7 @@ app.add_middleware(
 
 app.add_exception_handler(APIError, api_error_handler)
 app.add_exception_handler(HTTPException, http_exception_handler)
+app.add_exception_handler(OperationalError, operational_error_handler)
 app.add_exception_handler(Exception, unhandled_exception_handler)
 app.add_exception_handler(RateLimitExceeded, rate_limit_exceeded_handler)
 

@@ -1,7 +1,7 @@
 """The swatch finder's palette call: is the colour reference palette in view
 
 Revision ID: c548fb8d227c
-Revises: 5f4b1adc76ba
+Revises: 01ac20eed2e4
 
 sample_swatch_runs.palette_present / palette_swatches: the frame's call (a
 chain of at least four neighbouring swatches in at least four colours) and how
@@ -17,7 +17,7 @@ import sqlalchemy as sa
 from alembic import op
 
 revision = "c548fb8d227c"
-down_revision = "5f4b1adc76ba"
+down_revision = "01ac20eed2e4"
 branch_labels = None
 depends_on = None
 

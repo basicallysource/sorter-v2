@@ -542,6 +542,8 @@ export interface SampleFilterParams {
 	my_review?: 'unreviewed' | 'reviewed' | 'accepted' | 'rejected' | string;
 	annotated?: 'teacher' | 'raw' | 'all' | string;
 	exposure?: 'under' | 'normal' | 'over' | string;
+	// Is the colour reference palette in view, as the swatch model called it.
+	palette?: 'in_view' | 'not_in_view' | 'unchecked' | string;
 	archived?: 'active' | 'archived' | 'all' | string;
 	max_age_hours?: number | string;
 	// The review queue: samples I have not reviewed that still need reviews.
@@ -3034,6 +3036,7 @@ export interface TeacherJobFilter {
 	my_review?: 'unreviewed' | 'reviewed' | 'accepted' | 'rejected' | string;
 	annotated?: 'teacher' | 'raw' | 'all' | string;
 	exposure?: 'under' | 'normal' | 'over' | string;
+	palette?: 'in_view' | 'not_in_view' | 'unchecked' | string;
 	max_age_hours?: number;
 }
 

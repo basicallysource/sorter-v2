@@ -19,6 +19,7 @@ export const SAMPLE_LIST_FILTER_KEYS = [
 	'my_review',
 	'annotated',
 	'exposure',
+	'palette',
 	'archived',
 	'max_age_hours'
 ] as const;

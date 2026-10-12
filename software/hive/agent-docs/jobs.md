@@ -120,11 +120,14 @@ frame, and its colour is read from the full-resolution pixels
 - **Served** at `GET /api/samples/{id}/swatch-runs` (whoever can see the
   sample), and drawn over the frame on the sample page (the palette's swatches
   in green or yellow, others dashed), with the call above the list.
-- **Filtered**: `swatch_jobs.palette_filter(db, value)` is the where-clause
-  behind the samples filter `palette`: `in_view`, `not_in_view`, `unchecked`
-  (a classification-camera sample with a full frame the model has not called
-  yet). It reads one model's runs: the active one, else the one changed last.
-  One EXISTS on `ix_sample_swatch_runs_model_palette` (model, call, sample).
+- **Filtered**: the Channel samples filter `palette` (a field of
+  `SampleFilters` in `services/sample_filters.py`, so the list, the review
+  queue, the batch actions and teacher re-runs all honour it): `in_view`,
+  `not_in_view`, `unchecked` (a classification-camera sample with a full frame
+  the model has not called yet). Its where-clause is
+  `swatch_jobs.palette_filter`: it reads one model's runs, the active one, else
+  the one changed last, with one EXISTS on `ix_sample_swatch_runs_model_palette`
+  (model, call, sample).
 - **Tests**: `tests/test_swatch_jobs.py` stubs the network. A real model runs
   when `HIVE_TEST_SWATCH_MODEL` names an exported finder and
   `HIVE_TEST_SWATCH_FRAME` a classification-camera JPEG with the palette in

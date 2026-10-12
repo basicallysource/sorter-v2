@@ -243,18 +243,23 @@
 			},
 			{
 				label: 'Request threads',
-				value: proc.threadpool ? `${proc.threadpool.busy} of ${proc.threadpool.size} busy, ${proc.threadpool.waiting} waiting` : '-'
+				value: proc.threadpool
+					? `${proc.threadpool.busy} of ${proc.threadpool.size} busy (one is this page), ${proc.threadpool.waiting} waiting`
+					: '-'
 			},
 			{
 				label: 'Database connections',
 				value:
 					proc.db_pool.checked_out != null
-						? `${proc.db_pool.checked_out} in use${proc.db_pool.limit != null ? ` of ${proc.db_pool.limit}` : ''}`
+						? `${proc.db_pool.checked_out} in use${proc.db_pool.limit != null ? ` of ${proc.db_pool.limit}` : ''} (one is this page)`
 						: '-'
 			},
 			{
-				label: 'Requests running',
-				value: flight ? `${flight.count}${oldest && oldest.running_s >= 1 ? `, the oldest ${oldest.method} ${oldest.path} for ${span(oldest.running_s)}` : ''}` : '-'
+				// The count includes the request for this page.
+				label: 'Other requests running',
+				value: flight
+					? `${Math.max(0, flight.count - 1)}${oldest && oldest.running_s >= 1 ? `, the oldest ${oldest.method} ${oldest.path} for ${span(oldest.running_s)}` : ''}`
+					: '-'
 			},
 			{ label: 'Threads', value: proc.threads },
 			{ label: 'Load', value: proc.load ? `${proc.load.join(', ')} on ${proc.cpus ?? '?'} CPUs` : '-' }

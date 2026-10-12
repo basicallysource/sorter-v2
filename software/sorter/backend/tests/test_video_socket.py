@@ -34,7 +34,6 @@ def renders(monkeypatch: pytest.MonkeyPatch) -> list[str]:
         return camera_feeds._Shot(np.full((48, 64, 3), len(rendered) % 256, np.uint8), float(len(rendered)))
 
     monkeypatch.setattr(camera_feeds, "_feeds", {})
-    monkeypatch.setattr(camera_feeds, "dashboard_crop_spec", lambda role, width, height: None)
     monkeypatch.setattr(camera_feeds, "PREVIEW_MAX_FPS", 100.0)
     monkeypatch.setattr(camera_feeds, "KEEPALIVE_S", 0.05)
     monkeypatch.setattr(camera_feeds._RoleFeed, "_newest", newest)
@@ -246,11 +245,6 @@ def test_a_frame_comes_after_its_layout_and_detections(monkeypatch: pytest.Monke
     monkeypatch.setattr(camera_feeds.machine_toml, "read", lambda: {"cameras": {"c_channel_2": 0}})
     monkeypatch.setattr(camera_feeds, "channel_polygons_revision", lambda: revision[0])
     monkeypatch.setattr(camera_feeds, "feedZoneShapes", lambda channel, width: {"of": channel.name, "saved": revision[0]})
-    monkeypatch.setattr(
-        camera_feeds,
-        "dashboard_crop_spec",
-        lambda role, width, height: {"polygons": [np.array([[0, 0], [32, 0], [32, 48]])], "rotation_deg": 90.0},
-    )
     with _client() as client, client.websocket_connect("/ws/video", headers=ORIGIN) as ws:
         ws.send_json({"views": [C2]})
         messages = [_receive(ws) for _ in range(3)]
@@ -266,7 +260,6 @@ def test_a_frame_comes_after_its_layout_and_detections(monkeypatch: pytest.Monke
     assert messages[0] == {
         "layout": C2,
         "zones": {"of": "first", "saved": 0},
-        "crop": {"polygons": [[0.0, 0.0, 0.5, 0.0, 0.5, 1.0]], "rotation": 90.0},
     }
     assert messages[1] == {
         "detections": C2,

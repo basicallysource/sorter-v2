@@ -420,7 +420,6 @@
 	let secondaryVertexDrag = $state<{ id: string; vertexIdx: number } | null>(null);
 	let activeSidebar = $state<SidePanel>(null);
 	let previewAnnotated = $state(true);
-	let previewCropped = $state(false);
 	let previewZones = $state(true);
 	let cameraModalOpen = $state(false);
 	let cameraLoading = $state(false);
@@ -437,8 +436,6 @@
 	});
 	let picturePreviewByRole = $state<Partial<Record<CameraRole, PicturePreviewState>>>({});
 	let previewImageSizeByRole = $state<Partial<Record<CameraRole, PreviewImageSize>>>({});
-	// The size of what the picture shows: the frame, or the channel cropped.
-	let previewShape = $state<PreviewImageSize | null>(null);
 	let detectionHighlightByRole = $state<Partial<Record<CameraRole, DetectionHighlight[]>>>({});
 	let reassignConfirm = $state<{
 		source: CameraSource;
@@ -981,13 +978,6 @@
 	function feedImageStyle(channel: Channel): string {
 		const transformStyle = picturePreviewTransform(channel);
 		return transformStyle;
-	}
-
-	function previewViewportStyle(): string {
-		if (!wizardMode && !editingZone && previewCropped && previewShape) {
-			return `aspect-ratio:${previewShape.width}/${previewShape.height};`;
-		}
-		return '';
 	}
 
 	function previewOverlayStyle(channel: Channel): string {
@@ -3296,7 +3286,6 @@
 		if (!ctx) return;
 
 		ctx.clearRect(0, 0, CANVAS_W, CANVAS_H);
-		if (!editingZone && previewCropped) return;
 		if (!editingZone && !previewZones) return;
 		const currentCamera = CAMERA_FOR_CHANNEL[currentChannel];
 
@@ -3672,10 +3661,6 @@
 			setDetectionHighlights(currentRole(), null);
 		}
 		restoreSnapshot(persistedSnapshot);
-		// Editing always works on the full uncropped frame so the canvas overlay
-		// maps 1:1 to camera coordinates. Crop is normally off, so this is a
-		// no-op and the feed connection is untouched.
-		previewCropped = false;
 		editingZone = true;
 		activeSidebar = 'zone';
 		dragState = null;
@@ -3844,7 +3829,6 @@
 					class="relative {wizardMode
 						? 'min-h-[26rem] sm:min-h-[32rem] lg:min-h-[38rem] xl:min-h-[44rem]'
 						: 'aspect-video'}"
-					style={previewViewportStyle()}
 					bind:this={previewViewportEl}
 				>
 					{#if !cameraConfigLoaded}
@@ -3853,19 +3837,15 @@
 							Loading the camera for {CHANNEL_LABELS[currentChannel]}
 						</div>
 					{:else if currentAssignment() !== null}
-						<!-- The zones on the whole frame are the editor's own, drawn on the
-						     canvas below as they are edited and saved; the feed brings only
-						     the boxes. Cropped, the picture is the dashboard's, zones and all. -->
+						<!-- The zones are the editor's own, drawn on the canvas below as
+						     they are edited and saved; the feed brings only the boxes. -->
 						<CameraPicture
 							view={roleView(currentRole(currentChannel))}
 							baseUrl={getBackendHttpBase()}
 							alt={CHANNEL_LABELS[currentChannel]}
 							boxes={previewAnnotated}
-							zones={previewZones && previewCropped && !editingZone}
-							cropped={previewCropped && !editingZone}
 							class="absolute inset-0 h-full w-full"
 							style={feedImageStyle(currentChannel)}
-							bind:shape={previewShape}
 							onframe={(size) => rememberPreviewImageSize(currentRole(currentChannel), size)}
 						/>
 						<div class="pointer-events-none absolute" style={previewOverlayStyle(currentChannel)}>
@@ -3911,10 +3891,8 @@
 						<div class="absolute top-2 right-2 z-10">
 							<StreamControlsOverlay
 								bind:annotated={previewAnnotated}
-								bind:cropped={previewCropped}
 								bind:zones={previewZones}
 								showAnnotations
-								showCrop
 								showZones
 							/>
 						</div>

@@ -1,22 +1,17 @@
 <script lang="ts">
-	import Crop from '@lucide/svelte/icons/crop';
 	import SendToBack from '@lucide/svelte/icons/send-to-back';
 	import Shapes from '@lucide/svelte/icons/shapes';
 
 	let {
 		annotated = $bindable(true),
-		cropped = $bindable(false),
 		zones = $bindable(true),
 		showAnnotations = true,
-		showCrop = false,
 		showZones = false,
 		disabled = false
 	}: {
 		annotated?: boolean;
-		cropped?: boolean;
 		zones?: boolean;
 		showAnnotations?: boolean;
-		showCrop?: boolean;
 		showZones?: boolean;
 		disabled?: boolean;
 	} = $props();
@@ -40,7 +35,7 @@
 	</button>
 {/snippet}
 
-{#if showAnnotations || showCrop || showZones}
+{#if showAnnotations || showZones}
 	<div class="flex gap-1">
 		{#if showAnnotations}
 			{@render toggle(
@@ -52,14 +47,6 @@
 		{/if}
 		{#if showZones}
 			{@render toggle(Shapes, zones, zones ? 'Hide zones' : 'Show zones', () => (zones = !zones))}
-		{/if}
-		{#if showCrop}
-			{@render toggle(
-				Crop,
-				cropped,
-				cropped ? 'Show the full frame' : 'Show the cropped view',
-				() => (cropped = !cropped)
-			)}
 		{/if}
 	</div>
 {/if}

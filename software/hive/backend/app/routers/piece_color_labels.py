@@ -48,6 +48,8 @@ from app.models.piece_crop_link import PieceCropLink, PieceCropLinkMember
 from app.models.piece_part_label import PiecePartLabel
 from app.models.piece_rejection import PieceRejection
 from app.models.user import User
+from app.schemas.likely_colors import LikelyColorsResponse
+from app.services import color_rank, likely_colors
 from app.services.brickognize_feedback import submit_color_feedback, submit_part_feedback
 from app.services.channel_crop_lookup import find_possible_crops
 from app.services.color_predictor import predict as predict_piece_color
@@ -155,51 +157,24 @@ class ColorsResponse(BaseModel):
 def list_colors(
     _user: User = Depends(get_current_user),
 ) -> ColorsResponse:
-    """The BrickLink color palette to label from."""
-    colors = get_profile_catalog_service().list_bricklink_colors()
-    return ColorsResponse(results=[ColorOut(**c) for c in colors])
+    """The BrickLink colors a piece can be labeled with."""
+    return ColorsResponse(results=[ColorOut(**c) for c in likely_colors.labelable_palette()])
 
 
-class PartColorAvailabilityOut(BaseModel):
-    color_id: int
-    color_name: str
-    rgb: str | None = None
-    is_trans: bool = False
-    qty: int
-    qty_new: int
-    qty_used: int
-    lots: int
-    share: float
-
-
-class PartColorAvailabilityResponse(BaseModel):
-    part_id: str
-    item_no: str | None = None
-    updated_at: str | None = None
-    source: str = "cache"
-    total_qty: int
-    items: list[PartColorAvailabilityOut]
-
-
-@router.get("/part/{part_id}/bricklink-colors", response_model=PartColorAvailabilityResponse)
-def part_bricklink_colors(
-    part_id: str,
-    limit: int = Query(100, ge=1, le=250),
+@router.get("/likely-colors", response_model=LikelyColorsResponse)
+def labeling_likely_colors(
+    part_id: str | None = Query(None, max_length=64),
+    predictions: str | None = Query(None, max_length=400),
+    limit: int = Query(likely_colors.DEFAULT_LIMIT, ge=1, le=likely_colors.DEFAULT_LIMIT),
     _user: User = Depends(get_current_user),
     _rl: None = Depends(rate_limit("labeling_list")),
-) -> PartColorAvailabilityResponse:
-    """Every color this part is actually sold in on BrickLink, ranked by pieces
-    for sale — the labeler's prior for what this mold even exists in. Priced live
-    across the full palette; public catalog data, so no per-machine access gate."""
-    result = get_profile_catalog_service().bricklink_part_colors(part_id, limit=limit)
-    return PartColorAvailabilityResponse(
-        part_id=result["part_id"],
-        item_no=result["item_no"],
-        updated_at=result["updated_at"],
-        source=result.get("source", "cache"),
-        total_qty=result["total_qty"],
-        items=[PartColorAvailabilityOut(**it) for it in result["items"]],
-    )
+) -> dict:
+    """Every labelable color ranked for a piece: how near each is to the
+    predictions (`predictions=<BrickLink color id>:<score>,...`, the machine's
+    and Hive's own), times how likely the part exists in it on BrickLink, with
+    the part's sale numbers per color. The same ranking machines get. Public
+    catalog data, so no per-machine access gate."""
+    return likely_colors.likely_colors(part_id or None, color_rank.parse_predictions(predictions), limit)
 
 
 @router.get("/stats")
@@ -305,23 +280,6 @@ def label_stats(
     }
 
 
-def _labelable_palette_colors() -> list[dict]:
-    """The palette minus non-standard families the machine never meaningfully
-    sorts: Modulex ("Mx …", a separate brick system), Fabuland (its own toy
-    line), and id<=0 ("(Not Applicable)"/[Unknown]). Charting their coverage or
-    hunting them as rare colors is just noise."""
-    out = []
-    for c in get_profile_catalog_service().list_bricklink_colors():
-        cid = c.get("id")
-        if not isinstance(cid, int) or cid <= 0:
-            continue
-        name = str(c.get("name", ""))
-        if name.startswith("Mx ") or name.startswith("Fabuland"):
-            continue
-        out.append(c)
-    return out
-
-
 @router.get("/color-coverage")
 def color_coverage(
     machine_id: UUID | None = Query(None),
@@ -360,7 +318,7 @@ def color_coverage(
         .all()
     )
 
-    palette = _labelable_palette_colors()
+    palette = likely_colors.labelable_palette()
     colors = []
     covered = 0
     for c in palette:
@@ -449,7 +407,7 @@ def _rare_candidate_color_ids(db: Session, user: User, machine_id: UUID | None) 
         db.query(per_piece.c.color_id, func.count()).group_by(per_piece.c.color_id).all()
     )
 
-    palette = [c for c in _labelable_palette_colors() if c.get("rgb")]
+    palette = [c for c in likely_colors.labelable_palette() if c.get("rgb")]
     rgbs = []
     ids = []
     for c in palette:
@@ -839,6 +797,7 @@ def piece_detail(
         "prediction": {
             "color_id": piece.color_id,
             "color_name": piece.color_name,
+            "color_confidence": piece.color_confidence,
         },
         # Every ranked part and colour answer the machine got for the piece
         # (each request's, applied or not), ordered by kind, request, rank.
@@ -1175,7 +1134,7 @@ def submit_label(
     else:
         if payload.color_id is None:
             raise APIError(400, "A color_id or cant_tell is required", "COLOR_REQUIRED")
-        valid_ids = {c["id"] for c in get_profile_catalog_service().list_bricklink_colors()}
+        valid_ids = {c["id"] for c in likely_colors.labelable_palette()}
         if payload.color_id not in valid_ids:
             raise APIError(400, f"Unknown BrickLink color id {payload.color_id}", "COLOR_ID_INVALID")
         color_id = payload.color_id

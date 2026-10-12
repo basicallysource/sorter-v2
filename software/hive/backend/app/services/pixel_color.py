@@ -19,7 +19,7 @@ from typing import Any
 import numpy as np
 from PIL import Image
 
-from app.services.profile_catalog import get_profile_catalog_service
+from app.services.likely_colors import labelable_palette
 from app.services.storage_backend import get_backend
 
 METHOD = "pixel_average"
@@ -44,17 +44,9 @@ def _srgb_to_lab(rgb: np.ndarray) -> np.ndarray:
 
 @lru_cache(maxsize=1)
 def _palette() -> tuple[np.ndarray, tuple[dict[str, Any], ...]]:
-    colors = get_profile_catalog_service().list_bricklink_colors()
     rgbs = []
     meta = []
-    for c in colors:
-        # Keep non-answers out of the auto-match (they still exist in the full
-        # palette for manual selection): id<=0 is "(Not Applicable)"/[Unknown],
-        # and Modulex ("Mx ...") is a separate non-Lego brick system.
-        if not isinstance(c.get("id"), int) or c["id"] <= 0:
-            continue
-        if str(c.get("name", "")).startswith("Mx "):
-            continue
+    for c in labelable_palette():
         hex_rgb = c.get("rgb")
         if not isinstance(hex_rgb, str) or len(hex_rgb.replace("#", "")) < 6:
             continue

@@ -1,5 +1,5 @@
 """What the admin Server page shows: how requests went in the last hour, this
-process, the job queue, the background workers running in this process,
+process, the job queue, the background workers (wherever they run),
 the database's health, the disk, memory and the stored files.
 
 Everything here is cheap: the request numbers are in memory
@@ -26,24 +26,14 @@ import anyio.to_thread
 from sqlalchemy import func, select, text
 from sqlalchemy.orm import Session
 
+from app import background
 from app.config import settings
 from app.database import engine
 from app.middleware.request_timing import request_stats
 from app.models.job import Job
 from app.services import job_queue
-from app.services.condition_worker import get_condition_worker
-from app.services.fleet_mass import get_fleet_mass_worker
-from app.services.fleet_records import get_fleet_records_worker
-from app.services.job_queue import get_job_worker
-from app.services.labeling_queue import get_labeling_queue_worker
-from app.services.machine_stats import get_machine_stats_worker
 from app.services.redact import redact_secrets
-from app.services.server_health import (
-    get_memory_log_worker,
-    get_memory_stats,
-    get_storage_stats,
-    get_storage_stats_worker,
-)
+from app.services.server_health import get_memory_stats, get_storage_stats
 
 log = logging.getLogger(__name__)
 
@@ -57,7 +47,7 @@ def server_status(db: Session) -> dict[str, Any]:
         "generated_at": _iso(datetime.now(timezone.utc)),
         "process": _part(_process),
         "requests": _part(request_stats.snapshot),
-        "workers": _part(_workers),
+        "workers": _db_part(db, _workers),
         "jobs": _db_part(db, _jobs),
         "database": _db_part(db, _database),
         "disk": _part(_disks),
@@ -147,67 +137,25 @@ def _threadpool() -> dict[str, Any] | None:
 # ---------------------------------------------------------------- the workers
 
 
-def _workers() -> list[dict[str, Any]]:
-    """The background workers as this process knows them. A process that
-    runs no background work (see ``role``) shows each as not running."""
+def _workers(db: Session) -> list[dict[str, Any]]:
+    """Every background worker, wherever it runs: this process's own state when it
+    runs them, else what the worker process last reported (``background.worker_status``),
+    shown as not running once that report is too old to believe."""
     rows = []
-    for name, worker in (
-        ("Machine stats", get_machine_stats_worker()),
-        ("Fleet mass", get_fleet_mass_worker()),
-        ("Fleet records", get_fleet_records_worker()),
-        ("Labeling queue", get_labeling_queue_worker()),
-        ("Storage walk", get_storage_stats_worker()),
-        ("Memory log", get_memory_log_worker()),
-    ):
-        s = worker.status()
+    for worker in background.workers():
+        s = background.worker_status(db, worker.name)
         rows.append(
             {
-                "name": name,
+                "name": worker.name,
                 "running": bool(s.get("running")),
-                "last_run_at": s.get("last_run_at"),
+                "last_run_at": s.get("last_run_at") or s.get("last_job_at"),
                 "last_run_s": s.get("last_run_duration_s"),
                 "last_error": s.get("last_error"),
-                "every_s": s.get("interval_s"),
-                "runs": s.get("total_runs"),
+                "every_s": s.get("interval_s") or s.get("poll_interval_s"),
+                "runs": s.get("total_runs") if s.get("total_runs") is not None else s.get("processed"),
+                "reported_at": s.get("reported_at"),
             }
         )
-    condition = get_condition_worker().status()
-    rows.append(
-        {
-            "name": "Condition",
-            "running": bool(condition.get("running")),
-            "last_run_at": condition.get("last_run_at"),
-            "last_run_s": None,
-            "last_error": condition.get("last_error"),
-            "every_s": condition.get("poll_interval_s"),
-            "runs": condition.get("total_runs"),
-        }
-    )
-    jobs = get_job_worker().status()
-    rows.append(
-        {
-            "name": "Job queue",
-            "running": bool(jobs.get("running")),
-            "last_run_at": jobs.get("last_job_at"),
-            "last_run_s": None,
-            "last_error": jobs.get("last_error"),
-            "every_s": None,
-            "runs": jobs.get("processed"),
-        }
-    )
-    # The teacher worker reports nothing of its own; its dispatcher thread is
-    # alive or it is not.
-    rows.append(
-        {
-            "name": "Teacher",
-            "running": any(t.name == "teacher-dispatcher" and t.is_alive() for t in threading.enumerate()),
-            "last_run_at": None,
-            "last_run_s": None,
-            "last_error": None,
-            "every_s": None,
-            "runs": None,
-        }
-    )
     return rows
 
 

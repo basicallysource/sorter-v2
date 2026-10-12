@@ -485,8 +485,8 @@
 		<Panel
 			title="Background workers"
 			description={proc?.role === 'web'
-				? 'This process answers requests only. The workers run in the worker process, so here they show as not running.'
-				: 'As this process knows them: when each last ran and how long it took.'}
+				? 'They run in the worker process; this is what it last reported: when each last ran and how long it took.'
+				: 'When each last ran and how long it took.'}
 			flush
 		>
 			{#if failed(status.workers)}
@@ -495,7 +495,7 @@
 				<div class="overflow-x-auto">
 					<table class="data-table">
 						<thead>
-							<tr><th>Worker</th><th>In this process</th><th>Last run</th><th class="num">Took</th><th class="num">Every</th><th class="num">Runs</th></tr>
+							<tr><th>Worker</th><th>State</th><th>Last run</th><th class="num">Took</th><th class="num">Every</th><th class="num">Runs</th></tr>
 						</thead>
 						<tbody>
 							{#each workers ?? [] as w (w.name)}
@@ -644,10 +644,8 @@
 				flush
 			>
 				{#snippet actions()}
-					<!-- The walk is a background worker: it can only be woken where it runs. -->
-					{#if proc?.role !== 'web'}
-						<Button size="sm" variant="ghost" icon={RefreshCw} loading={walking} onclick={walkStorage}>Count again</Button>
-					{/if}
+					<!-- The walk is a background worker: a web process asks the worker process to run it. -->
+					<Button size="sm" variant="ghost" icon={RefreshCw} loading={walking} onclick={walkStorage}>Count again</Button>
 					<span class="num text-2xl font-medium text-ink">{bytes(storage!.total_bytes)}</span>
 				{/snippet}
 				{#if storage.total_bytes > 0}

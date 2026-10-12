@@ -53,6 +53,7 @@
 	import Funnel from '@lucide/svelte/icons/funnel';
 	import ImageIcon from '@lucide/svelte/icons/image';
 	import CornerDownRight from '@lucide/svelte/icons/corner-down-right';
+	import SwatchBook from '@lucide/svelte/icons/swatch-book';
 	import PageHeader from '$lib/site/PageHeader.svelte';
 	import SiteSection from '$lib/site/SiteSection.svelte';
 	import Specimen from '$lib/site/Specimen.svelte';
@@ -107,6 +108,8 @@
 		{ icon: ArrowUpRight, name: 'arrow-up-right', means: 'Leaves the app, or opens a new tab' },
 		{ icon: Ellipsis, name: 'ellipsis', means: 'A button that opens a menu (three dots)' },
 		{ icon: Check, name: 'check', means: 'Chosen, done, yes' },
+		{ icon: SwatchBook, name: 'swatch-book', means: 'The color reference palette in view' },
+		{ icon: Info, name: 'info', means: 'More about it: details behind a button' },
 		{ icon: Sun, name: 'sun', means: 'Light mode' },
 		{ icon: Moon, name: 'moon', means: 'Dark mode' },
 		{ icon: Info, name: 'info', means: 'An info notice' },

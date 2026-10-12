@@ -85,6 +85,22 @@ class TestRanker:
         assert orange_partial["likelihood"] == color_rank.FLOOR_PARTIAL_UNKNOWN
         assert partial[0]["color_name"] == "Orange"
 
+    def test_partial_data_for_a_part_sold_in_many_colors_reads_as_complete(self):
+        """A 2 x 2 brick predicted Orange: the cache has it for sale in every color
+        here but Trans-Orange, so Dark Orange (a common neighbour) comes before
+        Trans-Orange (a near color nobody sells it in)."""
+        quantities = {
+            4: {"qty": 300_000}, 68: {"qty": 230_000}, 5: {"qty": 900_000}, 3: {"qty": 700_000},
+            9: {"qty": 40_000}, 86: {"qty": 800_000}, 85: {"qty": 500_000}, 11: {"qty": 900_000},
+        }
+        assert len(quantities) == color_rank.INFORMATIVE_COLORS
+        ranked = color_rank.rank_colors(PALETTE, [(4, 0.79)], quantities=quantities, complete=False)
+        names = _names(ranked)
+        assert names[0] == "Orange"
+        assert names.index("Dark Orange") < names.index("Trans-Orange")
+        trans = next(c for c in ranked if c["color_id"] == 98)
+        assert trans["likelihood"] == color_rank.FLOOR_UNKNOWN
+
     def test_the_catalog_list_lifts_a_color_with_no_sales(self):
         ranked = color_rank.rank_colors(
             PALETTE, [(4, 0.9)], quantities={86: {"qty": 1000}}, complete=True, known_in=[68]

@@ -18,8 +18,10 @@ color gets two numbers and their product:
   color's, so popularity informs the order without drowning the color match.
   A color with none for sale keeps a floor: higher when the catalog lists the
   part in it, and higher still when the sale data is partial (an absence there
-  says little). With no sale data and no catalog list, every color is 1 and
-  the order is closeness alone.
+  says little). Partial data that shows the part for sale in at least
+  INFORMATIVE_COLORS colors is read as complete: a part sold in many colors and
+  not in this one is not in this one. With no sale data and no catalog list,
+  every color is 1 and the order is closeness alone.
 
 score = closeness x likelihood. Every stat is returned, so a screen can show
 why a color is where it is.
@@ -46,6 +48,7 @@ FLOOR_KNOWN = 0.15
 FLOOR_UNKNOWN = 0.04
 FLOOR_PARTIAL_KNOWN = 0.5
 FLOOR_PARTIAL_UNKNOWN = 0.3
+INFORMATIVE_COLORS = 8
 MAX_PREDICTIONS = 12
 
 _SPECIAL = re.compile(r"glitter|glitr|speckle|glow|milky|opal|iridescent|holo", re.IGNORECASE)
@@ -200,7 +203,7 @@ def rank_colors(
     top_qty = max(sold.values(), default=0)
     known = {int(color_id) for color_id in known_in} | set(sold)
     has_data = bool(sold) or bool(known)
-    if complete:
+    if complete or len(sold) >= INFORMATIVE_COLORS:
         floor_known, floor_unknown = FLOOR_KNOWN, FLOOR_UNKNOWN
     else:
         floor_known, floor_unknown = FLOOR_PARTIAL_KNOWN, FLOOR_PARTIAL_UNKNOWN

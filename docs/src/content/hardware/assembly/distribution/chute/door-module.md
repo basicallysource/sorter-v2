@@ -6,7 +6,7 @@ section: hardware
 slug: assembly-door-module
 kicker: Chute — Door module
 lede: The per-layer door mechanism that releases parts into a bin.
-og_image: https://assets.basically.website/sorter-docs/chute-v3-door-module-on-core-servo-side-full-20844742089e.png
+og_image: https://assets.basically.website/sorter-docs/chute-v3-door-module-on-core-servo-side-full-de0647322942.png
 permalink: /hardware/assembly/distribution/chute/door-module/
 author: spencer
 contributors: [barthel, brickcyclealice, extremetaz, zed0]
@@ -90,15 +90,15 @@ The bearing race, the chute door, the two bearing covers and the servo adapter's
 
 <div class="img-row">
   <figure>
-    <img class="doc-figure" src="https://assets.basically.website/sorter-docs/chute-v3-housing-pockets-cover-full-6c2bbd610b01.png" alt="Render of the servo bracket housing seen from the open side with two pockets ringed in red, one on each small lug beside the big opening">
+    <img class="doc-figure" src="https://assets.basically.website/sorter-docs/chute-v3-housing-pockets-cover-full-b658facd25a6.png" alt="Render of the servo bracket housing seen from the open side with two pockets ringed in red, one on each small lug beside the big opening">
     <figcaption>The face the cover goes on: 2, one in each lug. <cite>Rendered from the part geometry, not from a build. Render: Balloon.</cite></figcaption>
   </figure>
   <figure>
-    <img class="doc-figure" src="https://assets.basically.website/sorter-docs/chute-v3-housing-pockets-side-arm-full-acb9653f54f1.png" alt="Render of the servo bracket housing seen from the side with a slot cut across it and two pockets ringed in red, one on each of the two prongs either side of the slot">
+    <img class="doc-figure" src="https://assets.basically.website/sorter-docs/chute-v3-housing-pockets-side-arm-full-87bc8572637a.png" alt="Render of the servo bracket housing seen from the side with a slot cut across it and two pockets ringed in red, one on each of the two prongs either side of the slot">
     <figcaption>The face the side arm goes on: 2, one on each prong beside the slot. <cite>Rendered from the part geometry, not from a build. Render: Balloon.</cite></figcaption>
   </figure>
   <figure>
-    <img class="doc-figure" src="https://assets.basically.website/sorter-docs/chute-v3-housing-pockets-lower-arm-full-e0f88f6a9cc0.png" alt="Render of the underside of the servo bracket housing with two pockets ringed in red near one end">
+    <img class="doc-figure" src="https://assets.basically.website/sorter-docs/chute-v3-housing-pockets-lower-arm-full-b8b8c620082f.png" alt="Render of the underside of the servo bracket housing with two pockets ringed in red near one end">
     <figcaption>The face the lower arm goes on: 2, near one end. <cite>Rendered from the part geometry, not from a build. Render: Balloon.</cite></figcaption>
   </figure>
 </div>
@@ -111,11 +111,11 @@ The bearing race, the chute door, the two bearing covers and the servo adapter's
 
 <div class="img-row">
   <figure>
-    <img class="doc-figure" src="https://assets.basically.website/sorter-docs/chute-v3-holder-pockets-cover-face-full-547487d94afe.png" alt="Render of a bearing holder from the outboard face, a large round bore with three pockets ringed in red around it, two on the ears beside the bore and one below it">
+    <img class="doc-figure" src="https://assets.basically.website/sorter-docs/chute-v3-holder-pockets-cover-face-full-7bec5df24e70.png" alt="Render of a bearing holder from the outboard face, a large round bore with three pockets ringed in red around it, two on the ears beside the bore and one below it">
     <figcaption>The cover face: 3 around the bore. <cite>Rendered from the part geometry, not from a build. Render: Balloon.</cite></figcaption>
   </figure>
   <figure>
-    <img class="doc-figure" src="https://assets.basically.website/sorter-docs/chute-v3-holder-pockets-race-face-full-e0c000159e8f.png" alt="Render of the foot of a bearing holder seen from the side, with two pockets ringed in red side by side">
+    <img class="doc-figure" src="https://assets.basically.website/sorter-docs/chute-v3-holder-pockets-race-face-full-43b01b984876.png" alt="Render of the foot of a bearing holder seen from the side, with two pockets ringed in red side by side">
     <figcaption>The race face: 2 in the foot. <cite>Rendered from the part geometry, not from a build. Render: Balloon.</cite></figcaption>
   </figure>
 </div>
@@ -130,7 +130,7 @@ The renders show the pockets without a brass insert in them, so count the rings,
 
 <div class="img-row">
   <figure>
-    <img class="doc-figure" src="https://assets.basically.website/sorter-docs/chute-v3-servo-adapter-pockets-full-e7df9c7db967.png" alt="Render of the servo-side half of the servo adapter, a round disc with a slot cut across its centre hole for the horn and four small round pockets ringed in red, evenly spaced around the edge">
+    <img class="doc-figure" src="https://assets.basically.website/sorter-docs/chute-v3-servo-adapter-pockets-full-31467fbc322d.png" alt="Render of the servo-side half of the servo adapter, a round disc with a slot cut across its centre hole for the horn and four small round pockets ringed in red, evenly spaced around the edge">
     <figcaption>The four pockets for the short inserts, on the slotted face. <cite>Rendered from the part geometry, not from a build. Render: Balloon.</cite></figcaption>
   </figure>
 </div>
@@ -145,11 +145,11 @@ One more sub-assembly goes together here, before the step that uses it, and it t
 
 <div class="img-row">
   <figure>
-    <img class="doc-figure" src="https://assets.basically.website/sorter-docs/chute-v3-bearing-exploded-full-dff0481e558f.png" alt="Render of a bearing holder with a blue 6704 bearing held in front of its round bore, ready to push in">
+    <img class="doc-figure" src="https://assets.basically.website/sorter-docs/chute-v3-bearing-exploded-full-ffff26ab2919.png" alt="Render of a bearing holder with a blue 6704 bearing held in front of its round bore, ready to push in">
     <figcaption>The bearing (blue) in front of the bore. <cite>Rendered from the part geometry, not from a build. Render: Balloon.</cite></figcaption>
   </figure>
   <figure>
-    <img class="doc-figure" src="https://assets.basically.website/sorter-docs/chute-v3-bearing-seated-full-571cc70bc742.png" alt="Render of the same bearing holder with the blue bearing pushed home in its bore">
+    <img class="doc-figure" src="https://assets.basically.website/sorter-docs/chute-v3-bearing-seated-full-7304eb4b10b3.png" alt="Render of the same bearing holder with the blue bearing pushed home in its bore">
     <figcaption>Pushed home. <cite>Rendered from the part geometry, not from a build. Render: Balloon.</cite></figcaption>
   </figure>
 </div>
@@ -173,11 +173,11 @@ The two arms land on two other faces of the housing. They are not the same part 
 
 <div class="img-row">
   <figure>
-    <img class="doc-figure" src="https://assets.basically.website/sorter-docs/chute-v3-servo-bracket-exploded-full-4c261d8be0d0.png" alt="Render of the four servo bracket parts pulled apart: the housing in the middle, the open-frame cover at one side, the bent side arm above it and the lower arm below it">
+    <img class="doc-figure" src="https://assets.basically.website/sorter-docs/chute-v3-servo-bracket-exploded-full-be25f72a245e.png" alt="Render of the four servo bracket parts pulled apart: the housing in the middle, the open-frame cover at one side, the bent side arm above it and the lower arm below it">
     <figcaption>The four parts of the bracket. The servo itself has no model and is not drawn. <cite>Rendered from the part geometry, not from a build. Render: Balloon.</cite></figcaption>
   </figure>
   <figure>
-    <img class="doc-figure" src="https://assets.basically.website/sorter-docs/chute-v3-servo-bracket-assembled-full-c1d5cda74fb8.png" alt="Render of the servo bracket put together: the housing with the side arm running up from it and the lower arm underneath, the cover on the face turned away">
+    <img class="doc-figure" src="https://assets.basically.website/sorter-docs/chute-v3-servo-bracket-assembled-full-0220094f4bb6.png" alt="Render of the servo bracket put together: the housing with the side arm running up from it and the lower arm underneath, the cover on the face turned away">
     <figcaption>Put together. <cite>Rendered from the part geometry, not from a build. Render: Balloon.</cite></figcaption>
   </figure>
 </div>
@@ -195,11 +195,11 @@ The shaft is captured at both ends once this is together, so there is only one o
 
 <div class="img-row">
   <figure>
-    <img class="doc-figure" src="https://assets.basically.website/sorter-docs/chute-v3-door-holders-race-exploded-full-fb7f3e3b311f.png" alt="Render of the orange door lying on its shaft with a green bearing holder pulled out beyond each end of the shaft, each holding a blue bearing, and the purple bearing race with its row of six holes pulled out to one side">
+    <img class="doc-figure" src="https://assets.basically.website/sorter-docs/chute-v3-door-holders-race-exploded-full-01811214b571.png" alt="Render of the orange door lying on its shaft with a green bearing holder pulled out beyond each end of the shaft, each holding a blue bearing, and the purple bearing race with its row of six holes pulled out to one side">
     <figcaption>The three groups before they go together: the door, the two holders with their bearings, and the race. <cite>Rendered from the part geometry, not from a build. Render: Balloon.</cite></figcaption>
   </figure>
   <figure>
-    <img class="doc-figure" src="https://assets.basically.website/sorter-docs/chute-v3-door-holders-race-assembled-full-d361b734df68.png" alt="Render of the door, both holders and the race put together, the race running between the two holders with its row of six holes facing away from the door">
+    <img class="doc-figure" src="https://assets.basically.website/sorter-docs/chute-v3-door-holders-race-assembled-full-8485433ebd91.png" alt="Render of the door, both holders and the race put together, the race running between the two holders with its row of six holes facing away from the door">
     <figcaption>Put together. The door can swing on its shaft, and it is drawn in one position of that swing. <cite>Rendered from the part geometry, not from a build. Render: Balloon.</cite></figcaption>
   </figure>
 </div>
@@ -214,11 +214,11 @@ Each cover has **two further holes that stay empty here**. They take the screws 
 
 <div class="img-row">
   <figure>
-    <img class="doc-figure" src="https://assets.basically.website/sorter-docs/chute-v3-covers-exploded-full-b9d8355f5750.png" alt="Render of the door, holders and race with a tan bearing cover held out beyond each holder, the nearer one closed and the farther one open in the middle">
+    <img class="doc-figure" src="https://assets.basically.website/sorter-docs/chute-v3-covers-exploded-full-7a2d1da06124.png" alt="Render of the door, holders and race with a tan bearing cover held out beyond each holder, the nearer one closed and the farther one open in the middle">
     <figcaption>The covers going on, one at each end. <cite>Rendered from the part geometry, not from a build. Render: Balloon.</cite></figcaption>
   </figure>
   <figure>
-    <img class="doc-figure" src="https://assets.basically.website/sorter-docs/chute-v3-covers-assembled-full-1402f71c0c60.png" alt="Render of the same assembly with both covers screwed to their holders">
+    <img class="doc-figure" src="https://assets.basically.website/sorter-docs/chute-v3-covers-assembled-full-080d6e60fdff.png" alt="Render of the same assembly with both covers screwed to their holders">
     <figcaption>Both on. This is the flap assembly. <cite>Rendered from the part geometry, not from a build. Render: Balloon.</cite></figcaption>
   </figure>
 </div>
@@ -236,11 +236,11 @@ Snug all six down before tightening any of them, then swing the door by hand thr
 
 <div class="img-row">
   <figure>
-    <img class="doc-figure" src="https://assets.basically.website/sorter-docs/chute-v3-flap-assembly-slide-in-full-e9862987abe3.png" alt="Render of the grey chute core with the flap assembly held out in front of its opening, the race at the front and a round cover at each side">
+    <img class="doc-figure" src="https://assets.basically.website/sorter-docs/chute-v3-flap-assembly-slide-in-full-ecc89d917cfb.png" alt="Render of the grey chute core with the flap assembly held out in front of its opening, the race at the front and a round cover at each side">
     <figcaption>How it goes in: from the opening side, race first. <cite>Rendered from the part geometry, not from a build. Render: Balloon.</cite></figcaption>
   </figure>
   <figure>
-    <img class="doc-figure" src="https://assets.basically.website/sorter-docs/chute-v3-flap-assembly-seated-full-5e840dfd02fa.png" alt="Render of the flap assembly seated in the core, the race lying against the wall under the opening and a cover on each long wall">
+    <img class="doc-figure" src="https://assets.basically.website/sorter-docs/chute-v3-flap-assembly-seated-full-58aca92c23ff.png" alt="Render of the flap assembly seated in the core, the race lying against the wall under the opening and a cover on each long wall">
     <figcaption>Seated. <cite>Rendered from the part geometry, not from a build. Render: Balloon.</cite></figcaption>
   </figure>
 </div>
@@ -253,11 +253,11 @@ The flap-side half has a raised hub with a hexagonal socket. The hub points at t
 
 <div class="img-row">
   <figure>
-    <img class="doc-figure" src="https://assets.basically.website/sorter-docs/chute-v3-servo-adapter-exploded-flap-side-full-1d9e7816f47f.png" alt="Render of the two servo adapter halves facing each other: the pink flap-side half in front with its raised hub, hexagonal socket and four holes, and the purple servo-side half behind it with a slot cut across its centre hole">
+    <img class="doc-figure" src="https://assets.basically.website/sorter-docs/chute-v3-servo-adapter-exploded-flap-side-full-2c01ab089f58.png" alt="Render of the two servo adapter halves facing each other: the pink flap-side half in front with its raised hub, hexagonal socket and four holes, and the purple servo-side half behind it with a slot cut across its centre hole">
     <figcaption>Exploded, in build order. The horn goes into the servo-side half (purple), then the flap-side half (pink) goes over it. <cite>Rendered from the part geometry, not from a build. Render: Balloon.</cite></figcaption>
   </figure>
   <figure>
-    <img class="doc-figure" src="https://assets.basically.website/sorter-docs/chute-v3-servo-adapter-exploded-servo-side-full-e0037cbd98f5.png" alt="Render of the same two halves from the other side: the flat back of the flap-side half, and the servo-side half with its round centre hole">
+    <img class="doc-figure" src="https://assets.basically.website/sorter-docs/chute-v3-servo-adapter-exploded-servo-side-full-779146e3b3b0.png" alt="Render of the same two halves from the other side: the flat back of the flap-side half, and the servo-side half with its round centre hole">
     <figcaption>The same two halves from the servo end. <cite>Rendered from the part geometry, not from a build. Render: Balloon.</cite></figcaption>
   </figure>
 </div>
@@ -288,7 +288,7 @@ Clock it before you commit: centre the servo (or let it settle at its power-on d
 The module is finished when the bracket is on the core and the adapter couples the servo to the door, and the door swings freely through its whole travel. One of these per layer.
 
 <figure class="single-figure">
-  <img class="doc-figure" src="https://assets.basically.website/sorter-docs/chute-v3-door-module-on-core-servo-side-full-20844742089e.png" alt="Render of the door module on the chute core seen from the servo side: the blue servo bracket on the long wall with the side arm running up and the lower arm underneath, the servo adapter discs between the bracket and the bearing cover, the purple race under the opening and the orange door resting inside it">
+  <img class="doc-figure" src="https://assets.basically.website/sorter-docs/chute-v3-door-module-on-core-servo-side-full-de0647322942.png" alt="Render of the door module on the chute core seen from the servo side: the blue servo bracket on the long wall with the side arm running up and the lower arm underneath, the servo adapter discs between the bracket and the bearing cover, the purple race under the opening and the orange door resting inside it">
   <figcaption>A finished module on its core, from the servo side. The servo itself has no model, so the bracket shows empty. <cite>Rendered from the part geometry, not from a build. Render: Balloon.</cite></figcaption>
 </figure>
 

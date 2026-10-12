@@ -9,7 +9,7 @@ lede: The chute assembly. Build one per layer.
 permalink: /hardware/assembly/distribution/chute/chute-core/
 author: spencer
 contributors: [barthel, zed0]
-og_image: https://assets.basically.website/sorter-docs/chute-v3-assembled-window-full-d628d6d4a1bc.png
+og_image: https://assets.basically.website/sorter-docs/chute-v3-assembled-window-full-405b3627325a.png
 tools_needed: [Soldering iron or heat-set insert press]
 parts_needed:
   - part: chute-core
@@ -59,22 +59,22 @@ Press the heat inserts into the chute core before you mount anything else onto i
 
 <div class="img-row">
   <figure>
-    <img class="doc-figure" src="https://assets.basically.website/sorter-docs/chute-v3-core-pockets-plus-y-full-36bdb494bc4e.png" alt="Render of the servo side wall of the chute core with nine pockets ringed in red and lettered: two A beside the bracket pad in the middle, two B near the round bearing notch, two C on the connector pads, two D on a small pad and one D low on the wall">
+    <img class="doc-figure" src="https://assets.basically.website/sorter-docs/chute-v3-core-pockets-plus-y-full-659b8037b993.png" alt="Render of the servo side wall of the chute core with nine pockets ringed in red and lettered: two A beside the bracket pad in the middle, two B near the round bearing notch, two C on the connector pads, two D on a small pad and one D low on the wall">
     <figcaption>The servo side: 9. A, B, C and D. <cite>Rendered from the part geometry, not from a build. Render: Balloon.</cite></figcaption>
   </figure>
   <figure>
-    <img class="doc-figure" src="https://assets.basically.website/sorter-docs/chute-v3-core-pockets-minus-y-full-0b64d22d8d56.png" alt="Render of the plain side wall of the chute core with six pockets ringed in red and lettered: two A, two B and two C">
+    <img class="doc-figure" src="https://assets.basically.website/sorter-docs/chute-v3-core-pockets-minus-y-full-f530a6859a83.png" alt="Render of the plain side wall of the chute core with six pockets ringed in red and lettered: two A, two B and two C">
     <figcaption>The plain side: 6. A, B and C, in the same places as on the other wall, without the three D pockets. <cite>Rendered from the part geometry, not from a build. Render: Balloon.</cite></figcaption>
   </figure>
 </div>
 
 <div class="img-row">
   <figure>
-    <img class="doc-figure" src="https://assets.basically.website/sorter-docs/chute-v3-core-pockets-rear-full-3dc15f55ab6c.png" alt="Render of the rear wall of the chute core with four pockets ringed in red, each lettered F, in a square">
+    <img class="doc-figure" src="https://assets.basically.website/sorter-docs/chute-v3-core-pockets-rear-full-02f30fdb074c.png" alt="Render of the rear wall of the chute core with four pockets ringed in red, each lettered F, in a square">
     <figcaption>The rear: the last 4, the F pockets, in a square on the wall. <cite>Rendered from the part geometry, not from a build. Render: Balloon.</cite></figcaption>
   </figure>
   <figure>
-    <img class="doc-figure" src="https://assets.basically.website/sorter-docs/chute-v3-core-pockets-race-face-full-c7fa442a6f5b.png" alt="Render of the opening side of the chute core seen through the top, with two pockets ringed in red and lettered E on the low wall under the opening">
+    <img class="doc-figure" src="https://assets.basically.website/sorter-docs/chute-v3-core-pockets-race-face-full-8229aefed6ad.png" alt="Render of the opening side of the chute core seen through the top, with two pockets ringed in red and lettered E on the low wall under the opening">
     <figcaption>The opening side: 2, the E pockets, on the low wall under the opening. <cite>Rendered from the part geometry, not from a build. Render: Balloon.</cite></figcaption>
   </figure>
 </div>
@@ -95,7 +95,7 @@ Every insert you pressed in at step 1 takes a screw from one of those four pages
 The chute is complete when all four are on. Repeat for every layer.
 
 <figure class="single-figure">
-  <img class="doc-figure" src="https://assets.basically.website/sorter-docs/chute-v3-assembled-window-full-d628d6d4a1bc.png" alt="Render of a finished chute seen from the opening side: the grey core upright, the door module low on it with its round bearing cover, the green funnel bracket running down to the tan funnel, and the yellow layer connectors on top">
+  <img class="doc-figure" src="https://assets.basically.website/sorter-docs/chute-v3-assembled-window-full-405b3627325a.png" alt="Render of a finished chute seen from the opening side: the grey core upright, the door module low on it with its round bearing cover, the green funnel bracket running down to the tan funnel, and the yellow layer connectors on top">
   <figcaption>A core with the door module, the funnel brackets and funnel and the layer connectors on. The layer adapter board is not modelled and is not in this picture. <cite>Rendered from the part geometry, not from a build. Render: Balloon.</cite></figcaption>
 </figure>
 

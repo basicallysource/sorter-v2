@@ -205,7 +205,8 @@ def _jobs(db: Session) -> dict[str, Any]:
             for kind, subject, locked_by, started in running
         ],
         "recent_failures": summary["recent_failures"],
-        "worker_here": summary["worker"],
+        # The job worker as the process that runs it last reported (this one or the worker process).
+        "worker": background.worker_status(db, background.JOBS),
     }
 
 

@@ -9,7 +9,7 @@ from app.models.user import User
 
 DEFAULTS = {
     "version": 1,
-    "sample_burst_interval_s": 10.0,
+    "sample_burst_interval_s": 120.0,
     "sample_floor_interval_s": 3600.0,
     "sample_ramp_hours": 72.0,
     "sample_store_max_bytes": 1073741824,
@@ -50,16 +50,30 @@ def test_admin_reads_defaults_then_updates_some_limits(client, db, machine_token
     body = resp.json()
     assert body["sample_ramp_hours"] == 24.0
     assert body["upload_files_per_minute"] == 60
-    assert body["sample_burst_interval_s"] == 10.0  # untouched
+    assert body["sample_burst_interval_s"] == 120.0  # untouched
     assert body["updated_at"] is not None
 
     # A second partial update keeps the first one.
-    resp = client.put("/api/admin/telemetry-limits", json={"sample_burst_interval_s": 5}, headers=auth_headers)
+    resp = client.put("/api/admin/telemetry-limits", json={"sample_burst_interval_s": 300}, headers=auth_headers)
     assert resp.status_code == 200, resp.text
     assert resp.json()["sample_ramp_hours"] == 24.0
 
     limits = _heartbeat(client, machine_token).json()["limits"]
-    assert limits == {**DEFAULTS, "sample_ramp_hours": 24.0, "upload_files_per_minute": 60, "sample_burst_interval_s": 5.0}
+    assert limits == {**DEFAULTS, "sample_ramp_hours": 24.0, "upload_files_per_minute": 60, "sample_burst_interval_s": 300.0}
+
+
+def test_a_sample_interval_faster_than_two_minutes_is_raised_to_it(client, db, machine_token, auth_headers):
+    _make_admin(db)
+    resp = client.put("/api/admin/telemetry-limits", json={"sample_burst_interval_s": 5}, headers=auth_headers)
+    assert resp.status_code == 200, resp.text
+    assert resp.json()["sample_burst_interval_s"] == 120.0
+
+    # A row stored before the minimum existed is read at the minimum.
+    from app.models.telemetry_limits import TelemetryLimits
+
+    db.get(TelemetryLimits, 1).sample_burst_interval_s = 10.0
+    db.commit()
+    assert _heartbeat(client, machine_token).json()["limits"]["sample_burst_interval_s"] == 120.0
 
 
 def test_admin_update_is_validated(client, db, auth_headers):
@@ -77,15 +91,13 @@ def test_admin_update_is_validated(client, db, auth_headers):
 
     # The floor is where the ramp ends, so it may not be faster than the burst,
     # whether the request moves one end or both.
-    resp = client.put("/api/admin/telemetry-limits", json={"sample_floor_interval_s": 5}, headers=auth_headers)
-    assert resp.status_code == 400
-    assert resp.json()["code"] == "INVALID_TELEMETRY_LIMITS"
     resp = client.put(
         "/api/admin/telemetry-limits",
-        json={"sample_burst_interval_s": 60, "sample_floor_interval_s": 30},
+        json={"sample_burst_interval_s": 600, "sample_floor_interval_s": 300},
         headers=auth_headers,
     )
     assert resp.status_code == 400
+    assert resp.json()["code"] == "INVALID_TELEMETRY_LIMITS"
 
     # Nothing was written by the refused requests.
     assert client.get("/api/admin/telemetry-limits").json() == {**DEFAULTS, "updated_at": None}

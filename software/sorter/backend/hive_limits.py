@@ -18,8 +18,9 @@ from typing import Any
 
 DEFAULT_LIMITS: dict[str, float | int] = {
     # Fastest a camera may be sampled (seconds between captures); also the
-    # burst interval right after the capture schedule is reset.
-    "sample_burst_interval_s": 10.0,
+    # burst interval right after the capture schedule is reset. The machine
+    # never samples a camera more than once in sample_collector.MIN_INTERVAL_S.
+    "sample_burst_interval_s": 120.0,
     # Steady-state interval the schedule slows to, and how long it takes.
     "sample_floor_interval_s": 3600.0,
     "sample_ramp_hours": 72.0,

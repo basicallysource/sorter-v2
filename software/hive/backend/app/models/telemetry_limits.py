@@ -21,7 +21,7 @@ class TelemetryLimits(Base):
     __tablename__ = "telemetry_limits"
 
     id = Column(Integer, primary_key=True)
-    sample_burst_interval_s = Column(Float, nullable=False, default=10.0, server_default=text("10.0"))
+    sample_burst_interval_s = Column(Float, nullable=False, default=120.0, server_default=text("10.0"))
     sample_floor_interval_s = Column(Float, nullable=False, default=3600.0, server_default=text("3600.0"))
     sample_ramp_hours = Column(Float, nullable=False, default=72.0, server_default=text("72.0"))
     sample_store_max_bytes = Column(BigInteger, nullable=False, default=1073741824, server_default=text("1073741824"))

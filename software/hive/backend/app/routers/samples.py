@@ -164,13 +164,19 @@ def list_samples(
 
     Unless asked otherwise this shows teacher-validated samples in good light:
     raw sorter boxes are usually incomplete, and under- or overexposed frames
-    are rarely worth reviewing (annotated=all and exposure=under|over opt in)."""
+    are rarely worth reviewing (annotated=all and exposure=under|over opt in).
+    A palette filter shows raw samples too: its frames are the classification
+    camera's, which the teacher pass rarely reaches (annotated=teacher opts out)."""
     # `archived` is admin-only — members never see archived samples regardless
     # of what they pass. Default ('active' or unset) hides them.
     is_admin = current_user.role == "admin"
     archived_view = archived if is_admin and archived in ("archived", "all") else "active"
+    palette_filtered = filters.palette not in (None, "any")
     filters = filters.model_copy(
-        update={"annotated": filters.annotated or "teacher", "exposure": filters.exposure or "normal"}
+        update={
+            "annotated": filters.annotated or ("all" if palette_filtered else "teacher"),
+            "exposure": filters.exposure or "normal",
+        }
     )
     items, next_cursor = sample_page(
         db, current_user, filters, limit=limit, cursor=cursor, mine_only=scope == "mine", archived=archived_view

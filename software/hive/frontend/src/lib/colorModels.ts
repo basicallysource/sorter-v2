@@ -15,6 +15,11 @@ export function bandTone(b: Band): 'success' | 'warning' | 'danger' {
 	return b === 'High' ? 'success' : b === 'Medium' ? 'warning' : 'danger';
 }
 
+// The band as the colour of the number alone, where a badge is too wide.
+export function bandText(b: Band): string {
+	return b === 'High' ? 'text-success-ink' : b === 'Medium' ? 'text-warning-ink' : 'text-danger-ink';
+}
+
 export function percent(confidence: number): string {
 	return `${Math.round(confidence * 100)}%`;
 }

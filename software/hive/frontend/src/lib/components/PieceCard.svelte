@@ -1,7 +1,6 @@
 <script lang="ts">
 	import { api, type ColorLabelPieceCard } from '$lib/api';
-	import { band, bandTone, percent } from '$lib/colorModels';
-	import Badge from './Badge.svelte';
+	import { band, bandText, percent } from '$lib/colorModels';
 	import Card from './Card.svelte';
 	import Checkbox from './Checkbox.svelte';
 	import ColorChip from './ColorChip.svelte';
@@ -77,14 +76,20 @@
 			</div>
 			{#if card.model_color}
 				{@const mc = card.model_color}
-				<div class="flex min-w-0 items-center gap-1.5 text-sm text-ink" title={`The model's color: ${mc.color_name ?? mc.color_id}, ${percent(mc.confidence)} sure`}>
+				<div class="flex min-w-0 text-sm text-ink" title={`The model's color: ${mc.color_name ?? mc.color_id}, ${percent(mc.confidence)} sure`}>
 					<ColorChip name={mc.color_name ?? `Color ${mc.color_id}`} rgb={mc.rgb} class="min-w-0 flex-1" />
-					<Badge tone={bandTone(band(mc.confidence))}><span class="num">{band(mc.confidence)} {percent(mc.confidence)}</span></Badge>
 				</div>
 			{/if}
 			<div class="num flex items-center gap-2 text-sm text-ink-muted">
-				<span class="flex items-center gap-1" title="Color labels"><Palette size={14} />{card.color_label_count}</span>
-				<span class="flex items-center gap-1" title="Same-piece labels"><Link2 size={14} />{card.crop_link_count}</span>
+				{#if card.model_color}
+					<!-- With a model chosen, how sure it is takes the counts' place. -->
+					<span class="font-medium {bandText(band(card.model_color.confidence))}" title="How sure the model is"
+						>{percent(card.model_color.confidence)}</span
+					>
+				{:else}
+					<span class="flex items-center gap-1" title="Color labels"><Palette size={14} />{card.color_label_count}</span>
+					<span class="flex items-center gap-1" title="Same-piece labels"><Link2 size={14} />{card.crop_link_count}</span>
+				{/if}
 				<span class="ml-auto truncate">{card.machine_name ?? 'Machine'}</span>
 			</div>
 		</div>

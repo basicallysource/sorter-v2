@@ -58,9 +58,11 @@
 		return `pb-${c.machine_id}-${c.piece_uuid}`;
 	}
 
+	// A training run's color counts as a color label.
+	const colored = $derived((stats?.color_labeled_pieces ?? 0) + (stats?.training_labeled_pieces ?? 0));
 	const coverage = $derived.by(() => {
 		if (!stats || stats.total_labelable === 0) return 0;
-		return Math.round((stats.color_labeled_pieces / stats.total_labelable) * 100);
+		return Math.min(100, Math.round((colored / stats.total_labelable) * 100));
 	});
 	const hist = $derived(stats?.labeler_histogram ?? { '0': 0, '1': 0, '2': 0, '3+': 0 });
 	const histTotal = $derived(Math.max(1, stats?.total_labelable ?? 1));
@@ -190,7 +192,8 @@
 				<div class="num flex flex-wrap items-baseline gap-x-6 gap-y-1">
 					<div><span class="text-2xl font-semibold text-ink">{coverage}%</span> <span class="text-sm text-ink-muted">have a color</span></div>
 					<div class="text-sm text-ink-muted">
-						<span class="text-ink">{stats.color_labeled_pieces.toLocaleString()}</span> of {stats.total_labelable.toLocaleString()} pieces,
+						<span class="text-ink">{colored.toLocaleString()}</span> of {stats.total_labelable.toLocaleString()} pieces{#if stats.training_labeled_pieces > 0}
+							({stats.training_labeled_pieces.toLocaleString()} from training runs){/if},
 						<span class="text-ink">{stats.crop_linked_pieces.toLocaleString()}</span> with the same piece found
 					</div>
 				</div>

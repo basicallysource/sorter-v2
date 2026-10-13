@@ -21,6 +21,7 @@
 	import { auth } from '$lib/auth.svelte';
 	import * as nav from '$lib/colorLabelNav';
 	import { formatDateTime, relativeTime } from '$lib/time';
+	import { labelSourceText, runPurpose } from '$lib/trainingRun';
 	import MachineLabeledPieces from '$lib/components/MachineLabeledPieces.svelte';
 	import PaletteFrame from '$lib/components/PaletteFrame.svelte';
 	import PartBrickLinkColors from '$lib/components/PartBrickLinkColors.svelte';
@@ -30,6 +31,7 @@
 	import Alert from '$lib/components/Alert.svelte';
 	import Badge from '$lib/components/Badge.svelte';
 	import Checkbox from '$lib/components/Checkbox.svelte';
+	import ColorChip from '$lib/components/ColorChip.svelte';
 	import ColorChoice from '$lib/components/ColorChoice.svelte';
 	import Panel from '$lib/components/Panel.svelte';
 	import EmptyState from '$lib/components/EmptyState.svelte';
@@ -974,8 +976,36 @@
 	{/if}
 {/snippet}
 
+<!-- The training run the machine saw the piece in: the color it labels the
+     piece with (a color label like a person's, unless excluded) and what the
+     run was for -->
+{#snippet trainingRun()}
+	{#if detail?.training_run}
+		{@const tr = detail.training_run}
+		<div class="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm">
+			<Badge tone="info">Training run</Badge>
+			{#if tr.color_id}
+				<span title={labelSourceText(tr.label_source)}>
+					<ColorChip name={tr.color_name ?? `Color ${tr.color_id}`} rgb={tr.color_rgb} class="text-ink" />
+				</span>
+			{:else}
+				<span class="text-ink-muted">{labelSourceText(null)}</span>
+			{/if}
+			{#if tr.run_excluded}
+				<Badge>Run excluded</Badge>
+			{:else if tr.excluded}
+				<Badge>Excluded</Badge>
+			{/if}
+			<span class="min-w-0 text-ink-muted">
+				{runPurpose(tr.mode, tr.colors)}{#if tr.started_at}, {formatDateTime(tr.started_at)}{/if}
+			</span>
+		</div>
+	{/if}
+{/snippet}
+
 <!-- The piece itself: its crops, what the model and the pixels make of its
-     color, and the color reference palette near it -->
+     color, the training run it was seen in, and the color reference palette
+     near it -->
 {#snippet pieceCard()}
 	{#if detail}
 		<Panel title={detail.part.part_name || detail.part.part_id || 'Unidentified'} description={pieceDescription}>
@@ -999,6 +1029,7 @@
 					{/each}
 				</div>
 				{@render guesses()}
+				{@render trainingRun()}
 				<PaletteFrame palette={detail.palette} colors={colorsById} />
 			</div>
 		</Panel>

@@ -61,6 +61,19 @@ def _device_ip(device: str) -> Optional[str]:
     return None
 
 
+def _device_mac(device: str) -> Optional[str]:
+    # The adapter's hardware address, e.g. for allow-listing it on a router.
+    proc = _run("-t", "-f", "GENERAL.HWADDR", "device", "show", device, timeout=6.0)
+    if proc.returncode != 0:
+        return None
+    for line in proc.stdout.splitlines():
+        parts = _split_terse(line)
+        if len(parts) < 2 or not parts[1].strip():
+            continue
+        return parts[1].strip()
+    return None
+
+
 # SorterOS broadcasts its setup network from a second interface on the same
 # radio. It is never a way online, and making it a client can switch the
 # radio off, so it is neither listed nor used here.
@@ -89,6 +102,7 @@ def _wifi_devices() -> List[Dict[str, Any]]:
             # nmcli prints "--" for no active connection.
             "active_ssid": connection if connection and connection != "--" else None,
             "ip": _device_ip(device) if connected else None,
+            "mac": _device_mac(device),
         })
     return devices
 

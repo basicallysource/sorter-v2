@@ -199,7 +199,7 @@ class CollectorCaptureTests(_StateTestCase):
             patcher.start()
             self.addCleanup(patcher.stop)
 
-    def _cycle(self, c_channel_3=None, roles=None) -> dict[str, dict]:
+    def _cycle(self, c_channel_3=None, roles=None, times: int = 1) -> dict[str, dict]:
         config = IRLConfig()
         config.c_channel_2_camera = mkCameraConfig(device_index=0)
         config.c_channel_3_camera = c_channel_3 or mkCameraConfig(device_index=1)
@@ -212,8 +212,14 @@ class CollectorCaptureTests(_StateTestCase):
             device.capture_thread.latest_frame = frame
         # The classification camera is registered under both of its names.
         self.assertEqual(4, len(service.feeds))
-        self.sample_collector.SampleCollector(gc, service)._captureOnce(roles=roles)
+        collector = self.sample_collector.SampleCollector(gc, service)
+        for _ in range(times):
+            collector._captureOnce(roles=roles)
         return {meta["camera"]: meta for _, meta in self.saved}
+
+    def test_a_camera_gives_one_frame_in_two_minutes(self) -> None:
+        self._cycle(times=2)
+        self.assertEqual(3, len(self.saved))
 
     def test_a_calibration_frame_is_the_classification_camera_alone(self) -> None:
         by_role = self._cycle(roles=self.sample_collector._CALIBRATION_ROLES)
@@ -249,7 +255,7 @@ class CollectorScheduleTests(_StateTestCase):
         gc = SimpleNamespace(logger=SimpleNamespace(info=lambda *a: None, warning=lambda *a: None))
         return sample_collector.SampleCollector(gc, None)
 
-    def test_a_training_run_takes_a_calibration_frame_per_segment_and_every_interval(self) -> None:
+    def test_a_training_run_takes_a_calibration_frame_per_segment_and_every_two_minutes(self) -> None:
         collector = self._collector()
         segment = [None]
         with patch("training_runs.openSegment", lambda: segment[0]):
@@ -257,27 +263,45 @@ class CollectorScheduleTests(_StateTestCase):
             segment[0] = ("red", 990.0)
             self.assertEqual(0.0, collector._calibrationWaitS(1000.0))
             collector._calibrated_segment, collector._calibrated_at = "red", 1000.0
-            interval = collector._calibrationWaitS(1000.0)
-            self.assertGreaterEqual(interval, 30.0)
-            self.assertEqual(0.0, collector._calibrationWaitS(1000.0 + interval))
-            segment[0] = ("blue", 1005.0)  # a new color: at once
-            self.assertEqual(0.0, collector._calibrationWaitS(1005.0))
+            collector._captured_at["classification_channel"] = 1000.0
+            self.assertEqual(120.0, collector._calibrationWaitS(1000.0))
+            self.assertEqual(0.0, collector._calibrationWaitS(1120.0))
+            segment[0] = ("blue", 1005.0)  # a new color: as soon as the camera may give a frame
+            self.assertEqual(115.0, collector._calibrationWaitS(1005.0))
+            self.assertEqual(0.0, collector._calibrationWaitS(1120.0))
 
     def test_hive_burst_is_the_fastest_allowed(self) -> None:
         self._targets("a")
-        self.hive_limits.setTargetLimits("a", {"sample_burst_interval_s": 30})
+        self.hive_limits.setTargetLimits("a", {"sample_burst_interval_s": 300})
+        collector = self._collector()
+        collector.setDecayConfig(burst_interval_s=200.0)
+        status = collector.status()
+        self.assertEqual(300.0, status["burst_interval_s"])
+        self.assertEqual(200.0, status["local_settings"]["burst_interval_s"])
+
+    def test_nothing_is_faster_than_two_minutes(self) -> None:
         collector = self._collector()
         collector.setDecayConfig(burst_interval_s=5.0)
-        status = collector.status()
-        self.assertEqual(30.0, status["burst_interval_s"])
-        self.assertEqual(5.0, status["local_settings"]["burst_interval_s"])
+        self.assertEqual(120.0, collector.status()["local_settings"]["burst_interval_s"])
+        collector.setIntervalSeconds(10.0)
+        self.assertEqual(120.0, collector.status()["interval_s"])
+        collector.setDecayConfig(burst_interval_s=None)
+        self.assertEqual(120.0, collector.status()["burst_interval_s"])  # Hive's default, and the floor
+
+    def test_a_faster_saved_setting_is_raised_and_stored(self) -> None:
+        self.local_state.set_sample_collection_state({"enabled": True, "interval_s": 10.0, "burst_interval_s": 30.0})
+        status = self._collector().status()
+        self.assertEqual(120.0, status["interval_s"])
+        self.assertEqual(120.0, status["local_settings"]["burst_interval_s"])
+        saved = self.local_state.get_sample_collection_state()
+        self.assertEqual((120.0, 120.0), (saved["interval_s"], saved["burst_interval_s"]))
 
     def test_slower_local_settings_win_and_null_follows_hive_again(self) -> None:
         collector = self._collector()
-        collector.setDecayConfig(burst_interval_s=60.0)
-        self.assertEqual(60.0, collector.status()["burst_interval_s"])
+        collector.setDecayConfig(burst_interval_s=600.0)
+        self.assertEqual(600.0, collector.status()["burst_interval_s"])
         collector.setDecayConfig(burst_interval_s=None)
-        self.assertEqual(10.0, collector.status()["burst_interval_s"])
+        self.assertEqual(120.0, collector.status()["burst_interval_s"])
 
     def test_values_the_old_version_saved_by_default_follow_hive(self) -> None:
         self.local_state.set_sample_collection_state({"enabled": True, "burst_interval_s": 10.0, "floor_interval_s": 3600.0, "ramp_hours": 72.0})

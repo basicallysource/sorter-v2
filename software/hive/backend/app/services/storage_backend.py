@@ -177,10 +177,18 @@ class S3StorageBackend(StorageBackend):
     # Up to boto3's own multipart threshold a file goes in one PUT.
     SINGLE_PUT_MAX_BYTES = 8 * 1024 * 1024
 
+    # What the store answers an image with: a crop or a frame never changes
+    # under its key, and the URL a page loads it from is kept for half the
+    # signature's life (presigned_get_url), so the browser keeps the bytes and
+    # a second look at a piece reads nothing.
+    IMAGE_CACHE_CONTROL = "private, max-age=86400, immutable"
+
     def write_stream(self, key: str, source: BinaryIO, content_type: str | None = None) -> None:
         extra: dict = {}
         if content_type:
             extra["ContentType"] = content_type
+            if content_type.startswith("image/"):
+                extra["CacheControl"] = self.IMAGE_CACHE_CONTROL
         size = _remaining_bytes(source)
         if size is not None and size <= self.SINGLE_PUT_MAX_BYTES:
             # A crop or a frame (tens to hundreds of KB, several a second)

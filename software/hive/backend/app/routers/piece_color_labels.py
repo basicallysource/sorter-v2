@@ -48,7 +48,7 @@ from app.models.piece_part_label import PiecePartLabel
 from app.models.piece_rejection import PieceRejection
 from app.models.user import User
 from app.schemas.likely_colors import LikelyColorsResponse
-from app.services import color_model_runs, color_rank, likely_colors, piece_palette, training_runs
+from app.services import color_model_runs, color_rank, likely_colors, piece_palette, piece_warm, training_runs
 from app.services.brickognize_feedback import submit_color_feedback, submit_part_feedback
 from app.services.channel_crop_lookup import find_possible_crops
 from app.services import review_queue
@@ -378,8 +378,12 @@ def list_pieces(
         with_palette=with_palette,
         model_sha256=color_model,
     )
+    items = review_queue.piece_cards(db, current_user, rows, model_sha256=color_model)
+    # Work out these pieces' panels in the background, so opening one is a
+    # read of kept rows (services.piece_warm).
+    piece_warm.enqueue_for_page(db, rows)
     return {
-        "items": review_queue.piece_cards(db, current_user, rows, model_sha256=color_model),
+        "items": items,
         "has_more": next_cursor is not None,
         "next_cursor": next_cursor,
         "sort": sort,

@@ -35,6 +35,7 @@ from app import roles
 from app.config import settings
 from app.services import swatch_jobs  # noqa: F401  (registers the swatch_find job kind)
 from app.services import color_model_runs  # noqa: F401  (registers the color_model_run job kind)
+from app.services import piece_warm  # noqa: F401  (registers the piece_warm job kind)
 from app.services import worker_state
 from app.services.condition_worker import get_condition_worker
 from app.services.catalog_tasks import get_catalog_task_runner

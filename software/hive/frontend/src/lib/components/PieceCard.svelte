@@ -20,11 +20,13 @@
 		// Picked for a bulk action: a box on the picture; shift-click picks a range.
 		picked?: boolean;
 		onPick?: (card: ColorLabelPieceCard, range: boolean) => void;
+		// The pointer rests on it (or leaves): the page fetches it ahead.
+		onHover?: (card: ColorLabelPieceCard | null) => void;
 	};
-	let { card, selected = false, id, onOpen, picked = false, onPick }: Props = $props();
+	let { card, selected = false, id, onOpen, picked = false, onPick, onHover }: Props = $props();
 </script>
 
-<div {id}>
+<div {id} role="presentation" onpointerenter={() => onHover?.(card)} onpointerleave={() => onHover?.(null)}>
 	<Card label={card.part.part_name || card.part.part_id || 'Unidentified piece'} onclick={() => onOpen(card)} padded={false} class="overflow-hidden">
 		<!-- The crop is shown whole in a square, on the card's own fill: a crop is
 		     rarely square, and a backdrop would show as bars beside it. -->

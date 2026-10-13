@@ -7,6 +7,7 @@ from typing import Any, Iterator, Optional
 
 import db
 import piece_image_store
+import piece_predictions
 import sync_seq
 
 # Durable per-piece sorting history. Lives in the shared local_state SQLite DB
@@ -127,8 +128,10 @@ def _createTables(conn: sqlite3.Connection) -> None:
         "ON piece_rejection_reasons(reason)"
     )
     # Whether an image is ready to sync depends on its piece's record, so the
-    # image tables are part of this schema.
+    # image tables are part of this schema; a record's training label reads
+    # the piece's predictions, so theirs are too.
     piece_image_store.createTables(conn)
+    piece_predictions._createTables(conn)
     if sync_seq.addColumn(conn, "piece_records"):
         # Verdicts used to travel on their own stream (a correction journal);
         # a record carries its verdict now. Send every corrected record again

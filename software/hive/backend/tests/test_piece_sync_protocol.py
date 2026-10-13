@@ -255,6 +255,40 @@ def test_predictions_sync_and_show_on_the_piece(client, machine_token, test_mach
     assert preds[2]["provider"] == "hive_basically" and preds[2]["model"] == "sha"
 
 
+def test_a_later_runs_predictions_keep_their_source_beside_the_live_ones(client, machine_token, test_machine, catalog):
+    _post(client, machine_token, "piece-records", [_record("lr", 1, sync_seq=1)])
+    images = [{"set": "burst", "seq": 0, "channel": 4}, {"set": "burst", "seq": 2, "channel": 4}]
+    run = {"source": "colorpred-v4 rerun, 13 Oct", "provider": "basically", "model": "f00d",
+           "model_name": "colorpred-v4", "images": images, "created_at": BASE + 60}
+    rows = [
+        # From a sorter older than sources: no source, model name or images.
+        _prediction(1, "lr", "hosted", "color", 0, "11", provider="hive_basically", model="sha", score=0.9, applied=True),
+        _prediction(2, "lr", "colorpred-v4", "color", 0, "85", score=0.8, **run),
+        _prediction(3, "lr", "colorpred-v4", "color", 1, "11", score=0.1, **run),
+        # The same request, kind and rank as a live row, from another run.
+        _prediction(4, "lr", "hosted", "color", 0, "86", score=0.7, source="another run"),
+    ]
+    assert _post(client, machine_token, "piece-predictions", rows) == {"max_local_id": 4, "upserted": 4, "skipped": 0}
+    assert _post(client, machine_token, "piece-predictions", rows)["upserted"] == 4  # a re-send upserts in place
+    s: Session = TestingSessionLocal()
+    try:
+        stored = {(p.source, p.request, p.rank): p for p in s.query(MachinePiecePrediction).all()}
+        assert len(stored) == 4
+        assert stored[("live", "hosted", 0)].images is None
+        assert stored[("colorpred-v4 rerun, 13 Oct", "colorpred-v4", 0)].images == images
+    finally:
+        s.close()
+
+    preds = client.get(f"/api/labeling/piece/{test_machine['id']}/lr").json()["machine_predictions"]
+    assert [(p["source"], p["request"], p["rank"], p["value_id"]) for p in preds] == [
+        ("live", "hosted", 0, "11"),
+        ("another run", "hosted", 0, "86"),
+        ("colorpred-v4 rerun, 13 Oct", "colorpred-v4", 0, "85"),
+        ("colorpred-v4 rerun, 13 Oct", "colorpred-v4", 1, "11"),
+    ]
+    assert (preds[2]["model_name"], preds[2]["model"], preds[2]["images"]) == ("colorpred-v4", "f00d", images)
+
+
 def test_hive_feedback_lives_on_the_labelers_rows_not_the_machines(
     client, machine_token, test_machine, auth_headers, catalog, monkeypatch
 ):

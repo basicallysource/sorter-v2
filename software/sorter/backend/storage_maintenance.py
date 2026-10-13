@@ -10,8 +10,9 @@ One thread, hourly (the first pass a few minutes after start):
   totals count from a record is folded into rollups first (piece_records.
   foldIntoRollup, sorting_runs.foldPieces), so overview numbers, charts, value,
   runs and lots stay the same.
-- Rows that never had a record: predictions and images of pieces that were
-  never recorded (torn down mid-classification), by age, once sent.
+- Rows that never had a record: predictions (their answers, then requests
+  left with none) and images of pieces that were never recorded (torn down
+  mid-classification), by age, once sent.
 - piece_cycles and held_pieces after their own 60 days.
 - Tombstones: crop, sample and control-data rows whose file retention already
   removed, by age, once every target has them.
@@ -142,7 +143,10 @@ def prunePieceHistory(cutoff: float, confirmed: Optional[dict[str, Optional[int]
             if ids:
                 sorting_runs.foldPieces(conn, ids)
                 piece_records.foldIntoRollup(conn, ids)
-                for table in ("piece_rejection_reasons", "piece_predictions", "piece_images", "piece_link_images"):
+                for table in (
+                    "piece_rejection_reasons", "piece_predictions", "piece_prediction_requests",
+                    "piece_images", "piece_link_images",
+                ):
                     conn.execute(f"DELETE FROM {table} WHERE piece_uuid IN ({_placeholders(gone)})", gone)
                 conn.execute(f"DELETE FROM piece_records WHERE id IN ({_placeholders(ids)})", ids)
             conn.commit()
@@ -206,6 +210,19 @@ def _withoutRecord(conn: sqlite3.Connection, rows: list[sqlite3.Row]) -> list[sq
     return [r for r in rows if str(r["piece_uuid"]) not in recorded]
 
 
+def _withoutAnswers(conn: sqlite3.Connection, rows: list[sqlite3.Row]) -> list[sqlite3.Row]:
+    if not rows:
+        return []
+    ids = [int(r["id"]) for r in rows]
+    answered = {
+        int(r[0])
+        for r in conn.execute(
+            f"SELECT DISTINCT request_id FROM piece_predictions WHERE request_id IN ({_placeholders(ids)})", ids
+        ).fetchall()
+    }
+    return [r for r in rows if int(r["id"]) not in answered]
+
+
 def pruneUnrecorded(cutoff: float, confirmed: Optional[dict[str, Optional[int]]]) -> int:
     """Remove what pieces that never got a record left behind, by age: their
     predictions once sent, their images (which never sync), and every old
@@ -218,6 +235,13 @@ def pruneUnrecorded(cutoff: float, confirmed: Optional[dict[str, Optional[int]]]
             cutoff=cutoff,
             columns="piece_uuid",
             goes=lambda conn, old: _withoutRecord(conn, [r for r in old if int(r["id"]) <= predictions_wm]),
+        )
+        # The requests those answers were under, once none is left.
+        deleted += _sweepOldRows(
+            "piece_prediction_requests",
+            cutoff=cutoff,
+            columns="piece_uuid",
+            goes=_withoutAnswers,
         )
     # Images wait for their record; those still waiting this old never get one.
     with _connection() as conn:

@@ -1,7 +1,7 @@
 import base64
 import threading
 import time
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Optional
 
 import cv2
@@ -57,6 +57,28 @@ class _ClassifyRequest:
     strategy: ClassificationAttemptStrategy
     label: str
     images: list[_SendImage]
+    # Where each image sits in the piece's stored sets (see _imageRefs), kept
+    # with the request's predictions.
+    image_refs: list[dict] = field(default_factory=list)
+
+
+def _imageRefs(obj, images: list[_SendImage]) -> list[dict]:
+    """The piece's stored images among `images`, as piece_predictions keeps
+    them: {"set": "burst" | "link", "seq", "channel"}, seq being the image's
+    place in recognition_image_set (piece_images' seq) or link_match_image_set
+    (piece_link_images' seq)."""
+    if obj is None:
+        return []
+    burst = {id(r): seq for seq, r in enumerate(obj.recognition_image_set or [])}
+    link = {id(r): seq for seq, r in enumerate(obj.link_match_image_set or [])}
+    refs: list[dict] = []
+    for s in images:
+        if id(s.rec) in burst:
+            channel = s.rec.channel if s.rec.channel is not None else (4 if s.rec.source == "c4_burst" else None)
+            refs.append({"set": piece_predictions.IMAGE_SET_BURST, "seq": burst[id(s.rec)], "channel": channel})
+        elif id(s.rec) in link:
+            refs.append({"set": piece_predictions.IMAGE_SET_LINK, "seq": link[id(s.rec)], "channel": s.rec.channel})
+    return refs
 
 
 class Rev01BaseState(BaseState):
@@ -283,7 +305,11 @@ class Rev01BaseState(BaseState):
                 # Brickognize fan-out rather than after it, so choosing it costs
                 # no extra wall-clock unless it is slower than Brickognize.
                 hosted_color = self._maybeStartHostedColorPredict(sendable, piece_uuid)
+                if hosted_color is not None:
+                    hosted_color["images"] = _imageRefs(obj, sendable)
                 requests = self._buildClassifyRequests(sendable)
+                for req in requests:
+                    req.image_refs = _imageRefs(obj, req.images)
                 self._runClassifyRequests(requests, piece_uuid, hosted_color)
             except Exception as exc:
                 with self.ctx.classify_lock:
@@ -412,6 +438,7 @@ class Rev01BaseState(BaseState):
         # recorded as brickognize-sourced, so the stored provenance always
         # reflects what really produced the color rather than what was configured.
         self.ctx.hosted_prediction = None
+        self.ctx.hosted_images = None
         if hosted_color is None:
             self.ctx.color_provider = COLOR_PROVIDER_BRICKOGNIZE
             self.ctx.hosted_color = None
@@ -438,6 +465,7 @@ class Rev01BaseState(BaseState):
         # Hive returns BrickLink color ids as ints; the sorting profile (and
         # Brickognize) key on the same ids as strings.
         self.ctx.hosted_prediction = result
+        self.ctx.hosted_images = hosted_color.get("images")
         self.ctx.color_provider = COLOR_PROVIDER_HIVE_BASICALLY
         self.ctx.hosted_color = (str(color_id), str(color_name))
         self.ctx.hosted_color_confidence = (
@@ -514,6 +542,7 @@ class Rev01BaseState(BaseState):
                     colors=[
                         {k: color.get(k) for k in ("id", "name", "score", "rank")} for color in colors
                     ],
+                    images=list(req.image_refs),
                     error=error,
                     duration_s=dur,
                     image_ts=[
@@ -725,9 +754,10 @@ class Rev01BaseState(BaseState):
     def _recordPredictions(self, obj) -> None:
         # Every ranked answer this piece got, applied or not, kept and sent to
         # Hive. Runs on the control loop, so the write goes to the writer thread.
-        rows = piece_predictions.fromClassification(
+        predictions = piece_predictions.fromClassification(
             attempts=obj.classification_attempts,
             hosted=self.ctx.hosted_prediction,
+            hosted_images=self.ctx.hosted_images,
             applied_part=(
                 (str(obj.part_id), obj.brickognize_item_rank) if obj.part_id is not None else None
             ),
@@ -738,12 +768,12 @@ class Rev01BaseState(BaseState):
             ),
             created_at=obj.classified_at,
         )
-        if not rows:
+        if not predictions:
             return
-        piece_predictions.remember(obj.uuid, rows)
+        piece_predictions.remember(obj.uuid, predictions)
         db.defer(
             f"piece predictions {obj.uuid[:8]}",
-            lambda: piece_predictions.recordPredictions(obj.uuid, rows),
+            lambda: piece_predictions.recordPredictions(obj.uuid, predictions),
         )
 
     def _gatherLinkMatches(

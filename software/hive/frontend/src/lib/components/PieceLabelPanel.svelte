@@ -174,8 +174,9 @@
 
 	// Every answer for the piece's color, to step through: each color model's
 	// stored answer (the active model first, then newest first), the active
-	// model's own guess when it has none stored yet, and what the machine's
-	// predictors said (Brickognize's, each request's first color).
+	// model's own guess when it has none stored yet, what the machine's
+	// predictors said while sorting (Brickognize's, each request's first
+	// color), and each later run over the machine's images, by its label.
 	type ColorAnswer = {
 		key: string;
 		label: string;
@@ -216,6 +217,20 @@
 			if (p.kind !== 'color' || p.rank !== 0) continue;
 			const id = /^\d+$/.test(p.value_id) ? Number(p.value_id) : null;
 			const known = id != null ? colorsById.get(id) : undefined;
+			if ((p.source ?? 'live') !== 'live') {
+				// A later run over the piece's images, named by its label.
+				const crops = p.images?.length;
+				out.push({
+					key: `run|${p.source}|${p.request}`,
+					label: p.source,
+					title: `${p.model_name ?? p.request}, run later on the sorter's images${crops != null ? ` (${crops} crop${crops === 1 ? '' : 's'})` : ''}`,
+					color_id: id,
+					color_name: p.value_name ?? known?.name ?? p.value_id,
+					rgb: known?.rgb ?? null,
+					confidence: p.score
+				});
+				continue;
+			}
 			// Named after whoever answered: Brickognize, or the hosted model the sorter asked.
 			const who =
 				p.provider === 'brickognize'

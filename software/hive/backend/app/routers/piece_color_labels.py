@@ -38,7 +38,7 @@ from app.models.machine import Machine
 from app.models.machine_channel_crop import MachineChannelCrop
 from app.models.machine_piece import MachinePiece
 from app.models.machine_piece_image import MachinePieceImage
-from app.models.machine_piece_prediction import MachinePiecePrediction
+from app.models.machine_piece_prediction import SOURCE_LIVE, MachinePiecePrediction
 from app.models.machine_piece_rejection_reason import MachinePieceRejectionReason
 from app.models.piece_color_label import PieceColorLabel
 from app.models.piece_crop_ai_prediction import PieceCropAiPrediction
@@ -476,7 +476,15 @@ def piece_detail(
             MachinePiecePrediction.machine_id == machine_id,
             MachinePiecePrediction.piece_uuid == piece_uuid,
         )
-        .order_by(MachinePiecePrediction.kind, MachinePiecePrediction.request, MachinePiecePrediction.rank)
+        .order_by(
+            MachinePiecePrediction.kind,
+            # The machine's own predictions first, then later runs, oldest first.
+            MachinePiecePrediction.source != SOURCE_LIVE,
+            MachinePiecePrediction.predicted_at,
+            MachinePiecePrediction.source,
+            MachinePiecePrediction.request,
+            MachinePiecePrediction.rank,
+        )
         .all()
     )
     # This user's per-image quality flags for these crops, keyed by seq.
@@ -578,10 +586,13 @@ def piece_detail(
             "color_provider": piece.color_provider,
             "color_provider_label": _color_provider_label(piece, machine_predictions, model_names),
         },
-        # Every ranked part and colour answer the machine got for the piece
-        # (each request's, applied or not), ordered by kind, request, rank.
+        # Every ranked part and colour answer the piece got on its machine
+        # (each request's, applied or not), from every source: the machine's
+        # own while sorting ("live") first, then later runs over its images.
+        # Ordered by kind, source, request, rank.
         "machine_predictions": [
             {
+                "source": p.source,
                 "request": p.request,
                 "provider": p.provider,
                 "model": p.model,
@@ -591,7 +602,10 @@ def piece_detail(
                 "value_name": p.value_name,
                 "score": p.score,
                 "applied": bool(p.applied),
-                "model_name": model_names.get(p.model) if p.model else None,
+                # The registry's name for the model, else the name the machine sent.
+                "model_name": (model_names.get(p.model) if p.model else None) or p.model_name,
+                "images": p.images,
+                "predicted_at": p.predicted_at.isoformat() if p.predicted_at else None,
             }
             for p in machine_predictions
         ],

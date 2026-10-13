@@ -9,6 +9,7 @@
 	import PieceStatusBadge from '$lib/components/PieceStatusBadge.svelte';
 	import ReclassifyPanel from '$lib/components/ReclassifyPanel.svelte';
 	import PieceInfoCard from '$lib/components/pieces/PieceInfoCard.svelte';
+	import PiecePredictions from '$lib/components/pieces/PiecePredictions.svelte';
 	import Alert from '$lib/components/ui/Alert.svelte';
 	import Badge from '$lib/components/ui/Badge.svelte';
 	import Button from '$lib/components/ui/Button.svelte';
@@ -29,13 +30,22 @@
 	import { getMachineContext } from '$lib/machines/context';
 	import { getBackendHttpBase, machineHttpBaseUrlFromWsUrl } from '$lib/backend';
 	import type { KnownObjectData, ClassificationAttempt } from '$lib/api/events';
-	import { pieceStore, type PieceDetailEnvelope, type PieceSummary } from '$lib/pieces';
+	import {
+		fetchLegoColors,
+		pieceStore,
+		type PieceDetailEnvelope,
+		type PiecePrediction,
+		type PieceSummary,
+		type PredictionImage
+	} from '$lib/pieces';
 	import { sortingProfileStore } from '$lib/stores/sortingProfile.svelte';
 
 
 	const ctx = getMachineContext();
 	onMount(() => {
 		void sortingProfileStore.load();
+		// The color swatches beside predicted colors.
+		void fetchLegoColors(effectiveBase()).catch(() => {});
 	});
 
 	function effectiveBase(): string {
@@ -67,6 +77,8 @@
 	);
 	let _diskSummary = $state<PieceSummary | null>(null);
 	let _diskImages = $state<DisplayImage[]>([]);
+	// Every prediction made for the piece, from every source.
+	let _predictions = $state<PiecePrediction[]>([]);
 
 	let _refetchedForUpdatedAt = 0;
 	let _refetchTimer: ReturnType<typeof setTimeout> | null = null;
@@ -85,6 +97,7 @@
 		_fetchedPiece = null;
 		_diskSummary = null;
 		_diskImages = [];
+		_predictions = [];
 		_refetchedForUpdatedAt = 0;
 		if (_refetchTimer !== null) {
 			clearTimeout(_refetchTimer);
@@ -120,6 +133,7 @@
 				}
 				const env = (await res.json()) as PieceDetailEnvelope;
 				if (targetUuid !== uuid) return;
+				_predictions = env.predictions ?? [];
 				if (env.detail_available && env.detail) {
 					_fetchedPiece = env.detail;
 					_fetchStatus = 'ok';
@@ -142,6 +156,18 @@
 	});
 
 	let piece = $derived(_stickyPiece ?? _fetchedPiece);
+
+	// A predicted-from image, from the piece in memory or the images on disk;
+	// null once it has aged out.
+	function predictionImageSrc(image: PredictionImage): string | null {
+		const link = image.set === 'link';
+		if (_fetchedPiece) {
+			const set = link ? _fetchedPiece.link_match_image_set : _fetchedPiece.recognition_image_set;
+			return dataImageUrl(set?.[image.seq]?.image);
+		}
+		const hit = _diskImages.find((d) => (d.source === 'link_match') === link && d.seq === image.seq);
+		return hit?.src ?? null;
+	}
 
 	// The detail fetch is one-shot per UUID, but a LIVE piece keeps evolving
 	// after the page opens: the burst grows, classification lands, used flags
@@ -763,6 +789,14 @@
 					/>
 				</section>
 
+				{#if _predictions.length > 0}
+					<PiecePredictions
+						predictions={_predictions}
+						imageSrc={predictionImageSrc}
+						onZoom={(src, label) => (zoomImage = { src, label })}
+					/>
+				{/if}
+
 				{#if diskThumbs.length > 0}
 					<Panel title="Stored images" description="{diskThumbs.length} on disk.">
 						<PieceThumbGrid
@@ -1033,6 +1067,14 @@
 						{/each}
 					</ul>
 				</Panel>
+			{/if}
+
+			{#if _predictions.length > 0}
+				<PiecePredictions
+					predictions={_predictions}
+					imageSrc={predictionImageSrc}
+					onZoom={(src, label) => (zoomImage = { src, label })}
+				/>
 			{/if}
 
 			{#snippet cropOverlay(item: Thumb<CropEntry>)}

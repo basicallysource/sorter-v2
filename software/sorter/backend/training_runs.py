@@ -43,6 +43,10 @@ SOURCE_NEAREST = "nearest"
 RUNS_LISTED = 100
 
 _lock = threading.Lock()
+# The setting as last read or saved, for the distribution loop, which must not
+# wait on the database: None until something reads it.
+_config: Optional[dict[str, Any]] = None
+_UNSET: Any = object()
 
 
 class TrainingError(Exception):
@@ -97,7 +101,24 @@ def _normalizeConfig(raw: Any) -> dict[str, Any]:
     state = raw if isinstance(raw, dict) else {}
     mode = state.get("mode") if state.get("mode") in MODES else MODE_COLOR
     color_ids = [str(c) for c in state.get("color_ids") or [] if _isColorId(c)]
-    return {"enabled": bool(state.get("enabled")), "mode": mode, "color_ids": _unique(color_ids)}
+    return {
+        "enabled": bool(state.get("enabled")),
+        "mode": mode,
+        "color_ids": _unique(color_ids),
+        "bin": _normalizeBin(state.get("bin")),
+    }
+
+
+def _normalizeBin(raw: Any) -> Optional[dict[str, int]]:
+    # The one bin every piece goes to while training mode is on, the chute
+    # staying put; None routes pieces by the sorting profile as usual.
+    if not isinstance(raw, dict):
+        return None
+    try:
+        out = {key: int(raw[key]) for key in ("layer", "section", "bin")}
+    except (KeyError, TypeError, ValueError):
+        return None
+    return out if min(out.values()) >= 0 else None
 
 
 def _isColorId(value: Any) -> bool:
@@ -110,7 +131,18 @@ def _unique(values: list[str]) -> list[str]:
 
 
 def getConfig() -> dict[str, Any]:
-    return _normalizeConfig(local_state.get_training_mode_state())
+    global _config
+    _config = _normalizeConfig(local_state.get_training_mode_state())
+    return dict(_config)
+
+
+def fixedBin() -> Optional[tuple[int, int, int]]:
+    """(layer, section, bin) every piece goes to now, or None. Reads no
+    database: the setting as last read or saved."""
+    config = _config
+    if not config or not config["enabled"] or config["bin"] is None:
+        return None
+    return config["bin"]["layer"], config["bin"]["section"], config["bin"]["bin"]
 
 
 def setConfig(
@@ -118,8 +150,10 @@ def setConfig(
     enabled: Optional[bool] = None,
     mode: Optional[str] = None,
     color_ids: Optional[list[Any]] = None,
+    bin: Any = _UNSET,
     running: bool,
 ) -> dict[str, Any]:
+    global _config
     with _lock:
         current = getConfig()
         updated = dict(current)
@@ -133,10 +167,15 @@ def setConfig(
             updated["color_ids"] = _unique([str(c) for c in color_ids])
         if enabled is not None:
             updated["enabled"] = bool(enabled)
+        if bin is not _UNSET:
+            updated["bin"] = _normalizeBin(bin)
+            if bin is not None and updated["bin"] is None:
+                raise TrainingError(400, "A bin is its layer, section and bin numbers")
         changes_run = updated["color_ids"] != current["color_ids"] or updated["mode"] != current["mode"]
         if changes_run and openRun() is not None:
             raise TrainingError(409, "Pause the machine to change the colors")
         local_state.set_training_mode_state(updated)
+        _config = dict(updated)
         _reconcileLocked(running, time.time())
         return updated
 

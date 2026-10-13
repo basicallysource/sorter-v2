@@ -190,9 +190,11 @@ class Positioning(BaseState):
                 self._setOccupancyState("positioning.passthrough_loose_piece")
                 return DistributionState.READY
 
-            address, _ = self._findOrAssignBinForCategory(
-                category_id, not_in_inventory=route_not_in_inventory
-            )
+            address = self._trainingBinAddress()
+            if address is None:
+                address, _ = self._findOrAssignBinForCategory(
+                    category_id, not_in_inventory=route_not_in_inventory
+                )
             if address is None and self._servo_bus_pause_enqueued:
                 # Fatal: the servo bus is offline, so every layer is
                 # unusable. ``_findOrAssignBinForCategory`` already set
@@ -732,6 +734,36 @@ class Positioning(BaseState):
             f"opened parked layers {opened_layers}"
         )
         return True
+
+    def _trainingBinAddress(self) -> Optional[BinAddress]:
+        # Training mode can hold every piece to one bin (training_runs), the
+        # chute staying where it is. A bin this layout cannot use routes by the
+        # sorting profile instead, said once per bin.
+        import training_runs
+
+        fixed = training_runs.fixedBin()
+        if fixed is None:
+            return None
+        layer_idx, section_idx, bin_idx = fixed
+        address = BinAddress(layer_idx, section_idx, bin_idx)
+        usable = False
+        if layer_idx < len(self.layout.layers):
+            layer = self.layout.layers[layer_idx]
+            if section_idx < len(layer.sections) and bin_idx < len(layer.sections[section_idx].bins):
+                usable = (
+                    getattr(layer, "enabled", True)
+                    and getattr(layer.sections[section_idx], "enabled", True)
+                    and self._isLayerUsable(layer_idx)
+                    and self.chute.isBinReachable(address)
+                )
+        if not usable:
+            if getattr(self, "_training_bin_warned", None) != fixed:
+                self._training_bin_warned = fixed
+                self.logger.warning(
+                    f"Positioning: training mode's bin {fixed} cannot be used here — routing by the profile"
+                )
+            return None
+        return address
 
     def _findOrAssignBinForCategory(
         self, category_id: str, not_in_inventory: bool = False

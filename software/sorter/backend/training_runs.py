@@ -44,6 +44,9 @@ _lock = threading.Lock()
 # The setting as last read or saved, for the distribution loop, which must not
 # wait on the database: None until something reads it.
 _config: Optional[dict[str, Any]] = None
+# The open segment (uuid, started_at), for the sample collector, which
+# captures a calibration frame as each one starts: None while no run is open.
+_open_segment: Optional[tuple[str, float]] = None
 _UNSET: Any = object()
 
 
@@ -153,7 +156,23 @@ def _unique(values: list[str]) -> list[str]:
 def getConfig() -> dict[str, Any]:
     global _config
     _config = _normalizeConfig(local_state.get_training_mode_state())
+    _noteOpenSegment()
     return dict(_config)
+
+
+def _noteOpenSegment() -> None:
+    global _open_segment
+    with _connection() as conn:
+        row = conn.execute(
+            "SELECT uuid, started_at FROM training_segments WHERE ended_at IS NULL ORDER BY started_at DESC LIMIT 1"
+        ).fetchone()
+    _open_segment = (str(row["uuid"]), float(row["started_at"])) if row is not None else None
+
+
+def openSegment() -> Optional[tuple[str, float]]:
+    """(uuid, started_at) of the segment collecting now, or None. Reads no
+    database."""
+    return _open_segment
 
 
 def loadSoon() -> None:
@@ -211,6 +230,7 @@ def setConfig(
             local_state.write_training_mode_state(conn, updated)
             conn.commit()
         _config = dict(updated)
+        _noteOpenSegment()
         return updated
 
 
@@ -236,6 +256,7 @@ def startRun() -> dict[str, Any]:
             )
             _startSegment(conn, run_uuid, config["color_ids"], now)
             conn.commit()
+        _noteOpenSegment()
     return getRun(run_uuid)
 
 
@@ -247,6 +268,7 @@ def endRun(run_id: str) -> Optional[dict[str, Any]]:
                 return None
             _endRun(conn, run_id, time.time())
             conn.commit()
+        _noteOpenSegment()
     return getRun(run_id)
 
 

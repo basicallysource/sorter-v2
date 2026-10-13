@@ -4,19 +4,24 @@ from datetime import datetime, timezone
 from sqlalchemy import BigInteger, Boolean, Column, DateTime, Float, ForeignKey, Integer, String, UniqueConstraint
 from sqlalchemy.dialects.postgresql import UUID
 
-from app.models import Base
+from app.models import JSON_VARIANT, Base
+
+# The source of the predictions a machine made while sorting; any other source
+# is a later run over the piece's stored images, by its label.
+SOURCE_LIVE = "live"
 
 
 class MachinePiecePrediction(Base):
-    """One ranked answer the machine got for a piece, kept as the machine
-    stored it: each classification request's parts and colours with their
-    scores (Brickognize's combined and single-burst requests, the hosted colour
-    model's top three), applied or not. `applied` marks the one part and the
-    one colour the piece took.
+    """One ranked answer a piece got, kept as the machine stored it, from any
+    source: the machine's own classification while sorting (`source` "live":
+    each Brickognize request's parts and colours with their scores, the
+    hosted colour model's top three; `applied` marks the one part and the one
+    colour the piece took) or a later run of a model over the piece's stored
+    images, by the run's label (e.g. "colorpred-v4 rerun, 13 Oct").
 
     Synced from the machine's piece_predictions table (data type
     piece_predictions, cursor local_id). Rows never change on the machine;
-    re-sends upsert by (machine, piece, request, kind, rank).
+    re-sends upsert by (machine, piece, source, request, kind, rank).
     """
 
     __tablename__ = "machine_piece_predictions"
@@ -26,12 +31,22 @@ class MachinePiecePrediction(Base):
     piece_uuid = Column(String, nullable=False)
     # The machine's piece_predictions id: the sync cursor.
     local_id = Column(BigInteger, nullable=False)
-    # combined / single_burst (a Brickognize request's label) or hosted.
+    # "live", or a later run's label. Sorters older than sources send none:
+    # theirs are all live.
+    source = Column(String, nullable=False, default=SOURCE_LIVE, server_default=SOURCE_LIVE)
+    # Which of the source's requests: combined / single_burst (a Brickognize
+    # request's label) or hosted, live; a later run's model name.
     request = Column(String, nullable=False)
-    # brickognize / hive_basically.
+    # brickognize / hive_basically / the provider a later run names.
     provider = Column(String, nullable=False)
-    # The model's identity when the provider reports one (the hosted model's sha256).
+    # The model's identity when there is one (its sha256).
     model = Column(String, nullable=True)
+    # The model's name as the machine knew it (None from older sorters).
+    model_name = Column(String, nullable=True)
+    # The piece's images the prediction was made from, as the machine keeps
+    # them: [{"set": "burst" | "link", "seq", "channel"}], "burst" seqs being
+    # machine_piece_images seqs. None when not recorded.
+    images = Column(JSON_VARIANT, nullable=True)
     # part / color.
     kind = Column(String, nullable=False)
     # 0-based, in the provider's own order (Brickognize's rank in its response).
@@ -48,7 +63,7 @@ class MachinePiecePrediction(Base):
     __table_args__ = (
         # Also serves every lookup of one piece's predictions (its leading columns).
         UniqueConstraint(
-            "machine_id", "piece_uuid", "request", "kind", "rank",
-            name="uq_machine_piece_predictions_piece_request_kind_rank",
+            "machine_id", "piece_uuid", "source", "request", "kind", "rank",
+            name="uq_machine_piece_predictions_piece_source_request_kind_rank",
         ),
     )

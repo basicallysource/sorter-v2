@@ -44,6 +44,10 @@ What matters for query plans, and so is shaped like production:
   * The three busiest machines ran colour training runs of about an hour
     every few days over the last month, one still collecting; the pieces they
     saw then carry the run's colour labels.
+  * Four colour models are registered, the newest active, and every one has
+    answered the pieces with the palette near them on the busiest machine and
+    a twentieth of the other machines' newest pieces (``piece_model_colors``),
+    the confidences spread as a model's are: most pieces sure, a tail unsure.
 """
 
 from __future__ import annotations
@@ -679,6 +683,41 @@ class Seeder:
             what="training run counts",
         )
 
+    def color_model_answers(self) -> None:
+        """Four colour models, the newest active, and their answers: every
+        queued piece of the busiest machine with the palette near it, and one
+        in twenty of the other machines' pieces of the last 30 days, each
+        model as sure as a softmax tends to be (most near 1, a long tail)."""
+        self.run(
+            """
+            INSERT INTO color_models (id, filename, name, description, kind, sha256, class_count, input_size, file_size,
+                                      meta, is_active, created_at, updated_at)
+            SELECT md5('color-model:' || v)::uuid, 'colorpred-' || name || '.onnx', 'colorpred-' || name, NULL,
+                   'color_classifier', md5('color-model-sha:' || v) || md5('color-model-sha2:' || v), 80, 128, 9000000,
+                   '{}'::jsonb, v = 4, now() - (5 - v) * interval '20 days', now() - (5 - v) * interval '20 days'
+            FROM (VALUES (1, 'v1'), (2, 'mv-v1'), (3, 'v2'), (4, 'v3')) m(v, name)
+            """,
+            what="colour models",
+        )
+        self.load(
+            "piece_model_colors",
+            """
+            INSERT INTO piece_model_colors (machine_id, piece_uuid, model_sha256, model_name, color_id, confidence, top,
+                                            seqs, created_at)
+            SELECT q.machine_id, q.piece_uuid, cm.sha256, cm.name, p.color_id::int,
+                   1 - power(pg_temp.rnd(p.local_id, 150 + v.v), 3) * 0.85,
+                   jsonb_build_array(jsonb_build_object('color_id', p.color_id::int, 'confidence', 0.9)),
+                   '[0]'::jsonb, now() - (5 - v.v) * interval '5 days'
+            FROM labeling_queue q
+            JOIN machine_pieces p USING (machine_id, piece_uuid)
+            CROSS JOIN (VALUES (1), (2), (3), (4)) v(v)
+            JOIN color_models cm ON cm.id = md5('color-model:' || v.v)::uuid
+            WHERE p.color_id ~ '^[0-9]+$'
+              AND ((q.machine_id = md5('machine:1')::uuid AND q.has_palette)
+                   OR (q.arrival_at > now() - interval '30 days' AND pg_temp.rnd(p.local_id, 149) < 0.05))
+            """,
+        )
+
     def labels(self) -> None:
         """Human work, written a piece at a time: about 4,000 colour labels on
         2,500 pieces, 1,000 same-piece crop links, 1,200 part labels, 300
@@ -879,6 +918,7 @@ def main() -> None:
     seeder.training_runs()
     seeder.swatches()
     seeder.worker_passes()
+    seeder.color_model_answers()
     seeder.labels()
     seeder.vacuum()
     conn.close()

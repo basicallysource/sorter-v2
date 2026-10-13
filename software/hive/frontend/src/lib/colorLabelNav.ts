@@ -1,7 +1,14 @@
 // The Piece samples list: its filters in the URL, and the queue the grid and
 // the labeling pane step through (lib/reviewQueue).
 
-import { api, type BrickLinkColor, type ColorLabelPieceCard, type ColorLabelSort, type Machine } from '$lib/api';
+import {
+	api,
+	type BrickLinkColor,
+	type ColorLabelPieceCard,
+	type ColorLabelSort,
+	type ColorModelChoice,
+	type Machine
+} from '$lib/api';
 import { queueFor, readMachines, writeMachines, type ReviewQueue } from '$lib/reviewQueue.svelte';
 
 export type PieceKey = { machine_id: string; piece_uuid: string };
@@ -34,12 +41,30 @@ export async function getMachinesCached(): Promise<Machine[]> {
 	return machinesCache;
 }
 
+// The colour models change only when one is copied to the server; cached for the session.
+let colorModelsCache: Promise<ColorModelChoice[]> | null = null;
+
+export function getColorModels(): Promise<ColorModelChoice[]> {
+	colorModelsCache ??= api
+		.colorModelChoices()
+		.then((r) => r.models)
+		.catch((e) => {
+			colorModelsCache = null;
+			throw e;
+		});
+	return colorModelsCache;
+}
+
+export const MODEL_SORTS: ColorLabelSort[] = ['least_sure', 'surest'];
+
 export type PieceFilters = {
 	sort: ColorLabelSort;
 	machineIds: string[];
 	withCandidates: boolean;
 	// Only pieces with the colour reference palette in view near them.
 	withPalette: boolean;
+	// A colour model's sha256: its answer on every card, and what a model sort is by.
+	colorModel: string | null;
 };
 
 const SORT_VALUES: ColorLabelSort[] = [
@@ -51,7 +76,9 @@ const SORT_VALUES: ColorLabelSort[] = [
 	'least_crop',
 	'most_crop',
 	'rare_color',
-	'needs_me'
+	'needs_me',
+	'least_sure',
+	'surest'
 ];
 
 // Filters ↔ URL query params, so a shared or reloaded link shows the same list.
@@ -60,7 +87,9 @@ export function filtersToSearch(f: PieceFilters, sp = new URLSearchParams()): UR
 	sp.delete('sort');
 	sp.delete('candidates');
 	sp.delete('palette');
+	sp.delete('model');
 	if (f.sort !== 'priority') sp.set('sort', f.sort);
+	if (f.colorModel) sp.set('model', f.colorModel);
 	writeMachines(sp, f.machineIds);
 	if (!f.withCandidates) sp.set('candidates', '0');
 	if (f.withPalette) sp.set('palette', '1');
@@ -73,12 +102,13 @@ export function filtersFromSearch(sp: URLSearchParams): PieceFilters {
 		sort: SORT_VALUES.includes(rawSort as ColorLabelSort) ? (rawSort as ColorLabelSort) : 'priority',
 		machineIds: readMachines(sp),
 		withCandidates: sp.get('candidates') !== '0',
-		withPalette: sp.get('palette') === '1'
+		withPalette: sp.get('palette') === '1',
+		colorModel: sp.get('model') || null
 	};
 }
 
 export function filtersKey(f: PieceFilters): string {
-	return `${f.sort}|${[...f.machineIds].sort().join(',')}|${f.withCandidates ? 1 : 0}|${f.withPalette ? 1 : 0}`;
+	return `${f.sort}|${[...f.machineIds].sort().join(',')}|${f.withCandidates ? 1 : 0}|${f.withPalette ? 1 : 0}|${f.colorModel ?? ''}`;
 }
 
 // The queue for these filters, shared by the grid and the pane for the session.
@@ -91,6 +121,7 @@ export function pieceQueue(f: PieceFilters): ReviewQueue<ColorLabelPieceCard> {
 				machineIds: f.machineIds,
 				withCandidates: f.withCandidates,
 				withPalette: f.withPalette,
+				colorModel: f.colorModel,
 				limit: 60,
 				cursor
 			})

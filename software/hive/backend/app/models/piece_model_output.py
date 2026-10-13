@@ -1,6 +1,6 @@
 from datetime import datetime, timezone
 
-from sqlalchemy import Column, DateTime, ForeignKeyConstraint, String
+from sqlalchemy import Column, DateTime, Float, ForeignKeyConstraint, Index, Integer, String
 from sqlalchemy.dialects.postgresql import UUID
 
 from app.models import JSON_VARIANT, Base
@@ -63,4 +63,44 @@ class PieceColorGuess(Base):
             ondelete="CASCADE",
             name="fk_piece_color_guesses_piece",
         ),
+    )
+
+
+class PieceModelColor(Base):
+    """One colour model's answer for a piece: its top colour, how sure it is,
+    and its top three. Every model in COLOR_MODEL_DIR is run over the pieces
+    a backfill names (the ``color_model_run`` job, services/color_model_runs.py),
+    and each answer is kept by the model file's sha256, so an older model's
+    answers stay beside a newer one's.
+
+    Kept for sorting: the piece grid's "by a model's confidence" sorts walk
+    ``ix_piece_model_colors_confidence`` (every machine) or
+    ``..._machine_confidence`` (one machine), a page at a time. ``color_id``
+    is a BrickLink id; ``top`` holds ``{color_id, confidence}`` best first;
+    ``seqs`` the crops it read (the same ones as the piece's colour guess).
+    """
+
+    __tablename__ = "piece_model_colors"
+
+    machine_id = Column(UUID(as_uuid=True), primary_key=True)
+    piece_uuid = Column(String, primary_key=True)
+    model_sha256 = Column(String(64), primary_key=True)
+    # The model's registry name when it ran ("colorpred-v3"): a file removed
+    # from the folder leaves its answers, and their name, behind.
+    model_name = Column(String, nullable=False)
+    color_id = Column(Integer, nullable=False)
+    confidence = Column(Float, nullable=False)
+    top = Column(JSON_VARIANT, nullable=False, default=list)
+    seqs = Column(JSON_VARIANT, nullable=False, default=list)
+    created_at = Column(DateTime(timezone=True), nullable=False, default=lambda: datetime.now(timezone.utc))
+
+    __table_args__ = (
+        ForeignKeyConstraint(
+            ["machine_id", "piece_uuid"],
+            ["machine_pieces.machine_id", "machine_pieces.piece_uuid"],
+            ondelete="CASCADE",
+            name="fk_piece_model_colors_piece",
+        ),
+        Index("ix_piece_model_colors_confidence", "model_sha256", "confidence", "machine_id", "piece_uuid"),
+        Index("ix_piece_model_colors_machine_confidence", "model_sha256", "machine_id", "confidence", "piece_uuid"),
     )

@@ -189,15 +189,13 @@ def set_active(db: Session, model_id, active: bool) -> ColorModel | None:
     return row
 
 
-def _load(row: ColorModel) -> _Loaded | None:
-    global _loaded_key, _loaded_model
-    path = model_dir() / row.filename
+def load_file(filename: str, threads: int = 2, low_memory: bool = False) -> _Loaded | None:
+    """A model file in COLOR_MODEL_DIR ready to run, or None when it is missing
+    or is not a usable colour classifier. ``low_memory`` turns off
+    onnxruntime's memory arena, so a background process's footprint stays flat."""
+    path = model_dir() / filename
     if not path.exists():
         return None
-    key = (row.filename, row.sha256)
-    with _lock:
-        if key == _loaded_key and _loaded_model is not None:
-            return _loaded_model
     meta = _read_metadata(path)
     if meta is None:
         return None
@@ -207,16 +205,18 @@ def _load(row: ColorModel) -> _Loaded | None:
     except ValueError:
         input_size = 0
     if not class_ids or input_size <= 0:
-        log.warning("color model %s has no usable classes/input_size", row.filename)
+        log.warning("color model %s has no usable classes/input_size", filename)
         return None
     try:
         so = ort.SessionOptions()
-        so.intra_op_num_threads = 2
+        so.intra_op_num_threads = threads
+        if low_memory:
+            so.enable_cpu_mem_arena = False
         session = ort.InferenceSession(str(path), sess_options=so, providers=["CPUExecutionProvider"])
     except Exception as exc:
-        log.warning("color model %s failed to load for inference: %s", row.filename, exc)
+        log.warning("color model %s failed to load for inference: %s", filename, exc)
         return None
-    loaded = _Loaded(
+    return _Loaded(
         session=session,
         input_name=meta.get("hive.input_name") or session.get_inputs()[0].name,
         output_name=meta.get("hive.output_name") or session.get_outputs()[0].name,
@@ -224,6 +224,17 @@ def _load(row: ColorModel) -> _Loaded | None:
         class_ids=class_ids,
         multiview=meta.get("hive.multiview") == "1",
     )
+
+
+def _load(row: ColorModel) -> _Loaded | None:
+    global _loaded_key, _loaded_model
+    key = (row.filename, row.sha256)
+    with _lock:
+        if key == _loaded_key and _loaded_model is not None:
+            return _loaded_model
+    loaded = load_file(row.filename)
+    if loaded is None:
+        return None
     with _lock:
         _loaded_key = key
         _loaded_model = loaded
@@ -267,6 +278,22 @@ def _run_model(loaded: _Loaded, batch: list[np.ndarray], channels: list[int]) ->
     probs = np.exp(logits)
     probs /= probs.sum(axis=1, keepdims=True)
     return probs.mean(axis=0)
+
+
+def class_probabilities(loaded: _Loaded, images: list[bytes], channels: list[int]) -> np.ndarray | None:
+    """The model's mean softmax over up to MAX_PREDICT_IMAGES crops (``channels``:
+    each crop's camera channel, for multiview models), or None when no crop
+    decodes. Index i is the probability of ``loaded.class_ids[i]``."""
+    batch: list[np.ndarray] = []
+    kept_channels: list[int] = []
+    for data, channel in zip(images[:MAX_PREDICT_IMAGES], channels[:MAX_PREDICT_IMAGES]):
+        arr = _preprocess(data, loaded.input_size)
+        if arr is not None:
+            batch.append(arr)
+            kept_channels.append(channel)
+    if not batch:
+        return None
+    return _run_model(loaded, batch, kept_channels)
 
 
 def predict_bytes(db: Session, images: list[bytes], channels: list[int]) -> dict[str, Any] | None:

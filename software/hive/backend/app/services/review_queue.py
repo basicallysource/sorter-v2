@@ -40,11 +40,13 @@ from app.models.machine_piece_image import MachinePieceImage
 from app.models.machine_stats_cache import MachineStatsCache
 from app.models.piece_color_label import PieceColorLabel
 from app.models.piece_crop_link import PieceCropLink
+from app.models.piece_model_output import PieceModelColor as M
 from app.models.piece_part_label import PiecePartLabel
 from app.models.piece_rejection import PieceRejection
 from app.models.sample import Sample
 from app.models.user import User
 from app.services.access_window import api_key_machine_ids, apply_sample_access, piece_scope, scope_to_piece_access
+from app.services import color_model_runs
 from app.services.labeling_queue import MIN_PIECE_AGE
 from app.services.sample_filters import (
     CONDITION_CAPTURE_REASONS,
@@ -149,14 +151,19 @@ PIECE_SORTS = (
     "rare_color",
     "unidentified",
     "needs_me",
+    # By one colour model's confidence (``model_sha256``): least sure first,
+    # surest first. Only the pieces that model has answered.
+    "least_sure",
+    "surest",
 )
+MODEL_SORTS = ("least_sure", "surest")
 
 _LABEL_TABLES = {"color": PieceColorLabel, "crop": PieceCropLink, "part": PiecePartLabel}
 
 
 @dataclass(frozen=True)
 class _PieceSegment:
-    kind: str  # "walk" | "trained" | "labeled" | "rare"
+    kind: str  # "walk" | "trained" | "labeled" | "rare" | "model"
     label: str | None = None  # the label table the segment is about
     oldest: bool = False  # walk oldest first
     most: bool = False  # labeled: most labels first
@@ -202,6 +209,8 @@ def _piece_plan(sort: str) -> list[_PieceSegment]:
         return [_PieceSegment("walk", "part", filters=unident), _PieceSegment("labeled", "part", filters=unident)]
     if sort == "rare_color":
         return [_PieceSegment("rare"), _PieceSegment("walk", filters=(Q.color_confidence.is_(None),))]
+    if sort in MODEL_SORTS:
+        return [_PieceSegment("model", most=sort == "surest")]
     if sort == "least_color":
         return [_PieceSegment("walk", "color"), _PieceSegment("trained", "color"), _PieceSegment("labeled", "color")]
     if sort == "most_color":
@@ -233,11 +242,14 @@ def piece_page(
     with_candidates: bool,
     rare_color_ids: set[str] | None,
     with_palette: bool = False,
+    model_sha256: str | None = None,
 ) -> tuple[list[Any], str | None]:
     """The next page of queue rows (machine_id, piece_uuid, arrival_at,
     has_candidates, color_confidence, has_palette, has_training_label) in ``sort`` order, and the
     next cursor. ``with_palette`` keeps the pieces with the colour reference
     palette in view near them, read through the queue's palette indexes.
+    ``model_sha256`` is the colour model the model sorts are by: they walk its
+    answers (piece_model_colors) by confidence, a row of the queue per answer.
 
     A member's grid is their own machines' pieces: given as the machine filter,
     so a member with one machine walks that machine's index rather than the
@@ -256,7 +268,7 @@ def piece_page(
         )
     )
 
-    def base(agg=None):
+    def base(agg=None, by_model: bool = False):
         # Every segment of every piece sort is read from this query, so the
         # machine filter and the access scope cannot be missed by any of them.
         columns = [
@@ -265,6 +277,8 @@ def piece_page(
         ]
         if agg is not None:
             columns.append(agg.c.n)
+        if by_model:
+            columns.append(M.confidence.label("model_confidence"))
         q = (
             db.query(*columns)
             .select_from(Q)
@@ -272,6 +286,13 @@ def piece_page(
         )
         if agg is not None:
             q = q.join(agg, and_(agg.c.mid == Q.machine_id, agg.c.puid == Q.piece_uuid))
+        if by_model:
+            q = q.join(
+                M, and_(M.machine_id == Q.machine_id, M.piece_uuid == Q.piece_uuid, M.model_sha256 == model_sha256)
+            )
+            # On the answers' own machine column too, so a filter of several
+            # machines narrows the walk of the model's index.
+            q = restrict_to_machines(q, M.machine_id, machine_ids)
         # The join keeps out a piece that died after the worker last saw it.
         q = q.filter(MachinePiece.dead.is_(False), Q.arrival_at <= cutoff, ~my_rejection)
         q = restrict_to_machines(q, Q.machine_id, machine_ids)
@@ -371,6 +392,28 @@ def piece_page(
 
         return fetch
 
+    def by_model(seg: _PieceSegment, extra: list) -> Fetch:
+        # The model's answers by confidence, read in the order of its index
+        # (model, confidence, machine, piece), or (model, machine, confidence,
+        # piece) for one machine; ties by machine and piece, the same way.
+        cols = [M.confidence, M.piece_uuid] if one_machine else [M.confidence, M.machine_id, M.piece_uuid]
+
+        def fetch(key, limit):
+            q = base(by_model=True).filter(*extra)
+            if key is not None:
+                try:
+                    conf, mid, puid = float(key[0]), UUID(str(key[1])), str(key[2])
+                except (ValueError, TypeError, IndexError) as exc:
+                    raise APIError(400, "Invalid cursor", "CURSOR_INVALID") from exc
+                right = (conf, puid) if one_machine else (conf, mid, puid)
+                q = q.filter(tuple_(*cols) < right if seg.most else tuple_(*cols) > right)
+            rows = q.order_by(*[c.desc() if seg.most else c.asc() for c in cols]).limit(limit).all()
+            return [(r, [float(r.model_confidence), str(r.machine_id), r.piece_uuid]) for r in rows]
+
+        return fetch
+
+    if sort in MODEL_SORTS and not model_sha256:
+        return [], None
     segments: list[Fetch | None] = []
     for seg in _piece_plan(sort):
         if with_candidates and seg.candidates is False:
@@ -379,13 +422,16 @@ def piece_page(
         extra = list(seg.filters)
         if seg.candidates is not None:
             extra.append(Q.has_candidates.is_(seg.candidates))
-        make = {"walk": walk, "trained": trained, "labeled": labeled}.get(seg.kind)
+        make = {"walk": walk, "trained": trained, "labeled": labeled, "model": by_model}.get(seg.kind)
         segments.append(make(seg, extra) if make is not None else rare())
-    return read_page(segments, sort, limit, cursor)
+    # A model sort's cursor belongs to its model too.
+    return read_page(segments, f"{sort}:{model_sha256}" if sort in MODEL_SORTS else sort, limit, cursor)
 
 
-def piece_cards(db: Session, user: User, rows: list[Any]) -> list[dict]:
-    """The grid cards for one page of queue rows: a few keyed reads, no scan."""
+def piece_cards(db: Session, user: User, rows: list[Any], model_sha256: str | None = None) -> list[dict]:
+    """The grid cards for one page of queue rows: a few keyed reads, no scan.
+    With ``model_sha256``, each card carries that colour model's answer
+    (``model_color``, None for a piece it has not answered)."""
     if not rows:
         return []
     keys = {(r.machine_id, r.piece_uuid) for r in rows}
@@ -420,6 +466,7 @@ def piece_cards(db: Session, user: User, rows: list[Any]) -> list[dict]:
             for mid, puid, n, mine in _page_filter(q, model).group_by(model.machine_id, model.piece_uuid)
         }
 
+    model_colors = color_model_runs.answers_for_cards(db, keys, model_sha256) if model_sha256 else {}
     color_counts = _counts(PieceColorLabel)
     crop_counts = _counts(PieceCropLink)
     part_counts = _counts(PiecePartLabel)
@@ -461,6 +508,7 @@ def piece_cards(db: Session, user: User, rows: list[Any]) -> list[dict]:
                 "has_palette": bool(r.has_palette),
                 # A training run's colour counts as a colour label here.
                 "has_training_label": bool(r.has_training_label),
+                "model_color": model_colors.get(k),
                 "thumb_seq": thumb[0] if thumb else None,
                 "thumb_url": thumb_url(thumb[1]) if thumb else None,
             }

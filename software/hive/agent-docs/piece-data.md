@@ -140,6 +140,8 @@ with scores, and the hosted colour model's (`hosted`, provider
 `hive_basically`, `model` = its sha256) top three. `rank` is the provider's own
 order (0-based); `applied` marks the one part and the one colour the piece
 took. `GET /api/labeling/piece/{machine}/{piece}` returns them as
-`machine_predictions`. Pieces from sorters older than this have none; their
+`machine_predictions`. Hive's own colour models' answers are kept per model in
+`piece_model_colors` (`jobs.md`, `color_model_run`), returned as
+`model_answers`; the piece panel steps through both. Pieces from sorters older than this have none; their
 applied colour and score are on `machine_pieces` (`color_id`,
 `color_confidence`, `color_provider`).

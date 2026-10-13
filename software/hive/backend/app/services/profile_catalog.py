@@ -6,6 +6,7 @@ import logging
 import os
 import sqlite3
 import time
+from contextlib import closing
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
@@ -209,6 +210,14 @@ class ProfileCatalogService:
             ldraw_library_dir=os.path.expanduser(settings.SORTING_PROFILE_LDRAW_LIBRARY_DIR),
         )
         self.runs_syncs = runs_syncs
+        # The one lock for self._conn. A sqlite3 connection opened with
+        # check_same_thread=False may be handed to other threads, but only one
+        # may use it at a time. Requests run on a thread pool and the web
+        # process reloads the catalog on a thread of its own, so every use of
+        # the connection on one of those holds this lock, for one call at a
+        # time. Nothing slow runs under it: work that takes seconds (the reload
+        # after a sync, a set's fetch from Rebrickable) uses a connection of its
+        # own, so a search never waits for it.
         self._lock = Lock()
         self._conn = profile_db.initDb(self._config.db_path)
         self._parts_data = profile_db.PartsData()
@@ -249,12 +258,13 @@ class ProfileCatalogService:
     def _sync_version(self) -> tuple[tuple[str, str], ...]:
         """When each kind of sync last finished: changes exactly when a sync
         has changed the catalog."""
-        return tuple(
-            self._conn.execute(
-                "SELECT key, value FROM meta WHERE key LIKE ? ORDER BY key",
-                (f"{PROFILE_CATALOG_LAST_SYNC_META_PREFIX}%",),
-            ).fetchall()
-        )
+        with self._lock:
+            return tuple(
+                self._conn.execute(
+                    "SELECT key, value FROM meta WHERE key LIKE ? ORDER BY key",
+                    (f"{PROFILE_CATALOG_LAST_SYNC_META_PREFIX}%",),
+                ).fetchall()
+            )
 
     def follow_syncs(self) -> None:
         """Pick up a sync another process finished: in a process that does not
@@ -283,7 +293,12 @@ class ProfileCatalogService:
     def _reload_followed(self, version: tuple[tuple[str, str], ...]) -> None:
         try:
             started = time.monotonic()
-            profile_db.reloadPartsData(self._conn, self._parts_data, rebuild_search=False)
+            # The reload reads the whole catalog, seconds of work. A connection
+            # of its own (parts.db is in WAL mode, so reading never blocks the
+            # process that writes) keeps it off the shared one, where searches
+            # would wait for all of it.
+            with closing(sqlite3.connect(self._config.db_path)) as conn:
+                profile_db.reloadPartsData(conn, self._parts_data, rebuild_search=False)
             self._loaded_sync_version = version
             logger.info("catalog: reloaded after a sync in the worker process (%.1fs)", time.monotonic() - started)
         except Exception:
@@ -301,8 +316,9 @@ class ProfileCatalogService:
             status["auto_sync_plan"] = list(self._auto_sync_plan)
             status["auto_sync_last_checked_at"] = self._auto_sync_last_checked_at
             status["auto_sync_last_started_at"] = self._auto_sync_last_started_at
-        status["last_synced_at"] = _last_synced_map(self._conn)
-        status["types"] = _types_status(self._conn, self._counts(), status.get("sync_type"))
+        with self._lock:
+            status["last_synced_at"] = _last_synced_map(self._conn)
+            status["types"] = _types_status(self._conn, self._counts(), status.get("sync_type"))
         return status
 
     def _counts(self) -> dict[str, int]:
@@ -408,16 +424,20 @@ class ProfileCatalogService:
         sync_status = self._sync.getStatus(self._parts_data)
         if sync_status.get("running"):
             return []
-        return auto_sync_plan(self._counts(), _last_synced_map(self._conn), now)
+        with self._lock:
+            last_synced = _last_synced_map(self._conn)
+        return auto_sync_plan(self._counts(), last_synced, now)
 
     def get_last_synced_at(self, sync_type: str) -> str | None:
         if sync_type not in PROFILE_CATALOG_SYNC_TYPES:
             raise ValueError(f"Unsupported sync_type '{sync_type}'")
-        raw = profile_db.getMeta(self._conn, _sync_meta_key(sync_type))
+        with self._lock:
+            raw = profile_db.getMeta(self._conn, _sync_meta_key(sync_type))
         return str(raw) if raw else None
 
     def get_last_synced_at_map(self) -> dict[str, str | None]:
-        return _last_synced_map(self._conn)
+        with self._lock:
+            return _last_synced_map(self._conn)
 
     def _auto_sync_loop(self) -> None:
         check_interval = max(1, int(settings.PROFILE_CATALOG_AUTO_SYNC_CHECK_INTERVAL_MINUTES)) * 60
@@ -465,6 +485,8 @@ class ProfileCatalogService:
         return False
 
     def _mark_sync_completed(self, sync_type: str) -> None:
+        # Not under self._lock: a sync calls this from its own thread, and one
+        # that ends at once calls it inside start_sync, which holds the lock.
         profile_db.setMeta(
             self._conn,
             _sync_meta_key(sync_type),
@@ -477,7 +499,8 @@ class ProfileCatalogService:
     def search_parts(self, query: str = "", cat_id: int | None = None, limit: int = 100, offset: int = 0) -> dict[str, Any]:
         if not query and cat_id is None:
             return {"results": [], "total": 0, "offset": offset, "limit": limit}
-        results, total = profile_db.searchParts(self._conn, query, cat_filter=cat_id, limit=limit, offset=offset)
+        with self._lock:
+            results, total = profile_db.searchParts(self._conn, query, cat_filter=cat_id, limit=limit, offset=offset)
         return {"results": results, "total": total, "offset": offset, "limit": limit}
 
     def part_summary(self, part_num: str) -> dict[str, Any] | None:
@@ -511,7 +534,9 @@ class ProfileCatalogService:
         }
 
     def admin_overview(self) -> dict[str, Any]:
-        overview = profile_db.adminCatalogOverview(self._conn)
+        with self._lock:
+            overview = profile_db.adminCatalogOverview(self._conn)
+        # status() takes the lock itself, so it is called without it.
         overview["sync"] = self.status()
         return overview
 
@@ -519,13 +544,15 @@ class ProfileCatalogService:
         self, query: str = "", cat_id: int | None = None, missing: str | None = None,
         limit: int = 100, offset: int = 0,
     ) -> dict[str, Any]:
-        results, total = profile_db.adminListParts(
-            self._conn, query=query, cat_filter=cat_id, missing=missing, limit=limit, offset=offset
-        )
+        with self._lock:
+            results, total = profile_db.adminListParts(
+                self._conn, query=query, cat_filter=cat_id, missing=missing, limit=limit, offset=offset
+            )
         return {"results": results, "total": total, "offset": offset, "limit": limit}
 
     def admin_get_part(self, part_num: str) -> dict[str, Any] | None:
-        return profile_db.adminGetPart(self._conn, part_num)
+        with self._lock:
+            return profile_db.adminGetPart(self._conn, part_num)
 
     def piece_metadata(self, part_num: str, color_id: int | None = None) -> dict[str, Any] | None:
         """Flattened per-piece metadata + color-selected price (and physical
@@ -549,7 +576,8 @@ class ProfileCatalogService:
             return profile_db.batchPartWeights(self._conn, part_nums)
 
     def admin_list_categories(self) -> list[dict[str, Any]]:
-        return profile_db.adminListCategories(self._conn)
+        with self._lock:
+            return profile_db.adminListCategories(self._conn)
 
     def list_colors(self) -> list[dict[str, Any]]:
         colors = []
@@ -578,7 +606,8 @@ class ProfileCatalogService:
         fleet-wide part set runs to thousands. An id the catalog has never seen
         is simply absent from the result; the caller decides what "no category"
         means."""
-        return _bricklink_category_names(self._conn, item_nos)
+        with self._lock:
+            return _bricklink_category_names(self._conn, item_nos)
 
     def bricklink_part_colors(self, part_id: str, limit: int = 24) -> dict[str, Any]:
         """Every color this part is stocked in on BrickLink, most pieces for sale
@@ -862,13 +891,12 @@ class ProfileCatalogService:
         rule_id = str(rule["id"])
         include_spares = bool(rule.get("include_spares", False))
 
-        cached = get_cached_set(self._conn, set_num)
-        if cached is None:
-            fetch_set_inventory(self._conn, self._config.rebrickable_api_key, set_num)
+        if self.cached_set(set_num) is None:
+            self.fetch_set(set_num)
 
-        inventory = get_cached_inventory(self._conn, set_num)
+        inventory = self.cached_set_inventory(set_num)
         mapping: dict[str, str] = {}
-        set_info = get_cached_set(self._conn, set_num) or {}
+        set_info = self.cached_set(set_num) or {}
         set_meta = rule.get("set_meta") if isinstance(rule.get("set_meta"), dict) else {}
         parts: list[dict[str, Any]] = []
 
@@ -1091,6 +1119,26 @@ class ProfileCatalogService:
                 lookup.setdefault(numeric, rb_color_id)
         return lookup
 
+    def cached_set(self, set_num: str) -> dict[str, Any] | None:
+        """A set's metadata from the cache of Rebrickable sets, or None."""
+        with self._lock:
+            return get_cached_set(self._conn, set_num)
+
+    def cached_set_inventory(self, set_num: str) -> list[dict[str, Any]]:
+        """A set's cached inventory (empty when the set is not cached)."""
+        with self._lock:
+            return get_cached_inventory(self._conn, set_num)
+
+    def fetch_set(self, set_num: str) -> None:
+        """Fetch a set and its inventory from Rebrickable into the cache.
+
+        Written on a connection of its own, committed once the whole inventory
+        has arrived: the fetch waits on Rebrickable between its writes, and the
+        shared connection is not held (or left in a half-written transaction)
+        for that."""
+        with closing(sqlite3.connect(self._config.db_path)) as conn:
+            fetch_set_inventory(conn, self._config.rebrickable_api_key, set_num)
+
     def search_sets(
         self,
         query: str,
@@ -1120,14 +1168,14 @@ class ProfileCatalogService:
         if not normalized_set_num:
             raise APIError(400, "set_num is required", "SET_NUM_REQUIRED")
 
-        cached = get_cached_set(self._conn, normalized_set_num)
+        cached = self.cached_set(normalized_set_num)
         if cached is None:
-            fetch_set_inventory(self._conn, self._config.rebrickable_api_key, normalized_set_num)
-            cached = get_cached_set(self._conn, normalized_set_num)
+            self.fetch_set(normalized_set_num)
+            cached = self.cached_set(normalized_set_num)
         if cached is None:
             raise APIError(404, "Set not found", "SET_NOT_FOUND")
 
-        inventory = get_cached_inventory(self._conn, normalized_set_num)
+        inventory = self.cached_set_inventory(normalized_set_num)
         inventory.sort(
             key=lambda part: (
                 str(part.get("part_name") or "").lower(),

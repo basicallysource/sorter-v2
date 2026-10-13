@@ -3,6 +3,7 @@
 	import { band, bandTone, percent } from '$lib/colorModels';
 	import Badge from './Badge.svelte';
 	import Card from './Card.svelte';
+	import Checkbox from './Checkbox.svelte';
 	import ColorChip from './ColorChip.svelte';
 	import Check from '@lucide/svelte/icons/check';
 	import GraduationCap from '@lucide/svelte/icons/graduation-cap';
@@ -16,8 +17,11 @@
 		selected?: boolean;
 		id?: string;
 		onOpen: (card: ColorLabelPieceCard) => void;
+		// Picked for a bulk action: a box on the picture; shift-click picks a range.
+		picked?: boolean;
+		onPick?: (card: ColorLabelPieceCard, range: boolean) => void;
 	};
-	let { card, selected = false, id, onOpen }: Props = $props();
+	let { card, selected = false, id, onOpen, picked = false, onPick }: Props = $props();
 </script>
 
 <div {id}>
@@ -58,6 +62,11 @@
 				<span class="absolute top-1 right-1 flex rounded-badge bg-success p-0.5 text-on-success" title="You labeled this"
 					><Check size={14} /></span
 				>
+			{/if}
+			{#if onPick}
+				<span class="absolute bottom-1 left-1 flex rounded-badge bg-surface p-1">
+					<Checkbox checked={picked} aria-label="Pick this piece" onclick={(e: MouseEvent) => onPick?.(card, e.shiftKey)} />
+				</span>
 			{/if}
 		</div>
 		<div class="flex flex-col gap-1 px-2.5 py-2 {selected ? 'bg-primary-soft' : ''}">

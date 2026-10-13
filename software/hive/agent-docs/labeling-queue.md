@@ -131,6 +131,14 @@ answer on its cards (`model_color`, a keyed read of the page's pieces); the
 page shows it with a High / Medium / Low band (`frontend/src/lib/colorModels.ts`,
 90% and 60%). The menu after "N shown" picks the model and the order.
 
+**Agreeing in bulk.** With a model chosen, cards with its answer can be picked
+(shift-click picks a stretch, "Pick all shown" the loaded ones), and
+`POST /api/labeling/agree` (`model_sha256`, up to 500 pieces) writes the
+user's own colour label for each as the colour that model answered for it: a
+few keyed reads and one row each, skipping pieces the user may not see, the
+model has not answered, or whose answer is not a labelable colour. The cards
+are patched in place; correcting one piece stays the panel's job.
+
 Paging is a keyset cursor (`next_cursor`, passed back as `cursor`): the segment
 and the sort key of the last piece served. Page 50 costs what page 1 does, and
 a label made while someone scrolls shifts nothing under them.

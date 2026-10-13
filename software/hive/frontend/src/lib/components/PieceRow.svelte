@@ -2,6 +2,7 @@
 	import { api, type ColorLabelPieceCard } from '$lib/api';
 	import { band, bandTone, percent } from '$lib/colorModels';
 	import Badge from './Badge.svelte';
+	import Checkbox from './Checkbox.svelte';
 	import ColorChip from './ColorChip.svelte';
 	import Check from '@lucide/svelte/icons/check';
 	import GraduationCap from '@lucide/svelte/icons/graduation-cap';
@@ -15,16 +16,25 @@
 		selected?: boolean;
 		id?: string;
 		onOpen: (card: ColorLabelPieceCard) => void;
+		// Picked for a bulk action: a box before the row; shift-click picks a range.
+		picked?: boolean;
+		onPick?: (card: ColorLabelPieceCard, range: boolean) => void;
 	};
-	let { card, selected = false, id, onOpen }: Props = $props();
+	let { card, selected = false, id, onOpen, picked = false, onPick }: Props = $props();
 </script>
 
+<div class="flex items-center {selected ? 'bg-primary-soft' : ''}">
+{#if onPick}
+	<span class="flex shrink-0 pl-(--pad-panel)">
+		<Checkbox checked={picked} aria-label="Pick this piece" onclick={(e: MouseEvent) => onPick?.(card, e.shiftKey)} />
+	</span>
+{/if}
 <button
 	{id}
 	type="button"
 	onclick={() => onOpen(card)}
 	aria-pressed={selected}
-	class="flex w-full items-center gap-3 px-(--pad-panel) py-2 text-left {selected ? 'bg-primary-soft' : 'hover:bg-hover'}"
+	class="flex min-w-0 flex-1 items-center gap-3 px-(--pad-panel) py-2 text-left {selected ? '' : 'hover:bg-hover'}"
 >
 	<div class="flex size-10 shrink-0 items-center justify-center rounded-item {card.thumb_seq != null ? '' : 'bg-well'}">
 		{#if card.thumb_seq != null}
@@ -71,3 +81,4 @@
 		</span>
 	</div>
 </button>
+</div>

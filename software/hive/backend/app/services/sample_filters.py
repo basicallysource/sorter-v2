@@ -169,8 +169,8 @@ def apply_my_review_filter(query, my_review: str | None, viewer_id):
 def apply_palette_filter(query, palette: str | None):
     """Whether the colour reference palette is in view in the sample's frame,
     as one swatch model called it ('in_view', 'not_in_view', or 'unchecked':
-    not called yet). Anything else is no filter. One EXISTS on the swatch
-    runs, nothing per row: ``swatch_jobs.palette_filter``."""
+    not called yet). Anything else is no filter. A lookup of the sample's run
+    through the (sample, model) index: ``swatch_jobs.palette_filter``."""
     from app.services.swatch_jobs import palette_filter
 
     clause = palette_filter(query.session, palette)

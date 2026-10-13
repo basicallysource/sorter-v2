@@ -203,6 +203,8 @@ class TestSampleDiversity:
                        source_role="c_channel_2", capture_reason="manual_capture",
                        detection_count=7, detection_score=0.88)
 
+        # Counted by the stats worker (weekly rows), not per request.
+        refresh_stats()
         resp = client.get("/api/samples/diversity", headers=auth_headers)
         assert resp.status_code == 200, resp.text
         data = resp.json()
@@ -254,6 +256,7 @@ class TestSampleDiversity:
                        source_role="classification_channel", capture_reason="rt_move_completed",
                        detection_count=2)
 
+        refresh_stats()
         resp = client.get(
             "/api/samples/diversity",
             params={"capture_reason": "rt_move_completed"},
@@ -288,6 +291,7 @@ class TestSampleDiversity:
         _upload_sample(client, machine_token, "sess-d2", "s2",
                        capture_reason="manual_capture", detection_count=10)
 
+        refresh_stats()
         resp = client.get(
             "/api/samples/diversity",
             params={"capture_reason": "rt_move_completed"},

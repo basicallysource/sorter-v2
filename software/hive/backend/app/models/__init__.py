@@ -31,7 +31,7 @@ from app.models.kit import Kit  # noqa: E402, F401
 from app.models.machine_config_backup import MachineConfigBackup  # noqa: E402, F401
 from app.models.machine_hardware_report import MachineHardwareReport  # noqa: E402, F401
 from app.models.detection_model import DetectionModel, DetectionModelVariant  # noqa: E402, F401
-from app.models.model_dataset_sample import ModelDatasetSample  # noqa: E402, F401
+from app.models.model_dataset_sample import ModelDatasetMachineCount, ModelDatasetSample  # noqa: E402, F401
 from app.models.model_default import ModelDefault  # noqa: E402, F401
 from app.models.user_api_key import UserApiKey  # noqa: E402, F401
 from app.models.user_identity import UserIdentity  # noqa: E402, F401
@@ -46,6 +46,7 @@ from app.models.machine_control_data_segment import MachineControlDataSegment  #
 from app.models.machine_sync_state import MachineSyncState  # noqa: E402, F401
 from app.models.machine_stats_cache import MachineStatsCache  # noqa: E402, F401
 from app.models.machine_daily_stats import MachineDailyStats  # noqa: E402, F401
+from app.models.sample_diversity import SampleDiversityWeek  # noqa: E402, F401
 from app.models.server_storage_cache import ServerStorageCache  # noqa: E402, F401
 from app.models.piece_color_label import PieceColorLabel  # noqa: E402, F401
 from app.models.piece_part_label import PiecePartLabel  # noqa: E402, F401

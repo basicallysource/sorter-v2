@@ -47,4 +47,6 @@ class MachineControlDataSegment(Base):
         UniqueConstraint("machine_id", "local_id", name="uq_machine_control_data_segments_machine_local"),
         Index("ix_machine_control_data_segments_machine_local_id", "machine_id", "local_id"),
         Index("ix_machine_control_data_segments_machine_started", "machine_id", "started_at"),
+        # The admin inventory's newest segments.
+        Index("ix_machine_control_data_segments_created_at", "created_at"),
     )

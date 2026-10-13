@@ -6,7 +6,7 @@ from fastapi import APIRouter, Depends, Query, Request
 from pydantic import BaseModel, Field
 from slowapi import Limiter
 from slowapi.util import get_remote_address
-from sqlalchemy import delete, func, select, text, tuple_
+from sqlalchemy import delete, select, text, tuple_
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.dialects.sqlite import insert as sqlite_insert
 from sqlalchemy.orm import Session, joinedload
@@ -75,70 +75,32 @@ def get_machine_stats(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    """Per-machine statistics for the dashboard cards."""
-    from app.models.sample import Sample
-    from app.models.upload_session import UploadSession
-    from app.models.machine_set_progress import MachineSetProgress
+    """Per-machine statistics for the dashboard cards: the caller's machines'
+    rows of machine_stats_cache, which the stats worker keeps (hourly), not a
+    count over their samples on every page load."""
+    from app.models.machine_stats_cache import MachineStatsCache
 
     machine_ids = [
         mid for (mid,) in db.query(Machine.id).filter(Machine.owner_id == current_user.id).all()
     ]
     if not machine_ids:
         return {}
-
-    # Sample counts per machine
-    sample_rows = (
-        db.query(
-            Sample.machine_id,
-            func.count(Sample.id).label("total_samples"),
-            func.count(Sample.id).filter(Sample.review_status == "accepted").label("accepted_samples"),
-            func.min(Sample.captured_at).label("first_capture"),
-            func.max(Sample.captured_at).label("last_capture"),
-        )
-        .filter(Sample.machine_id.in_(machine_ids))
-        .group_by(Sample.machine_id)
-        .all()
-    )
-    sample_map = {str(r.machine_id): r for r in sample_rows}
-
-    # Session counts per machine
-    session_rows = (
-        db.query(
-            UploadSession.machine_id,
-            func.count(UploadSession.id).label("total_sessions"),
-        )
-        .filter(UploadSession.machine_id.in_(machine_ids))
-        .group_by(UploadSession.machine_id)
-        .all()
-    )
-    session_map = {str(r.machine_id): r.total_sessions for r in session_rows}
-
-    # Set progress aggregates per machine
-    progress_rows = (
-        db.query(
-            MachineSetProgress.machine_id,
-            func.sum(MachineSetProgress.quantity_found).label("parts_found"),
-            func.sum(MachineSetProgress.quantity_needed).label("parts_needed"),
-        )
-        .filter(MachineSetProgress.machine_id.in_(machine_ids))
-        .group_by(MachineSetProgress.machine_id)
-        .all()
-    )
-    progress_map = {str(r.machine_id): r for r in progress_rows}
+    cached = {
+        str(row.machine_id): row
+        for row in db.query(MachineStatsCache).filter(MachineStatsCache.machine_id.in_(machine_ids))
+    }
 
     result = {}
     for mid in machine_ids:
-        mid_str = str(mid)
-        sr = sample_map.get(mid_str)
-        pr = progress_map.get(mid_str)
-        result[mid_str] = {
-            "total_samples": sr.total_samples if sr else 0,
-            "accepted_samples": sr.accepted_samples if sr else 0,
-            "first_capture": sr.first_capture.isoformat() if sr and sr.first_capture else None,
-            "last_capture": sr.last_capture.isoformat() if sr and sr.last_capture else None,
-            "total_sessions": session_map.get(mid_str, 0),
-            "parts_found": int(pr.parts_found) if pr and pr.parts_found else 0,
-            "parts_needed": int(pr.parts_needed) if pr and pr.parts_needed else 0,
+        row = cached.get(str(mid))
+        result[str(mid)] = {
+            "total_samples": row.total_samples if row else 0,
+            "accepted_samples": row.accepted_samples if row else 0,
+            "first_capture": row.first_capture.isoformat() if row and row.first_capture else None,
+            "last_capture": row.last_capture.isoformat() if row and row.last_capture else None,
+            "total_sessions": row.total_sessions if row else 0,
+            "parts_found": row.parts_found if row else 0,
+            "parts_needed": row.parts_needed if row else 0,
         }
 
     return result
@@ -275,6 +237,9 @@ def get_machine_overview(
 
 PIECE_IMAGE_CACHE_CONTROL = "public, max-age=31536000, immutable"
 
+# The most crops one page of a filtered crop list looks at.
+CROP_WINDOW = 2000
+
 
 def _serialize_machine_piece(piece: MachinePiece, images: list[MachinePieceImage]) -> dict[str, Any]:
     return {
@@ -353,13 +318,6 @@ def list_machine_pieces(
         for im in images:
             images_by_piece.setdefault(im.piece_uuid, []).append(im)
 
-    total = (
-        db.query(func.count(MachinePiece.id))
-        .filter(MachinePiece.machine_id == machine_id)
-        .scalar()
-        or 0
-    )
-
     return {
         "machine": {
             "id": str(machine.id),
@@ -371,7 +329,7 @@ def list_machine_pieces(
             for p in pieces
         ],
         "next_cursor": next_cursor,
-        "total": total,
+        "total": machine_stats.piece_total(db, machine_id),
     }
 
 
@@ -433,28 +391,41 @@ def list_machine_channel_crops(
 ):
     """Unlabeled C2/C3 bbox crops synced from one machine, newest first.
     Keyset-paginated on the machine's local crop id. Optional channel / zone_code
-    filters. Accessible to the machine's owner or any admin."""
+    filters. Accessible to the machine's owner or any admin.
+
+    With a filter a page looks at no more than CROP_WINDOW crops, so a rare
+    filter can return a short page, or an empty one, with a next_cursor to go
+    on from. ``total`` is the machine's crop count at the stats worker's last
+    pass (hourly)."""
     machine = _machine_for_viewer(db, machine_id, current_user)
 
     query = db.query(MachineChannelCrop).filter(MachineChannelCrop.machine_id == machine_id)
-    if channel is not None:
-        query = query.filter(MachineChannelCrop.channel == channel)
-    if zone_code is not None:
-        query = query.filter(MachineChannelCrop.zone_code == zone_code)
     if cursor is not None:
         query = query.filter(MachineChannelCrop.local_id < cursor)
+    end = None
+    if channel is not None or zone_code is not None:
+        # The last crop of this stretch, from the (machine_id, local_id) index alone.
+        end = (
+            query.with_entities(MachineChannelCrop.local_id)
+            .order_by(MachineChannelCrop.local_id.desc())
+            .offset(CROP_WINDOW - 1)
+            .limit(1)
+            .scalar()
+        )
+        if end is not None:
+            query = query.filter(MachineChannelCrop.local_id >= end)
+        if channel is not None:
+            query = query.filter(MachineChannelCrop.channel == channel)
+        if zone_code is not None:
+            query = query.filter(MachineChannelCrop.zone_code == zone_code)
     crops = query.order_by(MachineChannelCrop.local_id.desc()).limit(limit + 1).all()
 
-    has_more = len(crops) > limit
-    crops = crops[:limit]
-    next_cursor = crops[-1].local_id if (has_more and crops) else None
-
-    total = (
-        db.query(func.count(MachineChannelCrop.id))
-        .filter(MachineChannelCrop.machine_id == machine_id)
-        .scalar()
-        or 0
-    )
+    if len(crops) > limit:
+        crops = crops[:limit]
+        next_cursor = crops[-1].local_id
+    else:
+        next_cursor = end
+    total = machine_stats.channel_crop_total(db, machine_id)
 
     return {
         "machine": {

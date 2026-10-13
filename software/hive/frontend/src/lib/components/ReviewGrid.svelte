@@ -35,10 +35,13 @@
 
 	let sentinel = $state<HTMLElement | null>(null);
 
-	// Pull the next page as the end of the list nears the viewport.
+	// Pull the next page as the end of the list nears the viewport. Observed
+	// again after every load, so a short page that leaves the end in view pulls
+	// the one after it.
 	$effect(() => {
 		const el = sentinel;
 		const q = queue;
+		void q.items.length;
 		if (!el) return;
 		const obs = new IntersectionObserver(
 			(entries) => {
@@ -55,6 +58,13 @@
 
 {#if queue.loading}
 	<div class="flex justify-center py-16"><Spinner size={32} /></div>
+{:else if queue.items.length === 0 && queue.hasMore}
+	<Panel>
+		<div class="flex flex-col items-center gap-3 py-8 text-center">
+			<span class="text-sm text-ink-muted">Nothing yet among the newest looked at.</span>
+			<Button size="sm" loading={queue.loadingMore} onclick={() => void queue.loadMore()}>Look further back</Button>
+		</div>
+	</Panel>
 {:else if queue.items.length === 0}
 	{#if !queue.error}
 		<Panel><EmptyState icon={emptyIcon} title={emptyTitle} action={emptyAction} children={empty} /></Panel>

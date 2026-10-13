@@ -15,7 +15,8 @@ What they share lives here once:
   * counts summed from rows the workers keep, never a count over history.
 
 A list is a short sequence of segments read in order until the page is full.
-For pieces see ``piece_segments``; samples are one segment, newest first.
+For pieces see ``piece_segments``. Samples are one walk, newest first, of the
+index their filters pick, a bounded stretch per page (``sample_page``).
 """
 
 from __future__ import annotations
@@ -24,11 +25,11 @@ import base64
 import binascii
 import json
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from typing import Any, Callable, Sequence
 from uuid import UUID
 
-from sqlalchemy import and_, case, exists, false, func, or_, tuple_
+from sqlalchemy import and_, case, exists, false, func, or_, select, tuple_, union_all
 from sqlalchemy.orm import Session
 
 from app.errors import APIError
@@ -43,9 +44,14 @@ from app.models.piece_part_label import PiecePartLabel
 from app.models.piece_rejection import PieceRejection
 from app.models.sample import Sample
 from app.models.user import User
-from app.services.access_window import apply_sample_access, piece_scope, scope_to_piece_access
+from app.services.access_window import api_key_machine_ids, apply_sample_access, piece_scope, scope_to_piece_access
 from app.services.labeling_queue import MIN_PIECE_AGE
-from app.services.sample_filters import SampleFilters, apply_sample_filters, restrict_to_machines
+from app.services.sample_filters import (
+    CONDITION_CAPTURE_REASONS,
+    SampleFilters,
+    apply_sample_filters,
+    restrict_to_machines,
+)
 from app.services.storage_backend import get_backend
 
 __all__ = [
@@ -55,7 +61,9 @@ __all__ = [
     "piece_page",
     "piece_cards",
     "piece_count",
+    "SAMPLE_WINDOW",
     "sample_page",
+    "sample_path",
     "sample_counts",
     "thumb_url",
 ]
@@ -211,7 +219,15 @@ def piece_page(
     """The next page of queue rows (machine_id, piece_uuid, arrival_at,
     has_candidates, color_confidence, has_palette) in ``sort`` order, and the
     next cursor. ``with_palette`` keeps the pieces with the colour reference
-    palette in view near them, read through the queue's palette indexes."""
+    palette in view near them, read through the queue's palette indexes.
+
+    A member's grid is their own machines' pieces: given as the machine filter,
+    so a member with one machine walks that machine's index rather than the
+    fleet's, reading the rest of the fleet past to find theirs."""
+    if machine_ids is None:
+        machine_ids = known_machines(db, user, archived=True)
+        if machine_ids is not None and not machine_ids:
+            return [], None
     cutoff = datetime.now(timezone.utc) - MIN_PIECE_AGE
     one_machine = machine_ids is not None and len(machine_ids) == 1
     my_rejection = exists().where(
@@ -444,34 +460,188 @@ def piece_count(db: Session, user: User, machine_ids: Sequence[UUID] | None) -> 
 
 SAMPLE_SORTS = ("recent",)
 
+# The most samples one page looks at, along the index it walks, to find its
+# rows. A page whose filters are rare in that stretch comes back short, even
+# empty, with a cursor to go on from, and the client asks again: however rare
+# the filters, no request reads further back than this.
+SAMPLE_WINDOW = 2000
+
+ARCHIVED_VIEWS = ("active", "archived", "all")
+REVIEWED_STATES = ("in_review", "accepted", "rejected", "conflict")
+
+_NEWEST_FIRST = (Sample.uploaded_at.desc(), Sample.id.desc())
+# Written as the partial indexes write it, so the planner matches them.
+_TEACHER_CHECKED = Sample.extra_metadata["teacher_rerun"].isnot(None)
+
+
+@dataclass(frozen=True)
+class SamplePath:
+    """The index a page of samples walks, newest first. Every sample the
+    filters can show is on it, so a page reads its rows from this index alone:
+    ``where`` is the index's predicate (as the index writes it, so the planner
+    picks it), and ``column`` its leading column, walked once per value in
+    ``values`` and merged."""
+
+    index: str
+    where: tuple = ()
+    column: Any = None
+    values: tuple = ()
+
+
+def sample_path(filters: SampleFilters, *, archived: str, machine_ids: Sequence[UUID] | None) -> SamplePath:
+    """The narrowest index whose rows include everything the filters show.
+
+    The most selective filter leads: a review state (few samples ever get
+    one), then the machines (a filter's, or the caller's own), the source, the
+    capture reason. Each of those has a teacher-checked twin, because that is
+    the list's default view and the newest samples are rarely checked yet: a
+    walk of all samples would read through all of them first. Archived samples
+    have their own index; "archived and active" walks every sample."""
+    if archived == "archived":
+        return SamplePath("ix_samples_archived_uploaded_at", (Sample.archived_at.isnot(None),))
+    if archived == "all":
+        return SamplePath("ix_samples_uploaded_at_id")
+    active = (Sample.archived_at.is_(None),)
+    if filters.review_status in REVIEWED_STATES:
+        return SamplePath(
+            "ix_samples_reviewed_uploaded_at",
+            active + (Sample.review_status != "unreviewed",),
+            Sample.review_status,
+            (filters.review_status,),
+        )
+    teacher = filters.annotated == "teacher"
+
+    def by(name: str, column: Any, values: Sequence[Any]) -> SamplePath:
+        if teacher:
+            return SamplePath(f"ix_samples_{name}_teacher_uploaded_at", active + (_TEACHER_CHECKED,), column, tuple(values))
+        return SamplePath(f"ix_samples_{name}_uploaded_at", active, column, tuple(values))
+
+    if machine_ids is not None:
+        return by("machine", Sample.machine_id, list(dict.fromkeys(machine_ids)))
+    if filters.source_role:
+        return by("role", Sample.source_role, [filters.source_role])
+    if filters.capture_reason:
+        return by("reason", Sample.capture_reason, [filters.capture_reason])
+    if filters.kind == "condition":
+        return by("reason", Sample.capture_reason, CONDITION_CAPTURE_REASONS)
+    if teacher:
+        return SamplePath("ix_samples_teacher_uploaded_at", active + (_TEACHER_CHECKED,))
+    return SamplePath("ix_samples_uploaded_at_id", active)
+
+
+def known_machines(db: Session, user: User, *, mine_only: bool = False, archived: bool = False) -> list[UUID] | None:
+    """The machines a caller may see when they are a known few: an API key's,
+    or their own (a member, or anyone asking for "mine"; archived ones too when
+    ``archived``). None for admins and reviewers, who see the fleet. A walk of
+    one machine follows that machine's index instead of the fleet's."""
+    key_machines = api_key_machine_ids(user)
+    if key_machines is not None:
+        return key_machines
+    if mine_only or user.role not in ("admin", "reviewer"):
+        owned = db.query(Machine.id).filter(Machine.owner_id == user.id)
+        if not archived:
+            owned = owned.filter(Machine.archived_at.is_(None))
+        return [mid for (mid,) in owned]
+    return None
+
+
+def _on_path(query, path: SamplePath):
+    query = query.filter(*path.where)
+    if path.column is None:
+        return query
+    if len(path.values) == 1:
+        return query.filter(path.column == path.values[0])
+    return query.filter(path.column.in_(path.values))
+
+
+def _window_end(db: Session, path: SamplePath, after: tuple | None, since: datetime | None) -> tuple | None:
+    """The key of the SAMPLE_WINDOW-th sample along ``path`` after ``after``,
+    or None when the path ends sooner: read from the index alone (several
+    values are walked one by one and merged)."""
+
+    def walk(value: Any = None):
+        q = select(Sample.uploaded_at, Sample.id).where(*path.where)
+        if path.column is not None:
+            q = q.where(path.column == value)
+        if after is not None:
+            q = q.where(tuple_(Sample.uploaded_at, Sample.id) < after)
+        if since is not None:
+            q = q.where(Sample.uploaded_at >= since)
+        return q.order_by(*_NEWEST_FIRST)
+
+    if path.column is None:
+        q = walk()
+    elif len(path.values) == 1:
+        q = walk(path.values[0])
+    else:
+        parts = [walk(value).limit(SAMPLE_WINDOW).subquery() for value in path.values]
+        merged = union_all(*(select(p.c.uploaded_at, p.c.id) for p in parts)).subquery()
+        q = select(merged.c.uploaded_at, merged.c.id).order_by(merged.c.uploaded_at.desc(), merged.c.id.desc())
+    row = db.execute(q.offset(SAMPLE_WINDOW - 1).limit(1)).first()
+    return (row[0], row[1]) if row is not None else None
+
+
+def _sample_key(uploaded_at: datetime, sample_id: Any) -> list[str]:
+    return [_utc(uploaded_at).isoformat(), str(sample_id)]
+
 
 def sample_page(
     db: Session,
-    base_query,
-    filters: SampleFilters,
     viewer: User,
+    filters: SampleFilters,
     *,
     limit: int,
     cursor: str | None,
+    mine_only: bool = False,
+    archived: str = "active",
 ) -> tuple[list[Sample], str | None]:
-    """The next page of samples, newest first, after ``cursor``. ``base_query``
-    is the caller's visible-samples query (access, archive rules); the filters
-    are applied here, through ``apply_sample_filters``, like every other path
-    that acts on the filtered samples."""
-    q = apply_sample_filters(base_query, filters, viewer.id)
+    """The next page of samples, newest first, after ``cursor``, and the cursor
+    for the page after it (None at the end of the list).
 
-    def fetch(key, limit):
-        query = q
-        if key is not None:
-            try:
-                uploaded_at, sample_id = datetime.fromisoformat(key[0]), UUID(key[1])
-            except (ValueError, TypeError, IndexError) as exc:
-                raise APIError(400, "Invalid cursor", "CURSOR_INVALID") from exc
-            query = query.filter(tuple_(Sample.uploaded_at, Sample.id) < (uploaded_at, sample_id))
-        rows = query.order_by(Sample.uploaded_at.desc(), Sample.id.desc()).limit(limit).all()
-        return [(s, [_utc(s.uploaded_at).isoformat(), str(s.id)]) for s in rows]
+    The page walks one index (``sample_path``) and looks at no more than
+    SAMPLE_WINDOW samples on it: first the key of the last of them is read
+    from the index alone, then the page's rows are the ones in that stretch the
+    filters keep. When fewer than ``limit`` are there, the page is short and
+    its cursor is the end of the stretch, so the next request goes on from
+    there. A page can therefore be short, or empty, and still have a next
+    cursor; the list ends when the cursor is None.
 
-    return read_page([fetch], "recent", limit, cursor)
+    ``archived`` is "active" (the default), "archived" or "all"; the filters
+    are applied through ``apply_sample_filters``, like every other path that
+    acts on the filtered samples."""
+    if archived not in ARCHIVED_VIEWS:
+        raise ValueError(archived)
+    after = None
+    if cursor:
+        _, key = decode_cursor(cursor, "recent")
+        try:
+            after = (datetime.fromisoformat(key[0]), UUID(key[1]))
+        except (ValueError, TypeError, IndexError) as exc:
+            raise APIError(400, "Invalid cursor", "CURSOR_INVALID") from exc
+    machines = list(filters.machine_ids) if filters.machine_ids else known_machines(db, viewer, mine_only=mine_only)
+    if machines is not None and not machines:
+        return [], None
+    path = sample_path(filters, archived=archived, machine_ids=machines)
+    since = None
+    if filters.max_age_hours is not None and filters.max_age_hours > 0:
+        since = datetime.now(timezone.utc) - timedelta(hours=filters.max_age_hours)
+    end = _window_end(db, path, after, since)
+
+    base = visible_samples(db, viewer, mine_only=mine_only, include_archived=archived != "active")
+    q = _on_path(apply_sample_filters(base, filters, viewer.id), path)
+    if after is not None:
+        q = q.filter(tuple_(Sample.uploaded_at, Sample.id) < after)
+    if end is not None:
+        q = q.filter(tuple_(Sample.uploaded_at, Sample.id) >= end)
+    rows = q.order_by(*_NEWEST_FIRST).limit(limit + 1).all()
+    if len(rows) > limit:
+        rows = rows[:limit]
+        next_key = _sample_key(rows[-1].uploaded_at, rows[-1].id)
+    elif end is not None:
+        next_key = _sample_key(*end)
+    else:
+        next_key = None
+    return rows, encode_cursor("recent", 0, next_key) if next_key else None
 
 
 def sample_counts(db: Session, user: User, *, mine_only: bool, machine_ids: Sequence[UUID] | None) -> dict[str, Any]:

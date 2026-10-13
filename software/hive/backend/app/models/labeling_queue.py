@@ -1,6 +1,6 @@
 from datetime import datetime, timezone
 
-from sqlalchemy import BigInteger, Boolean, Column, DateTime, Float, ForeignKey, ForeignKeyConstraint, Index, Integer, String, false
+from sqlalchemy import BigInteger, Boolean, Column, DateTime, Float, ForeignKey, ForeignKeyConstraint, Index, Integer, String, false, text
 from sqlalchemy.dialects.postgresql import UUID
 
 from app.models import Base
@@ -62,6 +62,24 @@ Index(
     LabelingQueueEntry.piece_uuid.desc(),
     postgresql_where=LabelingQueueEntry.color_confidence.isnot(None),
     sqlite_where=LabelingQueueEntry.color_confidence.isnot(None),
+)
+
+# The grid's walks when it shows only pieces with same-piece candidates (its
+# default): pieces from before channel crops synced, or from a machine without
+# C2/C3 cameras, have none, and a walk of every piece read all of them first.
+Index(
+    "ix_labeling_queue_candidates_arrival",
+    LabelingQueueEntry.arrival_at,
+    LabelingQueueEntry.machine_id,
+    LabelingQueueEntry.piece_uuid,
+    postgresql_where=text("has_candidates IS true"),
+)
+Index(
+    "ix_labeling_queue_machine_candidates_arrival",
+    LabelingQueueEntry.machine_id,
+    LabelingQueueEntry.arrival_at,
+    LabelingQueueEntry.piece_uuid,
+    postgresql_where=text("has_candidates IS true"),
 )
 
 # The palette filter: the walks of the two arrival indexes over only the pieces

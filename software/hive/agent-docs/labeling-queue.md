@@ -46,6 +46,21 @@ filter changed). `MachineFilter.svelte` is the machine picker on both pages.
 | `piece_link_scores` | `services/piece_link_scores.py`, on the first open of a piece | `GET /api/labeling/possible-crops/...` |
 | `piece_color_guesses` | `services/piece_color_guess.py`, on the first open | `GET /api/labeling/piece/...` |
 | `machine_stats_cache.*_samples` | `services/machine_stats.py` (hourly) | `GET /api/stats/overview` (the dashboard) |
+| `sample_diversity_weekly` | `services/sample_diversity.py`, in the same hourly pass | `GET /api/samples/diversity` |
+
+## The samples list
+
+`sample_page` walks one index newest first (`sample_path`): the one that leads
+with the most selective filter the page has, a review state, then the machines
+(a filter's, or the caller's own), the source, the capture reason, each with a
+teacher-checked twin for the default view; archived samples have their own.
+It looks at `SAMPLE_WINDOW` (2,000) samples of that index at most: it reads the
+key of the last one from the index alone, then takes the page's rows from that
+stretch. A filter that is rare in the stretch gives a short page, even an
+empty one, with a `next_cursor` to go on from; the list ends when
+`next_cursor` is null, and the frontend's queue keeps asking through short
+pages (`reviewQueue.svelte.ts`). However rare the filters, no request reads
+further back than the window.
 
 ## The queue
 

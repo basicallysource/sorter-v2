@@ -36,6 +36,9 @@ in [`agent-docs/`](agent-docs/):
   filter for both, the labeling queue and its worker, sort segments and cursor
   paging, the per-piece results kept instead of recomputed, and the rule that
   no request scans the fleet.
+- [`agent-docs/query-plans.md`](agent-docs/query-plans.md) — how that rule is
+  enforced: a production-sized seeded database and a test that EXPLAINs every
+  list and count the API serves, and what to do when it fails.
 
 > **⚠️ These docs are only useful if they match the code.**
 > If you change anything the docs describe — auth flows, credential types,

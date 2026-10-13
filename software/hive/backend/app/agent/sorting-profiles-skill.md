@@ -198,14 +198,15 @@ them. Put kit rules **above** broader rules, or those take the parts first
 | `GET /api/profile-catalog/search-sets?q=` | LEGO sets; `GET /api/profile-catalog/sets/{set_num}` for one set's parts |
 | `GET /api/agent/whoami` | whose key this is, its name and scopes |
 | `GET /api/records/machines` | the person's machines and how many pieces each sorted |
-| `GET /api/records/machines/{id}/parts?since_days=30` | every part and color a machine sorted, most first |
+| `GET /api/records/machines/{id}/parts?since_days=30` | the parts and colors of a machine's newest pieces (up to 20,000), most first |
 | `GET /api/records/machines/{id}/pieces` | each piece, newest first (`cursor` for more) |
 
 ## Using what a machine sorted
 
 To fit a profile to what actually comes through a machine, read
-`/api/records/machines/{id}/parts`: the parts and colors it has seen, with
-counts. Those IDs are BrickLink's. An empty machine list means this account
+`/api/records/machines/{id}/parts`: the parts and colors of its newest pieces
+(up to 20,000; `pieces_examined` says how many), with counts. Those IDs are
+BrickLink's. An empty machine list means this account
 has no sorter linked to it (a sorter links to an account from its own
 Settings, Hive); if the person's sorter reports to another account, the key
 has to come from that one. Give the most common ones their own bins,

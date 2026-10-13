@@ -129,9 +129,11 @@ def palette_filter(db: Session, value: str | None) -> ColumnElement[bool] | None
       with a full frame) that the model has not called yet, a run made before
       the finder made the call included. What a backfill would queue.
 
-    One correlated EXISTS against sample_swatch_runs, which Postgres runs as a
-    semi- or anti-join on ``ix_sample_swatch_runs_model_palette`` (model,
-    call, sample) or the (sample, model) unique index: nothing per row.
+    The call is looked up per sample, through the (sample, model) unique index:
+    a scalar subquery, which Postgres never turns into a join that starts from
+    every run the model made. A page of the samples list looks at a bounded
+    stretch of samples, so it makes that many lookups at most, however many
+    samples the model has read.
     """
     if value not in PALETTE_FILTER_VALUES:
         return None
@@ -140,19 +142,19 @@ def palette_filter(db: Session, value: str | None) -> ColumnElement[bool] | None
         eligible = Sample.source_role.in_(list(settings.SWATCH_FIND_SOURCE_ROLES)) & Sample.full_frame_path.isnot(None)
         if sha is None:
             return eligible
-        called = exists().where(
-            SampleSwatchRun.sample_id == Sample.id,
-            SampleSwatchRun.model_sha256 == sha,
-            SampleSwatchRun.palette_present.isnot(None),
-        )
-        return eligible & ~called
+        return eligible & _palette_call(sha).is_(None)
     if sha is None:
         return false()
-    return exists().where(
-        SampleSwatchRun.sample_id == Sample.id,
-        SampleSwatchRun.model_sha256 == sha,
-        # "= true", not "IS TRUE": only an equality can use the index.
-        SampleSwatchRun.palette_present == (value == "in_view"),
+    return _palette_call(sha).is_(value == "in_view")
+
+
+def _palette_call(sha: str):
+    """The model's call on the sample: true, false, or null (no run, or a run
+    from before the finder made the call)."""
+    return (
+        select(SampleSwatchRun.palette_present)
+        .where(SampleSwatchRun.sample_id == Sample.id, SampleSwatchRun.model_sha256 == sha)
+        .scalar_subquery()
     )
 
 

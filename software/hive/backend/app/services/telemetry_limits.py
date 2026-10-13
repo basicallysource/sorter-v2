@@ -25,8 +25,13 @@ LIMITS_VERSION = 1
 
 GLOBAL_ROW_ID = 1
 
+# A machine samples each camera's full frame at most once in this many seconds,
+# and by default: faster only sends near-identical frames and loads the machine
+# and Hive. A stored or requested interval faster than this is raised to it.
+MIN_SAMPLE_INTERVAL_S = 120.0
+
 DEFAULT_LIMITS: dict[str, float | int] = {
-    "sample_burst_interval_s": 10.0,
+    "sample_burst_interval_s": MIN_SAMPLE_INTERVAL_S,
     "sample_floor_interval_s": 3600.0,
     "sample_ramp_hours": 72.0,
     "sample_store_max_bytes": 1073741824,
@@ -54,6 +59,12 @@ def _values(row: TelemetryLimits | None) -> dict[str, float | int]:
         if value is None:
             value = default
         values[field] = float(value) if isinstance(default, float) else int(value)
+    return _at_least_the_minimum(values)
+
+
+def _at_least_the_minimum(values: dict[str, float | int]) -> dict[str, float | int]:
+    for field in ("sample_burst_interval_s", "sample_floor_interval_s"):
+        values[field] = max(float(values[field]), MIN_SAMPLE_INTERVAL_S)
     return values
 
 
@@ -78,10 +89,11 @@ def effective_limits(db: Session, machine: Machine) -> dict[str, Any]:
 def update_global_limits(db: Session, changes: dict[str, float | int]) -> dict[str, Any]:
     """Apply a partial update to the global limits and commit it.
 
-    Every value must be positive (the caller's schema checks that), and the
-    floor interval may not be shorter than the burst interval, since the ramp
-    goes from the burst toward the floor. Raises ``TelemetryLimitsError``
-    without writing anything when the result would be invalid.
+    Every value must be positive (the caller's schema checks that); a sample
+    interval faster than MIN_SAMPLE_INTERVAL_S is raised to it; and the floor
+    interval may not be shorter than the burst interval, since the ramp goes
+    from the burst toward the floor. Raises ``TelemetryLimitsError`` without
+    writing anything when the result would be invalid.
     """
     unknown = set(changes) - set(LIMIT_FIELDS)
     if unknown:
@@ -93,6 +105,7 @@ def update_global_limits(db: Session, changes: dict[str, float | int]) -> dict[s
     for field, value in merged.items():
         if value <= 0:
             raise TelemetryLimitsError(f"{field} must be positive")
+    merged = _at_least_the_minimum(merged)
     if merged["sample_floor_interval_s"] < merged["sample_burst_interval_s"]:
         raise TelemetryLimitsError("sample_floor_interval_s must be at least sample_burst_interval_s")
 

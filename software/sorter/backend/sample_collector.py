@@ -11,10 +11,11 @@ from global_config import GlobalConfig
 from local_state import get_sample_collection_state, set_sample_collection_state
 from sample_ingest import buildSample
 
-DEFAULT_INTERVAL_S = 10.0
-# Floor the interval so a bad rate value can't spin the loop into a busy save
-# storm that pins a core. Hive's burst limit is the real floor (see _limits).
-MIN_INTERVAL_S = 0.1
+# One full frame per camera every two minutes at most, and by default: faster
+# only re-sends near-identical frames and loads the machine and Hive. A saved
+# setting faster than this is raised to it when it is read.
+DEFAULT_INTERVAL_S = 120.0
+MIN_INTERVAL_S = 120.0
 # How often the loop wakes to notice an enable/disable flip while idle.
 _IDLE_POLL_S = 0.25
 
@@ -29,10 +30,10 @@ DEFAULT_JITTER_FRAC = 0.3  # ±30% random wobble on each interval
 
 # While a training run collects (training_runs), the classification camera's
 # frame, with the colour reference palette in it, is captured as each colour
-# segment starts and then at least this often, whether or not sample capture is
-# on: the palette's readings calibrate the run's labels to the light, which can
-# change during a run.
-TRAINING_CALIBRATION_INTERVAL_S = 30.0
+# segment starts and then every MIN_INTERVAL_S, whether or not sample capture is
+# on (and never sooner than MIN_INTERVAL_S after that camera's last frame): the
+# palette's readings calibrate the run's labels to the light, which can change
+# during a run.
 _CALIBRATION_ROLES = ("classification_channel", "carousel")
 
 # Values the previous version of this file saved for every machine whether or
@@ -78,6 +79,8 @@ class SampleCollector:
         # The training segment the last calibration frame was for, and when.
         self._calibrated_segment: str | None = None
         self._calibrated_at = 0.0
+        # When each camera last gave a frame: none gives two within MIN_INTERVAL_S.
+        self._captured_at: dict[str, float] = {}
         self._loadPersisted()
         sample_store.configure(gc.logger, self._storeCapBytes())
 
@@ -86,6 +89,12 @@ class SampleCollector:
         if isinstance(value, (int, float)) and not isinstance(value, bool) and value > 0:
             return float(value)
         return None
+
+    @classmethod
+    def _interval(cls, value: Any) -> float | None:
+        # A local interval setting: none, or at least MIN_INTERVAL_S.
+        seconds = cls._posFloat(value)
+        return None if seconds is None else max(MIN_INTERVAL_S, seconds)
 
     def _storeCapBytes(self) -> int | None:
         return int(self._store_max_mb * 1024 * 1024) if self._store_max_mb else None
@@ -121,7 +130,11 @@ class SampleCollector:
         self._decay_enabled = bool(saved.get("decay_enabled", DEFAULT_DECAY_ENABLED))
         for key in ("burst_interval_s", "floor_interval_s", "ramp_hours"):
             value = self._posFloat(saved.get(key))
-            setattr(self, f"_{key}", None if value == _OLD_SAVED_DEFAULTS[key] else value)
+            if value == _OLD_SAVED_DEFAULTS[key]:
+                value = None
+            elif key != "ramp_hours":
+                value = self._interval(value)
+            setattr(self, f"_{key}", value)
         self._store_max_mb = self._posFloat(saved.get("store_max_mb"))
         jitter = saved.get("jitter_frac")
         if isinstance(jitter, (int, float)) and not isinstance(jitter, bool) and 0 <= jitter <= 1:
@@ -129,6 +142,14 @@ class SampleCollector:
         anchor = saved.get("decay_anchor_ts")
         if isinstance(anchor, (int, float)) and not isinstance(anchor, bool) and anchor > 0:
             self._decay_anchor_ts = float(anchor)
+        # A setting saved faster than the minimum is stored at the minimum.
+        raised = any(
+            isinstance(saved.get(key), (int, float)) and saved.get(key) != getattr(self, f"_{key}")
+            for key in ("interval_s", "burst_interval_s", "floor_interval_s")
+            if getattr(self, f"_{key}") is not None
+        )
+        if raised:
+            self._persist()
 
     def _persist(self) -> None:
         set_sample_collection_state(
@@ -231,9 +252,9 @@ class SampleCollector:
             if decay_enabled is not None:
                 self._decay_enabled = bool(decay_enabled)
             if burst_interval_s is not self._UNSET:
-                self._burst_interval_s = self._posFloat(burst_interval_s)
+                self._burst_interval_s = self._interval(burst_interval_s)
             if floor_interval_s is not self._UNSET:
-                self._floor_interval_s = self._posFloat(floor_interval_s)
+                self._floor_interval_s = self._interval(floor_interval_s)
             if ramp_hours is not self._UNSET:
                 self._ramp_hours = self._posFloat(ramp_hours)
             if jitter_frac is not None:
@@ -323,10 +344,12 @@ class SampleCollector:
         segment = training_runs.openSegment()
         if segment is None:
             return None
+        earliest = max((self._captured_at.get(role, 0.0) for role in _CALIBRATION_ROLES), default=0.0)
+        earliest += MIN_INTERVAL_S
         if segment[0] != self._calibrated_segment:
-            return 0.0
-        interval = max(TRAINING_CALIBRATION_INTERVAL_S, self._limits()["burst_interval_s"])
-        return max(0.0, self._calibrated_at + interval - now)
+            return max(0.0, earliest - now)
+        interval = max(MIN_INTERVAL_S, self._limits()["burst_interval_s"])
+        return max(0.0, max(self._calibrated_at + interval, earliest) - now)
 
     def _captureCalibration(self, now: float) -> None:
         import training_runs
@@ -391,6 +414,8 @@ class SampleCollector:
         for role in self._camera_service.physical_camera_roles():
             if roles is not None and role not in roles:
                 continue
+            if now - self._captured_at.get(role, float("-inf")) < MIN_INTERVAL_S:
+                continue
             capture = self._camera_service.get_capture_thread_for_role(role)
             frame = getattr(capture, "latest_frame", None) if capture is not None else None
             if frame is None:
@@ -399,6 +424,7 @@ class SampleCollector:
                 sample = buildSample(self.gc, role, capture, frame, annotate=annotate)
                 if sample is not None and sample_store.enqueue(*sample):
                     saved += 1
+                    self._captured_at[role] = now
             except Exception as exc:
                 last_error = str(exc)
                 self.gc.logger.warning("SampleCollector capture failed for %s: %s" % (role, exc))

@@ -18,7 +18,11 @@
 	// no default of their own: they follow the limits Hive sets.
 	const DEFAULT_ENABLED = false;
 	const DEFAULT_ANNOTATE = true;
-	const DEFAULT_PER_MINUTE = 6;
+	// One frame per camera every two minutes at most (the machine raises a
+	// faster setting to it).
+	const MAX_PER_MINUTE = 0.5;
+	const MIN_INTERVAL_S = 120;
+	const DEFAULT_PER_MINUTE = MAX_PER_MINUTE;
 	const DEFAULT_DECAY_ENABLED = true;
 	const DEFAULT_JITTER_PCT = 30; // 0.3
 
@@ -58,7 +62,7 @@
 	let perMinute = $state(6);
 	let decayEnabled = $state(true);
 	// The schedule in force: what is set here where set, else Hive's limit.
-	let burstS = $state(10);
+	let burstS = $state(MIN_INTERVAL_S);
 	let floorS = $state(3600);
 	let rampH = $state(72);
 	let local = $state<LocalSettings>({
@@ -186,7 +190,7 @@
 
 	function saveRate(next: number) {
 		if (!Number.isFinite(next) || next <= 0) return;
-		void post({ interval_s: 60 / next });
+		void post({ interval_s: 60 / Math.min(next, MAX_PER_MINUTE) });
 	}
 
 	function saveDecayEnabled(next: boolean) {
@@ -320,7 +324,7 @@
 	{#if !decayEnabled}
 		<SettingRow
 			label="Capture rate"
-			help="Frames per minute per camera. Default 6 (one every 10s)."
+			help="Frames per minute per camera: at most 0.5, one every 2 minutes, which is also the default."
 			for="sample-capture-rate"
 			changed={perMinute !== DEFAULT_PER_MINUTE}
 			defaultText={String(DEFAULT_PER_MINUTE)}
@@ -329,9 +333,9 @@
 			<Input
 				id="sample-capture-rate"
 				type="number"
-				min={0.1}
-				max={600}
-				step={1}
+				min={0.01}
+				max={MAX_PER_MINUTE}
+				step={0.1}
 				value={perMinute}
 				disabled={loading || saving || !initialized}
 				onchange={(event) => saveRate(Number((event.currentTarget as HTMLInputElement).value))}
@@ -480,7 +484,7 @@
 		<div class="divide-y divide-line">
 		<SettingRow
 			label="Burst interval"
-			help="Seconds between frames per camera right after a reset. Never faster than Hive allows."
+			help="Seconds between frames per camera right after a reset. Never faster than Hive allows, nor than one every 2 minutes."
 			for="decay-burst"
 			changed={local.burst_interval_s !== null}
 			defaultText={followText(hiveBurst, 's')}
@@ -490,13 +494,15 @@
 			<Input
 				id="decay-burst"
 				type="number"
-				min={hiveBurst ?? 0.1}
+				min={Math.max(hiveBurst ?? 0, MIN_INTERVAL_S)}
 				step={1}
 				value={local.burst_interval_s}
 				placeholder={hint(hiveBurst)}
 				disabled={loading || saving || !initialized}
 				onchange={(event) =>
-					saveLocal('burst_interval_s', valueOf(event), (sec) => Math.max(sec, hiveBurst ?? 0))}
+					saveLocal('burst_interval_s', valueOf(event), (sec) =>
+						Math.max(sec, hiveBurst ?? 0, MIN_INTERVAL_S)
+					)}
 				unit="s"
 				class="w-36"
 			/>
@@ -514,12 +520,13 @@
 			<Input
 				id="decay-floor"
 				type="number"
-				min={0.1}
+				min={MIN_INTERVAL_S / 60}
 				step="any"
 				value={local.floor_interval_s === null ? null : round(local.floor_interval_s / 60, 2)}
 				placeholder={hint(hiveFloorMin)}
 				disabled={loading || saving || !initialized}
-				onchange={(event) => saveLocal('floor_interval_s', valueOf(event), (min) => min * 60)}
+				onchange={(event) =>
+					saveLocal('floor_interval_s', valueOf(event), (min) => Math.max(min * 60, MIN_INTERVAL_S))}
 				unit="min"
 				class="w-36"
 			/>

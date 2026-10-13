@@ -67,10 +67,11 @@ def _device_mac(device: str) -> Optional[str]:
     if proc.returncode != 0:
         return None
     for line in proc.stdout.splitlines():
-        parts = _split_terse(line)
-        if len(parts) < 2 or not parts[1].strip():
-            continue
-        return parts[1].strip()
+        # The address itself contains colons, which nmcli -t escapes in some
+        # versions and not in others: take the rest of the line, not a field.
+        mac = line.partition(":")[2].replace("\\:", ":").strip()
+        if mac:
+            return mac
     return None
 
 

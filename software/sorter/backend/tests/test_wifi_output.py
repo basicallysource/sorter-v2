@@ -1,5 +1,7 @@
 import subprocess
 
+import pytest
+
 from server.routers import wifi
 
 
@@ -83,10 +85,14 @@ def test_scan_waits_for_a_fresh_scan_and_falls_back_to_the_last_one(monkeypatch)
     assert [c[-2:] for c in calls if "list" in c] == [["--rescan", "yes"], ["--rescan", "no"]]
 
 
-def test_an_adapter_reports_its_hardware_address(monkeypatch):
+@pytest.mark.parametrize("raw", [
+    "GENERAL.HWADDR:AA\\:BB\\:CC\\:DD\\:EE\\:01\n",
+    "GENERAL.HWADDR:AA:BB:CC:DD:EE:01\n",
+])
+def test_an_adapter_reports_its_hardware_address(monkeypatch, raw):
     def fake_run(cmd, **kwargs):
         if "GENERAL.HWADDR" in cmd:
-            out = "GENERAL.HWADDR:AA\\:BB\\:CC\\:DD\\:EE\\:01\n"
+            out = raw
         elif "DEVICE,TYPE,STATE,CONNECTION" in cmd:
             out = "wlan0:wifi:disconnected:--\n"
         else:

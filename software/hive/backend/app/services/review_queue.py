@@ -61,6 +61,7 @@ __all__ = [
     "piece_page",
     "piece_cards",
     "piece_count",
+    "training_labeled_count",
     "SAMPLE_WINDOW",
     "sample_page",
     "sample_path",
@@ -155,7 +156,7 @@ _LABEL_TABLES = {"color": PieceColorLabel, "crop": PieceCropLink, "part": PieceP
 
 @dataclass(frozen=True)
 class _PieceSegment:
-    kind: str  # "walk" | "labeled" | "rare"
+    kind: str  # "walk" | "trained" | "labeled" | "rare"
     label: str | None = None  # the label table the segment is about
     oldest: bool = False  # walk oldest first
     most: bool = False  # labeled: most labels first
@@ -169,7 +170,13 @@ def _piece_plan(sort: str) -> list[_PieceSegment]:
     an index and stops at the page size; for a sort about a label count it keeps
     only pieces with no label of that kind, which is nearly all. A labeled
     segment orders the pieces that do have labels (written by people, so few) by
-    how many. "rare" walks the least confident colour predictions first."""
+    how many. "rare" walks the least confident colour predictions first.
+
+    A colour from a training run counts as a colour label: the colour walks
+    leave out the pieces that have one, and a "trained" segment walks those
+    with no person's label (the queue's training indexes) just before the
+    labeled ones, as if they had one label. A piece with a person's label is in
+    the labeled segment, by its people's labels, whether a run labelled it or not."""
     if sort == "recent":
         return [_PieceSegment("walk")]
     if sort == "oldest":
@@ -177,13 +184,16 @@ def _piece_plan(sort: str) -> list[_PieceSegment]:
     if sort == "priority":
         return [
             _PieceSegment("walk", "color", candidates=True),
+            _PieceSegment("trained", "color", candidates=True),
             _PieceSegment("labeled", "color", candidates=True),
             _PieceSegment("walk", "color", candidates=False),
+            _PieceSegment("trained", "color", candidates=False),
             _PieceSegment("labeled", "color", candidates=False),
         ]
     if sort == "needs_me":
         return [
             _PieceSegment("walk", "color"),
+            _PieceSegment("trained", "color"),
             _PieceSegment("labeled", "color", mine=False),
             _PieceSegment("labeled", "color", mine=True),
         ]
@@ -192,7 +202,15 @@ def _piece_plan(sort: str) -> list[_PieceSegment]:
         return [_PieceSegment("walk", "part", filters=unident), _PieceSegment("labeled", "part", filters=unident)]
     if sort == "rare_color":
         return [_PieceSegment("rare"), _PieceSegment("walk", filters=(Q.color_confidence.is_(None),))]
-    for label in ("color", "crop", "part"):
+    if sort == "least_color":
+        return [_PieceSegment("walk", "color"), _PieceSegment("trained", "color"), _PieceSegment("labeled", "color")]
+    if sort == "most_color":
+        return [
+            _PieceSegment("labeled", "color", most=True),
+            _PieceSegment("trained", "color"),
+            _PieceSegment("walk", "color"),
+        ]
+    for label in ("crop", "part"):
         if sort == f"least_{label}":
             return [_PieceSegment("walk", label), _PieceSegment("labeled", label)]
         if sort == f"most_{label}":
@@ -217,7 +235,7 @@ def piece_page(
     with_palette: bool = False,
 ) -> tuple[list[Any], str | None]:
     """The next page of queue rows (machine_id, piece_uuid, arrival_at,
-    has_candidates, color_confidence, has_palette) in ``sort`` order, and the
+    has_candidates, color_confidence, has_palette, has_training_label) in ``sort`` order, and the
     next cursor. ``with_palette`` keeps the pieces with the colour reference
     palette in view near them, read through the queue's palette indexes.
 
@@ -241,7 +259,10 @@ def piece_page(
     def base(agg=None):
         # Every segment of every piece sort is read from this query, so the
         # machine filter and the access scope cannot be missed by any of them.
-        columns = [Q.machine_id, Q.piece_uuid, Q.arrival_at, Q.has_candidates, Q.color_confidence, Q.has_palette]
+        columns = [
+            Q.machine_id, Q.piece_uuid, Q.arrival_at, Q.has_candidates, Q.color_confidence, Q.has_palette,
+            Q.has_training_label,
+        ]
         if agg is not None:
             columns.append(agg.c.n)
         q = (
@@ -278,15 +299,34 @@ def piece_page(
         cols = [Q.arrival_at] + ([] if constant_machine else [Q.machine_id]) + [Q.piece_uuid]
         return [c.asc() for c in cols] if oldest else [c.desc() for c in cols]
 
+    def unlabeled(q, label: str):
+        table = _LABEL_TABLES[label]
+        return q.filter(~exists().where(and_(table.machine_id == Q.machine_id, table.piece_uuid == Q.piece_uuid)))
+
     def walk(seg: _PieceSegment, extra: list) -> Fetch:
         def fetch(key, limit):
             q = base().filter(*extra)
             if seg.label is not None:
-                table = _LABEL_TABLES[seg.label]
-                q = q.filter(~exists().where(and_(table.machine_id == Q.machine_id, table.piece_uuid == Q.piece_uuid)))
+                q = unlabeled(q, seg.label)
+            if seg.label == "color":
+                # A training run's colour is a colour label: those pieces come
+                # in the trained segment.
+                q = q.filter(Q.has_training_label.is_(False))
             if key is not None:
                 q = q.filter(after_arrival(key, seg.oldest))
             rows = q.order_by(*newest_first(seg.oldest)).limit(limit).all()
+            return [(r, _piece_key(r)) for r in rows]
+
+        return fetch
+
+    def trained(seg: _PieceSegment, extra: list) -> Fetch:
+        # The pieces a training run labelled and no person has, newest first,
+        # read through the training indexes (the predicate as they write it).
+        def fetch(key, limit):
+            q = unlabeled(base().filter(*extra, Q.has_training_label.is_(True)), seg.label)
+            if key is not None:
+                q = q.filter(after_arrival(key))
+            rows = q.order_by(*newest_first()).limit(limit).all()
             return [(r, _piece_key(r)) for r in rows]
 
         return fetch
@@ -339,7 +379,8 @@ def piece_page(
         extra = list(seg.filters)
         if seg.candidates is not None:
             extra.append(Q.has_candidates.is_(seg.candidates))
-        segments.append(walk(seg, extra) if seg.kind == "walk" else labeled(seg, extra) if seg.kind == "labeled" else rare())
+        make = {"walk": walk, "trained": trained, "labeled": labeled}.get(seg.kind)
+        segments.append(make(seg, extra) if make is not None else rare())
     return read_page(segments, sort, limit, cursor)
 
 
@@ -418,6 +459,8 @@ def piece_cards(db: Session, user: User, rows: list[Any]) -> list[dict]:
                 "my_part": mp,
                 "has_candidates": bool(r.has_candidates),
                 "has_palette": bool(r.has_palette),
+                # A training run's colour counts as a colour label here.
+                "has_training_label": bool(r.has_training_label),
                 "thumb_seq": thumb[0] if thumb else None,
                 "thumb_url": thumb_url(thumb[1]) if thumb else None,
             }
@@ -454,6 +497,24 @@ def piece_count(db: Session, user: User, machine_ids: Sequence[UUID] | None) -> 
         .scalar()
     )
     return owned_total + int(window_extra or 0)
+
+
+def training_labeled_count(db: Session, user: User, machine_ids: Sequence[UUID] | None) -> int:
+    """How many pieces training runs labelled with a colour that counts, on the
+    machines this user may label: a sum over the per-machine counts the
+    labeling-queue worker keeps (from the counts kept on each run, excluded
+    runs left out). Runs count per machine, so a reviewer's window of other
+    machines' pieces adds none."""
+    scope = piece_scope(db, user)
+    if scope.machine_ids is not None and not scope.machine_ids:
+        return 0
+    q = db.query(func.coalesce(func.sum(LabelingQueueCount.training_labeled), 0))
+    q = restrict_to_machines(q, LabelingQueueCount.machine_id, machine_ids)
+    if scope.machine_ids is not None:
+        q = restrict_to_machines(q, LabelingQueueCount.machine_id, scope.machine_ids)
+    if not scope.unrestricted:
+        q = q.filter(LabelingQueueCount.machine_id.in_(scope.owned))
+    return int(q.scalar() or 0)
 
 
 # --- Samples: the Channel samples list and its review queue --------------------------------

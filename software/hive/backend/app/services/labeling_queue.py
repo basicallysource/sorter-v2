@@ -17,7 +17,11 @@ Every pass (``REFRESH_INTERVAL_S``):
     arrival window they fall in as having same-piece candidates;
   * palette frames called since the last pass (swatch runs stored since) work
     out ``has_palette`` again for the queued pieces near them;
-  * each machine's labelable count is recounted into ``labeling_queue_counts``.
+  * ``has_training_label`` is set for the pieces it evaluates, from their
+    training colour and their run (``services.training_runs``); the sync
+    endpoints keep it for queued pieces whose training state changes later;
+  * each machine's labelable count is recounted into ``labeling_queue_counts``,
+    with the pieces its training runs labelled (summed from the runs' counts).
 
 Once a day (``RECONCILE_INTERVAL_S``) it evaluates every piece again, in small
 batches, which catches what ``created_at`` cannot see: a record re-sent as
@@ -51,8 +55,9 @@ from app.models.machine import Machine
 from app.models.machine_channel_crop import MachineChannelCrop
 from app.models.machine_piece import MachinePiece
 from app.models.machine_piece_image import MachinePieceImage
+from app.models.machine_training_run import MachineTrainingRun
 from app.models.sample_swatch import SampleSwatchRun
-from app.services import piece_palette
+from app.services import piece_palette, training_runs
 from app.services.channel_crop_lookup_params import DEFAULT_PARAMS
 from app.services.periodic import PeriodicWorker
 
@@ -85,6 +90,9 @@ _PIECE_COLUMNS = (
     MachinePiece.part_id,
     MachinePiece.color_id,
     MachinePiece.color_confidence,
+    MachinePiece.training_run_uuid,
+    MachinePiece.training_color_id,
+    MachinePiece.training_excluded,
 )
 
 
@@ -176,7 +184,9 @@ def _with_candidates(db: Session, machine_id: Any, arrivals: dict[str, datetime]
     return found
 
 
-_QUEUE_FIELDS = ("arrival_at", "has_candidates", "unidentified", "color_id", "color_confidence", "has_palette")
+_QUEUE_FIELDS = (
+    "arrival_at", "has_candidates", "unidentified", "color_id", "color_confidence", "has_palette", "has_training_label",
+)
 
 
 def _comparable(row: Any) -> tuple:
@@ -223,6 +233,7 @@ def evaluate(db: Session, pieces: list[Any], palette_sha: str | None) -> dict[st
             db, machine_id, {p.piece_uuid: _arrival(p) for p in eligible if p.piece_uuid not in known}
         )
         palette = piece_palette.with_palette(db, palette_sha, machine_id, {p.piece_uuid: _arrival(p) for p in eligible})
+        trained = training_runs.labelled(db, machine_id, eligible)
         eligible_ids = {p.piece_uuid for p in eligible}
         removes.extend(
             (machine_id, p.piece_uuid) for p in rows if p.piece_uuid not in eligible_ids and p.piece_uuid in current
@@ -237,6 +248,7 @@ def evaluate(db: Session, pieces: list[Any], palette_sha: str | None) -> dict[st
                 "color_id": p.color_id,
                 "color_confidence": p.color_confidence,
                 "has_palette": p.piece_uuid in palette,
+                "has_training_label": p.piece_uuid in trained,
             }
             # Only write what changed: the daily reconcile touches every piece,
             # and rewriting unchanged rows would double the table until vacuum.
@@ -391,9 +403,22 @@ def _recount(db: Session, now: datetime) -> None:
         .group_by(LabelingQueueEntry.machine_id)
         .all()
     )
+    trained = dict(
+        db.query(MachineTrainingRun.machine_id, func.sum(MachineTrainingRun.labeled_count))
+        .filter(MachineTrainingRun.excluded.is_(False))
+        .group_by(MachineTrainingRun.machine_id)
+        .all()
+    )
     db.query(LabelingQueueCount).delete(synchronize_session=False)
-    for machine_id, n in counts.items():
-        db.add(LabelingQueueCount(machine_id=machine_id, labelable=int(n), computed_at=now))
+    for machine_id in set(counts) | set(trained):
+        db.add(
+            LabelingQueueCount(
+                machine_id=machine_id,
+                labelable=int(counts.get(machine_id) or 0),
+                training_labeled=int(trained.get(machine_id) or 0),
+                computed_at=now,
+            )
+        )
 
 
 def reconcile(db: Session, palette_sha: str | None) -> int:

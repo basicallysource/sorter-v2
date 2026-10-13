@@ -60,6 +60,7 @@ HISTORY = frozenset(
         "machine_piece_predictions",
         "machine_piece_rejection_reasons",
         "machine_control_data_segments",
+        "machine_training_runs",
         "labeling_queue",
     }
 )
@@ -83,8 +84,9 @@ class Case:
 
     ``path`` may name {busy} (the machine with the most samples), {small} (an
     active machine with few), {member_machine}, {sample}, {piece_machine},
-    {piece}, {crop}, {old_crop}, {model}, {teacher_job} and {reviewer}: rows of
-    the seeded fleet the fixture finds. ``pages`` follows next_cursor that many pages."""
+    {piece}, {trained_machine} and {trained_piece} (a piece a training run
+    labelled), {crop}, {old_crop}, {model}, {teacher_job} and {reviewer}: rows
+    of the seeded fleet the fixture finds. ``pages`` follows next_cursor that many pages."""
 
     name: str
     path: str
@@ -195,6 +197,7 @@ CASES: list[Case] = [
     Case("pieces: newest", P + "&sort=recent", pages=2),
     Case("pieces: oldest", P + "&sort=oldest"),
     Case("pieces: fewest colour labels", P + "&sort=least_color"),
+    Case("pieces: fewest colour labels, a machine with training runs", P + "&sort=least_color&machine_id={trained_machine}"),
     Case(
         "pieces: most colour labels",
         P + "&sort=most_color",
@@ -208,6 +211,7 @@ CASES: list[Case] = [
     Case("pieces: likely a rare colour", P + "&sort=rare_color"),
     Case("pieces: unidentified", P + "&sort=unidentified"),
     Case("pieces: what I have not labeled", P + "&sort=needs_me"),
+    Case("pieces: what I have not labeled, a machine with training runs", P + "&sort=needs_me&machine_id={trained_machine}"),
     Case("pieces: priority, one machine", P + "&sort=priority&machine_id={busy}"),
     Case("pieces: newest, a small machine", P + "&sort=recent&machine_id={small}"),
     Case("pieces: priority, with or without candidates", "/api/labeling/pieces?limit=60&sort=priority"),
@@ -234,6 +238,7 @@ CASES: list[Case] = [
     Case("pieces: colour coverage", "/api/labeling/color-coverage"),
     Case("piece: detail", "/api/labeling/piece/{piece_machine}/{piece}"),
     Case("piece: detail, a reviewer", "/api/labeling/piece/{piece_machine}/{piece}", user="reviewer"),
+    Case("piece: detail, from a training run", "/api/labeling/piece/{trained_machine}/{trained_piece}"),
     Case("piece: same-piece candidates", "/api/labeling/possible-crops/{piece_machine}/{piece}"),
     Case(
         "piece: the machine's labeled reference column",
@@ -267,6 +272,7 @@ CASES: list[Case] = [
     Case("machines: my machines' stats", "/api/machines/stats"),
     Case("machine: overview", "/api/machines/{busy}/overview"),
     Case("machine: its pieces", "/api/machines/{busy}/pieces?limit=60", pages=2),
+    Case("machine: its training runs", "/api/machines/{trained_machine}/training-runs?limit=4", pages=2),
     Case("machine: its channel crops", "/api/machines/{busy}/channel-crops?limit=120", pages=2),
     Case("machine: its C3 crops", "/api/machines/{busy}/channel-crops?limit=120&channel=3"),
     Case("machine: its crops at the exit", "/api/machines/{busy}/channel-crops?limit=120&zone_code=2"),
@@ -458,6 +464,16 @@ def fleet(plan_engine) -> dict[str, Any]:
             {"m": ids["busy"]},
         ).one()
         ids["piece_machine"], ids["piece"] = piece
+        # The newest piece a training run labelled, on the machine with the most.
+        trained = conn.execute(
+            text(
+                """SELECT q.machine_id, q.piece_uuid FROM labeling_queue q
+                   WHERE q.has_training_label AND q.machine_id = (
+                       SELECT machine_id FROM machine_training_runs GROUP BY machine_id ORDER BY sum(piece_count) DESC LIMIT 1)
+                   ORDER BY q.arrival_at DESC LIMIT 1"""
+            )
+        ).one()
+        ids["trained_machine"], ids["trained_piece"] = trained
         # A crop the piece's labeling page shows (seconds before it arrived),
         # and one from two months ago.
         ids["crop"] = conn.execute(

@@ -78,8 +78,9 @@ class MachinePiece(Base):
     correction_updated_at = Column(DateTime(timezone=True), nullable=True)
     # Operator-flagged capture issues live in machine_piece_rejection_reasons,
     # one row per (piece, reason) — see MachinePieceRejectionReason.
-    # The training run the machine saw the piece in (machine_training_runs),
-    # the colour the run labels it with (a BrickLink id as a string, NULL when
+    # The training run the machine saw the piece in (machine_training_runs)
+    # and the segment of it (the colours being fed then), the colour the run
+    # labels it with (a BrickLink id as a string, NULL when
     # the run could not decide one), how that was decided ("run": the run's one
     # colour; "prediction": the first of the piece's own colour predictions
     # that is one of the run's; "nearest": the run colour nearest the
@@ -87,6 +88,7 @@ class MachinePiece(Base):
     # record, never written by Hive. A label counts when it is set, the piece
     # is not excluded and its run is not.
     training_run_uuid = Column(String, nullable=True)
+    training_segment_uuid = Column(String, nullable=True)
     training_color_id = Column(String, nullable=True)
     training_label_source = Column(String, nullable=True)
     training_excluded = Column(Boolean, nullable=False, default=False, server_default=false())

@@ -219,9 +219,21 @@ def run_out(run: MachineTrainingRun, colors: dict[str, dict[str, Any]]) -> dict[
     }
 
 
+def _segment_out(segment: dict[str, Any], colors: dict[str, dict[str, Any]]) -> dict[str, Any]:
+    return {
+        "segment_uuid": segment.get("segment_uuid"),
+        "color_ids": [str(c) for c in segment.get("color_ids") or []],
+        "colors": colors_of(segment.get("color_ids"), colors),
+        "started_at": segment.get("started_at"),
+        "ended_at": segment.get("ended_at"),
+    }
+
+
 def piece_training(db: Session, piece: MachinePiece) -> dict[str, Any] | None:
-    """The training run a piece was seen in and the colour it gives it, for
-    the piece panel; None for a piece seen outside a run."""
+    """The training run a piece was seen in, the segment of it (the colours
+    being fed then; None when the piece names none or the run has not synced
+    it) and the colour it gives the piece, for the piece panel; None for a
+    piece seen outside a run."""
     if not piece.training_run_uuid:
         return None
     run = (
@@ -232,11 +244,18 @@ def piece_training(db: Session, piece: MachinePiece) -> dict[str, Any] | None:
     colors = palette()
     label = colors.get(str(piece.training_color_id)) if piece.training_color_id is not None else None
     run_excluded = bool(run.excluded) if run is not None else False
+    segment = None
+    if run is not None and piece.training_segment_uuid:
+        segment = next(
+            (s for s in run.segments or [] if isinstance(s, dict) and s.get("segment_uuid") == piece.training_segment_uuid),
+            None,
+        )
     return {
         "run_uuid": piece.training_run_uuid,
         "mode": run.mode if run is not None else None,
         "color_ids": [str(c) for c in run.color_ids or []] if run is not None else [],
         "colors": colors_of(run.color_ids, colors) if run is not None else [],
+        "segment": _segment_out(segment, colors) if segment is not None else None,
         "color_id": piece.training_color_id,
         "color_name": label.get("name") if label else None,
         "color_rgb": label.get("rgb") if label else None,

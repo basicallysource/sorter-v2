@@ -614,26 +614,31 @@ class Seeder:
         )
 
     def training_runs(self) -> None:
-        """Ten colour runs on each of the three busiest machines: the newest
-        still collecting (started 40 minutes ago), the rest an hour long, every
-        three days; one in ten excluded, one in three of several colours. The
+        """Ten colour runs of one segment on each of the three busiest machines:
+        the newest still collecting (started 40 minutes ago), the rest an hour
+        long, every three days; one in ten excluded, one in three of several
+        colours. The
         pieces each saw are labelled as a sorter would label them (a run of
         one colour gives it; of several, the piece's own guess when it is one
         of them, nine times in ten), one in fifty excluded, and each run's
         counts are kept as a sync would leave them."""
         self.run(
             """
-            INSERT INTO machine_training_runs (id, machine_id, run_uuid, mode, color_ids, started_at, ended_at,
-                excluded, updated_at, piece_count, labeled_count, excluded_count, created_at, received_at)
+            INSERT INTO machine_training_runs (id, machine_id, run_uuid, mode, color_ids, segments, started_at,
+                ended_at, excluded, updated_at, piece_count, labeled_count, excluded_count, created_at, received_at)
             SELECT md5('training-run:' || m.i || ':' || k)::uuid, m.id,
-                   md5('training-run-uuid:' || m.i || ':' || k)::uuid::text, 'color',
-                   CASE WHEN k %% 3 = 1 THEN '["5", "7", "3"]'::jsonb
-                        ELSE jsonb_build_array((ARRAY['5', '11', '1', '86'])[1 + k %% 4]) END,
-                   t.started, CASE WHEN k > 0 THEN t.started + interval '1 hour' END, k = 4, now(), 0, 0, 0, now(), now()
+                   md5('training-run-uuid:' || m.i || ':' || k)::uuid::text, 'color', t.colors,
+                   jsonb_build_array(jsonb_build_object(
+                       'segment_uuid', md5('training-segment:' || m.i || ':' || k)::uuid::text,
+                       'color_ids', t.colors, 'started_at', t.started, 'ended_at', t.ended)),
+                   t.started, t.ended, k = 4, now(), 0, 0, 0, now(), now()
             FROM seed_machines m CROSS JOIN generate_series(0, 9) k
             CROSS JOIN LATERAL (
-                SELECT CASE WHEN k = 0 THEN now() - interval '40 minutes'
-                            ELSE now() - (k * 3) * interval '1 day' - m.i * interval '1 hour' END AS started
+                SELECT s.started, CASE WHEN k > 0 THEN s.started + interval '1 hour' END AS ended,
+                       CASE WHEN k %% 3 = 1 THEN '["5", "7", "3"]'::jsonb
+                            ELSE jsonb_build_array((ARRAY['5', '11', '1', '86'])[1 + k %% 4]) END AS colors
+                FROM (SELECT CASE WHEN k = 0 THEN now() - interval '40 minutes'
+                                  ELSE now() - (k * 3) * interval '1 day' - m.i * interval '1 hour' END AS started) s
             ) t
             WHERE m.i <= 3
             """,
@@ -643,6 +648,7 @@ class Seeder:
             """
             UPDATE machine_pieces p
             SET training_run_uuid = r.run_uuid,
+                training_segment_uuid = r.segments -> 0 ->> 'segment_uuid',
                 training_color_id = CASE
                     WHEN jsonb_array_length(r.color_ids) = 1 THEN r.color_ids ->> 0
                     WHEN pg_temp.rnd(p.local_id, 140) < 0.9

@@ -97,8 +97,8 @@ _PIECE_UPDATE_COLS = (
     # The piece's training run and label: the sorter owns them, so every
     # record overwrites them (a record from a sorter without training mode
     # clears them, which is what it means).
-    "training_run_uuid", "training_color_id", "training_label_source", "training_excluded",
-    "training_updated_at",
+    "training_run_uuid", "training_segment_uuid", "training_color_id", "training_label_source",
+    "training_excluded", "training_updated_at",
 )
 _VERDICT_COLS = ("part_correct", "color_corrected_id", "correction_updated_at")
 _FEEDBACK_FLAG_COLS = ("part_feedback_submitted", "color_feedback_submitted")
@@ -115,7 +115,7 @@ _CHANNEL_CROP_UPDATE_COLS = (
     "bbox_y2", "bytes", "image_key", "evicted_locally",
 )
 _TRAINING_RUN_UPDATE_COLS = (
-    "mode", "color_ids", "started_at", "ended_at", "excluded", "updated_at", "received_at",
+    "mode", "color_ids", "segments", "started_at", "ended_at", "excluded", "updated_at", "received_at",
 )
 _CONTROL_DATA_UPDATE_COLS = (
     "started_at", "ended_at", "records", "bytes", "machine_setup",
@@ -364,14 +364,25 @@ class PieceRecordIn(BaseModel):
     # Operator-flagged capture issues (no_piece / multiple_pieces / not_lego /
     # assembly / pieces_entangled / blurry), the complete set.
     rejection_reasons: list[str] | None = None
-    # The training run the piece was seen in, the colour it labels the piece
-    # with ("run" / "prediction" / "nearest": how it was decided) and the
-    # operator's exclusion. Absent from sorters without training mode.
+    # The training run the piece was seen in and the segment of it, the colour
+    # it labels the piece with ("run" / "prediction" / "nearest": how it was
+    # decided) and the operator's exclusion. Absent from sorters without
+    # training mode (and the segment from those before runs had segments).
     training_run_uuid: str | None = None
+    training_segment_uuid: str | None = None
     training_color_id: str | None = None
     training_label_source: str | None = None
     training_excluded: bool | None = None
     training_updated_at: float | None = None
+
+
+class TrainingSegmentIn(BaseModel):
+    """A stretch of a training run with the colours fed during it."""
+
+    segment_uuid: str
+    color_ids: list[str] = Field(default_factory=list)
+    started_at: float
+    ended_at: float | None = None
 
 
 class TrainingRunIn(BaseModel):
@@ -382,7 +393,10 @@ class TrainingRunIn(BaseModel):
     run_uuid: str
     sync_seq: int
     mode: str
+    # Every colour the run's segments used.
     color_ids: list[str] = Field(default_factory=list)
+    # Oldest first; absent from sorters before runs had segments.
+    segments: list[TrainingSegmentIn] | None = None
     started_at: float
     ended_at: float | None = None
     excluded: bool = False
@@ -584,6 +598,7 @@ def _piece_row(machine_id: UUID, rec: PieceRecordIn, now: datetime) -> dict[str,
         "color_feedback_submitted": rec.color_feedback_submitted,
         "correction_updated_at": _ts(rec.correction_updated_at),
         "training_run_uuid": rec.training_run_uuid,
+        "training_segment_uuid": rec.training_segment_uuid,
         "training_color_id": rec.training_color_id,
         "training_label_source": rec.training_label_source,
         "training_excluded": bool(rec.training_excluded),
@@ -647,6 +662,11 @@ def sync_piece_records(
     return {"max_local_id": new_max, "upserted": len(payload.records) - skipped, "skipped": skipped}
 
 
+def _iso(value: float | None) -> str | None:
+    dt = _ts(value)
+    return dt.isoformat() if dt is not None else None
+
+
 def _training_run_row(machine_id: UUID, rec: TrainingRunIn, now: datetime) -> dict[str, Any]:
     return {
         "id": uuid4(),
@@ -654,6 +674,15 @@ def _training_run_row(machine_id: UUID, rec: TrainingRunIn, now: datetime) -> di
         "run_uuid": rec.run_uuid,
         "mode": rec.mode,
         "color_ids": [str(c) for c in rec.color_ids],
+        "segments": [
+            {
+                "segment_uuid": seg.segment_uuid,
+                "color_ids": [str(c) for c in seg.color_ids],
+                "started_at": _iso(seg.started_at),
+                "ended_at": _iso(seg.ended_at),
+            }
+            for seg in rec.segments or []
+        ],
         "started_at": _ts(rec.started_at),
         "ended_at": _ts(rec.ended_at),
         "excluded": rec.excluded,

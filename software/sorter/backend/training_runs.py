@@ -129,13 +129,13 @@ def setConfig(
             updated["mode"] = mode
         if color_ids is not None:
             if not all(_isColorId(c) for c in color_ids):
-                raise TrainingError(400, "Colours are BrickLink colour ids")
+                raise TrainingError(400, "Colors are BrickLink color ids")
             updated["color_ids"] = _unique([str(c) for c in color_ids])
         if enabled is not None:
             updated["enabled"] = bool(enabled)
         changes_run = updated["color_ids"] != current["color_ids"] or updated["mode"] != current["mode"]
         if changes_run and openRun() is not None:
-            raise TrainingError(409, "Pause the machine to change the colours")
+            raise TrainingError(409, "Pause the machine to change the colors")
         local_state.set_training_mode_state(updated)
         _reconcileLocked(running, time.time())
         return updated

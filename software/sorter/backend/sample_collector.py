@@ -27,6 +27,14 @@ _IDLE_POLL_S = 0.25
 DEFAULT_DECAY_ENABLED = True
 DEFAULT_JITTER_FRAC = 0.3  # ±30% random wobble on each interval
 
+# While a training run collects (training_runs), the classification camera's
+# frame, with the colour reference palette in it, is captured as each colour
+# segment starts and then at least this often, whether or not sample capture is
+# on: the palette's readings calibrate the run's labels to the light, which can
+# change during a run.
+TRAINING_CALIBRATION_INTERVAL_S = 30.0
+_CALIBRATION_ROLES = ("classification_channel", "carousel")
+
 # Values the previous version of this file saved for every machine whether or
 # not anyone set them. Read as "not set", so those machines follow Hive.
 _OLD_SAVED_DEFAULTS = {"burst_interval_s": 10.0, "floor_interval_s": 3600.0, "ramp_hours": 72.0}
@@ -67,6 +75,9 @@ class SampleCollector:
         self._saved_count = 0
         self._last_saved_at: float | None = None
         self._last_error: str | None = None
+        # The training segment the last calibration frame was for, and when.
+        self._calibrated_segment: str | None = None
+        self._calibrated_at = 0.0
         self._loadPersisted()
         sample_store.configure(gc.logger, self._storeCapBytes())
 
@@ -304,32 +315,70 @@ class SampleCollector:
         except Exception:
             return False
 
+    def _calibrationWaitS(self, now: float) -> float | None:
+        """Seconds until a training run's next calibration frame is due (0 when
+        it is), or None while no run collects."""
+        import training_runs
+
+        segment = training_runs.openSegment()
+        if segment is None:
+            return None
+        if segment[0] != self._calibrated_segment:
+            return 0.0
+        interval = max(TRAINING_CALIBRATION_INTERVAL_S, self._limits()["burst_interval_s"])
+        return max(0.0, self._calibrated_at + interval - now)
+
+    def _captureCalibration(self, now: float) -> None:
+        import training_runs
+
+        segment = training_runs.openSegment()
+        self._calibrated_segment = segment[0] if segment else None
+        self._calibrated_at = now
+        try:
+            self._captureOnce(roles=_CALIBRATION_ROLES)
+        except Exception as exc:
+            with self._lock:
+                self._last_error = str(exc)
+            self.gc.logger.warning("SampleCollector calibration capture failed: %s" % exc)
+
     def _loop(self) -> None:
+        next_capture_at = 0.0
         while not self._stop.is_set():
             with self._lock:
                 enabled = self._enabled
-            if not enabled or not self._isSorting():
-                self._wake.wait(timeout=_IDLE_POLL_S)
+            sorting = self._isSorting()
+            calibration_wait = self._calibrationWaitS(time.time()) if sorting else None
+            if calibration_wait == 0.0:
+                self._captureCalibration(time.time())
+                calibration_wait = self._calibrationWaitS(time.time())
+            if not enabled or not sorting:
+                self._wake.wait(timeout=min(_IDLE_POLL_S, calibration_wait or _IDLE_POLL_S))
                 self._wake.clear()
                 continue
-            with self._lock:
-                # Arm the decay clock on the first capture so the burst starts
-                # when sampling actually begins, not at boot.
-                if self._decay_enabled and self._decay_anchor_ts is None:
-                    self._decay_anchor_ts = time.time()
-                    self._persist()
-            try:
-                self._captureOnce()
-            except Exception as exc:
+            if time.time() >= next_capture_at:
                 with self._lock:
-                    self._last_error = str(exc)
-                self.gc.logger.warning("SampleCollector capture failed: %s" % exc)
-            with self._lock:
-                wait_s = self._nextWaitLocked(time.time())
-            self._wake.wait(timeout=wait_s)
+                    # Arm the decay clock on the first capture so the burst starts
+                    # when sampling actually begins, not at boot.
+                    if self._decay_enabled and self._decay_anchor_ts is None:
+                        self._decay_anchor_ts = time.time()
+                        self._persist()
+                try:
+                    self._captureOnce()
+                except Exception as exc:
+                    with self._lock:
+                        self._last_error = str(exc)
+                    self.gc.logger.warning("SampleCollector capture failed: %s" % exc)
+                with self._lock:
+                    next_capture_at = time.time() + self._nextWaitLocked(time.time())
+            wait_s = max(0.0, next_capture_at - time.time())
+            if calibration_wait is not None:
+                wait_s = min(wait_s, max(_IDLE_POLL_S, calibration_wait))
+            # A setting changed (enabled, schedule, reset): capture again now.
+            if self._wake.wait(timeout=wait_s):
+                next_capture_at = 0.0
             self._wake.clear()
 
-    def _captureOnce(self) -> None:
+    def _captureOnce(self, roles: tuple[str, ...] | None = None) -> None:
         if self._camera_service is None:
             return
         with self._lock:
@@ -340,6 +389,8 @@ class SampleCollector:
         # Once per physical camera: the classification camera is registered
         # under two roles but is one device and one stream of frames.
         for role in self._camera_service.physical_camera_roles():
+            if roles is not None and role not in roles:
+                continue
             capture = self._camera_service.get_capture_thread_for_role(role)
             frame = getattr(capture, "latest_frame", None) if capture is not None else None
             if frame is None:

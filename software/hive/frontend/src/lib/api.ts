@@ -2375,6 +2375,16 @@ export const api = {
 			body
 		);
 	},
+	// Label each piece, as the signed-in user, with the colour the model answered
+	// for it. At most 500 pieces a request.
+	colorLabelAgree(modelSha256: string, pieces: { machine_id: string; piece_uuid: string }[]) {
+		return request<{
+			labeled: number;
+			created: number;
+			skipped: number;
+			labels: { machine_id: string; piece_uuid: string; color_id: number; created: boolean }[];
+		}>('POST', '/api/labeling/agree', { model_sha256: modelSha256, pieces });
+	},
 	deleteColorLabel(machineId: string, pieceUuid: string) {
 		return request<{ ok: boolean }>(
 			'DELETE',

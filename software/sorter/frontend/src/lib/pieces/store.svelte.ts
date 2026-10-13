@@ -43,6 +43,38 @@ export type PieceSummary = {
 	rejection_reasons?: string[] | null;
 };
 
+// One of the piece's stored images a prediction was made from: "burst" (a
+// classification channel crop) or "link" (an upstream crop the piece-link
+// model matched), by its place in that set.
+export type PredictionImage = {
+	set: 'burst' | 'link' | string;
+	seq: number;
+	channel: number | null;
+};
+
+export type PredictionAnswer = {
+	kind: 'part' | 'color' | string;
+	rank: number;
+	value_id: string;
+	value_name: string | null;
+	score: number | null;
+	applied: boolean;
+};
+
+// One request's ranked answers and where they came from (backend
+// piece_predictions): `source` is "live" for the machine's classification while
+// sorting, or a later run's label.
+export type PiecePrediction = {
+	source: string;
+	request: string;
+	provider: string;
+	model_name: string | null;
+	model_sha: string | null;
+	images: PredictionImage[] | null;
+	created_at: number | null;
+	answers: PredictionAnswer[];
+};
+
 // GET /api/pieces/{uuid} — tiered envelope. `detail` is the full KnownObject
 // payload only when the piece is still in backend memory (detail_available).
 export type PieceDetailEnvelope = {
@@ -50,6 +82,8 @@ export type PieceDetailEnvelope = {
 	summary: PieceSummary;
 	detail: KnownObjectData | null;
 	detail_available: boolean;
+	// Every prediction made for the piece, the live ones first.
+	predictions?: PiecePrediction[];
 };
 
 export type PiecesListResponse = {

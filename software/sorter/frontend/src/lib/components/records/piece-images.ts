@@ -12,6 +12,8 @@ import type { PieceDetailEnvelope } from '$lib/pieces';
 export type DisplayImage = {
 	src: string;
 	source: string;
+	// Its place in its stored set (piece images or link guesses); disk only.
+	seq?: number | null;
 	used: boolean;
 	excluded_from_result: boolean;
 	ts?: number | null;
@@ -71,6 +73,7 @@ export function diskToDisplay(base: string, uuid: string, img: DiskImage): Displ
 	return {
 		src: `${base}/api/pieces/${encodeURIComponent(uuid)}/images/${img.id}`,
 		source: img.source ?? 'c4_burst',
+		seq: img.seq,
 		used: img.used,
 		excluded_from_result: img.excluded_from_result,
 		ts: img.ts,
@@ -98,6 +101,7 @@ export async function fetchDiskLinkImages(base: string, uuid: string): Promise<D
 		const json = await res.json();
 		const rows: {
 			id: number;
+			seq: number;
 			channel: number | null;
 			ts: number | null;
 			created_at: number | null;
@@ -110,6 +114,7 @@ export async function fetchDiskLinkImages(base: string, uuid: string): Promise<D
 			.map((r) => ({
 				src: `${base}/api/pieces/${encodeURIComponent(uuid)}/link-images/${r.id}`,
 				source: 'link_match',
+				seq: r.seq,
 				used: r.used,
 				excluded_from_result: false,
 				ts: r.ts,

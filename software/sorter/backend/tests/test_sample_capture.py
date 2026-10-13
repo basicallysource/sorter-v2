@@ -199,7 +199,7 @@ class CollectorCaptureTests(_StateTestCase):
             patcher.start()
             self.addCleanup(patcher.stop)
 
-    def _cycle(self, c_channel_3=None) -> dict[str, dict]:
+    def _cycle(self, c_channel_3=None, roles=None) -> dict[str, dict]:
         config = IRLConfig()
         config.c_channel_2_camera = mkCameraConfig(device_index=0)
         config.c_channel_3_camera = c_channel_3 or mkCameraConfig(device_index=1)
@@ -212,8 +212,12 @@ class CollectorCaptureTests(_StateTestCase):
             device.capture_thread.latest_frame = frame
         # The classification camera is registered under both of its names.
         self.assertEqual(4, len(service.feeds))
-        self.sample_collector.SampleCollector(gc, service)._captureOnce()
+        self.sample_collector.SampleCollector(gc, service)._captureOnce(roles=roles)
         return {meta["camera"]: meta for _, meta in self.saved}
+
+    def test_a_calibration_frame_is_the_classification_camera_alone(self) -> None:
+        by_role = self._cycle(roles=self.sample_collector._CALIBRATION_ROLES)
+        self.assertEqual({"classification_channel"}, set(by_role))
 
     def test_each_physical_camera_is_sampled_once_under_its_canonical_role(self) -> None:
         by_role = self._cycle()
@@ -244,6 +248,20 @@ class CollectorScheduleTests(_StateTestCase):
         (sample_collector,) = _reload("sample_collector")
         gc = SimpleNamespace(logger=SimpleNamespace(info=lambda *a: None, warning=lambda *a: None))
         return sample_collector.SampleCollector(gc, None)
+
+    def test_a_training_run_takes_a_calibration_frame_per_segment_and_every_interval(self) -> None:
+        collector = self._collector()
+        segment = [None]
+        with patch("training_runs.openSegment", lambda: segment[0]):
+            self.assertIsNone(collector._calibrationWaitS(1000.0))
+            segment[0] = ("red", 990.0)
+            self.assertEqual(0.0, collector._calibrationWaitS(1000.0))
+            collector._calibrated_segment, collector._calibrated_at = "red", 1000.0
+            interval = collector._calibrationWaitS(1000.0)
+            self.assertGreaterEqual(interval, 30.0)
+            self.assertEqual(0.0, collector._calibrationWaitS(1000.0 + interval))
+            segment[0] = ("blue", 1005.0)  # a new color: at once
+            self.assertEqual(0.0, collector._calibrationWaitS(1005.0))
 
     def test_hive_burst_is_the_fastest_allowed(self) -> None:
         self._targets("a")

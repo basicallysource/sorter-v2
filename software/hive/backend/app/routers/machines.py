@@ -31,7 +31,7 @@ from app.schemas.machine import (
 from app import background
 from app.services import machine_stats, training_runs
 from app.services.auth import generate_machine_token, verify_password
-from app.services.machine_set_progress import build_set_progress_inventory_index, summarize_machine_set_progress
+from app.services.machine_set_progress import cached_inventory_index, summarize_machine_set_progress
 from app.services.machine_stats import get_machine_stats_worker
 from app.services.storage import delete_machine_files, serve_stored_file
 from app.services.telemetry_limits import effective_limits
@@ -744,9 +744,15 @@ def report_machine_set_progress(
     db: Session = Depends(get_db),
     machine: Machine = Depends(get_current_machine),
 ):
-    """Machine reports its set progress snapshot. Authenticated via machine token."""
+    """Machine reports its set progress snapshot. Authenticated via machine token.
+
+    Machines report the whole snapshot every few seconds and it rarely
+    changes, so a report stays cheap: the artifact's inventory is indexed once
+    per compiled version (cached_inventory_index), the version is read without
+    its artifact, and only the rows whose numbers changed are written."""
     from app.models.machine_set_progress import MachineSetProgress
     from app.models.machine_profile_assignment import MachineProfileAssignment
+    from app.models.sorting_profile_version import SortingProfileVersion
 
     assignment = db.query(MachineProfileAssignment).filter(
         MachineProfileAssignment.machine_id == machine.id
@@ -776,21 +782,34 @@ def report_machine_set_progress(
                 "SET_PROGRESS_BUSY",
             )
 
-    expected_version = assignment.active_version or assignment.desired_version
-    expected_version_id = expected_version.id if expected_version is not None else None
+    # The version's id and hash only: its artifact is read on a cache miss.
+    expected_version_id = None
+    compiled_hash = ""
+    for version_id in (assignment.active_version_id, assignment.desired_version_id):
+        if version_id is None:
+            continue
+        found = db.query(SortingProfileVersion.compiled_hash).filter(SortingProfileVersion.id == version_id).first()
+        if found is not None:
+            expected_version_id, compiled_hash = version_id, found.compiled_hash or ""
+            break
     if expected_version_id is None:
         raise APIError(409, "Machine assignment has no active profile version", "SET_PROGRESS_VERSION_UNAVAILABLE")
     if payload.version_id != expected_version_id:
         raise APIError(409, "Reported progress does not match the active assignment version", "SET_PROGRESS_VERSION_MISMATCH")
 
-    expected_artifact_hash = str(assignment.artifact_hash or getattr(expected_version, "compiled_hash", "") or "")
+    expected_artifact_hash = str(assignment.artifact_hash or compiled_hash or "")
     if not expected_artifact_hash:
         raise APIError(409, "Machine assignment has no compiled artifact hash", "SET_PROGRESS_ARTIFACT_UNAVAILABLE")
     if payload.artifact_hash != expected_artifact_hash:
         raise APIError(409, "Reported progress does not match the active assignment artifact", "SET_PROGRESS_ARTIFACT_MISMATCH")
 
-    compiled_artifact = expected_version.compiled_artifact_json if expected_version is not None else {}
-    valid_progress_items = build_set_progress_inventory_index(compiled_artifact)
+    valid_progress_items = cached_inventory_index(
+        expected_version_id,
+        compiled_hash,
+        lambda: db.query(SortingProfileVersion.compiled_artifact_json)
+        .filter(SortingProfileVersion.id == expected_version_id)
+        .scalar(),
+    )
     expected_keys = set(valid_progress_items.keys())
     if not valid_progress_items and payload.items:
         raise APIError(400, "Non-set profiles must report an empty progress snapshot", "SET_PROGRESS_NOT_SET_BASED")
@@ -856,18 +875,20 @@ def report_machine_set_progress(
     # timeout. Every retry then queued behind the previous attempt's row locks,
     # and the pile of abandoned threadpool workers (each pinning its parsed
     # payload, ORM session and artifact index) is what OOM-cycled hive-prod on
-    # 2026-08-20. The upsert's WHERE makes an unchanged row a no-op, so the
-    # steady state (machine re-reports a mostly-identical snapshot) writes
-    # almost nothing and leaves no dead tuples behind.
+    # 2026-08-20. Only the rows whose numbers changed are sent: the steady
+    # state (a machine re-reporting a mostly identical snapshot) builds and
+    # sends no upsert at all, where compiling 8.5k rows of one took seconds.
     progress = MachineSetProgress.__table__
-    existing_keys = {
-        (row.set_num, row.part_num, row.color_id)
+    existing = {
+        (row.set_num, row.part_num, row.color_id): (row.quantity_needed, row.quantity_found)
         for row in db.execute(
-            select(progress.c.set_num, progress.c.part_num, progress.c.color_id).where(
-                progress.c.assignment_id == assignment.id
-            )
+            select(
+                progress.c.set_num, progress.c.part_num, progress.c.color_id,
+                progress.c.quantity_needed, progress.c.quantity_found,
+            ).where(progress.c.assignment_id == assignment.id)
         )
     }
+    existing_keys = set(existing)
 
     deleted = 0
     stale_keys = existing_keys - incoming_keys  # non-empty only right after the profile changed
@@ -879,11 +900,17 @@ def report_machine_set_progress(
             )
         ).rowcount
 
-    # Chunked: the full snapshot is ~8.5k rows x 9 columns, past both
+    changed = [
+        item
+        for key, item in normalized_by_key.items()
+        if existing.get(key) != (item["quantity_needed"], item["quantity_found"])
+    ]
+
+    # Chunked: a first snapshot is ~8.5k rows x 9 columns, past both
     # postgres's and sqlite's bind-parameter caps in one statement.
     insert_fn = pg_insert if db.bind.dialect.name == "postgresql" else sqlite_insert
-    for start in range(0, len(normalized_items), 1000):
-        chunk = normalized_items[start : start + 1000]
+    for start in range(0, len(changed), 1000):
+        chunk = changed[start : start + 1000]
         stmt = insert_fn(progress).values(
             [
                 {
@@ -915,7 +942,7 @@ def report_machine_set_progress(
         db.execute(stmt)
 
     db.commit()
-    return {"ok": True, "updated": len(normalized_items), "deleted": deleted}
+    return {"ok": True, "updated": len(normalized_items), "changed": len(changed), "deleted": deleted}
 
 @router.post("/machines/{machine_id}/archive", response_model=MachineResponse)
 def archive_machine(

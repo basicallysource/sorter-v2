@@ -1,7 +1,9 @@
 from __future__ import annotations
 
+import threading
+from collections import OrderedDict
 from datetime import datetime
-from typing import Any, Iterable
+from typing import Any, Callable, Iterable
 
 
 def _safe_int(value: Any) -> int | None:
@@ -79,6 +81,38 @@ def build_set_progress_inventory_index(
             item["quantity_needed"] += quantity
 
     return part_items
+
+
+# The inventory index of a compiled set-based artifact, by (version id,
+# compiled hash). The artifact is up to tens of MB of JSON, and every machine
+# on a set-based profile reports its progress every few seconds: decoding it
+# and indexing it again for each report was most of the report's time. A
+# compiled version never changes, so its index is kept; a few versions are in
+# use at once.
+_INDEX_CACHE_SIZE = 8
+_index_cache: OrderedDict[tuple[str, str], dict[tuple[str, str, int], dict[str, Any]]] = OrderedDict()
+_index_lock = threading.Lock()
+
+
+def cached_inventory_index(
+    version_id: Any, compiled_hash: str, load_artifact: Callable[[], dict[str, Any] | None]
+) -> dict[tuple[str, str, int], dict[str, Any]]:
+    """``build_set_progress_inventory_index`` of a compiled version, kept per
+    (version, hash); ``load_artifact`` reads the artifact only on a miss.
+    Callers must not change what it returns."""
+    key = (str(version_id), str(compiled_hash))
+    with _index_lock:
+        index = _index_cache.get(key)
+        if index is not None:
+            _index_cache.move_to_end(key)
+            return index
+    index = build_set_progress_inventory_index(load_artifact())
+    with _index_lock:
+        _index_cache[key] = index
+        _index_cache.move_to_end(key)
+        while len(_index_cache) > _INDEX_CACHE_SIZE:
+            _index_cache.popitem(last=False)
+    return index
 
 
 def summarize_machine_set_progress(

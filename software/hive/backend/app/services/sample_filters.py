@@ -136,6 +136,20 @@ def apply_exposure_filter(query, exposure: str | None):
     return query.filter(Sample.luminance_mean.is_(None) | (~is_under & ~is_over))
 
 
+def list_defaults(f: SampleFilters) -> SampleFilters:
+    """The samples list's filters, its defaults in place of what was left
+    unset: good light, and teacher-checked samples, except under a palette
+    filter, whose frames are the classification camera's, which the teacher
+    pass rarely reaches."""
+    palette_filtered = f.palette not in (None, "any")
+    return f.model_copy(
+        update={
+            "annotated": f.annotated or ("all" if palette_filtered else "teacher"),
+            "exposure": f.exposure or "normal",
+        }
+    )
+
+
 def apply_annotated_filter(query, annotated: str | None):
     """'teacher': a Hive teacher pass validated the boxes
     (``extra_metadata.teacher_rerun`` is set); 'raw': not yet. Anything else is

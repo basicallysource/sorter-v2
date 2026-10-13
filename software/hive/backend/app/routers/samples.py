@@ -39,7 +39,13 @@ from app.schemas.sample import (
 from app.services import sample_diversity
 from app.services.access_window import api_key_machine_ids, apply_sample_access, sample_access_visible
 from app.services.review_queue import sample_counts, sample_page, thumb_url
-from app.services.sample_filters import SampleFilters, apply_sample_filters, attach_my_reviews, sample_filters_query
+from app.services.sample_filters import (
+    SampleFilters,
+    apply_sample_filters,
+    attach_my_reviews,
+    list_defaults,
+    sample_filters_query,
+)
 from app.services.channel_crop_render import render_channel_crop
 from app.services.storage import delete_sample_files, serve_stored_file
 from app.services.storage_backend import get_backend
@@ -164,14 +170,14 @@ def list_samples(
 
     Unless asked otherwise this shows teacher-validated samples in good light:
     raw sorter boxes are usually incomplete, and under- or overexposed frames
-    are rarely worth reviewing (annotated=all and exposure=under|over opt in)."""
+    are rarely worth reviewing (annotated=all and exposure=under|over opt in).
+    A palette filter shows raw samples too: its frames are the classification
+    camera's, which the teacher pass rarely reaches (annotated=teacher opts out)."""
     # `archived` is admin-only — members never see archived samples regardless
     # of what they pass. Default ('active' or unset) hides them.
     is_admin = current_user.role == "admin"
     archived_view = archived if is_admin and archived in ("archived", "all") else "active"
-    filters = filters.model_copy(
-        update={"annotated": filters.annotated or "teacher", "exposure": filters.exposure or "normal"}
-    )
+    filters = list_defaults(filters)
     items, next_cursor = sample_page(
         db, current_user, filters, limit=limit, cursor=cursor, mine_only=scope == "mine", archived=archived_view
     )

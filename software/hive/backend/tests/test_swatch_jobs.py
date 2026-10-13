@@ -31,6 +31,7 @@ from app.models.sample_swatch import SampleSwatch, SampleSwatchRun
 from app.models.swatch_model import SwatchModel
 from app.models.user import User
 from app.services import job_queue, swatch_jobs, swatch_models
+from app.services.sample_filters import SampleFilters, list_defaults
 from app.services.storage_backend import get_backend, reset_backend_for_tests
 from app.services.swatch_finder import Net, SwatchFinder
 from tests.conftest import TestingSessionLocal, _auth_headers
@@ -356,6 +357,18 @@ def test_the_samples_list_review_queue_and_batch_actions_filter_on_the_palette(c
     r = client.post("/api/samples/batch-delete", json=body, headers=headers)
     assert r.status_code == 200, r.text
     assert r.json()["matched"] == 1
+
+
+def test_a_palette_filter_shows_raw_frames_unless_asked_otherwise():
+    # The samples list defaults to teacher-checked samples, which the classification
+    # camera's frames rarely are. The rule is tested on its own: on the tests'
+    # SQLite the teacher filter keeps raw samples too, so the list cannot show it.
+    assert list_defaults(SampleFilters()).annotated == "teacher"
+    assert list_defaults(SampleFilters(palette="any")).annotated == "teacher"
+    assert list_defaults(SampleFilters(palette="in_view")).annotated == "all"
+    assert list_defaults(SampleFilters(palette="not_in_view")).annotated == "all"
+    assert list_defaults(SampleFilters(palette="in_view", annotated="teacher")).annotated == "teacher"
+    assert list_defaults(SampleFilters(palette="in_view")).exposure == "normal"
 
 
 def _make_admin(db, email: str = "member@test.com") -> None:

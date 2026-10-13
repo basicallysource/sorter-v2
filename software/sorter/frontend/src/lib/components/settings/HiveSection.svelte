@@ -553,6 +553,7 @@
 	const DATA_TYPES: [key: string, label: string][] = [
 		['piece_records', 'Piece records'],
 		['piece_predictions', 'Predictions'],
+		['training_runs', 'Training runs'],
 		['piece_images', 'Piece images'],
 		['channel_crops', 'Channel crops'],
 		['control_data_segments', 'Control data'],

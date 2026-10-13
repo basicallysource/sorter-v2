@@ -68,7 +68,7 @@ The [bottom interface]({{ '/hardware/assembly/distribution/bin-frame/bottom-inte
 
 <figure class="single-figure">
   <img class="doc-figure" src="https://assets.basically.website/sorter-docs/chute-v3-stack-of-four-cad-full-fd5936d88689.png" alt="Side view of four chutes stacked in the CAD assembly: the layer adapter boards on the left with their black ribbon cables looping from one board to the next, the door module with its round bearing cover and the dark funnel brackets in the middle of each layer, and a funnel running down and out to the right from each">
-  <figcaption>Four chutes stacked, from the CAD assembly: the layer adapter boards and their ribbon loops on the left, the door modules and funnel brackets in the middle, a funnel to the right of each layer. <cite>Rendered from the part geometry, not from a build. Render: zed0.</cite></figcaption>
+  <figcaption>Four chutes stacked, from the CAD assembly: the layer adapter boards and their ribbon loops on the left, the door modules and funnel brackets in the middle, a funnel to the right of each layer. The two upper funnels are the longer third size and the two lower ones the shorter half size, see <a href="{{ '/hardware/assembly/distribution/chute/funnel/' | relative_url }}">Funnel brackets</a>. <cite>Rendered from the part geometry, not from a build. Render: zed0.</cite></figcaption>
 </figure>
 
 The chute is finished when every part above is on the core, as in the pictures at the top of the page. Repeat for every layer.

@@ -247,3 +247,20 @@ def test_agreeing_labels_each_piece_with_the_models_colour(client, db, test_mach
     too_many = [{"machine_id": str(machine_id), "piece_uuid": f"p{i}"} for i in range(501)]
     r = client.post("/api/labeling/agree", json={"model_sha256": NEW, "pieces": too_many}, headers=_auth_headers(client))
     assert r.status_code == 422
+
+
+def test_the_worker_reads_the_palette_without_loading_the_catalog(monkeypatch):
+    # piece_warm runs colour guesses in the worker process, which may never load
+    # the parts catalog: the palette comes from the lookup that reads parts.db.
+    from app import roles
+    from app.services import profile_catalog
+
+    class _Lookup:
+        def list_bricklink_colors(self):
+            return [{"id": 5, "name": "Red", "rgb": "#C91A09"}]
+
+    monkeypatch.setattr(roles, "role", lambda: "worker")
+    monkeypatch.setattr(profile_catalog, "_catalog_service", None)
+    monkeypatch.setattr(profile_catalog, "_catalog_lookup", _Lookup())
+    assert color_predictor._palette()[5]["name"] == "Red"
+    assert profile_catalog._catalog_service is None

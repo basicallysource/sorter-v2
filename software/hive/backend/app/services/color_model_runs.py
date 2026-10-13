@@ -45,7 +45,7 @@ from app.models.piece_model_output import PieceModelColor
 from app.services import color_predictor, job_queue
 from app.services.job_queue import JobContext, PermanentJobError
 from app.services.piece_color_guess import CropRef, chosen_crops
-from app.services.profile_catalog import get_profile_catalog_service
+from app.services.profile_catalog import catalog_lookup
 from app.services.storage_backend import read_many
 
 logger = logging.getLogger(__name__)
@@ -277,7 +277,7 @@ def backfill(
 def _palette() -> dict[int, dict[str, Any]]:
     return {
         c["id"]: c
-        for c in get_profile_catalog_service().list_bricklink_colors()
+        for c in catalog_lookup().list_bricklink_colors()
         if isinstance(c.get("id"), int)
     }
 

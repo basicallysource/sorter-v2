@@ -358,6 +358,24 @@ def test_the_samples_list_review_queue_and_batch_actions_filter_on_the_palette(c
     assert r.json()["matched"] == 1
 
 
+def test_a_palette_filter_shows_raw_frames_unless_asked_otherwise(client, db, machine_token, fake_finder):
+    _model(db)
+    strip = list(zip(TILES, [p[0] for p in PALETTE[1:]]))
+    in_view = _read(client, db, machine_token, 1, strip)["sample_id"]
+    headers = _auth_headers(client)
+
+    def listed(**params) -> set[str]:
+        r = client.get("/api/samples", params={"exposure": "under", "limit": 50, **params}, headers=headers)
+        assert r.status_code == 200, r.text
+        return {item["id"] for item in r.json()["items"]}
+
+    # The classification camera's frames have had no teacher pass. The list
+    # hides such raw samples by default, but not under a palette filter.
+    assert listed() == set()
+    assert listed(palette="in_view") == {in_view}
+    assert listed(palette="in_view", annotated="teacher") == set()
+
+
 def _make_admin(db, email: str = "member@test.com") -> None:
     user = db.query(User).filter(User.email == email).first()
     user.role = "admin"

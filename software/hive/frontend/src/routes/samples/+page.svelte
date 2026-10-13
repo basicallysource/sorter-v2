@@ -93,6 +93,11 @@
 	// Is the colour reference palette in view, as the swatch model called it:
 	// 'in_view' / 'not_in_view' / 'unchecked' (not called yet). Empty = any.
 	const filterPalette = $derived(listContext.palette ?? '');
+	// What the annotation filter is, given the server's default for an empty
+	// one: the teacher pass, or everything under a palette filter (its frames
+	// are the classification camera's, which the teacher pass rarely reaches).
+	const paletteFiltered = $derived(filterPalette !== '' && filterPalette !== 'any');
+	const shownAnnotated = $derived(filterAnnotated || (paletteFiltered ? 'all' : 'teacher'));
 	const PALETTE_LABELS: Record<string, string> = {
 		in_view: 'In view',
 		not_in_view: 'Not in view',
@@ -762,14 +767,14 @@
 				<FilterGroup
 					title="Annotation"
 					storageKey="annotated"
-					active={filterAnnotated === 'all' || filterAnnotated === 'raw'}
-					activeLabel={filterAnnotated === 'all' ? 'All' : filterAnnotated === 'raw' ? 'Raw' : null}
+					active={shownAnnotated !== 'teacher'}
+					activeLabel={shownAnnotated === 'all' ? 'All' : shownAnnotated === 'raw' ? 'Raw' : null}
 				>
-					<!-- An empty value means the server's default, the teacher pass. -->
+					<!-- An empty value means the server's default (shownAnnotated). -->
 					<ul class="flex flex-col gap-px">
-						<FilterOption label="Teacher pass" on={filterAnnotated === '' || filterAnnotated === 'teacher'} onclick={() => setFilterValue('annotated', '')} />
-						<FilterOption label="All, with raw" on={filterAnnotated === 'all'} onclick={() => setFilterValue('annotated', 'all')} />
-						<FilterOption label="Raw only, waiting" on={filterAnnotated === 'raw'} onclick={() => setFilterValue('annotated', 'raw')} />
+						<FilterOption label="Teacher pass" on={shownAnnotated === 'teacher'} onclick={() => setFilterValue('annotated', paletteFiltered ? 'teacher' : '')} />
+						<FilterOption label="All, with raw" on={shownAnnotated === 'all'} onclick={() => setFilterValue('annotated', 'all')} />
+						<FilterOption label="Raw only, waiting" on={shownAnnotated === 'raw'} onclick={() => setFilterValue('annotated', 'raw')} />
 					</ul>
 				</FilterGroup>
 

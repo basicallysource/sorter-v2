@@ -13,10 +13,18 @@ from server import shared_state
 router = APIRouter()
 
 
+class BinIn(BaseModel):
+    layer: int
+    section: int
+    bin: int
+
+
 class ConfigIn(BaseModel):
     enabled: Optional[bool] = None
     mode: Optional[str] = None
     color_ids: Optional[list[str]] = None
+    # Leave out to keep it; null to route by the sorting profile again.
+    bin: Optional[BinIn] = None
 
 
 class ExcludedIn(BaseModel):
@@ -69,9 +77,12 @@ def get_training() -> dict[str, Any]:
 
 @router.post("/api/training/config")
 def set_training_config(body: ConfigIn) -> dict[str, Any]:
+    extra: dict[str, Any] = {}
+    if "bin" in body.model_fields_set:
+        extra["bin"] = body.bin.model_dump() if body.bin is not None else None
     try:
         training_runs.setConfig(
-            enabled=body.enabled, mode=body.mode, color_ids=body.color_ids, running=_running()
+            enabled=body.enabled, mode=body.mode, color_ids=body.color_ids, running=_running(), **extra
         )
     except training_runs.TrainingError as exc:
         raise HTTPException(status_code=exc.status, detail=exc.message)

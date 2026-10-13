@@ -219,3 +219,49 @@ def test_the_api(monkeypatch) -> None:
     assert client.post("/api/training/pieces/a", json={"excluded": True}).json()["training_excluded"]
     assert client.patch(f"/api/training/runs/{run_id}", json={"excluded": True}).json()["excluded"]
     assert client.get("/api/training/runs/nope").status_code == 404
+
+
+def test_a_fixed_bin_holds_every_piece_while_training_mode_is_on() -> None:
+    from subsystems.distribution.chute import BinAddress
+    from subsystems.distribution.positioning import Positioning
+
+    def layout(bins: int) -> SimpleNamespace:
+        section = SimpleNamespace(enabled=True, bins=[SimpleNamespace() for _ in range(bins)])
+        return SimpleNamespace(layers=[SimpleNamespace(enabled=True, sections=[section, section])])
+
+    warnings: list[str] = []
+    positioning = SimpleNamespace(
+        layout=layout(3),
+        chute=SimpleNamespace(isBinReachable=lambda address: True),
+        _isLayerUsable=lambda layer_index: True,
+        logger=SimpleNamespace(warning=warnings.append),
+    )
+    pick = lambda: Positioning._trainingBinAddress(positioning)  # noqa: E731
+
+    training_runs.setConfig(enabled=True, bin={"layer": 0, "section": 1, "bin": 2}, running=False)
+    assert training_runs.getConfig()["bin"] == {"layer": 0, "section": 1, "bin": 2}
+    assert pick() == BinAddress(0, 1, 2)
+
+    positioning.layout = layout(2)  # that bin is gone: route by the profile
+    assert pick() is None and pick() is None
+    assert len(warnings) == 1
+
+    training_runs.setConfig(enabled=False, running=False)
+    assert training_runs.fixedBin() is None
+    training_runs.setConfig(enabled=True, bin=None, running=False)
+    assert training_runs.fixedBin() is None
+    with pytest.raises(training_runs.TrainingError):
+        training_runs.setConfig(bin={"layer": -1, "section": 0, "bin": 0}, running=False)
+
+
+def test_the_api_sets_and_clears_the_bin(monkeypatch) -> None:
+    app = FastAPI()
+    app.include_router(training_router.router)
+    client = TestClient(app)
+    monkeypatch.setattr(shared_state, "controller_ref", SimpleNamespace(state=SorterLifecycle.PAUSED))
+
+    body = client.post("/api/training/config", json={"bin": {"layer": 2, "section": 5, "bin": 1}}).json()
+    assert body["config"]["bin"] == {"layer": 2, "section": 5, "bin": 1}
+    kept = client.post("/api/training/config", json={"enabled": True}).json()
+    assert kept["config"]["bin"] == {"layer": 2, "section": 5, "bin": 1}
+    assert client.post("/api/training/config", json={"bin": None}).json()["config"]["bin"] is None

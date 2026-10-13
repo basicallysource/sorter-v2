@@ -11,12 +11,13 @@ import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session
 
-from app.models.labeling_queue import LabelingQueueEntry
+from app.models.labeling_queue import LabelingQueueEntry, LabelingQueueState
 from app.models.machine import Machine
 from app.models.machine_channel_crop import MachineChannelCrop
 from app.models.machine_piece import MachinePiece
 from app.models.machine_piece_image import MachinePieceImage
 from app.models.machine_stats_cache import MachineStatsCache
+from app.models.machine_training_run import MachineTrainingRun
 from app.models.piece_color_label import PieceColorLabel
 from app.models.piece_crop_link import PieceCropLink
 from app.models.piece_model_output import PieceColorGuess, PieceLinkScore
@@ -26,7 +27,7 @@ from app.models.sample import Sample
 from app.models.upload_session import UploadSession
 from app.models.user import User
 from app.routers import piece_color_labels as labeling_router
-from app.services import labeling_queue, link_predictor, piece_color_guess, piece_link_scores
+from app.services import labeling_queue, link_predictor, piece_color_guess, piece_link_scores, training_runs
 from tests.conftest import refresh_stats
 
 NOW = datetime.now(timezone.utc).replace(microsecond=0)
@@ -262,7 +263,17 @@ def _expected(db: Session, fleet: dict, sort: str, *, machine_id=None, with_cand
             .count()
             > 0
         )
-        rows.append(dict(s, has_c=has_c, color=n(PieceColorLabel), crop=n(PieceCropLink), part=n(PiecePartLabel), mine=mine))
+        rows.append(
+            dict(
+                s,
+                has_c=has_c,
+                trained=entries[key].has_training_label,
+                color=n(PieceColorLabel),
+                crop=n(PieceCropLink),
+                part=n(PiecePartLabel),
+                mine=mine,
+            )
+        )
 
     if sort == "unidentified":
         rows = [r for r in rows if r["part_id"] is None]
@@ -274,15 +285,21 @@ def _expected(db: Session, fleet: dict, sort: str, *, machine_id=None, with_cand
     # applied after.
     oldest = sort == "oldest"
     rows.sort(key=lambda r: (r["arrival"], r["machine"], r["puid"]), reverse=not oldest)
+
+    def colour(r):
+        # A training run's colour counts as a colour label: a piece with only
+        # that comes after the unlabelled and before those people labelled.
+        return r["color"] or (0.5 if r["trained"] else 0)
+
     primary = {
-        "priority": lambda r: (not r["has_c"], r["color"]),
-        "least_color": lambda r: r["color"],
-        "most_color": lambda r: -r["color"],
+        "priority": lambda r: (not r["has_c"], colour(r)),
+        "least_color": colour,
+        "most_color": lambda r: -colour(r),
         "least_crop": lambda r: r["crop"],
         "most_crop": lambda r: -r["crop"],
         "least_part": lambda r: r["part"],
         "most_part": lambda r: -r["part"],
-        "needs_me": lambda r: (r["mine"], r["color"]),
+        "needs_me": lambda r: (r["mine"], colour(r)),
         "unidentified": lambda r: r["part"],
         "rare_color": lambda r: (r["color_confidence"] is None, r["color_confidence"] or 0.0),
     }.get(sort)
@@ -514,6 +531,88 @@ def test_admin_count_covers_the_fleet(client, db, fleet):
     me.role = "admin"
     db.commit()
     assert client.get("/api/labeling/stats").json()["total_labelable"] == 25
+
+
+# --- Training runs: a run's colour counts as a colour label ------------------------------
+
+# piece -> (run, training colour, piece excluded). Runs: r1 on mine-one, r2 on
+# mine-two (excluded), r3 on mine-three; r4 on mine-two has not synced yet.
+TRAINING = {
+    "p04": ("r1", "5", False),
+    "p06": ("r1", "5", False),  # no same-piece candidates
+    "p02": ("r1", "5", False),  # people labelled it too
+    "p10": ("r1", "5", True),  # the operator excluded the piece
+    "p11": ("r2", "5", False),  # its run is excluded
+    "p13": ("r4", "5", False),  # its run is not on Hive yet: counts
+    "p15": ("r4", None, False),  # the run gave it no colour
+    "q04": ("r3", "86", False),
+}
+COUNTING = {"p04", "p06", "p02", "p13", "q04"}
+
+
+@pytest.fixture()
+def trained(db, fleet) -> dict:
+    """The fleet with some pieces labelled by training runs, evaluated by the
+    worker's full pass (the pieces are older than its incremental window)."""
+    machine_of = {s["puid"]: s["machine"] for s in fleet["spec"]}
+    for puid, (run, color, excluded) in TRAINING.items():
+        piece = db.query(MachinePiece).filter_by(machine_id=machine_of[puid], piece_uuid=puid).one()
+        piece.training_run_uuid, piece.training_color_id, piece.training_excluded = run, color, excluded
+    for run, machine, excluded in (("r1", fleet["m1"], False), ("r2", fleet["m2"], True), ("r3", fleet["m3"], False)):
+        db.add(MachineTrainingRun(machine_id=machine, run_uuid=run, mode="color", color_ids=["5"], started_at=NOW, excluded=excluded))
+        db.flush()
+        training_runs.recount(db, machine, [run])
+    db.get(LabelingQueueState, 1).reconciled_at = None
+    db.commit()
+    labeling_queue.run_pass(db)
+    return {**fleet, "machine_of": machine_of}
+
+
+def test_the_worker_flags_the_pieces_whose_training_colour_counts(db, trained):
+    flagged = {e.piece_uuid for e in db.query(LabelingQueueEntry).filter(LabelingQueueEntry.has_training_label.is_(True))}
+    assert flagged == COUNTING
+    runs = {r.run_uuid: (r.piece_count, r.labeled_count, r.excluded_count) for r in db.query(MachineTrainingRun)}
+    assert runs == {"r1": (4, 3, 1), "r2": (1, 1, 0), "r3": (1, 1, 0)}
+
+
+@pytest.mark.parametrize("sort", ["priority", "least_color", "most_color", "needs_me"])
+@pytest.mark.parametrize("which", ["all", "one", "two"])
+@pytest.mark.parametrize("candidates", [False, True])
+def test_colour_sorts_take_a_training_colour_as_a_label(client, db, trained, sort, which, candidates):
+    machines = {"all": None, "one": [trained["m1"]], "two": [trained["m2"], trained["m3"]]}[which]
+    params = {"with_candidates": "true"} if candidates else {}
+    got = _walk(client, sort, 2, machines=machines, **params)
+    assert got == _expected(db, trained, sort, machine_id=machines, with_candidates=candidates)
+    if sort == "least_color" and which == "all" and not candidates:
+        # After every piece with no colour label at all, before the labelled.
+        unlabelled = [p for p in got if p not in COUNTING and p not in {"p01", "p02", "p03", "p07", "q01", "q02"}]
+        assert got[len(unlabelled) : len(unlabelled) + 4] == [p for p in got if p in COUNTING - {"p02"}]
+
+
+def test_a_sync_moves_the_flag_with_the_piece_and_its_run(client, db, trained):
+    """The sync endpoints keep the flag of pieces already queued: excluding a
+    run drops its pieces' labels, letting it back in restores them."""
+    m1 = trained["m1"]
+    db.query(MachineTrainingRun).filter_by(machine_id=m1, run_uuid="r1").update({"excluded": True})
+    training_runs.after_runs(db, m1, ["r1"])
+    db.commit()
+    flagged = {e.piece_uuid for e in db.query(LabelingQueueEntry).filter(LabelingQueueEntry.has_training_label.is_(True))}
+    assert flagged == COUNTING - {"p04", "p06", "p02"}
+    db.query(MachineTrainingRun).filter_by(machine_id=m1, run_uuid="r1").update({"excluded": False})
+    training_runs.after_runs(db, m1, ["r1"])
+    db.commit()
+    flagged = {e.piece_uuid for e in db.query(LabelingQueueEntry).filter(LabelingQueueEntry.has_training_label.is_(True))}
+    assert flagged == COUNTING
+
+
+def test_cards_and_stats_count_training_labels(client, db, trained):
+    items = {it["piece_uuid"]: it for it in client.get("/api/labeling/pieces", params={"sort": "recent", "limit": 200}).json()["items"]}
+    assert {p for p, it in items.items() if it["has_training_label"]} == COUNTING
+    # From the counts kept on the runs: r1's three and r3's one; r2 is
+    # excluded and r4 has no row yet.
+    assert client.get("/api/labeling/stats").json()["training_labeled_pieces"] == 4
+    one = client.get("/api/labeling/stats", params={"machine_id": str(trained["m3"])}).json()
+    assert one["training_labeled_pieces"] == 1
 
 
 # --- Dashboard overview ----------------------------------------------------------------

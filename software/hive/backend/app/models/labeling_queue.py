@@ -24,7 +24,10 @@ class LabelingQueueEntry(Base):
     "unidentified" and "rare color" sorts; the daily reconcile refreshes them.
     ``has_palette``: a classification frame of the machine near the piece's
     arrival showed the colour reference palette (``app.services.piece_palette``),
-    for the grid's palette badge and filter.
+    for the grid's palette badge and filter. ``has_training_label``: the piece
+    has a colour from a training run that counts (``app.services.training_runs``),
+    so the grid treats it as colour-labelled; kept by the worker and by the
+    sync endpoints when a piece's or a run's training state changes.
     """
 
     __tablename__ = "labeling_queue"
@@ -39,6 +42,7 @@ class LabelingQueueEntry(Base):
     color_id = Column(String, nullable=True)
     color_confidence = Column(Float, nullable=True)
     has_palette = Column(Boolean, nullable=False, default=False, server_default=false())
+    has_training_label = Column(Boolean, nullable=False, default=False, server_default=false())
 
     __table_args__ = (
         ForeignKeyConstraint(
@@ -104,17 +108,42 @@ Index(
 )
 
 
+# The colour sorts' walk of the pieces a training run labelled and no person
+# has (services/review_queue.py): the two arrival walks over only those pieces,
+# the predicate written as the queue's query writes it.
+Index(
+    "ix_labeling_queue_training_arrival",
+    LabelingQueueEntry.arrival_at,
+    LabelingQueueEntry.machine_id,
+    LabelingQueueEntry.piece_uuid,
+    postgresql_where=LabelingQueueEntry.has_training_label.is_(True),
+    sqlite_where=LabelingQueueEntry.has_training_label.is_(True),
+)
+Index(
+    "ix_labeling_queue_training_machine_arrival",
+    LabelingQueueEntry.machine_id,
+    LabelingQueueEntry.arrival_at,
+    LabelingQueueEntry.piece_uuid,
+    postgresql_where=LabelingQueueEntry.has_training_label.is_(True),
+    sqlite_where=LabelingQueueEntry.has_training_label.is_(True),
+)
+
+
 class LabelingQueueCount(Base):
-    """How many queue pieces each machine has that are old enough to label.
+    """How many queue pieces each machine has that are old enough to label,
+    and how many pieces its training runs labelled with a colour that counts.
 
     Recounted by the queue worker every pass, so the labeling page's "of N
     pieces" is a sum over these rows instead of a count over the fleet.
+    ``training_labeled`` sums the counts kept on the machine's runs that are
+    not excluded (machine_training_runs.labeled_count).
     """
 
     __tablename__ = "labeling_queue_counts"
 
     machine_id = Column(UUID(as_uuid=True), ForeignKey("machines.id", ondelete="CASCADE"), primary_key=True)
     labelable = Column(BigInteger, nullable=False, default=0)
+    training_labeled = Column(BigInteger, nullable=False, default=0, server_default="0")
     computed_at = Column(DateTime(timezone=True), nullable=False, default=lambda: datetime.now(timezone.utc))
 
 

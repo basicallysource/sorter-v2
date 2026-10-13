@@ -1,7 +1,7 @@
 """The sorter -> Hive piece sync protocol: sync_seq watermarks, the machine
 operator's verdict on the record, the piece_corrections stream of older
 sorters, machine predictions, per-row skips, Hive's own Brickognize feedback
-state, and the verdict views."""
+state, and the verdict views (training runs: test_training_runs.py)."""
 
 from __future__ import annotations
 
@@ -81,7 +81,7 @@ def _record(piece_uuid: str, local_id: int, sync_seq: int | None = None, **field
 def test_state_lists_every_data_type(client, machine_token):
     assert set(_state(client, machine_token)) == {
         "piece_records", "piece_images", "channel_crops", "piece_corrections",
-        "piece_predictions", "control_data_segments", "samples",
+        "piece_predictions", "control_data_segments", "samples", "training_runs",
     }
 
 
@@ -320,19 +320,21 @@ def test_feedback_the_machine_already_sent_is_not_sent_again(
     assert resp.json()["part_submitted"] is False and sent == []
 
 
-def _migration():
-    path = Path(__file__).resolve().parents[1] / "alembic" / "versions" / "8a9445c627d2_machine_predictions_and_verdicts.py"
-    spec = importlib.util.spec_from_file_location("verdicts_migration", path)
+def _migration(name: str):
+    path = Path(__file__).resolve().parents[1] / "alembic" / "versions" / name
+    spec = importlib.util.spec_from_file_location(path.stem, path)
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
     return module
 
 
 def test_the_verdict_views_list_every_verdict_with_its_source(client, db, machine_token, test_machine, test_user):
-    migration = _migration()
+    # Each view as its latest migration defines it.
+    colors = _migration("f6a8c0e2b4d7_training_runs.py")
+    parts = _migration("8a9445c627d2_machine_predictions_and_verdicts.py")
     _drop_views(db)
-    db.execute(text(migration.PIECE_COLOR_VERDICTS_SQL))
-    db.execute(text(migration.PIECE_PART_VERDICTS_SQL))
+    db.execute(text(colors.PIECE_COLOR_VERDICTS_SQL))
+    db.execute(text(parts.PIECE_PART_VERDICTS_SQL))
     db.commit()
     try:
         _check_verdict_views(client, db, machine_token, test_machine, test_user)
@@ -347,9 +349,20 @@ def _drop_views(db: Session) -> None:
 
 
 def _check_verdict_views(client, db, machine_token, test_machine, test_user) -> None:
+    run = {"training_run_uuid": "run-1", "training_color_id": "5", "training_label_source": "run"}
     _post(client, machine_token, "piece-records", [
         _record("x", 1, sync_seq=1, color_corrected_id="85", part_correct=False, correction_updated_at=BASE),
         _record("y", 2, sync_seq=2),
+        # A training run's label counts; an excluded piece's, one from an
+        # excluded run and a piece the run gave no colour do not.
+        _record("t", 3, sync_seq=3, training_updated_at=BASE + 9, **run),
+        _record("t-excluded", 4, sync_seq=4, **run, training_excluded=True),
+        _record("t-unlabelled", 5, sync_seq=5, **{**run, "training_color_id": None}),
+        _record("t-run-excluded", 6, sync_seq=6, **{**run, "training_run_uuid": "run-2"}),
+    ])
+    _post(client, machine_token, "training-runs", [
+        {"run_uuid": "run-2", "sync_seq": 7, "mode": "color", "color_ids": ["5"], "started_at": BASE,
+         "ended_at": BASE + 60, "excluded": True, "updated_at": BASE + 60},
     ])
     user = db.query(User).filter(User.email == test_user["email"]).one()
     machine_id = UUID(test_machine["id"])
@@ -363,10 +376,14 @@ def _check_verdict_views(client, db, machine_token, test_machine, test_user) -> 
         "ORDER BY piece_uuid, source"
     )).all()
     assert [(r[0], r[1], r[2], bool(r[3]), r[4]) for r in colors] == [
+        ("training_run", "t", "5", False, "11"),
         ("hive", "x", "86", False, "11"),
         ("machine", "x", "85", False, "11"),
         ("hive", "y", None, True, "11"),
     ]
+    assert db.execute(text(
+        "SELECT verdict_by FROM piece_color_verdicts WHERE source = 'training_run'"
+    )).scalar() == "run-1"
     parts = db.execute(text(
         "SELECT source, piece_uuid, part_num, part_correct, machine_part_id FROM piece_part_verdicts "
         "ORDER BY piece_uuid, source"

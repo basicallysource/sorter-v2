@@ -1,7 +1,20 @@
 import uuid
 from datetime import datetime, timezone
 
-from sqlalchemy import BigInteger, Boolean, Column, DateTime, Float, ForeignKey, Index, Integer, String, UniqueConstraint
+from sqlalchemy import (
+    BigInteger,
+    Boolean,
+    Column,
+    DateTime,
+    Float,
+    ForeignKey,
+    Index,
+    Integer,
+    String,
+    UniqueConstraint,
+    false,
+    text,
+)
 from sqlalchemy.dialects.postgresql import UUID
 
 from app.models import Base
@@ -65,6 +78,21 @@ class MachinePiece(Base):
     correction_updated_at = Column(DateTime(timezone=True), nullable=True)
     # Operator-flagged capture issues live in machine_piece_rejection_reasons,
     # one row per (piece, reason) — see MachinePieceRejectionReason.
+    # The training run the machine saw the piece in (machine_training_runs)
+    # and the segment of it (the colours being fed then), the colour the run
+    # labels it with (a BrickLink id as a string, NULL when
+    # the run could not decide one), how that was decided ("run": the run's one
+    # colour; "prediction": the first of the piece's own colour predictions
+    # that is one of the run's; "nearest": the run colour nearest the
+    # machine's), and the operator's exclusion of the piece. Synced with the
+    # record, never written by Hive. A label counts when it is set, the piece
+    # is not excluded and its run is not.
+    training_run_uuid = Column(String, nullable=True)
+    training_segment_uuid = Column(String, nullable=True)
+    training_color_id = Column(String, nullable=True)
+    training_label_source = Column(String, nullable=True)
+    training_excluded = Column(Boolean, nullable=False, default=False, server_default=false())
+    training_updated_at = Column(DateTime(timezone=True), nullable=True)
     created_at = Column(DateTime(timezone=True), nullable=False, default=lambda: datetime.now(timezone.utc))
 
     __table_args__ = (
@@ -77,4 +105,13 @@ class MachinePiece(Base):
         # and those pieces have to show up in the live counter when they land,
         # not whenever the next hourly pass happens to run.
         Index("ix_machine_pieces_machine_created_at", "machine_id", "created_at"),
+        # A training run's pieces: what its counts are recounted from. Only the
+        # pieces seen in a run, so it stays small.
+        Index(
+            "ix_machine_pieces_training_run",
+            "machine_id",
+            "training_run_uuid",
+            postgresql_where=text("training_run_uuid IS NOT NULL"),
+            sqlite_where=text("training_run_uuid IS NOT NULL"),
+        ),
     )

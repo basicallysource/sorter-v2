@@ -2,6 +2,7 @@
 	import { api, type ColorLabelPieceCard } from '$lib/api';
 	import Card from './Card.svelte';
 	import Check from '@lucide/svelte/icons/check';
+	import GraduationCap from '@lucide/svelte/icons/graduation-cap';
 	import Link2 from '@lucide/svelte/icons/link-2';
 	import Palette from '@lucide/svelte/icons/palette';
 	import Sparkles from '@lucide/svelte/icons/sparkles';
@@ -31,7 +32,7 @@
 			{:else}
 				<span class="text-sm text-ink-muted">No picture</span>
 			{/if}
-			{#if card.has_candidates || card.has_palette}
+			{#if card.has_candidates || card.has_palette || card.has_training_label}
 				<span class="absolute top-1 left-1 flex gap-1">
 					{#if card.has_candidates}
 						<span class="flex rounded-badge bg-info p-0.5 text-on-info" title="Has same-piece candidate crops"><Sparkles size={14} /></span>
@@ -40,6 +41,12 @@
 						<span
 							class="flex items-center gap-1 rounded-badge bg-scrim px-1 py-0.5 text-xs leading-none font-medium text-white"
 							title="The color reference palette was in view near this piece"><SwatchBook size={12} />Palette</span
+						>
+					{/if}
+					{#if card.has_training_label}
+						<span
+							class="flex items-center gap-1 rounded-badge bg-scrim px-1 py-0.5 text-xs leading-none font-medium text-white"
+							title="A training run labeled this piece's color"><GraduationCap size={12} />Training</span
 						>
 					{/if}
 				</span>

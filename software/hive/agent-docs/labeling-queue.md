@@ -41,7 +41,9 @@ filter changed). `MachineFilter.svelte` is the machine picker on both pages.
 |---|---|---|
 | `labeling_queue` | `services/labeling_queue.py` (worker) | the piece grid (`GET /api/labeling/pieces`) |
 | `labeling_queue.has_palette` | same worker, from `services/piece_palette.py` | the grid's palette badge and filter (`with_palette`) |
-| `labeling_queue_counts` | same worker, every pass | `GET /api/labeling/stats` (`total_labelable`) |
+| `labeling_queue.has_training_label` | same worker, and the sync endpoints (`services/training_runs.py`) | the colour sorts, the cards' Training badge |
+| `machine_training_runs.*_count` | the sync endpoints, per run they touch (`services/training_runs.py`) | the machine page's runs, the worker's per-machine sum |
+| `labeling_queue_counts` | same worker, every pass | `GET /api/labeling/stats` (`total_labelable`, and `training_labeled_pieces` from `training_labeled`) |
 | `labeling_queue_state` | same worker | the worker (its progress) |
 | `piece_link_scores` | `services/piece_link_scores.py`, on the first open of a piece | `GET /api/labeling/possible-crops/...` |
 | `piece_color_guesses` | `services/piece_color_guess.py`, on the first open | `GET /api/labeling/piece/...` |
@@ -76,7 +78,12 @@ The worker (`labeling-queue-worker`, every 5 minutes):
   (by `created_at`, with a 10-minute overlap for transactions still open),
 - marks queued pieces whose arrival window holds a newly synced channel crop as
   having same-piece candidates,
-- recounts each machine's labelable pieces,
+- recounts each machine's labelable pieces, and sums the pieces its training
+  runs labelled (from the counts kept on each run),
+- sets `has_training_label` for the pieces it evaluates (a training run's
+  colour that counts, `piece-data.md`); the piece-records and training-runs
+  sync endpoints set it for queued pieces whose training state, or whose run's
+  exclusion, changes later,
 - works out `has_palette` again for the queued pieces near the swatch runs
   stored since its last pass (see the palette, below),
 - once a day re-evaluates every piece in batches of 5,000, which catches rows
@@ -102,6 +109,16 @@ is nearly all of them), the **labeled** pieces ordered by how many labels (a
 small set, written by people), and for "likely a rare color" a walk of its own
 index. "Priority" is: candidates with no colour label, candidates with labels,
 then the same without candidates.
+
+**A training run's colour is a colour label.** The colour sorts (priority,
+needs_me, least/most colour) leave the pieces with `has_training_label` out of
+their walks and read them in a "trained" segment of their own: the pieces a run
+labelled and no person has, newest first, through two partial indexes like the
+palette's (`ix_labeling_queue_training_arrival`, `..._machine_arrival`). It
+comes just before the labeled segment, as if they had one label; a piece people
+labelled is in the labeled segment by their labels, whatever a run said.
+`GET /api/labeling/stats` adds `training_labeled_pieces`, a sum of the
+per-machine counts the worker keeps from the runs' own.
 
 Paging is a keyset cursor (`next_cursor`, passed back as `cursor`): the segment
 and the sort key of the last piece served. Page 50 costs what page 1 does, and

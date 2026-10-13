@@ -8,7 +8,7 @@ from uuid import UUID, uuid4
 
 from fastapi import APIRouter, Depends, File, Form, Request, UploadFile
 from PIL import Image
-from pydantic import BaseModel, ValidationError, field_validator
+from pydantic import BaseModel, Field, ValidationError, field_validator
 from sqlalchemy import bindparam, case, or_, text
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.dialects.sqlite import insert as sqlite_insert
@@ -25,6 +25,7 @@ from app.models.machine_piece_rejection_reason import MachinePieceRejectionReaso
 from app.models.machine_channel_crop import MachineChannelCrop
 from app.models.machine_control_data_segment import MachineControlDataSegment
 from app.models.machine_sync_state import MachineSyncState
+from app.models.machine_training_run import MachineTrainingRun
 from app.models.sample import Sample
 from app.rate_limiting import machine_limiter
 from app.routers.upload import (
@@ -41,7 +42,7 @@ from app.schemas.upload import UploadMetadata
 from app.services.image_hashing import compute_phash_bytes
 from app.services.image_stats import compute_exposure_stats_bytes
 from app.services.machine_presence import mark_machine_seen
-from app.services import swatch_jobs
+from app.services import swatch_jobs, training_runs
 from app.services.storage import (
     save_channel_crop_file,
     save_piece_image_file,
@@ -64,6 +65,7 @@ DATA_TYPE_PIECE_CORRECTIONS = "piece_corrections"
 DATA_TYPE_PIECE_PREDICTIONS = "piece_predictions"
 DATA_TYPE_CONTROL_DATA = "control_data_segments"
 DATA_TYPE_SAMPLES = "samples"
+DATA_TYPE_TRAINING_RUNS = "training_runs"
 DATA_TYPES = (
     DATA_TYPE_PIECE_RECORDS,
     DATA_TYPE_PIECE_IMAGES,
@@ -72,6 +74,7 @@ DATA_TYPES = (
     DATA_TYPE_PIECE_PREDICTIONS,
     DATA_TYPE_CONTROL_DATA,
     DATA_TYPE_SAMPLES,
+    DATA_TYPE_TRAINING_RUNS,
 )
 
 # The watermark rule (the sorter's sync_seq.py): a row that changes on the
@@ -91,6 +94,11 @@ _PIECE_UPDATE_COLS = (
     "color_confidence", "bin_x", "bin_y", "bin_z", "dead", "brickognize_preview_url",
     "brickognize_listing_id", "brickognize_item_rank", "brickognize_item_type",
     "brickognize_color_rank", "color_provider", "mold_provider",
+    # The piece's training run and label: the sorter owns them, so every
+    # record overwrites them (a record from a sorter without training mode
+    # clears them, which is what it means).
+    "training_run_uuid", "training_segment_uuid", "training_color_id", "training_label_source",
+    "training_excluded", "training_updated_at",
 )
 _VERDICT_COLS = ("part_correct", "color_corrected_id", "correction_updated_at")
 _FEEDBACK_FLAG_COLS = ("part_feedback_submitted", "color_feedback_submitted")
@@ -105,6 +113,9 @@ _CHANNEL_CROP_UPDATE_COLS = (
     "channel", "ts", "captured_at", "track_id", "com_forward_to_exit_deg",
     "com_section", "zone_code", "sharpness", "bbox_x1", "bbox_y1", "bbox_x2",
     "bbox_y2", "bytes", "image_key", "evicted_locally",
+)
+_TRAINING_RUN_UPDATE_COLS = (
+    "mode", "color_ids", "segments", "started_at", "ended_at", "excluded", "updated_at", "received_at",
 )
 _CONTROL_DATA_UPDATE_COLS = (
     "started_at", "ended_at", "records", "bytes", "machine_setup",
@@ -353,6 +364,57 @@ class PieceRecordIn(BaseModel):
     # Operator-flagged capture issues (no_piece / multiple_pieces / not_lego /
     # assembly / pieces_entangled / blurry), the complete set.
     rejection_reasons: list[str] | None = None
+    # The training run the piece was seen in and the segment of it, the colour
+    # it labels the piece with ("run" / "prediction" / "nearest": how it was
+    # decided) and the operator's exclusion. Absent from sorters without
+    # training mode (and the segment from those before runs had segments).
+    training_run_uuid: str | None = None
+    training_segment_uuid: str | None = None
+    training_color_id: str | None = None
+    training_label_source: str | None = None
+    training_excluded: bool | None = None
+    training_updated_at: float | None = None
+
+
+class TrainingSegmentIn(BaseModel):
+    """A stretch of a training run with the colours fed during it."""
+
+    segment_uuid: str
+    color_ids: list[str] = Field(default_factory=list)
+    started_at: float
+    ended_at: float | None = None
+
+
+class TrainingRunIn(BaseModel):
+    """A training run (the sorter's training mode): while it was open every
+    piece the machine saw counts as what the run was for. Changes on the
+    machine (it ends, it is excluded), so it carries sync_seq."""
+
+    run_uuid: str
+    sync_seq: int
+    mode: str
+    # Every colour the run's segments used.
+    color_ids: list[str] = Field(default_factory=list)
+    # Oldest first; absent from sorters before runs had segments.
+    segments: list[TrainingSegmentIn] | None = None
+    started_at: float
+    ended_at: float | None = None
+    excluded: bool = False
+    updated_at: float | None = None
+
+    @field_validator("run_uuid")
+    @classmethod
+    def _not_empty(cls, value: str) -> str:
+        if not value.strip():
+            raise ValueError("must not be empty")
+        return value
+
+    @field_validator("started_at")
+    @classmethod
+    def _finite(cls, value: float) -> float:
+        if not math.isfinite(value):
+            raise ValueError("must be a time")
+        return value
 
 
 class SyncBatch(BaseModel):
@@ -535,6 +597,12 @@ def _piece_row(machine_id: UUID, rec: PieceRecordIn, now: datetime) -> dict[str,
         "part_feedback_submitted": rec.part_feedback_submitted,
         "color_feedback_submitted": rec.color_feedback_submitted,
         "correction_updated_at": _ts(rec.correction_updated_at),
+        "training_run_uuid": rec.training_run_uuid,
+        "training_segment_uuid": rec.training_segment_uuid,
+        "training_color_id": rec.training_color_id,
+        "training_label_source": rec.training_label_source,
+        "training_excluded": bool(rec.training_excluded),
+        "training_updated_at": _ts(rec.training_updated_at),
         "created_at": now,
     }
 
@@ -550,7 +618,9 @@ def sync_piece_records(
     """Upsert piece records by (machine, piece_uuid). A record with sync_seq is
     the machine's whole state for the piece, the operator's verdict and
     rejection reasons included; an older sorter's record leaves the verdict to
-    its piece_corrections stream."""
+    its piece_corrections stream. The training runs the batch touches are
+    recounted, and its pieces' labeling-queue flags follow their training
+    labels (services/training_runs.py)."""
     records, skipped, key_max = _validate_rows(PieceRecordIn, payload.records, machine, DATA_TYPE_PIECE_RECORDS)
     if not payload.records:
         return {"max_local_id": _watermark(db, machine.id, DATA_TYPE_PIECE_RECORDS), "upserted": 0, "skipped": 0}
@@ -562,6 +632,9 @@ def sync_piece_records(
     )
 
     def write(batch: list[PieceRecordIn]) -> None:
+        # The runs these pieces were in before this batch: a piece that left
+        # a run changes that run's counts too.
+        previous = training_runs.runs_of(db, machine_id, [r.piece_uuid for r in batch])
         current = [r for r in batch if r.sync_seq is not None]
         older = [r for r in batch if r.sync_seq is None]
         _upsert(
@@ -580,9 +653,77 @@ def sync_piece_records(
             {r.piece_uuid: r.rejection_reasons for r in current if r.rejection_reasons is not None},
             now,
         )
+        training_runs.after_piece_records(db, machine_id, batch, previous)
 
     skipped += _write_rows(db, write, records, machine, DATA_TYPE_PIECE_RECORDS)
     new_max = _advance_watermark(db, machine_id, DATA_TYPE_PIECE_RECORDS, key_max)
+    mark_machine_seen(machine, now)
+    db.commit()
+    return {"max_local_id": new_max, "upserted": len(payload.records) - skipped, "skipped": skipped}
+
+
+def _iso(value: float | None) -> str | None:
+    dt = _ts(value)
+    return dt.isoformat() if dt is not None else None
+
+
+def _training_run_row(machine_id: UUID, rec: TrainingRunIn, now: datetime) -> dict[str, Any]:
+    return {
+        "id": uuid4(),
+        "machine_id": machine_id,
+        "run_uuid": rec.run_uuid,
+        "mode": rec.mode,
+        "color_ids": [str(c) for c in rec.color_ids],
+        "segments": [
+            {
+                "segment_uuid": seg.segment_uuid,
+                "color_ids": [str(c) for c in seg.color_ids],
+                "started_at": _iso(seg.started_at),
+                "ended_at": _iso(seg.ended_at),
+            }
+            for seg in rec.segments or []
+        ],
+        "started_at": _ts(rec.started_at),
+        "ended_at": _ts(rec.ended_at),
+        "excluded": rec.excluded,
+        "updated_at": _ts(rec.updated_at),
+        "piece_count": 0,
+        "labeled_count": 0,
+        "excluded_count": 0,
+        "created_at": now,
+        "received_at": now,
+    }
+
+
+@router.post("/training-runs")
+@limiter.limit("300/minute")
+def sync_training_runs(
+    request: Request,
+    payload: SyncBatch,
+    db: Session = Depends(get_db),
+    machine: Machine = Depends(get_current_machine),
+) -> dict[str, int]:
+    """Upsert training runs by (machine, run_uuid), then count each run's
+    pieces into its row (its pieces may have come first) and set its pieces'
+    labeling-queue flags (an excluded run's labels stop counting). The counts
+    are Hive's; everything else on the row is the machine's."""
+    runs, skipped, key_max = _validate_rows(TrainingRunIn, payload.records, machine, DATA_TYPE_TRAINING_RUNS)
+    if not payload.records:
+        return {"max_local_id": _watermark(db, machine.id, DATA_TYPE_TRAINING_RUNS), "upserted": 0, "skipped": 0}
+
+    now = _now()
+    machine_id = machine.id
+    runs = _latest_per_key(runs, key=lambda r: r.run_uuid, order=lambda r: r.sync_seq)
+
+    def write(batch: list[TrainingRunIn]) -> None:
+        _upsert(
+            db, MachineTrainingRun, [_training_run_row(machine_id, r, now) for r in batch],
+            ["machine_id", "run_uuid"], _TRAINING_RUN_UPDATE_COLS,
+        )
+        training_runs.after_runs(db, machine_id, [r.run_uuid for r in batch])
+
+    skipped += _write_rows(db, write, runs, machine, DATA_TYPE_TRAINING_RUNS)
+    new_max = _advance_watermark(db, machine_id, DATA_TYPE_TRAINING_RUNS, key_max)
     mark_machine_seen(machine, now)
     db.commit()
     return {"max_local_id": new_max, "upserted": len(payload.records) - skipped, "skipped": skipped}

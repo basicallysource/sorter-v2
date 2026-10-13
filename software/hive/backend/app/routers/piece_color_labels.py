@@ -46,7 +46,7 @@ from app.models.piece_part_label import PiecePartLabel
 from app.models.piece_rejection import PieceRejection
 from app.models.user import User
 from app.schemas.likely_colors import LikelyColorsResponse
-from app.services import color_rank, likely_colors, piece_palette
+from app.services import color_rank, likely_colors, piece_palette, training_runs
 from app.services.brickognize_feedback import submit_color_feedback, submit_part_feedback
 from app.services.channel_crop_lookup import find_possible_crops
 from app.services import review_queue
@@ -187,7 +187,10 @@ def label_stats(
     labelers_1 = int(buckets.get(1, 0))
     labelers_2 = int(buckets.get(2, 0))
     labelers_3plus = int(buckets.get(3, 0))
-    labelers_0 = max(0, total_labelable - color_labeled_pieces)
+    # Pieces a training run labelled with a colour that counts: kept per
+    # machine by the labeling-queue worker, from the counts kept on each run.
+    training_labeled_pieces = review_queue.training_labeled_count(db, current_user, machine_id)
+    labelers_0 = max(0, total_labelable - color_labeled_pieces - training_labeled_pieces)
 
     return {
         "total_labelable": total_labelable,
@@ -201,6 +204,7 @@ def label_stats(
         "color_labeled_pieces": int(color_labeled_pieces),
         "crop_linked_pieces": int(crop_linked_pieces),
         "part_labeled_pieces": int(part_labeled_pieces),
+        "training_labeled_pieces": int(training_labeled_pieces),
         "labeler_histogram": {
             "0": labelers_0,
             "1": labelers_1,
@@ -383,8 +387,9 @@ def piece_detail(
 ) -> dict:
     """Everything the single-piece labeling view needs: the piece, its crops, the
     pixel-average guess, THIS user's saved color label (so revisiting a piece
-    by URL restores what they'd set, rather than a fresh unlabeled view), and
-    the colour reference palette's frame nearest the piece with its swatches."""
+    by URL restores what they'd set, rather than a fresh unlabeled view), the
+    colour reference palette's frame nearest the piece with its swatches, and
+    the training run the machine saw it in, with the colour that gives it."""
     piece = (
         db.query(MachinePiece)
         .filter(MachinePiece.machine_id == machine_id, MachinePiece.piece_uuid == piece_uuid)
@@ -463,6 +468,7 @@ def piece_detail(
     # The machine's classification frame with the colour reference palette in
     # view nearest the piece (two index probes), and its swatches.
     palette = piece_palette.frame_for_piece(db, current_user, piece)
+    training_run = training_runs.piece_training(db, piece)
     backend = get_backend()
     # Last of the reads: when the guesses are not stored yet this commits and
     # reads the crops from storage.
@@ -552,6 +558,9 @@ def piece_detail(
             for p in machine_predictions
         ],
         "palette": palette,
+        # The training run the machine saw the piece in and the colour it
+        # labels it with (counts: it counts as a colour label), or None.
+        "training_run": training_run,
         "correction": {
             **_my_brickognize_correction(db, piece, part_label, label),
             # Capture issues the machine operator flagged (no_piece /

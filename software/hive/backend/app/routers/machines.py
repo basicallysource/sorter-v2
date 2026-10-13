@@ -18,6 +18,7 @@ from app.models.machine import Machine
 from app.models.machine_piece import MachinePiece
 from app.models.machine_piece_image import MachinePieceImage
 from app.models.machine_channel_crop import MachineChannelCrop
+from app.models.machine_training_run import MachineTrainingRun
 from app.models.user import User
 from app.schemas.machine import (
     MachineCreate,
@@ -28,7 +29,7 @@ from app.schemas.machine import (
     MachineWithTokenResponse,
 )
 from app import background
-from app.services import machine_stats
+from app.services import machine_stats, training_runs
 from app.services.auth import generate_machine_token, verify_password
 from app.services.machine_set_progress import build_set_progress_inventory_index, summarize_machine_set_progress
 from app.services.machine_stats import get_machine_stats_worker
@@ -330,6 +331,45 @@ def list_machine_pieces(
         ],
         "next_cursor": next_cursor,
         "total": machine_stats.piece_total(db, machine_id),
+    }
+
+
+def _training_run_cursor(run: MachineTrainingRun) -> str:
+    started = run.started_at if run.started_at.tzinfo is not None else run.started_at.replace(tzinfo=timezone.utc)
+    return f"{started.isoformat()}|{run.id}"
+
+
+@router.get("/machines/{machine_id}/training-runs")
+def list_machine_training_runs(
+    machine_id: UUID,
+    limit: int = Query(50, ge=1, le=200),
+    cursor: str | None = Query(None, max_length=120),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """The machine's training runs, newest first, each with the piece,
+    labelled and excluded counts kept on its row (services/training_runs.py).
+    Keyset-paged on (started_at, id): pass next_cursor back as cursor.
+
+    Accessible to the machine's owner or any admin."""
+    machine = _machine_for_viewer(db, machine_id, current_user)
+    query = db.query(MachineTrainingRun).filter(MachineTrainingRun.machine_id == machine.id)
+    if cursor:
+        try:
+            started_raw, run_id_raw = cursor.split("|", 1)
+            after = (datetime.fromisoformat(started_raw), UUID(run_id_raw))
+        except ValueError as exc:
+            raise APIError(400, "Invalid cursor", "CURSOR_INVALID") from exc
+        query = query.filter(tuple_(MachineTrainingRun.started_at, MachineTrainingRun.id) < after)
+    runs = (
+        query.order_by(MachineTrainingRun.started_at.desc(), MachineTrainingRun.id.desc()).limit(limit + 1).all()
+    )
+    has_more = len(runs) > limit
+    runs = runs[:limit]
+    colors = training_runs.palette() if runs else {}
+    return {
+        "items": [training_runs.run_out(run, colors) for run in runs],
+        "next_cursor": _training_run_cursor(runs[-1]) if has_more and runs else None,
     }
 
 

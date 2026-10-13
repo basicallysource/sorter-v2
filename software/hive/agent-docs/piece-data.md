@@ -19,6 +19,7 @@ a natural key, so a re-send never duplicates.
 | `control_data_segments` | `POST /api/machine/sync/control-data-segment` | `machine_control_data_segments` | machine, local_id | `local_id` |
 | `samples` | `POST /api/machine/sync/sample` | `samples` | session, local_sample_id | `local_id` |
 | `piece_corrections` | `POST /api/machine/sync/piece-corrections` | `machine_pieces` verdict columns | machine, piece_uuid | `local_id` |
+| `training_runs` | `POST /api/machine/sync/training-runs` (JSON batch) | `machine_training_runs` | machine, run_uuid | `sync_seq` |
 
 **The cursor rule.** A row that never changes on the sorter syncs by its id
 (`local_id`). A row that changes (a piece record gets its bin, a verdict, a
@@ -66,6 +67,30 @@ time it changes. Its images go once its record exists, with their final
 `used` / `excluded_from_result` flags; images of a piece that never got a
 record never sync. Predictions go once, when classification settles.
 
+**Training runs.** A sorter in training mode labels every piece it sees during
+a run with what the run was for; the first kind is a colour run, where the
+operator feeds one colour (or a set) and each piece counts as one of them. The
+piece's record carries `training_run_uuid`, `training_segment_uuid`,
+`training_color_id` (NULL when the run could not decide one), `training_label_source` (`run`: the run's one
+colour; `prediction`: the first of the piece's own colour predictions that is
+one of the run's; `nearest`: the run colour nearest the machine's),
+`training_excluded` and `training_updated_at`; the sorter owns them, so every
+record overwrites them. The run itself (`mode`, `color_ids`: every colour it
+used, `segments`, `started_at`, `ended_at`, `excluded`) syncs as
+`training_runs`. A run is a sequence of segments: the operator can change the
+colours fed without ending the run, and each change starts a segment
+(`{segment_uuid, color_ids, started_at, ended_at}`, oldest first, kept as JSON
+on the run's row and overwritten on every sync); a piece names the segment it
+was seen in. A training colour **counts**
+as a colour label when it is set, the piece is not excluded and its run is not
+(a run Hive has not received yet counts as not excluded). Hive keeps each run's
+`piece_count`, `labeled_count` and `excluded_count` on its row, recounting a
+run (an indexed count over its pieces, `ix_machine_pieces_training_run`) when a
+batch of records touches it and when the run syncs, so no request counts a
+run's pieces (`services/training_runs.py`). The machine page lists a machine's
+runs (`GET /api/machines/{id}/training-runs`); the piece panel shows the
+piece's run (`training_run` on `GET /api/labeling/piece/...`).
+
 **Older sorters** send records without `sync_seq` and the operator's verdict on
 the separate `piece_corrections` stream. Hive keeps that endpoint: a correction
 for a piece whose record has not arrived yet creates the piece's row
@@ -82,6 +107,8 @@ Each source owns its verdict; nothing writes another source's.
   the `*_feedback_submitted` flags (whether the sorter sent it to Brickognize),
   and `machine_piece_rejection_reasons`. Written only by the sync endpoints.
   `color_corrected_id` can be the sentinel `any_color`.
+- **A training run**: `machine_pieces.training_*`, from the machine (above).
+  Excluding a piece or a run is the operator's, on the sorter.
 - **Each Hive labeler**: `piece_color_labels` (`color_id`, or `cant_tell`),
   `piece_part_labels` (`part_num` or `cant_tell`, and `part_correct`: their
   answer to "is the machine's part right?"), `piece_rejections`. Their
@@ -91,11 +118,15 @@ Each source owns its verdict; nothing writes another source's.
 
 For training, read the views (one row per verdict, any source):
 
-- `piece_color_verdicts`: `source` (`machine` | `hive`), `verdict_by` (the
-  machine's owner or the labeler), `machine_id`, `piece_uuid`, `color_id`
-  (BrickLink id as text), `cant_tell`, `verdict_at`, and what the machine
-  applied: `machine_color_id`, `machine_color_provider`,
-  `machine_color_confidence`.
+- `piece_color_verdicts`: `source` (`machine` | `hive` | `training_run`),
+  `verdict_by` (as text: the machine's owner, the labeler, or the run's
+  `run_uuid`), `machine_id`, `piece_uuid`, `color_id` (BrickLink id as text),
+  `cant_tell`, `verdict_at`, and what the machine applied: `machine_color_id`,
+  `machine_color_provider`, `machine_color_confidence`. A `training_run` row is
+  a training colour that counts (above); `verdict_at` is the label's
+  `training_updated_at`, else when the piece was seen. The SQL is
+  `PIECE_COLOR_VERDICTS_SQL` in the latest migration that defines it
+  (`f6a8c0e2b4d7_training_runs.py`).
 - `piece_part_verdicts`: the same for parts, with `part_num`, `part_correct`,
   `machine_part_id`, `machine_mold_provider`, `machine_confidence`. A machine
   verdict that the part is right has `part_num` = the machine's part; one that

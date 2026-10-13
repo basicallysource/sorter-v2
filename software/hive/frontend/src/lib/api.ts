@@ -1490,6 +1490,8 @@ export interface ColorLabelStats {
 	total_crop_links: number;
 	color_labeled_pieces: number;
 	crop_linked_pieces: number;
+	// Pieces training runs labelled with a colour that counts (the runs' kept counts).
+	training_labeled_pieces: number;
 	labeler_histogram: { '0': number; '1': number; '2': number; '3+': number };
 }
 
@@ -1535,6 +1537,8 @@ export interface ColorLabelPieceCard {
 	has_candidates: boolean;
 	// A classification frame of the machine near the piece showed the colour reference palette.
 	has_palette: boolean;
+	// A training run labelled the piece with a colour that counts as a colour label.
+	has_training_label: boolean;
 	thumb_seq: number | null;
 	// Straight from storage when Hive can sign one; else load the thumbnail by thumb_seq.
 	thumb_url: string | null;
@@ -1673,7 +1677,64 @@ export interface ColorLabelPieceDetail {
 	// pieces from sorters that predate it.
 	machine_predictions: MachinePiecePrediction[];
 	palette: PiecePalette;
+	// The training run the machine saw the piece in, and the colour it labels
+	// the piece with; null for a piece seen outside a run.
+	training_run: PieceTrainingRun | null;
 	correction: ColorLabelCorrection;
+}
+
+// A BrickLink color by its id as a string (how sorters send them); name and
+// rgb are null when the catalog does not know it.
+export interface TrainingRunColor {
+	id: string;
+	name: string | null;
+	rgb: string | null;
+}
+
+// A stretch of a training run with the colors fed during it.
+export interface TrainingRunSegment {
+	segment_uuid: string;
+	color_ids: string[];
+	colors: TrainingRunColor[];
+	started_at: string | null;
+	ended_at: string | null; // null while it is open
+}
+
+export interface PieceTrainingRun {
+	run_uuid: string;
+	mode: string | null; // 'color'; null until the run itself has synced
+	color_ids: string[]; // every color the run's segments used
+	colors: TrainingRunColor[];
+	// The segment the piece was seen in; null when it names none or the run has not synced it.
+	segment: TrainingRunSegment | null;
+	color_id: string | null; // the piece's label; null when the run could not decide one
+	color_name: string | null;
+	color_rgb: string | null;
+	label_source: string | null; // run | prediction | nearest
+	excluded: boolean; // the operator excluded the piece
+	run_excluded: boolean; // ... or the whole run
+	counts: boolean; // the label counts as a color label
+	started_at: string | null;
+	ended_at: string | null;
+}
+
+// A machine's training run, as its page lists it, with the counts Hive keeps.
+export interface MachineTrainingRun {
+	run_uuid: string;
+	mode: string;
+	color_ids: string[];
+	colors: TrainingRunColor[];
+	started_at: string;
+	ended_at: string | null;
+	excluded: boolean;
+	pieces: number;
+	labeled: number;
+	excluded_pieces: number;
+}
+
+export interface MachineTrainingRunsPage {
+	items: MachineTrainingRun[];
+	next_cursor: string | null;
 }
 
 // The colour reference palette for a piece: the machine's classification frame
@@ -2185,6 +2246,16 @@ export const api = {
 		return request<MachinePiecesPage>(
 			'GET',
 			`/api/machines/${machineId}/pieces${qs ? `?${qs}` : ''}`
+		);
+	},
+	getMachineTrainingRuns(machineId: string, opts: { limit?: number; cursor?: string | null } = {}) {
+		const params = new URLSearchParams();
+		if (opts.limit) params.set('limit', String(opts.limit));
+		if (opts.cursor) params.set('cursor', opts.cursor);
+		const qs = params.toString();
+		return request<MachineTrainingRunsPage>(
+			'GET',
+			`/api/machines/${machineId}/training-runs${qs ? `?${qs}` : ''}`
 		);
 	},
 	machinePieceImageUrl(machineId: string, pieceUuid: string, seq: number) {

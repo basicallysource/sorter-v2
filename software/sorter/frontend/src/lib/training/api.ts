@@ -11,11 +11,25 @@ export type PieceFilter = 'all' | 'disagree' | 'excluded';
 // the machine's palette does not know it.
 export type TrainingColor = { id: string; name: string | null; rgb: string | null };
 
+// A stretch of a run with one set of colors; choosing other colors mid-run
+// ends one segment and opens the next.
+export type TrainingSegment = {
+	id: string;
+	color_ids: string[];
+	colors: TrainingColor[];
+	started_at: number;
+	ended_at: number | null;
+	pieces: number;
+};
+
 export type TrainingRun = {
 	id: string;
 	mode: TrainingMode;
+	// Every color its segments used, in order.
 	color_ids: string[];
 	colors: TrainingColor[];
+	// Oldest first.
+	segments: TrainingSegment[];
 	started_at: number;
 	ended_at: number | null;
 	collecting: boolean;
@@ -48,6 +62,7 @@ export type TrainingState = {
 export type TrainingPiece = {
 	uuid: string;
 	run_id: string;
+	segment_id: string | null;
 	seen_at: number;
 	part_id: string | null;
 	part_name: string | null;
@@ -100,6 +115,15 @@ export function saveTrainingConfig(
 	}
 ): Promise<TrainingState> {
 	return call(base, '/api/training/config', 'POST', change);
+}
+
+// Starts a run with the chosen colors.
+export function startRun(base: string): Promise<TrainingState> {
+	return call(base, '/api/training/runs', 'POST');
+}
+
+export function endRun(base: string, runId: string): Promise<TrainingState> {
+	return call(base, `/api/training/runs/${encodeURIComponent(runId)}/end`, 'POST');
 }
 
 export function getRunPieces(
@@ -191,6 +215,26 @@ export function formatWhen(ts: number): string {
 	const date = new Date(ts * 1000);
 	const day = date.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
 	return `${day}, ${formatTime(ts)}`;
+}
+
+// The colors to offer first: the newest used first (this run's latest
+// segment, then earlier runs), then the commonest LEGO colors: Black, White,
+// Light and Dark Bluish Gray, Red, Blue, Yellow, Tan, Reddish Brown, Green,
+// Dark Tan, Orange (BrickLink ids).
+const COMMON = ['11', '1', '86', '85', '5', '7', '3', '2', '88', '6', '69', '4'];
+
+export function recentColorIds(state: TrainingState): string[] {
+	const ids: string[] = [];
+	const add = (id: string) => {
+		if (!ids.includes(id)) ids.push(id);
+	};
+	const runs = state.current_run ? [state.current_run, ...state.runs] : state.runs;
+	for (const run of runs) {
+		for (const segment of [...(run.segments ?? [])].reverse()) segment.color_ids.forEach(add);
+		run.color_ids.forEach(add);
+	}
+	COMMON.forEach(add);
+	return ids;
 }
 
 // "11:58 am"

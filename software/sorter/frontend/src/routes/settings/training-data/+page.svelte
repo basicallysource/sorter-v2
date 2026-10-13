@@ -11,12 +11,14 @@
 	import Spinner from '$lib/components/ui/Spinner.svelte';
 	import Switch from '$lib/components/ui/Switch.svelte';
 	import RunColors from '$lib/components/training/RunColors.svelte';
-	import TrainingColors from '$lib/components/training/TrainingColors.svelte';
+	import ColorDropdown from '$lib/components/training/ColorDropdown.svelte';
+	import RunButton from '$lib/components/training/RunButton.svelte';
 	import { sortingProfileStore } from '$lib/stores/sortingProfile.svelte';
 	import {
 		binKey,
 		binLabel,
 		formatDuration,
+		formatTime,
 		formatWhen,
 		getBinChoices,
 		getTraining,
@@ -39,8 +41,6 @@
 	let loadError = $state<string | null>(null);
 	let saving = $state(false);
 	let saveError = $state<string | null>(null);
-
-	const collecting = $derived(training?.current_run != null);
 
 	// The bins on enabled layers, for the fixed bin. The one set stays a
 	// choice even when its layer is off.
@@ -136,7 +136,7 @@
 		<div class="divide-y divide-line">
 			<SettingRow
 				label="Training mode"
-				help="While it is on, a run starts each time the machine runs, and every piece it sees until it stops counts as the run's colors. The dashboard shows the run in place of Recent pieces."
+				help="While it is on, the dashboard shows the training run in place of Recent pieces. Turning it off ends the run."
 			>
 				<Switch
 					checked={training.config.enabled}
@@ -176,21 +176,24 @@
 				/>
 			</SettingRow>
 
-			<div class="px-(--pad-panel) py-(--pad-row)">
-				<div class="text-sm font-medium text-ink">Colors</div>
-				<p class="mt-0.5 max-w-prose text-sm text-ink-muted">
-					One color: every piece counts as it. Several: each piece gets whichever of them its color
-					prediction ranks first.
-				</p>
-				<div class="mt-3">
-					<TrainingColors
-						{base}
-						{training}
-						locked={collecting}
-						onsaved={(next) => (training = next)}
-					/>
-				</div>
-			</div>
+			<SettingRow
+				label="Color"
+				help="The color being fed. Picking another while a run is open starts a new segment of it, at once."
+			>
+				<ColorDropdown {base} {training} onsaved={(next) => (training = next)} />
+			</SettingRow>
+
+			<SettingRow
+				label="Run"
+				help={training.current_run
+					? `Collecting since ${formatTime(training.current_run.started_at)}: ${training.current_run.pieces.toLocaleString()} pieces in ${training.current_run.segments.length} ${training.current_run.segments.length === 1 ? 'segment' : 'segments'}.`
+					: 'A run collects every piece the machine sees until you end it, across pauses.'}
+			>
+				{#snippet tags()}
+					{#if training?.current_run}<Badge tone="success" dot>Collecting</Badge>{/if}
+				{/snippet}
+				<RunButton {base} {training} onchange={(next) => (training = next)} />
+			</SettingRow>
 
 			{#if saveError}
 				<p class="px-(--pad-panel) py-(--pad-row) text-sm text-danger-ink">{saveError}</p>
@@ -206,7 +209,7 @@
 >
 	{#if training && training.runs.length === 0}
 		<p class="px-(--pad-panel) pb-4 text-sm text-ink-muted">
-			No runs yet. A run starts when the machine runs with training mode on and a color chosen.
+			No runs yet. Pick a color and start one above.
 		</p>
 	{:else if training}
 		<div class="overflow-x-auto">

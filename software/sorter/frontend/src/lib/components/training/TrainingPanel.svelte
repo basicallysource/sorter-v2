@@ -1,11 +1,11 @@
 <!--
 	The dashboard's Training data section, in place of Recent pieces while
-	training mode is on. With no colors chosen it asks for one; with colors and
-	no run it says what the next run will be; while a run collects it shows
-	the run's latest pieces, each excluded or brought back with a click. A
-	fixed bin, when one is set, is named first in every state. The
-	pieces hold still while the pointer is over them, so a click lands on the
-	piece that was aimed at.
+	training mode is on. A bar that stays at the top: the color being fed (a
+	pick saves at once and, mid-run, starts a new segment), the run's state,
+	Start run or End run, and All runs. Under it the fixed bin, when one is
+	set. Then the open run's pieces as a live feed of rows, newest first, with
+	a divider for each segment; a click excludes a piece or brings it back.
+	With no run open, the last run in one line.
 -->
 <script lang="ts">
 	import Button from '$lib/components/ui/Button.svelte';
@@ -21,9 +21,9 @@
 		type TrainingPiece,
 		type TrainingState
 	} from '$lib/training/api';
-	import RunColors from './RunColors.svelte';
-	import TrainingColors from './TrainingColors.svelte';
-	import TrainingPieceTile from './TrainingPieceTile.svelte';
+	import ColorDropdown from './ColorDropdown.svelte';
+	import PieceFeed from './PieceFeed.svelte';
+	import RunButton from './RunButton.svelte';
 
 	let {
 		base,
@@ -36,35 +36,18 @@
 	} = $props();
 
 	const POLL_MS = 3000;
-	const LATEST = 12;
+	const FEED = 100;
 
-	const config = $derived(training.config);
 	const run = $derived(training.current_run);
 	const runId = $derived(training.current_run?.id ?? null);
 	const lastRun = $derived(training.runs.find((r) => !r.collecting) ?? null);
 	const fixedBin = $derived(training.config.bin);
 	const fixedBinKey = $derived(fixedBin ? binKey(fixedBin) : null);
-	// The bin's categories come from the bin layout, fetched when it changes.
-	let bins = $state<BinChoice[]>([]);
 
-	let editing = $state(false);
 	let pieces = $state<TrainingPiece[]>([]);
 	let error = $state<string | null>(null);
-
-	// While the pointer is over the pieces, what a poll brings waits here.
-	let held = false;
-	let pending: TrainingPiece[] | null = null;
-
-	function show(next: TrainingPiece[]) {
-		if (held) pending = next;
-		else pieces = next;
-	}
-
-	function release() {
-		held = false;
-		if (pending) pieces = pending;
-		pending = null;
-	}
+	// The bin's categories come from the bin layout, fetched when it changes.
+	let bins = $state<BinChoice[]>([]);
 
 	// The swatches on the pieces come from the machine's palette.
 	$effect(() => {
@@ -81,20 +64,18 @@
 			.catch(() => {});
 	});
 
-	// The open run's latest pieces, every few seconds while it collects.
+	// The open run's newest pieces, every few seconds.
 	$effect(() => {
 		const id = runId;
 		const from = base;
 		pieces = [];
-		pending = null;
 		error = null;
 		if (!id) return;
-		editing = false;
 		let stopped = false;
 		const load = async () => {
 			try {
-				const res = await getRunPieces(from, id, { limit: LATEST });
-				if (!stopped) show(res.pieces);
+				const res = await getRunPieces(from, id, { limit: FEED });
+				if (!stopped) pieces = res.pieces;
 			} catch {
 				// keep what is shown; the next poll tries again
 			}
@@ -111,86 +92,60 @@
 		error = null;
 		try {
 			const next = await setPieceExcluded(base, piece.uuid, !piece.training_excluded);
-			const swap = (list: TrainingPiece[]) => list.map((p) => (p.uuid === next.uuid ? next : p));
-			pieces = swap(pieces);
-			if (pending) pending = swap(pending);
+			pieces = pieces.map((p) => (p.uuid === next.uuid ? next : p));
 		} catch (e) {
 			error = e instanceof Error ? e.message : String(e);
 		}
 	}
 </script>
 
-<div class="h-full overflow-y-auto">
-	<div class="flex flex-col gap-3 px-3 pt-1 pb-3">
-		{#if fixedBin}
-			<p class="text-sm text-ink">
-				<span class="font-medium">All pieces to:</span>
-				{binLabel(fixedBin, bins)}
-			</p>
-		{/if}
-		{#if config.color_ids.length === 0}
-			<p class="text-sm text-ink">Pick the color you're feeding.</p>
-			<TrainingColors {base} {training} onsaved={onchange} />
-		{:else if run}
-			<div class="flex flex-col gap-1">
-				<p class="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-ink">
-					<span class="font-medium">Collecting:</span>
-					<RunColors colors={run.colors} />
-				</p>
-				<p class="text-sm text-ink-muted">
-					<span class="num">{run.pieces.toLocaleString()}</span>
-					{run.pieces === 1 ? 'piece' : 'pieces'} since
-					<span class="num">{formatTime(run.started_at)}</span>. Click a piece to exclude it.
-				</p>
-			</div>
-			{#if pieces.length > 0}
-				<div
-					class="grid gap-x-3 gap-y-4"
-					role="group"
-					aria-label="The run's pieces"
-					style:grid-template-columns="repeat(auto-fill, minmax(6rem, 1fr))"
-					onpointerenter={() => (held = true)}
-					onpointerleave={release}
-				>
-					{#each pieces as piece (piece.uuid)}
-						<TrainingPieceTile {piece} {base} ontoggle={toggle} />
-					{/each}
-				</div>
+<div class="flex h-full min-h-0 flex-col">
+	<div
+		class="flex shrink-0 flex-wrap items-center gap-x-3 gap-y-2 border-b border-line px-3 pb-2.5"
+	>
+		<ColorDropdown {base} {training} onsaved={onchange} />
+		<span class="min-w-0 flex-1 text-sm text-ink-muted">
+			{#if run}
+				Run: <span class="num text-ink">{run.pieces.toLocaleString()}</span>
+				{run.pieces === 1 ? 'piece' : 'pieces'} since
+				<span class="num">{formatTime(run.started_at)}</span>
 			{:else}
-				<p class="text-sm text-ink-muted">No pieces yet.</p>
+				No run
 			{/if}
-			{#if error}<p class="text-sm text-danger-ink">{error}</p>{/if}
-			<div class="flex flex-wrap gap-2">
-				<Button size="sm" href="/settings/training-data/{run.id}">This run</Button>
-				<Button size="sm" variant="ghost" href="/settings/training-data">All runs</Button>
-			</div>
-		{:else if editing}
-			<p class="text-sm text-ink">The colors for the next run:</p>
-			<TrainingColors {base} {training} onsaved={onchange} />
-			<div>
-				<Button size="sm" onclick={() => (editing = false)}>Done</Button>
-			</div>
-		{:else}
-			<div class="flex flex-col gap-1">
-				<p class="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-ink">
-					<span class="font-medium">Next run:</span>
-					<RunColors colors={config.colors} />
-				</p>
-				<p class="text-sm text-ink-muted">It starts when the machine runs.</p>
-			</div>
-			<div>
-				<Button size="sm" onclick={() => (editing = true)}>Change colors</Button>
-			</div>
-			{#if lastRun}
-				<p class="text-sm text-ink-muted">
-					Last run:
-					<a href="/settings/training-data/{lastRun.id}" class="text-primary-ink hover:underline">
-						<span class="num">{lastRun.pieces.toLocaleString()}</span>
-						{lastRun.pieces === 1 ? 'piece' : 'pieces'},
-						<span class="num">{lastRun.excluded_pieces.toLocaleString()}</span> excluded
-					</a>
-				</p>
+		</span>
+		<span class="flex items-start gap-2">
+			<RunButton {base} {training} {onchange} />
+			<Button size="sm" variant="ghost" href="/settings/training-data">All runs</Button>
+		</span>
+	</div>
+
+	{#if fixedBin}
+		<p class="shrink-0 truncate border-b border-line px-3 py-1.5 text-sm text-ink-muted">
+			All pieces to: <span class="text-ink">{binLabel(fixedBin, bins)}</span>
+		</p>
+	{/if}
+	{#if error}
+		<p class="shrink-0 border-b border-line px-3 py-1.5 text-sm text-danger-ink">{error}</p>
+	{/if}
+
+	<div class="min-h-0 flex-1 overflow-y-auto">
+		{#if run}
+			{#if pieces.length > 0 || run.segments.length > 0}
+				<PieceFeed {pieces} segments={run.segments} {base} lead ontoggle={toggle} />
 			{/if}
+			{#if pieces.length === 0}
+				<p class="px-3 py-2.5 text-sm text-ink-muted">No pieces yet.</p>
+			{/if}
+		{:else if lastRun}
+			<p class="px-3 py-2.5 text-sm text-ink-muted">
+				Last run:
+				<a href="/settings/training-data/{lastRun.id}" class="text-primary-ink hover:underline">
+					<span class="num">{lastRun.pieces.toLocaleString()}</span>
+					{lastRun.pieces === 1 ? 'piece' : 'pieces'},
+					<span class="num">{lastRun.excluded_pieces.toLocaleString()}</span> excluded, from
+					<span class="num">{formatTime(lastRun.started_at)}</span>
+				</a>
+			</p>
 		{/if}
 	</div>
 </div>

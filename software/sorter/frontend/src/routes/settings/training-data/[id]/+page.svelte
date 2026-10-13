@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import ArrowLeft from '@lucide/svelte/icons/arrow-left';
+	import Square from '@lucide/svelte/icons/square';
 	import { getBackendHttpBase, machineHttpBaseUrlFromWsUrl } from '$lib/backend';
 	import { getMachineContext } from '$lib/machines/context';
 	import { fetchLegoColors } from '$lib/pieces/colors';
@@ -11,9 +12,10 @@
 	import SegmentedControl from '$lib/components/ui/SegmentedControl.svelte';
 	import Spinner from '$lib/components/ui/Spinner.svelte';
 	import RunColors from '$lib/components/training/RunColors.svelte';
-	import TrainingPieceTile from '$lib/components/training/TrainingPieceTile.svelte';
+	import PieceFeed from '$lib/components/training/PieceFeed.svelte';
 	import {
 		PAGE_SIZE,
+		endRun,
 		formatDuration,
 		formatTime,
 		formatWhen,
@@ -51,6 +53,7 @@
 	let loading = $state(true);
 	let loadingMore = $state(false);
 	let runBusy = $state(false);
+	let ending = $state(false);
 	let error = $state<string | null>(null);
 
 	// While the pointer is over the pieces, a refresh waits, so nothing moves
@@ -126,6 +129,20 @@
 		}
 	}
 
+	async function end() {
+		if (!run) return;
+		ending = true;
+		error = null;
+		try {
+			await endRun(base, run.id);
+			await load(true);
+		} catch (e) {
+			error = message(e);
+		} finally {
+			ending = false;
+		}
+	}
+
 	// A new filter, run or machine starts from the first page.
 	$effect(() => {
 		void [base, data.id, filter];
@@ -153,10 +170,13 @@
 
 <PageHeader
 	title={run ? `Run from ${formatWhen(run.started_at)}` : 'Training run'}
-	description="Every piece the machine saw during this run, labeled with the run's colors. Click a piece to exclude it, and again to bring it back."
+	description="Every piece the machine saw during this run, labeled with the color of its segment. Click a piece to exclude it, and again to bring it back."
 >
 	{#snippet actions()}
 		<Button icon={ArrowLeft} href="/settings/training-data">Back to training data</Button>
+		{#if run?.collecting}
+			<Button icon={Square} loading={ending} onclick={end}>End run</Button>
+		{/if}
 		{#if run}
 			<Button loading={runBusy} onclick={toggleRun}>
 				{run.excluded ? 'Include run' : 'Exclude run'}
@@ -175,46 +195,49 @@
 				{#if run.ended_at === null}now{:else}{formatTime(run.ended_at)}, {formatDuration(
 						run.ended_at - run.started_at
 					)}{/if}.
-				{run.pieces.toLocaleString()} pieces, {run.labeled.toLocaleString()} labeled,
-				{run.excluded_pieces.toLocaleString()} excluded.
+				{run.segments.length}
+				{run.segments.length === 1 ? 'segment' : 'segments'}, {run.pieces.toLocaleString()} pieces,
+				{run.labeled.toLocaleString()} labeled, {run.excluded_pieces.toLocaleString()} excluded.
 			</p>
 		</div>
 	{/if}
 </PageHeader>
 
-<Panel title="Pieces">
-	<div class="flex flex-col gap-4">
+<Panel title="Pieces" flush>
+	<div class="flex flex-col gap-3 px-(--pad-panel) pb-3">
 		<SegmentedControl bind:value={filter} options={FILTERS} label="Which pieces" size="sm" />
-
 		{#if error}<p class="text-sm text-danger-ink">{error}</p>{/if}
-
 		{#if loading && pieces.length === 0}
 			<p class="flex items-center gap-2 text-sm text-ink-muted">
 				<Spinner size={14} /> Loading the pieces
 			</p>
-		{:else if pieces.length === 0}
-			{#if !error}<p class="text-sm text-ink-muted">{EMPTY[filter]}</p>{/if}
-		{:else}
-			<div
-				class="grid gap-x-3 gap-y-5"
-				role="group"
-				aria-label="The run's pieces"
-				style:grid-template-columns="repeat(auto-fill, minmax(8rem, 1fr))"
-				onpointerenter={() => (held = true)}
-				onpointerleave={() => (held = false)}
-			>
-				{#each pieces as piece (piece.uuid)}
-					<TrainingPieceTile {piece} {base} ontoggle={togglePiece} />
-				{/each}
-			</div>
-			<div class="flex items-center justify-between gap-3">
-				<span class="num text-sm text-ink-muted">
-					{pieces.length.toLocaleString()} of {total.toLocaleString()}
-				</span>
-				{#if pieces.length < total}
-					<Button size="sm" loading={loadingMore} onclick={loadMore}>Load more</Button>
-				{/if}
-			</div>
+		{:else if pieces.length === 0 && !error}
+			<p class="text-sm text-ink-muted">{EMPTY[filter]}</p>
 		{/if}
 	</div>
+	{#if pieces.length > 0 && run}
+		<div
+			class="border-t border-line"
+			role="group"
+			aria-label="The run's pieces"
+			onpointerenter={() => (held = true)}
+			onpointerleave={() => (held = false)}
+		>
+			<PieceFeed
+				{pieces}
+				segments={run.segments}
+				{base}
+				pad="px-(--pad-panel)"
+				ontoggle={togglePiece}
+			/>
+		</div>
+		<div class="flex items-center justify-between gap-3 border-t border-line px-(--pad-panel) py-3">
+			<span class="num text-sm text-ink-muted">
+				{pieces.length.toLocaleString()} of {total.toLocaleString()}
+			</span>
+			{#if pieces.length < total}
+				<Button size="sm" loading={loadingMore} onclick={loadMore}>Load more</Button>
+			{/if}
+		</div>
+	{/if}
 </Panel>

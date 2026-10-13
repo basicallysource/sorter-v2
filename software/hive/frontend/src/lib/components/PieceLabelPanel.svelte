@@ -23,6 +23,7 @@
 	import { formatDateTime, relativeTime } from '$lib/time';
 	import { labelSourceText, runPurpose } from '$lib/trainingRun';
 	import { modelLabel, percent } from '$lib/colorModels';
+	import { takePiece } from '$lib/pieceCache';
 	import { sentence } from '$lib/text';
 	import MachineLabeledPieces from '$lib/components/MachineLabeledPieces.svelte';
 	import PaletteFrame from '$lib/components/PaletteFrame.svelte';
@@ -374,11 +375,14 @@
 		const current = () => token === loadToken && pieceKey === k;
 		loading = true;
 		error = null;
+		// Fetched ahead (lib/pieceCache) when the list knew it was coming: shown
+		// at once, then refreshed below. A prefetch that failed is asked again.
+		const ahead = takePiece(mid, puid);
 		try {
 			if (colors.length === 0) colors = await nav.getColors();
 			const [d, crops] = await Promise.all([
-				api.colorLabelPieceDetail(mid, puid),
-				api.possibleCrops(mid, puid)
+				ahead ? ahead.detail.catch(() => api.colorLabelPieceDetail(mid, puid)) : api.colorLabelPieceDetail(mid, puid),
+				ahead ? ahead.crops.catch(() => api.possibleCrops(mid, puid)) : api.possibleCrops(mid, puid)
 			]);
 			if (!current()) return;
 			detail = d;
@@ -393,10 +397,25 @@
 			partVerdict = d.correction.part_correct;
 			feedback = null;
 			applyCrops(crops);
+			if (ahead) void refresh(mid, puid, current);
 		} catch (e: unknown) {
 			if (current()) error = errMsg(e, 'Failed to load piece');
 		} finally {
 			if (current()) loading = false;
+		}
+	}
+
+	// After showing a prefetched piece: what it says now. The labeler's own
+	// state (their picks, their label) is left as it is; the candidates are
+	// replaced only while their picks are untouched.
+	async function refresh(mid: string, puid: string, current: () => boolean) {
+		try {
+			const [d, crops] = await Promise.all([api.colorLabelPieceDetail(mid, puid), api.possibleCrops(mid, puid)]);
+			if (!current()) return;
+			detail = d;
+			if (!cropDirty) applyCrops(crops);
+		} catch {
+			// The prefetched answer stays on screen.
 		}
 	}
 

@@ -698,6 +698,37 @@ def test_a_model_sort_with_no_model_is_empty(client, db, fleet):
     assert body["items"] == [] and body["next_cursor"] is None
 
 
+# --- Panels worked out ahead ---------------------------------------------------------------
+
+
+def test_a_grid_page_queues_its_pieces_panels_ahead(client, db, fleet, monkeypatch):
+    from app.models.job import Job
+    from app.services import piece_warm
+
+    body = client.get("/api/labeling/pieces", params={"sort": "recent", "limit": 5}).json()
+    shown = {f"{it['machine_id']}|{it['piece_uuid']}" for it in body["items"]}
+    assert {j.subject for j in db.query(Job).filter(Job.kind == piece_warm.KIND)} == shown
+    assert {j.priority for j in db.query(Job).filter(Job.kind == piece_warm.KIND)} == {piece_warm.PRIORITY}
+
+    # Working one out makes its guess and its link scores, from its crops and candidates.
+    calls = []
+    monkeypatch.setattr(piece_warm, "color_guesses", lambda db, m, p, images: calls.append(("guess", p, len(images))) or ({"x": 1}, None))
+    monkeypatch.setattr(piece_warm, "link_scores", lambda db, m, p, cands: calls.append(("link", p)) or {"scores": {1: 0.9}})
+    first = body["items"][0]
+    out = piece_warm.warm(db, UUID(first["machine_id"]), first["piece_uuid"])
+    assert out == {"guessed": True, "predicted": False, "scored": 1}
+    assert calls == [("guess", first["piece_uuid"], 1), ("link", first["piece_uuid"])]
+
+    # A piece whose guess is kept is not queued again (no link model is active).
+    db.add(PieceColorGuess(machine_id=UUID(first["machine_id"]), piece_uuid=first["piece_uuid"], model_sha256="", seqs=[0]))
+    db.query(Job).filter(Job.kind == piece_warm.KIND).delete()
+    db.commit()
+    client.get("/api/labeling/pieces", params={"sort": "recent", "limit": 5})
+    assert {j.subject for j in db.query(Job).filter(Job.kind == piece_warm.KIND)} == shown - {
+        f"{first['machine_id']}|{first['piece_uuid']}"
+    }
+
+
 # --- Dashboard overview ----------------------------------------------------------------
 
 

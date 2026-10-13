@@ -19,11 +19,18 @@
 		// Picked for a bulk action: a box before the row; shift-click picks a range.
 		picked?: boolean;
 		onPick?: (card: ColorLabelPieceCard, range: boolean) => void;
+		// The pointer rests on it (or leaves): the page fetches it ahead.
+		onHover?: (card: ColorLabelPieceCard | null) => void;
 	};
-	let { card, selected = false, id, onOpen, picked = false, onPick }: Props = $props();
+	let { card, selected = false, id, onOpen, picked = false, onPick, onHover }: Props = $props();
 </script>
 
-<div class="flex items-center {selected ? 'bg-primary-soft' : ''}">
+<div
+	class="flex items-center {selected ? 'bg-primary-soft' : ''}"
+	role="presentation"
+	onpointerenter={() => onHover?.(card)}
+	onpointerleave={() => onHover?.(null)}
+>
 {#if onPick}
 	<span class="flex shrink-0 pl-(--pad-panel)">
 		<Checkbox checked={picked} aria-label="Pick this piece" onclick={(e: MouseEvent) => onPick?.(card, e.shiftKey)} />

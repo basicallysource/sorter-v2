@@ -154,6 +154,15 @@ image routes remain for local storage and as the fallback.
 
 ## Per-piece results kept, not recomputed
 
+Both results below are worked out ahead for the pieces a grid page shows (the
+`piece_warm` job, `jobs.md`), so opening a piece reads rows. The page also
+fetches the next three pieces after the open one, and a card the pointer
+rests on, with their pictures (`frontend/src/lib/pieceCache.ts`); the pane
+shows that at once and refreshes it in the background. Images in the object
+store are written with `Cache-Control: private, max-age=86400, immutable`, and
+their signed URLs are kept for half the signature's life, so the browser keeps
+them.
+
 - **Link scores** are kept per `(machine, piece, link model sha256)`. The first
   open reads the anchor and candidate crops concurrently, with no transaction
   open, and scores them; later opens read the row. Crops that synced since are

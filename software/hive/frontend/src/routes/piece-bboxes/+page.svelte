@@ -11,6 +11,7 @@
 		type Machine
 	} from '$lib/api';
 	import { modelLabel } from '$lib/colorModels';
+	import { prefetchPiece, prefetchPieces } from '$lib/pieceCache';
 	import { auth } from '$lib/auth.svelte';
 	import * as nav from '$lib/colorLabelNav';
 	import FilterGroup from '$lib/components/FilterGroup.svelte';
@@ -164,6 +165,22 @@
 			agreeing = false;
 		}
 	}
+
+	// Opening a piece should be instant: the next few after the open one, and a
+	// card the pointer rests on, are fetched ahead (lib/pieceCache).
+	const PREFETCH_NEXT = 3;
+	let hoverTimer: ReturnType<typeof setTimeout> | null = null;
+	function hover(card: ColorLabelPieceCard | null) {
+		if (hoverTimer) clearTimeout(hoverTimer);
+		hoverTimer = card ? setTimeout(() => prefetchPiece(card.machine_id, card.piece_uuid), 120) : null;
+	}
+	$effect(() => {
+		const key = selectedKey;
+		const items = queue.items;
+		if (!key) return;
+		const at = items.findIndex((c) => nav.pieceKey(c) === nav.pieceKey(key));
+		if (at >= 0) prefetchPieces(items.slice(at + 1, at + 1 + PREFETCH_NEXT));
+	});
 
 	let stats = $state<ColorLabelStats | null>(null);
 	let statsError = $state<string | null>(null);
@@ -463,6 +480,7 @@
 							onOpen={open}
 							picked={picked.has(nav.pieceKey(card))}
 							onPick={filters.colorModel && card.model_color ? pick : undefined}
+							onHover={hover}
 						/>
 					{:else}
 						<PieceRow
@@ -472,6 +490,7 @@
 							onOpen={open}
 							picked={picked.has(nav.pieceKey(card))}
 							onPick={filters.colorModel && card.model_color ? pick : undefined}
+							onHover={hover}
 						/>
 					{/if}
 				{/snippet}

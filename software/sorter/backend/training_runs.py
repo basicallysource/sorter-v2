@@ -17,25 +17,23 @@ import sync_seq
 # Training data collection: the machine sorts as usual, and while a training
 # run is on, every piece it sees is labelled with what the run is for.
 #
-# The one kind of run so far is a colour run: the operator says which colour
-# (or which few colours) they are feeding, and each piece seen during the run
-# takes that colour as its label. A run starts when the machine starts running
-# with training mode on and its colours chosen, and ends when the machine stops
-# running (a pause, a stop, an incident) or training mode is turned off; a run
-# a crash left open is closed at the next start. A piece belongs to the run
-# whose window holds its seen_at, so pieces left over from before a run started
-# are not labelled, and pieces seen during a run but distributed after it keep
-# its label.
+# The one kind of run so far is a colour run. The operator starts a run and
+# ends it; pausing the machine does neither, and a run stays open across
+# restarts. A run is a sequence of segments, one per colour (or set of
+# colours) fed: choosing other colours while a run is open ends its segment and
+# opens the next at once. A piece takes the colours of the segment whose window
+# holds its seen_at, so pieces left over from before a change keep the colour
+# they were fed with.
 #
 # The label lives on the piece's record (training_* columns), so it goes to
-# Hive with the record; the runs themselves sync by sync_seq.
+# Hive with the record; runs, with their segments, sync by sync_seq.
 
 MODE_COLOR = "color"
 MODES = (MODE_COLOR,)
 
-# How a piece's label was chosen: a run with one colour labels every piece with
-# it; with several, the first of the piece's own colour predictions that is one
-# of them, else the one nearest the machine's colour.
+# How a piece's label was chosen: a segment with one colour labels every piece
+# with it; with several, the first of the piece's own colour predictions that
+# is one of them, else the one nearest the machine's colour.
 SOURCE_RUN = "run"
 SOURCE_PREDICTION = "prediction"
 SOURCE_NEAREST = "nearest"
@@ -62,6 +60,7 @@ def createRunTables(conn: sqlite3.Connection) -> None:
         "id INTEGER PRIMARY KEY AUTOINCREMENT, "
         "uuid TEXT NOT NULL UNIQUE, "
         "mode TEXT NOT NULL, "
+        # Every colour its segments used, in order.
         "color_ids TEXT NOT NULL, "
         "started_at REAL NOT NULL, "
         "ended_at REAL, "
@@ -73,21 +72,42 @@ def createRunTables(conn: sqlite3.Connection) -> None:
         "CREATE INDEX IF NOT EXISTS idx_training_runs_started_at ON training_runs(started_at)"
     )
     sync_seq.addColumn(conn, "training_runs")
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS training_segments ("
+        "id INTEGER PRIMARY KEY AUTOINCREMENT, "
+        "uuid TEXT NOT NULL UNIQUE, "
+        "run_uuid TEXT NOT NULL, "
+        "color_ids TEXT NOT NULL, "
+        "started_at REAL NOT NULL, "
+        "ended_at REAL"
+        ")"
+    )
+    conn.execute(
+        "CREATE INDEX IF NOT EXISTS idx_training_segments_run ON training_segments(run_uuid, started_at)"
+    )
+    conn.execute(
+        "CREATE INDEX IF NOT EXISTS idx_training_segments_started_at ON training_segments(started_at)"
+    )
+    # Runs from before segments: each is one segment.
+    for run in conn.execute(
+        "SELECT uuid, color_ids, started_at, ended_at FROM training_runs r "
+        "WHERE NOT EXISTS (SELECT 1 FROM training_segments s WHERE s.run_uuid = r.uuid)"
+    ).fetchall():
+        conn.execute(
+            "INSERT INTO training_segments (uuid, run_uuid, color_ids, started_at, ended_at) VALUES (?, ?, ?, ?, ?)",
+            (str(uuid.uuid4()), run["uuid"], run["color_ids"], run["started_at"], run["ended_at"]),
+        )
 
 
 def _createTables(conn: sqlite3.Connection) -> None:
     piece_records._createTables(conn)
-    # Runs a crash left open end at their last piece; this runs once per
-    # process, before this process can have started one.
-    if conn.execute("SELECT 1 FROM training_runs WHERE ended_at IS NULL").fetchone() is not None:
-        conn.execute(
-            "UPDATE training_runs SET "
-            "ended_at = MAX(started_at, COALESCE((SELECT MAX(p.seen_at) FROM piece_records p "
-            "WHERE p.training_run_id = training_runs.uuid), started_at)), "
-            "updated_at = ?, sync_seq = ? WHERE ended_at IS NULL",
-            (time.time(), sync_seq.nextSeq(conn)),
-        )
-        conn.commit()
+    # Pieces labelled before segments existed take their run's one segment.
+    conn.execute(
+        "UPDATE piece_records SET training_segment_id = (SELECT s.uuid FROM training_segments s "
+        "WHERE s.run_uuid = piece_records.training_run_id ORDER BY s.started_at LIMIT 1) "
+        "WHERE training_run_id IS NOT NULL AND training_segment_id IS NULL"
+    )
+    conn.commit()
 
 
 def _connection():
@@ -136,6 +156,12 @@ def getConfig() -> dict[str, Any]:
     return dict(_config)
 
 
+def loadSoon() -> None:
+    """Read the setting on the database writer thread, so the distribution loop
+    knows the bin from the start. Called by the sorter controller at start."""
+    db.defer("training_runs.load", getConfig)
+
+
 def fixedBin() -> Optional[tuple[int, int, int]]:
     """(layer, section, bin) every piece goes to now, or None. Reads no
     database: the setting as last read or saved."""
@@ -151,7 +177,6 @@ def setConfig(
     mode: Optional[str] = None,
     color_ids: Optional[list[Any]] = None,
     bin: Any = _UNSET,
-    running: bool,
 ) -> dict[str, Any]:
     global _config
     with _lock:
@@ -171,64 +196,99 @@ def setConfig(
             updated["bin"] = _normalizeBin(bin)
             if bin is not None and updated["bin"] is None:
                 raise TrainingError(400, "A bin is its layer, section and bin numbers")
-        changes_run = updated["color_ids"] != current["color_ids"] or updated["mode"] != current["mode"]
-        if changes_run and openRun() is not None:
-            raise TrainingError(409, "Pause the machine to change the colors")
-        local_state.set_training_mode_state(updated)
+        now = time.time()
+        with _connection() as conn:
+            open_run = _openRunRow(conn)
+            if open_run is not None:
+                if updated["mode"] != current["mode"]:
+                    raise TrainingError(409, "End the run to change the mode")
+                if not updated["color_ids"] and updated["enabled"]:
+                    raise TrainingError(400, "A run needs a color: end the run instead")
+                if not updated["enabled"]:
+                    _endRun(conn, str(open_run["uuid"]), now)
+                elif updated["color_ids"] != current["color_ids"]:
+                    _startSegment(conn, str(open_run["uuid"]), updated["color_ids"], now)
+            local_state.write_training_mode_state(conn, updated)
+            conn.commit()
         _config = dict(updated)
-        _reconcileLocked(running, time.time())
         return updated
 
 
-# --- runs --------------------------------------------------------------------
+# --- runs and segments -------------------------------------------------------
 
 
-def onLifecycle(running: bool) -> None:
-    """Called by the sorter controller on every lifecycle change. It may be the
-    control loop calling, so the write goes to the database writer thread."""
-    at = time.time()
-    db.defer("training_runs.lifecycle", lambda: reconcile(running, at))
-
-
-def reconcile(running: bool, at: float) -> None:
+def startRun() -> dict[str, Any]:
     with _lock:
-        _reconcileLocked(running, at)
-
-
-def _reconcileLocked(running: bool, at: float) -> None:
-    config = getConfig()
-    wanted = running and config["enabled"] and bool(config["color_ids"])
-    with _connection() as conn:
-        open_row = conn.execute(
-            "SELECT uuid FROM training_runs WHERE ended_at IS NULL ORDER BY started_at DESC LIMIT 1"
-        ).fetchone()
-        if open_row is not None and not wanted:
-            conn.execute(
-                "UPDATE training_runs SET ended_at = MAX(started_at, ?), updated_at = ?, sync_seq = ? "
-                "WHERE ended_at IS NULL",
-                (at, time.time(), sync_seq.nextSeq(conn)),
-            )
-        elif open_row is None and wanted:
+        config = getConfig()
+        if not config["enabled"]:
+            raise TrainingError(400, "Turn training mode on first")
+        if not config["color_ids"]:
+            raise TrainingError(400, "Pick the color you're feeding first")
+        now = time.time()
+        with _connection() as conn:
+            if _openRunRow(conn) is not None:
+                raise TrainingError(409, "A run is already collecting")
+            run_uuid = str(uuid.uuid4())
             conn.execute(
                 "INSERT INTO training_runs (uuid, mode, color_ids, started_at, updated_at, sync_seq) "
-                "VALUES (?, ?, ?, ?, ?, ?)",
-                (
-                    str(uuid.uuid4()),
-                    config["mode"],
-                    json.dumps(config["color_ids"]),
-                    at,
-                    time.time(),
-                    sync_seq.nextSeq(conn),
-                ),
+                "VALUES (?, ?, '[]', ?, ?, ?)",
+                (run_uuid, config["mode"], now, now, sync_seq.nextSeq(conn)),
             )
-        conn.commit()
+            _startSegment(conn, run_uuid, config["color_ids"], now)
+            conn.commit()
+    return getRun(run_uuid)
+
+
+def endRun(run_id: str) -> Optional[dict[str, Any]]:
+    with _lock:
+        with _connection() as conn:
+            row = conn.execute("SELECT uuid FROM training_runs WHERE uuid = ?", (run_id,)).fetchone()
+            if row is None:
+                return None
+            _endRun(conn, run_id, time.time())
+            conn.commit()
+    return getRun(run_id)
+
+
+def _openRunRow(conn: sqlite3.Connection) -> Optional[sqlite3.Row]:
+    return conn.execute(
+        "SELECT * FROM training_runs WHERE ended_at IS NULL ORDER BY started_at DESC LIMIT 1"
+    ).fetchone()
+
+
+def _startSegment(conn: sqlite3.Connection, run_uuid: str, color_ids: list[str], at: float) -> None:
+    conn.execute(
+        "UPDATE training_segments SET ended_at = MAX(started_at, ?) WHERE run_uuid = ? AND ended_at IS NULL",
+        (at, run_uuid),
+    )
+    conn.execute(
+        "INSERT INTO training_segments (uuid, run_uuid, color_ids, started_at) VALUES (?, ?, ?, ?)",
+        (str(uuid.uuid4()), run_uuid, json.dumps(color_ids), at),
+    )
+    used = _colorIds(
+        conn.execute("SELECT color_ids FROM training_runs WHERE uuid = ?", (run_uuid,)).fetchone()["color_ids"]
+    )
+    conn.execute(
+        "UPDATE training_runs SET color_ids = ?, updated_at = ?, sync_seq = ? WHERE uuid = ?",
+        (json.dumps(_unique(used + color_ids)), time.time(), sync_seq.nextSeq(conn), run_uuid),
+    )
+
+
+def _endRun(conn: sqlite3.Connection, run_uuid: str, at: float) -> None:
+    conn.execute(
+        "UPDATE training_segments SET ended_at = MAX(started_at, ?) WHERE run_uuid = ? AND ended_at IS NULL",
+        (at, run_uuid),
+    )
+    conn.execute(
+        "UPDATE training_runs SET ended_at = MAX(started_at, ?), updated_at = ?, sync_seq = ? "
+        "WHERE uuid = ? AND ended_at IS NULL",
+        (at, time.time(), sync_seq.nextSeq(conn), run_uuid),
+    )
 
 
 def openRun() -> Optional[dict[str, Any]]:
     with _connection() as conn:
-        row = conn.execute(
-            "SELECT * FROM training_runs WHERE ended_at IS NULL ORDER BY started_at DESC LIMIT 1"
-        ).fetchone()
+        row = _openRunRow(conn)
         return _runsWithCounts(conn, [row])[0] if row is not None else None
 
 
@@ -259,6 +319,10 @@ def setRunExcluded(run_id: str, excluded: bool) -> Optional[dict[str, Any]]:
     return getRun(run_id)
 
 
+def _placeholders(values: list[Any]) -> str:
+    return ", ".join("?" for _ in values)
+
+
 def _runsWithCounts(conn: sqlite3.Connection, rows: list[sqlite3.Row]) -> list[dict[str, Any]]:
     if not rows:
         return []
@@ -269,19 +333,42 @@ def _runsWithCounts(conn: sqlite3.Connection, rows: list[sqlite3.Row]) -> list[d
             "SELECT training_run_id, COUNT(*) AS pieces, "
             "SUM(training_color_id IS NOT NULL AND training_excluded = 0) AS labeled, "
             "SUM(training_excluded) AS excluded_pieces "
-            f"FROM piece_records WHERE training_run_id IN ({', '.join('?' for _ in ids)}) "
+            f"FROM piece_records WHERE training_run_id IN ({_placeholders(ids)}) "
             "GROUP BY training_run_id",
             ids,
         ).fetchall()
     }
-    return [_runToDict(r, counts.get(str(r["uuid"]))) for r in rows]
+    segment_pieces = {
+        str(c["training_segment_id"]): int(c["pieces"])
+        for c in conn.execute(
+            "SELECT training_segment_id, COUNT(*) AS pieces FROM piece_records "
+            f"WHERE training_run_id IN ({_placeholders(ids)}) GROUP BY training_segment_id",
+            ids,
+        ).fetchall()
+    }
+    segments: dict[str, list[dict[str, Any]]] = {}
+    for s in conn.execute(
+        f"SELECT * FROM training_segments WHERE run_uuid IN ({_placeholders(ids)}) ORDER BY started_at, id",
+        ids,
+    ).fetchall():
+        segments.setdefault(str(s["run_uuid"]), []).append(
+            {
+                "id": str(s["uuid"]),
+                "color_ids": _colorIds(s["color_ids"]),
+                "started_at": s["started_at"],
+                "ended_at": s["ended_at"],
+                "pieces": segment_pieces.get(str(s["uuid"]), 0),
+            }
+        )
+    return [_runToDict(r, counts.get(str(r["uuid"])), segments.get(str(r["uuid"]), [])) for r in rows]
 
 
-def _runToDict(row: sqlite3.Row, counts: Optional[sqlite3.Row]) -> dict[str, Any]:
+def _runToDict(row: sqlite3.Row, counts: Optional[sqlite3.Row], segments: list[dict[str, Any]]) -> dict[str, Any]:
     return {
         "id": str(row["uuid"]),
         "mode": row["mode"],
         "color_ids": _colorIds(row["color_ids"]),
+        "segments": segments,
         "started_at": row["started_at"],
         "ended_at": row["ended_at"],
         "collecting": row["ended_at"] is None,
@@ -308,31 +395,33 @@ def labelFor(
     piece_uuid: str,
     seen_at: Optional[float],
     machine_color_id: Optional[str],
-) -> Optional[tuple[str, Optional[str], Optional[str]]]:
-    """(run uuid, label colour id or None, how it was chosen) for a piece seen
-    at `seen_at`, or None when no run covers it. In the caller's transaction:
-    piece_records.recordPiece stamps the record with it."""
+) -> Optional[tuple[str, str, Optional[str], Optional[str]]]:
+    """(run uuid, segment uuid, label colour id or None, how it was chosen) for
+    a piece seen at `seen_at`, or None when no segment covers it. In the
+    caller's transaction: piece_records.recordPiece stamps the record with it."""
     if seen_at is None:
         return None
-    run = conn.execute(
-        "SELECT uuid, mode, color_ids FROM training_runs WHERE started_at <= ? "
-        "AND (ended_at IS NULL OR ended_at >= ?) ORDER BY started_at DESC LIMIT 1",
+    segment = conn.execute(
+        "SELECT s.uuid, s.run_uuid, s.color_ids, r.mode FROM training_segments s "
+        "JOIN training_runs r ON r.uuid = s.run_uuid WHERE s.started_at <= ? "
+        "AND (s.ended_at IS NULL OR ? < s.ended_at) ORDER BY s.started_at DESC LIMIT 1",
         (float(seen_at), float(seen_at)),
     ).fetchone()
-    if run is None or run["mode"] != MODE_COLOR:
+    if segment is None or segment["mode"] != MODE_COLOR:
         return None
-    colors = _colorIds(run["color_ids"])
+    run_uuid, segment_uuid = str(segment["run_uuid"]), str(segment["uuid"])
+    colors = _colorIds(segment["color_ids"])
     if not colors:
-        return str(run["uuid"]), None, None
+        return run_uuid, segment_uuid, None, None
     if len(colors) == 1:
-        return str(run["uuid"]), colors[0], SOURCE_RUN
+        return run_uuid, segment_uuid, colors[0], SOURCE_RUN
     for value_id in _predictedColors(conn, piece_uuid):
         if value_id in colors:
-            return str(run["uuid"]), value_id, SOURCE_PREDICTION
+            return run_uuid, segment_uuid, value_id, SOURCE_PREDICTION
     nearest = _nearest(colors, machine_color_id)
     if nearest is not None:
-        return str(run["uuid"]), nearest, SOURCE_NEAREST
-    return str(run["uuid"]), None, None
+        return run_uuid, segment_uuid, nearest, SOURCE_NEAREST
+    return run_uuid, segment_uuid, None, None
 
 
 def _predictedColors(conn: sqlite3.Connection, piece_uuid: str) -> list[str]:
@@ -386,7 +475,7 @@ def listRunPieces(
             conn.execute(f"SELECT COUNT(*) FROM piece_records r WHERE {where}", (run_id,)).fetchone()[0]
         )
         rows = conn.execute(
-            "SELECT r.uuid, r.training_run_id, r.seen_at, r.part_id, r.part_name, r.color_id, "
+            "SELECT r.uuid, r.training_run_id, r.training_segment_id, r.seen_at, r.part_id, r.part_name, r.color_id, "
             "r.color_name, r.color_corrected_id, r.training_color_id, r.training_label_source, "
             "r.training_excluded, "
             "(SELECT i.id FROM piece_images i WHERE i.piece_uuid = r.uuid AND i.deleted_at IS NULL "
@@ -402,6 +491,7 @@ def _pieceToDict(row: sqlite3.Row) -> dict[str, Any]:
     return {
         "uuid": row["uuid"],
         "run_id": row["training_run_id"],
+        "segment_id": row["training_segment_id"],
         "seen_at": row["seen_at"],
         "part_id": row["part_id"],
         "part_name": row["part_name"],
@@ -418,7 +508,7 @@ def _pieceToDict(row: sqlite3.Row) -> dict[str, Any]:
 def getRunPiece(piece_uuid: str) -> Optional[dict[str, Any]]:
     with _connection() as conn:
         row = conn.execute(
-            "SELECT r.uuid, r.training_run_id, r.seen_at, r.part_id, r.part_name, r.color_id, "
+            "SELECT r.uuid, r.training_run_id, r.training_segment_id, r.seen_at, r.part_id, r.part_name, r.color_id, "
             "r.color_name, r.color_corrected_id, r.training_color_id, r.training_label_source, "
             "r.training_excluded, "
             "(SELECT i.id FROM piece_images i WHERE i.piece_uuid = r.uuid AND i.deleted_at IS NULL "
@@ -453,12 +543,28 @@ def listRunsAfter(seq_cursor: int, limit: int) -> list[dict[str, Any]]:
             "SELECT * FROM training_runs WHERE sync_seq > ? ORDER BY sync_seq ASC LIMIT ?",
             (int(seq_cursor), int(limit)),
         ).fetchall()
+        ids = [str(r["uuid"]) for r in rows]
+        segments: dict[str, list[dict[str, Any]]] = {}
+        if ids:
+            for seg in conn.execute(
+                f"SELECT * FROM training_segments WHERE run_uuid IN ({_placeholders(ids)}) ORDER BY started_at, id",
+                ids,
+            ).fetchall():
+                segments.setdefault(str(seg["run_uuid"]), []).append(
+                    {
+                        "segment_uuid": str(seg["uuid"]),
+                        "color_ids": _colorIds(seg["color_ids"]),
+                        "started_at": seg["started_at"],
+                        "ended_at": seg["ended_at"],
+                    }
+                )
     return [
         {
             "run_uuid": str(r["uuid"]),
             "sync_seq": int(r["sync_seq"]),
             "mode": r["mode"],
             "color_ids": _colorIds(r["color_ids"]),
+            "segments": segments.get(str(r["uuid"]), []),
             "started_at": r["started_at"],
             "ended_at": r["ended_at"],
             "excluded": bool(r["excluded"]),

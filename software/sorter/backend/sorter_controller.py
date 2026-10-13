@@ -14,10 +14,10 @@ def _broadcastSorterState(state_value: str) -> None:
     shared_state.publishSorterState(state_value)
 
 
-def _trainingLifecycle(running: bool) -> None:
+def _loadTraining() -> None:
     import training_runs
 
-    training_runs.onLifecycle(running)
+    training_runs.loadSoon()
 
 
 class SorterController:
@@ -42,7 +42,7 @@ class SorterController:
     def start(self) -> None:
         self.state = SorterLifecycle.PAUSED
         self.gc.runtime_stats.setLifecycleState(self.state.value)
-        _trainingLifecycle(False)
+        _loadTraining()
         _broadcastSorterState(self.state.value)
 
     def resume(self) -> None:
@@ -51,7 +51,6 @@ class SorterController:
         self.gc.runtime_stats.setLifecycleState(self.state.value)
         self.gc.run_recorder.markRunning()
         self.gc.lifetime_stats.markRunning()
-        _trainingLifecycle(True)
         _broadcastSorterState(self.state.value)
 
     def pause(self) -> None:
@@ -60,7 +59,6 @@ class SorterController:
         self.gc.runtime_stats.setLifecycleState(self.state.value)
         self.gc.run_recorder.markPaused()
         self.gc.lifetime_stats.markStopped()
-        _trainingLifecycle(False)
         _broadcastSorterState(self.state.value)
 
     def stop(self) -> None:
@@ -69,7 +67,6 @@ class SorterController:
         self.gc.runtime_stats.setLifecycleState(self.state.value)
         self.gc.run_recorder.markPaused()
         self.gc.lifetime_stats.markStopped()
-        _trainingLifecycle(False)
         _broadcastSorterState(self.state.value)
 
     def reloadSortingProfile(self) -> None:

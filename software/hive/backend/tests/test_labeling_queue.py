@@ -18,6 +18,8 @@ from app.models.machine_piece import MachinePiece
 from app.models.machine_piece_image import MachinePieceImage
 from app.models.machine_stats_cache import MachineStatsCache
 from app.models.machine_training_run import MachineTrainingRun
+from app.models.color_model import ColorModel
+from app.models.piece_model_output import PieceModelColor
 from app.models.piece_color_label import PieceColorLabel
 from app.models.piece_crop_link import PieceCropLink
 from app.models.piece_model_output import PieceColorGuess, PieceLinkScore
@@ -613,6 +615,87 @@ def test_cards_and_stats_count_training_labels(client, db, trained):
     assert client.get("/api/labeling/stats").json()["training_labeled_pieces"] == 4
     one = client.get("/api/labeling/stats", params={"machine_id": str(trained["m3"])}).json()
     assert one["training_labeled_pieces"] == 1
+
+
+# --- By a colour model's confidence ---------------------------------------------------------
+
+ACTIVE_MODEL = "e" * 64
+OTHER_MODEL = "f" * 64
+
+
+@pytest.fixture()
+def answered(db, fleet) -> dict:
+    """Two colour models' answers for most of the fleet's pieces: ties across
+    machines, the young and foreign pieces answered too (neither may show),
+    some pieces not answered at all."""
+    db.add(ColorModel(filename="v3.onnx", name="colorpred-v3", sha256=ACTIVE_MODEL, is_active=True))
+    db.add(ColorModel(filename="v1.onnx", name="colorpred-v1", sha256=OTHER_MODEL))
+    machine_of = {s["puid"]: s["machine"] for s in fleet["spec"]}
+    machine_of.update({"young": fleet["m1"], "foreign": fleet["foreign"]})
+    for i, puid in enumerate(sorted(machine_of)):
+        if i % 7 == 3:
+            continue  # not answered
+        for sha, conf in ((ACTIVE_MODEL, 0.5 if i % 4 == 0 else round(0.3 + 0.025 * i, 3)), (OTHER_MODEL, round(1 - 0.02 * i, 3))):
+            db.add(PieceModelColor(machine_id=machine_of[puid], piece_uuid=puid, model_sha256=sha, model_name="m",
+                                   color_id=5 if i % 2 else 11, confidence=conf, top=[], seqs=[0]))
+    db.commit()
+    return fleet
+
+
+def _expected_by_model(db, fleet, sha: str, most: bool, *, machine_id=None, with_candidates=False) -> list[str]:
+    machines = None if machine_id is None else set(machine_id)
+    entries = {(e.machine_id, e.piece_uuid): e for e in db.query(LabelingQueueEntry)}
+    answers = {(r.machine_id, r.piece_uuid): r.confidence for r in db.query(PieceModelColor).filter_by(model_sha256=sha)}
+    rows = []
+    for s in fleet["spec"]:
+        key = (s["machine"], s["puid"])
+        if s["puid"] == "p09" or key not in answers:
+            continue
+        if machines is not None and s["machine"] not in machines:
+            continue
+        if with_candidates and not entries[key].has_candidates:
+            continue
+        rows.append((answers[key], s["machine"], s["puid"]))
+    rows.sort(reverse=most)
+    return [r[2] for r in rows]
+
+
+@pytest.mark.parametrize("sort", ["least_sure", "surest"])
+@pytest.mark.parametrize("which", ["all", "one", "two"])
+@pytest.mark.parametrize("candidates", [False, True])
+def test_model_sorts_walk_a_models_answers_by_confidence(client, db, answered, sort, which, candidates):
+    machines = {"all": None, "one": [answered["m1"]], "two": [answered["m2"], answered["m3"]]}[which]
+    params = {"with_candidates": "true"} if candidates else {}
+    for sha in (ACTIVE_MODEL, OTHER_MODEL):
+        got = _walk(client, sort, 2, machines=machines, color_model=sha, **params)
+        assert got == _expected_by_model(db, answered, sha, sort == "surest", machine_id=machines, with_candidates=candidates)
+        assert got
+
+
+def test_model_sorts_default_to_the_active_model_and_cards_show_its_answer(client, db, answered):
+    assert _walk(client, "least_sure", 5) == _expected_by_model(db, answered, ACTIVE_MODEL, False)
+    body = client.get("/api/labeling/pieces", params={"sort": "least_sure", "limit": 3}).json()
+    assert body["color_model"] == ACTIVE_MODEL
+    first = body["items"][0]["model_color"]
+    assert set(first) == {"color_id", "color_name", "rgb", "confidence"}
+    # Any sort can show a model's answers on its cards; unanswered pieces have none.
+    items = client.get("/api/labeling/pieces", params={"sort": "recent", "limit": 200, "color_model": OTHER_MODEL}).json()["items"]
+    answers = {r.piece_uuid: r.confidence for r in db.query(PieceModelColor).filter_by(model_sha256=OTHER_MODEL)}
+    for it in items:
+        if it["piece_uuid"] in answers:
+            assert it["model_color"]["confidence"] == pytest.approx(answers[it["piece_uuid"]])
+        else:
+            assert it["model_color"] is None
+    assert any(it["model_color"] is None for it in items)
+    # A cursor belongs to its model.
+    cursor = body["next_cursor"]
+    bad = client.get("/api/labeling/pieces", params={"sort": "least_sure", "color_model": OTHER_MODEL, "cursor": cursor})
+    assert bad.status_code == 400
+
+
+def test_a_model_sort_with_no_model_is_empty(client, db, fleet):
+    body = client.get("/api/labeling/pieces", params={"sort": "surest"}).json()
+    assert body["items"] == [] and body["next_cursor"] is None
 
 
 # --- Dashboard overview ----------------------------------------------------------------

@@ -22,6 +22,8 @@
 	import * as nav from '$lib/colorLabelNav';
 	import { formatDateTime, relativeTime } from '$lib/time';
 	import { labelSourceText, runPurpose } from '$lib/trainingRun';
+	import { modelLabel, percent } from '$lib/colorModels';
+	import { sentence } from '$lib/text';
 	import MachineLabeledPieces from '$lib/components/MachineLabeledPieces.svelte';
 	import PaletteFrame from '$lib/components/PaletteFrame.svelte';
 	import PartBrickLinkColors from '$lib/components/PartBrickLinkColors.svelte';
@@ -41,6 +43,8 @@
 	import ArrowLeft from '@lucide/svelte/icons/arrow-left';
 	import ArrowRight from '@lucide/svelte/icons/arrow-right';
 	import Ban from '@lucide/svelte/icons/ban';
+	import ChevronLeft from '@lucide/svelte/icons/chevron-left';
+	import ChevronRight from '@lucide/svelte/icons/chevron-right';
 	import Check from '@lucide/svelte/icons/check';
 	import Flag from '@lucide/svelte/icons/flag';
 	import Info from '@lucide/svelte/icons/info';
@@ -167,6 +171,72 @@
 		return null;
 	});
 
+	// Every answer for the piece's color, to step through: each color model's
+	// stored answer (the active model first, then newest first), the active
+	// model's own guess when it has none stored yet, and what the machine's
+	// predictors said (Brickognize's, each request's first color).
+	type ColorAnswer = {
+		key: string;
+		label: string;
+		title: string;
+		color_id: number | null;
+		color_name: string | null;
+		rgb: string | null;
+		confidence: number | null;
+	};
+	const answers = $derived.by((): ColorAnswer[] => {
+		if (!detail) return [];
+		const out: ColorAnswer[] = [];
+		const stored = detail.model_answers ?? [];
+		const mp = detail.model_prediction;
+		if (mp && !stored.some((a) => a.is_active)) {
+			out.push({
+				key: 'active',
+				label: modelLabel(mp.model_name),
+				title: `${mp.model_name}, the active model, from ${mp.sample_count} crop${mp.sample_count === 1 ? '' : 's'}`,
+				color_id: mp.color_id,
+				color_name: mp.color_name,
+				rgb: mp.rgb,
+				confidence: mp.confidence
+			});
+		}
+		for (const a of stored) {
+			out.push({
+				key: a.model_sha256,
+				label: modelLabel(a.model_name),
+				title: `${a.model_name}${a.is_active ? ', the active model' : ''}, from ${a.crops} crop${a.crops === 1 ? '' : 's'}`,
+				color_id: a.color_id,
+				color_name: a.color_name,
+				rgb: a.rgb,
+				confidence: a.confidence
+			});
+		}
+		for (const p of detail.machine_predictions ?? []) {
+			if (p.kind !== 'color' || p.rank !== 0) continue;
+			const id = /^\d+$/.test(p.value_id) ? Number(p.value_id) : null;
+			const known = id != null ? colorsById.get(id) : undefined;
+			// Named after whoever answered: Brickognize, or the hosted model the sorter asked.
+			const who =
+				p.provider === 'brickognize'
+					? 'Brickognize'
+					: p.model_name
+						? `${modelLabel(p.model_name)}, hosted`
+						: 'basically color model';
+			out.push({
+				key: `machine|${p.request}|${p.provider}`,
+				label: p.request === 'combined' || p.provider !== 'brickognize' ? who : `${who}, ${sentence(p.request).toLowerCase()}`,
+				title: `${p.model_name ?? who}, asked by the sorter (its ${sentence(p.request).toLowerCase()} request)`,
+				color_id: id,
+				color_name: p.value_name ?? known?.name ?? p.value_id,
+				rgb: known?.rgb ?? null,
+				confidence: p.score
+			});
+		}
+		return out;
+	});
+	let answerIndex = $state(0);
+	const shownAnswer = $derived(answers[Math.min(answerIndex, answers.length - 1)] ?? null);
+
 	const guessColorId = $derived.by(() => {
 		const id = suggestion?.color_id;
 		return id != null && colorsById.has(id) ? id : null;
@@ -243,7 +313,8 @@
 	const likelyMarks = $derived.by(() => {
 		const marks: Record<number, string> = {};
 		const applied = detail?.prediction.color_id;
-		if (applied && /^\d+$/.test(applied)) marks[Number(applied)] = "The machine's";
+		// Named after whoever answered the colour the sorter applied.
+		if (applied && /^\d+$/.test(applied)) marks[Number(applied)] = modelLabel(detail?.prediction.color_provider_label ?? 'Brickognize');
 		if (guessColorId != null) marks[guessColorId] = 'The guess';
 		return marks;
 	});
@@ -926,12 +997,21 @@
 		{@const mp = detail.model_prediction}
 		{@const pg = detail.pixel_guess}
 		<div class="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm">
-			{#if mp}
-				<span class="flex min-w-0 items-center gap-1.5" title={`The model's color (${mp.model_name}): ${mp.color_name ?? mp.color_id} (${mp.color_id}), ${Math.round(mp.confidence * 100)}% from ${mp.sample_count} crop${mp.sample_count === 1 ? '' : 's'}`}>
-					<Sparkles size={14} class="shrink-0 text-info-ink" /><span class="text-ink-muted">Model</span>
-					<span aria-hidden="true" class="size-4 shrink-0 rounded-check border border-line-strong" style:background-color={`#${mp.rgb ?? '888888'}`}></span>
-					<span class="truncate text-ink">{mp.color_name ?? mp.color_id}</span>
-					<span class="num text-ink-muted">{Math.round(mp.confidence * 100)}%</span>
+			{#if shownAnswer}
+				{@const a = shownAnswer}
+				{@const at = answers.indexOf(a)}
+				<!-- Which model (or the machine) said it; the arrows step through every answer -->
+				<span class="flex min-w-0 items-center gap-1.5">
+					{#if answers.length > 1}
+						<Button size="sm" variant="ghost" icon={ChevronLeft} label="The answer before" disabled={at === 0} onclick={() => (answerIndex = at - 1)} />
+					{/if}
+					<span title={a.title}><Badge tone="info"><Sparkles size={12} />{a.label}</Badge></span>
+					<ColorChip name={a.color_name ?? (a.color_id != null ? `Color ${a.color_id}` : 'No color')} rgb={a.rgb} class="min-w-0 text-ink" />
+					{#if a.confidence != null}<span class="num text-ink-muted">{percent(a.confidence)}</span>{/if}
+					{#if answers.length > 1}
+						<Button size="sm" variant="ghost" icon={ChevronRight} label="The answer after" disabled={at >= answers.length - 1} onclick={() => (answerIndex = at + 1)} />
+						<span class="num text-xs text-ink-muted">{at + 1} of {answers.length}</span>
+					{/if}
 				</span>
 			{/if}
 			{#if pg}
@@ -969,7 +1049,7 @@
 						{/if}
 					</div>
 				</Popover>
-			{:else}
+			{:else if !shownAnswer}
 				<span class="text-ink-muted">No suggestion: the crops are not available.</span>
 			{/if}
 		</div>

@@ -33,6 +33,7 @@ from app.models.image_quality_label import (
     IMAGE_QUALITY_FLAG_FIELDS,
     ImageQualityLabel,
 )
+from app.models.color_model import ColorModel
 from app.models.machine import Machine
 from app.models.machine_channel_crop import MachineChannelCrop
 from app.models.machine_piece import MachinePiece
@@ -46,7 +47,7 @@ from app.models.piece_part_label import PiecePartLabel
 from app.models.piece_rejection import PieceRejection
 from app.models.user import User
 from app.schemas.likely_colors import LikelyColorsResponse
-from app.services import color_rank, likely_colors, piece_palette, training_runs
+from app.services import color_model_runs, color_rank, likely_colors, piece_palette, training_runs
 from app.services.brickognize_feedback import submit_color_feedback, submit_part_feedback
 from app.services.channel_crop_lookup import find_possible_crops
 from app.services import review_queue
@@ -337,6 +338,7 @@ def list_pieces(
     machine_id: list[UUID] | None = Query(None),
     with_candidates: bool = Query(False),
     with_palette: bool = Query(False),
+    color_model: str | None = Query(None, max_length=64),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
     _rl: None = Depends(rate_limit("labeling_list")),
@@ -350,6 +352,9 @@ def list_pieces(
     only those machines' pieces; with_candidates only pieces that have same-piece
     candidate crops; with_palette only pieces with the colour reference palette
     in view in a classification frame near them (services.piece_palette).
+    color_model (a colour model's sha256) puts that model's answer on each
+    card; least_sure / surest sort by its confidence (the active model's when
+    none is named), over the pieces it has answered (services.color_model_runs).
 
     Pages by keyset: pass the previous page's next_cursor to get the one after
     it (null at the end). Served from the labeling queue through
@@ -358,6 +363,8 @@ def list_pieces(
         sort = "priority"
     tune_for_aggregates(db)
     rare_ids = _rare_candidate_color_ids(db, current_user, machine_id) if sort == "rare_color" else None
+    if color_model is None and sort in review_queue.MODEL_SORTS:
+        color_model = color_model_runs.active_sha256(db)
     rows, next_cursor = review_queue.piece_page(
         db,
         current_user,
@@ -368,13 +375,25 @@ def list_pieces(
         with_candidates=with_candidates,
         rare_color_ids=rare_ids,
         with_palette=with_palette,
+        model_sha256=color_model,
     )
     return {
-        "items": review_queue.piece_cards(db, current_user, rows),
+        "items": review_queue.piece_cards(db, current_user, rows, model_sha256=color_model),
         "has_more": next_cursor is not None,
         "next_cursor": next_cursor,
         "sort": sort,
+        "color_model": color_model,
     }
+
+
+@router.get("/color-models")
+def labeling_color_models(
+    db: Session = Depends(get_db),
+    _user: User = Depends(get_current_user),
+) -> dict:
+    """The colour models the grid can sort by and the piece panel compares:
+    the active one first, then newest first."""
+    return {"models": color_model_runs.menu(db)}
 
 
 @router.get("/piece/{machine_id}/{piece_uuid}")
@@ -469,6 +488,15 @@ def piece_detail(
     # view nearest the piece (two index probes), and its swatches.
     palette = piece_palette.frame_for_piece(db, current_user, piece)
     training_run = training_runs.piece_training(db, piece)
+    model_answers = color_model_runs.answers_for_piece(db, machine_id, piece_uuid)
+    # The registry names of the models the machine's own predictions came from
+    # (the hosted colour model's sha256), so a page names them.
+    prediction_shas = {p.model for p in machine_predictions if p.model}
+    model_names = (
+        dict(db.query(ColorModel.sha256, ColorModel.name).filter(ColorModel.sha256.in_(prediction_shas)).all())
+        if prediction_shas
+        else {}
+    )
     backend = get_backend()
     # Last of the reads: when the guesses are not stored yet this commits and
     # reads the crops from storage.
@@ -540,6 +568,10 @@ def piece_detail(
             "color_id": piece.color_id,
             "color_name": piece.color_name,
             "color_confidence": piece.color_confidence,
+            # Who answered the colour the machine applied: Brickognize, or the
+            # hosted colour model by its registry name.
+            "color_provider": piece.color_provider,
+            "color_provider_label": _color_provider_label(piece, machine_predictions, model_names),
         },
         # Every ranked part and colour answer the machine got for the piece
         # (each request's, applied or not), ordered by kind, request, rank.
@@ -554,10 +586,14 @@ def piece_detail(
                 "value_name": p.value_name,
                 "score": p.score,
                 "applied": bool(p.applied),
+                "model_name": model_names.get(p.model) if p.model else None,
             }
             for p in machine_predictions
         ],
         "palette": palette,
+        # Every colour model's stored answer for the piece (the active model
+        # first, then newest first; services.color_model_runs).
+        "model_answers": model_answers,
         # The training run the machine saw the piece in and the colour it
         # labels it with (counts: it counts as a colour label), or None.
         "training_run": training_run,
@@ -570,6 +606,22 @@ def piece_detail(
             "rejection_reasons": operator_rejection_reasons,
         },
     }
+
+
+def _color_provider_label(piece: MachinePiece, machine_predictions: list, model_names: dict[str, str]) -> str:
+    """Who answered the colour a machine applied to a piece: Brickognize (also
+    for rows from before the provider was recorded), the hosted colour model
+    by its registry name, else the provider's own id."""
+    provider = (piece.color_provider or "").strip()
+    if provider in ("", "brickognize"):
+        return "Brickognize"
+    if provider == "hive_basically":
+        applied = next(
+            (p.model for p in machine_predictions if p.kind == "color" and p.applied and p.provider == provider and p.model),
+            None,
+        )
+        return model_names.get(applied) or "basically color model"
+    return provider
 
 
 class BrickognizeFeedbackPayload(BaseModel):

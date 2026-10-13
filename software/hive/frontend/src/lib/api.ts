@@ -1519,7 +1519,36 @@ export type ColorLabelSort =
 	| 'least_crop'
 	| 'most_crop'
 	| 'rare_color'
-	| 'needs_me';
+	| 'needs_me'
+	// By one colour model's confidence (colorModel), over the pieces it answered.
+	| 'least_sure'
+	| 'surest';
+
+// A colour model a person can sort and compare by (the active one first).
+export interface ColorModelChoice {
+	sha256: string;
+	name: string;
+	filename: string;
+	is_active: boolean;
+}
+
+// A colour model's answer for a piece.
+export interface ModelColor {
+	color_id: number;
+	color_name: string | null;
+	rgb: string | null;
+	confidence: number;
+}
+
+// Every stored colour model's answer for a piece (the piece panel).
+export interface ModelAnswer extends ModelColor {
+	model_sha256: string;
+	model_name: string;
+	is_active: boolean;
+	top: ModelColor[];
+	crops: number;
+	at: string | null;
+}
 
 export interface ColorLabelPieceCard {
 	machine_id: string;
@@ -1539,6 +1568,8 @@ export interface ColorLabelPieceCard {
 	has_palette: boolean;
 	// A training run labelled the piece with a colour that counts as a colour label.
 	has_training_label: boolean;
+	// The chosen colour model's answer (colorModel); null when it has not answered.
+	model_color?: ModelColor | null;
 	thumb_seq: number | null;
 	// Straight from storage when Hive can sign one; else load the thumbnail by thumb_seq.
 	thumb_url: string | null;
@@ -1550,6 +1581,8 @@ export interface ColorLabelPiecesPage {
 	// Pass as `cursor` for the page after this one; null at the end of the list.
 	next_cursor: string | null;
 	sort: ColorLabelSort;
+	// The colour model the cards carry and a model sort is by.
+	color_model: string | null;
 }
 
 export interface MachineLabeledPiece {
@@ -1604,6 +1637,9 @@ export interface ColorLabelPrediction {
 	color_id: string | null;
 	color_name: string | null;
 	color_confidence: number | null;
+	color_provider?: string | null; // brickognize | hive_basically; null on older rows
+	// Who answered the applied colour: "Brickognize", or the hosted model's registry name.
+	color_provider_label?: string;
 }
 
 export interface ColorModelPrediction {
@@ -1677,6 +1713,8 @@ export interface ColorLabelPieceDetail {
 	// pieces from sorters that predate it.
 	machine_predictions: MachinePiecePrediction[];
 	palette: PiecePalette;
+	// Every stored colour model's answer, the active model first, then newest first.
+	model_answers: ModelAnswer[];
 	// The training run the machine saw the piece in, and the colour it labels
 	// the piece with; null for a piece seen outside a run.
 	training_run: PieceTrainingRun | null;
@@ -1763,6 +1801,7 @@ export interface MachinePiecePrediction {
 	value_name: string | null;
 	score: number | null; // 0..1
 	applied: boolean; // the one part and the one colour the piece took
+	model_name?: string | null; // the hosted model's registry name, when Hive has it
 }
 
 export type RejectReason =
@@ -2300,10 +2339,12 @@ export const api = {
 			machineIds?: string[];
 			withCandidates?: boolean;
 			withPalette?: boolean;
+			colorModel?: string | null;
 		} = {}
 	) {
 		const params = new URLSearchParams();
 		if (opts.sort) params.set('sort', opts.sort);
+		if (opts.colorModel) params.set('color_model', opts.colorModel);
 		if (opts.limit) params.set('limit', String(opts.limit));
 		if (opts.cursor) params.set('cursor', opts.cursor);
 		for (const id of opts.machineIds ?? []) params.append('machine_id', id);
@@ -2311,6 +2352,9 @@ export const api = {
 		if (opts.withPalette) params.set('with_palette', 'true');
 		const qs = params.toString();
 		return request<ColorLabelPiecesPage>('GET', `/api/labeling/pieces${qs ? `?${qs}` : ''}`);
+	},
+	colorModelChoices() {
+		return request<{ models: ColorModelChoice[] }>('GET', '/api/labeling/color-models');
 	},
 	colorLabelPieceDetail(machineId: string, pieceUuid: string) {
 		return request<ColorLabelPieceDetail>(

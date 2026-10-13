@@ -149,6 +149,7 @@ why. These are all of them; each should become a job when it next matters:
 | `POST /api/samples/batch-delete` | 60 s | Counts, loads and deletes every sample a filter matches |
 | `POST /api/admin/teacher/jobs` | 60 s | Selects every sample a filter matches and inserts an item per sample |
 | `POST /api/swatch-models/backfill` | 60 s | Selects up to 50,000 samples and queues a job for each |
+| `POST /api/color-models/backfill` | 60 s | Reads the model folder, selects up to 50,000 of a machine's pieces and queues a job per 20 pieces per model |
 | `DELETE /api/machines/{id}` | 60 s | One DELETE that cascades through everything the machine sent. It also deletes the machine's files from the object store, which no statement timeout bounds: the first candidate for a job |
 | `POST /api/machines/{id}/purge` | 60 s | Deletes every upload session, cascading to samples and reviews; the same file deletion |
 

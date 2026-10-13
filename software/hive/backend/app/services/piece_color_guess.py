@@ -34,7 +34,11 @@ class CropRef:
     channel: int | None
 
 
-def _chosen(images: list[CropRef]) -> list[CropRef]:
+def chosen_crops(images: list[CropRef]) -> list[CropRef]:
+    """The crops a piece's colour is judged from: the ones the machine used,
+    else every one in storage, at most MAX_SAMPLES. The colour model runs
+    (services.color_model_runs) read the same ones, so a model's answer for a
+    piece is the same number wherever it shows."""
     with_key = [im for im in images if im.image_key]
     used = [im for im in with_key if im.used]
     return (used or with_key)[:MAX_SAMPLES]
@@ -43,7 +47,7 @@ def _chosen(images: list[CropRef]) -> list[CropRef]:
 def color_guesses(db: Session, machine_id: UUID, piece_uuid: str, images: list[CropRef]) -> tuple[dict | None, dict | None]:
     """(pixel_guess, model_prediction) for a piece. Call it after the request's
     other reads: when the guess has to be made it commits before reading storage."""
-    chosen = _chosen(images)
+    chosen = chosen_crops(images)
     if not chosen:
         return None, None
     model = color_predictor.get_active(db)

@@ -1,6 +1,9 @@
 <script lang="ts">
 	import { api, type ColorLabelPieceCard } from '$lib/api';
+	import { band, bandTone, percent } from '$lib/colorModels';
+	import Badge from './Badge.svelte';
 	import Card from './Card.svelte';
+	import ColorChip from './ColorChip.svelte';
 	import Check from '@lucide/svelte/icons/check';
 	import GraduationCap from '@lucide/svelte/icons/graduation-cap';
 	import Link2 from '@lucide/svelte/icons/link-2';
@@ -61,6 +64,13 @@
 			<div class="truncate text-sm {selected ? 'font-medium text-primary-ink' : 'text-ink'}" title={card.part.part_name ?? card.part.part_id ?? ''}>
 				{card.part.part_name || card.part.part_id || 'Unidentified'}
 			</div>
+			{#if card.model_color}
+				{@const mc = card.model_color}
+				<div class="flex min-w-0 items-center gap-1.5 text-sm text-ink" title={`The model's color: ${mc.color_name ?? mc.color_id}, ${percent(mc.confidence)} sure`}>
+					<ColorChip name={mc.color_name ?? `Color ${mc.color_id}`} rgb={mc.rgb} class="min-w-0 flex-1" />
+					<Badge tone={bandTone(band(mc.confidence))}><span class="num">{band(mc.confidence)} {percent(mc.confidence)}</span></Badge>
+				</div>
+			{/if}
 			<div class="num flex items-center gap-2 text-sm text-ink-muted">
 				<span class="flex items-center gap-1" title="Color labels"><Palette size={14} />{card.color_label_count}</span>
 				<span class="flex items-center gap-1" title="Same-piece labels"><Link2 size={14} />{card.crop_link_count}</span>

@@ -7,8 +7,6 @@ from pydantic import BaseModel
 
 import hive_metadata_cache
 import training_runs
-from defs.sorter_controller import SorterLifecycle
-from server import shared_state
 
 router = APIRouter()
 
@@ -31,11 +29,6 @@ class ExcludedIn(BaseModel):
     excluded: bool
 
 
-def _running() -> bool:
-    controller = shared_state.controller_ref
-    return controller is not None and controller.state == SorterLifecycle.RUNNING
-
-
 def _palette() -> dict[str, dict[str, Any]]:
     return {str(c.get("id")): c for c in hive_metadata_cache.get_cached_palette() or []}
 
@@ -52,7 +45,10 @@ def _colors(color_ids: list[str], palette: dict[str, dict[str, Any]]) -> list[di
 
 
 def _withColors(item: dict[str, Any], palette: dict[str, dict[str, Any]]) -> dict[str, Any]:
-    return {**item, "colors": _colors(item["color_ids"], palette)}
+    out = {**item, "colors": _colors(item["color_ids"], palette)}
+    if "segments" in item:
+        out["segments"] = [_withColors(segment, palette) for segment in item["segments"]]
+    return out
 
 
 def _pieceOut(piece: dict[str, Any], palette: dict[str, dict[str, Any]]) -> dict[str, Any]:
@@ -81,11 +77,25 @@ def set_training_config(body: ConfigIn) -> dict[str, Any]:
     if "bin" in body.model_fields_set:
         extra["bin"] = body.bin.model_dump() if body.bin is not None else None
     try:
-        training_runs.setConfig(
-            enabled=body.enabled, mode=body.mode, color_ids=body.color_ids, running=_running(), **extra
-        )
+        training_runs.setConfig(enabled=body.enabled, mode=body.mode, color_ids=body.color_ids, **extra)
     except training_runs.TrainingError as exc:
         raise HTTPException(status_code=exc.status, detail=exc.message)
+    return _overview()
+
+
+@router.post("/api/training/runs")
+def start_training_run() -> dict[str, Any]:
+    try:
+        training_runs.startRun()
+    except training_runs.TrainingError as exc:
+        raise HTTPException(status_code=exc.status, detail=exc.message)
+    return _overview()
+
+
+@router.post("/api/training/runs/{run_id}/end")
+def end_training_run(run_id: str) -> dict[str, Any]:
+    if training_runs.endRun(run_id) is None:
+        raise HTTPException(status_code=404, detail="No such training run")
     return _overview()
 
 

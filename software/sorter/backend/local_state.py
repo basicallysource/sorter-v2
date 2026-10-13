@@ -263,6 +263,11 @@ def set_training_mode_state(state: dict[str, Any] | None) -> None:
     _write_state(_STATE_KEY_TRAINING_MODE, state)
 
 
+def write_training_mode_state(conn: sqlite3.Connection, state: dict[str, Any] | None) -> None:
+    # In the caller's transaction, beside its other writes (training_runs).
+    write_entry(conn, _STATE_KEY_TRAINING_MODE, state)
+
+
 def get_hive_limits_state() -> dict[str, Any] | None:
     # {target_id: {"limits": {...}, "received_at": epoch}}; see hive_limits.py.
     return _read_dict(_STATE_KEY_HIVE_LIMITS)

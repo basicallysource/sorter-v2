@@ -201,6 +201,7 @@ def _recordToPayload(row: dict[str, Any]) -> dict[str, Any]:
         # The training run's label (training_runs): Hive counts it as a colour
         # verdict of its own kind.
         "training_run_uuid": row["training_run_id"],
+        "training_segment_uuid": row["training_segment_id"],
         "training_color_id": row["training_color_id"],
         "training_label_source": row["training_label_source"],
         "training_excluded": bool(row["training_excluded"]),

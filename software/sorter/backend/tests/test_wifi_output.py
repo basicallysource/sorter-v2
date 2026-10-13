@@ -81,3 +81,17 @@ def test_scan_waits_for_a_fresh_scan_and_falls_back_to_the_last_one(monkeypatch)
 
     assert [n["ssid"] for n in networks] == ["HomeNet"]
     assert [c[-2:] for c in calls if "list" in c] == [["--rescan", "yes"], ["--rescan", "no"]]
+
+
+def test_an_adapter_reports_its_hardware_address(monkeypatch):
+    def fake_run(cmd, **kwargs):
+        if "GENERAL.HWADDR" in cmd:
+            out = "GENERAL.HWADDR:AA\\:BB\\:CC\\:DD\\:EE\\:01\n"
+        elif "DEVICE,TYPE,STATE,CONNECTION" in cmd:
+            out = "wlan0:wifi:disconnected:--\n"
+        else:
+            out = ""
+        return subprocess.CompletedProcess(cmd, 0, stdout=out, stderr="")
+
+    monkeypatch.setattr(wifi.subprocess, "run", fake_run)
+    assert wifi._wifi_devices()[0]["mac"] == "AA:BB:CC:DD:EE:01"

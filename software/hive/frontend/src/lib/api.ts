@@ -1791,17 +1791,29 @@ export interface PiecePalette {
 	} | null;
 }
 
+// One of the piece's images a prediction was made from, as the machine keeps
+// it: "burst" (a classification channel crop; seq is the piece image's seq) or
+// "link" (an upstream crop the piece-link model matched).
+export interface MachinePredictionImage {
+	set: 'burst' | 'link' | string;
+	seq: number;
+	channel: number | null;
+}
+
 export interface MachinePiecePrediction {
-	request: string; // combined | single_burst | hosted
-	provider: string; // brickognize | hive_basically
-	model: string | null; // the hosted model's sha256
+	source: string; // "live" (the machine, while sorting) or a later run's label
+	request: string; // combined | single_burst | hosted, live; a later run's model name
+	provider: string; // brickognize | hive_basically | a later run's provider
+	model: string | null; // the model's sha256
 	kind: 'color' | 'part';
 	rank: number; // 0-based, in the provider's own order
 	value_id: string; // a BrickLink colour id as text, or a part number
 	value_name: string | null;
 	score: number | null; // 0..1
 	applied: boolean; // the one part and the one colour the piece took
-	model_name?: string | null; // the hosted model's registry name, when Hive has it
+	model_name?: string | null; // the model's registry name, else the one the machine sent
+	images?: MachinePredictionImage[] | null; // null when the machine did not record them
+	predicted_at?: string | null;
 }
 
 export type RejectReason =

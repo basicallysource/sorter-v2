@@ -448,9 +448,13 @@ def labelFor(
 
 def _predictedColors(conn: sqlite3.Connection, piece_uuid: str) -> list[str]:
     try:
+        # The machine's own (live) predictions: a later run over the piece's
+        # images never changes what a training run labelled it.
         rows = conn.execute(
-            "SELECT value_id FROM piece_predictions WHERE piece_uuid = ? AND kind = 'color' "
-            "ORDER BY applied DESC, created_at DESC, rank ASC",
+            "SELECT a.value_id FROM piece_predictions a "
+            "JOIN piece_prediction_requests q ON q.id = a.request_id "
+            "WHERE a.piece_uuid = ? AND a.kind = 'color' AND q.source = 'live' "
+            "ORDER BY a.applied DESC, a.created_at DESC, a.rank ASC",
             (piece_uuid,),
         ).fetchall()
     except sqlite3.OperationalError:

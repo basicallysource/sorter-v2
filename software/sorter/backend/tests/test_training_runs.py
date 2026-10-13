@@ -120,11 +120,13 @@ def test_several_colors_label_by_prediction_then_by_the_nearest(clock) -> None:
     t0 = clock.now
     training_runs.setConfig(enabled=True, color_ids=["5", "1"])
     training_runs.startRun()
-    piece_predictions.recordPredictions("predicted", [
-        {"request": "combined", "provider": "brickognize", "model": None, "kind": "color", "rank": rank,
-         "value_id": value, "value_name": None, "score": score, "applied": True, "created_at": t0}
-        for rank, (value, score) in enumerate([("11", 0.6), ("1", 0.3)])
-    ])
+    piece_predictions.recordPredictions("predicted", [{
+        "source": "live", "request": "combined", "provider": "brickognize", "created_at": t0,
+        "answers": [
+            {"kind": "color", "rank": rank, "value_id": value, "score": score, "applied": True}
+            for rank, (value, score) in enumerate([("11", 0.6), ("1", 0.3)])
+        ],
+    }])
     _record("predicted", t0 + 1, color_id="11")
     _record("orange", t0 + 2, color_id="4")
     _record("unknown", t0 + 3, color_id="999")

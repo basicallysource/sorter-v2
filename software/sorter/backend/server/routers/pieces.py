@@ -9,8 +9,9 @@ from typing import Any, Dict, Iterator, List, Optional
 
 from fastapi import APIRouter, HTTPException
 from fastapi.responses import Response, StreamingResponse
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
+import piece_predictions
 from defs.events import KnownObjectData
 import server.shared_state as shared_state
 
@@ -96,11 +97,16 @@ class PiecesListResponse(BaseModel):
     total: int
 
 
-class PiecePrediction(BaseModel):
-    # One ranked answer a classification request gave (see piece_predictions).
-    request: str
-    provider: str
-    model: Optional[str] = None
+class PredictionImage(BaseModel):
+    # One of the piece's stored images a prediction was made from: "burst" (a
+    # classification channel crop, piece_images) or "link" (an upstream crop
+    # the piece-link model matched, piece_link_images), by seq.
+    set: str
+    seq: int
+    channel: Optional[int] = None
+
+
+class PredictionAnswer(BaseModel):
     kind: str
     rank: int
     value_id: str
@@ -109,14 +115,28 @@ class PiecePrediction(BaseModel):
     applied: bool = False
 
 
+class PiecePrediction(BaseModel):
+    # One request's ranked answers, with where they came from (see
+    # piece_predictions).
+    source: str
+    request: str
+    provider: str
+    model_name: Optional[str] = None
+    model_sha: Optional[str] = None
+    # None when the images were not recorded (older predictions).
+    images: Optional[List[PredictionImage]] = None
+    created_at: Optional[float] = None
+    answers: List[PredictionAnswer] = []
+
+
 class PieceDetailResponse(BaseModel):
     origin: str
     summary: PieceSummary
     detail: Optional[Dict[str, Any]]
     detail_available: bool
-    # Every part and colour prediction the machine made for the piece, ordered
-    # by kind, request and rank; empty for pieces classified before they were
-    # kept.
+    # Every prediction made for the piece: the live classification's requests
+    # first, then each later run's; empty for pieces classified before they
+    # were kept.
     predictions: List[PiecePrediction] = []
 
 
@@ -424,10 +444,9 @@ def _isColorId(value: Any) -> bool:
 
 def _colorPredictionsForPiece(gc: Any, uuid: str) -> tuple[Optional[str], List[tuple[int, Optional[float]]]]:
     """(part id, [(BrickLink color id, score)]) for a piece: every color its
-    classification requests ranked (see piece_predictions), else the color it
+    predictions ranked (see piece_predictions), else the color it
     was given and that color's confidence. From memory while the piece
     is live, else from disk. 404 when the piece is unknown."""
-    import piece_predictions
     import piece_records
 
     payload = None
@@ -439,12 +458,12 @@ def _colorPredictionsForPiece(gc: Any, uuid: str) -> tuple[Optional[str], List[t
     part_id = source.get("part_id")
     part_id = part_id if isinstance(part_id, str) and part_id else None
 
-    # Every request's colors, each color at its best score, as Hive's piece
-    # panel reads the same rows.
-    rows = piece_predictions.recent(uuid) or piece_predictions.listForPiece(uuid)
+    # Every prediction's colors, each color at its best score, as Hive's
+    # piece panel reads the same rows.
+    predictions = piece_predictions.recent(uuid) or piece_predictions.listForPiece(uuid)
     best: Dict[int, Optional[float]] = {}
-    for r in rows:
-        if r["kind"] != piece_predictions.KIND_COLOR or not _isColorId(r["value_id"]):
+    for r in piece_predictions.answersOf(predictions, piece_predictions.KIND_COLOR):
+        if not _isColorId(r["value_id"]):
             continue
         score = float(r["score"]) if isinstance(r["score"], (int, float)) else None
         color = int(r["value_id"])
@@ -694,7 +713,6 @@ def _summaryFromMemory(gc: Any, payload: Dict[str, Any]) -> PieceSummary:
 @router.get("/api/pieces/{uuid}", response_model=PieceDetailResponse)
 def getPiece(uuid: str) -> PieceDetailResponse:
     import piece_image_store
-    import piece_predictions
     import piece_records
 
     gc = shared_state.gc_ref
@@ -728,3 +746,62 @@ def getPiece(uuid: str) -> PieceDetailResponse:
         detail_available=False,
         predictions=[PiecePrediction(**p) for p in piece_predictions.listForPiece(uuid)],
     )
+
+
+class ImportedAnswer(BaseModel):
+    value_id: str = Field(min_length=1)
+    value_name: Optional[str] = None
+    score: Optional[float] = None
+
+
+class ImportedPiece(BaseModel):
+    piece_uuid: str = Field(min_length=1)
+    # Best first: the first is rank 0.
+    answers: List[ImportedAnswer] = Field(min_length=1, max_length=piece_predictions.IMPORT_MAX_ANSWERS)
+    # The piece's classification channel crops the model saw (piece_images seq).
+    image_seqs: List[int] = Field(default_factory=list, max_length=piece_predictions.IMPORT_MAX_IMAGES)
+    # Upstream crops the piece-link model matched, if the model saw any
+    # (piece_link_images seq).
+    link_image_seqs: List[int] = Field(default_factory=list, max_length=piece_predictions.IMPORT_MAX_IMAGES)
+
+
+class PredictionImportRequest(BaseModel):
+    # What this run is called on the piece's page and on Hive, e.g.
+    # "colorpred-v4 rerun, 13 Oct". "live" is the machine's own classification.
+    source: str = Field(min_length=1, max_length=120)
+    # Whose model answered (brickognize, basically, ...).
+    provider: str = Field(min_length=1, max_length=60)
+    model_name: str = Field(min_length=1, max_length=120)
+    model_sha: Optional[str] = Field(default=None, max_length=128)
+    kind: str = Field(pattern="^(part|color)$")
+    # When the run was made (epoch seconds); now when left out.
+    made_at: Optional[float] = None
+    pieces: List[ImportedPiece] = Field(min_length=1, max_length=piece_predictions.IMPORT_MAX_PIECES)
+
+
+class PredictionImportResponse(BaseModel):
+    # Pieces given this run's prediction now, pieces that already had it (a
+    # batch sent again), and pieces this machine has no record or images of.
+    added: int
+    already: int
+    unknown: List[str]
+
+
+@router.post("/api/predictions/import", response_model=PredictionImportResponse)
+def importPredictions(body: PredictionImportRequest) -> PredictionImportResponse:
+    """Keep a later run's predictions: one model over pieces' stored images,
+    made off the machine. Idempotent per (piece, source, model name): sending
+    a batch again adds nothing. The predictions sync to Hive like the live
+    ones."""
+    if body.source == piece_predictions.SOURCE_LIVE:
+        raise HTTPException(status_code=400, detail="source 'live' is the machine's own classification")
+    result = piece_predictions.importRun(
+        source=body.source,
+        provider=body.provider,
+        model_name=body.model_name,
+        model_sha=body.model_sha,
+        kind=body.kind,
+        made_at=body.made_at,
+        pieces=[piece.model_dump() for piece in body.pieces],
+    )
+    return PredictionImportResponse(**result)

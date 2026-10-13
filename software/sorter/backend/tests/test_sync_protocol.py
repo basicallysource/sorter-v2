@@ -301,56 +301,78 @@ class PieceImageTests(_DbTestCase):
         self.drainImageQueue()
 
 
-def _attempt(label: str, applied: bool, items: list[dict], colors: list[dict]):
+def _attempt(label: str, applied: bool, items: list[dict], colors: list[dict], images: list[dict] | None = None):
     from defs.known_object import ClassificationAttempt
     from defs.events import ClassificationAttemptStrategy
 
     return ClassificationAttempt(
         strategy=ClassificationAttemptStrategy(label), n_burst=1, found=bool(items), label=label,
-        applied=applied, items=items, colors=colors,
+        applied=applied, items=items, colors=colors, images=images,
     )
 
 
+def _live(
+    request: str, kind: str, value_id: str, *, rank: int = 0, score: float = 0.5, applied: bool = False,
+    created_at: float | None = None,
+) -> dict:
+    """One live prediction with one answer."""
+    return {
+        "source": "live", "request": request, "provider": "brickognize", "model_name": None, "model_sha": None,
+        "images": None, "created_at": time.time() if created_at is None else created_at,
+        "answers": [{"kind": kind, "rank": rank, "value_id": value_id, "value_name": None, "score": score,
+                     "applied": applied}],
+    }
+
+
 class PredictionTests(_DbTestCase):
-    def test_every_ranked_answer_is_a_row_and_the_applied_ones_are_marked(self) -> None:
+    def test_every_ranked_answer_is_kept_under_its_request_with_what_it_saw(self) -> None:
+        burst = [{"set": "burst", "seq": 0, "channel": 4}, {"set": "burst", "seq": 2, "channel": 4}]
+        link = {"set": "link", "seq": 0, "channel": 3}
         attempts = [
             _attempt(
                 "combined", True,
                 [{"id": "3001", "name": "Brick", "score": 0.9, "rank": 0}, {"id": "3002", "name": "Brick 2x3", "score": 0.05, "rank": 2}],
                 [{"id": "11", "name": "Black", "score": 0.7, "rank": 1}, {"id": "85", "name": "Dark Bluish Gray", "score": 0.2, "rank": 0}],
+                images=[*burst, link],
             ),
-            _attempt("single_burst", False, [{"id": "3001", "name": "Brick", "score": 0.8, "rank": 0}], []),
+            _attempt("single_burst", False, [{"id": "3001", "name": "Brick", "score": 0.8, "rank": 0}], [], images=burst[1:]),
+            _attempt("single_burst", False, [], []),  # an empty request is left out
         ]
-        hosted = {"model_sha256": "abc", "top": [
+        hosted = {"model_name": "colorpred-v3", "model_sha256": "abc", "top": [
             {"color_id": 85, "color_name": "Dark Bluish Gray", "confidence": 0.6},
             {"color_id": 11, "color_name": "Black", "confidence": 0.3},
             {"color_id": 86, "color_name": "Light Bluish Gray", "confidence": 0.05},
         ]}
-        rows = piece_predictions.fromClassification(
-            attempts=attempts, hosted=hosted,
+        predictions = piece_predictions.fromClassification(
+            attempts=attempts, hosted=hosted, hosted_images=[*burst, link],
             applied_part=("3001", 0), applied_color=("hive_basically", "85", None), created_at=5000.0,
         )
-        self.assertEqual(8, len(rows))
-        applied = [(r["request"], r["kind"], r["value_id"]) for r in rows if r["applied"]]
-        self.assertEqual([("combined", "part", "3001"), ("hosted", "color", "85")], applied)
-        piece_predictions.recordPredictions("piece", rows)
-        piece_predictions.recordPredictions("piece", rows)  # a retry adds nothing
-        stored = piece_predictions.listForPiece("piece")
-        self.assertEqual(8, len(stored))
-        self.assertEqual(
-            [("color", "combined", 0), ("color", "combined", 1), ("color", "hosted", 0), ("color", "hosted", 1),
-             ("color", "hosted", 2), ("part", "combined", 0), ("part", "combined", 2), ("part", "single_burst", 0)],
-            [(r["kind"], r["request"], r["rank"]) for r in stored],
-        )
-        hosted_row = next(r for r in stored if r["request"] == "hosted" and r["rank"] == 0)
-        self.assertEqual({"provider": "hive_basically", "model": "abc", "value_id": "85", "score": 0.6, "applied": True},
-                         {k: hosted_row[k] for k in ("provider", "model", "value_id", "score", "applied")})
+        self.assertEqual(["combined", "single_burst", "hosted"], [p["request"] for p in predictions])
+        self.assertEqual(8, sum(len(p["answers"]) for p in predictions))
+        piece_predictions.recordPredictions("piece", predictions)
+        self.assertEqual(0, piece_predictions.recordPredictions("piece", predictions))  # a retry adds nothing
 
-    def test_a_classified_piece_keeps_every_request_and_the_hosted_top_three(self) -> None:
+        stored = piece_predictions.listForPiece("piece")
+        self.assertEqual(predictions, stored)
+        combined, single, hosted_ = stored
+        self.assertEqual(("live", "brickognize", None, None), (combined["source"], combined["provider"], combined["model_name"], combined["model_sha"]))
+        self.assertEqual([*burst, link], combined["images"])
+        self.assertEqual(
+            [("color", 0, "85", False), ("color", 1, "11", False), ("part", 0, "3001", True), ("part", 2, "3002", False)],
+            [(a["kind"], a["rank"], a["value_id"], a["applied"]) for a in combined["answers"]],
+        )
+        self.assertEqual(burst[1:], single["images"])
+        self.assertEqual(("hive_basically", "colorpred-v3", "abc"), (hosted_["provider"], hosted_["model_name"], hosted_["model_sha"]))
+        self.assertEqual([("85", 0.6, True), ("11", 0.3, False), ("86", 0.05, False)],
+                         [(a["value_id"], a["score"], a["applied"]) for a in hosted_["answers"]])
+
+    def test_a_classified_piece_keeps_every_request_and_the_images_it_sent(self) -> None:
         from defs.known_object import KnownObject
         from defs.events import ClassificationAttemptStrategy
         from defs.known_object import RecognitionImage
-        from subsystems.classification_channel.two_piece.base import Rev01BaseState, _ClassifyRequest, _SendImage
+        from subsystems.classification_channel.two_piece.base import (
+            Rev01BaseState, _ClassifyRequest, _SendImage, _imageRefs,
+        )
         from subsystems.classification_channel.two_piece.context import SimpleStateMachineRev01Context
 
         class _Logger:
@@ -367,21 +389,29 @@ class PredictionTests(_DbTestCase):
         state._applyHivePieceMetadata = lambda _o: None
         state.sharpness = lambda _f: 0.0
         piece = KnownObject(uuid="classified-1")
+        piece.recognition_image_set = [RecognitionImage(image="", source="c4_burst", channel=4) for _ in range(3)]
+        piece.link_match_image_set = [RecognitionImage(image="", source="link_match", channel=2)]
         state.ctx.known_object = piece
         state.ctx.captured_crops = []
 
-        burst = _SendImage(np.zeros((2, 2, 3), np.uint8), RecognitionImage(image="", source="c4_burst"))
+        frame = np.zeros((2, 2, 3), np.uint8)
+        sent = [_SendImage(frame, piece.recognition_image_set[1]), _SendImage(frame, piece.recognition_image_set[2]),
+                _SendImage(frame, piece.link_match_image_set[0])]
         requests_ = [
-            _ClassifyRequest(ClassificationAttemptStrategy.combined, "combined", [burst]),
-            _ClassifyRequest(ClassificationAttemptStrategy.single_burst, "single_burst", [burst]),
+            _ClassifyRequest(ClassificationAttemptStrategy.combined, "combined", sent),
+            _ClassifyRequest(ClassificationAttemptStrategy.single_burst, "single_burst", [sent[1]]),
         ]
+        for req in requests_:
+            req.image_refs = _imageRefs(piece, req.images)
         colors = [{"id": str(c), "name": f"c{c}", "score": s} for c, s in ((5, 0.1), (11, 0.6), (85, 0.2), (86, 0.05), (1, 0.03), (2, 0.02))]
         for rank, color in enumerate(colors):
             color["rank"] = rank
         result = {"listing_id": "L", "items": [{"id": "3001", "name": "Brick", "score": 0.9, "rank": 0, "img_url": "u", "type": "part"}], "colors": colors}
         state._runRequestsParallel = lambda reqs, _uuid: [(req, result, None, 0.1) for req in reqs]
         holder = {"started_at": time.monotonic(), "thread": threading.Thread(target=lambda: None),
+                  "images": _imageRefs(piece, sent),
                   "result": {"color_id": 11, "color_name": "Black", "confidence": 0.8, "model_sha256": "sha",
+                             "model_name": "colorpred-v3",
                              "top": [{"color_id": 11, "color_name": "Black", "confidence": 0.8},
                                      {"color_id": 85, "color_name": "DBG", "confidence": 0.1}]}}
         holder["thread"].start()
@@ -394,13 +424,17 @@ class PredictionTests(_DbTestCase):
         self.assertEqual(["11", "85", "5", "86", "1"], [c["id"] for c in combined.colors])
         stored = piece_predictions.listForPiece(piece.uuid)
         self.assertEqual(stored, piece_predictions.recent(piece.uuid))
-        by_request: dict[tuple[str, str], int] = {}
-        for row in stored:
-            by_request[(row["request"], row["kind"])] = by_request.get((row["request"], row["kind"]), 0) + 1
+        counts = {(p["request"], kind): len([a for a in p["answers"] if a["kind"] == kind])
+                  for p in stored for kind in ("part", "color")}
         self.assertEqual({("combined", "color"): 5, ("combined", "part"): 1, ("single_burst", "color"): 5,
-                          ("single_burst", "part"): 1, ("hosted", "color"): 2}, by_request)
-        applied = sorted((r["request"], r["kind"], r["value_id"]) for r in stored if r["applied"])
+                          ("single_burst", "part"): 1, ("hosted", "color"): 2, ("hosted", "part"): 0}, counts)
+        applied = sorted((p["request"], a["kind"], a["value_id"]) for p in stored for a in p["answers"] if a["applied"])
         self.assertEqual([("combined", "part", "3001"), ("hosted", "color", "11")], applied)
+        everything = [{"set": "burst", "seq": 1, "channel": 4}, {"set": "burst", "seq": 2, "channel": 4},
+                      {"set": "link", "seq": 0, "channel": 2}]
+        self.assertEqual({"combined": everything, "single_burst": everything[1:2], "hosted": everything},
+                         {p["request"]: p["images"] for p in stored})
+        self.assertEqual("colorpred-v3", stored[2]["model_name"])
 
     def test_piece_detail_serves_the_predictions_from_disk(self) -> None:
         from server import shared_state
@@ -414,7 +448,140 @@ class PredictionTests(_DbTestCase):
         with patch.object(shared_state, "gc_ref", None):
             detail = pieces.getPiece("d")
         self.assertEqual("disk", detail.origin)
-        self.assertEqual([("color", "11", True)], [(p.kind, p.value_id, p.applied) for p in detail.predictions])
+        self.assertEqual([("live", "combined", None)], [(p.source, p.request, p.images) for p in detail.predictions])
+        self.assertEqual([("color", "11", True)], [(a.kind, a.value_id, a.applied) for a in detail.predictions[0].answers])
+
+    def _flatTable(self, rows: list[tuple]) -> None:
+        """piece_predictions as sorters wrote it before requests had a table
+        of their own."""
+        with sqlite3.connect(self.db_path) as conn:
+            conn.execute(
+                "CREATE TABLE piece_predictions (id INTEGER PRIMARY KEY AUTOINCREMENT, piece_uuid TEXT NOT NULL, "
+                "request TEXT NOT NULL, provider TEXT NOT NULL, model TEXT, kind TEXT NOT NULL, rank INTEGER NOT NULL, "
+                "value_id TEXT NOT NULL, value_name TEXT, score REAL, applied INTEGER NOT NULL DEFAULT 0, "
+                "created_at REAL NOT NULL, UNIQUE(piece_uuid, request, kind, rank))"
+            )
+            conn.execute("CREATE INDEX idx_piece_predictions_uuid ON piece_predictions(piece_uuid)")
+            conn.executemany(
+                "INSERT INTO piece_predictions (id, piece_uuid, request, provider, model, kind, rank, value_id, "
+                "value_name, score, applied, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                rows,
+            )
+            # The newest rows went (retention): their ids stay used.
+            conn.execute("DELETE FROM piece_predictions WHERE id > 6")
+
+    def test_old_rows_move_under_their_requests_and_keep_their_ids(self) -> None:
+        self._flatTable([
+            (1, "a", "combined", "brickognize", None, "part", 0, "3001", "Brick", 0.9, 1, 100.0),
+            (2, "a", "combined", "brickognize", None, "color", 0, "11", "Black", 0.7, 0, 100.0),
+            (3, "a", "single_burst", "brickognize", None, "part", 0, "3001", "Brick", 0.8, 0, 100.0),
+            (4, "a", "hosted", "hive_basically", "sha", "color", 0, "85", "Dark Bluish Gray", 0.6, 1, 100.0),
+            (5, "a", "hosted", "hive_basically", "sha", "color", 1, "11", "Black", 0.3, 0, 100.0),
+            (6, "b", "combined", "brickognize", None, "part", 0, "3003", None, 0.5, 1, 200.0),
+            (9, "c", "combined", "brickognize", None, "part", 0, "1", None, 0.1, 0, 300.0),
+        ])
+        self.assertEqual(6, piece_predictions.getMaxId())
+        a = piece_predictions.listForPiece("a")
+        self.assertEqual(["combined", "single_burst", "hosted"], [p["request"] for p in a])
+        self.assertTrue(all(p["source"] == "live" and p["images"] is None for p in a))
+        self.assertEqual(("hive_basically", None, "sha"), (a[2]["provider"], a[2]["model_name"], a[2]["model_sha"]))
+        self.assertEqual([("85", True), ("11", False)], [(x["value_id"], x["applied"]) for x in a[2]["answers"]])
+
+        # Hive's watermark still means what it did: the same ids, in order,
+        # each with its request's fields.
+        rows = piece_predictions.listAfter(3, 10)
+        self.assertEqual([4, 5, 6], [r["id"] for r in rows])
+        self.assertEqual(("a", "live", "hosted", "sha", 1), (rows[0]["piece_uuid"], rows[0]["source"], rows[0]["request"],
+                                                           rows[0]["model_sha"], rows[0]["applied"]))
+        # A new answer never takes an id Hive may already have.
+        piece_predictions.recordPredictions("d", [_live("combined", "part", "1")])
+        self.assertEqual([10], [r["id"] for r in piece_predictions.listAfter(6, 10)])
+        with sqlite3.connect(self.db_path) as conn:
+            tables = {r[0] for r in conn.execute("SELECT name FROM sqlite_master WHERE type = 'table'")}
+        self.assertNotIn("piece_predictions_flat", tables)
+
+    def test_the_move_runs_once_and_an_empty_old_table_moves_too(self) -> None:
+        self._flatTable([(7, "x", "combined", "brickognize", None, "part", 0, "1", None, 0.1, 0, 1.0)])
+        self.assertEqual([], piece_predictions.listForPiece("x"))
+        with piece_records._connection() as conn:
+            piece_predictions._createTables(conn)  # again: nothing to do
+            conn.commit()
+        piece_predictions.recordPredictions("y", [_live("combined", "part", "1")])
+        self.assertEqual([8], [r["id"] for r in piece_predictions.listAfter(0, 10)])
+
+    def _client(self):
+        from fastapi import FastAPI
+        from fastapi.testclient import TestClient
+        from server.routers import pieces
+
+        app = FastAPI()
+        app.include_router(pieces.router)
+        return TestClient(app)
+
+    def _run(self, pieces: list[dict], **fields) -> dict:
+        body = {"source": "colorpred-v4 rerun, 13 Oct", "provider": "basically", "model_name": "colorpred-v4",
+                "model_sha": "f00d", "kind": "color", "made_at": 9000.0, "pieces": pieces}
+        body.update(fields)
+        return body
+
+    def test_a_later_run_imports_once_per_piece_and_shows_beside_the_live_answers(self) -> None:
+        from server import shared_state
+
+        self.record("p")
+        self.images("p", 3)
+        piece_predictions.recordPredictions("p", [_live("combined", "color", "11", score=0.7, applied=True)])
+        self.images("unrecorded-but-photographed", 1)
+        answers = [{"value_id": "85", "value_name": "Dark Bluish Gray", "score": 0.81},
+                   {"value_id": "11", "value_name": "Black", "score": 0.12}, {"value_id": "86", "score": 0.03}]
+        body = self._run([
+            {"piece_uuid": "p", "answers": answers, "image_seqs": [0, 2]},
+            {"piece_uuid": "unrecorded-but-photographed", "answers": answers[:1], "image_seqs": [0]},
+            {"piece_uuid": "nobody", "answers": answers[:1], "image_seqs": [0]},
+        ])
+        with self._client() as client:
+            first = client.post("/api/predictions/import", json=body)
+            again = client.post("/api/predictions/import", json=body)
+        self.assertEqual(200, first.status_code, first.text)
+        self.assertEqual({"added": 2, "already": 0, "unknown": ["nobody"]}, first.json())
+        self.assertEqual({"added": 0, "already": 2, "unknown": ["nobody"]}, again.json())
+
+        with patch.object(shared_state, "gc_ref", None), self._client() as client:
+            detail = client.get("/api/pieces/p").json()
+        live, rerun = detail["predictions"]
+        self.assertEqual("live", live["source"])
+        self.assertEqual(
+            {"source": "colorpred-v4 rerun, 13 Oct", "request": "colorpred-v4", "provider": "basically",
+             "model_name": "colorpred-v4", "model_sha": "f00d", "created_at": 9000.0,
+             "images": [{"set": "burst", "seq": 0, "channel": 4}, {"set": "burst", "seq": 2, "channel": 4}]},
+            {k: rerun[k] for k in ("source", "request", "provider", "model_name", "model_sha", "created_at", "images")},
+        )
+        self.assertEqual([(0, "85", 0.81, False), (1, "11", 0.12, False), (2, "86", 0.03, False)],
+                         [(a["rank"], a["value_id"], a["score"], a["applied"]) for a in rerun["answers"]])
+
+    def test_a_piece_in_memory_shows_an_imported_run_at_once(self) -> None:
+        self.record("m")
+        live = [_live("combined", "color", "11", applied=True)]
+        piece_predictions.recordPredictions("m", live)
+        piece_predictions.remember("m", live)
+        piece_predictions.importRun(
+            source="rerun", provider="basically", model_name="colorpred-v4", model_sha=None, kind="color",
+            pieces=[{"piece_uuid": "m", "answers": [{"value_id": "85", "score": 0.9}], "image_seqs": []}],
+        )
+        self.assertEqual(["live", "rerun"], [p["source"] for p in piece_predictions.recent("m")])
+
+    def test_an_import_is_bounded_and_never_poses_as_the_live_classification(self) -> None:
+        one = {"piece_uuid": "p", "answers": [{"value_id": "85", "score": 0.9}], "image_seqs": [0]}
+        with self._client() as client:
+            too_many = client.post("/api/predictions/import",
+                                   json=self._run([one] * (piece_predictions.IMPORT_MAX_PIECES + 1)))
+            live = client.post("/api/predictions/import", json=self._run([one], source="live"))
+            bad_kind = client.post("/api/predictions/import", json=self._run([one], kind="mold"))
+            no_answers = client.post("/api/predictions/import", json=self._run([{**one, "answers": []}]))
+        self.assertEqual(422, too_many.status_code)
+        self.assertEqual(400, live.status_code)
+        self.assertEqual(422, bad_kind.status_code)
+        self.assertEqual(422, no_answers.status_code)
+        self.assertEqual(0, piece_predictions.getMaxId())
 
 
 class _FakeClient:
@@ -471,10 +638,23 @@ class SyncLoopTests(_DbTestCase):
     def _readyPiece(self, name: str) -> None:
         self.images(name, 2)
         self.record(name)
-        piece_predictions.recordPredictions(name, [{
-            "request": "combined", "provider": "brickognize", "model": None, "kind": "color", "rank": 0,
-            "value_id": "11", "value_name": "Black", "score": 0.7, "applied": True, "created_at": time.time(),
-        }])
+        piece_predictions.recordPredictions(name, [_live("combined", "color", "11", score=0.7, applied=True)])
+
+    def test_a_later_run_syncs_after_the_live_answers_with_its_source(self) -> None:
+        self._readyPiece("a")
+        piece_predictions.importRun(
+            source="colorpred-v4 rerun, 13 Oct", provider="basically", model_name="colorpred-v4", model_sha="f00d",
+            kind="color", pieces=[{"piece_uuid": "a", "answers": [{"value_id": "85", "score": 0.8}], "image_seqs": [0, 1]}],
+        )
+        client = _FakeClient()
+        self._pass(self._syncer(client))
+        self.assertEqual(
+            [("live", "combined", None, None, None, True),
+             ("colorpred-v4 rerun, 13 Oct", "colorpred-v4", "f00d", "colorpred-v4",
+              [{"set": "burst", "seq": 0, "channel": 4}, {"set": "burst", "seq": 1, "channel": 4}], False)],
+            [(r["source"], r["request"], r["model"], r["model_name"], r["images"], r["applied"]) for r in client.predictions],
+        )
+        self.assertEqual([1, 2], [r["local_id"] for r in client.predictions])
 
     def test_every_leg_runs_in_the_same_pass(self) -> None:
         self._readyPiece("a")
@@ -559,10 +739,9 @@ class RetentionTests(_DbTestCase):
         sorting_runs.startRun("newer run", lot_id=lot["id"], started_at=self.now - 30 * DAY)
         self.record("old-a", self.now - 300 * DAY)
         self.images("old-a", 2)
-        piece_predictions.recordPredictions("old-a", [{
-            "request": "combined", "provider": "brickognize", "model": None, "kind": "part", "rank": 0,
-            "value_id": "3001", "value_name": "Brick", "score": 0.9, "applied": True, "created_at": self.now - 300 * DAY,
-        }])
+        piece_predictions.recordPredictions(
+            "old-a", [_live("combined", "part", "3001", score=0.9, applied=True, created_at=self.now - 300 * DAY)]
+        )
         self.record("old-b", self.now - 250 * DAY, part_id="3003", color_id="5", color_name="Red")
         piece_records.setPieceCorrection("old-b", set_color=True, color_corrected_id="21")
         self.record("old-dead", self.now - 240 * DAY, dead=True, destination_bin=None)
@@ -619,18 +798,16 @@ class RetentionTests(_DbTestCase):
 
     def test_leftovers_of_unrecorded_pieces_go_by_age(self) -> None:
         old = self.now - 300 * DAY
-        piece_predictions.recordPredictions("never", [{
-            "request": "combined", "provider": "brickognize", "model": None, "kind": "part", "rank": 0,
-            "value_id": "1", "value_name": None, "score": 0.1, "applied": False, "created_at": old,
-        }])
-        piece_predictions.recordPredictions("young", [{
-            "request": "combined", "provider": "brickognize", "model": None, "kind": "part", "rank": 0,
-            "value_id": "1", "value_name": None, "score": 0.1, "applied": False, "created_at": self.now,
-        }])
+        piece_predictions.recordPredictions("never", [_live("combined", "part", "1", score=0.1, created_at=old)])
+        piece_predictions.recordPredictions("young", [_live("combined", "part", "1", score=0.1, created_at=self.now)])
         piece_image_store._writeImage("never", 0, {"image": FAKE_JPEG_B64, "source": "c4_burst", "created_at": old})
         piece_image_store._writeLinkImage("never", 0, {"image": FAKE_JPEG_B64, "created_at": old})
         deleted = storage_maintenance.pruneUnrecorded(self.cutoff, None)
-        self.assertEqual(3, deleted)
+        # The answer, then its request, the image and the link guess.
+        self.assertEqual(4, deleted)
+        with piece_records._connection() as conn:
+            requests_left = [r[0] for r in conn.execute("SELECT piece_uuid FROM piece_prediction_requests")]
+        self.assertEqual(["young"], requests_left)
         self.assertEqual([], piece_predictions.listForPiece("never"))
         self.assertEqual(1, len(piece_predictions.listForPiece("young")))
         self.assertEqual([], piece_image_store.listPieceImages("never"))

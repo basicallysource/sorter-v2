@@ -213,9 +213,13 @@ def _predictionToPayload(row: dict[str, Any]) -> dict[str, Any]:
     return {
         "local_id": row["id"],
         "piece_uuid": row["piece_uuid"],
+        "source": row["source"],
         "request": row["request"],
         "provider": row["provider"],
-        "model": row["model"],
+        # The model's identity (its sha256) under the field older Hives read.
+        "model": row["model_sha"],
+        "model_name": row["model_name"],
+        "images": row["images"],
         "kind": row["kind"],
         "rank": row["rank"],
         "value_id": row["value_id"],

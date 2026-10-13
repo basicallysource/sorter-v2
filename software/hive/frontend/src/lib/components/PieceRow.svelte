@@ -1,7 +1,6 @@
 <script lang="ts">
 	import { api, type ColorLabelPieceCard } from '$lib/api';
-	import { band, bandTone, percent } from '$lib/colorModels';
-	import Badge from './Badge.svelte';
+	import { band, bandText, percent } from '$lib/colorModels';
 	import Checkbox from './Checkbox.svelte';
 	import ColorChip from './ColorChip.svelte';
 	import Check from '@lucide/svelte/icons/check';
@@ -66,7 +65,7 @@
 		{@const mc = card.model_color}
 		<div class="flex w-44 shrink-0 items-center gap-1.5 text-sm text-ink" title={`The model's color: ${mc.color_name ?? mc.color_id}, ${percent(mc.confidence)} sure`}>
 			<ColorChip name={mc.color_name ?? `Color ${mc.color_id}`} rgb={mc.rgb} class="min-w-0 flex-1" />
-			<Badge tone={bandTone(band(mc.confidence))}><span class="num">{band(mc.confidence)} {percent(mc.confidence)}</span></Badge>
+			<span class="num shrink-0 font-medium {bandText(band(mc.confidence))}">{percent(mc.confidence)}</span>
 		</div>
 	{/if}
 	<div class="num flex shrink-0 items-center gap-3 text-sm text-ink-muted">

@@ -250,6 +250,16 @@ class HiveTelemetryClient:
         )
         return int(response.json()["max_local_id"])
 
+    def pushTrainingRuns(self, runs: list[dict[str, Any]]) -> int:
+        response = self._request(
+            "POST",
+            "/api/machine/sync/training-runs",
+            fields=("piece_metadata",),
+            json={"records": runs},
+            timeout=60,
+        )
+        return int(response.json()["max_local_id"])
+
     def pushPiecePredictions(self, records: list[dict[str, Any]]) -> int:
         response = self._request(
             "POST",

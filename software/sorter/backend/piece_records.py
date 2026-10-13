@@ -99,6 +99,14 @@ def _createTables(conn: sqlite3.Connection) -> None:
         # The applied color's own score, kept apart from the mold score
         # in `confidence`. NULL on rows written before the split.
         "color_confidence": "REAL",
+        # The training run that saw the piece and the label it gave it (see
+        # training_runs), and whether the operator excluded it from the run.
+        "training_run_id": "TEXT",
+        "training_segment_id": "TEXT",
+        "training_color_id": "TEXT",
+        "training_label_source": "TEXT",
+        "training_excluded": "INTEGER NOT NULL DEFAULT 0",
+        "training_updated_at": "REAL",
     })
     # Operator-flagged capture issues, one row per (piece, reason) so the
     # flags are queryable — "how many pieces were flagged blurry this
@@ -182,6 +190,13 @@ def _createTables(conn: sqlite3.Connection) -> None:
         "CREATE INDEX IF NOT EXISTS idx_piece_records_run "
         "ON piece_records(run_id)"
     )
+    conn.execute(
+        "CREATE INDEX IF NOT EXISTS idx_piece_records_training_run "
+        "ON piece_records(training_run_id) WHERE training_run_id IS NOT NULL"
+    )
+    import training_runs
+
+    training_runs.createRunTables(conn)
 
 
 def _connection():
@@ -201,10 +216,19 @@ def recordPiece(
     bin_x = bin_y = bin_z = None
     if isinstance(dest, (list, tuple)) and len(dest) == 3:
         bin_x, bin_y, bin_z = (int(dest[0]), int(dest[1]), int(dest[2]))
+    import training_runs
+
     seen_at = piece.get("created_at")
     recorded_at = piece.get("distributed_at") or time.time()
     dead = 1 if piece.get("dead") else 0
     with _connection() as conn:
+        training = training_runs.labelFor(
+            conn,
+            uuid_val,
+            float(seen_at) if isinstance(seen_at, (int, float)) else None,
+            piece.get("color_id"),
+        )
+        training_run_id, training_segment_id, training_color_id, training_source = training or (None, None, None, None)
         seq = sync_seq.nextSeq(conn)
         # Upsert (not INSERT OR IGNORE): a piece can be recorded early by the
         # correction API straight from memory (so a just-classified piece is
@@ -219,8 +243,9 @@ def recordPiece(
             "part_id, part_name, color_id, color_name, category_id, confidence, "
             "bin_x, bin_y, bin_z, dead, brickognize_preview_url, "
             "brickognize_listing_id, brickognize_item_rank, brickognize_item_type, "
-            "brickognize_color_rank, color_provider, mold_provider, color_confidence, sync_seq) "
-            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) "
+            "brickognize_color_rank, color_provider, mold_provider, color_confidence, sync_seq, "
+            "training_run_id, training_segment_id, training_color_id, training_label_source, training_updated_at) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) "
             "ON CONFLICT(uuid) DO UPDATE SET "
             "run_id=excluded.run_id, machine_id=excluded.machine_id, "
             "seen_at=excluded.seen_at, recorded_at=excluded.recorded_at, "
@@ -237,7 +262,17 @@ def recordPiece(
             "color_provider=excluded.color_provider, "
             "mold_provider=excluded.mold_provider, "
             "color_confidence=excluded.color_confidence, "
-            "sync_seq=excluded.sync_seq",
+            "sync_seq=excluded.sync_seq, "
+            # A label, once given, stays: the operator may have excluded it.
+            "training_run_id=COALESCE(piece_records.training_run_id, excluded.training_run_id), "
+            "training_segment_id=CASE WHEN piece_records.training_run_id IS NULL "
+            "THEN excluded.training_segment_id ELSE piece_records.training_segment_id END, "
+            "training_color_id=CASE WHEN piece_records.training_run_id IS NULL "
+            "THEN excluded.training_color_id ELSE piece_records.training_color_id END, "
+            "training_label_source=CASE WHEN piece_records.training_run_id IS NULL "
+            "THEN excluded.training_label_source ELSE piece_records.training_label_source END, "
+            "training_updated_at=CASE WHEN piece_records.training_run_id IS NULL "
+            "THEN excluded.training_updated_at ELSE piece_records.training_updated_at END",
             (
                 uuid_val,
                 run_id,
@@ -264,6 +299,11 @@ def recordPiece(
                 piece.get("mold_provider"),
                 piece.get("color_confidence"),
                 seq,
+                training_run_id,
+                training_segment_id,
+                training_color_id,
+                training_source,
+                time.time() if training_run_id is not None else None,
             ),
         )
         # With its record written, the piece's images are ready for Hive.
@@ -696,7 +736,8 @@ _SYNC_COLUMNS = (
     "brickognize_listing_id, brickognize_item_rank, brickognize_item_type, "
     "brickognize_color_rank, color_provider, mold_provider, color_confidence, "
     "part_correct, color_corrected_id, part_feedback_submitted, color_feedback_submitted, "
-    "correction_updated_at, "
+    "correction_updated_at, training_run_id, training_segment_id, training_color_id, training_label_source, "
+    "training_excluded, training_updated_at, "
     "(SELECT GROUP_CONCAT(r.reason) FROM piece_rejection_reasons r "
     "WHERE r.piece_uuid = piece_records.uuid) AS rejection_reasons"
 )

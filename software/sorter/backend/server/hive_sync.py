@@ -1,8 +1,8 @@
 """Background worker that sends everything this machine keeps for Hive.
 
 Each kind of data is a leg with a cursor (see sync_seq.py for the one rule):
-piece records and piece images, which change after they are written, go by
-sync_seq; piece predictions, channel crops, control-data segments and training
+piece records, piece images and training runs, which change after they are
+written, go by sync_seq; piece predictions, channel crops, control-data segments and training
 samples, which never change, go by id. Hive keeps the highest value it
 accepted per data type ("what's the max local_id you already have for me?"),
 and the worker sends only what is above it, in cursor order, so months of
@@ -15,7 +15,7 @@ never stall the others.
 
 Every leg runs every pass, in the order below, and a leg that has nothing to
 send, is out of budget, or is paused never holds up the next one. Two lanes:
-table rows (records, predictions) are small and always go; everything that
+table rows (records, predictions, training runs) are small and always go; everything that
 carries a file draws on a per-target budget of bytes and files per minute that
 the target's Hive sets (hive_limits). A file leg sends at most FILES_PER_PASS
 files and then lets the next leg have its turn. When nothing moved, the worker
@@ -53,6 +53,7 @@ import piece_predictions
 import piece_records
 import control_data_store
 import sample_store
+import training_runs
 from hive_telemetry import HiveTelemetryClient, TelemetryBlocked, getTargetTelemetrySettings, telemetryAllows
 from local_state import get_hive_config
 
@@ -64,11 +65,13 @@ DATA_TYPE_IMAGES = "piece_images"
 DATA_TYPE_SAMPLES = "samples"
 DATA_TYPE_CROPS = "channel_crops"
 DATA_TYPE_CONTROL_DATA = "control_data_segments"
+DATA_TYPE_TRAINING_RUNS = "training_runs"
 # Leg order. Samples (a few a minute) go before crops, which can hold a backlog
 # of tens of thousands.
 DATA_TYPES = (
     DATA_TYPE_RECORDS,
     DATA_TYPE_PREDICTIONS,
+    DATA_TYPE_TRAINING_RUNS,
     DATA_TYPE_IMAGES,
     DATA_TYPE_SAMPLES,
     DATA_TYPE_CROPS,
@@ -79,6 +82,7 @@ DATA_TYPES = (
 TELEMETRY_FIELD = {
     DATA_TYPE_RECORDS: "piece_metadata",
     DATA_TYPE_PREDICTIONS: "piece_metadata",
+    DATA_TYPE_TRAINING_RUNS: "piece_metadata",
     DATA_TYPE_IMAGES: "detection_images",
     DATA_TYPE_SAMPLES: "full_frames",
     DATA_TYPE_CROPS: "upstream_channel_crops",
@@ -194,6 +198,14 @@ def _recordToPayload(row: dict[str, Any]) -> dict[str, Any]:
         "color_feedback_submitted": bool(row["color_feedback_submitted"]),
         "correction_updated_at": row["correction_updated_at"],
         "rejection_reasons": list(row["rejection_reasons"]),
+        # The training run's label (training_runs): Hive counts it as a colour
+        # verdict of its own kind.
+        "training_run_uuid": row["training_run_id"],
+        "training_segment_uuid": row["training_segment_id"],
+        "training_color_id": row["training_color_id"],
+        "training_label_source": row["training_label_source"],
+        "training_excluded": bool(row["training_excluded"]),
+        "training_updated_at": row["training_updated_at"],
     }
 
 
@@ -482,6 +494,7 @@ class _TargetSyncer:
             "waiting": {
                 DATA_TYPE_RECORDS: waiting(DATA_TYPE_RECORDS, piece_records.countRecordsAfter),
                 DATA_TYPE_PREDICTIONS: waiting(DATA_TYPE_PREDICTIONS, lambda wm: piece_predictions.getMaxId() - wm),
+                DATA_TYPE_TRAINING_RUNS: waiting(DATA_TYPE_TRAINING_RUNS, training_runs.countRunsAfter),
                 DATA_TYPE_IMAGES: waiting(DATA_TYPE_IMAGES, piece_image_store.countImagesAfter),
                 DATA_TYPE_CROPS: waiting(DATA_TYPE_CROPS, lambda wm: channel_crop_store.getMaxCropId() - wm),
                 DATA_TYPE_CONTROL_DATA: waiting(DATA_TYPE_CONTROL_DATA, lambda wm: control_data_store.getMaxSegmentId() - wm),
@@ -519,6 +532,7 @@ class _TargetSyncer:
         return (
             (DATA_TYPE_RECORDS, self._drainRecords),
             (DATA_TYPE_PREDICTIONS, self._drainPredictions),
+            (DATA_TYPE_TRAINING_RUNS, self._drainTrainingRuns),
             (DATA_TYPE_IMAGES, self._drainImages),
             (DATA_TYPE_SAMPLES, self._drainSamples),
             (DATA_TYPE_CROPS, self._drainChannelCrops),
@@ -621,6 +635,16 @@ class _TargetSyncer:
         with self._gate.slot():
             new_max = self._client.pushPiecePredictions([_predictionToPayload(r) for r in rows])
         self._advance(DATA_TYPE_PREDICTIONS, new_max, rows[-1]["id"])
+        return True
+
+    def _drainTrainingRuns(self) -> bool:
+        wm = int(self._wm[DATA_TYPE_TRAINING_RUNS] or 0)
+        rows = training_runs.listRunsAfter(wm, ROWS_BATCH)
+        if not rows:
+            return False
+        with self._gate.slot():
+            new_max = self._client.pushTrainingRuns(rows)
+        self._advance(DATA_TYPE_TRAINING_RUNS, new_max, rows[-1]["sync_seq"])
         return True
 
     def _drainImages(self) -> bool:

@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { onMount } from 'svelte';
 	import { goto } from '$app/navigation';
 	import Spinner from '$lib/components/ui/Spinner.svelte';
 	import Button from '$lib/components/ui/Button.svelte';
@@ -17,6 +18,8 @@
 	import CameraFeed from '$lib/components/CameraFeed.svelte';
 	import CollapsibleSection from '$lib/components/CollapsibleSection.svelte';
 	import RecentObjects from '$lib/components/RecentObjects.svelte';
+	import TrainingPanel from '$lib/components/training/TrainingPanel.svelte';
+	import { getTraining, type TrainingState } from '$lib/training/api';
 	import RuntimeStats, { RUNTIME_SPANS, type RuntimeSpan } from '$lib/components/RuntimeStats.svelte';
 	import SegmentedControl from '$lib/components/ui/SegmentedControl.svelte';
 	import House from '@lucide/svelte/icons/house';
@@ -29,6 +32,9 @@
 	let startSystemError = $state<string | null>(null);
 	let startSystemPending = $state(false);
 	let runtimeSpan = $state<RuntimeSpan>('1h');
+	// Training mode, polled: while it is on, its panel takes Recent pieces' place.
+	let training = $state<TrainingState | null>(null);
+	let trainingFor = '';
 
 	function currentBackendBaseUrl(): string {
 		return machineHttpBaseUrlFromWsUrl(machine.machine?.url) ?? getBackendHttpBase();
@@ -77,6 +83,27 @@
 			startSystemPending = false;
 		}
 	}
+
+	async function loadTraining() {
+		if (!machine.machine) return;
+		const baseUrl = currentBackendBaseUrl();
+		if (baseUrl !== trainingFor) {
+			trainingFor = baseUrl;
+			training = null;
+		}
+		try {
+			const next = await getTraining(baseUrl);
+			if (baseUrl === trainingFor) training = next;
+		} catch {
+			// keep what is shown; a machine without training mode stays on Recent pieces
+		}
+	}
+
+	onMount(() => {
+		void loadTraining();
+		const timer = setInterval(() => void loadTraining(), 3000);
+		return () => clearInterval(timer);
+	});
 
 	// A brand-new machine should open on the setup wizard, not an empty Dashboard.
 	// Once per browser session, so Dashboard stays reachable while setting up.
@@ -240,9 +267,22 @@
 				{/if}
 
 				<div class="max-lg:order-last lg:contents">
-					<CollapsibleSection title="Recent pieces" storageKey="recent" grow>
-						<RecentObjects />
-					</CollapsibleSection>
+					{#if training && training.config.enabled}
+						<CollapsibleSection title="Training data" storageKey="training" grow>
+							{#snippet actions()}
+								<Badge tone="info">Training mode</Badge>
+							{/snippet}
+							<TrainingPanel
+								base={currentBackendBaseUrl()}
+								{training}
+								onchange={(next) => (training = next)}
+							/>
+						</CollapsibleSection>
+					{:else}
+						<CollapsibleSection title="Recent pieces" storageKey="recent" grow>
+							<RecentObjects />
+						</CollapsibleSection>
+					{/if}
 				</div>
 				<div class="max-lg:order-last lg:contents">
 					<CollapsibleSection title="Runtime" storageKey="runtimeTabs">

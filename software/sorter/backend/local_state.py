@@ -25,6 +25,7 @@ _STATE_KEY_SET_PROGRESS = "set_progress"
 _STATE_KEY_UI_THEME_COLOR_ID = "ui_theme_color_id"
 _STATE_KEY_TAILSCALE_HOSTNAME = "tailscale_hostname"
 _STATE_KEY_SAMPLE_COLLECTION = "sample_collection"
+_STATE_KEY_TRAINING_MODE = "training_mode"
 _STATE_KEY_HIVE_LIMITS = "hive_limits"
 _STATE_KEY_TELEMETRY_INSTALL = "telemetry_install"
 _STATE_KEY_LEDS = "leds"
@@ -252,6 +253,19 @@ def get_sample_collection_state() -> dict[str, Any] | None:
 
 def set_sample_collection_state(state: dict[str, Any] | None) -> None:
     _write_state(_STATE_KEY_SAMPLE_COLLECTION, _without_none_values(state))
+
+
+def get_training_mode_state() -> dict[str, Any] | None:
+    return _read_dict(_STATE_KEY_TRAINING_MODE)
+
+
+def set_training_mode_state(state: dict[str, Any] | None) -> None:
+    _write_state(_STATE_KEY_TRAINING_MODE, state)
+
+
+def write_training_mode_state(conn: sqlite3.Connection, state: dict[str, Any] | None) -> None:
+    # In the caller's transaction, beside its other writes (training_runs).
+    write_entry(conn, _STATE_KEY_TRAINING_MODE, state)
 
 
 def get_hive_limits_state() -> dict[str, Any] | None:

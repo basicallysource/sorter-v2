@@ -13,7 +13,7 @@ a natural key, so a re-send never duplicates.
 | Data type | Endpoint (machine token) | Lands in | Natural key | Cursor |
 |---|---|---|---|---|
 | `piece_records` | `POST /api/machine/sync/piece-records` (JSON batch) | `machine_pieces`, `machine_piece_rejection_reasons` | machine, piece_uuid | `sync_seq` |
-| `piece_predictions` | `POST /api/machine/sync/piece-predictions` (JSON batch) | `machine_piece_predictions` | machine, piece_uuid, request, kind, rank | `local_id` |
+| `piece_predictions` | `POST /api/machine/sync/piece-predictions` (JSON batch) | `machine_piece_predictions` | machine, piece_uuid, source, request, kind, rank | `local_id` |
 | `piece_images` | `POST /api/machine/sync/piece-image` (multipart, one image) | `machine_piece_images` | machine, piece_uuid, seq | `sync_seq` |
 | `channel_crops` | `POST /api/machine/sync/channel-crop` | `machine_channel_crops` | machine, local_id | `local_id` |
 | `control_data_segments` | `POST /api/machine/sync/control-data-segment` | `machine_control_data_segments` | machine, local_id | `local_id` |
@@ -65,7 +65,8 @@ holds the line.
 distributed (or reaped, or corrected before it distributes), and again each
 time it changes. Its images go once its record exists, with their final
 `used` / `excluded_from_result` flags; images of a piece that never got a
-record never sync. Predictions go once, when classification settles.
+record never sync. Predictions go once: the machine's own when classification
+settles, a later run's when it is imported on the sorter.
 
 **Training runs.** A sorter in training mode labels every piece it sees during
 a run with what the run was for; the first kind is a colour run, where the
@@ -134,13 +135,20 @@ For training, read the views (one row per verdict, any source):
 
 ## What the machine predicted
 
-`machine_piece_predictions` keeps every ranked answer the sorter got: each
-Brickognize request's (`combined`, `single_burst`) top five parts and colours
-with scores, and the hosted colour model's (`hosted`, provider
-`hive_basically`, `model` = its sha256) top three. `rank` is the provider's own
-order (0-based); `applied` marks the one part and the one colour the piece
-took. `GET /api/labeling/piece/{machine}/{piece}` returns them as
-`machine_predictions`. Hive's own colour models' answers are kept per model in
+`machine_piece_predictions` keeps every ranked answer a piece got on its
+sorter, from any source. `source` `live` is the machine's own classification
+while sorting: each Brickognize request's (`combined`, `single_burst`) top
+five parts and colours with scores, and the hosted colour model's (`hosted`,
+provider `hive_basically`, `model` = its sha256, `model_name`) top three. Any
+other `source` is the label of a later run of a model over the piece's stored
+images, imported on the sorter (`POST /api/predictions/import` there; its
+`request` is the model's name). `images` lists the piece's images each
+prediction was made from (`set` `burst`: a `machine_piece_images` seq; `link`:
+an upstream crop the piece-link model matched), NULL for rows from sorters
+that did not record them, as are `model_name` and `source` (taken as `live`).
+`rank` is the provider's own order (0-based); `applied` marks the one part
+and the one colour the piece took. `GET /api/labeling/piece/{machine}/{piece}`
+returns them as `machine_predictions`, the live ones first. Hive's own colour models' answers are kept per model in
 `piece_model_colors` (`jobs.md`, `color_model_run`), returned as
 `model_answers`; the piece panel steps through both. Pieces from sorters older than this have none; their
 applied colour and score are on `machine_pieces` (`color_id`,

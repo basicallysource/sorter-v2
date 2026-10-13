@@ -20,7 +20,7 @@ from app.errors import APIError
 from app.models.machine import Machine
 from app.models.machine_piece import MachinePiece
 from app.models.machine_piece_image import MachinePieceImage
-from app.models.machine_piece_prediction import MachinePiecePrediction
+from app.models.machine_piece_prediction import SOURCE_LIVE, MachinePiecePrediction
 from app.models.machine_piece_rejection_reason import MachinePieceRejectionReason
 from app.models.machine_channel_crop import MachineChannelCrop
 from app.models.machine_control_data_segment import MachineControlDataSegment
@@ -103,7 +103,8 @@ _PIECE_UPDATE_COLS = (
 _VERDICT_COLS = ("part_correct", "color_corrected_id", "correction_updated_at")
 _FEEDBACK_FLAG_COLS = ("part_feedback_submitted", "color_feedback_submitted")
 _PREDICTION_UPDATE_COLS = (
-    "local_id", "provider", "model", "value_id", "value_name", "score", "applied", "predicted_at",
+    "local_id", "provider", "model", "model_name", "images", "value_id", "value_name", "score", "applied",
+    "predicted_at",
 )
 _IMAGE_UPDATE_COLS = (
     "local_id", "source", "channel", "ts", "captured_at", "sharpness", "bytes",
@@ -436,12 +437,29 @@ class PieceCorrectionIn(BaseModel):
     rejection_reasons: list[str] | None = None
 
 
+class PredictionImageIn(BaseModel):
+    # One of the piece's images a prediction was made from, as the machine
+    # keeps it: "burst" (a classification channel crop; seq is the
+    # machine_piece_images seq) or "link" (an upstream crop the piece-link
+    # model matched).
+    set: str = Field(max_length=16)
+    seq: int
+    channel: int | None = None
+
+
 class PiecePredictionIn(BaseModel):
     local_id: int
     piece_uuid: str
+    # "live" (the machine's classification while sorting) or a later run's
+    # label; sorters older than sources send none.
+    source: str = Field(default=SOURCE_LIVE, min_length=1, max_length=120)
     request: str
     provider: str
+    # The model's identity (its sha256) and its name.
     model: str | None = None
+    model_name: str | None = None
+    # None from sorters that did not record them.
+    images: list[PredictionImageIn] | None = Field(default=None, max_length=64)
     kind: str
     rank: int
     value_id: str
@@ -797,8 +815,9 @@ def sync_piece_predictions(
     db: Session = Depends(get_db),
     machine: Machine = Depends(get_current_machine),
 ) -> dict[str, int]:
-    """Every ranked part and colour answer the machine got for its pieces
-    (MachinePiecePrediction), upserted by (machine, piece, request, kind, rank)."""
+    """Every ranked part and colour answer the machine got for its pieces,
+    from any source (MachinePiecePrediction), upserted by (machine, piece,
+    source, request, kind, rank)."""
     predictions, skipped, key_max = _validate_rows(
         PiecePredictionIn, payload.records, machine, DATA_TYPE_PIECE_PREDICTIONS
     )
@@ -808,7 +827,7 @@ def sync_piece_predictions(
     now = _now()
     machine_id = machine.id
     predictions = _latest_per_key(
-        predictions, key=lambda r: (r.piece_uuid, r.request, r.kind, r.rank), order=lambda r: r.local_id
+        predictions, key=lambda r: (r.piece_uuid, r.source, r.request, r.kind, r.rank), order=lambda r: r.local_id
     )
 
     def write(batch: list[PiecePredictionIn]) -> None:
@@ -820,9 +839,12 @@ def sync_piece_predictions(
                     "machine_id": machine_id,
                     "piece_uuid": r.piece_uuid,
                     "local_id": r.local_id,
+                    "source": r.source,
                     "request": r.request,
                     "provider": r.provider,
                     "model": r.model,
+                    "model_name": r.model_name,
+                    "images": [i.model_dump() for i in r.images] if r.images is not None else None,
                     "kind": r.kind,
                     "rank": r.rank,
                     "value_id": r.value_id,
@@ -834,7 +856,7 @@ def sync_piece_predictions(
                 }
                 for r in batch
             ],
-            ["machine_id", "piece_uuid", "request", "kind", "rank"], _PREDICTION_UPDATE_COLS,
+            ["machine_id", "piece_uuid", "source", "request", "kind", "rank"], _PREDICTION_UPDATE_COLS,
         )
 
     skipped += _write_rows(db, write, predictions, machine, DATA_TYPE_PIECE_PREDICTIONS)

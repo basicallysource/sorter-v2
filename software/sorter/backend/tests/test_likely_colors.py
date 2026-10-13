@@ -121,16 +121,15 @@ def test_every_requests_colors_are_the_predictions_at_their_best_score(monkeypat
     _use(monkeypatch, hive)
     _record("p2", "4", 0.6)
     piece_predictions.recordPredictions("p2", [
-        {"request": "single_burst", "provider": "brickognize", "kind": "color", "rank": 0,
-         "value_id": "5", "value_name": "Red", "score": 0.9, "applied": False},
-        {"request": "combined", "provider": "brickognize", "kind": "color", "rank": 1,
-         "value_id": "68", "value_name": "Dark Orange", "score": 0.3, "applied": False},
-        {"request": "combined", "provider": "brickognize", "kind": "color", "rank": 0,
-         "value_id": "4", "value_name": "Orange", "score": 0.6, "applied": True},
-        {"request": "single_burst", "provider": "brickognize", "kind": "color", "rank": 1,
-         "value_id": "4", "value_name": "Orange", "score": 0.05, "applied": False},
-        {"request": "combined", "provider": "brickognize", "kind": "part", "rank": 0,
-         "value_id": "3003", "value_name": "Brick 2 x 2", "score": 0.8, "applied": True},
+        {"source": "live", "request": "single_burst", "provider": "brickognize", "answers": [
+            {"kind": "color", "rank": 0, "value_id": "5", "value_name": "Red", "score": 0.9, "applied": False},
+            {"kind": "color", "rank": 1, "value_id": "4", "value_name": "Orange", "score": 0.05, "applied": False},
+        ]},
+        {"source": "live", "request": "combined", "provider": "brickognize", "answers": [
+            {"kind": "color", "rank": 1, "value_id": "68", "value_name": "Dark Orange", "score": 0.3, "applied": False},
+            {"kind": "color", "rank": 0, "value_id": "4", "value_name": "Orange", "score": 0.6, "applied": True},
+            {"kind": "part", "rank": 0, "value_id": "3003", "value_name": "Brick 2 x 2", "score": 0.8, "applied": True},
+        ]},
     ])
     with _client() as client:
         response = client.get("/api/pieces/p2/likely-colors")

@@ -95,6 +95,11 @@ class ClassificationAttempt:
     # response). Not sent to the UI over the socket.
     items: List[dict] = field(default_factory=list)
     colors: List[dict] = field(default_factory=list)
+    # The piece's stored images this request sent, as piece_predictions keeps
+    # them: {"set": "burst" | "link", "seq", "channel"}, seq being the image's
+    # place in recognition_image_set / link_match_image_set. Not sent to the UI
+    # over the socket.
+    images: Optional[List[dict]] = None
     error: Optional[str] = None
     duration_s: Optional[float] = None
     # Capture timestamps of the exact images submitted in this request. The UI

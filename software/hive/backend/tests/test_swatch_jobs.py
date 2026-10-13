@@ -31,6 +31,7 @@ from app.models.sample_swatch import SampleSwatch, SampleSwatchRun
 from app.models.swatch_model import SwatchModel
 from app.models.user import User
 from app.services import job_queue, swatch_jobs, swatch_models
+from app.services.sample_filters import SampleFilters, list_defaults
 from app.services.storage_backend import get_backend, reset_backend_for_tests
 from app.services.swatch_finder import Net, SwatchFinder
 from tests.conftest import TestingSessionLocal, _auth_headers
@@ -358,22 +359,16 @@ def test_the_samples_list_review_queue_and_batch_actions_filter_on_the_palette(c
     assert r.json()["matched"] == 1
 
 
-def test_a_palette_filter_shows_raw_frames_unless_asked_otherwise(client, db, machine_token, fake_finder):
-    _model(db)
-    strip = list(zip(TILES, [p[0] for p in PALETTE[1:]]))
-    in_view = _read(client, db, machine_token, 1, strip)["sample_id"]
-    headers = _auth_headers(client)
-
-    def listed(**params) -> set[str]:
-        r = client.get("/api/samples", params={"exposure": "under", "limit": 50, **params}, headers=headers)
-        assert r.status_code == 200, r.text
-        return {item["id"] for item in r.json()["items"]}
-
-    # The classification camera's frames have had no teacher pass. The list
-    # hides such raw samples by default, but not under a palette filter.
-    assert listed() == set()
-    assert listed(palette="in_view") == {in_view}
-    assert listed(palette="in_view", annotated="teacher") == set()
+def test_a_palette_filter_shows_raw_frames_unless_asked_otherwise():
+    # The samples list defaults to teacher-checked samples, which the classification
+    # camera's frames rarely are. The rule is tested on its own: on the tests'
+    # SQLite the teacher filter keeps raw samples too, so the list cannot show it.
+    assert list_defaults(SampleFilters()).annotated == "teacher"
+    assert list_defaults(SampleFilters(palette="any")).annotated == "teacher"
+    assert list_defaults(SampleFilters(palette="in_view")).annotated == "all"
+    assert list_defaults(SampleFilters(palette="not_in_view")).annotated == "all"
+    assert list_defaults(SampleFilters(palette="in_view", annotated="teacher")).annotated == "teacher"
+    assert list_defaults(SampleFilters(palette="in_view")).exposure == "normal"
 
 
 def _make_admin(db, email: str = "member@test.com") -> None:

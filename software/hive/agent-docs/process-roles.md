@@ -109,6 +109,18 @@ The catalog page's status comes from the worker's heartbeat
 from the tables and the progress rows a running sync keeps in `parts.db`), and
 its start and stop go to the worker as requests.
 
+Requests reach `parts.db` through one SQLite connection
+(`ProfileCatalogService._conn`). A connection can be handed to other threads
+but not used by two at once, and requests run on a thread pool, so every use of
+it holds `ProfileCatalogService._lock` for one call: a new method that touches
+`_conn` takes the lock, and nothing that waits on the network or reads the whole
+catalog runs under it. The reload after a sync (a few seconds) reads `parts.db`
+on a connection of its own, and so does the fetch of a set from Rebrickable, so
+a search never waits for either. Two threads inside the connection at once
+showed up as `sqlite3.InterfaceError: bad parameter or other API misuse` on
+`/api/profile-catalog/search-parts`;
+`tests/test_profile_catalog_connection.py` is the test for it.
+
 ## Every request is bounded: statement timeouts
 
 In every process that answers requests, each request's database session sets

@@ -977,11 +977,12 @@
 {/snippet}
 
 <!-- The training run the machine saw the piece in: the color it labels the
-     piece with (a color label like a person's, unless excluded) and what the
-     run was for -->
+     piece with (a color label like a person's, unless excluded) and what was
+     being fed then (the piece's segment of the run, else the whole run) -->
 {#snippet trainingRun()}
 	{#if detail?.training_run}
 		{@const tr = detail.training_run}
+		{@const fed = tr.segment ?? { colors: tr.colors, started_at: tr.started_at }}
 		<div class="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm">
 			<Badge tone="info">Training run</Badge>
 			{#if tr.color_id}
@@ -997,7 +998,7 @@
 				<Badge>Excluded</Badge>
 			{/if}
 			<span class="min-w-0 text-ink-muted">
-				{runPurpose(tr.mode, tr.colors)}{#if tr.started_at}, {formatDateTime(tr.started_at)}{/if}
+				{runPurpose(tr.mode, fed.colors)}{#if fed.started_at}, {formatDateTime(fed.started_at)}{/if}
 			</span>
 		</div>
 	{/if}

@@ -1691,11 +1691,22 @@ export interface TrainingRunColor {
 	rgb: string | null;
 }
 
+// A stretch of a training run with the colors fed during it.
+export interface TrainingRunSegment {
+	segment_uuid: string;
+	color_ids: string[];
+	colors: TrainingRunColor[];
+	started_at: string | null;
+	ended_at: string | null; // null while it is open
+}
+
 export interface PieceTrainingRun {
 	run_uuid: string;
 	mode: string | null; // 'color'; null until the run itself has synced
-	color_ids: string[];
+	color_ids: string[]; // every color the run's segments used
 	colors: TrainingRunColor[];
+	// The segment the piece was seen in; null when it names none or the run has not synced it.
+	segment: TrainingRunSegment | null;
 	color_id: string | null; // the piece's label; null when the run could not decide one
 	color_name: string | null;
 	color_rgb: string | null;

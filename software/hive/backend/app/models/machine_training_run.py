@@ -27,8 +27,13 @@ class MachineTrainingRun(Base):
     # carry as machine_pieces.training_run_uuid.
     run_uuid = Column(String, nullable=False)
     mode = Column(String, nullable=False)
-    # BrickLink colour ids, as strings of digits.
+    # BrickLink colour ids, as strings of digits: every colour its segments used.
     color_ids = Column(JSON_VARIANT, nullable=False, default=list)
+    # The run's segments, oldest first: the operator changes the colours fed
+    # without ending the run, and each change starts a segment. Each is
+    # {segment_uuid, color_ids, started_at, ended_at (null while open)}, the
+    # times as ISO 8601 in UTC; a piece names its own (training_segment_uuid).
+    segments = Column(JSON_VARIANT, nullable=False, default=list)
     started_at = Column(DateTime(timezone=True), nullable=False)
     ended_at = Column(DateTime(timezone=True), nullable=True)
     # The operator excluded the whole run: none of its labels count.

@@ -8,9 +8,10 @@ A sorter in training mode labels every piece it sees during a run with what
 the run was for: in a colour run, one of the colours the operator fed.
 
   * machine_training_runs: one row per (machine, run), synced from the machine
-    (data type training_runs), with the piece, labelled and excluded counts
-    Hive keeps on it (services/training_runs.py).
-  * machine_pieces.training_run_uuid / training_color_id /
+    (data type training_runs), with its segments (the colours fed, changed
+    without ending the run) and the piece, labelled and excluded counts Hive
+    keeps on it (services/training_runs.py).
+  * machine_pieces.training_run_uuid / training_segment_uuid / training_color_id /
     training_label_source / training_excluded / training_updated_at, synced
     with the piece's record. Added without rewriting the table (nullable, or a
     constant default), and ix_machine_pieces_training_run (a run's pieces, only
@@ -144,6 +145,7 @@ def upgrade() -> None:
         sa.Column("run_uuid", sa.String(), nullable=False),
         sa.Column("mode", sa.String(), nullable=False),
         sa.Column("color_ids", postgresql.JSONB(), nullable=False),
+        sa.Column("segments", postgresql.JSONB(), nullable=False, server_default=sa.text("'[]'::jsonb")),
         sa.Column("started_at", sa.DateTime(timezone=True), nullable=False),
         sa.Column("ended_at", sa.DateTime(timezone=True), nullable=True),
         sa.Column("excluded", sa.Boolean(), nullable=False, server_default=sa.false()),
@@ -159,6 +161,7 @@ def upgrade() -> None:
         "ix_machine_training_runs_machine_started", "machine_training_runs", ["machine_id", "started_at", "id"]
     )
     op.add_column("machine_pieces", sa.Column("training_run_uuid", sa.String(), nullable=True))
+    op.add_column("machine_pieces", sa.Column("training_segment_uuid", sa.String(), nullable=True))
     op.add_column("machine_pieces", sa.Column("training_color_id", sa.String(), nullable=True))
     op.add_column("machine_pieces", sa.Column("training_label_source", sa.String(), nullable=True))
     op.add_column(
@@ -192,6 +195,7 @@ def downgrade() -> None:
     op.drop_column("machine_pieces", "training_excluded")
     op.drop_column("machine_pieces", "training_label_source")
     op.drop_column("machine_pieces", "training_color_id")
+    op.drop_column("machine_pieces", "training_segment_uuid")
     op.drop_column("machine_pieces", "training_run_uuid")
     op.drop_index("ix_machine_training_runs_machine_started", table_name="machine_training_runs")
     op.drop_table("machine_training_runs")

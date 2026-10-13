@@ -70,13 +70,18 @@ record never sync. Predictions go once, when classification settles.
 **Training runs.** A sorter in training mode labels every piece it sees during
 a run with what the run was for; the first kind is a colour run, where the
 operator feeds one colour (or a set) and each piece counts as one of them. The
-piece's record carries `training_run_uuid`, `training_color_id` (NULL when the
-run could not decide one), `training_label_source` (`run`: the run's one
+piece's record carries `training_run_uuid`, `training_segment_uuid`,
+`training_color_id` (NULL when the run could not decide one), `training_label_source` (`run`: the run's one
 colour; `prediction`: the first of the piece's own colour predictions that is
 one of the run's; `nearest`: the run colour nearest the machine's),
 `training_excluded` and `training_updated_at`; the sorter owns them, so every
-record overwrites them. The run itself (`mode`, `color_ids`, `started_at`,
-`ended_at`, `excluded`) syncs as `training_runs`. A training colour **counts**
+record overwrites them. The run itself (`mode`, `color_ids`: every colour it
+used, `segments`, `started_at`, `ended_at`, `excluded`) syncs as
+`training_runs`. A run is a sequence of segments: the operator can change the
+colours fed without ending the run, and each change starts a segment
+(`{segment_uuid, color_ids, started_at, ended_at}`, oldest first, kept as JSON
+on the run's row and overwritten on every sync); a piece names the segment it
+was seen in. A training colour **counts**
 as a colour label when it is set, the piece is not excluded and its run is not
 (a run Hive has not received yet counts as not excluded). Hive keeps each run's
 `piece_count`, `labeled_count` and `excluded_count` on its row, recounting a

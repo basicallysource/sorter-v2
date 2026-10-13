@@ -30,7 +30,7 @@ from sqlalchemy.orm import Session
 
 from app.config import settings
 from app.models.color_model import ColorModel
-from app.services.profile_catalog import get_profile_catalog_service
+from app.services.profile_catalog import catalog_lookup
 
 log = logging.getLogger(__name__)
 
@@ -254,7 +254,8 @@ def _preprocess(data: bytes, size: int) -> np.ndarray | None:
 def _palette() -> dict[int, dict[str, Any]]:
     return {
         c["id"]: c
-        for c in get_profile_catalog_service().list_bricklink_colors()
+        # catalog_lookup: the worker process (piece_warm) may not load the catalog.
+        for c in catalog_lookup().list_bricklink_colors()
         if isinstance(c.get("id"), int)
     }
 

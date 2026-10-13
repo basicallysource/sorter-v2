@@ -23,7 +23,7 @@ import time
 import db
 
 # The tables whose rows sync by sync_seq.
-TABLES = ("piece_records", "piece_images")
+TABLES = ("piece_records", "piece_images", "training_runs")
 
 
 def _createCounter(conn: sqlite3.Connection) -> None:

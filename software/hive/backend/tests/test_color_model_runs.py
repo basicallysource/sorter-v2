@@ -206,3 +206,44 @@ def test_the_piece_panel_lists_every_models_answer(client, db, test_machine, mod
     assert client.get("/api/labeling/color-models").json()["models"][0] == {
         "sha256": NEW, "name": "colorpred-v3", "filename": "colorpred-v3.onnx", "is_active": True,
     }
+
+
+def test_agreeing_labels_each_piece_with_the_models_colour(client, db, test_machine, models, monkeypatch):
+    from app.models.machine import Machine
+    from app.models.piece_color_label import PieceColorLabel
+    from app.services import likely_colors
+
+    monkeypatch.setattr(likely_colors, "labelable_palette", lambda: [{"id": 5}, {"id": 7}])
+    machine_id = UUID(test_machine["id"])
+    me = db.query(User).filter(User.email == "member@test.com").one()
+    other = User(email="other@test.com", display_name="Other", role="member")
+    db.add(other)
+    db.commit()
+    theirs = Machine(owner_id=other.id, token_hash="h-theirs", token_prefix="theirs", name="theirs")
+    db.add(theirs)
+    db.commit()
+    _piece(db, machine_id, "red", [("5", True)])
+    _piece(db, machine_id, "blue", [("7", True)])
+    _piece(db, machine_id, "black", [("11", True)])  # not a labelable colour here
+    _piece(db, machine_id, "unread", [("5", True)])
+    _piece(db, theirs.id, "theirs", [("5", True)])
+    color_model_runs.run_batch(db, NEW, machine_id, ["red", "blue", "black"])
+    color_model_runs.run_batch(db, NEW, theirs.id, ["theirs"])
+    # My earlier "can't tell" on the blue one is replaced.
+    db.add(PieceColorLabel(machine_id=machine_id, piece_uuid="blue", labeler_id=me.id, color_id=None, cant_tell=True))
+    db.commit()
+
+    pieces = [{"machine_id": str(machine_id), "piece_uuid": p} for p in ("red", "blue", "black", "unread", "red")]
+    pieces.append({"machine_id": str(theirs.id), "piece_uuid": "theirs"})
+    r = client.post("/api/labeling/agree", json={"model_sha256": NEW, "pieces": pieces}, headers=_auth_headers(client))
+    assert r.status_code == 200, r.text
+    body = r.json()
+    assert (body["labeled"], body["created"], body["skipped"]) == (2, 1, 3)
+    assert {(x["piece_uuid"], x["color_id"], x["created"]) for x in body["labels"]} == {("red", 5, True), ("blue", 7, False)}
+    db.expire_all()
+    labels = {(l.piece_uuid, l.color_id, bool(l.cant_tell)) for l in db.query(PieceColorLabel).filter_by(labeler_id=me.id)}
+    assert labels == {("red", 5, False), ("blue", 7, False)}
+
+    too_many = [{"machine_id": str(machine_id), "piece_uuid": f"p{i}"} for i in range(501)]
+    r = client.post("/api/labeling/agree", json={"model_sha256": NEW, "pieces": too_many}, headers=_auth_headers(client))
+    assert r.status_code == 422

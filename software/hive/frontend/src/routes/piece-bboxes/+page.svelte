@@ -2,8 +2,16 @@
 	import { replaceState } from '$app/navigation';
 	import { page } from '$app/state';
 	import { onMount, tick } from 'svelte';
-	import { api, type ColorLabelSort, type ColorLabelStats, type ColorModelChoice, type Machine } from '$lib/api';
+	import {
+		api,
+		type ColorLabelPieceCard,
+		type ColorLabelSort,
+		type ColorLabelStats,
+		type ColorModelChoice,
+		type Machine
+	} from '$lib/api';
 	import { modelLabel } from '$lib/colorModels';
+	import { prefetchPiece, prefetchPieces } from '$lib/pieceCache';
 	import { auth } from '$lib/auth.svelte';
 	import * as nav from '$lib/colorLabelNav';
 	import FilterGroup from '$lib/components/FilterGroup.svelte';
@@ -22,6 +30,7 @@
 	import Select from '$lib/components/Select.svelte';
 	import Shapes from '@lucide/svelte/icons/shapes';
 	import ArrowRight from '@lucide/svelte/icons/arrow-right';
+	import Check from '@lucide/svelte/icons/check';
 	import LayoutGrid from '@lucide/svelte/icons/layout-grid';
 	import Rows3 from '@lucide/svelte/icons/rows-3';
 
@@ -79,6 +88,99 @@
 		const needsModel = nav.MODEL_SORTS.includes(sort) && !filters.colorModel;
 		setFilters(needsModel ? { sort, colorModel: activeModel() } : { sort });
 	}
+
+	// Pieces picked for "agree with the model": only cards with the model's
+	// answer can be picked, and a new list starts with none.
+	const AGREE_MAX = 500;
+	let picked = $state<Set<string>>(new Set());
+	let pickAnchor: string | null = null;
+	let agreeing = $state(false);
+	let agreeNote = $state<string | null>(null);
+	$effect(() => {
+		void queue;
+		picked = new Set();
+		pickAnchor = null;
+	});
+	const pickedCards = $derived(queue.items.filter((c) => picked.has(nav.pieceKey(c))));
+	const pickableCount = $derived(queue.items.filter((c) => c.model_color).length);
+	const chosenModel = $derived(colorModels.find((m) => m.sha256 === filters.colorModel) ?? null);
+	// "These are Red" when every picked piece is the same colour to the model.
+	const agreeLabel = $derived.by(() => {
+		const names = new Set(pickedCards.map((c) => c.model_color?.color_name ?? String(c.model_color?.color_id)));
+		const n = pickedCards.length;
+		if (names.size === 1) return `These are ${[...names][0]}: agree (${n})`;
+		return `Agree with ${chosenModel ? modelLabel(chosenModel.name) : 'the model'} (${n})`;
+	});
+
+	function pick(card: ColorLabelPieceCard, range: boolean) {
+		const key = nav.pieceKey(card);
+		const next = new Set(picked);
+		const on = !next.has(key);
+		const items = queue.items;
+		const from = range && pickAnchor ? items.findIndex((c) => nav.pieceKey(c) === pickAnchor) : -1;
+		const to = items.findIndex((c) => nav.pieceKey(c) === key);
+		// A shift-click gives the stretch from the last pick to this one this
+		// one's new state (picked, or not), as its box now shows.
+		const stretch = from >= 0 && to >= 0 ? items.slice(Math.min(from, to), Math.max(from, to) + 1) : [card];
+		for (const c of stretch) {
+			if (!c.model_color) continue;
+			if (on) next.add(nav.pieceKey(c));
+			else next.delete(nav.pieceKey(c));
+		}
+		pickAnchor = key;
+		picked = next;
+		agreeNote = null;
+	}
+	function pickAllShown() {
+		picked = new Set(queue.items.filter((c) => c.model_color).map((c) => nav.pieceKey(c)));
+		agreeNote = null;
+	}
+	function clearPicks() {
+		picked = new Set();
+		pickAnchor = null;
+	}
+
+	async function agree() {
+		if (!filters.colorModel || pickedCards.length === 0 || pickedCards.length > AGREE_MAX) return;
+		agreeing = true;
+		agreeNote = null;
+		try {
+			const res = await api.colorLabelAgree(
+				filters.colorModel,
+				pickedCards.map((c) => ({ machine_id: c.machine_id, piece_uuid: c.piece_uuid }))
+			);
+			for (const l of res.labels) {
+				queue.patch(nav.pieceKey(l), (c) => ({
+					...c,
+					my_color: true,
+					color_label_count: c.color_label_count + (l.created ? 1 : 0)
+				}));
+			}
+			agreeNote = `Labeled ${res.labeled.toLocaleString()}${res.skipped ? `, ${res.skipped} skipped` : ''}.`;
+			clearPicks();
+			void loadStats(filters.machineIds);
+		} catch (e: unknown) {
+			agreeNote = e && typeof e === 'object' && 'error' in e ? String((e as { error: unknown }).error) : 'Failed to save the labels';
+		} finally {
+			agreeing = false;
+		}
+	}
+
+	// Opening a piece should be instant: the next few after the open one, and a
+	// card the pointer rests on, are fetched ahead (lib/pieceCache).
+	const PREFETCH_NEXT = 3;
+	let hoverTimer: ReturnType<typeof setTimeout> | null = null;
+	function hover(card: ColorLabelPieceCard | null) {
+		if (hoverTimer) clearTimeout(hoverTimer);
+		hoverTimer = card ? setTimeout(() => prefetchPiece(card.machine_id, card.piece_uuid), 120) : null;
+	}
+	$effect(() => {
+		const key = selectedKey;
+		const items = queue.items;
+		if (!key) return;
+		const at = items.findIndex((c) => nav.pieceKey(c) === nav.pieceKey(key));
+		if (at >= 0) prefetchPieces(items.slice(at + 1, at + 1 + PREFETCH_NEXT));
+	});
 
 	let stats = $state<ColorLabelStats | null>(null);
 	let statsError = $state<string | null>(null);
@@ -342,14 +444,54 @@
 				/>
 			</div>
 
+			<!-- Agree in bulk with the chosen model's colors -->
+			{#if filters.colorModel && (pickableCount > 0 || agreeNote)}
+				<div class="flex flex-wrap items-center gap-2 rounded-panel bg-surface px-(--pad-panel) py-2 text-sm">
+					{#if picked.size > 0}
+						<Button
+							size="sm"
+							variant="primary"
+							icon={Check}
+							loading={agreeing}
+							disabled={picked.size > AGREE_MAX}
+							title={picked.size > AGREE_MAX ? `At most ${AGREE_MAX} at a time` : 'Label each picked piece with the color the model gave it'}
+							onclick={agree}>{agreeLabel}</Button
+						>
+						<Button size="sm" variant="ghost" onclick={clearPicks}>Clear</Button>
+					{:else}
+						<span class="text-ink-muted">Pick pieces the model got right (shift-click picks a range).</span>
+					{/if}
+					{#if picked.size < pickableCount}
+						<Button size="sm" variant="ghost" onclick={pickAllShown}>Pick all shown ({pickableCount.toLocaleString()})</Button>
+					{/if}
+					{#if agreeNote}<span class="text-ink-muted">{agreeNote}</span>{/if}
+				</div>
+			{/if}
+
 			<ReviewGrid {queue} layout={view} emptyIcon={Shapes} emptyTitle="No pieces match">
 				{#snippet empty()}{isModelSort ? 'This color model has not read any of these pieces yet.' : 'No labelable pieces match these filters.'}{/snippet}
 				{#snippet item(card)}
 					{@const selected = selectedKey != null && nav.pieceKey(card) === nav.pieceKey(selectedKey)}
 					{#if view === 'grid'}
-						<PieceCard {card} id={rowElId(card)} {selected} onOpen={open} />
+						<PieceCard
+							{card}
+							id={rowElId(card)}
+							{selected}
+							onOpen={open}
+							picked={picked.has(nav.pieceKey(card))}
+							onPick={filters.colorModel && card.model_color ? pick : undefined}
+							onHover={hover}
+						/>
 					{:else}
-						<PieceRow {card} id={rowElId(card)} {selected} onOpen={open} />
+						<PieceRow
+							{card}
+							id={rowElId(card)}
+							{selected}
+							onOpen={open}
+							picked={picked.has(nav.pieceKey(card))}
+							onPick={filters.colorModel && card.model_color ? pick : undefined}
+							onHover={hover}
+						/>
 					{/if}
 				{/snippet}
 			</ReviewGrid>

@@ -228,5 +228,11 @@ def test_s3_puts_a_small_file_in_one_request():
     big = S3StorageBackend.SINGLE_PUT_MAX_BYTES + 1
     backend.write_stream("big", io.BytesIO(b"\0" * big), content_type="application/gzip")
 
-    assert calls[0] == ("put", {"Bucket": "bucket", "Key": "small", "Body": b"x" * 1000, "ContentType": "image/jpeg"})
+    assert calls[0] == (
+        "put",
+        {
+            "Bucket": "bucket", "Key": "small", "Body": b"x" * 1000, "ContentType": "image/jpeg",
+            "CacheControl": S3StorageBackend.IMAGE_CACHE_CONTROL,
+        },
+    )
     assert calls[1] == ("transfer", "big", {"ContentType": "application/gzip"}, big)

@@ -131,6 +131,14 @@ answer on its cards (`model_color`, a keyed read of the page's pieces); the
 page shows it with a High / Medium / Low band (`frontend/src/lib/colorModels.ts`,
 90% and 60%). The menu after "N shown" picks the model and the order.
 
+**Agreeing in bulk.** With a model chosen, cards with its answer can be picked
+(shift-click picks a stretch, "Pick all shown" the loaded ones), and
+`POST /api/labeling/agree` (`model_sha256`, up to 500 pieces) writes the
+user's own colour label for each as the colour that model answered for it: a
+few keyed reads and one row each, skipping pieces the user may not see, the
+model has not answered, or whose answer is not a labelable colour. The cards
+are patched in place; correcting one piece stays the panel's job.
+
 Paging is a keyset cursor (`next_cursor`, passed back as `cursor`): the segment
 and the sort key of the last piece served. Page 50 costs what page 1 does, and
 a label made while someone scrolls shifts nothing under them.
@@ -145,6 +153,15 @@ backend can sign them, so a page of 60 cards is not 60 more API requests. The
 image routes remain for local storage and as the fallback.
 
 ## Per-piece results kept, not recomputed
+
+Both results below are worked out ahead for the pieces a grid page shows (the
+`piece_warm` job, `jobs.md`), so opening a piece reads rows. The page also
+fetches the next three pieces after the open one, and a card the pointer
+rests on, with their pictures (`frontend/src/lib/pieceCache.ts`); the pane
+shows that at once and refreshes it in the background. Images in the object
+store are written with `Cache-Control: private, max-age=86400, immutable`, and
+their signed URLs are kept for half the signature's life, so the browser keeps
+them.
 
 - **Link scores** are kept per `(machine, piece, link model sha256)`. The first
   open reads the anchor and candidate crops concurrently, with no transaction

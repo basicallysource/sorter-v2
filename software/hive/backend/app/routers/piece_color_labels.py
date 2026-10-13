@@ -43,11 +43,12 @@ from app.models.machine_piece_rejection_reason import MachinePieceRejectionReaso
 from app.models.piece_color_label import PieceColorLabel
 from app.models.piece_crop_ai_prediction import PieceCropAiPrediction
 from app.models.piece_crop_link import PieceCropLink, PieceCropLinkMember
+from app.models.piece_model_output import PieceModelColor
 from app.models.piece_part_label import PiecePartLabel
 from app.models.piece_rejection import PieceRejection
 from app.models.user import User
 from app.schemas.likely_colors import LikelyColorsResponse
-from app.services import color_model_runs, color_rank, likely_colors, piece_palette, training_runs
+from app.services import color_model_runs, color_rank, likely_colors, piece_palette, piece_warm, training_runs
 from app.services.brickognize_feedback import submit_color_feedback, submit_part_feedback
 from app.services.channel_crop_lookup import find_possible_crops
 from app.services import review_queue
@@ -377,8 +378,12 @@ def list_pieces(
         with_palette=with_palette,
         model_sha256=color_model,
     )
+    items = review_queue.piece_cards(db, current_user, rows, model_sha256=color_model)
+    # Work out these pieces' panels in the background, so opening one is a
+    # read of kept rows (services.piece_warm).
+    piece_warm.enqueue_for_page(db, rows)
     return {
-        "items": review_queue.piece_cards(db, current_user, rows, model_sha256=color_model),
+        "items": items,
         "has_more": next_cursor is not None,
         "next_cursor": next_cursor,
         "sort": sort,
@@ -878,6 +883,93 @@ def submit_label(
         or 0
     )
     return {"ok": True, "created": created, "labeled_by_me": int(labeled_by_me)}
+
+
+# The most pieces one "agree" request labels.
+AGREE_MAX = 500
+
+
+class AgreePiece(BaseModel):
+    machine_id: UUID
+    piece_uuid: str = Field(min_length=1, max_length=200)
+
+
+class AgreePayload(BaseModel):
+    # The colour model whose answers are agreed with (its sha256).
+    model_sha256: str = Field(min_length=1, max_length=64)
+    pieces: list[AgreePiece] = Field(min_length=1, max_length=AGREE_MAX)
+
+
+@router.post("/agree")
+def agree_with_model(
+    payload: AgreePayload,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> dict:
+    """Label each of these pieces, as the current user, with the colour the
+    model answered for it (piece_model_colors): "these are all right". A piece
+    the user may not see, that the model has not answered, or whose answer is
+    not a labelable colour is skipped. Replaces the user's own earlier label
+    of a piece; up to AGREE_MAX pieces in one request, a few keyed reads and
+    one write each."""
+    keys = list(dict.fromkeys((p.machine_id, p.piece_uuid) for p in payload.pieces))
+    machine_ids = list({k[0] for k in keys})
+    piece_uuids = list({k[1] for k in keys})
+    wanted = set(keys)
+
+    visible = {
+        (mid, puid)
+        for mid, puid in scope_to_piece_access(
+            db,
+            db.query(MachinePiece.machine_id, MachinePiece.piece_uuid).filter(
+                MachinePiece.machine_id.in_(machine_ids), MachinePiece.piece_uuid.in_(piece_uuids)
+            ),
+            current_user,
+            MachinePiece.machine_id,
+            MachinePiece.piece_uuid,
+        )
+        if (mid, puid) in wanted
+    }
+    valid_ids = {c["id"] for c in likely_colors.labelable_palette()}
+    colors = {
+        (mid, puid): int(color_id)
+        for mid, puid, color_id in db.query(PieceModelColor.machine_id, PieceModelColor.piece_uuid, PieceModelColor.color_id).filter(
+            PieceModelColor.model_sha256 == payload.model_sha256,
+            PieceModelColor.machine_id.in_(machine_ids),
+            PieceModelColor.piece_uuid.in_(piece_uuids),
+        )
+        if (mid, puid) in visible and int(color_id) in valid_ids
+    }
+    mine = {
+        (label.machine_id, label.piece_uuid): label
+        for label in db.query(PieceColorLabel).filter(
+            PieceColorLabel.labeler_id == current_user.id,
+            PieceColorLabel.machine_id.in_(machine_ids),
+            PieceColorLabel.piece_uuid.in_(piece_uuids),
+        )
+        if (label.machine_id, label.piece_uuid) in colors
+    }
+    now = datetime.now(timezone.utc)
+    created = 0
+    for key, color_id in colors.items():
+        label = mine.get(key)
+        if label is None:
+            db.add(PieceColorLabel(machine_id=key[0], piece_uuid=key[1], labeler_id=current_user.id, color_id=color_id))
+            created += 1
+        else:
+            label.color_id = color_id
+            label.cant_tell = False
+            label.updated_at = now
+    db.commit()
+    return {
+        "labeled": len(colors),
+        "created": created,
+        "skipped": len(keys) - len(colors),
+        "labels": [
+            {"machine_id": str(mid), "piece_uuid": puid, "color_id": color_id, "created": (mid, puid) not in mine}
+            for (mid, puid), color_id in colors.items()
+        ],
+    }
 
 
 @router.delete("/{machine_id}/{piece_uuid}")

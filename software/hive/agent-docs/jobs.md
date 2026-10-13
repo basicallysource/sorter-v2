@@ -178,3 +178,21 @@ Every colour model's answer for a piece, kept side by side
 - **Served**: the piece grid sorts by a model's confidence (`least_sure`,
   `surest`) and shows its answer on each card (`labeling-queue.md`); the piece
   panel lists every model's answer (`model_answers` on the piece detail).
+
+### `piece_warm`
+
+A piece's labeling panel worked out before anyone opens it
+(`app/services/piece_warm.py`). Opening a piece used to make its colour
+guesses and score its ~40 same-piece candidates with the link model in the
+request, seconds of storage reads and model runs while the labeler waited.
+Both results are kept per piece (`piece_color_guesses`, `piece_link_scores`),
+so this job makes them ahead of time.
+
+- **Queued** by the piece grid's list request (`GET /api/labeling/pieces`) for
+  the pieces of the page it served that lack the active colour model's guess,
+  or the active link model's scores when they have same-piece candidates (two
+  keyed reads), at priority 10: ahead of live and backfill work, since a
+  person is looking at them.
+- **Run**: the same functions the panel calls (`color_guesses`,
+  `link_scores`), each reading its kept row first, so a piece already worked
+  out costs two reads.

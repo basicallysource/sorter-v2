@@ -738,7 +738,31 @@ class TestSetProgressHardening:
             headers=machine_headers,
         )
         assert valid_response.status_code == 200, valid_response.text
+        assert valid_response.json()["changed"] == 2
         assert db.query(MachineSetProgress).count() == 2
+
+        # The same snapshot again writes nothing; one part changed writes one row.
+        def report(found_3002: int) -> dict:
+            response = client.post(
+                "/api/machine/set-progress",
+                json={
+                    "version_id": version["id"],
+                    "artifact_hash": version["compiled_hash"],
+                    "items": [
+                        {"set_num": "33333-1", "part_num": "3001", "color_id": 5, "quantity_needed": 2, "quantity_found": 1},
+                        {"set_num": "33333-1", "part_num": "3002", "color_id": 7, "quantity_needed": 1, "quantity_found": found_3002},
+                    ],
+                },
+                headers=machine_headers,
+            )
+            assert response.status_code == 200, response.text
+            return response.json()
+
+        assert report(1)["changed"] == 0
+        assert report(0)["changed"] == 1
+        db.expire_all()
+        row = db.query(MachineSetProgress).filter(MachineSetProgress.part_num == "3002").one()
+        assert (row.quantity_needed, row.quantity_found) == (1, 0)
 
 
 class TestProfileAi:

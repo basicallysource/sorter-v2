@@ -146,3 +146,35 @@ frame, and its colour is read from the full-resolution pixels
   when `HIVE_TEST_SWATCH_MODEL` names an exported finder and
   `HIVE_TEST_SWATCH_FRAME` a classification-camera JPEG with the palette in
   view (and `HIVE_TEST_SWATCH_FRAME_WITHOUT_PALETTE` one without).
+
+### `color_model_run`
+
+Every colour model's answer for a piece, kept side by side
+(`app/services/color_model_runs.py`).
+
+- **Models**: every colour classifier in `COLOR_MODEL_DIR` (the `color_models`
+  registry, reconciled from the folder; `color_predictor.py`). Not only the
+  active one: each model's answers are kept by its file's sha256, so an older
+  model's stay beside a newer one's and a removed model's stay under the name
+  it had.
+- **Queued** by the backfill (`POST /api/color-models/backfill`, admin): one
+  machine's labelable pieces (the labeling queue's), all of them or those with
+  the colour reference palette near them (`with_palette`) or with same-piece
+  candidates, newest first, for every registered model or the ones named,
+  leaving out the pieces a model has already answered unless `rerun`. One job
+  per 20 pieces per model, priority -10, each model's batches queued together.
+  The registry is reconciled with the folder first, so a model just copied in
+  is included.
+- **Run**: the piece's chosen crops (`piece_color_guess.chosen_crops`: the
+  ones the machine used, else the first in storage, at most five, the same as
+  the piece panel's guess), read from storage concurrently with no
+  transaction open, each resized to the model's input; the mean softmax over
+  them, a multiview model getting each crop's camera channel. One model's
+  session is kept at a time, on one thread without onnxruntime's memory arena,
+  so a backfill loads each model once.
+- **Stored** in `piece_model_colors`: per (machine, piece, model sha256) the
+  top colour, its confidence, the top three, the crops read and the model's
+  name. A model run again replaces its own answer.
+- **Served**: the piece grid sorts by a model's confidence (`least_sure`,
+  `surest`) and shows its answer on each card (`labeling-queue.md`); the piece
+  panel lists every model's answer (`model_answers` on the piece detail).

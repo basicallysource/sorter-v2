@@ -61,6 +61,7 @@ HISTORY = frozenset(
         "machine_piece_rejection_reasons",
         "machine_control_data_segments",
         "machine_training_runs",
+        "piece_model_colors",
         "labeling_queue",
     }
 )
@@ -85,7 +86,8 @@ class Case:
     ``path`` may name {busy} (the machine with the most samples), {small} (an
     active machine with few), {member_machine}, {sample}, {piece_machine},
     {piece}, {trained_machine} and {trained_piece} (a piece a training run
-    labelled), {crop}, {old_crop}, {model}, {teacher_job} and {reviewer}: rows
+    labelled), {old_color_model} (a colour model that is not the active one),
+    {crop}, {old_crop}, {model}, {teacher_job} and {reviewer}: rows
     of the seeded fleet the fixture finds. ``pages`` follows next_cursor that many pages."""
 
     name: str
@@ -217,6 +219,17 @@ CASES: list[Case] = [
     Case("pieces: priority, with or without candidates", "/api/labeling/pieces?limit=60&sort=priority"),
     Case("pieces: palette in view near them", P + "&sort=priority&with_palette=true"),
     Case("pieces: newest, palette in view, one machine", P + "&sort=recent&with_palette=true&machine_id={busy}"),
+    Case("pieces: least sure first, the active colour model", P + "&sort=least_sure", pages=2),
+    Case("pieces: surest first, an older colour model", P + "&sort=surest&color_model={old_color_model}", pages=2),
+    Case(
+        "pieces: least sure first, one machine, palette in view",
+        P + "&sort=least_sure&machine_id={busy}&with_palette=true",
+        pages=2,
+    ),
+    Case("pieces: least sure first, two machines", P + "&sort=least_sure&machine_id={busy}&machine_id={small}"),
+    Case("pieces: newest, with a colour model's answers", P + "&sort=recent&color_model={old_color_model}"),
+    Case("pieces: least sure first, a member", P + "&sort=least_sure", user="member"),
+    Case("pieces: the colour models", "/api/labeling/color-models"),
     Case(
         "pieces: priority, a reviewer",
         P + "&sort=priority",
@@ -425,6 +438,7 @@ def fleet(plan_engine) -> dict[str, Any]:
                     WHERE m.archived_at IS NULL AND c.total_samples > 0 AND c.pieces_seen > 0
                     ORDER BY c.total_samples LIMIT 1""",
         "teacher_job": "SELECT id FROM teacher_jobs ORDER BY created_at DESC LIMIT 1",
+        "old_color_model": "SELECT sha256 FROM color_models WHERE NOT is_active ORDER BY created_at DESC LIMIT 1",
         "model": """SELECT id FROM detection_models d
                     WHERE EXISTS (SELECT 1 FROM model_dataset_samples s WHERE s.model_id = d.id)
                     ORDER BY published_at DESC LIMIT 1""",

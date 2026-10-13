@@ -120,6 +120,17 @@ labelled is in the labeled segment by their labels, whatever a run said.
 `GET /api/labeling/stats` adds `training_labeled_pieces`, a sum of the
 per-machine counts the worker keeps from the runs' own.
 
+**By a colour model's confidence.** `least_sure` and `surest` (with
+`color_model`, a model's sha256; the active model when none is named) walk that
+model's stored answers (`piece_model_colors`, kept by the `color_model_run`
+job, `jobs.md`) through `ix_piece_model_colors_confidence` (model,
+confidence, machine, piece), or `..._machine_confidence` for one machine,
+joining each answer to its queue row for the filters. Only the pieces the model
+has answered are in these sorts. Any sort given `color_model` puts that model's
+answer on its cards (`model_color`, a keyed read of the page's pieces); the
+page shows it with a High / Medium / Low band (`frontend/src/lib/colorModels.ts`,
+90% and 60%). The menu after "N shown" picks the model and the order.
+
 Paging is a keyset cursor (`next_cursor`, passed back as `cursor`): the segment
 and the sort key of the last piece served. Page 50 costs what page 1 does, and
 a label made while someone scrolls shifts nothing under them.

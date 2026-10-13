@@ -2,7 +2,8 @@
 	import { replaceState } from '$app/navigation';
 	import { page } from '$app/state';
 	import { onMount, tick } from 'svelte';
-	import { api, type ColorLabelSort, type ColorLabelStats, type Machine } from '$lib/api';
+	import { api, type ColorLabelSort, type ColorLabelStats, type ColorModelChoice, type Machine } from '$lib/api';
+	import { modelLabel } from '$lib/colorModels';
 	import { auth } from '$lib/auth.svelte';
 	import * as nav from '$lib/colorLabelNav';
 	import FilterGroup from '$lib/components/FilterGroup.svelte';
@@ -18,6 +19,7 @@
 	import PageHeader from '$lib/components/PageHeader.svelte';
 	import Panel from '$lib/components/Panel.svelte';
 	import SegmentedControl from '$lib/components/SegmentedControl.svelte';
+	import Select from '$lib/components/Select.svelte';
 	import Shapes from '@lucide/svelte/icons/shapes';
 	import ArrowRight from '@lucide/svelte/icons/arrow-right';
 	import LayoutGrid from '@lucide/svelte/icons/layout-grid';
@@ -32,7 +34,9 @@
 		{ value: 'least_crop', label: 'Fewest same-piece labels' },
 		{ value: 'most_crop', label: 'Most same-piece labels' },
 		{ value: 'recent', label: 'Newest' },
-		{ value: 'oldest', label: 'Oldest' }
+		{ value: 'oldest', label: 'Oldest' },
+		{ value: 'least_sure', label: 'A color model: least sure first' },
+		{ value: 'surest', label: 'A color model: surest first' }
 	];
 
 	type ViewMode = 'grid' | 'rows';
@@ -49,6 +53,32 @@
 	// One queue per set of filters, shared with the pane: a new filter is a new
 	// queue, and nothing still on its way for the old one can reach this list.
 	const queue = $derived(nav.pieceQueue(filters));
+
+	// The colour models the list can sort by and show on its cards.
+	let colorModels = $state<ColorModelChoice[]>([]);
+	const isModelSort = $derived(nav.MODEL_SORTS.includes(filters.sort));
+	const modelOptions = $derived([
+		{ value: '', label: 'No color model' },
+		...colorModels.map((m) => ({ value: m.sha256, label: `${modelLabel(m.name)}${m.is_active ? ' (active)' : ''}`, hint: m.name }))
+	]);
+
+	function activeModel(): string | null {
+		return colorModels.find((m) => m.is_active)?.sha256 ?? colorModels[0]?.sha256 ?? null;
+	}
+
+	// A model chosen sorts by it, least sure first, unless a model sort is on already.
+	function chooseModel(sha: string) {
+		if (!sha) setFilters({ colorModel: null, sort: isModelSort ? 'priority' : filters.sort });
+		else setFilters({ colorModel: sha, sort: isModelSort ? filters.sort : 'least_sure' });
+	}
+	function chooseOrder(order: string) {
+		setFilters({ sort: order === 'list' ? 'priority' : (order as ColorLabelSort) });
+	}
+	// A model sort picked from the list of sorts is by the active model until another is chosen.
+	function chooseSort(sort: ColorLabelSort) {
+		const needsModel = nav.MODEL_SORTS.includes(sort) && !filters.colorModel;
+		setFilters(needsModel ? { sort, colorModel: activeModel() } : { sort });
+	}
 
 	let stats = $state<ColorLabelStats | null>(null);
 	let statsError = $state<string | null>(null);
@@ -170,6 +200,14 @@
 			.getMachinesCached()
 			.then((m) => (machines = m))
 			.catch(() => (machines = []));
+		void nav
+			.getColorModels()
+			.then((m) => {
+				colorModels = m;
+				// A model sort from a link that names no model is by the active one: say so.
+				if (isModelSort && !filters.colorModel && activeModel()) setFilters({ colorModel: activeModel() });
+			})
+			.catch(() => (colorModels = []));
 	});
 </script>
 
@@ -239,7 +277,7 @@
 			<FilterGroup title="Sort" storageKey="pb-sort" active={filters.sort !== 'priority'} activeLabel={sortLabel}>
 				<ul class="flex flex-col gap-px">
 					{#each SORTS as option (option.value)}
-						<FilterOption label={option.label} on={filters.sort === option.value} onclick={() => setFilters({ sort: option.value })} />
+						<FilterOption label={option.label} on={filters.sort === option.value} onclick={() => chooseSort(option.value)} />
 					{/each}
 				</ul>
 			</FilterGroup>
@@ -264,7 +302,34 @@
 	<div class="flex min-w-0 flex-1 flex-col gap-(--gap-panels) lg:flex-row lg:items-start">
 		<div class="flex min-w-0 flex-1 flex-col gap-3">
 			<div class="flex items-center justify-between gap-2">
-				<span class="num text-sm text-ink-muted">{#if !queue.loading}{queue.items.length} shown{/if}</span>
+				<div class="flex min-w-0 flex-wrap items-center gap-2">
+					<span class="num text-sm text-ink-muted">{#if !queue.loading}{queue.items.length} shown{/if}</span>
+					<!-- A colour model: its answer on every card, and the list by its confidence -->
+					{#if colorModels.length > 0}
+						<Select
+							size="sm"
+							label="Color model"
+							class="w-52"
+							value={filters.colorModel ?? ''}
+							options={modelOptions}
+							onchange={chooseModel}
+						/>
+						{#if filters.colorModel}
+							<Select
+								size="sm"
+								label="Order"
+								class="w-44"
+								value={isModelSort ? filters.sort : 'list'}
+								options={[
+									{ value: 'least_sure', label: 'Least sure first' },
+									{ value: 'surest', label: 'Surest first' },
+									{ value: 'list', label: "The list's sort" }
+								]}
+								onchange={chooseOrder}
+							/>
+						{/if}
+					{/if}
+				</div>
 				<SegmentedControl
 					label="View"
 					size="sm"
@@ -278,7 +343,7 @@
 			</div>
 
 			<ReviewGrid {queue} layout={view} emptyIcon={Shapes} emptyTitle="No pieces match">
-				{#snippet empty()}No labelable pieces match these filters.{/snippet}
+				{#snippet empty()}{isModelSort ? 'This color model has not read any of these pieces yet.' : 'No labelable pieces match these filters.'}{/snippet}
 				{#snippet item(card)}
 					{@const selected = selectedKey != null && nav.pieceKey(card) === nav.pieceKey(selectedKey)}
 					{#if view === 'grid'}

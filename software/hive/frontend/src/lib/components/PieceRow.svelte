@@ -1,5 +1,8 @@
 <script lang="ts">
 	import { api, type ColorLabelPieceCard } from '$lib/api';
+	import { band, bandTone, percent } from '$lib/colorModels';
+	import Badge from './Badge.svelte';
+	import ColorChip from './ColorChip.svelte';
 	import Check from '@lucide/svelte/icons/check';
 	import GraduationCap from '@lucide/svelte/icons/graduation-cap';
 	import Link2 from '@lucide/svelte/icons/link-2';
@@ -42,6 +45,13 @@
 		</div>
 		<div class="truncate text-sm text-ink-muted">{card.machine_name ?? 'Machine'}</div>
 	</div>
+	{#if card.model_color}
+		{@const mc = card.model_color}
+		<div class="flex w-44 shrink-0 items-center gap-1.5 text-sm text-ink" title={`The model's color: ${mc.color_name ?? mc.color_id}, ${percent(mc.confidence)} sure`}>
+			<ColorChip name={mc.color_name ?? `Color ${mc.color_id}`} rgb={mc.rgb} class="min-w-0 flex-1" />
+			<Badge tone={bandTone(band(mc.confidence))}><span class="num">{band(mc.confidence)} {percent(mc.confidence)}</span></Badge>
+		</div>
+	{/if}
 	<div class="num flex shrink-0 items-center gap-3 text-sm text-ink-muted">
 		{#if card.has_training_label}
 			<span class="flex text-info-ink" title="A training run labeled this piece's color"><GraduationCap size={14} /></span>

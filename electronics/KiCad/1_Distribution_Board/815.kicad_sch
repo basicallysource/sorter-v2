@@ -13643,17 +13643,6 @@
 				)
 			)
 		)
-		(property "PROD_ID" "XTAL-25500"
-			(at 59.69 133.35 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
 		(property "LCSC" "C41361435"
 			(at 59.69 118.11 0)
 			(hide yes)

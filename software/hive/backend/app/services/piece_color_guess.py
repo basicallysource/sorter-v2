@@ -1,7 +1,7 @@
 """A piece's pixel-average colour and colour-model prediction, worked out once.
 
-Both come from the same few crops (up to 5, the ones the machine used first).
-They used to be computed on every open of the piece, each reading the crops
+Both come from the same crops: every crop the classification camera (C4) took
+of the piece, at most MAX_SAMPLES. They used to be computed on every open of the piece, each reading the crops
 from storage separately. Now the crops are read once, concurrently and with no
 transaction open, both guesses are made from the same bytes, and the result is
 kept per (piece, colour model sha256) in piece_color_guesses. It is made again
@@ -23,7 +23,8 @@ from app.models.piece_model_output import PieceColorGuess
 from app.services import color_predictor, pixel_color
 from app.services.storage_backend import read_many
 
-MAX_SAMPLES = 5
+# As many as the colour model reads (a C4 burst is at most 8 frames).
+MAX_SAMPLES = color_predictor.MAX_PREDICT_IMAGES
 
 
 @dataclass(frozen=True)
@@ -35,13 +36,16 @@ class CropRef:
 
 
 def chosen_crops(images: list[CropRef]) -> list[CropRef]:
-    """The crops a piece's colour is judged from: the ones the machine used,
-    else every one in storage, at most MAX_SAMPLES. The colour model runs
+    """The crops a piece's colour is judged from: every one the classification
+    camera (C4) took, in burst order, else every one in storage, at most
+    MAX_SAMPLES. Not only the ones the machine used: those were picked for
+    recognising the part, are often a single frame, and are sometimes an empty
+    one, which alone decided the colour. The colour model runs
     (services.color_model_runs) read the same ones, so a model's answer for a
     piece is the same number wherever it shows."""
-    with_key = [im for im in images if im.image_key]
-    used = [im for im in with_key if im.used]
-    return (used or with_key)[:MAX_SAMPLES]
+    with_key = sorted((im for im in images if im.image_key), key=lambda im: im.seq)
+    c4 = [im for im in with_key if im.channel in (None, 4)]
+    return (c4 or with_key)[:MAX_SAMPLES]
 
 
 def color_guesses(db: Session, machine_id: UUID, piece_uuid: str, images: list[CropRef]) -> tuple[dict | None, dict | None]:

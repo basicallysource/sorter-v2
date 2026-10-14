@@ -65,14 +65,15 @@ def models(db, monkeypatch):
     return SimpleNamespace(loads=loads)
 
 
-def _piece(db, machine_id: UUID, puid: str, crops: list[tuple[str, bool]], *, palette: bool = False, minutes: int = 0) -> None:
-    """A queued piece with crops whose bytes say their colour: (colour, used)."""
+def _piece(db, machine_id: UUID, puid: str, crops: list[tuple], *, palette: bool = False, minutes: int = 0) -> None:
+    """A queued piece with crops whose bytes say their colour: (colour, used)
+    on C4, or (colour, used, channel)."""
     db.add(MachinePiece(machine_id=machine_id, piece_uuid=puid, local_id=1, seen_at=NOW - timedelta(minutes=minutes)))
-    for seq, (color, used) in enumerate(crops):
+    for seq, (color, used, *channel) in enumerate(crops):
         db.add(
             MachinePieceImage(
-                machine_id=machine_id, piece_uuid=puid, seq=seq, local_id=seq, channel=4, used=used,
-                image_key=f"{machine_id}/{puid}/{seq}/{color}",
+                machine_id=machine_id, piece_uuid=puid, seq=seq, local_id=seq, channel=channel[0] if channel else 4,
+                used=used, image_key=f"{machine_id}/{puid}/{seq}/{color}",
             )
         )
     db.add(
@@ -98,10 +99,11 @@ def _run_all() -> int:
 
 def test_a_batch_keeps_each_models_answer_from_the_pieces_chosen_crops(db, test_machine, models):
     machine_id = UUID(test_machine["id"])
-    # The machine used two red crops; the unused blue ones are not read.
-    _piece(db, machine_id, "a", [("5", True), ("7", False), ("5", True), ("7", False)])
-    # None used: all of them, at most five.
-    _piece(db, machine_id, "b", [("7", False)] * 6 + [("5", False)])
+    # The machine used one crop, an empty frame (white); every C4 crop is read,
+    # so the three red ones decide. The C3 crop is not the colour camera's.
+    _piece(db, machine_id, "a", [("1", True), ("5", False), ("5", False), ("5", False), ("7", False, 3)])
+    # Eight at most, used or not.
+    _piece(db, machine_id, "b", [("7", False)] * 9 + [("5", True)])
     db.add(MachinePiece(machine_id=machine_id, piece_uuid="no-crops", local_id=2))
     db.commit()
 
@@ -109,11 +111,11 @@ def test_a_batch_keeps_each_models_answer_from_the_pieces_chosen_crops(db, test_
     assert out == {"model": "colorpred-v3", "pieces": 4, "answered": 2}
     answers = _answers(db)
     a = answers[("a", NEW)]
-    assert (a.color_id, a.model_name, a.seqs) == (5, "colorpred-v3", [0, 2])
-    assert a.confidence == pytest.approx(2.01 / 2.04)
+    assert (a.color_id, a.model_name, a.seqs) == (5, "colorpred-v3", [0, 1, 2, 3])
+    assert a.confidence == pytest.approx(3.01 / 4.04)
     assert [t["color_id"] for t in a.top][:1] == [5] and len(a.top) == 3
     b = answers[("b", NEW)]
-    assert (b.color_id, b.seqs) == (7, [0, 1, 2, 3, 4])
+    assert (b.color_id, b.seqs) == (7, [0, 1, 2, 3, 4, 5, 6, 7])
 
     # Another model's answer sits beside it; running a model again replaces its own.
     color_model_runs.run_batch(db, OLD, machine_id, ["a"])
@@ -264,3 +266,24 @@ def test_the_worker_reads_the_palette_without_loading_the_catalog(monkeypatch):
     monkeypatch.setattr(profile_catalog, "_catalog_lookup", _Lookup())
     assert color_predictor._palette()[5]["name"] == "Red"
     assert profile_catalog._catalog_service is None
+
+
+def test_the_worker_names_a_pixel_colour_without_loading_the_catalog(monkeypatch):
+    # The pixel guess (piece_warm, in the worker) names its colour from the
+    # labelable palette, which comes from the same lookup.
+    from app import roles
+    from app.services import pixel_color, profile_catalog
+
+    class _Lookup:
+        def list_bricklink_colors(self):
+            return [{"id": 5, "name": "Red", "rgb": "#C91A09"}, {"id": 11, "name": "Black", "rgb": "#05131D"}]
+
+    monkeypatch.setattr(roles, "role", lambda: "worker")
+    monkeypatch.setattr(profile_catalog, "_catalog_service", None)
+    monkeypatch.setattr(profile_catalog, "_catalog_lookup", _Lookup())
+    pixel_color._palette.cache_clear()
+    try:
+        assert pixel_color._nearest_color((190, 30, 20))["color_name"] == "Red"
+        assert profile_catalog._catalog_service is None
+    finally:
+        pixel_color._palette.cache_clear()

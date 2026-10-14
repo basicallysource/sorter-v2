@@ -14,7 +14,7 @@ from __future__ import annotations
 from typing import Any, Sequence
 
 from app.services import color_rank
-from app.services.profile_catalog import get_profile_catalog_service
+from app.services.profile_catalog import catalog_lookup, get_profile_catalog_service
 
 # How many colors a response carries unless asked for fewer or more. The whole
 # palette is ~200; a review screen shows a dozen and searches the rest locally.
@@ -33,8 +33,10 @@ def is_labelable(color: dict[str, Any]) -> bool:
 
 
 def labelable_palette() -> list[dict[str, Any]]:
-    """The one palette people and machines label, rank and chart colors from."""
-    return [c for c in get_profile_catalog_service().list_bricklink_colors() if is_labelable(c)]
+    """The one palette people and machines label, rank and chart colors from.
+    Through catalog_lookup: the worker process (piece_warm's pixel guess) may
+    not load the catalog."""
+    return [c for c in catalog_lookup().list_bricklink_colors() if is_labelable(c)]
 
 
 def likely_colors(

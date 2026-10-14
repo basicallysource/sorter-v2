@@ -5,6 +5,8 @@ from datetime import datetime, timezone
 
 import requests
 
+from app.services.set_inventory import import_sets
+
 from .db import (
     upsertCategories, upsertColors, upsertParts, setMeta,
     upsertCatalogSyncState, reloadPartsData, importBrickstoreDb,
@@ -173,6 +175,23 @@ class SyncManager:
             self.last_message = "Syncing colors..."
             self._markRunning(conn, "colors")
         t = threading.Thread(target=self._syncColorsOnce, args=(gc, conn, parts_data, on_complete, on_error), daemon=True)
+        t.start()
+        return True
+
+    def startSetsSync(self, gc, conn, parts_data, on_complete=None, on_error=None) -> bool:
+        with self._lock:
+            if self.running:
+                return False
+            self.running = True
+            self.stop_requested = False
+            self.pages_fetched = 0
+            self.progress_current = None
+            self.progress_total = None
+            self.sync_type = "sets"
+            self.error = None
+            self.last_message = "Downloading Rebrickable's sets..."
+            self._markRunning(conn, "sets")
+        t = threading.Thread(target=self._syncSetsOnce, args=(gc, conn, on_complete, on_error), daemon=True)
         t.start()
         return True
 
@@ -410,6 +429,33 @@ class SyncManager:
                 self.error = str(e)
                 self.last_message = f"Error: {e}"
                 self._persist(conn, "colors", status="error", error=str(e), last_message=self.last_message)
+            self._invoke_callback(on_error, e)
+        finally:
+            with self._lock:
+                self.running = False
+                self.sync_type = None
+
+    def _syncSetsOnce(self, gc, conn, on_complete=None, on_error=None) -> None:
+        try:
+            # Its own connection, in one transaction: the shared one stays free
+            # for state updates, and readers see the old sets until it commits.
+            counts = import_sets(gc.db_path, progress_fn=self._updateProgress)
+            with self._lock:
+                self.last_message = (
+                    f"Imported {counts['rebrickable_sets']} sets, {counts['rebrickable_themes']} themes, "
+                    f"{counts['rebrickable_inventory_parts']} inventory parts"
+                )
+                self._persist(
+                    conn, "sets", status="completed", completed_at=_nowIso(),
+                    progress_current=counts["rebrickable_sets"], progress_total=counts["rebrickable_sets"],
+                    last_message=self.last_message, error=None,
+                )
+            self._invoke_callback(on_complete)
+        except Exception as e:
+            with self._lock:
+                self.error = str(e)
+                self.last_message = f"Error: {e}"
+                self._persist(conn, "sets", status="error", error=str(e), last_message=self.last_message)
             self._invoke_callback(on_error, e)
         finally:
             with self._lock:

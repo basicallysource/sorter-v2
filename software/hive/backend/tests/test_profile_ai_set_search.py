@@ -6,78 +6,9 @@ from types import SimpleNamespace
 import pytest
 
 from app.errors import APIError
-from app.config import settings
-from app.services import set_inventory
 from app.services.openrouter import OpenRouterResponse
 from app.services import profile_ai
 from app.services.profile_ai import _finalize_ai_response, apply_profile_ai_proposal
-
-
-class _FakeResponse:
-    def __init__(self, payload: dict) -> None:
-        self._payload = payload
-
-    def raise_for_status(self) -> None:
-        return
-
-    def json(self) -> dict:
-        return self._payload
-
-
-def test_search_sets_extracts_year_and_matches_theme_prefix(monkeypatch: pytest.MonkeyPatch) -> None:
-    set_inventory._theme_records_cache = None
-    set_inventory._theme_match_cache.clear()
-    set_inventory._theme_children_cache.clear()
-
-    def fake_get(url: str, params: dict | None = None, headers: dict | None = None, timeout: int = 15) -> _FakeResponse:
-        # The key travels in a header, so it never shows up in a logged URL.
-        assert headers == {"Authorization": "key rb-key"}
-        assert "key" not in (params or {})
-        assert params is not None
-        if url.endswith("/themes/"):
-            return _FakeResponse(
-                {
-                    "results": [
-                        {"id": 101, "name": "Creator 3-in-1", "parent_id": None},
-                        {"id": 102, "name": "Creator Expert", "parent_id": None},
-                    ],
-                    "next": None,
-                }
-            )
-
-        if url.endswith("/sets/") and params.get("theme_id") == 101:
-            assert params.get("min_year") == 2024
-            assert params.get("max_year") == 2024
-            return _FakeResponse(
-                {
-                    "results": [
-                        {
-                            "set_num": "31156-1",
-                            "name": "Exotic Parrot",
-                            "year": 2024,
-                            "num_parts": 253,
-                            "set_img_url": "https://img.example/parrot.png",
-                            "theme_id": 101,
-                        }
-                    ],
-                    "next": None,
-                }
-            )
-
-        if url.endswith("/sets/") and params.get("theme_id") == 102:
-            assert params.get("min_year") == 2024
-            assert params.get("max_year") == 2024
-            return _FakeResponse({"results": [], "next": None})
-
-        raise AssertionError(f"Unexpected request: {url} {params}")
-
-    monkeypatch.setattr(set_inventory.requests, "get", fake_get)
-
-    results = set_inventory.search_sets("rb-key", "Creator 2024")
-
-    assert [lego_set["set_num"] for lego_set in results] == ["31156-1"]
-    assert results[0]["name"] == "Exotic Parrot"
-    assert results[0]["year"] == 2024
 
 
 def test_finalize_ai_response_replaces_hallucinated_summary_when_set_searches_are_empty() -> None:

@@ -1,115 +1,116 @@
-"""Rebrickable set search and inventory caching via the profile-builder SQLite DB."""
+"""LEGO sets: Rebrickable's themes, sets and set inventories, from its CSV downloads.
+
+The "sets" catalog sync imports the downloads whole into parts.db
+(migration 011); set search and a set's inventory are queries on those
+tables. Rebrickable's API is not used for sets: it refuses requests from some
+servers, and the downloads carry everything set search and kits need.
+"""
 
 from __future__ import annotations
 
-import json
+import csv
+import gzip
 import re
+import shutil
 import sqlite3
+import tempfile
+from collections.abc import Callable, Iterator
 from datetime import datetime, UTC
+from pathlib import Path
 from typing import Any
 
 import requests
 
-from app.services.profile_engine.parts_cache import rebrickableHeaders
+DOWNLOADS_URL = "https://cdn.rebrickable.com/media/downloads"
+DOWNLOAD_TIMEOUT_SECONDS = 60
 
-
-_SETS_TABLE_DDL = """
-CREATE TABLE IF NOT EXISTS rebrickable_sets (
-    set_num   TEXT PRIMARY KEY,
-    name      TEXT,
-    year      INTEGER,
-    num_parts INTEGER,
-    set_img_url TEXT,
-    theme_id  INTEGER,
-    raw_json  TEXT,
-    fetched_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+# Each table and the CSV it is a copy of, in the order they are imported.
+_IMPORTS = (
+    ("rebrickable_themes", "themes", ("id", "name", "parent_id")),
+    ("rebrickable_sets", "sets", ("set_num", "name", "year", "theme_id", "num_parts", "img_url")),
+    ("rebrickable_inventories", "inventories", ("id", "version", "set_num")),
+    (
+        "rebrickable_inventory_parts",
+        "inventory_parts",
+        ("inventory_id", "part_num", "color_id", "quantity", "is_spare", "img_url"),
+    ),
 )
-"""
-
-_INVENTORY_TABLE_DDL = """
-CREATE TABLE IF NOT EXISTS rebrickable_set_inventory (
-    id         INTEGER PRIMARY KEY AUTOINCREMENT,
-    set_num    TEXT NOT NULL,
-    part_num   TEXT NOT NULL,
-    color_id   INTEGER NOT NULL,
-    quantity   INTEGER NOT NULL DEFAULT 1,
-    is_spare   INTEGER NOT NULL DEFAULT 0,
-    element_id TEXT,
-    part_name  TEXT,
-    part_img_url TEXT,
-    color_name TEXT,
-    color_rgb  TEXT,
-    UNIQUE(set_num, part_num, color_id, is_spare)
-)
-"""
-
-
-def _ensure_tables(conn: sqlite3.Connection) -> None:
-    conn.execute(_SETS_TABLE_DDL)
-    conn.execute(_INVENTORY_TABLE_DDL)
-    conn.commit()
 
 
 # ---------------------------------------------------------------------------
-# Public API
+# Import
+
+
+def _download(name: str, directory: Path) -> Path:
+    """Rebrickable's ``<name>.csv.gz``, saved as it streams in."""
+    path = directory / f"{name}.csv.gz"
+    with requests.get(f"{DOWNLOADS_URL}/{name}.csv.gz", stream=True, timeout=DOWNLOAD_TIMEOUT_SECONDS) as resp:
+        resp.raise_for_status()
+        with open(path, "wb") as out:
+            shutil.copyfileobj(resp.raw, out)
+    return path
+
+
+def _value(column: str, raw: str) -> Any:
+    if raw == "":
+        return None
+    if column == "is_spare":
+        return 1 if raw == "True" else 0
+    return raw
+
+
+def _rows(path: Path, columns: tuple[str, ...]) -> Iterator[tuple[Any, ...]]:
+    """The file's rows, one at a time: inventory_parts is 1.5 million of them."""
+    with gzip.open(path, "rt", encoding="utf-8", newline="") as f:
+        reader = csv.reader(f)
+        header = next(reader)
+        missing = [column for column in columns if column not in header]
+        if missing:
+            raise ValueError(f"{path.name} has no column {', '.join(missing)} (it has {', '.join(header)})")
+        positions = [(column, header.index(column)) for column in columns]
+        for row in reader:
+            yield tuple(_value(column, row[i]) for column, i in positions)
+
+
+def import_sets(db_path: str, progress_fn: Callable[[int, int, str], None] | None = None) -> dict[str, int]:
+    """Replace the themes, sets and inventories with Rebrickable's current
+    downloads. Everything is downloaded first and then written in one
+    transaction, on a connection of its own, so a failed download changes
+    nothing and readers see the old tables until the new ones are complete.
+    Returns the rows imported per table."""
+    counts: dict[str, int] = {}
+    with tempfile.TemporaryDirectory(prefix="rebrickable-") as tmp:
+        files = {}
+        for index, (_, name, _) in enumerate(_IMPORTS):
+            if progress_fn:
+                progress_fn(index, len(_IMPORTS) * 2, f"Downloading {name}.csv.gz")
+            files[name] = _download(name, Path(tmp))
+        conn = sqlite3.connect(db_path, timeout=60)
+        try:
+            with conn:
+                for index, (table, name, columns) in enumerate(_IMPORTS):
+                    if progress_fn:
+                        progress_fn(len(_IMPORTS) + index, len(_IMPORTS) * 2, f"Importing {name}")
+                    conn.execute(f"DELETE FROM {table}")
+                    placeholders = ", ".join("?" for _ in columns)
+                    cursor = conn.executemany(
+                        f"INSERT INTO {table} ({', '.join(columns)}) VALUES ({placeholders})",
+                        _rows(files[name], columns),
+                    )
+                    counts[table] = cursor.rowcount
+        finally:
+            conn.close()
+    return counts
+
+
 # ---------------------------------------------------------------------------
+# Search
 
 _YEAR_RE = re.compile(r"\b(19\d{2}|20\d{2}|21\d{2})\b")
-
-_theme_records_cache: list[dict[str, Any]] | None = None
-_theme_match_cache: dict[str, list[int]] = {}
-_theme_children_cache: dict[int | None, list[int]] = {}
 
 
 def _normalize_theme_key(value: str) -> str:
     return re.sub(r"\s+", " ", re.sub(r"[^a-z0-9]+", " ", value.lower())).strip()
-
-
-def _load_themes(api_key: str) -> list[dict[str, Any]]:
-    global _theme_records_cache, _theme_children_cache
-
-    if _theme_records_cache is not None:
-        return _theme_records_cache
-
-    records: list[dict[str, Any]] = []
-    page = 1
-    while True:
-        resp = requests.get(
-            "https://rebrickable.com/api/v3/lego/themes/",
-            params={"page_size": 1000, "page": page},
-            headers=rebrickableHeaders(api_key),
-            timeout=15,
-        )
-        resp.raise_for_status()
-        payload = resp.json()
-        for raw_theme in payload.get("results", []):
-            theme_id = raw_theme.get("id")
-            if theme_id is None:
-                continue
-            record = {
-                "id": int(theme_id),
-                "name": str(raw_theme.get("name") or ""),
-                "parent_id": raw_theme.get("parent_id"),
-                "key": _normalize_theme_key(str(raw_theme.get("name") or "")),
-            }
-            records.append(record)
-            parent_id = record["parent_id"]
-            _theme_children_cache.setdefault(parent_id, []).append(record["id"])
-        if not payload.get("next"):
-            break
-        page += 1
-
-    _theme_records_cache = records
-    _theme_match_cache.clear()
-    return records
-
-
-def _collect_descendant_theme_ids(theme_id: int, collected: set[int]) -> None:
-    if theme_id in collected:
-        return
-    collected.add(theme_id)
-    for child_id in _theme_children_cache.get(theme_id, []):
-        _collect_descendant_theme_ids(child_id, collected)
 
 
 def _theme_matches_query(query_key: str, theme_key: str) -> bool:
@@ -129,31 +130,32 @@ def _theme_matches_query(query_key: str, theme_key: str) -> bool:
     return theme_tokens[: len(query_tokens)] == query_tokens
 
 
-def _resolve_theme_ids(api_key: str, query: str) -> list[int]:
+def _resolve_theme_ids(conn: sqlite3.Connection, query: str) -> list[int]:
     """Resolve *query* to exact or close theme matches, including descendants."""
     key = _normalize_theme_key(query)
     if not key:
         return []
-    if key in _theme_match_cache:
-        return _theme_match_cache[key]
 
-    themes = _load_themes(api_key)
-    exact_matches = [theme["id"] for theme in themes if theme["key"] == key]
-    matched_theme_ids = exact_matches
-    if not matched_theme_ids:
-        matched_theme_ids = [
-            theme["id"]
-            for theme in themes
-            if _theme_matches_query(key, theme["key"])
-        ]
+    themes = [
+        {"id": row[0], "parent_id": row[1], "key": _normalize_theme_key(row[2])}
+        for row in conn.execute("SELECT id, parent_id, name FROM rebrickable_themes")
+    ]
+    children: dict[int | None, list[int]] = {}
+    for theme in themes:
+        children.setdefault(theme["parent_id"], []).append(theme["id"])
 
-    resolved_ids: set[int] = set()
-    for theme_id in matched_theme_ids[:12]:
-        _collect_descendant_theme_ids(theme_id, resolved_ids)
+    matched = [theme["id"] for theme in themes if theme["key"] == key]
+    if not matched:
+        matched = [theme["id"] for theme in themes if _theme_matches_query(key, theme["key"])]
 
-    result = sorted(resolved_ids)
-    _theme_match_cache[key] = result
-    return result
+    resolved: set[int] = set()
+    pending = matched[:12]
+    while pending:
+        theme_id = pending.pop()
+        if theme_id not in resolved:
+            resolved.add(theme_id)
+            pending.extend(children.get(theme_id, []))
+    return sorted(resolved)
 
 
 def _infer_year_filters(
@@ -178,182 +180,87 @@ def _infer_year_filters(
     return cleaned_query or query.strip(), inferred_min_year, inferred_max_year
 
 
-def _normalize_set_entry(raw_set: dict[str, Any]) -> dict[str, Any]:
+def _set_entry(row: tuple[Any, ...]) -> dict[str, Any]:
     return {
-        "set_num": raw_set["set_num"],
-        "name": raw_set["name"],
-        "year": raw_set.get("year"),
-        "num_parts": raw_set.get("num_parts"),
-        "set_img_url": raw_set.get("set_img_url"),
-        "theme_id": raw_set.get("theme_id"),
+        "set_num": row[0],
+        "name": row[1],
+        "year": row[2],
+        "theme_id": row[3],
+        "num_parts": row[4],
+        "img_url": row[5],
     }
 
 
-def _fetch_sets(api_key: str, *, params: dict[str, Any]) -> list[dict[str, Any]]:
-    url = "https://rebrickable.com/api/v3/lego/sets/"
-    page = 1
-    results: list[dict[str, Any]] = []
-    while True:
-        resp = requests.get(url, params={**params, "page": page}, headers=rebrickableHeaders(api_key), timeout=15)
-        resp.raise_for_status()
-        payload = resp.json()
-        results.extend(_normalize_set_entry(raw_set) for raw_set in payload.get("results", []))
-        if not payload.get("next"):
-            break
-        page += 1
-    return results
+_SET_COLUMNS = "set_num, name, year, theme_id, num_parts, img_url"
 
 
 def search_sets(
-    api_key: str,
+    conn: sqlite3.Connection,
     query: str,
     *,
     min_year: int | None = None,
     max_year: int | None = None,
     min_parts: int = 1,
+    limit: int = 20,
 ) -> list[dict[str, Any]]:
-    """Search Rebrickable for LEGO sets matching *query*.
+    """LEGO sets matching *query*, newest first.
 
-    If *query* matches a theme name exactly, searches by theme_id instead of
-    text search — this is necessary because many sets don't include the theme
-    name in their title. Year filtering is always applied locally because the
-    Rebrickable API ignores min_year/max_year when combined with ``search``.
+    A query that names a theme ("Town Plan", "Star Wars") finds the sets in
+    that theme and its sub-themes, since many sets do not carry their theme's
+    name. Anything else matches sets whose name or number holds every word.
+    A year in the query ("castle 1984") becomes a year filter.
     """
-    if not api_key:
-        return []
-
     normalized_query, min_year, max_year = _infer_year_filters(query, min_year, max_year)
 
-    params: dict[str, Any] = {
-        "page_size": 100,
-        "ordering": "-year",
-    }
-    if min_parts > 0:
-        params["min_parts"] = min_parts
-
+    where = ["num_parts >= ?"]
+    params: list[Any] = [min_parts]
     if min_year is not None:
-        params["min_year"] = min_year
+        where.append("year >= ?")
+        params.append(min_year)
     if max_year is not None:
-        params["max_year"] = max_year
+        where.append("year <= ?")
+        params.append(max_year)
 
-    theme_ids = _resolve_theme_ids(api_key, normalized_query)
+    theme_ids = _resolve_theme_ids(conn, normalized_query)
     if theme_ids:
-        out: list[dict[str, Any]] = []
-        for theme_id in theme_ids:
-            out.extend(_fetch_sets(api_key, params={**params, "theme_id": theme_id}))
+        where.append(f"theme_id IN ({', '.join('?' for _ in theme_ids)})")
+        params.extend(theme_ids)
     else:
-        out = _fetch_sets(api_key, params={**params, "search": normalized_query})
+        for word in normalized_query.split():
+            where.append("(name LIKE ? OR set_num LIKE ?)")
+            params.extend([f"%{word}%", f"{word}%"])
 
-    deduped: dict[str, dict[str, Any]] = {}
-    for lego_set in out:
-        set_num = lego_set.get("set_num")
-        if not set_num:
-            continue
-        deduped[str(set_num)] = lego_set
-
-    filtered = list(deduped.values())
-    if min_year is not None:
-        filtered = [lego_set for lego_set in filtered if lego_set.get("year") is not None and lego_set["year"] >= min_year]
-    if max_year is not None:
-        filtered = [lego_set for lego_set in filtered if lego_set.get("year") is not None and lego_set["year"] <= max_year]
-
-    filtered.sort(key=lambda lego_set: (lego_set.get("year") or 0, lego_set.get("name") or ""), reverse=True)
-    return filtered
-
-
-def fetch_set_inventory(conn: sqlite3.Connection, api_key: str, set_num: str) -> None:
-    """Fetch a set's metadata and full inventory from Rebrickable and cache locally."""
-    _ensure_tables(conn)
-    if not api_key:
-        return
-
-    # Fetch set metadata
-    url = f"https://rebrickable.com/api/v3/lego/sets/{set_num}/"
-    resp = requests.get(url, headers=rebrickableHeaders(api_key), timeout=15)
-    resp.raise_for_status()
-    data = resp.json()
-
-    conn.execute(
-        """INSERT OR REPLACE INTO rebrickable_sets
-           (set_num, name, year, num_parts, set_img_url, theme_id, raw_json, fetched_at)
-           VALUES (?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)""",
-        (
-            data["set_num"],
-            data["name"],
-            data.get("year"),
-            data.get("num_parts"),
-            data.get("set_img_url"),
-            data.get("theme_id"),
-            json.dumps(data),
-        ),
-    )
-
-    # Clear old inventory rows for this set
-    conn.execute("DELETE FROM rebrickable_set_inventory WHERE set_num = ?", (set_num,))
-
-    # Fetch inventory (paginated)
-    inv_url = f"https://rebrickable.com/api/v3/lego/sets/{set_num}/parts/"
-    page = 1
-    while True:
-        r = requests.get(
-            inv_url, params={"page": page, "page_size": 500}, headers=rebrickableHeaders(api_key), timeout=15
-        )
-        r.raise_for_status()
-        body = r.json()
-        for item in body.get("results", []):
-            part = item.get("part", {})
-            color = item.get("color", {})
-            conn.execute(
-                """INSERT OR REPLACE INTO rebrickable_set_inventory
-                   (set_num, part_num, color_id, quantity, is_spare, element_id,
-                    part_name, part_img_url, color_name, color_rgb)
-                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
-                (
-                    set_num,
-                    part.get("part_num", ""),
-                    color.get("id", 0),
-                    item.get("quantity", 1),
-                    1 if item.get("is_spare") else 0,
-                    item.get("element_id"),
-                    part.get("name"),
-                    part.get("part_img_url"),
-                    color.get("name"),
-                    color.get("rgb"),
-                ),
-            )
-        if not body.get("next"):
-            break
-        page += 1
-
-    conn.commit()
-
-
-def get_cached_set(conn: sqlite3.Connection, set_num: str) -> dict[str, Any] | None:
-    """Return cached set metadata or None."""
-    _ensure_tables(conn)
-    row = conn.execute(
-        "SELECT set_num, name, year, num_parts, set_img_url, theme_id FROM rebrickable_sets WHERE set_num = ?",
-        (set_num,),
-    ).fetchone()
-    if row is None:
-        return None
-    return {
-        "set_num": row[0],
-        "name": row[1],
-        "year": row[2],
-        "num_parts": row[3],
-        "set_img_url": row[4],
-        "theme_id": row[5],
-    }
-
-
-def get_cached_inventory(conn: sqlite3.Connection, set_num: str) -> list[dict[str, Any]]:
-    """Return cached inventory parts for a set."""
-    _ensure_tables(conn)
     rows = conn.execute(
-        """SELECT part_num, color_id, quantity, is_spare, element_id,
-                  part_name, part_img_url, color_name, color_rgb
-           FROM rebrickable_set_inventory WHERE set_num = ?""",
+        f"SELECT {_SET_COLUMNS} FROM rebrickable_sets WHERE {' AND '.join(where)} "
+        "ORDER BY year DESC, name DESC LIMIT ?",
+        [*params, limit],
+    ).fetchall()
+    return [_set_entry(row) for row in rows]
+
+
+# ---------------------------------------------------------------------------
+# One set
+
+
+def get_set(conn: sqlite3.Connection, set_num: str) -> dict[str, Any] | None:
+    """A set's details, or None when Rebrickable has no such set."""
+    row = conn.execute(f"SELECT {_SET_COLUMNS} FROM rebrickable_sets WHERE set_num = ?", (set_num,)).fetchone()
+    return _set_entry(row) if row else None
+
+
+def get_set_inventory(conn: sqlite3.Connection, set_num: str) -> list[dict[str, Any]]:
+    """The parts of a set's first inventory, spares flagged. Not the parts of
+    its minifigures, as Rebrickable lists a set's parts. Names come from the
+    parts catalog (None for a part it does not have yet)."""
+    rows = conn.execute(
+        """SELECT ip.part_num, ip.color_id, ip.quantity, ip.is_spare,
+                  p.name, COALESCE(ip.img_url, p.part_img_url), c.name, c.rgb
+           FROM rebrickable_inventory_parts ip
+           LEFT JOIN parts p ON p.part_num = ip.part_num
+           LEFT JOIN colors c ON c.id = ip.color_id
+           WHERE ip.inventory_id = (
+               SELECT id FROM rebrickable_inventories WHERE set_num = ? ORDER BY version LIMIT 1
+           )""",
         (set_num,),
     ).fetchall()
     return [
@@ -362,11 +269,14 @@ def get_cached_inventory(conn: sqlite3.Connection, set_num: str) -> list[dict[st
             "color_id": r[1],
             "quantity": r[2],
             "is_spare": bool(r[3]),
-            "element_id": r[4],
-            "part_name": r[5],
-            "part_img_url": r[6],
-            "color_name": r[7],
-            "color_rgb": r[8],
+            "part_name": r[4],
+            "part_img_url": r[5],
+            "color_name": r[6],
+            "color_rgb": r[7],
         }
         for r in rows
     ]
+
+
+def set_count(conn: sqlite3.Connection) -> int:
+    return int(conn.execute("SELECT COUNT(*) FROM rebrickable_sets").fetchone()[0])

@@ -176,7 +176,7 @@ def test_a_stale_catalog_is_synced_in_a_child(runner, monkeypatch, tmp_path):
     monkeypatch.setattr(profile_catalog, "_catalog_lookup", None)
     runner.start()
     _wait_for_last(runner, ["auto-sync"])
-    assert runner.status()["auto_sync_plan"] == ["categories", "colors", "parts"]
+    assert runner.status()["auto_sync_plan"] == ["sets", "categories", "colors", "parts"]
     assert profile_catalog._catalog_service is None
     assert not (tmp_path / "missing.db").exists(), "looking must not create a catalog"
 

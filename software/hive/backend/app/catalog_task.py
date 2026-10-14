@@ -2,7 +2,7 @@
 
     python -m app.catalog_task default-profiles
     python -m app.catalog_task auto-sync
-    python -m app.catalog_task sync <categories|colors|parts|brickstore|prices|geometry>
+    python -m app.catalog_task sync <sets|categories|colors|parts|brickstore|prices|geometry>
 
 The worker process never holds the parts catalog: it is ~390 MB in memory, and
 the worker needs all of it only to sync it and to publish the default profiles

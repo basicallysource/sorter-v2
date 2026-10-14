@@ -657,4 +657,4 @@ Every cable between the three boxes in, and the machine switched on for the firs
 
 <div class="img-placeholder">Image coming: the three enclosures bolted to the hex frame with every cable run between them, the ribbon dropping into the chute stack and the Orange Pi's red LED lit</div>
 
-Next: [software setup]({{ '/hardware/software-setup/' | relative_url }}), which flashes the Orange Pi and the control board and then asks you which output each lamp and each stepper is on.
+Next: [software setup]({{ '/hardware/software-setup/' | relative_url }}), which installs SorterOS on the Orange Pi and hands off to the [SorterOS]({{ '/sorter/' | relative_url }}) section, where the control board is flashed and the setup wizard asks you which output each lamp and each stepper is on.

@@ -107,5 +107,5 @@ The camera code is written on the assumption that the three cameras share one US
 
 <ul class="bulleted-list">
   <li>Steps for each case: <a href="{{ '/sorter/troubleshooting/' | relative_url }}">Troubleshooting</a> and <a href="{{ '/sorter/first-setup/' | relative_url }}">First setup</a></li>
-  <li>Flashing a blank board: <a href="{{ '/hardware/software-setup/' | relative_url }}">Software setup</a></li>
+  <li>Flashing a blank board: <a href="{{ '/sorter/' | relative_url }}#flash-the-control-board-before-the-wizard">Flashing the control board</a></li>
 </ul>

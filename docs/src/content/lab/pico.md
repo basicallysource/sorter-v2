@@ -63,7 +63,7 @@ The pin map is the file [`hwcfg_basically_v1_2.h`](https://github.com/basicallys
 
 <ul class="bulleted-list">
   <li>Fitting the Pico's headers: <a href="{{ '/hardware/helpers/pico-headers/' | relative_url }}">Pico headers</a></li>
-  <li>Flashing the firmware: <a href="{{ '/hardware/software-setup/' | relative_url }}">Software setup</a></li>
+  <li>Flashing the firmware: <a href="{{ '/sorter/' | relative_url }}#flash-the-control-board-before-the-wizard">Flashing the control board</a></li>
 </ul>
 
 ## Why one board

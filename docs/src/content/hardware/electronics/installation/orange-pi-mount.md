@@ -8,13 +8,9 @@ kicker: Electronics — Orange Pi housing
 lede: The Orange Pi 5 closed into its printed housing, with the USB hub and the buck converter clamped to its roof.
 permalink: /hardware/electronics/installation/orange-pi-mount/
 author: spencer
-contributors: [barthel]
+contributors: [barthel, brickcyclealice]
 og_image: https://assets.basically.website/sorter-parts/orange-pi-housing-with-hub-render-full-7d14589d8944.png
-warning: >-
-  **AI-generated first draft.** Written from the machine assembly tree in the [parts
-  calculator](https://parts-calculator.basically.website/assembly?focus=orange-pi-mount), not from an
-  actual build, so nobody has put this housing together from this page yet. The parts and the screws
-  come from the CAD assembly.
+last_verified: 2026-10-14
 tools_needed: ["Hex key, 2 mm", "Soldering iron or heat-set insert press"]
 parts_needed:
   - part: orange-pi-housing-base
@@ -78,8 +74,8 @@ Press 8 M3 inserts into the base while it is loose: four in the low posts the Pi
     <p><strong>Orange Pi Housing base:</strong> 8 × M3</p>
   </div>
   <figure class="prep-item-figure">
-    <img class="doc-figure" src="https://assets.basically.website/sorter-docs/orange-pi-housing-step1-inserts-full-0ede1a56f792.png" alt="Render of the housing base on its own, seen from above and one end, with a red ring round each of the eight heat-insert bores: four in the low posts in the middle of the floor and four in the tops of the tall corner posts">
-    <figcaption>Four in the board posts, four at the corners. <cite>Rendered from the CAD, not from a build.</cite></figcaption>
+    <img class="doc-figure" src="https://assets.basically.website/sorter-docs/assembly-orange-pi-housing-base-inserts-w1600-b8755e5b2ba0.jpg" alt="The housing base seen from above with a brass heat-set insert pressed into each of the four low board posts and each of the four tall corner posts, the plunger retainer sitting at the right-hand end beside the large opening in the floor">
+    <figcaption>Four in the board posts, four at the corners. <cite>Photo: BrickCycleAlice.</cite></figcaption>
   </figure>
 </div>
 
@@ -105,8 +101,8 @@ Sit the Pi on the four posts with its Ethernet and USB-A ports at the end furthe
 
 <div class="img-row">
   <figure>
-    <img src="https://assets.basically.website/sorter-docs/orange-pi-housing-step2-board-full-4a5746c0fea3.png" alt="Exploded render of the Orange Pi held above the four posts in the base, with four button-head screws above the board again and dashed lines running from each screw down through the board into its post">
-    <figcaption>The board goes down onto the four posts, then the four screws into their inserts. The large floor opening is at the far end from the ports.</figcaption>
+    <img src="https://assets.basically.website/sorter-docs/assembly-orange-pi-housing-board-on-base-w1600-ca5c3fdcec19.jpg" alt="The Orange Pi screwed down onto the four posts in the base, seen from above, its USB and Ethernet ports at the right-hand end and the large opening in the floor at the left, with the two WiFi antennas lying loose below it">
+    <figcaption>The Pi on its four posts, ports at the end furthest from the large floor opening. <cite>Photo: BrickCycleAlice.</cite></figcaption>
   </figure>
 </div>
 
@@ -126,6 +122,10 @@ Nothing screws the walls in. The roof holds them down in step 6.
     <img src="https://assets.basically.website/sorter-docs/orange-pi-housing-step3-walls-full-b22020fed729.png" alt="Exploded render of the four walls lifted clear of the base, each a different colour, with a dashed line from each one down into its groove: blue with a rounded window, teal with a long slot, orange with two square openings, purple with a hex vent pattern">
     <figcaption>Each wall drops straight down into its own groove. Blue is west (the microSD window), teal north (USB-C and HDMI), orange east (USB-A and Ethernet), purple south (the hex vent).</figcaption>
   </figure>
+  <figure>
+    <img src="https://assets.basically.website/sorter-docs/assembly-orange-pi-housing-walls-fitted-w1600-7d1a9892715d.jpg" alt="The housing with all four walls dropped into the base, seen from above and one end, the Pi screwed to its posts inside and the vent wall nearest the camera">
+    <figcaption>The four walls in. Nothing holds them yet. <cite>Photo: BrickCycleAlice.</cite></figcaption>
+  </figure>
 </div>
 
 {% include step.html n="4" title="Fit the power button plunger" %}
@@ -136,8 +136,12 @@ Lay the plunger in its retainer with its square face out through the small windo
 
 <div class="img-row">
   <figure>
-    <img src="https://assets.basically.website/sorter-docs/orange-pi-housing-step4-plunger-full-dc18700f2ce1.png" alt="Close-up exploded render of the west end of the base with the retainer already fitted in grey, the plunger held above it with its square face pointing out towards the west wall, and the plunger cap above both">
-    <figcaption>The west bay, with the other three walls left out of the view. The plunger goes into the retainer, then the cap closes over it.</figcaption>
+    <img src="https://assets.basically.website/sorter-docs/assembly-orange-pi-housing-plunger-in-retainer-w1600-6b2edec8df12.jpg" alt="Close-up of the west end of the housing, the plunger lying in its retainer with its square face against the west wall and its other end pointing at the Pi's power key">
+    <figcaption>The plunger in its retainer, its far end reaching the Pi's power key. <cite>Photo: BrickCycleAlice.</cite></figcaption>
+  </figure>
+  <figure>
+    <img src="https://assets.basically.website/sorter-docs/assembly-orange-pi-housing-plunger-cap-fitted-w1600-27149fa9538b.jpg" alt="The housing from above with the plunger cap screwed down over the plunger at the west end">
+    <figcaption>The cap closed over it. <cite>Photo: BrickCycleAlice.</cite></figcaption>
   </figure>
 </div>
 
@@ -147,8 +151,8 @@ Sit the two WiFi antennas in the two channels in the north wall's block, and scr
 
 <div class="img-row">
   <figure>
-    <img src="https://assets.basically.website/sorter-docs/orange-pi-housing-step5-antenna-clamp-full-0bd9bc6b48eb.png" alt="Render of the north wall seen from outside the housing, with two antennas standing in the two channels in the block on the wall and the antenna clamp pulled straight out from them">
-    <figcaption>Seen from outside the north wall. The clamp closes over the two channels, so the antennas go in first.</figcaption>
+    <img src="https://assets.basically.website/sorter-docs/assembly-orange-pi-housing-antenna-clamp-fitted-w1600-fbbe73d961bd.jpg" alt="The north wall of the housing seen from outside and above, two antennas standing in the two channels of the block on the wall with the antenna clamp screwed down over them">
+    <figcaption>The antennas in their two channels with the clamp screwed down over them. <cite>Photo: BrickCycleAlice.</cite></figcaption>
   </figure>
 </div>
 
@@ -160,8 +164,8 @@ Lower the roof onto the walls grooved side down. The groove runs all the way rou
 
 <div class="img-row">
   <figure>
-    <img src="https://assets.basically.website/sorter-docs/orange-pi-housing-step6-roof-full-027c3aa73416.png" alt="Exploded render of the roof lifted above the closed walls, grooved side down, with a dashed line running from each corner of the roof to the corner post below it">
-    <figcaption>The roof goes on grooved side down, onto the four corner posts.</figcaption>
+    <img src="https://assets.basically.website/sorter-docs/assembly-orange-pi-housing-roof-fitted-w1600-0520c0d3d2e1.jpg" alt="The roof screwed onto the housing, seen from directly above: a screw in each corner, the hex vent in the middle and two groups of four small pilot holes either side of it">
+    <figcaption>The roof on, a screw in each corner. The two sets of pilot holes are for the clamps in step 7. <cite>Photo: BrickCycleAlice.</cite></figcaption>
   </figure>
   <figure>
     <img src="https://assets.basically.website/sorter-docs/orange-pi-housing-roof-underside-full-0770afc1f53f.png" alt="Render of the roof seen from underneath: a groove runs all the way round the inside of its rim, with four round bosses standing inside it and the hex vent showing through the middle">
@@ -179,6 +183,10 @@ The hub clamp is drawn around the Waveshare USB3.2-Gen1-HUB-4U. The cables into 
   <figure>
     <img src="https://assets.basically.website/sorter-docs/orange-pi-housing-step7-roof-clamps-full-cccfa381b135.png" alt="Exploded render of the two clamps lifted off the roof of the closed housing, a closed rectangular frame in blue and an open U-shaped one in orange, each with dashed lines down to its pilot holes">
     <figcaption>Blue is the hub clamp, orange the buck clamp. Each takes four screws into the pilots in the roof.</figcaption>
+  </figure>
+  <figure>
+    <img src="https://assets.basically.website/sorter-docs/assembly-orange-pi-housing-buck-clamp-fitted-w1600-b800f34f3fbb.jpg" alt="The roof of the housing seen from above with the 24 V to 5 V buck converter held down by its clamp at one corner, its USB-C lead looping down into the opening in the north wall and the other four pilot holes left empty">
+    <figcaption>The buck converter under its clamp, its USB-C lead into the Pi. <cite>Photo: BrickCycleAlice.</cite></figcaption>
   </figure>
 </div>
 

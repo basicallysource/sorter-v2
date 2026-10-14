@@ -266,3 +266,24 @@ def test_the_worker_reads_the_palette_without_loading_the_catalog(monkeypatch):
     monkeypatch.setattr(profile_catalog, "_catalog_lookup", _Lookup())
     assert color_predictor._palette()[5]["name"] == "Red"
     assert profile_catalog._catalog_service is None
+
+
+def test_the_worker_names_a_pixel_colour_without_loading_the_catalog(monkeypatch):
+    # The pixel guess (piece_warm, in the worker) names its colour from the
+    # labelable palette, which comes from the same lookup.
+    from app import roles
+    from app.services import pixel_color, profile_catalog
+
+    class _Lookup:
+        def list_bricklink_colors(self):
+            return [{"id": 5, "name": "Red", "rgb": "#C91A09"}, {"id": 11, "name": "Black", "rgb": "#05131D"}]
+
+    monkeypatch.setattr(roles, "role", lambda: "worker")
+    monkeypatch.setattr(profile_catalog, "_catalog_service", None)
+    monkeypatch.setattr(profile_catalog, "_catalog_lookup", _Lookup())
+    pixel_color._palette.cache_clear()
+    try:
+        assert pixel_color._nearest_color((190, 30, 20))["color_name"] == "Red"
+        assert profile_catalog._catalog_service is None
+    finally:
+        pixel_color._palette.cache_clear()

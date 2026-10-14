@@ -2,13 +2,18 @@ import threading
 import time
 from types import SimpleNamespace
 
+import numpy as np
+
 from classification.providers import (
     COLOR_PROVIDER_BRICKOGNIZE,
     COLOR_PROVIDER_HIVE_BASICALLY,
     MOLD_PROVIDER_BRICKOGNIZE,
 )
+from defs.known_object import RecognitionImage
 from subsystems.classification_channel.two_piece.base import (
+    MAX_HOSTED_COLOR_IMAGES,
     Rev01BaseState,
+    _hostedColorImages,
 )
 from subsystems.classification_channel.two_piece.context import (
     SimpleStateMachineRev01Context,
@@ -156,3 +161,16 @@ def test_known_object_keeps_brickognize_color_without_hosted_answer() -> None:
     # confidence — still distinct from the item score.
     assert piece.confidence == 0.9
     assert piece.color_confidence == 0.8
+
+
+def test_hosted_color_reads_every_burst_frame_not_only_the_used_ones() -> None:
+    # Ten burst frames, only one of them used for the part (an empty frame,
+    # say): the colour provider gets the burst's first eight in order, used or not.
+    captures = [np.full((4, 4, 3), i, dtype=np.uint8) for i in range(10)]
+    entries = [RecognitionImage(image=f"{i}.jpg", source="c4_burst", used=i == 5, channel=4) for i in range(10)]
+
+    images = _hostedColorImages(captures, entries)
+
+    assert len(images) == MAX_HOSTED_COLOR_IMAGES == 8
+    assert [s.rec.image for s in images] == [f"{i}.jpg" for i in range(8)]
+    assert [int(s.bgr[0, 0, 0]) for s in images] == list(range(8))

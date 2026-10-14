@@ -38,6 +38,8 @@ from .context import SimpleStateMachineRev01Context
 # handful; this only bounds a pathological frame where it matches half the
 # window, so one piece can't dump dozens of JPEGs into the image store.
 MAX_LINK_ATTACH = 8
+# What the hosted colour endpoint takes for one piece (Hive's color_predictor.MAX_PREDICT_IMAGES).
+MAX_HOSTED_COLOR_IMAGES = 8
 
 
 @dataclass
@@ -60,6 +62,15 @@ class _ClassifyRequest:
     # Where each image sits in the piece's stored sets (see _imageRefs), kept
     # with the request's predictions.
     image_refs: list[dict] = field(default_factory=list)
+
+
+def _hostedColorImages(captures: list[np.ndarray], burst_entries: list[RecognitionImage]) -> list[_SendImage]:
+    """The images the hosted colour provider judges a piece from: every frame of
+    its C4 burst, in burst order, at most MAX_HOSTED_COLOR_IMAGES. Not only the
+    frames picked for recognising the part (often one, sometimes an empty
+    frame, which alone would decide the colour), and none of the upstream link
+    views: the colour models read C4 crops, as Hive does for stored pieces."""
+    return [_SendImage(bgr, rec) for bgr, rec in zip(captures, burst_entries)][:MAX_HOSTED_COLOR_IMAGES]
 
 
 def _imageRefs(obj, images: list[_SendImage]) -> list[dict]:
@@ -304,9 +315,10 @@ class Rev01BaseState(BaseState):
                 # The hosted color provider (when selected) runs alongside the
                 # Brickognize fan-out rather than after it, so choosing it costs
                 # no extra wall-clock unless it is slower than Brickognize.
-                hosted_color = self._maybeStartHostedColorPredict(sendable, piece_uuid)
+                colour_images = _hostedColorImages(all_captures, burst_entries)
+                hosted_color = self._maybeStartHostedColorPredict(colour_images, piece_uuid)
                 if hosted_color is not None:
-                    hosted_color["images"] = _imageRefs(obj, sendable)
+                    hosted_color["images"] = _imageRefs(obj, colour_images)
                 requests = self._buildClassifyRequests(sendable)
                 for req in requests:
                     req.image_refs = _imageRefs(obj, req.images)

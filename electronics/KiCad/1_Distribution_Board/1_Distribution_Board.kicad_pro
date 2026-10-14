@@ -554,7 +554,7 @@
       "gencad": "",
       "idf": "",
       "netlist": "",
-      "plot": "production/v1.3+/",
+      "plot": "production/v1.4/",
       "pos_files": "1_Distribution_Board_Outputs/Pick-Place/",
       "specctra_dsn": "",
       "step": "1_Distribution_Board.step",

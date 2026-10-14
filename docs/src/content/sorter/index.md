@@ -13,6 +13,12 @@ permalink: /sorter/
 
 - **[Installation]({{ '/sorter/installation/' | relative_url }})** — the three routes: the SorterOS image for the Orange Pi 5, the one-command installer for generic Linux, or the sequence by hand.
 
+## Flash the control board before the wizard
+
+The board needs its firmware before the wizard can see it. Controller Discovery only lists boards that already answer on USB serial, so a board with nothing on it is invisible there and the step reports `No MCU buses found`.
+
+With SorterOS running, flash it from **Settings** &rarr; **Control board**: pick a release (or upload a `.uf2` directly) and flash it over the Pico's USB serial connection. **The asset you want is the `distribution` one for your board revision**, which is the all-in-one build for a machine with a single control board. A v1.3 board takes the `v1-2` build. A board that has never been flashed is a special case, because it enumerates as an `RPI-RP2` drive rather than a serial port and needs the **Recovery flash** option instead. [SorterOS troubleshooting]({{ '/sorter/troubleshooting/' | relative_url }}) has those steps.
+
 ## Set up a new machine, in this order
 
 <ol class="numbered-steps">

@@ -24,7 +24,7 @@ The software is installed and the machine has booted. This page takes you from o
 
 - The machine is assembled, wired and powered on.
 - SorterOS is installed and running. See [Installation]({{ '/sorter/installation/' | relative_url }}).
-- **The control board is flashed.** Step 3 below only lists boards that already answer on USB serial, so a board with no firmware on it does not appear there at all. [Software setup]({{ '/hardware/software-setup/' | relative_url }}) step 2 has the route, including the one for a board that has never been flashed.
+- **The control board is flashed.** Step 3 below only lists boards that already answer on USB serial, so a board with no firmware on it does not appear there at all. [Flashing the control board]({{ '/sorter/' | relative_url }}#flash-the-control-board-before-the-wizard) has the route, including the one for a board that has never been flashed.
 - Your phone, tablet or computer is on the same network as the machine.
 - The machine is empty: no parts in the C-channels, the carousel, the classification chamber or the chute. The wizard turns the motors.
 - Nothing is resting against the chute or the carousel.
@@ -109,7 +109,7 @@ A recognised device has a green **Controller** or **Servo Bus** badge, its board
 **Nothing listed, or the control board missing?** In order:
 
 <ol class="numbered-steps">
-  <li><strong>The board has no firmware on it.</strong> This is the usual cause on a new machine, and an unflashed board cannot appear here. Flash it, then come back. <a href="{{ '/hardware/software-setup/' | relative_url }}">Software setup</a> step 2.</li>
+  <li><strong>The board has no firmware on it.</strong> This is the usual cause on a new machine, and an unflashed board cannot appear here. Flash it, then come back. <a href="{{ '/sorter/' | relative_url }}#flash-the-control-board-before-the-wizard">Flashing the control board</a>.</li>
   <li><strong>The machine is not powered, or the board's USB cable (<code>USB6</code>) is not in.</strong> The cable runs from the Pico's own socket to a port on the USB hub.</li>
   <li>Press <strong>Rescan</strong>.</li>
 </ol>

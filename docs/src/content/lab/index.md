@@ -28,6 +28,10 @@ The design pages give the overall picture in a few lines, then link to the files
     <p>What the printed parts are designed to do, the thinking behind how they fit together and are printed, and which screws and other hardware they use.</p>
   </div>
   <div class="callout">
+    <strong><a href="{{ '/lab/lighting/' | relative_url }}">How the cameras are lit</a></strong>
+    <p>The LED strip, the white reflector and the cover of the camera lamp, and why the light is arranged to be soft and even.</p>
+  </div>
+  <div class="callout">
     <strong><a href="{{ '/lab/contribute/' | relative_url }}">How to contribute</a></strong>
     <p>Where the project lives, how to help, when the team meets each week, and what Balloon, the assistant in the Discord, can do for you.</p>
   </div>

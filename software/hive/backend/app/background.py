@@ -92,7 +92,7 @@ def _periodic(get: Callable[[], PeriodicWorker]) -> Worker:
 
 
 def _catalog_auto_sync_enabled() -> bool:
-    return bool(settings.PROFILE_CATALOG_AUTO_SYNC_ENABLED and settings.REBRICKABLE_API_KEY)
+    return settings.PROFILE_CATALOG_AUTO_SYNC_ENABLED
 
 
 def _start_catalog_auto_sync() -> None:

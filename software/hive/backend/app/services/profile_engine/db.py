@@ -595,6 +595,38 @@ def upsertParts(conn, parts_list):
     conn.commit()
 
 
+def importParts(conn, part_rows):
+    """Rebrickable's parts list, (part_num, name, part_cat_id) rows from its
+    parts download: new parts are added, known ones renamed and recategorized.
+    What only Rebrickable's API gave (BrickLink IDs, years, a picture) stays
+    as it is, and a new part has no BrickLink IDs. A part without years or a
+    picture takes them from the sets it is in (the imported set inventories),
+    the way Rebrickable works its years out. Returns how many parts the list
+    has."""
+    total = conn.executemany(
+        "INSERT INTO parts (part_num, name, part_cat_id) VALUES (?, COALESCE(?, ''), ?) "
+        "ON CONFLICT(part_num) DO UPDATE SET name = excluded.name, part_cat_id = excluded.part_cat_id",
+        part_rows,
+    ).rowcount
+    conn.execute(
+        """UPDATE parts
+           SET year_from = COALESCE(parts.year_from, seen.year_from),
+               year_to = COALESCE(parts.year_to, seen.year_to),
+               part_img_url = COALESCE(parts.part_img_url, seen.img_url)
+           FROM (
+               SELECT ip.part_num, MIN(s.year) AS year_from, MAX(s.year) AS year_to, MAX(ip.img_url) AS img_url
+               FROM rebrickable_inventory_parts ip
+               JOIN rebrickable_inventories i ON i.id = ip.inventory_id
+               JOIN rebrickable_sets s ON s.set_num = i.set_num
+               WHERE ip.part_num IN (SELECT part_num FROM parts WHERE year_from IS NULL OR part_img_url IS NULL)
+               GROUP BY ip.part_num
+           ) AS seen
+           WHERE seen.part_num = parts.part_num"""
+    )
+    conn.commit()
+    return total
+
+
 def upsertBricklinkCategory(conn, cat_id, name, parent_id=0):
     conn.execute(
         "INSERT OR REPLACE INTO bricklink_categories (id, name, parent_id) VALUES (?, ?, ?)",

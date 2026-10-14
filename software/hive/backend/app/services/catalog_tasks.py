@@ -12,8 +12,7 @@ catalog runs as a catalog task (``python -m app.catalog_task``) instead:
 
 One child at a time, each allowed ``CATALOG_TASK_TIMEOUT_MINUTES`` before it is
 stopped. A failure is logged; a sync that failed or was cut short is planned
-again at the next check, as the in-process auto-sync always did (a parts sync
-resumes from the rows it already has). The child writes what an all-in-one
+again at the next check, as the in-process auto-sync always did. The child writes what an all-in-one
 process writes, and the web process picks up a finished sync within a minute
 (ProfileCatalogService.follow_syncs). Its memory goes back to the box when it
 exits; it logs its peak.
@@ -48,7 +47,7 @@ def _now_iso() -> str:
 
 
 def _auto_sync_enabled() -> bool:
-    return bool(settings.PROFILE_CATALOG_AUTO_SYNC_ENABLED and settings.REBRICKABLE_API_KEY)
+    return settings.PROFILE_CATALOG_AUTO_SYNC_ENABLED
 
 
 class CatalogTaskRunner:

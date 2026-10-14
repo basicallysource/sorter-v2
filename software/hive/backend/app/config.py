@@ -81,7 +81,6 @@ class Settings(BaseSettings):
     DISCORD_CLIENT_ID: str | None = None
     DISCORD_CLIENT_SECRET: str | None = None
     DISCORD_REDIRECT_URI: str | None = None
-    REBRICKABLE_API_KEY: str = ""
     BLA_API_KEY: str = ""
     SORTING_PROFILE_PARTS_DB_PATH: str = "data/profile_builder/parts.db"
     SORTING_PROFILE_BRICKSTORE_DB_PATH: str = "~/Library/Caches/BrickStore/database-v12"
@@ -94,8 +93,8 @@ class Settings(BaseSettings):
     PROFILE_CATALOG_AUTO_SYNC_CATEGORIES_MAX_AGE_HOURS: int = 168
     # The worker process never loads the parts catalog; a sync or the default
     # profiles run in a child process (app.services.catalog_tasks), one at a
-    # time, stopped after this long. A parts sync resumes from the rows it has,
-    # so one cut short goes on at the next auto-sync check.
+    # time, stopped after this long. A sync cut short runs again at the next
+    # auto-sync check.
     CATALOG_TASK_TIMEOUT_MINUTES: float = 120
     OPENROUTER_BASE_URL: str = "https://openrouter.ai/api/v1"
     # Perceptron exposes an OpenAI-compatible /v1/chat/completions endpoint.

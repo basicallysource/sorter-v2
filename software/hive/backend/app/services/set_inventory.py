@@ -2,27 +2,18 @@
 
 The "sets" catalog sync imports the downloads whole into parts.db
 (migration 011); set search and a set's inventory are queries on those
-tables. Rebrickable's API is not used for sets: it refuses requests from some
-servers, and the downloads carry everything set search and kits need.
+tables.
 """
 
 from __future__ import annotations
 
-import csv
-import gzip
 import re
-import shutil
 import sqlite3
-import tempfile
-from collections.abc import Callable, Iterator
+from collections.abc import Callable
 from datetime import datetime, UTC
-from pathlib import Path
 from typing import Any
 
-import requests
-
-DOWNLOADS_URL = "https://cdn.rebrickable.com/media/downloads"
-DOWNLOAD_TIMEOUT_SECONDS = 60
+from app.services.rebrickable_downloads import downloads, rows
 
 # Each table and the CSV it is a copy of, in the order they are imported.
 _IMPORTS = (
@@ -41,37 +32,6 @@ _IMPORTS = (
 # Import
 
 
-def _download(name: str, directory: Path) -> Path:
-    """Rebrickable's ``<name>.csv.gz``, saved as it streams in."""
-    path = directory / f"{name}.csv.gz"
-    with requests.get(f"{DOWNLOADS_URL}/{name}.csv.gz", stream=True, timeout=DOWNLOAD_TIMEOUT_SECONDS) as resp:
-        resp.raise_for_status()
-        with open(path, "wb") as out:
-            shutil.copyfileobj(resp.raw, out)
-    return path
-
-
-def _value(column: str, raw: str) -> Any:
-    if raw == "":
-        return None
-    if column == "is_spare":
-        return 1 if raw == "True" else 0
-    return raw
-
-
-def _rows(path: Path, columns: tuple[str, ...]) -> Iterator[tuple[Any, ...]]:
-    """The file's rows, one at a time: inventory_parts is 1.5 million of them."""
-    with gzip.open(path, "rt", encoding="utf-8", newline="") as f:
-        reader = csv.reader(f)
-        header = next(reader)
-        missing = [column for column in columns if column not in header]
-        if missing:
-            raise ValueError(f"{path.name} has no column {', '.join(missing)} (it has {', '.join(header)})")
-        positions = [(column, header.index(column)) for column in columns]
-        for row in reader:
-            yield tuple(_value(column, row[i]) for column, i in positions)
-
-
 def import_sets(db_path: str, progress_fn: Callable[[int, int, str], None] | None = None) -> dict[str, int]:
     """Replace the themes, sets and inventories with Rebrickable's current
     downloads. Everything is downloaded first and then written in one
@@ -79,23 +39,20 @@ def import_sets(db_path: str, progress_fn: Callable[[int, int, str], None] | Non
     nothing and readers see the old tables until the new ones are complete.
     Returns the rows imported per table."""
     counts: dict[str, int] = {}
-    with tempfile.TemporaryDirectory(prefix="rebrickable-") as tmp:
-        files = {}
-        for index, (_, name, _) in enumerate(_IMPORTS):
-            if progress_fn:
-                progress_fn(index, len(_IMPORTS) * 2, f"Downloading {name}.csv.gz")
-            files[name] = _download(name, Path(tmp))
+    if progress_fn:
+        progress_fn(0, len(_IMPORTS), "Downloading Rebrickable's sets")
+    with downloads(*(name for _, name, _ in _IMPORTS)) as files:
         conn = sqlite3.connect(db_path, timeout=60)
         try:
             with conn:
                 for index, (table, name, columns) in enumerate(_IMPORTS):
                     if progress_fn:
-                        progress_fn(len(_IMPORTS) + index, len(_IMPORTS) * 2, f"Importing {name}")
+                        progress_fn(index, len(_IMPORTS), f"Importing {name}")
                     conn.execute(f"DELETE FROM {table}")
                     placeholders = ", ".join("?" for _ in columns)
                     cursor = conn.executemany(
                         f"INSERT INTO {table} ({', '.join(columns)}) VALUES ({placeholders})",
-                        _rows(files[name], columns),
+                        rows(files[name], columns),
                     )
                     counts[table] = cursor.rowcount
         finally:

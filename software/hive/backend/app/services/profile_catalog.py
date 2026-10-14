@@ -26,8 +26,9 @@ logger = logging.getLogger(__name__)
 
 CUSTOM_SET_ANY_COLOR_ID = -1
 PROFILE_CATALOG_SYNC_TYPES = ("sets", "categories", "colors", "parts", "brickstore", "prices", "geometry")
-# Sets first: they come from Rebrickable's downloads and need none of the
-# others, and an auto-sync stops at the first sync that fails.
+# All four come from Rebrickable's CSV downloads. Sets first: they need none
+# of the others, an auto-sync stops at the first sync that fails, and the parts
+# sync takes new parts' years and pictures from the sets.
 PROFILE_CATALOG_AUTO_SYNC_TYPES = ("sets", "categories", "colors", "parts")
 PROFILE_CATALOG_LAST_SYNC_META_PREFIX = "profile_catalog.last_sync."
 # How often a process that does not run the syncs looks for one that finished
@@ -190,7 +191,6 @@ def _bricklink_category_names(conn, item_nos: list[str]) -> dict[str, str]:
 
 @dataclass
 class CatalogConfig:
-    rebrickable_api_key: str
     bla_api_key: str
     db_path: str
     brickstore_db_path: str
@@ -206,7 +206,6 @@ class ProfileCatalogService:
         db_path = os.path.expanduser(settings.SORTING_PROFILE_PARTS_DB_PATH)
         _ensure_parent_dir(db_path)
         self._config = CatalogConfig(
-            rebrickable_api_key=settings.REBRICKABLE_API_KEY,
             bla_api_key=settings.BLA_API_KEY,
             db_path=db_path,
             brickstore_db_path=os.path.expanduser(settings.SORTING_PROFILE_BRICKSTORE_DB_PATH),
@@ -251,7 +250,7 @@ class ProfileCatalogService:
 
     @property
     def auto_sync_enabled(self) -> bool:
-        return bool(settings.PROFILE_CATALOG_AUTO_SYNC_ENABLED and self._config.rebrickable_api_key)
+        return settings.PROFILE_CATALOG_AUTO_SYNC_ENABLED
 
     @property
     def auto_sync_loop_running(self) -> bool:

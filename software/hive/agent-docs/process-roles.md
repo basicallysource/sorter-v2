@@ -92,8 +92,7 @@ never loads it (`get_profile_catalog_service()` raises there):
   worker's start. Every `PROFILE_CATALOG_AUTO_SYNC_CHECK_INTERVAL_MINUTES` the
   runner counts rows and reads the sync times (no catalog loaded) and starts an
   `auto-sync` child when something is stale; a sync that failed or was cut
-  short is planned again at the next check, as before (a parts sync resumes
-  from the rows it has). An admin's start and stop arrive as requests; stop
+  short is planned again at the next check, as before. An admin's start and stop arrive as requests; stop
   sends the child SIGTERM, which stops its sync the way the stop button always
   has. A child drops its old copy before reloading after a sync, so it never
   holds two.

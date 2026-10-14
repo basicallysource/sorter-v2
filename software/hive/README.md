@@ -103,11 +103,10 @@ The backend and the worker bind-mount the same host directories under
 - `data/uploads` — uploaded sample images
 - `data/profile_builder` — the Rebrickable parts catalog SQLite db
   (`parts.db`: parts, categories, colors, and Rebrickable's sets, themes and
-  set inventories, imported daily from its CSV downloads). **Without this mount the catalog
-  lives only in the container layer and is wiped on every recreate, forcing a
-  full multi-hour re-sync from Rebrickable on each deploy.**
-
-`REBRICKABLE_API_KEY` must be set in `.env.prod` for the catalog auto-sync to run.
+  set inventories), all imported from Rebrickable's CSV downloads by the
+  catalog auto-sync. **Without this mount the catalog lives only in the
+  container layer and is wiped on every recreate, and the BrickLink IDs and
+  prices it holds are lost with it.**
 
 To seed `parts.db` (e.g. from a machine that already has a populated catalog)
 instead of syncing from scratch, copy a clean snapshot into the host dir before

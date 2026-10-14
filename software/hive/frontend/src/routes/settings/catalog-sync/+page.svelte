@@ -33,9 +33,9 @@
 		geometry: 'LDraw Geometry'
 	};
 	const TYPE_BLURBS: Record<CatalogSyncType, string> = {
-		parts: 'Full part catalog from Rebrickable (the largest sync; it pages, and resumes).',
-		categories: 'Rebrickable part categories.',
-		colors: 'Rebrickable color list.',
+		parts: "Rebrickable's parts list, from its CSV downloads. New parts come without BrickLink IDs, which the downloads do not carry.",
+		categories: "Rebrickable's part categories, from its CSV downloads.",
+		colors: "Rebrickable's colors, from its CSV downloads. A new color comes without its BrickLink ID.",
 		sets: "Rebrickable's sets, themes and set inventories, from its CSV downloads.",
 		prices: 'BrickLink price guide (requires BLA_API_KEY).',
 		brickstore: 'Import from a local BrickStore database file.',
@@ -149,7 +149,7 @@
 	</div>
 	<PageHeader
 		title="Catalog sync"
-		description="The Rebrickable and BrickLink catalog. A sync picks up where it stopped: if the server restarts during one, start the same one again."
+		description="The Rebrickable and BrickLink catalog. If the server restarts during a sync, start the same one again."
 	/>
 
 	{#if error}<Alert tone="danger" class="wrap-anywhere">{error}</Alert>{/if}

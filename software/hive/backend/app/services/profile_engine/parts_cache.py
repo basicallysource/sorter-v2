@@ -1,85 +1,21 @@
+import json
 import os
 import threading
-import time
+from collections import Counter
 from datetime import datetime, timezone
 
-import requests
-
+from app.services.rebrickable_downloads import downloads, rows
 from app.services.set_inventory import import_sets
 
 from .db import (
-    upsertCategories, upsertColors, upsertParts, setMeta,
+    upsertCategories, upsertColors, importParts, setMeta,
     upsertCatalogSyncState, reloadPartsData, importBrickstoreDb,
     syncBricklinkPrices, upsertPartGeometry, PartsData,
 )
 
-REBRICKABLE_BASE_URL = "https://rebrickable.com/api/v3/lego"
-REBRICKABLE_PAGE_SIZE = 1000
-THROTTLE_SECONDS = 1.1
-REQUEST_TIMEOUT_SECONDS = 30
-# Transient HTTP statuses worth retrying rather than aborting a long sync.
-RETRYABLE_STATUSES = frozenset({429, 500, 502, 503, 504})
-RETRY_BACKOFF_SCHEDULE = (2, 5, 15, 30, 60)
-MAX_REQUEST_RETRIES = len(RETRY_BACKOFF_SCHEDULE)
-
 
 def _nowIso() -> str:
     return datetime.now(timezone.utc).isoformat()
-
-
-def _interruptibleSleep(seconds: float, should_stop=None) -> None:
-    slept = 0.0
-    while slept < seconds:
-        if should_stop and should_stop():
-            return
-        chunk = min(1.0, seconds - slept)
-        time.sleep(chunk)
-        slept += chunk
-
-
-def rebrickableHeaders(api_key):
-    # The key goes in a header, never the query string: a URL is what an
-    # HTTPError message and a traceback print, and logs are kept.
-    return {"Authorization": f"key {api_key}"}
-
-
-def _requestJson(url, params, throttle_fn, should_stop=None, on_retry=None, api_key=None):
-    # Retries transient failures (rate limits, 5xx, network blips) with backoff so
-    # a single hiccup doesn't kill a multi-minute paginated sync. The throttle keeps
-    # us under Rebrickable's steady-state rate; this handles the spikes.
-    attempt = 0
-    headers = rebrickableHeaders(api_key) if api_key else None
-    while True:
-        throttle_fn()
-        resp = None
-        retryable = True
-        error: Exception | None = None
-        try:
-            resp = requests.get(url, params=params, headers=headers, timeout=REQUEST_TIMEOUT_SECONDS)
-        except requests.RequestException as exc:
-            error = exc
-        else:
-            if resp.ok:
-                return resp.json()
-            retryable = resp.status_code in RETRYABLE_STATUSES
-            error = requests.HTTPError(
-                f"{resp.status_code} {resp.reason} for url: {resp.url}", response=resp
-            )
-
-        if not retryable or attempt >= MAX_REQUEST_RETRIES:
-            raise error
-
-        delay = RETRY_BACKOFF_SCHEDULE[min(attempt, len(RETRY_BACKOFF_SCHEDULE) - 1)]
-        if resp is not None:
-            retry_after = resp.headers.get("Retry-After")
-            if retry_after and retry_after.isdigit():
-                delay = max(delay, int(retry_after))
-        attempt += 1
-        if on_retry:
-            on_retry(f"Transient error ({error}); retry {attempt}/{MAX_REQUEST_RETRIES} in {delay}s")
-        _interruptibleSleep(delay, should_stop)
-        if should_stop and should_stop():
-            raise error
 
 
 class SyncManager:
@@ -102,8 +38,6 @@ class SyncManager:
         self.sync_type = None
         self.error = None
         self._lock = threading.Lock()
-        self._last_request_time = 0
-        self._request_count = 0
 
     def getStatus(self, parts_data: PartsData) -> dict:
         with self._lock:
@@ -127,58 +61,22 @@ class SyncManager:
             if self.running:
                 self.stop_requested = True
 
-    def startPartsSync(self, gc, conn, parts_data, on_complete=None, on_error=None) -> bool:
-        with self._lock:
-            if self.running:
-                return False
-            self.running = True
-            self.stop_requested = False
-            self.pages_fetched = 0
-            self.progress_current = len(parts_data.parts)
-            self.progress_total = parts_data.api_total_parts
-            self.sync_type = "parts"
-            self.error = None
-            self.last_message = "Starting parts sync..."
-            self._markRunning(conn, "parts")
-        t = threading.Thread(target=self._syncPartsLoop, args=(gc, conn, parts_data, on_complete, on_error), daemon=True)
-        t.start()
-        return True
-
-    def startCategoriesSync(self, gc, conn, parts_data, on_complete=None, on_error=None) -> bool:
-        with self._lock:
-            if self.running:
-                return False
-            self.running = True
-            self.stop_requested = False
-            self.pages_fetched = 0
-            self.progress_current = None
-            self.progress_total = None
-            self.sync_type = "categories"
-            self.error = None
-            self.last_message = "Syncing categories..."
-            self._markRunning(conn, "categories")
-        t = threading.Thread(target=self._syncCategoriesOnce, args=(gc, conn, parts_data, on_complete, on_error), daemon=True)
-        t.start()
-        return True
-
-    def startColorsSync(self, gc, conn, parts_data, on_complete=None, on_error=None) -> bool:
-        with self._lock:
-            if self.running:
-                return False
-            self.running = True
-            self.stop_requested = False
-            self.pages_fetched = 0
-            self.progress_current = None
-            self.progress_total = None
-            self.sync_type = "colors"
-            self.error = None
-            self.last_message = "Syncing colors..."
-            self._markRunning(conn, "colors")
-        t = threading.Thread(target=self._syncColorsOnce, args=(gc, conn, parts_data, on_complete, on_error), daemon=True)
-        t.start()
-        return True
+    # The Rebrickable imports: each downloads its CSV files and imports them in
+    # one go (seconds), so there is nothing to page, resume or stop.
 
     def startSetsSync(self, gc, conn, parts_data, on_complete=None, on_error=None) -> bool:
+        return self._startImport("sets", _syncSets, gc, conn, parts_data, on_complete, on_error)
+
+    def startCategoriesSync(self, gc, conn, parts_data, on_complete=None, on_error=None) -> bool:
+        return self._startImport("categories", _syncCategories, gc, conn, parts_data, on_complete, on_error)
+
+    def startColorsSync(self, gc, conn, parts_data, on_complete=None, on_error=None) -> bool:
+        return self._startImport("colors", _syncColors, gc, conn, parts_data, on_complete, on_error)
+
+    def startPartsSync(self, gc, conn, parts_data, on_complete=None, on_error=None) -> bool:
+        return self._startImport("parts", _syncParts, gc, conn, parts_data, on_complete, on_error)
+
+    def _startImport(self, sync_type, work, gc, conn, parts_data, on_complete, on_error) -> bool:
         with self._lock:
             if self.running:
                 return False
@@ -187,13 +85,37 @@ class SyncManager:
             self.pages_fetched = 0
             self.progress_current = None
             self.progress_total = None
-            self.sync_type = "sets"
+            self.sync_type = sync_type
             self.error = None
-            self.last_message = "Downloading Rebrickable's sets..."
-            self._markRunning(conn, "sets")
-        t = threading.Thread(target=self._syncSetsOnce, args=(gc, conn, on_complete, on_error), daemon=True)
+            self.last_message = f"Downloading Rebrickable's {sync_type}..."
+            self._markRunning(conn, sync_type)
+        t = threading.Thread(
+            target=self._runImport, args=(sync_type, work, gc, conn, parts_data, on_complete, on_error), daemon=True
+        )
         t.start()
         return True
+
+    def _runImport(self, sync_type, work, gc, conn, parts_data, on_complete=None, on_error=None) -> None:
+        try:
+            message, count = work(gc, conn, parts_data, self._updateProgress)
+            with self._lock:
+                self.last_message = message
+                self._persist(
+                    conn, sync_type, status="completed", completed_at=_nowIso(),
+                    progress_current=count, progress_total=count,
+                    last_message=message, error=None,
+                )
+            self._invoke_callback(on_complete)
+        except Exception as e:
+            with self._lock:
+                self.error = str(e)
+                self.last_message = f"Error: {e}"
+                self._persist(conn, sync_type, status="error", error=str(e), last_message=self.last_message)
+            self._invoke_callback(on_error, e)
+        finally:
+            with self._lock:
+                self.running = False
+                self.sync_type = None
 
     def startBrickstoreImport(self, gc, conn, parts_data, on_complete=None, on_error=None) -> bool:
         with self._lock:
@@ -326,142 +248,6 @@ class SyncManager:
             completed_at=None,
         )
 
-    def _throttle(self):
-        elapsed = time.time() - self._last_request_time
-        if elapsed < THROTTLE_SECONDS:
-            time.sleep(THROTTLE_SECONDS - elapsed)
-        self._last_request_time = time.time()
-        self._request_count += 1
-        print(f"[rebrickable] request #{self._request_count}")
-
-    def _syncPartsLoop(self, gc, conn, parts_data, on_complete=None, on_error=None) -> None:
-        try:
-            while True:
-                with self._lock:
-                    if self.stop_requested:
-                        self.last_message = f"Stopped after {self.pages_fetched} pages"
-                        self._persist(conn, "parts", status="stopped", last_message=self.last_message)
-                        break
-                result = _syncPartsPage(
-                    gc, conn, parts_data, self._throttle,
-                    should_stop=self._shouldStop,
-                    on_retry=lambda msg: self._note(conn, "parts", msg),
-                )
-                with self._lock:
-                    self.pages_fetched += 1
-                    pct = round((result["cached"] / result["total"]) * 100) if result["total"] else 0
-                    self.progress_current = result["cached"]
-                    self.progress_total = result["total"]
-                    self.last_message = f'{result["cached"]} / {result["total"]} parts ({pct}%)'
-                    self._persist(
-                        conn, "parts", status="running", error=None,
-                        progress_current=result["cached"], progress_total=result["total"],
-                        pages_fetched=self.pages_fetched, last_message=self.last_message,
-                    )
-                if result["done"]:
-                    with self._lock:
-                        self.last_message = f'Sync complete! {result["cached"]} parts'
-                        self._persist(
-                            conn, "parts", status="completed", completed_at=_nowIso(),
-                            progress_current=result["cached"], progress_total=result["total"],
-                            last_message=self.last_message, error=None,
-                        )
-                    reloadPartsData(conn, parts_data)
-                    self._invoke_callback(on_complete)
-                    break
-        except Exception as e:
-            with self._lock:
-                self.error = str(e)
-                self.last_message = f"Error: {e}"
-                self._persist(conn, "parts", status="error", error=str(e), last_message=self.last_message)
-            self._invoke_callback(on_error, e)
-        finally:
-            with self._lock:
-                self.running = False
-                self.stop_requested = False
-                self.sync_type = None
-
-    def _syncCategoriesOnce(self, gc, conn, parts_data, on_complete=None, on_error=None) -> None:
-        try:
-            count = _syncCategories(
-                gc, conn, self._throttle,
-                should_stop=self._shouldStop,
-                on_retry=lambda msg: self._note(conn, "categories", msg),
-            )
-            reloadPartsData(conn, parts_data)
-            with self._lock:
-                self.last_message = f"Synced {count} categories"
-                self._persist(
-                    conn, "categories", status="completed", completed_at=_nowIso(),
-                    progress_current=count, progress_total=count,
-                    last_message=self.last_message, error=None,
-                )
-            self._invoke_callback(on_complete)
-        except Exception as e:
-            with self._lock:
-                self.error = str(e)
-                self.last_message = f"Error: {e}"
-                self._persist(conn, "categories", status="error", error=str(e), last_message=self.last_message)
-            self._invoke_callback(on_error, e)
-        finally:
-            with self._lock:
-                self.running = False
-                self.sync_type = None
-
-    def _syncColorsOnce(self, gc, conn, parts_data, on_complete=None, on_error=None) -> None:
-        try:
-            count = _syncColors(
-                gc, conn, self._throttle,
-                should_stop=self._shouldStop,
-                on_retry=lambda msg: self._note(conn, "colors", msg),
-            )
-            reloadPartsData(conn, parts_data)
-            with self._lock:
-                self.last_message = f"Synced {count} colors"
-                self._persist(
-                    conn, "colors", status="completed", completed_at=_nowIso(),
-                    progress_current=count, progress_total=count,
-                    last_message=self.last_message, error=None,
-                )
-            self._invoke_callback(on_complete)
-        except Exception as e:
-            with self._lock:
-                self.error = str(e)
-                self.last_message = f"Error: {e}"
-                self._persist(conn, "colors", status="error", error=str(e), last_message=self.last_message)
-            self._invoke_callback(on_error, e)
-        finally:
-            with self._lock:
-                self.running = False
-                self.sync_type = None
-
-    def _syncSetsOnce(self, gc, conn, on_complete=None, on_error=None) -> None:
-        try:
-            # Its own connection, in one transaction: the shared one stays free
-            # for state updates, and readers see the old sets until it commits.
-            counts = import_sets(gc.db_path, progress_fn=self._updateProgress)
-            with self._lock:
-                self.last_message = (
-                    f"Imported {counts['rebrickable_sets']} sets, {counts['rebrickable_themes']} themes, "
-                    f"{counts['rebrickable_inventory_parts']} inventory parts"
-                )
-                self._persist(
-                    conn, "sets", status="completed", completed_at=_nowIso(),
-                    progress_current=counts["rebrickable_sets"], progress_total=counts["rebrickable_sets"],
-                    last_message=self.last_message, error=None,
-                )
-            self._invoke_callback(on_complete)
-        except Exception as e:
-            with self._lock:
-                self.error = str(e)
-                self.last_message = f"Error: {e}"
-                self._persist(conn, "sets", status="error", error=str(e), last_message=self.last_message)
-            self._invoke_callback(on_error, e)
-        finally:
-            with self._lock:
-                self.running = False
-                self.sync_type = None
-
     def _importBrickstoreOnce(self, gc, conn, parts_data, on_complete=None, on_error=None) -> None:
         try:
             if not os.path.exists(gc.brickstore_db_path):
@@ -544,77 +330,52 @@ class SyncManager:
             self.last_message = message
 
 
-def _syncCategories(gc, conn, throttle_fn, should_stop=None, on_retry=None):
-    url = f"{REBRICKABLE_BASE_URL}/part_categories/"
-    data = _requestJson(
-        url, {"page_size": 1000},
-        throttle_fn, should_stop=should_stop, on_retry=on_retry, api_key=gc.rebrickable_api_key,
+# ---------------------------------------------------------------------------
+# The Rebrickable imports, from its CSV downloads. Each returns what to say
+# about it and how many rows it brought.
+
+
+def _syncSets(gc, conn, parts_data, progress_fn):
+    # Its own connection, in one transaction: the shared one stays free for
+    # state updates, and readers see the old sets until it commits.
+    counts = import_sets(gc.db_path, progress_fn=progress_fn)
+    sets = counts["rebrickable_sets"]
+    return (
+        f"Imported {sets} sets, {counts['rebrickable_themes']} themes, "
+        f"{counts['rebrickable_inventory_parts']} inventory parts",
+        sets,
     )
-    cat_list = []
-    for cat_data in data.get("results", []):
-        cat_list.append({
-            "id": cat_data["id"],
-            "name": cat_data["name"],
-            "part_count": cat_data["part_count"],
-        })
-    upsertCategories(conn, cat_list)
-    return len(cat_list)
 
 
-def _syncColors(gc, conn, throttle_fn, should_stop=None, on_retry=None):
-    url = f"{REBRICKABLE_BASE_URL}/colors/"
-    data = _requestJson(
-        url, {"page_size": 1000},
-        throttle_fn, should_stop=should_stop, on_retry=on_retry, api_key=gc.rebrickable_api_key,
-    )
-    color_list = []
-    for color_data in data.get("results", []):
-        color_list.append(color_data)
-    upsertColors(conn, color_list)
-    return len(color_list)
+def _syncCategories(gc, conn, parts_data, progress_fn):
+    with downloads("part_categories", "parts") as files:
+        part_counts = Counter(cat_id for (cat_id,) in rows(files["parts"], ("part_cat_id",)))
+        categories = [
+            {"id": int(cat_id), "name": name, "part_count": part_counts[cat_id]}
+            for cat_id, name in rows(files["part_categories"], ("id", "name"))
+        ]
+    upsertCategories(conn, categories)
+    reloadPartsData(conn, parts_data)
+    return f"Synced {len(categories)} categories", len(categories)
 
 
-def _syncPartsPage(gc, conn, parts_data, throttle_fn, should_stop=None, on_retry=None):
-    # Page must advance off the persisted DB count, not parts_data.parts: the
-    # in-memory cache is only refreshed by reloadPartsData() after the whole
-    # sync finishes, so deriving the page from it pins page_num at 1 and
-    # re-fetches page 1 forever (which Rebrickable eventually 429s).
-    cached_before = conn.execute("SELECT COUNT(*) FROM parts").fetchone()[0]
-    page_num = (cached_before // REBRICKABLE_PAGE_SIZE) + 1
-    url = f"{REBRICKABLE_BASE_URL}/parts/"
-    try:
-        data = _requestJson(
-            url,
-            {
-                "page_size": REBRICKABLE_PAGE_SIZE,
-                "inc_part_details": 1,
-                "page": page_num,
-            },
-            throttle_fn, should_stop=should_stop, on_retry=on_retry, api_key=gc.rebrickable_api_key,
-        )
-    except requests.HTTPError as exc:
-        # Rebrickable answers 404 for a page past the last one. The page comes
-        # from how many parts are here already, so once the catalog holds as many
-        # as Rebrickable lists (parts merged or removed there stay here), the next
-        # page is past the end and nothing is left to fetch: the sync is done.
-        # Without this it failed on that page forever and never recorded a
-        # finish. A 404 for the first page is a real failure (a wrong address,
-        # a changed API), as is every other error.
-        response = getattr(exc, "response", None)
-        if page_num > 1 and response is not None and response.status_code == 404:
-            total = parts_data.api_total_parts or cached_before
-            return {"fetched": 0, "total": total, "cached": cached_before, "done": True}
-        raise
-    total = data["count"]
-    parts_list = []
-    for part_data in data.get("results", []):
-        pnum = part_data["part_num"]
-        if pnum not in parts_data.parts:
-            parts_list.append(part_data)
-    upsertParts(conn, parts_list)
+def _syncColors(gc, conn, parts_data, progress_fn):
+    # The downloads have no BrickLink color IDs (what the API gave as
+    # external_ids): a color keeps the ones it has, and a new one has none.
+    kept = {color_id: json.loads(extra) for color_id, extra in conn.execute("SELECT id, extra FROM colors") if extra}
+    with downloads("colors") as files:
+        colors = [
+            {**kept.get(int(color_id), {}), "id": int(color_id), "name": name, "rgb": rgb, "is_trans": bool(is_trans)}
+            for color_id, name, rgb, is_trans in rows(files["colors"], ("id", "name", "rgb", "is_trans"))
+        ]
+    upsertColors(conn, colors)
+    reloadPartsData(conn, parts_data)
+    return f"Synced {len(colors)} colors", len(colors)
+
+
+def _syncParts(gc, conn, parts_data, progress_fn):
+    with downloads("parts") as files:
+        total = importParts(conn, rows(files["parts"], ("part_num", "name", "part_cat_id")))
     setMeta(conn, "api_total_parts", str(total))
-    parts_data.api_total_parts = total
-    # update in-memory count
-    cached = conn.execute("SELECT COUNT(*) FROM parts").fetchone()[0]
-    done = data.get("next") is None
-    return {"fetched": len(parts_list), "total": total, "cached": cached, "done": done}
+    reloadPartsData(conn, parts_data)
+    return f"Synced {total} parts", total

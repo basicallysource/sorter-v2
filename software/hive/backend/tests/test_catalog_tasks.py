@@ -117,7 +117,7 @@ STAND_IN = [
 @pytest.fixture()
 def runner(monkeypatch, tmp_path):
     monkeypatch.setenv("STAND_IN_LOG", str(tmp_path / "children.log"))
-    monkeypatch.setattr(settings, "REBRICKABLE_API_KEY", "")
+    monkeypatch.setattr(settings, "PROFILE_CATALOG_AUTO_SYNC_ENABLED", False)
     task_runner = CatalogTaskRunner(command=STAND_IN)
     yield task_runner
     task_runner.stop()
@@ -170,7 +170,6 @@ def test_a_stale_catalog_is_synced_in_a_child(runner, monkeypatch, tmp_path):
     loads nothing, and the sync runs in a child."""
     monkeypatch.setattr(settings, "HIVE_ROLE", "worker")
     monkeypatch.setattr(settings, "PROFILE_CATALOG_AUTO_SYNC_ENABLED", True)
-    monkeypatch.setattr(settings, "REBRICKABLE_API_KEY", "a-key")
     monkeypatch.setattr(settings, "SORTING_PROFILE_PARTS_DB_PATH", str(tmp_path / "missing.db"))
     monkeypatch.setattr(profile_catalog, "_catalog_service", None)
     monkeypatch.setattr(profile_catalog, "_catalog_lookup", None)

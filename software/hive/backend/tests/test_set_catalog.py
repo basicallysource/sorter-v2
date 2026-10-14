@@ -14,7 +14,7 @@ import app.routers.kits as kits_router
 import app.routers.profiles as profiles_router
 import app.services.profile_display as profile_display
 from app.config import settings
-from app.services import profile_catalog, set_inventory
+from app.services import profile_catalog, rebrickable_downloads
 from app.services.profile_engine import db as profile_db
 
 # The downloads as Rebrickable writes them: its own columns, in its own order
@@ -62,7 +62,7 @@ def downloads(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> list[str]:
             f.write(DOWNLOADS[name])
         return path
 
-    monkeypatch.setattr(set_inventory, "_download", download)
+    monkeypatch.setattr(rebrickable_downloads, "download", download)
     return fetched
 
 

@@ -9005,7 +9005,8 @@
 			"support_intentional": true,
 			"print_seconds": 16022,
 			"color": {
-				"fixed": "ash-gray"
+				"fixed": "ash-gray",
+				"why": "The camera looks straight at it. Gray keeps the camera's exposure and white balance steady: white throws them off, and black pieces disappear against black."
 			},
 			"optional": false,
 			"onshape": null,
@@ -9162,7 +9163,8 @@
 			"support_intentional": false,
 			"print_seconds": 10668,
 			"color": {
-				"fixed": "ash-gray"
+				"fixed": "ash-gray",
+				"why": "The camera looks straight at it. Gray keeps the camera's exposure and white balance steady: white throws them off, and black pieces disappear against black."
 			},
 			"optional": false,
 			"onshape": null,
@@ -14895,7 +14897,8 @@
 			"support_intentional": false,
 			"print_seconds": 12910,
 			"color": {
-				"fixed": "ash-gray"
+				"fixed": "ash-gray",
+				"why": "The camera looks straight at it. Gray keeps the camera's exposure and white balance steady: white throws them off, and black pieces disappear against black."
 			},
 			"optional": false,
 			"onshape": null,
@@ -15026,7 +15029,8 @@
 			"support_intentional": false,
 			"print_seconds": 1326,
 			"color": {
-				"fixed": "ash-gray"
+				"fixed": "ash-gray",
+				"why": "It sits in the middle of the rotor, in the camera's view. Gray keeps the camera's exposure and white balance steady: white throws them off, and black pieces disappear against black."
 			},
 			"optional": false,
 			"onshape": "https://cad.onshape.com/documents/60aa51fc61d18f2155b99910/w/95f28d157e2e06c115b488fe/e/5bf04274a6c68015096bd757",
@@ -24542,7 +24546,8 @@
 			"support_intentional": false,
 			"print_seconds": 6802,
 			"color": {
-				"fixed": "ivory-white"
+				"fixed": "ivory-white",
+				"why": "It is the reflector: the LED light bounces off it onto the channel, so a colored one tints every picture the camera takes."
 			},
 			"optional": false,
 			"onshape": null,
@@ -24708,7 +24713,8 @@
 			"support_intentional": false,
 			"print_seconds": 1017,
 			"color": {
-				"fixed": "ivory-white"
+				"fixed": "ivory-white",
+				"why": "The hooks sit inside the reflector and the light bounces off them too, so a colored hook tints the pictures."
 			},
 			"optional": false,
 			"onshape": null,
@@ -24760,7 +24766,7 @@
 			"support_intentional": false,
 			"print_seconds": 4192,
 			"color": {
-				"fixed": "ash-gray"
+				"role": "channel"
 			},
 			"optional": false,
 			"onshape": null,

@@ -99,6 +99,6 @@ A channel core with the finned rotor capped and dropped in. It goes onto the mac
   <figcaption>A finished classification channel, the capped rotor down in the core. <cite>Photo: ReveryX.</cite></figcaption>
 </figure>
 
-The photo shows a white rotor and a black stator. Grey is now the recommended colour for both.
+The photo shows a white rotor and a black stator. Print both ash grey: the camera looks straight at them, white throws its exposure and white balance off, and black pieces disappear against black.
 
 Back to [C-channels]({{ '/hardware/assembly/feeder/c-channels/' | relative_url }}).

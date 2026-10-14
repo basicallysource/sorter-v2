@@ -332,10 +332,12 @@ export type Hardware = {
 };
 
 /** A part's color is exactly one of these shapes. `by_section` lets a part that
- *  lives in multiple sections resolve a different color per section. */
+ *  lives in multiple sections resolve a different color per section. `fixed`
+ *  is a color the part needs to work, and `why` says what it does; a color that
+ *  is only a preference is a `role`, which the builder's pickers set. */
 export type ColorSpec =
 	| { role: string }
-	| { fixed: string }
+	| { fixed: string; why?: string }
 	| { split: { color: string; qty: number }[] }
 	| { by_section: Record<string, ColorSpec> }
 	| { any: true };
@@ -1011,9 +1013,9 @@ function colorUnits(
 
 /** Machine-wide per-color breakdown, summed across every section the part
  *  appears in. A part whose color is `split`, or `by_section` with different
- *  colors per section, yields several entries — the stator is 3 charcoal in the
- *  feeder and 1 ash gray in the classification channel. Everything else yields
- *  one. `sections` names only the sections contributing THAT color.
+ *  colors per section, yields several entries — the NEMA bracket is 1 charcoal
+ *  and 2 ash gray in the feeder and 1 ash gray in the classification channel.
+ *  Everything else yields one. `sections` names only the sections contributing THAT color.
  *
  *  Zero-count entries (a section whose multiplier is 0 at this layer count) are
  *  dropped unless they're all that's left, so a part never vanishes entirely. */
@@ -1036,6 +1038,14 @@ export function machineColorUnits(
 	const units = [...acc.values()];
 	const live = units.filter((u) => u.count > 0);
 	return live.length ? live : units.slice(0, 1);
+}
+
+/** The color a part must be printed in, and why, when the color does a job
+ *  (the lamp reflector, the rotors and stators the cameras look at). Null when
+ *  the color is the builder's to choose. */
+export function requiredColor(part: Part, sectionId?: string): { colorId: string; why: string } | null {
+	const c = resolveColor(part.color, sectionId);
+	return 'fixed' in c && c.why ? { colorId: c.fixed, why: c.why } : null;
 }
 
 /** The part's primary resolved color id (for the 3D preview default). */

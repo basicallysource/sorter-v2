@@ -47,7 +47,9 @@ new `stl_hash`) under the same uid. Screws and laser-cut parts carry one too.
    ```
 
    Set `uid`, plus `quantities`, `color` (a `role`, or `fixed`, or
-   `by_section`), and `optional`. Sections are `feeder`,
+   `by_section`), and `optional`. `fixed` is for a part that needs that
+   color to work, and carries a `why` the site shows beside a Required mark;
+   a color that is only a preference is a `role`. Sections are `feeder`,
    `classification-channel`, `interface`, `chute`, `funnel`, `layer`,
    `lazy-susan`, `bins`, `electronics`. For a new version of an existing
    part: bump `version`, replace `uid` with the fresh one, and add a

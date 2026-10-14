@@ -55,7 +55,7 @@ This page builds the part of a camera lamp that is the same on every channel: th
 
 <div class="prep-item">
   <div class="prep-item-body">
-    <p><strong>Colours.</strong> The <strong>Lamp inner reflector</strong> and its six <strong>LED hooks</strong> print ivory white, and that is not cosmetic: they are the reflector. The <strong>Lamp outer cover</strong> is ash grey. The arm, the mount, both brackets and the ring follow the channel colour like the rest of that channel's parts.</p>
+    <p><strong>Colours.</strong> The <strong>Lamp inner reflector</strong> and its six <strong>LED hooks</strong> must print ivory white, and that is not cosmetic: they are the reflector, and a coloured one tints every picture the camera takes. The <strong>Lamp outer cover</strong>, the arm, the mount, both brackets and the ring can be any colour; the parts calculator puts them in the C-channel colour.</p>
   </div>
   <figure class="prep-item-figure">
     <img class="doc-figure" src="https://assets.basically.website/sorter-docs/camera-lamp-render-side-full-2a681306f3a9.png" alt="CAD render of the camera lamp in profile: the disc-shaped lamp overhanging at the top, carried on an arm that steps down at an angle to the C-channel arm mount, with a bracket along each joint">

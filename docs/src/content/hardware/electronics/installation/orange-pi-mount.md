@@ -10,11 +10,7 @@ permalink: /hardware/electronics/installation/orange-pi-mount/
 author: spencer
 contributors: [barthel, brickcyclealice]
 og_image: https://assets.basically.website/sorter-parts/orange-pi-housing-with-hub-render-full-7d14589d8944.png
-warning: >-
-  **AI-generated first draft.** Written from the machine assembly tree in the [parts
-  calculator](https://parts-calculator.basically.website/assembly?focus=orange-pi-mount), not from an
-  actual build, so nobody has put this housing together from this page yet. The parts and the screws
-  come from the CAD assembly.
+last_verified: 2026-10-14
 tools_needed: ["Hex key, 2 mm", "Soldering iron or heat-set insert press"]
 parts_needed:
   - part: orange-pi-housing-base

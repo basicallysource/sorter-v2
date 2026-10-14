@@ -102,7 +102,8 @@ The backend and the worker bind-mount the same host directories under
 
 - `data/uploads` — uploaded sample images
 - `data/profile_builder` — the Rebrickable parts catalog SQLite db
-  (`parts.db`: parts, categories, colors). **Without this mount the catalog
+  (`parts.db`: parts, categories, colors, and Rebrickable's sets, themes and
+  set inventories, imported daily from its CSV downloads). **Without this mount the catalog
   lives only in the container layer and is wiped on every recreate, forcing a
   full multi-hour re-sync from Rebrickable on each deploy.**
 

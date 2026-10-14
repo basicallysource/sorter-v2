@@ -1076,7 +1076,7 @@ export interface SortingProfileAiMessage {
 	created_at: string;
 }
 
-export type CatalogSyncType = 'categories' | 'colors' | 'parts' | 'brickstore' | 'prices' | 'geometry';
+export type CatalogSyncType = 'sets' | 'categories' | 'colors' | 'parts' | 'brickstore' | 'prices' | 'geometry';
 
 export type CatalogSyncStatus =
 	| 'idle'

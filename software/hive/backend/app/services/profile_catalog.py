@@ -20,13 +20,15 @@ from app.services import bricklink
 from app.services.profile_engine import db as profile_db
 from app.services.profile_engine import parts_cache as profile_parts_cache
 from app.services.profile_engine.compiler import CatalogIndex, Compiled, catalog_index, compile_document, rule_matches
-from app.services.set_inventory import get_cached_inventory, get_cached_set, fetch_set_inventory, search_sets as _search_sets
+from app.services import set_inventory
 
 logger = logging.getLogger(__name__)
 
 CUSTOM_SET_ANY_COLOR_ID = -1
-PROFILE_CATALOG_SYNC_TYPES = ("categories", "colors", "parts", "brickstore", "prices", "geometry")
-PROFILE_CATALOG_AUTO_SYNC_TYPES = ("categories", "colors", "parts")
+PROFILE_CATALOG_SYNC_TYPES = ("sets", "categories", "colors", "parts", "brickstore", "prices", "geometry")
+# Sets first: they come from Rebrickable's downloads and need none of the
+# others, and an auto-sync stops at the first sync that fails.
+PROFILE_CATALOG_AUTO_SYNC_TYPES = ("sets", "categories", "colors", "parts")
 PROFILE_CATALOG_LAST_SYNC_META_PREFIX = "profile_catalog.last_sync."
 # How often a process that does not run the syncs looks for one that finished
 # in the process that does (see ProfileCatalogService.follow_syncs).
@@ -115,6 +117,7 @@ def auto_sync_plan(counts: dict[str, int], last_synced: dict[str, str | None], n
     """The kinds of sync the auto-sync would run now: every one that is empty
     or older than its PROFILE_CATALOG_AUTO_SYNC_*_MAX_AGE_HOURS, in order."""
     max_age_hours = {
+        "sets": settings.PROFILE_CATALOG_AUTO_SYNC_SETS_MAX_AGE_HOURS,
         "categories": settings.PROFILE_CATALOG_AUTO_SYNC_CATEGORIES_MAX_AGE_HOURS,
         "colors": settings.PROFILE_CATALOG_AUTO_SYNC_COLORS_MAX_AGE_HOURS,
         "parts": settings.PROFILE_CATALOG_AUTO_SYNC_PARTS_MAX_AGE_HOURS,
@@ -216,8 +219,8 @@ class ProfileCatalogService:
         # process reloads the catalog on a thread of its own, so every use of
         # the connection on one of those holds this lock, for one call at a
         # time. Nothing slow runs under it: work that takes seconds (the reload
-        # after a sync, a set's fetch from Rebrickable) uses a connection of its
-        # own, so a search never waits for it.
+        # after a sync, the import of Rebrickable's sets) uses a connection of
+        # its own, so a search never waits for it.
         self._lock = Lock()
         self._conn = profile_db.initDb(self._config.db_path)
         self._parts_data = profile_db.PartsData()
@@ -316,13 +319,15 @@ class ProfileCatalogService:
             status["auto_sync_plan"] = list(self._auto_sync_plan)
             status["auto_sync_last_checked_at"] = self._auto_sync_last_checked_at
             status["auto_sync_last_started_at"] = self._auto_sync_last_started_at
+        counts = self._counts()
         with self._lock:
             status["last_synced_at"] = _last_synced_map(self._conn)
-            status["types"] = _types_status(self._conn, self._counts(), status.get("sync_type"))
+            status["types"] = _types_status(self._conn, counts, status.get("sync_type"))
         return status
 
     def _counts(self) -> dict[str, int]:
         return {
+            "sets": self.set_count(),
             "categories": len(self._parts_data.categories),
             "colors": len(self._parts_data.colors),
             "parts": len(self._parts_data.parts),
@@ -330,6 +335,13 @@ class ProfileCatalogService:
 
     def start_sync(self, sync_type: str) -> bool:
         with self._lock:
+            if sync_type == "sets":
+                return self._sync.startSetsSync(
+                    self._config,
+                    self._conn,
+                    self._parts_data,
+                    on_complete=lambda: self._mark_sync_completed(sync_type),
+                )
             if sync_type == "categories":
                 return self._sync.startCategoriesSync(
                     self._config,
@@ -891,12 +903,9 @@ class ProfileCatalogService:
         rule_id = str(rule["id"])
         include_spares = bool(rule.get("include_spares", False))
 
-        if self.cached_set(set_num) is None:
-            self.fetch_set(set_num)
-
-        inventory = self.cached_set_inventory(set_num)
+        inventory = self.set_inventory(set_num)
         mapping: dict[str, str] = {}
-        set_info = self.cached_set(set_num) or {}
+        set_info = self.get_set(set_num) or {}
         set_meta = rule.get("set_meta") if isinstance(rule.get("set_meta"), dict) else {}
         parts: list[dict[str, Any]] = []
 
@@ -910,7 +919,6 @@ class ProfileCatalogService:
                 part_name=inv_part.get("part_name"),
                 color_name=inv_part.get("color_name"),
                 img_url=inv_part.get("part_img_url"),
-                element_id=inv_part.get("element_id"),
                 is_spare=bool(inv_part.get("is_spare", False)),
                 require_known_part=False,
                 require_known_color=False,
@@ -929,7 +937,7 @@ class ProfileCatalogService:
             "img_url": (
                 set_meta.get("img_url")
                 or set_meta.get("set_img_url")
-                or set_info.get("set_img_url")
+                or set_info.get("img_url")
             ),
             "year": set_meta.get("year") or set_info.get("year"),
             "num_parts": set_meta.get("num_parts") or set_info.get("num_parts"),
@@ -994,7 +1002,6 @@ class ProfileCatalogService:
         part_name: Any = None,
         color_name: Any = None,
         img_url: Any = None,
-        element_id: Any = None,
         is_spare: bool = False,
         allow_any_color: bool = False,
         require_known_part: bool = True,
@@ -1027,7 +1034,6 @@ class ProfileCatalogService:
                 "color_id": CUSTOM_SET_ANY_COLOR_ID if normalized_color_id == CUSTOM_SET_ANY_COLOR_ID else bl_color,
                 "quantity": quantity_value,
                 "is_spare": is_spare,
-                "element_id": element_id,
                 "rb_part_num": None,
                 "rb_color_id": None if normalized_color_id == CUSTOM_SET_ANY_COLOR_ID else normalized_color_id,
                 "part_name": resolved_part_name,
@@ -1058,7 +1064,6 @@ class ProfileCatalogService:
             "color_id": CUSTOM_SET_ANY_COLOR_ID if normalized_color_id == CUSTOM_SET_ANY_COLOR_ID else bl_color,
             "quantity": quantity_value,
             "is_spare": is_spare,
-            "element_id": element_id,
             "rb_part_num": rb_part_num,
             "rb_color_id": None if normalized_color_id == CUSTOM_SET_ANY_COLOR_ID else normalized_color_id,
             "part_name": resolved_part_name,
@@ -1119,25 +1124,19 @@ class ProfileCatalogService:
                 lookup.setdefault(numeric, rb_color_id)
         return lookup
 
-    def cached_set(self, set_num: str) -> dict[str, Any] | None:
-        """A set's metadata from the cache of Rebrickable sets, or None."""
+    def get_set(self, set_num: str) -> dict[str, Any] | None:
+        """A set's details from Rebrickable's set list, or None."""
         with self._lock:
-            return get_cached_set(self._conn, set_num)
+            return set_inventory.get_set(self._conn, set_num)
 
-    def cached_set_inventory(self, set_num: str) -> list[dict[str, Any]]:
-        """A set's cached inventory (empty when the set is not cached)."""
+    def set_inventory(self, set_num: str) -> list[dict[str, Any]]:
+        """A set's parts (empty when there is no such set)."""
         with self._lock:
-            return get_cached_inventory(self._conn, set_num)
+            return set_inventory.get_set_inventory(self._conn, set_num)
 
-    def fetch_set(self, set_num: str) -> None:
-        """Fetch a set and its inventory from Rebrickable into the cache.
-
-        Written on a connection of its own, committed once the whole inventory
-        has arrived: the fetch waits on Rebrickable between its writes, and the
-        shared connection is not held (or left in a half-written transaction)
-        for that."""
-        with closing(sqlite3.connect(self._config.db_path)) as conn:
-            fetch_set_inventory(conn, self._config.rebrickable_api_key, set_num)
+    def set_count(self) -> int:
+        with self._lock:
+            return set_inventory.set_count(self._conn)
 
     def search_sets(
         self,
@@ -1146,21 +1145,17 @@ class ProfileCatalogService:
         min_year: int | None = None,
         max_year: int | None = None,
     ) -> list[dict]:
-        results = _search_sets(
-            self._config.rebrickable_api_key,
-            query,
-            min_year=min_year,
-            max_year=max_year,
-        )
+        with self._lock:
+            results = set_inventory.search_sets(self._conn, query, min_year=min_year, max_year=max_year, limit=limit)
         return [
             {
                 "set_num": s["set_num"],
                 "name": s["name"],
-                "year": s.get("year"),
-                "num_parts": s.get("num_parts"),
-                "img_url": s.get("set_img_url"),
+                "year": s["year"],
+                "num_parts": s["num_parts"],
+                "img_url": s["img_url"],
             }
-            for s in results[:limit]
+            for s in results
         ]
 
     def get_set_inventory(self, set_num: str) -> dict[str, Any]:
@@ -1168,14 +1163,11 @@ class ProfileCatalogService:
         if not normalized_set_num:
             raise APIError(400, "set_num is required", "SET_NUM_REQUIRED")
 
-        cached = self.cached_set(normalized_set_num)
-        if cached is None:
-            self.fetch_set(normalized_set_num)
-            cached = self.cached_set(normalized_set_num)
-        if cached is None:
+        found = self.get_set(normalized_set_num)
+        if found is None:
             raise APIError(404, "Set not found", "SET_NOT_FOUND")
 
-        inventory = self.cached_set_inventory(normalized_set_num)
+        inventory = self.set_inventory(normalized_set_num)
         inventory.sort(
             key=lambda part: (
                 str(part.get("part_name") or "").lower(),
@@ -1186,11 +1178,11 @@ class ProfileCatalogService:
 
         return {
             "set": {
-                "set_num": cached.get("set_num"),
-                "name": cached.get("name"),
-                "year": cached.get("year"),
-                "num_parts": cached.get("num_parts"),
-                "img_url": cached.get("set_img_url"),
+                "set_num": found["set_num"],
+                "name": found["name"],
+                "year": found["year"],
+                "num_parts": found["num_parts"],
+                "img_url": found["img_url"],
             },
             "inventory": inventory,
         }
@@ -1252,10 +1244,12 @@ class CatalogLookup:
     def counts(self) -> dict[str, int]:
         with self._lock:
             conn = self._connection()
-            return {
+            counts = {
                 table: int(conn.execute(f"SELECT COUNT(*) FROM {table}").fetchone()[0])
                 for table in ("categories", "bricklink_categories", "colors", "parts")
             }
+            counts["sets"] = set_inventory.set_count(conn)
+            return counts
 
     def last_synced(self) -> dict[str, str | None]:
         with self._lock:

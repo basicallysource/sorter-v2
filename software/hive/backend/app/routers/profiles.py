@@ -304,11 +304,12 @@ def search_profile_catalog_sets(
     max_year: int | None = None,
     _current_user: User = READ,
 ):
-    if not settings.REBRICKABLE_API_KEY:
-        raise APIError(503, "Set search is not set up on this Hive (it has no Rebrickable key)", "SET_SEARCH_UNAVAILABLE")
     if not q.strip():
         return {"results": []}
-    return {"results": get_profile_catalog_service().search_sets(q.strip(), min_year=min_year, max_year=max_year)}
+    catalog = get_profile_catalog_service()
+    if not catalog.set_count():
+        raise APIError(503, "This Hive has not imported Rebrickable's sets yet (the catalog's sets sync)", "SET_SEARCH_UNAVAILABLE")
+    return {"results": catalog.search_sets(q.strip(), min_year=min_year, max_year=max_year)}
 
 
 @router.get("/profile-catalog/sets/{set_num}")

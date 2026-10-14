@@ -137,8 +137,8 @@ _GET_SET_INVENTORY_TOOL = {
     },
 }
 
-# search_sets is always available (only needs Rebrickable API key);
-# get_set_inventory is always available too; search_parts requires synced parts data
+# search_sets and get_set_inventory are always available (they read the
+# imported Rebrickable sets); search_parts requires synced parts data
 CATALOG_TOOLS = [_SEARCH_PARTS_TOOL, _SEARCH_SETS_TOOL, _GET_SET_INVENTORY_TOOL]
 SET_ONLY_TOOLS = [_SEARCH_SETS_TOOL, _GET_SET_INVENTORY_TOOL]
 

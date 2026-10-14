@@ -1026,8 +1026,10 @@ def adminCatalogOverview(conn):
             "bricklink_item_colors": _tableCount(conn, "bricklink_item_colors"),
             "part_bricklink_ids": _tableCount(conn, "part_bricklink_ids"),
             "price_guides": _tableCount(conn, "price_guides"),
+            "rebrickable_themes": _tableCount(conn, "rebrickable_themes"),
             "rebrickable_sets": _tableCount(conn, "rebrickable_sets"),
-            "rebrickable_set_inventory": _tableCount(conn, "rebrickable_set_inventory"),
+            "rebrickable_inventories": _tableCount(conn, "rebrickable_inventories"),
+            "rebrickable_inventory_parts": _tableCount(conn, "rebrickable_inventory_parts"),
         },
         "coverage": {
             "parts_total": parts_total,

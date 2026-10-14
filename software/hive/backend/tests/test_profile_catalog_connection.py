@@ -23,7 +23,7 @@ from typing import Any, Callable
 import pytest
 
 from app.config import settings
-from app.services import profile_catalog, set_inventory
+from app.services import profile_catalog
 from app.services.profile_engine import db as profile_db
 
 CATEGORIES = [{"id": 1, "name": "Bricks"}, {"id": 2, "name": "Plates"}]
@@ -102,47 +102,22 @@ def _run_together(tasks: dict[str, Callable[[], Any]], timeout: float = 30.0) ->
     return results, errors
 
 
-class _Response:
-    def __init__(self, body: dict) -> None:
-        self._body = body
-
-    def raise_for_status(self) -> None:
-        return None
-
-    def json(self) -> dict:
-        return self._body
-
-
-def _rebrickable_get(url, params=None, headers=None, timeout=None) -> _Response:
-    """Rebrickable's answers for one set, 123-1, with one part in it."""
-    if url.endswith("/parts/"):
-        return _Response(
-            {
-                "results": [
-                    {
-                        "part": {"part_num": "3001", "name": "Brick 2 x 4", "part_img_url": None},
-                        "color": {"id": 4, "name": "Red", "rgb": "C91A09"},
-                        "quantity": 2,
-                        "is_spare": False,
-                        "element_id": "300121",
-                    }
-                ],
-                "next": None,
-            }
-        )
-    return _Response({"set_num": "123-1", "name": "Test Set", "year": 2020, "num_parts": 2, "set_img_url": None, "theme_id": 1})
-
-
 @pytest.fixture
 def catalog(tmp_path, monkeypatch):
     """The web process's catalog service over a small parts.db."""
     path = str(tmp_path / "parts.db")
     monkeypatch.setattr(settings, "SORTING_PROFILE_PARTS_DB_PATH", path)
-    monkeypatch.setattr(settings, "REBRICKABLE_API_KEY", "test-key")
     seed = profile_db.initDb(path)
     profile_db.upsertCategories(seed, CATEGORIES)
     profile_db.upsertParts(seed, PARTS)
     profile_db.rebuildPartSearch(seed)
+    # One set, 123-1, with one part in it, as the sets sync imports it.
+    seed.execute("INSERT INTO rebrickable_sets (set_num, name, year, theme_id, num_parts) VALUES ('123-1', 'Test Set', 2020, 1, 2)")
+    seed.execute("INSERT INTO rebrickable_inventories (id, version, set_num) VALUES (1, 1, '123-1')")
+    seed.execute(
+        "INSERT INTO rebrickable_inventory_parts (inventory_id, part_num, color_id, quantity, is_spare) VALUES (1, '3001', 4, 2, 0)"
+    )
+    seed.commit()
     seed.close()
     service = profile_catalog.ProfileCatalogService(runs_syncs=False)
     yield service
@@ -150,8 +125,6 @@ def catalog(tmp_path, monkeypatch):
 
 
 def test_the_catalog_connection_is_never_used_by_two_threads_at_once(catalog, monkeypatch):
-    monkeypatch.setattr(set_inventory.requests, "get", _rebrickable_get)
-
     # The stand-in has to notice two threads inside it, or the rest proves
     # nothing. (Over a fake connection: this is the misuse the test is about.)
     control = _ConnectionProbe(SimpleNamespace(execute=lambda sql, parameters=(): None))
@@ -177,8 +150,8 @@ def test_the_catalog_connection_is_never_used_by_two_threads_at_once(catalog, mo
         return [catalog.search_parts(query) for query in TYPED]
 
     def a_set() -> tuple:
-        catalog.fetch_set("123-1")
-        return catalog.cached_set("123-1"), catalog.cached_set_inventory("123-1")
+        found = catalog.get_set_inventory("123-1")
+        return found["set"], found["inventory"], catalog.search_sets("test set")
 
     # Everything that reaches the connection from a request or the follow
     # thread, at once, with six people typing.
@@ -203,9 +176,10 @@ def test_the_catalog_connection_is_never_used_by_two_threads_at_once(catalog, mo
     for name, found in results.items():
         if name.startswith("typing"):
             assert [part["part_num"] for part in found[-1]["results"]] == ["3001"]
-    cached, inventory = results["a set"]
-    assert cached["name"] == "Test Set"
+    found, inventory, searched = results["a set"]
+    assert found["name"] == "Test Set"
     assert [row["part_num"] for row in inventory] == ["3001"]
+    assert [row["set_num"] for row in searched] == ["123-1"]
 
     # The reload the follow started read parts.db on a connection of its own.
     for thread in threading.enumerate():

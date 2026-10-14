@@ -56,7 +56,6 @@ from app.routers import (
     public_stats,
     review,
     samples,
-    sets,
     stats,
     swatch_models,
     teacher,
@@ -120,7 +119,6 @@ app.include_router(agent.router)
 app.include_router(upload.router)
 app.include_router(samples.router)
 app.include_router(review.router)
-app.include_router(sets.router)
 app.include_router(stats.router)
 app.include_router(models_router.router)
 app.include_router(model_defaults.router)

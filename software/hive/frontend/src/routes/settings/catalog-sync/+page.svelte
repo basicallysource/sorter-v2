@@ -22,11 +22,12 @@
 
 	const REFRESH_MS = 2000;
 
-	const TYPE_ORDER: CatalogSyncType[] = ['parts', 'categories', 'colors', 'prices', 'brickstore', 'geometry'];
+	const TYPE_ORDER: CatalogSyncType[] = ['parts', 'categories', 'colors', 'sets', 'prices', 'brickstore', 'geometry'];
 	const TYPE_LABELS: Record<CatalogSyncType, string> = {
 		parts: 'Parts',
 		categories: 'Categories',
 		colors: 'Colors',
+		sets: 'Sets',
 		prices: 'BrickLink Prices',
 		brickstore: 'BrickStore Import',
 		geometry: 'LDraw Geometry'
@@ -35,6 +36,7 @@
 		parts: 'Full part catalog from Rebrickable (the largest sync; it pages, and resumes).',
 		categories: 'Rebrickable part categories.',
 		colors: 'Rebrickable color list.',
+		sets: "Rebrickable's sets, themes and set inventories, from its CSV downloads.",
 		prices: 'BrickLink price guide (requires BLA_API_KEY).',
 		brickstore: 'Import from a local BrickStore database file.',
 		geometry: 'True part dimensions in mm from the LDraw library (downloads ~135MB on first run).'

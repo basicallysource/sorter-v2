@@ -105,7 +105,7 @@ def test_get_auto_sync_plan_bootstraps_empty_catalog(tmp_path: Path, monkeypatch
 
     monkeypatch.setattr(settings, "PROFILE_CATALOG_AUTO_SYNC_ENABLED", True)
 
-    assert service.get_auto_sync_plan(now=now) == ["categories", "colors", "parts"]
+    assert service.get_auto_sync_plan(now=now) == ["sets", "categories", "colors", "parts"]
 
 
 def test_get_auto_sync_plan_refreshes_only_stale_sections(tmp_path: Path, monkeypatch) -> None:
@@ -115,7 +115,13 @@ def test_get_auto_sync_plan_refreshes_only_stale_sections(tmp_path: Path, monkey
     service._parts_data.categories = {1: {"name": "Bricks"}}
     service._parts_data.colors = {5: {"name": "Red"}}
     service._parts_data.parts = {"3001": {"name": "Brick 2 x 4"}}
+    service._conn.execute("INSERT INTO rebrickable_sets (set_num, name, year, num_parts) VALUES ('10184-1', 'Town Plan', 2008, 2011)")
 
+    profile_db.setMeta(
+        service._conn,
+        service._sync_meta_key("sets"),
+        (now - timedelta(hours=2)).isoformat(),
+    )
     profile_db.setMeta(
         service._conn,
         service._sync_meta_key("categories"),
@@ -133,6 +139,7 @@ def test_get_auto_sync_plan_refreshes_only_stale_sections(tmp_path: Path, monkey
     )
 
     monkeypatch.setattr(settings, "PROFILE_CATALOG_AUTO_SYNC_ENABLED", True)
+    monkeypatch.setattr(settings, "PROFILE_CATALOG_AUTO_SYNC_SETS_MAX_AGE_HOURS", 24)
     monkeypatch.setattr(settings, "PROFILE_CATALOG_AUTO_SYNC_CATEGORIES_MAX_AGE_HOURS", 24 * 7)
     monkeypatch.setattr(settings, "PROFILE_CATALOG_AUTO_SYNC_COLORS_MAX_AGE_HOURS", 24)
     monkeypatch.setattr(settings, "PROFILE_CATALOG_AUTO_SYNC_PARTS_MAX_AGE_HOURS", 24)

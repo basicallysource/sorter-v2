@@ -858,11 +858,12 @@ def test_piece_detail_guesses_colour_once(client, db, fleet, monkeypatch):
     assert len(reads) == 1
     assert db.query(PieceColorGuess).count() == 1
 
-    # A new usable crop means a new guess.
+    # A new crop means a new guess, made from every crop (used or not).
+    first_key = reads[0][0]
     db.add(MachinePieceImage(machine_id=m1, piece_uuid="p00", seq=1, local_id=2, image_key="k2.jpg", used=True))
     db.commit()
     client.get(f"/api/labeling/piece/{m1}/p00")
-    assert len(reads) == 2 and reads[-1] == ["k2.jpg"]
+    assert len(reads) == 2 and reads[-1] == [first_key, "k2.jpg"]
 
 
 def test_unreadable_crops_are_not_stored(client, db, fleet, monkeypatch):

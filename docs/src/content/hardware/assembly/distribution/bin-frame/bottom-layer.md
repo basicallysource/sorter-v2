@@ -53,9 +53,11 @@ The bottom layer does not get an External bracket — cover, and it does not get
 
 **Fit it now, before any extrusion goes in.** It takes 2 {% include fastener.html size="M5" variant="socket-button" length="16" %} screws through its outer holes into the External bracket — side, and it is awkward to fit once piece D is through the corner.
 
+**The screw sitting loose in the middle of the photo below is not one of these two.** It is a collar screw, one of the 2 that clamp the bracket onto the extrusion. It is the same size as the foot cover screws, but it stays loose for now and is tightened in step 2.
+
 <figure class="single-figure">
-  <img class="doc-figure" src="https://assets.basically.website/sorter-parts/img-4215-crop1-full-d1ae19d41e44.jpg" alt="Close-up of the foot cover bolted to the External bracket — side, with the two foot-cover screws and the extrusion mounting screws visible">
-  <figcaption>The foot cover to External bracket connection, with the extrusion socket open at the top. <cite>Photo courtesy of BrickCycleAlice.</cite></figcaption>
+  <img class="doc-figure" src="https://assets.basically.website/sorter-parts/img-4215-crop1-full-d1ae19d41e44.jpg" alt="Close-up of the foot cover bolted to the External bracket — side, with the two foot-cover screws fitted and, in the middle, a loose collar screw that is tightened in step 2">
+  <figcaption>The foot cover to External bracket connection, with the extrusion socket open at the top. The loose screw in the middle is a collar screw for step 2. <cite>Photo courtesy of BrickCycleAlice.</cite></figcaption>
 </figure>
 
 {% include step.html n="2" title="Run the foot extensions through the corners" %}
@@ -70,7 +72,7 @@ The corner itself is the same as on any layer. Only the vertical changes: piece 
 On each of the six corners:
 
 <ol class="numbered-steps">
-  <li>Partially thread the 2 {% include fastener.html size="M5" variant="socket-button" length="16" %} screws that clamp the collar onto the extrusion, at the holes near the bottom of the External bracket — side, so they are started but not yet tight.</li>
+  <li>Partially thread the 2 {% include fastener.html size="M5" variant="socket-button" length="16" %} screws that clamp the collar onto the extrusion, at the holes near the bottom of the External bracket — side, so they are started but not yet tight. This is the loose screw in the step 1 photo, so if you have already started them, leave them as they are.</li>
   <li>Slide a piece D down through the corner, from above, until it stands out below the foot cover.</li>
   <li>Before tightening anything, measure from the bottom of the External bracket — foot cover to the end of piece D. It should stand out <strong>about 54 mm</strong>.</li>
   <li>Tighten the 2 collar screws, bracing against the extrusion.</li>

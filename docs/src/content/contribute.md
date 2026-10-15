@@ -48,28 +48,14 @@ There is an engineering meeting every Sunday at 3 pm US Eastern time. Anyone int
 
 ## Balloon, the assistant in the Discord
 
-Balloon is an AI assistant that lives in the Discord. It knows the project's docs, parts catalog, code and history, and it can change the docs and the parts catalog for you. To use it, mention <strong>@Balloon</strong> in a message in the server and say what you want, in your own words. It answers in the same channel.
+Balloon is an AI assistant that lives in the Discord. It knows the project's docs, parts catalog, code and history. Ask it a question, or tell it a page is wrong, and it can change the docs and the parts catalog for you. Mention <strong>@Balloon</strong> in a message and say what you want, in your own words. It answers in the same channel.
 
-Some examples of what it can do, with real changes it has made:
-
-<ul class="bulleted-list">
-  <li><strong>Fix or improve a docs page.</strong> Tell it a page is wrong or unclear and it edits the page and opens a pull request. Examples: <a href="https://github.com/basicallysource/sorter-v2/pull/967">how many holes a beam that fits has</a>, and <a href="https://github.com/basicallysource/sorter-v2/pull/958">how to find a stepper motor's coils by feel</a>, without a multimeter.</li>
-  <li><strong>Write a new helper page or draw a diagram.</strong> It draws diagrams and builds pages. Examples: <a href="https://github.com/basicallysource/sorter-v2/pull/902">which socket hole takes the red wire</a> on the 24 V lead, and <a href="https://github.com/basicallysource/sorter-v2/pull/966">a printable sheet of cable labels</a>.</li>
-  <li><strong>Correct the parts catalog.</strong> A wrong count, a wrong screw, a part that no longer belongs. Examples: <a href="https://github.com/basicallysource/sorter-v2/pull/927">a bracket counted once too few on the bottom layer</a>, and <a href="https://github.com/basicallysource/sorter-v2/pull/916">retiring parts the machine no longer uses</a>.</li>
-  <li><strong>Read a page as a newcomer.</strong> Ask it to read a page as someone who knows LEGO and 3D printing but not electronics, and tell you where that reader would get stuck. It did this for the <a href="https://github.com/basicallysource/sorter-v2/pull/914">bill of materials</a>, and for the Design and research pages.</li>
-  <li><strong>Answer questions from the project's own record.</strong> It can search the Discord history, the written notes and transcripts of the recorded meetings, the docs and the repositories, and it says so when it cannot find the answer. Ask it to catch you up on a meeting you missed, or to find where something was decided.</li>
-  <li><strong>Check the electronics.</strong> It can open the KiCad circuit boards, run the checks for design errors, and export a parts list, the schematic as a PDF, the files a factory needs to make the board, or a picture of it.</li>
-  <li><strong>Show you a web page.</strong> It can search the web, and take a screenshot of any public page, including a preview of a docs change before anyone merges it.</li>
-  <li><strong>Make a file or a chart.</strong> A spreadsheet of what you asked for, a chart of the numbers, or a poll to ask the channel something.</li>
-</ul>
-
-What Balloon will not do:
+Each of these channels is set aside for talking to it:
 
 <ul class="bulleted-list">
-  <li><strong>It does not publish anything by itself.</strong> It only proposes a change. People on the team have to approve it before it goes on the site.</li>
-  <li><strong>It only changes the docs, the parts catalog and the wire harness drawings.</strong> For firmware, software and CAD it can still answer questions and explain, but a person makes the change.</li>
-  <li><strong>It does not announce dates, prices or unreleased work.</strong> Those are the team's to say.</li>
-  <li><strong>It does not guess.</strong> If it cannot point to where it read something, it says it does not know.</li>
+  <li><strong>#balloon-general</strong> for any question about the project.</li>
+  <li><strong>#balloon-electronics</strong> for questions about the electronics: boards, wiring and power.</li>
+  <li><strong>#balloon-does-docs</strong> for the docs and the parts catalog: a wrong step, a missing photo, a wrong part count.</li>
 </ul>
 
-The channels with the word <em>balloon</em> in their name are set aside for talking to it.
+Balloon does not publish anything by itself. It only proposes a change, and people on the team have to approve it before it goes on the site. It changes the docs, the parts catalog and the wire harness drawings. For firmware, software and CAD it can still answer questions, but a person makes the change. It does not announce dates, prices or unreleased work.

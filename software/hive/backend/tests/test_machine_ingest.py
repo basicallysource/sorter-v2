@@ -96,6 +96,7 @@ def test_no_transaction_is_open_while_a_file_goes_to_storage(client, db, machine
 
     for module, name in (
         (machine_sync, "save_channel_crop_file"),
+        (machine_sync, "save_channel_crop_batch_file"),
         (machine_sync, "save_piece_image_file"),
         (machine_sync, "save_control_data_file"),
         (machine_sync, "save_sample_frame_file"),
@@ -105,6 +106,14 @@ def test_no_transaction_is_open_while_a_file_goes_to_storage(client, db, machine
 
     headers = _bearer(machine_token)
     assert _crop(client, machine_token, 1).status_code == 200
+    crop = _jpeg().getvalue()
+    r = client.post(
+        "/api/machine/sync/channel-crop-batch",
+        headers=headers,
+        data={"metadata": json.dumps({"crops": [{"local_id": 2, "channel": 2, "offset": 0, "length": len(crop)}]})},
+        files={"crops": ("crops.bin", crop, "application/octet-stream")},
+    )
+    assert r.status_code == 200, r.text
     r = client.post(
         "/api/machine/sync/piece-image",
         headers=headers,
@@ -150,7 +159,7 @@ def test_no_transaction_is_open_while_a_file_goes_to_storage(client, db, machine
     )
     assert r.status_code == 200, r.text
 
-    assert open_during_write == [False] * 8
+    assert open_during_write == [False] * 9
 
 
 def test_last_seen_is_written_at_most_once_a_minute(client, db, machine_token, upload_dir, clock):

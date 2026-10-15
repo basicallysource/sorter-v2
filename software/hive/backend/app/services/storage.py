@@ -96,6 +96,26 @@ def save_channel_crop_file(
     return key
 
 
+# A batch of channel crops: up to this many crops, their JPEGs back to back in
+# one stored file of at most MAX_CROP_BATCH_BYTES.
+MAX_CROP_BATCH_ITEMS = 1000
+MAX_CROP_BATCH_BYTES = 8 * 1024 * 1024
+JPEG_MAGIC = b"\xff\xd8\xff"
+
+
+def save_channel_crop_batch_file(machine_id: str, first_local_id: int, last_local_id: int, data: bytes) -> str:
+    # Keyed on the batch's crop ids, so a re-send of the same batch overwrites
+    # it. Each crop's own key is a range in this file (storage_backend.ranged_key).
+    key = _join_key(
+        _safe_path_component(machine_id, "machine id"),
+        "channel_crops",
+        "batches",
+        f"{int(first_local_id)}-{int(last_local_id)}.bin",
+    )
+    get_backend().write_stream(key, io.BytesIO(data), content_type="application/octet-stream")
+    return key
+
+
 def save_control_data_file(machine_id: str, local_id: int, file: UploadFile) -> str:
     # Deterministic key keyed on the machine's segment id so a re-send
     # overwrites in place. Feeder-dynamics capture segments (gzipped JSONL).

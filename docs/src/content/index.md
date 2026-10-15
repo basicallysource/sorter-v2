@@ -33,6 +33,13 @@ Machines are built and running, and they sort every day. It is not a product yet
 
 <div class="clear-float"></div>
 
+<div class="callout-grid callout-grid-paired">
+  <div class="callout">
+    <strong><a href="{{ '/contribute/' | relative_url }}">How to contribute</a></strong>
+    <p>Where the project lives, how to help, when the team meets each week, and what Balloon, the assistant in the Discord, can do for you.</p>
+  </div>
+</div>
+
 ## Start here
 
 <div class="callout-grid callout-grid-paired">

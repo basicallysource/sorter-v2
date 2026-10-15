@@ -21,6 +21,7 @@ from defs.known_object import (
     ClassificationStatus,
     PieceStage,
     RecognitionImage,
+    notePieceProblem,
 )
 from global_config import GlobalConfig
 from irl.config import IRLConfig, IRLInterface
@@ -489,6 +490,17 @@ class Rev01BaseState(BaseState):
                 f"{LOG_TAG} hosted color unavailable within "
                 f"{HOSTED_COLOR_JOIN_BUDGET_S:.0f}s — falling back to Brickognize's color"
             )
+            waited = time.monotonic() - hosted_color["started_at"]
+            if hosted_color["thread"].is_alive():
+                why = f"did not answer within {HOSTED_COLOR_JOIN_BUDGET_S:.0f} s"
+            else:
+                why = f"answered without a color after {waited:.1f} s"
+            notePieceProblem(
+                self.ctx.known_object,
+                "color_fallback",
+                f"The color model {why}, so Brickognize's color was used.",
+                after_s=waited,
+            )
             return
         # Hive returns BrickLink color ids as ints; the sorting profile (and
         # Brickognize) key on the same ids as strings.
@@ -715,6 +727,15 @@ class Rev01BaseState(BaseState):
             else:
                 obj.classification_status = ClassificationStatus.failed
                 obj.request_failed = True
+                if error != "timeout":  # the channel notes its own timeout
+                    started = self.ctx.classify_started_at
+                    notePieceProblem(
+                        obj,
+                        "classify_failed",
+                        f"The identification request failed ({str(error)[:160]}), so it went "
+                        f"to misc unidentified.",
+                        after_s=(time.monotonic() - started) if started else None,
+                    )
         elif isinstance(result, dict):
             items = result.get("items", [])
             colors = result.get("colors", [])

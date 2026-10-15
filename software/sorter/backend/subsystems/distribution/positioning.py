@@ -14,7 +14,7 @@ from sorting_profile import SortingProfile, MISC_CATEGORY
 from bin_layout_store import set_bin_categories
 import db
 from defs.events import PauseCommandData, PauseCommandEvent
-from defs.known_object import PieceStage
+from defs.known_object import PieceStage, notePieceProblem
 from hardware.fault import HardwareFault
 from utils.event import knownObjectToEvent
 
@@ -178,6 +178,14 @@ class Positioning(BaseState):
                     f"Positioning: unrouted piece loose on the classification channel — "
                     f"piece {piece.uuid} passes through to the bucket instead of claiming a bin"
                 )
+                if piece.part_id is not None:
+                    notePieceProblem(
+                        piece,
+                        "bucket_hold",
+                        "Went to misc instead of its bin: a double-feed piece the camera lost was "
+                        "still loose on the channel, so every door stayed open until it had had "
+                        "a couple of turns to fall.",
+                    )
                 self._openAllDoorsForPassthrough()
                 piece.stage = PieceStage.distributing
                 piece.distributing_at = time.time()

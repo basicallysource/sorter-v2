@@ -91,6 +91,17 @@ class ClassificationAttempt(BaseModel):
     image_ts: List[float] = Field(default_factory=list)
 
 
+class PieceProblem(BaseModel):
+    # A short code the UI labels (timed_out, track_lost, double_feed, ...).
+    kind: str
+    # The sentence the operator reads: what happened, where, after how long.
+    message: str
+    # Wall time it happened.
+    at: float
+    # The wait that ran out, or how far into the piece's trip it happened (s).
+    after_s: Optional[float] = None
+
+
 class KnownObjectData(BaseModel):
     uuid: str
     created_at: float
@@ -105,6 +116,8 @@ class KnownObjectData(BaseModel):
     # reaching the distributed stage (the time-based analogue of ``aborted``).
     # The UI drops dead pieces from the recent list.
     dead: bool = False
+    # What went wrong on the piece's way through, oldest first (KnownObject.problems).
+    problems: List[PieceProblem] = []
     part_id: Optional[str] = None
     part_name: Optional[str] = None
     part_category: Optional[str] = None

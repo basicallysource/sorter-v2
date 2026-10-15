@@ -10,6 +10,7 @@
 	import ReclassifyPanel from '$lib/components/ReclassifyPanel.svelte';
 	import PieceOverview from '$lib/components/pieces/PieceOverview.svelte';
 	import PiecePredictions from '$lib/components/pieces/PiecePredictions.svelte';
+	import PieceProblems from '$lib/components/pieces/PieceProblems.svelte';
 	import Alert from '$lib/components/ui/Alert.svelte';
 	import Badge from '$lib/components/ui/Badge.svelte';
 	import Button from '$lib/components/ui/Button.svelte';
@@ -908,6 +909,8 @@
 					onZoom={(src, label) => (zoomImage = { src, label })}
 				/>
 
+				<PieceProblems problems={_summary?.problems} />
+
 				{#if _predictions.length > 0}
 					<PiecePredictions
 						predictions={_predictions}
@@ -974,6 +977,9 @@
 				{onReviewed}
 				onZoom={(src, label) => (zoomImage = { src, label })}
 			/>
+
+			<!-- What went wrong with it, when anything did. -->
+			<PieceProblems problems={_summary?.problems} />
 
 			<!-- What each service said about it. -->
 			{#if _predictions.length > 0}

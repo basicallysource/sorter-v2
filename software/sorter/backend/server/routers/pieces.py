@@ -12,7 +12,7 @@ from fastapi.responses import Response, StreamingResponse
 from pydantic import BaseModel, Field
 
 import piece_predictions
-from defs.events import KnownObjectData
+from defs.events import KnownObjectData, PieceProblem
 import server.shared_state as shared_state
 
 router = APIRouter()
@@ -72,6 +72,10 @@ class PieceSummary(BaseModel):
     color_confidence: Optional[float] = None
     bin: Optional[BinRef] = None
     dead: bool = False
+    # What went wrong with the piece on its way through the machine, oldest
+    # first (why it timed out, why it went to misc, ...): each a sentence for
+    # the operator with its specifics. Empty when nothing did.
+    problems: List[PieceProblem] = []
     has_images: bool = False
     preview_url: Optional[str] = None
     est_value: Optional[float] = None
@@ -749,7 +753,7 @@ def _summaryFromMemory(gc: Any, payload: Dict[str, Any]) -> PieceSummary:
     # sorting. Everything here must come from the in-memory payload / process
     # state — zero sqlite. est_value uses the dict-hit-only price peek; a cache
     # miss stays null rather than hitting Hive.
-    from piece_records import peekCachedPrice
+    from piece_records import normalizeProblems, peekCachedPrice
 
     part_id = payload.get("part_id")
     color_id = payload.get("color_id")
@@ -777,6 +781,7 @@ def _summaryFromMemory(gc: Any, payload: Dict[str, Any]) -> PieceSummary:
         color_confidence=payload.get("color_confidence"),
         bin=bin_ref,
         dead=bool(payload.get("dead")),
+        problems=[PieceProblem(**note) for note in normalizeProblems(payload.get("problems"))],
         has_images=bool(payload.get("recognition_image_set")),
         preview_url=payload.get("brickognize_preview_url"),
         est_value=est_value,

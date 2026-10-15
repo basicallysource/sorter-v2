@@ -31,6 +31,7 @@ def _channel() -> TwoPieceClassificationChannel:
     ch.logger = logging.getLogger("test_c4_piece_circling")
     ch.gc = SimpleNamespace()
     ch._recent_ejects = deque(maxlen=16)
+    ch._lost, ch._last_step_at, ch._turned_at = [], None, 0.0
     return ch
 
 

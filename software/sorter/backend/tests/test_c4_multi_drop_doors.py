@@ -180,6 +180,7 @@ def _mkChannel(transport, shared) -> TwoPieceClassificationChannel:
     ch.irl_config = SimpleNamespace()
     ch.ctx = SimpleNamespace(reset=lambda: None, known_object=None)
     ch._pieces = {}
+    ch._lost, ch._last_step_at, ch._turned_at = [], None, 0.0
     ch._phase = _Phase.WAITING
     ch._eject_target = None
     ch._stage_target = None

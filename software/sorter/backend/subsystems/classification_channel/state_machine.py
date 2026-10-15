@@ -267,3 +267,9 @@ class ClassificationChannelStateMachine:
         # not count toward "stalled".
         self._last_progress_at = time.monotonic()
         self._two_piece.cleanup()
+
+    def pause(self) -> None:
+        # The flow keeps its pieces; the watchdog window restarts when the flow
+        # steps again (TwoPieceClassificationChannel.pause/_resumeAfterPause).
+        self._last_progress_at = time.monotonic()
+        self._two_piece.pause()

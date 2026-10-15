@@ -25,7 +25,8 @@ def _collector(monkeypatch) -> tuple[ChannelCropCollector, _Service, list[dict],
     stored: list[dict] = []
     monkeypatch.setattr(channel_crop_store, "enqueue", lambda _jpeg, meta: stored.append(meta))
     clock = [100.0]
-    monkeypatch.setattr(channel_crop_capture.time, "time", lambda: clock[0])
+    # The collector's own reference to time, not the time module other threads use.
+    monkeypatch.setattr(channel_crop_capture, "time", SimpleNamespace(time=lambda: clock[0]))
     service = _Service()
     return ChannelCropCollector(perception_service=service), service, stored, clock
 

@@ -295,6 +295,8 @@ def _workerLoop() -> None:
                     _updateImageFlags(piece_uuid, payload)
             except Exception as exc:
                 _log("warning", f"piece_image_store: failed to persist {kind} for {piece_uuid[:8]}: {exc}")
+            finally:
+                _queue.task_done()
         now = time.monotonic()
         if now - last_sweep >= _RETENTION_SWEEP_INTERVAL_S:
             last_sweep = now

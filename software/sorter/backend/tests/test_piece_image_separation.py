@@ -28,11 +28,10 @@ def store(tmp_path, monkeypatch):
 
 
 def _drain(store_mod, timeout=5.0):
+    # Until the worker has written everything queued, not only taken it off the
+    # queue: on a busy machine the first write (it makes the tables) is slow.
     deadline = time.time() + timeout
-    while time.time() < deadline:
-        if store_mod._queue.empty():
-            time.sleep(0.1)
-            return
+    while time.time() < deadline and store_mod._queue.unfinished_tasks:
         time.sleep(0.02)
 
 

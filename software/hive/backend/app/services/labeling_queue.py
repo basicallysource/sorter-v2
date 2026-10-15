@@ -21,7 +21,10 @@ Every pass (``REFRESH_INTERVAL_S``):
     training colour and their run (``services.training_runs``); the sync
     endpoints keep it for queued pieces whose training state changes later;
   * each machine's labelable count is recounted into ``labeling_queue_counts``,
-    with the pieces its training runs labelled (summed from the runs' counts).
+    with the pieces its training runs labelled (summed from the runs' counts);
+  * a piece entering the queue has the active colour model queued over it
+    (``color_model_runs.queue_active``), so its answer is there without a
+    backfill.
 
 Once a day (``RECONCILE_INTERVAL_S``) it evaluates every piece again, in small
 batches, which catches what ``created_at`` cannot see: a record re-sent as
@@ -57,7 +60,7 @@ from app.models.machine_piece import MachinePiece
 from app.models.machine_piece_image import MachinePieceImage
 from app.models.machine_training_run import MachineTrainingRun
 from app.models.sample_swatch import SampleSwatchRun
-from app.services import piece_palette, training_runs
+from app.services import color_model_runs, piece_palette, training_runs
 from app.services.channel_crop_lookup_params import DEFAULT_PARAMS
 from app.services.periodic import PeriodicWorker
 
@@ -215,6 +218,7 @@ def evaluate(db: Session, pieces: list[Any], palette_sha: str | None) -> dict[st
 
     upserts: list[dict[str, Any]] = []
     removes: list[tuple[Any, str]] = []
+    colour_jobs = 0
     for machine_id, rows in by_machine.items():
         current = _queued(db, machine_id, [p.piece_uuid for p in rows])
         live = [p for p in rows if not p.dead]
@@ -235,6 +239,10 @@ def evaluate(db: Session, pieces: list[Any], palette_sha: str | None) -> dict[st
         palette = piece_palette.with_palette(db, palette_sha, machine_id, {p.piece_uuid: _arrival(p) for p in eligible})
         trained = training_runs.labelled(db, machine_id, eligible)
         eligible_ids = {p.piece_uuid for p in eligible}
+        # A piece entering the queue gets the active colour model's answer.
+        colour_jobs += color_model_runs.queue_active(
+            db, machine_id, [p.piece_uuid for p in eligible if p.piece_uuid not in current]
+        )
         removes.extend(
             (machine_id, p.piece_uuid) for p in rows if p.piece_uuid not in eligible_ids and p.piece_uuid in current
         )
@@ -272,7 +280,7 @@ def evaluate(db: Session, pieces: list[Any], palette_sha: str | None) -> dict[st
                 LabelingQueueEntry.machine_id == machine_id,
                 LabelingQueueEntry.piece_uuid.in_(chunk),
             ).delete(synchronize_session=False)
-    return {"queued": len(upserts), "removed": len(removes)}
+    return {"queued": len(upserts), "removed": len(removes), "colour_jobs": colour_jobs}
 
 
 def _pieces_by_keys(db: Session, keys: set[tuple[Any, str]]) -> list[Any]:

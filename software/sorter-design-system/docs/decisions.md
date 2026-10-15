@@ -18,6 +18,13 @@ and a dated entry goes here; the history is git.
   compact layout now: three one-control rows, the colors in a popover and the
   issues behind one button, so a piece is about a third of its old height and
   the answer sits beside the pictures it is about.
+- **Capture issues are six icon switches, not a menu.** The compact review's
+  "Report an issue" opened a list of six switches: click it, click the issue,
+  get out of it, for every piece. Now each issue is its own icon in the row
+  (`IssueToggle`): one click flags it, the icon turns to the warning tint, a
+  tooltip names it. Lucide has no picture of a LEGO piece, so the six glyphs
+  are drawn here (`IssueIcon`), the one exception to "never draw an icon"
+  besides the chute flap and the brand marks.
 - **A long list has a `Pager`, and does not move under the reader.** Page
   number to type, first and last, and how many there are. The app fixes the
   list at the newest item when a search starts and says how many arrived

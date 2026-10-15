@@ -4,16 +4,17 @@
 	import Specimen from '$lib/site/Specimen.svelte';
 	import ColorChoice from '$lib/components/ColorChoice.svelte';
 	import { swatchColor } from '$lib/components/ColorChip.svelte';
+	import { type IssueGlyph } from '$lib/components/IssueIcon.svelte';
 	import PieceReview from '$lib/components/PieceReview.svelte';
 	import { palette, ranked, rankedByColor } from '$lib/site/review-samples';
 
-	const ISSUES = [
-		{ code: 'not_lego', label: 'Not LEGO' },
-		{ code: 'multiple_pieces', label: 'Multiple pieces in frame' },
-		{ code: 'no_piece', label: 'No piece in frame' },
-		{ code: 'assembly', label: 'Assembly' },
-		{ code: 'pieces_entangled', label: 'Pieces entangled' },
-		{ code: 'blurry', label: 'Blurry' }
+	const ISSUES: { code: string; label: string; glyph: IssueGlyph }[] = [
+		{ code: 'not_lego', label: 'Not LEGO', glyph: 'not-lego' },
+		{ code: 'multiple_pieces', label: 'Multiple pieces in frame', glyph: 'multiple-pieces' },
+		{ code: 'no_piece', label: 'No piece in frame', glyph: 'no-piece' },
+		{ code: 'assembly', label: 'Assembly', glyph: 'assembly' },
+		{ code: 'pieces_entangled', label: 'Pieces entangled', glyph: 'entangled' },
+		{ code: 'blurry', label: 'Blurry', glyph: 'blurry' }
 	];
 	const orange = palette.find((c) => c.id === 4)!;
 
@@ -88,7 +89,7 @@
 
 <SiteSection
 	title="In a list"
-	lead="The same three questions for a list of pieces, where a block under every piece would stand taller than the piece. Three short rows, the question and then its answer, about 100px tall and 24rem wide, at the row's right side. The likely colors open in a popover and the capture issues are one button, so nothing here changes its height when it is used."
+	lead="The same three questions for a list of pieces, where a block under every piece would stand taller than the piece. Three short rows, the question and then its answer, about 100px tall and 24rem wide, at the row's right side. The likely colors open in a popover, and each capture issue is an icon that is its own switch (a click flags it, the icon takes the warning tint, a tooltip names it), so nothing here changes its height when it is used."
 >
 	<Specimen
 		code={`<PieceReview layout="compact" {palette} {likely} predicted={orange} predictedMark="Predicted 82%"

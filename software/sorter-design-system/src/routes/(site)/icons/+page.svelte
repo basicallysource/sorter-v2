@@ -56,12 +56,30 @@
 	import ImageIcon from '@lucide/svelte/icons/image';
 	import CornerDownRight from '@lucide/svelte/icons/corner-down-right';
 	import SwatchBook from '@lucide/svelte/icons/swatch-book';
+	import IssueIcon, { type IssueGlyph } from '$lib/components/IssueIcon.svelte';
+	import IssueToggle from '$lib/components/IssueToggle.svelte';
 	import PageHeader from '$lib/site/PageHeader.svelte';
 	import SiteSection from '$lib/site/SiteSection.svelte';
 	import Specimen from '$lib/site/Specimen.svelte';
 	import Button from '$lib/components/Button.svelte';
 
 	type Icon = Component<{ size?: number; class?: string }>;
+	const glyphs: { glyph: IssueGlyph; label: string }[] = [
+		{ glyph: 'not-lego', label: 'Not LEGO' },
+		{ glyph: 'multiple-pieces', label: 'Multiple pieces in frame' },
+		{ glyph: 'no-piece', label: 'No piece in frame' },
+		{ glyph: 'assembly', label: 'Assembly' },
+		{ glyph: 'entangled', label: 'Pieces entangled' },
+		{ glyph: 'blurry', label: 'Blurry' }
+	];
+	let flagged = $state(new Set<IssueGlyph>(['blurry']));
+	function toggleGlyph(glyph: IssueGlyph) {
+		const next = new Set(flagged);
+		if (next.has(glyph)) next.delete(glyph);
+		else next.add(glyph);
+		flagged = next;
+	}
+
 	const meanings: { icon: Icon; name: string; means: string }[] = [
 		{ icon: X, name: 'x', means: 'Close' },
 		{ icon: Plus, name: 'plus', means: 'Add, new' },
@@ -174,6 +192,37 @@
 			</div>
 		{/each}
 	</div>
+</SiteSection>
+
+<SiteSection
+	title="The issue glyphs"
+	lead="Lucide has no picture of a LEGO piece, so the six things that can be wrong with the photos of a piece are drawn here, like a Lucide icon and made to be read at 20px. They are the face of an IssueToggle: one click flags the issue, the icon takes the warning tint while it is flagged, and pointing at it names it."
+>
+	<Specimen
+		code={`<IssueIcon glyph="blurry" size={20} />
+<IssueToggle glyph="blurry" label="Blurry" on={flagged} onchange={toggle} />`}
+	>
+		<div class="flex flex-col gap-6">
+			<div class="flex flex-wrap items-end gap-8 text-ink">
+				{#each glyphs as g (g.glyph)}
+					<div class="flex flex-col items-center gap-2">
+						<IssueIcon glyph={g.glyph} size={64} />
+						<code class="font-mono text-xs text-ink-muted">{g.glyph}</code>
+					</div>
+				{/each}
+			</div>
+			<div class="flex flex-wrap items-center gap-1">
+				{#each glyphs as g (g.glyph)}
+					<IssueToggle
+						glyph={g.glyph}
+						label={g.label}
+						on={flagged.has(g.glyph)}
+						onchange={() => toggleGlyph(g.glyph)}
+					/>
+				{/each}
+			</div>
+		</div>
+	</Specimen>
 </SiteSection>
 
 <SiteSection

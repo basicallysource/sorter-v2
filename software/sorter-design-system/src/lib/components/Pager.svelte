@@ -104,9 +104,7 @@
 				Page
 				<Input
 					size="sm"
-					type="number"
-					min={1}
-					max={pages}
+					inputmode="numeric"
 					bind:value={typed}
 					{onkeydown}
 					disabled={pages <= 1}

@@ -10,6 +10,7 @@
 	import PartImage from '$lib/components/ui/PartImage.svelte';
 	import Skeleton from '$lib/components/ui/Skeleton.svelte';
 	import { findLegoColor } from '$lib/pieces/colors';
+	import { near } from '$lib/records/near';
 	import type { PieceSummary } from '$lib/pieces';
 	import type { DisplayImage, ImageState } from './piece-images';
 
@@ -23,7 +24,9 @@
 		endpointBase,
 		reclassifyOpen = false,
 		onToggleReclassify,
-		onPieceCorrected
+		onPieceCorrected,
+		onnear,
+		onleave
 	}: {
 		piece: PieceSummary;
 		imgState: ImageState | undefined;
@@ -33,6 +36,9 @@
 		// Called with the fresh summary after a correction so the parent can
 		// update its list in place without a refetch.
 		onPieceCorrected?: (summary: PieceSummary) => void;
+		// The row came near the screen, or left it: its pictures load when it is near.
+		onnear?: () => void;
+		onleave?: () => void;
 	} = $props();
 
 	// The pictures that produced the result get this many places in a row of
@@ -117,7 +123,12 @@
 	);
 </script>
 
-<div class="@container px-(--pad-panel) py-3">
+<!-- A long list is mostly rows nobody is looking at: the browser skips drawing
+	them, and the pictures of the ones near the screen are the ones that load. -->
+<div
+	use:near={{ enter: () => onnear?.(), leave: () => onleave?.() }}
+	class="@container px-(--pad-panel) py-3 [contain-intrinsic-size:auto_8rem] [content-visibility:auto]"
+>
 	<div class="grid items-start gap-x-5 gap-y-3 {columns}">
 		<!-- The pictures: what the camera saw, and what Brickognize shows for the part. -->
 		<a
@@ -160,6 +171,14 @@
 							title="{more} more pictures produced the result: they are on the piece's page"
 						>
 							+{more}
+						</span>
+					{/if}
+					{#if shown.length === 0}
+						<span
+							class="flex h-20 items-center text-xs text-ink-muted"
+							title="No stored images for this piece: it was recorded before images were captured, or none were taken."
+						>
+							No stored images
 						</span>
 					{/if}
 				</span>

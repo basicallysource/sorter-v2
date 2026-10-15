@@ -115,7 +115,8 @@ def test_a_machine_sends_its_lots_and_runs_whole_and_a_reader_sees_them(client, 
     assert [r["id"] for r in body["runs"]] == ["run-1", "run-2"]
 
 
-def test_only_an_admin_adds_a_runs_predictions(client, db, test_user, test_machine) -> None:
+def test_only_an_admin_adds_a_runs_predictions(client, db, test_user, test_machine, monkeypatch) -> None:
+    monkeypatch.setattr(color_model_runs, "_palette", lambda: {85: {"id": 85, "name": "Dark Bluish Gray"}})
     machine_id = UUID(test_machine["id"])
     _piece(db, machine_id, "a", 1)
     db.commit()
@@ -150,5 +151,9 @@ def test_only_an_admin_adds_a_runs_predictions(client, db, test_user, test_machi
         ("colorpred-v7 rerun, 20 Oct", "11", "Black", NOW.isoformat())
     ]
     stored = db.query(MachinePiecePrediction).filter(MachinePiecePrediction.piece_uuid == "a").order_by(MachinePiecePrediction.rank).all()
-    assert [(p.rank, p.value_id, p.local_id) for p in stored] == [(0, "11", 0), (1, "85", 0)]
+    # The unnamed colour took its BrickLink name.
+    assert [(p.rank, p.value_id, p.value_name, p.local_id) for p in stored] == [
+        (0, "11", "Black", 0),
+        (1, "85", "Dark Bluish Gray", 0),
+    ]
     assert stored[0].images == [{"set": "burst", "seq": 4, "channel": None}, {"set": "burst", "seq": 5, "channel": None}]

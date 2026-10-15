@@ -393,6 +393,13 @@ def machine_sorting_runs(machine_id: UUID, db: Session = Depends(get_db), curren
 IMPORT_MAX_PIECES = 1000
 
 
+def _palette_name(palette: dict[int, dict[str, Any]], value_id: str) -> str | None:
+    try:
+        return (palette.get(int(value_id)) or {}).get("name")
+    except ValueError:
+        return None
+
+
 class PredictionAnswerIn(BaseModel):
     value_id: str = Field(min_length=1, max_length=64)
     value_name: str | None = Field(default=None, max_length=200)
@@ -460,6 +467,12 @@ def import_predictions(
     }
     now = datetime.now(timezone.utc)
     made_at = datetime.fromtimestamp(payload.made_at, timezone.utc) if payload.made_at is not None else now
+    # A colour the run left unnamed takes its BrickLink name.
+    palette = (
+        color_model_runs._palette()
+        if payload.kind == "color" and any(a.value_name is None for piece in payload.pieces for a in piece.answers)
+        else {}
+    )
     added: list[str] = []
     already: list[str] = []
     unknown: list[str] = []
@@ -492,7 +505,7 @@ def import_predictions(
                     kind=payload.kind,
                     rank=rank,
                     value_id=answer.value_id,
-                    value_name=answer.value_name,
+                    value_name=answer.value_name or _palette_name(palette, answer.value_id),
                     score=answer.score if answer.score is None or math.isfinite(answer.score) else None,
                     applied=False,
                     predicted_at=made_at,

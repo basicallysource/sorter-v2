@@ -494,7 +494,10 @@ class TwoPieceClassificationChannel(Rev01BaseState):
         stepper = getattr(self.irl, "carousel_stepper", None)
         stopped = bool(getattr(stepper, "stopped", True))
         now = time.monotonic()
-        if self._last_step_at is not None and now - self._last_step_at > _RESUME_GAP_S:
+        # The first step of a new run counts too: the watchdog's clock started
+        # when this was built, and a home before the first resume would read as
+        # a stall and sweep the channel.
+        if self._last_step_at is None or now - self._last_step_at > _RESUME_GAP_S:
             self._resumeAfterPause(now)
         self._last_step_at = now
         if not stopped:

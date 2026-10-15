@@ -133,6 +133,25 @@ def test_a_tracker_double_takes_over_the_waiting_piece() -> None:
     assert ch._lost == []
 
 
+def test_a_takeover_ties_the_new_id_to_the_piece_in_the_control_log(monkeypatch) -> None:
+    """The control-data log names C4 pieces by track id; the id that takes a
+    piece over is tied to it there too, naming the id it replaced."""
+    import control_data_store
+
+    events: list[dict] = []
+    monkeypatch.setattr(control_data_store, "record", events.append)
+    ch, _ = _channel()
+    now = time.monotonic()
+    obj = _classified()
+    _piece(ch, 293, now, gap=83.0, obj=obj, seen_ago=1.0)
+    double = _piece(ch, 294, now, gap=83.5)
+    double.history.appendleft((now - 1.0, 83.4))
+
+    ch._retireGonePieces(now)
+
+    assert [(e["kind"], e["track"], e["piece"], e["took_over"]) for e in events] == [("c4_piece", 294, obj.uuid, 293)]
+
+
 def test_a_new_id_after_a_turn_takes_over_the_piece_it_replaced() -> None:
     """The piece being staged got a new id while the channel
     turned it; its classification was left behind on a timed-out record."""

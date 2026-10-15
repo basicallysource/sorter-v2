@@ -779,7 +779,7 @@ def countRecordsAfter(seq_cursor: int) -> int:
 _CORRECTION_CONTEXT_COLUMNS = (
     "uuid, part_id, color_id, color_name, "
     "brickognize_listing_id, brickognize_item_rank, brickognize_item_type, "
-    "brickognize_color_rank, part_correct, color_corrected_id, "
+    "brickognize_color_rank, color_provider, part_correct, color_corrected_id, "
     "part_feedback_submitted, color_feedback_submitted"
 )
 

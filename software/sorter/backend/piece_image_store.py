@@ -276,12 +276,18 @@ def _ensureWorker() -> None:
 
 def _workerLoop() -> None:
     last_sweep = 0.0
+    q = _queue
     while True:
         entry: tuple[str, str, Any] | None
         try:
-            entry = _queue.get(timeout=_RETENTION_SWEEP_INTERVAL_S)
+            entry = q.get(timeout=_RETENTION_SWEEP_INTERVAL_S)
         except queue.Empty:
             entry = None
+        # Keep the queue this worker started with. A test that reloads the
+        # module gets a new queue and its own worker; this one stops instead
+        # of taking the new queue's items. Nothing reloads it in production.
+        if q is not _queue:
+            return
         if entry is not None:
             kind, piece_uuid, payload = entry
             try:
@@ -296,7 +302,7 @@ def _workerLoop() -> None:
             except Exception as exc:
                 _log("warning", f"piece_image_store: failed to persist {kind} for {piece_uuid[:8]}: {exc}")
             finally:
-                _queue.task_done()
+                q.task_done()
         now = time.monotonic()
         if now - last_sweep >= _RETENTION_SWEEP_INTERVAL_S:
             last_sweep = now

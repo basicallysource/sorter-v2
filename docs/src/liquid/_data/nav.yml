@@ -236,8 +236,6 @@ sections:
         url: /lab/sorter/
       - title: Design intentions for the printed parts
         url: /lab/printed-parts/
-      - title: How to contribute
-        url: /lab/contribute/
     groups:
       - title: Electronics
         pages:

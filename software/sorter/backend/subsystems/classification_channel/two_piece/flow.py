@@ -108,8 +108,14 @@ _SAME_PIECE_DEG = 8.0
 # A second piece that lands while the channel is turning the last one off the
 # drop zone came in unasked: the feeder only adds a piece while the channel
 # stands still with the drop zone clear. Seen this long, it and the piece it
-# came in behind are a double feed.
+# came in behind are a double feed. It lands where the feeder drops pieces and
+# is carried forward from there, so it is first seen no further from the exit
+# than where the piece before it landed (plus the landing scatter). A track
+# first seen further back came around from past the exit (a piece that did not
+# fall, out of the camera's sight there): no feed, so no double feed.
 _LATE_ARRIVAL_CONFIRM_S = 0.1
+_LATE_LANDING_SLACK_DEG = 40.0
+_LATE_ARRIVAL_MAX_GAP_DEG = 280.0
 
 # No turn brings a waiting piece (one not being ejected) closer to the exit than
 # this, so it can't drop into the bin the chute is aimed at for another piece.
@@ -193,6 +199,9 @@ class _TrackedPiece:
         # Recent (time, gap_to_exit) readings, to tell a tracker double of a
         # lost piece from another piece (see _successorFor).
         self.history: deque[tuple[float, float]] = deque(maxlen=90)
+        # Where it was first seen, as gap_to_exit: where it landed, for a piece
+        # the feeder dropped (see _LATE_ARRIVAL_MAX_GAP_DEG).
+        self.first_gap: Optional[float] = None
 
     @property
     def known_object(self) -> Optional[KnownObject]:
@@ -541,6 +550,8 @@ class TwoPieceClassificationChannel(Rev01BaseState):
             if tp.gap_to_exit is not None:
                 gap = float(tp.gap_to_exit)
                 tp.history.append((now, gap))
+                if tp.first_gap is None:
+                    tp.first_gap = gap
                 if tp.progress_gap is None:
                     tp.progress_gap = gap
                 elif abs(gap - tp.progress_gap) > _PROGRESS_MOVE_DEG:
@@ -737,6 +748,10 @@ class TwoPieceClassificationChannel(Rev01BaseState):
                 continue
             if abs(float(tp.gap_to_exit) - float(first.gap_to_exit)) <= _SAME_PIECE_DEG:
                 continue  # a tracker double of the piece being staged
+            if tp.first_gap is None or first.first_gap is None:
+                continue
+            if tp.first_gap > min(first.first_gap + _LATE_LANDING_SLACK_DEG, _LATE_ARRIVAL_MAX_GAP_DEG):
+                continue  # came around from past the exit, not from the feeder
             group = first.multi_drop_group
             if group is None:
                 self._multi_drop_seq += 1

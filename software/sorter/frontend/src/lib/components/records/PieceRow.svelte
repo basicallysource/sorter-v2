@@ -5,6 +5,7 @@
 	import ReclassifyPanel from '$lib/components/ReclassifyPanel.svelte';
 	import PieceCorrection from '$lib/components/PieceCorrection.svelte';
 	import PieceProblems from '$lib/components/pieces/PieceProblems.svelte';
+	import NoPieceImage from '$lib/components/pieces/NoPieceImage.svelte';
 	import Badge from '$lib/components/ui/Badge.svelte';
 	import Button from '$lib/components/ui/Button.svelte';
 	import ColorChip from '$lib/components/ui/ColorChip.svelte';
@@ -146,10 +147,10 @@
 				</span>
 			{:else if shown.length === 0 && !imgState.stockUrl}
 				<span
-					class="flex h-20 items-center text-xs text-ink-muted"
+					class="flex h-20 items-center"
 					title="No stored images for this piece: it was recorded before images were captured, or none were taken."
 				>
-					No stored images
+					<NoPieceImage class="h-12 w-auto text-ink-faint" />
 				</span>
 			{:else}
 				<span
@@ -181,10 +182,10 @@
 					{/if}
 					{#if shown.length === 0}
 						<span
-							class="flex h-20 items-center text-xs text-ink-muted"
+							class="flex h-20 items-center"
 							title="No stored images for this piece: it was recorded before images were captured, or none were taken."
 						>
-							No stored images
+							<NoPieceImage class="h-12 w-auto text-ink-faint" />
 						</span>
 					{/if}
 				</span>

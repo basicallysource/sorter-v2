@@ -32,7 +32,13 @@ class IncidentSummaryRow(BaseModel):
 class IncidentsListResponse(BaseModel):
     items: List[IncidentSummaryRow]
     next_cursor: Optional[str]
+    # What the listing holds: the matching incidents up to its anchor.
     total: int
+    # The newest incident id the listing is cut at (send it back with every
+    # later request for the same listing), and how many matching incidents came
+    # after it.
+    anchor: Optional[int] = None
+    newer: int = 0
 
 
 class IncidentKindSummary(BaseModel):
@@ -86,6 +92,8 @@ def getIncidentsSummary(
 def listIncidents(
     limit: int = 100,
     cursor: Optional[str] = None,
+    offset: Optional[int] = None,
+    anchor: Optional[int] = None,
     kind: Optional[str] = None,
     status: Optional[str] = None,
     date_from: Optional[float] = None,
@@ -96,6 +104,8 @@ def listIncidents(
     result = incident_records.listIncidents(
         limit=limit,
         cursor=_parseCursor(cursor),
+        offset=offset,
+        anchor=anchor,
         kind=kind,
         status=status,
         date_from=date_from,
@@ -105,6 +115,8 @@ def listIncidents(
         items=[IncidentSummaryRow(**item) for item in result["items"]],
         next_cursor=result["next_cursor"],
         total=result["total"],
+        anchor=result["anchor"],
+        newer=result["newer"],
     )
 
 

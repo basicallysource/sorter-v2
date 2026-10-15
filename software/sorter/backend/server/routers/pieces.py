@@ -7,7 +7,7 @@ from datetime import datetime
 from enum import Enum
 from typing import Any, Dict, Iterator, List, Optional
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import Response, StreamingResponse
 from pydantic import BaseModel, Field
 
@@ -94,7 +94,13 @@ class PieceSummary(BaseModel):
 class PiecesListResponse(BaseModel):
     items: List[PieceSummary]
     next_cursor: Optional[str]
+    # What the listing holds: the matching pieces up to its anchor.
     total: int
+    # The newest piece id the listing is cut at (the first answer names it; send
+    # it back with every later request for the same listing), and how many
+    # matching pieces came after it.
+    anchor: Optional[int] = None
+    newer: int = 0
 
 
 class PredictionImage(BaseModel):
@@ -194,6 +200,79 @@ def _validateSort(sort: str) -> str:
     if sort not in _VALID_SORTS:
         raise HTTPException(status_code=400, detail=f"sort must be one of {_VALID_SORTS}")
     return sort
+
+
+class PieceFilters:
+    """Which pieces a listing or an export is of: one set of query parameters for
+    both, so the export is the list.
+
+    q is a search: terms separated by spaces, each of which must match a part
+    number (from its start), a part name or colour name (anywhere in it) or a
+    piece uuid (from its start). status is one status or several, comma
+    separated. sorting_run_id and lot_id are the operator's runs and lots (not
+    run_id, which is the backend process that saw the piece); a lot is the pieces
+    of the runs that add to it. reviewed is whether the operator has answered
+    any question about the piece. bin_x, bin_y and bin_z, all three, are a bin."""
+
+    def __init__(
+        self,
+        status: Optional[str] = None,
+        part_id: Optional[str] = None,
+        color_id: Optional[str] = None,
+        run_id: Optional[str] = None,
+        dead: Optional[bool] = None,
+        date_from: Optional[float] = None,
+        date_to: Optional[float] = None,
+        q: Optional[str] = None,
+        bin_x: Optional[int] = None,
+        bin_y: Optional[int] = None,
+        bin_z: Optional[int] = None,
+        sorting_run_id: Optional[str] = None,
+        lot_id: Optional[str] = None,
+        reviewed: Optional[bool] = None,
+        sort: str = "recent",
+    ) -> None:
+        self.status = status
+        self.part_id = part_id
+        self.color_id = color_id
+        self.run_id = run_id
+        self.dead = dead
+        self.date_from = date_from
+        self.date_to = date_to
+        self.q = q
+        self.bin_ref = None if None in (bin_x, bin_y, bin_z) else (bin_x, bin_y, bin_z)
+        self.sorting_run_id = sorting_run_id
+        self.lot_id = lot_id
+        self.reviewed = reviewed
+        self.sort = _validateSort(sort)
+
+    def kwargs(self) -> Dict[str, Any]:
+        """The filters as piece_records takes them."""
+        import sorting_runs
+
+        seen_ranges = None
+        if self.sorting_run_id is not None or self.lot_id is not None:
+            try:
+                seen_ranges = sorting_runs.seenRanges(
+                    run_id=self.sorting_run_id,
+                    lot_id=self.lot_id if self.sorting_run_id is None else None,
+                )
+            except sorting_runs.RunError as exc:
+                raise HTTPException(status_code=404, detail=str(exc))
+        return {
+            "status": _parseStatusFilter(self.status),
+            "part_id": self.part_id,
+            "color_id": self.color_id,
+            "run_id": self.run_id,
+            "dead": self.dead,
+            "date_from": self.date_from,
+            "date_to": self.date_to,
+            "query": self.q,
+            "bin_ref": self.bin_ref,
+            "seen_ranges": seen_ranges,
+            "reviewed": self.reviewed,
+            "sort": self.sort,
+        }
 
 
 def _csvHeaders(filename: str) -> Dict[str, str]:
@@ -327,19 +406,12 @@ def _isoTimestamp(ts: Any) -> str:
 
 @router.get("/api/pieces/export.csv")
 def exportPiecesCsv(
-    status: Optional[str] = None,
-    part_id: Optional[str] = None,
-    color_id: Optional[str] = None,
-    run_id: Optional[str] = None,
-    dead: Optional[bool] = None,
-    date_from: Optional[float] = None,
-    date_to: Optional[float] = None,
-    sort: str = "recent",
+    anchor: Optional[int] = None,
+    filters: PieceFilters = Depends(),
 ) -> StreamingResponse:
     import piece_records
 
-    _validateSort(sort)
-    status_values = _parseStatusFilter(status)
+    kwargs = filters.kwargs()
     gc = shared_state.gc_ref
 
     def generate() -> Iterator[str]:
@@ -354,17 +426,7 @@ def exportPiecesCsv(
 
         writer.writerow(_CSV_COLUMNS)
         yield drain()
-        for s in piece_records.iterPieceSummaries(
-            gc,
-            status=status_values,
-            part_id=part_id,
-            color_id=color_id,
-            run_id=run_id,
-            dead=dead,
-            date_from=date_from,
-            date_to=date_to,
-            sort=sort,
-        ):
+        for s in piece_records.iterPieceSummaries(gc, anchor=anchor, **kwargs):
             bin_ref = s.get("bin") or {}
             writer.writerow(
                 [
@@ -404,35 +466,26 @@ def exportPiecesCsv(
 def listPieces(
     limit: int = 100,
     cursor: Optional[str] = None,
-    status: Optional[str] = None,
-    part_id: Optional[str] = None,
-    color_id: Optional[str] = None,
-    run_id: Optional[str] = None,
-    dead: Optional[bool] = None,
-    date_from: Optional[float] = None,
-    date_to: Optional[float] = None,
-    sort: str = "recent",
+    offset: Optional[int] = None,
+    anchor: Optional[int] = None,
+    filters: PieceFilters = Depends(),
 ) -> PiecesListResponse:
     import piece_records
 
-    _validateSort(sort)
     result = piece_records.listPieces(
         shared_state.gc_ref,
         limit=limit,
         cursor=_parseCursor(cursor),
-        status=_parseStatusFilter(status),
-        part_id=part_id,
-        color_id=color_id,
-        run_id=run_id,
-        dead=dead,
-        date_from=date_from,
-        date_to=date_to,
-        sort=sort,
+        offset=offset,
+        anchor=anchor,
+        **filters.kwargs(),
     )
     return PiecesListResponse(
         items=[PieceSummary(**item) for item in result["items"]],
         next_cursor=result["next_cursor"],
         total=result["total"],
+        anchor=result["anchor"],
+        newer=result["newer"],
     )
 
 

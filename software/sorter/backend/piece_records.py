@@ -600,6 +600,9 @@ def _rowToSummary(gc: Any, row: sqlite3.Row) -> dict[str, Any]:
     }
 
 
+# The most a page of the records list holds (the list shows 250).
+MAX_PAGE = 500
+
 # What a search may name, in one place: a piece is found by its part number
 # (from the start), its part's name or its colour's name (anywhere in it), or
 # its uuid (from the start, the way the piece's page shows it).
@@ -724,7 +727,7 @@ def listPieces(
     pages never makes the next page skip or repeat one. `offset`, from the start
     of the listing, reads a page that was not walked to (a jump, or an address
     restored); it is not combined with a cursor. `limit` 0 reads only the counts."""
-    limit = max(0, min(limit, 200))
+    limit = max(0, min(limit, MAX_PAGE))
     clauses, params = _buildFilters(
         status=status,
         part_id=part_id,

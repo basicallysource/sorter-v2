@@ -7,6 +7,7 @@ from __future__ import annotations
 import csv
 import io
 from contextlib import contextmanager
+from types import SimpleNamespace
 
 import pytest
 from fastapi import FastAPI
@@ -109,6 +110,17 @@ def test_oldest_first_walks_up_from_the_start() -> None:
         None, limit=2, sort="oldest", cursor=int(first["next_cursor"]), anchor=first["anchor"]
     )
     assert _uuids(second) == ["p002", "p003"]
+
+
+def test_a_page_may_hold_as_many_as_the_list_shows() -> None:
+    _many(260)
+    page = piece_records.listPieces(None, limit=250)
+    assert len(page["items"]) == 250
+    assert page["next_cursor"] is not None
+    last = piece_records.listPieces(None, limit=250, cursor=int(page["next_cursor"]), anchor=page["anchor"])
+    assert len(last["items"]) == 10 and last["next_cursor"] is None
+    # Not without bound.
+    assert len(piece_records.listPieces(None, limit=100000)["items"]) == 260
 
 
 def test_the_counts_can_be_asked_without_a_page() -> None:
@@ -249,6 +261,33 @@ def test_the_endpoint_filters_by_search_status_and_sorting_run() -> None:
     assert uuids(bin_x=0, bin_y=0, bin_z=0) == []
     assert client.get("/api/pieces", params={"lot_id": "missing"}).status_code == 404
     assert client.get("/api/pieces", params={"sort": "sideways"}).status_code == 400
+
+
+def test_a_piece_still_in_memory_shows_what_the_operator_answered(monkeypatch) -> None:
+    _piece("live", NOW, part_name="Plate", color_name="Lime")
+    piece_records.setPieceCorrection(
+        "live",
+        set_part=True,
+        part_correct=False,
+        set_rejection_reasons=True,
+        rejection_reasons=["not_lego"],
+    )
+    payload = {
+        "uuid": "live",
+        "created_at": NOW,
+        "updated_at": NOW + 1,
+        "stage": "distributed",
+        "classification_status": "classified",
+    }
+    stats = SimpleNamespace(lookupKnownObject=lambda uuid: payload if uuid == "live" else None)
+    monkeypatch.setattr(pieces.shared_state, "gc_ref", SimpleNamespace(runtime_stats=stats))
+    monkeypatch.setattr(pieces.piece_predictions, "recent", lambda uuid: [])
+
+    answer = _client().get("/api/pieces/live").json()
+
+    assert answer["origin"] == "memory"
+    assert answer["summary"]["part_correct"] is False
+    assert answer["summary"]["rejection_reasons"] == ["not_lego"]
 
 
 def test_the_csv_is_the_list_it_was_asked_for() -> None:

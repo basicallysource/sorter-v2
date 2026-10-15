@@ -718,6 +718,16 @@ def submitPieceCorrection(uuid: str, body: CorrectionRequest) -> CorrectionRespo
     )
 
 
+# What the operator has answered about a piece: kept only in the database.
+_REVIEW_STATE = (
+    "part_correct",
+    "color_corrected_id",
+    "part_feedback_submitted",
+    "color_feedback_submitted",
+    "rejection_reasons",
+)
+
+
 def _summaryFromMemory(gc: Any, payload: Dict[str, Any]) -> PieceSummary:
     # HOT PATH: RecentObjects polls this per active piece every 600ms during
     # sorting. Everything here must come from the in-memory payload / process
@@ -777,9 +787,17 @@ def getPiece(uuid: str) -> PieceDetailResponse:
             except Exception:
                 detail = None
             if detail is not None:
+                summary = _summaryFromMemory(gc, payload)
+                # A piece still in memory has been recorded, and may have been
+                # reviewed: the page's review shows what was answered.
+                recorded = piece_records.getPieceSummaryByUuid(gc, uuid)
+                if recorded is not None:
+                    summary = summary.model_copy(
+                        update={key: recorded[key] for key in _REVIEW_STATE}
+                    )
                 return PieceDetailResponse(
                     origin="memory",
-                    summary=_summaryFromMemory(gc, payload),
+                    summary=summary,
                     detail=detail,
                     detail_available=True,
                     predictions=[PiecePrediction(**p) for p in piece_predictions.recent(uuid)],

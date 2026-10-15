@@ -867,7 +867,9 @@
 
 						{#if obj.destination_bin && phase === 'distributed'}
 							<span class="num ml-auto text-sm text-ink">
-								{is_unknown || is_multi_drop || is_too_big ? 'Discard ' : ''}{formatBin(obj.destination_bin)}
+								{is_unknown || is_multi_drop || is_too_big ? 'Discard ' : ''}{formatBin(
+									obj.destination_bin
+								)}
 							</span>
 						{:else if phase === 'distributed' && (is_unknown || is_multi_drop || is_too_big)}
 							<span class="ml-auto text-sm text-ink-muted">Discard bin</span>

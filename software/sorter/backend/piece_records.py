@@ -642,7 +642,7 @@ def listPieces(
     # Keyset pagination on the autoincrement id: non-null, unique, and ≈
     # recording order — unlike seen_at, which is nullable (NULL rows would
     # silently vanish from a seen_at-keyed cursor).
-    limit = max(1, min(limit, 200))
+    limit = max(1, min(limit, 500))
     clauses, params = _buildFilters(
         status=status,
         part_id=part_id,

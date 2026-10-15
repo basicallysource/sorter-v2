@@ -14,6 +14,35 @@ from fastapi.responses import FileResponse, RedirectResponse, StreamingResponse
 
 from app.config import settings
 
+# A stored file can hold several small files back to back (a batch of channel
+# crops is one upload and one stored file). The key of one of them is the
+# file's key plus "#<offset>+<length>"; reads and serving take that range, and
+# deleting one of them leaves the file (its machine's prefix removes it).
+_RANGE_SEPARATOR = "#"
+
+
+def ranged_key(key: str, offset: int, length: int) -> str:
+    return f"{key}{_RANGE_SEPARATOR}{int(offset)}+{int(length)}"
+
+
+def split_ranged_key(key: str) -> tuple[str, int | None, int | None]:
+    """(file key, offset, length) of a ranged key; (key, None, None) for any other."""
+    base, sep, span = key.rpartition(_RANGE_SEPARATOR)
+    offset, plus, length = span.partition("+")
+    if not sep or not plus or not offset.isdigit() or not length.isdigit() or int(length) == 0:
+        return key, None, None
+    return base, int(offset), int(length)
+
+
+def _ranged_response(
+    data: bytes, headers: dict[str, str] | None, filename: str | None, media_type: str | None
+) -> Response:
+    combined: dict[str, str] = dict(headers or {})
+    if filename:
+        combined.setdefault("Content-Disposition", f'attachment; filename="{filename}"')
+    resolved = media_type or ("image/png" if data.startswith(b"\x89PNG") else "image/jpeg")
+    return Response(content=data, media_type=resolved, headers=combined)
+
 
 def _remaining_bytes(source: BinaryIO) -> int | None:
     """How many bytes are left to read from ``source``, or None when it cannot seek."""
@@ -80,6 +109,8 @@ class LocalStorageBackend(StorageBackend):
             shutil.copyfileobj(source, out)
 
     def delete(self, key: str) -> None:
+        if split_ranged_key(key)[1] is not None:
+            return
         full = (self._full(key)).resolve()
         base = self.base.resolve()
         if not str(full).startswith(str(base)):
@@ -96,14 +127,22 @@ class LocalStorageBackend(StorageBackend):
             shutil.rmtree(full)
 
     def exists(self, key: str) -> bool:
-        return self._full(key).exists()
+        return self._full(split_ranged_key(key)[0]).exists()
 
     def read_bytes(self, key: str) -> bytes:
-        full = self._full(key).resolve()
+        file_key, offset, length = split_ranged_key(key)
+        full = self._full(file_key).resolve()
         base = self.base.resolve()
         if not str(full).startswith(str(base)):
             raise FileNotFoundError(key)
-        return full.read_bytes()
+        if offset is None:
+            return full.read_bytes()
+        with open(full, "rb") as handle:
+            handle.seek(offset)
+            data = handle.read(length)
+        if len(data) != length:
+            raise FileNotFoundError(key)
+        return data
 
     def iter_sizes(self) -> Iterator[tuple[str, int]]:
         base = self.base.resolve()
@@ -126,6 +165,12 @@ class LocalStorageBackend(StorageBackend):
         filename: str | None = None,
         media_type: str | None = None,
     ) -> Response:
+        if split_ranged_key(key)[1] is not None:
+            try:
+                data = self.read_bytes(key)
+            except (FileNotFoundError, OSError) as exc:
+                raise HTTPException(status_code=404, detail="File not found") from exc
+            return _ranged_response(data, headers, filename, media_type)
         full = self._full(key).resolve()
         base = self.base.resolve()
         if not str(full).startswith(str(base)):
@@ -200,6 +245,8 @@ class S3StorageBackend(StorageBackend):
         self.client.upload_fileobj(source, self.bucket, key, ExtraArgs=extra or None)
 
     def delete(self, key: str) -> None:
+        if split_ranged_key(key)[1] is not None:
+            return
         self.client.delete_object(Bucket=self.bucket, Key=key)
 
     def delete_prefix(self, prefix: str) -> None:
@@ -217,22 +264,28 @@ class S3StorageBackend(StorageBackend):
 
     def exists(self, key: str) -> bool:
         try:
-            self.client.head_object(Bucket=self.bucket, Key=key)
+            self.client.head_object(Bucket=self.bucket, Key=split_ranged_key(key)[0])
             return True
         except Exception:
             return False
 
     def read_bytes(self, key: str) -> bytes:
+        file_key, offset, length = split_ranged_key(key)
+        extra = {} if offset is None else {"Range": f"bytes={offset}-{offset + length - 1}"}
         try:
-            obj = self.client.get_object(Bucket=self.bucket, Key=key)
+            obj = self.client.get_object(Bucket=self.bucket, Key=file_key, **extra)
         except self.client.exceptions.NoSuchKey as exc:
             raise FileNotFoundError(key) from exc
-        return obj["Body"].read()
+        data = obj["Body"].read()
+        if offset is not None and len(data) != length:
+            raise FileNotFoundError(key)
+        return data
 
     _PRESIGNED_CACHE_MAX = 20_000
 
     def presigned_get_url(self, key: str) -> str | None:
-        if self.serve_mode != "redirect":
+        # A signed link is to a whole file; a part of one is served by Hive.
+        if self.serve_mode != "redirect" or split_ranged_key(key)[1] is not None:
             return None
         now = time.monotonic()
         with self._presigned_lock:
@@ -264,6 +317,12 @@ class S3StorageBackend(StorageBackend):
         filename: str | None = None,
         media_type: str | None = None,
     ) -> Response:
+        if split_ranged_key(key)[1] is not None:
+            try:
+                data = self.read_bytes(key)
+            except Exception as exc:
+                raise HTTPException(status_code=404, detail="File not found") from exc
+            return _ranged_response(data, headers, filename, media_type)
         if self.serve_mode == "redirect":
             params: dict = {"Bucket": self.bucket, "Key": key}
             if filename:

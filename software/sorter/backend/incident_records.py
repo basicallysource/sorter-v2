@@ -185,37 +185,67 @@ def listIncidents(
     *,
     limit: int = 100,
     cursor: Optional[int] = None,
+    offset: Optional[int] = None,
+    anchor: Optional[int] = None,
     kind: Optional[str] = None,
     status: Optional[str] = None,
     date_from: Optional[float] = None,
     date_to: Optional[float] = None,
 ) -> dict[str, Any]:
-    limit = max(1, min(limit, 500))
+    """One page of the incidents, newest first, cut at an anchor like the pieces
+    list (piece_records.listPieces): the newest id when the first page is asked
+    for, named in the answer and sent back with every later request, so the
+    incidents raised meanwhile are never in the listing. `total` is what it
+    holds and `newer` how many matching incidents came after it. Pages are keyset
+    pages on the id; `offset` reads a page that was not walked to; `limit` 0
+    reads only the counts."""
+    limit = max(0, min(limit, 500))
     clauses, params = _buildFilters(
         kind=kind, status=status, date_from=date_from, date_to=date_to
     )
-    where = (" WHERE " + " AND ".join(clauses)) if clauses else ""
-    page_clauses = list(clauses)
-    page_params = list(params)
-    if cursor is not None:
-        page_clauses.append("id < ?")
-        page_params.append(int(cursor))
-    page_where = (" WHERE " + " AND ".join(page_clauses)) if page_clauses else ""
+
+    def where(extra: list[str], extra_params: list[Any]) -> tuple[str, list[Any]]:
+        every = clauses + extra
+        return ((" WHERE " + " AND ".join(every)) if every else ""), params + extra_params
+
     with _connection() as conn:
-        total_row = conn.execute(
-            f"SELECT COUNT(*) AS c FROM incidents{where}", params
-        ).fetchone()
-        total = int(total_row["c"] or 0)
-        rows = conn.execute(
-            f"SELECT {_LIST_COLUMNS} FROM incidents{page_where} "
-            "ORDER BY id DESC LIMIT ?",
-            page_params + [limit + 1],
-        ).fetchall()
+        newest = int(conn.execute("SELECT COALESCE(MAX(id), 0) FROM incidents").fetchone()[0])
+        anchor_id = newest if anchor is None else int(anchor)
+        within, within_params = where(["id <= ?"], [anchor_id])
+        total = int(
+            conn.execute(f"SELECT COUNT(*) FROM incidents{within}", within_params).fetchone()[0]
+        )
+        after, after_params = where(["id > ?"], [anchor_id])
+        newer = int(
+            conn.execute(f"SELECT COUNT(*) FROM incidents{after}", after_params).fetchone()[0]
+        )
+        rows: list[sqlite3.Row] = []
+        if limit > 0:
+            extra = ["id <= ?"]
+            extra_params: list[Any] = [anchor_id]
+            skip = 0
+            if cursor is not None:
+                extra.append("id < ?")
+                extra_params.append(int(cursor))
+            elif offset:
+                skip = max(0, int(offset))
+            page_where, all_params = where(extra, extra_params)
+            rows = conn.execute(
+                f"SELECT {_LIST_COLUMNS} FROM incidents{page_where} "
+                "ORDER BY id DESC LIMIT ? OFFSET ?",
+                all_params + [limit + 1, skip],
+            ).fetchall()
     has_more = len(rows) > limit
     rows = rows[:limit]
     items = [dict(r) for r in rows]
     next_cursor = str(rows[-1]["id"]) if has_more and rows else None
-    return {"items": items, "next_cursor": next_cursor, "total": total}
+    return {
+        "items": items,
+        "next_cursor": next_cursor,
+        "total": total,
+        "anchor": anchor_id,
+        "newer": newer,
+    }
 
 
 def incidentSummary(

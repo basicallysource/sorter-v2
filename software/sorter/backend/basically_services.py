@@ -135,7 +135,7 @@ def predictColor(
     images = images[:MAX_PREDICT_IMAGES]
     channels = channels[: len(images)]
 
-    def post(token: str) -> requests.Response:
+    def send(token: str) -> requests.Response:
         files = [("images", (f"crop{i}.jpg", data, "image/jpeg")) for i, data in enumerate(images)]
         data: dict[str, str] = {"channels": json.dumps(channels)}
         if client_info:
@@ -147,6 +147,16 @@ def predictColor(
             data=data,
             timeout=PREDICT_TIMEOUT_S,
         )
+
+    def post(token: str) -> requests.Response:
+        try:
+            return send(token)
+        except requests.exceptions.ConnectionError as e:
+            if isinstance(e, requests.exceptions.Timeout):
+                raise
+            # The kept-open connection had been closed at the other end before
+            # this request got an answer: send it once more on a fresh one.
+            return send(token)
 
     started = time.monotonic()
     try:

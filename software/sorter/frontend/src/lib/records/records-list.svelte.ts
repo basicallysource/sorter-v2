@@ -53,7 +53,10 @@ export class RecordsList<T> {
 	// load), so the view can bring its top into sight.
 	turned = $state(0);
 
-	readonly pageSize: number;
+	// How many a page holds: what was asked for, or fewer when the machine cannot
+	// give that many (an older one caps a page), so the pages are numbered by
+	// what they hold.
+	#served = $state(0);
 	#opts: RecordsListOptions;
 	#path: string;
 	// The anchor, as a value that effects can depend on.
@@ -68,7 +71,7 @@ export class RecordsList<T> {
 
 	constructor(opts: RecordsListOptions) {
 		this.#opts = opts;
-		this.pageSize = opts.pageSize;
+		this.#served = opts.pageSize;
 		this.#path = page.url.pathname;
 
 		// The address drives the list. Only while it is this view's own address:
@@ -94,6 +97,9 @@ export class RecordsList<T> {
 		$effect(() => () => this.#controller?.abort());
 	}
 
+	get pageSize(): number {
+		return this.#served;
+	}
 	get pageCount(): number {
 		return Math.max(1, Math.ceil(this.total / this.pageSize));
 	}
@@ -172,13 +178,13 @@ export class RecordsList<T> {
 			const value = url.searchParams.get(key);
 			if (value) params.set(key, value);
 		}
-		params.set('limit', String(this.pageSize));
+		params.set('limit', String(this.#opts.pageSize));
 		const anchor = url.searchParams.get('anchor');
 		if (anchor) params.set('anchor', anchor);
 		if (pageIndex > 0) {
 			const cursor = this.#cursors.get(pageIndex);
 			if (cursor) params.set('cursor', cursor);
-			else params.set('offset', String(pageIndex * this.pageSize));
+			else params.set('offset', String(pageIndex * this.#served));
 		}
 		return params;
 	}
@@ -202,9 +208,13 @@ export class RecordsList<T> {
 			if (controller.signal.aborted) return;
 
 			this.canJump = json.anchor != null;
+			const items = Array.isArray(json.items) ? json.items : [];
+			if (json.next_cursor && items.length > 0 && items.length < this.#opts.pageSize) {
+				this.#served = items.length;
+			}
 			// A machine that cannot read by offset answered the first page.
 			const shown = this.canJump || this.#cursors.has(wanted) ? wanted : 0;
-			this.items = Array.isArray(json.items) ? json.items : [];
+			this.items = items;
 			this.total = typeof json.total === 'number' ? json.total : 0;
 			this.newer = typeof json.newer === 'number' ? json.newer : null;
 			this.pageIndex = shown;

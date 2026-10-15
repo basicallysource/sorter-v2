@@ -57,4 +57,8 @@ Machines are built and running, and they sort every day. It is not a product yet
     <strong><a href="{{ '/lab/' | relative_url }}">Design and research</a></strong>
     <p>How the machine is designed, what is connected to what, tested variants, and the research behind it.</p>
   </div>
+  <div class="callout">
+    <strong><a href="{{ '/contribute/' | relative_url }}">How to contribute</a></strong>
+    <p>Where the project lives, how to help, when the team meets each week, and what Balloon, the assistant in the Discord, can do for you.</p>
+  </div>
 </div>

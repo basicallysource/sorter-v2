@@ -7,6 +7,7 @@
 	import Badge from '$lib/components/ui/Badge.svelte';
 	import Button from '$lib/components/ui/Button.svelte';
 	import ColorChip from '$lib/components/ui/ColorChip.svelte';
+	import ImageZoom from '$lib/components/ui/ImageZoom.svelte';
 	import PartImage from '$lib/components/ui/PartImage.svelte';
 	import Skeleton from '$lib/components/ui/Skeleton.svelte';
 	import { findLegoColor } from '$lib/pieces/colors';
@@ -133,7 +134,7 @@
 		<!-- The pictures: what the camera saw, and what Brickognize shows for the part. -->
 		<a
 			href={`/tracked/${piece.uuid}`}
-			title="Open the piece"
+			aria-label="Open the piece"
 			class="-m-1 flex min-h-20 flex-wrap items-start gap-1.5 rounded-control p-1 hover:bg-hover @3xl:flex-nowrap"
 		>
 			{#if imgState === undefined || imgState.status === 'loading'}
@@ -153,17 +154,20 @@
 					class="flex max-w-full flex-wrap gap-1.5 @3xl:w-[21.125rem] @3xl:shrink-0 @3xl:flex-nowrap"
 				>
 					{#each crops as img, i (i)}
-						<span
-							class="relative block size-20 shrink-0"
-							title="{sourceLabel(img.source, img.channel)}: produced the result"
+						<ImageZoom
+							src={img.src}
+							label="{sourceLabel(img.source, img.channel)}: produced the result"
+							class="shrink-0"
 						>
-							<PartImage src={img.src} class="size-20" />
-							<span
-								class="dark num absolute bottom-0.5 left-0.5 rounded-badge bg-scrim px-1 text-xs font-medium text-ink"
-							>
-								{channelLabel(img)}
+							<span class="relative block size-20 shrink-0">
+								<PartImage src={img.src} class="size-20" />
+								<span
+									class="dark num absolute bottom-0.5 left-0.5 rounded-badge bg-scrim px-1 text-xs font-medium text-ink"
+								>
+									{channelLabel(img)}
+								</span>
 							</span>
-						</span>
+						</ImageZoom>
 					{/each}
 					{#if more > 0}
 						<span
@@ -184,7 +188,9 @@
 				</span>
 				{#if imgState.stockUrl}
 					<span class="flex shrink-0 flex-col items-center gap-0.5 border-l border-line pl-2.5">
-						<PartImage src={imgState.stockUrl} class="size-20" />
+						<ImageZoom src={imgState.stockUrl} label="Brickognize's picture of this part">
+							<PartImage src={imgState.stockUrl} class="size-20" />
+						</ImageZoom>
 						<span class="text-xs text-ink-muted">Brickognize</span>
 					</span>
 				{/if}

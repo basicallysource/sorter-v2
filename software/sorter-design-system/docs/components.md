@@ -144,6 +144,10 @@ the example app shows them together.
   dashboard, in a list, on a bin) sits straight on the plane under it, a
   panel or a row, with no grey box and no well behind it. A camera feed is
   the media plane's; a part is a picture on the page.
+- **`ImageZoom`**: a picture that enlarges where it is pointed at (a piece's
+  photos in a list, a burst's frames): the pointer on the thumbnail shows it
+  large beside it at once and the pointer off puts it away, nothing to click
+  ([overlays.md](overlays.md#image-zoom)).
 - **`Card`**: a panel that is one thing to open, a machine or a profile. The
   whole card is a link (`href`) or a button (`onclick`), named by `label`;
   the pointer anywhere on it fills it a step (`hover`, then `pressed`), with

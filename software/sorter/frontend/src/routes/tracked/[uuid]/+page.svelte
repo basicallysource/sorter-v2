@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { onDestroy, onMount } from 'svelte';
+	import { afterNavigate } from '$app/navigation';
 	import { page } from '$app/state';
 	import ArrowLeft from '@lucide/svelte/icons/arrow-left';
 	import ChevronDown from '@lucide/svelte/icons/chevron-down';
@@ -39,6 +40,18 @@
 		type PredictionImage
 	} from '$lib/pieces';
 	import { sortingProfileStore } from '$lib/stores/sortingProfile.svelte';
+
+	// Back to the records goes to where the list was, with its filters, page and
+	// scroll, when that is where this page was opened from.
+	let cameFromRecords = false;
+	afterNavigate(({ from }) => {
+		cameFromRecords = from?.url.pathname.startsWith('/records') ?? false;
+	});
+	function backToRecords(event: MouseEvent) {
+		if (!cameFromRecords) return;
+		event.preventDefault();
+		history.back();
+	}
 
 
 	const ctx = getMachineContext();
@@ -742,7 +755,7 @@
 	<div class="mx-auto flex w-full max-w-[1600px] flex-col gap-(--gap-panels) px-4 py-6 sm:px-6">
 		<PageHeader title="Piece {uuid.slice(0, 8)}">
 			{#snippet actions()}
-				<Button icon={ArrowLeft} href="/records">Back to the records</Button>
+				<Button icon={ArrowLeft} href="/records/pieces" onclick={backToRecords}>Back to the records</Button>
 			{/snippet}
 			<div class="flex flex-wrap items-center gap-2">
 				{#if piece}

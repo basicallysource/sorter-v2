@@ -4,7 +4,7 @@
 	import { fetchLegoColors, type BrickLinkColor, type PieceSummary } from '$lib/pieces';
 
 	// The review of one correctable piece (the dashboard's correction dialog and
-	// the records list): the design system's PieceReview, fed from this
+	// the records list, compact): the design system's PieceReview, fed from this
 	// machine's API. Render only when `piece.correctable` (a Brickognize listing
 	// was captured); the parent gates that.
 	//
@@ -16,12 +16,15 @@
 		piece,
 		endpointBase,
 		onUpdated,
-		prefetch = false
+		prefetch = false,
+		layout = 'full'
 	}: {
 		piece: PieceSummary;
 		endpointBase: string;
 		onUpdated?: (summary: PieceSummary) => void;
 		prefetch?: boolean;
+		// compact: the review as a few short rows, beside a piece in a list.
+		layout?: 'full' | 'compact';
 	} = $props();
 
 	type CorrectionResponse = {
@@ -204,6 +207,7 @@
 
 {#if piece.correctable}
 	<PieceReview
+		{layout}
 		{palette}
 		{likely}
 		{likelyNote}

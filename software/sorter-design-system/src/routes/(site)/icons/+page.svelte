@@ -17,6 +17,8 @@
 	import ChevronDown from '@lucide/svelte/icons/chevron-down';
 	import ChevronRight from '@lucide/svelte/icons/chevron-right';
 	import ChevronLeft from '@lucide/svelte/icons/chevron-left';
+	import ChevronsLeft from '@lucide/svelte/icons/chevrons-left';
+	import ChevronsRight from '@lucide/svelte/icons/chevrons-right';
 	import ArrowLeft from '@lucide/svelte/icons/arrow-left';
 	import ArrowRight from '@lucide/svelte/icons/arrow-right';
 	import ArrowUpRight from '@lucide/svelte/icons/arrow-up-right';
@@ -101,8 +103,18 @@
 		{ icon: CornerDownRight, name: 'corner-down-right', means: 'Where a piece goes' },
 		{ icon: Search, name: 'search', means: 'Search' },
 		{ icon: ChevronDown, name: 'chevron-down', means: 'Opens a list below' },
-		{ icon: ChevronRight, name: 'chevron-right', means: 'Opens a section, jogs clockwise' },
-		{ icon: ChevronLeft, name: 'chevron-left', means: 'Jogs counterclockwise' },
+		{
+			icon: ChevronRight,
+			name: 'chevron-right',
+			means: 'Opens a section, jogs clockwise, next page'
+		},
+		{
+			icon: ChevronLeft,
+			name: 'chevron-left',
+			means: 'Jogs counterclockwise, previous page'
+		},
+		{ icon: ChevronsRight, name: 'chevrons-right', means: 'Last page' },
+		{ icon: ChevronsLeft, name: 'chevrons-left', means: 'First page' },
 		{ icon: ArrowLeft, name: 'arrow-left', means: 'Back to where you were' },
 		{ icon: ArrowRight, name: 'arrow-right', means: 'Goes somewhere else' },
 		{ icon: ArrowUpRight, name: 'arrow-up-right', means: 'Leaves the app, or opens a new tab' },

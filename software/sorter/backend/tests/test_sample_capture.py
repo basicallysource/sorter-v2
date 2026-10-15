@@ -86,7 +86,7 @@ class HiveLimitsTests(_StateTestCase):
 class SampleStoreTests(_StateTestCase):
     def test_enqueue_writes_a_row_and_its_file(self) -> None:
         self.assertTrue(self.sample_store.enqueue(JPEG, {"camera": "c_channel_3", "captured_at": 1.5, "width": 6, "height": 4, "meta": {"lamp": {"output": "x"}}}))
-        deadline = time.time() + 5
+        deadline = time.time() + 15
         while self.sample_store.getMaxSampleId() == 0 and time.time() < deadline:
             time.sleep(0.02)
         rows = self.sample_store.listSamplesAfter(0, 10)

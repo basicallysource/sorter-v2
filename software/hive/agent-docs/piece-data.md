@@ -20,6 +20,18 @@ a natural key, so a re-send never duplicates.
 | `samples` | `POST /api/machine/sync/sample` | `samples` | session, local_sample_id | `local_id` |
 | `piece_corrections` | `POST /api/machine/sync/piece-corrections` | `machine_pieces` verdict columns | machine, piece_uuid | `local_id` |
 | `training_runs` | `POST /api/machine/sync/training-runs` (JSON batch) | `machine_training_runs` | machine, run_uuid | `sync_seq` |
+| `sorting_runs` | `POST /api/machine/sync/sorting-runs` (the whole set) | `machine_lots`, `machine_sorting_runs` | machine, lot_id / run_id | the set's `version` |
+
+**Lots and sorting runs** go whole: a lot is pieces that came in together, a
+sorting run one stretch of sorting from its start to the next run's, which
+names a lot and adds to it or not (another pass over pieces it already
+counted). The machine can rename, move or delete a run, so each send replaces
+the machine's lots and runs, and its state is not a cursor but the set's
+`version`, a number the sorter derives from the set's content
+(`sorting_runs.syncSet`); the sorter sends when its version differs. A lot's
+pieces are those whose `seen_at` falls in the stretches of its runs that add
+to it; `GET /api/records/machines/{id}/sorting-runs` gives each run's
+`ends_at`.
 
 **The cursor rule.** A row that never changes on the sorter syncs by its id
 (`local_id`). A row that changes (a piece record gets its bin, a verdict, a
@@ -156,7 +168,9 @@ five parts and colours with scores, and the hosted colour model's (`hosted`,
 provider `hive_basically`, `model` = its sha256, `model_name`) top three. Any
 other `source` is the label of a later run of a model over the piece's stored
 images, imported on the sorter (`POST /api/predictions/import` there; its
-`request` is the model's name). `images` lists the piece's images each
+`request` is the model's name) or on Hive by an admin
+(`POST /api/records/machines/{id}/predictions`, `predictions:write`; the row's
+`local_id` is 0, as no machine row backs it). `images` lists the piece's images each
 prediction was made from (`set` `burst`: a `machine_piece_images` seq; `link`:
 an upstream crop the piece-link model matched), NULL for rows from sorters
 that did not record them, as are `model_name` and `source` (taken as `live`).
@@ -164,6 +178,10 @@ that did not record them, as are `model_name` and `source` (taken as `live`).
 and the one colour the piece took. `GET /api/labeling/piece/{machine}/{piece}`
 returns them as `machine_predictions`, the live ones first. Hive's own colour models' answers are kept per model in
 `piece_model_colors` (`jobs.md`, `color_model_run`), returned as
-`model_answers`; the piece panel steps through both. Pieces from sorters older than this have none; their
+`model_answers`; the piece panel steps through both. The records API
+(`GET /api/records/machines/{id}/pieces`) gives each piece's later colours
+(every non-live run's top colour, through
+`ix_machine_piece_predictions_later_colors`, and the active model's answer as
+source `hive`) and its Hive colour labels. Pieces from sorters older than this have none; their
 applied colour and score are on `machine_pieces` (`color_id`,
 `color_confidence`, `color_provider`).

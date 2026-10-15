@@ -69,6 +69,10 @@ API_KEY_SCOPE_PROFILES_WRITE = "profiles:write"
 # The pieces the key owner's own machines sorted, so an assistant can build a
 # profile from what actually comes through them.
 API_KEY_SCOPE_RECORDS_READ = "records:read"
+# A later model run's predictions for an owner's machines' pieces, added on
+# Hive (the records API). Admin-only: what it writes shows wherever those
+# pieces' colours and parts do.
+API_KEY_SCOPE_PREDICTIONS_WRITE = "predictions:write"
 # The scopes any user may put on a key. The rest are for admins: they reach
 # fleet-wide or server data.
 USER_GRANTABLE_API_KEY_SCOPES = frozenset(
@@ -91,6 +95,7 @@ VALID_API_KEY_SCOPES = frozenset(
         API_KEY_SCOPE_PROFILES_READ,
         API_KEY_SCOPE_PROFILES_WRITE,
         API_KEY_SCOPE_RECORDS_READ,
+        API_KEY_SCOPE_PREDICTIONS_WRITE,
     }
 )
 

@@ -177,6 +177,7 @@
 		{ scope: 'profiles:read', label: 'Read your sorting profiles and kits', everyone: true },
 		{ scope: 'profiles:write', label: 'Change your sorting profiles and kits', everyone: true },
 		{ scope: 'records:read', label: 'Read what your machines sorted', everyone: true },
+		{ scope: 'predictions:write', label: "Add model runs' predictions for your machines' pieces" },
 		{ scope: 'models:read', label: 'Read models' },
 		{ scope: 'models:write', label: 'Write models' },
 		{ scope: 'samples:read', label: 'Read samples' },

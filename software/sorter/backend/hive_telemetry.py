@@ -260,6 +260,18 @@ class HiveTelemetryClient:
         )
         return int(response.json()["max_local_id"])
 
+    def pushSortingRuns(self, sorting_set: dict[str, Any]) -> int:
+        """Every lot and sorting run, as one set; Hive answers with the
+        version it now keeps."""
+        response = self._request(
+            "POST",
+            "/api/machine/sync/sorting-runs",
+            fields=("piece_metadata",),
+            json=sorting_set,
+            timeout=60,
+        )
+        return int(response.json()["max_local_id"])
+
     def pushPiecePredictions(self, records: list[dict[str, Any]]) -> int:
         response = self._request(
             "POST",

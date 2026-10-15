@@ -26,6 +26,7 @@ def test_sync_state_starts_empty(client, machine_token):
         "control_data_segments": {"max_local_id": 0},
         "samples": {"max_local_id": 0},
         "training_runs": {"max_local_id": 0},
+        "sorting_runs": {"max_local_id": 0},
     }
 
 

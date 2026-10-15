@@ -15,8 +15,12 @@
 	a block under every piece would stand taller than the piece: three short
 	rows (the name, then the answer), about 100px tall and a width of
 	24rem. The colors open in a popover instead of under the row, and the
-	capture issues are one button that lists them, so nothing on the row
-	changes its height when it is used.
+	capture issues are a row of icon switches (`IssueToggle`, one click
+	each, the icon in the warning tint while it is flagged, its name in a
+	tooltip), so a piece is reviewed without opening anything and nothing on
+	the row changes its height when it is used. They stay live while a save is
+	on its way (a spinner says so): flagging two issues in a row is two clicks.
+	An issue with no `glyph` is a small button with its name.
 
 	Every answer is a callback; the app saves it and passes the state back
 	(`partVerdict`, `correctedId`, `activeIssues`, the busy and sent flags).
@@ -30,16 +34,16 @@
 -->
 <script lang="ts">
 	import Check from '@lucide/svelte/icons/check';
-	import ChevronDown from '@lucide/svelte/icons/chevron-down';
 	import Pipette from '@lucide/svelte/icons/pipette';
 	import Alert from './Alert.svelte';
 	import Badge from './Badge.svelte';
 	import Button from './Button.svelte';
 	import ColorChoice, { type LikelyColor, type PaletteColor } from './ColorChoice.svelte';
+	import { type IssueGlyph } from './IssueIcon.svelte';
+	import IssueToggle from './IssueToggle.svelte';
 	import Popover from './Popover.svelte';
 	import SegmentedControl from './SegmentedControl.svelte';
 	import Spinner from './Spinner.svelte';
-	import Switch from './Switch.svelte';
 	import { swatchColor } from './ColorChip.svelte';
 
 	let {
@@ -81,7 +85,8 @@
 		palette: PaletteColor[];
 		likely?: LikelyColor[] | null;
 		likelyNote?: string | null;
-		issues: { code: string; label: string }[];
+		// What can be wrong with the photos; `glyph` is the compact layout's icon.
+		issues: { code: string; label: string; glyph?: IssueGlyph }[];
 		activeIssues?: string[];
 		issuesBusy?: boolean;
 		notice?: { tone: 'warning' | 'danger'; text: string } | null;
@@ -214,64 +219,64 @@
 							{/if}
 						</Button>
 					{/snippet}
-					<div class="flex flex-col gap-3">
-						<ColorChoice
-							{palette}
-							{likely}
-							value={staged}
-							{marks}
-							note={likelyNote}
-							disabled={colorBusy}
-							onpick={(id) => (staged = id)}
-						/>
-						<div class="flex flex-wrap items-center justify-end gap-2">
-							<Button variant="ghost" size="sm" onclick={closeColors}>Cancel</Button>
-							<Button
-								variant="primary"
-								size="sm"
-								loading={colorBusy}
-								disabled={staged == null}
-								onclick={confirmColor}
-							>
-								{stagedColor ? `Confirm ${stagedColor.name}` : 'Confirm the color'}
-							</Button>
+					<!-- Only while open: a list of pieces has one of these on every row. -->
+					{#if picking}
+						<div class="flex flex-col gap-3">
+							<ColorChoice
+								{palette}
+								{likely}
+								value={staged}
+								{marks}
+								note={likelyNote}
+								disabled={colorBusy}
+								onpick={(id) => (staged = id)}
+							/>
+							<div class="flex flex-wrap items-center justify-end gap-2">
+								<Button variant="ghost" size="sm" onclick={closeColors}>Cancel</Button>
+								<Button
+									variant="primary"
+									size="sm"
+									loading={colorBusy}
+									disabled={staged == null}
+									onclick={confirmColor}
+								>
+									{stagedColor ? `Confirm ${stagedColor.name}` : 'Confirm the color'}
+								</Button>
+							</div>
 						</div>
-					</div>
+					{/if}
 				</Popover>
 				{#if colorBusy}<Spinner size={14} />{:else if colorSent}<Badge tone="success">Sent</Badge
 					>{/if}
 			</div>
 		</div>
 
-		<!-- The capture: any number of these can apply -->
+		<!-- The capture: any number of these can apply, each one click -->
 		<div class={crow}>
 			<div class={cname}>Report an issue</div>
-			<div class="flex min-w-0 items-center gap-2">
-				<Popover label="Report an issue" width="20rem" placement="bottom-end">
-					{#snippet trigger(props)}
-						<Button {...props} size="sm" variant={active.size > 0 ? 'primary' : 'secondary'}>
-							{active.size > 0 ? `${active.size} reported` : 'None'}
-							<ChevronDown size={14} />
+			<div role="group" aria-label="Report an issue" class="flex min-w-0 items-center gap-1">
+				{#each issues as issue (issue.code)}
+					{@const on = active.has(issue.code)}
+					{#if issue.glyph}
+						<IssueToggle
+							glyph={issue.glyph}
+							label={issue.label}
+							{on}
+							onchange={() => onissue(issue.code)}
+						/>
+					{:else}
+						<Button
+							size="sm"
+							variant={on ? 'primary' : 'secondary'}
+							aria-pressed={on}
+							disabled={issuesBusy}
+							onclick={() => onissue(issue.code)}
+						>
+							{issue.label}
 						</Button>
-					{/snippet}
-					<div class="flex flex-col gap-2">
-						<p class="text-sm text-ink-muted">Any that apply to the photos.</p>
-						<div class="flex flex-col divide-y divide-line">
-							{#each issues as issue (issue.code)}
-								<div class="flex items-center justify-between gap-3 py-1.5 first:pt-0 last:pb-0">
-									<span class="min-w-0 text-sm text-ink">{issue.label}</span>
-									<Switch
-										checked={active.has(issue.code)}
-										label={issue.label}
-										disabled={issuesBusy}
-										onchange={() => onissue(issue.code)}
-									/>
-								</div>
-							{/each}
-						</div>
-					</div>
-				</Popover>
-				{#if issuesBusy}<Spinner size={14} />{/if}
+					{/if}
+				{/each}
+				{#if issuesBusy}<Spinner size={14} class="ml-1" />{/if}
 			</div>
 		</div>
 

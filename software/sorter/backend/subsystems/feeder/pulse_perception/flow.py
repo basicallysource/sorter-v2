@@ -326,6 +326,12 @@ class PulsePerceptionFeeding(BaseState):
                 move_label = f"{label}_greedy"
             enforce_min = True
             clearance = getattr(state, "advance_clearance_deg", None)
+            if clearance is not None and channel == 3 and not self._classification_ready(cfg):
+                # C4 is busy: keep the lead piece back from the lip, where it
+                # could fall onto C4 mid-turn beside the piece already there.
+                clearance -= max(0.0, cfg.ch3_busy_standoff_deg)
+                if clearance < cfg.min_move_output_deg:
+                    return
             if clearance is not None and clearance < output_deg:
                 output_deg = clearance
                 enforce_min = False

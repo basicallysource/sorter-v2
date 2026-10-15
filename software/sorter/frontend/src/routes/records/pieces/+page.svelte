@@ -1,6 +1,8 @@
 <script lang="ts">
 	import { tick } from 'svelte';
 	import Download from '@lucide/svelte/icons/download';
+	import RefreshCw from '@lucide/svelte/icons/refresh-cw';
+	import PieceFilters from '$lib/components/records/PieceFilters.svelte';
 	import PieceRow from '$lib/components/records/PieceRow.svelte';
 	import Alert from '$lib/components/ui/Alert.svelte';
 	import Button from '$lib/components/ui/Button.svelte';
@@ -12,6 +14,7 @@
 	import { pieceStore, type PieceSummary } from '$lib/pieces';
 	import { ImageHydrator } from '$lib/records/image-hydrator.svelte';
 	import { recordsBase } from '$lib/records/base';
+	import { pieceFilterKeys, toPieceQuery } from '$lib/records/piece-filters';
 	import { RecordsList } from '$lib/records/records-list.svelte';
 	import { scrollerOf } from '$lib/records/scroll';
 
@@ -26,7 +29,8 @@
 		base,
 		path: '/api/pieces',
 		pageSize: PAGE_SIZE,
-		filters: []
+		filters: pieceFilterKeys,
+		toQuery: toPieceQuery
 	});
 	const images = new ImageHydrator(base);
 
@@ -80,7 +84,13 @@
 		}
 	};
 
-	const exportUrl = $derived(`${base()}/api/pieces/export.csv`);
+	const filtering = $derived(Object.keys(list.filters).length > 0);
+	function clearFilters() {
+		list.setFilters(Object.fromEntries(pieceFilterKeys.map((key) => [key, null])));
+	}
+
+	// The export is the list: the same filters, cut at the same anchor.
+	const exportUrl = $derived(`${base()}/api/pieces/export.csv?${list.query}`);
 </script>
 
 <svelte:head>
@@ -90,7 +100,7 @@
 {#snippet pager()}
 	<Pager
 		label="Pieces"
-		noun="pieces"
+		noun={filtering ? 'matching pieces' : 'pieces'}
 		page={list.pageIndex + 1}
 		pages={list.pageCount}
 		from={list.from}
@@ -103,9 +113,18 @@
 {/snippet}
 
 <div bind:this={root} class="flex flex-col gap-(--gap-panels)">
+	<PieceFilters {list} {base} />
+
 	<div class="flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
-		<div class="flex items-center gap-2 text-sm text-ink-muted">
+		<div class="flex items-center gap-3 text-sm text-ink-muted">
 			{#if list.loading}<Spinner size={14} /> Loading the pieces{/if}
+			{#if list.newer}
+				<span class="num">
+					{list.newer.toLocaleString()} newer {list.newer === 1 ? 'piece' : 'pieces'} arrived since this
+					list started
+				</span>
+				<Button size="sm" icon={RefreshCw} onclick={() => list.refresh()}>Show them</Button>
+			{/if}
 		</div>
 		<div class="flex flex-wrap items-center justify-end gap-x-4 gap-y-2">
 			<Button size="sm" icon={Download} href={exportUrl} download>Export CSV</Button>
@@ -123,7 +142,15 @@
 	{/if}
 
 	{#if list.items.length === 0}
-		<EmptyState title={list.loading ? 'Loading the pieces' : 'No pieces'} />
+		<EmptyState
+			title={list.loading ? 'Loading the pieces' : filtering ? 'No pieces match' : 'No pieces'}
+		>
+			{#snippet action()}
+				{#if filtering && !list.loading}
+					<Button size="sm" onclick={clearFilters}>Clear filters</Button>
+				{/if}
+			{/snippet}
+		</EmptyState>
 	{:else}
 		<Panel flush>
 			<div class="divide-y divide-line">

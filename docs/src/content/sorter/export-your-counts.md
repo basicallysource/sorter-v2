@@ -13,7 +13,7 @@ Each classified piece is saved as a record: the part, the colour, how confident 
 
 ## Every piece, one row each
 
-Open **Records**, and click **Export CSV** next to **Pieces**. You get one row per piece with:
+Open **Records**, go to the **Pieces** tab and click **Export CSV**. You get one row per piece with:
 
 - the part number and name, and the colour number and name
 - the part and colour confidence
@@ -24,7 +24,9 @@ Open **Records**, and click **Export CSV** next to **Pieces**. You get one row p
 
 To count how many of each part you have, group the rows by `part_id` and `color_id` in your spreadsheet.
 
-The button exports everything. To export only part of it, add filters to the address `/api/pieces/export.csv` in your browser: `run_id`, `status`, `part_id`, `color_id`, `date_from` and `date_to`.
+The button exports the list as it is on screen. With no search and no filters set that is every piece; to export only some, search for a part or colour, or filter by status, sorting run or lot, bin, dates or whether you have reviewed the piece, and then click the button.
+
+The same filters can be added to the address `/api/pieces/export.csv` in your browser: `q` (the search), `status`, `sorting_run_id`, `lot_id`, `bin_x`, `bin_y` and `bin_z` (all three), `reviewed`, `part_id`, `color_id`, `date_from` and `date_to`.
 
 Pieces the machine could not identify are in the file too. Filter on `classification_status` equal to `classified` before you total anything, or your inventory will count pieces that have no part number.
 

@@ -34,6 +34,9 @@ export type RecordsListOptions = {
 	pageSize: number;
 	// The address's query keys that are filters; the rest is ignored.
 	filters: readonly string[];
+	// How the filters in the address are asked of the machine, when they are
+	// not asked under the same names (a day in the address is a time to it).
+	toQuery?: (filters: Record<string, string>) => Record<string, string>;
 };
 
 const NEWER_POLL_MS = 20_000;
@@ -121,9 +124,13 @@ export class RecordsList<T> {
 	}
 	// The query that names this listing, for something that must match it (an export).
 	get query(): URLSearchParams {
-		const params = new URLSearchParams(this.filters);
+		const params = new URLSearchParams(this.#asQuery(this.filters));
 		if (this.#anchorState != null) params.set('anchor', String(this.#anchorState));
 		return params;
+	}
+
+	#asQuery(filters: Record<string, string>): Record<string, string> {
+		return this.#opts.toQuery ? this.#opts.toQuery(filters) : filters;
 	}
 
 	#searchOf(url: URL): string {
@@ -173,11 +180,12 @@ export class RecordsList<T> {
 	}
 
 	#params(url: URL, pageIndex: number): URLSearchParams {
-		const params = new URLSearchParams();
+		const filters: Record<string, string> = {};
 		for (const key of this.#opts.filters) {
 			const value = url.searchParams.get(key);
-			if (value) params.set(key, value);
+			if (value) filters[key] = value;
 		}
+		const params = new URLSearchParams(this.#asQuery(filters));
 		params.set('limit', String(this.#opts.pageSize));
 		const anchor = url.searchParams.get('anchor');
 		if (anchor) params.set('anchor', anchor);
@@ -253,7 +261,7 @@ export class RecordsList<T> {
 
 	async #countNewer(): Promise<void> {
 		if (this.#anchorState == null || this.loading) return;
-		const params = new URLSearchParams(this.filters);
+		const params = new URLSearchParams(this.#asQuery(this.filters));
 		params.set('limit', '0');
 		params.set('anchor', String(this.#anchorState));
 		try {

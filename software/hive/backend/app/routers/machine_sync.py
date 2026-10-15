@@ -42,8 +42,13 @@ from app.schemas.upload import UploadMetadata
 from app.services.image_hashing import compute_phash_bytes
 from app.services.image_stats import compute_exposure_stats_bytes
 from app.services.machine_presence import mark_machine_seen
+from app.services.storage_backend import ranged_key
 from app.services import swatch_jobs, training_runs
 from app.services.storage import (
+    JPEG_MAGIC,
+    MAX_CROP_BATCH_BYTES,
+    MAX_CROP_BATCH_ITEMS,
+    save_channel_crop_batch_file,
     save_channel_crop_file,
     save_piece_image_file,
     save_control_data_file,
@@ -514,6 +519,12 @@ class ChannelCropMeta(BaseModel):
     bytes: int | None = None
 
 
+class ChannelCropBatchItem(ChannelCropMeta):
+    # The crop's JPEG in the batch file; absent for a crop sent metadata-only.
+    offset: int | None = None
+    length: int | None = None
+
+
 class SampleMeta(BaseModel):
     """One training sample: a full camera frame plus what the machine knew
     about it when it was captured."""
@@ -981,6 +992,96 @@ def sync_channel_crop(
     mark_machine_seen(machine, now)
     db.commit()
     return {"max_local_id": new_max, "image_stored": image is not None}
+
+
+@router.post("/channel-crop-batch")
+@limiter.limit("120/minute")
+def sync_channel_crop_batch(
+    request: Request,
+    metadata: str = Form(...),
+    crops: UploadFile | None = File(default=None),
+    db: Session = Depends(get_db),
+    machine: Machine = Depends(get_current_machine),
+) -> dict[str, Any]:
+    """Many channel crops in one upload: their JPEGs back to back in one file
+    (stored once), each crop's metadata naming its range in it. A crop whose
+    range or metadata is bad is skipped or kept without its picture, never the
+    whole batch, and the watermark still moves past it."""
+    try:
+        raw = json.loads(metadata)["crops"]
+    except (json.JSONDecodeError, KeyError, TypeError) as exc:
+        raise APIError(400, f"Invalid metadata: {exc}", "INVALID_METADATA") from exc
+    if not isinstance(raw, list) or len(raw) > MAX_CROP_BATCH_ITEMS:
+        raise APIError(400, f"A batch is a list of at most {MAX_CROP_BATCH_ITEMS} crops", "INVALID_METADATA")
+    data = b""
+    if crops is not None:
+        data = crops.file.read(MAX_CROP_BATCH_BYTES + 1)
+        if len(data) > MAX_CROP_BATCH_BYTES:
+            raise APIError(413, f"A batch file is at most {MAX_CROP_BATCH_BYTES} bytes", "BATCH_TOO_LARGE")
+
+    machine_id = machine.id
+    max_key = 0
+    items: dict[int, tuple[ChannelCropBatchItem, bool]] = {}
+    for entry in raw:
+        key = _row_key(entry)
+        if key is not None:
+            max_key = max(max_key, key)
+        try:
+            item = ChannelCropBatchItem.model_validate(entry)
+        except ValidationError as exc:
+            log.warning("channel crop batch from %s: skipped crop %s: %s", machine_id, key, exc)
+            continue
+        offset, length = item.offset, item.length
+        has_image = (
+            offset is not None
+            and length is not None
+            and offset >= 0
+            and length > 0
+            and offset + length <= len(data)
+            and data[offset : offset + len(JPEG_MAGIC)] == JPEG_MAGIC
+        )
+        items[item.local_id] = (item, has_image)
+
+    file_key: str | None = None
+    if any(has_image for _, has_image in items.values()):
+        _end_read_before_storage(db)
+        file_key = save_channel_crop_batch_file(str(machine_id), min(items), max(items), data)
+
+    now = _now()
+    with_image: list[dict[str, Any]] = []
+    without_image: list[dict[str, Any]] = []
+    for item, has_image in items.values():
+        bbox = item.bbox if (item.bbox and len(item.bbox) == 4) else [None, None, None, None]
+        row = {
+            "id": uuid4(),
+            "machine_id": machine_id,
+            "local_id": item.local_id,
+            "channel": item.channel,
+            "ts": _ts(item.ts),
+            "captured_at": _ts(item.captured_at),
+            "track_id": item.track_id,
+            "com_forward_to_exit_deg": item.com_forward_to_exit_deg,
+            "com_section": item.com_section,
+            "zone_code": item.zone_code,
+            "sharpness": item.sharpness,
+            "bbox_x1": bbox[0],
+            "bbox_y1": bbox[1],
+            "bbox_x2": bbox[2],
+            "bbox_y2": bbox[3],
+            "bytes": item.bytes,
+            "image_key": ranged_key(file_key, item.offset, item.length) if has_image and file_key else None,
+            "evicted_locally": not has_image,
+            "created_at": now,
+        }
+        (with_image if has_image else without_image).append(row)
+    index = ["machine_id", "local_id"]
+    _upsert(db, MachineChannelCrop, with_image, index, _CHANNEL_CROP_UPDATE_COLS)
+    # A crop sent without its picture must not wipe one stored before.
+    _upsert(db, MachineChannelCrop, without_image, index, tuple(c for c in _CHANNEL_CROP_UPDATE_COLS if c != "image_key"))
+    new_max = _advance_watermark(db, machine_id, DATA_TYPE_CHANNEL_CROPS, max_key)
+    mark_machine_seen(machine, now)
+    db.commit()
+    return {"max_local_id": new_max, "stored": len(with_image), "without_image": len(without_image)}
 
 
 @router.post("/control-data-segment")

@@ -15,7 +15,7 @@ a natural key, so a re-send never duplicates.
 | `piece_records` | `POST /api/machine/sync/piece-records` (JSON batch) | `machine_pieces`, `machine_piece_rejection_reasons` | machine, piece_uuid | `sync_seq` |
 | `piece_predictions` | `POST /api/machine/sync/piece-predictions` (JSON batch) | `machine_piece_predictions` | machine, piece_uuid, source, request, kind, rank | `local_id` |
 | `piece_images` | `POST /api/machine/sync/piece-image` (multipart, one image) | `machine_piece_images` | machine, piece_uuid, seq | `sync_seq` |
-| `channel_crops` | `POST /api/machine/sync/channel-crop` | `machine_channel_crops` | machine, local_id | `local_id` |
+| `channel_crops` | `POST /api/machine/sync/channel-crop-batch` (multipart, many crops in one file), or `.../channel-crop` (one) | `machine_channel_crops` | machine, local_id | `local_id` |
 | `control_data_segments` | `POST /api/machine/sync/control-data-segment` | `machine_control_data_segments` | machine, local_id | `local_id` |
 | `samples` | `POST /api/machine/sync/sample` | `samples` | session, local_sample_id | `local_id` |
 | `piece_corrections` | `POST /api/machine/sync/piece-corrections` | `machine_pieces` verdict columns | machine, piece_uuid | `local_id` |
@@ -60,6 +60,20 @@ file endpoints (crops, piece images, control data, samples, and the older
 A crop with its file is three statements (token, crop, watermark), none
 compiled again, around the storage write; `tests/test_machine_ingest.py`
 holds the line.
+
+**Channel crops come in batches.** A C2/C3 crop is a few KB and a sorter takes
+thousands an hour, so a sorter sends up to a few hundred in one request
+(`channel-crop-batch`): their JPEGs back to back in one file, and each crop's
+metadata naming its `offset` and `length` in it. Hive stores the file once
+(`<machine>/channel_crops/batches/<first>-<last>.bin`) and upserts every crop's
+row in one statement; a crop's `image_key` is the file's key plus
+`#<offset>+<length>` (`storage_backend.ranged_key`). Reading or serving such a
+key reads that range (S3 `Range`, or a seek on local storage), it is never a
+signed link, and deleting it leaves the file. A crop whose range is not a JPEG,
+or whose metadata does not validate, loses only its own picture or row; the
+watermark still moves past it. The batch counts as one file against the
+machine's upload budget. Sorters that predate batches, or a Hive without the
+endpoint (404), use the one-crop endpoint.
 
 **What a sorter sends when.** A piece's record goes when the piece is
 distributed (or reaped, or corrected before it distributes), and again each

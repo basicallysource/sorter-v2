@@ -366,6 +366,23 @@ def test_a_pause_keeps_the_pieces_and_places_the_head_again() -> None:
     assert ch._phase == _Phase.WAITING and ch._eject_target is None
 
 
+def test_the_first_step_of_a_run_restarts_the_watchdog_clock() -> None:
+    """Built, then homed and only resumed half a minute later: the stall
+    watchdog must not count that wait and sweep the channel."""
+    ch, _ = _channel()
+    now = time.monotonic()
+    ch.last_progress_at = now - 45.0
+    ch.gc.perception_service = SimpleNamespace(
+        read_state=lambda ch_id: SimpleNamespace(n_pieces=0, in_drop=False, pieces=())
+    )
+    ch.irl = SimpleNamespace(carousel_stepper=SimpleNamespace(stopped=True))
+    ch.setClassificationReady = lambda ready, reason: None
+    ch._recordCycle = lambda *a: None
+    ch._captureDropPieces = lambda perception_service, now: None
+    ch.step()
+    assert ch.last_progress_at >= now
+
+
 def test_resuming_refreshes_the_pieces_and_the_watchdog() -> None:
     ch, _ = _channel()
     now = time.monotonic()

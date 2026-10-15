@@ -571,6 +571,7 @@ def submitPieceCorrection(uuid: str, body: CorrectionRequest) -> CorrectionRespo
         submitColorFeedback,
         submitPartFeedback,
     )
+    from classification.providers import COLOR_PROVIDER_BRICKOGNIZE
 
     gc = shared_state.gc_ref
     ctx = piece_records.getCorrectionContext(uuid)
@@ -630,9 +631,14 @@ def submitPieceCorrection(uuid: str, body: CorrectionRequest) -> CorrectionRespo
                     gc.logger.warning(f"Brickognize part feedback failed for {uuid}: {e}")
         # Color feedback: a corrected color equal to the prediction confirms it; a
         # different one rejects the prediction (Brickognize only accepts/rejects
-        # its own ranked color, so it can't be told the actual true color).
+        # its own ranked color, so it can't be told the actual true color). A
+        # color another provider gave (the hosted colour model) is not
+        # Brickognize's answer, so nothing about it is sent there; the verdict
+        # still reaches Hive with the piece as a colour label.
+        color_from_brickognize = (ctx.get("color_provider") or COLOR_PROVIDER_BRICKOGNIZE) == COLOR_PROVIDER_BRICKOGNIZE
         if (
             listing_id
+            and color_from_brickognize
             and ctx.get("color_corrected_id") is not None
             and not ctx.get("color_feedback_submitted")
             and ctx.get("brickognize_color_rank") is not None

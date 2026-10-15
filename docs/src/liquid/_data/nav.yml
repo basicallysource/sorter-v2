@@ -238,8 +238,6 @@ sections:
         url: /lab/printed-parts/
       - title: How the cameras are lit
         url: /lab/lighting/
-      - title: How to contribute
-        url: /lab/contribute/
     groups:
       - title: Electronics
         pages:

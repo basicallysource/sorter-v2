@@ -24,3 +24,5 @@
 /hardware/helpers/wifi-module/                                      /hardware/electronics/installation/orange-pi-prep/  301
 # Software setup moved out of Assembly to sit beside Assembly and Electronics (2026-09-19).
 /hardware/assembly/software-setup/                                  /hardware/software-setup/                           301
+# How to contribute moved out of Design and research to the top level (2026-10-15).
+/lab/contribute/                                                    /contribute/                                        301

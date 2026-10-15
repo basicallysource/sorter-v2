@@ -88,7 +88,6 @@ PIECE_CIRCLING_INCIDENT_KIND = "piece_circling"
 _LINGER_AFTER_EJECT_S = 1.0
 _PUSH_OFF_DEG = 15.0
 _PUSH_OFF_TRIES = 3
-_PUSH_OFF_EXIT_GAP_DEG = 20.0
 
 # Safety ceilings so a move that never resolves can't wedge the machine forever.
 _EJECT_TIMEOUT_S = 15.0
@@ -882,13 +881,14 @@ class TwoPieceClassificationChannel(Rev01BaseState):
                 continue
             if tp.last_seen != now or now - tp.ejected_at < _LINGER_AFTER_EJECT_S:
                 continue
-            if tp.zone != _ZONE_EXIT or tp.gap_to_exit is None or abs(tp.gap_to_exit) > _PUSH_OFF_EXIT_GAP_DEG:
+            if tp.zone != _ZONE_EXIT:
                 continue
             tp.push_offs += 1
             tp.ejected_at = now
             self.logger.warning(
                 f"{LOG_TAG} track={tp.track_id} was ejected but is still at the exit "
-                f"(gap {tp.gap_to_exit:.0f} deg): pushing it off, try {tp.push_offs} of {_PUSH_OFF_TRIES}"
+                f"(gap {tp.gap_to_exit if tp.gap_to_exit is None else round(tp.gap_to_exit)} deg): "
+                f"pushing it off, try {tp.push_offs} of {_PUSH_OFF_TRIES}"
             )
             self.startOutputMove(
                 C4_TRAVEL_SIGN * _PUSH_OFF_DEG, self.ctx.config.discharge_speed_usteps_per_s

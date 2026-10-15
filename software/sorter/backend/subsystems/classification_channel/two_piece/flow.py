@@ -33,6 +33,7 @@ LOG_TAG = "[C4-2PIECE]"
 # between them) is "forward" and part of the processing queue.
 _ZONE_NONE = 0
 _ZONE_DROP = 1
+_ZONE_EXIT = 2
 # (2 = exit / the fall-off, 3 = precise / the holding region; we only branch on
 # DROP vs not-DROP — "left the drop zone" is what matters for the queue.)
 
@@ -77,6 +78,17 @@ _HEAD_ALONE_AFTER_S = 12.0
 _CIRCLING_WINDOW_S = 30.0
 _ROLLING_WORDS = ("tire", "tyre", "wheel")
 PIECE_CIRCLING_INCIDENT_KIND = "piece_circling"
+
+# A piece committed as ejected but still seen at the exit did not fall: its id
+# blinked out just long enough to read as gone. Being the most forward piece it
+# stays the head, so nothing else is aimed or ejected until the stall watchdog
+# sweeps the whole channel into the bucket. While no other piece holds the
+# chute (it is still aimed where this piece was going), turn the channel a
+# little to push it off, a few times at most; the watchdog stays the fallback.
+_LINGER_AFTER_EJECT_S = 1.0
+_PUSH_OFF_DEG = 15.0
+_PUSH_OFF_TRIES = 3
+_PUSH_OFF_EXIT_GAP_DEG = 20.0
 
 # Safety ceilings so a move that never resolves can't wedge the machine forever.
 _EJECT_TIMEOUT_S = 15.0
@@ -125,6 +137,10 @@ class _TrackedPiece:
         # Committed to distribution as flung (advanceTransport). The track can
         # outlive the commit by a few frames; it no longer holds the slot.
         self.ejected = False
+        # When it was committed, and how often it has been pushed since because
+        # it was still seen at the exit (see _LINGER_AFTER_EJECT_S).
+        self.ejected_at: Optional[float] = None
+        self.push_offs = 0
         # Two+ pieces landed in the drop zone at once -> can't classify reliably,
         # route to the misc bin. multi_drop_group ties the clump's distinct track
         # ids together as one logical multi-drop (None when not a multi-drop).
@@ -367,6 +383,8 @@ class TwoPieceClassificationChannel(Rev01BaseState):
         if self._phase == _Phase.WAITING:
             if stopped:
                 self._captureDropPieces(perception_service, now)
+                if self._pushOffLingeringEject(now):
+                    return
                 self._aimChuteForHead(now)
                 self._maybeStartRotation()
         elif self._phase == _Phase.EJECTING:
@@ -852,6 +870,32 @@ class TwoPieceClassificationChannel(Rev01BaseState):
             C4_TRAVEL_SIGN * move, self.ctx.config.precise_converge_speed_usteps_per_s
         )
 
+    def _pushOffLingeringEject(self, now: float) -> bool:
+        """Push off a piece that was committed as ejected but still sits at the
+        exit (see _LINGER_AFTER_EJECT_S). True when a push was started."""
+        if self._pendingPlacedPiece() is not None:
+            # The chute is aimed for another piece now: a push would drop the
+            # lingering one into that piece's bin.
+            return False
+        for tp in self._pieces.values():
+            if not tp.ejected or tp.ejected_at is None or tp.push_offs >= _PUSH_OFF_TRIES:
+                continue
+            if tp.last_seen != now or now - tp.ejected_at < _LINGER_AFTER_EJECT_S:
+                continue
+            if tp.zone != _ZONE_EXIT or tp.gap_to_exit is None or abs(tp.gap_to_exit) > _PUSH_OFF_EXIT_GAP_DEG:
+                continue
+            tp.push_offs += 1
+            tp.ejected_at = now
+            self.logger.warning(
+                f"{LOG_TAG} track={tp.track_id} was ejected but is still at the exit "
+                f"(gap {tp.gap_to_exit:.0f} deg): pushing it off, try {tp.push_offs} of {_PUSH_OFF_TRIES}"
+            )
+            self.startOutputMove(
+                C4_TRAVEL_SIGN * _PUSH_OFF_DEG, self.ctx.config.discharge_speed_usteps_per_s
+            )
+            return True
+        return False
+
     def _rememberEject(self, tp: _TrackedPiece, *, timed_out: bool) -> None:
         obj = tp.known_object
         if obj is None or obj.part_id is None:
@@ -940,6 +984,7 @@ class TwoPieceClassificationChannel(Rev01BaseState):
         # distribution's drop slot and count it as a C4 exit.
         self.transport.advanceTransport()
         tp.ejected = True
+        tp.ejected_at = time.monotonic()
         self.gc.runtime_stats.observeC4Exit()
 
     def _enterPhase(self, phase: _Phase) -> None:

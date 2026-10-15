@@ -236,6 +236,8 @@ sections:
         url: /lab/sorter/
       - title: Design intentions for the printed parts
         url: /lab/printed-parts/
+      - title: How the cameras are lit
+        url: /lab/lighting/
     groups:
       - title: Electronics
         pages:

@@ -629,27 +629,26 @@ def submitPieceCorrection(uuid: str, body: CorrectionRequest) -> CorrectionRespo
                 submit_error = f"part: {e}"
                 if gc is not None:
                     gc.logger.warning(f"Brickognize part feedback failed for {uuid}: {e}")
-        # Color feedback: a corrected color equal to the prediction confirms it; a
-        # different one rejects the prediction (Brickognize only accepts/rejects
-        # its own ranked color, so it can't be told the actual true color). A
-        # color another provider gave (the hosted colour model) is not
-        # Brickognize's answer, so nothing about it is sent there; the verdict
-        # still reaches Hive with the piece as a colour label.
-        color_from_brickognize = (ctx.get("color_provider") or COLOR_PROVIDER_BRICKOGNIZE) == COLOR_PROVIDER_BRICKOGNIZE
+        # Color feedback is about Brickognize's own colour answer for the request
+        # the piece took its part from: the colour the operator settled on
+        # (confirmed or picked) says whether that answer was right. Brickognize
+        # only accepts or rejects its own ranked colour, so it can't be told the
+        # actual true colour. When the hosted colour model gave the piece its
+        # colour, Brickognize's answer is read from the stored predictions.
+        brickognize_color = _brickognizeColor(uuid, ctx, COLOR_PROVIDER_BRICKOGNIZE)
         if (
             listing_id
-            and color_from_brickognize
+            and brickognize_color is not None
             and ctx.get("color_corrected_id") is not None
             and not ctx.get("color_feedback_submitted")
-            and ctx.get("brickognize_color_rank") is not None
-            and _isColorId(ctx.get("color_id"))
         ):
             try:
-                is_correct = str(ctx["color_corrected_id"]) == str(ctx["color_id"])
+                brickognize_color_id, brickognize_color_rank = brickognize_color
+                is_correct = str(ctx["color_corrected_id"]) == brickognize_color_id
                 submitColorFeedback(
                     listing_id=str(listing_id),
-                    color_id=str(ctx["color_id"]),
-                    color_rank=int(ctx["brickognize_color_rank"]),
+                    color_id=brickognize_color_id,
+                    color_rank=brickognize_color_rank,
                     is_correct=is_correct,
                 )
                 piece_records.markFeedbackSubmitted(uuid, color=True)
@@ -669,6 +668,17 @@ def submitPieceCorrection(uuid: str, body: CorrectionRequest) -> CorrectionRespo
         color_submitted=color_submitted,
         submit_error=submit_error,
     )
+
+
+def _brickognizeColor(uuid: str, ctx: Dict[str, Any], brickognize: str) -> Optional[tuple[str, int]]:
+    """Brickognize's colour answer (id, rank) for the piece's listing."""
+    if (ctx.get("color_provider") or brickognize) == brickognize:
+        if ctx.get("brickognize_color_rank") is None or not _isColorId(ctx.get("color_id")):
+            return None
+        return str(ctx["color_id"]), int(ctx["brickognize_color_rank"])
+    import piece_predictions
+
+    return piece_predictions.brickognizeColor(uuid)
 
 
 def _summaryFromMemory(gc: Any, payload: Dict[str, Any]) -> PieceSummary:

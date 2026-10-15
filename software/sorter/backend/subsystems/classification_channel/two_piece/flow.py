@@ -140,6 +140,21 @@ class _Phase(Enum):
     STAGING = "staging"
 
 
+def _logC4Piece(track_id: int, piece_uuid: str, took_over: Optional[int] = None) -> None:
+    """Tie a C4 track to its piece in the control-data log, which names C4
+    pieces only by track id, so the piece's earlier tracks on C2 and C3 can be
+    found from it. A track that takes over a lost one names the lost id."""
+    try:
+        import control_data_store
+
+        event = {"type": "event", "kind": "c4_piece", "track": track_id, "piece": piece_uuid}
+        if took_over is not None:
+            event["took_over"] = took_over
+        control_data_store.record({**event, "t": time.time(), "mono": time.monotonic()})
+    except Exception:
+        pass
+
+
 class _TrackedPiece:
     """One physical piece on the channel, keyed by its perception track id. Owns
     a private capture/classify worker (its own KnownObject + burst context) so two
@@ -563,23 +578,7 @@ class TwoPieceClassificationChannel(Rev01BaseState):
         tp.worker.ctx.known_object = obj
         tp.worker.emitKnownObject()
         self.logger.info(f"{LOG_TAG} new piece track={tp.track_id} piece={obj.uuid}")
-        # The motion log names C4 pieces only by track id; this ties the piece
-        # to its track, so its earlier tracks on C2 and C3 can be found later.
-        try:
-            import control_data_store
-
-            control_data_store.record(
-                {
-                    "type": "event",
-                    "kind": "c4_piece",
-                    "track": tp.track_id,
-                    "piece": obj.uuid,
-                    "t": time.time(),
-                    "mono": time.monotonic(),
-                }
-            )
-        except Exception:
-            pass
+        _logC4Piece(tp.track_id, obj.uuid)
 
     def _retireGonePieces(self, now: float) -> None:
         for tid in [
@@ -687,6 +686,8 @@ class TwoPieceClassificationChannel(Rev01BaseState):
         if obj is not None and obj.aborted:
             obj.aborted = False
             lost.worker.emitKnownObject()
+        if obj is not None:
+            _logC4Piece(lost.track_id, obj.uuid, took_over=old_tid)
         self.logger.info(
             f"{LOG_TAG} track={old_tid} lost; track={lost.track_id} at its place takes it over"
         )

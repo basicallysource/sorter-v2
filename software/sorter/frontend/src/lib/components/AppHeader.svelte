@@ -19,6 +19,7 @@
 	import { getMachinesContext } from '$lib/machines/context';
 	import { machineDowntime } from '$lib/stores/machineDowntime.svelte';
 	import { userConfig } from '$lib/stores/userConfig.svelte';
+	import { recordsViews } from '$lib/records/tabs';
 	import Ellipsis from '@lucide/svelte/icons/ellipsis';
 	import House from '@lucide/svelte/icons/house';
 	import Pause from '@lucide/svelte/icons/pause';
@@ -345,7 +346,11 @@
 		{ href: '/bins', label: 'Bins' },
 		{ href: '/3d', label: '3D' },
 		{ href: '/profiles', label: 'Profiles' },
-		{ href: '/records', label: 'Records' },
+		{
+			href: '/records',
+			label: 'Records',
+			children: recordsViews.map((v) => ({ href: v.href, label: v.label }))
+		},
 		{ href: '/settings', label: 'Settings' }
 	]}
 >

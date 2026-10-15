@@ -22,6 +22,10 @@
 	let issues = $state<string[]>([]);
 	let likely = $state<typeof ranked | null>(null);
 
+	let compactVerdict = $state<boolean | null>(null);
+	let compactCorrected = $state<number | null>(null);
+	let compactIssues = $state<string[]>([]);
+
 	let labeled = $state<number | null>(4);
 	let alone = $state<number | null>(null);
 
@@ -76,6 +80,41 @@
 					return true;
 				}}
 				onissue={toggleIssue}
+				onpicking={picking}
+			/>
+		</div>
+	</Specimen>
+</SiteSection>
+
+<SiteSection
+	title="In a list"
+	lead="The same three questions for a list of pieces, where a block under every piece would stand taller than the piece. Three short rows, the question and then its answer, about 100px tall and 24rem wide, at the row's right side. The likely colors open in a popover and the capture issues are one button, so nothing here changes its height when it is used."
+>
+	<Specimen
+		code={`<PieceReview layout="compact" {palette} {likely} predicted={orange} predictedMark="Predicted 82%"
+	{partVerdict} {correctedId} issues={ISSUES} activeIssues={flags}
+	onpart={savePart} oncolor={saveColor} onissue={toggleIssue} onpicking={loadLikely} />`}
+	>
+		<div class="w-[24rem] max-w-full">
+			<PieceReview
+				layout="compact"
+				{palette}
+				{likely}
+				predicted={orange}
+				predictedMark="Predicted 82%"
+				partVerdict={compactVerdict}
+				correctedId={compactCorrected}
+				issues={ISSUES}
+				activeIssues={compactIssues}
+				onpart={(v) => (compactVerdict = v)}
+				oncolor={(id) => {
+					compactCorrected = id;
+					return true;
+				}}
+				onissue={(code) =>
+					(compactIssues = compactIssues.includes(code)
+						? compactIssues.filter((c) => c !== code)
+						: [...compactIssues, code])}
 				onpicking={picking}
 			/>
 		</div>

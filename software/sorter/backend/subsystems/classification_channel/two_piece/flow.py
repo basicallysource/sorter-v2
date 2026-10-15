@@ -473,13 +473,31 @@ class TwoPieceClassificationChannel(Rev01BaseState):
     def _ensureKnownObject(self, tp: _TrackedPiece) -> None:
         if tp.worker.ctx.known_object is not None:
             return
-        tp.worker.ctx.known_object = KnownObject(
+        obj = KnownObject(
             stage=PieceStage.created,
             classification_status=ClassificationStatus.pending,
             first_carousel_seen_ts=time.time(),
         )
+        tp.worker.ctx.known_object = obj
         tp.worker.emitKnownObject()
-        self.logger.info(f"{LOG_TAG} new piece track={tp.track_id}")
+        self.logger.info(f"{LOG_TAG} new piece track={tp.track_id} piece={obj.uuid}")
+        # The motion log names C4 pieces only by track id; this ties the piece
+        # to its track, so its earlier tracks on C2 and C3 can be found later.
+        try:
+            import control_data_store
+
+            control_data_store.record(
+                {
+                    "type": "event",
+                    "kind": "c4_piece",
+                    "track": tp.track_id,
+                    "piece": obj.uuid,
+                    "t": time.time(),
+                    "mono": time.monotonic(),
+                }
+            )
+        except Exception:
+            pass
 
     def _retireGonePieces(self, now: float) -> None:
         for tid in [

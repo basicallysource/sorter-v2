@@ -51,6 +51,22 @@ def test_an_ejected_piece_still_at_the_exit_is_pushed_off() -> None:
     assert moves == [C4_TRAVEL_SIGN * two_piece._PUSH_OFF_DEG]
 
 
+def test_a_piece_ridden_past_the_exit_centre_but_still_in_the_exit_zone_is_pushed() -> None:
+    ch, moves = _channel()
+    now = time.monotonic()
+    _piece(ch, 137, now, zone=two_piece._ZONE_EXIT, gap=-36.0, ejected_ago=2.0)
+    assert ch._pushOffLingeringEject(now)
+    assert len(moves) == 1
+
+
+def test_an_ejected_piece_outside_the_exit_zone_is_not_pushed() -> None:
+    ch, moves = _channel()
+    now = time.monotonic()
+    _piece(ch, 137, now, zone=0, gap=90.0, ejected_ago=2.0)
+    assert not ch._pushOffLingeringEject(now)
+    assert moves == []
+
+
 def test_a_piece_still_falling_is_left_alone() -> None:
     ch, moves = _channel()
     now = time.monotonic()

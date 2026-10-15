@@ -25,6 +25,12 @@ and a dated entry goes here; the history is git.
   tooltip names it. Lucide has no picture of a LEGO piece, so the six glyphs
   are drawn here (`IssueIcon`), the one exception to "never draw an icon"
   besides the chute flap and the brand marks.
+- **A photo enlarges under the pointer.** A piece's photos are 80px thumbnails,
+  and seeing one meant clicking it open in a dialog and closing it again, for
+  every photo of every piece. Now `ImageZoom` shows the photo large beside it
+  as the pointer goes over it and puts it away as the pointer leaves, with no
+  click. It is the second thing that opens on hover (the first is a tooltip),
+  and it only says more about what is already shown.
 - **A long list has a `Pager`, and does not move under the reader.** Page
   number to type, first and last, and how many there are. The app fixes the
   list at the newest item when a search starts and says how many arrived

@@ -31,7 +31,7 @@ from subsystems.classification_channel.five_sector_platter import C4FiveSectorPl
 from subsystems.shared_variables import SharedVariables
 from utils.event import knownObjectToEvent
 
-from .constants import HOSTED_COLOR_JOIN_BUDGET_S, LOG_TAG
+from .constants import HOSTED_COLOR_JOIN_BUDGET_S, HOSTED_COLOR_MAX_SIDE_PX, LOG_TAG
 from .context import SimpleStateMachineRev01Context
 
 # Ceiling on link-match crops kept per piece. The model's picks are normally a
@@ -65,12 +65,28 @@ class _ClassifyRequest:
 
 
 def _hostedColorImages(captures: list[np.ndarray], burst_entries: list[RecognitionImage]) -> list[_SendImage]:
-    """The images the hosted colour provider judges a piece from: every frame of
-    its C4 burst, in burst order, at most MAX_HOSTED_COLOR_IMAGES. Not only the
-    frames picked for recognising the part (often one, sometimes an empty
-    frame, which alone would decide the colour), and none of the upstream link
-    views: the colour models read C4 crops, as Hive does for stored pieces."""
-    return [_SendImage(bgr, rec) for bgr, rec in zip(captures, burst_entries)][:MAX_HOSTED_COLOR_IMAGES]
+    """The images the hosted colour provider judges a piece from: the frames of
+    its C4 burst, in burst order, the last MAX_HOSTED_COLOR_IMAGES (the piece is
+    still sliding in and blurred in the first ones). Not only the frames picked
+    for recognising the part (often one, sometimes an empty frame, which alone
+    would decide the colour), and none of the upstream link views: the colour
+    models read C4 crops, as Hive does for stored pieces. Each is cut down to
+    HOSTED_COLOR_MAX_SIDE_PX (see _forHostedColor)."""
+    pairs = list(zip(captures, burst_entries))[-MAX_HOSTED_COLOR_IMAGES:]
+    return [_SendImage(_forHostedColor(bgr), rec) for bgr, rec in pairs]
+
+
+def _forHostedColor(bgr: np.ndarray) -> np.ndarray:
+    """A crop at most HOSTED_COLOR_MAX_SIDE_PX on its long side. The colour
+    models read small images (colorpred-v6 takes 64 x 64), so a full-size crop
+    only made the upload, over a machine's uplink, most of a prediction's time."""
+    h, w = bgr.shape[:2]
+    side = max(h, w)
+    if side <= HOSTED_COLOR_MAX_SIDE_PX:
+        return bgr
+    scale = HOSTED_COLOR_MAX_SIDE_PX / side
+    size = (max(1, round(w * scale)), max(1, round(h * scale)))
+    return cv2.resize(bgr, size, interpolation=cv2.INTER_AREA)
 
 
 def _imageRefs(obj, images: list[_SendImage]) -> list[dict]:

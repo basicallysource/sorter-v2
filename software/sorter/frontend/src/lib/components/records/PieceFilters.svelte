@@ -140,7 +140,7 @@
 			<Select
 				size="sm"
 				label="Status"
-				class="w-36"
+				class="min-w-[9rem] flex-1 sm:w-36 sm:flex-none"
 				value={filters.status ?? ''}
 				options={statusOptions}
 				onchange={(status) => list.setFilters({ status: status || null })}
@@ -148,7 +148,7 @@
 			<Select
 				size="sm"
 				label="Run or lot"
-				class="w-48"
+				class="min-w-[9rem] flex-1 sm:w-48 sm:flex-none"
 				value={runValue}
 				options={runOptions}
 				onchange={chooseRun}
@@ -156,31 +156,35 @@
 			<Select
 				size="sm"
 				label="Bin"
-				class="w-44"
+				class="min-w-[9rem] flex-1 sm:w-44 sm:flex-none"
 				value={filters.bin ?? ''}
 				options={binOptions}
 				onchange={(bin) => list.setFilters({ bin: bin || null })}
 			/>
 		</div>
 		<div class="flex flex-wrap items-center gap-2">
-			<label class="flex items-center gap-2 text-sm text-ink-muted">
+			<label
+				class="flex min-w-[9rem] flex-1 items-center gap-2 text-sm text-ink-muted sm:flex-none"
+			>
 				From
 				<Input
 					type="date"
 					size="sm"
-					class="w-40"
+					class="min-w-0 flex-1 sm:w-40 sm:flex-none"
 					value={filters.from ?? ''}
 					max={filters.to}
 					onchange={(event: Event) =>
 						list.setFilters({ from: (event.currentTarget as HTMLInputElement).value || null })}
 				/>
 			</label>
-			<label class="flex items-center gap-2 text-sm text-ink-muted">
+			<label
+				class="flex min-w-[9rem] flex-1 items-center gap-2 text-sm text-ink-muted sm:flex-none"
+			>
 				To
 				<Input
 					type="date"
 					size="sm"
-					class="w-40"
+					class="min-w-0 flex-1 sm:w-40 sm:flex-none"
 					value={filters.to ?? ''}
 					min={filters.from}
 					onchange={(event: Event) =>
@@ -190,7 +194,7 @@
 			<Select
 				size="sm"
 				label="Review"
-				class="w-36"
+				class="min-w-[9rem] flex-1 sm:w-36 sm:flex-none"
 				value={filters.reviewed ?? ''}
 				options={reviewedOptions}
 				onchange={(reviewed) => list.setFilters({ reviewed: reviewed || null })}
@@ -198,7 +202,7 @@
 			<Select
 				size="sm"
 				label="Order"
-				class="w-36"
+				class="min-w-[9rem] flex-1 sm:w-36 sm:flex-none"
 				value={filters.sort ?? ''}
 				options={sortOptions}
 				onchange={(sort) => list.setFilters({ sort: sort || null })}

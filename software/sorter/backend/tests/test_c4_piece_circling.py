@@ -32,6 +32,7 @@ def _channel() -> TwoPieceClassificationChannel:
     ch.gc = SimpleNamespace()
     ch._recent_ejects = deque(maxlen=16)
     ch._lost, ch._last_step_at, ch._turned_at = [], None, 0.0
+    ch._rotation_started_at = 0.0
     return ch
 
 

@@ -65,6 +65,7 @@ def _channel() -> tuple[TwoPieceClassificationChannel, list[float]]:
     )
     ch._pieces = {}
     ch._lost, ch._last_step_at, ch._turned_at = [], None, 0.0
+    ch._rotation_started_at = 0.0
     ch._phase = _Phase.WAITING
     ch._eject_target = None
     ch._stage_target = None
@@ -249,6 +250,32 @@ def test_a_tracker_double_of_the_staged_piece_is_not_a_second_piece() -> None:
     double = _piece(ch, 334, now, gap=203.0, zone=two_piece._ZONE_DROP, age=0.3)
     ch._flagLateArrivals(now)
     assert not first.double_feed and not double.double_feed
+
+
+def test_a_piece_already_there_when_the_turn_began_is_not_late() -> None:
+    """A piece that landed while the machine was paused is new to the channel
+    after the resume, but it was there before the turn began: not a feed that
+    came in late behind the staged piece."""
+    ch, _ = _channel()
+    now = time.monotonic()
+    first = _piece(ch, 86, now, gap=150.0, zone=two_piece._ZONE_DROP, obj=_classified(), age=30.0)
+    first.first_gap = 220.0
+    ch._stage_target = first
+    ch._phase = _Phase.EJECTING
+    ch._rotation_started_at = now - 0.2
+    landed = _piece(ch, 115, now, gap=210.0, zone=two_piece._ZONE_DROP, age=0.5)
+    ch._flagLateArrivals(now)
+    assert not first.double_feed and not landed.double_feed
+
+
+def test_resuming_gives_an_unphotographed_id_a_fresh_stray_grace() -> None:
+    """An id that showed up during the stop may be a kept piece's new id: it
+    must not be sent to misc as a stray before the hand-over can claim it."""
+    ch, _ = _channel()
+    now = time.monotonic()
+    newcomer = _piece(ch, 88, now - 600.0, gap=70.0)
+    ch._resumeAfterPause(now)
+    assert newcomer.created_at == now
 
 
 def test_nothing_is_late_while_the_channel_waits_for_a_piece() -> None:

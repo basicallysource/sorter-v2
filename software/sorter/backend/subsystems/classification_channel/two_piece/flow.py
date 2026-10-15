@@ -313,6 +313,9 @@ class TwoPieceClassificationChannel(Rev01BaseState):
         # the platter was seen turning.
         self._last_step_at: Optional[float] = None
         self._turned_at = 0.0
+        # When the current turn (eject and/or stage) began: a late arrival is
+        # an id that appeared after it (see _flagLateArrivals).
+        self._rotation_started_at = 0.0
         self.ctx.reset()
         self.ctx.known_object = None
 
@@ -744,6 +747,8 @@ class TwoPieceClassificationChannel(Rev01BaseState):
                 continue
             if tp.zone != _ZONE_DROP or tp.last_seen != now or tp.gap_to_exit is None:
                 continue
+            if tp.created_at < self._rotation_started_at:
+                continue  # there before this turn began (one that landed while paused)
             if now - tp.created_at < _LATE_ARRIVAL_CONFIRM_S:
                 continue
             if abs(float(tp.gap_to_exit) - float(first.gap_to_exit)) <= _SAME_PIECE_DEG:
@@ -1023,12 +1028,14 @@ class TwoPieceClassificationChannel(Rev01BaseState):
             self._stage_target = drop
             self._eject_target = None
             self._enterPhase(_Phase.STAGING)
+            self._rotation_started_at = time.monotonic()
             self._cycles.rotated(time.time(), ejecting=False)
             self.logger.info(f"{LOG_TAG} ROTATE: stage track={drop.track_id} (no head)")
         elif self._headReady(head):
             self._stage_target = drop
             self._eject_target = head
             self._enterPhase(_Phase.EJECTING)
+            self._rotation_started_at = time.monotonic()
             self._cycles.rotated(time.time(), ejecting=True)
             self.logger.info(
                 f"{LOG_TAG} ROTATE: eject track={head.track_id} + stage track={drop.track_id}"
@@ -1413,6 +1420,11 @@ class TwoPieceClassificationChannel(Rev01BaseState):
             tp.last_seen = now
             if tp.ejected_at is not None:
                 tp.ejected_at = now
+            if tp.known_object is None:
+                # An id nobody photographed may be a piece's new id from
+                # during the stop: give the hand-over its window before the
+                # stray rule (_STRAY_MISC_S) sends it to misc.
+                tp.created_at = now
             if tp.known_object is not None:
                 tp.worker.emitKnownObject()
         self._lost = [(tp, now) for tp, _at in self._lost]

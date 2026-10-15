@@ -52,8 +52,10 @@ it takes the components.
   layer's flap open and closed, on the storage layers page. Like a chart it is
   drawn in the component from the tokens. Its small form is the icon on the
   Lock open and Lock closed buttons (`FlapOpenIcon.svelte`,
-  `FlapClosedIcon.svelte`, drawn like a Lucide icon): the only icons that are
-  not Lucide's, because Lucide has no picture of this machine's flap.
+  `FlapClosedIcon.svelte`, drawn like a Lucide icon): with the six issue glyphs
+  of a piece's review (`IssueIcon.svelte`, from the design system), the only
+  icons that are not Lucide's, because Lucide has no picture of this machine's
+  flap or of a LEGO piece.
 - Fonts: IBM Plex Sans (variable) and IBM Plex Mono, self-hosted with
   `@fontsource`, because a machine may have no internet.
 - Favicon: blue, from `static/`, linked in `src/app.html`.

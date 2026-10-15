@@ -18,7 +18,9 @@
 	const ctx = getMachineContext();
 	const base = recordsBase();
 
-	const PAGE_SIZE = 50;
+	// A page is a long scroll: rows are cheap to draw, and pictures load only for
+	// the rows near the screen.
+	const PAGE_SIZE = 250;
 
 	const list = new RecordsList<PieceSummary>({
 		base,
@@ -46,9 +48,9 @@
 		if (mid) pieceStore.upsertFromRest(mid, [summary]);
 	}
 
-	// The pictures of the pieces on this page, top to bottom.
+	// The pictures of the pieces on this page, for the rows near the screen.
 	$effect(() => {
-		images.show(list.items.map((p) => ({ uuid: p.uuid, seen_at: p.seen_at ?? null })));
+		images.keepOnly(list.items.map((p) => p.uuid));
 	});
 
 	// --- Scroll -----------------------------------------------------------------
@@ -133,6 +135,8 @@
 						reclassifyOpen={expandedReclassify.has(piece.uuid)}
 						onToggleReclassify={() => toggleReclassify(piece.uuid)}
 						{onPieceCorrected}
+						onnear={() => images.want({ uuid: piece.uuid, seen_at: piece.seen_at ?? null })}
+						onleave={() => images.unwant(piece.uuid)}
 					/>
 				{/each}
 			</div>

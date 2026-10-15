@@ -323,10 +323,20 @@ page shows both components on sample data.
   and No; "Color correct?" shows the predicted color, Yes, and a button that
   opens the likely colors in a popover (a pick is staged, Confirm saves it,
   Cancel or a click outside closes it), which names the color once a different
-  one is saved; "Report an issue" is one button, "None" or "2 reported", that
-  opens the list of issues as switches. Nothing in the row changes its height
-  when it is used, so a list never jumps under the pointer. A warning shows
-  as an `Alert` under the rows.
+  one is saved; "Report an issue" is a row of six icon switches
+  (`IssueToggle`): one click flags an issue and another takes the flag off, the
+  icon is in the warning tint while it is flagged, and pointing at it names it
+  in a tooltip, so a piece is reviewed without opening anything. Nothing in the
+  row changes its height when it is used, so a list never jumps under the
+  pointer. A warning shows as an `Alert` under the rows.
+- **`IssueToggle`** and **`IssueIcon`**: one thing that can be wrong with the
+  photos of a piece (not a LEGO piece, several pieces in frame, none, pieces
+  joined, pieces tangled, blurred) as an icon that is its own switch, 30px
+  square with a 20px glyph from [the issue glyphs](icons.md#the-issue-glyphs).
+  Unflagged it is muted and fills under the pointer like any control; flagged
+  it takes the warning tint and its ink, the one color that means "this needs
+  a look". Its name is its tooltip and its accessible name, and the switch is
+  pressed (`aria-pressed`) while flagged. `busy` holds it while the app saves.
 - **`ColorChoice`**: the likely colors as a compact grid of swatches with
   their names, best first (twelve by default, at least two to a row however
   narrow), then a search of every color by name or number. The search lists

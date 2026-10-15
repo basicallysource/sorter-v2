@@ -66,6 +66,7 @@ def _channel() -> tuple[TwoPieceClassificationChannel, list[float]]:
     ch._pieces = {}
     ch._lost, ch._last_step_at, ch._turned_at = [], None, 0.0
     ch._rotation_started_at = 0.0
+    ch._pair_until, ch._pair_group = 0.0, None
     ch._phase = _Phase.WAITING
     ch._eject_target = None
     ch._stage_target = None

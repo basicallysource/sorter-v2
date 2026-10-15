@@ -29,6 +29,7 @@ def _channel() -> tuple[TwoPieceClassificationChannel, list[float]]:
     ch._pieces = {}
     ch._lost, ch._last_step_at, ch._turned_at = [], None, 0.0
     ch._rotation_started_at = 0.0
+    ch._pair_until, ch._pair_group = 0.0, None
     moves: list[float] = []
     ch.startOutputMove = lambda deg, speed: moves.append(deg) or True
     return ch, moves

@@ -33,6 +33,7 @@ def _channel() -> TwoPieceClassificationChannel:
     ch._pieces = {}
     ch._lost, ch._last_step_at, ch._turned_at = [], None, 0.0
     ch._rotation_started_at = 0.0
+    ch._pair_until, ch._pair_group = 0.0, None
     ch._multi_drop_streak = 0
     ch._multi_drop_last_ts = -1.0
     ch._multi_drop_seq = 0

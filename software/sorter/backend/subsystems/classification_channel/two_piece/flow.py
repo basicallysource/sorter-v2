@@ -10,6 +10,7 @@ from defs.known_object import (
     KnownObject,
     PieceStage,
     RecognitionImage,
+    notePieceProblem,
 )
 from piece_cycles import CycleRecorder
 from runtime_stats import C4_WAITING_FOR_PIECE
@@ -34,8 +35,9 @@ LOG_TAG = "[C4-2PIECE]"
 _ZONE_NONE = 0
 _ZONE_DROP = 1
 _ZONE_EXIT = 2
-# (2 = exit / the fall-off, 3 = precise / the holding region; we only branch on
-# DROP vs not-DROP — "left the drop zone" is what matters for the queue.)
+_ZONE_PRECISE = 3
+# (2 = exit / the fall-off, 3 = precise / the holding region; the queue only
+# branches on DROP vs not-DROP — "left the drop zone" is what matters for it.)
 
 # Identity is the source of truth (PieceObservation.sv_bt_track_id). A track id
 # that has been missing from perception for longer than this is treated as gone
@@ -88,6 +90,34 @@ PIECE_CIRCLING_INCIDENT_KIND = "piece_circling"
 _LINGER_AFTER_EJECT_S = 1.0
 _PUSH_OFF_DEG = 15.0
 _PUSH_OFF_TRIES = 3
+
+# The tracker sometimes gives a piece a new id: while it sits waiting for the
+# chute, or while the channel turns it. The old id then looked gone and the new
+# one like a piece nobody photographed, so the piece went to misc unidentified
+# and its classification timed out on its own record. A piece lost this way is
+# handed to a new id at its place: one seen on top of it while both existed, or
+# one that turns up within _RELINK_WINDOW_S no further along than the channel
+# can have carried it (_RELINK_STILL_DEG standing still, _RELINK_TURNED_DEG
+# when it turned since).
+_RELINK_WINDOW_S = 2.0
+_RELINK_STILL_DEG = 15.0
+_RELINK_TURNED_DEG = 120.0
+# Two ids this close are one piece (a tracker double), not two pieces.
+_SAME_PIECE_DEG = 8.0
+
+# A second piece that lands while the channel is turning the last one off the
+# drop zone came in unasked: the feeder only adds a piece while the channel
+# stands still with the drop zone clear. Seen this long, it and the piece it
+# came in behind are a double feed.
+_LATE_ARRIVAL_CONFIRM_S = 0.1
+
+# No turn brings a waiting piece (one not being ejected) closer to the exit than
+# this, so it can't drop into the bin the chute is aimed at for another piece.
+_KEEP_ON_MIN_GAP_DEG = 25.0
+
+# The flow is stepped every loop tick while the machine runs: a longer gap
+# means it was paused, or held by an incident.
+_RESUME_GAP_S = 1.0
 
 # Safety ceilings so a move that never resolves can't wedge the machine forever.
 _EJECT_TIMEOUT_S = 15.0
@@ -145,10 +175,28 @@ class _TrackedPiece:
         # ids together as one logical multi-drop (None when not a multi-drop).
         self.double_feed = False
         self.multi_drop_group: Optional[int] = None
+        # Recent (time, gap_to_exit) readings, to tell a tracker double of a
+        # lost piece from another piece (see _successorFor).
+        self.history: deque[tuple[float, float]] = deque(maxlen=90)
 
     @property
     def known_object(self) -> Optional[KnownObject]:
         return self.worker.ctx.known_object
+
+    def gapAt(self, t: float, within: float = 0.25) -> Optional[float]:
+        best: Optional[tuple[float, float]] = None
+        for at, gap in self.history:
+            d = abs(at - t)
+            if d <= within and (best is None or d < best[0]):
+                best = (d, gap)
+        return None if best is None else best[1]
+
+    def where(self) -> str:
+        return {
+            _ZONE_DROP: "in the drop zone",
+            _ZONE_EXIT: "at the exit",
+            _ZONE_PRECISE: "waiting in the holding area",
+        }.get(self.zone, "on its way from the drop zone to the holding area")
 
 
 class TwoPieceClassificationChannel(Rev01BaseState):
@@ -234,6 +282,13 @@ class TwoPieceClassificationChannel(Rev01BaseState):
         self._was_ready = False
         # When the channel last became ready for a piece (None while not ready).
         self._ready_since: Optional[float] = None
+        # Pieces whose id vanished before they were ejected, kept for a new id
+        # at their place to take over (see _RELINK_WINDOW_S): (piece, lost at).
+        self._lost: list[tuple[_TrackedPiece, float]] = []
+        # Last step, to notice a pause (see _RESUME_GAP_S), and the last time
+        # the platter was seen turning.
+        self._last_step_at: Optional[float] = None
+        self._turned_at = 0.0
         self.ctx.reset()
         self.ctx.known_object = None
 
@@ -305,6 +360,12 @@ class TwoPieceClassificationChannel(Rev01BaseState):
                 )
                 obj.destination_bin = None
                 obj.updated_at = time.time()
+            notePieceProblem(
+                obj,
+                "swept",
+                "The classification channel stopped making progress, so the machine turned it "
+                "with every door open to clear it; this piece went to the bucket, not its bin.",
+            )
             self._commitToDistribution(placed)
             self.logger.info(
                 f"{LOG_TAG} stall auto-clear: committed placed head "
@@ -319,6 +380,14 @@ class TwoPieceClassificationChannel(Rev01BaseState):
         )
         if result.cleared:
             for tp in self._pieces.values():
+                if tp.ejected:
+                    continue  # the placed head, committed above with its note
+                notePieceProblem(
+                    tp.known_object,
+                    "swept",
+                    "The classification channel stopped making progress, so the machine turned "
+                    "it with every door open to clear it; this piece went to the bucket.",
+                )
                 try:
                     tp.worker.abandonInFlightObject(
                         "stall auto-clear forced the piece off the channel"
@@ -333,6 +402,7 @@ class TwoPieceClassificationChannel(Rev01BaseState):
                     f"{LOG_TAG} stall auto-clear: withdrew the uncommitted placed piece from distribution"
                 )
             self._pieces = {}
+            self._lost = []
             self._eject_target = None
             self._stage_target = None
             self._multi_drop_streak = 0
@@ -354,6 +424,11 @@ class TwoPieceClassificationChannel(Rev01BaseState):
         stepper = getattr(self.irl, "carousel_stepper", None)
         stopped = bool(getattr(stepper, "stopped", True))
         now = time.monotonic()
+        if self._last_step_at is not None and now - self._last_step_at > _RESUME_GAP_S:
+            self._resumeAfterPause(now)
+        self._last_step_at = now
+        if not stopped:
+            self._turned_at = now
 
         self._observe(state, now)
 
@@ -433,6 +508,7 @@ class TwoPieceClassificationChannel(Rev01BaseState):
         """Match this frame's observations to tracked pieces by track id, create
         pieces for new ids, retire pieces whose id has been gone too long, and
         flag double feeds."""
+        created: list[_TrackedPiece] = []
         for po in getattr(state, "pieces", ()):
             tid = po.sv_bt_track_id
             if tid is None:
@@ -440,6 +516,7 @@ class TwoPieceClassificationChannel(Rev01BaseState):
             tp = self._pieces.get(tid)
             if tp is None:
                 tp = self._createPiece(tid, now)
+                created.append(tp)
             tp.zone = int(po.zone_code)
             b = po.bbox
             tp.bbox = (int(b[0]), int(b[1]), int(b[2]), int(b[3]))
@@ -448,13 +525,18 @@ class TwoPieceClassificationChannel(Rev01BaseState):
             # Watchdog progress: the piece physically moved a substantial amount.
             if tp.gap_to_exit is not None:
                 gap = float(tp.gap_to_exit)
+                tp.history.append((now, gap))
                 if tp.progress_gap is None:
                     tp.progress_gap = gap
                 elif abs(gap - tp.progress_gap) > _PROGRESS_MOVE_DEG:
                     tp.progress_gap = gap
                     self.noteProgress()
 
+        for tp in created:
+            self._adoptLost(tp, now)
         self._retireGonePieces(now)
+        self._expireLost(now)
+        self._flagLateArrivals(now)
         self._flagDoubleFeeds(state)
 
     def _createPiece(self, track_id: int, now: float) -> _TrackedPiece:
@@ -488,6 +570,12 @@ class TwoPieceClassificationChannel(Rev01BaseState):
             if (now - tp.last_seen) > _TRACK_GONE_RETIRE_S
         ]:
             tp = self._pieces.pop(tid)
+            keeps_going = tp.known_object is not None and not tp.ejected and tp is not self._eject_target
+            if keeps_going:
+                successor = self._successorFor(tp, now)
+                if successor is not None:
+                    self._handOver(tp, successor)
+                    continue
             # A piece already handed to distribution has a terminal status, so
             # abandonInFlightObject is a no-op for it. Only an in-flight piece
             # (photographed but never classified/distributed) is dropped from the
@@ -515,7 +603,143 @@ class TwoPieceClassificationChannel(Rev01BaseState):
             # flapping can't mask a wedge.
             if tp.known_object is not None:
                 self.noteProgress()
+            if keeps_going:
+                # Withdrawn above if it was placed; a new id that turns up at its
+                # place still gets it back (see _adoptLost).
+                self._unplace(tp)
+                self._lost.append((tp, now))
             self.logger.info(f"{LOG_TAG} retired piece track={tid}")
+
+    def _unplace(self, tp: _TrackedPiece) -> None:
+        """Distribution no longer holds this piece: it is placed again later and
+        must wait for a fresh aim. Left 'distributing', it read as aimed the
+        moment it was placed (distribution keeps its gate open while idle) and
+        was ejected wherever the chute happened to point."""
+        tp.placed = False
+        obj = tp.known_object
+        if obj is not None and obj.stage == PieceStage.distributing:
+            obj.stage = PieceStage.created
+
+    def _successorFor(self, lost: _TrackedPiece, now: float) -> Optional[_TrackedPiece]:
+        """The id now standing where ``lost`` was: an id no one photographed,
+        either seen on top of it while both existed (a tracker double), or new
+        since and no further along than the channel can have carried it."""
+        if lost.gap_to_exit is None:
+            return None
+        lost_gap = float(lost.gap_to_exit)
+        turned = self._turned_at >= lost.last_seen
+        best: Optional[_TrackedPiece] = None
+        best_d = 0.0
+        for cand in self._pieces.values():
+            if cand is lost or cand.known_object is not None or cand.double_feed:
+                continue
+            if cand.gap_to_exit is None or now - cand.last_seen > 0.3:
+                continue
+            then = cand.gapAt(lost.last_seen)
+            if then is not None:
+                d = abs(then - lost_gap)
+                if d > _SAME_PIECE_DEG:
+                    continue  # it was somewhere else: another piece
+            else:
+                if cand.zone == _ZONE_DROP and lost.zone != _ZONE_DROP:
+                    continue  # pieces never go back into the drop zone
+                moved = lost_gap - float(cand.gap_to_exit)
+                reach = _RELINK_TURNED_DEG if turned else _RELINK_STILL_DEG
+                if moved < -_RELINK_STILL_DEG or moved > reach:
+                    continue
+                d = abs(moved)
+            if best is None or d < best_d:
+                best, best_d = cand, d
+        return best
+
+    def _handOver(self, lost: _TrackedPiece, successor: _TrackedPiece) -> None:
+        """``successor``'s id takes over ``lost``: its photos, classification,
+        record and place in the queue. The empty piece made for the new id goes."""
+        old_tid = lost.track_id
+        self._pieces.pop(successor.track_id, None)
+        lost.track_id = successor.track_id
+        lost.zone = successor.zone
+        lost.bbox = successor.bbox
+        lost.gap_to_exit = successor.gap_to_exit
+        lost.last_seen = successor.last_seen
+        lost.progress_gap = successor.progress_gap
+        lost.history = successor.history
+        self._pieces[lost.track_id] = lost
+        obj = lost.known_object
+        if obj is not None and obj.aborted:
+            obj.aborted = False
+            lost.worker.emitKnownObject()
+        self.logger.info(
+            f"{LOG_TAG} track={old_tid} lost; track={lost.track_id} at its place takes it over"
+        )
+
+    def _adoptLost(self, tp: _TrackedPiece, now: float) -> None:
+        """A new id may be a lost piece seen again (see _RELINK_WINDOW_S)."""
+        for i, (lost, _at) in enumerate(self._lost):
+            if self._successorFor(lost, now) is tp:
+                del self._lost[i]
+                self._handOver(lost, tp)
+                return
+
+    def _expireLost(self, now: float) -> None:
+        keep: list[tuple[_TrackedPiece, float]] = []
+        for lost, at in self._lost:
+            if now - at <= _RELINK_WINDOW_S:
+                keep.append((lost, at))
+                continue
+            obj = lost.known_object
+            notePieceProblem(
+                obj,
+                "track_lost",
+                f"The camera lost track of it {at - lost.created_at:.1f} s after it came onto the "
+                f"channel, while it was {lost.where()}, and nothing at its place picked it up again "
+                f"within {_RELINK_WINDOW_S:.0f} s, so where it went is not known and no bin counts it.",
+                after_s=at - lost.created_at,
+            )
+            if obj is not None:
+                lost.worker.emitKnownObject()
+        self._lost = keep
+
+    def _flagLateArrivals(self, now: float) -> None:
+        """A piece that lands while the channel turns the last one off the drop
+        zone (see _LATE_ARRIVAL_CONFIRM_S) can't be photographed alone and may
+        ride close behind that one: both go to misc as a double feed."""
+        if self._phase not in (_Phase.STAGING, _Phase.EJECTING):
+            return
+        first = self._stage_target
+        if first is None or first.last_seen != now or first.gap_to_exit is None:
+            return
+        for tp in list(self._pieces.values()):
+            if tp is first or tp.double_feed or tp.known_object is not None:
+                continue
+            if tp.zone != _ZONE_DROP or tp.last_seen != now or tp.gap_to_exit is None:
+                continue
+            if now - tp.created_at < _LATE_ARRIVAL_CONFIRM_S:
+                continue
+            if abs(float(tp.gap_to_exit) - float(first.gap_to_exit)) <= _SAME_PIECE_DEG:
+                continue  # a tracker double of the piece being staged
+            group = first.multi_drop_group
+            if group is None:
+                self._multi_drop_seq += 1
+                group = self._multi_drop_seq
+            behind = now - first.created_at
+            if not first.double_feed:
+                self._markDoubleFeed(
+                    first,
+                    group,
+                    "late_double_feed",
+                    f"A second piece came onto the channel {behind:.1f} s after this one, while "
+                    f"this one was being turned off the drop zone, so the two could not be told "
+                    f"apart; both went to misc as a double feed.",
+                )
+            self._markDoubleFeed(
+                tp,
+                group,
+                "late_double_feed",
+                f"Came onto the channel {behind:.1f} s after the piece before it, while that one "
+                f"was being turned off the drop zone (the feeder had not asked for a piece), so it "
+                f"was never photographed alone; both went to misc as a double feed.",
+            )
 
     def _flagDoubleFeeds(self, state) -> None:
         # Only pieces seen in this frame count. A piece that bounces as it lands
@@ -549,7 +773,16 @@ class TwoPieceClassificationChannel(Rev01BaseState):
             if not tp.double_feed:
                 self._markDoubleFeed(tp, group)
 
-    def _markDoubleFeed(self, tp: _TrackedPiece, group: int) -> None:
+    def _markDoubleFeed(
+        self,
+        tp: _TrackedPiece,
+        group: int,
+        kind: str = "double_feed",
+        message: str = (
+            "Landed on the channel together with another piece, so it could not be "
+            "photographed alone; it went to misc as a double feed."
+        ),
+    ) -> None:
         # Two+ pieces in the drop zone at once: classification can't be trusted, so
         # skip it and route the piece to the misc bin. It still rides the normal
         # bucket-brigade (staged, then ejected) — just to misc. All members of the
@@ -565,6 +798,7 @@ class TwoPieceClassificationChannel(Rev01BaseState):
         if obj is not None:
             obj.classification_status = ClassificationStatus.multi_drop_fail
             obj.part_id = None
+            notePieceProblem(obj, kind, message)
             tp.worker.emitKnownObject()
         self.logger.warning(
             f"{LOG_TAG} double feed -> misc (track={tp.track_id}, group={group})"
@@ -663,6 +897,13 @@ class TwoPieceClassificationChannel(Rev01BaseState):
                 self._checkCircling(tp)
             elif (now - ctx.classify_started_at) > ctx.config.classify_timeout_s:
                 self.logger.error(f"{LOG_TAG} classify timeout track={tp.track_id} -> unknown")
+                notePieceProblem(
+                    tp.known_object,
+                    "classify_failed",
+                    f"Identification did not answer within {ctx.config.classify_timeout_s:.0f} s "
+                    f"of the photos being taken, so it went to misc unidentified.",
+                    after_s=now - ctx.classify_started_at,
+                )
                 tp.worker.updateKnownObjectWithResult(None, "timeout")
                 tp.result_applied = True
                 self.noteProgress()
@@ -689,6 +930,12 @@ class TwoPieceClassificationChannel(Rev01BaseState):
                 if obj0 is not None:
                     obj0.classification_status = ClassificationStatus.unknown
                     obj0.part_id = None
+                    notePieceProblem(
+                        obj0,
+                        "stray",
+                        f"The camera first saw it {tp.where()}, not landing in the drop zone, so it "
+                        f"was never photographed or identified; it went to misc.",
+                    )
                     tp.worker.emitKnownObject()
                 tp.result_applied = True
                 self.logger.warning(
@@ -788,6 +1035,13 @@ class TwoPieceClassificationChannel(Rev01BaseState):
                 self.logger.warning(
                     f"{LOG_TAG} EJECT timeout track={target.track_id} — committing anyway"
                 )
+                notePieceProblem(
+                    target.known_object,
+                    "eject_timeout",
+                    f"It was still on the channel {_EJECT_TIMEOUT_S:.0f} s after the turn meant to "
+                    f"drop it into its bin; it was counted as dropped anyway.",
+                    after_s=now - self._phase_started_at,
+                )
             else:
                 self.logger.info(f"{LOG_TAG} ejected track={target.track_id} (id gone)")
             self._eject_target = None
@@ -796,16 +1050,45 @@ class TwoPieceClassificationChannel(Rev01BaseState):
         if gone_for > 0.0:
             return  # id missing (likely just dropped) — stop pushing, let it confirm
         if stopped:
+            # The target's own gap to the middle of the fall-off. The channel's
+            # reading is for its most forward piece, which can be another one
+            # when the target blinks in a frame; a move sized for that one threw
+            # a waiting piece off into the bin aimed for the target. Piece gaps
+            # run to the fall-off's near edge, the channel's to its middle.
             gap = state.exit_com_forward_to_center_deg
+            pieces = getattr(state, "pieces", ())
+            if gap is not None and pieces and target.gap_to_exit is not None:
+                to_middle = float(gap) - float(pieces[0].com_forward_to_exit_deg)
+                gap = float(target.gap_to_exit) + to_middle
             if gap is not None and gap > self.ctx.config.discharge_center_tolerance_deg:
                 # One move for the whole cycle: far enough to drop the head, and
                 # to bring the piece being staged to the holding band, so the
-                # staging that follows has nothing left to do.
+                # staging that follows has nothing left to do — short of bringing
+                # a piece waiting behind the head up to the exit.
                 move = max(gap, self._stageGap())
                 move = min(self.ctx.config.discharge_max_move_output_deg, move)
+                limit = self._keepOnLimit(exclude=target)
+                if limit is not None:
+                    move = max(gap, min(move, limit))
                 self.startOutputMove(
                     C4_TRAVEL_SIGN * move, self.ctx.config.discharge_speed_usteps_per_s
                 )
+
+    def _keepOnLimit(self, exclude: Optional[_TrackedPiece] = None) -> Optional[float]:
+        """How far the channel may turn before a waiting piece comes closer than
+        _KEEP_ON_MIN_GAP_DEG to the exit (None when no piece limits it). Ids on
+        top of or ahead of ``exclude`` (the piece being ejected) go with it."""
+        ex_gap = exclude.gap_to_exit if exclude is not None else None
+        limit: Optional[float] = None
+        for tp in self._pieces.values():
+            if tp is exclude or tp.ejected or tp.zone == _ZONE_DROP or tp.gap_to_exit is None:
+                continue
+            gap = float(tp.gap_to_exit)
+            if ex_gap is not None and gap <= float(ex_gap) + _SAME_PIECE_DEG:
+                continue
+            room = gap - _KEEP_ON_MIN_GAP_DEG
+            limit = room if limit is None else min(limit, room)
+        return limit
 
     def _stageGap(self) -> float:
         """How far the piece being staged is from the start of the holding band
@@ -865,6 +1148,23 @@ class TwoPieceClassificationChannel(Rev01BaseState):
                 gap += 360.0
             if gap > tol:
                 move = min(self.ctx.config.discharge_max_move_output_deg, gap)
+        # Clearing the drop zone must not push the piece waiting for the chute
+        # off the exit before its bin is aimed. When there is no room left, the
+        # cycle goes on from WAITING: that piece is aimed and ejected, and the
+        # rest of the clump staged with that turn.
+        limit = self._keepOnLimit()
+        if limit is not None and limit < move:
+            if limit < 3.0:
+                self.logger.info(
+                    f"{LOG_TAG} staging stops short: turning on would bring a waiting piece "
+                    f"to the exit before its chute is aimed"
+                )
+                if self._stage_target is not None:
+                    self._cycles.staged(time.time(), note="stopped short of the exit")
+                self._stage_target = None
+                self._enterPhase(_Phase.WAITING)
+                return
+            move = limit
         self.startOutputMove(
             C4_TRAVEL_SIGN * move, self.ctx.config.precise_converge_speed_usteps_per_s
         )
@@ -884,6 +1184,14 @@ class TwoPieceClassificationChannel(Rev01BaseState):
             if tp.zone != _ZONE_EXIT:
                 continue
             tp.push_offs += 1
+            notePieceProblem(
+                tp.known_object,
+                "pushed_off",
+                f"It was still at the exit {now - tp.ejected_at:.1f} s after it should have dropped, "
+                f"so the channel turned {_PUSH_OFF_DEG:.0f}° to push it off "
+                f"(try {tp.push_offs} of {_PUSH_OFF_TRIES}).",
+                after_s=now - tp.ejected_at,
+            )
             tp.ejected_at = now
             self.logger.warning(
                 f"{LOG_TAG} track={tp.track_id} was ejected but is still at the exit "
@@ -924,6 +1232,14 @@ class TwoPieceClassificationChannel(Rev01BaseState):
             ago = now - at
             obj.dead = True
             obj.updated_at = time.time()
+            notePieceProblem(
+                obj,
+                "circling",
+                f"Came back around the channel {ago:.0f} s after the same part in the same color "
+                f"was dropped{' (that drop was never seen happening)' if timed_out else ''}: one "
+                f"piece seen twice, so this record is not counted and the machine stopped for it.",
+                after_s=ago,
+            )
             tp.worker.emitKnownObject()
             self.logger.warning(
                 f"{LOG_TAG} track={tp.track_id} is {obj.part_id} ({obj.color_id}) again, "
@@ -1034,6 +1350,45 @@ class TwoPieceClassificationChannel(Rev01BaseState):
                 )
             worker.emitKnownObject()
 
+    def pause(self) -> None:
+        """The machine paused, or stopped for a jam elsewhere. Every piece keeps
+        its photos and classification, so on resume it goes where it was going
+        instead of to misc as a piece nobody photographed. Distribution forgets
+        its slot on a pause, so a placed piece is withdrawn and placed again
+        when the flow runs; a turn that was under way is planned afresh."""
+        self.transport.clearPieceForDistribution()
+        for tp in self._pieces.values():
+            if tp.placed and not tp.ejected:
+                self._unplace(tp)
+        self._enterPhase(_Phase.WAITING)
+        self._eject_target = None
+        self._stage_target = None
+        self._multi_drop_streak = 0
+        self._multi_drop_last_ts = -1.0
+        self._cycles.drop()
+        self._was_ready = False
+        self._ready_since = None
+        self.last_progress_at = time.monotonic()
+
+    def _resumeAfterPause(self, now: float) -> None:
+        """First step after a pause or an incident hold. The pieces sat still,
+        so each gets the usual window to be seen again, is refreshed so the
+        stuck-piece reaper does not count the pause, and the watchdog's window
+        starts now."""
+        for tp in self._pieces.values():
+            tp.last_seen = now
+            if tp.ejected_at is not None:
+                tp.ejected_at = now
+            if tp.known_object is not None:
+                tp.worker.emitKnownObject()
+        self._lost = [(tp, now) for tp, _at in self._lost]
+        self._ready_since = None
+        self.last_progress_at = now
+        self.logger.info(
+            f"{LOG_TAG} resumed with {len(self._pieces)} piece(s) on the channel, "
+            f"keeping what they were classified as"
+        )
+
     def cleanup(self) -> None:
         for tp in self._pieces.values():
             try:
@@ -1044,6 +1399,8 @@ class TwoPieceClassificationChannel(Rev01BaseState):
         # withdraw it rather than leave distribution aimed and waiting after resume.
         self.transport.clearPieceForDistribution()
         self._pieces = {}
+        self._lost = []
+        self._last_step_at = None
         self._phase = _Phase.WAITING
         self._eject_target = None
         self._stage_target = None

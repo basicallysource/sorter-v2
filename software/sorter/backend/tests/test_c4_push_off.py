@@ -27,6 +27,7 @@ def _channel() -> tuple[TwoPieceClassificationChannel, list[float]]:
     ch.logger = logging.getLogger("test_c4_push_off")
     ch.ctx = SimpleNamespace(config=SimpleNamespace(discharge_speed_usteps_per_s=1000))
     ch._pieces = {}
+    ch._lost, ch._last_step_at, ch._turned_at = [], None, 0.0
     moves: list[float] = []
     ch.startOutputMove = lambda deg, speed: moves.append(deg) or True
     return ch, moves

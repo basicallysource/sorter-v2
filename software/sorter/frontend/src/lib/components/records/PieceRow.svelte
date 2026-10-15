@@ -4,6 +4,7 @@
 	import PieceStatusBadge from '$lib/components/PieceStatusBadge.svelte';
 	import ReclassifyPanel from '$lib/components/ReclassifyPanel.svelte';
 	import PieceCorrection from '$lib/components/PieceCorrection.svelte';
+	import PieceProblems from '$lib/components/pieces/PieceProblems.svelte';
 	import Badge from '$lib/components/ui/Badge.svelte';
 	import Button from '$lib/components/ui/Button.svelte';
 	import ColorChip from '$lib/components/ui/ColorChip.svelte';
@@ -16,9 +17,10 @@
 	import type { DisplayImage, ImageState } from './piece-images';
 
 	// One piece in the records list, a row of a divided list: its pictures, what
-	// the machine did with it, and the review at the right (the design system's
-	// compact PieceReview). Everything else about the piece (every image, the
-	// attempts, the predictions) is on its own page, one click away.
+	// the machine did with it (and what went wrong, when anything did), and the
+	// review at the right (the design system's compact PieceReview). Everything
+	// else about the piece (every image, the attempts, the predictions) is on its
+	// own page, one click away.
 	let {
 		piece,
 		imgState,
@@ -257,6 +259,8 @@
 					</span>
 				{/if}
 			</div>
+			<!-- What went wrong with it, when anything did. -->
+			<PieceProblems problems={piece.problems} class="mt-1" />
 		</div>
 
 		<!-- The review, at the right. -->

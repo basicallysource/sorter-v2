@@ -49,6 +49,7 @@ def knownObjectToEvent(obj: KnownObject) -> KnownObjectEvent:
             request_failed=obj.request_failed,
             aborted=obj.aborted,
             dead=obj.dead,
+            problems=list(obj.problems),
             part_id=obj.part_id,
             part_name=obj.part_name,
             part_category=obj.part_category,

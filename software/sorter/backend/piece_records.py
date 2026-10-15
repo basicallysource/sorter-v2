@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import json
+import math
 import re
 import sqlite3
 import threading
@@ -17,7 +19,9 @@ import sync_seq
 # on a graceful shutdown — the dev soft-restart calls os._exit(0) and skipped
 # the save, so the overwhelming majority of sorted pieces were never recorded.
 # Here each piece is written the instant it commits in distribution, so the
-# history survives any restart. Everything is a typed column — no JSON blobs.
+# history survives any restart. Every field is a typed column, except
+# `problems`: the few notes on what went wrong with the piece, a JSON list
+# that is only ever shown with the piece, never queried by field.
 #
 # A record changes after it is written (the distribution write after an early
 # one, the reaper, the operator's verdict, a feedback flag), so it syncs to
@@ -109,6 +113,10 @@ def _createTables(conn: sqlite3.Connection) -> None:
         "training_label_source": "TEXT",
         "training_excluded": "INTEGER NOT NULL DEFAULT 0",
         "training_updated_at": "REAL",
+        # What went wrong with the piece on its way through the machine: a JSON
+        # list of {"kind", "message", "at", "after_s"}, oldest first (see
+        # normalizeProblems). NULL when nothing did.
+        "problems": "TEXT",
     })
     # Operator-flagged capture issues, one row per (piece, reason) so the
     # flags are queryable — "how many pieces were flagged blurry this
@@ -218,6 +226,45 @@ def _connection():
     return db.connect(_createTables)
 
 
+def _finite(value: Any) -> Optional[float]:
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        return None
+    number = float(value)
+    return number if math.isfinite(number) else None
+
+
+def normalizeProblems(raw: Any) -> list[dict[str, Any]]:
+    """What went wrong with a piece (KnownObject.problems), oldest first, in the
+    shape the record keeps and the API serves: {"kind", "message", "at",
+    "after_s"}. A note without a kind, a message or a time is left out, and so
+    is anything that is not a list of notes (a payload that has none)."""
+    if not isinstance(raw, (list, tuple)):
+        return []
+    notes: list[dict[str, Any]] = []
+    for item in raw:
+        if not isinstance(item, dict):
+            continue
+        kind, message = item.get("kind"), item.get("message")
+        at = _finite(item.get("at"))
+        if not (isinstance(kind, str) and kind and isinstance(message, str) and message):
+            continue
+        if at is None:
+            continue
+        notes.append(
+            {"kind": kind, "message": message, "at": at, "after_s": _finite(item.get("after_s"))}
+        )
+    return notes
+
+
+def _parseProblems(raw: Optional[str]) -> list[dict[str, Any]]:
+    if not raw:
+        return []
+    try:
+        return normalizeProblems(json.loads(raw))
+    except ValueError:
+        return []
+
+
 def recordPiece(
     piece: dict[str, Any],
     *,
@@ -236,6 +283,8 @@ def recordPiece(
     seen_at = piece.get("created_at")
     recorded_at = piece.get("distributed_at") or time.time()
     dead = 1 if piece.get("dead") else 0
+    problems = normalizeProblems(piece.get("problems"))
+    problems_json = json.dumps(problems, separators=(",", ":")) if problems else None
     with _connection() as conn:
         training = training_runs.labelFor(
             conn,
@@ -251,7 +300,8 @@ def recordPiece(
         # with its bin. On conflict we refresh the classification/bin columns but
         # NEVER touch the correction columns (part_correct, color_corrected_id,
         # *_feedback_submitted, correction_updated_at) so a recorded correction
-        # survives the distribution write.
+        # survives the distribution write. The same goes for `problems`: the early
+        # record carries none, and a write without any keeps the ones noted so far.
         conn.execute(
             "INSERT INTO piece_records "
             "(uuid, run_id, machine_id, seen_at, recorded_at, classification_status, "
@@ -259,8 +309,9 @@ def recordPiece(
             "bin_x, bin_y, bin_z, dead, brickognize_preview_url, "
             "brickognize_listing_id, brickognize_item_rank, brickognize_item_type, "
             "brickognize_color_rank, color_provider, mold_provider, color_confidence, sync_seq, "
-            "training_run_id, training_segment_id, training_color_id, training_label_source, training_updated_at) "
-            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) "
+            "training_run_id, training_segment_id, training_color_id, training_label_source, training_updated_at, "
+            "problems) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) "
             "ON CONFLICT(uuid) DO UPDATE SET "
             "run_id=excluded.run_id, machine_id=excluded.machine_id, "
             "seen_at=excluded.seen_at, recorded_at=excluded.recorded_at, "
@@ -287,7 +338,8 @@ def recordPiece(
             "training_label_source=CASE WHEN piece_records.training_run_id IS NULL "
             "THEN excluded.training_label_source ELSE piece_records.training_label_source END, "
             "training_updated_at=CASE WHEN piece_records.training_run_id IS NULL "
-            "THEN excluded.training_updated_at ELSE piece_records.training_updated_at END",
+            "THEN excluded.training_updated_at ELSE piece_records.training_updated_at END, "
+            "problems=COALESCE(excluded.problems, piece_records.problems)",
             (
                 uuid_val,
                 run_id,
@@ -319,6 +371,7 @@ def recordPiece(
                 training_color_id,
                 training_source,
                 time.time() if training_run_id is not None else None,
+                problems_json,
             ),
         )
         # With its record written, the piece's images are ready for Hive.
@@ -514,7 +567,7 @@ _SUMMARY_COLUMNS = (
     "bin_x, bin_y, bin_z, dead, brickognize_preview_url, "
     "brickognize_listing_id, part_correct, color_corrected_id, "
     "part_feedback_submitted, color_feedback_submitted, "
-    "color_provider, mold_provider, color_confidence"
+    "color_provider, mold_provider, color_confidence, problems"
 )
 
 
@@ -579,6 +632,8 @@ def _rowToSummary(gc: Any, row: sqlite3.Row) -> dict[str, Any]:
         "color_confidence": row["color_confidence"],
         "bin": bin_ref,
         "dead": bool(row["dead"]),
+        # What went wrong with the piece, oldest first; empty when nothing did.
+        "problems": _parseProblems(row["problems"]),
         "has_images": bool(row["has_images"]),
         "preview_url": row["brickognize_preview_url"],
         "est_value": _estValue(gc, row["part_id"], row["color_id"]),

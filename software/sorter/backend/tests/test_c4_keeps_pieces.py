@@ -103,6 +103,7 @@ def _piece(
     tp = _TrackedPiece(track_id, _Worker(obj), now - age)
     tp.zone, tp.gap_to_exit, tp.last_seen = zone, gap, now - seen_ago
     tp.history.append((now - seen_ago, gap))
+    tp.first_gap = gap
     if obj is not None:
         tp.capture_done = tp.result_applied = True
     ch._pieces[track_id] = tp
@@ -205,6 +206,7 @@ def test_a_piece_landing_while_the_last_one_is_staged_is_a_double_feed() -> None
     now = time.monotonic()
     first_obj = _classified("3579")
     first = _piece(ch, 333, now, gap=111.0, zone=0, obj=first_obj, age=2.4)
+    first.first_gap = 241.0  # where it landed
     ch._stage_target = first
     ch._phase = _Phase.STAGING
     late = _piece(ch, 334, now, gap=177.0, zone=two_piece._ZONE_DROP, age=0.2)
@@ -217,6 +219,25 @@ def test_a_piece_landing_while_the_last_one_is_staged_is_a_double_feed() -> None
     assert [p["kind"] for p in first_obj.problems] == ["late_double_feed"]
     assert late.known_object is not None
     assert late.known_object.problems[0]["kind"] == "late_double_feed"
+
+
+def test_a_piece_coming_around_from_past_the_exit_is_not_a_late_feed() -> None:
+    """A piece that did not fall rode on past the exit, out of the camera's
+    sight, and came back into the drop zone from behind while the next piece
+    was being staged. It was never fed, so it is no double feed, and the piece
+    being staged keeps its classification."""
+    ch, _ = _channel()
+    now = time.monotonic()
+    first_obj = _classified()
+    first = _piece(ch, 40, now, gap=165.0, zone=two_piece._ZONE_DROP, obj=first_obj, age=1.8)
+    first.first_gap = 203.0
+    ch._stage_target = first
+    ch._phase = _Phase.EJECTING
+    back = _piece(ch, 41, now, gap=288.0, zone=two_piece._ZONE_DROP, age=0.2)
+    back.first_gap = 307.0
+    ch._flagLateArrivals(now)
+    assert not first.double_feed and not back.double_feed
+    assert first_obj.classification_status == ClassificationStatus.classified
 
 
 def test_a_tracker_double_of_the_staged_piece_is_not_a_second_piece() -> None:

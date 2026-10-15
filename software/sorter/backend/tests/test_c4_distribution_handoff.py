@@ -14,6 +14,7 @@ from __future__ import annotations
 import logging
 import queue
 import time
+from collections import deque
 from types import SimpleNamespace
 from unittest.mock import patch
 
@@ -101,6 +102,7 @@ def _mkChannel(transport, shared) -> TwoPieceClassificationChannel:
     ch._multi_drop_streak = 0
     ch._multi_drop_last_ts = -1.0
     ch._multi_drop_seq = 0
+    ch._recent_ejects = deque(maxlen=16)
     ch._bucket_hold_cycles = 0
     ch._cycles = CycleRecorder()
     ch._was_ready = False

@@ -1,6 +1,9 @@
 import time
+from collections import deque
 from enum import Enum
 from typing import Optional
+
+import incidents
 
 from defs.known_object import (
     ClassificationStatus,
@@ -63,6 +66,17 @@ _BUCKET_HOLD_EJECTS = 2
 # its own, to its bin, instead of waiting for the stall watchdog to sweep the
 # channel into the bucket.
 _HEAD_ALONE_AFTER_S = 12.0
+
+# A piece that does not fall off the exit (a tire's rubber grips the platter)
+# rides on around the channel, past the camera, and comes back into the drop
+# zone, where it is photographed and classified again: one piece, two records.
+# Each eject is remembered this long, which covers riding one to three more
+# cycles. A piece classified as the same part and colour within it is taken for
+# the one that came back when it rolls (a wheel or tire), or when that eject
+# timed out with the piece never seen to fall.
+_CIRCLING_WINDOW_S = 30.0
+_ROLLING_WORDS = ("tire", "tyre", "wheel")
+PIECE_CIRCLING_INCIDENT_KIND = "piece_circling"
 
 # Safety ceilings so a move that never resolves can't wedge the machine forever.
 _EJECT_TIMEOUT_S = 15.0
@@ -199,6 +213,9 @@ class TwoPieceClassificationChannel(Rev01BaseState):
         self._bucket_hold_cycles = 0
         # Each piece's trip through the channel, for "where the time goes".
         self._cycles = CycleRecorder()
+        # Recent ejects, newest last: (monotonic time, part_id, color_id, uuid,
+        # timed out). See _CIRCLING_WINDOW_S.
+        self._recent_ejects: deque[tuple[float, str, str, str, bool]] = deque(maxlen=16)
         self._was_ready = False
         # When the channel last became ready for a piece (None while not ready).
         self._ready_since: Optional[float] = None
@@ -626,6 +643,7 @@ class TwoPieceClassificationChannel(Rev01BaseState):
                 tp.worker.updateKnownObjectWithResult(result, error)
                 tp.result_applied = True
                 self.noteProgress()
+                self._checkCircling(tp)
             elif (now - ctx.classify_started_at) > ctx.config.classify_timeout_s:
                 self.logger.error(f"{LOG_TAG} classify timeout track={tp.track_id} -> unknown")
                 tp.worker.updateKnownObjectWithResult(None, "timeout")
@@ -742,6 +760,7 @@ class TwoPieceClassificationChannel(Rev01BaseState):
         if gone_for >= _EJECT_GONE_CONFIRM_S or timed_out:
             # Track id gone (debounced) == the piece dropped off the fall-off ==
             # ejected. Commit it to distribution; the chute was already aimed.
+            self._rememberEject(target, timed_out=gone_for < _EJECT_GONE_CONFIRM_S)
             self._commitToDistribution(target)
             self._cycles.ejected(time.time())
             if self._bucket_hold_cycles > 0:
@@ -832,6 +851,89 @@ class TwoPieceClassificationChannel(Rev01BaseState):
         self.startOutputMove(
             C4_TRAVEL_SIGN * move, self.ctx.config.precise_converge_speed_usteps_per_s
         )
+
+    def _rememberEject(self, tp: _TrackedPiece, *, timed_out: bool) -> None:
+        obj = tp.known_object
+        if obj is None or obj.part_id is None:
+            return
+        self._recent_ejects.append(
+            (time.monotonic(), str(obj.part_id), str(obj.color_id), str(obj.uuid), timed_out)
+        )
+
+    def _checkCircling(self, tp: _TrackedPiece) -> None:
+        """The piece just classified is one that was ejected moments ago and came
+        back around (see _CIRCLING_WINDOW_S): keep it out of the counts, since its
+        first record already counts it, and hold the machine for the operator."""
+        obj = tp.known_object
+        if obj is None or obj.part_id is None or obj.classification_status != ClassificationStatus.classified:
+            return
+        now = time.monotonic()
+        name = f"{obj.part_name or ''} {obj.part_category or ''}".lower()
+        rolls = any(word in name for word in _ROLLING_WORDS)
+        for at, part_id, color_id, uuid, timed_out in reversed(self._recent_ejects):
+            if now - at > _CIRCLING_WINDOW_S:
+                return
+            if part_id != str(obj.part_id) or color_id != str(obj.color_id):
+                continue
+            if not (rolls or timed_out):
+                continue
+            ago = now - at
+            obj.dead = True
+            obj.updated_at = time.time()
+            tp.worker.emitKnownObject()
+            self.logger.warning(
+                f"{LOG_TAG} track={tp.track_id} is {obj.part_id} ({obj.color_id}) again, "
+                f"{ago:.1f} s after piece {uuid} was ejected"
+                f"{' on a timeout' if timed_out else ''}: it came back around; "
+                f"not counted again, holding for the operator"
+            )
+            incidents.report(
+                self.gc,
+                PIECE_CIRCLING_INCIDENT_KIND,
+                subject="C4",
+                source="c4_circling",
+                severity="critical",
+                status="waiting_for_operator",
+                awaiting_operator=True,
+                scope="classification",
+                channel="c4",
+                role="classification_channel",
+                channel_label="C4",
+                piece_uuid=obj.uuid,
+                track_id=tp.track_id,
+                first_piece_uuid=uuid,
+                part_id=obj.part_id,
+                color_id=obj.color_id,
+                seconds_after_eject=round(ago, 1),
+                eject_timed_out=timed_out,
+                rule="same_part_and_colour_classified_again_after_eject",
+                reason=f"{obj.part_name or obj.part_id} came back around {ago:.0f} s after it was ejected",
+                operator_message=(
+                    "A piece is going around the classification channel instead of falling off. "
+                    "Take it off, then press Done."
+                ),
+            )
+            try:
+                import control_data_store
+
+                control_data_store.record(
+                    {
+                        "type": "event",
+                        "kind": "piece_circling",
+                        "track": tp.track_id,
+                        "piece": obj.uuid,
+                        "first_piece": uuid,
+                        "part": obj.part_id,
+                        "color": obj.color_id,
+                        "after_s": round(ago, 2),
+                        "eject_timed_out": timed_out,
+                        "t": time.time(),
+                        "mono": now,
+                    }
+                )
+            except Exception:
+                pass
+            return
 
     def _commitToDistribution(self, tp: _TrackedPiece) -> None:
         # The placed piece leaves the platter into the chute: move it to

@@ -78,6 +78,8 @@ Lucide, and each lives in one component.
 | Opens a list below                     | `chevron-down`                                            |
 | Opens a section; jogs clockwise        | `chevron-right`                                           |
 | Jogs counterclockwise                  | `chevron-left`                                            |
+| Next page, previous page               | `chevron-right`, `chevron-left`                           |
+| Last page, first page                  | `chevrons-right`, `chevrons-left`                         |
 | Back to where you were                 | `arrow-left`                                              |
 | Goes somewhere else                    | `arrow-right`                                             |
 | Leaves the app, or opens a new tab     | `arrow-up-right`                                          |

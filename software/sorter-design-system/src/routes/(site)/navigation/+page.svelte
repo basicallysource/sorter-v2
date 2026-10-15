@@ -4,6 +4,7 @@
 	import Wrench from '@lucide/svelte/icons/wrench';
 	import Camera from '@lucide/svelte/icons/camera';
 	import Layers from '@lucide/svelte/icons/layers';
+	import { page } from '$app/state';
 	import PageHeader from '$lib/site/PageHeader.svelte';
 	import SiteSection from '$lib/site/SiteSection.svelte';
 	import Specimen from '$lib/site/Specimen.svelte';
@@ -11,6 +12,7 @@
 	import Wordmark from '$lib/components/Wordmark.svelte';
 	import SideNav from '$lib/components/SideNav.svelte';
 	import Tabs from '$lib/components/Tabs.svelte';
+	import Pager from '$lib/components/Pager.svelte';
 	import Panel from '$lib/components/Panel.svelte';
 	import Disclosure from '$lib/components/Disclosure.svelte';
 	import SettingRow from '$lib/components/SettingRow.svelte';
@@ -19,6 +21,16 @@
 
 	let tab = $state<'bins' | 'layers' | 'discard'>('bins');
 
+	// The views of a page with an address each: tabs that are links, and the
+	// same list in the top bar. Here the addresses are this page's hashes.
+	const views = [
+		{ value: 'overview', label: 'Overview', href: '/navigation#overview' },
+		{ value: 'runs', label: 'Runs', href: '/navigation#runs' },
+		{ value: 'pieces', label: 'Pieces', href: '/navigation#pieces' },
+		{ value: 'incidents', label: 'Incidents', href: '/navigation#incidents' }
+	];
+	const view = $derived(page.url.hash.slice(1) || 'overview');
+
 	const pages = [
 		{ href: '/navigation', label: 'Dashboard' },
 		{ href: '/navigation#bins', label: 'Bins' },
@@ -26,6 +38,26 @@
 		{ href: '/navigation#records', label: 'Records' },
 		{ href: '/navigation#settings', label: 'Settings' }
 	];
+
+	// A page with views lists them as children: its name stays a link to the
+	// first, and a chevron opens the rest. (A real app's views are paths, and
+	// the page is current on all of them; here Records stands in for this page.)
+	const pagesWithViews = pages.map((p) =>
+		p.label === 'Dashboard'
+			? { ...p, href: '/' }
+			: p.label === 'Records'
+				? {
+						...p,
+						href: '/navigation',
+						children: views.map((v) => ({ href: v.href, label: v.label }))
+					}
+				: p
+	);
+
+	const PAGE_SIZE = 50;
+	const TOTAL = 36652;
+	let listPage = $state(3);
+	const listPages = Math.ceil(TOTAL / PAGE_SIZE);
 </script>
 
 <svelte:head><title>Navigation · Sorter design system</title></svelte:head>
@@ -58,6 +90,36 @@
 	<div class="w-full max-w-[24.375rem] rounded-panel bg-surface p-2">
 		<div class="overflow-hidden rounded-control bg-canvas">
 			<TopBar sticky={false} items={pages}>
+				{#snippet brand()}<Wordmark href="/navigation" />{/snippet}
+				{#snippet end()}<Badge tone="success" dot>Running</Badge>{/snippet}
+			</TopBar>
+			<div class="h-16"></div>
+		</div>
+	</div>
+</SiteSection>
+
+<SiteSection
+	title="A page with views"
+	lead="Records has an Overview, its Runs, its Pieces and its Incidents. They are the page's tabs, each a link with an address of its own, and the top bar's Records item lists them too: its name stays a link to the first, and the chevron beside it opens a menu of the views (the one you are on is checked). One list feeds both."
+>
+	<div class="rounded-panel bg-surface p-2">
+		<div class="overflow-hidden rounded-control bg-canvas">
+			<TopBar sticky={false} items={pagesWithViews}>
+				{#snippet brand()}<Wordmark href="/navigation" />{/snippet}
+				{#snippet end()}<Badge tone="success" dot>Running</Badge>{/snippet}
+			</TopBar>
+			<div class="px-6 pt-4">
+				<Tabs label="Records" value={view} items={views} />
+			</div>
+			<div class="h-16"></div>
+		</div>
+	</div>
+	<p class="max-w-2xl text-sm text-ink-muted">
+		Folded, the page is a group in the pages menu with its views under its name.
+	</p>
+	<div class="w-full max-w-[24.375rem] rounded-panel bg-surface p-2">
+		<div class="overflow-hidden rounded-control bg-canvas">
+			<TopBar sticky={false} items={pagesWithViews}>
 				{#snippet brand()}<Wordmark href="/navigation" />{/snippet}
 				{#snippet end()}<Badge tone="success" dot>Running</Badge>{/snippet}
 			</TopBar>
@@ -115,6 +177,29 @@
 				the profile has no bin for.{/if}
 		</p>
 	</Panel>
+</SiteSection>
+
+<SiteSection
+	title="Pager"
+	lead="Where you are in a long list: which of how many are shown, the first, previous, next and last page, and the page's number to type. One above the list and one under it, so the end of a long page is not a scroll back to the top. It holds no data; the app asks for another page."
+>
+	<Specimen
+		code={`<Pager label="Pieces" page={3} pages={734} from={101} to={150} total={36652}
+	noun="pieces" onpage={go} />`}
+	>
+		<div class="w-full">
+			<Pager
+				label="Pieces"
+				page={listPage}
+				pages={listPages}
+				from={(listPage - 1) * PAGE_SIZE + 1}
+				to={Math.min(listPage * PAGE_SIZE, TOTAL)}
+				total={TOTAL}
+				noun="pieces"
+				onpage={(n) => (listPage = n)}
+			/>
+		</div>
+	</Specimen>
 </SiteSection>
 
 <SiteSection

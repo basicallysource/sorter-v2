@@ -11,6 +11,11 @@ box around it to belong together.
   right what applies everywhere (the machine, its status, the profile). The
   current page's mark is as wide as the link and `--indicator` thick, and sits
   on the bar's line in place of it.
+- **A page with views of its own** (Records: Overview, Runs, Pieces,
+  Incidents) shows them twice, from one list: as the page's `Tabs` under its
+  title, each view a link with an address of its own, and in the top bar,
+  where a chevron beside the page's name opens the same views so one is a click
+  away from anywhere. The page's name stays a link to its first view.
 - **Light or dark is a setting**, never a control in the top bar: Settings >
   General on a machine, the account's settings on Hive, next to the primary
   color where there is one. It is chosen once, not reached for on every page.

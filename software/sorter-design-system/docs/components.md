@@ -197,14 +197,28 @@ layout; a fifth kind of message is a panel, not a new notice.
   "Sorter" or "Hive". Below the width where the pages and the right side fit
   side by side (`collapse`, 768px by default), the pages fold into one menu
   named for the current page. Nothing on the right switches light or dark:
-  that is a setting.
+  that is a setting. A page with views of its own lists them as `children`
+  (Records: Overview, Runs, Pieces, Incidents): its name stays a link to the
+  first view, and a chevron beside it opens a menu of the views, the current
+  one checked, so any view is one click away from every page. Folded, the page
+  is a group in the pages menu with its views under its name. The views are
+  the page's `Tabs` too; one list feeds both.
 - **`PageHeader`**: a page's title, its one sentence and its own actions,
   first in the page's column ([layout.md](layout.md#a-page)).
 - **`SideNav`**: the second level, a column on the surface plane.
 - **`Tabs`**: views of one thing, in a page or at the top of a flush panel.
   The current tab's mark replaces the bar's line under it. Arrow keys move
   between tabs. Tabs that do not fit scroll sideways without a scroll bar. The pages of the app are the top bar's and the side nav's,
-  not tabs.
+  not tabs. A view with an address of its own (so Back and a bookmark work) is
+  a link: give every item an `href` and the bar is a `nav` of links, the
+  current one marked by `value` and `aria-current`; Tab moves between them.
+- **`Pager`**: where you are in a long list and the way through it. "1–50 of
+  36,652 pieces", the first, previous, next and last page, and "Page 3 of
+  734" with the number to type. It holds no data; `onpage` asks the app for
+  another page, counted from 1. Put one above the list and one under it, so
+  the end of a long page is not a scroll back to the top, and keep the items
+  stable while someone pages (the list is fixed at the newest item when the
+  search starts, and says how many came after).
 
 ## Color
 
@@ -302,6 +316,17 @@ page shows both components on sample data.
   under the rows; a saved answer shows as the filled button, and "Sent" when
   it reached the recognizer. The app does the saving through callbacks and
   fetches the ranking when `onpicking` says the colors opened.
+- **`layout="compact"`** is the same three questions for a list of pieces,
+  where a block under every piece would stand taller than the piece. Three
+  short rows, the question and then its answer, one control tall each: about
+  100px and 24rem, put at a row's right side. "Part correct?" is the same Yes
+  and No; "Color correct?" shows the predicted color, Yes, and a button that
+  opens the likely colors in a popover (a pick is staged, Confirm saves it,
+  Cancel or a click outside closes it), which names the color once a different
+  one is saved; "Report an issue" is one button, "None" or "2 reported", that
+  opens the list of issues as switches. Nothing in the row changes its height
+  when it is used, so a list never jumps under the pointer. A warning shows
+  as an `Alert` under the rows.
 - **`ColorChoice`**: the likely colors as a compact grid of swatches with
   their names, best first (twelve by default, at least two to a row however
   narrow), then a search of every color by name or number. The search lists

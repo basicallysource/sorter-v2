@@ -36,6 +36,23 @@ _ZONE_NONE = 0
 _ZONE_DROP = 1
 _ZONE_EXIT = 2
 _ZONE_PRECISE = 3
+
+
+def _boxArea(po) -> float:
+    b = po.bbox
+    return max(0.0, float(b[2]) - float(b[0])) * max(0.0, float(b[3]) - float(b[1]))
+
+
+def _closePair(drop: list) -> Optional[tuple]:
+    """Two boxes of a similar size within _PAIR_DEG of each other, or None."""
+    for i, a in enumerate(drop):
+        for b in drop[i + 1:]:
+            if abs(float(a.com_forward_to_exit_deg) - float(b.com_forward_to_exit_deg)) > _PAIR_DEG:
+                continue
+            small, big = sorted((_boxArea(a), _boxArea(b)))
+            if big > 0 and small >= _PAIR_MIN_AREA_FRAC * big:
+                return (a, b)
+    return None
 # (2 = exit / the fall-off, 3 = precise / the holding region; the queue only
 # branches on DROP vs not-DROP — "left the drop zone" is what matters for it.)
 
@@ -116,6 +133,25 @@ _SAME_PIECE_DEG = 8.0
 _LATE_ARRIVAL_CONFIRM_S = 0.1
 _LATE_LANDING_SLACK_DEG = 40.0
 _LATE_ARRIVAL_MAX_GAP_DEG = 280.0
+
+# Two pieces from one feed that land touching are fused into one box by the
+# camera's merge of nearby boxes (one piece is often drawn as several), often
+# from the very next frame, and tracked and photographed as one piece. The
+# frame they land in can still show them apart: two boxes of a similar size
+# (the smaller at least _PAIR_MIN_AREA_FRAC of the larger) within _PAIR_DEG of
+# each other in the drop zone while the channel stands still. One such frame
+# makes every piece there a double feed, and so does a piece that lands within
+# _PAIR_FOLLOW_S after it (the fused box often gets its id a few frames later).
+_PAIR_DEG = 25.0
+_PAIR_MIN_AREA_FRAC = 0.3
+_PAIR_FOLLOW_S = 1.0
+# A second piece that lands against the one in the drop zone is fused into its
+# box: the box grows. Measured from _GROW_SETTLE_S after the piece appeared
+# (it has stopped bouncing), against the median of its first three readings
+# at rest; _GROW_FACTOR in _GROW_FRAMES readings makes it a double feed.
+_GROW_SETTLE_S = 0.25
+_GROW_FACTOR = 1.6
+_GROW_FRAMES = 2
 
 # No turn brings a waiting piece (one not being ejected) closer to the exit than
 # this, so it can't drop into the bin the chute is aimed at for another piece.
@@ -202,6 +238,9 @@ class _TrackedPiece:
         # Where it was first seen, as gap_to_exit: where it landed, for a piece
         # the feeder dropped (see _LATE_ARRIVAL_MAX_GAP_DEG).
         self.first_gap: Optional[float] = None
+        # Its box's area in each frame at rest in the drop zone, once settled
+        # (see _GROW_FACTOR).
+        self.rest_areas: list[float] = []
 
     @property
     def known_object(self) -> Optional[KnownObject]:
@@ -293,6 +332,10 @@ class TwoPieceClassificationChannel(Rev01BaseState):
         self._multi_drop_last_ts = -1.0
         # Monotonic counter for multi_drop_group ids; advanced once per new clump.
         self._multi_drop_seq = 0
+        # A pair seen landing in the drop zone (see _PAIR_DEG): until when a
+        # piece that lands still joins it, and its multi_drop_group.
+        self._pair_until = 0.0
+        self._pair_group: Optional[int] = None
         # Eject cycles for which distribution must keep every door open because a
         # multi-drop piece we never routed is probably still on the platter. It
         # will fall the next time the channel turns, and we cannot see where it
@@ -566,6 +609,7 @@ class TwoPieceClassificationChannel(Rev01BaseState):
         self._retireGonePieces(now)
         self._expireLost(now)
         self._flagLateArrivals(now)
+        self._flagCloseLandings(state, now, created)
         self._flagDoubleFeeds(state)
 
     def _createPiece(self, track_id: int, now: float) -> _TrackedPiece:
@@ -779,6 +823,71 @@ class TwoPieceClassificationChannel(Rev01BaseState):
                 f"was being turned off the drop zone (the feeder had not asked for a piece), so it "
                 f"was never photographed alone; both went to misc as a double feed.",
             )
+
+    def _flagCloseLandings(self, state, now: float, created: list) -> None:
+        """Two pieces seen landing side by side, for even one frame, while the
+        channel stands still (see _PAIR_DEG)."""
+        stepper = getattr(self.irl, "carousel_stepper", None)
+        if self._phase != _Phase.WAITING or not bool(getattr(stepper, "stopped", True)):
+            # Sizes are only compared at rest: a turn shows a piece from a new
+            # angle, so its readings start over.
+            for tp in self._pieces.values():
+                tp.rest_areas.clear()
+            return
+        drop = [
+            po
+            for po in getattr(state, "pieces", ())
+            if int(po.zone_code) == _ZONE_DROP and po.com_forward_to_exit_deg is not None
+        ]
+        pair = _closePair(drop)
+        if pair is not None:
+            if now > self._pair_until or self._pair_group is None:
+                self._multi_drop_seq += 1
+                self._pair_group = self._multi_drop_seq
+            self._pair_until = now + _PAIR_FOLLOW_S
+            gaps = [float(po.com_forward_to_exit_deg) for po in pair]
+            for tp in list(self._pieces.values()):
+                if tp.zone != _ZONE_DROP or tp.double_feed or tp.gap_to_exit is None:
+                    continue
+                if min(abs(float(tp.gap_to_exit) - g) for g in gaps) <= _PAIR_DEG:
+                    self._markCloseLanding(tp)
+        elif now <= self._pair_until:
+            for tp in created:
+                if tp.zone == _ZONE_DROP and not tp.double_feed:
+                    self._markCloseLanding(tp)
+        for tp in list(self._pieces.values()):
+            if tp.zone != _ZONE_DROP or tp.double_feed or tp.last_seen != now:
+                continue
+            if now - tp.created_at < _GROW_SETTLE_S:
+                continue
+            b = tp.bbox
+            tp.rest_areas.append(max(0.0, float(b[2] - b[0])) * max(0.0, float(b[3] - b[1])))
+            if len(tp.rest_areas) <= 3:
+                continue
+            settled = sorted(tp.rest_areas[:3])[1]
+            grown = [a for a in tp.rest_areas[3:] if settled > 0 and a >= _GROW_FACTOR * settled]
+            if len(grown) >= _GROW_FRAMES:
+                if self._pair_group is None or now > self._pair_until:
+                    self._multi_drop_seq += 1
+                    self._pair_group = self._multi_drop_seq
+                self._markDoubleFeed(
+                    tp,
+                    self._pair_group,
+                    "double_feed",
+                    f"Another piece landed against it while it sat in the drop zone (its box "
+                    f"grew to {max(grown) / settled:.1f} times its size), so it could not be "
+                    f"photographed alone; it went to misc as a double feed.",
+                )
+
+    def _markCloseLanding(self, tp: _TrackedPiece) -> None:
+        self._markDoubleFeed(
+            tp,
+            self._pair_group if self._pair_group is not None else 0,
+            "double_feed",
+            "Landed touching another piece: the camera saw two pieces side by side "
+            "before it took them for one, so it could not be photographed alone; it "
+            "went to misc as a double feed.",
+        )
 
     def _flagDoubleFeeds(self, state) -> None:
         # Only pieces seen in this frame count. A piece that bounces as it lands

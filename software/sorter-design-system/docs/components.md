@@ -40,7 +40,9 @@ the example app shows them together.
   right-aligned in tabular figures. `size="lg"` is 44px, for a touch screen.
   `bind:element` gives the `<input>` itself, to focus it from code, and every
   other attribute (`id`, `name`, `autocomplete`, `required`, `onkeydown`)
-  goes on it; `class` goes on the field's edge.
+  goes on it; `class` goes on the field's edge. `type="date"` is a day, picked
+  with the browser's own calendar; empty, it is drawn faint like a placeholder,
+  because some browsers show today's date in an empty one.
 - **`Select`**: one choice from a list, in our own list rather than the
   browser's ([overlays.md](overlays.md)). `label` names it when no `<label>`
   points at it. `class` goes on a wrapper, so `class="w-44"` sizes it. In a

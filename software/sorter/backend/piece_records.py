@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 import sqlite3
 import threading
 import time
@@ -196,6 +197,17 @@ def _createTables(conn: sqlite3.Connection) -> None:
     conn.execute(
         "CREATE INDEX IF NOT EXISTS idx_piece_records_training_run "
         "ON piece_records(training_run_id) WHERE training_run_id IS NOT NULL"
+    )
+    # The records list filtered by a bin, and by whether the operator has
+    # reviewed the piece: each walks its own index in id order, so a page is
+    # read without scanning the table (see listPieces).
+    conn.execute(
+        "CREATE INDEX IF NOT EXISTS idx_piece_records_bin "
+        "ON piece_records(bin_x, bin_y, bin_z)"
+    )
+    conn.execute(
+        "CREATE INDEX IF NOT EXISTS idx_piece_records_reviewed "
+        "ON piece_records(id) WHERE correction_updated_at IS NOT NULL"
     )
     import training_runs
 
@@ -588,6 +600,22 @@ def _rowToSummary(gc: Any, row: sqlite3.Row) -> dict[str, Any]:
     }
 
 
+# What a search may name, in one place: a piece is found by its part number
+# (from the start), its part's name or its colour's name (anywhere in it), or
+# its uuid (from the start, the way the piece's page shows it).
+_MAX_SEARCH_TERMS = 5
+_UUID_FRAGMENT = re.compile(r"[0-9a-f-]{4,}")
+
+
+def _searchTerms(query: Optional[str]) -> list[str]:
+    return (query or "").split()[:_MAX_SEARCH_TERMS]
+
+
+def _like(term: str, *, start_only: bool) -> str:
+    escaped = term.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+    return f"{escaped}%" if start_only else f"%{escaped}%"
+
+
 def _buildFilters(
     *,
     status: Optional[list[str]] = None,
@@ -597,6 +625,10 @@ def _buildFilters(
     dead: Optional[bool] = None,
     date_from: Optional[float] = None,
     date_to: Optional[float] = None,
+    query: Optional[str] = None,
+    bin_ref: Optional[tuple[int, int, int]] = None,
+    seen_ranges: Optional[list[tuple[float, Optional[float]]]] = None,
+    reviewed: Optional[bool] = None,
 ) -> tuple[list[str], list[Any]]:
     clauses: list[str] = []
     params: list[Any] = []
@@ -622,6 +654,39 @@ def _buildFilters(
     if date_to is not None:
         clauses.append("seen_at <= ?")
         params.append(float(date_to))
+    for term in _searchTerms(query):
+        # Every term must match something, so "plate lime" finds lime plates.
+        ways = ["part_id LIKE ? ESCAPE '\\'", "part_name LIKE ? ESCAPE '\\'", "color_name LIKE ? ESCAPE '\\'"]
+        values = [_like(term, start_only=True), _like(term, start_only=False), _like(term, start_only=False)]
+        if _UUID_FRAGMENT.fullmatch(term.lower()):
+            ways.append("uuid LIKE ? ESCAPE '\\'")
+            values.append(_like(term, start_only=True))
+        clauses.append("(" + " OR ".join(ways) + ")")
+        params.extend(values)
+    if bin_ref is not None:
+        clauses.append("(bin_x = ? AND bin_y = ? AND bin_z = ?)")
+        params.extend(bin_ref)
+    if seen_ranges is not None:
+        # The stretches of time of a sorting run, or of a lot's runs. None is no
+        # filter; an empty list is a filter that nothing passes.
+        if not seen_ranges:
+            clauses.append("0")
+        else:
+            spans: list[str] = []
+            for start, end in seen_ranges:
+                if end is None:
+                    spans.append("seen_at >= ?")
+                    params.append(float(start))
+                else:
+                    spans.append("(seen_at >= ? AND seen_at < ?)")
+                    params.extend([float(start), float(end)])
+            clauses.append("(" + " OR ".join(spans) + ")")
+    if reviewed is not None:
+        # The operator has answered a question about the piece (the part, the
+        # color or an issue): every answer stamps correction_updated_at.
+        clauses.append(
+            "correction_updated_at IS NOT NULL" if reviewed else "correction_updated_at IS NULL"
+        )
     return clauses, params
 
 
@@ -630,6 +695,8 @@ def listPieces(
     *,
     limit: int = 100,
     cursor: Optional[int] = None,
+    offset: Optional[int] = None,
+    anchor: Optional[int] = None,
     status: Optional[list[str]] = None,
     part_id: Optional[str] = None,
     color_id: Optional[str] = None,
@@ -637,12 +704,27 @@ def listPieces(
     dead: Optional[bool] = None,
     date_from: Optional[float] = None,
     date_to: Optional[float] = None,
+    query: Optional[str] = None,
+    bin_ref: Optional[tuple[int, int, int]] = None,
+    seen_ranges: Optional[list[tuple[float, Optional[float]]]] = None,
+    reviewed: Optional[bool] = None,
     sort: str = "recent",
 ) -> dict[str, Any]:
-    # Keyset pagination on the autoincrement id: non-null, unique, and ≈
-    # recording order — unlike seen_at, which is nullable (NULL rows would
-    # silently vanish from a seen_at-keyed cursor).
-    limit = max(1, min(limit, 200))
+    """One page of the records, newest first (or oldest first), of the pieces that
+    match the filters.
+
+    A listing is cut at an anchor: the newest id when the first page is asked for
+    (the answer names it), and the same one in every later request, so the pieces
+    the machine records meanwhile are never in it. `total` is what the listing
+    holds and `newer` how many matching pieces came after it.
+
+    Pages are keyset pages on the autoincrement id (non-null, unique and in
+    recording order, unlike seen_at, which is nullable): `next_cursor` starts the
+    next page after the last id of this one, so a piece changed while someone
+    pages never makes the next page skip or repeat one. `offset`, from the start
+    of the listing, reads a page that was not walked to (a jump, or an address
+    restored); it is not combined with a cursor. `limit` 0 reads only the counts."""
+    limit = max(0, min(limit, 200))
     clauses, params = _buildFilters(
         status=status,
         part_id=part_id,
@@ -651,29 +733,66 @@ def listPieces(
         dead=dead,
         date_from=date_from,
         date_to=date_to,
+        query=query,
+        bin_ref=bin_ref,
+        seen_ranges=seen_ranges,
+        reviewed=reviewed,
     )
-    where = (" WHERE " + " AND ".join(clauses)) if clauses else ""
-    page_clauses = list(clauses)
-    page_params = list(params)
-    if cursor is not None:
-        page_clauses.append("id < ?" if sort == "recent" else "id > ?")
-        page_params.append(int(cursor))
-    page_where = (" WHERE " + " AND ".join(page_clauses)) if page_clauses else ""
-    order = "id DESC" if sort == "recent" else "id ASC"
+    ascending = sort != "recent"
+    order = "id ASC" if ascending else "id DESC"
+
+    def where(extra: list[str], extra_params: list[Any]) -> tuple[str, list[Any]]:
+        every = clauses + extra
+        return ((" WHERE " + " AND ".join(every)) if every else ""), params + extra_params
+
     with _connection() as conn:
-        total_row = conn.execute(
-            f"SELECT COUNT(*) AS c FROM piece_records{where}", params
-        ).fetchone()
-        total = int(total_row["c"] or 0)
-        rows = conn.execute(
-            f"{_SUMMARY_SELECT}{page_where} ORDER BY {order} LIMIT ?",
-            page_params + [limit + 1],
-        ).fetchall()
-    has_more = len(rows) > limit
-    rows = rows[:limit]
-    items = [_rowToSummary(gc, r) for r in rows]
-    next_cursor = str(rows[-1]["id"]) if has_more and rows else None
-    return {"items": items, "next_cursor": next_cursor, "total": total}
+        newest = int(conn.execute("SELECT COALESCE(MAX(id), 0) FROM piece_records").fetchone()[0])
+        anchor_id = newest if anchor is None else int(anchor)
+
+        within, within_params = where(["id <= ?"], [anchor_id])
+        total = int(
+            conn.execute(f"SELECT COUNT(*) FROM piece_records{within}", within_params).fetchone()[0]
+        )
+        after, after_params = where(["id > ?"], [anchor_id])
+        newer = int(
+            conn.execute(f"SELECT COUNT(*) FROM piece_records{after}", after_params).fetchone()[0]
+        )
+
+        ids: list[int] = []
+        has_more = False
+        if limit > 0:
+            page_extra = ["id <= ?"]
+            page_params: list[Any] = [anchor_id]
+            skip = 0
+            if cursor is not None:
+                page_extra.append("id > ?" if ascending else "id < ?")
+                page_params.append(int(cursor))
+            elif offset:
+                skip = max(0, int(offset))
+            page_where, all_params = where(page_extra, page_params)
+            # The ids first, then the rows of those ids: the summary's
+            # subqueries (images, issues) run for the page, not for every row
+            # the filters pass.
+            found = conn.execute(
+                f"SELECT id FROM piece_records{page_where} ORDER BY {order} LIMIT ? OFFSET ?",
+                all_params + [limit + 1, skip],
+            ).fetchall()
+            ids = [int(r[0]) for r in found]
+            has_more = len(ids) > limit
+            ids = ids[:limit]
+        rows = []
+        if ids:
+            placeholders = ", ".join("?" for _ in ids)
+            rows = conn.execute(
+                f"{_SUMMARY_SELECT} WHERE id IN ({placeholders}) ORDER BY {order}", ids
+            ).fetchall()
+    return {
+        "items": [_rowToSummary(gc, r) for r in rows],
+        "next_cursor": str(ids[-1]) if has_more and ids else None,
+        "total": total,
+        "anchor": anchor_id,
+        "newer": newer,
+    }
 
 
 def getPieceSummaryByUuid(gc: Any, uuid_val: str) -> Optional[dict[str, Any]]:
@@ -689,6 +808,7 @@ def getPieceSummaryByUuid(gc: Any, uuid_val: str) -> Optional[dict[str, Any]]:
 def iterPieceSummaries(
     gc: Any,
     *,
+    anchor: Optional[int] = None,
     status: Optional[list[str]] = None,
     part_id: Optional[str] = None,
     color_id: Optional[str] = None,
@@ -696,12 +816,16 @@ def iterPieceSummaries(
     dead: Optional[bool] = None,
     date_from: Optional[float] = None,
     date_to: Optional[float] = None,
+    query: Optional[str] = None,
+    bin_ref: Optional[tuple[int, int, int]] = None,
+    seen_ranges: Optional[list[tuple[float, Optional[float]]]] = None,
+    reviewed: Optional[bool] = None,
     sort: str = "recent",
     chunk_size: int = 1000,
 ) -> Iterator[dict[str, Any]]:
     # Full filtered export: keyset chunks on a short-lived connection each, so
     # a multi-minute CSV download never pins one read transaction open against
-    # the live write path.
+    # the live write path. The same filters and anchor as the list it exports.
     clauses, params = _buildFilters(
         status=status,
         part_id=part_id,
@@ -710,7 +834,14 @@ def iterPieceSummaries(
         dead=dead,
         date_from=date_from,
         date_to=date_to,
+        query=query,
+        bin_ref=bin_ref,
+        seen_ranges=seen_ranges,
+        reviewed=reviewed,
     )
+    if anchor is not None:
+        clauses.append("id <= ?")
+        params.append(int(anchor))
     order = "id DESC" if sort == "recent" else "id ASC"
     cursor_id: Optional[int] = None
     while True:

@@ -53,6 +53,7 @@ import piece_predictions
 import piece_records
 import control_data_store
 import sample_store
+import sorting_runs
 import training_runs
 from hive_telemetry import HiveTelemetryClient, TelemetryBlocked, getTargetTelemetrySettings, telemetryAllows
 from local_state import get_hive_config
@@ -66,12 +67,16 @@ DATA_TYPE_SAMPLES = "samples"
 DATA_TYPE_CROPS = "channel_crops"
 DATA_TYPE_CONTROL_DATA = "control_data_segments"
 DATA_TYPE_TRAINING_RUNS = "training_runs"
+# Lots and sorting runs: sent whole when they change; Hive keeps the set's
+# version as this type's state.
+DATA_TYPE_SORTING_RUNS = "sorting_runs"
 # Leg order. Samples (a few a minute) go before crops, which can hold a backlog
 # of tens of thousands.
 DATA_TYPES = (
     DATA_TYPE_RECORDS,
     DATA_TYPE_PREDICTIONS,
     DATA_TYPE_TRAINING_RUNS,
+    DATA_TYPE_SORTING_RUNS,
     DATA_TYPE_IMAGES,
     DATA_TYPE_SAMPLES,
     DATA_TYPE_CROPS,
@@ -83,6 +88,7 @@ TELEMETRY_FIELD = {
     DATA_TYPE_RECORDS: "piece_metadata",
     DATA_TYPE_PREDICTIONS: "piece_metadata",
     DATA_TYPE_TRAINING_RUNS: "piece_metadata",
+    DATA_TYPE_SORTING_RUNS: "piece_metadata",
     DATA_TYPE_IMAGES: "detection_images",
     DATA_TYPE_SAMPLES: "full_frames",
     DATA_TYPE_CROPS: "upstream_channel_crops",
@@ -537,6 +543,7 @@ class _TargetSyncer:
             (DATA_TYPE_RECORDS, self._drainRecords),
             (DATA_TYPE_PREDICTIONS, self._drainPredictions),
             (DATA_TYPE_TRAINING_RUNS, self._drainTrainingRuns),
+            (DATA_TYPE_SORTING_RUNS, self._drainSortingRuns),
             (DATA_TYPE_IMAGES, self._drainImages),
             (DATA_TYPE_SAMPLES, self._drainSamples),
             (DATA_TYPE_CROPS, self._drainChannelCrops),
@@ -639,6 +646,17 @@ class _TargetSyncer:
         with self._gate.slot():
             new_max = self._client.pushPiecePredictions([_predictionToPayload(r) for r in rows])
         self._advance(DATA_TYPE_PREDICTIONS, new_max, rows[-1]["id"])
+        return True
+
+    def _drainSortingRuns(self) -> bool:
+        """Lots and sorting runs go whole, when their set is not the one Hive
+        keeps (its version is this type's state)."""
+        sorting_set = sorting_runs.syncSet()
+        if sorting_set["version"] == int(self._wm[DATA_TYPE_SORTING_RUNS] or 0):
+            return False
+        with self._gate.slot():
+            kept = self._client.pushSortingRuns(sorting_set)
+        self._wm[DATA_TYPE_SORTING_RUNS] = kept
         return True
 
     def _drainTrainingRuns(self) -> bool:

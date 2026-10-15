@@ -199,7 +199,19 @@
 							<td>{@render lotBadge(run)}</td>
 							<td class="num text-ink-muted">{when(run.started_at)}</td>
 							<td class="num text-ink-muted">{when(run.ended_at)}</td>
-							<td class="num">{run.pieces.toLocaleString()}</td>
+							<td class="num">
+								{#if run.pieces > 0}
+									<a
+										href={`/records/pieces?run=${run.id}`}
+										class="text-primary-ink hover:underline"
+										title="Show this run's pieces"
+									>
+										{run.pieces.toLocaleString()}
+									</a>
+								{:else}
+									<span class="text-ink-muted">0</span>
+								{/if}
+							</td>
 							<td class="text-right">
 								<Button
 									size="sm"
@@ -242,7 +254,19 @@
 									{lot.name}
 								</button>
 							</td>
-							<td class="num">{lot.pieces.toLocaleString()}</td>
+							<td class="num">
+								{#if lot.pieces > 0}
+									<a
+										href={`/records/pieces?lot=${lot.id}`}
+										class="text-primary-ink hover:underline"
+										title="Show this lot's pieces"
+									>
+										{lot.pieces.toLocaleString()}
+									</a>
+								{:else}
+									<span class="text-ink-muted">0</span>
+								{/if}
+							</td>
 							<td class="num text-ink-muted">{lot.runs}</td>
 							<td class="num text-ink-muted">{lot.passes}</td>
 						</tr>
@@ -273,7 +297,11 @@
 		<Field label="Name" for="run-name">
 			<Input id="run-name" bind:value={formName} />
 		</Field>
-		<Field label="Lot" for="run-lot" info="The pieces this run puts through: a box you bought, an order, a collection.">
+		<Field
+			label="Lot"
+			for="run-lot"
+			info="The pieces this run puts through: a box you bought, an order, a collection."
+		>
 			<Select id="run-lot" bind:value={formLot} options={lotOptions} />
 		</Field>
 		{#if formLot === NEW_LOT}

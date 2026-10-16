@@ -686,6 +686,46 @@ Slot the Cable cage top over the Top interface chute mount, with the corners of 
 
 Screw the Cable cage bracket (cable mount) to the tail end of the Interface bracket opposite the Limit switch housing, using an {% include fastener.html size="M5" variant="socket-button" length="30" %} screw into the M5 heat insert. This clamps the Cable cage top firmly in place.
 
+<figure class="diagram diagram-inline">
+    <svg viewBox="0 0 660 350" width="620" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Two top-down hexagon diagrams of the top interface, each with the NEMA 23 stepper on a flat side, the limit switch bracket on the corner two round from it and the cable mount bracket on the corner straight across from the limit switch. Left, looking at the underside of the plate while you build: the stepper is on the left, so the limit switch is at the top and the cable mount at the bottom. Right, looking down on the finished machine: the same layout mirrored, with the stepper on the right.">
+      <text x="175" y="49" text-anchor="middle" font-size="13" font-weight="700" fill="var(--ink)">While you build</text>
+      <text x="175" y="65" text-anchor="middle" font-size="11" fill="var(--muted)">looking at the underside of the plate</text>
+      <polygon points="175.0,113.0 95.3,159.0 95.3,251.0 175.0,297.0 254.7,251.0 254.7,159.0" fill="var(--surface)" stroke="var(--ink)" stroke-width="1.6"/>
+      <circle cx="175" cy="205" r="34" fill="var(--bg)" stroke="var(--muted)" stroke-width="1.4"/>
+      <text x="175" y="209" text-anchor="middle" font-size="11" fill="var(--muted)">chute</text>
+      <line x1="175.0" y1="123.0" x2="175.0" y2="287.0" stroke="var(--muted)" stroke-width="1" stroke-dasharray="4 4"/>
+      <circle cx="95.3" cy="159.0" r="5" fill="var(--bg)" stroke="var(--ink)" stroke-width="1.4"/>
+      <circle cx="95.3" cy="251.0" r="5" fill="var(--bg)" stroke="var(--ink)" stroke-width="1.4"/>
+      <circle cx="254.7" cy="251.0" r="5" fill="var(--bg)" stroke="var(--ink)" stroke-width="1.4"/>
+      <circle cx="254.7" cy="159.0" r="5" fill="var(--bg)" stroke="var(--ink)" stroke-width="1.4"/>
+      <rect x="167.0" y="105.0" width="16" height="16" fill="var(--primary)" stroke="var(--ink)" stroke-width="1.4"/>
+      <text x="175.0" y="97.0" text-anchor="middle" font-size="12" font-weight="700" fill="var(--primary)">Limit switch</text>
+      <polygon points="175.0,287.0 185.0,297.0 175.0,307.0 165.0,297.0" fill="#0055bf" stroke="var(--ink)" stroke-width="1.4"/>
+      <text x="175.0" y="323.0" text-anchor="middle" font-size="12" font-weight="700" fill="#0055bf">Cable mount</text>
+      <rect x="63.3" y="183.0" width="30" height="44" rx="3" fill="var(--ink)"/>
+      <text x="55.3" y="209" text-anchor="end" font-size="12" font-weight="700" fill="var(--ink)">Stepper</text>
+      <text x="495" y="49" text-anchor="middle" font-size="13" font-weight="700" fill="var(--ink)">On the machine</text>
+      <text x="495" y="65" text-anchor="middle" font-size="11" fill="var(--muted)">looking down from above</text>
+      <polygon points="495.0,113.0 415.3,159.0 415.3,251.0 495.0,297.0 574.7,251.0 574.7,159.0" fill="var(--surface)" stroke="var(--ink)" stroke-width="1.6"/>
+      <circle cx="495" cy="205" r="34" fill="var(--bg)" stroke="var(--muted)" stroke-width="1.4"/>
+      <text x="495" y="209" text-anchor="middle" font-size="11" fill="var(--muted)">chute</text>
+      <line x1="495.0" y1="123.0" x2="495.0" y2="287.0" stroke="var(--muted)" stroke-width="1" stroke-dasharray="4 4"/>
+      <circle cx="415.3" cy="159.0" r="5" fill="var(--bg)" stroke="var(--ink)" stroke-width="1.4"/>
+      <circle cx="415.3" cy="251.0" r="5" fill="var(--bg)" stroke="var(--ink)" stroke-width="1.4"/>
+      <circle cx="574.7" cy="251.0" r="5" fill="var(--bg)" stroke="var(--ink)" stroke-width="1.4"/>
+      <circle cx="574.7" cy="159.0" r="5" fill="var(--bg)" stroke="var(--ink)" stroke-width="1.4"/>
+      <rect x="487.0" y="105.0" width="16" height="16" fill="var(--primary)" stroke="var(--ink)" stroke-width="1.4"/>
+      <text x="495.0" y="97.0" text-anchor="middle" font-size="12" font-weight="700" fill="var(--primary)">Limit switch</text>
+      <polygon points="495.0,287.0 505.0,297.0 495.0,307.0 485.0,297.0" fill="#0055bf" stroke="var(--ink)" stroke-width="1.4"/>
+      <text x="495.0" y="323.0" text-anchor="middle" font-size="12" font-weight="700" fill="#0055bf">Cable mount</text>
+      <rect x="576.7" y="183.0" width="30" height="44" rx="3" fill="var(--ink)"/>
+      <text x="614.7" y="209" text-anchor="start" font-size="12" font-weight="700" fill="var(--ink)">Stepper</text>
+    </svg>
+
+
+  <figcaption>The cable mount bracket goes on the corner straight across from the limit switch bracket, and the limit switch bracket is the second corner round from the stepper. Looking at the underside, as the build video and most build photos do, the limit switch is clockwise of the stepper. From above, as the <a href="{{ '/hardware/electronics/installation/' | relative_url }}">electronics layout</a> is drawn, it is counter-clockwise.</figcaption>
+</figure>
+
 Screw the remaining Cable cage brackets to the other 5 corners of the Cable cage top with {% include fastener.html size="M5" variant="socket-button" length="30" %} screws.
 
 <div class="callout callout-warning">

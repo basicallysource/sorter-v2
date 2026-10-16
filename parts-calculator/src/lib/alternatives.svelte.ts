@@ -33,6 +33,13 @@ export const ALTERNATIVES: Alternative[] = [
 	}
 ];
 
+/** The alternative an assembly is one option of, if any. A page keys things it
+ *  remembers about a row (open or closed) on this rather than on the assembly,
+ *  so they survive switching the option. */
+export function alternativeOf(assembly: string): string | undefined {
+	return ALTERNATIVES.find((a) => a.options.some((o) => o.assembly === assembly))?.id;
+}
+
 const KEY = 'sorter-alternatives-v1';
 
 /** The option id chosen for each alternative; the first option is the default. */

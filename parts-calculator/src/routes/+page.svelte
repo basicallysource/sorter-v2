@@ -45,6 +45,7 @@
 	import { loadConfig, saveConfig, clearConfig } from '$lib/config';
 	import BuildOptions from '$lib/components/BuildOptions.svelte';
 	import AlternativeSwitch from '$lib/components/AlternativeSwitch.svelte';
+	import { alternativeOf } from '$lib/alternatives.svelte';
 	import { layerStore, setSizes } from '$lib/layers.svelte';
 	import { colorStore, defaultRoleColors, resetRoleColors } from '$lib/colors.svelte';
 	import SearchField from '$lib/components/search/SearchField.svelte';
@@ -815,7 +816,7 @@
 									{@const a = getAssembly(block.id)}
 									{@const folder = getFolder(block.id)}
 									{@const group = block.groupKind === 'folder' ? folder : a}
-									{@const k = asmKey(section.id, `${block.groupKind}:${block.id}`)}
+									{@const k = asmKey(section.id, `${block.groupKind}:${(block.groupKind === 'assembly' && alternativeOf(block.id)) || block.id}`)}
 									{@const open = expandedAsm[k] || filtering}
 									{@const allOn = asmAllOn(block.parts)}
 									<!-- svelte-ignore a11y_no_noninteractive_element_interactions a11y_click_events_have_key_events -->

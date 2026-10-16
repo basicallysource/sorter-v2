@@ -15,7 +15,7 @@
 	import OptionalBadge from '$lib/components/OptionalBadge.svelte';
 	import ConflictBadge from '$lib/components/ConflictBadge.svelte';
 	import Callout from '$lib/components/Callout.svelte';
-	import LayerControl from '$lib/components/LayerControl.svelte';
+	import BuildOptions from '$lib/components/BuildOptions.svelte';
 	import HardwareDetailModal from '$lib/components/HardwareDetailModal.svelte';
 	import ChangeStatus from '$lib/components/ChangeStatus.svelte';
 	import SearchField from '$lib/components/search/SearchField.svelte';
@@ -490,7 +490,7 @@
 		</Callout>
 	</div>
 
-	<div class="mb-6"><LayerControl /></div>
+	<div class="mb-6"><BuildOptions /></div>
 
 	<div class="grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_320px]">
 		<!-- LEFT: one vertical list, grouped by category -->

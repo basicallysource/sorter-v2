@@ -30506,10 +30506,10 @@
 			},
 			"name": "Orange Pi 5",
 			"category": "Computer",
-			"description": "The computer that runs the machine's software. Buy the Orange Pi 5, 8 GB: SorterOS, the ready-made image, is built for it. A Raspberry Pi 5 also works, but it needs the manual Linux install instead of the ready-made image.",
-			"note": "Buy the plain Orange Pi 5, 8 GB. The 5 Plus, 5 Pro, 5 Max and 5 Ultra are separate boards rather than options on this one: none of them share its mounting-hole pattern, so the printed housing's posts do not line up, and the WiFi module listed in this catalog fits the plain 5 only. The 5B is not supported either: it does fit the housing's posts, but SorterOS is built from the plain 5's image and there is no 5B build.",
+			"description": "The computer that runs the machine's software. Buy the Orange Pi 5, 8 GB: SorterOS, the ready-made image, is built for it. The Orange Pi 5 Pro, Max or Ultra also fits, in its own printed housing, but SorterOS has no released image for those boards yet. A Raspberry Pi 5 also works, but it needs the manual Linux install instead of the ready-made image.",
+			"note": "Buy the plain Orange Pi 5, 8 GB, unless you are building the Orange Pi 5 Pro housing. The 5 Pro, 5 Max and 5 Ultra have a different mounting-hole pattern from this board and take that housing instead; the 5 Plus is a separate board that neither housing fits. The WiFi module listed in this catalog fits the plain 5 only. The 5B is not supported: it does fit the housing's posts, but SorterOS is built from the plain 5's image and there is no 5B build.",
 			"created_at": "2026-07-18",
-			"updated_at": "2026-10-02",
+			"updated_at": "2026-10-16",
 			"attributes": [
 				{
 					"label": "Memory",
@@ -30545,11 +30545,11 @@
 				},
 				{
 					"label": "Board",
-					"value": "100 \u00d7 62 mm, 46 g. Its four mounting holes sit on a roughly 95 \u00d7 56 mm rectangle, which is what the printed extrusion mount is drilled for."
+					"value": "100 \u00d7 62 mm, 46 g. Its four mounting holes sit on a roughly 95 \u00d7 56 mm rectangle, which is what the Orange Pi housing's base is drilled for."
 				},
 				{
 					"label": "Variants",
-					"value": "The 5 Pro, 5 Max and 5 Ultra are 89 mm wide boards with their mounting holes on a 58 \u00d7 49 mm rectangle; the 5 Plus is a 100 \u00d7 75 mm RK3588 board. The 5 Pro has Wi-Fi 5 on board and the 5 Plus takes a 2230 E-key module, while this catalog's WiFi module is M-key and fits the plain 5 only. The 5B is the same board as the plain 5 with Wi-Fi 6 and eMMC added and the M.2 slot removed, so it does fit the mount, but SorterOS has no build for it."
+					"value": "The 5 Pro, 5 Max and 5 Ultra are 89 mm wide boards with their mounting holes on a 58 \u00d7 49 mm rectangle, which the Orange Pi 5 Pro housing is drilled for. The 5 Plus is a 100 \u00d7 75 mm RK3588 board that neither housing fits. The 5 Pro has Wi-Fi 5 on board and the 5 Plus takes a 2230 E-key module, while this catalog's WiFi module is M-key and fits the plain 5 only. The 5B is the same board as the plain 5 with Wi-Fi 6 and eMMC added and the M.2 slot removed, so it does fit the Orange Pi housing, but SorterOS has no build for it."
 				},
 				{
 					"label": "OS",
@@ -30584,7 +30584,7 @@
 					}
 				]
 			},
-			"alternative": null,
+			"alternative": "The Orange Pi 5 Pro, Max or Ultra, built into the [[docs:/hardware/electronics/installation/orange-pi-mount/|Orange Pi 5 Pro housing]]. SorterOS has no released image for them yet.",
 			"caption": null,
 			"docs_page": null,
 			"conflicts": null,

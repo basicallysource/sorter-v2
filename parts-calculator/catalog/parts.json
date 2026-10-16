@@ -17389,6 +17389,11 @@
       "docs": "/hardware/electronics/installation/orange-pi-mount/",
       "images": [
         {
+          "url": "https://assets.basically.website/sorter-parts/orange-pi-pro-housing-with-hub-render-full-669b3d199c7e.png",
+          "alt": "Render of the Orange Pi 5 Pro housing with the USB hub and the buck converter clamped to its roof, their cables and the board's USB leads running off the box, and the WiFi antenna standing in its cap on the long wall",
+          "caption": "The housing with the hub and the buck converter on its roof. Rendered from the CAD, not from a build."
+        },
+        {
           "url": "https://assets.basically.website/sorter-parts/orange-pi-pro-housing-render-ne-full-d762cdbaba34.png",
           "alt": "Render of the closed Orange Pi 5 Pro housing seen from the north east, with the hub clamp and the buck clamp on its roof, the port openings in the east wall and the single antenna block on the north wall",
           "caption": "The housing with its two roof clamps. Rendered from the part files, not from a build."

@@ -10,7 +10,7 @@
 </script>
 
 <a
-	href="bambustudio://open?url={href}"
+	href="bambustudio://open?file={encodeURIComponent(href)}"
 	title="Open this plate in Bambu Studio (needs Bambu Studio installed)"
 	class="setup-button-secondary inline-flex items-center whitespace-nowrap font-semibold {box[size]}"
 >

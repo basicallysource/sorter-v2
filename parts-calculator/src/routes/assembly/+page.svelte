@@ -21,8 +21,7 @@
 	import ConflictBadge from '$lib/components/ConflictBadge.svelte';
 	import CatalogText from '$lib/components/CatalogText.svelte';
 	import Badge from '$lib/components/Badge.svelte';
-	import LayerControl from '$lib/components/LayerControl.svelte';
-	import AlternativeSwitch from '$lib/components/AlternativeSwitch.svelte';
+	import BuildOptions from '$lib/components/BuildOptions.svelte';
 	import PartDetailModal from '$lib/components/PartDetailModal.svelte';
 	import AssemblyDetailModal from '$lib/components/AssemblyDetailModal.svelte';
 	import HardwareDetailModal from '$lib/components/HardwareDetailModal.svelte';
@@ -1631,8 +1630,7 @@
 		<h1 class="text-2xl font-bold text-text">Machine assembly</h1>
 	</header>
 
-	<div class="mb-6"><LayerControl /></div>
-	<div class="mb-6"><AlternativeSwitch /></div>
+	<div class="mb-6"><BuildOptions /></div>
 
 	<section class="min-w-0">
 			<div class="mb-4 flex items-center gap-3">

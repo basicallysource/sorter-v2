@@ -14,6 +14,7 @@
 	import ColorPicker from '$lib/components/ColorPicker.svelte';
 	import Disclosure from '$lib/components/Disclosure.svelte';
 	import AlternativeSwitch from '$lib/components/AlternativeSwitch.svelte';
+	import { resetAlternatives } from '$lib/alternatives.svelte';
 
 	let {
 		printBins = $bindable(undefined),
@@ -48,9 +49,12 @@
 	);
 
 	function reset() {
-		if (onreset) return onreset();
-		setSizes(['third', 'third', 'half']);
-		resetRoleColors();
+		if (onreset) onreset();
+		else {
+			setSizes(['third', 'third', 'half']);
+			resetRoleColors();
+		}
+		resetAlternatives();
 	}
 </script>
 

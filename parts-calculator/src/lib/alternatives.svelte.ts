@@ -150,3 +150,8 @@ export function chooseAlternative(id: string, option: string): void {
 	if (browser) localStorage.setItem(KEY, JSON.stringify({ ...alternativeStore.selected }));
 	applyChoice(slot, option);
 }
+
+/** Back to the default option of every alternative ("Reset to default"). */
+export function resetAlternatives(): void {
+	for (const a of ALTERNATIVES) chooseAlternative(a.id, a.options[0].id);
+}

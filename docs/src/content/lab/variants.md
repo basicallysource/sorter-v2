@@ -82,6 +82,19 @@ The legs are not in the parts calculator. The file is an STL in the Discord thre
   <li>Fitting inserts: <a href="{{ '/hardware/helpers/heat-inserts/' | relative_url }}">Heat inserts</a></li>
 </ul>
 
+## One 24 V lead for the hub and the Orange Pi's converter
+
+**What is different.** The standard build gives each of the two loads its own lead from the PSU box: <code>PWR2</code> to the USB hub and <code>PWR3</code> to the 24 V to 5 V converter that powers the Orange Pi, each into its own jack. In the variant the two share one lead, which splits into two like a Y cable: one plug goes into one PSU box jack, and the hub and the converter are both fed from it. That leaves one PSU box jack unused.
+
+**What was tested.** One builder runs their machine this way. The combined load has not been measured. The hub should draw about 1 A at 24 V and the converter about 1.2 A at the full 5 A it can give the Pi, so about 2 A through the one lead (both figures are estimates, not measurements). The PSU box jack and its plug are rated at 5 A or better. How the wires are joined at the plug has not been reported.
+
+**Where it stands.** It is in use on that machine and nothing else has been reported. The build instructions keep a separate lead for each, and this variant is not part of them.
+
+<ul class="bulleted-list">
+  <li>The report: <a href="https://discord.com/channels/1430279849171222682/1560615989924864163/1560626034594939051">the message in the Discord</a></li>
+  <li>The standard leads: <a href="{{ '/hardware/electronics/connecting/' | relative_url }}">Connecting the components</a></li>
+</ul>
+
 ## Single step feeder
 
 **What is different.** It is meant to replace the feeder channels with a single step, a small platform that moves up and down on a linear rail and catches pieces out of a bulk pile. Its output wall is angled, so a single piece can be dropped more easily. It combines the hopper and the singulator (the part that separates pieces one by one) in one unit. The step is moved by a stepper motor with a toothed belt. The rail is used the other way round, with the platform held still and the rail moving, so the rail's stiffness steadies the platform. A V-shaped tray beside it can flip a piece onto a different side for more camera images before tipping it out, and a second servo can tilt the tray back above the hopper to return a double feed.

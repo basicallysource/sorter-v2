@@ -25,6 +25,7 @@ from app.models.machine_piece_rejection_reason import MachinePieceRejectionReaso
 from app.models.machine_channel_crop import MachineChannelCrop
 from app.models.machine_control_data_segment import MachineControlDataSegment
 from app.models.machine_sync_state import MachineSyncState
+from app.models.machine_sorting_run import MachineLot, MachineSortingRun
 from app.models.machine_training_run import MachineTrainingRun
 from app.models.sample import Sample
 from app.rate_limiting import machine_limiter
@@ -71,6 +72,9 @@ DATA_TYPE_PIECE_PREDICTIONS = "piece_predictions"
 DATA_TYPE_CONTROL_DATA = "control_data_segments"
 DATA_TYPE_SAMPLES = "samples"
 DATA_TYPE_TRAINING_RUNS = "training_runs"
+# Lots and sorting runs, sent whole when they change; its state is the
+# version of the last set kept, not a cursor.
+DATA_TYPE_SORTING_RUNS = "sorting_runs"
 DATA_TYPES = (
     DATA_TYPE_PIECE_RECORDS,
     DATA_TYPE_PIECE_IMAGES,
@@ -80,6 +84,7 @@ DATA_TYPES = (
     DATA_TYPE_CONTROL_DATA,
     DATA_TYPE_SAMPLES,
     DATA_TYPE_TRAINING_RUNS,
+    DATA_TYPE_SORTING_RUNS,
 )
 
 # The watermark rule (the sorter's sync_seq.py): a row that changes on the
@@ -474,6 +479,33 @@ class PiecePredictionIn(BaseModel):
     created_at: float | None = None
 
 
+class LotIn(BaseModel):
+    id: str = Field(min_length=1, max_length=64)
+    name: str = Field(min_length=1, max_length=200)
+    description: str | None = Field(default=None, max_length=2000)
+    created_at: float | None = None
+
+
+class SortingRunIn(BaseModel):
+    id: str = Field(min_length=1, max_length=64)
+    name: str = Field(min_length=1, max_length=200)
+    note: str | None = Field(default=None, max_length=2000)
+    lot_id: str | None = Field(default=None, max_length=64)
+    adds_to_lot: bool = False
+    started_at: float
+    created_at: float | None = None
+
+
+class SortingRunsIn(BaseModel):
+    """Every lot and sorting run the machine keeps, as one set. ``version``
+    names the set (a number the machine derives from its content), so the
+    machine can tell from /state whether Hive has it."""
+
+    version: int
+    lots: list[LotIn] = Field(default_factory=list, max_length=1000)
+    runs: list[SortingRunIn] = Field(default_factory=list, max_length=10000)
+
+
 class PieceImageMeta(BaseModel):
     piece_uuid: str
     seq: int
@@ -756,6 +788,75 @@ def sync_training_runs(
     mark_machine_seen(machine, now)
     db.commit()
     return {"max_local_id": new_max, "upserted": len(payload.records) - skipped, "skipped": skipped}
+
+
+@router.post("/sorting-runs")
+@limiter.limit("60/minute")
+def sync_sorting_runs(
+    request: Request,
+    payload: SortingRunsIn,
+    db: Session = Depends(get_db),
+    machine: Machine = Depends(get_current_machine),
+) -> dict[str, int]:
+    """Replace the machine's lots and sorting runs with the set it sends (it
+    can rename a run or move it to another lot, and delete one), and keep the
+    set's version as this data type's state."""
+    now = _now()
+    machine_id = machine.id
+    lots = {lot.id: lot for lot in payload.lots}
+    runs = {run.id: run for run in payload.runs}
+    db.query(MachineSortingRun).filter(
+        MachineSortingRun.machine_id == machine_id, MachineSortingRun.run_id.notin_(list(runs) or [""])
+    ).delete(synchronize_session=False)
+    db.query(MachineLot).filter(
+        MachineLot.machine_id == machine_id, MachineLot.lot_id.notin_(list(lots) or [""])
+    ).delete(synchronize_session=False)
+    if lots:
+        _upsert(
+            db, MachineLot,
+            [
+                {
+                    "machine_id": machine_id,
+                    "lot_id": lot.id,
+                    "name": lot.name,
+                    "description": lot.description,
+                    "created_at": _ts(lot.created_at),
+                }
+                for lot in lots.values()
+            ],
+            ["machine_id", "lot_id"], ("name", "description", "created_at"),
+        )
+    if runs:
+        _upsert(
+            db, MachineSortingRun,
+            [
+                {
+                    "machine_id": machine_id,
+                    "run_id": run.id,
+                    "name": run.name,
+                    "note": run.note,
+                    "lot_id": run.lot_id,
+                    "adds_to_lot": run.adds_to_lot,
+                    "started_at": _ts(run.started_at),
+                    "created_at": _ts(run.created_at),
+                }
+                for run in runs.values()
+            ],
+            ["machine_id", "run_id"], ("name", "note", "lot_id", "adds_to_lot", "started_at", "created_at"),
+        )
+    state = (
+        db.query(MachineSyncState)
+        .filter(MachineSyncState.machine_id == machine_id, MachineSyncState.data_type == DATA_TYPE_SORTING_RUNS)
+        .first()
+    )
+    if state is None:
+        db.add(MachineSyncState(machine_id=machine_id, data_type=DATA_TYPE_SORTING_RUNS, max_local_id=payload.version, updated_at=now))
+    else:
+        state.max_local_id = payload.version
+        state.updated_at = now
+    mark_machine_seen(machine, now)
+    db.commit()
+    return {"max_local_id": payload.version, "lots": len(lots), "runs": len(runs)}
 
 
 @router.post("/piece-corrections")

@@ -9,7 +9,9 @@ confidence and the top three per (machine, piece, model sha256) in
 ``piece_model_colors``, so every model's answers stay side by side as new
 models are added.
 
-``backfill`` queues it for every model in the registry (or the ones named)
+The labeling queue's worker queues the active model for each piece as it
+enters the queue (``queue_active``), so new pieces have its answer on their
+own. ``backfill`` queues it for every model in the registry (or the ones named)
 over a machine's queued pieces, all of them or a filter's worth (the colour
 reference palette near them, same-piece candidates), BATCH pieces a job,
 behind live work. Each model's batches are queued together, and the job keeps
@@ -217,6 +219,23 @@ def registry(db: Session) -> list[ColorModel]:
         .order_by(ColorModel.is_active.desc(), ColorModel.created_at.desc(), ColorModel.name.desc())
         .all()
     )
+
+
+def queue_active(db: Session, machine_id: UUID, piece_uuids: list[str]) -> int:
+    """Queue the active model over pieces that have just become labelable
+    (the labeling queue's worker calls it as they enter the queue), so every
+    new piece has its answer without a backfill. Returns the jobs queued; the
+    caller commits."""
+    sha = active_sha256(db)
+    if not sha or not piece_uuids:
+        return 0
+    jobs = 0
+    for batch in _chunks(sorted(piece_uuids), BATCH):
+        subject = f"{sha}:{machine_id}:{hashlib.sha256(','.join(batch).encode()).hexdigest()[:16]}"
+        payload = {"model_sha256": sha, "machine_id": str(machine_id), "pieces": list(batch)}
+        if job_queue.enqueue(db, KIND, subject, payload, priority=BACKFILL_PRIORITY, commit=False):
+            jobs += 1
+    return jobs
 
 
 def backfill(

@@ -199,7 +199,8 @@ them. Put kit rules **above** broader rules, or those take the parts first
 | `GET /api/agent/whoami` | whose key this is, its name and scopes |
 | `GET /api/records/machines` | the person's machines and how many pieces each sorted |
 | `GET /api/records/machines/{id}/parts?since_days=30` | the parts and colors of a machine's newest pieces (up to 20,000), most first |
-| `GET /api/records/machines/{id}/pieces` | each piece, newest first (`cursor` for more) |
+| `GET /api/records/machines/{id}/pieces` | each piece, newest first (`cursor` for more), with the colours people and later model runs gave it |
+| `GET /api/records/machines/{id}/sorting-runs` | the machine's lots and sorting runs: which stretches of its pieces make up each lot |
 
 ## Using what a machine sorted
 

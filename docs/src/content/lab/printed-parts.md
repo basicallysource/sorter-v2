@@ -24,7 +24,8 @@ This page explains why the parts are designed this way. How to print and assembl
   <li><strong>The filament.</strong> PETG or ASA, because PLA softens from around 55 C, and the printed gears that the stepper motors turn would soften first.</li>
   <li><strong>The clearances.</strong> In the distribution parts, the parts that slide, snap or press together leave 0.21 to 0.24 mm of clearance. The print profile in the parts catalog uses 0.2 mm layers and a 0.4 mm nozzle. The published settings for the distribution parts are valid up to a 0.28 mm layer height.</li>
   <li><strong>Tight fits are flagged.</strong> The External bracket (side) clamps around the 2020 extrusion with very little room. The parts calculator marks it <strong>Tight fit</strong> and asks you to print one test part before you print the full set.</li>
-  <li><strong>Orientation and supports are per part.</strong> Not every STL file is saved in the orientation you print it in, and supports are off for almost every part. The part's card in the parts calculator states any exception.</li>
+  <li><strong>Orientation is per part.</strong> Not every STL file is saved in the orientation you print it in. The part's card in the parts calculator states any exception.</li>
+  <li><strong>Supports are avoided, to save filament and money.</strong> Each part is designed to print without supports, and they are off for almost every part. That is a goal and a recommendation, not a requirement, and not every printer manages it. If your slicer or printer needs supports for a part, turn them on.</li>
 </ul>
 
 <ul class="bulleted-list">

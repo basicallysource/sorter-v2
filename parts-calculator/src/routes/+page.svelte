@@ -44,6 +44,7 @@
 	import { onMount } from 'svelte';
 	import { loadConfig, saveConfig, clearConfig } from '$lib/config';
 	import BuildOptions from '$lib/components/BuildOptions.svelte';
+	import AlternativeSwitch from '$lib/components/AlternativeSwitch.svelte';
 	import { layerStore, setSizes } from '$lib/layers.svelte';
 	import { colorStore, defaultRoleColors, resetRoleColors } from '$lib/colors.svelte';
 	import SearchField from '$lib/components/search/SearchField.svelte';
@@ -872,6 +873,7 @@
 													{block.parts.length ? `${block.parts.length} printed parts` : 'Parts and print details coming soon'}
 													{#if a}<span class="pl-hint">View assembly <ArrowUpRight size={12} /></span>{:else if block.parts.length && !filtering}· click to {open ? 'collapse' : 'expand'}{/if}
 												</span>
+												{#if a}<span class="mt-1.5 block"><AlternativeSwitch assembly={a.id} /></span>{/if}
 											</span>
 										</td>
 										<td class="pl-c-each">{block.parts.length ? `${block.parts.length} parts` : '—'}</td>

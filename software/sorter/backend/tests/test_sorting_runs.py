@@ -1,11 +1,13 @@
 from __future__ import annotations
 
+import threading
 import time
 
 import pytest
 
 import piece_records
 import sorting_runs
+from server import hive_sync
 
 
 @pytest.fixture(autouse=True)
@@ -88,3 +90,45 @@ def test_a_lot_shows_a_part_seen_again_in_a_later_pass() -> None:
     [brick] = result["parts"]
     assert brick["counts"] == {first["id"]: 2, second["id"]: 1}
     assert brick["in_lot"] == 2
+
+
+class _FakeHive:
+    """Keeps the last set of lots and runs sent, and answers with its version."""
+
+    def __init__(self) -> None:
+        self.sets: list[dict] = []
+
+    def pushSortingRuns(self, sorting_set: dict) -> int:
+        self.sets.append(sorting_set)
+        return sorting_set["version"]
+
+
+def _syncer(client: _FakeHive):
+    syncer = hive_sync._TargetSyncer.__new__(hive_sync._TargetSyncer)
+    syncer._client = client
+    syncer._gate = hive_sync._ConcurrencyGate(1, 1, lambda: False)
+    syncer._wm = {t: 0 for t in hive_sync.DATA_TYPES}
+    syncer._stop = threading.Event()
+    return syncer
+
+
+def test_lots_and_runs_go_to_hive_whole_when_they_change() -> None:
+    client = _FakeHive()
+    syncer = _syncer(client)
+    # Nothing to send before there is a lot or a run.
+    assert not syncer._drainSortingRuns()
+
+    lot = sorting_runs.createLot("Big box")
+    run = sorting_runs.startRun("Big box", lot_id=lot["id"], started_at=time.time() - 100)
+    assert syncer._drainSortingRuns()
+    [sent] = client.sets
+    assert [(l["id"], l["name"]) for l in sent["lots"]] == [(lot["id"], "Big box")]
+    assert [(r["id"], r["lot_id"], r["adds_to_lot"]) for r in sent["runs"]] == [(run["id"], lot["id"], True)]
+    # Hive has this set: nothing goes until something changes.
+    assert not syncer._drainSortingRuns()
+
+    # Taken out of its lot: the whole set goes again, with a new version.
+    sorting_runs.updateRun(run["id"], lot_id=None, adds_to_lot=False)
+    assert syncer._drainSortingRuns()
+    assert client.sets[-1]["runs"][0]["lot_id"] is None
+    assert client.sets[-1]["version"] != sent["version"]

@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import hashlib
+import json
 import sqlite3
 import time
 import uuid
@@ -268,6 +270,28 @@ def _runs(conn: sqlite3.Connection, where: str = "", params: tuple = ()) -> list
 def listRuns() -> list[dict[str, Any]]:
     with _connection() as conn:
         return _runs(conn)
+
+
+def syncSet() -> dict[str, Any]:
+    """Every lot and run as Hive keeps them (its sorting-runs sync takes the
+    whole set), with the set's version: a number from its content, so any
+    change to a lot or a run makes a new one."""
+    with _connection() as conn:
+        lots = [
+            dict(row)
+            for row in conn.execute("SELECT id, name, description, created_at FROM lots ORDER BY id")
+        ]
+        runs = [
+            {**dict(row), "adds_to_lot": bool(row["adds_to_lot"])}
+            for row in conn.execute(
+                "SELECT id, name, note, lot_id, adds_to_lot, started_at, created_at FROM sorting_runs ORDER BY id"
+            )
+        ]
+    content = json.dumps({"lots": lots, "runs": runs}, sort_keys=True, separators=(",", ":"))
+    # 60 bits, as Hive keeps it in a signed 64-bit column; 0 for no lots and
+    # no runs, which is what Hive starts from, so there is nothing to send.
+    version = int(hashlib.sha256(content.encode()).hexdigest()[:15], 16) if lots or runs else 0
+    return {"version": version, "lots": lots, "runs": runs}
 
 
 def getRun(run_id: str) -> dict[str, Any]:

@@ -333,6 +333,22 @@ CASES: list[Case] = [
         why=PARTS_WINDOW,
     ),
     Case("records: a machine's pieces", "/api/records/machines/{busy}/pieces?limit=200", pages=2),
+    Case("records: a machine's pieces, 500 a page", "/api/records/machines/{busy}/pieces?limit=500", pages=2),
+    Case("records: a machine's lots and runs", "/api/records/machines/{busy}/sorting-runs"),
+    Case(
+        "records: an admin adds a run's predictions",
+        "/api/records/machines/{busy}/predictions",
+        method="POST",
+        body={
+            "source": "query plan check", "provider": "test", "model_name": "check", "kind": "color",
+            "pieces": [{"piece_uuid": f"no-such-piece-{i}", "answers": [{"value_id": "11"}]} for i in range(1000)],
+        },
+        budget=20_000,
+        why=(
+            "an import names at most 1,000 pieces, looked up through the (machine, piece) index; for a machine with "
+            "a few thousand pieces the planner reads its whole range of the index instead of 1,000 probes"
+        ),
+    ),
     Case(
         "records: a machine's pieces, last day",
         "/api/records/machines/{busy}/pieces?limit=200&since_days=1",

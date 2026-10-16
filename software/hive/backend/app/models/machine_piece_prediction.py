@@ -1,7 +1,7 @@
 import uuid
 from datetime import datetime, timezone
 
-from sqlalchemy import BigInteger, Boolean, Column, DateTime, Float, ForeignKey, Integer, String, UniqueConstraint
+from sqlalchemy import BigInteger, Boolean, Column, DateTime, Float, ForeignKey, Index, Integer, String, UniqueConstraint, text
 from sqlalchemy.dialects.postgresql import UUID
 
 from app.models import JSON_VARIANT, Base
@@ -21,7 +21,10 @@ class MachinePiecePrediction(Base):
 
     Synced from the machine's piece_predictions table (data type
     piece_predictions, cursor local_id). Rows never change on the machine;
-    re-sends upsert by (machine, piece, source, request, kind, rank).
+    re-sends upsert by (machine, piece, source, request, kind, rank). A later
+    run can also be imported on Hive directly (POST
+    /api/records/machines/{id}/predictions), for pieces the machine no longer
+    keeps.
     """
 
     __tablename__ = "machine_piece_predictions"
@@ -29,7 +32,8 @@ class MachinePiecePrediction(Base):
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     machine_id = Column(UUID(as_uuid=True), ForeignKey("machines.id", ondelete="CASCADE"), nullable=False)
     piece_uuid = Column(String, nullable=False)
-    # The machine's piece_predictions id: the sync cursor.
+    # The machine's piece_predictions id: the sync cursor. 0 for a prediction
+    # imported on Hive itself (the records API), which no machine row backs.
     local_id = Column(BigInteger, nullable=False)
     # "live", or a later run's label. Sorters older than sources send none:
     # theirs are all live.
@@ -65,5 +69,13 @@ class MachinePiecePrediction(Base):
         UniqueConstraint(
             "machine_id", "piece_uuid", "source", "request", "kind", "rank",
             name="uq_machine_piece_predictions_piece_source_request_kind_rank",
+        ),
+        # Each piece's top colour from a later run (the records API reads a
+        # page of pieces' at a time).
+        Index(
+            "ix_machine_piece_predictions_later_colors",
+            "machine_id",
+            "piece_uuid",
+            postgresql_where=text("source <> 'live' AND kind = 'color' AND rank = 0"),
         ),
     )

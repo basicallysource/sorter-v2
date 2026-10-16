@@ -23,7 +23,7 @@ from app.models.piece_model_output import PieceColorGuess
 from app.services import color_predictor, pixel_color
 from app.services.storage_backend import read_many
 
-# As many as the colour model reads (a C4 burst is at most 8 frames).
+# As many as the colour model reads.
 MAX_SAMPLES = color_predictor.MAX_PREDICT_IMAGES
 
 
@@ -36,16 +36,18 @@ class CropRef:
 
 
 def chosen_crops(images: list[CropRef]) -> list[CropRef]:
-    """The crops a piece's colour is judged from: every one the classification
-    camera (C4) took, in burst order, else every one in storage, at most
-    MAX_SAMPLES. Not only the ones the machine used: those were picked for
+    """The crops a piece's colour is judged from: the ones the classification
+    camera (C4) took, in burst order, else every one in storage, the last
+    MAX_SAMPLES. The last, because a long burst's first frames are taken while
+    the piece still slides in; a sorter's own colour request sends the same
+    ones. Not only the ones the machine used: those were picked for
     recognising the part, are often a single frame, and are sometimes an empty
     one, which alone decided the colour. The colour model runs
     (services.color_model_runs) read the same ones, so a model's answer for a
     piece is the same number wherever it shows."""
     with_key = sorted((im for im in images if im.image_key), key=lambda im: im.seq)
     c4 = [im for im in with_key if im.channel in (None, 4)]
-    return (c4 or with_key)[:MAX_SAMPLES]
+    return (c4 or with_key)[-MAX_SAMPLES:]
 
 
 def color_guesses(db: Session, machine_id: UUID, piece_uuid: str, images: list[CropRef]) -> tuple[dict | None, dict | None]:

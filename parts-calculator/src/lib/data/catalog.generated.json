@@ -59,9 +59,7 @@
 		{
 			"id": "electronics",
 			"name": "Electronics",
-			"scales_with_layers": false,
-			"experimental": true,
-			"experimental_note": "The electronics are early and changing a lot. Only build these if you have the experience to adapt as the design moves."
+			"scales_with_layers": false
 		}
 	],
 	"changes": [
@@ -7113,9 +7111,120 @@
 			]
 		},
 		{
+			"id": "orange-pi-pro-housing",
+			"uid": "q9gw",
+			"version": "1",
+			"name": "Orange Pi 5 Pro housing",
+			"description": "The Orange Pi 5 Pro, Max or Ultra closed into a printed housing that bolts to the 2020 extrusion, built in place of the Orange Pi housing for these boards. A base with posts for the board, four walls that drop into it, and a roof that carries the powered USB hub and the buck converter that powers the board, each under its own clamp. One WiFi antenna stands in a cap on one wall, and a plunger reaches the board's power button from outside.",
+			"docs": "/hardware/electronics/installation/orange-pi-mount/",
+			"images": [
+				{
+					"url": "https://assets.basically.website/sorter-parts/orange-pi-pro-housing-with-hub-render-full-669b3d199c7e.png",
+					"alt": "Render of the Orange Pi 5 Pro housing with the USB hub and the buck converter clamped to its roof, their cables and the board's USB leads running off the box, and the WiFi antenna standing in its cap on the long wall",
+					"caption": "The housing with the hub and the buck converter on its roof. Rendered from the CAD, not from a build."
+				},
+				{
+					"url": "https://assets.basically.website/sorter-parts/orange-pi-pro-housing-render-ne-full-d762cdbaba34.png",
+					"alt": "Render of the closed Orange Pi 5 Pro housing seen from the north east, with the hub clamp and the buck clamp on its roof, the port openings in the east wall and the single antenna block on the north wall",
+					"caption": "The housing with its two roof clamps. Rendered from the part files, not from a build."
+				},
+				{
+					"url": "https://assets.basically.website/sorter-parts/orange-pi-pro-housing-render-sw-full-849e92e85437.png",
+					"alt": "Render of the closed Orange Pi 5 Pro housing seen from the south west, showing the hex vent in the south wall, the two frame ears and the two roof clamps",
+					"caption": "The other side. Rendered from the part files, not from a build."
+				}
+			],
+			"lines": [
+				{
+					"part": "orange-pi-pro-housing-base",
+					"qty": 1
+				},
+				{
+					"part": "microsd-32gb",
+					"qty": 1
+				},
+				{
+					"part": "scr-m3-6-bhcs",
+					"qty": 4
+				},
+				{
+					"part": "orange-pi-pro-housing-plunger",
+					"qty": 1
+				},
+				{
+					"part": "orange-pi-pro-housing-plunger-cap",
+					"qty": 1
+				},
+				{
+					"part": "scr-m3-8-cs",
+					"qty": 1
+				},
+				{
+					"part": "orange-pi-pro-housing-wall-west",
+					"qty": 1
+				},
+				{
+					"part": "orange-pi-pro-housing-wall-east",
+					"qty": 1
+				},
+				{
+					"part": "orange-pi-pro-housing-wall-north",
+					"qty": 1
+				},
+				{
+					"part": "orange-pi-pro-housing-wall-south",
+					"qty": 1
+				},
+				{
+					"part": "orange-pi-pro-housing-roof",
+					"qty": 1
+				},
+				{
+					"part": "scr-m3-12-cs",
+					"qty": 14
+				},
+				{
+					"part": "orange-pi-pro-housing-antenna-clamp-cap",
+					"qty": 1
+				},
+				{
+					"part": "usb-hub-powered-24v",
+					"qty": 1
+				},
+				{
+					"part": "orange-pi-pro-housing-hub-clamp",
+					"qty": 1
+				},
+				{
+					"part": "buck-24v-5v-usbc",
+					"qty": 1
+				},
+				{
+					"part": "orange-pi-pro-housing-buck-clamp",
+					"qty": 1
+				},
+				{
+					"assembly": "harness-buck-24v",
+					"qty": 1
+				},
+				{
+					"part": "scr-m5-16-shcs",
+					"qty": 2
+				},
+				{
+					"part": "washer-m5",
+					"qty": 2
+				},
+				{
+					"part": "tnut-m5-2020",
+					"qty": 2
+				}
+			]
+		},
+		{
 			"id": "electronics",
-			"uid": "nno4",
-			"version": "7",
+			"uid": "me96",
+			"version": "8",
 			"name": "Electronics",
 			"description": "The PSU, the control board and the Orange Pi, each in its own printed box bolted to the frame, plus the 24 V lead to the powered USB hub (PWR2), which rides on the Orange Pi housing's roof with the converter that powers the Pi.",
 			"docs": "/hardware/electronics/installation/",
@@ -7131,6 +7240,11 @@
 				{
 					"assembly": "orange-pi-mount",
 					"qty": 1
+				},
+				{
+					"assembly": "orange-pi-pro-housing",
+					"qty": 1,
+					"optional": true
 				},
 				{
 					"assembly": "harness-hub-24v",
@@ -7343,6 +7457,46 @@
 					"uid": "nno4",
 					"date": "2026-10-02",
 					"message": "The spare crimp parts the lead pages list join the machine as one group, Spare crimp parts, so the parts list matches the pages. They are not on any cable and nothing is built from them. Nothing else changes.",
+					"breaking": false,
+					"commit": null,
+					"lines": [
+						{
+							"assembly": "meanwell-psu-box",
+							"qty": 1,
+							"uid": "dxsv"
+						},
+						{
+							"assembly": "ctrl-board-mount",
+							"qty": 1,
+							"uid": "y2yu"
+						},
+						{
+							"assembly": "orange-pi-mount",
+							"qty": 1,
+							"uid": "hxqn"
+						},
+						{
+							"assembly": "harness-hub-24v",
+							"qty": 1,
+							"uid": "ks7s"
+						},
+						{
+							"assembly": "harness-wire-stock",
+							"qty": 1,
+							"uid": "xo4j"
+						},
+						{
+							"assembly": "harness-spares",
+							"qty": 1,
+							"uid": "e5g1"
+						}
+					]
+				},
+				{
+					"version": "8",
+					"uid": "me96",
+					"date": "2026-10-16",
+					"message": "The Orange Pi 5 Pro, Max and Ultra housing joins as an optional alternative to the Orange Pi housing, for builders whose board has the Pro's hole pattern. It is on the line with optional set, so nothing in it reaches a total and the Orange Pi housing stays the counted default; swap one for the other if you build the Pro one. Nothing else changes.",
 					"breaking": false,
 					"commit": null
 				}
@@ -22823,6 +22977,1269 @@
 			]
 		},
 		{
+			"id": "orange-pi-pro-housing-base",
+			"uid": "kkwj",
+			"name": "Orange Pi 5 Pro Housing \u2014 Base",
+			"quantities": {},
+			"assembly": "orange-pi-pro-housing",
+			"folder": null,
+			"variant_group": null,
+			"variant_name": null,
+			"description": "Base of the Orange Pi 5 Pro housing. The board screws down to four posts on heat inserts, four corner posts carry heat inserts for the roof screws, the four walls drop into grooves along its edges, and two ears bolt it to the 2020 extrusion. An opening in the floor under the microSD slot leaves room for a finger, and the retainer for the power button plunger is part of the base.",
+			"version": "1",
+			"created_at": "2026-10-16",
+			"updated_at": "2026-10-16",
+			"versions": [
+				{
+					"version": "1",
+					"uid": "kkwj",
+					"date": "2026-10-16",
+					"message": "Initial version.",
+					"commit": null,
+					"onshape_version": "https://cad.onshape.com/documents/d8339d00eaef603e65e5e050/w/abcfb71b893de053f48971d9/e/fc9281c225802dfd3c097d80",
+					"stl": "https://assets.basically.website/sorter-parts/orange-pi-pro-housing-base-cb90eb6a3e5d.stl",
+					"render": "https://assets.basically.website/sorter-parts/orange-pi-pro-housing-base-full-8058c4e3cd7a.png",
+					"grams": 80.63
+				}
+			],
+			"attributes": [],
+			"grams": 80.63,
+			"support_grams": 0.0,
+			"support_used": false,
+			"support_intentional": false,
+			"print_seconds": 9290,
+			"color": {
+				"role": "frame"
+			},
+			"optional": false,
+			"onshape": null,
+			"info": null,
+			"low_tolerance": false,
+			"low_tolerance_note": null,
+			"layer_scope": "all",
+			"requires": [
+				{
+					"part": "hsi-m3",
+					"qty": 8
+				}
+			],
+			"caption": null,
+			"docs_page": null,
+			"conflicts": null,
+			"stl": "https://assets.basically.website/sorter-parts/orange-pi-pro-housing-base-cb90eb6a3e5d.stl",
+			"render": "https://assets.basically.website/sorter-parts/orange-pi-pro-housing-base-full-8058c4e3cd7a.png",
+			"stamped": [
+				{
+					"face": "bottom",
+					"stl": "https://assets.basically.website/sorter-parts/orange-pi-pro-housing-base-kkwj-stamped-bottom-0bc2fdb42b77.stl",
+					"normal": [
+						0.0,
+						0.0,
+						-1.0
+					],
+					"center": [
+						203.52,
+						246.53,
+						14.5
+					],
+					"size": [
+						12.07,
+						3.56
+					],
+					"cap": 3.5,
+					"depth": 0.6
+				},
+				{
+					"face": "top",
+					"stl": "https://assets.basically.website/sorter-parts/orange-pi-pro-housing-base-kkwj-stamped-top-0f4cf5aa7bf8.stl",
+					"normal": [
+						0.0,
+						0.0,
+						1.0
+					],
+					"center": [
+						203.67,
+						235.69,
+						17.7
+					],
+					"size": [
+						12.07,
+						3.56
+					],
+					"cap": 3.5,
+					"depth": 0.6
+				},
+				{
+					"face": "-y side",
+					"stl": "https://assets.basically.website/sorter-parts/orange-pi-pro-housing-base-kkwj-stamped-minus-y-side-0febeb6b88ed.stl",
+					"normal": [
+						0.0,
+						-1.0,
+						0.0
+					],
+					"center": [
+						137.73,
+						179.09,
+						17.66
+					],
+					"size": [
+						12.07,
+						3.56
+					],
+					"cap": 3.5,
+					"depth": 0.6
+				},
+				{
+					"face": "-x side",
+					"stl": "https://assets.basically.website/sorter-parts/orange-pi-pro-housing-base-kkwj-stamped-minus-x-side-9de83ca4adae.stl",
+					"normal": [
+						-1.0,
+						0.0,
+						-0.0
+					],
+					"center": [
+						125.32,
+						279.88,
+						17.66
+					],
+					"size": [
+						12.07,
+						3.56
+					],
+					"cap": 3.5,
+					"depth": 0.6
+				}
+			]
+		},
+		{
+			"id": "orange-pi-pro-housing-roof",
+			"uid": "f9sg",
+			"name": "Orange Pi 5 Pro Housing \u2014 Roof",
+			"quantities": {},
+			"assembly": "orange-pi-pro-housing",
+			"folder": null,
+			"variant_group": null,
+			"variant_name": null,
+			"description": "Roof of the Orange Pi 5 Pro housing. Four M3 \u00d7 12 mm countersunk screws hold it down into the base's corner inserts, and it carries the USB hub and the buck converter on top, each under its own clamp on four self-tapping M3 \u00d7 12 mm countersunk screws into the roof's pilots. Its grooved side faces down in the box.",
+			"version": "1",
+			"created_at": "2026-10-16",
+			"updated_at": "2026-10-16",
+			"versions": [
+				{
+					"version": "1",
+					"uid": "f9sg",
+					"date": "2026-10-16",
+					"message": "Initial version.",
+					"commit": null,
+					"onshape_version": "https://cad.onshape.com/documents/d8339d00eaef603e65e5e050/w/abcfb71b893de053f48971d9/e/fc9281c225802dfd3c097d80",
+					"stl": "https://assets.basically.website/sorter-parts/orange-pi-pro-housing-roof-6e11ffcc09fd.stl",
+					"render": "https://assets.basically.website/sorter-parts/orange-pi-pro-housing-roof-full-6fc6a17b0d9e.png",
+					"grams": 53.39
+				}
+			],
+			"attributes": [],
+			"grams": 53.39,
+			"support_grams": 0.0,
+			"support_used": false,
+			"support_intentional": false,
+			"print_seconds": 5279,
+			"color": {
+				"role": "frame"
+			},
+			"optional": false,
+			"onshape": null,
+			"info": null,
+			"low_tolerance": false,
+			"low_tolerance_note": null,
+			"layer_scope": "all",
+			"requires": [],
+			"caption": null,
+			"docs_page": null,
+			"conflicts": null,
+			"stl": "https://assets.basically.website/sorter-parts/orange-pi-pro-housing-roof-6e11ffcc09fd.stl",
+			"render": "https://assets.basically.website/sorter-parts/orange-pi-pro-housing-roof-full-6fc6a17b0d9e.png",
+			"stamped": [
+				{
+					"face": "bottom",
+					"stl": "https://assets.basically.website/sorter-parts/orange-pi-pro-housing-roof-f9sg-stamped-bottom-e79660c599cf.stl",
+					"normal": [
+						0.0,
+						-0.0,
+						-1.0
+					],
+					"center": [
+						223.87,
+						53.49,
+						42.0
+					],
+					"size": [
+						12.03,
+						3.63
+					],
+					"cap": 3.5,
+					"depth": 0.6
+				},
+				{
+					"face": "top",
+					"stl": "https://assets.basically.website/sorter-parts/orange-pi-pro-housing-roof-f9sg-stamped-top-680242b6161f.stl",
+					"normal": [
+						0.0,
+						0.0,
+						1.0
+					],
+					"center": [
+						153.66,
+						61.34,
+						46.0
+					],
+					"size": [
+						12.03,
+						3.63
+					],
+					"cap": 3.5,
+					"depth": 0.6
+				},
+				{
+					"face": "top 2",
+					"stl": "https://assets.basically.website/sorter-parts/orange-pi-pro-housing-roof-f9sg-stamped-top-2-7dc42a4b0bfb.stl",
+					"normal": [
+						0.0,
+						-0.0,
+						1.0
+					],
+					"center": [
+						148.52,
+						52.69,
+						50.0
+					],
+					"size": [
+						12.03,
+						3.63
+					],
+					"cap": 3.5,
+					"depth": 0.6
+				},
+				{
+					"face": "-y side",
+					"stl": "https://assets.basically.website/sorter-parts/orange-pi-pro-housing-roof-f9sg-stamped-minus-y-side-1fd66be76649.stl",
+					"normal": [
+						0.0052,
+						-1.0,
+						0.0
+					],
+					"center": [
+						141.08,
+						49.04,
+						45.99
+					],
+					"size": [
+						12.03,
+						3.63
+					],
+					"cap": 3.5,
+					"depth": 0.6
+				}
+			]
+		},
+		{
+			"id": "orange-pi-pro-housing-wall-west",
+			"uid": "lvhs",
+			"name": "Orange Pi 5 Pro Housing \u2014 West Wall",
+			"quantities": {},
+			"assembly": "orange-pi-pro-housing",
+			"folder": null,
+			"variant_group": null,
+			"variant_name": null,
+			"description": "Short wall on the board's power button side. A small window lets the power button plunger through, and a larger one opens onto the microSD card. Drops into its groove in the base; the roof holds it down.",
+			"version": "1",
+			"created_at": "2026-10-16",
+			"updated_at": "2026-10-16",
+			"versions": [
+				{
+					"version": "1",
+					"uid": "lvhs",
+					"date": "2026-10-16",
+					"message": "Initial version.",
+					"commit": null,
+					"onshape_version": "https://cad.onshape.com/documents/d8339d00eaef603e65e5e050/w/abcfb71b893de053f48971d9/e/fc9281c225802dfd3c097d80",
+					"stl": "https://assets.basically.website/sorter-parts/orange-pi-pro-housing-wall-west-23d88b381430.stl",
+					"render": "https://assets.basically.website/sorter-parts/orange-pi-pro-housing-wall-west-full-685a48b96676.png",
+					"grams": 8.54
+				}
+			],
+			"attributes": [],
+			"grams": 8.54,
+			"support_grams": 0.0,
+			"support_used": false,
+			"support_intentional": false,
+			"print_seconds": 1125,
+			"color": {
+				"role": "frame"
+			},
+			"optional": false,
+			"onshape": null,
+			"info": null,
+			"low_tolerance": false,
+			"low_tolerance_note": null,
+			"layer_scope": "all",
+			"requires": [],
+			"caption": null,
+			"docs_page": null,
+			"conflicts": null,
+			"stl": "https://assets.basically.website/sorter-parts/orange-pi-pro-housing-wall-west-23d88b381430.stl",
+			"render": "https://assets.basically.website/sorter-parts/orange-pi-pro-housing-wall-west-full-685a48b96676.png",
+			"stamped": [
+				{
+					"face": "bottom",
+					"stl": "https://assets.basically.website/sorter-parts/orange-pi-pro-housing-wall-west-lvhs-stamped-bottom-a2985be577fb.stl",
+					"normal": [
+						0.0,
+						0.0,
+						-1.0
+					],
+					"center": [
+						11.25,
+						52.14,
+						17.2
+					],
+					"size": [
+						12.04,
+						3.63
+					],
+					"cap": 3.5,
+					"depth": 0.6
+				},
+				{
+					"face": "top",
+					"stl": "https://assets.basically.website/sorter-parts/orange-pi-pro-housing-wall-west-lvhs-stamped-top-d61413ff4271.stl",
+					"normal": [
+						0.0,
+						0.0,
+						1.0
+					],
+					"center": [
+						11.25,
+						52.14,
+						20.4
+					],
+					"size": [
+						12.04,
+						3.63
+					],
+					"cap": 3.5,
+					"depth": 0.6
+				}
+			]
+		},
+		{
+			"id": "orange-pi-pro-housing-wall-east",
+			"uid": "7liu",
+			"name": "Orange Pi 5 Pro Housing \u2014 East Wall",
+			"quantities": {},
+			"assembly": "orange-pi-pro-housing",
+			"folder": null,
+			"variant_group": null,
+			"variant_name": null,
+			"description": "Short wall on the board's USB-A and Ethernet side, with an opening for each of its three port groups. Drops into its groove in the base; the roof holds it down.",
+			"version": "1",
+			"created_at": "2026-10-16",
+			"updated_at": "2026-10-16",
+			"versions": [
+				{
+					"version": "1",
+					"uid": "7liu",
+					"date": "2026-10-16",
+					"message": "Initial version.",
+					"commit": null,
+					"onshape_version": "https://cad.onshape.com/documents/d8339d00eaef603e65e5e050/w/abcfb71b893de053f48971d9/e/fc9281c225802dfd3c097d80",
+					"stl": "https://assets.basically.website/sorter-parts/orange-pi-pro-housing-wall-east-c50c9d2e54db.stl",
+					"render": "https://assets.basically.website/sorter-parts/orange-pi-pro-housing-wall-east-full-af4975edf3b7.png",
+					"grams": 7.54
+				}
+			],
+			"attributes": [],
+			"grams": 7.54,
+			"support_grams": 0.0,
+			"support_used": false,
+			"support_intentional": false,
+			"print_seconds": 1112,
+			"color": {
+				"role": "frame"
+			},
+			"optional": false,
+			"onshape": null,
+			"info": null,
+			"low_tolerance": false,
+			"low_tolerance_note": null,
+			"layer_scope": "all",
+			"requires": [],
+			"caption": null,
+			"docs_page": null,
+			"conflicts": null,
+			"stl": "https://assets.basically.website/sorter-parts/orange-pi-pro-housing-wall-east-c50c9d2e54db.stl",
+			"render": "https://assets.basically.website/sorter-parts/orange-pi-pro-housing-wall-east-full-af4975edf3b7.png",
+			"stamped": [
+				{
+					"face": "bottom",
+					"stl": "https://assets.basically.website/sorter-parts/orange-pi-pro-housing-wall-east-7liu-stamped-bottom-b001751278e2.stl",
+					"normal": [
+						-0.0,
+						0.0,
+						-1.0
+					],
+					"center": [
+						198.18,
+						136.31,
+						17.2
+					],
+					"size": [
+						12.21,
+						3.56
+					],
+					"cap": 3.5,
+					"depth": 0.6
+				},
+				{
+					"face": "top",
+					"stl": "https://assets.basically.website/sorter-parts/orange-pi-pro-housing-wall-east-7liu-stamped-top-971b723b68fe.stl",
+					"normal": [
+						-0.0,
+						0.0,
+						1.0
+					],
+					"center": [
+						172.14,
+						136.31,
+						20.4
+					],
+					"size": [
+						12.21,
+						3.56
+					],
+					"cap": 3.5,
+					"depth": 0.6
+				}
+			]
+		},
+		{
+			"id": "orange-pi-pro-housing-wall-north",
+			"uid": "iiun",
+			"name": "Orange Pi 5 Pro Housing \u2014 North Wall",
+			"quantities": {},
+			"assembly": "orange-pi-pro-housing",
+			"folder": null,
+			"variant_group": null,
+			"variant_name": null,
+			"description": "Long wall on the board's HDMI, audio and USB-C side, with one opening for those ports. A block on its outside carries the WiFi antenna in a channel under the antenna cap, with an opening below for its lead. Drops into its groove in the base; the roof holds it down.",
+			"version": "1",
+			"created_at": "2026-10-16",
+			"updated_at": "2026-10-16",
+			"versions": [
+				{
+					"version": "1",
+					"uid": "iiun",
+					"date": "2026-10-16",
+					"message": "Initial version.",
+					"commit": null,
+					"onshape_version": "https://cad.onshape.com/documents/d8339d00eaef603e65e5e050/w/abcfb71b893de053f48971d9/e/fc9281c225802dfd3c097d80",
+					"stl": "https://assets.basically.website/sorter-parts/orange-pi-pro-housing-wall-north-718ebc53c26f.stl",
+					"render": "https://assets.basically.website/sorter-parts/orange-pi-pro-housing-wall-north-full-8f00a5ddcd20.png",
+					"grams": 12.05
+				}
+			],
+			"attributes": [],
+			"grams": 12.05,
+			"support_grams": 0.0,
+			"support_used": false,
+			"support_intentional": false,
+			"print_seconds": 1722,
+			"color": {
+				"role": "frame"
+			},
+			"optional": false,
+			"onshape": null,
+			"info": null,
+			"low_tolerance": false,
+			"low_tolerance_note": null,
+			"layer_scope": "all",
+			"requires": [],
+			"caption": null,
+			"docs_page": null,
+			"conflicts": null,
+			"stl": "https://assets.basically.website/sorter-parts/orange-pi-pro-housing-wall-north-718ebc53c26f.stl",
+			"render": "https://assets.basically.website/sorter-parts/orange-pi-pro-housing-wall-north-full-8f00a5ddcd20.png",
+			"stamped": [
+				{
+					"face": "bottom",
+					"stl": "https://assets.basically.website/sorter-parts/orange-pi-pro-housing-wall-north-iiun-stamped-bottom-a518d990a221.stl",
+					"normal": [
+						0.0,
+						0.0,
+						-1.0
+					],
+					"center": [
+						70.39,
+						106.6,
+						17.2
+					],
+					"size": [
+						12.13,
+						3.56
+					],
+					"cap": 3.5,
+					"depth": 0.6
+				},
+				{
+					"face": "top",
+					"stl": "https://assets.basically.website/sorter-parts/orange-pi-pro-housing-wall-north-iiun-stamped-top-4fbda1dfb9c4.stl",
+					"normal": [
+						0.0,
+						0.0,
+						1.0
+					],
+					"center": [
+						44.27,
+						106.6,
+						20.4
+					],
+					"size": [
+						12.13,
+						3.56
+					],
+					"cap": 3.5,
+					"depth": 0.6
+				},
+				{
+					"face": "+x side",
+					"stl": "https://assets.basically.website/sorter-parts/orange-pi-pro-housing-wall-north-iiun-stamped-plus-x-side-fd9d0a7406b9.stl",
+					"normal": [
+						1.0,
+						0.0,
+						0.0
+					],
+					"center": [
+						63.13,
+						211.8,
+						22.8
+					],
+					"size": [
+						8.67,
+						2.55
+					],
+					"cap": 2.5,
+					"depth": 0.6,
+					"note": "smaller text"
+				},
+				{
+					"face": "-x side",
+					"stl": "https://assets.basically.website/sorter-parts/orange-pi-pro-housing-wall-north-iiun-stamped-minus-x-side-9671541dc933.stl",
+					"normal": [
+						-1.0,
+						0.0,
+						0.0
+					],
+					"center": [
+						49.13,
+						220.88,
+						22.8
+					],
+					"size": [
+						8.67,
+						2.55
+					],
+					"cap": 2.5,
+					"depth": 0.6,
+					"note": "smaller text"
+				}
+			]
+		},
+		{
+			"id": "orange-pi-pro-housing-wall-south",
+			"uid": "cr4b",
+			"name": "Orange Pi 5 Pro Housing \u2014 South Wall",
+			"quantities": {},
+			"assembly": "orange-pi-pro-housing",
+			"folder": null,
+			"variant_group": null,
+			"variant_name": null,
+			"description": "Long wall on the board's GPIO side: a hex vent, and an opening at the bottom for a cable off the GPIO header. Drops into its groove in the base; the roof holds it down.",
+			"version": "1",
+			"created_at": "2026-10-16",
+			"updated_at": "2026-10-16",
+			"versions": [
+				{
+					"version": "1",
+					"uid": "cr4b",
+					"date": "2026-10-16",
+					"message": "Initial version.",
+					"commit": null,
+					"onshape_version": "https://cad.onshape.com/documents/d8339d00eaef603e65e5e050/w/abcfb71b893de053f48971d9/e/fc9281c225802dfd3c097d80",
+					"stl": "https://assets.basically.website/sorter-parts/orange-pi-pro-housing-wall-south-d94f982ba6d3.stl",
+					"render": "https://assets.basically.website/sorter-parts/orange-pi-pro-housing-wall-south-full-a7db14042066.png",
+					"grams": 10.65
+				}
+			],
+			"attributes": [],
+			"grams": 10.65,
+			"support_grams": 0.0,
+			"support_used": false,
+			"support_intentional": false,
+			"print_seconds": 1521,
+			"color": {
+				"role": "frame"
+			},
+			"optional": false,
+			"onshape": null,
+			"info": null,
+			"low_tolerance": false,
+			"low_tolerance_note": null,
+			"layer_scope": "all",
+			"requires": [],
+			"caption": null,
+			"docs_page": null,
+			"conflicts": null,
+			"stl": "https://assets.basically.website/sorter-parts/orange-pi-pro-housing-wall-south-d94f982ba6d3.stl",
+			"render": "https://assets.basically.website/sorter-parts/orange-pi-pro-housing-wall-south-full-a7db14042066.png",
+			"stamped": [
+				{
+					"face": "bottom",
+					"stl": "https://assets.basically.website/sorter-parts/orange-pi-pro-housing-wall-south-cr4b-stamped-bottom-130a9b303ec3.stl",
+					"normal": [
+						0.0,
+						0.0,
+						-1.0
+					],
+					"center": [
+						116.6,
+						226.47,
+						17.2
+					],
+					"size": [
+						12.39,
+						3.63
+					],
+					"cap": 3.5,
+					"depth": 0.6
+				},
+				{
+					"face": "top",
+					"stl": "https://assets.basically.website/sorter-parts/orange-pi-pro-housing-wall-south-cr4b-stamped-top-6135d6fb8937.stl",
+					"normal": [
+						0.0,
+						0.0,
+						1.0
+					],
+					"center": [
+						90.74,
+						226.47,
+						20.4
+					],
+					"size": [
+						12.39,
+						3.63
+					],
+					"cap": 3.5,
+					"depth": 0.6
+				}
+			]
+		},
+		{
+			"id": "orange-pi-pro-housing-hub-clamp",
+			"uid": "tvoa",
+			"name": "Orange Pi 5 Pro Housing \u2014 Hub Clamp",
+			"quantities": {},
+			"assembly": "orange-pi-pro-housing",
+			"folder": null,
+			"variant_group": null,
+			"variant_name": null,
+			"description": "Frame that holds the powered USB hub down on the housing's roof, on four self-tapping M3 \u00d7 12 mm countersunk screws into the roof's pilots. Drawn around the Waveshare USB3.2-Gen1-HUB-4U.",
+			"version": "1",
+			"created_at": "2026-10-16",
+			"updated_at": "2026-10-16",
+			"versions": [
+				{
+					"version": "1",
+					"uid": "tvoa",
+					"date": "2026-10-16",
+					"message": "Initial version.",
+					"commit": null,
+					"onshape_version": "https://cad.onshape.com/documents/d8339d00eaef603e65e5e050/w/abcfb71b893de053f48971d9/e/fc9281c225802dfd3c097d80",
+					"stl": "https://assets.basically.website/sorter-parts/orange-pi-pro-housing-hub-clamp-9060c8b740a9.stl",
+					"render": "https://assets.basically.website/sorter-parts/orange-pi-pro-housing-hub-clamp-full-2fa82e18b714.png",
+					"grams": 5.64
+				}
+			],
+			"attributes": [],
+			"grams": 5.64,
+			"support_grams": 0.0,
+			"support_used": false,
+			"support_intentional": false,
+			"print_seconds": 1120,
+			"color": {
+				"role": "frame"
+			},
+			"optional": false,
+			"onshape": null,
+			"info": null,
+			"low_tolerance": false,
+			"low_tolerance_note": null,
+			"layer_scope": "all",
+			"requires": [],
+			"caption": null,
+			"docs_page": null,
+			"conflicts": null,
+			"stl": "https://assets.basically.website/sorter-parts/orange-pi-pro-housing-hub-clamp-9060c8b740a9.stl",
+			"render": "https://assets.basically.website/sorter-parts/orange-pi-pro-housing-hub-clamp-full-2fa82e18b714.png",
+			"stamped": [
+				{
+					"face": "bottom",
+					"stl": "https://assets.basically.website/sorter-parts/orange-pi-pro-housing-hub-clamp-tvoa-stamped-bottom-dae9a0067fef.stl",
+					"normal": [
+						0.0,
+						0.0,
+						-1.0
+					],
+					"center": [
+						483.01,
+						185.23,
+						49.5
+					],
+					"size": [
+						12.67,
+						3.63
+					],
+					"cap": 3.5,
+					"depth": 0.6
+				},
+				{
+					"face": "+x side",
+					"stl": "https://assets.basically.website/sorter-parts/orange-pi-pro-housing-hub-clamp-tvoa-stamped-plus-x-side-bce915bb9fcb.stl",
+					"normal": [
+						1.0,
+						0.0,
+						-0.0
+					],
+					"center": [
+						504.21,
+						193.74,
+						52.69
+					],
+					"size": [
+						12.67,
+						3.63
+					],
+					"cap": 3.5,
+					"depth": 0.6
+				},
+				{
+					"face": "-x side",
+					"stl": "https://assets.basically.website/sorter-parts/orange-pi-pro-housing-hub-clamp-tvoa-stamped-minus-x-side-b8cbeb27f5f0.stl",
+					"normal": [
+						-1.0,
+						0.0,
+						0.0
+					],
+					"center": [
+						452.0,
+						260.33,
+						52.69
+					],
+					"size": [
+						12.67,
+						3.63
+					],
+					"cap": 3.5,
+					"depth": 0.6
+				},
+				{
+					"face": "+x side 2",
+					"stl": "https://assets.basically.website/sorter-parts/orange-pi-pro-housing-hub-clamp-tvoa-stamped-plus-x-side-2-23d86e3ebf68.stl",
+					"normal": [
+						1.0,
+						0.0,
+						0.0
+					],
+					"center": [
+						453.6,
+						227.04,
+						53.0
+					],
+					"size": [
+						12.67,
+						3.63
+					],
+					"cap": 3.5,
+					"depth": 0.6
+				}
+			]
+		},
+		{
+			"id": "orange-pi-pro-housing-buck-clamp",
+			"uid": "ei5v",
+			"name": "Orange Pi 5 Pro Housing \u2014 Buck Clamp",
+			"quantities": {},
+			"assembly": "orange-pi-pro-housing",
+			"folder": null,
+			"variant_group": null,
+			"variant_name": null,
+			"description": "Frame that holds the 24 V to 5 V buck converter down on the housing's roof, on four self-tapping M3 \u00d7 12 mm countersunk screws into the roof's pilots.",
+			"version": "1",
+			"created_at": "2026-10-16",
+			"updated_at": "2026-10-16",
+			"versions": [
+				{
+					"version": "1",
+					"uid": "ei5v",
+					"date": "2026-10-16",
+					"message": "Initial version.",
+					"commit": null,
+					"onshape_version": "https://cad.onshape.com/documents/d8339d00eaef603e65e5e050/w/abcfb71b893de053f48971d9/e/fc9281c225802dfd3c097d80",
+					"stl": "https://assets.basically.website/sorter-parts/orange-pi-pro-housing-buck-clamp-051cec8efd15.stl",
+					"render": "https://assets.basically.website/sorter-parts/orange-pi-pro-housing-buck-clamp-full-ed897412705a.png",
+					"grams": 6.25
+				}
+			],
+			"attributes": [],
+			"grams": 6.25,
+			"support_grams": 0.0,
+			"support_used": false,
+			"support_intentional": false,
+			"print_seconds": 1256,
+			"color": {
+				"role": "frame"
+			},
+			"optional": false,
+			"onshape": null,
+			"info": null,
+			"low_tolerance": false,
+			"low_tolerance_note": null,
+			"layer_scope": "all",
+			"requires": [],
+			"caption": null,
+			"docs_page": null,
+			"conflicts": null,
+			"stl": "https://assets.basically.website/sorter-parts/orange-pi-pro-housing-buck-clamp-051cec8efd15.stl",
+			"render": "https://assets.basically.website/sorter-parts/orange-pi-pro-housing-buck-clamp-full-ed897412705a.png",
+			"stamped": [
+				{
+					"face": "bottom",
+					"stl": "https://assets.basically.website/sorter-parts/orange-pi-pro-housing-buck-clamp-ei5v-stamped-bottom-c6e4132fb0d5.stl",
+					"normal": [
+						0.0,
+						0.0,
+						-1.0
+					],
+					"center": [
+						324.19,
+						200.77,
+						49.5
+					],
+					"size": [
+						12.31,
+						3.56
+					],
+					"cap": 3.5,
+					"depth": 0.6
+				},
+				{
+					"face": "top",
+					"stl": "https://assets.basically.website/sorter-parts/orange-pi-pro-housing-buck-clamp-ei5v-stamped-top-bd471142769f.stl",
+					"normal": [
+						0.0,
+						0.0,
+						1.0
+					],
+					"center": [
+						323.67,
+						195.27,
+						56.5
+					],
+					"size": [
+						12.31,
+						3.56
+					],
+					"cap": 3.5,
+					"depth": 0.6
+				},
+				{
+					"face": "+x side",
+					"stl": "https://assets.basically.website/sorter-parts/orange-pi-pro-housing-buck-clamp-ei5v-stamped-plus-x-side-a5bd0caf7c46.stl",
+					"normal": [
+						1.0,
+						0.0,
+						-0.0
+					],
+					"center": [
+						345.22,
+						203.64,
+						52.66
+					],
+					"size": [
+						12.31,
+						3.56
+					],
+					"cap": 3.5,
+					"depth": 0.6
+				},
+				{
+					"face": "-x side",
+					"stl": "https://assets.basically.website/sorter-parts/orange-pi-pro-housing-buck-clamp-ei5v-stamped-minus-x-side-bfba03860a58.stl",
+					"normal": [
+						-1.0,
+						0.0,
+						0.0
+					],
+					"center": [
+						340.22,
+						247.49,
+						52.66
+					],
+					"size": [
+						12.31,
+						3.56
+					],
+					"cap": 3.5,
+					"depth": 0.6
+				}
+			]
+		},
+		{
+			"id": "orange-pi-pro-housing-antenna-clamp-cap",
+			"uid": "2caw",
+			"name": "Orange Pi 5 Pro Housing \u2014 Antenna Cap",
+			"quantities": {},
+			"assembly": "orange-pi-pro-housing",
+			"folder": null,
+			"variant_group": null,
+			"variant_name": null,
+			"description": "Cap that holds the WiFi antenna in its channel on the north wall, on two self-tapping M3 \u00d7 12 mm countersunk screws into the wall's pilots.",
+			"version": "1",
+			"created_at": "2026-10-16",
+			"updated_at": "2026-10-16",
+			"versions": [
+				{
+					"version": "1",
+					"uid": "2caw",
+					"date": "2026-10-16",
+					"message": "Initial version.",
+					"commit": null,
+					"onshape_version": "https://cad.onshape.com/documents/d8339d00eaef603e65e5e050/w/abcfb71b893de053f48971d9/e/fc9281c225802dfd3c097d80",
+					"stl": "https://assets.basically.website/sorter-parts/orange-pi-pro-housing-antenna-clamp-cap-07718672f1fe.stl",
+					"render": "https://assets.basically.website/sorter-parts/orange-pi-pro-housing-antenna-clamp-cap-full-35bfbc3ccc1a.png",
+					"grams": 1.37
+				}
+			],
+			"attributes": [],
+			"grams": 1.37,
+			"support_grams": 0.0,
+			"support_used": false,
+			"support_intentional": false,
+			"print_seconds": 757,
+			"color": {
+				"role": "frame"
+			},
+			"optional": false,
+			"onshape": null,
+			"info": null,
+			"low_tolerance": false,
+			"low_tolerance_note": null,
+			"layer_scope": "all",
+			"requires": [],
+			"caption": null,
+			"docs_page": null,
+			"conflicts": null,
+			"stl": "https://assets.basically.website/sorter-parts/orange-pi-pro-housing-antenna-clamp-cap-07718672f1fe.stl",
+			"render": "https://assets.basically.website/sorter-parts/orange-pi-pro-housing-antenna-clamp-cap-full-35bfbc3ccc1a.png",
+			"stamped": [
+				{
+					"face": "bottom",
+					"stl": "https://assets.basically.website/sorter-parts/orange-pi-pro-housing-antenna-clamp-cap-2caw-stamped-bottom-7e2a26ad9220.stl",
+					"normal": [
+						-0.0,
+						0.0,
+						-1.0
+					],
+					"center": [
+						70.11,
+						88.62,
+						16.0
+					],
+					"size": [
+						12.59,
+						3.63
+					],
+					"cap": 3.5,
+					"depth": 0.6
+				},
+				{
+					"face": "+y side",
+					"stl": "https://assets.basically.website/sorter-parts/orange-pi-pro-housing-antenna-clamp-cap-2caw-stamped-plus-y-side-d6167ce6bd89.stl",
+					"normal": [
+						-0.0,
+						1.0,
+						0.0
+					],
+					"center": [
+						70.66,
+						92.43,
+						18.42
+					],
+					"size": [
+						8.99,
+						2.59
+					],
+					"cap": 2.5,
+					"depth": 0.6,
+					"note": "smaller text"
+				},
+				{
+					"face": "-y side",
+					"stl": "https://assets.basically.website/sorter-parts/orange-pi-pro-housing-antenna-clamp-cap-2caw-stamped-minus-y-sid-2c6a1a73f10f.stl",
+					"normal": [
+						-0.0,
+						-1.0,
+						0.0
+					],
+					"center": [
+						65.9,
+						78.43,
+						18.42
+					],
+					"size": [
+						8.99,
+						2.59
+					],
+					"cap": 2.5,
+					"depth": 0.4,
+					"note": "smaller text, shallow pocket"
+				}
+			]
+		},
+		{
+			"id": "orange-pi-pro-housing-plunger",
+			"uid": "yk82",
+			"name": "Orange Pi 5 Pro Housing \u2014 Plunger",
+			"quantities": {},
+			"assembly": "orange-pi-pro-housing",
+			"folder": null,
+			"variant_group": null,
+			"variant_name": null,
+			"description": "Reaches the board's power key through the west wall, so the board can be switched on with the housing closed. Held by the base's retainer and the plunger cap.",
+			"version": "1",
+			"created_at": "2026-10-16",
+			"updated_at": "2026-10-16",
+			"versions": [
+				{
+					"version": "1",
+					"uid": "yk82",
+					"date": "2026-10-16",
+					"message": "Initial version.",
+					"commit": null,
+					"onshape_version": "https://cad.onshape.com/documents/d8339d00eaef603e65e5e050/w/abcfb71b893de053f48971d9/e/fc9281c225802dfd3c097d80",
+					"stl": "https://assets.basically.website/sorter-parts/orange-pi-pro-housing-plunger-15e1c7dc0aae.stl",
+					"render": "https://assets.basically.website/sorter-parts/orange-pi-pro-housing-plunger-full-52f66ef88c6a.png",
+					"grams": 1.69
+				}
+			],
+			"attributes": [],
+			"grams": 1.69,
+			"support_grams": 0.0,
+			"support_used": false,
+			"support_intentional": false,
+			"print_seconds": 836,
+			"color": {
+				"role": "frame"
+			},
+			"optional": false,
+			"onshape": null,
+			"info": null,
+			"low_tolerance": false,
+			"low_tolerance_note": null,
+			"layer_scope": "all",
+			"requires": [],
+			"caption": null,
+			"docs_page": null,
+			"conflicts": null,
+			"stl": "https://assets.basically.website/sorter-parts/orange-pi-pro-housing-plunger-15e1c7dc0aae.stl",
+			"render": "https://assets.basically.website/sorter-parts/orange-pi-pro-housing-plunger-full-52f66ef88c6a.png",
+			"stamped": [
+				{
+					"face": "bottom",
+					"stl": "https://assets.basically.website/sorter-parts/orange-pi-pro-housing-plunger-yk82-stamped-bottom-5938a68413e9.stl",
+					"normal": [
+						0.0,
+						-0.0,
+						-1.0
+					],
+					"center": [
+						51.5,
+						147.25,
+						12.8
+					],
+					"size": [
+						2.55,
+						8.89
+					],
+					"cap": 2.5,
+					"depth": 0.6,
+					"note": "smaller text"
+				},
+				{
+					"face": "-x side",
+					"stl": "https://assets.basically.website/sorter-parts/orange-pi-pro-housing-plunger-yk82-stamped-minus-x-side-abfe99561310.stl",
+					"normal": [
+						-1.0,
+						-0.0,
+						-0.0
+					],
+					"center": [
+						48.7,
+						169.33,
+						15.2
+					],
+					"size": [
+						8.89,
+						2.55
+					],
+					"cap": 2.5,
+					"depth": 0.6,
+					"note": "smaller text"
+				},
+				{
+					"face": "+x side",
+					"stl": "https://assets.basically.website/sorter-parts/orange-pi-pro-housing-plunger-yk82-stamped-plus-x-side-2c0bb44397f0.stl",
+					"normal": [
+						1.0,
+						0.0,
+						-0.0
+					],
+					"center": [
+						54.3,
+						149.87,
+						15.2
+					],
+					"size": [
+						8.89,
+						2.55
+					],
+					"cap": 2.5,
+					"depth": 0.6,
+					"note": "smaller text"
+				},
+				{
+					"face": "top",
+					"stl": "https://assets.basically.website/sorter-parts/orange-pi-pro-housing-plunger-yk82-stamped-top-abb0d16708d5.stl",
+					"normal": [
+						0.0,
+						0.0,
+						1.0
+					],
+					"center": [
+						51.1,
+						149.87,
+						18.4
+					],
+					"size": [
+						2.55,
+						8.89
+					],
+					"cap": 2.5,
+					"depth": 0.6,
+					"note": "smaller text"
+				}
+			]
+		},
+		{
+			"id": "orange-pi-pro-housing-plunger-cap",
+			"uid": "ob7g",
+			"name": "Orange Pi 5 Pro Housing \u2014 Plunger Cap",
+			"quantities": {},
+			"assembly": "orange-pi-pro-housing",
+			"folder": null,
+			"variant_group": null,
+			"variant_name": null,
+			"description": "Closes over the plunger in the base's retainer on one M3 \u00d7 8 mm countersunk screw, keeping the plunger in.",
+			"version": "1",
+			"created_at": "2026-10-16",
+			"updated_at": "2026-10-16",
+			"versions": [
+				{
+					"version": "1",
+					"uid": "ob7g",
+					"date": "2026-10-16",
+					"message": "Initial version.",
+					"commit": null,
+					"onshape_version": "https://cad.onshape.com/documents/d8339d00eaef603e65e5e050/w/abcfb71b893de053f48971d9/e/fc9281c225802dfd3c097d80",
+					"stl": "https://assets.basically.website/sorter-parts/orange-pi-pro-housing-plunger-cap-55bfa3004429.stl",
+					"render": "https://assets.basically.website/sorter-parts/orange-pi-pro-housing-plunger-cap-full-8d22d067cf4b.png",
+					"grams": 0.67
+				}
+			],
+			"attributes": [],
+			"grams": 0.67,
+			"support_grams": 0.0,
+			"support_used": false,
+			"support_intentional": false,
+			"print_seconds": 530,
+			"color": {
+				"role": "frame"
+			},
+			"optional": false,
+			"onshape": null,
+			"info": null,
+			"low_tolerance": false,
+			"low_tolerance_note": null,
+			"layer_scope": "all",
+			"requires": [],
+			"caption": null,
+			"docs_page": null,
+			"conflicts": null,
+			"stl": "https://assets.basically.website/sorter-parts/orange-pi-pro-housing-plunger-cap-55bfa3004429.stl",
+			"render": "https://assets.basically.website/sorter-parts/orange-pi-pro-housing-plunger-cap-full-8d22d067cf4b.png",
+			"stamped": [
+				{
+					"face": "bottom",
+					"stl": "https://assets.basically.website/sorter-parts/orange-pi-pro-housing-plunger-cap-ob7g-stamped-bottom-fc2be6f75d49.stl",
+					"normal": [
+						0.0,
+						0.0,
+						-1.0
+					],
+					"center": [
+						24.29,
+						152.81,
+						15.2
+					],
+					"size": [
+						12.39,
+						3.63
+					],
+					"cap": 3.5,
+					"depth": 0.6
+				},
+				{
+					"face": "top",
+					"stl": "https://assets.basically.website/sorter-parts/orange-pi-pro-housing-plunger-cap-ob7g-stamped-top-5becbb10a2b7.stl",
+					"normal": [
+						0.0,
+						0.0,
+						1.0
+					],
+					"center": [
+						23.93,
+						152.81,
+						18.2
+					],
+					"size": [
+						12.39,
+						3.63
+					],
+					"cap": 3.5,
+					"depth": 0.6
+				}
+			]
+		},
+		{
 			"id": "fan-bracket-40mm",
 			"uid": "3ufy",
 			"retired_at": "2026-09-26",
@@ -29094,10 +30511,10 @@
 			},
 			"name": "Orange Pi 5",
 			"category": "Computer",
-			"description": "The computer that runs the machine's software. Buy the Orange Pi 5, 8 GB: SorterOS, the ready-made image, is built for it. A Raspberry Pi 5 also works, but it needs the manual Linux install instead of the ready-made image.",
-			"note": "Buy the plain Orange Pi 5, 8 GB. The 5 Plus, 5 Pro, 5 Max and 5 Ultra are separate boards rather than options on this one: none of them share its mounting-hole pattern, so the printed housing's posts do not line up, and the WiFi module listed in this catalog fits the plain 5 only. The 5B is not supported either: it does fit the housing's posts, but SorterOS is built from the plain 5's image and there is no 5B build.",
+			"description": "The computer that runs the machine's software. Buy the Orange Pi 5, 8 GB: SorterOS, the ready-made image, is built for it. The Orange Pi 5 Pro, Max or Ultra also fits, in its own printed housing, but SorterOS has no released image for those boards yet. A Raspberry Pi 5 also works, but it needs the manual Linux install instead of the ready-made image.",
+			"note": "Buy the plain Orange Pi 5, 8 GB, unless you are building the Orange Pi 5 Pro housing. The 5 Pro, 5 Max and 5 Ultra have a different mounting-hole pattern from this board and take that housing instead; the 5 Plus is a separate board that neither housing fits. The WiFi module listed in this catalog fits the plain 5 only. The 5B is not supported: it does fit the housing's posts, but SorterOS is built from the plain 5's image and there is no 5B build.",
 			"created_at": "2026-07-18",
-			"updated_at": "2026-10-02",
+			"updated_at": "2026-10-16",
 			"attributes": [
 				{
 					"label": "Memory",
@@ -29133,11 +30550,11 @@
 				},
 				{
 					"label": "Board",
-					"value": "100 \u00d7 62 mm, 46 g. Its four mounting holes sit on a roughly 95 \u00d7 56 mm rectangle, which is what the printed extrusion mount is drilled for."
+					"value": "100 \u00d7 62 mm, 46 g. Its four mounting holes sit on a roughly 95 \u00d7 56 mm rectangle, which is what the Orange Pi housing's base is drilled for."
 				},
 				{
 					"label": "Variants",
-					"value": "The 5 Pro, 5 Max and 5 Ultra are 89 mm wide boards with their mounting holes on a 58 \u00d7 49 mm rectangle; the 5 Plus is a 100 \u00d7 75 mm RK3588 board. The 5 Pro has Wi-Fi 5 on board and the 5 Plus takes a 2230 E-key module, while this catalog's WiFi module is M-key and fits the plain 5 only. The 5B is the same board as the plain 5 with Wi-Fi 6 and eMMC added and the M.2 slot removed, so it does fit the mount, but SorterOS has no build for it."
+					"value": "The 5 Pro, 5 Max and 5 Ultra are 89 mm wide boards with their mounting holes on a 58 \u00d7 49 mm rectangle, which the Orange Pi 5 Pro housing is drilled for. The 5 Plus is a 100 \u00d7 75 mm RK3588 board that neither housing fits. The 5 Pro has Wi-Fi 5 on board and the 5 Plus takes a 2230 E-key module, while this catalog's WiFi module is M-key and fits the plain 5 only. The 5B is the same board as the plain 5 with Wi-Fi 6 and eMMC added and the M.2 slot removed, so it does fit the Orange Pi housing, but SorterOS has no build for it."
 				},
 				{
 					"label": "OS",
@@ -29172,7 +30589,7 @@
 					}
 				]
 			},
-			"alternative": null,
+			"alternative": "The Orange Pi 5 Pro, Max or Ultra, built into the [[docs:/hardware/electronics/installation/orange-pi-mount/|Orange Pi 5 Pro housing]]. SorterOS has no released image for them yet.",
 			"caption": null,
 			"docs_page": null,
 			"conflicts": null,

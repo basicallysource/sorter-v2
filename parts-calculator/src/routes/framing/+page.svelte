@@ -1,7 +1,7 @@
 <script lang="ts">
 	import Seo from '$lib/components/Seo.svelte';
 	import ExtrusionScene from '$lib/components/ExtrusionScene.svelte';
-	import LayerControl from '$lib/components/LayerControl.svelte';
+	import BuildOptions from '$lib/components/BuildOptions.svelte';
 	import CutPlan from '$lib/components/CutPlan.svelte';
 	import Figure from '$lib/components/Figure.svelte';
 	import Callout from '$lib/components/Callout.svelte';
@@ -28,7 +28,7 @@
 	</header>
 
 	<section class="mb-6">
-		<LayerControl />
+		<BuildOptions />
 	</section>
 
 	<section class="mb-8">

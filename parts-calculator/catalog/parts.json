@@ -44,9 +44,7 @@
     {
       "id": "electronics",
       "name": "Electronics",
-      "scales_with_layers": false,
-      "experimental": true,
-      "experimental_note": "The electronics are early and changing a lot. Only build these if you have the experience to adapt as the design moves."
+      "scales_with_layers": false
     }
   ],
   "changes": [
@@ -3441,6 +3439,221 @@
       "onshape_version": "https://cad.onshape.com/documents/d8339d00eaef603e65e5e050/v/32e64a3fe696f998a73a0f9f/e/b1ceeb1a7465fd41994edd80"
     },
     {
+      "id": "orange-pi-pro-housing-base",
+      "uid": "kkwj",
+      "name": "Orange Pi 5 Pro Housing — Base",
+      "description": "Base of the Orange Pi 5 Pro housing. The board screws down to four posts on heat inserts, four corner posts carry heat inserts for the roof screws, the four walls drop into grooves along its edges, and two ears bolt it to the 2020 extrusion. An opening in the floor under the microSD slot leaves room for a finger, and the retainer for the power button plunger is part of the base.",
+      "internal_notes": "New 2026-10-16: zed0's housing for the Orange Pi 5 Pro, Max and Ultra, the alternative to orange-pi-mount for those boards. Unlike the Orange Pi 5 housing parts it is exported in print orientation, laid out flat side by side, not in assembly coordinates. Same outer shape, wall grooves, corner posts, roof inserts and frame ears as orange-pi-housing-base. The four board posts are at a 58 x 49 mm rectangle (17.92 and 75.92 by 7.49 and 56.49 in the housing's own frame) instead of 93.97 x 55.96, the microSD opening moved, and the plunger retainer is cast into the base's west end with its own Ø2.8 pilot (8 mm deep) for the cap screw, where the old design had a separate retainer screwed up from underneath. Same eight Ø4.0 insert bores.",
+      "version": "1",
+      "created_at": "2026-10-16",
+      "updated_at": "2026-10-16",
+      "quantities": {},
+      "assembly": "orange-pi-pro-housing",
+      "stl_hash": "cb90eb6a3e5deb3d29b1ea298d13c865e75f961a15c09b7dfe10449b3055cd95",
+      "color": {
+        "role": "frame"
+      },
+      "optional": false,
+      "support": false,
+      "requires": [
+        {
+          "part": "hsi-m3",
+          "qty": 8
+        }
+      ],
+      "onshape_version": "https://cad.onshape.com/documents/d8339d00eaef603e65e5e050/w/abcfb71b893de053f48971d9/e/fc9281c225802dfd3c097d80"
+    },
+    {
+      "id": "orange-pi-pro-housing-roof",
+      "uid": "f9sg",
+      "name": "Orange Pi 5 Pro Housing — Roof",
+      "description": "Roof of the Orange Pi 5 Pro housing. Four M3 × 12 mm countersunk screws hold it down into the base's corner inserts, and it carries the USB hub and the buck converter on top, each under its own clamp on four self-tapping M3 × 12 mm countersunk screws into the roof's pilots. Its grooved side faces down in the box.",
+      "internal_notes": "New 2026-10-16: zed0's housing for the Orange Pi 5 Pro, Max and Ultra, the alternative to orange-pi-mount for those boards. Unlike the Orange Pi 5 housing parts it is exported in print orientation, laid out flat side by side, not in assembly coordinates. Same layout as orange-pi-housing-roof (corner holes, hub and buck pilots, hex vent), exported upside down for printing. Placed in the box frame by flipping it about x and matching it to the old roof (mask IoU 0.988).",
+      "version": "1",
+      "created_at": "2026-10-16",
+      "updated_at": "2026-10-16",
+      "quantities": {},
+      "assembly": "orange-pi-pro-housing",
+      "stl_hash": "6e11ffcc09fd5314ee063810a3628ef3fd46d55ef583bff5d33cfe6c552e9a29",
+      "color": {
+        "role": "frame"
+      },
+      "optional": false,
+      "support": false,
+      "onshape_version": "https://cad.onshape.com/documents/d8339d00eaef603e65e5e050/w/abcfb71b893de053f48971d9/e/fc9281c225802dfd3c097d80"
+    },
+    {
+      "id": "orange-pi-pro-housing-wall-west",
+      "uid": "lvhs",
+      "name": "Orange Pi 5 Pro Housing — West Wall",
+      "description": "Short wall on the board's power button side. A small window lets the power button plunger through, and a larger one opens onto the microSD card. Drops into its groove in the base; the roof holds it down.",
+      "internal_notes": "New 2026-10-16: zed0's housing for the Orange Pi 5 Pro, Max and Ultra, the alternative to orange-pi-mount for those boards. Unlike the Orange Pi 5 housing parts it is exported in print orientation, laid out flat side by side, not in assembly coordinates. Windows moved for the Pro: the plunger window is nearer the north edge and the microSD window is smaller than orange-pi-housing-wall-west's.",
+      "version": "1",
+      "created_at": "2026-10-16",
+      "updated_at": "2026-10-16",
+      "quantities": {},
+      "assembly": "orange-pi-pro-housing",
+      "stl_hash": "23d88b38143002329da432ba9868fdd2efedd4a210fb49eb9b65e4ea360a2188",
+      "color": {
+        "role": "frame"
+      },
+      "optional": false,
+      "support": false,
+      "onshape_version": "https://cad.onshape.com/documents/d8339d00eaef603e65e5e050/w/abcfb71b893de053f48971d9/e/fc9281c225802dfd3c097d80"
+    },
+    {
+      "id": "orange-pi-pro-housing-wall-east",
+      "uid": "7liu",
+      "name": "Orange Pi 5 Pro Housing — East Wall",
+      "description": "Short wall on the board's USB-A and Ethernet side, with an opening for each of its three port groups. Drops into its groove in the base; the roof holds it down.",
+      "internal_notes": "New 2026-10-16: zed0's housing for the Orange Pi 5 Pro, Max and Ultra, the alternative to orange-pi-mount for those boards. Unlike the Orange Pi 5 housing parts it is exported in print orientation, laid out flat side by side, not in assembly coordinates. Three openings at the Pro's port positions (Ethernet, a USB 3 stack, two USB 2 stacks), the Ethernet one 18 mm wide against 9 mm on orange-pi-housing-wall-east.",
+      "version": "1",
+      "created_at": "2026-10-16",
+      "updated_at": "2026-10-16",
+      "quantities": {},
+      "assembly": "orange-pi-pro-housing",
+      "stl_hash": "c50c9d2e54db9bc6e810f333ecd3576ce22909b8270e675297cfa45eda746f4f",
+      "color": {
+        "role": "frame"
+      },
+      "optional": false,
+      "support": false,
+      "onshape_version": "https://cad.onshape.com/documents/d8339d00eaef603e65e5e050/w/abcfb71b893de053f48971d9/e/fc9281c225802dfd3c097d80"
+    },
+    {
+      "id": "orange-pi-pro-housing-wall-north",
+      "uid": "iiun",
+      "name": "Orange Pi 5 Pro Housing — North Wall",
+      "description": "Long wall on the board's HDMI, audio and USB-C side, with one opening for those ports. A block on its outside carries the WiFi antenna in a channel under the antenna cap, with an opening below for its lead. Drops into its groove in the base; the roof holds it down.",
+      "internal_notes": "New 2026-10-16: zed0's housing for the Orange Pi 5 Pro, Max and Ultra, the alternative to orange-pi-mount for those boards. Unlike the Orange Pi 5 housing parts it is exported in print orientation, laid out flat side by side, not in assembly coordinates. One antenna channel at the west end instead of two at the east, and a port opening moved to the Pro's HDMI, audio and USB-C positions, raised to take the upright USB-C plug. Exported flat, its outside face up.",
+      "version": "1",
+      "created_at": "2026-10-16",
+      "updated_at": "2026-10-16",
+      "quantities": {},
+      "assembly": "orange-pi-pro-housing",
+      "stl_hash": "718ebc53c26f09af641045c9c6c4703f03d4bea62cc96e9bb86cc4232ed02e00",
+      "color": {
+        "role": "frame"
+      },
+      "optional": false,
+      "support": false,
+      "onshape_version": "https://cad.onshape.com/documents/d8339d00eaef603e65e5e050/w/abcfb71b893de053f48971d9/e/fc9281c225802dfd3c097d80"
+    },
+    {
+      "id": "orange-pi-pro-housing-wall-south",
+      "uid": "cr4b",
+      "name": "Orange Pi 5 Pro Housing — South Wall",
+      "description": "Long wall on the board's GPIO side: a hex vent, and an opening at the bottom for a cable off the GPIO header. Drops into its groove in the base; the roof holds it down.",
+      "internal_notes": "New 2026-10-16: zed0's housing for the Orange Pi 5 Pro, Max and Ultra, the alternative to orange-pi-mount for those boards. Unlike the Orange Pi 5 housing parts it is exported in print orientation, laid out flat side by side, not in assembly coordinates. Same as orange-pi-housing-wall-south apart from being exported flat.",
+      "version": "1",
+      "created_at": "2026-10-16",
+      "updated_at": "2026-10-16",
+      "quantities": {},
+      "assembly": "orange-pi-pro-housing",
+      "stl_hash": "d94f982ba6d3e2aaf2f4b42652bcce24e1233498bdc1a52fa233834447d096f3",
+      "color": {
+        "role": "frame"
+      },
+      "optional": false,
+      "support": false,
+      "onshape_version": "https://cad.onshape.com/documents/d8339d00eaef603e65e5e050/w/abcfb71b893de053f48971d9/e/fc9281c225802dfd3c097d80"
+    },
+    {
+      "id": "orange-pi-pro-housing-hub-clamp",
+      "uid": "tvoa",
+      "name": "Orange Pi 5 Pro Housing — Hub Clamp",
+      "description": "Frame that holds the powered USB hub down on the housing's roof, on four self-tapping M3 × 12 mm countersunk screws into the roof's pilots. Drawn around the Waveshare USB3.2-Gen1-HUB-4U.",
+      "internal_notes": "New 2026-10-16: zed0's housing for the Orange Pi 5 Pro, Max and Ultra, the alternative to orange-pi-mount for those boards. Unlike the Orange Pi 5 housing parts it is exported in print orientation, laid out flat side by side, not in assembly coordinates. The same shape as orange-pi-housing-hub-clamp (same volume and hole positions), exported upside down for printing.",
+      "version": "1",
+      "created_at": "2026-10-16",
+      "updated_at": "2026-10-16",
+      "quantities": {},
+      "assembly": "orange-pi-pro-housing",
+      "stl_hash": "9060c8b740a93ec4e299fa0e4d6c1db800875f4bcf3b3fff19e2533a5a0d566b",
+      "color": {
+        "role": "frame"
+      },
+      "optional": false,
+      "support": false,
+      "onshape_version": "https://cad.onshape.com/documents/d8339d00eaef603e65e5e050/w/abcfb71b893de053f48971d9/e/fc9281c225802dfd3c097d80"
+    },
+    {
+      "id": "orange-pi-pro-housing-buck-clamp",
+      "uid": "ei5v",
+      "name": "Orange Pi 5 Pro Housing — Buck Clamp",
+      "description": "Frame that holds the 24 V to 5 V buck converter down on the housing's roof, on four self-tapping M3 × 12 mm countersunk screws into the roof's pilots.",
+      "internal_notes": "New 2026-10-16: zed0's housing for the Orange Pi 5 Pro, Max and Ultra, the alternative to orange-pi-mount for those boards. Unlike the Orange Pi 5 housing parts it is exported in print orientation, laid out flat side by side, not in assembly coordinates. The same shape as orange-pi-housing-buck-clamp (same volume and hole positions), exported upside down for printing.",
+      "version": "1",
+      "created_at": "2026-10-16",
+      "updated_at": "2026-10-16",
+      "quantities": {},
+      "assembly": "orange-pi-pro-housing",
+      "stl_hash": "051cec8efd156b65a208c3cfcc6bed63712beb64ca4a86e5a50cc622251cf593",
+      "color": {
+        "role": "frame"
+      },
+      "optional": false,
+      "support": false,
+      "onshape_version": "https://cad.onshape.com/documents/d8339d00eaef603e65e5e050/w/abcfb71b893de053f48971d9/e/fc9281c225802dfd3c097d80"
+    },
+    {
+      "id": "orange-pi-pro-housing-antenna-clamp-cap",
+      "uid": "2caw",
+      "name": "Orange Pi 5 Pro Housing — Antenna Cap",
+      "description": "Cap that holds the WiFi antenna in its channel on the north wall, on two self-tapping M3 × 12 mm countersunk screws into the wall's pilots.",
+      "internal_notes": "New 2026-10-16: zed0's housing for the Orange Pi 5 Pro, Max and Ultra, the alternative to orange-pi-mount for those boards. Unlike the Orange Pi 5 housing parts it is exported in print orientation, laid out flat side by side, not in assembly coordinates. Replaces orange-pi-housing-antenna-clamp: a short cap over one channel, where the old clamp spanned two. Its half-channel closes against the one cut in the north wall's block. Screw length carried over from the old clamp (same Ø2.8 x 7.1 mm pilots), not re-measured against a build.",
+      "version": "1",
+      "created_at": "2026-10-16",
+      "updated_at": "2026-10-16",
+      "quantities": {},
+      "assembly": "orange-pi-pro-housing",
+      "stl_hash": "07718672f1fe9739dd45943c65913be3c67cf4ff837fc2b13024e8bf0ceb5589",
+      "color": {
+        "role": "frame"
+      },
+      "optional": false,
+      "support": false,
+      "onshape_version": "https://cad.onshape.com/documents/d8339d00eaef603e65e5e050/w/abcfb71b893de053f48971d9/e/fc9281c225802dfd3c097d80"
+    },
+    {
+      "id": "orange-pi-pro-housing-plunger",
+      "uid": "yk82",
+      "name": "Orange Pi 5 Pro Housing — Plunger",
+      "description": "Reaches the board's power key through the west wall, so the board can be switched on with the housing closed. Held by the base's retainer and the plunger cap.",
+      "internal_notes": "New 2026-10-16: zed0's housing for the Orange Pi 5 Pro, Max and Ultra, the alternative to orange-pi-mount for those boards. Unlike the Orange Pi 5 housing parts it is exported in print orientation, laid out flat side by side, not in assembly coordinates. 9.9 mm longer than orange-pi-housing-plunger (55.3 mm against 45.4 mm) to reach the Pro's power key.",
+      "version": "1",
+      "created_at": "2026-10-16",
+      "updated_at": "2026-10-16",
+      "quantities": {},
+      "assembly": "orange-pi-pro-housing",
+      "stl_hash": "15e1c7dc0aaeedcf78b8f19e34e292c932156661de35969b6f03ed5d98f93a57",
+      "color": {
+        "role": "frame"
+      },
+      "optional": false,
+      "support": false,
+      "onshape_version": "https://cad.onshape.com/documents/d8339d00eaef603e65e5e050/w/abcfb71b893de053f48971d9/e/fc9281c225802dfd3c097d80"
+    },
+    {
+      "id": "orange-pi-pro-housing-plunger-cap",
+      "uid": "ob7g",
+      "name": "Orange Pi 5 Pro Housing — Plunger Cap",
+      "description": "Closes over the plunger in the base's retainer on one M3 × 8 mm countersunk screw, keeping the plunger in.",
+      "internal_notes": "New 2026-10-16: zed0's housing for the Orange Pi 5 Pro, Max and Ultra, the alternative to orange-pi-mount for those boards. Unlike the Orange Pi 5 housing parts it is exported in print orientation, laid out flat side by side, not in assembly coordinates. The same cap as orange-pi-housing-plunger-cap. The screw goes into the retainer built into the base, whose pilot is the same Ø2.8 x 8 mm as the old retainer's.",
+      "version": "1",
+      "created_at": "2026-10-16",
+      "updated_at": "2026-10-16",
+      "quantities": {},
+      "assembly": "orange-pi-pro-housing",
+      "stl_hash": "55bfa3004429f398472d5da4d095b2223f1850e395d9603f7af23d91f1e49fed",
+      "color": {
+        "role": "frame"
+      },
+      "optional": false,
+      "support": false,
+      "onshape_version": "https://cad.onshape.com/documents/d8339d00eaef603e65e5e050/w/abcfb71b893de053f48971d9/e/fc9281c225802dfd3c097d80"
+    },
+    {
       "id": "fan-bracket-40mm",
       "uid": "3ufy",
       "retired_at": "2026-09-26",
@@ -6727,9 +6940,9 @@
       },
       "name": "Orange Pi 5",
       "category": "Computer",
-      "description": "The computer that runs the machine's software. Buy the Orange Pi 5, 8 GB: SorterOS, the ready-made image, is built for it. A Raspberry Pi 5 also works, but it needs the manual Linux install instead of the ready-made image.",
+      "description": "The computer that runs the machine's software. Buy the Orange Pi 5, 8 GB: SorterOS, the ready-made image, is built for it. The Orange Pi 5 Pro, Max or Ultra also fits, in its own printed housing, but SorterOS has no released image for those boards yet. A Raspberry Pi 5 also works, but it needs the manual Linux install instead of the ready-made image.",
       "created_at": "2026-07-18",
-      "updated_at": "2026-10-02",
+      "updated_at": "2026-10-16",
       "sheet_qty": {
         "per_machine": 1
       },
@@ -6768,18 +6981,19 @@
         },
         {
           "label": "Board",
-          "value": "100 × 62 mm, 46 g. Its four mounting holes sit on a roughly 95 × 56 mm rectangle, which is what the printed extrusion mount is drilled for."
+          "value": "100 × 62 mm, 46 g. Its four mounting holes sit on a roughly 95 × 56 mm rectangle, which is what the Orange Pi housing's base is drilled for."
         },
         {
           "label": "Variants",
-          "value": "The 5 Pro, 5 Max and 5 Ultra are 89 mm wide boards with their mounting holes on a 58 × 49 mm rectangle; the 5 Plus is a 100 × 75 mm RK3588 board. The 5 Pro has Wi-Fi 5 on board and the 5 Plus takes a 2230 E-key module, while this catalog's WiFi module is M-key and fits the plain 5 only. The 5B is the same board as the plain 5 with Wi-Fi 6 and eMMC added and the M.2 slot removed, so it does fit the mount, but SorterOS has no build for it."
+          "value": "The 5 Pro, 5 Max and 5 Ultra are 89 mm wide boards with their mounting holes on a 58 × 49 mm rectangle, which the Orange Pi 5 Pro housing is drilled for. The 5 Plus is a 100 × 75 mm RK3588 board that neither housing fits. The 5 Pro has Wi-Fi 5 on board and the 5 Plus takes a 2230 E-key module, while this catalog's WiFi module is M-key and fits the plain 5 only. The 5B is the same board as the plain 5 with Wi-Fi 6 and eMMC added and the M.2 slot removed, so it does fit the Orange Pi housing, but SorterOS has no build for it."
         },
         {
           "label": "OS",
           "value": "SorterOS, which is built on Orange Pi's own Ubuntu image for this board"
         }
       ],
-      "note": "Buy the plain Orange Pi 5, 8 GB. The 5 Plus, 5 Pro, 5 Max and 5 Ultra are separate boards rather than options on this one: none of them share its mounting-hole pattern, so the printed housing's posts do not line up, and the WiFi module listed in this catalog fits the plain 5 only. The 5B is not supported either: it does fit the housing's posts, but SorterOS is built from the plain 5's image and there is no 5B build.",
+      "note": "Buy the plain Orange Pi 5, 8 GB, unless you are building the Orange Pi 5 Pro housing. The 5 Pro, 5 Max and 5 Ultra have a different mounting-hole pattern from this board and take that housing instead; the 5 Plus is a separate board that neither housing fits. The WiFi module listed in this catalog fits the plain 5 only. The 5B is not supported: it does fit the housing's posts, but SorterOS is built from the plain 5's image and there is no 5B build.",
+      "alternative": "The Orange Pi 5 Pro, Max or Ultra, built into the [[docs:/hardware/electronics/installation/orange-pi-mount/|Orange Pi 5 Pro housing]]. SorterOS has no released image for them yet.",
       "image_url": "https://assets.basically.website/sorter-parts/sbc-orange-pi-5-full-0ed5b951ffe2.jpg",
       "sourcing": {
         "vendors": [
@@ -17167,9 +17381,120 @@
       ]
     },
     {
+      "id": "orange-pi-pro-housing",
+      "uid": "q9gw",
+      "version": "1",
+      "name": "Orange Pi 5 Pro housing",
+      "description": "The Orange Pi 5 Pro, Max or Ultra closed into a printed housing that bolts to the 2020 extrusion, built in place of the Orange Pi housing for these boards. A base with posts for the board, four walls that drop into it, and a roof that carries the powered USB hub and the buck converter that powers the board, each under its own clamp. One WiFi antenna stands in a cap on one wall, and a plunger reaches the board's power button from outside.",
+      "docs": "/hardware/electronics/installation/orange-pi-mount/",
+      "images": [
+        {
+          "url": "https://assets.basically.website/sorter-parts/orange-pi-pro-housing-with-hub-render-full-669b3d199c7e.png",
+          "alt": "Render of the Orange Pi 5 Pro housing with the USB hub and the buck converter clamped to its roof, their cables and the board's USB leads running off the box, and the WiFi antenna standing in its cap on the long wall",
+          "caption": "The housing with the hub and the buck converter on its roof. Rendered from the CAD, not from a build."
+        },
+        {
+          "url": "https://assets.basically.website/sorter-parts/orange-pi-pro-housing-render-ne-full-d762cdbaba34.png",
+          "alt": "Render of the closed Orange Pi 5 Pro housing seen from the north east, with the hub clamp and the buck clamp on its roof, the port openings in the east wall and the single antenna block on the north wall",
+          "caption": "The housing with its two roof clamps. Rendered from the part files, not from a build."
+        },
+        {
+          "url": "https://assets.basically.website/sorter-parts/orange-pi-pro-housing-render-sw-full-849e92e85437.png",
+          "alt": "Render of the closed Orange Pi 5 Pro housing seen from the south west, showing the hex vent in the south wall, the two frame ears and the two roof clamps",
+          "caption": "The other side. Rendered from the part files, not from a build."
+        }
+      ],
+      "lines": [
+        {
+          "part": "orange-pi-pro-housing-base",
+          "qty": 1
+        },
+        {
+          "part": "microsd-32gb",
+          "qty": 1
+        },
+        {
+          "part": "scr-m3-6-bhcs",
+          "qty": 4
+        },
+        {
+          "part": "orange-pi-pro-housing-plunger",
+          "qty": 1
+        },
+        {
+          "part": "orange-pi-pro-housing-plunger-cap",
+          "qty": 1
+        },
+        {
+          "part": "scr-m3-8-cs",
+          "qty": 1
+        },
+        {
+          "part": "orange-pi-pro-housing-wall-west",
+          "qty": 1
+        },
+        {
+          "part": "orange-pi-pro-housing-wall-east",
+          "qty": 1
+        },
+        {
+          "part": "orange-pi-pro-housing-wall-north",
+          "qty": 1
+        },
+        {
+          "part": "orange-pi-pro-housing-wall-south",
+          "qty": 1
+        },
+        {
+          "part": "orange-pi-pro-housing-roof",
+          "qty": 1
+        },
+        {
+          "part": "scr-m3-12-cs",
+          "qty": 14
+        },
+        {
+          "part": "orange-pi-pro-housing-antenna-clamp-cap",
+          "qty": 1
+        },
+        {
+          "part": "usb-hub-powered-24v",
+          "qty": 1
+        },
+        {
+          "part": "orange-pi-pro-housing-hub-clamp",
+          "qty": 1
+        },
+        {
+          "part": "buck-24v-5v-usbc",
+          "qty": 1
+        },
+        {
+          "part": "orange-pi-pro-housing-buck-clamp",
+          "qty": 1
+        },
+        {
+          "assembly": "harness-buck-24v",
+          "qty": 1
+        },
+        {
+          "part": "scr-m5-16-shcs",
+          "qty": 2
+        },
+        {
+          "part": "washer-m5",
+          "qty": 2
+        },
+        {
+          "part": "tnut-m5-2020",
+          "qty": 2
+        }
+      ]
+    },
+    {
       "id": "electronics",
-      "uid": "nno4",
-      "version": "7",
+      "uid": "me96",
+      "version": "8",
       "name": "Electronics",
       "description": "The PSU, the control board and the Orange Pi, each in its own printed box bolted to the frame, plus the 24 V lead to the powered USB hub (PWR2), which rides on the Orange Pi housing's roof with the converter that powers the Pi.",
       "docs": "/hardware/electronics/installation/",
@@ -17185,6 +17510,11 @@
         {
           "assembly": "orange-pi-mount",
           "qty": 1
+        },
+        {
+          "assembly": "orange-pi-pro-housing",
+          "qty": 1,
+          "optional": true
         },
         {
           "assembly": "harness-hub-24v",
@@ -17394,8 +17724,48 @@
         },
         {
           "version": "7",
+          "uid": "nno4",
           "date": "2026-10-02",
           "message": "The spare crimp parts the lead pages list join the machine as one group, Spare crimp parts, so the parts list matches the pages. They are not on any cable and nothing is built from them. Nothing else changes.",
+          "breaking": false,
+          "commit": null,
+          "lines": [
+            {
+              "assembly": "meanwell-psu-box",
+              "qty": 1,
+              "uid": "dxsv"
+            },
+            {
+              "assembly": "ctrl-board-mount",
+              "qty": 1,
+              "uid": "y2yu"
+            },
+            {
+              "assembly": "orange-pi-mount",
+              "qty": 1,
+              "uid": "hxqn"
+            },
+            {
+              "assembly": "harness-hub-24v",
+              "qty": 1,
+              "uid": "ks7s"
+            },
+            {
+              "assembly": "harness-wire-stock",
+              "qty": 1,
+              "uid": "xo4j"
+            },
+            {
+              "assembly": "harness-spares",
+              "qty": 1,
+              "uid": "e5g1"
+            }
+          ]
+        },
+        {
+          "version": "8",
+          "date": "2026-10-16",
+          "message": "The Orange Pi 5 Pro, Max and Ultra housing joins as an optional alternative to the Orange Pi housing, for builders whose board has the Pro's hole pattern. It is on the line with optional set, so nothing in it reaches a total and the Orange Pi housing stays the counted default; swap one for the other if you build the Pro one. Nothing else changes.",
           "breaking": false,
           "commit": null
         }

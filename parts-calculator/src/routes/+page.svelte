@@ -3,7 +3,6 @@
 		PARTS,
 		SECTIONS,
 		OPEN_CHANGES,
-		COLOR_ROLES,
 		SETTINGS,
 		STORE_URL,
 		categoryMultiplier,
@@ -33,7 +32,6 @@
 	import { getBambuColor } from '$lib/bambu-colors';
 	import { partsCsv } from '$lib/parts-csv';
 	import { download, exportSpec, filename } from '$lib/csv';
-	import ColorPicker from '$lib/components/ColorPicker.svelte';
 	import Modal from '$lib/components/Modal.svelte';
 	import PartDetailModal from '$lib/components/PartDetailModal.svelte';
 	import AssemblyDetailModal from '$lib/components/AssemblyDetailModal.svelte';
@@ -45,7 +43,10 @@
 	import { printManifest, manifestFilename, type ManifestRow } from '$lib/manifest';
 	import { onMount } from 'svelte';
 	import { loadConfig, saveConfig, clearConfig } from '$lib/config';
-	import { layerStore, addLayer as addLayerStore, removeLayerAt, setSize, setSizes } from '$lib/layers.svelte';
+	import BuildOptions from '$lib/components/BuildOptions.svelte';
+	import AlternativeSwitch from '$lib/components/AlternativeSwitch.svelte';
+	import { alternativeOf } from '$lib/alternatives.svelte';
+	import { layerStore, setSizes } from '$lib/layers.svelte';
 	import { colorStore, defaultRoleColors, resetRoleColors } from '$lib/colors.svelte';
 	import SearchField from '$lib/components/search/SearchField.svelte';
 	import { search, type Searchable } from '$lib/search';
@@ -56,7 +57,7 @@
 	import RequiredColorBadge from '$lib/components/RequiredColorBadge.svelte';
 	import ChangeStatus from '$lib/components/ChangeStatus.svelte';
 	import MissingImage from '$lib/components/MissingImage.svelte';
-	import { Download, Package, ZoomIn, Loader, Info, Plus, X, RotateCcw, Clock, Layers3, AlertTriangle, History, ChevronRight, ChevronDown, ArrowUpRight, FlaskConical } from 'lucide-svelte';
+	import { Download, Package, ZoomIn, Loader, Info, RotateCcw, Clock, Layers3, AlertTriangle, History, ChevronRight, ChevronDown, ArrowUpRight, FlaskConical } from 'lucide-svelte';
 	import { page } from '$app/state';
 	import { afterNavigate, replaceState } from '$app/navigation';
 	import { browser } from '$app/environment';
@@ -72,12 +73,6 @@
 	// per-layer size list is the shared source of truth (also used by the framing tab)
 	const funnelSizes = $derived(layerStore.sizes);
 	const layers = $derived(funnelSizes.length);
-	function addLayer() {
-		addLayerStore();
-	}
-	function removeLayer(i: number) {
-		removeLayerAt(i);
-	}
 	// colours live in the shared store so the assembly tab sees the same choices
 	const roleColors = $derived(colorStore.roles);
 	// What to print, as a count. Only parts whose quantity has been EDITED away
@@ -299,15 +294,6 @@
 		return search(partFilter, list, partSearchable).map((r) => r.item);
 	}
 
-	// per-layer size 'half' = 12 bins, 'third' = 18 bins
-	const sizePreview = {
-		half: { count: 12, bins: ['bin-half-left', 'bin-half-right'], funnel: 'funnel-half' },
-		third: { count: 18, bins: ['bin-third-left', 'bin-third-center', 'bin-third-rightback'], funnel: 'funnel-third' }
-	} as const;
-	function render(id: string): string {
-		return partsById.get(id)?.render ?? '';
-	}
-
 	const buy = $derived(
 		buyList(layers, roleColors, qtyOf, supportOn, variantCount, surplus)
 	);
@@ -391,14 +377,6 @@
 	let showSettings = $state(false);
 	let showBuild = $state(false);
 	const settingsSummary = `Bambu Lab A1 · 0.20 mm layers · ${SETTINGS.infill_density} ${prettyPattern} · ${SETTINGS.filament}`;
-	const buildSummary = $derived(
-		[
-			`${layers} layer${layers === 1 ? '' : 's'}`,
-			`${funnelSizes.map((sz) => (sz === 'half' ? '12' : '18')).join('/')} bins`,
-			printBins ? 'bins included' : 'bins not printed',
-			COLOR_ROLES.map((r) => getBambuColor(roleColors[r.id])?.name ?? roleColors[r.id]).join(', ')
-		].join('  ·  ')
-	);
 	const settingsRows: [string, string][] = [
 		['Printer', 'Bambu Lab A1 · 0.4 mm'],
 		['Layer height', '0.20 mm'],
@@ -577,89 +555,7 @@
 		</table>
 	</Disclosure>
 
-	<!-- BUILD OPTIONS = colors + layer configuration -->
-	<Disclosure title="Build options" summary={buildSummary} bind:open={showBuild} flush>
-		{#snippet actions()}
-			<button
-				class="inline-flex items-center gap-1.5 text-sm text-text-muted hover:text-text"
-				onclick={resetToDefaults}
-				use:tip={'Reset all build options to defaults'}
-			>
-				<RotateCcw size={14} /> Reset to default
-			</button>
-		{/snippet}
-
-		<!-- colors -->
-		<div class="p-4">
-			<div class="mb-3 flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-text-muted">
-				Colors
-				<Popover width="18rem" label="About the color options">
-					Each color picker sets every part in that group. Parts whose color does a job are marked
-					<b class="text-text">Must be</b> and keep their color: the lamp reflector and its hooks print
-					white, and the rotors and stators the cameras look at print gray.
-					<span class="mt-2 block border-t border-border pt-2">
-						Names are Bambu Lab PLA Matte. The grey line under a color is the LEGO color it matches,
-						in BrickLink naming, so Ash Gray is light bluish gray. Only colors with a genuinely close
-						LEGO counterpart show one.
-					</span>
-				</Popover>
-			</div>
-			<div class="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-5">
-				{#each COLOR_ROLES as role (role.id)}
-					<ColorPicker bind:value={colorStore.roles[role.id]} label={role.name} />
-				{/each}
-			</div>
-		</div>
-
-		<!-- layer configuration -->
-		<div class="border-t border-border p-4">
-			<div class="mb-3 flex flex-wrap items-center justify-between gap-3">
-				<span class="text-xs font-semibold uppercase tracking-wider text-text-muted">
-					Layers <span class="font-normal normal-case text-text-muted">· {layers} layer{layers === 1 ? '' : 's'}, bins per layer</span>
-				</span>
-				<label class="flex cursor-pointer items-center gap-2 text-sm">
-					<input class="setup-toggle h-4 w-4" type="checkbox" bind:checked={printBins} />
-					<span class="font-medium text-text">Print bins</span>
-					<span class="text-xs text-text-muted">— include bins (size/qty per layer below)</span>
-				</label>
-			</div>
-			<div class="flex flex-col gap-2">
-				{#each funnelSizes as size, i (i)}
-					{@const pv = sizePreview[size]}
-					<div class="group setup-card-shell flex flex-wrap items-center gap-3 border px-3 py-2">
-						<span class="w-16 shrink-0 text-sm font-medium text-text">Layer {i + 1}</span>
-						<div class="flex">
-							<button class="setup-button-secondary h-9 px-3 text-sm {size === 'half' ? 'setup-button-primary' : ''}" onclick={() => setSize(i, 'half')}>12 bins</button>
-							<button class="setup-button-secondary h-9 border-l-0 px-3 text-sm {size === 'third' ? 'setup-button-primary' : ''}" onclick={() => setSize(i, 'third')}>18 bins</button>
-						</div>
-						<div class="ml-auto flex items-center gap-1.5">
-							{#each pv.bins as b (b)}
-								<img src={render(b)} alt={b} class="h-9 w-9 border border-border bg-[var(--color-bg)] object-contain {printBins ? '' : 'opacity-30'}" use:tip={partsById.get(b)?.name} />
-							{/each}
-							<span class="px-1 text-text-muted">+</span>
-							<img src={render(pv.funnel)} alt="funnel" class="h-9 w-9 border border-primary/40 bg-[var(--color-bg)] object-contain" use:tip={`${size} funnel`} />
-						</div>
-						{#if layers > 1}
-							<button
-								class="flex h-7 w-7 shrink-0 items-center justify-center text-text-muted opacity-0 transition-opacity hover:text-danger group-hover:opacity-100"
-								onclick={() => removeLayer(i)}
-								aria-label="Remove layer {i + 1}"
-								use:tip={'Remove layer'}
-							>
-								<X size={16} />
-							</button>
-						{/if}
-					</div>
-				{/each}
-				<button
-					class="setup-button-secondary flex h-10 w-full items-center justify-center gap-1.5 text-sm font-medium"
-					onclick={addLayer}
-				>
-					<Plus size={16} /> Add layer
-				</button>
-			</div>
-		</div>
-	</Disclosure>
+	<BuildOptions bind:printBins bind:open={showBuild} onreset={resetToDefaults} />
 	</div>
 
 	{#snippet partRow(p: Part, sectionId: string, indent: boolean)}
@@ -920,7 +816,7 @@
 									{@const a = getAssembly(block.id)}
 									{@const folder = getFolder(block.id)}
 									{@const group = block.groupKind === 'folder' ? folder : a}
-									{@const k = asmKey(section.id, `${block.groupKind}:${block.id}`)}
+									{@const k = asmKey(section.id, `${block.groupKind}:${(block.groupKind === 'assembly' && alternativeOf(block.id)) || block.id}`)}
 									{@const open = expandedAsm[k] || filtering}
 									{@const allOn = asmAllOn(block.parts)}
 									<!-- svelte-ignore a11y_no_noninteractive_element_interactions a11y_click_events_have_key_events -->
@@ -978,6 +874,7 @@
 													{block.parts.length ? `${block.parts.length} printed parts` : 'Parts and print details coming soon'}
 													{#if a}<span class="pl-hint">View assembly <ArrowUpRight size={12} /></span>{:else if block.parts.length && !filtering}· click to {open ? 'collapse' : 'expand'}{/if}
 												</span>
+												{#if a}<span class="mt-1.5 block"><AlternativeSwitch assembly={a.id} /></span>{/if}
 											</span>
 										</td>
 										<td class="pl-c-each">{block.parts.length ? `${block.parts.length} parts` : '—'}</td>

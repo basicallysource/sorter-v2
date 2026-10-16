@@ -5,6 +5,7 @@
  */
 import { LASER_CUT_PARTS, type LaserCutPart } from './lasercut';
 import raw from '$lib/data/catalog.generated.json';
+import { applyAlternatives, selectedAlternatives } from '$lib/alternatives';
 import { getBambuColor, type BambuColor } from '$lib/bambu-colors';
 import { layerStore } from './layers.svelte';
 
@@ -505,8 +506,15 @@ export const TAGS = (((raw as Record<string, unknown>).tags ?? []) as CatalogTag
 // Everything the catalog has ever held, retired or not. Nothing is ever
 // deleted from it (VERSIONING.md), so an id or uid from any era finds its
 // entry here: the lookups, the per-id pages and history read these.
-export const ALL_ASSEMBLIES = (raw.assemblies ?? []) as Assembly[];
-export const ALL_PARTS = raw.parts as unknown as Part[];
+// Whole-assembly alternatives (the Orange Pi housing) are resolved here, once, so
+// everything below sees one consistent machine. See $lib/alternatives.
+const chosen = applyAlternatives(
+	(raw.assemblies ?? []) as Assembly[],
+	raw.parts as unknown as Part[],
+	selectedAlternatives()
+);
+export const ALL_ASSEMBLIES = chosen.assemblies;
+export const ALL_PARTS = chosen.parts;
 export const ALL_HARDWARE = ((raw as Record<string, unknown>).hardware ?? []) as Hardware[];
 // Out of the current machine (VERSIONING.md § Retiring a part).
 const isRetired = (x: { retired_at?: string }) => !!x.retired_at;

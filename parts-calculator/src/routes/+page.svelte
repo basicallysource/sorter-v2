@@ -45,6 +45,7 @@
 	import { printManifest, manifestFilename, type ManifestRow } from '$lib/manifest';
 	import { onMount } from 'svelte';
 	import { loadConfig, saveConfig, clearConfig } from '$lib/config';
+	import AlternativeSwitch from '$lib/components/AlternativeSwitch.svelte';
 	import { layerStore, addLayer as addLayerStore, removeLayerAt, setSize, setSizes } from '$lib/layers.svelte';
 	import { colorStore, defaultRoleColors, resetRoleColors } from '$lib/colors.svelte';
 	import SearchField from '$lib/components/search/SearchField.svelte';
@@ -609,6 +610,11 @@
 					<ColorPicker bind:value={colorStore.roles[role.id]} label={role.name} />
 				{/each}
 			</div>
+		</div>
+
+		<!-- whole-assembly alternatives -->
+		<div class="border-t border-border p-4">
+			<AlternativeSwitch />
 		</div>
 
 		<!-- layer configuration -->

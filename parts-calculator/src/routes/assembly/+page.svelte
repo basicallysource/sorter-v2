@@ -22,6 +22,7 @@
 	import CatalogText from '$lib/components/CatalogText.svelte';
 	import Badge from '$lib/components/Badge.svelte';
 	import LayerControl from '$lib/components/LayerControl.svelte';
+	import AlternativeSwitch from '$lib/components/AlternativeSwitch.svelte';
 	import PartDetailModal from '$lib/components/PartDetailModal.svelte';
 	import AssemblyDetailModal from '$lib/components/AssemblyDetailModal.svelte';
 	import HardwareDetailModal from '$lib/components/HardwareDetailModal.svelte';
@@ -1631,6 +1632,7 @@
 	</header>
 
 	<div class="mb-6"><LayerControl /></div>
+	<div class="mb-6"><AlternativeSwitch /></div>
 
 	<section class="min-w-0">
 			<div class="mb-4 flex items-center gap-3">

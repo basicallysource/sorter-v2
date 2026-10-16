@@ -1,14 +1,18 @@
 <script lang="ts">
 	import { ExternalLink } from 'lucide-svelte';
 
-	// Opens a published STL straight in Bambu Studio through its URL handler.
-	let { href }: { href: string } = $props();
+	// Opens a published .3mf straight in Bambu Studio through its URL handler.
+	// Bambu Studio rejects a bare .stl ("unknown file format"), so only pass plates.
+	let { href, size = 'md' }: { href: string; size?: 'sm' | 'md' } = $props();
+
+	const box = { sm: 'h-6 gap-1 px-1.5 text-xs', md: 'h-9 gap-2 px-3 text-sm' };
+	const icon = { sm: 12, md: 14 };
 </script>
 
 <a
 	href="bambustudio://open?url={href}"
-	title="Open this STL in Bambu Studio (needs Bambu Studio installed)"
-	class="setup-button-secondary inline-flex h-8 items-center gap-1.5 whitespace-nowrap px-3 text-xs font-semibold"
+	title="Open this plate in Bambu Studio (needs Bambu Studio installed)"
+	class="setup-button-secondary inline-flex items-center whitespace-nowrap font-semibold {box[size]}"
 >
-	<ExternalLink size={14} /><span>Open in Bambu Studio</span>
+	<ExternalLink size={icon[size]} /><span>{size === 'sm' ? 'Studio' : 'Open in Bambu Studio'}</span>
 </a>

@@ -150,7 +150,6 @@
 				</div>
 				<div class="flex shrink-0 flex-col items-start gap-2 sm:items-end">
 					<DownloadButton href={activeStl} size="md" label={candidate ? `Download STL (candidate ${candidate.uid})` : isCurrent ? 'Download STL' : `Download STL (v${active?.version})`} />
-					<BambuStudioButton href={activeStl} />
 					<div class="flex items-center gap-1.5"><IdStamp where="download" uid={candidate?.uid ?? part.uid} {stamps} bind:on={stampOn} bind:faceIdx /></div>
 					<div class="flex items-center gap-3 text-xs">
 						<button type="button" onclick={share} class="inline-flex items-center gap-1 {copied ? 'text-success' : 'text-primary hover:text-primary-hover'}" use:tip={'Copy a shareable link to this part\'s page'}>
@@ -211,6 +210,7 @@
 									<span class="min-w-0 flex-1 truncate text-xs font-medium text-text" use:tip={pl.name}>{pl.name}</span>
 									<button type="button" class="shrink-0 text-xs text-primary hover:text-primary-hover" onclick={() => (platesOpen = true)}>view</button>
 									<DownloadButton href={pl.download} size="sm" label="3mf" title="Download {pl.name}.3mf" />
+									<BambuStudioButton href={pl.download} size="sm" />
 								</div>
 							</div>
 						{/each}

@@ -1,15 +1,15 @@
 <script lang="ts">
 	// One button per way of building a slot the machine has two answers for (the
-	// Orange Pi housing). The choice is read when the page loads, so picking one
-	// reloads it. See $lib/alternatives.
+	// Orange Pi housing). Picking one swaps them in place, no reload. See
+	// $lib/alternatives.svelte.
 	//
 	// `assembly` narrows it to the alternative that assembly is one of, drawn
 	// small, for the row in the parts list that stands for that slot.
-	import { ALTERNATIVES, chooseAlternative, selectedAlternatives } from '$lib/alternatives';
+	import { ALTERNATIVES, alternativeStore, chooseAlternative } from '$lib/alternatives.svelte';
 
 	let { assembly }: { assembly?: string } = $props();
 
-	const selected = selectedAlternatives();
+	const selected = $derived(alternativeStore.selected);
 	const shown = $derived(
 		assembly ? ALTERNATIVES.filter((a) => a.options.some((o) => o.assembly === assembly)) : ALTERNATIVES
 	);

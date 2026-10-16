@@ -23,6 +23,10 @@ tools_needed: [Small Phillips screwdriver]
 
 Everything here is done to the board itself, before it goes anywhere near the machine, and that is the point of the page: the WiFi module lives on its underside and the heatsink fan clips through the board, so both want a board you can pick up and turn over. Once the Pi is in the [Orange Pi housing]({{ '/hardware/electronics/installation/orange-pi-mount/' | relative_url }}) there is a printed floor directly underneath it.
 
+<div class="callout">
+  <p><b>Got an Orange Pi 5 Pro, Max or Ultra? Skip this page.</b> Those boards have WiFi built in, so there is no module to fit, and there is currently no cooling solution for them, so there is no heatsink fan to fit either. Go straight to the <a href="{{ '/hardware/electronics/installation/orange-pi-mount/' | relative_url }}">Orange Pi housing</a>.</p>
+</div>
+
 Which board to buy, how much memory and storage it needs, and which WiFi module fits which variant are all on the [Orange Pi 5]({{ '/hardware/orange-pi-5/' | relative_url }}) page. This page assumes you have the parts.
 
 **The WiFi module is optional.** A machine staying on Ethernet does not need it, and steps 1 and 2 are skipped, leaving only the heatsink fan. The original Orange Pi 5 has no WiFi on the board, so a machine going wireless needs either this M.2 module or a Linux-compatible USB adapter.

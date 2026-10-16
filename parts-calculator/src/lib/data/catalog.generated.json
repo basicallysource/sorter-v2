@@ -59,9 +59,7 @@
 		{
 			"id": "electronics",
 			"name": "Electronics",
-			"scales_with_layers": false,
-			"experimental": true,
-			"experimental_note": "The electronics are early and changing a lot. Only build these if you have the experience to adapt as the design moves."
+			"scales_with_layers": false
 		}
 	],
 	"changes": [

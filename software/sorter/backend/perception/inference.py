@@ -75,6 +75,14 @@ _MAX_BBOX_MASK_AREA_FRACTION = float(
 _MAX_BBOX_MASK_DIM_FRACTION = float(
     os.environ.get("SORTER_MAX_BBOX_MASK_DIM_FRACTION", "0.6")
 )
+# The feeder channels (C2, C3) are framed so their outline fills the camera
+# image, and a long piece lying along the channel (a 1 x 12 beam, a flag pole)
+# spans more than 60% of its height: it was dropped as implausible and the
+# feeder never saw it. Their length limit is higher; the area limit still drops
+# a hand, a shadow or the whole channel.
+_FEEDER_MAX_BBOX_MASK_DIM_FRACTION = float(
+    os.environ.get("SORTER_FEEDER_MAX_BBOX_MASK_DIM_FRACTION", "0.85")
+)
 # Throttle (seconds) for the average-bbox-size readout used to tune the filter.
 _BBOX_SIZE_LOG_THROTTLE_S = 5.0
 
@@ -181,6 +189,11 @@ class InferenceWorker:
         else:
             self._mask_w_extent = 0.0
             self._mask_h_extent = 0.0
+        self._max_dim_fraction: float = (
+            _MAX_BBOX_MASK_DIM_FRACTION
+            if channel_def.channel_id == _CLASSIFICATION_CHANNEL_ID
+            else _FEEDER_MAX_BBOX_MASK_DIM_FRACTION
+        )
 
         # Latest raw inference result — GIL-atomic tuple ref, same pattern as
         # LatestStateSlot. Written after every successful inference so the
@@ -494,8 +507,8 @@ class InferenceWorker:
             1
             for b, a in zip(bboxes, areas)
             if a > _MAX_BBOX_MASK_AREA_FRACTION * mask_area
-            or (b[2] - b[0]) > _MAX_BBOX_MASK_DIM_FRACTION * mask_w
-            or (b[3] - b[1]) > _MAX_BBOX_MASK_DIM_FRACTION * mask_h
+            or (b[2] - b[0]) > self._max_dim_fraction * mask_w
+            or (b[3] - b[1]) > self._max_dim_fraction * mask_h
         )
         try:
             self._logger.debug(
@@ -505,7 +518,7 @@ class InferenceWorker:
                 f"max_frac_area={max(areas) / mask_area:.2f} "
                 f"max_frac_w={max(w_fracs):.2f} max_frac_h={max(h_fracs):.2f} "
                 f"limits(area={_MAX_BBOX_MASK_AREA_FRACTION:.2f},"
-                f"dim={_MAX_BBOX_MASK_DIM_FRACTION:.2f}) oversized_dropped={n_dropped}"
+                f"dim={self._max_dim_fraction:.2f}) oversized_dropped={n_dropped}"
             )
         except Exception:
             pass
@@ -590,7 +603,7 @@ class InferenceWorker:
                 ]
                 # Then drop implausibly massive detections: anything covering more
                 # than _MAX_BBOX_MASK_AREA_FRACTION of the channel mask area, OR
-                # whose width/height exceeds _MAX_BBOX_MASK_DIM_FRACTION of the
+                # whose width/height exceeds the channel's length limit (_max_dim_fraction) of the
                 # mask's extent (catches long, skinny boxes the area test misses).
                 # Logged (throttled) below against the pre-filter on-mask set so
                 # the thresholds can be tuned against real footage.
@@ -604,7 +617,7 @@ class InferenceWorker:
                         b,
                         self._mask_w_extent,
                         self._mask_h_extent,
-                        _MAX_BBOX_MASK_DIM_FRACTION,
+                        self._max_dim_fraction,
                     )
                 ]
 

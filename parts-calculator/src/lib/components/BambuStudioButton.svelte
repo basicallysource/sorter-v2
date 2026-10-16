@@ -6,7 +6,7 @@
 </script>
 
 <a
-	href="bambustudiolink://open?url={href}"
+	href="bambustudio://open?url={href}"
 	title="Open this STL in Bambu Studio (needs Bambu Studio installed)"
 	class="setup-button-secondary inline-flex h-8 items-center gap-1.5 whitespace-nowrap px-3 text-xs font-semibold"
 >

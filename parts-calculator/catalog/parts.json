@@ -17385,7 +17385,7 @@
       "version": "1",
       "name": "Orange Pi 5 Pro housing",
       "description": "The Orange Pi 5 Pro, Max or Ultra closed into a printed housing that bolts to the 2020 extrusion, built in place of the Orange Pi housing for these boards. A base with posts for the board, four walls that drop into it, and a roof that carries the powered USB hub and the buck converter that powers the board, each under its own clamp. One WiFi antenna stands in a cap on one wall, and a plunger reaches the board's power button from outside.",
-      "docs": "/hardware/electronics/installation/orange-pi-pro-housing/",
+      "docs": "/hardware/electronics/installation/orange-pi-mount/",
       "images": [
         {
           "url": "https://assets.basically.website/sorter-parts/orange-pi-pro-housing-render-ne-full-d762cdbaba34.png",

@@ -17720,10 +17720,43 @@
         },
         {
           "version": "7",
+          "uid": "nno4",
           "date": "2026-10-02",
           "message": "The spare crimp parts the lead pages list join the machine as one group, Spare crimp parts, so the parts list matches the pages. They are not on any cable and nothing is built from them. Nothing else changes.",
           "breaking": false,
-          "commit": null
+          "commit": null,
+          "lines": [
+            {
+              "assembly": "meanwell-psu-box",
+              "qty": 1,
+              "uid": "dxsv"
+            },
+            {
+              "assembly": "ctrl-board-mount",
+              "qty": 1,
+              "uid": "y2yu"
+            },
+            {
+              "assembly": "orange-pi-mount",
+              "qty": 1,
+              "uid": "hxqn"
+            },
+            {
+              "assembly": "harness-hub-24v",
+              "qty": 1,
+              "uid": "ks7s"
+            },
+            {
+              "assembly": "harness-wire-stock",
+              "qty": 1,
+              "uid": "xo4j"
+            },
+            {
+              "assembly": "harness-spares",
+              "qty": 1,
+              "uid": "e5g1"
+            }
+          ]
         },
         {
           "version": "8",

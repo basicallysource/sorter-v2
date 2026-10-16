@@ -5,6 +5,7 @@
 	import IdStamp from '$lib/components/IdStamp.svelte';
 	import ColorPicker from '$lib/components/ColorPicker.svelte';
 	import DownloadButton from '$lib/components/DownloadButton.svelte';
+	import BambuStudioButton from '$lib/components/BambuStudioButton.svelte';
 	import Callout from '$lib/components/Callout.svelte';
 	import ChangeStatus from '$lib/components/ChangeStatus.svelte';
 	import BuildPlates from '$lib/components/BuildPlates.svelte';
@@ -149,6 +150,7 @@
 				</div>
 				<div class="flex shrink-0 flex-col items-start gap-2 sm:items-end">
 					<DownloadButton href={activeStl} size="md" label={candidate ? `Download STL (candidate ${candidate.uid})` : isCurrent ? 'Download STL' : `Download STL (v${active?.version})`} />
+					<BambuStudioButton href={activeStl} />
 					<div class="flex items-center gap-1.5"><IdStamp where="download" uid={candidate?.uid ?? part.uid} {stamps} bind:on={stampOn} bind:faceIdx /></div>
 					<div class="flex items-center gap-3 text-xs">
 						<button type="button" onclick={share} class="inline-flex items-center gap-1 {copied ? 'text-success' : 'text-primary hover:text-primary-hover'}" use:tip={'Copy a shareable link to this part\'s page'}>

@@ -51,6 +51,10 @@ parts_needed:
     qty: 1
 ---
 
+<div class="callout">
+  <p><b>This is the housing for the Orange Pi 5.</b> If your board is an Orange Pi 5 Pro, Max or Ultra, build the <a href="{{ '/hardware/electronics/installation/orange-pi-pro-housing/' | relative_url }}">Orange Pi 5 Pro housing</a> instead: it has its own base, walls and plunger for those boards. Build one or the other, not both.</p>
+</div>
+
 <div class="prep-item">
   <div class="prep-item-body">
     <p><strong><a href="{{ '/hardware/electronics/installation/orange-pi-prep/' | relative_url }}">Prepare the Orange Pi</a> before you start.</strong> The heatsink fan and the WiFi module both need both faces of the board reachable, and the housing closes around it. Not covered here.</p>

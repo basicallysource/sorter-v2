@@ -328,8 +328,8 @@ The housing closed on the bench, with the hub and the buck converter clamped to 
     <figcaption>The assembled Orange Pi 5 housing, off the machine. <cite>Rendered from the CAD, not from a build.</cite></figcaption>
   </figure>
   <figure>
-    <img src="https://assets.basically.website/sorter-docs/orange-pi-pro-housing-finished-full-d762cdbaba34.png" alt="Render of the closed Orange Pi 5 Pro housing with its hub clamp and buck clamp on the roof, the three port openings in the east wall and the block that holds the antenna on the north wall">
-    <figcaption>The Orange Pi 5 Pro, Max or Ultra housing. The hub and the converter are not drawn. <cite>Rendered from the part geometry, not from a build. Render: Balloon.</cite></figcaption>
+    <img src="https://assets.basically.website/sorter-docs/orange-pi-pro-housing-with-hub-render-full-669b3d199c7e.png" alt="Render of the Orange Pi 5 Pro housing with the USB hub and the buck converter clamped to its roof, their cables and the board's USB leads running off the box, and the WiFi antenna standing in its cap on the long wall">
+    <figcaption>The assembled Orange Pi 5 Pro, Max or Ultra housing, off the machine. <cite>Rendered from the CAD, not from a build. Render: zed0.</cite></figcaption>
   </figure>
 </div>
 

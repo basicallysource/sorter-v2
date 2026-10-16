@@ -911,7 +911,7 @@
 		{#if !lineShown(line)}
 			<!-- filtered out -->
 		{:else if line.assembly}
-			{@render node(`${path}/${segs[i]}`, line.qty, lineQty(line, layers) * mult, depth + 1, endpoints?.has(line.assembly) ?? false, line.args)}
+			{@render node(`${path}/${segs[i]}`, line.qty, lineQty(line, layers) * mult, depth + 1, endpoints?.has(line.assembly) ?? false, line.args, !!line.optional)}
 		{:else if line.part && getLasercut(line.part)}
 			{@const lc = getLasercut(line.part)!}
 			<div data-member={line.part} class="ml-1.5 mt-2 flex items-center gap-3 border border-border bg-surface p-2 sm:ml-4 sm:p-3">
@@ -1390,7 +1390,7 @@
 	</div>
 {/snippet}
 
-{#snippet node(path: string, qty: AssemblyLine['qty'], mult: number, depth: number, boxed: boolean = false, instArgs: Record<string, string> | undefined = undefined)}
+{#snippet node(path: string, qty: AssemblyLine['qty'], mult: number, depth: number, boxed: boolean = false, instArgs: Record<string, string> | undefined = undefined, optional: boolean = false)}
 	{@const asm = getAssembly(idOf(path))}
 	{#if asm && (!filtering || keep.assemblies.has(asm.id))}
 		{@const hasContent =
@@ -1452,6 +1452,7 @@
 					{:else if qty === 'middle-layers'}×{Math.max(0, layers - 2)} (layers between the interfaces)
 					{:else if qty === 'per-half-layer'}×{layerStore.sizes.slice(0, layers).filter((s) => s === 'half').length} (1 per half-size layer)
 					{:else if qty === 'per-third-layer'}×{layers - layerStore.sizes.slice(0, layers).filter((s) => s === 'half').length} (1 per third-size layer)
+					{:else if optional}×0 (not selected)
 					{:else if qty !== 1}×{qty}{/if}
 				</span>
 				{@render tagChips(asm.id)}

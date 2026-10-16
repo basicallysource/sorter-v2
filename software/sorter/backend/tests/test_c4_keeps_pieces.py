@@ -14,7 +14,7 @@ import time
 from collections import deque
 from types import SimpleNamespace
 
-from defs.known_object import ClassificationStatus, KnownObject, notePieceProblem
+from defs.known_object import ClassificationStatus, KnownObject, PieceStage, notePieceProblem
 from piece_cycles import CycleRecorder
 from piece_transport import ClassificationChannelTransport
 from runtime_stats import RuntimeStatsCollector
@@ -346,6 +346,24 @@ def test_staging_stops_before_pushing_the_waiting_piece_off() -> None:
 
 
 # ------------------------------------------------------------- pause / resume
+
+
+def test_the_head_goes_alone_when_a_straddling_piece_keeps_the_gate_shut() -> None:
+    """A piece left across the drop zone's edge makes the zone read occupied,
+    so the feeder's gate never opens and no next piece comes; the waiting head
+    goes out on its own instead of sitting until the stall watchdog sweeps."""
+    ch, _ = _channel()
+    now = time.monotonic()
+    obj = _classified()
+    head = _piece(ch, 54, now, gap=110.0, zone=0, obj=obj)
+    ch.transport.placePieceForDistribution(obj)
+    head.placed = True
+    obj.stage = PieceStage.distributing
+    ch.shared.distribution_ready = True
+    ch._ready_since = None
+    ch._phase_started_at = now - two_piece._HEAD_ALONE_AFTER_S - 1.0
+    ch._maybeStartRotation()
+    assert ch._phase == _Phase.EJECTING and ch._eject_target is head
 
 
 def test_a_pause_keeps_the_pieces_and_places_the_head_again() -> None:

@@ -1154,7 +1154,13 @@ class TwoPieceClassificationChannel(Rev01BaseState):
             )
 
     def _maybeEjectHeadAlone(self) -> None:
-        if self._ready_since is None or time.monotonic() - self._ready_since < _HEAD_ALONE_AFTER_S:
+        # Counted from when the feeder was let in, or, while its gate stays shut
+        # with no piece to photograph, from when the channel stopped: a piece
+        # left straddling the drop zone's edge (its centre out, its box in)
+        # reads as an occupied drop zone, so no next piece could ever come and
+        # only the stall watchdog's sweep moved the channel on.
+        since = self._ready_since if self._ready_since is not None else self._phase_started_at
+        if time.monotonic() - since < _HEAD_ALONE_AFTER_S:
             return
         head = self._headPiece()
         if head is None or not self._headReady(head):

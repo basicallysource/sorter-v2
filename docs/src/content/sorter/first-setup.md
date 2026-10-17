@@ -215,6 +215,10 @@ The angles each channel ships with are below. They are drawn against a generic v
   <figure><img src="https://assets.basically.website/sorter-docs/sorter-first-setup-step7-three-channels-full-b17f9f7815d3.png" alt="The three camera cards side by side, each showing its live view with the drop, precise and exit zones shaded and labelled"><figcaption>Base line for how all 3 channels should look after setup. <cite>Screenshot courtesy of Daddy-O's Bricks - Bill. Labels added by Balloon.</cite></figcaption></figure>
 </div>
 
+**C-Channel 2 and C-Channel 3 do not show their whole ring, and that is expected.** In the picture above, the top or bottom edge of each rotor is cut off by the frame. The camera sits close on purpose: what has to be in frame is the drop zone and the exit zone, and the closer view gives a sharper picture of both. If both are visible, the camera is positioned correctly even though part of the ring is not. Do not raise the lamp to fit more in, because a higher camera sees each piece smaller.
+
+A piece that rides through the part of the ring the camera cannot see will vanish from the picture and reappear further round. To keep the channel turning while it is out of sight, tell the machine where that part is: open **Settings** → **Feeder simple pulse**, find the **Out of view** section, and set the **unseen arc start** (where pieces vanish) and **unseen arc end** (where they come back) for C2 and C3. Both are angles on the same scale as the zone diagrams above, counted in the direction the channel turns. Leave both at 0 if the camera sees the whole ring.
+
 ### Picture tuning
 
 Color correction is not a manual setting at the moment, but it is worth visiting [Camera calibration]({{ '/sorter/camera-calibration/' | relative_url }}) to get each camera's focus nice and sharp.

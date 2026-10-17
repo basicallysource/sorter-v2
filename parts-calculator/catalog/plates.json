@@ -11,7 +11,7 @@
     },
     {
       "file": "chute-core.3mf",
-      "hash": "5cb12712d74bfe4d3e57bf824f36544bd34ed0e8e026adc95e77921ed367e643"
+      "hash": "febe8ff5cc4ae2055cd16254c1e259aff7f4ff94c3337aaf431f812771d8fad6"
     },
     {
       "file": "chute-without-core.3mf",
@@ -27,11 +27,11 @@
     },
     {
       "file": "funnel-half.3mf",
-      "hash": "bb6787462adf260437c24c0eddb967a663f406683154d2121dc8178d48cdb246"
+      "hash": "03e30f2bd38b3b61200970aca61816f15dd311fe7cc8e7e629fc5bc382fe6d21"
     },
     {
       "file": "funnel-third.3mf",
-      "hash": "baaafcd6f3eeb924c6ecd7fb2cc1e3ad2923f7619c84a2416d0a16b62dcb998f"
+      "hash": "a1e0437f3d40cf04ba188f59f7542334d9f47dc72403e5f44a6b6f7f65cb8166"
     }
   ]
 }

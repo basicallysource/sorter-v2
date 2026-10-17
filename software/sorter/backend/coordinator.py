@@ -176,3 +176,11 @@ class Coordinator:
         self.feeder.cleanup()
         self.classification.cleanup()
         self.distribution.cleanup()
+
+    def pause(self) -> None:
+        # Like cleanup, except the pieces on the classification channel keep
+        # their classifications: after a pause, or a jam elsewhere, they go
+        # where they were going instead of to misc.
+        self.feeder.cleanup()
+        self.classification.pause()
+        self.distribution.cleanup()

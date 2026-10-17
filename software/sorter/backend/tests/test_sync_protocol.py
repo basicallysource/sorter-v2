@@ -6,6 +6,7 @@ from __future__ import annotations
 
 import base64
 import os
+import queue
 import random
 import sqlite3
 import tempfile
@@ -47,6 +48,8 @@ class _DbTestCase(unittest.TestCase):
         self.db_path = os.path.join(self._tmpdir.name, "state.sqlite")
         os.environ["LOCAL_STATE_DB_PATH"] = self.db_path
         piece_image_store._worker_started.set()
+        # A queue of this test's own: no worker an earlier test started takes from it.
+        piece_image_store._queue = queue.Queue(maxsize=piece_image_store._queue.maxsize)
         with piece_image_store._seen_lock:
             piece_image_store._seen_counts.clear()
             piece_image_store._seen_order.clear()

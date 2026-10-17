@@ -122,12 +122,33 @@ actions go, the status comes.
 </Modal>
 ```
 
+## Image zoom
+
+`ImageZoom.svelte`. A picture that enlarges where it is pointed at: a thumbnail
+in a list of pieces, one frame of a burst. The pointer on it, or keyboard focus
+in it, shows the picture large beside it at once, and taking the pointer off
+puts it away: nothing to click, nothing to close, so a row of photos is looked
+over by moving along it. It is the raised plane in the top layer like the
+others, and it never takes the pointer, so what is under it stays where it was.
+The large picture is the thumbnail's own file, shown whole at its own shape
+(never cropped, no bars), as large as the window allows up to about 28rem and
+three times its own size, on the right of the thumbnail or on the left where
+there is no room; `label` says what it is under it. A click on the thumbnail
+still does what it did.
+
+```svelte
+<ImageZoom src={crop.src} label="Burst 3 of 9, 16:37:31">
+	<img src={crop.src} alt="" class="size-20 object-contain" />
+</ImageZoom>
+```
+
 ## What there is not
 
 - **No toasts.** A result shows where it happened: the button's own state, a
   sentence in the panel, or an `Alert` in the flow.
-- **Nothing opens on hover but a tooltip.** A touch screen has no hover, and
-  a machine may have one.
+- **Nothing opens on hover but a tooltip and a picture's enlargement.** A
+  touch screen has no hover, and a machine may have one; both only say more
+  about what is already shown.
 - **One overlay at a time.** A menu item that needs a dialog closes the menu
   first, and a dialog never opens another. A select inside a popover is the
   one exception, because its list belongs to the popover.

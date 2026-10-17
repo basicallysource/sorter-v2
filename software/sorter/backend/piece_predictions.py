@@ -431,6 +431,24 @@ def listForPiece(piece_uuid: str) -> list[dict[str, Any]]:
     return sorted((p for p in shaped if p["answers"]), key=_sortKey)
 
 
+def brickognizeColor(piece_uuid: str) -> Optional[tuple[str, int]]:
+    """Brickognize's own top colour, with its rank, for the live request the
+    piece took its part from (the request its listing id belongs to): what
+    colour feedback to Brickognize is about. None when there is none."""
+    for prediction in listForPiece(piece_uuid):
+        if prediction["source"] != SOURCE_LIVE or prediction["provider"] != "brickognize":
+            continue
+        answers = prediction["answers"]
+        if not any(a["kind"] == "part" and a["applied"] for a in answers):
+            continue
+        colors = [a for a in answers if a["kind"] == "color" and a["value_id"]]
+        if not colors:
+            return None
+        top = min(colors, key=lambda a: a["rank"])
+        return str(top["value_id"]), int(top["rank"])
+    return None
+
+
 def answersOf(predictions: list[dict[str, Any]], kind: str) -> list[dict[str, Any]]:
     """Every answer of one kind across predictions, flat."""
     return [a for p in predictions for a in p.get("answers") or [] if a.get("kind") == kind]

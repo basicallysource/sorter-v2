@@ -1,5 +1,6 @@
 <script lang="ts" generics="T">
 	import type { Snippet } from 'svelte';
+	import ImageZoom from '$lib/components/ui/ImageZoom.svelte';
 	import type { Thumb } from './types';
 
 	// Shared thumbnail gallery for every image grid on the piece detail page
@@ -29,33 +30,34 @@
 	style={`grid-template-columns: repeat(auto-fill, minmax(${minPx}px, 1fr));`}
 >
 	{#each items as item (item.key)}
-		<button
-			type="button"
-			class="flex flex-col gap-1 rounded-control p-1 text-left transition-colors {item.used
-				? 'bg-primary-soft'
-				: 'hover:bg-hover'}"
-			title={item.title}
-			onclick={() => onZoom(item)}
-		>
-			<div class="relative aspect-square w-full overflow-hidden rounded-item">
-				<img
-					src={item.src}
-					alt={item.alt ?? ''}
-					class="h-full w-full cursor-zoom-in object-contain"
-					loading="lazy"
-				/>
-				{#if overlay}
-					{@render overlay(item)}
-				{/if}
-			</div>
-			{#if item.caption || item.captionRight}
-				<div class="flex items-center justify-between gap-2 px-1 text-xs text-ink-muted">
-					<span class="truncate">{item.caption ?? ''}</span>
-					{#if item.captionRight}
-						<span class="num shrink-0">{item.captionRight}</span>
+		<ImageZoom src={item.src} label={item.caption ?? item.title} class="w-full">
+			<button
+				type="button"
+				class="flex w-full flex-col gap-1 rounded-control p-1 text-left transition-colors {item.used
+					? 'bg-primary-soft'
+					: 'hover:bg-hover'}"
+				onclick={() => onZoom(item)}
+			>
+				<div class="relative aspect-square w-full overflow-hidden rounded-item">
+					<img
+						src={item.src}
+						alt={item.alt ?? ''}
+						class="h-full w-full cursor-zoom-in object-contain"
+						loading="lazy"
+					/>
+					{#if overlay}
+						{@render overlay(item)}
 					{/if}
 				</div>
-			{/if}
-		</button>
+				{#if item.caption || item.captionRight}
+					<div class="flex items-center justify-between gap-2 px-1 text-xs text-ink-muted">
+						<span class="truncate">{item.caption ?? ''}</span>
+						{#if item.captionRight}
+							<span class="num shrink-0">{item.captionRight}</span>
+						{/if}
+					</div>
+				{/if}
+			</button>
+		</ImageZoom>
 	{/each}
 </div>

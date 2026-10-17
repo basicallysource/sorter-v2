@@ -44,10 +44,20 @@ ENROLL_TIMEOUT_S = (5.0, 10.0)
 PREDICT_TIMEOUT_S = (3.0, 8.0)
 PING_TIMEOUT_S = (5.0, 15.0)
 MAX_PREDICT_IMAGES = 8
+# A prediction slower than this is logged: past it the piece is close to
+# falling back to Brickognize's colour.
+SLOW_PREDICT_S = 3.0
 
 # After a failed enroll, don't retry on every piece — the service being down
 # shouldn't add connect-timeout latency to each classification.
 _ENROLL_RETRY_COOLDOWN_S = 300.0
+
+# One session for every call to the main hive, so its connections stay open
+# between pieces: a prediction then waits on neither a name lookup nor a new TLS
+# handshake. A lookup is not covered by the request timeouts, and a stalled one
+# (each name server that does not answer costs 5 s) held pieces past the colour
+# budget with nothing logged.
+_session = requests.Session()
 
 _enroll_lock = threading.Lock()
 _last_enroll_failure_at: float = 0.0
@@ -78,7 +88,7 @@ def _enroll(gc: Optional[GlobalConfig], state: dict[str, Any]) -> Optional[dict[
     if not isinstance(device_key, str) or not device_key.strip():
         device_key = secrets.token_urlsafe(32)
     try:
-        response = requests.post(
+        response = _session.post(
             _endpoint() + ENROLL_PATH,
             json={"device_key": device_key},
             timeout=ENROLL_TIMEOUT_S,
@@ -125,12 +135,12 @@ def predictColor(
     images = images[:MAX_PREDICT_IMAGES]
     channels = channels[: len(images)]
 
-    def post(token: str) -> requests.Response:
+    def send(token: str) -> requests.Response:
         files = [("images", (f"crop{i}.jpg", data, "image/jpeg")) for i, data in enumerate(images)]
         data: dict[str, str] = {"channels": json.dumps(channels)}
         if client_info:
             data["client_info"] = json.dumps(client_info)
-        return requests.post(
+        return _session.post(
             _endpoint() + COLOR_PREDICT_PATH,
             headers={"Authorization": f"Bearer {token}"},
             files=files,
@@ -138,6 +148,17 @@ def predictColor(
             timeout=PREDICT_TIMEOUT_S,
         )
 
+    def post(token: str) -> requests.Response:
+        try:
+            return send(token)
+        except requests.exceptions.ConnectionError as e:
+            if isinstance(e, requests.exceptions.Timeout):
+                raise
+            # The kept-open connection had been closed at the other end before
+            # this request got an answer: send it once more on a fresh one.
+            return send(token)
+
+    started = time.monotonic()
     try:
         response = post(state["token"])
         if response.status_code == 401:
@@ -149,9 +170,12 @@ def predictColor(
                 return None
             response = post(refreshed["token"])
         response.raise_for_status()
+        elapsed = time.monotonic() - started
+        if elapsed > SLOW_PREDICT_S:
+            _logWarn(gc, f"basically services: color predict took {elapsed:.1f} s")
         return response.json()
     except Exception as e:
-        _logWarn(gc, f"basically services: color predict failed: {e}")
+        _logWarn(gc, f"basically services: color predict failed after {time.monotonic() - started:.1f} s: {e}")
         return None
 
 
@@ -166,7 +190,7 @@ def pingStatus(gc: Optional[GlobalConfig], payload: dict[str, Any]) -> bool:
         return False
 
     def post(token: str) -> requests.Response:
-        return requests.post(
+        return _session.post(
             _endpoint() + PING_PATH,
             headers={"Authorization": f"Bearer {token}"},
             json=payload,

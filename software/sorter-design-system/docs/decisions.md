@@ -3,6 +3,40 @@
 What was decided, and when. When a rule changes, the rule's own file changes
 and a dated entry goes here; the history is git.
 
+## 2026-10-15
+
+- **A page with views shows them as tabs and in the top bar.** The Sorter's
+  Records page had grown into one long column (the lifetime numbers, the
+  runs, the charts, the incidents, the daily table, then a hundred pieces),
+  and its pieces were 350px tall each. Now the page's views are `Tabs` that
+  are links, each with an address of its own, and the top bar's Records item
+  has a chevron that opens the same views, so a view is one click from
+  anywhere and Back works. One list of views feeds both.
+- **A piece in a list is one divided row, with its review at the right.** The
+  review (Part correct?, Color correct?, Report an issue) was a block under the
+  photos, taller than everything else on the piece. `PieceReview` has a
+  compact layout now: three one-control rows, the colors in a popover and the
+  issues behind one button, so a piece is about a third of its old height and
+  the answer sits beside the pictures it is about.
+- **Capture issues are six icon switches, not a menu.** The compact review's
+  "Report an issue" opened a list of six switches: click it, click the issue,
+  get out of it, for every piece. Now each issue is its own icon in the row
+  (`IssueToggle`): one click flags it, the icon turns to the warning tint, a
+  tooltip names it. Lucide has no picture of a LEGO piece, so the six glyphs
+  are drawn here (`IssueIcon`), the one exception to "never draw an icon"
+  besides the chute flap and the brand marks.
+- **A photo enlarges under the pointer.** A piece's photos are 80px thumbnails,
+  and seeing one meant clicking it open in a dialog and closing it again, for
+  every photo of every piece. Now `ImageZoom` shows the photo large beside it
+  as the pointer goes over it and puts it away as the pointer leaves, with no
+  click. It is the second thing that opens on hover (the first is a tooltip),
+  and it only says more about what is already shown.
+- **A long list has a `Pager`, and does not move under the reader.** Page
+  number to type, first and last, and how many there are. The app fixes the
+  list at the newest item when a search starts and says how many arrived
+  after, so paging never skips or repeats an item while the machine keeps
+  adding them.
+
 ## 2026-10-12
 
 - **Every color only when it is asked for.** The list of every color under

@@ -60,6 +60,13 @@ class PulsePerceptionConfig:
     # Gate C3 forward motion on the downstream classification channel being
     # ready to accept a piece (avoids double-drops into the same sector).
     gate_ch3_on_classification_ready: bool = True
+    # While the classification channel is busy (turning, or a piece in its drop
+    # zone), C3's advance stops this far short of its exit instead of at the
+    # exit edge. A piece carried right up to the lip falls onto C4 mid-turn and
+    # lands beside the piece already there: a double feed. 0 = no stand-off.
+    ch3_busy_standoff_deg: float = 0.0
+    ch2_max_pieces: int = 0
+    ch3_max_pieces: int = 0
     # Hand-off: once the piece a channel is pushing off has fallen (its track id
     # stays gone this long), the exit pushes nothing for the hold. Stops a second
     # exit pulse from pushing the piece behind it off before the next channel's
@@ -121,6 +128,9 @@ FIELD_META: list[dict] = [
     {"section": "C1 (bulk)", "key": "ch1_pulse_output_deg", "label": "C1 bulk pulse distance (output deg)", "type": "float", "default": _DEFAULTS.ch1_pulse_output_deg, "description": "C1 (bulk) has no camera — it just pulses forward this far whenever C2's drop zone is clear."},
     {"section": "C1 (bulk)", "key": "ch1_pulse_pause_ms", "label": "C1 pause between pulses (ms)", "type": "int", "default": _DEFAULTS.ch1_pulse_pause_ms, "description": "Pause between C1 bulk pulses."},
     {"section": "Channels", "key": "gate_ch3_on_classification_ready", "label": "Gate C3 on classification ready", "type": "bool", "default": _DEFAULTS.gate_ch3_on_classification_ready, "description": "Hold C3 from pushing a piece into the classification channel (C4) until C4 reports it is ready to accept one. Prevents two pieces landing in the same spot."},
+    {"section": "Hand-off", "key": "ch3_max_pieces", "label": "Most pieces on C3", "type": "int", "default": _DEFAULTS.ch3_max_pieces, "description": "C2 hands C3 no new piece while C3 holds this many. Crowded pieces on C3 sit touching, and C3's exit then drops two at once onto the classification channel. 0 = no limit."},
+    {"section": "Hand-off", "key": "ch2_max_pieces", "label": "Most pieces on C2", "type": "int", "default": _DEFAULTS.ch2_max_pieces, "description": "C1 adds nothing to C2 while C2 holds this many, so a heavy pour from the hopper does not flood C2 and pack C3 behind it. 0 = no limit."},
+    {"section": "Hand-off", "key": "ch3_busy_standoff_deg", "label": "C3 stand-off while C4 is busy (output deg)", "type": "float", "default": _DEFAULTS.ch3_busy_standoff_deg, "description": "While the classification channel is turning or has a piece in its drop zone, C3 advances its lead piece only to this far short of the exit, so nothing waits at the lip to fall onto C4 mid-turn. 0 = advance right up to the exit edge."},
     {"section": "Hand-off", "key": "dispense_vanish_confirm_ms", "label": "Fallen after gone for (ms)", "type": "int", "default": _DEFAULTS.dispense_vanish_confirm_ms, "description": "The piece being pushed off the exit counts as fallen once the camera has not seen it for this long. Longer ignores detector blinks; shorter reacts sooner."},
     {"section": "Hand-off", "key": "dispense_hold_ms", "label": "Hold after a piece falls (ms)", "type": "int", "default": _DEFAULTS.dispense_hold_ms, "description": "After the piece being pushed off falls, the exit pushes nothing for this long, so the next channel sees it before another piece can follow."},
     {"section": "Channels", "key": "enable_ch1", "label": "Enable C1 (bulk)", "type": "bool", "default": _DEFAULTS.enable_ch1, "description": "Run the C1 (bulk) channel. Off = this channel never moves."},

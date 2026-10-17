@@ -1,6 +1,7 @@
 <script lang="ts">
 	import Badge from '$lib/components/ui/Badge.svelte';
 	import ColorChip from '$lib/components/ui/ColorChip.svelte';
+	import ImageZoom from '$lib/components/ui/ImageZoom.svelte';
 	import Panel from '$lib/components/ui/Panel.svelte';
 	import {
 		findLegoColor,
@@ -84,36 +85,44 @@
 
 <Panel
 	title="Predictions"
-	description="{predictions.length} request{predictions.length === 1 ? '' : 's'} from {groups.length} source{groups.length === 1
+	description="{predictions.length} request{predictions.length === 1
 		? ''
-		: 's'}."
+		: 's'} from {groups.length} source{groups.length === 1 ? '' : 's'}."
 	flush
 >
 	<div class="divide-y divide-line">
 		{#each groups as group (group.source)}
 			<section>
-				<div class="flex flex-wrap items-baseline gap-x-3 px-(--pad-panel) pt-3">
+				<div class="flex flex-wrap items-baseline gap-x-3 px-(--pad-panel) pt-2.5">
 					<h3 class="text-sm font-semibold text-ink">{sourceLabel(group.source)}</h3>
 					{#if group.at}<span class="text-xs text-ink-muted">{formatWhen(group.at)}</span>{/if}
 				</div>
 				<ul class="divide-y divide-line">
 					{#each group.predictions as p (p.request)}
-						<li class="flex flex-col gap-3 px-(--pad-panel) py-3">
-							<div class="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm">
-								<span class="font-medium text-ink">{requestLabel(p)}</span>
-								<span class="text-ink-muted">{PROVIDERS[p.provider] ?? p.provider}</span>
-								{#if p.model_sha}
-									<span class="font-mono text-xs text-ink-muted" title={p.model_sha}>{p.model_sha.slice(0, 8)}</span>
-								{/if}
-							</div>
+						<!-- One request on one line where there is room: who asked, what it said
+							for the part and the color, and the images it saw. -->
+						<li class="@container px-(--pad-panel) py-2.5">
+							<div
+								class="grid items-start gap-x-6 gap-y-2 @4xl:grid-cols-[13rem_minmax(0,1fr)_minmax(0,1fr)_19rem]"
+							>
+								<div class="flex min-w-0 flex-col text-sm">
+									<span class="truncate font-medium text-ink">{requestLabel(p)}</span>
+									<span class="flex items-baseline gap-2 text-xs text-ink-muted">
+										<span class="truncate">{PROVIDERS[p.provider] ?? p.provider}</span>
+										{#if p.model_sha}
+											<span class="shrink-0 font-mono" title={p.model_sha}
+												>{p.model_sha.slice(0, 8)}</span
+											>
+										{/if}
+									</span>
+								</div>
 
-							<div class="grid gap-3 sm:grid-cols-2">
 								{#each KINDS as { kind, label } (kind)}
 									{@const answers = answersOf(p, kind)}
-									{#if answers.length > 0}
-										<div class="flex min-w-0 flex-col gap-1">
+									<div class="flex min-w-0 flex-col gap-0.5">
+										{#if answers.length > 0}
 											<div class="label">{label}</div>
-											<ol class="flex flex-col gap-1 text-sm">
+											<ol class="flex flex-col gap-0.5 text-sm">
 												{#each answers as a (a.rank)}
 													<li class="flex min-w-0 items-center gap-2">
 														{#if kind === 'color'}
@@ -124,48 +133,58 @@
 															/>
 														{:else}
 															<span class="font-mono text-ink">{a.value_id}</span>
-															{#if a.value_name}<span class="truncate text-ink-muted">{a.value_name}</span>{/if}
+															{#if a.value_name}<span class="truncate text-ink-muted"
+																	>{a.value_name}</span
+																>{/if}
 														{/if}
-														<span class="num ml-auto shrink-0 text-ink-muted">{percent(a.score)}</span>
+														<span class="num ml-auto shrink-0 text-ink-muted"
+															>{percent(a.score)}</span
+														>
 														{#if a.applied}
-															<span title="The piece took this answer"><Badge tone="primary">Applied</Badge></span>
+															<span title="The piece took this answer"
+																><Badge tone="primary">Applied</Badge></span
+															>
 														{/if}
 													</li>
 												{/each}
 											</ol>
-										</div>
-									{/if}
-								{/each}
-							</div>
-
-							<div class="flex flex-wrap items-center gap-2">
-								<span class="text-xs text-ink-muted">Saw</span>
-								{#if p.images === null}
-									<span class="text-xs text-ink-muted">Not recorded</span>
-								{:else if p.images.length === 0}
-									<span class="text-xs text-ink-muted">No stored images</span>
-								{:else}
-									{#each p.images as image (`${image.set}|${image.seq}`)}
-										{@const src = imageSrc(image)}
-										{#if src}
-											<button
-												type="button"
-												class="rounded-control p-0.5 transition-colors hover:bg-hover"
-												title={imageLabel(image)}
-												onclick={() => onZoom(src, imageLabel(image))}
-											>
-												<img
-													{src}
-													alt={imageLabel(image)}
-													class="size-12 cursor-zoom-in rounded-item bg-well object-contain"
-													loading="lazy"
-												/>
-											</button>
-										{:else}
-											<span title="This image is no longer on the machine"><Badge>{imageLabel(image)}</Badge></span>
 										{/if}
-									{/each}
-								{/if}
+									</div>
+								{/each}
+
+								<div class="flex flex-wrap items-center gap-1">
+									<span class="mr-1 text-xs text-ink-muted">Saw</span>
+									{#if p.images === null}
+										<span class="text-xs text-ink-muted">Not recorded</span>
+									{:else if p.images.length === 0}
+										<span class="text-xs text-ink-muted">No stored images</span>
+									{:else}
+										{#each p.images as image (`${image.set}|${image.seq}`)}
+											{@const src = imageSrc(image)}
+											{#if src}
+												<ImageZoom {src} label={imageLabel(image)}>
+													<button
+														type="button"
+														class="rounded-item p-0.5 transition-colors hover:bg-hover"
+														aria-label={imageLabel(image)}
+														onclick={() => onZoom(src, imageLabel(image))}
+													>
+														<img
+															{src}
+															alt=""
+															class="size-8 rounded-item object-contain"
+															loading="lazy"
+														/>
+													</button>
+												</ImageZoom>
+											{:else}
+												<span title="This image is no longer on the machine"
+													><Badge>{imageLabel(image)}</Badge></span
+												>
+											{/if}
+										{/each}
+									{/if}
+								</div>
 							</div>
 						</li>
 					{/each}

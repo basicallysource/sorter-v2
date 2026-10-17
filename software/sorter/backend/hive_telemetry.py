@@ -156,6 +156,10 @@ class TelemetryBlocked(Exception):
 MAX_SYNC_IMAGE_BYTES = 10 * 1024 * 1024
 MAX_SYNC_SEGMENT_BYTES = 90 * 1024 * 1024
 
+# A batch of channel crops is one upload and one stored file on Hive, each
+# crop a byte range in it. Hive refuses a batch over this size.
+MAX_CROP_BATCH_BYTES = 4 * 1024 * 1024
+
 # The leading bytes Hive checks before it accepts a file.
 _JPEG_MAGIC = b"\xff\xd8\xff"
 _GZIP_MAGIC = b"\x1f\x8b"
@@ -301,6 +305,30 @@ class HiveTelemetryClient:
             meta=meta,
             files={"image": (file_path.name, image, "image/jpeg")} if image is not None else None,
             timeout=60,
+        )
+        return int(response.json()["max_local_id"])
+
+    def pushChannelCropBatch(self, crops: list[tuple[dict[str, Any], Path | None]]) -> int:
+        """Send several crops in one request: their JPEGs back to back in one
+        file, each crop's metadata naming its range in it (offset, length). A
+        crop whose file is missing or unreadable goes metadata-only, as with
+        pushChannelCrop."""
+        blob = bytearray()
+        metas = []
+        for meta, file_path in crops:
+            image = _readSyncFile(file_path, meta.get("bytes"), _JPEG_MAGIC, MAX_SYNC_IMAGE_BYTES)
+            entry = dict(meta)
+            if image is not None and len(blob) + len(image) <= MAX_CROP_BATCH_BYTES:
+                entry["offset"], entry["length"] = len(blob), len(image)
+                blob += image
+            metas.append(entry)
+        response = self._request(
+            "POST",
+            "/api/machine/sync/channel-crop-batch",
+            fields=("upstream_channel_crops",),
+            data={"metadata": json.dumps({"crops": metas})},
+            files={"crops": ("crops.bin", bytes(blob), "application/octet-stream")} if blob else None,
+            timeout=120,
         )
         return int(response.json()["max_local_id"])
 

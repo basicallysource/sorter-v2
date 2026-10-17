@@ -6,6 +6,7 @@ export {
 	effectiveStatus,
 	mergeKnownObject,
 	type Piece,
+	type PieceProblem,
 	type PieceSummary,
 	type PieceDetailEnvelope,
 	type PiecePrediction,

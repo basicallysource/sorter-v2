@@ -33,7 +33,8 @@ import Camera from '@lucide/svelte/icons/camera';
 - Spin one. A refresh icon stays still while its button shows the Spinner.
 
 The brand marks (the basically brick, the wordmark) are the one exception to
-Lucide, and each lives in one component.
+Lucide, and each lives in one component, and so are the chute flap's two
+pictures and the six issue glyphs below, which Lucide has nothing for.
 
 ## One icon per meaning
 
@@ -78,6 +79,8 @@ Lucide, and each lives in one component.
 | Opens a list below                     | `chevron-down`                                            |
 | Opens a section; jogs clockwise        | `chevron-right`                                           |
 | Jogs counterclockwise                  | `chevron-left`                                            |
+| Next page, previous page               | `chevron-right`, `chevron-left`                           |
+| Last page, first page                  | `chevrons-right`, `chevrons-left`                         |
 | Back to where you were                 | `arrow-left`                                              |
 | Goes somewhere else                    | `arrow-right`                                             |
 | Leaves the app, or opens a new tab     | `arrow-up-right`                                          |
@@ -91,6 +94,23 @@ Lucide, and each lives in one component.
 
 A new meaning gets a row here before it gets an icon. The site's Icons page
 shows them all.
+
+## The issue glyphs
+
+Lucide has no picture of a LEGO piece, so the six things that can be wrong with
+the photos of a piece are drawn here (`IssueIcon.svelte`), like a Lucide icon
+(a 24-unit grid, strokes of 2 in the current color, square caps and mitred
+joins) and made to be read at 20px: few shapes, each a unit or more thick. They
+are the face of an `IssueToggle` and are never used for anything else.
+
+| Meaning                      | Glyph             | Drawn as                     |
+| ---------------------------- | ----------------- | ---------------------------- |
+| Not a LEGO piece             | `not-lego`        | a brick, struck through      |
+| Several pieces are in frame  | `multiple-pieces` | two bricks                   |
+| No piece is in frame         | `no-piece`        | an empty frame               |
+| Pieces are joined (assembly) | `assembly`        | a brick on a brick           |
+| Pieces are tangled           | `entangled`       | two links through each other |
+| The picture is blurred       | `blurry`          | a piece smeared sideways     |
 
 ## A menu's button is three dots
 

@@ -23,6 +23,7 @@
 	let port = $state<number | null>(80000);
 	let camera = $state('usb-2');
 	let note = $state('');
+	let since = $state('2026-10-01');
 	let wifiPassword = $state('');
 	let showPassword = $state(false);
 	let upload = $state(true);
@@ -112,6 +113,9 @@
 						</Button>
 					{/snippet}
 				</Input>
+			</Field>
+			<Field label="Seen since" for="f-since" help="A day, picked with the browser's own calendar.">
+				<Input id="f-since" type="date" bind:value={since} />
 			</Field>
 			<Field label="Note" for="f-note" class="sm:col-span-2">
 				<Textarea

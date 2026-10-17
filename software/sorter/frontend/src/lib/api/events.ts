@@ -82,6 +82,7 @@ export interface KnownObjectData {
   request_failed?: boolean;
   aborted?: boolean;
   dead?: boolean;
+  problems?: PieceProblem[];
   part_id?: string | null;
   part_name?: string | null;
   part_category?: string | null;
@@ -141,6 +142,12 @@ export interface KnownObjectData {
   distribution_motion_started_at?: number | null;
   distribution_positioned_at?: number | null;
   distributed_at?: number | null;
+}
+export interface PieceProblem {
+  kind: string;
+  message: string;
+  at: number;
+  after_s?: number | null;
 }
 export interface RecognitionImage {
   image: string;

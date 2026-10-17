@@ -309,6 +309,34 @@ def currentRun() -> Optional[dict[str, Any]]:
     return None
 
 
+def seenRanges(
+    *, run_id: Optional[str] = None, lot_id: Optional[str] = None
+) -> list[tuple[float, Optional[float]]]:
+    """The stretches of time (from, until; until is None for the current run) in
+    which a run, or the runs that add to a lot, saw their pieces: what the
+    records list filters by (a piece belongs to the run whose stretch holds its
+    seen_at). A lot's passes are left out, as the lot's own count leaves them
+    out, so its pieces are the ones it counts. Raises RunError for an unknown
+    run or lot."""
+    if (run_id is None) == (lot_id is None):
+        raise RunError("Name a run or a lot.")
+    with _connection() as conn:
+        if run_id is not None:
+            rows = conn.execute(
+                f"SELECT started_at, ended_at FROM ({_SPANS_SQL}) WHERE id = ?", (run_id,)
+            ).fetchall()
+            if not rows:
+                raise RunError(f"No run {run_id}.")
+        else:
+            _check_lot(conn, lot_id)
+            rows = conn.execute(
+                f"SELECT started_at, ended_at FROM ({_SPANS_SQL}) "
+                "WHERE lot_id = ? AND adds_to_lot = 1 ORDER BY started_at",
+                (lot_id,),
+            ).fetchall()
+    return [(float(r["started_at"]), None if r["ended_at"] is None else float(r["ended_at"])) for r in rows]
+
+
 def _lotTotals(conn: sqlite3.Connection) -> dict[str, dict[str, int]]:
     totals: dict[str, dict[str, int]] = {}
     for run in _runs(conn):

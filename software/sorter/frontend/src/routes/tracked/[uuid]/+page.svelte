@@ -1,26 +1,28 @@
 <script lang="ts">
 	import { onDestroy, onMount } from 'svelte';
+	import { afterNavigate } from '$app/navigation';
 	import { page } from '$app/state';
 	import ArrowLeft from '@lucide/svelte/icons/arrow-left';
 	import ChevronDown from '@lucide/svelte/icons/chevron-down';
 	import ChevronRight from '@lucide/svelte/icons/chevron-right';
 	import AppShell from '$lib/components/AppShell.svelte';
-	import ImageInfoBadge from '$lib/components/ImageInfoBadge.svelte';
 	import PieceStatusBadge from '$lib/components/PieceStatusBadge.svelte';
 	import ReclassifyPanel from '$lib/components/ReclassifyPanel.svelte';
-	import PieceInfoCard from '$lib/components/pieces/PieceInfoCard.svelte';
+	import PieceOverview from '$lib/components/pieces/PieceOverview.svelte';
 	import PiecePredictions from '$lib/components/pieces/PiecePredictions.svelte';
+	import PieceProblems from '$lib/components/pieces/PieceProblems.svelte';
 	import Alert from '$lib/components/ui/Alert.svelte';
 	import Badge from '$lib/components/ui/Badge.svelte';
 	import Button from '$lib/components/ui/Button.svelte';
 	import Disclosure from '$lib/components/ui/Disclosure.svelte';
 	import EmptyState from '$lib/components/ui/EmptyState.svelte';
+	import ImageZoom from '$lib/components/ui/ImageZoom.svelte';
+	import KeyValue from '$lib/components/ui/KeyValue.svelte';
 	import Modal from '$lib/components/ui/Modal.svelte';
-	import PageHeader from '$lib/components/ui/PageHeader.svelte';
 	import Panel from '$lib/components/ui/Panel.svelte';
 	import Spinner from '$lib/components/ui/Spinner.svelte';
 	import PieceThumbGrid from '$lib/components/pieces/PieceThumbGrid.svelte';
-	import type { InfoRow, Thumb } from '$lib/components/pieces/types';
+	import type { Fact, Frame, Thumb } from '$lib/components/pieces/types';
 	import {
 		diskToDisplay,
 		fetchDiskImages,
@@ -32,6 +34,7 @@
 	import type { KnownObjectData, ClassificationAttempt } from '$lib/api/events';
 	import {
 		fetchLegoColors,
+		findLegoColor,
 		pieceStore,
 		type PieceDetailEnvelope,
 		type PiecePrediction,
@@ -40,6 +43,17 @@
 	} from '$lib/pieces';
 	import { sortingProfileStore } from '$lib/stores/sortingProfile.svelte';
 
+	// Back to the records goes to where the list was, with its filters, page and
+	// scroll, when that is where this page was opened from.
+	let cameFromRecords = false;
+	afterNavigate(({ from }) => {
+		cameFromRecords = from?.url.pathname.startsWith('/records') ?? false;
+	});
+	function backToRecords(event: MouseEvent) {
+		if (!cameFromRecords) return;
+		event.preventDefault();
+		history.back();
+	}
 
 	const ctx = getMachineContext();
 	onMount(() => {
@@ -76,6 +90,9 @@
 		'idle'
 	);
 	let _diskSummary = $state<PieceSummary | null>(null);
+	// The machine's record of the piece, with the operator's answers: what the
+	// review is about.
+	let _summary = $state<PieceSummary | null>(null);
 	let _diskImages = $state<DisplayImage[]>([]);
 	// Every prediction made for the piece, from every source.
 	let _predictions = $state<PiecePrediction[]>([]);
@@ -96,6 +113,7 @@
 		_stickyPiece = null;
 		_fetchedPiece = null;
 		_diskSummary = null;
+		_summary = null;
 		_diskImages = [];
 		_predictions = [];
 		_refetchedForUpdatedAt = 0;
@@ -134,6 +152,7 @@
 				const env = (await res.json()) as PieceDetailEnvelope;
 				if (targetUuid !== uuid) return;
 				_predictions = env.predictions ?? [];
+				_summary = env.summary ?? null;
 				if (env.detail_available && env.detail) {
 					_fetchedPiece = env.detail;
 					_fetchStatus = 'ok';
@@ -165,7 +184,9 @@
 			const set = link ? _fetchedPiece.link_match_image_set : _fetchedPiece.recognition_image_set;
 			return dataImageUrl(set?.[image.seq]?.image);
 		}
-		const hit = _diskImages.find((d) => (d.source === 'link_match') === link && d.seq === image.seq);
+		const hit = _diskImages.find(
+			(d) => (d.source === 'link_match') === link && d.seq === image.seq
+		);
 		return hit?.src ?? null;
 	}
 
@@ -419,31 +440,6 @@
 		return `${Math.round(sharpness)}`;
 	}
 
-	function cropInfoRows(crop: CropEntry): { label: string; value: string }[] {
-		const rows: { label: string; value: string }[] = [
-			{ label: 'Type', value: formatRole(crop.role) },
-			{
-				label: 'Shipped',
-				value:
-					crop.role === 'link_match'
-						? 'No — link matches are not sent to Brickognize'
-						: crop.used
-							? 'Yes'
-							: 'No'
-			}
-		];
-		if (crop.role === 'link_match' && crop.score != null) {
-			rows.push({ label: 'Model match', value: formatMatchProbability(crop.score) });
-		}
-		if (crop.sharpness != null && Number.isFinite(crop.sharpness)) {
-			rows.push({ label: 'Sharpness', value: formatSharpness(crop.sharpness) });
-		}
-		if (crop.ts != null) {
-			rows.push({ label: 'Captured', value: formatAbsTs(crop.ts) });
-		}
-		return rows;
-	}
-
 	// The parallel Brickognize requests fired for this piece (combined + the
 	// single-image variants). They run concurrently, not as retries; the one
 	// flagged applied=True is the highest-confidence call whose result was used.
@@ -564,102 +560,86 @@
 		return `L${bin.x} · S${bin.y} · B${bin.z}`;
 	}
 
-	// --- Card row builders -------------------------------------------------
+	// --- The top card ---------------------------------------------------------
 	// The live (in-memory) and disk-fallback views describe the same piece from
-	// two payload shapes. Both normalize into these row lists and render through
-	// PieceInfoCard, so the two views can't drift apart the way they had.
-	function classificationRows(o: {
+	// two payload shapes. Both normalize into this and render through
+	// PieceOverview, so the two views can't drift apart.
+	type FactSource = {
 		part_id?: string | null;
 		part_name?: string | null;
+		color_id?: string | null;
 		color_name?: string | null;
-		color_provider?: string | null;
 		mold_provider?: string | null;
-		category_id?: string | null;
+		color_provider?: string | null;
 		confidence?: number | null;
 		color_confidence?: number | null;
-		source_view?: string | null;
-	}): InfoRow[] {
-		// Mold and color are scored by (potentially) different providers, so each
-		// confidence sits directly under the source that produced it. A single
-		// "Confidence" row read as covering both, which it never did.
-		const rows: InfoRow[] = [
-			{ label: 'Part ID', value: o.part_id ?? '—', mono: true },
-			{ label: 'Name', value: o.part_name ?? '—' },
-			{ label: 'Mold source', value: providerLabel(o.mold_provider) },
+		category_id?: string | null;
+		bin_label: string;
+		stage?: string | null;
+		value?: number | null;
+		seen_at?: number | null;
+	};
+
+	// What a piece is called while it has no part: what became of it.
+	function unnamed(status: string | null | undefined): string {
+		if (status === 'pending' || status === 'classifying') return 'Waiting for the result';
+		if (status === 'multi_drop_fail') return 'Several pieces dropped together';
+		if (status === 'failed') return 'Identification failed';
+		if (status === 'unknown' || status === 'not_found') return 'Not identified';
+		return 'Unidentified piece';
+	}
+
+	function percent(v: number | null | undefined): string | null {
+		return typeof v === 'number' ? `${(v * 100).toFixed(0)}%` : null;
+	}
+
+	// Mold and color are scored by (potentially) different providers, so each
+	// confidence sits with the source that produced it.
+	function overviewFacts(o: FactSource): Fact[] {
+		const mold = [providerLabel(o.mold_provider), percent(o.confidence)].filter(Boolean);
+		const colorName = o.color_name && o.color_name !== 'Any Color' ? o.color_name : null;
+		const color = findLegoColor(o.color_id, o.color_name);
+		const colorBy = [providerLabel(o.color_provider), percent(o.color_confidence)].filter(Boolean);
+		const facts: Fact[] = [
 			{
-				label: 'Mold confidence',
-				value: typeof o.confidence === 'number' ? `${(o.confidence * 100).toFixed(0)}%` : '—',
-				valueClass: `font-semibold num ${confidenceClass(o.confidence)}`
+				label: 'Mold',
+				value: mold.join(' · ') || '—',
+				valueClass: `font-medium num ${confidenceClass(o.confidence)}`,
+				title: 'Which service identified the part, and how sure it was'
 			},
 			{
 				label: 'Color',
-				value: o.color_name && o.color_name !== 'Any Color' ? o.color_name : '—'
-			},
-			{ label: 'Color source', value: providerLabel(o.color_provider) },
-			{
-				label: 'Color confidence',
-				value:
-					typeof o.color_confidence === 'number'
-						? `${(o.color_confidence * 100).toFixed(0)}%`
-						: '—',
-				valueClass: `font-semibold num ${confidenceClass(o.color_confidence)}`
+				value: colorName ? [colorName, ...colorBy].join(' · ') : '—',
+				swatch: color?.hex ?? null,
+				title: 'The color and which service gave it, and how sure it was'
 			},
 			{
 				label: 'Category',
 				value: o.category_id ? (sortingProfileStore.getCategoryName(o.category_id) ?? '—') : '—'
+			},
+			{
+				label: 'Bin',
+				value: o.stage ? `${o.bin_label} · ${o.stage}` : o.bin_label,
+				mono: true,
+				title: 'Layer, section and bin the machine put it in (counted from 0)'
 			}
 		];
-		if (o.source_view) rows.push({ label: 'Source view', value: o.source_view });
-		return rows;
-	}
-
-	// One "Record" card for both views — each field appears only when the
-	// payload actually carries it, rather than two hand-maintained card bodies.
-	function recordRows(o: {
-		stage?: string | null;
-		bin_label: string;
-		est_value?: number | null;
-		run_id?: string | null;
-		tracked_global_id?: number | null;
-		seen_at?: number | null;
-		recorded_at?: number | null;
-		updated_at?: number | null;
-	}): InfoRow[] {
-		const rows: InfoRow[] = [];
-		if (o.stage) rows.push({ label: 'Stage', value: o.stage });
-		rows.push({
-			label: 'Destination bin',
-			value: o.bin_label,
-			valueClass: 'font-mono num text-ink'
-		});
-		if (o.est_value != null) {
-			rows.push({
-				label: 'Est. value',
-				value: fmtPrice(o.est_value),
-				valueClass: 'num text-ink'
-			});
-		}
-		if (o.run_id) rows.push({ label: 'Run', value: o.run_id, mono: true });
-		if (o.tracked_global_id != null) {
-			rows.push({
-				label: 'Tracker',
-				value: String(o.tracked_global_id),
-				valueClass: 'font-mono num text-ink'
-			});
+		if (o.value != null) {
+			facts.push({ label: 'Value', value: fmtPrice(o.value), valueClass: 'num text-ink' });
 		}
 		if (o.seen_at != null) {
-			rows.push({ label: 'Seen', value: new Date(o.seen_at * 1000).toLocaleString() });
-		}
-		if (o.recorded_at != null) {
-			rows.push({ label: 'Recorded', value: new Date(o.recorded_at * 1000).toLocaleString() });
-		}
-		if (o.updated_at != null) {
-			rows.push({
-				label: 'Last update',
-				value: `${formatAbsTs(o.updated_at)} (${formatRelativeTime(o.updated_at)})`
+			facts.push({
+				label: 'Seen',
+				value: new Date(o.seen_at * 1000).toLocaleString(undefined, {
+					month: 'short',
+					day: 'numeric',
+					hour: 'numeric',
+					minute: '2-digit',
+					second: '2-digit'
+				})
 			});
 		}
-		return rows;
+		return facts;
 	}
 
 	// Catalog reference shot for the identified part, as Brickognize returned
@@ -671,6 +651,9 @@
 	// identified — they still get routed, just not to a part-specific bin.
 	function liveBinLabel(): string {
 		if (piece?.destination_bin) return formatBin(piece.destination_bin);
+		// The live payload may not carry it once the piece is distributed; the
+		// machine's record does.
+		if (_summary?.bin) return formatSummaryBin(_summary.bin);
 		if (is_unknown || is_multi_drop) return 'discard bin';
 		return '—';
 	}
@@ -721,6 +704,147 @@
 	);
 	const linkMatchCount = $derived(crops.filter((c) => c.role === 'link_match').length);
 
+	// The burst the camera took, for the top card: all of it, small, the frames that
+	// produced the result tinted.
+	function frameLabel(parts: (string | false | null)[]): string {
+		return parts.filter(Boolean).join(' · ');
+	}
+
+	const overviewFrames = $derived<Frame[]>(
+		crops
+			.filter((c) => c.role === 'recognition_capture')
+			.map((c) => ({
+				key: cropKey(c),
+				src: c.src,
+				label: frameLabel([formatCropLabel(c), formatAbsTs(c.ts), c.used && 'used for the result']),
+				used: c.used,
+				channel: channelLabel(c.channel),
+				sharpness:
+					c.sharpness != null && Number.isFinite(c.sharpness) ? formatSharpness(c.sharpness) : null
+			}))
+	);
+
+	// A piece no longer in memory has its stored images instead.
+	const diskFrames = $derived<Frame[]>(
+		_diskImages
+			.filter((img) => img.source !== 'link_match')
+			.map((img, i) => ({
+				key: String(i),
+				src: img.src,
+				label: frameLabel([
+					sourceLabel(img.source, img.channel),
+					img.used && 'used for the result'
+				]),
+				used: img.used,
+				channel: img.source === 'c4_burst' ? 'C4' : channelLabel(img.channel),
+				sharpness: null
+			}))
+	);
+	const diskOtherThumbs = $derived(diskThumbs.filter((t) => t.ref.source === 'link_match'));
+
+	const liveFacts = $derived<Fact[]>(
+		piece
+			? overviewFacts({
+					part_id: piece.part_id,
+					part_name: piece.part_name ?? null,
+					color_id: piece.color_id ?? null,
+					color_name: piece.color_name,
+					mold_provider: piece.mold_provider,
+					color_provider: piece.color_provider,
+					confidence: piece.confidence,
+					color_confidence: piece.color_confidence,
+					category_id: piece.category_id,
+					bin_label: liveBinLabel(),
+					stage: piece.stage,
+					value:
+						typeof (piece.piece_metadata as Record<string, unknown> | undefined)
+							?.moving_avg_price === 'number'
+							? ((piece.piece_metadata as Record<string, unknown>).moving_avg_price as number)
+							: null,
+					seen_at: piece.created_at
+				})
+			: []
+	);
+	const diskFacts = $derived<Fact[]>(
+		_diskSummary
+			? overviewFacts({
+					part_id: _diskSummary.part_id,
+					part_name: _diskSummary.part_name,
+					color_id: _diskSummary.color_id,
+					color_name: _diskSummary.color_name,
+					mold_provider: _diskSummary.mold_provider,
+					color_provider: _diskSummary.color_provider,
+					confidence: _diskSummary.confidence,
+					color_confidence: _diskSummary.color_confidence,
+					category_id: _diskSummary.category_id,
+					bin_label: formatSummaryBin(_diskSummary.bin),
+					value: _diskSummary.est_value,
+					seen_at: _diskSummary.seen_at
+				})
+			: []
+	);
+
+	// An answer in the review: the page's record of the piece takes it, and the
+	// dashboard's recent pieces hear of it.
+	function onReviewed(summary: PieceSummary) {
+		_summary = { ...(_summary ?? { uuid }), ...summary };
+		const mid = ctx.machine?.identity?.machine_id ?? null;
+		if (mid) pieceStore.upsertFromRest(mid, [summary]);
+	}
+
+	// What the details say before they are opened.
+	const appliedAttempt = $derived(attempts.find((a) => a.applied) ?? null);
+	const requestsHelp = $derived(
+		`${attempts.length} sent in parallel${appliedAttempt ? `; applied: ${attemptName(appliedAttempt)}, ${attemptOutcome(appliedAttempt)}` : ''}`
+	);
+	const timelineHelp = $derived(
+		timeline.length > 1
+			? `${timeline.length} events over ${formatRelSec(timeline[timeline.length - 1].ts, timeline[0].ts).replace('+', '')}`
+			: ''
+	);
+	const pricing = $derived.by(() => {
+		const md = (piece?.piece_metadata ?? null) as Record<string, any> | null;
+		return md && (md.price || md.moving_avg_price != null) ? md : null;
+	});
+	const pricingHelp = $derived(
+		pricing
+			? `${typeof pricing.moving_avg_price === 'number' ? fmtPrice(pricing.moving_avg_price) : '—'} moving average, ${pricing.price_color_specific ? 'this color' : 'all colors'}`
+			: ''
+	);
+	const recordFacts = $derived.by(() => {
+		const rows: { label: string; value: string; mono?: boolean }[] = [];
+		if (piece) {
+			if (piece.stage) rows.push({ label: 'Stage', value: piece.stage });
+			if (piece.tracked_global_id != null) {
+				rows.push({ label: 'Tracker', value: String(piece.tracked_global_id), mono: true });
+			}
+			if (piece.brickognize_source_view) {
+				rows.push({ label: 'Source view', value: piece.brickognize_source_view });
+			}
+			if (piece.updated_at != null) {
+				rows.push({
+					label: 'Last update',
+					value: `${formatAbsTs(piece.updated_at)} (${formatRelativeTime(piece.updated_at)})`
+				});
+			}
+		} else if (_diskSummary) {
+			if (_diskSummary.run_id) rows.push({ label: 'Run', value: _diskSummary.run_id, mono: true });
+			if (_diskSummary.recorded_at != null) {
+				rows.push({
+					label: 'Recorded',
+					value: new Date(_diskSummary.recorded_at * 1000).toLocaleString()
+				});
+			}
+		}
+		return rows;
+	});
+
+	// Which of the details are open: closed ones draw nothing.
+	let openRequests = $state(false);
+	let openChannels = $state(false);
+	let openPricing = $state(false);
+	let openTimeline = $state(false);
+	let openReclassify = $state(false);
 </script>
 
 <svelte:head>
@@ -728,22 +852,26 @@
 </svelte:head>
 
 {#snippet thumbCrop(src: string, alt: string, label: string, onclick: () => void)}
-	<button
-		type="button"
-		class="flex flex-col gap-1 rounded-control p-1 text-left transition-colors hover:bg-hover"
-		{onclick}
-	>
-		<img {src} {alt} class="size-32 rounded-item object-contain" loading="lazy" />
-		{#if label}<span class="px-1 text-xs text-ink-muted">{label}</span>{/if}
-	</button>
+	<ImageZoom {src} label={label || alt}>
+		<button
+			type="button"
+			class="flex flex-col gap-1 rounded-control p-1 text-left transition-colors hover:bg-hover"
+			{onclick}
+		>
+			<img {src} {alt} class="size-24 rounded-item object-contain" loading="lazy" />
+			{#if label}<span class="px-1 text-xs text-ink-muted">{label}</span>{/if}
+		</button>
+	</ImageZoom>
 {/snippet}
 
 <AppShell>
-	<div class="mx-auto flex w-full max-w-[1600px] flex-col gap-(--gap-panels) px-4 py-6 sm:px-6">
-		<PageHeader title="Piece {uuid.slice(0, 8)}">
-			{#snippet actions()}
-				<Button icon={ArrowLeft} href="/records">Back to the records</Button>
-			{/snippet}
+	<div class="mx-auto flex w-full max-w-[1600px] flex-col gap-(--gap-panels) px-4 py-4 sm:px-6">
+		<!-- The way back is first, at the left; then which piece this is. -->
+		<header class="flex flex-wrap items-center gap-x-4 gap-y-2">
+			<Button icon={ArrowLeft} href="/records/pieces" onclick={backToRecords}>
+				Back to the records
+			</Button>
+			<h1 class="text-xl font-semibold tracking-tight text-ink">Piece {uuid.slice(0, 8)}</h1>
 			<div class="flex flex-wrap items-center gap-2">
 				{#if piece}
 					{#if piece.stage === 'distributed'}
@@ -757,37 +885,31 @@
 						dead={Boolean(piece.dead)}
 					/>
 				{:else if _diskSummary}
-					<PieceStatusBadge status={_diskSummary.classification_status} dead={Boolean(_diskSummary.dead)} />
+					<PieceStatusBadge
+						status={_diskSummary.classification_status}
+						dead={Boolean(_diskSummary.dead)}
+					/>
 				{/if}
 			</div>
-		</PageHeader>
+		</header>
 
 		{#if !piece}
 			{#if _fetchStatus === 'summary_only' && _diskSummary}
 				{@const ds = _diskSummary}
-				<section class="grid grid-cols-1 gap-(--gap-panels) lg:grid-cols-2">
-					<PieceInfoCard
-						title="Classification"
-						rows={classificationRows(ds)}
-						image={ds.preview_url}
-						imageAlt="Brickognize reference"
-						onImageClick={() =>
-							(zoomImage = {
-								src: ds.preview_url as string,
-								label: ds.part_name ?? ds.part_id ?? 'Brickognize reference'
-							})}
-					/>
-					<PieceInfoCard
-						title="Record"
-						rows={recordRows({
-							bin_label: formatSummaryBin(ds.bin),
-							est_value: ds.est_value,
-							run_id: ds.run_id,
-							seen_at: ds.seen_at,
-							recorded_at: ds.recorded_at
-						})}
-					/>
-				</section>
+				<PieceOverview
+					name={ds.part_name ?? ds.part_id ?? unnamed(ds.classification_status)}
+					partId={ds.part_name ? (ds.part_id ?? null) : null}
+					frames={diskFrames}
+					framesNote="{diskFrames.length} stored frames. Tinted frames produced the result."
+					reference={ds.preview_url ?? null}
+					facts={diskFacts}
+					summary={_summary}
+					endpointBase={effectiveBase()}
+					{onReviewed}
+					onZoom={(src, label) => (zoomImage = { src, label })}
+				/>
+
+				<PieceProblems problems={_summary?.problems} />
 
 				{#if _predictions.length > 0}
 					<PiecePredictions
@@ -797,15 +919,32 @@
 					/>
 				{/if}
 
-				{#if diskThumbs.length > 0}
-					<Panel title="Stored images" description="{diskThumbs.length} on disk.">
-						<PieceThumbGrid
-							items={diskThumbs}
-							minPx={120}
-							onZoom={(t) => (zoomImage = { src: t.src, label: t.ref.source })}
-						/>
-					</Panel>
-				{/if}
+				<Panel flush>
+					<div class="divide-y divide-line">
+						{#if diskOtherThumbs.length > 0}
+							<Disclosure
+								title="Other channels"
+								help="{diskOtherThumbs.length} views from C2 and C3"
+								bind:open={openChannels}
+							>
+								{#if openChannels}
+									<div class="px-(--pad-panel) pb-2">
+										<PieceThumbGrid
+											items={diskOtherThumbs}
+											minPx={96}
+											onZoom={(t) => (zoomImage = { src: t.src, label: t.ref.source })}
+										/>
+									</div>
+								{/if}
+							</Disclosure>
+						{/if}
+						{#if recordFacts.length > 0}
+							<Disclosure title="Record" help="Run and recording time">
+								<div class="px-(--pad-panel)"><KeyValue items={recordFacts} /></div>
+							</Disclosure>
+						{/if}
+					</div>
+				</Panel>
 			{:else if _fetchStatus === 'loading' || _fetchStatus === 'idle'}
 				<Panel>
 					<p class="flex items-center gap-2 text-sm text-ink-muted">
@@ -815,8 +954,9 @@
 				</Panel>
 			{:else if _fetchStatus === 'not_found'}
 				<EmptyState title="No trace of this piece">
-					It isn't in backend memory, the durable piece records or the on-disk image store. Go back to the
-					<a href="/records" class="text-primary-ink hover:underline">piece records</a>.
+					It isn't in backend memory, the durable piece records or the on-disk image store. Go back
+					to the
+					<a href="/records/pieces" class="text-primary-ink hover:underline">piece records</a>.
 				</EmptyState>
 			{:else}
 				<Alert tone="danger" title="This piece did not load">
@@ -824,251 +964,24 @@
 				</Alert>
 			{/if}
 		{:else}
-			<!-- Identity and classification summary -->
-			<section class="grid grid-cols-1 gap-(--gap-panels) lg:grid-cols-2">
-				<PieceInfoCard
-					title="Classification"
-					rows={classificationRows({
-						part_id: piece.part_id,
-						part_name: piece.part_name ?? null,
-						color_name: piece.color_name,
-						color_provider: piece.color_provider,
-						mold_provider: piece.mold_provider,
-						category_id: piece.category_id,
-						confidence: piece.confidence,
-						color_confidence: piece.color_confidence,
-						source_view: piece.brickognize_source_view
-					})}
-					image={refImageSrc}
-					imageAlt="Brickognize reference"
-					onImageClick={() =>
-						(zoomImage = {
-							src: refImageSrc as string,
-							label: piece.part_name ?? piece.part_id ?? 'Brickognize reference'
-						})}
-				/>
-				<PieceInfoCard
-					title="Record"
-					rows={recordRows({
-						stage: piece.stage,
-						bin_label: liveBinLabel(),
-						tracked_global_id: piece.tracked_global_id,
-						updated_at: piece.updated_at
-					})}
-				/>
-			</section>
+			<!-- What you came to see: the pictures, what the machine decided, the review. -->
+			<PieceOverview
+				name={piece.part_name ?? piece.part_id ?? unnamed(piece.classification_status)}
+				partId={piece.part_name ? (piece.part_id ?? null) : null}
+				frames={overviewFrames}
+				framesNote="{overviewFrames.length} frames from C4. Tinted frames produced the result."
+				reference={refImageSrc}
+				facts={liveFacts}
+				summary={_summary}
+				endpointBase={effectiveBase()}
+				{onReviewed}
+				onZoom={(src, label) => (zoomImage = { src, label })}
+			/>
 
-			<!-- Pricing: every BrickLink bucket from the Hive catalog. The headline
-			     `moving_avg_price` (what routing uses) is the first non-empty of these,
-			     sold-new preferred; the table shows all four so you can see whatever
-			     source actually exists for this part. -->
-			{#if piece.piece_metadata}
-				{@const md = piece.piece_metadata as Record<string, any>}
-				{@const price = (md.price ?? null) as Record<string, any> | null}
-				{@const bl = (md.bricklink ?? null) as Record<string, any> | null}
-				<Panel
-					title="Pricing"
-					description="From the Hive catalog{md.price_currency ? `, BrickLink ${md.price_currency}` : ''}."
-					flush
-				>
-					<div class="flex flex-col gap-3 px-(--pad-panel) pb-4 text-sm">
-						<div class="flex flex-wrap items-baseline gap-x-3 gap-y-1">
-							<span class="text-ink-muted">Moving average, used for routing</span>
-							<span class="num text-base font-semibold text-ink">
-								{typeof md.moving_avg_price === 'number' ? fmtPrice(md.moving_avg_price) : '—'}
-							</span>
-							<Badge>{md.price_color_specific ? 'This color' : 'All colors (most liquid)'}</Badge>
-							<span class="text-xs text-ink-muted">First available, sold new preferred.</span>
-							{#if md.price_updated_at}
-								<span class="text-xs text-ink-muted">Synced {String(md.price_updated_at).slice(0, 10)}</span>
-							{/if}
-						</div>
+			<!-- What went wrong with it, when anything did. -->
+			<PieceProblems problems={_summary?.problems} />
 
-						{#if md.price_from_base_mold}
-							<Alert tone="warning" title="Approximate">
-								There is no market data for this exact print. This shows the base mold
-								<span class="font-mono">{md.price_from_base_mold}</span>{md.price_from_base_name
-									? ` (${md.price_from_base_name})`
-									: ''} price instead.
-							</Alert>
-						{/if}
-					</div>
-
-					{#if price}
-						<div class="overflow-x-auto">
-							<table class="data-table">
-								<thead>
-									<tr>
-										<th>Source</th>
-										<th class="num">Avg</th>
-										<th class="num">Weighted avg</th>
-										<th class="num">Min</th>
-										<th class="num">Max</th>
-										<th class="num">Qty</th>
-										<th class="num">Lots</th>
-									</tr>
-								</thead>
-								<tbody>
-									{#each PRICE_BUCKETS as [key, label]}
-										{@const b = (price[key] ?? {}) as Record<string, any>}
-										<tr>
-											<td>{label}</td>
-											<td class="num">{fmtPrice(b.avg)}</td>
-											<td class="num">{fmtPrice(b.wavg)}</td>
-											<td class="num text-ink-muted">{fmtPrice(b.min)}</td>
-											<td class="num text-ink-muted">{fmtPrice(b.max)}</td>
-											<td class="num text-ink-muted">{b.qty ?? '—'}</td>
-											<td class="num text-ink-muted">{b.lots ?? '—'}</td>
-										</tr>
-									{/each}
-								</tbody>
-							</table>
-						</div>
-					{:else}
-						<p class="px-(--pad-panel) pb-4 text-sm text-ink-muted">
-							No price-guide rows for this part in the Hive catalog.
-						</p>
-					{/if}
-
-					{#if bl}
-						<div class="flex flex-wrap gap-x-4 gap-y-1 px-(--pad-panel) py-3 text-xs text-ink-muted">
-							{#if bl.item_no}<span>BL item {bl.item_no}</span>{/if}
-							{#if bl.weight_g}<span>{bl.weight_g} g</span>{/if}
-							{#if bl.dim_x_studs && bl.dim_y_studs}<span>{bl.dim_x_studs}×{bl.dim_y_studs} studs</span>{/if}
-							{#if bl.year_released}<span>since {bl.year_released}</span>{/if}
-							{#if bl.is_obsolete}<span>obsolete</span>{/if}
-						</div>
-					{/if}
-				</Panel>
-			{/if}
-
-			<!-- Arrival snapshot: the full carousel frame at the instant the piece first
-			     appeared on C4 (dropping in from C3). The catalog reference shot lives in
-			     the Classification panel, so this is just the one photo. -->
-			{#if piece.drop_snapshot}
-				{@const drop_src = dataImageUrl(piece.drop_snapshot) as string}
-				<Panel title="Arrival snapshot">
-					<button
-						type="button"
-						class="flex flex-col gap-1 rounded-control p-1 text-left transition-colors hover:bg-hover"
-						onclick={() => (zoomImage = { src: drop_src, label: 'At arrival' })}
-					>
-						<img
-							src={drop_src}
-							alt="arrival snapshot"
-							class="size-40 cursor-zoom-in rounded-item bg-surface object-contain"
-							loading="lazy"
-						/>
-						<span class="px-1 text-xs text-ink-muted">At arrival</span>
-					</button>
-				</Panel>
-			{/if}
-
-			<!-- Classification requests: the parallel Brickognize calls (combined and
-			     single-image variants). Each ran concurrently; the highest-confidence
-			     "found" call wins and is marked applied. It shows what every request
-			     returned, not just the winner, so a confused fused set against a clean
-			     lone frame is visible at a glance. -->
-			{#if attempts.length > 0}
-				<Panel
-					title="Classification requests"
-					description="{attempts.length} sent in parallel; the best match was applied."
-					flush
-				>
-					<ul class="divide-y divide-line">
-						{#each attempts as a, ai (ai)}
-							{@const open = expandedAttempts.has(ai)}
-							{@const sent = attemptImages(a)}
-							<li class={a.applied ? 'bg-primary-soft' : ''}>
-								<button
-									type="button"
-									aria-expanded={open}
-									class="flex w-full flex-wrap items-center gap-x-3 gap-y-1 px-(--pad-panel) py-3 text-left text-sm transition-colors hover:bg-hover"
-									onclick={() => toggleAttempt(ai)}
-								>
-									{#if open}
-										<ChevronDown size={16} class="shrink-0 text-ink-muted" />
-									{:else}
-										<ChevronRight size={16} class="shrink-0 text-ink-muted" />
-									{/if}
-									<span class="font-medium text-ink">{attemptName(a)}</span>
-									<span class="text-ink-muted">{attemptInputs(a)}</span>
-									<span
-										class="num {a.error ? 'text-danger-ink' : a.found ? 'font-medium text-ink' : 'text-ink-muted'}"
-									>
-										{attemptOutcome(a)}
-									</span>
-									{#if a.found && a.part_name}<span class="text-ink-muted">{a.part_name}</span>{/if}
-									{#if a.found && a.color_name}<span class="text-ink-muted">· {a.color_name}</span>{/if}
-									{#if a.error}<span class="text-ink-muted">{a.error}</span>{/if}
-									{#if a.duration_s != null}
-										<span class="num text-ink-muted">{a.duration_s.toFixed(2)}s</span>
-									{/if}
-									{#if a.applied}
-										<span class="ml-auto" title="This request's result was applied to the piece">
-											<Badge tone="primary">Applied</Badge>
-										</span>
-									{/if}
-								</button>
-								{#if open}
-									<div class="flex flex-wrap gap-6 px-(--pad-panel) pb-4">
-										<!-- What was sent to Brickognize for this request -->
-										<div class="flex flex-col gap-2">
-											<div class="label">Sent ({sent.length})</div>
-											{#if sent.length === 0}
-												<div class="flex size-32 items-center justify-center rounded-control bg-well text-sm text-ink-muted">
-													Crops aged out
-												</div>
-											{:else}
-												<div class="flex flex-wrap gap-2">
-													{#each sent as crop (cropKey(crop))}
-														{@render thumbCrop(crop.src, crop.role, formatCropLabel(crop), () =>
-															(zoomImage = { src: crop.src, label: formatCropLabel(crop) })
-														)}
-													{/each}
-												</div>
-											{/if}
-										</div>
-										<!-- What Brickognize returned for this request -->
-										<div class="flex flex-col gap-2">
-											<div class="label">Result</div>
-											{#if a.error}
-												<div class="flex size-32 items-center justify-center rounded-control bg-danger-soft p-2 text-center text-sm text-danger-ink">
-													{a.error}
-												</div>
-											{:else if a.found}
-												<div class="flex gap-3">
-													{#if a.preview_url}
-														{@render thumbCrop(a.preview_url, 'Brickognize reference', '', () =>
-															(zoomImage = {
-																src: a.preview_url as string,
-																label: a.part_name ?? a.part_id ?? 'result'
-															})
-														)}
-													{/if}
-													<div class="flex flex-col gap-0.5 text-sm">
-														<span class="num font-medium text-ink">{a.part_id}</span>
-														{#if a.part_name}<span class="text-ink-muted">{a.part_name}</span>{/if}
-														{#if a.confidence != null}
-															<span class="num text-ink-muted">{(a.confidence * 100).toFixed(0)}% match</span>
-														{/if}
-														{#if a.color_name}<span class="text-ink-muted">Color: {a.color_name}</span>{/if}
-													</div>
-												</div>
-											{:else}
-												<div class="flex size-32 items-center justify-center rounded-control bg-well text-sm text-ink-muted">
-													No match
-												</div>
-											{/if}
-										</div>
-									</div>
-								{/if}
-							</li>
-						{/each}
-					</ul>
-				</Panel>
-			{/if}
-
+			<!-- What each service said about it. -->
 			{#if _predictions.length > 0}
 				<PiecePredictions
 					predictions={_predictions}
@@ -1077,116 +990,370 @@
 				/>
 			{/if}
 
-			{#snippet cropOverlay(item: Thumb<CropEntry>)}
-				<!-- Chips over a picture sit in a dark subtree. -->
-				{#if item.ref.used}
-					<span
-						class="dark absolute top-1 left-1 rounded-badge bg-scrim px-1 text-xs font-medium text-ink"
-						title="Shipped to Brickognize for classification"
-					>
-						Used
-					</span>
-				{/if}
-				{#if item.ref.sharpness != null}
-					<span
-						class="dark num absolute top-1 right-1 rounded-badge bg-scrim px-1 text-xs font-medium text-ink"
-						title="Sharpness (Laplacian variance): higher is sharper, with less motion blur"
-					>
-						⌖ {formatSharpness(item.ref.sharpness)}
-					</span>
-				{/if}
-				<span
-					class="dark absolute bottom-1 left-1 rounded-badge bg-scrim px-1 text-xs font-medium text-ink"
-					title="Channel this image came from"
-				>
-					{channelLabel(item.ref.channel)}
-				</span>
-				<ImageInfoBadge class="absolute right-1 bottom-1 z-10" src={item.src} rows={cropInfoRows(item.ref)} />
-			{/snippet}
-
-			<!-- The classification burst -->
-			<Panel title="Classification burst" description="{burstThumbs.length} frames from C4. Tinted frames were used for classification.">
-				{#if burstThumbs.length === 0}
-					<p class="text-sm text-ink-muted">No burst frames for this piece.</p>
-				{:else}
-					<PieceThumbGrid
-						items={burstThumbs}
-						minPx={120}
-						overlay={cropOverlay}
-						onZoom={(t) => (zoomImage = { src: t.src, label: formatCropLabel(t.ref) })}
-					/>
-				{/if}
-			</Panel>
-
-			<!-- The same physical piece as seen upstream, ranked by the piece-link
-			     model. Tinted tiles were fused into the Brickognize request alongside
-			     the burst; the rest are shown for review. -->
-			<Panel
-				title="Other channels"
-				description="{otherChannelThumbs.length} views from C2 and C3{linkMatchCount > 0
-					? ', ranked by match probability. Tinted views were used for classification'
-					: ''}."
-			>
-				{#if otherChannelThumbs.length === 0}
-					<p class="text-sm text-ink-muted">No upstream views of this piece.</p>
-				{:else}
-					<PieceThumbGrid
-						items={otherChannelThumbs}
-						minPx={120}
-						overlay={cropOverlay}
-						onZoom={(t) => (zoomImage = { src: t.src, label: formatCropLabel(t.ref) })}
-					/>
-				{/if}
-			</Panel>
-
-			<!-- Scratch reclassify: pick crops, re-run Brickognize (not recorded) -->
-			{#if crops.length > 0}
-				<Panel>
-					<ReclassifyPanel
-						endpointBase={effectiveBase()}
-						images={crops.map((c) => ({
-							image: c.src,
-							label: formatCropLabel(c),
-							used: c.used
-						}))}
-					/>
-				</Panel>
-			{/if}
-
-			<!-- Lifecycle timeline -->
-			<Panel title="Lifecycle timeline">
-				{#if timeline.length === 0}
-					<p class="text-sm text-ink-muted">No lifecycle events recorded yet.</p>
-				{:else}
-					{@const anchor = timeline[0].ts}
-					<ol class="flex flex-col">
-						{#each timeline as ev, idx (idx)}
-							<li class="relative flex items-baseline gap-3 border-l border-line pb-1.5 pl-4">
-								<span class="absolute top-1.5 -left-[3.5px] size-1.5 bg-primary"></span>
-								<span class="min-w-[12rem] text-sm text-ink">{ev.label}</span>
-								<span class="num font-mono text-sm text-ink-muted">{formatAbsTs(ev.ts)}</span>
-								{#if idx > 0}
-									<span class="num font-mono text-xs text-ink-muted">{formatRelSec(ev.ts, anchor)}</span>
-								{/if}
-							</li>
-						{/each}
-					</ol>
-				{/if}
-			</Panel>
-
-			<!-- Raw JSON -->
+			<!-- How it got there: closed until asked for, each with what it says. -->
 			<Panel flush>
-				<Disclosure title="Raw JSON" bind:open={showRawJson}>
-					<pre class="mx-(--pad-panel) max-h-96 overflow-auto rounded-control bg-well p-3 text-xs text-ink-muted">{JSON.stringify(
-							piece,
-							null,
-							2
-						)}</pre>
-				</Disclosure>
+				<div class="divide-y divide-line">
+					{#if attempts.length > 0}
+						<!-- The parallel Brickognize calls (combined and single-image variants).
+						     Each ran concurrently; the highest-confidence "found" call wins and
+						     is marked applied. It shows what every request returned, not just the
+						     winner, so a confused fused set against a clean lone frame is visible
+						     at a glance. -->
+						<Disclosure
+							title="Classification requests"
+							help={requestsHelp}
+							bind:open={openRequests}
+						>
+							{#if openRequests}
+								<ul class="divide-y divide-line">
+									{#each attempts as a, ai (ai)}
+										{@const open = expandedAttempts.has(ai)}
+										{@const sent = attemptImages(a)}
+										<li class={a.applied ? 'bg-primary-soft' : ''}>
+											<button
+												type="button"
+												aria-expanded={open}
+												class="flex w-full flex-wrap items-center gap-x-3 gap-y-1 px-(--pad-panel) py-2 text-left text-sm transition-colors hover:bg-hover"
+												onclick={() => toggleAttempt(ai)}
+											>
+												{#if open}
+													<ChevronDown size={16} class="shrink-0 text-ink-muted" />
+												{:else}
+													<ChevronRight size={16} class="shrink-0 text-ink-muted" />
+												{/if}
+												<span class="font-medium text-ink">{attemptName(a)}</span>
+												<span class="text-ink-muted">{attemptInputs(a)}</span>
+												<span
+													class="num {a.error
+														? 'text-danger-ink'
+														: a.found
+															? 'font-medium text-ink'
+															: 'text-ink-muted'}"
+												>
+													{attemptOutcome(a)}
+												</span>
+												{#if a.found && a.part_name}<span class="text-ink-muted">{a.part_name}</span
+													>{/if}
+												{#if a.found && a.color_name}<span class="text-ink-muted"
+														>· {a.color_name}</span
+													>{/if}
+												{#if a.error}<span class="text-ink-muted">{a.error}</span>{/if}
+												{#if a.duration_s != null}
+													<span class="num text-ink-muted">{a.duration_s.toFixed(2)}s</span>
+												{/if}
+												{#if a.applied}
+													<span
+														class="ml-auto"
+														title="This request's result was applied to the piece"
+													>
+														<Badge tone="primary">Applied</Badge>
+													</span>
+												{/if}
+											</button>
+											{#if open}
+												<div class="flex flex-wrap gap-6 px-(--pad-panel) pb-3">
+													<!-- What was sent to Brickognize for this request -->
+													<div class="flex flex-col gap-2">
+														<div class="label">Sent ({sent.length})</div>
+														{#if sent.length === 0}
+															<div
+																class="flex size-24 items-center justify-center rounded-control bg-well text-sm text-ink-muted"
+															>
+																Crops aged out
+															</div>
+														{:else}
+															<div class="flex flex-wrap gap-2">
+																{#each sent as crop (cropKey(crop))}
+																	{@render thumbCrop(
+																		crop.src,
+																		crop.role,
+																		formatCropLabel(crop),
+																		() =>
+																			(zoomImage = { src: crop.src, label: formatCropLabel(crop) })
+																	)}
+																{/each}
+															</div>
+														{/if}
+													</div>
+													<!-- What Brickognize returned for this request -->
+													<div class="flex flex-col gap-2">
+														<div class="label">Result</div>
+														{#if a.error}
+															<div
+																class="flex size-24 items-center justify-center rounded-control bg-danger-soft p-2 text-center text-sm text-danger-ink"
+															>
+																{a.error}
+															</div>
+														{:else if a.found}
+															<div class="flex gap-3">
+																{#if a.preview_url}
+																	{@render thumbCrop(
+																		a.preview_url,
+																		'Brickognize reference',
+																		'',
+																		() =>
+																			(zoomImage = {
+																				src: a.preview_url as string,
+																				label: a.part_name ?? a.part_id ?? 'result'
+																			})
+																	)}
+																{/if}
+																<div class="flex flex-col gap-0.5 text-sm">
+																	<span class="num font-medium text-ink">{a.part_id}</span>
+																	{#if a.part_name}<span class="text-ink-muted">{a.part_name}</span
+																		>{/if}
+																	{#if a.confidence != null}
+																		<span class="num text-ink-muted"
+																			>{(a.confidence * 100).toFixed(0)}% match</span
+																		>
+																	{/if}
+																	{#if a.color_name}<span class="text-ink-muted"
+																			>Color: {a.color_name}</span
+																		>{/if}
+																</div>
+															</div>
+														{:else}
+															<div
+																class="flex size-24 items-center justify-center rounded-control bg-well text-sm text-ink-muted"
+															>
+																No match
+															</div>
+														{/if}
+													</div>
+												</div>
+											{/if}
+										</li>
+									{/each}
+								</ul>
+							{/if}
+						</Disclosure>
+					{/if}
+
+					<!-- The same physical piece as seen upstream, ranked by the piece-link
+					     model. Tinted tiles were fused into the Brickognize request alongside
+					     the burst; the rest are shown for review. -->
+					<Disclosure
+						title="Other channels"
+						help="{otherChannelThumbs.length} views from C2 and C3{linkMatchCount > 0
+							? ', ranked by match probability'
+							: ''}"
+						bind:open={openChannels}
+					>
+						{#if openChannels}
+							<div class="px-(--pad-panel) pb-2">
+								{#if otherChannelThumbs.length === 0}
+									<p class="text-sm text-ink-muted">No upstream views of this piece.</p>
+								{:else}
+									<PieceThumbGrid
+										items={otherChannelThumbs}
+										minPx={96}
+										overlay={cropOverlay}
+										onZoom={(t) => (zoomImage = { src: t.src, label: formatCropLabel(t.ref) })}
+									/>
+								{/if}
+							</div>
+						{/if}
+					</Disclosure>
+
+					<!-- Every BrickLink bucket from the Hive catalog. The headline
+					     `moving_avg_price` (what routing uses) is the first non-empty of these,
+					     sold-new preferred; the table shows all four so you can see whatever
+					     source actually exists for this part. -->
+					{#if pricing}
+						{@const md = pricing}
+						{@const price = (md.price ?? null) as Record<string, any> | null}
+						{@const bl = (md.bricklink ?? null) as Record<string, any> | null}
+						<Disclosure title="Pricing" help={pricingHelp} bind:open={openPricing}>
+							{#if openPricing}
+								<div class="flex flex-col gap-2 pb-1 text-sm">
+									<div class="flex flex-wrap items-baseline gap-x-3 gap-y-1 px-(--pad-panel)">
+										<span class="text-ink-muted">
+											Moving average, used for routing. From the Hive catalog{md.price_currency
+												? `, BrickLink ${md.price_currency}`
+												: ''}; first available, sold new preferred.
+										</span>
+										{#if md.price_updated_at}
+											<span class="text-xs text-ink-muted"
+												>Synced {String(md.price_updated_at).slice(0, 10)}</span
+											>
+										{/if}
+									</div>
+									{#if md.price_from_base_mold}
+										<div class="px-(--pad-panel)">
+											<Alert tone="warning" title="Approximate">
+												There is no market data for this exact print. This shows the base mold
+												<span class="font-mono">{md.price_from_base_mold}</span
+												>{md.price_from_base_name ? ` (${md.price_from_base_name})` : ''} price instead.
+											</Alert>
+										</div>
+									{/if}
+									{#if price}
+										<div class="overflow-x-auto">
+											<table class="data-table">
+												<thead>
+													<tr>
+														<th>Source</th>
+														<th class="num">Avg</th>
+														<th class="num">Weighted avg</th>
+														<th class="num">Min</th>
+														<th class="num">Max</th>
+														<th class="num">Qty</th>
+														<th class="num">Lots</th>
+													</tr>
+												</thead>
+												<tbody>
+													{#each PRICE_BUCKETS as [key, label]}
+														{@const b = (price[key] ?? {}) as Record<string, any>}
+														<tr>
+															<td>{label}</td>
+															<td class="num">{fmtPrice(b.avg)}</td>
+															<td class="num">{fmtPrice(b.wavg)}</td>
+															<td class="num text-ink-muted">{fmtPrice(b.min)}</td>
+															<td class="num text-ink-muted">{fmtPrice(b.max)}</td>
+															<td class="num text-ink-muted">{b.qty ?? '—'}</td>
+															<td class="num text-ink-muted">{b.lots ?? '—'}</td>
+														</tr>
+													{/each}
+												</tbody>
+											</table>
+										</div>
+									{:else}
+										<p class="px-(--pad-panel) text-ink-muted">
+											No price-guide rows for this part in the Hive catalog.
+										</p>
+									{/if}
+									{#if bl}
+										<div
+											class="flex flex-wrap gap-x-4 gap-y-1 px-(--pad-panel) text-xs text-ink-muted"
+										>
+											{#if bl.item_no}<span>BL item {bl.item_no}</span>{/if}
+											{#if bl.weight_g}<span>{bl.weight_g} g</span>{/if}
+											{#if bl.dim_x_studs && bl.dim_y_studs}<span
+													>{bl.dim_x_studs}×{bl.dim_y_studs} studs</span
+												>{/if}
+											{#if bl.year_released}<span>since {bl.year_released}</span>{/if}
+											{#if bl.is_obsolete}<span>obsolete</span>{/if}
+										</div>
+									{/if}
+								</div>
+							{/if}
+						</Disclosure>
+					{/if}
+
+					<Disclosure title="Lifecycle timeline" help={timelineHelp} bind:open={openTimeline}>
+						{#if openTimeline}
+							<div class="px-(--pad-panel) pb-2">
+								{#if timeline.length === 0}
+									<p class="text-sm text-ink-muted">No lifecycle events recorded yet.</p>
+								{:else}
+									{@const anchor = timeline[0].ts}
+									<ol class="@container grid gap-x-8 gap-y-0.5 text-sm md:grid-cols-2">
+										{#each timeline as ev, idx (idx)}
+											<li class="flex items-baseline gap-3">
+												<span class="min-w-[11rem] text-ink">{ev.label}</span>
+												<span class="num font-mono text-ink-muted">{formatAbsTs(ev.ts)}</span>
+												{#if idx > 0}
+													<span class="num font-mono text-xs text-ink-muted"
+														>{formatRelSec(ev.ts, anchor)}</span
+													>
+												{/if}
+											</li>
+										{/each}
+									</ol>
+								{/if}
+							</div>
+						{/if}
+					</Disclosure>
+
+					{#if recordFacts.length > 0}
+						<Disclosure
+							title="Record"
+							help={recordFacts.map((r) => `${r.label.toLowerCase()} ${r.value}`).join(' · ')}
+						>
+							<div class="px-(--pad-panel)"><KeyValue items={recordFacts} /></div>
+						</Disclosure>
+					{/if}
+
+					<!-- Arrival snapshot: the full carousel frame at the instant the piece first
+					     appeared on C4 (dropping in from C3). -->
+					{#if piece.drop_snapshot}
+						{@const drop_src = dataImageUrl(piece.drop_snapshot) as string}
+						<Disclosure title="Arrival snapshot" help="The carousel frame as the piece dropped in">
+							<div class="px-(--pad-panel)">
+								{@render thumbCrop(
+									drop_src,
+									'arrival snapshot',
+									'At arrival',
+									() => (zoomImage = { src: drop_src, label: 'At arrival' })
+								)}
+							</div>
+						</Disclosure>
+					{/if}
+
+					<!-- Scratch reclassify: pick crops, re-run Brickognize (not recorded) -->
+					{#if crops.length > 0}
+						<Disclosure
+							title="Scratch reclassify"
+							help="Pick crops and run Brickognize again; not recorded"
+							bind:open={openReclassify}
+						>
+							{#if openReclassify}
+								<div class="px-(--pad-panel) pb-2">
+									<ReclassifyPanel
+										endpointBase={effectiveBase()}
+										images={crops.map((c) => ({
+											image: c.src,
+											label: formatCropLabel(c),
+											used: c.used
+										}))}
+									/>
+								</div>
+							{/if}
+						</Disclosure>
+					{/if}
+
+					<!-- Raw JSON -->
+					<Disclosure title="Raw JSON" bind:open={showRawJson}>
+						{#if showRawJson}
+							<pre
+								class="mx-(--pad-panel) max-h-96 overflow-auto rounded-control bg-well p-3 text-xs text-ink-muted">{JSON.stringify(
+									piece,
+									null,
+									2
+								)}</pre>
+						{/if}
+					</Disclosure>
+				</div>
 			</Panel>
 		{/if}
 	</div>
 </AppShell>
+
+{#snippet cropOverlay(item: Thumb<CropEntry>)}
+	<!-- Chips over a picture sit in a dark subtree. -->
+	{#if item.ref.used}
+		<span
+			class="dark absolute top-1 left-1 rounded-badge bg-scrim px-1 text-xs font-medium text-ink"
+			title="Shipped to Brickognize for classification"
+		>
+			Used
+		</span>
+	{/if}
+	{#if item.ref.sharpness != null}
+		<span
+			class="dark num absolute top-1 right-1 rounded-badge bg-scrim px-1 text-xs font-medium text-ink"
+			title="Sharpness (Laplacian variance): higher is sharper, with less motion blur"
+		>
+			⌖ {formatSharpness(item.ref.sharpness)}
+		</span>
+	{/if}
+	<span
+		class="dark absolute bottom-1 left-1 rounded-badge bg-scrim px-1 text-xs font-medium text-ink"
+		title="Channel this image came from"
+	>
+		{channelLabel(item.ref.channel)}
+	</span>
+{/snippet}
 
 <Modal
 	open={zoomImage !== null}
@@ -1195,6 +1362,10 @@
 	onclose={() => (zoomImage = null)}
 >
 	{#if zoomImage}
-		<img src={zoomImage.src} alt={zoomImage.label} class="mx-auto max-h-[70vh] max-w-full object-contain" />
+		<img
+			src={zoomImage.src}
+			alt={zoomImage.label}
+			class="mx-auto max-h-[70vh] max-w-full object-contain"
+		/>
 	{/if}
 </Modal>

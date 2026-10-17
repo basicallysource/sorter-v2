@@ -156,10 +156,10 @@ them.
   Suppliers that cut 2020 extrusion to length:
 
   <ul class="bulleted-list">
-    <li><strong>United States:</strong> [TNUTZ](https://www.tnutz.com/) cuts each piece to the length you enter. Their cuts fit the printed parts. [Zyltech](https://www.zyltech.com/) also cuts, but charges more per cut and throws away the leftover bar unless you ask to keep it.</li>
-    <li><strong>Germany, Austria, Belgium, France, Luxembourg and the Netherlands:</strong> [easy-systemprofile.de](https://easy-systemprofile.de/) cuts to any length. They can also cut an M6 thread into the end of a profile, which the casters can screw into.</li>
-    <li><strong>United Kingdom:</strong> [Ooznest](https://ooznest.co.uk/product/20x20mm-t-v-slot-aluminium-extrusion-profile-silver-cut-to-size/) cuts to size. Ask them to confirm the slot is 6 mm wide before you order.</li>
-    <li><strong>Several regions:</strong> [Motedis](https://www.motedis.com/) cuts to length and cuts M6 threads. Pick your country in the shop: it covers most of Europe, the UK, Mexico and the United States. UK builders can go straight to the [UK shop](https://www.motedis.co.uk/en?selected_country_iso=GB).</li>
+    <li><strong>United States:</strong> <a href="https://www.tnutz.com/">TNUTZ</a> cuts each piece to the length you enter. Their cuts fit the printed parts. <a href="https://www.zyltech.com/">Zyltech</a> also cuts, but charges more per cut and throws away the leftover bar unless you ask to keep it.</li>
+    <li><strong>Germany, Austria, Belgium, France, Luxembourg and the Netherlands:</strong> <a href="https://easy-systemprofile.de/">easy-systemprofile.de</a> cuts to any length. They can also cut an M6 thread into the end of a profile, which the casters can screw into.</li>
+    <li><strong>United Kingdom:</strong> <a href="https://ooznest.co.uk/product/20x20mm-t-v-slot-aluminium-extrusion-profile-silver-cut-to-size/">Ooznest</a> cuts to size. Ask them to confirm the slot is 6 mm wide before you order.</li>
+    <li><strong>Several regions:</strong> <a href="https://www.motedis.com/">Motedis</a> cuts to length and cuts M6 threads. Pick your country in the shop: it covers most of Europe, the UK, Mexico and the United States. UK builders can go straight to the <a href="https://www.motedis.co.uk/en?selected_country_iso=GB">UK shop</a>.</li>
   </ul>
 
   The fee per cut differs a lot between suppliers, and a local metal shop

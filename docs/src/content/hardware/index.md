@@ -161,7 +161,8 @@ them.
     service too, but it sells it one piece at a time.
   - **Europe:** [easy-systemprofile.de](https://easy-systemprofile.de/) cuts to
     any length and will also cut an M6 thread into the end of a profile.
-    [Motedis](https://www.motedis.com/) offers both as well.
+    [Motedis](https://www.motedis.com/) offers both as well, and has a
+    [UK shop](https://www.motedis.co.uk/en?selected_country_iso=GB).
 
   The fee per cut differs a lot between suppliers, and a local metal shop
   may charge several times what an extrusion specialist does. A 5 layer machine

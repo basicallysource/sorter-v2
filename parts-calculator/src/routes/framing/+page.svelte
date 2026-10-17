@@ -64,34 +64,36 @@
 					loosely and add friction. Check the corner profile before buying, especially secondhand.
 				</li>
 				<li>
-					<b class="text-text">Suppliers that cut to length.</b> Ordering every piece cut saves the
-					saw. Builders here have used these, and each fee per cut differs a lot, so ask for the
-					price per cut and multiply it by the piece count before you order:
+					<b class="text-text">Suppliers that cut to length.</b> Ordering every piece cut saves you
+					the saw. The fee per cut differs a lot between suppliers, so ask for the price per cut and
+					multiply it by the piece count before you order:
 					<ul class="mt-1 list-[circle] space-y-1 pl-4">
 						<li>
 							<b class="text-text">United States:</b>
-							<a class="text-primary hover:text-primary-hover" target="_blank" rel="noopener" href="https://www.tnutz.com/">TNUTZ</a> cuts to the length you enter
-							from full bars, with accurate cuts that fit the printed parts.
-							<a class="text-primary hover:text-primary-hover" target="_blank" rel="noopener" href="https://www.zyltech.com/">Zyltech</a> sells a cut service one
-							piece at a time.
+							<a class="text-primary hover:text-primary-hover" target="_blank" rel="noopener" href="https://www.tnutz.com/">TNUTZ</a> cuts each piece to the length
+							you enter. Their cuts fit the printed parts.
+							<a class="text-primary hover:text-primary-hover" target="_blank" rel="noopener" href="https://www.zyltech.com/">Zyltech</a> also cuts, but charges more per
+							cut and throws away the leftover bar unless you ask to keep it.
 						</li>
 						<li>
 							<b class="text-text">Germany, Austria, Belgium, France, Luxembourg, Netherlands:</b>
 							<a class="text-primary hover:text-primary-hover" target="_blank" rel="noopener" href="https://easy-systemprofile.de/">easy-systemprofile.de</a> cuts
-							to any length and can cut an M6 thread into a profile end.
+							to any length. They can also cut an M6 thread into the end of a profile, which the
+							casters can screw into.
 						</li>
 						<li>
 							<b class="text-text">United Kingdom:</b>
 							<a class="text-primary hover:text-primary-hover" target="_blank" rel="noopener" href="https://ooznest.co.uk/product/20x20mm-t-v-slot-aluminium-extrusion-profile-silver-cut-to-size/">Ooznest</a>
-							cuts to size; check the profile has the 6 mm slot.
+							cuts to size. Ask them to confirm the slot is 6 mm wide before you order.
 						</li>
 						<li>
 							<b class="text-text">Several regions:</b>
 							<a class="text-primary hover:text-primary-hover" target="_blank" rel="noopener" href="https://www.motedis.com/">Motedis</a> cuts to length and cuts
-							M6 threads, with shops for most of Europe, the UK, Mexico and the United States.
+							M6 threads. Pick your country in the shop: it covers most of Europe, the UK, Mexico and
+							the United States.
 						</li>
 					</ul>
-					Ask for 20×20 T-slot with a 6 mm slot, all from one supplier in one order.
+					Order every piece from one supplier in one order. Ask for 20×20 T-slot extrusion with a 6 mm slot.
 				</li>
 				<li>
 					<b class="text-text">D stands in for C at the bottom.</b> Every layer above the bottom two

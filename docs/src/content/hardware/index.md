@@ -155,27 +155,26 @@ them.
 
   Suppliers that cut 2020 extrusion to length:
 
-  - **United States:** [TNUTZ](https://www.tnutz.com/) cuts metric 20 x 20
-    with a 6 mm slot to the length you enter, from full bars, so there is no
-    leftover piece to pay for. Builders here report accurate cuts that fit the
-    printed parts. [Zyltech](https://www.zyltech.com/) has a cut
-    service too, but it sells it one piece at a time.
+  - **United States:** [TNUTZ](https://www.tnutz.com/) cuts each piece to the
+    length you enter. Their cuts fit the printed parts. [Zyltech](https://www.zyltech.com/)
+    also cuts, but charges more per cut and throws away the leftover bar unless
+    you ask to keep it.
   - **Germany, Austria, Belgium, France, Luxembourg and the Netherlands:**
-    [easy-systemprofile.de](https://easy-systemprofile.de/) cuts to any length
-    and will also cut an M6 thread into the end of a profile.
+    [easy-systemprofile.de](https://easy-systemprofile.de/) cuts to any length.
+    They can also cut an M6 thread into the end of a profile, which the casters
+    can screw into.
   - **United Kingdom:** [Ooznest](https://ooznest.co.uk/product/20x20mm-t-v-slot-aluminium-extrusion-profile-silver-cut-to-size/)
-    cuts to size; check the profile you pick has the 6 mm slot.
+    cuts to size. Ask them to confirm the slot is 6 mm wide before you order.
   - **Several regions:** [Motedis](https://www.motedis.com/) cuts to length and
-    cuts M6 threads. Its country picker covers most of Europe, the UK, Mexico
-    and the United States, and the
-    [UK shop](https://www.motedis.co.uk/en?selected_country_iso=GB) has its own
-    address.
+    cuts M6 threads. Pick your country in the shop: it covers most of Europe,
+    the UK, Mexico and the United States. UK builders can go straight to the
+    [UK shop](https://www.motedis.co.uk/en?selected_country_iso=GB).
 
   The fee per cut differs a lot between suppliers, and a local metal shop
   may charge several times what an extrusion specialist does. A 5 layer machine
   is {{ site.data.build_scale.large.extrusion }} cuts, so ask for the price per
-  cut before you order and multiply. Order every length from one supplier in one
-  go, and ask for 20 x 20 T-slot with a 6 mm slot (6063-T5 aluminium).
+  cut before you order and multiply. Order every piece from one supplier in one
+  order. Ask for 20 x 20 T-slot extrusion with a 6 mm slot.
 - **The laser cut parts.** The top plate and the two cable cage plates are cut
   from flat sheet. [Laser cut
   parts](https://parts-calculator.basically.website/lasercut) has the DXF for

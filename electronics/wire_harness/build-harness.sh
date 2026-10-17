@@ -130,7 +130,8 @@ import sys, zipfile
 from pathlib import Path
 
 out = Path(sys.argv[1])
-drawings = ["power", "psu-pigtail", "board-power", "steppers", "leds"]
+drawings = ["power", "psu-pigtail", "board-power", "steppers",
+            "channel-stepper", "chute-stepper", "leds", "limit-switch"]
 
 members = ["rfq.txt"]
 for d in drawings:

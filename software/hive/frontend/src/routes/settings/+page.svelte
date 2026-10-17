@@ -186,6 +186,7 @@
 		{ scope: 'stats:read', label: 'Read aggregate stats' },
 		{ scope: 'fleet:read', label: 'Read the fleet roster (machines + linked owners)' },
 		{ scope: 'fleet:anon', label: 'Read the de-identified fleet roster (no owners, no names)' },
+		{ scope: 'fleet:detail', label: 'Read the operator fleet view (the roster plus each machine\'s software, hardware and health)' },
 		{ scope: 'contributors:read', label: 'Read the contributor leaderboard' },
 		{ scope: 'parts:read', label: 'Read the parts catalog' },
 		{ scope: 'parts:prices', label: 'Read parts market prices' },

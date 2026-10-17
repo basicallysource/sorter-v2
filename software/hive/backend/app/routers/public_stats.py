@@ -25,6 +25,13 @@ gets used. It is a scope of its own and not a flag on `fleet:read`, so a
 consumer that should only ever see this view cannot hold a credential that asks
 for the other one.
 
+**`GET /fleet/detail` is the operator tier** (scope `fleet:detail`): the
+identified roster with everything running the fleet takes added to each row —
+software, hardware, health, sorting profile, uploads, daily history — plus the
+status reports of sorters that name no machine here. For a consumer that works
+for the operator and no one else. It still carries no address, hardware serial
+or contact detail; `services/fleet_detail.py` says what is left out and why.
+
 **`GET /fleet/mass` is in the anonymous tier** (scope `stats:read`): what the
 fleet has sorted by weight rather than by count. No machine and no person in
 it, so it belongs beside `/stats` — the consumer drawing the headline counter is
@@ -61,6 +68,7 @@ from app.deps import (
     API_KEY_PREFIX,
     API_KEY_SCOPE_CONTRIBUTORS_READ,
     API_KEY_SCOPE_FLEET_ANON,
+    API_KEY_SCOPE_FLEET_DETAIL,
     API_KEY_SCOPE_FLEET_READ,
     API_KEY_SCOPE_STATS_READ,
     get_db,
@@ -74,7 +82,7 @@ from app.models.machine_piece import MachinePiece
 from app.models.machine_stats_cache import MachineStatsCache
 from app.models.user import User
 from app.models.user_identity import UserIdentity
-from app.services import analytics, fleet_mass, fleet_records, leaderboard, machine_stats
+from app.services import analytics, fleet_detail, fleet_mass, fleet_records, leaderboard, machine_stats
 
 router = APIRouter(prefix="/api/public", tags=["public-stats"])
 
@@ -138,6 +146,7 @@ def require_stats_key(
 require_contributors_key = require_public_scope(API_KEY_SCOPE_CONTRIBUTORS_READ)
 require_fleet_key = require_public_scope(API_KEY_SCOPE_FLEET_READ)
 require_fleet_anon_key = require_public_scope(API_KEY_SCOPE_FLEET_ANON)
+require_fleet_detail_key = require_public_scope(API_KEY_SCOPE_FLEET_DETAIL)
 
 
 @router.get("/stats", dependencies=[Depends(require_stats_key)])
@@ -366,6 +375,20 @@ def get_public_fleet_anon(db: Session = Depends(get_db)):
         # sorted a piece, and this tier's whole audience is people being told a
         # number out loud. See the note on /fleet.
     }
+
+
+@router.get("/fleet/detail", dependencies=[Depends(require_fleet_detail_key)])
+def get_public_fleet_detail(db: Session = Depends(get_db)):
+    """The roster as the operator needs it: every machine with what it runs,
+    what it is built from, how it is, and what it sorted day by day.
+
+    Built on `_roster`, so its machines and counts are the roster's exactly;
+    each row only gains fields. Those come from tables the workers keep
+    (the stats cache, the daily table, the last status report and hardware
+    report) and from the profile and upload bookkeeping, all small, so this
+    costs about what `/fleet` does. See `services/fleet_detail.py`.
+    """
+    return fleet_detail.build(db, _roster(db))
 
 
 @router.get("/fleet/mass", dependencies=[Depends(require_stats_key)])

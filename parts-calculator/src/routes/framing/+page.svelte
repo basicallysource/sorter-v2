@@ -103,6 +103,41 @@
 		</Callout>
 	</section>
 
+	<section id="where-to-get-it-cut" class="mb-8">
+		<h2 class="mb-3 text-base font-semibold text-text">Where to get it cut</h2>
+		<p class="mb-3 leading-relaxed">
+			Ordering every piece cut to length saves you the saw. The fee per cut differs a lot between
+			suppliers, so ask for the price per cut and multiply it by the piece count before you order.
+		</p>
+		<ul class="list-disc space-y-2 pl-5 leading-relaxed">
+			<li>
+				<b class="text-text">United States:</b>
+				<a class="text-primary hover:text-primary-hover" target="_blank" rel="noopener" href="https://www.tnutz.com/">TNUTZ</a> cuts each piece to the length you enter. Their
+				cuts fit the printed parts.
+				<a class="text-primary hover:text-primary-hover" target="_blank" rel="noopener" href="https://www.zyltech.com/">Zyltech</a> also cuts, but charges more per cut and
+				throws away the leftover bar unless you ask to keep it.
+			</li>
+			<li>
+				<b class="text-text">Germany, Austria, Belgium, France, Luxembourg, Netherlands:</b>
+				<a class="text-primary hover:text-primary-hover" target="_blank" rel="noopener" href="https://easy-systemprofile.de/">easy-systemprofile.de</a> cuts to any length. They
+				can also cut an M6 thread into the end of a profile, which the casters can screw into.
+			</li>
+			<li>
+				<b class="text-text">United Kingdom:</b>
+				<a class="text-primary hover:text-primary-hover" target="_blank" rel="noopener" href="https://ooznest.co.uk/product/20x20mm-t-v-slot-aluminium-extrusion-profile-silver-cut-to-size/">Ooznest</a>
+				cuts to size. Ask them to confirm the slot is 6 mm wide before you order.
+			</li>
+			<li>
+				<b class="text-text">Several regions:</b>
+				<a class="text-primary hover:text-primary-hover" target="_blank" rel="noopener" href="https://www.motedis.com/">Motedis</a> cuts to length and cuts M6 threads. Pick your
+				country in the shop: it covers most of Europe, the UK, Mexico and the United States.
+			</li>
+		</ul>
+		<p class="mt-3 leading-relaxed">
+			Order every piece from one supplier in one order. Ask for 20×20 T-slot extrusion with a 6 mm slot.
+		</p>
+	</section>
+
 	<section>
 		<h2 class="mb-3 text-base font-semibold text-text">Cut plan</h2>
 		<CutPlan />

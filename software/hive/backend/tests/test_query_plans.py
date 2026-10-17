@@ -305,6 +305,7 @@ CASES: list[Case] = [
     Case("public: stats", "/api/public/stats", budget=25_000, max_sorted=25_000, why=DAY_OF_PIECES),
     Case("public: fleet", "/api/public/fleet", budget=25_000, max_sorted=25_000, why=DAY_OF_PIECES),
     Case("public: fleet, anonymous", "/api/public/fleet/anon", budget=25_000, max_sorted=25_000, why=DAY_OF_PIECES),
+    Case("public: fleet, operator detail", "/api/public/fleet/detail", budget=25_000, max_sorted=25_000, why=DAY_OF_PIECES),
     Case("public: contributors", "/api/public/contributors"),
     Case("public: fleet records", "/api/public/fleet/records"),
     # --- Admin -------------------------------------------------------------------
@@ -572,6 +573,7 @@ def run_case(plan_engine, fleet, monkeypatch):
             public_stats.require_stats_key,
             public_stats.require_fleet_key,
             public_stats.require_fleet_anon_key,
+            public_stats.require_fleet_detail_key,
             public_stats.require_contributors_key,
         ):
             app.dependency_overrides[dependency] = lambda: None

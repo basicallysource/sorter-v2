@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { PLATES, type Plate } from '$lib/filament';
+	import BambuStudioButton from '$lib/components/BambuStudioButton.svelte';
 	import { Download } from 'lucide-svelte';
 
 	let { highlightPartId = null }: { highlightPartId?: string | null } = $props();
@@ -27,9 +28,12 @@
 						</span>
 					{/each}
 				</div>
-				<a class="setup-button-secondary inline-flex h-9 items-center gap-2 px-3 text-sm font-semibold" href={plate.download} download>
-					<Download size={14} /> Download plate (.3mf)
-				</a>
+				<div class="flex flex-wrap items-center gap-2">
+					<a class="setup-button-secondary inline-flex h-9 items-center gap-2 px-3 text-sm font-semibold" href={plate.download} download>
+						<Download size={14} /> Download plate (.3mf)
+					</a>
+					<BambuStudioButton href={plate.download} />
+				</div>
 			</div>
 		{/each}
 	</div>

@@ -5,6 +5,7 @@
 	import IdStamp from '$lib/components/IdStamp.svelte';
 	import ColorPicker from '$lib/components/ColorPicker.svelte';
 	import DownloadButton from '$lib/components/DownloadButton.svelte';
+	import BambuStudioButton from '$lib/components/BambuStudioButton.svelte';
 	import Callout from '$lib/components/Callout.svelte';
 	import ChangeStatus from '$lib/components/ChangeStatus.svelte';
 	import BuildPlates from '$lib/components/BuildPlates.svelte';
@@ -209,6 +210,7 @@
 									<span class="min-w-0 flex-1 truncate text-xs font-medium text-text" use:tip={pl.name}>{pl.name}</span>
 									<button type="button" class="shrink-0 text-xs text-primary hover:text-primary-hover" onclick={() => (platesOpen = true)}>view</button>
 									<DownloadButton href={pl.download} size="sm" label="3mf" title="Download {pl.name}.3mf" />
+									<BambuStudioButton href={pl.download} size="sm" />
 								</div>
 							</div>
 						{/each}

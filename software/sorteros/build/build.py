@@ -3,9 +3,10 @@ SorterOS image builder.
 
 Runs as root on Linux: natively on arm64, or on x86_64 with qemu-user-static
 registered for aarch64 so the chroot step can run arm64 binaries. Builds a
-bootable Orange Pi 5 .img from the vendor base image: the overlay, a minimal
+bootable Orange Pi .img from the vendor base image: the overlay, a minimal
 apt delta, and the filesystem/boot settings a headless appliance needs. No
-partition surgery, no FAT. Single ext4.
+partition surgery. The root ext4 is p1 unless [base] root_part says otherwise;
+[base] boot_part names a separate vfat /boot (the Orange Pi 5 Pro image).
 
 Phases (run with --phase <name> for a partial rerun):
   prep              — fetch base img if missing, copy to working file
@@ -37,6 +38,7 @@ import datetime as dt
 import hashlib
 import json
 import os
+import re
 import shutil
 import subprocess
 import sys
@@ -57,6 +59,23 @@ PHASES = ["prep", "grow", "mount", "overlay", "portal", "chroot", "finalize", "z
 # larger than vendor. First-boot growfs on the Pi expands further to fill
 # whatever real SD card it's flashed to.
 GROW_MIB = 4096
+
+# Semantic Versioning 2.0.0, the grammar from https://semver.org.
+SEMVER = re.compile(
+    r"(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)"
+    r"(?:-((?:0|[1-9]\d*|\d*[a-zA-Z-][0-9a-zA-Z-]*)(?:\.(?:0|[1-9]\d*|\d*[a-zA-Z-][0-9a-zA-Z-]*))*))?"
+    r"(?:\+([0-9a-zA-Z-]+(?:\.[0-9a-zA-Z-]+)*))?"
+)
+
+
+def image_version(config: dict) -> str:
+    """The image version: [output] version if the config sets one, else
+    build/VERSION. Must be a valid SemVer 2.0.0 string (4.1.2, 4.1.2-rc.1)."""
+    version = config["output"].get("version") or (SCRIPT_DIR / "VERSION").read_text().strip()
+    if not SEMVER.fullmatch(version):
+        sys.exit(f"version {version!r} is not Semantic Versioning 2.0.0 "
+                 "(MAJOR.MINOR.PATCH[-prerelease][+build], e.g. 4.1.2 or 4.1.2-rc.1)")
+    return version
 
 @dataclass
 class BuildCtx:
@@ -105,13 +124,27 @@ def is_mounted(path: Path) -> bool:
         return any(str(path) in ln for ln in Path("/proc/mounts").read_text().splitlines())
 
 
-def _losetup_attach(img: Path) -> str:
-    """losetup --show -fP + wait for /dev/loopNp1 to appear.
+def root_part(ctx: BuildCtx) -> int:
+    """Partition number of the ext4 root filesystem. 1 on the Orange Pi 5 and
+    CM5 images (one ext4 partition), 2 on the Orange Pi 5 Pro image."""
+    return int(ctx.config["base"].get("root_part", 1))
+
+
+def boot_part(ctx: BuildCtx) -> int | None:
+    """Partition number of a separate FAT /boot, or None when /boot lives in
+    the root filesystem. The Orange Pi 5 Pro image keeps the kernel, the device
+    tree and orangepiEnv.txt on a vfat partition at p1."""
+    n = int(ctx.config["base"].get("boot_part", 0))
+    return n or None
+
+
+def _losetup_attach(img: Path, last_part: int = 1) -> str:
+    """losetup --show -fP + wait for /dev/loopN<last_part> to appear.
 
     In bare-metal Linux + udev the partition device shows up immediately.
     In privileged Docker containers (e.g. OrbStack with /dev bind-mounted),
     the host udev creates the node asynchronously — we have to wait briefly
-    or the next step races and sees no p1.
+    or the next step races and sees no partition.
     """
     loop = subprocess.check_output(
         ["losetup", "--show", "-fP", str(img)], text=True
@@ -120,7 +153,7 @@ def _losetup_attach(img: Path) -> str:
     subprocess.run(["udevadm", "settle", "--timeout=5"], check=False)
     # Fallback poll: some containers have no udev at all, partitions appear
     # when devtmpfs propagates from the host.
-    part = Path(f"{loop}p1")
+    part = Path(f"{loop}p{last_part}")
     for _ in range(50):
         if part.exists():
             break
@@ -133,6 +166,8 @@ def _losetup_attach(img: Path) -> str:
 def _teardown_mnt(ctx: BuildCtx) -> None:
     """Unmount everything under ctx.mnt and detach the loop device."""
     _bind_mounts_down(ctx)
+    if is_mounted(ctx.mnt / "boot"):
+        subprocess.run(["umount", str(ctx.mnt / "boot")])
     if is_mounted(ctx.mnt):
         subprocess.run(["umount", str(ctx.mnt)])
     s = state_read(ctx)
@@ -208,14 +243,15 @@ def phase_grow(ctx: BuildCtx) -> None:
         f.write(b"\0")
 
     # Attach via losetup so partition tools see partitions.
-    loop = _losetup_attach(ctx.work_img)
+    rp = root_part(ctx)
+    loop = _losetup_attach(ctx.work_img, rp)
     try:
-        # Grow partition 1 to fill the new space.
-        run(["growpart", loop, "1"])
+        # Grow the root partition to fill the new space (it must be the last one).
+        run(["growpart", loop, str(rp)])
         # Detach + reattach so the kernel rescans the (now larger) partition.
         run(["losetup", "-d", loop])
-        loop = _losetup_attach(ctx.work_img)
-        part = f"{loop}p1"
+        loop = _losetup_attach(ctx.work_img, rp)
+        part = f"{loop}p{rp}"
         # e2fsck before resize2fs (refuses unclean fs)
         p = subprocess.run(["e2fsck", "-fy", part])
         if p.returncode not in (0, 1):
@@ -243,14 +279,18 @@ def phase_mount(ctx: BuildCtx) -> None:
 
     ctx.mnt.mkdir(parents=True, exist_ok=True)
     log(f"losetup -fP {ctx.work_img}")
-    loop = _losetup_attach(ctx.work_img)
+    bp = boot_part(ctx)
+    loop = _losetup_attach(ctx.work_img, max(root_part(ctx), bp or 0))
     state_write(ctx, loop=loop)
 
-    # The Orange Pi base image has one ext4 partition at p1. Verify.
-    part = f"{loop}p1"
-    if not Path(part).exists():
-        run(["losetup", "-d", loop])
-        sys.exit(f"expected {part} to exist; image layout is unexpected")
+    # Orange Pi 5 / CM5: one ext4 partition at p1. Orange Pi 5 Pro: vfat boot
+    # at p1, ext4 root at p2 (config: root_part, boot_part). Verify.
+    part = f"{loop}p{root_part(ctx)}"
+    boot = f"{loop}p{bp}" if bp else None
+    for p in (part, boot):
+        if p and not Path(p).exists():
+            run(["losetup", "-d", loop])
+            sys.exit(f"expected {p} to exist; image layout is unexpected")
 
     log(f"fsck {part}")
     # e2fsck -fy: force-check, answer yes to repairs. Returns 1 if it
@@ -260,6 +300,11 @@ def phase_mount(ctx: BuildCtx) -> None:
         sys.exit(f"e2fsck exit {p.returncode} — image is unhealthy")
 
     run(["mount", part, str(ctx.mnt)])
+    if boot:
+        # The vfat partition has no journal to repair, but fsck -a clears a dirty bit.
+        subprocess.run(["fsck.vfat", "-a", boot])
+        (ctx.mnt / "boot").mkdir(exist_ok=True)
+        run(["mount", boot, str(ctx.mnt / "boot")])
     state_write(ctx, partition=part)
 
 
@@ -299,6 +344,7 @@ def phase_overlay(ctx: BuildCtx) -> None:
 
     _set_hostname(ctx)
     _harden_root_fs(ctx)
+    _set_display(ctx)
     _set_wifi_country(ctx)
     _set_timezone_utc(ctx)
 
@@ -386,6 +432,53 @@ def _harden_root_fs(ctx: BuildCtx) -> None:
         lines.append("extraargs=" + " ".join(wanted))
     env_txt.write_text("\n".join(lines) + "\n")
     log(f"orangepiEnv.txt: {next(ln for ln in lines if ln.startswith('extraargs='))}")
+
+
+def _set_display(ctx: BuildCtx) -> None:
+    """Make the boot readable on a small HDMI display ([display] in the config).
+
+    - video: forces a mode on the HDMI connector (kernel video= argument), for
+      panels whose EDID is missing or lists another mode.
+    - fbcon_font: console font; the default 8x16 gives 60x20 characters at
+      480x320, VGA8x8 gives 60x40.
+    - verbosity: kernel log level in orangepiEnv.txt (the vendor image uses 1,
+      which prints almost nothing).
+    """
+    cfg = ctx.config.get("display", {})
+    if not cfg:
+        return
+    env_txt = ctx.mnt / "boot" / "orangepiEnv.txt"
+    if not env_txt.exists():
+        log("WARN: /boot/orangepiEnv.txt not found; display settings not set")
+        return
+    lines = env_txt.read_text().splitlines()
+
+    new_args = []
+    if cfg.get("video"):
+        new_args.append(f"video={cfg['video']}")
+    if cfg.get("fbcon_font"):
+        new_args.append(f"fbcon=font:{cfg['fbcon_font']}")
+    if new_args:
+        keys = tuple(a.split("=", 1)[0] + "=" for a in new_args)
+        for i, ln in enumerate(lines):
+            if ln.startswith("extraargs="):
+                args = [a for a in ln[len("extraargs="):].split() if not a.startswith(keys)]
+                lines[i] = "extraargs=" + " ".join(args + new_args)
+                break
+        else:
+            lines.append("extraargs=" + " ".join(new_args))
+
+    if "verbosity" in cfg:
+        for i, ln in enumerate(lines):
+            if ln.startswith("verbosity="):
+                lines[i] = f"verbosity={cfg['verbosity']}"
+                break
+        else:
+            lines.append(f"verbosity={cfg['verbosity']}")
+
+    env_txt.write_text("\n".join(lines) + "\n")
+    log("orangepiEnv.txt display settings: " + ", ".join(
+        ln for ln in lines if ln.startswith(("extraargs=", "verbosity="))))
 
 
 # ─── chroot ────────────────────────────────────────────────────────────────
@@ -557,6 +650,8 @@ def phase_finalize(ctx: BuildCtx) -> None:
     # we might be running --phase finalize after a hard crash).
     _bind_mounts_down(ctx)
 
+    if is_mounted(ctx.mnt / "boot"):
+        run(["umount", str(ctx.mnt / "boot")])
     if is_mounted(ctx.mnt):
         run(["umount", str(ctx.mnt)])
 
@@ -637,6 +732,7 @@ def main() -> None:
 
     with open(args.config, "rb") as f:
         config = tomllib.load(f)
+    config["output"]["version"] = image_version(config)
 
     ref = args.ref or config["source"]["ref"]
 

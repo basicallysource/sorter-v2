@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Check a SorterOS image before anyone flashes it.
 
-  sudo ./check.py image out/sorteros-v4.1.0-2026-09-23.img
+  sudo ./check.py image out/sorteros-v4.1.2-rc-2026-09-23.img
       What the builder must have baked in, read straight off the image.
 
   ./check.py boot [--expect-ref sorter/stable/v0.2.0] [--expect-default-model]
@@ -52,13 +52,24 @@ def check_image(img: Path) -> None:
     loop = subprocess.check_output(["losetup", "--show", "-rfP", str(img)], text=True).strip()
     mnt = Path(tempfile.mkdtemp(prefix="sorteros-check-"))
     try:
-        part = f"{loop}p1"
         for _ in range(50):
-            if Path(part).exists():
+            if Path(f"{loop}p1").exists():
                 break
             time.sleep(0.1)
+        # One ext4 at p1 (Orange Pi 5, CM5), or a vfat /boot at p1 and the
+        # ext4 root at p2 (Orange Pi 5 Pro).
+        types = {}
+        for n in range(1, 5):
+            p = f"{loop}p{n}"
+            if Path(p).exists():
+                types[p] = subprocess.run(["blkid", "-o", "value", "-s", "TYPE", p],
+                                          capture_output=True, text=True).stdout.strip()
+        part = next(p for p, t in types.items() if t == "ext4")
+        boot_part = next((p for p, t in types.items() if t == "vfat"), None)
         dumpe2fs = subprocess.run(["dumpe2fs", "-h", part], capture_output=True, text=True).stdout
         subprocess.run(["mount", "-o", "ro", part, str(mnt)], check=True)
+        if boot_part:
+            subprocess.run(["mount", "-o", "ro", boot_part, str(mnt / "boot")], check=True)
 
 
         print("filesystem")
@@ -127,6 +138,7 @@ def check_image(img: Path) -> None:
             compiled = False
         check(compiled, "firstboot daemon compiles")
     finally:
+        subprocess.run(["umount", str(mnt / "boot")], capture_output=True)
         subprocess.run(["umount", str(mnt)], capture_output=True)
         subprocess.run(["losetup", "-d", loop], capture_output=True)
         mnt.rmdir()

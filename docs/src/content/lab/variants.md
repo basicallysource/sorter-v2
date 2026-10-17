@@ -10,12 +10,12 @@ permalink: /lab/variants/
 audience: curious builder or contributor
 applies_to: hardware-v2
 owner: docs
-last_verified: 2026-10-11
+last_verified: 2026-10-17
 ---
 
 Everything on this page is a variant: a change to the standard Sorter V2 that somebody has made on their own machine. None of them is part of the build instructions in [Hardware]({{ '/hardware/' | relative_url }}), and none is in the parts calculator. The results are what the people who built them reported, and the project has not measured them. Where a file exists it is in the Discord, and the link goes to the message that has it.
 
-Designs that were tried and dropped are on <a href="{{ '/lab/variants/abandoned/' | relative_url }}">Abandoned ideas</a>. The status of each variant is as of 11 October 2026.
+Designs that were tried and dropped are on <a href="{{ '/lab/variants/abandoned/' | relative_url }}">Abandoned ideas</a>. The status of each variant is as of 17 October 2026.
 
 ## Belt feeder
 
@@ -154,4 +154,18 @@ The legs are not in the parts calculator. The file is an STL in the Discord thre
 <ul class="bulleted-list">
   <li>The comparison: <a href="https://discord.com/channels/1430279849171222682/1437144782819426537/1556720170037412026">the message in the Discord</a> and <a href="https://discord.com/channels/1430279849171222682/1437144782819426537/1556722443178082498">the answer</a></li>
   <li>The standard stacking: <a href="{{ '/hardware/assembly/distribution/stacking-the-layers/' | relative_url }}">Stacking the layers</a></li>
+</ul>
+
+## Casters screwed straight into the extrusion
+
+**What is different.** The standard bottom layer ends each foot extension (piece D) in a 2020 M6 foot connector, and the caster screws into the connector. In this variant the supplier cuts an M6 thread into the end of each piece D, and the caster screws straight into the extrusion. The 2020 M6 foot connector is left out, which is 6 fewer parts to buy.
+
+**How it is done.** Order the extrusion from a supplier that offers an M6 thread as a service, and ask for the thread in the end of each of the 6 foot extensions when you order the cut lengths. The casters stay the same swivel stem casters with an M6 thread. barthel named two suppliers that cut extrusion to length and thread it: easy-systemprofile.de and motedis. You can also thread the ends yourself.
+
+**Where it stands.** Two builders say it can be done, and the posts do not say whether a machine is standing on casters fitted this way. The depth of the thread was not given, and the stem of the caster in the parts calculator is 15 mm long. How the thread holds up under the weight of a loaded machine has not been reported.
+
+<ul class="bulleted-list">
+  <li>The suggestion, and the suppliers: <a href="https://discord.com/channels/1430279849171222682/1477417230235861104/1525040293055828008">the message in the Discord</a> and <a href="https://discord.com/channels/1430279849171222682/1430279852015091804/1560927423715999755">a later one</a></li>
+  <li>Threading the ends of the foot extensions instead of using the connector: <a href="https://discord.com/channels/1430279849171222682/1437511568194666596/1559441181124075631">the message</a> and <a href="https://discord.com/channels/1430279849171222682/1437511568194666596/1559450239046258750">the answer</a></li>
+  <li>The standard feet, with the connector: <a href="{{ '/hardware/assembly/distribution/bin-frame/bottom-layer/' | relative_url }}#step-3">Bottom layer</a></li>
 </ul>

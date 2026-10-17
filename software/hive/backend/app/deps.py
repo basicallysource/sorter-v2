@@ -45,6 +45,15 @@ API_KEY_SCOPE_CONTRIBUTORS_READ = "contributors:read"
 # the two differ in who may hold them, and a consumer that should only ever see
 # the de-identified view must not hold a credential that can ask for the other.
 API_KEY_SCOPE_FLEET_ANON = "fleet:anon"
+# The OPERATOR fleet tier: the identified roster plus what running the fleet
+# takes — each machine's software, hardware, health, sorting profile, uploads
+# and daily history, and the status reports of sorters not linked to a machine.
+# Strictly more than `fleet:read`, and a scope of its own for the same reason
+# `fleet:anon` is: a consumer drawing a leaderboard of owners has no need for
+# what every machine is built from, so its key must not be able to ask. No
+# address, hardware serial or contact detail is in it at any tier; see
+# `services/fleet_detail.py`.
+API_KEY_SCOPE_FLEET_DETAIL = "fleet:detail"
 # The parts catalog, split in two because the halves carry different risk.
 # `parts:read` is CATALOG FACT — what a part is, what it weighs, how big it is,
 # what colors it comes in. `parts:prices` is the market data, which is a
@@ -88,6 +97,7 @@ VALID_API_KEY_SCOPES = frozenset(
         API_KEY_SCOPE_STATS_READ,
         API_KEY_SCOPE_FLEET_READ,
         API_KEY_SCOPE_FLEET_ANON,
+        API_KEY_SCOPE_FLEET_DETAIL,
         API_KEY_SCOPE_CONTRIBUTORS_READ,
         API_KEY_SCOPE_PARTS_READ,
         API_KEY_SCOPE_PARTS_PRICES,

@@ -17,11 +17,11 @@ warning: >-
 
 <div class="img-row">
   <figure>
-    <img class="doc-figure" src="https://assets.basically.website/sorter-docs/chute-v3-assembled-window-full-e2ca74bfad03.png" alt="Render of one assembled chute seen from the opening side: the grey core standing upright, the yellow layer connectors on its walls near the top, the green funnel brackets running down to a tan funnel, and the door module low on the core">
+    <img class="doc-figure" src="https://assets.basically.website/sorter-docs/chute-v3-assembled-window-swapped-full-17460139e11a.png" alt="Render of one assembled chute seen from the opening side: the grey core standing upright, the yellow layer connectors on its walls near the top, the green funnel brackets running down to a tan funnel, and the door module low on the core">
     <figcaption>One finished chute with the third-size funnel, seen from the opening side. <cite>Rendered from the part geometry, not from a build. Render: Balloon.</cite></figcaption>
   </figure>
   <figure>
-    <img class="doc-figure" src="https://assets.basically.website/sorter-docs/chute-v3-assembled-servo-side-full-49d037fa1511.png" alt="Render of the same assembled chute seen from the servo side: the MG995 in its blue bracket on the side of the core next to the bearing cover, the green funnel bracket above it running to the tan funnel, and the yellow layer connectors on the core">
+    <img class="doc-figure" src="https://assets.basically.website/sorter-docs/chute-v3-assembled-servo-side-swapped-full-60fbd1af2776.png" alt="Render of the same assembled chute seen from the servo side: the MG995 in its blue bracket on the side of the core next to the bearing cover, the green funnel bracket above it running to the tan funnel, and the yellow layer connectors on the core">
     <figcaption>The same chute from the servo side. The servo itself has no model, so its bracket shows empty. <cite>Rendered from the part geometry, not from a build. Render: Balloon.</cite></figcaption>
   </figure>
 </div>

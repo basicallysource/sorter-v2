@@ -513,3 +513,135 @@ class TestMassOnStats:
         body = client.get("/api/public/stats", headers={"X-Stats-Key": STATS_KEY}).json()
         assert body["mass"]["computed_at"] is None
         assert body["mass"]["known_grams"] == 0.0
+
+
+class TestFleetDetailTier:
+    """The operator tier: the roster plus what running the fleet takes, a scope
+    neither roster key holds, and none of what Hive keeps that is a way into a
+    machine or back to a person's contact details."""
+
+    def _admin_headers(self, client, db):
+        return TestFleetAnonTier._admin_headers(TestFleetAnonTier(), client, db)
+
+    def _mint(self, client, headers, scopes):
+        return TestFleetAnonTier._mint(TestFleetAnonTier(), client, headers, scopes)
+
+    def _ping(self, client, device_key, accounts=None, version="sorter/canary/v0.4.6"):
+        enrolled = client.post("/api/devices/enroll", json={"device_key": device_key})
+        assert enrolled.status_code == 200, enrolled.text
+        r = client.post(
+            "/api/devices/ping",
+            headers=_bearer(enrolled.json()["token"]),
+            json={
+                "reason": "periodic",
+                "software": {"version": version, "channel": "canary", "commit": "abc123"},
+                "hardware": {"model": "Orange Pi 5", "ram_bytes": 8_000_000_000, "cpu_temp_c": 61.5},
+                "config": {"machine_setup": "classification_channel"},
+                "usage": {"pieces_seen": 100, "pieces_distributed": 90},
+                "uptime": {"process_s": 12.0, "system_s": 4000.0},
+                "registered": accounts is not None,
+                "accounts": accounts,
+            },
+        )
+        assert r.status_code == 200, r.text
+
+    def test_scope_is_its_own_in_both_directions(self, client, db, machine_token):
+        """A roster key cannot read the operator view, and an operator key is
+        not quietly a roster key: each consumer holds exactly what it asks."""
+        headers = self._admin_headers(client, db)
+        roster = self._mint(client, headers, ["fleet:read"])
+        detail = self._mint(client, headers, ["fleet:detail"])
+
+        r = client.get("/api/public/fleet/detail", headers=_bearer(roster))
+        assert r.status_code == 403
+        assert "fleet:detail" in r.json()["error"]
+        assert client.get("/api/public/fleet", headers=_bearer(detail)).status_code == 403
+        assert client.get("/api/public/fleet/anon", headers=_bearer(detail)).status_code == 403
+        assert client.get("/api/public/fleet/detail", headers=_bearer(detail)).status_code == 200
+
+    def test_each_machine_gains_its_status_hardware_and_history(
+        self, client, db, test_machine, machine_token
+    ):
+        _sync(client, machine_token, [
+            {"piece_uuid": f"d{i}", "local_id": i + 1, "seen_at": time.time() - 60,
+             "classification_status": "classified", "part_id": "3001", "color_id": "5"}
+            for i in range(4)
+        ])
+        from app.services import analytics, machine_stats
+
+        machine_stats.refresh_cache(db)
+        analytics.refresh_daily_stats(db)
+        self._ping(client, "linked-device-key-0123456789",
+                   accounts=[{"url": "https://hive.example", "name": "x", "machine_id": test_machine["id"]}])
+        self._ping(client, "loose-device-key-0123456789", version="sorter/stable/v0.3.1")
+
+        headers = self._admin_headers(client, db)
+        roster = client.get(
+            "/api/public/fleet", headers=_bearer(self._mint(client, headers, ["fleet:read"]))
+        ).json()
+        body = client.get(
+            "/api/public/fleet/detail", headers=_bearer(self._mint(client, headers, ["fleet:detail"]))
+        ).json()
+
+        # The roster's machines and counts, unchanged.
+        assert [m["id"] for m in body["machines"]] == [m["id"] for m in roster["machines"]]
+        assert body["active_machine_count"] == roster["active_machine_count"]
+        row = next(m for m in body["machines"] if m["id"] == test_machine["id"])
+        assert row["pieces_seen"] == 4
+        assert row["owner_display_name"] == "Member User"
+        assert row["description"] == "A test machine"
+
+        # And what it adds.
+        assert row["status"]["software"]["version"] == "sorter/canary/v0.4.6"
+        assert row["status"]["online"] is True
+        assert row["status"]["hardware"]["cpu_temp_c"] == 61.5
+        assert row["lifetime"]["classified"] == 4
+        assert row["daily"] and row["daily"][-1]["pieces_seen"] == 4
+        assert row["last_upload_at"]["piece_records"]
+
+        # The sorter that names no machine is the fleet too, under a pseudonym.
+        assert len(body["unlinked_sorters"]) == 1
+        loose = body["unlinked_sorters"][0]
+        assert loose["label"].startswith("s-")
+        assert loose["software"]["version"] == "sorter/stable/v0.3.1"
+        assert body["sorters_reporting"] == {"online_now": 2, "last_24h": 2, "last_30d": 2, "ever": 2}
+
+    def test_serves_no_address_serial_or_email(self, client, db, test_machine, machine_token):
+        """Every one of these is in Hive, so the test fails if the projection
+        starts passing a block through rather than naming its fields."""
+        from app.models.device import Device
+        from app.models.machine import Machine
+
+        machine = db.query(Machine).first()
+        machine.last_seen_ip = "203.0.113.7"
+        machine.network_info = {"hostname": "sorter-lan-name", "networks": [{"address": "192.168.7.21"}]}
+        machine.hardware_info = {
+            "platform": {"model": "Orange Pi 5", "arch": "aarch64"},
+            "host": {"cpu_serial": "SERIAL-5f2e", "mac_addresses": ["aa:bb:cc:dd:ee:ff"], "hostname": "shop-pi"},
+            "cameras": {"carousel": {"model": "USB Cam", "width": 1920, "url": "rtsp://u:pw@10.0.0.9/stream",
+                                     "calibration": {"k": [1, 2]}}},
+            "controller_boards": {"distribution": {"role": "distribution", "family": "skr_pico",
+                                                   "device_name": "MB", "port": "/dev/ttyACM-board-port"}},
+        }
+        db.commit()
+        self._ping(client, "linked-device-key-0123456789",
+                   accounts=[{"url": "https://hive.example", "name": "x", "machine_id": test_machine["id"]}])
+        db.query(Device).update({Device.last_seen_ip: "198.51.100.4"})
+        db.commit()
+
+        headers = self._admin_headers(client, db)
+        body = client.get(
+            "/api/public/fleet/detail", headers=_bearer(self._mint(client, headers, ["fleet:detail"]))
+        ).json()
+        row = next(m for m in body["machines"] if m["id"] == test_machine["id"])
+        # The fields that are served really are there, so the leak check below
+        # is not passing because the block was dropped whole.
+        assert row["hardware"]["cameras"][0]["model"] == "USB Cam"
+        assert row["hardware"]["cameras"][0]["calibrated"] is True
+        assert row["hardware"]["controller_boards"][0]["family"] == "skr_pico"
+
+        payload = json.dumps(body)
+        for secret in ("203.0.113.7", "198.51.100.4", "192.168.7.21", "sorter-lan-name", "SERIAL-5f2e",
+                       "aa:bb:cc:dd:ee:ff", "shop-pi", "rtsp://", "ttyACM-board-port", "member@test.com",
+                       "anon-admin@test.com", "token"):
+            assert secret not in payload, f"{secret!r} reached the operator payload"

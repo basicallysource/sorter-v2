@@ -151,7 +151,9 @@ them.
   have no saw, order it cut to length: many extrusion suppliers cut to order for
   a small fee per cut. The [framing cut
   list](https://parts-calculator.basically.website/framing) has every length and
-  a plan for packing them into standard bars.
+  a plan for packing them into standard bars, and [a list of suppliers that cut
+  to length](https://parts-calculator.basically.website/framing#where-to-get-it-cut),
+  by country.
 - **The laser cut parts.** The top plate and the two cable cage plates are cut
   from flat sheet. [Laser cut
   parts](https://parts-calculator.basically.website/lasercut) has the DXF for

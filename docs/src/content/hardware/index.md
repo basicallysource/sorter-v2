@@ -152,6 +152,22 @@ them.
   a small fee per cut. The [framing cut
   list](https://parts-calculator.basically.website/framing) has every length and
   a plan for packing them into standard bars.
+
+  Suppliers that cut 2020 extrusion to length:
+
+  - **United States:** [TNUTZ](https://www.tnutz.com/) cuts metric 20 x 20
+    with a 6 mm slot to the length you enter, from full bars, so there is no
+    leftover piece to pay for. [Zyltech](https://www.zyltech.com/) has a cut
+    service too, but it sells it one piece at a time.
+  - **Europe:** [easy-systemprofile.de](https://easy-systemprofile.de/) cuts to
+    any length and will also cut an M6 thread into the end of a profile.
+    [Motedis](https://www.motedis.com/) offers both as well.
+
+  The fee per cut differs a lot between suppliers, and a local metal shop
+  may charge several times what an extrusion specialist does. A 5 layer machine
+  is {{ site.data.build_scale.large.extrusion }} cuts, so ask for the price per
+  cut before you order and multiply. Order every length from one supplier in one
+  go, and ask for 20 x 20 T-slot with a 6 mm slot (6063-T5 aluminium).
 - **The laser cut parts.** The top plate and the two cable cage plates are cut
   from flat sheet. [Laser cut
   parts](https://parts-calculator.basically.website/lasercut) has the DXF for

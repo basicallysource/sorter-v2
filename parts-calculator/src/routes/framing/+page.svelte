@@ -103,7 +103,7 @@
 		</Callout>
 	</section>
 
-	<section class="mb-8">
+	<section id="where-to-get-it-cut" class="mb-8">
 		<h2 class="mb-3 text-base font-semibold text-text">Where to get it cut</h2>
 		<p class="mb-3 leading-relaxed">
 			Ordering every piece cut to length saves you the saw. The fee per cut differs a lot between

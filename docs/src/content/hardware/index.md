@@ -151,22 +151,9 @@ them.
   have no saw, order it cut to length: many extrusion suppliers cut to order for
   a small fee per cut. The [framing cut
   list](https://parts-calculator.basically.website/framing) has every length and
-  a plan for packing them into standard bars.
-
-  Suppliers that cut 2020 extrusion to length:
-
-  <ul class="bulleted-list">
-    <li><strong>United States:</strong> <a href="https://www.tnutz.com/">TNUTZ</a> cuts each piece to the length you enter. Their cuts fit the printed parts. <a href="https://www.zyltech.com/">Zyltech</a> also cuts, but charges more per cut and throws away the leftover bar unless you ask to keep it.</li>
-    <li><strong>Germany, Austria, Belgium, France, Luxembourg and the Netherlands:</strong> <a href="https://easy-systemprofile.de/">easy-systemprofile.de</a> cuts to any length. They can also cut an M6 thread into the end of a profile, which the casters can screw into.</li>
-    <li><strong>United Kingdom:</strong> <a href="https://ooznest.co.uk/product/20x20mm-t-v-slot-aluminium-extrusion-profile-silver-cut-to-size/">Ooznest</a> cuts to size. Ask them to confirm the slot is 6 mm wide before you order.</li>
-    <li><strong>Several regions:</strong> <a href="https://www.motedis.com/">Motedis</a> cuts to length and cuts M6 threads. Pick your country in the shop: it covers most of Europe, the UK, Mexico and the United States. UK builders can go straight to the <a href="https://www.motedis.co.uk/en?selected_country_iso=GB">UK shop</a>.</li>
-  </ul>
-
-  The fee per cut differs a lot between suppliers, and a local metal shop
-  may charge several times what an extrusion specialist does. A 5 layer machine
-  is {{ site.data.build_scale.large.extrusion }} cuts, so ask for the price per
-  cut before you order and multiply. Order every piece from one supplier in one
-  order. Ask for 20 x 20 T-slot extrusion with a 6 mm slot.
+  a plan for packing them into standard bars, and [a list of suppliers that cut
+  to length](https://parts-calculator.basically.website/framing#where-to-get-it-cut),
+  by country.
 - **The laser cut parts.** The top plate and the two cable cage plates are cut
   from flat sheet. [Laser cut
   parts](https://parts-calculator.basically.website/lasercut) has the DXF for

@@ -13,7 +13,7 @@ owner: docs
 last_verified: 2026-10-17
 ---
 
-Everything on this page is a variant: a change to the standard Sorter V2 that somebody has made on their own machine. None of them is part of the build instructions in [Hardware]({{ '/hardware/' | relative_url }}), and none is in the parts calculator. The results are what the people who built them reported, and the project has not measured them. Where a file exists it is in the Discord, and the link goes to the message that has it.
+Everything on this page is a variant: a change to the standard Sorter V2 that somebody has made on their own machine. None of them is part of the build instructions in [Hardware]({{ '/hardware/' | relative_url }}), and none is in the parts calculator. The results are what the people who built them reported, and the project has not measured them. Where a file exists, the variant links to it, or to the Discord message that has it.
 
 Designs that were tried and dropped are on <a href="{{ '/lab/variants/abandoned/' | relative_url }}">Abandoned ideas</a>. Under each heading is the date of the latest report on that variant.
 
@@ -186,4 +186,33 @@ The legs are not in the parts calculator. The file is an STL in the Discord thre
   <li>The suggestion, and the suppliers: <a href="https://discord.com/channels/1430279849171222682/1477417230235861104/1525040293055828008">the message in the Discord</a> and <a href="https://discord.com/channels/1430279849171222682/1430279852015091804/1560927423715999755">a later one</a></li>
   <li>Threading the ends of the foot extensions instead of using the connector: <a href="https://discord.com/channels/1430279849171222682/1437511568194666596/1559441181124075631">the message</a> and <a href="https://discord.com/channels/1430279849171222682/1437511568194666596/1559450239046258750">the answer</a></li>
   <li>The standard feet, with the connector: <a href="{{ '/hardware/assembly/distribution/bin-frame/bottom-layer/' | relative_url }}#step-3">Bottom layer</a></li>
+</ul>
+
+## Bin retainers with one joint screw and a hook
+
+**Latest report: 17 October 2026.**
+
+**What is different.** The standard retainers are held by two M5 x 16 screws each, four for a left and right pair. In this variant the pair is joined at the middle by one shared screw, and the far end of each retainer hangs in the T-slot on a hook instead of a second screw. That leaves one screw and one T-nut for a pair, so 6 instead of 24 for a layer.
+
+**How it works.** The two retainers lock into each other at the joint: the left one has two prongs, the right one a tongue between them, and both end in a V that holds them in line along the rail and up and down. The screw goes through all three at the joint. At the other end of each retainer a J-shaped hook goes through the opening of the T-slot and sits behind the lip. To fit one, lift it about 2.4 mm, push the hook in and let it drop, so its top ledge rests on the top of the extrusion. The hook is wide and sits far from the screw, because the screw in the middle then holds the outer ends down. The hook ends are cut at 45°, so the retainer prints standing upright without supports. The small locating rib of the standard part is cut away along the whole length, because it would hit the extrusion while the retainer is lifted.
+
+<figure class="single-figure">
+  <img class="doc-figure" src="https://assets.basically.website/sorter-docs/variant-bin-retainer-joint-w1600-6e3f86408368.jpg" alt="Three printed bins side by side on a hexagonal frame, with the joint of two bin retainers in the middle of the front rail held by a single screw">
+  <figcaption>The joint in the middle of the front rail, with its one screw. <cite>Photo: Soran82.</cite></figcaption>
+</figure>
+
+<figure class="single-figure">
+  <img class="doc-figure" src="https://assets.basically.website/sorter-docs/variant-bin-retainer-hook-section-full-8e41f81a8e47.png" alt="Three side views of a bin retainer and the extrusion: the retainer lifted and pushed in, then dropped so the hook hangs behind the lip of the T-slot, and a plan cut through the hook">
+  <figcaption>How the hook goes into the T-slot. <cite>Drawn from the design, not from a build. Drawing: Balloon.</cite></figcaption>
+</figure>
+
+**What was tested.** A builder has printed and fitted the pair and reports that it works well. The earlier version, without the hook, was also printed and held moderate pressure with two screws. The hook has not been tested with a loaded bin. The slot of the extrusion in the drawing is not measured: it uses a 6.0 mm opening, a 1.8 mm lip and a 5.9 mm deep slot, so check the hook against your own extrusion with calipers before printing a whole layer.
+
+**Files.** The left retainer carries the prongs and the right retainer the tongue, so the two files are not mirror images and cannot be swapped.
+
+<ul class="bulleted-list">
+  <li>The left retainer: <a href="https://assets.basically.website/sorter-parts/bin-retainer-left-finger-v-wide-hook-c5d29085841c.stl">bin-retainer-left-finger-v-wide-hook.stl</a></li>
+  <li>The right retainer: <a href="https://assets.basically.website/sorter-parts/bin-retainer-right-finger-v-wide-hook-69050d764903.stl">bin-retainer-right-finger-v-wide-hook.stl</a></li>
+  <li>The report: <a href="https://discord.com/channels/1430279849171222682/1430279852015091804/1561017115371114526">the message in the Discord</a>, and the message the files were posted in: <a href="https://discord.com/channels/1430279849171222682/1560753632129978389/1560778347384930444">the message in the Discord</a></li>
+  <li>The standard retainers: <a href="{{ '/hardware/assembly/distribution/bin-frame/bin-retainers/' | relative_url }}">Bin retainers</a></li>
 </ul>

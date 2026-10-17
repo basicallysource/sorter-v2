@@ -980,8 +980,8 @@
       "internal_notes": "External distribution-frame bracket assembly member. 6 per distribution frame (per layer). Interface qty confirmed at 6, side and cover only, no bottom vertical there (top-interface.md step 14). Frame color.",
       "version": "1",
       "created_at": "2026-06-27",
-      "updated_at": "2026-06-27",
-      "stl_hash": "da4b3abd3db72070484178ef5aa1d0906397c6a310bdf0e22f724940bd62dba2",
+      "updated_at": "2026-10-17",
+      "stl_hash": "f914cfcfd99e97685b1645665f53be36c5a997eda8fef952da8d127d4726f6db",
       "source": "1_printed_crossbeams - left_external_bracket.stl",
       "quantities": {
         "layer": 6,

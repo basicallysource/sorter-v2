@@ -195,6 +195,20 @@ The `PWR2` lead to the USB hub, the USB cables (`USB2` to `USB6`), the ribbons (
 
 Leave the sleeving loose enough to bend. A strap that anchors a lead goes on over the sleeving: pull it tight enough to hold, but not so tight that it crushes the braid.
 
+### Through the top plate
+
+The C-channels, the camera lamps and the cameras stand on the [top plate]({{ '/hardware/assembly/distribution/top-interface/' | relative_url }}), and the PSU box, the control board housing and the Orange Pi housing are bolted to the hex frame below it. Ten leads start on the plate and have to come down through it, into the plate's five cable holes (the `C` holes on the top interface's hole map):
+
+<ul class="bulleted-list">
+  <li>The four channel stepper leads (`STP1` to `STP4`), one from each channel's motor.</li>
+  <li>The three lamp board cables (`LED2a` to `LED4a`), from the plug on each lamp's pigtail.</li>
+  <li>The three camera USB leads (`USB2` to `USB4`).</li>
+</ul>
+
+Every other lead on this page starts below the plate, so none of them goes through it. The chute stepper, the limit switch and the ribbon (`RIB1`) are all under the plate already.
+
+Which hole takes which lead is not settled. The plate was cut before the layout-guide arrangement of the C-channels, and the [parts calculator lists it as due to change](https://parts-calculator.basically.website/changes#top-plate-for-layout-guides): new holes for the layout guides, and the cable holes moved to suit. Until that is decided, use the cable holes the plate you have already has.
+
 ### Securing the cables
 
 Fasten the leads to the frame with **hook-and-loop (Velcro) straps rather than zip ties**, wherever a lead may have to come undone. You will take the machine apart again, from the electronics layer up, and a zip tie has to be cut each time, which is slow when the bucket is loaded and the feeder is bolted down.

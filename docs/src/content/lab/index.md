@@ -68,6 +68,10 @@ The design pages give the overall picture in a few lines, then link to the files
     <p>A proposal, not built yet, to take every electrical part off the rotating chute stack and build each bin layer as its own module.</p>
   </div>
   <div class="callout">
+    <strong><a href="{{ '/lab/concepts/funnel-split-hood-and-floor-tray/' | relative_url }}">Funnel split into hood and floor tray</a></strong>
+    <p>A proposal, not built yet, to print the third-size funnel as two parts so its sliding floor can be ironed smooth.</p>
+  </div>
+  <div class="callout">
     <strong><a href="{{ '/lab/variants/abandoned/' | relative_url }}">Abandoned ideas</a></strong>
     <p>Designs that were built, tried or proposed and then dropped, such as the carousel and the vibrating feeder, and why each one went.</p>
   </div>

@@ -160,8 +160,9 @@ them.
     leftover piece to pay for. Builders here report accurate cuts that fit the
     printed parts. [Zyltech](https://www.zyltech.com/) has a cut
     service too, but it sells it one piece at a time.
-  - **Europe:** [easy-systemprofile.de](https://easy-systemprofile.de/) cuts to
-    any length and will also cut an M6 thread into the end of a profile.
+  - **Germany, Austria, Belgium, France, Luxembourg and the Netherlands:**
+    [easy-systemprofile.de](https://easy-systemprofile.de/) cuts to any length
+    and will also cut an M6 thread into the end of a profile.
   - **United Kingdom:** [Ooznest](https://ooznest.co.uk/product/20x20mm-t-v-slot-aluminium-extrusion-profile-silver-cut-to-size/)
     cuts to size; check the profile you pick has the 6 mm slot.
   - **Several regions:** [Motedis](https://www.motedis.com/) cuts to length and

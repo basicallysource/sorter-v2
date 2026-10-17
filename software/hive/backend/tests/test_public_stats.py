@@ -612,7 +612,11 @@ class TestFleetDetailTier:
         from app.models.device import Device
         from app.models.machine import Machine
 
+        from app.models.user import User
+
         machine = db.query(Machine).first()
+        # A display name left as the email it was signed up with.
+        db.query(User).filter(User.id == machine.owner_id).update({User.display_name: "member@test.com"})
         machine.last_seen_ip = "203.0.113.7"
         machine.network_info = {"hostname": "sorter-lan-name", "networks": [{"address": "192.168.7.21"}]}
         machine.hardware_info = {
@@ -639,6 +643,7 @@ class TestFleetDetailTier:
         assert row["hardware"]["cameras"][0]["model"] == "USB Cam"
         assert row["hardware"]["cameras"][0]["calibrated"] is True
         assert row["hardware"]["controller_boards"][0]["family"] == "skr_pico"
+        assert row["owner_display_name"] is None
 
         payload = json.dumps(body)
         for secret in ("203.0.113.7", "198.51.100.4", "192.168.7.21", "sorter-lan-name", "SERIAL-5f2e",

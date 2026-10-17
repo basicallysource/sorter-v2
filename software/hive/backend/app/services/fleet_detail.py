@@ -34,6 +34,7 @@ link: `unlinked_sorters`.
 from __future__ import annotations
 
 import hashlib
+import re
 from datetime import datetime, timedelta, timezone
 from typing import Any
 
@@ -61,6 +62,9 @@ DAILY_DAYS = 30
 # Domain separator for an unlinked sorter's pseudonym, so its digest can never
 # collide with one computed for another purpose (see public_stats._anon_label).
 _SORTER_LABEL_SALT = b"hive/public/fleet-detail/sorter/v1"
+
+# Anything shaped like an email address, anywhere in a string.
+_EMAIL = re.compile(r"[^\s@]+@[^\s@]+\.[^\s@]+")
 
 # Sorts a device that has never reported below every one that has.
 _NEVER = datetime.min.replace(tzinfo=timezone.utc)
@@ -124,10 +128,16 @@ def build(db: Session, roster: dict) -> dict:
 
 
 def _owner_names(db: Session, owner_ids: list) -> dict[str, str | None]:
+    """Each owner's display name, unless it is an email address.
+
+    People sign up with their email and many never change the name it
+    defaults to, so a display name is quite often the contact detail this
+    payload promises not to carry. Those are served as null: the owner is
+    still named by their linked Discord where they have one."""
     if not owner_ids:
         return {}
     return {
-        str(uid): name
+        str(uid): None if name and _EMAIL.search(name) else name
         for uid, name in db.query(User.id, User.display_name).filter(User.id.in_(set(owner_ids)))
     }
 

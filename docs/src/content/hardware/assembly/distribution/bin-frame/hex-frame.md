@@ -146,7 +146,11 @@ Slide the final B spoke (158mm) in from the top to close the ring, then fit the 
 
 {% include step.html n="8" title="Check and snug every joint" %}
 
-Double-check that every Frame 90° bracket is still fully seated in its slot. A light hammer tap on each bracket, from the inside of the ring toward the outside, helps snug all the connections — use a mallet, or put a cloth between a hammer and the bracket, so you aren't striking the plastic directly.
+Double-check that every Frame 90° bracket is still fully seated in its slot. A light hammer tap on each bracket, from the inside of the ring toward the outside, helps snug all the connections — use a mallet, or put a cloth between a hammer and the bracket, so you aren't striking the plastic directly. Work your way around the frame a couple of times with even pressure at every joint, rather than one hard push on a single bracket.
+
+<div class="callout">
+  <p>The brackets hold by friction, so the frame can stay looser than a screwed joint. If it still shakes apart when you lift or move it, the Frame 90° brackets have holes you can fasten through. The build doesn't need them, so only use them if the frame won't stay together.</p>
+</div>
 
 {% include step.html n="9" title="Fit the External bracket — covers" %}
 

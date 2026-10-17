@@ -155,20 +155,12 @@ them.
 
   Suppliers that cut 2020 extrusion to length:
 
-  - **United States:** [TNUTZ](https://www.tnutz.com/) cuts each piece to the
-    length you enter. Their cuts fit the printed parts. [Zyltech](https://www.zyltech.com/)
-    also cuts, but charges more per cut and throws away the leftover bar unless
-    you ask to keep it.
-  - **Germany, Austria, Belgium, France, Luxembourg and the Netherlands:**
-    [easy-systemprofile.de](https://easy-systemprofile.de/) cuts to any length.
-    They can also cut an M6 thread into the end of a profile, which the casters
-    can screw into.
-  - **United Kingdom:** [Ooznest](https://ooznest.co.uk/product/20x20mm-t-v-slot-aluminium-extrusion-profile-silver-cut-to-size/)
-    cuts to size. Ask them to confirm the slot is 6 mm wide before you order.
-  - **Several regions:** [Motedis](https://www.motedis.com/) cuts to length and
-    cuts M6 threads. Pick your country in the shop: it covers most of Europe,
-    the UK, Mexico and the United States. UK builders can go straight to the
-    [UK shop](https://www.motedis.co.uk/en?selected_country_iso=GB).
+  <ul class="bulleted-list">
+    <li><strong>United States:</strong> [TNUTZ](https://www.tnutz.com/) cuts each piece to the length you enter. Their cuts fit the printed parts. [Zyltech](https://www.zyltech.com/) also cuts, but charges more per cut and throws away the leftover bar unless you ask to keep it.</li>
+    <li><strong>Germany, Austria, Belgium, France, Luxembourg and the Netherlands:</strong> [easy-systemprofile.de](https://easy-systemprofile.de/) cuts to any length. They can also cut an M6 thread into the end of a profile, which the casters can screw into.</li>
+    <li><strong>United Kingdom:</strong> [Ooznest](https://ooznest.co.uk/product/20x20mm-t-v-slot-aluminium-extrusion-profile-silver-cut-to-size/) cuts to size. Ask them to confirm the slot is 6 mm wide before you order.</li>
+    <li><strong>Several regions:</strong> [Motedis](https://www.motedis.com/) cuts to length and cuts M6 threads. Pick your country in the shop: it covers most of Europe, the UK, Mexico and the United States. UK builders can go straight to the [UK shop](https://www.motedis.co.uk/en?selected_country_iso=GB).</li>
+  </ul>
 
   The fee per cut differs a lot between suppliers, and a local metal shop
   may charge several times what an extrusion specialist does. A 5 layer machine

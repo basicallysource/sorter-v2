@@ -806,16 +806,16 @@
       "uid": "cdeg",
       "name": "Frame crossbeam",
       "description": "Distribution frame crossbeam. One between each of the 6 frame sections.",
-      "internal_notes": "6 per frame (per layer); interface qty ASSUMED 6 (Spencer said 'one set per interface' - confirm). Frame color. File: combined_internal_bracket.",
+      "internal_notes": "6 per frame (per layer); interface qty ASSUMED 6 (Spencer said 'one set per interface' - confirm). Frame color. File: combined_internal_bracket. Re-exported 2026-10-17 at Jayesh-Herndon's report, rotated about X so the large face of the arms lies on the bed (it had no flat contact with the bed before); the mesh is otherwise identical.",
       "version": "1",
       "created_at": "2026-06-27",
-      "updated_at": "2026-06-27",
+      "updated_at": "2026-10-17",
       "quantities": {
         "layer": 6,
         "interface": 6
       },
       "assembly": null,
-      "stl_hash": "45a69ae6847617b33b1aa45a379f0b413edba4d13203f4de40506a1f7cb80966",
+      "stl_hash": "d5225dc668c5bae12d1fae5d841f5491d649aa1c60dd7b86bc6c1fc3e2868cf5",
       "color": {
         "role": "frame"
       },

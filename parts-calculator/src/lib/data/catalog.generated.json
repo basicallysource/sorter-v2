@@ -12,8 +12,8 @@
 		"cost_per_kg": 24.99,
 		"commit_base_url": "https://github.com/basicallysource/sorter-v2/commit/",
 		"engrave": "33d9fa246b1a",
-		"all_parts_zip": "https://assets.basically.website/sorter-parts/all-parts-5bf0e4989dee.zip",
-		"all_parts_plain_zip": "https://assets.basically.website/sorter-parts/all-parts-plain-ae75416ed93c.zip"
+		"all_parts_zip": "https://assets.basically.website/sorter-parts/all-parts-641e6bb42f6a.zip",
+		"all_parts_plain_zip": "https://assets.basically.website/sorter-parts/all-parts-plain-0b25c02017d5.zip"
 	},
 	"sections": [
 		{
@@ -11014,7 +11014,7 @@
 			"description": "Distribution frame crossbeam. One between each of the 6 frame sections.",
 			"version": "1",
 			"created_at": "2026-06-27",
-			"updated_at": "2026-06-27",
+			"updated_at": "2026-10-17",
 			"versions": [
 				{
 					"version": "1",
@@ -11023,17 +11023,17 @@
 					"message": "Initial version.",
 					"commit": null,
 					"onshape_version": "https://cad.onshape.com/documents/a4a1965bbaf3a15aff2b13ed/v/7279a42b05833c7b828efb0d/e/b0ee2e787191265cba1c1a31",
-					"stl": "https://assets.basically.website/sorter-parts/frame-crossbeam-45a69ae68476.stl",
-					"render": "https://assets.basically.website/sorter-parts/frame-crossbeam-full-d790a21330fa.png",
-					"grams": 86.17
+					"stl": "https://assets.basically.website/sorter-parts/frame-crossbeam-d5225dc668c5.stl",
+					"render": "https://assets.basically.website/sorter-parts/frame-crossbeam-full-f83b1f49d4f9.png",
+					"grams": 84.09
 				}
 			],
 			"attributes": [],
-			"grams": 86.17,
+			"grams": 84.09,
 			"support_grams": 0.0,
 			"support_used": false,
 			"support_intentional": false,
-			"print_seconds": 9567,
+			"print_seconds": 9085,
 			"color": {
 				"role": "frame"
 			},
@@ -11047,21 +11047,21 @@
 			"caption": null,
 			"docs_page": null,
 			"conflicts": null,
-			"stl": "https://assets.basically.website/sorter-parts/frame-crossbeam-45a69ae68476.stl",
-			"render": "https://assets.basically.website/sorter-parts/frame-crossbeam-full-d790a21330fa.png",
+			"stl": "https://assets.basically.website/sorter-parts/frame-crossbeam-d5225dc668c5.stl",
+			"render": "https://assets.basically.website/sorter-parts/frame-crossbeam-full-f83b1f49d4f9.png",
 			"stamped": [
 				{
-					"face": "angled face",
-					"stl": "https://assets.basically.website/sorter-parts/frame-crossbeam-cdeg-stamped-angled-face-e93a29e5caa2.stl",
+					"face": "bottom",
+					"stl": "https://assets.basically.website/sorter-parts/frame-crossbeam-cdeg-stamped-bottom-2b471a60a0dd.stl",
 					"normal": [
-						0.25,
-						-0.433,
-						0.866
+						-0.0,
+						0.0,
+						-1.0
 					],
 					"center": [
-						62.16,
-						-220.92,
-						104.44
+						129.05,
+						11.29,
+						0.0
 					],
 					"size": [
 						12.31,
@@ -11071,17 +11071,17 @@
 					"depth": 0.6
 				},
 				{
-					"face": "angled face 2",
-					"stl": "https://assets.basically.website/sorter-parts/frame-crossbeam-cdeg-stamped-angled-face-2-37c3e87a0cf9.stl",
+					"face": "+y side",
+					"stl": "https://assets.basically.website/sorter-parts/frame-crossbeam-cdeg-stamped-plus-y-side-3662529f9f65.stl",
 					"normal": [
 						-0.25,
-						-0.433,
-						0.866
+						0.9586,
+						0.136
 					],
 					"center": [
-						-62.74,
-						-220.59,
-						104.44
+						185.49,
+						33.23,
+						47.05
 					],
 					"size": [
 						12.31,
@@ -11091,17 +11091,17 @@
 					"depth": 0.6
 				},
 				{
-					"face": "angled face 3",
-					"stl": "https://assets.basically.website/sorter-parts/frame-crossbeam-cdeg-stamped-angled-face-3-31a8c4a9ce95.stl",
+					"face": "+y side 2",
+					"stl": "https://assets.basically.website/sorter-parts/frame-crossbeam-cdeg-stamped-plus-y-side-2-f0200e7c70ff.stl",
 					"normal": [
-						-0.866,
-						0.5,
-						0.0
+						0.25,
+						0.9586,
+						0.136
 					],
 					"center": [
-						-85.75,
-						-168.52,
-						108.9
+						65.94,
+						33.23,
+						47.05
 					],
 					"size": [
 						12.31,
@@ -11111,17 +11111,17 @@
 					"depth": 0.6
 				},
 				{
-					"face": "angled face 4",
-					"stl": "https://assets.basically.website/sorter-parts/frame-crossbeam-cdeg-stamped-angled-face-4-90aea645a87e.stl",
+					"face": "-y side",
+					"stl": "https://assets.basically.website/sorter-parts/frame-crossbeam-cdeg-stamped-minus-y-side-03554cf9c90e.stl",
 					"normal": [
-						0.866,
-						0.5,
-						0.0
+						0.25,
+						-0.9586,
+						-0.136
 					],
 					"center": [
-						85.84,
-						-168.68,
-						108.9
+						199.86,
+						16.31,
+						45.69
 					],
 					"size": [
 						12.31,

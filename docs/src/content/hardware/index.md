@@ -157,12 +157,15 @@ them.
 
   - **United States:** [TNUTZ](https://www.tnutz.com/) cuts metric 20 x 20
     with a 6 mm slot to the length you enter, from full bars, so there is no
-    leftover piece to pay for. [Zyltech](https://www.zyltech.com/) has a cut
+    leftover piece to pay for. Builders here report accurate cuts that fit the
+    printed parts. [Zyltech](https://www.zyltech.com/) has a cut
     service too, but it sells it one piece at a time.
   - **Europe:** [easy-systemprofile.de](https://easy-systemprofile.de/) cuts to
     any length and will also cut an M6 thread into the end of a profile.
     [Motedis](https://www.motedis.com/) offers both as well, and has a
     [UK shop](https://www.motedis.co.uk/en?selected_country_iso=GB).
+    In the UK, [Ooznest](https://ooznest.co.uk/product/20x20mm-t-v-slot-aluminium-extrusion-profile-silver-cut-to-size/)
+    also cuts to size; check the profile you pick has the 6 mm slot.
 
   The fee per cut differs a lot between suppliers, and a local metal shop
   may charge several times what an extrusion specialist does. A 5 layer machine

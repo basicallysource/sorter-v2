@@ -112,6 +112,11 @@
 				plate and both cable cage plates have a “by hand” view, and both cable cage plates also
 				have a 3D-printed option.
 			</p>
+			<p class="mt-2 text-sm text-text-muted">
+				Don't have a laser nearby? Send the DXFs to a local maker space or an online cutting service,
+				for example <a href="https://simplycut.de/" target="_blank" rel="noopener" class="text-primary hover:underline">simplycut</a>
+				in Germany.
+			</p>
 		</div>
 		<a href="https://bin-gen.basically.website/" target="_blank" rel="noopener" class="inline-flex shrink-0 items-center justify-center gap-1.5 border border-border bg-surface px-3 py-2 text-sm font-semibold text-text-muted transition-colors hover:border-primary hover:text-primary">
 			Laser Cut Bin Generator

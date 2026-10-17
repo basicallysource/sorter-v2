@@ -215,6 +215,17 @@
 			}
 		},
 		{
+			"id": "top-plate-for-layout-guides",
+			"name": "Top plate: add holes for the layout guides and re-place the cable holes",
+			"priority": "P2",
+			"description": "The Top plate was cut before the C-channels stood on layout guides. It has no holes for the layout guides, so nothing on the plate locates or fixes them, and its five cable holes were placed before that arrangement and have not been re-planned for it. The fix is a revised plate that adds the layout guide holes and moves the cable holes to suit the channels, camera lamps and cameras whose leads come down through it. Tracked as sorter-v2 issue #1072.",
+			"targets": {
+				"lasercut": [
+					"top-plate"
+				]
+			}
+		},
+		{
 			"id": "split-top-plate-puzzle",
 			"name": "Split the top plate into a supported puzzle",
 			"priority": "P3",

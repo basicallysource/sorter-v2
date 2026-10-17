@@ -10,14 +10,16 @@ permalink: /lab/variants/
 audience: curious builder or contributor
 applies_to: hardware-v2
 owner: docs
-last_verified: 2026-10-11
+last_verified: 2026-10-17
 ---
 
 Everything on this page is a variant: a change to the standard Sorter V2 that somebody has made on their own machine. None of them is part of the build instructions in [Hardware]({{ '/hardware/' | relative_url }}), and none is in the parts calculator. The results are what the people who built them reported, and the project has not measured them. Where a file exists it is in the Discord, and the link goes to the message that has it.
 
-Designs that were tried and dropped are on <a href="{{ '/lab/variants/abandoned/' | relative_url }}">Abandoned ideas</a>. The status of each variant is as of 11 October 2026.
+Designs that were tried and dropped are on <a href="{{ '/lab/variants/abandoned/' | relative_url }}">Abandoned ideas</a>. Under each heading is the date of the latest report on that variant.
 
 ## Belt feeder
+
+**Latest report: 6 September 2026.**
 
 **What is different.** A printed belt with raised catches on it carries LEGO up out of a large hopper and drops it into the feeder. It replaces the bulk channel (C1) and the second channel (C2), so the machine runs the belt, then C3 and C4.
 
@@ -43,6 +45,8 @@ A second builder runs a belt that feeds C3, and reports about 4 parts a minute w
 
 ## Printed C1 legs instead of 2020 extrusion
 
+**Latest report: 14 September 2026.**
+
 **What is different.** The stand under the bulk channel (C1) normally stands on three legs cut from 2020 aluminium extrusion. The variant uses printed legs instead. A printed leg is the same part as the C2 and C3 legs, made longer: 228 mm tall, with the same 20 mm square ends that stand in the layout guide and take the dovetail adapter. The seat for the adapter ends up at the right height, so the drop to C2 is the same 80 mm as in the standard stand.
 
 <figure class="single-figure">
@@ -62,6 +66,8 @@ The legs are not in the parts calculator. The file is an STL in the Discord thre
 </ul>
 
 ## Orange Pi housing base without heat-set inserts
+
+**Latest report: 6 October 2026.**
 
 **What is different.** The standard base has eight holes that take heat-set inserts (small brass threaded sleeves pressed in with a hot tip): four under the Orange Pi, and four in the corner posts the roof screws into. In the variant all eight are smaller, 2.8 mm across instead of 4.0 mm, so the M3 screws cut their own thread straight into the plastic. That is the same size as the holes the roof already has for its own self-tapping screws. Nothing else changes, so it replaces the standard base.
 
@@ -84,6 +90,8 @@ The legs are not in the parts calculator. The file is an STL in the Discord thre
 
 ## One 24 V lead for the hub and the Orange Pi's converter
 
+**Latest report: 16 October 2026.**
+
 **What is different.** The standard build gives each of the two loads its own lead from the PSU box: <code>PWR2</code> to the USB hub and <code>PWR3</code> to the 24 V to 5 V converter that powers the Orange Pi, each into its own jack. In the variant the two share one lead, which splits into two like a Y cable: one plug goes into one PSU box jack, and the hub and the converter are both fed from it. That leaves one PSU box jack unused.
 
 **What was tested.** One builder runs their machine this way. The combined load has not been measured. The hub should draw about 1 A at 24 V and the converter about 1.2 A at the full 5 A it can give the Pi, so about 2 A through the one lead (both figures are estimates, not measurements). The PSU box jack and its plug are rated at 5 A or better. How the wires are joined at the plug has not been reported.
@@ -96,6 +104,8 @@ The legs are not in the parts calculator. The file is an STL in the Discord thre
 </ul>
 
 ## Single step feeder
+
+**Latest report: 20 September 2026.**
 
 **What is different.** It is meant to replace the feeder channels with a single step, a small platform that moves up and down on a linear rail and catches pieces out of a bulk pile. Its output wall is angled, so a single piece can be dropped more easily. It combines the hopper and the singulator (the part that separates pieces one by one) in one unit. The step is moved by a stepper motor with a toothed belt. The rail is used the other way round, with the platform held still and the rail moving, so the rail's stiffness steadies the platform. A V-shaped tray beside it can flip a piece onto a different side for more camera images before tipping it out, and a second servo can tilt the tray back above the hopper to return a double feed.
 
@@ -115,6 +125,8 @@ The legs are not in the parts calculator. The file is an STL in the Discord thre
 
 ## A position encoder on the chute motor
 
+**Latest report: 10 October 2026.**
+
 **What is different.** A small magnetic position sensor (an AS5600 encoder) is fitted to the back of the chute's NEMA 23 motor. The control board reads it over I²C and so knows whether the chute is really turning. The standard machine instead relies on the driver's stall detection (see [The motors]({{ '/lab/motors/' | relative_url }})), which was not catching jams on that machine and needs tuning. The encoder needs no calibration. It fits under the sticker on the motor's rear shaft hole, with no drilling. A small converter board steps the 5 V down to the 3.3 V it needs.
 
 <figure class="single-figure">
@@ -130,6 +142,8 @@ The legs are not in the parts calculator. The file is an STL in the Discord thre
 </ul>
 
 ## Printed layer frame pieces
+
+**Latest report: 4 August 2026.**
 
 **What is different.** Printed segments replace the three extrusion parts of each layer's frame: the crossbeam, the 90° bracket and the spoke. A full ring was put together on 4 August 2026. The builder found two small problems: a small gap between the segments, and a support that reaches slightly past the end of the bins, without touching the chute.
 
@@ -147,6 +161,8 @@ The legs are not in the parts calculator. The file is an STL in the Discord thre
 
 ## One long extrusion per leg
 
+**Latest report: 5 October 2026.**
+
 **What is different.** The standard machine cuts each layer's legs as separate lengths of extrusion. In this variant the layers are built first, from the printed parts alone, and one full-length extrusion is then slid through them for each leg.
 
 **What was found.** It works well, but it gives up the modularity of the standard way, where you can add layers one at a time later.
@@ -154,4 +170,20 @@ The legs are not in the parts calculator. The file is an STL in the Discord thre
 <ul class="bulleted-list">
   <li>The comparison: <a href="https://discord.com/channels/1430279849171222682/1437144782819426537/1556720170037412026">the message in the Discord</a> and <a href="https://discord.com/channels/1430279849171222682/1437144782819426537/1556722443178082498">the answer</a></li>
   <li>The standard stacking: <a href="{{ '/hardware/assembly/distribution/stacking-the-layers/' | relative_url }}">Stacking the layers</a></li>
+</ul>
+
+## Casters screwed straight into the extrusion
+
+**Latest report: 17 October 2026.**
+
+**What is different.** The standard bottom layer ends each foot extension (piece D) in a 2020 M6 foot connector, and the caster screws into the connector. In this variant the supplier cuts an M6 thread into the end of each piece D, and the caster screws straight into the extrusion. The 2020 M6 foot connector is left out, which is 6 fewer parts to buy.
+
+**How it is done.** Order the extrusion from a supplier that offers an M6 thread as a service, and ask for the thread in the end of each of the 6 foot extensions when you order the cut lengths. The casters stay the same swivel stem casters with an M6 thread. barthel named two suppliers that cut extrusion to length and thread it: easy-systemprofile.de and motedis. You can also thread the ends yourself.
+
+**Where it stands.** Two builders say it can be done, and the posts do not say whether a machine is standing on casters fitted this way. The depth of the thread was not given, and the stem of the caster in the parts calculator is 15 mm long. How the thread holds up under the weight of a loaded machine has not been reported.
+
+<ul class="bulleted-list">
+  <li>The suggestion, and the suppliers: <a href="https://discord.com/channels/1430279849171222682/1477417230235861104/1525040293055828008">the message in the Discord</a> and <a href="https://discord.com/channels/1430279849171222682/1430279852015091804/1560927423715999755">a later one</a></li>
+  <li>Threading the ends of the foot extensions instead of using the connector: <a href="https://discord.com/channels/1430279849171222682/1437511568194666596/1559441181124075631">the message</a> and <a href="https://discord.com/channels/1430279849171222682/1437511568194666596/1559450239046258750">the answer</a></li>
+  <li>The standard feet, with the connector: <a href="{{ '/hardware/assembly/distribution/bin-frame/bottom-layer/' | relative_url }}#step-3">Bottom layer</a></li>
 </ul>

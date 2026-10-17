@@ -26885,6 +26885,21 @@
 			]
 		},
 		{
+			"id": "chute-core",
+			"name": "chute-core",
+			"download": "https://assets.basically.website/sorter-parts/chute-core-febe8ff5cc4a.3mf",
+			"thumbs": [
+				"https://assets.basically.website/sorter-parts/chute-core-1-full-8c1f6ab75f8a.png"
+			],
+			"parts": [
+				{
+					"name": "chute-core",
+					"count": 1,
+					"part_id": "chute-core"
+				}
+			]
+		},
+		{
 			"id": "chute-without-core",
 			"name": "chute-without-core",
 			"download": "https://assets.basically.website/sorter-parts/chute-without-core-4baaada4d5ef.3mf",
@@ -27021,6 +27036,36 @@
 					"name": "external bracket cover",
 					"count": 4,
 					"part_id": "ext-bracket-cover"
+				}
+			]
+		},
+		{
+			"id": "funnel-half",
+			"name": "funnel-half",
+			"download": "https://assets.basically.website/sorter-parts/funnel-half-03e30f2bd38b.3mf",
+			"thumbs": [
+				"https://assets.basically.website/sorter-parts/funnel-half-1-full-0f529cac116d.png"
+			],
+			"parts": [
+				{
+					"name": "funnel-half",
+					"count": 1,
+					"part_id": "funnel-half"
+				}
+			]
+		},
+		{
+			"id": "funnel-third",
+			"name": "funnel-third",
+			"download": "https://assets.basically.website/sorter-parts/funnel-third-a1e0437f3d40.3mf",
+			"thumbs": [
+				"https://assets.basically.website/sorter-parts/funnel-third-1-full-def081f93e46.png"
+			],
+			"parts": [
+				{
+					"name": "funnel-third",
+					"count": 1,
+					"part_id": "funnel-third"
 				}
 			]
 		}

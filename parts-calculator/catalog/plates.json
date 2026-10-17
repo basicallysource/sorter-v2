@@ -10,6 +10,10 @@
       "hash": "6aab6886d1d32a693710441da6c2d80190fcbea9f5a690a08fbe2beec36b9941"
     },
     {
+      "file": "chute-core.3mf",
+      "hash": "febe8ff5cc4ae2055cd16254c1e259aff7f4ff94c3337aaf431f812771d8fad6"
+    },
+    {
       "file": "chute-without-core.3mf",
       "hash": "4baaada4d5ef89e61333a65a1fb854c8570389c53f7dabb35dc17bcee4a243c2"
     },
@@ -20,6 +24,14 @@
     {
       "file": "external-brackets.3mf",
       "hash": "4a28da2e33e12340c3621421365add2fed8c1a65d235f8afb93ebfc2d8203ff0"
+    },
+    {
+      "file": "funnel-half.3mf",
+      "hash": "03e30f2bd38b3b61200970aca61816f15dd311fe7cc8e7e629fc5bc382fe6d21"
+    },
+    {
+      "file": "funnel-third.3mf",
+      "hash": "a1e0437f3d40cf04ba188f59f7542334d9f47dc72403e5f44a6b6f7f65cb8166"
     }
   ]
 }

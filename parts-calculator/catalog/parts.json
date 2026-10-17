@@ -735,7 +735,7 @@
       },
       "optional": false,
       "support": true,
-      "source": "gen4_core.stl",
+      "source": "chute-core.stl",
       "requires": [
         {
           "part": "hsi-m3",
@@ -2654,7 +2654,8 @@
           "commit": null
         }
       ],
-      "support": true
+      "support": true,
+      "source": "funnel-third.stl"
     },
     {
       "id": "funnel-half",
@@ -2693,7 +2694,8 @@
           "commit": null
         }
       ],
-      "support": true
+      "support": true,
+      "source": "funnel-half.stl"
     },
     {
       "id": "bin-half-left",

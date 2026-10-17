@@ -64,6 +64,36 @@
 					loosely and add friction. Check the corner profile before buying, especially secondhand.
 				</li>
 				<li>
+					<b class="text-text">Suppliers that cut to length.</b> Ordering every piece cut saves the
+					saw. Builders here have used these, and each fee per cut differs a lot, so ask for the
+					price per cut and multiply it by the piece count before you order:
+					<ul class="mt-1 list-[circle] space-y-1 pl-4">
+						<li>
+							<b class="text-text">United States:</b>
+							<a class="text-primary hover:text-primary-hover" target="_blank" rel="noopener" href="https://www.tnutz.com/">TNUTZ</a> cuts to the length you enter
+							from full bars, with accurate cuts that fit the printed parts.
+							<a class="text-primary hover:text-primary-hover" target="_blank" rel="noopener" href="https://www.zyltech.com/">Zyltech</a> sells a cut service one
+							piece at a time.
+						</li>
+						<li>
+							<b class="text-text">Germany, Austria, Belgium, France, Luxembourg, Netherlands:</b>
+							<a class="text-primary hover:text-primary-hover" target="_blank" rel="noopener" href="https://easy-systemprofile.de/">easy-systemprofile.de</a> cuts
+							to any length and can cut an M6 thread into a profile end.
+						</li>
+						<li>
+							<b class="text-text">United Kingdom:</b>
+							<a class="text-primary hover:text-primary-hover" target="_blank" rel="noopener" href="https://ooznest.co.uk/product/20x20mm-t-v-slot-aluminium-extrusion-profile-silver-cut-to-size/">Ooznest</a>
+							cuts to size; check the profile has the 6 mm slot.
+						</li>
+						<li>
+							<b class="text-text">Several regions:</b>
+							<a class="text-primary hover:text-primary-hover" target="_blank" rel="noopener" href="https://www.motedis.com/">Motedis</a> cuts to length and cuts
+							M6 threads, with shops for most of Europe, the UK, Mexico and the United States.
+						</li>
+					</ul>
+					Ask for 20×20 T-slot with a 6 mm slot, all from one supplier in one order.
+				</li>
+				<li>
 					<b class="text-text">D stands in for C at the bottom.</b> Every layer above the bottom two
 					gets 6 layer supports (<b class="text-text">C</b>, {lenC} mm). The bottom two share 6 foot
 					extensions (<b class="text-text">D</b>, {lenD} mm), one spanning both, in place of a C on

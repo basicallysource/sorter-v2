@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import contextlib
 import math
 import threading
 import time
@@ -17,13 +18,16 @@ from defs.events import (
     ResumeCommandEvent,
 )
 from defs.sorter_controller import SorterLifecycle
-from irl.parse_user_toml import (
-    DEFAULT_STEPPER_IHOLD,
-    DEFAULT_STEPPER_IHOLD_DELAY,
-    DEFAULT_STEPPER_IRUN,
-    DEFAULT_STEPPER_STALLGUARD,
+from hardware_settings.motors import Motor, apiNames, motorNamed
+from hardware_settings.steppers import (
+    TMC_REG_COOLCONF,
+    TMC_REG_GCONF,
+    StepperSettings,
+    applyStepperSettings,
+    changedStepperSettings,
+    readStepperSettings,
+    saveStepperSettings,
 )
-import machine_toml
 from server import shared_state
 from stepper_stall_monitor import CHUTE_NEEDS_HOMING_INCIDENT_KIND, STEPPER_STALL_INCIDENT_KIND
 
@@ -93,17 +97,42 @@ def _stepper_mapping() -> Dict[str, Any]:
     irl = shared_state.getActiveIRL()
     if irl is None:
         raise HTTPException(status_code=503, detail="Hardware not initialized. Start or home the system first.")
-    c4_stepper = getattr(irl, "c_channel_4_rotor_stepper", None) or getattr(
-        irl, "carousel_stepper", None
-    )
-    return {
-        "c_channel_1": getattr(irl, "c_channel_1_rotor_stepper", None),
-        "c_channel_2": getattr(irl, "c_channel_2_rotor_stepper", None),
-        "c_channel_3": getattr(irl, "c_channel_3_rotor_stepper", None),
-        "c_channel_4": c4_stepper,
-        "carousel": getattr(irl, "carousel_stepper", None),
-        "chute": getattr(irl, "chute_stepper", None),
-    }
+    return {name: getattr(irl, motorNamed(name).attr, None) for name in apiNames()}
+
+
+def _motor(name: str) -> Motor:
+    motor = motorNamed(name)
+    if motor is None:
+        raise HTTPException(status_code=400, detail=f"Unknown stepper '{name}'")
+    return motor
+
+
+def _live_stepper(motor: Motor) -> Any | None:
+    irl = shared_state.getActiveIRL()
+    return getattr(irl, motor.attr, None) if irl is not None else None
+
+
+def save_stepper_settings(motor: Motor, changes: Dict[str, Any]) -> tuple[StepperSettings, bool]:
+    """Save settings and put them on the running motor; with the hardware down
+    they apply at the next start. Returns the settings and whether they were
+    applied now. A change the running driver refuses is not saved, since the
+    next start would stop on the same refusal."""
+    try:
+        updated = changedStepperSettings(motor, changes)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+    stepper = _live_stepper(motor)
+    if stepper is not None and changes:
+        try:
+            applyStepperSettings(stepper, updated, changes)
+        except Exception as exc:
+            with contextlib.suppress(Exception):
+                applyStepperSettings(stepper, readStepperSettings(motor), changes)
+            raise HTTPException(
+                status_code=502,
+                detail=f"The {motor.label} stepper did not take it, so it was not saved: {exc}",
+            )
+    return saveStepperSettings(motor, changes), stepper is not None and bool(changes)
 
 
 def _resolve_stepper(stepper_name: str) -> Any:
@@ -265,18 +294,15 @@ def _stop_stepper_after_delay(stepper: Any, delay_s: float, lock: threading.Lock
 
 
 # ---------------------------------------------------------------------------
-# TMC2209 Driver Settings – constants & helpers
+# TMC2209 driver read-outs. The settings themselves are declared, saved and
+# applied in hardware_settings.steppers.
 # ---------------------------------------------------------------------------
 
-TMC_REG_GCONF = 0x00
 TMC_REG_GSTAT = 0x01
 TMC_REG_IFCNT = 0x02
 TMC_REG_IOIN = 0x06
 TMC_REG_FACTORY_CONF = 0x07
 TMC_REG_TSTEP = 0x12
-TMC_REG_TCOOLTHRS = 0x14
-TMC_REG_COOLCONF = 0x42
-TMC_REG_SGTHRS = 0x40
 TMC_REG_SG_RESULT = 0x41
 TMC_REG_MSCNT = 0x6A
 TMC_REG_MSCURACT = 0x6B
@@ -287,7 +313,6 @@ TMC_REG_PWM_SCALE = 0x71
 TMC_REG_PWM_AUTO = 0x72
 
 MRES_TO_MICROSTEPS = {0: 256, 1: 128, 2: 64, 3: 32, 4: 16, 5: 8, 6: 4, 7: 2, 8: 1}
-MICROSTEPS_TO_MRES = {v: k for k, v in MRES_TO_MICROSTEPS.items()}
 
 TMC_QUERYABLE_FIELDS = [
     "gconf",
@@ -326,74 +351,6 @@ def _parse_drv_status(raw: int) -> Dict[str, Any]:
         "t150": bool(raw & (1 << 6)),
         "t157": bool(raw & (1 << 11)),
     }
-
-
-# Cache for last-written IRUN/IHOLD since TMC2209 IHOLD_IRUN register is write-only via UART
-_stepper_current_cache: Dict[str, Dict[str, int]] = {}
-
-
-def _current_payload_from_persisted_config(name: str) -> Dict[str, int]:
-    result = {
-        "irun": DEFAULT_STEPPER_IRUN,
-        "ihold": DEFAULT_STEPPER_IHOLD,
-        "ihold_delay": DEFAULT_STEPPER_IHOLD_DELAY,
-    }
-    entry = _read_stepper_settings("stepper_current_overrides", name)
-    for key, upper_bound in (("irun", 31), ("ihold", 31), ("ihold_delay", 15)):
-        value = entry.get(key)
-        if isinstance(value, int) and 0 <= value <= upper_bound:
-            result[key] = value
-    return result
-
-
-def _current_payload_from_stepper(stepper: Any) -> Dict[str, int] | None:
-    payload = getattr(stepper, "last_set_current", None)
-    if not isinstance(payload, dict):
-        return None
-
-    irun = payload.get("irun")
-    ihold = payload.get("ihold")
-    ihold_delay = payload.get("ihold_delay")
-    if not isinstance(irun, int) or not isinstance(ihold, int) or not isinstance(ihold_delay, int):
-        return None
-    if not (0 <= irun <= 31 and 0 <= ihold <= 31 and 0 <= ihold_delay <= 15):
-        return None
-
-    return {
-        "irun": irun,
-        "ihold": ihold,
-        "ihold_delay": ihold_delay,
-    }
-
-
-def _desired_stepper_current_payload(name: str, stepper: Any) -> Dict[str, int]:
-    cached = _stepper_current_cache.get(name)
-    if isinstance(cached, dict):
-        irun = cached.get("irun")
-        ihold = cached.get("ihold")
-        ihold_delay = cached.get("ihold_delay", DEFAULT_STEPPER_IHOLD_DELAY)
-        if (
-            isinstance(irun, int)
-            and isinstance(ihold, int)
-            and isinstance(ihold_delay, int)
-            and 0 <= irun <= 31
-            and 0 <= ihold <= 31
-            and 0 <= ihold_delay <= 15
-        ):
-            return {
-                "irun": irun,
-                "ihold": ihold,
-                "ihold_delay": ihold_delay,
-            }
-
-    stepper_payload = _current_payload_from_stepper(stepper)
-    if stepper_payload is not None:
-        _stepper_current_cache[name] = dict(stepper_payload)
-        return stepper_payload
-
-    persisted = _current_payload_from_persisted_config(name)
-    _stepper_current_cache[name] = dict(persisted)
-    return persisted
 
 
 def _parse_chopconf_mres(raw: int) -> int:
@@ -454,69 +411,24 @@ def _tmc_register_snapshot(stepper: Any) -> Dict[str, int | None]:
     }
 
 
-_STEPPER_API_TO_TOML_NAME: Dict[str, str] = {
-    "c_channel_1": "c_channel_1_rotor",
-    "c_channel_2": "c_channel_2_rotor",
-    "c_channel_3": "c_channel_3_rotor",
-    "c_channel_4": "carousel",
-    "carousel": "carousel",
-    "chute": "chute_stepper",
-}
-
-
-def _read_stepper_settings(table: str, api_name: str) -> Dict[str, Any]:
-    try:
-        section = machine_toml.read().get(table, {})
-    except Exception:
-        return {}
-    entry = section.get(_STEPPER_API_TO_TOML_NAME.get(api_name, api_name), {}) if isinstance(section, dict) else {}
-    return entry if isinstance(entry, dict) else {}
-
-
-def _write_stepper_settings(table: str, api_name: str, **values: Any) -> None:
-    toml_name = _STEPPER_API_TO_TOML_NAME.get(api_name, api_name)
-    with machine_toml.edit() as config:
-        section = config.get(table, {})
-        if not isinstance(section, dict):
-            section = {}
-        entry = section.get(toml_name, {})
-        if not isinstance(entry, dict):
-            entry = {}
-        entry.update(values)
-        section[toml_name] = entry
-        config[table] = section
-
-
-# Defaults shown in the per-stepper driver settings when a motor has no saved
-# StallGuard config yet. Disabled by default; the numbers are just sane starting
-# points to tune from on the StallGuard page (cruise velocity floor ~150).
-DEFAULT_STALLGUARD_SGTHRS = 50
-DEFAULT_STALLGUARD_ENFORCE_TCOOLTHRS = 150
-
-
-def _stallguard_payload_from_persisted_config(name: str) -> Dict[str, Any]:
-    toml_name = _STEPPER_API_TO_TOML_NAME.get(name, name)
-    # Seed from the motor's built-in default (chute/carousel have tuned ones), so a
-    # fresh machine with no TOML entry still shows its real applied config rather
-    # than a generic placeholder. Motors with no built-in default fall back to the
-    # generic disabled placeholder.
-    builtin = DEFAULT_STEPPER_STALLGUARD.get(toml_name)
-    if builtin is not None:
-        result: Dict[str, Any] = {"sgthrs": builtin[0], "tcoolthrs": builtin[1], "enabled": builtin[2]}
-    else:
-        result = {
-            "sgthrs": DEFAULT_STALLGUARD_SGTHRS,
-            "tcoolthrs": DEFAULT_STALLGUARD_ENFORCE_TCOOLTHRS,
-            "enabled": False,
-        }
-    entry = _read_stepper_settings("stepper_stallguard", name)
-    if isinstance(entry.get("sgthrs"), int):
-        result["sgthrs"] = entry["sgthrs"]
-    if isinstance(entry.get("tcoolthrs"), int):
-        result["tcoolthrs"] = entry["tcoolthrs"]
-    if isinstance(entry.get("enabled"), bool):
-        result["enabled"] = entry["enabled"]
-    return result
+def settings_payload(settings: StepperSettings) -> Dict[str, Any]:
+    """A motor's saved settings (built-in defaults where none is saved), as the
+    driver settings form edits them."""
+    return {
+        "irun": settings.irun,
+        "ihold": settings.ihold,
+        "ihold_delay": settings.ihold_delay,
+        "microsteps": settings.microsteps,
+        "stealthchop": settings.stealthchop,
+        "coolstep": settings.coolstep,
+        "stallguard": {
+            "sgthrs": settings.sgthrs,
+            "tcoolthrs": settings.tcoolthrs,
+            "enabled": settings.stallguard,
+        },
+        "inverted": settings.inverted,
+        "saved": sorted(settings.saved),
+    }
 
 
 # ---------------------------------------------------------------------------
@@ -816,138 +728,62 @@ def stop_stepper(stepper: str) -> StepperStopResponse:
 
 @router.get("/api/stepper/{name}/tmc")
 def get_tmc_settings(name: str) -> Dict[str, Any]:
-    if name not in _STEPPER_API_TO_TOML_NAME:
-        raise HTTPException(status_code=400, detail=f"Unknown stepper '{name}'")
-
-    # Configured values (currents, StallGuard) live in machine.toml and don't need
-    # live hardware to read — so serve them even at standby, when there's no IRL
-    # yet. Only the register read-outs (microsteps, chopper mode, DRV_STATUS,
-    # SG_RESULT) require a live driver; those come back null until hardware is up.
-    try:
-        stepper = _resolve_stepper(name)
-    except HTTPException:
-        stepper = None
-
+    """The motor's saved driver settings, which it runs on from every start and
+    which a change applies at once, plus what its driver reads back when the
+    hardware is up (`driver`, `registers`, DRV_STATUS, SG_RESULT)."""
+    motor = _motor(name)
+    stepper = _live_stepper(motor)
+    result: Dict[str, Any] = {
+        "hardware_ready": stepper is not None,
+        **settings_payload(readStepperSettings(motor)),
+        "capabilities": {
+            "tmc_uart_available": False,
+            "queryable_fields": list(TMC_QUERYABLE_FIELDS),
+        },
+        "registers": None,
+        "driver": None,
+        "drv_status": None,
+        "sg_result": None,
+        "stalled": False,
+    }
     if stepper is None:
-        persisted_current = _current_payload_from_persisted_config(name)
-        return {
-            "hardware_ready": False,
-            "irun": persisted_current["irun"],
-            "ihold": persisted_current["ihold"],
-            "ihold_delay": persisted_current["ihold_delay"],
-            "stallguard": _stallguard_payload_from_persisted_config(name),
-            "capabilities": {
-                "tmc_uart_available": False,
-                "queryable_fields": list(TMC_QUERYABLE_FIELDS),
-            },
-            "registers": None,
-            "microsteps": None,
-            "stealthchop": None,
-            "coolstep": None,
-            "drv_status": None,
-            "sg_result": None,
-        }
+        return result
 
     registers = _tmc_register_snapshot(stepper)
     gconf_raw = registers["gconf"]
     chopconf_raw = registers["chopconf"]
-    coolconf_raw = registers["coolconf"]
     drv_status_raw = registers["drv_status"]
-
-    result: Dict[str, Any] = {"hardware_ready": True}
-    current_payload = _desired_stepper_current_payload(name, stepper)
-    result["irun"] = current_payload["irun"]
-    result["ihold"] = current_payload["ihold"]
-    result["ihold_delay"] = current_payload["ihold_delay"]
     result["capabilities"] = {
         **_stepper_diag_capabilities(stepper),
         "tmc_uart_available": True,
         "queryable_fields": list(TMC_QUERYABLE_FIELDS),
     }
     result["registers"] = registers
-
-    if chopconf_raw is not None:
-        result["microsteps"] = _parse_chopconf_mres(chopconf_raw)
-    else:
-        result["microsteps"] = None
-
-    if gconf_raw is not None:
-        result["stealthchop"] = not bool(gconf_raw & (1 << 2))
-    else:
-        result["stealthchop"] = None
-
-    if coolconf_raw is not None:
-        result["coolstep"] = (coolconf_raw & 0x0F) > 0  # semin > 0
-    else:
-        result["coolstep"] = None
-
+    # What the driver runs on now. IHOLD_IRUN, COOLCONF, SGTHRS and TCOOLTHRS
+    # cannot be read back from a TMC2209, so the current is the last one sent.
+    last_current = getattr(stepper, "last_set_current", None)
+    result["driver"] = {
+        **(last_current if isinstance(last_current, dict) else {"irun": None, "ihold": None, "ihold_delay": None}),
+        "microsteps": _parse_chopconf_mres(chopconf_raw) if chopconf_raw is not None else None,
+        "stealthchop": not bool(gconf_raw & (1 << 2)) if gconf_raw is not None else None,
+        "direction_inverted": bool(getattr(stepper, "direction_inverted", False)),
+    }
     if drv_status_raw is not None:
         # DRV_STATUS also contains its own SG_RESULT bitfield view. Keep both:
         # `registers.sg_result` is the raw 0x41 register, while
         # `drv_status.sg_result` is the SG_RESULT field decoded from 0x6F.
         result["drv_status"] = _parse_drv_status(drv_status_raw)
-    else:
-        result["drv_status"] = None
-
-    if registers["sg_result"] is not None:
-        # Surface the direct 0x41 register value at top level for convenience.
-        result["sg_result"] = registers["sg_result"]
-    else:
-        result["sg_result"] = None
-
-    # Persisted StallGuard stall-detection config (or defaults) so the driver
-    # settings UI can show/edit it alongside the other TMC settings.
-    result["stallguard"] = _stallguard_payload_from_persisted_config(name)
-
+    # The direct 0x41 register value, at top level for convenience.
+    result["sg_result"] = registers["sg_result"]
     # Live stall latch (mirrored by the stall monitor) so a station's page can show
     # "this motor is stalled" and offer to clear it.
     result["stalled"] = bool(getattr(stepper, "stalled", False))
-
     return result
 
 
 @router.post("/api/stepper/{name}/tmc")
 def set_tmc_settings(name: str, body: TmcSettingsRequest) -> Dict[str, Any]:
-    stepper = _resolve_stepper(name)
-
-    if body.irun is not None or body.ihold is not None:
-        current = _desired_stepper_current_payload(name, stepper)
-        irun = body.irun if body.irun is not None else current["irun"]
-        ihold = body.ihold if body.ihold is not None else current["ihold"]
-        if not (0 <= irun <= 31):
-            raise HTTPException(status_code=400, detail="irun must be 0-31")
-        if not (0 <= ihold <= 31):
-            raise HTTPException(status_code=400, detail="ihold must be 0-31")
-        stepper.set_current(irun, ihold, current["ihold_delay"])
-        _stepper_current_cache[name] = {
-            "irun": irun,
-            "ihold": ihold,
-            "ihold_delay": current["ihold_delay"],
-        }
-        _write_stepper_settings("stepper_current_overrides", name, irun=irun, ihold=ihold)
-
-    if body.microsteps is not None:
-        if body.microsteps not in MICROSTEPS_TO_MRES:
-            raise HTTPException(status_code=400, detail=f"microsteps must be one of {sorted(MICROSTEPS_TO_MRES.keys())}")
-        stepper.set_microsteps(body.microsteps)
-
-    if body.stealthchop is not None:
-        gconf_raw = _safe_read_register(stepper, TMC_REG_GCONF)
-        if gconf_raw is not None:
-            if body.stealthchop:
-                gconf_raw &= ~(1 << 2)  # clear EN_SPREADCYCLE
-            else:
-                gconf_raw |= (1 << 2)   # set EN_SPREADCYCLE
-            stepper.write_driver_register(TMC_REG_GCONF, gconf_raw)
-
-    if body.coolstep is not None:
-        if body.coolstep:
-            # semin=5, semax=2, seup=1(=2 increments), sedn=0(=32 steps)
-            coolconf = (5 & 0x0F) | ((2 & 0x0F) << 8) | ((1 & 0x03) << 5) | ((0 & 0x03) << 13)
-            stepper.write_driver_register(TMC_REG_COOLCONF, coolconf)
-            stepper.write_driver_register(TMC_REG_TCOOLTHRS, 0xFFFFF)
-        else:
-            stepper.write_driver_register(TMC_REG_COOLCONF, 0)
-            stepper.write_driver_register(TMC_REG_TCOOLTHRS, 0)
-
+    """Save the settings sent and put them on the running driver; with the
+    hardware down they are saved and apply at the next start."""
+    save_stepper_settings(_motor(name), body.model_dump(exclude_none=True))
     return get_tmc_settings(name)

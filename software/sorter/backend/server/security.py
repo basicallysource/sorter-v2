@@ -102,7 +102,12 @@ def _this_device_hosts() -> frozenset[str]:
             hosts.add(f"{hostname}.local")
     tailscale_name = _tailscale_hostname()
     if tailscale_name:
-        hosts.add(tailscale_name.strip().lower())
+        name = tailscale_name.strip().lower()
+        hosts.add(name)
+        if _tailnet:
+            # The full MagicDNS name, which is what a browser on another
+            # tailnet (or with MagicDNS search off) has to use.
+            hosts.add(f"{name}.{_tailnet.lower()}")
     hosts.update(_local_ip_addresses())
     return frozenset(hosts)
 
@@ -218,6 +223,9 @@ def compute_allowed_ui_origins() -> list[str]:
 _tailscale_name: str | None = None
 _saved_tailscale_name: str | None = None
 _save_tailscale_name: Callable[[str], None] | None = None
+# The tailnet's MagicDNS suffix ("tail1234ab.ts.net") from the last time
+# Tailscale answered.
+_tailnet: str | None = None
 
 
 def keep_tailscale_name(saved: str | None, save: Callable[[str], None]) -> None:
@@ -246,7 +254,11 @@ def _tailscale_hostname() -> str | None:
 
 
 def _query_tailscale_hostname() -> str | None:
-    return tailscale_status.read(timeout=2.0).get("hostname")
+    global _tailnet
+    status = tailscale_status.read(timeout=2.0)
+    if status.get("tailnet"):
+        _tailnet = status["tailnet"]
+    return status.get("hostname")
 
 
 def _dedupe_origins(origins: list[str]) -> list[str]:

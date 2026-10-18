@@ -192,6 +192,14 @@ def _startPerception(gc: GlobalConfig, irl_config, camera_service) -> None:
         gc.logger.warning(f"Failed to start channel-crop collector: {exc}")
 
     try:
+        from zones import learner as zone_learner
+
+        zone_learner.start(service, gc.logger)
+        gc.logger.info("Zone learner started.")
+    except Exception as exc:
+        gc.logger.warning(f"Failed to start the zone learner: {exc}")
+
+    try:
         import control_data_store
         from perception.transition_capture import ControlDataCollector
 

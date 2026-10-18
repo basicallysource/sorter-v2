@@ -44,7 +44,7 @@ from fastapi import APIRouter, HTTPException, WebSocket
 from starlette.concurrency import run_in_threadpool
 
 import machine_toml
-from local_state import channel_polygons_revision
+from zones.store import revision as zones_revision
 from perception.overlay import feedZoneShapes
 from server import shared_state
 from server.routers.cameras import _camera_source_for_role, _open_camera_for_probe
@@ -254,8 +254,6 @@ class _RoleFeed(_Feed):
         for d in detections:
             if d.in_primary:
                 continue
-            if d.secondary_zone_ids:
-                boxes.append(box("seen", d.bbox))
             if getattr(d, "in_margin", False):
                 boxes.append(box("margin", d.bbox))
         # Originals (what the model drew); on C4 the merged boxes go over them.
@@ -269,7 +267,7 @@ class _RoleFeed(_Feed):
     def _layout(self, shot: _Shot) -> tuple[int, dict] | None:
         """The layout this frame is drawn with, built again only when the
         channel perception works with or the saved zones change."""
-        built_for = (shot.channel, channel_polygons_revision())
+        built_for = (shot.channel, zones_revision())
         last = self.layout_for
         if last is None or last[0] is not built_for[0] or last[1] != built_for[1]:
             layout = {

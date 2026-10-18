@@ -83,7 +83,6 @@ def serialize_debug(debug: Dict[str, Any]) -> Optional[Dict[str, Any]]:
             {
                 "bbox": _bbox(d.bbox),
                 "in_primary": bool(getattr(d, "in_primary", False)),
-                "secondary_zone_ids": list(getattr(d, "secondary_zone_ids", ()) or ()),
                 "track_id": getattr(d, "sv_bt_track_id", None),
             }
         )
@@ -271,16 +270,13 @@ def events_stream(role: str):
 @router.get("/api/recording/zones/{role}")
 def zones(role: str) -> Dict[str, Any]:
     """The static zone overlay for a role at full frame resolution, as PNGs:
-    the colour fill the feed blends at low opacity, the channel mask whose
-    contour is the outline, and each secondary zone's mask. Fetched once per
-    recording; combined with ``/events`` it reproduces the live overlay."""
+    the colour fill the feed blends at low opacity and the channel mask whose
+    contour is the outline. Fetched once per recording; combined with
+    ``/events`` it reproduces the live overlay."""
     from perception.overlay import (
         CHANNEL_OUTLINE_COLOR,
         MERGED_COLOR,
         ON_CHANNEL_COLOR,
-        SECONDARY_DETECTION_COLOR,
-        SECONDARY_ZONE_COLORS,
-        SECONDARY_ZONE_DEFAULT_COLOR,
         channelZoneOverlay,
     )
 
@@ -288,18 +284,6 @@ def zones(role: str) -> Dict[str, Any]:
     thread = _capture_thread(role)
     base = channelZoneOverlay(channel)
     overlay = base[0] if base is not None else np.zeros((*np.asarray(channel.mask).shape[:2], 3), np.uint8)
-    secondary = []
-    for zone in getattr(channel, "secondary_zones", None) or []:
-        mask = np.asarray(getattr(zone, "mask", None))
-        if mask.ndim != 2 or mask.size == 0:
-            continue
-        secondary.append(
-            {
-                "id": str(getattr(zone, "id", "")),
-                "zone_type": str(getattr(zone, "zone_type", "")),
-                "mask_png_b64": _png_b64(_mask_u8(mask)),
-            }
-        )
     return {
         "ok": True,
         "role": role,
@@ -309,14 +293,10 @@ def zones(role: str) -> Dict[str, Any]:
         "capture_mode": thread.getCaptureMode() if hasattr(thread, "getCaptureMode") else None,
         "overlay_png_b64": _png_b64(np.ascontiguousarray(overlay)),
         "mask_png_b64": _png_b64(_mask_u8(channel.mask)),
-        "secondary": secondary,
         "colors": {
             "on_channel": list(ON_CHANNEL_COLOR),
             "merged": list(MERGED_COLOR),
             "channel_outline": list(CHANNEL_OUTLINE_COLOR),
-            "secondary_detection": list(SECONDARY_DETECTION_COLOR),
-            "secondary_zone": {k: list(v) for k, v in SECONDARY_ZONE_COLORS.items()},
-            "secondary_zone_default": list(SECONDARY_ZONE_DEFAULT_COLOR),
         },
         "zone_fill_alpha": 0.15,
     }

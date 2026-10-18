@@ -30,8 +30,6 @@ def test_zones_are_traced_where_their_sections_are() -> None:
     mask = np.zeros((200, 400), np.uint8)
     cv2.circle(mask, (200, 100), 90, 255, -1)
     cv2.circle(mask, (200, 100), 40, 0, -1)
-    foreign = np.zeros_like(mask)
-    foreign[10:30, 10:30] = 255
     channel = SimpleNamespace(
         mask=mask,
         center=(200.0, 100.0),
@@ -40,7 +38,6 @@ def test_zones_are_traced_where_their_sections_are() -> None:
         exit_sections=frozenset(range(90, 150)),
         precise_sections=frozenset(range(120, 150)),
         exit_margin_mask=None,
-        secondary_zones=[SimpleNamespace(zone_type="exit", mask=foreign)],
     )
 
     shapes = feedZoneShapes(channel, 200)
@@ -53,6 +50,3 @@ def test_zones_are_traced_where_their_sections_are() -> None:
     assert _within(shapes["exit"], 90, 120)
     assert _within(shapes["precise"], 120, 150)
     assert len(shapes["outline"]) == 1 and shapes["margin"] == []
-    [secondary] = shapes["secondary"]
-    assert secondary["type"] == "exit"
-    assert max(secondary["rings"][0][0::2]) < 0.1

@@ -70,7 +70,7 @@ def test_raw_part_framing_carries_timestamp_and_seq() -> None:
 
 def test_serialize_debug_matches_what_the_feed_overlay_draws() -> None:
     frame = types.SimpleNamespace(timestamp=12.5)
-    det = types.SimpleNamespace(bbox=(1, 2, 3, 4), in_primary=True, secondary_zone_ids=("z",), sv_bt_track_id=9)
+    det = types.SimpleNamespace(bbox=(1, 2, 3, 4), in_primary=True, sv_bt_track_id=9)
     debug = {
         "frame": frame,
         "infer_ms": 4.2,
@@ -86,7 +86,7 @@ def test_serialize_debug_matches_what_the_feed_overlay_draws() -> None:
     assert out["type"] == "infer" and out["frame_ts"] == 12.5
     assert out["on_bboxes"] == [[1.0, 2.0, 3.0, 4.0]]  # pre-merge wins, as on the live feed
     assert out["detections"] == [
-        {"bbox": [1.0, 2.0, 3.0, 4.0], "in_primary": True, "secondary_zone_ids": ["z"], "track_id": 9}
+        {"bbox": [1.0, 2.0, 3.0, 4.0], "in_primary": True, "track_id": 9}
     ]
     assert out["merged_bboxes"] == [[1.0, 2.0, 5.0, 6.0]] and out["merged_track_ids"] == [9]
     assert serialize_debug({"frame": None}) is None

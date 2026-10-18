@@ -25,16 +25,6 @@ CHANNEL_OUTLINE_COLOR = (255, 255, 0)
 # the model drew vs. what we treat as one piece.
 MERGED_COLOR = (255, 0, 128)
 
-# Secondary (foreign) zones: same hue family as the matching primary zone type
-# but drawn as a thin desaturated outline (no fill) so they read as "observed,
-# not acted on." A detection that lands in any secondary zone is boxed in cyan.
-SECONDARY_ZONE_COLORS = {
-    "drop": (200, 160, 120),
-    "exit": (120, 140, 220),
-    "precise": (200, 120, 200),
-}
-SECONDARY_ZONE_DEFAULT_COLOR = (180, 180, 180)
-SECONDARY_DETECTION_COLOR = (255, 255, 0)
 # A piece just past a feeder channel's exit: seen, no longer on the channel.
 EXIT_MARGIN_COLOR = (160, 160, 160)
 
@@ -198,8 +188,8 @@ def _rings(mask: np.ndarray, mode: int, width: int, height: int) -> list[list[fl
 def feedZoneShapes(channel: Any, width: int) -> dict[str, Any] | None:
     """The live feed's zones as shapes: each zone's area (``drop``, ``exit``,
     ``precise``, filled even-odd so a hole stays a hole), the channel's
-    ``outline``, the exit ``margin`` and the ``secondary`` (foreign) zones'
-    outlines. Traced at ``width`` pixels across, the size the feed is sent at;
+    ``outline`` and the exit ``margin``. Traced at ``width`` pixels across, the
+    size the feed is sent at;
     the same sections as ``channelZoneOverlay``, without its full-resolution
     pass."""
     mask = np.asarray(channel.mask)
@@ -242,17 +232,8 @@ def feedZoneShapes(channel: Any, width: int) -> dict[str, Any] | None:
         areas[name] = _rings(area, cv2.RETR_CCOMP, w, h)
 
     margin_mask = getattr(channel, "exit_margin_mask", None)
-    secondary = []
-    for zone in getattr(channel, "secondary_zones", None) or ():
-        zone_mask = np.asarray(zone.mask)
-        if zone_mask.ndim != 2 or zone_mask.size == 0:
-            continue
-        secondary.append(
-            {"type": str(zone.zone_type), "rings": _rings(small(zone_mask), cv2.RETR_EXTERNAL, w, h)}
-        )
     return {
         **areas,
         "outline": _rings(on_channel, cv2.RETR_EXTERNAL, w, h),
         "margin": _rings(small(margin_mask), cv2.RETR_EXTERNAL, w, h) if margin_mask is not None else [],
-        "secondary": secondary,
     }

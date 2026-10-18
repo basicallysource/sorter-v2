@@ -16,8 +16,7 @@ import db
 
 STATE_KEY_MACHINE_ID = "machine_id"
 STATE_KEY_SORTING_PROFILE_SYNC = "sorting_profile_sync"
-_STATE_KEY_CHANNEL_POLYGONS = "channel_polygons"
-_STATE_KEY_CLASSIFICATION_POLYGONS = "classification_polygons"
+_STATE_KEY_CHANNEL_ZONES = "channel_polygons"
 _STATE_KEY_HIVE = "hive"
 _STATE_KEY_API_KEYS = "api_keys"
 _STATE_KEY_SERVO_STATES = "servo_states"
@@ -220,31 +219,23 @@ def set_basically_services_state(record: dict[str, Any]) -> None:
     _write_state(_STATE_KEY_BASICALLY_SERVICES, record)
 
 
-def get_channel_polygons() -> dict[str, Any] | None:
-    return _read_dict(_STATE_KEY_CHANNEL_POLYGONS)
+def get_channel_zones_blob() -> dict[str, Any] | None:
+    return _read_dict(_STATE_KEY_CHANNEL_ZONES)
 
 
 # Counts the saves of the channel zones in this process, so whatever is built
 # from them can tell cheaply that it is out of date.
-_channel_polygons_revision = 0
+_channel_zones_revision = 0
 
 
-def channel_polygons_revision() -> int:
-    return _channel_polygons_revision
+def channel_zones_revision() -> int:
+    return _channel_zones_revision
 
 
-def set_channel_polygons(polygons: dict[str, Any]) -> None:
-    global _channel_polygons_revision
-    _write_state(_STATE_KEY_CHANNEL_POLYGONS, dict(polygons))
-    _channel_polygons_revision += 1
-
-
-def get_classification_polygons() -> dict[str, Any] | None:
-    return _read_dict(_STATE_KEY_CLASSIFICATION_POLYGONS)
-
-
-def set_classification_polygons(polygons: dict[str, Any]) -> None:
-    _write_state(_STATE_KEY_CLASSIFICATION_POLYGONS, dict(polygons))
+def set_channel_zones_blob(blob: dict[str, Any]) -> None:
+    global _channel_zones_revision
+    _write_state(_STATE_KEY_CHANNEL_ZONES, dict(blob))
+    _channel_zones_revision += 1
 
 
 def get_sample_collection_state() -> dict[str, Any] | None:

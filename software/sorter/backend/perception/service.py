@@ -22,13 +22,15 @@ import hashlib
 import threading
 import time
 from dataclasses import dataclass
-from typing import Any, Dict, Optional
+from typing import Any, Callable, Dict, Optional
 
-import numpy as np
+
+from zones.model import CAMERA_ROLE, ChannelZones, toDict
+from zones.store import loadZones, subscribe as subscribeToZones
 
 from .arcs import bboxInsideChannelMask
 from .capture import CaptureWorker
-from .channel import CHANNEL_REGISTRY, ChannelDef, channelDefFromBlob
+from .channel import ChannelDef, channelDefFor
 from .inference import InferenceWorker, OnExitEdge
 from .runtime import InferenceRuntime, RknnYoloRuntime
 from .state import ChannelState, EMPTY_STATE, LatestStateSlot
@@ -51,12 +53,12 @@ _PERCEPTION_ROLE_ALIASES = {
 
 def is_perception_role(role: str) -> bool:
     """Whether a camera role belongs to the perception stack — a STATIC fact
-    from ``CHANNEL_REGISTRY``, with NO dependency on a built service instance.
+    from ``CAMERA_ROLE``, with NO dependency on a built service instance.
     The feed endpoint uses this so a perception role is routed to the perception
     renderer even on a fresh boot before ``PerceptionService`` exists (it shows
     raw video until perception is ready, never the legacy VisionManager
     overlay)."""
-    registry_sources = {src for (src, _poly, _ang) in CHANNEL_REGISTRY.values()}
+    registry_sources = set(CAMERA_ROLE.values())
     for candidate in (role, _PERCEPTION_ROLE_ALIASES.get(role)):
         if candidate is not None and candidate in registry_sources:
             return True
@@ -64,7 +66,7 @@ def is_perception_role(role: str) -> bool:
 
 
 # RK3588 has three NPU cores. We pin each perception channel to a fixed
-# core; the order matches CHANNEL_REGISTRY insertion order so C2/C3/C4
+# core; the order matches CAMERA_ROLE's so C2/C3/C4
 # always land on the same cores boot to boot.
 _NPU_CORE_NAMES: tuple[str, ...] = ("NPU_CORE_0", "NPU_CORE_1", "NPU_CORE_2")
 
@@ -118,6 +120,7 @@ class PerceptionService:
         self._reconcile_stop = threading.Event()
         self._reconcile_wake = threading.Event()
         self._reconcile_thread: Optional[threading.Thread] = None
+        self._unsubscribe_zones: Optional[Callable[[], None]] = None
 
     # --- lifecycle -------------------------------------------------------
 
@@ -137,6 +140,9 @@ class PerceptionService:
                     name="perception-reconcile",
                 )
                 self._reconcile_thread.start()
+                # A zone save, from the editor or from the machine adjusting
+                # them, is picked up at once rather than at the next poll.
+                self._unsubscribe_zones = subscribeToZones(self.request_reconcile)
 
     def stop(self, timeout: float = 2.0) -> None:
         with self._start_lock:
@@ -144,6 +150,9 @@ class PerceptionService:
                 return
             self._reconcile_stop.set()
             self._reconcile_wake.set()
+            if self._unsubscribe_zones is not None:
+                self._unsubscribe_zones()
+                self._unsubscribe_zones = None
             for w in self._workers.values():
                 w.stop(timeout=timeout)
             self._started = False
@@ -213,7 +222,7 @@ class PerceptionService:
             retired_runtimes: list[InferenceRuntime] = []
             changed = False
 
-            for channel_id in CHANNEL_REGISTRY:
+            for channel_id in CAMERA_ROLE:
                 gathered = _gather_channel(ctx, channel_id, disk)
                 if gathered is None:
                     # Missing polygon / no frame yet / no algorithm. Leave any
@@ -225,15 +234,27 @@ class PerceptionService:
                 if already_wired and prev == gathered.fingerprint:
                     continue
 
-                channel_def = channelDefFromBlob(
-                    channel_id,
-                    saved_polygons=disk.saved_polygons,
-                    channel_angles=disk.channel_angles,
-                    arc_params=disk.arc_params,
-                    frame_shape=gathered.frame_shape,
-                    secondary_zones=disk.secondary_zones,
-                )
-                if channel_def is None:
+                channel_def = channelDefFor(gathered.zones, gathered.frame_shape)
+
+                running = self._workers.get(channel_id)
+                if (
+                    running is not None
+                    and running.is_alive
+                    and prev is not None
+                    and prev.runtime == gathered.fingerprint.runtime
+                    and prev.worker == gathered.fingerprint.worker
+                ):
+                    # Only the zones moved: the running worker takes them from
+                    # its next frame on and keeps its tracks.
+                    running.setChannelDef(channel_def)
+                    new_channels[channel_id] = channel_def
+                    self._fingerprints[channel_id] = gathered.fingerprint
+                    changed = True
+                    _log(ctx.gc, "info",
+                         f"[perception] channel {channel_id} ({gathered.role}) zones updated "
+                         f"center={channel_def.center} |drop|={len(channel_def.drop_sections)} "
+                         f"|exit|={len(channel_def.exit_sections)} "
+                         f"|precise|={len(channel_def.precise_sections)}")
                     continue
 
                 reuse_runtime = (
@@ -365,40 +386,6 @@ class PerceptionService:
             return None
         return worker.latest_pieces_frame
 
-    def secondary_zone_occupied(
-        self,
-        channel_id: int,
-        *,
-        source_channel: Optional[int] = None,
-        zone_type: Optional[str] = None,
-    ) -> bool:
-        """Does ``channel_id``'s camera currently see a piece inside a secondary
-        (foreign) zone matching the filter? e.g. ``secondary_zone_occupied(4,
-        source_channel=3)`` answers "does the classification camera see a piece in
-        C3's annotated exit/precise zone." Returns ``False`` when the channel is
-        unwired, has no matching secondary zone, or has produced no detection yet
-        — so a consumer that gates on this is a no-op until a zone is drawn.
-        Cheap: a handful of set lookups over the last cycle's tagged detections."""
-        worker = self._workers.get(channel_id)
-        channel = self._channels.get(channel_id)
-        if worker is None or channel is None:
-            return False
-        matching_ids = {
-            z.id
-            for z in channel.secondary_zones
-            if (source_channel is None or z.source_channel == source_channel)
-            and (zone_type is None or z.zone_type == zone_type)
-        }
-        if not matching_ids:
-            return False
-        detections = worker.latest_detections
-        if not detections:
-            return False
-        for d in detections:
-            if any(sid in matching_ids for sid in d.secondary_zone_ids):
-                return True
-        return False
-
     # --- introspection --------------------------------------------------
 
     def channels(self) -> Dict[int, ChannelDef]:
@@ -431,7 +418,7 @@ class PerceptionService:
 
     def owns_role(self, role: str) -> bool:
         """Whether this camera role belongs to the perception stack — a STATIC
-        fact from ``CHANNEL_REGISTRY``, independent of whether the channel has
+        fact from ``CAMERA_ROLE``, independent of whether the channel has
         finished building. The feed endpoint uses this to decide the stack ONCE:
         a perception role's annotations come only from perception, never the
         legacy VisionManager overlay, even while the channel is still warming up
@@ -545,7 +532,7 @@ def _resolve_algorithm_id_per_channel(
     subsystem's model — the operator picks a model per subsystem explicitly."""
     out: Dict[int, str] = {}
     feeder_by_role = (feeder_config or {}).get("algorithm_by_role") or {}
-    for ch_id, (role, _polygon_key, _angle_key) in CHANNEL_REGISTRY.items():
+    for ch_id, role in CAMERA_ROLE.items():
         if ch_id == 4:
             algo = (carousel_config or {}).get("algorithm")
         else:
@@ -563,10 +550,10 @@ def _wait_for_frame_shapes(
     at least one frame. Missing cameras are left out — the build step
     skips those channels."""
     out: dict[str, tuple[int, int]] = {}
-    roles_needed = {role for _, (role, _, _) in CHANNEL_REGISTRY.items()}
+    roles_needed = set(CAMERA_ROLE.values())
     deadline = time.monotonic() + timeout_s
     while time.monotonic() < deadline and len(out) < len(roles_needed):
-        for ch_id, (role, _polygon_key, _angle_key) in CHANNEL_REGISTRY.items():
+        for role in CAMERA_ROLE.values():
             if role in out:
                 continue
             cap = camera_service.get_capture_thread_for_role(role)
@@ -610,7 +597,7 @@ def _frame_shape_for_capture(capture_thread: Any) -> Optional[tuple[int, int]]:
 # always lands on core N, boot to boot and rewire to rewire. A channel that is
 # late-bound by the reconcile loop therefore gets the same core it would have
 # gotten at boot.
-_CORE_ORDER: tuple[int, ...] = tuple(CHANNEL_REGISTRY.keys())
+_CORE_ORDER: tuple[int, ...] = tuple(CAMERA_ROLE.keys())
 
 
 def _core_for_channel(channel_id: int) -> str:
@@ -633,25 +620,25 @@ class _ReconcileContext:
 @dataclass(frozen=True)
 class _ChannelFingerprint:
     """Signature of the inputs a wired channel was built from. ``runtime`` is
-    compared on its own so a zone-only edit reuses the loaded RKNN runtime
-    (no model reload); ``worker`` covers the rest (zones, camera, conf)."""
+    compared on its own so a camera change reuses the loaded RKNN runtime (no
+    model reload); ``worker`` is the camera and threshold; ``zones`` alone
+    changing swaps the zones into the running worker."""
 
     runtime: tuple
     worker: tuple
+    zones: str
 
 
 @dataclass(frozen=True)
 class _DiskInputs:
-    saved_polygons: Dict[str, np.ndarray]
-    channel_angles: dict
-    arc_params: dict
+    zones: Dict[int, ChannelZones]
     algo_by_channel: Dict[int, str]
-    secondary_zones: dict
 
 
 @dataclass(frozen=True)
 class _GatheredChannel:
     role: str
+    zones: ChannelZones
     capture_thread: Any
     frame_shape: tuple[int, int]
     algorithm_id: str
@@ -663,54 +650,28 @@ class _GatheredChannel:
 
 
 def _read_disk_inputs(gc: Any) -> _DiskInputs:
-    """Read the saved zone blob + detection config that perception is driven
-    by. Cheap (small JSON via local_state and toml_config) — safe to call
-    every reconcile pass and on every UI-save poke.
-
-    Saved blob shape: { "polygons": {"second_channel": [...], ...},
-                        "channel_angles": {"second": ..., ...},
-                        "arc_params": {"second": {drop_zone, exit_zone, ...}, ...} }
-    """
-    from local_state import get_channel_polygons
+    """Read the saved zones + detection config that perception is driven by.
+    Cheap (small JSON via local_state and toml_config) — safe to call every
+    reconcile pass and on every UI-save poke."""
     from toml_config import getDetectionConfig
 
-    raw_polygons = get_channel_polygons() or {}
-    channel_angles = raw_polygons.get("channel_angles") or {}
-    arc_params = raw_polygons.get("arc_params") or {}
-    secondary_zones = raw_polygons.get("secondary_zones") or {}
-    polygon_blob = raw_polygons.get("polygons") or {}
-    saved_polygons: Dict[str, np.ndarray] = {}
-    for key in ("second_channel", "third_channel", "classification_channel"):
-        poly = polygon_blob.get(key)
-        if poly is None:
-            continue
-        try:
-            saved_polygons[key] = np.asarray(poly)
-        except Exception:
-            continue
     algo_by_channel = _resolve_algorithm_id_per_channel(
         getDetectionConfig("feeder"), getDetectionConfig("carousel")
     )
-    return _DiskInputs(
-        saved_polygons=saved_polygons,
-        channel_angles=channel_angles,
-        arc_params=arc_params,
-        algo_by_channel=algo_by_channel,
-        secondary_zones=secondary_zones if isinstance(secondary_zones, dict) else {},
-    )
+    return _DiskInputs(zones=loadZones(), algo_by_channel=algo_by_channel)
 
 
 def _gather_channel(
     ctx: _ReconcileContext, channel_id: int, disk: _DiskInputs
 ) -> Optional[_GatheredChannel]:
-    """Resolve everything one channel needs right now — polygon, live camera +
+    """Resolve everything one channel needs right now — zones, live camera +
     frame shape, algorithm → model — plus the input fingerprint. Returns
-    ``None`` when any piece is missing (no polygon, camera not producing frames
+    ``None`` when any piece is missing (no zones, camera not producing frames
     yet, no algorithm/model) so the channel is simply left unwired this pass."""
-    role, polygon_key, angle_key = CHANNEL_REGISTRY[channel_id]
-    polygon = disk.saved_polygons.get(polygon_key)
-    if polygon is None or len(polygon) < 3:
+    zones = disk.zones.get(channel_id)
+    if zones is None:
         return None
+    role = CAMERA_ROLE[channel_id]
     capture_thread = ctx.camera_service.get_capture_thread_for_role(role)
     if capture_thread is None:
         return None
@@ -726,22 +687,18 @@ def _gather_channel(
     model_path, imgsz = model_info
     core_name = _core_for_channel(channel_id)
     conf = float(ctx.resolved_conf.get(channel_id, 0.25))
-    arc_entry = disk.arc_params.get(polygon_key) or disk.arc_params.get(angle_key)
-    secondary_entry = disk.secondary_zones.get(polygon_key)
-    poly_arr = np.asarray(polygon)
-    cd_hash = hashlib.md5(
-        poly_arr.tobytes()
-        + repr(arc_entry).encode("utf-8", "replace")
-        + repr(secondary_entry).encode("utf-8", "replace")
-        + repr(float(disk.channel_angles.get(angle_key, 0.0))).encode()
-        + repr(tuple(frame_shape)).encode()
+    geometry = {k: v for k, v in toDict(zones).items() if k not in ("locked", "source", "updated_at")}
+    zones_hash = hashlib.md5(
+        (repr(sorted(geometry.items())) + repr(tuple(frame_shape))).encode()
     ).hexdigest()
     fingerprint = _ChannelFingerprint(
         runtime=(algorithm_id, str(model_path), int(imgsz), core_name, conf),
-        worker=(cd_hash, id(capture_thread), conf),
+        worker=(id(capture_thread), conf),
+        zones=zones_hash,
     )
     return _GatheredChannel(
         role=role,
+        zones=zones,
         capture_thread=capture_thread,
         frame_shape=frame_shape,
         algorithm_id=algorithm_id,
@@ -825,42 +782,24 @@ def build(
 
 
 def _log_channel_diagnostics(gc: Any, service: PerceptionService, disk: _DiskInputs) -> None:
-    """Per-channel section + arc_center sanity dump. Hard-errors when a wired
-    channel has no saved ``arc_center`` — without it the section→pixel mapping
-    silently rotates away from the UI overlay (the classic footgun here)."""
+    """One line per wired channel: its zones in sections and its center."""
     try:
         for ch_id, ch_def in service.channels().items():
-            polygon_key = CHANNEL_REGISTRY[ch_id][1]
-            angle_key = CHANNEL_REGISTRY[ch_id][2]
-            arc_entry = disk.arc_params.get(polygon_key) or disk.arc_params.get(angle_key)
-            arc_keys = list(arc_entry.keys()) if isinstance(arc_entry, dict) else None
-            arc_center_raw = arc_entry.get("center") if isinstance(arc_entry, dict) else None
-            saved_res = arc_entry.get("resolution") if isinstance(arc_entry, dict) else None
+            zones = disk.zones.get(ch_id)
             exit_only = ch_def.exit_sections - ch_def.precise_sections
             gc.logger.info(
-                f"[perception loadChannelDefs] ch={ch_id} src={ch_def.camera_source_id} "
-                f"section_zero_angle={ch_def.radius1_angle_image:.2f} | "
+                f"[perception] ch={ch_id} src={ch_def.camera_source_id} "
+                f"reference_angle={ch_def.radius1_angle_image:.2f} | "
                 f"|drop|={len(ch_def.drop_sections)} "
                 f"|exit_union|={len(ch_def.exit_sections)} "
                 f"|precise|={len(ch_def.precise_sections)} "
                 f"|exit_only|={len(exit_only)} | "
-                f"used_center={ch_def.center} "
-                f"saved_arc_center={arc_center_raw} saved_resolution={saved_res} "
-                f"mask={ch_def.mask.shape[1]}x{ch_def.mask.shape[0]} | "
-                f"arc_entry_keys={arc_keys}"
+                f"center={ch_def.center} "
+                f"zones_frame={zones.frame if zones else None} "
+                f"mask={ch_def.mask.shape[1]}x{ch_def.mask.shape[0]}"
             )
-            if arc_center_raw is None:
-                gc.logger.error(
-                    f"[perception loadChannelDefs] ch={ch_id}: arc_params has NO 'center' key. "
-                    f"Falling back to polygon centroid — section→pixel mapping WILL be wrong "
-                    f"(rotated) and will not match the UI overlay. Fix the saved arc_params blob "
-                    f"in local_state and reload."
-                )
-        gc.logger.info(
-            f"[perception loadChannelDefs] top-level arc_params keys={list(disk.arc_params.keys())}"
-        )
     except Exception as exc:
-        _log(gc, "warning", f"[perception loadChannelDefs] diagnostic log failed: {exc}")
+        _log(gc, "warning", f"[perception] diagnostic log failed: {exc}")
 
 
 def _log(gc: Any, level: str, msg: str) -> None:

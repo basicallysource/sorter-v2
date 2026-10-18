@@ -20,12 +20,8 @@ from defs.events import (
 )
 from local_state import (
     get_api_keys,
-    get_channel_polygons,
-    get_classification_polygons,
     get_or_create_machine_id,
     get_sorting_profile_sync_state,
-    set_channel_polygons,
-    set_classification_polygons,
 )
 from toml_config import getMachineNickname, setMachineNickname
 from server.set_progress_sync import getSetProgressSyncWorker
@@ -155,6 +151,7 @@ from server.routers.firmware import router as firmware_router
 from server.routers.versions import router as versions_router
 from server.routers.status_ping import router as status_ping_router
 from server.routers.leds import router as leds_router
+from server.routers.zones import router as zones_router
 
 app.include_router(hardware_router)
 app.include_router(steppers_router)
@@ -190,6 +187,7 @@ app.include_router(wifi_router)
 app.include_router(firmware_router)
 app.include_router(versions_router)
 app.include_router(status_ping_router)
+app.include_router(zones_router)
 app.include_router(leds_router)
 
 # ---------------------------------------------------------------------------
@@ -900,40 +898,3 @@ def getSetProgress() -> SetProgressResponse:
     return SetProgressResponse(is_set_based=True, progress=tracker.get_progress())
 
 
-# ---------------------------------------------------------------------------
-# Polygon editor
-# ---------------------------------------------------------------------------
-
-
-@app.get("/api/polygons")
-def get_polygons() -> Dict[str, Any]:
-    """Load saved channel and classification polygons."""
-    result: Dict[str, Any] = {}
-    channel = get_channel_polygons()
-    if channel:
-        result["channel"] = channel
-    classification = get_classification_polygons()
-    if classification:
-        result["classification"] = classification
-    return result
-
-
-@app.post("/api/polygons")
-def save_polygons(body: Dict[str, Any]) -> Dict[str, Any]:
-    """Save channel and classification polygons."""
-    if "channel" in body:
-        set_channel_polygons(body["channel"])
-    if "classification" in body:
-        set_classification_polygons(body["classification"])
-    if "channel" in body and shared_state.vision_manager is not None:
-        shared_state.vision_manager.reloadPolygons()
-    # Perception (rev04 mode pair) is driven by these same zones but owns its
-    # own immutable per-channel stacks; poke its reconciler so a zone edit is
-    # picked up within a fraction of a second instead of waiting a restart.
-    _ps = getattr(shared_state.gc_ref, "perception_service", None)
-    if _ps is not None:
-        try:
-            _ps.request_reconcile()
-        except Exception:
-            pass
-    return {"ok": True}

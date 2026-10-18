@@ -243,7 +243,7 @@ def test_a_frame_comes_after_its_layout_and_detections(monkeypatch: pytest.Monke
     monkeypatch.setattr(camera_feeds, "PREVIEW_MAX_FPS", 100.0)
     monkeypatch.setattr(camera_feeds._RoleFeed, "_newest", newest)
     monkeypatch.setattr(camera_feeds.machine_toml, "read", lambda: {"cameras": {"c_channel_2": 0}})
-    monkeypatch.setattr(camera_feeds, "channel_polygons_revision", lambda: revision[0])
+    monkeypatch.setattr(camera_feeds, "zones_revision", lambda: revision[0])
     monkeypatch.setattr(camera_feeds, "feedZoneShapes", lambda channel, width: {"of": channel.name, "saved": revision[0]})
     with _client() as client, client.websocket_connect("/ws/video", headers=ORIGIN) as ws:
         ws.send_json({"views": [C2]})

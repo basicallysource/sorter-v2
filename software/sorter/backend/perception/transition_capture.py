@@ -11,7 +11,7 @@ Capture is intentionally passive: it never moves anything, never changes
 config, and works the same whether the pulse-perception auto-tuner is idle,
 running a session, or exploring in the background — those cases are simply
 visible in the config records. Every segment opens with a meta snapshot of the
-machine context (setup, modes, tuning configs, polygons, code version) so data
+machine context (setup, modes, tuning configs, zones, code version) so data
 collected on a machine with unusual settings is labeled as such rather than
 silently mixed in.
 """
@@ -308,10 +308,10 @@ class ControlDataCollector:
         except Exception:
             pass
         try:
-            import local_state
+            from zones.model import toDict
+            from zones.store import loadZones
 
-            meta["channel_polygons"] = local_state.get_channel_polygons()
-            meta["classification_polygons"] = local_state.get_classification_polygons()
+            meta["zones"] = {str(ch): toDict(z) for ch, z in loadZones().items()}
         except Exception:
             pass
         try:

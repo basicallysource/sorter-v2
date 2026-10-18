@@ -26,9 +26,13 @@
 
 	// ---- Canonical aiming geometry (mirrors backend chute.py) --------------
 	// bin_center = θ0 + section·(360/N) + (i + 0.5)·(W / K)
-	let numSections = $state(6);
-	let sectionWidthDeg = $state(51.75);
-	let firstSectionOffsetDeg = $state(8.25);
+	// The built-in defaults (backend hardware_settings/chute.py).
+	const DEFAULT_NUM_SECTIONS = 6;
+	const DEFAULT_SECTION_WIDTH_DEG = 51.75;
+	const DEFAULT_FIRST_SECTION_OFFSET_DEG = 8.25;
+	let numSections = $state(DEFAULT_NUM_SECTIONS);
+	let sectionWidthDeg = $state(DEFAULT_SECTION_WIDTH_DEG);
+	let firstSectionOffsetDeg = $state(DEFAULT_FIRST_SECTION_OFFSET_DEG);
 	let maxAngleDeg = $state(350);
 
 	const sectionPitchDeg = $derived(numSections > 0 ? 360 / numSections : 60);
@@ -77,6 +81,10 @@
 	const step2Locked = $derived(!homed);
 	const step3Locked = $derived(capturedFirst === null);
 	const step4Locked = $derived(capturedFirst === null || capturedLast === null);
+	// The backend refuses a last bin that is not at a higher angle than the first.
+	const captureOrderWrong = $derived(
+		capturedFirst !== null && capturedLast !== null && capturedLast <= capturedFirst
+	);
 
 	function currentBackendBaseUrl(): string {
 		return (
@@ -443,6 +451,17 @@
 {#snippet editFooter()}
 	<Button
 		variant="ghost"
+		class="mr-auto"
+		onclick={() => {
+			numSections = DEFAULT_NUM_SECTIONS;
+			sectionWidthDeg = DEFAULT_SECTION_WIDTH_DEG;
+			firstSectionOffsetDeg = DEFAULT_FIRST_SECTION_OFFSET_DEG;
+		}}
+	>
+		Use the defaults
+	</Button>
+	<Button
+		variant="ghost"
 		onclick={() => {
 			editingParams = false;
 			void loadSettings();
@@ -590,6 +609,7 @@
 						Capture the first bin first.
 					{:else}
 						Jog until the chute points straight into the last bin of the same section, then capture.
+						It sits at a higher angle than the first bin.
 					{/if}
 				</p>
 				{@render jogPad(activeStep === 3, false)}
@@ -607,7 +627,12 @@
 				class:pointer-events-none={step4Locked}
 			>
 				{@render stepHead(4, false, 'Lock it in')}
-				{#if !step4Locked}
+				{#if captureOrderWrong}
+					<p class="text-sm text-danger-ink">
+						The last bin must be at a higher angle than the first. Capture the last bin again, jogging
+						so the angle goes up.
+					</p>
+				{:else if !step4Locked}
 					{@const slot = (capturedLast! - capturedFirst!) / Math.max(1, binsInTestSection - 1)}
 					{@const w = slot * binsInTestSection}
 					<dl class="flex flex-wrap gap-x-6 gap-y-1 text-sm">
@@ -622,7 +647,7 @@
 					<p class="text-sm text-ink-muted">Capture both bins to work out the geometry and lock it in.</p>
 				{/if}
 				<div>
-					<Button variant="primary" loading={busy} disabled={step4Locked} onclick={deriveAndLockIn}>
+					<Button variant="primary" loading={busy} disabled={step4Locked || captureOrderWrong} onclick={deriveAndLockIn}>
 						Work it out and lock it in
 					</Button>
 				</div>

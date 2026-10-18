@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import time
+from dataclasses import asdict
 from typing import Any, Dict, List, Optional
 
 from fastapi import APIRouter, HTTPException
@@ -10,6 +11,7 @@ from pydantic import BaseModel
 
 import machine_toml
 from hardware.waveshare_bus_service import get_waveshare_bus_service
+from hardware_settings.servos import SPEEDS, ServoSpeeds, applyServoSpeeds, readServoSpeeds, saveServoSpeeds
 from bin_layout_store import set_servo_channel_angle
 from irl.bin_layout import channelIdForLayer, getBinLayout
 from server import shared_state
@@ -154,7 +156,7 @@ def _live_servo_for_layer(layer_index: int) -> Any:
         # since then has none yet.
         raise HTTPException(
             status_code=409,
-            detail=f"Layer {layer_index + 1} has no servo running yet. Save the layers, then home the machine.",
+            detail=f"Layer {layer_index + 1} has no servo running yet. Save the layers, then restart the backend.",
         )
     return servos[layer_index]
 
@@ -201,27 +203,24 @@ def _live_servo_feedback_for_layer(layer_index: int, servo: Any | None = None) -
         return {**base, "error": str(e)}
 
 
-_SERVO_SPEED_FLOOR_TENTHS = 10  # 1°/s minimum floor sent to firmware
+def _apply_standard_speed(servo: Any) -> None:
+    # Jogs run at the standard speed, which the servo was given at start-up and
+    # again whenever the speeds are saved (hardware_settings.servos).
+    if hasattr(servo, "apply_homing_speed"):
+        servo.apply_homing_speed()
 
 
-def _apply_pca_servo_speed(servo: Any, speed_deg_per_sec: int | None) -> None:
-    if speed_deg_per_sec is None:
-        return
-    if not hasattr(servo, "set_speed_limits"):
-        return
+def _apply_speeds_live(speeds: ServoSpeeds) -> bool:
+    """Give the running servos their saved speeds. False when there are none
+    running or one did not answer; they get them at the next start anyway."""
+    active_irl = shared_state.getActiveIRL()
+    servos = list(getattr(active_irl, "servos", [])) if active_irl is not None else []
     try:
-        servo.set_speed_limits(_SERVO_SPEED_FLOOR_TENTHS, speed_deg_per_sec * 10)
+        for servo in servos:
+            applyServoSpeeds(servo, speeds)
     except Exception:
-        pass
-
-
-_SERVO_SPEED_RANGE = (1, 2000)
-
-
-def _clamp_servo_speed(value: int | None) -> int | None:
-    if value is None:
-        return None
-    return max(_SERVO_SPEED_RANGE[0], min(_SERVO_SPEED_RANGE[1], int(value)))
+        return False
+    return bool(servos)
 
 
 def _servo_hardware_issues() -> List[Dict[str, Any]]:
@@ -282,15 +281,9 @@ def _servo_settings_from_config(config: Dict[str, Any]) -> Dict[str, Any]:
             }
         )
 
-    speeds: Dict[str, int | None] = {}
-    for key in ("open_speed", "close_speed", "homing_speed"):
-        value = servo.get(key)
-        valid = isinstance(value, int) and not isinstance(value, bool) and value > 0
-        speeds[key] = _clamp_servo_speed(value) if valid else None
-
     return {
         "backend": backend,
-        **speeds,
+        **asdict(readServoSpeeds(config)),
         "port": port.strip() if isinstance(port, str) and port.strip() else None,
         "channels": channels,
         "layer_count": layer_count,
@@ -309,9 +302,8 @@ def save_servo_hardware_config(
     payload: ServoHardwareSettingsPayload,
 ) -> Dict[str, Any]:
     backend = payload.backend if payload.backend in {"pca9685", "waveshare"} else "pca9685"
-    open_speed = _clamp_servo_speed(payload.open_speed)
-    close_speed = _clamp_servo_speed(payload.close_speed)
-    homing_speed = _clamp_servo_speed(payload.homing_speed)
+    # Speeds the request leaves out stay as saved (the setup wizard sends none).
+    speed_changes = {key: getattr(payload, key) for key in SPEEDS if key in payload.model_fields_set}
     port = payload.port.strip() if isinstance(payload.port, str) and payload.port.strip() else None
     available_pca_channels = _pca_available_servo_channels()
     # Validate against the persisted layout we actually index into below, not the
@@ -367,31 +359,23 @@ def save_servo_hardware_config(
     with machine_toml.edit() as config:
         previous = _servo_settings_from_config(config)
 
-        servo_table: Dict[str, Any] = {"backend": backend, "channels": channels}
-        if backend == "pca9685":
-            if open_speed is not None:
-                servo_table["open_speed"] = open_speed
-            if close_speed is not None:
-                servo_table["close_speed"] = close_speed
-            if homing_speed is not None:
-                servo_table["homing_speed"] = homing_speed
-        if backend == "waveshare":
-            if port is not None:
-                servo_table["port"] = port
-            existing_servo_table = config.get("servo", {})
-            previous_highest_seen = (
-                existing_servo_table.get("highest_seen_id")
-                if isinstance(existing_servo_table, dict)
-                else None
-            )
-            if (
-                isinstance(previous_highest_seen, int)
-                and not isinstance(previous_highest_seen, bool)
-                and previous_highest_seen > 0
-            ):
-                servo_table["highest_seen_id"] = previous_highest_seen
-
+        servo_table = config.get("servo")
+        if not isinstance(servo_table, dict):
+            servo_table = {}
+        servo_table["backend"] = backend
+        servo_table["channels"] = channels
+        if backend == "waveshare" and port is not None:
+            servo_table["port"] = port
+        else:
+            servo_table.pop("port", None)
+        if backend != "waveshare":
+            servo_table.pop("highest_seen_id", None)
         config["servo"] = servo_table
+
+    try:
+        speeds = saveServoSpeeds(speed_changes) if speed_changes else readServoSpeeds()
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
 
     previous_ids = [int(channel["id"]) if channel["id"] is not None else None for channel in previous["channels"]]
     channel_ids = [int(channel["id"]) if channel["id"] is not None else None for channel in channels]
@@ -419,9 +403,7 @@ def save_servo_hardware_config(
                     else:
                         # PCA open/closed angles are calibrated per-layer via the
                         # Servo Layer Calibrator, not here — only apply speed.
-                        if hasattr(servo, "set_motion_speeds"):
-                            servo.set_motion_speeds(open_speed, close_speed, homing_speed)
-                        _apply_pca_servo_speed(servo, homing_speed)
+                        applyServoSpeeds(servo, speeds)
                 applied_live = True
         except Exception:
             applied_live = False
@@ -452,36 +434,15 @@ class ServoSpeedSettingsPayload(BaseModel):
 
 @router.post("/api/hardware-config/servo/speeds")
 def save_servo_speeds(payload: ServoSpeedSettingsPayload) -> Dict[str, Any]:
-    open_speed = _clamp_servo_speed(payload.open_speed)
-    close_speed = _clamp_servo_speed(payload.close_speed)
-    homing_speed = _clamp_servo_speed(payload.homing_speed)
-
-    with machine_toml.edit() as config:
-        servo = config.get("servo", {})
-        if not isinstance(servo, dict):
-            servo = {}
-
-        for key, val in [("open_speed", open_speed), ("close_speed", close_speed), ("homing_speed", homing_speed)]:
-            if val is not None:
-                servo[key] = val
-            else:
-                servo.pop(key, None)
-
-        config["servo"] = servo
-
-    active_irl = shared_state.getActiveIRL()
-    if active_irl is not None:
-        try:
-            for srv in getattr(active_irl, "servos", []):
-                if hasattr(srv, "set_motion_speeds"):
-                    srv.set_motion_speeds(open_speed, close_speed, homing_speed)
-                # Leave the firmware at the standard speed between moves;
-                # sorting re-applies open/close speed per move.
-                _apply_pca_servo_speed(srv, homing_speed)
-        except Exception:
-            pass
-
-    return {"ok": True, "open_speed": open_speed, "close_speed": close_speed, "homing_speed": homing_speed}
+    """Save the speeds sent (null goes back to the firmware default; one left
+    out stays as saved) and give them to the running servos."""
+    changes = {key: getattr(payload, key) for key in SPEEDS if key in payload.model_fields_set}
+    try:
+        speeds = saveServoSpeeds(changes)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+    applied_live = _apply_speeds_live(speeds)
+    return {"ok": True, **asdict(speeds), "applied_live": applied_live}
 
 
 @router.post("/api/hardware-config/servo/layers/{layer_index}/nudge")
@@ -493,8 +454,7 @@ def nudge_layer_servo(layer_index: int, payload: ServoNudgePayload) -> Dict[str,
         raise HTTPException(status_code=500, detail="Servo does not support position-based movement.")
 
     try:
-        _cfg = machine_toml.read()
-        _apply_pca_servo_speed(servo, _servo_settings_from_config(_cfg).get("homing_speed"))
+        _apply_standard_speed(servo)
 
         current_pos = int(servo.position)
         # PCA ServoMotor.position returns tenths-of-degrees, move_to takes degrees 0-180
@@ -538,8 +498,7 @@ def move_to_layer_servo(layer_index: int, payload: ServoLayerMovePayload) -> Dic
 
     angle = max(0, min(180, int(payload.angle)))
     try:
-        _cfg = machine_toml.read()
-        _apply_pca_servo_speed(servo, _servo_settings_from_config(_cfg).get("homing_speed"))
+        _apply_standard_speed(servo)
         servo.move_to(angle)
         feedback = _live_servo_feedback_for_layer(layer_index, servo)
     except Exception as e:

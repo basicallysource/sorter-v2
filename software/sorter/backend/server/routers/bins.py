@@ -45,7 +45,6 @@ from irl.bin_layout import (
     applyNotInInventory,
     notInInventoryMatchesLayout,
 )
-from irl.parse_user_toml import DEFAULT_CHUTE_FIRST_BIN_CENTER, DEFAULT_CHUTE_PILLAR_WIDTH_DEG
 from server import shared_state
 from server.routers.chute import _chute_move, _chute_settings_from_config
 from server.routers.steppers import _ensure_not_homing
@@ -553,8 +552,8 @@ def get_bins_layout() -> Dict[str, Any]:
     layout_config = getBinLayout()
     config = machine_toml.read()
     chute_cfg = _chute_settings_from_config(config)
-    first_bin_center = float(chute_cfg.get("first_bin_center", DEFAULT_CHUTE_FIRST_BIN_CENTER))
-    pillar_width_deg = float(chute_cfg.get("pillar_width_deg", DEFAULT_CHUTE_PILLAR_WIDTH_DEG))
+    first_bin_center = float(chute_cfg["first_bin_center"])
+    pillar_width_deg = float(chute_cfg["pillar_width_deg"])
     usable_per_section = 60.0 - pillar_width_deg
 
     layers_out = []

@@ -11,8 +11,14 @@ from unittest.mock import patch
 
 from hardware.bus import MCUBusError
 from hardware.fault import HardwareFault
+from hardware_settings.motors import motorNamed
+from hardware_settings.steppers import readStepperSettings
 from irl.config import IRLInterface, _TMC_REG_IFCNT, _bindHardware, _configureStepper
 from machine_platform.control_board import BoardIdentity, DiscoveredStepper
+
+# Every start writes all six driver settings: GCONF, microsteps, current,
+# COOLCONF, SGTHRS and TCOOLTHRS.
+_DRIVER_WRITES = 6
 
 
 class _Logger:
@@ -83,19 +89,15 @@ class _Driver:
         self.direction_inverted = inverted
 
 
-_STEPPER_CONFIG = SimpleNamespace(
-    microsteps=8, default_steps_per_second=3000, acceleration_microsteps_per_second_sq=20000
-)
+_STEPPER_CONFIG = SimpleNamespace(default_steps_per_second=3000, acceleration_microsteps_per_second_sq=20000)
 
 
 def _configure(driver: _Driver, *, no_power: bool = False, stallguard: bool = True) -> None:
     gc = SimpleNamespace(logger=_Logger(), no_power_development_mode=no_power)
-    machine_config = SimpleNamespace(
-        stepper_current_overrides={},
-        stepper_stallguard={"chute_stepper": (60, 0x3FF, True)} if stallguard else {},
-    )
+    chute = motorNamed("chute")
+    saved = {"stepper_stallguard": {"chute_stepper": {"sgthrs": 60, "tcoolthrs": 0x3FF, "enabled": stallguard}}}
     with patch("irl.config.time.sleep"):
-        _configureStepper(gc, driver, "chute_stepper", "chute", _STEPPER_CONFIG, machine_config)
+        _configureStepper(gc, driver, chute, _STEPPER_CONFIG, readStepperSettings(chute, saved))
 
 
 class StepperInitTests(unittest.TestCase):
@@ -104,14 +106,14 @@ class StepperInitTests(unittest.TestCase):
         _configure(driver)
         self.assertTrue(driver.detection_on)
         self.assertTrue(driver.stallguard_enabled)
-        self.assertEqual((250 + 5) % 256, driver.ifcnt)
+        self.assertEqual((250 + _DRIVER_WRITES) % 256, driver.ifcnt)
 
     def test_a_dropped_write_stops_init_naming_the_stepper(self) -> None:
         with self.assertRaises(HardwareFault) as caught:
             _configure(_Driver(drop_writes=1))
         self.assertEqual("Stepper settings not applied", caught.exception.title)
         self.assertIn("chute", caught.exception.message)
-        self.assertIn("4 of the 5", caught.exception.message)
+        self.assertIn(f"{_DRIVER_WRITES - 1} of the {_DRIVER_WRITES}", caught.exception.message)
 
     def test_a_driver_that_does_not_answer_stops_init(self) -> None:
         with self.assertRaises(HardwareFault) as caught:
@@ -124,11 +126,14 @@ class StepperInitTests(unittest.TestCase):
             _configure(_Driver(diag_pin=False))
         self.assertIn("arm stall detection for the chute stepper", caught.exception.message)
 
-    def test_without_stallguard_three_writes_are_expected(self) -> None:
-        driver = _Driver()
+    def test_without_stallguard_every_setting_is_written_and_detection_stays_off(self) -> None:
+        # A channel without a DIAG wire refuses any stall detection command, so
+        # a motor with StallGuard off is never sent one.
+        driver = _Driver(diag_pin=False)
         _configure(driver, stallguard=False)
         self.assertFalse(driver.detection_on)
-        self.assertEqual((250 + 3) % 256, driver.ifcnt)
+        self.assertFalse(driver.stallguard_enabled)
+        self.assertEqual((250 + _DRIVER_WRITES) % 256, driver.ifcnt)
 
     def test_no_power_mode_sends_the_settings_unchecked(self) -> None:
         driver = _Driver(answers=False)  # unpowered drivers cannot answer reads
@@ -166,13 +171,9 @@ class _SteppersBound(Exception):
 def _bindSteppers(boards: list[_Board]) -> IRLInterface:
     """Runs hardware init over the boards up to the end of stepper binding."""
     gc = SimpleNamespace(logger=_Logger(), no_power_development_mode=False)
-    machine_config = SimpleNamespace(stepper_current_overrides={}, stepper_stallguard={})
     irl = IRLInterface()
     with (
         patch("irl.config.loadMachineSpecificParams", return_value={}),
-        patch("irl.config.loadMachineConfig", return_value=machine_config),
-        patch("irl.config.loadStepperBindingOverrides", return_value={}),
-        patch("irl.config.loadStepperDirectionInverts", return_value={}),
         patch("irl.config.loadServoChannelConfig", return_value=None),
         patch("irl.config.MCUBus.enumerate_buses", return_value=[]),
         patch("irl.config.discover_control_boards", return_value=boards),
@@ -211,7 +212,7 @@ class SpareChannelTests(unittest.TestCase):
         irl = _bindSteppers([feeder, distribution])
 
         self.assertIs(chute, irl.chute_stepper)
-        self.assertEqual(250 + 2, chute.ifcnt)  # GCONF and current, both taken
+        self.assertEqual((250 + _DRIVER_WRITES) % 256, chute.ifcnt)
         for name in ("carousel", "c_channel_1_rotor", "c_channel_2_rotor", "c_channel_3_rotor"):
             self.assertTrue(hasattr(irl, f"{name}_stepper"), name)
         self.assertFalse(any(hasattr(driver, "name") for driver in empty))

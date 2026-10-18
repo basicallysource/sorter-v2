@@ -244,9 +244,10 @@ layout; a fifth kind of message is a panel, not a new notice.
   changes height as someone moves through it. The item is the first view of its
   own pages and is not repeated in its list; a sub-tab has no icon, and its name
   lines up with its item's. A thin `line` joins them, so the indent reads as a
-  sub-menu: 1px, down from the middle of the item's icon and turning right into
-  each sub-tab's name (`├─`, and `└─` for the last). It is drawn under the rows,
-  so hover and the current tint are laid over it. Only the page the address is
+  sub-menu: 1px, down from the bottom of the item's box under the middle of its
+  icon, turning right into each sub-tab (`├─`, and `└─` for the last). A
+  sub-tab's box (hover, tint) starts where the item's icon ends, right of the
+  line, so the line never crosses a box. Only the page the address is
   on takes the primary's tint; the item above it goes to full ink. A narrow
   screen's `Select` lists the sub-tabs after their item, named "Item / Sub-tab".
 - **`Tabs`**: views of one thing, in a page or at the top of a flush panel.

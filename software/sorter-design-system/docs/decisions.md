@@ -17,8 +17,12 @@ and a dated entry goes here; the history is git.
   sub-tab belongs to the item above it. Now a 1px `line` (the quiet divider;
   `line-strong` outlines a control) runs down from the middle of the item's
   icon and turns right into each sub-tab's name (`├─`, and `└─` for the last),
-  in the space to the left of the name, so the indent is as it was. It is
-  drawn under the rows, so hover and the current tint are laid over it.
+  in the space to the left of the name, so the indent is as it was. At first
+  it was drawn under the rows and started inside the item's box, so a
+  highlighted item or sub-tab sat on top of it and looked crossed through.
+  Now it starts at the bottom of the item's box, and a sub-tab's box starts
+  right of the line (where the item's icon ends), so the line and its arms
+  stay outside every box.
 - **The stepper's panel is under the camera at every width.** It sat at the
   camera's right from `xl` up, a 23rem column in which the jog control, what each
   press moves and the driver settings were cramped, and the camera was

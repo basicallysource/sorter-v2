@@ -33,8 +33,9 @@ _SECTORS = 8
 _ANGLES = 720
 
 # The ring around the rim, as shares of the rim's radius: pieces ride against
-# the wall, their centers within about a piece's length inside the rim.
-RING_INNER = 0.78
+# the wall, their centers inside the rim by up to half a long piece lying
+# across the channel.
+RING_INNER = 0.65
 RING_OUTER = 1.08
 
 

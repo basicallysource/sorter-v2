@@ -1,5 +1,5 @@
 import time
-from collections import deque
+from collections import Counter, deque
 from enum import Enum
 from typing import Optional
 
@@ -41,6 +41,21 @@ _ZONE_PRECISE = 3
 def _boxArea(po) -> float:
     b = po.bbox
     return max(0.0, float(b[2]) - float(b[0])) * max(0.0, float(b[3]) - float(b[1]))
+
+
+def _boxCover(a, b) -> float:
+    """How much of the smaller of two boxes the other covers, 0 to 1."""
+    ix = max(0.0, min(a[2], b[2]) - max(a[0], b[0]))
+    iy = max(0.0, min(a[3], b[3]) - max(a[1], b[1]))
+    small = min((a[2] - a[0]) * (a[3] - a[1]), (b[2] - b[0]) * (b[3] - b[1]))
+    return ix * iy / small if small > 0 else 0.0
+
+
+def _apart(boxes) -> bool:
+    """Two or more of the detector's boxes, none mostly inside another."""
+    return len(boxes) >= 2 and all(
+        _boxCover(a, b) < _NESTED_COVER for i, a in enumerate(boxes) for b in boxes[i + 1:]
+    )
 
 
 def _closePair(drop: list) -> Optional[tuple]:
@@ -153,6 +168,28 @@ _GROW_SETTLE_S = 0.25
 _GROW_FACTOR = 1.6
 _GROW_FRAMES = 2
 
+# The camera merges touching boxes into one piece box, so two pieces that land
+# touching are tracked as one. What the detector draws inside that box tells
+# them apart: on two pieces it draws the same separate boxes frame after frame;
+# on one piece drawn in parts (an assembly, a printed part) its boxes change
+# from frame to frame and nest, one drawn around the whole piece and others
+# around its parts. While a piece is photographed at rest, if at least
+# _APART_FRAC of the frames show its boxes apart (none covering more than
+# _NESTED_COVER of another) and at least _STEADY_FRAC show the same number of
+# them, it is two pieces. An assembly whose parts lie side by side looks the
+# same and goes to misc too: no bin is right for it either.
+_NESTED_COVER = 0.5
+_APART_FRAC = 0.8
+_STEADY_FRAC = 0.8
+_APART_MIN_FRAMES = 6
+# After it left the drop zone, a piece taken for one is still two if moving it
+# shows two separate boxes for _APART_LATER_FRAMES frames in a row, or if a new
+# id appears beside it (more than _SAME_PIECE_DEG, at most _SPLIT_DEG away) and
+# stays _SPLIT_CONFIRM_S: they came apart, or another piece landed against it.
+_APART_LATER_FRAMES = 15
+_SPLIT_DEG = 35.0
+_SPLIT_CONFIRM_S = 0.4
+
 # No turn brings a waiting piece (one not being ejected) closer to the exit than
 # this, so it can't drop into the bin the chute is aimed at for another piece.
 _KEEP_ON_MIN_GAP_DEG = 25.0
@@ -241,6 +278,16 @@ class _TrackedPiece:
         # Its box's area in each frame at rest in the drop zone, once settled
         # (see _GROW_FACTOR).
         self.rest_areas: list[float] = []
+        # The detector's boxes inside its box this frame (one when it was not
+        # merged), and in each frame at rest with rest_areas (see _APART_FRAC).
+        self.boxes: tuple = ()
+        self.rest_boxes: list[tuple] = []
+        # Frames in a row it has shown this many separate boxes since it left
+        # the drop zone (see _APART_LATER_FRAMES).
+        self.apart_frames = 0
+        self.apart_count = 0
+        # It came apart only after distribution had committed it to its bin.
+        self.committed_whole = False
 
     @property
     def known_object(self) -> Optional[KnownObject]:
@@ -582,6 +629,10 @@ class TwoPieceClassificationChannel(Rev01BaseState):
         pieces for new ids, retire pieces whose id has been gone too long, and
         flag double feeds."""
         created: list[_TrackedPiece] = []
+        merged = {
+            tuple(int(v) for v in box): tuple(tuple(int(v) for v in b) for b in members)
+            for box, members in getattr(state, "merged", ())
+        }
         for po in getattr(state, "pieces", ()):
             tid = po.sv_bt_track_id
             if tid is None:
@@ -593,6 +644,7 @@ class TwoPieceClassificationChannel(Rev01BaseState):
             tp.zone = int(po.zone_code)
             b = po.bbox
             tp.bbox = (int(b[0]), int(b[1]), int(b[2]), int(b[3]))
+            tp.boxes = merged.get(tp.bbox, (tp.bbox,))
             tp.gap_to_exit = po.com_forward_to_exit_deg
             tp.last_seen = now
             # Watchdog progress: the piece physically moved a substantial amount.
@@ -614,6 +666,7 @@ class TwoPieceClassificationChannel(Rev01BaseState):
         self._flagLateArrivals(now)
         self._flagCloseLandings(state, now, created)
         self._flagDoubleFeeds(state)
+        self._flagComingApart(now)
 
     def _createPiece(self, track_id: int, now: float) -> _TrackedPiece:
         # Track the id for position immediately, but DEFER the KnownObject: it's
@@ -836,6 +889,7 @@ class TwoPieceClassificationChannel(Rev01BaseState):
             # angle, so its readings start over.
             for tp in self._pieces.values():
                 tp.rest_areas.clear()
+                tp.rest_boxes.clear()
             return
         drop = [
             po
@@ -865,6 +919,7 @@ class TwoPieceClassificationChannel(Rev01BaseState):
                 continue
             b = tp.bbox
             tp.rest_areas.append(max(0.0, float(b[2] - b[0])) * max(0.0, float(b[3] - b[1])))
+            tp.rest_boxes.append(tp.boxes)
             if len(tp.rest_areas) <= 3:
                 continue
             settled = sorted(tp.rest_areas[:3])[1]
@@ -881,6 +936,98 @@ class TwoPieceClassificationChannel(Rev01BaseState):
                     f"grew to {max(grown) / settled:.1f} times its size), so it could not be "
                     f"photographed alone; it went to misc as a double feed.",
                 )
+
+    def _landedTouching(self, tp: _TrackedPiece) -> bool:
+        """Its boxes at rest were two pieces' (see _APART_FRAC)."""
+        frames = tp.rest_boxes
+        if len(frames) < _APART_MIN_FRAMES:
+            return False
+        apart = sum(1 for boxes in frames if _apart(boxes))
+        steady = max(Counter(len(boxes) for boxes in frames).values())
+        return apart >= _APART_FRAC * len(frames) and steady >= _STEADY_FRAC * len(frames)
+
+    def _flagComingApart(self, now: float) -> None:
+        """A piece taken for one that shows itself to be two after it left the
+        drop zone (see _APART_LATER_FRAMES) goes to misc after all."""
+        for tp in list(self._pieces.values()):
+            if (
+                tp.double_feed
+                or tp.committed_whole
+                or tp.ejected
+                or tp is self._eject_target
+                or not tp.capture_done
+                or tp.zone == _ZONE_DROP
+                or tp.last_seen != now
+            ):
+                continue
+            if _apart(tp.boxes):
+                if len(tp.boxes) == tp.apart_count:
+                    tp.apart_frames += 1
+                else:
+                    tp.apart_count, tp.apart_frames = len(tp.boxes), 1
+            else:
+                tp.apart_frames = 0
+            if tp.apart_frames >= _APART_LATER_FRAMES:
+                self._reviseToDoubleFeed(
+                    tp,
+                    None,
+                    "Taken for one piece at rest, but once it moved the camera saw two separate "
+                    "pieces in its place, so it went to misc as a double feed.",
+                )
+                continue
+            if tp.gap_to_exit is None:
+                continue
+            for other in list(self._pieces.values()):
+                if (
+                    other is tp
+                    or other.known_object is not None
+                    or other.double_feed
+                    or other.zone == _ZONE_DROP
+                    or other.last_seen != now
+                    or other.gap_to_exit is None
+                    or now - other.created_at < _SPLIT_CONFIRM_S
+                ):
+                    continue
+                apart_deg = abs(float(other.gap_to_exit) - float(tp.gap_to_exit))
+                if _SAME_PIECE_DEG < apart_deg <= _SPLIT_DEG:
+                    group = self._reviseToDoubleFeed(
+                        tp,
+                        None,
+                        "Taken for one piece at rest, but after it moved a second piece showed up "
+                        "beside it (they came apart, or one landed against it), so it went to misc "
+                        "as a double feed.",
+                    )
+                    if group is None:
+                        break
+                    self._markDoubleFeed(
+                        other,
+                        group,
+                        "double_feed",
+                        "Showed up beside a piece that had been taken for one, so it went to "
+                        "misc with it as a double feed.",
+                    )
+                    break
+
+    def _reviseToDoubleFeed(
+        self, tp: _TrackedPiece, group: Optional[int], message: str
+    ) -> Optional[int]:
+        """Make a piece that was taken for one a double feed. If the chute was
+        already aimed for its bin it is withdrawn, and placed again for misc;
+        one distribution has already committed to dropping keeps its bin."""
+        if tp.placed:
+            if not self.transport.clearPieceForDistribution(tp.known_object):
+                tp.committed_whole = True
+                self.logger.warning(
+                    f"{LOG_TAG} track={tp.track_id} looks like two pieces, but distribution has "
+                    f"already committed it to its bin"
+                )
+                return None
+            self._unplace(tp)
+        if group is None:
+            self._multi_drop_seq += 1
+            group = self._multi_drop_seq
+        self._markDoubleFeed(tp, group, "double_feed", message)
+        return group
 
     def _markCloseLanding(self, tp: _TrackedPiece) -> None:
         self._markDoubleFeed(
@@ -1016,6 +1163,17 @@ class TwoPieceClassificationChannel(Rev01BaseState):
                 self._cycles.confirmed(time.time(), tp.track_id, obj.uuid if obj is not None else None)
             self._cropBurstFrame(tp.worker, tp.bbox, perc_frame)
             done, reason = tp.worker.burstCaptureComplete(ctx, now)
+            if done and self._landedTouching(tp):
+                self._multi_drop_seq += 1
+                self._markDoubleFeed(
+                    tp,
+                    self._multi_drop_seq,
+                    "double_feed",
+                    "Two pieces lay touching in the drop zone: the camera saw the same separate "
+                    "pieces in its box the whole time it was photographed, so it went to misc as "
+                    "a double feed.",
+                )
+                continue
             if done:
                 tp.capture_done = True
                 self._cycles.captured(time.time(), tp.track_id)

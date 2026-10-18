@@ -2,13 +2,14 @@
 	One motor's stall detection: on or off, how hard it must be loaded to count
 	as a stall (SGTHRS), and the speed floor under which the driver stops
 	looking (TCOOLTHRS). It is the same form in the motor's driver settings and
-	at the top of its StallGuard tab. The parent pads it and saves it.
+	on its StallGuard tab. The parent pads it and saves it.
 -->
 <script lang="ts">
 	import Checkbox from '$lib/components/ui/Checkbox.svelte';
 	import Input from '$lib/components/ui/Input.svelte';
 	import Button from '$lib/components/ui/Button.svelte';
 	import Alert from '$lib/components/ui/Alert.svelte';
+	import { speedAtTstep, tstepAtSpeed } from '$lib/settings/stallguard';
 
 	let {
 		sgEnabled = $bindable(),
@@ -30,18 +31,13 @@
 		tuneHref?: string;
 	} = $props();
 
-	// The driver checks for a stall only while TSTEP (its time per 1/256 step,
-	// in ticks of its nominal 12 MHz clock) is at or under TCOOLTHRS. A motor
-	// that cruises slower than that never reaches the check.
-	const TMC_CLOCK_HZ = 12_000_000;
+	// The driver checks for a stall only while TSTEP (its time per 1/256 step)
+	// is at or under TCOOLTHRS. A motor that cruises slower than that never
+	// reaches the check.
 	const cruiseTstep = $derived(
-		cruiseSpeed && cruiseSpeed > 0
-			? Math.round((TMC_CLOCK_HZ * microsteps) / (cruiseSpeed * 256))
-			: null
+		cruiseSpeed && cruiseSpeed > 0 ? tstepAtSpeed(cruiseSpeed, microsteps) : null
 	);
-	const minimumSpeed = $derived(
-		sgTcoolthrs > 0 ? Math.ceil((TMC_CLOCK_HZ * microsteps) / (sgTcoolthrs * 256)) : null
-	);
+	const minimumSpeed = $derived(sgTcoolthrs > 0 ? speedAtTstep(sgTcoolthrs, microsteps) : null);
 	const tooSlowToTrip = $derived(sgEnabled && cruiseTstep !== null && cruiseTstep > sgTcoolthrs);
 </script>
 

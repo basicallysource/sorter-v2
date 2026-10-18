@@ -1,70 +1,69 @@
 <!--
-	One motor's StallGuard: its stall detection settings at the top, and below
-	them the tools that find the threshold for it (a sweep that records the
-	driver's load, the load curve of a run, and the threshold they suggest).
-	It is the body of the StallGuard tab of the chute and of the
+	One motor's StallGuard tab: a guided tuning in numbered steps, the load curve
+	of a recording, the motor's stall settings, and the expert tools behind the
+	steps. It is the body of the StallGuard tab of the chute and of the
 	classification channel; each passes its own motor.
+
+	The steps know where the person is from what the machine has recorded, not
+	from what was clicked: a step is done when its recording exists at the speed
+	being tuned, so a reload, or another browser, finds the same step open.
 -->
 <script lang="ts">
-	import { onMount } from 'svelte';
-	import ChevronDown from '@lucide/svelte/icons/chevron-down';
-	import ChevronUp from '@lucide/svelte/icons/chevron-up';
-	import Trash2 from '@lucide/svelte/icons/trash-2';
+	import { onMount, tick, untrack } from 'svelte';
+	import ArrowRight from '@lucide/svelte/icons/arrow-right';
+	import RotateCcw from '@lucide/svelte/icons/rotate-ccw';
 	import { confirmDialog } from '$lib/confirm.svelte';
 	import { getBackendHttpBase, machineHttpBaseUrlFromWsUrl } from '$lib/backend';
 	import { getMachinesContext } from '$lib/machines/context';
+	import {
+		autoCruiseTstep,
+		defaultSweepOptions,
+		fmtTime,
+		motionSentence,
+		replay,
+		speedAtTstep,
+		tstepAtSpeed,
+		type ChartPoint,
+		type Replay,
+		type Run,
+		type Sample,
+		type Suggestion,
+		type SummaryRow
+	} from '$lib/settings/stallguard';
 	import Alert from '$lib/components/ui/Alert.svelte';
+	import Badge from '$lib/components/ui/Badge.svelte';
 	import Button from '$lib/components/ui/Button.svelte';
-	import Checkbox from '$lib/components/ui/Checkbox.svelte';
+	import Disclosure from '$lib/components/ui/Disclosure.svelte';
 	import Field from '$lib/components/ui/Field.svelte';
 	import Input from '$lib/components/ui/Input.svelte';
 	import Panel from '$lib/components/ui/Panel.svelte';
-	import Select from '$lib/components/ui/Select.svelte';
 	import Spinner from '$lib/components/ui/Spinner.svelte';
 	import Stat from '$lib/components/ui/Stat.svelte';
-	import StallGuardChart from '$lib/components/StallGuardChart.svelte';
+	import Step from '$lib/components/ui/Step.svelte';
+	import StepperStallGuardCurve from './stepper/StepperStallGuardCurve.svelte';
+	import StepperStallGuardRuns from './stepper/StepperStallGuardRuns.svelte';
 	import StepperStallGuardSettings from './stepper/StepperStallGuardSettings.svelte';
+	import StepperStallGuardSweepOptions from './stepper/StepperStallGuardSweepOptions.svelte';
 
 	let {
 		motor,
 		label,
-		operatingSpeedEndpoint = undefined
+		operatingSpeedEndpoint = undefined,
+		stressTestHref = undefined
 	}: {
 		// The motor's name in the API: 'chute', 'carousel'.
 		motor: string;
 		// What the page calls it, in a sentence.
 		label: string;
 		// Where the motor's operating speed is kept, when it has one (the
-		// chute's): the settings warn when it cruises too slowly to trip.
+		// chute's): the tuning starts from it.
 		operatingSpeedEndpoint?: string;
+		// Where the motor has a stress test that runs with detection armed.
+		stressTestHref?: string;
 	} = $props();
 
-	type Run = {
-		id: string;
-		started_at: number;
-		ended_at: number | null;
-		source: string;
-		stepper_name: string | null;
-		label: string | null;
-		status: string;
-		params: any;
-		sample_count: number;
-		sg_min: number | null;
-		sg_max: number | null;
-		sg_mean: number | null;
-		suggested_sgthrs: number | null;
-	};
-	type SummaryRow = {
-		stepper_name: string;
-		samples: number;
-		sg_min: number;
-		sg_max: number;
-		sg_mean: number;
-		last_seen: number;
-	};
-	type ChartPoint = { x: number; sg: number | null; cs: number | null; tstep: number | null };
-
 	const manager = getMachinesContext();
+	const Label = $derived(label.charAt(0).toUpperCase() + label.slice(1));
 
 	function base(): string {
 		return (
@@ -84,10 +83,13 @@
 	let sgThrs = $state(50);
 	let sgTcoolthrs = $state(150);
 	let microsteps = $state(8);
-	let cruiseSpeed = $state<number | null>(null);
+	// What the machine runs on: as read from the driver, or as last saved. The
+	// fields above can hold an edit that is not saved yet.
+	let applied = $state<{ enabled: boolean; sgthrs: number; tcoolthrs: number } | null>(null);
 	let settingsLoading = $state(true);
 	// Only read settings are shown and saved, so a failed read never saves the defaults.
 	let settingsLoaded = $state(false);
+	let settingsAttempted = $state(false);
 	let settingsSaving = $state(false);
 	let settingsError = $state<string | null>(null);
 	let settingsNotice = $state('');
@@ -104,12 +106,14 @@
 				sgEnabled = !!data.stallguard.enabled;
 				if (typeof data.stallguard.sgthrs === 'number') sgThrs = data.stallguard.sgthrs;
 				if (typeof data.stallguard.tcoolthrs === 'number') sgTcoolthrs = data.stallguard.tcoolthrs;
+				applied = { enabled: sgEnabled, sgthrs: sgThrs, tcoolthrs: sgTcoolthrs };
 			}
 			if (operatingSpeedEndpoint) {
 				const speedRes = await fetch(`${base()}${operatingSpeedEndpoint}`);
 				if (speedRes.ok) {
 					const speed = Number((await speedRes.json())?.operating_speed_microsteps_per_second);
-					cruiseSpeed = Number.isFinite(speed) && speed > 0 ? speed : null;
+					operatingSpeed = Number.isFinite(speed) && speed > 0 ? speed : null;
+					if (operatingSpeed !== null && !speedTouched) swSpeed = operatingSpeed;
 				}
 			}
 			settingsLoaded = true;
@@ -117,6 +121,7 @@
 			settingsError = e.message ?? 'Failed to read the stall detection settings';
 		} finally {
 			settingsLoading = false;
+			settingsAttempted = true;
 		}
 	}
 
@@ -135,6 +140,8 @@
 			sgEnabled = !!data.enabled;
 			sgThrs = data.sgthrs;
 			sgTcoolthrs = data.tcoolthrs;
+			applied = { enabled: sgEnabled, sgthrs: sgThrs, tcoolthrs: sgTcoolthrs };
+			check = null;
 			settingsNotice = data.applied_live
 				? 'Stall detection saved.'
 				: 'Stall detection saved. It applies at the next start.';
@@ -145,85 +152,54 @@
 		}
 	}
 
-	// --- Calibration ---
+	// --- The speed being tuned ---
+	// The speed the motor really runs at, where the page knows it (the chute's
+	// operating speed). The field starts there; a motor that has none starts at 1500.
+	let operatingSpeed = $state<number | null>(null);
+	let swSpeed = $state<number | null>(1500);
+	let speedTouched = $state(false);
+	let options = $state(untrack(() => defaultSweepOptions(motor)));
+
+	const speedError = $derived(
+		swSpeed === null || !(swSpeed > 0) ? 'Enter a speed above 0.' : undefined
+	);
+	const tuneSpeed = $derived(speedError || swSpeed === null ? null : Math.round(swSpeed));
+	const speedText = $derived(tuneSpeed === null ? '–' : tuneSpeed.toLocaleString());
+	// A negative speed is counterclockwise, which is how a recording keeps it.
+	const signedTuneSpeed = $derived(
+		tuneSpeed === null ? null : options.direction === 'cw' ? tuneSpeed : -tuneSpeed
+	);
+	const atOperatingSpeed = $derived(operatingSpeed !== null && tuneSpeed === operatingSpeed);
+	// The TSTEP the motor cruises at, and whether the driver would look for a stall there.
+	const cruiseTstep = $derived(tuneSpeed === null ? null : tstepAtSpeed(tuneSpeed, microsteps));
+	const autoCruise = $derived(autoCruiseTstep(tuneSpeed, microsteps));
+	const cruiseParam = $derived(
+		options.cruiseTstep !== null && options.cruiseTstep > 0
+			? Math.round(options.cruiseTstep)
+			: autoCruise
+	);
+	const verdict = $derived.by(() => {
+		if (cruiseTstep === null || applied === null) return null;
+		if (cruiseTstep > applied.tcoolthrs) return 'blind' as const;
+		return applied.enabled ? ('ready' as const) : ('off' as const);
+	});
+
+	function useOperatingSpeed() {
+		swSpeed = operatingSpeed;
+		speedTouched = true;
+	}
+
+	// --- What the machine has recorded ---
 	let runs = $state<Run[]>([]);
 	let summary = $state<SummaryRow[]>([]);
 	let selectedRun = $state<Run | null>(null);
 	let points = $state<ChartPoint[]>([]);
 	let loadingSamples = $state(false);
-	let error = $state<string | null>(null);
-	let notice = $state<string | null>(null);
-	let showCs = $state(false);
-	let showTstep = $state(true);
-
-	// The latest few runs; the rest on request, so the list never scrolls inside the page.
-	const RUNS_SHOWN = 8;
-	let showAllRuns = $state(false);
-	const shownRuns = $derived(showAllRuns ? runs : runs.slice(0, RUNS_SHOWN));
-	const motorSummary = $derived(summary.find((row) => row.stepper_name === motor));
-
-	// Sweep form
-	type Profile = 'constant' | 'chute_random' | 'pulsed';
-	let swSpeed = $state(1500);
-	let swDirection = $state<'cw' | 'ccw'>('cw');
-	let swDuration = $state(4);
-	let swLoaded = $state(false);
-	let swLabel = $state('');
-	let swEnterToRun = $state(false);
-	// Motion profile. Constant spin only suits a free-running motor; the chute
-	// aims to angles (random go-to + turnaround) and the rotors/carousel pulse
-	// with the odd jitter — those mirror real load. Default by motor.
-	let swProfile = $state<Profile>('pulsed');
-	let swChuteMinDeg = $state(10);
-	let swChuteMaxDeg = $state(340);
-	let swMinDeltaDeg = $state(30);
-	let swPulseDeg = $state(30);
-	let swDwellMs = $state(250);
-	let swJitterEvery = $state(5);
-	// Only motion at/above cruise (TSTEP <= this; lower TSTEP = faster) counts for
-	// the threshold — accel/decel/reversal transients dip SG even unloaded and
-	// would drag the floor down. This is also saved as the enforcement velocity
-	// floor (TCOOLTHRS) so DIAG only acts at cruise. The chute cruises at TSTEP
-	// ~75-150; transients are >200.
-	let swCruiseTstep = $state(150);
-	let running = $state(false);
-	let savingThreshold = $state(false);
-
-	$effect(() => {
-		swProfile = motor === 'chute' ? 'chute_random' : 'pulsed';
-	});
-
-	// Pair-based threshold suggestion for the motor — pooled from its recent
-	// unloaded floor + loaded stall dip (server-computed), placed at the
-	// geometric midpoint of the gap. This, not any single run, drives Save.
-	type Suggestion = {
-		stepper: string;
-		cruise_tstep: number;
-		measured_cruise_tstep: number | null;
-		unloaded_floor: number | null;
-		loaded_dip: number | null;
-		trigger_level: number | null;
-		suggested_sgthrs: number | null;
-		enough_data: boolean;
-		reliable: boolean;
-		realistic_floor: number | null;
-		speed: number | null;
-		unloaded_runs: number;
-		loaded_runs: number;
-		detail: string;
-	};
+	// The threshold suggestion for the speed of the recording on show.
 	let suggestion = $state<Suggestion | null>(null);
-
-	function onKeydown(ev: KeyboardEvent) {
-		if (!swEnterToRun || ev.key !== 'Enter' || running) return;
-		ev.preventDefault();
-		runSweep();
-	}
-
-	function fmtTime(epoch: number | null): string {
-		if (!epoch) return '—';
-		return new Date(epoch * 1000).toLocaleString();
-	}
+	let error = $state<string | null>(null);
+	let curveElement = $state<HTMLElement>();
+	const motorSummary = $derived(summary.find((row) => row.stepper_name === motor));
 
 	async function loadRuns() {
 		try {
@@ -245,31 +221,41 @@
 		}
 	}
 
-	async function loadSuggestion(speed?: number | null) {
-		suggestion = null;
+	// The suggestion must only use recordings at the SAME speed as the one on
+	// show: the floor, the dip and the baseline all shift with speed, so mixing
+	// speeds gives a nonsense (and unstable) recommendation. The same call, for
+	// the speed being tuned, is what tells the steps which recordings exist.
+	async function readSuggestion(speed: number | null | undefined): Promise<Suggestion | null> {
 		try {
-			// Speed-match: the suggestion must only use runs at the SAME speed as the
-			// run being viewed — SG floor/dip/baseline all shift with speed, so mixing
-			// speeds produces a nonsense (and unstable) recommendation.
 			const qs = speed != null ? `?speed=${speed}` : '';
 			const res = await fetch(`${base()}/stepper/${motor}/stallguard-suggestion${qs}`);
-			if (!res.ok) return;
-			suggestion = await res.json();
+			return res.ok ? ((await res.json()) as Suggestion) : null;
 		} catch {
-			suggestion = null;
+			return null;
 		}
 	}
 
+	let suggestionSeq = 0;
+	async function loadSuggestion(speed: number | null | undefined) {
+		const seq = ++suggestionSeq;
+		suggestion = null;
+		const next = await readSuggestion(speed);
+		if (seq === suggestionSeq) suggestion = next;
+	}
+
+	let selectSeq = 0;
 	async function selectRun(run: Run) {
+		const seq = ++selectSeq;
 		selectedRun = run;
 		loadingSamples = true;
 		points = [];
 		error = null;
-		loadSuggestion(run.params?.speed);
+		void loadSuggestion(run.params?.speed);
 		try {
 			const res = await fetch(`${base()}/api/stepper-telemetry/runs/${run.id}/samples`);
 			if (!res.ok) throw new Error(`HTTP ${res.status}`);
 			const data = await res.json();
+			if (seq !== selectSeq) return;
 			const rows = data.samples as any[];
 			const t0 = rows.length ? rows[0].recorded_at : 0;
 			points = rows.map((r) => ({
@@ -279,88 +265,19 @@
 				tstep: r.tstep
 			}));
 		} catch (e: any) {
-			error = e.message ?? 'Failed to load samples';
+			if (seq === selectSeq) error = e.message ?? 'Failed to load samples';
 		} finally {
-			loadingSamples = false;
+			if (seq === selectSeq) loadingSamples = false;
 		}
 	}
 
-	async function runSweep() {
-		if (running) return;
-		running = true;
-		error = null;
-		notice = null;
-		try {
-			const qs = new URLSearchParams({
-				stepper: motor,
-				speed: String(swSpeed),
-				direction: swDirection,
-				duration_s: String(swDuration),
-				loaded: String(swLoaded),
-				profile: swProfile,
-				cruise_tstep: String(swCruiseTstep)
-			});
-			if (swProfile === 'chute_random') {
-				qs.set('chute_min_deg', String(swChuteMinDeg));
-				qs.set('chute_max_deg', String(swChuteMaxDeg));
-				qs.set('min_delta_deg', String(swMinDeltaDeg));
-			} else if (swProfile === 'pulsed') {
-				qs.set('pulse_deg', String(swPulseDeg));
-				qs.set('dwell_ms', String(swDwellMs));
-				qs.set('jitter_every', String(swJitterEvery));
-			}
-			if (swLabel.trim()) qs.set('label', swLabel.trim());
-			const res = await fetch(`${base()}/stepper/stallguard-sweep?${qs}`, { method: 'POST' });
-			if (!res.ok) throw new Error(await readError(res));
-			const data = await res.json();
-			notice = data.stats
-				? `Sweep done: ${data.stats.samples} samples, SG ${data.stats.sg_min}–${data.stats.sg_max} (mean ${data.stats.sg_mean}), suggested SGTHRS ${data.stats.suggested_sgthrs}.`
-				: 'Sweep done (no valid samples).';
-			await loadRuns();
-			await loadSummary();
-			const fresh = runs.find((r) => r.id === data.run_id);
-			if (fresh) await selectRun(fresh);
-			else await loadSuggestion(swSpeed);
-		} catch (e: any) {
-			error = e.message ?? 'Sweep failed';
-		} finally {
-			running = false;
-		}
+	// A row of the list chooses a recording up in the load curve, so bring it into view.
+	async function pickRun(run: Run) {
+		await selectRun(run);
+		curveElement?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
 	}
 
-	async function saveThreshold() {
-		if (suggestion?.suggested_sgthrs == null) return;
-		savingThreshold = true;
-		error = null;
-		notice = null;
-		try {
-			const res = await fetch(`${base()}/stepper/${motor}/stallguard-config`, {
-				method: 'POST',
-				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({
-					sgthrs: suggestion.suggested_sgthrs,
-					// The cruise velocity floor is the enforcement TCOOLTHRS so DIAG only
-					// acts at cruise (matching where the threshold was tuned).
-					tcoolthrs: suggestion.cruise_tstep,
-					enabled: true
-				})
-			});
-			if (!res.ok) throw new Error(await readError(res));
-			const data = await res.json();
-			// The settings at the top now hold what was saved.
-			sgEnabled = !!data.enabled;
-			sgThrs = data.sgthrs;
-			sgTcoolthrs = data.tcoolthrs;
-			notice = `Saved SGTHRS=${data.sgthrs} for ${data.toml_name} to machine.toml.`;
-		} catch (e: any) {
-			error = e.message ?? 'Failed to save threshold';
-		} finally {
-			savingThreshold = false;
-		}
-	}
-
-	async function deleteRun(run: Run, ev: Event) {
-		ev.stopPropagation();
+	async function deleteRun(run: Run) {
 		if (
 			!(await confirmDialog({
 				title: 'Delete the run?',
@@ -375,56 +292,606 @@
 				method: 'DELETE'
 			});
 			if (!res.ok) throw new Error(`HTTP ${res.status}`);
+			await Promise.all([loadRuns(), loadSummary(), loadTuning()]);
 			if (selectedRun?.id === run.id) {
 				selectedRun = null;
 				points = [];
+				suggestion = null;
+				if (runs.length > 0) await selectRun(runs[0]);
 			}
-			await loadRuns();
-			await loadSummary();
 		} catch (e: any) {
 			error = e.message ?? 'Failed to delete run';
 		}
 	}
 
-	// Trigger line on the chart prefers the pair-based suggestion (the level we'd
-	// actually save); falls back to the selected run's own suggestion if there's
-	// not yet a loaded run to pair with.
-	const triggerLevel = $derived(
-		suggestion?.trigger_level != null
-			? suggestion.trigger_level
-			: selectedRun?.suggested_sgthrs != null
-				? selectedRun.suggested_sgthrs * 2
-				: null
+	// --- The tuning at the speed being tuned ---
+	// The suggestion for that speed: how many recordings there are at it, what
+	// they read, and the settings they give. It is re-read when the speed changes
+	// and after every recording.
+	let tuning = $state<Suggestion | null>(null);
+	let tuningFor = $state<number | null>(null);
+	let tuningLoaded = $state(false);
+	let tuningSeq = 0;
+
+	async function loadTuning() {
+		const speed = signedTuneSpeed;
+		if (speed === null) return;
+		const seq = ++tuningSeq;
+		const next = await readSuggestion(speed);
+		if (seq !== tuningSeq) return;
+		tuning = next;
+		tuningFor = next ? speed : null;
+		tuningLoaded = true;
+		if (!next) error = 'Failed to read the recordings made at this speed';
+	}
+
+	$effect(() => {
+		const speed = signedTuneSpeed;
+		if (settingsLoading || speed === null) return;
+		const handle = setTimeout(() => untrack(() => void loadTuning()), 250);
+		return () => clearTimeout(handle);
+	});
+
+	const plan = $derived(tuningFor !== null && tuningFor === signedTuneSpeed ? tuning : null);
+
+	// --- The steps ---
+	// The speed is confirmed in the first step. Recordings at the speed also count,
+	// but not while the person has been changing it: the step does not fold away
+	// under their hands.
+	let speedConfirmed = $state(false);
+	// The speed the settings were saved for in step 4, and the check made after.
+	let savedFor = $state<number | null>(null);
+	let check = $state<{ speed: number; sgthrs: number; tcoolthrs: number; result: Replay } | null>(
+		null
 	);
+	// A step the person opened again, over the one that is next.
+	let openStep = $state<number | null>(null);
+
+	const haveFree = $derived(plan !== null && plan.unloaded_floor !== null);
+	const haveStall = $derived(plan !== null && plan.loaded_dip !== null);
+	const matchesSaved = $derived(
+		plan !== null &&
+			applied !== null &&
+			applied.enabled &&
+			plan.suggested_sgthrs !== null &&
+			applied.sgthrs === plan.suggested_sgthrs &&
+			applied.tcoolthrs === plan.cruise_tstep
+	);
+	const checkHere = $derived(check !== null && check.speed === signedTuneSpeed ? check : null);
+	const checkTripped = $derived(checkHere !== null && checkHere.result.tripped > 0);
+	const done = $derived.by(() => {
+		const s1 = tuneSpeed !== null && (speedConfirmed || (!speedTouched && (haveFree || haveStall)));
+		const s2 = s1 && haveFree;
+		const s3 = s2 && haveStall;
+		const s4 = s3 && ((savedFor !== null && savedFor === signedTuneSpeed) || matchesSaved);
+		const s5 = s4 && checkHere !== null && checkHere.result.looked > 0 && !checkTripped;
+		return [s1, s2, s3, s4, s5];
+	});
+	const currentStep = $derived(done.indexOf(false) === -1 ? 5 : done.indexOf(false) + 1);
+
+	function statusOf(n: number): 'done' | 'current' | 'locked' {
+		return done[n - 1] ? 'done' : n === currentStep ? 'current' : 'locked';
+	}
+	// The one step that shows its body: the one the person opened again, else the next to do.
+	const openNow = $derived(
+		openStep !== null && statusOf(openStep) !== 'locked'
+			? openStep
+			: done[currentStep - 1]
+				? null
+				: currentStep
+	);
+
+	function confirmSpeed() {
+		speedConfirmed = true;
+		openStep = null;
+	}
+
+	// --- Recording ---
+	type Recording = 'free' | 'stall' | 'check';
+	const STEP_OF: Record<Recording, number> = { free: 2, stall: 3, check: 5 };
+	const RECORDING_AT: Record<number, Recording> = { 2: 'free', 3: 'stall', 5: 'check' };
+	const RECORDING_LABEL: Record<Recording, string> = {
+		free: 'Free running',
+		stall: 'Stall',
+		check: 'Check'
+	};
+	let running = $state<Recording | null>(null);
+	let runError = $state<{ step: number; message: string } | null>(null);
+
+	async function record(kind: Recording) {
+		if (running || tuneSpeed === null) return;
+		const checking = kind === 'check' ? applied : null;
+		if (kind === 'check' && !checking) return;
+		running = kind;
+		runError = null;
+		speedConfirmed = true;
+		try {
+			const duration = Number(options.duration);
+			if (!(duration > 0)) throw new Error('The recording needs a duration above 0 seconds.');
+			const qs = new URLSearchParams({
+				stepper: motor,
+				speed: String(tuneSpeed),
+				direction: options.direction,
+				duration_s: String(duration),
+				loaded: String(kind === 'stall'),
+				profile: options.profile,
+				cruise_tstep: String(cruiseParam)
+			});
+			if (options.profile === 'chute_random') {
+				qs.set('chute_min_deg', String(options.chuteMinDeg));
+				qs.set('chute_max_deg', String(options.chuteMaxDeg));
+				qs.set('min_delta_deg', String(options.minDeltaDeg));
+			} else if (options.profile === 'pulsed') {
+				qs.set('pulse_deg', String(options.pulseDeg));
+				qs.set('dwell_ms', String(options.dwellMs));
+				qs.set('jitter_every', String(options.jitterEvery));
+			}
+			qs.set('label', options.label.trim() || RECORDING_LABEL[kind]);
+			const res = await fetch(`${base()}/stepper/stallguard-sweep?${qs}`, { method: 'POST' });
+			if (!res.ok) throw new Error(await readError(res));
+			const data = await res.json();
+			if (checking && signedTuneSpeed !== null) {
+				// A sweep keeps stall detection off while it runs, so the check asks what
+				// the saved settings would have done to what it recorded.
+				check = {
+					speed: signedTuneSpeed,
+					sgthrs: checking.sgthrs,
+					tcoolthrs: checking.tcoolthrs,
+					result: replay((data.samples ?? []) as Sample[], checking.sgthrs, checking.tcoolthrs)
+				};
+			}
+			await Promise.all([loadRuns(), loadSummary(), loadTuning()]);
+			const fresh = runs.find((r) => r.id === data.run_id);
+			if (fresh) await selectRun(fresh);
+			openStep = null;
+		} catch (e: any) {
+			runError = { step: STEP_OF[kind], message: e.message ?? 'The recording failed' };
+		} finally {
+			running = null;
+		}
+	}
+
+	function onKeydown(ev: KeyboardEvent) {
+		if (!options.enterToRun || ev.key !== 'Enter' || running) return;
+		const kind = RECORDING_AT[openNow ?? 0];
+		if (!kind) return;
+		ev.preventDefault();
+		void record(kind);
+	}
+
+	let sweepOptionsOpen = $state(false);
+	async function openSweepOptions() {
+		sweepOptionsOpen = true;
+		await tick();
+		document
+			.getElementById('sg-sweep-options')
+			?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+	}
+
+	// --- Saving the suggestion (step 4) ---
+	let saving = $state(false);
+	let saveError = $state<string | null>(null);
+
+	async function saveThreshold() {
+		if (!plan || plan.suggested_sgthrs === null) return;
+		saving = true;
+		saveError = null;
+		try {
+			const res = await fetch(`${base()}/stepper/${motor}/stallguard-config`, {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({
+					sgthrs: plan.suggested_sgthrs,
+					// The speed floor is the cruise TSTEP the recordings measured, with a
+					// margin, so the driver only looks while the motor cruises (where the
+					// threshold was tuned).
+					tcoolthrs: plan.cruise_tstep,
+					enabled: true
+				})
+			});
+			if (!res.ok) throw new Error(await readError(res));
+			const data = await res.json();
+			// The stall detection settings now hold what was saved.
+			sgEnabled = !!data.enabled;
+			sgThrs = data.sgthrs;
+			sgTcoolthrs = data.tcoolthrs;
+			applied = { enabled: sgEnabled, sgthrs: sgThrs, tcoolthrs: sgTcoolthrs };
+			savedFor = signedTuneSpeed;
+			check = null;
+			settingsNotice = '';
+			openStep = null;
+		} catch (e: any) {
+			saveError = e.message ?? 'Failed to save the settings';
+		} finally {
+			saving = false;
+		}
+	}
 
 	onMount(() => {
 		void loadSettings();
-		void loadRuns();
-		void loadSummary();
+		void (async () => {
+			await Promise.all([loadRuns(), loadSummary()]);
+			// The latest recording is on show from the start.
+			if (!selectedRun && runs.length > 0) await selectRun(runs[0]);
+		})();
 	});
 
-	const directionOptions: { value: 'cw' | 'ccw'; label: string }[] = [
-		{ value: 'cw', label: 'Clockwise' },
-		{ value: 'ccw', label: 'Counterclockwise' }
-	];
-	const cruiseHelp = $derived(
-		"Only motion at cruise (TSTEP at or below this; lower is faster) sets the threshold, since speeding up, slowing down and reversing dip SG even unloaded. Stays in StealthChop, where the TMC2209's StallGuard works." +
-			(motor === 'chute' ? ' The chute cruises at TSTEP 75 to 150.' : '') +
-			' This is saved as the velocity floor, so DIAG only acts at cruise.'
-	);
-	// Going to random angles needs the chute's endstops and angles; no other motor has them.
-	const profileOptions = $derived<{ value: Profile; label: string }[]>([
-		{ value: 'constant', label: 'Constant spin' },
-		...(motor === 'chute'
-			? [{ value: 'chute_random' as const, label: 'Chute: random go-to-angle' }]
-			: []),
-		{ value: 'pulsed', label: 'Pulsed with jitter' }
-	]);
+	const ready = $derived(settingsAttempted && tuningLoaded);
 </script>
 
 <svelte:window onkeydown={onKeydown} />
 
 <div class="flex min-w-0 flex-col gap-(--gap-panels)">
+	{#if error}<Alert tone="danger">{error}</Alert>{/if}
+
+	<Panel
+		title="Tune StallGuard"
+		description="StallGuard reads how hard {label} is working: high when it turns freely, near 0 when it stalls. Tuning finds the line between the two, at the speed it really runs."
+		flush
+	>
+		{#snippet actions()}
+			{#if checkTripped}
+				<Badge tone="warning">It would trip</Badge>
+			{:else if done[3]}
+				<Badge tone="success">Tuned</Badge>
+			{:else}
+				<Badge tone="primary">Step {currentStep} of 5</Badge>
+			{/if}
+		{/snippet}
+		{#if !ready}
+			<div
+				class="flex items-center gap-2 border-t border-line px-(--pad-panel) py-4 text-sm text-ink-muted"
+			>
+				<Spinner size={14} /> Reading the driver and your recordings
+			</div>
+		{:else}
+			<ol class="divide-y divide-line border-t border-line">
+				<Step
+					n={1}
+					title="Check the speed"
+					status={statusOf(1)}
+					open={openNow === 1}
+					hint={statusOf(1) === 'done'
+						? `${speedText} µsteps/s at 1/${microsteps} microstepping`
+						: undefined}
+				>
+					{#snippet actions()}
+						{#if statusOf(1) === 'done' && verdict === 'blind'}
+							<Badge tone="warning">Can't trip yet</Badge>
+						{/if}
+						{@render reopen(1, 'Change')}
+					{/snippet}
+					<div class="flex max-w-2xl flex-col gap-4">
+						<p class="text-sm text-ink">
+							StallGuard's readings change with speed, so it is tuned at the one speed {label} really
+							runs at.
+							{#if operatingSpeed !== null}
+								The speed below is its operating speed as currently set.
+							{:else}
+								Type the speed it runs at.
+							{/if}
+						</p>
+						{#if settingsError}
+							<Alert tone="danger" actions={settingsLoaded ? undefined : tryAgain}>
+								{settingsError}
+							</Alert>
+						{/if}
+						<Field label="Speed" for="sg-speed" error={speedError}>
+							<div class="flex flex-wrap items-center gap-3">
+								<Input
+									id="sg-speed"
+									type="number"
+									step={100}
+									unit="µsteps/s"
+									bind:value={swSpeed}
+									oninput={() => (speedTouched = true)}
+									invalid={!!speedError}
+									class="w-56"
+								/>
+								{#if atOperatingSpeed}
+									<Badge tone="primary">Operating speed</Badge>
+								{:else if operatingSpeed !== null}
+									<Button variant="ghost" size="sm" icon={RotateCcw} onclick={useOperatingSpeed}>
+										Use the operating speed, {operatingSpeed.toLocaleString()}
+									</Button>
+								{/if}
+							</div>
+						</Field>
+						{#if verdict === 'blind' && applied && cruiseTstep !== null}
+							<Alert tone="warning" title="StallGuard can't trip at this speed yet">
+								At {speedText} µsteps/s and 1/{microsteps} microstepping {label} cruises at TSTEP {cruiseTstep},
+								slower than the speed floor of {applied.tcoolthrs.toLocaleString()}, so the driver
+								never checks for a stall. Steps 2 to 4 measure it and set a speed floor that fits.
+							</Alert>
+						{:else if verdict === 'off' && applied && cruiseTstep !== null}
+							<Alert tone="info" title="StallGuard is off">
+								At {speedText} µsteps/s {label} cruises at TSTEP {cruiseTstep}, inside the speed
+								floor of {applied.tcoolthrs.toLocaleString()}, so the driver would check for a
+								stall, but detection is switched off. Step 4 turns it on.
+							</Alert>
+						{:else if verdict === 'ready' && applied && cruiseTstep !== null}
+							<Alert tone="success" title="StallGuard can trip at this speed">
+								At {speedText} µsteps/s and 1/{microsteps} microstepping {label} cruises at TSTEP {cruiseTstep},
+								inside the speed floor of {applied.tcoolthrs.toLocaleString()}. The next steps tune
+								the threshold for this speed.
+							</Alert>
+						{/if}
+						<div>
+							<Button variant="primary" disabled={tuneSpeed === null} onclick={confirmSpeed}>
+								Tune at {speedText} µsteps/s
+							</Button>
+						</div>
+					</div>
+				</Step>
+
+				<Step
+					n={2}
+					title="Record {label} running freely"
+					status={statusOf(2)}
+					open={openNow === 2}
+					hint={statusOf(2) === 'done' && plan
+						? `Running freely it reads ${plan.unloaded_floor} or higher.`
+						: statusOf(2) === 'locked'
+							? 'Check the speed first.'
+							: undefined}
+				>
+					{#snippet actions()}
+						{@render reopen(2, 'Record again')}
+					{/snippet}
+					<div class="flex max-w-2xl flex-col gap-4">
+						<p class="text-sm text-ink">
+							{Label} runs a short move at {speedText} µsteps/s with nothing holding it back, and StallGuard
+							records how hard it works. This is what normal running looks like, and a stall has to read
+							well below it.
+						</p>
+						{@render motion()}
+						<Alert tone="warning">
+							This moves a real motor. Keep the area clear and your hand near the stop control.
+						</Alert>
+						{#if plan && plan.unloaded_runs > 0 && !haveFree}
+							<Alert tone="warning" title="The last recording could not be used">
+								{plan.detail}
+							</Alert>
+						{/if}
+						{@render failure(2)}
+						<div class="flex flex-wrap items-center gap-3">
+							<Button
+								variant="primary"
+								loading={running === 'free'}
+								disabled={running !== null && running !== 'free'}
+								onclick={() => record('free')}
+							>
+								Record it running freely
+							</Button>
+							{#if running === 'free'}
+								<span class="text-sm text-ink-muted">
+									Recording for about {options.duration} seconds. Keep clear of it.
+								</span>
+							{/if}
+						</div>
+					</div>
+				</Step>
+
+				<Step
+					n={3}
+					title="Record a stall"
+					status={statusOf(3)}
+					open={openNow === 3}
+					hint={statusOf(3) === 'done' && plan
+						? `Held back, it dips to ${plan.loaded_dip}.`
+						: statusOf(3) === 'locked'
+							? 'Record it running freely first.'
+							: undefined}
+				>
+					{#snippet actions()}
+						{@render reopen(3, 'Record again')}
+					{/snippet}
+					<div class="flex max-w-2xl flex-col gap-4">
+						<p class="text-sm text-ink">
+							Now the same move again, but you hold {label} back by hand so it stalls. This shows StallGuard
+							what a stall reads, so it can tell one from normal running.
+						</p>
+						<p class="text-sm text-ink">
+							Press the button, then hold the motor back as soon as it starts moving and keep
+							holding until the recording ends, about {options.duration} seconds.
+						</p>
+						{@render motion()}
+						<Alert tone="warning">
+							This moves a real motor and you will be holding it. Hold only the part that turns,
+							keep your fingers away from gears and the endstop, and let go if anything feels wrong.
+						</Alert>
+						{#if plan && plan.loaded_runs > 0 && !haveStall}
+							<Alert tone="warning" title="The last recording could not be used">
+								{plan.detail}
+							</Alert>
+						{/if}
+						{@render failure(3)}
+						<div class="flex flex-wrap items-center gap-3">
+							<Button
+								variant="primary"
+								loading={running === 'stall'}
+								disabled={running !== null && running !== 'stall'}
+								onclick={() => record('stall')}
+							>
+								Record a stall
+							</Button>
+							{#if running === 'stall'}
+								<span class="text-sm font-medium text-ink">
+									Recording now. Hold the motor back until it stops.
+								</span>
+							{/if}
+						</div>
+					</div>
+				</Step>
+
+				<Step
+					n={4}
+					title="Review and save"
+					status={statusOf(4)}
+					open={openNow === 4}
+					hint={statusOf(4) === 'done' && applied
+						? `Saved: threshold ${applied.sgthrs}, speed floor ${applied.tcoolthrs}.`
+						: statusOf(4) === 'locked'
+							? 'Needs both recordings.'
+							: undefined}
+				>
+					{#snippet actions()}
+						{@render reopen(4, 'Review')}
+					{/snippet}
+					{#if plan && plan.suggested_sgthrs !== null && plan.trigger_level !== null}
+						<div class="flex max-w-2xl flex-col gap-4">
+							<p class="text-sm text-ink">
+								StallGuard compared your two recordings and suggests these settings for {label} at {speedText}
+								µsteps/s. The load curve below shows them.
+							</p>
+							<div
+								class="grid grid-cols-1 divide-y divide-line rounded-control bg-well sm:grid-cols-2 sm:divide-x sm:divide-y-0"
+							>
+								<Stat
+									label="Threshold (SGTHRS)"
+									value={plan.suggested_sgthrs}
+									hint={applied
+										? applied.sgthrs === plan.suggested_sgthrs
+											? 'Saved'
+											: `Now ${applied.sgthrs}`
+										: undefined}
+								/>
+								<Stat
+									label="Speed floor (TCOOLTHRS)"
+									value={plan.cruise_tstep}
+									hint={applied
+										? applied.tcoolthrs === plan.cruise_tstep
+											? 'Saved'
+											: `Now ${applied.tcoolthrs}`
+										: undefined}
+								/>
+							</div>
+							<p class="text-sm text-ink-muted">
+								The threshold is the line between a free-running reading ({plan.unloaded_floor} or higher)
+								and a stall ({plan.loaded_dip} or lower): StallGuard calls it a stall when the reading
+								falls to {plan.trigger_level} or lower. The speed floor keeps it from judging while the
+								motor speeds up or slows down: it only looks above about {speedAtTstep(
+									plan.cruise_tstep,
+									microsteps
+								).toLocaleString()} µsteps/s.
+							</p>
+							{#if !plan.reliable}
+								<Alert
+									tone="danger"
+									title="Not reliably tunable at {speedText} µsteps/s"
+									actions={stallAgain}
+								>
+									{plan.detail}
+								</Alert>
+							{/if}
+							{#if saveError}<Alert tone="danger">{saveError}</Alert>{/if}
+							<div>
+								<Button
+									variant={plan.reliable ? 'primary' : 'ghost'}
+									loading={saving}
+									onclick={saveThreshold}
+								>
+									{plan.reliable ? 'Save and turn on StallGuard' : 'Save anyway (unreliable)'}
+								</Button>
+							</div>
+						</div>
+					{/if}
+				</Step>
+
+				<Step
+					n={5}
+					title="Check it"
+					status={statusOf(5)}
+					open={openNow === 5}
+					hint={statusOf(5) === 'done'
+						? 'Nothing would have tripped.'
+						: statusOf(5) === 'locked'
+							? 'Save the settings first.'
+							: undefined}
+				>
+					{#snippet actions()}
+						<Badge>Optional</Badge>
+						{@render reopen(5, 'Record again')}
+					{/snippet}
+					<div class="flex max-w-2xl flex-col gap-4">
+						<p class="text-sm text-ink">
+							Record {label} running freely once more. StallGuard checks that recording against the settings
+							you saved and tells you if it would have stopped the machine. Nothing should trip.
+						</p>
+						{@render motion()}
+						<Alert tone="warning">
+							This moves a real motor. Keep the area clear and your hand near the stop control.
+						</Alert>
+						{@render failure(5)}
+						{#if checkHere}
+							{@const r = checkHere.result}
+							{#if r.looked === 0}
+								<Alert tone="info" title="Nothing to check against">
+									The motor never ran fast enough for StallGuard to look: TSTEP stayed above the
+									speed floor of {checkHere.tcoolthrs}. Check the speed in step 1.
+								</Alert>
+							{:else if r.tripped === 0}
+								<Alert tone="success" title="Nothing would have tripped">
+									StallGuard would have looked at {r.looked} readings. The lowest was {r.lowest},
+									above the trigger of {2 * checkHere.sgthrs}.
+								</Alert>
+							{:else}
+								<Alert tone="danger" title="It would have stopped the machine">
+									{r.tripped} of {r.looked} readings were at or under the trigger of {2 *
+										checkHere.sgthrs}
+									while running freely (the lowest was {r.lowest}), so it would have called a stall
+									that was not one. Record the stall again and save, or lower the threshold under
+									Stall detection below.
+								</Alert>
+							{/if}
+						{/if}
+						<div class="flex flex-wrap items-center gap-3">
+							<Button
+								variant="primary"
+								loading={running === 'check'}
+								disabled={(running !== null && running !== 'check') || applied === null}
+								onclick={() => record('check')}
+							>
+								Record a check
+							</Button>
+							{#if running === 'check'}
+								<span class="text-sm text-ink-muted">
+									Recording for about {options.duration} seconds. Keep clear of it.
+								</span>
+							{/if}
+						</div>
+						{#if stressTestHref}
+							<p class="text-sm text-ink-muted">
+								A sweep keeps stall detection off while it runs. For a longer test with detection
+								really on, the stress test runs {label} for a minute with the saved settings armed, and
+								stops and says so if anything trips.
+							</p>
+							<div>
+								<Button variant="ghost" size="sm" icon={ArrowRight} href={stressTestHref}>
+									Open the stress test
+								</Button>
+							</div>
+						{/if}
+					</div>
+				</Step>
+			</ol>
+		{/if}
+	</Panel>
+
+	{#if selectedRun}
+		<div bind:this={curveElement}>
+			<StepperStallGuardCurve
+				{label}
+				{runs}
+				run={selectedRun}
+				{points}
+				loading={loadingSamples}
+				{suggestion}
+				onselect={selectRun}
+			/>
+		</div>
+	{/if}
+
 	<Panel
 		title="Stall detection"
 		description="Whether {label} halts the machine when it stalls, and how hard it must be loaded to count as one."
@@ -441,13 +908,7 @@
 					</Alert>
 				{/if}
 				{#if settingsLoaded}
-					<StepperStallGuardSettings
-						bind:sgEnabled
-						bind:sgThrs
-						bind:sgTcoolthrs
-						{microsteps}
-						{cruiseSpeed}
-					/>
+					<StepperStallGuardSettings bind:sgEnabled bind:sgThrs bind:sgTcoolthrs {microsteps} />
 				{/if}
 			</div>
 		{/if}
@@ -466,277 +927,79 @@
 		{/snippet}
 	</Panel>
 
-	<header class="pt-4">
-		<h2 class="text-base font-semibold text-ink">Calibration</h2>
-		<p class="mt-0.5 max-w-prose text-sm text-ink-muted">
-			Record the TMC2209 load (SG_RESULT) of {label}. Run a sweep, read the load curve, and write a
-			stall threshold to the machine config.
-		</p>
-	</header>
-
-	{#if error}<Alert tone="danger">{error}</Alert>{/if}
-	{#if notice}<Alert tone="success">{notice}</Alert>{/if}
-
-	<Panel title="Recorded readings" description="Every SG_RESULT sample recorded for {label}." flush>
-		{#if motorSummary}
-			<div class="grid grid-cols-2 divide-x divide-line sm:grid-cols-4">
-				<Stat
-					label="Samples"
-					value={motorSummary.samples}
-					hint="Last {fmtTime(motorSummary.last_seen)}"
-				/>
-				<Stat label="SG min" value={motorSummary.sg_min} />
-				<Stat label="SG mean" value={Math.round(motorSummary.sg_mean)} />
-				<Stat label="SG max" value={motorSummary.sg_max} />
-			</div>
-		{:else}
-			<p class="px-(--pad-panel) pb-4 text-sm text-ink-muted">
-				Nothing recorded yet. Run a sweep below.
-			</p>
-		{/if}
-	</Panel>
-
 	<Panel
-		title="Run a sweep"
-		description="Drives {label} through a representative motion and records its load curve. For a deliberate stall test, choose Loaded and hold the motor back by hand while it runs."
+		title="Expert tools"
+		description="What the steps use, by hand: how a sweep moves, every past recording, and the readings behind them."
+		flush
 	>
-		<div class="flex flex-col gap-4">
-			<Alert tone="warning">
-				This moves a real motor. Keep the area clear and your hand near the stop control.
-			</Alert>
-			<div class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-				<Field label="Motion" for="sw-profile">
-					<Select id="sw-profile" bind:value={swProfile} options={profileOptions} />
-				</Field>
-				<Field label="Direction" for="sw-direction">
-					<Select id="sw-direction" bind:value={swDirection} options={directionOptions} />
-				</Field>
-				<Field label="Speed" for="sw-speed">
-					<Input id="sw-speed" type="number" unit="µsteps/s" bind:value={swSpeed} />
-				</Field>
-				<Field label="Duration" for="sw-duration">
-					<Input id="sw-duration" type="number" unit="s" bind:value={swDuration} />
-				</Field>
-				<Field label="Label" for="sw-label" help="Optional.">
-					<Input id="sw-label" bind:value={swLabel} />
-				</Field>
-				{#if swProfile === 'chute_random'}
-					<Field label="Min angle" for="sw-min">
-						<Input id="sw-min" type="number" unit="° output" bind:value={swChuteMinDeg} />
-					</Field>
-					<Field label="Max angle" for="sw-max">
-						<Input id="sw-max" type="number" unit="° output" bind:value={swChuteMaxDeg} />
-					</Field>
-					<Field label="Min angle change" for="sw-delta">
-						<Input id="sw-delta" type="number" unit="°" bind:value={swMinDeltaDeg} />
-					</Field>
-					<p class="text-sm text-ink-muted sm:col-span-2 lg:col-span-3">
-						Random go-to-angle between the min and max output angle (clamped to the chute's safe
-						travel, 345° at most), turning straight back on each arrival. Homes the chute first if
-						needed, so it moves on absolute angles and can never reach an endstop.
-					</p>
-				{:else if swProfile === 'pulsed'}
-					<Field label="Pulse size" for="sw-pulse">
-						<Input id="sw-pulse" type="number" unit="° motor" bind:value={swPulseDeg} />
-					</Field>
-					<Field label="Dwell" for="sw-dwell">
-						<Input id="sw-dwell" type="number" unit="ms" bind:value={swDwellMs} />
-					</Field>
-					<Field label="Jitter every" for="sw-jitter" help="0 turns the jitter off.">
-						<Input id="sw-jitter" type="number" unit="pulses" bind:value={swJitterEvery} />
-					</Field>
-					<p class="text-sm text-ink-muted sm:col-span-2 lg:col-span-3">
-						Separate pulses with a dwell between them, as the rotors and carousel really run, and an
-						unstick jitter every few pulses. Only the moving phases are sampled.
+		<div class="divide-y divide-line border-t border-line">
+			<div id="sg-sweep-options">
+				<Disclosure
+					title="Sweep options"
+					help="Motion, direction, duration, cruise TSTEP, angles"
+					bind:open={sweepOptionsOpen}
+				>
+					<StepperStallGuardSweepOptions bind:options {motor} {autoCruise} />
+				</Disclosure>
+			</div>
+			<Disclosure
+				title="Past recordings"
+				help={runs.length > 0 ? `${runs.length} in all, newest first` : 'None yet'}
+			>
+				<StepperStallGuardRuns
+					{runs}
+					selectedId={selectedRun?.id ?? null}
+					onselect={pickRun}
+					ondelete={deleteRun}
+				/>
+			</Disclosure>
+			<Disclosure title="Recorded readings" help="Every SG_RESULT sample recorded for {label}">
+				{#if motorSummary}
+					<div class="grid grid-cols-2 divide-x divide-line sm:grid-cols-4">
+						<Stat
+							label="Samples"
+							value={motorSummary.samples}
+							hint="Last {fmtTime(motorSummary.last_seen)}"
+						/>
+						<Stat label="SG min" value={motorSummary.sg_min} />
+						<Stat label="SG mean" value={Math.round(motorSummary.sg_mean)} />
+						<Stat label="SG max" value={motorSummary.sg_max} />
+					</div>
+				{:else}
+					<p class="px-(--pad-panel) pb-4 text-sm text-ink-muted">
+						Nothing recorded yet. Step 2 makes the first recording.
 					</p>
 				{/if}
-				<Field label="Cruise TSTEP" for="sw-tstep" help={cruiseHelp}>
-					<Input id="sw-tstep" type="number" bind:value={swCruiseTstep} />
-				</Field>
-			</div>
+			</Disclosure>
 		</div>
-		{#snippet footer()}
-			<div class="mr-auto flex flex-wrap gap-x-5 gap-y-2">
-				<Checkbox bind:checked={swLoaded}>Loaded (stall test)</Checkbox>
-				<Checkbox bind:checked={swEnterToRun}>Enter runs a sweep</Checkbox>
-			</div>
-			<Button variant="primary" onclick={runSweep} loading={running}>Run sweep</Button>
-		{/snippet}
 	</Panel>
-
-	<div class="grid grid-cols-1 gap-(--gap-panels) lg:grid-cols-3">
-		<Panel title="Runs" description="Recent recordings." flush>
-			{#if runs.length === 0}
-				<p class="px-(--pad-panel) pb-4 text-sm text-ink-muted">No runs yet.</p>
-			{:else}
-				<ul class="divide-y divide-line">
-					{#each shownRuns as run (run.id)}
-						<li
-							class="flex items-start gap-2 pr-2 {selectedRun?.id === run.id
-								? 'bg-primary-soft'
-								: 'hover:bg-hover'}"
-						>
-							<button
-								type="button"
-								onclick={() => selectRun(run)}
-								class="flex min-w-0 flex-1 flex-col gap-0.5 py-(--pad-row) pl-(--pad-panel) text-left text-sm"
-							>
-								<span class="flex items-center justify-between gap-2">
-									<span class="font-mono text-ink">{run.stepper_name ?? '–'}</span>
-									<span class="text-ink-muted">{run.source}</span>
-								</span>
-								<span class="text-ink-muted">{fmtTime(run.started_at)}</span>
-								<span class="text-ink-muted">
-									{run.sample_count} samples{#if run.sg_min != null}, SG {run.sg_min} to {run.sg_max}{/if}{#if run.suggested_sgthrs != null},
-										SGTHRS {run.suggested_sgthrs}{/if}
-									{#if run.label}<span class="text-ink"> · {run.label}</span>{/if}
-								</span>
-							</button>
-							<Button
-								variant="ghost"
-								size="sm"
-								icon={Trash2}
-								label="Delete run"
-								class="mt-2"
-								onclick={(e: MouseEvent) => deleteRun(run, e)}
-							/>
-						</li>
-					{/each}
-				</ul>
-				{#if runs.length > RUNS_SHOWN}
-					<div class="border-t border-line px-(--pad-panel) py-3">
-						<Button
-							variant="ghost"
-							size="sm"
-							icon={showAllRuns ? ChevronUp : ChevronDown}
-							onclick={() => (showAllRuns = !showAllRuns)}
-						>
-							{showAllRuns ? `Show the latest ${RUNS_SHOWN}` : `Show all ${runs.length} runs`}
-						</Button>
-					</div>
-				{/if}
-			{/if}
-		</Panel>
-
-		<Panel
-			title="Load curve"
-			description="SG_RESULT over time. Lower means more load; a stall drops it toward 0."
-			class="lg:col-span-2"
-		>
-			{#if selectedRun}
-				{@const params = selectedRun.params ?? {}}
-				<div class="flex flex-col gap-4">
-					{@render facts([
-						['Motor', selectedRun.stepper_name ?? '–'],
-						['Speed', `${params.speed ?? '–'} µsteps/s`],
-						['Direction', params.direction ?? '–'],
-						['Duration', `${params.duration_s ?? '–'} s`],
-						...(selectedRun.sg_mean != null
-							? [['Mean SG', Math.round(selectedRun.sg_mean)] as [string, number]]
-							: []),
-						...(selectedRun.suggested_sgthrs != null
-							? [
-									[
-										'Suggested SGTHRS',
-										`${selectedRun.suggested_sgthrs} (trigger at or below ${triggerLevel})`
-									] as [string, string]
-								]
-							: []),
-						['IRUN', params.irun ?? '–'],
-						['Acceleration', `${params.acceleration ?? '–'} µsteps/s²`],
-						['Microsteps', params.microsteps ?? '–'],
-						[
-							'Chopper',
-							params.stealthchop == null ? '–' : params.stealthchop ? 'StealthChop' : 'SpreadCycle'
-						],
-						['Loaded', params.loaded ? 'Yes' : 'No'],
-						['Cruise TSTEP', params.cruise_tstep ?? '–']
-					])}
-					<div class="flex flex-wrap gap-x-5 gap-y-2">
-						<Checkbox bind:checked={showCs}>CS_ACTUAL</Checkbox>
-						<Checkbox bind:checked={showTstep}>TSTEP</Checkbox>
-					</div>
-					{#if loadingSamples}
-						<p class="flex items-center gap-2 text-sm text-ink-muted">
-							<Spinner size={14} /> Loading the samples
-						</p>
-					{:else}
-						<div class="rounded-control bg-well p-3">
-							<StallGuardChart
-								{points}
-								{triggerLevel}
-								sgMean={selectedRun.sg_mean}
-								cruiseTstep={params.cruise_tstep ?? null}
-								{showCs}
-								{showTstep}
-							/>
-						</div>
-					{/if}
-					{#if suggestion}
-						<section class="flex flex-col gap-3 rounded-control bg-well p-4">
-							<h3 class="text-base font-semibold text-ink">Threshold suggestion for {label}</h3>
-							{@render facts([
-								['Unloaded floor', suggestion.unloaded_floor ?? '–'],
-								['Loaded dip', suggestion.loaded_dip ?? '–'],
-								['Trigger at or below', suggestion.trigger_level ?? '–'],
-								['SGTHRS', suggestion.suggested_sgthrs ?? '–'],
-								['Measured cruise TSTEP', suggestion.measured_cruise_tstep ?? '–'],
-								['Gate TCOOLTHRS', suggestion.cruise_tstep],
-								['Real-motion floor', suggestion.realistic_floor ?? '–']
-							])}
-							<p class="text-sm text-ink-muted">
-								SGTHRS is the geometric midpoint of the gap between the measured floor and dip.
-								TCOOLTHRS is the measured cruise TSTEP (the fastest sustained) times 1.75, so the
-								gate stays open through cruise and off while speeding up or slowing down. Save
-								writes both to machine.toml; nothing is assumed.
-							</p>
-							{#if suggestion.enough_data && !suggestion.reliable}
-								<!-- Computable, but the data says it won't work here: a hard stop, not a nudge. -->
-								<Alert
-									tone="danger"
-									title="Not reliably tunable{suggestion.speed
-										? ` at ${suggestion.speed} µsteps/s`
-										: ''}"
-								>
-									{suggestion.detail}
-								</Alert>
-							{:else if !suggestion.enough_data}
-								<Alert tone="warning">{suggestion.detail}</Alert>
-							{/if}
-							{#if suggestion.suggested_sgthrs != null}
-								{@const safe = suggestion.enough_data && suggestion.reliable}
-								<div>
-									<Button
-										variant={safe ? 'secondary' : 'ghost'}
-										onclick={saveThreshold}
-										loading={savingThreshold}
-									>
-										{safe ? 'Save' : 'Save anyway (unreliable)'} SGTHRS {suggestion.suggested_sgthrs}
-										and TCOOLTHRS {suggestion.cruise_tstep} to machine.toml
-									</Button>
-								</div>
-							{/if}
-						</section>
-					{/if}
-				</div>
-			{:else}
-				<p class="text-sm text-ink-muted">Choose a run to see its load curve.</p>
-			{/if}
-		</Panel>
-	</div>
 </div>
 
-{#snippet tryAgain()}
-	<Button size="sm" onclick={loadSettings}>Try again</Button>
+{#snippet stallAgain()}
+	<Button size="sm" onclick={() => (openStep = 3)}>Record the stall again</Button>
 {/snippet}
 
-{#snippet facts(items: [string, string | number][])}
-	<dl class="flex flex-wrap gap-x-5 gap-y-1 text-sm">
-		{#each items as [key, value] (key)}
-			<div class="flex gap-1.5">
-				<dt class="text-ink-muted">{key}</dt>
-				<dd class="text-ink">{value}</dd>
-			</div>
-		{/each}
-	</dl>
+{#snippet tryAgain()}
+	<Button size="sm" loading={settingsLoading} onclick={loadSettings}>Try again</Button>
+{/snippet}
+
+<!-- What a done step offers: to be opened again, or, while it is, to be closed. -->
+{#snippet reopen(n: number, text: string)}
+	{#if openStep === n}
+		<Button variant="ghost" size="sm" onclick={() => (openStep = null)}>Close</Button>
+	{:else if statusOf(n) === 'done'}
+		<Button variant="ghost" size="sm" onclick={() => (openStep = n)}>{text}</Button>
+	{/if}
+{/snippet}
+
+<!-- What a recording will do, and the way to change it. -->
+{#snippet motion()}
+	<p class="text-sm text-ink-muted">
+		{motionSentence(options)}
+		<Button variant="ghost" size="sm" onclick={openSweepOptions}>Change how it moves</Button>
+	</p>
+{/snippet}
+
+{#snippet failure(step: number)}
+	{#if runError?.step === step}<Alert tone="danger">{runError.message}</Alert>{/if}
 {/snippet}

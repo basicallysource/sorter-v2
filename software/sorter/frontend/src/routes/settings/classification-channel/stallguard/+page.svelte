@@ -7,6 +7,6 @@
 
 <PageHeader
 	title="Classification channel StallGuard"
-	description="Stop the machine when the classification channel's stepper stalls: set its stall detection, and calibrate the threshold from recorded sweeps."
+	description="Stop the machine when the classification channel's stepper stalls. Follow the steps to tune how sensitive it is."
 />
 <StepperStallGuard motor="carousel" label="the classification channel stepper" />

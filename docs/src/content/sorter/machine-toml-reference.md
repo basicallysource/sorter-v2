@@ -121,7 +121,7 @@ Per-stepper TMC driver mode.
 
 ## `[stepper_stallguard.<stepper_name>]`
 
-Per-stepper stall detection. With no entry, the chute (`sgthrs = 55`) and the carousel (`sgthrs = 148`) have it on with `tcoolthrs = 150`; the other motors have it off. Tune it on the StallGuard tab of the chute's settings page or the classification channel's.
+Per-stepper stall detection. With no entry, the chute (`sgthrs = 55`) and the carousel (`sgthrs = 148`) have it on with `tcoolthrs = 150`; the other motors have it off. Tune it on the StallGuard tab of the chute's settings page or the classification channel's. The tab takes it in five steps: check the speed (the chute starts at its operating speed), record the motor running freely, record a stall by holding it back by hand, review and save the threshold and speed floor, and optionally check them.
 
 | Key | Type | Default | Description |
 |-----|------|---------|-------------|

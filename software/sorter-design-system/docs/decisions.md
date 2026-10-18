@@ -35,6 +35,17 @@ and a dated entry goes here; the history is git.
   the middle, and the amount opens a popover with 10°, 180° and a field for
   any other amount, kept per channel. It is narrower than the three buttons
   were, so no label has to hide in a narrow tile.
+- **A task done once is numbered steps in one panel.** Tuning StallGuard was
+  four panels and a form of eleven controls (readings, a sweep, its runs, its
+  curve with the suggestion), and nothing on it said where to start or what
+  came after. Now it is `Step`s in a flush panel: check the speed, record the
+  motor running freely, record a stall, review and save, check it. A step
+  unlocks when the one before it is done, only the step to do is open, and a
+  done step is a line with its result, so a person who has never seen the page
+  is told what to do next and why. What an expert changes (how a sweep moves,
+  every past recording) is in an Expert tools panel of `Disclosure`s, reachable
+  and out of the way. The chute aiming wizard draws the same shape by hand and
+  can take `Step` when it is next touched.
 
 ## 2026-10-15
 

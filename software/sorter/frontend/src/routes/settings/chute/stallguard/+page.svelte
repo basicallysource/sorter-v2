@@ -7,10 +7,11 @@
 
 <PageHeader
 	title="Chute StallGuard"
-	description="Stop the machine when the chute stalls: set its stall detection, and calibrate the threshold from recorded sweeps."
+	description="Stop the machine when the chute stalls. Follow the steps to tune how sensitive it is."
 />
 <StepperStallGuard
 	motor="chute"
 	label="the chute"
 	operatingSpeedEndpoint="/api/hardware-config/chute"
+	stressTestHref="/settings/chute"
 />

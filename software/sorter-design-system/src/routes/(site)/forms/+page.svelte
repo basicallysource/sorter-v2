@@ -15,6 +15,7 @@
 	import SegmentedControl from '$lib/components/SegmentedControl.svelte';
 	import Badge from '$lib/components/Badge.svelte';
 	import SettingRow from '$lib/components/SettingRow.svelte';
+	import Step from '$lib/components/Step.svelte';
 	import Button from '$lib/components/Button.svelte';
 	import Alert from '$lib/components/Alert.svelte';
 	import CopyField from '$lib/components/CopyField.svelte';
@@ -38,6 +39,9 @@
 	const defaults = { burst: 6, floor: 1, jitter: 30 };
 	let rates = $state({ burst: 9, floor: 1, jitter: 45 });
 	let stuck = $state<'off' | 'manual' | 'automatic'>('manual');
+	// The step to do in the Steps specimen: the ones before it are done, the ones after it locked.
+	let stepAt = $state(2);
+	const stepStatus = (n: number) => (n < stepAt ? 'done' : n === stepAt ? 'current' : 'locked');
 
 	const portError = $derived(
 		port === null || port < 1 || port > 65535 ? 'A port is a number from 1 to 65535.' : undefined
@@ -58,7 +62,7 @@
 
 <PageHeader
 	title="Forms"
-	lead="Fields, choices and switches, and the two ways a setting is saved: at once, or with a Save."
+	lead="Fields, choices and switches, the two ways a setting is saved (at once, or with a Save), and the steps of a task done once."
 	doc="components"
 />
 
@@ -316,4 +320,142 @@
 		A save that fails keeps the values as they were typed and puts an Alert above the footer saying
 		what went wrong.
 	</Alert>
+</SiteSection>
+
+<SiteSection
+	title="Steps"
+	lead="A task done once and not by heart, in order. The step to do is open, a done step is one line with its result, and a locked step says what to finish first. The page decides which is which from what it knows, so it is right after a reload."
+>
+	<Specimen
+		on="canvas"
+		code={`<Panel title="Tune a motor" flush>
+	{#snippet actions()}<Badge tone="primary">Step 2 of 4</Badge>{/snippet}
+	<ol class="divide-y divide-line border-t border-line">
+		<Step n={1} title="Check the speed" status="done" hint="1,500 steps/s at 1/8 microstepping">
+			{#snippet actions()}<Button variant="ghost" size="sm">Change</Button>{/snippet}
+		</Step>
+		<Step n={2} title="Record it running freely" status="current">
+			...what it does and why, then <Button variant="primary">Record it running freely</Button>
+		</Step>
+		<Step n={3} title="Record a stall" status="locked" hint="Record it running freely first." />
+	</ol>
+</Panel>`}
+	>
+		<Panel
+			title="Tune a motor"
+			description="Four steps, in order. Nothing is saved until the last."
+			flush
+		>
+			{#snippet actions()}
+				{#if stepAt > 4}
+					<Badge tone="success">Tuned</Badge>
+				{:else}
+					<Badge tone="primary">Step {stepAt} of 4</Badge>
+				{/if}
+			{/snippet}
+			<ol class="divide-y divide-line border-t border-line">
+				<Step
+					n={1}
+					title="Check the speed"
+					status={stepStatus(1)}
+					hint={stepStatus(1) === 'done' ? '1,500 steps/s at 1/8 microstepping' : undefined}
+				>
+					{#snippet actions()}
+						{#if stepStatus(1) === 'done'}
+							<Button variant="ghost" size="sm" onclick={() => (stepAt = 1)}>Change</Button>
+						{/if}
+					{/snippet}
+					<div class="flex flex-col gap-3">
+						<p class="text-sm text-ink">
+							The load reading changes with speed, so the motor is tuned at the speed it really runs
+							at.
+						</p>
+						<div>
+							<Button variant="primary" onclick={() => (stepAt = 2)}>Tune at 1,500 steps/s</Button>
+						</div>
+					</div>
+				</Step>
+				<Step
+					n={2}
+					title="Record it running freely"
+					status={stepStatus(2)}
+					hint={stepStatus(2) === 'done'
+						? 'Running freely it reads 168 or higher.'
+						: stepStatus(2) === 'locked'
+							? 'Check the speed first.'
+							: undefined}
+				>
+					{#snippet actions()}
+						{#if stepStatus(2) === 'done'}
+							<Button variant="ghost" size="sm" onclick={() => (stepAt = 2)}>Record again</Button>
+						{/if}
+					{/snippet}
+					<div class="flex flex-col gap-3">
+						<p class="text-sm text-ink">
+							The motor runs a short move with nothing holding it back. This is what normal running
+							reads, and a stall has to read well below it.
+						</p>
+						<Alert tone="warning">This moves a real motor. Keep the area clear.</Alert>
+						<div>
+							<Button variant="primary" onclick={() => (stepAt = 3)}
+								>Record it running freely</Button
+							>
+						</div>
+					</div>
+				</Step>
+				<Step
+					n={3}
+					title="Record a stall"
+					status={stepStatus(3)}
+					hint={stepStatus(3) === 'done'
+						? 'Held back, it dips to 12.'
+						: stepStatus(3) === 'locked'
+							? 'Record it running freely first.'
+							: undefined}
+				>
+					{#snippet actions()}
+						{#if stepStatus(3) === 'done'}
+							<Button variant="ghost" size="sm" onclick={() => (stepAt = 3)}>Record again</Button>
+						{/if}
+					{/snippet}
+					<div class="flex flex-col gap-3">
+						<p class="text-sm text-ink">
+							The same move again, held back by hand, so it stalls. This shows what a stall reads.
+						</p>
+						<div>
+							<Button variant="primary" onclick={() => (stepAt = 4)}>Record a stall</Button>
+						</div>
+					</div>
+				</Step>
+				<Step
+					n={4}
+					title="Review and save"
+					status={stepStatus(4)}
+					hint={stepStatus(4) === 'done'
+						? 'Saved: threshold 38, speed floor 438.'
+						: stepStatus(4) === 'locked'
+							? 'Needs both recordings.'
+							: undefined}
+				>
+					{#snippet actions()}
+						{#if stepStatus(4) === 'done'}
+							<Button variant="ghost" size="sm" onclick={() => (stepAt = 4)}>Review</Button>
+						{/if}
+					{/snippet}
+					<div class="flex flex-col gap-3">
+						<p class="text-sm text-ink">
+							A stall reads 12 or lower and running freely 168 or higher. The trigger sits between
+							at 76.
+						</p>
+						<div>
+							<Button variant="primary" onclick={() => (stepAt = 5)}>Save these settings</Button>
+						</div>
+					</div>
+				</Step>
+			</ol>
+		</Panel>
+	</Specimen>
+	<div>
+		<Button variant="ghost" onclick={() => (stepAt = 1)}>Start over</Button>
+	</div>
 </SiteSection>

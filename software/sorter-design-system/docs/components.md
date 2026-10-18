@@ -146,6 +146,34 @@ example: left turns it counterclockwise, right clockwise.
 - **`Disclosure`**: settings most people never touch, closed until asked
   for. It sits in a divided list like any row.
 
+## Steps
+
+`Step.svelte`. A task someone does once and does not know by heart (tuning a
+motor, a calibration) as numbered steps, in the order they are done. Steps are
+an `ol` with `divide-y divide-line` inside a flush `Panel`, like the rows of a
+list.
+
+- **Three states.** `done`: a check in the success tint, and the line under the
+  name says what came of it ("Running freely it reads 168 or higher").
+  `current`: the number in the primary's tint, open, with what to do and why.
+  `locked`: the number muted, and the line says what to finish first. A step
+  unlocks when the one before it is done, and the app decides that from what it
+  knows (a recording exists), not from which button was pressed, so the same
+  page is right after a reload.
+- **Only the step to do is open.** A done step is one line with its result, a
+  locked step has no body, so the page is as tall as the one thing in front of
+  the person. A done step can be opened again (`open`), with a "Change" or
+  "Record again" button in `actions` that asks the app to, and a Close button in
+  the same place while it is open.
+- **A step names one action**, a primary `Button` at the end of its body, and
+  says in plain words what it does and why it is needed. A step that can be
+  skipped says so with a neutral `Badge` in `actions`.
+- **The panel says where you are**: a `Badge` in its header, "Step 2 of 5" in
+  the primary's tone while there are steps to do, and a word for the result
+  ("Tuned") in the success tone when they are done.
+- A step is not a tab. Nothing here is a way to move around; the order is the
+  point.
+
 ## Panels
 
 - **`Panel`**: the surface plane, one job's worth of content, with no border

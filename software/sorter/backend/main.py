@@ -54,6 +54,9 @@ from hardware.waveshare_bus_service import close_all_waveshare_bus_services
 from server.waveshare_inventory import get_waveshare_inventory_manager
 import uvicorn
 import threading
+import traceback
+
+from machine_platform.stepper_safety import stopAllSteppers
 import queue
 import time
 import asyncio
@@ -403,6 +406,9 @@ def runBroadcaster(gc: GlobalConfig) -> None:
 
 
 def main() -> None:
+    import incident_records
+
+    incident_records.closeStaleActiveRows()
     import server.shared_state as shared_state
 
     shutdown_requested = threading.Event()
@@ -656,6 +662,9 @@ def main() -> None:
         real_irl = mkIRLInterface(irl_config, gc)
         _replace_irl(real_irl)
         setHardwareRuntimeIRL(irl)
+        # A previous process may have died mid-move (a crash never reaches the
+        # motor stop below); nothing here may assume the motors are idle.
+        stopAllSteppers(irl, gc.logger, reason="recovery start")
         machine_setup = getattr(irl_config, "machine_setup", None)
         manual_feed_mode = bool(
             getattr(machine_setup, "manual_feed_mode", False)
@@ -898,6 +907,14 @@ def main() -> None:
 
     def _shutdown_runtime(reason: str) -> None:
         gc.logger.info(f"Shutting down ({reason})...")
+        # Motors first: everything below can take seconds, and a crash path
+        # may not get to the full hardware cleanup at all.
+        try:
+            live_irl = shared_state.getActiveIRL() or irl
+            if live_irl is not None:
+                stopAllSteppers(live_irl, gc.logger, reason="shutdown")
+        except Exception as exc:
+            gc.logger.warning(f"Failed to stop steppers at shutdown start: {exc}")
 
         try:
             gc.lifetime_stats.flush()
@@ -1080,6 +1097,12 @@ def main() -> None:
             time.sleep(gc.timeouts.main_loop_sleep_ms / 1000.0)
     except KeyboardInterrupt:
         shutdown_reason["value"] = "KeyboardInterrupt"
+    except Exception:
+        # Log it here: the shutdown reaper exits the process before the
+        # interpreter would print this traceback.
+        shutdown_reason["value"] = "main loop exception"
+        gc.logger.error(f"Main loop crashed:\n{traceback.format_exc()}")
+        raise
     finally:
         _shutdown_runtime(shutdown_reason["value"])
 

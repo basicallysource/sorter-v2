@@ -430,11 +430,20 @@ _AREA_GRID_N = 12  # 12x12 = 144 sample points per bbox; ample for area majority
 # Per-channel cached region lookup: section_id → 0=none 1=drop 2=exit_only 3=precise.
 # Keyed by channel_id; built once on first call and reused. The section sets are
 # immutable after ChannelDef construction so this never goes stale.
-_region_lookup_cache: dict[int, np.ndarray] = {}
+# Keyed by the zone section sets, not the channel id: a live zone edit
+# rebuilds the ChannelDef with new sections under the same id, and a table
+# cached per id kept classifying pieces by the previous layout.
+_RegionKey = tuple[frozenset[int], frozenset[int], frozenset[int]]
+_region_lookup_cache: dict[_RegionKey, np.ndarray] = {}
 
 
 def _region_lookup(channel: ChannelDef) -> np.ndarray:
-    cached = _region_lookup_cache.get(channel.channel_id)
+    key: _RegionKey = (
+        frozenset(channel.drop_sections),
+        frozenset(channel.exit_sections),
+        frozenset(channel.precise_sections),
+    )
+    cached = _region_lookup_cache.get(key)
     if cached is not None:
         return cached
     exit_only = channel.exit_sections - channel.precise_sections
@@ -445,7 +454,7 @@ def _region_lookup(channel: ChannelDef) -> np.ndarray:
         lut[int(s) % SECTION_COUNT] = 2
     for s in channel.precise_sections:
         lut[int(s) % SECTION_COUNT] = 3
-    _region_lookup_cache[channel.channel_id] = lut
+    _region_lookup_cache[key] = lut
     return lut
 
 
@@ -532,7 +541,14 @@ def orderedPieceObservations(
             gap = (entry_angle - relative) % 360.0
         if sec in exit_only and gap > 180.0:
             gap -= 360.0
-        out.append((gap, sec, int(lut[sec]), (int(bbox[0]), int(bbox[1]), int(bbox[2]), int(bbox[3]))))
+        # Zone by AREA, in line with the ``in_drop`` gate (any overlap with the
+        # drop arc): a piece resting across the drop arc's rear edge has its
+        # centre one section outside, and coding it by the centre alone left
+        # the flow deadlocked — gate closed (drop occupied), handler waiting
+        # for a drop piece that, to it, never existed.
+        n_drop, _n_exit_only, _n_precise, _n_on = _bboxRegionCounts(bbox, channel)
+        code = 1 if n_drop > 0 else int(lut[sec])
+        out.append((gap, sec, code, (int(bbox[0]), int(bbox[1]), int(bbox[2]), int(bbox[3]))))
     out.sort(key=lambda t: t[0])
     return out
 
@@ -604,13 +620,17 @@ def attributeBboxes(
             continue
         n_on_channel += 1
         sections = bboxSections(bbox, channel)
-        if not any_drop and sections & channel.drop_sections:
+        nd, ne, np_, nm = _bboxRegionCounts(bbox, channel)
+        # The drop gate and the handler's per-piece zone code must agree on
+        # what "in the drop arc" means, or the gate closes for a piece the
+        # handler never sees (the 2026-09-04 deadlock): both use the interior
+        # grid overlap.
+        if not any_drop and nd > 0:
             any_drop = True
         if not any_exit and sections & channel.exit_sections:
             any_exit = True
         if not any_precise and sections & channel.precise_sections:
             any_precise = True
-        nd, ne, np_, nm = _bboxRegionCounts(bbox, channel)
         per_bbox_counts.append((nd, ne, np_, nm, bbox))
         if not any_exit_majority and ne > np_ and ne > 0:
             any_exit_majority = True

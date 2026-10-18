@@ -104,7 +104,7 @@ def test_a_piece_leaving_one_channel_and_landing_on_the_next_is_a_handoff(monkey
     tick(101.4)
     perception.show(3, 101.8, [(31, 302.0)])
     tick(101.8)
-    tick(103.0)
+    tick(103.5)
 
     [handoff] = learner.handoffs(2)
     assert handoff.delay_s == pytest.approx(0.9)
@@ -135,3 +135,30 @@ def test_the_ring_follows_the_circle_pieces_ride_a_step_at_a_time() -> None:
     assert 0 < moved <= learner_mod.MAX_RING_STEP * zones.ring.exit_radius + 1e-6
     assert stepped.ring.exit_radius == pytest.approx(zones.ring.exit_radius * (1 + learner_mod.MAX_RING_STEP))
     assert learner_mod._ringStepped(_zones(3, locked=frozenset({"ring"})), seen) is None
+
+
+def test_a_landing_pairs_with_the_piece_that_left_last_not_one_out_of_sight(monkeypatch) -> None:
+    perception = _FakePerception()
+    learner = ZoneLearner(perception, apply_changes=False)
+    clock = {"now": 0.0}
+    monkeypatch.setattr(learner_mod.time, "time", lambda: clock["now"])
+
+    def tick(at: float) -> None:
+        clock["now"] = at
+        learner._tick(at, at)
+
+    # Track 1 rides into the part of the ring the camera cannot see at 50
+    # degrees; track 2 falls off the exit at 185 a second later; one piece lands.
+    perception.show(3, 10.0, [(1, 50.0), (2, 180.0)])
+    tick(10.0)
+    perception.show(3, 11.0, [(2, 185.0)])
+    tick(11.0)
+    perception.show(3, 11.5, [])
+    perception.show(4, 11.8, [(40, 300.0)])
+    tick(11.8)
+    tick(14.0)
+
+    [handoff] = learner.handoffs(3)
+    left = handoff.left.at((400, 400))
+    assert math.degrees(math.atan2(left[1] - CENTER[1], left[0] - CENTER[0])) % 360 == pytest.approx(185.0, abs=0.5)
+    assert handoff.delay_s == pytest.approx(0.8)

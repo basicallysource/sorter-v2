@@ -209,37 +209,36 @@ class ZoneLearner:
                     self._ended[channel].append(track)
 
     def _matchHandoffs(self) -> None:
+        """Pair each piece that appears on a channel with the piece seen leave
+        the channel before it most recently before it landed: the one that fell,
+        not one that went out of the camera's sight a moment earlier. A landing
+        waits until any piece that left just before it is known to have gone."""
+        now = time.time()
         for channel, nxt in _NEXT.items():
             ended = self._ended[channel]
             started = self._started[nxt]
-            while ended:
-                track = ended[0]
-                landing = next(
-                    (
-                        (tid, s)
-                        for tid, s in started
-                        if -0.3 <= s.first.ts - track.last.ts <= HANDOFF_WINDOW_S
-                    ),
-                    None,
-                )
-                newest = started[-1][1].first.ts if started else 0.0
-                if landing is None and newest < track.last.ts + HANDOFF_WINDOW_S:
-                    # The landing may still come.
-                    if time.time() - track.last.ts < HANDOFF_WINDOW_S + 1.0:
-                        break
-                ended.popleft()
-                if landing is None:
+            while started:
+                track = started[0][1]
+                landed_at = track.first.ts
+                if now - landed_at < TRACK_GONE_S + 1.0:
+                    break
+                started.popleft()
+                candidates = [t for t in ended if -0.3 <= landed_at - t.last.ts <= HANDOFF_WINDOW_S]
+                if not candidates:
                     continue
-                started.remove(landing)
+                left = max(candidates, key=lambda t: t.last.ts)
+                ended.remove(left)
                 with self._lock:
                     self._handoffs[channel].append(
                         Handoff(
                             from_channel=channel,
-                            left=track.last,
-                            landed=landing[1].first,
-                            delay_s=landing[1].first.ts - track.last.ts,
+                            left=left.last,
+                            landed=track.first,
+                            delay_s=landed_at - left.last.ts,
                         )
                     )
+            while ended and now - ended[0].last.ts > HANDOFF_WINDOW_S + TRACK_GONE_S + 2.0:
+                ended.popleft()
 
     def _keepFrame(self, channel: int, frame: Any, now_mono: float) -> None:
         if now_mono - self._frame_at.get(channel, -1e9) < FRAME_EVERY_S:

@@ -2,6 +2,7 @@ import unittest
 from collections.abc import Sequence
 from typing import Any
 
+from hardware.bus import MCUBusError
 from hardware.sorter_interface import (
     DIGITAL_OUTPUT_DUTY_MAX,
     DigitalOutputPin,
@@ -46,6 +47,23 @@ class FakeLogger:
 class FakeGlobalConfig:
     def __init__(self) -> None:
         self.logger = FakeLogger()
+
+
+class NackingInterface(FakeInterface):
+    """Firmware from before GET_OBSERVABILITY answers the query with a NACK."""
+
+    def get_observability_info(self, *, force_refresh: bool = False) -> dict:
+        raise MCUBusError("Error response received, command: 0x83, payload: b'Invalid command 3'")
+
+
+class OldFirmwareTests(unittest.TestCase):
+    def test_board_without_observability_is_skipped_not_fatal(self) -> None:
+        gc = FakeGlobalConfig()
+        old = FakeBoard(gc, "feeder", [], 0)
+        old.interface = NackingInterface(gc, [], 0)
+        new = FakeBoard(gc, "distribution", [5, 6], 2)
+        outputs = discoverLedOutputs(gc, [old, new])
+        self.assertEqual([o.output_id for o in outputs], ["distribution:5", "distribution:6"])
 
 
 class BrightnessMappingTests(unittest.TestCase):

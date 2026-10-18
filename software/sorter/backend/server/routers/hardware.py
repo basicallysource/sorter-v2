@@ -44,7 +44,9 @@ from irl.parse_user_toml import (
     DEFAULT_CHUTE_OPERATING_SPEED_MICROSTEPS_PER_SEC,
     DEFAULT_CHUTE_PILLAR_WIDTH_DEG,
     DEFAULT_CHUTE_SECTION_WIDTH_DEG,
+    loadWaveshareServoConfig,
 )
+from hardware.waveshare_servo import limits_look_uncalibrated
 from local_state import (
     clear_current_session_bins,
     get_bin_snapshot,
@@ -195,29 +197,29 @@ def _active_waveshare_service() -> Any | None:
     return getattr(servo_controller, "bus_service", None)
 
 
-def _configured_waveshare_service(config: Dict[str, Any], *, timeout: float = 0.02) -> Any | None:
+def _configured_waveshare_service(config: Dict[str, Any]) -> Any | None:
     servo = config.get("servo", {})
     port = servo.get("port") if isinstance(servo, dict) else None
     if not isinstance(port, str) or not port.strip():
         return None
     from hardware.waveshare_bus_service import get_waveshare_bus_service
 
-    return get_waveshare_bus_service(port.strip(), timeout=timeout)
+    return get_waveshare_bus_service(port.strip())
 
 
-def _get_waveshare_service(*, timeout: float = 0.02) -> Any | None:
+def _get_waveshare_service() -> Any | None:
     service = _active_waveshare_service()
     if service is not None:
         return service
 
     _, config = _read_machine_params_config()
-    return _configured_waveshare_service(config, timeout=timeout)
+    return _configured_waveshare_service(config)
 
 
 def _waveshare_inventory_status(*, port: str | None = None, refresh: bool = False) -> Dict[str, Any]:
     manager = get_waveshare_inventory_manager()
     if refresh:
-        return manager.refresh(port=port, allow_active_runtime_scan=True)
+        return manager.refresh(port=port, allow_active_runtime_scan=True, probe_all=True)
     return manager.get_status(port=port)
 
 
@@ -740,7 +742,7 @@ def _chute_settings_from_config(config: Dict[str, Any]) -> Dict[str, Any]:
         "endstop_active_high": endstop_active_high,
         "operating_speed_microsteps_per_second": operating_speed_microsteps_per_second,
         "home_pin_channel": home_pin_channel,
-        "max_angle_deg": CHUTE_MAX_ANGLE,
+        "max_angle_deg": _coerce_float(chute.get("max_angle_deg"), CHUTE_MAX_ANGLE),
     }
 
 
@@ -1214,7 +1216,17 @@ def save_servo_hardware_config(
     params_path, config = _read_machine_params_config()
     previous = _servo_settings_from_config(config)
 
-    servo_table: Dict[str, Any] = {"backend": backend, "channels": channels}
+    # This form owns backend/port/speeds/channels. Keys it does not own
+    # (move_time_ms, max_torque_percent, highest_seen_id, ...) are kept as
+    # they are: dropping max_torque_percent once silently put the SC15 back
+    # to full torque against a printed flap.
+    existing_servo_table = config.get("servo", {})
+    servo_table: Dict[str, Any] = (
+        dict(existing_servo_table) if isinstance(existing_servo_table, dict) else {}
+    )
+    for key in ("open_speed", "close_speed", "homing_speed", "port"):
+        servo_table.pop(key, None)
+    servo_table.update({"backend": backend, "channels": channels})
     if backend == "pca9685":
         if open_speed is not None:
             servo_table["open_speed"] = open_speed
@@ -1222,21 +1234,8 @@ def save_servo_hardware_config(
             servo_table["close_speed"] = close_speed
         if homing_speed is not None:
             servo_table["homing_speed"] = homing_speed
-    if backend == "waveshare":
-        if port is not None:
-            servo_table["port"] = port
-        existing_servo_table = config.get("servo", {})
-        previous_highest_seen = (
-            existing_servo_table.get("highest_seen_id")
-            if isinstance(existing_servo_table, dict)
-            else None
-        )
-        if (
-            isinstance(previous_highest_seen, int)
-            and not isinstance(previous_highest_seen, bool)
-            and previous_highest_seen > 0
-        ):
-            servo_table["highest_seen_id"] = previous_highest_seen
+    if backend == "waveshare" and port is not None:
+        servo_table["port"] = port
 
     config["servo"] = servo_table
 
@@ -1250,10 +1249,18 @@ def save_servo_hardware_config(
     channel_ids = [int(channel["id"]) if channel["id"] is not None else None for channel in channels]
     channel_inverts = [bool(channel["invert"]) for channel in channels]
 
+    # Compare ports by canonical path: the UI may show the live bus as a
+    # /dev/serial/by-id path while the config holds its raw tty twin —
+    # re-saving that must not count as a structural change.
+    from hardware.serial_identity import canonical_port_path
+
+    port_changed = (canonical_port_path(port) if port else None) != (
+        canonical_port_path(previous["port"]) if previous["port"] else None
+    )
     structural_change = (
         backend != previous["backend"]
         or channel_ids != previous_ids
-        or (backend == "waveshare" and port != previous["port"])
+        or (backend == "waveshare" and port_changed)
     )
 
     active_irl = _active_irl()
@@ -1654,7 +1661,7 @@ def get_servo_status() -> Dict[str, Any]:
     "Servo bus offline" banner. Returns one entry per layer with its
     live ``available`` flag plus the aggregate ``bus_online`` status —
     useful when the operator has reconnected the Waveshare USB and
-    wants to verify the bus is back before pressing Resume.
+    wants to verify the bus is back before pressing Home to re-initialize.
     """
     active_irl = _active_irl()
     layers: list[dict[str, Any]] = []
@@ -1727,7 +1734,7 @@ def set_waveshare_servo_id(servo_id: int, payload: ServoSetIdPayload) -> Dict[st
     if new_id == servo_id:
         raise HTTPException(status_code=400, detail="New ID is the same as the current ID.")
 
-    service = _get_waveshare_service(timeout=0.02)
+    service = _get_waveshare_service()
     if service is None:
         raise HTTPException(status_code=503, detail="No Waveshare bus available.")
 
@@ -1752,6 +1759,7 @@ def set_waveshare_servo_id(servo_id: int, payload: ServoSetIdPayload) -> Dict[st
             get_waveshare_inventory_manager().refresh(
                 port=getattr(service, "port", None),
                 allow_active_runtime_scan=True,
+                probe_all=True,
             )
         except Exception:
             pass
@@ -1775,7 +1783,7 @@ def calibrate_waveshare_servo(servo_id: int) -> Dict[str, Any]:
     if servo_id < 1 or servo_id > 253:
         raise HTTPException(status_code=400, detail="Servo ID must be between 1 and 253.")
 
-    service = _get_waveshare_service(timeout=0.02)
+    service = _get_waveshare_service()
     if service is None:
         raise HTTPException(status_code=503, detail="No Waveshare bus available.")
 
@@ -1783,8 +1791,12 @@ def calibrate_waveshare_servo(servo_id: int) -> Dict[str, Any]:
         if not service.ping(servo_id):
             raise HTTPException(status_code=404, detail=f"No servo with ID {servo_id} found on the bus.")
 
+        waveshare_config = loadWaveshareServoConfig(shared_state.gc_ref)
+        torque_permille = (
+            waveshare_config.max_torque_percent * 10 if waveshare_config is not None else None
+        )
         try:
-            safe_min, safe_max = service.calibrate_servo(servo_id)
+            safe_min, safe_max = service.calibrate_servo(servo_id, torque_permille)
         except Exception as exc:
             raise HTTPException(status_code=500, detail=f"Calibration failed: {exc}")
 
@@ -1793,6 +1805,7 @@ def calibrate_waveshare_servo(servo_id: int) -> Dict[str, Any]:
             get_waveshare_inventory_manager().refresh(
                 port=getattr(service, "port", None),
                 allow_active_runtime_scan=True,
+                probe_all=True,
             )
         except Exception:
             pass
@@ -1811,19 +1824,20 @@ def calibrate_waveshare_servo(servo_id: int) -> Dict[str, Any]:
 
 @router.post("/api/hardware-config/waveshare/servos/{servo_id}/move")
 def move_waveshare_servo(servo_id: int, payload: ServoMovePayload) -> Dict[str, Any]:
-    """Move a single servo to its open/close/center position based on EEPROM limits."""
+    """Move a single servo to its open/close/center position based on EEPROM limits,
+    or to the servo's mechanical mid-travel ("install") for fitting the horn."""
     _ensure_not_homing("move a Waveshare servo")
     if servo_id < 1 or servo_id > 253:
         raise HTTPException(status_code=400, detail="Servo ID must be between 1 and 253.")
 
     target = (payload.position or "").lower().strip()
-    if target not in {"open", "close", "center"}:
+    if target not in {"open", "close", "center", "install"}:
         raise HTTPException(
             status_code=400,
-            detail="position must be one of: open, close, center.",
+            detail="position must be one of: open, close, center, install.",
         )
 
-    service = _get_waveshare_service(timeout=0.02)
+    service = _get_waveshare_service()
     if service is None:
         raise HTTPException(status_code=503, detail="No Waveshare bus available.")
 
@@ -1835,13 +1849,24 @@ def move_waveshare_servo(servo_id: int, payload: ServoMovePayload) -> Dict[str, 
         if limits is None:
             raise HTTPException(status_code=500, detail="Could not read servo angle limits.")
         min_lim, max_lim = limits
-        if max_lim - min_lim < 20:
+        if target == "install":
+            # Mid travel of the servo itself, so a door hanging at its open stop
+            # can be fitted with room to close either way. Fitting invalidates
+            # any earlier calibration, so the limits are reset outright and the
+            # servo reads as uncalibrated until it is calibrated in place.
+            position = 512
+            if not service.set_angle_limits(servo_id, 0, 1023):
+                raise HTTPException(status_code=500, detail="Could not reset servo angle limits.")
+            min_lim, max_lim = 0, 1023
+        elif max_lim - min_lim < 20 or limits_look_uncalibrated(min_lim, max_lim):
             raise HTTPException(
                 status_code=409,
                 detail="Servo has no calibrated range. Run auto-calibration first.",
             )
 
-        if target == "open":
+        if target == "install":
+            pass
+        elif target == "open":
             position = min_lim
         elif target == "close":
             position = max_lim
@@ -1850,8 +1875,14 @@ def move_waveshare_servo(servo_id: int, payload: ServoMovePayload) -> Dict[str, 
 
         service.set_torque(servo_id, True)
         time.sleep(0.01)
-        if not service.move_to(servo_id, position, 400):
-            raise HTTPException(status_code=500, detail="move_to command failed.")
+        try:
+            move_ms = 1500 if target == "install" else 400
+            if not service.move_to(servo_id, position, move_ms):
+                raise HTTPException(status_code=500, detail="move_to command failed.")
+            time.sleep(move_ms / 1000 + 0.05)
+        finally:
+            # Never leave a setup move energized against the end stop.
+            service.set_torque(servo_id, False)
         try:
             get_waveshare_inventory_manager().trigger_refresh()
         except Exception:
@@ -1877,7 +1908,7 @@ def nudge_waveshare_servo(servo_id: int, payload: ServoNudgePayload) -> Dict[str
     if servo_id < 1 or servo_id > 253:
         raise HTTPException(status_code=400, detail="Servo ID must be between 1 and 253.")
 
-    service = _get_waveshare_service(timeout=0.02)
+    service = _get_waveshare_service()
     if service is None:
         raise HTTPException(status_code=503, detail="No Waveshare bus available.")
 
@@ -1902,8 +1933,12 @@ def nudge_waveshare_servo(servo_id: int, payload: ServoNudgePayload) -> Dict[str
 
         service.set_torque(servo_id, True)
         time.sleep(0.01)
-        if not service.move_to(servo_id, new_pos, 200):
-            raise HTTPException(status_code=500, detail="move_to command failed.")
+        try:
+            if not service.move_to(servo_id, new_pos, 200):
+                raise HTTPException(status_code=500, detail="move_to command failed.")
+            time.sleep(0.25)
+        finally:
+            service.set_torque(servo_id, False)
         try:
             get_waveshare_inventory_manager().trigger_refresh()
         except Exception:
@@ -2079,11 +2114,23 @@ def _virtual_bin_angle(
     return first_section_offset_deg + section_index * (360.0 / n) + (bin_index + 0.5) * slot
 
 
+def _configured_chute_max_angle() -> float:
+    """The machine's mechanical travel limit ([chute] max_angle_deg), falling
+    back to the code default when unset."""
+    try:
+        _, config = _read_machine_params_config()
+        chute = config.get("chute", {}) if isinstance(config, dict) else {}
+        return _coerce_float(chute.get("max_angle_deg"), CHUTE_MAX_ANGLE)
+    except Exception:
+        return float(CHUTE_MAX_ANGLE)
+
+
 def _chute_reachability(
     num_sections: int, section_width_deg: float, first_section_offset_deg: float
 ) -> Dict[str, Any]:
     # For the active (or default) layout, report whether every bin's center
-    # angle lands inside the chute's reachable arc [0, CHUTE_MAX_ANGLE].
+    # angle lands inside the chute's reachable arc [0, max_angle_deg].
+    max_angle = _configured_chute_max_angle()
     layout = getBinLayout()
     unreachable: List[Dict[str, Any]] = []
     total = 0
@@ -2100,7 +2147,7 @@ def _chute_reachability(
                     section_width_deg,
                     first_section_offset_deg,
                 )
-                if angle < 0 or angle > CHUTE_MAX_ANGLE:
+                if angle < 0 or angle > max_angle:
                     unreachable.append(
                         {
                             "layer_index": layer_index,
@@ -2323,10 +2370,15 @@ def move_chute_to_angle(payload: ChuteMoveToAnglePayload) -> Dict[str, Any]:
     if not getattr(chute, "homed", False):
         raise HTTPException(status_code=409, detail="Home the chute first.")
     angle = float(payload.angle)
-    if angle < 0 or angle > 360:
-        raise HTTPException(status_code=400, detail="angle must be between 0 and 360°.")
+    limit = float(getattr(chute, "max_angle_deg", CHUTE_MAX_ANGLE))
+    if angle < 0 or angle > limit:
+        raise HTTPException(
+            status_code=400, detail=f"angle must be between 0 and {limit:.1f}° (the chute's travel limit)."
+        )
     try:
         estimated_ms = chute.moveToAngle(angle)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Chute move failed: {e}")
     return {

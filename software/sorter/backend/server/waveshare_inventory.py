@@ -6,6 +6,7 @@ from typing import Any, Dict, List
 
 import serial.tools.list_ports
 
+from hardware.serial_identity import canonical_port_path
 from hardware.waveshare_bus_service import get_waveshare_bus_service
 from server import shared_state
 from server.config_helpers import read_machine_params_config, write_machine_params_config
@@ -96,7 +97,13 @@ class WaveshareInventoryManager:
     def trigger_refresh(self) -> None:
         self._wake_event.set()
 
-    def refresh(self, *, port: str | None = None, allow_active_runtime_scan: bool = False) -> dict[str, Any]:
+    def refresh(
+        self,
+        *,
+        port: str | None = None,
+        allow_active_runtime_scan: bool = False,
+        probe_all: bool = False,
+    ) -> dict[str, Any]:
         requested_port = _normalize_port(port)
         with self._scan_lock:
             started_at = time.time()
@@ -108,6 +115,7 @@ class WaveshareInventoryManager:
                 next_snapshot = self._scan_inventory(
                     port=requested_port,
                     allow_active_runtime_scan=allow_active_runtime_scan,
+                    probe_all=probe_all,
                 )
             except Exception as exc:
                 with self._lock:
@@ -190,11 +198,19 @@ class WaveshareInventoryManager:
         *,
         port: str | None = None,
         allow_active_runtime_scan: bool = False,
+        probe_all: bool = False,
     ) -> dict[str, Any]:
+        """Build the inventory snapshot.
+
+        The periodic loop calls this without ``probe_all``: port metadata is
+        refreshed from ``comports()`` only — no serial port is ever opened on
+        foreign/idle devices, and the live bus keeps its skip semantics.
+        Explicit rescans pass ``probe_all=True`` and probe every candidate.
+        """
         with self._lock:
             previous_last_error = self._snapshot.get("last_error")
             previous_servos_by_port = {
-                device: [dict(servo) for servo in servos]
+                canonical_port_path(device): [dict(servo) for servo in servos]
                 for device, servos in self._snapshot.get("servos_by_port", {}).items()
                 if isinstance(device, str) and isinstance(servos, list)
             }
@@ -202,7 +218,8 @@ class WaveshareInventoryManager:
         configured_port = _configured_waveshare_port()
         active_service = _active_waveshare_service()
         live_port = _normalize_port(getattr(active_service, "port", None))
-        mcu_ports = _active_mcu_ports()
+        live_canonical = canonical_port_path(live_port) if live_port is not None else None
+        mcu_ports = {canonical_port_path(p) for p in _active_mcu_ports()}
         is_homing = shared_state.hardware_state == "homing"
 
         port_meta: dict[str, dict[str, Any]] = {}
@@ -213,22 +230,27 @@ class WaveshareInventoryManager:
             if candidate.vid in _MCU_VIDS:
                 continue
             device = _normalize_port(candidate.device)
-            if device is None or device in mcu_ports:
+            if device is None or canonical_port_path(device) in mcu_ports:
                 continue
             discovered_devices.append(device)
-            port_meta[device] = {
-                "device": device,
+            port_meta[canonical_port_path(device)] = {
                 "product": getattr(candidate, "product", None) or "Serial Device",
                 "serial": getattr(candidate, "serial_number", None),
             }
 
+        # Order matters twice: live/configured/requested ports come first AND
+        # win the canonical dedupe, so a stable /dev/serial/by-id path stays
+        # the display device when comports() lists its /dev/tty* target.
         ordered_devices: list[str] = []
-        seen_devices: set[str] = set()
+        seen_canonical: set[str] = set()
 
         def _add_device(device: str | None) -> None:
-            if device is None or device in seen_devices:
+            if device is None:
                 return
-            seen_devices.add(device)
+            canonical = canonical_port_path(device)
+            if canonical in seen_canonical:
+                return
+            seen_canonical.add(canonical)
             ordered_devices.append(device)
 
         _add_device(live_port)
@@ -242,35 +264,37 @@ class WaveshareInventoryManager:
         ports: list[dict[str, Any]] = []
 
         for device in ordered_devices:
-            meta = dict(port_meta.get(device, {}))
-            if "device" not in meta:
-                meta["device"] = device
+            canonical = canonical_port_path(device)
+            meta = dict(port_meta.get(canonical, {}))
+            meta["device"] = device
             if "product" not in meta:
-                if device == live_port:
+                if canonical == live_canonical:
                     meta["product"] = "Active Waveshare bus"
-                elif device == configured_port:
+                elif configured_port is not None and canonical == canonical_port_path(configured_port):
                     meta["product"] = "Configured Waveshare port"
                 else:
                     meta["product"] = "Serial Device"
             if "serial" not in meta:
                 meta["serial"] = None
 
-            previous_servos = [dict(servo) for servo in previous_servos_by_port.get(device, [])]
-            is_active_runtime_port = active_service is not None and device == live_port
+            previous_servos = [dict(servo) for servo in previous_servos_by_port.get(canonical, [])]
+            is_active_runtime_port = active_service is not None and canonical == live_canonical
             skip_active_runtime_scan = is_active_runtime_port and not allow_active_runtime_scan
-            servos = previous_servos if is_homing or skip_active_runtime_scan else []
+            servos = previous_servos
             scan_error: str | None = None
             scan_skipped: str | None = None
             if is_homing:
                 scan_skipped = "homing"
             elif skip_active_runtime_scan:
                 scan_skipped = "active_runtime"
+            elif not probe_all and not is_active_runtime_port:
+                scan_skipped = "periodic_metadata_only"
             else:
                 try:
-                    if active_service is not None and device == live_port:
+                    if is_active_runtime_port:
                         _, servos = active_service.list_servo_infos(_SCAN_START_ID, _SCAN_END_ID)
                     else:
-                        service = get_waveshare_bus_service(device, timeout=0.02)
+                        service = get_waveshare_bus_service(device)
                         _, servos = service.list_servo_infos(_SCAN_START_ID, _SCAN_END_ID)
                 except Exception as exc:
                     scan_error = str(exc)
@@ -285,7 +309,9 @@ class WaveshareInventoryManager:
                         all_found_ids.add(servo_id)
 
             servo_count = len(normalized_servos)
-            confirmed = servo_count > 0 or (device == live_port and active_service is not None)
+            # A failed probe keeps the previous servo list for display, but a
+            # port that just errored must not present itself as confirmed.
+            confirmed = scan_error is None and (servo_count > 0 or is_active_runtime_port)
             entry = {
                 "device": device,
                 "product": meta["product"],
@@ -315,17 +341,25 @@ class WaveshareInventoryManager:
         ports: list[dict[str, Any]],
         servos_by_port: dict[str, list[dict[str, Any]]],
     ) -> str | None:
-        available_devices = {
-            entry.get("device")
-            for entry in ports
-            if isinstance(entry, dict) and isinstance(entry.get("device"), str)
-        }
+        # Map canonical paths back to the snapshot's display devices so a
+        # by-id candidate matches its /dev/tty* twin (and vice versa).
+        devices_by_canonical: dict[str, str] = {}
+        for entry in ports:
+            device = entry.get("device") if isinstance(entry, dict) else None
+            if isinstance(device, str):
+                devices_by_canonical.setdefault(canonical_port_path(device), device)
+        for device in servos_by_port:
+            devices_by_canonical.setdefault(canonical_port_path(device), device)
+
         configured_port = _configured_waveshare_port()
         live_port = _normalize_port(getattr(_active_waveshare_service(), "port", None))
 
         for candidate in (requested_port, live_port, configured_port):
-            if candidate is not None and (candidate in available_devices or candidate in servos_by_port):
-                return candidate
+            if candidate is None:
+                continue
+            device = devices_by_canonical.get(canonical_port_path(candidate))
+            if device is not None:
+                return device
 
         for entry in ports:
             if entry.get("servo_count", 0) > 0 and isinstance(entry.get("device"), str):

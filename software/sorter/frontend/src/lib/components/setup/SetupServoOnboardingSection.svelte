@@ -23,6 +23,7 @@
 		serial: string | null;
 		confirmed?: boolean;
 		servo_count?: number;
+		scan_skipped?: string | null; // "active_runtime": the running machine owns the bus
 	};
 
 	type BusServo = {
@@ -49,14 +50,21 @@
 
 	type ServoSource = 'waveshare' | 'pca';
 
+	function servoBackendFrom(source: unknown): ServoBackend {
+		return source === 'waveshare' ? 'waveshare' : 'pca9685';
+	}
+
+	// servoSource pins the backend (the setup wizard passes its discovery/choice);
+	// without it the section follows the saved servo config, which is what the
+	// settings page wants.
 	let {
-		servoSource = 'pca',
+		servoSource = null,
 		discoveredServoSource = 'pca',
 		discoveredWaveshareServos = 0,
 		onSaved = null,
 		onSourceChange = null
 	}: {
-		servoSource?: ServoSource;
+		servoSource?: ServoSource | null;
 		discoveredServoSource?: ServoSource;
 		discoveredWaveshareServos?: number;
 		onSaved?: (() => void | Promise<void>) | null;
@@ -81,13 +89,16 @@
 	let port = $state('');
 	let availableServoIds = $state<number[]>([]);
 	let availablePorts = $state<WavesharePort[]>([]);
+	const busInUse = $derived(availablePorts.some((p) => p.scan_skipped === 'active_runtime'));
 	let busServos = $state<BusServo[]>([]);
 	let suggestedNextId = $state<number | null>(null);
 	let highestSeenId = $state<number>(0);
 	let servoIssues = $state<HardwareIssue[]>([]);
 
 	let layerCount = $state<number>(0);
-	let storageLayers = $state<Array<{ bin_count: number; enabled: boolean }>>([]);
+	type StorageLayerDraft = { bin_count: number; enabled: boolean; max_pieces_per_bin: number | null };
+	let storageLayers = $state<StorageLayerDraft[]>([]);
+	let allowedBinCounts = $state<number[]>([6, 12, 18, 30]);
 	// servoId → layer index (1-based). For PCA, channelId → layer index.
 	let layerByAssignment = $state<Record<number, number>>({});
 	// per-layer invert (1-based layer index → invert)
@@ -102,7 +113,7 @@
 
 	// per-servo UI state
 	let busyByServoId = $state<Record<number, string>>({}); // 'calibrating' | 'moving' | 'promoting'
-	let lastMoveByServoId = $state<Record<number, 'open' | 'close' | 'center'>>({});
+	let lastMoveByServoId = $state<Record<number, 'open' | 'close' | 'center' | 'install'>>({});
 	// Track servo ids we've already auto-promoted this session so we don't loop.
 	let autoPromotedIds = $state<Set<number>>(new Set());
 
@@ -198,7 +209,7 @@
 		const storageLayersRaw = Array.isArray(storage?.layers) ? storage.layers : [];
 		const servoChannels = Array.isArray(servo?.channels) ? servo.channels : [];
 
-		backend = servoSource === 'waveshare' ? 'waveshare' : 'pca9685';
+		backend = servoBackendFrom(servoSource ?? servo.backend);
 		openAngle = Number(servo.open_angle ?? 10);
 		closedAngle = Number(servo.closed_angle ?? 83);
 		port = typeof servo.port === 'string' ? servo.port : '';
@@ -221,7 +232,11 @@
 		storageLayers = storageLayersRaw.map((sl: any) => ({
 			bin_count: Number(sl?.bin_count ?? 12),
 			enabled: sl?.enabled !== false,
+			max_pieces_per_bin: typeof sl?.max_pieces_per_bin === 'number' ? sl.max_pieces_per_bin : null,
 		}));
+		if (Array.isArray(storage?.allowed_bin_counts)) {
+			allowedBinCounts = storage.allowed_bin_counts.filter((v: unknown): v is number => typeof v === 'number');
+		}
 
 		const newAssignments: Record<number, number> = {};
 		const newInverts: Record<number, boolean> = {};
@@ -377,7 +392,7 @@
 		}
 	}
 
-	async function moveServo(servoId: number, position: 'open' | 'close' | 'center') {
+	async function moveServo(servoId: number, position: 'open' | 'close' | 'center' | 'install') {
 		setBusy(servoId, 'moving');
 		errorMsg = null;
 		statusMsg = '';
@@ -571,8 +586,18 @@
 		return channels;
 	}
 
+	function updateLayer(index: number, patch: Partial<StorageLayerDraft>) {
+		const current = storageLayers[index] ?? { bin_count: 12, enabled: true, max_pieces_per_bin: null };
+		storageLayers[index] = { ...current, ...patch };
+	}
+
+	function assignedServoLabel(layer: number): string {
+		const entry = Object.entries(layerByAssignment).find(([, assigned]) => assigned === layer);
+		return entry ? `Servo ${entry[0]}` : 'no servo assigned';
+	}
+
 	function buildStorageLayersForSave() {
-		const result: Array<{ bin_count: number; enabled: boolean; servo_open_angle: number | null; servo_closed_angle: number | null }> = [];
+		const result: Array<StorageLayerDraft & { servo_open_angle: number | null; servo_closed_angle: number | null }> = [];
 		for (let i = 0; i < layerCount; i++) {
 			const sl = storageLayers[i];
 			const openStr = openAngleByLayer[i + 1] ?? '';
@@ -582,6 +607,7 @@
 			result.push({
 				bin_count: sl?.bin_count ?? 12,
 				enabled: sl?.enabled ?? true,
+				max_pieces_per_bin: sl?.max_pieces_per_bin ?? null,
 				servo_open_angle: openVal !== null && Number.isFinite(openVal) ? openVal : null,
 				servo_closed_angle: closedVal !== null && Number.isFinite(closedVal) ? closedVal : null,
 			});
@@ -639,7 +665,8 @@
 	});
 
 	$effect(() => {
-		const desired = servoSource === 'waveshare' ? 'waveshare' : 'pca9685';
+		if (servoSource === null) return;
+		const desired = servoBackendFrom(servoSource);
 		if (backend === desired) return;
 		backend = desired;
 		if (desired === 'waveshare') {
@@ -712,7 +739,7 @@
 		<div class="flex items-start justify-between gap-3">
 			<div class="min-w-0">
 				<div class="text-sm font-semibold text-text">Servo backend</div>
-				{#if servoSource === 'waveshare'}
+				{#if backend === 'waveshare'}
 					<div class="mt-1 text-sm text-text-muted">
 						{#if discoveredServoSource === 'waveshare'}
 							Waveshare SC serial bus auto-detected from discovery
@@ -731,7 +758,7 @@
 					</div>
 				{/if}
 			</div>
-			{#if discoveredServoSource !== servoSource && onSourceChange}
+			{#if servoSource !== null && discoveredServoSource !== servoSource && onSourceChange}
 				<button
 					type="button"
 					onclick={() => onSourceChange(discoveredServoSource)}
@@ -743,7 +770,7 @@
 		</div>
 	</div>
 
-	{#if servoSource === 'waveshare'}
+	{#if backend === 'waveshare'}
 		<SerialPortPanel
 			bind:port
 			{availablePorts}
@@ -754,6 +781,7 @@
 
 		<ServoInventoryList
 			{busServos}
+			{busInUse}
 			{highestSeenId}
 			{suggestedNextId}
 			bind:selectedServoId
@@ -769,22 +797,66 @@
 			onAssignLayer={assignLayer}
 			onPromote={(servoId) => promoteServoId(servoId, suggestedNextId!)}
 			onCalibrate={calibrateServo}
+			onInstallPosition={(servoId) => void moveServo(servoId, 'install')}
 			onToggleOpenClose={toggleOpenClose}
 			onToggleInvert={toggleInvertForLayer}
 			onNudge={(servoId, degrees) => void nudgeServo(servoId, degrees)}
 		/>
+
+		<div class="setup-panel p-4">
+			<div class="text-sm font-semibold text-text">Layers</div>
+			<div class="mt-1 text-sm text-text-muted">
+				Bins per layer and whether the layer takes pieces. Servos are assigned to layers in the list above.
+			</div>
+			<div class="mt-3 grid gap-2">
+				{#each Array.from({ length: Math.max(layerCount, effectiveLayerCount) }, (_, index) => index) as index (index)}
+					{@const layer = storageLayers[index]}
+					<div class="flex flex-wrap items-center gap-4 text-sm">
+						<span class="w-16 font-medium text-text">Layer {index + 1}</span>
+						<span class="w-36 text-text-muted">{assignedServoLabel(index + 1)}</span>
+						<label class="inline-flex items-center gap-1 text-text-muted">
+							Bins
+							<select
+								value={String(layer?.bin_count ?? 12)}
+								onchange={(event) => updateLayer(index, { bin_count: Number(event.currentTarget.value) })}
+								disabled={saving}
+								class="setup-control w-16 px-1 py-1 text-text"
+							>
+								{#each allowedBinCounts as count (count)}
+									<option value={String(count)}>{count}</option>
+								{/each}
+							</select>
+						</label>
+						<label class="inline-flex items-center gap-1 text-text-muted">
+							<input
+								type="checkbox"
+								checked={layer?.enabled ?? true}
+								onchange={(event) => updateLayer(index, { enabled: event.currentTarget.checked })}
+								disabled={saving}
+							/>
+							Enabled
+						</label>
+					</div>
+				{/each}
+			</div>
+		</div>
 	{:else}
 		<ServoLayerCalibrator showDirections />
 	{/if}
 
 	<div class="flex flex-wrap items-center gap-3">
-		<button
-			onclick={saveServoSetup}
-			disabled={saving}
-			class="border border-success bg-success px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-success/90 disabled:cursor-not-allowed disabled:opacity-60"
-		>
-			{saving ? 'Saving…' : 'Save servo setup'}
-		</button>
+		<!-- The PCA9685 calibrator above carries its own save (with the speed
+		     fields this outer form does not know); a second save here would
+		     drop those speeds from [servo]. -->
+		{#if backend === 'waveshare'}
+			<button
+				onclick={saveServoSetup}
+				disabled={saving}
+				class="border border-success bg-success px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-success/90 disabled:cursor-not-allowed disabled:opacity-60"
+			>
+				{saving ? 'Saving…' : 'Save servo setup'}
+			</button>
+		{/if}
 		{#if loading}
 			<div class="text-sm text-text-muted">Loading current servo configuration…</div>
 		{/if}

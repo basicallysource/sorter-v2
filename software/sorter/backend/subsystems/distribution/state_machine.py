@@ -24,6 +24,7 @@ class DistributionStateMachine(BaseSubsystem):
         *,
         vision=None,
         post_distribute_cooldown_s: float = 0.0,
+        chute_settle_ms: int | None = None,
     ):
         super().__init__()
         self.irl = irl
@@ -48,6 +49,7 @@ class DistributionStateMachine(BaseSubsystem):
                 event_queue,
                 vision=vision,
                 post_distribute_cooldown_s=post_distribute_cooldown_s,
+                **({} if chute_settle_ms is None else {"chute_settle_ms": int(chute_settle_ms)}),
             ),
         }
         self.gc.profiler.enterState("distribution", self.current_state.value)
@@ -81,3 +83,12 @@ class DistributionStateMachine(BaseSubsystem):
     def cleanup(self) -> None:
         self.gc.profiler.exitState("distribution")
         self.states_map[self.current_state].cleanup()
+        door = getattr(self.shared, "held_door", None)
+        if door is not None:
+            # The drop this hold was for is not coming (pause, incident):
+            # never leave a door energized against its stop.
+            self.shared.held_door = None
+            try:
+                door.release()
+            except Exception as exc:
+                self.logger.warning(f"Distribution: could not release the held door: {exc}")

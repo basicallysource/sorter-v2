@@ -6,8 +6,8 @@
 	(paper "A4")
 	(title_block
 		(title "Distribution Board")
-		(date "2026-10-14")
-		(rev "1.4")
+		(date "2026-10-18")
+		(rev "1.5")
 		(company "basically")
 	)
 	(lib_symbols
@@ -5552,6 +5552,46 @@
 		)
 		(uuid "0c48709c-0777-4a25-8a7e-f4d8fcde5d2a")
 	)
+	(wire
+		(pts
+			(xy 35.56 105.41) (xy 38.1 105.41)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "f742b18d-1212-4705-83bd-69040ec28d08")
+	)
+	(label "SERVO_DATA"
+		(at 38.1 105.41 0)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+			(justify left bottom)
+		)
+		(uuid "e5943dd6-b230-44fd-b83b-530a1bf8b9e5")
+	)
+	(wire
+		(pts
+			(xy 35.56 17.78) (xy 38.1 17.78)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "1a6f1662-2fa4-4e91-958e-536317089955")
+	)
+	(label "SERVO_DATA"
+		(at 38.1 17.78 0)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+			(justify left bottom)
+		)
+		(uuid "a5c309d4-623a-45d5-bb5d-12a4c05922cb")
+	)
 	(label "GPIO20-GPIO_OUT-Stepper2_DIR"
 		(at 36.83 185.42 0)
 		(effects
@@ -5882,7 +5922,7 @@
 		)
 		(uuid "6a7a84b5-44f3-48dc-b658-6d2525e1d635")
 	)
-	(label "GPIO2-GPIO_IN_HALL-SW_1"
+	(label "GPIO2-SERVO_BUS"
 		(at 113.03 86.36 0)
 		(effects
 			(font
@@ -6042,7 +6082,7 @@
 		)
 		(uuid "9ea5c94c-d2a7-485c-88db-6d5187b5b0ca")
 	)
-	(label "GPIO2-GPIO_IN_HALL-SW_1"
+	(label "GPIO2-SERVO_BUS"
 		(at 223.52 26.67 0)
 		(effects
 			(font
@@ -6262,7 +6302,7 @@
 		)
 		(uuid "d344824b-b46f-4338-b503-53b472720931")
 	)
-	(label "GPIO2-GPIO_IN_HALL-SW_1"
+	(label "GPIO2-SERVO_BUS"
 		(at 38.1 102.87 0)
 		(effects
 			(font
@@ -11301,6 +11341,16 @@
 				(justify left top)
 			)
 		)
+		(pin "SERVO_DATA" bidirectional
+			(at 35.56 17.78 0)
+			(uuid "2c8eadeb-4d78-4cf1-986b-4c5bfb6becfa")
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify right)
+			)
+		)
 		(instances
 			(project "1_Distribution_Board"
 				(path "/d53c8c01-e754-4310-8a73-7d7c95e64cd3"
@@ -11539,9 +11589,19 @@
 				(justify right)
 			)
 		)
-		(pin "HALL_SW_1" output
+		(pin "SERVO_BUS" bidirectional
 			(at 35.56 102.87 0)
 			(uuid "cffc9a1c-2ee2-47c6-9a61-d708dce8c359")
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify right)
+			)
+		)
+		(pin "SERVO_DATA" bidirectional
+			(at 35.56 105.41 0)
+			(uuid "58d40be1-875f-4342-ab74-f91d19f1923f")
 			(effects
 				(font
 					(size 1.27 1.27)

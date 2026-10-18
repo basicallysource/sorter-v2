@@ -6,8 +6,8 @@
 	(paper "A4")
 	(title_block
 		(title "Distribution Board")
-		(date "2026-10-14")
-		(rev "1.4")
+		(date "2026-10-18")
+		(rev "1.5")
 		(company "basically")
 	)
 	(lib_symbols

@@ -6,8 +6,8 @@
 	(paper "A4")
 	(title_block
 		(title "Distribution Board")
-		(date "2026-10-14")
-		(rev "1.4")
+		(date "2026-10-18")
+		(rev "1.5")
 		(company "basically")
 	)
 	(lib_symbols
@@ -5220,25 +5220,27 @@
 		)
 		(uuid "ff9447bc-749b-47b4-882c-ddfdbd8ef64c")
 	)
-	(label "WAVESHARE_DATA"
-		(at 231.14 72.39 0)
+	(hierarchical_label "SERVO_DATA"
+		(shape bidirectional)
+		(at 231.14 72.39 180)
 		(effects
 			(font
 				(size 1.27 1.27)
 			)
-			(justify left bottom)
+			(justify right)
 		)
-		(uuid "9015334a-06cf-4553-b156-40c69a118906")
+		(uuid "748270f8-a93f-4605-b1e5-57bb7d8930e4")
 	)
-	(label "WAVESHARE_DATA"
-		(at 231.14 93.98 0)
+	(hierarchical_label "SERVO_DATA"
+		(shape bidirectional)
+		(at 231.14 93.98 180)
 		(effects
 			(font
 				(size 1.27 1.27)
 			)
-			(justify left bottom)
+			(justify right)
 		)
-		(uuid "fec3f4ab-0fde-4159-a90e-ae2ff366c00f")
+		(uuid "a5e9ae44-1890-4be6-b459-7953cb56ede1")
 	)
 	(symbol
 		(lib_id "power:GND")

@@ -29,6 +29,12 @@ and a dated entry goes here; the history is git.
 - **StallGuard belongs to a motor.** One page with a motor picker became a
   tab on each motor's own page: the motor's stall settings at the top, the
   calibration tools (a sweep, its load curve, the suggested threshold) below.
+- **A camera's turn buttons are one `NudgeControl`.** The dashboard's camera
+  cards had three ghost buttons (-1°, +1°, 180°), each a fixed amount. Now a
+  channel has one control, `‹ 10° ›`: left and right turn it by the amount in
+  the middle, and the amount opens a popover with 10°, 180° and a field for
+  any other amount, kept per channel. It is narrower than the three buttons
+  were, so no label has to hide in a narrow tile.
 
 ## 2026-10-15
 

@@ -7,11 +7,11 @@
 -->
 <script lang="ts">
 	import Camera from '@lucide/svelte/icons/camera';
-	import RotateCw from '@lucide/svelte/icons/rotate-cw';
 	import House from '@lucide/svelte/icons/house';
 	import Panel from '$lib/components/Panel.svelte';
 	import MediaTile from '$lib/components/MediaTile.svelte';
 	import Button from '$lib/components/Button.svelte';
+	import NudgeControl from '$lib/components/NudgeControl.svelte';
 	import Badge from '$lib/components/Badge.svelte';
 	import Stat from '$lib/components/Stat.svelte';
 
@@ -102,14 +102,21 @@
 				? 'text-warning-ink'
 				: 'text-danger-ink';
 	}
+	let steps = $state({ c2: 10, c3: 10, c4: 10 });
 </script>
 
 <svelte:head><title>Dashboard · Example app</title></svelte:head>
 
-{#snippet rotate()}
-	<Button size="sm" variant="ghost">-1°</Button>
-	<Button size="sm" variant="ghost">+1°</Button>
-	<Button size="sm" variant="ghost" icon={RotateCw}>180°</Button>
+<!-- Each channel keeps its own amount, as on the real dashboard. -->
+{#snippet nudge(channel: 'c2' | 'c3' | 'c4')}
+	<NudgeControl
+		bind:value={steps[channel]}
+		label="Turn the channel"
+		leftLabel="Turn the channel {steps[channel]}° counterclockwise"
+		rightLabel="Turn the channel {steps[channel]}° clockwise"
+		amountLabel="Each press turns"
+		onnudge={() => {}}
+	/>
 {/snippet}
 
 {#snippet noFeed()}
@@ -126,13 +133,16 @@
 		class="grid grid-cols-1 gap-(--gap-panels) md:grid-cols-2 lg:w-(--cameras) lg:shrink-0 lg:self-start"
 		style="--cameras: min(100cqw - 19rem - var(--gap-panels), (100cqh - 2 * var(--size-control-lg) - (1 - var(--feed) / 2) * var(--gap-panels)) / (1.5 * var(--feed)))"
 	>
-		<MediaTile title="C-Channel 2" actions={rotate} expandable>
+		<MediaTile title="C-Channel 2" expandable>
+			{#snippet actions()}{@render nudge('c2')}{/snippet}
 			{@render noFeed()}
 		</MediaTile>
-		<MediaTile title="C-Channel 3" actions={rotate} expandable>
+		<MediaTile title="C-Channel 3" expandable>
+			{#snippet actions()}{@render nudge('c3')}{/snippet}
 			{@render noFeed()}
 		</MediaTile>
-		<MediaTile title="Classification channel" actions={rotate} expandable class="md:col-span-2">
+		<MediaTile title="Classification channel" expandable class="md:col-span-2">
+			{#snippet actions()}{@render nudge('c4')}{/snippet}
 			{@render noFeed()}
 		</MediaTile>
 	</div>

@@ -22,6 +22,9 @@ const RECENT_OBJECT_REMOVAL_GRACE_MS = 1500;
 export type ConnectionStatus = 'connecting' | 'connected' | 'disconnected';
 
 const RELOADED_FOR_KEY = 'sorter-ui-reloaded-for';
+// Without its backend longer than this, the page fetches everything again when
+// it comes back: what it fetched meanwhile failed.
+const REFETCH_AFTER_MS = 2000;
 
 /** Whether this socket talks to the backend that served this page. */
 function servesThisPage(url: string | null): boolean {
@@ -77,10 +80,13 @@ export class Machine {
 	sorterState = $state.raw<SorterStateData | null>(null);
 	camerasConfig = $state.raw<CamerasConfigData | null>(null);
 	sortingProfileStatus = $state.raw<SortingProfileStatusData | null>(null);
-	// How many times this machine's backend has come back as a new process
-	// since the page loaded. The page remounts on each, so everything it shows
-	// is fetched again from the new process (MachineProvider).
-	restarts = $state(0);
+	// How many times this machine's backend has come back since the page
+	// loaded: as a new process, or after the page was without it for a while
+	// (including from the start). The page remounts on each, so everything it
+	// shows is fetched again (MachineProvider).
+	returns = $state(0);
+	// When its websocket last closed, while it is closed.
+	disconnectedAt: number | null = null;
 	// Pieces that no longer belong in the ring leave it after a grace period.
 	removalTimers = new Map<string, ReturnType<typeof setTimeout>>();
 
@@ -143,7 +149,10 @@ export class MachineManager {
 			console.log(`[MachineManager] WebSocket closed for ${url}`);
 			this.socket_urls.delete(ws);
 			const machine = this.machineFor(ws);
-			if (machine) machine.status = 'disconnected';
+			if (machine) {
+				machine.status = 'disconnected';
+				machine.disconnectedAt ??= Date.now();
+			}
 			if (!this.ignored_closures.has(ws) && !this.manually_disconnected.has(url)) {
 				this.scheduleReconnect(url);
 			}
@@ -310,8 +319,11 @@ export class MachineManager {
 	private handleIdentity(ws: WebSocket, identity: MachineIdentityData): void {
 		const url = this.socket_urls.get(ws) ?? null;
 		let machine = this.machines.get(identity.machine_id);
+		const away = machine?.disconnectedAt != null ? Date.now() - machine.disconnectedAt : 0;
 		if (!machine) {
 			machine = new Machine(identity.machine_id, ws, url);
+			// The page has been up without its backend: what it fetched failed.
+			if (performance.now() > REFETCH_AFTER_MS) machine.returns = 1;
 			this.machines = new Map(this.machines).set(identity.machine_id, machine);
 		} else {
 			if (machine.connection !== ws) machine.connection.close();
@@ -319,14 +331,14 @@ export class MachineManager {
 			machine.url = url ?? machine.url;
 			machine.status = 'connected';
 		}
+		machine.disconnectedAt = null;
 		const previousRun = machine.identity?.run_id ?? null;
 		machine.identity = identity;
 		if (!this.selectedMachineId) this.selectedMachineId = identity.machine_id;
 		console.log(`[MachineManager] Machine identified: ${identity.machine_id}`);
 		if (servesThisPage(url) && reloadForNewCode(identity.code_version)) return;
-		if (previousRun !== null && identity.run_id && identity.run_id !== previousRun) {
-			machine.restarts += 1;
-		}
+		const newProcess = previousRun !== null && !!identity.run_id && identity.run_id !== previousRun;
+		if (newProcess || away > REFETCH_AFTER_MS) machine.returns += 1;
 		for (const waiter of this.run_waiters) {
 			if (waiter.machineId === machine.id && identity.run_id && identity.run_id !== waiter.since) {
 				waiter.done(true);

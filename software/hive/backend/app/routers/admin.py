@@ -114,11 +114,12 @@ def delete_user(
     if user.id == admin.id:
         raise APIError(400, "Cannot delete your own account via admin panel", "CANNOT_DELETE_SELF")
 
-    for machine in user.machines:
-        delete_machine_files(str(machine.id))
-
+    # Files go only once the rows are gone: a delete that fails keeps both.
+    machine_ids = [str(machine.id) for machine in user.machines]
     db.delete(user)
     db.commit()
+    for machine_id in machine_ids:
+        delete_machine_files(machine_id)
     return {"ok": True}
 
 

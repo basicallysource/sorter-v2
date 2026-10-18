@@ -259,6 +259,10 @@ def _serialize_machine_piece(piece: MachinePiece, images: list[MachinePieceImage
         "color_confidence": piece.color_confidence,
         "bin": {"x": piece.bin_x, "y": piece.bin_y, "z": piece.bin_z},
         "dead": piece.dead,
+        # The operator's verdicts, as the records list carries them.
+        "part_correct": piece.part_correct,
+        "color_corrected_id": piece.color_corrected_id,
+        "correction_updated_at": piece.correction_updated_at.isoformat() if piece.correction_updated_at else None,
         "brickognize_preview_url": piece.brickognize_preview_url,
         "images": [
             {
@@ -284,7 +288,7 @@ def _serialize_machine_piece(piece: MachinePiece, images: list[MachinePieceImage
 @router.get("/machines/{machine_id}/pieces")
 def list_machine_pieces(
     machine_id: UUID,
-    limit: int = Query(60, ge=1, le=200),
+    limit: int = Query(60, ge=1, le=1000),
     cursor: int | None = Query(None),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),

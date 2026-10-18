@@ -272,8 +272,8 @@ def loadPartsDict(conn):
 
     # load bricklink items
     bl_items = {}
-    for row in conn.execute("SELECT item_no, part_num, name, type, category_id, weight, year_released, is_obsolete, synced_at FROM bricklink_items"):
-        item_no, part_num, name, item_type, category_id, weight, year_released, is_obsolete, synced_at = row
+    for row in conn.execute("SELECT item_no, part_num, name, type, category_id, weight, year_released, is_obsolete, synced_at, dim_x_studs, dim_y_studs FROM bricklink_items"):
+        item_no, part_num, name, item_type, category_id, weight, year_released, is_obsolete, synced_at, dim_x, dim_y = row
         bl_items[item_no] = {
             "item_no": item_no,
             "part_num": part_num,
@@ -284,6 +284,8 @@ def loadPartsDict(conn):
             "year_released": year_released,
             "is_obsolete": is_obsolete,
             "synced_at": synced_at,
+            "dim_x": dim_x,
+            "dim_y": dim_y,
         }
 
     # load structured price guides. price_guides is now keyed by (item_no, color),
@@ -336,6 +338,9 @@ def loadPartsDict(conn):
                             "weight": f'{bl_item["weight"]:.2f}' if bl_item["weight"] else "0.00",
                             "year_released": bl_item["year_released"],
                             "is_obsolete": bool(bl_item["is_obsolete"]),
+                            # The footprint in studs, x the shorter side.
+                            "dim_x": bl_item["dim_x"],
+                            "dim_y": bl_item["dim_y"],
                         },
                     },
                     "catalog_synced_at": bl_item["synced_at"],

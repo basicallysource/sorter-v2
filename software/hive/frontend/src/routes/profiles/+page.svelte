@@ -183,6 +183,8 @@
 
 	{#if !lists[tab] && loadingTab === tab}
 		<div class="flex justify-center p-8"><Spinner size={32} /></div>
+	{:else if !lists[tab]}
+		<!-- The load failed: the alert above says why, and "no profiles yet" would be wrong. -->
 	{:else if profiles.length === 0}
 		<Panel>
 			<EmptyState icon={Funnel} title={empty.title}>

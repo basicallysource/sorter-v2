@@ -462,11 +462,11 @@ def delete_account(
     current_user: User = Depends(get_current_user),
     _csrf: None = Depends(verify_csrf),
 ):
-    # Delete machine files from disk
-    for machine in current_user.machines:
-        delete_machine_files(str(machine.id))
-
+    # Files go only once the rows are gone: a delete that fails keeps both.
+    machine_ids = [str(machine.id) for machine in current_user.machines]
     db.delete(current_user)
     db.commit()
+    for machine_id in machine_ids:
+        delete_machine_files(machine_id)
     clear_auth_cookies(response)
     return {"ok": True}

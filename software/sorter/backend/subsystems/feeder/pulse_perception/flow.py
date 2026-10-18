@@ -142,6 +142,14 @@ class PulsePerceptionFeeding(BaseState):
         )
         return success
 
+    def _noteFall(self, channel: int, gate: DispenseGate) -> None:
+        # Which piece fell off the exit, for the zones learned from the pieces.
+        if gate.fell_track_id is None:
+            return
+        from zones import learner
+
+        learner.noteFall(channel, gate.fell_track_id)
+
     def _on_ch3_dispense(self) -> None:
         try:
             from .autotune import noteDispense
@@ -239,6 +247,7 @@ class PulsePerceptionFeeding(BaseState):
             gate3 = self._gate(3, cfg)
             if gate3.observe(c3, now_mono):
                 self._on_ch3_dispense()
+                self._noteFall(3, gate3)
             action = feederChannelAction(
                 c3,
                 downstream_clear=self._classification_ready(cfg) and gate3.exitAllowed(now_mono),
@@ -254,7 +263,8 @@ class PulsePerceptionFeeding(BaseState):
             # so we never pulse a C2 piece off the edge into a busy C3; and once
             # a piece falls, nothing more goes for a while, so C3 sees it land.
             gate2 = self._gate(2, cfg)
-            gate2.observe(c2, now_mono)
+            if gate2.observe(c2, now_mono):
+                self._noteFall(2, gate2)
             action = feederChannelAction(
                 c2,
                 downstream_clear=(not c3.in_drop)

@@ -10,7 +10,9 @@ ride a narrow band at the rim. So:
   pictures over time, the circle where the change from one picture to the next
   stops: inside it the disc turns and pieces come and go, outside it the walls
   stand still.
-- The ring pieces ride is a band at the rim.
+- The channel watches everything a piece can be on: from well inside the rim
+  out past the wall's outer edge, cut back to the rim at the exit, where the
+  opening shows the next channel.
 
 The zones' angles stay where they were on that band (re-anchored to the new
 center); with nothing saved, they come from ``defaultZones``.
@@ -32,11 +34,12 @@ WORK_W = 640
 _SECTORS = 8
 _ANGLES = 720
 
-# The ring around the rim, as shares of the rim's radius: pieces ride against
-# the wall, their centers inside the rim by up to half a long piece lying
-# across the channel.
-RING_INNER = 0.65
-RING_OUTER = 1.08
+# The area a channel watches, as shares of the rim's radius: inward to where no
+# piece rests, outward to the wall's outer edge (a little past it), and at
+# least this far when the picture shows no such edge.
+RING_INNER = 0.4
+WALL_MARGIN = 1.05
+RING_OUTER_MIN = 1.35
 
 
 @dataclass(frozen=True)
@@ -69,7 +72,7 @@ def defaultZones(channel: int, frame: tuple[int, int]) -> ChannelZones:
     return ChannelZones(
         channel=channel,
         frame=(w, h),
-        ring=Ring((w / 2.0, h / 2.0), RING_INNER * rim, RING_OUTER * rim, rim),
+        ring=Ring((w / 2.0, h / 2.0), RING_INNER * rim, RING_OUTER_MIN * rim, rim),
         drop=drop,
         exit=exit_span,
         precise_width=precise,
@@ -106,8 +109,10 @@ def findZones(
     rim, rim_score, rim_note = _findRim(median, small, cx, cy)
     if rim_note:
         notes.append(rim_note)
+    wall = _findWall(median, cx, cy, rim)
     center = (cx / scale, cy / scale)
     rim_px = rim / scale
+    outer_px = max(RING_OUTER_MIN * rim, WALL_MARGIN * wall if wall else 0.0) / scale
 
     base = current.scaledTo((w, h)) if current is not None else defaultZones(channel, (w, h))
     if "ring" in base.locked:
@@ -115,13 +120,8 @@ def findZones(
         return Found(zones=base, center_score=center_score, rim_score=rim_score, frames=len(small), notes=notes)
     # The zones stay where they were on the band pieces ride, locked or not:
     # only their angles are measured from the new center.
-    zones = base.withRing(ringAround(center, rim_px), "found")
+    zones = base.withRing(Ring(center, RING_INNER * rim_px, outer_px, rim_px), "found")
     return Found(zones=zones, center_score=center_score, rim_score=rim_score, frames=len(small), notes=notes)
-
-
-def ringAround(center: tuple[float, float], rim: float) -> Ring:
-    """The ring pieces ride, for a rim of radius ``rim``."""
-    return Ring(center, RING_INNER * rim, RING_OUTER * rim, rim)
 
 
 # ---------------------------------------------------------------------------
@@ -275,3 +275,54 @@ def _findRim(
                 return float(rim), float(edges[rim] / strongest) if near else 0.0, None
     rim = strong[0]
     return float(rim), float(edges[rim] / strongest), "from one picture" if len(frames) < 4 else None
+
+
+def _findWall(median: np.ndarray, cx: float, cy: float, rim: float) -> float | None:
+    """The wall's outer edge: the strongest circular edge between 1.1 and 1.8
+    times the rim, if the picture shows one."""
+    h, w = median.shape[:2]
+    edges = _edgeProfile(median, cx, cy, int(math.hypot(w, h)))
+    beyond = [r for r in _peaks(edges) if 1.1 * rim <= r <= 1.8 * rim]
+    if not beyond:
+        return None
+    return float(max(beyond, key=lambda r: edges[r]))
+
+
+def findInChild(
+    channel: int,
+    frames: Sequence[np.ndarray],
+    current: ChannelZones | None,
+    frame_size: tuple[int, int],
+    timeout_s: float = 60.0,
+) -> Found:
+    """``findZones`` in a process of its own: a second of image work there
+    never holds up the machine's own loop (one interpreter lock per process)."""
+    import pickle
+    import subprocess
+    import sys
+    from pathlib import Path
+
+    backend = Path(__file__).resolve().parent.parent
+    result = subprocess.run(
+        [sys.executable, "-m", "zones.finder"],
+        input=pickle.dumps((channel, list(frames), current, frame_size)),
+        capture_output=True,
+        cwd=str(backend),
+        timeout=timeout_s,
+        check=False,
+    )
+    if result.returncode != 0:
+        lines = result.stderr.decode(errors="replace").strip().splitlines()
+        raise RuntimeError(lines[-1] if lines else "the finder failed")
+    return pickle.loads(result.stdout)
+
+
+if __name__ == "__main__":
+    import pickle
+    import sys
+
+    # Found by its module's own name, so the result unpickles in the caller.
+    from zones.finder import findZones as find
+
+    channel_, frames_, current_, frame_size_ = pickle.load(sys.stdin.buffer)
+    sys.stdout.buffer.write(pickle.dumps(find(channel_, frames_, current_, frame_size_)))

@@ -36,6 +36,8 @@ class DispenseGateTests(unittest.TestCase):
         self.gate.notePush(_piece(7))
         self.gate.observe(_state(_piece(8, gap=12.0)), 10.0)
         self.assertTrue(self.gate.observe(_state(_piece(8, gap=12.0)), 10.2))
+        # It says which piece fell.
+        self.assertEqual(7, self.gate.fell_track_id)
         # Reported once.
         self.assertFalse(self.gate.observe(_state(_piece(8)), 10.3))
         self.assertFalse(self.gate.exitAllowed(10.3))

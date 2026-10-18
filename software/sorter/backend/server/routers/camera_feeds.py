@@ -59,8 +59,12 @@ logger = logging.getLogger(__name__)
 PREVIEW_MAX_WIDTH = int(os.environ.get("SORTER_PREVIEW_MAX_WIDTH", "960"))
 
 # At most this many frames a second per view, however fast perception runs:
-# the budget for CPU on the machine and bandwidth to browsers.
+# the budget for CPU on the machine and bandwidth to browsers. A page may ask
+# for fewer ({"views": [...], "fps": 2}): it is sent no more than that, and a
+# view is encoded only as often as the fastest page watching it asks, so a
+# recorder that wants 2 a second costs the machine a fifth of a person's page.
 PREVIEW_MAX_FPS = 10.0
+PREVIEW_MIN_FPS = 0.5
 
 # A socket that had nothing to send for this long sends "{}", so the page can
 # tell a quiet socket from a dead one.
@@ -99,25 +103,30 @@ class _Frame:
 class _Feed:
     """One view, shared by everyone watching it. While anyone watches, a
     producer on the event loop encodes each new frame once, in a worker
-    thread, and wakes each watching socket's writer."""
+    thread, as often as the fastest watcher asks, and wakes each watching
+    socket's writer."""
 
     quality = 55
 
     def __init__(self, name: str) -> None:
         self.name = name  # in the preview.<name>.* counters
-        self.watchers: list[asyncio.Event] = []
+        self.watchers: dict[asyncio.Event, float] = {}  # each watching socket's wake, and the fps it asked for
         self.seq = 0
         self.latest: _Frame | None = None
         self.last_ts: float | None = None
         self.producer: asyncio.Future | None = None
 
-    def watch(self, wake: asyncio.Event) -> None:
-        self.watchers.append(wake)
+    def watch(self, wake: asyncio.Event, fps: float = PREVIEW_MAX_FPS) -> None:
+        """Start watching, or change the rate of a watch already going."""
+        self.watchers[wake] = fps
         if self.producer is None or self.producer.done():
             self.producer = asyncio.ensure_future(self._produce())
 
     def unwatch(self, wake: asyncio.Event) -> None:
-        self.watchers.remove(wake)
+        self.watchers.pop(wake, None)
+
+    def fps(self) -> float:
+        return max(self.watchers.values(), default=PREVIEW_MAX_FPS)
 
     def _newest(self) -> _Shot | None:
         """The newest source frame. Worker thread."""
@@ -168,7 +177,7 @@ class _Feed:
                 self.latest = _Frame(self.seq, *rendered)
                 for wake in self.watchers:
                     wake.set()
-                pause = started + 1.0 / PREVIEW_MAX_FPS - loop.time()
+                pause = started + 1.0 / self.fps() - loop.time()
             await asyncio.sleep(max(0.0, pause))
             if not self.watchers:
                 self.latest = None
@@ -391,7 +400,9 @@ class _Viewer:
     def __init__(self, websocket: WebSocket) -> None:
         self.websocket = websocket
         self.views: dict[str, _Feed] = {}
+        self.fps = PREVIEW_MAX_FPS  # what this page asked for
         self.sent: dict[str, int] = {}  # view -> seq of the frame last sent
+        self.sent_at: dict[str, float] = {}  # view -> when that frame went
         self.sent_layout: dict[str, int] = {}  # view -> seq of the layout last sent
         self.notes: list[str] = []  # text messages waiting for the writer
         self.wake = asyncio.Event()
@@ -406,19 +417,26 @@ class _Viewer:
                 await self.show(message["text"])
 
     async def show(self, text: str) -> None:
-        """Watch exactly the views in ``{"views": [...]}``."""
+        """Watch exactly the views in ``{"views": [...]}``, at most ``"fps"``
+        frames a second each when it is given."""
         try:
-            wanted = json.loads(text)["views"]
+            message = json.loads(text)
+            wanted = message["views"]
         except (ValueError, KeyError, TypeError):
             return
         if not isinstance(wanted, list) or not all(isinstance(key, str) for key in wanted):
             return
+        fps = message.get("fps")
+        fps = PREVIEW_MAX_FPS if not isinstance(fps, (int, float)) or isinstance(fps, bool) else float(fps)
+        self.fps = min(PREVIEW_MAX_FPS, max(PREVIEW_MIN_FPS, fps))
         for key in [key for key in self.views if key not in wanted]:
             self.views.pop(key).unwatch(self.wake)
             self.sent.pop(key, None)
+            self.sent_at.pop(key, None)
             self.sent_layout.pop(key, None)
         for key in dict.fromkeys(wanted):
             if key in self.views:
+                self.views[key].watch(self.wake, self.fps)  # the rate may have changed
                 continue
             try:
                 feed = await run_in_threadpool(_feed_for, key)
@@ -427,7 +445,7 @@ class _Viewer:
                 self.wake.set()
                 continue
             self.views[key] = feed
-            feed.watch(self.wake)
+            feed.watch(self.wake, self.fps)
             self.wake.set()  # its newest frame, if it has one, goes out now
 
     async def write(self) -> None:
@@ -438,12 +456,18 @@ class _Viewer:
                 self.wake.clear()
                 while self.notes:
                     await self._send(self.notes.pop(0))
+                due: float | None = None  # when a frame held back for this page's rate may go
                 for key, feed in list(self.views.items()):
                     frame = feed.latest
                     if frame is None or self.sent.get(key) == frame.seq or self.views.get(key) is not feed:
                         continue
+                    ready = self.sent_at.get(key, 0.0) + 1.0 / self.fps
+                    if time.monotonic() < ready:
+                        due = ready if due is None else min(due, ready)
+                        continue
                     skipped = frame.seq - self.sent[key] - 1 if key in self.sent else 0
                     self.sent[key] = frame.seq
+                    self.sent_at[key] = time.monotonic()
                     started = time.perf_counter()
                     if frame.layout is not None and self.sent_layout.get(key) != frame.layout[0]:
                         self.sent_layout[key] = frame.layout[0]
@@ -453,10 +477,12 @@ class _Viewer:
                     await self._send(_frame_message(key, frame.ts, frame.jpeg))
                     shared_state.observePerfMs(f"preview.{feed.name}.send_ms", (time.perf_counter() - started) * 1000.0)
                     shared_state.observePerfMs(f"preview.{feed.name}.skipped", float(skipped))
+                wait = KEEPALIVE_S if due is None else max(0.0, min(KEEPALIVE_S, due - time.monotonic()))
                 try:
-                    await asyncio.wait_for(self.wake.wait(), KEEPALIVE_S)
+                    await asyncio.wait_for(self.wake.wait(), wait)
                 except TimeoutError:
-                    self.notes.append("{}")
+                    if due is None:
+                        self.notes.append("{}")
         except TimeoutError:
             host = self.websocket.client.host if self.websocket.client else "?"
             limit = shared_state.WS_SLOW_CLIENT_LIMIT_S

@@ -94,7 +94,7 @@ def test_a_view_gets_its_frames_until_the_page_goes_away(renders: list[str]) -> 
     assert view == C2 and later[0] == C2
     assert later[1] > ts >= 1.0
     assert cv2.imdecode(np.frombuffer(jpeg, np.uint8), cv2.IMREAD_COLOR).shape == (48, 64, 3)
-    assert feed.watchers == [] and feed.latest is None
+    assert feed.watchers == {} and feed.latest is None
 
 
 def test_a_view_let_go_of_gets_no_more_frames(renders: list[str]) -> None:
@@ -110,7 +110,7 @@ def test_a_view_let_go_of_gets_no_more_frames(renders: list[str]) -> None:
         assert [_next(ws)[0] for _ in range(3)] == [C3, C3, C3]
         feed = camera_feeds._feeds[("role", "c_channel_2")]
         _wait_until(lambda: feed.producer.done())
-        assert feed.watchers == []
+        assert feed.watchers == {}
 
 
 def test_two_pages_on_one_view_share_each_encoded_frame(renders: list[str]) -> None:
@@ -291,3 +291,47 @@ def test_a_role_shows_the_camera_while_perception_is_behind(monkeypatch: pytest.
     camera.timestamp = 11.5
     shot = feed._newest()
     assert shot.ts == 11.5 and shot.cycle is None and shot.channel is channel
+
+
+def _frames_for(ws, view: str, seconds: float) -> int:
+    """How many frames of a view arrive in the next few seconds."""
+    count, deadline = 0, time.monotonic() + seconds
+    while time.monotonic() < deadline:
+        message = _next(ws)
+        if not isinstance(message, dict) and message[0] == view:
+            count += 1
+    return count
+
+
+def test_a_page_that_asks_for_fewer_frames_gets_them_and_costs_that_much(renders: list[str]) -> None:
+    with _client() as client, client.websocket_connect("/ws/video", headers=ORIGIN) as ws:
+        ws.send_json({"views": [C2], "fps": 5})
+        _next(ws)
+        before = len(renders)
+        got = _frames_for(ws, C2, 1.2)
+        encoded = len(renders) - before
+    # 5 a second, give or take scheduling; the full rate here is 100.
+    assert 3 <= got <= 9
+    assert encoded <= 12
+
+
+def test_a_slow_page_beside_a_fast_one_still_gets_only_what_it_asked(renders: list[str]) -> None:
+    with _client() as client:
+        with client.websocket_connect("/ws/video", headers=ORIGIN) as fast, client.websocket_connect(
+            "/ws/video", headers=ORIGIN
+        ) as slow:
+            fast.send_json({"views": [C2]})
+            slow.send_json({"views": [C2], "fps": 4})
+            _next(fast)
+            _next(slow)
+            got_slow = _frames_for(slow, C2, 1.2)
+            got_fast = _frames_for(fast, C2, 0.5)
+    assert 2 <= got_slow <= 8
+    assert got_fast > got_slow
+
+
+def test_a_rate_out_of_range_or_not_a_number_is_held_to_the_limits(renders: list[str]) -> None:
+    viewer = camera_feeds._Viewer(SimpleNamespace())
+    for asked, kept in ((1000, camera_feeds.PREVIEW_MAX_FPS), (0, camera_feeds.PREVIEW_MIN_FPS), ("2", camera_feeds.PREVIEW_MAX_FPS), (True, camera_feeds.PREVIEW_MAX_FPS), (2, 2.0)):
+        asyncio.run(viewer.show(json.dumps({"views": [], "fps": asked})))
+        assert viewer.fps == kept, asked

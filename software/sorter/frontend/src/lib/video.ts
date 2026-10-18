@@ -1,7 +1,9 @@
 // Live camera video: one websocket per backend at /ws/video, whatever the page
 // shows. A view is "role/<role>" (a camera role's picture) or "index/<n>" (a
 // picker's thumbnail of camera n). The page sends the whole set of views it
-// wants whenever that set changes; the backend sends each frame as one binary
+// wants whenever that set changes, with "fps" when it wants fewer frames than
+// the backend's most (a page opened with ?feed_fps=N, such as a recorder that
+// keeps a few a second); the backend sends each frame as one binary
 // message, u16 LE key length | key | f64 LE capture time | JPEG, a note
 // {"view", "error"} for a view it cannot serve, and "{}" when it has had
 // nothing to send for 2 s.
@@ -57,6 +59,20 @@ export function indexView(index: number): string {
 }
 
 const sockets = new Map<string, VideoSocket>();
+
+/** The frames a second this tab asked for with ?feed_fps=N, kept for the tab
+ * so moving between pages does not lose it; null for the backend's most. */
+function feedFps(): number | null {
+	if (typeof window === 'undefined') return null;
+	try {
+		const asked = new URLSearchParams(window.location.search).get('feed_fps');
+		if (asked) sessionStorage.setItem('feed_fps', asked);
+		const fps = Number(asked ?? sessionStorage.getItem('feed_fps'));
+		return fps > 0 ? fps : null;
+	} catch {
+		return null;
+	}
+}
 
 /** Gives the listener each new frame of a view, and its layout now and
  * whenever it changes, until the returned stop is called. */
@@ -147,7 +163,8 @@ class VideoSocket {
 	private send(): void {
 		if (this.ws?.readyState !== WebSocket.OPEN) return;
 		const views = document.visibilityState === 'hidden' ? [] : [...this.views.keys()];
-		this.ws.send(JSON.stringify({ views }));
+		const fps = feedFps();
+		this.ws.send(JSON.stringify(fps ? { views, fps } : { views }));
 	}
 
 	private receive(data: ArrayBuffer | string): void {

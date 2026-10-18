@@ -48,14 +48,6 @@ _EJECT_GONE_CONFIRM_S = 0.35
 # that skipped the drop zone — is routed to misc after this long so it can be
 # ejected instead of deadlocking as an un-shippable head.
 _STRAY_MISC_S = 4.0
-# A photographed piece whose track goes missing (the platter turned and the
-# detector lost it for a few seconds, or the tracker gave it a new id) is held
-# this long with its classification. If it comes back, it keeps it and goes to
-# its own bin instead of turning up as an unphotographed stray bound for misc.
-_LOST_READOPT_S = 10.0
-# A different id adopts a lost piece only if it is not this far behind where the
-# lost piece was last seen: the platter only turns forward.
-_READOPT_BACK_TOL_DEG = 20.0
 # Fixed forward nudge (output deg) used while STAGING once the leading piece has
 # already reached/passed precise but the drop zone still isn't clear — keeps
 # pushing the clump out of the drop zone without a gap to size against.
@@ -184,9 +176,6 @@ class TwoPieceClassificationChannel(Rev01BaseState):
         )
         self._deps = (irl, irl_config, gc, shared, transport, vision, event_queue)
         self._pieces: dict[int, _TrackedPiece] = {}
-        # Photographed pieces whose track went missing, with when, by their
-        # last track id (see _LOST_READOPT_S).
-        self._lost: dict[int, tuple[_TrackedPiece, float]] = {}
         self._phase = _Phase.WAITING
         self._eject_target: Optional[_TrackedPiece] = None
         self._stage_target: Optional[_TrackedPiece] = None
@@ -297,7 +286,7 @@ class TwoPieceClassificationChannel(Rev01BaseState):
             label=LOG_TAG,
         )
         if result.cleared:
-            for tp in [*self._pieces.values(), *(tp for tp, _at in self._lost.values())]:
+            for tp in self._pieces.values():
                 try:
                     tp.worker.abandonInFlightObject(
                         "stall auto-clear forced the piece off the channel"
@@ -312,7 +301,6 @@ class TwoPieceClassificationChannel(Rev01BaseState):
                     f"{LOG_TAG} stall auto-clear: withdrew the uncommitted placed piece from distribution"
                 )
             self._pieces = {}
-            self._lost = {}
             self._eject_target = None
             self._stage_target = None
             self._multi_drop_streak = 0
@@ -417,7 +405,7 @@ class TwoPieceClassificationChannel(Rev01BaseState):
                 continue  # untracked box — counts for zone occupancy, not identity
             tp = self._pieces.get(tid)
             if tp is None:
-                tp = self._readoptLost(tid, po) or self._createPiece(tid, now)
+                tp = self._createPiece(tid, now)
             tp.zone = int(po.zone_code)
             b = po.bbox
             tp.bbox = (int(b[0]), int(b[1]), int(b[2]), int(b[3]))
@@ -433,40 +421,7 @@ class TwoPieceClassificationChannel(Rev01BaseState):
                     self.noteProgress()
 
         self._retireGonePieces(now)
-        self._expireLost(now)
         self._flagDoubleFeeds(state)
-
-    def _readoptLost(self, tid: int, po) -> Optional[_TrackedPiece]:
-        """A new track id that is a lost photographed piece coming back: the same
-        id, or, off the drop zone, the only piece lost and not behind where it
-        was. It keeps its classification and goes to its own bin."""
-        entry = self._lost.pop(tid, None)
-        if entry is None and int(po.zone_code) != _ZONE_DROP and len(self._lost) == 1:
-            old_tid, (cand, _lost_at) = next(iter(self._lost.items()))
-            gap = po.com_forward_to_exit_deg
-            if (
-                gap is None
-                or cand.gap_to_exit is None
-                or float(gap) <= float(cand.gap_to_exit) + _READOPT_BACK_TOL_DEG
-            ):
-                entry = self._lost.pop(old_tid)
-        if entry is None:
-            return None
-        tp, _lost_at = entry
-        old_tid = tp.track_id
-        tp.track_id = tid
-        self._pieces[tid] = tp
-        self.logger.warning(
-            f"{LOG_TAG} lost piece track={old_tid} came back as track={tid}; it keeps its classification"
-        )
-        return tp
-
-    def _expireLost(self, now: float) -> None:
-        for tid in [tid for tid, (_tp, lost_at) in self._lost.items() if now - lost_at > _LOST_READOPT_S]:
-            tp, _lost_at = self._lost.pop(tid)
-            tp.worker.abandonInFlightObject("track id gone (left channel)")
-            self.noteProgress()
-            self.logger.info(f"{LOG_TAG} retired piece track={tid} (lost and never came back)")
 
     def _createPiece(self, track_id: int, now: float) -> _TrackedPiece:
         # Track the id for position immediately, but DEFER the KnownObject: it's
@@ -499,6 +454,11 @@ class TwoPieceClassificationChannel(Rev01BaseState):
             if (now - tp.last_seen) > _TRACK_GONE_RETIRE_S
         ]:
             tp = self._pieces.pop(tid)
+            # A piece already handed to distribution has a terminal status, so
+            # abandonInFlightObject is a no-op for it. Only an in-flight piece
+            # (photographed but never classified/distributed) is dropped from the
+            # UI — e.g. a stray that fell off before it could be processed.
+            tp.worker.abandonInFlightObject("track id gone (left channel)")
             # Lost while placed but never ejected (a tracker re-id or a
             # detection gap): withdraw it so distribution stops waiting for its
             # drop. The eject target is left alone: a slow tick can retire it
@@ -509,26 +469,9 @@ class TwoPieceClassificationChannel(Rev01BaseState):
                 and tp is not self._eject_target
                 and self.transport.clearPieceForDistribution(tp.known_object)
             ):
-                tp.placed = False
                 self.logger.warning(
                     f"{LOG_TAG} placed head track={tid} lost before eject; withdrew it from distribution"
                 )
-            # A photographed piece still on the platter may come back under its
-            # own or a new id: hold it with its classification (_readoptLost).
-            if (
-                tp.capture_done
-                and not tp.ejected
-                and not tp.double_feed
-                and tp is not self._eject_target
-            ):
-                self._lost[tid] = (tp, now)
-                self.logger.info(f"{LOG_TAG} lost track={tid}; holding its classification in case it comes back")
-                continue
-            # A piece already handed to distribution has a terminal status, so
-            # abandonInFlightObject is a no-op for it. Only an in-flight piece
-            # (photographed but never classified/distributed) is dropped from the
-            # UI — e.g. a stray that fell off before it could be processed.
-            tp.worker.abandonInFlightObject("track id gone (left channel)")
             # A multi-drop piece we never got to route is now somewhere on the
             # platter with no track to follow. Keep the doors open until it falls.
             if tp.double_feed and not tp.ejected and tp is not self._eject_target:
@@ -945,7 +888,7 @@ class TwoPieceClassificationChannel(Rev01BaseState):
             worker.emitKnownObject()
 
     def cleanup(self) -> None:
-        for tp in [*self._pieces.values(), *(tp for tp, _at in self._lost.values())]:
+        for tp in self._pieces.values():
             try:
                 tp.worker.abandonInFlightObject("two-piece classification channel teardown")
             except Exception:
@@ -954,7 +897,6 @@ class TwoPieceClassificationChannel(Rev01BaseState):
         # withdraw it rather than leave distribution aimed and waiting after resume.
         self.transport.clearPieceForDistribution()
         self._pieces = {}
-        self._lost = {}
         self._phase = _Phase.WAITING
         self._eject_target = None
         self._stage_target = None

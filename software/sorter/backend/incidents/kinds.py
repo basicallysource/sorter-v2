@@ -58,6 +58,15 @@ KINDS: dict[str, IncidentKind] = {
             automatic_label="Turn the channel forward until it clears",
         ),
         IncidentKind(
+            "piece_circling",
+            title="A piece is going around the classification channel",
+            todo="A piece keeps coming back around the classification channel instead of falling off (often a tire). Take it off, then press Done.",
+            actions=("done",),
+            scope="Classification",
+            description="A piece rode the classification channel past its exit and came back around.",
+            default_handling=MANUAL,
+        ),
+        IncidentKind(
             "stepper_stall",
             title="Motor stalled",
             todo="{motor} stalled. Check it can turn freely, then press Done.",

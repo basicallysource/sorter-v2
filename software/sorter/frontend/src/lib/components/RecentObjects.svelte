@@ -10,6 +10,7 @@
 	import ColorChip from '$lib/components/ui/ColorChip.svelte';
 	import PieceCorrection from './PieceCorrection.svelte';
 	import PieceStatusBadge from './PieceStatusBadge.svelte';
+	import NoPieceImage from './pieces/NoPieceImage.svelte';
 	import { fetchPieceImageState, type DisplayImage } from './records/piece-images';
 	import { sortingProfileStore } from '$lib/stores/sortingProfile.svelte';
 	import { getBackendHttpBase, machineHttpBaseUrlFromWsUrl } from '$lib/backend';
@@ -673,188 +674,210 @@
 	{@const view = viewFor(obj, phase, base_src)}
 	{@const cycle_src = view.src}
 	{@const show_cycle = view.cycling && cycle_src != null && cycle_src !== base_src}
+	<!-- A finished piece with no picture and no name has one line to say: half
+	     a row, its status badge where the other rows start theirs. -->
+	{@const compact = phase === 'distributed' && !base_src && !cycle_src && !has_name}
 
 	<a
 		href={`/tracked/${obj.uuid}`}
-		class="block px-3 py-2.5 transition-colors hover:bg-hover"
+		class="block px-3 {compact ? 'py-1.5' : 'py-2.5'} transition-colors hover:bg-hover"
 		onmouseenter={() => startHover(obj.uuid)}
 		onmouseleave={endHover}
 	>
-		<div class="flex items-start gap-3">
-			<!-- The part's picture sits straight on the row, with no box behind it. It
-			     flashes through every recognition view while the piece is being
-			     recognized; hover scrubs the same views. -->
-			<div class="relative size-16 shrink-0 overflow-hidden">
-				{#if base_src || cycle_src}
-					{#if base_src}
-						<img
-							src={base_src}
-							alt="piece"
-							class="absolute inset-0 h-full w-full object-contain transition-opacity duration-150 {show_cycle
-								? 'opacity-0'
-								: 'opacity-100'}"
-						/>
-					{/if}
-					{#if cycle_src}
-						<img
-							src={cycle_src}
-							alt="recognition view"
-							class="absolute inset-0 h-full w-full object-contain transition-opacity duration-150 {show_cycle
-								? 'opacity-100'
-								: 'opacity-0'}"
-						/>
-					{/if}
-				{:else if phase === 'distributed'}
-					<!-- Terminal piece with nothing to show (e.g. a durable summary of an
-					     unidentified piece) — a spinner here would imply waiting. -->
-					<div class="flex h-full w-full items-center justify-center text-xs text-ink-faint">
-						No image
-					</div>
-				{:else}
-					<div class="flex h-full w-full items-center justify-center">
-						<Spinner />
-					</div>
-				{/if}
-			</div>
-
-			<div class="flex min-w-0 flex-1 flex-col gap-1">
-				<div class="flex items-baseline justify-between gap-2">
-					<span class="truncate text-sm font-medium {primary_class}">
-						{primary_text}
+		{#if compact}
+			<div class="flex items-center gap-3">
+				<div class="flex h-8 w-16 shrink-0 items-center justify-center">
+					<NoPieceImage class="h-8 w-auto text-ink-faint" />
+				</div>
+				<div class="flex min-w-0 flex-1 items-center gap-1.5">
+					<PieceStatusBadge
+						status={obj.classification_status}
+						requestFailed={Boolean(obj.request_failed)}
+					/>
+					<span class="num ml-auto shrink-0 text-sm text-ink-muted">
+						{obj.destination_bin ? `Discard ${formatBin(obj.destination_bin)}` : 'Discard bin'}
 					</span>
-					<div class="flex flex-shrink-0 items-center gap-2">
-						{#if typeof obj.confidence === 'number' && !is_unknown && !is_multi_drop}
-							<span class="num text-sm font-medium {confidenceClass(obj.confidence)}">
-								{(obj.confidence * 100).toFixed(0)}%
-							</span>
-						{/if}
-						{#if p.correctable}
-							{@const submittedCount =
-								(p.part_feedback_submitted ? 1 : 0) + (p.color_feedback_submitted ? 1 : 0)}
-							<button
-								type="button"
-								onclick={(e) => openCorrection(obj.uuid, e)}
-								class="inline-flex items-center transition-colors {submittedCount === 2
-									? 'text-success-ink'
-									: submittedCount === 1
-										? 'text-warning-ink'
-										: 'text-ink-muted hover:text-primary-ink'}"
-								title={submittedCount === 2
-									? 'Correction sent to Brickognize (2/2)'
-									: submittedCount === 1
-										? 'Correction sent to Brickognize (1/2) — click to finish'
-										: 'Correct this Brickognize prediction'}
-								aria-label="Correct prediction"
-							>
-								<Wand2 size={14} />
-							</button>
-						{/if}
-					</div>
-				</div>
-
-				{#if has_name && obj.part_id}
-					<div class="flex items-baseline justify-between gap-2">
-						<span class="num truncate text-sm text-ink-muted">{obj.part_id}</span>
-						{#if typeof obj.moving_avg_price === 'number'}
-							<span
-								class="num shrink-0 text-sm font-medium text-success-ink"
-								title={(obj.piece_metadata as Record<string, unknown> | null | undefined)
-									?.price_from_base_mold
-									? `Approximate — base mold ${(obj.piece_metadata as Record<string, unknown>).price_from_base_mold} price (no data for this exact print)`
-									: 'BrickLink moving-average price (Hive catalog)'}
-							>
-								{(obj.piece_metadata as Record<string, unknown> | null | undefined)
-									?.price_from_base_mold
-									? '≈'
-									: ''}{formatPrice(obj.moving_avg_price)}
-							</span>
-						{/if}
-					</div>
-				{:else if phase === 'tracking' && !is_unknown && !is_multi_drop}
-					<div class="text-sm text-ink-muted">Tracked on the classification channel</div>
-				{:else if phase === 'capturing' && !is_unknown && !is_multi_drop}
-					<div class="text-sm text-ink-muted">Capturing on C4</div>
-				{/if}
-
-				<div class="mt-0.5 flex flex-wrap items-center gap-1.5">
-					<!-- The classification outcome renders through the shared badge;
-					     the green one is impossible for failed or unidentified pieces. -->
-					{#if phase === 'resolved' || (phase === 'distributed' && obj.classification_status !== 'classified')}
-						<PieceStatusBadge
-							status={obj.classification_status}
-							requestFailed={Boolean(obj.request_failed)}
-						/>
-					{:else}
-						{@const chip = phaseTone(phase)}
-						<Badge tone={chip.tone}>{chip.label}</Badge>
-					{/if}
-
-					{#if is_too_big}
-						<span
-							class="inline-flex"
-							title={obj.too_big_for_layer && typeof obj.intended_layer_index === 'number'
-								? `Too big for layer ${obj.intended_layer_index + 1}: sent to the misc bottom bin`
-								: 'Too big: sent to the misc bottom bin'}
-						>
-							<Badge tone="warning"
-								>{too_big_label}{typeof obj.max_dimension_mm === 'number'
-									? ` · ${Math.round(obj.max_dimension_mm)} mm`
-									: ''}</Badge
-							>
-						</span>
-					{/if}
-
-					{#if obj.high_value_routed}
-						<span
-							class="inline-flex"
-							title="Its moving-average price cleared the profile's high-value threshold, so it went to the high-value bin"
-						>
-							<Badge tone="success">High value</Badge>
-						</span>
-					{/if}
-
-					{#if obj.not_in_inventory === true}
-						<span
-							class="inline-flex"
-							title="This part and color are not in the active BrickLink inventory (.bsx)"
-						>
-							<Badge tone="warning">Not in inventory</Badge>
-						</span>
-					{/if}
-
-					{#if yearOf(obj) !== null}
-						<span class="inline-flex" title="First released">
-							<Badge><span class="num">{yearOf(obj)}</span></Badge>
-						</span>
-					{/if}
-
-					<!-- The piece's LEGO color, filled with it. -->
-					{#if lego_color}
-						<span
-							class="inline-flex h-(--size-badge) items-center rounded-badge border border-line px-(--pad-badge) text-xs font-medium"
-							style:background-color={lego_color.hex}
-							style:color={onColor(lego_color.hex)}
-						>
-							{lego_color.name}
-						</span>
-					{:else if obj.color_name && obj.color_name !== 'Any Color' && !is_unknown && !is_multi_drop}
-						<Badge>{obj.color_name}</Badge>
-					{/if}
-
-					{#if cat_name && !is_unknown && !is_multi_drop}
-						<span class="text-sm text-ink-muted">{cat_name}</span>
-					{/if}
-
-					{#if obj.destination_bin && phase === 'distributed'}
-						<span class="num ml-auto text-sm text-ink">
-							{is_unknown || is_multi_drop || is_too_big ? 'Discard ' : ''}{formatBin(obj.destination_bin)}
-						</span>
-					{:else if phase === 'distributed' && (is_unknown || is_multi_drop || is_too_big)}
-						<span class="ml-auto text-sm text-ink-muted">Discard bin</span>
-					{/if}
 				</div>
 			</div>
-		</div>
+		{:else}
+			<div class="flex items-start gap-3">
+				<!-- The part's picture sits straight on the row, with no box behind it. It
+				     flashes through every recognition view while the piece is being
+				     recognized; hover scrubs the same views. -->
+				<div class="relative size-16 shrink-0 overflow-hidden">
+					{#if base_src || cycle_src}
+						{#if base_src}
+							<img
+								src={base_src}
+								alt="piece"
+								class="absolute inset-0 h-full w-full object-contain transition-opacity duration-150 {show_cycle
+									? 'opacity-0'
+									: 'opacity-100'}"
+							/>
+						{/if}
+						{#if cycle_src}
+							<img
+								src={cycle_src}
+								alt="recognition view"
+								class="absolute inset-0 h-full w-full object-contain transition-opacity duration-150 {show_cycle
+									? 'opacity-100'
+									: 'opacity-0'}"
+							/>
+						{/if}
+					{:else if phase === 'distributed'}
+						<!-- Terminal piece with nothing to show — a spinner here would imply
+						     waiting. -->
+						<div class="flex h-full w-full items-center justify-center">
+							<NoPieceImage class="h-10 w-auto text-ink-faint" />
+						</div>
+					{:else}
+						<div class="flex h-full w-full items-center justify-center">
+							<Spinner />
+						</div>
+					{/if}
+				</div>
+
+				<div class="flex min-w-0 flex-1 flex-col gap-1">
+					<div class="flex items-baseline justify-between gap-2">
+						<span class="truncate text-sm font-medium {primary_class}">
+							{primary_text}
+						</span>
+						<div class="flex flex-shrink-0 items-center gap-2">
+							{#if typeof obj.confidence === 'number' && !is_unknown && !is_multi_drop}
+								<span class="num text-sm font-medium {confidenceClass(obj.confidence)}">
+									{(obj.confidence * 100).toFixed(0)}%
+								</span>
+							{/if}
+							{#if p.correctable}
+								{@const submittedCount =
+									(p.part_feedback_submitted ? 1 : 0) + (p.color_feedback_submitted ? 1 : 0)}
+								<button
+									type="button"
+									onclick={(e) => openCorrection(obj.uuid, e)}
+									class="inline-flex items-center transition-colors {submittedCount === 2
+										? 'text-success-ink'
+										: submittedCount === 1
+											? 'text-warning-ink'
+											: 'text-ink-muted hover:text-primary-ink'}"
+									title={submittedCount === 2
+										? 'Correction sent to Brickognize (2/2)'
+										: submittedCount === 1
+											? 'Correction sent to Brickognize (1/2) — click to finish'
+											: 'Correct this Brickognize prediction'}
+									aria-label="Correct prediction"
+								>
+									<Wand2 size={14} />
+								</button>
+							{/if}
+						</div>
+					</div>
+
+					{#if has_name && obj.part_id}
+						<div class="flex items-baseline justify-between gap-2">
+							<span class="num truncate text-sm text-ink-muted">{obj.part_id}</span>
+							{#if typeof obj.moving_avg_price === 'number'}
+								<span
+									class="num shrink-0 text-sm font-medium text-success-ink"
+									title={(obj.piece_metadata as Record<string, unknown> | null | undefined)
+										?.price_from_base_mold
+										? `Approximate — base mold ${(obj.piece_metadata as Record<string, unknown>).price_from_base_mold} price (no data for this exact print)`
+										: 'BrickLink moving-average price (Hive catalog)'}
+								>
+									{(obj.piece_metadata as Record<string, unknown> | null | undefined)
+										?.price_from_base_mold
+										? '≈'
+										: ''}{formatPrice(obj.moving_avg_price)}
+								</span>
+							{/if}
+						</div>
+					{:else if phase === 'tracking' && !is_unknown && !is_multi_drop}
+						<div class="text-sm text-ink-muted">Tracked on the classification channel</div>
+					{:else if phase === 'capturing' && !is_unknown && !is_multi_drop}
+						<div class="text-sm text-ink-muted">Capturing on C4</div>
+					{/if}
+
+					<div class="mt-0.5 flex flex-wrap items-center gap-1.5">
+						<!-- The classification outcome renders through the shared badge;
+						     the green one is impossible for failed or unidentified pieces. -->
+						{#if phase === 'resolved' || (phase === 'distributed' && obj.classification_status !== 'classified')}
+							<PieceStatusBadge
+								status={obj.classification_status}
+								requestFailed={Boolean(obj.request_failed)}
+							/>
+						{:else}
+							{@const chip = phaseTone(phase)}
+							<Badge tone={chip.tone}>{chip.label}</Badge>
+						{/if}
+
+						{#if is_too_big}
+							<span
+								class="inline-flex"
+								title={obj.too_big_for_layer && typeof obj.intended_layer_index === 'number'
+									? `Too big for layer ${obj.intended_layer_index + 1}: sent to the misc bottom bin`
+									: 'Too big: sent to the misc bottom bin'}
+							>
+								<Badge tone="warning"
+									>{too_big_label}{typeof obj.max_dimension_mm === 'number'
+										? ` · ${Math.round(obj.max_dimension_mm)} mm`
+										: ''}</Badge
+								>
+							</span>
+						{/if}
+
+						{#if obj.high_value_routed}
+							<span
+								class="inline-flex"
+								title="Its moving-average price cleared the profile's high-value threshold, so it went to the high-value bin"
+							>
+								<Badge tone="success">High value</Badge>
+							</span>
+						{/if}
+
+						{#if obj.not_in_inventory === true}
+							<span
+								class="inline-flex"
+								title="This part and color are not in the active BrickLink inventory (.bsx)"
+							>
+								<Badge tone="warning">Not in inventory</Badge>
+							</span>
+						{/if}
+
+						{#if yearOf(obj) !== null}
+							<span class="inline-flex" title="First released">
+								<Badge><span class="num">{yearOf(obj)}</span></Badge>
+							</span>
+						{/if}
+
+						<!-- The piece's LEGO color, filled with it. -->
+						{#if lego_color}
+							<span
+								class="inline-flex h-(--size-badge) items-center rounded-badge border border-line px-(--pad-badge) text-xs font-medium"
+								style:background-color={lego_color.hex}
+								style:color={onColor(lego_color.hex)}
+							>
+								{lego_color.name}
+							</span>
+						{:else if obj.color_name && obj.color_name !== 'Any Color' && !is_unknown && !is_multi_drop}
+							<Badge>{obj.color_name}</Badge>
+						{/if}
+
+						{#if cat_name && !is_unknown && !is_multi_drop}
+							<span class="text-sm text-ink-muted">{cat_name}</span>
+						{/if}
+
+						{#if obj.destination_bin && phase === 'distributed'}
+							<span class="num ml-auto text-sm text-ink">
+								{is_unknown || is_multi_drop || is_too_big ? 'Discard ' : ''}{formatBin(
+									obj.destination_bin
+								)}
+							</span>
+						{:else if phase === 'distributed' && (is_unknown || is_multi_drop || is_too_big)}
+							<span class="ml-auto text-sm text-ink-muted">Discard bin</span>
+						{/if}
+					</div>
+				</div>
+			</div>
+		{/if}
 	</a>
 {/snippet}
 
@@ -884,8 +907,8 @@
 						</div>
 					{/each}
 				{:else}
-					<div class="flex size-12 shrink-0 items-center justify-center text-xs text-ink-faint">
-						No image
+					<div class="flex size-12 shrink-0 items-center justify-center">
+						<NoPieceImage class="h-8 w-auto text-ink-faint" />
 					</div>
 				{/if}
 				{#if extra > 0}

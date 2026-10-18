@@ -4,6 +4,18 @@ export type PieceOrigin = 'rest' | 'ws';
 
 export type BinRef = { x: number; y: number; z: number };
 
+// One thing that went wrong with a piece on its way through the machine
+// (backend PieceProblem): `kind` is a short code (timed_out, track_lost, ...),
+// `message` the sentence for the operator with its specifics and timings, `at`
+// when it happened (unix seconds) and `after_s` the wait that ran out, or how
+// far into the piece's trip it happened.
+export type PieceProblem = {
+	kind: string;
+	message: string;
+	at: number;
+	after_s?: number | null;
+};
+
 // Mirror of the backend PieceSummary model (server/routers/pieces.py). Every
 // data field is optional/nullable — old rows predate several columns.
 export type PieceSummary = {
@@ -24,6 +36,8 @@ export type PieceSummary = {
 	color_confidence?: number | null;
 	bin?: BinRef | null;
 	dead?: boolean;
+	// What went wrong with the piece, oldest first; empty or absent when nothing did.
+	problems?: PieceProblem[] | null;
 	has_images?: boolean;
 	preview_url?: string | null;
 	est_value?: number | null;

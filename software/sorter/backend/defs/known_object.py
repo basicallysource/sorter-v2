@@ -142,6 +142,11 @@ class KnownObject:
     # the UI drops dead pieces from the recent list. Self-clears if the piece
     # later progresses and re-emits.
     dead: bool = False
+    # What went wrong on this piece's way through the machine, oldest first,
+    # in words for the operator: each {"kind", "message", "at", "after_s"}
+    # (see notePieceProblem). A timed-out piece says here why it never reached
+    # a bin; a piece sent to misc says why it went there.
+    problems: List[Dict[str, Any]] = field(default_factory=list)
     part_id: Optional[str] = None
     part_name: Optional[str] = None
     part_category: Optional[str] = None
@@ -272,3 +277,29 @@ class KnownObject:
     distribution_motion_started_at: Optional[float] = None
     distribution_positioned_at: Optional[float] = None
     distributed_at: Optional[float] = None
+
+
+def notePieceProblem(
+    obj: Optional[KnownObject],
+    kind: str,
+    message: str,
+    *,
+    after_s: Optional[float] = None,
+) -> None:
+    """Add one entry to ``obj.problems`` (see KnownObject.problems). ``kind`` is
+    a short code the UI can label; ``message`` is the sentence it shows, with
+    the specifics (what, where, how long); ``after_s`` is the wait that ran out
+    or how far into the piece's trip it happened. The same note twice in a row
+    is kept once."""
+    if obj is None:
+        return
+    entry = {
+        "kind": kind,
+        "message": message,
+        "at": time.time(),
+        "after_s": None if after_s is None else round(float(after_s), 1),
+    }
+    last = obj.problems[-1] if obj.problems else None
+    if last is not None and last.get("kind") == kind and last.get("message") == message:
+        return
+    obj.problems.append(entry)

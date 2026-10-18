@@ -1,10 +1,11 @@
 <script lang="ts">
+	import type { IssueGlyph } from '$lib/components/ui/IssueIcon.svelte';
 	import PieceReview from '$lib/components/ui/PieceReview.svelte';
 	import type { LikelyColor } from '$lib/components/ui/ColorChoice.svelte';
 	import { fetchLegoColors, type BrickLinkColor, type PieceSummary } from '$lib/pieces';
 
 	// The review of one correctable piece (the dashboard's correction dialog and
-	// the records list): the design system's PieceReview, fed from this
+	// the records list, compact): the design system's PieceReview, fed from this
 	// machine's API. Render only when `piece.correctable` (a Brickognize listing
 	// was captured); the parent gates that.
 	//
@@ -16,12 +17,15 @@
 		piece,
 		endpointBase,
 		onUpdated,
-		prefetch = false
+		prefetch = false,
+		layout = 'full'
 	}: {
 		piece: PieceSummary;
 		endpointBase: string;
 		onUpdated?: (summary: PieceSummary) => void;
 		prefetch?: boolean;
+		// compact: the review as a few short rows, beside a piece in a list.
+		layout?: 'full' | 'compact';
 	} = $props();
 
 	type CorrectionResponse = {
@@ -41,13 +45,13 @@
 	// piece_rejections vocabulary (no_piece / multiple_pieces / not_lego /
 	// assembly / pieces_entangled) so the two systems agree on what they mean
 	// once synced. "blurry" is Sorter-only and rides along unvalidated.
-	const ISSUES = [
-		{ code: 'not_lego', label: 'Not LEGO' },
-		{ code: 'multiple_pieces', label: 'Multiple pieces in frame' },
-		{ code: 'no_piece', label: 'No piece in frame' },
-		{ code: 'assembly', label: 'Assembly' },
-		{ code: 'pieces_entangled', label: 'Pieces entangled' },
-		{ code: 'blurry', label: 'Blurry' }
+	const ISSUES: { code: string; label: string; glyph: IssueGlyph }[] = [
+		{ code: 'not_lego', label: 'Not LEGO', glyph: 'not-lego' },
+		{ code: 'multiple_pieces', label: 'Multiple pieces in frame', glyph: 'multiple-pieces' },
+		{ code: 'no_piece', label: 'No piece in frame', glyph: 'no-piece' },
+		{ code: 'assembly', label: 'Assembly', glyph: 'assembly' },
+		{ code: 'pieces_entangled', label: 'Pieces entangled', glyph: 'entangled' },
+		{ code: 'blurry', label: 'Blurry', glyph: 'blurry' }
 	];
 
 	let palette = $state<BrickLinkColor[]>([]);
@@ -83,7 +87,9 @@
 		void fetchLegoColors(endpointBase)
 			.then((colors) => {
 				palette = colors;
-				if (colors.length === 0) {
+				// In a list of pieces this would be said on every row; the colors
+				// say it themselves when they are opened.
+				if (colors.length === 0 && layout === 'full') {
 					notice = {
 						tone: 'warning',
 						text: 'The color list is not here yet: this machine has not reached Hive.'
@@ -186,17 +192,32 @@
 		}
 	}
 
+	// A flag shows at once and is saved right away. Flags asked for while a save is
+	// on its way wait for it, then go as one answer (the whole set, as the machine
+	// takes it), so clicking through several issues is several clicks.
+	let pendingIssues = $state<string[] | null>(null);
+	let sending = false;
+	const activeIssues = $derived(pendingIssues ?? piece.rejection_reasons ?? []);
+
 	async function toggleIssue(code: string) {
-		if (issuesBusy) return;
-		issuesBusy = true;
-		const next = new Set(piece.rejection_reasons ?? []);
+		const next = new Set(activeIssues);
 		if (next.has(code)) next.delete(code);
 		else next.add(code);
+		pendingIssues = Array.from(next);
+		if (sending) return;
+		sending = true;
+		issuesBusy = true;
 		try {
-			applyResponse(await postCorrection({ rejection_reasons: Array.from(next) }));
+			while (pendingIssues) {
+				const sent: string[] = pendingIssues;
+				applyResponse(await postCorrection({ rejection_reasons: sent }));
+				if (pendingIssues === sent) pendingIssues = null;
+			}
 		} catch {
+			pendingIssues = null;
 			notice = failed;
 		} finally {
+			sending = false;
 			issuesBusy = false;
 		}
 	}
@@ -204,6 +225,7 @@
 
 {#if piece.correctable}
 	<PieceReview
+		{layout}
 		{palette}
 		{likely}
 		{likelyNote}
@@ -216,7 +238,7 @@
 		colorSent={Boolean(piece.color_feedback_submitted)}
 		{colorBusy}
 		issues={ISSUES}
-		activeIssues={piece.rejection_reasons ?? []}
+		{activeIssues}
 		{issuesBusy}
 		{notice}
 		onpart={(correct) => void setPart(correct)}

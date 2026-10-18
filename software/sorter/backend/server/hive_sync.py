@@ -55,7 +55,13 @@ import control_data_store
 import sample_store
 import sorting_runs
 import training_runs
-from hive_telemetry import HiveTelemetryClient, TelemetryBlocked, getTargetTelemetrySettings, telemetryAllows
+from hive_telemetry import (
+    MAX_CROP_BATCH_BYTES,
+    HiveTelemetryClient,
+    TelemetryBlocked,
+    getTargetTelemetrySettings,
+    telemetryAllows,
+)
 from local_state import get_hive_config
 
 log = logging.getLogger(__name__)
@@ -99,6 +105,14 @@ TELEMETRY_FIELD = {
 ROWS_BATCH = 500
 # Files a file leg sends per pass before the next leg gets its turn.
 FILES_PER_PASS = 20
+# Channel crops go to a Hive that takes them in batches: up to CROP_BATCH_MAX
+# crops (and MAX_CROP_BATCH_BYTES) in one upload, which Hive stores as one file.
+# A batch waits until CROP_BATCH_MIN crops are waiting or the oldest has waited
+# CROP_BATCH_WAIT_S, so a machine that has caught up sends about one a minute
+# instead of a file per crop. An older Hive gets them one at a time.
+CROP_BATCH_MAX = 300
+CROP_BATCH_MIN = 100
+CROP_BATCH_WAIT_S = 60.0
 # Most samples kept waiting for a target; beyond it the oldest are skipped,
 # evenly across cameras.
 SAMPLES_BACKLOG_MAX = 200
@@ -444,6 +458,9 @@ class _TargetSyncer:
         # target 404s its endpoint) or the error that stopped it.
         self._paused_until: dict[str, float] = {data_type: 0.0 for data_type in DATA_TYPES}
         self._paused_why: dict[str, str] = {}
+        # Until when channel crops go one at a time (monotonic): the target
+        # refused a batch (an older Hive 404s the endpoint).
+        self._crop_batches_off_until = 0.0
         self._budget = _UploadBudget()
         # Set by a file leg the budget stopped this pass: how long until it
         # could send again.
@@ -694,6 +711,19 @@ class _TargetSyncer:
         return sent
 
     def _drainChannelCrops(self) -> bool:
+        if self._crop_batches_off_until <= time.monotonic():
+            try:
+                return self._drainChannelCropBatch()
+            except requests.HTTPError as exc:
+                status = exc.response.status_code if exc.response is not None else None
+                if status is None or status >= 500 or status in (401, 403, 429):
+                    raise
+                retry_s = UNSUPPORTED_RETRY_S if status in (404, 405) else LEG_ERROR_RETRY_S
+                self._crop_batches_off_until = time.monotonic() + retry_s
+                log.warning(
+                    "hive_sync: %s refused a batch of channel crops (HTTP %s); sending them one at a time for %.0f min",
+                    self._name, status, retry_s / 60,
+                )
         rows = channel_crop_store.listCropsAfter(int(self._wm[DATA_TYPE_CROPS] or 0), FILES_PER_PASS)
         sent = False
         for row in rows:
@@ -707,6 +737,28 @@ class _TargetSyncer:
             self._advance(DATA_TYPE_CROPS, new_max, row["id"])
             sent = True
         return sent
+
+    def _drainChannelCropBatch(self) -> bool:
+        rows = channel_crop_store.listCropsAfter(int(self._wm[DATA_TYPE_CROPS] or 0), CROP_BATCH_MAX)
+        if not rows:
+            return False
+        if len(rows) < CROP_BATCH_MIN and time.time() - float(rows[0]["created_at"] or 0.0) < CROP_BATCH_WAIT_S:
+            return False
+        batch: list[tuple[dict[str, Any], Any]] = []
+        nbytes = 0
+        for row in rows:
+            file_path = channel_crop_store.cropFile(row)
+            size = int(row.get("bytes") or 0) if file_path is not None else 0
+            if batch and nbytes + size > MAX_CROP_BATCH_BYTES:
+                break
+            batch.append((_cropToMeta(row), file_path))
+            nbytes += size
+        if nbytes and not self._takeBudget(nbytes):
+            return False
+        with self._gate.slot():
+            new_max = self._client.pushChannelCropBatch(batch)
+        self._advance(DATA_TYPE_CROPS, new_max, batch[-1][0]["local_id"])
+        return True
 
     def _drainControlData(self) -> bool:
         # Evicted segments ride up metadata-only so counts stay complete.

@@ -33,6 +33,7 @@ def _serializePiece(p: KnownObject) -> dict:
         # Which service actually produced the applied color / mold.
         "color_provider": p.color_provider,
         "mold_provider": p.mold_provider,
+        "problems": list(p.problems),
     }
 
 

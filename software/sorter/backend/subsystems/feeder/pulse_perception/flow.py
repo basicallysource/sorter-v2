@@ -257,7 +257,9 @@ class PulsePerceptionFeeding(BaseState):
             gate2.observe(c2, now_mono)
             action = feederChannelAction(
                 c2,
-                downstream_clear=(not c3.in_drop) and gate2.exitAllowed(now_mono),
+                downstream_clear=(not c3.in_drop)
+                and gate2.exitAllowed(now_mono)
+                and self._hasRoom(3, c3, cfg.ch3_max_pieces),
                 greedy=cfg.ch2_greedy_enabled,
             )
             action, hidden_cap = self._withHiddenPieces(2, c2, action, now_mono, cfg)
@@ -269,7 +271,11 @@ class PulsePerceptionFeeding(BaseState):
             # C1 has no exit zone of its own; it just advances unless C2's drop
             # zone is occupied.
             stepper = self.irl.c_channel_1_rotor_stepper
-            if c1Action(c2) == Action.ADVANCE and not self._busy(stepper):
+            if (
+                c1Action(c2) == Action.ADVANCE
+                and self._hasRoom(2, c2, cfg.ch2_max_pieces)
+                and not self._busy(stepper)
+            ):
                 self._move(
                     "ch1",
                     1,
@@ -278,6 +284,14 @@ class PulsePerceptionFeeding(BaseState):
                     cfg.ch1_pulse_pause_ms,
                     cfg,
                 )
+
+    def _hasRoom(self, channel: int, state, most: int) -> bool:
+        """Fewer than ``most`` pieces on the channel, counting the ones it is
+        known to hold out of sight (0 = no limit)."""
+        if most <= 0:
+            return True
+        hidden = int(self.shared.feeder_hidden_pieces.get(channel, 0) or 0)
+        return int(getattr(state, "n_pieces", 0) or 0) + hidden < most
 
     def _rotor(self, channel: int) -> "StepperMotor":
         return {
@@ -326,6 +340,12 @@ class PulsePerceptionFeeding(BaseState):
                 move_label = f"{label}_greedy"
             enforce_min = True
             clearance = getattr(state, "advance_clearance_deg", None)
+            if clearance is not None and channel == 3 and not self._classification_ready(cfg):
+                # C4 is busy: keep the lead piece back from the lip, where it
+                # could fall onto C4 mid-turn beside the piece already there.
+                clearance -= max(0.0, cfg.ch3_busy_standoff_deg)
+                if clearance < cfg.min_move_output_deg:
+                    return
             if clearance is not None and clearance < output_deg:
                 output_deg = clearance
                 enforce_min = False

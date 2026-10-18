@@ -47,6 +47,8 @@
 
 	let fields = $state<TuningFieldMeta[]>([]);
 	let values = $state<TuningValues>({});
+	// The config as the machine has it (the form may hold unsaved edits).
+	let savedConfig = $state<TuningValues>({});
 	let loading = $state(true);
 	let saving = $state(false);
 	let error = $state<string | null>(null);
@@ -400,6 +402,7 @@
 			const data = await res.json();
 			fields = data.fields;
 			values = { ...data.config };
+			savedConfig = { ...data.config };
 			guard.markSaved();
 		} catch (e: any) {
 			error = e.message ?? 'Failed to load config';
@@ -424,6 +427,7 @@
 			}
 			const data = await res.json();
 			values = { ...data.config };
+			savedConfig = { ...data.config };
 			guard.markSaved();
 			saved = true;
 			setTimeout(() => (saved = false), 3000);
@@ -484,6 +488,7 @@
 
 {#if fitted}
 	{@const room = fitted.room}
+	{@const roomSetting = Number(savedConfig.c3_room_deg ?? 0)}
 	<Panel
 		title="Fitted to the pieces"
 		description="What the feeder measures as it runs and sets from it: the room C2 leaves behind the last piece on C3, and how long each exit holds after a piece falls. The settings are under Hand-off below."
@@ -491,11 +496,19 @@
 		<dl class="grid gap-x-6 gap-y-3 text-sm sm:grid-cols-[12rem_minmax(0,1fr)]">
 			<dt class="text-ink-muted">Room on C3</dt>
 			<dd>
-				{#if room.margin_deg === null || room.floor_deg <= 0}
+				{#if roomSetting <= 0}
 					Off: C2 drops as soon as C3's landing zone is clear.
+				{:else if room.margin_deg === null}
+					<span class="num font-medium">{roomSetting.toFixed(0)}°</span> past where pieces land, from when C2
+					and C3 next run.
 				{:else}
-					<span class="num font-medium">{room.margin_deg.toFixed(0)}°</span> past where pieces land (at least
-					<span class="num">{room.floor_deg.toFixed(0)}°</span>, at most <span class="num">{room.max_deg.toFixed(0)}°</span>).
+					<span class="num font-medium">{room.margin_deg.toFixed(0)}°</span> past where pieces land
+					{#if savedConfig.c3_room_adapts}
+						(at least <span class="num">{roomSetting.toFixed(0)}°</span>, at most
+						<span class="num">{room.max_deg.toFixed(0)}°</span>).
+					{:else}
+						(fixed).
+					{/if}
 					{#if room.why}
 						<span class="block text-ink-muted">Changed {since(room.changed_at)}: {room.why}.</span>
 					{/if}
@@ -525,7 +538,9 @@
 				<dt class="text-ink-muted">Hold after a fall, {label}</dt>
 				<dd>
 					{#if !hold}
-						Not measured yet.
+						{savedConfig.hold_follows_landings
+							? 'Measured from when this channel next runs.'
+							: 'The hold setting; it does not follow how long pieces take to land.'}
 					{:else if !hold.follows}
 						The hold setting; it does not follow how long pieces take to land.
 					{:else if hold.measured && hold.hold_s !== null}

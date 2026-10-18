@@ -23,13 +23,12 @@ export type FeedZones = {
 	precise: Ring[];
 	outline: Ring[];
 	margin: Ring[];
-	secondary: { type: string; rings: Ring[] }[];
 };
 
 export type FeedLayout = { zones: FeedZones | null };
 
 export type FeedBox = {
-	kind: 'piece' | 'merged' | 'seen' | 'margin';
+	kind: 'piece' | 'merged' | 'margin';
 	box: [number, number, number, number];
 	id?: number;
 };

@@ -265,10 +265,12 @@ def _findRim(
         # The rim has the turning disc and its pieces inside it and still walls
         # outside it: change stops there. The innermost strong circle stands
         # unless change plainly stops somewhere else.
+        # Pieces rest against the wall, across the rim's own edge, so compare
+        # the disc well inside the rim with the wall well outside it.
         def fall(r: int) -> float:
-            inside = float(np.mean(motion[max(0, r - 18) : max(1, r - 3)]))
-            outside = float(np.mean(motion[r + 3 : r + 18])) if r + 18 < len(motion) else 0.0
-            return inside - outside
+            inside = motion[int(0.8 * r) : max(int(0.8 * r) + 1, int(0.95 * r))]
+            outside = motion[int(1.1 * r) : int(1.25 * r)]
+            return float(np.mean(inside)) - (float(np.mean(outside)) if len(outside) else 0.0)
 
         best = max(strong, key=fall)
         if fall(best) > 0 and fall(rim) < 0.5 * fall(best):

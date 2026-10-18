@@ -2,7 +2,7 @@
 	import PageHeader from '$lib/components/ui/PageHeader.svelte';
 	import C4SectorOccupancyPanel from '$lib/components/settings/C4SectorOccupancyPanel.svelte';
 	import StepperPanel from '$lib/components/settings/StepperPanel.svelte';
-	import ZoneSection from '$lib/components/settings/ZoneSection.svelte';
+	import ChannelSection from '$lib/components/settings/ChannelSection.svelte';
 	import type { PageData } from './$types';
 
 	let { data }: { data: PageData } = $props();
@@ -12,11 +12,11 @@
 
 <PageHeader title={data.station.label} description={data.station.description} />
 
-{#if data.station.zoneChannels.length > 0}
+{#if data.station.zoneChannel}
 	{@const primaryStepperKey = data.station.stepperKeys[0]}
 	{#key data.station.slug}
-		<ZoneSection
-			channels={data.station.zoneChannels}
+		<ChannelSection
+			channel={data.station.zoneChannel}
 			stepperKey={primaryStepperKey}
 			stepperEndstop={primaryStepperKey ? data.station.stepperEndstops?.[primaryStepperKey] : undefined}
 			stepperLabel={primaryStepperKey

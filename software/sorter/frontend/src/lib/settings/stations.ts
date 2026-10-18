@@ -26,11 +26,8 @@ export type CameraRole =
 	| 'carousel'
 	| 'classification_channel';
 
-export type ZoneChannel =
-	| 'second'
-	| 'third'
-	| 'carousel'
-	| 'classification_channel';
+// The channels with zones: C2, C3 and the classification channel (C4).
+export type ZoneChannelId = 2 | 3 | 4;
 
 export type StepperKey =
 	| 'c_channel_1'
@@ -72,7 +69,7 @@ export type StationPageConfig = SettingsNavItem & {
 	slug: StationSlug;
 	description: string;
 	cameraRoles: CameraRole[];
-	zoneChannels: ZoneChannel[];
+	zoneChannel?: ZoneChannelId;
 	stepperKeys: StepperKey[];
 	stepperEndstops?: Partial<Record<StepperKey, EndstopConfig>>;
 	stepperDisplay?: Partial<Record<StepperKey, { label?: string; gearRatio?: number }>>;
@@ -215,7 +212,6 @@ export const stationPageConfigs: StationPageConfig[] = [
 		icon: Wrench,
 		description: 'Bulk feed channel. This station only exposes manual stepper control.',
 		cameraRoles: [],
-		zoneChannels: [],
 		stepperKeys: ['c_channel_1']
 	},
 	{
@@ -225,7 +221,7 @@ export const stationPageConfigs: StationPageConfig[] = [
 		icon: Camera,
 		description: 'Configure the second feeder camera, zone geometry, and rotor stepper controls.',
 		cameraRoles: ['c_channel_2'],
-		zoneChannels: ['second'],
+		zoneChannel: 2,
 		stepperKeys: ['c_channel_2']
 	},
 	{
@@ -235,7 +231,7 @@ export const stationPageConfigs: StationPageConfig[] = [
 		icon: Camera,
 		description: 'Configure the third feeder camera, zone geometry, and rotor stepper controls.',
 		cameraRoles: ['c_channel_3'],
-		zoneChannels: ['third'],
+		zoneChannel: 3,
 		stepperKeys: ['c_channel_3']
 	},
 	{
@@ -247,7 +243,7 @@ export const stationPageConfigs: StationPageConfig[] = [
 		description:
 			'Configure the fourth C-channel camera, arc zones, and classification-channel stepper.',
 		cameraRoles: ['classification_channel'],
-		zoneChannels: ['classification_channel'],
+		zoneChannel: 4,
 		stepperKeys: ['c_channel_4'],
 		stepperDisplay: {
 			c_channel_4: {

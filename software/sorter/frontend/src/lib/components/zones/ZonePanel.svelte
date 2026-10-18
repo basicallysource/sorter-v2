@@ -107,12 +107,12 @@
 
 <Panel title="Zones" flush>
 	{#snippet actions()}
-		<Button icon={ScanSearch} loading={finding} disabled={!zones && !editing} onclick={onfind}>Find</Button>
+		<Button icon={ScanSearch} loading={finding} disabled={saving} onclick={onfind}>Find</Button>
 		{#if editing}
 			<Button variant="ghost" icon={X} onclick={oncancel}>Cancel</Button>
 			<Button variant="primary" icon={Check} loading={saving} disabled={!dirty} onclick={onsave}>Save</Button>
 		{:else}
-			<Button icon={Pencil} disabled={!zones} onclick={onedit}>Edit</Button>
+			<Button icon={Pencil} onclick={onedit}>Edit</Button>
 		{/if}
 	{/snippet}
 

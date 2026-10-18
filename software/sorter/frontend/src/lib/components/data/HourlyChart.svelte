@@ -39,6 +39,7 @@
 		series,
 		form = 'columns',
 		format,
+		totalLabel = '',
 		flagged = [],
 		flagLabel = 'Some was dropped',
 		notes,
@@ -51,6 +52,8 @@
 		series: HourlySeries[];
 		form?: 'columns' | 'area';
 		format: (value: number) => string;
+		// What the number at the top of the tooltip counts ("uploaded").
+		totalLabel?: string;
 		flagged?: boolean[];
 		flagLabel?: string;
 		// More numbers about an hour for the tooltip and the table.
@@ -432,7 +435,10 @@
 							style={tipStyle}
 						>
 							<div class="text-xs text-ink-muted">{tip.when}</div>
-							<div class="num mt-0.5 font-semibold text-ink">{tip.total}</div>
+							<div class="num mt-0.5 font-semibold text-ink">
+								{tip.total}{#if totalLabel}
+									<span class="font-normal text-ink-muted">{totalLabel}</span>{/if}
+							</div>
 							{#each tip.rows as row (row.label)}
 								<div class="mt-0.5 flex items-baseline justify-between gap-4">
 									<span class="text-ink-muted">{row.label}</span>

@@ -183,7 +183,7 @@
 		const budget = target?.upload_budget;
 		if (!budget) return undefined;
 		const megabytes = Math.round(budget.bytes_per_minute / 1e5) / 10;
-		return `Allowed ${megabytes} MB and ${formatCount(budget.files_per_minute)} files a minute`;
+		return `${megabytes} MB and ${formatCount(budget.files_per_minute)} files a minute`;
 	});
 
 	function streamOff(kind: StatsKind): boolean {
@@ -269,13 +269,13 @@
 					/>
 				</div>
 				<div class="bg-surface">
-					<Stat
-						label="Held back by the budget"
-						value={formatWait(heldBack)}
-						hint={budgetText ?? 'No limit known yet'}
-					/>
+					<Stat label="Held back" value={formatWait(heldBack)} hint="By the upload budget" />
 				</div>
 			</div>
+			<p class="border-t border-line px-(--pad-panel) py-3 text-sm text-ink-muted">
+				{#if budgetText}Uploads wait for room under a limit of {budgetText}.{/if}
+				Not uploaded is what was skipped to keep up, or deleted here before it was sent.
+			</p>
 		</Panel>
 
 		<Panel
@@ -287,6 +287,7 @@
 				{hours}
 				series={bytesSeries}
 				format={formatBytes}
+				totalLabel="uploaded"
 				notes={sentNotes}
 				empty="Nothing was uploaded in this time."
 			/>
@@ -302,6 +303,7 @@
 				{hours}
 				series={backlog}
 				format={formatCount}
+				totalLabel="waiting"
 				flagged={droppedHours}
 				flagLabel="Hours with items not uploaded"
 				notes={backlogNotes}
@@ -311,7 +313,7 @@
 
 		<Panel
 			title="By kind"
-			description="Counted over the time shown. Not uploaded is what was skipped to keep up, or deleted on this machine before it was sent."
+			description="Counted over the time shown."
 			flush
 		>
 			<div class="overflow-x-auto">

@@ -36,8 +36,8 @@
 	});
 </script>
 
-<!-- A new backend process (a restart, an update) remounts the page, so every
-     view fetches again from it instead of keeping what the old one said. -->
-{#key manager.selectedMachine?.restarts ?? 0}
+<!-- The backend coming back (a restart, an update, an outage) remounts the
+     page, so every view fetches again instead of keeping a stale or failed load. -->
+{#key manager.selectedMachine?.returns ?? 0}
 	{@render children()}
 {/key}

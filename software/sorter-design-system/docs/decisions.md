@@ -5,6 +5,16 @@ and a dated entry goes here; the history is git.
 
 ## 2026-10-18
 
+- **Dense settings rows keep their explanation behind an info icon, at the
+  owner's request.** The page that says what a sorter shares, and with whom,
+  has a dozen settings, and a sentence of help under each made it as long as
+  three screens. The owner asked for it small, with the reason for each
+  setting one hover away. So `SettingRow` takes `info`: a small `info` icon
+  button after the name whose `Tooltip` shows the text on hover and on
+  keyboard focus (a click focuses it, for a touch screen), and the row stays
+  one line. This is an exception to "help is always visible, never in a
+  tooltip", for dense lists only: it holds what a setting is for, and a
+  warning or a cost stays under the setting as `help`.
 - **The side nav has sub-tabs, always shown.** The chute's aiming and its
   StallGuard lived under Helpers, away from the chute. Now an item can list
   pages of its own (`children`) indented under it, so Hardware > Chute has

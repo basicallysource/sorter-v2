@@ -137,6 +137,15 @@ example: left turns it counterclockwise, right clockwise.
   segmented control as much as a number.
 - **`tags`** puts a `Badge` or two beside a setting's name: where it acts,
   that it is happening now.
+- **`info`** puts a setting's explanation behind a small `info` icon button
+  right after its name, so the row stays one line. It is for a dense list,
+  where a sentence under every row would make the list as tall as a page (the
+  Data page's list of what a sorter shares): one or two sentences about what
+  the setting is for, shown in a `Tooltip` on hover and on keyboard focus, and
+  a click on the icon focuses it, so a touch screen shows it too. The icon is
+  a button named "About <name>". `info` stands in for `help`: a sentence a
+  person must see before they change the setting (a warning, what it costs)
+  is still `help`, under the name. See [overlays.md](overlays.md#tooltip).
 - **A setting that applies at once** (a switch, a segmented control) needs no
   Save.
 - **Settings saved together** save with one primary in the panel's footer,

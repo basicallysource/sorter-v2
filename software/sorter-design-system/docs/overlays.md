@@ -87,6 +87,13 @@ names itself (`Button`'s `label`) and needs no Tooltip. A tooltip never holds
 what a setting needs to be understood: that goes under the setting, where it
 is always visible.
 
+The one exception is a dense list of settings, where a sentence under every
+row would make the list as tall as a page. There a row's explanation sits
+behind an `info` icon button right after its name (`SettingRow`'s `info`,
+[components.md](components.md#settings)), and its Tooltip shows it on hover and
+on keyboard focus. That text says what the setting is for. A warning, or what
+a setting costs, is still written under the setting where it is always visible.
+
 ## Modal
 
 `Modal.svelte`, the browser's own `<dialog>`: focus stays inside it, Escape

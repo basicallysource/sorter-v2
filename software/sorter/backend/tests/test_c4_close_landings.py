@@ -78,8 +78,8 @@ def _box(gap: float, tid, *, size: int = 100, x: int = 1000) -> SimpleNamespace:
     )
 
 
-def _frame(ts: float, *boxes) -> SimpleNamespace:
-    return SimpleNamespace(ts=ts, pieces=boxes)
+def _frame(ts: float, *boxes, merged: tuple = ()) -> SimpleNamespace:
+    return SimpleNamespace(ts=ts, pieces=boxes, merged=merged)
 
 
 def test_two_boxes_landing_side_by_side_then_fused_are_a_double_feed() -> None:
@@ -134,10 +134,23 @@ def test_a_box_that_grows_while_at_rest_had_a_piece_land_against_it() -> None:
     for i in range(6):  # lands and settles at 100 x 100
         ch._observe(_frame(1.0 + i, _box(210.0, 90)), t0 + 0.1 * i)
     assert not ch._pieces[90].double_feed
-    for i in range(2):  # a second piece lands against it: one box, 1.8 times the area
-        ch._observe(_frame(7.0 + i, _box(210.0, 90, size=135)), t0 + 0.6 + 0.1 * i)
+    for i in range(2):  # a second piece lands against it: a box of its own in the merged box
+        grown = _box(210.0, 90, size=135)
+        merged = ((grown.bbox, ((1000, 500, 1100, 600), (1080, 560, 1135, 635))),)
+        ch._observe(_frame(7.0 + i, grown, merged=merged), t0 + 0.6 + 0.1 * i)
     assert ch._pieces[90].double_feed
     assert "grew" in ch._pieces[90].known_object.problems[0]["message"]
+
+
+def test_a_piece_that_tips_over_as_it_settles_is_not_a_double_feed() -> None:
+    # A wheel lands on its edge, then falls flat: its one box grows, no second box appears.
+    ch = _channel()
+    t0 = time.monotonic()
+    for i in range(6):
+        ch._observe(_frame(1.0 + i, _box(210.0, 91, size=100)), t0 + 0.1 * i)
+    for i in range(4):
+        ch._observe(_frame(7.0 + i, _box(210.0, 91, size=150)), t0 + 0.6 + 0.1 * i)
+    assert not ch._pieces[91].double_feed
 
 
 def test_one_bigger_reading_is_not_growth() -> None:

@@ -125,3 +125,12 @@ def test_a_piece_that_comes_apart_once_it_moves_goes_to_misc() -> None:
     assert tp.double_feed and not tp.placed
     assert obj.classification_status == ClassificationStatus.multi_drop_fail
     assert ch.transport.getPieceForDistributionPositioning() is None
+
+
+def test_a_whole_minifigure_is_one_piece() -> None:
+    # A head box above a body box, lined up: the boxes kitbash drew for a minifigure.
+    ch = _channel()
+    tp = _track(ch, 386)
+    head, body = (2774, 780, 2949, 918), (2763, 900, 2964, 1157)
+    tp.rest_boxes = [(head, body)] * 10
+    assert not ch._landedTouching(tp)

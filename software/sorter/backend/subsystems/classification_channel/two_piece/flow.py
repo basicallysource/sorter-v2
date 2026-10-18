@@ -51,10 +51,26 @@ def _boxCover(a, b) -> float:
     return ix * iy / small if small > 0 else 0.0
 
 
+def _lined(a, b) -> bool:
+    """One box lies along the other: its span across x, or across y, is mostly
+    inside the other's. The parts of one object (a minifigure's head, torso and
+    legs) stack like this; two loose pieces lying touching rarely line up."""
+    for lo, hi in ((0, 2), (1, 3)):
+        span = min(a[hi] - a[lo], b[hi] - b[lo])
+        shared = min(a[hi], b[hi]) - max(a[lo], b[lo])
+        if span > 0 and shared >= _LINED_SPAN * span:
+            return True
+    return False
+
+
 def _apart(boxes) -> bool:
-    """Two or more of the detector's boxes, none mostly inside another."""
-    return len(boxes) >= 2 and all(
-        _boxCover(a, b) < _NESTED_COVER for i, a in enumerate(boxes) for b in boxes[i + 1:]
+    """Two or more of the detector's boxes that look like separate pieces: none
+    mostly inside another, and at least two of them not lined up."""
+    pairs = [(a, b) for i, a in enumerate(boxes) for b in boxes[i + 1:]]
+    return (
+        len(boxes) >= 2
+        and all(_boxCover(a, b) < _NESTED_COVER for a, b in pairs)
+        and any(not _lined(a, b) for a, b in pairs)
     )
 
 
@@ -179,6 +195,9 @@ _GROW_FRAMES = 2
 # them, it is two pieces. An assembly whose parts lie side by side looks the
 # same and goes to misc too: no bin is right for it either.
 _NESTED_COVER = 0.5
+# Boxes lined up along one axis (see _lined) are the parts of one object. A whole
+# minifigure, drawn as a head box above a body box, went to misc without this.
+_LINED_SPAN = 0.8
 _APART_FRAC = 0.8
 _STEADY_FRAC = 0.8
 _APART_MIN_FRAMES = 6
@@ -923,7 +942,15 @@ class TwoPieceClassificationChannel(Rev01BaseState):
             if len(tp.rest_areas) <= 3:
                 continue
             settled = sorted(tp.rest_areas[:3])[1]
-            grown = [a for a in tp.rest_areas[3:] if settled > 0 and a >= _GROW_FACTOR * settled]
+            settled_boxes = sorted(len(boxes) for boxes in tp.rest_boxes[:3])[1]
+            # A second piece shows up as a box of its own inside the merged box. A
+            # piece that tips over as it settles (a wheel landing on its edge,
+            # then falling flat) grows with no new box: that is no double feed.
+            grown = [
+                a
+                for a, boxes in zip(tp.rest_areas[3:], tp.rest_boxes[3:])
+                if settled > 0 and a >= _GROW_FACTOR * settled and len(boxes) > settled_boxes
+            ]
             if len(grown) >= _GROW_FRAMES:
                 if self._pair_group is None or now > self._pair_until:
                     self._multi_drop_seq += 1

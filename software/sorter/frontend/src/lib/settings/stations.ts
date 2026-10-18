@@ -2,6 +2,7 @@ import Camera from '@lucide/svelte/icons/camera';
 import CircuitBoard from '@lucide/svelte/icons/circuit-board';
 import Cloud from '@lucide/svelte/icons/cloud';
 import Cpu from '@lucide/svelte/icons/cpu';
+import Database from '@lucide/svelte/icons/database';
 import Gauge from '@lucide/svelte/icons/gauge';
 import GraduationCap from '@lucide/svelte/icons/graduation-cap';
 import Timer from '@lucide/svelte/icons/timer';
@@ -117,10 +118,10 @@ export const appearanceNavItem: SettingsNavItem = {
 	icon: Palette
 };
 
-export const sampleCaptureNavItem: SettingsNavItem = {
-	href: '/settings/sample-capture',
-	label: 'Sample capture',
-	icon: Camera
+export const dataNavItem: SettingsNavItem = {
+	href: '/settings/data',
+	label: 'Data',
+	icon: Database
 };
 
 export const trainingDataNavItem: SettingsNavItem = {
@@ -275,7 +276,7 @@ export const settingsNavItems: SettingsNavEntry[] = [
 	storageLayersNavItem,
 	controlBoardNavItem,
 	{ type: 'heading', label: 'Data' },
-	sampleCaptureNavItem,
+	dataNavItem,
 	trainingDataNavItem,
 	{ type: 'heading', label: 'Helpers' },
 	incidentsNavItem,

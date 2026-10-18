@@ -168,10 +168,10 @@ export function defaultSweepOptions(motor: string): SweepOptions {
 /** What a sweep with these options does, in a sentence. */
 export function motionSentence(o: SweepOptions): string {
 	if (o.profile === 'chute_random') {
-		return `It goes to random angles between ${o.chuteMinDeg}° and ${o.chuteMaxDeg}° for ${o.duration} seconds, and homes first if it has to.`;
+		return `Random moves, ${o.chuteMinDeg}° to ${o.chuteMaxDeg}°, ${o.duration} s. Homes first if needed.`;
 	}
 	if (o.profile === 'pulsed') {
-		return `It turns in short pulses with a pause between them for ${o.duration} seconds.`;
+		return `Short pulses with pauses, ${o.duration} s.`;
 	}
-	return `It spins at a steady speed for ${o.duration} seconds.`;
+	return `A steady spin, ${o.duration} s.`;
 }

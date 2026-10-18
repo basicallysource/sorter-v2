@@ -39,6 +39,7 @@
 	import Panel from '$lib/components/ui/Panel.svelte';
 	import Spinner from '$lib/components/ui/Spinner.svelte';
 	import Stat from '$lib/components/ui/Stat.svelte';
+	import KeyValue from '$lib/components/ui/KeyValue.svelte';
 	import Step from '$lib/components/ui/Step.svelte';
 	import StepperStallGuardCurve from './stepper/StepperStallGuardCurve.svelte';
 	import StepperStallGuardRuns from './stepper/StepperStallGuardRuns.svelte';
@@ -63,7 +64,6 @@
 	} = $props();
 
 	const manager = getMachinesContext();
-	const Label = $derived(label.charAt(0).toUpperCase() + label.slice(1));
 
 	function base(): string {
 		return (
@@ -526,7 +526,7 @@
 
 	<Panel
 		title="Tune StallGuard"
-		description="StallGuard reads how hard {label} is working: high when it turns freely, near 0 when it stalls. Tuning finds the line between the two, at the speed it really runs."
+		description="Finds where a stall starts, at the speed {label} runs."
 		flush
 	>
 		{#snippet actions()}
@@ -562,15 +562,9 @@
 						{@render reopen(1, 'Change')}
 					{/snippet}
 					<div class="flex max-w-2xl flex-col gap-4">
-						<p class="text-sm text-ink">
-							StallGuard's readings change with speed, so it is tuned at the one speed {label} really
-							runs at.
-							{#if operatingSpeed !== null}
-								The speed below is its operating speed as currently set.
-							{:else}
-								Type the speed it runs at.
-							{/if}
-						</p>
+						{#if operatingSpeed === null}
+							<p class="text-sm text-ink">Type the speed {label} runs at.</p>
+						{/if}
 						{#if settingsError}
 							<Alert tone="danger" actions={settingsLoaded ? undefined : tryAgain}>
 								{settingsError}
@@ -598,22 +592,15 @@
 							</div>
 						</Field>
 						{#if verdict === 'blind' && applied && cruiseTstep !== null}
-							<Alert tone="warning" title="StallGuard can't trip at this speed yet">
-								At {speedText} µsteps/s and 1/{microsteps} microstepping {label} cruises at TSTEP {cruiseTstep},
-								slower than the speed floor of {applied.tcoolthrs.toLocaleString()}, so the driver
-								never checks for a stall. Steps 2 to 4 measure it and set a speed floor that fits.
+							<Alert tone="warning" title="Can't trip at this speed yet">
+								Cruise TSTEP {cruiseTstep}, speed floor {applied.tcoolthrs.toLocaleString()}. Steps 2 to 4
+								fix it.
 							</Alert>
 						{:else if verdict === 'off' && applied && cruiseTstep !== null}
-							<Alert tone="info" title="StallGuard is off">
-								At {speedText} µsteps/s {label} cruises at TSTEP {cruiseTstep}, inside the speed
-								floor of {applied.tcoolthrs.toLocaleString()}, so the driver would check for a
-								stall, but detection is switched off. Step 4 turns it on.
-							</Alert>
+							<Alert tone="info" title="StallGuard is off">Step 4 turns it on.</Alert>
 						{:else if verdict === 'ready' && applied && cruiseTstep !== null}
-							<Alert tone="success" title="StallGuard can trip at this speed">
-								At {speedText} µsteps/s and 1/{microsteps} microstepping {label} cruises at TSTEP {cruiseTstep},
-								inside the speed floor of {applied.tcoolthrs.toLocaleString()}. The next steps tune
-								the threshold for this speed.
+							<Alert tone="success" title="Can trip at this speed">
+								Cruise TSTEP {cruiseTstep}, speed floor {applied.tcoolthrs.toLocaleString()}.
 							</Alert>
 						{/if}
 						<div>
@@ -639,15 +626,9 @@
 						{@render reopen(2, 'Record again')}
 					{/snippet}
 					<div class="flex max-w-2xl flex-col gap-4">
-						<p class="text-sm text-ink">
-							{Label} runs a short move at {speedText} µsteps/s with nothing holding it back, and StallGuard
-							records how hard it works. This is what normal running looks like, and a stall has to read
-							well below it.
-						</p>
+						<p class="text-sm text-ink">Normal running, with nothing holding it back.</p>
 						{@render motion()}
-						<Alert tone="warning">
-							This moves a real motor. Keep the area clear and your hand near the stop control.
-						</Alert>
+						<Alert tone="warning">Moves the motor. Keep clear.</Alert>
 						{#if plan && plan.unloaded_runs > 0 && !haveFree}
 							<Alert tone="warning" title="The last recording could not be used">
 								{plan.detail}
@@ -664,9 +645,7 @@
 								Record it running freely
 							</Button>
 							{#if running === 'free'}
-								<span class="text-sm text-ink-muted">
-									Recording for about {options.duration} seconds. Keep clear of it.
-								</span>
+								<span class="text-sm text-ink-muted">Recording, about {options.duration} s.</span>
 							{/if}
 						</div>
 					</div>
@@ -688,18 +667,10 @@
 					{/snippet}
 					<div class="flex max-w-2xl flex-col gap-4">
 						<p class="text-sm text-ink">
-							Now the same move again, but you hold {label} back by hand so it stalls. This shows StallGuard
-							what a stall reads, so it can tell one from normal running.
-						</p>
-						<p class="text-sm text-ink">
-							Press the button, then hold the motor back as soon as it starts moving and keep
-							holding until the recording ends, about {options.duration} seconds.
+							Hold {label} back until it stops, the whole {options.duration} s. A real stall reads near 0.
 						</p>
 						{@render motion()}
-						<Alert tone="warning">
-							This moves a real motor and you will be holding it. Hold only the part that turns,
-							keep your fingers away from gears and the endstop, and let go if anything feels wrong.
-						</Alert>
+						<Alert tone="warning">Hold only the part that turns. Let go if anything feels wrong.</Alert>
 						{#if plan && plan.loaded_runs > 0 && !haveStall}
 							<Alert tone="warning" title="The last recording could not be used">
 								{plan.detail}
@@ -716,9 +687,7 @@
 								Record a stall
 							</Button>
 							{#if running === 'stall'}
-								<span class="text-sm font-medium text-ink">
-									Recording now. Hold the motor back until it stops.
-								</span>
+								<span class="text-sm font-medium text-ink">Hold it now, until it stops.</span>
 							{/if}
 						</div>
 					</div>
@@ -740,10 +709,6 @@
 					{/snippet}
 					{#if plan && plan.suggested_sgthrs !== null && plan.trigger_level !== null}
 						<div class="flex max-w-2xl flex-col gap-4">
-							<p class="text-sm text-ink">
-								StallGuard compared your two recordings and suggests these settings for {label} at {speedText}
-								µsteps/s. The load curve below shows them.
-							</p>
 							<div
 								class="grid grid-cols-1 divide-y divide-line rounded-control bg-well sm:grid-cols-2 sm:divide-x sm:divide-y-0"
 							>
@@ -766,22 +731,28 @@
 										: undefined}
 								/>
 							</div>
-							<p class="text-sm text-ink-muted">
-								The threshold is the line between a free-running reading ({plan.unloaded_floor} or higher)
-								and a stall ({plan.loaded_dip} or lower): StallGuard calls it a stall when the reading
-								falls to {plan.trigger_level} or lower. The speed floor keeps it from judging while the
-								motor speeds up or slows down: it only looks above about {speedAtTstep(
-									plan.cruise_tstep,
-									microsteps
-								).toLocaleString()} µsteps/s.
-							</p>
+							<KeyValue
+								items={[
+									{ label: 'Running freely', value: `${plan.unloaded_floor} or higher` },
+									{ label: 'Stall', value: `${plan.loaded_dip} or lower` },
+									{ label: 'Trips at', value: `${plan.trigger_level} or lower` },
+									{
+										label: 'Checks above',
+										value: `${speedAtTstep(plan.cruise_tstep, microsteps).toLocaleString()} µsteps/s`
+									}
+								]}
+							/>
 							{#if !plan.reliable}
-								<Alert
-									tone="danger"
-									title="Not reliably tunable at {speedText} µsteps/s"
-									actions={stallAgain}
-								>
-									{plan.detail}
+								<Alert tone="danger" title="Not reliable at {speedText} µsteps/s" actions={stallAgain}>
+									{#if plan.realistic_floor !== null}
+										Normal moves dip to {plan.realistic_floor}, near the {plan.trigger_level} trip line:
+										it would false-trip.
+										{#if plan.loaded_dip !== null && plan.unloaded_floor !== null && plan.loaded_dip > plan.unloaded_floor / 4}
+											The stall only reached {plan.loaded_dip}: hold it until it stops.
+										{/if}
+									{:else}
+										{plan.detail}
+									{/if}
 								</Alert>
 							{/if}
 							{#if saveError}<Alert tone="danger">{saveError}</Alert>{/if}
@@ -791,7 +762,7 @@
 									loading={saving}
 									onclick={saveThreshold}
 								>
-									{plan.reliable ? 'Save and turn on StallGuard' : 'Save anyway (unreliable)'}
+									{plan.reliable ? 'Save and turn on StallGuard' : 'Save anyway'}
 								</Button>
 							</div>
 						</div>
@@ -814,34 +785,24 @@
 						{@render reopen(5, 'Record again')}
 					{/snippet}
 					<div class="flex max-w-2xl flex-col gap-4">
-						<p class="text-sm text-ink">
-							Record {label} running freely once more. StallGuard checks that recording against the settings
-							you saved and tells you if it would have stopped the machine. Nothing should trip.
-						</p>
+						<p class="text-sm text-ink">One more free run, checked against the saved settings.</p>
 						{@render motion()}
-						<Alert tone="warning">
-							This moves a real motor. Keep the area clear and your hand near the stop control.
-						</Alert>
+						<Alert tone="warning">Moves the motor. Keep clear.</Alert>
 						{@render failure(5)}
 						{#if checkHere}
 							{@const r = checkHere.result}
 							{#if r.looked === 0}
-								<Alert tone="info" title="Nothing to check against">
-									The motor never ran fast enough for StallGuard to look: TSTEP stayed above the
-									speed floor of {checkHere.tcoolthrs}. Check the speed in step 1.
+								<Alert tone="info" title="Nothing to check">
+									It never ran above the speed floor ({checkHere.tcoolthrs}). See step 1.
 								</Alert>
 							{:else if r.tripped === 0}
 								<Alert tone="success" title="Nothing would have tripped">
-									StallGuard would have looked at {r.looked} readings. The lowest was {r.lowest},
-									above the trigger of {2 * checkHere.sgthrs}.
+									Lowest {r.lowest}, trips at {2 * checkHere.sgthrs}.
 								</Alert>
 							{:else}
 								<Alert tone="danger" title="It would have stopped the machine">
-									{r.tripped} of {r.looked} readings were at or under the trigger of {2 *
-										checkHere.sgthrs}
-									while running freely (the lowest was {r.lowest}), so it would have called a stall
-									that was not one. Record the stall again and save, or lower the threshold under
-									Stall detection below.
+									{r.tripped} of {r.looked} readings at or under {2 * checkHere.sgthrs}. Record the stall
+									again, or lower the threshold below.
 								</Alert>
 							{/if}
 						{/if}
@@ -855,17 +816,11 @@
 								Record a check
 							</Button>
 							{#if running === 'check'}
-								<span class="text-sm text-ink-muted">
-									Recording for about {options.duration} seconds. Keep clear of it.
-								</span>
+								<span class="text-sm text-ink-muted">Recording, about {options.duration} s.</span>
 							{/if}
 						</div>
 						{#if stressTestHref}
-							<p class="text-sm text-ink-muted">
-								A sweep keeps stall detection off while it runs. For a longer test with detection
-								really on, the stress test runs {label} for a minute with the saved settings armed, and
-								stops and says so if anything trips.
-							</p>
+							<p class="text-sm text-ink-muted">For a test with detection on: the stress test.</p>
 							<div>
 								<Button variant="ghost" size="sm" icon={ArrowRight} href={stressTestHref}>
 									Open the stress test
@@ -894,7 +849,7 @@
 
 	<Panel
 		title="Stall detection"
-		description="Whether {label} halts the machine when it stalls, and how hard it must be loaded to count as one."
+		description="On or off, and where a stall starts."
 	>
 		{#if settingsLoading}
 			<div class="flex items-center gap-2 text-sm text-ink-muted">
@@ -929,7 +884,7 @@
 
 	<Panel
 		title="Expert tools"
-		description="What the steps use, by hand: how a sweep moves, every past recording, and the readings behind them."
+		description="Sweep options, past recordings, raw readings."
 		flush
 	>
 		<div class="divide-y divide-line border-t border-line">
@@ -967,7 +922,7 @@
 					</div>
 				{:else}
 					<p class="px-(--pad-panel) pb-4 text-sm text-ink-muted">
-						Nothing recorded yet. Step 2 makes the first recording.
+						Nothing recorded yet.
 					</p>
 				{/if}
 			</Disclosure>

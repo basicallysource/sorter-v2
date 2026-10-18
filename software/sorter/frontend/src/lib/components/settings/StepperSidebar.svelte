@@ -821,6 +821,7 @@
 				bind:sgTcoolthrs
 				bind:stepperDirectionInverted
 				{tmcDrvStatus}
+				cruiseSpeed={isChute ? chuteOperatingSpeed : null}
 				onSave={saveTmcSettings}
 			/>
 		</Disclosure>

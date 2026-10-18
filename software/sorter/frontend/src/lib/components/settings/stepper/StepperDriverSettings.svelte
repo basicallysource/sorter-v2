@@ -6,6 +6,7 @@
 	import Checkbox from '$lib/components/ui/Checkbox.svelte';
 	import Button from '$lib/components/ui/Button.svelte';
 	import Spinner from '$lib/components/ui/Spinner.svelte';
+	import Alert from '$lib/components/ui/Alert.svelte';
 
 	let {
 		loading,
@@ -21,6 +22,7 @@
 		sgTcoolthrs = $bindable(),
 		stepperDirectionInverted = $bindable(),
 		tmcDrvStatus,
+		cruiseSpeed = null,
 		onSave
 	}: {
 		loading: boolean;
@@ -36,8 +38,25 @@
 		sgTcoolthrs: number;
 		stepperDirectionInverted: boolean;
 		tmcDrvStatus: Record<string, any> | null;
+		// The speed this motor cruises at, in µsteps/s, where the page knows it
+		// (the chute's operating speed); null where it does not.
+		cruiseSpeed?: number | null;
 		onSave: () => void;
 	} = $props();
+
+	// The driver checks for a stall only while TSTEP (its time per 1/256 step,
+	// in ticks of its nominal 12 MHz clock) is at or under TCOOLTHRS. A motor
+	// that cruises slower than that never reaches the check.
+	const TMC_CLOCK_HZ = 12_000_000;
+	const cruiseTstep = $derived(
+		cruiseSpeed && cruiseSpeed > 0
+			? Math.round((TMC_CLOCK_HZ * tmcMicrosteps) / (cruiseSpeed * 256))
+			: null
+	);
+	const minimumSpeed = $derived(
+		sgTcoolthrs > 0 ? Math.ceil((TMC_CLOCK_HZ * tmcMicrosteps) / (sgTcoolthrs * 256)) : null
+	);
+	const tooSlowToTrip = $derived(sgEnabled && cruiseTstep !== null && cruiseTstep > sgTcoolthrs);
 </script>
 
 {#snippet current(id: string, label: string, help: string, get: () => number, set: (v: number) => void)}
@@ -117,6 +136,20 @@
 					<p class="num text-sm text-ink-muted">
 						Trips when SG_RESULT is {sgThrs * 2} or less, only at cruising speed (TSTEP up to {sgTcoolthrs}).
 					</p>
+					{#if tooSlowToTrip}
+						<Alert tone="warning" title="StallGuard can't trip at this speed">
+							At {cruiseSpeed?.toLocaleString()} µsteps/s and 1/{tmcMicrosteps} microstepping this motor cruises
+							at TSTEP {cruiseTstep}, slower than the speed floor of {sgTcoolthrs}, so the driver never checks
+							for a stall.
+							{#if minimumSpeed !== null}
+								It needs an operating speed of at least {minimumSpeed.toLocaleString()} µsteps/s, and then a
+								threshold tuned at that speed.
+							{/if}
+							{#snippet actions()}
+								<Button size="sm" href="/settings/stepper-stallguard">Tune StallGuard</Button>
+							{/snippet}
+						</Alert>
+					{/if}
 				</div>
 			{/if}
 		</div>

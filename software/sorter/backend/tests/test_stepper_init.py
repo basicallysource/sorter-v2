@@ -126,6 +126,18 @@ class StepperInitTests(unittest.TestCase):
             _configure(_Driver(diag_pin=False))
         self.assertIn("arm stall detection for the chute stepper", caught.exception.message)
 
+    def test_stallguard_on_by_default_is_skipped_on_a_channel_without_a_diag_pin(self) -> None:
+        # The SKR Pico wires no DIAG pin: a default it cannot honour must not stop init.
+        driver = _Driver(diag_pin=False)
+        gc = SimpleNamespace(logger=_Logger(), no_power_development_mode=False)
+        chute = motorNamed("chute")
+        settings = readStepperSettings(chute, {})
+        self.assertTrue(settings.stallguard)
+        with patch("irl.config.time.sleep"):
+            _configureStepper(gc, driver, chute, _STEPPER_CONFIG, settings)
+        self.assertFalse(driver.detection_on)
+        self.assertFalse(driver.stallguard_enabled)
+
     def test_without_stallguard_every_setting_is_written_and_detection_stays_off(self) -> None:
         # A channel without a DIAG wire refuses any stall detection command, so
         # a motor with StallGuard off is never sent one.

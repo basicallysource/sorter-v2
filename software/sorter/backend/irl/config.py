@@ -82,8 +82,10 @@ def _initCommand(gc: GlobalConfig, label: str, action: str, command):
 
 def _armUnlessNoDiagPin(gc: GlobalConfig, stepper: "StepperMotor", label: str, arm):
     """A board that wires no DIAG pin for a channel (the SKR Pico wires none)
-    refuses to arm StallGuard there. That stepper runs without stall detection
-    instead of failing the whole hardware init."""
+    refuses to arm StallGuard there. When StallGuard is on only by built-in
+    default, that stepper runs without stall detection instead of failing the
+    whole hardware init. (StallGuard saved on in machine.toml still stops init:
+    the operator asked for something the board cannot do.)"""
 
     def command():
         try:
@@ -121,7 +123,7 @@ def _configureStepper(
     verify = not gc.no_power_development_mode
 
     def run(action: str, command):
-        if action == "arm stall detection":
+        if action == "arm stall detection" and "stallguard" not in settings.saved:
             command = _armUnlessNoDiagPin(gc, stepper, motor.label, command)
         return _initCommand(gc, motor.label, action, command)
 

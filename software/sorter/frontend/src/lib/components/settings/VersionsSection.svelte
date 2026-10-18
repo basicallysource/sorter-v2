@@ -1,11 +1,8 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
-	import {
-		machineHttpBaseUrlFromWsUrl,
-		getBackendHttpBase,
-		waitForBackend
-	} from '$lib/backend';
-	import { getMachineContext } from '$lib/machines/context';
+	import { machineHttpBaseUrlFromWsUrl, getBackendHttpBase } from '$lib/backend';
+	import { getMachineContext, getMachinesContext } from '$lib/machines/context';
+	import { machineDowntime } from '$lib/stores/machineDowntime.svelte';
 	import Button from '$lib/components/ui/Button.svelte';
 	import Alert from '$lib/components/ui/Alert.svelte';
 	import Panel from '$lib/components/ui/Panel.svelte';
@@ -16,6 +13,9 @@
 	import RefreshCcw from '@lucide/svelte/icons/refresh-ccw';
 
 	const machine = getMachineContext();
+	const manager = getMachinesContext();
+	// Building the UI on the Pi takes a minute or two before the restart.
+	const UPDATE_RESTART_WAIT_MS = 5 * 60_000;
 
 	type CurrentVersion = {
 		ref: string;
@@ -95,8 +95,10 @@
 	async function applyUpdate(entry: VersionEntry) {
 		updatingRef = `${entry.kind}:${entry.name}`;
 		updateError = null;
-		updateNotice = null;
+		updateNotice = `Getting ${entry.name} and building it. This takes a minute or two; the page reloads when the machine is back.`;
 		depsWarning = null;
+		const updating = machine.machine;
+		machineDowntime.begin();
 		try {
 			const res = await fetch(`${httpBase()}/api/system/update`, {
 				method: 'POST',
@@ -113,16 +115,17 @@
 				depsWarning = `Dependency files changed (${data.deps_changed.join(', ')}). A manual dependency install and service restart may be needed.`;
 			}
 			updateNotice = data.changed
-				? `Updated ${data.old_sha} → ${data.new_sha}. Restarting backend...`
-				: 'Already at this version. Restarting backend...';
-			await waitForBackend(httpBase());
-			// The update rebuilt the UI as well: load the new one.
-			if (data.changed) location.reload();
-			updateNotice = updateNotice.replace('Restarting backend...', 'Backend is back up.');
-			await load(false);
+				? `Updated ${data.old_sha} → ${data.new_sha}. Restarting the backend…`
+				: 'Already at this version. Restarting the backend…';
+			// The new process reloads the page when its code differs from this
+			// page's (MachineManager), and remounts it when it does not.
+			if (!(await manager.waitForNewRun(updating, UPDATE_RESTART_WAIT_MS))) {
+				updateError = 'The backend did not come back after the update.';
+			}
 		} catch (e: any) {
 			updateError = e.message ?? 'Update failed';
 		} finally {
+			machineDowntime.end();
 			updatingRef = null;
 		}
 	}
@@ -140,7 +143,7 @@
 			size="sm"
 			icon={RefreshCcw}
 			label="Check for updates"
-			loading={loading}
+			{loading}
 			onclick={() => void load(true)}
 		/>
 	{/snippet}
@@ -157,7 +160,9 @@
 			<div class="flex items-baseline justify-between gap-6 py-2.5">
 				<dt class="shrink-0 text-ink-muted">Commit</dt>
 				<dd class="min-w-0 truncate text-right text-ink">
-					<span class="font-mono">{payload.current.sha}</span>{#if payload.current.subject}<span class="text-ink-muted">: {payload.current.subject}</span>{/if}
+					<span class="font-mono">{payload.current.sha}</span>{#if payload.current.subject}<span
+							class="text-ink-muted">: {payload.current.subject}</span
+						>{/if}
 				</dd>
 			</div>
 			{#if payload.current.commit_unix}
@@ -220,7 +225,8 @@
 					<div class="min-w-0 flex-1">
 						<div class="flex items-center gap-2">
 							{#if entry.channel}
-								<span class="shrink-0 text-sm font-medium text-ink capitalize">{entry.channel}</span>
+								<span class="shrink-0 text-sm font-medium text-ink capitalize">{entry.channel}</span
+								>
 								<span class="truncate font-mono text-sm text-ink-muted">{entry.name}</span>
 							{:else}
 								<span class="truncate font-mono text-sm text-ink">{entry.name}</span>
@@ -232,7 +238,9 @@
 							{/if}
 						</div>
 						<p class="truncate text-sm text-ink-muted">
-							<span class="font-mono">{entry.sha}</span>: {entry.subject}, {formatDate(entry.commit_unix)}
+							<span class="font-mono">{entry.sha}</span>: {entry.subject}, {formatDate(
+								entry.commit_unix
+							)}
 						</p>
 						{#if !entry.is_current && entry.behind}
 							<p class="text-sm text-ink-muted">
@@ -264,7 +272,7 @@
 {/if}
 
 <p class="text-sm text-ink-muted">
-	Updating checks out the chosen version on this machine, builds its UI and restarts the backend. The
-	machine's own settings (machine.toml, .env, sorting data) are never touched, and local code edits
-	are stashed, not lost.
+	Updating checks out the chosen version on this machine, builds its UI and restarts the backend.
+	The machine's own settings (machine.toml, .env, sorting data) are never touched, and local code
+	edits are stashed, not lost.
 </p>

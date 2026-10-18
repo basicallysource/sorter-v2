@@ -36,4 +36,8 @@
 	});
 </script>
 
-{@render children()}
+<!-- A new backend process (a restart, an update) remounts the page, so every
+     view fetches again from it instead of keeping what the old one said. -->
+{#key manager.selectedMachine?.restarts ?? 0}
+	{@render children()}
+{/key}

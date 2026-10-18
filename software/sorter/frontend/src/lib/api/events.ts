@@ -72,6 +72,7 @@ export interface MachineIdentityData {
   machine_id: string;
   nickname: string | null;
   run_id?: string | null;
+  code_version?: string | null;
 }
 export interface KnownObjectData {
   uuid: string;

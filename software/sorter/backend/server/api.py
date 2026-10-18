@@ -6,7 +6,9 @@ from typing import List, Optional, Dict, Any
 import asyncio
 import json
 import os
+import subprocess
 import time
+from pathlib import Path
 
 import db
 import machine_toml
@@ -271,12 +273,31 @@ class MachineIdentityUpdateRequest(BaseModel):
     nickname: Optional[str] = None
 
 
+def _readCodeVersion() -> Optional[str]:
+    try:
+        result = subprocess.run(
+            ["git", "rev-parse", "HEAD"],
+            cwd=Path(__file__).resolve().parent,
+            capture_output=True,
+            text=True,
+            timeout=5,
+        )
+    except (OSError, subprocess.TimeoutExpired):
+        return None
+    return result.stdout.strip() or None if result.returncode == 0 else None
+
+
+# Read once: an update restarts the process, so this never goes stale.
+_CODE_VERSION = _readCodeVersion()
+
+
 def _getMachineIdentityData() -> MachineIdentityData:
     gc = shared_state.gc_ref
     return MachineIdentityData(
         machine_id=gc.machine_id if gc is not None else get_or_create_machine_id(),
         nickname=getMachineNickname(),
         run_id=gc.run_id if gc is not None else None,
+        code_version=_CODE_VERSION,
     )
 
 

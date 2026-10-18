@@ -40,6 +40,9 @@ class MachineIdentityData(BaseModel):
     # New with every backend process: a tab reopens its camera feeds when it
     # reconnects to a different one, since the old process's streams are gone.
     run_id: Optional[str] = None
+    # The commit this process runs. A page built from another commit reloads
+    # itself to get the UI that matches (an update rebuilt it).
+    code_version: Optional[str] = None
 
 
 class IdentityEvent(BaseModel):

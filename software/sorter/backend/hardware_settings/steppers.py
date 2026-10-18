@@ -115,11 +115,12 @@ class StepperSettings:
     saved: frozenset[str] = frozenset()
 
     def describe(self) -> str:
+        # TCOOLTHRS is the value written, which a TMC2209 cannot read back.
         return (
             f"IRUN={self.irun} IHOLD={self.ihold} IHOLD_DELAY={self.ihold_delay}, "
             f"{self.microsteps} microsteps, StealthChop {_onOff(self.stealthchop)}, "
             f"CoolStep {_onOff(self.coolstep)}, StallGuard {_onOff(self.stallguard)} "
-            f"(SGTHRS={self.sgthrs} TCOOLTHRS={self.tcoolthrs}), "
+            f"(SGTHRS={self.sgthrs} TCOOLTHRS={tcoolthrsRegister(self)}), "
             f"direction {'inverted' if self.inverted else 'normal'}; "
             f"from machine.toml: {', '.join(sorted(self.saved)) or 'none, all built-in defaults'}"
         )

@@ -18,6 +18,8 @@
 	import Star from '@lucide/svelte/icons/star';
 	import Trash2 from '@lucide/svelte/icons/trash';
 	import MachineNameField from '$lib/components/MachineNameField.svelte';
+	import SharingStep from '$lib/components/setup/steps/SharingStep.svelte';
+	import { getSharing, type Sharing } from '$lib/sharing/api';
 	import Modal from '$lib/components/ui/Modal.svelte';
 	import Panel from '$lib/components/ui/Panel.svelte';
 	import Button from '$lib/components/ui/Button.svelte';
@@ -129,6 +131,12 @@
 	let pairUrl = $state(DEFAULT_HIVE_URL);
 	let pairTargetName = $state('');
 	let pairMachineName = $state('');
+
+	// Connecting a Hive asks first, until the person has agreed to what this
+	// sorter shares: the notice shows, and the flow they chose carries on after it.
+	type Flow = 'pair' | 'token' | 'register' | 'review';
+	let sharing = $state<Sharing | null>(null);
+	let agreeFor = $state<Flow | null>(null);
 
 	const targets = $derived(config?.targets ?? []);
 
@@ -254,6 +262,38 @@
 	function clearMessages() {
 		statusMsg = null;
 		errorMsg = null;
+	}
+
+	async function loadSharing() {
+		try {
+			sharing = await getSharing(currentBackendBaseUrl());
+		} catch {
+			// A machine without the call cannot ask; connecting goes ahead.
+		}
+	}
+
+	// The agreement can have changed elsewhere, so ask the machine as the button is pressed.
+	async function start(flow: Exclude<Flow, 'review'>) {
+		await loadSharing();
+		if (sharing?.consent.needs_consent) {
+			clearMessages();
+			agreeFor = flow;
+		} else {
+			openFlow(flow);
+		}
+	}
+
+	function openFlow(flow: Flow) {
+		if (flow === 'pair') openPairForm();
+		else if (flow === 'token') openTargetEditor(null);
+		else if (flow === 'register') openRegisterForm();
+	}
+
+	function agreed(next: Sharing) {
+		sharing = next;
+		const flow = agreeFor;
+		agreeFor = null;
+		if (flow) openFlow(flow);
 	}
 
 	function resetTargetForm(target: HiveTarget | null = null) {
@@ -616,6 +656,7 @@
 
 	onMount(() => {
 		void loadConfig();
+		void loadSharing();
 		void handleReturnedLink();
 	});
 </script>
@@ -642,16 +683,33 @@
 					label="Refresh"
 					onclick={() => void loadConfig()}
 				/>
-				<Button icon={Cloud} onclick={() => openTargetEditor(null)}>Add an existing token</Button>
-				<Button
-					icon={Plus}
-					onclick={openRegisterForm}
-				>
-					Register (legacy)
+				<Button icon={Cloud} onclick={() => void start('token')}>Add an existing token</Button>
+				<Button icon={Plus} onclick={() => void start('register')}>Register (legacy)</Button>
+				<Button variant="primary" icon={Link2} onclick={() => void start('pair')}>
+					Pair with Hive
 				</Button>
-				<Button variant="primary" icon={Link2} onclick={openPairForm}>Pair with Hive</Button>
 			</div>
 		</div>
+
+		{#if agreeFor}
+			<Alert tone="info" title="Before you connect a Hive">
+				Look at what this sorter shares, then agree to carry on. Nothing goes to a Hive until you do.
+			</Alert>
+			<SharingStep
+				base={currentBackendBaseUrl()}
+				onagreed={agreed}
+				oncancel={() => (agreeFor = null)}
+			/>
+		{:else if sharing?.consent.needs_consent && targets.length > 0}
+			<Alert tone="info" title="Nothing is sent to a Hive yet">
+				This sorter shares nothing until you agree to what it shares.
+				{#snippet actions()}
+					<Button size="sm" variant="primary" onclick={() => (agreeFor = 'review')}>
+						Review and agree
+					</Button>
+				{/snippet}
+			</Alert>
+		{/if}
 
 		{#if errorMsg}
 			<Alert tone="danger">{errorMsg}</Alert>

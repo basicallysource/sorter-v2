@@ -62,10 +62,9 @@
 	let layers = $state<LayerDraft[]>([]);
 	let channelChoices = $state<number[]>([]);
 	let allowedCounts = $state<number[]>([6, 12, 18, 30]);
-	let jogStep = $state(5);
 	let selectedIndex = $state<number | null>(null);
-	// Channel, invert, the jog step and the speeds: set once when the machine is
-	// built, so they stay out of the way of calibrating.
+	// Channel, invert and the speeds: set once when the machine is built, so they
+	// stay out of the way of calibrating.
 	let advanced = $derived(userConfig.servoAdvanced);
 
 	// Signature of everything the "Save servo layers" button persists (layer
@@ -117,7 +116,7 @@
 	function servoHint(layer: LayerDraft): string | null {
 		if (layerCanMove(layer)) return null;
 		if (!layerHasChannel(layer)) {
-			return "Choose the channel its servo is wired to (under Advanced), save the layers, then home the machine to move its flap.";
+			return 'Choose the channel its servo is wired to (under Advanced), save the layers, then home the machine to move its flap.';
 		}
 		if (layer.savedChannel !== layer.channel) {
 			return 'Save the layers, then home the machine to move its flap.';
@@ -165,7 +164,11 @@
 				: [];
 			const storageLayers: any[] = Array.isArray(storage.layers) ? storage.layers : [];
 
-			const count = Math.max(servoChannels.length, storageLayers.length, Number(servo.layer_count ?? 0));
+			const count = Math.max(
+				servoChannels.length,
+				storageLayers.length,
+				Number(servo.layer_count ?? 0)
+			);
 			const next: LayerDraft[] = [];
 			for (let i = 0; i < count; i++) {
 				const channel = servoChannels[i];
@@ -184,10 +187,8 @@
 							: '',
 					openAngle: typeof sl.servo_open_angle === 'number' ? sl.servo_open_angle : null,
 					closedAngle: typeof sl.servo_closed_angle === 'number' ? sl.servo_closed_angle : null,
-					currentAngle:
-						typeof sl.servo_current_angle === 'number' ? sl.servo_current_angle : null,
-					liveChannel:
-						typeof sl.servo_live_channel === 'number' ? sl.servo_live_channel : null,
+					currentAngle: typeof sl.servo_current_angle === 'number' ? sl.servo_current_angle : null,
+					liveChannel: typeof sl.servo_live_channel === 'number' ? sl.servo_live_channel : null,
 					busy: false,
 					lockStatus: 'idle',
 					lockError: ''
@@ -236,12 +237,53 @@
 		}
 	}
 
+	// A press of an arrow (button, or up/down key) moves a flap 1°; left/right
+	// keys move it 5°. Holding a button repeats, and the steps grow the longer
+	// it is held.
+	const FINE_STEP = 1;
+	const COARSE_STEP = 5;
+	const HOLD_DELAY_MS = 400;
+	const HOLD_REPEAT_MS = 120;
+	let holdTimer: ReturnType<typeof setTimeout> | null = null;
+	let holding = false;
+
 	async function jog(layerIndex: number, degrees: number) {
 		selectedIndex = layerIndex;
 		const result = await postLayerAction(layerIndex, 'nudge', { degrees });
 		if (result && typeof result.new_angle === 'number') {
 			setLayer(layerIndex, { currentAngle: result.new_angle });
 		}
+	}
+
+	function holdStep(heldMs: number): number {
+		if (heldMs > 2500) return 5;
+		if (heldMs > 1200) return 2;
+		return FINE_STEP;
+	}
+
+	function startHold(event: PointerEvent, layerIndex: number, direction: 1 | -1) {
+		if (event.button !== 0) return;
+		stopHold();
+		holding = true;
+		const startedAt = performance.now();
+		const repeat = async () => {
+			if (!holding) return;
+			await jog(layerIndex, direction * holdStep(performance.now() - startedAt));
+			if (holding) holdTimer = setTimeout(repeat, HOLD_REPEAT_MS);
+		};
+		void jog(layerIndex, direction * FINE_STEP);
+		holdTimer = setTimeout(repeat, HOLD_DELAY_MS);
+	}
+
+	function stopHold() {
+		holding = false;
+		if (holdTimer !== null) clearTimeout(holdTimer);
+		holdTimer = null;
+	}
+
+	// A pointer press is handled by startHold; this is the keyboard's Enter/Space.
+	function keyboardClick(event: MouseEvent, layerIndex: number, direction: 1 | -1) {
+		if (event.detail === 0) void jog(layerIndex, direction * FINE_STEP);
 	}
 
 	async function lockAngle(layerIndex: number, which: 'open' | 'closed') {
@@ -430,18 +472,24 @@
 			if (!layer || !layerCanMove(layer)) return;
 			if (event.target instanceof HTMLInputElement || event.target instanceof HTMLSelectElement)
 				return;
-			if (event.key === 'ArrowLeft') {
+			const step = {
+				ArrowDown: -FINE_STEP,
+				ArrowUp: FINE_STEP,
+				ArrowLeft: -COARSE_STEP,
+				ArrowRight: COARSE_STEP
+			}[event.key];
+			if (step !== undefined) {
 				event.preventDefault();
-				void jog(selectedIndex, -jogStep);
-			} else if (event.key === 'ArrowRight') {
-				event.preventDefault();
-				void jog(selectedIndex, jogStep);
+				void jog(selectedIndex, step);
 			} else if (event.key === 'Escape') {
 				selectedIndex = null;
 			}
 		}
 		window.addEventListener('keydown', handleKeydown);
-		return () => window.removeEventListener('keydown', handleKeydown);
+		return () => {
+			window.removeEventListener('keydown', handleKeydown);
+			stopHold();
+		};
 	});
 </script>
 
@@ -489,15 +537,15 @@
 			<div class="flex items-center gap-4">
 				<ChuteFlapDiagram state="open" size={128} />
 				<p class="max-w-56 text-sm text-ink-muted">
-					<span class="font-medium text-ink">Open.</span> The flap lies flat in the chute wall, so
-					pieces fall past it to the layers below.
+					<span class="font-medium text-ink">Open.</span> The flap lies flat in the chute wall, so pieces
+					fall past it to the layers below.
 				</p>
 			</div>
 			<div class="flex items-center gap-4">
 				<ChuteFlapDiagram state="closed" size={128} />
 				<p class="max-w-56 text-sm text-ink-muted">
-					<span class="font-medium text-ink">Closed.</span> The flap crosses the chute, so pieces
-					slide down this layer's funnel into its bins.
+					<span class="font-medium text-ink">Closed.</span> The flap crosses the chute, so pieces slide
+					down this layer's funnel into its bins.
 				</p>
 			</div>
 		</div>
@@ -509,26 +557,15 @@
 
 	<Panel title="Layers" flush>
 		{#snippet actions()}
-			{#if advanced}
-				<Input
-					type="number"
-					min={1}
-					max={45}
-					step={1}
-					bind:value={jogStep}
-					unit="° a press"
-					size="sm"
-					class="w-32"
-					aria-label="Jog step"
-				/>
-			{/if}
 			<Switch
 				checked={advanced}
 				labelledby="storage-layers-advanced"
 				onchange={(on) => userConfig.setServoAdvanced(on)}
 			/>
 			<span id="storage-layers-advanced" class="text-sm text-ink">Advanced</span>
-			<Button size="sm" icon={Plus} disabled={loading || saving} onclick={addLayer}>Add a layer</Button>
+			<Button size="sm" icon={Plus} disabled={loading || saving} onclick={addLayer}
+				>Add a layer</Button
+			>
 		{/snippet}
 
 		{#if layers.length === 0 && !loading}
@@ -564,14 +601,18 @@
 							<Badge tone="warning"><LockOpen size={12} /> Needs calibrating</Badge>
 						{/if}
 						{#if selected && canMove}
-							<Badge tone="primary">The arrow keys move its flap; Escape lets go</Badge>
+							<Badge tone="primary"
+								>Up and down move its flap 1°, left and right 5°; Escape lets go</Badge
+							>
 						{/if}
 						<span class="ml-auto flex items-center gap-3">
 							<Checkbox
 								checked={layer.enabled}
 								disabled={loading || saving}
 								onchange={(e) =>
-									setLayer(layer.layerIndex, { enabled: (e.currentTarget as HTMLInputElement).checked })}
+									setLayer(layer.layerIndex, {
+										enabled: (e.currentTarget as HTMLInputElement).checked
+									})}
 							>
 								Active
 							</Checkbox>
@@ -590,7 +631,9 @@
 						<Field
 							label="Bins"
 							for="layer-{layer.layerIndex}-bins"
-							info="How many bins sit around the chute on this layer. Match the bins fitted on it: {allowedCounts.join(', ')}."
+							info="How many bins sit around the chute on this layer. Match the bins fitted on it: {allowedCounts.join(
+								', '
+							)}."
 						>
 							<div class="w-20">
 								<Select
@@ -649,7 +692,9 @@
 									checked={layer.invert}
 									disabled={loading || saving}
 									onchange={(e) =>
-										setLayer(layer.layerIndex, { invert: (e.currentTarget as HTMLInputElement).checked })}
+										setLayer(layer.layerIndex, {
+											invert: (e.currentTarget as HTMLInputElement).checked
+										})}
 								>
 									Invert
 								</Checkbox>
@@ -670,7 +715,11 @@
 										type="button"
 										aria-label="Move toward a lower angle"
 										disabled={idle || !canMove}
-										onclick={() => jog(layer.layerIndex, -jogStep)}
+										onpointerdown={(e) => startHold(e, layer.layerIndex, -1)}
+										onpointerup={stopHold}
+										onpointerleave={stopHold}
+										onpointercancel={stopHold}
+										onclick={(e) => keyboardClick(e, layer.layerIndex, -1)}
 										class="flex w-(--size-control-sm) items-center justify-center text-ink transition-colors hover:bg-hover focus-visible:-outline-offset-2 disabled:pointer-events-none disabled:opacity-45"
 									>
 										<ChevronLeft size={16} />
@@ -682,7 +731,11 @@
 										type="button"
 										aria-label="Move toward a higher angle"
 										disabled={idle || !canMove}
-										onclick={() => jog(layer.layerIndex, jogStep)}
+										onpointerdown={(e) => startHold(e, layer.layerIndex, 1)}
+										onpointerup={stopHold}
+										onpointerleave={stopHold}
+										onpointercancel={stopHold}
+										onclick={(e) => keyboardClick(e, layer.layerIndex, 1)}
 										class="flex w-(--size-control-sm) items-center justify-center text-ink transition-colors hover:bg-hover focus-visible:-outline-offset-2 disabled:pointer-events-none disabled:opacity-45"
 									>
 										<ChevronRight size={16} />
@@ -719,7 +772,9 @@
 									</p>
 								{/if}
 								{#if layer.lockStatus === 'saving'}
-									<span class="flex items-center gap-1.5 text-sm text-ink-muted"><Spinner size={12} /> Saving</span>
+									<span class="flex items-center gap-1.5 text-sm text-ink-muted"
+										><Spinner size={12} /> Saving</span
+									>
 								{:else if layer.lockStatus === 'saved'}
 									<span class="text-sm text-success-ink">Saved</span>
 								{:else if layer.lockStatus === 'error'}
@@ -738,7 +793,12 @@
 					<Badge tone="warning">Unsaved changes</Badge>
 				{/if}
 				<span class="mr-auto"></span>
-				<Button variant="ghost" icon={RotateCcw} disabled={loading || saving} onclick={loadSettings}>
+				<Button
+					variant="ghost"
+					icon={RotateCcw}
+					disabled={loading || saving}
+					onclick={loadSettings}
+				>
 					Reload
 				</Button>
 				<Button variant="primary" loading={saving} disabled={loading} onclick={saveSettings}>
@@ -749,7 +809,12 @@
 	</Panel>
 
 	{#if advanced}
-		<ServoSpeedSettings bind:openSpeed bind:closeSpeed bind:homingSpeed disabled={loading || saving} />
+		<ServoSpeedSettings
+			bind:openSpeed
+			bind:closeSpeed
+			bind:homingSpeed
+			disabled={loading || saving}
+		/>
 	{/if}
 {/if}
 

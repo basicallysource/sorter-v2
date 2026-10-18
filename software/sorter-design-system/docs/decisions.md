@@ -13,6 +13,12 @@ and a dated entry goes here; the history is git.
   the list is five rows, a hidden page is a page nobody finds, and the column
   does not change height as someone moves through it. The item is the first
   view of its own pages and is not repeated in the list.
+- **A line joins a sub-tab to its item.** The indent alone did not say that a
+  sub-tab belongs to the item above it. Now a 1px `line` (the quiet divider;
+  `line-strong` outlines a control) runs down from the middle of the item's
+  icon and turns right into each sub-tab's name (`├─`, and `└─` for the last),
+  in the space to the left of the name, so the indent is as it was. It is
+  drawn under the rows, so hover and the current tint are laid over it.
 - **The stepper's panel is under the camera at every width.** It sat at the
   camera's right from `xl` up, a 23rem column in which the jog control, what each
   press moves and the driver settings were cramped, and the camera was

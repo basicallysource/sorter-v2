@@ -8,8 +8,11 @@
 	indented under it, always, so no one has to open an item to find one and
 	the column never changes height as someone moves through it. The item is
 	the first view of its own pages and is not repeated in the list. A sub-tab
-	has no icon; its name lines up with its item's name. Only the deepest page
-	the address is on takes the tint; its item, above it, goes to full ink.
+	has no icon; its name lines up with its item's name. A thin line (`line`,
+	1px) joins them: down from the middle of the item's icon, turning into
+	each sub-tab's name. It is drawn under the rows, so hover and the current
+	tint are laid over it like over any plane. Only the deepest page the
+	address is on takes the tint; its item, above it, goes to full ink.
 -->
 <script lang="ts">
 	import type { Component } from 'svelte';
@@ -42,6 +45,16 @@
 		on
 			? 'bg-primary-soft font-medium text-primary-ink'
 			: `${open ? 'text-ink' : 'text-ink-muted'} hover:bg-hover hover:text-ink`;
+
+	// How a sub-tab hangs from its item, measured from the row's edge: where its
+	// name starts (past the item's 16px icon and the gap after it, or one step in
+	// where there is no icon), where the line runs (down the middle of the icon:
+	// the row's padding, half the icon, less half the line; with no icon, just in
+	// from the item's name) and how long the arm is that turns into the name.
+	const subtab = {
+		withIcon: { indent: 'pl-9', line: 'left-[calc(--spacing(2.5)+7.5px)]', arm: 'w-3' },
+		withoutIcon: { indent: 'pl-5', line: 'left-[calc(--spacing(2.5)+1.5px)]', arm: 'w-1' }
+	};
 </script>
 
 <nav aria-label={label} class="flex flex-col gap-5">
@@ -51,26 +64,40 @@
 			{#each group.items as item (item.href)}
 				{@const on = item.href === current}
 				{@const open = item.children?.some((c) => c.href === current) ?? false}
-				<a
-					href={item.href}
-					aria-current={on ? 'page' : undefined}
-					class="{row} gap-2.5 px-2.5 {tone(on, open)}"
-				>
-					{#if item.icon}<item.icon size={16} class="shrink-0" />{/if}
-					<span class="min-w-0 flex-1 truncate">{item.label}</span>
-					{#if item.meta}<span class="num text-xs text-ink-faint">{item.meta}</span>{/if}
-				</a>
-				{#each item.children ?? [] as child (child.href)}
-					{@const onChild = child.href === current}
+				{@const sub = item.icon ? subtab.withIcon : subtab.withoutIcon}
+				<div class="relative isolate flex flex-col gap-px">
+					{#if item.children?.length}
+						<!-- The line down the sub-tabs: from under the icon to the middle of the last one. -->
+						<span
+							aria-hidden="true"
+							class="absolute -z-10 border-l border-line {sub.line} top-[calc(var(--size-nav-item)/2+10px)] bottom-[calc(var(--size-nav-item)/2-1px)]"
+						></span>
+					{/if}
 					<a
-						href={child.href}
-						aria-current={onChild ? 'page' : undefined}
-						class="{row} gap-2.5 pr-2.5 {item.icon ? 'pl-9' : 'pl-5'} {tone(onChild)}"
+						href={item.href}
+						aria-current={on ? 'page' : undefined}
+						class="{row} gap-2.5 px-2.5 {tone(on, open)}"
 					>
-						<span class="min-w-0 flex-1 truncate">{child.label}</span>
-						{#if child.meta}<span class="num text-xs text-ink-faint">{child.meta}</span>{/if}
+						{#if item.icon}<item.icon size={16} class="shrink-0" />{/if}
+						<span class="min-w-0 flex-1 truncate">{item.label}</span>
+						{#if item.meta}<span class="num text-xs text-ink-faint">{item.meta}</span>{/if}
 					</a>
-				{/each}
+					{#each item.children ?? [] as child (child.href)}
+						{@const onChild = child.href === current}
+						<a
+							href={child.href}
+							aria-current={onChild ? 'page' : undefined}
+							class="{row} relative gap-2.5 pr-2.5 {sub.indent} {tone(onChild)}"
+						>
+							<span
+								aria-hidden="true"
+								class="absolute top-1/2 -z-10 border-t border-line {sub.line} {sub.arm}"
+							></span>
+							<span class="min-w-0 flex-1 truncate">{child.label}</span>
+							{#if child.meta}<span class="num text-xs text-ink-faint">{child.meta}</span>{/if}
+						</a>
+					{/each}
+				</div>
 			{/each}
 		</div>
 	{/each}

@@ -34,7 +34,7 @@ class BoardProfile:
     physical_to_canonical_stepper_names: Mapping[str, str]
     input_aliases: Mapping[str, int]
     # Polarity of the chute home switch as this board is shipped, when it
-    # differs from DEFAULT_CHUTE_ENDSTOP_ACTIVE_HIGH. machine.toml still wins.
+    # differs from hardware_settings.chute's default. machine.toml still wins.
     chute_home_active_high: bool | None = None
 
 

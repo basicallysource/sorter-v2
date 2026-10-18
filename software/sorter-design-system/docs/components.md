@@ -211,7 +211,14 @@ layout; a fifth kind of message is a panel, not a new notice.
   the page's `Tabs` too; one list feeds both.
 - **`PageHeader`**: a page's title, its one sentence and its own actions,
   first in the page's column ([layout.md](layout.md#a-page)).
-- **`SideNav`**: the second level, a column on the surface plane.
+- **`SideNav`**: the second level, a column on the surface plane. An item can
+  have sub-tabs (`children`): pages that belong to it, listed indented under it
+  and always shown, so nobody opens an item to find one and the column never
+  changes height as someone moves through it. The item is the first view of its
+  own pages and is not repeated in its list; a sub-tab has no icon, and its name
+  lines up with its item's. Only the page the address is on takes the primary's
+  tint; the item above it goes to full ink. A narrow screen's `Select` lists the
+  sub-tabs after their item, named "Item / Sub-tab".
 - **`Tabs`**: views of one thing, in a page or at the top of a flush panel.
   The current tab's mark replaces the bar's line under it. Arrow keys move
   between tabs. Tabs that do not fit scroll sideways without a scroll bar. The pages of the app are the top bar's and the side nav's,

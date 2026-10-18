@@ -34,7 +34,10 @@ box around it to belong together.
 - **The side nav** (`SideNav`), when a page has one, is a column on the
   surface plane, the full height beside the content, which sits on the
   canvas. There is no line between them: their fills differ. The current
-  section takes the primary's tint; a group's name is a `label`.
+  section takes the primary's tint; a group's name is a `label`. A section
+  with pages of its own (the chute: its aiming, its StallGuard) lists them as
+  sub-tabs, indented under it and always shown; see `SideNav` in
+  [components.md](components.md#navigation).
 
 ## The settings layout
 
@@ -47,12 +50,24 @@ page.
 
 **A page whose main thing is a camera** (a channel page) is not a page of
 forms, so it takes the whole content width, capped at 1800px on a very large
-screen. From `xl` up the camera takes all the width the stepper's panel
-leaves (23rem, on the right), and below `xl` the stepper's panel goes under
-the camera; whatever else the page has (the C4 sectors) is below both. The
-stepper's controls are one control: a jog control (counterclockwise, Stop and
-clockwise, in one outline with a line between them), the step presets and the
-speed, not a row of loose buttons or a padded track.
+screen. The camera takes the whole width, and the stepper's panel is under it
+at every width, as wide as the camera; whatever else the page has (the C4
+sectors) is below both. (A panel that edits the picture or the zone is the
+exception: it sits at the camera's right from `xl` up, 23rem wide, while it is
+open, and the stepper's panel is put away until it closes.) Inside its panel
+the stepper's jog control sits at the left and the choice of what each press
+moves at its right, side by side where the panel is wide and stacked where it is
+not. The stepper's controls are one control: a jog control (counterclockwise,
+Stop and clockwise, in one outline with a line between them), the step presets
+and the speed, not a row of loose buttons or a padded track.
+
+**A page about one motor** (C-channel 1, the chute) is the stepper's panel at
+the page's width, the same panel that sits under a camera. The chute, which has
+more to do, gives each job a panel of its own: the motor and its jog control
+first, with its homing buttons at the top of that panel, then the operating
+speed, the stress test and its runs, the driver's settings and the endstop's.
+They are always shown, never folded out, 16px apart, each with its one action in
+its footer, and nothing on them scrolls on its own.
 
 ## The dashboard layout
 

@@ -14,7 +14,7 @@
 	import ChannelLedSection from '$lib/components/settings/ChannelLedSection.svelte';
 	import DetectionSettingsSidebar from '$lib/components/settings/DetectionSettingsSidebar.svelte';
 	import PictureSettingsSidebar from '$lib/components/settings/PictureSettingsSidebar.svelte';
-	import StepperSidebar from '$lib/components/settings/StepperSidebar.svelte';
+	import StepperPanel from '$lib/components/settings/StepperPanel.svelte';
 	import ZoneEditingSidebar from '$lib/components/settings/ZoneEditingSidebar.svelte';
 	import {
 		clonePictureSettings,
@@ -447,7 +447,7 @@
 	$effect(() => {
 		if (!reassignModalOpen) reassignConfirm = null;
 	});
-	const showSidebarColumn = $derived(!wizardMode && Boolean(activeSidebar || hasStepper));
+	const showSidebarColumn = $derived(!wizardMode && Boolean(activeSidebar));
 	let canvasCursor = $state<'default' | 'crosshair' | 'pointer' | 'grab' | 'grabbing'>('default');
 	let canvasEl: HTMLCanvasElement;
 	let previewViewportEl: HTMLDivElement | null = null;
@@ -4071,20 +4071,18 @@
 				<ChannelLedSection channelKey={currentRole()} />
 			</Panel>
 		{/if}
-
-		{#if !wizardMode && !activeSidebar && hasStepper && stepperKey}
-			<!-- Beside the camera from xl up; under it, no wider than a form. -->
-			<div class="max-w-xl min-w-0 xl:max-w-none">
-				<StepperSidebar
-					{stepperKey}
-					endstop={stepperEndstop}
-					label={stepperLabel}
-					gearRatioOverride={stepperGearRatio}
-					keyboardShortcuts={true}
-				/>
-			</div>
-		{/if}
 	</div>
+
+	{#if !wizardMode && !activeSidebar && hasStepper && stepperKey}
+		<!-- The stepper's panel, under the camera and as wide as it. -->
+		<StepperPanel
+			{stepperKey}
+			endstop={stepperEndstop}
+			label={stepperLabel}
+			gearRatioOverride={stepperGearRatio}
+			keyboardShortcuts={true}
+		/>
+	{/if}
 </div>
 
 <Modal bind:open={cameraModalOpen} title="Choose the camera for {CHANNEL_LABELS[currentChannel]}" size="lg">

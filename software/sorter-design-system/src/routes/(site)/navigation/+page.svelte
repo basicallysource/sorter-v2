@@ -130,7 +130,7 @@
 
 <SiteSection
 	title="Side nav"
-	lead="A column on the surface plane, the full height beside the content, which sits on the canvas: no line between them, because their fills differ. The current section takes the primary's tint."
+	lead="A column on the surface plane, the full height beside the content, which sits on the canvas: no line between them, because their fills differ. The current section takes the primary's tint. A section with pages of its own lists them indented under it, always: the chute's aiming and its StallGuard are sub-tabs of the chute, which is the first view of them. A sub-tab has no icon and its name lines up with its section's."
 >
 	<Specimen>
 		<div class="w-60">
@@ -139,7 +139,7 @@
 				groups={[
 					{
 						items: [
-							{ href: '/navigation', label: 'General', icon: Settings },
+							{ href: '/navigation#general', label: 'General', icon: Settings },
 							{ href: '/navigation#hive', label: 'Hive', icon: Cloud }
 						]
 					},
@@ -148,6 +148,15 @@
 						items: [
 							{ href: '/navigation#c1', label: 'C-Channel 1', icon: Wrench },
 							{ href: '/navigation#c2', label: 'C-Channel 2', icon: Camera },
+							{
+								href: '/navigation#chute',
+								label: 'Chute',
+								icon: Wrench,
+								children: [
+									{ href: '/navigation#chute-aiming', label: 'Chute aiming' },
+									{ href: '/navigation', label: 'StallGuard' }
+								]
+							},
 							{ href: '/navigation#layers', label: 'Storage layers', icon: Layers, meta: '3' }
 						]
 					}

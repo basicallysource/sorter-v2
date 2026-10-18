@@ -1,7 +1,8 @@
 <!--
 	The other settings pages. A channel with a camera shows the camera as the
-	main thing, with its stepper's controls beside it; a stepper without one
-	shows the controls alone. The rest are outside this example.
+	main thing, with its stepper's controls under it at the camera's width; a
+	stepper without one (the chute) is a page of panels, one per job, none of
+	them folded out. The rest are outside this example.
 -->
 <script lang="ts">
 	import Camera from '@lucide/svelte/icons/camera';
@@ -33,7 +34,46 @@
 
 <svelte:head><title>{title} · Settings · Example app</title></svelte:head>
 
-{#snippet stepper()}
+{#snippet driverRows()}
+	<div class="divide-y divide-line">
+		<SettingRow
+			label="Run current"
+			help="Higher holds better and runs hotter."
+			for="current"
+			changed={current !== defaults.current}
+			defaultText="{defaults.current} mA"
+			onreset={() => (current = defaults.current)}
+		>
+			<Input id="current" type="number" bind:value={current} unit="mA" class="w-28" />
+		</SettingRow>
+		<SettingRow
+			label="Microsteps"
+			for="microsteps"
+			changed={microsteps !== defaults.microsteps}
+			defaultText={defaults.microsteps}
+			onreset={() => (microsteps = defaults.microsteps)}
+		>
+			<Select
+				id="microsteps"
+				class="w-28"
+				bind:value={microsteps}
+				options={['8', '16', '32', '64'].map((m) => ({ value: m, label: m }))}
+			/>
+		</SettingRow>
+		<SettingRow
+			label="StallGuard threshold"
+			help="Lower stops sooner when the stepper meets resistance."
+			for="threshold"
+			changed={threshold !== defaults.threshold}
+			defaultText={String(defaults.threshold)}
+			onreset={() => (threshold = defaults.threshold)}
+		>
+			<Input id="threshold" type="number" bind:value={threshold} class="w-28" />
+		</SettingRow>
+	</div>
+{/snippet}
+
+{#snippet stepper(folded: boolean)}
 	<Panel flush>
 		<div class="flex items-center justify-between gap-3 px-(--pad-panel) pt-4 pb-3">
 			<span class="text-base font-semibold text-ink">Stepper</span>
@@ -42,47 +82,22 @@
 		<div class="px-(--pad-panel) pb-(--pad-panel)">
 			<JogControl />
 		</div>
-		<div class="border-t border-line">
-			<Disclosure title="Driver settings">
-				<div class="divide-y divide-line pl-6">
-					<SettingRow
-						label="Run current"
-						help="Higher holds better and runs hotter."
-						for="current"
-						changed={current !== defaults.current}
-						defaultText="{defaults.current} mA"
-						onreset={() => (current = defaults.current)}
-					>
-						<Input id="current" type="number" bind:value={current} unit="mA" class="w-28" />
-					</SettingRow>
-					<SettingRow
-						label="Microsteps"
-						for="microsteps"
-						changed={microsteps !== defaults.microsteps}
-						defaultText={defaults.microsteps}
-						onreset={() => (microsteps = defaults.microsteps)}
-					>
-						<Select
-							id="microsteps"
-							class="w-28"
-							bind:value={microsteps}
-							options={['8', '16', '32', '64'].map((m) => ({ value: m, label: m }))}
-						/>
-					</SettingRow>
-					<SettingRow
-						label="StallGuard threshold"
-						help="Lower stops sooner when the stepper meets resistance."
-						for="threshold"
-						changed={threshold !== defaults.threshold}
-						defaultText={String(defaults.threshold)}
-						onreset={() => (threshold = defaults.threshold)}
-					>
-						<Input id="threshold" type="number" bind:value={threshold} class="w-28" />
-					</SettingRow>
-				</div>
-			</Disclosure>
-		</div>
+		{#if folded}
+			<div class="border-t border-line">
+				<Disclosure title="Driver settings">
+					<div class="pl-6">{@render driverRows()}</div>
+				</Disclosure>
+			</div>
+		{/if}
 	</Panel>
+	{#if !folded}
+		<Panel title="Driver settings" description="Currents, microsteps, stall detection." flush>
+			{@render driverRows()}
+			{#snippet footer()}
+				<Button variant="primary">Apply the driver settings</Button>
+			{/snippet}
+		</Panel>
+	{/if}
 {/snippet}
 
 <PageHeader
@@ -95,7 +110,7 @@
 />
 
 {#if cameraSections.includes(section)}
-	<div class="grid items-start gap-(--gap-panels) xl:grid-cols-[minmax(0,1fr)_23rem]">
+	<div class="flex flex-col gap-(--gap-panels)">
 		<MediaTile title="{title} camera" expandable>
 			{#snippet actions()}
 				<Button size="sm" variant="ghost">-1°</Button>
@@ -107,10 +122,10 @@
 			{/snippet}
 			<Camera size={24} class="text-ink-faint" />
 		</MediaTile>
-		<div class="max-w-xl xl:max-w-none">{@render stepper()}</div>
+		{@render stepper(true)}
 	</div>
 {:else if steppers.includes(section)}
-	<div class="max-w-xl">{@render stepper()}</div>
+	<div class="flex flex-col gap-(--gap-panels)">{@render stepper(false)}</div>
 {:else}
 	<Panel>
 		<EmptyState icon={Settings} title="Not part of this example">

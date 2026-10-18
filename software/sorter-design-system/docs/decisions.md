@@ -3,6 +3,33 @@
 What was decided, and when. When a rule changes, the rule's own file changes
 and a dated entry goes here; the history is git.
 
+## 2026-10-18
+
+- **The side nav has sub-tabs, always shown.** The chute's aiming and its
+  StallGuard lived under Helpers, away from the chute. Now an item can list
+  pages of its own (`children`) indented under it, so Hardware > Chute has
+  Chute aiming and StallGuard right under it, and Classification channel has
+  its StallGuard. They are always shown rather than opening with their item:
+  the list is five rows, a hidden page is a page nobody finds, and the column
+  does not change height as someone moves through it. The item is the first
+  view of its own pages and is not repeated in the list.
+- **The stepper's panel is under the camera at every width.** It sat at the
+  camera's right from `xl` up, a 23rem column in which the jog control, what each
+  press moves and the driver settings were cramped, and the camera was
+  narrower than it needed to be. Now it is as wide as the camera, with the jog
+  control at its left and the choice of what a press moves beside it.
+- **The chute's page has panels, not fold-outs.** It was a 450px card with its
+  stress test, driver settings and endstop settings folded into rows, homing a
+  section in the middle, and the past runs of the stress test in a box that
+  scrolled inside the page. Now it is the page's width, homing is two buttons
+  at the top, and each job is a panel that is always shown with its one action
+  in its footer; the list of past runs shows a few and the rest on request, so
+  the page has one scroll. A motor under a camera keeps its driver settings
+  folded, since that page is about the camera.
+- **StallGuard belongs to a motor.** One page with a motor picker became a
+  tab on each motor's own page: the motor's stall settings at the top, the
+  calibration tools (a sweep, its load curve, the suggested threshold) below.
+
 ## 2026-10-15
 
 - **A page with views shows them as tabs and in the top bar.** The Sorter's
@@ -142,7 +169,7 @@ and a dated entry goes here; the history is git.
   the current page's mark come from one set of tokens, so nothing reads
   cramped next to its neighbor. The current page's mark is 3px and as wide as
   its link.
-- **Channel pages show their camera**, with the stepper's controls beside it
+- **Channel pages show their camera**, with the stepper's controls under it
   as one jog control.
 - **The wordmark is "Sorter"** in sentence case, not capitals.
 - **Round shapes**: a status dot, a radio, and a person's avatar on Hive.
@@ -187,8 +214,8 @@ and a dated entry goes here; the history is git.
 - **A page whose main thing is a camera uses the whole width.** A channel
   page was capped at 1152px like a page of forms, so on a wide screen the
   camera was small and half the window empty. It now takes the content width
-  up to 1800px, the camera beside the stepper's panel from `xl` and above it
-  below; pages of forms keep 1152px.
+  up to 1800px, with the stepper's panel under the camera; pages of forms keep
+  1152px.
 - **A button that opens a menu is three dots.** The top bar's machine menu
   showed a power icon, which read as a button that powers the machine off.
   It is `ellipsis` with a name; `power` and `power-off` are only for the

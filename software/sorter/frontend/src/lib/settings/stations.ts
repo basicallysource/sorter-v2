@@ -1,4 +1,3 @@
-import Activity from '@lucide/svelte/icons/activity';
 import Camera from '@lucide/svelte/icons/camera';
 import CircuitBoard from '@lucide/svelte/icons/circuit-board';
 import Cloud from '@lucide/svelte/icons/cloud';
@@ -11,7 +10,6 @@ import Layers3 from '@lucide/svelte/icons/layers';
 import Network from '@lucide/svelte/icons/network';
 import Palette from '@lucide/svelte/icons/palette';
 import Settings from '@lucide/svelte/icons/settings';
-import Shapes from '@lucide/svelte/icons/shapes';
 import ShieldAlert from '@lucide/svelte/icons/shield-alert';
 import SlidersHorizontal from '@lucide/svelte/icons/sliders-horizontal';
 import Wifi from '@lucide/svelte/icons/wifi';
@@ -47,7 +45,6 @@ export type EndstopConfig = {
 	liveEndpoint: string;
 	homeEndpoint: string;
 	homeCancelEndpoint: string;
-	calibrateEndpoint?: string;
 };
 
 export type StationSlug =
@@ -56,10 +53,19 @@ export type StationSlug =
 	| 'c-channel-3'
 	| 'classification-channel';
 
+// A page that belongs to a side nav item, listed indented under it.
+export type SettingsNavChild = {
+	href: string;
+	label: string;
+};
+
 export type SettingsNavItem = {
 	href: string;
 	label: string;
 	icon: typeof Settings;
+	// Pages of its own (the chute's aiming, its StallGuard). The item itself is
+	// the first of them and is not repeated here.
+	children?: SettingsNavChild[];
 };
 
 export type StationPageConfig = SettingsNavItem & {
@@ -135,25 +141,17 @@ export const versionsNavItem: SettingsNavItem = {
 export const chuteNavItem: SettingsNavItem = {
 	href: '/settings/chute',
 	label: 'Chute',
-	icon: Wrench
+	icon: Wrench,
+	children: [
+		{ href: '/settings/chute-aiming', label: 'Chute aiming' },
+		{ href: '/settings/chute/stallguard', label: 'StallGuard' }
+	]
 };
 
 export const controlBoardNavItem: SettingsNavItem = {
 	href: '/settings/control-board',
 	label: 'Control board',
 	icon: CircuitBoard
-};
-
-export const chuteAimingNavItem: SettingsNavItem = {
-	href: '/settings/chute-aiming',
-	label: 'Chute aiming',
-	icon: Shapes
-};
-
-export const stallguardNavItem: SettingsNavItem = {
-	href: '/settings/stepper-stallguard',
-	label: 'StallGuard',
-	icon: Activity
 };
 
 export const jitterTestNavItem: SettingsNavItem = {
@@ -245,6 +243,7 @@ export const stationPageConfigs: StationPageConfig[] = [
 		href: '/settings/classification-channel',
 		label: 'Classification channel',
 		icon: Camera,
+		children: [{ href: '/settings/classification-channel/stallguard', label: 'StallGuard' }],
 		description:
 			'Configure the fourth C-channel camera, arc zones, and classification-channel stepper.',
 		cameraRoles: ['classification_channel'],
@@ -286,8 +285,6 @@ export const settingsNavItems: SettingsNavEntry[] = [
 	incidentsNavItem,
 	cycleTimeNavItem,
 	powerStressNavItem,
-	chuteAimingNavItem,
-	stallguardNavItem,
 	jitterTestNavItem,
 	performanceNavItem,
 	{ type: 'heading', label: 'Tuning' },

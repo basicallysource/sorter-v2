@@ -1,30 +1,18 @@
 <script lang="ts">
 	import Checkbox from '$lib/components/ui/Checkbox.svelte';
-	import Button from '$lib/components/ui/Button.svelte';
 
+	// The endstop's polarity. The parent places the Save button.
 	let {
-		loading,
-		saving,
-		homing,
-		canceling,
-		endstopActiveHigh = $bindable(),
-		onSave
+		busy,
+		endstopActiveHigh = $bindable()
 	}: {
-		loading: boolean;
-		saving: boolean;
-		homing: boolean;
-		canceling: boolean;
+		// Loading, saving, homing or canceling: nothing here changes meanwhile.
+		busy: boolean;
 		endstopActiveHigh: boolean;
-		onSave: () => void;
 	} = $props();
 </script>
 
-<div class="flex flex-wrap items-center justify-between gap-3 px-(--pad-panel) py-(--pad-row)">
-	<div>
-		<Checkbox bind:checked={endstopActiveHigh} disabled={loading || saving || homing || canceling}>
-			The endstop is active high
-		</Checkbox>
-		<p class="mt-0.5 ml-6.5 text-sm text-ink-muted">Flip it if the endstop reads backwards.</p>
-	</div>
-	<Button loading={saving} disabled={loading || homing || canceling} onclick={onSave}>Save</Button>
+<div class="px-(--pad-panel) py-(--pad-row)">
+	<Checkbox bind:checked={endstopActiveHigh} disabled={busy}>The endstop is active high</Checkbox>
+	<p class="mt-0.5 ml-6.5 text-sm text-ink-muted">Flip it if the endstop reads backwards.</p>
 </div>

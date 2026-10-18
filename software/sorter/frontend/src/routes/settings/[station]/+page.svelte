@@ -1,7 +1,7 @@
 <script lang="ts">
 	import PageHeader from '$lib/components/ui/PageHeader.svelte';
 	import C4SectorOccupancyPanel from '$lib/components/settings/C4SectorOccupancyPanel.svelte';
-	import StepperSidebar from '$lib/components/settings/StepperSidebar.svelte';
+	import StepperPanel from '$lib/components/settings/StepperPanel.svelte';
 	import ZoneSection from '$lib/components/settings/ZoneSection.svelte';
 	import type { PageData } from './$types';
 
@@ -32,9 +32,9 @@
 	{/if}
 {:else if data.station.stepperKeys.length > 0}
 	<!-- A station without cameras (C-channel 1): its steppers on their own. -->
-	<div class="flex max-w-xl flex-col gap-(--gap-panels)">
+	<div class="flex max-w-6xl flex-col gap-(--gap-panels)">
 		{#each data.station.stepperKeys as key, i (key)}
-			<StepperSidebar
+			<StepperPanel
 				stepperKey={key}
 				endstop={data.station.stepperEndstops?.[key]}
 				label={data.station.stepperDisplay?.[key]?.label}

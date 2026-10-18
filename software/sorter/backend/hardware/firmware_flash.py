@@ -23,6 +23,10 @@ LINUX_MOUNT_POINT = "/mnt/rpi-rp2-flash"
 BOOTLOADER_MOUNT_TIMEOUT_S = 30.0
 BOOTLOADER_UNMOUNT_TIMEOUT_S = 20.0
 SERIAL_REAPPEAR_TIMEOUT_S = 15.0
+# How much longer the serial wait holds its clock while the RPI-RP2 drive is
+# still there: a board behind a busy USB hub can take most of a minute to leave
+# the bootloader after the copy.
+BOOTLOADER_LINGER_TIMEOUT_S = 60.0
 COPY_CHUNK_SIZE = 64 * 1024
 # The bus default (100ms) is tuned for the hot control loop, where a late reply
 # is better dropped than waited on. Flashing runs inside the same busy backend
@@ -222,9 +226,15 @@ def waitForSerialBoard(
     gc: GlobalConfig,
     cancel: threading.Event,
     timeout_s: float = SERIAL_REAPPEAR_TIMEOUT_S,
+    linger_s: float = BOOTLOADER_LINGER_TIMEOUT_S,
 ) -> dict | None:
-    deadline = time.monotonic() + timeout_s
-    while time.monotonic() < deadline:
+    """The board's info once it answers on serial, or None after timeout_s.
+    While the RPI-RP2 drive is still visible the board has not started its
+    reboot, so the clock starts only once the drive is gone (or after
+    linger_s)."""
+    started = time.monotonic()
+    deadline = started + timeout_s
+    while True:
         if cancel.is_set():
             raise FlashCancelled()
         for port in MCUBus.enumerate_buses():
@@ -232,5 +242,9 @@ def waitForSerialBoard(
             if info is not None:
                 info["port"] = port
                 return info
+        now = time.monotonic()
+        if now - started < linger_s and findBootloaderBlockdev() is not None:
+            deadline = now + timeout_s
+        if now >= deadline:
+            return None
         time.sleep(1.0)
-    return None

@@ -80,6 +80,25 @@ def _initCommand(gc: GlobalConfig, label: str, action: str, command):
             time.sleep(HARDWARE_INIT_RETRY_DELAY_S)
 
 
+def _armUnlessNoDiagPin(gc: GlobalConfig, stepper: "StepperMotor", label: str, arm):
+    """A board that wires no DIAG pin for a channel (the SKR Pico wires none)
+    refuses to arm StallGuard there. That stepper runs without stall detection
+    instead of failing the whole hardware init."""
+
+    def command():
+        try:
+            return arm()
+        except MCUBusError as exc:
+            if "No DIAG pin" not in str(exc):
+                raise
+            stepper.stallguard_enabled = False
+            gc.logger.warning(
+                f"StallGuard is off for the {label} stepper: the control board has no DIAG pin for its channel."
+            )
+
+    return command
+
+
 def _configureStepper(
     gc: GlobalConfig,
     stepper: "StepperMotor",
@@ -102,6 +121,8 @@ def _configureStepper(
     verify = not gc.no_power_development_mode
 
     def run(action: str, command):
+        if action == "arm stall detection":
+            command = _armUnlessNoDiagPin(gc, stepper, motor.label, command)
         return _initCommand(gc, motor.label, action, command)
 
     def interfaceCount() -> int:

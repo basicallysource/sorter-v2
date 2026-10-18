@@ -732,7 +732,7 @@ def main() -> None:
         )
 
         chute = getattr(next_controller.coordinator.distribution, "chute", None) if hasattr(next_controller, "coordinator") else None
-        if chute is not None and not _noPowerModeActive(gc):
+        if chute is not None and not _noPowerModeActive(gc) and not gc.disable_chute:
             gc.logger.info("Homing chute...")
             try:
                 if chute.home():
@@ -742,6 +742,8 @@ def main() -> None:
             except Exception as e:
                 next_controller.coordinator.cleanup()
                 raise RuntimeError(f"Chute homing failed: {e}") from e
+        elif chute is not None and gc.disable_chute and not _noPowerModeActive(gc):
+            gc.logger.info("Skipping chute homing: the chute is disabled.")
         elif chute is not None:
             gc.logger.info("Skipping chute homing in no-power development mode.")
 

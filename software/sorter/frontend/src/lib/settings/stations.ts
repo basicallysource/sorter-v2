@@ -121,7 +121,8 @@ export const appearanceNavItem: SettingsNavItem = {
 export const dataNavItem: SettingsNavItem = {
 	href: '/settings/data',
 	label: 'Data',
-	icon: Database
+	icon: Database,
+	children: [{ href: '/settings/data/uploads', label: 'Uploads' }]
 };
 
 export const trainingDataNavItem: SettingsNavItem = {

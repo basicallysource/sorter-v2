@@ -93,7 +93,6 @@ def _mkChannel(transport, shared) -> TwoPieceClassificationChannel:
     ch.irl_config = SimpleNamespace()
     ch.ctx = SimpleNamespace(reset=lambda: None, known_object=None)
     ch._pieces = {}
-    ch._lost = {}
     ch._phase = _Phase.WAITING
     ch._eject_target = None
     ch._stage_target = None
@@ -446,59 +445,3 @@ def test_a_ready_head_goes_out_alone_when_no_next_piece_comes() -> None:
     ch._ready_since = time.monotonic() - two_piece._HEAD_ALONE_AFTER_S - 1.0
     ch._maybeStartRotation()
     assert ch._phase == _Phase.EJECTING and ch._eject_target is head and ch._stage_target is None
-
-
-def _seen(track_id: int, *, zone: int = _PRECISE_ZONE, gap: float | None = 30.0) -> SimpleNamespace:
-    return SimpleNamespace(sv_bt_track_id=track_id, zone_code=zone, com_forward_to_exit_deg=gap)
-
-
-def _lose(ch: TwoPieceClassificationChannel, track_id: int, *, gap_to_exit: float = 30.0) -> _TrackedPiece:
-    obj = KnownObject(part_id="3001", color_id="1")
-    obj.classification_status = ClassificationStatus.classified
-    tp = _addPiece(
-        ch, track_id, gap_to_exit=gap_to_exit, obj=obj,
-        last_seen_ago_s=two_piece._TRACK_GONE_RETIRE_S + 0.1,
-    )
-    ch._retireGonePieces(time.monotonic())
-    assert track_id not in ch._pieces and track_id in ch._lost
-    return tp
-
-
-def test_a_lost_piece_back_under_its_own_id_keeps_its_classification() -> None:
-    transport = ClassificationChannelTransport()
-    ch = _mkChannel(transport, _mkShared(transport))
-    tp = _lose(ch, 61)
-
-    assert ch._readoptLost(61, _seen(61)) is tp
-    assert ch._pieces[61] is tp and not ch._lost
-    assert tp.known_object.part_id == "3001" and tp.result_applied
-
-
-def test_a_lost_piece_back_under_a_new_id_keeps_its_classification() -> None:
-    transport = ClassificationChannelTransport()
-    ch = _mkChannel(transport, _mkShared(transport))
-    tp = _lose(ch, 22, gap_to_exit=120.0)
-
-    assert ch._readoptLost(23, _seen(23, gap=60.0)) is tp
-    assert tp.track_id == 23 and ch._pieces[23] is tp
-
-
-def test_a_new_piece_in_the_drop_zone_is_not_a_lost_one() -> None:
-    transport = ClassificationChannelTransport()
-    ch = _mkChannel(transport, _mkShared(transport))
-    _lose(ch, 22)
-
-    assert ch._readoptLost(23, _seen(23, zone=two_piece._ZONE_DROP)) is None
-    assert ch._readoptLost(24, _seen(24, gap=30.0 + two_piece._READOPT_BACK_TOL_DEG + 5.0)) is None
-    assert 22 in ch._lost
-
-
-def test_a_lost_piece_that_never_comes_back_is_retired() -> None:
-    transport = ClassificationChannelTransport()
-    ch = _mkChannel(transport, _mkShared(transport))
-    _lose(ch, 22)
-
-    ch._expireLost(time.monotonic())
-    assert 22 in ch._lost
-    ch._expireLost(time.monotonic() + two_piece._LOST_READOPT_S + 1.0)
-    assert not ch._lost

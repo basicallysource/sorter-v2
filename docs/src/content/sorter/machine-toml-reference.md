@@ -111,7 +111,7 @@ Per-stepper TMC driver currents. With no entry, the C-channel rotors run at `iru
 
 ## `[stepper_driver.<stepper_name>]`
 
-Per-stepper TMC driver mode.
+Per-stepper TMC driver mode. The control program writes these to each driver at start-up and never changes them by itself while sorting. Saving a change in the stepper settings writes it to the running driver straight away and keeps it in `machine.toml` for the next start.
 
 | Key | Type | Default | Description |
 |-----|------|---------|-------------|

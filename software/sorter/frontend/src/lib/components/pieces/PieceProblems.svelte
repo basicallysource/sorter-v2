@@ -1,18 +1,22 @@
 <script lang="ts">
 	import Alert from '$lib/components/ui/Alert.svelte';
+	import TriangleAlert from '@lucide/svelte/icons/triangle-alert';
 	import type { PieceProblem } from '$lib/pieces';
 
 	// What went wrong with a piece on its way through the machine, as one warning
 	// (an Alert): a line for each problem, oldest first. Each line is a short bold
 	// name for the kind of trouble, the machine's own sentence about it (the
 	// specifics and the timings are already in it), and the time of day it
-	// happened, small and muted. Draws nothing for a piece with no problems. The
-	// Pieces list and the piece's page both show it, so they say the same thing.
+	// happened, small and muted. Draws nothing for a piece with no problems.
+	// `line` is the Pieces list's form: the names alone, on one line; the
+	// sentences are on the piece's page, one click away.
 	let {
 		problems,
+		layout = 'full',
 		class: className = ''
 	}: {
 		problems: PieceProblem[] | null | undefined;
+		layout?: 'full' | 'line';
 		class?: string;
 	} = $props();
 
@@ -51,7 +55,12 @@
 	}
 </script>
 
-{#if problems && problems.length > 0}
+{#if problems && problems.length > 0 && layout === 'line'}
+	<p class="flex min-w-0 items-center gap-1.5 text-sm text-warning-ink {className}">
+		<TriangleAlert size={14} class="shrink-0" aria-hidden="true" />
+		<span class="truncate">{problems.map((p) => label(p.kind)).join(' · ')}</span>
+	</p>
+{:else if problems && problems.length > 0}
 	<Alert tone="warning" class={className}>
 		<ul class="flex flex-col gap-1">
 			{#each problems as problem, i (i)}

@@ -61,6 +61,15 @@ def set_pulse_perception_config(body: dict[str, Any]) -> dict[str, Any]:
     return {"config": updated}
 
 
+@router.get("/api/tuning/feeder-pulse-perception/adapt")
+def get_pulse_perception_adapt() -> dict[str, Any]:
+    """How the feeder has fitted itself to the pieces: the room C2 leaves on C3
+    and each exit's hold after a fall, with why."""
+    from subsystems.feeder.pulse_perception import adapt
+
+    return adapt.get().report()
+
+
 @router.get("/api/tuning/feeder-pulse-perception/autotune")
 def get_pulse_perception_autotune_status() -> dict[str, Any]:
     from subsystems.feeder.pulse_perception.autotune import getAutoTuner

@@ -101,11 +101,25 @@ classification_channel = 2
 # flip_horizontal = false
 # flip_vertical = false
 
+# --- Stepper driver settings ---
+# The UI saves these; the docs' machine.toml reference lists each key and its
+# per-motor default. Motors: chute_stepper, carousel, c_channel_1_rotor,
+# c_channel_2_rotor, c_channel_3_rotor.
 [stepper_current_overrides]
-# default = 16, max = 31
 
 # [stepper_current_overrides.chute_stepper]
-# irun = 16
+# irun = 16  # max 31
+# ihold = 4
+
+# [stepper_driver.chute_stepper]
+# microsteps = 8
+# stealthchop = true
+# coolstep = false
+
+# [stepper_stallguard.chute_stepper]
+# enabled = true
+# sgthrs = 55
+# tcoolthrs = 150
 
 [stepper_direction_inverts]
 carousel = true

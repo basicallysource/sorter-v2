@@ -2,8 +2,13 @@ import time
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 from global_config import GlobalConfig
+from hardware_settings.chute import (
+    DEFAULT_FIRST_SECTION_OFFSET_DEG,
+    DEFAULT_NUM_SECTIONS,
+    DEFAULT_OPERATING_SPEED_MICROSTEPS_PER_SEC,
+    DEFAULT_SECTION_WIDTH_DEG,
+)
 from irl.bin_layout import DistributionLayout
-from irl.parse_user_toml import DEFAULT_CHUTE_OPERATING_SPEED_MICROSTEPS_PER_SEC
 
 if TYPE_CHECKING:
     from hardware.sorter_interface import StepperMotor, DigitalInputPin
@@ -35,12 +40,11 @@ CHUTE_MAX_ANGLE = 350
 # The (i + 0.5) term is what centers a 1-bin layer and splits 2/3/5-bin
 # layers evenly from the same W. See the agent-notes task
 # "chute-aiming-calibration" for the full derivation and the calibration
-# routine that measures theta0 and W.
-DEFAULT_NUM_SECTIONS = 6
-DEFAULT_SECTION_WIDTH_DEG = 51.75  # = 360/6 - 8.25 (legacy 60° pitch minus 8.25° pillar)
-DEFAULT_FIRST_SECTION_OFFSET_DEG = 8.25
+# routine that measures theta0 and W. The defaults are in hardware_settings/chute.py.
 
 HOME_SPEED_MICROSTEPS_PER_SEC = -1000
+# The chute's moves start and end at this speed; they cruise at the operating speed.
+MIN_SPEED_MICROSTEPS_PER_SEC = 16
 HOME_TIMEOUT_MS = 15000
 
 
@@ -62,7 +66,7 @@ class Chute:
         section_width_deg: float = DEFAULT_SECTION_WIDTH_DEG,
         first_section_offset_deg: float = DEFAULT_FIRST_SECTION_OFFSET_DEG,
         endstop_active_high: bool = True,
-        operating_speed_microsteps_per_second: int = DEFAULT_CHUTE_OPERATING_SPEED_MICROSTEPS_PER_SEC,
+        operating_speed_microsteps_per_second: int = DEFAULT_OPERATING_SPEED_MICROSTEPS_PER_SEC,
     ):
         self.gc = gc
         self.logger = gc.logger
@@ -112,22 +116,6 @@ class Chute:
             0, 0, self._binsInFirstSection(), unclamped=True
         )
         return angle if angle is not None else self.first_section_offset_deg
-
-    def setCalibration(
-        self,
-        first_bin_center: float,
-        pillar_width_deg: float,
-        endstop_active_high: bool | None = None,
-    ) -> None:
-        # Legacy entry point (old /settings/chute page). Map the old params
-        # onto the canonical model at the current num_sections: pillar width
-        # becomes the usable section width, and first_bin_center is treated as
-        # the section-0 start offset. Prefer setAimingCalibration for the new
-        # calibration flow.
-        self.section_width_deg = self.section_pitch_deg - float(pillar_width_deg)
-        self.first_section_offset_deg = float(first_bin_center)
-        if endstop_active_high is not None:
-            self.endstop_active_high = endstop_active_high
 
     def setAimingCalibration(
         self,
@@ -209,17 +197,21 @@ class Chute:
             address.section_index, address.bin_index, num_bins
         )
 
-    def moveToAngle(self, target: float) -> int | None:
-        """Start a move; the estimated duration in ms, or None if the board refused it."""
+    def _setSpeed(self, speed: int) -> None:
+        # The board keeps the last speed limits any caller sent (start-up's, a
+        # jog's, a sweep's), so every chute move sets its own.
+        self.stepper.set_speed_limits(MIN_SPEED_MICROSTEPS_PER_SEC, speed)
+
+    def moveToAngle(self, target: float, max_speed: int | None = None) -> int | None:
+        """Start a move at the operating speed, or at `max_speed` when given; the
+        estimated duration in ms, or None if the board refused it."""
         target = max(0.0, min(360.0, target))
         current = self.current_angle
         target_stepper_angle = target * GEAR_RATIO
         current_stepper_angle = current * GEAR_RATIO
         delta_stepper_angle = target_stepper_angle - current_stepper_angle
-        estimated_ms = self.stepper.estimateMoveDegreesMs(
-            delta_stepper_angle,
-            max_speed=self.operating_speed_microsteps_per_second,
-        )
+        speed = int(max_speed or self.operating_speed_microsteps_per_second)
+        estimated_ms = self.stepper.estimateMoveDegreesMs(delta_stepper_angle, max_speed=speed)
 
         if self.gc.disable_chute:
             self.logger.info(
@@ -227,8 +219,9 @@ class Chute:
             )
             return estimated_ms
 
+        self._setSpeed(speed)
         self.logger.info(
-            f"Chute: moving from {current:.1f}° to {target:.1f}° (delta_stepper_deg={delta_stepper_angle:.2f}, est_ms={estimated_ms})"
+            f"Chute: moving from {current:.1f}° to {target:.1f}° at {speed} µsteps/s (delta_stepper_deg={delta_stepper_angle:.2f}, est_ms={estimated_ms})"
         )
         if not self.stepper.move_degrees(delta_stepper_angle):
             return None
@@ -254,10 +247,8 @@ class Chute:
         target_stepper_angle = target * GEAR_RATIO
         current_stepper_angle = current * GEAR_RATIO
         delta_stepper_angle = target_stepper_angle - current_stepper_angle
-        estimated_ms = self.stepper.estimateMoveDegreesMs(
-            delta_stepper_angle,
-            max_speed=self.operating_speed_microsteps_per_second,
-        )
+        speed = int(self.operating_speed_microsteps_per_second)
+        estimated_ms = self.stepper.estimateMoveDegreesMs(delta_stepper_angle, max_speed=speed)
         timeout_ms = max(1, estimated_ms + timeout_buffer_ms)
 
         if self.gc.disable_chute:
@@ -266,8 +257,9 @@ class Chute:
             )
             return estimated_ms
 
+        self._setSpeed(speed)
         self.logger.info(
-            f"Chute: moving(blocking) from {current:.1f}° to {target:.1f}° (delta_stepper_deg={delta_stepper_angle:.2f}, est_ms={estimated_ms}, timeout_ms={timeout_ms})"
+            f"Chute: moving(blocking) from {current:.1f}° to {target:.1f}° at {speed} µsteps/s (delta_stepper_deg={delta_stepper_angle:.2f}, est_ms={estimated_ms}, timeout_ms={timeout_ms})"
         )
         if not self.stepper.move_degrees_blocking(delta_stepper_angle, timeout_ms=timeout_ms):
             return None

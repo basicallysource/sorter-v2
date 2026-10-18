@@ -8,17 +8,15 @@ from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
 import machine_toml
-from irl.bin_layout import getBinLayout
-from irl.parse_user_toml import (
-    DEFAULT_CHUTE_FIRST_BIN_CENTER,
-    DEFAULT_CHUTE_ENDSTOP_ACTIVE_HIGH,
-    DEFAULT_CHUTE_FIRST_SECTION_OFFSET_DEG,
-    DEFAULT_CHUTE_HOME_PIN_CHANNEL,
-    DEFAULT_CHUTE_NUM_SECTIONS,
-    DEFAULT_CHUTE_OPERATING_SPEED_MICROSTEPS_PER_SEC,
-    DEFAULT_CHUTE_PILLAR_WIDTH_DEG,
-    DEFAULT_CHUTE_SECTION_WIDTH_DEG,
+from hardware_settings.chute import (
+    DEFAULT_ENDSTOP_ACTIVE_HIGH,
+    DEFAULT_NUM_SECTIONS,
+    ChuteSettings,
+    applyChuteSettings,
+    readChuteSettings,
+    saveChuteSettings,
 )
+from irl.bin_layout import getBinLayout
 from chute_calibrations import (
     activateChuteCalibrationInstance,
     deleteChuteCalibrationInstance,
@@ -33,17 +31,19 @@ from subsystems.distribution.chute import CHUTE_MAX_ANGLE
 router = APIRouter()
 
 
+# In both settings payloads a field left out stays as saved; a partial save
+# never puts another setting back to its default.
 class ChuteHardwareSettingsPayload(BaseModel):
-    first_bin_center: float = DEFAULT_CHUTE_FIRST_BIN_CENTER
-    pillar_width_deg: float = DEFAULT_CHUTE_PILLAR_WIDTH_DEG
-    endstop_active_high: bool = DEFAULT_CHUTE_ENDSTOP_ACTIVE_HIGH
-    operating_speed_microsteps_per_second: int = DEFAULT_CHUTE_OPERATING_SPEED_MICROSTEPS_PER_SEC
+    first_bin_center: Optional[float] = None
+    pillar_width_deg: Optional[float] = None
+    endstop_active_high: Optional[bool] = None
+    operating_speed_microsteps_per_second: Optional[int] = None
 
 
 class ChuteAimingSettingsPayload(BaseModel):
-    num_sections: int = DEFAULT_CHUTE_NUM_SECTIONS
-    section_width_deg: float = DEFAULT_CHUTE_SECTION_WIDTH_DEG
-    first_section_offset_deg: float = DEFAULT_CHUTE_FIRST_SECTION_OFFSET_DEG
+    num_sections: Optional[int] = None
+    section_width_deg: Optional[float] = None
+    first_section_offset_deg: Optional[float] = None
     endstop_active_high: Optional[bool] = None
     operating_speed_microsteps_per_second: Optional[int] = None
     label: Optional[str] = None
@@ -55,7 +55,7 @@ class ChuteAimingDerivePayload(BaseModel):
     first_bin_angle: float
     last_bin_angle: float
     bins_in_test_section: int
-    num_sections: int = DEFAULT_CHUTE_NUM_SECTIONS
+    num_sections: int = DEFAULT_NUM_SECTIONS
     label: Optional[str] = None
 
 
@@ -70,18 +70,6 @@ class ChuteVirtualBinPayload(BaseModel):
     bin_index: int
 
 
-def _coerce_float(value: object, default: float) -> float:
-    if isinstance(value, (int, float)) and not isinstance(value, bool):
-        return float(value)
-    return default
-
-
-def _coerce_int(value: object, default: int) -> int:
-    if isinstance(value, int) and not isinstance(value, bool):
-        return value
-    return default
-
-
 def _pin_channel(pin: Any | None) -> int | None:
     channel = getattr(pin, "channel", None)
     if isinstance(channel, int) and not isinstance(channel, bool):
@@ -94,84 +82,60 @@ def _pin_channel(pin: Any | None) -> int | None:
     return None
 
 
-def _chute_settings_from_config(config: Dict[str, Any]) -> Dict[str, Any]:
-    chute = config.get("chute", {})
-    if not isinstance(chute, dict):
-        chute = {}
-
-    first_bin_center = _coerce_float(
-        chute.get("first_bin_center"),
-        DEFAULT_CHUTE_FIRST_BIN_CENTER,
-    )
-    pillar_width_deg = _coerce_float(
-        chute.get("pillar_width_deg"),
-        DEFAULT_CHUTE_PILLAR_WIDTH_DEG,
-    )
+def _live_chute() -> Any | None:
     irl = shared_state.getActiveIRL()
-    live_chute = getattr(irl, "chute", None) if irl is not None else None
-    # Unsaved, the polarity is the board's default, which only the live chute knows.
-    endstop_active_high = chute.get("endstop_active_high")
-    if not isinstance(endstop_active_high, bool):
-        live_active_high = getattr(live_chute, "endstop_active_high", None)
-        endstop_active_high = (
-            live_active_high if isinstance(live_active_high, bool) else DEFAULT_CHUTE_ENDSTOP_ACTIVE_HIGH
-        )
-    operating_speed_microsteps_per_second = chute.get(
-        "operating_speed_microsteps_per_second",
-        DEFAULT_CHUTE_OPERATING_SPEED_MICROSTEPS_PER_SEC,
+    return getattr(irl, "chute", None) if irl is not None else None
+
+
+def _board_defaults() -> Dict[str, Any]:
+    """The distribution board's own home input and polarity, used where none is
+    saved. Only the running chute knows them; it was built with them."""
+    chute = _live_chute()
+    defaults: Dict[str, Any] = {}
+    channel = _pin_channel(getattr(chute, "home_pin", None))
+    if channel is not None:
+        defaults["home_pin_channel"] = channel
+    active_high = getattr(chute, "endstop_active_high", None)
+    defaults["endstop_active_high"] = (
+        active_high if isinstance(active_high, bool) else DEFAULT_ENDSTOP_ACTIVE_HIGH
     )
-    if not isinstance(operating_speed_microsteps_per_second, int) or isinstance(
-        operating_speed_microsteps_per_second, bool
-    ):
-        operating_speed_microsteps_per_second = DEFAULT_CHUTE_OPERATING_SPEED_MICROSTEPS_PER_SEC
-    if operating_speed_microsteps_per_second <= 0:
-        operating_speed_microsteps_per_second = DEFAULT_CHUTE_OPERATING_SPEED_MICROSTEPS_PER_SEC
+    return defaults
 
-    if pillar_width_deg < 0 or pillar_width_deg >= 60:
-        pillar_width_deg = DEFAULT_CHUTE_PILLAR_WIDTH_DEG
 
-    num_sections = _coerce_int(chute.get("num_sections"), DEFAULT_CHUTE_NUM_SECTIONS)
-    if num_sections < 1:
-        num_sections = DEFAULT_CHUTE_NUM_SECTIONS
-    section_pitch_deg = 360.0 / num_sections
-
-    # Canonical aiming params win; otherwise derive from the legacy geometry so
-    # the old machine.toml and the legacy page still read sensibly.
-    if "section_width_deg" in chute:
-        section_width_deg = _coerce_float(
-            chute.get("section_width_deg"), section_pitch_deg - pillar_width_deg
-        )
-    else:
-        section_width_deg = section_pitch_deg - pillar_width_deg
-    if section_width_deg <= 0 or section_width_deg >= section_pitch_deg:
-        section_width_deg = min(DEFAULT_CHUTE_SECTION_WIDTH_DEG, section_pitch_deg - 0.01)
-
-    if "first_section_offset_deg" in chute:
-        first_section_offset_deg = _coerce_float(
-            chute.get("first_section_offset_deg"), first_bin_center
-        )
-    else:
-        first_section_offset_deg = first_bin_center
-
-    home_pin_channel = _coerce_int(
-        chute.get("home_pin_channel"), DEFAULT_CHUTE_HOME_PIN_CHANNEL
-    )
-    live_home_pin_channel = _pin_channel(getattr(live_chute, "home_pin", None))
-    if live_home_pin_channel is not None:
-        home_pin_channel = live_home_pin_channel
-
+def _chute_payload(settings: ChuteSettings) -> Dict[str, Any]:
     return {
-        "num_sections": num_sections,
-        "section_width_deg": round(section_width_deg, 4),
-        "first_section_offset_deg": round(first_section_offset_deg, 4),
-        "section_pitch_deg": round(section_pitch_deg, 4),
-        "pillar_width_deg": round(section_pitch_deg - section_width_deg, 4),
-        "first_bin_center": first_bin_center,
-        "endstop_active_high": endstop_active_high,
-        "operating_speed_microsteps_per_second": operating_speed_microsteps_per_second,
-        "home_pin_channel": home_pin_channel,
+        "num_sections": settings.num_sections,
+        "section_width_deg": round(settings.section_width_deg, 4),
+        "first_section_offset_deg": round(settings.first_section_offset_deg, 4),
+        "section_pitch_deg": round(settings.section_pitch_deg, 4),
+        "pillar_width_deg": round(settings.pillar_width_deg, 4),
+        # The legacy page's name for the first section's offset; saving it back
+        # unchanged keeps the geometry as it is.
+        "first_bin_center": round(settings.first_section_offset_deg, 4),
+        "endstop_active_high": settings.endstop_active_high,
+        "operating_speed_microsteps_per_second": settings.operating_speed_microsteps_per_second,
+        "home_pin_channel": settings.home_pin_channel,
         "max_angle_deg": CHUTE_MAX_ANGLE,
     }
+
+
+def _chute_settings_from_config(config: Dict[str, Any]) -> Dict[str, Any]:
+    return _chute_payload(readChuteSettings(config, **_board_defaults()))
+
+
+def _save_and_apply_chute(changes: Dict[str, Any]) -> tuple[ChuteSettings, bool]:
+    """Save chute settings and put them on the running chute, if there is one.
+    Returns the settings and whether they were applied now (otherwise they
+    apply at the next start)."""
+    try:
+        settings = saveChuteSettings(changes, **_board_defaults())
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+    chute = _live_chute()
+    if chute is None:
+        return settings, False
+    applyChuteSettings(chute, settings)
+    return settings, True
 
 
 def _live_chute_status() -> Dict[str, Any]:
@@ -198,7 +162,7 @@ def _live_chute_status() -> Dict[str, Any]:
         "live_available": True,
         "endstop_triggered": None,
         "raw_endstop_high": None,
-        "endstop_active_high": getattr(chute, "endstop_active_high", DEFAULT_CHUTE_ENDSTOP_ACTIVE_HIGH),
+        "endstop_active_high": getattr(chute, "endstop_active_high", DEFAULT_ENDSTOP_ACTIVE_HIGH),
         "stepper_direction_inverted": bool(getattr(stepper, "direction_inverted", True)),
         "current_angle": None,
         "stepper_position_degrees": None,
@@ -269,65 +233,15 @@ def get_chute_hardware_config() -> Dict[str, Any]:
 def save_chute_hardware_config(
     payload: ChuteHardwareSettingsPayload,
 ) -> Dict[str, Any]:
-    first_bin_center = float(payload.first_bin_center)
-    pillar_width_deg = float(payload.pillar_width_deg)
-    endstop_active_high = bool(payload.endstop_active_high)
-    operating_speed_microsteps_per_second = int(payload.operating_speed_microsteps_per_second)
-    if pillar_width_deg < 0 or pillar_width_deg >= 60:
-        raise HTTPException(
-            status_code=400,
-            detail="pillar_width_deg must be between 0 and less than 60 degrees",
-        )
-    if operating_speed_microsteps_per_second <= 0:
-        raise HTTPException(
-            status_code=400,
-            detail="operating_speed_microsteps_per_second must be greater than 0",
-        )
-
-    with machine_toml.edit() as config:
-        chute_config = config.get("chute", {})
-        if not isinstance(chute_config, dict):
-            chute_config = {}
-        # Keep the canonical aiming keys in sync with this legacy save so the
-        # newer chute-aiming page and this one never disagree about geometry.
-        num_sections = _coerce_int(chute_config.get("num_sections"), DEFAULT_CHUTE_NUM_SECTIONS)
-        if num_sections < 1:
-            num_sections = DEFAULT_CHUTE_NUM_SECTIONS
-        section_pitch_deg = 360.0 / num_sections
-        config["chute"] = {
-            **chute_config,
-            "first_bin_center": first_bin_center,
-            "pillar_width_deg": pillar_width_deg,
-            "num_sections": num_sections,
-            "section_width_deg": round(section_pitch_deg - pillar_width_deg, 4),
-            "first_section_offset_deg": first_bin_center,
-            "endstop_active_high": endstop_active_high,
-            "operating_speed_microsteps_per_second": operating_speed_microsteps_per_second,
-        }
-
-    applied_live = False
-    if shared_state.controller_ref is not None and hasattr(shared_state.controller_ref, "irl"):
-        chute = getattr(shared_state.controller_ref.irl, "chute", None)
-        if chute is not None and hasattr(chute, "setCalibration"):
-            try:
-                chute.setCalibration(first_bin_center, pillar_width_deg, endstop_active_high)
-                if hasattr(chute, "setOperatingSpeed"):
-                    chute.setOperatingSpeed(operating_speed_microsteps_per_second)
-                stepper = getattr(shared_state.controller_ref.irl, "chute_stepper", None)
-                if stepper is not None:
-                    stepper.set_speed_limits(16, operating_speed_microsteps_per_second)
-                applied_live = True
-            except Exception:
-                applied_live = False
-
+    settings, applied_live = _save_and_apply_chute(payload.model_dump(exclude_none=True))
     return {
         "ok": True,
-        "settings": _chute_settings_from_config(config),
+        "settings": _chute_payload(settings),
         "applied_live": applied_live,
         "message": (
             "Chute settings saved and applied live."
             if applied_live
-            else "Chute settings saved."
+            else "Chute settings saved. They apply when the hardware starts."
         ),
     }
 
@@ -485,94 +399,29 @@ def _record_calibration_instance(
         pass
 
 
-def _persist_and_apply_chute_aiming(
-    num_sections: int,
-    section_width_deg: float,
-    first_section_offset_deg: float,
-    endstop_active_high: Optional[bool] = None,
-    operating_speed_microsteps_per_second: Optional[int] = None,
-) -> Dict[str, Any]:
-    section_pitch_deg = 360.0 / num_sections
-    with machine_toml.edit() as config:
-        chute_config = config.get("chute", {})
-        if not isinstance(chute_config, dict):
-            chute_config = {}
-        new_chute: Dict[str, Any] = {
-            **chute_config,
-            "num_sections": num_sections,
-            "section_width_deg": round(section_width_deg, 4),
-            "first_section_offset_deg": round(first_section_offset_deg, 4),
-            # Keep legacy keys in sync for the old page / older readers.
-            "pillar_width_deg": round(section_pitch_deg - section_width_deg, 4),
-            "first_bin_center": round(first_section_offset_deg, 4),
-        }
-        if endstop_active_high is not None:
-            new_chute["endstop_active_high"] = bool(endstop_active_high)
-        if operating_speed_microsteps_per_second is not None:
-            new_chute["operating_speed_microsteps_per_second"] = int(operating_speed_microsteps_per_second)
-        config["chute"] = new_chute
-
-    applied_live = False
-    if shared_state.controller_ref is not None and hasattr(shared_state.controller_ref, "irl"):
-        chute = getattr(shared_state.controller_ref.irl, "chute", None)
-        if chute is not None and hasattr(chute, "setAimingCalibration"):
-            try:
-                chute.setAimingCalibration(
-                    num_sections,
-                    section_width_deg,
-                    first_section_offset_deg,
-                    endstop_active_high,
-                )
-                if operating_speed_microsteps_per_second is not None and hasattr(chute, "setOperatingSpeed"):
-                    chute.setOperatingSpeed(operating_speed_microsteps_per_second)
-                    stepper = getattr(shared_state.controller_ref.irl, "chute_stepper", None)
-                    if stepper is not None:
-                        stepper.set_speed_limits(16, int(operating_speed_microsteps_per_second))
-                applied_live = True
-            except Exception:
-                applied_live = False
-
-    return {
+def _persist_and_apply_chute_aiming(changes: Dict[str, Any]) -> tuple[Dict[str, Any], ChuteSettings]:
+    settings, applied_live = _save_and_apply_chute(changes)
+    result = {
         "ok": True,
-        "settings": _chute_settings_from_config(config),
-        "reachability": _chute_reachability(num_sections, section_width_deg, first_section_offset_deg),
+        "settings": _chute_payload(settings),
+        "reachability": _chute_reachability(
+            settings.num_sections, settings.section_width_deg, settings.first_section_offset_deg
+        ),
         "applied_live": applied_live,
     }
+    return result, settings
 
 
 @router.post("/api/hardware-config/chute/aiming")
 def save_chute_aiming_config(payload: ChuteAimingSettingsPayload) -> Dict[str, Any]:
-    num_sections = int(payload.num_sections)
-    if num_sections < 1:
-        raise HTTPException(status_code=400, detail="num_sections must be >= 1.")
-    section_pitch_deg = 360.0 / num_sections
-    section_width_deg = float(payload.section_width_deg)
-    if section_width_deg <= 0 or section_width_deg >= section_pitch_deg:
-        raise HTTPException(
-            status_code=400,
-            detail=f"section_width_deg must be between 0 and the section pitch ({section_pitch_deg:.2f}°).",
-        )
-    if (
-        payload.operating_speed_microsteps_per_second is not None
-        and payload.operating_speed_microsteps_per_second <= 0
-    ):
-        raise HTTPException(
-            status_code=400,
-            detail="operating_speed_microsteps_per_second must be greater than 0.",
-        )
-
-    result = _persist_and_apply_chute_aiming(
-        num_sections,
-        section_width_deg,
-        float(payload.first_section_offset_deg),
-        payload.endstop_active_high,
-        payload.operating_speed_microsteps_per_second,
+    result, settings = _persist_and_apply_chute_aiming(
+        payload.model_dump(exclude_none=True, exclude={"label"})
     )
     _record_calibration_instance(
         label=payload.label or "Manual edit",
-        num_sections=num_sections,
-        section_width_deg=section_width_deg,
-        first_section_offset_deg=float(payload.first_section_offset_deg),
+        num_sections=settings.num_sections,
+        section_width_deg=settings.section_width_deg,
+        first_section_offset_deg=settings.first_section_offset_deg,
     )
     result["calibrations"] = _calibrations_payload()
     result["message"] = (
@@ -617,9 +466,11 @@ def derive_chute_aiming_config(payload: ChuteAimingDerivePayload) -> Dict[str, A
             ),
         )
 
-    result = _persist_and_apply_chute_aiming(
-        num_sections, section_width_deg, first_section_offset_deg
-    )
+    result, _settings = _persist_and_apply_chute_aiming({
+        "num_sections": num_sections,
+        "section_width_deg": section_width_deg,
+        "first_section_offset_deg": first_section_offset_deg,
+    })
     _record_calibration_instance(
         label=payload.label or "Calibration",
         num_sections=num_sections,
@@ -708,11 +559,11 @@ def activate_chute_calibration(calibration_id: str) -> Dict[str, Any]:
         raise HTTPException(status_code=404, detail="Calibration not found.")
 
     # Locking in an instance writes its geometry to the TOML and applies it live.
-    result = _persist_and_apply_chute_aiming(
-        int(instance["num_sections"]),
-        float(instance["section_width_deg"]),
-        float(instance["first_section_offset_deg"]),
-    )
+    result, _settings = _persist_and_apply_chute_aiming({
+        "num_sections": int(instance["num_sections"]),
+        "section_width_deg": float(instance["section_width_deg"]),
+        "first_section_offset_deg": float(instance["first_section_offset_deg"]),
+    })
     result["calibrations"] = _calibrations_payload()
     result["active"] = instance
     result["message"] = (

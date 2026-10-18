@@ -11,6 +11,18 @@
 	import Specimen from '$lib/site/Specimen.svelte';
 	import Button from '$lib/components/Button.svelte';
 	import Panel from '$lib/components/Panel.svelte';
+	import NudgeControl from '$lib/components/NudgeControl.svelte';
+
+	let step = $state(10);
+	let turning = $state<'left' | 'right' | null>(null);
+	let turned = $state(0);
+	function turn(side: 'left' | 'right') {
+		turning = side;
+		setTimeout(() => {
+			turned += side === 'left' ? -step : step;
+			turning = null;
+		}, 900);
+	}
 
 	let saving = $state(false);
 	function save() {
@@ -62,7 +74,7 @@
 				<li class="px-5 py-3">
 					<span class="font-medium text-ink">Ghost.</span>
 					<span class="text-ink-muted"
-						>The way out, and actions in a row of many (a camera's -1°, +1°).</span
+						>The way out, and actions in a row of many (a panel's Reset, Cancel).</span
 					>
 				</li>
 				<li class="px-5 py-3">
@@ -140,4 +152,33 @@
 			<Button variant="primary">Save</Button>
 		{/snippet}
 	</Panel>
+</SiteSection>
+
+<SiteSection
+	title="Nudge"
+	lead="Turn or move something by a set amount, one press at a time: one small control with the amount in the middle. The amount has a caret and a fill under the pointer; it opens the presets and a field for any other amount. Try the amount, then a press."
+>
+	<Specimen
+		code={`<NudgeControl
+	bind:value={step}
+	label="Turn the channel"
+	leftLabel="Turn the channel {step}° counterclockwise"
+	rightLabel="Turn the channel {step}° clockwise"
+	busy={turning}
+	onnudge={turn}
+/>`}
+	>
+		<div class="flex flex-wrap items-center gap-4">
+			<NudgeControl
+				bind:value={step}
+				label="Turn the channel"
+				leftLabel="Turn the channel {step}° counterclockwise"
+				rightLabel="Turn the channel {step}° clockwise"
+				amountLabel="Each press turns"
+				busy={turning}
+				onnudge={turn}
+			/>
+			<span class="num text-sm text-ink-muted">Turned {turned}° so far</span>
+		</div>
+	</Specimen>
 </SiteSection>

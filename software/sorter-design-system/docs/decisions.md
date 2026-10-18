@@ -3,6 +3,15 @@
 What was decided, and when. When a rule changes, the rule's own file changes
 and a dated entry goes here; the history is git.
 
+## 2026-10-18
+
+- **A camera's turn buttons are one `NudgeControl`.** The dashboard's camera
+  cards had three ghost buttons (-1°, +1°, 180°), each a fixed amount. Now a
+  channel has one control, `‹ 10° ›`: left and right turn it by the amount in
+  the middle, and the amount opens a popover with 10°, 180° and a field for
+  any other amount, kept per channel. It is narrower than the three buttons
+  were, so no label has to hide in a narrow tile.
+
 ## 2026-10-15
 
 - **A page with views shows them as tabs and in the top bar.** The Sorter's

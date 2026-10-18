@@ -13,7 +13,7 @@ the example app shows them together.
 | ----------- | ----------------------------------------------------------------------------- |
 | `primary`   | The one thing to do in a panel or a dialog                                    |
 | `secondary` | Any other action                                                              |
-| `ghost`     | The way out, and actions in a row of many (a camera's -1°, +1°, 180°)         |
+| `ghost`     | The way out, and actions in a row of many (a panel's Reset, Cancel)           |
 | `danger`    | Deletes or stops something for good; only in the confirmation that asks first |
 
 - Every variant is a tint with its own ink: the primary's tint for
@@ -89,6 +89,33 @@ the example app shows them together.
   choices, or longer ones, is a `Select`. A group of action buttons that
   belong together (the jog control's counterclockwise, Stop and clockwise) is
   built the same way, one outline and a line between them.
+
+## Nudge
+
+`NudgeControl.svelte`. Turn or move something by a set amount, one press at a
+time, as one small control: a button on the left, the amount in the middle, a
+button on the right (`‹ 10° ›`). A camera's channel on the dashboard is the
+example: left turns it counterclockwise, right clockwise.
+
+- **The amount is a button.** It carries a small caret that darkens under the
+  pointer, and its fill is the hover state, so it reads as something to press.
+  It opens a `Popover` with the presets (`presets`, `10°` and `180°` by
+  default) as a segmented control and a number field for any other amount.
+  Choosing a preset closes it; a typed amount applies as it is typed and
+  Enter closes. An amount of 0 or above `max` (360 by default) draws the field
+  in danger with its sentence, and the last good amount stays.
+- **One control, not three buttons.** A single 1px `line-strong` outline and
+  a 1px line on each side of the amount, like a segmented control; it is 30px
+  tall (`--size-control-sm`), for a panel's header. The arrow buttons are the
+  icons for jogging, `chevron-left` and `chevron-right`
+  ([icons.md](icons.md)), and each says in words what it does (`leftLabel`,
+  `rightLabel`: "Turn the channel 10° counterclockwise"), as its name and its
+  tooltip.
+- **Busy.** While a press is being carried out (`busy` names the side), that
+  button shows the Spinner at full strength and the other is disabled.
+- **Saving the amount** is the app's: `onchange` gets each amount that was
+  chosen, and the app keeps it where it keeps its settings (the Sorter UI
+  keeps one per channel in the browser).
 
 ## Settings
 

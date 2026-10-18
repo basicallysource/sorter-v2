@@ -103,6 +103,42 @@ The legs are not in the parts calculator. The file is an STL in the Discord thre
   <li>The standard leads: <a href="{{ '/hardware/electronics/connecting/' | relative_url }}">Connecting the components</a></li>
 </ul>
 
+## 24 V to 5 V converter inside the Orange Pi housing
+
+**Latest report: 18 October 2026.**
+
+**What is different.** In the standard build the 24 V to 5 V converter sits on the roof of the Orange Pi housing, under its own clamp, and the lead from the PSU box ends in the converter's input wires. In this variant the converter is inside the housing, held against the inside of the south wall. The lead from the PSU box ends in a DC barrel jack in the west wall, the wall with the power key. A ready-made lead with a 5.5 x 2.1 mm plug at each end then runs from a PSU box jack to the housing. The jack's two leads are joined to the converter's input wires, and the converter's USB-C lead goes round the end of the board to the Orange Pi's power socket.
+
+<figure class="single-figure">
+  <img class="doc-figure" src="https://assets.basically.website/sorter-docs/variant-orange-pi-converter-layout-full-b9f30d4010ef.png" alt="Two views of the open Orange Pi housing without its roof: from above and from the board side. An orange block, the converter, stands against the south wall in a blue clamp, a barrel jack is fitted in the west wall, and the vent grille is a group of hexagonal holes at the east end of the south wall">
+  <figcaption>The Orange Pi 5 housing with the converter in the south wall clamp and the jack in the west wall. The converter is drawn as a plain block, because its size is not published. <cite>Rendered from the part geometry, not from a build. Render: Balloon.</cite></figcaption>
+</figure>
+
+**How it is built.** Two walls change, the south wall and the west wall. The other parts, including the roof, are the standard ones, and the same two changes work on the Orange Pi 5 housing and on the Orange Pi 5 Pro, Max and Ultra housing.
+
+<ul class="bulleted-list">
+  <li><b>South wall.</b> The buck clamp from the standard set is used as it is, turned to lie on the wall with its open side up. Two webs, 4 mm thick, on the inside face carry its four M3 x 12 countersunk screws, in the same hole pattern as on the roof. The pilot holes are 2.8 mm across and 6 mm deep, so the screws cut their own thread. The vent grille moves to the east end of the wall and is trimmed to 7 hexagons of the same size and spacing, so the clamp does not cover it, and the cutout in the bottom edge sits directly under it, 36.5 mm wide.</li>
+  <li><b>West wall.</b> A hole 11 mm across takes the jack, with a pocket 13.5 mm across and 2 mm deep in the outside face for the jack's flange. A boss 16 mm across and 3 mm thick on the inside makes the wall thick enough for the nut.</li>
+</ul>
+
+<figure class="single-figure">
+  <img class="doc-figure" src="https://assets.basically.website/sorter-docs/variant-orange-pi-converter-mounting-full-97416262c0dc.png" alt="Two views of the converter clamp on the south wall: assembled, with the orange converter held by the blue clamp against two webs, and exploded, with the converter, the clamp and four screws pulled away from the wall">
+  <figcaption>The clamp on the south wall, assembled and pulled apart. <cite>Rendered from the part geometry, not from a build. Render: Balloon.</cite></figcaption>
+</figure>
+
+**Sizes.** The jack holes are sized for the jack on the Amazon DE listing the parts calculator links, a DC-099 with a 10.5 mm thread and a 12.4 to 12.5 mm flange. If your jack has a different thread, size the hole to it. The converter's own size is not published. The clamp has the buck clamp's 63.5 mm slot, and the webs hold it 4 mm off the wall, so measure your converter against that first.
+
+**What was tested.** A first print of the two walls did not go back into the base: the clamp's web overlapped the column at the end of the wall's slot in the base. The files linked here are corrected, and were checked in software by lowering each wall into the base and the roof, with no overlap at any height. The screws also did not hold in the 2.8 mm pilots in that print, and that builder's roof has heat inserts where the standard roof has plain pilots. The version linked here has not been reported as printed. If the screws strip, the pilot holes can be opened to 4.0 mm and 6 mm deep for heat inserts, as in the base.
+
+**Where it stands.** One builder is test printing it, and nothing has been reported from a running machine. The build instructions still keep the converter on the roof, and the walls are not in the parts calculator.
+
+<ul class="bulleted-list">
+  <li>The south wall: <a href="https://assets.basically.website/sorter-parts/orange-pi-housing-wall-south-converter-variant-07abfa382a25.stl">Orange Pi 5</a> and <a href="https://assets.basically.website/sorter-parts/orange-pi-pro-housing-wall-south-converter-variant-677970a0225b.stl">Orange Pi 5 Pro</a>. The first is in the assembly orientation of the standard files, the second in the layout of the Pro set, with the wall flat.</li>
+  <li>The west wall: <a href="https://assets.basically.website/sorter-parts/orange-pi-housing-wall-west-converter-variant-3fde5f74d2fd.stl">Orange Pi 5</a> and <a href="https://assets.basically.website/sorter-parts/orange-pi-pro-housing-wall-west-converter-variant-bf07ca003721.stl">Orange Pi 5 Pro</a>.</li>
+  <li>The idea and the discussion: <a href="https://discord.com/channels/1430279849171222682/1535802933768364052/1561266014560460832">the first message</a> and <a href="https://discord.com/channels/1430279849171222682/1561266014560460832/1561323328407474217">the request for the self-tapping version</a>, in the Discord</li>
+  <li>The standard housing: <a href="{{ '/hardware/electronics/installation/orange-pi-mount/' | relative_url }}">Orange Pi housing</a>, and the standard lead: <a href="{{ '/hardware/helpers/pi-24v-lead/' | relative_url }}">the Orange Pi's 24 V lead</a></li>
+</ul>
+
 ## Single step feeder
 
 **Latest report: 20 September 2026.**

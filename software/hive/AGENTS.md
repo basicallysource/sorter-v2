@@ -27,6 +27,9 @@ in [`agent-docs/`](agent-docs/):
 - [`agent-docs/piece-data.md`](agent-docs/piece-data.md) — piece data from
   sorters: the sync endpoints and their cursor rule, where each kind lands,
   whose verdict lives where, and the views and tables to train from.
+- [`agent-docs/telemetry.md`](agent-docs/telemetry.md) — machine telemetry:
+  how each sorter is set up and runs (specs, stepper load, camera readings,
+  stalls), the record forms and kinds, their size, and how to query them.
 - [`agent-docs/server-page.md`](agent-docs/server-page.md) — the admin Server
   page and the request-timing middleware behind it: each route's latency over
   the last hour in fixed memory, the slow-request log line, and the job queue,

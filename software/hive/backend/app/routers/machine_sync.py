@@ -3,12 +3,12 @@ import json
 import logging
 import math
 from datetime import datetime, timezone
-from typing import Any
+from typing import Any, Literal
 from uuid import UUID, uuid4
 
 from fastapi import APIRouter, Depends, File, Form, Request, UploadFile
 from PIL import Image
-from pydantic import BaseModel, Field, ValidationError, field_validator
+from pydantic import BaseModel, Field, ValidationError, field_validator, model_validator
 from sqlalchemy import bindparam, case, or_, text
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.dialects.sqlite import insert as sqlite_insert
@@ -25,6 +25,7 @@ from app.models.machine_piece_rejection_reason import MachinePieceRejectionReaso
 from app.models.machine_channel_crop import MachineChannelCrop
 from app.models.machine_control_data_segment import MachineControlDataSegment
 from app.models.machine_sync_state import MachineSyncState
+from app.models.machine_telemetry import MachineTelemetryRecord
 from app.models.machine_sorting_run import MachineLot, MachineSortingRun
 from app.models.machine_training_run import MachineTrainingRun
 from app.models.sample import Sample
@@ -75,6 +76,7 @@ DATA_TYPE_TRAINING_RUNS = "training_runs"
 # Lots and sorting runs, sent whole when they change; its state is the
 # version of the last set kept, not a cursor.
 DATA_TYPE_SORTING_RUNS = "sorting_runs"
+DATA_TYPE_TELEMETRY = "telemetry"
 DATA_TYPES = (
     DATA_TYPE_PIECE_RECORDS,
     DATA_TYPE_PIECE_IMAGES,
@@ -85,6 +87,7 @@ DATA_TYPES = (
     DATA_TYPE_SAMPLES,
     DATA_TYPE_TRAINING_RUNS,
     DATA_TYPE_SORTING_RUNS,
+    DATA_TYPE_TELEMETRY,
 )
 
 # The watermark rule (the sorter's sync_seq.py): a row that changes on the
@@ -128,6 +131,9 @@ _CHANNEL_CROP_UPDATE_COLS = (
 _TRAINING_RUN_UPDATE_COLS = (
     "mode", "color_ids", "segments", "started_at", "ended_at", "excluded", "updated_at", "received_at",
 )
+_TELEMETRY_UPDATE_COLS = ("kind", "form", "schema", "started_at", "ended_at", "data", "received_at")
+# A telemetry record's data is at most this large (the sorter keeps none larger).
+MAX_TELEMETRY_DATA_BYTES = 64 * 1024
 _CONTROL_DATA_UPDATE_COLS = (
     "started_at", "ended_at", "records", "bytes", "machine_setup",
     "feeder_mode", "classification_mode", "autotune_mode", "data_key",
@@ -973,6 +979,82 @@ def sync_piece_predictions(
 
     skipped += _write_rows(db, write, predictions, machine, DATA_TYPE_PIECE_PREDICTIONS)
     new_max = _advance_watermark(db, machine_id, DATA_TYPE_PIECE_PREDICTIONS, key_max)
+    mark_machine_seen(machine, now)
+    db.commit()
+    return {"max_local_id": new_max, "upserted": len(payload.records) - skipped, "skipped": skipped}
+
+
+class TelemetryRecordIn(BaseModel):
+    local_id: int = Field(ge=1)
+    kind: str = Field(min_length=1, max_length=64, pattern=r"^[a-z][a-z0-9_]*$")
+    form: Literal["snapshot", "window", "event"]
+    # Named for the wire; BaseModel has a `schema` of its own.
+    data_schema: int = Field(default=1, ge=1, alias="schema")
+    started_at: float = Field(allow_inf_nan=False)
+    ended_at: float = Field(allow_inf_nan=False)
+    data: dict[str, Any]
+
+    @model_validator(mode="after")
+    def _sane(self) -> "TelemetryRecordIn":
+        if self.ended_at < self.started_at:
+            raise ValueError("ended_at is before started_at")
+        if len(json.dumps(self.data, separators=(",", ":"))) > MAX_TELEMETRY_DATA_BYTES:
+            raise ValueError(f"data is over {MAX_TELEMETRY_DATA_BYTES} bytes")
+        return self
+
+
+@router.post("/telemetry")
+@limiter.limit("60/minute")
+def sync_telemetry(
+    request: Request,
+    payload: SyncBatch,
+    db: Session = Depends(get_db),
+    machine: Machine = Depends(get_current_machine),
+) -> dict[str, int]:
+    """How the machine is set up and how it runs (MachineTelemetryRecord),
+    upserted by (machine, local_id). The newest machine_specs snapshot in the
+    batch also becomes the machine's hardware summary and history, as specs
+    on a heartbeat do."""
+    records, skipped, key_max = _validate_rows(TelemetryRecordIn, payload.records, machine, DATA_TYPE_TELEMETRY)
+    if not payload.records:
+        return {"max_local_id": _watermark(db, machine.id, DATA_TYPE_TELEMETRY), "upserted": 0, "skipped": 0}
+
+    now = _now()
+    machine_id = machine.id
+    records = _latest_per_key(records, key=lambda r: r.local_id, order=lambda r: r.local_id)
+
+    def write(batch: list[TelemetryRecordIn]) -> None:
+        _upsert(
+            db, MachineTelemetryRecord,
+            [
+                {
+                    "id": uuid4(),
+                    "machine_id": machine_id,
+                    "local_id": r.local_id,
+                    "kind": r.kind,
+                    "form": r.form,
+                    "schema": r.data_schema,
+                    "started_at": _ts(r.started_at),
+                    "ended_at": _ts(r.ended_at),
+                    "data": r.data,
+                    "received_at": now,
+                }
+                for r in batch
+            ],
+            ["machine_id", "local_id"], _TELEMETRY_UPDATE_COLS,
+        )
+
+    skipped += _write_rows(db, write, records, machine, DATA_TYPE_TELEMETRY)
+    specs = [r for r in records if r.kind == "machine_specs" and r.form == "snapshot"]
+    if specs:
+        from app.machine_hardware import record_hardware_report
+
+        try:
+            with db.begin_nested():
+                record_hardware_report(db, machine, max(specs, key=lambda r: r.local_id).data)
+        except SQLAlchemyError as exc:
+            log.warning("machine %s: its specs did not become its hardware report: %s", machine_id, exc)
+    new_max = _advance_watermark(db, machine_id, DATA_TYPE_TELEMETRY, key_max)
     mark_machine_seen(machine, now)
     db.commit()
     return {"max_local_id": new_max, "upserted": len(payload.records) - skipped, "skipped": skipped}

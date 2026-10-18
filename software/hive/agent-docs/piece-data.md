@@ -21,6 +21,7 @@ a natural key, so a re-send never duplicates.
 | `piece_corrections` | `POST /api/machine/sync/piece-corrections` | `machine_pieces` verdict columns | machine, piece_uuid | `local_id` |
 | `training_runs` | `POST /api/machine/sync/training-runs` (JSON batch) | `machine_training_runs` | machine, run_uuid | `sync_seq` |
 | `sorting_runs` | `POST /api/machine/sync/sorting-runs` (the whole set) | `machine_lots`, `machine_sorting_runs` | machine, lot_id / run_id | the set's `version` |
+| `telemetry` | `POST /api/machine/sync/telemetry` (JSON batch) | `machine_telemetry` ([telemetry.md](telemetry.md)) | machine, local_id | `local_id` |
 
 **Lots and sorting runs** go whole: a lot is pieces that came in together, a
 sorting run one stretch of sorting from its start to the next run's, which

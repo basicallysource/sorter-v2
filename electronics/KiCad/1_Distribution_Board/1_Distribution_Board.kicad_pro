@@ -1114,10 +1114,6 @@
       "Hall_Switch_LED"
     ],
     [
-      "4f60e607-b8a0-4b26-ada7-74dd2d095020",
-      "PCA9685 Module"
-    ],
-    [
       "02dc68e7-469d-4169-b9e6-1742ced64b14",
       "Stepper Module"
     ],

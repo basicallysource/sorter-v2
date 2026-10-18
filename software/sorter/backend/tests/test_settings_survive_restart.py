@@ -40,8 +40,13 @@ SOCKETS = ["chute_stepper", "c_channel_1_rotor", "c_channel_3_rotor", "carousel"
 
 
 class _Logger:
-    def info(self, *_args, **_kwargs) -> None:
-        pass
+    """Keeps the lines start-up logs, which are what a person reads back."""
+
+    def __init__(self) -> None:
+        self.lines: list[str] = []
+
+    def info(self, message: str, *_args, **_kwargs) -> None:
+        self.lines.append(str(message))
 
     warning = warn = error = debug = info
 
@@ -178,10 +183,10 @@ def _saved(path) -> dict:
     return tomllib.loads(path.read_text())
 
 
-def _start(board: _Board, servos: list[_Servo] | None = None) -> IRLInterface:
+def _start(board: _Board, servos: list[_Servo] | None = None, logger: _Logger | None = None) -> IRLInterface:
     """Hardware start-up as main.py runs it, against the fake board."""
     gc = SimpleNamespace(
-        logger=_Logger(),
+        logger=logger or _Logger(),
         no_power_development_mode=False,
         disable_c_channels=[],
         disable_carousel=False,
@@ -209,9 +214,14 @@ def test_a_driver_current_saved_through_the_api_is_what_the_motor_gets_at_start(
     assert (response["irun"], response["ihold"]) == (24, 4)
     assert _saved(machine)["stepper_current_overrides"]["chute_stepper"] == {"irun": 24, "ihold": 4, "ihold_delay": 8}
     board = _Board(SOCKETS)
-    irl = _start(board)
+    log = _Logger()
+    irl = _start(board, logger=log)
     assert irl.chute_stepper is board.drivers["chute_stepper"]
     assert board.drivers["chute_stepper"].last_set_current == {"irun": 24, "ihold": 4, "ihold_delay": 8}
+    configured = next(line for line in log.lines if line.startswith("Stepper 'chute' configured"))
+    assert "IRUN=24 IHOLD=4 IHOLD_DELAY=8" in configured
+    assert "from machine.toml: ihold, ihold_delay, irun" in configured
+    assert configured.endswith("driver took 6 writes")
 
 
 def test_a_motor_with_nothing_saved_gets_its_built_in_current_and_the_api_shows_that(machine) -> None:
@@ -378,7 +388,9 @@ def test_the_chute_runs_at_its_saved_operating_speed_from_the_first_move_after_s
 
     assert _saved(machine)["chute"]["operating_speed_microsteps_per_second"] == 1500
     board = _Board(SOCKETS)
-    irl = _start(board)
+    log = _Logger()
+    irl = _start(board, logger=log)
+    assert any(line.startswith("Chute configured:") and "operating speed 1500 µsteps/s" in line for line in log.lines)
     stepper = board.drivers["chute_stepper"]
     assert stepper.speed_limits == (16, 3000)  # start-up's limit, before any chute move
     irl.chute.moveToAngle(60.0)

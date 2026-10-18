@@ -58,39 +58,3 @@ export async function requestBackendRestart(
 	}
 	return false;
 }
-
-export async function backendHealthy(backendBaseUrl: string, timeoutMs = 2500): Promise<boolean> {
-	try {
-		const response = await fetch(`${backendBaseUrl}/health`, {
-			signal: AbortSignal.timeout(timeoutMs)
-		});
-		return response.ok;
-	} catch {
-		return false;
-	}
-}
-
-export async function waitForBackend(
-	backendBaseUrl: string,
-	options?: {
-		initialDelayMs?: number;
-		maxAttempts?: number;
-		intervalMs?: number;
-		timeoutMs?: number;
-	}
-): Promise<boolean> {
-	const initialDelayMs = options?.initialDelayMs ?? 1500;
-	const maxAttempts = options?.maxAttempts ?? 30;
-	const intervalMs = options?.intervalMs ?? 500;
-	const timeoutMs = options?.timeoutMs ?? 2000;
-
-	await new Promise((resolve) => setTimeout(resolve, initialDelayMs));
-
-	for (let attempt = 0; attempt < maxAttempts; attempt++) {
-		if (await backendHealthy(backendBaseUrl, timeoutMs)) return true;
-		await new Promise((resolve) => setTimeout(resolve, intervalMs));
-	}
-
-	return false;
-}
-

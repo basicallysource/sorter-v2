@@ -57,7 +57,8 @@ class Found:
 
 def defaultZones(channel: int, frame: tuple[int, int]) -> ChannelZones:
     """A start for a channel with nothing saved: a ring in the middle of the
-    picture with kitbash-like zones, for the person to turn into place."""
+    picture with zones where a typical build has them, for the person to turn
+    into place."""
     w, h = frame
     rim = 0.45 * min(w, h)
     if channel == 4:
@@ -259,20 +260,17 @@ def _findRim(
         return 0.45 * min(w, h), 0.0, "no circular edge found; the ring is a guess"
     strongest = float(max(edges[r] for r in peaks))
     strong = [r for r in peaks if edges[r] >= 0.35 * strongest]
-    rim = strong[0]
     motion = _motionProfile(frames, cx, cy, rmax)
     if motion is not None:
-        # The rim has the turning disc and its pieces inside it and still walls
-        # outside it: change stops there. The innermost strong circle stands
-        # unless change plainly stops somewhere else.
-        # Pieces rest against the wall, across the rim's own edge, so compare
-        # the disc well inside the rim with the wall well outside it.
-        def fall(r: int) -> float:
-            inside = motion[int(0.8 * r) : max(int(0.8 * r) + 1, int(0.95 * r))]
-            outside = motion[int(1.1 * r) : int(1.25 * r)]
-            return float(np.mean(inside)) - (float(np.mean(outside)) if len(outside) else 0.0)
-
-        best = max(strong, key=fall)
-        if fall(best) > 0 and fall(rim) < 0.5 * fall(best):
-            rim = best
+        # Over time the pieces riding against the wall change the picture most
+        # in a band at the rim: the rim is the circular edge nearest that band.
+        band = np.convolve(motion, np.ones(9) / 9.0, mode="same")
+        lo, hi = int(low), min(int(high), len(band) - 1)
+        if hi > lo:
+            ridden = lo + int(np.argmax(band[lo:hi]))
+            if band[ridden] > 1.5 * float(np.median(band[lo:hi])):
+                near = [r for r in peaks if edges[r] >= 0.15 * strongest and abs(r - ridden) <= 0.12 * ridden]
+                rim = min(near, key=lambda r: abs(r - ridden)) if near else ridden
+                return float(rim), float(edges[rim] / strongest) if near else 0.0, None
+    rim = strong[0]
     return float(rim), float(edges[rim] / strongest), "from one picture" if len(frames) < 4 else None

@@ -21,7 +21,7 @@ from zones.model import (
     toLegacyBlob,
 )
 
-KITBASH_LIKE_BLOB = {
+OLD_EDITOR_BLOB = {
     "resolution": [1280, 720],
     "channel_angles": {"second": 0, "third": 0, "classification_channel": 0},
     "arc_params": {
@@ -129,7 +129,7 @@ def test_the_channel_is_the_ring_from_the_drop_to_the_exit_cut_at_the_exit() -> 
 
 
 def test_zones_read_from_the_old_editors_blob() -> None:
-    zones = fromLegacyBlob(KITBASH_LIKE_BLOB)
+    zones = fromLegacyBlob(OLD_EDITOR_BLOB)
     assert sorted(zones) == [3, 4]
     c3 = zones[3]
     assert c3.frame == (1280, 720)
@@ -144,7 +144,7 @@ def test_zones_read_from_the_old_editors_blob() -> None:
 
 
 def test_zones_survive_the_old_blob_and_the_new_document() -> None:
-    zones = fromLegacyBlob(KITBASH_LIKE_BLOB)
+    zones = fromLegacyBlob(OLD_EDITOR_BLOB)
     again = fromLegacyBlob(toLegacyBlob(zones))
     for channel, original in zones.items():
         assert toDict(replace(again[channel], source={})) == toDict(replace(original, source={}))
@@ -155,7 +155,7 @@ def test_saving_writes_the_document_and_the_old_keys(tmp_path, monkeypatch) -> N
     monkeypatch.setenv("LOCAL_STATE_DB_PATH", str(tmp_path / "local_state.sqlite"))
     import local_state
 
-    local_state.set_channel_zones_blob(KITBASH_LIKE_BLOB)
+    local_state.set_channel_zones_blob(OLD_EDITOR_BLOB)
     assert sorted(store.loadZones()) == [3, 4]
 
     heard: list[int] = []

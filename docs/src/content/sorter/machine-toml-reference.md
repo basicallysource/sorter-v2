@@ -26,6 +26,8 @@ Controls flap servo angles and hardware backend selection.
 
 Per-channel servo configuration. One entry per servo, in layer order. Only used when `backend = "waveshare"`.
 
+The double brackets are TOML's syntax for a list of tables. Write the `[[servo.channels]]` header once for each servo, with that servo's `id` and `invert` under it. The other sections on this page are single tables and use one pair of brackets.
+
 | Key | Type | Default | Description |
 |-----|------|---------|-------------|
 | `id` | int \| null | — | SC bus servo ID (1–253). Null skips this slot. |

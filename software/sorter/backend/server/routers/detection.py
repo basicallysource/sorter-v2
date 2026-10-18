@@ -13,12 +13,7 @@ from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 
 import local_state
-from hive_telemetry import (
-    getTargetTelemetrySettings,
-    resetTargetTelemetrySettings,
-    setTargetTelemetrySettings,
-    telemetryFieldList,
-)
+import sharing
 from perception.overlay import drawChannelZones
 from server import shared_state
 import sample_store
@@ -380,10 +375,8 @@ def _mask_hive_token(token: str | None) -> str | None:
 
 def _hive_sync_status(target: dict[str, Any]) -> Dict[str, Any]:
     """What the Hive page shows per target: reachability from the heartbeat,
-    and from the sync worker how much of each kind of data is still waiting,
-    the upload budget and the last error."""
-    import hive_limits
-
+    and from the sync worker what this Hive does not accept yet and the last
+    error. What it is sent and when is the Data page's (/api/sharing)."""
     gc = shared_state.gc_ref
     heartbeat = getattr(gc, "hive_heartbeat", None) if gc is not None else None
     worker = getattr(gc, "hive_sync_worker", None) if gc is not None else None
@@ -393,11 +386,8 @@ def _hive_sync_status(target: dict[str, Any]) -> Dict[str, Any]:
         "enabled": bool(target.get("enabled", False)),
         "server_reachable": beat.get("server_reachable"),
         "last_beat_at": beat.get("last_beat_at"),
-        "waiting": (sync or {}).get("waiting") or {},
         "unsupported": (sync or {}).get("unsupported") or [],
-        "upload_budget": (sync or {}).get("upload_budget"),
         "last_error": (sync or {}).get("last_error"),
-        "limits": hive_limits.targetLimits(target["id"]),
     }
 
 
@@ -411,7 +401,7 @@ def get_hive_config() -> Dict[str, Any]:
         "configured_count": len(targets),
         "enabled_count": sum(1 for target in targets if bool(target.get("enabled", False))),
         "primary_target_id": primary_target_id,
-        "telemetry_fields": telemetryFieldList(),
+        "consent": sharing.consentView(),
         "targets": [
             {
                 "id": target["id"],
@@ -421,7 +411,6 @@ def get_hive_config() -> Dict[str, Any]:
                 "api_token_masked": _mask_hive_token(target.get("api_token")),
                 "enabled": bool(target.get("enabled", False)),
                 "is_primary": target["id"] == primary_target_id,
-                "telemetry": getTargetTelemetrySettings(target["id"]),
                 "sync": _hive_sync_status(target),
             }
             for target in targets
@@ -456,8 +445,6 @@ def save_hive_config(payload: HiveTargetPayload) -> Dict[str, Any]:
         "machine_id": existing.get("machine_id") if existing else None,
         "enabled": payload.enabled,
     }
-    if existing and isinstance(existing.get("telemetry"), dict):
-        next_target["telemetry"] = existing["telemetry"]
 
     if existing is None:
         targets.append(next_target)
@@ -472,6 +459,8 @@ def save_hive_config(payload: HiveTargetPayload) -> Dict[str, Any]:
 @router.delete("/api/settings/hive")
 def clear_hive_config(target_id: str | None = Query(default=None)) -> Dict[str, Any]:
     if not target_id:
+        for target in _load_hive_targets():
+            _forgetHiveTarget(target["id"])
         _save_hive_targets([])
         _reloadHiveConsumers()
         return {"ok": True, "message": "All Hive targets removed."}
@@ -482,26 +471,17 @@ def clear_hive_config(target_id: str | None = Query(default=None)) -> Dict[str, 
         raise HTTPException(404, "Hive target not found.")
 
     _save_hive_targets(next_targets)
+    _forgetHiveTarget(target_id)
     _reloadHiveConsumers()
     return {"ok": True, "message": "Hive target removed."}
 
 
-class HiveTelemetryPayload(BaseModel):
-    target_id: str
-    fields: Dict[str, bool] = {}
-    reset: bool = False
+def _forgetHiveTarget(target_id: str) -> None:
+    """A removed Hive's sharing overrides and upload statistics go with it."""
+    import upload_stats
 
-
-@router.post("/api/settings/hive/telemetry")
-def save_hive_telemetry(payload: HiveTelemetryPayload) -> Dict[str, Any]:
-    try:
-        if payload.reset:
-            settings = resetTargetTelemetrySettings(payload.target_id)
-        else:
-            settings = setTargetTelemetrySettings(payload.target_id, payload.fields)
-    except ValueError as exc:
-        raise HTTPException(400, str(exc))
-    return {"ok": True, "target_id": payload.target_id, "telemetry": settings}
+    sharing.forgetTarget(target_id)
+    upload_stats.forgetTarget(target_id)
 
 
 class HivePrimaryPayload(BaseModel):

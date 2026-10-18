@@ -5,7 +5,7 @@ type: reference
 section: sorter
 slug: sorter-what-leaves-the-machine
 audience: self-hosting operator
-last_verified: 2026-07-13
+last_verified: 2026-10-18
 kicker: SorterOS — Under the hood
 lede: Every network connection the backend can make, what each one carries, and which ones you can turn off.
 permalink: /sorter/what-leaves-the-machine/
@@ -95,37 +95,47 @@ and this traffic stops entirely.
 
 ## Hive — optional, off until you connect it
 
-The machine makes **no** connection to Hive unless you add a Hive target
-(URL + API token) in settings. Remove the target and all of the below stops.
+The machine makes **no** connection to Hive unless you connect one in
+Settings > Hive. Remove it and all of the below stops. Before anything is
+shared, the machine asks you to agree to what it shares: in the setup's
+"What this sorter shares" step, or when you first connect a Hive from
+Settings. Until then only the keep-alive below goes.
 
-With a target configured:
+With a Hive connected:
 
 **Heartbeat** — every 30 seconds, a keep-alive so the UI can show whether
 the server is reachable. The server records when your machine was last seen
-and the IP it connected from. Each heartbeat also carries the machine's
-network addresses, and at most every 30 minutes the machine specs snapshot
-(see the Network addresses and Machine specs fields below).
+and the IP it connected from. While **Network addresses** is shared, each
+heartbeat also carries where to find the machine on your networks.
 
 **Part dimension lookups** — when a piece is classified, the machine asks
 Hive for that part's physical dimensions to route oversize pieces to the
 bottom bin. This is a download; the only thing sent is the part number.
 
-**Uploads** — each kind of upload is gated by a per-target toggle in the
-Hive settings. A field that's off blocks the upload at send time, including
-jobs already queued.
+**What is shared** — Settings > Data lists every kind of data the machine can
+share, with what each one carries. You choose for every Hive at once, and can
+choose differently for one Hive; "Reset to defaults" puts the defaults back.
+A kind that is off is never sent, including uploads already waiting.
 
-| Field | Default | What it carries |
+| Kind | Default | What it carries |
 |---|---|---|
-| Detection images | on | Cropped pictures of individual pieces: live training samples and the per-piece image history. |
-| Full camera frames | on | Uncropped camera captures and detection overlay images attached to training samples. |
-| Piece metadata | on | Classification results per piece (part, color, confidence, bin, timestamps), every part and color prediction the recognizers returned with its score, your corrections of a piece, and set sorting progress. |
-| Channel crops (C2/C3) | off | Unlabeled bbox crops of pieces on the upstream feeder channels, tagged with position for same-piece lookup. Experimental, high volume. |
-| Machine specs | on | Camera, controller board, platform and OS details, plus each camera's saved device, orientation and capture settings. Also the machine's hostname, MAC addresses and CPU serial. No image data. |
+| Machine telemetry | always | How the machine is set up and how it runs: its platform, operating system, software version, cameras and controller boards; each motor's driver settings (current, microstepping, chopper mode, StallGuard threshold and speed floor); summaries of each motor's load while sorting (StallGuard readings binned by speed, the driver's current scale and warning flags), each camera's exposure, gain and white balance as the camera chose them and its frame rate, and stalls with the readings just before them. Summarised an hour of sorting at a time (a few KB). No pictures, nothing about what you sort, and no hostname, MAC address or serial number. Required while a Hive is connected: it is how problems and better defaults are found across every machine. |
+| Piece records | on | Classification results per piece (part, color, confidence, bin, timestamps), every part and color prediction the recognizers returned with its score, your corrections, sorting runs and set sorting progress. |
+| Piece pictures | on | The cropped pictures each piece was classified from. |
+| Full camera frames | on | Training samples: whole frames from each camera while sorting, with the camera's settings, the lamp's brightness and the channel outline at the time. |
+| Channel crops | on | Small crops of pieces on C2 and C3 with where they were, used to follow a piece from channel to channel. Many a minute. |
+| Feeder logs | on | Compressed logs of where the vision model saw pieces and every motor command while sorting, with the settings at the time. No pictures. |
 | Network addresses | on | Where to find the machine: its hostname and `.local` name, the ports of its UI and API, and each network it is on (the Wi-Fi name, Ethernet or Tailscale) with its address there and whether that network reaches the internet. On SorterOS, also the name of its setup network while it broadcasts one. Shown on the machine's Hive page, to you and to Hive admins only. Turning it off makes the next heartbeat tell Hive to forget the addresses it has. |
 
-The field registry in `hive_telemetry.py` is the single choke point — no
-other code path can upload to Hive, and adding a new kind of upload requires
-adding a field to this list.
+**Upload statistics** — Settings > Data > Uploads shows, per Hive and hour,
+how much of each kind was uploaded, what is waiting, what will never be
+uploaded (old training samples skipped to keep up, files deleted on the
+machine before they went) and how long the Hive's upload budget held uploads
+back. Settings > Data shows what the machine keeps on its own disk.
+
+`sharing.py` in the backend is the one list of what can be shared, and
+`hive_uploads.py` the one place that sends it: no other code path can upload to
+Hive, and adding a kind of upload means adding it to that list.
 
 ## Firmware update check — GitHub
 

@@ -706,3 +706,20 @@ def markImagesSyncedUpTo(max_seq: int, synced_at: float) -> None:
             (float(synced_at), int(max_seq)),
         )
         conn.commit()
+
+
+def storageStats() -> dict[str, int]:
+    """What this store keeps on disk: files, their bytes, its cap, and how
+    many are not on every Hive yet."""
+    with _connection() as conn:
+        row = conn.execute(
+            f"SELECT COUNT(*) AS n, COALESCE(SUM({db.on_disk_bytes_sql()}), 0) AS b, "
+            "COALESCE(SUM(CASE WHEN synced_at IS NULL THEN 1 ELSE 0 END), 0) AS waiting "
+            "FROM piece_images WHERE deleted_at IS NULL"
+        ).fetchone()
+    return {
+        "count": int(row["n"] or 0),
+        "bytes": int(row["b"] or 0),
+        "cap_bytes": _MAX_TOTAL_BYTES,
+        "waiting": int(row["waiting"] or 0),
+    }

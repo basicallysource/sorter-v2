@@ -37,6 +37,7 @@ class _Client:
 
 def _syncer(client: _Client):
     syncer = hive_sync._TargetSyncer.__new__(hive_sync._TargetSyncer)
+    syncer._id = "t"
     syncer._name = "test hive"
     syncer._client = client
     syncer._gate = hive_sync._ConcurrencyGate(1, 1, lambda: False)

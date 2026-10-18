@@ -316,6 +316,38 @@ def _try_v4l2ctl_get_raw(source: int, key: str) -> str | None:
         return None
 
 
+def read_v4l2_control_values(source: int) -> dict[str, float]:
+    """Every control in _LINUX_V4L2CTL_CONTROL_MAP the camera has, by our key,
+    as the driver reports it now (with auto exposure or white balance on, the
+    values the camera chose), in one v4l2-ctl call and without the capture
+    lock. Empty off Linux or when the camera answers nothing."""
+    if platform.system() != "Linux":
+        return {}
+    by_ctrl_name = {ctrl_name: key for key, (ctrl_name, _) in _LINUX_V4L2CTL_CONTROL_MAP.items()}
+    try:
+        result = subprocess.run(
+            ["v4l2-ctl", "-d", f"/dev/video{source}", "-C", ",".join(by_ctrl_name)],
+            capture_output=True,
+            timeout=3,
+            text=True,
+        )
+    except Exception:
+        return {}
+    values: dict[str, float] = {}
+    # One "name: value" line per control the camera has; v4l2-ctl names the
+    # missing ones on stderr and still prints the rest.
+    for line in result.stdout.splitlines():
+        name, _, raw = line.partition(":")
+        key = by_ctrl_name.get(name.strip())
+        if key is None:
+            continue
+        try:
+            values[key] = float(raw.strip().split()[0])
+        except (IndexError, ValueError):
+            continue
+    return values
+
+
 def _try_v4l2ctl_get_bool(source: int, key: str) -> bool | None:
     raw = _try_v4l2ctl_get_raw(source, key)
     if raw is None:
@@ -729,6 +761,9 @@ class CaptureThread:
         self._raw_subscribers_lock = threading.Lock()
         self._raw_seq = 0
         self.raw_bytes_available = False
+        # Frames captured since start, for the measured frame rate
+        # (fleet_telemetry reads it twice and divides).
+        self.frames_captured = 0
 
     def subscribe_raw(self, maxsize: int = 8) -> RawFrameSubscription:
         """Start receiving ``(jpeg_bytes, timestamp, seq)`` for every captured
@@ -1174,6 +1209,7 @@ class CaptureThread:
                     raw_jpeg=raw_jpeg,
                 )
                 self.latest_frame = camera_frame
+                self.frames_captured += 1
                 # deque.append is atomic under the GIL — no lock needed.
                 self._ring_buffer.append(camera_frame)
                 self.raw_bytes_available = raw_jpeg is not None

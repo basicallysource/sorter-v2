@@ -42,6 +42,8 @@ import piece_image_store
 import piece_predictions
 import piece_records
 import sorting_runs
+import telemetry_store
+import upload_stats
 from server import hive_sync
 
 log = logging.getLogger(__name__)
@@ -414,6 +416,8 @@ class StorageMaintenance:
             "bin_events": bin_contents.pruneOldEvents(cutoff),
             "piece_cycles": piece_cycles.prune(now),
             "held_pieces": held_piece_records.prune(now),
+            "telemetry": telemetry_store.prune(now),
+            "upload_stats": upload_stats.prune(now),
         }
         # The two that rewrite most of the database wait for an idle machine.
         if self._idleFor() >= VACUUM_IDLE_S:

@@ -201,6 +201,11 @@ class StepperMotor:
         # discovery sends, to fresh StepperMotor objects) and jitter restores its
         # own, so an unchanged pair is not sent again before every pulse.
         self._applied_speed_limits: tuple[int, int] | None = None
+        # When a move was last commanded (monotonic), and whether the axis was
+        # last told to run at a speed until told otherwise. fleet_telemetry reads
+        # the driver only while an axis is likely to be moving.
+        self.last_commanded_at: float | None = None
+        self.running_at_speed = False
 
     def _logical_to_physical_steps(self, value: int) -> int:
         return -value if self._direction_inverted else value
@@ -237,6 +242,8 @@ class StepperMotor:
         )
         payload = struct.pack("<i", physical_steps) # 4 bytes, little-endian signed integer
         sent_mono = time.monotonic()
+        self.last_commanded_at = sent_mono
+        self.running_at_speed = False
         res = self._dev.send_command(InterfaceCommandCode.STEPPER_MOVE_STEPS, self._channel, payload)
         success = len(res.payload) > 0 and bool(res.payload[0])
         if success:
@@ -279,6 +286,8 @@ class StepperMotor:
             f"inverted={self._direction_inverted}"
         )
         payload = struct.pack("<i", physical_speed) # 4 bytes, little-endian signed integer
+        self.last_commanded_at = time.monotonic()
+        self.running_at_speed = speed != 0
         res = self._dev.send_command(InterfaceCommandCode.STEPPER_MOVE_AT_SPEED, self._channel, payload)
         success = bool(res.payload[0])
         if not success:
@@ -508,11 +517,11 @@ class StepperMotor:
         }
 
     def read_driver_register(self, address: int) -> int:
-        self._gc.logger.info(f"Stepper '{self._name}' ch{self._channel}: read_driver_register addr=0x{address:02X}")
+        # Debug, not info: sweeps and fleet_telemetry read registers many times a second.
         payload = struct.pack("<B", address) # 1 byte, unsigned integer
         res = self._dev.send_command(InterfaceCommandCode.STEPPER_DRV_READ_REGISTER, self._channel, payload)
         val = struct.unpack("<I", res.payload)[0] # 4 bytes, little-endian unsigned integer
-        self._gc.logger.info(f"Stepper '{self._name}' ch{self._channel}: read_driver_register addr=0x{address:02X} -> 0x{val:08X}")
+        self._gc.logger.debug(f"Stepper '{self._name}' ch{self._channel}: read_driver_register addr=0x{address:02X} -> 0x{val:08X}")
         return val
 
     def write_driver_register(self, address: int, value: int):

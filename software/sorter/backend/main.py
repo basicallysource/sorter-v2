@@ -568,9 +568,17 @@ def main() -> None:
     sample_collector = SampleCollector(gc, camera_service)
     sample_collector.start()
     gc.sample_collector = sample_collector
+    # What is shared with which Hive; read once here so per-target choices kept
+    # by older versions move into it before anything rewrites the Hive config.
+    import sharing
+    sharing.everyHive()
+    # How the machine is set up and runs (stepper load, camera readings, specs,
+    # stalls), as telemetry records the sync worker sends.
+    import fleet_telemetry
+    gc.fleet_telemetry = fleet_telemetry.start(gc)
     # Sends everything kept for Hive (piece history, crops, control data,
-    # training samples) to every enabled Hive, watermark-based so months of
-    # backlog sync without redundant re-uploads.
+    # training samples, telemetry) to every enabled Hive, watermark-based so
+    # months of backlog sync without redundant re-uploads.
     from server.hive_sync import HiveSyncWorker
     hive_sync_worker = HiveSyncWorker(gc)
     hive_sync_worker.start()
@@ -582,7 +590,7 @@ def main() -> None:
     StorageMaintenance(gc, hive_sync_worker).start()
     # Keep-alive to every enabled Hive; its replies carry the limits each sets.
     from server.hive_heartbeat import HiveHeartbeat
-    hive_heartbeat = HiveHeartbeat()
+    hive_heartbeat = HiveHeartbeat(hive_sync_worker)
     hive_heartbeat.start()
     gc.hive_heartbeat = hive_heartbeat
     import sample_store
@@ -820,6 +828,18 @@ def main() -> None:
             gc.run_recorder.save()
         except Exception as exc:
             gc.logger.warning(f"Failed to save run recorder during shutdown: {exc}")
+        try:
+            import fleet_telemetry
+
+            fleet_telemetry.shutdown()
+        except Exception as exc:
+            gc.logger.warning(f"Failed to keep the telemetry window during shutdown: {exc}")
+        try:
+            import upload_stats
+
+            upload_stats.flush()
+        except Exception as exc:
+            gc.logger.warning(f"Failed to flush upload statistics during shutdown: {exc}")
         if not db.drain(5.0):
             gc.logger.warning("Shutting down with database writes still queued")
 

@@ -203,6 +203,7 @@ def test_runs_and_labels_go_to_hive(clock) -> None:
     _record("a", t0 + 1)
     client = _FakeClient()
     syncer = hive_sync._TargetSyncer.__new__(hive_sync._TargetSyncer)
+    syncer._id = "t"
     syncer._client = client
     syncer._gate = hive_sync._ConcurrencyGate(1, 1, lambda: False)
     syncer._wm = {t: 0 for t in hive_sync.DATA_TYPES}
@@ -219,7 +220,7 @@ def test_runs_and_labels_go_to_hive(clock) -> None:
     assert not syncer._drainTrainingRuns()
     training_runs.setConfig(color_ids=["11"])  # a new segment resends the run
     assert syncer._drainTrainingRuns() and len(client.runs[-1]["segments"]) == 2
-    assert hive_sync.TELEMETRY_FIELD[hive_sync.DATA_TYPE_TRAINING_RUNS] == "piece_metadata"
+    assert hive_sync.STREAM[hive_sync.DATA_TYPE_TRAINING_RUNS] == "piece_records"
 
 
 def test_the_api() -> None:

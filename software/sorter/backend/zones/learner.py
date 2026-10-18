@@ -8,8 +8,9 @@ every machine is built and filmed a little differently.
 
 The learner keeps the last of them per channel and, once there are enough,
 moves an unlocked exit or drop zone a few degrees at a time toward what they
-show. It also keeps a picture of each channel every so often while the machine
-runs, for the zone finder.
+show. Where pieces ride says where the ring is: the circle through them, which
+the ring follows in small steps too. It also keeps a picture of each channel
+every so often while the machine runs, for the zone finder.
 """
 
 from __future__ import annotations
@@ -24,6 +25,7 @@ from typing import Any, Deque
 import cv2
 import numpy as np
 
+from .finder import ringAround
 from .model import ChannelZones, Span, forwardDeg, normalizeAngle
 from .store import loadZones, updateChannel
 
@@ -43,6 +45,13 @@ ADJUST_EVERY_S = 60.0
 MIN_EXIT_DEG = 20.0
 MIN_DROP_DEG = 25.0
 
+# The ring follows the circle pieces ride once this many sightings agree, by at
+# most these shares of its radius at a time, and only when it is this far off.
+MIN_SIGHTINGS = 400
+SIGHTINGS_KEPT = 3000
+MAX_RING_STEP = 0.02
+MIN_RING_CHANGE = 0.02
+
 FRAME_EVERY_S = 20.0
 FRAMES_KEPT = 24
 FRAME_WIDTH = 640
@@ -52,10 +61,17 @@ _NEXT = {2: 3, 3: 4}
 
 @dataclass(frozen=True)
 class Sighting:
+    """Where a piece was seen, as shares of the picture's width and height (so
+    it holds at any picture size), and its box's longer side as a share of the
+    width."""
+
     ts: float
-    x: float
-    y: float
+    u: float
+    v: float
     size: float
+
+    def at(self, frame: tuple[int, int]) -> tuple[float, float]:
+        return self.u * frame[0], self.v * frame[1]
 
 
 @dataclass
@@ -81,6 +97,7 @@ class ZoneLearner:
         self._ended: dict[int, Deque[_Track]] = {2: deque(maxlen=50), 3: deque(maxlen=50)}
         self._started: dict[int, Deque[tuple[int, _Track]]] = {3: deque(maxlen=50), 4: deque(maxlen=50)}
         self._handoffs: dict[int, Deque[Handoff]] = {2: deque(maxlen=HANDOFFS_KEPT), 3: deque(maxlen=HANDOFFS_KEPT)}
+        self._sightings: dict[int, Deque[Sighting]] = {ch: deque(maxlen=SIGHTINGS_KEPT) for ch in (2, 3, 4)}
         self._frames: dict[int, Deque[np.ndarray]] = {ch: deque(maxlen=FRAMES_KEPT) for ch in (2, 3, 4)}
         self._frame_at: dict[int, float] = {}
         self._last_frame_ts: dict[int, float] = {}
@@ -105,6 +122,10 @@ class ZoneLearner:
     def handoffs(self, from_channel: int) -> list[Handoff]:
         with self._lock:
             return list(self._handoffs.get(from_channel, ()))
+
+    def sightings(self, channel: int) -> list[Sighting]:
+        with self._lock:
+            return list(self._sightings.get(channel, ()))
 
     def report(self) -> dict[str, Any]:
         zones = loadZones()
@@ -147,10 +168,11 @@ class ZoneLearner:
                 continue
             pieces, frame = res
             ts = float(getattr(frame, "timestamp", now))
-            if self._last_frame_ts.get(channel) == ts:
+            bgr = getattr(frame, "bgr", None)
+            if self._last_frame_ts.get(channel) == ts or bgr is None:
                 continue
             self._last_frame_ts[channel] = ts
-            self._observe(channel, pieces, ts)
+            self._observe(channel, pieces, ts, (bgr.shape[1], bgr.shape[0]))
             self._keepFrame(channel, frame, now_mono)
         self._closeTracks(now)
         self._matchHandoffs()
@@ -158,15 +180,18 @@ class ZoneLearner:
             self._adjusted_at = now_mono
             self._adjust()
 
-    def _observe(self, channel: int, pieces: Any, ts: float) -> None:
+    def _observe(self, channel: int, pieces: Any, ts: float, size: tuple[int, int]) -> None:
         tracks = self._tracks[channel]
+        w, h = size
         for piece in pieces or ():
             track_id = getattr(piece, "sv_bt_track_id", None)
             bbox = getattr(piece, "bbox", None)
             if track_id is None or not bbox:
                 continue
             x1, y1, x2, y2 = bbox
-            seen = Sighting(ts, (x1 + x2) / 2.0, (y1 + y2) / 2.0, float(max(x2 - x1, y2 - y1)))
+            seen = Sighting(ts, (x1 + x2) / 2.0 / w, (y1 + y2) / 2.0 / h, float(max(x2 - x1, y2 - y1)) / w)
+            with self._lock:
+                self._sightings[channel].append(seen)
             track = tracks.get(int(track_id))
             if track is None:
                 track = _Track(first=seen, last=seen)
@@ -236,6 +261,10 @@ class ZoneLearner:
     # --- moving zones ----------------------------------------------------
 
     def _adjust(self) -> None:
+        for channel in (2, 3, 4):
+            seen = self.sightings(channel)
+            if len(seen) >= MIN_SIGHTINGS:
+                updateChannel(channel, lambda z, s=seen: _ringStepped(z, s))
         for channel, nxt in _NEXT.items():
             hand = self.handoffs(channel)
             if len(hand) < MIN_HANDOFFS:
@@ -256,14 +285,15 @@ class ZoneLearner:
 # ---------------------------------------------------------------------------
 
 
-def _angle(zones: ChannelZones, s: Sighting, frame: tuple[int, int] | None = None) -> float:
+def _angle(zones: ChannelZones, s: Sighting) -> float:
     cx, cy = zones.ring.center
-    return normalizeAngle(math.degrees(math.atan2(s.y - cy, s.x - cx)))
+    x, y = s.at(zones.frame)
+    return normalizeAngle(math.degrees(math.atan2(y - cy, x - cx)))
 
 
 def _sizeDeg(zones: ChannelZones, sightings: list[Sighting]) -> float:
     radius = max(zones.ring.exit_radius, 1.0)
-    sizes = sorted(s.size for s in sightings)
+    sizes = sorted(s.size * zones.frame[0] for s in sightings)
     return math.degrees(sizes[len(sizes) // 2] / radius)
 
 
@@ -322,6 +352,46 @@ def _stepped(zones: ChannelZones, name: str, target: Span | None) -> ChannelZone
         return None
     sources = {**dict(zones.source), name: "learned"}
     return replace(zones, source=sources, **{name: moved})
+
+
+def ridingCircle(points: list[tuple[float, float]]) -> tuple[tuple[float, float], float] | None:
+    """The circle pieces ride: a least-squares circle through where they were
+    seen, refit without the farthest fifth (pieces falling off, odd boxes)."""
+    if len(points) < 20:
+        return None
+    pts = np.asarray(points, dtype=np.float64)
+    keep = np.ones(len(pts), bool)
+    cx = cy = r = 0.0
+    for _ in range(5):
+        x, y = pts[keep, 0], pts[keep, 1]
+        a = np.column_stack([2 * x, 2 * y, np.ones(len(x))])
+        sol, *_ = np.linalg.lstsq(a, x * x + y * y, rcond=None)
+        cx, cy = float(sol[0]), float(sol[1])
+        r = math.sqrt(max(float(sol[2]) + cx * cx + cy * cy, 1.0))
+        off = np.abs(np.hypot(pts[:, 0] - cx, pts[:, 1] - cy) - r)
+        keep = off <= max(float(np.percentile(off, 80)), 1.0)
+    return (cx, cy), r
+
+
+def _ringStepped(zones: ChannelZones, seen: list[Sighting]) -> ChannelZones | None:
+    """``zones`` with the ring moved toward the circle pieces ride, a small step
+    at a time, unless it is locked or already close."""
+    if "ring" in zones.locked:
+        return None
+    circle = ridingCircle([s.at(zones.frame) for s in seen])
+    if circle is None:
+        return None
+    (cx, cy), r = circle
+    ring = zones.ring
+    rim = ring.exit_radius
+    off_center = math.dist((cx, cy), ring.center) / rim
+    off_radius = (r - rim) / rim
+    if off_center < MIN_RING_CHANGE and abs(off_radius) < MIN_RING_CHANGE:
+        return None
+    step = min(1.0, MAX_RING_STEP / max(off_center, 1e-9))
+    center = (ring.center[0] + (cx - ring.center[0]) * step, ring.center[1] + (cy - ring.center[1]) * step)
+    new_rim = rim * (1.0 + max(-MAX_RING_STEP, min(MAX_RING_STEP, off_radius)))
+    return zones.withRing(ringAround(center, new_rim), "learned")
 
 
 _learner: ZoneLearner | None = None

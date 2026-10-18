@@ -20,13 +20,13 @@ from __future__ import annotations
 
 import math
 import warnings
-from dataclasses import dataclass, field, replace
+from dataclasses import dataclass, field
 from typing import Sequence
 
 import cv2
 import numpy as np
 
-from .model import ChannelZones, Ring, Span, normalizeAngle
+from .model import ChannelZones, Ring, Span
 
 WORK_W = 640
 _SECTORS = 8
@@ -111,17 +111,15 @@ def findZones(
     if "ring" in base.locked:
         notes.append("the ring is locked, so it was kept")
         return Found(zones=base, center_score=center_score, rim_score=rim_score, frames=len(small), notes=notes)
-    ring = Ring(center, RING_INNER * rim_px, RING_OUTER * rim_px, rim_px)
     # The zones stay where they were on the band pieces ride, locked or not:
     # only their angles are measured from the new center.
-    zones = replace(
-        base,
-        ring=ring,
-        drop=_reanchored(base.drop, base.ring, ring),
-        exit=_reanchored(base.exit, base.ring, ring),
-        source={**dict(base.source), "ring": "found"},
-    )
+    zones = base.withRing(ringAround(center, rim_px), "found")
     return Found(zones=zones, center_score=center_score, rim_score=rim_score, frames=len(small), notes=notes)
+
+
+def ringAround(center: tuple[float, float], rim: float) -> Ring:
+    """The ring pieces ride, for a rim of radius ``rim``."""
+    return Ring(center, RING_INNER * rim, RING_OUTER * rim, rim)
 
 
 # ---------------------------------------------------------------------------
@@ -260,43 +258,19 @@ def _findRim(
     if not peaks:
         return 0.45 * min(w, h), 0.0, "no circular edge found; the ring is a guess"
     strongest = float(max(edges[r] for r in peaks))
+    strong = [r for r in peaks if edges[r] >= 0.35 * strongest]
+    rim = strong[0]
     motion = _motionProfile(frames, cx, cy, rmax)
     if motion is not None:
-        # The rim has the turning disc and its pieces inside it, still walls
-        # outside it.
-        def score(r: int) -> float:
+        # The rim has the turning disc and its pieces inside it and still walls
+        # outside it: change stops there. The innermost strong circle stands
+        # unless change plainly stops somewhere else.
+        def fall(r: int) -> float:
             inside = float(np.mean(motion[max(0, r - 18) : max(1, r - 3)]))
             outside = float(np.mean(motion[r + 3 : r + 18])) if r + 18 < len(motion) else 0.0
-            return float(edges[r]) * max(0.0, inside - outside)
+            return inside - outside
 
-        best = max((r for r in peaks if edges[r] >= 0.2 * strongest), key=score)
-        if score(best) > 0:
-            return float(best), float(edges[best] / strongest), None
-    rim = next(r for r in peaks if edges[r] >= 0.35 * strongest)
+        best = max(strong, key=fall)
+        if fall(best) > 0 and fall(rim) < 0.5 * fall(best):
+            rim = best
     return float(rim), float(edges[rim] / strongest), "from one picture" if len(frames) < 4 else None
-
-
-# ---------------------------------------------------------------------------
-# Keeping zones where they were
-# ---------------------------------------------------------------------------
-
-
-def _reanchored(span: Span, old: Ring, new: Ring) -> Span:
-    """The same stretch of the band pieces ride, measured around the new
-    center: each edge's ray from the old center, met at the new rim."""
-    radius = new.exit_radius
-
-    def moved(angle: float) -> float:
-        ox, oy = old.center
-        dx, dy = math.cos(math.radians(angle)), math.sin(math.radians(angle))
-        fx, fy = ox - new.center[0], oy - new.center[1]
-        b = fx * dx + fy * dy
-        c = fx * fx + fy * fy - radius * radius
-        disc = b * b - c
-        if disc < 0:
-            return angle
-        t = -b + math.sqrt(disc)
-        px, py = ox + t * dx, oy + t * dy
-        return normalizeAngle(math.degrees(math.atan2(py - new.center[1], px - new.center[0])))
-
-    return Span(moved(span.start), moved(span.end))

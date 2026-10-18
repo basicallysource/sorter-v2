@@ -3,6 +3,7 @@ from __future__ import annotations
 import math
 from types import SimpleNamespace
 
+import numpy as np
 import pytest
 
 from zones import learner as learner_mod
@@ -28,9 +29,9 @@ def _zones(channel: int, **kw) -> ChannelZones:
 def _at(angle: float, radius: float = 155.0, ts: float = 0.0, size: float = 20.0) -> Sighting:
     return Sighting(
         ts,
-        CENTER[0] + radius * math.cos(math.radians(angle)),
-        CENTER[1] + radius * math.sin(math.radians(angle)),
-        size,
+        (CENTER[0] + radius * math.cos(math.radians(angle))) / 400.0,
+        (CENTER[1] + radius * math.sin(math.radians(angle))) / 400.0,
+        size / 400.0,
     )
 
 
@@ -74,14 +75,14 @@ class _FakePerception:
     def show(self, channel: int, ts: float, pieces: list[tuple[int, float]]) -> None:
         observations = []
         for track_id, angle in pieces:
-            s = _at(angle)
+            x, y = _at(angle).at((400, 400))
             observations.append(
                 SimpleNamespace(
                     sv_bt_track_id=track_id,
-                    bbox=(int(s.x - 10), int(s.y - 10), int(s.x + 10), int(s.y + 10)),
+                    bbox=(int(x - 10), int(y - 10), int(x + 10), int(y + 10)),
                 )
             )
-        self.frames[channel] = (observations, SimpleNamespace(timestamp=ts, bgr=None))
+        self.frames[channel] = (observations, SimpleNamespace(timestamp=ts, bgr=np.zeros((400, 400, 3), np.uint8)))
 
 
 def test_a_piece_leaving_one_channel_and_landing_on_the_next_is_a_handoff(monkeypatch) -> None:
@@ -107,5 +108,30 @@ def test_a_piece_leaving_one_channel_and_landing_on_the_next_is_a_handoff(monkey
 
     [handoff] = learner.handoffs(2)
     assert handoff.delay_s == pytest.approx(0.9)
-    assert math.degrees(math.atan2(handoff.left.y - CENTER[1], handoff.left.x - CENTER[0])) % 360 == pytest.approx(182.0, abs=0.5)
-    assert math.degrees(math.atan2(handoff.landed.y - CENTER[1], handoff.landed.x - CENTER[0])) % 360 == pytest.approx(300.0, abs=0.5)
+    left = handoff.left.at((400, 400))
+    landed = handoff.landed.at((400, 400))
+    assert math.degrees(math.atan2(left[1] - CENTER[1], left[0] - CENTER[0])) % 360 == pytest.approx(182.0, abs=0.5)
+    assert math.degrees(math.atan2(landed[1] - CENTER[1], landed[0] - CENTER[0])) % 360 == pytest.approx(300.0, abs=0.5)
+
+
+def test_the_ring_follows_the_circle_pieces_ride_a_step_at_a_time() -> None:
+    zones = _zones(3)
+    true_center, true_rim = (212.0, 196.0), 168.0
+    seen = [
+        Sighting(
+            0.0,
+            (true_center[0] + true_rim * math.cos(math.radians(a))) / 400.0,
+            (true_center[1] + true_rim * math.sin(math.radians(a))) / 400.0,
+            0.05,
+        )
+        for a in range(0, 300, 1)
+    ]
+    center, rim = learner_mod.ridingCircle([s.at((400, 400)) for s in seen])
+    assert math.dist(center, true_center) < 0.5 and rim == pytest.approx(true_rim, abs=0.5)
+
+    stepped = learner_mod._ringStepped(zones, seen)
+    assert stepped is not None and stepped.source["ring"] == "learned"
+    moved = math.dist(stepped.ring.center, zones.ring.center)
+    assert 0 < moved <= learner_mod.MAX_RING_STEP * zones.ring.exit_radius + 1e-6
+    assert stepped.ring.exit_radius == pytest.approx(zones.ring.exit_radius * (1 + learner_mod.MAX_RING_STEP))
+    assert learner_mod._ringStepped(_zones(3, locked=frozenset({"ring"})), seen) is None

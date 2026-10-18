@@ -146,6 +146,17 @@ class ChannelZones:
             ring=self.ring.scaled(w / self.frame[0], h / self.frame[1]),
         )
 
+    def withRing(self, ring: Ring, source: str) -> "ChannelZones":
+        """These zones on another ring, each zone kept where it was on the band
+        pieces ride: its edges are measured again from the new center."""
+        return replace(
+            self,
+            ring=ring,
+            drop=_reanchored(self.drop, self.ring, ring),
+            exit=_reanchored(self.exit, self.ring, ring),
+            source={**dict(self.source), "ring": source},
+        )
+
     def withParts(self, other: "ChannelZones", parts: Iterable[str], source: str) -> "ChannelZones":
         """These zones with ``parts`` taken from ``other`` (rescaled to this frame),
         except the locked ones."""
@@ -166,6 +177,27 @@ class ChannelZones:
         for part in take:
             sources[part] = source
         return replace(self, source=sources, **values)
+
+
+def _reanchored(span: Span, old: Ring, new: Ring) -> Span:
+    """The same stretch of the band, measured around the new center: each edge's
+    ray from the old center, met at the new ring's exit radius."""
+    radius = new.exit_radius
+
+    def moved(angle: float) -> float:
+        ox, oy = old.center
+        dx, dy = math.cos(math.radians(angle)), math.sin(math.radians(angle))
+        fx, fy = ox - new.center[0], oy - new.center[1]
+        b = fx * dx + fy * dy
+        c = fx * fx + fy * fy - radius * radius
+        disc = b * b - c
+        if disc < 0:
+            return angle
+        t = -b + math.sqrt(disc)
+        px, py = ox + t * dx, oy + t * dy
+        return normalizeAngle(math.degrees(math.atan2(py - new.center[1], px - new.center[0])))
+
+    return Span(moved(span.start), moved(span.end))
 
 
 # ---------------------------------------------------------------------------

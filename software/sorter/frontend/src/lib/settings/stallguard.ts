@@ -37,6 +37,37 @@ export function fmtTime(epoch: number | null): string {
 	return new Date(epoch * 1000).toLocaleString();
 }
 
+// A motor's automatic tuning, as GET /stepper/{motor}/stallguard-auto gives it
+// (stallguard_tuner.py). Only `motor`, `supported`, `auto` and `running` are
+// there when the tuner does not run or does not tune the motor.
+export type AutoTuning = {
+	motor: string;
+	supported: boolean;
+	auto: boolean;
+	running: boolean;
+	state?: 'off' | 'waiting' | 'learning' | 'tuned';
+	readings?: number;
+	needed?: number;
+	learned_from?: number;
+	normal_low?: number | null;
+	baseline_low?: number | null;
+	working_harder?: boolean;
+	reliable?: boolean;
+	tuned_at?: number | null;
+	sgthrs?: number | null;
+	trigger?: number | null;
+	tcoolthrs?: number | null;
+	speed?: number | null;
+	floor_speed?: number | null;
+	changes?: {
+		at: number;
+		sgthrs: [number | null, number];
+		tcoolthrs: [number | null, number];
+		why: string;
+	}[];
+	error?: string | null;
+};
+
 export type Replay = {
 	// The readings the driver would have looked at: the motor was moving and
 	// TSTEP was at or under the speed floor.

@@ -8,6 +8,7 @@ import threading
 import time
 from typing import Any, Dict, List, Optional
 
+import stallguard_tuner
 import stepper_telemetry
 
 from fastapi import APIRouter, HTTPException
@@ -507,6 +508,7 @@ class StallGuardConfigResponse(BaseModel):
     sgthrs: int
     tcoolthrs: int
     enabled: bool
+    auto: bool
     applied_live: bool
 
 
@@ -521,6 +523,10 @@ def set_stallguard_config(stepper: str, body: StallGuardConfigBody) -> StallGuar
         for name, value in (("sgthrs", body.sgthrs), ("tcoolthrs", body.tcoolthrs), ("stallguard", body.enabled))
         if value is not None
     }
+    saved = readStepperSettings(motor)
+    if any(name in changes and changes[name] != getattr(saved, name) for name in ("sgthrs", "tcoolthrs")):
+        # A threshold or speed floor set by hand takes them over from automatic tuning.
+        changes["stallguard_auto"] = False
     settings, applied_live = save_stepper_settings(motor, changes)
 
     return StallGuardConfigResponse(
@@ -530,8 +536,35 @@ def set_stallguard_config(stepper: str, body: StallGuardConfigBody) -> StallGuar
         sgthrs=settings.sgthrs,
         tcoolthrs=settings.tcoolthrs,
         enabled=settings.stallguard,
+        auto=settings.stallguard_auto,
         applied_live=applied_live,
     )
+
+
+class StallGuardAutoBody(BaseModel):
+    enabled: Optional[bool] = None
+    # Forget what it learned and learn the motor again as it is now.
+    learn_again: bool = False
+
+
+@router.get("/stepper/{stepper}/stallguard-auto")
+def get_stallguard_auto(stepper: str) -> Dict[str, Any]:
+    """The motor's automatic tuning: whether it is on, what it has learned and
+    set, and why (see stallguard_tuner)."""
+    return stallguard_tuner.status(_motor(stepper))
+
+
+@router.post("/stepper/{stepper}/stallguard-auto")
+def set_stallguard_auto(stepper: str, body: StallGuardAutoBody) -> Dict[str, Any]:
+    """Turn the motor's automatic tuning on or off, or have it learn again."""
+    motor = _motor(stepper)
+    if not stallguard_tuner.supports(motor):
+        raise HTTPException(status_code=400, detail=f"The {motor.label} has no automatic tuning.")
+    if body.enabled is not None:
+        save_stepper_settings(motor, {"stallguard_auto": body.enabled})
+    if body.learn_again:
+        stallguard_tuner.learnAgain(motor)
+    return stallguard_tuner.status(motor)
 
 
 # ---------------------------------------------------------------------------

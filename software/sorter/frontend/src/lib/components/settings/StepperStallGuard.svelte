@@ -1,7 +1,7 @@
 <!--
-	One motor's StallGuard tab: a guided tuning in numbered steps, the load curve
-	of a recording, the motor's stall settings, and the expert tools behind the
-	steps. It is the body of the StallGuard tab of the chute and of the
+	One motor's StallGuard tab: its automatic tuning where it has one, a guided
+	tuning in numbered steps, the load curve of a recording, the motor's stall
+	settings, and the expert tools behind the steps. It is the body of the StallGuard tab of the chute and of the
 	classification channel; each passes its own motor.
 
 	The steps know where the person is from what the machine has recorded, not
@@ -41,6 +41,7 @@
 	import Stat from '$lib/components/ui/Stat.svelte';
 	import KeyValue from '$lib/components/ui/KeyValue.svelte';
 	import Step from '$lib/components/ui/Step.svelte';
+	import StepperStallGuardAuto from './stepper/StepperStallGuardAuto.svelte';
 	import StepperStallGuardCurve from './stepper/StepperStallGuardCurve.svelte';
 	import StepperStallGuardRuns from './stepper/StepperStallGuardRuns.svelte';
 	import StepperStallGuardSettings from './stepper/StepperStallGuardSettings.svelte';
@@ -82,6 +83,8 @@
 	let sgEnabled = $state(false);
 	let sgThrs = $state(50);
 	let sgTcoolthrs = $state(150);
+	// Automatic tuning keeps the threshold and the speed floor while it is on.
+	let auto = $state(false);
 	let microsteps = $state(8);
 	// The driver settings a recording must have been made with to count for tuning.
 	let driverIrun = $state<number | null>(null);
@@ -109,6 +112,7 @@
 			driverStealthchop = typeof data.stealthchop === 'boolean' ? data.stealthchop : null;
 			if (data.stallguard) {
 				sgEnabled = !!data.stallguard.enabled;
+				auto = !!data.stallguard.auto;
 				if (typeof data.stallguard.sgthrs === 'number') sgThrs = data.stallguard.sgthrs;
 				if (typeof data.stallguard.tcoolthrs === 'number') sgTcoolthrs = data.stallguard.tcoolthrs;
 				applied = { enabled: sgEnabled, sgthrs: sgThrs, tcoolthrs: sgTcoolthrs };
@@ -138,13 +142,19 @@
 			const res = await fetch(`${base()}/stepper/${motor}/stallguard-config`, {
 				method: 'POST',
 				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({ sgthrs: sgThrs, tcoolthrs: sgTcoolthrs, enabled: sgEnabled })
+				// A threshold or floor sent by hand would take them over from automatic tuning.
+				body: JSON.stringify(
+					auto
+						? { enabled: sgEnabled }
+						: { sgthrs: sgThrs, tcoolthrs: sgTcoolthrs, enabled: sgEnabled }
+				)
 			});
 			if (!res.ok) throw new Error(await readError(res));
 			const data = await res.json();
 			sgEnabled = !!data.enabled;
 			sgThrs = data.sgthrs;
 			sgTcoolthrs = data.tcoolthrs;
+			auto = !!data.auto;
 			applied = { enabled: sgEnabled, sgthrs: sgThrs, tcoolthrs: sgTcoolthrs };
 			check = null;
 			settingsNotice = data.applied_live
@@ -526,6 +536,7 @@
 			sgEnabled = !!data.enabled;
 			sgThrs = data.sgthrs;
 			sgTcoolthrs = data.tcoolthrs;
+			auto = !!data.auto;
 			applied = { enabled: sgEnabled, sgthrs: sgThrs, tcoolthrs: sgTcoolthrs };
 			savedFor = signedTuneSpeed;
 			check = null;
@@ -555,9 +566,13 @@
 <div class="flex min-w-0 flex-col gap-(--gap-panels)">
 	{#if error}<Alert tone="danger">{error}</Alert>{/if}
 
+	<StepperStallGuardAuto {motor} {label} {base} bind:auto onchange={loadSettings} />
+
 	<Panel
 		title="Tune StallGuard"
-		description="Finds where a stall starts, at the speed {label} runs."
+		description={auto
+			? 'Optional while it tunes itself: a recorded stall to check it against.'
+			: `Finds where a stall starts, at the speed ${label} runs.`}
 		flush
 	>
 		{#snippet actions()}
@@ -565,6 +580,8 @@
 				<Badge tone="warning">It would trip</Badge>
 			{:else if done[3]}
 				<Badge tone="success">Tuned</Badge>
+			{:else if auto}
+				<Badge>Optional</Badge>
 			{:else}
 				<Badge tone="primary">Step {currentStep} of 5</Badge>
 			{/if}
@@ -794,7 +811,7 @@
 								</Alert>
 							{/if}
 							{#if saveError}<Alert tone="danger">{saveError}</Alert>{/if}
-							<div>
+							<div class="flex flex-wrap items-center gap-3">
 								<Button
 									variant={plan.reliable ? 'primary' : 'ghost'}
 									loading={saving}
@@ -802,6 +819,9 @@
 								>
 									{plan.reliable ? 'Save and turn on StallGuard' : 'Save anyway'}
 								</Button>
+								{#if auto}
+									<span class="text-sm text-ink-muted">Turns automatic tuning off.</span>
+								{/if}
 							</div>
 						</div>
 					{/if}
@@ -898,7 +918,13 @@
 					</Alert>
 				{/if}
 				{#if settingsLoaded}
-					<StepperStallGuardSettings bind:sgEnabled bind:sgThrs bind:sgTcoolthrs {microsteps} />
+					<StepperStallGuardSettings
+						bind:sgEnabled
+						bind:sgThrs
+						bind:sgTcoolthrs
+						{microsteps}
+						{auto}
+					/>
 				{/if}
 			</div>
 		{/if}

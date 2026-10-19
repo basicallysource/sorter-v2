@@ -237,6 +237,7 @@ def _steppers() -> dict[str, Any]:
             "stealthchop": settings.stealthchop,
             "coolstep": settings.coolstep,
             "stallguard": settings.stallguard,
+            "stallguard_auto": settings.stallguard_auto,
             "sgthrs": settings.sgthrs,
             "tcoolthrs": settings.tcoolthrs,
             "inverted": settings.inverted,

@@ -29,6 +29,7 @@ from hardware_settings.steppers import (
     saveStepperSettings,
 )
 from server import shared_state
+import stallguard_tuner
 from stepper_stall_monitor import CHUTE_NEEDS_HOMING_INCIDENT_KIND, STEPPER_STALL_INCIDENT_KIND
 
 router = APIRouter()
@@ -132,7 +133,9 @@ def save_stepper_settings(motor: Motor, changes: Dict[str, Any]) -> tuple[Steppe
                 status_code=502,
                 detail=f"The {motor.label} stepper did not take it, so it was not saved: {exc}",
             )
-    return saveStepperSettings(motor, changes), stepper is not None and bool(changes)
+    saved = saveStepperSettings(motor, changes)
+    stallguard_tuner.settingsChanged(motor)
+    return saved, stepper is not None and bool(changes)
 
 
 def _resolve_stepper(stepper_name: str) -> Any:
@@ -425,6 +428,7 @@ def settings_payload(settings: StepperSettings) -> Dict[str, Any]:
             "sgthrs": settings.sgthrs,
             "tcoolthrs": settings.tcoolthrs,
             "enabled": settings.stallguard,
+            "auto": settings.stallguard_auto,
         },
         "inverted": settings.inverted,
         "saved": sorted(settings.saved),

@@ -74,6 +74,8 @@ FIELDS: dict[str, Field] = {
         Field("stealthchop", DRIVER, "stealthchop", True, _isBool, "true or false"),
         Field("coolstep", DRIVER, "coolstep", False, _isBool, "true or false"),
         Field("stallguard", STALLGUARD, "enabled", False, _isBool, "true or false"),
+        # The StallGuard tuner (stallguard_tuner.py) keeps sgthrs and tcoolthrs.
+        Field("stallguard_auto", STALLGUARD, "auto", False, _isBool, "true or false"),
         Field("sgthrs", STALLGUARD, "sgthrs", 50, _intIn(0, 255), "an integer from 0 to 255"),
         Field(
             "tcoolthrs", STALLGUARD, "tcoolthrs", 150,
@@ -86,20 +88,21 @@ FIELDS: dict[str, Field] = {
 
 # Built-in values that differ by motor; the rest are FIELDS' defaults. The
 # C-channel rotors run cool, and the chute and the carousel come with
-# StallGuard tuned on the first machines.
+# StallGuard tuned on the first machines. The chute tunes its own.
 MOTOR_DEFAULTS: dict[str, dict[str, Any]] = {
     "c_channel_1": {"irun": 4, "ihold": 1},
     "c_channel_2": {"irun": 4, "ihold": 1},
     "c_channel_3": {"irun": 4, "ihold": 1},
     "carousel": {"irun": 8, "ihold": 1, "stallguard": True, "sgthrs": 148, "tcoolthrs": 150},
-    "chute": {"stallguard": True, "sgthrs": 55, "tcoolthrs": 150},
+    "chute": {"stallguard": True, "stallguard_auto": True, "sgthrs": 55, "tcoolthrs": 150},
 }
 
 # What a motor's entry in these tables has always meant for a key it leaves
-# out, whatever the motor's built-in default, so existing files read the same.
+# out, whatever the motor's built-in default, so existing files read the same:
+# an entry from before automatic tuning holds a threshold someone saved.
 ENTRY_DEFAULTS: dict[str, dict[str, Any]] = {
     CURRENTS: {"irun": 16, "ihold": 4, "ihold_delay": 8},
-    STALLGUARD: {"stallguard": True, "tcoolthrs": TCOOLTHRS_EVERY_SPEED},
+    STALLGUARD: {"stallguard": True, "stallguard_auto": False, "tcoolthrs": TCOOLTHRS_EVERY_SPEED},
 }
 
 
@@ -112,6 +115,7 @@ class StepperSettings:
     stealthchop: bool
     coolstep: bool
     stallguard: bool
+    stallguard_auto: bool
     sgthrs: int
     tcoolthrs: int
     inverted: bool
@@ -124,7 +128,8 @@ class StepperSettings:
             f"IRUN={self.irun} IHOLD={self.ihold} IHOLD_DELAY={self.ihold_delay}, "
             f"{self.microsteps} microsteps, StealthChop {_onOff(self.stealthchop)}, "
             f"CoolStep {_onOff(self.coolstep)}, StallGuard {_onOff(self.stallguard)} "
-            f"(SGTHRS={self.sgthrs} TCOOLTHRS={tcoolthrsRegister(self)}), "
+            f"(SGTHRS={self.sgthrs} TCOOLTHRS={tcoolthrsRegister(self)}"
+            f"{', tuned automatically' if self.stallguard_auto else ''}), "
             f"direction {'inverted' if self.inverted else 'normal'}; "
             f"from machine.toml: {', '.join(sorted(self.saved)) or 'none, all built-in defaults'}"
         )
@@ -212,10 +217,15 @@ def applyStepperSettings(
     settings: StepperSettings,
     fields: Iterable[str] | None = None,
     run: Callable[[str, Callable[[], Any]], Any] | None = None,
+    *,
+    rearm: bool = True,
 ) -> int:
     """Put settings on the stepper and its driver: every one (fields=None, as
     start-up does) or only those named. `run(action, command)` sends each
     command; start-up passes one that retries and stops init on failure.
+    A new threshold or speed floor clears the stall latch and arms detection
+    again, as a person changing them expects; `rearm=False` leaves both alone,
+    for the tuner, which must never clear a stall it has not seen.
     Returns the driver register writes sent, which start-up checks against the
     driver's own count of writes it took."""
     run = run or _send
@@ -252,11 +262,12 @@ def applyStepperSettings(
         stepper.stallguard_sgthrs = settings.sgthrs
         stepper.stallguard_tcoolthrs = settings.tcoolthrs
         stepper.stallguard_enabled = stallguard_on
-        if stallguard_on:
-            run("clear its stall latch", stepper.clear_stall)
-            run("arm stall detection", lambda: stepper.enable_stall_detection(True))
-        elif was_on:
-            run("disarm stall detection", lambda: stepper.enable_stall_detection(False))
+        if rearm or "stallguard" in changed:
+            if stallguard_on:
+                run("clear its stall latch", stepper.clear_stall)
+                run("arm stall detection", lambda: stepper.enable_stall_detection(True))
+            elif was_on:
+                run("disarm stall detection", lambda: stepper.enable_stall_detection(False))
     if "inverted" in changed:
         stepper.set_direction_inverted(settings.inverted)
     return writes

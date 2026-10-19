@@ -9,6 +9,7 @@ import math
 import os
 import time
 import json
+from dataclasses import dataclass
 from typing import Protocol
 from .bus import MCUDevice, BaseCommandCode
 import struct
@@ -162,6 +163,17 @@ def _controlDataRecordCommand(payload: dict) -> None:
         pass
 
 
+@dataclass(frozen=True)
+class StepperMove:
+    """A move the board took: when it was sent (time.monotonic), how many
+    microsteps, the speed it cruises at and how long it should take."""
+
+    sent_at: float
+    steps: int
+    max_speed: int
+    duration_s: float
+
+
 class StepperMotor:
     def __init__(self, device: MCUDevice, channel: int, gc: GlobalConfig):
         self._dev = device
@@ -206,6 +218,9 @@ class StepperMotor:
         # the driver only while an axis is likely to be moving.
         self.last_commanded_at: float | None = None
         self.running_at_speed = False
+        # The last move_steps the board took. The StallGuard tuner reads the
+        # driver while one runs.
+        self.last_move: StepperMove | None = None
 
     def _logical_to_physical_steps(self, value: int) -> int:
         return -value if self._direction_inverted else value
@@ -248,6 +263,10 @@ class StepperMotor:
         success = len(res.payload) > 0 and bool(res.payload[0])
         if success:
             self._current_position_steps += steps
+            # 0 when no speed limits were sent: the board's own, not known here.
+            max_speed = self._applied_speed_limits[1] if self._applied_speed_limits else 0
+            duration_ms = self.estimateMoveStepsMs(steps, max_speed=max_speed) if max_speed > 0 else 0
+            self.last_move = StepperMove(sent_mono, steps, max_speed, duration_ms / 1000.0)
         else:
             self.refused_moves += 1
             self._gc.logger.warning(

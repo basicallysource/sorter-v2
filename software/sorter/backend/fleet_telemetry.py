@@ -56,6 +56,9 @@ ERROR_LOG_INTERVAL_S = 300.0
 
 # A stepper counts as possibly moving this long after a move was commanded.
 ACTIVE_S = 2.0
+# A driver that fails this many reads in a row is left alone for a while.
+READ_FAILURES_TO_REST = 3
+READ_FAILURE_REST_S = 300.0
 STEPPER_SETTINGS_CHECK_S = 30.0
 SG_BIN_WIDTH = 32
 SG_BINS = 16
@@ -185,6 +188,9 @@ class StepperLoadProbe:
         self._window_settings: dict[str, dict[str, Any]] = {}
         self._settings_checked_at = 0.0
         self._next = 0
+        # Per motor: reads failed in a row, and until when it is left alone.
+        self._failures: dict[str, int] = {}
+        self._resting_until: dict[str, float] = {}
 
     def _refreshSettings(self, now: float) -> None:
         if now - self._settings_checked_at < STEPPER_SETTINGS_CHECK_S and self._settings:
@@ -209,7 +215,7 @@ class StepperLoadProbe:
             index = (self._next + offset) % count
             motor = self._motors[index]
             stepper = getattr(irl, motor.attr, None)
-            if stepper is None:
+            if stepper is None or self._resting_until.get(motor.name, 0.0) > now:
                 continue
             commanded = getattr(stepper, "last_commanded_at", None)
             if getattr(stepper, "running_at_speed", False) or (
@@ -229,7 +235,14 @@ class StepperLoadProbe:
         motor, stepper = picked
         drv = _readRegister(stepper, REG_DRV_STATUS)
         if drv is None:
+            failures = self._failures.get(motor.name, 0) + 1
+            self._failures[motor.name] = failures
+            if failures >= READ_FAILURES_TO_REST:
+                self._failures[motor.name] = 0
+                self._resting_until[motor.name] = now + READ_FAILURE_REST_S
+                log.warning("fleet telemetry: %s's driver did not answer %d reads; leaving it %.0f s", motor.name, failures, READ_FAILURE_REST_S)
             return
+        self._failures[motor.name] = 0
         standstill = bool(drv & (1 << 31))
         cs = (drv >> 16) & 0x1F
         sg = tstep = None

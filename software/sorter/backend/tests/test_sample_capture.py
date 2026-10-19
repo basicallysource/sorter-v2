@@ -358,7 +358,7 @@ class SyncSamplesTests(_StateTestCase):
         return syncer
 
     def _drain(self, syncer) -> bool:
-        with patch.object(self.hive_sync, "telemetryAllows", return_value=True), patch.object(self.hive_sync, "_machineBusy", return_value=False):
+        with patch.object(self.hive_sync, "_machineBusy", return_value=False):
             return syncer._drainSamples()
 
     def test_sends_in_order_with_camera_lamp_and_outline(self) -> None:

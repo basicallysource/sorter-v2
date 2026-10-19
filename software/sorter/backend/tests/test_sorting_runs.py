@@ -105,6 +105,7 @@ class _FakeHive:
 
 def _syncer(client: _FakeHive):
     syncer = hive_sync._TargetSyncer.__new__(hive_sync._TargetSyncer)
+    syncer._id = "t"
     syncer._client = client
     syncer._gate = hive_sync._ConcurrencyGate(1, 1, lambda: False)
     syncer._wm = {t: 0 for t in hive_sync.DATA_TYPES}

@@ -1,15 +1,18 @@
-"""Machine specs snapshot — the "what is this machine" details we report to a
-registered Hive account.
+"""Machine specs snapshot — the "what is this machine" details a connected
+Hive gets.
 
-Unlike status_ping (anonymous, install-scoped), this rides the account-scoped
-heartbeat so the specs land on the machine's own Hive dashboard. It answers the
-basic compatibility/support questions: what camera, what controller board, what
-platform and OS. Collection is entirely best-effort — a missing /proc file, an
-uninitialized camera, or a machine still in standby just yields a smaller
-snapshot, never an error that touches the sorting path.
+It answers the basic compatibility and support questions (what camera, what
+controller board, what platform and OS) and says how the machine is set up:
+each camera's saved settings and each stepper's driver settings. fleet_telemetry
+writes it as a `machine_specs` telemetry record (the machine_telemetry stream)
+at start and whenever it changes; Hive shows a summary on the machine's
+dashboard and keeps the history. Collection is entirely best-effort — a missing
+/proc file, an uninitialized camera, or a machine still in standby just yields
+a smaller snapshot, never an error that touches the sorting path.
 
-The choke point (hive_telemetry.HiveTelemetryClient) gates the whole snapshot on
-the "machine_specs" telemetry field, so an operator can turn it off per target.
+It carries nothing that identifies the hardware (hostname, MAC addresses, CPU
+serial): it is always shared with a connected Hive, and where to find the
+machine is the optional network stream's.
 
 BOOT_ID is fresh per process, so every restart produces a new snapshot the
 server can distinguish from the previous one even when nothing else changed —
@@ -20,7 +23,6 @@ from __future__ import annotations
 
 import os
 import platform
-import socket
 import uuid
 from datetime import datetime, timezone
 from typing import Any
@@ -28,7 +30,8 @@ from typing import Any
 import machine_toml
 
 # 2: per-camera `calibration` block (device and picture settings, capture mode).
-SCHEMA_VERSION = 2
+# 3: `steppers` (each motor's driver settings); no `host`.
+SCHEMA_VERSION = 3
 
 BOOT_ID = str(uuid.uuid4())
 _BOOTED_AT = datetime.now(timezone.utc).isoformat()
@@ -214,43 +217,32 @@ def _system() -> dict[str, Any]:
     return info
 
 
-def _macAddresses() -> list[str]:
-    macs: set[str] = set()
-    try:
-        base = "/sys/class/net"
-        for iface in os.listdir(base):
-            if iface == "lo":
-                continue
-            try:
-                with open(f"{base}/{iface}/address") as handle:
-                    mac = handle.read().strip()
-                if mac and mac != "00:00:00:00:00:00":
-                    macs.add(mac)
-            except OSError:
-                continue
-    except OSError:
-        pass
-    return sorted(macs)
+def _steppers() -> dict[str, Any]:
+    # What each motor's driver is set to (machine.toml and the built-in
+    # defaults), so the load the drivers report can be read against it.
+    from hardware_settings.motors import MOTORS
+    from hardware_settings.steppers import readStepperSettings
 
-
-def _cpuSerial() -> str | None:
-    try:
-        with open("/proc/cpuinfo") as handle:
-            for line in handle:
-                if line.startswith("Serial"):
-                    value = line.split(":", 1)[1].strip()
-                    return value or None
-    except Exception:
-        pass
-    return None
-
-
-def _host() -> dict[str, Any]:
-    return {
-        "hostname": socket.gethostname() or None,
-        "mac_addresses": _macAddresses(),
-        "cpu_serial": _cpuSerial(),
-    }
+    result: dict[str, Any] = {}
+    for motor in MOTORS:
+        try:
+            settings = readStepperSettings(motor)
+        except Exception:
+            continue
+        result[motor.name] = {
+            "irun": settings.irun,
+            "ihold": settings.ihold,
+            "ihold_delay": settings.ihold_delay,
+            "microsteps": settings.microsteps,
+            "stealthchop": settings.stealthchop,
+            "coolstep": settings.coolstep,
+            "stallguard": settings.stallguard,
+            "sgthrs": settings.sgthrs,
+            "tcoolthrs": settings.tcoolthrs,
+            "inverted": settings.inverted,
+            "saved": sorted(settings.saved),
+        }
+    return result
 
 
 def buildMachineSpecs() -> dict[str, Any]:
@@ -273,8 +265,6 @@ def buildMachineSpecs() -> dict[str, Any]:
         "config": _configInfo(),
         "cameras": _cameras(),
         "controller_boards": _controllerBoards(),
-        # Host identity, kept in the report history rather than rendered. Where
-        # to reach the machine rides every heartbeat instead (machine_network).
-        "host": _host(),
+        "steppers": _steppers(),
     }
     return payload

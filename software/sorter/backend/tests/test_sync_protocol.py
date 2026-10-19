@@ -629,12 +629,13 @@ class SyncLoopTests(_DbTestCase):
         syncer._last_error = None
         syncer._state_ok = True
         syncer._backoff_s = hive_sync.SERVER_DOWN_BACKOFF_S
+        syncer._next_waiting_note = float("inf")
         syncer._wm = {t: 0 for t in hive_sync.DATA_TYPES}
         return syncer
 
-    def _pass(self, syncer, allowed=("piece_metadata", "detection_images"), files_per_minute: int = 1000) -> bool:
+    def _pass(self, syncer, allowed=("piece_records", "piece_images"), files_per_minute: int = 1000) -> bool:
         limits = {"upload_bytes_per_minute": 10_000_000, "upload_files_per_minute": files_per_minute}
-        with patch.object(hive_sync, "telemetryAllows", lambda _t, field: field in allowed), \
+        with patch.object(hive_sync.sharing, "streamAllowed", lambda _t, stream: stream in allowed), \
                 patch.object(hive_sync.hive_limits, "targetLimits", lambda _t: limits):
             return syncer._runOnce()
 
@@ -709,15 +710,17 @@ class SyncLoopTests(_DbTestCase):
     def test_retention_watermarks_ignore_a_type_a_target_does_not_take(self) -> None:
         syncer = self._syncer(_FakeClient())
         syncer._wm[hive_sync.DATA_TYPE_IMAGES] = 7
-        settings = {field: True for field in hive_sync.TELEMETRY_FIELD.values()}
-        settings["detection_images"] = False
-        with patch.object(hive_sync, "getTargetTelemetrySettings", lambda _t: settings):
+        effective = {stream: True for stream in hive_sync.STREAM.values()}
+        effective["piece_images"] = False
+        with patch.object(hive_sync.sharing, "consentGiven", lambda: True), \
+                patch.object(hive_sync.sharing, "effective", lambda _t: effective):
             wms = syncer.retentionWatermarks()
-        self.assertEqual(hive_sync.NOT_WANTED, wms[hive_sync.DATA_TYPE_IMAGES])
-        self.assertEqual(0, wms[hive_sync.DATA_TYPE_RECORDS])
-        syncer._state_ok = False
-        with patch.object(hive_sync, "getTargetTelemetrySettings", lambda _t: settings):
+            self.assertEqual(hive_sync.NOT_WANTED, wms[hive_sync.DATA_TYPE_IMAGES])
+            self.assertEqual(0, wms[hive_sync.DATA_TYPE_RECORDS])
+            syncer._state_ok = False
             self.assertIsNone(syncer.retentionWatermarks()[hive_sync.DATA_TYPE_RECORDS])
+        with patch.object(hive_sync.sharing, "consentGiven", lambda: False):
+            self.assertEqual(hive_sync.NOT_WANTED, syncer.retentionWatermarks()[hive_sync.DATA_TYPE_RECORDS])
 
 
 class RetentionTests(_DbTestCase):
@@ -872,7 +875,7 @@ class VacuumTests(_DbTestCase):
             conn.commit()
 
     def _maintenance(self, idle_s: float):
-        gc = SimpleNamespace(runtime_stats=SimpleNamespace(_is_running=False))
+        gc = SimpleNamespace(runtime_stats=SimpleNamespace(is_running=False))
         m = storage_maintenance.StorageMaintenance(gc, None)
         m._last_busy = time.monotonic() - idle_s
         return m

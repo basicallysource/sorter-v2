@@ -150,6 +150,7 @@ from server.routers.wifi import router as wifi_router
 from server.routers.firmware import router as firmware_router
 from server.routers.versions import router as versions_router
 from server.routers.status_ping import router as status_ping_router
+from server.routers.sharing import router as sharing_router
 from server.routers.leds import router as leds_router
 from server.routers.zones import router as zones_router
 
@@ -165,6 +166,7 @@ app.include_router(camera_picture_settings_router)
 app.include_router(camera_device_settings_router)
 app.include_router(camera_capture_modes_router)
 app.include_router(detection_router)
+app.include_router(sharing_router)
 app.include_router(sorting_profiles_router)
 app.include_router(bsx_router)
 app.include_router(bin_layouts_router)

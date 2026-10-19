@@ -166,6 +166,11 @@ class RuntimeStatsCollector:
     def servo_bus_offline_since_ts(self) -> float | None:
         return self._servo_bus_offline_since_ts
 
+    @property
+    def is_running(self) -> bool:
+        """Whether the machine is sorting now."""
+        return self._is_running
+
     def setLifecycleState(
         self,
         lifecycle_state: str,

@@ -5,19 +5,9 @@ from unittest.mock import patch
 
 import requests
 
-import hive_telemetry
-from hive_telemetry import (
-    HiveTelemetryClient,
-    TELEMETRY_FIELDS,
-    TelemetryBlocked,
-    defaultTelemetrySettings,
-    getTargetTelemetrySettings,
-    normalizeTelemetrySettings,
-    resetTargetTelemetrySettings,
-    setTargetTelemetrySettings,
-    telemetryAllows,
-    telemetryFieldList,
-)
+import hive_uploads
+import sharing
+from hive_uploads import HiveUploads, StreamBlocked
 
 BACKEND_ROOT = Path(__file__).resolve().parent.parent
 
@@ -29,8 +19,8 @@ UPLOAD_ENDPOINT_MARKERS = (
 )
 
 CHOKE_POINT_ALLOWLIST = {
-    Path("hive_telemetry.py"),
-    Path("tests/test_hive_telemetry.py"),
+    Path("hive_uploads.py"),
+    Path("tests/test_hive_uploads.py"),
 }
 
 
@@ -57,123 +47,40 @@ class _RecordingSession:
         return _FakeResponse(self.payload)
 
 
-def _client_with_session(payload: dict | None = None) -> tuple[HiveTelemetryClient, _RecordingSession]:
-    client = HiveTelemetryClient("https://hive.example", "token", "target-a")
+def _client_with_session(payload: dict | None = None) -> tuple[HiveUploads, _RecordingSession]:
+    client = HiveUploads("https://hive.example", "token", "target-a")
     session = _RecordingSession(payload or {"max_local_id": 1})
     client._session = session  # type: ignore[assignment]
     return client, session
 
 
-def _settings(**overrides: bool) -> dict[str, bool]:
-    settings = defaultTelemetrySettings()
-    settings.update(overrides)
-    return settings
-
-
-class _InMemoryHiveConfig:
-    def __init__(self, config: dict) -> None:
-        self.config = config
-
-    def get(self) -> dict:
-        return self.config
-
-    def set(self, config: dict) -> None:
-        self.config = config
-
-
-class TelemetrySettingsTests(unittest.TestCase):
-    def setUp(self) -> None:
-        store = _InMemoryHiveConfig(
-            {
-                "targets": [
-                    {"id": "target-a", "url": "https://a.example", "api_token": "t", "enabled": True},
-                    {"id": "target-b", "url": "https://b.example", "api_token": "t", "enabled": True},
-                ],
-                "primary_target_id": "target-a",
-            }
-        )
-        import local_state
-
-        self._patchers = [
-            patch.object(local_state, "get_hive_config", store.get),
-            patch.object(local_state, "set_hive_config", store.set),
-        ]
-        for patcher in self._patchers:
-            patcher.start()
-
-    def tearDown(self) -> None:
-        for patcher in self._patchers:
-            patcher.stop()
-
-    def test_defaults_match_registry(self) -> None:
-        defaults = defaultTelemetrySettings()
-        self.assertEqual(
-            {field["key"] for field in TELEMETRY_FIELDS},
-            set(defaults.keys()),
-        )
-        self.assertTrue(all(defaults.values()))
-        self.assertNotIn("machine_status", defaults)
-
-    def test_normalize_ignores_junk(self) -> None:
-        normalized = normalizeTelemetrySettings(
-            {"detection_images": False, "full_frames": "yes", "bogus": True}
-        )
-        self.assertFalse(normalized["detection_images"])
-        self.assertTrue(normalized["full_frames"])
-        self.assertNotIn("bogus", normalized)
-
-    def test_unknown_target_gets_defaults(self) -> None:
-        self.assertEqual(defaultTelemetrySettings(), getTargetTelemetrySettings("nope"))
-
-    def test_set_and_get_are_per_target(self) -> None:
-        setTargetTelemetrySettings("target-a", {"detection_images": False})
-        self.assertFalse(telemetryAllows("target-a", "detection_images"))
-        self.assertTrue(telemetryAllows("target-b", "detection_images"))
-        self.assertTrue(telemetryAllows("target-a", "piece_metadata"))
-
-    def test_set_rejects_unknown_fields(self) -> None:
-        with self.assertRaises(ValueError):
-            setTargetTelemetrySettings("target-a", {"nope": True})
-
-    def test_set_rejects_unknown_target(self) -> None:
-        with self.assertRaises(ValueError):
-            setTargetTelemetrySettings("nope", {"detection_images": False})
-
-    def test_reset_restores_defaults(self) -> None:
-        setTargetTelemetrySettings("target-a", {"detection_images": False, "full_frames": False})
-        settings = resetTargetTelemetrySettings("target-a")
-        self.assertEqual(defaultTelemetrySettings(), settings)
-        self.assertEqual(defaultTelemetrySettings(), getTargetTelemetrySettings("target-a"))
-
-    def test_field_list_is_registry(self) -> None:
-        fields = telemetryFieldList()
-        self.assertEqual([f["key"] for f in TELEMETRY_FIELDS], [f["key"] for f in fields])
-        for field in fields:
-            self.assertTrue(field["label"])
-            self.assertTrue(field["description"])
-            self.assertNotIn("enabled", field)
+def _allowing(**overrides: bool):
+    """streamAllowed with every stream on but those named."""
+    def allowed(_target_id: str, stream: str) -> bool:
+        return overrides.get(stream, True)
+    return patch.object(sharing, "streamAllowed", allowed)
 
 
 class TelemetryClientGatingTests(unittest.TestCase):
     def test_push_piece_records_blocked(self) -> None:
         client, session = _client_with_session()
-        with patch.object(hive_telemetry, "getTargetTelemetrySettings", return_value=_settings(piece_metadata=False)):
-            with self.assertRaises(TelemetryBlocked) as ctx:
+        with _allowing(piece_records=False):
+            with self.assertRaises(StreamBlocked) as ctx:
                 client.pushPieceRecords([{"piece_uuid": "x"}])
-        self.assertEqual("piece_metadata", ctx.exception.field)
+        self.assertEqual("piece_records", ctx.exception.stream)
         self.assertEqual([], session.calls)
 
     def test_push_piece_image_blocked(self) -> None:
         client, session = _client_with_session()
-        with patch.object(hive_telemetry, "getTargetTelemetrySettings", return_value=_settings(detection_images=False)):
-            with self.assertRaises(TelemetryBlocked):
+        with _allowing(piece_images=False):
+            with self.assertRaises(StreamBlocked):
                 client.pushPieceImage({"piece_uuid": "x"}, None)
         self.assertEqual([], session.calls)
 
     def test_push_set_progress_blocked(self) -> None:
         client, session = _client_with_session()
-        with patch.object(hive_telemetry, "getTargetTelemetrySettings", return_value=_settings(piece_metadata=False)):
-            with self.assertRaises(TelemetryBlocked):
+        with _allowing(piece_records=False):
+            with self.assertRaises(StreamBlocked):
                 client.pushSetProgress({"version_id": "v"})
         self.assertEqual([], session.calls)
 
@@ -182,10 +89,10 @@ class TelemetryClientGatingTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             image = Path(tmp) / "1.jpg"
             image.write_bytes(b"\xff\xd8\xff" + b"jpg")
-            with patch.object(hive_telemetry, "getTargetTelemetrySettings", return_value=_settings(full_frames=False)):
-                with self.assertRaises(TelemetryBlocked) as ctx:
+            with _allowing(camera_frames=False):
+                with self.assertRaises(StreamBlocked) as ctx:
                     client.pushSample({"local_id": 1}, image)
-        self.assertEqual("full_frames", ctx.exception.field)
+        self.assertEqual("camera_frames", ctx.exception.stream)
         self.assertEqual([], session.calls)
 
     def test_push_sample_sends_its_image(self) -> None:
@@ -193,7 +100,7 @@ class TelemetryClientGatingTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             image = Path(tmp) / "7.jpg"
             image.write_bytes(b"\xff\xd8\xff" + b"jpg")
-            with patch.object(hive_telemetry, "getTargetTelemetrySettings", return_value=_settings()):
+            with _allowing():
                 self.assertEqual(7, client.pushSample({"local_id": 7, "bytes": 6}, image))
         call = session.calls[0]
         self.assertTrue(call["url"].endswith("/api/machine/sync/sample"))
@@ -204,21 +111,31 @@ class TelemetryClientGatingTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             image = Path(tmp) / "7.jpg"
             image.write_bytes(b"not a jpeg")
-            with patch.object(hive_telemetry, "getTargetTelemetrySettings", return_value=_settings()):
+            with _allowing():
                 with self.assertRaises(FileNotFoundError):
                     client.pushSample({"local_id": 7}, image)
         self.assertEqual([], session.calls)
 
     def test_get_sync_state_is_not_gated(self) -> None:
         client, session = _client_with_session(payload={"piece_records": {"max_local_id": 0}})
-        all_off = {key: False for key in defaultTelemetrySettings()}
-        with patch.object(hive_telemetry, "getTargetTelemetrySettings", return_value=all_off):
+        with patch.object(sharing, "streamAllowed", lambda _t, _s: False):
             client.getSyncState()
         self.assertEqual(1, len(session.calls))
 
+    def test_push_telemetry_rides_machine_telemetry(self) -> None:
+        client, session = _client_with_session(payload={"max_local_id": 3})
+        with _allowing():
+            self.assertEqual(3, client.pushTelemetry([{"local_id": 3, "kind": "stepper_load"}]))
+        call = session.calls[0]
+        self.assertTrue(call["url"].endswith("/api/machine/sync/telemetry"))
+        self.assertEqual(len(call["data"]), client.last_body_bytes)
+        with _allowing(machine_telemetry=False):
+            with self.assertRaises(StreamBlocked):
+                client.pushTelemetry([{"local_id": 4}])
+
 
 class ChokePointTests(unittest.TestCase):
-    def test_upload_endpoints_only_referenced_in_hive_telemetry(self) -> None:
+    def test_upload_endpoints_only_referenced_in_hive_uploads(self) -> None:
         offenders: list[str] = []
         for path in BACKEND_ROOT.rglob("*.py"):
             relative = path.relative_to(BACKEND_ROOT)
@@ -236,14 +153,12 @@ class ChokePointTests(unittest.TestCase):
         self.assertEqual(
             [],
             offenders,
-            "Hive upload endpoints must only be called through hive_telemetry.HiveTelemetryClient "
-            "so telemetry settings cannot be bypassed. Move these requests behind the choke point: "
+            "Hive upload endpoints must only be called through hive_uploads.HiveUploads "
+            "so sharing choices cannot be bypassed. Move these requests behind the choke point: "
             + "; ".join(offenders),
         )
 
 
-if __name__ == "__main__":
-    unittest.main()
 
 
 _JPEG = b"\xff\xd8\xff" + b"\x00" * 16 + b"\xff\xd9"
@@ -275,7 +190,7 @@ class _RefusingSession(_RecordingSession):
 
 
 class SyncFileGuardTests(unittest.TestCase):
-    def _push_image(self, client: HiveTelemetryClient, content: bytes | None = None, *, recorded: int | None = None, sparse: int | None = None) -> int:
+    def _push_image(self, client: HiveUploads, content: bytes | None = None, *, recorded: int | None = None, sparse: int | None = None) -> int:
         with tempfile.TemporaryDirectory() as tmp:
             path = Path(tmp) / "00_c4_burst.jpg"
             if sparse is not None:
@@ -285,7 +200,7 @@ class SyncFileGuardTests(unittest.TestCase):
                 path.write_bytes(content or b"")
             size = path.stat().st_size
             meta = {"local_id": 7, "bytes": size if recorded is None else recorded}
-            with patch.object(hive_telemetry, "getTargetTelemetrySettings", return_value=_settings()):
+            with _allowing():
                 return client.pushPieceImage(meta, path)
 
     def test_valid_jpeg_is_uploaded(self) -> None:
@@ -295,8 +210,8 @@ class SyncFileGuardTests(unittest.TestCase):
 
     def test_file_over_the_limit_is_not_read(self) -> None:
         client, session = _client_with_session()
-        with patch.object(hive_telemetry, "open", side_effect=AssertionError("must not read"), create=True):
-            self._push_image(client, sparse=hive_telemetry.MAX_SYNC_IMAGE_BYTES + 1)
+        with patch.object(hive_uploads, "open", side_effect=AssertionError("must not read"), create=True):
+            self._push_image(client, sparse=hive_uploads.MAX_SYNC_IMAGE_BYTES + 1)
         self.assertEqual(1, len(session.calls))
         self.assertIsNone(session.calls[0]["files"])
 
@@ -313,13 +228,13 @@ class SyncFileGuardTests(unittest.TestCase):
 
     def test_missing_file_is_sent_metadata_only(self) -> None:
         client, session = _client_with_session()
-        with patch.object(hive_telemetry, "getTargetTelemetrySettings", return_value=_settings()):
+        with _allowing():
             client.pushPieceImage({"local_id": 7, "bytes": 10}, Path("/nonexistent/00_c4_burst.jpg"))
         self.assertIsNone(session.calls[0]["files"])
 
     def test_refused_file_is_resent_metadata_only(self) -> None:
         for status in (400, 413):
-            client = HiveTelemetryClient("https://hive.example", "token", "target-a")
+            client = HiveUploads("https://hive.example", "token", "target-a")
             session = _RefusingSession({"max_local_id": 7}, status)
             client._session = session  # type: ignore[assignment]
             self.assertEqual(7, self._push_image(client, _JPEG))
@@ -328,13 +243,13 @@ class SyncFileGuardTests(unittest.TestCase):
             self.assertIsNone(session.calls[1]["files"])
 
     def test_refused_metadata_still_raises(self) -> None:
-        client = HiveTelemetryClient("https://hive.example", "token", "target-a")
+        client = HiveUploads("https://hive.example", "token", "target-a")
         client._session = _RefusingSession({"max_local_id": 7}, 400, refuse_all=True)  # type: ignore[assignment]
         with self.assertRaises(requests.HTTPError):
             self._push_image(client, _JPEG)
 
     def test_other_errors_are_not_retried(self) -> None:
-        client = HiveTelemetryClient("https://hive.example", "token", "target-a")
+        client = HiveUploads("https://hive.example", "token", "target-a")
         session = _RefusingSession({"max_local_id": 7}, 500)
         client._session = session  # type: ignore[assignment]
         with self.assertRaises(requests.HTTPError):
@@ -347,7 +262,7 @@ class SyncFileGuardTests(unittest.TestCase):
             with tempfile.TemporaryDirectory() as tmp:
                 path = Path(tmp) / "segment.jsonl.gz"
                 path.write_bytes(content)
-                with patch.object(hive_telemetry, "getTargetTelemetrySettings", return_value=_settings()):
+                with _allowing():
                     client.pushControlDataSegment({"local_id": 3, "bytes": len(content)}, path)
             self.assertEqual(uploaded, session.calls[0]["files"] is not None)
 
@@ -357,8 +272,8 @@ class SyncFileGuardTests(unittest.TestCase):
             path = Path(tmp) / "segment.jsonl.gz"
             with open(path, "wb") as handle:
                 handle.write(b"\x1f\x8b\x08")
-                handle.truncate(hive_telemetry.MAX_SYNC_IMAGE_BYTES + 1)
-            with patch.object(hive_telemetry, "getTargetTelemetrySettings", return_value=_settings()):
+                handle.truncate(hive_uploads.MAX_SYNC_IMAGE_BYTES + 1)
+            with _allowing():
                 client.pushControlDataSegment({"local_id": 3, "bytes": path.stat().st_size}, path)
         self.assertIsNotNone(session.calls[0]["files"])
 
@@ -378,36 +293,43 @@ class _PostRecordingSession:
 
 class HeartbeatBodyTests(unittest.TestCase):
     NETWORK = {"version": 1, "networks": [{"kind": "wifi", "address": "192.168.1.68"}]}
-    SPECS = {"schema_version": 2}
+    SPECS = {"schema_version": 3}
 
-    def _beat(self, settings: dict[str, bool], **kwargs) -> dict | None:
-        client = HiveTelemetryClient("https://hive.example", "token", "target-a")
+    def _beat(self, allowing, **kwargs) -> dict | None:
+        client = HiveUploads("https://hive.example", "token", "target-a")
         session = _PostRecordingSession()
         client._session = session  # type: ignore[assignment]
-        with patch.object(hive_telemetry, "getTargetTelemetrySettings", return_value=settings):
+        with allowing:
             reachable, _reply = client.heartbeat(**kwargs)
         self.assertTrue(reachable)
         return session.posts[0]["json"]
 
     def test_network_rides_a_beat_without_specs(self) -> None:
-        self.assertEqual({"network": self.NETWORK}, self._beat(_settings(), network=self.NETWORK))
+        self.assertEqual({"network": self.NETWORK}, self._beat(_allowing(), network=self.NETWORK))
 
-    def test_network_does_not_depend_on_machine_specs(self) -> None:
-        body = self._beat(_settings(machine_specs=False), network=self.NETWORK, machine_specs=self.SPECS)
-        self.assertEqual({"network": self.NETWORK}, body)
+    def test_specs_ride_only_when_given(self) -> None:
+        body = self._beat(_allowing(), network=self.NETWORK, machine_specs=self.SPECS)
+        self.assertEqual({"network": self.NETWORK, "hardware_info": self.SPECS}, body)
 
-    def test_network_field_off_sends_null(self) -> None:
+    def test_network_stream_off_sends_null(self) -> None:
         # null, not absent: Hive drops the addresses it already has.
-        body = self._beat(_settings(network=False), network=self.NETWORK, machine_specs=self.SPECS)
+        body = self._beat(_allowing(network=False), network=self.NETWORK, machine_specs=self.SPECS)
         self.assertEqual({"network": None, "hardware_info": self.SPECS}, body)
 
-    def test_nothing_to_carry_sends_no_body(self) -> None:
-        self.assertIsNone(self._beat(_settings(machine_specs=False), machine_specs=self.SPECS))
+    def test_before_consent_only_the_keep_alive_goes(self) -> None:
+        nothing = patch.object(sharing, "streamAllowed", lambda _t, _s: False)
+        self.assertEqual({"network": None}, self._beat(nothing, network=self.NETWORK, machine_specs=self.SPECS))
+        nothing = patch.object(sharing, "streamAllowed", lambda _t, _s: False)
+        self.assertIsNone(self._beat(nothing, machine_specs=self.SPECS))
 
     def test_reply_is_returned(self) -> None:
-        client = HiveTelemetryClient("https://hive.example", "token", "target-a")
+        client = HiveUploads("https://hive.example", "token", "target-a")
         client._session = _PostRecordingSession({"ok": True, "limits": {"upload_files_per_minute": 30}})  # type: ignore[assignment]
-        with patch.object(hive_telemetry, "getTargetTelemetrySettings", return_value=_settings()):
+        with _allowing():
             reachable, reply = client.heartbeat(network=self.NETWORK)
         self.assertTrue(reachable)
         self.assertEqual({"upload_files_per_minute": 30}, reply["limits"])
+
+
+if __name__ == "__main__":
+    unittest.main()

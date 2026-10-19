@@ -2,24 +2,27 @@
 
 Each kind of data is a leg with a cursor (see sync_seq.py for the one rule):
 piece records, piece images and training runs, which change after they are
-written, go by sync_seq; piece predictions, channel crops, control-data segments and training
-samples, which never change, go by id. Hive keeps the highest value it
-accepted per data type ("what's the max local_id you already have for me?"),
-and the worker sends only what is above it, in cursor order, so months of
-backlog sync without re-uploads, and because every Hive ingest endpoint
-upserts by natural key, retries and at-least-once delivery never duplicate.
+written, go by sync_seq; telemetry records, piece predictions, channel crops,
+control-data segments and training samples, which never change, go by id.
+Hive keeps the highest value it accepted per data type ("what's the max
+local_id you already have for me?"), and the worker sends only what is above
+it, in cursor order, so months of backlog sync without re-uploads, and because
+every Hive ingest endpoint upserts by natural key, retries and at-least-once
+delivery never duplicate.
 
 Every enabled target syncs on its OWN thread with its own watermarks and
 backoff, so a slow or unreachable target (e.g. a local hive that 401s) can
 never stall the others.
 
 Every leg runs every pass, in the order below, and a leg that has nothing to
-send, is out of budget, or is paused never holds up the next one. Two lanes:
-table rows (records, predictions, training runs) are small and always go; everything that
-carries a file draws on a per-target budget of bytes and files per minute that
-the target's Hive sets (hive_limits). A file leg sends at most FILES_PER_PASS
-files and then lets the next leg have its turn. When nothing moved, the worker
-waits, for the budget to refill if that is what stopped it, else IDLE_POLL_S.
+send, is out of budget, or is paused never holds up the next one. Each leg
+carries one sharing stream (sharing.py); a leg whose stream is off for the
+target does not run. Two lanes: table rows (records, predictions, training
+runs, telemetry) are small and always go; everything that carries a file draws
+on a per-target budget of bytes and files per minute that the target's Hive
+sets (hive_limits). A file leg sends at most FILES_PER_PASS files and then
+lets the next leg have its turn. When nothing moved, the worker waits, for the
+budget to refill if that is what stopped it, else IDLE_POLL_S.
 
 The throttle is the budget plus one concurrency gate across ALL targets: 1
 upload in flight while a sort is running, a few when idle. There are no
@@ -34,6 +37,10 @@ other legs carry on either way.
 A training-sample backlog larger than SAMPLES_BACKLOG_MAX is thinned from the
 oldest end, evenly across cameras: an old frame is worth little next to
 keeping up, and no camera is starved for another.
+
+What each target was sent, what it never will be (thinned samples, files the
+machine deleted before they went) and how long the budget held uploads back
+go to upload_stats, hour by hour, for the Data page.
 """
 
 from __future__ import annotations
@@ -53,15 +60,12 @@ import piece_predictions
 import piece_records
 import control_data_store
 import sample_store
+import sharing
 import sorting_runs
+import telemetry_store
 import training_runs
-from hive_telemetry import (
-    MAX_CROP_BATCH_BYTES,
-    HiveTelemetryClient,
-    TelemetryBlocked,
-    getTargetTelemetrySettings,
-    telemetryAllows,
-)
+import upload_stats
+from hive_uploads import MAX_CROP_BATCH_BYTES, HiveUploads, StreamBlocked
 from local_state import get_hive_config
 
 log = logging.getLogger(__name__)
@@ -76,6 +80,7 @@ DATA_TYPE_TRAINING_RUNS = "training_runs"
 # Lots and sorting runs: sent whole when they change; Hive keeps the set's
 # version as this type's state.
 DATA_TYPE_SORTING_RUNS = "sorting_runs"
+DATA_TYPE_TELEMETRY = "telemetry"
 # Leg order. Samples (a few a minute) go before crops, which can hold a backlog
 # of tens of thousands.
 DATA_TYPES = (
@@ -83,22 +88,36 @@ DATA_TYPES = (
     DATA_TYPE_PREDICTIONS,
     DATA_TYPE_TRAINING_RUNS,
     DATA_TYPE_SORTING_RUNS,
+    DATA_TYPE_TELEMETRY,
     DATA_TYPE_IMAGES,
     DATA_TYPE_SAMPLES,
     DATA_TYPE_CROPS,
     DATA_TYPE_CONTROL_DATA,
 )
-# The telemetry field each data type rides on. With it off for a target, that
+# The sharing stream each data type carries. With it off for a target, that
 # leg's watermark freezes and its backlog drains if it is turned on again.
-TELEMETRY_FIELD = {
-    DATA_TYPE_RECORDS: "piece_metadata",
-    DATA_TYPE_PREDICTIONS: "piece_metadata",
-    DATA_TYPE_TRAINING_RUNS: "piece_metadata",
-    DATA_TYPE_SORTING_RUNS: "piece_metadata",
-    DATA_TYPE_IMAGES: "detection_images",
-    DATA_TYPE_SAMPLES: "full_frames",
-    DATA_TYPE_CROPS: "upstream_channel_crops",
-    DATA_TYPE_CONTROL_DATA: "feeder_dynamics",
+STREAM = {
+    DATA_TYPE_RECORDS: "piece_records",
+    DATA_TYPE_PREDICTIONS: "piece_records",
+    DATA_TYPE_TRAINING_RUNS: "piece_records",
+    DATA_TYPE_SORTING_RUNS: "piece_records",
+    DATA_TYPE_TELEMETRY: "machine_telemetry",
+    DATA_TYPE_IMAGES: "piece_images",
+    DATA_TYPE_SAMPLES: "camera_frames",
+    DATA_TYPE_CROPS: "channel_crops",
+    DATA_TYPE_CONTROL_DATA: "feeder_logs",
+}
+# Where each data type is counted in upload_stats.
+STATS_KIND = {
+    DATA_TYPE_RECORDS: upload_stats.KIND_PIECE_RECORDS,
+    DATA_TYPE_PREDICTIONS: upload_stats.KIND_PIECE_RECORDS,
+    DATA_TYPE_TRAINING_RUNS: upload_stats.KIND_PIECE_RECORDS,
+    DATA_TYPE_SORTING_RUNS: upload_stats.KIND_PIECE_RECORDS,
+    DATA_TYPE_TELEMETRY: upload_stats.KIND_TELEMETRY,
+    DATA_TYPE_IMAGES: upload_stats.KIND_PIECE_IMAGES,
+    DATA_TYPE_SAMPLES: upload_stats.KIND_SAMPLES,
+    DATA_TYPE_CROPS: upload_stats.KIND_CHANNEL_CROPS,
+    DATA_TYPE_CONTROL_DATA: upload_stats.KIND_CONTROL_DATA,
 }
 
 # Table rows per request.
@@ -118,6 +137,9 @@ CROP_BATCH_WAIT_S = 60.0
 SAMPLES_BACKLOG_MAX = 200
 # Most sample rows read in one pass (the skipped ones included).
 SAMPLES_FETCH_MAX = 1000
+
+# How often a target's backlog is counted into upload_stats.
+WAITING_NOTE_INTERVAL_S = 600.0
 
 IDLE_POLL_S = 10.0
 # Shortest wait for the budget to refill, so a nearly-full bucket is not polled
@@ -143,8 +165,8 @@ IDLE_MAX_CONCURRENT = 3
 # blast doesn't fire an UPDATE per image.
 RETENTION_MARK_INTERVAL_S = 5.0
 
-# A watermark for a data type a target does not take (its telemetry field is
-# off): it never holds retention back.
+# A watermark for a data type a target does not take (its stream is off): it
+# never holds retention back.
 NOT_WANTED = 2**62
 
 
@@ -156,7 +178,7 @@ def _machineBusy(gc: Any) -> bool:
         stats = getattr(gc, "runtime_stats", None)
         if stats is None:
             return True
-        return bool(getattr(stats, "_is_running", True))
+        return bool(stats.is_running)
     except Exception:
         return True
 
@@ -452,7 +474,7 @@ class _TargetSyncer:
         self._url = target["url"]
         self._gate = gate
         self._mark_retention = mark_retention
-        self._client = HiveTelemetryClient(self._url, target["token"], self._id)
+        self._client = HiveUploads(self._url, target["token"], self._id)
         self._wm: dict[str, int | None] = {data_type: None for data_type in DATA_TYPES}
         # Until when a leg is off (monotonic), and why: "unsupported" (the
         # target 404s its endpoint) or the error that stopped it.
@@ -468,6 +490,7 @@ class _TargetSyncer:
         self._last_error: str | None = None
         self._state_ok = False
         self._backoff_s = SERVER_DOWN_BACKOFF_S
+        self._next_waiting_note = 0.0
         self._wake = threading.Event()
         self._stop = threading.Event()
         self._thread = threading.Thread(
@@ -487,14 +510,22 @@ class _TargetSyncer:
     def stateOk(self) -> bool:
         return self._state_ok
 
+    def takesTelemetry(self) -> bool:
+        """False while this target's Hive does not accept telemetry records
+        yet (it 404s the endpoint), so the heartbeat still carries the specs."""
+        return not (
+            self._paused_until[DATA_TYPE_TELEMETRY] > time.monotonic()
+            and self._paused_why.get(DATA_TYPE_TELEMETRY) == "unsupported"
+        )
+
     def retentionWatermarks(self) -> dict[str, int | None]:
         """Per data type, how far this target is known to have everything: its
         watermark, NOT_WANTED for a type it does not take, None while its state
         is unknown."""
-        settings = getTargetTelemetrySettings(self._id)
+        wanted = sharing.effective(self._id) if sharing.consentGiven() else {}
         out: dict[str, int | None] = {}
         for data_type in DATA_TYPES:
-            if not settings.get(TELEMETRY_FIELD[data_type], False):
+            if not wanted.get(STREAM[data_type], False):
                 out[data_type] = NOT_WANTED
             elif not self._state_ok or self._wm.get(data_type) is None:
                 out[data_type] = None
@@ -502,31 +533,53 @@ class _TargetSyncer:
                 out[data_type] = int(self._wm[data_type])
         return out
 
-    def status(self) -> dict[str, Any]:
-        """For the Hive settings page: how far behind each kind of data is."""
-        def waiting(data_type: str, count: Callable[[int], int]) -> int | None:
+    def waiting(self) -> dict[str, int | None]:
+        """Per data type, how many rows or files are still to send (None while
+        the target's state is unknown)."""
+        def count(data_type: str, after: Callable[[int], int]) -> int | None:
             wm = self._wm.get(data_type)
             if wm is None:
                 return None
             try:
-                return max(0, count(int(wm)))
+                return max(0, after(int(wm)))
             except Exception:
                 return None
 
+        return {
+            DATA_TYPE_RECORDS: count(DATA_TYPE_RECORDS, piece_records.countRecordsAfter),
+            DATA_TYPE_PREDICTIONS: count(DATA_TYPE_PREDICTIONS, lambda wm: piece_predictions.getMaxId() - wm),
+            DATA_TYPE_TRAINING_RUNS: count(DATA_TYPE_TRAINING_RUNS, training_runs.countRunsAfter),
+            DATA_TYPE_TELEMETRY: count(DATA_TYPE_TELEMETRY, lambda wm: telemetry_store.maxId() - wm),
+            DATA_TYPE_IMAGES: count(DATA_TYPE_IMAGES, piece_image_store.countImagesAfter),
+            DATA_TYPE_CROPS: count(DATA_TYPE_CROPS, lambda wm: channel_crop_store.getMaxCropId() - wm),
+            DATA_TYPE_CONTROL_DATA: count(DATA_TYPE_CONTROL_DATA, lambda wm: control_data_store.getMaxSegmentId() - wm),
+            DATA_TYPE_SAMPLES: count(DATA_TYPE_SAMPLES, lambda wm: sample_store.getMaxSampleId() - wm),
+        }
+
+    def waitingByKind(self) -> dict[str, int | None]:
+        """waiting(), counted the way upload_stats counts: piece records,
+        predictions and training runs together. A kind whose stream is off for
+        this target is not waiting for it."""
+        wanted = sharing.effective(self._id) if sharing.consentGiven() else {}
+        out: dict[str, int | None] = {}
+        for data_type, count in self.waiting().items():
+            if not wanted.get(STREAM[data_type], False):
+                continue
+            kind = STATS_KIND[data_type]
+            if count is None or out.get(kind, 0) is None:
+                out[kind] = None
+            else:
+                out[kind] = (out.get(kind) or 0) + count
+        return out
+
+    def status(self) -> dict[str, Any]:
+        """For the Hive settings page: how far behind each kind of data is."""
         now = time.monotonic()
         return {
             "state_ok": self._state_ok,
             "backoff_s": self._backoff_s if not self._state_ok else 0.0,
             "last_error": self._last_error,
-            "waiting": {
-                DATA_TYPE_RECORDS: waiting(DATA_TYPE_RECORDS, piece_records.countRecordsAfter),
-                DATA_TYPE_PREDICTIONS: waiting(DATA_TYPE_PREDICTIONS, lambda wm: piece_predictions.getMaxId() - wm),
-                DATA_TYPE_TRAINING_RUNS: waiting(DATA_TYPE_TRAINING_RUNS, training_runs.countRunsAfter),
-                DATA_TYPE_IMAGES: waiting(DATA_TYPE_IMAGES, piece_image_store.countImagesAfter),
-                DATA_TYPE_CROPS: waiting(DATA_TYPE_CROPS, lambda wm: channel_crop_store.getMaxCropId() - wm),
-                DATA_TYPE_CONTROL_DATA: waiting(DATA_TYPE_CONTROL_DATA, lambda wm: control_data_store.getMaxSegmentId() - wm),
-                DATA_TYPE_SAMPLES: waiting(DATA_TYPE_SAMPLES, lambda wm: sample_store.getMaxSampleId() - wm),
-            },
+            "waiting": self.waiting(),
             "unsupported": [
                 data_type
                 for data_type in DATA_TYPES
@@ -552,8 +605,11 @@ class _TargetSyncer:
             wait = IDLE_POLL_S
             if self._budget_wait_s is not None:
                 wait = min(wait, max(MIN_BUDGET_WAIT_S, self._budget_wait_s))
+            started = time.monotonic()
             self._wake.wait(wait)
             self._wake.clear()
+            if self._budget_wait_s is not None:
+                upload_stats.noteBudgetWait(self._id, time.monotonic() - started)
 
     def _legs(self) -> tuple[tuple[str, Callable[[], bool]], ...]:
         return (
@@ -561,6 +617,7 @@ class _TargetSyncer:
             (DATA_TYPE_PREDICTIONS, self._drainPredictions),
             (DATA_TYPE_TRAINING_RUNS, self._drainTrainingRuns),
             (DATA_TYPE_SORTING_RUNS, self._drainSortingRuns),
+            (DATA_TYPE_TELEMETRY, self._drainTelemetry),
             (DATA_TYPE_IMAGES, self._drainImages),
             (DATA_TYPE_SAMPLES, self._drainSamples),
             (DATA_TYPE_CROPS, self._drainChannelCrops),
@@ -579,11 +636,11 @@ class _TargetSyncer:
                 break
             if self._paused_until[data_type] > time.monotonic():
                 continue
-            if not telemetryAllows(self._id, TELEMETRY_FIELD[data_type]):
+            if not sharing.streamAllowed(self._id, STREAM[data_type]):
                 continue
             try:
                 progressed = drain() or progressed
-            except TelemetryBlocked:
+            except StreamBlocked:
                 continue  # turned off while the leg ran
             except requests.HTTPError as exc:
                 if not self._pauseLeg(data_type, exc):
@@ -593,6 +650,9 @@ class _TargetSyncer:
         self._state_ok = True
         if progressed:
             self._mark_retention()
+        if time.monotonic() >= self._next_waiting_note:
+            self._next_waiting_note = time.monotonic() + WAITING_NOTE_INTERVAL_S
+            upload_stats.noteWaiting(self._id, self.waitingByKind())
         return progressed
 
     def _pauseLeg(self, data_type: str, exc: requests.HTTPError) -> bool:
@@ -645,25 +705,51 @@ class _TargetSyncer:
         self._budget_wait_s = wait if self._budget_wait_s is None else min(self._budget_wait_s, wait)
         return False
 
-    def _drainRecords(self) -> bool:
-        wm = int(self._wm[DATA_TYPE_RECORDS] or 0)
-        rows = piece_records.listRecordsAfter(wm, ROWS_BATCH)
+    def _sent(self, data_type: str, items: int, nbytes: int) -> None:
+        upload_stats.noteSent(self._id, STATS_KIND[data_type], items, nbytes)
+
+    def _dropped(self, data_type: str, items: int, nbytes: int = 0) -> None:
+        upload_stats.noteDropped(self._id, STATS_KIND[data_type], items, nbytes)
+
+    def _bodyBytes(self) -> int:
+        return int(getattr(self._client, "last_body_bytes", 0) or 0)
+
+    def _drainRows(
+        self,
+        data_type: str,
+        rows: list[dict[str, Any]],
+        push: Callable[[list[dict[str, Any]]], int],
+        cursor: str,
+    ) -> bool:
         if not rows:
             return False
         with self._gate.slot():
-            new_max = self._client.pushPieceRecords([_recordToPayload(r) for r in rows])
-        self._advance(DATA_TYPE_RECORDS, new_max, rows[-1]["sync_seq"])
+            new_max = push(rows)
+        self._advance(data_type, new_max, rows[-1][cursor])
+        self._sent(data_type, len(rows), self._bodyBytes())
         return True
 
+    def _drainRecords(self) -> bool:
+        rows = piece_records.listRecordsAfter(int(self._wm[DATA_TYPE_RECORDS] or 0), ROWS_BATCH)
+        return self._drainRows(
+            DATA_TYPE_RECORDS, rows, lambda batch: self._client.pushPieceRecords([_recordToPayload(r) for r in batch]),
+            "sync_seq",
+        )
+
     def _drainPredictions(self) -> bool:
-        wm = int(self._wm[DATA_TYPE_PREDICTIONS] or 0)
-        rows = piece_predictions.listAfter(wm, ROWS_BATCH)
-        if not rows:
-            return False
-        with self._gate.slot():
-            new_max = self._client.pushPiecePredictions([_predictionToPayload(r) for r in rows])
-        self._advance(DATA_TYPE_PREDICTIONS, new_max, rows[-1]["id"])
-        return True
+        rows = piece_predictions.listAfter(int(self._wm[DATA_TYPE_PREDICTIONS] or 0), ROWS_BATCH)
+        return self._drainRows(
+            DATA_TYPE_PREDICTIONS, rows,
+            lambda batch: self._client.pushPiecePredictions([_predictionToPayload(r) for r in batch]), "id",
+        )
+
+    def _drainTrainingRuns(self) -> bool:
+        rows = training_runs.listRunsAfter(int(self._wm[DATA_TYPE_TRAINING_RUNS] or 0), ROWS_BATCH)
+        return self._drainRows(DATA_TYPE_TRAINING_RUNS, rows, lambda batch: self._client.pushTrainingRuns(batch), "sync_seq")
+
+    def _drainTelemetry(self) -> bool:
+        rows = telemetry_store.listAfter(int(self._wm[DATA_TYPE_TELEMETRY] or 0), ROWS_BATCH)
+        return self._drainRows(DATA_TYPE_TELEMETRY, rows, lambda batch: self._client.pushTelemetry(batch), "local_id")
 
     def _drainSortingRuns(self) -> bool:
         """Lots and sorting runs go whole, when their set is not the one Hive
@@ -674,16 +760,7 @@ class _TargetSyncer:
         with self._gate.slot():
             kept = self._client.pushSortingRuns(sorting_set)
         self._wm[DATA_TYPE_SORTING_RUNS] = kept
-        return True
-
-    def _drainTrainingRuns(self) -> bool:
-        wm = int(self._wm[DATA_TYPE_TRAINING_RUNS] or 0)
-        rows = training_runs.listRunsAfter(wm, ROWS_BATCH)
-        if not rows:
-            return False
-        with self._gate.slot():
-            new_max = self._client.pushTrainingRuns(rows)
-        self._advance(DATA_TYPE_TRAINING_RUNS, new_max, rows[-1]["sync_seq"])
+        self._sent(DATA_TYPE_SORTING_RUNS, 1, self._bodyBytes())
         return True
 
     def _drainImages(self) -> bool:
@@ -702,13 +779,24 @@ class _TargetSyncer:
                 sent = True
                 continue
             file_path = None if row["evicted_locally"] else piece_image_store.getImageFileById(row["id"])
-            if file_path is not None and not self._takeBudget(int(row.get("bytes") or 0)):
+            nbytes = int(row.get("bytes") or 0)
+            if file_path is not None and not self._takeBudget(nbytes):
                 break
             with self._gate.slot():
                 new_max = self._client.pushPieceImage(_imageToMeta(row), file_path)
             self._advance(DATA_TYPE_IMAGES, new_max, row["sync_seq"])
+            self._noteFile(DATA_TYPE_IMAGES, file_path, nbytes)
             sent = True
         return sent
+
+    def _noteFile(self, data_type: str, file_path: Any, nbytes: int) -> None:
+        """A row went with its file, or without it because the machine had
+        already deleted the file: that file never reaches this Hive."""
+        if file_path is not None:
+            self._sent(data_type, 1, nbytes)
+        else:
+            self._sent(data_type, 1, 0)
+            self._dropped(data_type, 1, nbytes)
 
     def _drainChannelCrops(self) -> bool:
         if self._crop_batches_off_until <= time.monotonic():
@@ -730,11 +818,13 @@ class _TargetSyncer:
             if self._stop.is_set():
                 break
             file_path = None if row["evicted_locally"] else channel_crop_store.getCropFileById(row["id"])
-            if file_path is not None and not self._takeBudget(int(row.get("bytes") or 0)):
+            nbytes = int(row.get("bytes") or 0)
+            if file_path is not None and not self._takeBudget(nbytes):
                 break
             with self._gate.slot():
                 new_max = self._client.pushChannelCrop(_cropToMeta(row), file_path)
             self._advance(DATA_TYPE_CROPS, new_max, row["id"])
+            self._noteFile(DATA_TYPE_CROPS, file_path, nbytes)
             sent = True
         return sent
 
@@ -746,6 +836,7 @@ class _TargetSyncer:
             return False
         batch: list[tuple[dict[str, Any], Any]] = []
         nbytes = 0
+        gone = gone_bytes = 0
         for row in rows:
             file_path = channel_crop_store.cropFile(row)
             size = int(row.get("bytes") or 0) if file_path is not None else 0
@@ -753,11 +844,17 @@ class _TargetSyncer:
                 break
             batch.append((_cropToMeta(row), file_path))
             nbytes += size
+            if file_path is None:
+                gone += 1
+                gone_bytes += int(row.get("bytes") or 0)
         if nbytes and not self._takeBudget(nbytes):
             return False
         with self._gate.slot():
             new_max = self._client.pushChannelCropBatch(batch)
         self._advance(DATA_TYPE_CROPS, new_max, batch[-1][0]["local_id"])
+        self._sent(DATA_TYPE_CROPS, len(batch), nbytes)
+        if gone:
+            self._dropped(DATA_TYPE_CROPS, gone, gone_bytes)
         return True
 
     def _drainControlData(self) -> bool:
@@ -768,11 +865,13 @@ class _TargetSyncer:
             if self._stop.is_set():
                 break
             file_path = None if row["evicted_locally"] else control_data_store.getSegmentFileById(row["id"])
-            if file_path is not None and not self._takeBudget(int(row.get("bytes") or 0)):
+            nbytes = int(row.get("bytes") or 0)
+            if file_path is not None and not self._takeBudget(nbytes):
                 break
             with self._gate.slot():
                 new_max = self._client.pushControlDataSegment(_controlSegmentToMeta(row), file_path)
             self._advance(DATA_TYPE_CONTROL_DATA, new_max, row["id"])
+            self._noteFile(DATA_TYPE_CONTROL_DATA, file_path, nbytes)
             sent = True
         return sent
 
@@ -793,11 +892,13 @@ class _TargetSyncer:
             if file_path is None:
                 # Retention removed it before it was sent: nothing to send.
                 self._advance(DATA_TYPE_SAMPLES, row["id"])
+                self._dropped(DATA_TYPE_SAMPLES, 1, int(row["bytes"] or 0))
                 progressed = True
                 continue
             if drops.get(row["camera"], 0) > 0:
                 drops[row["camera"]] -= 1
                 self._advance(DATA_TYPE_SAMPLES, row["id"])
+                self._dropped(DATA_TYPE_SAMPLES, 1, int(row["bytes"] or 0))
                 progressed = True
                 continue
             if not self._takeBudget(int(row["bytes"])):
@@ -807,8 +908,10 @@ class _TargetSyncer:
                     new_max = self._client.pushSample(_sampleToMeta(row), file_path)
             except FileNotFoundError:
                 self._advance(DATA_TYPE_SAMPLES, row["id"])
+                self._dropped(DATA_TYPE_SAMPLES, 1, int(row["bytes"] or 0))
                 continue
             self._advance(DATA_TYPE_SAMPLES, new_max, row["id"])
+            self._sent(DATA_TYPE_SAMPLES, 1, int(row["bytes"] or 0))
             progressed = True
         return progressed
 
@@ -858,17 +961,32 @@ class HiveSyncWorker:
             if self._started:
                 self._rebuildLocked()
 
-    def status(self, target_id: str) -> dict[str, Any] | None:
+    def _syncer(self, target_id: str) -> _TargetSyncer | None:
         with self._lock:
-            syncer = self._syncers.get(target_id)
+            return self._syncers.get(target_id)
+
+    def status(self, target_id: str) -> dict[str, Any] | None:
+        syncer = self._syncer(target_id)
         return syncer.status() if syncer is not None else None
+
+    def waitingByKind(self, target_id: str) -> dict[str, int | None]:
+        syncer = self._syncer(target_id)
+        return syncer.waitingByKind() if syncer is not None else {}
+
+    def budgetStatus(self, target_id: str) -> dict[str, Any] | None:
+        syncer = self._syncer(target_id)
+        return syncer._budget.status() if syncer is not None else None
+
+    def takesTelemetry(self, target_id: str) -> bool:
+        syncer = self._syncer(target_id)
+        return syncer.takesTelemetry() if syncer is not None else True
 
     def confirmedWatermarks(self) -> dict[str, int | None] | None:
         """Per data type, how far EVERY enabled target is known to have
         everything (the lowest of their watermarks), for retention. None when
         no target is enabled. A type's value is None while any target's state
         is unknown, which holds retention back; a target that does not take a
-        type (its telemetry field is off) does not."""
+        type (its stream is off) does not."""
         with self._lock:
             syncers = list(self._syncers.values())
         if not syncers:
@@ -937,6 +1055,7 @@ class HiveSyncWorker:
         if confirmed is None:
             return
         for data_type, mark in (
+            (DATA_TYPE_TELEMETRY, telemetry_store.markSyncedUpTo),
             (DATA_TYPE_IMAGES, piece_image_store.markImagesSyncedUpTo),
             (DATA_TYPE_CROPS, channel_crop_store.markSyncedUpTo),
             (DATA_TYPE_CONTROL_DATA, control_data_store.markSyncedUpTo),

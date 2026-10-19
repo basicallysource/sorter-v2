@@ -31,6 +31,7 @@ auto-resolves the instant `chute.homed` becomes true again.
 
 import time
 
+import fleet_telemetry
 from global_config import GlobalConfig
 
 STEPPER_STALL_INCIDENT_KIND = "stepper_stall"
@@ -101,6 +102,7 @@ class StepperStallMonitor:
         if newly:
             self._gc.logger.error(f"Stepper stall detected on {sorted(newly)}.")
             self._invalidate_home(irl, newly)
+            fleet_telemetry.noteStall(sorted(newly))
         self._prev_stalled = now_stalled
 
         # A stall is a machine fault, not a soft hold: park the machine. Requesting

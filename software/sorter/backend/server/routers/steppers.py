@@ -412,8 +412,8 @@ def _tmc_register_snapshot(stepper: Any) -> Dict[str, int | None]:
 
 
 def settings_payload(settings: StepperSettings) -> Dict[str, Any]:
-    """A motor's saved settings (built-in defaults where none is saved), as the
-    driver settings form edits them."""
+    """A motor's saved settings (its defaults where none is saved: the primary
+    Hive's, else built in), as the driver settings form edits them."""
     return {
         "irun": settings.irun,
         "ihold": settings.ihold,

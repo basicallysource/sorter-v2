@@ -10,7 +10,8 @@ applies at send time, to uploads already queued too.
 
 Choices are made for every Hive at once, and a Hive can override any of them.
 A stream's value for a Hive: on if the stream is required; else that Hive's
-override; else the machine-wide choice; else the default. An override is kept
+override; else the machine-wide choice; else the default, which the primary
+Hive can set for every sorter (hive_defaults) over the one declared here. An override is kept
 only while it differs from the machine-wide value, so "follows every Hive" is
 the absence of one.
 
@@ -123,7 +124,14 @@ def streamNamed(key: str) -> Stream | None:
 
 
 def defaults() -> dict[str, bool]:
-    return {stream.key: stream.default for stream in STREAMS if not stream.required}
+    """Each optional stream's default: the primary Hive's, else the code's."""
+    import hive_defaults
+
+    return {
+        stream.key: hive_defaults.value(f"sharing.{stream.key}", stream.default, lambda v: isinstance(v, bool))
+        for stream in STREAMS
+        if not stream.required
+    }
 
 
 def _bools(raw: Any) -> dict[str, bool]:
@@ -167,8 +175,9 @@ def _migrated() -> dict[str, Any]:
                 chosen[target_id][stream.key] = value
     every_hive: dict[str, bool] = {}
     overrides: dict[str, dict[str, bool]] = {}
+    base = defaults()
     for key in OPTIONAL_KEYS:
-        default = _BY_KEY[key].default
+        default = base[key]
         values = [chosen[target_id].get(key, default) for target_id in target_ids]
         if values and all(value == values[0] for value in values):
             if values[0] != default:
@@ -338,6 +347,7 @@ def consentView() -> dict[str, Any]:
 
 
 def streamList() -> list[dict[str, Any]]:
+    base = defaults()
     return [
         {
             "key": stream.key,
@@ -346,7 +356,7 @@ def streamList() -> list[dict[str, Any]]:
             "kind": stream.kind,
             "size": stream.size,
             "required": stream.required,
-            "default": stream.default,
+            "default": base.get(stream.key, stream.default),
         }
         for stream in STREAMS
     ]

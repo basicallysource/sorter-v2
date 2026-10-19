@@ -123,18 +123,18 @@ Push the six **Inner reflector LED hooks** into the sockets around the rim of th
 
 The strip itself is cut and wired on [Preparing the LED strip]({{ '/hardware/helpers/led-strip/' | relative_url }}): two turns of the skirt, about 920 mm (36 in), cut on a printed mark, with a short pigtail (`LED2` to `LED4`) on the cut end, which ends in a barrel plug if you fit the optional but recommended plug and socket. Have one ready before you start this step.
 
-**Fitting it.** Two turns, LEDs facing inwards.
+**Fitting it.** Two turns, LEDs facing inwards. **Do not stick the strip to the skirt.** Leave the blue film on and let the hooks hold it: it hangs in the air with room behind it, which keeps it cooler, and the adhesive lets go in the end anyway.
 
 <ol class="numbered-steps">
-  <li>Peel the blue film off the first stretch of the strip and start it under one of the hooks, adhesive against the inside of the skirt, with the wired end where you want the leads to leave the lamp.</li>
-  <li>Work it round the skirt until you are back where you started. That is one turn.</li>
-  <li>Drop down to the next clips and go round again for the second turn, peeling the film as you go.</li>
+  <li>Start the strip under one of the hooks, film still on, with the wired end where you want the leads to leave the lamp.</li>
+  <li>Work it round the skirt, under each hook in turn, until you are back where you started. That is one turn.</li>
+  <li>Drop down to the next hooks and go round again for the second turn.</li>
 </ol>
 
 <div class="img-row">
   <figure>
     <img class="doc-figure" src="https://assets.basically.website/sorter-docs/assembly-camera-lamp-strip-first-turn-w1600-101009ec515a.jpg" alt="The strip run once around the inside of the reflector skirt, back at its starting point, with the blue film being peeled off the length still to go">
-    <figcaption>One turn round, peeling as you go. <cite>Photo: BrickCycleAlice.</cite></figcaption>
+    <figcaption>One turn round. <cite>Photo: BrickCycleAlice.</cite></figcaption>
   </figure>
   <figure>
     <img class="doc-figure" src="https://assets.basically.website/sorter-docs/assembly-camera-lamp-strip-second-turn-w1600-e7a417c98b26.jpg" alt="Both turns of strip in the skirt, one above the other, film gone, with the red and black leads leaving the reflector at one side">

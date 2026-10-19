@@ -18,7 +18,7 @@ from . import landing_hold
 from .blind_arc import BlindArc, forward
 from .dispense_gate import DispenseGate
 from .exit_step import ExitStep, exitStep
-from .held import FreeTurn, HeldPieces
+from .held import FreeTurn, HeldAtLanding, HeldPieces
 
 # A deliberately simple pulsing state machine on the new perception stack.
 #
@@ -237,10 +237,18 @@ class PulsePerceptionFeeding(BaseState):
         c2 = self._latch_drop(2, c2, now_mono, cfg)
         c3 = self._latch_drop(3, c3, now_mono, cfg)
 
-        # A piece its own channel cannot move rests on the channel next to it:
-        # turn that one a little.
+        # A piece its own channel cannot move rests on the channel next to it.
+        # Where pieces land it hangs off the channel above: its incident holds
+        # the machine while a recovery procedure frees it. At the exit, the
+        # channel below turns a little.
         for channel, state in ((3, c3), (2, c2)):
-            turn = self._held.check(channel, state, self._odometer.get(channel, 0.0), now_mono)
+            turn = self._held.check(
+                channel, state, self._odometer.get(channel, 0.0), now_mono, self._frameSize(channel)
+            )
+            if isinstance(turn, HeldAtLanding):
+                if self._reportHeld(turn, cfg):
+                    return
+                continue
             if turn is not None and self._canFreeTurn(turn, c3, cfg):
                 if self._move(
                     f"ch{turn.channel}_free",
@@ -311,6 +319,59 @@ class PulsePerceptionFeeding(BaseState):
                     cfg.ch1_pulse_pause_ms,
                     cfg,
                 )
+
+    def _frameSize(self, channel: int) -> tuple[int, int] | None:
+        perception_service = getattr(self.gc, "perception_service", None)
+        channel_def = perception_service.channels().get(channel) if perception_service else None
+        mask = getattr(channel_def, "mask", None)
+        return (int(mask.shape[1]), int(mask.shape[0])) if mask is not None else None
+
+    def _reportHeld(self, held: HeldAtLanding, cfg: PulsePerceptionConfig) -> bool:
+        """Open the piece_held incident for a piece held where pieces land and,
+        when the machine is to handle it, start freeing it (recovery/). True
+        when the incident is open: it holds the machine from now on."""
+        import incidents
+        import recovery
+        from recovery.judges import pieceGoneFrom
+
+        mode = incidents.handling("piece_held")
+        if mode == incidents.OFF:
+            return False
+        label = f"C{held.channel}"
+        if not incidents.report(
+            self.gc,
+            "piece_held",
+            subject=label,
+            channel=f"c{held.channel}",
+            channel_label=label,
+            track_id=held.track_id,
+            box=list(held.box),
+        ):
+            return False
+        if mode == incidents.AUTOMATIC:
+            recovery.start(
+                self.gc,
+                "landing_held",
+                kind="piece_held",
+                motors={
+                    "this": self._recoveryMotor(held.channel, cfg),
+                    "above": self._recoveryMotor(held.channel - 1, cfg),
+                },
+                judge=pieceGoneFrom(self.gc.perception_service, held.channel, held.box),
+            )
+        return True
+
+    def _recoveryMotor(self, channel: int, cfg: PulsePerceptionConfig):
+        from recovery.motors import ChannelMotor, gearedMicrosteps
+
+        stepper = self._rotor(channel)
+        sign = 1 if cfg.forward_direction_sign >= 0 else -1
+        return ChannelMotor(
+            f"C{channel}",
+            stepper,
+            gearedMicrosteps(stepper, CHANNEL_OUTPUT_GEAR_RATIO, sign),
+            speed=channelMoveSpeed(cfg, channel),
+        )
 
     def _hasRoom(self, channel: int, state, most: int) -> bool:
         """Fewer than ``most`` pieces on the channel, counting the ones it is

@@ -18,6 +18,8 @@
 		automatic_label: string;
 		automatic_supported: boolean;
 		default: IncidentHandlingMode;
+		// What the machine tries, in order, when it handles it automatically.
+		procedure: { title: string; steps: string[] } | null;
 	};
 
 	const MODE_NAMES: Record<IncidentHandlingMode, string> = {
@@ -48,6 +50,13 @@
 	const sentenceCase = (text: string) =>
 		text.replace(/(\s)([A-Z])(?=[a-z])/g, (_, space: string, letter: string) => space + letter.toLowerCase());
 
+	function normalizeProcedure(value: unknown): IncidentDefinition['procedure'] {
+		if (!value || typeof value !== 'object') return null;
+		const raw = value as Record<string, unknown>;
+		const steps = Array.isArray(raw.steps) ? raw.steps.filter((s): s is string => typeof s === 'string') : [];
+		return typeof raw.title === 'string' && steps.length ? { title: raw.title, steps } : null;
+	}
+
 	function normalizeIncidentDefinitions(value: unknown): IncidentDefinition[] {
 		if (!Array.isArray(value)) return [];
 		const normalized = value
@@ -67,7 +76,8 @@
 					automatic_label:
 						typeof raw.automatic_label === 'string' ? raw.automatic_label : 'Automatic',
 					automatic_supported: raw.automatic_supported === true,
-					default: normalizeIncidentMode(raw.default)
+					default: normalizeIncidentMode(raw.default),
+					procedure: normalizeProcedure(raw.procedure)
 				} satisfies IncidentDefinition;
 			})
 			.filter((entry): entry is IncidentDefinition => entry !== null);
@@ -185,32 +195,44 @@
 
 <div class="divide-y divide-line">
 	{#each incidentDefinitions as definition (definition.kind)}
-		<SettingRow
-			label={definition.label}
-			help={definition.description}
-			changed={incidentMode(definition.kind) !== definition.default}
-			defaultText={MODE_NAMES[definition.default]}
-			defaultHelp={defaultHelp(definition)}
-			onreset={() => void saveIncidentMode(definition.kind, definition.default)}
-		>
-			{#snippet tags()}
-				{#if definition.scope}<Badge>{definition.scope}</Badge>{/if}
-				{#if incidentDefinitionActive(definition)}<Badge tone="warning" dot>Active</Badge>{/if}
-			{/snippet}
-			<SegmentedControl
-				label="When {definition.label} happens"
-				size="sm"
-				value={incidentMode(definition.kind)}
-				onchange={(mode) => void saveIncidentMode(definition.kind, mode)}
-				options={[
-					{ value: 'off' as const, label: MODE_NAMES.off },
-					{ value: 'manual' as const, label: MODE_NAMES.manual },
-					...(definition.automatic_supported
-						? [{ value: 'automatic' as const, label: MODE_NAMES.automatic }]
-						: [])
-				]}
-			/>
-		</SettingRow>
+		<div>
+			<SettingRow
+				label={definition.label}
+				help={definition.description}
+				changed={incidentMode(definition.kind) !== definition.default}
+				defaultText={MODE_NAMES[definition.default]}
+				defaultHelp={defaultHelp(definition)}
+				onreset={() => void saveIncidentMode(definition.kind, definition.default)}
+			>
+				{#snippet tags()}
+					{#if definition.scope}<Badge>{definition.scope}</Badge>{/if}
+					{#if incidentDefinitionActive(definition)}<Badge tone="warning" dot>Active</Badge>{/if}
+				{/snippet}
+				<SegmentedControl
+					label="When {definition.label} happens"
+					size="sm"
+					value={incidentMode(definition.kind)}
+					onchange={(mode) => void saveIncidentMode(definition.kind, mode)}
+					options={[
+						{ value: 'off' as const, label: MODE_NAMES.off },
+						{ value: 'manual' as const, label: MODE_NAMES.manual },
+						...(definition.automatic_supported
+							? [{ value: 'automatic' as const, label: MODE_NAMES.automatic }]
+							: [])
+					]}
+				/>
+			</SettingRow>
+			{#if definition.procedure && definition.automatic_supported}
+				<div class="-mt-2 px-(--pad-panel) pb-3 text-sm text-ink-muted">
+					<p>Automatic tries these, in order, and stops as soon as the piece is free:</p>
+					<ol class="mt-1 list-decimal pl-5">
+						{#each definition.procedure.steps as step, i (i)}
+							<li>{step}</li>
+						{/each}
+					</ol>
+				</div>
+			{/if}
+		</div>
 	{/each}
 </div>
 {#if incidentPolicyError}

@@ -3502,7 +3502,7 @@
 	)
 	(rectangle
 		(start 17.97 66.65)
-		(end 92.5 102.73)
+		(end 92.5 116.84)
 		(stroke
 			(width 0)
 			(type default)
@@ -4551,9 +4551,9 @@
 			)
 		)
 	)
-	(text "Serial bus servos (Waveshare SC15, FEETECH SCS15): half duplex, 3.3 V, default 1 Mbps.\nGP2 runs a PIO UART with TX and RX on the one pin. Q6 shifts the level and keeps the\ncable away from the Pico; R90 pulls the bus up. SERVO_DATA is pin 1 of CN2 and CN1\n(Power sheet). Place D8 at CN2. Replaces the second hall/switch input (J6)."
+	(text "Serial bus servos (Waveshare SC15, FEETECH SCS15):\nhalf duplex, 3.3 V, default 1 Mbps. GP2 runs a PIO\nUART, TX and RX on the one pin. Q6 shifts the level\nand keeps the cable away from the Pico; R90 pulls\nthe bus up. SERVO_DATA is CN2 pin 1 (Power sheet).\nD8 sits at CN2."
 		(exclude_from_sim no)
-		(at 30.48 96.52 0)
+		(at 20.32 114.3 0)
 		(effects
 			(font
 				(size 1.27 1.27)

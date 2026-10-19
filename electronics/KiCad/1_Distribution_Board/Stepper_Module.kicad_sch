@@ -2589,18 +2589,6 @@
 		(at 165.1 48.26)
 		(uuid "2d1028d2-b240-45c1-be1c-406d2cfe6633")
 	)
-	(no_connect
-		(at 115.57 66.04)
-		(uuid "67c16a69-c099-4e86-af3f-0231119eb775")
-	)
-	(no_connect
-		(at 95.25 76.2)
-		(uuid "83df4b67-7a41-4f03-8085-ea16593eff45")
-	)
-	(no_connect
-		(at 215.9 151.13)
-		(uuid "1a823636-73f7-46f3-9815-509f6290f1ae")
-	)
 	(wire
 		(pts
 			(xy 209.55 153.67) (xy 215.9 153.67)
@@ -3531,16 +3519,6 @@
 	)
 	(wire
 		(pts
-			(xy 95.25 76.2) (xy 110.49 76.2)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "7beaaf42-816a-4a6d-bf01-289b13184242")
-	)
-	(wire
-		(pts
 			(xy 229.87 140.97) (xy 238.76 140.97)
 		)
 		(stroke
@@ -3919,7 +3897,7 @@
 		)
 		(uuid "406cff08-2f86-4330-9eca-cf2dfcf90eae")
 	)
-	(label "PDN"
+	(label "UART"
 		(at 210.82 148.59 0)
 		(effects
 			(font
@@ -4030,17 +4008,7 @@
 		)
 		(uuid "bad19105-20b5-40b6-b35c-fdf9285555e3")
 	)
-	(label "CLK"
-		(at 210.82 151.13 0)
-		(effects
-			(font
-				(size 1.27 1.27)
-			)
-			(justify left bottom)
-		)
-		(uuid "c63b58b0-a064-46a8-993d-2d9c546cf9f1")
-	)
-	(label "PDN"
+	(label "UART"
 		(at 97.79 76.2 0)
 		(effects
 			(font
@@ -4049,16 +4017,6 @@
 			(justify left bottom)
 		)
 		(uuid "caee3c92-649e-47a7-9d6f-c328b51803c1")
-	)
-	(label "CLK"
-		(at 116.84 66.04 0)
-		(effects
-			(font
-				(size 1.27 1.27)
-			)
-			(justify left bottom)
-		)
-		(uuid "d3f979fe-4680-45bd-be00-3162ed56d61b")
 	)
 	(label "DIR"
 		(at 210.82 156.21 0)
@@ -6375,5 +6333,186 @@
 			(justify left bottom)
 		)
 		(uuid "f5af131e-f61e-473f-a511-e7aa9ad33425")
+	)
+	(symbol
+		(lib_id "power:GND")
+		(at 215.9 151.13 90)
+		(unit 1)
+		(body_style 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(in_pos_files yes)
+		(dnp no)
+		(uuid "ea7bdf7d-c21f-42a3-b76a-dc827f4c54ef")
+		(property "Reference" "#PWR0310"
+			(at 218.44 149.85999999999999 90)
+			(hide yes)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Value" "GND"
+			(at 219.71 151.13 90)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Footprint" ""
+			(at 215.9 151.13 0)
+			(hide yes)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Datasheet" ""
+			(at 215.9 151.13 0)
+			(hide yes)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Description" ""
+			(at 215.9 151.13 0)
+			(hide yes)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(instances
+			(project "1_Distribution_Board"
+				(path "/d53c8c01-e754-4310-8a73-7d7c95e64cd3/02dc68e7-469d-4169-b9e6-1742ced64b14"
+					(reference "#PWR0310")
+					(unit 1)
+				)
+				(path "/d53c8c01-e754-4310-8a73-7d7c95e64cd3/22523adc-9142-4362-af29-41502b0f3187"
+					(reference "#PWR0311")
+					(unit 1)
+				)
+				(path "/d53c8c01-e754-4310-8a73-7d7c95e64cd3/7a480abb-9b9a-47ac-a44b-24d5185d46e0"
+					(reference "#PWR0312")
+					(unit 1)
+				)
+				(path "/d53c8c01-e754-4310-8a73-7d7c95e64cd3/be0591dd-6b80-4d9a-a31b-18ff19c250bb"
+					(reference "#PWR0313")
+					(unit 1)
+				)
+				(path "/d53c8c01-e754-4310-8a73-7d7c95e64cd3/ec0756a4-872d-4fc6-b758-9ad2624703a8"
+					(reference "#PWR0314")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "power:GND")
+		(at 115.57 66.04 270)
+		(unit 1)
+		(body_style 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(in_pos_files yes)
+		(dnp no)
+		(uuid "a61fc344-815d-4dd4-8af2-91f8876f261a")
+		(property "Reference" "#PWR0320"
+			(at 118.11 64.77000000000001 270)
+			(hide yes)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Value" "GND"
+			(at 111.76 66.04 270)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Footprint" ""
+			(at 115.57 66.04 0)
+			(hide yes)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Datasheet" ""
+			(at 115.57 66.04 0)
+			(hide yes)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Description" ""
+			(at 115.57 66.04 0)
+			(hide yes)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(instances
+			(project "1_Distribution_Board"
+				(path "/d53c8c01-e754-4310-8a73-7d7c95e64cd3/02dc68e7-469d-4169-b9e6-1742ced64b14"
+					(reference "#PWR0320")
+					(unit 1)
+				)
+				(path "/d53c8c01-e754-4310-8a73-7d7c95e64cd3/22523adc-9142-4362-af29-41502b0f3187"
+					(reference "#PWR0321")
+					(unit 1)
+				)
+				(path "/d53c8c01-e754-4310-8a73-7d7c95e64cd3/7a480abb-9b9a-47ac-a44b-24d5185d46e0"
+					(reference "#PWR0322")
+					(unit 1)
+				)
+				(path "/d53c8c01-e754-4310-8a73-7d7c95e64cd3/be0591dd-6b80-4d9a-a31b-18ff19c250bb"
+					(reference "#PWR0323")
+					(unit 1)
+				)
+				(path "/d53c8c01-e754-4310-8a73-7d7c95e64cd3/ec0756a4-872d-4fc6-b758-9ad2624703a8"
+					(reference "#PWR0324")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(wire
+		(pts
+			(xy 97.79 76.2) (xy 110.49 76.2)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "677879f4-8766-4af2-b82e-cdb5548f8dbf")
+	)
+	(text "CLK (pin 6) to GND: internal clock; a module without its own pull-down never sees a floating CLK.\nPDN (pin 5) joins UART (pin 4): modules route PDN_UART to either pin."
+		(exclude_from_sim no)
+		(at 195.58 165.1 0)
+		(effects
+			(font
+				(size 1.0 1.0)
+			)
+			(justify left bottom)
+		)
+		(uuid "025880aa-0541-4df1-9385-1990de7257b3")
 	)
 )

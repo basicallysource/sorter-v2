@@ -2,6 +2,9 @@
 	import { getMachineContext } from '$lib/machines/context';
 	import { getBackendHttpBase, machineHttpBaseUrlFromWsUrl } from '$lib/backend';
 	import NudgeControl from '$lib/components/ui/NudgeControl.svelte';
+	import Menu from '$lib/components/ui/Menu.svelte';
+	import Button from '$lib/components/ui/Button.svelte';
+	import { onMount } from 'svelte';
 	import {
 		DIRECTION_WORDS,
 		STEPPER_GEAR_RATIOS,
@@ -66,6 +69,42 @@
 		return message;
 	}
 
+	// The shakes a recovery procedure runs (backend recovery/profiles.py), by
+	// hand: the same list and the same code.
+	type Shake = { key: string; label: string; blurb: string };
+	let shakes = $state<Shake[]>([]);
+	let shaking = $state(false);
+
+	onMount(() => {
+		void (async () => {
+			try {
+				const res = await fetch(`${currentBackendBaseUrl()}/api/recovery/shakes`);
+				if (res.ok) shakes = ((await res.json()).shakes ?? []) as Shake[];
+			} catch {
+				// no menu without the list
+			}
+		})();
+	});
+
+	async function shake(profile: string) {
+		if (shaking) return;
+		shaking = true;
+		errorMessage = null;
+		try {
+			const params = new URLSearchParams({ stepper: stepperKey, profile });
+			const res = await fetch(`${currentBackendBaseUrl()}/api/recovery/shake?${params.toString()}`, {
+				method: 'POST'
+			});
+			if (!res.ok) {
+				throw new Error(humanizeStepperError(await readErrorMessage(res)));
+			}
+		} catch (e: any) {
+			errorMessage = e?.message ?? 'Could not shake the channel';
+		} finally {
+			shaking = false;
+		}
+	}
+
 	async function moveOutputDegrees(side: ChannelSide, output_degrees: number) {
 		if (pendingSide) return;
 		pendingSide = side;
@@ -110,3 +149,13 @@
 	onnudge={(side) => void moveOutputDegrees(side, side === 'left' ? -jogDegrees : jogDegrees)}
 	onchange={(degrees) => persistStoredStepperPulseSetting(stepperKey, JOG_FIELD, degrees)}
 />
+{#if shakes.length}
+	<Menu
+		label="Shake the channel"
+		items={shakes.map((s) => ({ label: s.label, hint: s.blurb, onselect: () => void shake(s.key) }))}
+	>
+		{#snippet trigger(props)}
+			<Button {...props} size="sm" loading={shaking}>Shake</Button>
+		{/snippet}
+	</Menu>
+{/if}

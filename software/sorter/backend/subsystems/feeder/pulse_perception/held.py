@@ -2,14 +2,15 @@
 
 A piece rides its rotor, so when a channel has turned well under a piece and
 the piece has not moved, it rests on something else. In this channel's landing
-area it still hangs off the channel above; at this channel's exit it hangs onto
-the channel below. So the feeder turns that other channel a little. If a few
-such turns do not move it either, it gives up on that piece and sorting goes on
-around it; the piece is listed on the Cycle time page.
+area it still hangs off the channel above: that holds back the channel above
+(a channel drops only into a clear landing area), so it opens the `piece_held`
+incident, and its recovery procedure works to free it (recovery/procedures.py).
+At this channel's exit it hangs onto the channel below, so the feeder turns that
+one a little; if a few such turns do not move it, it gives up on that piece and
+sorting goes on around it. Either way the piece is listed on the Cycle time page.
 
-A held piece blocks the channel above by itself (a channel only drops into a
-clear landing area), which is why turning the channel above is the one move
-that frees it and the one move the feeder would otherwise never make.
+A box that touches the edge of the picture is not watched: part of the piece is
+out of sight, so its center does not follow it.
 
 Each piece found held, each turn and how it ended go to the control-data log,
 so the record says how often it happens and whether the turns free it.
@@ -27,9 +28,10 @@ import held_piece_records
 MOVED_DEG = 3.0
 # Its channel turned this much under it while it did not move: it is held.
 HELD_AFTER_DEG = 45.0
-# How far the other channel turns to free it (C1 moves the whole bulk pile, so
-# less), how long to wait before judging a turn, and how many turns to try.
-FREE_TURN_DEG = {1: 3.0, 2: 8.0, 3: 8.0}
+# For a piece held at an exit: how far the channel below turns to free it (only
+# C3 is turned this way: the classification channel turns on its own schedule),
+# how long to wait before judging a turn, and how many turns to try.
+FREE_TURN_DEG = {3: 8.0}
 FREE_SETTLE_S = 1.0
 FREE_TURNS = 3
 
@@ -47,6 +49,13 @@ class _Watch:
     turned_at: Optional[float] = None
     given_up: bool = False
     zone: str = ""
+
+
+@dataclass(frozen=True)
+class HeldAtLanding:
+    channel: int  # the channel the piece is on
+    track_id: int
+    box: tuple[float, float, float, float]
 
 
 @dataclass(frozen=True)
@@ -68,15 +77,23 @@ class HeldPieces:
             self._end(channel, track_id, watch, "stopped", now)
         self._watch.clear()
 
-    def check(self, channel: int, state: Any, odometer: float, now: float) -> Optional[FreeTurn]:
-        """Watch every tracked piece on ``channel``. Returns the turn of the
-        channel above or below to make now, when one of them is held."""
-        wanted: Optional[FreeTurn] = None
+    def check(
+        self,
+        channel: int,
+        state: Any,
+        odometer: float,
+        now: float,
+        frame_size: Optional[tuple[int, int]] = None,
+    ) -> Optional[FreeTurn | HeldAtLanding]:
+        """Watch every tracked piece on ``channel``. Returns a piece held where
+        pieces land (once per piece), or the turn of the channel below to make
+        now for a piece held at the exit."""
+        wanted: Optional[FreeTurn | HeldAtLanding] = None
         seen: set[tuple[int, int]] = set()
         for p in getattr(state, "pieces", ()) or ():
             tid = getattr(p, "sv_bt_track_id", None)
             gap = getattr(p, "com_forward_to_exit_deg", None)
-            if tid is None or gap is None:
+            if tid is None or gap is None or _atEdge(getattr(p, "bbox", None), frame_size):
                 continue
             key = (channel, int(tid))
             seen.add(key)
@@ -92,12 +109,18 @@ class HeldPieces:
                 continue
             zone = int(getattr(p, "zone_code", 0) or 0)
             if zone == _DROP_ZONE:
-                other = channel - 1
-            elif zone in (_EXIT_ZONE, _PRECISE_ZONE):
-                other = channel + 1
-            else:
+                watch.zone = "landing"
+                if not watch.given_up:
+                    watch.given_up = True
+                    self._log("held where pieces land", channel, int(tid), watch, now)
+                    if wanted is None or isinstance(wanted, FreeTurn):
+                        box = getattr(p, "bbox", None) or (0, 0, 0, 0)
+                        wanted = HeldAtLanding(channel, int(tid), tuple(float(v) for v in box))
                 continue
-            watch.zone = "landing" if zone == _DROP_ZONE else "exit"
+            if zone not in (_EXIT_ZONE, _PRECISE_ZONE):
+                continue
+            other = channel + 1
+            watch.zone = "exit"
             if other not in FREE_TURN_DEG:
                 # C3's channel below is the classification channel, which turns
                 # on its own schedule and takes a piece that lands on it: give up
@@ -167,3 +190,12 @@ class HeldPieces:
             )
         except Exception:
             pass
+
+
+def _atEdge(bbox: Any, frame_size: Optional[tuple[int, int]]) -> bool:
+    """The box touches the picture's edge (``frame_size`` is width, height)."""
+    if not bbox or frame_size is None:
+        return False
+    w, h = frame_size
+    x1, y1, x2, y2 = bbox
+    return x1 <= 1 or y1 <= 1 or x2 >= w - 2 or y2 >= h - 2

@@ -33,6 +33,9 @@ class IncidentKind:
     automatic_label: str | None = None
     manual_label: str = "Call the operator"
     off_label: str = "Do not raise it"
+    # The recovery procedure (recovery.PROCEDURES) the machine works through
+    # when this kind is handled automatically.
+    procedure: str | None = None
 
     def actionsFor(self, incident: dict[str, Any]) -> tuple[str, ...]:
         return self.actions(incident) if callable(self.actions) else self.actions
@@ -64,7 +67,20 @@ KINDS: dict[str, IncidentKind] = {
             actions=("done",),
             scope="Classification",
             description="A piece rode the classification channel past its exit and came back around.",
-            default_handling=MANUAL,
+            default_handling=AUTOMATIC,
+            automatic_label="Shake it off, then call the operator",
+            procedure="c4_shake_off",
+        ),
+        IncidentKind(
+            "piece_held",
+            title="A piece is stuck where pieces land",
+            todo="A piece where pieces land on {subject} does not move with the channel; it most likely hangs off the channel above. Take it off, then press Done.",
+            actions=("done",),
+            scope="Feeder",
+            description="A piece where pieces land on C2 or C3 does not ride the channel, and holds back the channel above.",
+            default_handling=AUTOMATIC,
+            automatic_label="Try to free it, then call the operator",
+            procedure="landing_held",
         ),
         IncidentKind(
             "stepper_stall",

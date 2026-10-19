@@ -29,7 +29,7 @@
 	import { pictureSettingsEqual, type PictureSettings } from '$lib/settings/picture-settings';
 	import type { CameraRole, EndstopConfig, StepperKey, ZoneChannelId } from '$lib/settings/stations';
 	import { roleView } from '$lib/video';
-	import { defaultZones, findZones, loadLearning, loadZones, saveZones } from '$lib/zones/api';
+	import { defaultZones, findZones, loadPieceWatch, loadZones, saveZones } from '$lib/zones/api';
 	import { sameZones, type ChannelZones, type Part } from '$lib/zones/model';
 
 	let {
@@ -88,7 +88,7 @@
 	let finding = $state(false);
 	let saving = $state(false);
 	let note = $state('');
-	let learningNote = $state('');
+	let watchNote = $state('');
 	let status = $state('');
 
 	const zones = $derived(editing ? draft : saved);
@@ -102,24 +102,20 @@
 		}
 	}
 
-	async function refreshLearning() {
+	async function refreshWatch() {
 		try {
-			const learning = await loadLearning();
-			const entry = learning.channels?.[String(channel)];
-			if (!learning.running || !entry) {
-				learningNote = '';
+			const watch = await loadPieceWatch();
+			const entry = watch.channels?.[String(channel)];
+			if (!watch.running || !entry?.handoffs || !entry.landing_delay_s) {
+				watchNote = '';
 				return;
 			}
-			const parts: string[] = [];
-			if (entry.handoffs) parts.push(`${entry.handoffs} pieces handed on from here`);
-			if (entry.landing_delay_s) {
-				parts.push(`a piece takes ${entry.landing_delay_s.p50.toFixed(1)} s to land on the next channel`);
-			}
-			learningNote = parts.length
-				? `While it runs, the machine moves unlocked zones toward where its pieces really land and leave: ${parts.join(', ')}.`
-				: '';
+			watchNote =
+				`Of the last ${entry.handoffs} pieces handed on from here, half landed on the next channel within ` +
+				`${entry.landing_delay_s.p50.toFixed(1)} s. The feeder's hold after a fall follows this; the zones ` +
+				`change only when someone saves them.`;
 		} catch {
-			learningNote = '';
+			watchNote = '';
 		}
 	}
 
@@ -242,8 +238,8 @@
 		void refreshZones().then(() => {
 			if (wizard) void edit();
 		});
-		void refreshLearning();
-		const timer = setInterval(() => void refreshLearning(), 15000);
+		void refreshWatch();
+		const timer = setInterval(() => void refreshWatch(), 15000);
 		return () => clearInterval(timer);
 	});
 </script>
@@ -398,7 +394,7 @@
 					{saving}
 					{selected}
 					{note}
-					learning={learningNote}
+					watch={watchNote}
 					onchange={change}
 					onselect={(part) => (selected = part)}
 					onfind={find}

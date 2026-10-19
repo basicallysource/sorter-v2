@@ -20,8 +20,8 @@ room is what keeps C2 waiting.
 
 The hold after a fall. A channel pushes nothing off its exit for a while after
 a piece falls, so the next channel sees it land first. How long a piece takes
-to land is measured from the pieces seen to fall and then land (the zones
-learner), so a machine with a long drop or a ramp holds longer, and a quick one
+to land is measured from the pieces seen to fall and then land (zones/watch.py),
+so a machine with a long drop or a ramp holds longer, and a quick one
 no longer than it needs.
 
 What it decided and why is in ``report()``, on the feeder's tuning page.
@@ -115,9 +115,9 @@ def _cyclesSince(since: float) -> list[dict[str, Any]]:
 
 
 def _landingDelays(channel: int) -> list[float]:
-    from zones import learner
+    from zones import watch
 
-    current = learner.current()
+    current = watch.current()
     if current is None:
         return []
     return [h.delay_s for h in current.handoffs(channel)]

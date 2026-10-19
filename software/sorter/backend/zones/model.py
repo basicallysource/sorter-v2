@@ -72,30 +72,66 @@ class Span:
         return Span(self.middle - width / 2.0, self.middle + width / 2.0)
 
 
+# The inner circle's center stays within this share of its radius of the ring's
+# center, so every ray from the ring's center leaves the inner circle once.
+MAX_INNER_OFFSET = 0.9
+
+
 @dataclass(frozen=True)
 class Ring:
+    """The rotor's edge (``exit_radius`` around ``center``, which angles are
+    measured around), the area watched out to ``outer_radius`` around the same
+    center, and an inner circle the area starts at. The inner circle has a
+    center of its own, ``inner_center``: the hub stands above the rotor, so
+    from the camera it looks shifted against the rotor's edge. None: the
+    ring's center."""
+
     center: tuple[float, float]
     inner_radius: float
     outer_radius: float
     exit_radius: float
+    inner_center: tuple[float, float] | None = None
 
     def __post_init__(self) -> None:
+        center = (float(self.center[0]), float(self.center[1]))
         inner = max(0.0, float(self.inner_radius))
-        outer = max(inner + MIN_RING_PX, float(self.outer_radius))
-        exit_radius = min(outer, max(inner + MIN_RING_PX, float(self.exit_radius)))
-        object.__setattr__(self, "center", (float(self.center[0]), float(self.center[1])))
+        inner_center: tuple[float, float] | None = None
+        if self.inner_center is not None and inner > 0:
+            dx, dy = float(self.inner_center[0]) - center[0], float(self.inner_center[1]) - center[1]
+            off = math.hypot(dx, dy)
+            most = MAX_INNER_OFFSET * inner
+            if off > most:
+                dx, dy = dx * most / off, dy * most / off
+            inner_center = (center[0] + dx, center[1] + dy)
+        reach = inner + (math.dist(inner_center, center) if inner_center is not None else 0.0)
+        outer = max(reach + MIN_RING_PX, float(self.outer_radius))
+        exit_radius = min(outer, max(reach + MIN_RING_PX, float(self.exit_radius)))
+        object.__setattr__(self, "center", center)
         object.__setattr__(self, "inner_radius", inner)
         object.__setattr__(self, "outer_radius", outer)
         object.__setattr__(self, "exit_radius", exit_radius)
+        object.__setattr__(self, "inner_center", inner_center)
 
     def scaled(self, sx: float, sy: float) -> "Ring":
         s = (sx + sy) / 2.0
+        hub = None if self.inner_center is None else (self.inner_center[0] * sx, self.inner_center[1] * sy)
         return Ring(
             center=(self.center[0] * sx, self.center[1] * sy),
             inner_radius=self.inner_radius * s,
             outer_radius=self.outer_radius * s,
             exit_radius=self.exit_radius * s,
+            inner_center=hub,
         )
+
+    def movedTo(self, center: tuple[float, float], scale: float = 1.0) -> "Ring":
+        """This ring at another center and size, the inner circle moving with it."""
+        hub = None
+        if self.inner_center is not None:
+            hub = (
+                center[0] + (self.inner_center[0] - self.center[0]) * scale,
+                center[1] + (self.inner_center[1] - self.center[1]) * scale,
+            )
+        return Ring(center, self.inner_radius * scale, self.outer_radius * scale, self.exit_radius * scale, hub)
 
 
 @dataclass(frozen=True)
@@ -210,6 +246,17 @@ def polarPoint(center: tuple[float, float], radius: float, angle: float) -> tupl
     return center[0] + radius * math.cos(rad), center[1] + radius * math.sin(rad)
 
 
+def innerPoint(ring: Ring, angle: float) -> tuple[float, float]:
+    """Where the ray from the ring's center at ``angle`` leaves the inner circle."""
+    if ring.inner_center is None:
+        return polarPoint(ring.center, ring.inner_radius, angle)
+    dx, dy = math.cos(math.radians(angle)), math.sin(math.radians(angle))
+    fx, fy = ring.center[0] - ring.inner_center[0], ring.center[1] - ring.inner_center[1]
+    b = fx * dx + fy * dy
+    t = -b + math.sqrt(max(0.0, b * b - (fx * fx + fy * fy - ring.inner_radius**2)))
+    return ring.center[0] + t * dx, ring.center[1] + t * dy
+
+
 def _arcAngles(span: Span, step_deg: float) -> list[float]:
     steps = max(2, int(math.ceil(span.width / step_deg)))
     return [span.start + span.width * i / steps for i in range(steps + 1)]
@@ -235,7 +282,7 @@ def channelPolygon(zones: ChannelZones, step_deg: float = 3.0) -> list[tuple[flo
             outer.append(polarPoint(ring.center, ring.exit_radius, angle))
         else:
             outer.append(polarPoint(ring.center, ring.outer_radius, angle))
-    inner = [polarPoint(ring.center, ring.inner_radius, a) for a in reversed(_arcAngles(travel, step_deg))]
+    inner = [innerPoint(ring, a) for a in reversed(_arcAngles(travel, step_deg))]
     return outer + inner
 
 
@@ -246,9 +293,7 @@ def zonePolygon(zones: ChannelZones, name: str, step_deg: float = 3.0) -> list[t
     ring = zones.ring
     outer_radius = ring.exit_radius if name == "exit" else ring.outer_radius
     angles = _arcAngles(span, step_deg)
-    return [polarPoint(ring.center, outer_radius, a) for a in angles] + [
-        polarPoint(ring.center, ring.inner_radius, a) for a in reversed(angles)
-    ]
+    return [polarPoint(ring.center, outer_radius, a) for a in angles] + [innerPoint(ring, a) for a in reversed(angles)]
 
 
 def sectionsFor(span: Span | None, reference_angle: float) -> frozenset[int]:
@@ -289,6 +334,11 @@ def toDict(zones: ChannelZones) -> dict[str, Any]:
         "inner_radius": round(zones.ring.inner_radius, 2),
         "outer_radius": round(zones.ring.outer_radius, 2),
         "exit_radius": round(zones.ring.exit_radius, 2),
+        "inner_center": (
+            None
+            if zones.ring.inner_center is None
+            else [round(zones.ring.inner_center[0], 2), round(zones.ring.inner_center[1], 2)]
+        ),
         "drop": {"start": round(zones.drop.start, 3), "end": round(zones.drop.end, 3)},
         "exit": {"start": round(zones.exit.start, 3), "end": round(zones.exit.end, 3)},
         "precise_width": round(zones.precise_width, 3),
@@ -327,7 +377,7 @@ def fromDict(raw: Mapping[str, Any], channel: int | None = None) -> ChannelZones
     return ChannelZones(
         channel=int(channel_id),
         frame=(int(frame[0]), int(frame[1])),
-        ring=Ring(center, inner, outer, exit_radius if exit_radius is not None else outer),
+        ring=Ring(center, inner, outer, exit_radius if exit_radius is not None else outer, _pair(raw.get("inner_center"))),
         drop=spans["drop"],
         exit=spans["exit"],
         precise_width=_num(raw.get("precise_width")) or 0.0,

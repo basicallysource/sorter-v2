@@ -192,12 +192,12 @@ def _startPerception(gc: GlobalConfig, irl_config, camera_service) -> None:
         gc.logger.warning(f"Failed to start channel-crop collector: {exc}")
 
     try:
-        from zones import learner as zone_learner
+        from zones import watch as piece_watch
 
-        zone_learner.start(service, gc.logger)
-        gc.logger.info("Zone learner started.")
+        piece_watch.start(service, gc.logger)
+        gc.logger.info("Piece watch started.")
     except Exception as exc:
-        gc.logger.warning(f"Failed to start the zone learner: {exc}")
+        gc.logger.warning(f"Failed to start the piece watch: {exc}")
 
     try:
         import control_data_store

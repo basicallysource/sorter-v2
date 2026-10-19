@@ -85,18 +85,30 @@ class StepperLoadTests(_DbTestCase):
             stepper.sg = sg
             probe.sample(irl, now=2.0)
         data = probe.summary()
-        chute = data["steppers"]["chute"]
+        [chute] = data["steppers"]["chute"]
         self.assertEqual((4, 1, 0), (chute["samples"], chute["standstill"], chute["stalls"]))
         self.assertEqual({"otpw": 4}, chute["flags"])
         [band] = chute["bands"]
-        self.assertLessEqual(band["tstep"][0], 115)
-        self.assertLess(115, band["tstep"][1])
+        self.assertEqual([91, 128], band["tstep"])  # half an octave around 115
         self.assertEqual(3, band["n"])
-        self.assertEqual(2, band["sg"][300 // 32])
-        self.assertEqual(1, band["sg"][0])
+        # The histogram from its first non-empty bin (SG 0-31) to its last (288-319).
+        self.assertEqual(0, band["sg_from"])
+        self.assertEqual([1, 0, 0, 0, 0, 0, 0, 0, 0, 2], band["sg"])
         self.assertEqual((20, 310, 630), (band["sg_min"], band["sg_max"], band["sg_sum"]))
         self.assertEqual({"sgthrs": 55, "irun": 16}, chute["settings"])
         self.assertIsNone(probe.summary())  # it starts afresh
+
+    def test_settings_changed_while_sorting_start_a_new_entry_in_the_same_window(self) -> None:
+        stepper = _FakeStepper(drv=0, sg=200)
+        stepper.running_at_speed = True
+        probe = fleet_telemetry.StepperLoadProbe()
+        irl = _irl(chute=stepper)
+        probe.sample(irl, now=1.0)
+        with patch.object(fleet_telemetry, "stepperSettings", lambda motor: {"sgthrs": 30, "irun": 16}):
+            probe.sample(irl, now=1.0 + fleet_telemetry.STEPPER_SETTINGS_CHECK_S)
+            probe.sample(irl, now=2.0 + fleet_telemetry.STEPPER_SETTINGS_CHECK_S)
+        entries = probe.summary()["steppers"]["chute"]
+        self.assertEqual([(55, 1), (30, 2)], [(e["settings"]["sgthrs"], e["samples"]) for e in entries])
 
     def test_a_stall_carries_the_last_readings(self) -> None:
         stepper = _FakeStepper(drv=0, sg=12)
@@ -106,7 +118,7 @@ class StepperLoadTests(_DbTestCase):
         event = probe.noteStall("chute_stepper", now=10.5)
         self.assertEqual("chute", event["stepper"])
         self.assertEqual([[-0.5, 12, 115, 16, False]], event["recent"])
-        self.assertEqual(1, probe.summary()["steppers"]["chute"]["stalls"])
+        self.assertEqual(1, probe.summary()["steppers"]["chute"][0]["stalls"])
 
 
 class WindowTests(_DbTestCase):
@@ -134,7 +146,8 @@ class WindowTests(_DbTestCase):
         [record] = telemetry_store.listAfter(0, 10)
         self.assertEqual(("stepper_load", "window"), (record["kind"], record["form"]))
         self.assertEqual((1001.0, 1004.0), (record["started_at"], record["ended_at"]))
-        self.assertEqual(8, record["data"]["steppers"]["chute"]["samples"])
+        self.assertEqual(8, record["data"]["steppers"]["chute"][0]["samples"])
+        self.assertEqual(2, record["schema"])
         self.assertEqual(1.8, record["data"]["sorting_s"])
 
     def test_specs_are_written_once_until_they_change(self) -> None:
@@ -157,6 +170,36 @@ class WindowTests(_DbTestCase):
             self.assertEqual([], telemetry_store.listAfter(0, 10))
             service.checkSpecs(service._started + fleet_telemetry.SPECS_WAIT_S + 1)
         self.assertEqual(1, len(telemetry_store.listAfter(0, 10)))
+
+
+class CameraControlsTests(unittest.TestCase):
+    LISTING = """
+User Controls
+
+                     brightness 0x00980900 (int)    : min=-64 max=64 step=1 default=0 value=-3
+        white_balance_automatic 0x0098090c (bool)   : default=1 value=1
+      white_balance_temperature 0x0098091a (int)    : min=2800 max=6500 step=10 default=4600 value=3370 flags=inactive
+
+Camera Controls
+
+                  auto_exposure 0x009a0901 (menu)   : min=0 max=3 default=3 value=3 (Aperture Priority Mode)
+         exposure_time_absolute 0x009a0902 (int)    : min=0 max=10000 step=1 default=166 value=400 flags=inactive
+"""
+
+    def test_every_control_with_its_value_and_whether_auto_drives_it(self) -> None:
+        from vision.camera import parse_v4l2_controls
+
+        controls = parse_v4l2_controls(self.LISTING)
+        self.assertEqual(
+            {
+                "brightness": {"value": -3.0, "inactive": False},
+                "white_balance_automatic": {"value": 1.0, "inactive": False},
+                "white_balance_temperature": {"value": 3370.0, "inactive": True},
+                "auto_exposure": {"value": 3.0, "inactive": False},
+                "exposure_time_absolute": {"value": 400.0, "inactive": True},
+            },
+            controls,
+        )
 
 
 class StoreAndSyncTests(_DbTestCase):

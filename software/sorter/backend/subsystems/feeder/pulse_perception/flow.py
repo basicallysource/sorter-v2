@@ -17,6 +17,7 @@ from .config import (
 from . import landing_hold
 from .blind_arc import BlindArc, forward
 from .dispense_gate import DispenseGate
+from .exit_step import ExitStep, exitStep
 from .held import FreeTurn, HeldPieces
 
 # A deliberately simple pulsing state machine on the new perception stack.
@@ -84,6 +85,12 @@ class PulsePerceptionFeeding(BaseState):
         # Per-channel monotonic timestamp of the last frame that reported a piece
         # in the drop zone. Drives the C2/C3 drop-zone occupancy latch.
         self._drop_seen_at: dict[int, float] = {}
+        # One piece in the opening at a time (exit_step.py): when each channel's
+        # last move ends (wall clock, like a frame's time), the forward stroke a
+        # shake still owes, and the back-offs and shakes made for the lead.
+        self._moved_until: dict[int, float] = {}
+        self._shake_owed: dict[int, float] = {}
+        self._exit_tries: dict[int, tuple[int | None, int]] = {}
 
     def _cfg(self) -> PulsePerceptionConfig:
         now = time.monotonic()
@@ -109,6 +116,7 @@ class PulsePerceptionFeeding(BaseState):
         pause_ms: int,
         cfg: PulsePerceptionConfig,
         enforce_min: bool = True,
+        backwards: bool = False,
     ) -> bool:
         # The window is the ramp-aware move time plus the pause, so the pause
         # follows the end of the move; the board's own stopped state is the
@@ -121,6 +129,8 @@ class PulsePerceptionFeeding(BaseState):
             output_deg = max(cfg.min_move_output_deg, output_deg)
         output_deg = min(channelMaxMoveOutputDeg(cfg, channel), output_deg)
         sign = 1 if cfg.forward_direction_sign >= 0 else -1
+        if backwards:
+            sign = -sign
         motor_deg = sign * output_deg * CHANNEL_OUTPUT_GEAR_RATIO
         # Set the move speed and tell the motor to move to the angle — that's it.
         # We NEVER set acceleration here; the motor keeps whatever acceleration it
@@ -132,8 +142,9 @@ class PulsePerceptionFeeding(BaseState):
         success = stepper.move_degrees(motor_deg)
         exec_ms = stepper.estimateMoveDegreesMs(abs(motor_deg), max_speed=speed or 5000)
         if success:
-            self._odometer[channel] = self._odometer.get(channel, 0.0) + output_deg
+            self._odometer[channel] = self._odometer.get(channel, 0.0) + (-output_deg if backwards else output_deg)
             self.shared.feeder_moving_until[channel] = time.monotonic() + max(0, exec_ms) / 1000.0
+            self._moved_until[channel] = time.time() + max(0, exec_ms) / 1000.0
         cooldown_ms = (max(0, exec_ms) + max(0, pause_ms)) if success else 500
         self._busy_until[stepper._name] = time.monotonic() + cooldown_ms / 1000.0
         self.gc.logger.debug(
@@ -337,6 +348,13 @@ class PulsePerceptionFeeding(BaseState):
 
         if self._busy(stepper):
             return
+        # A shake goes backwards, then forward as far: finish it first, so the
+        # pieces end where they were.
+        owed = self._shake_owed.get(channel)
+        if owed is not None:
+            if self._move(f"{label}_exit_shake", channel, stepper, owed, cfg.exit_pulse_pause_ms, cfg, enforce_min=False):
+                del self._shake_owed[channel]
+            return
         if action == Action.ADVANCE:
             # Free advance pulse, but never push the most-forward piece off the
             # edge into the exit zone: cap the move to its forward clearance to
@@ -381,19 +399,85 @@ class PulsePerceptionFeeding(BaseState):
                 enforce_min=enforce_min,
             )
         elif action == Action.PRECISE:
+            step = self._exitStep(channel, state, cfg)
+            if step is None:
+                return
             moved = self._move(
-                f"{label}_exit",
+                f"{label}_exit" if step.kind == "push" else f"{label}_exit_{step.kind}",
                 channel,
                 stepper,
-                self._exitMoveDeg(channel, state, cfg),
+                step.deg,
                 cfg.exit_pulse_pause_ms,
                 cfg,
                 enforce_min=False,
+                backwards=step.kind != "push",
             )
-            if moved and channel in self._gates:
-                pieces = getattr(state, "pieces", ())
-                self._gates[channel].notePush(pieces[0] if pieces else None)
+            if not moved:
+                return
+            pieces = getattr(state, "pieces", ())
+            lead = pieces[0] if pieces else None
+            if step.kind == "shake":
+                self._shake_owed[channel] = step.deg
+            if step.kind != "push" or step.why:
+                self._noteExitStep(channel, lead, pieces[1] if len(pieces) > 1 else None, step)
+            if channel in self._gates:
+                self._gates[channel].notePush(lead)
         # IDLE / FREEZE: no move.
+
+    def _exitStep(self, channel: int, state, cfg: PulsePerceptionConfig) -> ExitStep | None:
+        """The exit's next move: a push, or with the lead in the opening and the
+        next piece close behind it, a back-off or a shake (exit_step.py). None
+        while the newest picture was taken before the last move ended."""
+        push = self._exitMoveDeg(channel, state, cfg)
+        clear = float(getattr(cfg, f"ch{channel}_exit_next_clear_deg", 0.0) or 0.0)
+        if clear <= 0:
+            return ExitStep("push", push)
+        if float(getattr(state, "ts", 0.0) or 0.0) < self._moved_until.get(channel, 0.0):
+            return None
+        pieces = getattr(state, "pieces", ()) or ()
+        if not pieces:
+            return ExitStep("push", push)
+        lead_id = getattr(pieces[0], "sv_bt_track_id", None)
+        tried_id, tries = self._exit_tries.get(channel, (None, 0))
+        if tried_id != lead_id:
+            tries = 0
+        return exitStep(
+            float(pieces[0].com_forward_to_exit_deg),
+            float(pieces[1].com_forward_to_exit_deg) if len(pieces) > 1 else None,
+            push,
+            cfg.exit_pulse_output_deg,
+            clear,
+            tries,
+        )
+
+    def _noteExitStep(self, channel: int, lead, behind, step: ExitStep) -> None:
+        """Count a back-off or shake against the lead, and log every move the
+        rule made or let through to the control data, so its effect can be
+        measured."""
+        lead_id = getattr(lead, "sv_bt_track_id", None)
+        if step.kind != "push":
+            tried_id, tries = self._exit_tries.get(channel, (None, 0))
+            self._exit_tries[channel] = (lead_id, (tries if tried_id == lead_id else 0) + 1)
+        try:
+            import control_data_store
+
+            control_data_store.record(
+                {
+                    "type": "event",
+                    "kind": "exit_step",
+                    "what": step.kind,
+                    "why": step.why,
+                    "ch": channel,
+                    "track": lead_id,
+                    "deg": round(step.deg, 2),
+                    "lead_deg": round(float(getattr(lead, "com_forward_to_exit_deg", 0.0)), 2),
+                    "next_deg": round(float(getattr(behind, "com_forward_to_exit_deg", 0.0)), 2) if behind else None,
+                    "t": time.time(),
+                    "mono": time.monotonic(),
+                }
+            )
+        except Exception:
+            pass
 
     def _withHiddenPieces(self, channel: int, state, action, now: float, cfg: PulsePerceptionConfig):
         """Keep advancing while a piece rides the part of the ring the camera

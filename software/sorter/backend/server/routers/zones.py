@@ -8,7 +8,7 @@ from fastapi import APIRouter, HTTPException
 
 from server import shared_state
 from zones import learner
-from zones.finder import defaultZones, findZones
+from zones.finder import defaultZones, findInChild
 from zones.model import CAMERA_ROLE, CHANNELS, fromDict, toDict
 from zones.store import loadZones, revision, saveChannel
 
@@ -68,9 +68,9 @@ def findChannelZones(channel: int) -> Dict[str, Any]:
     history = learner.recentFrames(channel)
     current = loadZones().get(channel)
     try:
-        found = findZones(channel, history + live if len(history) >= 3 else live, current, (w, h))
-    except ValueError as exc:
-        raise HTTPException(status_code=422, detail=str(exc))
+        found = findInChild(channel, history + live if len(history) >= 3 else live, current, (w, h))
+    except Exception as exc:
+        raise HTTPException(status_code=422, detail=f"The zones could not be found: {exc}")
     return {"zones": toDict(found.zones), "report": found.report()}
 
 

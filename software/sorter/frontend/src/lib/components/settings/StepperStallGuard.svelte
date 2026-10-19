@@ -83,6 +83,9 @@
 	let sgThrs = $state(50);
 	let sgTcoolthrs = $state(150);
 	let microsteps = $state(8);
+	// The driver settings a recording must have been made with to count for tuning.
+	let driverIrun = $state<number | null>(null);
+	let driverStealthchop = $state<boolean | null>(null);
 	// What the machine runs on: as read from the driver, or as last saved. The
 	// fields above can hold an edit that is not saved yet.
 	let applied = $state<{ enabled: boolean; sgthrs: number; tcoolthrs: number } | null>(null);
@@ -102,6 +105,8 @@
 			if (!res.ok) throw new Error(await readError(res));
 			const data = await res.json();
 			if (typeof data.microsteps === 'number') microsteps = data.microsteps;
+			driverIrun = typeof data.irun === 'number' ? data.irun : null;
+			driverStealthchop = typeof data.stealthchop === 'boolean' ? data.stealthchop : null;
 			if (data.stallguard) {
 				sgEnabled = !!data.stallguard.enabled;
 				if (typeof data.stallguard.sgthrs === 'number') sgThrs = data.stallguard.sgthrs;
@@ -225,9 +230,24 @@
 	// show: the floor, the dip and the baseline all shift with speed, so mixing
 	// speeds gives a nonsense (and unstable) recommendation. The same call, for
 	// the speed being tuned, is what tells the steps which recordings exist.
-	async function readSuggestion(speed: number | null | undefined): Promise<Suggestion | null> {
+	// It also only uses recordings made with the given driver settings (the run
+	// current, microstepping and chopper mode), which shift the readings as much.
+	type DriverMatch = {
+		irun?: number | null;
+		microsteps?: number | null;
+		stealthchop?: boolean | null;
+	};
+	async function readSuggestion(
+		speed: number | null | undefined,
+		driver: DriverMatch = {}
+	): Promise<Suggestion | null> {
 		try {
-			const qs = speed != null ? `?speed=${speed}` : '';
+			const query = new URLSearchParams();
+			if (speed != null) query.set('speed', String(speed));
+			if (driver.irun != null) query.set('irun', String(driver.irun));
+			if (driver.microsteps != null) query.set('microsteps', String(driver.microsteps));
+			if (driver.stealthchop != null) query.set('stealthchop', String(driver.stealthchop));
+			const qs = query.toString() ? `?${query.toString()}` : '';
 			const res = await fetch(`${base()}/stepper/${motor}/stallguard-suggestion${qs}`);
 			return res.ok ? ((await res.json()) as Suggestion) : null;
 		} catch {
@@ -236,10 +256,10 @@
 	}
 
 	let suggestionSeq = 0;
-	async function loadSuggestion(speed: number | null | undefined) {
+	async function loadSuggestion(speed: number | null | undefined, driver: DriverMatch = {}) {
 		const seq = ++suggestionSeq;
 		suggestion = null;
-		const next = await readSuggestion(speed);
+		const next = await readSuggestion(speed, driver);
 		if (seq === suggestionSeq) suggestion = next;
 	}
 
@@ -250,7 +270,12 @@
 		loadingSamples = true;
 		points = [];
 		error = null;
-		void loadSuggestion(run.params?.speed);
+		// The curve shows one recording, so its suggestion is for that recording's settings.
+		void loadSuggestion(run.params?.speed, {
+			irun: run.params?.irun,
+			microsteps: run.params?.microsteps,
+			stealthchop: run.params?.stealthchop
+		});
 		try {
 			const res = await fetch(`${base()}/api/stepper-telemetry/runs/${run.id}/samples`);
 			if (!res.ok) throw new Error(`HTTP ${res.status}`);
@@ -317,7 +342,13 @@
 		const speed = signedTuneSpeed;
 		if (speed === null) return;
 		const seq = ++tuningSeq;
-		const next = await readSuggestion(speed);
+		// Tuning is for the motor as it is set now: only recordings made with the
+		// driver's current settings count.
+		const next = await readSuggestion(speed, {
+			irun: driverIrun,
+			microsteps,
+			stealthchop: driverStealthchop
+		});
 		if (seq !== tuningSeq) return;
 		tuning = next;
 		tuningFor = next ? speed : null;
@@ -593,8 +624,8 @@
 						</Field>
 						{#if verdict === 'blind' && applied && cruiseTstep !== null}
 							<Alert tone="warning" title="Can't trip at this speed yet">
-								Cruise TSTEP {cruiseTstep}, speed floor {applied.tcoolthrs.toLocaleString()}. Steps 2 to 4
-								fix it.
+								Cruise TSTEP {cruiseTstep}, speed floor {applied.tcoolthrs.toLocaleString()}. Steps
+								2 to 4 fix it.
 							</Alert>
 						{:else if verdict === 'off' && applied && cruiseTstep !== null}
 							<Alert tone="info" title="StallGuard is off">Step 4 turns it on.</Alert>
@@ -667,10 +698,13 @@
 					{/snippet}
 					<div class="flex max-w-2xl flex-col gap-4">
 						<p class="text-sm text-ink">
-							Hold {label} back until it stops, the whole {options.duration} s. A real stall reads near 0.
+							Hold {label} back until it stops, the whole {options.duration} s. A real stall reads near
+							0.
 						</p>
 						{@render motion()}
-						<Alert tone="warning">Hold only the part that turns. Let go if anything feels wrong.</Alert>
+						<Alert tone="warning"
+							>Hold only the part that turns. Let go if anything feels wrong.</Alert
+						>
 						{#if plan && plan.loaded_runs > 0 && !haveStall}
 							<Alert tone="warning" title="The last recording could not be used">
 								{plan.detail}
@@ -743,7 +777,11 @@
 								]}
 							/>
 							{#if !plan.reliable}
-								<Alert tone="danger" title="Not reliable at {speedText} µsteps/s" actions={stallAgain}>
+								<Alert
+									tone="danger"
+									title="Not reliable at {speedText} µsteps/s"
+									actions={stallAgain}
+								>
 									{#if plan.realistic_floor !== null}
 										Normal moves dip to {plan.realistic_floor}, near the {plan.trigger_level} trip line:
 										it would false-trip.
@@ -801,8 +839,8 @@
 								</Alert>
 							{:else}
 								<Alert tone="danger" title="It would have stopped the machine">
-									{r.tripped} of {r.looked} readings at or under {2 * checkHere.sgthrs}. Record the stall
-									again, or lower the threshold below.
+									{r.tripped} of {r.looked} readings at or under {2 * checkHere.sgthrs}. Record the
+									stall again, or lower the threshold below.
 								</Alert>
 							{/if}
 						{/if}
@@ -847,10 +885,7 @@
 		</div>
 	{/if}
 
-	<Panel
-		title="Stall detection"
-		description="On or off, and where a stall starts."
-	>
+	<Panel title="Stall detection" description="On or off, and where a stall starts.">
 		{#if settingsLoading}
 			<div class="flex items-center gap-2 text-sm text-ink-muted">
 				<Spinner size={14} /> Reading the driver
@@ -882,11 +917,7 @@
 		{/snippet}
 	</Panel>
 
-	<Panel
-		title="Expert tools"
-		description="Sweep options, past recordings, raw readings."
-		flush
-	>
+	<Panel title="Expert tools" description="Sweep options, past recordings, raw readings." flush>
 		<div class="divide-y divide-line border-t border-line">
 			<div id="sg-sweep-options">
 				<Disclosure
@@ -921,9 +952,7 @@
 						<Stat label="SG max" value={motorSummary.sg_max} />
 					</div>
 				{:else}
-					<p class="px-(--pad-panel) pb-4 text-sm text-ink-muted">
-						Nothing recorded yet.
-					</p>
+					<p class="px-(--pad-panel) pb-4 text-sm text-ink-muted">Nothing recorded yet.</p>
 				{/if}
 			</Disclosure>
 		</div>

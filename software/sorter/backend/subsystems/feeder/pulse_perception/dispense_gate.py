@@ -33,6 +33,8 @@ class DispenseGate:
     pushing_untracked: bool = False
     missing_since: float | None = None
     fell_at: float | None = None
+    # The id of the piece that fell last, when it was tracked.
+    fell_track_id: int | None = None
 
     def exitAllowed(self, now: float) -> bool:
         """An exit pulse may go out: the piece being pushed has not just
@@ -72,6 +74,7 @@ class DispenseGate:
 
     def _fell(self, now: float) -> bool:
         self.fell_at = now
+        self.fell_track_id = self.track_id
         self.track_id = None
         self.pushing_untracked = False
         self.missing_since = None

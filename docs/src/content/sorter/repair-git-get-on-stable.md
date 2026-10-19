@@ -25,13 +25,11 @@ That puts it on the newest stable release. For canary:
 curl -fsSL https://raw.githubusercontent.com/basicallysource/sorter-v2/main/software/scripts/get-on-release.sh | sudo bash -s canary
 ```
 
-It takes a few minutes and restarts the backend at the end, so stop the machine first.
+It takes a few minutes and restarts the backend, so stop the machine first. It:
 
-**Nothing on the machine is lost.** Its settings, database, pictures and logs are not touched. Edits to the software's own files, and commits made on the machine, are saved on a git branch named `backup/<date>`, and any other file the release would replace is copied to a backup folder beside the checkout. The script prints where each went.
-
-It also clears what stops an update: a branch instead of a release, a merge stopped halfway, a stale git lock, damaged git files.
-
-It won't move the machine back to an older release (from canary to an older stable, say), since newer software can change the machine in ways older software can't run on. Use canary until stable catches up.
+- leaves your settings, database, pictures and logs alone
+- saves any edits to the software on a `backup/<date>` git branch
+- fixes what stops an update: a branch, a stopped merge, a stale lock, damaged git files
 
 ## By hand
 

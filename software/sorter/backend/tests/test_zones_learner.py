@@ -100,6 +100,7 @@ def test_a_piece_leaving_one_channel_and_landing_on_the_next_is_a_handoff(monkey
     perception.show(2, 100.5, [(7, 182.0)])
     tick(100.5)
     perception.show(2, 101.0, [])
+    learner.fell(2, 7)
     perception.show(3, 101.4, [(31, 300.0)])
     tick(101.4)
     perception.show(3, 101.8, [(31, 302.0)])
@@ -133,7 +134,11 @@ def test_the_ring_follows_the_circle_pieces_ride_a_step_at_a_time() -> None:
     assert stepped is not None and stepped.source["ring"] == "learned"
     moved = math.dist(stepped.ring.center, zones.ring.center)
     assert 0 < moved <= learner_mod.MAX_RING_STEP * zones.ring.exit_radius + 1e-6
-    assert stepped.ring.exit_radius == pytest.approx(zones.ring.exit_radius * (1 + learner_mod.MAX_RING_STEP))
+    scale = 1 + learner_mod.MAX_RING_STEP
+    assert stepped.ring.exit_radius == pytest.approx(zones.ring.exit_radius * scale)
+    # The area the channel watches keeps its shape around the rim.
+    assert stepped.ring.inner_radius == pytest.approx(zones.ring.inner_radius * scale)
+    assert stepped.ring.outer_radius == pytest.approx(zones.ring.outer_radius * scale)
     assert learner_mod._ringStepped(_zones(3, locked=frozenset({"ring"})), seen) is None
 
 
@@ -154,6 +159,7 @@ def test_a_landing_pairs_with_the_piece_that_left_last_not_one_out_of_sight(monk
     perception.show(3, 11.0, [(2, 185.0)])
     tick(11.0)
     perception.show(3, 11.5, [])
+    learner.fell(3, 2)
     perception.show(4, 11.8, [(40, 300.0)])
     tick(11.8)
     tick(14.0)
@@ -162,3 +168,21 @@ def test_a_landing_pairs_with_the_piece_that_left_last_not_one_out_of_sight(monk
     left = handoff.left.at((400, 400))
     assert math.degrees(math.atan2(left[1] - CENTER[1], left[0] - CENTER[0])) % 360 == pytest.approx(185.0, abs=0.5)
     assert handoff.delay_s == pytest.approx(0.8)
+
+
+def test_hand_offs_that_disagree_move_nothing() -> None:
+    hand = _handoffs([100 + (i * 7) % 140 for i in range(40)], [300.0] * 40)
+    assert learnedExit(_zones(2), hand) is None
+
+
+def test_a_landing_with_no_fall_reported_is_no_hand_off(monkeypatch) -> None:
+    perception = _FakePerception()
+    learner = ZoneLearner(perception, apply_changes=False)
+    clock = {"now": 0.0}
+    monkeypatch.setattr(learner_mod.time, "time", lambda: clock["now"])
+    for at, pieces3, pieces4 in ((10.0, [(5, 180.0)], []), (11.0, [], [(9, 300.0)]), (13.0, [], [(9, 302.0)])):
+        clock["now"] = at
+        perception.show(3, at, pieces3)
+        perception.show(4, at, pieces4)
+        learner._tick(at, at)
+    assert learner.handoffs(3) == []

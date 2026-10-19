@@ -1,16 +1,19 @@
 """Zones that follow the machine, learned from its pieces while it runs.
 
-A piece seen last on one channel and, moments later, first on the next has
-just gone through the first one's exit and landed in the next one's drop zone.
-Those hand-offs say where each exit and drop zone really are on this machine,
-and how long a piece takes to land; nothing else can tell them as well, since
-every machine is built and filmed a little differently.
+When the feeder sees the piece it pushed off a channel's exit fall, the piece
+that appears on the next channel moments later is that piece landing in the
+next channel's drop zone. Those hand-offs say where each exit and drop zone
+really are on this machine, and how long a piece takes to land; nothing else
+can tell them as well, since every machine is built and filmed a little
+differently.
 
 The learner keeps the last of them per channel and, once there are enough,
 moves an unlocked exit or drop zone a few degrees at a time toward what they
-show. Where pieces ride says where the ring is: the circle through them, which
-the ring follows in small steps too. It also keeps a picture of each channel
-every so often while the machine runs, for the zone finder.
+show, and only while they agree. Where pieces ride says where the ring is: the
+circle through them, which the ring's center and rim follow in small steps
+too, the area the channel watches growing and shrinking with them. It also
+keeps a picture of each channel every so often while the machine runs, for the
+zone finder.
 """
 
 from __future__ import annotations
@@ -25,8 +28,7 @@ from typing import Any, Deque
 import cv2
 import numpy as np
 
-from .finder import ringAround
-from .model import ChannelZones, Span, forwardDeg, normalizeAngle
+from .model import ChannelZones, Ring, Span, forwardDeg, normalizeAngle
 from .store import loadZones, updateChannel
 
 POLL_S = 0.1
@@ -44,6 +46,12 @@ ADJUST_EVERY_S = 60.0
 # size, and never fall below these widths.
 MIN_EXIT_DEG = 20.0
 MIN_DROP_DEG = 25.0
+# Hand-offs that disagree by more than this (the middle 80% of them) say
+# nothing reliable about where a zone is.
+MAX_EXIT_SPREAD_DEG = 50.0
+MAX_DROP_SPREAD_DEG = 150.0
+# Kept this long after a track is last seen, for a fall reported late.
+GONE_KEPT_S = 30.0
 
 # The ring follows the circle pieces ride once this many sightings agree, by at
 # most these shares of its radius at a time, and only when it is this far off.
@@ -94,7 +102,13 @@ class ZoneLearner:
         self._logger = logger
         self.apply_changes = apply_changes
         self._tracks: dict[int, dict[int, _Track]] = {2: {}, 3: {}, 4: {}}
-        self._ended: dict[int, Deque[_Track]] = {2: deque(maxlen=50), 3: deque(maxlen=50)}
+        # Tracks no longer seen, by id, for a while: a fall reported for one.
+        self._gone: dict[int, dict[int, _Track]] = {2: {}, 3: {}, 4: {}}
+        # Falls the feeder saw, (channel, track id), and where each fell piece
+        # was last seen once looked up.
+        self._fall_reports: Deque[tuple[int, int]] = deque(maxlen=200)
+        self._falls: dict[int, Deque[Sighting]] = {2: deque(maxlen=50), 3: deque(maxlen=50)}
+        self._fall_count: dict[int, int] = {2: 0, 3: 0}
         self._started: dict[int, Deque[tuple[int, _Track]]] = {3: deque(maxlen=50), 4: deque(maxlen=50)}
         self._handoffs: dict[int, Deque[Handoff]] = {2: deque(maxlen=HANDOFFS_KEPT), 3: deque(maxlen=HANDOFFS_KEPT)}
         self._sightings: dict[int, Deque[Sighting]] = {ch: deque(maxlen=SIGHTINGS_KEPT) for ch in (2, 3, 4)}
@@ -108,6 +122,10 @@ class ZoneLearner:
 
     def start(self) -> None:
         self._thread.start()
+
+    def fell(self, channel: int, track_id: int) -> None:
+        """The feeder saw the piece with ``track_id`` fall off ``channel``'s exit."""
+        self._fall_reports.append((int(channel), int(track_id)))
 
     def stop(self, timeout: float = 2.0) -> None:
         self._stop.set()
@@ -132,7 +150,11 @@ class ZoneLearner:
         out: dict[str, Any] = {"apply_changes": self.apply_changes, "channels": {}}
         for channel, nxt in _NEXT.items():
             hand = self.handoffs(channel)
-            entry: dict[str, Any] = {"handoffs": len(hand), "frames": len(self.frames(channel))}
+            entry: dict[str, Any] = {
+                "falls": self._fall_count[channel],
+                "handoffs": len(hand),
+                "frames": len(self.frames(channel)),
+            }
             if hand:
                 delays = sorted(h.delay_s for h in hand)
                 entry["landing_delay_s"] = {
@@ -175,6 +197,7 @@ class ZoneLearner:
             self._observe(channel, pieces, ts, (bgr.shape[1], bgr.shape[0]))
             self._keepFrame(channel, frame, now_mono)
         self._closeTracks(now)
+        self._resolveFalls()
         self._matchHandoffs()
         if self.apply_changes and now_mono - self._adjusted_at >= ADJUST_EVERY_S:
             self._adjusted_at = now_mono
@@ -203,42 +226,48 @@ class ZoneLearner:
 
     def _closeTracks(self, now: float) -> None:
         for channel, tracks in self._tracks.items():
+            gone = self._gone[channel]
             for track_id in [t for t, tr in tracks.items() if now - tr.last.ts > TRACK_GONE_S]:
-                track = tracks.pop(track_id)
-                if channel in self._ended and track.last.ts > track.first.ts:
-                    self._ended[channel].append(track)
+                gone[track_id] = tracks.pop(track_id)
+            for track_id in [t for t, tr in gone.items() if now - tr.last.ts > GONE_KEPT_S]:
+                del gone[track_id]
+
+    def _resolveFalls(self) -> None:
+        while self._fall_reports:
+            channel, track_id = self._fall_reports.popleft()
+            if channel not in self._falls:
+                continue
+            track = self._tracks[channel].get(track_id) or self._gone[channel].get(track_id)
+            if track is not None:
+                self._falls[channel].append(track.last)
+                self._fall_count[channel] += 1
 
     def _matchHandoffs(self) -> None:
-        """Pair each piece that appears on a channel with the piece seen leave
-        the channel before it most recently before it landed: the one that fell,
-        not one that went out of the camera's sight a moment earlier. A landing
-        waits until any piece that left just before it is known to have gone."""
+        """Pair each piece that appears on a channel with the latest piece seen
+        to fall off the channel before it, within the time a piece takes to
+        land. A landing waits a moment, since its fall can be confirmed after
+        the next camera already sees it."""
         now = time.time()
         for channel, nxt in _NEXT.items():
-            ended = self._ended[channel]
+            falls = self._falls[channel]
             started = self._started[nxt]
             while started:
                 track = started[0][1]
                 landed_at = track.first.ts
-                if now - landed_at < TRACK_GONE_S + 1.0:
+                if now - landed_at < 1.0:
                     break
                 started.popleft()
-                candidates = [t for t in ended if -0.3 <= landed_at - t.last.ts <= HANDOFF_WINDOW_S]
+                candidates = [f for f in falls if -0.5 <= landed_at - f.ts <= HANDOFF_WINDOW_S]
                 if not candidates:
                     continue
-                left = max(candidates, key=lambda t: t.last.ts)
-                ended.remove(left)
+                left = max(candidates, key=lambda f: f.ts)
+                falls.remove(left)
                 with self._lock:
                     self._handoffs[channel].append(
-                        Handoff(
-                            from_channel=channel,
-                            left=left.last,
-                            landed=track.first,
-                            delay_s=landed_at - left.last.ts,
-                        )
+                        Handoff(from_channel=channel, left=left, landed=track.first, delay_s=landed_at - left.ts)
                     )
-            while ended and now - ended[0].last.ts > HANDOFF_WINDOW_S + TRACK_GONE_S + 2.0:
-                ended.popleft()
+            while falls and now - falls[0].ts > HANDOFF_WINDOW_S + 5.0:
+                falls.popleft()
 
     def _keepFrame(self, channel: int, frame: Any, now_mono: float) -> None:
         if now_mono - self._frame_at.get(channel, -1e9) < FRAME_EVERY_S:
@@ -305,11 +334,14 @@ def _spread(angles: list[float], around: float, share: float) -> tuple[float, fl
 
 def learnedExit(zones: ChannelZones, handoffs: list[Handoff]) -> Span | None:
     """Where pieces were last seen before they landed downstream, with half a
-    piece of margin each side: the stretch pieces fall from."""
+    piece of margin each side: the stretch pieces fall from. None while the
+    hand-offs disagree too much to say."""
     if not handoffs:
         return None
     angles = [_angle(zones, h.left) for h in handoffs]
     low, high = _spread(angles, zones.exit.middle, 0.1)
+    if high - low > MAX_EXIT_SPREAD_DEG:
+        return None
     margin = _sizeDeg(zones, [h.left for h in handoffs]) / 2.0
     start = zones.exit.middle + low - margin
     width = max(MIN_EXIT_DEG, high - low + 2 * margin)
@@ -324,6 +356,8 @@ def learnedDrop(zones: ChannelZones, handoffs: list[Handoff]) -> Span | None:
         return None
     angles = [_angle(zones, h.landed) for h in handoffs]
     low, high = _spread(angles, zones.drop.middle, 0.03)
+    if high - low > MAX_DROP_SPREAD_DEG:
+        return None
     margin = _sizeDeg(zones, [h.landed for h in handoffs])
     start = zones.drop.middle + low - margin
     width = max(MIN_DROP_DEG, high - low + 2 * margin)
@@ -389,8 +423,11 @@ def _ringStepped(zones: ChannelZones, seen: list[Sighting]) -> ChannelZones | No
         return None
     step = min(1.0, MAX_RING_STEP / max(off_center, 1e-9))
     center = (ring.center[0] + (cx - ring.center[0]) * step, ring.center[1] + (cy - ring.center[1]) * step)
-    new_rim = rim * (1.0 + max(-MAX_RING_STEP, min(MAX_RING_STEP, off_radius)))
-    return zones.withRing(ringAround(center, new_rim), "learned")
+    scale = 1.0 + max(-MAX_RING_STEP, min(MAX_RING_STEP, off_radius))
+    # The area the channel watches keeps its shape: it grows and shrinks with
+    # the rim, never narrows to it.
+    moved = Ring(center, ring.inner_radius * scale, ring.outer_radius * scale, rim * scale)
+    return zones.withRing(moved, "learned")
 
 
 _learner: ZoneLearner | None = None
@@ -409,3 +446,8 @@ def current() -> ZoneLearner | None:
 
 def recentFrames(channel: int) -> list[np.ndarray]:
     return _learner.frames(channel) if _learner is not None else []
+
+
+def noteFall(channel: int, track_id: int) -> None:
+    if _learner is not None:
+        _learner.fell(channel, track_id)

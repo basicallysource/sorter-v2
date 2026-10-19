@@ -49,7 +49,9 @@ an address, a hash, an id, a hex value, a file path. Numbers use `num`, not
 - A button says what it does ("Save", "Home", "Delete profile"), never
   "Submit", "OK" or "Click here".
 - Help says what a setting does, in plain words, next to it, where it is
-  always visible; not in a tooltip.
+  always visible; not in a tooltip. A dense list of settings is the one
+  exception: each row's explanation sits behind an info icon after its name
+  ([overlays.md](overlays.md#tooltip)).
 - Short sentences. Facts before adjectives. No exclamation marks.
 - A name that is too long truncates with an ellipsis and a tooltip; it never
   wraps a row out of line.

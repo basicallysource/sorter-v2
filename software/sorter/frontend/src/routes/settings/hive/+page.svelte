@@ -7,6 +7,6 @@
 
 <PageHeader
 	title="Hive"
-	description="Connect this sorter to a Hive: pair it, choose what it uploads, and backfill archived samples."
+	description="Pair this sorter with a Hive, and choose which ones it sends samples to. What each one receives is set in Data."
 />
 <HiveSection />

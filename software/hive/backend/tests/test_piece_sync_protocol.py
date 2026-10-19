@@ -82,6 +82,7 @@ def test_state_lists_every_data_type(client, machine_token):
     assert set(_state(client, machine_token)) == {
         "piece_records", "piece_images", "channel_crops", "piece_corrections",
         "piece_predictions", "control_data_segments", "samples", "training_runs", "sorting_runs",
+        "telemetry",
     }
 
 

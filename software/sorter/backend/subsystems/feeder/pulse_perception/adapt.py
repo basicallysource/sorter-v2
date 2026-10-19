@@ -12,8 +12,9 @@ leaves that gap to chance: a piece can land at the front of the zone, right
 behind one that has only just left it. So C2 drops only once the back of every
 piece ahead of the landing zone is at least ``margin`` degrees past the front
 of where pieces land. Where they land is measured, from where new pieces are
-first seen in the landing zone, and a piece's back comes from its box, so a
-long piece takes more room by itself. The margin follows the double feeds: it
+first seen in the landing zone just after C2 dropped one (a new track id
+elsewhere is a tracker switch, not a landing), and a piece's back comes from
+its box, so a long piece takes more room by itself. The margin follows the double feeds: it
 grows while pieces that left C3 close behind another double more often than
 the rest, and eases back toward its floor while none leave that close and the
 room is what keeps C2 waiting.
@@ -39,12 +40,14 @@ from perception.arcs import backGapToExitDeg, forwardGapToExitDeg, sectionGapToE
 _DROP_ZONE = 1
 
 # Where pieces land on C3: the distance to the exit of the front of each new
-# piece first seen in the landing zone. The front of where they land is this
-# share of them, counted from the most forward, once there are enough; until
-# then, the front of the landing zone.
+# piece first seen in the landing zone within LANDING_AFTER_FALL_S of C2's
+# gate seeing a piece fall. The front of where they land is this share of
+# them, counted from the most forward, once there are enough; until then, the
+# front of the landing zone.
 LANDINGS_KEPT = 60
 LANDINGS_NEEDED = 10
-LANDING_FRONT_SHARE = 0.1
+LANDING_FRONT_SHARE = 0.25
+LANDING_AFTER_FALL_S = 2.5
 # A track id is remembered this long after it was last seen.
 SEEN_KEPT_S = 30.0
 
@@ -161,10 +164,13 @@ class Adapt:
 
     # --- room on C3 -------------------------------------------------------
 
-    def observe(self, state: Any, channel: Any, now: float) -> None:
-        """Note the pieces first seen in C3's landing zone this frame."""
+    def observe(self, state: Any, channel: Any, now: float, fell_at: Optional[float] = None) -> None:
+        """Note the pieces first seen in C3's landing zone this frame, when C2
+        saw a piece fall off its exit at ``fell_at`` (same clock as ``now``)
+        just before."""
         if channel is None:
             return
+        landing = fell_at is not None and 0.0 <= now - fell_at <= LANDING_AFTER_FALL_S
         with self._lock:
             for piece in getattr(state, "pieces", ()) or ():
                 track_id = getattr(piece, "sv_bt_track_id", None)
@@ -172,7 +178,7 @@ class Adapt:
                     continue
                 new = track_id not in self._seen
                 self._seen[track_id] = now
-                if new and piece.zone_code == _DROP_ZONE:
+                if new and landing and piece.zone_code == _DROP_ZONE:
                     self._landings.append(forwardGapToExitDeg(piece.bbox, channel))
             for track_id in [t for t, at in self._seen.items() if now - at > SEEN_KEPT_S]:
                 del self._seen[track_id]

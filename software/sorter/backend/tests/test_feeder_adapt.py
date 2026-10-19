@@ -122,13 +122,24 @@ def test_where_pieces_land_is_measured() -> None:
     assert room["landing_front_deg"] == pytest.approx(DROP_FRONT, abs=1.0)
     assert not room["landing_front_measured"]
     for i in range(adapt_mod.LANDINGS_NEEDED):
-        adapt.observe(_state(_piece(230.0, track_id=100 + i, zone=1)), ch, float(i))
+        adapt.observe(_state(_piece(230.0, track_id=100 + i, zone=1)), ch, float(i), fell_at=i - 0.5)
     room = adapt.report()["room"]
     assert room["landing_front_measured"]
     assert room["landing_front_deg"] == pytest.approx((EXIT_AT - 232.0) % 360.0, abs=2.0)
     # The same piece seen again is not another landing.
-    adapt.observe(_state(_piece(230.0, track_id=100, zone=1)), ch, 20.0)
+    adapt.observe(_state(_piece(230.0, track_id=100, zone=1)), ch, 20.0, fell_at=19.5)
     assert adapt.report()["room"]["landings"] == adapt_mod.LANDINGS_NEEDED
+
+
+def test_a_new_track_with_no_fall_just_before_is_no_landing() -> None:
+    # A tracker switch gives a piece already on C3 a new id anywhere in the
+    # landing zone: only pieces that turn up just after C2 dropped one landed.
+    ch = _channel()
+    adapt, _ = _adapt()
+    adapt.observe(_state(_piece(255.0, track_id=1, zone=1)), ch, 10.0)
+    adapt.observe(_state(_piece(255.0, track_id=2, zone=1)), ch, 20.0, fell_at=10.0)
+    adapt.observe(_state(_piece(230.0, track_id=3, zone=1)), ch, 30.0, fell_at=29.0)
+    assert adapt.report()["room"]["landings"] == 1
 
 
 def test_the_room_grows_while_close_pieces_double() -> None:

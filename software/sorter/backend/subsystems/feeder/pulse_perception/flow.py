@@ -228,7 +228,7 @@ class PulsePerceptionFeeding(BaseState):
         # Where pieces land on C3, and how much room C2 leaves behind the last
         # one, follow the pieces (adapt.py).
         channel_def3 = perception_service.channels().get(3)
-        adapt.get().observe(c3, channel_def3, now_mono)
+        adapt.get().observe(c3, channel_def3, now_mono, self._gates[2].fell_at)
         if cfg.c3_room_adapts:
             adapt.get().tune(time.time(), now_mono)
 

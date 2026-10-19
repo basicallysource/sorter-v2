@@ -67,8 +67,12 @@ def findChannelZones(channel: int) -> Dict[str, Any]:
     h, w = live[0].shape[:2]
     history = watch.recentFrames(channel)
     current = loadZones().get(channel)
+    # Where pieces were last seen before the feeder saw them fall off this
+    # channel: they pick the wall's opening that is the exit.
+    running = watch.current()
+    falls = [hand.left.at((w, h)) for hand in running.handoffs(channel)] if running is not None and channel in (2, 3) else []
     try:
-        found = findInChild(channel, history + live if len(history) >= 3 else live, current, (w, h))
+        found = findInChild(channel, history + live if len(history) >= 3 else live, current, (w, h), falls)
     except Exception as exc:
         raise HTTPException(status_code=422, detail=f"The zones could not be found: {exc}")
     return {"zones": toDict(found.zones), "report": found.report()}

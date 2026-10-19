@@ -2,8 +2,9 @@
 
 Every HEARTBEAT_INTERVAL_S each enabled target gets a heartbeat: where to find
 the machine on its networks, and in reply the limits that target sets for this
-machine (stored by hive_limits). Reachability per target is kept for the Hive
-settings page.
+machine (stored by hive_limits) and the version of its defaults block, which
+the primary Hive's reply fetches when it changed (hive_defaults). Reachability
+per target is kept for the Hive settings page.
 
 The machine specs are a telemetry record (fleet_telemetry) that the sync worker
 sends. A Hive that does not take telemetry records yet still gets them here,
@@ -17,6 +18,7 @@ import threading
 import time
 from typing import Any
 
+import hive_defaults
 import hive_limits
 from hive_uploads import HiveUploads
 from local_state import get_hive_config
@@ -56,6 +58,7 @@ class HiveHeartbeat:
     def __init__(self, sync_worker: Any = None) -> None:
         self._sync = sync_worker
         self._lock = threading.Lock()
+        self._primary_id: str | None = None
         self._targets: dict[str, dict[str, Any]] = {}
         self._specs_next_at = 0.0  # 0 => send specs on the first heartbeat
         self._wake = threading.Event()
@@ -71,8 +74,10 @@ class HiveHeartbeat:
         """Re-read the targets (after one is added, removed or enabled) and beat now."""
         config = get_hive_config()
         targets = config.get("targets") if isinstance(config, dict) else None
+        primary = config.get("primary_target_id") if isinstance(config, dict) else None
         fresh: dict[str, dict[str, Any]] = {}
         with self._lock:
+            self._primary_id = primary if isinstance(primary, str) else None
             for raw in targets if isinstance(targets, list) else []:
                 if not isinstance(raw, dict) or not raw.get("enabled"):
                     continue
@@ -137,6 +142,9 @@ class HiveHeartbeat:
                     hive_limits.setTargetLimits(target_id, reply.get("limits"))
                 except Exception as exc:
                     log.warning("Hive limits from %s not stored: %s", name, exc)
+                if target_id == self._primary_id:
+                    # The defaults come from the primary Hive alone.
+                    hive_defaults.noteVersion(target_id, reply.get("defaults_version"), client.getDefaults)
             with self._lock:
                 target = self._targets.get(target_id)
                 if target is None:

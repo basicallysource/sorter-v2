@@ -22,7 +22,7 @@ from __future__ import annotations
 
 import math
 import warnings
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from typing import Sequence
 
 import cv2
@@ -51,6 +51,18 @@ HUB_MARGIN = 1.04
 FIT_POINTS = 30
 FIT_SHARE = 0.5
 FIT_MISS = 1.5
+# The exit is the opening in the wall. Where the wall stands, the rotor's edge
+# is a dark line with light on both sides (the disc, and the wall's top);
+# where the wall is open the outside is open too, and the line is no valley.
+# The opening is a run of the rim this wide where the valley is under this
+# share of the wall's, between stretches of wall. Pieces seen to fall pick the
+# run (the one they fell in, within FALL_NEAR_DEG); without them, the run
+# nearest the old exit's middle (within PRIOR_NEAR_DEG) is taken.
+OPENING_VALLEY = 0.4
+OPENING_DEG = (15, 100)
+WALL_VALLEY_MIN = 8.0
+FALL_NEAR_DEG = 20.0
+PRIOR_NEAR_DEG = 45.0
 
 
 @dataclass(frozen=True)
@@ -96,11 +108,14 @@ def findZones(
     frames: Sequence[np.ndarray],
     current: ChannelZones | None = None,
     frame_size: tuple[int, int] | None = None,
+    falls: Sequence[tuple[float, float]] = (),
 ) -> Found:
     """Find the ring in ``frames`` (BGR pictures of the channel as perception
     sees them, at any size of the camera's shape) and fit ``current`` (or the
     defaults) to it, in ``frame_size`` (width, height) pixels, by default the
-    first picture's. Locked parts of ``current`` are kept."""
+    first picture's, and on C2 and C3 the exit at the wall's opening.
+    ``falls`` are where pieces were last seen before the feeder saw them fall
+    off this channel (frame pixels). Locked parts of ``current`` are kept."""
     if not frames:
         raise ValueError("no pictures to find zones in")
     w, h = frame_size if frame_size is not None else (frames[0].shape[1], frames[0].shape[0])
@@ -147,6 +162,14 @@ def findZones(
     # The zones stay where they were on the band pieces ride, locked or not:
     # only their angles are measured from the new center.
     zones = base.withRing(Ring(center, inner_px, outer_px, rim_px, hub_px), "found")
+    if channel != 4 and "exit" not in zones.locked:
+        # The wall's edge and the guide are a pixel or two wide: look for the
+        # opening at the camera's own size.
+        fell = [_angleAround(center, (x, y)) for x, y in falls]
+        opening, note = _findOpening(_fullMedian(frames, (w, h)), center[0], center[1], rim_px, fell, zones.exit.middle)
+        if opening is not None:
+            zones = replace(zones, exit=opening, source={**dict(zones.source), "exit": "found"})
+        notes.append(note)
     return Found(zones=zones, center_score=center_score, rim_score=rim_score, frames=len(small), notes=notes)
 
 
@@ -366,6 +389,83 @@ def _trimmedCircle(points: np.ndarray) -> tuple[tuple[float, float], float, int,
     return fit
 
 
+def _fullMedian(frames: Sequence[np.ndarray], size: tuple[int, int], most: int = 16) -> np.ndarray:
+    """The median of up to ``most`` of the pictures, evenly spread, at ``size``."""
+    w, h = size
+    picked = [frames[int(i)] for i in np.linspace(0, len(frames) - 1, min(most, len(frames)))]
+    same = [f if f.shape[:2] == (h, w) else cv2.resize(f, (w, h), interpolation=cv2.INTER_AREA) for f in picked]
+    return np.median(np.stack(same), axis=0).astype(np.uint8) if len(same) > 1 else same[0]
+
+
+def _angleAround(center: tuple[float, float], point: tuple[float, float]) -> float:
+    return math.degrees(math.atan2(point[1] - center[1], point[0] - center[0])) % 360.0
+
+
+def _findOpening(
+    img: np.ndarray, cx: float, cy: float, rim: float, falls: Sequence[float], prior: float
+) -> tuple[Span | None, str]:
+    """The wall's opening at the rim (see OPENING_VALLEY), and a sentence on
+    how it was found or why not."""
+    gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY) if img.ndim == 3 else img
+    gray = gray.astype(np.float32)
+    h, w = gray.shape
+    rad = np.radians(np.arange(360, dtype=np.float32))
+
+    def band(f0: float, f1: float, n: int) -> tuple[np.ndarray, np.ndarray]:
+        rs = (rim * np.linspace(f0, f1, n)).astype(np.float32)
+        xs = (cx + np.outer(np.cos(rad), rs)).astype(np.float32)
+        ys = (cy + np.outer(np.sin(rad), rs)).astype(np.float32)
+        ok = ((xs >= 0) & (xs < w - 1) & (ys >= 0) & (ys < h - 1)).all(axis=1)
+        return cv2.remap(gray, xs, ys, cv2.INTER_LINEAR), ok
+
+    inner, ok_in = band(0.90, 0.96, 6)
+    outer, ok_out = band(1.04, 1.10, 6)
+    edge, ok_edge = band(0.97, 1.03, 13)
+    valid = ok_in & ok_out & ok_edge
+    if valid.sum() < 90:
+        return None, "too little of the rim is in the picture to find the exit, so it was kept"
+    valley = np.minimum(inner.mean(axis=1), outer.mean(axis=1)) - edge.min(axis=1)
+    valley = np.convolve(np.r_[valley[-2:], valley, valley[:2]], np.ones(5) / 5.0, mode="valid")
+    wall = float(np.median(valley[valid]))
+    if wall < WALL_VALLEY_MIN:
+        return None, "the wall's edge is not clear enough to find the exit, so it was kept"
+    wall_here = valid & (valley >= OPENING_VALLEY * wall)
+    open_here = valid & ~wall_here
+    # Runs of opening that start at the wall and end at the wall, or where the
+    # rim leaves the picture (the visible part is the exit then).
+    runs: list[tuple[int, int]] = []
+    start = None
+    for i in range(720):
+        a = i % 360
+        if open_here[a] and start is None and wall_here[(a - 1) % 360]:
+            start = i
+        elif start is not None and not open_here[a]:
+            if OPENING_DEG[0] <= i - start <= OPENING_DEG[1]:
+                runs.append((start % 360, i - start))
+            start = None
+    runs = sorted(set(runs))
+    if not runs:
+        return None, "no opening was found in the wall, so the exit was kept"
+
+    def gap(angle: float, run: tuple[int, int]) -> float:
+        into = (angle - run[0]) % 360.0
+        if into <= run[1]:
+            return 0.0
+        return min(into - run[1], 360.0 - into)
+
+    if falls:
+        r = np.radians(np.asarray(falls, dtype=np.float64))
+        fell = math.degrees(math.atan2(float(np.sin(r).mean()), float(np.cos(r).mean()))) % 360.0
+        best = min(runs, key=lambda r: gap(fell, r))
+        if gap(fell, best) <= FALL_NEAR_DEG:
+            return Span(best[0], best[0] + best[1]), "the exit is the wall's opening where pieces fell"
+        return None, "pieces fell away from every opening in the wall, so the exit was kept"
+    best = min(runs, key=lambda r: gap(prior, r))
+    if gap(prior, best) <= PRIOR_NEAR_DEG:
+        return Span(best[0], best[0] + best[1]), "the exit is the wall's opening nearest the old exit; run pieces and find again to place it by where they fall"
+    return None, "no opening near the old exit, so it was kept"
+
+
 def _findWall(median: np.ndarray, cx: float, cy: float, rim: float) -> float | None:
     """The wall's outer edge: the strongest circular edge between 1.1 and 1.8
     times the rim, if the picture shows one."""
@@ -382,6 +482,7 @@ def findInChild(
     frames: Sequence[np.ndarray],
     current: ChannelZones | None,
     frame_size: tuple[int, int],
+    falls: Sequence[tuple[float, float]] = (),
     timeout_s: float = 60.0,
 ) -> Found:
     """``findZones`` in a process of its own: a second of image work there
@@ -394,7 +495,7 @@ def findInChild(
     backend = Path(__file__).resolve().parent.parent
     result = subprocess.run(
         [sys.executable, "-m", "zones.finder"],
-        input=pickle.dumps((channel, list(frames), current, frame_size)),
+        input=pickle.dumps((channel, list(frames), current, frame_size, list(falls))),
         capture_output=True,
         cwd=str(backend),
         timeout=timeout_s,
@@ -413,5 +514,5 @@ if __name__ == "__main__":
     # Found by its module's own name, so the result unpickles in the caller.
     from zones.finder import findZones as find
 
-    channel_, frames_, current_, frame_size_ = pickle.load(sys.stdin.buffer)
-    sys.stdout.buffer.write(pickle.dumps(find(channel_, frames_, current_, frame_size_)))
+    channel_, frames_, current_, frame_size_, falls_ = pickle.load(sys.stdin.buffer)
+    sys.stdout.buffer.write(pickle.dumps(find(channel_, frames_, current_, frame_size_, falls_)))

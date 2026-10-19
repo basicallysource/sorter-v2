@@ -26,6 +26,8 @@ Controls flap servo angles and hardware backend selection.
 
 Per-channel servo configuration. One entry per servo, in layer order. Only used when `backend = "waveshare"`.
 
+The double brackets are TOML's syntax for a list of tables. Write the `[[servo.channels]]` header once for each servo, with that servo's `id` and `invert` under it. The other sections on this page are single tables and use one pair of brackets.
+
 | Key | Type | Default | Description |
 |-----|------|---------|-------------|
 | `id` | int \| null | — | SC bus servo ID (1–253). Null skips this slot. |
@@ -111,7 +113,7 @@ Per-stepper TMC driver currents. With no entry, the C-channel rotors run at `iru
 
 ## `[stepper_driver.<stepper_name>]`
 
-Per-stepper TMC driver mode.
+Per-stepper TMC driver mode. The control program writes these to each driver at start-up and never changes them by itself while sorting. Saving a change in the stepper settings writes it to the running driver straight away and keeps it in `machine.toml` for the next start.
 
 | Key | Type | Default | Description |
 |-----|------|---------|-------------|

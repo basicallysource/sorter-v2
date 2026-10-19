@@ -29,7 +29,7 @@ from app.schemas.machine import (
     MachineWithTokenResponse,
 )
 from app import background
-from app.services import machine_stats, training_runs
+from app.services import machine_defaults, machine_stats, training_runs
 from app.services.auth import generate_machine_token, verify_password
 from app.services.machine_set_progress import cached_inventory_index, summarize_machine_set_progress
 from app.services.machine_stats import get_machine_stats_worker
@@ -658,8 +658,15 @@ def heartbeat(
                     machine.network_reported_at = now
     db.commit()
     # The limits ride on the heartbeat so Hive can change them without a
-    # release; a machine that predates them ignores the key.
-    return {"ok": True, "machine_id": str(machine.id), "limits": effective_limits(db, machine)}
+    # release, and the defaults' version so a machine fetches the block when it
+    # changes (services/machine_defaults.py); a machine that predates either
+    # ignores the key.
+    return {
+        "ok": True,
+        "machine_id": str(machine.id),
+        "limits": effective_limits(db, machine),
+        "defaults_version": machine_defaults.current(db)["version"],
+    }
 
 
 @router.post("/machine/register", response_model=MachineWithTokenResponse)

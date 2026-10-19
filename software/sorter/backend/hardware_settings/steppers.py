@@ -5,6 +5,10 @@ under, its range and its default. readStepperSettings is the only reader and
 saveStepperSettings the only writer. applyStepperSettings puts settings on a
 driver the same way at start-up (irl/config.py, every setting) and when a
 route changes some, so what a driver runs on is what was saved.
+
+A setting that is not saved takes its default: the primary Hive's where it
+holds one (hive_defaults, `steppers.*` for every motor and `steppers.<motor>`),
+else the code's, the more specific winning (defaultSettings).
 """
 
 from __future__ import annotations
@@ -126,6 +130,25 @@ class StepperSettings:
         )
 
 
+def defaultSettings(motor: Motor) -> dict[str, Any]:
+    """The motor's settings where nothing is saved, from the least specific to
+    the most: FIELDS, the primary Hive's for every motor, MOTOR_DEFAULTS, the
+    primary Hive's for this motor. A Hive value that is not a valid setting is
+    ignored."""
+    import hive_defaults
+
+    hive = hive_defaults.namespace("steppers")
+    values = {name: field.default for name, field in FIELDS.items()}
+    for layer in (hive.get("*"), MOTOR_DEFAULTS.get(motor.name), hive.get(motor.name)):
+        if not isinstance(layer, dict):
+            continue
+        for name, value in layer.items():
+            field = FIELDS.get(name)
+            if field is not None and field.table != DIRECTIONS and field.valid(value):
+                values[name] = value
+    return values
+
+
 def readStepperSettings(
     motor: Motor,
     config: Mapping[str, Any] | None = None,
@@ -134,8 +157,7 @@ def readStepperSettings(
     """The motor's settings: what machine.toml holds, built-in defaults for the rest."""
     if config is None:
         config = machine_toml.read()
-    values = {name: field.default for name, field in FIELDS.items()}
-    values.update(MOTOR_DEFAULTS.get(motor.name, {}))
+    values = defaultSettings(motor)
     saved: set[str] = set()
     for table in (CURRENTS, DRIVER, STALLGUARD):
         entry = _entry(config, table, motor)

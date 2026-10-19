@@ -27,6 +27,7 @@ _STATE_KEY_SAMPLE_COLLECTION = "sample_collection"
 _STATE_KEY_TRAINING_MODE = "training_mode"
 _STATE_KEY_HIVE_LIMITS = "hive_limits"
 _STATE_KEY_SHARING = "sharing"
+_STATE_KEY_HIVE_DEFAULTS = "hive_defaults"
 _STATE_KEY_TELEMETRY_INSTALL = "telemetry_install"
 _STATE_KEY_LEDS = "leds"
 _STATE_KEY_BASICALLY_SERVICES = "basically_services"
@@ -257,6 +258,15 @@ def get_hive_limits_state() -> dict[str, Any] | None:
 
 def set_hive_limits_state(state: dict[str, Any] | None) -> None:
     _write_state(_STATE_KEY_HIVE_LIMITS, state or None)
+
+
+def get_hive_defaults_state() -> dict[str, Any] | None:
+    # The primary Hive's block of defaults; hive_defaults.py owns it.
+    return _read_dict(_STATE_KEY_HIVE_DEFAULTS)
+
+
+def set_hive_defaults_state(state: dict[str, Any]) -> None:
+    _write_state(_STATE_KEY_HIVE_DEFAULTS, state)
 
 
 def get_sharing_state() -> dict[str, Any] | None:

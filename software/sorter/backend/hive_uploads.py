@@ -138,6 +138,17 @@ class HiveUploads:
     def getSyncState(self) -> dict[str, Any]:
         return self._request("GET", "/api/machine/sync/state", stream=None, timeout=15).json()
 
+    def getDefaults(self, etag: str | None = None) -> dict[str, Any] | None:
+        """The Hive's block of defaults (hive_defaults.py), or None when it
+        answers that the block with `etag` is still current. A download, so
+        no stream gates it."""
+        headers = {"If-None-Match": etag} if etag else None
+        response = self._session.get(f"{self._url}/api/machine/defaults", headers=headers, timeout=15)
+        if response.status_code == 304:
+            return None
+        response.raise_for_status()
+        return response.json()
+
     def pushTelemetry(self, records: list[dict[str, Any]]) -> int:
         return self._pushRows("/api/machine/sync/telemetry", "machine_telemetry", {"records": records})
 

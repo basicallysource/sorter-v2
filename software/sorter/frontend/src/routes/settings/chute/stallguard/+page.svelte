@@ -7,7 +7,7 @@
 
 <PageHeader
 	title="Chute StallGuard"
-	description="Stop the machine when the chute stalls. Follow the steps to tune how sensitive it is."
+	description="Stop the machine when the chute stalls. It tunes itself as it runs; the steps tune it by hand."
 />
 <StepperStallGuard
 	motor="chute"

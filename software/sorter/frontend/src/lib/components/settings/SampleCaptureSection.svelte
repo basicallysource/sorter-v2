@@ -13,18 +13,17 @@
 
 	const GB = 1024 ** 3;
 
-	// Backend defaults (sample_collector.py) — drive the changed-from-default
-	// highlight + revert on each row. The burst, floor, ramp and store size have
-	// no default of their own: they follow the limits Hive sets.
-	const DEFAULT_ENABLED = false;
-	const DEFAULT_ANNOTATE = true;
 	// One frame per camera every two minutes at most (the machine raises a
 	// faster setting to it).
 	const MAX_PER_MINUTE = 0.5;
 	const MIN_INTERVAL_S = 120;
-	const DEFAULT_PER_MINUTE = MAX_PER_MINUTE;
-	const DEFAULT_DECAY_ENABLED = true;
 	const DEFAULT_JITTER_PCT = 30; // 0.3
+
+	// What each setting goes back to: the machine's `defaults` (its primary
+	// Hive's, else its own code's) drive the changed-from-default highlight and
+	// revert on each row. The burst, floor, ramp and store size have no default
+	// of their own: they follow the limits Hive sets.
+	let defaults = $state({ enabled: false, annotate: true, perMinute: MAX_PER_MINUTE, decayEnabled: true });
 
 	// The limits Hive sets, as the machine sees them (the strictest across its Hives).
 	type HiveLimits = {
@@ -134,6 +133,19 @@
 		const age = Number(payload?.last_saved_age_s);
 		lastSavedAgeS = Number.isFinite(age) ? age : null;
 		lastError = typeof payload?.last_error === 'string' ? payload.last_error : null;
+		const d = payload?.defaults;
+		if (d && typeof d === 'object') {
+			const defaultIvl = Number(d.interval_s);
+			defaults = {
+				enabled: d.enabled === true,
+				annotate: d.annotate !== false,
+				perMinute:
+					Number.isFinite(defaultIvl) && defaultIvl > 0
+						? Math.round((60 / defaultIvl) * 10) / 10
+						: MAX_PER_MINUTE,
+				decayEnabled: d.decay_enabled !== false
+			};
+		}
 	}
 
 	async function loadStatus(showLoading = true) {
@@ -266,9 +278,9 @@
 	<SettingRow
 		label="Capture training frames"
 		info="Takes the latest frame from every live camera at the rate below, only while the machine is sorting. Frames are saved to a capped store on this machine and uploaded to Hive in the background. It never changes how the machine sorts."
-		changed={enabled !== DEFAULT_ENABLED}
-		defaultText={DEFAULT_ENABLED ? 'on' : 'off'}
-		onreset={() => saveEnabled(DEFAULT_ENABLED)}
+		changed={enabled !== defaults.enabled}
+		defaultText={defaults.enabled ? 'on' : 'off'}
+		onreset={() => saveEnabled(defaults.enabled)}
 	>
 		<Switch
 			checked={enabled}
@@ -281,9 +293,9 @@
 	<SettingRow
 		label="Annotate with OpenRouter"
 		info="Runs the Gemini (gemini_sam) detector on each frame before it is saved, so samples reach Hive as teacher captures. It makes one OpenRouter call per frame per camera. Off, or with no API key, frames are saved and uploaded raw."
-		changed={annotate !== DEFAULT_ANNOTATE}
-		defaultText={DEFAULT_ANNOTATE ? 'on' : 'off'}
-		onreset={() => saveAnnotate(DEFAULT_ANNOTATE)}
+		changed={annotate !== defaults.annotate}
+		defaultText={defaults.annotate ? 'on' : 'off'}
+		onreset={() => saveAnnotate(defaults.annotate)}
 	>
 		<Switch
 			checked={annotate}
@@ -296,9 +308,9 @@
 	<SettingRow
 		label="Decay capture rate"
 		info="Takes a burst of frames when a run starts, then slows down to a floor over the ramp, with random jitter, so the same rig stops saving near-identical frames forever. Reset decay starts the burst again."
-		changed={decayEnabled !== DEFAULT_DECAY_ENABLED}
-		defaultText={DEFAULT_DECAY_ENABLED ? 'on' : 'off'}
-		onreset={() => saveDecayEnabled(DEFAULT_DECAY_ENABLED)}
+		changed={decayEnabled !== defaults.decayEnabled}
+		defaultText={defaults.decayEnabled ? 'on' : 'off'}
+		onreset={() => saveDecayEnabled(defaults.decayEnabled)}
 		below={decayEnabled ? decayDetails : undefined}
 	>
 		<Switch
@@ -312,11 +324,11 @@
 	{#if !decayEnabled}
 		<SettingRow
 			label="Capture rate"
-			info="Frames per minute per camera: at most 0.5, one every 2 minutes, which is also the default."
+			info="Frames per minute per camera: at most 0.5, one every 2 minutes."
 			for="sample-capture-rate"
-			changed={perMinute !== DEFAULT_PER_MINUTE}
-			defaultText={String(DEFAULT_PER_MINUTE)}
-			onreset={() => saveRate(DEFAULT_PER_MINUTE)}
+			changed={perMinute !== defaults.perMinute}
+			defaultText={String(defaults.perMinute)}
+			onreset={() => saveRate(defaults.perMinute)}
 		>
 			<Input
 				id="sample-capture-rate"

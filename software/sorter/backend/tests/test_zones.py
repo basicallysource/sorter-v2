@@ -125,6 +125,40 @@ def test_the_channel_is_the_ring_from_the_drop_to_the_exit_cut_at_the_exit() -> 
     assert not inside(90.0, 60.0)  # the hub
 
 
+def test_the_inner_circle_can_sit_on_a_hub_shifted_from_the_center() -> None:
+    hub = (215.0, 190.0)
+    zones = _zones(ring=Ring((200.0, 200.0), 60.0, 180.0, 150.0, inner_center=hub))
+    mask = _mask(zones)
+    # Around the hub's own center, just inside and just outside its circle.
+    for angle in (300.0, 330.0, 0.0, 30.0, 60.0, 90.0, 120.0, 150.0):
+        rad = math.radians(angle)
+        x_in, y_in = hub[0] + 52.0 * math.cos(rad), hub[1] + 52.0 * math.sin(rad)
+        x_out, y_out = hub[0] + 68.0 * math.cos(rad), hub[1] + 68.0 * math.sin(rad)
+        assert not mask[int(round(y_in)), int(round(x_in))], angle
+        assert mask[int(round(y_out)), int(round(x_out))], angle
+    # Angles are still measured around the center: the exit's cut is at the
+    # rim around the center.
+    assert not _mask(zones)[_at(zones, 190.0, 165.0)[1], _at(zones, 190.0, 165.0)[0]]
+
+
+def test_the_inner_circle_keeps_the_center_inside_it_and_moves_with_the_ring() -> None:
+    ring = Ring((200.0, 200.0), 50.0, 180.0, 150.0, inner_center=(300.0, 200.0))
+    assert ring.inner_center == pytest.approx((245.0, 200.0))  # pulled to 0.9 of its radius
+    moved = ring.movedTo((210.0, 190.0), 1.1)
+    assert moved.inner_center == pytest.approx((210.0 + 45.0 * 1.1, 190.0))
+    assert moved.inner_radius == pytest.approx(55.0)
+    assert ring.scaled(2.0, 2.0).inner_center == pytest.approx((490.0, 400.0))
+    assert Ring((200.0, 200.0), 50.0, 180.0, 150.0).inner_center is None
+
+
+def test_the_inner_circles_center_is_saved() -> None:
+    zones = _zones(ring=Ring((200.0, 200.0), 60.0, 180.0, 150.0, inner_center=(215.0, 190.0)))
+    again = fromDict(toDict(zones))
+    assert again is not None and again.ring.inner_center == pytest.approx((215.0, 190.0))
+    assert toDict(_zones())["inner_center"] is None
+    assert fromDict(toDict(_zones())).ring.inner_center is None
+
+
 # --- saving -----------------------------------------------------------------
 
 

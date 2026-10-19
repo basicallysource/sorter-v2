@@ -7,7 +7,7 @@ from typing import Any, Dict
 from fastapi import APIRouter, HTTPException
 
 from server import shared_state
-from zones import learner
+from zones import watch
 from zones.finder import defaultZones, findInChild
 from zones.model import CAMERA_ROLE, CHANNELS, fromDict, toDict
 from zones.store import loadZones, revision, saveChannel
@@ -65,7 +65,7 @@ def findChannelZones(channel: int) -> Dict[str, Any]:
     _channel(channel)
     live = _cameraFrames(channel)
     h, w = live[0].shape[:2]
-    history = learner.recentFrames(channel)
+    history = watch.recentFrames(channel)
     current = loadZones().get(channel)
     try:
         found = findInChild(channel, history + live if len(history) >= 3 else live, current, (w, h))
@@ -74,10 +74,11 @@ def findChannelZones(channel: int) -> Dict[str, Any]:
     return {"zones": toDict(found.zones), "report": found.report()}
 
 
-@router.get("/api/zones/learning")
-def learning() -> Dict[str, Any]:
-    """What the machine has learned of its zones from its pieces while running."""
-    running = learner.current()
+@router.get("/api/zones/watch")
+def pieceWatch() -> Dict[str, Any]:
+    """What the machine has seen of its pieces while running: how many it saw
+    fall and land on the next channel, and how long landing took."""
+    running = watch.current()
     if running is None:
         return {"running": False}
     return {"running": True, **running.report()}

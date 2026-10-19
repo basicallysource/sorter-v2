@@ -40,6 +40,17 @@ _ANGLES = 720
 RING_INNER = 0.4
 WALL_MARGIN = 1.05
 RING_OUTER_MIN = 1.35
+# On C2 and C3 the area starts just outside the hub, the raised cap in the
+# middle, fitted as a circle of its own: from the camera it looks shifted
+# against the rotor's edge. Looked for between these shares of the rim.
+HUB_RANGE = (0.1, 0.45)
+HUB_MARGIN = 1.04
+# Fitted circles count when at least FIT_POINTS edge points, this share of the
+# directions that stay in the picture, lie on them, missing by at most this
+# many working pixels.
+FIT_POINTS = 30
+FIT_SHARE = 0.5
+FIT_MISS = 1.5
 
 
 @dataclass(frozen=True)
@@ -109,10 +120,25 @@ def findZones(
     rim, rim_score, rim_note = _findRim(median, small, cx, cy)
     if rim_note:
         notes.append(rim_note)
+    # The rotor's edge, fitted point by point: the zones' rim and the center
+    # angles are measured around.
+    edge = _fitCircle(median, cx, cy, 0.92 * rim, 1.08 * rim)
+    if edge is not None and math.dist(edge[0], (cx, cy)) < 0.1 * rim and abs(edge[1] - rim) < 0.08 * rim:
+        (cx, cy), rim = edge
+    else:
+        notes.append("the rotor's edge was not clear all round, so the rim is the ring's best circle")
     wall = _findWall(median, cx, cy, rim)
     center = (cx / scale, cy / scale)
     rim_px = rim / scale
     outer_px = max(RING_OUTER_MIN * rim, WALL_MARGIN * wall if wall else 0.0) / scale
+    inner_px, hub_px = RING_INNER * rim_px, None
+    if channel != 4:
+        hub = _fitCircle(median, cx, cy, HUB_RANGE[0] * rim, HUB_RANGE[1] * rim)
+        if hub is not None and math.dist(hub[0], (cx, cy)) < 0.9 * hub[1]:
+            hub_px = (hub[0][0] / scale, hub[0][1] / scale)
+            inner_px = HUB_MARGIN * hub[1] / scale
+        else:
+            notes.append("no hub was found, so the area starts at 0.4 of the rim")
 
     base = current.scaledTo((w, h)) if current is not None else defaultZones(channel, (w, h))
     if "ring" in base.locked:
@@ -120,7 +146,7 @@ def findZones(
         return Found(zones=base, center_score=center_score, rim_score=rim_score, frames=len(small), notes=notes)
     # The zones stay where they were on the band pieces ride, locked or not:
     # only their angles are measured from the new center.
-    zones = base.withRing(Ring(center, RING_INNER * rim_px, outer_px, rim_px), "found")
+    zones = base.withRing(Ring(center, inner_px, outer_px, rim_px, hub_px), "found")
     return Found(zones=zones, center_score=center_score, rim_score=rim_score, frames=len(small), notes=notes)
 
 
@@ -275,6 +301,69 @@ def _findRim(
                 return float(rim), float(edges[rim] / strongest) if near else 0.0, None
     rim = strong[0]
     return float(rim), float(edges[rim] / strongest), "from one picture" if len(frames) < 4 else None
+
+
+def _fitCircle(
+    img: np.ndarray, cx: float, cy: float, lo: float, hi: float
+) -> tuple[tuple[float, float], float] | None:
+    """The circle through the sharpest light-to-dark step (or dark-to-light,
+    whichever fits better) between radii ``lo`` and ``hi`` around (cx, cy),
+    one point every 2 degrees; None when too few of the directions that stay
+    in the picture find it or the points do not lie on one circle."""
+    gray = cv2.GaussianBlur(cv2.cvtColor(img, cv2.COLOR_BGR2GRAY) if img.ndim == 3 else img, (3, 3), 0)
+    gray = gray.astype(np.float32)
+    h, w = gray.shape
+    radii = np.arange(lo, hi, 0.5, dtype=np.float32)
+    if radii.size < 16:
+        return None
+    angles = np.radians(np.arange(0, 360, 2, dtype=np.float32))
+    xs = (cx + np.outer(np.cos(angles), radii)).astype(np.float32)
+    ys = (cy + np.outer(np.sin(angles), radii)).astype(np.float32)
+    inside = (xs >= 1) & (xs < w - 2) & (ys >= 1) & (ys < h - 2)
+    samples = cv2.remap(gray, xs, ys, cv2.INTER_LINEAR)
+    rays = int((inside.mean(axis=1) >= 0.9).sum())
+    best = None
+    for sign in (1.0, -1.0):
+        points = []
+        for i in range(len(angles)):
+            if inside[i].mean() < 0.9:
+                continue
+            v = np.convolve(samples[i], np.ones(5) / 5.0, mode="valid")
+            step = sign * (v[:-6] - v[6:])
+            if step.size < 3:
+                continue
+            k = int(np.argmax(step[1:-1])) + 1
+            if step[k] > 8.0:
+                j = k + 5
+                points.append((float(xs[i, j]), float(ys[i, j])))
+        if len(points) < 20:
+            continue
+        fit = _trimmedCircle(np.asarray(points))
+        if fit is None:
+            continue
+        (fx, fy), fr, kept, miss = fit
+        share = kept / float(max(rays, 1))
+        if kept >= FIT_POINTS and share >= FIT_SHARE and miss <= FIT_MISS and (best is None or kept > best[2]):
+            best = ((fx, fy), fr, kept)
+    return (best[0], best[1]) if best is not None else None
+
+
+def _trimmedCircle(points: np.ndarray) -> tuple[tuple[float, float], float, int, float] | None:
+    """Least-squares circle, refitted without the points it misses most."""
+    keep = np.ones(len(points), bool)
+    fit = None
+    for _ in range(4):
+        x, y = points[keep, 0], points[keep, 1]
+        if len(x) < 10:
+            return None
+        a = np.column_stack([2 * x, 2 * y, np.ones(len(x))])
+        sol, *_ = np.linalg.lstsq(a, x * x + y * y, rcond=None)
+        fx, fy = float(sol[0]), float(sol[1])
+        fr = math.sqrt(max(float(sol[2]) + fx * fx + fy * fy, 1.0))
+        miss = np.abs(np.hypot(points[:, 0] - fx, points[:, 1] - fy) - fr)
+        keep = miss <= max(1.0, float(np.percentile(miss, 80)))
+        fit = ((fx, fy), fr, int(keep.sum()), float(np.median(miss[keep])))
+    return fit
 
 
 def _findWall(median: np.ndarray, cx: float, cy: float, rim: float) -> float | None:

@@ -6,14 +6,19 @@
 	edges freely. Each zone has a handle on each edge, on the band pieces ride;
 	dragging a zone moves it, the wheel over a zone widens or narrows it.
 	Dragging the ring's inner or outer circle, or the exit's edge, sets that
-	radius; the cross in the middle moves the center.
+	radius; the cross in the middle moves the center. The inner circle can sit
+	off the center (the hub looks shifted from the camera): its small ring
+	moves it alone.
 -->
 <script lang="ts">
 	import {
 		angleOf,
 		channelPolygon,
+		hub,
+		innerPoint,
 		isLocked,
 		moveCenter,
+		moveHub,
 		moveEdge,
 		moveZone,
 		polar,
@@ -65,7 +70,8 @@
 		| { kind: 'edge'; zone: ZoneName; edge: 'start' | 'end' }
 		| { kind: 'zone'; zone: ZoneName; lastAngle: number }
 		| { kind: 'radius'; which: 'inner_radius' | 'outer_radius' | 'exit_radius' }
-		| { kind: 'center'; offset: Point };
+		| { kind: 'center'; offset: Point }
+		| { kind: 'hub'; offset: Point };
 	let drag = $state<Drag | null>(null);
 
 	function inFrame(p: Point): boolean {
@@ -83,10 +89,10 @@
 		return null;
 	}
 
-	function circleHandle(radius: number): Point | null {
+	function circleHandle(around: Point, radius: number): Point | null {
 		for (let a = 0; a < 360; a += 15) {
 			const angle = (270 + a) % 360;
-			const p = polar(zones.center, radius, angle);
+			const p = polar(around, radius, angle);
 			if (inFrame(p) && !ZONES.some((z) => edgeNear(z, angle))) return p;
 		}
 		return null;
@@ -132,7 +138,10 @@
 			drag = { ...drag, lastAngle: angle };
 			onchange?.(moveZone(zones, drag.zone, delta));
 		} else if (drag.kind === 'radius') {
-			onchange?.(setRadius(zones, drag.which, Math.hypot(p[0] - zones.center[0], p[1] - zones.center[1])));
+			const from = drag.which === 'inner_radius' ? hub(zones) : zones.center;
+			onchange?.(setRadius(zones, drag.which, Math.hypot(p[0] - from[0], p[1] - from[1])));
+		} else if (drag.kind === 'hub') {
+			onchange?.(moveHub(zones, [p[0] - drag.offset[0], p[1] - drag.offset[1]]));
 		} else {
 			onchange?.(moveCenter(zones, [p[0] - drag.offset[0], p[1] - drag.offset[1]]));
 		}
@@ -153,11 +162,10 @@
 
 	type Radius = 'inner_radius' | 'outer_radius' | 'exit_radius';
 	const rings = $derived(
-		(['inner_radius', 'outer_radius'] as const).map((which) => ({
-			which,
-			radius: zones[which],
-			handle: circleHandle(zones[which])
-		}))
+		(['inner_radius', 'outer_radius'] as const).map((which) => {
+			const around = which === 'inner_radius' ? hub(zones) : zones.center;
+			return { which, around, radius: zones[which], handle: circleHandle(around, zones[which]) };
+		})
 	);
 	const exitHandle = $derived.by(() => {
 		const span = zoneSpan(zones, 'exit');
@@ -177,7 +185,7 @@
 					key: `${name}-${edge}`,
 					name,
 					edge,
-					from: polar(zones.center, zones.inner_radius, angle),
+					from: innerPoint(zones, angle),
 					to: polar(zones.center, outer, angle),
 					handle: edgeHandle(angle)
 				};
@@ -229,8 +237,8 @@
 			<!-- The ring: drag a circle's handle to set its radius. -->
 			{#each rings as ring (ring.which)}
 				<circle
-					cx={zones.center[0]}
-					cy={zones.center[1]}
+					cx={ring.around[0]}
+					cy={ring.around[1]}
 					r={ring.radius}
 					fill="none"
 					stroke={OUTLINE}
@@ -301,6 +309,23 @@
 					/>
 				{/if}
 			{/each}
+
+			{#if zones.inner_center && inFrame(zones.inner_center)}
+				{@const h = zones.inner_center}
+				<g
+					class="pointer-events-auto"
+					style:cursor={locked('ring') ? 'not-allowed' : 'move'}
+					role="button"
+					tabindex="-1"
+					aria-label="The inner circle's center"
+					onpointerdown={(e) => {
+						const p = toFrame(e);
+						begin(e, { kind: 'hub', offset: [p[0] - h[0], p[1] - h[1]] }, 'ring');
+					}}
+				>
+					<circle cx={h[0]} cy={h[1]} r={7 * unit} fill="transparent" stroke="white" stroke-width={2 * unit} />
+				</g>
+			{/if}
 
 			{#if inFrame(zones.center)}
 				<g

@@ -13,7 +13,7 @@ CENTER = (660.0, 350.0)
 RIM = 300.0
 
 
-def _picture(seed: int, turned: float = 0.0) -> np.ndarray:
+def _picture(seed: int, turned: float = 0.0, hub_offset: tuple[int, int] = (0, 0)) -> np.ndarray:
     """A channel from above: a grey surround, a light stator ring, the darker
     turning rotor with radial ridges, a hub, a static guide bar across the rim,
     and a few pieces riding at the rim."""
@@ -25,7 +25,7 @@ def _picture(seed: int, turned: float = 0.0) -> np.ndarray:
     for k in range(12):
         a = math.radians(turned + k * 30)
         cv2.line(img, c, (int(c[0] + RIM * math.cos(a)), int(c[1] + RIM * math.sin(a))), (165, 165, 165), 3)
-    cv2.circle(img, c, 60, (30, 30, 30), -1)
+    cv2.circle(img, (c[0] + hub_offset[0], c[1] + hub_offset[1]), 60, (30, 30, 30), -1)
     guide = math.radians(215)
     cv2.line(img, c, (int(c[0] + 330 * math.cos(guide)), int(c[1] + 330 * math.sin(guide))), (90, 90, 95), 18)
     for _ in range(5):
@@ -105,3 +105,21 @@ def test_zones_come_back_at_the_cameras_size() -> None:
     found = findZones(3, [small], frame_size=(1280, 720))
     assert found.zones.frame == (1280, 720)
     assert math.dist(found.zones.ring.center, CENTER) < 10.0
+
+
+def test_the_inner_circle_hugs_the_hub_even_where_it_looks_shifted() -> None:
+    # The hub stands above the rotor, so from the camera it sits off the
+    # rotor's center: the area starts just outside it, around its own center,
+    # while the rim stays on the rotor's edge.
+    found = findZones(3, [_picture(seed, turned=seed * 7.0, hub_offset=(28, -18)) for seed in range(6)])
+    ring = found.zones.ring
+    assert math.dist(ring.center, CENTER) < 4.0
+    assert ring.exit_radius == pytest.approx(RIM, rel=0.02)
+    assert ring.inner_center is not None
+    assert math.dist(ring.inner_center, (CENTER[0] + 28, CENTER[1] - 18)) < 4.0
+    assert ring.inner_radius == pytest.approx(60 * 1.04, abs=4.0)
+
+
+def test_the_classification_channel_keeps_its_own_inner_edge() -> None:
+    found = findZones(4, [_picture(seed, turned=seed * 7.0) for seed in range(6)])
+    assert found.zones.ring.inner_center is None

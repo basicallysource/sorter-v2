@@ -15,6 +15,7 @@ def _feeder(*, c4_ready: bool) -> tuple[PulsePerceptionFeeding, list[float]]:
     feeder = PulsePerceptionFeeding.__new__(PulsePerceptionFeeding)
     moves: list[float] = []
     feeder._busy = lambda stepper: False
+    feeder._shake_owed = {}
     feeder._classification_ready = lambda cfg: c4_ready
     feeder._move = lambda label, channel, stepper, deg, pause, cfg, enforce_min=True: moves.append(deg) or True
     return feeder, moves

@@ -46,53 +46,64 @@ machine's dashboard summary and its hardware history
 (`app/machine_hardware.py`), which is what specs on a heartbeat did; sorters
 still send specs on the heartbeat to a Hive that 404s this endpoint.
 
-**`stepper_load`** (window): per stepper, read while sorting, round robin
-among the steppers that just moved (`TICK_S` 0.25 s, so each moving stepper a
-few times a second):
+**`stepper_load`** (window, schema 2): per stepper, read while sorting, round
+robin among the steppers that just moved (`TICK_S` 0.25 s, so each moving
+stepper a few times a second). A stepper's settings can change while it sorts
+(the chute tunes its own StallGuard threshold), so each stepper has a list of
+entries, one per set of settings it ran under during the window:
 
 ```json
-{"sample_interval_s": 0.25, "sg_bin_width": 32, "sorting_s": 3412.5,
- "steppers": {"chute": {
-   "samples": 812, "standstill": 401, "stalls": 0,
-   "settings": {"irun": 16, "ihold": 4, "microsteps": 8, "stealthchop": true, "coolstep": false,
-                "stallguard": true, "sgthrs": 55, "tcoolthrs": 150},
-   "flags": {"ola": 3},
-   "bands": [{"tstep": [108, 128], "n": 230, "sg": [0, 0, 1, 3, 9, 30, 61, 70, 40, 12, 3, 1, 0, 0, 0, 0],
-              "sg_min": 75, "sg_max": 376, "sg_sum": 52510, "cs_min": 16, "cs_max": 16, "cs_sum": 3680}]}}}
+{"sample_interval_s": 0.25, "sg_bin_width": 32, "sorting_s": 1334.9,
+ "steppers": {"chute": [{
+   "samples": 492, "standstill": 136, "stalls": 0,
+   "settings": {"irun": 24, "ihold": 4, "microsteps": 8, "stealthchop": true, "coolstep": false,
+                "stallguard": true, "stallguard_auto": true, "sgthrs": 10, "tcoolthrs": 201},
+   "flags": {"ola": 2},
+   "bands": [{"tstep": [181, 256], "n": 255, "sg_from": 8, "sg": [45, 152, 55, 3],
+              "sg_min": 262, "sg_max": 371, "sg_sum": 79230, "cs_min": 24, "cs_max": 24, "cs_sum": 6120}]}]}}
 ```
 
 - `samples` counts DRV_STATUS reads; `standstill` those with the motor at rest
   (no SG_RESULT or TSTEP is read then).
-- `bands` are quarter-octave bands of TSTEP, the driver's measured time
-  between microsteps (`tstep: [lo, hi)`); speed is inversely proportional to
-  it, so a stepper's cruise speed is its fullest band and the sparse bands
-  around it are acceleration. Each band's `sg` is a histogram of SG_RESULT in
-  `sg_bin_width` steps (0-31, 32-63, ...); SG_RESULT is StallGuard's load
-  figure, lower meaning more load, and only meaningful in StealthChop at a
-  settled speed. CS_ACTUAL (the current scale the driver used) is given as
+- `bands` are half-octave bands of TSTEP, the driver's measured time between
+  microsteps (`tstep: [lo, hi)`); speed is inversely proportional to it, so a
+  stepper's cruise speed is its fullest band and the sparse bands around it are
+  acceleration. Each band's `sg` is a histogram of SG_RESULT in `sg_bin_width`
+  steps, starting at bin `sg_from` (bin 8 is 256-287) and running to the last
+  non-empty bin. SG_RESULT is StallGuard's load figure, lower meaning more
+  load, and only meaningful in StealthChop at a settled speed; it also falls
+  as the motor slows. CS_ACTUAL (the current scale the driver used) is given as
   min, max and sum.
 - `flags` counts readings with each DRV_STATUS flag set (`otpw`, `ot`, `s2ga`,
   `s2gb`, `s2vsa`, `s2vsb`, `ola`, `olb`, `t120`, `t143`, `t150`, `t157`);
   absent flags were never set.
-- A change of any stepper's settings closes the window, so one window's
-  readings are under one set of settings.
+
+Schema 1 (the first windows from one machine, 2026-10-19) had one object per
+stepper instead of a list, quarter-octave bands, 16-bin histograms, and closed
+the window whenever any stepper's settings changed.
 
 **`stepper_stall`** (event): a stall the firmware latched (`stepper`), the
 stepper's `settings`, `sorting` (whether the machine was sorting), and `recent`:
 its last readings before the stall, `[seconds before, sg, tstep, cs, standstill]`.
 
-**`camera_readings`** (window): per camera role, every 5 minutes while sorting:
-`model`, `n` readings, `fps` (measured from frames captured: min, max, mean,
-last) and `controls`: each UVC control as the driver reports it (exposure,
-gain, white balance temperature, auto exposure mode, brightness, ...), with
-`min`, `max`, `mean` and `last`. With auto exposure or white balance on these
-are the values the camera chose.
+**`camera_readings`** (window, schema 2): per camera role, every 5 minutes while
+sorting: `model`, `n` readings, `fps` (measured from frames captured: min, max,
+mean, last), `controls`: every control the camera reports
+(`v4l2-ctl --list-ctrls`, by its V4L2 name: `exposure_time_absolute`, `gain`,
+`white_balance_temperature`, `auto_exposure`, `brightness`, ...) with `min`,
+`max`, `mean` and `last`, and `inactive`: the controls an automatic mode was
+driving at the last reading (`exposure_time_absolute` under auto exposure).
+Schema 1 had no controls (its reader asked for controls some cameras lack and
+got nothing back).
 
 ## Size
 
-A sorting hour writes about 3 KB per machine (one stepper window, one camera
-window); snapshots and stalls are rare. A thousand machines sorting six hours a
-day add about 20 MB a day.
+A stepper window of five steppers measured 11 KB of JSON for 22 minutes of
+sorting on a test machine (2 KB compressed; its schema 1 form was 21 KB), and a
+camera window under 1 KB. A window grows little past that, as the bands fill
+rather than multiply, so a sorting hour is about 12 KB of JSON per machine,
+stored compressed at about 3 KB; snapshots and stalls are rare. A thousand
+machines sorting six hours a day add about 20 MB a day.
 
 ## Reading it
 

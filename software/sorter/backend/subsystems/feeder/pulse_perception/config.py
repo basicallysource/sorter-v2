@@ -45,6 +45,11 @@ class PulsePerceptionConfig:
     # Equal to exit_pulse_output_deg: always the small pulse.
     exit_move_max_deg: float = 10.0
     exit_move_margin_deg: float = 4.0
+    # While the lead piece is in a channel's exit opening, the exit never turns
+    # so far that the next piece's center comes within this many degrees of the
+    # opening: it shakes the lead loose instead (exit_step.py). 0 = off.
+    ch2_exit_next_clear_deg: float = 2.0
+    ch3_exit_next_clear_deg: float = 0.0
     # The arc of each channel's ring that its camera cannot see (sections,
     # start -> end in the travel direction; equal = none). A piece that
     # vanishes where it starts is expected where it ends, and the channel keeps
@@ -74,16 +79,9 @@ class PulsePerceptionConfig:
     dispense_vanish_confirm_ms: int = 150
     dispense_hold_ms: int = 1500
     # The hold follows how long pieces have taken to land on the next channel,
-    # once enough falls have been seen to land (adapt.py); until then, the hold
+    # once enough falls have been seen to land (landing_hold.py); until then, the hold
     # above.
     hold_follows_landings: bool = True
-    # C2 drops a piece only once the back of every piece on C3 ahead of where
-    # pieces land is this far past the front of where they land (adapt.py).
-    # 0 = drop as soon as C3's landing zone is clear.
-    c3_room_deg: float = 12.0
-    # The room grows while pieces that leave C3 close behind another double
-    # more often than the rest, and eases back to the value above.
-    c3_room_adapts: bool = True
     enable_ch1: bool = True
     enable_ch2: bool = True
     enable_ch3: bool = True
@@ -131,6 +129,8 @@ FIELD_META: list[dict] = [
     {"section": "Exit pulse", "key": "exit_pulse_output_deg", "label": "Exit pulse distance (output deg)", "type": "float", "default": _DEFAULTS.exit_pulse_output_deg, "description": "How far a piece is nudged per pulse once it reaches the exit edge and is being metered into the next channel. Smaller is gentler and less likely to push two pieces through at once. Use the speed presets above to set this."},
     {"section": "Exit pulse", "key": "exit_move_max_deg", "label": "Longest exit move (output deg)", "type": "float", "default": _DEFAULTS.exit_move_max_deg, "description": "When nothing is close behind the piece at the exit, one move pushes it this far so it drops in one go. The move always stops short of letting the next piece reach the exit. Set it equal to the exit pulse distance to always pulse."},
     {"section": "Exit pulse", "key": "exit_move_margin_deg", "label": "Room kept for the next piece (output deg)", "type": "float", "default": _DEFAULTS.exit_move_margin_deg, "description": "A longer exit move stops this far before the next piece's front edge would reach the exit."},
+    {"section": "Exit pulse", "key": "ch2_exit_next_clear_deg", "label": "C2: keep the next piece back (deg)", "type": "float", "default": _DEFAULTS.ch2_exit_next_clear_deg, "description": "While the piece at C2's exit is in the opening, C2 never turns so far that the next piece's center comes within this many degrees of the opening: it shakes the piece at the exit loose instead (back a little, then forward as far), so the two do not fall together. 0 = off: the next piece is pushed in after it."},
+    {"section": "Exit pulse", "key": "ch3_exit_next_clear_deg", "label": "C3: keep the next piece back (deg)", "type": "float", "default": _DEFAULTS.ch3_exit_next_clear_deg, "description": "The same for C3's exit onto the classification channel. 0 = off."},
     {"section": "Out of view", "key": "ch2_blind_arc_start_deg", "label": "C2 unseen arc start (deg)", "type": "float", "default": _DEFAULTS.ch2_blind_arc_start_deg, "description": "Where pieces on C2 go out of the camera's picture, in the channel's zone angles. Equal start and end: C2's camera sees its whole ring."},
     {"section": "Out of view", "key": "ch2_blind_arc_end_deg", "label": "C2 unseen arc end (deg)", "type": "float", "default": _DEFAULTS.ch2_blind_arc_end_deg, "description": "Where pieces on C2 come back into the picture. While a piece is out of view between the two, C2 keeps advancing, never so far it could pass the staging zone unseen."},
     {"section": "Out of view", "key": "ch3_blind_arc_start_deg", "label": "C3 unseen arc start (deg)", "type": "float", "default": _DEFAULTS.ch3_blind_arc_start_deg, "description": "Where pieces on C3 go out of the camera's picture, in the channel's zone angles. Equal start and end: C3's camera sees its whole ring."},
@@ -145,8 +145,6 @@ FIELD_META: list[dict] = [
     {"section": "Hand-off", "key": "dispense_vanish_confirm_ms", "label": "Fallen after gone for (ms)", "type": "int", "default": _DEFAULTS.dispense_vanish_confirm_ms, "description": "The piece being pushed off the exit counts as fallen once the camera has not seen it for this long. Longer ignores detector blinks; shorter reacts sooner."},
     {"section": "Hand-off", "key": "dispense_hold_ms", "label": "Hold after a piece falls (ms)", "type": "int", "default": _DEFAULTS.dispense_hold_ms, "description": "After the piece being pushed off falls, the exit pushes nothing for this long, so the next channel sees it before another piece can follow."},
     {"section": "Hand-off", "key": "hold_follows_landings", "label": "Hold follows how long pieces take to land", "type": "bool", "default": _DEFAULTS.hold_follows_landings, "description": "Once 20 pieces have been seen to fall and land, each exit holds for the time 9 in 10 of them took to land on the next channel, plus 0.3 s (0.5 to 2.5 s): a long drop or a ramp holds longer, a short one no longer than it needs. Until then, and when off, the hold above."},
-    {"section": "Hand-off", "key": "c3_room_deg", "label": "Room behind the last piece on C3 (output deg)", "type": "float", "default": _DEFAULTS.c3_room_deg, "description": "C2 drops a piece only once the back of every piece on C3 ahead of where pieces land is this far past the front of where they land, so no piece lands right behind another; a long piece takes more room by itself. Pieces that leave C3 close behind another fall onto the classification channel together far more often. 0 = drop as soon as C3's landing zone is clear."},
-    {"section": "Hand-off", "key": "c3_room_adapts", "label": "Room follows the double feeds", "type": "bool", "default": _DEFAULTS.c3_room_adapts, "description": "The room grows 2° at a time (up to 30°) while pieces that leave C3 close behind another double more often than the rest, and eases back toward the room above while none leave that close and the room is what keeps C2 waiting."},
     {"section": "Channels", "key": "enable_ch1", "label": "Enable C1 (bulk)", "type": "bool", "default": _DEFAULTS.enable_ch1, "description": "Run the C1 (bulk) channel. Off = this channel never moves."},
     {"section": "Channels", "key": "enable_ch2", "label": "Enable C2", "type": "bool", "default": _DEFAULTS.enable_ch2, "description": "Run the C2 channel. Off = this channel never moves."},
     {"section": "Channels", "key": "enable_ch3", "label": "Enable C3", "type": "bool", "default": _DEFAULTS.enable_ch3, "description": "Run the C3 channel. Off = this channel never moves."},

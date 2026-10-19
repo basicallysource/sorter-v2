@@ -32,7 +32,6 @@ _STATE_KEY_TELEMETRY_INSTALL = "telemetry_install"
 _STATE_KEY_LEDS = "leds"
 _STATE_KEY_BASICALLY_SERVICES = "basically_services"
 _STATE_KEY_FEEDER_AUTOTUNE_BACKGROUND = "feeder_autotune_background"
-_STATE_KEY_FEEDER_ROOM = "feeder_room"
 
 
 def create_tables(conn: sqlite3.Connection) -> None:
@@ -442,14 +441,3 @@ def setFeederAutotuneBackground(record: dict[str, Any] | None) -> None:
         _STATE_KEY_FEEDER_AUTOTUNE_BACKGROUND,
         dict(record) if isinstance(record, dict) else None,
     )
-
-
-# How much room C2 leaves behind the last piece on C3, as the feeder last set it
-# from its double feeds (subsystems/feeder/pulse_perception/adapt.py), so a
-# restart picks up where it was.
-def getFeederRoom() -> dict[str, Any] | None:
-    return _read_dict(_STATE_KEY_FEEDER_ROOM)
-
-
-def setFeederRoom(record: dict[str, Any] | None) -> None:
-    _write_state(_STATE_KEY_FEEDER_ROOM, dict(record) if isinstance(record, dict) else None)

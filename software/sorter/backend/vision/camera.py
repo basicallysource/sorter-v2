@@ -1,4 +1,5 @@
 import logging
+import re
 import subprocess
 import queue
 import threading
@@ -316,36 +317,49 @@ def _try_v4l2ctl_get_raw(source: int, key: str) -> str | None:
         return None
 
 
-def read_v4l2_control_values(source: int) -> dict[str, float]:
-    """Every control in _LINUX_V4L2CTL_CONTROL_MAP the camera has, by our key,
-    as the driver reports it now (with auto exposure or white balance on, the
-    values the camera chose), in one v4l2-ctl call and without the capture
-    lock. Empty off Linux or when the camera answers nothing."""
+_V4L2_CONTROL_LINE = re.compile(r"^\s*([a-z0-9_]+)\s+0x[0-9a-f]+\s+\((\w+)\)\s*:(.*)$")
+_V4L2_VALUE = re.compile(r"\bvalue=(-?\d+)")
+_V4L2_FLAGS = re.compile(r"\bflags=([\w,]+)")
+
+
+def parse_v4l2_controls(listing: str) -> dict[str, dict[str, Any]]:
+    """`v4l2-ctl --list-ctrls` read into {name: {"value", "inactive"}}: each
+    control with a value, and whether the driver marks it inactive (an
+    automatic mode is driving it, as exposure under auto exposure)."""
+    controls: dict[str, dict[str, Any]] = {}
+    for line in listing.splitlines():
+        match = _V4L2_CONTROL_LINE.match(line)
+        if match is None:
+            continue
+        value = _V4L2_VALUE.search(match.group(3))
+        if value is None:
+            continue
+        flags = _V4L2_FLAGS.search(match.group(3))
+        controls[match.group(1)] = {
+            "value": float(value.group(1)),
+            "inactive": flags is not None and "inactive" in flags.group(1).split(","),
+        }
+    return controls
+
+
+def read_v4l2_controls(source: int) -> dict[str, dict[str, Any]]:
+    """Every control the camera has, as its driver reports it now, in one
+    `v4l2-ctl --list-ctrls` call and without the capture lock (parse_v4l2_controls).
+    Empty off Linux or when the camera answers nothing. One call for all of
+    them: asked for a list of names (-C), v4l2-ctl answers nothing at all when
+    the camera lacks one."""
     if platform.system() != "Linux":
         return {}
-    by_ctrl_name = {ctrl_name: key for key, (ctrl_name, _) in _LINUX_V4L2CTL_CONTROL_MAP.items()}
     try:
         result = subprocess.run(
-            ["v4l2-ctl", "-d", f"/dev/video{source}", "-C", ",".join(by_ctrl_name)],
+            ["v4l2-ctl", "-d", f"/dev/video{source}", "--list-ctrls"],
             capture_output=True,
             timeout=3,
             text=True,
         )
     except Exception:
         return {}
-    values: dict[str, float] = {}
-    # One "name: value" line per control the camera has; v4l2-ctl names the
-    # missing ones on stderr and still prints the rest.
-    for line in result.stdout.splitlines():
-        name, _, raw = line.partition(":")
-        key = by_ctrl_name.get(name.strip())
-        if key is None:
-            continue
-        try:
-            values[key] = float(raw.strip().split()[0])
-        except (IndexError, ValueError):
-            continue
-    return values
+    return parse_v4l2_controls(result.stdout) if result.returncode == 0 else {}
 
 
 def _try_v4l2ctl_get_bool(source: int, key: str) -> bool | None:

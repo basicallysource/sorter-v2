@@ -8,10 +8,10 @@ and better defaults can be found across every machine.
 
 One daemon thread runs the probes while the machine sorts. A probe takes a
 reading at its own interval and folds it into a summary. After WINDOW_S of
-sorting, when sorting stops, or when a probe's settings change, each probe's
-summary since the last one becomes a `window` record of the probe's kind; a
-probe with nothing to say writes nothing. A measurement is added by adding a
-probe to FleetTelemetry's probes.
+sorting, or when sorting stops, each probe's summary since the last one
+becomes a `window` record of the probe's kind; a probe with nothing to say
+writes nothing. A measurement is added by adding a probe to FleetTelemetry's
+probes.
 
 Besides the windows:
 - the machine specs (machine_specs.buildMachineSpecs) are a `snapshot`,
@@ -25,11 +25,14 @@ The probes:
   robin among the steppers commanded in the last ACTIVE_S, so it adds at most
   three register reads a tick to the bus: DRV_STATUS, then SG_RESULT and TSTEP
   unless the motor stands still. Readings are binned by TSTEP (speed) in
-  quarter-octave bands, each band a histogram of SG_RESULT (StallGuard's load
-  figure: lower is more load) with the range of CS_ACTUAL.
+  half-octave bands, each band a histogram of SG_RESULT (StallGuard's load
+  figure: lower is more load) trimmed to its non-empty bins, with the range of
+  CS_ACTUAL. A motor's settings can change while it sorts (StallGuard tunes
+  itself), so a motor has one entry per set of settings it ran under.
 - CameraReadingsProbe (`camera_readings`): every CAMERA_INTERVAL_S, each USB
-  camera's controls as its driver reports them (what auto exposure and white
-  balance chose) and its measured frame rate.
+  camera's controls as its driver reports them (`v4l2-ctl --list-ctrls`: what
+  auto exposure and white balance chose, and which controls an automatic mode
+  drives) and its measured frame rate.
 """
 
 from __future__ import annotations
@@ -101,13 +104,14 @@ def _readRegister(stepper: Any, address: int) -> int | None:
 
 
 def tstepBand(tstep: int) -> int:
-    """The quarter-octave band of a TSTEP value: band b holds 2^(b/4) up to
-    2^((b+1)/4). Speed is inversely proportional to TSTEP."""
-    return int(math.floor(4.0 * math.log2(tstep)))
+    """The half-octave band of a TSTEP value: band b holds 2^(b/2) up to
+    2^((b+1)/2). Speed is inversely proportional to TSTEP, so a band spans
+    speeds within about 41% of each other."""
+    return int(math.floor(2.0 * math.log2(tstep)))
 
 
 def _bandBounds(band: int) -> list[int]:
-    return [math.ceil(2.0 ** (band / 4.0)), math.ceil(2.0 ** ((band + 1) / 4.0))]
+    return [math.ceil(2.0 ** (band / 2.0)), math.ceil(2.0 ** ((band + 1) / 2.0))]
 
 
 def stepperSettings(motor: Any) -> dict[str, Any]:
@@ -141,26 +145,39 @@ class _Band:
         self.cs_sum += cs
 
 
+def _trimmed(histogram: list[int]) -> tuple[int, list[int]]:
+    """(index of the first non-empty bin, the bins from it to the last
+    non-empty one)."""
+    filled = [i for i, count in enumerate(histogram) if count]
+    if not filled:
+        return 0, []
+    return filled[0], histogram[filled[0]:filled[-1] + 1]
+
+
 class _StepperWindow:
-    def __init__(self) -> None:
+    """One motor's readings under one set of its settings."""
+
+    def __init__(self, settings: dict[str, Any] | None) -> None:
+        self.settings = settings
         self.samples = 0
         self.standstill = 0
         self.stalls = 0
         self.flags: dict[str, int] = {}
         self.bands: dict[int, _Band] = {}
 
-    def summary(self, settings: dict[str, Any] | None) -> dict[str, Any]:
+    def summary(self) -> dict[str, Any]:
         return {
             "samples": self.samples,
             "standstill": self.standstill,
             "stalls": self.stalls,
-            "settings": settings,
+            "settings": self.settings,
             "flags": dict(sorted(self.flags.items())),
             "bands": [
                 {
                     "tstep": _bandBounds(band),
                     "n": b.n,
-                    "sg": b.sg,
+                    "sg_from": _trimmed(b.sg)[0],
+                    "sg": _trimmed(b.sg)[1],
                     "sg_min": b.sg_min,
                     "sg_max": b.sg_max,
                     "sg_sum": b.sg_sum,
@@ -175,7 +192,7 @@ class _StepperWindow:
 
 class StepperLoadProbe:
     kind = "stepper_load"
-    schema = 1
+    schema = 2
     interval_s = TICK_S
 
     def __init__(self) -> None:
@@ -183,12 +200,11 @@ class StepperLoadProbe:
 
         self._motors = MOTORS
         self._lock = threading.Lock()
-        self._windows: dict[str, _StepperWindow] = {}
+        # Per motor, its readings under each set of settings it ran under in
+        # this window, the current one last.
+        self._windows: dict[str, list[_StepperWindow]] = {}
         self._recent: dict[str, deque[list[Any]]] = {motor.name: deque(maxlen=STALL_CONTEXT) for motor in MOTORS}
-        # Each motor's settings now, and as they were when the window began
-        # (a change of settings closes the window, see FleetTelemetry.tick).
         self._settings: dict[str, dict[str, Any]] = {}
-        self._window_settings: dict[str, dict[str, Any]] = {}
         self._settings_checked_at = 0.0
         self._next = 0
         # Per motor: reads failed in a row, and until when it is left alone.
@@ -208,9 +224,13 @@ class StepperLoadProbe:
         with self._lock:
             self._settings = fresh
 
-    def settingsKey(self) -> Any:
-        with self._lock:
-            return sorted((name, sorted(values.items())) for name, values in self._settings.items())
+    def _current(self, name: str) -> _StepperWindow:
+        """The motor's entry for the settings it runs under now (lock held)."""
+        settings = self._settings.get(name)
+        entries = self._windows.setdefault(name, [])
+        if not entries or entries[-1].settings != settings:
+            entries.append(_StepperWindow(settings))
+        return entries[-1]
 
     def _candidate(self, irl: Any, now: float) -> tuple[Any, Any] | None:
         count = len(self._motors)
@@ -253,9 +273,7 @@ class StepperLoadProbe:
             sg = _readRegister(stepper, REG_SG_RESULT)
             tstep = _readRegister(stepper, REG_TSTEP)
         with self._lock:
-            if not self._windows:
-                self._window_settings = dict(self._settings)
-            window = self._windows.setdefault(motor.name, _StepperWindow())
+            window = self._current(motor.name)
             window.samples += 1
             for name, bit in _DRV_FLAGS:
                 if drv & (1 << bit):
@@ -273,7 +291,7 @@ class StepperLoadProbe:
         if motor is None:
             return None
         with self._lock:
-            self._windows.setdefault(motor.name, _StepperWindow()).stalls += 1
+            self._current(motor.name).stalls += 1
             recent = [[round(r[0] - now, 3), *r[1:]] for r in self._recent[motor.name]]
             settings = dict(self._settings.get(motor.name) or {})
         if not settings:
@@ -286,13 +304,14 @@ class StepperLoadProbe:
     def summary(self) -> dict[str, Any] | None:
         with self._lock:
             windows, self._windows = self._windows, {}
-            settings, self._window_settings = self._window_settings, {}
         if not windows:
             return None
         return {
             "sample_interval_s": TICK_S,
             "sg_bin_width": SG_BIN_WIDTH,
-            "steppers": {name: window.summary(settings.get(name)) for name, window in sorted(windows.items())},
+            "steppers": {
+                name: [entry.summary() for entry in entries] for name, entries in sorted(windows.items())
+            },
         }
 
 
@@ -330,6 +349,8 @@ class _CameraWindow:
         self.n = 0
         self.fps = _Range()
         self.controls: dict[str, _Range] = {}
+        # The controls an automatic mode drove at the last reading.
+        self.inactive: list[str] = []
 
     def summary(self) -> dict[str, Any]:
         return {
@@ -337,12 +358,13 @@ class _CameraWindow:
             "model": self.model,
             "fps": self.fps.summary() if self.fps.n else None,
             "controls": {key: r.summary() for key, r in sorted(self.controls.items())},
+            "inactive": self.inactive,
         }
 
 
 class CameraReadingsProbe:
     kind = "camera_readings"
-    schema = 1
+    schema = 2
     interval_s = CAMERA_INTERVAL_S
 
     def __init__(self) -> None:
@@ -350,13 +372,10 @@ class CameraReadingsProbe:
         # Per role: (frames captured, monotonic time) at the last reading.
         self._frames: dict[str, tuple[int, float]] = {}
 
-    def settingsKey(self) -> Any:
-        return None
-
     def sample(self, irl: Any, now: float) -> None:
         from machine_specs import v4l2CameraModel
         from server import shared_state
-        from vision.camera import read_v4l2_control_values
+        from vision.camera import read_v4l2_controls
 
         service = shared_state.camera_service
         devices = service.devices if service is not None else {}
@@ -373,8 +392,11 @@ class CameraReadingsProbe:
             if window is None:
                 window = self._windows[role] = _CameraWindow(v4l2CameraModel(source))
             window.n += 1
-            for key, value in read_v4l2_control_values(source).items():
-                window.controls.setdefault(key, _Range()).add(value)
+            controls = read_v4l2_controls(source)
+            for name, control in controls.items():
+                window.controls.setdefault(name, _Range()).add(control["value"])
+            if controls:
+                window.inactive = sorted(name for name, control in controls.items() if control["inactive"])
             frames = int(getattr(capture, "frames_captured", 0) or 0)
             previous = self._frames.get(role)
             if previous is not None and now > previous[1] and frames >= previous[0]:
@@ -401,7 +423,6 @@ class FleetTelemetry:
         self._next_at: dict[str, float] = {probe.kind: 0.0 for probe in self._probes}
         self._window_started_at: float | None = None
         self._window_sorting_s = 0.0
-        self._window_keys: dict[str, Any] = {}
         self._last_tick: float | None = None
         self._started = time.monotonic()
         self._specs_next_at = 0.0
@@ -440,19 +461,12 @@ class FleetTelemetry:
             if self._window_started_at is None:
                 self._window_started_at = wall
                 self._window_sorting_s = 0.0
-                self._window_keys = {}
             elif self._last_tick is not None:
                 self._window_sorting_s += min(now - self._last_tick, 4 * TICK_S)
             for probe in self._probes:
                 if now >= self._next_at[probe.kind]:
                     self._next_at[probe.kind] = now + probe.interval_s
                     probe.sample(irl, now)
-                key = probe.settingsKey()
-                if probe.kind not in self._window_keys:
-                    self._window_keys[probe.kind] = key
-                elif key != self._window_keys[probe.kind]:
-                    self._closeWindow(wall)
-                    break
         if self._window_started_at is not None and (
             not running or wall - self._window_started_at >= WINDOW_S
         ):
@@ -466,7 +480,6 @@ class FleetTelemetry:
         sorting_s = round(self._window_sorting_s, 1)
         self._window_started_at = None
         self._window_sorting_s = 0.0
-        self._window_keys = {}
         if started_at is None:
             return
         for probe in self._probes:

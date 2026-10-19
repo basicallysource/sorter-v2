@@ -3,7 +3,7 @@
 When the feeder sees the piece it pushed off a channel's exit fall, the piece
 that appears on the next channel moments later is that piece landing. How long
 that takes, channel by channel, sets how long the feeder holds an exit after a
-fall (subsystems/feeder/pulse_perception/adapt.py): a long drop or a ramp holds
+fall (subsystems/feeder/pulse_perception/landing_hold.py): a long drop or a ramp holds
 longer. The watch also keeps a picture of each channel every so often while the
 machine runs, for the zone finder.
 

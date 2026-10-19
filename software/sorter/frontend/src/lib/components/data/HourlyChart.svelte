@@ -94,7 +94,7 @@
 	// Round the top of the axis up to 1/2/5 x 10^n so its labels read clean; for
 	// bytes, in the unit they are written in (1 KB is 1024 bytes).
 	function niceMax(value: number): number {
-		if (value <= 0) return 1;
+		if (value <= 0) return bytes ? 1024 : 1;
 		const unit = bytes ? 1024 ** Math.max(0, Math.floor(Math.log(value) / Math.log(1024))) : 1;
 		const scaled = value / unit;
 		const pow = Math.pow(10, Math.floor(Math.log10(scaled)));

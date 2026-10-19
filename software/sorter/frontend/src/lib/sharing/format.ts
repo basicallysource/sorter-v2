@@ -5,7 +5,7 @@ const UNITS = ['B', 'KB', 'MB', 'GB', 'TB'];
 // "0 B", "812 KB", "1.5 GB"
 export function formatBytes(bytes: number | null | undefined): string {
 	if (bytes == null || !Number.isFinite(bytes) || bytes <= 0) return '0 B';
-	const i = Math.min(Math.floor(Math.log(bytes) / Math.log(1024)), UNITS.length - 1);
+	const i = Math.max(0, Math.min(Math.floor(Math.log(bytes) / Math.log(1024)), UNITS.length - 1));
 	const value = bytes / 1024 ** i;
 	// One decimal under 100, and not a trailing ".0": "5 MB", "5.4 MB", "812 KB".
 	return `${Number(value.toFixed(i === 0 || value >= 100 ? 0 : 1))} ${UNITS[i]}`;

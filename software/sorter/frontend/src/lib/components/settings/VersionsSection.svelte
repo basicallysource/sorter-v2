@@ -23,6 +23,9 @@
 		detached: boolean;
 		describe: string;
 		dirty: boolean;
+		// The release channel it is on (the one picked, when its release runs);
+		// null off a release.
+		channel: string | null;
 		release_version: string | null;
 		sha?: string;
 		commit_unix?: number;
@@ -64,10 +67,8 @@
 	const currentUpdate = $derived(
 		payload?.available.find((e) => e.is_current && !e.up_to_date && !e.behind) ?? null
 	);
-	// Which release channel (if any) the machine is currently sitting on.
-	const currentChannel = $derived(
-		payload?.available.find((e) => e.is_current && e.channel)?.channel ?? null
-	);
+	// Which release channel (if any) the machine is on.
+	const currentChannel = $derived(payload?.current.channel ?? null);
 
 	function httpBase(): string {
 		return machineHttpBaseUrlFromWsUrl(machine.machine?.url) ?? getBackendHttpBase();
@@ -109,6 +110,12 @@
 			const data = await res.json();
 			if (!data.ok) {
 				updateError = data.message ?? 'Update failed';
+				return;
+			}
+			if (data.restarting === false) {
+				// It already runs this release: only the channel changed.
+				updateNotice = `On ${data.channel ?? entry.channel} now.`;
+				await load(false);
 				return;
 			}
 			if (Array.isArray(data.deps_changed) && data.deps_changed.length > 0) {
@@ -213,7 +220,13 @@
 {/if}
 
 {#if payload && payload.available.length > 0}
-	<Panel title="Release channels" flush>
+	<Panel
+		title="Release channels"
+		description={currentChannel
+			? undefined
+			: "Not on a release. Switching to one keeps this machine's settings and data."}
+		flush
+	>
 		<ul class="divide-y divide-line">
 			{#each payload.available as entry (entry.kind + entry.name)}
 				<li class="flex items-center gap-3 px-(--pad-panel) py-(--pad-row)">
@@ -273,6 +286,5 @@
 
 <p class="text-sm text-ink-muted">
 	Updating checks out the chosen version on this machine, builds its UI and restarts the backend.
-	The machine's own settings (machine.toml, .env, sorting data) are never touched, and local code
-	edits are stashed, not lost.
+	The machine's settings and sorting data are kept, and local code edits are stashed, not lost.
 </p>

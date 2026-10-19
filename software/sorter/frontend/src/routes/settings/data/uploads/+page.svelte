@@ -262,9 +262,7 @@
 					<Stat
 						label="Not uploaded"
 						value={formatCount(total(droppedItems))}
-						hint={total(droppedItems) > 0
-							? `${formatBytes(total(droppedBytes))} skipped or deleted`
-							: 'Nothing skipped or deleted'}
+						hint={total(droppedItems) > 0 ? formatBytes(total(droppedBytes)) : 'None'}
 						tone={total(droppedItems) > 0 ? 'warning' : undefined}
 					/>
 				</div>
@@ -287,6 +285,7 @@
 				{hours}
 				series={bytesSeries}
 				format={formatBytes}
+				bytes
 				totalLabel="uploaded"
 				notes={sentNotes}
 				empty="Nothing was uploaded in this time."
@@ -323,6 +322,7 @@
 							<th>Kind</th>
 							<th>Last upload</th>
 							<th class="num">Uploaded</th>
+							<th class="num">Size</th>
 							<th class="num">Waiting now</th>
 							<th class="num">Not uploaded</th>
 						</tr>
@@ -340,10 +340,8 @@
 								<td class="whitespace-nowrap text-ink-muted">
 									{last == null ? 'Never' : formatAgo(stats.now - last)}
 								</td>
-								<td class="num whitespace-nowrap">
-									{formatCount(sentItems[k])}
-									<span class="text-ink-muted">{formatBytes(sentBytes[k])}</span>
-								</td>
+								<td class="num">{formatCount(sentItems[k])}</td>
+								<td class="num whitespace-nowrap">{formatBytes(sentBytes[k])}</td>
 								<td class="num">{formatCount(target.waiting_now[kind.key] ?? 0)}</td>
 								<td class="num {droppedItems[k] > 0 ? 'text-warning-ink' : ''}">
 									{formatCount(droppedItems[k])}

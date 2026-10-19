@@ -122,8 +122,8 @@
 								<td>{kind.label}</td>
 								<td class="num">{formatCount(kind.count)}</td>
 								<td class="num whitespace-nowrap">
-									{formatBytes(kind.bytes)}{#if kind.cap_bytes}<span class="text-ink-muted">
-											of {formatBytes(kind.cap_bytes)}</span
+									{formatBytes(kind.bytes)}{#if kind.cap_bytes}{' '}<span class="text-ink-muted"
+											>of {formatBytes(kind.cap_bytes)}</span
 										>{/if}
 								</td>
 								<td class="num">{formatCount(kind.waiting)}</td>

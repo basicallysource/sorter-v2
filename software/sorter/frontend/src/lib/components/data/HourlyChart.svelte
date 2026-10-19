@@ -39,6 +39,7 @@
 		series,
 		form = 'columns',
 		format,
+		bytes = false,
 		totalLabel = '',
 		flagged = [],
 		flagLabel = 'Some was dropped',
@@ -52,6 +53,8 @@
 		series: HourlySeries[];
 		form?: 'columns' | 'area';
 		format: (value: number) => string;
+		// The numbers are bytes: the axis tops out at a round number of KB, MB or GB.
+		bytes?: boolean;
 		// What the number at the top of the tooltip counts ("uploaded").
 		totalLabel?: string;
 		flagged?: boolean[];
@@ -88,12 +91,15 @@
 		)
 	);
 
-	// Round the top of the axis up to 1/2/5 x 10^n so its labels read clean.
+	// Round the top of the axis up to 1/2/5 x 10^n so its labels read clean; for
+	// bytes, in the unit they are written in (1 KB is 1024 bytes).
 	function niceMax(value: number): number {
 		if (value <= 0) return 1;
-		const pow = Math.pow(10, Math.floor(Math.log10(value)));
-		for (const step of [1, 2, 5, 10]) if (value <= step * pow) return step * pow;
-		return 10 * pow;
+		const unit = bytes ? 1024 ** Math.max(0, Math.floor(Math.log(value) / Math.log(1024))) : 1;
+		const scaled = value / unit;
+		const pow = Math.pow(10, Math.floor(Math.log10(scaled)));
+		for (const step of [1, 2, 5, 10]) if (scaled <= step * pow) return step * pow * unit;
+		return 10 * pow * unit;
 	}
 
 	const yMax = $derived(niceMax(Math.max(0, ...totals)));
@@ -174,7 +180,9 @@
 		return `${at(hours[i])} to ${end}`;
 	}
 
-	const xLabels = $derived(n === 0 ? [] : [at(hours[0]), at(hours[Math.floor(n / 2)]), 'Now']);
+	// The first hour, the middle one and now, each under its own column.
+	const middle = $derived(Math.floor(n / 2));
+	const xLabels = $derived(n === 0 ? [] : [at(hours[0]), at(hours[middle]), 'Now']);
 
 	function rows(i: number): TipRow[] {
 		const list =
@@ -295,12 +303,16 @@
 						<tr>
 							<td class="whitespace-nowrap">{when(i)}</td>
 							{#if form === 'columns'}
-								{#each series as s (s.key)}<td class="num">{format(valueAt(s, i))}</td>{/each}
+								{#each series as s (s.key)}
+									<td class="num whitespace-nowrap">{format(valueAt(s, i))}</td>
+								{/each}
 							{/if}
-							<td class="num">
+							<td class="num whitespace-nowrap">
 								{form === 'area' && series[0]?.values[i] == null ? 'Unknown' : format(totals[i])}
 							</td>
-							{#each notes?.(i) ?? [] as note (note.label)}<td class="num">{note.value}</td>{/each}
+							{#each notes?.(i) ?? [] as note (note.label)}
+								<td class="num whitespace-nowrap">{note.value}</td>
+							{/each}
 						</tr>
 					{/each}
 				</tbody>
@@ -436,8 +448,9 @@
 						>
 							<div class="text-xs text-ink-muted">{tip.when}</div>
 							<div class="num mt-0.5 font-semibold text-ink">
-								{tip.total}{#if totalLabel}
-									<span class="font-normal text-ink-muted">{totalLabel}</span>{/if}
+								{tip.total}{#if totalLabel}{' '}<span class="font-normal text-ink-muted"
+										>{totalLabel}</span
+									>{/if}
 							</div>
 							{#each tip.rows as row (row.label)}
 								<div class="mt-0.5 flex items-baseline justify-between gap-4">
@@ -451,8 +464,12 @@
 						{#if tip}{tip.when}: {tip.total}{#each tip.rows as row (row.label)}, {row.label} {row.value}{/each}{/if}
 					</span>
 				</div>
-				<div class="mt-2 flex justify-between text-xs text-ink-muted">
-					{#each xLabels as text, i (i)}<span>{text}</span>{/each}
+				<div class="relative mt-2 h-4 text-xs whitespace-nowrap text-ink-muted">
+					{#if xLabels.length > 0}
+						<span class="absolute left-0">{xLabels[0]}</span>
+						<span class="absolute -translate-x-1/2" style:left="{xAt(middle)}px">{xLabels[1]}</span>
+						<span class="absolute right-0">{xLabels[2]}</span>
+					{/if}
 				</div>
 			</div>
 		</div>

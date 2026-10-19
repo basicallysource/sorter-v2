@@ -76,10 +76,12 @@ PRIOR_NEAR_DEG = 45.0
 # the opening the next channel shows, with sharp lines of its own (its parts
 # stand still while the machine is paused); the end faces bound them. So each
 # end is the sharp line furthest from the opening's middle on its side, out
-# to EDGE_PAST_DEG past the valley's end; an end the picture does not show
-# stays where it was. On the classification channel, whose exit no valley
-# finds, the drawn exit's ends move the same way.
-EDGE_PAST_DEG = 8.0
+# to EDGE_PAST_DEG past the valley's end (the valley stops a degree or so
+# short of a face; further out, a guide bar's far side or the wall's own
+# texture can make sharp lines); an end the picture does not show stays
+# where it was. On the classification channel, whose exit no valley finds,
+# the drawn exit's ends move the same way.
+EDGE_PAST_DEG = 2.5
 EDGE_STEP_DEG = 0.05
 EDGE_SHARPNESS = 6.0
 EDGE_RADII = 5

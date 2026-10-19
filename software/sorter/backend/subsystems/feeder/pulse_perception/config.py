@@ -73,6 +73,17 @@ class PulsePerceptionConfig:
     # camera has seen the first one.
     dispense_vanish_confirm_ms: int = 150
     dispense_hold_ms: int = 1500
+    # The hold follows how long pieces have taken to land on the next channel,
+    # once enough falls have been seen to land (adapt.py); until then, the hold
+    # above.
+    hold_follows_landings: bool = True
+    # C2 drops a piece only once the back of every piece on C3 ahead of where
+    # pieces land is this far past the front of where they land (adapt.py).
+    # 0 = drop as soon as C3's landing zone is clear.
+    c3_room_deg: float = 12.0
+    # The room grows while pieces that leave C3 close behind another double
+    # more often than the rest, and eases back to the value above.
+    c3_room_adapts: bool = True
     enable_ch1: bool = True
     enable_ch2: bool = True
     enable_ch3: bool = True
@@ -133,6 +144,9 @@ FIELD_META: list[dict] = [
     {"section": "Hand-off", "key": "ch3_busy_standoff_deg", "label": "C3 stand-off while C4 is busy (output deg)", "type": "float", "default": _DEFAULTS.ch3_busy_standoff_deg, "description": "While the classification channel is turning or has a piece in its drop zone, C3 advances its lead piece only to this far short of the exit, so nothing waits at the lip to fall onto C4 mid-turn. 0 = advance right up to the exit edge."},
     {"section": "Hand-off", "key": "dispense_vanish_confirm_ms", "label": "Fallen after gone for (ms)", "type": "int", "default": _DEFAULTS.dispense_vanish_confirm_ms, "description": "The piece being pushed off the exit counts as fallen once the camera has not seen it for this long. Longer ignores detector blinks; shorter reacts sooner."},
     {"section": "Hand-off", "key": "dispense_hold_ms", "label": "Hold after a piece falls (ms)", "type": "int", "default": _DEFAULTS.dispense_hold_ms, "description": "After the piece being pushed off falls, the exit pushes nothing for this long, so the next channel sees it before another piece can follow."},
+    {"section": "Hand-off", "key": "hold_follows_landings", "label": "Hold follows how long pieces take to land", "type": "bool", "default": _DEFAULTS.hold_follows_landings, "description": "Once 20 pieces have been seen to fall and land, each exit holds for the time 9 in 10 of them took to land on the next channel, plus 0.3 s (0.5 to 2.5 s): a long drop or a ramp holds longer, a short one no longer than it needs. Until then, and when off, the hold above."},
+    {"section": "Hand-off", "key": "c3_room_deg", "label": "Room behind the last piece on C3 (output deg)", "type": "float", "default": _DEFAULTS.c3_room_deg, "description": "C2 drops a piece only once the back of every piece on C3 ahead of where pieces land is this far past the front of where they land, so no piece lands right behind another; a long piece takes more room by itself. Pieces that leave C3 close behind another fall onto the classification channel together far more often. 0 = drop as soon as C3's landing zone is clear."},
+    {"section": "Hand-off", "key": "c3_room_adapts", "label": "Room follows the double feeds", "type": "bool", "default": _DEFAULTS.c3_room_adapts, "description": "The room grows 2° at a time (up to 30°) while pieces that leave C3 close behind another double more often than the rest, and eases back toward the room above while none leave that close and the room is what keeps C2 waiting."},
     {"section": "Channels", "key": "enable_ch1", "label": "Enable C1 (bulk)", "type": "bool", "default": _DEFAULTS.enable_ch1, "description": "Run the C1 (bulk) channel. Off = this channel never moves."},
     {"section": "Channels", "key": "enable_ch2", "label": "Enable C2", "type": "bool", "default": _DEFAULTS.enable_ch2, "description": "Run the C2 channel. Off = this channel never moves."},
     {"section": "Channels", "key": "enable_ch3", "label": "Enable C3", "type": "bool", "default": _DEFAULTS.enable_ch3, "description": "Run the C3 channel. Off = this channel never moves."},

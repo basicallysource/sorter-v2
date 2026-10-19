@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import math
+from dataclasses import replace
 
 import cv2
 import numpy as np
@@ -123,3 +124,55 @@ def test_the_inner_circle_hugs_the_hub_even_where_it_looks_shifted() -> None:
 def test_the_classification_channel_keeps_its_own_inner_edge() -> None:
     found = findZones(4, [_picture(seed, turned=seed * 7.0) for seed in range(6)])
     assert found.zones.ring.inner_center is None
+
+
+def _walled(openings: list[tuple[float, float]], seed: int = 0) -> np.ndarray:
+    """A channel whose rotor's edge is a dark line between a light disc and a
+    light wall top, broken where the wall is open: there the next channel's
+    dark chute shows past the rim."""
+    rng = np.random.default_rng(seed)
+    img = np.full((720, 1280, 3), 120, np.uint8)
+    c = (int(CENTER[0]), int(CENTER[1]))
+    cv2.circle(img, c, 420, (190, 190, 190), -1)
+    for start, end in openings:
+        cv2.ellipse(img, c, (420, 420), 0, start, end, (60, 60, 60), -1)
+    cv2.circle(img, c, int(RIM), (205, 205, 205), -1)
+    wall_line = np.zeros(img.shape[:2], np.uint8)
+    cv2.circle(wall_line, c, int(RIM), 255, 5)
+    for start, end in openings:
+        cv2.ellipse(wall_line, c, (int(RIM), int(RIM)), 0, start, end, 0, 9)
+    img[wall_line > 0] = (80, 80, 80)
+    cv2.circle(img, c, 60, (230, 230, 230), -1)
+    noise = rng.normal(0, 3, img.shape)
+    return np.clip(img + noise, 0, 255).astype(np.uint8)
+
+
+def _fallsAt(angle: float) -> list[tuple[float, float]]:
+    return [
+        (CENTER[0] + (RIM - 15) * math.cos(math.radians(a)), CENTER[1] + (RIM - 15) * math.sin(math.radians(a)))
+        for a in (angle - 2, angle, angle + 2)
+    ]
+
+
+def test_the_exit_is_the_opening_in_the_wall() -> None:
+    found = findZones(3, [_walled([(170, 212)], seed) for seed in range(4)], _current(CENTER))
+    exit_span = found.zones.exit
+    assert exit_span.start == pytest.approx(170, abs=3) and exit_span.end == pytest.approx(212, abs=3)
+    assert found.zones.source["exit"] == "found"
+
+
+def test_pieces_seen_to_fall_pick_the_opening() -> None:
+    frames = [_walled([(60, 90), (170, 212)], seed) for seed in range(4)]
+    found = findZones(3, frames, _current(CENTER), falls=_fallsAt(75))
+    assert found.zones.exit.start == pytest.approx(60, abs=3)
+    found = findZones(3, frames, _current(CENTER), falls=_fallsAt(180))
+    assert found.zones.exit.start == pytest.approx(170, abs=3)
+
+
+def test_a_locked_exit_or_a_wall_with_no_opening_keeps_the_exit() -> None:
+    current = _current(CENTER)
+    found = findZones(3, [_walled([], seed) for seed in range(4)], current)
+    assert (found.zones.exit.start, found.zones.exit.end) == pytest.approx((current.exit.start, current.exit.end), abs=1)
+    locked = replace(current, locked=frozenset({"exit"}))
+    found = findZones(3, [_walled([(60, 90)], seed) for seed in range(4)], locked)
+    assert (found.zones.exit.start, found.zones.exit.end) == pytest.approx((current.exit.start, current.exit.end), abs=1)

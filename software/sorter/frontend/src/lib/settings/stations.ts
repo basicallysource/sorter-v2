@@ -2,8 +2,8 @@ import Camera from '@lucide/svelte/icons/camera';
 import CircuitBoard from '@lucide/svelte/icons/circuit-board';
 import Cloud from '@lucide/svelte/icons/cloud';
 import Cpu from '@lucide/svelte/icons/cpu';
+import Database from '@lucide/svelte/icons/database';
 import Gauge from '@lucide/svelte/icons/gauge';
-import GraduationCap from '@lucide/svelte/icons/graduation-cap';
 import Timer from '@lucide/svelte/icons/timer';
 import GitBranch from '@lucide/svelte/icons/git-branch';
 import Layers3 from '@lucide/svelte/icons/layers';
@@ -117,16 +117,14 @@ export const appearanceNavItem: SettingsNavItem = {
 	icon: Palette
 };
 
-export const sampleCaptureNavItem: SettingsNavItem = {
-	href: '/settings/sample-capture',
-	label: 'Sample capture',
-	icon: Camera
-};
-
-export const trainingDataNavItem: SettingsNavItem = {
-	href: '/settings/training-data',
-	label: 'Training data',
-	icon: GraduationCap
+export const dataNavItem: SettingsNavItem = {
+	href: '/settings/data',
+	label: 'Data',
+	icon: Database,
+	children: [
+		{ href: '/settings/data/uploads', label: 'Uploads' },
+		{ href: '/settings/data/training', label: 'Training runs' }
+	]
 };
 
 export const versionsNavItem: SettingsNavItem = {
@@ -266,6 +264,7 @@ export const settingsNavItems: SettingsNavEntry[] = [
 	networkingNavItem,
 	appearanceNavItem,
 	hiveNavItem,
+	dataNavItem,
 	hiveModelsNavItem,
 	classificationProvidersNavItem,
 	versionsNavItem,
@@ -274,9 +273,6 @@ export const settingsNavItems: SettingsNavEntry[] = [
 	chuteNavItem,
 	storageLayersNavItem,
 	controlBoardNavItem,
-	{ type: 'heading', label: 'Data' },
-	sampleCaptureNavItem,
-	trainingDataNavItem,
 	{ type: 'heading', label: 'Helpers' },
 	incidentsNavItem,
 	cycleTimeNavItem,

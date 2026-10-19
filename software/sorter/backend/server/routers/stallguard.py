@@ -675,12 +675,33 @@ def _realistic_in_gate_floor(
     return worst
 
 
+def _run_matches_driver(
+    params: Any,
+    irun: Optional[int],
+    microsteps: Optional[int],
+    stealthchop: Optional[bool],
+) -> bool:
+    """A recording describes the motor only under the driver settings it was made
+    with: SG_RESULT shifts with the run current, the microstepping and the chopper
+    mode. Every setting given must equal the run's; a run that did not record one
+    does not match it."""
+    wanted = (("irun", irun), ("microsteps", microsteps), ("stealthchop", stealthchop))
+    if not isinstance(params, dict):
+        return all(want is None for _, want in wanted)
+    return all(want is None or params.get(key) == want for key, want in wanted)
+
+
 @router.get(
     "/stepper/{stepper}/stallguard-suggestion",
     response_model=StallGuardSuggestionResponse,
 )
 def stallguard_suggestion(
-    stepper: str, cruise_tstep: Optional[int] = None, speed: Optional[int] = None
+    stepper: str,
+    cruise_tstep: Optional[int] = None,
+    speed: Optional[int] = None,
+    irun: Optional[int] = None,
+    microsteps: Optional[int] = None,
+    stealthchop: Optional[bool] = None,
 ) -> StallGuardSuggestionResponse:
     """Pure DB analysis — no hardware. Takes cruise SG from the latest unloaded
     (sweep) and latest loaded (stall_test) run for this motor and returns the
@@ -689,7 +710,10 @@ def stallguard_suggestion(
     SG floor/dip/baseline all shift with speed, so when `speed` is given every input
     (unloaded, loaded, stress) is filtered to that speed — otherwise a 2000 sweep
     could get paired with an old 3000 stall test and a clean run wrongly flagged.
-    The UI passes the selected run's speed so the suggestion matches what you see."""
+    The UI passes the selected run's speed so the suggestion matches what you see.
+    `irun`, `microsteps` and `stealthchop` filter the unloaded and loaded runs the
+    same way (see _run_matches_driver): tuning passes the driver's current settings,
+    so a recording made at another current never stands in for one made now."""
     motor = _motor(stepper)
 
     def _run_speed(r: Dict[str, Any]) -> Optional[int]:
@@ -705,6 +729,8 @@ def stallguard_suggestion(
             if r.get("status") != stepper_telemetry.RUN_STATUS_COMPLETED:
                 continue
             if speed is not None and _run_speed(r) != speed:
+                continue
+            if not _run_matches_driver(r.get("params"), irun, microsteps, stealthchop):
                 continue
             return r
         return None

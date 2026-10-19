@@ -44,13 +44,9 @@
 		store_max_mb: number | null;
 	};
 
+	// What went wrong with saving since startup. What is stored, and the disk it
+	// is on, is on the Data page's "On this machine" panel.
 	type StoreInfo = {
-		stored: number;
-		stored_bytes: number;
-		not_on_every_hive: number;
-		cap_bytes: number;
-		disk_free_bytes: number | null;
-		min_free_bytes: number;
 		dropped_queue_full: number;
 		skipped_low_disk: number;
 	};
@@ -104,14 +100,6 @@
 		if (s < 120) return `${round(s)} s`;
 		if (s < 7200) return `${round(s / 60)} min`;
 		return `${round(s / 3600)} h`;
-	}
-
-	function formatBytes(bytes: number): string {
-		if (bytes === 0) return '0 B';
-		const units = ['B', 'KB', 'MB', 'GB'];
-		const i = Math.min(Math.floor(Math.log(bytes) / Math.log(1024)), units.length - 1);
-		const val = bytes / Math.pow(1024, i);
-		return `${val.toFixed(i === 0 ? 0 : 1)} ${units[i]}`;
 	}
 
 	function applyStatus(payload: any) {
@@ -239,7 +227,7 @@
 	// Decay curve for the graph: geometric growth of the interval from burst to
 	// floor across the ramp — a straight line in log space, plotted as rate.
 	const GRAPH_W = 300;
-	const GRAPH_H = 96;
+	const GRAPH_H = 80;
 	const PAD_X = 8;
 	const PAD_Y = 10;
 	const curve = $derived.by(() => {
@@ -277,7 +265,7 @@
 <div class="divide-y divide-line">
 	<SettingRow
 		label="Capture training frames"
-		help="Takes the latest frame from every live camera at the rate below, only while the machine is sorting. Frames are saved to a capped store on this machine and uploaded to Hive in the background. It only reads camera frames and does not change how the machine sorts. The setting persists across restarts."
+		info="Takes the latest frame from every live camera at the rate below, only while the machine is sorting. Frames are saved to a capped store on this machine and uploaded to Hive in the background. It never changes how the machine sorts."
 		changed={enabled !== DEFAULT_ENABLED}
 		defaultText={DEFAULT_ENABLED ? 'on' : 'off'}
 		onreset={() => saveEnabled(DEFAULT_ENABLED)}
@@ -292,7 +280,7 @@
 
 	<SettingRow
 		label="Annotate with OpenRouter"
-		help="Run the Gemini (gemini_sam) detector on each frame before it is saved so samples arrive in Hive as teacher captures. Adds an OpenRouter call per frame per camera. If off (or no API key), frames are saved and uploaded as raw samples."
+		info="Runs the Gemini (gemini_sam) detector on each frame before it is saved, so samples reach Hive as teacher captures. It makes one OpenRouter call per frame per camera. Off, or with no API key, frames are saved and uploaded raw."
 		changed={annotate !== DEFAULT_ANNOTATE}
 		defaultText={DEFAULT_ANNOTATE ? 'on' : 'off'}
 		onreset={() => saveAnnotate(DEFAULT_ANNOTATE)}
@@ -307,7 +295,7 @@
 
 	<SettingRow
 		label="Decay capture rate"
-		help="Capture a burst of frames when a run starts, then slow down geometrically to a floor over the ramp, with random jitter, so the same rig stops saving near-identical frames forever. Reset re-arms the burst."
+		info="Takes a burst of frames when a run starts, then slows down to a floor over the ramp, with random jitter, so the same rig stops saving near-identical frames forever. Reset decay starts the burst again."
 		changed={decayEnabled !== DEFAULT_DECAY_ENABLED}
 		defaultText={DEFAULT_DECAY_ENABLED ? 'on' : 'off'}
 		onreset={() => saveDecayEnabled(DEFAULT_DECAY_ENABLED)}
@@ -324,7 +312,7 @@
 	{#if !decayEnabled}
 		<SettingRow
 			label="Capture rate"
-			help="Frames per minute per camera: at most 0.5, one every 2 minutes, which is also the default."
+			info="Frames per minute per camera: at most 0.5, one every 2 minutes, which is also the default."
 			for="sample-capture-rate"
 			changed={perMinute !== DEFAULT_PER_MINUTE}
 			defaultText={String(DEFAULT_PER_MINUTE)}
@@ -347,7 +335,7 @@
 
 	<SettingRow
 		label="Sample store size"
-		help="Keep at most this much on this machine, never more than Hive allows. When it is full, samples every Hive already has are deleted first, then the oldest."
+		info="Keep at most this much on this machine, never more than Hive allows. When it is full, samples every Hive already has are deleted first, then the oldest."
 		for="sample-capture-storage-cap"
 		changed={local.store_max_mb !== null}
 		defaultText={followText(hiveCapGb, 'GB')}
@@ -376,34 +364,17 @@
 		{#if !initialized && !loading}
 			<p>The sample collector hasn't started on this machine (no camera service yet).</p>
 		{/if}
-		{#if store}
-			{@const lowDisk = store.disk_free_bytes !== null && store.disk_free_bytes < store.min_free_bytes}
-			<p>
-				Stored on this machine: <span class="num font-medium text-ink">{store.stored.toLocaleString()}</span>
-				samples, <span class="num font-medium text-ink">{formatBytes(store.stored_bytes)}</span> of
-				<span class="num font-medium text-ink">{formatBytes(store.cap_bytes)}</span>.
-				<span class="num font-medium text-ink">{store.not_on_every_hive.toLocaleString()}</span>
-				not on every Hive yet.
+		{#if store && store.dropped_queue_full > 0}
+			<p class="text-warning-ink">
+				<span class="num font-medium">{store.dropped_queue_full.toLocaleString()}</span> frames dropped since
+				startup because saving could not keep up.
 			</p>
-			{#if store.disk_free_bytes !== null}
-				<p class={lowDisk ? 'text-warning-ink' : ''}>
-					<span class="num font-medium {lowDisk ? '' : 'text-ink'}">{formatBytes(store.disk_free_bytes)}</span>
-					free on the disk{#if lowDisk}, so no samples are saved until there is
-						{formatBytes(store.min_free_bytes)} free{/if}.
-				</p>
-			{/if}
-			{#if store.dropped_queue_full > 0}
-				<p class="text-warning-ink">
-					<span class="num font-medium">{store.dropped_queue_full.toLocaleString()}</span> frames dropped since
-					startup because saving could not keep up.
-				</p>
-			{/if}
-			{#if store.skipped_low_disk > 0}
-				<p class="text-warning-ink">
-					<span class="num font-medium">{store.skipped_low_disk.toLocaleString()}</span> frames skipped since
-					startup because the disk was low on space.
-				</p>
-			{/if}
+		{/if}
+		{#if store && store.skipped_low_disk > 0}
+			<p class="text-warning-ink">
+				<span class="num font-medium">{store.skipped_low_disk.toLocaleString()}</span> frames skipped since
+				startup because the disk was low on space.
+			</p>
 		{/if}
 		<p>
 			Saved since startup: <span class="num font-medium text-ink">{savedCount}</span>{#if enabled && lastSavedAgeS !== null},
@@ -418,7 +389,8 @@
 </div>
 
 {#snippet decayDetails()}
-		<div class="flex items-center justify-between gap-3 px-(--pad-panel) pt-3">
+	<div class="flex flex-col gap-3 px-(--pad-panel) py-3 sm:flex-row sm:items-center sm:justify-between">
+		<div class="flex min-w-0 flex-col items-start gap-1">
 			<p class="num text-sm text-ink-muted">
 				Every <span class="font-medium text-ink">{formatInterval(burstS)}</span>, slowing to every
 				<span class="font-medium text-ink">{formatInterval(floorS)}</span> over
@@ -428,16 +400,16 @@
 			<Button
 				variant="ghost"
 				size="sm"
+				class="-ml-(--pad-control-sm)"
 				disabled={loading || saving || !initialized}
 				onclick={resetDecay}
 			>
 				Reset decay
 			</Button>
 		</div>
-
 		<svg
 			viewBox="0 0 {GRAPH_W} {GRAPH_H}"
-			class="block h-24 w-full px-(--pad-panel) py-2"
+			class="block h-16 w-52 shrink-0"
 			role="img"
 			aria-label="The capture rate falling from the burst rate to the floor over the ramp"
 		>
@@ -481,10 +453,11 @@
 				/>
 			{/if}
 		</svg>
-		<div class="divide-y divide-line">
+	</div>
+	<div class="divide-y divide-line">
 		<SettingRow
 			label="Burst interval"
-			help="Seconds between frames per camera right after a reset. Never faster than Hive allows, nor than one every 2 minutes."
+			info="Seconds between frames per camera right after a reset. Never faster than Hive allows, nor than one every 2 minutes."
 			for="decay-burst"
 			changed={local.burst_interval_s !== null}
 			defaultText={followText(hiveBurst, 's')}
@@ -510,7 +483,7 @@
 
 		<SettingRow
 			label="Floor interval"
-			help="Minutes between frames per camera once the decay has settled."
+			info="Minutes between frames per camera once the decay has settled."
 			for="decay-floor"
 			changed={local.floor_interval_s !== null}
 			defaultText={followText(hiveFloorMin, 'min')}
@@ -534,7 +507,7 @@
 
 		<SettingRow
 			label="Ramp"
-			help="Hours to go from the burst interval to the floor interval."
+			info="Hours to go from the burst interval to the floor interval."
 			for="decay-ramp"
 			changed={local.ramp_hours !== null}
 			defaultText={followText(hiveRampH, 'h')}
@@ -557,7 +530,7 @@
 
 		<SettingRow
 			label="Jitter"
-			help="Random wobble on each interval so captures aren't perfectly periodic."
+			info="Random wobble on each interval so captures aren't perfectly periodic."
 			for="decay-jitter"
 			changed={jitterPct !== DEFAULT_JITTER_PCT}
 			defaultText="{DEFAULT_JITTER_PCT}%"
@@ -576,5 +549,5 @@
 				class="w-32"
 			/>
 		</SettingRow>
-		</div>
+	</div>
 {/snippet}

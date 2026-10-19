@@ -2,7 +2,9 @@
 	docs/overlays.md#tooltip. A short name for something with no room for one:
 	a truncated value, a chart's mark, a status dot. Never an explanation a
 	setting needs; that goes under the setting, where it is always visible.
-	An icon Button already names itself with `label`.
+	(A dense list of settings is the one exception: SettingRow's `info` keeps
+	a row's explanation behind an info icon.) An icon Button already names
+	itself with `label`.
 
 	It shows after a short pause under the pointer, at once on keyboard
 	focus, and hides on Escape. The trigger snippet gets the attribute that

@@ -2,7 +2,7 @@
 // around the channel's center and three arcs along it, drop, exit and a precise
 // sliver just before the exit. Angles are image angles in degrees, increasing
 // clockwise on screen; a span runs forward from start to end, the way pieces
-// travel. Pixels are in the zones' own frame (`frame`), scaled to any picture.
+// travel. Pixels are the camera's, in the zones' own frame (`frame`).
 
 export type ZoneName = 'drop' | 'precise' | 'exit';
 export type Part = 'ring' | ZoneName;
@@ -120,23 +120,6 @@ export function channelPolygon(zones: ChannelZones): Point[] {
 
 export function svgPath(points: Point[]): string {
 	return points.map((p, i) => `${i ? 'L' : 'M'}${p[0].toFixed(1)} ${p[1].toFixed(1)}`).join(' ') + ' Z';
-}
-
-// The zones at another picture size.
-export function scaled(zones: ChannelZones, frame: [number, number]): ChannelZones {
-	const [w, h] = frame;
-	if (w === zones.frame[0] && h === zones.frame[1]) return zones;
-	const sx = w / zones.frame[0];
-	const sy = h / zones.frame[1];
-	const s = (sx + sy) / 2;
-	return {
-		...zones,
-		frame: [w, h],
-		center: [zones.center[0] * sx, zones.center[1] * sy],
-		inner_radius: zones.inner_radius * s,
-		outer_radius: zones.outer_radius * s,
-		exit_radius: zones.exit_radius * s
-	};
 }
 
 // --- Edits: each returns new zones, marks what it changed as drawn, and keeps

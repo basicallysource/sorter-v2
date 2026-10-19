@@ -30,7 +30,7 @@
 	import type { CameraRole, EndstopConfig, StepperKey, ZoneChannelId } from '$lib/settings/stations';
 	import { roleView } from '$lib/video';
 	import { defaultZones, findZones, loadLearning, loadZones, saveZones } from '$lib/zones/api';
-	import { sameZones, scaled, type ChannelZones, type Part } from '$lib/zones/model';
+	import { sameZones, type ChannelZones, type Part } from '$lib/zones/model';
 
 	let {
 		channel,
@@ -80,7 +80,6 @@
 	let picturePreview = $state<{ saved: PictureSettings; draft: PictureSettings } | null>(null);
 	let showBoxes = $state(true);
 	let showZones = $state(true);
-	let pictureSize = $state<[number, number] | null>(null);
 
 	let saved = $state<ChannelZones | null>(null);
 	let draft = $state<ChannelZones | null>(null);
@@ -94,11 +93,6 @@
 
 	const zones = $derived(editing ? draft : saved);
 	const dirty = $derived(editing && !sameZones(draft, saved));
-
-	// The zones in the picture's own pixels, once a frame says how big it is.
-	function inPicture(z: ChannelZones): ChannelZones {
-		return pictureSize ? scaled(z, pictureSize) : z;
-	}
 
 	async function refreshZones() {
 		try {
@@ -136,7 +130,7 @@
 		}
 		closeSidebar();
 		try {
-			draft = inPicture(saved ?? (await defaultZones(channel)));
+			draft = saved ?? (await defaultZones(channel));
 			editing = true;
 			note = saved ? '' : 'No zones yet: these are a start. Find them in the picture, or drag them into place.';
 		} catch (e: any) {
@@ -150,7 +144,7 @@
 		closeSidebar();
 		try {
 			const found = await findZones(channel);
-			draft = inPicture(found.zones);
+			draft = found.zones;
 			editing = true;
 			const pictures = found.report.frames === 1 ? 'one picture' : `${found.report.frames} pictures`;
 			const notes = found.report.notes.length ? ` (${found.report.notes.join('; ')})` : '';
@@ -176,7 +170,7 @@
 			saved = await saveZones(next);
 			draft = null;
 			editing = wizard;
-			if (wizard) draft = saved ? inPicture(saved) : null;
+			if (wizard) draft = saved;
 			selected = null;
 			note = 'Saved. The machine works with these zones from its next picture on.';
 			onsaved?.();
@@ -306,12 +300,6 @@
 							zones={showZones && !editing}
 							class="absolute inset-0 h-full w-full"
 							style={previewTransform}
-							onframe={(size) => {
-								if (!pictureSize || pictureSize[0] !== size.width || pictureSize[1] !== size.height) {
-									pictureSize = [size.width, size.height];
-									if (draft) draft = scaled(draft, pictureSize);
-								}
-							}}
 						/>
 						{#if editing && draft}
 							<ZoneOverlay
@@ -403,7 +391,7 @@
 				</Panel>
 			{:else}
 				<ZonePanel
-					zones={zones ? inPicture(zones) : null}
+					{zones}
 					{editing}
 					{dirty}
 					{finding}

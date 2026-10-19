@@ -38,6 +38,8 @@
 	let justSaved = $state(false);
 	const defaults = { burst: 6, floor: 1, jitter: 30 };
 	let rates = $state({ burst: 9, floor: 1, jitter: 45 });
+	const sharedDefaults = { records: true, pictures: true, frames: true };
+	let shared = $state({ records: true, pictures: false, frames: true });
 	let stuck = $state<'off' | 'manual' | 'automatic'>('manual');
 	// The step to do in the Steps specimen: the ones before it are done, the ones after it locked.
 	let stepAt = $state(2);
@@ -226,6 +228,58 @@
 			</SettingRow>
 		</div>
 	</Panel>
+</SiteSection>
+
+<SiteSection
+	title="A dense list of settings"
+	lead="Where a sentence under every row would make the list as tall as a page, a row keeps its explanation behind an info icon after its name. Pointing at the icon, or tabbing to it, shows the text, and the row stays one line. A warning a person must see is still written under the setting."
+>
+	<Specimen
+		on="canvas"
+		code={`<SettingRow label="Piece pictures" changed={!shared.pictures}
+	info="The photo of each piece, used to train recognition. The largest thing a sorter sends."
+	defaultText="on" onreset={() => (shared.pictures = true)}>
+	<Switch bind:checked={shared.pictures} label="Piece pictures" />
+</SettingRow>`}
+	>
+		<Panel title="Shared with Hive" flush>
+			<div class="divide-y divide-line">
+				<SettingRow
+					label="Machine status"
+					info="The software version and how much this machine has sorted, once an hour. Always on."
+				>
+					<Badge>Always</Badge>
+				</SettingRow>
+				<SettingRow
+					label="Piece records"
+					info="One line per piece: its part, its color and when it was sorted. No pictures."
+					changed={shared.records !== sharedDefaults.records}
+					defaultText="on"
+					onreset={() => (shared.records = sharedDefaults.records)}
+				>
+					<Switch bind:checked={shared.records} label="Piece records" />
+				</SettingRow>
+				<SettingRow
+					label="Piece pictures"
+					info="The photo of each piece, used to train recognition. The largest thing a sorter sends."
+					changed={shared.pictures !== sharedDefaults.pictures}
+					defaultText="on"
+					onreset={() => (shared.pictures = sharedDefaults.pictures)}
+				>
+					<Switch bind:checked={shared.pictures} label="Piece pictures" />
+				</SettingRow>
+				<SettingRow
+					label="Camera frames"
+					info="A whole frame from each camera now and then, to teach the detectors what the machine sees."
+					changed={shared.frames !== sharedDefaults.frames}
+					defaultText="on"
+					onreset={() => (shared.frames = sharedDefaults.frames)}
+				>
+					<Switch bind:checked={shared.frames} label="Camera frames" />
+				</SettingRow>
+			</div>
+		</Panel>
+	</Specimen>
 </SiteSection>
 
 <SiteSection

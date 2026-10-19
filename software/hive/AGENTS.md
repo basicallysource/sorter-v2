@@ -27,6 +27,9 @@ in [`agent-docs/`](agent-docs/):
 - [`agent-docs/piece-data.md`](agent-docs/piece-data.md) — piece data from
   sorters: the sync endpoints and their cursor rule, where each kind lands,
   whose verdict lives where, and the views and tables to train from.
+- [`agent-docs/machine-defaults.md`](agent-docs/machine-defaults.md) — the
+  defaults every sorter starts from: the block Hive holds, how a machine
+  fetches it, and changing a default in code or live.
 - [`agent-docs/telemetry.md`](agent-docs/telemetry.md) — machine telemetry:
   how each sorter is set up and runs (specs, stepper load, camera readings,
   stalls), the record forms and kinds, their size, and how to query them.

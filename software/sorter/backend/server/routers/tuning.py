@@ -61,13 +61,12 @@ def set_pulse_perception_config(body: dict[str, Any]) -> dict[str, Any]:
     return {"config": updated}
 
 
-@router.get("/api/tuning/feeder-pulse-perception/adapt")
-def get_pulse_perception_adapt() -> dict[str, Any]:
-    """How the feeder has fitted itself to the pieces: the room C2 leaves on C3
-    and each exit's hold after a fall, with why."""
-    from subsystems.feeder.pulse_perception import adapt
+@router.get("/api/tuning/feeder-pulse-perception/hold")
+def get_pulse_perception_hold() -> dict[str, Any]:
+    """Each exit's hold after a fall, as measured from how long pieces take to land."""
+    from subsystems.feeder.pulse_perception import landing_hold
 
-    return adapt.get().report()
+    return landing_hold.get().report()
 
 
 @router.get("/api/tuning/feeder-pulse-perception/autotune")

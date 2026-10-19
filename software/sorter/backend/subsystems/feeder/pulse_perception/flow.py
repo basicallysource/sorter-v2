@@ -14,7 +14,7 @@ from .config import (
     channelMaxMoveOutputDeg,
     channelMoveSpeed,
 )
-from . import adapt
+from . import landing_hold
 from .blind_arc import BlindArc, forward
 from .dispense_gate import DispenseGate
 from .held import FreeTurn, HeldPieces
@@ -175,7 +175,7 @@ class PulsePerceptionFeeding(BaseState):
     def _gate(self, channel: int, cfg: PulsePerceptionConfig) -> DispenseGate:
         gate = self._gates[channel]
         gate.vanish_confirm_s = max(0, cfg.dispense_vanish_confirm_ms) / 1000.0
-        gate.hold_s = adapt.get().holdS(
+        gate.hold_s = landing_hold.get().holdS(
             channel,
             max(0, cfg.dispense_hold_ms) / 1000.0,
             cfg.hold_follows_landings,
@@ -225,12 +225,6 @@ class PulsePerceptionFeeding(BaseState):
         # a stable "occupied" instead of flickering empty for a frame.
         c2 = self._latch_drop(2, c2, now_mono, cfg)
         c3 = self._latch_drop(3, c3, now_mono, cfg)
-        # Where pieces land on C3, and how much room C2 leaves behind the last
-        # one, follow the pieces (adapt.py).
-        channel_def3 = perception_service.channels().get(3)
-        adapt.get().observe(c3, channel_def3, now_mono, self._gates[2].fell_at)
-        if cfg.c3_room_adapts:
-            adapt.get().tune(time.time(), now_mono)
 
         # A piece its own channel cannot move rests on the channel next to it:
         # turn that one a little.
@@ -272,23 +266,16 @@ class PulsePerceptionFeeding(BaseState):
 
         if cfg.enable_ch2:
             # C2's downstream is C3. "Clear" = C3's drop zone is not occupied,
-            # so we never pulse a C2 piece off the edge into a busy C3; once a
-            # piece falls, nothing more goes for a while, so C3 sees it land;
-            # and the last piece on C3 is far enough past where pieces land
-            # that the next one cannot land right behind it (adapt.py).
+            # so we never pulse a C2 piece off the edge into a busy C3; and once
+            # a piece falls, nothing more goes for a while, so C3 sees it land.
             gate2 = self._gate(2, cfg)
             if gate2.observe(c2, now_mono):
                 self._noteFall(2, gate2)
-            fits = (
-                (not c3.in_drop)
-                and gate2.exitAllowed(now_mono)
-                and self._hasRoom(3, c3, cfg.ch3_max_pieces)
-            )
-            room = adapt.get().roomClear(c3, channel_def3, cfg.c3_room_deg)
-            adapt.get().noteWait(ready=fits and c2.in_exit, held=not room, now=now_mono)
             action = feederChannelAction(
                 c2,
-                downstream_clear=fits and room,
+                downstream_clear=(not c3.in_drop)
+                and gate2.exitAllowed(now_mono)
+                and self._hasRoom(3, c3, cfg.ch3_max_pieces),
                 greedy=cfg.ch2_greedy_enabled,
             )
             action, hidden_cap = self._withHiddenPieces(2, c2, action, now_mono, cfg)

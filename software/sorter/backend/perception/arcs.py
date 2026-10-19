@@ -291,16 +291,6 @@ def _sectionsToEntry(section: int, entry: int, reverse: bool) -> int:
     return (section - entry) % SECTION_COUNT if reverse else (entry - section) % SECTION_COUNT
 
 
-def sectionGapToExitDeg(section: int, channel: ChannelDef) -> float | None:
-    """How far (output degrees) a point in ``section`` travels before it reaches
-    the REAL exit; None when the channel has no exit."""
-    exit_entry = _exitEntry(channel)
-    if exit_entry is None:
-        return None
-    _, entry, reverse = exit_entry
-    return float(_sectionsToEntry(int(section), entry, reverse)) * SECTION_DEG
-
-
 def forwardGapToExitDeg(bbox: Bbox, channel: ChannelDef) -> float:
     """How far (output degrees) the channel can turn before the most forward
     part of this piece's box reaches the REAL exit (``exitOnlySections``); 0
@@ -318,21 +308,6 @@ def forwardGapToExitDeg(bbox: Bbox, channel: ChannelDef) -> float:
         if best is None or gap < best:
             best = gap
     return float(best or 0) * SECTION_DEG
-
-
-def backGapToExitDeg(bbox: Bbox, channel: ChannelDef) -> float:
-    """How far (output degrees) the rearmost part of this piece's box travels
-    before it reaches the REAL exit: ``forwardGapToExitDeg`` plus the piece's
-    length. 0 when all of it is already there."""
-    exit_entry = _exitEntry(channel)
-    if exit_entry is None:
-        return 0.0
-    exit_only, entry, reverse = exit_entry
-    worst = 0
-    for section in bboxSections(bbox, channel):
-        if section not in exit_only:
-            worst = max(worst, _sectionsToEntry(section, entry, reverse))
-    return float(worst) * SECTION_DEG
 
 
 def exitComForwardDeg(

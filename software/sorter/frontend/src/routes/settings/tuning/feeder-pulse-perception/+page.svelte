@@ -121,43 +121,23 @@
 		};
 	};
 
-	// How the feeder has fitted itself to the pieces (pulse_perception/adapt.py).
-	type AdaptHold = {
+	// How long each exit holds after a piece falls (pulse_perception/landing_hold.py).
+	type LandingHold = {
 		hold_s: number | null;
 		measured: boolean;
 		follows: boolean;
 		landings: number;
 		p90_s?: number;
 	};
-	type AdaptReport = {
-		room: {
-			margin_deg: number | null;
-			floor_deg: number;
-			max_deg: number;
-			landing_front_deg: number | null;
-			landing_front_measured: boolean;
-			landings: number;
-			why: string;
-			changed_at: number;
-			waiting_now: boolean;
-			waiting_share: number | null;
-		};
-		hold: Record<string, AdaptHold>;
-	};
-	let fitted = $state<AdaptReport | null>(null);
+	let holds = $state<Record<string, LandingHold> | null>(null);
 
-	async function loadFitted() {
+	async function loadHolds() {
 		try {
-			const res = await fetch(`${getBackendHttpBase()}/api/tuning/feeder-pulse-perception/adapt`);
-			if (res.ok) fitted = await res.json();
+			const res = await fetch(`${getBackendHttpBase()}/api/tuning/feeder-pulse-perception/hold`);
+			if (res.ok) holds = (await res.json()).hold;
 		} catch {
 			// best-effort; the form above reports connectivity problems
 		}
-	}
-
-	function since(at: number): string {
-		const minutes = Math.round((Date.now() / 1000 - at) / 60);
-		return minutes < 1 ? 'just now' : minutes < 90 ? `${minutes} min ago` : `${Math.round(minutes / 60)} h ago`;
 	}
 
 	let autotune = $state<AutotuneStatus | null>(null);
@@ -442,8 +422,8 @@
 		load();
 		loadAutotune();
 		loadDataset();
-		loadFitted();
-		const interval = setInterval(loadFitted, 5000);
+		loadHolds();
+		const interval = setInterval(loadHolds, 5000);
 		return () => clearInterval(interval);
 	});
 
@@ -486,56 +466,15 @@
 	</Panel>
 {/if}
 
-{#if fitted}
-	{@const room = fitted.room}
-	{@const roomSetting = Number(savedConfig.c3_room_deg ?? 0)}
+{#if holds}
 	<Panel
-		title="Fitted to the pieces"
-		description="What the feeder measures as it runs and sets from it: the room C2 leaves behind the last piece on C3, and how long each exit holds after a piece falls. The settings are under Hand-off below."
+		title="Hold after a fall"
+		description="How long each exit pushes nothing after a piece falls, measured from how long pieces take to land on the next channel. The settings are under Hand-off below."
 	>
 		<dl class="grid gap-x-6 gap-y-3 text-sm sm:grid-cols-[12rem_minmax(0,1fr)]">
-			<dt class="text-ink-muted">Room on C3</dt>
-			<dd>
-				{#if roomSetting <= 0}
-					Off: C2 drops as soon as C3's landing zone is clear.
-				{:else if room.margin_deg === null}
-					<span class="num font-medium">{roomSetting.toFixed(0)}°</span> past where pieces land, from when C2
-					and C3 next run.
-				{:else}
-					<span class="num font-medium">{room.margin_deg.toFixed(0)}°</span> past where pieces land
-					{#if savedConfig.c3_room_adapts}
-						(at least <span class="num">{roomSetting.toFixed(0)}°</span>, at most
-						<span class="num">{room.max_deg.toFixed(0)}°</span>).
-					{:else}
-						(fixed).
-					{/if}
-					{#if room.why}
-						<span class="block text-ink-muted">Changed {since(room.changed_at)}: {room.why}.</span>
-					{/if}
-					{#if room.waiting_now}
-						<span class="block text-ink-muted">C2 is waiting for room now.</span>
-					{:else if room.waiting_share !== null}
-						<span class="block text-ink-muted">
-							The room kept C2 waiting {(100 * room.waiting_share).toFixed(0)}% of the time it had a piece ready.
-						</span>
-					{/if}
-				{/if}
-			</dd>
-			<dt class="text-ink-muted">Where pieces land on C3</dt>
-			<dd>
-				{#if room.landing_front_deg === null}
-					Not known yet.
-				{:else if room.landing_front_measured}
-					<span class="num font-medium">{room.landing_front_deg.toFixed(0)}°</span> before its exit, the front of
-					the last <span class="num">{room.landings}</span> pieces that landed.
-				{:else}
-					<span class="num font-medium">{room.landing_front_deg.toFixed(0)}°</span> before its exit, the front of its
-					landing zone, until 10 pieces have landed.
-				{/if}
-			</dd>
 			{#each [['2', 'C2 to C3'], ['3', 'C3 to the classification channel']] as [channel, label]}
-				{@const hold = fitted.hold[channel]}
-				<dt class="text-ink-muted">Hold after a fall, {label}</dt>
+				{@const hold = holds[channel]}
+				<dt class="text-ink-muted">{label}</dt>
 				<dd>
 					{#if !hold}
 						{savedConfig.hold_follows_landings

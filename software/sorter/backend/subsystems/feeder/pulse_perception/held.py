@@ -28,6 +28,10 @@ import held_piece_records
 MOVED_DEG = 3.0
 # Its channel turned this much under it while it did not move: it is held.
 HELD_AFTER_DEG = 45.0
+# Where pieces land, it is handed to its incident only once it has stayed put
+# this long too: a piece that has just landed often settles for a second or two
+# before it rides.
+LANDING_HELD_S = 4.0
 # For a piece held at an exit: how far the channel below turns to free it (only
 # C3 is turned this way: the classification channel turns on its own schedule),
 # how long to wait before judging a turn, and how many turns to try.
@@ -110,7 +114,7 @@ class HeldPieces:
             zone = int(getattr(p, "zone_code", 0) or 0)
             if zone == _DROP_ZONE:
                 watch.zone = "landing"
-                if not watch.given_up:
+                if not watch.given_up and now - watch.since >= LANDING_HELD_S:
                     watch.given_up = True
                     self._log("held where pieces land", channel, int(tid), watch, now)
                     if wanted is None or isinstance(wanted, FreeTurn):

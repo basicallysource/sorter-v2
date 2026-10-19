@@ -53,9 +53,10 @@ def test_a_piece_held_where_pieces_land_is_handed_to_its_incident_once():
     still = _on((5, 200.0, _DROP))
     assert watch.check(3, still, 0.0, 0.0) is None
     assert watch.check(3, still, 30.0, 1.0) is None  # not turned enough yet
-    held = watch.check(3, still, 50.0, 2.0)
+    assert watch.check(3, still, 50.0, 2.0) is None  # it may still be settling
+    held = watch.check(3, still, 70.0, 4.5)
     assert held == HeldAtLanding(3, 5, (500.0, 300.0, 540.0, 340.0))
-    assert watch.check(3, still, 80.0, 3.0) is None
+    assert watch.check(3, still, 80.0, 5.0) is None
     # It moves after all, and the held piece is recorded.
     watch.check(3, _on((5, 190.0, _DROP)), 90.0, 9.0)
     assert db.drain(5.0)

@@ -4032,22 +4032,6 @@
 		(at 265.43 149.86)
 		(uuid "7e14aed0-d7e8-4dad-a393-b45e944b7b23")
 	)
-	(no_connect
-		(at 146.05 106.68)
-		(uuid "12f639a2-ae41-4d3b-a1d0-408ada54042f")
-	)
-	(no_connect
-		(at 146.05 109.22)
-		(uuid "3c696e3d-5ee4-4c6a-8268-bdae93345db7")
-	)
-	(no_connect
-		(at 267.97 52.07)
-		(uuid "a256fe38-b630-4293-b8a1-f5031ff3898e")
-	)
-	(no_connect
-		(at 267.97 54.61)
-		(uuid "d6b5da9d-e797-4a8e-a4b7-5ac52d300a85")
-	)
 	(wire
 		(pts
 			(xy 34.29 48.26) (xy 68.58 48.26)
@@ -4060,7 +4044,7 @@
 	)
 	(wire
 		(pts
-			(xy 105.41 71.12) (xy 105.41 81.28)
+			(xy 105.41 71.12) (xy 105.41 76.2)
 		)
 		(stroke
 			(width 0)
@@ -4077,16 +4061,6 @@
 			(type default)
 		)
 		(uuid "06024cfd-7aac-4765-a40f-0f59e5f4b4e6")
-	)
-	(wire
-		(pts
-			(xy 223.52 46.99) (xy 267.97 46.99)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "06a801aa-8f5c-43f3-93ff-9f6e9d52ef48")
 	)
 	(wire
 		(pts
@@ -4380,16 +4354,6 @@
 	)
 	(wire
 		(pts
-			(xy 191.77 91.44) (xy 223.52 91.44)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "3270f08c-70cc-486a-8c81-1591ba06226c")
-	)
-	(wire
-		(pts
 			(xy 35.56 187.96) (xy 68.58 187.96)
 		)
 		(stroke
@@ -4487,16 +4451,6 @@
 			(type default)
 		)
 		(uuid "4cc88e66-5249-4563-8938-8fefb04811df")
-	)
-	(wire
-		(pts
-			(xy 223.52 41.91) (xy 267.97 41.91)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "4d955c04-90dc-4f4b-8a46-6ea4fe517ffa")
 	)
 	(wire
 		(pts
@@ -4710,7 +4664,7 @@
 	)
 	(wire
 		(pts
-			(xy 105.41 81.28) (xy 146.05 81.28)
+			(xy 113.03 81.28) (xy 146.05 81.28)
 		)
 		(stroke
 			(width 0)
@@ -4757,16 +4711,6 @@
 			(type default)
 		)
 		(uuid "811aebb8-93f1-43f1-98ff-a0f0c1f441d7")
-	)
-	(wire
-		(pts
-			(xy 191.77 96.52) (xy 223.52 96.52)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "85774613-38c7-4b67-82df-e3e7cb2b10f3")
 	)
 	(wire
 		(pts
@@ -4860,16 +4804,6 @@
 	)
 	(wire
 		(pts
-			(xy 227.33 142.24) (xy 265.43 142.24)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "9945fbca-64b7-47ed-8d5d-116218be5ebc")
-	)
-	(wire
-		(pts
 			(xy 83.82 91.44) (xy 146.05 91.44)
 		)
 		(stroke
@@ -4957,16 +4891,6 @@
 			(type default)
 		)
 		(uuid "a7671f07-1ac2-4498-8dcc-90475009a122")
-	)
-	(wire
-		(pts
-			(xy 227.33 119.38) (xy 265.43 119.38)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "a889c73f-c7bb-4580-adc8-2627474a4bec")
 	)
 	(wire
 		(pts
@@ -5190,16 +5114,6 @@
 	)
 	(wire
 		(pts
-			(xy 113.03 99.06) (xy 146.05 99.06)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "e024663d-6e6d-4e22-8f8f-3807f2406ae0")
-	)
-	(wire
-		(pts
 			(xy 227.33 132.08) (xy 265.43 132.08)
 		)
 		(stroke
@@ -5220,16 +5134,6 @@
 	)
 	(wire
 		(pts
-			(xy 227.33 124.46) (xy 265.43 124.46)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "e4e269d2-d40a-4504-9211-9b0d85730514")
-	)
-	(wire
-		(pts
 			(xy 35.56 134.62) (xy 68.58 134.62)
 		)
 		(stroke
@@ -5237,26 +5141,6 @@
 			(type default)
 		)
 		(uuid "e6eeaffb-5a5c-44ea-aa9d-b5910f3c8f69")
-	)
-	(wire
-		(pts
-			(xy 191.77 114.3) (xy 223.52 114.3)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "eb2790f4-93bb-4927-85a3-a1ea7663ce88")
-	)
-	(wire
-		(pts
-			(xy 113.03 104.14) (xy 146.05 104.14)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "eea1b041-8d78-4721-a88f-f7b9ebc51ead")
 	)
 	(wire
 		(pts
@@ -5458,7 +5342,7 @@
 		)
 		(uuid "a5c309d4-623a-45d5-bb5d-12a4c05922cb")
 	)
-	(label "GPIO20-GPIO_OUT-Stepper2_DIR"
+	(label "GPIO11-GPIO_OUT-Stepper2_DIR"
 		(at 36.83 185.42 0)
 		(effects
 			(font
@@ -5468,7 +5352,7 @@
 		)
 		(uuid "00febdb3-6543-4156-8ef0-7fa81a955325")
 	)
-	(label "GPIO0-GPIO_OUT-~{EN}_Stepper"
+	(label "GPIO15-GPIO_OUT-~{EN}_Stepper"
 		(at 36.83 144.78 0)
 		(effects
 			(font
@@ -5478,27 +5362,7 @@
 		)
 		(uuid "03dbd183-ebf7-4179-9c71-6e26a999eb01")
 	)
-	(label "GPIO28-PWM6_A-Stepper_STEP"
-		(at 227.33 142.24 0)
-		(effects
-			(font
-				(size 1.27 1.27)
-			)
-			(justify left bottom)
-		)
-		(uuid "03f23afc-a103-4716-bc7f-de4144b29a26")
-	)
-	(label "GPIO21-PWM2_B-Stepper2_STEP"
-		(at 191.77 96.52 0)
-		(effects
-			(font
-				(size 1.27 1.27)
-			)
-			(justify left bottom)
-		)
-		(uuid "0d81a314-b42f-43a0-a79b-05083e077a0c")
-	)
-	(label "GPIO14-GPIO_IN-Stepper2_DIAG"
+	(label "GPIO14-GPIO_OUT-Stepper3_STEP"
 		(at 223.52 64.77 0)
 		(effects
 			(font
@@ -5508,7 +5372,7 @@
 		)
 		(uuid "0e0ebec1-c0c5-4e87-9c06-d18bb9b2171a")
 	)
-	(label "GPIO22-GPIO_OUT-Stepper1_DIR"
+	(label "GPIO22-GPIO_IN-Stepper1_DIAG"
 		(at 227.33 129.54 0)
 		(effects
 			(font
@@ -5538,7 +5402,7 @@
 		)
 		(uuid "1392a28c-2667-4ef5-8ee6-103d5b74ca90")
 	)
-	(label "GPIO14-GPIO_IN-Stepper2_DIAG"
+	(label "GPIO14-GPIO_OUT-Stepper3_STEP"
 		(at 113.03 116.84 0)
 		(effects
 			(font
@@ -5547,16 +5411,6 @@
 			(justify left bottom)
 		)
 		(uuid "20f57008-5f9b-49fa-bb63-13a36bd281ce")
-	)
-	(label "GPIO19-PWM1_B-Stepper3_STEP"
-		(at 227.33 119.38 0)
-		(effects
-			(font
-				(size 1.27 1.27)
-			)
-			(justify left bottom)
-		)
-		(uuid "22bc8ca6-1f84-45e7-94b4-cf113add46fb")
 	)
 	(label "~{RESET}"
 		(at 227.33 132.08 0)
@@ -5568,7 +5422,7 @@
 		)
 		(uuid "239fbab3-3772-4344-b37f-290c5291392b")
 	)
-	(label "GPIO6-GPIO_OUT-LED_1"
+	(label "GPIO28-GPIO_OUT-LED_1"
 		(at 38.1 96.52 0)
 		(effects
 			(font
@@ -5578,7 +5432,7 @@
 		)
 		(uuid "24ecee52-c925-404d-bcf0-23683cb0788f")
 	)
-	(label "GPIO18-GPIO_OUT-Stepper3_DIR"
+	(label "GPIO18-GPIO_IN-Stepper3_DIAG"
 		(at 191.77 88.9 0)
 		(effects
 			(font
@@ -5598,7 +5452,7 @@
 		)
 		(uuid "2c3d5718-07b5-49ff-9070-148609e8a971")
 	)
-	(label "GPIO0-GPIO_OUT-~{EN}_Stepper"
+	(label "GPIO15-GPIO_OUT-~{EN}_Stepper"
 		(at 36.83 171.45 0)
 		(effects
 			(font
@@ -5618,7 +5472,7 @@
 		)
 		(uuid "47f100ab-ba51-45bd-b199-04d762ac8782")
 	)
-	(label "GPIO6-GPIO_OUT-LED_1"
+	(label "GPIO6-GPIO_IN-Stepper4_DIAG"
 		(at 113.03 96.52 0)
 		(effects
 			(font
@@ -5628,7 +5482,7 @@
 		)
 		(uuid "4e535b77-2694-4f9b-9156-ae35efd78284")
 	)
-	(label "GPIO13-GPIO_IN-Stepper1_DIAG"
+	(label "GPIO13-GPIO_OUT-Stepper3_DIR"
 		(at 223.52 59.69 0)
 		(effects
 			(font
@@ -5638,7 +5492,7 @@
 		)
 		(uuid "4e5a54fd-5255-4d3b-821c-50cf3853d3ea")
 	)
-	(label "GPIO27-GPIO_OUT-Stepper_DIR"
+	(label "GPIO27-GPIO_OUT-LED_0"
 		(at 191.77 111.76 0)
 		(effects
 			(font
@@ -5658,7 +5512,7 @@
 		)
 		(uuid "51990128-ca5b-4a7b-8a88-40ca3e178523")
 	)
-	(label "GPIO20-GPIO_OUT-Stepper2_DIR"
+	(label "GPIO20-GPIO_IN-Stepper2_DIAG"
 		(at 227.33 121.92 0)
 		(effects
 			(font
@@ -5668,7 +5522,7 @@
 		)
 		(uuid "53c30175-2be6-4bdf-9463-a55aeb0d381c")
 	)
-	(label "GPIO1-GPIO_OUT-LED_0"
+	(label "GPIO27-GPIO_OUT-LED_0"
 		(at 38.1 93.98 0)
 		(effects
 			(font
@@ -5678,7 +5532,7 @@
 		)
 		(uuid "58968c58-2a6b-4085-9d61-e360d40279b2")
 	)
-	(label "GPIO0-GPIO_OUT-~{EN}_Stepper"
+	(label "GPIO15-GPIO_OUT-~{EN}_Stepper"
 		(at 35.56 48.26 0)
 		(effects
 			(font
@@ -5688,7 +5542,7 @@
 		)
 		(uuid "596f0652-4a34-4020-85a5-42f75191dd76")
 	)
-	(label "GPIO0-GPIO_OUT-~{EN}_Stepper"
+	(label "GPIO0-GPIO_OUT-Stepper4_DIR"
 		(at 223.52 19.05 0)
 		(effects
 			(font
@@ -5698,7 +5552,7 @@
 		)
 		(uuid "5aac421e-5165-49a1-bcac-c48af12434c6")
 	)
-	(label "GPIO12-GPIO_IN-Stepper_DIAG"
+	(label "GPIO12-GPIO_OUT-Stepper2_STEP"
 		(at 113.03 111.76 0)
 		(effects
 			(font
@@ -5708,7 +5562,7 @@
 		)
 		(uuid "60fec671-729b-42ae-b21c-d6274170239e")
 	)
-	(label "GPIO8-PWM4_A-Stepper4_STEP"
+	(label "GPIO1-GPIO_OUT-Stepper4_STEP"
 		(at 35.56 59.69 0)
 		(effects
 			(font
@@ -5718,7 +5572,7 @@
 		)
 		(uuid "632b76c2-9a79-4b22-8aa9-46461c640965")
 	)
-	(label "GPIO7-GPIO_OUT-Stepper4_DIR"
+	(label "GPIO0-GPIO_OUT-Stepper4_DIR"
 		(at 35.56 62.23 0)
 		(effects
 			(font
@@ -5728,7 +5582,7 @@
 		)
 		(uuid "6824d63e-742f-42f7-9704-79caf5711f26")
 	)
-	(label "GPIO26-PWM5_A-Stepper1_STEP"
+	(label "GPIO26-GPIO_IN-Stepper_DIAG"
 		(at 227.33 134.62 0)
 		(effects
 			(font
@@ -5747,16 +5601,6 @@
 			(justify left bottom)
 		)
 		(uuid "6a6ac7a9-6364-49b2-ab24-f8e9839aeb2b")
-	)
-	(label "GPIO28-PWM6_A-Stepper_STEP"
-		(at 191.77 114.3 0)
-		(effects
-			(font
-				(size 1.27 1.27)
-			)
-			(justify left bottom)
-		)
-		(uuid "6a7a84b5-44f3-48dc-b658-6d2525e1d635")
 	)
 	(label "GPIO2-SERVO_BUS"
 		(at 113.03 86.36 0)
@@ -5778,7 +5622,7 @@
 		)
 		(uuid "6e83ea75-f794-4c8e-b6e4-1cdc44ad05d6")
 	)
-	(label "GPIO22-GPIO_OUT-Stepper1_DIR"
+	(label "GPIO21-GPIO_OUT-Stepper1_DIR"
 		(at 36.83 158.75 0)
 		(effects
 			(font
@@ -5788,7 +5632,7 @@
 		)
 		(uuid "6ee4746f-aa0f-4773-ab33-92944fa4cf68")
 	)
-	(label "GPIO8-PWM4_A-Stepper4_STEP"
+	(label "GPIO8-GPIO_OUT-Stepper_DIR"
 		(at 113.03 101.6 0)
 		(effects
 			(font
@@ -5798,7 +5642,7 @@
 		)
 		(uuid "71bdf4f0-b30f-4a75-b898-2e03087ecd76")
 	)
-	(label "GPIO27-GPIO_OUT-Stepper_DIR"
+	(label "GPIO8-GPIO_OUT-Stepper_DIR"
 		(at 36.83 132.08 0)
 		(effects
 			(font
@@ -5808,7 +5652,7 @@
 		)
 		(uuid "7c8d0c84-3cd6-4bea-b943-a5763ec342b2")
 	)
-	(label "GPIO15-GPIO_IN-Stepper3_DIAG"
+	(label "GPIO15-GPIO_OUT-~{EN}_Stepper"
 		(at 113.03 119.38 0)
 		(effects
 			(font
@@ -5818,7 +5662,7 @@
 		)
 		(uuid "822ab2e0-5293-4cda-b370-51fb240de72f")
 	)
-	(label "GPIO18-GPIO_OUT-Stepper3_DIR"
+	(label "GPIO13-GPIO_OUT-Stepper3_DIR"
 		(at 91.44 185.42 0)
 		(effects
 			(font
@@ -5838,7 +5682,7 @@
 		)
 		(uuid "8b6a266d-36e9-492c-9c84-107126786403")
 	)
-	(label "GPIO15-GPIO_IN-Stepper3_DIAG"
+	(label "GPIO18-GPIO_IN-Stepper3_DIAG"
 		(at 91.44 187.96 0)
 		(effects
 			(font
@@ -5878,7 +5722,7 @@
 		)
 		(uuid "98431e0a-0f8b-45e7-81cb-cba8d2db79bc")
 	)
-	(label "GPIO9-GPIO_IN-Stepper4_DIAG"
+	(label "GPIO6-GPIO_IN-Stepper4_DIAG"
 		(at 35.56 64.77 0)
 		(effects
 			(font
@@ -5888,7 +5732,7 @@
 		)
 		(uuid "98908e6d-9a31-4fff-afc2-0637b7962e12")
 	)
-	(label "GPIO13-GPIO_IN-Stepper1_DIAG"
+	(label "GPIO13-GPIO_OUT-Stepper3_DIR"
 		(at 113.03 114.3 0)
 		(effects
 			(font
@@ -5897,16 +5741,6 @@
 			(justify left bottom)
 		)
 		(uuid "9e802c4c-e69b-4467-b164-eae9e75ab39d")
-	)
-	(label "GPIO19-PWM1_B-Stepper3_STEP"
-		(at 191.77 91.44 0)
-		(effects
-			(font
-				(size 1.27 1.27)
-			)
-			(justify left bottom)
-		)
-		(uuid "9ea5c94c-d2a7-485c-88db-6d5187b5b0ca")
 	)
 	(label "GPIO2-SERVO_BUS"
 		(at 223.52 26.67 0)
@@ -5918,7 +5752,7 @@
 		)
 		(uuid "a1e3ded7-578a-425d-9126-b76387b3e73b")
 	)
-	(label "GPIO1-GPIO_OUT-LED_0"
+	(label "GPIO1-GPIO_OUT-Stepper4_STEP"
 		(at 113.03 83.82 0)
 		(effects
 			(font
@@ -5928,7 +5762,7 @@
 		)
 		(uuid "a41abd54-2507-402f-a0bd-7dc6330f5426")
 	)
-	(label "GPIO28-PWM6_A-Stepper_STEP"
+	(label "GPIO9-GPIO_OUT-Stepper_STEP"
 		(at 36.83 129.54 0)
 		(effects
 			(font
@@ -5948,7 +5782,7 @@
 		)
 		(uuid "a85cc500-af2d-43d2-a4f8-36135f475c79")
 	)
-	(label "GPIO27-GPIO_OUT-Stepper_DIR"
+	(label "GPIO27-GPIO_OUT-LED_0"
 		(at 227.33 137.16 0)
 		(effects
 			(font
@@ -5958,7 +5792,7 @@
 		)
 		(uuid "ab5bd2d3-e9f9-465f-8fc6-a90d9a2b5300")
 	)
-	(label "GPIO15-GPIO_IN-Stepper3_DIAG"
+	(label "GPIO15-GPIO_OUT-~{EN}_Stepper"
 		(at 223.52 67.31 0)
 		(effects
 			(font
@@ -5968,7 +5802,7 @@
 		)
 		(uuid "afbd156a-f674-4fab-b56a-55457d1bfd64")
 	)
-	(label "GPIO13-GPIO_IN-Stepper1_DIAG"
+	(label "GPIO22-GPIO_IN-Stepper1_DIAG"
 		(at 36.83 161.29 0)
 		(effects
 			(font
@@ -5978,7 +5812,7 @@
 		)
 		(uuid "b00cdcdb-ecd1-4e78-b4a6-ef65dbc207ad")
 	)
-	(label "GPIO0-GPIO_OUT-~{EN}_Stepper"
+	(label "GPIO15-GPIO_OUT-~{EN}_Stepper"
 		(at 91.44 171.45 0)
 		(effects
 			(font
@@ -5988,7 +5822,7 @@
 		)
 		(uuid "b1cb9a8f-f7b3-46e2-9f02-253ad384c4f6")
 	)
-	(label "GPIO22-GPIO_OUT-Stepper1_DIR"
+	(label "GPIO22-GPIO_IN-Stepper1_DIAG"
 		(at 191.77 99.06 0)
 		(effects
 			(font
@@ -6008,7 +5842,7 @@
 		)
 		(uuid "b9ae368b-8bdf-40a8-b00d-53a01647aed3")
 	)
-	(label "GPIO6-GPIO_OUT-LED_1"
+	(label "GPIO6-GPIO_IN-Stepper4_DIAG"
 		(at 223.52 39.37 0)
 		(effects
 			(font
@@ -6028,7 +5862,7 @@
 		)
 		(uuid "bb91a059-330f-4bb8-9459-2457187b1b49")
 	)
-	(label "GPIO14-GPIO_IN-Stepper2_DIAG"
+	(label "GPIO20-GPIO_IN-Stepper2_DIAG"
 		(at 36.83 187.96 0)
 		(effects
 			(font
@@ -6038,7 +5872,7 @@
 		)
 		(uuid "bee46934-9911-44bf-9e07-781734945e01")
 	)
-	(label "GPIO26-PWM5_A-Stepper1_STEP"
+	(label "GPIO26-GPIO_IN-Stepper_DIAG"
 		(at 191.77 109.22 0)
 		(effects
 			(font
@@ -6058,7 +5892,7 @@
 		)
 		(uuid "c5fbc85a-7d27-461c-a77c-72598fc8aae9")
 	)
-	(label "GPIO12-GPIO_IN-Stepper_DIAG"
+	(label "GPIO26-GPIO_IN-Stepper_DIAG"
 		(at 36.83 134.62 0)
 		(effects
 			(font
@@ -6067,16 +5901,6 @@
 			(justify left bottom)
 		)
 		(uuid "caa51911-c5f4-4a12-ad11-b191643a1c80")
-	)
-	(label "GPIO7-GPIO_OUT-Stepper4_DIR"
-		(at 113.03 99.06 0)
-		(effects
-			(font
-				(size 1.27 1.27)
-			)
-			(justify left bottom)
-		)
-		(uuid "cc213d23-d284-45ef-a0f2-817e9fd7da68")
 	)
 	(label "GPIO16-UART0_TX"
 		(at 227.33 109.22 0)
@@ -6088,7 +5912,7 @@
 		)
 		(uuid "ccbbd6de-dcbd-4776-9181-4008cfb9b013")
 	)
-	(label "GPIO19-PWM1_B-Stepper3_STEP"
+	(label "GPIO14-GPIO_OUT-Stepper3_STEP"
 		(at 91.44 182.88 0)
 		(effects
 			(font
@@ -6098,7 +5922,7 @@
 		)
 		(uuid "cd1bed88-7b0a-4e02-b1d6-991e7b493346")
 	)
-	(label "GPIO1-GPIO_OUT-LED_0"
+	(label "GPIO1-GPIO_OUT-Stepper4_STEP"
 		(at 223.52 21.59 0)
 		(effects
 			(font
@@ -6108,7 +5932,7 @@
 		)
 		(uuid "cf9293ab-2694-4d3a-8305-8204c90cc2c8")
 	)
-	(label "GPIO20-GPIO_OUT-Stepper2_DIR"
+	(label "GPIO20-GPIO_IN-Stepper2_DIAG"
 		(at 191.77 93.98 0)
 		(effects
 			(font
@@ -6138,7 +5962,7 @@
 		)
 		(uuid "d59dca51-d3f1-4cfb-92e7-4e9c85776030")
 	)
-	(label "GPIO18-GPIO_OUT-Stepper3_DIR"
+	(label "GPIO18-GPIO_IN-Stepper3_DIAG"
 		(at 227.33 116.84 0)
 		(effects
 			(font
@@ -6178,7 +6002,7 @@
 		)
 		(uuid "e460fe58-f6ef-4d96-a8af-44be034f1c57")
 	)
-	(label "GPIO12-GPIO_IN-Stepper_DIAG"
+	(label "GPIO12-GPIO_OUT-Stepper2_STEP"
 		(at 223.52 57.15 0)
 		(effects
 			(font
@@ -6188,7 +6012,7 @@
 		)
 		(uuid "e9b4a883-1874-4bea-829b-9b5d84847ce5")
 	)
-	(label "GPIO8-PWM4_A-Stepper4_STEP"
+	(label "GPIO8-GPIO_OUT-Stepper_DIR"
 		(at 223.52 44.45 0)
 		(effects
 			(font
@@ -6198,7 +6022,7 @@
 		)
 		(uuid "ea6c14fe-79b2-43dc-86a5-51166be4ec54")
 	)
-	(label "GPIO0-GPIO_OUT-~{EN}_Stepper"
+	(label "GPIO15-GPIO_OUT-~{EN}_Stepper"
 		(at 36.83 118.11 0)
 		(effects
 			(font
@@ -6208,7 +6032,7 @@
 		)
 		(uuid "ecb9b35a-6691-4ef2-9cef-ca8f708c011d")
 	)
-	(label "GPIO21-PWM2_B-Stepper2_STEP"
+	(label "GPIO12-GPIO_OUT-Stepper2_STEP"
 		(at 36.83 182.88 0)
 		(effects
 			(font
@@ -6218,37 +6042,7 @@
 		)
 		(uuid "f0201eb4-1b63-49d5-9fd5-5fc136223c98")
 	)
-	(label "GPIO21-PWM2_B-Stepper2_STEP"
-		(at 227.33 124.46 0)
-		(effects
-			(font
-				(size 1.27 1.27)
-			)
-			(justify left bottom)
-		)
-		(uuid "f360770f-5a46-43e5-9d02-eb6b0dc5fda4")
-	)
-	(label "GPIO9-GPIO_IN-Stepper4_DIAG"
-		(at 113.03 104.14 0)
-		(effects
-			(font
-				(size 1.27 1.27)
-			)
-			(justify left bottom)
-		)
-		(uuid "f3a2852f-149b-49d9-83e1-82acfc99bf8c")
-	)
-	(label "GPIO7-GPIO_OUT-Stepper4_DIR"
-		(at 223.52 41.91 0)
-		(effects
-			(font
-				(size 1.27 1.27)
-			)
-			(justify left bottom)
-		)
-		(uuid "f4cf7872-4f5f-4c04-b27e-c690cc9b5ee9")
-	)
-	(label "GPIO0-GPIO_OUT-~{EN}_Stepper"
+	(label "GPIO0-GPIO_OUT-Stepper4_DIR"
 		(at 113.03 81.28 0)
 		(effects
 			(font
@@ -6258,7 +6052,7 @@
 		)
 		(uuid "f58f1c14-8e17-4b97-ab10-70a6bdecba58")
 	)
-	(label "GPIO26-PWM5_A-Stepper1_STEP"
+	(label "GPIO10-GPIO_OUT-Stepper1_STEP"
 		(at 36.83 156.21 0)
 		(effects
 			(font
@@ -6267,16 +6061,6 @@
 			(justify left bottom)
 		)
 		(uuid "f9912018-3008-4bee-9d0f-1f9b6e1f68cf")
-	)
-	(label "GPIO9-GPIO_IN-Stepper4_DIAG"
-		(at 223.52 46.99 0)
-		(effects
-			(font
-				(size 1.27 1.27)
-			)
-			(justify left bottom)
-		)
-		(uuid "ff1f67d1-d7f8-4536-b54b-910776f1e803")
 	)
 	(symbol
 		(lib_id "power:+5V")
@@ -10918,6 +10702,228 @@
 				)
 			)
 		)
+	)
+	(wire
+		(pts (xy 113.03 106.68) (xy 146.05 106.68))
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "33e9008a-eaf4-4b9d-8e7e-5c3b77f76167")
+	)
+	(label "GPIO10-GPIO_OUT-Stepper1_STEP"
+		(at 113.03 106.68 0)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+			(justify left bottom)
+		)
+		(uuid "598d5ff0-c3b0-4a4f-8e77-5be57739ae07")
+	)
+	(wire
+		(pts (xy 223.52 52.07) (xy 267.97 52.07))
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "0c0fecfc-f5f5-4bb0-94d2-39ed3cba10a5")
+	)
+	(label "GPIO10-GPIO_OUT-Stepper1_STEP"
+		(at 223.52 52.07 0)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+			(justify left bottom)
+		)
+		(uuid "7df6c719-5de4-47cc-b456-2a74ebddb3cc")
+	)
+	(label "GPIO15-GPIO_OUT-~{EN}_Stepper"
+		(at 105.41 76.2 180)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+			(justify right bottom)
+		)
+		(uuid "332bafd0-5a2b-4865-8d50-df1af2ca1e65")
+	)
+	(wire
+		(pts
+			(xy 113.03 109.22) (xy 146.05 109.22)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "24d53783-a8c0-4b38-928e-7d948210c449")
+	)
+	(label "GPIO11-GPIO_OUT-Stepper2_DIR"
+		(at 113.03 109.22 0)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+			(justify left bottom)
+		)
+		(uuid "86ceff39-d4b3-4da1-a45d-5ec63a982910")
+	)
+	(wire
+		(pts
+			(xy 223.52 54.61) (xy 267.97 54.61)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "35d42997-5a9d-4f81-87cc-e8bc5849bd73")
+	)
+	(label "GPIO11-GPIO_OUT-Stepper2_DIR"
+		(at 223.52 54.61 0)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+			(justify left bottom)
+		)
+		(uuid "d67cfa36-4d41-462c-867c-9284e5bab252")
+	)
+	(wire
+		(pts
+			(xy 113.03 104.14) (xy 146.05 104.14)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "d7c8353e-e669-43f6-8da9-522517f7ee8d")
+	)
+	(label "GPIO9-GPIO_OUT-Stepper_STEP"
+		(at 113.03 104.14 0)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+			(justify left bottom)
+		)
+		(uuid "f2529e11-f1d4-4b32-a4e4-2dde329fcdac")
+	)
+	(wire
+		(pts
+			(xy 223.52 46.99) (xy 267.97 46.99)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "f24f3c6b-1b0f-4fcf-99ae-261ecb1c1853")
+	)
+	(label "GPIO9-GPIO_OUT-Stepper_STEP"
+		(at 223.52 46.99 0)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+			(justify left bottom)
+		)
+		(uuid "77db62a8-3456-4cdf-bd93-3c7829418050")
+	)
+	(no_connect
+		(at 146.05 99.06)
+		(uuid "df9c5978-948d-4259-a1a6-cb729ee6dbae")
+	)
+	(no_connect
+		(at 267.97 41.91)
+		(uuid "6fcf3c85-e786-4192-bce4-6d3ab919d9f4")
+	)
+	(wire
+		(pts
+			(xy 191.77 96.52) (xy 223.52 96.52)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "ac1594c9-d302-440a-8cf7-2dcde660fe72")
+	)
+	(label "GPIO21-GPIO_OUT-Stepper1_DIR"
+		(at 191.77 96.52 0)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+			(justify left bottom)
+		)
+		(uuid "546f20d0-353e-4e87-9661-76df24607b18")
+	)
+	(wire
+		(pts
+			(xy 227.33 124.46) (xy 265.43 124.46)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "9a54830d-f4db-4d93-96c2-48c8c621e4ce")
+	)
+	(label "GPIO21-GPIO_OUT-Stepper1_DIR"
+		(at 227.33 124.46 0)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+			(justify left bottom)
+		)
+		(uuid "282e6281-ff77-418f-81d6-30530488b94b")
+	)
+	(no_connect
+		(at 191.77 91.44)
+		(uuid "1155ccf1-c099-4ba5-9dd2-b024dac72bfb")
+	)
+	(no_connect
+		(at 265.43 119.38)
+		(uuid "dce9b22d-c5a6-4a00-b022-43f9d20c1ca2")
+	)
+	(wire
+		(pts
+			(xy 191.77 114.3) (xy 223.52 114.3)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "3d8a357f-66b1-44bd-aefe-920fdd751843")
+	)
+	(label "GPIO28-GPIO_OUT-LED_1"
+		(at 191.77 114.3 0)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+			(justify left bottom)
+		)
+		(uuid "6ea0e3e1-9db5-4ea4-a720-9d2ecbc067d7")
+	)
+	(wire
+		(pts
+			(xy 227.33 142.24) (xy 265.43 142.24)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "63afd6e7-7960-4539-b554-dc5e2c56a112")
+	)
+	(label "GPIO28-GPIO_OUT-LED_1"
+		(at 227.33 142.24 0)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+			(justify left bottom)
+		)
+		(uuid "e4d3b307-e554-4880-b6e1-4c29e1bcccde")
 	)
 	(sheet_instances
 		(path "/"

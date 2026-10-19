@@ -167,4 +167,13 @@ def _exitMarginMask(
     ]
     wedge = np.zeros_like(mask)
     cv2.fillPoly(wedge, [np.asarray(wedge_pts, dtype=np.int32)], 255)
-    return cv2.bitwise_and(cv2.bitwise_and(grown, cv2.bitwise_not(mask)), wedge)
+    band = cv2.bitwise_and(cv2.bitwise_and(grown, cv2.bitwise_not(mask)), wedge)
+    # Only past the rim: growing the mask also reaches into the hole in the
+    # middle, which no piece leaves the channel through.
+    across = cv2.findNonZero(cv2.bitwise_and(mask, wedge))
+    if across is not None:
+        dist = np.hypot(across[:, 0, 0] - center[0], across[:, 0, 1] - center[1])
+        middle = np.zeros_like(mask)
+        cv2.circle(middle, (int(round(center[0])), int(round(center[1]))), int((dist.min() + dist.max()) / 2.0), 255, -1)
+        band = cv2.bitwise_and(band, cv2.bitwise_not(middle))
+    return band

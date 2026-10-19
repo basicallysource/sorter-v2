@@ -222,3 +222,13 @@ def test_perception_takes_the_zones_at_the_live_frames_size() -> None:
     assert channel.precise_sections == frozenset(range(164, 170))
     assert channel.exit_sections == frozenset(range(164, 210))
     assert channelDefFor(_zones(precise_width=0.0), (400, 400)).precise_sections == frozenset()
+
+
+def test_the_exit_margin_lies_past_the_rim_not_in_the_hole() -> None:
+    zones = _zones(ring=Ring((200.0, 200.0), 60.0, 180.0, 150.0, inner_center=(215.0, 190.0)))
+    margin = channelDefFor(zones, (400, 400)).exit_margin_mask
+    ys, xs = np.nonzero(margin)
+    assert len(xs) > 0
+    dist = np.hypot(xs - 200.0, ys - 200.0)
+    assert dist.min() > 90.0  # nothing in or around the hub (it reaches 78)
+    assert np.mean(dist > 145.0) > 0.9  # nearly all of it past the rim (150)

@@ -1638,23 +1638,25 @@ class TwoPieceClassificationChannel(Rev01BaseState):
                 )
             except Exception:
                 pass
-            self._shakeOff()
+            self._shakeOff(tp.track_id)
             return
 
-    def _shakeOff(self) -> None:
+    def _shakeOff(self, track_id: Optional[int]) -> None:
         """When the machine handles a circling piece itself, shake it off the
-        channel (recovery/). Only while it is the one piece on the channel:
-        the procedure turns the channel to bring it into the exit."""
+        channel (recovery/). The procedure turns the channel to bring it into
+        the exit: only when a way round carries no other piece through it."""
         import recovery
-        from recovery.judges import channelEmpty, turnIntoExit
+        from recovery.judges import exitEmpty, turnIntoExit
         from recovery.motors import ChannelMotor
 
         perception = getattr(self.gc, "perception_service", None)
         stepper = getattr(getattr(self, "irl", None), "carousel_stepper", None)
-        state = perception.read_state(4) if perception is not None else None
-        if stepper is None or state is None or len(getattr(state, "pieces", ()) or ()) != 1:
+        if stepper is None or perception is None:
             return
         if incidents.handling(PIECE_CIRCLING_INCIDENT_KIND) != incidents.AUTOMATIC:
+            return
+        turn = turnIntoExit(perception, 4, target_track=track_id)
+        if turn is None:
             return
         platter = C4FiveSectorPlatter.from_irl_config(self.irl_config)
         motor = ChannelMotor(
@@ -1667,8 +1669,8 @@ class TwoPieceClassificationChannel(Rev01BaseState):
             "c4_shake_off",
             kind=PIECE_CIRCLING_INCIDENT_KIND,
             motors={"this": motor},
-            judge=channelEmpty(perception, 4),
-            exit_turn=lambda: turnIntoExit(perception, 4),
+            judge=exitEmpty(perception, 4),
+            exit_turn=lambda: turn,
         )
 
     def _commitToDistribution(self, tp: _TrackedPiece) -> None:

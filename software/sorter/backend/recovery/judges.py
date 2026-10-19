@@ -41,29 +41,61 @@ def pieceGoneFrom(perception: Any, channel: int, box: Box) -> Judge:
     return judge
 
 
-def channelEmpty(perception: Any, channel: int) -> Judge:
-    """Free once the channel shows no piece at all."""
+def _exitWidth(channel_def: Any) -> int:
+    return len(set(channel_def.exit_sections) - set(channel_def.precise_sections))
+
+
+def exitEmpty(perception: Any, channel: int) -> Judge:
+    """Free once no piece sits in the channel's exit: the stuck one, turned
+    into it, has fallen. Other pieces were kept out of it."""
 
     def judge(since: float) -> Optional[bool]:
         state = _newest(perception, channel, since)
-        if state is None:
+        channel_def = perception.channels().get(channel)
+        if state is None or channel_def is None:
             return None
-        return not (getattr(state, "pieces", ()) or ())
+        width = _exitWidth(channel_def)
+        return not any(-width <= float(p.com_forward_to_exit_deg) <= 0.0 for p in (getattr(state, "pieces", ()) or ()))
 
     return judge
 
 
-def turnIntoExit(perception: Any, channel: int) -> Optional[float]:
-    """Output degrees to turn ``channel`` so its lead piece sits in the middle
-    of its exit: forward, or backwards when that is shorter. None without a
-    piece or an exit."""
+def turnIntoExit(
+    perception: Any, channel: int, target_track: Optional[int] = None, margin_deg: float = 3.0
+) -> Optional[float]:
+    """Output degrees to turn ``channel`` so the piece with ``target_track``
+    (else its lead piece) sits in the middle of its exit, forward or backwards,
+    whichever is shorter and carries no other piece through the exit (or within
+    ``margin_deg`` of it). None without such a turn, a piece or an exit.
+
+    A piece's place is its forward distance to the exit, 0 to 360, the exit
+    being its last ``width`` degrees: turning forward by t brings a piece at u
+    into the exit once t passes u; turning back by s, once u + s passes
+    360 - width."""
     state = perception.read_states().get(channel)
     channel_def = perception.channels().get(channel)
-    pieces = getattr(state, "pieces", ()) or ()
+    pieces = list(getattr(state, "pieces", ()) or ())
     if not pieces or channel_def is None:
         return None
-    width = len(set(channel_def.exit_sections) - set(channel_def.precise_sections))
+    width = _exitWidth(channel_def)
     if width <= 0:
         return None
-    forward = (float(pieces[0].com_forward_to_exit_deg) + width / 2.0) % 360.0
-    return forward if forward <= 180.0 else forward - 360.0
+    if target_track is None:
+        target = pieces[0]
+    else:
+        target = next((p for p in pieces if getattr(p, "sv_bt_track_id", None) == target_track), None)
+        if target is None:
+            return None
+    others = [float(p.com_forward_to_exit_deg) % 360.0 for p in pieces if p is not target]
+    if any(u >= 360.0 - width - margin_deg for u in others):
+        return None  # another piece is in the exit, or about to be
+    u = float(target.com_forward_to_exit_deg) % 360.0
+    middle = 360.0 - width / 2.0
+    forward = (u - middle) % 360.0
+    back = (middle - u) % 360.0
+    ways = []
+    if all(forward < o - margin_deg for o in others):
+        ways.append(forward)
+    if all(o + back < 360.0 - width - margin_deg for o in others):
+        ways.append(-back)
+    return min(ways, key=abs) if ways else None
